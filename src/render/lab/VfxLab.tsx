@@ -255,7 +255,7 @@ const RELIC_SCENARIOS: Record<string, RelicScenario> = {
         rt.thread(1);
         rt.queue({ t: 'directive', kind: 'rally' });
       });
-      rt.later(1, () => rt.brute(0));
+      rt.later(1, () => rt.brute(0, true));
       rt.perfectOn('Toll Cleave', 0);
     },
   },
