@@ -36,6 +36,8 @@ export interface RunHook {
   results(): number;
   /** The last fight's "without you" re-run (null if none or not computed). */
   lastWithoutYou(): WithoutYou | null;
+  /** Weaver XP on the profile (fights award it as they finish). */
+  weaverXp(): number;
 }
 
 declare global {

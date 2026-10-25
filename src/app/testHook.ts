@@ -1,5 +1,6 @@
 import { reachable, findNode } from '../meta/run';
 import { useUi } from '../ui/store';
+import { useProfile } from './profileStore';
 import { useRun } from './runStore';
 import type { GameRuntime } from './runtime';
 import type {} from './testHookTypes';
@@ -58,5 +59,6 @@ export function installRunHook(): void {
     outcome: () => run().run?.outcome ?? null,
     results: () => run().run?.results.length ?? 0,
     lastWithoutYou: () => run().run?.lastResult?.withoutYou ?? null,
+    weaverXp: () => useProfile.getState().profile.xp,
   };
 }

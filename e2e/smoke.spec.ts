@@ -88,6 +88,7 @@ test('a Prelude run: Prep → Map → an autoplayed fight → Result → Draft �
   await page.waitForFunction(() => window.__AWRUN__ !== undefined);
   await page.evaluate(() => window.__AWRUN__!.newRun(4242));
   await expect.poll(() => page.evaluate(() => window.__AWRUN__!.phase())).toBe('prep');
+  const xpBefore = await page.evaluate(() => window.__AWRUN__!.weaverXp());
   await page
     .getByRole('button', { name: /Embark/i })
     .first()
@@ -114,6 +115,8 @@ test('a Prelude run: Prep → Map → an autoplayed fight → Result → Draft �
     })
     .toBe('result');
   expect(await page.evaluate(() => window.__AWRUN__!.results())).toBe(1);
+  // The fight paid Weaver XP into the profile.
+  expect(await page.evaluate(() => window.__AWRUN__!.weaverXp())).toBeGreaterThan(xpBefore);
   // The "without you" re-run ran in a worker and matches Node bit for bit.
   const alone = await page.evaluate(() => window.__AWRUN__!.lastWithoutYou());
   expect(alone).not.toBeNull();
