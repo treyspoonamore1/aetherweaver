@@ -2,8 +2,9 @@ import { useMemo, useState } from 'react';
 import { GameHost, seedFromUrl } from '../../app/GameHost';
 import type { CombatSession } from '../../app/runtime';
 import { getRuntime } from '../../app/runtimeRegistry';
-import { CONTENT } from '../../content';
+import { CONTENT, auraDef, ornamentDef } from '../../content';
 import { CHORD_PRESETS } from '../../meta/run';
+import { songName } from '../../sim';
 import { DevPanel } from '../../debug/DevPanel';
 import { PerfHud } from '../../debug/PerfHud';
 import type { DebugOp } from '../../sim';
@@ -59,6 +60,26 @@ export function TrainingScreen() {
   );
 }
 
+/** The chosen preset, song by song (Training has everything, whatever the Rank). */
+function PresetSongs({ id }: { id: string }) {
+  const preset = CHORD_PRESETS.find((p) => p.id === id);
+  if (!preset) return null;
+  return (
+    <ul className="mt-1 flex flex-col gap-0.5 text-xs leading-snug text-muted">
+      {preset.chords.map((c, i) =>
+        c.auras.length === 0 ? null : (
+          <li key={i}>
+            <span className="text-text">{songName(i)}:</span>{' '}
+            {c.auras.map((a) => auraDef(a).name).join(' + ')}
+            {c.ornaments.length > 0 &&
+              ` (${c.ornaments.map((o) => ornamentDef(o).name).join(', ')})`}
+          </li>
+        ),
+      )}
+    </ul>
+  );
+}
+
 /** Spawn any enemy next to the Weaver, try a loadout, stage a call or a hold. */
 function SpawnPalette({ loadout, onLoadout }: { loadout: string; onLoadout(id: string): void }) {
   const [elite, setElite] = useState(false);
@@ -111,6 +132,7 @@ function SpawnPalette({ loadout, onLoadout }: { loadout: string; onLoadout(id: s
               ))}
             </select>
           </label>
+          <PresetSongs id={loadout} />
           <p className="mt-2 text-xs font-semibold uppercase tracking-wider text-muted">Spawn</p>
           <div className="mt-1 grid grid-cols-2 gap-1.5">
             {CONTENT.enemies.map((e) => (

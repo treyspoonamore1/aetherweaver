@@ -14,6 +14,12 @@ import type { ColorVision } from '../app/colorVision';
 /** A Chord as views see it (deeply read-only). */
 export type ChordView = WorldState['field']['chords'][number];
 
+/**
+ * The pour: when the beam moves, the song's head runs Weaver → hero along the Thread in this
+ * long; the new hero's halo and swell wait for it, so the song visibly arrives.
+ */
+export const POUR_TRAVEL = 0.42;
+
 /** How a Chord's field disc is drawn: the full song, a quieter echo, or no disc at all. */
 export type FieldLook = 'song' | 'echo' | 'none';
 

@@ -41,7 +41,7 @@ function rows(): Row[] {
       icon: 'thread',
       keys: ['1', '2', '3', 'RMB'],
       title: 'Thread a hero',
-      body: 'Click a party frame (or press its number) to tie your Thread to that hero. Mend heals them; right-click switches to Empower for extra damage.',
+      body: 'Click a party frame (or press its number) to tie your Thread to that hero. Mend heals them; right-click switches to Empower for extra damage. Your beam song pours into whoever you thread.',
     },
     {
       icon: 'ward',

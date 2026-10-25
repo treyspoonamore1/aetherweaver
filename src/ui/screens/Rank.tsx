@@ -11,6 +11,12 @@ import { playUi } from '../kit/sound';
 import { bumpHint, hintCount } from '../hud/hints';
 import { NOTHING_NEW, fightXp, rankPanel, rankUpTitle, xpGain, xpHeadline } from './rankText';
 
+/** The glyph for an unlock (the field song gets its own). */
+export function unlockIcon(u: { kind: string; target: string }): IconName {
+  if (u.kind === 'song' && u.target === 'field') return 'scatter';
+  return UNLOCK_ICON[u.kind] ?? 'sparkle';
+}
+
 const UNLOCK_ICON: Record<string, IconName> = {
   song: 'thread',
   aura: 'note',
@@ -101,11 +107,7 @@ export function RankPanelView({
           <ul className="mt-1 flex flex-col gap-1">
             {p.next.map((u) => (
               <li key={u.id} className="flex items-start gap-1.5 text-xs leading-snug">
-                <Icon
-                  name={UNLOCK_ICON[u.kind] ?? 'sparkle'}
-                  size={13}
-                  className="mt-0.5 shrink-0 text-gold-300"
-                />
+                <Icon name={unlockIcon(u)} size={13} className="mt-0.5 shrink-0 text-gold-300" />
                 <span>
                   <b className="font-semibold text-text">{u.name}</b>{' '}
                   <span className="text-muted">{u.text}</span>
@@ -260,7 +262,7 @@ export function RankUpCard({
                         aria-hidden={!visible}
                       >
                         <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-gold-400 text-gold-200">
-                          <Icon name={UNLOCK_ICON[u.kind] ?? 'sparkle'} size={16} />
+                          <Icon name={unlockIcon(u)} size={16} />
                         </span>
                         <span>
                           <b className="block font-display text-base text-gold-100">{u.name}</b>

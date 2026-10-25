@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { COLOR_VISIONS, applyVisionCss } from '../../app/colorVision';
+import { EVERYTHING, UNLOCKS, allowanceFor, type Allowance } from '../../meta/profile';
 import * as Run from '../../meta/run';
 import { applyUiScale } from '../presentation';
 import type { RunState } from '../../meta/types';
@@ -18,12 +19,14 @@ import { ResultView } from '../screens/ResultScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
 import { SummaryView } from '../screens/SummaryScreen';
 import { TitleScreen } from '../screens/TitleScreen';
+import { RankPanelView, RankUpCard } from '../screens/Rank';
 import {
   draftRun,
   fakeOutcome,
   freshRun,
   mockCallouts,
   mockHud,
+  mockRankUps,
   mockWheel,
   playedRun,
   respiteRun,
@@ -173,14 +176,48 @@ function Flow() {
   }
 }
 
-/** Unison with Reverb, and more Spirit reserved than there is. */
+/** Unison with Reverb, Unison in the field song, and more Spirit reserved than there is. */
 function IllegalBuilder() {
   const [draft, setDraft] = useState(() => [
-    { auras: ['fortissimo', 'ostinato'], ornaments: ['unison', 'reverb'] },
-    { auras: ['allegro', 'lullaby'], ornaments: [] },
+    { auras: ['fortissimo', 'ostinato'], ornaments: ['reverb'] },
+    { auras: ['allegro', 'lullaby'], ornaments: ['unison'] },
   ]);
   return <ChordBuilder value={draft} onChange={setDraft} />;
 }
+
+/** Remembered songs that the Rank no longer allows (say, after Reset progress). */
+function LockedBuilder() {
+  const [draft, setDraft] = useState(() => [
+    { auras: ['fortissimo', 'allegro'], ornaments: ['unison'] },
+    { auras: ['fermata'], ornaments: ['grace_note'] },
+  ]);
+  return <ChordBuilder value={draft} onChange={setDraft} allowance={allowanceFor(2)} />;
+}
+
+/** Prep at a given Rank, with that Rank's unlocks marked New. */
+function prepAt(rank: number | null, preset = 'steady', seed = 7) {
+  const allowance: Allowance = rank === null ? EVERYTHING : allowanceFor(rank);
+  const fresh = rank === null ? [] : UNLOCKS.filter((u) => u.rank === rank);
+  const chords = Run.CHORD_PRESETS.find((p) => p.id === preset)!.chords;
+  return (
+    <Interactive initial={() => Run.newRun(seed, chords)}>
+      {(run, set) => (
+        <PrepView
+          run={run}
+          onChords={(c) => set((r) => Run.setChords(r, c, allowance))}
+          onEmbark={noop}
+          onBack={noop}
+          allowance={allowance}
+          fresh={fresh}
+          rank={rank ?? 6}
+        />
+      )}
+    </Interactive>
+  );
+}
+
+/** Profile XP for the lab's result and summary screens (Rank 3, partway to 4). */
+const LAB_XP = 318;
 
 interface ViewDef {
   id: string;
@@ -202,6 +239,14 @@ const VIEWS: ViewDef[] = [
     w: 1280,
     h: 720,
     render: () => <HudStage scenario="calm" />,
+  },
+  {
+    id: 'hud-beam',
+    group: 'Combat HUD',
+    label: 'Beam song on Lyra (outside the field), readout',
+    w: 1280,
+    h: 720,
+    render: () => <HudStage scenario="beam" />,
   },
   {
     id: 'hud-crisis',
@@ -301,23 +346,124 @@ const VIEWS: ViewDef[] = [
   },
   { id: 'title', group: 'Screens', label: 'Title', w: 1280, h: 720, render: () => <TitleScreen /> },
   {
-    id: 'prep',
-    group: 'Screens',
-    label: 'Prep',
+    id: 'rank-panels',
+    group: 'Weaver Rank',
+    label: 'Rank panel at Ranks 1, 3, 6',
+    w: 1280,
+    h: 720,
+    render: () => (
+      <ScreenFrame tone="gold">
+        <div className="mx-auto grid max-w-6xl items-start gap-6 px-6 py-10 md:grid-cols-2">
+          <RankPanelView profile={{ xp: 0, runs: 0, wins: 0 }} />
+          <RankPanelView profile={{ xp: 25, runs: 1, wins: 0 }} />
+          <RankPanelView profile={{ xp: 318, runs: 4, wins: 1 }} />
+          <RankPanelView profile={{ xp: 1420, runs: 11, wins: 6 }} />
+          <RankPanelView profile={{ xp: 610, runs: 6, wins: 2 }} unlockAll />
+        </div>
+      </ScreenFrame>
+    ),
+  },
+  {
+    id: 'rank-up',
+    group: 'Weaver Rank',
+    label: 'Rank-up card (first ever)',
     w: 1280,
     h: 900,
+    render: () => {
+      const run = resultRun(true);
+      return (
+        <ResultView
+          run={run}
+          result={run.lastResult!}
+          onContinue={noop}
+          profileXp={52}
+          rankUps={mockRankUps([2])}
+          onDismissRankUps={noop}
+          firstRankUp
+        />
+      );
+    },
+  },
+  {
+    id: 'rank-up-multi',
+    group: 'Weaver Rank',
+    label: 'Rank-up card: two Ranks at once',
+    w: 1280,
+    h: 900,
+    render: () => {
+      const run = resultRun(true);
+      return (
+        <ResultView
+          run={run}
+          result={run.lastResult!}
+          onContinue={noop}
+          profileXp={460}
+          rankUps={mockRankUps([3, 4])}
+          onDismissRankUps={noop}
+        />
+      );
+    },
+  },
+  {
+    id: 'prep-rank1',
+    group: 'Weaver Rank',
+    label: 'Prep at Rank 1 (first run)',
+    w: 1280,
+    h: 1100,
+    render: () => prepAt(1),
+  },
+  {
+    id: 'prep-rank3',
+    group: 'Weaver Rank',
+    label: 'Prep at Rank 3: ornaments New',
+    w: 1280,
+    h: 1100,
+    render: () => prepAt(3, 'bastion'),
+  },
+  {
+    id: 'chords-locked',
+    group: 'Weaver Rank',
+    label: 'Builder: songs the Rank no longer allows',
+    w: 1280,
+    h: 1000,
     render: () => (
-      <Interactive initial={() => freshRun(7)}>
-        {(run, set) => (
-          <PrepView
-            run={run}
-            onChords={(c) => set((r) => Run.setChords(r, c))}
-            onEmbark={noop}
-            onBack={noop}
-          />
-        )}
-      </Interactive>
+      <ScreenFrame>
+        <div className="mx-auto max-w-7xl px-6 py-8">
+          <ScreenHeader eyebrow="Song builder · Rank 2" title="Locked items in the draft" />
+          <div className="mt-6">
+            <LockedBuilder />
+          </div>
+        </div>
+      </ScreenFrame>
     ),
+  },
+  {
+    id: 'codex-rank',
+    group: 'Weaver Rank',
+    label: 'Codex: Weaver Rank',
+    w: 1280,
+    h: 1000,
+    render: () => <CodexView onBack={noop} initialTab="rank" />,
+  },
+  {
+    id: 'rank-up-bare',
+    group: 'Weaver Rank',
+    label: 'Rank-up card alone',
+    w: 1280,
+    h: 800,
+    render: () => (
+      <World>
+        <RankUpCard rankUps={mockRankUps([5])} onDismiss={noop} />
+      </World>
+    ),
+  },
+  {
+    id: 'prep',
+    group: 'Screens',
+    label: 'Prep (everything open)',
+    w: 1280,
+    h: 1100,
+    render: () => prepAt(null, 'guardian'),
   },
   {
     id: 'chords-illegal',
@@ -359,7 +505,12 @@ const VIEWS: ViewDef[] = [
     w: 1280,
     h: 1500,
     render: () => (
-      <ResultView run={resultRun(true)} result={resultRun(true).lastResult!} onContinue={noop} />
+      <ResultView
+        run={resultRun(true)}
+        result={resultRun(true).lastResult!}
+        onContinue={noop}
+        profileXp={LAB_XP}
+      />
     ),
   },
   {
@@ -406,6 +557,7 @@ const VIEWS: ViewDef[] = [
         run={resultRun(false, 2)}
         result={resultRun(false, 2).lastResult!}
         onContinue={noop}
+        profileXp={LAB_XP}
       />
     ),
   },
@@ -443,7 +595,17 @@ const VIEWS: ViewDef[] = [
     label: 'Summary: victory',
     w: 1280,
     h: 1800,
-    render: () => <SummaryView run={summaryRun('victory')} onNewRun={noop} onTitle={noop} />,
+    render: () => {
+      const run = summaryRun('victory');
+      return (
+        <SummaryView
+          run={run}
+          onNewRun={noop}
+          onTitle={noop}
+          profileXp={Math.max(LAB_XP, run.xp + 40)}
+        />
+      );
+    },
   },
   {
     id: 'summary-loss',
@@ -452,7 +614,13 @@ const VIEWS: ViewDef[] = [
     w: 1280,
     h: 1800,
     render: () => (
-      <SummaryView run={summaryRun('defeat')} onNewRun={noop} onTitle={noop} assisted />
+      <SummaryView
+        run={summaryRun('defeat')}
+        onNewRun={noop}
+        onTitle={noop}
+        assisted
+        profileXp={LAB_XP}
+      />
     ),
   },
   {
@@ -476,7 +644,7 @@ const VIEWS: ViewDef[] = [
   {
     id: 'codex-chords',
     group: 'Screens',
-    label: 'Codex: Chords & ornaments',
+    label: 'Codex: Songs & ornaments',
     w: 1280,
     h: 1100,
     render: () => <CodexView onBack={noop} initialTab="chords" />,

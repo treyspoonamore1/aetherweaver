@@ -1,5 +1,15 @@
 import { useState, type KeyboardEvent } from 'react';
 import { CONTENT, motifText, ornamentDef } from '../../content';
+import {
+  FIGHT_XP,
+  GRADE_XP,
+  LOSS_XP,
+  RANK_XP,
+  RUN_WIN_XP,
+  UNLOCKS,
+  unlockRank,
+} from '../../meta/profile';
+import { CHORD_PRESETS } from '../../meta/run';
 import { WITHOUT_YOU_MAX_SECONDS } from '../../sim';
 import type { AttackDef, EnemyDef, HeroDef } from '../../content';
 import { AnswerGlyph } from '../hud/AnswerGlyph';
@@ -19,7 +29,8 @@ const TABS = [
   { id: 'enemies', label: 'Enemies' },
   { id: 'weaver', label: 'The Weaver' },
   { id: 'auras', label: 'Auras' },
-  { id: 'chords', label: 'Chords & ornaments' },
+  { id: 'chords', label: 'Songs & ornaments' },
+  { id: 'rank', label: 'Weaver Rank' },
   { id: 'calls', label: 'Calls' },
   { id: 'motifs', label: 'Motifs' },
 ] as const;
@@ -85,6 +96,7 @@ export function CodexView({
           {tab === 'weaver' && <Weaver />}
           {tab === 'auras' && <Auras />}
           {tab === 'chords' && <Chords />}
+          {tab === 'rank' && <Ranks />}
           {tab === 'calls' && <Calls />}
           {tab === 'motifs' && <Motifs />}
         </div>
@@ -251,7 +263,7 @@ function Weaver() {
       name: 'Thread',
       icon: 'thread',
       keys: '1–4 / click, RMB',
-      body: 'Tie your Thread to a hero. Mend heals them; Empower adds damage and attack speed. Stray too far and it snaps.',
+      body: 'Tie your Thread to a hero. Mend heals them; Empower adds damage and attack speed. Your beam song rides it in both modes. Stray too far and it snaps.',
       stats: [
         `Mend ${th.mendPerSec}/s`,
         `Empower +${pct(th.empowerMore)} damage`,
@@ -359,8 +371,9 @@ function Auras() {
           </h2>
           <p className="text-sm text-muted">{a.subtitle}</p>
           <p className="mt-2 text-sm leading-relaxed text-text">{a.description}</p>
-          <div className="mt-3">
+          <div className="mt-3 flex flex-wrap gap-1.5">
             <Chip icon="sparkle">reserves {pct(a.reserve)} of Spirit</Chip>
+            <Chip icon="lock">Rank {unlockRank('aura', a.id)}</Chip>
           </div>
         </Panel>
       ))}
@@ -377,25 +390,61 @@ function Chords() {
   const w = CONTENT.weaver;
   const c = CONTENT.chorus;
   const fermata = CONTENT.auras.find((a) => a.id === 'fermata');
+  const unison = CONTENT.ornaments.find((o) => o.id === 'unison');
   const mult = (v: number) => `×${Number(v.toFixed(2))}`;
   return (
     <div className="flex flex-col gap-8">
       <div className={GRID}>
         <Panel tone="gold" className="p-5">
           <h2 className="flex items-center gap-2 font-display text-xl font-bold text-gold-200">
-            <Icon name="note" size={22} /> Chords
+            <Icon name="thread" size={22} /> The beam song
           </h2>
           <p className="mt-2 text-sm leading-relaxed text-text">
-            You sing up to {w.chords} Chords. Each holds {w.auraSlots} auras and {w.ornamentSlots}{' '}
-            ornaments, and an ornament changes both auras in its Chord, so the puzzle is pairing.
-            You own one copy of each aura and each ornament: where your only Grace Note goes is a
-            real choice. Auras reserve Spirit; what they leave free powers Ward (
-            {CONTENT.techniques.ward.cost}), Chime ({CONTENT.techniques.chime.cost}) and Reel (
-            {CONTENT.techniques.reel.cost}). Change your Chords in Prep, or Retune at a Respite.
+            Your first Chord rides the Thread. The hero you thread hears it at{' '}
+            <b>{mult(w.beamFocus)}</b>, wherever they are, and its hexes hit whatever attacks them.
+            Everyone else in its field hears an echo at <b>{mult(w.beamEcho)}</b>. Who you thread
+            decides who becomes the monster; right-click (Mend ⇄ Empower) doesn’t change it.
+            {unison && (
+              <>
+                {' '}
+                With <b style={{ color: unison.color }}>{unison.name}</b> it goes all in:{' '}
+                {mult(w.beamFocus * unison.focusMult)} on your threaded hero, and nobody hears an
+                echo.
+              </>
+            )}
           </p>
           <div className="mt-3 flex flex-wrap gap-1.5">
-            <Chip>{w.fieldRadius} m field</Chip>
+            <Chip icon="thread">{mult(w.beamFocus)} on your threaded hero</Chip>
+            <Chip icon="scatter">
+              echo {mult(w.beamEcho)} within {w.fieldRadius} m
+            </Chip>
+            <Chip icon="lock">Rank {unlockRank('song', 'beam')}</Chip>
+          </div>
+        </Panel>
+        <Panel
+          tone="solid"
+          className="p-5"
+          style={{ borderTopColor: '#93c5fd', borderTopWidth: 3 }}
+        >
+          <h2
+            className="flex items-center gap-2 font-display text-xl font-bold"
+            style={{ color: '#93c5fd' }}
+          >
+            <Icon name="scatter" size={22} /> The field song
+          </h2>
+          <p className="mt-2 text-sm leading-relaxed text-text">
+            Your second Chord surrounds you: everyone within {w.fieldRadius} m hears it at full
+            strength. Make one ally a monster with the beam, and the whole party stronger just by
+            being near you with the field. Each song holds {w.auraSlots} auras and up to{' '}
+            {w.ornamentSlots} ornaments, and an ornament changes both auras in its song. You own one
+            copy of each aura and each ornament. Auras reserve Spirit; what they leave free powers
+            Ward ({CONTENT.techniques.ward.cost}), Chime ({CONTENT.techniques.chime.cost}) and Reel
+            ({CONTENT.techniques.reel.cost}). Change your songs in Prep, or Retune at a Respite.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            <Chip>×1 within {w.fieldRadius} m</Chip>
             <Chip>{w.fieldRadiusCap} m at most</Chip>
+            <Chip icon="lock">Rank {unlockRank('song', 'field')}</Chip>
           </div>
         </Panel>
         <Panel tone="solid" className="p-5">
@@ -458,9 +507,16 @@ function Chords() {
                 {o.reserveMult !== 1 && <Chip icon="sparkle">reserve {mult(o.reserveMult)}</Chip>}
                 {o.effectMult !== 1 && <Chip icon="empower">effect {mult(o.effectMult)}</Chip>}
                 {o.radiusMult !== 1 && <Chip icon="scatter">radius {mult(o.radiusMult)}</Chip>}
+                {o.focusMult !== 1 && (
+                  <Chip icon="thread">beam {mult(w.beamFocus * o.focusMult)}</Chip>
+                )}
                 <Chip icon={o.echoMult === 0 ? 'thread' : o.anchor === 'planted' ? 'pin' : 'note'}>
                   {o.echoMult === 0 ? 'Only your threaded hero' : ANCHOR_TEXT[o.anchor]}
                 </Chip>
+                {o.roles.length === 1 && (
+                  <Chip icon="info">{o.roles[0] === 'beam' ? 'beam song' : 'field song'} only</Chip>
+                )}
+                <Chip icon="lock">Rank {unlockRank('ornament', o.id)}</Chip>
                 {o.excludes.map((x) => (
                   <Chip key={x} icon="close" color="var(--color-threat)">
                     not with {ornamentDef(x).name}
@@ -470,6 +526,90 @@ function Chords() {
             </Panel>
           ))}
         </div>
+      </section>
+    </div>
+  );
+}
+
+function Ranks() {
+  const kinds = (['skirmish', 'elite', 'miniboss', 'boss'] as const).map((k) => ({
+    k,
+    label: { skirmish: 'Skirmish', elite: 'Elite', miniboss: 'Mini-boss', boss: 'Boss' }[k],
+  }));
+  return (
+    <div className="flex flex-col gap-6">
+      <div className={GRID}>
+        <Panel tone="gold" className="p-5">
+          <h2 className="flex items-center gap-2 font-display text-xl font-bold text-gold-200">
+            <Icon name="crown" size={22} /> Weaver Rank
+          </h2>
+          <p className="mt-2 text-sm leading-relaxed text-text">
+            Every fight earns Weaver XP, won or lost, and XP raises your Rank. Each Rank opens one
+            more piece of the build layer, so you meet the beam song first and the rest as you
+            learn. XP is kept as each fight ends: quitting a run never loses it. Settings →{' '}
+            <b>Skip the unlocks</b> opens everything at once; the Training Grounds always have
+            everything.
+          </p>
+        </Panel>
+        <Panel tone="solid" className="p-5">
+          <h2 className="flex items-center gap-2 font-display text-xl font-bold text-gold-200">
+            <Icon name="star" size={22} /> Weaver XP
+          </h2>
+          <ul className="mt-2 flex flex-col gap-1 text-sm">
+            {kinds.map(({ k, label }) => (
+              <li key={k} className="flex justify-between gap-3">
+                <span className="text-text">{label} won</span>
+                <span className="font-mono text-gold-300">+{FIGHT_XP[k]}</span>
+              </li>
+            ))}
+            <li className="flex justify-between gap-3">
+              <span className="text-text">A fight lost</span>
+              <span className="font-mono text-gold-300">{pct(LOSS_XP)} of it</span>
+            </li>
+            <li className="flex justify-between gap-3">
+              <span className="text-text">Grade S · A · B</span>
+              <span className="font-mono text-gold-300">
+                ×{GRADE_XP.S} · ×{GRADE_XP.A} · ×{GRADE_XP.B}
+              </span>
+            </li>
+            <li className="flex justify-between gap-3">
+              <span className="text-text">Winning the run</span>
+              <span className="font-mono text-gold-300">+{RUN_WIN_XP}</span>
+            </li>
+          </ul>
+        </Panel>
+      </div>
+      <section aria-label="Ranks">
+        <h2 className="mb-3 flex items-center gap-2 font-display text-lg font-bold text-gold-300">
+          <Icon name="lock" size={20} /> What each Rank opens
+        </h2>
+        <ol className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {RANK_XP.map((xp, i) => {
+            const rank = i + 1;
+            const preset = CHORD_PRESETS.find((p) => p.rank === rank);
+            return (
+              <li key={rank}>
+                <Panel tone="solid" className="h-full p-4">
+                  <p className="flex items-baseline justify-between gap-2">
+                    <span className="font-display text-lg font-bold text-gold-200">
+                      Rank {rank}
+                    </span>
+                    <span className="font-mono text-xs text-muted">{fmt(xp)} XP</span>
+                  </p>
+                  <ul className="mt-2 flex flex-col gap-1.5 text-sm">
+                    {UNLOCKS.filter((u) => u.rank === rank).map((u) => (
+                      <li key={u.id} className="leading-snug">
+                        <b className="text-text">{u.name}</b>{' '}
+                        <span className="text-xs text-muted">{u.text}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  {preset && <p className="mt-2 text-xs text-gold-300">Preset · {preset.name}</p>}
+                </Panel>
+              </li>
+            );
+          })}
+        </ol>
       </section>
     </div>
   );

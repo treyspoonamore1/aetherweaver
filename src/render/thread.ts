@@ -8,12 +8,11 @@ import { RING } from './fx/rings';
 import { SPRITE } from './fx/sprites';
 import type { Overlay } from './overlay';
 import { C, approach, auraColor, rgba } from './palette';
-import { SONG_GLYPH, beamSong, focusLabel, focusLevel, isAllIn } from './songs';
+import { POUR_TRAVEL, SONG_GLYPH, beamSong, focusLabel, focusLevel, isAllIn } from './songs';
 
 const N = 30;
 const PULSES = 6;
-/** The pour: the song's head runs Weaver → hero in this long, then splashes. */
-const POUR_TRAVEL = 0.42;
+/** The pour splashes on the hero after `POUR_TRAVEL` and is over after this long. */
 const POUR_LIFE = 1.1;
 
 /**
@@ -464,11 +463,11 @@ export class ThreadView {
       );
       this.overlay?.callout(
         tr.x,
-        tr.height + 0.9 + tr.y,
+        tr.height + 1.25 + tr.y,
         tr.z,
         this.pourLabel,
         this.pourHex,
-        15,
+        19,
         0.9,
         rgba(this.pourHex, 0.85),
       );

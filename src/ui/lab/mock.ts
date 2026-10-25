@@ -6,7 +6,9 @@
 import { CONTENT, auraDef, encounterDef, heroDef } from '../../content';
 import * as Run from '../../meta/run';
 import type { CombatOutcome, RunState, WithoutYou } from '../../meta/types';
-import type { Ledger } from '../../sim';
+import { resolveChord, type Ledger } from '../../sim';
+import { UNLOCKS } from '../../meta/profile';
+import type { RankUp } from '../../app/profileStore';
 import type { AuraHud, Callout, ChordHud, HeroHud, HudSnapshot, TechniqueHud } from '../store';
 import type { WheelView } from '../../input/wheel';
 
@@ -96,7 +98,7 @@ function hero(slot: number, defId: string, over: Partial<HeroHud> = {}): HeroHud
     action: 'idle',
     distance: 4,
     inField: true,
-    auras: ['sostenuto', 'ostinato'],
+    auras: ['sostenuto', 'fortissimo'],
     beamFocus: false,
     call: null,
     held: null,
@@ -108,7 +110,16 @@ function hero(slot: number, defId: string, over: Partial<HeroHud> = {}): HeroHud
 }
 
 export type HudScenario =
-  'calm' | 'crisis' | 'downed' | 'boss' | 'resonance' | 'sandbox' | 'calls' | 'fermata' | 'wheel';
+  | 'calm'
+  | 'crisis'
+  | 'downed'
+  | 'boss'
+  | 'resonance'
+  | 'sandbox'
+  | 'calls'
+  | 'fermata'
+  | 'wheel'
+  | 'beam';
 
 function auraHud(id: string, reserveMult = 1): AuraHud {
   const a = auraDef(id);
@@ -121,8 +132,9 @@ function chordHud(
   ornaments: string[],
   over: Partial<ChordHud> = {},
 ): ChordHud {
-  const reserveMult = ornaments.includes('grace_note') ? 0.7 : 1;
-  const unison = ornaments.includes('unison');
+  const r = resolveChord({ auras, ornaments }, index);
+  const reserveMult = r.reserveMult;
+  const unison = r.echo === 0;
   return {
     index,
     role: index === 0 ? 'beam' : 'field',
@@ -154,7 +166,31 @@ export function mockWheel(focus: boolean): WheelView & { focusName: string | nul
   };
 }
 
+/**
+ * Keeps a mocked snapshot consistent with the sim: the beam song pours into whoever is
+ * threaded (`beamFocus`, the beam chord's `threadSlot`).
+ */
+function withBeam(hud: HudSnapshot): HudSnapshot {
+  const slot = hud.weaver.threadSlot;
+  const beam = hud.weaver.chords.find((c) => c.role === 'beam' && c.auras.length > 0);
+  return {
+    ...hud,
+    weaver: {
+      ...hud.weaver,
+      chords: hud.weaver.chords.map((c) => (c.role === 'beam' ? { ...c, threadSlot: slot } : c)),
+    },
+    party: hud.party.map((h) => ({
+      ...h,
+      beamFocus: !!beam && h.slot === slot && !h.dead && !h.downed && !hud.weaver.fieldSuppressed,
+    })),
+  };
+}
+
 export function mockHud(scenario: HudScenario): HudSnapshot {
+  return withBeam(mockHudRaw(scenario));
+}
+
+function mockHudRaw(scenario: HudScenario): HudSnapshot {
   const w = CONTENT.weaver;
   const base: HudSnapshot = {
     tick: 5400,
@@ -181,26 +217,8 @@ export function mockHud(scenario: HudScenario): HudSnapshot {
       threadTension: 0.3,
       threadLock: 0,
       techniques: techniques(),
-      auras: ['sostenuto', 'ostinato'].map((id) => {
-        const a = auraDef(id);
-        return { id, name: a.name, color: a.color, reserve: a.reserve };
-      }),
-      chords: [
-        {
-          index: 0,
-          role: 'beam',
-          auras: ['sostenuto', 'ostinato'].map((id) => {
-            const a = auraDef(id);
-            return { id, name: a.name, color: a.color, reserve: a.reserve };
-          }),
-          ornaments: [],
-          anchor: 'weaver',
-          radius: 8,
-          focus: 2,
-          echo: 0.75,
-          threadSlot: null,
-        },
-      ],
+      auras: ['sostenuto', 'fortissimo'].map((id) => auraHud(id)),
+      chords: [chordHud(0, ['sostenuto', 'fortissimo'], [])],
       fieldRadius: 8,
       fieldSuppressed: false,
       plant: null,
@@ -466,6 +484,52 @@ export function mockHud(scenario: HudScenario): HudSnapshot {
           i === 2 ? { ...h, inField: false, distance: 14, auras: [] } : h,
         ),
       };
+    case 'beam': {
+      // Fortissimo + Allegro on the beam into Lyra (out past the field), a Sostenuto + Ostinato field.
+      const chords = [
+        chordHud(0, ['fortissimo', 'allegro'], []),
+        chordHud(1, ['sostenuto', 'ostinato'], ['grace_note']),
+      ];
+      return {
+        ...base,
+        weaver: {
+          ...base.weaver,
+          threadSlot: 1,
+          threadMode: 'empower',
+          chords,
+          auras: chords.flatMap((c) => c.auras),
+          reserved: 78,
+          spirit: 18,
+        },
+        party: [
+          hero(0, 'kael', {
+            hp: 1320,
+            shield: 180,
+            auras: ['sostenuto', 'fortissimo', 'allegro', 'ostinato'],
+          }),
+          hero(1, 'lyra', {
+            hp: 812,
+            threaded: true,
+            solo: 86,
+            // Far from every field: the beam still reaches her, nothing else does.
+            inField: false,
+            distance: 10,
+            auras: ['fortissimo', 'allegro'],
+          }),
+          hero(2, 'vexis', {
+            hp: 650,
+            distance: 6,
+            auras: ['sostenuto', 'fortissimo', 'allegro', 'ostinato'],
+          }),
+        ],
+        contribution: {
+          auras: { healing: 2140, shielded: 1310, amplified: 3380 },
+          thread: { healing: 940, amplified: 2620 },
+          total: 11600,
+        },
+        encounter: { ...base.encounter, elapsed: 38, enemies: 7 },
+      };
+    }
     case 'resonance':
       return {
         ...base,
@@ -549,6 +613,7 @@ export function mockCallouts(scenario: HudScenario): Callout[] {
         c(2, 'system', 'Chorus · 4 auras', { color: '#e9d5ff' }),
       ];
     case 'wheel':
+    case 'beam':
     case 'sandbox':
       return [];
   }
@@ -835,4 +900,9 @@ export function respiteRun(): RunState {
 export function summaryRun(outcome: 'victory' | 'defeat' | 'abandoned'): RunState {
   const run = outcome === 'victory' ? victoryRun() : playedRun(outcome === 'defeat' ? 4 : 3);
   return { ...run, phase: 'summary', outcome, pending: null };
+}
+
+/** Rank-up cards as the profile store would hold them after reaching these Ranks. */
+export function mockRankUps(ranks: number[]): RankUp[] {
+  return ranks.map((rank) => ({ rank, unlocks: UNLOCKS.filter((u) => u.rank === rank) }));
 }

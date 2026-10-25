@@ -10,6 +10,7 @@ import { ModelBatch } from './models/batch';
 import { buildCrown, buildEnemy, buildHero, buildWeaver } from './models/library';
 import type { ModelMaterial } from './models/material';
 import { C, approach, auraColor, clamp01, color } from './palette';
+import { POUR_TRAVEL, auraHearing, beamSong, chordMask, focusLevel, isAllIn } from './songs';
 import type { FrameInfo } from './types';
 
 /** Per-entity render state. Views never mutate the sim; this is all presentation. */
@@ -44,6 +45,8 @@ export interface EntityRec {
   dying: number;
   goldRim: number;
   rimFlash: number;
+  /** How much the beam song swells this hero right now (0..1, render-side fade). */
+  beam: number;
   bleedMax: number;
   smokeAcc: number;
   sparkleAcc: number;
@@ -106,6 +109,12 @@ export class EntityLayer {
   /** Aura colours by coverage mask (bit i ⇔ CONTENT.auras[i]) and their average (rim tint). */
   private readonly maskColors = new Map<number, THREE.Color[]>();
   private readonly maskAvg = new Map<number, THREE.Color>();
+  /** The beam song this frame: its coverage bits, focus level (songs.ts), all in. */
+  private beamMask = 0;
+  private beamLevel = 0;
+  private beamAllIn = false;
+  private beamTarget: EntityId | null = null;
+  private beamSince = 0;
   // Weaver ribbon history.
   private readonly hist = new Float32Array(HIST * 3);
   private histCount = 0;
@@ -241,6 +250,7 @@ export class EntityLayer {
       dying: -1,
       goldRim: 0,
       rimFlash: 0,
+      beam: 0,
       bleedMax: 0,
       smokeAcc: 0,
       sparkleAcc: 0,
@@ -376,6 +386,15 @@ export class EntityLayer {
     const w = weaver?.weaver;
     const threadedId = w && w.threadSlot !== null ? (state.party[w.threadSlot] ?? null) : null;
     const threadColor = w?.threadMode === 'empower' ? C.empower : C.mend;
+    const beam = beamSong(state);
+    this.beamMask = beam ? chordMask(beam.auras) : 0;
+    this.beamLevel = beam ? focusLevel(beam.focus) : 0;
+    this.beamAllIn = beam ? isAllIn(beam) : false;
+    const target = beam?.threadHero ?? null;
+    if (target !== this.beamTarget) {
+      this.beamTarget = target;
+      this.beamSince = 0;
+    } else this.beamSince += dt;
 
     for (const e of state.entities.list()) {
       let rec = this.recs.get(e.id);
@@ -549,6 +568,18 @@ export class EntityLayer {
       // Bosses breathe.
       scale *= 1 + Math.sin(this.now * 1.6) * 0.012;
     }
+    // The beam song pours into this hero: they visibly swell with it (5% at ×2, 8% all in).
+    const poured =
+      !!e.hero?.beamFocus &&
+      this.beamMask !== 0 &&
+      !downed &&
+      !held &&
+      (rec.beam > 0.5 || this.beamSince >= POUR_TRAVEL * 0.85);
+    rec.beam = approach(rec.beam, poured ? 1 : 0, 5, dt);
+    if (rec.beam > 0.001) {
+      const swell = 0.03 + 0.03 * Math.min(1, this.beamLevel) + (this.beamAllIn ? 0.02 : 0);
+      scale *= 1 + swell * rec.beam * (1 + 0.15 * Math.sin(this.now * 5));
+    }
     rec.y = y;
 
     // Rim tint priority: Fermata hold > Save gold > threaded > hovered > focus > auras > affix.
@@ -562,8 +593,13 @@ export class EntityLayer {
       this.tint.copy(C.gold);
       tintStrength = 0.5 + rec.goldRim * 2.2;
     } else if (isHero && e.id === threadedId) {
+      // The beam song's colours breathe through the Thread's rim while it pours in.
       this.tint.copy(threadColor);
-      tintStrength = 0.5 + rec.rimFlash * 1.5;
+      if (rec.beam > 0.01) {
+        const k = (0.4 + 0.2 * Math.sin(this.now * 4)) * rec.beam;
+        this.tint.lerp(this.auraTint(this.beamMask), k);
+      }
+      tintStrength = 0.5 + rec.rimFlash * 1.5 + 0.25 * Math.min(1, this.beamLevel) * rec.beam;
     } else if (isHero && e.id === frame.hoveredHero) {
       this.tint.setRGB(1, 1, 1);
       tintStrength = 0.45;
@@ -679,26 +715,80 @@ export class EntityLayer {
     }
 
     // Per-aura rim lights: the ring under the hero splits into one lit arc per aura on them.
+    // Phase 3: how they hear it shows in the arc. Field song: solid (Phase 2). The beam song
+    // poured in: a thick, glowing arc with a second arc outside. Its echo: thin and dashed.
     if (hero.auraMask !== 0 && !h.downed) {
       const list = this.auraColors(hero.auraMask);
       const n = list.length;
       const gap = n > 1 ? 0.32 : 0;
       const seg = (Math.PI * 2) / n;
       const spin = this.now * 0.6;
-      for (let i = 0; i < n; i++) {
-        kit.rings.push(
-          x,
-          0.032,
-          z,
-          rec.radius * 1.78,
-          0.11,
-          0.16,
-          RING.plain,
-          list[i]!,
-          0.95,
-          spin + i * seg + gap * 0.5,
-          seg - gap,
-        );
+      const auras = CONTENT.auras.length;
+      for (let b = 0, j = 0; b < auras && j < n; b++) {
+        const bit = 1 << b;
+        if ((hero.auraMask & bit) === 0) continue;
+        const c = list[j]!;
+        const start = spin + j * seg + gap * 0.5;
+        j++;
+        const hear = auraHearing(bit, this.beamMask, hero.beamFocus);
+        if (hear === 'echo') {
+          kit.rings.push(
+            x,
+            0.032,
+            z,
+            rec.radius * 1.78,
+            0.06,
+            0.06,
+            RING.dashed,
+            c,
+            0.6,
+            start,
+            seg - gap,
+            0,
+            22,
+          );
+        } else if (hear === 'focus') {
+          kit.rings.push(
+            x,
+            0.032,
+            z,
+            rec.radius * 1.78,
+            0.17,
+            0.28,
+            RING.plain,
+            c,
+            1,
+            start,
+            seg - gap,
+          );
+          kit.rings.push(
+            x,
+            0.033,
+            z,
+            rec.radius * 2.08,
+            0.045,
+            0.1,
+            RING.plain,
+            c,
+            0.75,
+            start + 0.08,
+            seg - gap - 0.16,
+          );
+        } else {
+          kit.rings.push(
+            x,
+            0.032,
+            z,
+            rec.radius * 1.78,
+            0.11,
+            0.16,
+            RING.plain,
+            c,
+            0.95,
+            start,
+            seg - gap,
+          );
+        }
       }
     }
 
@@ -883,31 +973,39 @@ export class EntityLayer {
       );
     }
     // Hexed (Lullaby…): a drowsy swirl over the head in the hex's colour, a dashed ring below.
+    // Phase 3: a beam-song hex on an enemy attacking the threaded hero (`beamFocus`) hits at
+    // focus strength, so it shows heavier: bigger triple swirl, a solid glowing foot ring.
     if (enemy.auraMask !== 0 && !h?.dead && enemy.state !== 'dying') {
       const list = this.auraColors(enemy.auraMask);
       const big = Math.max(1, rec.radius * 1.1);
       const top = rec.height + 0.22 + rec.y;
-      for (let i = 0; i < list.length; i++) {
+      const auras = CONTENT.auras.length;
+      for (let b = 0, i = 0; b < auras && i < list.length; b++) {
+        const bit = 1 << b;
+        if ((enemy.auraMask & bit) === 0) continue;
         const c = list[i]!;
-        const spin = this.now * 2.2 + rec.id * 0.7 + i * 1.3;
+        const strong = enemy.beamFocus && (bit & this.beamMask) !== 0;
+        const k = strong ? 1.35 : 1;
+        const spin = this.now * (strong ? 3 : 2.2) + rec.id * 0.7 + i * 1.3;
+        const ty = top + i * 0.14 * k;
         kit.rings.push(
           x,
-          top + i * 0.14,
+          ty,
           z,
-          0.34 * big,
-          0.06,
+          0.34 * big * k,
+          0.06 * k,
           0.12,
           RING.swipe,
           c,
-          0.85,
+          strong ? 1 : 0.85,
           spin,
           2.4,
         );
         kit.rings.push(
           x,
-          top + 0.07 + i * 0.14,
+          ty + 0.07,
           z,
-          0.2 * big,
+          0.2 * big * k,
           0.05,
           0.08,
           RING.swipe,
@@ -916,22 +1014,44 @@ export class EntityLayer {
           spin + Math.PI,
           2.0,
         );
-        kit.rings.push(
-          x,
-          0.03,
-          z,
-          rec.radius * 1.35 + 0.1,
-          0.04,
-          0.1,
-          RING.dashed,
-          c,
-          0.45,
-          0,
-          7,
-          0,
-          8,
-          -this.now * 0.4,
-        );
+        if (strong) {
+          kit.rings.push(x, ty + 0.16, z, 0.48 * big, 0.05, 0.14, RING.swipe, c, 0.8, -spin, 2.2);
+          kit.rings.push(x, 0.03, z, rec.radius * 1.35 + 0.1, 0.09, 0.22, RING.plain, c, 0.85);
+          kit.rings.push(
+            x,
+            0.031,
+            z,
+            rec.radius * 1.75 + 0.15,
+            0.05,
+            0.1,
+            RING.dashed,
+            c,
+            0.7,
+            0,
+            7,
+            0,
+            10,
+            this.now * 0.9,
+          );
+        } else {
+          kit.rings.push(
+            x,
+            0.03,
+            z,
+            rec.radius * 1.35 + 0.1,
+            0.04,
+            0.1,
+            RING.dashed,
+            c,
+            0.45,
+            0,
+            7,
+            0,
+            8,
+            -this.now * 0.4,
+          );
+        }
+        i++;
       }
     }
     // Controller (Mute) dome of cracked glass.

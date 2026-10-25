@@ -12,7 +12,7 @@ import { playUi } from '../kit/sound';
 import {
   anchorLabel,
   chordNumbers,
-  itemLock,
+  itemLock as itemLockOf,
   itemName,
   loadoutProblems,
   mult,
@@ -355,19 +355,19 @@ function SongCard({
       ) : (
         <>
           <p className="mt-1 text-xs leading-relaxed text-muted">{info.blurb}</p>
-          <dl className="mt-2 flex flex-wrap gap-2" aria-label={`${info.name} strength`}>
+          <dl className="mt-2 grid grid-cols-2 gap-2" aria-label={`${info.name} strength`}>
             {info.facts.map((f) => (
               <div
                 key={f.label}
-                className="flex min-w-0 flex-1 items-baseline gap-2 rounded-lg bg-ink-900/70 px-2.5 py-1.5"
+                className={`flex min-w-0 flex-col rounded-lg bg-ink-900/70 px-2.5 py-1.5 ${info.facts.length === 1 ? 'col-span-2' : ''}`}
               >
+                <dt className="text-xs leading-snug text-muted">{f.label}</dt>
                 <dd
-                  className="shrink-0 font-mono text-lg font-bold leading-tight"
+                  className="order-first font-mono text-lg font-bold leading-tight"
                   style={{ color: f.strength > 0 ? look.color : 'var(--color-muted)' }}
                 >
                   {f.value}
                 </dd>
-                <dt className="min-w-0 text-xs leading-snug text-muted">{f.label}</dt>
               </div>
             ))}
           </dl>
@@ -381,6 +381,11 @@ function SongCard({
                 slot={{ chord: index, kind: 'aura', index: i }}
                 id={chord.auras[i]}
                 lock={lock}
+                itemLock={
+                  chord.auras[i] !== undefined
+                    ? itemLockOf(allowance, 'aura', chord.auras[i]!)
+                    : null
+                }
                 isNew={false}
                 selected={selected?.kind === 'aura' && selected.index === i}
                 onSelect={onSelect}
@@ -406,6 +411,11 @@ function SongCard({
                   slot={ref}
                   id={chord.ornaments[i]}
                   lock={slotLock(allowance, ref)}
+                  itemLock={
+                    chord.ornaments[i] !== undefined
+                      ? itemLockOf(allowance, 'ornament', chord.ornaments[i]!)
+                      : null
+                  }
                   isNew={fresh.has(unlockId({ kind: 'ornamentSlot', index: i }))}
                   selected={selected?.kind === 'ornament' && selected.index === i}
                   onSelect={onSelect}
@@ -448,6 +458,7 @@ function Slot({
   slot,
   id,
   lock,
+  itemLock = null,
   isNew,
   selected,
   onSelect,
@@ -458,6 +469,8 @@ function Slot({
   id: string | undefined;
   /** The Rank that opens this slot (null: open). A filled locked slot can still be emptied. */
   lock: number | null;
+  /** The Rank that opens the item in it (null: open). */
+  itemLock?: number | null;
   isNew: boolean;
   selected: boolean;
   onSelect(ref: SlotRef): void;
@@ -467,6 +480,8 @@ function Slot({
   const def = id ? (slot.kind === 'aura' ? auraDef(id) : ornamentDef(id)) : null;
   const kindName = slot.kind === 'aura' ? 'aura' : 'ornament';
   const song = songName(slot.chord);
+  // A filled slot can hold something the Rank doesn't allow (remembered songs, a reset).
+  const locked = def ? Math.max(lock ?? 0, itemLock ?? 0) || null : null;
   const onKey = (e: KeyboardEvent<HTMLButtonElement>) => {
     if (id && (e.key === 'Delete' || e.key === 'Backspace')) {
       e.preventDefault();
@@ -499,7 +514,7 @@ function Slot({
         onKeyDown={onKey}
         className={`flex h-12 w-full items-center gap-2 rounded-lg border px-2.5 text-left transition-colors ${
           selected && lock === null ? 'ring-2 ring-gold-300' : ''
-        } ${def ? 'bg-ink-800' : 'border-dashed bg-ink-900/40 hover:bg-ink-800'} ${lock !== null ? 'opacity-60' : ''}`}
+        } ${def ? 'bg-ink-800' : 'border-dashed bg-ink-900/40 hover:bg-ink-800'} ${locked !== null ? 'border-dashed' : ''}`}
         style={{ borderColor: def ? def.color : 'var(--color-ink-500)' }}
       >
         {def ? (
@@ -514,7 +529,13 @@ function Slot({
               <span className="block truncate text-sm font-semibold" style={{ color: def.color }}>
                 {def.name}
               </span>
-              {note && <span className="block truncate text-xs text-muted">{note}</span>}
+              {locked !== null ? (
+                <span className="flex items-center gap-1 truncate text-xs font-semibold text-threat">
+                  <Icon name="lock" size={11} /> Rank {locked}: empty it
+                </span>
+              ) : (
+                note && <span className="block truncate text-xs text-muted">{note}</span>
+              )}
             </span>
           </>
         ) : (
@@ -586,7 +607,7 @@ function Palette({
           description: a.description,
           stat: `reserves ${pct(a.reserve * n.reserveMult)}`,
           warn: null,
-          lock: itemLock(allowance, 'aura', a.id),
+          lock: itemLockOf(allowance, 'aura', a.id),
           misfit: null,
           isNew: fresh.has(unlockId({ kind: 'aura', id: a.id })),
         }))
@@ -613,7 +634,7 @@ function Palette({
             description: o.description,
             stat: stats.join(' · '),
             warn: other ? `Can’t share a song with ${ornamentDef(other).name}` : null,
-            lock: itemLock(allowance, 'ornament', o.id),
+            lock: itemLockOf(allowance, 'ornament', o.id),
             misfit: roleNote(o.id, selected.chord),
             isNew: fresh.has(unlockId({ kind: 'ornament', id: o.id })),
           };

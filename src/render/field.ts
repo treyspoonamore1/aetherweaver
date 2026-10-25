@@ -8,7 +8,15 @@ import { PARTICLE } from './fx/particles';
 import { RING } from './fx/rings';
 import { SPRITE } from './fx/sprites';
 import { C, approach, auraColor, clamp01, color } from './palette';
-import { beamSong, fieldLook, type ChordView, fieldLoudness, focusLevel, isAllIn } from './songs';
+import {
+  POUR_TRAVEL,
+  beamSong,
+  fieldLook,
+  type ChordView,
+  fieldLoudness,
+  focusLevel,
+  isAllIn,
+} from './songs';
 
 const vertex = /* glsl */ `
 attribute vec4 iPos;   // x z radius extent
@@ -288,6 +296,9 @@ export class FieldView {
   private readonly hymnColor = color('#fff1c4');
   /** How much of the beam song each hero is holding right now (fades in and drains out). */
   private readonly halo = new Map<EntityId, number>();
+  private haloTarget: EntityId | null = null;
+  /** Seconds since the beam moved to `haloTarget` (the pour's travel time gates the fill). */
+  private haloSince = 0;
   /** Lab-only override of the hymn circles (they normally need Cantor phase 2). */
   hymnOverride: { x: number; z: number; r: number }[] | null = null;
 
@@ -519,11 +530,20 @@ export class FieldView {
   private beam(state: WorldState, kit: FxKit, dt: number, time: number): void {
     const c = beamSong(state);
     const target = c?.threadHero ?? null;
+    if (target !== this.haloTarget) {
+      this.haloTarget = target;
+      this.haloSince = 0;
+    } else this.haloSince += dt;
+    const arrived = this.haloSince >= POUR_TRAVEL * 0.85;
     for (const id of state.party) {
       const prev = this.halo.get(id) ?? 0;
       const on = id === target;
-      // Fills in ~0.4 s (the pour's travel time along the Thread), drains in ~0.6 s.
-      const next = on ? approach(prev, 1, 5.5, dt) : approach(prev, 0, 4, dt);
+      // The new hero fills once the pour arrives (~0.3 s); the old one drains in ~0.6 s.
+      const next = on
+        ? arrived || prev > 0.5
+          ? approach(prev, 1, 7, dt)
+          : prev
+        : approach(prev, 0, 4, dt);
       this.halo.set(id, next < 0.005 ? 0 : next);
     }
     if (!c) return;
@@ -650,7 +670,7 @@ export class FieldView {
       sup,
       0,
       7,
-      (allIn ? 0.34 : 0.16) + 0.06 * pulse,
+      (allIn ? 0.26 : 0.14) + 0.05 * pulse,
     );
     kit.sprites.push(
       hr.x,
@@ -659,7 +679,7 @@ export class FieldView {
       hr.radius * (2.2 + 0.6 * level) * k,
       SPRITE.glow,
       a0,
-      (0.16 + 0.1 * pulse) * (0.7 + 0.5 * level) * sup,
+      (0.1 + 0.08 * pulse) * (0.7 + 0.4 * Math.min(1, level)) * sup,
     );
     // Rising motes in the song's colours: more of them the stronger the focus.
     this.haloAcc += dt * (4 + 9 * level + (allIn ? 10 : 0)) * s * kit.particles.density;

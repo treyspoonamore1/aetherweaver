@@ -341,7 +341,6 @@ function ThreadStatus({
   /** The beam song's strength on the threaded hero (null: no beam song on them). */
   beamFocus: number | null;
 }) {
-  void beamFocus; // In progress (UI workstream snapshot).
   const mend = w.threadMode === 'mend';
   const color = mend ? 'var(--color-heal)' : 'var(--color-amp)';
   const taut = w.threadTension > 0.75;
@@ -355,9 +354,20 @@ function ThreadStatus({
       <span className="truncate text-muted">
         →{' '}
         {targetName ? (
-          <span style={{ color: targetColor }}>{targetName}</span>
+          <>
+            <span style={{ color: targetColor }}>{targetName}</span>
+            {beamFocus !== null && (
+              <span
+                className="ml-1 font-mono text-xs font-bold"
+                style={{ color: BEAM }}
+                title={`Your beam song pours into ${targetName} at ${mult(beamFocus)}`}
+              >
+                ♪{mult(beamFocus)}
+              </span>
+            )}
+          </>
         ) : w.chords.some((c) => c.role === 'beam' && c.auras.length > 0) ? (
-          'no one: your beam song waits (1–3)'
+          'no one (1–3): beam song idle'
         ) : (
           'no one (press 1–3)'
         )}

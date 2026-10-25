@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { COLOR_VISIONS, type ColorVision } from '../../app/colorVision';
 import { CONTENT, arenaDef, heroDef } from '../../content';
+import { CHORD_PRESETS } from '../../meta/run';
 import {
   FixedStepper,
   createSim,
@@ -59,6 +60,18 @@ interface LabApi {
   plant(dx: number, dz: number): void;
   heroPos(slot: number): { x: number; z: number };
   zoom(wheelDeltaY: number): void;
+  /** Phase 3 */
+  loadouts(): string[];
+  /** Real `{t:'thread', slot}`: the beam song pours into that hero. */
+  thread(slot: number): void;
+  /** Real sim: thread each hero in turn, `every` sim seconds apart. */
+  cycleBeam(every: number): void;
+  /** Synthetic hit from the hero in `slot` on the nearest enemy, split into the two chips. */
+  auraHit(slot: number, amount: number, empower: number, aura: number): void;
+  /** Synthetic `healApplied { via: 'aura' }` on a hero. */
+  auraHeal(slot: number, amount: number): void;
+  /** Real sim: enemies that go for the hero in `slot` (to see the beam's hexes). */
+  attackers(slot: number, n: number): void;
 }
 
 declare global {
@@ -69,22 +82,25 @@ declare global {
 
 const ENCOUNTERS = ['sandbox', 'first_light', 'muted_nave', 'bellwarden', 'hollow_cantor'];
 
-/** Chord loadouts (SimConfig.chords) for reviewing the per-Chord fields. */
+/**
+ * Chord loadouts (SimConfig.chords): the six presets straight from meta/run.ts (so the lead's
+ * tuning shows up here), plus a few lab-only ones for the cases the presets don't cover.
+ * Chord I is the beam song, Chord II the field song.
+ */
 const LOADOUTS: Record<string, ChordConfig[]> = {
-  classic: [{ auras: ['sostenuto', 'fortissimo'] }],
-  'pedal + unison': [
-    { auras: ['lullaby', 'sostenuto'], ornaments: ['pedal_point', 'grace_note'] },
-    { auras: ['fortissimo', 'fermata'], ornaments: ['unison'] },
+  ...Object.fromEntries(
+    CHORD_PRESETS.map((p) => [
+      p.name,
+      p.chords.map((c) => ({ auras: [...c.auras], ornaments: [...c.ornaments] })),
+    ]),
+  ),
+  // Lab-only.
+  'Lullaby beam': [{ auras: ['lullaby', 'fortissimo'] }, { auras: ['sostenuto'] }],
+  'Planted echo': [
+    { auras: ['sostenuto', 'fortissimo'], ornaments: ['pedal_point'] },
+    { auras: ['ostinato'] },
   ],
-  'reverb + weaver': [
-    { auras: ['sostenuto', 'ostinato'], ornaments: ['reverb', 'grace_note'] },
-    { auras: ['allegro', 'fortissimo'] },
-  ],
-  'pedal + weaver': [
-    { auras: ['lullaby', 'ostinato'], ornaments: ['pedal_point', 'grace_note'] },
-    { auras: ['sostenuto', 'fermata'] },
-  ],
-  'unison only': [{ auras: ['allegro', 'fortissimo'], ornaments: ['unison'] }],
+  'Field song only': [{ auras: [] }, { auras: ['sostenuto', 'fortissimo'] }],
 };
 const LOADOUT_NAMES = Object.keys(LOADOUTS);
 const THEMES = CONTENT.arenas.map((a) => a.id);
@@ -127,7 +143,7 @@ class LabRuntime {
       seed: 1234,
       encounter,
       debug: true,
-      chords: LOADOUTS[loadout] ?? LOADOUTS.classic,
+      chords: LOADOUTS[loadout] ?? LOADOUTS.Steady,
     });
     if (settings) this.settings = settings;
     this.stage = new Stage(container, quality);
@@ -413,6 +429,66 @@ class LabRuntime {
       time: def?.call?.answerTime ?? 2.5,
       flourish: def?.call?.flourish.name ?? 'Flourish',
     };
+  }
+
+  // ── Phase 3: the beam song and the field song ──────────────────────────────────────
+
+  thread(slot: number): void {
+    this.queue({ t: 'thread', slot: slot as PartySlot });
+  }
+
+  cycleBeam(every: number): void {
+    for (let i = 0; i < 3; i++) this.later(every * i, () => this.thread(i));
+  }
+
+  auraHit(slot: number, amount: number, empower: number, aura: number): void {
+    const target = this.nearestEnemy();
+    if (target === null) return;
+    this.inject([
+      {
+        type: 'damageTaken',
+        tick: this.sim.tick,
+        target,
+        source: this.heroId(slot),
+        amount,
+        absorbed: 0,
+        amplified: empower + aura,
+        aura,
+        crit: false,
+        telegraph: null,
+        hit: 'hit',
+      },
+    ]);
+  }
+
+  auraHeal(slot: number, amount: number): void {
+    this.inject([
+      {
+        type: 'healApplied',
+        tick: this.sim.tick,
+        target: this.heroId(slot),
+        source: this.sim.state.weaverId,
+        amount,
+        overheal: 0,
+        via: 'aura',
+      },
+    ]);
+  }
+
+  attackers(slot: number, n: number): void {
+    const p = this.heroPos(slot);
+    for (let i = 0; i < n; i++) {
+      const a = (i / Math.max(1, n)) * Math.PI * 2;
+      this.queue({
+        t: 'debug',
+        op: {
+          op: 'spawnEnemy',
+          defId: 'hollow_chorister',
+          x: p.x + Math.cos(a) * 2.2,
+          z: p.z + Math.sin(a) * 2.2,
+        },
+      });
+    }
   }
 
   /** Lab-only synthetic call (the real one comes from `{op:'forceCall'}` once the sim has it). */
@@ -761,7 +837,7 @@ export function VfxLab() {
   const [elite, setElite] = useState(false);
   const [slot, setSlot] = useState<PartySlot>(0);
   const [hymn, setHymn] = useState(false);
-  const [loadout, setLoadout] = useState('pedal + unison');
+  const [loadout, setLoadout] = useState('Guardian');
   const [vision, setVision] = useState<ColorVision>('normal');
   const [flashes, setFlashes] = useState(1);
 
@@ -815,6 +891,12 @@ export function VfxLab() {
       plant: (dx, dz) => rt.plant(dx, dz),
       heroPos: (s) => rt.heroPos(s),
       zoom: (dy) => rt.rig.zoomBy(dy),
+      loadouts: () => LOADOUT_NAMES,
+      thread: (s) => rt.thread(s),
+      cycleBeam: (every) => rt.cycleBeam(every),
+      auraHit: (s, amount, empower, aura) => rt.auraHit(s, amount, empower, aura),
+      auraHeal: (s, amount) => rt.auraHeal(s, amount),
+      attackers: (s, n) => rt.attackers(s, n),
     };
     const timer = window.setInterval(() => {
       const i = rt.info();
@@ -1028,6 +1110,78 @@ export function VfxLab() {
           </Btn>
           <Btn onClick={() => q({ t: 'directive', kind: 'scatter' })}>Scatter</Btn>
           <Btn onClick={() => q({ t: 'directive', kind: 'rally' })}>Rally</Btn>
+        </Group>
+        <Group title="Phase 3 · Beam & field songs">
+          <p className="w-full text-[10px] text-muted">
+            Chord I is the beam song (the threaded hero, at its focus), Chord II the field song.
+            Pick a preset under Scene → Chords.
+          </p>
+          <Btn onClick={() => rt()?.thread(0)} title="Real {t:'thread'}: the beam pours into Kael">
+            Beam → Kael
+          </Btn>
+          <Btn onClick={() => rt()?.thread(1)}>Beam → Lyra</Btn>
+          <Btn onClick={() => rt()?.thread(2)}>Beam → Vexis</Btn>
+          <Btn
+            onClick={() => rt()?.cycleBeam(1.5)}
+            title="Retarget the beam every 1.5 s (real sim)"
+          >
+            Cycle beam
+          </Btn>
+          <Btn
+            onClick={() => q({ t: 'directive', kind: 'scatter' })}
+            title="Spread the party: who is in the echo, who is out"
+          >
+            Scatter
+          </Btn>
+          <Btn
+            onClick={() => q({ t: 'directive', kind: 'rally' })}
+            title="Pull the party into your field"
+          >
+            Rally
+          </Btn>
+          <Btn
+            onClick={() => rt()?.attackers(slot, 4)}
+            title="Choristers on the target slot's hero: with Lullaby on the beam their hex is at focus"
+          >
+            Attackers on slot
+          </Btn>
+          <Btn
+            onClick={() => {
+              rt()?.spawn('bell_brute', -2, -5);
+              rt()?.spawn('bell_brute', 3, -6);
+              rt()?.spawn('hollow_chorister', 0, -4);
+            }}
+            title="A small real fight: real aura chips (Fortissimo) and aura heals (Sostenuto)"
+          >
+            Real fight
+          </Btn>
+          <Btn
+            onClick={() => rt()?.auraHit(slot, 186, 22, 64)}
+            title="Synthetic hit: 186 with a gold +22 and a ♪+64 aura chip"
+          >
+            Aura chips
+          </Btn>
+          <Btn onClick={() => rt()?.auraHit(slot, 140, 0, 48)}>Aura chip only</Btn>
+          <Btn onClick={() => rt()?.auraHit(slot, 210, 70, 0)}>Gold chip only</Btn>
+          <Btn
+            onClick={() => {
+              rt()?.auraHeal(slot, 38);
+              inject([
+                {
+                  type: 'healApplied',
+                  tick: tick(),
+                  target: hero(),
+                  source: rt()?.sim.state.weaverId ?? null,
+                  amount: 120,
+                  overheal: 0,
+                  via: 'mend',
+                },
+              ]);
+            }}
+            title="Synthetic: an aura heal ♪+38 next to a Mend heal +120"
+          >
+            Aura heal + Mend
+          </Btn>
         </Group>
         <Group title="Phase 2 · Chords">
           <Btn onClick={() => rt()?.plant(5, -4)} title="{t:'plant'} ahead-right of the Weaver">
