@@ -170,8 +170,8 @@ export function updateChimes(world: World): void {
       const lethalDirge = dirge !== Infinity && dirgeWouldKill(world, hero);
       const removed = cleanseAilments(world, hero);
       addStatus(world, hero, 'immune', def.immunity, world.weaverId);
-      // The Hollow Bell rings without healing.
-      if (world.mods.chimeHeals) heal(world, hero, hero.health.maxHp * def.healPct, 'chime');
+      // The Hollow Bell rings softer.
+      heal(world, hero, hero.health.maxHp * def.healPct * world.mods.chimeHealMult, 'chime');
       answerCall(world, hero, 'chime');
       if (removed > 0) {
         cleansedCount++;
@@ -194,12 +194,8 @@ export function updateChimes(world: World): void {
       }
     }
     const weaver = world.entities.get(world.weaverId);
-    if (
-      world.mods.chimeHeals &&
-      isActive(weaver) &&
-      distSq(weaver.x, weaver.z, chime.x, chime.z) <= r2
-    ) {
-      heal(world, weaver, weaver.health.maxHp * def.healPct, 'chime');
+    if (isActive(weaver) && distSq(weaver.x, weaver.z, chime.x, chime.z) <= r2) {
+      heal(world, weaver, weaver.health.maxHp * def.healPct * world.mods.chimeHealMult, 'chime');
     }
     world.events.push({
       type: 'chimeLanded',

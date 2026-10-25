@@ -66,9 +66,9 @@ export const RELICS: ContentInput['relics'] = [
     id: 'hollow_bell',
     name: 'Hollow Bell',
     rarity: 'rare',
-    text: 'Chime recovers {pct}% sooner, but no longer heals.',
+    text: 'Chime recovers {pct}% sooner, but heals {heal}% less.',
     flavor: 'Rung so often it forgot how to be gentle.',
-    values: { pct: 40 },
+    values: { pct: 40, heal: 50 },
     icon: 'bell',
   },
   {
@@ -122,9 +122,9 @@ export const RELICS: ContentInput['relics'] = [
     id: 'spindle_of_fate',
     name: 'Spindle of Fate',
     rarity: 'legendary',
-    text: 'Your beam song’s echo plays at full strength, but Mend and Empower are {pct}% weaker.',
+    text: 'Your beam song’s echo plays at full strength: everyone near you hears it at ×1, not ×0.75.',
     flavor: 'Spin for one and you spin for all.',
-    values: { pct: 10 },
+    values: {},
     icon: 'spindle',
   },
   // ── Cursed: a bargain until a Forge cleanses it ────────────────────────────────────

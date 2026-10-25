@@ -179,14 +179,22 @@ describe('rare relics', () => {
     expect(weaver(sim).weaver!.resonance).toBe(value('cantors_hymnal', 'resonance'));
   });
 
-  it('Hollow Bell: Chime comes back sooner but heals no one', () => {
-    const sim = sandbox(relics('hollow_bell'));
-    hurt(sim, 0, 200);
-    const h = hero(sim, 0);
-    const events = stepFor(sim, 30, [{ t: 'tech', id: 'chime', point: { x: h.x, z: h.z } }]);
-    expect(ofType(events, 'chimeLanded')).toHaveLength(1);
-    expect(ofType(events, 'healApplied').filter((e) => e.via === 'chime')).toHaveLength(0);
-    expect(weaver(sim).weaver!.cooldownTotals.chime).toBeCloseTo(
+  it('Hollow Bell: Chime comes back sooner but heals half as much', () => {
+    const heals = (config: Parameters<typeof sandbox>[0]) => {
+      const sim = sandbox(config);
+      hurt(sim, 0, 200);
+      const h = hero(sim, 0);
+      const events = stepFor(sim, 30, [{ t: 'tech', id: 'chime', point: { x: h.x, z: h.z } }]);
+      expect(ofType(events, 'chimeLanded')).toHaveLength(1);
+      const healed = ofType(events, 'healApplied')
+        .filter((e) => e.via === 'chime' && e.target === h.id)
+        .reduce((s, e) => s + e.amount, 0);
+      return { sim, healed };
+    };
+    const bell = heals(relics('hollow_bell'));
+    const plain = heals({});
+    expect(bell.healed).toBeCloseTo(plain.healed * (1 - value('hollow_bell', 'heal') / 100), 6);
+    expect(weaver(bell.sim).weaver!.cooldownTotals.chime).toBeCloseTo(
       CONTENT.techniques.chime.cooldown * (1 - value('hollow_bell', 'pct') / 100),
       6,
     );
@@ -262,7 +270,7 @@ describe('legendary relics', () => {
     );
   });
 
-  it('Spindle of Fate: the echo plays at full strength; Unison stays silent; the Thread weakens', () => {
+  it('Spindle of Fate: the echo plays at full strength; Unison stays silent', () => {
     const sim = sandbox({ auras: ['fortissimo'], ...relics('spindle_of_fate') });
     expect(sim.state.field.chords[0]!.echo).toBeCloseTo(1, 6);
     const unison = sandbox({
@@ -270,10 +278,10 @@ describe('legendary relics', () => {
       ...relics('spindle_of_fate'),
     });
     expect(unison.state.field.chords[0]!.echo).toBe(0);
+    // No price on the Thread.
     const mods = resolveMods(resolveConfig({ seed: 1, ...relics('spindle_of_fate') }), CONTENT);
-    const weaker = 1 - value('spindle_of_fate', 'pct') / 100;
-    expect(mods.mendMult).toBeCloseTo(weaker, 6);
-    expect(mods.empowerMult).toBeCloseTo(weaker, 6);
+    expect(mods.mendMult).toBe(1);
+    expect(mods.empowerMult).toBe(1);
   });
 });
 

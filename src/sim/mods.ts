@@ -35,7 +35,7 @@ export interface Mods {
   encoreBonus: number;
   daCapo: number;
   // ── Relics and boons ──
-  /** Mend's healing (Spindle of Fate, the Mended Loom). Empower uses `empowerMult`. */
+  /** Mend's healing (the Mended Loom). Empower uses `empowerMult`. */
   mendMult: number;
   /** Silver Thimble: a retargeted hero's shield, as a fraction of max HP (0 = none). */
   thimbleBarrierPct: number;
@@ -58,7 +58,8 @@ export interface Mods {
   /** Choirmaster's Baton. */
   cuedSoloDurationMult: number;
   chimeCooldownMult: number;
-  chimeHeals: boolean;
+  /** Hollow Bell: Chime's healing. */
+  chimeHealMult: number;
   martyrsVeil: boolean;
   startResonance: number;
   /** Prism Loom: Mend and Empower also reach heroes this close to the threaded one. */
@@ -116,7 +117,7 @@ export const NO_MODS: Mods = {
   perfectHealPct: 0,
   cuedSoloDurationMult: 1,
   chimeCooldownMult: 1,
-  chimeHeals: true,
+  chimeHealMult: 1,
   martyrsVeil: false,
   startResonance: 0,
   prismRadius: 0,
@@ -260,7 +261,7 @@ function applyRelic(m: Mods, id: string, v: Values, cleansed: boolean): void {
       break;
     case 'hollow_bell':
       m.chimeCooldownMult *= 1 - num(v, 'pct') / 100;
-      m.chimeHeals = false;
+      m.chimeHealMult *= 1 - num(v, 'heal') / 100;
       break;
     case 'martyrs_veil':
       m.martyrsVeil = true;
@@ -277,8 +278,6 @@ function applyRelic(m: Mods, id: string, v: Values, cleansed: boolean): void {
       break;
     case 'spindle_of_fate':
       m.beamEcho = 1;
-      m.mendMult *= 1 - num(v, 'pct') / 100;
-      m.empowerMult *= 1 - num(v, 'pct') / 100;
       break;
     case 'heavy_score':
       m.partyDamageMult *= 1 + num(v, 'pct') / 100;
