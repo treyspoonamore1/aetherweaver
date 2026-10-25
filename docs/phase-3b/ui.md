@@ -162,7 +162,7 @@ Also checked by clicking through the lab with Playwright: buying at the merchant
 
 ## Known gaps
 
-- **The relic flash is derived, not event-driven.** It's exact for the Metronome, Thimble and Veil; for the Tuning Fork and the Glass Halo it follows Perfect Wards (the Fork doesn't act on a hero whose Solo is full or playing, so it can flash once where the sim didn't charge anything), and for the Lantern it follows downs (it doesn't act when nobody else is standing).
+- ~~The relic flash is derived, not event-driven.~~ Resolved by the lead: the sim counts each relic's moments in `WorldState.relics.triggers`, and `relicHuds` uses that count as the `pulse`, so every relic flashes exactly when it acts (the Perfect/downs stand-ins remain only for hand-made snapshots without counts).
 - The forge's "after" view knows which motif was tempered or which curse lifted only from the visit itself; after a reload mid-visit it says what the service does instead of what it did.
 - `useFreshUnlocks` runs on the forge and event screens (so the builder can mark New), which marks unlocks introduced even if Retune isn't opened, as the Respite already did.
 - Merchant items aren't on number keys (the relic offer, forge services and event choices are).
@@ -177,3 +177,9 @@ No changes to `src/sim`, `src/content` or `src/meta`. What I'd ask of the lead:
 - **`ForgeState` could record the target** (`used: { service, motifId?, relicId? }` or a `last` field) so the "after" view survives a reload.
 - **`EventGains.motif` could carry the old level** (`from`) so the outcome reads "level 1 → 3" without the screen remembering it; same for heal/hurt (party HP before).
 - `HudSnapshot.relics` is a UI-side addition to the store's snapshot (filled by `buildHudSnapshot`); anything that builds a snapshot by hand needs `relics: []` (the lab mocks do).
+
+### Resolved after this pass (lead)
+
+- **Exact relic flashes**: `WorldState.relics.triggers` (a count per carried relic, bumped by the sim's `relicFired`) feeds `relicHuds`' `pulse`.
+- **`ForgeState.target`** records the tempered motif or cleansed relic, and **`EventGains`** keeps `motif.from` and the party's life `before` the choice. The screens still use their own memory for these; switching them over is a small follow-up.
+

@@ -108,7 +108,19 @@ Gambles are seeded by the run (the same seed, node and choice always roll the sa
 
 ## Presentation
 
-*To be filled in by the UI, VFX and audio workstreams ([ui](phase-3b/ui.md), [vfx](phase-3b/vfx.md), [audio](phase-3b/audio.md)).*
+Details and screenshots: [UI](phase-3b/ui.md), [VFX](phase-3b/vfx.md), [audio](phase-3b/audio.md).
+
+| | |
+|---|---|
+| **Map** | Merchant (purse), forge (anvil) and event glyphs; event nodes named. Every tooltip says what the stop pays — "+35 Aether, more for a good grade", "Choose 1 of 2 relics", "Threat: enemies +23% life". A strip under the header carries the run's Aether, relics (tooltips with rule and curse) and boons with fights left. |
+| **Relic offer** | Two or three relic cards (keys 1–3) or "Leave them", titled by where they came from. |
+| **Merchant** | Relic, motif and healing cards with prices; what you can't afford says how much more you need; sold items stay, marked yours. |
+| **Forge** | Three services; Temper and Lift a curse open a picker that previews the change; Retune opens the song builder. One per visit. |
+| **Event** | The scene, then choices with their price, odds or danger as tags; greyed choices say why. After choosing: the outcome, what changed, and the party's life. |
+| **Result / Summary** | "+N Aether" with the grade's bonus; Continue says what's next. The summary lists the relics and the Aether earned and left. |
+| **HUD** | A relic bar under the encounter header: cooldown rings for the Metronome and the Thimble, the Veil's single charge, a flash whenever a relic acts, and boon chips. |
+| **Codex** | Relics (by rarity, prices, where they come from) and Events (every choice). |
+| **Sound** | Ten new UI sounds (a purchase, a refusal, the forge's anvil, an event's opening, a gamble's bell ringing true or cracking, relics revealed and taken, a curse lifted, Aether counted) and a voice for every relic moment in combat, sitting under the Perfect Ward and Save sounds. |
 
 ## Threat
 
