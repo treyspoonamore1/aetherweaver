@@ -92,6 +92,11 @@ export class RibbonBatch {
     this.camera.copy(cameraPosition);
   }
 
+  /** Vertices written this frame (tests, lab stats). */
+  get vertices(): number {
+    return this.vertexCount;
+  }
+
   beginStrip(): void {
     this.stripCount = 0;
   }

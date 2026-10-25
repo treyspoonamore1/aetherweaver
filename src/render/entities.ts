@@ -10,7 +10,15 @@ import { ModelBatch } from './models/batch';
 import { buildCrown, buildEnemy, buildHero, buildWeaver } from './models/library';
 import type { ModelMaterial } from './models/material';
 import { C, approach, auraColor, clamp01, color } from './palette';
-import { POUR_TRAVEL, auraHearing, beamSong, chordMask, focusLevel, isAllIn } from './songs';
+import {
+  POUR_TRAVEL,
+  auraHearing,
+  beamSong,
+  chordMask,
+  focusLevel,
+  isAllIn,
+  isFullEcho,
+} from './songs';
 import type { FrameInfo } from './types';
 
 /** Per-entity render state. Views never mutate the sim; this is all presentation. */
@@ -111,6 +119,8 @@ export class EntityLayer {
   private readonly maskAvg = new Map<number, THREE.Color>();
   /** The beam song this frame: its coverage bits, focus level (songs.ts), all in. */
   private beamMask = 0;
+  /** The beam song's echo plays at full strength (Spindle of Fate). */
+  private beamFullEcho = false;
   private beamLevel = 0;
   private beamAllIn = false;
   private beamTarget: EntityId | null = null;
@@ -388,6 +398,7 @@ export class EntityLayer {
     const threadColor = w?.threadMode === 'empower' ? C.empower : C.mend;
     const beam = beamSong(state);
     this.beamMask = beam ? chordMask(beam.auras) : 0;
+    this.beamFullEcho = beam ? isFullEcho(beam) : false;
     this.beamLevel = beam ? focusLevel(beam.focus) : 0;
     this.beamAllIn = beam ? isAllIn(beam) : false;
     const target = beam?.threadHero ?? null;
@@ -730,8 +741,25 @@ export class EntityLayer {
         const c = list[j]!;
         const start = spin + j * seg + gap * 0.5;
         j++;
-        const hear = auraHearing(bit, this.beamMask, hero.beamFocus);
-        if (hear === 'echo') {
+        const hear = auraHearing(bit, this.beamMask, hero.beamFocus, this.beamFullEcho);
+        if (hear === 'fullEcho') {
+          // The echo at full strength (Spindle of Fate): a field song's weight, still dashed.
+          kit.rings.push(
+            x,
+            0.032,
+            z,
+            rec.radius * 1.78,
+            0.11,
+            0.16,
+            RING.dashed,
+            c,
+            0.95,
+            start,
+            seg - gap,
+            0,
+            12,
+          );
+        } else if (hear === 'echo') {
           kit.rings.push(
             x,
             0.032,

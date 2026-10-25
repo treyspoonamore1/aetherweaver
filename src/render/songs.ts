@@ -25,17 +25,32 @@ export type FieldLook = 'song' | 'echo' | 'none';
 
 export function fieldLook(c: ChordView): FieldLook {
   if (c.radius <= 0 || c.auras.length === 0) return 'none';
-  return c.role === 'beam' && c.echo < 1 ? 'echo' : 'song';
+  // Phase 3b: the beam song's disc is always its echo, even at full strength (Spindle of Fate),
+  // so it keeps the echo's dashed identity and its place just outside a shared field song.
+  return c.role === 'beam' ? 'echo' : 'song';
+}
+
+/**
+ * A beam song whose echo plays at full strength (×1, the Spindle of Fate): drawn as loud as a
+ * field song but still dashed, so "this is the beam's echo" survives.
+ */
+export function isFullEcho(c: ChordView): boolean {
+  return c.role === 'beam' && c.radius > 0 && c.echo >= 1 - 1e-6;
 }
 
 /**
  * How loud a field is drawn, 0..1: the field song is 1, an echo follows `echo` (0.75 → 0.45)
- * so it always reads clearly quieter than a field song next to it.
+ * so it always reads clearly quieter than a field song next to it. A full-strength echo
+ * (Spindle of Fate) is drawn at 1: it is as strong as a field song.
  */
 export function fieldLoudness(c: ChordView): number {
   if (fieldLook(c) !== 'echo') return 1;
+  if (isFullEcho(c)) return 1;
   return Math.max(0.25, Math.min(0.6, c.echo * 0.6));
 }
+
+/** A field loudness at or above this is a full-strength echo (the field shader's threshold). */
+export const FULL_ECHO_LOUDNESS = 0.95;
 
 /** The beam song, if it has any aura in it (an empty beam song pours nothing). */
 export function beamSong(state: WorldState): ChordView | null {
@@ -86,16 +101,25 @@ export const REGEN_MASK = CONTENT.auras.reduce(
   0,
 );
 
-/** How a hero hears one of the auras on them. */
-export type AuraHearing = 'focus' | 'echo' | 'full';
+/**
+ * How a hero hears one of the auras on them: poured in (`focus`), the beam song's echo
+ * (`echo`), the echo at full strength (`fullEcho`, Spindle of Fate) or a field song (`full`).
+ */
+export type AuraHearing = 'focus' | 'echo' | 'fullEcho' | 'full';
 
 /**
  * `bit` is one of the hero's `auraMask` bits; `beamMask` the beam song's bits. An aura is in
  * one song only, so a beam aura is either poured in (focus) or heard as the echo.
  */
-export function auraHearing(bit: number, beamMask: number, beamFocus: boolean): AuraHearing {
+export function auraHearing(
+  bit: number,
+  beamMask: number,
+  beamFocus: boolean,
+  fullEcho = false,
+): AuraHearing {
   if ((bit & beamMask) === 0) return 'full';
-  return beamFocus ? 'focus' : 'echo';
+  if (beamFocus) return 'focus';
+  return fullEcho ? 'fullEcho' : 'echo';
 }
 
 /** The two chips of a damage number. Mutated in place (no allocation per hit). */

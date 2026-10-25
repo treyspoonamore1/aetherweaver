@@ -72,6 +72,14 @@ interface LabApi {
   auraHeal(slot: number, amount: number): void;
   /** Real sim: enemies that go for the hero in `slot` (to see the beam's hexes). */
   attackers(slot: number, n: number): void;
+  /** Phase 3b */
+  relicScenarios(): string[];
+  /** Restarts the real sim with that scenario's relics and stages the moment it acts. */
+  relicScenario(name: string): void;
+  /** Restarts the real sim carrying these relics (ids, as SimConfig.relics). */
+  setRelics(ids: string[]): void;
+  /** What the RelicView has played so far, and what is on screen now. */
+  relicStats(): { fired: Record<string, number>; active: number; prism: number };
 }
 
 declare global {
@@ -105,8 +113,155 @@ const LOADOUTS: Record<string, ChordConfig[]> = {
 const LOADOUT_NAMES = Object.keys(LOADOUTS);
 const THEMES = CONTENT.arenas.map((a) => a.id);
 
+/** The relics the lab sim carries (kept across loadout / encounter changes). */
+let carried: string[] = [];
+
+interface RelicScenario {
+  relics: string[];
+  /** What it shows, for the button's tooltip. */
+  note: string;
+  stage(rt: LabRuntime): void;
+}
+
+/**
+ * One scenario per relic moment: each restarts the real sim with `relics` and stages the
+ * moment with real commands and debug ops (no injected events).
+ */
+const RELIC_SCENARIOS: Record<string, RelicScenario> = {
+  'Silver Thimble': {
+    relics: ['silver_thimble'],
+    note: 'Thread Kael (needle + stitch), then Lyra once it has recharged (4 s)',
+    stage: (rt) => {
+      rt.later(0.2, () => rt.thread(0));
+      rt.later(4.6, () => rt.thread(1));
+    },
+  },
+  'Lantern of the Lost': {
+    relics: ['lantern_of_the_lost'],
+    note: 'A Fermata hold on Kael (debug op) runs out unhealed: he goes down, the Lantern lights the others',
+    stage: (rt) => {
+      rt.later(0.2, () => rt.queue({ t: 'debug', op: { op: 'forceHold', slot: 0 } }));
+    },
+  },
+  "Martyr's Veil": {
+    relics: ['martyrs_veil'],
+    note: 'Kael is held and Mended to a sliver (debug op), you step back, and three brutes land the blow that would down him',
+    stage: (rt) => {
+      rt.later(0.2, () => {
+        rt.queue({ t: 'debug', op: { op: 'forceHold', slot: 0 } });
+        rt.thread(0);
+      });
+      rt.onEvent(
+        (e) => e.type === 'fermataReleased',
+        () => {
+          rt.thread(2);
+          const p = rt.heroPos(0);
+          // Step back so the veil has room to run from Kael to you.
+          rt.queue({ t: 'debug', op: { op: 'teleportWeaver', x: p.x - 6, z: p.z + 4 } });
+          for (const [dx, dz] of [
+            [0, -2.2],
+            [-1.8, -1.2],
+            [1.8, -1.2],
+          ] as const)
+            rt.queue({
+              t: 'debug',
+              op: { op: 'spawnEnemy', defId: 'bell_brute', x: p.x + dx, z: p.z + dz },
+            });
+        },
+      );
+      // Once the Veil has acted, clear the brutes so the party survives the lab.
+      rt.onEvent(
+        (e) => e.type === 'relicTriggered' && e.relic === 'martyrs_veil',
+        () => rt.later(1.6, () => rt.queue({ t: 'debug', op: { op: 'killEnemies' } })),
+      );
+    },
+  },
+  'Cracked Metronome': {
+    relics: ['cracked_metronome'],
+    note: 'Ward Kael the moment a brute starts its Toll Cleave (far too early): the Metronome makes it Perfect',
+    stage: (rt) => {
+      rt.later(0.2, () => rt.brute(0));
+      rt.onEvent(
+        (e) => e.type === 'telegraphStarted' && e.name === 'Toll Cleave',
+        () => rt.queue({ t: 'tech', id: 'ward', slot: 0 }),
+      );
+    },
+  },
+  'Tuning Fork': {
+    relics: ['tuning_fork'],
+    note: 'A Perfect Ward on Kael against a Toll Cleave: the Fork charges his Solo',
+    stage: (rt) => {
+      rt.later(0.2, () => rt.brute(0));
+      rt.perfectOn('Toll Cleave', 0);
+    },
+  },
+  'Glass Halo': {
+    relics: ['glass_halo'],
+    note: 'A Perfect Ward on Kael (choristers hurt Vexis first): the halo heals every hero',
+    stage: (rt) => {
+      rt.later(0.2, () => rt.attackers(2, 2));
+      rt.later(2.5, () => rt.brute(0));
+      rt.perfectOn('Toll Cleave', 0);
+    },
+  },
+  "Cantor's Hymnal": {
+    relics: ['cantors_hymnal'],
+    note: 'The fight opens with 25 Resonance (tick 0)',
+    stage: () => {},
+  },
+  'Prism Loom': {
+    relics: ['prism_loom'],
+    note: 'Thread Lyra and Rally: Mend reaches whoever stands within 4 m of her',
+    stage: (rt) => {
+      rt.later(0.2, () => rt.thread(1));
+      rt.later(0.3, () => rt.queue({ t: 'directive', kind: 'rally' }));
+    },
+  },
+  'Prism Loom · Empower': {
+    relics: ['prism_loom'],
+    note: 'The same in Empower (gold), with a small fight',
+    stage: (rt) => {
+      rt.later(0.2, () => {
+        rt.thread(1);
+        rt.queue({ t: 'mode' });
+        rt.queue({ t: 'directive', kind: 'rally' });
+        rt.spawn('hollow_chorister', -2, -6);
+        rt.spawn('hollow_chorister', 2, -6);
+      });
+    },
+  },
+  'Spindle of Fate': {
+    relics: ['spindle_of_fate'],
+    note: 'The beam song’s echo at full strength (pick Guardian or Steady under Chords)',
+    stage: (rt) => {
+      rt.later(0.2, () => rt.thread(1));
+    },
+  },
+  'Heavy Score': {
+    relics: ['heavy_score'],
+    note: 'Glide twice: the curse refuses it',
+    stage: (rt) => {
+      rt.later(0.3, () => rt.queue({ t: 'glide', x: 1, z: 0 }));
+      rt.later(1.4, () => rt.queue({ t: 'glide', x: -1, z: 0 }));
+    },
+  },
+  'Every relic': {
+    relics: CONTENT.relics.map((r) => r.id),
+    note: 'All fifteen at once, a Thread on Lyra and a small fight (clutter check)',
+    stage: (rt) => {
+      rt.later(0.2, () => {
+        rt.thread(1);
+        rt.queue({ t: 'directive', kind: 'rally' });
+      });
+      rt.later(1, () => rt.brute(0));
+      rt.perfectOn('Toll Cleave', 0);
+    },
+  },
+};
+const RELIC_SCENARIO_NAMES = Object.keys(RELIC_SCENARIOS);
+
 class LabRuntime {
-  readonly sim: Sim;
+  sim: Sim;
   readonly stage: Stage;
   readonly rig: CameraRig;
   private view: CombatView;
@@ -122,6 +277,7 @@ class LabRuntime {
   private moveZ = 0;
   private hymn = false;
   private readonly scheduled: { at: number; fn: () => void }[] = [];
+  private readonly taps: { pred: (e: SimEvent) => boolean; fn: (e: SimEvent) => void }[] = [];
   private frozen = false;
   private clock = 0;
   paused = false;
@@ -133,18 +289,13 @@ class LabRuntime {
 
   constructor(
     container: HTMLElement,
-    encounter: string,
+    private readonly encounter: string,
     private theme: string,
     quality: QualityTier,
-    loadout: string,
+    private readonly loadout: string,
     settings: Settings | null,
   ) {
-    this.sim = createSim({
-      seed: 1234,
-      encounter,
-      debug: true,
-      chords: LOADOUTS[loadout] ?? LOADOUTS.Steady,
-    });
+    this.sim = this.createSim();
     if (settings) this.settings = settings;
     this.stage = new Stage(container, quality);
     this.rig = new CameraRig(this.stage.camera);
@@ -158,6 +309,89 @@ class LabRuntime {
     this.stage.canvas.addEventListener('pointermove', this.onPointer);
     window.addEventListener('keydown', this.onKey);
     window.addEventListener('keyup', this.onKey);
+  }
+
+  private createSim(): Sim {
+    return createSim({
+      seed: 1234,
+      encounter: this.encounter,
+      debug: true,
+      chords: LOADOUTS[this.loadout] ?? LOADOUTS.Steady,
+      relics: carried,
+    });
+  }
+
+  /** Phase 3b: a fresh real sim carrying `relics` (the view is rebuilt on it). */
+  restart(relics: string[]): void {
+    carried = [...relics];
+    this.pending.length = 0;
+    this.scheduled.length = 0;
+    this.taps.length = 0;
+    this.sim = this.createSim();
+    this.view.dispose();
+    this.view = this.createView();
+    this.view.field.hymnOverride = this.hymn ? this.hymnCircles() : null;
+    const w = this.sim.state.entities.get(this.sim.state.weaverId);
+    this.rig.snapTo(w?.x ?? 0, w?.z ?? 0);
+    this.view.onEvents(this.sim.drainEvents(), this.sim.state);
+  }
+
+  relicScenario(name: string): void {
+    const s = RELIC_SCENARIOS[name];
+    if (!s) return;
+    this.restart(s.relics);
+    s.stage(this);
+  }
+
+  relicStats(): { fired: Record<string, number>; active: number; prism: number } {
+    const r = this.view.relics;
+    return { fired: { ...r.fired }, active: r.activeCount(), prism: r.prism.count };
+  }
+
+  /** Runs `fn` on the first sim event matching `pred` (scenario staging). */
+  onEvent(pred: (e: SimEvent) => boolean, fn: (e: SimEvent) => void): void {
+    this.taps.push({ pred, fn });
+  }
+
+  /**
+   * A Bell Brute beside the hero in `slot`, with the Weaver stepped back out of its Toll Cleave
+   * (the cone is 5 m long and one-shots the Weaver), so the Ward is the story.
+   */
+  brute(slot: number): void {
+    const p = this.heroPos(slot);
+    this.queue({ t: 'debug', op: { op: 'teleportWeaver', x: p.x - 4.5, z: p.z + 2.5 } });
+    this.queue({
+      t: 'debug',
+      op: { op: 'spawnEnemy', defId: 'bell_brute', x: p.x + 2.5, z: p.z - 1 },
+    });
+  }
+
+  /** Wards the hero in `slot` inside the Perfect window of the next telegraph named `name`. */
+  perfectOn(name: string, slot: number): void {
+    this.onEvent(
+      (e) => e.type === 'telegraphStarted' && e.name === name,
+      (e) => {
+        if (e.type !== 'telegraphStarted') return;
+        const t = this.sim.state.telegraphs.find((k) => k.id === e.telegraph);
+        if (!t) return;
+        const at = t.perfectFrom + 0.05 - this.sim.state.time;
+        this.later(Math.max(0, at), () =>
+          this.queue({ t: 'tech', id: 'ward', slot: slot as PartySlot }),
+        );
+      },
+    );
+  }
+
+  private tap(events: readonly SimEvent[]): void {
+    if (this.taps.length === 0) return;
+    for (const e of events) {
+      for (let i = this.taps.length - 1; i >= 0; i--) {
+        const t = this.taps[i]!;
+        if (!t.pred(e)) continue;
+        this.taps.splice(i, 1);
+        t.fn(e);
+      }
+    }
   }
 
   private createView(): CombatView {
@@ -638,7 +872,7 @@ class LabRuntime {
   }
 
   /** Runs `fn` after `delay` sim seconds (SwiftShader runs the sim slower than real time). */
-  private later(delay: number, fn: () => void): void {
+  later(delay: number, fn: () => void): void {
     this.scheduled.push({ at: this.sim.state.time + delay, fn });
   }
 
@@ -726,7 +960,9 @@ class LabRuntime {
       if (steps > 0) {
         const cmds = this.pending.splice(0);
         for (let i = 0; i < steps; i++) this.sim.step(i === 0 ? cmds : []);
-        this.view.onEvents(this.sim.drainEvents(), this.sim.state);
+        const events = this.sim.drainEvents();
+        this.view.onEvents(events, this.sim.state);
+        this.tap(events);
         this.runScheduled();
       }
     }
@@ -897,11 +1133,15 @@ export function VfxLab() {
       auraHit: (s, amount, empower, aura) => rt.auraHit(s, amount, empower, aura),
       auraHeal: (s, amount) => rt.auraHeal(s, amount),
       attackers: (s, n) => rt.attackers(s, n),
+      relicScenarios: () => RELIC_SCENARIO_NAMES,
+      relicScenario: (name) => rt.relicScenario(name),
+      setRelics: (ids) => rt.restart(ids),
+      relicStats: () => rt.relicStats(),
     };
     const timer = window.setInterval(() => {
       const i = rt.info();
       if (statsRef.current) {
-        statsRef.current.textContent = `fps ${i.fps.toFixed(1)}  calls ${i.calls}  tris ${(i.triangles / 1000).toFixed(1)}k\nparticles ${i.particles}  entities ${rt.sim.state.entities.count}  tick ${rt.sim.tick}`;
+        statsRef.current.textContent = `fps ${i.fps.toFixed(1)}  calls ${i.calls}  tris ${(i.triangles / 1000).toFixed(1)}k\nparticles ${i.particles}  entities ${rt.sim.state.entities.count}  tick ${rt.sim.tick}\nrelics ${rt.sim.state.relics.ids.length ? rt.sim.state.relics.ids.join(', ') : 'none'}`;
       }
     }, 250);
     return () => {
@@ -1181,6 +1421,23 @@ export function VfxLab() {
             title="Synthetic: an aura heal ♪+38 next to a Mend heal +120"
           >
             Aura heal + Mend
+          </Btn>
+        </Group>
+        <Group title="Phase 3b · Relics">
+          <p className="w-full text-[10px] text-muted">
+            Each restarts the real sim carrying the relic and stages the moment it acts.
+          </p>
+          {RELIC_SCENARIO_NAMES.map((name) => (
+            <Btn
+              key={name}
+              onClick={() => rt()?.relicScenario(name)}
+              title={RELIC_SCENARIOS[name]!.note}
+            >
+              {name}
+            </Btn>
+          ))}
+          <Btn onClick={() => rt()?.restart([])} title="Restart without relics">
+            No relics
           </Btn>
         </Group>
         <Group title="Phase 2 · Chords">

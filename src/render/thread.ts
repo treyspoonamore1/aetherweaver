@@ -15,6 +15,19 @@ const PULSES = 6;
 /** The pour splashes on the hero after `POUR_TRAVEL` and is over after this long. */
 const POUR_LIFE = 1.1;
 
+/** The Weaver's weaving hand, where the Thread leaves from (relics.ts reuses it). */
+export function weaverHand(
+  wr: { x: number; y: number; z: number; yaw: number },
+  out: { x: number; y: number; z: number },
+): { x: number; y: number; z: number } {
+  const fx = -Math.sin(wr.yaw);
+  const fz = -Math.cos(wr.yaw);
+  out.x = wr.x - fz * 0.3 + fx * 0.26;
+  out.y = 1.02 + wr.y;
+  out.z = wr.z + fx * 0.3 + fz * 0.26;
+  return out;
+}
+
 /**
  * ThreadView (docs/plan/05 §5.3): a camera-facing ribbon along a spline from the Weaver's hand
  * to the threaded hero's chest. Sags when slack, goes straight and thin when taut with a
@@ -49,6 +62,7 @@ export class ThreadView {
   private pourSplashed = true;
   private readonly pourA = new THREE.Color();
   private readonly pourB = new THREE.Color();
+  private readonly hand = { x: 0, y: 0, z: 0 };
   private pourLabel = '';
   private pourHex = '#ffffff';
 
@@ -134,13 +148,10 @@ export class ThreadView {
     const tension = w.threadTension;
 
     // Endpoints: the Weaver's weaving hand → the hero's chest.
-    const fx = -Math.sin(wr.yaw);
-    const fz = -Math.cos(wr.yaw);
-    const sx = -fz;
-    const sz = fx;
-    const ax = wr.x + sx * 0.3 + fx * 0.26;
-    const ay = 1.02 + wr.y;
-    const az = wr.z + sz * 0.3 + fz * 0.26;
+    weaverHand(wr, this.hand);
+    const ax = this.hand.x;
+    const ay = this.hand.y;
+    const az = this.hand.z;
     const bx = tr.x;
     const by = tr.height * 0.58 + tr.y;
     const bz = tr.z;

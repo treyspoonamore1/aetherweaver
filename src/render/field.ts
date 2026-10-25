@@ -11,11 +11,13 @@ import { C, approach, auraColor, clamp01, color } from './palette';
 import {
   POUR_TRAVEL,
   beamSong,
+  FULL_ECHO_LOUDNESS,
   fieldLook,
   type ChordView,
   fieldLoudness,
   focusLevel,
   isAllIn,
+  isFullEcho,
 } from './songs';
 
 const vertex = /* glsl */ `
@@ -87,12 +89,15 @@ void main() {
     }
     float bandA;
     if (echo > 0.5) {
+      // A full-strength echo (Spindle of Fate, loudness 1) keeps the dashes, so it still reads
+      // as the beam's echo, but at a field song's weight: longer, thicker dashes and its glow.
+      float full = step(${FULL_ECHO_LOUDNESS.toFixed(2)}, loud);
       float ri = R + vRole.z - float(i) * 0.24;
       float spin = (1.0 - planted) * dir * uTime * 0.04;
-      float dash = step(0.5, fract(ang / 6.2831853 * 42.0 + spin + float(i) * 0.5));
-      float line = awAA(abs(d - ri) - (0.022 + 0.02 * cre)) * dash;
-      float glow = exp(-abs(d - ri) * 9.0) * 0.1;
-      bandA = (line * 0.9 + glow) * broken * hot * loud;
+      float dash = step(0.5 - 0.22 * full, fract(ang / 6.2831853 * (42.0 - 14.0 * full) + spin + float(i) * 0.5));
+      float line = awAA(abs(d - ri) - (0.022 + 0.018 * full + 0.02 * cre)) * dash;
+      float glow = exp(-abs(d - ri) * (9.0 - 2.5 * full)) * (0.1 + 0.2 * full);
+      bandA = (line * (0.9 - 0.35 * full) + glow) * broken * hot * loud;
     } else {
       float ri = R - float(i) * 0.34;
       float line = awAA(abs(d - ri) - (0.04 + 0.035 * cre + 0.02 * planted));
@@ -431,7 +436,10 @@ export class FieldView {
         fieldLoudness(c),
         offset,
       );
-      if (planted) this.stake(this.fx[i]!, this.fz[i]!, a0, a1, kit, dt, time, pop, echo ? 0.6 : 1);
+      if (planted) {
+        const loud = echo && !isFullEcho(c) ? 0.6 : 1;
+        this.stake(this.fx[i]!, this.fz[i]!, a0, a1, kit, dt, time, pop, loud);
+      }
     }
     this.batch.end();
     this.beam(state, kit, dt, time);

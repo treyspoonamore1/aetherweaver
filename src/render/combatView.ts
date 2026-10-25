@@ -12,6 +12,7 @@ import { RING } from './fx/rings';
 import { createModelMaterial, type ModelMaterial } from './models/material';
 import { Overlay } from './overlay';
 import { C, applyVision } from './palette';
+import { RelicView } from './relics';
 import type { QualityTier } from './stage';
 import { TelegraphLayer } from './telegraphs';
 import { ThreadView } from './thread';
@@ -35,6 +36,7 @@ export class CombatView implements WorldView {
   readonly calls: CallView;
   readonly fermata: FermataView;
   readonly feedback: Feedback;
+  readonly relics: RelicView;
   private quality: QualityTier;
   private readonly bufferSize = new THREE.Vector2();
   private readonly heroHex = new Map<number, string>();
@@ -72,6 +74,12 @@ export class CombatView implements WorldView {
       rig: ctx.rig,
       stage: ctx.stage,
     });
+    this.relics = new RelicView({
+      kit: this.kit,
+      recs: this.entities.recs,
+      overlay: this.overlay,
+      rig: ctx.rig,
+    });
     this.quality = ctx.quality;
     this.setQuality(ctx.quality);
     void state;
@@ -98,6 +106,7 @@ export class CombatView implements WorldView {
     this.calls.sync(state, this.kit, this.overlay, fxDt);
     this.fermata.sync(state, this.kit, this.overlay, fxDt, frame.time);
     this.feedback.sync(state, frame, fxDt);
+    this.relics.sync(state, fxDt, frame.time, frame.settings.flashes);
     this.offscreen(state);
     this.aimMarker(state, frame);
 
@@ -112,6 +121,7 @@ export class CombatView implements WorldView {
   onEvents(events: readonly SimEvent[], state: WorldState): void {
     if (this.disposed) return;
     this.feedback.handle(events, state);
+    this.relics.handle(events, state);
   }
 
   setQuality(quality: QualityTier): void {
