@@ -11,7 +11,7 @@ This repo is the remake of the original prototype, which is kept read-only in [`
 
 The automated checks pass; the human playtest is next. See [`docs/phase-2.md`](docs/phase-2.md), [`docs/phase-1.md`](docs/phase-1.md) and [`docs/phase-0.md`](docs/phase-0.md).
 
-![A busy fight: telegraphs with answer glyphs, the Thread, the aura field and damage numbers](docs/phase-1/vfx/busy-fight.jpg)
+![Kael calls for a Ward; answered, his glyph fills and names the Bulwark Flourish](docs/phase-2/vfx/call-answered-real-sim.jpg)
 
 ## Quick start
 
