@@ -77,7 +77,18 @@ export function announceDecree(world: World, event: SimEventOf<'decree'>): void 
  * A relic visibly acted (docs/phase-3b.md): the view hears `relicTriggered`, and the relic's
  * count in `WorldState.relics.triggers` goes up, so a HUD reading snapshots can flash it too.
  */
-export function relicFired(world: World, relic: string, hero: EntityId | null): void {
+export function relicFired(
+  world: World,
+  relic: string,
+  hero: EntityId | null,
+  targets?: EntityId[],
+): void {
   world.relics.triggers[relic] = (world.relics.triggers[relic] ?? 0) + 1;
-  world.events.push({ type: 'relicTriggered', tick: world.tick, relic, hero });
+  world.events.push({
+    type: 'relicTriggered',
+    tick: world.tick,
+    relic,
+    hero,
+    ...(targets ? { targets } : {}),
+  });
 }

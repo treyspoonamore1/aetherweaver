@@ -235,12 +235,19 @@ export class RelicView {
     m.x = r?.x ?? he?.x ?? 0;
     m.z = r?.z ?? he?.z ?? 0;
     if (cue === 'lantern' || cue === 'halo') {
-      // The Lantern's lights go to the others; the Halo's glints to everyone standing.
-      for (const id of state.party) {
-        if (cue === 'lantern' && id === hero) continue;
-        const h = state.entities.get(id)?.health;
-        if (!h || h.dead || h.downed || m.tcount >= MAX_TARGETS) continue;
-        m.targets[m.tcount++] = id;
+      // The heroes the sim says it reached (a hero keeping a bigger shield of their own gets
+      // no Lantern light); without that list, the others standing for the Lantern and
+      // everyone standing for the Halo.
+      const reached = e.type === 'relicTriggered' ? e.targets : undefined;
+      if (reached) {
+        for (const id of reached) if (m.tcount < MAX_TARGETS) m.targets[m.tcount++] = id;
+      } else {
+        for (const id of state.party) {
+          if (cue === 'lantern' && id === hero) continue;
+          const h = state.entities.get(id)?.health;
+          if (!h || h.dead || h.downed || m.tcount >= MAX_TARGETS) continue;
+          m.targets[m.tcount++] = id;
+        }
       }
     } else if (cue === 'fork') {
       // The Fork's share of the Solo: from where it stood last frame (exact when it capped at

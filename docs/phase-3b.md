@@ -120,6 +120,7 @@ Details and screenshots: [UI](phase-3b/ui.md), [VFX](phase-3b/vfx.md), [audio](p
 | **Result / Summary** | "+N Aether" with the grade's bonus; Continue says what's next. The summary lists the relics and the Aether earned and left. |
 | **HUD** | A relic bar under the encounter header: cooldown rings for the Metronome and the Thimble, the Veil's single charge, a flash whenever a relic acts, and boon chips. |
 | **Codex** | Relics (by rarity, prices, where they come from) and Events (every choice). |
+| **In the fight** | Every relic moment shows on the hero it helped, from the Weaver: the Thimble's silver needle sews a shield, the Lantern's lights fly to the others' barriers, the Veil unfurls from the saved hero to the Weaver, a brass metronome ticks over the Weaver while ready and stamps a clock face under the hero it makes Perfect, the Fork rings and grows the Solo arc, the Glass Halo shatters into heals, the Prism Loom spills faint prismatic threads to the heroes it reaches, and a refused Glide under Heavy Score drops a chain on the Weaver. Spindle of Fate's full echo stays dashed but loud. All within the old draw-call budget. |
 | **Sound** | Ten new UI sounds (a purchase, a refusal, the forge's anvil, an event's opening, a gamble's bell ringing true or cracking, relics revealed and taken, a curse lifted, Aether counted) and a voice for every relic moment in combat, sitting under the Perfect Ward and Save sounds. |
 
 ## Threat

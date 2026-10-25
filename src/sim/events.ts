@@ -346,6 +346,8 @@ export interface RelicTriggered extends At {
   type: 'relicTriggered';
   relic: string;
   hero: EntityId | null;
+  /** The heroes it reached, when that's more than `hero`: the Lantern's barriers, the Halo's heals. */
+  targets?: EntityId[];
 }
 
 // ── Call and Response (docs/phase-2.md) ───────────────────────────────────────────────

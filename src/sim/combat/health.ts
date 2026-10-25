@@ -487,7 +487,7 @@ function martyr(world: World, hero: Entity, amount: number, opts: DamageOpts): b
 function lantern(world: World, downed: Entity): void {
   const pct = world.mods.lanternBarrierPct;
   if (pct <= 0) return;
-  let any = false;
+  const reached: EntityId[] = [];
   for (const id of world.party) {
     const ally = world.entities.get(id);
     if (!ally || ally.id === downed.id || !isActive(ally)) continue;
@@ -496,9 +496,9 @@ function lantern(world: World, downed: Entity): void {
     const existing = shieldOf(ally.health, 'overshield');
     if (existing && (!existing.fromWeaver || existing.amount >= amount)) continue;
     addShield(world, ally, 'overshield', amount, world.mods.lanternDuration, true);
-    any = true;
+    reached.push(ally.id);
   }
-  if (any) relicFired(world, 'lantern_of_the_lost', downed.id);
+  if (reached.length > 0) relicFired(world, 'lantern_of_the_lost', downed.id, reached);
 }
 
 function shieldOrder(kind: ShieldKind): number {

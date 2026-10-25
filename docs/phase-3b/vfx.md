@@ -36,10 +36,10 @@ render changes.
 | **Cracked Metronome** | Ready / an early Ward counts as Perfect | **While ready**: a small brass **metronome ticks** over the Weaver's head, with a dashed brass dial at their feet brightening on each tick. **While winding up**: the dial fills over the 12 s cooldown, and a ring pops when it is ready again. **When it fires**: a brass streak from the metronome to the hero, a tick-flash, and a brass **clock face** on the ground under the hero whose hand ticks forward one notch. This reads under the Perfect's overhead bloom. `METRONOME` appears above `PERFECT`. |
 | **Tuning Fork** | A Perfect Ward charges the hero's Solo | A steel **tuning fork** rings at the hero's shoulder (its prongs shiver), sound rings roll out from their chest, and their **Solo arc** (gold, at their feet) fills by the Fork's share, with a bright leading spark and `+25% SOLO` under them. The share is the Solo before and after, so it is exact when the charge caps at 100. |
 | **Glass Halo** | A Perfect Ward heals every hero | A **glass halo** forms over the warded hero (after the Perfect's bloom), **shatters** into shards and a dashed ring, and its shards fly to **every standing hero** as healing glints that land in heal rings. `GLASS HALO` appears, and the heal numbers are the sim's `healApplied`. |
-| **Cantor's Hymnal** | Tick 0: the fight opens with 25 Resonance | An opening **shimmer** at the Weaver: Resonance and gold rings, a column of light, notes spiralling up, and `HYMNAL · CUE READY`. |
+| **Cantor's Hymnal** | Tick 0: the fight opens with 50 Resonance | An opening **shimmer** at the Weaver: Resonance and gold rings, a column of light, notes spiralling up, and `HYMNAL · CUE READY`. |
 | **Prism Loom** | Continuous | Faint **prismatic threads** from the threaded hero's chest to each hero inside its reach, coloured like the Thread (Mend teal / Empower gold, washed with a slow spectrum), as bright as their share (they dim with tension, like the Thread). Beads flow along them, and **Mend pulses travel them** when the spilled Mend lands. The **reach** is drawn as a faint prismatic dashed ring at the threaded hero's feet, so who is inside reads at once. Links fade in and out as heroes cross the edge. Nothing is drawn for a downed threaded hero or a downed Weaver (the sim gives no share then either). |
 | **Spindle of Fate** | Continuous | The beam song's echo plays at ×1. It is drawn as loud as a field song but **still dashed** (longer, thicker dashes and a glow), still just outside a shared field song, and heroes hearing it get bold dashed foot arcs. Without the Spindle the echo is unchanged (thin, faint dashes). |
-| **Heavy Score** | A Glide is refused (`techniqueRejected`, glide, `locked`) | An iron **weight drops** onto the Weaver, an iron ring slams in, a **chain** of links closes round them, dust, a small shake, and `NO GLIDE`. Rate-limited to one every 0.4 s, so mashing Space doesn't stack chains. The blessing (+25% hero damage) already shows as the gold chip on damage numbers (`amplified`). |
+| **Heavy Score** | A Glide is refused (`techniqueRejected`, glide, `locked`) | An iron **weight drops** onto the Weaver, an iron ring slams in, a **chain** of links closes round them, dust, a small shake, and `NO GLIDE`. Rate-limited to one every 0.4 s, so mashing Space doesn't stack chains. The blessing (+15% hero damage) already shows as the gold chip on damage numbers (`amplified`). |
 
 **Settings.**
 
@@ -125,7 +125,22 @@ These were measured with Chromium headless (SwiftShader) from an isolated produc
 agents' edits were hot-reloading the dev server). Draw calls are from `renderer.info`. Frame
 times under SwiftShader are noise, not FPS.
 
-PERF_TABLE
+| Measure | Draw calls |
+| --- | --- |
+| Lab, **no relics**, Lyra threaded (Guardian), idle / busy (25 + Bellwarden) | 22 / 36 |
+| Lab, Silver Thimble (ready glint, two stitches played) | 23 / 36 |
+| Lab, Prism Loom (two prism links, reach ring) | **22 / 36** |
+| Lab, Spindle of Fate (full echo) | 22 / 36 |
+| Lab, Cracked Metronome (ticking; the scenario's brute fight is on screen) | 26 / 36 |
+| Lab, every relic (all 15; a brute fight on screen) | 28 / 36 |
+| Lab, relic moments while firing (Thimble, Lantern, Veil, Metronome, Fork, Halo, Hymnal, Heavy) | 22–30 (the Perfect's shell, telegraphs and bars on screen account for the spread) |
+| e2e busy fight (137 entities, high, autoplay), 2 runs | **30**, 30 (Phase 3: 30) |
+| e2e busy fight, frame ms mean / p95 | 6.4 / 8.8, 7.2 / 7.2 (CPU shared with two other agents' builds) |
+| e2e busy fight, sim ms per tick | 0.26, 0.32 |
+
+The relic scenarios' own idle numbers differ from "no relics" only by what their staging adds
+(the Metronome and every-relic scenarios have a Bell Brute fight on screen). The busy preset is
+36 in every case.
 
 **No new draw calls, no new batches, no new materials or shaders** (the field shader's echo
 branch gained two `step`s). Every relic moment rides the ring, sprite, beam, ribbon, shell,
@@ -139,7 +154,19 @@ array. The only per-event allocations are the overlay callout strings (as for ev
 
 ## Screenshots
 
-SHOTS_TABLE
+| | |
+| --- | --- |
+| ![](vfx/thimble-needle.jpg) **Silver Thimble**: the needle leaves the Weaver's hand for Lyra (the Thread's second hero, 4 s later) | ![](vfx/thimble-stitch.jpg) …and sews the shield on: silver spiral, cinching dashed ring, `THIMBLE` |
+| ![](vfx/lantern-rise.jpg) **Lantern of the Lost**: Kael goes down; the lantern rises where he fell | ![](vfx/lantern-lights.jpg) …and splits into lights for Lyra and Vexis |
+| ![](vfx/lantern-barriers.jpg) …landing as their barriers | ![](vfx/veil.jpg) **Martyr's Veil**: the drape and its shadow run from Kael (behind the brutes, `SAVED`) to the Weaver, shrouded, `VEIL` |
+| ![](vfx/metronome-ready.jpg) **Cracked Metronome, ready**: the brass metronome over the Weaver, the dial at their feet | ![](vfx/metronome-tick.jpg) **…firing**: an early Ward made Perfect; the brass clock face under Kael, `METRONOME` over `PERFECT` |
+| ![](vfx/metronome-flashes-off.jpg) The same with **flashes at 0**: the flares are dimmer, the clock face and labels are unchanged | ![](vfx/tuning-fork.jpg) **Tuning Fork**: the fork at Kael's shoulder, his Solo arc grown by its share, `+25% SOLO` |
+| ![](vfx/glass-halo.jpg) **Glass Halo**: the shattered halo's ring over Kael, glints flying to Lyra and Vexis, `GLASS HALO` | ![](vfx/glass-halo-deuteranopia.jpg) The same under **deuteranopia** (heal glints in the live heal colour) |
+| ![](vfx/hymnal.jpg) **Cantor's Hymnal**: the opening shimmer, `HYMNAL · CUE READY` | ![](vfx/heavy-score-weight.jpg) **Heavy Score**: a refused Glide; the weight drops on the Weaver… |
+| ![](vfx/heavy-score-chain.jpg) …and the chain closes, `NO GLIDE` | ![](vfx/prism-mend.jpg) **Prism Loom (Mend)**: Lyra threaded; links to Kael and Vexis inside the reach ring |
+| ![](vfx/prism-empower.jpg) **Prism Loom (Empower)**: the same in gold | ![](vfx/prism-tritanopia.jpg) Prism Loom under **tritanopia** (the live Mend colour) |
+| ![](vfx/spindle-full-echo.jpg) **Spindle of Fate** (Guardian, Lyra threaded): the Fortissimo echo at ×1 just outside the Sostenuto field song, bold dashes; Kael's and Vexis's arcs bold dashed | ![](vfx/spindle-off.jpg) The same loadout **without** the Spindle: the echo is thin and faint |
+| ![](vfx/every-relic.jpg) **Every relic** (clutter check): a Perfect with the Fork and the Halo; the labels stack `GLASS HALO` / `PERFECT` / `+25% SOLO`, the Spindle's bold echo and the Thimble's glint stay. The elite brute's cleave still reached the Weaver in this run (the downed Weaver at the centre). | |
 
 ## Known gaps
 
@@ -180,3 +207,9 @@ SHOTS_TABLE
   today).
 - Optional: **`techniqueRejected.cause: 'heavy_score'`**, so a future second Glide lock (another
   curse, a status) doesn't show Heavy Score's chain.
+
+### Resolved by the lead
+
+- **`relicTriggered.targets`**: the Lantern and the Glass Halo now name the heroes they reached (a hero keeping a bigger shield of their own gets no Lantern barrier), and `RelicView` draws its lights to exactly those, falling back to everyone standing when an event has no list.
+- Still open: the shield or heal `amount` on the event, a debug op to set a hero's life for staging, `WorldState.relics.prism`, and a `cause` on a refused Glide.
+

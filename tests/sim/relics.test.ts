@@ -115,7 +115,10 @@ describe('common relics', () => {
         6,
       );
     }
-    expect(triggered(events, 'lantern_of_the_lost')[0]?.hero).toBe(hero(sim, 0).id);
+    expect(triggered(events, 'lantern_of_the_lost')[0]).toMatchObject({
+      hero: hero(sim, 0).id,
+      targets: [hero(sim, 1).id, hero(sim, 2).id],
+    });
   });
 
   it('Featherweight Robes shorten Glide’s cooldown', () => {
@@ -419,6 +422,11 @@ describe('review fixes', () => {
     expect(sim.state.relics.thimbleAt).toBe(0);
     hurt(sim, 0, 1e6);
     expect(lyra.health!.shields.find((s) => s.kind === 'overshield')!.fromWeaver).toBe(false);
+    // The Lantern names who it reached: Vexis, not Lyra.
+    const lit = ofType(sim.drainEvents(), 'relicTriggered').find(
+      (e) => e.relic === 'lantern_of_the_lost',
+    );
+    expect(lit?.targets).toEqual([hero(sim, 2).id]);
     expect(hero(sim, 2).health!.shields.find((s) => s.kind === 'overshield')?.fromWeaver).toBe(
       true,
     );

@@ -357,11 +357,11 @@ class LabRuntime {
 
   /**
    * A Bell Brute beside the hero in `slot`, with the Weaver stepped back out of its Toll Cleave
-   * (the cone is 5 m long and one-shots the Weaver), so the Ward is the story.
+   * (the cone is 5 m long, more for an elite, and one-shots the Weaver), so the Ward is the story.
    */
   brute(slot: number, elite = false): void {
     const p = this.heroPos(slot);
-    this.queue({ t: 'debug', op: { op: 'teleportWeaver', x: p.x - 4.5, z: p.z + 2.5 } });
+    this.queue({ t: 'debug', op: { op: 'teleportWeaver', x: p.x - 6, z: p.z + 4 } });
     this.queue({
       t: 'debug',
       op: { op: 'spawnEnemy', defId: 'bell_brute', x: p.x + 2.5, z: p.z - 1, elite },

@@ -385,11 +385,14 @@ function perfectRelics(world: World, hero: Entity): void {
   }
   const pct = world.mods.perfectHealPct;
   if (pct > 0) {
+    const healed: EntityId[] = [];
     for (const id of world.party) {
       const ally = world.entities.get(id);
-      if (isActive(ally)) heal(world, ally, ally.health.maxHp * pct, 'other');
+      if (!isActive(ally)) continue;
+      heal(world, ally, ally.health.maxHp * pct, 'other');
+      healed.push(ally.id);
     }
-    relicFired(world, 'glass_halo', hero.id);
+    relicFired(world, 'glass_halo', hero.id, healed);
   }
 }
 
