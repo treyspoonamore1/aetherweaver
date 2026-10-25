@@ -68,7 +68,15 @@ A first run that dies in its third fight still reaches Rank 2. **Settings → Sk
   - **HUD**: a ♪×2 badge on the hero the beam pours into, aura pips split by song (beam, echo, field), one group per song on the Weaver bar, and a small live readout of the auras' and the Thread's totals.
   - The Codex explains the songs, the new Unison and Weaver Rank; Training Grounds keeps every preset open.
 - **Audio** ([details](phase-3/audio.md)): the Thread's hum harmonises with the beam song (fuller with Unison), a short arpeggio "pours" when the beam moves to a new hero, and new rank-up and unlock sounds.
-<!-- vfx: filled in when the workstream lands -->
+- **VFX** ([details](phase-3/vfx.md)):
+  - The hero the beam pours into wears a **halo** in the beam song's colours, scaled by its strength (All In's is bigger and burns), and swells slightly. When you move the beam, the song **pours** along the Thread to the new hero and a callout names the strength ("♪ ×2").
+  - The beam song's **echo** is drawn quieter than the **field song** (thin dashed bands and faint ripples against the field song's full bands), so you can tell the half-heard echo from the full song at a glance. Each hero's foot arcs show how they hear each aura.
+  - **Numbers**: each hit's Weaver share splits into a **gold chip** (Empower and Flourishes) and a **♪ chip** (the auras); aura heals get their own small ♪ numbers instead of merging into Mend's. Both follow colour vision.
+  - The e2e busy fight still makes 30 draw calls.
+
+| | |
+|---|---|
+| ![Guardian: the echo outside the field song, the halo on Lyra](phase-3/vfx/guardian-echo-vs-field.jpg) **Guardian**: the field song (solid) and the beam's quieter echo (dashed); the halo on the threaded hero | ![Real-sim chips: 188 ♪+40](phase-3/vfx/aura-chips-real-sim.jpg) **The auras' share** on a real hit (♪+40), and a soft ♪+11 aura heal |
 
 ## Harness
 
@@ -149,6 +157,15 @@ The six presets, 20 seeds per fight and 10 whole runs each: `npm run loadouts --
   - **Anchor** got Sostenuto in its planted field: with only Allegro on the beam it had no sustain and beat the Cantor 30% of the time.
   - **Bastion** became Steady's beam lightened with Grace Note plus Ostinato in the field: the first version reserved so much Spirit that the Shattered Choir won 13% of the time over 60 seeds.
 - Wide Choir's share is lower (32%) because it carries no damage aura: its help is barriers, regeneration and the Fermata.
+
+## Known gaps
+
+- **The playtest.** The design came from one player's feedback; the songs need a second look by humans, starting with that player.
+- **Balance.** The Novice bot wins half its runs, five points above the Phase 1 band (it answers more calls than a real newcomer would).
+- **UI**: the rank-up card doesn't fully trap keyboard focus; the beam hint fires on first use rather than at a moment the beam made a difference; resetting progress mid-run leaves that run's songs in place (the builder marks them locked until emptied).
+- **VFX**: the ♪ chip can't yet say whether the beam or the field song did the work, and aura heals can't say which aura; the pour plays on every attach, including re-attaching after the Thread snaps; halos use the auras' own colours, which colour vision doesn't remap (the numbers do); in crowded fights the Thread snaps often, so the beam shows less.
+- **Audio**: the new sounds' levels are estimated, not measured with the offline audit.
+- **Contract requests** (not made yet): the beam song's part of each hit's aura share (`damageTaken.auraBeam`), the aura behind each aura heal, a pour time on the Chord (so a view opened mid-pour can time it), and per-hero beam totals for a better-timed hint.
 
 ## Code review
 
