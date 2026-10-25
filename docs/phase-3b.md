@@ -193,6 +193,13 @@ An independent review of the sim, run layer, content, harness and audio changes 
 
 And four smaller ones: Phase 3 saves no longer get Threat on their old map (fights read Threat from the node, and migrated nodes say ×1); relic shields no longer replace a hero's own overshield (an uncued Aegis Wall); a won event fight heals 20% like any other win; the migration test now loads a genuine seven-stop map with no Threat fields.
 
+A second review, of the UI, found two defects a player would hit, both fixed:
+
+- **A double-click carried into the next screen.** On a map node it bought the relic that appeared under the cursor (or took an event's first choice); on a relic offer it also picked a motif from the draft that followed; on the Shrine or the forge it gambled or tempered a motif at once. The run screens now ignore input for 350 ms after the screen changes, behind a transparent veil (so Playwright waits instead of losing clicks), and always ignore a double-click's second click and a held key's repeats. Fights keep their own input. The reviewer's four repros leave the run untouched now.
+- **Relic flashes on the HUD never ended** in a live fight (every snapshot cancelled the timer that ends them). Fixed, and checked in a browser.
+
+Smaller ones: Threat no longer shows on events without a fight; the forge's result survives a reload and event lines say what really happened (a motif's "level 1 → 3"; healing hero by hero when a cap got in the way); the Codex reads the Unsung Choir's relic count from its content; every event must keep a choice that's always open (a schema check); three tests now check the real thing (a shop the run stocked, the sim's relic counts, the purse on screen in the e2e).
+
 ## What's next
 
 The **Luminary**, the first Calling (the user's pick), then more events and relics, motifs and Harmonies, technique variants, a fourth elite affix, director v2 and an onboarding pass.
