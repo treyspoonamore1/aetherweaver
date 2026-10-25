@@ -1,5 +1,7 @@
 import { CONTENT, arenaDef, encounterDef, heroDef } from '../content';
 import type { Content } from '../content/schema';
+import { canonicalChords, chordProblems, resolveChord, type ChordResolved } from './chords';
+import type { AuraTotals } from './combat/auras';
 import type { DirectiveKind, PartySlot } from './commands';
 import { WORLD_HALF_EXTENT } from './constants';
 import { EntityStore } from './core/entities';
@@ -39,19 +41,32 @@ export interface AssistConfig {
   autonomy?: boolean;
 }
 
+/** A Chord as configured (ornaments default to none). */
+export interface ChordConfig {
+  auras: string[];
+  ornaments?: string[];
+}
+
 export interface SimConfig {
   seed: number;
   /** Party in slot order (hero ids or member configs). Defaults to the content's default party. */
   party?: (string | PartyMemberConfig)[];
   /** Encounter to play. Defaults to the sandbox (no waves, never ends). */
   encounter?: string;
-  /** The Chord: active aura ids (Chord I holds two). */
+  /** Shorthand for a single Chord with these auras and no ornaments. Ignored when `chords` is set. */
   auras?: string[];
+  /** The Weaver's Chords, Chord I first (docs/plan/03 §4). Must be a legal loadout. */
+  chords?: ChordConfig[];
   /** Owned motifs and their levels. */
   motifs?: { id: string; level: number }[];
   assists?: AssistConfig;
   /** Enables `debug` commands (spawns, teleport). Debug commands are recorded in replays. */
   debug?: boolean;
+  /**
+   * The Weaver is absent: no Chords, no calls, nothing targets them and nobody can be revived.
+   * The party fights alone — the "without you" re-run shown after each fight.
+   */
+  absent?: boolean;
 }
 
 /** SimConfig with every default filled in. This is what replays store and the hash covers. */
@@ -59,10 +74,11 @@ export interface ResolvedSimConfig {
   seed: number;
   party: Required<PartyMemberConfig>[];
   encounter: string;
-  auras: string[];
+  chords: { auras: string[]; ornaments: string[] }[];
   motifs: { id: string; level: number }[];
   assists: Required<AssistConfig>;
   debug: boolean;
+  absent: boolean;
 }
 
 export function resolveConfig(config: SimConfig, content: Content = CONTENT): ResolvedSimConfig {
@@ -79,11 +95,15 @@ export function resolveConfig(config: SimConfig, content: Content = CONTENT): Re
   if (party.length < 1 || party.length > 4) throw new Error('A party has 1–4 heroes');
   const encounter = config.encounter ?? 'sandbox';
   encounterDef(encounter);
-  const auras = [...(config.auras ?? [])];
-  for (const id of auras) {
-    if (!content.auras.some((a) => a.id === id)) throw new Error(`Unknown aura "${id}"`);
-  }
-  if (new Set(auras).size !== auras.length) throw new Error('Duplicate aura in the Chord');
+  const absent = config.absent ?? false;
+  const given = config.chords ?? (config.auras ? [{ auras: config.auras }] : []);
+  const chords = absent
+    ? []
+    : canonicalChords(
+        given.map((c) => ({ auras: [...c.auras], ornaments: [...(c.ornaments ?? [])] })),
+      );
+  const problems = chordProblems(chords, content);
+  if (problems.length > 0) throw new Error(`Illegal Chords: ${problems.join(' ')}`);
   const motifs = (config.motifs ?? []).map((m) => {
     const def = content.motifs.find((d) => d.id === m.id);
     if (!def) throw new Error(`Unknown motif "${m.id}"`);
@@ -95,7 +115,7 @@ export function resolveConfig(config: SimConfig, content: Content = CONTENT): Re
     seed: config.seed >>> 0,
     party,
     encounter,
-    auras,
+    chords,
     motifs,
     assists: {
       perfectWindowBonus: Math.max(0, Math.min(0.3, a.perfectWindowBonus ?? 0)),
@@ -103,6 +123,7 @@ export function resolveConfig(config: SimConfig, content: Content = CONTENT): Re
       autonomy: a.autonomy ?? false,
     },
     debug: config.debug ?? false,
+    absent,
   };
 }
 
@@ -177,6 +198,8 @@ export interface SimInternal {
   rallyUntil: number;
   /** Last directive acknowledgement bark (rate limit). */
   directiveBarkAt: number;
+  /** Earliest sim time any hero may call (spacing between calls). */
+  nextCallAt: number;
 }
 
 /** The sim's mutable world. Exposed to the outside only as the read-only WorldState. */
@@ -204,8 +227,19 @@ export interface World extends WorldState {
   readonly events: EventQueue<SimEvent>;
   readonly spatial: SpatialHash;
   readonly internal: SimInternal;
-  /** Reused scratch buffers; no per-tick allocation in hot loops. */
-  readonly scratch: { near: number[]; slot: { x: number; z: number }; ids: EntityId[] };
+  /** The Chords with their ornaments folded in (derived from `config.chords`). */
+  readonly loadout: readonly ChordResolved[];
+  /** Reused scratch buffers and per-tick caches; derived, never hashed. */
+  readonly scratch: {
+    near: number[];
+    slot: { x: number; z: number };
+    ids: EntityId[];
+    /** Aura totals by aura mask, valid for `auraTick`. */
+    auraTotals: Map<number, AuraTotals>;
+    auraTick: number;
+    /** Effect multiplier per content aura index this tick (ornaments × Crescendo). */
+    auraMult: number[];
+  };
 }
 
 export function emptyLedger(): Ledger {
@@ -227,6 +261,9 @@ export function emptyLedger(): Ledger {
     deaths: [],
     telegraphsAimed: 0,
     telegraphsAnswered: 0,
+    calls: 0,
+    responses: 0,
+    holds: 0,
     timeline: [],
     markers: [],
   };
@@ -238,6 +275,11 @@ export function createWorld(config: SimConfig): World {
   const encounterDefn = encounterDef(resolved.encounter);
   const arena = arenaDef(encounterDefn.arena);
   const mods = resolveMods(resolved, content);
+  const loadout = resolved.chords.map((c, i) => resolveChord(c, i, content));
+  const baseRadius = Math.min(
+    content.weaver.fieldRadiusCap,
+    content.weaver.fieldRadius * mods.fieldRadiusMult,
+  );
 
   const world: World = {
     tick: 0,
@@ -256,8 +298,22 @@ export function createWorld(config: SimConfig): World {
     field: {
       x: 0,
       z: 0,
-      radius: content.weaver.fieldRadius * mods.fieldRadiusMult,
-      auras: [...resolved.auras],
+      radius: baseRadius,
+      auras: loadout.flatMap((c) => c.auras),
+      chords: loadout.map((c) => ({
+        index: c.index,
+        auras: [...c.auras],
+        ornaments: [...c.ornaments],
+        anchor: c.anchor,
+        x: 0,
+        z: 0,
+        radius:
+          c.anchor === 'thread'
+            ? 0
+            : Math.min(content.weaver.fieldRadiusCap, baseRadius * c.radiusMult),
+        effectMult: c.effectMult,
+        threadHero: null,
+      })),
       suppressed: false,
       crescendo: false,
       hymnCircles: [],
@@ -300,14 +356,29 @@ export function createWorld(config: SimConfig): World {
       reelDodges: [],
       rallyUntil: 0,
       directiveBarkAt: -100,
+      nextCallAt: content.calls.firstAfter,
     },
-    scratch: { near: [], slot: { x: 0, z: 0 }, ids: [] },
+    loadout,
+    scratch: {
+      near: [],
+      slot: { x: 0, z: 0 },
+      ids: [],
+      auraTotals: new Map(),
+      auraTick: -1,
+      auraMult: content.auras.map(() => 0),
+    },
   };
 
   const w = content.weaver;
   const maxSpirit = w.maxSpirit;
-  const reserved = resolved.auras.reduce(
-    (sum, id) => sum + (content.auras.find((a) => a.id === id)?.reserve ?? 0) * maxSpirit,
+  const reserved = loadout.reduce(
+    (sum, c) =>
+      sum +
+      c.auras.reduce(
+        (s2, id) =>
+          s2 + (content.auras.find((a) => a.id === id)?.reserve ?? 0) * c.reserveMult * maxSpirit,
+        0,
+      ),
     0,
   );
   // Combat starts on the near side of the arena (enemies come from the far side).
@@ -345,11 +416,17 @@ export function createWorld(config: SimConfig): World {
       glideZ: 0,
       crescendo: 0,
       reform: 0,
+      plantCooldown: 0,
     },
   });
+  if (resolved.absent) weaver.health!.invulnerable = 1e9;
   world.weaverId = weaver.id;
   world.field.x = weaver.x;
   world.field.z = weaver.z;
+  for (const chord of world.field.chords) {
+    chord.x = weaver.x;
+    chord.z = weaver.z;
+  }
   world.events.push({ type: 'entitySpawned', tick: 0, id: weaver.id, kind: 'weaver' });
 
   resolved.party.forEach((member, index) => {
@@ -384,6 +461,12 @@ export function createWorld(config: SimConfig): World {
         damageDealt: 0,
         damageAmplified: 0,
         inField: true,
+        auraMask: 0,
+        call: null,
+        hold: null,
+        // Staggered so the party doesn't open a fight with three calls in a row.
+        callCooldown: content.calls.firstAfter + slot * 4,
+        fermataUsed: false,
         cast: null,
         dodge: null,
         reel: null,

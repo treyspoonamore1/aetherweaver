@@ -1,5 +1,5 @@
 /**
- * CONTRACT v2 — read-only world state exposed by the sim (docs/plan/05 §4.2).
+ * CONTRACT v3 — read-only world state exposed by the sim (docs/plan/05 §4.2).
  *
  * Views (render, UI, audio) read this and never mutate it: everything reachable from
  * `WorldState` is deeply read-only at the type level. Persistent visuals reflect state;
@@ -55,7 +55,8 @@ export type StatusId =
   | 'stagger' // brief interrupt from a Perfect Ward
   | 'immune' // ailment immunity (Chime)
   | 'sleep'
-  | 'shaken'; // carried between encounters: −10% max HP
+  | 'shaken' // carried between encounters: −10% max HP
+  | 'held'; // Fermata: a lethal hit is held at 1 HP until the status runs out
 
 export interface Status {
   id: StatusId;
@@ -125,6 +126,8 @@ export interface WeaverComponent {
   crescendo: number;
   /** Seconds until the Weaver re-forms after going down (0 = up). */
   reform: number;
+  /** Seconds until the Pedal Point field can be planted again. */
+  plantCooldown: number;
 }
 
 export type HeroAction =
@@ -137,6 +140,35 @@ export type HeroAction =
   | 'charging'
   | 'reeled'
   | 'downed';
+
+/** What a hero's call asks the Weaver for (Call and Response). */
+export type CallAnswer = 'ward' | 'empower' | 'chime';
+
+/** An open call: the hero holds a big move for a moment, waiting for the Weaver's answer. */
+export interface HeroCall {
+  answer: CallAnswer;
+  /** The ability slot the call is for. */
+  ability: 0 | 1;
+  start: number;
+  /** Sim time the window closes. Unanswered, the hero uses the plain ability then. */
+  end: number;
+  /** Answered: the ability goes off as its Flourish as soon as the hero can act. */
+  answered: boolean;
+  /** Where the ability was aimed when the call started. */
+  target: EntityId | null;
+  x: number;
+  z: number;
+}
+
+/** Fermata: a lethal hit is held. Heal the hero before `until`, or they go down. */
+export interface HeroHold {
+  until: number;
+  attack: string;
+  /** The held hit's damage (logged as prevented if the hold is broken by a heal). */
+  damage: number;
+  /** Set when the Weaver heals them during the hold. */
+  savedBy: SaveCause | null;
+}
 
 export interface HeroComponent {
   defId: string;
@@ -164,7 +196,17 @@ export interface HeroComponent {
   damageAmplified: number;
   /** Standing in the Weaver's aura field (and not suppressed). */
   inField: boolean;
+  /** Bit i set ⇔ content.auras[i] affects this hero right now (rim lights, HUD icons). */
+  auraMask: number;
+  /** An open call for support, if any. */
+  call: HeroCall | null;
+  /** Fermata hold in progress, if any. */
+  hold: HeroHold | null;
   // ── Sim-internal (views may read, but shouldn't depend on these) ──
+  /** Seconds before this hero may call again. */
+  callCooldown: number;
+  /** Fermata holds a lethal hit once per encounter per hero. */
+  fermataUsed: boolean;
   cast: HeroCast | null;
   dodge: HeroDodge | null;
   reel: HeroReel | null;
@@ -193,6 +235,8 @@ export interface HeroCast {
   target: EntityId | null;
   x: number;
   z: number;
+  /** An answered call: the ability goes off as its Flourish. */
+  flourish: boolean;
 }
 
 /** A dodge the hero decided on: step to (x, z) before `until`. */
@@ -248,6 +292,8 @@ export interface EnemyComponent {
   phase: number;
   /** Inside the Weaver's field (Lullaby). */
   inField: boolean;
+  /** Bit i set ⇔ content.auras[i] (a hex) affects this enemy right now. */
+  auraMask: number;
   // ── Sim-internal ──
   /** Elite/affix multipliers fixed at spawn. */
   damageMult: number;
@@ -353,13 +399,37 @@ export interface ChimeInFlight {
   radius: number;
 }
 
-/** The Weaver's aura field. Heroes inside get the auras' effects. */
+/** Where a Chord's field sits: around the Weaver, planted (Pedal Point), or on the Thread (Unison). */
+export type ChordAnchor = 'weaver' | 'planted' | 'thread';
+
+/** One Chord: up to two auras sharing up to two ornaments (docs/plan/03 §4). */
+export interface ChordField {
+  /** Position in the loadout: 0 = Chord I. */
+  index: number;
+  auras: string[];
+  ornaments: string[];
+  anchor: ChordAnchor;
+  /** Centre: the Weaver, the planted point, or the threaded hero. */
+  x: number;
+  z: number;
+  /** Radius right now (Crescendo included; 0 for Unison, which ignores radius). */
+  radius: number;
+  /** Ornament effect multiplier (Grace Note ×0.9, Unison ×2.5…), before the Crescendo. */
+  effectMult: number;
+  /** Unison: the hero the Chord rides on right now (null while the Thread is loose). */
+  threadHero: EntityId | null;
+}
+
+/** The Weaver's aura fields. Entities inside a Chord's field get its auras' effects. */
 export interface FieldState {
+  /** The Weaver's position and the largest Weaver-centred Chord radius (base radius if none). */
   x: number;
   z: number;
   radius: number;
+  /** Every active aura id, Chord by Chord. */
   auras: string[];
-  /** A Mute (or Silent Verse) is cracking the field. */
+  chords: ChordField[];
+  /** The Weaver can't sing: downed, or standing in a Mute's dome. Every Chord is silent. */
   suppressed: boolean;
   crescendo: boolean;
   /** Safe zones during the Hollow Cantor's Silent Verse. */
@@ -386,7 +456,7 @@ export interface EncounterState {
 
 // ── Contribution ledger (docs/plan/05 §4.7) ───────────────────────────────────────────
 
-export type SaveCause = 'ward' | 'reel' | 'chime' | 'mend' | 'dome' | 'other';
+export type SaveCause = 'ward' | 'reel' | 'chime' | 'mend' | 'dome' | 'fermata' | 'other';
 
 export interface SaveRecord {
   time: number;
@@ -411,7 +481,17 @@ export interface DeathRecord {
 }
 
 export type LedgerMarkerKind =
-  'perfect' | 'save' | 'cleanse' | 'reel' | 'cue' | 'crescendo' | 'down' | 'revive' | 'phase';
+  | 'perfect'
+  | 'save'
+  | 'cleanse'
+  | 'reel'
+  | 'cue'
+  | 'crescendo'
+  | 'down'
+  | 'revive'
+  | 'phase'
+  | 'response'
+  | 'hold';
 
 export interface Ledger {
   healing: number;
@@ -434,6 +514,11 @@ export interface Ledger {
   deaths: DeathRecord[];
   telegraphsAimed: number;
   telegraphsAnswered: number;
+  /** Calls the heroes made, and how many the Weaver answered in time. */
+  calls: number;
+  responses: number;
+  /** Fermata holds (lethal hits caught), saved or not. */
+  holds: number;
   /** Party HP (0..1 by slot) sampled every half second. */
   timeline: { time: number; hp: number[] }[];
   markers: { time: number; kind: LedgerMarkerKind; slot: number | null }[];

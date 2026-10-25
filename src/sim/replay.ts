@@ -30,6 +30,7 @@ const CommandSchemaRaw = z.discriminatedUnion('t', [
   z.object({ t: z.literal('glide'), x: z.number(), z: z.number() }).strict(),
   z.object({ t: z.literal('cue'), slot: SlotSchema }).strict(),
   z.object({ t: z.literal('crescendo') }).strict(),
+  z.object({ t: z.literal('plant'), point: Vec2Schema }).strict(),
   z
     .object({
       t: z.literal('directive'),
@@ -58,6 +59,8 @@ const CommandSchemaRaw = z.discriminatedUnion('t', [
       z.object({ op: z.literal('healParty') }).strict(),
       z.object({ op: z.literal('chargeSolos') }).strict(),
       z.object({ op: z.literal('setBossHp'), pct: z.number() }).strict(),
+      z.object({ op: z.literal('forceCall'), slot: SlotSchema }).strict(),
+      z.object({ op: z.literal('forceHold'), slot: SlotSchema }).strict(),
     ]),
   }),
 ]);
@@ -79,12 +82,15 @@ const SimConfigSchema = z
       .min(1)
       .max(4),
     encounter: z.string(),
-    auras: z.array(z.string()),
+    chords: z.array(
+      z.object({ auras: z.array(z.string()), ornaments: z.array(z.string()) }).strict(),
+    ),
     motifs: z.array(z.object({ id: z.string(), level: z.number().int() }).strict()),
     assists: z
       .object({ perfectWindowBonus: z.number(), telegraphLead: z.number(), autonomy: z.boolean() })
       .strict(),
     debug: z.boolean(),
+    absent: z.boolean(),
   })
   .strict();
 const configSchemaMatches: Equals<z.infer<typeof SimConfigSchema>, ResolvedSimConfig> = true;
@@ -93,7 +99,7 @@ void configSchemaMatches;
 export const ReplaySchema = z
   .object({
     format: z.literal('aetherweaver-replay'),
-    version: z.literal(2),
+    version: z.literal(3),
     simVersion: z.number().int(),
     contentVersion: z.string(),
     config: SimConfigSchema,
@@ -139,7 +145,7 @@ export class ReplayRecorder {
   export(finalTick: number, finalHash: string): Replay {
     return {
       format: 'aetherweaver-replay',
-      version: 2,
+      version: 3,
       simVersion: SIM_VERSION,
       contentVersion: CONTENT_VERSION,
       config: JSON.parse(JSON.stringify(this.config)) as ResolvedSimConfig,

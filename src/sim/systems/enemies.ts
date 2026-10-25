@@ -21,7 +21,7 @@ import { countAimed, perfectWindow, setOnCastComplete, startTelegraph } from '..
 import type { Entity, EnemyTier, Telegraph } from '../state';
 import type { World } from '../world';
 import { newHealth } from '../world';
-import { fieldFx } from './field';
+import { enemyFx, hasAura } from '../combat/auras';
 import { approachVelocity, arrive } from './steering';
 
 /** Normal enemies may have at most this many telegraphs up at once (readability cap). */
@@ -79,6 +79,7 @@ export function spawnEnemy(
       cast: null,
       phase: tier === 'boss' || tier === 'miniboss' ? 1 : 0,
       inField: false,
+      auraMask: 0,
       damageMult: tier === 'elite' ? 1.25 : 1,
       windupMult: hastened ? 0.85 : 1,
       tauntTarget: null,
@@ -95,7 +96,6 @@ export function spawnEnemy(
 
 export function updateEnemies(world: World, dt: number): void {
   const fighting = world.encounter.status === 'fighting';
-  const fx = fieldFx(world);
   for (const e of world.entities.list()) {
     const c = e.enemy;
     const h = e.health;
@@ -116,13 +116,12 @@ export function updateEnemies(world: World, dt: number): void {
     if (!c.engaged) engage(world, e);
 
     // Lullaby: slower, and (Heavy Eyelids) sleepy.
-    const slow = c.inField ? fx.enemySlow : 0;
+    const slow = enemyFx(world, e).enemySlow;
     const speed = e.speed * (1 - slow);
     if (
-      c.inField &&
       world.mods.heavyEyelidsSleep > 0 &&
       c.tier === 'normal' &&
-      world.field.auras.includes('lullaby')
+      hasAura(world, c.auraMask, 'lullaby')
     ) {
       c.lullabyTime += dt;
       if (c.lullabyTime >= 4 && world.time >= c.sleepImmuneUntil) {
@@ -458,7 +457,7 @@ export function beginAttack(
 
   let windup = attack.windup * c.windupMult * world.config.assists.telegraphLead;
   // Lullaby: slower wind-ups, and a Perfect window widened in proportion.
-  const lullaby = c.inField && attack.effect === 'damage' ? fieldFx(world).enemyWindup : 0;
+  const lullaby = attack.effect === 'damage' ? enemyFx(world, e).enemyWindup : 0;
   windup *= 1 + lullaby;
   const scale = c.damageMult * enrageMult(world, c.tier);
   const t = startTelegraph(world, {

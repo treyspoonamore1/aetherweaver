@@ -9,6 +9,7 @@ import { addShield, isActive } from '../combat/health';
 import { bark } from '../combat/feedback';
 import type { Entity } from '../state';
 import type { World } from '../world';
+import { inAnyField } from './field';
 import { heroDamage } from './heroDamage';
 
 export function startSolo(world: World, hero: Entity, cued: boolean): void {
@@ -227,13 +228,17 @@ function randomEnemyNear(world: World, from: Entity, range: number): Entity | nu
   return world.entities.get(ids[world.rng.combat.int(ids.length)]!) ?? null;
 }
 
+/** Cued Starfall: meteors fall inside your fields (around the Weaver if there are none). */
 function randomEnemyInField(world: World): Entity | null {
   const ids = world.scratch.ids;
   ids.length = 0;
   const f = world.field;
+  const anyField = f.chords.some((c) => c.anchor !== 'thread');
   const r = f.radius + 2;
   for (const e of world.entities.list()) {
-    if (e.enemy && isActive(e) && distSq(e.x, e.z, f.x, f.z) <= r * r) ids.push(e.id);
+    if (!e.enemy || !isActive(e)) continue;
+    const inside = anyField ? inAnyField(world, e.x, e.z, 2) : distSq(e.x, e.z, f.x, f.z) <= r * r;
+    if (inside) ids.push(e.id);
   }
   if (ids.length === 0) return null;
   return world.entities.get(ids[world.rng.combat.int(ids.length)]!) ?? null;

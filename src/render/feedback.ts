@@ -96,7 +96,12 @@ export class Feedback {
   private readonly dmg = new Map<EntityId, Bucket>();
   private readonly heal = new Map<EntityId, Bucket>();
   private now = 0;
-  private settings: FrameInfo['settings'] = { screenShake: 1, flashes: true, damageNumbers: true };
+  private settings: FrameInfo['settings'] = {
+    screenShake: 1,
+    flashes: 1,
+    damageNumbers: true,
+    colorVision: 'normal',
+  };
   private resonanceAcc = 0;
   private lightShift = 0;
   private lightColor = new THREE.Color();
@@ -1226,7 +1231,7 @@ export class Feedback {
     this.d.rig.addTrauma(0.42);
     this.d.rig.punch(-1.1, 5);
     this.d.overlay.spotlight(r.x, cy, r.z, 0.4);
-    if (this.settings.flashes) this.d.overlay.flash(0.28, 0.12);
+    if (this.settings.flashes > 0) this.d.overlay.flash(0.28 * this.settings.flashes, 0.12);
     this.d.overlay.callout(r.x, r.height + 1.25, r.z, 'PERFECT', '#fff1c4', 28, 1.2);
   }
 
@@ -1269,7 +1274,7 @@ export class Feedback {
     this.d.overlay.callout(r.x, r.height + 1.7, r.z, 'SAVED', '#fcd98a', 32, 1.5);
     this.d.overlay.spotlight(r.x, cy, r.z, 0.45);
     this.d.rig.punch(-1.8, 2.6);
-    if (this.settings.flashes) this.d.overlay.flash(0.2, 0.18);
+    if (this.settings.flashes > 0) this.d.overlay.flash(0.2 * this.settings.flashes, 0.18);
   }
 
   private chimeLanded(e: SimEventOf<'chimeLanded'>): void {
@@ -1472,7 +1477,7 @@ export class Feedback {
     this.lightColor.copy(C.gold);
     this.d.rig.punch(5, 1.4);
     this.d.rig.addTrauma(0.3);
-    if (this.settings.flashes) this.d.overlay.flash(0.3, 0.25);
+    if (this.settings.flashes > 0) this.d.overlay.flash(0.3 * this.settings.flashes, 0.25);
     if (!w) return;
     this.d.overlay.spotlight(w.x, 1, w.z, 0.4);
     const R = state.field.radius;

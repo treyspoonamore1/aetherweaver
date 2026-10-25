@@ -5,6 +5,7 @@ import type { FollowMode } from '../state';
 import { weaverOf, type World } from '../world';
 import { clearDummies, spawnDummies } from './dummies';
 import { spawnEnemy } from './enemies';
+import { plantField } from './field';
 import { castChime, castGlide, castReel, castWard, crescendo, cue } from './techniques';
 import { attachThread, toggleThreadMode } from './thread';
 
@@ -46,6 +47,9 @@ export function applyCommands(world: World, commands: readonly Command[]): void 
         break;
       case 'directive':
         applyDirective(world, c.kind, c.target);
+        break;
+      case 'plant':
+        plantField(world, c.point);
         break;
       case 'debug':
         if (world.config.debug) applyDebug(world, c.op);

@@ -231,6 +231,7 @@ export class GameRuntime {
         screenShake: settings.screenShake,
         flashes: settings.flashes,
         damageNumbers: settings.damageNumbers,
+        colorVision: settings.colorVision,
       },
     });
     this.stage.render();

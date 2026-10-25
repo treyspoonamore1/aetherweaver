@@ -1,5 +1,5 @@
 /**
- * CONTRACT v2 — audio (docs/plan/04 §4, 05 §5.5). One app-wide director (audio/index.ts)
+ * CONTRACT v3 — audio (docs/plan/04 §4, 05 §5.5). One app-wide director (audio/index.ts)
  * outlives screens. Combat feeds it sim events after each step and the read-only state once
  * per frame; screens call `playUi` and `setMood`. Everything is synthesised with WebAudio:
  * no asset files. Audio never affects the simulation.
@@ -9,7 +9,20 @@ import type { SimEvent, WorldState } from '../sim';
 export type AudioMood =
   'silent' | 'title' | 'map' | 'calm' | 'combat' | 'boss' | 'victory' | 'defeat';
 
-export type UiSound = 'hover' | 'click' | 'confirm' | 'back' | 'pick' | 'node' | 'error' | 'reward';
+export type UiSound =
+  | 'hover'
+  | 'click'
+  | 'confirm'
+  | 'back'
+  | 'pick'
+  | 'node'
+  | 'error'
+  | 'reward'
+  /** The Directive wheel opens, and a spoke is chosen. */
+  | 'wheelOpen'
+  | 'wheelPick'
+  /** The result screen reveals the "without you" re-run. */
+  | 'reveal';
 
 export interface Volumes {
   /** 0..1 each. */

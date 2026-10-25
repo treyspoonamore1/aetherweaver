@@ -1,5 +1,5 @@
 /**
- * CONTRACT v2 — Commands are the only way into the simulation (docs/plan/05 §4.4).
+ * CONTRACT v3 — Commands are the only way into the simulation (docs/plan/05 §4.4).
  *
  * The input layer, bots and replays all produce `Command`s. Each tick consumes a list of
  * commands; a replay is just (config, per-tick command lists). Commands are plain JSON data
@@ -34,7 +34,11 @@ export type DebugOp =
   /** Fill every hero's Solo charge (stage Cues). */
   | { op: 'chargeSolos' }
   /** Set the boss's HP to a fraction of its max (stage boss phases). */
-  | { op: 'setBossHp'; pct: number };
+  | { op: 'setBossHp'; pct: number }
+  /** Make the hero in `slot` call for support now (stage Call and Response). */
+  | { op: 'forceCall'; slot: PartySlot }
+  /** Catch a lethal hit on the hero in `slot` with a Fermata hold (stage holds). */
+  | { op: 'forceHold'; slot: PartySlot };
 
 export type Command =
   /** Movement intent, |(x, z)| ≤ 1. Persists until the next `move` (send on change only). */
@@ -58,6 +62,8 @@ export type Command =
   | { t: 'crescendo' }
   /** Party command. `target` is an enemy entity id (Focus), `point` a location. */
   | { t: 'directive'; kind: DirectiveKind; target?: number; point?: Vec2 }
+  /** Plant the Pedal Point Chord's field at `point` (pulled in to the planting range). */
+  | { t: 'plant'; point: Vec2 }
   | { t: 'debug'; op: DebugOp };
 
 export type CommandType = Command['t'];

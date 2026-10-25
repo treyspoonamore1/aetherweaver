@@ -20,7 +20,7 @@ import { contains } from '../combat/telegraphs';
 import { topThreat } from '../combat/threat';
 import type { Entity, Telegraph } from '../state';
 import { weaverOf, type World } from '../world';
-import { fieldFx } from './field';
+import { heroFx } from '../combat/auras';
 import { formationSlot } from './formation';
 import { heroAttackSpeed, heroDamage } from './heroDamage';
 import { nearestEnemy, startSolo, tickSoloClock, updateSolo } from './solos';
@@ -57,8 +57,7 @@ export function updateHeroes(world: World, dt: number): void {
       continue;
     }
 
-    const fx = hero.inField ? fieldFx(world) : null;
-    e.speed = def.moveSpeed * (1 + (fx?.moveSpeed ?? 0));
+    e.speed = def.moveSpeed * (1 + heroFx(world, e).moveSpeed);
     hero.attackCooldown = Math.max(0, hero.attackCooldown - dt * heroAttackSpeed(world, e));
     hero.abilityCooldowns[0] = Math.max(0, hero.abilityCooldowns[0] - dt);
     hero.abilityCooldowns[1] = Math.max(0, hero.abilityCooldowns[1] - dt);
@@ -471,6 +470,7 @@ function startCast(
     target: target.id,
     x,
     z,
+    flourish: false,
   };
   hero.castName = ability.name;
   hero.castProgress = 0;

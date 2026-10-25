@@ -31,7 +31,7 @@ export interface Mods {
   starboltCastMult: number;
   resonanceMult: number;
   soloChargeMult: number;
-  callResponse: number;
+  canon: number;
   encoreBonus: number;
   daCapo: number;
 }
@@ -61,7 +61,7 @@ export const NO_MODS: Mods = {
   starboltCastMult: 1,
   resonanceMult: 1,
   soloChargeMult: 1,
-  callResponse: 0,
+  canon: 0,
   encoreBonus: 0,
   daCapo: 0,
 };
@@ -146,8 +146,8 @@ export function resolveMods(config: ResolvedSimConfig, content: Content): Mods {
       case 'quickened_verse':
         m.soloChargeMult = 1 + pct;
         break;
-      case 'call_and_response':
-        m.callResponse = v;
+      case 'canon':
+        m.canon = v;
         break;
       case 'encore':
         m.encoreBonus = v;
@@ -189,7 +189,7 @@ export const KNOWN_MOTIFS: readonly string[] = [
   'starlit_study',
   'standing_ovation',
   'quickened_verse',
-  'call_and_response',
+  'canon',
   'encore',
   'da_capo',
 ];

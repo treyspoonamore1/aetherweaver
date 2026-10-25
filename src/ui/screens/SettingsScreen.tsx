@@ -71,8 +71,8 @@ export function SettingsPanel({ compact = false }: { compact?: boolean }) {
         <Toggle
           label="Screen flashes"
           hint="Full-screen flashes on Perfect, Save and Crescendo."
-          checked={settings.flashes}
-          onChange={(v) => update((d) => ({ ...d, flashes: v }))}
+          checked={settings.flashes > 0}
+          onChange={(v) => update((d) => ({ ...d, flashes: v ? 1 : 0 }))}
         />
         <Toggle
           label="Damage numbers"

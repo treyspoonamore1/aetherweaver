@@ -1,5 +1,5 @@
 /**
- * CONTRACT v2 — the run store (meta/types.ts RunActions). Screens read `run` and call the
+ * CONTRACT v3 — the run store (meta/types.ts RunActions). Screens read `run` and call the
  * actions; every action is a pure transition from meta/run.ts followed by a save.
  */
 import { create } from 'zustand';
@@ -61,7 +61,7 @@ export const useRun = create<RunStore>()((set, get) => {
       saveRun(storage(), run);
       set({ run });
     },
-    setAuras: (ids) => apply((run) => Run.setAuras(run, ids)),
+    setChords: (chords) => apply((run) => Run.setChords(run, chords)),
     embark: () => apply(Run.embark),
     chooseNode: (id) => apply((run) => Run.chooseNode(run, id)),
     combatConfig: (): SimConfig | null => {
@@ -74,6 +74,7 @@ export const useRun = create<RunStore>()((set, get) => {
     pickDraft: (index) => apply((run) => Run.pickDraft(run, index)),
     rerollDraft: () => apply(Run.rerollDraft),
     respite: (choice) => apply((run) => Run.respite(run, choice)),
+    retune: (chords) => apply((run) => Run.retune(run, chords)),
     abandon: () => apply(Run.abandon),
     closeRun: () => {
       saveRun(storage(), null);

@@ -26,6 +26,8 @@ export function addHealingThreat(world: World, healed: number): void {
 
 /** The party member at a threat index, if it can be attacked. */
 export function threatEntity(world: World, index: number): Entity | undefined {
+  // An absent Weaver (the "without you" re-run) is never a target.
+  if (index === WEAVER_THREAT_INDEX && world.config.absent) return undefined;
   const id = index === WEAVER_THREAT_INDEX ? world.weaverId : world.party[index];
   if (id === undefined) return undefined;
   const e = world.entities.get(id);

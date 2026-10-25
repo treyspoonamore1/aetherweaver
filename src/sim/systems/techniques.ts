@@ -21,7 +21,7 @@ import type { World } from '../world';
 import { weaverOf } from '../world';
 import { startSolo } from './solos';
 
-type Rejectable = TechniqueKey | 'thread' | 'cue' | 'crescendo';
+type Rejectable = TechniqueKey | 'thread' | 'cue' | 'crescendo' | 'plant';
 type Reason =
   | 'cooldown'
   | 'spirit'
@@ -350,12 +350,12 @@ export function cue(world: World, slot: PartySlot): void {
   pushMarker(world, 'cue', h.slot);
   world.events.push({ type: 'cued', tick: world.tick, hero: hero.id });
   startSolo(world, hero, true);
-  if (world.mods.callResponse > 0) {
+  if (world.mods.canon > 0) {
     for (const id of world.party) {
       const other = world.entities.get(id);
       if (other?.hero && other.id !== hero.id && isActive(other) && other.hero.soloActive <= 0) {
         const before = other.hero.solo;
-        other.hero.solo = clamp(other.hero.solo + world.mods.callResponse, 0, 100);
+        other.hero.solo = clamp(other.hero.solo + world.mods.canon, 0, 100);
         if (before < 100 && other.hero.solo >= 100)
           world.events.push({ type: 'soloReady', tick: world.tick, hero: other.id });
       }

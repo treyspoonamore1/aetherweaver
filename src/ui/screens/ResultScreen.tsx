@@ -27,6 +27,8 @@ const HIGHLIGHT_ICON: Record<EncounterResult['highlights'][number]['kind'], Icon
   cue: 'note',
   crescendo: 'sparkle',
   revive: 'mend',
+  response: 'note',
+  fermata: 'heart',
 };
 
 export interface ResultViewProps {

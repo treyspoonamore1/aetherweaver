@@ -1,5 +1,5 @@
 /**
- * CONTRACT v2 — content schemas (docs/plan/05 §7). Content is data, validated with zod at
+ * CONTRACT v3 — content schemas (docs/plan/05 §7). Content is data, validated with zod at
  * load time and in CI. TypeScript types are inferred from the schemas: one source of truth.
  * Player-facing numbers in text are generated from these values (docs/plan/02 §12 rule 7).
  */
@@ -38,6 +38,7 @@ export const StatusIdSchema = z.enum([
   'immune',
   'sleep',
   'shaken',
+  'held',
 ]);
 
 // ── The Weaver ────────────────────────────────────────────────────────────────────────
@@ -57,6 +58,15 @@ export const WeaverDefSchema = z.object({
   reformTime: Seconds,
   /** Radius of the aura field around the Weaver, in metres. */
   fieldRadius: z.number().positive(),
+  /** No field grows past this radius outside a Crescendo, so positioning always matters. */
+  fieldRadiusCap: z.number().positive(),
+  /** Chord slots (docs/plan/03 §4): Chords, and auras and ornaments per Chord. */
+  chords: z.number().int().positive(),
+  auraSlots: z.number().int().positive(),
+  ornamentSlots: z.number().int().nonnegative(),
+  /** Pedal Point: how far from the Weaver a field can be planted, and how often. */
+  plantRange: z.number().positive(),
+  plantCooldown: Seconds,
 });
 
 export const ThreadDefSchema = z.object({
@@ -127,11 +137,32 @@ export const ResonanceDefSchema = z.object({
     wardAbsorb: z.number(),
     empowerPerSec: z.number(),
     empoweredKill: z.number(),
+    /** Answering a hero's call in time. */
+    response: z.number(),
   }),
   decayDelay: Seconds,
   decayPerSec: z.number().nonnegative(),
   cueCost: z.number().positive(),
   crescendoCost: z.number().positive(),
+});
+
+/** With enough auras active, every Cue also releases a chorus pulse (docs/plan/02 §4.7). */
+export const ChorusDefSchema = z.object({
+  minAuras: z.number().int().positive(),
+  /** Per active aura, as a fraction of each reached hero's max HP. */
+  healPctPerAura: Pct,
+  barrierPctPerAura: Pct,
+  barrierDuration: Seconds,
+});
+
+/** Call and Response pacing: how often heroes ask for help (docs/phase-2.md). */
+export const CallsDefSchema = z.object({
+  /** Seconds into a fight before the first call. */
+  firstAfter: Seconds,
+  /** Seconds a hero waits after a call before calling again. */
+  heroCooldown: Seconds,
+  /** Minimum seconds between any two calls. */
+  gap: Seconds,
 });
 
 export const CrescendoDefSchema = z.object({
@@ -198,6 +229,39 @@ export const HeroQuirkSchema = z.object({
   description: z.string(),
 });
 
+export const CallAnswerSchema = z.enum(['ward', 'empower', 'chime']);
+
+/**
+ * A hero's call: before using one ability, they ask for a specific kind of support. Answer
+ * in time and the ability goes off as its Flourish.
+ */
+export const HeroCallSchema = z.object({
+  /** Which of the hero's two abilities the call is for. */
+  ability: z.union([z.literal(0), z.literal(1)]),
+  answer: CallAnswerSchema,
+  /** Seconds the hero waits for the answer before using the plain ability. */
+  answerTime: Seconds,
+  lines: z.array(z.string().min(1)).min(1),
+  /** Said when answered. */
+  thanks: z.array(z.string().min(1)).min(1),
+  flourish: z.object({
+    name: z.string().min(1),
+    description: z.string().min(1),
+    damageMult: z.number().min(1).default(1),
+    radiusMult: z.number().min(1).default(1),
+    /** Seconds of stun on everything it hits. */
+    stun: Seconds.default(0),
+    /** Always crits. */
+    crit: z.boolean().default(false),
+    /** Solo charge refunded to the hero (0–100). */
+    soloCharge: z.number().min(0).max(100).default(0),
+    /** Kael: a barrier per enemy taunted (fraction of max HP), up to a cap, and a longer taunt. */
+    barrierPerTarget: Pct.default(0),
+    barrierCap: Pct.default(0),
+    tauntBonus: Seconds.default(0),
+  }),
+});
+
 export const HeroBarksSchema = z.object({
   quirk: z.array(z.string()).min(1),
   lowHp: z.array(z.string()).min(1),
@@ -240,6 +304,7 @@ export const HeroDefSchema = z.object({
   /** Chance to step out of a telegraph they notice in time (0 = never). */
   dodge: Pct,
   abilities: z.tuple([HeroAbilitySchema, HeroAbilitySchema]),
+  call: HeroCallSchema,
   solo: HeroSoloSchema,
   quirk: HeroQuirkSchema,
   barks: HeroBarksSchema,
@@ -354,9 +419,35 @@ export const AuraDefSchema = z.object({
     flatDamage: z.number().nonnegative().default(0),
     enemySlow: Pct.default(0),
     enemyWindup: Pct.default(0),
+    /** Fermata: below this fraction of max HP, heroes take `guardDr` less damage. */
+    guardBelow: Pct.default(0),
+    guardDr: Pct.default(0),
+    /** Fermata: once per encounter, a lethal hit holds the hero at 1 HP for this long. */
+    holdTime: Seconds.default(0),
   }),
 });
 export type AuraDef = z.infer<typeof AuraDefSchema>;
+
+// ── Ornaments ─────────────────────────────────────────────────────────────────────────
+
+export const ChordAnchorSchema = z.enum(['weaver', 'planted', 'thread']);
+
+/** Ornaments change both auras in their Chord (docs/plan/03 §4). One copy of each. */
+export const OrnamentDefSchema = z.object({
+  id: IdSchema,
+  name: z.string(),
+  subtitle: z.string(),
+  color: ColorSchema,
+  description: z.string(),
+  reserveMult: z.number().positive().default(1),
+  effectMult: z.number().positive().default(1),
+  radiusMult: z.number().positive().default(1),
+  /** Where the Chord's field sits (Pedal Point plants it, Unison puts it on the Thread). */
+  anchor: ChordAnchorSchema.default('weaver'),
+  /** Ornaments that can't share a Chord with this one. */
+  excludes: z.array(IdSchema).default([]),
+});
+export type OrnamentDef = z.infer<typeof OrnamentDefSchema>;
 
 // ── Motifs ────────────────────────────────────────────────────────────────────────────
 
@@ -435,10 +526,13 @@ export const ContentSchema = z
     techniques: TechniquesDefSchema,
     resonance: ResonanceDefSchema,
     crescendo: CrescendoDefSchema,
+    chorus: ChorusDefSchema,
+    calls: CallsDefSchema,
     heroes: z.array(HeroDefSchema).min(3),
     /** Default party, by hero id, in slot order. */
     defaultParty: z.array(IdSchema).min(1).max(4),
-    auras: z.array(AuraDefSchema).min(1),
+    auras: z.array(AuraDefSchema).min(1).max(31),
+    ornaments: z.array(OrnamentDefSchema),
     attacks: z.array(AttackDefSchema),
     enemies: z.array(EnemyDefSchema),
     affixes: z.array(AffixDefSchema),
@@ -487,6 +581,10 @@ export const ContentSchema = z
       'motif',
       c.motifs.map((m) => m.id),
     );
+    const ornaments = unique(
+      'ornament',
+      c.ornaments.map((o) => o.id),
+    );
     const arenas = unique(
       'arena',
       c.arenas.map((a) => a.id),
@@ -508,6 +606,9 @@ export const ContentSchema = z
       }
     }
     for (const id of c.defaultParty) need(heroes, id, 'defaultParty');
+    for (const o of c.ornaments) {
+      for (const x of o.excludes) need(ornaments, x, `ornament "${o.id}"`);
+    }
     for (const e of c.enemies) for (const a of e.specials) need(attacks, a, `enemy "${e.id}"`);
     for (const a of c.attacks) {
       if (a.summon) need(enemies, a.summon.enemy, `attack "${a.id}"`);

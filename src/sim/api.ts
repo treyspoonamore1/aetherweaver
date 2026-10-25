@@ -39,7 +39,13 @@ import { updateThread } from './systems/thread';
 import { updateWeaver } from './systems/weaver';
 import { createWorld, type ResolvedSimConfig, type SimConfig, type World } from './world';
 
-export type { SimConfig, ResolvedSimConfig, PartyMemberConfig, AssistConfig } from './world';
+export type {
+  SimConfig,
+  ResolvedSimConfig,
+  PartyMemberConfig,
+  AssistConfig,
+  ChordConfig,
+} from './world';
 export type { SimSnapshot } from './hashing';
 
 export interface Sim {

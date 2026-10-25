@@ -15,6 +15,7 @@ import type {
   Telegraph,
 } from '../state';
 import type { World } from '../world';
+import { hasAura } from './auras';
 import { addHealingThreat, addThreat } from './threat';
 import { bark, pushMarker, setTimeScale } from './feedback';
 import { gainResonance } from './resonance';
@@ -350,9 +351,9 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
     world.ledger.partyDamage += total;
     world.ledger.amplified += amplifiedShare;
     addThreat(target, source.hero.slot, total * heroDef(source.hero.defId).threatMult);
-    if (target.enemy.tier === 'normal' && world.mods.hammerfallChance > 0 && source.hero.inField) {
+    if (target.enemy.tier === 'normal' && world.mods.hammerfallChance > 0) {
       if (
-        world.field.auras.includes('fortissimo') &&
+        hasAura(world, source.hero.auraMask, 'fortissimo') &&
         world.rng.combat.chance(world.mods.hammerfallChance)
       ) {
         addStatus(world, target, 'stun', 0.6, source.id);

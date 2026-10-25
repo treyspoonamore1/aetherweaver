@@ -13,6 +13,7 @@ import {
 import { CameraRig } from '../camera';
 import { CombatView } from '../combatView';
 import { Stage, type QualityTier } from '../stage';
+import type { FrameInfo } from '../types';
 
 /**
  * VFX lab (`?lab=vfx`): a Stage + CameraRig + the real combat view over a real debug sim,
@@ -21,7 +22,7 @@ import { Stage, type QualityTier } from '../stage';
  * same controls to screenshot scripts.
  */
 
-type Settings = { screenShake: number; flashes: boolean; damageNumbers: boolean };
+type Settings = FrameInfo['settings'];
 
 interface LabApi {
   queue(command: Command): void;
@@ -65,7 +66,7 @@ class LabRuntime {
   private hymn = false;
   paused = false;
   timeScale = 1;
-  settings: Settings = { screenShake: 1, flashes: true, damageNumbers: true };
+  settings: Settings = { screenShake: 1, flashes: 1, damageNumbers: true, colorVision: 'normal' };
   private frames = 0;
   private fpsTimer = 0;
   fps = 0;
@@ -619,7 +620,8 @@ export function VfxLab() {
           </Btn>
           <Btn
             onClick={() =>
-              rt() && (rt()!.settings = { ...rt()!.settings, flashes: !rt()!.settings.flashes })
+              rt() &&
+              (rt()!.settings = { ...rt()!.settings, flashes: rt()!.settings.flashes > 0 ? 0 : 1 })
             }
           >
             Flashes

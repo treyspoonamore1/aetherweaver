@@ -219,6 +219,13 @@ export class InputController {
       case 'crescendo':
         this.pending.push({ t: 'crescendo' });
         break;
+      case 'plant':
+        if (this.hasGround)
+          this.pending.push({
+            t: 'plant',
+            point: { x: quantize(this.ground.x, AIM_STEP), z: quantize(this.ground.z, AIM_STEP) },
+          });
+        break;
       case 'directiveFocus':
         if (this.hoveredEnemyId !== null)
           this.pending.push({ t: 'directive', kind: 'focus', target: this.hoveredEnemyId });

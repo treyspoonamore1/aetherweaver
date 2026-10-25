@@ -1,9 +1,11 @@
 /**
- * Run save v1 (docs/plan/05 §8): versioned, validated with zod on load, with a backup of
- * the previous save kept before every overwrite. Storage is injected so tests can use a map.
+ * Run save v2 (docs/plan/05 §8): versioned, validated with zod on load, with a backup of
+ * the previous save kept before every overwrite. Older versions are migrated on load. Storage
+ * is injected so tests can use a map.
  */
 import { z } from 'zod';
 import { CONTENT } from '../content';
+import { chordProblems } from '../sim';
 import { RUN_SAVE_VERSION, type RunState } from './types';
 
 export interface KeyValueStore {
@@ -47,6 +49,21 @@ const StatsSchema = z.object({
   deaths: Num,
   telegraphsAimed: Num,
   telegraphsAnswered: Num,
+  calls: Num,
+  responses: Num,
+  holds: Num,
+});
+
+const WithoutYouSchema = z.object({
+  outcome: z.enum(['victory', 'defeat', 'timeout']),
+  duration: Num,
+  wave: Num,
+  waves: Num,
+  downs: Num,
+  standing: Num,
+  bossHp: Num.nullable(),
+  ticks: Num,
+  hash: Str,
 });
 
 const MarkerSchema = z.object({
@@ -61,6 +78,8 @@ const MarkerSchema = z.object({
     'down',
     'revive',
     'phase',
+    'response',
+    'hold',
   ]),
   slot: Num.nullable(),
 });
@@ -77,7 +96,17 @@ const ResultSchema = z.object({
   stats: StatsSchema,
   highlights: z.array(
     z.object({
-      kind: z.enum(['perfect', 'save', 'clutch', 'reel', 'cue', 'crescendo', 'revive']),
+      kind: z.enum([
+        'perfect',
+        'save',
+        'clutch',
+        'reel',
+        'cue',
+        'crescendo',
+        'revive',
+        'response',
+        'fermata',
+      ]),
       time: Num,
       text: Str,
       slot: Num.nullable(),
@@ -104,6 +133,7 @@ const ResultSchema = z.object({
       amplified: Num,
     }),
   ),
+  withoutYou: WithoutYouSchema.nullable(),
 });
 
 export const RunStateSchema = z.object({
@@ -111,7 +141,7 @@ export const RunStateSchema = z.object({
   seed: Num,
   phase: z.enum(['prep', 'map', 'combat', 'result', 'draft', 'respite', 'summary']),
   party: z.array(z.object({ heroId: Str, hpPct: Num, shaken: z.boolean() })),
-  auras: z.array(Str),
+  chords: z.array(z.object({ auras: z.array(Str), ornaments: z.array(Str) })),
   motifs: z.array(z.object({ id: Str, level: Num })),
   map: z.object({ rows: z.array(z.array(NodeSchema)) }),
   path: z.array(Str),
@@ -129,18 +159,56 @@ export const RunStateSchema = z.object({
   outcome: z.enum(['victory', 'defeat', 'abandoned']).nullable(),
 });
 
-/** Loads the saved run, falling back to the backup if the main save is unreadable. */
+/** Motif ids renamed since older saves were written. */
+const RENAMED_MOTIFS: Readonly<Record<string, string>> = { call_and_response: 'canon' };
+
+type Json = Record<string, unknown>;
+const isObj = (v: unknown): v is Json => typeof v === 'object' && v !== null && !Array.isArray(v);
+
+/**
+ * Upgrades an older save's JSON to the current version, step by step. Unknown shapes are
+ * returned unchanged (and then fail validation).
+ */
+export function migrateRunJson(raw: unknown): unknown {
+  if (!isObj(raw) || raw.version !== 1) return raw;
+  const motif = (id: unknown) => (typeof id === 'string' ? (RENAMED_MOTIFS[id] ?? id) : id);
+  const result = (r: unknown) => {
+    if (!isObj(r)) return r;
+    const stats = isObj(r.stats) ? { ...r.stats, calls: 0, responses: 0, holds: 0 } : r.stats;
+    return { ...r, stats, withoutYou: null };
+  };
+  const draft = isObj(raw.draft)
+    ? {
+        ...raw.draft,
+        options: Array.isArray(raw.draft.options)
+          ? raw.draft.options.map((o) => (isObj(o) ? { ...o, motifId: motif(o.motifId) } : o))
+          : raw.draft.options,
+      }
+    : raw.draft;
+  const { auras, ...rest } = raw;
+  return {
+    ...rest,
+    version: 2,
+    chords: Array.isArray(auras) && auras.length > 0 ? [{ auras, ornaments: [] }] : [],
+    motifs: Array.isArray(raw.motifs)
+      ? raw.motifs.map((m) => (isObj(m) ? { ...m, id: motif(m.id) } : m))
+      : raw.motifs,
+    draft,
+    lastResult: raw.lastResult === null ? null : result(raw.lastResult),
+    results: Array.isArray(raw.results) ? raw.results.map(result) : raw.results,
+  };
+}
+
 /**
  * Is every id in the save known to this build's content? A save from an older build with a
  * renamed aura, motif, hero or encounter would otherwise crash the next fight.
  */
 export function compatibleWithContent(run: RunState): boolean {
   const known = (ids: readonly { id: string }[]) => new Set(ids.map((x) => x.id));
-  const auras = known(CONTENT.auras);
   const heroes = known(CONTENT.heroes);
   const encounters = known(CONTENT.encounters);
   const motifs = new Map(CONTENT.motifs.map((m) => [m.id, m.values.length]));
-  if (!run.auras.every((id) => auras.has(id))) return false;
+  if (chordProblems(run.chords).length > 0) return false;
   if (!run.party.every((h) => heroes.has(h.heroId))) return false;
   if (!run.motifs.every((m) => (motifs.get(m.id) ?? 0) >= m.level && m.level >= 1)) return false;
   for (const row of run.map.rows) {
@@ -156,7 +224,7 @@ export function loadRun(store: KeyValueStore): RunState | null {
     try {
       const raw = store.getItem(key);
       if (!raw) continue;
-      const parsed = RunStateSchema.safeParse(JSON.parse(raw));
+      const parsed = RunStateSchema.safeParse(migrateRunJson(JSON.parse(raw)));
       if (parsed.success && compatibleWithContent(parsed.data as RunState)) {
         return parsed.data as RunState;
       }

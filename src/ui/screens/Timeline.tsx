@@ -15,6 +15,8 @@ export const MARKER: Record<MarkerKind, { icon: IconName; label: string; color: 
   revive: { icon: 'mend', label: 'Revive', color: '#2dd4bf' },
   phase: { icon: 'eye', label: 'Boss phase', color: '#cbd5e1' },
   down: { icon: 'skull', label: 'Hero down', color: '#f43f5e' },
+  response: { icon: 'note', label: 'Call answered', color: '#fde68a' },
+  hold: { icon: 'heart', label: 'Fermata hold', color: '#e2d6f8' },
 };
 
 const DASH = [undefined, '7 4', '2 4', '10 3 2 3'] as const;

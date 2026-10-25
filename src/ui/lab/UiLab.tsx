@@ -86,7 +86,9 @@ function Flow() {
       return (
         <PrepView
           run={run}
-          onAuras={(ids) => set((r) => Run.setAuras(r, ids))}
+          onAuras={(ids) =>
+            set((r) => Run.setChords(r, ids.length ? [{ auras: ids, ornaments: [] }] : []))
+          }
           onEmbark={() => set(Run.embark)}
           onBack={() => set(() => freshRun(Math.floor(Math.random() * 999)))}
         />
@@ -250,7 +252,9 @@ const VIEWS: ViewDef[] = [
         {(run, set) => (
           <PrepView
             run={run}
-            onAuras={(ids) => set((r) => Run.setAuras(r, ids))}
+            onAuras={(ids) =>
+              set((r) => Run.setChords(r, ids.length ? [{ auras: ids, ornaments: [] }] : []))
+            }
             onEmbark={noop}
             onBack={noop}
           />

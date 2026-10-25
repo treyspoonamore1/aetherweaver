@@ -4,7 +4,8 @@ import { AFFIXES, ATTACKS, ENEMIES } from './enemies';
 import { HEROES } from './heroes';
 import { MOTIFS } from './motifs';
 import { AURAS } from './auras';
-import { CRESCENDO, RESONANCE, TECHNIQUES, THREAD, WEAVER } from './weaver';
+import { ORNAMENTS } from './ornaments';
+import { CALLS, CHORUS, CRESCENDO, RESONANCE, TECHNIQUES, THREAD, WEAVER } from './weaver';
 import {
   ContentSchema,
   type ArenaDef,
@@ -15,6 +16,7 @@ import {
   type EnemyDef,
   type HeroDef,
   type MotifDef,
+  type OrnamentDef,
 } from './schema';
 
 /** Validated at module load: invalid content fails fast in dev, tests and CI. */
@@ -24,9 +26,12 @@ export const CONTENT: Content = ContentSchema.parse({
   techniques: TECHNIQUES,
   resonance: RESONANCE,
   crescendo: CRESCENDO,
+  chorus: CHORUS,
+  calls: CALLS,
   heroes: HEROES,
   defaultParty: ['kael', 'lyra', 'vexis'],
   auras: AURAS,
+  ornaments: ORNAMENTS,
   attacks: ATTACKS,
   enemies: ENEMIES,
   affixes: AFFIXES,
@@ -72,6 +77,7 @@ export const heroDef: (id: string) => HeroDef = index('hero', CONTENT.heroes);
 export const enemyDef: (id: string) => EnemyDef = index('enemy', CONTENT.enemies);
 export const attackDef: (id: string) => AttackDef = index('attack', CONTENT.attacks);
 export const auraDef: (id: string) => AuraDef = index('aura', CONTENT.auras);
+export const ornamentDef: (id: string) => OrnamentDef = index('ornament', CONTENT.ornaments);
 export const motifDef: (id: string) => MotifDef = index('motif', CONTENT.motifs);
 export const arenaDef: (id: string) => ArenaDef = index('arena', CONTENT.arenas);
 export const encounterDef: (id: string) => EncounterDef = index('encounter', CONTENT.encounters);
@@ -91,4 +97,5 @@ export type {
   EnemyDef,
   HeroDef,
   MotifDef,
+  OrnamentDef,
 } from './schema';

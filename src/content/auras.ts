@@ -1,6 +1,6 @@
 import type { ContentInput } from './schema';
 
-/** Auras (docs/plan/03 §3). Phase 1 ships one Chord with two aura slots and no ornaments. */
+/** Auras (docs/plan/03 §3). Two Chords of two auras each; ornaments change both. */
 export const AURAS: ContentInput['auras'] = [
   {
     id: 'sostenuto',
@@ -48,5 +48,15 @@ export const AURAS: ContentInput['auras'] = [
     description:
       'Enemies in your field move 20% slower, and their attacks take 15% longer to wind up — wider windows to answer them.',
     effects: { enemySlow: 0.2, enemyWindup: 0.15 },
+  },
+  {
+    id: 'fermata',
+    name: 'Fermata',
+    subtitle: 'Stillness aura',
+    color: '#e2d6f8',
+    reserve: 0.25,
+    description:
+      'Heroes in your field below 35% life take 30% less damage. Once per fight, a hit that would down a hero holds them at 1 life for 1.5 seconds instead — heal them in time and they live.',
+    effects: { guardBelow: 0.35, guardDr: 0.3, holdTime: 1.5 },
   },
 ];

@@ -1,7 +1,6 @@
 import { useRun } from '../../app/runStore';
 import { useSettings } from '../../app/settings';
 import { CONTENT } from '../../content';
-import { CHORD_SLOTS } from '../../meta/run';
 import type { RunState } from '../../meta/types';
 import { ScreenFrame, ScreenHeader } from '../kit/Backdrop';
 import { Button } from '../kit/Button';
@@ -25,15 +24,17 @@ export interface PrepViewProps {
 export function PrepView({ run, onAuras, onEmbark, onBack }: PrepViewProps) {
   useMood('map');
   const maxSpirit = CONTENT.weaver.maxSpirit;
-  const chosen = run.auras.map((id) => CONTENT.auras.find((a) => a.id === id)).filter((a) => !!a);
+  const auras = run.chords[0]?.auras ?? [];
+  const CHORD_SLOTS = CONTENT.weaver.auraSlots;
+  const chosen = auras.map((id) => CONTENT.auras.find((a) => a.id === id)).filter((a) => !!a);
   const reservedPct = chosen.reduce((sum, a) => sum + a.reserve, 0);
   const free = Math.round(maxSpirit * (1 - reservedPct));
   const ward = CONTENT.techniques.ward.cost;
   const reel = CONTENT.techniques.reel.cost;
   const toggleAura = (id: string) => {
-    if (run.auras.includes(id)) onAuras(run.auras.filter((a) => a !== id));
+    if (auras.includes(id)) onAuras(auras.filter((a) => a !== id));
     // Choosing a third drops the oldest, so there is never a dead end.
-    else onAuras([...run.auras, id].slice(-CHORD_SLOTS));
+    else onAuras([...auras, id].slice(-CHORD_SLOTS));
   };
   const settings = useSettings((s) => s.settings);
   const update = useSettings((s) => s.update);
@@ -72,7 +73,7 @@ export function PrepView({ run, onAuras, onEmbark, onBack }: PrepViewProps) {
               <SectionTitle
                 right={
                   <span className="font-mono text-xs text-muted">
-                    {run.auras.length} / {CHORD_SLOTS} chosen
+                    {auras.length} / {CHORD_SLOTS} chosen
                   </span>
                 }
               >
@@ -87,7 +88,7 @@ export function PrepView({ run, onAuras, onEmbark, onBack }: PrepViewProps) {
               />
               <ul className="mt-3 flex flex-col gap-2">
                 {CONTENT.auras.map((a) => {
-                  const on = run.auras.includes(a.id);
+                  const on = auras.includes(a.id);
                   return (
                     <li key={a.id}>
                       <button
@@ -303,11 +304,16 @@ function SpiritBudget({
 
 export function PrepScreen() {
   const run = useRun((s) => s.run);
-  const setAuras = useRun((s) => s.setAuras);
+  const setChords = useRun((s) => s.setChords);
   const embark = useRun((s) => s.embark);
   const setScreen = useUi((s) => s.setScreen);
   if (!run) return null;
   return (
-    <PrepView run={run} onAuras={setAuras} onEmbark={embark} onBack={() => setScreen('title')} />
+    <PrepView
+      run={run}
+      onAuras={(ids) => setChords(ids.length ? [{ auras: ids, ornaments: [] }] : [])}
+      onEmbark={embark}
+      onBack={() => setScreen('title')}
+    />
   );
 }

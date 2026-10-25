@@ -42,6 +42,26 @@ export const HEROES: ContentInput['heroes'] = [
         stun: 0,
       },
     ],
+    call: {
+      ability: 1,
+      answer: 'ward',
+      answerTime: 2.5,
+      lines: [
+        'Weaver — shield me, I’m pulling them!',
+        'Ward me and I’ll take them all!',
+        'Cover me — I’ll draw them in!',
+      ],
+      thanks: ['Now they’re mine!', 'Ha! Come and try!', 'Bulwark!'],
+      flourish: {
+        name: 'Bulwark',
+        description:
+          'Ward Kael while he calls: his Challenge reaches half again as far, holds them 2 seconds longer and gives him a barrier for every enemy it catches.',
+        radiusMult: 1.5,
+        barrierPerTarget: 0.05,
+        barrierCap: 0.3,
+        tauntBonus: 2,
+      },
+    },
     solo: {
       id: 'aegisWall',
       name: 'Aegis Wall',
@@ -110,6 +130,26 @@ export const HEROES: ContentInput['heroes'] = [
         stun: 0,
       },
     ],
+    call: {
+      ability: 0,
+      answer: 'empower',
+      answerTime: 2.5,
+      lines: [
+        'Lining it up — lend me your strength!',
+        'Empower me — I have the shot!',
+        'One clean shot. Give me the gold!',
+      ],
+      thanks: ['Got it!', 'Heartseeker!', 'Right through them!'],
+      flourish: {
+        name: 'Heartseeker',
+        description:
+          'Empower Lyra while she calls: her Piercing Shot always crits, hits two and a half times as hard, cuts a wider line and refunds a fifth of her Solo.',
+        damageMult: 2.5,
+        radiusMult: 1.6,
+        crit: true,
+        soloCharge: 20,
+      },
+    },
     solo: {
       id: 'galeBarrage',
       name: 'Gale Barrage',
@@ -178,6 +218,25 @@ export const HEROES: ContentInput['heroes'] = [
         stun: 0,
       },
     ],
+    call: {
+      ability: 1,
+      answer: 'chime',
+      answerTime: 3,
+      lines: [
+        'Ring the bell on me — I’ll tune the star!',
+        'A Chime, Weaver! The equation needs a note!',
+        'Strike your bell over me — now!',
+      ],
+      thanks: ['Resonant!', 'The star sings!', 'Exquisite.'],
+      flourish: {
+        name: 'Resonant Starbolt',
+        description:
+          'Chime on Vexis while she calls: her Starbolt hits 60% harder, bursts half again as wide and stuns everything it hits.',
+        damageMult: 1.6,
+        radiusMult: 1.5,
+        stun: 1.2,
+      },
+    },
     solo: {
       id: 'starfall',
       name: 'Starfall',

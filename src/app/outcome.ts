@@ -1,8 +1,12 @@
 import type { CombatOutcome } from '../meta/types';
-import type { WorldState } from '../sim';
+import type { WithoutYou, WorldState } from '../sim';
 
 /** A plain-data summary of how the encounter went, for the run layer. */
-export function buildOutcome(state: WorldState, heroIds: readonly string[]): CombatOutcome {
+export function buildOutcome(
+  state: WorldState,
+  heroIds: readonly string[],
+  withoutYou: WithoutYou | null = null,
+): CombatOutcome {
   const enc = state.encounter;
   return {
     encounterId: enc.id,
@@ -23,5 +27,6 @@ export function buildOutcome(state: WorldState, heroIds: readonly string[]): Com
         amplified: e?.hero?.damageAmplified ?? 0,
       };
     }),
+    withoutYou,
   };
 }

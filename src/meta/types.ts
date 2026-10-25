@@ -1,12 +1,21 @@
 /**
- * CONTRACT v2 — the run layer (docs/plan/02 §8, 03 §9). A run is plain, serialisable data;
+ * CONTRACT v3 — the run layer (docs/plan/02 §8, 03 §9). A run is plain, serialisable data;
  * every transition is a pure function of (state, action) so runs are seedable, testable and
  * resumable. The app wraps it in a store (app/runStore.ts); screens read and act through
  * that store only.
  */
-import type { EncounterKind, Ledger, LedgerMarkerKind, SimConfig } from '../sim';
+import type {
+  ChordLoadout,
+  EncounterKind,
+  Ledger,
+  LedgerMarkerKind,
+  SimConfig,
+  WithoutYou,
+} from '../sim';
 
-export const RUN_SAVE_VERSION = 1;
+export type { ChordLoadout, WithoutYou };
+
+export const RUN_SAVE_VERSION = 2;
 
 export type NodeKind = 'skirmish' | 'elite' | 'shrine' | 'respite' | 'miniboss' | 'boss';
 
@@ -70,7 +79,16 @@ export interface DraftOffer {
 export type Grade = 'S' | 'A' | 'B' | 'C' | 'D';
 
 export interface Highlight {
-  kind: 'perfect' | 'save' | 'clutch' | 'reel' | 'cue' | 'crescendo' | 'revive';
+  kind:
+    | 'perfect'
+    | 'save'
+    | 'clutch'
+    | 'reel'
+    | 'cue'
+    | 'crescendo'
+    | 'revive'
+    | 'response'
+    | 'fermata';
   /** Seconds into the encounter. */
   time: number;
   /** Ready-to-show line, e.g. "Perfect Ward on Kael negated Toll Cleave (520)". */
@@ -107,6 +125,11 @@ export interface EncounterStats {
   deaths: number;
   telegraphsAimed: number;
   telegraphsAnswered: number;
+  /** Calls the heroes made and how many the Weaver answered. */
+  calls: number;
+  responses: number;
+  /** Fermata holds (lethal hits caught). */
+  holds: number;
 }
 
 export interface EncounterResult {
@@ -134,6 +157,8 @@ export interface EncounterResult {
     damage: number;
     amplified: number;
   }[];
+  /** The same fight replayed with the Weaver absent (null if it couldn't be computed). */
+  withoutYou: WithoutYou | null;
 }
 
 /** What the combat runtime hands back when an encounter ends (plain data). */
@@ -153,6 +178,8 @@ export interface CombatOutcome {
     damage: number;
     amplified: number;
   }[];
+  /** The "without you" re-run of this fight, if it finished in time. */
+  withoutYou: WithoutYou | null;
 }
 
 export type RunPhase = 'prep' | 'map' | 'combat' | 'result' | 'draft' | 'respite' | 'summary';
@@ -162,8 +189,8 @@ export interface RunState {
   seed: number;
   phase: RunPhase;
   party: RunHero[];
-  /** Chord I: up to two auras, chosen in Prep. */
-  auras: string[];
+  /** The Weaver's Chords, chosen in Prep and changed by a Respite's Retune. Always legal. */
+  chords: ChordLoadout[];
   motifs: OwnedMotif[];
   map: RunMap;
   /** Nodes visited, in order. The last one is where the party stands. */
@@ -183,8 +210,8 @@ export interface RunState {
 export interface RunActions {
   /** Starts a new run in Prep. */
   newRun(seed?: number): void;
-  /** Prep: choose the Chord's auras (≤ 2). */
-  setAuras(ids: string[]): void;
+  /** Prep: set the Chords. Illegal loadouts (see sim `chordProblems`) are ignored. */
+  setChords(chords: ChordLoadout[]): void;
   /** Prep → Map. */
   embark(): void;
   /** Map: travel to a node reachable from the current one. */
@@ -200,6 +227,8 @@ export interface RunActions {
   rerollDraft(): void;
   /** Respite: rest (heal 40%, clear Shaken) or meditate (upgrade a motif). */
   respite(choice: 'rest' | 'meditate'): void;
+  /** Respite, instead of resting or meditating: change the Chords, then travel on. */
+  retune(chords: ChordLoadout[]): void;
   /** Gives up the current run (goes to Summary). */
   abandon(): void;
   /** Leaves the Summary; clears the run. */

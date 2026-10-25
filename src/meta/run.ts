@@ -6,9 +6,10 @@
 import { CONTENT, encounterDef, motifDef } from '../content';
 import type { MotifDef } from '../content/schema';
 import { Rng, hashString } from '../sim/core/rng';
-import type { SimConfig } from '../sim';
+import { canonicalChords, chordProblems, type SimConfig } from '../sim';
 import {
   RUN_SAVE_VERSION,
+  type ChordLoadout,
   type CombatOutcome,
   type DraftOffer,
   type DraftOption,
@@ -23,7 +24,61 @@ import {
   type RunState,
 } from './types';
 
-export const CHORD_SLOTS = 2;
+/** The Chords a new run starts with: the Prelude's teaching loadout. */
+export const DEFAULT_CHORDS: readonly ChordLoadout[] = [
+  { auras: ['sostenuto', 'fortissimo'], ornaments: [] },
+];
+
+/**
+ * Ready-made loadouts for the Chord builder: each plays differently (docs/phase-2.md). Every
+ * one is legal, and the harness checks each is viable for the Skilled bot.
+ */
+export const CHORD_PRESETS: readonly {
+  id: string;
+  name: string;
+  summary: string;
+  chords: readonly ChordLoadout[];
+}[] = [
+  {
+    id: 'steady',
+    name: 'Steady',
+    summary: 'Regeneration and might around you. Plenty of Spirit for Wards and Chimes.',
+    chords: DEFAULT_CHORDS,
+  },
+  {
+    id: 'beam',
+    name: 'Beam',
+    summary:
+      'Unison puts Fortissimo and Allegro on your Thread at 2.5×: whoever you thread becomes a weapon.',
+    chords: [
+      { auras: ['fortissimo', 'allegro'], ornaments: ['unison'] },
+      { auras: ['sostenuto'], ornaments: ['grace_note'] },
+    ],
+  },
+  {
+    id: 'anchor',
+    name: 'Anchor',
+    summary:
+      'Plant a slowing, healing field with Pedal Point and pull the fight into it; you roam free.',
+    chords: [{ auras: ['lullaby', 'sostenuto'], ornaments: ['pedal_point', 'grace_note'] }],
+  },
+  {
+    id: 'choir',
+    name: 'Wide Choir',
+    summary:
+      'Three auras over a wide field: barrier, the Fermata hold and regeneration. Cues release a chorus pulse.',
+    chords: [
+      { auras: ['ostinato', 'fermata'], ornaments: ['grace_note', 'reverb'] },
+      { auras: ['sostenuto'], ornaments: [] },
+    ],
+  },
+];
+
+/** Is this loadout legal? (The run only ever stores legal Chords.) */
+export function chordsLegal(chords: readonly ChordLoadout[]): boolean {
+  return chordProblems(canonicalChords(chords)).length === 0;
+}
+
 const REROLLS = 1;
 const SKIP_HEAL = 0.1;
 const SHRINE_HEAL = 0.15;
@@ -172,7 +227,7 @@ export function newRun(seed: number): RunState {
     seed: seed >>> 0,
     phase: 'prep',
     party: CONTENT.defaultParty.map((heroId) => ({ heroId, hpPct: 1, shaken: false })),
-    auras: ['sostenuto', 'fortissimo'],
+    chords: canonicalChords(DEFAULT_CHORDS),
     motifs: [],
     map: generateMap(seed >>> 0),
     path: [],
@@ -185,12 +240,15 @@ export function newRun(seed: number): RunState {
   };
 }
 
-export function setAuras(run: RunState, ids: string[]): RunState {
-  if (run.phase !== 'prep') return run;
-  const valid = ids.filter(
-    (id, i) => CONTENT.auras.some((a) => a.id === id) && ids.indexOf(id) === i,
-  );
-  return { ...run, auras: valid.slice(0, CHORD_SLOTS) };
+export function setChords(run: RunState, chords: readonly ChordLoadout[]): RunState {
+  if (run.phase !== 'prep' || !chordsLegal(chords)) return run;
+  return { ...run, chords: canonicalChords(chords) };
+}
+
+/** A Respite's third choice: change the Chords instead of resting or meditating. */
+export function retune(run: RunState, chords: readonly ChordLoadout[]): RunState {
+  if (run.phase !== 'respite' || !chordsLegal(chords)) return run;
+  return { ...run, chords: canonicalChords(chords), phase: 'map', pending: null };
 }
 
 export function embark(run: RunState): RunState {
@@ -231,7 +289,7 @@ export function combatConfig(run: RunState, assists?: SimConfig['assists']): Sim
       shaken: h.shaken,
     })),
     encounter: node.encounterId,
-    auras: [...run.auras],
+    chords: canonicalChords(run.chords),
     motifs: run.motifs.map((m) => ({ ...m })),
     ...(assists ? { assists } : {}),
   };
@@ -335,7 +393,8 @@ function healParty(run: RunState, pct: number): RunState {
 const RARITY_RANK = { common: 0, rare: 1, epic: 2 } as const;
 
 function eligible(run: RunState, def: MotifDef): DraftOption | null {
-  if (def.requires.aura && !run.auras.includes(def.requires.aura)) return null;
+  if (def.requires.aura && !run.chords.some((c) => c.auras.includes(def.requires.aura!)))
+    return null;
   if (def.requires.hero && !run.party.some((h) => h.heroId === def.requires.hero)) return null;
   const owned = run.motifs.find((m) => m.id === def.id);
   if (owned) {
@@ -420,17 +479,36 @@ export function summarize(node: MapNode, outcome: CombatOutcome): EncounterResul
     deaths: outcome.party.filter((p) => p.dead).length,
     telegraphsAimed: l.telegraphsAimed,
     telegraphsAnswered: l.telegraphsAnswered,
+    calls: l.calls,
+    responses: l.responses,
+    holds: l.holds,
   };
   stats.weaverShare = weaverShare(stats);
   const name = (heroId: string) => CONTENT.heroes.find((h) => h.id === heroId)?.name ?? heroId;
   const highlights: (Highlight & { score: number })[] = [];
   for (const s of l.saves) {
+    const fermata = s.cause === 'fermata';
     highlights.push({
-      kind: 'save',
+      kind: fermata ? 'fermata' : 'save',
       time: s.time,
       slot: outcome.party.find((p) => p.heroId === s.heroDefId)?.slot ?? null,
-      text: `Saved ${name(s.heroDefId)} from ${s.attack} (${Math.round(s.prevented).toLocaleString('en-US')} prevented, by ${s.cause})`,
+      text: fermata
+        ? `${name(s.heroDefId)} held on through ${s.attack} — and you healed them in time`
+        : `Saved ${name(s.heroDefId)} from ${s.attack} ${SAVE_HOW[s.cause]} (${Math.round(s.prevented).toLocaleString('en-US')} prevented)`,
       score: 1000 + s.prevented,
+    });
+  }
+  if (l.responses > 0) {
+    const m = l.markers.find((x) => x.kind === 'response');
+    highlights.push({
+      kind: 'response',
+      time: m?.time ?? 0,
+      slot: m?.slot ?? null,
+      text:
+        l.responses === l.calls
+          ? `Answered every call (${l.responses})`
+          : `Answered ${l.responses} of ${l.calls} calls`,
+      score: 450 + l.responses * 40,
     });
   }
   const perfectMarkers = l.markers.filter((m) => m.kind === 'perfect');
@@ -509,8 +587,19 @@ export function summarize(node: MapNode, outcome: CombatOutcome): EncounterResul
       damage: Math.round(p.damage),
       amplified: Math.round(p.amplified),
     })),
+    withoutYou: outcome.withoutYou ? { ...outcome.withoutYou } : null,
   };
 }
+
+const SAVE_HOW: Record<string, string> = {
+  ward: 'with a Ward',
+  reel: 'with a Reel',
+  chime: 'with a Chime',
+  mend: 'with the Thread',
+  dome: 'under Kael’s dome',
+  fermata: 'through Fermata',
+  other: '',
+};
 
 export function grade(
   outcome: 'victory' | 'defeat',
@@ -524,6 +613,7 @@ export function grade(
   score -= stats.deaths * 15;
   score += Math.min(20, stats.perfects * 5);
   score += Math.min(18, stats.saves * 6);
+  score += Math.min(9, stats.responses * 3);
   if (stats.telegraphsAimed > 0) score += (stats.telegraphsAnswered / stats.telegraphsAimed) * 15;
   if (par > 0) score += duration <= par ? 8 : -Math.min(15, ((duration - par) / par) * 30);
   if (score >= 100) return 'S';
@@ -556,6 +646,9 @@ export function runTotals(
     deaths: 0,
     telegraphsAimed: 0,
     telegraphsAnswered: 0,
+    calls: 0,
+    responses: 0,
+    holds: 0,
     encounters: run.results.length,
     duration: 0,
   };
@@ -578,6 +671,9 @@ export function runTotals(
     total.deaths += s.deaths;
     total.telegraphsAimed += s.telegraphsAimed;
     total.telegraphsAnswered += s.telegraphsAnswered;
+    total.calls += s.calls;
+    total.responses += s.responses;
+    total.holds += s.holds;
     total.duration += r.duration;
   }
   total.weaverShare = weaverShare(total);

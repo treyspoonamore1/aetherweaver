@@ -8,13 +8,17 @@
  */
 import { writeFileSync } from 'node:fs';
 import type { BotKind } from '../src/bots';
+import { CHORD_PRESETS } from '../src/meta/run';
+import type { ChordLoadout } from '../src/meta/types';
 import { playEncounter, playRun, type EncounterRun } from './harness-core';
 
 interface Args {
   encounters: string[];
   bots: BotKind[];
   seeds: number;
-  auras: string[];
+  /** The loadout: `--loadout <preset>` or `--auras a,b` (one Chord, no ornaments). */
+  chords: ChordLoadout[];
+  label: string;
   json: string | null;
   verbose: boolean;
 }
@@ -31,9 +35,25 @@ function parseArgs(argv: string[]): Args {
     ).split(','),
     bots: (get('bots') ?? 'idle,novice,skilled').split(',') as BotKind[],
     seeds: Number(get('seeds') ?? 10),
-    auras: (get('auras') ?? 'sostenuto,ostinato').split(',').filter(Boolean),
+    ...loadoutArg(get('loadout'), get('auras')),
     json: get('json') ?? null,
     verbose: argv.includes('--verbose'),
+  };
+}
+
+function loadoutArg(
+  preset: string | undefined,
+  auras: string | undefined,
+): { chords: ChordLoadout[]; label: string } {
+  if (preset) {
+    const p = CHORD_PRESETS.find((x) => x.id === preset);
+    if (!p) throw new Error(`Unknown loadout "${preset}" (${CHORD_PRESETS.map((x) => x.id)})`);
+    return { chords: p.chords.map((c) => ({ ...c })), label: p.name };
+  }
+  const ids = (auras ?? 'sostenuto,fortissimo').split(',').filter(Boolean);
+  return {
+    chords: ids.length ? [{ auras: ids, ornaments: [] }] : [],
+    label: ids.join('+') || 'none',
   };
 }
 
@@ -42,10 +62,10 @@ function pct(n: number): string {
 }
 
 function runs(args: Args): void {
-  console.log(`harness · whole Prelude runs · ${args.seeds} seeds · auras ${args.auras.join('+')}`);
+  console.log(`harness · whole Prelude runs · ${args.seeds} seeds · loadout ${args.label}`);
   for (const bot of args.bots) {
     const results = Array.from({ length: args.seeds }, (_, i) =>
-      playRun(2000 + i * 104729, bot, args.auras),
+      playRun(2000 + i * 104729, bot, args.chords),
     );
     const wins = results.filter((r) => r.outcome === 'victory').length;
     const endedAt: Record<string, number> = {};
@@ -66,7 +86,7 @@ function main(): void {
   }
   const all: EncounterRun[] = [];
   const t0 = Date.now();
-  console.log(`harness · ${args.seeds} seeds · auras ${args.auras.join('+') || 'none'}`);
+  console.log(`harness · ${args.seeds} seeds · loadout ${args.label}`);
   console.log(
     'encounter          bot      win   avg s   wave@loss  boss%@loss  share  perf  saves  downs',
   );
@@ -75,7 +95,7 @@ function main(): void {
       const runs: EncounterRun[] = [];
       for (let i = 0; i < args.seeds; i++) {
         const seed = 1000 + i * 7919;
-        runs.push(playEncounter({ seed, encounter, auras: args.auras }, bot));
+        runs.push(playEncounter({ seed, encounter, chords: args.chords }, bot));
       }
       all.push(...runs);
       const wins = runs.filter((r) => r.outcome === 'victory');

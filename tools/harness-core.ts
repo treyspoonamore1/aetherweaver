@@ -2,6 +2,7 @@
 import { buildOutcome } from '../src/app/outcome';
 import { makeBot, type BotKind } from '../src/bots';
 import * as Run from '../src/meta/run';
+import type { ChordLoadout } from '../src/meta/types';
 import { weaverShare } from '../src/meta/run';
 import { createSim, type SimConfig } from '../src/sim';
 
@@ -88,9 +89,9 @@ export interface RunSummary {
 export function playRun(
   seed: number,
   bot: BotKind,
-  auras = ['sostenuto', 'fortissimo'],
+  chords: readonly ChordLoadout[] = Run.DEFAULT_CHORDS,
 ): RunSummary {
-  let run = Run.embark(Run.setAuras(Run.newRun(seed), auras));
+  let run = Run.embark(Run.setChords(Run.newRun(seed), chords));
   let seconds = 0;
   let last = '';
   for (let guard = 0; guard < 60 && run.phase !== 'summary'; guard++) {

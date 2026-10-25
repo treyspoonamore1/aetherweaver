@@ -1,10 +1,11 @@
 /**
- * CONTRACT v2 — how the runtime drives the combat view (docs/plan/05 §5).
+ * CONTRACT v3 — how the runtime drives the combat view (docs/plan/05 §5).
  *
  * Persistent visuals are derived from `WorldState` every frame (`sync`); transient feedback
  * (hits, sparks, numbers, shake, spotlight dims) comes from events (`onEvents`), drained
  * once per frame after the sim steps. Views never mutate the sim.
  */
+import type { ColorVision } from '../app/colorVision';
 import type { ArenaDef } from '../content';
 import type { EntityId, SimEvent, WorldState } from '../sim';
 import type { CameraRig } from './camera';
@@ -31,7 +32,14 @@ export interface FrameInfo {
   /** Ground point under the cursor. */
   aim: { x: number; z: number } | null;
   /** Player settings that affect presentation. */
-  settings: { screenShake: number; flashes: boolean; damageNumbers: boolean };
+  settings: {
+    screenShake: number;
+    /** Full-screen flash strength, 0 = off … 1 = full. */
+    flashes: number;
+    damageNumbers: boolean;
+    /** Palette for danger, answers and life (app/colorVision.ts). */
+    colorVision: ColorVision;
+  };
 }
 
 export interface WorldView {

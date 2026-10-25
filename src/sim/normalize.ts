@@ -44,6 +44,9 @@ function normalizeDebug(op: DebugOp): DebugOp | null {
       return { op: 'chargeSolos' };
     case 'setBossHp':
       return ok(op.pct) ? { op: 'setBossHp', pct: z0(op.pct) } : null;
+    case 'forceCall':
+    case 'forceHold':
+      return isSlot(op.slot) ? { op: op.op, slot: op.slot } : null;
     default:
       return null;
   }
@@ -86,6 +89,10 @@ export function normalizeCommand(c: Command): Command | null {
         ...(c.target !== undefined ? { target: c.target } : {}),
         ...(point ? { point } : {}),
       };
+    }
+    case 'plant': {
+      const point = vec(c.point);
+      return point ? { t: 'plant', point } : null;
     }
     case 'debug': {
       const op = normalizeDebug(c.op);

@@ -46,6 +46,12 @@ export const STATUS: Record<StatusId, StatusLook> = {
     color: '#fdba74',
     help: 'Maximum life reduced by 10%.',
   },
+  held: {
+    icon: 'heart',
+    label: 'Held',
+    color: '#e2d6f8',
+    help: 'Fermata caught a lethal hit: heal them before it runs out or they go down.',
+  },
 };
 
 export const TECHNIQUE_ICON: Record<TechniqueKey, IconName> = {

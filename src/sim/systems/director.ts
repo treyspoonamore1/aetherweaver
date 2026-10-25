@@ -169,7 +169,8 @@ export function checkEncounterEnd(world: World): void {
     if (isActive(e)) standing++;
     else if (e?.health?.downed && !e.health.dead) revivable++;
   }
-  const weaverUp = isActive(world.entities.get(world.weaverId));
+  // An absent Weaver can't revive anyone.
+  const weaverUp = !world.config.absent && isActive(world.entities.get(world.weaverId));
   if (standing === 0 && (revivable === 0 || !weaverUp)) {
     endEncounter(world, 'defeat');
     return;

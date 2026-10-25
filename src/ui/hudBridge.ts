@@ -1,11 +1,29 @@
-import { CONTENT, auraDef, encounterDef, enemyDef, heroDef } from '../content';
+import { CONTENT, auraDef, encounterDef, enemyDef, heroDef, ornamentDef } from '../content';
 import { DEFAULT_BINDINGS } from '../input/actions';
-import type { EntityId, ReadonlyEntity, TechniqueKey, WorldState } from '../sim';
-import type { BossHud, HeroHud, HudSnapshot, TechniqueHud } from './store';
+import {
+  auraIds,
+  resolveChord,
+  type EntityId,
+  type ReadonlyEntity,
+  type TechniqueKey,
+  type WorldState,
+} from '../sim';
+import type { AuraHud, BossHud, ChordHud, HeroHud, HudSnapshot, TechniqueHud } from './store';
 
 const TECHNIQUE_KEYS: readonly TechniqueKey[] = ['ward', 'chime', 'reel', 'glide'];
 const BLEED_OUT = 12;
 const BOSS_PHASES: Record<string, number> = { the_bellwarden: 2, the_hollow_cantor: 3 };
+
+/** Fermata hold: time left to heal them. */
+function heldOf(e: ReadonlyEntity, now: number): HeroHud['held'] {
+  const hold = e.hero?.hold;
+  if (!hold) return null;
+  const status = e.health?.statuses.find((s) => s.id === 'held');
+  return {
+    remaining: Math.max(0, hold.until - now),
+    total: Math.max(0.01, status?.duration ?? hold.until - now),
+  };
+}
 
 function totalShield(e: ReadonlyEntity): number {
   let total = 0;
@@ -67,6 +85,17 @@ export function buildHudSnapshot(
       action: hero.action,
       distance: weaverEntity ? Math.hypot(e.x - weaverEntity.x, e.z - weaverEntity.z) : 0,
       inField: hero.inField,
+      auras: auraIds(CONTENT, hero.auraMask),
+      call: hero.call
+        ? {
+            answer: hero.call.answer,
+            remaining: Math.max(0, hero.call.end - state.time),
+            total: Math.max(0.01, hero.call.end - hero.call.start),
+            flourish: def.call.flourish.name,
+            answered: hero.call.answered,
+          }
+        : null,
+      held: heldOf(e, state.time),
       follow: hero.follow,
       threaded: w?.threadSlot === slot,
       hovered: opts.hovered === id,
@@ -134,6 +163,26 @@ export function buildHudSnapshot(
     };
   }
 
+  const chords: ChordHud[] = state.field.chords.map((c) => {
+    const folded = resolveChord({ auras: [...c.auras], ornaments: [...c.ornaments] }, c.index);
+    const auras: AuraHud[] = c.auras.map((id) => {
+      const def = auraDef(id);
+      return { id, name: def.name, color: def.color, reserve: def.reserve * folded.reserveMult };
+    });
+    const slot = c.threadHero === null ? -1 : state.party.indexOf(c.threadHero);
+    return {
+      index: c.index,
+      auras,
+      ornaments: c.ornaments.map((id) => {
+        const def = ornamentDef(id);
+        return { id, name: def.name, color: def.color };
+      }),
+      anchor: c.anchor,
+      radius: c.radius,
+      threadSlot: slot >= 0 ? slot : null,
+    };
+  });
+
   const enc = state.encounter;
   const encDef = encounterDef(enc.id);
   const resonance = CONTENT.resonance;
@@ -162,12 +211,17 @@ export function buildHudSnapshot(
       threadTension: w?.threadTension ?? 0,
       threadLock: w?.threadLock ?? 0,
       techniques,
-      auras: state.field.auras.map((id) => {
-        const def = auraDef(id);
-        return { id, name: def.name, color: def.color, reserve: def.reserve };
-      }),
+      auras: chords.flatMap((c) => c.auras),
+      chords,
       fieldRadius: state.field.radius,
       fieldSuppressed: state.field.suppressed,
+      plant: state.field.chords.some((c) => c.anchor === 'planted')
+        ? {
+            remaining: w?.plantCooldown ?? 0,
+            total: CONTENT.weaver.plantCooldown,
+            key0: DEFAULT_BINDINGS.plant[0] ?? '',
+          }
+        : null,
     },
     party,
     boss,

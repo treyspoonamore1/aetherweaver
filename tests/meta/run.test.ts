@@ -46,6 +46,7 @@ function outcomeFor(run: RunState, result: 'victory' | 'defeat'): CombatOutcome 
       damage: 1000,
       amplified: 200,
     })),
+    withoutYou: null,
   };
 }
 
@@ -93,8 +94,18 @@ describe('a run', () => {
   it('plays from Prep to a victorious Summary with drafts, respites and carry-over', () => {
     let run = Run.newRun(42);
     expect(run.phase).toBe('prep');
-    run = Run.setAuras(run, ['allegro', 'fortissimo', 'lullaby']);
-    expect(run.auras).toEqual(['allegro', 'fortissimo']);
+    // An illegal loadout (three auras in one Chord) is ignored; a legal one is kept.
+    expect(
+      Run.setChords(run, [{ auras: ['allegro', 'fortissimo', 'lullaby'], ornaments: [] }]),
+    ).toBe(run);
+    run = Run.setChords(run, [
+      { auras: ['allegro', 'fortissimo'], ornaments: ['grace_note'] },
+      { auras: ['fermata'], ornaments: [] },
+    ]);
+    expect(run.chords).toEqual([
+      { auras: ['allegro', 'fortissimo'], ornaments: ['grace_note'] },
+      { auras: ['fermata'], ornaments: [] },
+    ]);
     run = Run.embark(run);
     let guard = 0;
     while (run.phase !== 'summary' && guard++ < 50) {
@@ -105,7 +116,7 @@ describe('a run', () => {
       } else if (run.phase === 'combat') {
         const config = Run.combatConfig(run)!;
         expect(config.encounter).toBe(Run.findNode(run, run.pending!)!.encounterId);
-        expect(config.auras).toEqual(['allegro', 'fortissimo']);
+        expect(config.chords).toEqual(run.chords);
         run = Run.finishCombat(run, outcomeFor(run, 'victory'));
         expect(run.phase).toBe('result');
         expect(run.lastResult!.highlights[0]!.kind).toBe('save');
@@ -160,7 +171,9 @@ describe('a run', () => {
 
 describe('drafts', () => {
   it('only offers motifs whose requirements are met, and upgrades owned ones', () => {
-    let run = Run.embark(Run.setAuras(Run.newRun(3), ['sostenuto', 'fortissimo']));
+    let run = Run.embark(
+      Run.setChords(Run.newRun(3), [{ auras: ['sostenuto', 'fortissimo'], ornaments: [] }]),
+    );
     for (let i = 0; i < 20; i++) {
       const draft = Run.makeDraft(run, 'victory', 'common', i);
       for (const o of draft.options) {
@@ -210,6 +223,7 @@ describe('grades', () => {
       duration: 40,
       ledger: emptyLedger(),
       party: [],
+      withoutYou: null,
     },
   ).stats;
 
@@ -246,7 +260,7 @@ describe('save v1', () => {
     const store = memoryStore();
     const run = Run.embark(Run.newRun(12));
     saveRun(store, run);
-    saveRun(store, { ...run, auras: ['staccato'] });
+    saveRun(store, { ...run, chords: [{ auras: ['staccato'], ornaments: [] }] });
     expect(loadRun(store)).toEqual(run);
     store.data.delete('aetherweaver.run.bak');
     expect(loadRun(store)).toBeNull();

@@ -1,5 +1,5 @@
 /**
- * CONTRACT v2 — Events are the only way out of the simulation (docs/plan/05 §4.5).
+ * CONTRACT v3 — Events are the only way out of the simulation (docs/plan/05 §4.5).
  *
  * The sim buffers events during a tick; render, audio, UI, the ledger and achievements
  * drain them after the step. Nothing polls the sim for "did X happen". Every event carries
@@ -7,6 +7,7 @@
  */
 import type { DirectiveKind, PartySlot } from './commands';
 import type {
+  CallAnswer,
   EntityId,
   EntityKind,
   SaveCause,
@@ -166,7 +167,7 @@ export interface TechniqueCast extends At {
 /** A command the player issued couldn't happen: give feedback (a buzz, a flash). */
 export interface TechniqueRejected extends At {
   type: 'techniqueRejected';
-  technique: TechniqueKey | 'thread' | 'cue' | 'crescendo';
+  technique: TechniqueKey | 'thread' | 'cue' | 'crescendo' | 'plant';
   reason:
     | 'cooldown'
     | 'spirit'
@@ -289,7 +290,83 @@ export interface TimeScaleChanged extends At {
   type: 'timeScaleChanged';
   scale: number;
   duration: number;
-  reason: 'perfect' | 'save' | 'crescendo' | 'defeat';
+  reason: 'perfect' | 'save' | 'crescendo' | 'defeat' | 'hold';
+}
+
+// ── Chords (docs/plan/03 §3–§4) ───────────────────────────────────────────────────────
+/** The Pedal Point Chord's field was planted somewhere new. */
+export interface FieldPlanted extends At {
+  type: 'fieldPlanted';
+  /** Index of the planted Chord in `field.chords`. */
+  chord: number;
+  fromX: number;
+  fromZ: number;
+  x: number;
+  z: number;
+}
+/** A Cue with three or more auras active: the field pulses a heal and a barrier. */
+export interface ChorusPulse extends At {
+  type: 'chorusPulse';
+  /** The cued hero (the pulse rings out from each Chord's field). */
+  hero: EntityId;
+  /** Active auras the pulse scaled with. */
+  auras: number;
+  /** Heroes it reached. */
+  reached: number;
+}
+/** Fermata caught a lethal hit: the hero hangs on at 1 HP until `until`. Heal them. */
+export interface FermataHold extends At {
+  type: 'fermataHold';
+  hero: EntityId;
+  until: number;
+  /** The hit that would have downed them. */
+  attack: string;
+  damage: number;
+}
+/** A Fermata hold ended: healed in time (`saved`, also logged as a Save) or downed. */
+export interface FermataReleased extends At {
+  type: 'fermataReleased';
+  hero: EntityId;
+  saved: boolean;
+}
+
+// ── Call and Response (docs/phase-2.md) ───────────────────────────────────────────────
+/** A hero calls for a specific kind of support before a big move. */
+export interface CallStarted extends At {
+  type: 'callStarted';
+  hero: EntityId;
+  answer: CallAnswer;
+  /** The ability they are about to use, and what it becomes if you answer. */
+  ability: string;
+  flourish: string;
+  /** Sim time the window closes; unanswered, they use the plain ability then. */
+  until: number;
+  /** What they shout (also shown as a bark). */
+  line: string;
+}
+/** The Weaver answered a call in time: the ability will go off as its Flourish. */
+export interface CallAnswered extends At {
+  type: 'callAnswered';
+  hero: EntityId;
+  answer: CallAnswer;
+  flourish: string;
+  /** Seconds from the call to the answer. */
+  after: number;
+}
+/** A call went unanswered (window closed) or was cut short (the hero was downed, stunned…). */
+export interface CallEnded extends At {
+  type: 'callEnded';
+  hero: EntityId;
+  reason: 'missed' | 'cancelled';
+}
+/** A Flourish went off: the answered, stronger version of a hero's ability. */
+export interface FlourishUsed extends At {
+  type: 'flourish';
+  hero: EntityId;
+  name: string;
+  x: number;
+  z: number;
+  radius: number;
 }
 
 // ── Heroes ────────────────────────────────────────────────────────────────────────────
@@ -420,6 +497,14 @@ export type SimEvent =
   | WeaverDowned
   | WeaverReformed
   | TimeScaleChanged
+  | FieldPlanted
+  | ChorusPulse
+  | FermataHold
+  | FermataReleased
+  | CallStarted
+  | CallAnswered
+  | CallEnded
+  | FlourishUsed
   | SoloReady
   | Cued
   | SoloStarted

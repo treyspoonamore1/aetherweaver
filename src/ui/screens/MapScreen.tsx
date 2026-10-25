@@ -171,17 +171,19 @@ export function MapView({ run, onChoose, onAbandon }: MapViewProps) {
             <Panel tone="solid" className="p-4">
               <SectionTitle>Chord</SectionTitle>
               <div className="flex flex-wrap gap-1.5">
-                {run.auras.length === 0 && (
+                {run.chords.every((c) => c.auras.length === 0) && (
                   <span className="text-sm text-muted">No auras chosen.</span>
                 )}
-                {run.auras.map((id) => {
-                  const a = CONTENT.auras.find((x) => x.id === id)!;
-                  return (
-                    <Chip key={id} color={a.color} icon="note" title={a.description}>
-                      {a.name}
-                    </Chip>
-                  );
-                })}
+                {run.chords
+                  .flatMap((c) => c.auras)
+                  .map((id) => {
+                    const a = CONTENT.auras.find((x) => x.id === id)!;
+                    return (
+                      <Chip key={id} color={a.color} icon="note" title={a.description}>
+                        {a.name}
+                      </Chip>
+                    );
+                  })}
               </div>
             </Panel>
             <Panel tone="solid" className="p-4">

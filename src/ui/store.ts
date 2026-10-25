@@ -1,5 +1,5 @@
 /**
- * CONTRACT v2 — UI state (docs/plan/05 §6). The game runtime writes plain-data snapshots
+ * CONTRACT v3 — UI state (docs/plan/05 §6). The game runtime writes plain-data snapshots
  * here at a fixed rate (HUD 15 Hz, perf 4 Hz); React components subscribe to slices.
  * Nothing in this store references live sim objects.
  *
@@ -9,6 +9,8 @@
 import { create } from 'zustand';
 import type {
   AnswerTag,
+  CallAnswer,
+  ChordAnchor,
   DirectiveKind,
   EncounterKind,
   FollowMode,
@@ -69,6 +71,19 @@ export interface HeroHud {
   /** Distance to the Weaver in metres. */
   distance: number;
   inField: boolean;
+  /** Aura ids affecting this hero right now, in content order (rim colours, frame pips). */
+  auras: string[];
+  /** An open call for support: what they want and how long is left to answer. */
+  call: {
+    answer: CallAnswer;
+    remaining: number;
+    total: number;
+    /** What the ability becomes if answered. */
+    flourish: string;
+    answered: boolean;
+  } | null;
+  /** Fermata hold: seconds left to heal them before they go down (null = not held). */
+  held: { remaining: number; total: number } | null;
   follow: FollowMode;
   threaded: boolean;
   hovered: boolean;
@@ -94,7 +109,25 @@ export interface AuraHud {
   id: string;
   name: string;
   color: string;
+  /** Fraction of max Spirit it reserves after ornaments. */
   reserve: number;
+}
+
+export interface OrnamentHud {
+  id: string;
+  name: string;
+  color: string;
+}
+
+export interface ChordHud {
+  index: number;
+  auras: AuraHud[];
+  ornaments: OrnamentHud[];
+  anchor: ChordAnchor;
+  /** Field radius right now (0 for Unison). */
+  radius: number;
+  /** Unison: the party slot it rides on (null while the Thread is loose). */
+  threadSlot: number | null;
 }
 
 export interface WeaverHud {
@@ -123,9 +156,13 @@ export interface WeaverHud {
   /** Seconds until the Thread can attach again after snapping. */
   threadLock: number;
   techniques: TechniqueHud[];
+  /** Every active aura, Chord by Chord (flattened from `chords`). */
   auras: AuraHud[];
+  chords: ChordHud[];
   fieldRadius: number;
   fieldSuppressed: boolean;
+  /** Pedal Point: replanting cooldown and its key (null without a planted Chord). */
+  plant: { remaining: number; total: number; key0: string } | null;
 }
 
 export interface BossHud {
@@ -196,7 +233,10 @@ export type CalloutKind =
   | 'hint'
   | 'reject'
   | 'wave'
-  | 'solo';
+  | 'solo'
+  | 'call'
+  | 'response'
+  | 'hold';
 
 export interface Callout {
   id: number;

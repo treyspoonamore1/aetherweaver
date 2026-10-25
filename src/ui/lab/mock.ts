@@ -95,6 +95,9 @@ function hero(slot: number, defId: string, over: Partial<HeroHud> = {}): HeroHud
     action: 'idle',
     distance: 4,
     inField: true,
+    auras: ['sostenuto', 'ostinato'],
+    call: null,
+    held: null,
     follow: 'follow',
     threaded: false,
     hovered: false,
@@ -135,8 +138,22 @@ export function mockHud(scenario: HudScenario): HudSnapshot {
         const a = auraDef(id);
         return { id, name: a.name, color: a.color, reserve: a.reserve };
       }),
+      chords: [
+        {
+          index: 0,
+          auras: ['sostenuto', 'ostinato'].map((id) => {
+            const a = auraDef(id);
+            return { id, name: a.name, color: a.color, reserve: a.reserve };
+          }),
+          ornaments: [],
+          anchor: 'weaver',
+          radius: 8,
+          threadSlot: null,
+        },
+      ],
       fieldRadius: 8,
       fieldSuppressed: false,
+      plant: null,
     },
     party: [
       hero(0, 'kael', { hp: 1180, threaded: true, solo: 72, shield: 140 }),
@@ -460,6 +477,9 @@ export function fakeOutcome(
     deaths,
     telegraphsAimed: 18,
     telegraphsAnswered: victory ? 14 : 9,
+    calls: 6,
+    responses: victory ? 4 : 2,
+    holds: 1,
     timeline,
     markers,
   };
@@ -478,6 +498,18 @@ export function fakeOutcome(
       damage: [9000, 8200, 6800][i % 3]! * scale,
       amplified: [800, 2900, 2100][i % 3]! * scale,
     })),
+    // What the same fight looks like with the Weaver absent (usually a wipe).
+    withoutYou: {
+      outcome: 'defeat',
+      duration: Math.round(duration * 0.55),
+      wave: 2,
+      waves: 3,
+      downs: 3 + Math.floor(rnd() * 3),
+      standing: 0,
+      bossHp: node?.kind === 'boss' || node?.kind === 'miniboss' ? 0.4 + rnd() * 0.4 : null,
+      ticks: Math.round(duration * 0.55 * 60),
+      hash: 'mock',
+    },
   };
 }
 
@@ -537,13 +569,13 @@ export function draftRun(): RunState {
     (m) =>
       m.rarity === 'rare' &&
       m.id !== upgrade.motifId &&
-      (!m.requires.aura || run.auras.includes(m.requires.aura)) &&
+      (!m.requires.aura || run.chords.some((c) => c.auras.includes(m.requires.aura!))) &&
       !run.motifs.some((o) => o.id === m.id),
   );
   const epic = CONTENT.motifs.find(
     (m) =>
       m.rarity === 'epic' &&
-      (!m.requires.aura || run.auras.includes(m.requires.aura)) &&
+      (!m.requires.aura || run.chords.some((c) => c.auras.includes(m.requires.aura!))) &&
       !run.motifs.some((o) => o.id === m.id),
   );
   const options = [

@@ -18,6 +18,8 @@ export type Action =
   | 'glide'
   | 'cue'
   | 'crescendo'
+  | 'plant'
+  | 'directiveWheel'
   | 'directiveFocus'
   | 'directiveRally'
   | 'directiveHold'
@@ -45,12 +47,16 @@ export const DEFAULT_BINDINGS: Bindings = {
   // Cue the hovered (else threaded) hero; Shift+1–4 cues a hero by slot.
   cue: ['KeyT'],
   crescendo: ['KeyR'],
+  // Pedal Point: plant the planted Chord's field at the cursor.
+  plant: ['KeyV'],
+  // Hold for the radial Directive wheel (also: hold the middle mouse button).
+  directiveWheel: ['KeyC'],
   // Mark the enemy under the cursor for the whole party (or middle-click it).
   directiveFocus: ['KeyG'],
-  // Stand-ins until the Directive wheel lands.
+  // Direct shortcuts; Scatter lives on the wheel by default (bindable in Settings).
   directiveRally: ['KeyZ'],
   directiveHold: ['KeyX'],
-  directiveScatter: ['KeyC'],
+  directiveScatter: [],
   pause: ['Escape', 'KeyP'],
   devPanel: ['Backquote'],
   perfHud: ['F3'],

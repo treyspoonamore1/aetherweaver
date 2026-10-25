@@ -12,6 +12,12 @@ export const WEAVER: ContentInput['weaver'] = {
   headingTurnRate: 8,
   reformTime: 6,
   fieldRadius: 8,
+  fieldRadiusCap: 14,
+  chords: 2,
+  auraSlots: 2,
+  ornamentSlots: 2,
+  plantRange: 14,
+  plantCooldown: 2,
 };
 
 export const THREAD: ContentInput['thread'] = {
@@ -66,6 +72,7 @@ export const RESONANCE: ContentInput['resonance'] = {
     wardAbsorb: 5,
     empowerPerSec: 1,
     empoweredKill: 2,
+    response: 10,
   },
   decayDelay: 5,
   decayPerSec: 4,
@@ -82,4 +89,17 @@ export const CRESCENDO: ContentInput['crescendo'] = {
   auraEffectMult: 2,
   radiusMult: 1.5,
   healPct: 0.2,
+};
+
+export const CHORUS: ContentInput['chorus'] = {
+  minAuras: 3,
+  healPctPerAura: 0.03,
+  barrierPctPerAura: 0.025,
+  barrierDuration: 4,
+};
+
+export const CALLS: ContentInput['calls'] = {
+  firstAfter: 6,
+  heroCooldown: 22,
+  gap: 6,
 };

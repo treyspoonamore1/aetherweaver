@@ -235,8 +235,8 @@ export const MOTIFS: ContentInput['motifs'] = [
     tags: ['solo'],
   },
   {
-    id: 'call_and_response',
-    name: 'Call and Response',
+    id: 'canon',
+    name: 'Canon',
     category: 'finale',
     rarity: 'rare',
     values: [15, 22, 30],

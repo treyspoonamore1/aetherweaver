@@ -59,6 +59,8 @@ const HIGHLIGHT_ICON: Record<Highlight['kind'], IconName> = {
   cue: 'note',
   crescendo: 'sparkle',
   revive: 'mend',
+  response: 'note',
+  fermata: 'heart',
 };
 
 /** Top moments across the whole run, most valuable kinds first. */
@@ -340,7 +342,8 @@ export function SummaryView({ run, onNewRun, onTitle, assisted = false }: Summar
           )}
           <p className="mt-3 text-xs text-muted">
             Chord:{' '}
-            {run.auras
+            {run.chords
+              .flatMap((c) => c.auras)
               .map((id) => CONTENT.auras.find((a) => a.id === id)?.name)
               .filter(Boolean)
               .join(' + ') || 'none'}
