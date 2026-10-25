@@ -63,3 +63,22 @@ describe('Chord presets', () => {
     }
   });
 });
+
+describe('the Skilled bot and the beam song', () => {
+  it('with a defensive beam song it keeps the beam on the tank but Empowers, not idle-Mends', async () => {
+    const { createSim } = await import('../src/sim');
+    const { makeBot } = await import('../src/bots');
+    const choir = Run.CHORD_PRESETS.find((p) => p.id === 'choir')!;
+    const sim = createSim({
+      seed: 1000,
+      encounter: 'first_light',
+      chords: choir.chords.map((c) => ({ auras: [...c.auras], ornaments: [...c.ornaments] })),
+    });
+    const bot = makeBot('skilled', 1000);
+    for (let t = 0; t < 60 * 120 && sim.state.encounter.status !== 'victory'; t++) {
+      sim.step(bot.decide(sim.state));
+      sim.drainEvents();
+    }
+    expect(sim.state.ledger.thread.amplified).toBeGreaterThan(0);
+  });
+});

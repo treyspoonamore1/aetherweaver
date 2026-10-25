@@ -60,32 +60,37 @@ function chordMask(world: World, chord: ChordField): number {
   return mask;
 }
 
-/** Set by `coverage`: the entity it just looked at is the beam song's focus. */
+/** Set by `coverage` for the entity it just looked at: the beam song pours into it. */
 let focused = false;
+/** Set by `coverage`: it stands inside a song's field (not just on the beam). */
+let inRadius = false;
 
 /**
  * Which auras cover `e` right now (party buffs for heroes and the Weaver, hexes for enemies).
- * Also sets `focused`: `e` is the threaded hero, or an enemy attacking them.
+ * Also sets `focused` (`e` is the threaded hero, or an enemy attacking them, and the beam song
+ * has something for its side) and `inRadius` (`e` stands inside a field that does).
  */
 function coverage(world: World, e: Entity, side: 'party' | 'enemy'): number {
   focused = false;
+  inRadius = false;
   if (world.field.suppressed || inDome(e) || !inHymn(world, e)) return 0;
   const sideMask = side === 'party' ? partyAuraMask(world.content) : enemyAuraMask(world.content);
   let mask = 0;
   for (const chord of world.field.chords) {
-    let covered = false;
-    if (chord.role === 'beam' && chord.threadHero !== null) {
-      covered =
-        side === 'party' ? e.id === chord.threadHero : e.enemy?.targetId === chord.threadHero;
-      if (covered) focused = true;
-    }
-    if (!covered && chord.radius > 0) {
-      const r = chord.radius + e.radius;
-      covered = distSq(e.x, e.z, chord.x, chord.z) <= r * r;
-    }
-    if (covered) mask |= chordMask(world, chord);
+    // A song with nothing for this side (or no auras at all) covers nobody here.
+    const song = chordMask(world, chord) & sideMask;
+    if (song === 0) continue;
+    const r = chord.radius + e.radius;
+    const inside = chord.radius > 0 && distSq(e.x, e.z, chord.x, chord.z) <= r * r;
+    const focus =
+      chord.role === 'beam' &&
+      chord.threadHero !== null &&
+      (side === 'party' ? e.id === chord.threadHero : e.enemy?.targetId === chord.threadHero);
+    if (focus) focused = true;
+    if (inside) inRadius = true;
+    if (focus || inside) mask |= song;
   }
-  return mask & sideMask;
+  return mask;
 }
 
 function threadedHero(world: World, weaver: Entity): EntityId | null {
@@ -125,14 +130,15 @@ export function updateField(world: World, dt: number): void {
   for (let i = 0; i < f.chords.length; i++) {
     const chord = f.chords[i]!;
     const def = world.loadout[i]!;
-    chord.threadHero = chord.role === 'beam' ? thread : null;
+    const singing = chord.auras.length > 0;
+    chord.threadHero = chord.role === 'beam' && singing ? thread : null;
     if (chord.anchor === 'weaver') {
       chord.x = weaver.x;
       chord.z = weaver.z;
     }
-    // A beam song without an echo (Unison) has no field at all.
+    // An empty song, or a beam song without an echo (Unison), has no field at all.
     chord.radius =
-      chord.echo > 0
+      singing && chord.echo > 0
         ? Math.min(content.weaver.fieldRadiusCap, base * def.radiusMult) * radiusMult
         : 0;
     if (chord.anchor === 'weaver') weaverRadius = Math.max(weaverRadius, chord.radius);
@@ -155,7 +161,8 @@ export function updateField(world: World, dt: number): void {
     const mask = !hero.health.dead && !hero.health.downed ? coverage(world, hero, 'party') : 0;
     hero.hero.auraMask = mask;
     hero.hero.beamFocus = mask !== 0 && focused;
-    hero.hero.inField = mask !== 0;
+    // Standing in a field: the beam alone (a threaded hero far away) doesn't count.
+    hero.hero.inField = mask !== 0 && inRadius;
     applyAuraLife(world, hero, auraTotals(world, mask, hero.hero.beamFocus), dt, flush, refill);
   }
   // The Weaver hears their own songs too (the beam song only as its echo).
@@ -167,7 +174,7 @@ export function updateField(world: World, dt: number): void {
     const mask = coverage(world, e, 'enemy');
     e.enemy.auraMask = mask;
     e.enemy.beamFocus = mask !== 0 && focused;
-    e.enemy.inField = mask !== 0;
+    e.enemy.inField = mask !== 0 && inRadius;
   }
 }
 

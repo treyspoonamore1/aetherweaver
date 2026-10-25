@@ -81,3 +81,56 @@ describe('the auras show their work', () => {
     expect(l.amplified).toBeLessThanOrEqual(l.partyDamage);
   });
 });
+
+describe('review fixes', () => {
+  it('an empty beam song is silent: no field, no focus, no stray Starfall zone', async () => {
+    const { inAnyField } = await import('../../src/sim/systems/field');
+    const sim = sandbox({
+      chords: [
+        { auras: [], ornaments: [] },
+        { auras: ['sostenuto'], ornaments: ['pedal_point'] },
+      ],
+    });
+    stepFor(sim, 2, [{ t: 'thread', slot: 1 }]);
+    expect(sim.state.field.chords[0]).toMatchObject({ radius: 0, threadHero: null });
+    expect(sim.state.party.map((id) => sim.state.entities.get(id)!.hero!.beamFocus)).toEqual([
+      false,
+      false,
+      false,
+    ]);
+    stepFor(sim, 1, [{ t: 'plant', point: { x: 12, z: 0 } }]);
+    const w = worldOf(sim);
+    const weaver = w.entities.get(w.weaverId)!;
+    expect(inAnyField(w, weaver.x, weaver.z, 0)).toBe(false);
+  });
+
+  it('a threaded hero far from every field hears the beam but is not in a field', () => {
+    const sim = sandbox({ auras: ['fortissimo'] });
+    stepFor(sim, 2, [{ t: 'thread', slot: 1 }]);
+    const lyra = () => sim.state.entities.get(sim.state.party[1]!)!;
+    expect(lyra().hero).toMatchObject({ beamFocus: true, inField: true });
+    stepFor(sim, 1, [{ t: 'debug', op: { op: 'teleportWeaver', x: lyra().x + 10, z: lyra().z } }]);
+    expect(lyra().hero).toMatchObject({ beamFocus: true, inField: false });
+  });
+
+  it('the beam only focuses the side it has auras for', () => {
+    // A hex-only beam: the threaded hero isn't flagged, the brute attacking them is.
+    const hex = sandbox({ auras: ['lullaby'] });
+    stepFor(hex, 1, [spawn('bell_brute', 0, -3)]);
+    stepFor(hex, 90);
+    const brute = hex.state.entities.list().find((e) => e.enemy)!;
+    const slot = hex.state.party.indexOf(brute.enemy!.targetId!);
+    stepFor(hex, 2, [{ t: 'thread', slot: slot as 0 | 1 | 2 }]);
+    expect(hex.state.entities.get(hex.state.party[slot]!)!.hero!.beamFocus).toBe(false);
+    expect(brute.enemy!.beamFocus).toBe(true);
+    // A buff-only beam: the hero is, their attacker isn't.
+    const buff = sandbox({ auras: ['fortissimo'] });
+    stepFor(buff, 1, [spawn('bell_brute', 0, -3)]);
+    stepFor(buff, 90);
+    const brute2 = buff.state.entities.list().find((e) => e.enemy)!;
+    const slot2 = buff.state.party.indexOf(brute2.enemy!.targetId!);
+    stepFor(buff, 2, [{ t: 'thread', slot: slot2 as 0 | 1 | 2 }]);
+    expect(buff.state.entities.get(buff.state.party[slot2]!)!.hero!.beamFocus).toBe(true);
+    expect(brute2.enemy!.beamFocus).toBe(false);
+  });
+});

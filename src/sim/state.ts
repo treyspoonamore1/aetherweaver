@@ -196,7 +196,7 @@ export interface HeroComponent {
   /** Encounter totals (ledger, bonds). */
   damageDealt: number;
   damageAmplified: number;
-  /** Standing in the Weaver's aura field (and not suppressed). */
+  /** Standing inside one of the Weaver's fields (not suppressed). The beam alone doesn't count. */
   inField: boolean;
   /** Bit i set ⇔ content.auras[i] affects this hero right now (rim lights, HUD icons). */
   auraMask: number;

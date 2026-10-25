@@ -320,7 +320,10 @@ export function createWorld(config: SimConfig): World {
         anchor: c.anchor,
         x: 0,
         z: 0,
-        radius: c.echo > 0 ? Math.min(content.weaver.fieldRadiusCap, baseRadius * c.radiusMult) : 0,
+        radius:
+          c.auras.length > 0 && c.echo > 0
+            ? Math.min(content.weaver.fieldRadiusCap, baseRadius * c.radiusMult)
+            : 0,
         effectMult: c.effectMult,
         focus: c.focus,
         echo: c.echo,

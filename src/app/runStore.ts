@@ -47,6 +47,16 @@ export const useRun = create<RunStore>()((set, get) => {
       return true;
     },
     newRun: (seed) => {
+      // A run replaced before its summary still counts (won if its last fight beat the boss).
+      const previous = get().run;
+      if (previous && previous.phase !== 'prep' && previous.phase !== 'summary') {
+        const last = previous.lastResult;
+        useProfile
+          .getState()
+          .recordRun(
+            previous.outcome === 'victory' || (last?.kind === 'boss' && last.outcome === 'victory'),
+          );
+      }
       // Start from the last Chords used, if they're still unlocked.
       const profile = useProfile.getState();
       const last = profile.profile.lastChords;
@@ -60,9 +70,18 @@ export const useRun = create<RunStore>()((set, get) => {
     setChords: (chords) =>
       apply((run) => Run.setChords(run, chords, useProfile.getState().allowance())),
     embark: () => {
-      apply(Run.embark);
+      const profile = useProfile.getState();
+      const allowance = profile.allowance();
+      // Chords picked while "Skip the unlocks" was on don't outlive turning it off.
+      apply((run) =>
+        Run.embark(
+          Run.chordsAllowed(run.chords, allowance)
+            ? run
+            : { ...run, chords: Run.DEFAULT_CHORDS.map((c) => ({ ...c, auras: [...c.auras] })) },
+        ),
+      );
       const run = get().run;
-      if (run) useProfile.getState().rememberChords(run.chords);
+      if (run?.phase === 'map') profile.rememberChords(run.chords);
     },
     chooseNode: (id) => apply((run) => Run.chooseNode(run, id)),
     combatConfig: (): SimConfig | null => {
@@ -81,7 +100,11 @@ export const useRun = create<RunStore>()((set, get) => {
     pickDraft: (index) => apply((run) => Run.pickDraft(run, index)),
     rerollDraft: () => apply(Run.rerollDraft),
     respite: (choice) => apply((run) => Run.respite(run, choice)),
-    retune: (chords) => apply((run) => Run.retune(run, chords, useProfile.getState().allowance())),
+    retune: (chords) => {
+      apply((run) => Run.retune(run, chords, useProfile.getState().allowance()));
+      const run = get().run;
+      if (run?.phase === 'map') useProfile.getState().rememberChords(run.chords);
+    },
     abandon: () => apply(Run.abandon),
     closeRun: () => {
       saveRun(storage(), null);
