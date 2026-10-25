@@ -4,7 +4,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { CONTENT, callingOption } from '../../src/content';
-import { radianceOf } from '../../src/sim/combat/health';
+import { dealDamage, radianceOf } from '../../src/sim/combat/health';
 import { KNOWN_CALLINGS, KNOWN_CALLING_OPTIONS, resolveMods } from '../../src/sim/mods';
 import { updateField } from '../../src/sim/systems/field';
 import { resolveConfig } from '../../src/sim/world';
@@ -226,5 +226,33 @@ describe('Eclipse', () => {
     w.field.crescendo = true;
     const events = stepFor(sim, 60);
     expect(ofType(events, 'damageTaken').some((e) => e.radiance > 0)).toBe(true);
+  });
+
+  it('the same hit in Sunrise lands harder with Eclipse, by its share alone', () => {
+    const hit = (capstone: string) => {
+      const sim = sandbox({
+        chords: GUARDIAN,
+        ...luminary('haloed', 'dawnward', 'lantern_bearer', capstone),
+      });
+      stepFor(sim, 1, [spawn('bell_brute', 0, -3)]);
+      stepFor(sim, 1);
+      const w = worldOf(sim);
+      w.field.crescendo = true;
+      updateField(w, 1 / 60);
+      const enemy = w.entities.list().find((e) => e.enemy)!;
+      const kael = w.entities.get(w.party[0]!)!;
+      expect(enemy.enemy!.inField).toBe(true);
+      const before = enemy.health!.hp;
+      dealDamage(w, enemy, { source: kael.id, sourceName: 'test', amount: 10 });
+      return { lost: before - enemy.health!.hp, radiance: radianceOf(w, kael) };
+    };
+    // Sovereign Symphony is idle with two auras: the only difference is Eclipse.
+    const eclipse = hit('eclipse');
+    const plain = hit('sovereign_symphony');
+    expect(eclipse.radiance).toBeCloseTo(plain.radiance, 9);
+    expect(eclipse.lost / plain.lost).toBeCloseTo(
+      (1 + eclipse.radiance + value('eclipse', 'pct') / 100) / (1 + eclipse.radiance),
+      6,
+    );
   });
 });

@@ -296,7 +296,7 @@ export interface EnemyComponent {
   cast: EnemyCast | null;
   /** Boss phase (1-based); 0 for non-bosses. */
   phase: number;
-  /** Inside the Weaver's field (Lullaby). */
+  /** Inside one of the Weaver's fields, whatever the songs hold for enemies (Eclipse). */
   inField: boolean;
   /** Bit i set ⇔ content.auras[i] (a hex) affects this enemy right now. */
   auraMask: number;

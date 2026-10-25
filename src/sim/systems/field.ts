@@ -185,7 +185,9 @@ export function updateField(world: World, dt: number): void {
     const mask = coverage(world, e, 'enemy');
     e.enemy.auraMask = mask;
     e.enemy.beamFocus = mask !== 0 && focused;
-    e.enemy.inField = mask !== 0 && inRadius;
+    // Inside the light, whatever the songs hold for enemies (Eclipse reads it).
+    e.enemy.inField =
+      !f.suppressed && !inDome(e) && inHymn(world, e) && inAnyField(world, e.x, e.z, e.radius);
   }
 }
 
