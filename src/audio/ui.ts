@@ -34,6 +34,9 @@ export const UI_SOUND_NAMES = Object.keys({
   relicPick: 0,
   curseLifted: 0,
   aether: 0,
+  callingSelect: 0,
+  callingReveal: 0,
+  callingPick: 0,
 } satisfies Record<UiSound, 0>) as UiSound[];
 
 export function playUiSound(e: Engine, sound: UiSound): void {
@@ -117,6 +120,23 @@ export function playUiSound(e: Engine, sound: UiSound): void {
       break;
     case 'aether':
       aether(v, t);
+      break;
+    case 'callingSelect':
+      // A Calling answered: a warm bell and a breath of light opening upwards.
+      handbell(v, t, hz(7), 0.07, 1.6, 0.6);
+      glassNote(v, t + 0.05, hz(14), 0.03, 1.2, 0.8);
+      whoosh(v, t, 0.5, 0.02, 600, 2800, 1);
+      break;
+    case 'callingReveal':
+      // The path opens: a slow rising glass run.
+      [4, 7, 9, 11, 14].forEach((idx, i) => glassNote(v, t + i * 0.09, hz(idx), 0.025, 1.1, 0.7));
+      whoosh(v, t, 0.6, 0.015, 800, 3600, 1);
+      break;
+    case 'callingPick':
+      // A tier taken: a choir chord with a bell on top, weightier than a pick.
+      choirChord(v, t, [hz(0), hz(4), hz(7)], 0.9, 0.08, 0.2, 0.9);
+      handbell(v, t + 0.04, hz(11), 0.06, 1.8, 0.7);
+      pluck(v, t, hz(7), 0.1, 0.4, 0.6);
       break;
     case 'wheelOpen':
       // A soft bloom: a breath opening upwards and a quiet A4.

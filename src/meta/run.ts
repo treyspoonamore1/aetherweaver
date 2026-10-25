@@ -1146,6 +1146,8 @@ export function summarize(node: MapNode, outcome: CombatOutcome): EncounterResul
     auraAmplified: Math.round(l.auras.amplified),
     threadHealing: Math.round(l.thread.healing),
     threadAmplified: Math.round(l.thread.amplified),
+    callingAmplified: Math.round(l.calling.amplified),
+    callingShielded: Math.round(l.calling.shielded),
     partyDamage: Math.round(l.partyDamage),
     weaverShare: 0,
     perfects: l.perfects,
@@ -1327,6 +1329,8 @@ export function runTotals(
     auraAmplified: 0,
     threadHealing: 0,
     threadAmplified: 0,
+    callingAmplified: 0,
+    callingShielded: 0,
     partyDamage: 0,
     weaverShare: 0,
     perfects: 0,
@@ -1358,6 +1362,8 @@ export function runTotals(
     total.auraAmplified += s.auraAmplified;
     total.threadHealing += s.threadHealing;
     total.threadAmplified += s.threadAmplified;
+    total.callingAmplified += s.callingAmplified;
+    total.callingShielded += s.callingShielded;
     total.partyDamage += s.partyDamage;
     total.perfects += s.perfects;
     total.saves += s.saves;

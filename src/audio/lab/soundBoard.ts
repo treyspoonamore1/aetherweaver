@@ -608,6 +608,9 @@ export const SOUNDS: SoundButton[] = [
       'relicPick',
       'curseLifted',
       'aether',
+      'callingSelect',
+      'callingReveal',
+      'callingPick',
     ] as UiSound[]
   ).map((s): SoundButton => ({
     id: `ui-${s}`,

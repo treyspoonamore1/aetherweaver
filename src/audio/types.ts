@@ -40,7 +40,14 @@ export type UiSound =
   | 'relicReveal'
   | 'relicPick'
   | 'curseLifted'
-  | 'aether';
+  | 'aether'
+  /**
+   * Phase 3c (docs/phase-3c.md): a Calling chosen in Prep, a tier of its path revealed after a
+   * milestone fight, and one of its options taken.
+   */
+  | 'callingSelect'
+  | 'callingReveal'
+  | 'callingPick';
 
 export interface Volumes {
   /** 0..1 each. */

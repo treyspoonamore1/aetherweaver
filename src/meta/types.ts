@@ -243,6 +243,9 @@ export interface EncounterStats {
   /** What the Thread did: Mend's healing and Empower's damage. */
   threadHealing: number;
   threadAmplified: number;
+  /** What the Calling did (docs/phase-3c.md): the Luminary's Radiance and Eclipse; Haloed. */
+  callingAmplified: number;
+  callingShielded: number;
   partyDamage: number;
   /** The Weaver's share of everything that mattered: (healing + shielded + negated + amplified + saves) / total. 0..1 */
   weaverShare: number;

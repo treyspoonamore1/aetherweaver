@@ -66,6 +66,9 @@ const StatsSchema = z.object({
   auraAmplified: Num,
   threadHealing: Num,
   threadAmplified: Num,
+  // Phase 3c: results saved before Callings say nothing about them.
+  callingAmplified: Num.default(0),
+  callingShielded: Num.default(0),
   partyDamage: Num,
   weaverShare: Num,
   perfects: Num,
