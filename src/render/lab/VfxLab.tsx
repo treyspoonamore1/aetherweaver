@@ -296,6 +296,8 @@ class LabRuntime {
         effect: 'healAllies',
       },
     ];
+    // Non-damage casts must carry their effect on the telegraph itself.
+    for (const p of this.view.telegraphs.preview) p.t = { ...p.t, effect: p.effect };
   }
 
   setHymn(on: boolean): void {
