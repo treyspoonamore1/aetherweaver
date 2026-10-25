@@ -112,26 +112,28 @@ Gambles are seeded by the run (the same seed, node and choice always roll the sa
 
 ## Threat
 
-The deeper the row, the more life every enemy has: **+3.5% per row past the first** (`THREAT_PER_ROW`, `threatFor(row)` in [`src/meta/economy.ts`](../src/meta/economy.ts)). The Bellwarden on row 7 has ×1.21 life, the Cantor on row 9 ×1.28. Every fight's preview shows it (`MapNode.reward.threat`); the sim takes it as `SimConfig.threat` (1 outside runs, clamped 1–3). The "without you" re-run fights the same enemies.
+The deeper the row, the more life every enemy has: **+3.75% per row past the first** (`THREAT_PER_ROW`, `threatFor(row)` in [`src/meta/economy.ts`](../src/meta/economy.ts)). The Bellwarden on row 7 has ×1.23 life, the Cantor on row 9 ×1.30. Every fight's preview shows it (`MapNode.reward.threat`); the sim takes it as `SimConfig.threat` (1 outside runs, clamped 1–3). The "without you" re-run fights the same enemies.
 
 **Why.** The first sweep of the new map had whole runs *easier* than Phase 3, and relics weren't the reason: with relics turned off (`--no-relics`) the bots won just as often. Ten stops grow the party — more drafts, merchants' motifs and healing — so it reached the bosses stronger than they were tuned for. Threat keeps the late fights honest without touching the isolated encounters the [difficulty contract](phase-1.md#difficulty-contract) measures. It scales life only, not damage: fights last longer as you go deeper, but no single hit gets harder to survive.
 
 ## Harness
 
-Whole Prelude runs, 80 seeds, the default loadout (Steady), `npm run harness -- --run --seeds 80 --bots novice,skilled`. Threat per row was calibrated with `THREAT_PER_ROW=… npm run harness -- --run …` (an override for tuning only).
+Whole Prelude runs with the default loadout (Steady), `npm run harness -- --run --seeds 80 --bots novice,skilled`. Threat per row was calibrated with `THREAT_PER_ROW=… npm run harness -- --run …` (an override for tuning only).
 
 | | Novice | Skilled |
 |---|---|---|
-| Phase 3 (7 stops) | 40% | 88% |
-| Phase 3b, no Threat | 51% | 94% |
-| Phase 3b, no Threat, no relics | 53% | 95% |
-| Threat 3% / row | 50% | 89% |
-| **Threat 3.5% / row (shipped)** | **38%** | **88%** |
-| Threat 4% / row | 31% | 83% |
-| Threat 5% / row | 25% | 80% |
+| Phase 3 (7 stops), 80 seeds | 40% | 88% |
+| Phase 3b, no Threat, 80 seeds | 51% | 94% |
+| Phase 3b, no Threat, no relics, 80 seeds | 53% | 95% |
+| Threat 3.5% / row, 200 seeds | 48% | 90% |
+| **Threat 3.75% / row (shipped), 200 / 120 seeds** | **39%** | **90%** |
+| Threat 4% / row, 80 seeds | 33% | 89% |
+| Threat 4.5% / row, 80 seeds | 29% | 88% |
 | Contract | 25–45% | ≥ 80% |
 
-With Threat at 3.5%, a Skilled run plays 5.9 fights, finds 3.9 relics and earns about 195 Aether (78 unspent at the end); a Novice run 4.8 fights, 2.3 relics, 123 Aether. Runs now end anywhere: the Novice's 50 losses split between skirmishes (23), elites (10), the Unsung Choir (2), the Bellwarden (5) and the Cantor (10), where in Phase 3 the two bosses took 28 of 48.
+The bosses are steep: a fresh Novice party beats the Bellwarden 88% of the time at ×1 life and 63% at ×1.225, the Cantor 65% and 38% (40 seeds each, no enrage involved). That steepness is why the curve jumps between neighbouring rates, and why the shipped rate was settled on 200 seeds. Calibration also caught a trap: an early Hollow Bell that stopped Chime healing outright was in so many blind-picked runs that it held the Novice down by ten points on its own.
+
+At 3.75%, a Skilled run plays 5.9 fights, finds 3.9 relics and earns about 195 Aether (73 unspent at the end); a Novice run 4.9 fights, 2.1 relics, 125 Aether. Novice runs end everywhere, and the bosses are the wall again: of 122 losses, 42 in skirmishes, 27 in elites, 3 in the Unsung Choir, 27 at the Bellwarden and 23 at the Cantor (in Phase 3 the two bosses took 28 of 48).
 
 The harness's policies for the new stops ([`tools/harness-core.ts`](../tools/harness-core.ts)) are simple and deterministic: merchants buy the dearest relic it can afford, then healing if the party is under 60%, then motifs; forges lift a curse if there is one, else temper; events take the first choice that needs no motif or new Chords; relic offers take the first.
 
