@@ -1016,6 +1016,19 @@ export class EntityLayer {
         );
         if (strong) {
           kit.rings.push(x, ty + 0.16, z, 0.48 * big, 0.05, 0.14, RING.swipe, c, 0.8, -spin, 2.2);
+          // The hex presses down: a ring dropping from over the head to the feet, again and again.
+          const ph = (this.now * 1.3 + rec.id * 0.37) % 1;
+          kit.rings.push(
+            x,
+            (ty + 0.3) * (1 - ph) + 0.05,
+            z,
+            rec.radius * (1.6 - 0.5 * ph) + 0.1,
+            0.06,
+            0.16,
+            RING.plain,
+            c,
+            0.9 * Math.sin(Math.PI * ph),
+          );
           kit.rings.push(x, 0.03, z, rec.radius * 1.35 + 0.1, 0.09, 0.22, RING.plain, c, 0.85);
           kit.rings.push(
             x,

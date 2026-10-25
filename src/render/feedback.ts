@@ -1114,7 +1114,8 @@ export class Feedback {
       this.softHealFor = vision;
       this.softHealHex = softenHex(VISION_HEX.heal, 0.45);
     }
-    const size = Math.min(19, 11 + 9 * Math.sqrt(Math.min(1, b.amount / maxHp)));
+    // Smaller than Mend's (12–30 px) but legible: a regen tick is ~1–3% of max life.
+    const size = 13 + 7 * Math.sqrt(Math.min(1, (b.amount / maxHp) * 8));
     if (fresh)
       b.handle = this.d.overlay.spawnNumber(
         r.x - 0.4,
