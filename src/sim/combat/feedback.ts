@@ -33,7 +33,7 @@ export function setTimeScale(
   world: World,
   scale: number,
   ticks: number,
-  reason: 'perfect' | 'save' | 'crescendo' | 'defeat',
+  reason: SimEventOf<'timeScaleChanged'>['reason'],
 ): void {
   const internal = world.internal;
   const active = internal.timeScaleTicks > 0;

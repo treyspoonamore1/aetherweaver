@@ -61,13 +61,18 @@ export async function renderSound(
   seconds = 4,
 ): Promise<AudioBuffer> {
   // Quantised sounds (the boss phase stinger) wait for the next bar line, so give them time.
-  const length = sound.id === 'phase' ? 7 : seconds;
+  const length = Math.max(seconds, sound.length ?? 0, sound.id === 'phase' ? 7 : 0);
   const { ctx, d } = offlineDirector(length, volumes);
   const w = new FakeWorld();
   d.pump();
   sound.fire(d, w);
+  const pending = [...(sound.then ?? [])];
   for (let t = 0.1; t < length - 0.5; t += 0.1) {
     void ctx.suspend(t).then(() => {
+      // Follow-up events (an answer, a release) land on the first pump after their delay.
+      while (pending.length && (pending[0] as { delay: number }).delay <= t + 1e-6) {
+        (pending.shift() as { fire(d: SynthDirector, w: FakeWorld): void }).fire(d, w);
+      }
       d.pump();
       void ctx.resume();
     });

@@ -1,4 +1,5 @@
 import type { HeroHud, HudSnapshot } from '../store';
+import { keyLabel } from '../../input/keyLabel';
 import { ANSWER, bindingLabel } from './labels';
 
 /**
@@ -69,6 +70,29 @@ export function evaluateHints(hud: HudSnapshot): Hint[] {
   const Q = `{${bindingLabel('ward')}}`;
   const E = `{${bindingLabel('chime')}}`;
   const F = `{${bindingLabel('reel')}}`;
+
+  // Fermata hold: the most urgent thing on screen.
+  for (const h of party.filter((p) => p.held && !p.dead)) {
+    out.push({
+      id: 'hold',
+      text: h.threaded
+        ? `Fermata is holding ${h.name} at 1 life — keep Mending them, or Chime ${E} on them, before it ends`
+        : `Fermata is holding ${h.name} at 1 life — Thread them {${h.slot + 1}} or Chime ${E} on them before it ends`,
+    });
+  }
+  // Call and Response: the first time a hero asks for something specific.
+  for (const h of party.filter((p) => alive(p) && p.call && !p.call.answered)) {
+    const call = h.call!;
+    out.push({
+      id: 'call',
+      text:
+        call.answer === 'ward'
+          ? `${h.name} is calling for a Ward — press ${Q} on them before the ring runs out for ${call.flourish}`
+          : call.answer === 'chime'
+            ? `${h.name} is calling for a Chime — press ${E} on them before the ring runs out for ${call.flourish}`
+            : `${h.name} is calling for Empower — Thread them {${h.slot + 1}} in Empower {RMB} before the ring runs out for ${call.flourish}`,
+    });
+  }
 
   for (const h of party.filter(alive)) {
     if (h.lethal) {
@@ -153,6 +177,25 @@ export function evaluateHints(hud: HudSnapshot): Hint[] {
     out.push({
       id: 'boss-cast',
       text: `${hud.boss.cast.name} is coming — answer it with ${names}`,
+    });
+  }
+  // Pedal Point: the planted field only helps where the fight is.
+  if (w.plant && w.plant.remaining <= 0.05 && party.filter(alive).some((h) => !h.inField)) {
+    const V = `{${w.plant.key0 ? keyLabel(w.plant.key0) : bindingLabel('plant')}}`;
+    out.push({
+      id: 'plant',
+      text: `Your Pedal Point field stays where you plant it — press ${V} to plant it under the fight`,
+    });
+  }
+  // The Directive wheel: when the party is spread out, or once the fight has settled.
+  const strays = party.filter((h) => alive(h) && !h.inField).length;
+  if (hud.directive === null && (strays >= 2 || hud.encounter.elapsed > 45)) {
+    out.push({
+      id: 'wheel',
+      text:
+        strays >= 2
+          ? `Your party is spread out — hold {${bindingLabel('directiveWheel')}} and flick toward Rally to call them to you`
+          : `Hold {${bindingLabel('directiveWheel')}} (or the middle mouse button) for the Directive wheel: Focus, Rally, Hold, Scatter`,
     });
   }
   if (w.threadSlot === null && hud.encounter.elapsed > 3 && party.some(alive)) {

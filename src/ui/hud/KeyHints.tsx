@@ -16,11 +16,9 @@ export function KeyHints() {
     ],
     [`${bindingLabel('cue')} / ⇧1–4`, 'Cue a Solo'],
     [bindingLabel('crescendo'), 'Crescendo'],
-    [
-      `${bindingLabel('directiveRally')} ${bindingLabel('directiveHold')} ${bindingLabel('directiveScatter')}`,
-      'Rally · Hold · Scatter',
-    ],
-    [bindingLabel('directiveFocus'), 'Focus an enemy'],
+    [`hold ${bindingLabel('directiveWheel')} / MMB`, 'Directive wheel'],
+    [`${bindingLabel('directiveFocus')} / MMB click`, 'Focus an enemy'],
+    [bindingLabel('plant'), 'Plant Pedal Point'],
     [bindingLabel('pause'), 'Pause'],
   ];
   return (

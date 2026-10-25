@@ -5,9 +5,10 @@
  */
 import { CONTENT, auraDef, encounterDef, heroDef } from '../../content';
 import * as Run from '../../meta/run';
-import type { CombatOutcome, RunState } from '../../meta/types';
+import type { CombatOutcome, RunState, WithoutYou } from '../../meta/types';
 import type { Ledger } from '../../sim';
-import type { Callout, HeroHud, HudSnapshot, TechniqueHud } from '../store';
+import type { AuraHud, Callout, ChordHud, HeroHud, HudSnapshot, TechniqueHud } from '../store';
+import type { WheelView } from '../../input/wheel';
 
 // ── HUD snapshots ─────────────────────────────────────────────────────────────────────
 
@@ -105,7 +106,52 @@ function hero(slot: number, defId: string, over: Partial<HeroHud> = {}): HeroHud
   };
 }
 
-export type HudScenario = 'calm' | 'crisis' | 'downed' | 'boss' | 'resonance' | 'sandbox';
+export type HudScenario =
+  'calm' | 'crisis' | 'downed' | 'boss' | 'resonance' | 'sandbox' | 'calls' | 'fermata' | 'wheel';
+
+function auraHud(id: string, reserveMult = 1): AuraHud {
+  const a = auraDef(id);
+  return { id, name: a.name, color: a.color, reserve: a.reserve * reserveMult };
+}
+
+function chordHud(
+  index: number,
+  auras: string[],
+  ornaments: string[],
+  over: Partial<ChordHud> = {},
+): ChordHud {
+  const reserveMult = ornaments.includes('grace_note') ? 0.7 : 1;
+  return {
+    index,
+    auras: auras.map((id) => auraHud(id, reserveMult)),
+    ornaments: ornaments.map((id) => {
+      const o = CONTENT.ornaments.find((x) => x.id === id)!;
+      return { id, name: o.name, color: o.color };
+    }),
+    anchor: ornaments.includes('unison')
+      ? 'thread'
+      : ornaments.includes('pedal_point')
+        ? 'planted'
+        : 'weaver',
+    radius: ornaments.includes('unison') ? 0 : 8,
+    threadSlot: null,
+    ...over,
+  };
+}
+
+/** The Directive wheel open over the arena, Rally under the pointer. */
+export function mockWheel(focus: boolean): WheelView & { focusName: string | null } {
+  return {
+    x: 760,
+    y: 330,
+    dx: focus ? 4 : 70,
+    dy: focus ? -72 : 12,
+    via: 'key',
+    focusTarget: focus ? 42 : null,
+    spoke: focus ? 'focus' : 'rally',
+    focusName: focus ? 'Bell Brute' : null,
+  };
+}
 
 export function mockHud(scenario: HudScenario): HudSnapshot {
   const w = CONTENT.weaver;
@@ -310,6 +356,107 @@ export function mockHud(scenario: HudScenario): HudSnapshot {
           enemies: 3,
         },
       };
+    case 'calls': {
+      const chords = [
+        chordHud(0, ['fortissimo', 'allegro'], ['unison'], { threadSlot: 1 }),
+        chordHud(1, ['sostenuto'], ['grace_note'], { radius: 8 }),
+      ];
+      return {
+        ...base,
+        weaver: {
+          ...base.weaver,
+          threadSlot: 1,
+          threadMode: 'empower',
+          resonance: 55,
+          chords,
+          auras: chords.flatMap((c) => c.auras),
+          reserved: 72.5,
+          spirit: 22,
+        },
+        party: [
+          hero(0, 'kael', {
+            hp: 1250,
+            solo: 64,
+            auras: ['sostenuto'],
+            call: {
+              answer: 'ward',
+              remaining: 1.7,
+              total: 2.5,
+              flourish: 'Bulwark',
+              answered: false,
+            },
+          }),
+          hero(1, 'lyra', {
+            hp: 790,
+            threaded: true,
+            solo: 48,
+            auras: ['allegro', 'fortissimo', 'sostenuto'],
+            call: {
+              answer: 'empower',
+              remaining: 0.9,
+              total: 3,
+              flourish: 'Heartseeker',
+              answered: true,
+            },
+          }),
+          hero(2, 'vexis', {
+            hp: 560,
+            solo: 80,
+            auras: [],
+            inField: false,
+            distance: 13,
+            call: {
+              answer: 'chime',
+              remaining: 2.6,
+              total: 3,
+              flourish: 'Resonant Starbolt',
+              answered: false,
+            },
+          }),
+        ],
+      };
+    }
+    case 'fermata': {
+      const chords = [
+        chordHud(0, ['ostinato', 'fermata'], ['grace_note', 'reverb'], { radius: 11.2 }),
+        chordHud(1, ['lullaby', 'sostenuto'], ['pedal_point'], { radius: 6.8 }),
+      ];
+      return {
+        ...base,
+        weaver: {
+          ...base.weaver,
+          chords,
+          auras: chords.flatMap((c) => c.auras),
+          reserved: 88,
+          spirit: 9,
+          threadSlot: 0,
+          plant: { remaining: 1.3, total: 2, key0: 'KeyV' },
+          techniques: techniques({ chime: { remaining: 4.2 } }),
+        },
+        party: [
+          hero(0, 'kael', {
+            hp: 1,
+            threaded: true,
+            auras: ['ostinato', 'fermata'],
+            held: { remaining: 0.9, total: 1.5 },
+            statuses: [{ id: 'held', remaining: 0.9, duration: 1.5 }],
+            incoming: 220,
+            lethal: true,
+          }),
+          hero(1, 'lyra', { hp: 640, auras: ['ostinato', 'fermata', 'lullaby', 'sostenuto'] }),
+          hero(2, 'vexis', { hp: 410, auras: ['ostinato', 'fermata'], inField: true }),
+        ],
+        encounter: { ...base.encounter, elapsed: 71, enemies: 11 },
+      };
+    }
+    case 'wheel':
+      return {
+        ...base,
+        weaver: { ...base.weaver, threadMode: 'mend', threadSlot: 0 },
+        party: base.party.map((h, i) =>
+          i === 2 ? { ...h, inField: false, distance: 14, auras: [] } : h,
+        ),
+      };
     case 'resonance':
       return {
         ...base,
@@ -370,6 +517,29 @@ export function mockCallouts(scenario: HudScenario): Callout[] {
         c(1, 'perfect', 'Crescendo — Sunrise', { color: '#fde68a' }),
         c(2, 'solo', 'Cue: Vexis', { color: heroDef('vexis').color }),
       ];
+    case 'calls':
+      return [
+        c(1, 'call', 'Weaver — shield me, I’m pulling them!', {
+          speaker: 'Kael',
+          color: heroDef('kael').color,
+          detail: 'Ward → Bulwark',
+        }),
+        c(2, 'response', 'Heartseeker!', { color: '#fde68a' }),
+        c(3, 'call', 'Ring the bell on me — I’ll tune the star!', {
+          speaker: 'Vexis',
+          color: heroDef('vexis').color,
+          detail: 'Chime → Resonant Starbolt',
+        }),
+      ];
+    case 'fermata':
+      return [
+        c(1, 'hold', 'Kael is holding on — heal them!', {
+          detail: 'Fermata caught Toll Cleave',
+          color: '#e2d6f8',
+        }),
+        c(2, 'system', 'Chorus · 4 auras', { color: '#e9d5ff' }),
+      ];
+    case 'wheel':
     case 'sandbox':
       return [];
   }
@@ -389,7 +559,7 @@ function lcg(seed: number): () => number {
 export function fakeOutcome(
   run: RunState,
   victory: boolean,
-  opts: { deaths?: number } = {},
+  opts: { deaths?: number; alone?: WithoutYou['outcome'] | null } = {},
 ): CombatOutcome {
   const node = Run.findNode(run, run.pending ?? '');
   const encId = node?.encounterId ?? 'first_light';
@@ -409,6 +579,8 @@ export function fakeOutcome(
     'cue',
     'perfect',
     'cleanse',
+    'response',
+    'hold',
   ];
   const deaths: Ledger['deaths'] = [];
   const dead = new Set<number>();
@@ -464,7 +636,7 @@ export function fakeOutcome(
         time: m.time,
         hero: 100 + (m.slot ?? 0),
         heroDefId: run.party[m.slot ?? 0]!.heroId,
-        cause: (['ward', 'reel', 'chime', 'mend', 'dome'] as const)[i % 5]!,
+        cause: (['fermata', 'ward', 'reel', 'chime', 'mend', 'dome'] as const)[i % 6]!,
         prevented: 600 + i * 240,
         attack: ['Toll Cleave', 'Glass Lance', 'Dirge'][i % 3]!,
       })),
@@ -479,7 +651,7 @@ export function fakeOutcome(
     telegraphsAnswered: victory ? 14 : 9,
     calls: 6,
     responses: victory ? 4 : 2,
-    holds: 1,
+    holds: Math.max(1, markers.filter((m) => m.kind === 'hold').length),
     timeline,
     markers,
   };
@@ -499,17 +671,41 @@ export function fakeOutcome(
       amplified: [800, 2900, 2100][i % 3]! * scale,
     })),
     // What the same fight looks like with the Weaver absent (usually a wipe).
-    withoutYou: {
-      outcome: 'defeat',
-      duration: Math.round(duration * 0.55),
-      wave: 2,
-      waves: 3,
-      downs: 3 + Math.floor(rnd() * 3),
-      standing: 0,
-      bossHp: node?.kind === 'boss' || node?.kind === 'miniboss' ? 0.4 + rnd() * 0.4 : null,
-      ticks: Math.round(duration * 0.55 * 60),
-      hash: 'mock',
-    },
+    withoutYou: fakeWithoutYou(
+      opts.alone === undefined ? 'defeat' : opts.alone,
+      duration,
+      enc.waves.length,
+      node?.kind === 'boss' || node?.kind === 'miniboss',
+      rnd,
+    ),
+  };
+}
+
+function fakeWithoutYou(
+  outcome: WithoutYou['outcome'] | null,
+  duration: number,
+  waves: number,
+  boss: boolean,
+  rnd: () => number,
+): WithoutYou | null {
+  if (outcome === null) return null;
+  const n = Math.max(1, waves);
+  const t =
+    outcome === 'victory'
+      ? duration * 1.35
+      : outcome === 'timeout'
+        ? 600
+        : Math.round(duration * 0.55);
+  return {
+    outcome,
+    duration: t,
+    wave: outcome === 'victory' ? n : Math.min(n, 2),
+    waves: n,
+    downs: outcome === 'victory' ? 2 : 3 + Math.floor(rnd() * 3),
+    standing: outcome === 'victory' ? 2 : outcome === 'timeout' ? 1 : 0,
+    bossHp: boss ? (outcome === 'victory' ? 0 : 0.4 + rnd() * 0.4) : null,
+    ticks: Math.round(t * 60),
+    hash: 'mock',
   };
 }
 
@@ -550,11 +746,41 @@ export function victoryRun(seed = 7): RunState {
   return run;
 }
 
-export function resultRun(victory: boolean, deaths = 0): RunState {
+export function resultRun(
+  victory: boolean,
+  deaths = 0,
+  alone: WithoutYou['outcome'] | null = 'defeat',
+): RunState {
   let run = playedRun(2);
   const next = Run.reachable(run)[0];
   if (next) run = Run.chooseNode(run, next.id);
-  if (run.phase === 'combat') run = Run.finishCombat(run, fakeOutcome(run, victory, { deaths }));
+  if (run.phase === 'combat')
+    run = Run.finishCombat(run, fakeOutcome(run, victory, { deaths, alone }));
+  const r = run.lastResult;
+  if (r && victory) {
+    // Show the Phase 2 highlight kinds whatever the fake ledger rolled.
+    const best = r.highlights.find((h) => h.kind !== 'fermata' && h.kind !== 'response');
+    const highlights: typeof r.highlights = [
+      {
+        kind: 'fermata',
+        time: r.duration * 0.7,
+        slot: 0,
+        text: 'Kael held on through Toll Cleave — and you healed them in time',
+      },
+      {
+        kind: 'response',
+        time: r.duration * 0.4,
+        slot: 1,
+        text: `Answered ${r.stats.responses} of ${r.stats.calls} calls`,
+      },
+      ...(best ? [best] : []),
+    ];
+    run = {
+      ...run,
+      lastResult: { ...r, highlights },
+      results: [...run.results.slice(0, -1), { ...r, highlights }],
+    };
+  }
   return run;
 }
 

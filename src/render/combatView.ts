@@ -2,14 +2,16 @@ import * as THREE from 'three';
 import { heroDef } from '../content';
 import type { SimEvent, WorldState } from '../sim';
 import { ArenaView } from './arena';
+import { CallView } from './calls';
 import { EntityLayer } from './entities';
+import { FermataView } from './fermata';
 import { Feedback } from './feedback';
 import { FieldView } from './field';
 import { FxKit } from './fx/kit';
 import { RING } from './fx/rings';
 import { createModelMaterial, type ModelMaterial } from './models/material';
 import { Overlay } from './overlay';
-import { C } from './palette';
+import { C, applyVision } from './palette';
 import type { QualityTier } from './stage';
 import { TelegraphLayer } from './telegraphs';
 import { ThreadView } from './thread';
@@ -30,6 +32,8 @@ export class CombatView implements WorldView {
   readonly telegraphs: TelegraphLayer;
   readonly thread: ThreadView;
   readonly overlay: Overlay;
+  readonly calls: CallView;
+  readonly fermata: FermataView;
   readonly feedback: Feedback;
   private quality: QualityTier;
   private readonly bufferSize = new THREE.Vector2();
@@ -54,7 +58,11 @@ export class CombatView implements WorldView {
     this.telegraphs = new TelegraphLayer(this.entities);
     this.thread = new ThreadView(this.entities);
     this.overlay = new Overlay(ctx.overlay, ctx.stage.camera);
+    this.calls = new CallView(this.entities);
+    this.fermata = new FermataView(this.entities);
     this.feedback = new Feedback({
+      calls: this.calls,
+      fermata: this.fermata,
       kit: this.kit,
       entities: this.entities,
       telegraphs: this.telegraphs,
@@ -77,12 +85,18 @@ export class CombatView implements WorldView {
     const camera = this.ctx.stage.camera;
     camera.updateMatrixWorld();
 
+    // Accessibility settings, live: colour-vision palette and full-screen flash strength.
+    if (applyVision(frame.settings.colorVision)) this.overlay.setPalette();
+    this.overlay.setFlashScale(frame.settings.flashes);
+
     this.kit.begin(frame.time, camera.position);
     this.overlay.beginFrame();
     this.entities.sync(state, frame, this.kit, fxDt);
     this.field.sync(state, this.kit, fxDt, frame.time);
     this.telegraphs.sync(state, this.kit, this.overlay, fxDt, true);
     this.thread.sync(state, this.kit, fxDt, frame.time);
+    this.calls.sync(state, this.kit, this.overlay, fxDt);
+    this.fermata.sync(state, this.kit, this.overlay, fxDt, frame.time);
     this.feedback.sync(state, frame, fxDt);
     this.offscreen(state);
     this.aimMarker(state, frame);

@@ -1,8 +1,10 @@
 import * as THREE from 'three';
 import { enemyDef, heroDef } from '../content';
 import type { EntityId, SimEvent, SimEventOf, WorldState } from '../sim';
+import type { CallView } from './calls';
 import type { CameraRig } from './camera';
 import type { EntityLayer, EntityRec } from './entities';
+import { FERMATA_COLOR, type FermataView } from './fermata';
 import type { FieldView } from './field';
 import { BEAM } from './fx/beams';
 import type { FxKit } from './fx/kit';
@@ -11,7 +13,7 @@ import { RING } from './fx/rings';
 import { SHELL } from './fx/shells';
 import { SPRITE } from './fx/sprites';
 import type { Overlay } from './overlay';
-import { C, clamp01, color } from './palette';
+import { C, auraColor, clamp01, color } from './palette';
 import type { Stage } from './stage';
 import type { TelegraphLayer } from './telegraphs';
 import type { ThreadView } from './thread';
@@ -73,6 +75,9 @@ const AGG = 0.4;
 const SHARD = color('#f1ecf8');
 const WHITE_GOLD = color('#fff4d6');
 const CHIME = color('#efe6ff');
+const GHOST_ASH = color('#e8e4f4');
+const DUST = color('#b9b2a4');
+const VISION_CALL_TEXT = '#fff3c4';
 
 export interface FeedbackDeps {
   kit: FxKit;
@@ -83,6 +88,8 @@ export interface FeedbackDeps {
   overlay: Overlay;
   rig: CameraRig;
   stage: Stage;
+  calls: CallView;
+  fermata: FermataView;
 }
 
 /**
@@ -109,6 +116,7 @@ export class Feedback {
   private baseHemi = 0.7;
   private readonly baseHemiColor = new THREE.Color();
   private readonly tmp = new THREE.Color();
+  private readonly centre = { x: 0, z: 0 };
 
   constructor(private readonly d: FeedbackDeps) {
     for (let i = 0; i < POOL; i++) {
@@ -328,6 +336,34 @@ export class Feedback {
           break;
         case 'save':
           this.save(ev);
+          break;
+        case 'fieldPlanted':
+          this.planted(ev, state);
+          break;
+        case 'chorusPulse':
+          this.chorus(ev, state);
+          break;
+        case 'fermataHold':
+          this.d.fermata.onHold(ev, state);
+          this.fermataHold(ev);
+          break;
+        case 'fermataReleased':
+          this.d.fermata.onReleased(ev);
+          this.fermataReleased(ev);
+          break;
+        case 'callStarted':
+          this.d.calls.onStarted(ev);
+          this.callStarted(ev);
+          break;
+        case 'callAnswered':
+          this.d.calls.onAnswered(ev);
+          this.callAnswered(ev, state);
+          break;
+        case 'callEnded':
+          this.d.calls.onEnded(ev);
+          break;
+        case 'flourish':
+          this.flourish(ev, state);
           break;
         case 'chimeLaunched': {
           const w = this.rec(state.weaverId);
@@ -1231,7 +1267,7 @@ export class Feedback {
     this.d.rig.addTrauma(0.42);
     this.d.rig.punch(-1.1, 5);
     this.d.overlay.spotlight(r.x, cy, r.z, 0.4);
-    if (this.settings.flashes > 0) this.d.overlay.flash(0.28 * this.settings.flashes, 0.12);
+    this.d.overlay.flash(0.28, 0.12);
     this.d.overlay.callout(r.x, r.height + 1.25, r.z, 'PERFECT', '#fff1c4', 28, 1.2);
   }
 
@@ -1239,6 +1275,7 @@ export class Feedback {
     const r = this.rec(e.target);
     if (!r) return;
     this.d.entities.saveFlash(e.target);
+    this.deathThatDidntHappen(r);
     const cy = r.height * 0.5 + r.y;
     this.ring(
       r.x,
@@ -1274,7 +1311,7 @@ export class Feedback {
     this.d.overlay.callout(r.x, r.height + 1.7, r.z, 'SAVED', '#fcd98a', 32, 1.5);
     this.d.overlay.spotlight(r.x, cy, r.z, 0.45);
     this.d.rig.punch(-1.8, 2.6);
-    if (this.settings.flashes > 0) this.d.overlay.flash(0.2 * this.settings.flashes, 0.18);
+    this.d.overlay.flash(0.2, 0.18);
   }
 
   private chimeLanded(e: SimEventOf<'chimeLanded'>): void {
@@ -1477,7 +1514,7 @@ export class Feedback {
     this.lightColor.copy(C.gold);
     this.d.rig.punch(5, 1.4);
     this.d.rig.addTrauma(0.3);
-    if (this.settings.flashes > 0) this.d.overlay.flash(0.3 * this.settings.flashes, 0.25);
+    this.d.overlay.flash(0.3, 0.25);
     if (!w) return;
     this.d.overlay.spotlight(w.x, 1, w.z, 0.4);
     const R = state.field.radius;
@@ -1717,7 +1754,7 @@ export class Feedback {
           RING.plain,
           1,
         );
-      if (this.settings.flashes) this.d.overlay.flash(0.35, 0.3);
+      this.d.overlay.flash(0.35, 0.3);
     }
     void state;
   }
@@ -1770,9 +1807,519 @@ export class Feedback {
     this.d.rig.addTrauma(0.5);
     this.d.rig.panToward(r.x, r.z, 0.45, 1.6);
     this.d.overlay.spotlight(r.x, r.height * 0.6, r.z, 0.5);
-    if (this.settings.flashes) this.d.overlay.flash(0.25, 0.2);
+    this.d.overlay.flash(0.25, 0.2);
     this.lightShift = 1;
     this.lightColor.copy(r.accent);
+  }
+
+  // ── Phase 2: the death that didn't happen, Chords, Fermata, Call and Response ───────
+
+  /** Signature 1: the saved hero's ghost falls where they stood (entities.ts) + ash and a rim. */
+  private deathThatDidntHappen(r: EntityRec): void {
+    if (!this.d.entities.saveGhost(r.id)) return;
+    this.d.kit.particles.burst(
+      r.x,
+      r.height * 0.6,
+      r.z,
+      18,
+      1.2,
+      0.4,
+      1.1,
+      0.12,
+      GHOST_ASH,
+      0.8,
+      PARTICLE.shard,
+      1.2,
+      -1.5,
+      r.radius,
+    );
+    this.ring(r.x, r.z, r.radius * 2.4, r.radius * 0.9, 0.5, GHOST_ASH, 0.08, RING.plain, 0.7);
+  }
+
+  private planted(e: SimEventOf<'fieldPlanted'>, state: WorldState): void {
+    this.d.field.planted(e.chord);
+    const c = state.field.chords[e.chord];
+    const a0 = c && c.auras[0] ? auraColor(c.auras[0]) : C.gold;
+    const radius = c ? c.radius : 6;
+    // The streak from where it stood, and the stake driven in.
+    this.beam(e.fromX, 0.12, e.fromZ, e.x, 0.12, e.z, 0.6, 0.35, a0, BEAM.glow, 0.85);
+    this.beam(e.fromX, 0.14, e.fromZ, e.x, 0.14, e.z, 0.16, 0.3, C.goldHot, BEAM.glow, 1);
+    this.beam(e.x, 7, e.z, e.x, 0, e.z, 0.6, 0.22, C.goldHot, BEAM.glow, 1);
+    this.ring(e.x, e.z, 0.3, 2.6, 0.4, C.goldHot, 0.22, RING.plain, 1, 0.06);
+    this.ring(e.x, e.z, 0.4, radius * 0.5, 0.5, a0, 0.12, RING.plain, 0.85, 0.06);
+    this.d.kit.particles.burst(
+      e.x,
+      0.15,
+      e.z,
+      26,
+      5,
+      2.5,
+      0.6,
+      0.14,
+      C.gold,
+      1,
+      PARTICLE.spark,
+      2.5,
+      5,
+      0.4,
+    );
+    this.d.kit.smoke.burst(
+      e.x,
+      0.2,
+      e.z,
+      8,
+      2.2,
+      0.6,
+      0.9,
+      0.4,
+      DUST,
+      0.4,
+      PARTICLE.smoke,
+      2,
+      0,
+      0.6,
+    );
+    this.d.rig.addTrauma(0.12);
+  }
+
+  /** Chorus: every non-Unison field rings out once per aura, in aura colours, scaled by `auras`. */
+  private chorus(e: SimEventOf<'chorusPulse'>, state: WorldState): void {
+    const k = 1 + 0.18 * Math.max(0, e.auras - 3);
+    const chords = state.field.chords;
+    for (let i = 0; i < chords.length; i++) {
+      const c = chords[i]!;
+      if (!this.d.field.centreOf(state, i, this.centre)) continue;
+      const x = this.centre.x;
+      const z = this.centre.z;
+      const follow =
+        c.anchor === 'weaver' ? state.weaverId : c.anchor === 'thread' ? (c.threadHero ?? -1) : -1;
+      const R = c.anchor === 'thread' ? 3 : c.radius;
+      for (let j = 0; j < c.auras.length; j++) {
+        this.ring(
+          x,
+          z,
+          0.4,
+          R * (1.02 + 0.08 * j),
+          0.55 + 0.14 * j,
+          auraColor(c.auras[j]!),
+          0.16 * k,
+          RING.plain,
+          1,
+          0.06,
+          follow,
+        );
+      }
+      // The heal + barrier it carries.
+      this.ring(x, z, 0.3, R * 0.75, 0.5, C.heal, 0.1 * k, RING.plain, 0.8, 0.07, follow);
+      this.ring(x, z, R * 0.4, R * 0.95, 0.65, C.shield, 0.06, RING.dashed, 0.7, 0.07, follow);
+      this.d.kit.particles.burst(
+        x,
+        0.3,
+        z,
+        8 + 4 * e.auras,
+        2.5,
+        2.5,
+        0.9,
+        0.13,
+        C.heal,
+        0.95,
+        PARTICLE.note,
+        1.2,
+        -0.3,
+        R * 0.6,
+      );
+    }
+  }
+
+  private fermataHold(e: SimEventOf<'fermataHold'>): void {
+    const r = this.rec(e.hero);
+    if (!r) return;
+    const cy = r.height * 0.5 + r.y;
+    // The hit stops dead: a lavender flare snaps inward, the moment is spotlit.
+    const s = this.alloc(K.Shell, 0.3);
+    s.follow = e.hero;
+    s.r0 = r.radius * 3;
+    s.r1 = r.radius * 1.7;
+    s.y = cy;
+    s.th = r.height * 0.66;
+    s.style = SHELL.flare;
+    s.color.copy(FERMATA_COLOR);
+    this.ring(r.x, r.z, r.radius * 5, r.radius * 2.2, 0.35, FERMATA_COLOR, 0.16, RING.plain, 1);
+    this.sprite(
+      r.x,
+      r.height + 0.95,
+      r.z,
+      1.4,
+      0.5,
+      0.3,
+      FERMATA_COLOR,
+      SPRITE.star,
+      1,
+      e.hero,
+      true,
+    );
+    this.d.overlay.callout(
+      r.x,
+      r.height + 1.75,
+      r.z,
+      'HOLD',
+      '#f3edff',
+      24,
+      1.1,
+      'rgba(226,214,248,0.95)',
+    );
+    this.d.overlay.spotlight(r.x, cy, r.z, 0.5);
+    this.d.rig.punch(-0.9, 4);
+  }
+
+  private fermataReleased(e: SimEventOf<'fermataReleased'>): void {
+    const r = this.rec(e.hero);
+    if (!r) return;
+    const gy = r.height + 0.95 + r.y;
+    if (!e.saved) {
+      // The held note breaks: the glyph cracks and falls; downed visuals follow from state.
+      this.d.kit.particles.burst(
+        r.x,
+        gy,
+        r.z,
+        14,
+        1.5,
+        0.5,
+        0.8,
+        0.1,
+        FERMATA_COLOR,
+        0.8,
+        PARTICLE.shard,
+        1,
+        -6,
+        0.2,
+      );
+      return;
+    }
+    const cy = r.height * 0.5 + r.y;
+    const s = this.alloc(K.Shell, 0.45);
+    s.follow = e.hero;
+    s.r0 = r.radius * 1.7;
+    s.r1 = r.radius * 3.2;
+    s.y = cy;
+    s.th = r.height * 0.66;
+    s.style = SHELL.flare;
+    s.color.copy(C.heal);
+    this.ring(r.x, r.z, 0.4, 4.5, 0.55, C.heal, 0.2, RING.plain, 1, 0.06);
+    this.ring(r.x, r.z, 0.3, 3, 0.45, FERMATA_COLOR, 0.12, RING.plain, 0.9, 0.06);
+    this.sprite(r.x, gy, r.z, 0.5, 2.2, 0.3, FERMATA_COLOR, SPRITE.star, 1, e.hero, true);
+    this.d.kit.particles.burst(
+      r.x,
+      gy,
+      r.z,
+      22,
+      4,
+      2,
+      0.6,
+      0.12,
+      FERMATA_COLOR,
+      1,
+      PARTICLE.shard,
+      2,
+      2,
+      0.2,
+    );
+    this.d.kit.particles.burst(
+      r.x,
+      cy,
+      r.z,
+      20,
+      3,
+      4,
+      0.9,
+      0.13,
+      C.heal,
+      1,
+      PARTICLE.spark,
+      1.8,
+      1,
+      r.radius,
+    );
+    this.deathThatDidntHappen(r);
+  }
+
+  private callStarted(e: SimEventOf<'callStarted'>): void {
+    const r = this.rec(e.hero);
+    if (!r) return;
+    this.ring(r.x, r.z, r.radius, r.radius * 3.2, 0.45, C.call, 0.12, RING.plain, 1, 0.05, e.hero);
+    this.sprite(r.x, r.height + 1.05, r.z, 0.4, 1.4, 0.3, C.call, SPRITE.star, 1, e.hero, true);
+  }
+
+  private callAnswered(e: SimEventOf<'callAnswered'>, state: WorldState): void {
+    const r = this.rec(e.hero);
+    const w = this.rec(state.weaverId);
+    if (!r) return;
+    const cy = r.height * 0.58 + r.y;
+    if (w) {
+      this.beam(w.x, 1.1, w.z, r.x, cy, r.z, 0.7, 0.4, C.call, BEAM.glow, 1);
+      this.beam(w.x, 1.1, w.z, r.x, cy, r.z, 0.18, 0.3, C.white, BEAM.glow, 1);
+      this.sprite(w.x, 1.1, w.z, 0.3, 1.1, 0.25, C.call, SPRITE.star, 1);
+    }
+    this.ring(r.x, r.z, 0.4, r.radius * 4.5, 0.45, C.call, 0.2, RING.plain, 1, 0.06, e.hero);
+    this.sprite(r.x, r.height + 1.05, r.z, 0.6, 2.4, 0.32, C.call, SPRITE.star, 1, e.hero, true);
+    this.d.kit.particles.burst(
+      r.x,
+      cy,
+      r.z,
+      24,
+      4,
+      3,
+      0.7,
+      0.14,
+      C.call,
+      1,
+      PARTICLE.spark,
+      2.2,
+      1.5,
+      r.radius,
+    );
+    this.d.rig.punch(-0.7, 5);
+  }
+
+  /** Flourishes: big, readable versions of each hero's answered ability. */
+  private flourish(e: SimEventOf<'flourish'>, state: WorldState): void {
+    const src = state.entities.get(e.hero);
+    const r = this.rec(e.hero);
+    let ability = '';
+    if (src?.hero) {
+      try {
+        const def = heroDef(src.hero.defId);
+        if (def.call) ability = def.abilities[def.call.ability]?.id ?? '';
+      } catch {
+        // unknown hero: generic flourish
+      }
+    }
+    const heroC = r ? r.color : C.call;
+    const R = Math.max(1.5, e.radius);
+    if (ability === 'challenge') this.bulwark(e, state, r, heroC, R);
+    else if (ability === 'piercingShot') this.heartseeker(e, r, heroC);
+    else if (ability === 'starbolt') this.resonantStarbolt(e, heroC, R);
+    else {
+      this.ring(e.x, e.z, 0.4, R, 0.55, C.call, 0.25, RING.plain, 1);
+      this.ring(e.x, e.z, 0.3, R * 0.7, 0.5, heroC, 0.14, RING.plain, 0.9);
+      this.d.kit.particles.burst(
+        e.x,
+        0.6,
+        e.z,
+        30,
+        5,
+        3,
+        0.8,
+        0.15,
+        C.call,
+        1,
+        PARTICLE.spark,
+        2,
+        2,
+        R * 0.5,
+      );
+    }
+    const cx = r ? r.x : e.x;
+    const cz = r ? r.z : e.z;
+    const top = r ? r.height + 1.4 : 2.6;
+    this.d.overlay.callout(
+      cx,
+      top,
+      cz,
+      e.name.toUpperCase(),
+      VISION_CALL_TEXT,
+      26,
+      1.3,
+      'rgba(253,230,138,0.95)',
+    );
+  }
+
+  private bulwark(
+    e: SimEventOf<'flourish'>,
+    state: WorldState,
+    r: EntityRec | undefined,
+    heroC: THREE.Color,
+    R: number,
+  ): void {
+    // Challenge at half again the reach: a shockwave of the hero's colour edged in gold, a
+    // shield flare around Kael, and gold tethers to every enemy it caught.
+    this.ring(e.x, e.z, 0.6, R, 0.55, heroC, 0.4, RING.plain, 1);
+    this.ring(e.x, e.z, 0.4, R * 1.05, 0.7, C.call, 0.18, RING.plain, 1);
+    this.ring(e.x, e.z, R * 0.95, R * 0.35, 0.6, C.shield, 0.1, RING.dashed, 0.9);
+    if (r) {
+      const s = this.alloc(K.Shell, 0.55);
+      s.follow = r.id;
+      s.r0 = r.radius * 1.8;
+      s.r1 = r.radius * 3.6;
+      s.y = r.height * 0.5;
+      s.th = r.height * 0.75;
+      s.style = SHELL.flare;
+      s.color.copy(C.shield);
+      this.beam(r.x, 0, r.z, r.x, 6, r.z, 1.6, 0.4, C.call, BEAM.glow, 0.8);
+      let n = 0;
+      for (const en of state.entities.list()) {
+        if (en.kind !== 'enemy' || en.health?.dead || n >= 14) continue;
+        if (Math.hypot(en.x - e.x, en.z - e.z) > R + en.radius) continue;
+        n++;
+        this.beam(
+          en.x,
+          en.height * 0.6,
+          en.z,
+          r.x,
+          r.height * 0.6,
+          r.z,
+          0.16,
+          0.6,
+          C.call,
+          BEAM.glow,
+          0.95,
+        );
+        this.sprite(
+          en.x,
+          en.height + 0.4,
+          en.z,
+          0.6,
+          0.2,
+          0.6,
+          C.call,
+          SPRITE.diamond,
+          1,
+          en.id,
+          true,
+        );
+      }
+    }
+    this.d.kit.particles.burst(
+      e.x,
+      0.4,
+      e.z,
+      40,
+      9,
+      2,
+      0.6,
+      0.16,
+      C.call,
+      1,
+      PARTICLE.spark,
+      2.4,
+      3,
+      1,
+    );
+    this.d.rig.addTrauma(0.32);
+    this.d.rig.punch(-1, 4);
+  }
+
+  private heartseeker(
+    e: SimEventOf<'flourish'>,
+    r: EntityRec | undefined,
+    heroC: THREE.Color,
+  ): void {
+    // Piercing Shot that always crits: a wide gold lance cut straight through the line.
+    const hx = r ? r.x : e.x;
+    const hz = r ? r.z : e.z;
+    let dx = e.x - hx;
+    let dz = e.z - hz;
+    let len = Math.hypot(dx, dz);
+    if (len < 0.5 && r) {
+      dx = -Math.sin(r.yaw);
+      dz = -Math.cos(r.yaw);
+      len = 1;
+    }
+    dx /= len || 1;
+    dz /= len || 1;
+    const L = Math.max(18, len);
+    const ex = hx + dx * L;
+    const ez = hz + dz * L;
+    const y = r ? r.height * 0.6 : 1.2;
+    const width = Math.max(1.3, e.radius * 2.4);
+    this.beam(hx, y, hz, ex, y, ez, width, 0.5, C.call, BEAM.glow, 0.9);
+    this.beam(hx, y, hz, ex, y, ez, width * 0.45, 0.45, heroC, BEAM.lance, 1);
+    this.beam(hx, y, hz, ex, y, ez, 0.22, 0.35, C.white, BEAM.glow, 1);
+    for (let d = 2.5; d < L; d += 2.6) {
+      this.sprite(hx + dx * d, y, hz + dz * d, 0.3, 1.3, 0.4, C.goldHot, SPRITE.star, 1);
+    }
+    this.ring(hx, hz, 0.3, 2.6, 0.4, C.call, 0.18, RING.plain, 1);
+    this.d.kit.particles.burst(
+      ex,
+      y,
+      ez,
+      18,
+      4,
+      2,
+      0.5,
+      0.14,
+      C.call,
+      1,
+      PARTICLE.spark,
+      3,
+      2,
+      0.5,
+    );
+    this.d.rig.addTrauma(0.26);
+    this.d.rig.punch(-0.8, 5);
+  }
+
+  private resonantStarbolt(e: SimEventOf<'flourish'>, heroC: THREE.Color, R: number): void {
+    // The Chime-tuned Starbolt: a bell-ring of light, a star-burst in Vexis' violet and a column.
+    this.ring(e.x, e.z, 0.3, R * 1.1, 0.5, CHIME, 0.35, RING.plain, 1, 0.06);
+    this.ring(e.x, e.z, 0.5, R, 0.65, heroC, 0.22, RING.plain, 1, 0.06);
+    this.ring(e.x, e.z, R * 1.1, R * 1.35, 0.75, C.call, 0.08, RING.dashed, 0.9, 0.06);
+    const t = this.ring(e.x, e.z, R * 0.9, R * 0.2, 0.7, heroC, 0.12, RING.portal, 0.8, 0.05);
+    t.arcLen = 7;
+    this.beam(e.x, 0, e.z, e.x, 9, e.z, R * 0.7, 0.5, CHIME, BEAM.glow, 0.9);
+    this.sprite(e.x, 1.8, e.z, 0.8, 4.4, 0.35, C.goldHot, SPRITE.star, 1);
+    this.d.kit.particles.burst(
+      e.x,
+      0.8,
+      e.z,
+      40,
+      8,
+      5,
+      0.9,
+      0.17,
+      heroC,
+      1,
+      PARTICLE.shard,
+      2,
+      4,
+      R * 0.4,
+    );
+    this.d.kit.particles.burst(
+      e.x,
+      0.8,
+      e.z,
+      30,
+      6,
+      4,
+      0.8,
+      0.14,
+      CHIME,
+      1,
+      PARTICLE.spark,
+      2.2,
+      2,
+      R * 0.4,
+    );
+    this.d.kit.particles.burst(
+      e.x,
+      1.2,
+      e.z,
+      10,
+      2,
+      2.5,
+      1.4,
+      0.18,
+      CHIME,
+      1,
+      PARTICLE.note,
+      0.8,
+      -0.4,
+      R * 0.6,
+    );
+    this.d.rig.addTrauma(0.45);
+    this.d.rig.punch(-1.4, 4);
+    this.d.overlay.spotlight(e.x, 1, e.z, 0.4);
+    this.d.overlay.flash(0.16, 0.18);
   }
 
   // ── Per-frame ──────────────────────────────────────────────────────────────────────

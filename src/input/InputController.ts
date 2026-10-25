@@ -8,11 +8,49 @@ import {
   type Action,
   type Bindings,
 } from './actions';
+import { liveBindings, subscribeBindings } from './bindings';
 import { enemyAt, heroAt } from './smartCast';
+import {
+  WHEEL_DEAD_ZONE,
+  WHEEL_REVEAL_MS,
+  useWheel,
+  wheelChoice,
+  wheelSpoke,
+  type WheelSpoke,
+} from './wheel';
+import { getAudio, type UiSound } from '../audio';
 
 /** Inputs entering the sim are quantised so replays are compact and exact. */
 const MOVE_STEP = 1 / 1024;
 const AIM_STEP = 1 / 16;
+
+export interface InputOptions {
+  /** UI sounds for the Directive wheel (defaults to the audio director). */
+  sound?: (sound: UiSound) => void;
+}
+
+/** An open (or opening) Directive wheel. */
+interface WheelState {
+  via: 'key' | 'mouse';
+  /** The key that opened it (released → pick), for `via === 'key'`. */
+  code: string | null;
+  x: number;
+  y: number;
+  dx: number;
+  dy: number;
+  focusTarget: EntityId | null;
+  /** A middle press becomes a visible wheel after a short hold or a drag. */
+  visible: boolean;
+  timer: ReturnType<typeof setTimeout> | null;
+}
+
+function defaultSound(sound: UiSound): void {
+  try {
+    getAudio().playUi(sound);
+  } catch {
+    // Audio is garnish.
+  }
+}
 
 export type GroundPicker = (
   clientX: number,
@@ -47,14 +85,24 @@ export class InputController {
   private heroPos: { x: number; z: number }[] = [];
   private wheel = 0;
   private enabled = true;
+  private wheelState: WheelState | null = null;
+  private readonly sound: (sound: UiSound) => void;
+  private readonly unsubscribe: () => void;
 
+  /**
+   * Without explicit `bindings`, the controller follows the player's bindings live:
+   * DEFAULT_BINDINGS merged with `settings.bindings` (rebinding in Settings applies at once).
+   */
   constructor(
     private readonly target: HTMLElement,
     private readonly pick: GroundPicker,
     private readonly onUiAction: (action: Action) => void,
-    bindings: Bindings = DEFAULT_BINDINGS,
+    bindings?: Bindings,
+    options: InputOptions = {},
   ) {
-    this.codeIndex = buildCodeIndex(bindings);
+    this.sound = options.sound ?? defaultSound;
+    this.codeIndex = buildCodeIndex(bindings ?? safeLiveBindings());
+    this.unsubscribe = bindings ? () => {} : subscribeBindings((b) => this.setBindings(b));
     window.addEventListener('keydown', this.onKeyDown);
     window.addEventListener('keyup', this.onKeyUp);
     window.addEventListener('blur', this.onBlur);
@@ -63,17 +111,28 @@ export class InputController {
     target.addEventListener('pointerdown', this.onPointerDown);
     target.addEventListener('wheel', this.onWheel, { passive: true });
     target.addEventListener('contextmenu', this.onContextMenu);
+    target.addEventListener('mousedown', this.onMouseDown);
   }
 
   setBindings(bindings: Bindings): void {
     this.codeIndex = buildCodeIndex(bindings);
     this.releaseAll();
+    this.closeWheel();
   }
 
   /** When disabled (paused, menus), held keys are released and no commands are produced. */
   setEnabled(enabled: boolean): void {
     this.enabled = enabled;
-    if (!enabled) this.releaseAll();
+    if (!enabled) {
+      this.releaseAll();
+      // Pausing closes the Directive wheel without picking anything.
+      this.closeWheel();
+    }
+  }
+
+  /** The Directive wheel is open (visible or about to be). */
+  get wheelOpen(): boolean {
+    return this.wheelState !== null;
   }
 
   /** Extra commands from tools (dev panel, test hook, HUD clicks). Recorded like player input. */
@@ -226,6 +285,9 @@ export class InputController {
             point: { x: quantize(this.ground.x, AIM_STEP), z: quantize(this.ground.z, AIM_STEP) },
           });
         break;
+      case 'directiveWheel':
+        this.openWheel('key', event.code);
+        break;
       case 'directiveFocus':
         if (this.hoveredEnemyId !== null)
           this.pending.push({ t: 'directive', kind: 'focus', target: this.hoveredEnemyId });
@@ -250,6 +312,7 @@ export class InputController {
       return;
     }
     this.heldCodes.delete(event.code);
+    if (this.wheelState?.via === 'key' && this.wheelState.code === event.code) this.releaseWheel();
     const action = this.codeIndex.get(event.code);
     if (!action) return;
     // Only release the action if no other key bound to it is still down.
@@ -265,6 +328,7 @@ export class InputController {
   /** Alt-tab and similar: release everything so keys never "stick" (a bug in the original). */
   private onBlur = (): void => {
     this.releaseAll();
+    this.closeWheel();
   };
 
   private onPointerMove = (event: PointerEvent): void => {
@@ -278,11 +342,19 @@ export class InputController {
   private onPointerDown = (event: PointerEvent): void => {
     this.pointer = { clientX: event.clientX, clientY: event.clientY, inside: true };
     if (!this.enabled) return;
+    if (this.wheelState) {
+      // While the wheel is open, LMB picks the spoke under the pointer and RMB cancels.
+      if (event.button === 0) this.releaseWheel();
+      else if (event.button === 2) this.closeWheel();
+      return;
+    }
     if (event.button === 0 && this.hoveredSlot !== null) {
       // LMB on a hero: retarget the Thread (by slot).
       this.pending.push({ t: 'thread', slot: this.hoveredSlot });
-    } else if (event.button === 1 && this.hoveredEnemyId !== null) {
-      this.pending.push({ t: 'directive', kind: 'focus', target: this.hoveredEnemyId });
+    } else if (event.button === 1) {
+      // Hold for the wheel; a quick click on an enemy still Focuses it (see releaseWheel).
+      event.preventDefault();
+      this.openWheel('mouse', null);
     } else if (event.button === 2) {
       this.pending.push({ t: 'mode' });
     }
@@ -296,7 +368,115 @@ export class InputController {
     event.preventDefault();
   };
 
+  /** No middle-click autoscroll over the arena. */
+  private onMouseDown = (event: MouseEvent): void => {
+    if (event.button === 1) event.preventDefault();
+  };
+
+  // ── Directive wheel ──────────────────────────────────────────────────────────────────
+
+  private openWheel(via: 'key' | 'mouse', code: string | null): void {
+    if (this.wheelState) return;
+    const st: WheelState = {
+      via,
+      code,
+      x: this.pointer.clientX,
+      y: this.pointer.clientY,
+      dx: 0,
+      dy: 0,
+      focusTarget: this.hoveredEnemyId,
+      visible: false,
+      timer: null,
+    };
+    this.wheelState = st;
+    window.addEventListener('pointermove', this.onWheelMove);
+    window.addEventListener('pointerup', this.onWheelUp);
+    if (via === 'key') this.revealWheel();
+    else st.timer = setTimeout(() => this.revealWheel(), WHEEL_REVEAL_MS);
+  }
+
+  private revealWheel(): void {
+    const st = this.wheelState;
+    if (!st || st.visible) return;
+    st.visible = true;
+    if (st.timer !== null) clearTimeout(st.timer);
+    st.timer = null;
+    this.sound('wheelOpen');
+    this.publishWheel();
+  }
+
+  private disabledSpokes(st: WheelState): ReadonlySet<WheelSpoke> {
+    return st.focusTarget === null ? NO_FOCUS : NONE;
+  }
+
+  private publishWheel(): void {
+    const st = this.wheelState;
+    if (!st?.visible) return;
+    useWheel.setState({
+      wheel: {
+        x: st.x,
+        y: st.y,
+        dx: st.dx,
+        dy: st.dy,
+        via: st.via,
+        focusTarget: st.focusTarget,
+        spoke: wheelChoice(st.dx, st.dy, this.disabledSpokes(st)),
+      },
+    });
+  }
+
+  private onWheelMove = (event: PointerEvent): void => {
+    const st = this.wheelState;
+    if (!st) return;
+    this.pointer.clientX = event.clientX;
+    this.pointer.clientY = event.clientY;
+    st.dx = event.clientX - st.x;
+    st.dy = event.clientY - st.y;
+    if (!st.visible && wheelSpoke(st.dx, st.dy) !== null) this.revealWheel();
+    else this.publishWheel();
+  };
+
+  private onWheelUp = (event: PointerEvent): void => {
+    if (event.button === 1 && this.wheelState?.via === 'mouse') this.releaseWheel();
+  };
+
+  /** Ends the wheel: picks the spoke under the pointer (a quick middle-click Focuses). */
+  private releaseWheel(): void {
+    const st = this.wheelState;
+    if (!st) return;
+    this.closeWheel();
+    if (!this.enabled) return;
+    if (!st.visible) {
+      if (st.via === 'mouse' && st.focusTarget !== null)
+        this.pending.push({ t: 'directive', kind: 'focus', target: st.focusTarget });
+      return;
+    }
+    const spoke = wheelChoice(st.dx, st.dy, this.disabledSpokes(st), WHEEL_DEAD_ZONE);
+    if (!spoke) return;
+    this.pending.push(
+      spoke === 'focus'
+        ? { t: 'directive', kind: 'focus', target: st.focusTarget! }
+        : { t: 'directive', kind: spoke },
+    );
+    this.sound('wheelPick');
+    useWheel.setState({ picked: { spoke, at: Date.now() } });
+  }
+
+  /** Closes the wheel without picking. */
+  private closeWheel(): void {
+    const st = this.wheelState;
+    if (!st) return;
+    if (st.timer !== null) clearTimeout(st.timer);
+    this.wheelState = null;
+    window.removeEventListener('pointermove', this.onWheelMove);
+    window.removeEventListener('pointerup', this.onWheelUp);
+    if (useWheel.getState().wheel) useWheel.setState({ wheel: null });
+  }
+
   dispose(): void {
+    this.closeWheel();
+    this.unsubscribe();
+    this.target.removeEventListener('mousedown', this.onMouseDown);
     window.removeEventListener('keydown', this.onKeyDown);
     window.removeEventListener('keyup', this.onKeyUp);
     window.removeEventListener('blur', this.onBlur);
@@ -305,6 +485,18 @@ export class InputController {
     this.target.removeEventListener('pointerdown', this.onPointerDown);
     this.target.removeEventListener('wheel', this.onWheel);
     this.target.removeEventListener('contextmenu', this.onContextMenu);
+  }
+}
+
+const NONE: ReadonlySet<WheelSpoke> = new Set();
+const NO_FOCUS: ReadonlySet<WheelSpoke> = new Set<WheelSpoke>(['focus']);
+
+/** Live bindings, falling back to the defaults if settings can't be read. */
+function safeLiveBindings(): Bindings {
+  try {
+    return liveBindings();
+  } catch {
+    return DEFAULT_BINDINGS;
   }
 }
 

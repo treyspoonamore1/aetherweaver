@@ -21,6 +21,7 @@
     "sim:replay": "tsx tools/replay-verify.ts",
     "golden:update": "tsx tools/update-golden.ts --write",
     "harness": "tsx tools/harness.ts",
+    "loadouts": "tsx tools/loadouts.ts",
     "ci": "npm run typecheck && npm run lint && npm run test && npm run build && npm run e2e"
   },
   "dependencies": {

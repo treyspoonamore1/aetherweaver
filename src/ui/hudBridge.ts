@@ -1,5 +1,5 @@
 import { CONTENT, auraDef, encounterDef, enemyDef, heroDef, ornamentDef } from '../content';
-import { DEFAULT_BINDINGS } from '../input/actions';
+import { liveBindings } from '../input/bindings';
 import {
   auraIds,
   resolveChord,
@@ -102,6 +102,7 @@ export function buildHudSnapshot(
     });
   });
 
+  const bindings = liveBindings();
   const techniques: TechniqueHud[] = TECHNIQUE_KEYS.map((key) => {
     const free = w?.spirit ?? 0;
     const cost = key === 'glide' ? 0 : tech[key].cost;
@@ -116,7 +117,7 @@ export function buildHudSnapshot(
       charges,
       maxCharges,
       affordable: free + 1e-9 >= cost,
-      key0: DEFAULT_BINDINGS[key][0] ?? '',
+      key0: bindings[key][0] ?? '',
     };
   });
 
@@ -219,7 +220,7 @@ export function buildHudSnapshot(
         ? {
             remaining: w?.plantCooldown ?? 0,
             total: CONTENT.weaver.plantCooldown,
-            key0: DEFAULT_BINDINGS.plant[0] ?? '',
+            key0: bindings.plant[0] ?? '',
           }
         : null,
     },

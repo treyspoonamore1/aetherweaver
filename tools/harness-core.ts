@@ -25,6 +25,9 @@ export interface EncounterRun {
   negated: number;
   amplified: number;
   incoming: number;
+  calls: number;
+  responses: number;
+  holds: number;
 }
 
 const MAX_SECONDS = 9 * 60;
@@ -71,6 +74,9 @@ export function playEncounter(config: SimConfig, bot: BotKind): EncounterRun {
     negated: l.negated,
     amplified: l.amplified,
     incoming: incoming,
+    calls: l.calls,
+    responses: l.responses,
+    holds: l.holds,
   };
 }
 

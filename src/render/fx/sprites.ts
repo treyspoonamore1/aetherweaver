@@ -7,6 +7,10 @@ export const SPRITE = {
   ring: 2,
   diamond: 3,
   sigil: 4,
+  /** 𝄐 Fermata: an arch over a dot (a held hero). */
+  fermata: 5,
+  /** A thin ring whose lit arc is `param` (0..1) of the circle, from 12 o'clock. */
+  timer: 6,
 } as const;
 
 const vertex = /* glsl */ `
@@ -48,6 +52,19 @@ void main() {
   } else if (style == 3) {
     float m = abs(vUv.x) + abs(vUv.y);
     a = (1.0 - smoothstep(0.75, 1.0, m)) * (0.6 + 0.4 * exp(-m * 3.0));
+  } else if (style == 5) {
+    // Fermata: an arch (upper half-ring) over a dot, with a soft halo.
+    vec2 q = vUv - vec2(0.0, -0.28);
+    float dq = length(q);
+    float arch = (1.0 - smoothstep(0.07, 0.12, abs(dq - 0.62))) * smoothstep(-0.12, 0.02, q.y);
+    float dot_ = 1.0 - smoothstep(0.12, 0.17, length(vUv - vec2(0.0, -0.3)));
+    a = max(arch, dot_) + exp(-d * d * 3.0) * 0.18;
+  } else if (style == 6) {
+    // Countdown ring: the lit arc runs clockwise from the top.
+    float ang = atan(vUv.x, vUv.y);
+    float f = (ang < 0.0 ? ang + 6.2831853 : ang) / 6.2831853;
+    float band = 1.0 - smoothstep(0.05, 0.09, abs(d - 0.84));
+    a = band * (f <= vSize.w ? 1.0 : 0.16);
   } else {
     // Sigil: a rotating star in a ring (Cue / leitmotif).
     float ang = atan(vUv.y, vUv.x) + uTime * 1.2;
@@ -104,6 +121,7 @@ export class SpriteBatch extends InstancedFx {
     alpha: number,
     rotation = 0,
     stretch = 1,
+    param = 0,
   ): void {
     if (alpha <= 0.002 || size <= 0) return;
     const i = this.next();
@@ -116,7 +134,7 @@ export class SpriteBatch extends InstancedFx {
     this.siz[o] = size * stretch;
     this.siz[o + 1] = size;
     this.siz[o + 2] = style;
-    this.siz[o + 3] = 0;
+    this.siz[o + 3] = param;
     this.col[o] = c.r;
     this.col[o + 1] = c.g;
     this.col[o + 2] = c.b;

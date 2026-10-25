@@ -1,15 +1,20 @@
+import type { CSSProperties } from 'react';
 import { useRun } from '../../app/runStore';
 import { CONTENT, heroDef } from '../../content';
 import type { EncounterResult, Grade, RunState } from '../../meta/types';
 import { ScreenFrame } from '../kit/Backdrop';
 import { Button } from '../kit/Button';
 import { Chip } from '../kit/Chip';
-import { clock, fmt, pct, plural, possessive } from '../kit/format';
-import { Icon, type IconName } from '../kit/Icon';
+import { clock, fmt, pct, possessive } from '../kit/format';
+import { Icon } from '../kit/Icon';
 import { Panel } from '../kit/Panel';
 import { useMood } from '../kit/sound';
 import { HeroDisc, SectionTitle } from './shared';
 import { HpTimeline, TimelineLegend } from './Timeline';
+import { HIGHLIGHT_COLOR, HIGHLIGHT_ICON, statLines } from './resultText';
+import { WithoutYouPanel } from './WithoutYou';
+
+export { HIGHLIGHT_COLOR, HIGHLIGHT_ICON, statLines };
 
 const GRADE: Record<Grade, { color: string; label: string }> = {
   S: { color: '#fde9b8', label: 'Flawless' },
@@ -19,82 +24,10 @@ const GRADE: Record<Grade, { color: string; label: string }> = {
   D: { color: '#fb7185', label: 'Rough' },
 };
 
-const HIGHLIGHT_ICON: Record<EncounterResult['highlights'][number]['kind'], IconName> = {
-  perfect: 'ward',
-  save: 'heart',
-  clutch: 'chime',
-  reel: 'reel',
-  cue: 'note',
-  crescendo: 'sparkle',
-  revive: 'mend',
-  response: 'note',
-  fermata: 'heart',
-};
-
 export interface ResultViewProps {
   run: RunState;
   result: EncounterResult;
   onContinue(): void;
-}
-
-/** Plain-English lines for a fight (also reused by tests and the lab). */
-export function statLines(r: EncounterResult): { icon: IconName; text: string; muted?: boolean }[] {
-  const s = r.stats;
-  const lines: { icon: IconName; text: string; muted?: boolean }[] = [];
-  lines.push({
-    icon: 'mend',
-    text:
-      s.healing > 0
-        ? `Mend and auras healed ${fmt(s.healing)} life${s.overheal > 0 ? `; ${fmt(s.overheal)} more was wasted on heroes who were already full` : ''}.`
-        : 'You did no healing this fight.',
-    muted: s.healing === 0,
-  });
-  lines.push({
-    icon: 'ward',
-    text:
-      s.shielded + s.negated > 0
-        ? `${fmt(s.shielded + s.negated)} damage never landed: ${fmt(s.shielded)} absorbed by Wards and ${fmt(s.negated)} negated by ${s.perfects} Perfect ${plural(s.perfects, 'Ward')}.`
-        : 'No Wards landed. A Ward just before a big hit absorbs it.',
-    muted: s.shielded + s.negated === 0,
-  });
-  lines.push({
-    icon: 'empower',
-    text:
-      s.amplified > 0
-        ? `Your Empower thread and auras added ${fmt(s.amplified)} damage, ${pct(s.partyDamage > 0 ? s.amplified / s.partyDamage : 0)} of everything your party dealt.`
-        : 'Empower added no damage. Switch the Thread (right-click) when everyone is healthy.',
-    muted: s.amplified === 0,
-  });
-  if (s.saves > 0) {
-    lines.push({
-      icon: 'heart',
-      text: `Saved a hero from a lethal blow ${s.saves} ${plural(s.saves, 'time')}.`,
-    });
-  }
-  if (s.cleanses > 0) {
-    lines.push({
-      icon: 'chime',
-      text: `Cleansed ${s.cleanses} ${plural(s.cleanses, 'mark')}${s.clutchCleanses > 0 ? `, ${s.clutchCleanses} of them at the last moment` : ''}.`,
-    });
-  }
-  if (s.reels > 0)
-    lines.push({
-      icon: 'reel',
-      text: `Reeled heroes out of danger ${s.reels} ${plural(s.reels, 'time')}.`,
-    });
-  if (s.cues + s.crescendos > 0) {
-    lines.push({
-      icon: 'note',
-      text: `Cued ${s.cues} ${plural(s.cues, 'Solo')}${s.crescendos > 0 ? ` and sang ${s.crescendos} ${plural(s.crescendos, 'Crescendo')}` : ''}.`,
-    });
-  }
-  if (s.telegraphsAimed > 0) {
-    lines.push({
-      icon: 'focus',
-      text: `Answered ${s.telegraphsAnswered} of ${s.telegraphsAimed} enemy attacks aimed at your party.`,
-    });
-  }
-  return lines;
 }
 
 export function ResultView({ run, result: r, onContinue }: ResultViewProps) {
@@ -159,7 +92,14 @@ export function ResultView({ run, result: r, onContinue }: ResultViewProps) {
               className="mt-1 flex items-center gap-3 font-display text-xl font-bold text-gold-100 sm:text-2xl"
               style={{ color: 'var(--color-gold-200)' }}
             >
-              <Icon name={HIGHLIGHT_ICON[best.kind]} size={28} className="shrink-0 text-gold-300" />
+              <Icon
+                name={HIGHLIGHT_ICON[best.kind]}
+                size={28}
+                className="shrink-0 text-gold-300"
+                style={
+                  HIGHLIGHT_COLOR[best.kind] ? { color: HIGHLIGHT_COLOR[best.kind] } : undefined
+                }
+              />
               {best.text}
             </p>
             <div
@@ -169,6 +109,8 @@ export function ResultView({ run, result: r, onContinue }: ResultViewProps) {
             />
           </div>
         )}
+
+        {r.withoutYou && <WithoutYouPanel result={r} heroIds={heroIds} />}
 
         <div className="mt-6 grid gap-6 lg:grid-cols-[1.2fr_1fr]">
           <Panel tone="solid" className="p-5">
@@ -195,11 +137,24 @@ export function ResultView({ run, result: r, onContinue }: ResultViewProps) {
                 </h3>
                 <ul className="flex flex-col gap-2 text-sm">
                   {r.highlights.slice(1).map((h, i) => (
-                    <li key={i} className="flex items-start gap-2.5 text-text">
+                    <li
+                      key={i}
+                      className={`flex items-start gap-2.5 text-text ${HIGHLIGHT_COLOR[h.kind] ? 'rounded-md px-1.5 py-1 ring-1' : ''}`}
+                      style={
+                        HIGHLIGHT_COLOR[h.kind]
+                          ? ({
+                              '--tw-ring-color': `color-mix(in srgb, ${HIGHLIGHT_COLOR[h.kind]} 45%, transparent)`,
+                            } as CSSProperties)
+                          : undefined
+                      }
+                    >
                       <Icon
                         name={HIGHLIGHT_ICON[h.kind]}
                         size={16}
                         className="mt-0.5 shrink-0 text-gold-300"
+                        style={
+                          HIGHLIGHT_COLOR[h.kind] ? { color: HIGHLIGHT_COLOR[h.kind] } : undefined
+                        }
                       />
                       {h.text}
                       <span className="ml-auto shrink-0 font-mono text-xs text-muted">

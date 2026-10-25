@@ -1,9 +1,13 @@
 import { useEffect } from 'react';
+import { getRuntime } from '../../app/runtimeRegistry';
+import { enemyDef } from '../../content';
+import type { WheelView } from '../../input/wheel';
 import { countHudCommit } from '../perfCounters';
 import { useUi, type Callout, type HudSnapshot } from '../store';
 import { BossBar } from './BossBar';
 import { Callouts } from './Callouts';
 import { CoachHints } from './CoachHints';
+import { DirectiveWheel, DirectiveWheelView } from './DirectiveWheel';
 import { EncounterHeader } from './EncounterHeader';
 import { KeyHints } from './KeyHints';
 import { PartyFrames } from './PartyFrames';
@@ -30,14 +34,23 @@ export function Hud({ subtitle, keyHints = true }: HudProps) {
   });
   if (!hud) return null;
   return (
-    <HudView
-      hud={hud}
-      callouts={callouts}
-      decree={decree}
-      subtitle={subtitle}
-      keyHints={keyHints && !devOpen}
-    />
+    <>
+      <HudView
+        hud={hud}
+        callouts={callouts}
+        decree={decree}
+        subtitle={subtitle}
+        keyHints={keyHints && !devOpen}
+      />
+      <DirectiveWheel focusName={enemyName} />
+    </>
   );
+}
+
+/** The live enemy's name, for the wheel's Focus spoke. */
+function enemyName(id: number): string | null {
+  const e = getRuntime()?.sim.state.entities.get(id);
+  return e?.enemy ? enemyDef(e.enemy.defId).name : null;
 }
 
 /** The presentational HUD: everything comes in as props, so the UI lab can mock it. */
@@ -49,6 +62,7 @@ export function HudView({
   keyHints = true,
   coach = true,
   forceCoach = false,
+  wheel = null,
 }: {
   hud: HudSnapshot;
   callouts: Callout[];
@@ -57,8 +71,10 @@ export function HudView({
   keyHints?: boolean;
   coach?: boolean;
   forceCoach?: boolean;
+  /** A mocked open Directive wheel (UI lab); the live one is drawn by `Hud`. */
+  wheel?: (WheelView & { focusName?: string | null }) | null;
 }) {
-  const barks = callouts.filter((c) => c.kind === 'bark');
+  const barks = callouts.filter((c) => c.kind === 'bark' || c.kind === 'call');
   const sandbox = hud.encounter.kind === 'sandbox';
   const clockText = `${hud.seconds.toFixed(1)} s · tick ${hud.tick} · seed ${hud.seed}${hud.directive ? ` · ${hud.directive}` : ''}`;
   return (
@@ -76,6 +92,7 @@ export function HudView({
       <WeaverBar hud={hud} />
       {coach && !sandbox && <CoachHints hud={hud} force={forceCoach} />}
       {keyHints && <KeyHints />}
+      {wheel && <DirectiveWheelView wheel={wheel} focusName={wheel.focusName} fixed={false} />}
     </div>
   );
 }

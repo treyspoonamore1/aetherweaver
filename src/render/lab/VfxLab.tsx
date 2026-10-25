@@ -1,8 +1,11 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { CONTENT, arenaDef } from '../../content';
+import { COLOR_VISIONS, type ColorVision } from '../../app/colorVision';
+import { CONTENT, arenaDef, heroDef } from '../../content';
 import {
   FixedStepper,
   createSim,
+  type CallAnswer,
+  type ChordConfig,
   type Command,
   type EntityId,
   type PartySlot,
@@ -35,8 +38,27 @@ interface LabApi {
   grammar(on: boolean): void;
   setQuality(q: QualityTier): void;
   setPaused(paused: boolean): void;
+  /** Slow-mo for sim and FX alike (1 = normal). */
+  setSlow(k: number): void;
+  /** Freeze the real-time loop and render `frames` frames of `ms` each (deterministic shots). */
+  manual(frames: number, ms: number): void;
+  resume(): void;
   heroId(slot: number): EntityId;
   debug(): Record<string, number>;
+  /** Phase 2 */
+  setLoadout(name: string): void;
+  setSettings(s: Partial<Settings>): void;
+  stageCall(slot: number, answered?: boolean): void;
+  answerCall(slot: number): void;
+  missCall(slot: number): void;
+  flourish(slot: number): void;
+  stageHold(slot: number): void;
+  releaseHold(slot: number, saved: boolean): void;
+  save(slot: number): void;
+  chorus(slot: number): void;
+  plant(dx: number, dz: number): void;
+  heroPos(slot: number): { x: number; z: number };
+  zoom(wheelDeltaY: number): void;
 }
 
 declare global {
@@ -46,6 +68,25 @@ declare global {
 }
 
 const ENCOUNTERS = ['sandbox', 'first_light', 'muted_nave', 'bellwarden', 'hollow_cantor'];
+
+/** Chord loadouts (SimConfig.chords) for reviewing the per-Chord fields. */
+const LOADOUTS: Record<string, ChordConfig[]> = {
+  classic: [{ auras: ['sostenuto', 'fortissimo'] }],
+  'pedal + unison': [
+    { auras: ['lullaby', 'sostenuto'], ornaments: ['pedal_point', 'grace_note'] },
+    { auras: ['fortissimo', 'fermata'], ornaments: ['unison'] },
+  ],
+  'reverb + weaver': [
+    { auras: ['sostenuto', 'ostinato'], ornaments: ['reverb', 'grace_note'] },
+    { auras: ['allegro', 'fortissimo'] },
+  ],
+  'pedal + weaver': [
+    { auras: ['lullaby', 'ostinato'], ornaments: ['pedal_point', 'grace_note'] },
+    { auras: ['sostenuto', 'fermata'] },
+  ],
+  'unison only': [{ auras: ['allegro', 'fortissimo'], ornaments: ['unison'] }],
+};
+const LOADOUT_NAMES = Object.keys(LOADOUTS);
 const THEMES = CONTENT.arenas.map((a) => a.id);
 
 class LabRuntime {
@@ -64,6 +105,9 @@ class LabRuntime {
   private moveX = 0;
   private moveZ = 0;
   private hymn = false;
+  private readonly scheduled: { at: number; fn: () => void }[] = [];
+  private frozen = false;
+  private clock = 0;
   paused = false;
   timeScale = 1;
   settings: Settings = { screenShake: 1, flashes: 1, damageNumbers: true, colorVision: 'normal' };
@@ -76,13 +120,16 @@ class LabRuntime {
     encounter: string,
     private theme: string,
     quality: QualityTier,
+    loadout: string,
+    settings: Settings | null,
   ) {
     this.sim = createSim({
       seed: 1234,
       encounter,
       debug: true,
-      auras: ['sostenuto', 'fortissimo'],
+      chords: LOADOUTS[loadout] ?? LOADOUTS.classic,
     });
+    if (settings) this.settings = settings;
     this.stage = new Stage(container, quality);
     this.rig = new CameraRig(this.stage.camera);
     this.overlay = document.createElement('div');
@@ -354,6 +401,179 @@ class LabRuntime {
     }
   }
 
+  // ── Phase 2 staging ────────────────────────────────────────────────────────────────
+
+  private callDef(slot: number): { answer: CallAnswer; time: number; flourish: string } {
+    const e = this.sim.state.entities.get(this.heroId(slot));
+    const def = e?.hero ? heroDef(e.hero.defId) : null;
+    return {
+      answer: def?.call?.answer ?? 'ward',
+      time: def?.call?.answerTime ?? 2.5,
+      flourish: def?.call?.flourish.name ?? 'Flourish',
+    };
+  }
+
+  /** Lab-only synthetic call (the real one comes from `{op:'forceCall'}` once the sim has it). */
+  stageCall(slot: number, answered = false): void {
+    const id = this.heroId(slot);
+    const now = this.sim.state.time;
+    const d = this.callDef(slot);
+    const calls = this.view.calls;
+    if (!calls.preview) calls.preview = new Map();
+    calls.preview.set(id, { answer: d.answer, start: now, end: now + d.time, answered });
+    this.inject([
+      {
+        type: 'callStarted',
+        tick: this.sim.tick,
+        hero: id,
+        answer: d.answer,
+        ability: '',
+        flourish: d.flourish,
+        until: now + d.time,
+        line: '',
+      },
+    ]);
+  }
+
+  answerCall(slot: number): void {
+    const id = this.heroId(slot);
+    const d = this.callDef(slot);
+    const p = this.view.calls.preview?.get(id);
+    if (p) p.answered = true;
+    this.inject([
+      {
+        type: 'callAnswered',
+        tick: this.sim.tick,
+        hero: id,
+        answer: d.answer,
+        flourish: d.flourish,
+        after: 1,
+      },
+    ]);
+    this.later(0.25, () => {
+      this.view.calls.preview?.delete(id);
+      this.flourish(slot);
+    });
+  }
+
+  missCall(slot: number): void {
+    const id = this.heroId(slot);
+    this.view.calls.preview?.delete(id);
+    this.inject([{ type: 'callEnded', tick: this.sim.tick, hero: id, reason: 'missed' }]);
+  }
+
+  flourish(slot: number): void {
+    const id = this.heroId(slot);
+    const e = this.sim.state.entities.get(id);
+    if (!e?.hero) return;
+    const def = heroDef(e.hero.defId);
+    const ability = def.call ? def.abilities[def.call.ability] : undefined;
+    const enemyId = this.nearestEnemy();
+    const en = enemyId === null ? undefined : this.sim.state.entities.get(enemyId);
+    let x = e.x;
+    let z = e.z;
+    let radius: number;
+    if (ability?.id === 'challenge') radius = (ability.radius || 7) * 1.5;
+    else if (ability?.id === 'piercingShot') {
+      x = en ? en.x : e.x;
+      z = en ? en.z : e.z - 10;
+      radius = (ability.radius || 0.7) * 1.6;
+    } else {
+      x = en ? en.x : e.x;
+      z = en ? en.z : e.z - 6;
+      radius = (ability?.radius || 3.5) * 1.5;
+    }
+    this.inject([
+      {
+        type: 'flourish',
+        tick: this.sim.tick,
+        hero: id,
+        name: def.call?.flourish.name ?? 'Flourish',
+        x,
+        z,
+        radius,
+      },
+    ]);
+  }
+
+  /** Lab-only synthetic Fermata hold (the real one comes from `{op:'forceHold'}`). */
+  stageHold(slot: number): void {
+    const id = this.heroId(slot);
+    const until = this.sim.state.time + 1.5;
+    const f = this.view.fermata;
+    if (!f.preview) f.preview = new Map();
+    f.preview.set(id, until);
+    this.inject([
+      { type: 'fermataHold', tick: this.sim.tick, hero: id, until, attack: 'Lab', damage: 900 },
+    ]);
+  }
+
+  releaseHold(slot: number, saved: boolean): void {
+    const id = this.heroId(slot);
+    this.view.fermata.preview?.delete(id);
+    const events: SimEvent[] = [{ type: 'fermataReleased', tick: this.sim.tick, hero: id, saved }];
+    if (saved)
+      events.push({
+        type: 'save',
+        tick: this.sim.tick,
+        target: id,
+        cause: 'fermata',
+        counterfactualDamage: 900,
+        attack: 'Lab',
+      });
+    if (!saved) events.push({ type: 'allyDowned', tick: this.sim.tick, hero: id });
+    this.inject(events);
+  }
+
+  save(slot: number): void {
+    this.inject([
+      {
+        type: 'save',
+        tick: this.sim.tick,
+        target: this.heroId(slot),
+        cause: 'ward',
+        counterfactualDamage: 1140,
+        attack: 'Requiem',
+      },
+    ]);
+  }
+
+  chorus(slot: number): void {
+    this.inject([
+      {
+        type: 'chorusPulse',
+        tick: this.sim.tick,
+        hero: this.heroId(slot),
+        auras: this.sim.state.field.auras.length,
+        reached: 3,
+      },
+    ]);
+  }
+
+  plant(dx: number, dz: number): void {
+    const w = this.weaverPos();
+    this.queue({ t: 'plant', point: { x: w.x + dx, z: w.z + dz } });
+  }
+
+  plantAtCursor(): void {
+    if (this.aim) this.queue({ t: 'plant', point: { x: this.aim.x, z: this.aim.z } });
+  }
+
+  /** Runs `fn` after `delay` sim seconds (SwiftShader runs the sim slower than real time). */
+  private later(delay: number, fn: () => void): void {
+    this.scheduled.push({ at: this.sim.state.time + delay, fn });
+  }
+
+  private runScheduled(): void {
+    const now = this.sim.state.time;
+    for (let i = this.scheduled.length - 1; i >= 0; i--) {
+      const job = this.scheduled[i]!;
+      if (job.at > now) continue;
+      this.scheduled.splice(i, 1);
+      job.fn();
+    }
+  }
+
   private onPointer = (ev: PointerEvent): void => {
     const p = { x: 0, z: 0 };
     if (this.stage.pickGround(ev.clientX, ev.clientY, p)) {
@@ -399,6 +619,29 @@ class LabRuntime {
     this.raf = requestAnimationFrame(this.frame);
     const elapsed = this.last < 0 ? 0 : Math.min(250, now - this.last);
     this.last = now;
+    if (this.frozen) return;
+    this.clock += elapsed;
+    this.advance(elapsed);
+  };
+
+  /**
+   * Stops the real-time loop and renders `frames` frames of `ms` each instead, so screenshot
+   * scripts get the same moment every time (SwiftShader runs a few frames a second).
+   */
+  manual(frames: number, ms: number): void {
+    this.frozen = true;
+    for (let i = 0; i < frames; i++) {
+      this.clock += ms;
+      this.advance(ms);
+    }
+  }
+
+  resume(): void {
+    this.frozen = false;
+  }
+
+  private advance(elapsed: number): void {
+    const now = this.clock;
     if (this.start < 0) this.start = now;
     if (!this.paused) {
       const steps = this.stepper.advance(elapsed * this.timeScale);
@@ -406,6 +649,7 @@ class LabRuntime {
         const cmds = this.pending.splice(0);
         for (let i = 0; i < steps; i++) this.sim.step(i === 0 ? cmds : []);
         this.view.onEvents(this.sim.drainEvents(), this.sim.state);
+        this.runScheduled();
       }
     }
     const state = this.sim.state;
@@ -417,8 +661,9 @@ class LabRuntime {
       const wz = w.pz + (w.z - w.pz) * alpha;
       this.rig.update(wx, wz, this.aim?.x ?? wx, this.aim?.z ?? wz, elapsed / 1000);
     }
+    // Slow-mo applies to the FX clock too, so transient moments can be reviewed (and shot).
     this.view.sync(state, {
-      realDt: elapsed / 1000,
+      realDt: (elapsed / 1000) * this.timeScale,
       time: (now - this.start) / 1000,
       alpha,
       hoveredHero: this.hovered('hero'),
@@ -434,7 +679,7 @@ class LabRuntime {
       this.frames = 0;
       this.fpsTimer = 0;
     }
-  };
+  }
 
   info(): { calls: number; triangles: number; particles: number; fps: number } {
     const i = this.stage.info();
@@ -514,11 +759,21 @@ export function VfxLab() {
   const [elite, setElite] = useState(false);
   const [slot, setSlot] = useState<PartySlot>(0);
   const [hymn, setHymn] = useState(false);
+  const [loadout, setLoadout] = useState('pedal + unison');
+  const [vision, setVision] = useState<ColorVision>('normal');
+  const [flashes, setFlashes] = useState(1);
 
   useEffect(() => {
     const host = hostRef.current;
     if (!host) return;
-    const rt = new LabRuntime(host, encounter, theme, quality);
+    const rt = new LabRuntime(
+      host,
+      encounter,
+      theme,
+      quality,
+      loadout,
+      rtRef.current?.settings ?? null,
+    );
     rtRef.current = rt;
     rt.run();
     window.__VFX__ = {
@@ -534,8 +789,30 @@ export function VfxLab() {
       setPaused: (p) => {
         rt.paused = p;
       },
+      setSlow: (k) => {
+        rt.timeScale = k;
+      },
+      manual: (n, ms) => rt.manual(n, ms),
+      resume: () => rt.resume(),
       heroId: (s) => rt.heroId(s),
       debug: () => rt.debug(),
+      setLoadout: (name) => setLoadout(name),
+      setSettings: (p) => {
+        rt.settings = { ...rt.settings, ...p };
+        if (p.colorVision) setVision(p.colorVision);
+        if (p.flashes !== undefined) setFlashes(p.flashes);
+      },
+      stageCall: (s, a) => rt.stageCall(s, a),
+      answerCall: (s) => rt.answerCall(s),
+      missCall: (s) => rt.missCall(s),
+      flourish: (s) => rt.flourish(s),
+      stageHold: (s) => rt.stageHold(s),
+      releaseHold: (s, saved) => rt.releaseHold(s, saved),
+      save: (s) => rt.save(s),
+      chorus: (s) => rt.chorus(s),
+      plant: (dx, dz) => rt.plant(dx, dz),
+      heroPos: (s) => rt.heroPos(s),
+      zoom: (dy) => rt.rig.zoomBy(dy),
     };
     const timer = window.setInterval(() => {
       const i = rt.info();
@@ -549,9 +826,9 @@ export function VfxLab() {
       rt.dispose();
       rtRef.current = null;
     };
-    // The theme and quality are applied live below; only the encounter recreates the sim.
+    // The theme and quality are applied live below; the encounter and loadout recreate the sim.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [encounter]);
+  }, [encounter, loadout]);
 
   useEffect(() => {
     rtRef.current?.setTheme(theme);
@@ -562,6 +839,10 @@ export function VfxLab() {
   useEffect(() => {
     rtRef.current?.setHymn(hymn);
   }, [hymn]);
+  useEffect(() => {
+    const r = rtRef.current;
+    if (r) r.settings = { ...r.settings, colorVision: vision, flashes };
+  }, [vision, flashes]);
 
   const rt = () => rtRef.current;
   const q = (c: Command) => rt()?.queue(c);
@@ -614,17 +895,44 @@ export function VfxLab() {
               <option>high</option>
             </select>
           </label>
+          <label className="flex w-full items-center justify-between gap-2">
+            Chords
+            <select
+              className="bg-ink-800"
+              value={loadout}
+              onChange={(e) => setLoadout(e.target.value)}
+            >
+              {LOADOUT_NAMES.map((id) => (
+                <option key={id}>{id}</option>
+              ))}
+            </select>
+          </label>
+          <label className="flex w-full items-center justify-between gap-2">
+            Colour vision
+            <select
+              className="bg-ink-800"
+              value={vision}
+              onChange={(e) => setVision(e.target.value as ColorVision)}
+            >
+              {COLOR_VISIONS.map((id) => (
+                <option key={id}>{id}</option>
+              ))}
+            </select>
+          </label>
+          <label className="flex w-full items-center justify-between gap-2">
+            Flashes {Math.round(flashes * 100)}%
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.25}
+              value={flashes}
+              onChange={(e) => setFlashes(Number(e.target.value))}
+            />
+          </label>
           <Btn onClick={() => rt() && (rt()!.paused = !rt()!.paused)}>Pause</Btn>
           <Btn onClick={() => rt() && (rt()!.timeScale = rt()!.timeScale === 1 ? 0.25 : 1)}>
             Slow ×¼
-          </Btn>
-          <Btn
-            onClick={() =>
-              rt() &&
-              (rt()!.settings = { ...rt()!.settings, flashes: rt()!.settings.flashes > 0 ? 0 : 1 })
-            }
-          >
-            Flashes
           </Btn>
           <Btn
             onClick={() =>
@@ -718,6 +1026,57 @@ export function VfxLab() {
           </Btn>
           <Btn onClick={() => q({ t: 'directive', kind: 'scatter' })}>Scatter</Btn>
           <Btn onClick={() => q({ t: 'directive', kind: 'rally' })}>Rally</Btn>
+        </Group>
+        <Group title="Phase 2 · Chords">
+          <Btn onClick={() => rt()?.plant(5, -4)} title="{t:'plant'} ahead-right of the Weaver">
+            Plant ↗
+          </Btn>
+          <Btn onClick={() => rt()?.plant(-6, 2)}>Plant ↙</Btn>
+          <Btn onClick={() => rt()?.plantAtCursor()}>Plant at cursor</Btn>
+          <Btn onClick={() => rt()?.chorus(slot)} title="Synthetic chorusPulse">
+            Chorus pulse
+          </Btn>
+          <Btn
+            onClick={() => {
+              for (let i = 0; i < 4; i++) rt()?.spawn('hollow_chorister', -4 + i * 2.5, -5);
+            }}
+            title="Choristers to hex (Lullaby)"
+          >
+            Hex targets
+          </Btn>
+        </Group>
+        <Group title="Phase 2 · Moments">
+          <Btn onClick={() => rt()?.save(slot)}>Save ghost</Btn>
+          <Btn
+            onClick={() => {
+              for (let i = 0; i < 3; i++) rt()?.save(i);
+            }}
+          >
+            Save ghosts ×3
+          </Btn>
+          <Btn
+            onClick={() => q({ t: 'debug', op: { op: 'forceCall', slot } })}
+            title="Real sim call (debug op)"
+          >
+            Force call (sim)
+          </Btn>
+          <Btn onClick={() => rt()?.stageCall(slot)} title="Lab-only synthetic call">
+            Stage call
+          </Btn>
+          <Btn onClick={() => rt()?.answerCall(slot)}>Answer → Flourish</Btn>
+          <Btn onClick={() => rt()?.missCall(slot)}>Miss call</Btn>
+          <Btn onClick={() => rt()?.flourish(slot)}>Flourish only</Btn>
+          <Btn
+            onClick={() => q({ t: 'debug', op: { op: 'forceHold', slot } })}
+            title="Real sim Fermata hold (debug op)"
+          >
+            Force hold (sim)
+          </Btn>
+          <Btn onClick={() => rt()?.stageHold(slot)} title="Lab-only synthetic hold">
+            Stage hold
+          </Btn>
+          <Btn onClick={() => rt()?.releaseHold(slot, true)}>Hold → saved</Btn>
+          <Btn onClick={() => rt()?.releaseHold(slot, false)}>Hold → downed</Btn>
         </Group>
         <Group title="Inject (synthetic)">
           <Btn

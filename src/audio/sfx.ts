@@ -5,7 +5,7 @@
  */
 import { enemyDef } from '../content';
 import type { SimEvent, TelegraphStarted, WorldState } from '../sim';
-import { Voice, type BusName, type Engine } from './engine';
+import { Voice, type BusName, type Engine, type VoiceHandle } from './engine';
 import type { MusicEngine } from './music';
 import {
   choirChord,
@@ -20,13 +20,17 @@ import {
   zip,
 } from './synth';
 import {
+  callPhraseFor,
   chordNotesInRange,
+  chorusVoicing,
   heroPluckIndex,
   leitmotifFor,
   mendPitch,
   midiToHz,
+  quantizeToScale,
   scaleMidi,
   type Chord,
+  type MotifVoice,
 } from './theory';
 
 const clamp = (x: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, x));
@@ -40,10 +44,17 @@ interface PlayOpts {
 export class SfxEngine {
   private readonly lastMotif = new Map<number, number>();
   private readonly nextBeat = new Map<number, number>();
-  private whine: { gain: GainNode; osc: OscillatorNode } | null = null;
+  private whine: { gain: GainNode; osc: OscillatorNode; band: BiquadFilterNode } | null = null;
   private lastIntensityScan = 0;
   private intensity = 0;
   private lastTension = 0;
+  /** Open call questions by hero (faded when the call is answered or ends). */
+  private readonly callQ = new Map<number, VoiceHandle>();
+  /** Fermata held notes by hero. */
+  private readonly held = new Map<number, VoiceHandle>();
+  private drone: { gain: GainNode; oscs: OscillatorNode[] } | null = null;
+  private droneOffSince = -1;
+  private harmony: { gains: GainNode[]; oscs: OscillatorNode[] } | null = null;
 
   constructor(
     private readonly e: Engine,
@@ -62,12 +73,14 @@ export class SfxEngine {
     bus: BusName,
     build: (v: Voice, t: number) => void,
     opts: PlayOpts = {},
-  ): void {
+  ): VoiceHandle | null {
     const e = this.e;
-    if (!e.admit(key, max)) return;
+    if (!e.admit(key, max)) return null;
     const v = new Voice(e, bus, opts);
     build(v, e.now + 0.005);
-    e.register(key, v.commit());
+    const handle = v.commit();
+    e.register(key, handle);
+    return handle;
   }
 
   private panFor(state: WorldState, x: number): number {
@@ -243,6 +256,30 @@ export class SfxEngine {
       case 'telegraphStarted':
         this.telegraph(ev, state);
         break;
+      case 'fieldPlanted':
+        this.fieldPlanted(this.panFor(state, ev.x));
+        break;
+      case 'chorusPulse':
+        this.chorusPulse(ev.auras);
+        break;
+      case 'fermataHold':
+        this.fermataHold(ev.hero, ev.until, state);
+        break;
+      case 'fermataReleased':
+        this.fermataReleased(ev.hero, ev.saved);
+        break;
+      case 'callStarted':
+        this.callStarted(ev.hero, ev.until, state);
+        break;
+      case 'callAnswered':
+        this.callAnswered(ev.hero, ev.answer, ev.after, state);
+        break;
+      case 'callEnded':
+        this.callEnded(ev.hero, ev.reason, state);
+        break;
+      case 'flourish':
+        this.flourish(ev.hero, ev.name, this.panFor(state, ev.x), state);
+        break;
       case 'timeScaleChanged':
         if (ev.scale < 0.9)
           this.e.muffleMusic(clamp(ev.duration / Math.max(0.2, ev.scale), 0.15, 1.2));
@@ -335,6 +372,39 @@ export class SfxEngine {
           glassNote(v, at, midiToHz(m), last ? 0.11 : 0.06, last ? 1.6 : 0.8, 0.9);
         });
         whoosh(v, t, 0.4, 0.03, 700, 4200, 1.2);
+        // The death that didn't happen: an ethereal reverse swell under the phrase. It
+        // builds out of nothing and is cut off as the last note lands.
+        const crest = t + 0.115 * (phrase.length - 1);
+        const swell = crest - t;
+        const base = phrase[0] ?? 72;
+        for (const [m, g] of [
+          [base - 12, 0.05],
+          [base, 0.04],
+          [base + 7, 0.03],
+        ] as const) {
+          v.osc({
+            type: 'sine',
+            freq: midiToHz(m),
+            start: t,
+            dur: swell,
+            attack: swell,
+            release: 0.08,
+            gain: g,
+            shape: 'sustain',
+            filter: { type: 'lowpass', freq: 500, freqTo: 3500, q: 0.7 },
+          });
+        }
+        v.noise({
+          pink: true,
+          start: t,
+          dur: swell,
+          attack: swell,
+          release: 0.06,
+          gain: 0.07,
+          shape: 'sustain',
+          filter: { type: 'bandpass', freq: 400, freqTo: 5200, q: 1.6 },
+        });
+        v.extend(crest + 0.2);
       },
       { big: true },
     );
@@ -419,22 +489,31 @@ export class SfxEngine {
     this.leitmotif(this.heroId(state, hero), 1);
   }
 
+  /** One note of a hero phrase in the hero's voice. */
+  private motifNote(v: Voice, voice: MotifVoice, at: number, hz: number, dur: number, g: number) {
+    if (voice === 'horn') horn(v, at, hz, dur, g);
+    else if (voice === 'pluckFlute') {
+      pluck(v, at, hz, g * 0.8, dur, 0.85);
+      fluteNote(v, at, hz, g * 0.5, dur);
+    } else {
+      glassNote(v, at, hz, g * 0.7, dur + 0.6, 0.85);
+      pluck(v, at, hz * 2, g * 0.18, 0.3, 0.9);
+    }
+  }
+
   /** Plays a hero's 3–5 note leitmotif. */
   leitmotif(heroDefId: string | undefined, level: number): void {
     const m = leitmotifFor(heroDefId);
     this.play('leitmotif', 3, 'sfx', (v, t) => {
       for (const n of m.notes) {
-        const hz = midiToHz(scaleMidi(n.idx));
-        const at = t + n.at;
-        const g = 0.16 * n.vel * level;
-        if (m.voice === 'horn') horn(v, at, hz, n.dur, g);
-        else if (m.voice === 'pluckFlute') {
-          pluck(v, at, hz, g * 0.8, n.dur, 0.85);
-          fluteNote(v, at, hz, g * 0.5, n.dur);
-        } else {
-          glassNote(v, at, hz, g * 0.7, n.dur + 0.6, 0.85);
-          pluck(v, at, hz * 2, g * 0.18, 0.3, 0.9);
-        }
+        this.motifNote(
+          v,
+          m.voice,
+          t + n.at,
+          midiToHz(scaleMidi(n.idx)),
+          n.dur,
+          0.16 * n.vel * level,
+        );
       }
     });
   }
@@ -492,6 +571,379 @@ export class SfxEngine {
         filter: { type: 'lowpass', freq: 300, q: 0.6 },
       }),
     );
+  }
+
+  // ── Call and Response ────────────────────────────────────────────────────────────
+  private heroPan(state: WorldState, hero: number): number {
+    return this.panFor(state, state.entities.get(hero)?.x ?? 0);
+  }
+
+  private fadeCall(hero: number, fade: number): void {
+    const h = this.callQ.get(hero);
+    if (h) h.kill(this.e.now, fade);
+    this.callQ.delete(hero);
+  }
+
+  /** A hero calls: their leitmotif asked as a question, panned to them, hanging unresolved. */
+  private callStarted(hero: number, until: number, state: WorldState): void {
+    this.fadeCall(hero, 0.1);
+    if (!this.e.gate(`callq:${hero}`, 0.4)) return;
+    const phrase = callPhraseFor(this.heroId(state, hero));
+    const window = clamp((until - state.time) / Math.max(0.25, state.timeScale), 0.5, 4);
+    const h = this.play(
+      'callQ',
+      3,
+      'sfx',
+      (v, t) => {
+        phrase.notes.forEach((n, i) => {
+          const last = i === phrase.notes.length - 1;
+          const dur = last ? Math.min(n.dur, window * 0.7) : n.dur;
+          this.motifNote(v, phrase.voice, t + n.at, midiToHz(scaleMidi(n.idx)), dur, 0.13 * n.vel);
+        });
+      },
+      { pan: this.heroPan(state, hero) },
+    );
+    if (h) this.callQ.set(hero, h);
+  }
+
+  /**
+   * The Weaver's answer: an echo of the question's last note (a pickup, immediately) that
+   * resolves to the tonic D on the next eighth-note of the grid, in the answer's own timbre.
+   */
+  private callAnswered(hero: number, answer: string, after: number, state: WorldState): void {
+    const e = this.e;
+    const phrase = callPhraseFor(this.heroId(state, hero));
+    this.fadeCall(hero, 0.14);
+    const land = this.music.gridAfter(0.07, 2);
+    const lead = clamp(land - e.now, 0.07, 0.4);
+    const pickIdx = phrase.notes[phrase.notes.length - 1]?.idx ?? phrase.resolve + 6;
+    const pick = midiToHz(scaleMidi(pickIdx));
+    const tonic = scaleMidi(phrase.resolve);
+    const quick = after < 1.0;
+    this.play(
+      'callA',
+      3,
+      'sfx',
+      (v, t) => {
+        const at = t + lead - 0.005;
+        if (answer === 'ward') {
+          glassNote(v, t, pick, 0.04, 0.4, 0.6);
+          glassNote(v, at, midiToHz(tonic), 0.13, 2.0, 0.8);
+          glassNote(v, at + 0.03, midiToHz(tonic + 7), 0.07, 1.6, 0.7);
+          glassNote(v, at + 0.06, midiToHz(tonic + 12), 0.05, 1.4, 0.7);
+          whoosh(v, at, 0.3, 0.03, 900, 3800, 1.4);
+        } else if (answer === 'empower') {
+          pluck(v, t, pick, 0.07, 0.15, 0.9);
+          [0, 7, 12, 16].forEach((semi, i) => {
+            const m = semi === 16 ? tonic + 14 : tonic + semi;
+            pluck(v, at + i * 0.035, midiToHz(quantizeToScale(m)), 0.1 - i * 0.01, 0.45, 1);
+          });
+          v.noise({
+            start: at,
+            dur: 0.04,
+            gain: 0.05,
+            filter: { type: 'highpass', freq: 5000 },
+          });
+        } else {
+          handbell(v, t, pick, 0.05, 0.4, 0.5);
+          handbell(v, at, midiToHz(tonic), 0.15, 2.0, 0.7);
+          handbell(v, at + 0.02, midiToHz(tonic - 12), 0.09, 1.8, 0.5);
+          whoosh(v, at, 0.5, 0.035, 2600, 700, 0.9);
+        }
+        if (quick) glassNote(v, at + 0.1, midiToHz(tonic + 19), 0.035, 1.2, 1);
+        v.extend(at + 2.2);
+      },
+      { pan: this.heroPan(state, hero) },
+    );
+  }
+
+  /** A call went unanswered: a soft, unresolved fade. Never punishing. */
+  private callEnded(hero: number, reason: string, state: WorldState): void {
+    const phrase = callPhraseFor(this.heroId(state, hero));
+    this.fadeCall(hero, reason === 'missed' ? 0.5 : 0.2);
+    if (reason !== 'missed') {
+      if (!this.e.gate(`callend:${hero}`, 0.3)) return;
+      this.play('callEnd', 2, 'sfx', (v, t) => whoosh(v, t, 0.3, 0.012, 1800, 500, 0.8), {
+        pan: this.heroPan(state, hero),
+      });
+      return;
+    }
+    const last = phrase.notes[phrase.notes.length - 1]?.idx ?? 0;
+    const hz = midiToHz(scaleMidi(last));
+    this.play(
+      'callEnd',
+      2,
+      'sfx',
+      (v, t) => {
+        // The question's last note sags a little and fades: no answer, no tonic.
+        v.osc({
+          type: 'sine',
+          freq: hz,
+          freqTo: hz * 0.965,
+          glide: 0.9,
+          start: t,
+          dur: 0.35,
+          attack: 0.03,
+          release: 0.6,
+          gain: 0.035,
+          shape: 'sustain',
+        });
+        whoosh(v, t, 0.8, 0.02, 2200, 450, 0.8);
+      },
+      { pan: this.heroPan(state, hero) },
+    );
+  }
+
+  /** A Flourish: the answered, stronger version of a hero's move. */
+  private flourish(hero: number, name: string, pan: number, state: WorldState): void {
+    const e = this.e;
+    if (!e.gate('gate:flourish', 0.3)) return;
+    const defId = this.heroId(state, hero);
+    const lower = name.toLowerCase();
+    const kind =
+      lower.includes('bulwark') || defId === 'kael'
+        ? 'bulwark'
+        : lower.includes('heartseeker') || defId === 'lyra'
+          ? 'heartseeker'
+          : 'starbolt';
+    e.duck('music', { depth: 0.62, hold: 0.22, release: 0.7 });
+    const c = this.chord();
+    this.play(
+      'bigFlourish',
+      2,
+      'sfx',
+      (v, t) => {
+        if (kind === 'bulwark') {
+          // A low bell and a shield ringing around it.
+          const low = this.rootAbove(c, 38);
+          handbell(v, t, midiToHz(low), 0.2, 2.6, 0.35);
+          handbell(v, t + 0.02, midiToHz(low + 7), 0.09, 2.2, 0.3);
+          thump(v, t, 62, 0.26, 0.35, 0.55);
+          const hi = this.rootAbove(c, 76);
+          glassNote(v, t + 0.04, midiToHz(hi), 0.1, 2.2, 1);
+          glassNote(v, t + 0.07, midiToHz(hi + 7), 0.06, 1.8, 1);
+          v.noise({
+            start: t + 0.04,
+            dur: 0.12,
+            gain: 0.05,
+            filter: { type: 'bandpass', freq: 4200, q: 3 },
+          });
+        } else if (kind === 'heartseeker') {
+          // A bright pluck run and a whoosh that goes right through.
+          const notes = chordNotesInRange(c, 72, 100);
+          [0, 1, 2, 3].forEach((i) => {
+            const m = notes[i] ?? (notes[notes.length - 1] as number);
+            pluck(v, t + i * 0.04, midiToHz(m), 0.12, 0.4, 1);
+          });
+          whoosh(v, t, 0.3, 0.1, 350, 6200, 1.6);
+          zip(v, t, 0.2, 0.05);
+          glassNote(v, t + 0.17, midiToHz(notes[4] ?? 96), 0.05, 1.2, 1);
+        } else {
+          // A bell and a shimmer, as the star is tuned.
+          const root = this.rootAbove(c, 72);
+          handbell(v, t, midiToHz(root), 0.17, 2.2, 0.9);
+          handbell(v, t + 0.015, midiToHz(root + 7), 0.09, 1.8, 0.8);
+          cymbalSwell(v, t, 0.25, 1.3, 0.05);
+          [24, 19, 12].forEach((semi, i) =>
+            glassNote(v, t + 0.07 + i * 0.07, midiToHz(root + semi), 0.045, 1.4, 1),
+          );
+        }
+      },
+      { big: true, pan },
+    );
+  }
+
+  // ── Fermata ──────────────────────────────────────────────────────────────────────
+  /** A literal fermata: a held note, and the music holds its breath until it ends. */
+  private fermataHold(hero: number, until: number, state: WorldState): void {
+    const e = this.e;
+    const real = clamp((until - state.time) / Math.max(0.25, state.timeScale), 0.3, 8);
+    this.held.get(hero)?.kill(e.now, 0.1);
+    this.held.delete(hero);
+    this.music.hold(real + 0.3);
+    e.duck('music', { depth: 0.5, hold: real, release: 0.6 });
+    const root = midiToHz(this.rootAbove(this.chord(), 62));
+    const h = this.play(
+      'bigFermata',
+      2,
+      'sfx',
+      (v, t) => {
+        // Two detuned sines beat slowly, with a fifth and an octave above.
+        for (const [ratio, detune, g] of [
+          [1, -4, 0.055],
+          [1, 4, 0.055],
+          [1.5, 0, 0.03],
+          [2, 0, 0.025],
+        ] as const) {
+          v.osc({
+            type: 'sine',
+            freq: root * ratio,
+            detune,
+            start: t,
+            dur: real,
+            attack: 0.15,
+            release: 0.5,
+            gain: g,
+            shape: 'sustain',
+          });
+        }
+        glassNote(v, t, root * 2, 0.04, 1.8, 0.6);
+      },
+      { big: true },
+    );
+    if (h) this.held.set(hero, h);
+  }
+
+  private fermataReleased(hero: number, saved: boolean): void {
+    const e = this.e;
+    const h = this.held.get(hero);
+    this.held.delete(hero);
+    if (this.held.size === 0) this.music.releaseHold();
+    if (saved) {
+      h?.kill(e.now, 0.5);
+      e.duck('music', { depth: 0.6, hold: 0.3, release: 0.9 });
+      // A warm resolution to the tonic, whatever chord the music is on.
+      this.play('fermataEnd', 1, 'sfx', (v, t) => {
+        choirChord(v, t, [midiToHz(50), midiToHz(57), midiToHz(65)], 0.7, 0.2, 0.12, 1.3);
+        [62, 69, 74, 77].forEach((m, i) => {
+          pluck(v, t + i * 0.06, midiToHz(m), 0.07, 0.5, 0.6);
+          handbell(v, t + i * 0.06, midiToHz(m + 12), 0.03, 1.6, 0.5);
+        });
+        thump(v, t, 73.4, 0.12, 0.3, 0.8);
+      });
+    } else {
+      h?.kill(e.now, 0.03);
+      e.duck('music', { depth: 0.7, hold: 0.05, release: 0.5 });
+      // The note is cut off. A low thud and a sag, nothing sharp.
+      this.play('fermataEnd', 1, 'sfx', (v, t) => {
+        thump(v, t, 58, 0.34, 0.45, 0.5);
+        v.noise({ start: t, dur: 0.1, gain: 0.09, filter: { type: 'lowpass', freq: 260 } });
+        v.osc({
+          type: 'sine',
+          freq: 123,
+          freqTo: 62,
+          glide: 0.5,
+          start: t + 0.03,
+          dur: 0.3,
+          attack: 0.02,
+          release: 0.2,
+          gain: 0.05,
+          shape: 'sustain',
+        });
+      });
+    }
+  }
+
+  // ── Chords ───────────────────────────────────────────────────────────────────────
+  /** Chorus Pulse: a chord swell whose voicing grows with the number of auras. */
+  private chorusPulse(auras: number): void {
+    const e = this.e;
+    if (!e.gate('gate:chorus', 0.4)) return;
+    const n = clamp(Math.round(auras), 2, 7);
+    const voicing = chorusVoicing(this.chord().root, n);
+    e.duck('music', { depth: 0.72, hold: 0.2, release: 0.8 });
+    const grow = (n - 2) / 5;
+    this.play('chorus', 1, 'sfx', (v, t) => {
+      choirChord(v, t, voicing.slice(0, 3).map(midiToHz), 0.5, 0.2 + 0.06 * grow, 0.2, 1.2);
+      voicing.forEach((m, i) =>
+        handbell(v, t + 0.035 * i, midiToHz(m + 12), 0.04 + 0.01 * grow, 1.5, 0.6),
+      );
+      const top = voicing[voicing.length - 1] ?? 72;
+      glassNote(v, t + 0.035 * voicing.length, midiToHz(top + 12), 0.04 + 0.03 * grow, 1.8, 0.9);
+      whoosh(v, t, 0.6, 0.03, 400, 3000 + grow * 1500, 1.1);
+      thump(v, t, 70, 0.16, 0.3, 0.55);
+      v.extend(t + 2.2);
+    });
+  }
+
+  /** Pedal Point: a low thunk as the field is planted. */
+  private fieldPlanted(pan: number): void {
+    if (!this.e.gate('gate:plant', 0.25)) return;
+    this.play(
+      'pedal',
+      2,
+      'sfx',
+      (v, t) => {
+        thump(v, t, midiToHz(38), 0.3, 0.45, 0.89);
+        v.osc({
+          type: 'triangle',
+          freq: midiToHz(50),
+          start: t,
+          dur: 0.45,
+          attack: 0.004,
+          release: 0.2,
+          gain: 0.1,
+          filter: { type: 'lowpass', freq: 600, freqTo: 300, q: 0.6 },
+        });
+        v.noise({ start: t, dur: 0.06, gain: 0.08, filter: { type: 'lowpass', freq: 320 } });
+      },
+      { pan },
+    );
+  }
+
+  /** Quiet D pedal while a planted Chord stands: a sine D2, a lowpassed triangle D3 and an A2. */
+  private ensureDrone(): void {
+    if (this.drone) return;
+    const e = this.e;
+    const ctx = e.ctx;
+    const gain = ctx.createGain();
+    gain.gain.value = 0;
+    const lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = 420;
+    lp.connect(gain).connect(e.bus.ambience.input);
+    const oscs: OscillatorNode[] = [];
+    for (const [type, midi, g] of [
+      ['sine', 38, 1],
+      ['triangle', 50, 0.5],
+      ['sine', 45, 0.35],
+    ] as const) {
+      const o = ctx.createOscillator();
+      o.type = type;
+      o.frequency.value = midiToHz(midi);
+      const og = ctx.createGain();
+      og.gain.value = g;
+      o.connect(og).connect(lp);
+      o.start();
+      oscs.push(o);
+      e.track('ambience', [o], [og]);
+    }
+    this.drone = { gain, oscs };
+  }
+
+  private stopDrone(): void {
+    if (!this.drone) return;
+    for (const o of this.drone.oscs) {
+      try {
+        o.stop();
+      } catch {
+        // already stopped
+      }
+    }
+    this.drone = null;
+    this.droneOffSince = -1;
+  }
+
+  /** Unison harmony for the thread hum: a fifth and an octave above, created on first use. */
+  private ensureHarmony(bandpass: BiquadFilterNode): void {
+    if (this.harmony) return;
+    const e = this.e;
+    const ctx = e.ctx;
+    const gains: GainNode[] = [];
+    const oscs: OscillatorNode[] = [];
+    for (let i = 0; i < 2; i++) {
+      const o = ctx.createOscillator();
+      o.type = 'triangle';
+      o.frequency.value = 660;
+      const g = ctx.createGain();
+      g.gain.value = 0;
+      o.connect(g).connect(bandpass);
+      o.start();
+      e.track('ambience', [o], [g]);
+      gains.push(g);
+      oscs.push(o);
+    }
+    this.harmony = { gains, oscs };
   }
 
   // ── world ────────────────────────────────────────────────────────────────────────
@@ -995,7 +1447,18 @@ export class SfxEngine {
     osc.connect(lp).connect(gain).connect(e.bus.ambience.input);
     osc.start();
     e.track('ambience', [osc], [lp, gain]);
-    this.whine = { gain, osc };
+    this.whine = { gain, osc, band: lp };
+  }
+
+  private chordsOf(state: WorldState): readonly { anchor?: string; threadHero?: number | null }[] {
+    const chords = (state.field as { chords?: unknown } | undefined)?.chords;
+    return Array.isArray(chords)
+      ? (chords as { anchor?: string; threadHero?: number | null }[])
+      : [];
+  }
+
+  private unisonRiding(state: WorldState): boolean {
+    return this.chordsOf(state).some((c) => c.anchor === 'thread' && c.threadHero != null);
   }
 
   /** Called every frame from the director with the smoothed combat state. */
@@ -1019,9 +1482,41 @@ export class SfxEngine {
     if (this.whine) {
       const tension = clamp(weaver?.threadTension ?? 0, 0, 1);
       const lift = clamp((tension - 0.55) / 0.45, 0, 1);
-      this.whine.gain.gain.setTargetAtTime(lift * lift * 0.05, now, 0.06);
-      this.whine.osc.frequency.setTargetAtTime(380 + tension * 780, now, 0.08);
+      // Unison: a Chord rides the Thread, so the hum gets a fifth and an octave, never drops
+      // fully silent, and follows the key instead of sliding between notes.
+      const riding = this.unisonRiding(state);
+      let freq = 380 + tension * 780;
+      if (riding) {
+        this.ensureHarmony(this.whine.band);
+        freq = midiToHz(quantizeToScale(69 + 12 * Math.log2(freq / 440)));
+      }
+      this.whine.gain.gain.setTargetAtTime(
+        Math.max(lift * lift * 0.05, riding ? 0.012 : 0),
+        now,
+        0.06,
+      );
+      this.whine.osc.frequency.setTargetAtTime(freq, now, 0.08);
+      if (this.harmony) {
+        this.harmony.oscs[0]?.frequency.setTargetAtTime(freq * 1.5, now, 0.08);
+        this.harmony.oscs[1]?.frequency.setTargetAtTime(freq * 2, now, 0.08);
+        this.harmony.gains[0]?.gain.setTargetAtTime(riding ? 0.7 : 0, now, 0.12);
+        this.harmony.gains[1]?.gain.setTargetAtTime(riding ? 0.45 : 0, now, 0.12);
+      }
       this.lastTension = tension;
+    }
+
+    // Pedal Point: a quiet D pedal while a planted Chord stands.
+    const planted = this.chordsOf(state).some((c) => c.anchor === 'planted');
+    if (planted) {
+      this.ensureDrone();
+      this.droneOffSince = -1;
+    }
+    if (this.drone) {
+      this.drone.gain.gain.setTargetAtTime(planted ? 0.045 : 0, now, planted ? 0.5 : 0.3);
+      if (!planted) {
+        if (this.droneOffSince < 0) this.droneOffSince = now;
+        else if (now - this.droneOffSince > 3) this.stopDrone();
+      }
     }
 
     // Scan the world a few times a second.
@@ -1164,6 +1659,14 @@ export class SfxEngine {
     this.intensity = 0;
     this.lastIntensityScan = 0;
     if (this.whine) this.whine.gain.gain.setTargetAtTime(0, this.e.now, 0.05);
+    for (const h of this.callQ.values()) h.kill(this.e.now, 0.2);
+    this.callQ.clear();
+    for (const h of this.held.values()) h.kill(this.e.now, 0.2);
+    this.held.clear();
+    this.music.releaseHold();
+    if (this.drone) this.drone.gain.gain.setTargetAtTime(0, this.e.now, 0.1);
+    if (this.harmony)
+      for (const g of this.harmony.gains) g.gain.setTargetAtTime(0, this.e.now, 0.1);
   }
 
   dispose(): void {
@@ -1174,6 +1677,17 @@ export class SfxEngine {
         // already stopped
       }
       this.whine = null;
+    }
+    this.stopDrone();
+    if (this.harmony) {
+      for (const o of this.harmony.oscs) {
+        try {
+          o.stop();
+        } catch {
+          // already stopped
+        }
+      }
+      this.harmony = null;
     }
   }
 

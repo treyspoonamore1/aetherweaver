@@ -57,5 +57,6 @@ export function installRunHook(): void {
     rest: () => run().respite('rest'),
     outcome: () => run().run?.outcome ?? null,
     results: () => run().run?.results.length ?? 0,
+    lastWithoutYou: () => run().run?.lastResult?.withoutYou ?? null,
   };
 }

@@ -31,42 +31,51 @@ export const DEFAULT_CHORDS: readonly ChordLoadout[] = [
 
 /**
  * Ready-made loadouts for the Chord builder: each plays differently (docs/phase-2.md). Every
- * one is legal, and the harness checks each is viable for the Skilled bot.
+ * one is legal, and the loadout report (tools/loadouts.ts) checks each is viable for the
+ * Skilled bot. `difficulty` comes from how the Novice bot fares with it.
  */
 export const CHORD_PRESETS: readonly {
   id: string;
   name: string;
   summary: string;
+  difficulty: 'easy' | 'medium' | 'hard';
   chords: readonly ChordLoadout[];
 }[] = [
   {
     id: 'steady',
     name: 'Steady',
     summary: 'Regeneration and might around you. Plenty of Spirit for Wards and Chimes.',
+    difficulty: 'easy',
     chords: DEFAULT_CHORDS,
   },
   {
     id: 'beam',
     name: 'Beam',
     summary:
-      'Unison puts Fortissimo and Allegro on your Thread at 2.5×: whoever you thread becomes a weapon.',
+      'Unison puts Fortissimo and Allegro on your Thread at 2.5×: whoever you thread becomes a weapon. A light Fermata keeps the rest alive.',
+    difficulty: 'hard',
     chords: [
       { auras: ['fortissimo', 'allegro'], ornaments: ['unison'] },
-      { auras: ['sostenuto'], ornaments: ['grace_note'] },
+      { auras: ['fermata'], ornaments: ['grace_note'] },
     ],
   },
   {
     id: 'anchor',
     name: 'Anchor',
     summary:
-      'Plant a slowing, healing field with Pedal Point and pull the fight into it; you roam free.',
-    chords: [{ auras: ['lullaby', 'sostenuto'], ornaments: ['pedal_point', 'grace_note'] }],
+      'Plant a slowing, healing field with Pedal Point and pull the fight into it, then roam with Fortissimo around you.',
+    difficulty: 'medium',
+    chords: [
+      { auras: ['lullaby', 'sostenuto'], ornaments: ['pedal_point', 'grace_note'] },
+      { auras: ['fortissimo'], ornaments: [] },
+    ],
   },
   {
     id: 'choir',
     name: 'Wide Choir',
     summary:
       'Three auras over a wide field: barrier, the Fermata hold and regeneration. Cues release a chorus pulse.',
+    difficulty: 'easy',
     chords: [
       { auras: ['ostinato', 'fermata'], ornaments: ['grace_note', 'reverb'] },
       { auras: ['sostenuto'], ornaments: [] },

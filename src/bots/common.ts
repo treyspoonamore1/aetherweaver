@@ -169,3 +169,48 @@ export function escapeFrom(
   }
   return null;
 }
+
+// ── Phase 2: calls, holds, planted and Unison Chords ──────────────────────────────────
+
+/** The hero with an open, unanswered call, if any. */
+export function caller(party: readonly HeroView[]): HeroView | null {
+  return party.find((h) => h.e.hero!.call && !h.e.hero!.call.answered) ?? null;
+}
+
+/** A hero hanging on in a Fermata hold (heal them!), if any. */
+export function heldHero(party: readonly HeroView[]): HeroView | null {
+  return party.find((h) => h.e.hero!.hold) ?? null;
+}
+
+export function plantedChord(state: WorldState): WorldState['field']['chords'][number] | null {
+  return state.field.chords.find((c) => c.anchor === 'planted') ?? null;
+}
+
+export function unisonChord(state: WorldState): WorldState['field']['chords'][number] | null {
+  return state.field.chords.find((c) => c.anchor === 'thread') ?? null;
+}
+
+const DEFENSIVE_AURAS = new Set(['sostenuto', 'ostinato', 'fermata']);
+
+/** A Unison Chord of mostly defensive auras belongs on the tank; offensive ones on a striker. */
+export function unisonDefensive(chord: { auras: readonly string[] }): boolean {
+  return chord.auras.filter((a) => DEFENSIVE_AURAS.has(a)).length * 2 >= chord.auras.length;
+}
+
+/** Where to plant a Pedal Point field: the party's centre, pulled toward the tank. */
+export function plantSpot(party: readonly HeroView[]): { x: number; z: number } {
+  let x = 0;
+  let z = 0;
+  let w = 0;
+  for (const h of party) {
+    const k = h.role === 'tank' ? 2 : 1;
+    x += h.e.x * k;
+    z += h.e.z * k;
+    w += k;
+  }
+  return w > 0 ? { x: x / w, z: z / w } : { x: 0, z: 0 };
+}
+
+export function plantCommand(at: { x: number; z: number }): Command {
+  return { t: 'plant', point: { x: quantize(at.x, AIM_STEP), z: quantize(at.z, AIM_STEP) } };
+}

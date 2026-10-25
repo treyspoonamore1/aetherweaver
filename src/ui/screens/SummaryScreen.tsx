@@ -1,6 +1,7 @@
 import { useRun } from '../../app/runStore';
 import { DEFAULT_SETTINGS, useSettings } from '../../app/settings';
-import { CONTENT, heroDef, motifDef } from '../../content';
+import { auraDef, heroDef, motifDef, ornamentDef } from '../../content';
+import { chordLabel } from '../../sim';
 import { motifLine, runTotals } from '../../meta/run';
 import type { EncounterResult, Grade, Highlight, RunState } from '../../meta/types';
 import type { ReactNode } from 'react';
@@ -14,7 +15,9 @@ import { Ring } from '../kit/Ring';
 import { useMood } from '../kit/sound';
 import { useUi } from '../store';
 import { HeroDisc, Pips, SectionTitle } from './shared';
+import { HIGHLIGHT_COLOR } from './resultText';
 import { HpTimeline, TimelineLegend } from './Timeline';
+import { tallyLine, withoutYouTally, withoutYouLine } from './withoutYouText';
 
 const GRADE_COLOR: Record<Grade, string> = {
   S: '#fde9b8',
@@ -44,7 +47,9 @@ const OUTCOME = {
 
 const HIGHLIGHT_ORDER: Highlight['kind'][] = [
   'save',
+  'fermata',
   'perfect',
+  'response',
   'clutch',
   'crescendo',
   'reel',
@@ -59,8 +64,8 @@ const HIGHLIGHT_ICON: Record<Highlight['kind'], IconName> = {
   cue: 'note',
   crescendo: 'sparkle',
   revive: 'mend',
-  response: 'note',
-  fermata: 'heart',
+  response: 'call',
+  fermata: 'fermata',
 };
 
 /** Top moments across the whole run, most valuable kinds first. */
@@ -118,6 +123,11 @@ export function SummaryView({ run, onNewRun, onTitle, assisted = false }: Summar
     return { id, damage, amplified };
   });
   const aimed = totals.telegraphsAimed;
+  const tally = withoutYouTally(run.results);
+  const fermataSaves = run.results.reduce(
+    (n, r) => n + r.highlights.filter((h) => h.kind === 'fermata').length,
+    0,
+  );
 
   return (
     <ScreenFrame tone={run.outcome === 'victory' ? 'gold' : 'dusk'}>
@@ -160,6 +170,77 @@ export function SummaryView({ run, onNewRun, onTitle, assisted = false }: Summar
           </div>
         </header>
 
+        {tally.fights > 0 && (
+          <Panel tone="solid" className="mt-6 p-5" data-testid="summary-without-you">
+            <SectionTitle>Without you</SectionTitle>
+            <p className="font-display text-xl font-bold leading-snug text-gold-100 sm:text-2xl">
+              {tallyLine(tally)}
+            </p>
+            <ol
+              className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4"
+              aria-label="Each fight, with and without you"
+            >
+              {run.results.map((r, i) => {
+                const w = r.withoutYou;
+                const alone = w?.outcome ?? null;
+                return (
+                  <li
+                    key={i}
+                    className="rounded-lg border border-ink-600/70 bg-ink-900/60 px-3 py-2"
+                    title={w ? withoutYouLine(w, r) : 'Not re-run'}
+                  >
+                    <p className="truncate text-sm font-semibold text-text">{r.name}</p>
+                    <p className="mt-1 flex items-center justify-between gap-2 text-xs">
+                      <span
+                        className="flex items-center gap-1"
+                        style={{
+                          color:
+                            r.outcome === 'victory'
+                              ? 'var(--color-gold-300)'
+                              : 'var(--color-lethal)',
+                        }}
+                      >
+                        <Icon name={r.outcome === 'victory' ? 'crown' : 'skull'} size={12} />
+                        You: {r.outcome === 'victory' ? 'won' : 'fell'}
+                      </span>
+                      <span
+                        className="flex items-center gap-1"
+                        style={{
+                          color:
+                            alone === 'victory'
+                              ? 'var(--color-muted)'
+                              : alone === 'defeat'
+                                ? 'var(--color-lethal)'
+                                : 'var(--color-threat)',
+                        }}
+                      >
+                        <Icon
+                          name={
+                            alone === 'victory'
+                              ? 'crown'
+                              : alone === 'defeat'
+                                ? 'skull'
+                                : 'hourglass'
+                          }
+                          size={12}
+                        />
+                        Alone:{' '}
+                        {alone === null
+                          ? 'not re-run'
+                          : alone === 'victory'
+                            ? `won ${clock(w!.duration)}`
+                            : alone === 'defeat'
+                              ? `fell ${clock(w!.duration)}`
+                              : 'stuck'}
+                      </span>
+                    </p>
+                  </li>
+                );
+              })}
+            </ol>
+          </Panel>
+        )}
+
         {run.results.length > 0 && (
           <Panel tone="solid" className="mt-6 p-5">
             <SectionTitle
@@ -186,7 +267,7 @@ export function SummaryView({ run, onNewRun, onTitle, assisted = false }: Summar
           <SectionTitle>
             <span id="proof-title">Proof of support</span>
           </SectionTitle>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <Tile
               icon="empower"
               color="var(--color-amp)"
@@ -241,6 +322,28 @@ export function SummaryView({ run, onNewRun, onTitle, assisted = false }: Summar
               value={String(totals.cues)}
               sentence={`${totals.cues} ${plural(totals.cues, 'Solo')} cued, ${totals.crescendos} ${plural(totals.crescendos, 'Crescendo')} sung, ${totals.reels} ${plural(totals.reels, 'Reel')} to safety.`}
             />
+            <Tile
+              icon="call"
+              color="var(--color-call, #fde68a)"
+              label="Calls answered"
+              value={totals.calls > 0 ? `${totals.responses}/${totals.calls}` : '0'}
+              sentence={
+                totals.calls > 0
+                  ? `Your party called for help ${totals.calls} ${plural(totals.calls, 'time')}; you answered ${totals.responses}, and each became a Flourish.`
+                  : 'No hero called for help this run.'
+              }
+            />
+            <Tile
+              icon="fermata"
+              color="#e2d6f8"
+              label="Fermata holds"
+              value={String(totals.holds)}
+              sentence={
+                totals.holds > 0
+                  ? `${totals.holds} lethal ${plural(totals.holds, 'hit')} caught by Fermata and held at 1 life${fermataSaves > 0 ? `; ${fermataSaves} healed through it in time` : ''}.`
+                  : 'Fermata never had to hold anyone. Slot it to catch a lethal hit once per fight.'
+              }
+            />
           </div>
         </section>
 
@@ -294,6 +397,9 @@ export function SummaryView({ run, onNewRun, onTitle, assisted = false }: Summar
                       name={HIGHLIGHT_ICON[h.kind]}
                       size={20}
                       className="mt-0.5 shrink-0 text-gold-300"
+                      style={
+                        HIGHLIGHT_COLOR[h.kind] ? { color: HIGHLIGHT_COLOR[h.kind] } : undefined
+                      }
                     />
                     <div className="min-w-0">
                       <p className="text-sm leading-snug text-text">{h.text}</p>
@@ -341,12 +447,13 @@ export function SummaryView({ run, onNewRun, onTitle, assisted = false }: Summar
             </ul>
           )}
           <p className="mt-3 text-xs text-muted">
-            Chord:{' '}
+            Chords:{' '}
             {run.chords
-              .flatMap((c) => c.auras)
-              .map((id) => CONTENT.auras.find((a) => a.id === id)?.name)
-              .filter(Boolean)
-              .join(' + ') || 'none'}
+              .map(
+                (c, i) =>
+                  `${chordLabel(i)}: ${c.auras.map((id) => auraDef(id).name).join(' + ') || '—'}${c.ornaments.length ? ` (${c.ornaments.map((id) => ornamentDef(id).name).join(', ')})` : ''}`,
+              )
+              .join(' · ') || 'none'}
           </p>
         </Panel>
       </div>

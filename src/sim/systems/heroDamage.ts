@@ -34,3 +34,17 @@ export function heroAttackSpeed(world: World, hero: Entity): number {
   if (hero.hero?.defId === 'lyra' && hero.hero.inField) bonus += world.mods.lyraAttackSpeed;
   return 1 + bonus;
 }
+
+/**
+ * A Flourish hit (an answered call): the ability, stronger. It only happens because the
+ * Weaver answered, so everything above the plain base hit counts as the Weaver's share.
+ */
+export function flourishHit(
+  world: World,
+  hero: Entity,
+  base: number,
+  f: { damageMult: number; crit: boolean },
+): HeroHit {
+  const hit = heroDamage(world, hero, base * f.damageMult, f.crit ? 1 : 0);
+  return { ...hit, amplified: Math.max(hit.amplified, hit.amount - base) };
+}

@@ -1,4 +1,5 @@
-import { Suspense, lazy, type ReactNode } from 'react';
+import { Suspense, lazy, useEffect, type ReactNode } from 'react';
+import { installPresentation } from '../ui/presentation';
 import { TitleScreen } from '../ui/screens/TitleScreen';
 import { useUi } from '../ui/store';
 
@@ -30,6 +31,8 @@ const lab = new URLSearchParams(window.location.search).get('lab');
 /** Screen router: Title, the run (Prep → Map → Combat → …), Training Grounds, labs. */
 export function App() {
   const screen = useUi((s) => s.screen);
+  // Colour-vision palette and UI scale, at startup and whenever Settings change them.
+  useEffect(() => installPresentation(), []);
   if (lab) {
     return (
       <Loading>

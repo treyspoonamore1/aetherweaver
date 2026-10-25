@@ -19,7 +19,7 @@ import {
   type LevelReport,
   type PitchReport,
 } from './offline';
-import { SOUNDS } from './soundBoard';
+import { SOUNDS, fireSound } from './soundBoard';
 
 const MOODS: AudioMood[] = [
   'silent',
@@ -31,8 +31,9 @@ const MOODS: AudioMood[] = [
   'victory',
   'defeat',
 ];
-const GROUPS: { id: 'support' | 'world' | 'ui'; title: string }[] = [
+const GROUPS: { id: 'support' | 'phase2' | 'world' | 'ui'; title: string }[] = [
   { id: 'support', title: 'Support actions' },
+  { id: 'phase2', title: 'Phase 2: Call and Response, Fermata, Chords' },
   { id: 'world', title: 'World, enemies and telegraphs' },
   { id: 'ui', title: 'UI' },
 ];
@@ -129,6 +130,8 @@ export function AudioLab() {
     lyra: false,
     vexis: false,
   });
+  const [planted, setPlanted] = useState(false);
+  const [unison, setUnison] = useState(false);
   const [volumes, setVolumes] = useState<Volumes>(() => ({
     ...useSettings.getState().settings.volumes,
   }));
@@ -223,6 +226,7 @@ export function AudioLab() {
   }, [world, resonance]);
   useEffect(() => world.setEnemies(enemies), [world, enemies]);
   useEffect(() => world.setTension(tension), [world, tension]);
+  useEffect(() => world.setChords(planted, unison), [world, planted, unison]);
   useEffect(() => world.setCrescendo(crescendo), [world, crescendo]);
   useEffect(() => {
     for (const h of HERO_IDS) world.setHeroHp(h, lowHp[h] ? 0.18 : 1);
@@ -361,6 +365,27 @@ export function AudioLab() {
               />{' '}
               Crescendo active
             </label>
+            <label className="flex items-center gap-1" title="A planted Pedal Point Chord stands">
+              <input
+                type="checkbox"
+                checked={planted}
+                data-testid="chord-planted"
+                onChange={(e) => setPlanted(e.target.checked)}
+              />{' '}
+              Pedal drone (planted Chord)
+            </label>
+            <label
+              className="flex items-center gap-1"
+              title="A Unison Chord rides the Thread: raise Thread tension to hear the harmonised hum"
+            >
+              <input
+                type="checkbox"
+                checked={unison}
+                data-testid="chord-unison"
+                onChange={(e) => setUnison(e.target.checked)}
+              />{' '}
+              Unison on the Thread (fifth + octave hum)
+            </label>
             {HERO_IDS.map((h) => (
               <span key={h} className="flex items-center gap-2 rounded bg-ink-800 px-2 py-1">
                 <b className="text-text">{h}</b>
@@ -436,7 +461,7 @@ export function AudioLab() {
                 testId={`sound-${s.id}`}
                 onClick={() => {
                   void director.unlock();
-                  s.fire(director, world);
+                  fireSound(s, director, world);
                 }}
               >
                 {s.label}

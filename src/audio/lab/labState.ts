@@ -28,6 +28,8 @@ interface FakeEntity {
 export class FakeWorld {
   readonly entities = new Map<number, FakeEntity>();
   telegraphs: unknown[] = [];
+  /** Chords the field reports (planted / thread anchors drive the pedal drone and Unison hum). */
+  readonly chords: { anchor: string; threadHero: number | null }[] = [];
   status = 'fighting';
   readonly state: WorldState;
 
@@ -64,7 +66,9 @@ export class FakeWorld {
       directive: null,
       focusTarget: null,
       chimes: [],
-      field: {} as WorldState['field'],
+      get field() {
+        return { chords: self.chords } as unknown as WorldState['field'];
+      },
       ledger: {} as WorldState['ledger'],
       get telegraphs() {
         return self.telegraphs as WorldState['telegraphs'];
@@ -95,6 +99,12 @@ export class FakeWorld {
   }
   setTension(v: number): void {
     this.weaverData().threadTension = v;
+  }
+  /** Plants / removes a Pedal Point Chord and puts a Unison Chord on the Thread (or not). */
+  setChords(planted: boolean, unison: boolean): void {
+    this.chords.length = 0;
+    if (planted) this.chords.push({ anchor: 'planted', threadHero: null });
+    if (unison) this.chords.push({ anchor: 'thread', threadHero: IDS.kael });
   }
   setCrescendo(on: boolean): void {
     this.weaverData().crescendo = on ? 10 : 0;

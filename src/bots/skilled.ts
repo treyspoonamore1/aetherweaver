@@ -2,7 +2,9 @@
  * Skilled bot: plays the Weaver the way the design intends — positions so the field covers
  * the party, threads by effective HP, times Wards into the Perfect window, Chimes marks late
  * (clutch), Reels heroes out of lethal shapes, revives, Cues Solos into the right moments
- * and fires the Crescendo when the party needs it.
+ * and fires the Crescendo when the party needs it. Phase 2: heals heroes held by Fermata,
+ * answers calls when the answer isn't needed for something more urgent, plants Pedal Point
+ * fields under the party and keeps a Unison Chord on the hero it suits.
  */
 import { CONTENT } from '../content';
 import { Rng } from '../sim/core/rng';
@@ -10,16 +12,23 @@ import type { Command, PartySlot, ReadonlyEntity, WorldState } from '../sim';
 import type { Bot } from './types';
 import {
   Intent,
+  caller,
   centroid,
   damageOf,
   dist,
   effectiveFraction,
   enemiesOf,
   escapeFrom,
+  heldHero,
   partyOf,
+  plantCommand,
+  plantSpot,
+  plantedChord,
   shieldOf,
   statusRemaining,
   threatsOn,
+  unisonChord,
+  unisonDefensive,
   weaverOf,
   type HeroView,
 } from './common';
@@ -29,6 +38,8 @@ export interface SkilledOptions {
   every: number;
   /** Chance to notice a given opportunity in time (1 = perfect attention). */
   attention: number;
+  /** Seconds before answering a hero's call (human reaction). */
+  callReaction: number;
 }
 
 export class SkilledBot implements Bot {
@@ -41,7 +52,7 @@ export class SkilledBot implements Bot {
 
   constructor(
     seed: number,
-    private readonly opts: SkilledOptions = { every: 4, attention: 1 },
+    private readonly opts: SkilledOptions = { every: 4, attention: 1, callReaction: 0.4 },
     name = 'skilled',
   ) {
     this.rng = new Rng(seed ^ 0x5eed);
@@ -81,6 +92,30 @@ export class SkilledBot implements Bot {
     const target = centroid(enemies.length > 0 ? enemies : party.map((h) => h.e));
     this.intent.aim(out, target.x, target.z);
 
+    // ── Pedal Point: keep the planted field under the party. ──
+    const planted = plantedChord(state);
+    if (planted && wc.plantCooldown <= 0 && party.length > 0) {
+      const spot = plantSpot(party);
+      if (
+        dist(spot, planted) > Math.max(1.5, planted.radius * 0.4) &&
+        dist(spot, w) <= CONTENT.weaver.plantRange - 0.5
+      )
+        out.push(plantCommand(spot));
+    }
+
+    const held = heldHero(party);
+    const calling = caller(party);
+    const call = calling?.e.hero!.call ?? null;
+    const answerNow = !!call && now - call.start >= this.opts.callReaction;
+    // A big hit soon: keep the Ward for its Perfect window rather than spend it on a call.
+    const bigHitSoon =
+      wc.wardCharges < 2 &&
+      party.some((p) =>
+        threatsOn(state, p.e).some(
+          (t) => t.impact - now < 2.5 && damageOf(t, p.e) > p.e.health!.maxHp * 0.25,
+        ),
+      );
+
     // ── Ward: Perfect timing on incoming hits; emergency shields otherwise. ──
     if (wc.wardCharges > 0 && spirit >= tech.ward.cost) {
       const window = tech.ward.perfectWindow;
@@ -99,6 +134,15 @@ export class SkilledBot implements Bot {
       }
       if (best && this.notice()) {
         out.push({ t: 'tech', id: 'ward', slot: best.slot });
+        acted = true;
+      } else if (
+        answerNow &&
+        call!.answer === 'ward' &&
+        !bigHitSoon &&
+        dist(calling!.e, w) < tech.ward.range - 0.3 &&
+        this.notice()
+      ) {
+        out.push({ t: 'tech', id: 'ward', slot: calling!.slot });
         acted = true;
       } else if (!acted) {
         const low = party.filter(
@@ -133,6 +177,21 @@ export class SkilledBot implements Bot {
       if (pick && dist(pick.e, w) < tech.chime.range && this.notice()) {
         out.push({ t: 'tech', id: 'chime', point: { x: pick.e.x, z: pick.e.z } });
         acted = true;
+      } else if (!pick && held && dist(held.e, w) < tech.chime.range && this.notice()) {
+        // A Chime heals a held hero too.
+        out.push({ t: 'tech', id: 'chime', point: { x: held.e.x, z: held.e.z } });
+        acted = true;
+      } else if (
+        !pick &&
+        answerNow &&
+        call!.answer === 'chime' &&
+        dist(calling!.e, w) < tech.chime.range &&
+        // Keep the Chime for a Dirge that's coming.
+        !party.some((h) => statusRemaining(h.e, 'dirge') < 6) &&
+        this.notice()
+      ) {
+        out.push({ t: 'tech', id: 'chime', point: { x: calling!.e.x, z: calling!.e.z } });
+        acted = true;
       }
     }
 
@@ -165,7 +224,10 @@ export class SkilledBot implements Bot {
     const downed = all.filter((h) => h.e.health!.downed && !h.e.health!.dead);
     let threadTo: HeroView | null = null;
     let mend = true;
-    if (downed.length > 0) {
+    const unison = unisonChord(state);
+    if (held) {
+      threadTo = held;
+    } else if (downed.length > 0) {
       downed.sort((a, b) => a.e.health!.bleedOut - b.e.health!.bleedOut);
       threadTo = downed[0]!;
     } else if (party.length > 0) {
@@ -173,13 +235,21 @@ export class SkilledBot implements Bot {
       const lowest = sorted[0]!;
       const current =
         wc.threadSlot === null ? null : (party.find((h) => h.slot === wc.threadSlot) ?? null);
-      if (
-        effectiveFraction(lowest.e) > 0.85 &&
-        party.every((h) => h.e.health!.incoming < h.e.health!.hp * 0.3)
-      ) {
+      const calm = party.every((h) => h.e.health!.incoming < h.e.health!.hp * 0.3);
+      if (answerNow && call!.answer === 'empower' && effectiveFraction(lowest.e) > 0.5 && calm) {
+        // Lyra asks for Empower: give it to her while nobody is in trouble.
         mend = false;
-        threadTo =
-          party.find((h) => h.defId === 'lyra') ?? party.find((h) => h.role !== 'tank') ?? lowest;
+        threadTo = calling;
+      } else if (effectiveFraction(lowest.e) > 0.85 && calm) {
+        const tank = party.find((h) => h.role === 'tank');
+        if (unison && unisonDefensive(unison) && tank) {
+          // A defensive Unison Chord lives on the tank.
+          threadTo = tank;
+        } else {
+          mend = false;
+          threadTo =
+            party.find((h) => h.defId === 'lyra') ?? party.find((h) => h.role !== 'tank') ?? lowest;
+        }
       } else if (
         !current ||
         effectiveFraction(lowest.e) < effectiveFraction(current.e) - 0.12 ||

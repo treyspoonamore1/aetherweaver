@@ -16,6 +16,7 @@ import type {
 } from '../state';
 import type { World } from '../world';
 import { distSq, len } from '../core/dmath';
+import { recordSave } from './saves';
 import {
   addStatus,
   dealDamage,
@@ -393,36 +394,6 @@ function reelDodged(world: World, t: Telegraph, e: Entity): void {
     recordSave(world, e, 'reel', telegraphDamage(t, e), t.name);
 }
 
-export function recordSave(
-  world: World,
-  hero: Entity,
-  cause: SaveCause,
-  prevented: number,
-  attack: string,
-): void {
-  if (!hero.hero) return;
-  world.ledger.saves.push({
-    time: world.time - world.encounter.startedAt,
-    hero: hero.id,
-    heroDefId: hero.hero.defId,
-    cause,
-    prevented,
-    attack,
-  });
-  pushMarker(world, 'save', hero.hero.slot);
-  world.events.push({
-    type: 'save',
-    tick: world.tick,
-    target: hero.id,
-    cause,
-    counterfactualDamage: prevented,
-    attack,
-  });
-  gainResonance(world, world.content.resonance.gains.save, 'save');
-  setTimeScale(world, 0.35, 15, 'save');
-  bark(world, hero, 'saved', true);
-}
-
 function answered(world: World): void {
   world.ledger.telegraphsAnswered++;
 }
@@ -471,3 +442,5 @@ let onCastComplete: ((world: World, owner: Entity, t: Telegraph) => void) | null
 export function setOnCastComplete(fn: (world: World, owner: Entity, t: Telegraph) => void): void {
   onCastComplete = fn;
 }
+
+export { recordSave };

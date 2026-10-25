@@ -4,7 +4,7 @@
  */
 import type { BotKind } from '../bots/types';
 import type { RunPhase } from '../meta/types';
-import type { Command, Replay, SimSnapshot } from '../sim';
+import type { Command, Replay, SimSnapshot, WithoutYou } from '../sim';
 import type { PerfStats } from '../ui/store';
 
 export interface TestHook {
@@ -34,6 +34,8 @@ export interface RunHook {
   rest(): void;
   outcome(): string | null;
   results(): number;
+  /** The last fight's "without you" re-run (null if none or not computed). */
+  lastWithoutYou(): WithoutYou | null;
 }
 
 declare global {

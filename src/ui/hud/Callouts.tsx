@@ -19,6 +19,7 @@ const BANNER_ICON: Partial<Record<Callout['kind'], IconName>> = {
   perfect: 'ward',
   save: 'heart',
   clutch: 'chime',
+  response: 'call',
 };
 
 /** Big centred banners: PERFECT, SAVE, CLUTCH, Crescendo. */
@@ -47,6 +48,30 @@ function Banner({ c }: { c: Callout }) {
           {c.detail}
         </p>
       )}
+    </div>
+  );
+}
+
+/** Fermata caught a lethal hit: urgent, but a sentence, not a shout. */
+function HoldBanner({ c }: { c: Callout }) {
+  const ttl = useLifetime(c.expiresAt);
+  const color = c.color ?? '#e2d6f8';
+  return (
+    <div
+      className="flex items-center gap-3 rounded-xl border-2 bg-ink-950/85 px-5 py-2.5 shadow-xl shadow-black/60"
+      style={{
+        ...fadeStyle(ttl, 'banner-in 0.35s cubic-bezier(0.2,0.9,0.3,1.2) both'),
+        borderColor: color,
+      }}
+      role="alert"
+    >
+      <Icon name="fermata" size={30} style={{ color }} />
+      <div>
+        <p className="font-display text-xl font-bold" style={{ color }}>
+          {c.text}
+        </p>
+        {c.detail && <p className="text-sm text-text">{c.detail}</p>}
+      </div>
     </div>
   );
 }
@@ -85,7 +110,7 @@ function Toast({ c, small = false }: { c: Callout; small?: boolean }) {
   );
 }
 
-const BIG = new Set<Callout['kind']>(['perfect', 'save', 'clutch']);
+const BIG = new Set<Callout['kind']>(['perfect', 'save', 'clutch', 'response']);
 
 /**
  * Transient feedback by kind (docs/plan/04 §5.2): big banners centre-low, decrees and wave
@@ -100,6 +125,7 @@ export function Callouts({
   barkSpeakers: string[];
 }) {
   const big = callouts.filter((c) => BIG.has(c.kind));
+  const holds = callouts.filter((c) => c.kind === 'hold');
   const decrees = callouts.filter((c) => c.kind === 'decree');
   const waves = callouts.filter((c) => c.kind === 'wave' && !/of 1$/.test(c.text));
   const mid = callouts.filter(
@@ -107,13 +133,17 @@ export function Callouts({
       c.kind === 'system' ||
       c.kind === 'solo' ||
       c.kind === 'hint' ||
-      (c.kind === 'bark' && (!c.speaker || !barkSpeakers.includes(c.speaker))),
+      ((c.kind === 'bark' || c.kind === 'call') &&
+        (!c.speaker || !barkSpeakers.includes(c.speaker))),
   );
   const rejects = callouts.filter((c) => c.kind === 'reject').slice(-2);
   return (
     <div aria-live="polite">
       <div className="absolute left-1/2 top-[42%] flex -translate-x-1/2 flex-col items-center gap-3">
-        {big.slice(-2).map((c) => (
+        {holds.slice(-1).map((c) => (
+          <HoldBanner key={c.id} c={c} />
+        ))}
+        {big.slice(holds.length > 0 ? -1 : -2).map((c) => (
           <Banner key={c.id} c={c} />
         ))}
       </div>

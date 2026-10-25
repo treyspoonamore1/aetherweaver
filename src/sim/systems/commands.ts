@@ -1,9 +1,11 @@
+import { heroDef } from '../../content';
 import type { Command, DebugOp, DirectiveKind } from '../commands';
 import { len } from '../core/dmath';
-import { heal, isActive, killEnemy, reviveHero } from '../combat/health';
+import { heal, isActive, killEnemy, reviveHero, slotHero, startHold } from '../combat/health';
 import type { FollowMode } from '../state';
 import { weaverOf, type World } from '../world';
 import { clearDummies, spawnDummies } from './dummies';
+import { startCall } from './calls';
 import { spawnEnemy } from './enemies';
 import { plantField } from './field';
 import { castChime, castGlide, castReel, castWard, crescendo, cue } from './techniques';
@@ -157,6 +159,22 @@ function applyDebug(world: World, op: DebugOp): void {
       if (!boss?.health || boss.health.dead) break;
       const pct = Math.max(0.01, Math.min(1, op.pct));
       boss.health.hp = boss.health.maxHp * pct;
+      break;
+    }
+    case 'forceCall': {
+      const hero = slotHero(world, op.slot);
+      if (!isActive(hero) || !hero.hero || hero.hero.call) break;
+      const def = heroDef(hero.hero.defId);
+      // Stage the moment just before the move is ready, so the call gets its full window.
+      hero.hero.abilityCooldowns[def.call.ability] = def.call.answerTime * 0.9;
+      startCall(world, hero, def);
+      break;
+    }
+    case 'forceHold': {
+      const hero = slotHero(world, op.slot);
+      if (!isActive(hero) || !hero.hero || hero.hero.hold) break;
+      const fermata = world.content.auras.find((a) => a.effects.holdTime > 0);
+      startHold(world, hero, fermata?.effects.holdTime ?? 1.5, 'a staged blow', hero.health.maxHp);
       break;
     }
     case 'healParty':

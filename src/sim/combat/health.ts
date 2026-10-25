@@ -15,10 +15,11 @@ import type {
   Telegraph,
 } from '../state';
 import type { World } from '../world';
-import { hasAura } from './auras';
+import { hasAura, heroFx } from './auras';
 import { addHealingThreat, addThreat } from './threat';
 import { bark, pushMarker, setTimeScale } from './feedback';
 import { gainResonance } from './resonance';
+import { recordSave } from './saves';
 
 /** Shields with no natural expiry (aura barriers, discord) expire at this sim time. */
 export const NEVER = 1e9;
@@ -228,6 +229,12 @@ export function heal(
   const effective = Math.min(amount, h.maxHp - h.hp);
   const overheal = amount - effective;
   h.hp += effective;
+  // Fermata: the Weaver's healing during a hold is what saves the hero (passive regen doesn't).
+  const hold = target.hero?.hold;
+  if (hold && hold.savedBy === null && effective > 0) {
+    if (via === 'mend' || via === 'chime' || via === 'other')
+      hold.savedBy = via === 'chime' ? 'chime' : via === 'mend' ? 'mend' : 'other';
+  }
   if (via !== 'solo' && target.team === 'party') {
     world.ledger.healing += effective;
     world.ledger.overheal += overheal;
@@ -302,6 +309,9 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
   let amount = opts.amount;
   // Armour only softens ordinary hits; telegraphed attacks are answered, not soaked.
   if (target.hero && !opts.telegraph) amount *= 1 - heroDef(target.hero.defId).armor;
+  // Fermata: heroes low on life take less from everything.
+  const fx = target.hero ? heroFx(world, target) : null;
+  if (fx && fx.guardDr > 0 && h.hp < h.maxHp * fx.guardBelow) amount *= 1 - fx.guardDr;
 
   let absorbed = 0;
   let absorbedByWeaver = 0;
@@ -336,7 +346,13 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
     }
   }
 
-  const dealt = Math.min(h.hp, amount);
+  let dealt = Math.min(h.hp, amount);
+  if (target.hero && dealt >= h.hp && dealt > 0) {
+    // Fermata holds a lethal hit at 1 HP (once per encounter); a held hero can't drop below 1.
+    if (!target.hero.hold && !target.hero.fermataUsed && fx && fx.holdTime > 0)
+      startHold(world, target, fx.holdTime, opts.sourceName, amount);
+    if (target.hero.hold) dealt = Math.max(0, h.hp - 1);
+  }
   h.hp -= dealt;
   h.lastHitAt = world.time;
   if (absorbedByWeaver > 0) world.ledger.shielded += absorbedByWeaver;
@@ -413,6 +429,44 @@ function shieldOrder(kind: ShieldKind): number {
   }
 }
 
+/** Fermata catches a lethal hit: the hero hangs on at 1 HP until the hold is released. */
+export function startHold(
+  world: World,
+  e: Entity,
+  duration: number,
+  attack: string,
+  damage: number,
+): void {
+  const hero = e.hero!;
+  const until = world.time + duration;
+  hero.fermataUsed = true;
+  hero.hold = { until, attack, damage, savedBy: null };
+  e.health!.hp = Math.max(1, Math.min(e.health!.hp, 1));
+  addStatus(world, e, 'held', duration, null);
+  world.ledger.holds++;
+  pushMarker(world, 'hold', hero.slot);
+  world.events.push({ type: 'fermataHold', tick: world.tick, hero: e.id, until, attack, damage });
+  setTimeScale(world, 0.6, 8, 'hold');
+}
+
+/**
+ * A Fermata hold ends: healed by the Weaver during it, the hero lives and it's a Save;
+ * otherwise the held hit lands after all.
+ */
+export function releaseHold(world: World, e: Entity): void {
+  const hero = e.hero;
+  const hold = hero?.hold;
+  if (!hero || !hold) return;
+  hero.hold = null;
+  removeStatus(world, e, 'held', 'expired');
+  const h = e.health!;
+  if (h.dead || h.downed) return;
+  const saved = hold.savedBy !== null;
+  world.events.push({ type: 'fermataReleased', tick: world.tick, hero: e.id, saved });
+  if (saved) recordSave(world, e, 'fermata', hold.damage, hold.attack);
+  else downHero(world, e, hold.attack);
+}
+
 const BLEED_OUT = 12;
 
 export function bleedOutTime(): number {
@@ -422,6 +476,11 @@ export function bleedOutTime(): number {
 function downHero(world: World, e: Entity, killer: string): void {
   const h = e.health!;
   const hero = e.hero!;
+  hero.hold = null;
+  if (hero.call) {
+    hero.call = null;
+    world.events.push({ type: 'callEnded', tick: world.tick, hero: e.id, reason: 'cancelled' });
+  }
   h.hp = 0;
   h.downed = true;
   h.bleedOut = BLEED_OUT;

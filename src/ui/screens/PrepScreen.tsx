@@ -1,7 +1,9 @@
+import { useState } from 'react';
 import { useRun } from '../../app/runStore';
 import { useSettings } from '../../app/settings';
 import { CONTENT } from '../../content';
-import type { RunState } from '../../meta/types';
+import type { ChordLoadout, RunState } from '../../meta/types';
+import { canonicalChords } from '../../sim';
 import { ScreenFrame, ScreenHeader } from '../kit/Backdrop';
 import { Button } from '../kit/Button';
 import { Chip } from '../kit/Chip';
@@ -12,30 +14,38 @@ import { useMood } from '../kit/sound';
 import { useUi } from '../store';
 import { HeroDisc, SectionTitle } from './shared';
 import { ROLE_LABEL } from '../hud/labels';
+import { ChordBuilder } from './ChordBuilder';
+import { loadoutProblems, padChords } from './chordModel';
 
 export interface PrepViewProps {
   run: RunState;
-  onAuras(ids: string[]): void;
+  /** Called with every legal loadout the builder reaches (canonical form). */
+  onChords(chords: ChordLoadout[]): void;
   onEmbark(): void;
   onBack(): void;
 }
 
-/** Expedition prep: the party's kits, the Chord's two auras and the Spirit they reserve. */
-export function PrepView({ run, onAuras, onEmbark, onBack }: PrepViewProps) {
-  useMood('map');
-  const maxSpirit = CONTENT.weaver.maxSpirit;
-  const auras = run.chords[0]?.auras ?? [];
-  const CHORD_SLOTS = CONTENT.weaver.auraSlots;
-  const chosen = auras.map((id) => CONTENT.auras.find((a) => a.id === id)).filter((a) => !!a);
-  const reservedPct = chosen.reduce((sum, a) => sum + a.reserve, 0);
-  const free = Math.round(maxSpirit * (1 - reservedPct));
-  const ward = CONTENT.techniques.ward.cost;
-  const reel = CONTENT.techniques.reel.cost;
-  const toggleAura = (id: string) => {
-    if (auras.includes(id)) onAuras(auras.filter((a) => a !== id));
-    // Choosing a third drops the oldest, so there is never a dead end.
-    else onAuras([...auras, id].slice(-CHORD_SLOTS));
+/**
+ * The Chord draft while editing: may be illegal for a moment, in which case the run keeps
+ * its last legal Chords and Embark waits.
+ */
+export function useChordDraft(
+  initial: readonly ChordLoadout[],
+  onLegal?: (c: ChordLoadout[]) => void,
+) {
+  const [draft, setDraft] = useState(() => padChords(initial));
+  const problems = loadoutProblems(draft);
+  const change = (next: ChordLoadout[]) => {
+    setDraft(next);
+    if (loadoutProblems(next).length === 0) onLegal?.(canonicalChords(next));
   };
+  return { draft, change, legal: problems.length === 0 };
+}
+
+/** Expedition prep: the party's kits and the Chord builder. */
+export function PrepView({ run, onChords, onEmbark, onBack }: PrepViewProps) {
+  useMood('map');
+  const { draft, change, legal } = useChordDraft(run.chords, onChords);
   const settings = useSettings((s) => s.settings);
   const update = useSettings((s) => s.update);
   return (
@@ -43,20 +53,25 @@ export function PrepView({ run, onAuras, onEmbark, onBack }: PrepViewProps) {
       <div className="mx-auto max-w-7xl px-6 pb-28 pt-8">
         <ScreenHeader
           eyebrow="The Prelude · Movement I"
-          title="Prepare the Chord"
+          title="Prepare your Chords"
           right={
             <Button variant="ghost" onClick={onBack} sound="back">
               <Icon name="back" size={16} /> Title
             </Button>
           }
         >
-          <p className="mt-2 max-w-2xl text-sm text-muted">
+          <p className="mt-2 max-w-3xl text-sm text-muted">
             You are the Weaver. These three fight on their own; you keep them alive and make them
-            hit harder. Choose which auras your Chord sings.
+            hit harder. Your Chords decide what your field sings: pick a preset, or fill the slots
+            yourself. Whatever Spirit your auras leave free powers Ward, Chime and Reel.
           </p>
         </ScreenHeader>
 
-        <div className="mt-6 grid gap-6 lg:grid-cols-[1.35fr_1fr]">
+        <section className="mt-6" aria-label="Chords">
+          <ChordBuilder value={draft} onChange={change} />
+        </section>
+
+        <div className="mt-8 grid gap-6 lg:grid-cols-[1.35fr_1fr]">
           <section aria-labelledby="party-title">
             <SectionTitle>
               <span id="party-title">Your party</span>
@@ -69,61 +84,6 @@ export function PrepView({ run, onAuras, onEmbark, onBack }: PrepViewProps) {
           </section>
 
           <div className="flex flex-col gap-6">
-            <section aria-labelledby="chord-title">
-              <SectionTitle
-                right={
-                  <span className="font-mono text-xs text-muted">
-                    {auras.length} / {CHORD_SLOTS} chosen
-                  </span>
-                }
-              >
-                <span id="chord-title">Chord I · Auras</span>
-              </SectionTitle>
-              <SpiritBudget
-                auras={chosen}
-                free={free}
-                maxSpirit={maxSpirit}
-                ward={ward}
-                reel={reel}
-              />
-              <ul className="mt-3 flex flex-col gap-2">
-                {CONTENT.auras.map((a) => {
-                  const on = auras.includes(a.id);
-                  return (
-                    <li key={a.id}>
-                      <button
-                        type="button"
-                        aria-pressed={on}
-                        onClick={() => toggleAura(a.id)}
-                        className={`w-full rounded-xl border px-3.5 py-2.5 text-left transition-colors ${
-                          on ? 'bg-ink-700/80' : 'bg-ink-900/70 hover:bg-ink-800'
-                        }`}
-                        style={{ borderColor: on ? a.color : 'var(--color-ink-600)' }}
-                      >
-                        <div className="flex items-center justify-between gap-3">
-                          <span
-                            className="flex items-center gap-2 font-semibold"
-                            style={{ color: a.color }}
-                          >
-                            <Icon name={on ? 'check' : 'note'} size={16} />
-                            {a.name}
-                            <span className="text-xs font-normal text-muted">{a.subtitle}</span>
-                          </span>
-                          <span
-                            className="font-mono text-xs text-muted"
-                            title="Spirit reserved while active"
-                          >
-                            reserves {Math.round(a.reserve * 100)}%
-                          </span>
-                        </div>
-                        <p className="mt-1 text-sm leading-relaxed text-text">{a.description}</p>
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            </section>
-
             <Panel tone="solid" className="p-4">
               <h2 className="font-display text-base font-bold text-gold-300">Quick assists</h2>
               <p className="mb-3 text-xs text-muted">
@@ -173,7 +133,19 @@ export function PrepView({ run, onAuras, onEmbark, onBack }: PrepViewProps) {
           <p className="text-sm text-muted">
             Seed <span className="font-mono text-text">{run.seed}</span>
           </p>
-          <Button variant="primary" size="lg" onClick={onEmbark} sound="confirm" autoFocus>
+          {!legal && (
+            <p className="text-sm font-semibold text-rose-200" role="status">
+              Fix your Chords to embark
+            </p>
+          )}
+          <Button
+            variant="primary"
+            size="lg"
+            onClick={onEmbark}
+            sound="confirm"
+            disabled={!legal}
+            autoFocus
+          >
             Embark <Icon name="arrow" size={18} />
           </Button>
         </div>
@@ -231,77 +203,6 @@ function HeroCard({ heroId }: { heroId: string }) {
   );
 }
 
-/** The live Spirit budget: reserved slices, and what is left for techniques. */
-function SpiritBudget({
-  auras,
-  free,
-  maxSpirit,
-  ward,
-  reel,
-}: {
-  auras: { id: string; name: string; color: string; reserve: number }[];
-  free: number;
-  maxSpirit: number;
-  ward: number;
-  reel: number;
-}) {
-  const wards = Math.floor(free / ward);
-  const tight = free < ward + reel;
-  return (
-    <Panel tone="solid" className="p-3.5">
-      <div className="flex items-baseline justify-between">
-        <p className="text-sm font-semibold text-text">Spirit budget</p>
-        <p className="font-mono text-xs text-muted">
-          {free} free of {maxSpirit}
-        </p>
-      </div>
-      <div
-        className="mt-2 flex h-5 overflow-hidden rounded-full border border-ink-500 bg-ink-700"
-        role="img"
-        aria-label={`${free} of ${maxSpirit} Spirit free; ${auras.map((a) => `${a.name} reserves ${Math.round(a.reserve * 100)} percent`).join(', ')}`}
-      >
-        <div
-          className="h-full transition-[width] duration-200"
-          style={{ width: `${(free / maxSpirit) * 100}%`, background: 'var(--color-spirit)' }}
-        />
-        {auras.map((a) => (
-          <div
-            key={a.id}
-            className="stripes h-full border-l border-ink-950 transition-[width] duration-200"
-            style={{ width: `${a.reserve * 100}%`, backgroundColor: a.color }}
-            title={`${a.name}: ${Math.round(a.reserve * 100)}% reserved`}
-          />
-        ))}
-      </div>
-      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs">
-        <span className="flex items-center gap-1.5 text-muted">
-          <span
-            className="h-2.5 w-2.5 rounded-sm"
-            style={{ background: 'var(--color-spirit)' }}
-            aria-hidden
-          />
-          Free for techniques
-        </span>
-        {auras.map((a) => (
-          <span key={a.id} className="flex items-center gap-1.5" style={{ color: a.color }}>
-            <span
-              className="stripes h-2.5 w-2.5 rounded-sm"
-              style={{ backgroundColor: a.color }}
-              aria-hidden
-            />
-            {a.name} {Math.round(a.reserve * 100)}%
-          </span>
-        ))}
-      </div>
-      <p className={`mt-2 text-xs leading-relaxed ${tight ? 'text-threat' : 'text-muted'}`}>
-        {tight
-          ? `Only ${free} Spirit stays free: not enough for a Ward (${ward}) and a Reel (${reel}) together.`
-          : `${free} Spirit stays free: enough for ${wards} ${wards === 1 ? 'Ward' : 'Wards'} in a row (${ward} each).`}
-      </p>
-    </Panel>
-  );
-}
-
 export function PrepScreen() {
   const run = useRun((s) => s.run);
   const setChords = useRun((s) => s.setChords);
@@ -309,11 +210,6 @@ export function PrepScreen() {
   const setScreen = useUi((s) => s.setScreen);
   if (!run) return null;
   return (
-    <PrepView
-      run={run}
-      onAuras={(ids) => setChords(ids.length ? [{ auras: ids, ornaments: [] }] : [])}
-      onEmbark={embark}
-      onBack={() => setScreen('title')}
-    />
+    <PrepView run={run} onChords={setChords} onEmbark={embark} onBack={() => setScreen('title')} />
   );
 }

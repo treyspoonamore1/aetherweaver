@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { CONTENT, auraDef, enemyDef, heroDef } from '../content';
+import { CONTENT, enemyDef, heroDef } from '../content';
 import type { EntityId, EntityKind, ReadonlyEntity, WorldState } from '../sim';
 import { RING } from './fx/rings';
 import { SHELL } from './fx/shells';
@@ -9,7 +9,7 @@ import type { FxKit } from './fx/kit';
 import { ModelBatch } from './models/batch';
 import { buildCrown, buildEnemy, buildHero, buildWeaver } from './models/library';
 import type { ModelMaterial } from './models/material';
-import { C, approach, clamp01, color } from './palette';
+import { C, approach, auraColor, clamp01, color } from './palette';
 import type { FrameInfo } from './types';
 
 /** Per-entity render state. Views never mutate the sim; this is all presentation. */
@@ -53,12 +53,18 @@ export interface EntityRec {
 
 interface Ghost {
   active: boolean;
+  /** Glide afterimage of the Weaver, or the "death that didn't happen" of a saved hero. */
+  save: boolean;
   batch: ModelBatch | null;
   x: number;
   z: number;
   yaw: number;
   age: number;
   life: number;
+  /** Save ghosts: which entity, and the side it falls to. */
+  hero: EntityId;
+  side: number;
+  radius: number;
 }
 
 const BLACK = new THREE.Color(0, 0, 0);
@@ -66,6 +72,10 @@ const ENEMY_BAR = color('#ef4444');
 const MUTE_GLASS = color('#c4b5fd');
 const AILMENTS = new Set(['dirge', 'silence', 'sleep', 'stun', 'resound', 'shaken']);
 const HIST = 26;
+/** Fermata's stillness: the held hero's rim and the suspended motes around them. */
+const FERMATA = color('#e2d6f8');
+const GHOST_ASH = color('#e8e4f4');
+const SAVE_GHOST_LIFE = 1.05;
 
 function hasStatus(list: readonly { readonly id: string }[], id: string): boolean {
   for (let i = 0; i < list.length; i++) if (list[i]!.id === id) return true;
@@ -93,7 +103,9 @@ export class EntityLayer {
   private readonly s = new THREE.Vector3();
   private readonly tint = new THREE.Color();
   private readonly tmpColor = new THREE.Color();
-  private readonly fieldColor = new THREE.Color();
+  /** Aura colours by coverage mask (bit i ⇔ CONTENT.auras[i]) and their average (rim tint). */
+  private readonly maskColors = new Map<number, THREE.Color[]>();
+  private readonly maskAvg = new Map<number, THREE.Color>();
   // Weaver ribbon history.
   private readonly hist = new Float32Array(HIST * 3);
   private histCount = 0;
@@ -107,8 +119,20 @@ export class EntityLayer {
     this.group.name = 'entities';
     this.crown = new ModelBatch(buildCrown(), model.material, 48, false);
     this.group.add(this.crown.mesh);
-    for (let i = 0; i < 14; i++) {
-      this.ghosts.push({ active: false, batch: null, x: 0, z: 0, yaw: 0, age: 0, life: 0.4 });
+    for (let i = 0; i < 18; i++) {
+      this.ghosts.push({
+        active: false,
+        save: false,
+        batch: null,
+        x: 0,
+        z: 0,
+        yaw: 0,
+        age: 0,
+        life: 0.4,
+        hero: -1,
+        side: 1,
+        radius: 0.6,
+      });
     }
   }
 
@@ -159,7 +183,8 @@ export class EntityLayer {
       this.weaverId = e.id;
     } else if (e.hero) {
       const def = heroDef(e.hero.defId);
-      batch = this.batchFor(`hero:${def.id}`, () => buildHero(def), 4);
+      // Room for the hero plus a few save ghosts (same model, same draw call).
+      batch = this.batchFor(`hero:${def.id}`, () => buildHero(def), 8);
       hex = def.color;
       accentHex = def.color;
       role = def.role;
@@ -270,15 +295,72 @@ export class EntityLayer {
   ghost(x: number, z: number, yaw: number, delay: number): void {
     const w = this.recs.get(this.weaverId);
     if (!w) return;
-    const g = this.ghosts.find((k) => !k.active);
+    const g = this.freeGhost();
     if (!g) return;
     g.active = true;
+    g.save = false;
     g.batch = w.batch;
     g.x = x;
     g.z = z;
     g.yaw = yaw;
     g.age = -delay;
     g.life = 0.42;
+  }
+
+  private freeGhost(): Ghost | null {
+    for (const g of this.ghosts) if (!g.active) return g;
+    return null;
+  }
+
+  /**
+   * Signature 1, "the death that didn't happen": a translucent, ashen copy of the saved hero
+   * buckles and falls where they stood, dissolving in gold, while the real hero fights on.
+   * Returns false if one was spawned for this hero a moment ago (a Fermata save sends both
+   * `fermataReleased` and `save`).
+   */
+  saveGhost(id: EntityId): boolean {
+    const r = this.recs.get(id);
+    if (!r || r.kind !== 'hero') return false;
+    for (const g of this.ghosts) {
+      if (g.active && g.save && g.hero === id && g.age < 0.3) return false;
+    }
+    const g = this.freeGhost();
+    if (!g) return false;
+    g.active = true;
+    g.save = true;
+    g.batch = r.batch;
+    g.hero = id;
+    g.x = r.x;
+    g.z = r.z;
+    g.yaw = r.yaw;
+    g.age = 0;
+    g.life = SAVE_GHOST_LIFE;
+    g.side = Math.random() < 0.5 ? -1 : 1;
+    g.radius = r.radius;
+    return true;
+  }
+
+  /** Aura colours for a coverage mask, in content order (cached per mask). */
+  auraColors(mask: number): readonly THREE.Color[] {
+    let list = this.maskColors.get(mask);
+    if (!list) {
+      list = [];
+      const auras = CONTENT.auras;
+      for (let i = 0; i < auras.length; i++) {
+        if (mask & (1 << i)) list.push(auraColor(auras[i]!.id));
+      }
+      this.maskColors.set(mask, list);
+      const avg = new THREE.Color(0, 0, 0);
+      for (const c of list) avg.add(c);
+      if (list.length > 0) avg.multiplyScalar(1 / list.length);
+      this.maskAvg.set(mask, avg);
+    }
+    return list;
+  }
+
+  private auraTint(mask: number): THREE.Color {
+    this.auraColors(mask);
+    return this.maskAvg.get(mask)!;
   }
 
   // ── Per-frame sync ─────────────────────────────────────────────────────────────────
@@ -293,8 +375,7 @@ export class EntityLayer {
     const weaver = state.entities.get(state.weaverId);
     const w = weaver?.weaver;
     const threadedId = w && w.threadSlot !== null ? (state.party[w.threadSlot] ?? null) : null;
-    const threadColor = w?.threadMode === 'empower' ? C.amp : C.heal;
-    this.computeFieldColor(state);
+    const threadColor = w?.threadMode === 'empower' ? C.empower : C.mend;
 
     for (const e of state.entities.list()) {
       let rec = this.recs.get(e.id);
@@ -310,26 +391,9 @@ export class EntityLayer {
         this.recs.delete(id);
       }
     }
-    this.updateGhosts(dt);
+    this.updateGhosts(kit, dt);
     for (const b of this.batches.values()) b.end();
     this.crown.end();
-  }
-
-  private computeFieldColor(state: WorldState): void {
-    const auras = state.field.auras;
-    this.fieldColor.setRGB(0, 0, 0);
-    if (auras.length === 0) {
-      this.fieldColor.copy(C.gold);
-      return;
-    }
-    for (const id of auras) {
-      try {
-        this.fieldColor.add(color(auraDef(id).color));
-      } catch {
-        this.fieldColor.add(C.gold);
-      }
-    }
-    this.fieldColor.multiplyScalar(1 / auras.length);
   }
 
   private compose(
@@ -395,8 +459,10 @@ export class EntityLayer {
     const h = e.health;
     const time = state.time;
 
-    rec.yaw = angleApproach(rec.yaw, Math.atan2(-e.fx, -e.fz), 14, dt);
-    const speed = Math.hypot(e.vx, e.vz);
+    // Fermata hold: a freeze-frame. The pose stops mid-motion until the hold resolves.
+    const held = !!e.hero?.hold || (!!h && hasStatus(h.statuses, 'held'));
+    if (!held) rec.yaw = angleApproach(rec.yaw, Math.atan2(-e.fx, -e.fz), 14, dt);
+    const speed = held ? 0 : Math.hypot(e.vx, e.vz);
     rec.walk += dt * speed * 2.2;
     const moving = Math.min(1, speed / 2.5);
     const bob = Math.abs(Math.sin(rec.walk * Math.PI)) * 0.07 * moving * (rec.height / 2);
@@ -411,7 +477,7 @@ export class EntityLayer {
     let ghost = 0;
 
     // Attack lunge.
-    if (rec.lunge > 0) {
+    if (rec.lunge > 0 && !held) {
       const k = Math.sin((1 - rec.lunge) * Math.PI);
       const amt = k * Math.min(0.45, rec.radius * 0.5);
       ox += rec.lungeX * amt;
@@ -472,6 +538,11 @@ export class EntityLayer {
       y += Math.sin(Math.PI * t) * 1.5;
       pitch -= 0.4 * Math.sin(Math.PI * t);
     }
+    if (held) {
+      desat = Math.max(desat, 0.72);
+      // A tiny tremor: holding on by a thread.
+      ox += Math.sin(this.now * 41) * 0.015;
+    }
     // Glide: lean hard into the dash.
     if (e.weaver && e.weaver.glide > 0) pitch -= 0.35;
     if (rec.kind === 'enemy' && (rec.role === 'boss' || rec.role === 'miniboss')) {
@@ -480,10 +551,14 @@ export class EntityLayer {
     }
     rec.y = y;
 
-    // Rim tint priority: Save gold > threaded > hovered > focus > in-field > affix.
+    // Rim tint priority: Fermata hold > Save gold > threaded > hovered > focus > auras > affix.
     let tintStrength = 0;
     const isHero = e.kind === 'hero';
-    if (rec.goldRim > 0) {
+    const auraMask = e.hero?.auraMask ?? 0;
+    if (held) {
+      this.tint.copy(FERMATA);
+      tintStrength = 1.1 + 0.35 * Math.sin(this.now * 7);
+    } else if (rec.goldRim > 0) {
       this.tint.copy(C.gold);
       tintStrength = 0.5 + rec.goldRim * 2.2;
     } else if (isHero && e.id === threadedId) {
@@ -498,9 +573,9 @@ export class EntityLayer {
     } else if (e.kind === 'enemy' && e.id === frame.hoveredEnemy) {
       this.tint.setRGB(1, 1, 1);
       tintStrength = 0.5;
-    } else if (isHero && e.hero?.inField) {
-      this.tint.copy(this.fieldColor);
-      tintStrength = 0.28;
+    } else if (isHero && auraMask !== 0) {
+      this.tint.copy(this.auraTint(auraMask));
+      tintStrength = 0.3;
     } else if (rec.affixColor) {
       this.tint.copy(rec.affixColor);
       tintStrength = 0.45 + 0.2 * Math.sin(this.now * 3 + rec.id);
@@ -601,6 +676,30 @@ export class EntityLayer {
         0,
         12,
       );
+    }
+
+    // Per-aura rim lights: the ring under the hero splits into one lit arc per aura on them.
+    if (hero.auraMask !== 0 && !h.downed) {
+      const list = this.auraColors(hero.auraMask);
+      const n = list.length;
+      const gap = n > 1 ? 0.32 : 0;
+      const seg = (Math.PI * 2) / n;
+      const spin = this.now * 0.6;
+      for (let i = 0; i < n; i++) {
+        kit.rings.push(
+          x,
+          0.032,
+          z,
+          rec.radius * 1.78,
+          0.11,
+          0.16,
+          RING.plain,
+          list[i]!,
+          0.95,
+          spin + i * seg + gap * 0.5,
+          seg - gap,
+        );
+      }
     }
 
     if (h.downed) {
@@ -782,6 +881,58 @@ export class EntityLayer {
         0,
         10,
       );
+    }
+    // Hexed (Lullaby…): a drowsy swirl over the head in the hex's colour, a dashed ring below.
+    if (enemy.auraMask !== 0 && !h?.dead && enemy.state !== 'dying') {
+      const list = this.auraColors(enemy.auraMask);
+      const big = Math.max(1, rec.radius * 1.1);
+      const top = rec.height + 0.22 + rec.y;
+      for (let i = 0; i < list.length; i++) {
+        const c = list[i]!;
+        const spin = this.now * 2.2 + rec.id * 0.7 + i * 1.3;
+        kit.rings.push(
+          x,
+          top + i * 0.14,
+          z,
+          0.34 * big,
+          0.06,
+          0.12,
+          RING.swipe,
+          c,
+          0.85,
+          spin,
+          2.4,
+        );
+        kit.rings.push(
+          x,
+          top + 0.07 + i * 0.14,
+          z,
+          0.2 * big,
+          0.05,
+          0.08,
+          RING.swipe,
+          c,
+          0.7,
+          spin + Math.PI,
+          2.0,
+        );
+        kit.rings.push(
+          x,
+          0.03,
+          z,
+          rec.radius * 1.35 + 0.1,
+          0.04,
+          0.1,
+          RING.dashed,
+          c,
+          0.45,
+          0,
+          7,
+          0,
+          8,
+          -this.now * 0.4,
+        );
+      }
     }
     // Controller (Mute) dome of cracked glass.
     if (rec.suppressRadius > 0 && !h?.dead) {
@@ -1105,7 +1256,7 @@ export class EntityLayer {
     }
   }
 
-  private updateGhosts(dt: number): void {
+  private updateGhosts(kit: FxKit, dt: number): void {
     for (const g of this.ghosts) {
       if (!g.active || !g.batch) continue;
       g.age += dt;
@@ -1115,6 +1266,10 @@ export class EntityLayer {
         g.active = false;
         continue;
       }
+      if (g.save) {
+        this.updateSaveGhost(g, t, kit);
+        continue;
+      }
       this.e.set(-0.35, g.yaw, 0, 'YXZ');
       this.q.setFromEuler(this.e);
       this.p.set(g.x, 0, g.z);
@@ -1122,6 +1277,63 @@ export class EntityLayer {
       this.m.compose(this.p, this.q, this.s);
       g.batch.push(this.m, 0.7 * (1 - t), 0.15 + t * 0.85, 0, 0.55, C.gold, 1.2);
     }
+  }
+
+  /** The ghost buckles (0–0.2), topples onto its back (0.2–0.6) and dissolves in gold. */
+  private updateSaveGhost(g: Ghost, t: number, kit: FxKit): void {
+    const buckle = clamp01(t / 0.2);
+    const fallT = clamp01((t - 0.12) / 0.48);
+    const fall = fallT * fallT * (3 - 2 * fallT);
+    // Knees buckle forward, then it topples onto its back (positive pitch), a little sideways.
+    const pitch = fall * (Math.PI / 2 - 0.12) - buckle * 0.2 * (1 - fall);
+    const roll = g.side * fall * 0.22;
+    const fx = -Math.sin(g.yaw);
+    const fz = -Math.cos(g.yaw);
+    const slide = fall * 0.35;
+    const y =
+      -buckle * 0.12 * (1 - fall) + fall * g.radius * 0.35 - clamp01((t - 0.6) / 0.4) * 0.15;
+    const m = this.compose(g.x - fx * slide, y, g.z - fz * slide, g.yaw, pitch, roll, 1 + t * 0.04);
+    const dissolve = 0.04 + clamp01((t - 0.5) / 0.5) * 0.96;
+    const flash = t < 0.15 ? (1 - t / 0.15) * 0.8 : 0;
+    g.batch!.push(m, flash, dissolve, 0.7, 0.4, C.gold, 0.7 + (1 - t) * 0.7);
+    // A pale glow lingers on the body as it goes down.
+    const bx = g.x - fx * slide * 1.8;
+    const bz = g.z - fz * slide * 1.8;
+    kit.sprites.push(
+      bx,
+      0.5 + (1 - fall) * 0.5,
+      bz,
+      g.radius * 2.6,
+      SPRITE.glow,
+      GHOST_ASH,
+      0.45 * (1 - t),
+    );
+    // Its shadow fades with it; an ashen ring marks where it would have lain.
+    kit.shadows.push(
+      g.x,
+      0.016,
+      g.z,
+      g.radius * 1.4,
+      0,
+      0,
+      RING.soft,
+      BLACK,
+      0.4 * (1 - t),
+      0,
+      7,
+      1,
+    );
+    kit.rings.push(
+      g.x - fx * slide * 2,
+      0.03,
+      g.z - fz * slide * 2,
+      g.radius * (1.2 + fall * 0.9),
+      0.05,
+      0.18,
+      RING.plain,
+      GHOST_ASH,
+      0.55 * fall * (1 - t),
+    );
   }
 
   dispose(): void {

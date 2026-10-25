@@ -11,6 +11,7 @@ import {
   heal,
   isActive,
   ownShield,
+  shieldOf,
   slotHero,
 } from '../combat/health';
 import { pushMarker, setTimeScale } from '../combat/feedback';
@@ -19,6 +20,7 @@ import { contains, dirgeRemaining, recordSave, telegraphDamage } from '../combat
 import type { Entity, TechniqueKey } from '../state';
 import type { World } from '../world';
 import { weaverOf } from '../world';
+import { answerCall } from './calls';
 import { startSolo } from './solos';
 
 type Rejectable = TechniqueKey | 'thread' | 'cue' | 'crescendo' | 'plant';
@@ -91,6 +93,7 @@ export function castWard(world: World, slot: PartySlot | undefined): void {
     x: hero.x,
     z: hero.z,
   });
+  answerCall(world, hero, 'ward');
 }
 
 export function castChime(world: World, point: Vec2 | undefined): void {
@@ -167,6 +170,7 @@ export function updateChimes(world: World): void {
       const removed = cleanseAilments(world, hero);
       addStatus(world, hero, 'immune', def.immunity, world.weaverId);
       heal(world, hero, hero.health.maxHp * def.healPct, 'chime');
+      answerCall(world, hero, 'chime');
       if (removed > 0) {
         cleansedCount++;
         const isClutch = dirge <= def.clutchWindow;
@@ -350,6 +354,7 @@ export function cue(world: World, slot: PartySlot): void {
   pushMarker(world, 'cue', h.slot);
   world.events.push({ type: 'cued', tick: world.tick, hero: hero.id });
   startSolo(world, hero, true);
+  chorusPulse(world, hero);
   if (world.mods.canon > 0) {
     for (const id of world.party) {
       const other = world.entities.get(id);
@@ -387,4 +392,26 @@ export function crescendo(world: World): void {
     duration: w.crescendo,
   });
   setTimeScale(world, 0.5, 12, 'crescendo');
+}
+
+/**
+ * With enough auras singing, every Cue also releases a chorus pulse (docs/plan/02 §4.7): a
+ * heal and a barrier for every hero in a field, scaled by the number of active auras.
+ */
+function chorusPulse(world: World, cued: Entity): void {
+  const def = world.content.chorus;
+  const auras = world.field.suppressed ? 0 : world.field.auras.length;
+  if (auras < def.minAuras) return;
+  let reached = 0;
+  for (const id of world.party) {
+    const ally = world.entities.get(id);
+    if (!isActive(ally) || !ally.hero || ally.hero.auraMask === 0) continue;
+    reached++;
+    heal(world, ally, ally.health.maxHp * def.healPctPerAura * auras, 'other');
+    const amount = ally.health.maxHp * def.barrierPctPerAura * auras;
+    const existing = shieldOf(ally.health, 'overshield');
+    if (!existing || existing.amount < amount)
+      addShield(world, ally, 'overshield', amount, def.barrierDuration, true);
+  }
+  world.events.push({ type: 'chorusPulse', tick: world.tick, hero: cued.id, auras, reached });
 }

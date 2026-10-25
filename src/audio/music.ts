@@ -128,6 +128,8 @@ export class MusicEngine {
   private tier = 0;
   private busy1 = false;
   private busy2 = false;
+  /** AudioContext time a Fermata hold lasts until (0 = none). Pulse and melody are frozen. */
+  private holdUntil = 0;
 
   constructor(private readonly e: Engine) {
     const ctx = e.ctx;
@@ -172,6 +174,51 @@ export class MusicEngine {
   /** Request that the next beat re-evaluates the stem levels (Crescendo, hero down). */
   jump(): void {
     this.urgent = true;
+  }
+
+  /**
+   * Fermata: freezes the pulse and melody stems for up to `seconds` (the pad and choir keep
+   * sounding, and the music bus gets a longer reverb tail). Ends on `releaseHold()` or by
+   * itself when the time runs out.
+   */
+  hold(seconds: number): void {
+    const now = this.e.now;
+    const wasHolding = this.holdUntil > now;
+    this.holdUntil = now + Math.max(0.2, Math.min(12, seconds));
+    if (wasHolding) return;
+    this.targets = { ...this.targets, pulse: 0, melody: 0 };
+    for (const s of ['pulse', 'melody'] as const) {
+      const p = this.stemGain[s].gain;
+      p.cancelScheduledValues(now);
+      p.setTargetAtTime(0, now, 0.05);
+    }
+    this.e.boostReverb('music', 2.6, 0.2);
+  }
+
+  get holding(): boolean {
+    return this.holdUntil > this.e.now;
+  }
+
+  /** Ends a Fermata hold: the stems fade back in and the pulse resumes on the next step. */
+  releaseHold(): void {
+    if (this.holdUntil === 0) return;
+    this.holdUntil = 0;
+    const now = this.e.now;
+    this.refreshTargets(now + 0.02, 0.25);
+    this.e.boostReverb('music', 1, 0.5);
+  }
+
+  /**
+   * The first point on the eighth-note grid (or `division` of a beat) at least `minLead`
+   * seconds from now. Falls back to `now + minLead` while the clock hasn't started.
+   */
+  gridAfter(minLead: number, division = 2): number {
+    const now = this.e.now;
+    const earliest = now + minLead;
+    if (!this.started) return earliest;
+    const q = BEAT / division;
+    const k = Math.ceil((earliest - this.origin) / q - 1e-6);
+    return this.origin + Math.max(0, k) * q;
   }
 
   /** A hero went down: drop a layer for a while, even if they are revived quickly. */
@@ -224,6 +271,7 @@ export class MusicEngine {
   // ── Scheduler ────────────────────────────────────────────────────────────────────
   pump(): void {
     const now = this.e.now;
+    if (this.holdUntil !== 0 && now >= this.holdUntil) this.releaseHold();
     if (!this.started) {
       this.started = true;
       this.origin = now + 0.08;
@@ -333,6 +381,10 @@ export class MusicEngine {
 
   private refreshTargets(t: number, tc: number): void {
     const tg = this.computeTargets(t);
+    if (this.holdUntil > t) {
+      tg.pulse = 0;
+      tg.melody = 0;
+    }
     this.targets = tg;
     for (const s of STEMS) {
       const p = this.stemGain[s].gain;
@@ -416,7 +468,7 @@ export class MusicEngine {
   // ── Pulse ────────────────────────────────────────────────────────────────────────
   private pulseStep(inBar: number, t: number): void {
     const level = this.targets.pulse;
-    if (level < 0.02) return;
+    if (level < 0.02 || this.holdUntil > t) return;
     const mood = this.activeMood;
     const e = this.e;
     const dest = this.stemIn.pulse;
@@ -502,7 +554,7 @@ export class MusicEngine {
   // ── Melody ───────────────────────────────────────────────────────────────────────
   private melodyStep(bar: number, inBar: number, t: number): void {
     const level = this.targets.melody;
-    if (level < 0.02) return;
+    if (level < 0.02 || this.holdUntil > t) return;
     const mood = this.activeMood;
     if (mood === 'defeat') return;
     const dark = mood === 'boss';

@@ -7,7 +7,7 @@ import type { FxKit } from './fx/kit';
 import { PARTICLE } from './fx/particles';
 import { TG } from './fx/telegraphBatch';
 import type { Overlay } from './overlay';
-import { C, approach, clamp01, color } from './palette';
+import { C, VISION_HEX, approach, clamp01, color } from './palette';
 
 type Effect = SimEventOf<'telegraphStarted'>['effect'];
 type Outcome = SimEventOf<'telegraphResolved'>['outcome'];
@@ -44,8 +44,6 @@ interface TgRec {
 
 const FADE_IN = 0.12;
 const END = 0.38;
-const AMBER_HEX = '#fb923c';
-const CRIMSON_HEX = '#f43f5e';
 
 /**
  * Telegraph grammar (docs/plan/04 §5.3): filled circles, cones, lines and donuts on the floor;
@@ -241,7 +239,7 @@ export class TelegraphLayer {
     const perfect = live ? clamp01((time - rec.perfectFrom) / 0.05) : 0;
     const pw = clamp01((rec.impact - rec.perfectFrom - 0.35) / 0.35);
     const sev = rec.sev;
-    const borderHex = sev > 0.5 ? CRIMSON_HEX : AMBER_HEX;
+    const borderHex = sev > 0.5 ? VISION_HEX.lethal : VISION_HEX.threat;
     const remain = Math.max(0, rec.impact - time);
     const glyphScale = 1 + perfect * 0.12 * (0.5 + 0.5 * Math.sin(time * 24));
 

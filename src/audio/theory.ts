@@ -185,6 +185,80 @@ export function heroPluckIndex(heroDefId: string | undefined): number {
   return leitmotifFor(heroDefId).notes[0]?.idx ?? 0;
 }
 
+// ── Call and Response ────────────────────────────────────────────────────────────────
+
+/**
+ * A hero's call is their leitmotif asked as a question: the same contour, but the last note
+ * hangs on an unresolved degree (the 7th or 2nd), so the Weaver's answer can resolve it to
+ * the tonic D. `resolve` is the scale index of that tonic in the hero's own register.
+ */
+export interface CallPhrase {
+  voice: MotifVoice;
+  notes: readonly MotifNote[];
+  /** Scale index the Weaver's answer resolves to (a D). */
+  resolve: number;
+}
+
+export const CALL_PHRASES: Record<string, CallPhrase> = {
+  // Kael: D A G … C (the horn climbs and stops a step short of the D).
+  kael: {
+    voice: 'horn',
+    resolve: 0,
+    notes: [
+      { idx: -7, at: 0, dur: 0.34, vel: 0.8 },
+      { idx: -3, at: 0.26, dur: 0.34, vel: 0.85 },
+      { idx: -4, at: 0.52, dur: 0.34, vel: 0.85 },
+      { idx: -1, at: 0.78, dur: 1.6, vel: 0.95 },
+    ],
+  },
+  // Lyra: A C E F … C an octave up (the run overshoots and hangs on the 7th).
+  lyra: {
+    voice: 'pluckFlute',
+    resolve: 14,
+    notes: [
+      { idx: 4, at: 0, dur: 0.3, vel: 0.75 },
+      { idx: 6, at: 0.085, dur: 0.3, vel: 0.8 },
+      { idx: 8, at: 0.17, dur: 0.3, vel: 0.85 },
+      { idx: 9, at: 0.255, dur: 0.3, vel: 0.9 },
+      { idx: 13, at: 0.34, dur: 1.4, vel: 0.95 },
+    ],
+  },
+  // Vexis: B F C … E (the tritone figure ends on the 2nd, a question mark in bell form).
+  vexis: {
+    voice: 'glassBell',
+    resolve: 7,
+    notes: [
+      { idx: 5, at: 0, dur: 0.9, vel: 0.85 },
+      { idx: 9, at: 0.2, dur: 0.9, vel: 0.9 },
+      { idx: 6, at: 0.4, dur: 0.9, vel: 0.85 },
+      { idx: 8, at: 0.62, dur: 1.8, vel: 0.95 },
+    ],
+  },
+};
+
+export function callPhraseFor(heroDefId: string | undefined): CallPhrase {
+  return (heroDefId && CALL_PHRASES[heroDefId]) || (CALL_PHRASES['kael'] as CallPhrase);
+}
+
+/**
+ * Chorus Pulse voicing: scale indices (0 = D4) stacked in diatonic thirds on a chord root, so
+ * every note is in key. 3 auras: triad; 4: add the 9th; 5: add the 7th; 6+: 11th and 13th.
+ */
+export function chorusVoicing(rootMidi: number, auras: number): number[] {
+  // Find the scale index of the chord root in the octave nearest the middle of the staff.
+  let base = 0;
+  for (let i = -14; i < 14; i++) {
+    if ((scaleMidi(i) - rootMidi) % 12 === 0 && Math.abs(scaleMidi(i) - 55) < 6.5) base = i;
+  }
+  const n = Math.max(2, Math.min(7, Math.round(auras)));
+  // Order of tones added: root, 3rd, 5th, then 9th, 7th, 11th, 13th.
+  const steps = [0, 2, 4, 8, 6, 10, 12];
+  return steps
+    .slice(0, n)
+    .map((s) => scaleMidi(base + s))
+    .sort((a, b) => a - b);
+}
+
 const _ = null;
 type Slot = number | null;
 /** 8-bar melody over PROGRESSION_BRIGHT: eight eighth-note slots per bar (scale indices). */

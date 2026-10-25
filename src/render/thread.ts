@@ -3,7 +3,8 @@ import type { EntityId, WorldState } from '../sim';
 import type { EntityLayer } from './entities';
 import type { FxKit } from './fx/kit';
 import { PARTICLE } from './fx/particles';
-import { C, approach } from './palette';
+import { SPRITE } from './fx/sprites';
+import { C, approach, auraColor } from './palette';
 
 const N = 30;
 const PULSES = 6;
@@ -27,6 +28,9 @@ export class ThreadView {
   private hasPath = false;
   private now = 0;
   private visible = 0;
+  private unisonA: THREE.Color | null = null;
+  private unisonB: THREE.Color | null = null;
+  private unison = 0;
 
   constructor(private readonly entities: EntityLayer) {}
 
@@ -99,7 +103,7 @@ export class ThreadView {
     }
     this.visible = Math.min(1, this.visible + dt * 6);
     this.mix = approach(this.mix, w.threadMode === 'empower' ? 1 : 0, 10, dt);
-    this.col.copy(C.heal).lerp(C.amp, this.mix);
+    this.col.copy(C.mend).lerp(C.empower, this.mix);
     this.core.copy(this.col).lerp(C.white, 0.55);
     const tension = w.threadTension;
 
@@ -188,6 +192,42 @@ export class ThreadView {
       );
     }
     kit.ribbons.endStrip();
+    // Unison: the Chord rides the Thread — an aura-coloured sheath and beads of light flowing
+    // from the Weaver to the hero.
+    this.findUnison(state, targetId);
+    this.unison = approach(this.unison, this.unisonA ? 1 : 0, 8, dt);
+    const ua = this.unisonA;
+    if (ua && this.unison > 0.02) {
+      const ub = this.unisonB ?? ua;
+      const u = this.unison * vis * (state.field.suppressed ? 0.35 : 1);
+      kit.ribbons.beginStrip();
+      for (let i = 0; i <= N; i++) {
+        const t = i / N;
+        kit.ribbons.point(
+          this.pts[i * 3],
+          this.pts[i * 3 + 1],
+          this.pts[i * 3 + 2],
+          baseW * 5.5,
+          (i & 4) === 0 ? ua : ub,
+          0.2 * u * (0.6 + 0.4 * Math.sin(t * 9 - time * 5)),
+          t * len * 0.25 - time * 2,
+        );
+      }
+      kit.ribbons.endStrip();
+      for (let k = 0; k < 5; k++) {
+        const t = (time * 0.55 + k / 5) % 1;
+        const i = Math.min(N, Math.round(t * N));
+        kit.sprites.push(
+          this.pts[i * 3],
+          this.pts[i * 3 + 1],
+          this.pts[i * 3 + 2],
+          0.2,
+          SPRITE.diamond,
+          k % 2 === 0 ? ua : ub,
+          0.95 * u * Math.sin(Math.PI * t),
+        );
+      }
+    }
     // Pulse heads as glows.
     for (let k = 0; k < PULSES; k++) {
       const age = time - this.pulses[k];
@@ -224,6 +264,21 @@ export class ThreadView {
         0.6,
         -0.2,
       );
+    }
+  }
+
+  private findUnison(state: WorldState, heroId: EntityId | null): void {
+    this.unisonA = null;
+    this.unisonB = null;
+    if (heroId === null) return;
+    for (const c of state.field.chords) {
+      if (c.anchor !== 'thread' || c.threadHero !== heroId) continue;
+      const a = c.auras[0];
+      if (!a) continue;
+      this.unisonA = auraColor(a);
+      const b = c.auras[1];
+      this.unisonB = b ? auraColor(b) : null;
+      return;
     }
   }
 

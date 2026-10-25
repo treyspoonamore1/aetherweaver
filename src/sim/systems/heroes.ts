@@ -8,6 +8,7 @@ import type { HeroDef } from '../../content/schema';
 import { TUNING } from '../constants';
 import { distSq, len } from '../core/dmath';
 import {
+  addShield,
   addStatus,
   dealDamage,
   hasStatus,
@@ -21,10 +22,12 @@ import { topThreat } from '../combat/threat';
 import type { Entity, Telegraph } from '../state';
 import { weaverOf, type World } from '../world';
 import { heroFx } from '../combat/auras';
+import { canCall, flourishing, settleCall, startCall, tendCall } from './calls';
 import { formationSlot } from './formation';
-import { heroAttackSpeed, heroDamage } from './heroDamage';
+import { flourishHit, heroAttackSpeed, heroDamage } from './heroDamage';
 import { nearestEnemy, startSolo, tickSoloClock, updateSolo } from './solos';
 import { approachVelocity, arrive } from './steering';
+import { empowerBonus } from './thread';
 
 const desired = { x: 0, z: 0 };
 const slotPos = { x: 0, z: 0 };
@@ -62,6 +65,8 @@ export function updateHeroes(world: World, dt: number): void {
     hero.abilityCooldowns[0] = Math.max(0, hero.abilityCooldowns[0] - dt);
     hero.abilityCooldowns[1] = Math.max(0, hero.abilityCooldowns[1] - dt);
     if (hero.quirk > 0) hero.quirk = Math.max(0, hero.quirk - dt);
+    if (hero.callCooldown > 0) hero.callCooldown = Math.max(0, hero.callCooldown - dt);
+    if (hero.call) tendCall(world, e, empowerBonus(world, e).more > 0);
 
     lowHpCheck(world, e);
     if (fighting) noticeTelegraphs(world, e, def);
@@ -117,7 +122,10 @@ export function updateHeroes(world: World, dt: number): void {
           hero.cast = null;
           hero.castName = null;
           hero.castProgress = 0;
-          executeAbility(world, e, def, c.ability as 0 | 1, c.target, c.x, c.z);
+          // Answered any time before it lands (even mid-cast), the move is a Flourish.
+          const index = c.ability as 0 | 1;
+          executeAbility(world, e, def, index, c.target, c.x, c.z, flourishing(e, index));
+          settleCall(world, e, index);
         } else {
           hero.action = 'casting';
           approachVelocity(e, 0, 0, TUNING.heroAccel * 2, dt);
@@ -140,6 +148,9 @@ export function updateHeroes(world: World, dt: number): void {
         continue;
       }
     }
+
+    // Their big move is almost ready: a good moment to ask the Weaver for help.
+    if (target && canCall(world, e, def)) startCall(world, e, def);
 
     if (target && !hasStatus(e, 'silence') && tryAbilities(world, e, def, target)) {
       hero.action = 'casting';
@@ -458,8 +469,10 @@ function startCast(
   hero.abilityCooldowns[index] = ability.cooldown;
   let castTime = ability.castTime;
   if (ability.id === 'starbolt') castTime *= world.mods.starboltCastMult;
+  const flourish = flourishing(e, index);
   if (castTime <= 0) {
-    executeAbility(world, e, def, index, target.id, x, z);
+    executeAbility(world, e, def, index, target.id, x, z, flourish);
+    settleCall(world, e, index);
     return;
   }
   hero.cast = {
@@ -470,11 +483,25 @@ function startCast(
     target: target.id,
     x,
     z,
-    flourish: false,
+    flourish,
   };
-  hero.castName = ability.name;
+  hero.castName = flourish ? def.call.flourish.name : ability.name;
   hero.castProgress = 0;
   if (ability.id === 'starbolt' && world.rng.cosmetic.chance(0.25)) bark(world, e, 'quirk');
+}
+
+/** Starts ability `index`. Returns true if a cast (rather than an instant move) started. */
+function beginAbility(
+  world: World,
+  e: Entity,
+  def: HeroDef,
+  index: 0 | 1,
+  target: Entity,
+  x: number,
+  z: number,
+): boolean {
+  startCast(world, e, def, index, target, x, z);
+  return e.hero!.cast !== null;
 }
 
 /** Decides whether to use an ability this tick. Returns true if a cast started. */
@@ -488,10 +515,7 @@ function tryAbilities(world: World, e: Entity, def: HeroDef, target: Entity): bo
       distSq(t.x, t.z, e.x, e.z) <= sqr(ability.range + t.radius + e.radius);
     switch (ability.id) {
       case 'shieldBash':
-        if (inReach(target)) {
-          startCast(world, e, def, index, target, target.x, target.z);
-          return hero.cast !== null;
-        }
+        if (inReach(target)) return beginAbility(world, e, def, index, target, target.x, target.z);
         break;
       case 'challenge': {
         let loose = 0;
@@ -499,43 +523,29 @@ function tryAbilities(world: World, e: Entity, def: HeroDef, target: Entity): bo
           if (!m.enemy || !isActive(m) || m.enemy.targetId === e.id) continue;
           if (distSq(m.x, m.z, e.x, e.z) <= sqr(ability.radius)) loose++;
         }
-        if (loose >= 2) {
-          startCast(world, e, def, index, target, e.x, e.z);
-          return hero.cast !== null;
-        }
+        if (loose >= 2) return beginAbility(world, e, def, index, target, e.x, e.z);
         break;
       }
       case 'piercingShot': {
         const caster = interruptibleCaster(world, e, ability.range);
         const t = caster ?? (inReach(target) ? target : null);
-        if (t) {
-          startCast(world, e, def, index, t, t.x, t.z);
-          return true;
-        }
+        if (t) return beginAbility(world, e, def, index, t, t.x, t.z);
         break;
       }
       case 'volley':
       case 'gravityWell': {
         const cluster = findCluster(world, e, ability.range, ability.radius, 3);
-        if (cluster) {
-          startCast(world, e, def, index, target, cluster.x, cluster.z);
-          return true;
-        }
+        if (cluster) return beginAbility(world, e, def, index, target, cluster.x, cluster.z);
         if (
           ability.id === 'volley' &&
           (target.enemy!.tier === 'boss' || target.enemy!.tier === 'miniboss') &&
           inReach(target)
-        ) {
-          startCast(world, e, def, index, target, target.x, target.z);
-          return true;
-        }
+        )
+          return beginAbility(world, e, def, index, target, target.x, target.z);
         break;
       }
       case 'starbolt':
-        if (inReach(target)) {
-          startCast(world, e, def, index, target, target.x, target.z);
-          return true;
-        }
+        if (inReach(target)) return beginAbility(world, e, def, index, target, target.x, target.z);
         break;
     }
   }
@@ -590,30 +600,48 @@ function executeAbility(
   targetId: number | null,
   x: number,
   z: number,
+  flourish = false,
 ): void {
   const ability = def.abilities[index];
+  // An answered call: the Flourish's multipliers apply to whatever the ability does.
+  const f = flourish ? def.call.flourish : null;
+  const radiusMult = f?.radiusMult ?? 1;
   const target = targetId === null ? undefined : world.entities.get(targetId);
-  const emit = (ax: number, az: number, radius: number) =>
+  const emit = (ax: number, az: number, radius: number) => {
     world.events.push({
       type: 'abilityUsed',
       tick: world.tick,
       source: e.id,
       ability: ability.id,
-      name: ability.name,
+      name: f?.name ?? ability.name,
       x: ax,
       z: az,
       radius,
     });
+    if (f)
+      world.events.push({
+        type: 'flourish',
+        tick: world.tick,
+        hero: e.id,
+        name: f.name,
+        x: ax,
+        z: az,
+        radius,
+      });
+  };
+  const hitOf = (amount: number) =>
+    f ? flourishHit(world, e, amount, f) : heroDamage(world, e, amount, 0);
   const hitEnemy = (m: Entity, amount: number) => {
-    const hit = heroDamage(world, e, amount, 0);
+    const hit = hitOf(amount);
     dealDamage(world, m, {
       source: e.id,
-      sourceName: ability.name,
+      sourceName: f?.name ?? ability.name,
       amount: hit.amount,
       amplified: hit.amplified,
       crit: hit.crit,
       empowered: hit.empowered,
     });
+    if (f && f.stun > 0 && isActive(m)) addStatus(world, m, 'stun', f.stun, e.id);
   };
   switch (ability.id) {
     case 'shieldBash': {
@@ -625,15 +653,23 @@ function executeAbility(
       return;
     }
     case 'challenge': {
-      emit(e.x, e.z, ability.radius);
+      const radius = ability.radius * radiusMult;
+      emit(e.x, e.z, radius);
+      let caught = 0;
       for (const m of world.entities.list()) {
         if (!m.enemy || !isActive(m)) continue;
-        if (distSq(m.x, m.z, e.x, e.z) > sqr(ability.radius + m.radius)) continue;
+        if (distSq(m.x, m.z, e.x, e.z) > sqr(radius + m.radius)) continue;
+        caught++;
         topThreat(m, e.hero!.slot, 150);
         if (m.enemy.tier === 'normal' || m.enemy.tier === 'elite') {
           m.enemy.tauntTarget = e.id;
-          m.enemy.tauntUntil = world.time + 4;
+          m.enemy.tauntUntil = world.time + 4 + (f?.tauntBonus ?? 0);
         }
+      }
+      // Bulwark: a barrier for every enemy the answered Challenge catches.
+      if (f && f.barrierPerTarget > 0 && caught > 0) {
+        const pct = Math.min(f.barrierCap, f.barrierPerTarget * caught);
+        addShield(world, e, 'overshield', e.health!.maxHp * pct, 5, true);
       }
       return;
     }
@@ -647,6 +683,7 @@ function executeAbility(
       dz /= d;
       const toX = e.x + dx * ability.range;
       const toZ = e.z + dz * ability.range;
+      const width = ability.radius * radiusMult;
       world.events.push({
         type: 'attackFired',
         tick: world.tick,
@@ -659,7 +696,7 @@ function executeAbility(
         toZ,
         travel: 0.12,
       });
-      emit(toX, toZ, ability.radius);
+      emit(toX, toZ, width);
       for (const m of world.entities.list()) {
         if (!m.enemy || !isActive(m)) continue;
         const rx = m.x - e.x;
@@ -667,9 +704,16 @@ function executeAbility(
         const along = rx * dx + rz * dz;
         if (along < 0 || along > ability.range) continue;
         const perp = Math.abs(rx * dz - rz * dx);
-        if (perp > ability.radius + m.radius) continue;
+        if (perp > width + m.radius) continue;
         interruptEnemy(world, m, e.id);
         hitEnemy(m, ability.damage);
+      }
+      // Heartseeker refunds part of the Solo.
+      const hero = e.hero!;
+      if (f && f.soloCharge > 0 && hero.soloActive <= 0 && hero.solo < 100) {
+        hero.solo = Math.min(100, hero.solo + f.soloCharge);
+        if (hero.solo >= 100)
+          world.events.push({ type: 'soloReady', tick: world.tick, hero: e.id });
       }
       return;
     }
@@ -686,11 +730,12 @@ function executeAbility(
         toZ: z,
         travel: 0.5,
       });
-      const hit = heroDamage(world, e, ability.damage, 0);
+      const radius = ability.radius * radiusMult;
+      const hit = hitOf(ability.damage);
       // Arrows fall half a second later on whoever is still there.
-      const anchor = nearestAt(world, x, z, ability.radius);
+      const anchor = nearestAt(world, x, z, radius);
       if (!anchor) return;
-      emit(x, z, ability.radius);
+      emit(x, z, radius);
       world.internal.pendingHits.push({
         at: world.time + 0.5,
         source: e.id,
@@ -698,22 +743,23 @@ function executeAbility(
         amount: hit.amount,
         amplified: hit.amplified,
         crit: hit.crit,
-        splashRadius: ability.radius,
+        splashRadius: radius,
         splash: 1,
         chain: 0,
         empowered: hit.empowered,
-        stun: 0,
+        stun: f?.stun ?? 0,
       });
       return;
     }
     case 'gravityWell': {
-      emit(x, z, ability.radius);
+      const radius = ability.radius * radiusMult;
+      emit(x, z, radius);
       for (const m of world.entities.list()) {
         if (!m.enemy || !isActive(m)) continue;
         const dx = x - m.x;
         const dz = z - m.z;
         const d = len(dx, dz);
-        if (d > ability.radius + m.radius) continue;
+        if (d > radius + m.radius) continue;
         if (m.enemy.tier === 'normal' || m.enemy.tier === 'elite') {
           const pull = Math.min(d * 0.7, 3);
           if (d > 1e-6) {
@@ -730,7 +776,8 @@ function executeAbility(
       const tz = isActive(target) ? target.z : z;
       const d = len(tx - e.x, tz - e.z);
       const travel = d / Math.max(1, def.attack.projectileSpeed);
-      const anchor = isActive(target) ? target : nearestAt(world, tx, tz, ability.radius);
+      const radius = ability.radius * radiusMult;
+      const anchor = isActive(target) ? target : nearestAt(world, tx, tz, radius);
       world.events.push({
         type: 'attackFired',
         tick: world.tick,
@@ -744,7 +791,8 @@ function executeAbility(
         travel,
       });
       if (!anchor) return;
-      const hit = heroDamage(world, e, ability.damage, 0);
+      if (f) emit(tx, tz, radius);
+      const hit = hitOf(ability.damage);
       world.internal.pendingHits.push({
         at: world.time + travel,
         source: e.id,
@@ -752,11 +800,11 @@ function executeAbility(
         amount: hit.amount,
         amplified: hit.amplified,
         crit: hit.crit,
-        splashRadius: ability.radius,
+        splashRadius: radius,
         splash: 1,
         chain: 0,
         empowered: hit.empowered,
-        stun: 0,
+        stun: f?.stun ?? 0,
       });
       return;
     }

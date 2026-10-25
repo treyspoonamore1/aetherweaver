@@ -3,7 +3,8 @@ import { fmt } from '../kit/format';
 import { Icon } from '../kit/Icon';
 import { KeyCap } from '../kit/KeyCap';
 import { Ring } from '../kit/Ring';
-import type { AuraHud, HudSnapshot, TechniqueHud, WeaverHud } from '../store';
+import { keyLabel } from '../../input/keyLabel';
+import type { AuraHud, ChordHud, HeroHud, HudSnapshot, TechniqueHud, WeaverHud } from '../store';
 import { TECHNIQUE_ICON, WEAVER_BAR_LEFT, WEAVER_BAR_WIDTH, bindingLabel } from './labels';
 
 const SPIRIT = '#8ea2ff';
@@ -39,11 +40,7 @@ export function WeaverBar({ hud }: { hud: HudSnapshot }) {
       </div>
       <div className="flex items-center justify-between gap-3 border-t border-ink-600/50 pt-2">
         <ThreadStatus weaver={w} targetName={target?.name ?? null} targetColor={target?.color} />
-        <div className="flex flex-wrap items-center justify-end gap-1.5">
-          {w.auras.map((a) => (
-            <AuraChip key={a.id} aura={a} suppressed={w.fieldSuppressed} />
-          ))}
-        </div>
+        <ChordChips weaver={w} party={hud.party} />
       </div>
     </div>
   );
@@ -139,7 +136,7 @@ function TechniqueButton({
   const style: CSSProperties = cooling
     ? { background: `conic-gradient(rgb(5 8 20 / 0.78) ${frac * 360}deg, transparent 0)` }
     : {};
-  const keyName = bindingLabel(t.key);
+  const keyName = t.key0 ? keyLabel(t.key0) : bindingLabel(t.key);
   const state = cooling ? `${Math.ceil(t.remaining)} seconds` : dim ? 'not enough Spirit' : 'ready';
   return (
     <div
@@ -293,7 +290,7 @@ function ThreadStatus({
   const color = mend ? 'var(--color-heal)' : 'var(--color-amp)';
   const taut = w.threadTension > 0.75;
   return (
-    <div className="flex min-w-0 items-center gap-2 text-sm" data-testid="thread-mode">
+    <div className="flex shrink-0 items-center gap-2 text-sm" data-testid="thread-mode">
       <Icon name="thread" size={16} className="text-muted" />
       <span className="flex items-center gap-1 font-semibold" style={{ color }}>
         <Icon name={mend ? 'mend' : 'empower'} size={14} />
@@ -338,10 +335,130 @@ function ThreadStatus({
   );
 }
 
+const NUMERAL = ['I', 'II', 'III', 'IV'];
+
+/** Your Chords: aura chips and ornament chips per Chord, Unison's rider, Pedal Point's key. */
+function ChordChips({ weaver: w, party }: { weaver: WeaverHud; party: HeroHud[] }) {
+  if (w.chords.length === 0) {
+    return <span className="text-xs text-muted">No auras sung</span>;
+  }
+  return (
+    <div className="flex min-w-0 flex-wrap items-center justify-end gap-1.5" data-testid="chords">
+      {w.chords.map((c) => (
+        <ChordGroup key={c.index} chord={c} weaver={w} party={party} />
+      ))}
+    </div>
+  );
+}
+
+function ChordGroup({
+  chord: c,
+  weaver: w,
+  party,
+}: {
+  chord: ChordHud;
+  weaver: WeaverHud;
+  party: HeroHud[];
+}) {
+  const rider = c.threadSlot === null ? null : party.find((p) => p.slot === c.threadSlot);
+  return (
+    <span
+      className="flex items-center gap-1 rounded-lg border border-ink-600/70 bg-ink-950/40 py-0.5 pl-1.5 pr-1"
+      role="group"
+      aria-label={`Chord ${NUMERAL[c.index] ?? c.index + 1}`}
+    >
+      <span className="font-display text-xs font-bold text-muted" aria-hidden>
+        {NUMERAL[c.index] ?? c.index + 1}
+      </span>
+      {c.auras.map((a) => (
+        <AuraChip key={a.id} aura={a} suppressed={w.fieldSuppressed} />
+      ))}
+      {c.ornaments.map((o) => {
+        if (o.id === 'unison') {
+          return (
+            <span
+              key={o.id}
+              className="flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-xs font-medium"
+              style={{
+                color: o.color,
+                borderColor: `color-mix(in srgb, ${o.color} 55%, transparent)`,
+              }}
+              title={
+                rider
+                  ? `Unison rides your Thread on ${rider.name}`
+                  : 'Unison: attach your Thread to a hero'
+              }
+            >
+              <Icon name="thread" size={12} />
+              {rider ? (
+                <>
+                  <span style={{ color: rider.color }}>{rider.name}</span>
+                  <KeyCap label={String(rider.slot + 1)} />
+                </>
+              ) : (
+                <span className="text-muted">no Thread</span>
+              )}
+            </span>
+          );
+        }
+        if (o.id === 'pedal_point') {
+          const plant = w.plant;
+          const cooling = !!plant && plant.remaining > 0.05;
+          return (
+            <span
+              key={o.id}
+              className="flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-xs font-medium"
+              style={{
+                color: o.color,
+                borderColor: `color-mix(in srgb, ${o.color} 55%, transparent)`,
+              }}
+              title={`Pedal Point: plant this Chord's field at the cursor${plant ? ` (${keyLabel(plant.key0)})` : ''}`}
+            >
+              <Icon name="pin" size={12} />
+              Plant
+              {plant && (
+                <KeyCap
+                  label={plant.key0 ? keyLabel(plant.key0) : bindingLabel('plant')}
+                  accent={!cooling}
+                />
+              )}
+              {cooling && plant && (
+                <span className="flex items-center gap-0.5 font-mono text-muted">
+                  <Ring
+                    value={plant.remaining / Math.max(0.01, plant.total)}
+                    size={13}
+                    stroke={2}
+                    color={o.color}
+                  />
+                  {plant.remaining.toFixed(1)}
+                </span>
+              )}
+            </span>
+          );
+        }
+        return (
+          <span
+            key={o.id}
+            className="flex items-center gap-0.5 rounded-md border px-1 py-0.5 text-xs"
+            style={{
+              color: o.color,
+              borderColor: `color-mix(in srgb, ${o.color} 45%, transparent)`,
+            }}
+            title={o.name}
+          >
+            <Icon name="diamond" size={10} />
+            {o.name}
+          </span>
+        );
+      })}
+    </span>
+  );
+}
+
 function AuraChip({ aura, suppressed }: { aura: AuraHud; suppressed: boolean }) {
   return (
     <span
-      className={`flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-medium ${suppressed ? 'opacity-45' : ''}`}
+      className={`flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-xs font-medium ${suppressed ? 'opacity-45' : ''}`}
       style={{
         color: aura.color,
         borderColor: `color-mix(in srgb, ${aura.color} 55%, transparent)`,
@@ -351,7 +468,6 @@ function AuraChip({ aura, suppressed }: { aura: AuraHud; suppressed: boolean }) 
     >
       <Icon name="note" size={12} />
       {aura.name}
-      <span className="font-mono text-muted">{Math.round(aura.reserve * 100)}%</span>
     </span>
   );
 }

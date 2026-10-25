@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { C } from '../palette';
 import { GLSL_COMMON, InstancedFx, groundQuad } from './instanced';
 
 /** Telegraph SDF kinds (docs/plan/05 §5.3). */
@@ -40,6 +41,8 @@ void main() {
 
 const fragment = /* glsl */ `
 uniform float uTime;
+uniform vec3 uThreat;
+uniform vec3 uLethal;
 varying vec2 vLocal;
 varying vec4 vShape;
 varying vec4 vState;
@@ -47,8 +50,6 @@ varying vec4 vColor;
 varying float vKind;
 varying float vAlpha;
 ${GLSL_COMMON}
-const vec3 AMBER = vec3(0.97, 0.36, 0.05);
-const vec3 CRIMSON = vec3(0.92, 0.03, 0.09);
 const vec3 PERFECT = vec3(1.0, 0.97, 0.82);
 void main() {
   int kind = int(vKind + 0.5);
@@ -58,7 +59,7 @@ void main() {
   float sev = vState.z;
   float flash = vState.w;
   float pw = vColor.a;
-  vec3 col = mix(AMBER, CRIMSON, sev);
+  vec3 col = mix(uThreat, uLethal, sev);
   float d = length(p);
   float ang = abs(atan(p.y, p.x));
   float sd = 0.0;
@@ -107,8 +108,12 @@ void main() {
     float area = inside * (0.13 + 0.05 * sev);
     float fill = inside * fillMask * (0.2 + 0.25 * prog);
     float leadLine = inside * awAA(lead - 0.06) * (0.55 + 0.4 * prog);
-    float stripes = inside * sev * step(0.55, fract((p.x + p.y) * 0.9 - uTime * 1.6)) * 0.2;
-    float rimA = rim * (0.7 + 0.3 * prog);
+    // Lethal is never colour alone: marching hazard hatching plus a throbbing double rim.
+    float hatch = step(0.55, fract((p.x + p.y) * 0.9 - uTime * 1.6));
+    float stripes = inside * sev * hatch * 0.34;
+    float throb = 0.5 + 0.5 * sin(uTime * 9.0);
+    float rim2 = awAA(abs(sd - 0.22) - 0.035) * sev * (0.35 + 0.65 * throb);
+    float rimA = rim * (0.7 + 0.3 * prog) * (1.0 + 0.35 * sev * throb) + rim2;
     float pulse = 0.75 + 0.25 * sin(uTime * 22.0);
     float prim = awAA(abs(sd + 0.02) - (0.09 + 0.1 * pw)) * perfect * pulse;
     float fl = inside * flash * 0.6;
@@ -165,12 +170,24 @@ export class TelegraphBatch extends InstancedFx {
   private readonly sta: Float32Array;
   private readonly col: Float32Array;
 
+  readonly uniforms: {
+    uTime: { value: number };
+    uThreat: { value: THREE.Color };
+    uLethal: { value: THREE.Color };
+  };
+
   constructor(
     capacity: number,
     renderOrder: number,
-    readonly uniforms = { uTime: { value: 0 } },
+    time = { uTime: { value: 0 } },
     depthTest = true,
   ) {
+    // The severity colours are the live colour-vision palette (C.threat / C.lethal).
+    const uniforms = {
+      uTime: time.uTime,
+      uThreat: { value: C.threat },
+      uLethal: { value: C.lethal },
+    };
     super(
       groundQuad(),
       new THREE.ShaderMaterial({
@@ -185,6 +202,7 @@ export class TelegraphBatch extends InstancedFx {
       { iPos: 4, iExt: 4, iShape: 4, iState: 4, iColor: 4 },
       renderOrder,
     );
+    this.uniforms = uniforms;
     this.pos = this.array('iPos');
     this.ext = this.array('iExt');
     this.shp = this.array('iShape');

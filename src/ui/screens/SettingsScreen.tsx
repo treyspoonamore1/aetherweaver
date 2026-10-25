@@ -1,13 +1,21 @@
-import type { ReactNode } from 'react';
+import { useId, type ReactNode } from 'react';
 import { getAudio } from '../../audio';
 import { useSettings, type Settings } from '../../app/settings';
+import {
+  COLOR_VISIONS,
+  COLOR_VISION_LABELS,
+  applyVisionCss,
+  visionPalette,
+  type ColorVision,
+  type VisionPalette,
+} from '../../app/colorVision';
 import { resetHints } from '../hud/hints';
-import { bindingLabel } from '../hud/labels';
 import { Button } from '../kit/Button';
 import { ScreenFrame, ScreenHeader } from '../kit/Backdrop';
-import { Icon } from '../kit/Icon';
-import { KeyCap } from '../kit/KeyCap';
+import { Icon, type IconName } from '../kit/Icon';
 import { Panel } from '../kit/Panel';
+import { applyUiScale } from '../presentation';
+import { ControlsSettings } from './ControlsSettings';
 import { Segmented, Slider, Toggle } from '../kit/Slider';
 import { useMood } from '../kit/sound';
 import { useUi } from '../store';
@@ -68,12 +76,15 @@ export function SettingsPanel({ compact = false }: { compact?: boolean }) {
           value={settings.screenShake}
           onChange={(v) => update((d) => ({ ...d, screenShake: v }))}
         />
-        <Toggle
+        <Slider
           label="Screen flashes"
-          hint="Full-screen flashes on Perfect, Save and Crescendo."
-          checked={settings.flashes > 0}
-          onChange={(v) => update((d) => ({ ...d, flashes: v ? 1 : 0 }))}
+          value={settings.flashes}
+          onChange={(v) => update((d) => ({ ...d, flashes: v }))}
+          format={(v) => (v <= 0 ? 'Off' : `${Math.round(v * 100)}%`)}
         />
+        <p className="-mt-2 text-xs text-muted">
+          Full-screen flashes on Perfect, Save and Crescendo. 0 turns them off.
+        </p>
         <Toggle
           label="Damage numbers"
           hint="Floating numbers over heroes and enemies."
@@ -125,20 +136,14 @@ export function SettingsPanel({ compact = false }: { compact?: boolean }) {
           Assists never block anything. They show as a small badge on the run summary.
         </p>
       </Section>
-      <Section title="Controls">
-        <dl className="grid grid-cols-[auto_1fr] items-center gap-x-4 gap-y-1.5 text-sm">
-          {controlRows().map(([keys, what]) => (
-            <div key={what} className="contents">
-              <dt className="flex gap-1">
-                {keys.map((k) => (
-                  <KeyCap key={k} label={k} />
-                ))}
-              </dt>
-              <dd className="text-muted">{what}</dd>
-            </div>
-          ))}
-        </dl>
+      <Section title="Accessibility">
+        <AccessibilitySettings />
       </Section>
+      <div className={compact ? '' : 'lg:col-span-2'}>
+        <Section title="Controls">
+          <ControlsSettings compact={compact} />
+        </Section>
+      </div>
       <div className={compact ? '' : 'lg:col-span-2'}>
         <Button variant="ghost" size="sm" onClick={reset}>
           Restore defaults
@@ -148,31 +153,76 @@ export function SettingsPanel({ compact = false }: { compact?: boolean }) {
   );
 }
 
-function controlRows(): [string[], string][] {
-  return [
-    [
-      (['moveUp', 'moveLeft', 'moveDown', 'moveRight'] as const).map(bindingLabel),
-      'Move the Weaver',
-    ],
-    [['1', '2', '3', 'LMB'], 'Thread a hero (click a frame or a hero)'],
-    [['RMB'], 'Switch the Thread: Mend ⇄ Empower'],
-    [[bindingLabel('ward')], 'Ward (the hovered or threaded hero)'],
-    [[bindingLabel('chime')], 'Chime (cleanse at your cursor)'],
-    [[bindingLabel('reel')], 'Reel (pull the hero to you)'],
-    [[bindingLabel('glide')], 'Glide (dash)'],
-    [[bindingLabel('cue'), '⇧1–4'], 'Cue a hero’s Solo'],
-    [[bindingLabel('crescendo')], 'Crescendo'],
-    [
-      [
-        bindingLabel('directiveRally'),
-        bindingLabel('directiveHold'),
-        bindingLabel('directiveScatter'),
-      ],
-      'Rally · Hold · Scatter',
-    ],
-    [[bindingLabel('directiveFocus'), 'MMB'], 'Focus the enemy under the cursor'],
-    [[bindingLabel('pause')], 'Pause'],
-  ];
+const SWATCHES: { key: keyof VisionPalette; label: string; icon: IconName }[] = [
+  { key: 'heal', label: 'Life', icon: 'mend' },
+  { key: 'threat', label: 'Threat', icon: 'sparkle' },
+  { key: 'lethal', label: 'Lethal', icon: 'skull' },
+  { key: 'empower', label: 'Empower', icon: 'empower' },
+  { key: 'call', label: 'Call', icon: 'note' },
+];
+
+/** Colour vision, UI scale. Applied to the page immediately. */
+function AccessibilitySettings() {
+  const settings = useSettings((s) => s.settings);
+  const update = useSettings((s) => s.update);
+  const id = useId();
+  const vision = settings.colorVision;
+  const palette = visionPalette(vision);
+  return (
+    <>
+      <div className="grid grid-cols-[8rem_1fr] items-center gap-3">
+        <label htmlFor={id} className="text-sm text-text">
+          Colour vision
+        </label>
+        <select
+          id={id}
+          value={vision}
+          onChange={(e) => {
+            const v = e.target.value as ColorVision;
+            update((d) => ({ ...d, colorVision: v }));
+            applyVisionCss(v);
+          }}
+          className="rounded-lg border border-ink-500 bg-ink-800 px-2.5 py-1.5 text-sm text-text"
+        >
+          {COLOR_VISIONS.map((v) => (
+            <option key={v} value={v}>
+              {COLOR_VISION_LABELS[v]}
+            </option>
+          ))}
+        </select>
+      </div>
+      <ul
+        className="flex flex-wrap gap-1.5"
+        aria-label="How the danger, life and call colours look with this palette"
+      >
+        {SWATCHES.map((sw) => (
+          <li
+            key={sw.key}
+            className="flex items-center gap-1.5 rounded-md border border-ink-600 bg-ink-900 px-2 py-1 text-xs"
+            style={{ color: palette[sw.key] }}
+          >
+            <Icon name={sw.icon} size={13} />
+            {sw.label}
+          </li>
+        ))}
+      </ul>
+      <p className="-mt-1.5 text-xs text-muted">
+        Danger, life and calls get colours that stay apart for this kind of colour vision. Every
+        colour also has a glyph.
+      </p>
+      <Slider
+        label="Interface size"
+        value={settings.uiScale}
+        min={0.8}
+        max={1.5}
+        step={0.05}
+        onChange={(v) => {
+          update((d) => ({ ...d, uiScale: v }));
+          applyUiScale(v);
+        }}
+      />
+    </>
+  );
 }
 
 /** Settings from the Title (or anywhere that routes `screen = 'settings'`). */

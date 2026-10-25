@@ -50,6 +50,12 @@ function rows(): Row[] {
       body: 'Watch the striped bar on a hero’s frame: that is damage on its way. Ward them just before it lands for a Perfect Ward.',
     },
     {
+      icon: 'call',
+      keys: [],
+      title: 'Answer their calls',
+      body: 'Before a big move a hero calls for help: a gold glyph on their frame shows what they want, its key and a countdown. Answer in time and the move becomes a Flourish.',
+    },
+    {
       icon: 'chime',
       keys: [bindingLabel('chime'), bindingLabel('reel')],
       title: 'Chime and Reel',

@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { runWithoutYou } from '../src/sim/counterfactual';
 import { parseReplay, runReplay } from '../src/sim/replay';
 
 const START_URL = '/?e2e=1&seed=4242';
@@ -102,6 +103,7 @@ test('a Prelude run: Prep → Map → an autoplayed fight → Result → Draft �
   await page.waitForTimeout(1000);
   expect(await page.evaluate(() => window.__AW__!.tick())).toBe(tickBefore);
   await page.getByRole('button', { name: /Begin the fight/i }).click();
+  const fightConfig = await page.evaluate(() => window.__AW__!.exportReplay().config);
   await page.evaluate(() => window.__AW__!.autoplay('skilled'));
   await page.evaluate(() => window.__AW__!.setDevTimeScale(2));
   // A full fight under SwiftShader takes a while in real time; ticks are what matter.
@@ -112,6 +114,10 @@ test('a Prelude run: Prep → Map → an autoplayed fight → Result → Draft �
     })
     .toBe('result');
   expect(await page.evaluate(() => window.__AWRUN__!.results())).toBe(1);
+  // The "without you" re-run ran in a worker and matches Node bit for bit.
+  const alone = await page.evaluate(() => window.__AWRUN__!.lastWithoutYou());
+  expect(alone).not.toBeNull();
+  expect(alone!.hash).toBe(runWithoutYou(fightConfig).hash);
   await page.evaluate(() => window.__AWRUN__!.continue());
   await expect.poll(() => page.evaluate(() => window.__AWRUN__!.phase())).toBe('draft');
   await page.evaluate(() => window.__AWRUN__!.pick(0));

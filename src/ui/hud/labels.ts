@@ -1,12 +1,33 @@
-import { DEFAULT_BINDINGS, type Action } from '../../input/actions';
+import type { Action } from '../../input/actions';
+import { liveBindings } from '../../input/bindings';
 import { keyLabel } from '../../input/keyLabel';
-import type { IconName } from '../kit/Icon';
+import type { IconName } from '../kit/iconPaths';
 import type { AnswerTag, StatusId, TechniqueKey } from '../types';
 
-/** The label of an action's primary key ("Q", "Space"…). */
+const DIRECTIVES: ReadonlySet<Action> = new Set<Action>([
+  'directiveFocus',
+  'directiveRally',
+  'directiveHold',
+  'directiveScatter',
+]);
+
+/** The primary key of an action as the player has bound it (KeyboardEvent.code), if any. */
+export function bindingCode(action: Action): string | undefined {
+  return liveBindings()[action][0];
+}
+
+/**
+ * The label of an action's primary key ("Q", "Space"…), following the player's bindings.
+ * An unbound Directive points at the Directive wheel ("C"); anything else unbound is "—".
+ */
 export function bindingLabel(action: Action): string {
-  const code = DEFAULT_BINDINGS[action][0];
-  return code ? keyLabel(code) : '?';
+  const code = bindingCode(action);
+  if (code) return keyLabel(code);
+  if (DIRECTIVES.has(action)) {
+    const wheel = bindingCode('directiveWheel');
+    return wheel ? keyLabel(wheel) : 'MMB';
+  }
+  return '—';
 }
 
 export interface StatusLook {

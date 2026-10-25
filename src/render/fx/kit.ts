@@ -56,7 +56,7 @@ export class FxKit {
   constructor() {
     this.group.name = 'fx';
     this.shadows = new RingBatch(96, THREE.NormalBlending, ORDER.shadows, this.time);
-    this.rings = new RingBatch(256, THREE.AdditiveBlending, ORDER.rings, this.time);
+    this.rings = new RingBatch(384, THREE.AdditiveBlending, ORDER.rings, this.time);
     this.telegraphs = new TelegraphBatch(48, ORDER.telegraphs, this.time);
     this.marks = new TelegraphBatch(16, ORDER.marks, this.time, false);
     this.shells = new ShellBatch(64, ORDER.shells, this.time);
@@ -64,7 +64,7 @@ export class FxKit {
     this.ribbons = new RibbonBatch(1600, ORDER.ribbons);
     this.ribbons.uniforms.uTime = this.time.uTime;
     this.sprites = new SpriteBatch(256, ORDER.sprites, this.time);
-    this.spritesTop = new SpriteBatch(32, ORDER.marks, this.time, false);
+    this.spritesTop = new SpriteBatch(48, ORDER.marks, this.time, false);
     this.bars = new BarBatch(96, ORDER.bars);
     this.particles = new ParticleSystem(
       PARTICLE_CAPS.high.add,

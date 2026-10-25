@@ -1,12 +1,16 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRun } from '../../app/runStore';
-import { motifDef } from '../../content';
-import type { RunState } from '../../meta/types';
+import { auraDef, motifDef } from '../../content';
+import type { ChordLoadout, RunState } from '../../meta/types';
 import { ScreenFrame, ScreenHeader } from '../kit/Backdrop';
+import { Button } from '../kit/Button';
 import { Icon, type IconName } from '../kit/Icon';
 import { KeyCap } from '../kit/KeyCap';
 import { Panel } from '../kit/Panel';
 import { playUi, useMood } from '../kit/sound';
+import { ChordBuilder } from './ChordBuilder';
+import { sameLoadout } from './chordModel';
+import { useChordDraft } from './PrepScreen';
 import { PartyHealth, SectionTitle } from './shared';
 
 const REST_HEAL = 0.4;
@@ -14,13 +18,19 @@ const REST_HEAL = 0.4;
 export interface RespiteViewProps {
   run: RunState;
   onChoose(choice: 'rest' | 'meditate'): void;
+  /** Retune instead of resting: new Chords, then travel on. */
+  onRetune(chords: ChordLoadout[]): void;
+  /** Open straight into the Retune builder (UI lab). */
+  initialRetune?: boolean;
 }
 
-export function RespiteView({ run, onChoose }: RespiteViewProps) {
+export function RespiteView({ run, onChoose, onRetune, initialRetune = false }: RespiteViewProps) {
   useMood('map');
+  const [retuning, setRetuning] = useState(initialRetune);
   const upgradable = run.motifs.filter((m) => m.level < motifDef(m.id).values.length).length;
   const shaken = run.party.filter((h) => h.shaken).length;
   useEffect(() => {
+    if (retuning) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.ctrlKey || e.metaKey || e.altKey) return;
       if (e.key === '1') {
@@ -29,20 +39,28 @@ export function RespiteView({ run, onChoose }: RespiteViewProps) {
       } else if (e.key === '2') {
         playUi('confirm');
         onChoose('meditate');
+      } else if (e.key === '3') {
+        playUi('click');
+        setRetuning(true);
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [onChoose]);
+  }, [onChoose, retuning]);
+  if (retuning) {
+    return <RetuneView run={run} onBack={() => setRetuning(false)} onRetune={onRetune} />;
+  }
+  const sung = run.chords.flatMap((c) => c.auras).map((id) => auraDef(id).name);
   return (
     <ScreenFrame tone="dusk">
       <div className="mx-auto max-w-5xl px-6 py-8">
         <ScreenHeader eyebrow="A moment's quiet" title="Respite">
           <p className="mt-2 max-w-xl text-sm text-muted">
-            The choir cannot reach this alcove. Take one: tend to your wounds or sit with the song.
+            The choir cannot reach this alcove. Take one: tend to your wounds, sit with the song, or
+            retune your Chords.
           </p>
         </ScreenHeader>
-        <div className="mt-8 grid gap-6 md:grid-cols-2">
+        <div className="mt-8 grid gap-6 md:grid-cols-3">
           <Choice
             keyLabel="1"
             icon="moon"
@@ -68,6 +86,17 @@ export function RespiteView({ run, onChoose }: RespiteViewProps) {
               'No healing, and the Shaken stay Shaken.',
             ]}
             onClick={() => onChoose('meditate')}
+          />
+          <Choice
+            keyLabel="3"
+            icon="tune"
+            title="Retune"
+            color="#fcd98a"
+            lines={[
+              `Rebuild your Chords: auras, ornaments, presets. Now singing ${sung.length ? sung.join(', ') : 'nothing'}.`,
+              'No healing and no motif.',
+            ]}
+            onClick={() => setRetuning(true)}
           />
         </div>
         <Panel tone="solid" className="mx-auto mt-8 max-w-2xl p-5">
@@ -129,9 +158,68 @@ function Choice({
   );
 }
 
+/** Respite → Retune: the Chord builder, confirmed with `retune`. */
+function RetuneView({
+  run,
+  onBack,
+  onRetune,
+}: {
+  run: RunState;
+  onBack(): void;
+  onRetune(chords: ChordLoadout[]): void;
+}) {
+  const [legalDraft, setLegalDraft] = useState<ChordLoadout[]>(run.chords);
+  const { draft, change, legal } = useChordDraft(run.chords, setLegalDraft);
+  const unchanged = sameLoadout(draft, run.chords);
+  return (
+    <ScreenFrame tone="dusk">
+      <div className="mx-auto max-w-7xl px-6 pb-28 pt-8">
+        <ScreenHeader
+          eyebrow="Respite · Retune"
+          title="Retune your Chords"
+          right={
+            <Button variant="ghost" onClick={onBack} sound="back">
+              <Icon name="back" size={16} /> Rest or meditate instead
+            </Button>
+          }
+        >
+          <p className="mt-2 max-w-2xl text-sm text-muted">
+            Retuning takes the whole respite: no healing and no motif. Your motifs stay; only the
+            Chords change.
+          </p>
+        </ScreenHeader>
+        <div className="mt-6">
+          <ChordBuilder value={draft} onChange={change} />
+        </div>
+      </div>
+      <div className="pointer-events-none fixed inset-x-0 bottom-0 z-20 flex justify-end bg-gradient-to-t from-ink-950 via-ink-950/80 to-transparent px-6 pb-5 pt-10">
+        <div className="pointer-events-auto flex items-center gap-4">
+          <p className="text-sm text-muted" role="status">
+            {!legal
+              ? 'Fix your Chords first'
+              : unchanged
+                ? 'Same Chords as before'
+                : 'Ready to sing the new Chords'}
+          </p>
+          <Button
+            variant="primary"
+            size="lg"
+            disabled={!legal || unchanged}
+            onClick={() => onRetune(legalDraft)}
+            sound="confirm"
+          >
+            Retune and travel on <Icon name="arrow" size={18} />
+          </Button>
+        </div>
+      </div>
+    </ScreenFrame>
+  );
+}
+
 export function RespiteScreen() {
   const run = useRun((s) => s.run);
   const respite = useRun((s) => s.respite);
+  const retune = useRun((s) => s.retune);
   if (!run) return null;
-  return <RespiteView run={run} onChoose={respite} />;
+  return <RespiteView run={run} onChoose={respite} onRetune={retune} />;
 }

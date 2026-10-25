@@ -1,5 +1,6 @@
 import { useState, type KeyboardEvent } from 'react';
-import { CONTENT, motifText } from '../../content';
+import { CONTENT, motifText, ornamentDef } from '../../content';
+import { WITHOUT_YOU_MAX_SECONDS } from '../../sim';
 import type { AttackDef, EnemyDef, HeroDef } from '../../content';
 import { AnswerGlyph } from '../hud/AnswerGlyph';
 import { ROLE_LABEL } from '../hud/labels';
@@ -7,7 +8,7 @@ import { ScreenFrame, ScreenHeader } from '../kit/Backdrop';
 import { Button } from '../kit/Button';
 import { CATEGORY, Chip, RARITY, RarityChip } from '../kit/Chip';
 import { fmt, pct } from '../kit/format';
-import { Icon } from '../kit/Icon';
+import { Icon, type IconName } from '../kit/Icon';
 import { Panel } from '../kit/Panel';
 import { useMood } from '../kit/sound';
 import { useUi } from '../store';
@@ -18,14 +19,22 @@ const TABS = [
   { id: 'enemies', label: 'Enemies' },
   { id: 'weaver', label: 'The Weaver' },
   { id: 'auras', label: 'Auras' },
+  { id: 'chords', label: 'Chords & ornaments' },
+  { id: 'calls', label: 'Calls' },
   { id: 'motifs', label: 'Motifs' },
 ] as const;
-type TabId = (typeof TABS)[number]['id'];
+export type TabId = (typeof TABS)[number]['id'];
 
 /** The Codex: everything is generated from content, so it can never drift from the game. */
-export function CodexView({ onBack }: { onBack(): void }) {
+export function CodexView({
+  onBack,
+  initialTab = 'heroes',
+}: {
+  onBack(): void;
+  initialTab?: TabId;
+}) {
   useMood('title');
-  const [tab, setTab] = useState<TabId>('heroes');
+  const [tab, setTab] = useState<TabId>(initialTab);
   const onKey = (e: KeyboardEvent<HTMLDivElement>) => {
     if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
     const i = TABS.findIndex((t) => t.id === tab);
@@ -75,6 +84,8 @@ export function CodexView({ onBack }: { onBack(): void }) {
           {tab === 'enemies' && <Enemies />}
           {tab === 'weaver' && <Weaver />}
           {tab === 'auras' && <Auras />}
+          {tab === 'chords' && <Chords />}
+          {tab === 'calls' && <Calls />}
           {tab === 'motifs' && <Motifs />}
         </div>
       </div>
@@ -133,6 +144,13 @@ function HeroEntry({ hero: h }: { hero: HeroDef }) {
           <dd className="text-xs leading-relaxed text-gold-300">{h.solo.cuedDescription}</dd>
         </div>
         <div>
+          <dt className="flex items-center gap-1.5 font-semibold" style={{ color: CALL }}>
+            <Icon name="call" size={14} /> Call · {CALL_ANSWER[h.call.answer]} →{' '}
+            {h.call.flourish.name}
+          </dt>
+          <dd className="text-xs leading-relaxed text-muted">{h.call.flourish.description}</dd>
+        </div>
+        <div>
           <dt className="font-semibold">Quirk · {h.quirk.name}</dt>
           <dd className="text-xs leading-relaxed text-muted">{h.quirk.description}</dd>
         </div>
@@ -140,6 +158,10 @@ function HeroEntry({ hero: h }: { hero: HeroDef }) {
     </Panel>
   );
 }
+
+const CALL = 'var(--color-call, #fde68a)';
+const CALL_ANSWER = { ward: 'Ward', empower: 'Empower', chime: 'Chime' } as const;
+const CALL_ICON = { ward: 'ward', empower: 'empower', chime: 'chime' } as const;
 
 function attackDamage(a: AttackDef): string {
   if (a.effect === 'healAllies') return 'heals allies';
@@ -220,7 +242,7 @@ function Weaver() {
   const th = CONTENT.thread;
   const entries: {
     name: string;
-    icon: 'ward' | 'chime' | 'reel' | 'glide' | 'thread' | 'note';
+    icon: IconName;
     keys: string;
     body: string;
     stats: string[];
@@ -279,7 +301,22 @@ function Weaver() {
         `Save +${r.gains.save}`,
         `Clutch Chime +${r.gains.clutchChime}`,
         `Reel dodge +${r.gains.reelDodge}`,
+        `Answered call +${r.gains.response}`,
       ],
+    },
+    {
+      name: 'Directives',
+      icon: 'wheel',
+      keys: 'hold C / MMB',
+      body: 'Hold C or the middle mouse button for the Directive wheel, move toward a spoke and let go: Focus (the enemy under your cursor), Rally (regroup on you), Hold (stay put) or Scatter (spread out). Let go in the centre to cancel. A quick middle-click on an enemy Focuses it.',
+      stats: ['Focus · Rally · Hold · Scatter', 'G: Focus', 'Z: Rally', 'X: Hold'],
+    },
+    {
+      name: 'Without you',
+      icon: 'eye',
+      keys: 'after each fight',
+      body: `When a fight ends, the Loom replays it with the same enemies and the same seed, but with you absent: no Thread, no auras, no techniques. The result screen shows the two side by side ("Without you, the party falls at 0:41 in wave 2"), and the run summary counts the fights they would have lost alone. The re-run is capped at ${Math.round(WITHOUT_YOU_MAX_SECONDS / 60)} minutes.`,
+      stats: ['Same seed, same enemies', 'Shown on Result and Summary'],
     },
   ];
   return (
@@ -327,6 +364,178 @@ function Auras() {
           </div>
         </Panel>
       ))}
+    </div>
+  );
+}
+
+const ANCHOR_TEXT = {
+  weaver: 'Around you',
+  planted: 'Planted where you put it',
+  thread: 'On your threaded hero',
+} as const;
+
+function Chords() {
+  const w = CONTENT.weaver;
+  const c = CONTENT.chorus;
+  const fermata = CONTENT.auras.find((a) => a.id === 'fermata');
+  const mult = (v: number) => `×${Number(v.toFixed(2))}`;
+  return (
+    <div className="flex flex-col gap-8">
+      <div className={GRID}>
+        <Panel tone="gold" className="p-5">
+          <h2 className="flex items-center gap-2 font-display text-xl font-bold text-gold-200">
+            <Icon name="note" size={22} /> Chords
+          </h2>
+          <p className="mt-2 text-sm leading-relaxed text-text">
+            You sing up to {w.chords} Chords. Each holds {w.auraSlots} auras and {w.ornamentSlots}{' '}
+            ornaments, and an ornament changes both auras in its Chord, so the puzzle is pairing.
+            You own one copy of each aura and each ornament: where your only Grace Note goes is a
+            real choice. Auras reserve Spirit; what they leave free powers Ward (
+            {CONTENT.techniques.ward.cost}), Chime ({CONTENT.techniques.chime.cost}) and Reel (
+            {CONTENT.techniques.reel.cost}). Change your Chords in Prep, or Retune at a Respite.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            <Chip>{w.fieldRadius} m field</Chip>
+            <Chip>{w.fieldRadiusCap} m at most</Chip>
+          </div>
+        </Panel>
+        <Panel tone="solid" className="p-5">
+          <h2 className="flex items-center gap-2 font-display text-xl font-bold text-gold-200">
+            <Icon name="sparkle" size={22} /> Chorus pulse
+          </h2>
+          <p className="mt-2 text-sm leading-relaxed text-text">
+            Sing {c.minAuras} or more auras and every Cue also releases a chorus pulse from your
+            field: each hero it reaches heals {pct(c.healPctPerAura)} of their life and gains a
+            barrier of {pct(c.barrierPctPerAura)} of their life for {c.barrierDuration} s, per aura
+            you sing. Grace Note is how you fit the third aura.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            <Chip icon="mend">{pct(c.healPctPerAura)} heal per aura</Chip>
+            <Chip icon="ward">{pct(c.barrierPctPerAura)} barrier per aura</Chip>
+          </div>
+        </Panel>
+        {fermata && (
+          <Panel
+            tone="solid"
+            className="p-5"
+            style={{ borderTopColor: fermata.color, borderTopWidth: 3 }}
+          >
+            <h2
+              className="flex items-center gap-2 font-display text-xl font-bold"
+              style={{ color: fermata.color }}
+            >
+              <Icon name="fermata" size={22} /> Fermata hold
+            </h2>
+            <p className="mt-2 text-sm leading-relaxed text-text">
+              With the Fermata aura sung, once per fight per hero, a hit that would down them holds
+              them at 1 life for {fermata.effects.holdTime ?? 1.5} s instead. Their frame shows{' '}
+              <b>HELD · Heal!</b> with a countdown: heal them in time (Mend on the Thread, or a
+              Chime on them) and it counts as a Save. Let it run out and they go down.
+            </p>
+          </Panel>
+        )}
+      </div>
+      <section aria-label="Ornaments">
+        <h2 className="mb-3 flex items-center gap-2 font-display text-lg font-bold text-gold-300">
+          <Icon name="diamond" size={20} /> Ornaments
+        </h2>
+        <div className={GRID}>
+          {CONTENT.ornaments.map((o) => (
+            <Panel
+              key={o.id}
+              tone="solid"
+              className="p-5"
+              style={{ borderTopColor: o.color, borderTopWidth: 3 }}
+            >
+              <h3
+                className="flex items-center gap-2 font-display text-xl font-bold"
+                style={{ color: o.color }}
+              >
+                <Icon name="diamond" size={20} /> {o.name}
+              </h3>
+              <p className="text-sm text-muted">{o.subtitle}</p>
+              <p className="mt-2 text-sm leading-relaxed text-text">{o.description}</p>
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                {o.reserveMult !== 1 && <Chip icon="sparkle">reserve {mult(o.reserveMult)}</Chip>}
+                {o.effectMult !== 1 && <Chip icon="empower">effect {mult(o.effectMult)}</Chip>}
+                {o.radiusMult !== 1 && <Chip icon="scatter">radius {mult(o.radiusMult)}</Chip>}
+                <Chip
+                  icon={o.anchor === 'thread' ? 'thread' : o.anchor === 'planted' ? 'pin' : 'note'}
+                >
+                  {ANCHOR_TEXT[o.anchor]}
+                </Chip>
+                {o.excludes.map((x) => (
+                  <Chip key={x} icon="close" color="var(--color-threat)">
+                    not with {ornamentDef(x).name}
+                  </Chip>
+                ))}
+              </div>
+            </Panel>
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function Calls() {
+  const calls = CONTENT.calls;
+  return (
+    <div className="flex flex-col gap-6">
+      <Panel tone="gold" className="p-5">
+        <h2
+          className="flex items-center gap-2 font-display text-xl font-bold"
+          style={{ color: CALL }}
+        >
+          <Icon name="call" size={22} /> Call and Response
+        </h2>
+        <p className="mt-2 max-w-4xl text-sm leading-relaxed text-text">
+          Before a big move, a hero calls for a specific answer: their frame shows a gold glyph, the
+          key that answers it and a countdown. Answer in time and the move becomes a{' '}
+          <b style={{ color: CALL }}>Flourish</b>, a stronger version of it, and you gain{' '}
+          {CONTENT.resonance.gains.response} Resonance. Ignoring a call costs nothing but a short
+          delay: they use the plain move when the window closes.
+        </p>
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          <Chip>first call after {calls.firstAfter} s</Chip>
+          <Chip>a hero calls at most every {calls.heroCooldown} s</Chip>
+        </div>
+      </Panel>
+      <div className={GRID}>
+        {CONTENT.heroes.map((h) => {
+          const ability = h.abilities[h.call.ability];
+          return (
+            <Panel
+              key={h.id}
+              tone="solid"
+              className="p-5"
+              style={{ borderTopColor: h.color, borderTopWidth: 3 }}
+            >
+              <div className="flex items-center gap-3">
+                <HeroDisc heroId={h.id} size={40} />
+                <div>
+                  <h3 className="font-display text-lg font-bold leading-tight">{h.name}</h3>
+                  <p className="text-sm text-muted">calls before {ability?.name ?? 'a big move'}</p>
+                </div>
+              </div>
+              <p className="mt-3 flex flex-wrap items-center gap-1.5 text-sm">
+                <span className="text-muted">Wants:</span>
+                <Chip icon={CALL_ICON[h.call.answer]} color={CALL}>
+                  {CALL_ANSWER[h.call.answer]}
+                </Chip>
+                <span className="text-muted">within {h.call.answerTime} s</span>
+              </p>
+              <p className="mt-2 font-semibold" style={{ color: CALL }}>
+                Flourish · {h.call.flourish.name}
+              </p>
+              <p className="text-sm leading-relaxed text-text">{h.call.flourish.description}</p>
+              {h.call.lines[0] && (
+                <p className="mt-2 text-xs italic text-muted">“{h.call.lines[0]}”</p>
+              )}
+            </Panel>
+          );
+        })}
+      </div>
     </div>
   );
 }

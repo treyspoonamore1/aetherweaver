@@ -1,5 +1,9 @@
 import * as THREE from 'three';
 import type { AnswerTag } from '../sim';
+import { VISION_HEX, rgba } from './palette';
+
+/** Icons the overlay can draw: telegraph answers, plus the Weaver's Mend and Empower. */
+export type GlyphIcon = AnswerTag | 'mend' | 'empower';
 
 /**
  * World-anchored DOM overlay (docs/plan/05 §5.3): floating numbers, answer glyphs, callouts,
@@ -7,7 +11,7 @@ import type { AnswerTag } from '../sim';
  * every frame from pooled elements — no React, no element creation after construction.
  */
 
-const ICONS: Record<AnswerTag, string> = {
+const ICONS: Record<GlyphIcon, string> = {
   ward: '<path d="M12 2.5 19.5 6.5V12.5C19.5 17 16.2 20 12 21.5 7.8 20 4.5 17 4.5 12.5V6.5Z"/>',
   chime:
     '<path d="M6.5 16V11a5.5 5.5 0 0 1 11 0v5l2 2h-15Z"/><circle cx="12" cy="20.6" r="1.4"/><path d="M12 3v2"/>',
@@ -17,9 +21,11 @@ const ICONS: Record<AnswerTag, string> = {
   stack: '<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3.2"/>',
   move: '<path d="M4 12h13M12.5 6.5 18 12l-5.5 5.5"/>',
   dome: '<path d="M3 18.5a9 9 0 0 1 18 0Z"/><path d="M7 18.5a5 5 0 0 1 10 0"/>',
+  mend: '<path d="M12 4.5v15M4.5 12h15"/>',
+  empower: '<path d="M5 13.5 12 6.5l7 7"/><path d="M5 19 12 12l7 7"/>',
 };
 
-const ICON_COLORS: Record<AnswerTag, string> = {
+const ICON_COLORS: Record<GlyphIcon, string> = {
   ward: '#bff6ff',
   chime: '#e3d4ff',
   reel: '#7ff0de',
@@ -28,9 +34,11 @@ const ICON_COLORS: Record<AnswerTag, string> = {
   stack: '#f1f5f9',
   move: '#f1f5f9',
   dome: '#fde9b8',
+  mend: '#99f6e4',
+  empower: '#fde68a',
 };
 
-const LABELS: Record<AnswerTag, string> = {
+const LABELS: Record<GlyphIcon, string> = {
   ward: 'Ward',
   chime: 'Chime',
   reel: 'Reel',
@@ -39,9 +47,11 @@ const LABELS: Record<AnswerTag, string> = {
   stack: 'Stack',
   move: 'Move',
   dome: 'Dome',
+  mend: 'Heal',
+  empower: 'Empower',
 };
 
-function iconSvg(tag: AnswerTag): string {
+function iconSvg(tag: GlyphIcon): string {
   return `<span style="display:flex;flex-direction:column;align-items:center;gap:1px;color:${ICON_COLORS[tag]}"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${ICONS[tag]}</svg><span style="font:600 8px/1 Inter,sans-serif;letter-spacing:.06em;text-transform:uppercase;opacity:.9">${LABELS[tag]}</span></span>`;
 }
 
@@ -87,6 +97,24 @@ interface BadgeItem {
   used: boolean;
 }
 
+/** A round glyph with a countdown ring: hero calls (gold) and Fermata heal prompts. */
+interface BubbleItem {
+  el: HTMLDivElement;
+  ring: SVGCircleElement;
+  disc: SVGCircleElement;
+  icon: SVGSVGElement;
+  label: HTMLDivElement;
+  iconKey: string;
+  colorKey: string;
+  labelText: string;
+  filled: boolean;
+  used: boolean;
+}
+
+const BUBBLE_R = 19;
+const BUBBLE_C = 2 * Math.PI * BUBBLE_R;
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
 interface ArrowItem {
   el: HTMLDivElement;
   head: HTMLDivElement;
@@ -114,6 +142,8 @@ export class Overlay {
   private readonly callouts: CalloutItem[] = [];
   private readonly badges: BadgeItem[] = [];
   private readonly arrows: ArrowItem[] = [];
+  private readonly bubbles: BubbleItem[] = [];
+  private bubbleCursor = 0;
   private badgeCursor = 0;
   private readonly badgeX = new Float32Array(24);
   private readonly badgeY = new Float32Array(24);
@@ -141,6 +171,9 @@ export class Overlay {
   private raidUsed = false;
   private raidShown = false;
   private lastRaidText = '';
+  /** Settings: full-screen flash strength 0..1 (flash, chromatic pulse, danger pulse). */
+  private flashScale = 1;
+  private lethalHex = '';
 
   constructor(
     host: HTMLElement,
@@ -246,6 +279,79 @@ export class Overlay {
       const dot = div(ring, 'position:absolute;inset:5px;border-radius:50%;background:#fff;');
       this.arrows.push({ el, head, ring, dot, color: '', danger: false, used: false });
     }
+    for (let i = 0; i < 8; i++) {
+      const el = div(
+        this.root,
+        'position:absolute;left:0;top:0;width:44px;height:44px;margin:-22px 0 0 -22px;display:none;will-change:transform,opacity;',
+      );
+      const svg = document.createElementNS(SVG_NS, 'svg');
+      svg.setAttribute('width', '44');
+      svg.setAttribute('height', '44');
+      svg.setAttribute('viewBox', '0 0 44 44');
+      svg.style.cssText = 'position:absolute;inset:0;overflow:visible;';
+      const disc = document.createElementNS(SVG_NS, 'circle');
+      disc.setAttribute('cx', '22');
+      disc.setAttribute('cy', '22');
+      disc.setAttribute('r', String(BUBBLE_R));
+      disc.setAttribute('fill', 'rgba(8,10,20,0.82)');
+      disc.setAttribute('stroke-width', '1');
+      const ring = document.createElementNS(SVG_NS, 'circle');
+      ring.setAttribute('cx', '22');
+      ring.setAttribute('cy', '22');
+      ring.setAttribute('r', String(BUBBLE_R));
+      ring.setAttribute('fill', 'none');
+      ring.setAttribute('stroke-width', '3.2');
+      ring.setAttribute('stroke-linecap', 'round');
+      ring.setAttribute('stroke-dasharray', BUBBLE_C.toFixed(2));
+      ring.setAttribute('transform', 'rotate(-90 22 22)');
+      svg.append(disc, ring);
+      el.appendChild(svg);
+      const icon = document.createElementNS(SVG_NS, 'svg');
+      icon.setAttribute('width', '22');
+      icon.setAttribute('height', '22');
+      icon.setAttribute('viewBox', '0 0 24 24');
+      icon.setAttribute('fill', 'none');
+      icon.setAttribute('stroke', 'currentColor');
+      icon.setAttribute('stroke-width', '2.4');
+      icon.setAttribute('stroke-linecap', 'round');
+      icon.setAttribute('stroke-linejoin', 'round');
+      icon.style.cssText = 'position:absolute;left:11px;top:11px;';
+      el.appendChild(icon);
+      const label = div(
+        el,
+        'position:absolute;left:50%;top:46px;transform:translateX(-50%);white-space:nowrap;font:700 10px/1 Inter,sans-serif;letter-spacing:.08em;text-transform:uppercase;text-shadow:0 1px 0 rgba(0,0,0,0.9),0 0 6px rgba(0,0,0,0.8);',
+      );
+      this.bubbles.push({
+        el,
+        ring,
+        disc,
+        icon,
+        label,
+        iconKey: '',
+        colorKey: '',
+        labelText: '',
+        filled: false,
+        used: false,
+      });
+    }
+    this.setPalette();
+  }
+
+  /** Re-reads the live colour-vision palette (danger edge, raid edge, threatened arrows). */
+  setPalette(): void {
+    const lethal = VISION_HEX.lethal;
+    if (lethal === this.lethalHex) return;
+    this.lethalHex = lethal;
+    this.dangerEl.style.boxShadow = `inset 0 0 120px 20px ${rgba(lethal, 0.75)}`;
+    this.raidEdge.style.boxShadow = `inset 0 0 90px 10px ${rgba(lethal, 0.6)}`;
+    this.raidEl.style.borderColor = lethal;
+    this.raidEl.style.textShadow = `0 0 10px ${rgba(lethal, 0.9)}`;
+    for (const a of this.arrows) a.color = '';
+  }
+
+  /** Settings: scales every full-screen flash (0 = off … 1 = full). */
+  setFlashScale(s: number): void {
+    this.flashScale = s < 0 ? 0 : s > 1 ? 1 : s;
   }
 
   project(x: number, y: number, z: number, out: Projected): Projected {
@@ -348,6 +454,7 @@ export class Overlay {
 
   beginFrame(): void {
     this.badgeCursor = 0;
+    this.bubbleCursor = 0;
     this.arrowCursor = 0;
     this.raidUsed = false;
   }
@@ -356,7 +463,7 @@ export class Overlay {
     x: number,
     y: number,
     z: number,
-    answers: readonly AnswerTag[],
+    answers: readonly GlyphIcon[],
     key: string,
     border: string,
     label: string,
@@ -400,6 +507,57 @@ export class Overlay {
     b.el.style.transform = `translate3d(${bx.toFixed(1)}px,${by.toFixed(1)}px,0) translate(-50%,-50%) scale(${scale.toFixed(3)})`;
   }
 
+  // ── Glyph bubbles (immediate mode): calls, Fermata heal prompts ────────────────────
+
+  /**
+   * A round glyph over a world point: `icon` inside, a countdown ring (`remain` 0..1 of the
+   * ring still lit), a short label under it. `filled` = answered (solid disc in `hex`).
+   * `offsetX` shifts it in screen pixels (two bubbles over one hero).
+   */
+  bubble(
+    x: number,
+    y: number,
+    z: number,
+    icon: GlyphIcon,
+    label: string,
+    hex: string,
+    remain: number,
+    scale: number,
+    alpha: number,
+    filled: boolean,
+    offsetX = 0,
+  ): void {
+    const b = this.bubbles[this.bubbleCursor];
+    if (!b || alpha <= 0.01) return;
+    const p = this.project(x, y, z, this.p);
+    if (p.behind) return;
+    this.bubbleCursor++;
+    b.used = true;
+    if (b.iconKey !== icon) {
+      b.iconKey = icon;
+      b.icon.innerHTML = ICONS[icon];
+    }
+    if (b.colorKey !== hex || b.filled !== filled) {
+      b.colorKey = hex;
+      b.filled = filled;
+      b.ring.setAttribute('stroke', hex);
+      b.disc.setAttribute('stroke', hex);
+      b.disc.setAttribute('fill', filled ? rgba(hex, 0.92) : 'rgba(8,10,20,0.82)');
+      b.icon.style.color = filled ? '#0b0d18' : hex;
+      b.label.style.color = hex;
+      b.el.style.filter = `drop-shadow(0 0 8px ${rgba(hex, 0.75)})`;
+    }
+    if (b.labelText !== label) {
+      b.labelText = label;
+      b.label.textContent = label;
+    }
+    const r = remain < 0 ? 0 : remain > 1 ? 1 : remain;
+    b.ring.setAttribute('stroke-dashoffset', (BUBBLE_C * (1 - r)).toFixed(2));
+    b.el.style.display = 'block';
+    b.el.style.opacity = alpha.toFixed(3);
+    b.el.style.transform = `translate3d(${(p.x + offsetX).toFixed(1)}px,${p.y.toFixed(1)}px,0) scale(${scale.toFixed(3)})`;
+  }
+
   // ── Off-screen arrows (immediate mode) ─────────────────────────────────────────────
 
   /** Shows an edge arrow if (x, z) is off-screen. Returns true if one was drawn. */
@@ -433,10 +591,12 @@ export class Overlay {
     if (a.color !== color || a.danger !== isDanger) {
       a.color = color;
       a.danger = isDanger;
-      const ringColor = isDanger ? '#f43f5e' : color;
+      const ringColor = isDanger ? this.lethalHex : color;
       a.ring.style.borderColor = ringColor;
       a.ring.style.background = isDanger ? 'rgba(80,6,20,0.85)' : 'rgba(8,10,20,0.75)';
-      a.ring.style.boxShadow = isDanger ? '0 0 14px rgba(244,63,94,0.9)' : `0 0 8px ${color}88`;
+      a.ring.style.boxShadow = isDanger
+        ? `0 0 14px ${rgba(this.lethalHex, 0.9)}`
+        : `0 0 8px ${color}88`;
       a.head.style.borderLeftColor = ringColor;
       a.dot.style.background = color;
     }
@@ -467,6 +627,8 @@ export class Overlay {
   }
 
   flash(strength: number, duration = 0.16): void {
+    strength *= this.flashScale;
+    if (strength <= 0.001) return;
     this.flashStrength = Math.max(
       this.flashStrength * (this.flashT / this.flashDur || 0),
       strength,
@@ -476,11 +638,11 @@ export class Overlay {
   }
 
   danger(): void {
-    this.dangerT = 1;
+    if (this.flashScale > 0) this.dangerT = 1;
   }
 
   chroma(): void {
-    this.chromaT = 1;
+    if (this.flashScale > 0) this.chromaT = 1;
   }
 
   setSlowmo(v: number): void {
@@ -533,6 +695,13 @@ export class Overlay {
         b.el.style.display = 'none';
       }
     }
+    for (let i = this.bubbleCursor; i < this.bubbles.length; i++) {
+      const b = this.bubbles[i]!;
+      if (b.used) {
+        b.used = false;
+        b.el.style.display = 'none';
+      }
+    }
     for (let i = this.arrowCursor; i < this.arrows.length; i++) {
       const a = this.arrows[i]!;
       if (a.used) {
@@ -563,12 +732,14 @@ export class Overlay {
     if (this.dangerT > 0) {
       this.dangerT = Math.max(0, this.dangerT - dt * 1.1);
       const pulse = Math.sin((1 - this.dangerT) * Math.PI * 3) * 0.5 + 0.5;
-      this.dangerEl.style.opacity = (this.dangerT * (0.4 + 0.6 * pulse)).toFixed(3);
+      this.dangerEl.style.opacity = (this.dangerT * (0.4 + 0.6 * pulse) * this.flashScale).toFixed(
+        3,
+      );
     } else if (this.dangerEl.style.opacity !== '0') this.dangerEl.style.opacity = '0';
 
     if (this.chromaT > 0) {
       this.chromaT = Math.max(0, this.chromaT - dt * 1.6);
-      this.chromaEl.style.opacity = this.chromaT.toFixed(3);
+      this.chromaEl.style.opacity = (this.chromaT * this.flashScale).toFixed(3);
     } else if (this.chromaEl.style.opacity !== '0') this.chromaEl.style.opacity = '0';
 
     const slowOpacity = this.slow.toFixed(2);

@@ -1,10 +1,14 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { COLOR_VISIONS, applyVisionCss } from '../../app/colorVision';
 import * as Run from '../../meta/run';
+import { applyUiScale } from '../presentation';
 import type { RunState } from '../../meta/types';
 import { HudView } from '../hud/Hud';
 import { HowToPlay } from '../hud/HowToPlay';
 import { PauseMenu } from '../hud/PauseMenu';
 import { Button } from '../kit/Button';
+import { ScreenFrame, ScreenHeader } from '../kit/Backdrop';
+import { ChordBuilder } from '../screens/ChordBuilder';
 import { CodexView } from '../screens/CodexScreen';
 import { DraftView } from '../screens/DraftScreen';
 import { MapView } from '../screens/MapScreen';
@@ -20,6 +24,7 @@ import {
   freshRun,
   mockCallouts,
   mockHud,
+  mockWheel,
   playedRun,
   respiteRun,
   resultRun,
@@ -43,10 +48,19 @@ function World({ children }: { children: ReactNode }) {
   );
 }
 
-function HudStage({ scenario, coach }: { scenario: HudScenario; coach?: boolean }) {
+function HudStage({
+  scenario,
+  coach,
+  wheel = null,
+}: {
+  scenario: HudScenario;
+  coach?: boolean;
+  wheel?: ReturnType<typeof mockWheel> | null;
+}) {
   return (
     <World>
       <HudView
+        wheel={wheel}
         hud={mockHud(scenario)}
         callouts={mockCallouts(scenario)}
         decree={
@@ -86,9 +100,7 @@ function Flow() {
       return (
         <PrepView
           run={run}
-          onAuras={(ids) =>
-            set((r) => Run.setChords(r, ids.length ? [{ auras: ids, ornaments: [] }] : []))
-          }
+          onChords={(c) => set((r) => Run.setChords(r, c))}
           onEmbark={() => set(Run.embark)}
           onBack={() => set(() => freshRun(Math.floor(Math.random() * 999)))}
         />
@@ -143,7 +155,13 @@ function Flow() {
         />
       );
     case 'respite':
-      return <RespiteView run={run} onChoose={(c) => set((r) => Run.respite(r, c))} />;
+      return (
+        <RespiteView
+          run={run}
+          onChoose={(c) => set((r) => Run.respite(r, c))}
+          onRetune={(c) => set((r) => Run.retune(r, c))}
+        />
+      );
     case 'summary':
       return (
         <SummaryView
@@ -153,6 +171,15 @@ function Flow() {
         />
       );
   }
+}
+
+/** Unison with Reverb, and more Spirit reserved than there is. */
+function IllegalBuilder() {
+  const [draft, setDraft] = useState(() => [
+    { auras: ['fortissimo', 'ostinato'], ornaments: ['unison', 'reverb'] },
+    { auras: ['allegro', 'lullaby'], ornaments: [] },
+  ]);
+  return <ChordBuilder value={draft} onChange={setDraft} />;
 }
 
 interface ViewDef {
@@ -209,6 +236,38 @@ const VIEWS: ViewDef[] = [
     render: () => <HudStage scenario="resonance" />,
   },
   {
+    id: 'hud-calls',
+    group: 'Combat HUD',
+    label: 'Calls: open, answered, Unison',
+    w: 1280,
+    h: 720,
+    render: () => <HudStage scenario="calls" />,
+  },
+  {
+    id: 'hud-fermata',
+    group: 'Combat HUD',
+    label: 'Fermata hold, Pedal Point, chorus',
+    w: 1280,
+    h: 720,
+    render: () => <HudStage scenario="fermata" />,
+  },
+  {
+    id: 'hud-wheel',
+    group: 'Combat HUD',
+    label: 'Directive wheel: Rally',
+    w: 1280,
+    h: 720,
+    render: () => <HudStage scenario="wheel" wheel={mockWheel(false)} />,
+  },
+  {
+    id: 'hud-wheel-focus',
+    group: 'Combat HUD',
+    label: 'Directive wheel: Focus an enemy',
+    w: 1280,
+    h: 720,
+    render: () => <HudStage scenario="wheel" wheel={mockWheel(true)} coach={false} />,
+  },
+  {
     id: 'hud-sandbox',
     group: 'Combat HUD',
     label: 'Training Grounds',
@@ -252,14 +311,29 @@ const VIEWS: ViewDef[] = [
         {(run, set) => (
           <PrepView
             run={run}
-            onAuras={(ids) =>
-              set((r) => Run.setChords(r, ids.length ? [{ auras: ids, ornaments: [] }] : []))
-            }
+            onChords={(c) => set((r) => Run.setChords(r, c))}
             onEmbark={noop}
             onBack={noop}
           />
         )}
       </Interactive>
+    ),
+  },
+  {
+    id: 'chords-illegal',
+    group: 'Screens',
+    label: 'Chord builder: problems',
+    w: 1280,
+    h: 900,
+    render: () => (
+      <ScreenFrame>
+        <div className="mx-auto max-w-7xl px-6 py-8">
+          <ScreenHeader eyebrow="Chord builder" title="An illegal draft" />
+          <div className="mt-6">
+            <Interactive initial={() => freshRun(7)}>{() => <IllegalBuilder />}</Interactive>
+          </div>
+        </div>
+      </ScreenFrame>
     ),
   },
   {
@@ -287,6 +361,39 @@ const VIEWS: ViewDef[] = [
     render: () => (
       <ResultView run={resultRun(true)} result={resultRun(true).lastResult!} onContinue={noop} />
     ),
+  },
+  {
+    id: 'result-alone-wins',
+    group: 'Screens',
+    label: 'Result: they’d have won alone',
+    w: 1280,
+    h: 1500,
+    render: () => {
+      const run = resultRun(true, 0, 'victory');
+      return <ResultView run={run} result={run.lastResult!} onContinue={noop} />;
+    },
+  },
+  {
+    id: 'result-stalled',
+    group: 'Screens',
+    label: 'Result: alone, stalled (timeout)',
+    w: 1280,
+    h: 1500,
+    render: () => {
+      const run = resultRun(true, 0, 'timeout');
+      return <ResultView run={run} result={run.lastResult!} onContinue={noop} />;
+    },
+  },
+  {
+    id: 'result-no-rerun',
+    group: 'Screens',
+    label: 'Result: no re-run (null)',
+    w: 1280,
+    h: 1400,
+    render: () => {
+      const run = resultRun(true, 0, null);
+      return <ResultView run={run} result={run.lastResult!} onContinue={noop} />;
+    },
   },
   {
     id: 'result-loss',
@@ -320,7 +427,15 @@ const VIEWS: ViewDef[] = [
     label: 'Respite',
     w: 1280,
     h: 800,
-    render: () => <RespiteView run={respiteRun()} onChoose={noop} />,
+    render: () => <RespiteView run={respiteRun()} onChoose={noop} onRetune={noop} />,
+  },
+  {
+    id: 'respite-retune',
+    group: 'Screens',
+    label: 'Respite: Retune',
+    w: 1280,
+    h: 1050,
+    render: () => <RespiteView run={respiteRun()} onChoose={noop} onRetune={noop} initialRetune />,
   },
   {
     id: 'summary-win',
@@ -359,11 +474,27 @@ const VIEWS: ViewDef[] = [
     render: () => <CodexView onBack={noop} />,
   },
   {
-    id: 'settings',
+    id: 'codex-chords',
     group: 'Screens',
-    label: 'Settings',
+    label: 'Codex: Chords & ornaments',
+    w: 1280,
+    h: 1100,
+    render: () => <CodexView onBack={noop} initialTab="chords" />,
+  },
+  {
+    id: 'codex-calls',
+    group: 'Screens',
+    label: 'Codex: Calls',
     w: 1280,
     h: 900,
+    render: () => <CodexView onBack={noop} initialTab="calls" />,
+  },
+  {
+    id: 'settings',
+    group: 'Screens',
+    label: 'Settings (controls, accessibility)',
+    w: 1280,
+    h: 1900,
     render: () => <SettingsScreen />,
   },
   {
@@ -381,8 +512,12 @@ function readParams() {
   return {
     view: p.get('view') ?? VIEWS[0]!.id,
     h: Number(p.get('h')) || 0,
+    w: Number(p.get('w')) || 0,
     fit: p.get('fit') !== '0',
     nav: p.get('nav') !== '0',
+    /** Preview a colour-vision palette / UI scale without touching saved settings. */
+    vision: COLOR_VISIONS.find((v) => v === p.get('vision')) ?? null,
+    scale: Number(p.get('scale')) || 0,
   };
 }
 
@@ -391,6 +526,7 @@ export function UiLab() {
   const [params, setParams] = useState(readParams);
   const view = VIEWS.find((v) => v.id === params.view) ?? VIEWS[0]!;
   const stageH = params.h || view.h;
+  const stageW = params.w || view.w;
   const select = (id: string) => {
     const url = new URL(window.location.href);
     url.searchParams.set('view', id);
@@ -404,18 +540,26 @@ export function UiLab() {
   useLayoutEffect(() => {
     const el = holder.current;
     if (!el) return;
-    const measure = () => setScale(params.fit ? Math.min(1, el.clientWidth / view.w) : 1);
+    const measure = () => setScale(params.fit ? Math.min(1, el.clientWidth / stageW) : 1);
     measure();
     const ro = new ResizeObserver(measure);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [params.fit, view.w]);
+  }, [params.fit, stageW]);
   useEffect(() => {
     document.body.style.overflow = 'auto';
     return () => {
       document.body.style.overflow = '';
     };
   }, []);
+  useEffect(() => {
+    // After App's installPresentation (effects run child-first, so defer a tick).
+    const t = setTimeout(() => {
+      if (params.vision) applyVisionCss(params.vision);
+      if (params.scale) applyUiScale(params.scale);
+    }, 0);
+    return () => clearTimeout(t);
+  }, [params.vision, params.scale]);
 
   const groups = [...new Set(VIEWS.map((v) => v.group))];
   return (
@@ -450,13 +594,13 @@ export function UiLab() {
       )}
       <div ref={holder} className="min-w-0 flex-1 p-4">
         <div
-          style={{ width: view.w * scale, height: stageH * scale }}
+          style={{ width: stageW * scale, height: stageH * scale }}
           data-testid="lab-stage-outer"
         >
           <div
             data-testid="lab-stage"
             className="relative origin-top-left overflow-hidden rounded-lg border border-ink-600"
-            style={{ width: view.w, height: stageH, transform: `scale(${scale})` }}
+            style={{ width: stageW, height: stageH, transform: `scale(${scale})` }}
           >
             {view.render()}
           </div>

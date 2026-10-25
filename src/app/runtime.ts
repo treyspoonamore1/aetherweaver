@@ -24,6 +24,7 @@ import { takeHudCommits } from '../ui/perfCounters';
 import { useUi } from '../ui/store';
 import { useSettings } from './settings';
 import { buildOutcome } from './outcome';
+import { startWithoutYou, type WithoutYouJob } from './withoutYou';
 
 export { buildOutcome };
 
@@ -32,6 +33,8 @@ const HUD_INTERVAL_MS = 1000 / 15;
 const PERF_INTERVAL_MS = 250;
 /** Real seconds between the encounter ending and handing back to the run. */
 const END_DELAY_MS = 2600;
+/** How much longer to wait for the "without you" re-run before handing back without it. */
+const WITHOUT_YOU_GRACE_MS = 4000;
 
 /** One combat: the sim config to play and who to tell when it's over. */
 export interface CombatSession {
@@ -52,6 +55,12 @@ const TECH_NAMES: Record<string, string> = {
   thread: 'Thread',
   cue: 'Cue',
   crescendo: 'Crescendo',
+  plant: 'Plant',
+};
+const ANSWER_NAMES: Record<string, string> = {
+  ward: 'Ward',
+  empower: 'Empower',
+  chime: 'Chime',
 };
 const REASONS: Record<string, string> = {
   cooldown: 'not ready',
@@ -94,6 +103,8 @@ export class GameRuntime {
   devTimeScale = 1;
   /** A bot playing alongside (or instead of) the player: e2e tests and demos. */
   private autoplay: Bot | null = null;
+  /** The same fight with the Weaver absent, computed in the background (run fights only). */
+  private readonly withoutYou: WithoutYouJob | null;
 
   private perfFrames = 0;
   private perfFrameMs: number[] = [];
@@ -106,6 +117,8 @@ export class GameRuntime {
   ) {
     this.sim = createSim(options.session.config);
     this.seed = this.sim.config.seed;
+    this.withoutYou =
+      this.sim.state.encounter.kind === 'sandbox' ? null : startWithoutYou(options.session.config);
     this.recorder = new ReplayRecorder(this.sim.config);
     this.stage = new Stage(container, options.quality ?? 'high');
     this.camera = new CameraRig(this.stage.camera);
@@ -259,11 +272,15 @@ export class GameRuntime {
     if (status !== 'victory' && status !== 'defeat') return;
     if (this.endedAt < 0) this.endedAt = now;
     if (this.endReported || now - this.endedAt < END_DELAY_MS) return;
+    // Give the "without you" re-run a little longer if it's still going.
+    const job = this.withoutYou;
+    if (job && !job.done && now - this.endedAt < END_DELAY_MS + WITHOUT_YOU_GRACE_MS) return;
     this.endReported = true;
     this.options.session.onEnd?.(
       buildOutcome(
         state,
         this.sim.config.party.map((p) => p.heroId),
+        job?.result ?? null,
       ),
     );
   }
@@ -353,7 +370,10 @@ export class GameRuntime {
           ui.pushCallout(
             {
               kind: 'save',
-              text: `Saved ${who?.name ?? ''}`,
+              text:
+                event.cause === 'fermata'
+                  ? `${who?.name ?? ''} held on!`
+                  : `Saved ${who?.name ?? ''}`,
               detail: `${event.attack} · ${Math.round(event.counterfactualDamage)} prevented`,
               color: '#f5d78e',
             },
@@ -362,6 +382,50 @@ export class GameRuntime {
           );
           break;
         }
+        case 'callStarted': {
+          const who = this.heroName(state, event.hero);
+          ui.pushCallout(
+            {
+              kind: 'call',
+              text: event.line,
+              speaker: who?.name,
+              color: who?.color,
+              detail: `${ANSWER_NAMES[event.answer]} → ${event.flourish}`,
+            },
+            now,
+            Math.max(1500, (event.until - state.time) * 1000),
+          );
+          break;
+        }
+        case 'callAnswered':
+          ui.pushCallout(
+            { kind: 'response', text: `${event.flourish}!`, color: '#fde68a' },
+            now,
+            1600,
+          );
+          break;
+        case 'fermataHold': {
+          const who = this.heroName(state, event.hero);
+          ui.pushCallout(
+            {
+              kind: 'hold',
+              text: `${who?.name ?? 'A hero'} is holding on — heal them!`,
+              detail: `Fermata caught ${event.attack}`,
+              color: '#e2d6f8',
+            },
+            now,
+            Math.max(1200, (event.until - state.time) * 1000),
+          );
+          break;
+        }
+        case 'chorusPulse':
+          if (event.reached > 0)
+            ui.pushCallout(
+              { kind: 'system', text: `Chorus · ${event.auras} auras`, color: '#e9d5ff' },
+              now,
+              1200,
+            );
+          break;
         case 'cleansed':
           if (event.clutch)
             ui.pushCallout({ kind: 'clutch', text: 'Clutch Chime!', color: '#c4b5fd' }, now, 1600);
@@ -410,7 +474,11 @@ export class GameRuntime {
           ui.pushCallout(
             {
               kind: 'reject',
-              text: `${TECH_NAMES[event.technique] ?? event.technique}: ${REASONS[event.reason] ?? event.reason}`,
+              text: `${TECH_NAMES[event.technique] ?? event.technique}: ${
+                event.technique === 'plant' && event.reason === 'not-ready'
+                  ? 'no Pedal Point Chord'
+                  : (REASONS[event.reason] ?? event.reason)
+              }`,
             },
             now,
             900,
@@ -449,6 +517,7 @@ export class GameRuntime {
   };
 
   dispose(): void {
+    this.withoutYou?.cancel();
     cancelAnimationFrame(this.raf);
     this.raf = 0;
     document.removeEventListener('visibilitychange', this.onVisibility);

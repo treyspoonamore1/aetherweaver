@@ -4,7 +4,12 @@ A support-focused action roguelite: **you are the Weaver, and your party is the 
 
 This repo is the remake of the original prototype, which is kept read-only in [`reference/original/`](reference/original/) and never imported. The design, the analysis of the original and the roadmap are in [`docs/plan/`](docs/plan/README.md).
 
-**Status:** Phase 1 is built: a full playable **Prelude run**, well beyond the original's single arena. Its automated go/no-go checks pass; the human playtest is next. See [`docs/phase-1.md`](docs/phase-1.md); Phase 0 is in [`docs/phase-0.md`](docs/phase-0.md).
+**Status:** Phase 2 is built on top of Phase 1's playable **Prelude run**:
+
+- the build layer: two Chords of auras plus ornaments, Fermata, and a loadout report;
+- two signature features: heroes _call_ for your help (**Call and Response**), and the game shows the deaths you prevented and replays every fight **without you** (**proof of support**).
+
+The automated checks pass; the human playtest is next. See [`docs/phase-2.md`](docs/phase-2.md), [`docs/phase-1.md`](docs/phase-1.md) and [`docs/phase-0.md`](docs/phase-0.md).
 
 ![A busy fight: telegraphs with answer glyphs, the Thread, the aura field and damage numbers](docs/phase-1/vfx/busy-fight.jpg)
 
@@ -15,7 +20,7 @@ npm install
 npm run dev          # http://localhost:5173
 ```
 
-From the title screen, **New run** starts the Prelude: pick your Chord (two auras), then travel the branching map through skirmishes, elites, shrines and respites to the **Bellwarden** and the **Hollow Cantor**. **Training Grounds** is a sandbox with an enemy spawner. Append `?seed=123` for a fixed seed.
+From the title screen, **New run** starts the Prelude: build your Chords (or pick a preset: Steady, Beam, Anchor, Wide Choir), then travel the branching map through skirmishes, elites, shrines and respites to the **Bellwarden** and the **Hollow Cantor**. **Training Grounds** is a sandbox with an enemy spawner. Append `?seed=123` for a fixed seed.
 
 | Input                              | Action                                                                     |
 | ---------------------------------- | -------------------------------------------------------------------------- |
@@ -28,27 +33,32 @@ From the title screen, **New run** starts the Prelude: pick your Chord (two aura
 | Space                              | **Glide** (dash with i-frames)                                             |
 | T · Shift+1–4                      | **Cue** a charged hero's Solo (costs one Resonance segment)                |
 | R                                  | **Crescendo** at full Resonance                                            |
+| V                                  | **Plant** your Pedal Point field at the cursor                             |
+| Hold C / hold middle mouse         | **Directive wheel**: Focus · Rally · Hold · Scatter                        |
 | G / middle-click an enemy          | Focus: the whole party targets it                                          |
-| Z · X · C                          | Directives: Rally · Hold · Scatter                                         |
+| Z · X                              | Directive shortcuts: Rally · Hold                                          |
 | Mouse wheel · Esc · `` ` `` · F3   | Zoom · Pause · Dev panel · Perf HUD                                        |
 
-Keys are bound by physical position (`KeyboardEvent.code`), so they work on AZERTY and QWERTZ layouts too.
+Keys are bound by physical position (`KeyboardEvent.code`), so they work on AZERTY and QWERTZ layouts too, and every key can be rebound in **Settings → Controls**.
+
+When a hero **calls** for help (a gold glyph over them), answer it before their move goes off: **Ward** Kael, **Empower** Lyra (Thread her, right mouse), **Chime** Vexis. Their move becomes a stronger _Flourish_.
 
 ## Scripts
 
-| `npm run …`            | What it does                                                                                     |
-| ---------------------- | ------------------------------------------------------------------------------------------------ |
-| `dev`                  | Vite dev server (`?lab=vfx`, `?lab=ui`, `?lab=audio` open the workstream labs)                   |
-| `build` · `preview`    | Production build · serve it                                                                      |
-| `typecheck`            | Three TS projects: **sim** (no DOM/Node types), **app**, **node** (tools, tests, e2e)            |
-| `lint`                 | ESLint (including the architecture rules) and a Prettier check                                   |
-| `test`                 | Vitest: combat mechanics, run logic, saves, bots, determinism goldens, replays, architecture     |
-| `e2e`                  | Playwright against the production build                                                          |
-| `harness`              | Balance harness: Idle / Novice / Skilled bots per encounter; `-- --run` plays whole Prelude runs |
-| `sim:bench`            | Headless sim benchmark; `-- --check` enforces the 1.5 ms/tick budget                             |
-| `sim:replay -- <file>` | Re-simulate a replay file and verify its hash                                                    |
-| `golden:update`        | Regenerate golden hashes (only for _intended_ sim changes; prints what changed)                  |
-| `ci`                   | Everything CI runs, in order                                                                     |
+| `npm run …`            | What it does                                                                                                                         |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `dev`                  | Vite dev server (`?lab=vfx`, `?lab=ui`, `?lab=audio` open the workstream labs)                                                       |
+| `build` · `preview`    | Production build · serve it                                                                                                          |
+| `typecheck`            | Three TS projects: **sim** (no DOM/Node types), **app**, **node** (tools, tests, e2e)                                                |
+| `lint`                 | ESLint (including the architecture rules) and a Prettier check                                                                       |
+| `test`                 | Vitest: combat mechanics, run logic, saves, bots, determinism goldens, replays, architecture                                         |
+| `e2e`                  | Playwright against the production build                                                                                              |
+| `harness`              | Balance harness: Idle / Novice / Skilled bots per encounter; `-- --run` plays whole Prelude runs; `-- --loadout beam` picks a preset |
+| `loadouts`             | Loadout report: every Chord preset × every encounter × bot, flagging dead and dominant loadouts                                      |
+| `sim:bench`            | Headless sim benchmark; `-- --check` enforces the 1.5 ms/tick budget                                                                 |
+| `sim:replay -- <file>` | Re-simulate a replay file and verify its hash                                                                                        |
+| `golden:update`        | Regenerate golden hashes (only for _intended_ sim changes; prints what changed)                                                      |
+| `ci`                   | Everything CI runs, in order                                                                                                         |
 
 ## Architecture in one screen
 

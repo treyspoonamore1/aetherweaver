@@ -30,8 +30,8 @@ export interface BusNodes {
 export interface VoiceHandle {
   /** AudioContext time the voice is silent by. */
   endsAt: number;
-  /** Fades the voice out quickly and releases it. */
-  kill(at: number): void;
+  /** Fades the voice out (30 ms by default; pass `fade` for a longer, softer exit) and releases it. */
+  kill(at: number, fade?: number): void;
 }
 
 export interface DuckSpec {
@@ -215,6 +215,14 @@ export class Engine {
     g.linearRampToValueAtTime(Math.min(current, spec.depth), t + 0.03);
     g.setValueAtTime(Math.min(current, spec.depth), t + 0.03 + spec.hold);
     g.linearRampToValueAtTime(1, t + 0.03 + spec.hold + spec.release);
+  }
+
+  /** Scales a bus's reverb send (1 = the static mix). Used to "freeze" the music in a Fermata. */
+  boostReverb(bus: BusName, mult: number, timeConstant = 0.15): void {
+    const p = this.bus[bus].send.gain;
+    const t = this.now;
+    p.cancelScheduledValues(t);
+    p.setTargetAtTime(REVERB_SEND[bus] * mult, t, timeConstant);
   }
 
   /** Dips the music's brightness for a slow-motion moment, then restores it. */
@@ -451,6 +459,9 @@ export class Voice {
     }
     if (spec.detune) o.detune.value = spec.detune;
     const env = ctx.createGain();
+    // Silent until the envelope starts: a source that begins a fraction of a sample before
+    // its first automation event would otherwise leak one sample at the default gain of 1.
+    env.gain.value = 0;
     const end = applyEnvelope(
       env.gain,
       spec.start,
@@ -481,6 +492,9 @@ export class Voice {
     src.buffer = spec.pink ? this.e.pink : this.e.white;
     src.loop = true;
     const env = ctx.createGain();
+    // Silent until the envelope starts: a source that begins a fraction of a sample before
+    // its first automation event would otherwise leak one sample at the default gain of 1.
+    env.gain.value = 0;
     const end = applyEnvelope(
       env.gain,
       spec.start,
@@ -516,15 +530,15 @@ export class Voice {
     this.e.track(this.bus, this.sources, this.nodes);
     return {
       endsAt: this.endsAt,
-      kill: (at: number) => {
+      kill: (at: number, fade = 0.03) => {
         if (this.killed) return;
         this.killed = true;
         const g = this.out.gain;
         try {
           g.cancelScheduledValues(at);
           g.setValueAtTime(g.value, at);
-          g.linearRampToValueAtTime(0, at + 0.03);
-          for (const s of this.sources) s.stop(at + 0.05);
+          g.linearRampToValueAtTime(0, at + fade);
+          for (const s of this.sources) s.stop(at + fade + 0.02);
         } catch {
           // already stopped
         }

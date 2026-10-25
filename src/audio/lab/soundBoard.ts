@@ -8,9 +8,20 @@ import { IDS, ev, type HeroKey } from './labState';
 export interface SoundButton {
   id: string;
   label: string;
-  group: 'support' | 'world' | 'ui';
+  group: 'support' | 'phase2' | 'world' | 'ui';
   /** Fires the sound. Receives the director and a world to read/mutate. */
   fire(d: SynthDirector, w: FakeWorld): void;
+  /** Follow-up events, `delay` seconds after the first (call then answer, hold then release). */
+  then?: { delay: number; fire(d: SynthDirector, w: FakeWorld): void }[];
+  /** Seconds an offline render needs (default 4). */
+  length?: number;
+}
+
+/** Fires a button live: the sound now, then its follow-ups on timers. Returns a cancel(). */
+export function fireSound(s: SoundButton, d: SynthDirector, w: FakeWorld): () => void {
+  s.fire(d, w);
+  const timers = (s.then ?? []).map((f) => window.setTimeout(() => f.fire(d, w), f.delay * 1000));
+  return () => timers.forEach((t) => window.clearTimeout(t));
 }
 
 const fire = (d: SynthDirector, w: FakeWorld, ...events: SimEvent[]) => d.onEvents(events, w.state);
@@ -51,6 +62,23 @@ function mend(d: SynthDirector, w: FakeWorld, hero: HeroKey, frac: number) {
     }),
   );
 }
+
+const ANSWER_OF = { kael: 'ward', lyra: 'empower', vexis: 'chime' } as const;
+const FLOURISH_OF = { kael: 'Bulwark', lyra: 'Heartseeker', vexis: 'Resonant Starbolt' } as const;
+
+const callStarted = (h: HeroKey, answer: 'ward' | 'empower' | 'chime'): SimEvent =>
+  ev('callStarted', {
+    hero: IDS[h],
+    answer,
+    ability: 'lab',
+    flourish: FLOURISH_OF[h],
+    until: 2.8,
+    line: 'Lab call',
+  });
+
+/** The lab's fake clock sits at t = 0, so `until` is the hold length. */
+const holdEvent = (seconds: number): SimEvent =>
+  ev('fermataHold', { hero: IDS.kael, until: seconds, attack: 'Requiem', damage: 1400 });
 
 export const SOUNDS: SoundButton[] = [
   // ── Support ────────────────────────────────────────────────────────────────────
@@ -175,6 +203,167 @@ export const SOUNDS: SoundButton[] = [
     label: 'Rejected',
     group: 'support',
     fire: (d, w) => fire(d, w, ev('techniqueRejected', { technique: 'ward', reason: 'cooldown' })),
+  },
+  // ── Phase 2: Call and Response, Fermata, Chords ─────────────────────────────
+  ...(['kael', 'lyra', 'vexis'] as const).map((h): SoundButton => {
+    const answer = ANSWER_OF[h];
+    return {
+      id: `call-${h}`,
+      label: `Call ${h} (question only)`,
+      group: 'phase2',
+      length: 4,
+      fire: (d, w) => fire(d, w, callStarted(h, answer)),
+    };
+  }),
+  ...(['kael', 'lyra', 'vexis'] as const).map((h): SoundButton => {
+    const answer = ANSWER_OF[h];
+    return {
+      id: `call-answer-${h}`,
+      label: `Call → answer: ${h} (${answer})`,
+      group: 'phase2',
+      length: 6,
+      fire: (d, w) => fire(d, w, callStarted(h, answer)),
+      then: [
+        {
+          delay: 1.6,
+          fire: (d, w) =>
+            fire(
+              d,
+              w,
+              ev('callAnswered', { hero: IDS[h], answer, flourish: FLOURISH_OF[h], after: 1.6 }),
+            ),
+        },
+      ],
+    };
+  }),
+  {
+    id: 'call-quick',
+    label: 'Call → quick answer (Lyra)',
+    group: 'phase2',
+    length: 5,
+    fire: (d, w) => fire(d, w, callStarted('lyra', 'empower')),
+    then: [
+      {
+        delay: 0.5,
+        fire: (d, w) =>
+          fire(
+            d,
+            w,
+            ev('callAnswered', {
+              hero: IDS.lyra,
+              answer: 'empower',
+              flourish: 'Heartseeker',
+              after: 0.5,
+            }),
+          ),
+      },
+    ],
+  },
+  ...(['kael', 'vexis'] as const).map((h): SoundButton => ({
+    id: `call-missed-${h}`,
+    label: `Call → missed: ${h}`,
+    group: 'phase2',
+    length: 6,
+    fire: (d, w) => fire(d, w, callStarted(h, ANSWER_OF[h])),
+    then: [
+      {
+        delay: 2.5,
+        fire: (d, w) => fire(d, w, ev('callEnded', { hero: IDS[h], reason: 'missed' })),
+      },
+    ],
+  })),
+  {
+    id: 'call-cancelled',
+    label: 'Call → cancelled (Kael)',
+    group: 'phase2',
+    length: 4,
+    fire: (d, w) => fire(d, w, callStarted('kael', 'ward')),
+    then: [
+      {
+        delay: 0.9,
+        fire: (d, w) => fire(d, w, ev('callEnded', { hero: IDS.kael, reason: 'cancelled' })),
+      },
+    ],
+  },
+  ...(
+    [
+      ['kael', 'Bulwark'],
+      ['lyra', 'Heartseeker'],
+      ['vexis', 'Resonant Starbolt'],
+    ] as const
+  ).map(([h, name]): SoundButton => ({
+    id: `flourish-${h}`,
+    label: `Flourish: ${name}`,
+    group: 'phase2',
+    fire: (d, w) =>
+      fire(d, w, ev('flourish', { hero: IDS[h], name, x: h === 'kael' ? -3 : 3, z: 0, radius: 6 })),
+  })),
+  {
+    id: 'hold-saved',
+    label: 'Fermata hold → saved',
+    group: 'phase2',
+    length: 6,
+    fire: (d, w) => fire(d, w, holdEvent(2.2)),
+    then: [
+      {
+        delay: 2.0,
+        fire: (d, w) => {
+          fire(d, w, ev('fermataReleased', { hero: IDS.kael, saved: true }));
+          fire(
+            d,
+            w,
+            ev('save', {
+              target: IDS.kael,
+              cause: 'fermata',
+              counterfactualDamage: 1400,
+              attack: 'Requiem',
+            }),
+          );
+        },
+      },
+    ],
+  },
+  {
+    id: 'hold-lost',
+    label: 'Fermata hold → not saved',
+    group: 'phase2',
+    length: 6,
+    fire: (d, w) => fire(d, w, holdEvent(2.2)),
+    then: [
+      {
+        delay: 2.2,
+        fire: (d, w) => fire(d, w, ev('fermataReleased', { hero: IDS.kael, saved: false })),
+      },
+    ],
+  },
+  ...[3, 4, 5, 6].map((auras): SoundButton => ({
+    id: `chorus-${auras}`,
+    label: `Chorus Pulse (${auras} auras)`,
+    group: 'phase2',
+    length: 5,
+    fire: (d, w) => fire(d, w, ev('chorusPulse', { hero: IDS.kael, auras, reached: 3 })),
+  })),
+  {
+    id: 'plant',
+    label: 'Pedal Point planted',
+    group: 'phase2',
+    fire: (d, w) => fire(d, w, ev('fieldPlanted', { chord: 0, fromX: 0, fromZ: 0, x: -5, z: 2 })),
+  },
+  {
+    id: 'save-ghost',
+    label: 'Save (with ghost swell)',
+    group: 'phase2',
+    fire: (d, w) =>
+      fire(
+        d,
+        w,
+        ev('save', {
+          target: IDS.lyra,
+          cause: 'ward',
+          counterfactualDamage: 900,
+          attack: 'Requiem',
+        }),
+      ),
   },
   // ── World ──────────────────────────────────────────────────────────────────────
   {
@@ -304,7 +493,25 @@ export const SOUNDS: SoundButton[] = [
     fire: (d, w) => fire(d, w, tele(['scatter'], 'link', 9)),
   },
   // ── UI ─────────────────────────────────────────────────────────────────────────
-  ...(['hover', 'click', 'confirm', 'back', 'pick', 'node', 'error', 'reward'] as UiSound[]).map(
-    (s): SoundButton => ({ id: `ui-${s}`, label: s, group: 'ui', fire: (d) => d.playUi(s) }),
-  ),
+  ...(
+    [
+      'hover',
+      'click',
+      'confirm',
+      'back',
+      'pick',
+      'node',
+      'error',
+      'reward',
+      'wheelOpen',
+      'wheelPick',
+      'reveal',
+    ] as UiSound[]
+  ).map((s): SoundButton => ({
+    id: `ui-${s}`,
+    label: s,
+    group: 'ui',
+    length: s === 'reveal' ? 5 : undefined,
+    fire: (d) => d.playUi(s),
+  })),
 ];

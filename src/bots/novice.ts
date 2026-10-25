@@ -9,10 +9,15 @@ import type { Command, WorldState } from '../sim';
 import type { Bot } from './types';
 import {
   Intent,
+  caller,
   centroid,
   dist,
   enemiesOf,
+  heldHero,
   partyOf,
+  plantCommand,
+  plantSpot,
+  plantedChord,
   statusRemaining,
   threatsOn,
   weaverOf,
@@ -57,25 +62,49 @@ export class NoviceBot implements Bot {
     const ec = centroid(enemies.length > 0 ? enemies : party.map((h) => h.e));
     this.intent.aim(out, ec.x, ec.z);
 
-    // Thread the most hurt hero (raw HP, no forecasting); revive the downed.
+    // Pedal Point: re-plant under the party when they've clearly left the field.
+    const planted = plantedChord(state);
+    if (planted && wc.plantCooldown <= 0 && party.length > 0 && this.rng.chance(0.3)) {
+      const spot = plantSpot(party);
+      if (dist(spot, planted) > planted.radius * 0.7 && dist(spot, w) < CONTENT.weaver.plantRange)
+        out.push(plantCommand(spot));
+    }
+
+    // Thread the most hurt hero (raw HP, no forecasting); revive the downed. A hero held by
+    // Fermata is the most hurt of all — when they notice.
     const downed = all.find((h) => h.e.health!.downed && !h.e.health!.dead);
     const lowest = [...party].sort(
       (a, b) => a.e.health!.hp / a.e.health!.maxHp - b.e.health!.hp / b.e.health!.maxHp,
     )[0];
-    const pick = downed ?? lowest;
+    const held = heldHero(party);
+    const pick = (held && this.rng.chance(0.6) ? held : null) ?? downed ?? lowest;
     if (pick && wc.threadSlot !== pick.slot && wc.threadLock <= 0 && this.rng.chance(0.7)) {
       out.push({ t: 'thread', slot: pick.slot });
     }
     // Shielded enemies need Empower (the coach hint teaches this); otherwise keep Mending.
     const shielded = enemies.some((e) => e.health!.shields.some((s) => s.kind === 'discord'));
     const healthy = party.every((h) => h.e.health!.hp > h.e.health!.maxHp * 0.6);
-    const wantEmpower = shielded && healthy && !downed;
+    // Sometimes they answer a call (and sometimes they don't notice it).
+    const calling = caller(party);
+    const call = calling?.e.hero!.call ?? null;
+    const answering = !!call && now - call.start > 0.8 && this.rng.chance(0.35);
+    const empowerCall = answering && call!.answer === 'empower' && healthy && !downed && !held;
+    const wantEmpower = (shielded && healthy && !downed) || empowerCall;
     if (wantEmpower) {
-      const lyra = party.find((h) => h.defId === 'lyra');
-      if (lyra && wc.threadSlot !== lyra.slot && wc.threadLock <= 0)
-        out.push({ t: 'thread', slot: lyra.slot });
+      const to = empowerCall ? calling : party.find((h) => h.defId === 'lyra');
+      if (to && wc.threadSlot !== to.slot && wc.threadLock <= 0)
+        out.push({ t: 'thread', slot: to.slot });
     }
     if ((wc.threadMode === 'empower') !== wantEmpower) out.push({ t: 'mode' });
+    if (answering && call!.answer === 'ward' && wc.wardCharges > 0 && wc.spirit >= tech.ward.cost)
+      out.push({ t: 'tech', id: 'ward', slot: calling!.slot });
+    if (
+      answering &&
+      call!.answer === 'chime' &&
+      wc.cooldowns.chime <= 0 &&
+      wc.spirit >= tech.chime.cost
+    )
+      out.push({ t: 'tech', id: 'chime', point: { x: calling!.e.x, z: calling!.e.z } });
 
     // Ward someone who looks low, or (sometimes) whoever has something scary coming.
     if (wc.wardCharges > 0 && wc.spirit >= tech.ward.cost) {
