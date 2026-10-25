@@ -126,7 +126,7 @@ function startWave(world: World, index: number): void {
         affixes: [...s.affixes],
         wave: index + 1,
       });
-      d.waveHp += enemyDef(s.enemy).hp * (s.elite ? 2.2 : 1);
+      d.waveHp += enemyDef(s.enemy).hp * (s.elite ? 2.2 : 1) * world.config.threat;
       world.events.push({ type: 'spawnWarning', tick: world.tick, x: p.x, z: p.z, delay: WARNING });
     }
   }

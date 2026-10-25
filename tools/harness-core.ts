@@ -100,7 +100,7 @@ export interface RunSummary {
  * The harness's shopping list (docs/phase-3b.md): relics first, the dearest it can afford,
  * then motifs; healing when the party is hurt. Deterministic, not clever.
  */
-function shop(run: RunState): RunState {
+function shop(run: RunState, relics: boolean): RunState {
   for (let guard = 0; guard < 8; guard++) {
     const items = run.shop?.items ?? [];
     const hurt = run.party.reduce((s, h) => s + h.hpPct, 0) / Math.max(1, run.party.length) < 0.6;
@@ -108,6 +108,7 @@ function shop(run: RunState): RunState {
       .map((item, index) => ({ item, index }))
       .filter(({ item }) => !item.sold && item.price <= run.aether)
       .filter(({ item }) => item.kind !== 'heal' || hurt)
+      .filter(({ item }) => relics || item.kind !== 'relic')
       .sort(
         (a, b) =>
           (a.item.kind === 'relic' ? 0 : a.item.kind === 'heal' ? 1 : 2) -
@@ -149,7 +150,9 @@ export function playRun(
   seed: number,
   bot: BotKind,
   chords: readonly ChordLoadout[] = Run.DEFAULT_CHORDS,
+  opts: { relics?: boolean } = {},
 ): RunSummary {
+  const relics = opts.relics ?? true;
   let run = Run.embark(Run.setChords(Run.newRun(seed), chords));
   let seconds = 0;
   let last = '';
@@ -163,6 +166,12 @@ export function playRun(
       }
       case 'combat': {
         const config = Run.combatConfig(run)!;
+        // Calibration: THREAT_PER_ROW=0.05 overrides the run's Threat curve.
+        const perRow = process.env.THREAT_PER_ROW;
+        if (perRow !== undefined) {
+          const row = Run.findNode(run, run.pending!)!.row;
+          config.threat = 1 + Number(perRow) * Math.max(0, row - 1);
+        }
         const sim = createSim(config);
         const player = makeBot(bot, config.seed);
         for (let t = 0; t < MAX_SECONDS * 60; t++) {
@@ -192,10 +201,10 @@ export function playRun(
         run = Run.respite(run, 'rest');
         break;
       case 'relic':
-        run = Run.pickRelic(run, 0);
+        run = Run.pickRelic(run, relics ? 0 : null);
         break;
       case 'merchant':
-        run = shop(run);
+        run = shop(run, relics);
         break;
       case 'forge':
         run = forge(run);

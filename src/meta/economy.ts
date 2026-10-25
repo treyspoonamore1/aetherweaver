@@ -9,6 +9,16 @@ import type { ForgeService, Grade } from './types';
 /** Aether a run starts with. */
 export const START_AETHER = 0;
 
+/**
+ * Threat (docs/phase-3b.md): the deeper the row, the more life every enemy has, so the party's
+ * growth (motifs, relics, a merchant's healing) never outruns the fights. Row 1 is ×1.
+ */
+export const THREAT_PER_ROW = 0.035;
+
+export function threatFor(row: number): number {
+  return Math.round((1 + THREAT_PER_ROW * Math.max(0, row - 1)) * 1000) / 1000;
+}
+
 /** Aether for winning each kind of fight, before the grade bonus. A loss earns none. */
 export const FIGHT_AETHER: Readonly<Record<EncounterKind, number>> = {
   sandbox: 0,

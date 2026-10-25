@@ -25,7 +25,22 @@ export type UiSound =
   | 'reveal'
   /** Phase 3: a Weaver Rank is gained (warm, short sting), and one unlock card is revealed. */
   | 'rankUp'
-  | 'unlock';
+  | 'unlock'
+  /**
+   * Phase 3b (docs/phase-3b.md): buying at a merchant and failing to afford it; a forge's
+   * service; an event's scene opening and a gamble won or lost; relics revealed on an offer
+   * and one taken; a curse lifted; Aether counted in on the result screen.
+   */
+  | 'buy'
+  | 'cantAfford'
+  | 'forge'
+  | 'eventOpen'
+  | 'gambleWin'
+  | 'gambleLose'
+  | 'relicReveal'
+  | 'relicPick'
+  | 'curseLifted'
+  | 'aether';
 
 export interface Volumes {
   /** 0..1 each. */

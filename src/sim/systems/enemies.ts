@@ -55,7 +55,7 @@ export function spawnEnemy(
   const affixes = [...(opts.affixes ?? [])];
   const hpMult = tier === 'elite' ? 2.2 : 1;
   const hastened = affixes.includes('hastened');
-  const maxHp = Math.round(def.hp * hpMult);
+  const maxHp = Math.round(def.hp * hpMult * world.config.threat);
   const e = world.entities.spawn('enemy', {
     x,
     z,

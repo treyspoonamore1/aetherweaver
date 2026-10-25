@@ -33,6 +33,22 @@ import {
   type MotifVoice,
 } from './theory';
 
+/**
+ * Phase 3b: the voice group of each relic sound, by relic id. Every relic id the sim emits in
+ * `relicTriggered` is listed (tests read the sim sources to check); a relic that never
+ * visibly acts has no sound. They sit on the sfx bus, a notch under the Perfect Ward and
+ * Save sounds, and never duck anything.
+ */
+export const RELIC_SOUND_GROUPS: Readonly<Record<string, string>> = {
+  silver_thimble: 'relic:thimble',
+  lantern_of_the_lost: 'relic:lantern',
+  martyrs_veil: 'relic:veil',
+  cracked_metronome: 'relic:metronome',
+  tuning_fork: 'relic:fork',
+  glass_halo: 'relic:halo',
+  cantors_hymnal: 'relic:hymnal',
+};
+
 const clamp = (x: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, x));
 
 interface PlayOpts {
@@ -226,7 +242,11 @@ export class SfxEngine {
         this.play('crescEnd', 1, 'sfx', (v, t) => whoosh(v, t, 0.7, 0.06, 4000, 500, 0.8));
         break;
       case 'techniqueRejected':
-        this.rejected(ev.reason);
+        if (ev.technique === 'glide' && ev.reason === 'locked') this.glideLocked();
+        else this.rejected(ev.reason);
+        break;
+      case 'relicTriggered':
+        this.relic(ev.relic, ev.hero, state);
         break;
       case 'waveStarted':
         this.waveHorn();
@@ -582,6 +602,180 @@ export class SfxEngine {
         filter: { type: 'lowpass', freq: 300, q: 0.6 },
       }),
     );
+  }
+
+  // ── Relics (Phase 3b) ────────────────────────────────────────────────────────────
+  /** Heavy Score's curse: a refused Glide is a dull, heavy thud, not the generic buzz. */
+  private glideLocked(): void {
+    if (!this.e.gate('reject', 0.22)) return;
+    this.play('rejectLocked', 2, 'sfx', (v, t) => {
+      thump(v, t, 78, 0.2, 0.2, 0.6);
+      v.noise({ start: t, dur: 0.07, gain: 0.07, filter: { type: 'lowpass', freq: 220 } });
+      v.osc({
+        type: 'triangle',
+        freq: 98,
+        freqTo: 82,
+        start: t + 0.01,
+        dur: 0.08,
+        attack: 0.006,
+        release: 0.05,
+        gain: 0.06,
+        filter: { type: 'lowpass', freq: 260, q: 0.5 },
+      });
+    });
+  }
+
+  /** A relic visibly acted. Unknown ids are silent. */
+  private relic(id: string, hero: number | null, state: WorldState): void {
+    const group = RELIC_SOUND_GROUPS[id];
+    if (!group) return;
+    const e = this.e;
+    const pan = hero === null ? 0 : this.heroPan(state, hero);
+    const c = this.chord();
+    switch (id) {
+      case 'silver_thimble': {
+        // Light and silvery, and the most frequent: a tiny glass pair at the hero's pitch.
+        if (!e.gate(group, 0.3)) return;
+        const idx = heroPluckIndex(this.heroId(state, hero ?? -1)) + 14;
+        this.play(
+          group,
+          2,
+          'sfx',
+          (v, t) => {
+            glassNote(v, t, midiToHz(scaleMidi(idx)), 0.028, 0.5, 1);
+            glassNote(v, t + 0.05, midiToHz(scaleMidi(idx + 4)), 0.02, 0.4, 1);
+          },
+          { pan },
+        );
+        break;
+      }
+      case 'lantern_of_the_lost': {
+        // Warm and consoling, a breath after the down sound: a soft Dm choir and a small bell.
+        if (!e.gate(group, 0.5)) return;
+        this.play(group, 1, 'sfx', (v, t) => {
+          const at = t + 0.14;
+          choirChord(v, at, [50, 57, 62, 65].map(midiToHz), 0.9, 0.11, 0.22, 1.1);
+          handbell(v, at + 0.05, midiToHz(81), 0.03, 1.8, 0.35);
+          pluck(v, at + 0.05, midiToHz(74), 0.04, 0.6, 0.3);
+        });
+        break;
+      }
+      case 'martyrs_veil': {
+        // A save, heavy and noble: a low horn fifth, a deep bell and the blow landing.
+        if (!e.gate(group, 1)) return;
+        this.play(
+          group,
+          1,
+          'sfx',
+          (v, t) => {
+            horn(v, t, midiToHz(50), 0.8, 0.1);
+            horn(v, t + 0.03, midiToHz(57), 0.75, 0.08);
+            handbell(v, t, midiToHz(62), 0.08, 2.2, 0.45);
+            thump(v, t, 55, 0.22, 0.35, 0.6);
+            pluck(v, t + 0.12, midiToHz(74), 0.05, 0.6, 0.5);
+          },
+          { pan, big: true },
+        );
+        break;
+      }
+      case 'cracked_metronome': {
+        // A clock tick that lands with the Perfect Ward, then a tock a hair late and flat.
+        if (!e.gate(group, 0.3)) return;
+        this.play(
+          group,
+          1,
+          'sfx',
+          (v, t) => {
+            const tick = (at: number, f: number, g: number) => {
+              v.noise({
+                start: at,
+                dur: 0.02,
+                gain: g,
+                filter: { type: 'bandpass', freq: f * 2.4, q: 2.5 },
+              });
+              v.osc({
+                type: 'triangle',
+                freq: f,
+                freqTo: f * 0.7,
+                glide: 0.05,
+                start: at,
+                dur: 0.04,
+                attack: 0.002,
+                release: 0.03,
+                gain: g * 0.8,
+              });
+            };
+            tick(t, 1040, 0.07);
+            tick(t + 0.12, 1040 * 0.944, 0.04);
+          },
+          { pan },
+        );
+        break;
+      }
+      case 'tuning_fork': {
+        // A pure tone on the chord's root, ringing long, with a faint beating twin.
+        if (!e.gate(group, 0.3)) return;
+        const f = midiToHz(this.rootAbove(c, 79));
+        this.play(
+          group,
+          1,
+          'sfx',
+          (v, t) => {
+            v.osc({
+              type: 'sine',
+              freq: f,
+              start: t,
+              dur: 1.5,
+              attack: 0.002,
+              release: 0.1,
+              gain: 0.06,
+            });
+            v.osc({
+              type: 'sine',
+              freq: f + 1.3,
+              start: t,
+              dur: 1.2,
+              attack: 0.002,
+              release: 0.1,
+              gain: 0.025,
+            });
+            v.osc({
+              type: 'sine',
+              freq: f * 6.27,
+              start: t,
+              dur: 0.12,
+              attack: 0.001,
+              release: 0.03,
+              gain: 0.012,
+            });
+          },
+          { pan },
+        );
+        break;
+      }
+      case 'glass_halo': {
+        // A glassy shimmer over the Perfect: chord tones climbing in the top octaves.
+        if (!e.gate(group, 0.3)) return;
+        const tones = chordNotesInRange(c, 84, 104).slice(0, 4);
+        this.play(group, 1, 'sfx', (v, t) => {
+          tones.forEach((m, i) => glassNote(v, t + 0.05 + i * 0.055, midiToHz(m), 0.03, 1.4, 1));
+          cymbalSwell(v, t + 0.04, 0.15, 0.9, 0.008);
+        });
+        break;
+      }
+      case 'cantors_hymnal': {
+        // The fight opens: a short Dm chord, always on the tonic whatever the music is on.
+        if (!e.gate(group, 2)) return;
+        this.play(group, 1, 'sfx', (v, t) => {
+          choirChord(v, t, [50, 57, 62, 65].map(midiToHz), 0.6, 0.16, 0.1, 0.9);
+          handbell(v, t, midiToHz(74), 0.05, 1.4, 0.5);
+          handbell(v, t + 0.06, midiToHz(81), 0.035, 1.4, 0.5);
+        });
+        break;
+      }
+      default:
+        break;
+    }
   }
 
   // ── Call and Response ────────────────────────────────────────────────────────────

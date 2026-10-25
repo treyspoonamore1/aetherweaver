@@ -31,9 +31,10 @@ const MOODS: AudioMood[] = [
   'victory',
   'defeat',
 ];
-const GROUPS: { id: 'support' | 'phase2' | 'world' | 'ui'; title: string }[] = [
+const GROUPS: { id: 'support' | 'phase2' | 'relic' | 'world' | 'ui'; title: string }[] = [
   { id: 'support', title: 'Support actions' },
   { id: 'phase2', title: 'Phase 2: Call and Response, Fermata, Chords' },
+  { id: 'relic', title: 'Phase 3b: relics and the refused Glide' },
   { id: 'world', title: 'World, enemies and telegraphs' },
   { id: 'ui', title: 'UI' },
 ];

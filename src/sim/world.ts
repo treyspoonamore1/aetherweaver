@@ -75,6 +75,11 @@ export interface SimConfig {
   relics?: (string | RelicConfig)[];
   /** Boons and banes in force for this fight, by id. */
   boons?: string[];
+  /**
+   * The run's Threat (docs/phase-3b.md): every enemy's life × this, so the deeper rows of the
+   * map hold their own against a stronger party. 1 outside runs; clamped to 1–3.
+   */
+  threat?: number;
   assists?: AssistConfig;
   /** Enables `debug` commands (spawns, teleport). Debug commands are recorded in replays. */
   debug?: boolean;
@@ -95,6 +100,7 @@ export interface ResolvedSimConfig {
   /** None when the Weaver is absent: the relics are theirs. */
   relics: Required<RelicConfig>[];
   boons: string[];
+  threat: number;
   assists: Required<AssistConfig>;
   debug: boolean;
   absent: boolean;
@@ -151,6 +157,7 @@ export function resolveConfig(config: SimConfig, content: Content = CONTENT): Re
     motifs,
     relics,
     boons,
+    threat: Math.max(1, Math.min(3, config.threat ?? 1)),
     assists: {
       perfectWindowBonus: Math.max(0, Math.min(0.3, a.perfectWindowBonus ?? 0)),
       telegraphLead: Math.max(1, Math.min(2, a.telegraphLead ?? 1)),

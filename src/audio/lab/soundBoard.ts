@@ -8,7 +8,7 @@ import { IDS, ev, type HeroKey } from './labState';
 export interface SoundButton {
   id: string;
   label: string;
-  group: 'support' | 'phase2' | 'world' | 'ui';
+  group: 'support' | 'phase2' | 'relic' | 'world' | 'ui';
   /** Fires the sound. Receives the director and a world to read/mutate. */
   fire(d: SynthDirector, w: FakeWorld): void;
   /** Follow-up events, `delay` seconds after the first (call then answer, hold then release). */
@@ -504,6 +504,82 @@ export const SOUNDS: SoundButton[] = [
     group: 'world',
     fire: (d, w) => fire(d, w, tele(['scatter'], 'link', 9)),
   },
+  // ── Phase 3b: relics ───────────────────────────────────────────────────────────
+  ...(
+    [
+      ['silver_thimble', 'Silver Thimble (shield stitched)', 'lyra', false],
+      ['lantern_of_the_lost', 'Lantern of the Lost (+ ally down)', 'kael', false],
+      ['martyrs_veil', "Martyr's Veil (+ Save)", 'kael', false],
+      ['cracked_metronome', 'Cracked Metronome (+ Perfect Ward)', 'kael', true],
+      ['tuning_fork', 'Tuning Fork (+ Perfect Ward)', 'kael', true],
+      ['glass_halo', 'Glass Halo (+ Perfect Ward)', 'kael', true],
+      ['cantors_hymnal', "Cantor's Hymnal (fight opens)", null, false],
+    ] as const
+  ).map(([relic, label, hero, perfect]): SoundButton => ({
+    id: `relic-${relic}`,
+    label,
+    group: 'relic',
+    length: 4,
+    fire: (d, w) => {
+      if (relic === 'lantern_of_the_lost') fire(d, w, ev('allyDowned', { hero: IDS.vexis }));
+      // The sim pushes the relic's event just before the Perfect Ward's.
+      fire(d, w, ev('relicTriggered', { relic, hero: hero === null ? null : IDS[hero] }));
+      if (perfect) fire(d, w, ev('perfectWard', { target: IDS.kael, telegraph: 1, negated: 400 }));
+      if (relic === 'martyrs_veil')
+        fire(
+          d,
+          w,
+          ev('save', {
+            target: IDS.kael,
+            cause: 'martyr',
+            counterfactualDamage: 900,
+            attack: 'Requiem',
+          }),
+        );
+    },
+  })),
+  {
+    id: 'relic-all-perfect',
+    label: 'Perfect Ward with Metronome + Fork + Halo',
+    group: 'relic',
+    length: 4,
+    fire: (d, w) =>
+      fire(
+        d,
+        w,
+        ev('relicTriggered', { relic: 'cracked_metronome', hero: IDS.kael }),
+        ev('perfectWard', { target: IDS.kael, telegraph: 1, negated: 400 }),
+        ev('relicTriggered', { relic: 'tuning_fork', hero: IDS.kael }),
+        ev('relicTriggered', { relic: 'glass_halo', hero: IDS.kael }),
+      ),
+  },
+  {
+    id: 'relic-thimble-burst',
+    label: 'Silver Thimble burst (20 in 1 s)',
+    group: 'relic',
+    length: 3,
+    fire: (d, w) => {
+      for (let i = 0; i < 20; i++)
+        fire(d, w, ev('relicTriggered', { relic: 'silver_thimble', hero: IDS.lyra }));
+    },
+    then: [0.25, 0.5, 0.75, 1].map((delay) => ({
+      delay,
+      fire: (d: SynthDirector, w: FakeWorld) =>
+        fire(d, w, ev('relicTriggered', { relic: 'silver_thimble', hero: IDS.lyra })),
+    })),
+  },
+  {
+    id: 'relic-glide-locked',
+    label: 'Glide refused (Heavy Score curse)',
+    group: 'relic',
+    fire: (d, w) => fire(d, w, ev('techniqueRejected', { technique: 'glide', reason: 'locked' })),
+  },
+  {
+    id: 'relic-generic-reject',
+    label: 'Generic reject (compare)',
+    group: 'relic',
+    fire: (d, w) => fire(d, w, ev('techniqueRejected', { technique: 'glide', reason: 'cooldown' })),
+  },
   // ── UI ─────────────────────────────────────────────────────────────────────────
   ...(
     [
@@ -520,12 +596,23 @@ export const SOUNDS: SoundButton[] = [
       'reveal',
       'rankUp',
       'unlock',
+      'buy',
+      'cantAfford',
+      'forge',
+      'eventOpen',
+      'gambleWin',
+      'gambleLose',
+      'relicReveal',
+      'relicPick',
+      'curseLifted',
+      'aether',
     ] as UiSound[]
   ).map((s): SoundButton => ({
     id: `ui-${s}`,
     label: s,
     group: 'ui',
-    length: s === 'reveal' ? 5 : s === 'rankUp' ? 3 : undefined,
+    length:
+      s === 'reveal' ? 5 : s === 'rankUp' || s === 'forge' || s === 'eventOpen' ? 3 : undefined,
     fire: (d) => d.playUi(s),
   })),
 ];

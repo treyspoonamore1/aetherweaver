@@ -9,7 +9,9 @@ import {
   FORGE_PRICE,
   RELIC_OFFERS,
   SHOP_HEAL,
+  THREAT_PER_ROW,
   aetherForFight,
+  threatFor,
 } from '../../src/meta/economy';
 import * as Run from '../../src/meta/run';
 import { loadRun, saveRun, type KeyValueStore } from '../../src/meta/save';
@@ -127,6 +129,20 @@ describe('the map', () => {
       draft: 'epic',
     });
     expect(kinds('merchant').reward).toMatchObject({ aether: 0, relics: 0, draft: null });
+  });
+});
+
+describe('Threat', () => {
+  it('grows with the row, shows on fight previews and reaches the sim', () => {
+    expect(threatFor(1)).toBe(1);
+    expect(threatFor(7)).toBeCloseTo(1 + 6 * THREAT_PER_ROW, 6);
+    const run = Run.embark(Run.newRun(12));
+    for (const node of nodes(run)) {
+      const fight = node.encounterId !== null || node.kind === 'event';
+      expect(node.reward.threat).toBe(fight ? threatFor(node.row) : 1);
+    }
+    const at7 = at(run, 'miniboss');
+    expect(Run.combatConfig(at7)!.threat).toBe(threatFor(7));
   });
 });
 
@@ -338,6 +354,25 @@ describe('events', () => {
     expect(relicDef(blood.relics[0]!.id).rarity).toBe('rare');
     const gift = Run.chooseEvent(run, 'gift');
     expect(relicDef(gift.relics[0]!.id).rarity).toBe('cursed');
+  });
+
+  it('a relic with none of its rarity left falls back to another, then to Aether', () => {
+    const rares = CONTENT.relics
+      .filter((r) => r.rarity === 'rare')
+      .map((r) => ({ id: r.id, cleansed: false }));
+    const run = Run.chooseEvent(
+      inEvent('merchant_of_silences', { ...wealthy(), relics: rares }),
+      'blood',
+    );
+    expect(run.relics).toHaveLength(rares.length + 1);
+    expect(relicDef(run.relics.at(-1)!.id).rarity).not.toBe('rare');
+    const all = CONTENT.relics.map((r) => ({ id: r.id, cleansed: false }));
+    const rich = Run.chooseEvent(
+      inEvent('merchant_of_silences', { ...wealthy(), relics: all }),
+      'blood',
+    );
+    expect(rich.relics).toHaveLength(all.length);
+    expect(rich.aether).toBe(500 + 80);
   });
 
   it('the Unsung Choir: an elite fight, then a choice of three relics', () => {

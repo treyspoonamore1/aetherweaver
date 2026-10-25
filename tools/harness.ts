@@ -65,16 +65,24 @@ function runs(args: Args): void {
   console.log(`harness · whole Prelude runs · ${args.seeds} seeds · loadout ${args.label}`);
   for (const bot of args.bots) {
     const results = Array.from({ length: args.seeds }, (_, i) =>
-      playRun(2000 + i * 104729, bot, args.chords),
+      playRun(2000 + i * 104729, bot, args.chords, {
+        relics: !process.argv.includes('--no-relics'),
+      }),
     );
     const wins = results.filter((r) => r.outcome === 'victory').length;
     const endedAt: Record<string, number> = {};
     for (const r of results)
       if (r.outcome === 'defeat') endedAt[r.lastEncounter] = (endedAt[r.lastEncounter] ?? 0) + 1;
-    const minutes = results.reduce((s, r) => s + r.minutes, 0) / results.length;
+    const mean = (f: (r: (typeof results)[number]) => number) =>
+      results.reduce((s, r) => s + f(r), 0) / results.length;
     console.log(
-      `${bot.padEnd(8)} win ${pct(wins / results.length).padStart(4)} · avg ${minutes.toFixed(1)} min of combat · lost at ${JSON.stringify(endedAt)}`,
+      `${bot.padEnd(8)} win ${pct(wins / results.length).padStart(4)} · avg ${mean((r) => r.minutes).toFixed(1)} min of combat · ${mean((r) => r.fights).toFixed(1)} fights · ${mean((r) => r.relics.length).toFixed(1)} relics · Aether ${Math.round(mean((r) => r.aetherEarned))} earned, ${Math.round(mean((r) => r.aetherLeft))} left · lost at ${JSON.stringify(endedAt)}`,
     );
+    if (args.verbose)
+      for (const r of results)
+        console.log(
+          `  ${r.seed} ${r.outcome.padEnd(7)} ${r.fights} fights · relics ${r.relics.join(', ') || '—'} · motifs ${r.motifs.join(', ')}`,
+        );
   }
 }
 

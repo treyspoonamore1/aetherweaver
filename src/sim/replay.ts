@@ -88,6 +88,7 @@ const SimConfigSchema = z
     motifs: z.array(z.object({ id: z.string(), level: z.number().int() }).strict()),
     relics: z.array(z.object({ id: z.string(), cleansed: z.boolean() }).strict()),
     boons: z.array(z.string()),
+    threat: z.number(),
     assists: z
       .object({ perfectWindowBonus: z.number(), telegraphLead: z.number(), autonomy: z.boolean() })
       .strict(),

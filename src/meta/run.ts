@@ -20,6 +20,7 @@ import {
   SHOP_RELIC_ODDS,
   START_AETHER,
   aetherForFight,
+  threatFor,
 } from './economy';
 import { EVERYTHING, lockedProblems, xpForFight, type Allowance } from './profile';
 import {
@@ -183,7 +184,14 @@ function shuffle<T>(rng: Rng, items: T[]): T[] {
   return items;
 }
 
-function rewardFor(kind: NodeKind, eventId: string | null): MapNode['reward'] {
+function rewardFor(kind: NodeKind, eventId: string | null, row: number): MapNode['reward'] {
+  const reward = rewardKind(kind, eventId);
+  // Fights (and an event that may hold one) say how dangerous their row is.
+  const fights = kind !== 'shrine' && kind !== 'respite' && kind !== 'merchant' && kind !== 'forge';
+  return { ...reward, threat: fights ? threatFor(row) : 1 };
+}
+
+function rewardKind(kind: NodeKind, eventId: string | null): Omit<MapNode['reward'], 'threat'> {
   const none = { draft: null, heal: 0, aether: 0, relics: 0 } as const;
   switch (kind) {
     case 'skirmish':
@@ -282,7 +290,7 @@ export function generateMap(seed: number): RunMap {
         encounterId,
         eventId,
         next: [],
-        reward: rewardFor(kind, eventId),
+        reward: rewardFor(kind, eventId, row),
       };
     });
   });
@@ -439,6 +447,7 @@ export function combatConfig(run: RunState, assists?: SimConfig['assists']): Sim
     motifs: run.motifs.map((m) => ({ ...m })),
     relics: run.relics.map((r) => ({ ...r })),
     boons: run.boons.map((b) => b.id),
+    threat: threatFor(node.row),
     ...(assists ? { assists } : {}),
   };
 }
@@ -859,8 +868,15 @@ function applyEffect(
 ): RunState {
   switch (effect.kind) {
     case 'relic': {
-      const [id] = rollRelics(run, rng, 1, { [effect.rarity]: 1 });
-      if (!id) return run;
+      // Every relic of that rarity carried already: any other blessing, or its worth in Aether.
+      const [id] = [
+        ...rollRelics(run, rng, 1, { [effect.rarity]: 1 }),
+        ...rollRelics(run, rng, 1, { common: 1, rare: 1, legendary: 1 }),
+      ];
+      if (!id) {
+        gains.aether += RELIC_PRICE[effect.rarity];
+        return { ...run, aether: run.aether + RELIC_PRICE[effect.rarity] };
+      }
       gains.relics.push(id);
       return addRelic(run, id);
     }

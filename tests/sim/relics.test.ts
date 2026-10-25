@@ -201,7 +201,10 @@ describe('rare relics', () => {
     const events = sim.drainEvents();
     expect(hero(sim, 0).health!.downed).toBe(false);
     expect(hero(sim, 0).health!.hp).toBe(hpBefore);
-    expect(weaver(sim).health!.hp < lifeBefore || weaver(sim).health!.downed).toBe(true);
+    // The Weaver takes it, and is left standing at 1 life.
+    expect(weaver(sim).health!.hp).toBe(1);
+    expect(weaver(sim).health!.downed).toBe(false);
+    expect(lifeBefore).toBeGreaterThan(1);
     expect(ofType(events, 'save')[0]?.cause).toBe('martyr');
     expect(triggered(events, 'martyrs_veil')).toHaveLength(1);
     expect(sim.state.relics.veil).toBe(false);
@@ -224,7 +227,10 @@ describe('legendary relics', () => {
     vexis!.x = lyra!.x + radius + 4;
     vexis!.z = lyra!.z;
     expect(threadPotency(w, lyra!)).toBeGreaterThan(0.99);
-    expect(threadPotency(w, kael!)).toBeCloseTo(threadPotency(w, lyra!) * 0.5, 6);
+    expect(threadPotency(w, kael!)).toBeCloseTo(
+      (threadPotency(w, lyra!) * value('prism_loom', 'pct')) / 100,
+      6,
+    );
     expect(threadPotency(w, vexis!)).toBe(0);
     // Mend reaches Kael too.
     kael!.health!.hp = kael!.health!.maxHp * 0.6;
@@ -265,8 +271,9 @@ describe('legendary relics', () => {
     });
     expect(unison.state.field.chords[0]!.echo).toBe(0);
     const mods = resolveMods(resolveConfig({ seed: 1, ...relics('spindle_of_fate') }), CONTENT);
-    expect(mods.mendMult).toBeCloseTo(0.8, 6);
-    expect(mods.empowerMult).toBeCloseTo(0.8, 6);
+    const weaker = 1 - value('spindle_of_fate', 'pct') / 100;
+    expect(mods.mendMult).toBeCloseTo(weaker, 6);
+    expect(mods.empowerMult).toBeCloseTo(weaker, 6);
   });
 });
 
@@ -282,14 +289,15 @@ describe('cursed relics', () => {
     expect(cleansed.state.relics.cleansed).toEqual(['heavy_score']);
     const glided = stepFor(cleansed, 1, [{ t: 'glide', x: 1, z: 0 }]);
     expect(ofType(glided, 'glided')).toHaveLength(1);
-    // A fifth of every hit is the Score's.
+    // The Score's share of every hit: pct / (100 + pct).
     stepFor(cleansed, 1, [spawn('bell_brute', 0, -3)]);
     const hits = ofType(stepFor(cleansed, 60 * 5), 'damageTaken').filter(
       (e) => cleansed.state.party.includes(e.source ?? -1) && e.amount + e.absorbed > 0,
     );
     expect(hits.length).toBeGreaterThan(0);
+    const share = value('heavy_score', 'pct') / (100 + value('heavy_score', 'pct'));
     for (const h of hits)
-      expect(h.amplified / (h.amount + h.absorbed)).toBeGreaterThanOrEqual(0.2 - 1e-6);
+      expect(h.amplified / (h.amount + h.absorbed)).toBeGreaterThanOrEqual(share - 1e-6);
   });
 
   it('Glass Halo: a Perfect Ward heals everyone; the curse halves Ward’s barrier', () => {
@@ -335,5 +343,20 @@ describe('boons and banes', () => {
     const loom = resolveMods(resolveConfig({ seed: 1, boons: ['mended_loom'] }), CONTENT);
     expect(loom.mendMult).toBeCloseTo(1.1, 6);
     expect(loom.empowerMult).toBeCloseTo(1.1, 6);
+  });
+});
+
+describe('Threat', () => {
+  it('multiplies every enemy’s life, and is clamped', () => {
+    const plain = sandbox();
+    const deep = sandbox({ threat: 1.2 });
+    stepFor(plain, 1, [spawn('bell_brute', 0, -6)]);
+    stepFor(deep, 1, [spawn('bell_brute', 0, -6)]);
+    const hp = (sim: typeof plain) =>
+      sim.state.entities.list().find((e) => e.enemy?.defId === 'bell_brute')!.health!.maxHp;
+    expect(hp(deep)).toBe(Math.round(hp(plain) * 1.2));
+    expect(resolveConfig({ seed: 1 }).threat).toBe(1);
+    expect(resolveConfig({ seed: 1, threat: 0.5 }).threat).toBe(1);
+    expect(resolveConfig({ seed: 1, threat: 9 }).threat).toBe(3);
   });
 });

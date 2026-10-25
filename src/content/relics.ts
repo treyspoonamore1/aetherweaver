@@ -75,7 +75,7 @@ export const RELICS: ContentInput['relics'] = [
     id: 'martyrs_veil',
     name: 'Martyr’s Veil',
     rarity: 'rare',
-    text: 'Once per fight, a hit that would down a hero strikes you instead.',
+    text: 'Once per fight, a hit that would down a hero strikes you instead. It can leave you at 1 life, never lower.',
     flavor: 'Someone has to stand in front. Today it is you.',
     values: {},
     icon: 'veil',
@@ -84,9 +84,9 @@ export const RELICS: ContentInput['relics'] = [
     id: 'cantors_hymnal',
     name: 'Cantor’s Hymnal',
     rarity: 'rare',
-    text: 'Start every fight with {resonance} Resonance: a Cue, ready.',
+    text: 'Start every fight with {resonance} Resonance: two Cues, ready.',
     flavor: 'The first page is the one everyone knows by heart.',
-    values: { resonance: 25 },
+    values: { resonance: 50 },
     icon: 'hymnal',
   },
   {
@@ -106,7 +106,7 @@ export const RELICS: ContentInput['relics'] = [
     rarity: 'legendary',
     text: 'Mend and Empower also reach heroes within {radius} m of the one you thread, at {pct}% strength.',
     flavor: 'One thread in, a rainbow out.',
-    values: { radius: 4, pct: 50 },
+    values: { radius: 5, pct: 60 },
     icon: 'loom',
   },
   {
@@ -124,7 +124,7 @@ export const RELICS: ContentInput['relics'] = [
     rarity: 'legendary',
     text: 'Your beam song’s echo plays at full strength, but Mend and Empower are {pct}% weaker.',
     flavor: 'Spin for one and you spin for all.',
-    values: { pct: 20 },
+    values: { pct: 10 },
     icon: 'spindle',
   },
   // ── Cursed: a bargain until a Forge cleanses it ────────────────────────────────────
@@ -135,7 +135,7 @@ export const RELICS: ContentInput['relics'] = [
     text: 'Your heroes deal {pct}% more damage.',
     curse: 'You can’t Glide.',
     flavor: 'Too heavy to carry, too loud to put down.',
-    values: { pct: 25 },
+    values: { pct: 15 },
     icon: 'score',
   },
   {

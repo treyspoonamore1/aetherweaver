@@ -57,6 +57,8 @@ export interface RewardPreview {
   aether: number;
   /** Relics to choose one from after winning here (0 if none). */
   relics: number;
+  /** Fights: every enemy's life × this (meta/economy.ts `threatFor`); 1 for other stops. */
+  threat: number;
   /** Short line for the tooltip. */
   text: string;
 }

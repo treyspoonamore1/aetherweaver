@@ -315,3 +315,46 @@ export function zip(v: Voice, t: number, dur: number, gain: number): void {
     shape: 'sustain',
   });
 }
+
+/**
+ * Anvil strike (Phase 3b): a struck iron bar. Inharmonic sine partials ring and fade at
+ * different rates over a short bright click, with a low body thump under the hit. `freq` is
+ * the bar's fundamental; the partial ratios are those of a free bar, so it rings like metal
+ * rather than like a bell.
+ */
+export function anvil(v: Voice, t: number, freq: number, gain: number, dur = 1.5): void {
+  const partials: [number, number, number][] = [
+    [1, 1, 1],
+    [2.76, 0.55, 0.6],
+    [5.4, 0.32, 0.38],
+    [8.93, 0.16, 0.22],
+  ];
+  for (const [ratio, g, d] of partials) {
+    v.osc({
+      type: 'sine',
+      freq: freq * ratio,
+      start: t,
+      dur: dur * d,
+      attack: 0.002,
+      release: 0.06,
+      gain: gain * g,
+    });
+  }
+  v.noise({
+    start: t,
+    dur: 0.03,
+    gain: gain * 0.9,
+    filter: { type: 'bandpass', freq: 3200, q: 0.9 },
+  });
+  v.osc({
+    type: 'sine',
+    freq: freq * 0.4,
+    freqTo: freq * 0.22,
+    glide: 0.16,
+    start: t,
+    dur: 0.14,
+    attack: 0.002,
+    release: 0.05,
+    gain: gain * 1.4,
+  });
+}

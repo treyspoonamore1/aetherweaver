@@ -454,7 +454,8 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
 
 /**
  * Martyr's Veil: once per fight, the Weaver takes the hit that would have downed a hero. The
- * hero's life is kept — a Save — and the blow lands on the Weaver instead (who can go down).
+ * hero's life is kept — a Save — and the blow lands on the Weaver instead, leaving them at 1
+ * life at worst: a martyr, not a casualty.
  */
 function martyr(world: World, hero: Entity, amount: number, opts: DamageOpts): boolean {
   const weaver = world.entities.get(world.weaverId);
@@ -468,10 +469,11 @@ function martyr(world: World, hero: Entity, amount: number, opts: DamageOpts): b
     hero: hero.id,
   });
   recordSave(world, hero, 'martyr', amount, opts.sourceName);
+  const spare = Math.max(0, weaver.health.hp + totalShield(weaver.health) - 1);
   dealDamage(world, weaver, {
     source: opts.source,
     sourceName: opts.sourceName,
-    amount,
+    amount: Math.min(amount, spare),
     kind: opts.kind ?? 'hit',
   });
   return true;

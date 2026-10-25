@@ -6,7 +6,7 @@
 import { z } from 'zod';
 import { CONTENT } from '../content';
 import { chordProblems } from '../sim';
-import { FIGHT_AETHER, RELIC_OFFERS } from './economy';
+import { FIGHT_AETHER, RELIC_OFFERS, threatFor } from './economy';
 import { newProfile, PROFILE_VERSION, type Profile } from './profile';
 import { RUN_SAVE_VERSION, type RunState } from './types';
 
@@ -49,6 +49,7 @@ const NodeSchema = z.object({
     heal: Num,
     aether: Num,
     relics: Num,
+    threat: Num,
     text: Str,
   }),
 });
@@ -363,6 +364,10 @@ function v3to4(raw: Json): Json {
               : n.kind === 'miniboss'
                 ? RELIC_OFFERS.boss.count
                 : 0,
+          threat:
+            n.encounterId !== null && n.encounterId !== undefined && typeof n.row === 'number'
+              ? threatFor(n.row)
+              : 1,
         }
       : n.reward;
     return { ...n, eventId: null, reward };
