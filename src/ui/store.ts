@@ -246,6 +246,8 @@ export interface Callout {
   detail?: string;
   speaker?: string;
   color?: string;
+  /** Callouts sharing a key can be dropped early together (a hero's call once it resolves). */
+  key?: string;
   expiresAt: number;
 }
 
@@ -274,6 +276,7 @@ export interface UiState {
   setPaused(paused: boolean): void;
   pushCallout(callout: Omit<Callout, 'id' | 'expiresAt'>, now: number, ttlMs?: number): void;
   pruneCallouts(now: number): void;
+  dropCallouts(key: string): void;
   markHint(id: string): void;
   /** Clears transient combat UI (leaving combat). */
   resetCombat(): void;
@@ -314,6 +317,12 @@ export const useUi = create<UiState>()((set, get) => ({
     const { callouts } = get();
     if (callouts.some((c) => c.expiresAt <= now)) {
       set({ callouts: callouts.filter((c) => c.expiresAt > now) });
+    }
+  },
+  dropCallouts: (key) => {
+    const { callouts } = get();
+    if (callouts.some((c) => c.key === key)) {
+      set({ callouts: callouts.filter((c) => c.key !== key) });
     }
   },
   markHint: (id) =>

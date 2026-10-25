@@ -193,6 +193,24 @@ describe('InputController', () => {
       expect(sounds).toEqual(['wheelOpen', 'wheelPick']);
     });
 
+    it('opened by key before the pointer reaches the canvas, it centres on the canvas', () => {
+      input.dispose();
+      const rect = { left: 100, top: 50, width: 800, height: 600 };
+      const fresh = Object.assign(new EventTarget(), { getBoundingClientRect: () => rect });
+      input = new InputController(
+        fresh as unknown as HTMLElement,
+        () => false,
+        () => {},
+        undefined,
+        {
+          sound: () => {},
+        },
+      );
+      win.dispatchEvent(key('keydown', 'KeyC'));
+      expect(useWheel.getState().wheel).toMatchObject({ x: 500, y: 350 });
+      win.dispatchEvent(key('keyup', 'KeyC'));
+    });
+
     it('releasing in the dead zone cancels', () => {
       make();
       win.dispatchEvent(key('keydown', 'KeyC'));

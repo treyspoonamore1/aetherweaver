@@ -120,3 +120,18 @@ describe('UI scale', () => {
     expect(fittedScale(Number.NaN, 1280)).toBe(1);
   });
 });
+
+describe('callouts', () => {
+  it('a resolved call or hold drops its callout early, leaving the rest', async () => {
+    const { useUi } = await import('../src/ui/store');
+    useUi.getState().resetCombat();
+    const ui = useUi.getState();
+    ui.pushCallout({ kind: 'call', text: 'Cover me!', key: 'call:1' }, 0, 5000);
+    ui.pushCallout({ kind: 'hold', text: 'Heal them!', key: 'hold:2' }, 0, 5000);
+    ui.pushCallout({ kind: 'wave', text: 'Wave 2 of 3' }, 0, 5000);
+    useUi.getState().dropCallouts('call:1');
+    expect(useUi.getState().callouts.map((c) => c.text)).toEqual(['Heal them!', 'Wave 2 of 3']);
+    useUi.getState().dropCallouts('hold:2');
+    expect(useUi.getState().callouts.map((c) => c.text)).toEqual(['Wave 2 of 3']);
+  });
+});

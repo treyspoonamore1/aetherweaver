@@ -391,13 +391,18 @@ export class GameRuntime {
               speaker: who?.name,
               color: who?.color,
               detail: `${ANSWER_NAMES[event.answer]} → ${event.flourish}`,
+              key: `call:${event.hero}`,
             },
             now,
             Math.max(1500, (event.until - state.time) * 1000),
           );
           break;
         }
+        case 'callEnded':
+          ui.dropCallouts(`call:${event.hero}`);
+          break;
         case 'callAnswered':
+          ui.dropCallouts(`call:${event.hero}`);
           ui.pushCallout(
             { kind: 'response', text: `${event.flourish}!`, color: '#fde68a' },
             now,
@@ -412,12 +417,16 @@ export class GameRuntime {
               text: `${who?.name ?? 'A hero'} is holding on — heal them!`,
               detail: `Fermata caught ${event.attack}`,
               color: '#e2d6f8',
+              key: `hold:${event.hero}`,
             },
             now,
             Math.max(1200, (event.until - state.time) * 1000),
           );
           break;
         }
+        case 'fermataReleased':
+          ui.dropCallouts(`hold:${event.hero}`);
+          break;
         case 'chorusPulse':
           if (event.reached > 0)
             ui.pushCallout(

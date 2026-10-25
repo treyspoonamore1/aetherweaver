@@ -75,6 +75,8 @@ export class InputController {
   private lastMove = { x: 0, z: 0 };
   private lastAim = { x: Number.NaN, z: Number.NaN };
   private pointer = { clientX: 0, clientY: 0, inside: false };
+  /** The pointer has been over the canvas at least once (so `pointer` is a real position). */
+  private pointerSeen = false;
   private readonly ground = { x: 0, z: 0 };
   private hasGround = false;
   private hovered: EntityId | null = null;
@@ -333,6 +335,7 @@ export class InputController {
 
   private onPointerMove = (event: PointerEvent): void => {
     this.pointer = { clientX: event.clientX, clientY: event.clientY, inside: true };
+    this.pointerSeen = true;
   };
 
   private onPointerLeave = (): void => {
@@ -341,6 +344,7 @@ export class InputController {
 
   private onPointerDown = (event: PointerEvent): void => {
     this.pointer = { clientX: event.clientX, clientY: event.clientY, inside: true };
+    this.pointerSeen = true;
     if (!this.enabled) return;
     if (this.wheelState) {
       // While the wheel is open, LMB picks the spoke under the pointer and RMB cancels.
@@ -377,11 +381,18 @@ export class InputController {
 
   private openWheel(via: 'key' | 'mouse', code: string | null): void {
     if (this.wheelState) return;
+    let { clientX: x, clientY: y } = this.pointer;
+    // Opened by key before the pointer ever reached the canvas: centre it there, not at (0, 0).
+    if (!this.pointerSeen && typeof this.target.getBoundingClientRect === 'function') {
+      const r = this.target.getBoundingClientRect();
+      x = r.left + r.width / 2;
+      y = r.top + r.height / 2;
+    }
     const st: WheelState = {
       via,
       code,
-      x: this.pointer.clientX,
-      y: this.pointer.clientY,
+      x,
+      y,
       dx: 0,
       dy: 0,
       focusTarget: this.hoveredEnemyId,
