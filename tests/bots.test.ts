@@ -65,7 +65,7 @@ describe('Chord presets', () => {
 });
 
 describe('the Skilled bot and the beam song', () => {
-  it('with a defensive beam song it keeps the beam on the tank but Empowers, not idle-Mends', async () => {
+  it('with a defensive beam song it still Empowers instead of idle-Mending a healthy tank', async () => {
     const { createSim } = await import('../src/sim');
     const { makeBot } = await import('../src/bots');
     const choir = Run.CHORD_PRESETS.find((p) => p.id === 'choir')!;

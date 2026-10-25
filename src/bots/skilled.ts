@@ -242,9 +242,9 @@ export class SkilledBot implements Bot {
         threadTo = calling;
       } else if (effectiveFraction(lowest.e) > 0.85 && calm) {
         const tank = party.find((h) => h.role === 'tank');
-        if (beam && defensiveSong(beam) && tank) {
-          // A defensive beam song lives on the tank. It flows in both modes, and a healthy
-          // tank needs no Mend, so Empower them.
+        if (beam && defensiveSong(beam) && tank && tank.e.health!.incoming > 0) {
+          // A defensive beam song stays on a tank under fire. It flows in both modes, and a
+          // healthy tank needs no Mend, so Empower them.
           mend = false;
           threadTo = tank;
         } else {
