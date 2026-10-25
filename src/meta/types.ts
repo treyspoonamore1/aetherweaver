@@ -57,7 +57,10 @@ export interface RewardPreview {
   aether: number;
   /** Relics to choose one from after winning here (0 if none). */
   relics: number;
-  /** Fights: every enemy's life × this (meta/economy.ts `threatFor`); 1 for other stops. */
+  /**
+   * Every enemy's life × this in the node's fight (meta/economy.ts `threatFor`): set on fights
+   * and events (which may hold one), 1 elsewhere and on maps saved before Threat existed.
+   */
   threat: number;
   /** Short line for the tooltip. */
   text: string;

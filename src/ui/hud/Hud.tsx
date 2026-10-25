@@ -19,7 +19,7 @@ import { WeaverBar } from './WeaverBar';
 const NO_BOONS: readonly ActiveBoon[] = [];
 
 export interface HudProps {
-  /** Small line above the encounter name (e.g. "The Prelude · node 3 of 7"). */
+  /** Small line above the encounter name (e.g. "The Prelude · node 3 of 10"). */
   subtitle?: string;
   /** Show the controls reminder. */
   keyHints?: boolean;

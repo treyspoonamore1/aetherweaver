@@ -93,7 +93,7 @@ function HudStage({
               }
             : null
         }
-        subtitle={scenario === 'sandbox' ? 'Training Grounds' : 'The Prelude · node 3 of 7'}
+        subtitle={scenario === 'sandbox' ? 'Training Grounds' : 'The Prelude · node 3 of 10'}
         coach={coach}
         forceCoach
         boons={boons}

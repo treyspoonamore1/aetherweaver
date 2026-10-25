@@ -130,14 +130,16 @@ function forge(run: RunState): RunState {
   return Run.leaveForge(run);
 }
 
-/** The first choice it can make without picking a motif or new Chords. */
-function event(run: RunState): RunState {
+/** The first choice it can make without picking a motif or new Chords (or a relic, if off). */
+function event(run: RunState, relics: boolean): RunState {
   if (run.event && run.event.choice === null) {
     const def = runEventDef(run.event.eventId);
     const choice = def.choices.find(
       (c) =>
         c.motif === 'none' &&
         !c.effects.some((e) => e.kind === 'retune') &&
+        (relics ||
+          ![...c.effects, ...c.fail].some((e) => e.kind === 'relic' || e.kind === 'fight')) &&
         Run.eventChoiceProblem(run, c.id) === null,
     );
     if (choice) run = Run.chooseEvent(run, choice.id);
@@ -210,7 +212,7 @@ export function playRun(
         run = forge(run);
         break;
       case 'event':
-        run = event(run);
+        run = event(run, relics);
         break;
       default:
         throw new Error(`unexpected phase ${run.phase}`);

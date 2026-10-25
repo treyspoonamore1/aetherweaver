@@ -43,6 +43,7 @@ function asV3(run: ReturnType<typeof Run.newRun>): Record<string, unknown> {
       const reward = node.reward as Record<string, unknown>;
       delete reward.aether;
       delete reward.relics;
+      delete reward.threat;
     }
   }
   const strip = (r: Record<string, unknown>) => {
@@ -146,9 +147,31 @@ describe('save migration', () => {
     expect(loaded.results[0]!.aether).toBe(0);
     const first = loaded.map.rows[0]![0]!;
     expect(first.eventId).toBeNull();
-    expect(first.reward).toMatchObject({ aether: 20, relics: 0 });
-    // The map it was saved with is kept, whatever its shape.
-    expect(loaded.map.rows.length).toBe(run.map.rows.length);
+    expect(first.reward).toMatchObject({ aether: 20, relics: 0, threat: 1 });
+  });
+
+  it('a Phase 3 save keeps its seven-stop map, with no Threat on its fights', () => {
+    const run = oneFight();
+    // The Phase 3 map: seven rows, the last a dead end.
+    const rows = run.map.rows
+      .slice(0, 7)
+      .map((row, r) => row.map((n) => ({ ...n, next: r === 6 ? [] : n.next })));
+    const store = memoryStore();
+    store.data.set('aetherweaver.run', JSON.stringify(asV3({ ...run, map: { rows } })));
+    const loaded = loadRun(store)!;
+    expect(loaded.map.rows).toHaveLength(7);
+    expect(loaded.map.rows.flat().every((n) => n.reward.threat === 1)).toBe(true);
+    const fight = loaded.map.rows[3]!.find((n) => n.encounterId !== null)!;
+    const at = Run.chooseNode(
+      {
+        ...loaded,
+        phase: 'map',
+        path: [loaded.map.rows[2]!.find((n) => n.next.includes(fight.id))!.id],
+        pending: null,
+      },
+      fight.id,
+    );
+    expect(Run.combatConfig(at)!.threat).toBe(1);
   });
 
   it('loads a Phase 1 save: auras become Chord I, renamed motifs follow, stats gain new fields', () => {

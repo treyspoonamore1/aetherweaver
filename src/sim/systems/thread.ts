@@ -42,8 +42,9 @@ function silverThimble(world: World, hero: Entity): void {
   const h = hero.health;
   if (!h || h.downed || h.dead) return;
   const amount = h.maxHp * pct;
+  // A hero's own overshield (an uncued Aegis Wall) is theirs to keep.
   const existing = shieldOf(h, 'overshield');
-  if (existing && existing.amount >= amount) return;
+  if (existing && (!existing.fromWeaver || existing.amount >= amount)) return;
   addShield(world, hero, 'overshield', amount, world.mods.thimbleDuration, true);
   relics.thimbleAt = world.time + world.mods.thimbleCooldown;
   relicFired(world, 'silver_thimble', hero.id);

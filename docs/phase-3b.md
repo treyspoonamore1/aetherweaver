@@ -104,7 +104,7 @@ Gambles are seeded by the run (the same seed, node and choice always roll the sa
 - Phases: `relic`, `merchant`, `forge`, `event` (plus the old ones). After a won elite or Bellwarden fight: result → **relic** → draft → map. After the Unsung Choir: result → relic → map.
 - Actions: `pickRelic(i | null)`, `buy(i)`, `leaveShop()`, `forge({service, …})`, `leaveForge()`, `chooseEvent(id, { motifId?, chords? })`, `leaveEvent()`.
 - Helpers for screens: `Run.forgeTargets(run, service)`, `Run.eventChoiceProblem(run, choiceId)` (why a choice is greyed out), `Run.hasRelic(run, id)`.
-- `EncounterResult.aether`. Save v3 migrates (no Aether, no relics; the old map is kept).
+- `EncounterResult.aether`. Save v3 migrates (no Aether, no relics; the old seven-stop map is kept, its fights at Threat ×1 since it was tuned without it).
 
 ## Presentation
 
@@ -114,7 +114,7 @@ Gambles are seeded by the run (the same seed, node and choice always roll the sa
 
 The deeper the row, the more life every enemy has: **+3.75% per row past the first** (`THREAT_PER_ROW`, `threatFor(row)` in [`src/meta/economy.ts`](../src/meta/economy.ts)). The Bellwarden on row 7 has ×1.23 life, the Cantor on row 9 ×1.30. Every fight's preview shows it (`MapNode.reward.threat`); the sim takes it as `SimConfig.threat` (1 outside runs, clamped 1–3). The "without you" re-run fights the same enemies.
 
-**Why.** The first sweep of the new map had whole runs *easier* than Phase 3, and relics weren't the reason: with relics turned off (`--no-relics`) the bots won just as often. Ten stops grow the party — more drafts, merchants' motifs and healing — so it reached the bosses stronger than they were tuned for. Threat keeps the late fights honest without touching the isolated encounters the [difficulty contract](phase-1.md#difficulty-contract) measures. It scales life only, not damage: fights last longer as you go deeper, but no single hit gets harder to survive.
+**Why.** The first sweep of the new map had whole runs *easier* than Phase 3, and relics weren't the reason: with relics turned off (`--no-relics`: no offers, no relics bought, no event choice that grants one) the bots won just as often, spending the Aether on motifs and healing instead. Ten stops grow the party — more drafts, merchants' motifs and healing — so it reached the bosses stronger than they were tuned for. Threat keeps the late fights honest without touching the isolated encounters the [difficulty contract](phase-1.md#difficulty-contract) measures. It scales life only, not damage: fights last longer as you go deeper, but no single hit gets harder to survive.
 
 ## Harness
 
@@ -123,8 +123,8 @@ Whole Prelude runs with the default loadout (Steady), `npm run harness -- --run 
 | | Novice | Skilled |
 |---|---|---|
 | Phase 3 (7 stops), 80 seeds | 40% | 88% |
-| Phase 3b, no Threat, 80 seeds | 51% | 94% |
-| Phase 3b, no Threat, no relics, 80 seeds | 53% | 95% |
+| Phase 3b, no Threat, 80 seeds | 51% | 95% |
+| Phase 3b, no Threat, no relics, 80 seeds | 51% | 96% |
 | Threat 3.5% / row, 200 seeds | 48% | 90% |
 | **Threat 3.75% / row (shipped), 200 / 120 seeds** | **39%** | **90%** |
 | Threat 4% / row, 80 seeds | 33% | 89% |
@@ -169,6 +169,17 @@ The Skilled bot is near its ceiling in these fights, so its column says little; 
 - **Six events.** Each appears at most once a run, and a run passes at most three, so repeat players will meet the same scenes often. More events are cheap to add: they are data (`src/content/runEvents.ts`).
 - **The bots value some relics less than people will.** Featherweight Robes and Heavy Score's curse touch Glide, which the bots barely use; Cantor's Hymnal gives Resonance the Novice bot spends at random. Their harness numbers undersell (Robes) or oversell (Score) them.
 - **Runs saved before Phase 3b** keep their seven-stop map: no merchants, forges or events until the next run.
+
+## Code review
+
+An independent review of the sim, run layer, content, harness and audio changes (read-only, verified against a clean copy of the commit) found three defects and one measurement flaw, all fixed with regression tests:
+
+- **Martyr's Veil after a non-Perfect Ward logged two Saves** for one hit (the Veil's, then the Ward's, because the Ward had absorbed part of it): double Resonance, double slow-motion and a better grade. `DamageResult.martyred` now tells the telegraph code the Veil already took the Save.
+- **The Veil credited the whole overkill as shielded** (a 5,000 hit on a hero at 50 life counted as 3,500 shielded). It now credits the life the hero kept, as Fermata's guard does.
+- **The Veil's highlight read "…undefined…"**: the result text had no line for the new save cause. `SAVE_HOW` is now typed by `SaveCause`, so a new cause can't be forgotten; the combat callout says "You took the blow for Kael".
+- **`--no-relics` still collected relics through events** (the Wounded Cantor, the Merchant of Silences, the Unsung Choir), so the table's no-relics row was contaminated. Re-measured: 51% / 96%, the same conclusion.
+
+And four smaller ones: Phase 3 saves no longer get Threat on their old map (fights read Threat from the node, and migrated nodes say ×1); relic shields no longer replace a hero's own overshield (an uncued Aegis Wall); a won event fight heals 20% like any other win; the migration test now loads a genuine seven-stop map with no Threat fields.
 
 ## What's next
 

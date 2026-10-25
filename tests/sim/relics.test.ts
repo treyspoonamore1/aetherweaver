@@ -4,6 +4,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { CONTENT, heroDef } from '../../src/content';
+import { addShield } from '../../src/sim/combat/health';
 import { KNOWN_BOONS, KNOWN_RELICS, NO_MODS, resolveMods } from '../../src/sim/mods';
 import { empowerBonus, threadPotency, updateThread } from '../../src/sim/systems/thread';
 import { resolveConfig } from '../../src/sim/world';
@@ -368,5 +369,58 @@ describe('Threat', () => {
     expect(resolveConfig({ seed: 1 }).threat).toBe(1);
     expect(resolveConfig({ seed: 1, threat: 0.5 }).threat).toBe(1);
     expect(resolveConfig({ seed: 1, threat: 9 }).threat).toBe(3);
+  });
+});
+
+describe('review fixes', () => {
+  it('Martyr’s Veil after an early Ward records one Save, not two', () => {
+    const { sim, telegraph: t } = telegraphOn(
+      'bell_brute',
+      'Toll Cleave',
+      0,
+      2.5,
+      sandbox(relics('martyrs_veil')),
+      true,
+    );
+    // An early Ward (no Perfect), on a hero the cleave would kill anyway.
+    stepFor(sim, 1, [{ t: 'tech', id: 'ward', slot: 0 }]);
+    const kael = worldOf(sim).entities.get(sim.state.party[0]!)!;
+    kael.health!.hp = 5;
+    // A thin Ward: it takes part of the cleave, and the rest would still kill.
+    kael.health!.shields.find((s) => s.kind === 'ward')!.amount = 10;
+    resolvedOf(sim, t.id);
+    expect(hero(sim, 0).health!.downed).toBe(false);
+    expect(sim.state.ledger.saves.map((s) => s.cause)).toEqual(['martyr']);
+  });
+
+  it('Martyr’s Veil credits the life the hero kept, not the overkill', () => {
+    const sim = sandbox(relics('martyrs_veil'));
+    stepFor(sim, 5);
+    worldOf(sim).entities.get(sim.state.party[0]!)!.health!.hp = 50;
+    const before = sim.state.ledger.shielded;
+    hurt(sim, 0, 5000);
+    expect(hero(sim, 0).health!.hp).toBe(50);
+    expect(sim.state.ledger.shielded - before).toBe(50);
+  });
+
+  it('Thimble and Lantern leave a hero’s own overshield alone', () => {
+    const sim = sandbox(relics('silver_thimble', 'lantern_of_the_lost'));
+    stepFor(sim, 5);
+    const w = worldOf(sim);
+    const lyra = w.entities.get(w.party[1]!)!;
+    addShield(w, lyra, 'overshield', 10, 5, false);
+    const events = stepFor(sim, 1, [{ t: 'thread', slot: 1 }]);
+    expect(triggered(events, 'silver_thimble')).toHaveLength(0);
+    expect(lyra.health!.shields.find((s) => s.kind === 'overshield')).toMatchObject({
+      amount: 10,
+      fromWeaver: false,
+    });
+    // The Thimble wasn't spent on it.
+    expect(sim.state.relics.thimbleAt).toBe(0);
+    hurt(sim, 0, 1e6);
+    expect(lyra.health!.shields.find((s) => s.kind === 'overshield')!.fromWeaver).toBe(false);
+    expect(hero(sim, 2).health!.shields.find((s) => s.kind === 'overshield')?.fromWeaver).toBe(
+      true,
+    );
   });
 });

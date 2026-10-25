@@ -289,6 +289,8 @@ export interface DamageResult {
   blocked: boolean;
   /** This hit downed or killed the target. */
   downed: boolean;
+  /** Martyr's Veil took this hit for the hero (a Save is already recorded). */
+  martyred: boolean;
 }
 
 const NO_DAMAGE: DamageResult = {
@@ -299,6 +301,7 @@ const NO_DAMAGE: DamageResult = {
   absorbedByDome: 0,
   blocked: true,
   downed: false,
+  martyred: false,
 };
 
 /** Deals damage through armour and shields, then handles downs, deaths, threat and the ledger. */
@@ -374,12 +377,16 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
   }
 
   let dealt = Math.min(h.hp, amount);
+  let martyred = false;
   if (target.hero && dealt >= h.hp && dealt > 0) {
     // Fermata holds a lethal hit at 1 HP (once per encounter); a held hero can't drop below 1.
     if (!target.hero.hold && !target.hero.fermataUsed && fx && fx.holdTime > 0)
       startHold(world, target, fx.holdTime, opts.sourceName, amount);
     if (target.hero.hold) dealt = Math.max(0, h.hp - 1);
-    else if (world.relics.veil && martyr(world, target, amount, opts)) dealt = 0;
+    else if (world.relics.veil && martyr(world, target, amount, opts)) {
+      dealt = 0;
+      martyred = true;
+    }
   }
   h.hp -= dealt;
   h.lastHitAt = world.time;
@@ -449,6 +456,7 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
     absorbedByDome,
     blocked: false,
     downed,
+    martyred,
   };
 }
 
@@ -461,7 +469,8 @@ function martyr(world: World, hero: Entity, amount: number, opts: DamageOpts): b
   const weaver = world.entities.get(world.weaverId);
   if (!isActive(weaver) || !weaver.weaver) return false;
   world.relics.veil = false;
-  world.ledger.shielded += amount;
+  // Like Fermata's guard, credit only the life the hero kept, not the overkill.
+  world.ledger.shielded += Math.min(amount, hero.health!.hp);
   relicFired(world, 'martyrs_veil', hero.id);
   recordSave(world, hero, 'martyr', amount, opts.sourceName);
   const spare = Math.max(0, weaver.health.hp + totalShield(weaver.health) - 1);
@@ -483,8 +492,9 @@ function lantern(world: World, downed: Entity): void {
     const ally = world.entities.get(id);
     if (!ally || ally.id === downed.id || !isActive(ally)) continue;
     const amount = ally.health.maxHp * pct;
+    // A hero's own overshield (an uncued Aegis Wall) is theirs to keep.
     const existing = shieldOf(ally.health, 'overshield');
-    if (existing && existing.amount >= amount) continue;
+    if (existing && (!existing.fromWeaver || existing.amount >= amount)) continue;
     addShield(world, ally, 'overshield', amount, world.mods.lanternDuration, true);
     any = true;
   }

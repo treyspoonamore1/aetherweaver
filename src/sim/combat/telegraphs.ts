@@ -317,7 +317,8 @@ function hitEntity(
   }
   emitResolved(world, t, e.id, outcome, result.dealt);
 
-  if (e.hero && wouldDie && !result.downed && result.absorbedByWeaver > 0) {
+  // Martyr's Veil already logged its own Save for this hit.
+  if (e.hero && wouldDie && !result.downed && !result.martyred && result.absorbedByWeaver > 0) {
     const cause: SaveCause =
       result.absorbedByWard > 0 ? 'ward' : result.absorbedByDome > 0 ? 'dome' : 'other';
     if (cause !== 'other') recordSave(world, e, cause, damage, t.name);

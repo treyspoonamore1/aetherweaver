@@ -373,7 +373,9 @@ export class GameRuntime {
               text:
                 event.cause === 'fermata'
                   ? `${who?.name ?? ''} held on!`
-                  : `Saved ${who?.name ?? ''}`,
+                  : event.cause === 'martyr'
+                    ? `You took the blow for ${who?.name ?? ''}`
+                    : `Saved ${who?.name ?? ''}`,
               detail: `${event.attack} · ${Math.round(event.counterfactualDamage)} prevented`,
               color: '#f5d78e',
             },

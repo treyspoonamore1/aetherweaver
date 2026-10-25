@@ -147,6 +147,30 @@ describe('Threat', () => {
 });
 
 describe('Aether and relic offers', () => {
+  it('the Veil’s Save reads as one in the highlights', () => {
+    const ledger = emptyLedger();
+    ledger.saves.push({
+      time: 10,
+      hero: 1,
+      heroDefId: 'kael',
+      cause: 'martyr',
+      prevented: 500,
+      attack: 'Toll Cleave',
+    });
+    const node = Run.newRun(1).map.rows[0]![0]!;
+    const r = Run.summarize(node, {
+      encounterId: 'first_light',
+      outcome: 'victory',
+      duration: 30,
+      ledger,
+      party: [],
+      withoutYou: null,
+    });
+    expect(r.highlights[0]!.text).toBe(
+      'Saved Kael from Toll Cleave by taking the blow yourself (500 prevented)',
+    );
+  });
+
   it('a victory pays Aether by kind and grade; a loss pays nothing', () => {
     expect(aetherForFight('skirmish', 'victory', 'C')).toBe(20);
     expect(aetherForFight('elite', 'victory', 'S')).toBe(Math.round(35 * 1.5));
@@ -384,6 +408,8 @@ describe('events', () => {
     expect(Run.combatConfig(run)!.encounter).toBe('unsung_choir');
     run = Run.finishCombat(run, win(run));
     expect(run.lastResult!.kind).toBe('elite');
+    // A won event fight heals like any other win.
+    expect(run.party.every((h) => h.hpPct === 1)).toBe(true);
     run = Run.continueFromResult(run);
     expect(run.phase).toBe('relic');
     expect(run.relicOffer!.options).toHaveLength(3);

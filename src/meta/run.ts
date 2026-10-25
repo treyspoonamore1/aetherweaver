@@ -7,7 +7,7 @@
 import { CONTENT, boonDef, encounterDef, motifDef, relicDef, runEventDef } from '../content';
 import type { EventEffect, MotifDef, RelicRarity } from '../content/schema';
 import { Rng, hashString } from '../sim/core/rng';
-import { canonicalChords, chordProblems, type SimConfig } from '../sim';
+import { canonicalChords, chordProblems, type SaveCause, type SimConfig } from '../sim';
 import {
   FIGHT_AETHER,
   FORGE_PRICE,
@@ -447,7 +447,8 @@ export function combatConfig(run: RunState, assists?: SimConfig['assists']): Sim
     motifs: run.motifs.map((m) => ({ ...m })),
     relics: run.relics.map((r) => ({ ...r })),
     boons: run.boons.map((b) => b.id),
-    threat: threatFor(node.row),
+    // The node's own Threat: maps saved before Threat existed keep ×1.
+    threat: node.reward.threat,
     ...(assists ? { assists } : {}),
   };
 }
@@ -465,7 +466,15 @@ export function finishCombat(run: RunState, outcome: CombatOutcome): RunState {
     const pct = p.maxHp > 0 ? p.hp / p.maxHp : 1;
     return {
       heroId: h.heroId,
-      hpPct: Math.min(1, pct + (outcome.outcome === 'victory' ? node.reward.heal : 0)),
+      hpPct: Math.min(
+        1,
+        pct +
+          (outcome.outcome === 'victory'
+            ? node.kind === 'event'
+              ? VICTORY_HEAL
+              : node.reward.heal
+            : 0),
+      ),
       // Shaken lasts until the hero rests at a Respite.
       shaken: h.shaken,
     };
@@ -1155,13 +1164,14 @@ export function summarize(node: MapNode, outcome: CombatOutcome): EncounterResul
   };
 }
 
-const SAVE_HOW: Record<string, string> = {
+const SAVE_HOW: Record<SaveCause, string> = {
   ward: 'with a Ward',
   reel: 'with a Reel',
   chime: 'with a Chime',
   mend: 'with the Thread',
   dome: 'under Kael’s dome',
   fermata: 'through Fermata',
+  martyr: 'by taking the blow yourself',
   other: '',
 };
 
