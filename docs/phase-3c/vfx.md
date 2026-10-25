@@ -194,9 +194,6 @@ spark), `sunrise-start.jpg`, `sunrise.jpg`, `sunrise-hits.jpg`, `sunrise-no-call
   the sim flags `inField` (now any enemy inside a field, per the lead's change).
 - **Radiant tier thresholds** (12% chip, 25% sunburst) are render constants, not content.
 - Real FPS still isn't measurable here (SwiftShader).
-- The dev server on 5198 and the preview server were stopped by the session's background
-  time limit before the last screenshot batch ended; a few shots may be from the build just
-  before the last Eclipse-rim tweak.
 
 ## Contract requests (for the lead)
 

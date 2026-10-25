@@ -114,6 +114,8 @@ An independent review of the sim, run layer, content, harness and audio (read-on
 - **Two doc fields that never existed** (`HeroHit.radiance`, `DamageOpts.radiance`); **the field song's tick-0 radius** ignored the Luminary's reach until the first step.
 - **Weak tests**: Sovereign Symphony's three-aura boundary used two auras; Dawnward's test never checked the refire, the amount or a bigger barrier; the v4 migration fixture still carried the new stats; an audio assertion was looser than its title. All tightened.
 
+After the fixes: 601 unit tests, typecheck and lint clean, and 7/7 end-to-end tests in Chromium against the production build, including the Luminary's own (skip the unlocks, choose it in Prep, win First Light, take tier I).
+
 ## Known gaps
 
 - **The song builder's field radius ignores the Calling.** It says "within 8 m"; the Luminary's field song reaches 15% farther (38% with Wide Choir). The tier screen likewise shows the base 4% Radiance after Searing Hymns doubles it. The HUD's per-hero shine is exact.
