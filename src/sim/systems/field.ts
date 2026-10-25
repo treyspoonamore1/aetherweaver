@@ -117,8 +117,17 @@ export function updateField(world: World, dt: number): void {
     content.weaver.fieldRadiusCap,
     content.weaver.fieldRadius * world.mods.fieldRadiusMult,
   );
-  const radiusMult = f.crescendo ? content.crescendo.radiusMult : 1;
+  // Eclipse (the Luminary) takes Sunrise farther.
+  const radiusMult = f.crescendo
+    ? (world.mods.crescendoRadiusMult ?? content.crescendo.radiusMult)
+    : 1;
   const effectMult = f.crescendo ? content.crescendo.auraEffectMult : 1;
+  // Sovereign Symphony (the Luminary): enough auras across the songs make every one stronger.
+  const sovereign =
+    world.mods.sovereignMult !== 1 &&
+    world.loadout.reduce((n, c) => n + c.auras.length, 0) >= world.mods.sovereignMinAuras
+      ? world.mods.sovereignMult
+      : 1;
   const thread = threadedHero(world, weaver);
   const mult = world.scratch.auraMult;
   const focus = world.scratch.auraFocus;
@@ -137,15 +146,19 @@ export function updateField(world: World, dt: number): void {
       chord.z = weaver.z;
     }
     // An empty song, or a beam song without an echo (Unison), has no field at all.
+    // The Luminary's field song reaches farther (still within the cap).
+    const reach = chord.role === 'field' ? world.mods.fieldSongRadiusMult : 1;
     chord.radius =
       singing && chord.echo > 0
-        ? Math.min(content.weaver.fieldRadiusCap, base * def.radiusMult) * radiusMult
+        ? Math.min(content.weaver.fieldRadiusCap, base * def.radiusMult * reach) * radiusMult
         : 0;
     if (chord.anchor === 'weaver') weaverRadius = Math.max(weaverRadius, chord.radius);
     for (const id of chord.auras) {
       const index = content.auras.findIndex((a) => a.id === id);
       if (index < 0) continue;
-      mult[index] = chord.effectMult * effectMult;
+      // Lantern Bearer (the Luminary): a planted field sings stronger.
+      const planted = chord.anchor === 'planted' ? world.mods.plantedEffectMult : 1;
+      mult[index] = chord.effectMult * effectMult * planted * sovereign;
       focus[index] = chord.focus;
       echo[index] = chord.echo;
     }
@@ -159,10 +172,12 @@ export function updateField(world: World, dt: number): void {
     const hero = world.entities.get(id);
     if (!hero?.hero || !hero.health) continue;
     const mask = !hero.health.dead && !hero.health.downed ? coverage(world, hero, 'party') : 0;
+    const wasIn = hero.hero.inField;
     hero.hero.auraMask = mask;
     hero.hero.beamFocus = mask !== 0 && focused;
     // Standing in a field: the beam alone (a threaded hero far away) doesn't count.
     hero.hero.inField = mask !== 0 && inRadius;
+    if (!wasIn && hero.hero.inField) dawnward(world, hero, mask);
     applyAuraLife(world, hero, auraTotals(world, mask, hero.hero.beamFocus), dt, flush, refill);
   }
   // The Weaver hears their own songs too (the beam song only as its echo).
@@ -176,6 +191,26 @@ export function updateField(world: World, dt: number): void {
     e.enemy.beamFocus = mask !== 0 && focused;
     e.enemy.inField = mask !== 0 && inRadius;
   }
+}
+
+/**
+ * Dawnward (the Luminary): a hero stepping into a field is shielded by the light, a share of
+ * their life for every aura they now hear, once every few seconds each. Their own overshield
+ * (an uncued Aegis Wall), or a bigger one, is left alone.
+ */
+function dawnward(world: World, hero: Entity, mask: number): void {
+  const pct = world.mods.dawnwardPct;
+  const h = hero.hero!;
+  const health = hero.health!;
+  if (pct <= 0 || world.time < h.dawnwardAt || health.dead || health.downed) return;
+  let auras = 0;
+  for (let m = mask; m !== 0; m &= m - 1) auras++;
+  const amount = health.maxHp * pct * auras;
+  const existing = shieldOf(health, 'overshield');
+  if (amount <= 0 || (existing && (!existing.fromWeaver || existing.amount >= amount))) return;
+  addShield(world, hero, 'overshield', amount, world.mods.dawnwardDuration, true);
+  h.dawnwardAt = world.time + world.mods.dawnwardCooldown;
+  world.events.push({ type: 'dawnward', tick: world.tick, hero: hero.id, amount });
 }
 
 /** Pedal Point: plant the planted Chord's field at `point` (pulled in to the planting range). */

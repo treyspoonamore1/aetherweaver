@@ -17,4 +17,5 @@ export type * from './events';
 export * from './replay';
 export type * from './state';
 export { FixedStepper } from './core/fixedStep';
+export { fieldAuraSlots } from './world';
 export { auraBit, auraIds, enemyAuraMask, partyAuraMask, type AuraTotals } from './combat/auras';

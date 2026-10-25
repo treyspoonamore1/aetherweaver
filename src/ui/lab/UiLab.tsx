@@ -10,6 +10,7 @@ import { PauseMenu } from '../hud/PauseMenu';
 import { Button } from '../kit/Button';
 import { ScreenFrame, ScreenHeader } from '../kit/Backdrop';
 import { ChordBuilder } from '../screens/ChordBuilder';
+import { CallingView } from '../screens/CallingScreen';
 import { CodexView } from '../screens/CodexScreen';
 import { DraftView } from '../screens/DraftScreen';
 import { EventView } from '../screens/EventScreen';
@@ -196,6 +197,8 @@ function Flow() {
       );
     case 'relic':
       return <RelicOfferView run={run} onPick={(i) => set((r) => Run.pickRelic(r, i))} />;
+    case 'calling':
+      return <CallingView run={run} onPick={(i) => set((r) => Run.pickCalling(r, i))} />;
     case 'merchant':
       return (
         <MerchantView

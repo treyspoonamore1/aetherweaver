@@ -1,5 +1,5 @@
 /**
- * CONTRACT v5 — read-only world state exposed by the sim (docs/plan/05 §4.2).
+ * CONTRACT v6 — read-only world state exposed by the sim (docs/plan/05 §4.2).
  *
  * Views (render, UI, audio) read this and never mutate it: everything reachable from
  * `WorldState` is deeply read-only at the type level. Persistent visuals reflect state;
@@ -221,6 +221,8 @@ export interface HeroComponent {
   mendHealAcc: number;
   lastBarkAt: number;
   lowHpBarked: boolean;
+  /** Dawnward (the Luminary): sim time this hero can be shielded on entering the field again. */
+  dawnwardAt: number;
   /** Has fought this encounter (Glory Hound waits for a fresh pack). */
   engaged: boolean;
   /** Next Solo pulse (arrow, meteor) time. */
@@ -537,6 +539,8 @@ export interface Ledger {
   auras: { healing: number; shielded: number; amplified: number };
   /** What the Thread did: Mend's healing and Empower's part of `amplified`. */
   thread: { healing: number; amplified: number };
+  /** What the Calling did (docs/phase-3c.md): Radiance and Eclipse's damage, Haloed's guard. */
+  calling: { amplified: number; shielded: number };
   partyDamage: number;
   perfects: number;
   saves: SaveRecord[];

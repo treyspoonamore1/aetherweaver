@@ -43,6 +43,11 @@ export interface AssistConfig {
   autonomy?: boolean;
 }
 
+export interface CallingConfig {
+  id: string;
+  path?: string[];
+}
+
 export interface RelicConfig {
   id: string;
   cleansed?: boolean;
@@ -81,6 +86,11 @@ export interface SimConfig {
    * map hold their own against a stronger party. 1 outside runs; clamped to 1–3.
    */
   threat?: number;
+  /**
+   * The Weaver's Calling (docs/phase-3c.md) and the path options chosen so far, at most one
+   * per tier.
+   */
+  calling?: CallingConfig | null;
   assists?: AssistConfig;
   /** Enables `debug` commands (spawns, teleport). Debug commands are recorded in replays. */
   debug?: boolean;
@@ -102,6 +112,8 @@ export interface ResolvedSimConfig {
   relics: Required<RelicConfig>[];
   boons: string[];
   threat: number;
+  /** None when the Weaver is absent. */
+  calling: Required<CallingConfig> | null;
   assists: Required<AssistConfig>;
   debug: boolean;
   absent: boolean;
@@ -122,13 +134,16 @@ export function resolveConfig(config: SimConfig, content: Content = CONTENT): Re
   const encounter = config.encounter ?? 'sandbox';
   encounterDef(encounter);
   const absent = config.absent ?? false;
+  const calling = absent || !config.calling ? null : resolveCalling(config.calling, content);
   const given = config.chords ?? (config.auras ? [{ auras: config.auras }] : []);
   const chords = absent
     ? []
     : canonicalChords(
         given.map((c) => ({ auras: [...c.auras], ornaments: [...(c.ornaments ?? [])] })),
       );
-  const problems = chordProblems(chords, content);
+  const problems = chordProblems(chords, content, {
+    fieldAuraSlots: fieldAuraSlots(calling, content),
+  });
   if (problems.length > 0) throw new Error(`Illegal Chords: ${problems.join(' ')}`);
   const motifs = (config.motifs ?? []).map((m) => {
     const def = content.motifs.find((d) => d.id === m.id);
@@ -159,6 +174,7 @@ export function resolveConfig(config: SimConfig, content: Content = CONTENT): Re
     relics,
     boons,
     threat: Math.max(1, Math.min(3, config.threat ?? 1)),
+    calling,
     assists: {
       perfectWindowBonus: Math.max(0, Math.min(0.3, a.perfectWindowBonus ?? 0)),
       telegraphLead: Math.max(1, Math.min(2, a.telegraphLead ?? 1)),
@@ -167,6 +183,39 @@ export function resolveConfig(config: SimConfig, content: Content = CONTENT): Re
     debug: config.debug ?? false,
     absent,
   };
+}
+
+function resolveCalling(c: CallingConfig, content: Content): Required<CallingConfig> {
+  const def = content.callings.find((d) => d.id === c.id);
+  if (!def) throw new Error(`Unknown calling "${c.id}"`);
+  const path: string[] = [];
+  const tiers = new Set<number>();
+  for (const id of c.path ?? []) {
+    const tier = def.tiers.findIndex((t) => t.options.some((o) => o.id === id));
+    if (tier < 0) throw new Error(`"${id}" is not on the ${def.name}'s path`);
+    if (tiers.has(tier))
+      throw new Error(`Two options from tier ${tier + 1} of the ${def.name}'s path`);
+    tiers.add(tier);
+    path.push(id);
+  }
+  return { id: def.id, path };
+}
+
+/**
+ * Auras the field song can hold: the content's slots, plus any the Calling's path grants
+ * (the Luminary's Third Voice: an option with `values.slots`).
+ */
+export function fieldAuraSlots(
+  calling: Readonly<Required<CallingConfig>> | null,
+  content: Content = CONTENT,
+): number {
+  let slots = content.weaver.auraSlots;
+  const def = calling ? content.callings.find((d) => d.id === calling.id) : undefined;
+  for (const id of calling?.path ?? []) {
+    const option = def?.tiers.flatMap((t) => t.options).find((o) => o.id === id);
+    slots += option?.values.slots ?? 0;
+  }
+  return slots;
 }
 
 /** A hit in flight (arrows, bolts, delayed blasts). Lands at `at`. */
@@ -316,6 +365,7 @@ export function emptyLedger(): Ledger {
     holds: 0,
     auras: { healing: 0, shielded: 0, amplified: 0 },
     thread: { healing: 0, amplified: 0 },
+    calling: { amplified: 0, shielded: 0 },
     timeline: [],
     markers: [],
   };
@@ -547,6 +597,7 @@ export function createWorld(config: SimConfig): World {
         mendHealAcc: 0,
         lastBarkAt: -100,
         lowHpBarked: false,
+        dawnwardAt: 0,
         engaged: false,
         soloPulseAt: 0,
         lastTelegraphSeen: 0,

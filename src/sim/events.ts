@@ -1,5 +1,5 @@
 /**
- * CONTRACT v5 — Events are the only way out of the simulation (docs/plan/05 §4.5).
+ * CONTRACT v6 — Events are the only way out of the simulation (docs/plan/05 §4.5).
  *
  * The sim buffers events during a tick; render, audio, UI, the ledger and achievements
  * drain them after the step. Nothing polls the sim for "did X happen". Every event carries
@@ -92,6 +92,8 @@ export interface DamageTaken extends At {
    * rest, `amplified - aura`, is Empower and Flourishes: the gold chip.
    */
   aura: number;
+  /** Radiance's part of `amplified` (the Luminary, docs/phase-3c.md): the hero shone. */
+  radiance: number;
   crit: boolean;
   telegraph: number | null;
   hit: 'hit' | 'tick' | 'detonation';
@@ -350,6 +352,13 @@ export interface RelicTriggered extends At {
   targets?: EntityId[];
 }
 
+/** Dawnward (the Luminary): a hero stepped into your field and the light shielded them. */
+export interface Dawnward extends At {
+  type: 'dawnward';
+  hero: EntityId;
+  amount: number;
+}
+
 // ── Call and Response (docs/phase-2.md) ───────────────────────────────────────────────
 /** A hero calls for a specific kind of support before a big move. */
 export interface CallStarted extends At {
@@ -522,6 +531,7 @@ export type SimEvent =
   | FermataHold
   | FermataReleased
   | RelicTriggered
+  | Dawnward
   | CallStarted
   | CallAnswered
   | CallEnded

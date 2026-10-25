@@ -97,6 +97,8 @@ export function chordReserve(chords: readonly ChordLoadout[], content: Content =
 export function chordProblems(
   chords: readonly ChordLoadout[],
   content: Content = CONTENT,
+  /** The field song's aura slots, when a Calling adds one (the Luminary's Third Voice). */
+  opts: { fieldAuraSlots?: number } = {},
 ): string[] {
   const w = content.weaver;
   const problems: string[] = [];
@@ -105,8 +107,8 @@ export function chordProblems(
   const seenOrnaments = new Set<string>();
   chords.forEach((chord, i) => {
     const label = `The ${songName(i).toLowerCase()}`;
-    if (chord.auras.length > w.auraSlots)
-      problems.push(`${label} holds at most ${w.auraSlots} auras.`);
+    const slots = i === 1 ? (opts.fieldAuraSlots ?? w.auraSlots) : w.auraSlots;
+    if (chord.auras.length > slots) problems.push(`${label} holds at most ${slots} auras.`);
     if (chord.ornaments.length > w.ornamentSlots)
       problems.push(`${label} holds at most ${w.ornamentSlots} ornaments.`);
     if (chord.ornaments.length > 0 && chord.auras.length === 0)

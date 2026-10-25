@@ -4,10 +4,24 @@
  * Aether, merchants, forges, events and relics. Every function here is pure: it takes a
  * RunState and returns a new one, so runs are reproducible from their seed and easy to test.
  */
-import { CONTENT, boonDef, encounterDef, motifDef, relicDef, runEventDef } from '../content';
+import {
+  CONTENT,
+  boonDef,
+  callingDef,
+  encounterDef,
+  motifDef,
+  relicDef,
+  runEventDef,
+} from '../content';
 import type { EventEffect, MotifDef, RelicRarity } from '../content/schema';
 import { Rng, hashString } from '../sim/core/rng';
-import { canonicalChords, chordProblems, type SaveCause, type SimConfig } from '../sim';
+import {
+  canonicalChords,
+  chordProblems,
+  fieldAuraSlots as simFieldAuraSlots,
+  type SaveCause,
+  type SimConfig,
+} from '../sim';
 import {
   FIGHT_AETHER,
   FORGE_PRICE,
@@ -26,6 +40,7 @@ import { EVERYTHING, lockedProblems, xpForFight, type Allowance } from './profil
 import {
   RUN_SAVE_VERSION,
   type ActiveBoon,
+  type CallingOffer,
   type ChordLoadout,
   type CombatOutcome,
   type DraftOffer,
@@ -134,15 +149,42 @@ export const CHORD_PRESETS: readonly {
     ],
   },
 ];
-/** Is this loadout legal? (The run only ever stores legal Chords.) */
-export function chordsLegal(chords: readonly ChordLoadout[]): boolean {
-  return chordProblems(canonicalChords(chords)).length === 0;
+/**
+ * Is this loadout legal? (The run only ever stores legal Chords.) `fieldAuraSlots`: the field
+ * song's slots when the run's Calling adds one (`fieldAuraSlots(run)`).
+ */
+export function chordsLegal(chords: readonly ChordLoadout[], fieldAuraSlots?: number): boolean {
+  return (
+    chordProblems(canonicalChords(chords), CONTENT, fieldAuraSlots ? { fieldAuraSlots } : {})
+      .length === 0
+  );
 }
 
 /** Legal, and everything in it is unlocked for this allowance. */
-export function chordsAllowed(chords: readonly ChordLoadout[], allowance: Allowance): boolean {
-  return chordsLegal(chords) && lockedProblems(chords, allowance).length === 0;
+export function chordsAllowed(
+  chords: readonly ChordLoadout[],
+  allowance: Allowance,
+  fieldAuraSlots?: number,
+): boolean {
+  return chordsLegal(chords, fieldAuraSlots) && lockedProblems(chords, allowance).length === 0;
 }
+
+/** The run's Calling as the sim takes it: the options chosen so far. */
+function simCalling(run: RunState): { id: string; path: string[] } | null {
+  if (!run.calling) return null;
+  return { id: run.calling.id, path: run.calling.path.filter((p): p is string => p !== null) };
+}
+
+/** Auras the field song can hold in this run (the Luminary's Third Voice adds one). */
+export function fieldAuraSlots(run: RunState): number {
+  return simFieldAuraSlots(simCalling(run));
+}
+
+/**
+ * The map rows whose fight brings the Calling's next tier (docs/phase-3c.md): First Light,
+ * the row-3 and row-5 fights (every path has them) and the Bellwarden.
+ */
+export const CALLING_ROWS: readonly number[] = [0, 3, 5, 7];
 
 const REROLLS = 1;
 const SKIP_HEAL = 0.1;
@@ -375,7 +417,21 @@ export function newRun(seed: number, chords: readonly ChordLoadout[] = DEFAULT_C
     forge: null,
     event: null,
     relicOffer: null,
+    calling: null,
+    callingOffer: null,
   };
+}
+
+/** Prep: choose the run's Calling (null: none), if it's unlocked. */
+export function setCalling(
+  run: RunState,
+  id: string | null,
+  allowance: Allowance = EVERYTHING,
+): RunState {
+  if (run.phase !== 'prep') return run;
+  if (id === null) return run.calling === null ? run : { ...run, calling: null };
+  if (!allowance.callings.has(id) || !CONTENT.callings.some((c) => c.id === id)) return run;
+  return { ...run, calling: { id, path: callingDef(id).tiers.map(() => null) } };
 }
 
 export function setChords(
@@ -383,7 +439,7 @@ export function setChords(
   chords: readonly ChordLoadout[],
   allowance: Allowance = EVERYTHING,
 ): RunState {
-  if (run.phase !== 'prep' || !chordsAllowed(chords, allowance)) return run;
+  if (run.phase !== 'prep' || !chordsAllowed(chords, allowance, fieldAuraSlots(run))) return run;
   return { ...run, chords: canonicalChords(chords) };
 }
 
@@ -393,7 +449,7 @@ export function retune(
   chords: readonly ChordLoadout[],
   allowance: Allowance = EVERYTHING,
 ): RunState {
-  if (run.phase !== 'respite' || !chordsAllowed(chords, allowance)) return run;
+  if (run.phase !== 'respite' || !chordsAllowed(chords, allowance, fieldAuraSlots(run))) return run;
   return { ...run, chords: canonicalChords(chords), phase: 'map', pending: null };
 }
 
@@ -464,6 +520,7 @@ export function combatConfig(run: RunState, assists?: SimConfig['assists']): Sim
     motifs: run.motifs.map((m) => ({ ...m })),
     relics: run.relics.map((r) => ({ ...r })),
     boons: run.boons.map((b) => b.id),
+    calling: simCalling(run),
     // The node's own Threat: maps saved before Threat existed keep ×1.
     threat: node.reward.threat,
     ...(assists ? { assists } : {}),
@@ -523,6 +580,46 @@ export function continueFromResult(run: RunState): RunState {
   if (run.outcome === 'defeat') return { ...run, phase: 'summary', pending: null };
   if (!node || node.kind === 'boss')
     return { ...run, phase: 'summary', pending: null, outcome: 'victory' };
+  // A milestone fight brings the Calling's next tier, before anything else.
+  const tier = callingTierDue(run, node);
+  if (tier) return { ...run, phase: 'calling', callingOffer: tier };
+  return relicThenRewards(run, node);
+}
+
+/** The Calling's tier this node's victory brings, if one is due and not yet picked. */
+function callingTierDue(run: RunState, node: MapNode): CallingOffer | null {
+  if (!run.calling || node.kind === 'event') return null;
+  const tier = CALLING_ROWS.indexOf(node.row);
+  const def = callingDef(run.calling.id);
+  if (tier < 0 || tier >= def.tiers.length || run.calling.path[tier] !== null) return null;
+  const [a, b] = def.tiers[tier]!.options;
+  return { tier, options: [a!.id, b!.id] };
+}
+
+/**
+ * Calling: take an option for the tier on offer. An option that grants a slot (Third Voice)
+ * also takes the new Chords, free, if they're allowed with it.
+ */
+export function pickCalling(
+  run: RunState,
+  index: 0 | 1,
+  chords?: readonly ChordLoadout[],
+  allowance: Allowance = EVERYTHING,
+): RunState {
+  const offer = run.callingOffer;
+  if (run.phase !== 'calling' || !offer || !run.calling) return run;
+  const id = offer.options[index];
+  if (!id) return run;
+  const path = run.calling.path.map((p, i) => (i === offer.tier ? id : p));
+  let next: RunState = { ...run, calling: { ...run.calling, path }, callingOffer: null };
+  if (chords && chordsAllowed(chords, allowance, fieldAuraSlots(next)))
+    next = { ...next, chords: canonicalChords(chords) };
+  const node = run.pending ? findNode(run, run.pending) : undefined;
+  return node ? relicThenRewards(next, node) : toMap(next);
+}
+
+/** After a victory (and the Calling's tier): a relic offer if the node has one, then rewards. */
+function relicThenRewards(run: RunState, node: MapNode): RunState {
   // Elites, the Bellwarden and an event's fight offer a relic first.
   const offer =
     node.kind === 'event'
@@ -557,6 +654,7 @@ function toMap(run: RunState): RunState {
     shop: null,
     forge: null,
     event: null,
+    callingOffer: null,
   };
 }
 
@@ -796,7 +894,7 @@ export function forge(
       };
       break;
     case 'retune':
-      if (!chordsAllowed(choice.chords, allowance)) return run;
+      if (!chordsAllowed(choice.chords, allowance, fieldAuraSlots(run))) return run;
       next = { ...run, chords: canonicalChords(choice.chords) };
       break;
   }
@@ -848,7 +946,7 @@ export function chooseEvent(
   }
   const effects = [...ch.effects, ...ch.fail];
   if (effects.some((e) => e.kind === 'retune')) {
-    if (!opts.chords || !chordsAllowed(opts.chords, allowance)) return run;
+    if (!opts.chords || !chordsAllowed(opts.chords, allowance, fieldAuraSlots(run))) return run;
   }
   const rng = rngFor(run.seed, `event:${event.nodeId}:${choiceId}`);
   const won = ch.chance === undefined ? null : rng.float() < ch.chance;

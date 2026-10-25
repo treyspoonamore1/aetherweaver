@@ -61,12 +61,26 @@ function pct(n: number): string {
   return `${Math.round(n * 100)}%`;
 }
 
+/** `--calling luminary` and `--path 0101` (the option to take at each tier). */
+const callingArg = ((): string | undefined => {
+  const i = process.argv.indexOf('--calling');
+  return i >= 0 ? process.argv[i + 1] : undefined;
+})();
+const pathArg = ((): (0 | 1)[] | undefined => {
+  const i = process.argv.indexOf('--path');
+  return i >= 0 ? [...(process.argv[i + 1] ?? '')].map((c) => (c === '1' ? 1 : 0)) : undefined;
+})();
+
 function runs(args: Args): void {
-  console.log(`harness · whole Prelude runs · ${args.seeds} seeds · loadout ${args.label}`);
+  console.log(
+    `harness · whole Prelude runs · ${args.seeds} seeds · loadout ${args.label}${callingArg ? ` · ${callingArg} ${pathArg?.join('') ?? '0000'}` : ''}`,
+  );
   for (const bot of args.bots) {
     const results = Array.from({ length: args.seeds }, (_, i) =>
       playRun(2000 + i * 104729, bot, args.chords, {
         relics: !process.argv.includes('--no-relics'),
+        calling: callingArg,
+        path: pathArg,
       }),
     );
     const wins = results.filter((r) => r.outcome === 'victory').length;

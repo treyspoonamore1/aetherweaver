@@ -5,6 +5,7 @@ import { HEROES } from './heroes';
 import { MOTIFS } from './motifs';
 import { AURAS } from './auras';
 import { ORNAMENTS } from './ornaments';
+import { CALLINGS } from './callings';
 import { BOONS, RELICS } from './relics';
 import { RUN_EVENTS } from './runEvents';
 import { CALLS, CHORUS, CRESCENDO, RESONANCE, TECHNIQUES, THREAD, WEAVER } from './weaver';
@@ -14,6 +15,8 @@ import {
   type AttackDef,
   type AuraDef,
   type BoonDef,
+  type CallingDef,
+  type CallingOption,
   type Content,
   type EncounterDef,
   type EnemyDef,
@@ -44,6 +47,7 @@ export const CONTENT: Content = ContentSchema.parse({
   relics: RELICS,
   boons: BOONS,
   events: RUN_EVENTS,
+  callings: CALLINGS,
   arenas: ARENAS,
   encounters: ENCOUNTERS,
   barks: {
@@ -92,6 +96,20 @@ export const encounterDef: (id: string) => EncounterDef = index('encounter', CON
 export const relicDef: (id: string) => RelicDef = index('relic', CONTENT.relics);
 export const boonDef: (id: string) => BoonDef = index('boon', CONTENT.boons);
 export const runEventDef: (id: string) => RunEventDef = index('event', CONTENT.events);
+export const callingDef: (id: string) => CallingDef = index('calling', CONTENT.callings);
+export const callingOption: (id: string) => CallingOption = index(
+  'calling option',
+  CONTENT.callings.flatMap((k) => k.tiers.flatMap((t) => t.options)),
+);
+
+/** The Calling whose path holds this option, and the option's tier (0-based). */
+export function optionTier(id: string): { calling: CallingDef; tier: number } {
+  for (const calling of CONTENT.callings) {
+    const tier = calling.tiers.findIndex((t) => t.options.some((o) => o.id === id));
+    if (tier >= 0) return { calling, tier };
+  }
+  throw new Error(`Unknown calling option "${id}"`);
+}
 
 /** Fills {name} placeholders from a relic's or boon's values. */
 export function fillValues(text: string, values: Readonly<Record<string, number>>): string {
@@ -114,6 +132,18 @@ export function boonText(def: BoonDef): string {
   return fillValues(def.text, def.values);
 }
 
+/** A Calling's passive and its Crescendo line, filled in. */
+export function callingText(def: CallingDef): { passive: string; crescendo: string } {
+  return {
+    passive: fillValues(def.text, def.values),
+    crescendo: fillValues(def.crescendo, def.values),
+  };
+}
+
+export function optionText(def: CallingOption): string {
+  return fillValues(def.text, def.values);
+}
+
 /** Player-facing motif text at a level (1-based), with the value filled in. */
 export function motifText(def: MotifDef, level: number): string {
   const v = def.values[Math.min(def.values.length, Math.max(1, level)) - 1] ?? def.values[0];
@@ -125,6 +155,8 @@ export type {
   AttackDef,
   AuraDef,
   BoonDef,
+  CallingDef,
+  CallingOption,
   Content,
   EncounterDef,
   EnemyDef,

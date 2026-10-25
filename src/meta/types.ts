@@ -1,5 +1,5 @@
 /**
- * CONTRACT v5 — the run layer (docs/plan/02 §8, 03 §9, docs/phase-3b.md). A run is plain, serialisable data;
+ * CONTRACT v6 — the run layer (docs/plan/02 §8, 03 §9, docs/phase-3b.md, docs/phase-3c.md). A run is plain, serialisable data;
  * every transition is a pure function of (state, action) so runs are seedable, testable and
  * resumable. The app wraps it in a store (app/runStore.ts); screens read and act through
  * that store only.
@@ -15,7 +15,7 @@ import type {
 
 export type { ChordLoadout, WithoutYou };
 
-export const RUN_SAVE_VERSION = 4;
+export const RUN_SAVE_VERSION = 5;
 
 export type NodeKind =
   | 'skirmish'
@@ -159,6 +159,20 @@ export interface EventState {
   encounterId: string | null;
   /** Relics offered after winning the event's fight. */
   relics: number;
+}
+
+/** The run's Calling (docs/phase-3c.md), chosen in Prep. */
+export interface RunCalling {
+  id: string;
+  /** The option chosen at each tier of its path, in tier order; null until that tier's pick. */
+  path: (string | null)[];
+}
+
+/** A tier of the Calling's path on offer: pick one of two. */
+export interface CallingOffer {
+  /** 0-based tier. */
+  tier: number;
+  options: [string, string];
 }
 
 export interface RelicOffer {
@@ -309,6 +323,8 @@ export type RunPhase =
   | 'map'
   | 'combat'
   | 'result'
+  /** Pick one of two options for the next tier of the Calling's path. */
+  | 'calling'
   /** Choose one of a few relics (after an elite, the Bellwarden or an event's fight). */
   | 'relic'
   | 'draft'
@@ -353,6 +369,10 @@ export interface RunState {
   event: EventState | null;
   /** The relic choice on offer. */
   relicOffer: RelicOffer | null;
+  /** The Weaver's Calling for this run (null: none). */
+  calling: RunCalling | null;
+  /** The Calling's tier on offer. */
+  callingOffer: CallingOffer | null;
 }
 
 /** Everything the run screens can do. Implemented by app/runStore.ts. */
@@ -364,6 +384,8 @@ export interface RunActions {
    * player hasn't unlocked yet (meta/profile.ts `lockedProblems`) are ignored.
    */
   setChords(chords: ChordLoadout[]): void;
+  /** Prep: choose a Calling for the run (null: none). Ignored if it isn't unlocked. */
+  setCalling(id: string | null): void;
   /** Prep → Map. */
   embark(): void;
   /** Map: travel to a node reachable from the current one. */
@@ -372,8 +394,13 @@ export interface RunActions {
   combatConfig(): SimConfig | null;
   /** Combat → Result. */
   finishCombat(outcome: CombatOutcome): void;
-  /** Result → Relic or Draft (victory) or Summary (defeat / final boss). */
+  /** Result → Calling, Relic or Draft (victory) or Summary (defeat / final boss). */
   continueFromResult(): void;
+  /**
+   * Calling: take option `index` for the tier on offer. `chords` applies a free retune when the
+   * option grants a slot (the Luminary's Third Voice), by Prep's rules plus the new slot.
+   */
+  pickCalling(index: 0 | 1, chords?: ChordLoadout[]): void;
   /** Relic: take option `index`, or leave them all (null). Then the draft, if the node has one. */
   pickRelic(index: number | null): void;
   /** Draft: take option `index`, or skip (null) for a small heal instead. */

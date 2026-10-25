@@ -6,7 +6,7 @@
  *
  * Settings → "Skip the unlocks" gives everything at once (`EVERYTHING`).
  */
-import { CONTENT } from '../content';
+import { CONTENT, callingText } from '../content';
 import { canonicalChords, type ChordLoadout } from '../sim';
 import type { EncounterResult, Grade } from './types';
 
@@ -31,7 +31,7 @@ export function newProfile(): Profile {
 // ── Ranks ─────────────────────────────────────────────────────────────────────────────
 
 /** Total XP needed for each Rank: RANK_XP[r - 1] reaches Rank r. */
-export const RANK_XP: readonly number[] = [0, 40, 200, 450, 800, 1250];
+export const RANK_XP: readonly number[] = [0, 40, 200, 450, 800, 1250, 1800];
 /** The highest Rank for now (the Loom adds more in Phase 4; XP keeps counting). */
 export const MAX_RANK = RANK_XP.length;
 
@@ -51,14 +51,14 @@ export function rankProgress(xp: number): { rank: number; into: number; span: nu
 
 // ── Unlocks ───────────────────────────────────────────────────────────────────────────
 
-export type UnlockKind = 'song' | 'aura' | 'ornament' | 'ornamentSlot';
+export type UnlockKind = 'song' | 'aura' | 'ornament' | 'ornamentSlot' | 'calling';
 
 export interface Unlock {
   /** Stable id: "song.field", "aura.ostinato", "ornament.unison", "ornamentSlot.2". */
   id: string;
   rank: number;
   kind: UnlockKind;
-  /** The aura or ornament id, the song ('beam' | 'field'), or the slot count ("1", "2"). */
+  /** The aura, ornament or Calling id, the song ('beam' | 'field'), or the slot count ("1", "2"). */
   target: string;
   name: string;
   /** One or two sentences introducing it (rank-up card, Prep). */
@@ -119,6 +119,14 @@ export const UNLOCKS: readonly Unlock[] = [
     name: 'A second ornament slot',
     text: 'Each song can now carry two ornaments.',
   },
+  ...CONTENT.callings.map((c): Unlock => ({
+    id: `calling.${c.id}`,
+    rank: c.unlockRank,
+    kind: 'calling',
+    target: c.id,
+    name: `The ${c.name}`,
+    text: `A Calling: choose it in Prep for the whole run. ${callingText(c).passive} Its path grows as you go.`,
+  })),
 ];
 
 /** Unlocks reached between two XP totals (for the rank-up card). */
@@ -136,6 +144,8 @@ export interface Allowance {
   ornaments: ReadonlySet<string>;
   /** Ornament slots per song (0–2). */
   ornamentSlots: number;
+  /** Callings that can be chosen in Prep. */
+  callings: ReadonlySet<string>;
   /** Everything is open (Skip the unlocks). */
   all: boolean;
 }
@@ -145,6 +155,7 @@ export const EVERYTHING: Allowance = {
   auras: new Set(CONTENT.auras.map((a) => a.id)),
   ornaments: new Set(CONTENT.ornaments.map((o) => o.id)),
   ornamentSlots: CONTENT.weaver.ornamentSlots,
+  callings: new Set(CONTENT.callings.map((c) => c.id)),
   all: true,
 };
 
@@ -166,6 +177,7 @@ export function allowanceFor(rank: number): Allowance {
       ...of('ornament'),
     ]),
     ornamentSlots: Math.max(0, ...of('ornamentSlot').map(Number)),
+    callings: new Set(of('calling')),
     all: false,
   };
 }

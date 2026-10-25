@@ -595,6 +595,48 @@ export const RunEventDefSchema = z
   .strict();
 export type RunEventDef = z.infer<typeof RunEventDefSchema>;
 
+// ── Callings (docs/phase-3c.md) ─────────────────────────────────────────────────────
+
+export const CallingOptionSchema = z
+  .object({
+    id: IdSchema,
+    name: z.string(),
+    /** What it does, with {value} placeholders filled from `values`. */
+    text: z.string(),
+    values: ValuesSchema,
+    icon: IdSchema,
+  })
+  .strict();
+export type CallingOption = z.infer<typeof CallingOptionSchema>;
+
+/**
+ * A Calling: the Weaver's class for a run. A passive, its own take on the Crescendo, and a
+ * path of tiers, each a pick between two options made during the run. The sim's Calling
+ * resolver (sim/mods.ts) knows what each id does.
+ */
+export const CallingDefSchema = z
+  .object({
+    id: IdSchema,
+    name: z.string(),
+    /** "the aura sovereign" */
+    title: z.string(),
+    /** The passive, with {value} placeholders. */
+    text: z.string(),
+    /** What it does to the Crescendo, with {value} placeholders. */
+    crescendo: z.string(),
+    flavor: z.string(),
+    values: ValuesSchema,
+    /** The Weaver Rank that unlocks it. */
+    unlockRank: z.number().int().positive(),
+    icon: IdSchema,
+    tiers: z
+      .array(z.object({ options: z.array(CallingOptionSchema).length(2) }).strict())
+      .min(1)
+      .max(6),
+  })
+  .strict();
+export type CallingDef = z.infer<typeof CallingDefSchema>;
+
 // ── Arenas and encounters ─────────────────────────────────────────────────────────────
 
 export const ArenaDefSchema = z.object({
@@ -666,6 +708,7 @@ export const ContentSchema = z
     relics: z.array(RelicDefSchema),
     boons: z.array(BoonDefSchema),
     events: z.array(RunEventDefSchema),
+    callings: z.array(CallingDefSchema),
     arenas: z.array(ArenaDefSchema).min(1),
     encounters: z.array(EncounterDefSchema).min(1),
     /** Directive acknowledgement lines. */
@@ -788,6 +831,21 @@ export const ContentSchema = z
         });
     }
     for (const b of c.boons) filled(b.text, b.values, `boon "${b.id}"`);
+    unique(
+      'calling',
+      c.callings.map((k) => k.id),
+    );
+    // Option ids are global: the sim and saves name an option without its Calling.
+    unique(
+      'calling option',
+      c.callings.flatMap((k) => k.tiers.flatMap((t) => t.options.map((o) => o.id))),
+    );
+    for (const k of c.callings) {
+      filled(k.text, k.values, `calling "${k.id}"`);
+      filled(k.crescendo, k.values, `calling "${k.id}"`);
+      for (const t of k.tiers)
+        for (const o of t.options) filled(o.text, o.values, `calling option "${o.id}"`);
+    }
     for (const ev of c.events) {
       unique(
         `choice in event "${ev.id}"`,

@@ -758,6 +758,7 @@ export function fakeOutcome(
   }
   const scale = 0.7 + rnd() * 0.8;
   const ledger: Ledger = {
+    calling: { amplified: 0, shielded: 0 },
     healing: 4200 * scale,
     overheal: 900 * scale,
     shielded: 2100 * scale,

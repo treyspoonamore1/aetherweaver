@@ -4,6 +4,7 @@ import { ScreenFrame } from '../kit/Backdrop';
 import { Button } from '../kit/Button';
 import type { RunState } from '../../meta/types';
 import { useUi } from '../store';
+import { CallingScreen } from './CallingScreen';
 import { DraftScreen } from './DraftScreen';
 import { EventScreen } from './EventScreen';
 import { ForgeScreen } from './ForgeScreen';
@@ -135,6 +136,8 @@ function screenFor(run: RunState): ReactNode {
       return <SummaryScreen />;
     case 'relic':
       return <RelicScreen />;
+    case 'calling':
+      return <CallingScreen />;
     case 'merchant':
       return <MerchantScreen />;
     case 'forge':

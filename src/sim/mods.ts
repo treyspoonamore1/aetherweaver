@@ -73,6 +73,27 @@ export interface Mods {
   startSolos: boolean;
   /** Frayed Spirit: max Spirit multiplier. */
   spiritMult: number;
+  // ── The Calling (docs/phase-3c.md) ──
+  /** Radiance: extra damage per aura heard by a hero standing in a field (0 = none). */
+  radiancePerAura: number;
+  sunriseRadianceMult: number;
+  /** The field song's reach (the Luminary, Wide Choir). */
+  fieldSongRadiusMult: number;
+  /** Haloed: damage taken off heroes in a field. */
+  haloedReduction: number;
+  /** Dawnward: barrier per aura heard on stepping into a field (fraction of max HP; 0 = none). */
+  dawnwardPct: number;
+  dawnwardCooldown: number;
+  dawnwardDuration: number;
+  /** Lantern Bearer: a planted field's auras. */
+  plantedEffectMult: number;
+  /** Sovereign Symphony: every aura × this with `sovereignMinAuras` or more in the songs. */
+  sovereignMult: number;
+  sovereignMinAuras: number;
+  /** Eclipse: during the Crescendo, enemies in a field take this much more from heroes. */
+  eclipseVulnerability: number;
+  /** The Crescendo's reach (null = content's). */
+  crescendoRadiusMult: number | null;
 }
 
 export const NO_MODS: Mods = {
@@ -126,6 +147,18 @@ export const NO_MODS: Mods = {
   beamEcho: null,
   startSolos: false,
   spiritMult: 1,
+  radiancePerAura: 0,
+  sunriseRadianceMult: 1,
+  fieldSongRadiusMult: 1,
+  haloedReduction: 0,
+  dawnwardPct: 0,
+  dawnwardCooldown: 0,
+  dawnwardDuration: 0,
+  plantedEffectMult: 1,
+  sovereignMult: 1,
+  sovereignMinAuras: 0,
+  eclipseVulnerability: 0,
+  crescendoRadiusMult: null,
 };
 
 export function resolveMods(config: ResolvedSimConfig, content: Content): Mods {
@@ -230,8 +263,79 @@ export function resolveMods(config: ResolvedSimConfig, content: Content): Mods {
     const def = content.boons.find((d) => d.id === id);
     if (def) applyBoon(m, def.id, def.values);
   }
+  if (config.calling) {
+    const def = content.callings.find((d) => d.id === config.calling!.id);
+    if (def) {
+      applyCalling(m, def.id, def.values);
+      const options = def.tiers.flatMap((t) => t.options);
+      for (const id of config.calling.path) {
+        const option = options.find((o) => o.id === id);
+        if (option) applyCallingOption(m, option.id, option.values);
+      }
+    }
+  }
   return m;
 }
+
+function applyCalling(m: Mods, id: string, v: Values): void {
+  switch (id) {
+    case 'luminary':
+      m.radiancePerAura = num(v, 'radiance') / 100;
+      m.sunriseRadianceMult = num(v, 'sunrise');
+      m.fieldSongRadiusMult *= 1 + num(v, 'reach') / 100;
+      break;
+    default:
+      break;
+  }
+}
+
+function applyCallingOption(m: Mods, id: string, v: Values): void {
+  switch (id) {
+    case 'haloed':
+      m.haloedReduction = num(v, 'pct') / 100;
+      break;
+    case 'wide_choir':
+      m.fieldSongRadiusMult *= 1 + num(v, 'pct') / 100;
+      break;
+    case 'dawnward':
+      m.dawnwardPct = num(v, 'pct') / 100;
+      m.dawnwardCooldown = num(v, 'cooldown');
+      m.dawnwardDuration = num(v, 'duration');
+      break;
+    case 'searing_hymns':
+      m.radiancePerAura *= num(v, 'mult');
+      break;
+    case 'third_voice':
+      // A slot, not a number: the chord rules read it (world.ts `fieldAuraSlots`).
+      break;
+    case 'lantern_bearer':
+      m.plantedEffectMult = 1 + num(v, 'pct') / 100;
+      break;
+    case 'sovereign_symphony':
+      m.sovereignMult = 1 + num(v, 'pct') / 100;
+      m.sovereignMinAuras = num(v, 'count');
+      break;
+    case 'eclipse':
+      m.eclipseVulnerability = num(v, 'pct') / 100;
+      m.crescendoRadiusMult = num(v, 'reach');
+      break;
+    default:
+      break;
+  }
+}
+
+/** Callings and path options the resolver knows (checked against content in tests). */
+export const KNOWN_CALLINGS: readonly string[] = ['luminary'];
+export const KNOWN_CALLING_OPTIONS: readonly string[] = [
+  'haloed',
+  'wide_choir',
+  'dawnward',
+  'searing_hymns',
+  'third_voice',
+  'lantern_bearer',
+  'sovereign_symphony',
+  'eclipse',
+];
 
 type Values = Readonly<Record<string, number>>;
 const num = (v: Values, key: string): number => v[key] ?? 0;

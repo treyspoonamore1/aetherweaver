@@ -1,6 +1,6 @@
 /** Plays one encounter with a bot, headlessly. Shared by the harness CLI and tests. */
 import { buildOutcome } from '../src/app/outcome';
-import { runEventDef } from '../src/content';
+import { CONTENT, callingOption, runEventDef } from '../src/content';
 import { makeBot, type BotKind } from '../src/bots';
 import * as Run from '../src/meta/run';
 import type { ChordLoadout, RunState } from '../src/meta/types';
@@ -91,6 +91,8 @@ export interface RunSummary {
   minutes: number;
   motifs: string[];
   relics: string[];
+  /** The Calling's path options taken. */
+  path: string[];
   /** Aether earned over the run, and what was left at the end. */
   aetherEarned: number;
   aetherLeft: number;
@@ -147,15 +149,37 @@ function event(run: RunState, relics: boolean): RunState {
   return run.phase === 'event' ? Run.leaveEvent(run) : run;
 }
 
+/** The Chords with one more aura in the field song, the first that's legal with `option`. */
+function withAnotherAura(run: RunState, option: string): ChordLoadout[] | undefined {
+  const path = run.calling!.path.map((p, i) => (i === run.callingOffer!.tier ? option : p));
+  const slots = Run.fieldAuraSlots({ ...run, calling: { ...run.calling!, path } });
+  const used = new Set(run.chords.flatMap((c) => c.auras));
+  for (const aura of CONTENT.auras) {
+    if (used.has(aura.id)) continue;
+    const chords = run.chords.map((c) => ({ auras: [...c.auras], ornaments: [...c.ornaments] }));
+    while (chords.length < 2) chords.push({ auras: [], ornaments: [] });
+    chords[1]!.auras.push(aura.id);
+    if (Run.chordsLegal(chords, slots)) return chords;
+  }
+  return undefined;
+}
+
 /** Plays a whole Prelude run: map choices, fights, drafts (first option), respites (rest). */
 export function playRun(
   seed: number,
   bot: BotKind,
   chords: readonly ChordLoadout[] = Run.DEFAULT_CHORDS,
-  opts: { relics?: boolean } = {},
+  opts: {
+    relics?: boolean;
+    /** A Calling for the run (docs/phase-3c.md), and which option to take at each tier. */
+    calling?: string;
+    path?: readonly (0 | 1)[];
+  } = {},
 ): RunSummary {
   const relics = opts.relics ?? true;
-  let run = Run.embark(Run.setChords(Run.newRun(seed), chords));
+  let run = Run.embark(
+    Run.setCalling(Run.setChords(Run.newRun(seed), chords), opts.calling ?? null),
+  );
   let seconds = 0;
   let last = '';
   for (let guard = 0; guard < 120 && run.phase !== 'summary'; guard++) {
@@ -202,6 +226,15 @@ export function playRun(
       case 'respite':
         run = Run.respite(run, 'rest');
         break;
+      case 'calling': {
+        const tier = run.callingOffer!.tier;
+        const index = opts.path?.[tier] ?? 0;
+        const option = callingOption(run.callingOffer!.options[index]!);
+        // An option that grants a slot (Third Voice): fill it, if any aura fits.
+        const filled = option.values.slots ? withAnotherAura(run, option.id) : undefined;
+        run = Run.pickCalling(run, index, filled);
+        break;
+      }
       case 'relic':
         run = Run.pickRelic(run, relics ? 0 : null);
         break;
@@ -227,6 +260,7 @@ export function playRun(
     minutes: seconds / 60,
     motifs: run.motifs.map((m) => `${m.id}:${m.level}`),
     relics: run.relics.map((r) => (r.cleansed ? `${r.id}*` : r.id)),
+    path: run.calling?.path.filter((p): p is string => p !== null) ?? [],
     aetherEarned: run.results.reduce((s, r) => s + r.aether, 0),
     aetherLeft: run.aether,
   };

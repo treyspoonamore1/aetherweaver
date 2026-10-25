@@ -69,6 +69,7 @@ export const useRun = create<RunStore>()((set, get) => {
     },
     setChords: (chords) =>
       apply((run) => Run.setChords(run, chords, useProfile.getState().allowance())),
+    setCalling: (id) => apply((run) => Run.setCalling(run, id, useProfile.getState().allowance())),
     embark: () => {
       const profile = useProfile.getState();
       const allowance = profile.allowance();
@@ -97,6 +98,16 @@ export const useRun = create<RunStore>()((set, get) => {
         useProfile.getState().award(after.lastResult.xp);
     },
     continueFromResult: () => apply(Run.continueFromResult),
+    pickCalling: (index, chords) => {
+      apply((run) => Run.pickCalling(run, index, chords, useProfile.getState().allowance()));
+      const run = get().run;
+      if (
+        chords &&
+        run &&
+        Run.chordsAllowed(chords, useProfile.getState().allowance(), Run.fieldAuraSlots(run))
+      )
+        useProfile.getState().rememberChords(run.chords);
+    },
     pickRelic: (index) => apply((run) => Run.pickRelic(run, index)),
     pickDraft: (index) => apply((run) => Run.pickDraft(run, index)),
     rerollDraft: () => apply(Run.rerollDraft),

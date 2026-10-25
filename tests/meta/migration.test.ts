@@ -34,7 +34,17 @@ const V3_STATS = [
 /** A current run turned back into what Phase 3 (save v3) would have written. */
 function asV3(run: ReturnType<typeof Run.newRun>): Record<string, unknown> {
   const json = JSON.parse(JSON.stringify(run)) as Record<string, unknown>;
-  for (const k of ['aether', 'relics', 'boons', 'shop', 'forge', 'event', 'relicOffer'])
+  for (const k of [
+    'aether',
+    'relics',
+    'boons',
+    'shop',
+    'forge',
+    'event',
+    'relicOffer',
+    'calling',
+    'callingOffer',
+  ])
     delete json[k];
   const map = json.map as { rows: Record<string, unknown>[][] };
   for (const row of map.rows) {
@@ -128,6 +138,18 @@ function oneFight(): ReturnType<typeof Run.newRun> {
 }
 
 describe('save migration', () => {
+  it('loads a Phase 3b save: no Calling yet', () => {
+    const run = oneFight();
+    const json = JSON.parse(JSON.stringify(run)) as Record<string, unknown>;
+    delete json.calling;
+    delete json.callingOffer;
+    const store = memoryStore();
+    store.data.set('aetherweaver.run', JSON.stringify({ ...json, version: 4 }));
+    const loaded = loadRun(store)!;
+    expect(loaded).toMatchObject({ version: 5, calling: null, callingOffer: null });
+    expect(loaded.aether).toBe(run.aether);
+  });
+
   it('loads a Phase 3 save: the run gains an empty purse, no relics and no boons', () => {
     const run = oneFight();
     const store = memoryStore();
@@ -135,7 +157,7 @@ describe('save migration', () => {
     const loaded = loadRun(store)!;
     expect(loaded).not.toBeNull();
     expect(loaded).toMatchObject({
-      version: 4,
+      version: 5,
       aether: 0,
       relics: [],
       boons: [],
@@ -179,7 +201,7 @@ describe('save migration', () => {
     store.data.set('aetherweaver.run', JSON.stringify(asV1(oneFight())));
     const loaded = loadRun(store)!;
     expect(loaded).not.toBeNull();
-    expect(loaded.version).toBe(4);
+    expect(loaded.version).toBe(5);
     expect(loaded.chords).toEqual([{ auras: ['sostenuto', 'fortissimo'], ornaments: [] }]);
     expect(loaded.motifs).toEqual([{ id: 'canon', level: 2 }]);
     expect(loaded.results[0]!.stats).toMatchObject({ calls: 0, responses: 0, holds: 0 });
@@ -188,7 +210,7 @@ describe('save migration', () => {
     expect(loaded.xp).toBe(0);
     // Saving writes the current version.
     saveRun(store, loaded);
-    expect(JSON.parse(store.data.get('aetherweaver.run')!).version).toBe(4);
+    expect(JSON.parse(store.data.get('aetherweaver.run')!).version).toBe(5);
   });
 
   it('loads a Phase 2 save: a Unison Chord II moves to the beam; illegal Chords fall back', () => {

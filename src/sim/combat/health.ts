@@ -321,12 +321,20 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
   let amount = opts.amount;
   // Relics on hero hits (Heavy Score, Warden's Key): the extra is the Weaver's share.
   let amplifiedIn = opts.amplified ?? 0;
+  // The Calling's part of it (the Luminary's Radiance and Eclipse, docs/phase-3c.md).
+  let callingIn = 0;
   if (source?.hero && target.enemy) {
     const mult =
       world.mods.partyDamageMult * (target.enemy.defId === 'mute' ? world.mods.muteDamageMult : 1);
     if (mult !== 1) {
       amplifiedIn += amount * (mult - 1);
       amount *= mult;
+    }
+    const radiant = radianceOf(world, source) + eclipseOn(world, target);
+    if (radiant > 0) {
+      callingIn = amount * radiant;
+      amplifiedIn += callingIn;
+      amount += callingIn;
     }
   }
   const amountIn = amount;
@@ -339,6 +347,12 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
     const before = amount;
     amount *= 1 - fx.guardDr;
     guarded = before - amount;
+  }
+  // Haloed (the Luminary): heroes in your field take less.
+  let haloed = 0;
+  if (target.hero?.inField && world.mods.haloedReduction > 0) {
+    haloed = amount * world.mods.haloedReduction;
+    amount -= haloed;
   }
 
   let absorbed = 0;
@@ -398,11 +412,17 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
     world.ledger.shielded += kept;
     world.ledger.auras.shielded += kept;
   }
+  if (haloed > 0) {
+    const kept = Math.min(haloed, h.hp);
+    world.ledger.shielded += kept;
+    world.ledger.calling.shielded += kept;
+  }
 
   const total = dealt + absorbed;
   const amplifiedShare = amplifiedIn > 0 && amountIn > 0 ? (amplifiedIn * total) / amountIn : 0;
   const auraShare = opts.aura && amountIn > 0 ? (opts.aura * total) / amountIn : 0;
   const empowerShare = opts.empower && amountIn > 0 ? (opts.empower * total) / amountIn : 0;
+  const callingShare = callingIn > 0 && amountIn > 0 ? (callingIn * total) / amountIn : 0;
   if (source?.hero && target.enemy) {
     source.hero.damageDealt += total;
     source.hero.damageAmplified += amplifiedShare;
@@ -410,6 +430,7 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
     world.ledger.amplified += amplifiedShare;
     world.ledger.auras.amplified += auraShare;
     world.ledger.thread.amplified += empowerShare;
+    world.ledger.calling.amplified += callingShare;
     addThreat(target, source.hero.slot, total * heroDef(source.hero.defId).threatMult);
     if (target.enemy.tier === 'normal' && world.mods.hammerfallChance > 0) {
       if (
@@ -436,6 +457,7 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
     absorbed,
     amplified: amplifiedShare,
     aura: auraShare,
+    radiance: callingShare,
     crit: opts.crit ?? false,
     telegraph: opts.telegraph?.id ?? null,
     hit: opts.kind ?? 'hit',
@@ -458,6 +480,24 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
     downed,
     martyred,
   };
+}
+
+/**
+ * Radiance (the Luminary): a hero standing in the Weaver's field hits harder for every aura
+ * they hear, three times so during Sunrise. 0 without the Luminary.
+ */
+export function radianceOf(world: World, hero: Entity): number {
+  const per = world.mods.radiancePerAura;
+  const h = hero.hero;
+  if (per <= 0 || !h?.inField || h.auraMask === 0) return 0;
+  let count = 0;
+  for (let mask = h.auraMask; mask !== 0; mask &= mask - 1) count++;
+  return per * count * (world.field.crescendo ? world.mods.sunriseRadianceMult : 1);
+}
+
+/** Eclipse (the Luminary): during Sunrise, enemies in the Weaver's field take more. */
+function eclipseOn(world: World, target: Entity): number {
+  return world.field.crescendo && target.enemy?.inField ? world.mods.eclipseVulnerability : 0;
 }
 
 /**

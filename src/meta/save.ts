@@ -1,5 +1,5 @@
 /**
- * Run save v4 and the Weaver's profile (docs/plan/05 §8, docs/phase-3b.md): versioned,
+ * Run save v5 and the Weaver's profile (docs/plan/05 §8, docs/phase-3c.md): versioned,
  * validated with zod on load, with a backup of the previous save kept before every overwrite.
  * Older versions are migrated on load. Storage is injected so tests can use a map.
  */
@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { CONTENT } from '../content';
 import { chordProblems } from '../sim';
 import { FIGHT_AETHER, RELIC_OFFERS } from './economy';
+import { fieldAuraSlots } from './run';
 import { newProfile, PROFILE_VERSION, type Profile } from './profile';
 import { RUN_SAVE_VERSION, type RunState } from './types';
 
@@ -217,6 +218,7 @@ export const RunStateSchema = z.object({
     'map',
     'combat',
     'result',
+    'calling',
     'relic',
     'draft',
     'respite',
@@ -259,6 +261,8 @@ export const RunStateSchema = z.object({
   relicOffer: z
     .object({ reason: z.enum(['elite', 'boss', 'event']), options: z.array(Str) })
     .nullable(),
+  calling: z.object({ id: Str, path: z.array(Str.nullable()) }).nullable(),
+  callingOffer: z.object({ tier: Num, options: z.tuple([Str, Str]) }).nullable(),
 });
 
 /** Motif ids renamed since older saves were written. */
@@ -276,7 +280,13 @@ export function migrateRunJson(raw: unknown): unknown {
   if (isObj(json) && json.version === 1) json = v1to2(json);
   if (isObj(json) && json.version === 2) json = v2to3(json);
   if (isObj(json) && json.version === 3) json = v3to4(json);
+  if (isObj(json) && json.version === 4) json = v4to5(json);
   return json;
+}
+
+/** v4 → v5: Callings (docs/phase-3c.md). Runs saved before them have none. */
+function v4to5(raw: Json): Json {
+  return { ...raw, version: 5, calling: null, callingOffer: null };
 }
 
 /** v1 → v2: auras became Chord I; Call and Response (the motif) became Canon. */
@@ -406,7 +416,7 @@ export function compatibleWithContent(run: RunState): boolean {
   const heroes = known(CONTENT.heroes);
   const encounters = known(CONTENT.encounters);
   const motifs = new Map(CONTENT.motifs.map((m) => [m.id, m.values.length]));
-  if (chordProblems(run.chords).length > 0) return false;
+  if (!run.calling && chordProblems(run.chords).length > 0) return false;
   if (!run.party.every((h) => heroes.has(h.heroId))) return false;
   if (!run.motifs.every((m) => (motifs.get(m.id) ?? 0) >= m.level && m.level >= 1)) return false;
   for (const row of run.map.rows) {
@@ -424,6 +434,16 @@ export function compatibleWithContent(run: RunState): boolean {
   if (run.event && !events.has(run.event.eventId)) return false;
   if (run.event?.encounterId && !encounters.has(run.event.encounterId)) return false;
   if (run.relicOffer && !run.relicOffer.options.every((id) => relics.has(id))) return false;
+  if (run.calling) {
+    const def = CONTENT.callings.find((c) => c.id === run.calling!.id);
+    if (!def || run.calling.path.length !== def.tiers.length) return false;
+    const ok = run.calling.path.every(
+      (id, tier) => id === null || def.tiers[tier]!.options.some((o) => o.id === id),
+    );
+    if (!ok) return false;
+    if (chordProblems(run.chords, CONTENT, { fieldAuraSlots: fieldAuraSlots(run) }).length > 0)
+      return false;
+  }
   if (
     run.shop &&
     !run.shop.items.every(

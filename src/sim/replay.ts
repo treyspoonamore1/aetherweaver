@@ -89,6 +89,10 @@ const SimConfigSchema = z
     relics: z.array(z.object({ id: z.string(), cleansed: z.boolean() }).strict()),
     boons: z.array(z.string()),
     threat: z.number(),
+    calling: z
+      .object({ id: z.string(), path: z.array(z.string()) })
+      .strict()
+      .nullable(),
     assists: z
       .object({ perfectWindowBonus: z.number(), telegraphLead: z.number(), autonomy: z.boolean() })
       .strict(),
@@ -102,7 +106,7 @@ void configSchemaMatches;
 export const ReplaySchema = z
   .object({
     format: z.literal('aetherweaver-replay'),
-    version: z.literal(4),
+    version: z.literal(5),
     simVersion: z.number().int(),
     contentVersion: z.string(),
     config: SimConfigSchema,
@@ -148,7 +152,7 @@ export class ReplayRecorder {
   export(finalTick: number, finalHash: string): Replay {
     return {
       format: 'aetherweaver-replay',
-      version: 4,
+      version: 5,
       simVersion: SIM_VERSION,
       contentVersion: CONTENT_VERSION,
       config: JSON.parse(JSON.stringify(this.config)) as ResolvedSimConfig,
