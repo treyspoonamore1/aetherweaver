@@ -487,6 +487,114 @@ export const MotifDefSchema = z
   .strict();
 export type MotifDef = z.infer<typeof MotifDefSchema>;
 
+// ── Relics, boons and events (docs/phase-3b.md) ─────────────────────────────────────
+
+/** Named numbers in display units (25 = 25%, 4 = 4 s); `text` shows them as {name}. */
+const ValuesSchema = z.record(z.string().regex(/^[a-z][a-zA-Z]*$/), z.number()).default({});
+
+export const RelicRaritySchema = z.enum(['common', 'rare', 'legendary', 'cursed']);
+export type RelicRarity = z.infer<typeof RelicRaritySchema>;
+
+/**
+ * A relic: something the Weaver carries for the rest of the run. Unlike a motif it changes a
+ * rule rather than a number. The sim's relic resolver (sim/mods.ts) knows what each id does.
+ */
+export const RelicDefSchema = z
+  .object({
+    id: IdSchema,
+    name: z.string(),
+    rarity: RelicRaritySchema,
+    /** The blessing, with {value} placeholders filled from `values`. */
+    text: z.string(),
+    /** Cursed relics: the price, lifted when a Forge cleanses it. */
+    curse: z.string().optional(),
+    flavor: z.string(),
+    values: ValuesSchema,
+    /** Only the run layer reads it (drafts, shops); the sim ignores it. */
+    runOnly: z.boolean().default(false),
+    /** Glyph key for the UI. */
+    icon: IdSchema,
+  })
+  .strict();
+export type RelicDef = z.infer<typeof RelicDefSchema>;
+
+/** A boon (or a bane) from an event: lasts some fights, or the rest of the run. */
+export const BoonDefSchema = z
+  .object({
+    id: IdSchema,
+    name: z.string(),
+    kind: z.enum(['boon', 'bane']),
+    text: z.string(),
+    values: ValuesSchema,
+    /** Fights it lasts; null = the rest of the run. */
+    fights: z.number().int().positive().nullable(),
+    icon: IdSchema,
+  })
+  .strict();
+export type BoonDef = z.infer<typeof BoonDefSchema>;
+
+export const EventEffectSchema = z.discriminatedUnion('kind', [
+  /** A random relic of this rarity the Weaver doesn't carry yet. */
+  z.object({ kind: z.literal('relic'), rarity: RelicRaritySchema }).strict(),
+  z.object({ kind: z.literal('aether'), amount: z.number().int() }).strict(),
+  /** Every hero heals this fraction of max HP. */
+  z.object({ kind: z.literal('heal'), pct: Pct }).strict(),
+  /** Every hero loses this fraction of max HP (never below 5%). */
+  z.object({ kind: z.literal('hurt'), pct: Pct }).strict(),
+  z.object({ kind: z.literal('boon'), boon: IdSchema }).strict(),
+  /** Change the Chords (the same rules as a Respite's Retune). */
+  z.object({ kind: z.literal('retune') }).strict(),
+  /** The chosen motif gains levels (up to its last). */
+  z.object({ kind: z.literal('motifLevels'), levels: z.number().int().positive() }).strict(),
+  /** The chosen motif is lost. */
+  z.object({ kind: z.literal('loseMotif') }).strict(),
+  /** A fight; winning it offers `relics` relics to choose from. */
+  z
+    .object({
+      kind: z.literal('fight'),
+      encounter: IdSchema,
+      relics: z.number().int().positive(),
+    })
+    .strict(),
+]);
+export type EventEffect = z.infer<typeof EventEffectSchema>;
+
+export const EventChoiceSchema = z
+  .object({
+    id: IdSchema,
+    label: z.string(),
+    /** What it does, plainly (shown under the label). */
+    text: z.string(),
+    /** Aether it costs; it can't be chosen without it. */
+    cost: z.number().int().nonnegative().default(0),
+    /** The player picks one of their motifs for it ('upgradable': below its last level). */
+    motif: z.enum(['none', 'any', 'upgradable']).default('none'),
+    effects: z.array(EventEffectSchema).default([]),
+    /** Shown after choosing. */
+    outcome: z.string(),
+    /** A gamble: `chance` of `effects` and `outcome`, otherwise `fail` and `failOutcome`. */
+    chance: Pct.optional(),
+    fail: z.array(EventEffectSchema).default([]),
+    failOutcome: z.string().optional(),
+  })
+  .strict();
+export type EventChoice = z.infer<typeof EventChoiceSchema>;
+
+/** A map event: a scene and a few choices, each with a price or a risk (docs/phase-3b.md). */
+export const RunEventDefSchema = z
+  .object({
+    id: IdSchema,
+    name: z.string(),
+    /** The scene, shown on arrival. */
+    text: z.string(),
+    /** One line for the map tooltip. */
+    teaser: z.string(),
+    choices: z.array(EventChoiceSchema).min(2).max(4),
+    icon: IdSchema,
+  })
+  .strict();
+export type RunEventDef = z.infer<typeof RunEventDefSchema>;
+
 // ── Arenas and encounters ─────────────────────────────────────────────────────────────
 
 export const ArenaDefSchema = z.object({
@@ -555,6 +663,9 @@ export const ContentSchema = z
     enemies: z.array(EnemyDefSchema),
     affixes: z.array(AffixDefSchema),
     motifs: z.array(MotifDefSchema),
+    relics: z.array(RelicDefSchema),
+    boons: z.array(BoonDefSchema),
+    events: z.array(RunEventDefSchema),
     arenas: z.array(ArenaDefSchema).min(1),
     encounters: z.array(EncounterDefSchema).min(1),
     /** Directive acknowledgement lines. */
@@ -607,9 +718,21 @@ export const ContentSchema = z
       'arena',
       c.arenas.map((a) => a.id),
     );
-    unique(
+    const encounters = unique(
       'encounter',
       c.encounters.map((e) => e.id),
+    );
+    unique(
+      'relic',
+      c.relics.map((r) => r.id),
+    );
+    const boons = unique(
+      'boon',
+      c.boons.map((b) => b.id),
+    );
+    unique(
+      'event',
+      c.events.map((e) => e.id),
     );
     const need = (set: Set<string>, id: string, where: string) => {
       if (!set.has(id))
@@ -645,6 +768,45 @@ export const ContentSchema = z
         for (const s of w.spawns) {
           need(enemies, s.enemy, `encounter "${e.id}"`);
           for (const a of s.affixes) need(affixes, a, `encounter "${e.id}"`);
+        }
+      }
+    }
+    /** Every {placeholder} in a text has a value. */
+    const filled = (text: string, values: Record<string, number>, where: string) => {
+      for (const m of text.matchAll(/\{([a-zA-Z]+)\}/g)) {
+        if (values[m[1]!] === undefined)
+          ctx.addIssue({ code: 'custom', message: `${where} has no value for {${m[1]}}` });
+      }
+    };
+    for (const r of c.relics) {
+      filled(r.text, r.values, `relic "${r.id}"`);
+      if (r.curse) filled(r.curse, r.values, `relic "${r.id}"`);
+      if ((r.rarity === 'cursed') !== (r.curse !== undefined))
+        ctx.addIssue({
+          code: 'custom',
+          message: `relic "${r.id}": cursed relics, and only they, have a curse`,
+        });
+    }
+    for (const b of c.boons) filled(b.text, b.values, `boon "${b.id}"`);
+    for (const ev of c.events) {
+      unique(
+        `choice in event "${ev.id}"`,
+        ev.choices.map((ch) => ch.id),
+      );
+      for (const ch of ev.choices) {
+        const where = `event "${ev.id}" choice "${ch.id}"`;
+        if ((ch.chance !== undefined) !== (ch.failOutcome !== undefined))
+          ctx.addIssue({ code: 'custom', message: `${where}: a gamble needs a failOutcome` });
+        const needsMotif = [...ch.effects, ...ch.fail].some(
+          (e) => e.kind === 'motifLevels' || e.kind === 'loseMotif',
+        );
+        if (needsMotif !== (ch.motif !== 'none'))
+          ctx.addIssue({ code: 'custom', message: `${where}: motif effects need a chosen motif` });
+        for (const e of [...ch.effects, ...ch.fail]) {
+          if (e.kind === 'boon') need(boons, e.boon, where);
+          if (e.kind === 'fight') need(encounters, e.encounter, where);
+          if (e.kind === 'relic' && !c.relics.some((r) => r.rarity === e.rarity))
+            ctx.addIssue({ code: 'custom', message: `${where}: no ${e.rarity} relics` });
         }
       }
     }

@@ -21,6 +21,10 @@ export const NODE_LOOK: Record<
   elite: { icon: 'skull', label: 'Elite', color: '#fb923c', size: 56 },
   shrine: { icon: 'flame', label: 'Shrine', color: '#5eead4', size: 52 },
   respite: { icon: 'moon', label: 'Respite', color: '#86efac', size: 52 },
+  // Placeholders until the Phase 3b UI pass draws their own glyphs.
+  merchant: { icon: 'info', label: 'Merchant', color: '#facc15', size: 52 },
+  forge: { icon: 'flame', label: 'Forge', color: '#f97316', size: 52 },
+  event: { icon: 'info', label: 'Event', color: '#c4b5fd', size: 52 },
   miniboss: { icon: 'bell', label: 'Mini-boss', color: '#fbbf24', size: 64 },
   boss: { icon: 'eye', label: 'Boss', color: '#f472b6', size: 72 },
 };

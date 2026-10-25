@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CONTENT } from '../../src/content';
+import { CONTENT, runEventDef } from '../../src/content';
 import * as Run from '../../src/meta/run';
 import { loadRun, saveRun, type KeyValueStore } from '../../src/meta/save';
 import type { CombatOutcome, RunState } from '../../src/meta/types';
@@ -126,6 +126,22 @@ describe('a run', () => {
         run = Run.pickDraft(run, 0);
       } else if (run.phase === 'respite') {
         run = Run.respite(run, 'rest');
+      } else if (run.phase === 'relic') {
+        expect(run.relicOffer!.options.length).toBeGreaterThan(0);
+        run = Run.pickRelic(run, 0);
+      } else if (run.phase === 'merchant') {
+        run = Run.leaveShop(Run.buy(run, run.shop!.items.length - 1));
+      } else if (run.phase === 'forge') {
+        run = Run.leaveForge(run);
+      } else if (run.phase === 'event') {
+        run = Run.leaveEvent(
+          Run.chooseEvent(
+            run,
+            run.event!.eventId === 'unsung_choir'
+              ? 'slip'
+              : runEventDef(run.event!.eventId).choices.at(-1)!.id,
+          ),
+        );
       } else throw new Error(`unexpected phase ${run.phase}`);
     }
     expect(run.phase).toBe('summary');
@@ -214,8 +230,9 @@ describe('grades', () => {
       x: 0.5,
       kind: 'skirmish',
       encounterId: 'first_light',
+      eventId: null,
       next: [],
-      reward: { draft: 'common', heal: 0, text: '' },
+      reward: { draft: 'common', heal: 0, aether: 20, relics: 0, text: '' },
     },
     {
       encounterId: 'first_light',

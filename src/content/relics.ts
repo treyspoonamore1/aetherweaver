@@ -1,0 +1,182 @@
+import type { ContentInput } from './schema';
+
+/**
+ * Relics (docs/phase-3b.md): one each, carried for the rest of the run. A motif adds a number;
+ * a relic changes a rule. `values` are in the units the text shows (25 = 25%, 4 = 4 s); the
+ * sim's relic resolver (sim/mods.ts) knows what each one means.
+ */
+export const RELICS: ContentInput['relics'] = [
+  // ── Common ─────────────────────────────────────────────────────────────────────────
+  {
+    id: 'silver_thimble',
+    name: 'Silver Thimble',
+    rarity: 'common',
+    text: 'Moving the Thread to a hero shields them for {barrier}% of their life, once every {cooldown} s.',
+    flavor: 'Every seamstress of the old choir wore one. None of them ever bled.',
+    values: { barrier: 8, cooldown: 4, duration: 5 },
+    icon: 'thimble',
+  },
+  {
+    id: 'lantern_of_the_lost',
+    name: 'Lantern of the Lost',
+    rarity: 'common',
+    text: 'When a hero goes down, the others gain a barrier worth {barrier}% of their life.',
+    flavor: 'It burns brightest for the ones still standing.',
+    values: { barrier: 20, duration: 6 },
+    icon: 'lantern',
+  },
+  {
+    id: 'featherweight_robes',
+    name: 'Featherweight Robes',
+    rarity: 'common',
+    text: 'Glide recovers {pct}% sooner.',
+    flavor: 'Woven from the down of birds that never landed.',
+    values: { pct: 40 },
+    icon: 'robe',
+  },
+  {
+    id: 'wardens_key',
+    name: 'Warden’s Key',
+    rarity: 'common',
+    text: 'Your heroes deal {mult}× damage to Mutes.',
+    flavor: 'It opens the domes of glass from the inside.',
+    values: { mult: 3 },
+    icon: 'key',
+  },
+  {
+    id: 'tuning_fork',
+    name: 'Tuning Fork',
+    rarity: 'common',
+    text: 'A Perfect Ward charges the hero’s Solo by {pct}%.',
+    flavor: 'Strike it true and the whole party hears the note.',
+    values: { pct: 25 },
+    icon: 'fork',
+  },
+  // ── Rare ───────────────────────────────────────────────────────────────────────────
+  {
+    id: 'choirmasters_baton',
+    name: 'Choirmaster’s Baton',
+    rarity: 'rare',
+    text: 'Solos you Cue last {pct}% longer.',
+    flavor: 'Hold the note. Hold it. Now.',
+    values: { pct: 50 },
+    icon: 'baton',
+  },
+  {
+    id: 'hollow_bell',
+    name: 'Hollow Bell',
+    rarity: 'rare',
+    text: 'Chime recovers {pct}% sooner, but no longer heals.',
+    flavor: 'Rung so often it forgot how to be gentle.',
+    values: { pct: 40 },
+    icon: 'bell',
+  },
+  {
+    id: 'martyrs_veil',
+    name: 'Martyr’s Veil',
+    rarity: 'rare',
+    text: 'Once per fight, a hit that would down a hero strikes you instead.',
+    flavor: 'Someone has to stand in front. Today it is you.',
+    values: {},
+    icon: 'veil',
+  },
+  {
+    id: 'cantors_hymnal',
+    name: 'Cantor’s Hymnal',
+    rarity: 'rare',
+    text: 'Start every fight with {resonance} Resonance: a Cue, ready.',
+    flavor: 'The first page is the one everyone knows by heart.',
+    values: { resonance: 25 },
+    icon: 'hymnal',
+  },
+  {
+    id: 'star_chart',
+    name: 'Star Chart',
+    rarity: 'rare',
+    text: 'Motif drafts offer a fourth choice.',
+    flavor: 'The stars over the Reliquary still keep their old places.',
+    values: {},
+    runOnly: true,
+    icon: 'star',
+  },
+  // ── Legendary ──────────────────────────────────────────────────────────────────────
+  {
+    id: 'prism_loom',
+    name: 'Prism Loom',
+    rarity: 'legendary',
+    text: 'Mend and Empower also reach heroes within {radius} m of the one you thread, at {pct}% strength.',
+    flavor: 'One thread in, a rainbow out.',
+    values: { radius: 4, pct: 50 },
+    icon: 'loom',
+  },
+  {
+    id: 'cracked_metronome',
+    name: 'Cracked Metronome',
+    rarity: 'legendary',
+    text: 'Every {cooldown} s, a Ward that takes a telegraphed hit counts as Perfect, however early you cast it.',
+    flavor: 'It keeps perfect time. It just keeps it a little early.',
+    values: { cooldown: 12 },
+    icon: 'metronome',
+  },
+  {
+    id: 'spindle_of_fate',
+    name: 'Spindle of Fate',
+    rarity: 'legendary',
+    text: 'Your beam song’s echo plays at full strength, but Mend and Empower are {pct}% weaker.',
+    flavor: 'Spin for one and you spin for all.',
+    values: { pct: 20 },
+    icon: 'spindle',
+  },
+  // ── Cursed: a bargain until a Forge cleanses it ────────────────────────────────────
+  {
+    id: 'heavy_score',
+    name: 'Heavy Score',
+    rarity: 'cursed',
+    text: 'Your heroes deal {pct}% more damage.',
+    curse: 'You can’t Glide.',
+    flavor: 'Too heavy to carry, too loud to put down.',
+    values: { pct: 25 },
+    icon: 'score',
+  },
+  {
+    id: 'glass_halo',
+    name: 'Glass Halo',
+    rarity: 'cursed',
+    text: 'A Perfect Ward heals every hero for {heal}% of their life.',
+    curse: 'Ward’s barrier is {pct}% smaller.',
+    flavor: 'Beautiful, and it breaks if you look at it wrong.',
+    values: { heal: 10, pct: 50 },
+    icon: 'halo',
+  },
+];
+
+/** Boons and banes: what events leave behind, for a few fights or the rest of the run. */
+export const BOONS: ContentInput['boons'] = [
+  {
+    id: 'last_note',
+    name: 'The Last Note',
+    kind: 'boon',
+    text: 'Your heroes start the fight with their Solos charged.',
+    values: {},
+    fights: 2,
+    icon: 'note',
+  },
+  {
+    id: 'frayed_spirit',
+    name: 'Frayed Spirit',
+    kind: 'bane',
+    text: 'Your Spirit is {pct}% smaller.',
+    values: { pct: 10 },
+    fights: null,
+    icon: 'frayed',
+  },
+  {
+    id: 'mended_loom',
+    name: 'Mended Loom',
+    kind: 'boon',
+    text: 'Mend heals {pct}% more and Empower is {pct}% stronger.',
+    values: { pct: 10 },
+    fights: null,
+    icon: 'loom',
+  },
+];

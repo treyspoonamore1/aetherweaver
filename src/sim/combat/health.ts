@@ -314,7 +314,19 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
     return NO_DAMAGE;
   }
 
+  const source = opts.source === null ? undefined : world.entities.get(opts.source);
   let amount = opts.amount;
+  // Relics on hero hits (Heavy Score, Warden's Key): the extra is the Weaver's share.
+  let amplifiedIn = opts.amplified ?? 0;
+  if (source?.hero && target.enemy) {
+    const mult =
+      world.mods.partyDamageMult * (target.enemy.defId === 'mute' ? world.mods.muteDamageMult : 1);
+    if (mult !== 1) {
+      amplifiedIn += amount * (mult - 1);
+      amount *= mult;
+    }
+  }
+  const amountIn = amount;
   // Armour only softens ordinary hits; telegraphed attacks are answered, not soaked.
   if (target.hero && !opts.telegraph) amount *= 1 - heroDef(target.hero.defId).armor;
   // Fermata: heroes low on life take less from everything.
@@ -367,6 +379,7 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
     if (!target.hero.hold && !target.hero.fermataUsed && fx && fx.holdTime > 0)
       startHold(world, target, fx.holdTime, opts.sourceName, amount);
     if (target.hero.hold) dealt = Math.max(0, h.hp - 1);
+    else if (world.relics.veil && martyr(world, target, amount, opts)) dealt = 0;
   }
   h.hp -= dealt;
   h.lastHitAt = world.time;
@@ -379,12 +392,10 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
     world.ledger.auras.shielded += kept;
   }
 
-  const source = opts.source === null ? undefined : world.entities.get(opts.source);
   const total = dealt + absorbed;
-  const amplifiedShare =
-    opts.amplified && opts.amount > 0 ? (opts.amplified * total) / opts.amount : 0;
-  const auraShare = opts.aura && opts.amount > 0 ? (opts.aura * total) / opts.amount : 0;
-  const empowerShare = opts.empower && opts.amount > 0 ? (opts.empower * total) / opts.amount : 0;
+  const amplifiedShare = amplifiedIn > 0 && amountIn > 0 ? (amplifiedIn * total) / amountIn : 0;
+  const auraShare = opts.aura && amountIn > 0 ? (opts.aura * total) / amountIn : 0;
+  const empowerShare = opts.empower && amountIn > 0 ? (opts.empower * total) / amountIn : 0;
   if (source?.hero && target.enemy) {
     source.hero.damageDealt += total;
     source.hero.damageAmplified += amplifiedShare;
@@ -439,6 +450,54 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
     blocked: false,
     downed,
   };
+}
+
+/**
+ * Martyr's Veil: once per fight, the Weaver takes the hit that would have downed a hero. The
+ * hero's life is kept — a Save — and the blow lands on the Weaver instead (who can go down).
+ */
+function martyr(world: World, hero: Entity, amount: number, opts: DamageOpts): boolean {
+  const weaver = world.entities.get(world.weaverId);
+  if (!isActive(weaver) || !weaver.weaver) return false;
+  world.relics.veil = false;
+  world.ledger.shielded += amount;
+  world.events.push({
+    type: 'relicTriggered',
+    tick: world.tick,
+    relic: 'martyrs_veil',
+    hero: hero.id,
+  });
+  recordSave(world, hero, 'martyr', amount, opts.sourceName);
+  dealDamage(world, weaver, {
+    source: opts.source,
+    sourceName: opts.sourceName,
+    amount,
+    kind: opts.kind ?? 'hit',
+  });
+  return true;
+}
+
+/** Lantern of the Lost: when a hero goes down, the others are shielded. */
+function lantern(world: World, downed: Entity): void {
+  const pct = world.mods.lanternBarrierPct;
+  if (pct <= 0) return;
+  let any = false;
+  for (const id of world.party) {
+    const ally = world.entities.get(id);
+    if (!ally || ally.id === downed.id || !isActive(ally)) continue;
+    const amount = ally.health.maxHp * pct;
+    const existing = shieldOf(ally.health, 'overshield');
+    if (existing && existing.amount >= amount) continue;
+    addShield(world, ally, 'overshield', amount, world.mods.lanternDuration, true);
+    any = true;
+  }
+  if (any)
+    world.events.push({
+      type: 'relicTriggered',
+      tick: world.tick,
+      relic: 'lantern_of_the_lost',
+      hero: downed.id,
+    });
 }
 
 function shieldOrder(kind: ShieldKind): number {
@@ -559,6 +618,7 @@ function downHero(world: World, e: Entity, killer: string): void {
   pushMarker(world, 'down', hero.slot);
   world.events.push({ type: 'allyDowned', tick: world.tick, hero: e.id });
   bark(world, e, 'downed', true);
+  lantern(world, e);
   // A threaded hero stays threaded: Mend revives them.
 }
 

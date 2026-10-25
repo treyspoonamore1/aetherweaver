@@ -1,11 +1,12 @@
 /**
- * Run save v3 and the Weaver's profile (docs/plan/05 §8, docs/phase-3.md): versioned,
+ * Run save v4 and the Weaver's profile (docs/plan/05 §8, docs/phase-3b.md): versioned,
  * validated with zod on load, with a backup of the previous save kept before every overwrite.
  * Older versions are migrated on load. Storage is injected so tests can use a map.
  */
 import { z } from 'zod';
 import { CONTENT } from '../content';
 import { chordProblems } from '../sim';
+import { FIGHT_AETHER, RELIC_OFFERS } from './economy';
 import { newProfile, PROFILE_VERSION, type Profile } from './profile';
 import { RUN_SAVE_VERSION, type RunState } from './types';
 
@@ -23,14 +24,33 @@ const PROFILE_BACKUP = 'aetherweaver.profile.bak';
 const Num = z.number();
 const Str = z.string();
 
+const NODE_KINDS = [
+  'skirmish',
+  'elite',
+  'shrine',
+  'respite',
+  'merchant',
+  'forge',
+  'event',
+  'miniboss',
+  'boss',
+] as const;
+
 const NodeSchema = z.object({
   id: Str,
   row: Num,
   x: Num,
-  kind: z.enum(['skirmish', 'elite', 'shrine', 'respite', 'miniboss', 'boss']),
+  kind: z.enum(NODE_KINDS),
   encounterId: Str.nullable(),
+  eventId: Str.nullable(),
   next: z.array(Str),
-  reward: z.object({ draft: z.enum(['common', 'rare', 'epic']).nullable(), heal: Num, text: Str }),
+  reward: z.object({
+    draft: z.enum(['common', 'rare', 'epic']).nullable(),
+    heal: Num,
+    aether: Num,
+    relics: Num,
+    text: Str,
+  }),
 });
 
 const StatsSchema = z.object({
@@ -102,6 +122,7 @@ const ResultSchema = z.object({
   par: Num,
   grade: z.enum(['S', 'A', 'B', 'C', 'D']),
   xp: Num,
+  aether: Num,
   stats: StatsSchema,
   highlights: z.array(
     z.object({
@@ -147,10 +168,61 @@ const ResultSchema = z.object({
 
 const ChordSchema = z.object({ auras: z.array(Str), ornaments: z.array(Str) });
 
+const ShopSchema = z.object({
+  nodeId: Str,
+  items: z.array(
+    z.object({
+      kind: z.enum(['relic', 'motif', 'heal']),
+      id: Str,
+      level: Num,
+      upgrade: z.boolean(),
+      heal: Num,
+      price: Num,
+      sold: z.boolean(),
+    }),
+  ),
+});
+
+const ForgeServiceSchema = z.enum(['temper', 'retune', 'cleanse']);
+
+const EventSchema = z.object({
+  nodeId: Str,
+  eventId: Str,
+  choice: Str.nullable(),
+  won: z.boolean().nullable(),
+  outcome: Str.nullable(),
+  gains: z
+    .object({
+      relics: z.array(Str),
+      aether: Num,
+      boons: z.array(Str),
+      heal: Num,
+      hurt: Num,
+      motif: z.object({ id: Str, level: Num }).nullable(),
+      lostMotif: Str.nullable(),
+      retuned: z.boolean(),
+    })
+    .nullable(),
+  encounterId: Str.nullable(),
+  relics: Num,
+});
+
 export const RunStateSchema = z.object({
   version: z.literal(RUN_SAVE_VERSION),
   seed: Num,
-  phase: z.enum(['prep', 'map', 'combat', 'result', 'draft', 'respite', 'summary']),
+  phase: z.enum([
+    'prep',
+    'map',
+    'combat',
+    'result',
+    'relic',
+    'draft',
+    'respite',
+    'merchant',
+    'forge',
+    'event',
+    'summary',
+  ]),
   party: z.array(z.object({ heroId: Str, hpPct: Num, shaken: z.boolean() })),
   chords: z.array(ChordSchema),
   motifs: z.array(z.object({ id: Str, level: Num })),
@@ -169,6 +241,21 @@ export const RunStateSchema = z.object({
   encounters: Num,
   outcome: z.enum(['victory', 'defeat', 'abandoned']).nullable(),
   xp: Num,
+  aether: Num,
+  relics: z.array(z.object({ id: Str, cleansed: z.boolean() })),
+  boons: z.array(z.object({ id: Str, fights: Num.nullable() })),
+  shop: ShopSchema.nullable(),
+  forge: z
+    .object({
+      nodeId: Str,
+      prices: z.object({ temper: Num, retune: Num, cleanse: Num }),
+      used: ForgeServiceSchema.nullable(),
+    })
+    .nullable(),
+  event: EventSchema.nullable(),
+  relicOffer: z
+    .object({ reason: z.enum(['elite', 'boss', 'event']), options: z.array(Str) })
+    .nullable(),
 });
 
 /** Motif ids renamed since older saves were written. */
@@ -185,6 +272,7 @@ export function migrateRunJson(raw: unknown): unknown {
   let json = raw;
   if (isObj(json) && json.version === 1) json = v1to2(json);
   if (isObj(json) && json.version === 2) json = v2to3(json);
+  if (isObj(json) && json.version === 3) json = v3to4(json);
   return json;
 }
 
@@ -259,6 +347,52 @@ function v2to3(raw: Json): Json {
 }
 
 /**
+ * v3 → v4: the economy. Runs gain Aether, relics and boons (none yet); map nodes say what
+ * Aether and relics they pay; results say what Aether they paid (nothing, back then).
+ */
+function v3to4(raw: Json): Json {
+  const node = (n: unknown) => {
+    if (!isObj(n)) return n;
+    const reward = isObj(n.reward)
+      ? {
+          ...n.reward,
+          aether: FIGHT_AETHER[n.kind as keyof typeof FIGHT_AETHER] ?? 0,
+          relics:
+            n.kind === 'elite'
+              ? RELIC_OFFERS.elite.count
+              : n.kind === 'miniboss'
+                ? RELIC_OFFERS.boss.count
+                : 0,
+        }
+      : n.reward;
+    return { ...n, eventId: null, reward };
+  };
+  const map = isObj(raw.map)
+    ? {
+        ...raw.map,
+        rows: Array.isArray(raw.map.rows)
+          ? raw.map.rows.map((row) => (Array.isArray(row) ? row.map(node) : row))
+          : raw.map.rows,
+      }
+    : raw.map;
+  const result = (r: unknown) => (isObj(r) ? { ...r, aether: 0 } : r);
+  return {
+    ...raw,
+    version: 4,
+    map,
+    lastResult: raw.lastResult === null ? null : result(raw.lastResult),
+    results: Array.isArray(raw.results) ? raw.results.map(result) : raw.results,
+    aether: 0,
+    relics: [],
+    boons: [],
+    shop: null,
+    forge: null,
+    event: null,
+    relicOffer: null,
+  };
+}
+
+/**
  * Is every id in the save known to this build's content? A save from an older build with a
  * renamed aura, motif, hero or encounter would otherwise crash the next fight.
  */
@@ -274,6 +408,26 @@ export function compatibleWithContent(run: RunState): boolean {
     for (const node of row) if (node.encounterId && !encounters.has(node.encounterId)) return false;
   }
   if (run.draft && !run.draft.options.every((o) => motifs.has(o.motifId))) return false;
+  const relics = known(CONTENT.relics);
+  const boons = known(CONTENT.boons);
+  const events = known(CONTENT.events);
+  if (!run.relics.every((r) => relics.has(r.id))) return false;
+  if (!run.boons.every((b) => boons.has(b.id))) return false;
+  for (const row of run.map.rows) {
+    for (const node of row) if (node.eventId && !events.has(node.eventId)) return false;
+  }
+  if (run.event && !events.has(run.event.eventId)) return false;
+  if (run.event?.encounterId && !encounters.has(run.event.encounterId)) return false;
+  if (run.relicOffer && !run.relicOffer.options.every((id) => relics.has(id))) return false;
+  if (
+    run.shop &&
+    !run.shop.items.every(
+      (it) =>
+        it.kind === 'heal' ||
+        (it.kind === 'relic' ? relics.has(it.id) : (motifs.get(it.id) ?? 0) >= it.level),
+    )
+  )
+    return false;
   return true;
 }
 

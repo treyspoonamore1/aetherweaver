@@ -1,8 +1,9 @@
 /** Plays one encounter with a bot, headlessly. Shared by the harness CLI and tests. */
 import { buildOutcome } from '../src/app/outcome';
+import { runEventDef } from '../src/content';
 import { makeBot, type BotKind } from '../src/bots';
 import * as Run from '../src/meta/run';
-import type { ChordLoadout } from '../src/meta/types';
+import type { ChordLoadout, RunState } from '../src/meta/types';
 import { weaverShare } from '../src/meta/run';
 import { createSim, type SimConfig } from '../src/sim';
 
@@ -89,6 +90,58 @@ export interface RunSummary {
   fights: number;
   minutes: number;
   motifs: string[];
+  relics: string[];
+  /** Aether earned over the run, and what was left at the end. */
+  aetherEarned: number;
+  aetherLeft: number;
+}
+
+/**
+ * The harness's shopping list (docs/phase-3b.md): relics first, the dearest it can afford,
+ * then motifs; healing when the party is hurt. Deterministic, not clever.
+ */
+function shop(run: RunState): RunState {
+  for (let guard = 0; guard < 8; guard++) {
+    const items = run.shop?.items ?? [];
+    const hurt = run.party.reduce((s, h) => s + h.hpPct, 0) / Math.max(1, run.party.length) < 0.6;
+    const want = items
+      .map((item, index) => ({ item, index }))
+      .filter(({ item }) => !item.sold && item.price <= run.aether)
+      .filter(({ item }) => item.kind !== 'heal' || hurt)
+      .sort(
+        (a, b) =>
+          (a.item.kind === 'relic' ? 0 : a.item.kind === 'heal' ? 1 : 2) -
+            (b.item.kind === 'relic' ? 0 : b.item.kind === 'heal' ? 1 : 2) ||
+          b.item.price - a.item.price,
+      )[0];
+    if (!want) break;
+    run = Run.buy(run, want.index);
+  }
+  return Run.leaveShop(run);
+}
+
+/** Lift a curse if there is one, else temper the first motif that can grow. */
+function forge(run: RunState): RunState {
+  const curse = Run.forgeTargets(run, 'cleanse')[0];
+  const motif = Run.forgeTargets(run, 'temper')[0];
+  if (curse) run = Run.forge(run, { service: 'cleanse', relicId: curse });
+  else if (motif) run = Run.forge(run, { service: 'temper', motifId: motif });
+  return Run.leaveForge(run);
+}
+
+/** The first choice it can make without picking a motif or new Chords. */
+function event(run: RunState): RunState {
+  if (run.event && run.event.choice === null) {
+    const def = runEventDef(run.event.eventId);
+    const choice = def.choices.find(
+      (c) =>
+        c.motif === 'none' &&
+        !c.effects.some((e) => e.kind === 'retune') &&
+        Run.eventChoiceProblem(run, c.id) === null,
+    );
+    if (choice) run = Run.chooseEvent(run, choice.id);
+  }
+  return run.phase === 'event' ? Run.leaveEvent(run) : run;
 }
 
 /** Plays a whole Prelude run: map choices, fights, drafts (first option), respites (rest). */
@@ -100,7 +153,7 @@ export function playRun(
   let run = Run.embark(Run.setChords(Run.newRun(seed), chords));
   let seconds = 0;
   let last = '';
-  for (let guard = 0; guard < 60 && run.phase !== 'summary'; guard++) {
+  for (let guard = 0; guard < 120 && run.phase !== 'summary'; guard++) {
     switch (run.phase) {
       case 'map': {
         const options = Run.reachable(run);
@@ -138,6 +191,18 @@ export function playRun(
       case 'respite':
         run = Run.respite(run, 'rest');
         break;
+      case 'relic':
+        run = Run.pickRelic(run, 0);
+        break;
+      case 'merchant':
+        run = shop(run);
+        break;
+      case 'forge':
+        run = forge(run);
+        break;
+      case 'event':
+        run = event(run);
+        break;
       default:
         throw new Error(`unexpected phase ${run.phase}`);
     }
@@ -150,5 +215,8 @@ export function playRun(
     fights: run.results.length,
     minutes: seconds / 60,
     motifs: run.motifs.map((m) => `${m.id}:${m.level}`),
+    relics: run.relics.map((r) => (r.cleansed ? `${r.id}*` : r.id)),
+    aetherEarned: run.results.reduce((s, r) => s + r.aether, 0),
+    aetherLeft: run.aether,
   };
 }

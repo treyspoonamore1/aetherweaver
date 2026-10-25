@@ -243,6 +243,33 @@ export const ENCOUNTERS: ContentInput['encounters'] = [
     flavor: 'Choristers that broke and kept singing. Their shards still cut.',
   },
   {
+    // Only through the Unsung Choir event (docs/phase-3b.md): an elite fight for a relic.
+    id: 'unsung_choir',
+    name: 'The Unsung Choir',
+    kind: 'elite',
+    arena: 'cloister',
+    par: 105,
+    waves: [
+      {
+        delay: 2,
+        spawns: [
+          { enemy: 'hollow_chorister', count: 6 },
+          { enemy: 'lamenter', count: 1, elite: true, affixes: ['hastened'] },
+        ],
+      },
+      {
+        delay: 3,
+        spawns: [
+          { enemy: 'bell_brute', count: 1, elite: true, affixes: ['shielded'] },
+          { enemy: 'cantor_acolyte', count: 2 },
+          { enemy: 'hollow_chorister', count: 3 },
+        ],
+      },
+    ],
+    hints: ['chime'],
+    flavor: 'A song no one has ever heard. They mean to be heard now.',
+  },
+  {
     id: 'bellwarden',
     name: 'The Bellwarden',
     kind: 'miniboss',

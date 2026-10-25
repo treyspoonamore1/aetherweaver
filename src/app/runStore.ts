@@ -1,5 +1,5 @@
 /**
- * CONTRACT v4 — the run store (meta/types.ts RunActions). Screens read `run` and call the
+ * CONTRACT v5 — the run store (meta/types.ts RunActions). Screens read `run` and call the
  * actions; every action is a pure transition from meta/run.ts followed by a save. Fights award
  * Weaver XP to the profile (app/profileStore.ts) as they finish, and Prep and Retune only
  * accept what the profile has unlocked.
@@ -97,6 +97,7 @@ export const useRun = create<RunStore>()((set, get) => {
         useProfile.getState().award(after.lastResult.xp);
     },
     continueFromResult: () => apply(Run.continueFromResult),
+    pickRelic: (index) => apply((run) => Run.pickRelic(run, index)),
     pickDraft: (index) => apply((run) => Run.pickDraft(run, index)),
     rerollDraft: () => apply(Run.rerollDraft),
     respite: (choice) => apply((run) => Run.respite(run, choice)),
@@ -105,6 +106,21 @@ export const useRun = create<RunStore>()((set, get) => {
       const run = get().run;
       if (run?.phase === 'map') useProfile.getState().rememberChords(run.chords);
     },
+    buy: (index) => apply((run) => Run.buy(run, index)),
+    leaveShop: () => apply(Run.leaveShop),
+    forge: (choice) => {
+      apply((run) => Run.forge(run, choice, useProfile.getState().allowance()));
+      const run = get().run;
+      if (choice.service === 'retune' && run?.forge?.used === 'retune')
+        useProfile.getState().rememberChords(run.chords);
+    },
+    leaveForge: () => apply(Run.leaveForge),
+    chooseEvent: (choiceId, opts) => {
+      apply((run) => Run.chooseEvent(run, choiceId, opts, useProfile.getState().allowance()));
+      const run = get().run;
+      if (run?.event?.gains?.retuned) useProfile.getState().rememberChords(run.chords);
+    },
+    leaveEvent: () => apply(Run.leaveEvent),
     abandon: () => apply(Run.abandon),
     closeRun: () => {
       saveRun(storage(), null);

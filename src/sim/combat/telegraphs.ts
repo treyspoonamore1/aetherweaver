@@ -22,6 +22,7 @@ import {
   dealDamage,
   getStatus,
   hasStatus,
+  heal,
   isActive,
   ownShield,
   removeShield,
@@ -288,8 +289,11 @@ function hitEntity(
   const wouldDie = damage >= h.hp + ownShield(h);
 
   // Perfect Ward: a Ward cast inside the window before impact negates the hit outright.
+  // The Cracked Metronome makes an early one Perfect too, every so often.
   const ward = e.hero ? shieldOf(h, 'ward') : undefined;
-  if (ward && ward.appliedAt >= t.perfectFrom - 1e-9 && ward.appliedAt <= t.impact + 1e-9) {
+  const inWindow =
+    !!ward && ward.appliedAt >= t.perfectFrom - 1e-9 && ward.appliedAt <= t.impact + 1e-9;
+  if (ward && (inWindow || metronome(world, e))) {
     perfect(world, t, e, damage, owner, wouldDie);
     if (t.shape.kind === 'mark') removeStatus(world, e, 'dirge', 'detonated');
     return;
@@ -356,7 +360,51 @@ function perfect(
   setTimeScale(world, 0.2, 6, 'perfect');
   bark(world, e, 'perfect');
   if (world.mods.ripostePower > 0) riposte(world, e);
+  perfectRelics(world, e);
   if (wouldDie) recordSave(world, e, 'ward', damage, t.name);
+}
+
+/** Cracked Metronome: spends its charge on an early Ward, if it's ready. */
+function metronome(world: World, hero: Entity): boolean {
+  const relics = world.relics;
+  if (relics.metronomeAt === null || world.time < relics.metronomeAt) return false;
+  relics.metronomeAt = world.time + world.mods.metronomeCooldown;
+  world.events.push({
+    type: 'relicTriggered',
+    tick: world.tick,
+    relic: 'cracked_metronome',
+    hero: hero.id,
+  });
+  return true;
+}
+
+/** Relics that answer a Perfect Ward: the Tuning Fork and the Glass Halo. */
+function perfectRelics(world: World, hero: Entity): void {
+  const charge = world.mods.perfectSoloCharge;
+  const h = hero.hero;
+  if (charge > 0 && h && h.soloActive <= 0 && h.solo < 100) {
+    h.solo = Math.min(100, h.solo + charge);
+    world.events.push({
+      type: 'relicTriggered',
+      tick: world.tick,
+      relic: 'tuning_fork',
+      hero: hero.id,
+    });
+    if (h.solo >= 100) world.events.push({ type: 'soloReady', tick: world.tick, hero: hero.id });
+  }
+  const pct = world.mods.perfectHealPct;
+  if (pct > 0) {
+    for (const id of world.party) {
+      const ally = world.entities.get(id);
+      if (isActive(ally)) heal(world, ally, ally.health.maxHp * pct, 'other');
+    }
+    world.events.push({
+      type: 'relicTriggered',
+      tick: world.tick,
+      relic: 'glass_halo',
+      hero: hero.id,
+    });
+  }
 }
 
 function riposte(world: World, hero: Entity): void {

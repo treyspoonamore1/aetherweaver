@@ -29,6 +29,7 @@ export function hashWorld(world: World): string {
     field: world.field,
     encounter: world.encounter,
     ledger: world.ledger,
+    relics: world.relics,
     internal: world.internal,
   });
   world.rng.forEach((name, rng) => {

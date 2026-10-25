@@ -12,6 +12,7 @@ import { ScreenFrame, ScreenHeader } from '../kit/Backdrop';
 import { ChordBuilder } from '../screens/ChordBuilder';
 import { CodexView } from '../screens/CodexScreen';
 import { DraftView } from '../screens/DraftScreen';
+import { InterludeStub } from '../screens/InterludeStub';
 import { MapView } from '../screens/MapScreen';
 import { PrepView } from '../screens/PrepScreen';
 import { RespiteView } from '../screens/RespiteScreen';
@@ -171,6 +172,19 @@ function Flow() {
           run={run}
           onNewRun={() => set(() => freshRun(Math.floor(Math.random() * 999)))}
           onTitle={() => set(() => freshRun(11))}
+        />
+      );
+    case 'merchant':
+    case 'forge':
+    case 'event':
+    case 'relic':
+      return (
+        <InterludeStub
+          run={run}
+          onBuy={(i) => set((r) => Run.buy(r, i))}
+          onLeave={() => set((r) => Run.leaveEvent(Run.leaveForge(Run.leaveShop(r))))}
+          onEvent={(id) => set((r) => Run.chooseEvent(r, id))}
+          onRelic={(i) => set((r) => Run.pickRelic(r, i))}
         />
       );
   }

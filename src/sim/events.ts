@@ -1,5 +1,5 @@
 /**
- * CONTRACT v4 — Events are the only way out of the simulation (docs/plan/05 §4.5).
+ * CONTRACT v5 — Events are the only way out of the simulation (docs/plan/05 §4.5).
  *
  * The sim buffers events during a tick; render, audio, UI, the ledger and achievements
  * drain them after the step. Nothing polls the sim for "did X happen". Every event carries
@@ -338,6 +338,16 @@ export interface FermataReleased extends At {
   saved: boolean;
 }
 
+/**
+ * A relic did something you can see (docs/phase-3b.md): the Thimble's shield, the Lantern's
+ * barriers, the Veil taking a blow, the Metronome's free Perfect… `hero` is who it helped.
+ */
+export interface RelicTriggered extends At {
+  type: 'relicTriggered';
+  relic: string;
+  hero: EntityId | null;
+}
+
 // ── Call and Response (docs/phase-2.md) ───────────────────────────────────────────────
 /** A hero calls for a specific kind of support before a big move. */
 export interface CallStarted extends At {
@@ -509,6 +519,7 @@ export type SimEvent =
   | ChorusPulse
   | FermataHold
   | FermataReleased
+  | RelicTriggered
   | CallStarted
   | CallAnswered
   | CallEnded

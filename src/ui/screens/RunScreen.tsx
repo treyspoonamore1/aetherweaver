@@ -4,6 +4,7 @@ import { ScreenFrame } from '../kit/Backdrop';
 import { Button } from '../kit/Button';
 import { useUi } from '../store';
 import { DraftScreen } from './DraftScreen';
+import { InterludeStub } from './InterludeStub';
 import { MapScreen } from './MapScreen';
 import { PrepScreen } from './PrepScreen';
 import { ResultScreen } from './ResultScreen';
@@ -58,5 +59,26 @@ export function RunScreen() {
       return <RespiteScreen />;
     case 'summary':
       return <SummaryScreen />;
+    case 'merchant':
+    case 'forge':
+    case 'event':
+    case 'relic': {
+      const store = useRun.getState();
+      return (
+        <InterludeStub
+          run={run}
+          onBuy={store.buy}
+          onLeave={() =>
+            run.phase === 'merchant'
+              ? store.leaveShop()
+              : run.phase === 'forge'
+                ? store.leaveForge()
+                : store.leaveEvent()
+          }
+          onEvent={(id) => store.chooseEvent(id)}
+          onRelic={store.pickRelic}
+        />
+      );
+    }
   }
 }

@@ -1,7 +1,7 @@
 /**
- * Motif modifiers, resolved once per encounter from the run's motifs (docs/plan/03 §8).
- * Content stores each motif's per-level values in display units (25 = 25%, 1.5 = 1.5 s);
- * this is the one place that knows what each motif means to the sim.
+ * Motif, relic and boon modifiers, resolved once per encounter from the run (docs/plan/03 §8,
+ * docs/phase-3b.md). Content stores values in display units (25 = 25%, 1.5 = 1.5 s); this is
+ * the one place that knows what each motif, relic and boon means to the sim.
  */
 import type { Content } from '../content/schema';
 import type { ResolvedSimConfig } from './world';
@@ -34,6 +34,44 @@ export interface Mods {
   canon: number;
   encoreBonus: number;
   daCapo: number;
+  // ── Relics and boons ──
+  /** Mend's healing (Spindle of Fate, the Mended Loom). Empower uses `empowerMult`. */
+  mendMult: number;
+  /** Silver Thimble: a retargeted hero's shield, as a fraction of max HP (0 = none). */
+  thimbleBarrierPct: number;
+  thimbleCooldown: number;
+  thimbleDuration: number;
+  /** Lantern of the Lost: barrier for the others when a hero goes down (0 = none). */
+  lanternBarrierPct: number;
+  lanternDuration: number;
+  glideCooldownMult: number;
+  /** Heavy Score's curse. */
+  noGlide: boolean;
+  /** Warden's Key: hero damage to Mutes. */
+  muteDamageMult: number;
+  /** Heavy Score: every hero hit, credited to the Weaver. */
+  partyDamageMult: number;
+  /** Tuning Fork: Solo charge (0–100) a Perfect Ward gives its hero. */
+  perfectSoloCharge: number;
+  /** Glass Halo: a Perfect Ward heals every hero this fraction of max HP. */
+  perfectHealPct: number;
+  /** Choirmaster's Baton. */
+  cuedSoloDurationMult: number;
+  chimeCooldownMult: number;
+  chimeHeals: boolean;
+  martyrsVeil: boolean;
+  startResonance: number;
+  /** Prism Loom: Mend and Empower also reach heroes this close to the threaded one. */
+  prismRadius: number;
+  prismPotency: number;
+  /** Cracked Metronome: seconds between free Perfects (0 = none). */
+  metronomeCooldown: number;
+  /** Spindle of Fate: the beam song's echo strength (null = content's). */
+  beamEcho: number | null;
+  /** The Last Note: heroes start with their Solos charged. */
+  startSolos: boolean;
+  /** Frayed Spirit: max Spirit multiplier. */
+  spiritMult: number;
 }
 
 export const NO_MODS: Mods = {
@@ -64,6 +102,29 @@ export const NO_MODS: Mods = {
   canon: 0,
   encoreBonus: 0,
   daCapo: 0,
+  mendMult: 1,
+  thimbleBarrierPct: 0,
+  thimbleCooldown: 0,
+  thimbleDuration: 0,
+  lanternBarrierPct: 0,
+  lanternDuration: 0,
+  glideCooldownMult: 1,
+  noGlide: false,
+  muteDamageMult: 1,
+  partyDamageMult: 1,
+  perfectSoloCharge: 0,
+  perfectHealPct: 0,
+  cuedSoloDurationMult: 1,
+  chimeCooldownMult: 1,
+  chimeHeals: true,
+  martyrsVeil: false,
+  startResonance: 0,
+  prismRadius: 0,
+  prismPotency: 0,
+  metronomeCooldown: 0,
+  beamEcho: null,
+  startSolos: false,
+  spiritMult: 1,
 };
 
 export function resolveMods(config: ResolvedSimConfig, content: Content): Mods {
@@ -160,8 +221,115 @@ export function resolveMods(config: ResolvedSimConfig, content: Content): Mods {
         break;
     }
   }
+  for (const owned of config.relics) {
+    const def = content.relics.find((d) => d.id === owned.id);
+    if (def) applyRelic(m, def.id, def.values, owned.cleansed);
+  }
+  for (const id of config.boons) {
+    const def = content.boons.find((d) => d.id === id);
+    if (def) applyBoon(m, def.id, def.values);
+  }
   return m;
 }
+
+type Values = Readonly<Record<string, number>>;
+const num = (v: Values, key: string): number => v[key] ?? 0;
+
+function applyRelic(m: Mods, id: string, v: Values, cleansed: boolean): void {
+  switch (id) {
+    case 'silver_thimble':
+      m.thimbleBarrierPct = num(v, 'barrier') / 100;
+      m.thimbleCooldown = num(v, 'cooldown');
+      m.thimbleDuration = num(v, 'duration');
+      break;
+    case 'lantern_of_the_lost':
+      m.lanternBarrierPct = num(v, 'barrier') / 100;
+      m.lanternDuration = num(v, 'duration');
+      break;
+    case 'featherweight_robes':
+      m.glideCooldownMult *= 1 - num(v, 'pct') / 100;
+      break;
+    case 'wardens_key':
+      m.muteDamageMult = num(v, 'mult');
+      break;
+    case 'tuning_fork':
+      m.perfectSoloCharge = num(v, 'pct');
+      break;
+    case 'choirmasters_baton':
+      m.cuedSoloDurationMult = 1 + num(v, 'pct') / 100;
+      break;
+    case 'hollow_bell':
+      m.chimeCooldownMult *= 1 - num(v, 'pct') / 100;
+      m.chimeHeals = false;
+      break;
+    case 'martyrs_veil':
+      m.martyrsVeil = true;
+      break;
+    case 'cantors_hymnal':
+      m.startResonance += num(v, 'resonance');
+      break;
+    case 'prism_loom':
+      m.prismRadius = num(v, 'radius');
+      m.prismPotency = num(v, 'pct') / 100;
+      break;
+    case 'cracked_metronome':
+      m.metronomeCooldown = num(v, 'cooldown');
+      break;
+    case 'spindle_of_fate':
+      m.beamEcho = 1;
+      m.mendMult *= 1 - num(v, 'pct') / 100;
+      m.empowerMult *= 1 - num(v, 'pct') / 100;
+      break;
+    case 'heavy_score':
+      m.partyDamageMult *= 1 + num(v, 'pct') / 100;
+      if (!cleansed) m.noGlide = true;
+      break;
+    case 'glass_halo':
+      m.perfectHealPct = num(v, 'heal') / 100;
+      if (!cleansed) m.wardBarrierMult *= 1 - num(v, 'pct') / 100;
+      break;
+    default:
+      // Run-only relics (Star Chart) have no sim behaviour; tests check the rest are known.
+      break;
+  }
+}
+
+function applyBoon(m: Mods, id: string, v: Values): void {
+  switch (id) {
+    case 'last_note':
+      m.startSolos = true;
+      break;
+    case 'frayed_spirit':
+      m.spiritMult *= 1 - num(v, 'pct') / 100;
+      break;
+    case 'mended_loom':
+      m.mendMult *= 1 + num(v, 'pct') / 100;
+      m.empowerMult *= 1 + num(v, 'pct') / 100;
+      break;
+    default:
+      break;
+  }
+}
+
+/** Relic ids the resolver gives sim behaviour (checked against content in tests). */
+export const KNOWN_RELICS: readonly string[] = [
+  'silver_thimble',
+  'lantern_of_the_lost',
+  'featherweight_robes',
+  'wardens_key',
+  'tuning_fork',
+  'choirmasters_baton',
+  'hollow_bell',
+  'martyrs_veil',
+  'cantors_hymnal',
+  'prism_loom',
+  'cracked_metronome',
+  'spindle_of_fate',
+  'heavy_score',
+  'glass_halo',
+];
+
+export const KNOWN_BOONS: readonly string[] = ['last_note', 'frayed_spirit', 'mended_loom'];
 
 /** Motif ids this resolver understands (checked against content in tests). */
 export const KNOWN_MOTIFS: readonly string[] = [

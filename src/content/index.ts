@@ -5,18 +5,23 @@ import { HEROES } from './heroes';
 import { MOTIFS } from './motifs';
 import { AURAS } from './auras';
 import { ORNAMENTS } from './ornaments';
+import { BOONS, RELICS } from './relics';
+import { RUN_EVENTS } from './runEvents';
 import { CALLS, CHORUS, CRESCENDO, RESONANCE, TECHNIQUES, THREAD, WEAVER } from './weaver';
 import {
   ContentSchema,
   type ArenaDef,
   type AttackDef,
   type AuraDef,
+  type BoonDef,
   type Content,
   type EncounterDef,
   type EnemyDef,
   type HeroDef,
   type MotifDef,
   type OrnamentDef,
+  type RelicDef,
+  type RunEventDef,
 } from './schema';
 
 /** Validated at module load: invalid content fails fast in dev, tests and CI. */
@@ -36,6 +41,9 @@ export const CONTENT: Content = ContentSchema.parse({
   enemies: ENEMIES,
   affixes: AFFIXES,
   motifs: MOTIFS,
+  relics: RELICS,
+  boons: BOONS,
+  events: RUN_EVENTS,
   arenas: ARENAS,
   encounters: ENCOUNTERS,
   barks: {
@@ -81,6 +89,30 @@ export const ornamentDef: (id: string) => OrnamentDef = index('ornament', CONTEN
 export const motifDef: (id: string) => MotifDef = index('motif', CONTENT.motifs);
 export const arenaDef: (id: string) => ArenaDef = index('arena', CONTENT.arenas);
 export const encounterDef: (id: string) => EncounterDef = index('encounter', CONTENT.encounters);
+export const relicDef: (id: string) => RelicDef = index('relic', CONTENT.relics);
+export const boonDef: (id: string) => BoonDef = index('boon', CONTENT.boons);
+export const runEventDef: (id: string) => RunEventDef = index('event', CONTENT.events);
+
+/** Fills {name} placeholders from a relic's or boon's values. */
+export function fillValues(text: string, values: Readonly<Record<string, number>>): string {
+  return text.replace(/\{([a-zA-Z]+)\}/g, (all, key: string) =>
+    values[key] === undefined ? all : String(values[key]),
+  );
+}
+
+/** A relic's blessing, filled in. */
+export function relicText(def: RelicDef): string {
+  return fillValues(def.text, def.values);
+}
+
+/** A cursed relic's curse, filled in (null for other relics). */
+export function relicCurse(def: RelicDef): string | null {
+  return def.curse === undefined ? null : fillValues(def.curse, def.values);
+}
+
+export function boonText(def: BoonDef): string {
+  return fillValues(def.text, def.values);
+}
 
 /** Player-facing motif text at a level (1-based), with the value filled in. */
 export function motifText(def: MotifDef, level: number): string {
@@ -92,10 +124,16 @@ export type {
   ArenaDef,
   AttackDef,
   AuraDef,
+  BoonDef,
   Content,
   EncounterDef,
   EnemyDef,
+  EventChoice,
+  EventEffect,
   HeroDef,
   MotifDef,
   OrnamentDef,
+  RelicDef,
+  RelicRarity,
+  RunEventDef,
 } from './schema';

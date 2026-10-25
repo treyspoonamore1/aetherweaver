@@ -3,47 +3,22 @@ import { CONTENT } from '../../src/content';
 import { addShield, dealDamage } from '../../src/sim/combat/health';
 import { KNOWN_MOTIFS, NO_MODS, resolveMods } from '../../src/sim/mods';
 import { resolveConfig } from '../../src/sim/world';
-import type { Sim } from '../../src/sim';
-import { hero, hurt, ofType, sandbox, spawn, stepFor, stepUntil, weaver, worldOf } from './helpers';
+import {
+  hero,
+  hurt,
+  ofType,
+  resolvedOf,
+  sandbox,
+  spawn,
+  stepFor,
+  stepUntil,
+  telegraphOn,
+  weaver,
+  worldOf,
+} from './helpers';
 
 const tech = CONTENT.techniques;
 const res = CONTENT.resonance;
-
-/** Puts an enemy near a hero and waits for its named telegraph. */
-function telegraphOn(
-  defId: string,
-  name: string,
-  slot = 0,
-  offset = 2.5,
-  sim: Sim = sandbox(),
-  tough = false,
-) {
-  const h = hero(sim, slot);
-  stepFor(sim, 1, [spawn(defId, h.x, h.z - offset)]);
-  if (tough) {
-    // Keep the caster alive: killing it would cancel its pending attacks.
-    for (const e of worldOf(sim).entities.list()) {
-      if (e.enemy && e.health) e.health.hp = e.health.maxHp = 1e6;
-    }
-  }
-  const events = stepUntil(sim, (ev) =>
-    ev.some((e) => e.type === 'telegraphStarted' && e.name === name),
-  );
-  const started = ofType(events, 'telegraphStarted').find((e) => e.name === name)!;
-  return { sim, started, telegraph: sim.state.telegraphs.find((t) => t.id === started.telegraph)! };
-}
-
-function resolvedOf(sim: Sim, id: number) {
-  const events = stepUntil(
-    sim,
-    (ev) => ev.some((e) => e.type === 'telegraphResolved' && e.telegraph === id),
-    600,
-  );
-  return {
-    events,
-    resolved: ofType(events, 'telegraphResolved').filter((e) => e.telegraph === id),
-  };
-}
 
 describe('Ward and the Perfect window', () => {
   it('a Ward inside the window negates the hit: Perfect, refund, stagger, Resonance', () => {

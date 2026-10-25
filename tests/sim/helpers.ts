@@ -70,3 +70,39 @@ export function hurt(sim: Sim, slot: number, amount: number): void {
 export function spawn(defId: string, x: number, z: number, elite = false): Command {
   return { t: 'debug', op: { op: 'spawnEnemy', defId, x, z, elite } };
 }
+
+/** Puts an enemy near a hero and waits for its named telegraph. */
+export function telegraphOn(
+  defId: string,
+  name: string,
+  slot = 0,
+  offset = 2.5,
+  sim: Sim = sandbox(),
+  tough = false,
+) {
+  const h = hero(sim, slot);
+  stepFor(sim, 1, [spawn(defId, h.x, h.z - offset)]);
+  if (tough) {
+    // Keep the caster alive: killing it would cancel its pending attacks.
+    for (const e of worldOf(sim).entities.list()) {
+      if (e.enemy && e.health) e.health.hp = e.health.maxHp = 1e6;
+    }
+  }
+  const events = stepUntil(sim, (ev) =>
+    ev.some((e) => e.type === 'telegraphStarted' && e.name === name),
+  );
+  const started = ofType(events, 'telegraphStarted').find((e) => e.name === name)!;
+  return { sim, started, telegraph: sim.state.telegraphs.find((t) => t.id === started.telegraph)! };
+}
+
+export function resolvedOf(sim: Sim, id: number) {
+  const events = stepUntil(
+    sim,
+    (ev) => ev.some((e) => e.type === 'telegraphResolved' && e.telegraph === id),
+    600,
+  );
+  return {
+    events,
+    resolved: ofType(events, 'telegraphResolved').filter((e) => e.telegraph === id),
+  };
+}

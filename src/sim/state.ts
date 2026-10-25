@@ -1,5 +1,5 @@
 /**
- * CONTRACT v4 — read-only world state exposed by the sim (docs/plan/05 §4.2).
+ * CONTRACT v5 — read-only world state exposed by the sim (docs/plan/05 §4.2).
  *
  * Views (render, UI, audio) read this and never mutate it: everything reachable from
  * `WorldState` is deeply read-only at the type level. Persistent visuals reflect state;
@@ -475,7 +475,16 @@ export interface EncounterState {
 
 // ── Contribution ledger (docs/plan/05 §4.7) ───────────────────────────────────────────
 
-export type SaveCause = 'ward' | 'reel' | 'chime' | 'mend' | 'dome' | 'fermata' | 'other';
+export type SaveCause =
+  | 'ward'
+  | 'reel'
+  | 'chime'
+  | 'mend'
+  | 'dome'
+  | 'fermata'
+  /** Martyr's Veil: the Weaver took the blow instead. */
+  | 'martyr'
+  | 'other';
 
 export interface SaveRecord {
   time: number;
@@ -550,6 +559,22 @@ export interface Ledger {
   markers: { time: number; kind: LedgerMarkerKind; slot: number | null }[];
 }
 
+/**
+ * The relics the Weaver carries this fight and what's left of their per-fight charges
+ * (docs/phase-3b.md). The run's relics, in the order they were found; none when absent.
+ */
+export interface RelicState {
+  ids: string[];
+  /** Cursed relics whose curse a Forge lifted (their blessing stays). */
+  cleansed: string[];
+  /** Cracked Metronome: sim time its next free Perfect is ready (null without it). */
+  metronomeAt: number | null;
+  /** Silver Thimble: sim time it can shield again (null without it). */
+  thimbleAt: number | null;
+  /** Martyr's Veil: still unused this fight (false without it, or once spent). */
+  veil: boolean;
+}
+
 export interface WorldState {
   readonly tick: number;
   /** Simulated seconds (advances by SIM_DT × timeScale each tick). */
@@ -572,4 +597,5 @@ export interface WorldState {
   readonly field: DeepReadonly<FieldState>;
   readonly encounter: DeepReadonly<EncounterState>;
   readonly ledger: DeepReadonly<Ledger>;
+  readonly relics: DeepReadonly<RelicState>;
 }

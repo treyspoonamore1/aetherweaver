@@ -12,13 +12,19 @@ import type { World } from '../world';
 import { inAnyField } from './field';
 import { heroDamage } from './heroDamage';
 
+/** How long a Solo lasts: a cued one longer with the Choirmaster's Baton. */
+export function soloLength(world: World, def: HeroDef, cued: boolean): number {
+  return def.solo.duration * (cued ? world.mods.cuedSoloDurationMult : 1);
+}
+
 export function startSolo(world: World, hero: Entity, cued: boolean): void {
   const h = hero.hero!;
   const def = heroDef(h.defId);
   const solo = def.solo;
+  const duration = soloLength(world, def, cued);
   h.solo = 0;
   h.soloCued = cued;
-  h.soloActive = solo.duration;
+  h.soloActive = duration;
   h.soloPulseAt = world.time;
   h.cast = null;
   h.castName = solo.name;
@@ -30,7 +36,7 @@ export function startSolo(world: World, hero: Entity, cued: boolean): void {
     hero: hero.id,
     solo: solo.id,
     cued,
-    duration: solo.duration,
+    duration,
   });
   if (cued) bark(world, hero, 'cued', true);
 
@@ -39,11 +45,11 @@ export function startSolo(world: World, hero: Entity, cued: boolean): void {
       for (const id of world.party) {
         const ally = world.entities.get(id);
         if (isActive(ally))
-          addShield(world, ally, 'dome', ally.health.maxHp * solo.cuedPower, solo.duration, true);
+          addShield(world, ally, 'dome', ally.health.maxHp * solo.cuedPower, duration, true);
       }
       const weaver = world.entities.get(world.weaverId);
       if (isActive(weaver))
-        addShield(world, weaver, 'dome', weaver.health.maxHp * solo.cuedPower, solo.duration, true);
+        addShield(world, weaver, 'dome', weaver.health.maxHp * solo.cuedPower, duration, true);
     } else {
       addShield(world, hero, 'overshield', hero.health!.maxHp * solo.power, solo.duration, false);
     }
@@ -66,7 +72,7 @@ export function updateSolo(world: World, hero: Entity, dt: number): boolean {
   const def = heroDef(h.defId);
   const solo = def.solo;
   h.soloActive = Math.max(0, h.soloActive - dt);
-  h.castProgress = 1 - h.soloActive / Math.max(0.01, solo.duration);
+  h.castProgress = 1 - h.soloActive / Math.max(0.01, soloLength(world, def, h.soloCued));
   if (solo.id === 'galeBarrage') galeBarrage(world, hero, def);
   else if (solo.id === 'starfall') starfall(world, hero, def);
   if (h.soloActive <= 0) {

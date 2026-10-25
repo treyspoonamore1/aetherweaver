@@ -1,28 +1,47 @@
 /**
- * The Prelude run (docs/plan/02 §8, 03 §9): a seeded branching map, encounter results and
- * grades, motif drafts, respites and HP carry-over. Every function here is pure: it takes a
+ * The Prelude run (docs/plan/02 §8, 03 §9, docs/phase-3b.md): a seeded branching map,
+ * encounter results and grades, motif drafts, respites, HP carry-over, and the economy —
+ * Aether, merchants, forges, events and relics. Every function here is pure: it takes a
  * RunState and returns a new one, so runs are reproducible from their seed and easy to test.
  */
-import { CONTENT, encounterDef, motifDef } from '../content';
-import type { MotifDef } from '../content/schema';
+import { CONTENT, boonDef, encounterDef, motifDef, relicDef, runEventDef } from '../content';
+import type { EventEffect, MotifDef, RelicRarity } from '../content/schema';
 import { Rng, hashString } from '../sim/core/rng';
 import { canonicalChords, chordProblems, type SimConfig } from '../sim';
+import {
+  FIGHT_AETHER,
+  FORGE_PRICE,
+  MOTIF_PRICE,
+  RELIC_OFFERS,
+  RELIC_PRICE,
+  SHOP_HEAL,
+  SHOP_MOTIFS,
+  SHOP_RELICS,
+  SHOP_RELIC_ODDS,
+  START_AETHER,
+  aetherForFight,
+} from './economy';
 import { EVERYTHING, lockedProblems, xpForFight, type Allowance } from './profile';
 import {
   RUN_SAVE_VERSION,
+  type ActiveBoon,
   type ChordLoadout,
   type CombatOutcome,
   type DraftOffer,
   type DraftOption,
   type EncounterResult,
   type EncounterStats,
+  type EventGains,
+  type ForgeChoice,
   type Grade,
   type Highlight,
   type MapNode,
   type NodeKind,
+  type RelicOffer,
   type RunHero,
   type RunMap,
   type RunState,
+  type ShopItem,
 } from './types';
 
 /** The Chords a new run starts with: Steady, the Prelude's teaching loadout (a beam song). */
@@ -134,14 +153,21 @@ const BOSS_HP_FLOOR = 0.75;
 const SKIRMISHES = ['tolling_halls', 'glass_gallery', 'choir_loft', 'mourning_steps'] as const;
 const ELITES = ['muted_nave', 'shattered_choir'] as const;
 
-/** Row templates for the Prelude. Each row's kinds are shuffled except fixed rows. */
+/**
+ * Row templates for the Prelude (docs/phase-3b.md): ten stops, every path at least three
+ * fights before the Bellwarden, and a merchant, a forge or an event between most of them.
+ * Each row's kinds are shuffled.
+ */
 const ROWS: readonly (readonly NodeKind[])[] = [
   ['skirmish'],
-  ['skirmish', 'skirmish', 'shrine'],
-  ['elite', 'skirmish', 'respite'],
-  ['skirmish', 'shrine'],
+  ['skirmish', 'skirmish', 'event'],
+  ['merchant', 'skirmish', 'shrine'],
+  ['skirmish', 'elite', 'skirmish'],
+  ['event', 'forge', 'merchant'],
+  ['elite', 'skirmish', 'skirmish'],
+  ['respite', 'event', 'forge'],
   ['miniboss'],
-  ['respite'],
+  ['respite', 'merchant'],
   ['boss'],
 ];
 
@@ -157,32 +183,59 @@ function shuffle<T>(rng: Rng, items: T[]): T[] {
   return items;
 }
 
-function rewardFor(kind: NodeKind): MapNode['reward'] {
+function rewardFor(kind: NodeKind, eventId: string | null): MapNode['reward'] {
+  const none = { draft: null, heal: 0, aether: 0, relics: 0 } as const;
   switch (kind) {
     case 'skirmish':
-      return { draft: 'common', heal: VICTORY_HEAL, text: 'A fight, then a motif.' };
+      return {
+        ...none,
+        draft: 'common',
+        heal: VICTORY_HEAL,
+        aether: FIGHT_AETHER.skirmish,
+        text: 'A fight: Aether and a motif.',
+      };
     case 'elite':
-      return { draft: 'rare', heal: VICTORY_HEAL, text: 'A hard fight, then a rare motif.' };
+      return {
+        draft: 'rare',
+        heal: VICTORY_HEAL,
+        aether: FIGHT_AETHER.elite,
+        relics: RELIC_OFFERS.elite.count,
+        text: 'A hard fight: Aether, a relic and a rare motif.',
+      };
     case 'shrine':
       return {
+        ...none,
         draft: 'rare',
         heal: SHRINE_HEAL,
         text: 'A quiet shrine: a rare motif and a little healing.',
       };
     case 'respite':
       return {
-        draft: null,
+        ...none,
         heal: REST_HEAL,
-        text: 'Rest (heal 40%, steady the Shaken) or meditate (upgrade a motif).',
+        text: 'Rest (heal 40%, steady the Shaken), meditate (upgrade a motif) or retune.',
       };
+    case 'merchant':
+      return { ...none, text: 'A merchant: relics, motifs and healing, for Aether.' };
+    case 'forge':
+      return {
+        ...none,
+        text: 'A forge: temper a motif, retune your Chords or lift a curse, for Aether.',
+      };
+    case 'event': {
+      const def = eventId ? runEventDef(eventId) : null;
+      return { ...none, text: def ? `${def.name}: ${def.teaser}` : 'Something stirs here.' };
+    }
     case 'miniboss':
       return {
         draft: 'epic',
         heal: VICTORY_HEAL,
-        text: 'The Bellwarden guards the way. An epic motif awaits.',
+        aether: FIGHT_AETHER.miniboss,
+        relics: RELIC_OFFERS.boss.count,
+        text: 'The Bellwarden guards the way: Aether, a relic and an epic motif.',
       };
     case 'boss':
-      return { draft: null, heal: 0, text: 'The Hollow Cantor. End the silence.' };
+      return { ...none, text: 'The Hollow Cantor. End the silence.' };
   }
 }
 
@@ -192,6 +245,9 @@ export function generateMap(seed: number): RunMap {
   const order = (pool: readonly string[]) => shuffle(rng, [...pool]);
   const skirmishes = order(SKIRMISHES);
   const elites = order(ELITES);
+  // Every event at most once a run, until they run out.
+  const events = order(CONTENT.events.map((e) => e.id));
+  let nextEvent = 0;
   const uses = new Map<string, number>();
   const rowsUsed: Set<string>[] = [];
   /** Least-used encounter not seen in the previous two rows (so a path never repeats one). */
@@ -215,6 +271,8 @@ export function generateMap(seed: number): RunMap {
       else if (kind === 'miniboss') encounterId = 'bellwarden';
       else if (kind === 'boss') encounterId = 'hollow_cantor';
       if (encounterId) rowsUsed[row]!.add(encounterId);
+      const eventId =
+        kind === 'event' && events.length > 0 ? events[nextEvent++ % events.length]! : null;
       const n = kinds.length;
       return {
         id: `r${row}c${col}`,
@@ -222,8 +280,9 @@ export function generateMap(seed: number): RunMap {
         x: n === 1 ? 0.5 : 0.15 + (0.7 * col) / (n - 1),
         kind,
         encounterId,
+        eventId,
         next: [],
-        reward: rewardFor(kind),
+        reward: rewardFor(kind, eventId),
       };
     });
   });
@@ -284,6 +343,13 @@ export function newRun(seed: number, chords: readonly ChordLoadout[] = DEFAULT_C
     encounters: 0,
     outcome: null,
     xp: 0,
+    aether: START_AETHER,
+    relics: [],
+    boons: [],
+    shop: null,
+    forge: null,
+    event: null,
+    relicOffer: null,
   };
 }
 
@@ -323,6 +389,30 @@ export function chooseNode(run: RunState, nodeId: string): RunState {
       };
     case 'respite':
       return { ...next, phase: 'respite' };
+    case 'merchant':
+      return { ...next, phase: 'merchant', shop: { nodeId: node.id, items: makeShop(next, node) } };
+    case 'forge':
+      return {
+        ...next,
+        phase: 'forge',
+        forge: { nodeId: node.id, prices: { ...FORGE_PRICE }, used: null },
+      };
+    case 'event':
+      if (!node.eventId) return { ...next, phase: 'map', pending: null };
+      return {
+        ...next,
+        phase: 'event',
+        event: {
+          nodeId: node.id,
+          eventId: node.eventId,
+          choice: null,
+          won: null,
+          outcome: null,
+          gains: null,
+          encounterId: null,
+          relics: 0,
+        },
+      };
     default:
       return { ...next, phase: 'combat' };
   }
@@ -332,7 +422,8 @@ export function chooseNode(run: RunState, nodeId: string): RunState {
 export function combatConfig(run: RunState, assists?: SimConfig['assists']): SimConfig | null {
   if (run.phase !== 'combat' || !run.pending) return null;
   const node = findNode(run, run.pending);
-  if (!node?.encounterId) return null;
+  const encounter = node?.kind === 'event' ? run.event?.encounterId : node?.encounterId;
+  if (!node || !encounter) return null;
   // Bosses are fought rested enough to be fair: wounds carry over, but not below a floor.
   const floor = node.kind === 'miniboss' || node.kind === 'boss' ? BOSS_HP_FLOOR : 0;
   return {
@@ -343,9 +434,11 @@ export function combatConfig(run: RunState, assists?: SimConfig['assists']): Sim
       hpPct: Math.max(floor, h.hpPct),
       shaken: h.shaken,
     })),
-    encounter: node.encounterId,
+    encounter,
     chords: canonicalChords(run.chords),
     motifs: run.motifs.map((m) => ({ ...m })),
+    relics: run.relics.map((r) => ({ ...r })),
+    boons: run.boons.map((b) => b.id),
     ...(assists ? { assists } : {}),
   };
 }
@@ -377,7 +470,16 @@ export function finishCombat(run: RunState, outcome: CombatOutcome): RunState {
     encounters: run.encounters + 1,
     outcome: outcome.outcome === 'defeat' ? 'defeat' : run.outcome,
     xp: run.xp + result.xp,
+    aether: run.aether + result.aether,
+    boons: tickBoons(run.boons),
   };
+}
+
+/** A fight was played: boons that last some fights have one fewer left. */
+function tickBoons(boons: readonly ActiveBoon[]): ActiveBoon[] {
+  return boons
+    .map((b) => (b.fights === null ? b : { ...b, fights: b.fights - 1 }))
+    .filter((b) => b.fights === null || b.fights > 0);
 }
 
 export function continueFromResult(run: RunState): RunState {
@@ -386,15 +488,55 @@ export function continueFromResult(run: RunState): RunState {
   if (run.outcome === 'defeat') return { ...run, phase: 'summary', pending: null };
   if (!node || node.kind === 'boss')
     return { ...run, phase: 'summary', pending: null, outcome: 'victory' };
-  const rarity = node.reward.draft ?? 'common';
+  // Elites, the Bellwarden and an event's fight offer a relic first.
+  const offer =
+    node.kind === 'event'
+      ? makeRelicOffer(run, 'event', run.event?.relics ?? 0)
+      : node.reward.relics > 0
+        ? makeRelicOffer(run, node.kind === 'miniboss' ? 'boss' : 'elite', node.reward.relics)
+        : null;
+  if (offer) return { ...run, phase: 'relic', relicOffer: offer };
+  return afterRewards(run, node);
+}
+
+/** After a victory's relic (if any): the node's draft, or back to the map. */
+function afterRewards(run: RunState, node: MapNode): RunState {
+  if (!node.reward.draft) return toMap(run);
   const reason = node.kind === 'elite' ? 'elite' : node.kind === 'miniboss' ? 'boss' : 'victory';
-  return { ...run, phase: 'draft', draft: makeDraft(run, reason, rarity) };
+  return {
+    ...run,
+    phase: 'draft',
+    relicOffer: null,
+    draft: makeDraft(run, reason, node.reward.draft),
+  };
+}
+
+/** Back on the map: whatever the node had open is closed. */
+function toMap(run: RunState): RunState {
+  return {
+    ...run,
+    phase: 'map',
+    pending: null,
+    draft: null,
+    relicOffer: null,
+    shop: null,
+    forge: null,
+    event: null,
+  };
+}
+
+export function pickRelic(run: RunState, index: number | null): RunState {
+  if (run.phase !== 'relic' || !run.relicOffer) return run;
+  const id = index === null ? undefined : run.relicOffer.options[index];
+  const next = id ? addRelic(run, id) : run;
+  const node = run.pending ? findNode(run, run.pending) : undefined;
+  return node ? afterRewards({ ...next, relicOffer: null }, node) : toMap(next);
 }
 
 export function pickDraft(run: RunState, index: number | null): RunState {
   if (run.phase !== 'draft' || !run.draft) return run;
   const option = index === null ? undefined : run.draft.options[index];
-  let next: RunState = { ...run, phase: 'map', draft: null, pending: null };
+  let next: RunState = toMap(run);
   if (option) {
     const owned = next.motifs.find((m) => m.id === option.motifId);
     next = {
@@ -425,23 +567,344 @@ export function respite(run: RunState, choice: 'rest' | 'meditate'): RunState {
   if (run.phase !== 'respite') return run;
   if (choice === 'rest') {
     const healed = healParty(run, REST_HEAL);
-    return {
-      ...healed,
-      party: healed.party.map((h) => ({ ...h, shaken: false })),
-      phase: 'map',
-      pending: null,
-    };
+    return toMap({ ...healed, party: healed.party.map((h) => ({ ...h, shaken: false })) });
   }
   return { ...run, phase: 'draft', draft: makeDraft(run, 'meditate', 'common') };
 }
 
 export function abandon(run: RunState): RunState {
   if (run.phase === 'summary') return run;
-  return { ...run, phase: 'summary', outcome: 'abandoned', pending: null, draft: null };
+  return { ...toMap(run), phase: 'summary', outcome: 'abandoned' };
 }
 
 function healParty(run: RunState, pct: number): RunState {
   return { ...run, party: run.party.map((h) => ({ ...h, hpPct: Math.min(1, h.hpPct + pct) })) };
+}
+
+// ── Relics ────────────────────────────────────────────────────────────────────────────
+
+export function hasRelic(run: RunState, id: string): boolean {
+  return run.relics.some((r) => r.id === id);
+}
+
+function addRelic(run: RunState, id: string): RunState {
+  if (hasRelic(run, id) || !CONTENT.relics.some((r) => r.id === id)) return run;
+  return { ...run, relics: [...run.relics, { id, cleansed: false }] };
+}
+
+/** A weighted roll over the rarities that still have a relic to give. */
+function rollRarity(
+  rng: Rng,
+  odds: Partial<Record<RelicRarity, number>>,
+  open: (r: RelicRarity) => boolean,
+): RelicRarity | null {
+  const entries = (Object.entries(odds) as [RelicRarity, number][]).filter(
+    ([r, w]) => w > 0 && open(r),
+  );
+  const total = entries.reduce((s, [, w]) => s + w, 0);
+  if (total <= 0) return null;
+  let roll = rng.float() * total;
+  for (const [r, w] of entries) {
+    roll -= w;
+    if (roll < 0) return r;
+  }
+  return entries[entries.length - 1]![0];
+}
+
+/** Relics of a rarity the run doesn't carry and isn't already being offered. */
+function relicPool(run: RunState, rarity: RelicRarity, taken: readonly string[]): string[] {
+  return CONTENT.relics
+    .filter((r) => r.rarity === rarity && !hasRelic(run, r.id) && !taken.includes(r.id))
+    .map((r) => r.id);
+}
+
+/** `count` different relics rolled from `odds` (fewer if the pool runs dry). */
+function rollRelics(
+  run: RunState,
+  rng: Rng,
+  count: number,
+  odds: Partial<Record<RelicRarity, number>>,
+): string[] {
+  const picked: string[] = [];
+  for (let i = 0; i < count; i++) {
+    const rarity = rollRarity(rng, odds, (r) => relicPool(run, r, picked).length > 0);
+    if (!rarity) break;
+    const pool = relicPool(run, rarity, picked);
+    picked.push(pool[rng.int(pool.length)]!);
+  }
+  return picked;
+}
+
+function makeRelicOffer(
+  run: RunState,
+  reason: RelicOffer['reason'],
+  count: number,
+): RelicOffer | null {
+  if (count <= 0) return null;
+  const rng = rngFor(run.seed, `relics:${run.path.length}:${run.encounters}:${reason}`);
+  const options = rollRelics(run, rng, count, RELIC_OFFERS[reason].odds);
+  return options.length > 0 ? { reason, options } : null;
+}
+
+// ── Merchants ─────────────────────────────────────────────────────────────────────────
+
+function makeShop(run: RunState, node: MapNode): ShopItem[] {
+  const rng = rngFor(run.seed, `shop:${node.id}`);
+  const item = (kind: ShopItem['kind'], id: string, price: number): ShopItem => ({
+    kind,
+    id,
+    level: 1,
+    upgrade: false,
+    heal: 0,
+    price,
+    sold: false,
+  });
+  const items: ShopItem[] = rollRelics(run, rng, SHOP_RELICS, SHOP_RELIC_ODDS).map((id) =>
+    item('relic', id, RELIC_PRICE[relicDef(id).rarity]),
+  );
+  let pool = CONTENT.motifs
+    .map((def) => ({ def, option: eligible(run, def) }))
+    .filter((p) => p.option !== null);
+  for (let i = 0; i < SHOP_MOTIFS && pool.length > 0; i++) {
+    const roll = rng.float();
+    const want = roll < 0.1 ? 'epic' : roll < 0.45 ? 'rare' : 'common';
+    const of = pool.filter((p) => p.def.rarity === want);
+    const from = of.length > 0 ? of : pool;
+    const chosen = from[rng.int(from.length)]!;
+    items.push({
+      ...item('motif', chosen.def.id, MOTIF_PRICE[chosen.def.rarity]),
+      level: chosen.option!.level,
+      upgrade: chosen.option!.upgrade,
+    });
+    pool = pool.filter((p) => p.def.id !== chosen.def.id);
+  }
+  items.push({ ...item('heal', '', SHOP_HEAL.price), heal: SHOP_HEAL.pct });
+  return items;
+}
+
+export function buy(run: RunState, index: number): RunState {
+  if (run.phase !== 'merchant' || !run.shop) return run;
+  const item = run.shop.items[index];
+  if (!item || item.sold || run.aether < item.price) return run;
+  let next: RunState = {
+    ...run,
+    aether: run.aether - item.price,
+    shop: {
+      ...run.shop,
+      items: run.shop.items.map((it, i) => (i === index ? { ...it, sold: true } : it)),
+    },
+  };
+  if (item.kind === 'relic') next = addRelic(next, item.id);
+  else if (item.kind === 'heal') next = healParty(next, item.heal);
+  else next = setMotifLevel(next, item.id, item.level);
+  return next;
+}
+
+export function leaveShop(run: RunState): RunState {
+  return run.phase === 'merchant' ? toMap(run) : run;
+}
+
+function setMotifLevel(run: RunState, id: string, level: number): RunState {
+  const max = motifDef(id).values.length;
+  const at = Math.max(1, Math.min(max, level));
+  const owned = run.motifs.some((m) => m.id === id);
+  return {
+    ...run,
+    motifs: owned
+      ? run.motifs.map((m) => (m.id === id ? { ...m, level: at } : m))
+      : [...run.motifs, { id, level: at }],
+  };
+}
+
+function upgradable(run: RunState, id: string): boolean {
+  const owned = run.motifs.find((m) => m.id === id);
+  return !!owned && owned.level < motifDef(id).values.length;
+}
+
+// ── Forges ────────────────────────────────────────────────────────────────────────────
+
+/** What a forge service can be used on right now (empty: it can't be used). */
+export function forgeTargets(run: RunState, service: ForgeChoice['service']): string[] {
+  switch (service) {
+    case 'temper':
+      return run.motifs.filter((m) => upgradable(run, m.id)).map((m) => m.id);
+    case 'cleanse':
+      return run.relics
+        .filter((r) => !r.cleansed && relicDef(r.id).rarity === 'cursed')
+        .map((r) => r.id);
+    case 'retune':
+      return ['chords'];
+  }
+}
+
+export function forge(
+  run: RunState,
+  choice: ForgeChoice,
+  allowance: Allowance = EVERYTHING,
+): RunState {
+  if (run.phase !== 'forge' || !run.forge || run.forge.used !== null) return run;
+  const price = run.forge.prices[choice.service];
+  if (run.aether < price) return run;
+  let next: RunState;
+  switch (choice.service) {
+    case 'temper': {
+      if (!upgradable(run, choice.motifId)) return run;
+      const level = run.motifs.find((m) => m.id === choice.motifId)!.level + 1;
+      next = setMotifLevel(run, choice.motifId, level);
+      break;
+    }
+    case 'cleanse':
+      if (!forgeTargets(run, 'cleanse').includes(choice.relicId)) return run;
+      next = {
+        ...run,
+        relics: run.relics.map((r) => (r.id === choice.relicId ? { ...r, cleansed: true } : r)),
+      };
+      break;
+    case 'retune':
+      if (!chordsAllowed(choice.chords, allowance)) return run;
+      next = { ...run, chords: canonicalChords(choice.chords) };
+      break;
+  }
+  return { ...next, aether: run.aether - price, forge: { ...run.forge, used: choice.service } };
+}
+
+export function leaveForge(run: RunState): RunState {
+  return run.phase === 'forge' ? toMap(run) : run;
+}
+
+// ── Events ────────────────────────────────────────────────────────────────────────────
+
+/** Why an event choice can't be made right now (null: it can). */
+export function eventChoiceProblem(run: RunState, choiceId: string): string | null {
+  if (!run.event) return 'No event.';
+  const ch = runEventDef(run.event.eventId).choices.find((c) => c.id === choiceId);
+  if (!ch) return 'No such choice.';
+  if (run.aether < ch.cost) return `Needs ${ch.cost} Aether.`;
+  if (ch.motif === 'any' && run.motifs.length === 0) return 'Needs a motif.';
+  if (ch.motif === 'upgradable' && !run.motifs.some((m) => upgradable(run, m.id)))
+    return 'Needs a motif that can still grow.';
+  return null;
+}
+
+export function chooseEvent(
+  run: RunState,
+  choiceId: string,
+  opts: { motifId?: string; chords?: ChordLoadout[] } = {},
+  allowance: Allowance = EVERYTHING,
+): RunState {
+  const event = run.event;
+  if (run.phase !== 'event' || !event || event.choice !== null) return run;
+  if (eventChoiceProblem(run, choiceId) !== null) return run;
+  const ch = runEventDef(event.eventId).choices.find((c) => c.id === choiceId)!;
+  const motifId = opts.motifId;
+  if (ch.motif !== 'none') {
+    if (!motifId || !run.motifs.some((m) => m.id === motifId)) return run;
+    if (ch.motif === 'upgradable' && !upgradable(run, motifId)) return run;
+  }
+  const effects = [...ch.effects, ...ch.fail];
+  if (effects.some((e) => e.kind === 'retune')) {
+    if (!opts.chords || !chordsAllowed(opts.chords, allowance)) return run;
+  }
+  const rng = rngFor(run.seed, `event:${event.nodeId}:${choiceId}`);
+  const won = ch.chance === undefined ? null : rng.float() < ch.chance;
+  const applied = won === false ? ch.fail : ch.effects;
+  const paid: RunState = { ...run, aether: run.aether - ch.cost };
+  const fight = applied.find((e) => e.kind === 'fight');
+  if (fight) {
+    return {
+      ...paid,
+      phase: 'combat',
+      event: {
+        ...event,
+        choice: ch.id,
+        won,
+        outcome: ch.outcome,
+        gains: null,
+        encounterId: fight.encounter,
+        relics: fight.relics,
+      },
+    };
+  }
+  let next = paid;
+  const gains: EventGains = {
+    relics: [],
+    aether: 0,
+    boons: [],
+    heal: 0,
+    hurt: 0,
+    motif: null,
+    lostMotif: null,
+    retuned: false,
+  };
+  for (const effect of applied) next = applyEffect(next, effect, gains, rng, motifId, opts.chords);
+  return {
+    ...next,
+    event: {
+      ...event,
+      choice: ch.id,
+      won,
+      outcome: won === false ? (ch.failOutcome ?? ch.outcome) : ch.outcome,
+      gains,
+    },
+  };
+}
+
+function applyEffect(
+  run: RunState,
+  effect: EventEffect,
+  gains: EventGains,
+  rng: Rng,
+  motifId: string | undefined,
+  chords: ChordLoadout[] | undefined,
+): RunState {
+  switch (effect.kind) {
+    case 'relic': {
+      const [id] = rollRelics(run, rng, 1, { [effect.rarity]: 1 });
+      if (!id) return run;
+      gains.relics.push(id);
+      return addRelic(run, id);
+    }
+    case 'aether':
+      gains.aether += effect.amount;
+      return { ...run, aether: Math.max(0, run.aether + effect.amount) };
+    case 'heal':
+      gains.heal += effect.pct;
+      return healParty(run, effect.pct);
+    case 'hurt':
+      gains.hurt += effect.pct;
+      return {
+        ...run,
+        party: run.party.map((h) => ({ ...h, hpPct: Math.max(0.05, h.hpPct - effect.pct) })),
+      };
+    case 'boon': {
+      const def = boonDef(effect.boon);
+      gains.boons.push(def.id);
+      const rest = run.boons.filter((b) => b.id !== def.id);
+      return { ...run, boons: [...rest, { id: def.id, fights: def.fights }] };
+    }
+    case 'retune':
+      if (!chords) return run;
+      gains.retuned = true;
+      return { ...run, chords: canonicalChords(chords) };
+    case 'motifLevels': {
+      const owned = motifId ? run.motifs.find((m) => m.id === motifId) : undefined;
+      if (!owned) return run;
+      const next = setMotifLevel(run, owned.id, owned.level + effect.levels);
+      gains.motif = { id: owned.id, level: next.motifs.find((m) => m.id === owned.id)!.level };
+      return next;
+    }
+    case 'loseMotif':
+      if (!motifId) return run;
+      gains.lostMotif = motifId;
+      return { ...run, motifs: run.motifs.filter((m) => m.id !== motifId) };
+    case 'fight':
+      return run;
+  }
+}
+
+export function leaveEvent(run: RunState): RunState {
+  if (run.phase !== 'event' || !run.event || run.event.choice === null) return run;
+  return toMap(run);
 }
 
 // ── Drafts ────────────────────────────────────────────────────────────────────────────
@@ -476,7 +939,8 @@ export function makeDraft(
   }
   const options: DraftOption[] = [];
   const minRank = RARITY_RANK[floor];
-  for (let pick = 0; pick < 3 && pool.length > 0; pick++) {
+  const picks = hasRelic(run, 'star_chart') ? 4 : 3;
+  for (let pick = 0; pick < picks && pool.length > 0; pick++) {
     // Weighted by rarity above the floor; falls back to anything eligible.
     const roll = rng.float();
     const want: keyof typeof RARITY_RANK =
@@ -633,6 +1097,7 @@ export function summarize(node: MapNode, outcome: CombatOutcome): EncounterResul
     par: def.par,
     grade: fightGrade,
     xp,
+    aether: aetherForFight(def.kind, outcome.outcome, fightGrade),
     stats,
     highlights: highlights.slice(0, 3).map(({ score, ...h }) => {
       void score;

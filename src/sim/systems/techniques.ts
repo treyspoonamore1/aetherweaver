@@ -103,8 +103,9 @@ export function castChime(world: World, point: Vec2 | undefined): void {
   const def = world.content.techniques.chime;
   if (w.cooldowns.chime > 0) return reject(world, 'chime', 'cooldown');
   if (!spend(world, weaver, 'chime', def.cost)) return;
-  w.cooldowns.chime = def.cooldown;
-  w.cooldownTotals.chime = def.cooldown;
+  const chimeCooldown = def.cooldown * world.mods.chimeCooldownMult;
+  w.cooldowns.chime = chimeCooldown;
+  w.cooldownTotals.chime = chimeCooldown;
   // Lands at the point, pulled in to the Chime's range.
   let x = point?.x ?? w.aimX;
   let z = point?.z ?? w.aimZ;
@@ -169,7 +170,8 @@ export function updateChimes(world: World): void {
       const lethalDirge = dirge !== Infinity && dirgeWouldKill(world, hero);
       const removed = cleanseAilments(world, hero);
       addStatus(world, hero, 'immune', def.immunity, world.weaverId);
-      heal(world, hero, hero.health.maxHp * def.healPct, 'chime');
+      // The Hollow Bell rings without healing.
+      if (world.mods.chimeHeals) heal(world, hero, hero.health.maxHp * def.healPct, 'chime');
       answerCall(world, hero, 'chime');
       if (removed > 0) {
         cleansedCount++;
@@ -192,7 +194,11 @@ export function updateChimes(world: World): void {
       }
     }
     const weaver = world.entities.get(world.weaverId);
-    if (isActive(weaver) && distSq(weaver.x, weaver.z, chime.x, chime.z) <= r2) {
+    if (
+      world.mods.chimeHeals &&
+      isActive(weaver) &&
+      distSq(weaver.x, weaver.z, chime.x, chime.z) <= r2
+    ) {
       heal(world, weaver, weaver.health.maxHp * def.healPct, 'chime');
     }
     world.events.push({
@@ -294,6 +300,8 @@ export function castGlide(world: World, x: number, z: number): void {
   if (!weaver) return;
   const w = weaver.weaver!;
   const def = world.content.techniques.glide;
+  // Heavy Score's curse.
+  if (world.mods.noGlide) return reject(world, 'glide', 'locked');
   if (w.cooldowns.glide > 0) return reject(world, 'glide', 'cooldown');
   let dx = x;
   let dz = z;
@@ -311,8 +319,9 @@ export function castGlide(world: World, x: number, z: number): void {
   w.glideX = dx / m;
   w.glideZ = dz / m;
   w.glide = def.duration;
-  w.cooldowns.glide = def.cooldown;
-  w.cooldownTotals.glide = def.cooldown;
+  const glideCooldown = def.cooldown * world.mods.glideCooldownMult;
+  w.cooldowns.glide = glideCooldown;
+  w.cooldownTotals.glide = glideCooldown;
   weaver.health!.invulnerable = Math.max(weaver.health!.invulnerable, def.iframes);
   const r = world.arenaRadius - weaver.radius;
   let toX = weaver.x + w.glideX * def.distance;

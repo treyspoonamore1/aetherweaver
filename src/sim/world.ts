@@ -18,6 +18,7 @@ import type {
   FieldState,
   Ledger,
   Obstacle,
+  RelicState,
   Telegraph,
   WorldState,
 } from './state';
@@ -41,6 +42,11 @@ export interface AssistConfig {
   autonomy?: boolean;
 }
 
+export interface RelicConfig {
+  id: string;
+  cleansed?: boolean;
+}
+
 /** A Chord as configured (ornaments default to none). */
 export interface ChordConfig {
   auras: string[];
@@ -62,6 +68,13 @@ export interface SimConfig {
   chords?: ChordConfig[];
   /** Owned motifs and their levels. */
   motifs?: { id: string; level: number }[];
+  /**
+   * The Weaver's relics (docs/phase-3b.md), by id or with `cleansed` (a Forge lifted the curse
+   * of a cursed relic). Run-only relics are accepted and ignored.
+   */
+  relics?: (string | RelicConfig)[];
+  /** Boons and banes in force for this fight, by id. */
+  boons?: string[];
   assists?: AssistConfig;
   /** Enables `debug` commands (spawns, teleport). Debug commands are recorded in replays. */
   debug?: boolean;
@@ -79,6 +92,9 @@ export interface ResolvedSimConfig {
   encounter: string;
   chords: { auras: string[]; ornaments: string[] }[];
   motifs: { id: string; level: number }[];
+  /** None when the Weaver is absent: the relics are theirs. */
+  relics: Required<RelicConfig>[];
+  boons: string[];
   assists: Required<AssistConfig>;
   debug: boolean;
   absent: boolean;
@@ -113,6 +129,19 @@ export function resolveConfig(config: SimConfig, content: Content = CONTENT): Re
     const level = Math.max(1, Math.min(def.values.length, Math.floor(m.level)));
     return { id: m.id, level };
   });
+  const relics: Required<RelicConfig>[] = [];
+  for (const r of absent ? [] : (config.relics ?? [])) {
+    const relic = typeof r === 'string' ? { id: r } : r;
+    const def = content.relics.find((d) => d.id === relic.id);
+    if (!def) throw new Error(`Unknown relic "${relic.id}"`);
+    if (relics.some((x) => x.id === relic.id)) continue;
+    relics.push({ id: relic.id, cleansed: def.rarity === 'cursed' && (relic.cleansed ?? false) });
+  }
+  const boons: string[] = [];
+  for (const id of absent ? [] : (config.boons ?? [])) {
+    if (!content.boons.some((d) => d.id === id)) throw new Error(`Unknown boon "${id}"`);
+    if (!boons.includes(id)) boons.push(id);
+  }
   const a = config.assists ?? {};
   return {
     seed: config.seed >>> 0,
@@ -120,6 +149,8 @@ export function resolveConfig(config: SimConfig, content: Content = CONTENT): Re
     encounter,
     chords,
     motifs,
+    relics,
+    boons,
     assists: {
       perfectWindowBonus: Math.max(0, Math.min(0.3, a.perfectWindowBonus ?? 0)),
       telegraphLead: Math.max(1, Math.min(2, a.telegraphLead ?? 1)),
@@ -226,6 +257,7 @@ export interface World extends WorldState {
   field: FieldState;
   encounter: EncounterState;
   ledger: Ledger;
+  relics: RelicState;
   readonly config: ResolvedSimConfig;
   readonly content: Content;
   readonly mods: Mods;
@@ -287,7 +319,13 @@ export function createWorld(config: SimConfig): World {
   const encounterDefn = encounterDef(resolved.encounter);
   const arena = arenaDef(encounterDefn.arena);
   const mods = resolveMods(resolved, content);
-  const loadout = resolved.chords.map((c, i) => resolveChord(c, i, content));
+  // Spindle of Fate: the beam song's echo plays at full strength (Unison's silence stays).
+  const loadout = resolved.chords.map((c, i) => {
+    const chord = resolveChord(c, i, content);
+    if (mods.beamEcho === null || chord.role !== 'beam' || chord.echo <= 0) return chord;
+    return { ...chord, echo: (chord.echo * mods.beamEcho) / content.weaver.beamEcho };
+  });
+  const carried = (id: string) => resolved.relics.some((r) => r.id === id);
   const baseRadius = Math.min(
     content.weaver.fieldRadiusCap,
     content.weaver.fieldRadius * mods.fieldRadiusMult,
@@ -347,6 +385,13 @@ export function createWorld(config: SimConfig): World {
       decree: null,
     },
     ledger: emptyLedger(),
+    relics: {
+      ids: resolved.relics.map((r) => r.id),
+      cleansed: resolved.relics.filter((r) => r.cleansed).map((r) => r.id),
+      metronomeAt: carried('cracked_metronome') ? 0 : null,
+      thimbleAt: carried('silver_thimble') ? 0 : null,
+      veil: carried('martyrs_veil'),
+    },
     config: resolved,
     content,
     mods,
@@ -387,7 +432,7 @@ export function createWorld(config: SimConfig): World {
   };
 
   const w = content.weaver;
-  const maxSpirit = w.maxSpirit;
+  const maxSpirit = w.maxSpirit * mods.spiritMult;
   const reserved = loadout.reduce(
     (sum, c) =>
       sum +
@@ -422,7 +467,7 @@ export function createWorld(config: SimConfig): World {
       spirit: maxSpirit - reserved,
       maxSpirit,
       reservedSpirit: reserved,
-      resonance: 0,
+      resonance: Math.min(content.resonance.max, mods.startResonance),
       resonanceIdle: 0,
       cooldowns: { ward: 0, chime: 0, reel: 0, glide: 0 },
       cooldownTotals: { ward: 0, chime: 0, reel: 0, glide: 0 },
@@ -465,7 +510,7 @@ export function createWorld(config: SimConfig): World {
         follow: 'follow',
         holdX: at.x,
         holdZ: at.z,
-        solo: 0,
+        solo: mods.startSolos ? 100 : 0,
         soloActive: 0,
         soloCued: false,
         action: 'idle',
@@ -509,7 +554,10 @@ export function createWorld(config: SimConfig): World {
     }
     world.party.push(hero.id);
     world.events.push({ type: 'entitySpawned', tick: 0, id: hero.id, kind: 'hero' });
+    if (mods.startSolos) world.events.push({ type: 'soloReady', tick: 0, hero: hero.id });
   });
+  if (carried('cantors_hymnal'))
+    world.events.push({ type: 'relicTriggered', tick: 0, relic: 'cantors_hymnal', hero: null });
 
   world.entities.flush();
   return world;

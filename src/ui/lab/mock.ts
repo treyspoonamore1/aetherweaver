@@ -790,11 +790,32 @@ export function freshRun(seed = 7): RunState {
 }
 
 /** Plays `fights` combats (always taking the first option and first motif) and stops on the map. */
+/** Takes whatever a non-fight step offers first (relic, draft, rest) and moves on. */
+function settle(run: RunState): RunState {
+  for (let guard = 0; guard < 8; guard++) {
+    if (run.phase === 'relic') run = Run.pickRelic(run, 0);
+    else if (run.phase === 'draft') run = Run.pickDraft(run, 0);
+    else if (run.phase === 'respite') run = Run.respite(run, 'rest');
+    else if (run.phase === 'merchant') run = Run.leaveShop(run);
+    else if (run.phase === 'forge') run = Run.leaveForge(run);
+    else if (run.phase === 'event') {
+      const last = run.event?.eventId
+        ? CONTENT.events.find((e) => e.id === run.event!.eventId)?.choices.at(-1)
+        : undefined;
+      if (run.event?.choice === null && last) run = Run.chooseEvent(run, last.id);
+      run = Run.leaveEvent(run);
+    } else break;
+  }
+  return run;
+}
+
+/** A run `fights` fights in, every one won, fights preferred on the map. */
 export function playedRun(fights: number, seed = 7): RunState {
   let run = Run.embark(Run.newRun(seed));
   let played = 0;
   while (played < fights && run.phase === 'map') {
-    const next = Run.reachable(run)[0];
+    const options = Run.reachable(run);
+    const next = options.find((n) => n.encounterId) ?? options[0];
     if (!next) break;
     run = Run.chooseNode(run, next.id);
     if (run.phase === 'combat') {
@@ -802,24 +823,14 @@ export function playedRun(fights: number, seed = 7): RunState {
       played++;
       run = Run.continueFromResult(run);
     }
-    if (run.phase === 'draft') run = Run.pickDraft(run, 0);
-    else if (run.phase === 'respite') run = Run.respite(run, 'rest');
+    run = settle(run);
   }
   return run;
 }
 
+/** A whole run won: every fight on the way, then the Cantor. */
 export function victoryRun(seed = 7): RunState {
-  let run = playedRun(6, seed);
-  // The last steps: Bellwarden is done by now; fight the Cantor.
-  if (run.phase === 'map') {
-    const next = Run.reachable(run)[0];
-    if (next) run = Run.chooseNode(run, next.id);
-    if (run.phase === 'combat') {
-      run = Run.finishCombat(run, fakeOutcome(run, true));
-      run = Run.continueFromResult(run);
-    }
-  }
-  return run;
+  return playedRun(99, seed);
 }
 
 export function resultRun(
@@ -828,7 +839,8 @@ export function resultRun(
   alone: WithoutYou['outcome'] | null = 'defeat',
 ): RunState {
   let run = playedRun(2);
-  const next = Run.reachable(run)[0];
+  const options = Run.reachable(run);
+  const next = options.find((n) => n.encounterId) ?? options[0];
   if (next) run = Run.chooseNode(run, next.id);
   if (run.phase === 'combat')
     run = Run.finishCombat(run, fakeOutcome(run, victory, { deaths, alone }));

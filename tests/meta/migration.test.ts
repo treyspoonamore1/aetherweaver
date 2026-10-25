@@ -31,9 +31,36 @@ const V3_STATS = [
   'threadAmplified',
 ];
 
+/** A current run turned back into what Phase 3 (save v3) would have written. */
+function asV3(run: ReturnType<typeof Run.newRun>): Record<string, unknown> {
+  const json = JSON.parse(JSON.stringify(run)) as Record<string, unknown>;
+  for (const k of ['aether', 'relics', 'boons', 'shop', 'forge', 'event', 'relicOffer'])
+    delete json[k];
+  const map = json.map as { rows: Record<string, unknown>[][] };
+  for (const row of map.rows) {
+    for (const node of row) {
+      delete node.eventId;
+      const reward = node.reward as Record<string, unknown>;
+      delete reward.aether;
+      delete reward.relics;
+    }
+  }
+  const strip = (r: Record<string, unknown>) => {
+    const { aether: _a, ...res } = r;
+    void _a;
+    return res;
+  };
+  return {
+    ...json,
+    version: 3,
+    results: (json.results as Record<string, unknown>[]).map(strip),
+    lastResult: json.lastResult ? strip(json.lastResult as Record<string, unknown>) : null,
+  };
+}
+
 /** A current run turned back into what Phase 2 (save v2) would have written. */
 function asV2(run: ReturnType<typeof Run.newRun>): Record<string, unknown> {
-  const json = JSON.parse(JSON.stringify(run)) as Record<string, unknown>;
+  const json = asV3(run);
   const { xp: _x, ...rest } = json;
   void _x;
   const strip = (r: Record<string, unknown>) => {
@@ -100,12 +127,36 @@ function oneFight(): ReturnType<typeof Run.newRun> {
 }
 
 describe('save migration', () => {
+  it('loads a Phase 3 save: the run gains an empty purse, no relics and no boons', () => {
+    const run = oneFight();
+    const store = memoryStore();
+    store.data.set('aetherweaver.run', JSON.stringify(asV3(run)));
+    const loaded = loadRun(store)!;
+    expect(loaded).not.toBeNull();
+    expect(loaded).toMatchObject({
+      version: 4,
+      aether: 0,
+      relics: [],
+      boons: [],
+      shop: null,
+      forge: null,
+      event: null,
+      relicOffer: null,
+    });
+    expect(loaded.results[0]!.aether).toBe(0);
+    const first = loaded.map.rows[0]![0]!;
+    expect(first.eventId).toBeNull();
+    expect(first.reward).toMatchObject({ aether: 20, relics: 0 });
+    // The map it was saved with is kept, whatever its shape.
+    expect(loaded.map.rows.length).toBe(run.map.rows.length);
+  });
+
   it('loads a Phase 1 save: auras become Chord I, renamed motifs follow, stats gain new fields', () => {
     const store = memoryStore();
     store.data.set('aetherweaver.run', JSON.stringify(asV1(oneFight())));
     const loaded = loadRun(store)!;
     expect(loaded).not.toBeNull();
-    expect(loaded.version).toBe(3);
+    expect(loaded.version).toBe(4);
     expect(loaded.chords).toEqual([{ auras: ['sostenuto', 'fortissimo'], ornaments: [] }]);
     expect(loaded.motifs).toEqual([{ id: 'canon', level: 2 }]);
     expect(loaded.results[0]!.stats).toMatchObject({ calls: 0, responses: 0, holds: 0 });
@@ -114,7 +165,7 @@ describe('save migration', () => {
     expect(loaded.xp).toBe(0);
     // Saving writes the current version.
     saveRun(store, loaded);
-    expect(JSON.parse(store.data.get('aetherweaver.run')!).version).toBe(3);
+    expect(JSON.parse(store.data.get('aetherweaver.run')!).version).toBe(4);
   });
 
   it('loads a Phase 2 save: a Unison Chord II moves to the beam; illegal Chords fall back', () => {
