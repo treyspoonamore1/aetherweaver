@@ -280,7 +280,7 @@ export class ThreadView {
         );
       }
     }
-    this.pour(kit, time, tr, len);
+    this.pour(kit, time, tr);
     // Pulse heads as glows.
     for (let k = 0; k < PULSES; k++) {
       const age = time - this.pulses[k];
@@ -355,7 +355,6 @@ export class ThreadView {
     kit: FxKit,
     time: number,
     tr: { x: number; y: number; z: number; radius: number; height: number },
-    len: number,
   ): void {
     const age = time - this.pourAt;
     if (age < 0 || age > POUR_LIFE) return;
@@ -384,7 +383,6 @@ export class ThreadView {
           -0.2,
         );
       }
-      void len;
       return;
     }
     // Splash: rings of the song washing out from the hero, and a burst of notes.

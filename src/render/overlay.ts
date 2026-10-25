@@ -372,9 +372,9 @@ export class Overlay {
       c.color = softenHex(amp, 0.45);
       c.textShadow = `0 0 6px ${rgba(amp, 0.9)}`;
       const g = n.song.style;
-      g.background = rgba(song, 0.18);
-      g.borderColor = rgba(song, 0.85);
-      g.color = softenHex(song, 0.35);
+      g.background = rgba(song, 0.24);
+      g.borderColor = rgba(song, 0.95);
+      g.color = softenHex(song, 0.2);
       g.textShadow = `0 0 6px ${rgba(song, 0.9)}`;
     }
     const lethal = VISION_HEX.lethal;

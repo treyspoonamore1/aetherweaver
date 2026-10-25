@@ -1118,8 +1118,8 @@ export class Feedback {
     const size = 13 + 7 * Math.sqrt(Math.min(1, (b.amount / maxHp) * 8));
     if (fresh)
       b.handle = this.d.overlay.spawnNumber(
-        r.x - 0.4,
-        r.height + 0.05,
+        r.x - 0.5,
+        r.height * 0.75 + r.y,
         r.z,
         this.softHealHex,
         size,
@@ -2011,7 +2011,10 @@ export class Feedback {
     this.d.rig.addTrauma(0.12);
   }
 
-  /** Chorus: every field rings out (a Unison beam song at its hero) once per aura, in aura colours, scaled by `auras`. */
+  /**
+   * Chorus: every Chord with auras rings out once per aura, in aura colours, scaled by `auras`
+   * (a Unison beam song, which has no field, rings at its hero).
+   */
   private chorus(e: SimEventOf<'chorusPulse'>, state: WorldState): void {
     const k = 1 + 0.18 * Math.max(0, e.auras - 3);
     const chords = state.field.chords;
