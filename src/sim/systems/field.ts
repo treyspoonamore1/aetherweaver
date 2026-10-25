@@ -123,11 +123,7 @@ export function updateField(world: World, dt: number): void {
     : 1;
   const effectMult = f.crescendo ? content.crescendo.auraEffectMult : 1;
   // Sovereign Symphony (the Luminary): enough auras across the songs make every one stronger.
-  const sovereign =
-    world.mods.sovereignMult !== 1 &&
-    world.loadout.reduce((n, c) => n + c.auras.length, 0) >= world.mods.sovereignMinAuras
-      ? world.mods.sovereignMult
-      : 1;
+  const sovereign = world.calling?.sovereign ? world.mods.sovereignMult : 1;
   const thread = threadedHero(world, weaver);
   const mult = world.scratch.auraMult;
   const focus = world.scratch.auraFocus;

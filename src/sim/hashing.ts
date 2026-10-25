@@ -7,7 +7,8 @@ import type { World } from './world';
  * Deterministic hash of everything that affects future simulation: the resolved config,
  * world state, sim-internal bookkeeping, every entity, the entity allocator and the RNG
  * streams. Exact float bits are hashed. Excluded: content (versioned separately), the
- * event queue (drained by consumers) and derived caches (spatial hash, scratch).
+ * event queue (drained by consumers), derived caches (spatial hash, scratch) and the
+ * Calling's view (derived from the config).
  */
 export function hashWorld(world: World): string {
   const h = new StateHasher();

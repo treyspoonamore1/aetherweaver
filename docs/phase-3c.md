@@ -48,6 +48,7 @@ The axes: **protect** (Haloed, Dawnward), **reach and number** (Wide Choir, Thir
 - `chordProblems(chords, content, { fieldAuraSlots })`: Third Voice's third field aura is legal only with it.
 - Mods: `radiancePerAura`, `sunriseRadianceMult`, `fieldSongRadiusMult`, `haloedReduction`, `dawnwardPct`, `dawnwardCooldown`, `plantedEffectMult`, `sovereignMult`, `sovereignMinAuras`, `eclipseVulnerability`, `crescendoRadiusMult`.
 - Event `dawnward { hero, amount }` when a hero steps into the light.
+- `WorldState.calling: { id, path, radiancePerAura, sunriseMult, sovereign } | null`: the Calling for the view, fixed for the fight and derived from the config (not hashed). A hero shines at `radiancePerAura × auras heard` (× `sunriseMult` in Sunrise) while `inField`.
 
 **Run** (`meta/types.ts` v6, save v5):
 

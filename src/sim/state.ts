@@ -581,6 +581,22 @@ export interface RelicState {
   triggers: Record<string, number>;
 }
 
+/**
+ * The Weaver's Calling this fight (docs/phase-3c.md), for the view. Fixed for the fight and
+ * derived from the config, so not hashed; null without one.
+ */
+export interface CallingState {
+  id: string;
+  /** The options chosen so far, tier by tier. */
+  path: string[];
+  /** Radiance for each aura a hero in the field hears (0.04 = +4%), outside Sunrise. */
+  radiancePerAura: number;
+  /** Radiance's multiplier during Sunrise. */
+  sunriseMult: number;
+  /** Sovereign Symphony is in force: on the path, with enough auras across the songs. */
+  sovereign: boolean;
+}
+
 export interface WorldState {
   readonly tick: number;
   /** Simulated seconds (advances by SIM_DT × timeScale each tick). */
@@ -604,4 +620,5 @@ export interface WorldState {
   readonly encounter: DeepReadonly<EncounterState>;
   readonly ledger: DeepReadonly<Ledger>;
   readonly relics: DeepReadonly<RelicState>;
+  readonly calling: DeepReadonly<CallingState> | null;
 }

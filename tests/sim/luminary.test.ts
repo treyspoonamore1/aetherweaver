@@ -41,6 +41,27 @@ describe('the Luminary in content and config', () => {
     expect(resolveConfig({ seed: 1, ...luminary(), absent: true }).calling).toBeNull();
   });
 
+  it('the view sees the Calling: its path, Radiance and Sovereign Symphony', () => {
+    const calling = sandbox({ chords: GUARDIAN, ...luminary('haloed', 'searing_hymns') }).state
+      .calling!;
+    expect(calling.id).toBe('luminary');
+    expect(calling.path).toEqual(['haloed', 'searing_hymns']);
+    expect(calling.radiancePerAura).toBeCloseTo(
+      (passive('radiance') / 100) * value('searing_hymns', 'mult'),
+      6,
+    );
+    expect(calling.sunriseMult).toBe(passive('sunrise'));
+    expect(calling.sovereign).toBe(false);
+    const sovereign = luminary('haloed', 'dawnward', 'lantern_bearer', 'sovereign_symphony');
+    const four = [
+      { auras: ['fortissimo', 'sostenuto'], ornaments: ['grace_note'] },
+      { auras: ['ostinato', 'allegro'], ornaments: [] },
+    ];
+    expect(sandbox({ chords: four, ...sovereign }).state.calling!.sovereign).toBe(true);
+    expect(sandbox({ chords: GUARDIAN, ...sovereign }).state.calling!.sovereign).toBe(false);
+    expect(sandbox({ chords: GUARDIAN }).state.calling).toBeNull();
+  });
+
   it('Third Voice makes a third field aura legal, and only it', () => {
     const three = [
       { auras: ['fortissimo'], ornaments: [] },

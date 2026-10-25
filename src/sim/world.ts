@@ -11,6 +11,7 @@ import { SpatialHash } from './core/spatialHash';
 import type { SimEvent } from './events';
 import { resolveMods, type Mods } from './mods';
 import type {
+  CallingState,
   ChimeInFlight,
   EncounterState,
   Entity,
@@ -315,6 +316,7 @@ export interface World extends WorldState {
   encounter: EncounterState;
   ledger: Ledger;
   relics: RelicState;
+  readonly calling: CallingState | null;
   readonly config: ResolvedSimConfig;
   readonly content: Content;
   readonly mods: Mods;
@@ -450,6 +452,15 @@ export function createWorld(config: SimConfig): World {
       thimbleAt: carried('silver_thimble') ? 0 : null,
       veil: carried('martyrs_veil'),
       triggers: Object.fromEntries(resolved.relics.map((r) => [r.id, 0])),
+    },
+    calling: resolved.calling && {
+      id: resolved.calling.id,
+      path: [...resolved.calling.path],
+      radiancePerAura: mods.radiancePerAura,
+      sunriseMult: mods.sunriseRadianceMult,
+      sovereign:
+        mods.sovereignMult !== 1 &&
+        loadout.reduce((n, c) => n + c.auras.length, 0) >= mods.sovereignMinAuras,
     },
     config: resolved,
     content,
