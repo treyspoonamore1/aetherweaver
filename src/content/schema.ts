@@ -620,6 +620,8 @@ export const CallingDefSchema = z
     name: z.string(),
     /** "the aura sovereign" */
     title: z.string(),
+    /** One plain sentence on what it does, for the rank-up card and short tooltips. */
+    summary: z.string(),
     /** The passive, with {value} placeholders. */
     text: z.string(),
     /** What it does to the Crescendo, with {value} placeholders. */

@@ -10,6 +10,7 @@ export const CALLINGS: ContentInput['callings'] = [
     id: 'luminary',
     name: 'Luminary',
     title: 'the aura sovereign',
+    summary: 'Heroes in your field shine: every aura they hear makes their hits brighter.',
     text: 'Radiance: heroes standing in your field shine, dealing {radiance}% more damage for every aura they hear. Your field song reaches {reach}% farther.',
     crescendo: 'Sunrise burns brighter: Radiance is ×{sunrise} while it lasts.',
     flavor: 'Stand where the light is. Bring them into it.',
@@ -22,7 +23,7 @@ export const CALLINGS: ContentInput['callings'] = [
           {
             id: 'haloed',
             name: 'Haloed',
-            text: 'Heroes in your field take {pct}% less damage.',
+            text: 'Heroes in your field take {pct}% less damage from ordinary hits. The big hits you see coming still need your Ward.',
             values: { pct: 8 },
             icon: 'halo_ring',
           },
@@ -83,7 +84,7 @@ export const CALLINGS: ContentInput['callings'] = [
           {
             id: 'eclipse',
             name: 'Eclipse',
-            text: 'During Sunrise, enemies in your field take {pct}% more damage, and Sunrise reaches ×{reach} instead of ×1.5.',
+            text: 'During Sunrise, enemies in your field take {pct}% more damage from your heroes, and Sunrise reaches ×{reach} instead of ×1.5.',
             values: { pct: 15, reach: 2 },
             icon: 'eclipse',
           },

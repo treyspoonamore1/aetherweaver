@@ -45,6 +45,8 @@ export function RelicOfferView({ run, onPick }: RelicOfferViewProps) {
         </ScreenHeader>
         <RunStrip
           className="mt-4 w-fit"
+          calling={run.calling}
+          map={run.map}
           aether={run.aether}
           relics={run.relics}
           boons={run.boons}

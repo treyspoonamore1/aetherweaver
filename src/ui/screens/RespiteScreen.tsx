@@ -12,6 +12,8 @@ import { playUi, useMood } from '../kit/sound';
 import { ChordBuilder } from './ChordBuilder';
 import { sameLoadout } from './chordModel';
 import { FreshStrip, useAllowance, useChordDraft, useFreshUnlocks } from './PrepScreen';
+import { fieldAuraSlots as runFieldAuraSlots } from '../../meta/run';
+import { slotBonus } from './callingText';
 import { PartyHealth, SectionTitle } from './shared';
 
 const REST_HEAL = 0.4;
@@ -207,7 +209,10 @@ export function RetuneView({
   fresh,
   copy = RESPITE_RETUNE,
   tone = 'dusk',
+  extra,
+  confirmVariant = 'primary',
 }: {
+  /** The run as the songs will be sung: its Calling's path decides the field song's slots. */
   run: RunState;
   onBack(): void;
   onRetune(chords: ChordLoadout[]): void;
@@ -215,9 +220,14 @@ export function RetuneView({
   fresh: readonly Unlock[];
   copy?: RetuneCopy;
   tone?: 'navy' | 'gold' | 'dusk';
+  /** Another way out, next to the confirm button (Third Voice's "Keep my songs"). */
+  extra?: ReactNode;
+  confirmVariant?: 'primary' | 'secondary';
 }) {
+  // Third Voice's third field aura: the run layer accepts it only with `Run.fieldAuraSlots`.
+  const slots = runFieldAuraSlots(run);
   const [legalDraft, setLegalDraft] = useState<ChordLoadout[]>(run.chords);
-  const { draft, change, legal } = useChordDraft(run.chords, allowance, setLegalDraft);
+  const { draft, change, legal } = useChordDraft(run.chords, allowance, setLegalDraft, slots);
   const [freshIds] = useState(() => new Set(fresh.map((u) => u.id)));
   const unchanged = sameLoadout(draft, run.chords);
   return (
@@ -236,7 +246,14 @@ export function RetuneView({
         </ScreenHeader>
         <FreshStrip fresh={fresh} />
         <div className="mt-6">
-          <ChordBuilder value={draft} onChange={change} allowance={allowance} fresh={freshIds} />
+          <ChordBuilder
+            value={draft}
+            onChange={change}
+            allowance={allowance}
+            fresh={freshIds}
+            fieldAuraSlots={slots}
+            bonus={slotBonus(run)}
+          />
         </div>
       </div>
       <div className="pointer-events-none fixed inset-x-0 bottom-0 z-20 flex justify-end bg-gradient-to-t from-ink-950 via-ink-950/80 to-transparent px-6 pb-5 pt-10">
@@ -249,8 +266,9 @@ export function RetuneView({
                 : 'Ready to sing the new songs'}
           </p>
           {copy.note}
+          {extra}
           <Button
-            variant="primary"
+            variant={confirmVariant}
             size="lg"
             disabled={!legal || unchanged}
             onClick={() => onRetune(legalDraft)}

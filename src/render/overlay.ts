@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import type { AnswerTag } from '../sim';
 import { VISION_HEX, currentVision, rgba } from './palette';
+import { CALLING_HEX } from './callingCues';
 import { softenHex, songHex } from './songs';
 
 /** Icons the overlay can draw: telegraph answers, plus the Weaver's Mend and Empower. */
@@ -77,6 +78,10 @@ interface NumberItem {
   chip: HTMLSpanElement;
   /** ♪ song: the auras' part. */
   song: HTMLSpanElement;
+  /** ☀ sun: Radiance's part (the Luminary). */
+  sun: HTMLSpanElement;
+  /** The number's warm glow (a hero who shone), 0 = none; DOM is written on change only. */
+  glow: number;
   active: boolean;
   /** Aura heals: a quieter number (lower, slower, no big pop). */
   soft: boolean;
@@ -123,6 +128,11 @@ interface BubbleItem {
   filled: boolean;
   used: boolean;
 }
+
+/** The ☀ chip's fill (the Luminary's sunlight, callingCues.CALLING_HEX.sun). */
+const SUN_CHIP_HEX = CALLING_HEX.sun;
+/** The glow round a number from a hero who shone (CALLING_HEX.sunHot). */
+const SUN_GLOW_HEX = CALLING_HEX.sunHot;
 
 const BUBBLE_R = 19;
 const BUBBLE_C = 2 * Math.PI * BUBBLE_R;
@@ -247,12 +257,18 @@ export class Overlay {
       const song = document.createElement('span');
       song.style.cssText =
         'display:none;margin-left:3px;padding:0 5px 0 4px;border-radius:999px;border:1px solid;font-size:0.6em;vertical-align:middle;';
-      el.append(main, chip, song);
+      // Sun chip (the Luminary's Radiance): a filled warm pill led by ☀, dark text on light, so
+      // it reads apart from the outlined gold and ♪ chips by shape and glyph as well as colour.
+      const sun = document.createElement('span');
+      sun.style.cssText = `display:none;margin-left:3px;padding:0 5px 0 4px;border-radius:999px;font-size:0.6em;vertical-align:middle;background:${rgba(SUN_CHIP_HEX, 0.92)};color:#3a2606;text-shadow:none;box-shadow:0 0 8px ${rgba(SUN_CHIP_HEX, 0.85)};`;
+      el.append(main, chip, song, sun);
       this.numbers.push({
         el,
         main,
         chip,
         song,
+        sun,
+        glow: 0,
         active: false,
         soft: false,
         x: 0,
@@ -447,12 +463,18 @@ export class Overlay {
     n.el.style.fontWeight = soft ? '600' : '700';
     n.chip.style.display = 'none';
     n.song.style.display = 'none';
+    n.sun.style.display = 'none';
+    if (n.glow !== 0) {
+      n.glow = 0;
+      n.main.style.textShadow = '';
+    }
     return best;
   }
 
   /**
    * Updates a number. `chip` is the gold chip (Empower, Flourishes), `song` the ♪ chip (the
-   * auras' part); either may be null. DOM writes only happen when the text changes.
+   * auras' part), `sun` the ☀ chip (Radiance); any may be null. `glow` (0..1) makes the number
+   * itself glow warm: the hit came from a hero who shone. DOM writes only happen on change.
    */
   setNumber(
     handle: number,
@@ -461,12 +483,24 @@ export class Overlay {
     size: number,
     bump: boolean,
     song: string | null = null,
+    sun: string | null = null,
+    glow = 0,
   ): void {
     const n = this.numbers[handle];
     if (!n) return;
     n.main.textContent = text;
     setChip(n.chip, chip);
     setChip(n.song, song);
+    setChip(n.sun, sun);
+    // A hero who shone: the number itself glows warm (stepped, so DOM writes stay rare).
+    const g = glow <= 0 ? 0 : glow >= 0.75 ? 2 : 1;
+    if (g !== n.glow) {
+      n.glow = g;
+      n.main.style.textShadow =
+        g === 0
+          ? ''
+          : `0 1px 0 rgba(0,0,0,0.9),0 0 5px ${rgba(SUN_GLOW_HEX, 0.95)},0 0 ${g === 2 ? 16 : 11}px ${rgba(SUN_GLOW_HEX, g === 2 ? 0.9 : 0.65)}`;
+    }
     if (Math.abs(size - n.size) > 0.5) {
       n.size = size;
       n.el.style.fontSize = `${Math.round(size)}px`;

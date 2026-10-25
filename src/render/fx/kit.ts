@@ -55,7 +55,7 @@ export class FxKit {
 
   constructor() {
     this.group.name = 'fx';
-    this.shadows = new RingBatch(96, THREE.NormalBlending, ORDER.shadows, this.time);
+    this.shadows = new RingBatch(160, THREE.NormalBlending, ORDER.shadows, this.time);
     this.rings = new RingBatch(384, THREE.AdditiveBlending, ORDER.rings, this.time);
     this.telegraphs = new TelegraphBatch(48, ORDER.telegraphs, this.time);
     this.marks = new TelegraphBatch(16, ORDER.marks, this.time, false);

@@ -11,6 +11,7 @@ import {
   type EntityId,
   type PartySlot,
   type Sim,
+  type SimConfig,
   type SimEvent,
   type WorldState,
 } from '../../sim';
@@ -80,6 +81,24 @@ interface LabApi {
   setRelics(ids: string[]): void;
   /** What the RelicView has played so far, and what is on screen now. */
   relicStats(): { fired: Record<string, number>; active: number; prism: number };
+  /** Phase 3c */
+  lumScenarios(): string[];
+  /** Restarts the real sim with that scenario's Calling and Chords and stages it. */
+  lumScenario(name: string): void;
+  /** Restarts the real sim with the Luminary on this path (null: no Calling). */
+  setCalling(path: string[] | null): void;
+  /** What the Luminary's views have played and are drawing. */
+  callingStats(): CallingStats;
+}
+
+interface CallingStats {
+  fired: Record<string, number>;
+  drawn: Record<string, number>;
+  field: Record<string, number>;
+  /** Each hero's smoothed shine level and whether they stand in the field. */
+  heroes: { shine: number; inField: boolean; auras: number }[];
+  sun: number;
+  crescendo: boolean;
 }
 
 declare global {
@@ -115,6 +134,9 @@ const THEMES = CONTENT.arenas.map((a) => a.id);
 
 /** The relics the lab sim carries (kept across loadout / encounter changes). */
 let carried: string[] = [];
+/** Phase 3c: the Calling the lab sim takes, and a scenario's own Chords (null: the picker's). */
+let callingCfg: SimConfig['calling'] = null;
+let chordsOverride: ChordConfig[] | null = null;
 
 interface RelicScenario {
   relics: string[];
@@ -262,6 +284,160 @@ const RELIC_SCENARIOS: Record<string, RelicScenario> = {
 };
 const RELIC_SCENARIO_NAMES = Object.keys(RELIC_SCENARIOS);
 
+interface LumScenario {
+  /** The Luminary's path (null: no Calling, for comparison). */
+  path: string[] | null;
+  /** Chords for the scenario (default: Guardian, Fortissimo on the beam, Sostenuto in the field). */
+  chords?: ChordConfig[];
+  note: string;
+  stage(rt: LabRuntime): void;
+}
+
+const GUARDIAN_CHORDS: ChordConfig[] = [
+  { auras: ['fortissimo'], ornaments: [] },
+  { auras: ['sostenuto'], ornaments: [] },
+];
+const PLANTED_CHORDS: ChordConfig[] = [
+  { auras: ['fortissimo'], ornaments: [] },
+  { auras: ['sostenuto'], ornaments: ['pedal_point'] },
+];
+const FOUR_AURAS: ChordConfig[] = [
+  { auras: ['fortissimo', 'sostenuto'], ornaments: ['grace_note'] },
+  { auras: ['ostinato', 'allegro'], ornaments: [] },
+];
+const SOVEREIGN_PATH = ['haloed', 'dawnward', 'lantern_bearer', 'sovereign_symphony'];
+
+/** Sunrise the way the Weaver panel stages it: Resonance to 100, then `{t:'crescendo'}`. */
+function sunrise(rt: LabRuntime, at: number): void {
+  rt.later(at, () => {
+    rt.queue({ t: 'debug', op: { op: 'setResonance', value: 100 } });
+    rt.later(0.05, () => rt.queue({ t: 'crescendo' }));
+  });
+}
+
+/** Enemies in front of the party, inside the field (real fights, real radiant hits). */
+function frontFight(rt: LabRuntime, brutes = 2, choristers = 2): void {
+  for (let i = 0; i < brutes; i++) rt.spawn('bell_brute', -2.5 + i * 5, -5.5);
+  for (let i = 0; i < choristers; i++) rt.spawn('hollow_chorister', -1.5 + i * 3, -4);
+}
+
+/**
+ * Phase 3c: one scenario per Luminary visual. Each restarts the real sim with the Calling on
+ * that path (and its Chords) and stages it with real commands and debug ops.
+ */
+const LUM_SCENARIOS: Record<string, LumScenario> = {
+  Radiance: {
+    path: [],
+    note: 'Guardian, Lyra threaded: the heroes in your field shine (+4% per aura), a small fight',
+    stage: (rt) => {
+      rt.later(0.2, () => rt.thread(1));
+      rt.later(0.4, () => frontFight(rt, 1, 2));
+    },
+  },
+  'Into the light': {
+    path: [],
+    note: 'You step 15 m away: the heroes fade out of the light, then kindle as they walk back in',
+    stage: (rt) => {
+      rt.later(0.3, () => rt.queue({ t: 'debug', op: { op: 'teleportWeaver', x: 14, z: 6 } }));
+    },
+  },
+  'Searing Hymns': {
+    path: ['wide_choir', 'searing_hymns'],
+    note: 'Radiance ×2: brighter heroes, and their hits carry a ☀ chip and a warm spark',
+    stage: (rt) => {
+      rt.later(0.2, () => rt.thread(1));
+      rt.later(0.4, () => frontFight(rt, 2, 2));
+    },
+  },
+  Sunrise: {
+    path: [],
+    note: 'The Luminary’s Sunrise in a fight: a sun over you, the field burns gold, Radiance ×3',
+    stage: (rt) => {
+      rt.later(0.2, () => rt.thread(1));
+      rt.later(0.4, () => frontFight(rt, 2, 2));
+      sunrise(rt, 1.2);
+    },
+  },
+  'Sunrise · no Calling': {
+    path: null,
+    note: 'The same Sunrise without a Calling, for comparison',
+    stage: (rt) => {
+      rt.later(0.2, () => rt.thread(1));
+      rt.later(0.4, () => frontFight(rt, 2, 2));
+      sunrise(rt, 1.2);
+    },
+  },
+  Dawnward: {
+    path: ['haloed', 'dawnward'],
+    note: 'You step away and the heroes walk back into your field: each gets a dawn barrier',
+    stage: (rt) => {
+      rt.later(0.3, () => rt.queue({ t: 'debug', op: { op: 'teleportWeaver', x: 14, z: 6 } }));
+    },
+  },
+  Haloed: {
+    path: ['haloed'],
+    note: 'Heroes in your field take 8% less: a faint halo over each',
+    stage: (rt) => {
+      rt.later(0.2, () => rt.thread(1));
+    },
+  },
+  'Lantern Bearer': {
+    path: ['haloed', 'dawnward', 'lantern_bearer'],
+    chords: PLANTED_CHORDS,
+    note: 'Pedal Point on the field song, planted ahead: the stake carries a lantern',
+    stage: (rt) => {
+      rt.later(0.3, () => rt.plant(4, -3));
+    },
+  },
+  'Pedal Point · no Lantern': {
+    path: ['haloed', 'dawnward'],
+    chords: PLANTED_CHORDS,
+    note: 'The same planted field without Lantern Bearer, for comparison',
+    stage: (rt) => {
+      rt.later(0.3, () => rt.plant(4, -3));
+    },
+  },
+  'Third Voice': {
+    path: ['haloed', 'dawnward', 'third_voice'],
+    chords: [
+      { auras: ['fortissimo'], ornaments: [] },
+      { auras: ['sostenuto', 'ostinato', 'allegro'], ornaments: ['grace_note'] },
+    ],
+    note: 'Three auras in the field song: a third band on the field',
+    stage: (rt) => {
+      rt.later(0.2, () => rt.thread(1));
+    },
+  },
+  'Sovereign Symphony': {
+    path: SOVEREIGN_PATH,
+    chords: FOUR_AURAS,
+    note: 'Four auras across the songs: the field is crowned and a circlet shines over you',
+    stage: (rt) => {
+      rt.later(0.2, () => rt.thread(1));
+    },
+  },
+  Eclipse: {
+    path: ['haloed', 'dawnward', 'lantern_bearer', 'eclipse'],
+    note: 'Sunrise with Eclipse in a fight: a dark rim with a corona, every enemy in the field marked',
+    stage: (rt) => {
+      rt.later(0.2, () => rt.thread(0));
+      rt.later(0.4, () => frontFight(rt, 2, 3));
+      sunrise(rt, 1.2);
+    },
+  },
+  'Every option': {
+    path: SOVEREIGN_PATH,
+    chords: FOUR_AURAS,
+    note: 'Sovereign path, a fight and Sunrise at once (clutter check)',
+    stage: (rt) => {
+      rt.later(0.2, () => rt.thread(1));
+      rt.later(0.4, () => frontFight(rt, 2, 3));
+      sunrise(rt, 1.5);
+    },
+  },
+};
+const LUM_SCENARIO_NAMES = Object.keys(LUM_SCENARIOS);
+
 class LabRuntime {
   sim: Sim;
   readonly stage: Stage;
@@ -318,8 +494,9 @@ class LabRuntime {
       seed: 1234,
       encounter: this.encounter,
       debug: true,
-      chords: LOADOUTS[this.loadout] ?? LOADOUTS.Steady,
+      chords: chordsOverride ?? LOADOUTS[this.loadout] ?? LOADOUTS.Steady,
       relics: carried,
+      calling: callingCfg,
     });
   }
 
@@ -341,8 +518,47 @@ class LabRuntime {
   relicScenario(name: string): void {
     const s = RELIC_SCENARIOS[name];
     if (!s) return;
+    callingCfg = null;
+    chordsOverride = null;
     this.restart(s.relics);
     s.stage(this);
+  }
+
+  /** Phase 3c: restarts with the Luminary on `path` (null: no Calling), keeping the relics. */
+  setCalling(path: string[] | null, chords: ChordConfig[] | null = null): void {
+    callingCfg = path ? { id: 'luminary', path: [...path] } : null;
+    chordsOverride = chords;
+    this.restart(carried);
+  }
+
+  lumScenario(name: string): void {
+    const s = LUM_SCENARIOS[name];
+    if (!s) return;
+    carried = [];
+    this.setCalling(s.path, s.chords ?? GUARDIAN_CHORDS);
+    s.stage(this);
+  }
+
+  callingStats(): CallingStats {
+    const v = this.view;
+    const st = this.sim.state;
+    return {
+      fired: { ...v.calling.fired },
+      drawn: { ...v.calling.drawn },
+      field: { ...v.field.drawn },
+      heroes: st.party.map((id) => {
+        const e = st.entities.get(id);
+        let auras = 0;
+        for (let m = e?.hero?.auraMask ?? 0; m !== 0; m &= m - 1) auras++;
+        return {
+          shine: v.entities.recs.get(id)?.shine ?? 0,
+          inField: !!e?.hero?.inField,
+          auras,
+        };
+      }),
+      sun: v.calling.sun,
+      crescendo: st.field.crescendo,
+    };
   }
 
   relicStats(): { fired: Record<string, number>; active: number; prism: number } {
@@ -692,6 +908,7 @@ class LabRuntime {
         amplified: empower + aura,
         aura,
         radiance: 0,
+        eclipse: 0,
         crit: false,
         telegraph: null,
         hit: 'hit',
@@ -1114,7 +1331,10 @@ export function VfxLab() {
       resume: () => rt.resume(),
       heroId: (s) => rt.heroId(s),
       debug: () => rt.debug(),
-      setLoadout: (name) => setLoadout(name),
+      setLoadout: (name) => {
+        chordsOverride = null;
+        setLoadout(name);
+      },
       setSettings: (p) => {
         rt.settings = { ...rt.settings, ...p };
         if (p.colorVision) setVision(p.colorVision);
@@ -1141,11 +1361,15 @@ export function VfxLab() {
       relicScenario: (name) => rt.relicScenario(name),
       setRelics: (ids) => rt.restart(ids),
       relicStats: () => rt.relicStats(),
+      lumScenarios: () => LUM_SCENARIO_NAMES,
+      lumScenario: (name) => rt.lumScenario(name),
+      setCalling: (path) => rt.setCalling(path),
+      callingStats: () => rt.callingStats(),
     };
     const timer = window.setInterval(() => {
       const i = rt.info();
       if (statsRef.current) {
-        statsRef.current.textContent = `fps ${i.fps.toFixed(1)}  calls ${i.calls}  tris ${(i.triangles / 1000).toFixed(1)}k\nparticles ${i.particles}  entities ${rt.sim.state.entities.count}  tick ${rt.sim.tick}\nrelics ${rt.sim.state.relics.ids.length ? rt.sim.state.relics.ids.join(', ') : 'none'}`;
+        statsRef.current.textContent = `fps ${i.fps.toFixed(1)}  calls ${i.calls}  tris ${(i.triangles / 1000).toFixed(1)}k\nparticles ${i.particles}  entities ${rt.sim.state.entities.count}  tick ${rt.sim.tick}\nrelics ${rt.sim.state.relics.ids.length ? rt.sim.state.relics.ids.join(', ') : 'none'}\ncalling ${rt.sim.state.calling ? `${rt.sim.state.calling.id} · ${rt.sim.state.calling.path.join(', ') || 'no path'}` : 'none'}`;
       }
     }, 250);
     return () => {
@@ -1228,7 +1452,10 @@ export function VfxLab() {
             <select
               className="bg-ink-800"
               value={loadout}
-              onChange={(e) => setLoadout(e.target.value)}
+              onChange={(e) => {
+                chordsOverride = null;
+                setLoadout(e.target.value);
+              }}
             >
               {LOADOUT_NAMES.map((id) => (
                 <option key={id}>{id}</option>
@@ -1444,6 +1671,23 @@ export function VfxLab() {
             No relics
           </Btn>
         </Group>
+        <Group title="Phase 3c · Luminary">
+          <p className="w-full text-[10px] text-muted">
+            Each restarts the real sim with the Luminary on a path (and its Chords) and stages it.
+          </p>
+          {LUM_SCENARIO_NAMES.map((name) => (
+            <Btn
+              key={name}
+              onClick={() => rt()?.lumScenario(name)}
+              title={LUM_SCENARIOS[name]!.note}
+            >
+              {name}
+            </Btn>
+          ))}
+          <Btn onClick={() => rt()?.setCalling(null)} title="Restart without a Calling">
+            No Calling
+          </Btn>
+        </Group>
         <Group title="Phase 2 · Chords">
           <Btn onClick={() => rt()?.plant(5, -4)} title="{t:'plant'} ahead-right of the Weaver">
             Plant ↗
@@ -1556,6 +1800,7 @@ export function VfxLab() {
                   amplified: 96,
                   aura: 0,
                   radiance: 0,
+                  eclipse: 0,
                   crit: false,
                   telegraph: null,
                   hit: 'hit',
@@ -1578,6 +1823,7 @@ export function VfxLab() {
                   amplified: 0,
                   aura: 0,
                   radiance: 0,
+                  eclipse: 0,
                   crit: false,
                   telegraph: null,
                   hit: 'hit',

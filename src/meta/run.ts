@@ -8,6 +8,7 @@ import {
   CONTENT,
   boonDef,
   callingDef,
+  callingOption,
   encounterDef,
   motifDef,
   relicDef,
@@ -453,8 +454,29 @@ export function retune(
   return { ...run, chords: canonicalChords(chords), phase: 'map', pending: null };
 }
 
-export function embark(run: RunState): RunState {
-  return run.phase === 'prep' ? { ...run, phase: 'map' } : run;
+/**
+ * Leaves Prep for the map. Chords or a Calling picked while Settings → "Skip the unlocks" was on
+ * don't outlive turning it off: locked Chords fall back to the defaults, a locked Calling goes.
+ */
+export function embark(run: RunState, allowance: Allowance = EVERYTHING): RunState {
+  if (run.phase !== 'prep') return run;
+  const chords = chordsAllowed(run.chords, allowance)
+    ? run.chords
+    : DEFAULT_CHORDS.map((c) => ({ auras: [...c.auras], ornaments: [...c.ornaments] }));
+  const calling = run.calling && allowance.callings.has(run.calling.id) ? run.calling : null;
+  return { ...run, chords, calling, phase: 'map' };
+}
+
+/**
+ * The Chords to remember for the next run's Prep. Third Voice's third field aura belongs to
+ * this run's path, so it's dropped; null when what's left isn't a legal loadout.
+ */
+export function chordsToRemember(chords: readonly ChordLoadout[]): ChordLoadout[] | null {
+  const slots = CONTENT.weaver.auraSlots;
+  const kept = canonicalChords(
+    chords.map((c) => ({ auras: c.auras.slice(0, slots), ornaments: [...c.ornaments] })),
+  );
+  return chordsLegal(kept) ? kept : null;
 }
 
 export function chooseNode(run: RunState, nodeId: string): RunState {
@@ -586,9 +608,15 @@ export function continueFromResult(run: RunState): RunState {
   return relicThenRewards(run, node);
 }
 
-/** The Calling's tier this node's victory brings, if one is due and not yet picked. */
-function callingTierDue(run: RunState, node: MapNode): CallingOffer | null {
-  if (!run.calling || node.kind === 'event') return null;
+/**
+ * The Calling's tier this node's victory brings, if one is due and not yet picked (the map
+ * marks these fights). Event fights never bring one.
+ */
+export function callingTierDue(
+  run: Pick<RunState, 'calling'>,
+  node: Pick<MapNode, 'row' | 'kind' | 'encounterId'>,
+): CallingOffer | null {
+  if (!run.calling || node.kind === 'event' || !node.encounterId) return null;
   const tier = CALLING_ROWS.indexOf(node.row);
   const def = callingDef(run.calling.id);
   if (tier < 0 || tier >= def.tiers.length || run.calling.path[tier] !== null) return null;
@@ -612,7 +640,9 @@ export function pickCalling(
   if (!id) return run;
   const path = run.calling.path.map((p, i) => (i === offer.tier ? id : p));
   let next: RunState = { ...run, calling: { ...run.calling, path }, callingOffer: null };
-  if (chords && chordsAllowed(chords, allowance, fieldAuraSlots(next)))
+  // Only an option that grants a slot (Third Voice) comes with its free retune.
+  const grantsSlot = (callingOption(id).values.slots ?? 0) > 0;
+  if (chords && grantsSlot && chordsAllowed(chords, allowance, fieldAuraSlots(next)))
     next = { ...next, chords: canonicalChords(chords) };
   const node = run.pending ? findNode(run, run.pending) : undefined;
   return node ? relicThenRewards(next, node) : toMap(next);

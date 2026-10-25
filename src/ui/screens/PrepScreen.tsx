@@ -18,6 +18,9 @@ import { HeroDisc, SectionTitle } from './shared';
 import { ROLE_LABEL } from '../hud/labels';
 import { ChordBuilder, NewTag, SONG_LOOK } from './ChordBuilder';
 import { freshUnlocks, loadoutProblems, mult, padChords } from './chordModel';
+import { CallingPicker } from './CallingPicker';
+import { fieldAuraSlots as runFieldAuraSlots } from '../../meta/run';
+import { slotBonus } from './callingText';
 
 export interface PrepViewProps {
   run: RunState;
@@ -25,6 +28,10 @@ export interface PrepViewProps {
   onChords(chords: ChordLoadout[]): void;
   onEmbark(): void;
   onBack(): void;
+  /** Choose the run's Calling (null: none). Omitted: no Calling picker (the UI lab's old views). */
+  onCalling?(id: string | null): void;
+  /** UI lab: open a Calling's path dialog. */
+  openCallingPath?: string;
   /** What the player's Rank opens (default: everything). */
   allowance?: Allowance;
   /** Unlocks to introduce and mark "New" this visit. */
@@ -41,12 +48,15 @@ export function useChordDraft(
   initial: readonly ChordLoadout[],
   allowance: Allowance,
   onLegal?: (c: ChordLoadout[]) => void,
+  /** The field song's aura slots (`Run.fieldAuraSlots(run)`; Third Voice adds one). */
+  fieldAuraSlots: number = CONTENT.weaver.auraSlots,
 ) {
   const [draft, setDraft] = useState(() => padChords(initial));
-  const problems = loadoutProblems(draft, allowance);
+  const problems = loadoutProblems(draft, allowance, fieldAuraSlots);
   const change = (next: ChordLoadout[]) => {
     setDraft(next);
-    if (loadoutProblems(next, allowance).length === 0) onLegal?.(canonicalChords(next));
+    if (loadoutProblems(next, allowance, fieldAuraSlots).length === 0)
+      onLegal?.(canonicalChords(next));
   };
   return { draft, change, legal: problems.length === 0 };
 }
@@ -101,12 +111,16 @@ export function PrepView({
   onChords,
   onEmbark,
   onBack,
+  onCalling,
+  openCallingPath,
   allowance = EVERYTHING,
   fresh = [],
   rank,
 }: PrepViewProps) {
   useMood('map');
-  const { draft, change, legal } = useChordDraft(run.chords, allowance, onChords);
+  // Always the content's two at Prep (the path is empty), but read from the run like Retune.
+  const slots = runFieldAuraSlots(run);
+  const { draft, change, legal } = useChordDraft(run.chords, allowance, onChords, slots);
   const [freshIds] = useState(() => new Set(fresh.map((u) => u.id)));
   const w = CONTENT.weaver;
   const settings = useSettings((s) => s.settings);
@@ -152,8 +166,25 @@ export function PrepView({
 
         <FreshStrip fresh={fresh} />
 
+        {onCalling && (
+          <CallingPicker
+            chosen={run.calling?.id ?? null}
+            allowance={allowance}
+            fresh={freshIds}
+            onChoose={onCalling}
+            openPath={openCallingPath}
+          />
+        )}
+
         <section className="mt-6" aria-label="Songs">
-          <ChordBuilder value={draft} onChange={change} allowance={allowance} fresh={freshIds} />
+          <ChordBuilder
+            value={draft}
+            onChange={change}
+            allowance={allowance}
+            fresh={freshIds}
+            fieldAuraSlots={slots}
+            bonus={slotBonus(run)}
+          />
         </section>
 
         <div className="mt-8 grid gap-6 lg:grid-cols-[1.35fr_1fr]">
@@ -291,6 +322,7 @@ function HeroCard({ heroId }: { heroId: string }) {
 export function PrepScreen() {
   const run = useRun((s) => s.run);
   const setChords = useRun((s) => s.setChords);
+  const setCalling = useRun((s) => s.setCalling);
   const embark = useRun((s) => s.embark);
   const setScreen = useUi((s) => s.setScreen);
   const xp = useProfile((s) => s.profile.xp);
@@ -301,6 +333,7 @@ export function PrepScreen() {
     <PrepView
       run={run}
       onChords={setChords}
+      onCalling={setCalling}
       onEmbark={embark}
       onBack={() => setScreen('title')}
       allowance={allowance}

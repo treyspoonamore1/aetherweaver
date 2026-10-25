@@ -5,7 +5,7 @@ import { makeBot, type BotKind } from '../src/bots';
 import * as Run from '../src/meta/run';
 import type { ChordLoadout, RunState } from '../src/meta/types';
 import { weaverShare } from '../src/meta/run';
-import { createSim, type SimConfig } from '../src/sim';
+import { chordReserve, createSim, type SimConfig } from '../src/sim';
 
 export interface EncounterRun {
   encounter: string;
@@ -149,18 +149,36 @@ function event(run: RunState, relics: boolean): RunState {
   return run.phase === 'event' ? Run.leaveEvent(run) : run;
 }
 
-/** The Chords with one more aura in the field song, the first that's legal with `option`. */
+/** The most Spirit the bots will reserve when they fill a free slot (the presets reserve 55–73%). */
+const MAX_RESERVE = 0.75;
+
+/**
+ * Third Voice's free retune: a third aura in a field song that already has two (the slot it
+ * grants), the cheapest that stays legal and within `MAX_RESERVE`, with Grace Note on the field
+ * song if that's what makes it fit. The bots never retune otherwise, so they don't fill slots
+ * they already had. Undefined when nothing fits: the bot keeps its songs.
+ */
 function withAnotherAura(run: RunState, option: string): ChordLoadout[] | undefined {
   const path = run.calling!.path.map((p, i) => (i === run.callingOffer!.tier ? option : p));
   const slots = Run.fieldAuraSlots({ ...run, calling: { ...run.calling!, path } });
+  if ((run.chords[1]?.auras.length ?? 0) < CONTENT.weaver.auraSlots) return undefined;
   const used = new Set(run.chords.flatMap((c) => c.auras));
-  for (const aura of CONTENT.auras) {
-    if (used.has(aura.id)) continue;
-    const chords = run.chords.map((c) => ({ auras: [...c.auras], ornaments: [...c.ornaments] }));
-    while (chords.length < 2) chords.push({ auras: [], ornaments: [] });
-    chords[1]!.auras.push(aura.id);
-    if (Run.chordsLegal(chords, slots)) return chords;
-  }
+  const base = run.chords.map((c) => ({ auras: [...c.auras], ornaments: [...c.ornaments] }));
+  const variants = [base];
+  const field = base[1]!;
+  if (
+    !base.some((c) => c.ornaments.includes('grace_note')) &&
+    field.ornaments.length < CONTENT.weaver.ornamentSlots
+  )
+    variants.push(
+      base.map((c, i) => (i === 1 ? { ...c, ornaments: [...c.ornaments, 'grace_note'] } : c)),
+    );
+  const auras = CONTENT.auras.filter((a) => !used.has(a.id)).sort((a, b) => a.reserve - b.reserve);
+  for (const v of variants)
+    for (const aura of auras) {
+      const chords = v.map((c, i) => (i === 1 ? { ...c, auras: [...c.auras, aura.id] } : c));
+      if (Run.chordsLegal(chords, slots) && chordReserve(chords) <= MAX_RESERVE) return chords;
+    }
   return undefined;
 }
 

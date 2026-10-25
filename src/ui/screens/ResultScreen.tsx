@@ -18,6 +18,7 @@ import { ContributionBar } from './ContributionBar';
 import { RankUpCard, XpGainPanel, useRankUps } from './Rank';
 import { HIGHLIGHT_COLOR, HIGHLIGHT_ICON, contributionOf, statLines } from './resultText';
 import { WithoutYouPanel } from './WithoutYou';
+import { callingLook } from '../kit/CallingGlyph';
 
 export { HIGHLIGHT_COLOR, HIGHLIGHT_ICON, statLines };
 
@@ -166,15 +167,17 @@ export function ResultView({
             <SectionTitle>What you did</SectionTitle>
             <ContributionBar parts={contributionOf(r.stats)} className="mb-4" />
             <ul className="flex flex-col gap-3">
-              {statLines(r).map((l, i) => (
+              {statLines(r, run.calling).map((l, i) => (
                 <li
                   key={i}
                   className={`flex items-start gap-3 text-sm leading-relaxed ${l.muted ? 'text-muted' : 'text-text'}`}
+                  data-testid={l.calling ? 'calling-line' : undefined}
                 >
                   <Icon
                     name={l.icon}
                     size={18}
                     className={`mt-0.5 shrink-0 ${l.muted ? 'text-ink-500' : 'text-gold-300'}`}
+                    style={l.calling ? { color: callingLook(run.calling?.id).color } : undefined}
                   />
                   {l.text}
                 </li>

@@ -221,9 +221,30 @@ export function spiritBudget(chords: readonly ChordLoadout[]): SpiritBudget {
 export function loadoutProblems(
   chords: readonly ChordLoadout[],
   allowance: Allowance = EVERYTHING,
+  /** The field song's aura slots: `Run.fieldAuraSlots(run)` (the Luminary's Third Voice adds one). */
+  fieldAuraSlots: number = CONTENT.weaver.auraSlots,
 ): string[] {
   const canon = canonicalChords(chords);
-  return [...chordProblems(canon), ...lockedProblems(canon, allowance)];
+  return [
+    ...chordProblems(canon, CONTENT, { fieldAuraSlots }),
+    ...lockedProblems(canon, allowance),
+  ];
+}
+
+/**
+ * Aura slots a song holds: the content's for the beam song, `fieldAuraSlots` for the field
+ * song (index 1), as the sim's `chordProblems` counts them.
+ */
+export function auraSlotsFor(
+  index: number,
+  fieldAuraSlots: number = CONTENT.weaver.auraSlots,
+): number {
+  return index === 1 ? fieldAuraSlots : CONTENT.weaver.auraSlots;
+}
+
+/** Is this aura slot one a Calling added (beyond the content's slots)? */
+export function isBonusSlot(ref: SlotRef): boolean {
+  return ref.kind === 'aura' && ref.chord === 1 && ref.index >= CONTENT.weaver.auraSlots;
 }
 
 /** Short read-out of where a song's field sits. */

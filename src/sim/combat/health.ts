@@ -323,6 +323,7 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
   let amplifiedIn = opts.amplified ?? 0;
   // The Calling's part of it (the Luminary's Radiance and Eclipse, docs/phase-3c.md).
   let callingIn = 0;
+  let radianceIn = 0;
   if (source?.hero && target.enemy) {
     const mult =
       world.mods.partyDamageMult * (target.enemy.defId === 'mute' ? world.mods.muteDamageMult : 1);
@@ -330,9 +331,11 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
       amplifiedIn += amount * (mult - 1);
       amount *= mult;
     }
-    const radiant = radianceOf(world, source) + eclipseOn(world, target);
-    if (radiant > 0) {
-      callingIn = amount * radiant;
+    const shine = radianceOf(world, source);
+    const eclipse = eclipseOn(world, target);
+    if (shine + eclipse > 0) {
+      radianceIn = amount * shine;
+      callingIn = amount * (shine + eclipse);
       amplifiedIn += callingIn;
       amount += callingIn;
     }
@@ -348,9 +351,10 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
     amount *= 1 - fx.guardDr;
     guarded = before - amount;
   }
-  // Haloed (the Luminary): heroes in your field take less.
+  // Haloed (the Luminary): heroes in your field take less from ordinary hits. Like armour,
+  // it leaves telegraphed attacks alone: the big hits you see coming are still yours to Ward.
   let haloed = 0;
-  if (target.hero?.inField && world.mods.haloedReduction > 0) {
+  if (!opts.telegraph && target.hero?.inField && world.mods.haloedReduction > 0) {
     haloed = amount * world.mods.haloedReduction;
     amount -= haloed;
   }
@@ -406,14 +410,17 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
   h.lastHitAt = world.time;
   if (absorbedByWeaver > 0) world.ledger.shielded += absorbedByWeaver;
   if (absorbedByAura > 0) world.ledger.auras.shielded += absorbedByAura;
-  // The guard is credited only with life the hero kept: none if the hit downs them anyway.
+  // The guard and Haloed are credited only with life the hero kept, between them: none if the
+  // hit downs them anyway.
+  let keptLife = h.hp;
   if (guarded > 0) {
-    const kept = Math.min(guarded, h.hp);
+    const kept = Math.min(guarded, keptLife);
+    keptLife -= kept;
     world.ledger.shielded += kept;
     world.ledger.auras.shielded += kept;
   }
   if (haloed > 0) {
-    const kept = Math.min(haloed, h.hp);
+    const kept = Math.min(haloed, keptLife);
     world.ledger.shielded += kept;
     world.ledger.calling.shielded += kept;
   }
@@ -423,6 +430,7 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
   const auraShare = opts.aura && amountIn > 0 ? (opts.aura * total) / amountIn : 0;
   const empowerShare = opts.empower && amountIn > 0 ? (opts.empower * total) / amountIn : 0;
   const callingShare = callingIn > 0 && amountIn > 0 ? (callingIn * total) / amountIn : 0;
+  const radianceShare = radianceIn > 0 && amountIn > 0 ? (radianceIn * total) / amountIn : 0;
   if (source?.hero && target.enemy) {
     source.hero.damageDealt += total;
     source.hero.damageAmplified += amplifiedShare;
@@ -457,7 +465,8 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
     absorbed,
     amplified: amplifiedShare,
     aura: auraShare,
-    radiance: callingShare,
+    radiance: radianceShare,
+    eclipse: callingShare - radianceShare,
     crit: opts.crit ?? false,
     telegraph: opts.telegraph?.id ?? null,
     hit: opts.kind ?? 'hit',

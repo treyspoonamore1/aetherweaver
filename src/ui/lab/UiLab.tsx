@@ -49,6 +49,12 @@ import {
   resultRun,
   summaryRun,
   type HudScenario,
+  callingMapRun,
+  callingOfferRun,
+  callingResultRun,
+  callingSummaryRun,
+  milestoneNode,
+  prepCallingRun,
 } from './mock';
 
 /** A stand-in for the 3D arena behind the HUD. */
@@ -126,6 +132,7 @@ function Flow() {
         <PrepView
           run={run}
           onChords={(c) => set((r) => Run.setChords(r, c))}
+          onCalling={(id) => set((r) => Run.setCalling(r, id))}
           onEmbark={() => set(Run.embark)}
           onBack={() => set(() => freshRun(Math.floor(Math.random() * 999)))}
         />
@@ -198,7 +205,7 @@ function Flow() {
     case 'relic':
       return <RelicOfferView run={run} onPick={(i) => set((r) => Run.pickRelic(r, i))} />;
     case 'calling':
-      return <CallingView run={run} onPick={(i) => set((r) => Run.pickCalling(r, i))} />;
+      return <CallingView run={run} onPick={(i, c) => set((r) => Run.pickCalling(r, i, c))} />;
     case 'merchant':
       return (
         <MerchantView
@@ -242,6 +249,29 @@ function LockedBuilder() {
     { auras: ['fermata'], ornaments: ['grace_note'] },
   ]);
   return <ChordBuilder value={draft} onChange={setDraft} allowance={allowanceFor(2)} />;
+}
+
+/** Prep with the Calling picker: at a Rank (null: everything open), the Luminary chosen or not. */
+function prepCalling(rank: number | null, opts: { chosen?: boolean; openPath?: boolean } = {}) {
+  const allowance: Allowance = rank === null ? EVERYTHING : allowanceFor(rank);
+  const fresh = rank === null ? [] : UNLOCKS.filter((u) => u.rank === rank);
+  return (
+    <Interactive initial={() => prepCallingRun(!!opts.chosen)}>
+      {(run, set) => (
+        <PrepView
+          run={run}
+          onChords={(c) => set((r) => Run.setChords(r, c, allowance))}
+          onCalling={(id) => set((r) => Run.setCalling(r, id, allowance))}
+          onEmbark={noop}
+          onBack={noop}
+          allowance={allowance}
+          fresh={fresh}
+          rank={rank ?? 7}
+          openCallingPath={opts.openPath ? 'luminary' : undefined}
+        />
+      )}
+    </Interactive>
+  );
 }
 
 /** Prep at a given Rank, with that Rank's unlocks marked New. */
@@ -954,6 +984,163 @@ const VIEWS: ViewDef[] = [
       />
     ),
   })),
+  {
+    id: 'prep-calling-locked',
+    group: 'Calling',
+    label: 'Prep: the Luminary locked (Rank 6)',
+    w: 1280,
+    h: 720,
+    render: () => prepCalling(6),
+  },
+  {
+    id: 'prep-calling-new',
+    group: 'Calling',
+    label: 'Prep: Rank 7, the Luminary New',
+    w: 1280,
+    h: 720,
+    render: () => prepCalling(7),
+  },
+  {
+    id: 'prep-calling-chosen',
+    group: 'Calling',
+    label: 'Prep: the Luminary chosen',
+    w: 1280,
+    h: 720,
+    render: () => prepCalling(null, { chosen: true }),
+  },
+  {
+    id: 'prep-calling-path',
+    group: 'Calling',
+    label: 'Prep: the path dialog',
+    w: 1280,
+    h: 720,
+    render: () => prepCalling(null, { chosen: true, openPath: true }),
+  },
+  ...[0, 1, 2, 3].map((tier): ViewDef => ({
+    id: `calling-tier-${tier + 1}`,
+    group: 'Calling',
+    label: `Tier ${['I', 'II', 'III', 'IV'][tier]}: ${CONTENT.callings[0]!.tiers[tier]!.options.map((o) => o.name).join(' / ')}`,
+    w: 1280,
+    h: 720,
+    render: () => (
+      <Interactive initial={() => callingOfferRun(tier)}>
+        {(run, set) => (
+          <CallingView run={run} onPick={(i, c) => set((r) => Run.pickCalling(r, i, c))} />
+        )}
+      </Interactive>
+    ),
+  })),
+  {
+    id: 'calling-third-voice',
+    group: 'Calling',
+    label: 'Third Voice: the free retune',
+    w: 1280,
+    h: 1100,
+    render: () => <CallingView run={callingOfferRun(2)} onPick={noop} initialRetune={0} />,
+  },
+  {
+    id: 'calling-retune-after',
+    group: 'Calling',
+    label: 'Retune at a Respite with Third Voice',
+    w: 1280,
+    h: 1100,
+    render: () => {
+      const run = Run.pickCalling(callingOfferRun(2), 0);
+      return (
+        <RespiteView
+          run={{ ...run, phase: 'respite' }}
+          onChoose={noop}
+          onRetune={noop}
+          initialRetune
+        />
+      );
+    },
+  },
+  {
+    id: 'map-calling',
+    group: 'Calling',
+    label: 'Map: the Calling in the strip (tooltip)',
+    w: 1280,
+    h: 860,
+    render: () => <MapView run={callingMapRun()} onChoose={noop} onAbandon={noop} peekCalling />,
+  },
+  {
+    id: 'map-calling-node',
+    group: 'Calling',
+    label: 'Map: a milestone fight’s tooltip',
+    w: 1280,
+    h: 860,
+    render: () => {
+      const run = callingMapRun();
+      return <MapView run={run} onChoose={noop} onAbandon={noop} peek={milestoneNode(run)} />;
+    },
+  },
+  {
+    id: 'hud-luminary',
+    group: 'Calling',
+    label: 'HUD: heroes shine, Haloed',
+    w: 1280,
+    h: 720,
+    render: () => <HudStage scenario="luminary" coach={false} />,
+  },
+  {
+    id: 'hud-luminary-sunrise',
+    group: 'Calling',
+    label: 'HUD: Sunrise, Sovereign Symphony',
+    w: 1280,
+    h: 720,
+    render: () => <HudStage scenario="luminary-sunrise" coach={false} />,
+  },
+  {
+    id: 'result-calling',
+    group: 'Calling',
+    label: 'Result: the Calling line (→ your Calling grows)',
+    w: 1280,
+    h: 1420,
+    render: () => {
+      const run = callingResultRun();
+      return <ResultView run={run} result={run.lastResult!} onContinue={noop} profileXp={LAB_XP} />;
+    },
+  },
+  {
+    id: 'summary-calling',
+    group: 'Calling',
+    label: 'Summary: the path taken',
+    w: 1280,
+    h: 1300,
+    render: () => {
+      const run = callingSummaryRun();
+      return <SummaryView run={run} onNewRun={noop} onTitle={noop} />;
+    },
+  },
+  {
+    id: 'codex-callings',
+    group: 'Calling',
+    label: 'Codex: Callings',
+    w: 1280,
+    h: 1000,
+    render: () => <CodexView onBack={noop} initialTab="callings" />,
+  },
+  {
+    id: 'codex-callings-locked',
+    group: 'Calling',
+    label: 'Codex: Callings, locked (Rank 3)',
+    w: 1280,
+    h: 1000,
+    render: () => <CodexView onBack={noop} initialTab="callings" allowance={allowanceFor(3)} />,
+  },
+  {
+    id: 'rank-up-7',
+    group: 'Calling',
+    label: 'Rank 7: the Luminary unlocked',
+    w: 1280,
+    h: 720,
+    render: () => (
+      <World>
+        <RankUpCard rankUps={mockRankUps([7])} onDismiss={noop} />
+      </World>
+    ),
+  },
   {
     id: 'flow',
     group: 'Flow',

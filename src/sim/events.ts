@@ -94,6 +94,8 @@ export interface DamageTaken extends At {
   aura: number;
   /** Radiance's part of `amplified` (the Luminary, docs/phase-3c.md): the hero shone. */
   radiance: number;
+  /** Eclipse's part of `amplified`: the enemy stood in the light during Sunrise. */
+  eclipse: number;
   crit: boolean;
   telegraph: number | null;
   hit: 'hit' | 'tick' | 'detonation';

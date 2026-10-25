@@ -1,9 +1,10 @@
 import type { ReactNode } from 'react';
-import type { ActiveBoon, OwnedRelic } from '../../meta/types';
+import type { ActiveBoon, OwnedRelic, RunCalling, RunMap } from '../../meta/types';
 import { Icon } from '../kit/Icon';
 import { Glyph, RELIC_RARITY, RelicGlyph, RelicRarityChip, relicColor } from '../kit/RelicGlyph';
 import { Tip } from '../kit/Tip';
 import { boonInfo, relicInfo, relicSentence, type BoonInfo, type RelicInfo } from './interlude';
+import { CallingStripItem } from './CallingParts';
 
 /** The rule, the curse (struck through once cleansed) and the flavour, for cards and tips. */
 export function RelicBody({
@@ -269,8 +270,17 @@ export function RunStrip({
   boons,
   openRelic,
   purse = true,
+  calling = null,
+  map,
+  openCalling = false,
   className = '',
 }: {
+  /** The run's Calling (Phase 3c): emblem and path pips, first in the strip. */
+  calling?: RunCalling | null;
+  /** The run's map, so the open tiers say when they come. */
+  map?: RunMap;
+  /** Force the Calling's tooltip open (UI lab). */
+  openCalling?: boolean;
   aether: number;
   /** Show the Aether here (off where the screen shows a big purse already). */
   purse?: boolean;
@@ -285,6 +295,7 @@ export function RunStrip({
       className={`flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-ink-600/70 bg-ink-900/70 px-3 py-2 ${className}`}
       data-testid="run-strip"
     >
+      {calling && <CallingStripItem calling={calling} map={map} open={openCalling} />}
       {purse && <Purse aether={aether} />}
       <span className="flex items-center gap-2">
         <span className="text-xs font-semibold uppercase tracking-wider text-muted">Relics</span>

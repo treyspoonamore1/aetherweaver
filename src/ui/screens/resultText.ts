@@ -1,5 +1,6 @@
 /** Plain-text parts of the Result screen (testable without React). */
-import type { EncounterResult, EncounterStats } from '../../meta/types';
+import type { EncounterResult, EncounterStats, RunCalling } from '../../meta/types';
+import { callingResultLine } from './callingText';
 import { auraVerbs, splitContribution, type ContributionParts } from '../contribution';
 import { fmt, pct, plural } from '../kit/format';
 import type { IconName } from '../kit/iconPaths';
@@ -37,6 +38,20 @@ export interface StatLine {
   icon: IconName;
   text: string;
   muted?: boolean;
+  /** Drawn in the Calling's dawn colour (Phase 3c). */
+  calling?: boolean;
+}
+
+/**
+ * The Calling's line (Phase 3c): "Radiance: +412 damage through your heroes · Haloed: 96
+ * damage kept off", named by the path; nothing if it did nothing (or there is no Calling).
+ */
+export function callingLine(
+  s: Pick<EncounterStats, 'callingAmplified' | 'callingShielded'>,
+  calling: Pick<RunCalling, 'path'> | null | undefined,
+): StatLine | null {
+  const text = callingResultLine(s, calling ?? null);
+  return text ? { icon: 'sun', text: `${text}.`, calling: true } : null;
 }
 
 /**
@@ -78,9 +93,15 @@ export function songLines(s: EncounterStats): StatLine[] {
 }
 
 /** Plain-English lines for a fight (also reused by tests and the lab). */
-export function statLines(r: EncounterResult): StatLine[] {
+export function statLines(
+  r: EncounterResult,
+  /** The run's Calling, to name its line by the path (Radiance, Eclipse, Haloed). */
+  calling?: Pick<RunCalling, 'path'> | null,
+): StatLine[] {
   const s = r.stats;
   const lines: StatLine[] = songLines(s);
+  const shine = callingLine(s, calling);
+  if (shine) lines.push(shine);
   lines.push({
     icon: 'ward',
     text:

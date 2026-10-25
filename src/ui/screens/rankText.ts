@@ -16,6 +16,21 @@ import {
 } from '../../meta/profile';
 import type { EncounterResult, RunState } from '../../meta/types';
 import { fmt, plural } from '../kit/format';
+import type { IconName } from '../kit/iconPaths';
+
+/** The glyph for an unlock (the field song gets its own; a Calling, the sun). */
+export function unlockIcon(u: { kind: string; target: string }): IconName {
+  if (u.kind === 'song' && u.target === 'field') return 'scatter';
+  return UNLOCK_ICON[u.kind] ?? 'sparkle';
+}
+
+const UNLOCK_ICON: Record<string, IconName> = {
+  song: 'thread',
+  aura: 'note',
+  ornament: 'diamond',
+  ornamentSlot: 'diamond',
+  calling: 'sun',
+};
 
 export interface RankPanel {
   rank: number;

@@ -2,10 +2,20 @@ import type { RankUp } from '../../app/profileStore';
 import { useProfile } from '../../app/profileStore';
 import { useRun } from '../../app/runStore';
 import { DEFAULT_SETTINGS, useSettings } from '../../app/settings';
-import { auraDef, heroDef, motifDef, ornamentDef } from '../../content';
+import { auraDef, callingDef, heroDef, motifDef, optionText, ornamentDef } from '../../content';
 import { songName } from '../../sim';
 import { motifLine, runTotals } from '../../meta/run';
-import type { EncounterResult, Grade, Highlight, RunState } from '../../meta/types';
+import type {
+  EncounterResult,
+  EncounterStats,
+  Grade,
+  Highlight,
+  RunCalling,
+  RunState,
+} from '../../meta/types';
+import { PathPip, callingLook } from '../kit/CallingGlyph';
+import { CallingTitle } from './CallingParts';
+import { callingParts, pathSteps } from './callingText';
 import type { ReactNode } from 'react';
 import { ScreenFrame } from '../kit/Backdrop';
 import { Button } from '../kit/Button';
@@ -215,6 +225,8 @@ export function SummaryView({
             </ul>
           </Panel>
         )}
+
+        {run.calling && <CallingSummary calling={run.calling} totals={totals} run={run} />}
 
         {tally.fights > 0 && (
           <Panel tone="solid" className="mt-6 p-5" data-testid="summary-without-you">
@@ -562,6 +574,86 @@ export function SummaryView({
 }
 
 /** The run's Weaver XP and what it did for the Rank. */
+/** The run's Calling: the path taken, tier by tier, and what it did over the run. */
+function CallingSummary({
+  calling,
+  totals,
+  run,
+}: {
+  calling: RunCalling;
+  totals: EncounterStats;
+  run: RunState;
+}) {
+  const def = callingDef(calling.id);
+  const look = callingLook(def.id);
+  const steps = pathSteps(calling, { map: run.map });
+  const parts = callingParts(totals, calling);
+  return (
+    <Panel
+      tone="solid"
+      className="mt-6 p-5"
+      style={{ borderColor: `color-mix(in srgb, ${look.color} 45%, var(--color-ink-600))` }}
+      data-testid="summary-calling"
+    >
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <CallingTitle def={def} size={52} />
+        {parts.length > 0 ? (
+          <ul className="flex flex-wrap gap-3">
+            {parts.map((p) => (
+              <li
+                key={p.label}
+                className="rounded-xl border bg-ink-900/60 px-4 py-2"
+                style={{ borderColor: `color-mix(in srgb, ${look.color} 35%, transparent)` }}
+              >
+                <p className="font-mono text-xl font-bold" style={{ color: look.color }}>
+                  {p.label === 'Haloed' ? fmt(p.amount) : `+${fmt(p.amount)}`}
+                </p>
+                <p className="text-xs text-muted">
+                  {p.label === 'Haloed'
+                    ? 'damage Haloed kept off'
+                    : `damage through your heroes (${p.label})`}
+                </p>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="max-w-sm text-sm text-muted">
+            Radiance added nothing this run: bring your heroes into your field, and give them auras
+            to hear.
+          </p>
+        )}
+      </div>
+      <ol className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4" aria-label="The path you took">
+        {steps.map((st) => (
+          <li
+            key={st.tier}
+            className={`flex items-start gap-2.5 rounded-lg bg-ink-900/60 px-3 py-2.5 ${st.chosen ? '' : 'opacity-60'}`}
+          >
+            <PathPip
+              callingId={def.id}
+              state={st.chosen ? 'chosen' : 'open'}
+              icon={st.chosen?.icon}
+              numeral={st.numeral}
+              size={32}
+            />
+            <div className="min-w-0">
+              <p
+                className="text-sm font-semibold"
+                style={{ color: st.chosen ? look.color : undefined }}
+              >
+                {st.chosen ? st.chosen.name : `Tier ${st.numeral}: not reached`}
+              </p>
+              <p className="text-xs leading-relaxed text-muted">
+                {st.chosen ? optionText(st.chosen) : `It would have come ${st.when}.`}
+              </p>
+            </div>
+          </li>
+        ))}
+      </ol>
+    </Panel>
+  );
+}
+
 function RunRankPanel({ run, profileXp }: { run: RunState; profileXp: number }) {
   const rr = runRank(run, profileXp);
   const gain = xpGain(profileXp, run.xp);

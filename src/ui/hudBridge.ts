@@ -9,6 +9,7 @@ import {
   type WorldState,
 } from '../sim';
 import { relicHuds } from './hud/relics';
+import { callingHud, shineOf } from './hud/calling';
 import type { AuraHud, BossHud, ChordHud, HeroHud, HudSnapshot, TechniqueHud } from './store';
 
 const TECHNIQUE_KEYS: readonly TechniqueKey[] = ['ward', 'chime', 'reel', 'glide'];
@@ -44,6 +45,17 @@ export function buildHudSnapshot(
   const w = weaverEntity?.weaver;
   const wh = weaverEntity?.health;
   const tech = CONTENT.techniques;
+
+  const sunrise = state.field.crescendo;
+  const calling = state.calling
+    ? {
+        id: state.calling.id,
+        path: [...state.calling.path],
+        radiancePerAura: state.calling.radiancePerAura,
+        sunriseMult: state.calling.sunriseMult,
+        sovereign: state.calling.sovereign,
+      }
+    : null;
 
   const party: HeroHud[] = [];
   state.party.forEach((id, slot) => {
@@ -100,6 +112,7 @@ export function buildHudSnapshot(
       follow: hero.follow,
       threaded: w?.threadSlot === slot,
       beamFocus: hero.beamFocus,
+      radiance: h.dead || h.downed ? 0 : shineOf(hero, calling, sunrise),
       hovered: opts.hovered === id,
     });
   });
@@ -256,6 +269,7 @@ export function buildHudSnapshot(
       time: state.time,
       ledger: { perfects: l.perfects, downs: l.downs },
     }),
+    calling: callingHud(calling, sunrise),
     entityCount: state.entities.count,
     dummyCount,
   };

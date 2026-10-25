@@ -152,11 +152,13 @@ export function updateField(world: World, dt: number): void {
     for (const id of chord.auras) {
       const index = content.auras.findIndex((a) => a.id === id);
       if (index < 0) continue;
-      // Lantern Bearer (the Luminary): a planted field sings stronger.
+      // Lantern Bearer (the Luminary): a planted field sings stronger. On a planted beam song
+      // that's its echo: the beam's pour into the threaded hero isn't a field.
       const planted = chord.anchor === 'planted' ? world.mods.plantedEffectMult : 1;
-      mult[index] = chord.effectMult * effectMult * planted * sovereign;
+      const beam = chord.role === 'beam';
+      mult[index] = chord.effectMult * effectMult * (beam ? 1 : planted) * sovereign;
       focus[index] = chord.focus;
-      echo[index] = chord.echo;
+      echo[index] = chord.echo * (beam ? planted : 1);
     }
   }
   f.radius = weaverRadius > 0 ? weaverRadius : base * radiusMult;

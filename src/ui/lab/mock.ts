@@ -18,8 +18,9 @@ import type {
 } from '../../meta/types';
 import { FORGE_PRICE, MOTIF_PRICE, RELIC_PRICE, SHOP_HEAL } from '../../meta/economy';
 import { relicHuds } from '../hud/relics';
+import { callingHud, shineOf, type CallingSource } from '../hud/calling';
 import { motifStep, type ForgeResult } from '../screens/interlude';
-import { resolveChord, type Ledger } from '../../sim';
+import { createSim, resolveChord, type Ledger } from '../../sim';
 import { UNLOCKS } from '../../meta/profile';
 import type { RankUp } from '../../app/profileStore';
 import type { AuraHud, Callout, ChordHud, HeroHud, HudSnapshot, TechniqueHud } from '../store';
@@ -113,6 +114,7 @@ function hero(slot: number, defId: string, over: Partial<HeroHud> = {}): HeroHud
     inField: true,
     auras: ['sostenuto', 'fortissimo'],
     beamFocus: false,
+    radiance: 0,
     call: null,
     held: null,
     follow: 'follow',
@@ -134,7 +136,9 @@ export type HudScenario =
   | 'wheel'
   | 'beam'
   | 'relics'
-  | 'relics-waiting';
+  | 'relics-waiting'
+  | 'luminary'
+  | 'luminary-sunrise';
 
 function auraHud(id: string, reserveMult = 1): AuraHud {
   const a = auraDef(id);
@@ -269,6 +273,7 @@ function mockHudRaw(scenario: HudScenario): HudSnapshot {
       total: 11800,
     },
     relics: [],
+    calling: null,
     entityCount: 40,
     dummyCount: 0,
   };
@@ -587,6 +592,10 @@ function mockHudRaw(scenario: HudScenario): HudSnapshot {
           ledger: { perfects: 1, downs: 0 },
         }),
       };
+    case 'luminary':
+      return luminaryHud(base, ['haloed', null, null, null], false);
+    case 'luminary-sunrise':
+      return luminaryHud(base, ['haloed', 'dawnward', 'third_voice', 'sovereign_symphony'], true);
     case 'resonance':
       return {
         ...base,
@@ -607,6 +616,112 @@ function mockHudRaw(scenario: HudScenario): HudSnapshot {
         encounter: { ...base.encounter, elapsed: 40, enemies: 5 },
       };
   }
+}
+
+/** The Calling as the sim resolves it for this path (real numbers: a sim is built for it). */
+export function mockCallingSource(path: readonly (string | null)[]): CallingSource {
+  const taken = path.filter((p): p is string => p !== null);
+  // Four auras across the songs, so Sovereign Symphony holds when it's on the path.
+  const field = ['sostenuto', 'ostinato'];
+  const sim = createSim({
+    seed: 3,
+    encounter: 'first_light',
+    chords: [
+      { auras: ['fortissimo', 'allegro'], ornaments: [] },
+      { auras: field, ornaments: ['grace_note'] },
+    ],
+    calling: { id: 'luminary', path: taken },
+  });
+  const c = sim.state.calling!;
+  return {
+    id: c.id,
+    path: [...c.path],
+    radiancePerAura: c.radiancePerAura,
+    sunriseMult: c.sunriseMult,
+    sovereign: c.sovereign,
+  };
+}
+
+/**
+ * The Luminary in a fight: the beam into Lyra (out past the field, so she doesn't shine),
+ * Kael and Vexis in the field shining by the auras they hear; relics on the bar above.
+ */
+function luminaryHud(
+  base: HudSnapshot,
+  path: readonly (string | null)[],
+  sunrise: boolean,
+): HudSnapshot {
+  const source = mockCallingSource(path);
+  const third = path.includes('third_voice');
+  const field = third ? ['sostenuto', 'ostinato', 'lullaby'] : ['sostenuto', 'ostinato'];
+  const chords = [
+    chordHud(0, ['fortissimo', 'allegro'], []),
+    chordHud(1, field, ['grace_note'], { radius: sunrise ? 13.8 : 9.2 }),
+  ];
+  // What each hero hears (the field's hex, Lullaby, touches enemies only).
+  const heard = {
+    kael: ['sostenuto', 'fortissimo', 'allegro', 'ostinato'],
+    lyra: ['fortissimo', 'allegro'],
+    vexis: ['sostenuto', 'ostinato'],
+  };
+  const shine = (inField: boolean, auras: string[]) =>
+    shineOf({ inField, auraMask: (1 << auras.length) - 1 }, source, sunrise);
+  return {
+    ...base,
+    weaver: {
+      ...base.weaver,
+      threadSlot: 1,
+      threadMode: 'empower',
+      chords,
+      auras: chords.flatMap((c) => c.auras),
+      reserved: third ? 92 : 78,
+      spirit: third ? 8 : 18,
+      resonance: sunrise ? 0 : 64,
+      crescendo: sunrise ? 5.2 : 0,
+      fieldRadius: sunrise ? 13.8 : 9.2,
+    },
+    party: [
+      hero(0, 'kael', {
+        hp: 1290,
+        shield: sunrise ? 420 : 120,
+        auras: heard.kael,
+        radiance: shine(true, heard.kael),
+      }),
+      hero(1, 'lyra', {
+        hp: 760,
+        threaded: true,
+        solo: 72,
+        inField: false,
+        distance: 11,
+        auras: heard.lyra,
+        radiance: shine(false, heard.lyra),
+      }),
+      hero(2, 'vexis', {
+        hp: 610,
+        distance: 5,
+        auras: heard.vexis,
+        radiance: shine(true, heard.vexis),
+      }),
+    ],
+    relics: relicHuds({
+      relics: {
+        ids: ['tuning_fork', 'heavy_score', 'martyrs_veil'],
+        cleansed: [],
+        metronomeAt: null,
+        thimbleAt: null,
+        veil: true,
+      },
+      time: 90,
+      ledger: { perfects: 2, downs: 0 },
+    }),
+    calling: callingHud(source, sunrise),
+    contribution: {
+      auras: { healing: 2140, shielded: 1310, amplified: 3380 },
+      thread: { healing: 940, amplified: 2620 },
+      total: 11600,
+    },
+    encounter: { ...base.encounter, elapsed: sunrise ? 74 : 52, enemies: sunrise ? 6 : 8 },
+  };
 }
 
 export function mockCallouts(scenario: HudScenario): Callout[] {
@@ -671,10 +786,13 @@ export function mockCallouts(scenario: HudScenario): Callout[] {
       ];
     case 'relics':
       return [c(1, 'perfect', 'Perfect Ward', { detail: 'Kael · 480 negated', color: '#f5d78e' })];
+    case 'luminary-sunrise':
+      return [c(1, 'perfect', 'Crescendo — Sunrise', { color: '#fff1c4' })];
     case 'wheel':
     case 'beam':
     case 'sandbox':
     case 'relics-waiting':
+    case 'luminary':
       return [];
   }
 }
@@ -757,8 +875,16 @@ export function fakeOutcome(
     timeline.push({ time: t, hp: hp.map((h, i) => h / maxHp[i]!) });
   }
   const scale = 0.7 + rnd() * 0.8;
+  // The Calling's share (Phase 3c): Radiance grows with the path; Haloed keeps damage off.
+  const path = run.calling?.path ?? [];
+  const taken = path.filter(Boolean).length;
   const ledger: Ledger = {
-    calling: { amplified: 0, shielded: 0 },
+    calling: run.calling
+      ? {
+          amplified: 380 * scale * (1 + taken) * (path.includes('searing_hymns') ? 1.8 : 1),
+          shielded: path.includes('haloed') ? 140 * scale : 0,
+        }
+      : { amplified: 0, shielded: 0 },
     healing: 4200 * scale,
     overheal: 900 * scale,
     shielded: 2100 * scale,
@@ -860,6 +986,7 @@ function settle(run: RunState): RunState {
     else if (run.phase === 'respite') run = Run.respite(run, 'rest');
     else if (run.phase === 'merchant') run = Run.leaveShop(run);
     else if (run.phase === 'forge') run = Run.leaveForge(run);
+    else if (run.phase === 'calling') run = Run.pickCalling(run, 0);
     else if (run.phase === 'event') {
       const last = run.event?.eventId
         ? CONTENT.events.find((e) => e.id === run.event!.eventId)?.choices.at(-1)
@@ -1202,4 +1329,107 @@ export function relicOfferRun(reason: RelicOffer['reason']): RunState {
 export function eventFightResultRun(): RunState {
   const run = Run.chooseEvent(eventRun('unsung_choir'), 'fight');
   return Run.finishCombat(run, fakeOutcome(run, true));
+}
+
+// ── Phase 3c: the Luminary ─────────────────────────────────────────────────────────────
+
+/** Takes the option named for the tier on offer (the first option if none is named). */
+function pickFor(run: RunState, picks: readonly (string | undefined)[]): RunState {
+  const offer = run.callingOffer;
+  if (!offer) return run;
+  const want = picks[offer.tier];
+  const i = want ? offer.options.indexOf(want) : 0;
+  return Run.pickCalling(run, (i < 0 ? 0 : i) as 0 | 1);
+}
+
+/**
+ * A run with the Luminary, every fight won (fights preferred on the map), taking `picks` at
+ * each tier. Stops on the tier screen for `untilTier`, after `fights` fights (on the map), or
+ * at the end of the run.
+ */
+export function luminaryRun(
+  opts: {
+    picks?: readonly (string | undefined)[];
+    untilTier?: number;
+    fights?: number;
+    seed?: number;
+  } = {},
+): RunState {
+  const picks = opts.picks ?? [];
+  let run = Run.embark(Run.setCalling(Run.newRun(opts.seed ?? 7), 'luminary'));
+  let played = 0;
+  while (run.phase === 'map' && played < (opts.fights ?? 99)) {
+    const options = Run.reachable(run);
+    const next = options.find((n) => n.encounterId) ?? options[0];
+    if (!next) break;
+    run = Run.chooseNode(run, next.id);
+    if (run.phase === 'combat') {
+      run = Run.finishCombat(run, fakeOutcome(run, true));
+      played++;
+      run = Run.continueFromResult(run);
+    }
+    if (run.phase === 'calling') {
+      if (run.callingOffer?.tier === opts.untilTier) return run;
+      run = pickFor(run, picks);
+    }
+    run = settle(run);
+  }
+  return run;
+}
+
+/** The tier screen for tier `tier` (0-based), the earlier tiers taken as `picks`. */
+export function callingOfferRun(tier: number, picks: readonly string[] = DEFAULT_PICKS): RunState {
+  return luminaryRun({ picks, untilTier: tier });
+}
+
+/** A path that shows every axis: Haloed, Searing Hymns, Third Voice, Eclipse. */
+export const DEFAULT_PICKS: readonly string[] = [
+  'haloed',
+  'searing_hymns',
+  'third_voice',
+  'eclipse',
+];
+
+/** On the map with two tiers taken (Wide Choir, Searing Hymns): the next milestone is step 6. */
+export function callingMapRun(): RunState {
+  return { ...luminaryRun({ picks: ['wide_choir', 'searing_hymns'], fights: 4 }), aether: 85 };
+}
+
+/** A fight on the map whose victory brings the Calling's next tier. */
+export function milestoneNode(run: RunState): string {
+  const rows = run.map.rows;
+  const open = run.calling?.path.findIndex((p) => p === null) ?? -1;
+  const row = Run.CALLING_ROWS[open] ?? 0;
+  const node = rows[row]?.find((n) => n.encounterId && n.kind !== 'event');
+  return node?.id ?? rows[0]![0]!.id;
+}
+
+/** The Result after the fight at step 4 (Haloed taken): the Calling line, then the tier. */
+export function callingResultRun(): RunState {
+  let run = luminaryRun({ picks: ['haloed'], fights: 3 });
+  for (let guard = 0; guard < 4 && run.phase === 'map'; guard++) {
+    const options = Run.reachable(run);
+    const next = options.find((n) => n.encounterId) ?? options[0];
+    if (!next) break;
+    run = Run.chooseNode(run, next.id);
+    if (run.phase === 'combat') {
+      run = Run.finishCombat(run, fakeOutcome(run, true));
+      if (Run.CALLING_ROWS.includes(Run.findNode(run, run.pending ?? '')?.row ?? -1)) return run;
+      run = settle(Run.continueFromResult(run));
+      if (run.phase === 'calling') run = settle(pickFor(run, ['haloed']));
+    } else run = settle(run);
+  }
+  return run;
+}
+
+/** A whole run won with the Luminary, the four tiers taken. */
+export function callingSummaryRun(): RunState {
+  const run = luminaryRun({ picks: DEFAULT_PICKS });
+  return { ...run, phase: 'summary', outcome: 'victory', pending: null };
+}
+
+/** Prep with the Luminary chosen (or not). */
+export function prepCallingRun(chosen: boolean, seed = 7): RunState {
+  const run = Run.newRun(seed, Run.CHORD_PRESETS.find((p) => p.id === 'guardian')!.chords);
+  return chosen ? Run.setCalling(run, 'luminary') : run;
 }

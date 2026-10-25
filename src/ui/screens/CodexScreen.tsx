@@ -30,7 +30,13 @@ import type { RelicRarity } from '../../content';
 import { EventGlyph } from './EventScreen';
 import { boonDuration, boonInfo, choiceInfo, relicInfo } from './interlude';
 import { BoonTip, RelicBody, boonStyle } from './RelicCard';
-import { newRun } from '../../meta/run';
+import { CALLING_ROWS, newRun } from '../../meta/run';
+import { EVERYTHING, type Allowance } from '../../meta/profile';
+import { callingLook } from '../kit/CallingGlyph';
+import { AxisChip, CallingPassive, CallingPathPreview, CallingTitle } from './CallingParts';
+import { callingOpen } from './CallingPicker';
+import { AXIS_LOOK, OPTION_AXIS, tierWhenList } from './callingText';
+import { useAllowance } from './PrepScreen';
 
 const TABS = [
   { id: 'heroes', label: 'Heroes' },
@@ -39,6 +45,7 @@ const TABS = [
   { id: 'auras', label: 'Auras' },
   { id: 'chords', label: 'Songs & ornaments' },
   { id: 'rank', label: 'Weaver Rank' },
+  { id: 'callings', label: 'Callings' },
   { id: 'calls', label: 'Calls' },
   { id: 'motifs', label: 'Motifs' },
   { id: 'relics', label: 'Relics' },
@@ -50,9 +57,12 @@ export type TabId = (typeof TABS)[number]['id'];
 export function CodexView({
   onBack,
   initialTab = 'heroes',
+  allowance = EVERYTHING,
 }: {
   onBack(): void;
   initialTab?: TabId;
+  /** What the player's Rank opens: locked Callings say so (default: everything). */
+  allowance?: Allowance;
 }) {
   useMood('title');
   const [tab, setTab] = useState<TabId>(initialTab);
@@ -107,6 +117,7 @@ export function CodexView({
           {tab === 'auras' && <Auras />}
           {tab === 'chords' && <Chords />}
           {tab === 'rank' && <Ranks />}
+          {tab === 'callings' && <Callings allowance={allowance} />}
           {tab === 'calls' && <Calls />}
           {tab === 'motifs' && <Motifs />}
           {tab === 'relics' && <Relics />}
@@ -119,7 +130,80 @@ export function CodexView({
 
 export function CodexScreen() {
   const back = useUi((s) => s.back);
-  return <CodexView onBack={back} />;
+  const allowance = useAllowance();
+  return <CodexView onBack={back} allowance={allowance} />;
+}
+
+/** Callings (Phase 3c): each one's passive, Sunrise, flavour and whole path; locks by Rank. */
+function Callings({ allowance }: { allowance: Allowance }) {
+  return (
+    <div className="flex flex-col gap-6">
+      <Panel tone="gold" className="p-5">
+        <p className="max-w-4xl text-sm leading-relaxed text-text">
+          A <b className="text-gold-200">Calling</b> is the Weaver’s class for a run, chosen in
+          Prep. It brings a passive and its own Sunrise, and a <b>path</b>: {CALLING_ROWS.length}{' '}
+          tiers of two options each, picked during the run {tierWhenList(CALLING_ROWS.length)} (the
+          first fight you win at that step), before the fight’s relic and motif. Each pick lasts the
+          rest of the run. The map marks the fights that bring one. Runs without a Calling play as
+          before. The auras themselves never change: a Calling adds to your songs’ reach, strength
+          or slots.
+        </p>
+      </Panel>
+      {CONTENT.callings.map((def) => {
+        const open = callingOpen(allowance, def.id);
+        const look = callingLook(def.id);
+        const rank = unlockRank('calling', def.id);
+        return (
+          <section
+            key={def.id}
+            aria-label={`The ${def.name}`}
+            className="flex flex-col gap-4"
+            data-testid={`codex-calling-${def.id}`}
+          >
+            <Panel
+              tone="solid"
+              className={`p-5 ${open ? '' : 'border-dashed'}`}
+              style={{ borderTopColor: open ? look.color : undefined, borderTopWidth: 3 }}
+            >
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <CallingTitle def={def} size={64} muted={!open} />
+                <span className="flex items-center gap-2">
+                  {open ? (
+                    <Chip color={look.color} icon="sun">
+                      {allowance.all ? 'Open (unlocks skipped)' : `Unlocked at Rank ${rank}`}
+                    </Chip>
+                  ) : (
+                    <Chip icon="lock">Rank {rank}</Chip>
+                  )}
+                </span>
+              </div>
+              <p className="mt-3 text-sm italic text-muted">“{def.flavor}”</p>
+              <div className="mt-3 max-w-4xl">
+                <CallingPassive def={def} />
+              </div>
+              {!open && (
+                <p className="mt-3 flex items-center gap-1.5 text-sm text-muted">
+                  <Icon name="lock" size={14} /> Reach Weaver Rank {rank} to choose it in Prep, or
+                  turn on Settings → Skip the unlocks.
+                </p>
+              )}
+            </Panel>
+            <CallingPathPreview def={def} columns={4} />
+            <ul className="flex flex-wrap gap-x-5 gap-y-1 text-xs text-muted">
+              {(Object.keys(AXIS_LOOK) as (keyof typeof AXIS_LOOK)[]).map((k) => (
+                <li key={k} className="flex items-center gap-1.5">
+                  <AxisChip
+                    optionId={Object.keys(OPTION_AXIS).find((id) => OPTION_AXIS[id] === k)!}
+                  />
+                  {AXIS_LOOK[k].blurb}
+                </li>
+              ))}
+            </ul>
+          </section>
+        );
+      })}
+    </div>
+  );
 }
 
 const GRID = 'grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(22rem,1fr))]';

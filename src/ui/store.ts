@@ -23,8 +23,9 @@ import type {
   ThreadMode,
 } from './types';
 import type { RelicHud } from './hud/relics';
+import type { CallingHud } from './hud/calling';
 
-export type { RelicHud };
+export type { CallingHud, RelicHud };
 
 export interface StatusHud {
   id: StatusId;
@@ -92,6 +93,11 @@ export interface HeroHud {
   threaded: boolean;
   /** The beam song pours into this hero right now (its auras at focus strength). */
   beamFocus: boolean;
+  /**
+   * Phase 3c, the Luminary's Radiance: how much harder this hero hits right now (0.08 = +8%),
+   * credited to you. 0 without a Calling, outside the field, or hearing no aura.
+   */
+  radiance: number;
   hovered: boolean;
 }
 
@@ -230,6 +236,8 @@ export interface HudSnapshot {
   contribution: ContributionHud;
   /** The relics carried this fight, with cooldowns and charges (Phase 3b). */
   relics: RelicHud[];
+  /** The Weaver's Calling this fight, with its path and Sunrise (Phase 3c); null without one. */
+  calling: CallingHud | null;
   entityCount: number;
   dummyCount: number;
 }

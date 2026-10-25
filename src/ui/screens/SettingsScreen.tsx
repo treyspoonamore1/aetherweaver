@@ -176,7 +176,7 @@ function ProgressSettings() {
       </p>
       <Toggle
         label="Skip the unlocks"
-        hint="Every song, aura and ornament from the start. You still earn XP and Rank."
+        hint="Every song, aura, ornament and Calling from the start. You still earn XP and Rank."
         checked={settings.unlockAll}
         onChange={(v) => update((d) => ({ ...d, unlockAll: v }))}
       />

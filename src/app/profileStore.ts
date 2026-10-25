@@ -14,6 +14,7 @@ import {
   type Profile,
   type Unlock,
 } from '../meta/profile';
+import { chordsToRemember } from '../meta/run';
 import { loadProfile, saveProfile } from '../meta/save';
 import type { ChordLoadout } from '../sim';
 import { useSettings } from './settings';
@@ -71,11 +72,11 @@ export const useProfile = create<ProfileStore>()((set, get) => {
       const fresh = ids.filter((id) => !profile.introduced.includes(id));
       if (fresh.length > 0) commit({ ...profile, introduced: [...profile.introduced, ...fresh] });
     },
-    rememberChords: (chords) =>
-      commit({
-        ...get().profile,
-        lastChords: chords.map((c) => ({ auras: [...c.auras], ornaments: [...c.ornaments] })),
-      }),
+    rememberChords: (chords) => {
+      // Without Third Voice's third field aura, which only this run's path allows.
+      const kept = chordsToRemember(chords);
+      if (kept) commit({ ...get().profile, lastChords: kept });
+    },
     recordRun: (won) => {
       const p = get().profile;
       commit({ ...p, runs: p.runs + 1, wins: p.wins + (won ? 1 : 0) });

@@ -6,7 +6,9 @@ import { GLSL_COMMON, InstancedFx, groundQuad } from './fx/instanced';
 import { ORDER, type FxKit } from './fx/kit';
 import { PARTICLE } from './fx/particles';
 import { RING } from './fx/rings';
+import { SHELL } from './fx/shells';
 import { SPRITE } from './fx/sprites';
+import { CALLING_HEX, ECLIPSE_DARK_HEX, callingLook, emptyLook } from './callingCues';
 import { C, approach, auraColor, clamp01, color } from './palette';
 import {
   POUR_TRAVEL,
@@ -20,6 +22,9 @@ import {
   isFullEcho,
 } from './songs';
 
+/** Eclipse: how far past the rim the dark band reaches (the corona starts there). */
+const ECLIPSE_BAND = 0.6;
+
 const vertex = /* glsl */ `
 attribute vec4 iPos;   // x z radius extent
 attribute vec4 iC0;    // aura 1 rgb, aura count
@@ -27,6 +32,8 @@ attribute vec4 iC1;    // aura 2 rgb, planted (0 | 1)
 attribute vec4 iState; // suppressed crescendo blaze alpha
 attribute vec4 iExtra; // plant pop, seed, -, -
 attribute vec4 iRole;  // echo (0 | 1), loudness, band offset, -
+attribute vec4 iC2;    // aura 3 rgb (Third Voice), -
+attribute vec4 iLum;   // the Luminary: sunrise, eclipse, lantern, sovereign (0..1)
 varying vec2 vLocal;
 varying vec4 vPos;
 varying vec4 vC0;
@@ -34,6 +41,8 @@ varying vec4 vC1;
 varying vec4 vState;
 varying vec4 vExtra;
 varying vec4 vRole;
+varying vec4 vC2;
+varying vec4 vLum;
 void main() {
   vec2 local = position.xz * iPos.w;
   vLocal = local;
@@ -43,6 +52,8 @@ void main() {
   vState = iState;
   vExtra = iExtra;
   vRole = iRole;
+  vC2 = iC2;
+  vLum = iLum;
   vec3 world = vec3(iPos.x + local.x, 0.025, iPos.y + local.y);
   gl_Position = projectionMatrix * viewMatrix * vec4(world, 1.0);
 }`;
@@ -56,6 +67,8 @@ varying vec4 vC1;
 varying vec4 vState;
 varying vec4 vExtra;
 varying vec4 vRole;
+varying vec4 vC2;
+varying vec4 vLum;
 ${GLSL_COMMON}
 void main() {
   vec2 p = vLocal;
@@ -68,7 +81,13 @@ void main() {
   float seed = vExtra.y;
   float R = vPos.z * (1.0 - 0.1 * sup);
   int count = int(vC0.w + 0.5);
-  float hot = 1.0 + cre * 1.4 + blaze * 1.6;
+  // The Luminary (docs/phase-3c/vfx.md): its Sunrise burns brighter and more golden; a
+  // Lantern Bearer's planted field sings stronger; Sovereign Symphony crowns the field.
+  float sun = vLum.x;
+  float ecl = vLum.y;
+  float lantern = vLum.z * planted;
+  float sov = vLum.w;
+  float hot = (1.0 + cre * 1.4 + blaze * 1.6) * (1.0 + sun * 0.35) * (1.0 + lantern * 0.3);
   vec3 pre = vec3(0.0);
   float a = 0.0;
   vec3 avg = vec3(0.0);
@@ -77,9 +96,9 @@ void main() {
   // One band per aura in its colour. The field song (Phase 2 look): solid lines, a glow, glyph
   // ticks and an inner tint. The beam song's echo is quieter: thin dashed lines, a faint glow,
   // no ticks or tint, and slow "echo" ripples running out from the centre.
-  for (int i = 0; i < 2; i++) {
+  for (int i = 0; i < 3; i++) {
     if (i >= count) break;
-    vec3 c = i == 0 ? vC0.rgb : vC1.rgb;
+    vec3 c = i == 0 ? vC0.rgb : (i == 1 ? vC1.rgb : vC2.rgb);
     avg += c;
     float dir = (i == 1) ? -1.0 : 1.0;
     float broken = 1.0;
@@ -100,8 +119,8 @@ void main() {
       bandA = (line * (0.9 - 0.35 * full) + glow) * broken * hot * loud;
     } else {
       float ri = R - float(i) * 0.34;
-      float line = awAA(abs(d - ri) - (0.04 + 0.035 * cre + 0.02 * planted));
-      float glow = exp(-abs(d - ri) * (7.0 - 4.0 * cre)) * 0.32;
+      float line = awAA(abs(d - ri) - (0.04 + 0.035 * cre + 0.02 * planted + 0.02 * lantern));
+      float glow = exp(-abs(d - ri) * (7.0 - 4.0 * cre)) * (0.32 + 0.14 * lantern);
       // A Weaver field's glyph ticks drift; a planted field's stand still (it is anchored).
       float spin = (1.0 - planted) * dir * uTime * 0.05;
       float ticks = step(0.72, fract(ang / 6.2831853 * 40.0 + spin)) * awAA(abs(d - (ri - 0.16)) - 0.04);
@@ -130,7 +149,7 @@ void main() {
   if (planted > 0.5) {
     // Pedal Point: an outer staff ring with eight heavy notches, a dashed inner ring, faint
     // spokes and a centre rune (the stake seen from above). Nothing rotates: it is planted.
-    vec3 pc = mix(avg, vec3(1.0, 0.95, 0.82), 0.35);
+    vec3 pc = mix(mix(avg, vec3(1.0, 0.95, 0.82), 0.35), vec3(1.0, 0.86, 0.58), 0.4 * lantern);
     float outer = awAA(abs(d - (R + 0.3)) - 0.03);
     float notchSeg = step(0.92, fract(ang / 6.2831853 * 8.0 + 0.04));
     float notches = awAA(abs(d - (R + 0.15)) - 0.17) * notchSeg;
@@ -140,7 +159,7 @@ void main() {
       + awAA(d - 0.16);
     float spokes = awAA(abs(sin(ang * 4.0 + 0.785)) * d - 0.03)
       * smoothstep(1.0, 1.6, d) * (1.0 - smoothstep(R * 0.48, R * 0.55, d)) * 0.3;
-    float pa = (outer * 0.55 + notches * 0.65 + dash * 0.4 + rune * 0.85 + spokes) * hot;
+    float pa = (outer * (0.55 + 0.45 * lantern) + notches * 0.65 + dash * 0.4 + rune * 0.85 + spokes) * hot;
     if (echo > 0.5) pa *= 0.35 + 0.65 * loud;
     if (sup > 0.01) pa *= mix(1.0, step(0.4, awNoise2(vec2(ang * 5.0 + seed, floor(uTime * 9.0)))), sup);
     pre += pc * pa;
@@ -157,8 +176,44 @@ void main() {
   // Crescendo: rings of light flow outward through the field.
   if (cre > 0.01) {
     float wave = fract(d / max(R, 0.1) * 2.5 - uTime * 1.1);
-    float w = awAA(abs(wave - 0.5) - 0.025) * step(d, R) * cre * 0.6;
-    pre += mix(avg, vec3(1.0, 0.92, 0.7), 0.6) * w;
+    float w = awAA(abs(wave - 0.5) - (0.025 + 0.004 * sun)) * step(d, R) * cre * (0.6 + 0.2 * sun);
+    pre += mix(mix(avg, vec3(1.0, 0.92, 0.7), 0.6), vec3(1.0, 0.8, 0.42), 0.75 * sun) * w;
+    a += w;
+  }
+  // The Luminary's Sunrise: a golden corona on the rim and slow sun rays across the floor.
+  if (sun > 0.01) {
+    float quiet = echo > 0.5 ? 0.45 : 1.0;
+    float shimmer = 0.85 + 0.15 * sin(uTime * 2.0 + ang * 3.0);
+    float corona = exp(-abs(d - R) * 2.4) * 0.26 * shimmer;
+    float rays = pow(0.5 + 0.5 * sin(ang * 9.0 + uTime * 0.22), 12.0)
+      * smoothstep(R * 0.12, R * 0.85, d) * step(d, R) * 0.11;
+    float w = (corona + rays) * sun * quiet;
+    pre += vec3(1.0, 0.8, 0.44) * w;
+    a += w;
+  }
+  // Eclipse: a dark rim (drawn under the field by FieldView) ringed by a fiery corona whose
+  // streamers flicker outward, and a thin bright edge just inside it ("the diamond ring").
+  if (ecl > 0.01) {
+    float Re = R + (echo > 0.5 ? vRole.z : 0.0);
+    float o = d - (Re + ${ECLIPSE_BAND.toFixed(2)});
+    float n = awNoise2(vec2(ang * 6.0 + uTime * 0.3, uTime * 0.45 + seed));
+    float n2 = awNoise2(vec2(ang * 19.0 - uTime * 0.35, 3.1 + seed));
+    float streak = o > 0.0 ? exp(-o / (0.18 + 0.5 * n)) * (0.45 + 0.55 * n2) * smoothstep(0.0, 0.05, o) : 0.0;
+    float edge = awAA(abs(d - (Re - 0.04)) - 0.025) * 0.9;
+    float w = (streak * 1.1 + edge) * ecl;
+    pre += mix(vec3(1.0, 0.7, 0.3), vec3(1.0, 0.9, 0.62), edge) * w;
+    a += w;
+  }
+  // Sovereign Symphony: the field is crowned, a circlet just outside the rim with ten tines.
+  if (sov > 0.01) {
+    float f = abs(fract(ang / 6.2831853 * 10.0 + 0.25) - 0.5);
+    float tipH = 0.55 * (1.0 - f * 7.0);
+    float o = d - (R + 0.08);
+    float tine = smoothstep(-0.01, 0.02, tipH - o) * smoothstep(-0.02, 0.01, o) * step(0.0, tipH);
+    float band = awAA(abs(o) - 0.022);
+    float jewel = awAA(length(vec2(f * 0.6283185 * (R + 0.55), o - 0.6)) - 0.07);
+    float w = (tine * 0.5 + band * 0.8 + jewel) * sov * (1.0 + sun * 0.5);
+    pre += vec3(1.0, 0.9, 0.62) * w;
     a += w;
   }
   // Suppressed: cracks across the floor of the field and a flicker.
@@ -185,6 +240,10 @@ void main() {
 
 const MAX_FIELDS = 4;
 const STAKE_HOT = color('#fff4d6');
+const ECLIPSE_DARK = color(ECLIPSE_DARK_HEX);
+/** Lantern Bearer: the lantern's glass and its light. */
+const LANTERN_GLASS = color('#ffe9bd');
+const LANTERN_LIGHT = color(CALLING_HEX.sun);
 /** An echo sharing a field song's circle is drawn this far outside it, so both stay legible. */
 const ECHO_NUDGE = 0.32;
 
@@ -196,6 +255,8 @@ class FieldBatch extends InstancedFx {
   private readonly st: Float32Array;
   private readonly ex: Float32Array;
   private readonly role: Float32Array;
+  private readonly c2: Float32Array;
+  private readonly lum: Float32Array;
 
   constructor(readonly uniforms = { uTime: { value: 0 } }) {
     super(
@@ -209,7 +270,7 @@ class FieldBatch extends InstancedFx {
         blending: THREE.AdditiveBlending,
       }),
       MAX_FIELDS,
-      { iPos: 4, iC0: 4, iC1: 4, iState: 4, iExtra: 4, iRole: 4 },
+      { iPos: 4, iC0: 4, iC1: 4, iState: 4, iExtra: 4, iRole: 4, iC2: 4, iLum: 4 },
       ORDER.field,
     );
     this.pos = this.array('iPos');
@@ -218,7 +279,17 @@ class FieldBatch extends InstancedFx {
     this.st = this.array('iState');
     this.ex = this.array('iExtra');
     this.role = this.array('iRole');
+    this.c2 = this.array('iC2');
+    this.lum = this.array('iLum');
   }
+
+  /** The Luminary's look for the next push (reset by `begin`). */
+  lumSun = 0;
+  lumEclipse = 0;
+  lumLantern = 0;
+  lumSovereign = 0;
+  /** A third aura's colour (Third Voice) for the next push. */
+  third: THREE.Color | null = null;
 
   push(
     x: number,
@@ -265,6 +336,25 @@ class FieldBatch extends InstancedFx {
     this.role[o + 1] = loudness;
     this.role[o + 2] = offset;
     this.role[o + 3] = 0;
+    const t = this.third ?? a;
+    this.c2[o] = t.r;
+    this.c2[o + 1] = t.g;
+    this.c2[o + 2] = t.b;
+    this.c2[o + 3] = 0;
+    this.lum[o] = this.lumSun;
+    this.lum[o + 1] = this.lumEclipse;
+    this.lum[o + 2] = this.lumLantern;
+    this.lum[o + 3] = this.lumSovereign;
+  }
+
+  /** The instance data of field `i` (tests). */
+  instance(i: number): { count: number; lum: number[]; third: number[] } {
+    const o = i * 4;
+    return {
+      count: this.c0[o + 3]!,
+      lum: [this.lum[o]!, this.lum[o + 1]!, this.lum[o + 2]!, this.lum[o + 3]!],
+      third: [this.c2[o]!, this.c2[o + 1]!, this.c2[o + 2]!],
+    };
   }
 }
 
@@ -306,6 +396,15 @@ export class FieldView {
   private haloSince = 0;
   /** Lab-only override of the hymn circles (they normally need Cantor phase 2). */
   hymnOverride: { x: number; z: number; r: number }[] | null = null;
+  /** The Calling's look this frame (callingCues.ts). */
+  readonly look = emptyLook();
+  /** The Luminary, smoothed 0..1: its Sunrise, Eclipse in force, Sovereign Symphony. */
+  private lumSun = 0;
+  private lumEclipse = 0;
+  private lumSovereign = 0;
+  private lanternAcc = 0;
+  /** What was drawn last frame (tests, the lab): lanterns, eclipse rims, crowned fields. */
+  readonly drawn = { lanterns: 0, eclipseRims: 0, crowned: 0, thirdBands: 0 };
 
   constructor(private readonly entities: EntityLayer) {}
 
@@ -316,6 +415,11 @@ export class FieldView {
   /** `fieldPlanted`: the planted Chord's ring pops out from its new centre. */
   planted(chord: number): void {
     if (chord >= 0 && chord < MAX_FIELDS) this.pops[chord] = 1;
+  }
+
+  /** Field `i`'s instance data as last pushed (tests). */
+  batchInstance(i: number): { count: number; lum: number[]; third: number[] } {
+    return this.batch.instance(i);
   }
 
   /** How much of the beam song `hero` holds right now, 0..1 (render-side fade). */
@@ -353,11 +457,24 @@ export class FieldView {
     this.blaze = Math.max(0, this.blaze - dt * 1.2);
     this.suppressed = approach(this.suppressed, f.suppressed ? 1 : 0, 10, dt);
     this.crescendo = approach(this.crescendo, f.crescendo ? 1 : 0, 6, dt);
+    const look = callingLook(state, this.look);
+    this.lumSun = approach(this.lumSun, look.sunrise ? 1 : 0, 4, dt);
+    this.lumEclipse = approach(this.lumEclipse, look.eclipseOn ? 1 : 0, 3, dt);
+    this.lumSovereign = approach(this.lumSovereign, look.sovereign ? 1 : 0, 3, dt);
+    this.drawn.lanterns = 0;
+    this.drawn.eclipseRims = 0;
+    this.drawn.crowned = 0;
+    this.drawn.thirdBands = 0;
     const blazeK = 1 + this.blaze * 0.18;
     const wr = this.entities.recs.get(state.weaverId);
     const wx = wr ? wr.x : f.x;
     const wz = wr ? wr.z : f.z;
     this.batch.begin();
+    this.batch.lumSun = 0;
+    this.batch.lumEclipse = 0;
+    this.batch.lumLantern = 0;
+    this.batch.lumSovereign = 0;
+    this.batch.third = null;
 
     if (f.chords.length === 0) {
       // No Chord sung: a faint gold ring marks the Weaver's reach.
@@ -418,13 +535,48 @@ export class FieldView {
       const a1 = na > 1 ? auraColor(c.auras[1]!) : a0;
       const planted = c.anchor === 'planted';
       const pop = this.pops[i]!;
+      // The outermost field around its centre carries the rim accents (Eclipse, the crown).
+      let outer = true;
+      for (let j = 0; j < n; j++) {
+        if (j === i || this.fr[j]! <= 0) continue;
+        const dx = this.fx[j]! - this.fx[i]!;
+        const dz = this.fz[j]! - this.fz[i]!;
+        if (dx * dx + dz * dz < 0.25 && this.fr[j]! > radius + 1e-3) outer = false;
+      }
+      const lantern = planted && look.lantern;
+      const crowned = outer && !echo && this.lumSovereign > 0.01;
+      const eclipse = outer ? this.lumEclipse : 0;
+      this.batch.lumSun = this.lumSun;
+      this.batch.lumEclipse = eclipse;
+      this.batch.lumLantern = lantern ? 1 : 0;
+      this.batch.lumSovereign = crowned ? this.lumSovereign : 0;
+      this.batch.third = na > 2 ? auraColor(c.auras[2]!) : null;
+      if (na > 2) this.drawn.thirdBands++;
+      if (crowned) this.drawn.crowned++;
+      if (eclipse > 0.01) {
+        // The dark rim under the field (normal blending: it darkens the floor), the corona
+        // round it is in the field shader.
+        const R = (radius + offset) * (1 - 0.1 * this.suppressed);
+        kit.shadows.push(
+          this.fx[i]!,
+          0.02,
+          this.fz[i]!,
+          R + ECLIPSE_BAND * 0.5,
+          ECLIPSE_BAND,
+          0.12,
+          RING.plain,
+          ECLIPSE_DARK,
+          0.92 * eclipse,
+        );
+        this.drawn.eclipseRims++;
+      }
       this.batch.push(
         this.fx[i]!,
         this.fz[i]!,
         radius,
         a0,
         a1,
-        Math.max(1, Math.min(2, na)),
+        Math.max(1, Math.min(3, na)),
         planted,
         this.suppressed,
         this.crescendo,
@@ -438,9 +590,14 @@ export class FieldView {
       );
       if (planted) {
         const loud = echo && !isFullEcho(c) ? 0.6 : 1;
-        this.stake(this.fx[i]!, this.fz[i]!, a0, a1, kit, dt, time, pop, loud);
+        this.stake(this.fx[i]!, this.fz[i]!, a0, a1, kit, dt, time, pop, loud, lantern);
       }
     }
+    this.batch.lumSun = 0;
+    this.batch.lumEclipse = 0;
+    this.batch.lumLantern = 0;
+    this.batch.lumSovereign = 0;
+    this.batch.third = null;
     this.batch.end();
     this.beam(state, kit, dt, time);
 
@@ -498,6 +655,7 @@ export class FieldView {
     time: number,
     pop: number,
     loud: number,
+    lantern = false,
   ): void {
     const sup = this.suppressed;
     const vis = (1 - 0.55 * sup) * loud;
@@ -505,8 +663,11 @@ export class FieldView {
     kit.beams.push(x, 0.02, z, x, h, z, 0.34, BEAM.glow, a0, 0.55 * vis);
     kit.beams.push(x, 0.02, z, x, h * 0.92, z, 0.1, BEAM.glow, STAKE_HOT, 0.9 * vis);
     const bob = Math.sin(time * 2.4) * 0.05;
-    kit.sprites.push(x, h + 0.12 + bob, z, 0.3 + pop * 0.3, SPRITE.diamond, a1, 0.95 * vis);
-    kit.sprites.push(x, h + 0.12 + bob, z, 0.55 + pop * 0.6, SPRITE.glow, a0, 0.5 * vis);
+    if (lantern) this.lantern(x, z, h, a0, kit, dt, time, pop, vis);
+    else {
+      kit.sprites.push(x, h + 0.12 + bob, z, 0.3 + pop * 0.3, SPRITE.diamond, a1, 0.95 * vis);
+      kit.sprites.push(x, h + 0.12 + bob, z, 0.55 + pop * 0.6, SPRITE.glow, a0, 0.5 * vis);
+    }
     kit.rings.push(x, 0.03, z, 0.75, 0.06, 0.18, RING.plain, STAKE_HOT, 0.65 * vis);
     this.stakeAcc += dt * 5 * kit.particles.density * loud;
     while (this.stakeAcc > 1) {
@@ -525,6 +686,94 @@ export class FieldView {
         0.85 * vis,
         PARTICLE.note,
         0.4,
+        -0.1,
+      );
+    }
+  }
+
+  /**
+   * Lantern Bearer: the stake's head becomes a lantern. A glass body of warm light hangs from
+   * a crossbar on the stake, with a cap and a finial, a flickering glow, a pool of its light on
+   * the ground and warm motes. The field shader draws the planted ring stronger and warmer.
+   */
+  private lantern(
+    x: number,
+    z: number,
+    h: number,
+    a0: THREE.Color,
+    kit: FxKit,
+    dt: number,
+    time: number,
+    pop: number,
+    vis: number,
+  ): void {
+    this.drawn.lanterns++;
+    const flick = 0.88 + 0.08 * Math.sin(time * 9.1) + 0.04 * Math.sin(time * 23.7);
+    const sway = Math.sin(time * 1.7) * 0.025;
+    const ly = h + 0.36 + pop * 0.2;
+    // Crossbar and hanger.
+    kit.beams.push(
+      x - 0.22,
+      h + 0.02,
+      z,
+      x + 0.22,
+      h + 0.02,
+      z,
+      0.06,
+      BEAM.glow,
+      STAKE_HOT,
+      0.8 * vis,
+    );
+    kit.beams.push(x, h + 0.02, z, x + sway, ly + 0.27, z, 0.035, BEAM.glow, STAKE_HOT, 0.7 * vis);
+    // The glass body, its cap and finial, and the flame inside.
+    kit.shells.push(
+      x + sway,
+      ly,
+      z,
+      0.28,
+      0.38,
+      0.28,
+      SHELL.flare,
+      LANTERN_GLASS,
+      0.62 * vis * flick,
+      0,
+      0.15 * pop,
+      false,
+      x * 3.1 + z,
+    );
+    kit.sprites.push(x + sway, ly + 0.44, z, 0.22, SPRITE.diamond, STAKE_HOT, 0.9 * vis);
+    kit.sprites.push(x + sway, ly - 0.42, z, 0.13, SPRITE.diamond, STAKE_HOT, 0.8 * vis);
+    kit.sprites.push(x + sway, ly, z, 0.5 * flick, SPRITE.glow, C.goldHot, 1 * vis);
+    kit.sprites.push(
+      x + sway,
+      ly,
+      z,
+      (2.6 + pop * 0.8) * flick,
+      SPRITE.glow,
+      LANTERN_LIGHT,
+      0.42 * vis,
+    );
+    kit.sprites.push(x + sway, ly, z, 1.0, SPRITE.glow, a0, 0.22 * vis);
+    // Its light on the ground.
+    kit.rings.push(x, 0.028, z, 3.4, 0, 0, RING.soft, LANTERN_LIGHT, vis, 0, 7, 0.26 * flick);
+    kit.rings.push(x, 0.032, z, 1.25, 0.05, 0.2, RING.plain, LANTERN_LIGHT, 0.5 * vis);
+    this.lanternAcc += dt * 4 * kit.particles.density;
+    while (this.lanternAcc > 1) {
+      this.lanternAcc -= 1;
+      const ang = Math.random() * Math.PI * 2;
+      kit.particles.emit(
+        x + Math.cos(ang) * 0.15,
+        ly + 0.1,
+        z + Math.sin(ang) * 0.15,
+        Math.cos(ang) * 0.2,
+        0.6,
+        Math.sin(ang) * 0.2,
+        1.2,
+        0.08,
+        LANTERN_LIGHT,
+        0.85 * vis,
+        PARTICLE.dot,
+        0.5,
         -0.1,
       );
     }

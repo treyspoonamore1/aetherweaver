@@ -72,15 +72,8 @@ export const useRun = create<RunStore>()((set, get) => {
     setCalling: (id) => apply((run) => Run.setCalling(run, id, useProfile.getState().allowance())),
     embark: () => {
       const profile = useProfile.getState();
-      const allowance = profile.allowance();
-      // Chords picked while "Skip the unlocks" was on don't outlive turning it off.
-      apply((run) =>
-        Run.embark(
-          Run.chordsAllowed(run.chords, allowance)
-            ? run
-            : { ...run, chords: Run.DEFAULT_CHORDS.map((c) => ({ ...c, auras: [...c.auras] })) },
-        ),
-      );
+      // Chords or a Calling picked while "Skip the unlocks" was on don't outlive turning it off.
+      apply((run) => Run.embark(run, profile.allowance()));
       const run = get().run;
       if (run?.phase === 'map') profile.rememberChords(run.chords);
     },
@@ -99,13 +92,11 @@ export const useRun = create<RunStore>()((set, get) => {
     },
     continueFromResult: () => apply(Run.continueFromResult),
     pickCalling: (index, chords) => {
+      const before = get().run;
       apply((run) => Run.pickCalling(run, index, chords, useProfile.getState().allowance()));
       const run = get().run;
-      if (
-        chords &&
-        run &&
-        Run.chordsAllowed(chords, useProfile.getState().allowance(), Run.fieldAuraSlots(run))
-      )
+      // Third Voice's free retune took.
+      if (run && before && run.chords !== before.chords)
         useProfile.getState().rememberChords(run.chords);
     },
     pickRelic: (index) => apply((run) => Run.pickRelic(run, index)),

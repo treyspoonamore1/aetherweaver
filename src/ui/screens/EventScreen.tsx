@@ -137,6 +137,8 @@ export function EventView({
         />
         <RunStrip
           className="mt-4 w-fit"
+          calling={run.calling}
+          map={run.map}
           aether={run.aether}
           purse={false}
           relics={run.relics}

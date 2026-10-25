@@ -9,8 +9,11 @@ import { Icon, type IconName } from '../kit/Icon';
 import { KeyCap } from '../kit/KeyCap';
 import { Panel } from '../kit/Panel';
 import { playUi } from '../kit/sound';
+import { CallingGlyph, callingLook } from '../kit/CallingGlyph';
 import {
   anchorLabel,
+  auraSlotsFor,
+  isBonusSlot,
   chordNumbers,
   itemLock as itemLockOf,
   itemName,
@@ -41,6 +44,16 @@ export const SONG_LOOK = {
 
 const NO_FRESH: ReadonlySet<string> = new Set();
 
+/** Who added the field song's extra aura slots (the Luminary's Third Voice), to mark them. */
+export interface SlotBonus {
+  /** "Third Voice". */
+  name: string;
+  /** The option's glyph key. */
+  icon: string;
+  /** The Calling, for its colour. */
+  callingId: string;
+}
+
 /** "in the beam song" for the palette's tags. */
 function inSong(index: number): string {
   return `in the ${songName(index).toLowerCase()}`;
@@ -61,22 +74,32 @@ export function ChordBuilder({
   onChange,
   allowance = EVERYTHING,
   fresh = NO_FRESH,
+  fieldAuraSlots = CONTENT.weaver.auraSlots,
+  bonus = null,
 }: {
   value: ChordLoadout[];
   onChange(next: ChordLoadout[]): void;
   allowance?: Allowance;
   fresh?: ReadonlySet<string>;
+  /** The field song's aura slots: `Run.fieldAuraSlots(run)` (Third Voice adds one). */
+  fieldAuraSlots?: number;
+  /** Who added the extra field slots, to mark them (null: no extra slots). */
+  bonus?: SlotBonus | null;
 }) {
   const w = CONTENT.weaver;
   const firstEmpty = (): SlotRef => {
     for (let c = 0; c < value.length; c++) {
       const ref: SlotRef = { chord: c, kind: 'aura', index: value[c]!.auras.length };
-      if (value[c]!.auras.length < w.auraSlots && slotLock(allowance, ref) === null) return ref;
+      if (
+        value[c]!.auras.length < auraSlotsFor(c, fieldAuraSlots) &&
+        slotLock(allowance, ref) === null
+      )
+        return ref;
     }
     return { chord: 0, kind: 'aura', index: 0 };
   };
   const [selected, setSelected] = useState<SlotRef>(firstEmpty);
-  const problems = loadoutProblems(value, allowance);
+  const problems = loadoutProblems(value, allowance, fieldAuraSlots);
   const budget = spiritBudget(value);
   const preset = presetFor(value);
 
@@ -87,7 +110,8 @@ export function ChordBuilder({
     // Move on to the next empty, open slot of the same kind in this song, if there is one.
     const list =
       selected.kind === 'aura' ? next[selected.chord]!.auras : next[selected.chord]!.ornaments;
-    const cap = selected.kind === 'aura' ? w.auraSlots : w.ornamentSlots;
+    const cap =
+      selected.kind === 'aura' ? auraSlotsFor(selected.chord, fieldAuraSlots) : w.ornamentSlots;
     const ref = { ...selected, index: list.length };
     if (list.length < cap && slotLock(allowance, ref) === null) setSelected(ref);
   };
@@ -204,6 +228,8 @@ export function ChordBuilder({
                 index={i}
                 allowance={allowance}
                 fresh={fresh}
+                auraSlots={auraSlotsFor(i, fieldAuraSlots)}
+                bonus={bonus}
                 selected={selected.chord === i ? selected : null}
                 onSelect={(ref) => {
                   playUi('click');
@@ -295,6 +321,8 @@ function SongCard({
   index,
   allowance,
   fresh,
+  auraSlots,
+  bonus,
   selected,
   onSelect,
   onRemove,
@@ -303,6 +331,8 @@ function SongCard({
   index: number;
   allowance: Allowance;
   fresh: ReadonlySet<string>;
+  auraSlots: number;
+  bonus: SlotBonus | null;
   selected: SlotRef | null;
   onSelect(ref: SlotRef): void;
   onRemove(ref: SlotRef): void;
@@ -373,12 +403,20 @@ function SongCard({
           </dl>
           <p className="mb-1.5 mt-3 text-xs font-semibold uppercase tracking-wider text-muted">
             Auras
+            {bonus && auraSlots > w.auraSlots && (
+              <span className="font-normal normal-case tracking-normal">
+                {' '}
+                · {bonus.name} adds a {auraSlots === 3 ? 'third' : 'new'} slot: it needs Spirit, and
+                Grace Note helps
+              </span>
+            )}
           </p>
           <div className="grid grid-cols-2 gap-2">
-            {Array.from({ length: w.auraSlots }, (_, i) => (
+            {Array.from({ length: auraSlots }, (_, i) => (
               <Slot
                 key={i}
                 slot={{ chord: index, kind: 'aura', index: i }}
+                bonus={isBonusSlot({ chord: index, kind: 'aura', index: i }) ? bonus : null}
                 id={chord.auras[i]}
                 lock={lock}
                 itemLock={
@@ -464,8 +502,11 @@ function Slot({
   onSelect,
   onRemove,
   note,
+  bonus = null,
 }: {
   slot: SlotRef;
+  /** A slot a Calling added (Third Voice): marked with its glyph and name, full width. */
+  bonus?: SlotBonus | null;
   id: string | undefined;
   /** The Rank that opens this slot (null: open). A filled locked slot can still be emptied. */
   lock: number | null;
@@ -499,23 +540,43 @@ function Slot({
       </div>
     );
   }
+  const bonusLook = bonus ? callingLook(bonus.callingId) : null;
   return (
-    <div className="relative">
+    <div
+      className={`relative ${bonus ? 'col-span-2' : ''}`}
+      data-bonus-slot={bonus ? '' : undefined}
+    >
+      {bonus && bonusLook && (
+        <span
+          className="pointer-events-none absolute -top-2 right-2 z-10 inline-flex items-center gap-1 rounded-md border bg-ink-900 px-1.5 text-[11px] font-semibold leading-4"
+          style={{ color: bonusLook.color, borderColor: bonusLook.color }}
+          aria-hidden
+        >
+          <CallingGlyph icon={bonus.icon} size={12} /> {bonus.name}
+        </span>
+      )}
       <button
         type="button"
         aria-pressed={selected}
         disabled={lock !== null && !def}
         aria-label={
-          def
+          (def
             ? `${song} ${kindName} slot ${slot.index + 1}: ${def.name}. Select to change, Delete to remove`
-            : `${song} ${kindName} slot ${slot.index + 1}: empty. Select to fill`
+            : `${song} ${kindName} slot ${slot.index + 1}: empty. Select to fill`) +
+          (bonus ? `. ${bonus.name}’s slot` : '')
         }
         onClick={() => onSelect(slot)}
         onKeyDown={onKey}
         className={`flex h-12 w-full items-center gap-2 rounded-lg border px-2.5 text-left transition-colors ${
           selected && lock === null ? 'ring-2 ring-gold-300' : ''
         } ${def ? 'bg-ink-800' : 'border-dashed bg-ink-900/40 hover:bg-ink-800'} ${locked !== null ? 'border-dashed' : ''}`}
-        style={{ borderColor: def ? def.color : 'var(--color-ink-500)' }}
+        style={{
+          borderColor: def ? def.color : (bonusLook?.color ?? 'var(--color-ink-500)'),
+          background:
+            bonusLook && !def
+              ? `color-mix(in srgb, ${bonusLook.color} 8%, rgb(10 16 34 / 0.6))`
+              : undefined,
+        }}
       >
         {def ? (
           <>

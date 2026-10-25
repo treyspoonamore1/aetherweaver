@@ -143,11 +143,17 @@ describe('save migration', () => {
     const json = JSON.parse(JSON.stringify(run)) as Record<string, unknown>;
     delete json.calling;
     delete json.callingOffer;
+    // Phase 3b results had no Calling stats.
+    for (const r of json.results as { stats: Record<string, unknown> }[]) {
+      delete r.stats.callingAmplified;
+      delete r.stats.callingShielded;
+    }
     const store = memoryStore();
     store.data.set('aetherweaver.run', JSON.stringify({ ...json, version: 4 }));
     const loaded = loadRun(store)!;
     expect(loaded).toMatchObject({ version: 5, calling: null, callingOffer: null });
     expect(loaded.aether).toBe(run.aether);
+    expect(loaded.results[0]!.stats).toMatchObject({ callingAmplified: 0, callingShielded: 0 });
   });
 
   it('loads a Phase 3 save: the run gains an empty purse, no relics and no boons', () => {

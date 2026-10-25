@@ -7,6 +7,10 @@ import * as THREE from 'three';
  *   aFx   = (hitFlash, dissolve, desaturate, ghost)
  *   aTint = (rim rgb, rim strength) — fresnel rim for "in aura", threaded, Save, affixes;
  *           also the glow colour of the dissolve edge.
+ *   aShine = (shine, sunrise) — the Luminary's sunlight on a hero standing in the field
+ *           (docs/phase-3c/vfx.md): light falling on the head and shoulders, a soft warm
+ *           lift, more golden in Sunrise. Added on top of the rim, so the aura tint keeps
+ *           its colour.
  *
  * Accent parts (`aGlow` vertex attribute) are emissive in their own vertex colour.
  */
@@ -33,15 +37,17 @@ export function createModelMaterial(): ModelMaterial {
 attribute float aGlow;
 attribute vec4 aFx;
 attribute vec4 aTint;
+attribute vec2 aShine;
 varying float vGlow;
 varying vec4 vFx;
 varying vec4 vTint;
+varying vec2 vShine;
 varying vec3 vObjPos;`,
       )
       .replace(
         '#include <begin_vertex>',
         `#include <begin_vertex>
-vGlow = aGlow; vFx = aFx; vTint = aTint; vObjPos = position;`,
+vGlow = aGlow; vFx = aFx; vTint = aTint; vShine = aShine; vObjPos = position;`,
       );
     shader.fragmentShader = shader.fragmentShader
       .replace(
@@ -52,6 +58,7 @@ uniform float uGlow;
 varying float vGlow;
 varying vec4 vFx;
 varying vec4 vTint;
+varying vec2 vShine;
 varying vec3 vObjPos;
 float awHash(vec3 p) {
   p = fract(p * 0.3183099 + vec3(0.1, 0.2, 0.3));
@@ -94,9 +101,19 @@ float awFres = pow(1.0 - clamp(abs(dot(normalize(normal), normalize(vViewPositio
 totalEmissiveRadiance += vTint.rgb * vTint.a * (0.18 + awFres * 1.9);
 totalEmissiveRadiance += vec3(1.0, 0.97, 0.92) * vFx.x * vFx.x * 1.2;
 totalEmissiveRadiance += vTint.rgb * awEdge * 4.0;
-totalEmissiveRadiance += vec3(1.0, 0.9, 0.6) * awGhost * 0.9;`,
+totalEmissiveRadiance += vec3(1.0, 0.9, 0.6) * awGhost * 0.9;
+if (vShine.x > 0.001) {
+  // Sunlight from above: brightest on the head and shoulders, a soft lift everywhere else.
+  vec3 awUpV = normalize((viewMatrix * vec4(0.0, 1.0, 0.0, 0.0)).xyz);
+  float awUp = clamp(dot(normalize(normal), awUpV), 0.0, 1.0);
+  float awTop = smoothstep(0.15, 1.0, awUp);
+  vec3 awSun = mix(vec3(1.0, 0.88, 0.62), vec3(1.0, 0.76, 0.36), vShine.y);
+  float awFlick = 0.92 + 0.08 * sin(uTime * 3.7 + vObjPos.y * 4.0);
+  float awRim = pow(1.0 - clamp(abs(dot(normalize(normal), normalize(vViewPosition))), 0.0, 1.0), 2.6);
+  totalEmissiveRadiance += awSun * vShine.x * (0.05 + awTop * 0.42 + awRim * 0.38) * awFlick;
+}`,
       );
   };
-  material.customProgramCacheKey = () => 'aw-model-v1';
+  material.customProgramCacheKey = () => 'aw-model-v2';
   return { material, uniforms };
 }

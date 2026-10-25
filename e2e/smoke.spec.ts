@@ -221,3 +221,59 @@ test('Phase 3b: a merchant through the test hook — buy, the purse drops, leave
   await expect.poll(() => page.evaluate(() => window.__AWRUN__!.phase())).toBe('map');
   expect(errors).toEqual([]);
 });
+
+test('Phase 3c: the Luminary — skip the unlocks, choose it in Prep, win First Light, take tier I', async ({
+  page,
+}) => {
+  const errors = trackErrors(page);
+  await page.goto(START_URL);
+  await page.waitForFunction(() => window.__AWRUN__ !== undefined);
+  // Settings → Progress → Skip the unlocks (a new profile is Rank 1: the Luminary is Rank 7).
+  await page
+    .getByRole('button', { name: /^Settings$/ })
+    .first()
+    .click();
+  await page.getByText('Skip the unlocks', { exact: true }).click();
+  await expect(page.getByRole('switch', { name: /Skip the unlocks/ })).toBeChecked();
+
+  await page.evaluate(() => window.__AWRUN__!.newRun(4242));
+  await expect.poll(() => page.evaluate(() => window.__AWRUN__!.phase())).toBe('prep');
+  // The Calling picker: choose the Luminary by clicking its card.
+  await page.getByRole('radio', { name: /^The Luminary/ }).click();
+  await expect(page.getByRole('radio', { name: /^The Luminary.*chosen/ })).toBeVisible();
+  expect(await page.evaluate(() => window.__AWRUN__!.calling())).toEqual({
+    id: 'luminary',
+    path: [null, null, null, null],
+  });
+  await page
+    .getByRole('button', { name: /Embark/i })
+    .first()
+    .click();
+  await expect.poll(() => page.evaluate(() => window.__AWRUN__!.phase())).toBe('map');
+  // The strip carries the Calling; First Light is marked as the fight that grows it.
+  await expect(page.getByTestId('calling-strip')).toBeVisible();
+  await expect(page.getByTestId('calling-mark').first()).toBeVisible();
+
+  // First Light, won through the hook (no need to play it here).
+  expect(await page.evaluate(() => window.__AWRUN__!.choose())).toBe('skirmish');
+  await expect.poll(() => page.evaluate(() => window.__AWRUN__!.phase())).toBe('combat');
+  expect(await page.evaluate(() => window.__AWRUN__!.winFight())).toBe(true);
+  await expect.poll(() => page.evaluate(() => window.__AWRUN__!.phase())).toBe('result');
+  const next = page.getByRole('button', { name: /Continue: your Calling grows/ });
+  await expect(next).toBeVisible();
+  // A new profile's first win may reach Rank 2: its card sits over the Result until dismissed.
+  if (await page.getByTestId('rank-up').isVisible())
+    await page.getByRole('button', { name: /Onward/ }).click();
+  await next.click();
+  await expect.poll(() => page.evaluate(() => window.__AWRUN__!.phase())).toBe('calling');
+  await expect(page.getByRole('heading', { name: 'Your Calling grows' })).toBeVisible();
+  // Past the arrival guard, key 1 takes the first option (Haloed); the draft follows.
+  await page.waitForTimeout(700);
+  await page.keyboard.press('1');
+  await expect.poll(() => page.evaluate(() => window.__AWRUN__!.phase())).toBe('draft');
+  expect(await page.evaluate(() => window.__AWRUN__!.calling())).toEqual({
+    id: 'luminary',
+    path: ['haloed', null, null, null],
+  });
+  expect(errors).toEqual([]);
+});

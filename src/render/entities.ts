@@ -9,6 +9,7 @@ import type { FxKit } from './fx/kit';
 import { ModelBatch } from './models/batch';
 import { buildCrown, buildEnemy, buildHero, buildWeaver } from './models/library';
 import type { ModelMaterial } from './models/material';
+import { shineLevel, shineOf } from './callingCues';
 import { C, approach, auraColor, clamp01, color } from './palette';
 import {
   POUR_TRAVEL,
@@ -58,6 +59,15 @@ export interface EntityRec {
   bleedMax: number;
   smokeAcc: number;
   sparkleAcc: number;
+  /**
+   * The Luminary (docs/phase-3c/vfx.md): how brightly this hero shines (the shine level,
+   * 0..1.6, smoothed: a quick brighten into the field, a slower fade out), and how much they
+   * stand in the field (0..1, smoothed; Haloed's halo follows it).
+   */
+  shine: number;
+  lit: number;
+  /** Real seconds since this hero last stepped into the light (the kindle flare). */
+  kindled: number;
   lastHp: number;
   alive: boolean;
 }
@@ -133,6 +143,8 @@ export class EntityLayer {
   weaverId: EntityId = -1;
   /** Real seconds of the frame (presentation clock). */
   private now = 0;
+  /** The Luminary's Sunrise, smoothed (0..1): the heroes' light turns more golden. */
+  sunrise = 0;
 
   constructor(private readonly model: ModelMaterial) {
     this.group.name = 'entities';
@@ -264,6 +276,9 @@ export class EntityLayer {
       bleedMax: 0,
       smokeAcc: 0,
       sparkleAcc: 0,
+      shine: 0,
+      lit: e.hero?.inField ? 1 : 0,
+      kindled: 10,
       lastHp: e.health?.hp ?? 0,
       alive: true,
     };
@@ -401,6 +416,8 @@ export class EntityLayer {
     this.beamFullEcho = beam ? isFullEcho(beam) : false;
     this.beamLevel = beam ? focusLevel(beam.focus) : 0;
     this.beamAllIn = beam ? isAllIn(beam) : false;
+    const lum = state.calling?.id === 'luminary';
+    this.sunrise = approach(this.sunrise, lum && state.field.crescendo ? 1 : 0, 4, dt);
     const target = beam?.threadHero ?? null;
     if (target !== this.beamTarget) {
       this.beamTarget = target;
@@ -638,7 +655,27 @@ export class EntityLayer {
     }
 
     const m = this.compose(x + ox, y, z + oz, rec.yaw, pitch, roll, scale);
-    rec.batch.push(m, rec.flash, dissolve, desat, ghost, this.tint, tintStrength);
+    if (isHero) {
+      // The Luminary's Radiance: a hero standing in the field shines (brighten in ~0.15 s,
+      // fade out in ~0.5 s, so stepping in and out reads without a pop).
+      const target = held ? 0 : shineLevel(shineOf(state, e));
+      if (target > 0.05 && rec.shine < 0.05) rec.kindled = 0;
+      else rec.kindled += dt;
+      rec.shine = approach(rec.shine, target, target > rec.shine ? 9 : 4.5, dt);
+      if (rec.shine < (target > 0 ? 0.002 : 0.02)) rec.shine = 0;
+      rec.lit = approach(rec.lit, e.hero?.inField && !downed ? 1 : 0, 6, dt);
+    }
+    rec.batch.push(
+      m,
+      rec.flash,
+      dissolve,
+      desat,
+      ghost,
+      this.tint,
+      tintStrength,
+      Math.min(1.1, rec.shine) * (1 - desat),
+      this.sunrise,
+    );
 
     // Blob shadow (fodder has no shadow-map shadow) and selection rings.
     kit.shadows.push(

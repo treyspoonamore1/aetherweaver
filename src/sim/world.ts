@@ -418,9 +418,13 @@ export function createWorld(config: SimConfig): World {
         anchor: c.anchor,
         x: 0,
         z: 0,
+        // As the field update sizes it (the Luminary's field song reaches farther).
         radius:
           c.auras.length > 0 && c.echo > 0
-            ? Math.min(content.weaver.fieldRadiusCap, baseRadius * c.radiusMult)
+            ? Math.min(
+                content.weaver.fieldRadiusCap,
+                baseRadius * c.radiusMult * (c.role === 'field' ? mods.fieldSongRadiusMult : 1),
+              )
             : 0,
         effectMult: c.effectMult,
         focus: c.focus,

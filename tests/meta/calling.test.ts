@@ -177,6 +177,46 @@ describe('the path, picked during the run', () => {
   });
 });
 
+describe('what a pick can and can’t change', () => {
+  it('only an option that grants a slot comes with a free retune', () => {
+    let run = luminaryRun();
+    run = Run.chooseNode(run, run.map.rows[0]![0]!.id);
+    run = Run.continueFromResult(Run.finishCombat(run, win(run)));
+    const other = [
+      { auras: ['allegro'], ornaments: [] },
+      { auras: ['ostinato'], ornaments: [] },
+    ];
+    const picked = Run.pickCalling(run, 0, other);
+    expect(picked.calling!.path[0]).toBe('haloed');
+    expect(picked.chords).toEqual(run.chords);
+  });
+
+  it('Chords or a Calling picked with the unlocks skipped don’t outlive turning them off', () => {
+    const chosen = Run.setCalling(Run.newRun(3), 'luminary', EVERYTHING);
+    expect(Run.embark(chosen, allowanceFor(6)).calling).toBeNull();
+    expect(Run.embark(chosen, allowanceFor(7)).calling).toEqual(chosen.calling);
+    expect(Run.embark(chosen).calling).toEqual(chosen.calling);
+    const locked = Run.setChords(Run.newRun(3), [
+      { auras: ['fortissimo'], ornaments: [] },
+      { auras: ['fermata'], ornaments: [] },
+    ]);
+    expect(Run.embark(locked, allowanceFor(1)).chords).toEqual(Run.DEFAULT_CHORDS);
+    expect(Run.embark(locked).chords).toEqual(locked.chords);
+  });
+
+  it('Third Voice’s third aura isn’t remembered for the next run', () => {
+    const three = [
+      { auras: ['fortissimo'], ornaments: [] },
+      { auras: ['sostenuto', 'ostinato', 'allegro'], ornaments: ['grace_note'] },
+    ];
+    expect(Run.chordsToRemember(three)).toEqual([
+      { auras: ['fortissimo'], ornaments: [] },
+      { auras: ['sostenuto', 'ostinato'], ornaments: ['grace_note'] },
+    ]);
+    expect(Run.chordsToRemember(GUARDIAN)).toEqual(GUARDIAN);
+  });
+});
+
 describe('saves', () => {
   it('a run with a Calling and a tier on offer saves and loads', () => {
     let run = luminaryRun();

@@ -52,6 +52,17 @@ export interface RunHook {
   leaveEvent(): void;
   pickRelic(index: number | null): void;
   leaveForge(): void;
+  /** Phase 3c: Prep, choose the run's Calling (null: none). Respects the profile's unlocks. */
+  setCalling(id: string | null): void;
+  /** The run's Calling and its path so far (null: none). */
+  calling(): { id: string; path: (string | null)[] } | null;
+  /** Calling: take option `index` of the tier on offer. */
+  pickCalling(index: 0 | 1): void;
+  /**
+   * Test-only: in combat, end the fight as a plain victory (an empty ledger, the party as it
+   * came in) through the run store, without playing it. Returns false outside a fight.
+   */
+  winFight(): boolean;
 }
 
 declare global {

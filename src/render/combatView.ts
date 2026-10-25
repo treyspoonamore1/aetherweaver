@@ -3,6 +3,7 @@ import { heroDef } from '../content';
 import type { SimEvent, WorldState } from '../sim';
 import { ArenaView } from './arena';
 import { CallView } from './calls';
+import { CallingView } from './calling';
 import { EntityLayer } from './entities';
 import { FermataView } from './fermata';
 import { Feedback } from './feedback';
@@ -37,6 +38,7 @@ export class CombatView implements WorldView {
   readonly fermata: FermataView;
   readonly feedback: Feedback;
   readonly relics: RelicView;
+  readonly calling: CallingView;
   private quality: QualityTier;
   private readonly bufferSize = new THREE.Vector2();
   private readonly heroHex = new Map<number, string>();
@@ -80,6 +82,11 @@ export class CombatView implements WorldView {
       overlay: this.overlay,
       rig: ctx.rig,
     });
+    this.calling = new CallingView({
+      kit: this.kit,
+      recs: this.entities.recs,
+      overlay: this.overlay,
+    });
     this.quality = ctx.quality;
     this.setQuality(ctx.quality);
     void state;
@@ -105,8 +112,10 @@ export class CombatView implements WorldView {
     this.thread.sync(state, this.kit, fxDt, frame.time);
     this.calls.sync(state, this.kit, this.overlay, fxDt);
     this.fermata.sync(state, this.kit, this.overlay, fxDt, frame.time);
+    this.feedback.sunWarmth = this.calling.warmth;
     this.feedback.sync(state, frame, fxDt);
     this.relics.sync(state, fxDt, frame.time, frame.settings.flashes);
+    this.calling.sync(state, fxDt, frame.time, frame.settings.flashes);
     this.offscreen(state);
     this.aimMarker(state, frame);
 
@@ -122,6 +131,7 @@ export class CombatView implements WorldView {
     if (this.disposed) return;
     this.feedback.handle(events, state);
     this.relics.handle(events, state);
+    this.calling.handle(events, state);
   }
 
   setQuality(quality: QualityTier): void {

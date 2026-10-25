@@ -436,7 +436,7 @@ function ChordGroup({
     : `Field song: everyone within ${Number(c.radius.toFixed(1))} m of ${c.anchor === 'planted' ? 'where you planted it' : 'you'} hears it at full strength.`;
   return (
     <span
-      className="flex items-center gap-1 rounded-lg border bg-ink-950/40 py-0.5 pl-1.5 pr-1"
+      className="flex flex-wrap items-center justify-end gap-1 rounded-lg border bg-ink-950/40 py-0.5 pl-1.5 pr-1"
       style={{ borderColor: `color-mix(in srgb, ${accent} 45%, transparent)` }}
       role="group"
       aria-label={title}
@@ -493,7 +493,7 @@ function ChordGroup({
         return (
           <span
             key={o.id}
-            className="flex items-center gap-0.5 rounded-md border px-1 py-0.5 text-xs"
+            className="flex items-center gap-0.5 whitespace-nowrap rounded-md border px-1 py-0.5 text-xs"
             style={{
               color: o.color,
               borderColor: `color-mix(in srgb, ${o.color} 45%, transparent)`,
@@ -512,7 +512,7 @@ function ChordGroup({
 function AuraChip({ aura, suppressed }: { aura: AuraHud; suppressed: boolean }) {
   return (
     <span
-      className={`flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-xs font-medium ${suppressed ? 'opacity-45' : ''}`}
+      className={`flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-0.5 text-xs font-medium ${suppressed ? 'opacity-45' : ''}`}
       style={{
         color: aura.color,
         borderColor: `color-mix(in srgb, ${aura.color} 55%, transparent)`,

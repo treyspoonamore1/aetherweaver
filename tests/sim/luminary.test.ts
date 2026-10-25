@@ -4,11 +4,11 @@
  */
 import { describe, expect, it } from 'vitest';
 import { CONTENT, callingOption } from '../../src/content';
-import { dealDamage, radianceOf } from '../../src/sim/combat/health';
+import { addShield, dealDamage, radianceOf } from '../../src/sim/combat/health';
 import { KNOWN_CALLINGS, KNOWN_CALLING_OPTIONS, resolveMods } from '../../src/sim/mods';
 import { updateField } from '../../src/sim/systems/field';
 import { resolveConfig } from '../../src/sim/world';
-import { hero, hurt, ofType, sandbox, spawn, stepFor, worldOf } from './helpers';
+import { hero, hurt, ofType, sandbox, spawn, stepFor, telegraphOn, worldOf } from './helpers';
 
 const luminary = (...path: string[]) => ({ calling: { id: 'luminary', path } });
 const value = (option: string, key: string) => callingOption(option).values[key]!;
@@ -167,15 +167,40 @@ describe('reach and strength', () => {
       6,
     );
     // Three auras: not enough.
-    expect(multOf(GUARDIAN, sovereign, 'sostenuto')).toBeCloseTo(
-      multOf(GUARDIAN, luminary(), 'sostenuto'),
+    const three = [
+      { auras: ['fortissimo', 'sostenuto'], ornaments: ['grace_note'] },
+      { auras: ['ostinato'], ornaments: [] },
+    ];
+    expect(multOf(three, sovereign, 'ostinato')).toBeCloseTo(
+      multOf(three, luminary(), 'ostinato'),
       6,
     );
+  });
+
+  it('Lantern Bearer on a planted beam song: its echo sings stronger, not the pour', () => {
+    const strengths = (config: object) => {
+      const sim = sandbox({
+        chords: [
+          { auras: ['fortissimo'], ornaments: ['pedal_point'] },
+          { auras: ['sostenuto'], ornaments: [] },
+        ],
+        ...config,
+      });
+      stepFor(sim, 2);
+      const s = worldOf(sim).scratch;
+      const i = CONTENT.auras.findIndex((a) => a.id === 'fortissimo');
+      return { mult: s.auraMult[i]!, focus: s.auraFocus[i]!, echo: s.auraEcho[i]! };
+    };
+    const plain = strengths(luminary());
+    const lantern = strengths(luminary('haloed', 'dawnward', 'lantern_bearer'));
+    expect(lantern.mult).toBeCloseTo(plain.mult, 9);
+    expect(lantern.focus).toBeCloseTo(plain.focus, 9);
+    expect(lantern.echo).toBeCloseTo(plain.echo * (1 + value('lantern_bearer', 'pct') / 100), 9);
   });
 });
 
 describe('protection', () => {
-  it('Haloed: heroes in your field take less', () => {
+  it('Haloed: heroes in your field take less from ordinary hits', () => {
     const taken = (config: object) => {
       const sim = sandbox({ chords: GUARDIAN, ...config });
       stepFor(sim, 2);
@@ -187,6 +212,44 @@ describe('protection', () => {
     const haloed = taken(luminary('haloed'));
     expect(haloed.lost).toBeCloseTo(plain.lost * (1 - value('haloed', 'pct') / 100), 6);
     expect(haloed.sim.state.ledger.calling.shielded).toBeCloseTo(plain.lost - haloed.lost, 6);
+  });
+
+  it('Haloed leaves telegraphed attacks to your Ward', () => {
+    const taken = (config: object) => {
+      const sim = sandbox({ chords: GUARDIAN, ...config });
+      const { started } = telegraphOn('bell_brute', 'Toll Cleave', 0, 2.5, sim);
+      const w = worldOf(sim);
+      const telegraph = w.telegraphs.find((t) => t.id === started.telegraph)!;
+      const kael = w.entities.get(w.party[0]!)!;
+      expect(kael.hero!.inField).toBe(true);
+      const before = kael.health!.hp;
+      const credited = w.ledger.calling.shielded;
+      dealDamage(w, kael, { source: null, sourceName: 'test', amount: 100, telegraph });
+      return { lost: before - kael.health!.hp, shielded: w.ledger.calling.shielded - credited };
+    };
+    const plain = taken(luminary());
+    const haloed = taken(luminary('haloed'));
+    expect(plain.lost).toBeGreaterThan(0);
+    expect(haloed.lost).toBeCloseTo(plain.lost, 6);
+    expect(haloed.shielded).toBe(0);
+  });
+
+  it('Haloed and Fermata’s guard share the life the hero kept', () => {
+    const chords = [
+      { auras: ['fortissimo'], ornaments: [] },
+      { auras: ['sostenuto', 'fermata'], ornaments: [] },
+    ];
+    for (const amount of [400, 600, 700, 800, 1000]) {
+      const sim = sandbox({ chords, ...luminary('haloed') });
+      stepFor(sim, 2);
+      const w = worldOf(sim);
+      const kael = w.entities.get(w.party[0]!)!;
+      kael.health!.hp = kael.health!.maxHp * 0.2;
+      const before = w.ledger.shielded;
+      dealDamage(w, kael, { source: null, sourceName: 'test', amount, telegraph: null });
+      if (kael.health!.downed) continue;
+      expect(w.ledger.shielded - before).toBeLessThanOrEqual(kael.health!.hp + 1e-9);
+    }
   });
 
   it('Dawnward: stepping into the field shields a hero, once every few seconds', () => {
@@ -203,10 +266,36 @@ describe('protection', () => {
     const shield = lyra.health!.shields.find((s) => s.kind === 'overshield')!;
     expect(shield.fromWeaver).toBe(true);
     expect(shield.amount).toBeCloseTo(dawn[0]!.amount, 6);
+    // Worth a share of her life for every aura she hears (the beam's echo and the field song).
+    expect(dawn[0]!.amount).toBeCloseTo(
+      lyra.health!.maxHp * (value('dawnward', 'pct') / 100) * 2,
+      6,
+    );
     // Too soon for another.
     lyra.hero!.inField = false;
     updateField(w, 1 / 60);
     expect(ofType(sim.drainEvents(), 'dawnward')).toHaveLength(0);
+    // After the cooldown (the first barrier has worn off by then), again.
+    stepFor(sim, 60 * value('dawnward', 'cooldown') + 1);
+    sim.drainEvents();
+    lyra.hero!.inField = false;
+    updateField(w, 1 / 60);
+    expect(ofType(sim.drainEvents(), 'dawnward')).toHaveLength(1);
+  });
+
+  it('Dawnward leaves a bigger barrier alone', () => {
+    const sim = sandbox({ chords: GUARDIAN, ...luminary('haloed', 'dawnward') });
+    stepFor(sim, 2);
+    const w = worldOf(sim);
+    const lyra = w.entities.get(w.party[1]!)!;
+    addShield(w, lyra, 'overshield', lyra.health!.maxHp, 10, true);
+    sim.drainEvents();
+    lyra.hero!.inField = false;
+    updateField(w, 1 / 60);
+    expect(ofType(sim.drainEvents(), 'dawnward')).toHaveLength(0);
+    expect(lyra.health!.shields.find((x) => x.kind === 'overshield')!.amount).toBe(
+      lyra.health!.maxHp,
+    );
   });
 });
 
@@ -225,7 +314,7 @@ describe('Eclipse', () => {
     stepFor(sim, 1, [spawn('bell_brute', 0, -3)]);
     w.field.crescendo = true;
     const events = stepFor(sim, 60);
-    expect(ofType(events, 'damageTaken').some((e) => e.radiance > 0)).toBe(true);
+    expect(ofType(events, 'damageTaken').some((e) => e.eclipse > 0)).toBe(true);
   });
 
   it('the same hit in Sunrise lands harder with Eclipse, by its share alone', () => {
@@ -254,5 +343,26 @@ describe('Eclipse', () => {
       (1 + eclipse.radiance + value('eclipse', 'pct') / 100) / (1 + eclipse.radiance),
       6,
     );
+  });
+
+  it('a hero out of the light adds no Radiance, but Eclipse still counts', () => {
+    const sim = sandbox({
+      chords: GUARDIAN,
+      ...luminary('haloed', 'dawnward', 'lantern_bearer', 'eclipse'),
+    });
+    stepFor(sim, 1, [spawn('bell_brute', 0, -3)]);
+    stepFor(sim, 1);
+    const w = worldOf(sim);
+    w.field.crescendo = true;
+    updateField(w, 1 / 60);
+    const enemy = w.entities.list().find((e) => e.enemy)!;
+    const kael = w.entities.get(w.party[0]!)!;
+    kael.hero!.inField = false;
+    sim.drainEvents();
+    dealDamage(w, enemy, { source: kael.id, sourceName: 'test', amount: 10 });
+    const hit = ofType(sim.drainEvents(), 'damageTaken')[0]!;
+    expect(hit.radiance).toBe(0);
+    expect(hit.eclipse).toBeGreaterThan(0);
+    expect(hit.eclipse).toBeCloseTo(hit.amplified, 9);
   });
 });

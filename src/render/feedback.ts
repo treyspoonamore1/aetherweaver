@@ -15,14 +15,13 @@ import { SPRITE } from './fx/sprites';
 import type { Overlay } from './overlay';
 import { C, VISION_HEX, auraColor, clamp01, color, currentVision, rgba } from './palette';
 import {
-  REGEN_MASK,
-  SONG_GLYPH,
-  chipText,
-  fieldLook,
-  softenHex,
-  splitAmplified,
-  type ChipSplit,
-} from './songs';
+  CALLING_HEX,
+  radiantTier,
+  splitRadiant,
+  sunChipText,
+  type RadiantSplit,
+} from './callingCues';
+import { REGEN_MASK, SONG_GLYPH, chipText, fieldLook, softenHex } from './songs';
 import type { Stage } from './stage';
 import type { TelegraphLayer } from './telegraphs';
 import type { ThreadView } from './thread';
@@ -77,12 +76,26 @@ interface Bucket {
   amplified: number;
   /** The auras' part of `amplified`. */
   aura: number;
+  /** Radiance's part of `amplified` (the Luminary: the attacker shone). */
+  radiance: number;
+  /** Eclipse's part of `amplified` (the target stood in the light during Sunrise). */
+  eclipse: number;
   absorbed: number;
   crit: boolean;
 }
 
 function bucket(): Bucket {
-  return { handle: -1, start: -10, amount: 0, amplified: 0, aura: 0, absorbed: 0, crit: false };
+  return {
+    handle: -1,
+    start: -10,
+    amount: 0,
+    amplified: 0,
+    aura: 0,
+    radiance: 0,
+    eclipse: 0,
+    absorbed: 0,
+    crit: false,
+  };
 }
 
 const POOL = 320;
@@ -95,6 +108,8 @@ const CHIME = color('#efe6ff');
 const GHOST_ASH = color('#e8e4f4');
 const DUST = color('#b9b2a4');
 const VISION_CALL_TEXT = '#fff3c4';
+/** The Luminary's Sunrise: the key light warms toward this while it lasts. */
+const SUN_LIGHT = color(CALLING_HEX.sunHot);
 
 export interface FeedbackDeps {
   kit: FxKit;
@@ -121,7 +136,13 @@ export class Feedback {
   private readonly heal = new Map<EntityId, Bucket>();
   /** Aura heals (Sostenuto…): their own softer numbers, never merged into Mend's. */
   private readonly auraHeal = new Map<EntityId, Bucket>();
-  private readonly split: ChipSplit = { empower: 0, aura: 0 };
+  private readonly split: RadiantSplit = { empower: 0, aura: 0, radiance: 0 };
+  /**
+   * The Luminary's Sunrise, 0..1 (set by the combat view from CallingView): the key light
+   * stays warm and a little brighter while it lasts.
+   */
+  sunWarmth = 0;
+  private lightLive = false;
   private softHealHex = '';
   private softHealFor = '';
   private now = 0;
@@ -319,7 +340,8 @@ export class Feedback {
           this.healed(ev, state);
           break;
         case 'shieldApplied':
-          this.shieldApplied(ev);
+          // Dawnward's barrier has its own dawn bloom (CallingView): skip the generic ring.
+          if (ev.shield !== 'overshield' || !dawnwardIn(events, ev.target)) this.shieldApplied(ev);
           break;
         case 'shieldBroken':
           this.shieldBroken(ev);
@@ -873,8 +895,8 @@ export class Feedback {
         5,
         r.radius,
       );
-      splitAmplified(e.amplified, e.aura, this.split);
-      // The Weaver's share as sparks: gold for Empower / Flourishes, song colour for the auras.
+      splitRadiant(e.amplified, e.aura, e.radiance + e.eclipse, this.split);
+      // The Weaver's share as sparks (Radiance's warm spark is CallingView's): gold for Empower / Flourishes, song colour for the auras.
       if (this.split.empower >= 1)
         this.d.kit.particles.burst(
           r.x,
@@ -960,6 +982,8 @@ export class Feedback {
       b.amount = 0;
       b.amplified = 0;
       b.aura = 0;
+      b.radiance = 0;
+      b.eclipse = 0;
       b.absorbed = 0;
       b.crit = false;
       b.start = this.now;
@@ -967,6 +991,8 @@ export class Feedback {
     b.amount += e.amount;
     b.amplified += e.amplified;
     b.aura += e.aura;
+    b.radiance += e.radiance;
+    b.eclipse += e.eclipse;
     b.absorbed += e.absorbed;
     b.crit = b.crit || e.crit;
     const shown = b.amount > 0 ? b.amount : b.absorbed;
@@ -979,8 +1005,13 @@ export class Feedback {
     if (fresh) b.handle = this.d.overlay.spawnNumber(r.x, r.height + 0.35, r.z, colorHex, size);
     const text =
       b.amount > 0 ? `${Math.round(b.amount)}${b.crit ? '!' : ''}` : `(${Math.round(b.absorbed)})`;
-    // Two chips: gold = Empower and Flourishes (`amplified - aura`), ♪ song = the auras' work.
-    splitAmplified(b.amplified, b.aura, this.split);
+    // Chips: gold = Empower and Flourishes, ♪ song = the auras' work, ☀ = the Luminary's light
+    // (Radiance and Eclipse). A hero who shone makes the number glow; the ☀ chip waits until
+    // the light is a real part of the hit.
+    const dealt = b.amount + b.absorbed;
+    splitRadiant(b.amplified, b.aura, b.radiance + b.eclipse, this.split);
+    const glow = radiantTier(b.radiance, dealt);
+    const lit = radiantTier(b.radiance + b.eclipse, dealt);
     this.d.overlay.setNumber(
       b.handle,
       text,
@@ -988,6 +1019,8 @@ export class Feedback {
       size,
       !fresh,
       chipText(this.split.aura, SONG_GLYPH),
+      lit >= 2 ? sunChipText(this.split.radiance) : null,
+      glow >= 2 ? 1 : glow === 1 ? 0.5 : 0,
     );
   }
 
@@ -2561,14 +2594,18 @@ export class Feedback {
       this.drawTransient(t, state, dt);
     }
 
-    // Phase-change light shift: a flare of the key light tinted toward the boss accent.
-    if (this.lightShift > 0) {
+    // Phase-change light shift: a flare of the key light tinted toward the boss accent. The
+    // Luminary's Sunrise holds it warm while it lasts (sunWarmth). One last write restores it.
+    const warm = this.sunWarmth < 0.002 ? 0 : Math.min(1, this.sunWarmth);
+    if (this.lightShift > 0 || warm > 0 || this.lightLive) {
       this.lightShift = Math.max(0, this.lightShift - dt * 0.7);
       const lights = this.d.stage.lights;
       const k = Math.sin(this.lightShift * Math.PI * 0.5);
-      lights.key.intensity = this.baseKey * (1 + 0.6 * k);
-      lights.hemi.intensity = this.baseHemi * (1 + 0.3 * k);
+      lights.key.intensity = this.baseKey * (1 + 0.6 * k + 0.22 * warm);
+      lights.hemi.intensity = this.baseHemi * (1 + 0.3 * k + 0.12 * warm);
       lights.hemi.color.copy(this.baseHemiColor).lerp(this.lightColor, 0.5 * k);
+      if (warm > 0) lights.hemi.color.lerp(SUN_LIGHT, 0.32 * warm);
+      this.lightLive = this.lightShift > 0 || warm > 0;
     }
   }
 
@@ -2883,4 +2920,13 @@ export class Feedback {
     this.dmg.clear();
     this.heal.clear();
   }
+}
+
+/** A `dawnward` for `hero` among this batch of events (its barrier is the same tick's). */
+export function dawnwardIn(events: readonly SimEvent[], hero: EntityId): boolean {
+  for (let i = 0; i < events.length; i++) {
+    const e = events[i]!;
+    if (e.type === 'dawnward' && e.hero === hero) return true;
+  }
+  return false;
 }

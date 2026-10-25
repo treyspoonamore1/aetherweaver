@@ -32,6 +32,7 @@ import { auraDef } from '../../content';
 import { songName } from '../../sim';
 import { plural } from '../kit/format';
 import type { IconName } from '../kit/iconPaths';
+import { callingTierAt } from './callingText';
 
 // ── Aether ────────────────────────────────────────────────────────────────────────────
 
@@ -556,6 +557,7 @@ export function nextStep(run: RunState): string {
   if (!r || run.outcome === 'defeat' || r.outcome !== 'victory') return 'Continue';
   const node = run.pending ? findNode(run, run.pending) : undefined;
   if (!node || node.kind === 'boss') return 'Continue';
+  if (callingTierAt(run, node) !== null) return 'Continue: your Calling grows';
   const relics = node.kind === 'event' ? (run.event?.relics ?? 0) : node.reward.relics;
   if (relics > 0) return `Continue: choose a relic`;
   if (node.reward.draft) return 'Continue: choose a motif';

@@ -157,7 +157,7 @@ describe('Calling UI sounds', () => {
       h.d.dispose();
       return n;
     };
-    expect(count('callingPick')).toBeGreaterThan(count('relicPick') - 4);
+    expect(count('callingPick')).toBeGreaterThan(count('relicPick'));
   });
 });
 

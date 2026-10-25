@@ -15,6 +15,9 @@ import { PartyHealth, Pips, SectionTitle } from './shared';
 import { Glyph } from '../kit/RelicGlyph';
 import { eventPreview, rewardChips, threatLine, type RewardChip } from './interlude';
 import { RunStrip } from './RelicCard';
+import { CallingGlyph, callingLook } from '../kit/CallingGlyph';
+import { callingTierAt, milestoneLine, numeral } from './callingText';
+import { callingDef } from '../../content';
 
 export const NODE_LOOK: Record<
   NodeKind,
@@ -55,10 +58,19 @@ export interface MapViewProps {
   /** UI lab: force a node's tooltip open, or a carried relic's. */
   peek?: string;
   peekRelic?: string;
+  /** UI lab: force the Calling's tooltip in the strip open. */
+  peekCalling?: boolean;
 }
 
 /** The Prelude's map, left to right: reachable nodes glow, the path walked is gold. */
-export function MapView({ run, onChoose, onAbandon, peek, peekRelic }: MapViewProps) {
+export function MapView({
+  run,
+  onChoose,
+  onAbandon,
+  peek,
+  peekRelic,
+  peekCalling = false,
+}: MapViewProps) {
   useMood('map');
   const [confirm, setConfirm] = useState(false);
   const options = reachable(run);
@@ -118,6 +130,9 @@ export function MapView({ run, onChoose, onAbandon, peek, peekRelic }: MapViewPr
           relics={run.relics}
           boons={run.boons}
           openRelic={peekRelic}
+          calling={run.calling}
+          map={run.map}
+          openCalling={peekCalling}
         />
 
         <div className="mt-6 grid gap-6 xl:grid-cols-[1fr_20rem]">
@@ -307,6 +322,11 @@ function MapNodeView({
   const eventIcon = node.eventId ? runEventDef(node.eventId).icon : null;
   const title = enc?.name ?? ev?.name ?? look.label;
   const threat = threatLine(node.reward.threat, node.kind === 'event');
+  // Phase 3c: a fight on a milestone row whose tier of the Calling is still open.
+  const tier = callingTierAt(run, node);
+  const milestone = milestoneLine(run, node);
+  const calling = run.calling ? callingDef(run.calling.id) : null;
+  const cLook = callingLook(run.calling?.id);
   const shop = node.kind === 'merchant' || node.kind === 'forge';
   const left = (pos.x / W) * 100;
   const top = (pos.y / H) * 100;
@@ -351,6 +371,20 @@ function MapNodeView({
           You
         </span>
       )}
+      {tier !== null && calling && (
+        <span
+          className="absolute -left-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full border bg-ink-950"
+          style={{
+            color: cLook.light,
+            borderColor: cLook.color,
+            boxShadow: `0 0 10px color-mix(in srgb, ${cLook.color} 60%, transparent)`,
+          }}
+          title={`Your Calling grows after this fight (tier ${numeral(tier)})`}
+          data-testid="calling-mark"
+        >
+          <CallingGlyph icon={calling.icon} size={15} />
+        </span>
+      )}
       {active && (
         <span
           className="animate-pulse-soft absolute inset-[-7px] rounded-full border border-dashed"
@@ -382,7 +416,7 @@ function MapNodeView({
                   .map((c) => c.text)
                   .join('. ')}.`
               : ''
-          }${threat ? ` ${threat}.` : ''}`}
+          }${threat ? ` ${threat}.` : ''}${milestone ? ` ${milestone.title}: ${milestone.text}` : ''}`}
           className="flex flex-col items-center focus-visible:outline-offset-4"
         >
           {body}
@@ -431,6 +465,28 @@ function MapNodeView({
             </li>
           )}
         </ul>
+        {milestone && calling && (
+          <p
+            className="mt-2 flex items-start gap-2 rounded-lg border px-2 py-1.5 text-xs leading-relaxed"
+            style={{
+              borderColor: `color-mix(in srgb, ${cLook.color} 45%, transparent)`,
+              background: `color-mix(in srgb, ${cLook.color} 9%, transparent)`,
+            }}
+          >
+            <CallingGlyph
+              icon={calling.icon}
+              size={16}
+              className="mt-0.5 shrink-0"
+              style={{ color: cLook.color }}
+            />
+            <span>
+              <b className="font-semibold" style={{ color: cLook.color }}>
+                {milestone.title}
+              </b>{' '}
+              <span className="text-text">{milestone.text}</span>
+            </span>
+          </p>
+        )}
         {threat && <p className="mt-2 font-mono text-xs text-muted">{threat}</p>}
       </div>
     </div>

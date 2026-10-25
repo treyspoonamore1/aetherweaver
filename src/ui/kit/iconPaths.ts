@@ -72,6 +72,8 @@ export const PATHS = {
     'M12 2.8l9.2 9.2-9.2 9.2L2.8 12z M9.7 9.7a2.4 2.4 0 1 1 3.3 2.2c-.6.3-1 .8-1 1.4v.5 M12 16.2h.01',
   relic:
     'M12 3l7 4v6c0 4-3 6.8-7 8-4-1.2-7-4-7-8V7z M12 8.5l1.2 2.4 2.6.4-1.9 1.8.5 2.6-2.4-1.3-2.4 1.3.5-2.6-1.9-1.8 2.6-.4z',
+  /** Phase 3c: the Luminary's light (Radiance, the Calling). */
+  sun: 'M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z M12 2.5v2.5 M12 19v2.5 M2.5 12H5 M19 12h2.5 M5.3 5.3l1.8 1.8 M16.9 16.9l1.8 1.8 M18.7 5.3l-1.8 1.8 M7.1 16.9l-1.8 1.8',
 } as const;
 
 export type IconName = keyof typeof PATHS;

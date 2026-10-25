@@ -8,6 +8,7 @@ import { useRun } from '../../app/runStore';
 import type { ActiveBoon } from '../../meta/types';
 import { BossBar } from './BossBar';
 import { RelicBar } from './RelicBar';
+import { CallingChip } from './CallingChip';
 import { Callouts } from './Callouts';
 import { CoachHints } from './CoachHints';
 import { DirectiveWheel, DirectiveWheelView } from './DirectiveWheel';
@@ -95,6 +96,7 @@ export function HudView({
       <div className="absolute left-4 top-4 flex flex-col items-start gap-2">
         <EncounterHeader encounter={hud.encounter} subtitle={subtitle} clockText={clockText} />
         <RelicBar relics={hud.relics} boons={boons} seconds={hud.seconds} flash={relicFlash} />
+        {hud.calling && <CallingChip calling={hud.calling} />}
       </div>
       {hud.boss && (
         <BossBar
@@ -109,6 +111,7 @@ export function HudView({
         threadMode={hud.weaver.threadMode}
         barks={barks}
         chords={hud.weaver.chords}
+        calling={hud.calling}
       />
       <WeaverBar hud={hud} />
       {coach && !sandbox && <CoachHints hud={hud} force={forceCoach} />}

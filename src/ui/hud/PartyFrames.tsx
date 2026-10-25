@@ -11,6 +11,8 @@ import type { CallAnswer, ThreadMode } from '../types';
 import { StatusBadge } from './StatusBadge';
 import { ROLE_LABEL, bindingLabel } from './labels';
 import { beamSong, heroSongs, type HeroSongs } from './songs';
+import { shineLabel } from './calling';
+import { callingLook } from '../kit/CallingGlyph';
 
 const HEAL = 'var(--color-heal)';
 const AMP = 'var(--color-amp)';
@@ -25,12 +27,15 @@ export function PartyFrames({
   threadMode,
   barks,
   chords = [],
+  calling = null,
 }: {
   party: HeroHud[];
   threadMode: ThreadMode;
   barks: Callout[];
   /** The Weaver's songs: who the beam pours into, who hears its echo. */
   chords?: ChordHud[];
+  /** The Calling (Phase 3c): its id for the Radiance colour, and whether Sunrise is lit. */
+  calling?: { id: string; sunrise: boolean } | null;
 }) {
   const beam = beamSong(chords);
   return (
@@ -47,6 +52,7 @@ export function PartyFrames({
             threadMode={threadMode}
             songs={heroSongs(h, chords)}
             beamColors={beam?.auras.map((a) => a.color) ?? []}
+            calling={calling}
           />
           <Bark hero={h} callouts={barks} />
         </div>
@@ -184,7 +190,7 @@ function AuraPips({ songs }: { songs: HeroSongs }) {
   const names = all.map(describe);
   return (
     <span
-      className="ml-auto flex items-center gap-0.5"
+      className="flex items-center gap-0.5"
       role="img"
       aria-label={`Auras on them: ${names.join(', ')}`}
       title={names.join(' · ')}
@@ -206,6 +212,46 @@ function AuraPips({ songs }: { songs: HeroSongs }) {
           />
         );
       })}
+    </span>
+  );
+}
+
+/**
+ * The Luminary's Radiance on a hero who shines: a small sun and "+8%", next to the aura pips
+ * it multiplies. In Sunrise it blazes (×3).
+ */
+function RadianceMark({
+  shine,
+  sunrise,
+  color,
+  light,
+  name,
+}: {
+  shine: number;
+  sunrise: boolean;
+  color: string;
+  light: string;
+  name: string;
+}) {
+  const label = shineLabel(shine);
+  return (
+    <span
+      className={`flex items-center gap-0.5 rounded-md px-1 font-mono text-xs font-bold leading-4 ${sunrise ? 'anim-glow' : ''}`}
+      style={{
+        color: sunrise ? light : color,
+        background: sunrise
+          ? `color-mix(in srgb, ${color} 34%, transparent)`
+          : `color-mix(in srgb, ${color} 12%, transparent)`,
+        boxShadow: sunrise ? `0 0 0 1px ${color}, 0 0 10px ${color}` : undefined,
+      }}
+      role="img"
+      aria-label={`${name} shines: ${label} damage, credited to you${sunrise ? ', Sunrise' : ''}`}
+      title={`Radiance: ${name} hits ${label} harder${sunrise ? ' (Sunrise)' : ''}`}
+      data-testid="radiance"
+      data-sunrise={sunrise || undefined}
+    >
+      <Icon name="sun" size={12} />
+      {label}
     </span>
   );
 }
@@ -235,11 +281,13 @@ export function HeroFrame({
   threadMode,
   songs,
   beamColors = [],
+  calling = null,
 }: {
   hero: HeroHud;
   threadMode: ThreadMode;
   songs?: HeroSongs;
   beamColors?: string[];
+  calling?: { id: string; sunrise: boolean } | null;
 }) {
   const sung = songs ?? {
     focus: null,
@@ -331,7 +379,18 @@ export function HeroFrame({
                     Outside field
                   </span>
                 )}
-                <AuraPips songs={sung} />
+                <span className="ml-auto flex items-center gap-1.5">
+                  {calling && h.radiance > 0 && (
+                    <RadianceMark
+                      shine={h.radiance}
+                      sunrise={calling.sunrise}
+                      color={callingLook(calling.id).color}
+                      light={callingLook(calling.id).light}
+                      name={h.name}
+                    />
+                  )}
+                  <AuraPips songs={sung} />
+                </span>
               </div>
             </>
           )}

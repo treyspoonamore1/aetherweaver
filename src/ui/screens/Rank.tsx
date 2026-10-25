@@ -1,28 +1,49 @@
 import { useEffect, useState } from 'react';
 import { useProfile, type RankUp } from '../../app/profileStore';
 import { useSettings } from '../../app/settings';
-import type { Profile } from '../../meta/profile';
+import type { Profile, Unlock } from '../../meta/profile';
+import { CONTENT } from '../../content';
+import { CallingEmblem, CallingGlyph, callingLook } from '../kit/CallingGlyph';
 import type { EncounterResult } from '../../meta/types';
 import { fmt } from '../kit/format';
 import { Button } from '../kit/Button';
-import { Icon, type IconName } from '../kit/Icon';
+import { Icon } from '../kit/Icon';
 import { Panel } from '../kit/Panel';
 import { playUi } from '../kit/sound';
 import { bumpHint, hintCount } from '../hud/hints';
-import { NOTHING_NEW, fightXp, rankPanel, rankUpTitle, xpGain, xpHeadline } from './rankText';
+import {
+  NOTHING_NEW,
+  fightXp,
+  rankPanel,
+  rankUpTitle,
+  unlockIcon,
+  xpGain,
+  xpHeadline,
+} from './rankText';
 
-/** The glyph for an unlock (the field song gets its own). */
-export function unlockIcon(u: { kind: string; target: string }): IconName {
-  if (u.kind === 'song' && u.target === 'field') return 'scatter';
-  return UNLOCK_ICON[u.kind] ?? 'sparkle';
+export { unlockIcon };
+
+/** An unlock's glyph: a Calling shows its own emblem (the Luminary's rising sun). */
+function UnlockGlyph({ unlock: u, size }: { unlock: Unlock; size: number }) {
+  if (u.kind === 'calling') {
+    const def = CONTENT.callings.find((c) => c.id === u.target);
+    if (def) return <CallingGlyph icon={def.icon} size={size} />;
+  }
+  return <Icon name={unlockIcon(u)} size={size} />;
 }
 
-const UNLOCK_ICON: Record<string, IconName> = {
-  song: 'thread',
-  aura: 'note',
-  ornament: 'diamond',
-  ornamentSlot: 'diamond',
-};
+/** The rank-up card's disc for an unlock: a Calling gets its emblem, in its dawn colours. */
+function UnlockDisc({ unlock: u }: { unlock: Unlock }) {
+  if (u.kind === 'calling') {
+    const def = CONTENT.callings.find((c) => c.id === u.target);
+    if (def) return <CallingEmblem callingId={def.id} icon={def.icon} size={40} bright />;
+  }
+  return (
+    <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-gold-400 text-gold-200">
+      <Icon name={unlockIcon(u)} size={16} />
+    </span>
+  );
+}
 
 /** An XP bar: what you had (gold) and what you just earned (bright, striped). */
 export function XpBar({
@@ -107,7 +128,9 @@ export function RankPanelView({
           <ul className="mt-1 flex flex-col gap-1">
             {p.next.map((u) => (
               <li key={u.id} className="flex items-start gap-1.5 text-xs leading-snug">
-                <Icon name={unlockIcon(u)} size={13} className="mt-0.5 shrink-0 text-gold-300" />
+                <span className="mt-0.5 shrink-0 text-gold-300">
+                  <UnlockGlyph unlock={u} size={13} />
+                </span>
                 <span>
                   <b className="font-semibold text-text">{u.name}</b>{' '}
                   <span className="text-muted">{u.text}</span>
@@ -259,14 +282,35 @@ export function RankUpCard({
                       <li
                         key={u.id}
                         className={`flex items-start gap-3 rounded-xl border border-gold-500/40 bg-ink-900/70 px-3 py-2.5 transition-all duration-300 ${visible ? 'translate-y-0 opacity-100' : 'translate-y-1 opacity-0'}`}
+                        style={
+                          u.kind === 'calling'
+                            ? {
+                                borderColor: callingLook(u.target).color,
+                                background: `linear-gradient(100deg, color-mix(in srgb, ${callingLook(u.target).color} 16%, rgb(10 16 34 / 0.85)), rgb(10 16 34 / 0.7) 70%)`,
+                              }
+                            : undefined
+                        }
                         aria-hidden={!visible}
+                        data-unlock={u.kind}
                       >
-                        <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-gold-400 text-gold-200">
-                          <Icon name={unlockIcon(u)} size={16} />
-                        </span>
+                        <UnlockDisc unlock={u} />
                         <span>
-                          <b className="block font-display text-base text-gold-100">{u.name}</b>
+                          <b
+                            className="block font-display text-base text-gold-100"
+                            style={
+                              u.kind === 'calling'
+                                ? { color: callingLook(u.target).color }
+                                : undefined
+                            }
+                          >
+                            {u.name}
+                          </b>
                           <span className="text-sm leading-relaxed text-text">{u.text}</span>
+                          {u.kind === 'calling' && (
+                            <span className="mt-1 block text-xs text-muted">
+                              Choose it in your next Prep, above the song builder.
+                            </span>
+                          )}
                         </span>
                       </li>
                     );

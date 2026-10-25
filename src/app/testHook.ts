@@ -1,5 +1,7 @@
 import { reachable, findNode, chooseNode } from '../meta/run';
-import type { NodeKind, RunState } from '../meta/types';
+import type { CombatOutcome, NodeKind, RunState } from '../meta/types';
+import { encounterDef, heroDef } from '../content';
+import { emptyLedger } from '../sim/world';
 import { useUi } from '../ui/store';
 import { useProfile } from './profileStore';
 import { useRun } from './runStore';
@@ -78,6 +80,47 @@ export function installRunHook(): void {
     leaveEvent: () => run().leaveEvent(),
     pickRelic: (index) => run().pickRelic(index),
     leaveForge: () => run().leaveForge(),
+    setCalling: (id) => run().setCalling(id),
+    calling: () => {
+      const c = run().run?.calling;
+      return c ? { id: c.id, path: [...c.path] } : null;
+    },
+    pickCalling: (index) => run().pickCalling(index),
+    winFight: () => {
+      const state = run().run;
+      if (!state || state.phase !== 'combat') return false;
+      const outcome = plainVictory(state);
+      if (!outcome) return false;
+      run().finishCombat(outcome);
+      return run().run?.phase !== 'combat';
+    },
+  };
+}
+
+/** Test-only: a won fight with nothing in its ledger, the party as it came in. */
+function plainVictory(state: RunState): CombatOutcome | null {
+  const node = state.pending ? findNode(state, state.pending) : undefined;
+  const encounterId = node?.kind === 'event' ? state.event?.encounterId : node?.encounterId;
+  if (!encounterId) return null;
+  return {
+    encounterId,
+    outcome: 'victory',
+    duration: Math.max(30, encounterDef(encounterId).par * 0.8),
+    ledger: emptyLedger(),
+    party: state.party.map((h, slot) => {
+      const maxHp = heroDef(h.heroId).maxHp;
+      return {
+        slot,
+        heroId: h.heroId,
+        hp: maxHp * h.hpPct,
+        maxHp,
+        downed: false,
+        dead: false,
+        damage: 0,
+        amplified: 0,
+      };
+    }),
+    withoutYou: null,
   };
 }
 

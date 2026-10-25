@@ -6,7 +6,7 @@
  *
  * Settings → "Skip the unlocks" gives everything at once (`EVERYTHING`).
  */
-import { CONTENT, callingText } from '../content';
+import { CONTENT } from '../content';
 import { canonicalChords, type ChordLoadout } from '../sim';
 import type { EncounterResult, Grade } from './types';
 
@@ -125,7 +125,7 @@ export const UNLOCKS: readonly Unlock[] = [
     kind: 'calling',
     target: c.id,
     name: `The ${c.name}`,
-    text: `A Calling: choose it in Prep for the whole run. ${callingText(c).passive} Its path grows as you go.`,
+    text: `A Calling: ${c.summary} Choose it in Prep; its path grows as you win.`,
   })),
 ];
 
