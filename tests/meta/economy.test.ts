@@ -246,6 +246,7 @@ describe('forges', () => {
     expect(Run.forgeTargets(run, 'temper')).toEqual(['relay_weave']);
     run = Run.forge(run, { service: 'temper', motifId: 'relay_weave' });
     expect(run.motifs.find((m) => m.id === 'relay_weave')!.level).toBe(2);
+    expect(run.forge).toMatchObject({ used: 'temper', target: 'relay_weave' });
     expect(run.aether).toBe(500 - FORGE_PRICE.temper);
     expect(run.forge!.used).toBe('temper');
     // One service per visit; a maxed motif can't be tempered at all.
@@ -319,6 +320,7 @@ describe('events', () => {
       run = Run.chooseEvent(run, 'offer', { motifId: 'relay_weave' });
       if (run.event!.won) {
         expect(run.motifs).toEqual([{ id: 'relay_weave', level: 3 }]);
+        expect(run.event!.gains!.motif).toEqual({ id: 'relay_weave', from: 1, level: 3 });
         outcomes.add('won');
       } else {
         expect(run.motifs).toEqual([]);
@@ -348,6 +350,7 @@ describe('events', () => {
   it('the Merchant of Silences takes blood for a relic, or gives a curse', () => {
     const run = inEvent('merchant_of_silences');
     const blood = Run.chooseEvent(run, 'blood');
+    expect(blood.event!.gains!.before).toEqual(run.party.map((h) => h.hpPct));
     expect(blood.party.every((h, i) => h.hpPct === Math.max(0.05, run.party[i]!.hpPct - 0.2))).toBe(
       true,
     );

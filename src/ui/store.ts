@@ -22,6 +22,9 @@ import type {
   TechniqueKey,
   ThreadMode,
 } from './types';
+import type { RelicHud } from './hud/relics';
+
+export type { RelicHud };
 
 export interface StatusHud {
   id: StatusId;
@@ -225,6 +228,8 @@ export interface HudSnapshot {
   directive: DirectiveKind | null;
   focusTarget: number | null;
   contribution: ContributionHud;
+  /** The relics carried this fight, with cooldowns and charges (Phase 3b). */
+  relics: RelicHud[];
   entityCount: number;
   dummyCount: number;
 }

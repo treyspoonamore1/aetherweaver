@@ -22,6 +22,9 @@ import { RankUpCard, XpBar, useRankUps } from './Rank';
 import { rankPanel, runRank, xpGain, xpHeadline } from './rankText';
 import { HIGHLIGHT_COLOR, contributionOf, songLines } from './resultText';
 import { HpTimeline, TimelineLegend } from './Timeline';
+import { RelicGlyph } from '../kit/RelicGlyph';
+import { aetherEarned, relicInfo } from './interlude';
+import { RelicBody } from './RelicCard';
 import { tallyLine, withoutYouTally, withoutYouLine } from './withoutYouText';
 
 const GRADE_COLOR: Record<Grade, string> = {
@@ -456,6 +459,42 @@ export function SummaryView({
             )}
           </Panel>
         </div>
+
+        <Panel tone="solid" className="mt-6 p-5" data-testid="summary-relics">
+          <SectionTitle
+            right={
+              <span className="flex items-center gap-1.5 font-mono text-xs text-muted">
+                <Icon name="aether" size={13} className="text-gold-300" />
+                {aetherEarned(run)} earned in fights · {run.aether} left unspent
+              </span>
+            }
+          >
+            Relics and Aether
+          </SectionTitle>
+          {run.relics.length === 0 ? (
+            <p className="text-sm text-muted">You carried no relics this time.</p>
+          ) : (
+            <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {run.relics.map((r) => {
+                const info = relicInfo(r.id, r.cleansed);
+                return (
+                  <li key={r.id} className="flex gap-3 rounded-lg bg-ink-900/60 px-3 py-2.5">
+                    <RelicGlyph
+                      icon={info.icon}
+                      rarity={info.rarity}
+                      cleansed={info.cleansed}
+                      size={36}
+                    />
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-text">{info.name}</p>
+                      <RelicBody info={info} compact flavor={false} />
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </Panel>
 
         <Panel tone="solid" className="mt-6 p-5">
           <SectionTitle

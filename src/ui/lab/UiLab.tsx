@@ -12,7 +12,12 @@ import { ScreenFrame, ScreenHeader } from '../kit/Backdrop';
 import { ChordBuilder } from '../screens/ChordBuilder';
 import { CodexView } from '../screens/CodexScreen';
 import { DraftView } from '../screens/DraftScreen';
-import { InterludeStub } from '../screens/InterludeStub';
+import { EventView } from '../screens/EventScreen';
+import { ForgeView } from '../screens/ForgeScreen';
+import { MerchantView } from '../screens/MerchantScreen';
+import { RelicOfferView } from '../screens/RelicScreen';
+import { CONTENT } from '../../content';
+import type { ActiveBoon, ForgeService } from '../../meta/types';
 import { MapView } from '../screens/MapScreen';
 import { PrepView } from '../screens/PrepScreen';
 import { RespiteView } from '../screens/RespiteScreen';
@@ -23,7 +28,16 @@ import { TitleScreen } from '../screens/TitleScreen';
 import { RankPanelView, RankUpCard } from '../screens/Rank';
 import {
   draftRun,
+  eventAfter,
+  eventFightResultRun,
+  eventRun,
   fakeOutcome,
+  forgeAfter,
+  forgeRun,
+  mapRun3b,
+  merchantRun,
+  nodeOf,
+  relicOfferRun,
   freshRun,
   mockCallouts,
   mockHud,
@@ -56,10 +70,14 @@ function HudStage({
   scenario,
   coach,
   wheel = null,
+  boons,
+  relicFlash,
 }: {
   scenario: HudScenario;
   coach?: boolean;
   wheel?: ReturnType<typeof mockWheel> | null;
+  boons?: ActiveBoon[];
+  relicFlash?: string[];
 }) {
   return (
     <World>
@@ -78,6 +96,8 @@ function HudStage({
         subtitle={scenario === 'sandbox' ? 'Training Grounds' : 'The Prelude · node 3 of 7'}
         coach={coach}
         forceCoach
+        boons={boons}
+        relicFlash={relicFlash}
       />
     </World>
   );
@@ -174,17 +194,30 @@ function Flow() {
           onTitle={() => set(() => freshRun(11))}
         />
       );
-    case 'merchant':
-    case 'forge':
-    case 'event':
     case 'relic':
+      return <RelicOfferView run={run} onPick={(i) => set((r) => Run.pickRelic(r, i))} />;
+    case 'merchant':
       return (
-        <InterludeStub
+        <MerchantView
           run={run}
           onBuy={(i) => set((r) => Run.buy(r, i))}
-          onLeave={() => set((r) => Run.leaveEvent(Run.leaveForge(Run.leaveShop(r))))}
-          onEvent={(id) => set((r) => Run.chooseEvent(r, id))}
-          onRelic={(i) => set((r) => Run.pickRelic(r, i))}
+          onLeave={() => set(Run.leaveShop)}
+        />
+      );
+    case 'forge':
+      return (
+        <ForgeView
+          run={run}
+          onForge={(c) => set((r) => Run.forge(r, c))}
+          onLeave={() => set(Run.leaveForge)}
+        />
+      );
+    case 'event':
+      return (
+        <EventView
+          run={run}
+          onChoose={(id, opts) => set((r) => Run.chooseEvent(r, id, opts))}
+          onLeave={() => set(Run.leaveEvent)}
         />
       );
   }
@@ -664,6 +697,22 @@ const VIEWS: ViewDef[] = [
     render: () => <CodexView onBack={noop} initialTab="chords" />,
   },
   {
+    id: 'codex-relics',
+    group: 'Relics & stops',
+    label: 'Codex: Relics',
+    w: 1280,
+    h: 1500,
+    render: () => <CodexView onBack={noop} initialTab="relics" />,
+  },
+  {
+    id: 'codex-events',
+    group: 'Relics & stops',
+    label: 'Codex: Events, boons and banes',
+    w: 1280,
+    h: 1500,
+    render: () => <CodexView onBack={noop} initialTab="events" />,
+  },
+  {
     id: 'codex-calls',
     group: 'Screens',
     label: 'Codex: Calls',
@@ -679,6 +728,229 @@ const VIEWS: ViewDef[] = [
     h: 1900,
     render: () => <SettingsScreen />,
   },
+  {
+    id: 'hud-relics',
+    group: 'Combat HUD',
+    label: 'Relics: Metronome ready, Thimble cooling, Veil spent',
+    w: 1280,
+    h: 720,
+    render: () => (
+      <HudStage
+        scenario="relics"
+        coach={false}
+        boons={[
+          { id: 'last_note', fights: 1 },
+          { id: 'frayed_spirit', fights: null },
+        ]}
+      />
+    ),
+  },
+  {
+    id: 'hud-relics-waiting',
+    group: 'Combat HUD',
+    label: 'Relics: Metronome cooling, Veil ready, Lantern flashing',
+    w: 1280,
+    h: 720,
+    render: () => (
+      <HudStage
+        scenario="relics-waiting"
+        coach={false}
+        boons={[{ id: 'mended_loom', fights: null }]}
+        relicFlash={['lantern_of_the_lost']}
+      />
+    ),
+  },
+  {
+    id: 'map-3b',
+    group: 'Relics & stops',
+    label: 'Map: purse, relics, boons',
+    w: 1280,
+    h: 860,
+    render: () => <MapView run={mapRun3b()} onChoose={noop} onAbandon={noop} />,
+  },
+  {
+    id: 'map-relic-tip',
+    group: 'Relics & stops',
+    label: 'Map: a relic’s tooltip (cleansed curse)',
+    w: 1280,
+    h: 860,
+    render: () => (
+      <MapView run={mapRun3b()} onChoose={noop} onAbandon={noop} peekRelic="glass_halo" />
+    ),
+  },
+  ...(['merchant', 'forge', 'event', 'elite', 'miniboss'] as const).map((kind): ViewDef => ({
+    id: `map-tip-${kind}`,
+    group: 'Relics & stops',
+    label: `Map tooltip: ${kind === 'miniboss' ? 'the Bellwarden' : kind}`,
+    w: 1280,
+    h: 860,
+    render: () => {
+      const run = mapRun3b();
+      return <MapView run={run} onChoose={noop} onAbandon={noop} peek={nodeOf(run, kind)} />;
+    },
+  })),
+  ...(['elite', 'boss', 'event'] as const).map((reason): ViewDef => ({
+    id: `relic-${reason}`,
+    group: 'Relics & stops',
+    label: `Relic offer: ${reason === 'boss' ? 'the Bellwarden' : reason === 'event' ? 'the Unsung Choir' : 'an elite'}`,
+    w: 1280,
+    h: 800,
+    render: () => <RelicOfferView run={relicOfferRun(reason)} onPick={noop} />,
+  })),
+  {
+    id: 'result-event',
+    group: 'Relics & stops',
+    label: 'Result after the Unsung Choir (→ relic)',
+    w: 1280,
+    h: 900,
+    render: () => {
+      const run = eventFightResultRun();
+      return <ResultView run={run} result={run.lastResult!} onContinue={noop} profileXp={LAB_XP} />;
+    },
+  },
+  {
+    id: 'merchant',
+    group: 'Relics & stops',
+    label: 'Merchant: affordable, too dear, sold (click to buy)',
+    w: 1280,
+    h: 1250,
+    render: () => (
+      <Interactive initial={merchantRun}>
+        {(run, set) => (
+          <MerchantView run={run} onBuy={(i) => set((r) => Run.buy(r, i))} onLeave={noop} />
+        )}
+      </Interactive>
+    ),
+  },
+  {
+    id: 'forge',
+    group: 'Relics & stops',
+    label: 'Forge: three services (click through)',
+    w: 1280,
+    h: 800,
+    render: () => (
+      <Interactive initial={() => forgeRun()}>
+        {(run, set) => (
+          <ForgeView run={run} onForge={(c) => set((r) => Run.forge(r, c))} onLeave={noop} />
+        )}
+      </Interactive>
+    ),
+  },
+  {
+    id: 'forge-poor',
+    group: 'Relics & stops',
+    label: 'Forge: short of Aether, no curse',
+    w: 1280,
+    h: 800,
+    render: () => (
+      <ForgeView run={forgeRun({ aether: 25, curse: false })} onForge={noop} onLeave={noop} />
+    ),
+  },
+  ...(['temper', 'cleanse'] as ForgeService[]).map((service): ViewDef => ({
+    id: `forge-${service}-pick`,
+    group: 'Relics & stops',
+    label: `Forge: ${service === 'temper' ? 'Temper, choose a motif' : 'Lift a curse, choose a relic'}`,
+    w: 1280,
+    h: 900,
+    render: () => (
+      <ForgeView run={forgeRun()} onForge={noop} onLeave={noop} initialMode={service} />
+    ),
+  })),
+  {
+    id: 'forge-retune-pick',
+    group: 'Relics & stops',
+    label: 'Forge: Retune (song builder)',
+    w: 1280,
+    h: 1050,
+    render: () => <ForgeView run={forgeRun()} onForge={noop} onLeave={noop} initialMode="retune" />,
+  },
+  ...(['temper', 'retune', 'cleanse'] as ForgeService[]).map((service): ViewDef => ({
+    id: `forge-${service}-done`,
+    group: 'Relics & stops',
+    label: `Forge: after ${service}`,
+    w: 1280,
+    h: 900,
+    render: () => {
+      const { run, result } = forgeAfter(service);
+      return <ForgeView run={run} onForge={noop} onLeave={noop} initialResult={result} />;
+    },
+  })),
+  ...CONTENT.events.map((ev): ViewDef => ({
+    id: `event-${ev.id}`,
+    group: 'Events',
+    label: `${ev.name}: the choice`,
+    w: 1280,
+    h: 820,
+    render: () => (
+      <Interactive initial={() => eventRun(ev.id, ev.id === 'broken_loom' ? 25 : 60)}>
+        {(run, set) => (
+          <EventView
+            run={run}
+            onChoose={(id, opts) => set((r) => Run.chooseEvent(r, id, opts))}
+            onLeave={noop}
+          />
+        )}
+      </Interactive>
+    ),
+  })),
+  {
+    id: 'event-shrine-pick',
+    group: 'Events',
+    label: 'Shrine of Discord: choose a motif',
+    w: 1280,
+    h: 900,
+    render: () => (
+      <EventView
+        run={eventRun('shrine_of_discord')}
+        onChoose={noop}
+        onLeave={noop}
+        initialPending="offer"
+      />
+    ),
+  },
+  {
+    id: 'event-pool-retune',
+    group: 'Events',
+    label: 'Tuning Pool: Retune (song builder)',
+    w: 1280,
+    h: 1050,
+    render: () => (
+      <EventView
+        run={eventRun('tuning_pool')}
+        onChoose={noop}
+        onLeave={noop}
+        initialPending="retune"
+      />
+    ),
+  },
+  ...(
+    [
+      ['wounded_cantor', 'mend', undefined],
+      ['wounded_cantor', 'last_note', undefined],
+      ['shrine_of_discord', 'offer', true],
+      ['shrine_of_discord', 'offer', false],
+      ['tuning_pool', 'retune', undefined],
+      ['tuning_pool', 'bathe', undefined],
+      ['merchant_of_silences', 'blood', undefined],
+      ['merchant_of_silences', 'gift', undefined],
+      ['unsung_choir', 'slip', undefined],
+      ['broken_loom', 'mend', undefined],
+      ['broken_loom', 'salvage', undefined],
+    ] as const
+  ).map(([eventId, choiceId, won]): ViewDef => ({
+    id: `event-${eventId}-${choiceId}${won === undefined ? '' : won ? '-won' : '-lost'}`,
+    group: 'Events',
+    label: `${CONTENT.events.find((e) => e.id === eventId)!.name}: ${choiceId}${won === undefined ? '' : won ? ' (won)' : ' (lost)'}`,
+    w: 1280,
+    h: 1000,
+    render: () => (
+      <EventView
+        run={eventAfter(eventId, choiceId, { won, aether: 60 })}
+        onChoose={noop}
+        onLeave={noop}
+      />
+    ),
+  })),
   {
     id: 'flow',
     group: 'Flow',

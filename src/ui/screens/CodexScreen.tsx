@@ -23,6 +23,13 @@ import { Panel } from '../kit/Panel';
 import { useMood } from '../kit/sound';
 import { useUi } from '../store';
 import { HeroDisc } from './shared';
+import { FORGE_PRICE, RELIC_OFFERS, RELIC_PRICE } from '../../meta/economy';
+import { RELIC_RARITY, RelicGlyph, RelicRarityChip, Glyph } from '../kit/RelicGlyph';
+import type { RelicRarity } from '../../content';
+import { EventGlyph } from './EventScreen';
+import { boonDuration, boonInfo, choiceInfo, relicInfo } from './interlude';
+import { BoonTip, RelicBody, boonStyle } from './RelicCard';
+import { newRun } from '../../meta/run';
 
 const TABS = [
   { id: 'heroes', label: 'Heroes' },
@@ -33,6 +40,8 @@ const TABS = [
   { id: 'rank', label: 'Weaver Rank' },
   { id: 'calls', label: 'Calls' },
   { id: 'motifs', label: 'Motifs' },
+  { id: 'relics', label: 'Relics' },
+  { id: 'events', label: 'Events' },
 ] as const;
 export type TabId = (typeof TABS)[number]['id'];
 
@@ -99,6 +108,8 @@ export function CodexView({
           {tab === 'rank' && <Ranks />}
           {tab === 'calls' && <Calls />}
           {tab === 'motifs' && <Motifs />}
+          {tab === 'relics' && <Relics />}
+          {tab === 'events' && <Events />}
         </div>
       </div>
     </ScreenFrame>
@@ -740,6 +751,143 @@ function Motifs() {
           </section>
         );
       })}
+    </div>
+  );
+}
+
+const RELIC_ORDER: RelicRarity[] = ['common', 'rare', 'legendary', 'cursed'];
+
+function Relics() {
+  return (
+    <div className="flex flex-col gap-8">
+      <Panel tone="gold" className="p-5">
+        <p className="max-w-4xl text-sm leading-relaxed text-text">
+          A motif adds a number; a <b className="text-gold-200">relic changes a rule</b>, for the
+          rest of the run. Elites offer 1 of {RELIC_OFFERS.elite.count}, the Bellwarden 1 of{' '}
+          {RELIC_OFFERS.boss.count} (rare or legendary), the Unsung Choir 1 of{' '}
+          {RELIC_OFFERS.event.count}. Merchants sell them for Aether. Cursed relics are bargains: a
+          forge lifts the curse for {FORGE_PRICE.cleanse} Aether and the blessing stays.
+        </p>
+      </Panel>
+      {RELIC_ORDER.map((rarity) => {
+        const relics = CONTENT.relics.filter((r) => r.rarity === rarity);
+        const look = RELIC_RARITY[rarity];
+        return (
+          <section key={rarity} aria-label={look.label}>
+            <h2
+              className="mb-3 flex items-center gap-2 font-display text-lg font-bold"
+              style={{ color: look.color }}
+            >
+              {look.label}
+              <span className="text-sm font-normal text-muted">
+                {RELIC_PRICE[rarity]} Aether at a merchant
+              </span>
+            </h2>
+            <div className={GRID}>
+              {relics.map((r) => {
+                const info = relicInfo(r.id);
+                return (
+                  <Panel
+                    key={r.id}
+                    tone="solid"
+                    className="p-4"
+                    style={{ borderLeftColor: look.color, borderLeftWidth: 3 }}
+                  >
+                    <div className="flex items-center gap-3">
+                      <RelicGlyph icon={info.icon} rarity={info.rarity} size={44} />
+                      <div className="min-w-0 flex-1">
+                        <h3 className="font-semibold">{info.name}</h3>
+                        <div className="mt-1 flex flex-wrap gap-1.5">
+                          <RelicRarityChip rarity={info.rarity} />
+                          {info.runOnly && <Chip>Between fights</Chip>}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="mt-3">
+                      <RelicBody info={info} compact />
+                    </div>
+                  </Panel>
+                );
+              })}
+            </div>
+          </section>
+        );
+      })}
+    </div>
+  );
+}
+
+/** A run to read choice tags from (no event live: nothing is greyed out). */
+const CODEX_RUN = newRun(1);
+
+function Events() {
+  return (
+    <div className="flex flex-col gap-8">
+      <Panel tone="gold" className="p-5">
+        <p className="max-w-4xl text-sm leading-relaxed text-text">
+          Events wait on the map between fights: a scene and a few choices, each with a price, a
+          risk or nothing at all. Walking away is always allowed. The map names the event before you
+          go. Gambles are seeded by the run: the same seed and node always roll the same.
+        </p>
+      </Panel>
+      <div className={GRID}>
+        {CONTENT.events.map((ev) => (
+          <Panel key={ev.id} tone="solid" className="p-5">
+            <div className="flex items-center gap-3">
+              <EventGlyph icon={ev.icon} size={46} />
+              <div>
+                <h2 className="font-display text-xl font-bold leading-tight">{ev.name}</h2>
+                <p className="text-sm italic text-muted">{ev.teaser}</p>
+              </div>
+            </div>
+            <p className="mt-3 text-sm leading-relaxed text-text">{ev.text}</p>
+            <ul className="mt-3 flex flex-col gap-2.5 border-t border-ink-600/60 pt-3">
+              {ev.choices.map((c) => {
+                const info = choiceInfo(CODEX_RUN, ev.id, c);
+                return (
+                  <li key={c.id} className="text-sm">
+                    <p className="font-semibold text-gold-200">{c.label}</p>
+                    <p className="leading-relaxed text-muted">{c.text}</p>
+                    {info.tags.length > 0 && (
+                      <div className="mt-1 flex flex-wrap gap-1.5">
+                        {info.tags.map((t) => (
+                          <Chip key={t.text} icon={t.icon}>
+                            {t.text}
+                          </Chip>
+                        ))}
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          </Panel>
+        ))}
+      </div>
+      <section aria-label="Boons and banes">
+        <h2 className="mb-3 font-display text-lg font-bold text-gold-300">Boons and banes</h2>
+        <div className={GRID}>
+          {CONTENT.boons.map((b) => {
+            const info = boonInfo({ id: b.id, fights: b.fights });
+            return (
+              <Panel key={b.id} tone="solid" className="p-4">
+                <p className="flex items-center gap-2">
+                  <span
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border"
+                    style={boonStyle(info)}
+                  >
+                    <Glyph icon={info.icon} size={20} />
+                  </span>
+                  <span className="text-xs text-muted">Lasts {boonDuration(b.id)}</span>
+                </p>
+                <p className="mt-2 block">
+                  <BoonTip info={info} left={false} />
+                </p>
+              </Panel>
+            );
+          })}
+        </div>
+      </section>
     </div>
   );
 }

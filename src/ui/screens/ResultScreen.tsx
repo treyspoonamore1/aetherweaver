@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react';
+import { useEffect, type CSSProperties } from 'react';
 import { useProfile, type RankUp } from '../../app/profileStore';
 import { useRun } from '../../app/runStore';
 import { CONTENT, heroDef } from '../../content';
@@ -9,7 +9,9 @@ import { Chip } from '../kit/Chip';
 import { clock, fmt, pct, possessive } from '../kit/format';
 import { Icon } from '../kit/Icon';
 import { Panel } from '../kit/Panel';
-import { useMood } from '../kit/sound';
+import { playUi, useMood } from '../kit/sound';
+import { findNode } from '../../meta/run';
+import { aetherLine, nextStep, threatLine } from './interlude';
 import { HeroDisc, SectionTitle } from './shared';
 import { HpTimeline, TimelineLegend } from './Timeline';
 import { ContributionBar } from './ContributionBar';
@@ -57,6 +59,13 @@ export function ResultView({
   const kinds = [...new Set(r.markers.map((m) => m.kind))];
   const onPar = r.par <= 0 || r.duration <= r.par;
   const last = run.path.length;
+  const aether = aetherLine(r);
+  const node = findNode(run, r.nodeId);
+  const threat = node ? threatLine(node.reward.threat) : null;
+  const gained = aether && r.aether > 0;
+  useEffect(() => {
+    if (gained) playUi('aether');
+  }, [gained]);
   return (
     <ScreenFrame tone={victory ? 'gold' : 'dusk'}>
       <div className="mx-auto max-w-6xl px-6 pb-28 pt-8">
@@ -95,10 +104,27 @@ export function ResultView({
               </span>
               <span>Weaver share {pct(r.stats.weaverShare)}</span>
             </p>
+            {threat && <p className="mt-1 font-mono text-xs text-muted">{threat}</p>}
           </div>
-          {profileXp !== undefined && (
-            <div className="w-full sm:ml-auto sm:w-80">
-              <XpGainPanel result={r} profileXp={profileXp} />
+          {(profileXp !== undefined || aether) && (
+            <div className="flex w-full flex-col gap-2 sm:ml-auto sm:w-80">
+              {profileXp !== undefined && <XpGainPanel result={r} profileXp={profileXp} />}
+              {aether && (
+                <div
+                  className="rounded-xl border border-gold-500/40 bg-ink-800/90 px-4 py-2.5"
+                  data-testid="aether-gain"
+                >
+                  <p className="flex items-center justify-between gap-3">
+                    <span className="flex items-center gap-2 whitespace-nowrap font-display text-lg font-bold text-gold-200">
+                      <Icon name="aether" size={18} className="text-gold-300" /> {aether.headline}
+                    </span>
+                    <span className="whitespace-nowrap font-mono text-xs text-muted">
+                      {run.aether} in your purse
+                    </span>
+                  </p>
+                  <p className="mt-0.5 font-mono text-xs text-muted">{aether.detail}</p>
+                </div>
+              )}
             </div>
           )}
         </header>
@@ -306,7 +332,7 @@ export function ResultView({
           sound="confirm"
           autoFocus
         >
-          Continue <Icon name="arrow" size={18} />
+          {nextStep(run)} <Icon name="arrow" size={18} />
         </Button>
       </div>
       {rankUps.length > 0 && onDismissRankUps && (

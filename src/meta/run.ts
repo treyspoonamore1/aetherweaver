@@ -403,7 +403,7 @@ export function chooseNode(run: RunState, nodeId: string): RunState {
       return {
         ...next,
         phase: 'forge',
-        forge: { nodeId: node.id, prices: { ...FORGE_PRICE }, used: null },
+        forge: { nodeId: node.id, prices: { ...FORGE_PRICE }, used: null, target: null },
       };
     case 'event':
       if (!node.eventId) return { ...next, phase: 'map', pending: null };
@@ -774,7 +774,17 @@ export function forge(
       next = { ...run, chords: canonicalChords(choice.chords) };
       break;
   }
-  return { ...next, aether: run.aether - price, forge: { ...run.forge, used: choice.service } };
+  const target =
+    choice.service === 'temper'
+      ? choice.motifId
+      : choice.service === 'cleanse'
+        ? choice.relicId
+        : null;
+  return {
+    ...next,
+    aether: run.aether - price,
+    forge: { ...run.forge, used: choice.service, target },
+  };
 }
 
 export function leaveForge(run: RunState): RunState {
@@ -844,6 +854,7 @@ export function chooseEvent(
     motif: null,
     lostMotif: null,
     retuned: false,
+    before: run.party.map((h) => h.hpPct),
   };
   for (const effect of applied) next = applyEffect(next, effect, gains, rng, motifId, opts.chords);
   return {
@@ -906,7 +917,11 @@ function applyEffect(
       const owned = motifId ? run.motifs.find((m) => m.id === motifId) : undefined;
       if (!owned) return run;
       const next = setMotifLevel(run, owned.id, owned.level + effect.levels);
-      gains.motif = { id: owned.id, level: next.motifs.find((m) => m.id === owned.id)!.level };
+      gains.motif = {
+        id: owned.id,
+        from: owned.level,
+        level: next.motifs.find((m) => m.id === owned.id)!.level,
+      };
       return next;
     }
     case 'loseMotif':

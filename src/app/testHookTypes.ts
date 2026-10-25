@@ -3,7 +3,7 @@
  * E2E tests (tsconfig.node.json) can type-check against the same contract.
  */
 import type { BotKind } from '../bots/types';
-import type { RunPhase } from '../meta/types';
+import type { NodeKind, RunPhase } from '../meta/types';
 import type { Command, Replay, SimSnapshot, WithoutYou } from '../sim';
 import type { PerfStats } from '../ui/store';
 
@@ -38,6 +38,20 @@ export interface RunHook {
   lastWithoutYou(): WithoutYou | null;
   /** Weaver XP on the profile (fights award it as they finish). */
   weaverXp(): number;
+  /**
+   * Phase 3b, test-only: from the map, skip ahead along the map's links to the first node of
+   * `kind` and enter it (optionally setting the purse). Returns the new phase, or null.
+   */
+  warp(kind: NodeKind, aether?: number): RunPhase | null;
+  aether(): number;
+  /** Relic ids carried. */
+  relics(): string[];
+  buy(index: number): void;
+  leaveShop(): void;
+  chooseEvent(choiceId: string, motifId?: string): void;
+  leaveEvent(): void;
+  pickRelic(index: number | null): void;
+  leaveForge(): void;
 }
 
 declare global {

@@ -4,7 +4,10 @@ import { enemyDef } from '../../content';
 import type { WheelView } from '../../input/wheel';
 import { countHudCommit } from '../perfCounters';
 import { useUi, type Callout, type HudSnapshot } from '../store';
+import { useRun } from '../../app/runStore';
+import type { ActiveBoon } from '../../meta/types';
 import { BossBar } from './BossBar';
+import { RelicBar } from './RelicBar';
 import { Callouts } from './Callouts';
 import { CoachHints } from './CoachHints';
 import { DirectiveWheel, DirectiveWheelView } from './DirectiveWheel';
@@ -12,6 +15,8 @@ import { EncounterHeader } from './EncounterHeader';
 import { KeyHints } from './KeyHints';
 import { PartyFrames } from './PartyFrames';
 import { WeaverBar } from './WeaverBar';
+
+const NO_BOONS: readonly ActiveBoon[] = [];
 
 export interface HudProps {
   /** Small line above the encounter name (e.g. "The Prelude · node 3 of 7"). */
@@ -29,6 +34,7 @@ export function Hud({ subtitle, keyHints = true }: HudProps) {
   const callouts = useUi((s) => s.callouts);
   const decree = useUi((s) => s.lastDecree);
   const devOpen = useUi((s) => s.devOpen);
+  const boons = useRun((s) => s.run?.boons) ?? NO_BOONS;
   useEffect(() => {
     countHudCommit();
   });
@@ -41,6 +47,7 @@ export function Hud({ subtitle, keyHints = true }: HudProps) {
         decree={decree}
         subtitle={subtitle}
         keyHints={keyHints && !devOpen}
+        boons={hud.encounter.kind === 'sandbox' ? NO_BOONS : boons}
       />
       <DirectiveWheel focusName={enemyName} />
     </>
@@ -63,8 +70,14 @@ export function HudView({
   coach = true,
   forceCoach = false,
   wheel = null,
+  boons = [],
+  relicFlash,
 }: {
   hud: HudSnapshot;
+  /** The run's boons and banes (none in the Training Grounds). */
+  boons?: readonly ActiveBoon[];
+  /** UI lab: relics drawn mid-flash. */
+  relicFlash?: readonly string[];
   callouts: Callout[];
   decree: { name: string; text: string } | null;
   subtitle?: string;
@@ -79,7 +92,10 @@ export function HudView({
   const clockText = `${hud.seconds.toFixed(1)} s · tick ${hud.tick} · seed ${hud.seed}${hud.directive ? ` · ${hud.directive}` : ''}`;
   return (
     <div className="pointer-events-none absolute inset-0" data-testid="hud">
-      <EncounterHeader encounter={hud.encounter} subtitle={subtitle} clockText={clockText} />
+      <div className="absolute left-4 top-4 flex flex-col items-start gap-2">
+        <EncounterHeader encounter={hud.encounter} subtitle={subtitle} clockText={clockText} />
+        <RelicBar relics={hud.relics} boons={boons} seconds={hud.seconds} flash={relicFlash} />
+      </div>
       {hud.boss && (
         <BossBar
           boss={hud.boss}

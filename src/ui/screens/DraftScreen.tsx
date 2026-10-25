@@ -1,6 +1,7 @@
-import { useEffect } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { useRun } from '../../app/runStore';
 import { CONTENT, auraDef, heroDef, motifDef } from '../../content';
+import * as Run from '../../meta/run';
 import { motifLine } from '../../meta/run';
 import type { DraftOffer, DraftOption, RunState } from '../../meta/types';
 import { ScreenFrame, ScreenHeader } from '../kit/Backdrop';
@@ -57,10 +58,17 @@ export function DraftView({ run, onPick, onReroll }: DraftViewProps) {
     <ScreenFrame tone="gold">
       <div className="mx-auto max-w-6xl px-6 py-8">
         <ScreenHeader eyebrow="A motif to weave" title={reason.title}>
-          <p className="mt-2 text-sm text-muted">{reason.blurb}</p>
+          <p className="mt-2 text-sm text-muted">
+            {reason.blurb}
+            {options.length >= 4 && Run.hasRelic(run, 'star_chart') && (
+              <span className="ml-1.5 text-gold-200">Your Star Chart adds a fourth choice.</span>
+            )}
+          </p>
         </ScreenHeader>
 
-        <ul className="mt-8 grid gap-5 md:grid-cols-3">
+        <ul
+          className={`mt-8 grid gap-5 ${options.length >= 4 ? 'md:grid-cols-2 xl:grid-cols-4' : 'md:grid-cols-3'}`}
+        >
           {options.map((o, i) => (
             <li key={o.motifId} className="anim-rise" style={{ animationDelay: `${i * 90}ms` }}>
               <MotifCard option={o} index={i} onPick={() => onPick(i)} />
@@ -84,14 +92,28 @@ export function DraftView({ run, onPick, onReroll }: DraftViewProps) {
   );
 }
 
-function MotifCard({
+/**
+ * A motif offer as a card (draft, merchant): category, name, rarity, new or upgrade, the line
+ * at its new level. `action` replaces the gold call to action; `disabled` keeps it focusable
+ * (aria-disabled) so a click can still say why.
+ */
+export function MotifCard({
   option,
   index,
   onPick,
+  action,
+  disabled = false,
+  dim = false,
+  label,
 }: {
   option: DraftOption;
-  index: number;
+  /** 0-based; shows the number key (omit for none). */
+  index?: number;
   onPick(): void;
+  action?: ReactNode;
+  disabled?: boolean;
+  dim?: boolean;
+  label?: string;
 }) {
   const def = motifDef(option.motifId);
   const cat = CATEGORY[def.category];
@@ -103,8 +125,12 @@ function MotifCard({
     <button
       type="button"
       onClick={onPick}
-      aria-label={`${def.name}, ${rarity.label} ${cat.label} motif${option.upgrade ? `, upgrade to level ${option.level}` : ''}. ${motifLine(def.id, option.level)}`}
-      className="group flex h-full w-full flex-col rounded-2xl border-2 bg-ink-800/90 p-5 text-left shadow-xl shadow-black/40 transition-all hover:-translate-y-1.5 hover:bg-ink-700/90"
+      aria-disabled={disabled || undefined}
+      aria-label={
+        label ??
+        `${def.name}, ${rarity.label} ${cat.label} motif${option.upgrade ? `, upgrade to level ${option.level}` : ''}. ${motifLine(def.id, option.level)}`
+      }
+      className={`group flex h-full w-full flex-col rounded-2xl border-2 bg-ink-800/90 p-5 text-left shadow-xl shadow-black/40 transition-all ${disabled ? 'cursor-not-allowed' : 'hover:-translate-y-1.5 hover:bg-ink-700/90'} ${dim ? 'opacity-55 saturate-50' : ''}`}
       style={{ borderColor: rarity.color }}
     >
       <div className="flex items-center justify-between gap-2">
@@ -115,7 +141,7 @@ function MotifCard({
           <Icon name={cat.icon} size={18} /> {cat.label}
           <span className="text-xs font-normal text-muted">{cat.blurb}</span>
         </span>
-        <KeyCap label={String(index + 1)} />
+        {index !== undefined && <KeyCap label={String(index + 1)} />}
       </div>
       <h2 className="mt-3 font-display text-2xl font-bold leading-tight text-text">{def.name}</h2>
       <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -159,9 +185,11 @@ function MotifCard({
           ))}
         </div>
       </div>
-      <span className="mt-4 rounded-lg bg-gold-400 py-2 text-center text-sm font-semibold text-ink-950 opacity-90 group-hover:opacity-100">
-        {option.upgrade ? 'Strengthen' : 'Weave in'}
-      </span>
+      {action ?? (
+        <span className="mt-4 rounded-lg bg-gold-400 py-2 text-center text-sm font-semibold text-ink-950 opacity-90 group-hover:opacity-100">
+          {option.upgrade ? 'Strengthen' : 'Weave in'}
+        </span>
+      )}
     </button>
   );
 }

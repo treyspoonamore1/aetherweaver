@@ -6,6 +6,7 @@
 import type { PartySlot } from '../commands';
 import { distSq, len } from '../core/dmath';
 import { addShield, heal, isActive, reviveHero, shieldOf, slotHero } from '../combat/health';
+import { relicFired } from '../combat/feedback';
 import { gainResonance } from '../combat/resonance';
 import type { Entity } from '../state';
 import { weaverOf, type World } from '../world';
@@ -45,12 +46,7 @@ function silverThimble(world: World, hero: Entity): void {
   if (existing && existing.amount >= amount) return;
   addShield(world, hero, 'overshield', amount, world.mods.thimbleDuration, true);
   relics.thimbleAt = world.time + world.mods.thimbleCooldown;
-  world.events.push({
-    type: 'relicTriggered',
-    tick: world.tick,
-    relic: 'silver_thimble',
-    hero: hero.id,
-  });
+  relicFired(world, 'silver_thimble', hero.id);
 }
 
 export function toggleThreadMode(world: World): void {

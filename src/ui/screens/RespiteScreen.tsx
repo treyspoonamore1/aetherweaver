@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useRun } from '../../app/runStore';
 import { auraDef, motifDef } from '../../content';
 import { EVERYTHING, type Allowance, type Unlock } from '../../meta/profile';
@@ -178,40 +178,61 @@ function Choice({
   );
 }
 
-/** Respite → Retune: the Chord builder, confirmed with `retune`. */
-function RetuneView({
+/** What the Retune view says around the builder (Respite, a forge, the Tuning Pool). */
+export interface RetuneCopy {
+  eyebrow: string;
+  title: string;
+  blurb: string;
+  back: string;
+  confirm: string;
+  /** Shown next to the confirm button (e.g. the price). */
+  note?: ReactNode;
+}
+
+const RESPITE_RETUNE: RetuneCopy = {
+  eyebrow: 'Respite · Retune',
+  title: 'Retune your songs',
+  blurb:
+    'Retuning takes the whole respite: no healing and no motif. Your motifs stay; only the songs change.',
+  back: 'Rest or meditate instead',
+  confirm: 'Retune and travel on',
+};
+
+/** The Chord builder as a screen, confirmed with `onRetune` (Respite, forge, Tuning Pool). */
+export function RetuneView({
   run,
   onBack,
   onRetune,
   allowance,
   fresh,
+  copy = RESPITE_RETUNE,
+  tone = 'dusk',
 }: {
   run: RunState;
   onBack(): void;
   onRetune(chords: ChordLoadout[]): void;
   allowance: Allowance;
   fresh: readonly Unlock[];
+  copy?: RetuneCopy;
+  tone?: 'navy' | 'gold' | 'dusk';
 }) {
   const [legalDraft, setLegalDraft] = useState<ChordLoadout[]>(run.chords);
   const { draft, change, legal } = useChordDraft(run.chords, allowance, setLegalDraft);
   const [freshIds] = useState(() => new Set(fresh.map((u) => u.id)));
   const unchanged = sameLoadout(draft, run.chords);
   return (
-    <ScreenFrame tone="dusk">
+    <ScreenFrame tone={tone}>
       <div className="mx-auto max-w-7xl px-6 pb-28 pt-8">
         <ScreenHeader
-          eyebrow="Respite · Retune"
-          title="Retune your songs"
+          eyebrow={copy.eyebrow}
+          title={copy.title}
           right={
             <Button variant="ghost" onClick={onBack} sound="back">
-              <Icon name="back" size={16} /> Rest or meditate instead
+              <Icon name="back" size={16} /> {copy.back}
             </Button>
           }
         >
-          <p className="mt-2 max-w-2xl text-sm text-muted">
-            Retuning takes the whole respite: no healing and no motif. Your motifs stay; only the
-            songs change.
-          </p>
+          <p className="mt-2 max-w-2xl text-sm text-muted">{copy.blurb}</p>
         </ScreenHeader>
         <FreshStrip fresh={fresh} />
         <div className="mt-6">
@@ -227,6 +248,7 @@ function RetuneView({
                 ? 'Same songs as before'
                 : 'Ready to sing the new songs'}
           </p>
+          {copy.note}
           <Button
             variant="primary"
             size="lg"
@@ -234,7 +256,7 @@ function RetuneView({
             onClick={() => onRetune(legalDraft)}
             sound="confirm"
           >
-            Retune and travel on <Icon name="arrow" size={18} />
+            {copy.confirm} <Icon name="arrow" size={18} />
           </Button>
         </div>
       </div>

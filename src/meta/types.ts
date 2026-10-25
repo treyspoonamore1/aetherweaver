@@ -123,6 +123,8 @@ export interface ForgeState {
   prices: Record<ForgeService, number>;
   /** One service per visit: the one used, once used. */
   used: ForgeService | null;
+  /** What it was used on: the motif tempered or the relic cleansed (null for a Retune). */
+  target: string | null;
 }
 
 /** What an event choice gave or took, for its outcome screen. */
@@ -132,10 +134,12 @@ export interface EventGains {
   boons: string[];
   heal: number;
   hurt: number;
-  /** A motif that changed level: its new level. */
-  motif: { id: string; level: number } | null;
+  /** A motif that changed level: from what to what. */
+  motif: { id: string; from: number; level: number } | null;
   lostMotif: string | null;
   retuned: boolean;
+  /** Every hero's life (0..1, by slot) before the choice, to show before → after. */
+  before: number[];
 }
 
 export interface EventState {

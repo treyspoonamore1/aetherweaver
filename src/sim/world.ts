@@ -22,6 +22,7 @@ import type {
   Telegraph,
   WorldState,
 } from './state';
+import { relicFired } from './combat/feedback';
 import { formationSlot } from './systems/formation';
 
 /** A party member as configured by the run (or a test). */
@@ -398,6 +399,7 @@ export function createWorld(config: SimConfig): World {
       metronomeAt: carried('cracked_metronome') ? 0 : null,
       thimbleAt: carried('silver_thimble') ? 0 : null,
       veil: carried('martyrs_veil'),
+      triggers: Object.fromEntries(resolved.relics.map((r) => [r.id, 0])),
     },
     config: resolved,
     content,
@@ -563,8 +565,7 @@ export function createWorld(config: SimConfig): World {
     world.events.push({ type: 'entitySpawned', tick: 0, id: hero.id, kind: 'hero' });
     if (mods.startSolos) world.events.push({ type: 'soloReady', tick: 0, hero: hero.id });
   });
-  if (carried('cantors_hymnal'))
-    world.events.push({ type: 'relicTriggered', tick: 0, relic: 'cantors_hymnal', hero: null });
+  if (carried('cantors_hymnal')) relicFired(world, 'cantors_hymnal', null);
 
   world.entities.flush();
   return world;

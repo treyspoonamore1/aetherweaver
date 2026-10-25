@@ -2,10 +2,10 @@
   "simVersion": 5,
   "contentVersion": "c-9ccdf195f5775748",
   "scenarios": {
-    "patrol": "48250022c0c4acc6",
-    "crowd": "6dc68dfc2de943f7",
-    "skilled-first-light": "a2d4f32a7653e107",
-    "skilled-bellwarden": "4095e731b6960a4a",
-    "novice-cantor": "35189048eabbdc4e"
+    "patrol": "bbfd2bf75f31e1f4",
+    "crowd": "673cd541128a5e0a",
+    "skilled-first-light": "c521b57d0ddd999c",
+    "skilled-bellwarden": "7e4ec96a3a857c78",
+    "novice-cantor": "0daa955fcf257954"
   }
 }

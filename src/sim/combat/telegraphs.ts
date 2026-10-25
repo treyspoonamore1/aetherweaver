@@ -30,7 +30,7 @@ import {
   shieldOf,
   totalShield,
 } from './health';
-import { bark, pushMarker, setTimeScale } from './feedback';
+import { bark, pushMarker, relicFired, setTimeScale } from './feedback';
 import { gainResonance } from './resonance';
 
 export interface TelegraphSpec {
@@ -369,12 +369,7 @@ function metronome(world: World, hero: Entity): boolean {
   const relics = world.relics;
   if (relics.metronomeAt === null || world.time < relics.metronomeAt) return false;
   relics.metronomeAt = world.time + world.mods.metronomeCooldown;
-  world.events.push({
-    type: 'relicTriggered',
-    tick: world.tick,
-    relic: 'cracked_metronome',
-    hero: hero.id,
-  });
+  relicFired(world, 'cracked_metronome', hero.id);
   return true;
 }
 
@@ -384,12 +379,7 @@ function perfectRelics(world: World, hero: Entity): void {
   const h = hero.hero;
   if (charge > 0 && h && h.soloActive <= 0 && h.solo < 100) {
     h.solo = Math.min(100, h.solo + charge);
-    world.events.push({
-      type: 'relicTriggered',
-      tick: world.tick,
-      relic: 'tuning_fork',
-      hero: hero.id,
-    });
+    relicFired(world, 'tuning_fork', hero.id);
     if (h.solo >= 100) world.events.push({ type: 'soloReady', tick: world.tick, hero: hero.id });
   }
   const pct = world.mods.perfectHealPct;
@@ -398,12 +388,7 @@ function perfectRelics(world: World, hero: Entity): void {
       const ally = world.entities.get(id);
       if (isActive(ally)) heal(world, ally, ally.health.maxHp * pct, 'other');
     }
-    world.events.push({
-      type: 'relicTriggered',
-      tick: world.tick,
-      relic: 'glass_halo',
-      hero: hero.id,
-    });
+    relicFired(world, 'glass_halo', hero.id);
   }
 }
 

@@ -97,6 +97,8 @@ describe('common relics', () => {
     events = stepFor(sim, 1, [{ t: 'thread', slot: 0 }]);
     expect(triggered(events, 'silver_thimble')).toHaveLength(1);
     expect(sim.state.relics.thimbleAt).toBeGreaterThan(sim.state.time);
+    // Every moment is counted in the relic state too (the HUD flashes on it).
+    expect(sim.state.relics.triggers).toEqual({ silver_thimble: 2 });
   });
 
   it('Lantern of the Lost shields the others when a hero goes down', () => {

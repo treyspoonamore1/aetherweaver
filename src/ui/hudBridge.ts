@@ -8,6 +8,7 @@ import {
   type TechniqueKey,
   type WorldState,
 } from '../sim';
+import { relicHuds } from './hud/relics';
 import type { AuraHud, BossHud, ChordHud, HeroHud, HudSnapshot, TechniqueHud } from './store';
 
 const TECHNIQUE_KEYS: readonly TechniqueKey[] = ['ward', 'chime', 'reel', 'glide'];
@@ -250,6 +251,11 @@ export function buildHudSnapshot(
     directive: state.directive,
     focusTarget: state.focusTarget,
     contribution,
+    relics: relicHuds({
+      relics: state.relics,
+      time: state.time,
+      ledger: { perfects: l.perfects, downs: l.downs },
+    }),
     entityCount: state.entities.count,
     dummyCount,
   };

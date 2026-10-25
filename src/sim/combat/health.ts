@@ -17,7 +17,7 @@ import type {
 import type { World } from '../world';
 import { hasAura, heroFx } from './auras';
 import { addHealingThreat, addThreat } from './threat';
-import { bark, pushMarker, setTimeScale } from './feedback';
+import { bark, pushMarker, relicFired, setTimeScale } from './feedback';
 import { gainResonance } from './resonance';
 import { recordSave } from './saves';
 
@@ -462,12 +462,7 @@ function martyr(world: World, hero: Entity, amount: number, opts: DamageOpts): b
   if (!isActive(weaver) || !weaver.weaver) return false;
   world.relics.veil = false;
   world.ledger.shielded += amount;
-  world.events.push({
-    type: 'relicTriggered',
-    tick: world.tick,
-    relic: 'martyrs_veil',
-    hero: hero.id,
-  });
+  relicFired(world, 'martyrs_veil', hero.id);
   recordSave(world, hero, 'martyr', amount, opts.sourceName);
   const spare = Math.max(0, weaver.health.hp + totalShield(weaver.health) - 1);
   dealDamage(world, weaver, {
@@ -493,13 +488,7 @@ function lantern(world: World, downed: Entity): void {
     addShield(world, ally, 'overshield', amount, world.mods.lanternDuration, true);
     any = true;
   }
-  if (any)
-    world.events.push({
-      type: 'relicTriggered',
-      tick: world.tick,
-      relic: 'lantern_of_the_lost',
-      hero: downed.id,
-    });
+  if (any) relicFired(world, 'lantern_of_the_lost', downed.id);
 }
 
 function shieldOrder(kind: ShieldKind): number {

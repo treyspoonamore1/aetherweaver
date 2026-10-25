@@ -5,7 +5,20 @@
  */
 import { CONTENT, auraDef, encounterDef, heroDef } from '../../content';
 import * as Run from '../../meta/run';
-import type { CombatOutcome, RunState, WithoutYou } from '../../meta/types';
+import type {
+  ActiveBoon,
+  CombatOutcome,
+  ForgeService,
+  NodeKind,
+  OwnedRelic,
+  RelicOffer,
+  RunState,
+  ShopItem,
+  WithoutYou,
+} from '../../meta/types';
+import { FORGE_PRICE, MOTIF_PRICE, RELIC_PRICE, SHOP_HEAL } from '../../meta/economy';
+import { relicHuds } from '../hud/relics';
+import { motifStep, type ForgeResult } from '../screens/interlude';
 import { resolveChord, type Ledger } from '../../sim';
 import { UNLOCKS } from '../../meta/profile';
 import type { RankUp } from '../../app/profileStore';
@@ -119,7 +132,9 @@ export type HudScenario =
   | 'calls'
   | 'fermata'
   | 'wheel'
-  | 'beam';
+  | 'beam'
+  | 'relics'
+  | 'relics-waiting';
 
 function auraHud(id: string, reserveMult = 1): AuraHud {
   const a = auraDef(id);
@@ -253,6 +268,7 @@ function mockHudRaw(scenario: HudScenario): HudSnapshot {
       thread: { healing: 2630, amplified: 1980 },
       total: 11800,
     },
+    relics: [],
     entityCount: 40,
     dummyCount: 0,
   };
@@ -530,6 +546,47 @@ function mockHudRaw(scenario: HudScenario): HudSnapshot {
         encounter: { ...base.encounter, elapsed: 38, enemies: 7 },
       };
     }
+    case 'relics':
+      // Metronome ready, Thimble cooling, the Veil spent, a cleansed Heavy Score.
+      return {
+        ...base,
+        seconds: 90,
+        relics: relicHuds({
+          relics: {
+            ids: [
+              'cracked_metronome',
+              'silver_thimble',
+              'martyrs_veil',
+              'heavy_score',
+              'tuning_fork',
+              'star_chart',
+            ],
+            cleansed: ['heavy_score'],
+            metronomeAt: 84,
+            thimbleAt: 92.3,
+            veil: false,
+          },
+          time: 90,
+          ledger: { perfects: 3, downs: 1 },
+        }),
+      };
+    case 'relics-waiting':
+      // Metronome cooling, the Veil still there, an uncleansed Glass Halo, the Lantern.
+      return {
+        ...base,
+        seconds: 90,
+        relics: relicHuds({
+          relics: {
+            ids: ['cracked_metronome', 'martyrs_veil', 'glass_halo', 'lantern_of_the_lost'],
+            cleansed: [],
+            metronomeAt: 97.2,
+            thimbleAt: null,
+            veil: true,
+          },
+          time: 90,
+          ledger: { perfects: 1, downs: 0 },
+        }),
+      };
     case 'resonance':
       return {
         ...base,
@@ -612,9 +669,12 @@ export function mockCallouts(scenario: HudScenario): Callout[] {
         }),
         c(2, 'system', 'Chorus · 4 auras', { color: '#e9d5ff' }),
       ];
+    case 'relics':
+      return [c(1, 'perfect', 'Perfect Ward', { detail: 'Kael · 480 negated', color: '#f5d78e' })];
     case 'wheel':
     case 'beam':
     case 'sandbox':
+    case 'relics-waiting':
       return [];
   }
 }
@@ -636,7 +696,8 @@ export function fakeOutcome(
   opts: { deaths?: number; alone?: WithoutYou['outcome'] | null } = {},
 ): CombatOutcome {
   const node = Run.findNode(run, run.pending ?? '');
-  const encId = node?.encounterId ?? 'first_light';
+  const encId =
+    (node?.kind === 'event' ? run.event?.encounterId : node?.encounterId) ?? 'first_light';
   const enc = encounterDef(encId);
   const rnd = lcg(run.seed + run.encounters * 977);
   const duration = enc.par > 0 ? enc.par * (victory ? 0.8 + rnd() * 0.5 : 0.6) : 80;
@@ -917,4 +978,227 @@ export function summaryRun(outcome: 'victory' | 'defeat' | 'abandoned'): RunStat
 /** Rank-up cards as the profile store would hold them after reaching these Ranks. */
 export function mockRankUps(ranks: number[]): RankUp[] {
   return ranks.map((rank) => ({ rank, unlocks: UNLOCKS.filter((u) => u.rank === rank) }));
+}
+
+// ── Phase 3b: relics, merchants, forges, events ─────────────────────────────────────────
+
+const LOOT_RELICS: OwnedRelic[] = [
+  { id: 'tuning_fork', cleansed: false },
+  { id: 'heavy_score', cleansed: false },
+  { id: 'martyrs_veil', cleansed: false },
+  { id: 'glass_halo', cleansed: true },
+];
+const LOOT_BOONS: ActiveBoon[] = [
+  { id: 'last_note', fights: 1 },
+  { id: 'mended_loom', fights: null },
+];
+
+/** A run a few fights in, with Aether, relics (a curse, a cleansed curse) and boons. */
+export function lootRun(fights = 3, aether = 95): RunState {
+  const run = playedRun(fights);
+  return { ...run, aether, relics: LOOT_RELICS, boons: LOOT_BOONS };
+}
+
+/** The first node of a kind on the map (any row), for lab views and tooltips. */
+export function nodeOf(run: RunState, kind: NodeKind, eventId?: string): string {
+  const all = run.map.rows.flat();
+  const node =
+    all.find((n) => n.kind === kind && (!eventId || n.eventId === eventId)) ??
+    all.find((n) => n.kind === kind);
+  return node?.id ?? all[0]!.id;
+}
+
+/** Stands the party on a node (pending) in a phase, without the map's reachability rules. */
+function standOn(run: RunState, nodeId: string, phase: RunState['phase']): RunState {
+  return { ...run, phase, pending: nodeId, path: [...run.path, nodeId] };
+}
+
+/** The map with loot: Aether, relics and boons in the strip. */
+export function mapRun3b(): RunState {
+  return { ...lootRun(3), boons: [...LOOT_BOONS, { id: 'frayed_spirit', fights: null }] };
+}
+
+/**
+ * A merchant with a bit of everything: an affordable rare, a legendary you can't afford, a
+ * sold curse, an upgrade and a new motif, and the healing. 95 Aether.
+ */
+export function merchantRun(): RunState {
+  const run = {
+    ...lootRun(3, 95),
+    relics: [...LOOT_RELICS.slice(0, 3), { id: 'glass_halo', cleansed: false }],
+  };
+  const item = (over: Partial<ShopItem> & Pick<ShopItem, 'kind' | 'id' | 'price'>): ShopItem => ({
+    level: 1,
+    upgrade: false,
+    heal: 0,
+    sold: false,
+    ...over,
+  });
+  const owned = run.motifs.find((m) => m.level < motifDefOf(m.id).values.length);
+  const fresh = CONTENT.motifs.find(
+    (m) =>
+      m.rarity === 'rare' &&
+      !run.motifs.some((o) => o.id === m.id) &&
+      (!m.requires.aura || run.chords.some((c) => c.auras.includes(m.requires.aura!))) &&
+      !m.requires.hero,
+  )!;
+  const items: ShopItem[] = [
+    item({ kind: 'relic', id: 'choirmasters_baton', price: RELIC_PRICE.rare }),
+    item({ kind: 'relic', id: 'cracked_metronome', price: RELIC_PRICE.legendary }),
+    item({ kind: 'relic', id: 'glass_halo', price: RELIC_PRICE.cursed, sold: true }),
+    owned
+      ? item({
+          kind: 'motif',
+          id: owned.id,
+          level: owned.level + 1,
+          upgrade: true,
+          price: MOTIF_PRICE[motifDefOf(owned.id).rarity],
+        })
+      : item({ kind: 'motif', id: 'relay_weave', price: MOTIF_PRICE.common }),
+    item({ kind: 'motif', id: fresh.id, price: MOTIF_PRICE[fresh.rarity] }),
+    item({ kind: 'heal', id: '', price: SHOP_HEAL.price, heal: SHOP_HEAL.pct }),
+  ];
+  const node = nodeOf(run, 'merchant');
+  return {
+    ...standOn(run, node, 'merchant'),
+    party: run.party.map((p, i) => ({ ...p, hpPct: [0.55, 0.8, 0.4][i] ?? 0.6 })),
+    shop: { nodeId: node, items },
+  };
+}
+
+function motifDefOf(id: string) {
+  return CONTENT.motifs.find((m) => m.id === id)!;
+}
+
+/** A forge. `curse`: carry the uncleansed Heavy Score. */
+export function forgeRun(opts: { aether?: number; curse?: boolean } = {}): RunState {
+  const { aether = 60, curse = true } = opts;
+  const base = lootRun(3, aether);
+  const run = curse ? base : { ...base, relics: base.relics.filter((r) => r.id !== 'heavy_score') };
+  const node = nodeOf(run, 'forge');
+  return {
+    ...standOn(run, node, 'forge'),
+    forge: { nodeId: node, prices: { ...FORGE_PRICE }, used: null, target: null },
+  };
+}
+
+/** A forge after its one service, and what the screen remembers of it. */
+export function forgeAfter(service: ForgeService): { run: RunState; result: ForgeResult } {
+  const run = forgeRun();
+  switch (service) {
+    case 'temper': {
+      const motifId = Run.forgeTargets(run, 'temper')[0]!;
+      return {
+        run: Run.forge(run, { service, motifId }),
+        result: { service, step: motifStep(run, motifId, 1) },
+      };
+    }
+    case 'cleanse':
+      return {
+        run: Run.forge(run, { service, relicId: 'heavy_score' }),
+        result: { service, relicId: 'heavy_score' },
+      };
+    case 'retune': {
+      const preset = Run.CHORD_PRESETS.find(
+        (p) => JSON.stringify(p.chords) !== JSON.stringify(run.chords),
+      )!;
+      return {
+        run: Run.forge(run, {
+          service,
+          chords: preset.chords.map((c) => ({ ...c, auras: [...c.auras] })),
+        }),
+        result: { service },
+      };
+    }
+  }
+}
+
+/** Standing at an event, before choosing. */
+export function eventRun(eventId: string, aether = 60): RunState {
+  const run = { ...lootRun(3, aether), boons: [] };
+  const node = nodeOf(run, 'event', eventId);
+  return {
+    ...standOn(run, node, 'event'),
+    party: run.party.map((p, i) => ({ ...p, hpPct: [0.7, 0.5, 0.85][i] ?? 0.7 })),
+    event: {
+      nodeId: node,
+      eventId,
+      choice: null,
+      won: null,
+      outcome: null,
+      gains: null,
+      encounterId: null,
+      relics: 0,
+    },
+  };
+}
+
+/**
+ * An event after a choice. Gambles roll from the seed and node, so `won` searches the map's
+ * nodes for one that rolls the wanted way.
+ */
+export function eventAfter(
+  eventId: string,
+  choiceId: string,
+  opts: { won?: boolean; aether?: number } = {},
+): RunState {
+  const base = eventRun(eventId, opts.aether ?? 60);
+  const def = CONTENT.events.find((e) => e.id === eventId)!;
+  const choice = def.choices.find((c) => c.id === choiceId)!;
+  const motifId =
+    choice.motif === 'none'
+      ? undefined
+      : base.motifs.find((m) => choice.motif === 'any' || m.level < motifDefOf(m.id).values.length)
+          ?.id;
+  const retune = choice.effects.some((e) => e.kind === 'retune');
+  const chords = retune
+    ? Run.CHORD_PRESETS.find(
+        (p) => JSON.stringify(p.chords) !== JSON.stringify(base.chords),
+      )!.chords.map((c) => ({ ...c, auras: [...c.auras] }))
+    : undefined;
+  const nodes = base.map.rows.flat().map((n) => n.id);
+  let last = base;
+  for (const nodeId of nodes) {
+    const at: RunState = { ...base, event: { ...base.event!, nodeId } };
+    last = Run.chooseEvent(at, choiceId, { motifId, chords });
+    if (opts.won === undefined || last.event?.won === opts.won) return last;
+  }
+  return last;
+}
+
+/** A relic offer: after an elite (2), the Bellwarden (3) or the Unsung Choir (3). */
+export function relicOfferRun(reason: RelicOffer['reason']): RunState {
+  const run = { ...lootRun(3, 120), relics: LOOT_RELICS.slice(0, 2) };
+  const options =
+    reason === 'elite'
+      ? ['silver_thimble', 'hollow_bell']
+      : reason === 'boss'
+        ? ['cantors_hymnal', 'prism_loom', 'cracked_metronome']
+        : ['lantern_of_the_lost', 'star_chart', 'spindle_of_fate'];
+  const kind: NodeKind = reason === 'elite' ? 'elite' : reason === 'boss' ? 'miniboss' : 'event';
+  const node = nodeOf(run, kind, reason === 'event' ? 'unsung_choir' : undefined);
+  const at = standOn(run, node, 'relic');
+  return {
+    ...at,
+    relicOffer: { reason, options },
+    event:
+      reason === 'event'
+        ? {
+            nodeId: node,
+            eventId: 'unsung_choir',
+            choice: 'fight',
+            won: null,
+            outcome: 'They turn to you as one.',
+            gains: null,
+            encounterId: 'unsung_choir',
+            relics: 3,
+          }
+        : null,
+  };
+}
+
+/** The result screen after winning the Unsung Choir's fight: Continue leads to a relic. */
+export function eventFightResultRun(): RunState {
+  const run = Run.chooseEvent(eventRun('unsung_choir'), 'fight');
+  return Run.finishCombat(run, fakeOutcome(run, true));
 }

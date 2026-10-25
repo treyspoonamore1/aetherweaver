@@ -2,7 +2,7 @@
 import { heroDef } from '../../content';
 import type { HeroDef } from '../../content/schema';
 import type { SimEventOf } from '../events';
-import type { Entity, LedgerMarkerKind } from '../state';
+import type { Entity, EntityId, LedgerMarkerKind } from '../state';
 import type { World } from '../world';
 
 const BARK_COOLDOWN = 5;
@@ -71,4 +71,13 @@ export function updateTimeScale(world: World): void {
 export function announceDecree(world: World, event: SimEventOf<'decree'>): void {
   world.encounter.decree = { name: event.name, text: event.text, at: world.time };
   world.events.push(event);
+}
+
+/**
+ * A relic visibly acted (docs/phase-3b.md): the view hears `relicTriggered`, and the relic's
+ * count in `WorldState.relics.triggers` goes up, so a HUD reading snapshots can flash it too.
+ */
+export function relicFired(world: World, relic: string, hero: EntityId | null): void {
+  world.relics.triggers[relic] = (world.relics.triggers[relic] ?? 0) + 1;
+  world.events.push({ type: 'relicTriggered', tick: world.tick, relic, hero });
 }

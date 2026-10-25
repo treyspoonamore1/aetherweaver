@@ -4,10 +4,13 @@ import { ScreenFrame } from '../kit/Backdrop';
 import { Button } from '../kit/Button';
 import { useUi } from '../store';
 import { DraftScreen } from './DraftScreen';
-import { InterludeStub } from './InterludeStub';
+import { EventScreen } from './EventScreen';
+import { ForgeScreen } from './ForgeScreen';
 import { MapScreen } from './MapScreen';
+import { MerchantScreen } from './MerchantScreen';
 import { PrepScreen } from './PrepScreen';
 import { ResultScreen } from './ResultScreen';
+import { RelicScreen } from './RelicScreen';
 import { RespiteScreen } from './RespiteScreen';
 import { SummaryScreen } from './SummaryScreen';
 
@@ -24,7 +27,7 @@ function Weaving() {
   );
 }
 
-/** The run: switches on the run's phase (Prep → Map → Combat → Result → Draft/Respite → Summary). */
+/** The run: switches on the run's phase (Prep → Map → Combat → Result → Relic/Draft → Map, with Respite, Merchant, Forge and Event stops, → Summary). */
 export function RunScreen() {
   const run = useRun((s) => s.run);
   const setScreen = useUi((s) => s.setScreen);
@@ -59,26 +62,13 @@ export function RunScreen() {
       return <RespiteScreen />;
     case 'summary':
       return <SummaryScreen />;
+    case 'relic':
+      return <RelicScreen />;
     case 'merchant':
+      return <MerchantScreen />;
     case 'forge':
+      return <ForgeScreen />;
     case 'event':
-    case 'relic': {
-      const store = useRun.getState();
-      return (
-        <InterludeStub
-          run={run}
-          onBuy={store.buy}
-          onLeave={() =>
-            run.phase === 'merchant'
-              ? store.leaveShop()
-              : run.phase === 'forge'
-                ? store.leaveForge()
-                : store.leaveEvent()
-          }
-          onEvent={(id) => store.chooseEvent(id)}
-          onRelic={store.pickRelic}
-        />
-      );
-    }
+      return <EventScreen />;
   }
 }

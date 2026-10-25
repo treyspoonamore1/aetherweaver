@@ -573,6 +573,8 @@ export interface RelicState {
   thimbleAt: number | null;
   /** Martyr's Veil: still unused this fight (false without it, or once spent). */
   veil: boolean;
+  /** How many times each carried relic has visibly acted this fight (`relicTriggered`). */
+  triggers: Record<string, number>;
 }
 
 export interface WorldState {

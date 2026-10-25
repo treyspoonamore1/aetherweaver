@@ -193,3 +193,28 @@ test('perf: a busy fight stays inside the CPU and draw-call budgets', async ({
   expect(perf.frameMsP95).toBeLessThan(25);
   expect(perf.hudCommitsPerSec).toBeLessThanOrEqual(20);
 });
+
+test('Phase 3b: a merchant through the test hook — buy, the purse drops, leave', async ({
+  page,
+}) => {
+  const errors = trackErrors(page);
+  await page.goto(START_URL);
+  await page.waitForFunction(() => window.__AWRUN__ !== undefined);
+  await page.evaluate(() => window.__AWRUN__!.newRun(4242));
+  await page
+    .getByRole('button', { name: /Embark/i })
+    .first()
+    .click();
+  await expect.poll(() => page.evaluate(() => window.__AWRUN__!.phase())).toBe('map');
+  await expect(page.getByTestId('run-strip')).toContainText('0');
+
+  expect(await page.evaluate(() => window.__AWRUN__!.warp('merchant', 200))).toBe('merchant');
+  await expect(page.getByRole('heading', { name: 'The Merchant' })).toBeVisible();
+  // The healing is always on the cloth; buy it by clicking its card.
+  await page.getByRole('button', { name: /^Healing:/ }).click();
+  await expect.poll(() => page.evaluate(() => window.__AWRUN__!.aether())).toBeLessThan(200);
+  await expect(page.getByText('Sold: yours now')).toBeVisible();
+  await page.getByRole('button', { name: /Leave the merchant/ }).click();
+  await expect.poll(() => page.evaluate(() => window.__AWRUN__!.phase())).toBe('map');
+  expect(errors).toEqual([]);
+});

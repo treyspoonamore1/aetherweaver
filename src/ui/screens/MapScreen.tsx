@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useRun } from '../../app/runStore';
-import { CONTENT, encounterDef, motifDef } from '../../content';
+import { CONTENT, encounterDef, motifDef, runEventDef } from '../../content';
 import { findNode, motifLine, reachable } from '../../meta/run';
 import type { MapNode, NodeKind, RunState } from '../../meta/types';
 import { ScreenFrame, ScreenHeader } from '../kit/Backdrop';
@@ -12,6 +12,9 @@ import { Panel } from '../kit/Panel';
 import { useMood } from '../kit/sound';
 import { clock } from '../kit/format';
 import { PartyHealth, Pips, SectionTitle } from './shared';
+import { Glyph } from '../kit/RelicGlyph';
+import { eventPreview, rewardChips, threatLine, type RewardChip } from './interlude';
+import { RunStrip } from './RelicCard';
 
 export const NODE_LOOK: Record<
   NodeKind,
@@ -21,12 +24,20 @@ export const NODE_LOOK: Record<
   elite: { icon: 'skull', label: 'Elite', color: '#fb923c', size: 56 },
   shrine: { icon: 'flame', label: 'Shrine', color: '#5eead4', size: 52 },
   respite: { icon: 'moon', label: 'Respite', color: '#86efac', size: 52 },
-  // Placeholders until the Phase 3b UI pass draws their own glyphs.
-  merchant: { icon: 'info', label: 'Merchant', color: '#facc15', size: 52 },
-  forge: { icon: 'flame', label: 'Forge', color: '#f97316', size: 52 },
-  event: { icon: 'info', label: 'Event', color: '#c4b5fd', size: 52 },
+  merchant: { icon: 'purse', label: 'Merchant', color: '#facc15', size: 52 },
+  forge: { icon: 'anvil', label: 'Forge', color: '#f97316', size: 52 },
+  event: { icon: 'event', label: 'Event', color: '#c4b5fd', size: 52 },
   miniboss: { icon: 'bell', label: 'Mini-boss', color: '#fbbf24', size: 64 },
   boss: { icon: 'eye', label: 'Boss', color: '#f472b6', size: 72 },
+};
+
+const CHIP_COLOR: Record<RewardChip['tone'], string> = {
+  aether: 'var(--color-gold-300)',
+  relic: '#fdba74',
+  heal: 'var(--color-heal)',
+  common: RARITY.common.color,
+  rare: RARITY.rare.color,
+  epic: RARITY.epic.color,
 };
 
 const W = 1000;
@@ -41,10 +52,13 @@ export interface MapViewProps {
   run: RunState;
   onChoose(nodeId: string): void;
   onAbandon(): void;
+  /** UI lab: force a node's tooltip open, or a carried relic's. */
+  peek?: string;
+  peekRelic?: string;
 }
 
 /** The Prelude's map, left to right: reachable nodes glow, the path walked is gold. */
-export function MapView({ run, onChoose, onAbandon }: MapViewProps) {
+export function MapView({ run, onChoose, onAbandon, peek, peekRelic }: MapViewProps) {
   useMood('map');
   const [confirm, setConfirm] = useState(false);
   const options = reachable(run);
@@ -98,6 +112,13 @@ export function MapView({ run, onChoose, onAbandon }: MapViewProps) {
               : 'No path forward.'}
           </p>
         </ScreenHeader>
+        <RunStrip
+          className="mt-4 w-fit"
+          aether={run.aether}
+          relics={run.relics}
+          boons={run.boons}
+          openRelic={peekRelic}
+        />
 
         <div className="mt-6 grid gap-6 xl:grid-cols-[1fr_20rem]">
           <Panel tone="solid" className="flex flex-col justify-center p-4 sm:p-6">
@@ -157,6 +178,7 @@ export function MapView({ run, onChoose, onAbandon }: MapViewProps) {
                           : 'locked'
                   }
                   onChoose={onChoose}
+                  peek={peek === node.id}
                 />
               ))}
             </div>
@@ -269,17 +291,23 @@ function MapNodeView({
   node,
   state,
   onChoose,
+  peek = false,
 }: {
   run: RunState;
   node: MapNode;
   state: 'current' | 'visited' | 'option' | 'locked';
   onChoose(id: string): void;
+  peek?: boolean;
 }) {
   const look = NODE_LOOK[node.kind];
   const pos = nodePos(run, node);
   const rows = run.map.rows.length;
   const enc = node.encounterId ? encounterDef(node.encounterId) : null;
-  const title = enc?.name ?? look.label;
+  const ev = node.kind === 'event' ? eventPreview(node.eventId) : null;
+  const eventIcon = node.eventId ? runEventDef(node.eventId).icon : null;
+  const title = enc?.name ?? ev?.name ?? look.label;
+  const threat = threatLine(node.reward.threat, node.kind === 'event');
+  const shop = node.kind === 'merchant' || node.kind === 'forge';
   const left = (pos.x / W) * 100;
   const top = (pos.y / H) * 100;
   const below = node.x < 0.5;
@@ -334,21 +362,27 @@ function MapNodeView({
   );
   const label = (
     <span
-      className={`pointer-events-none mt-1 block w-28 text-center text-xs leading-tight ${state === 'locked' ? 'text-muted/70' : 'text-text'}`}
+      className={`pointer-events-none mt-1 block w-[5.4rem] text-center text-xs leading-tight ${state === 'locked' ? 'text-muted/70' : 'text-text'}`}
     >
       {title}
     </span>
   );
   return (
     <div
-      className="group absolute -translate-x-1/2 -translate-y-1/2"
+      className={`group absolute -translate-x-1/2 -translate-y-1/2 focus-within:z-30 hover:z-30 ${peek ? 'z-30' : ''}`}
       style={{ left: `${left}%`, top: `${top}%` }}
     >
       {active ? (
         <button
           type="button"
           onClick={() => onChoose(node.id)}
-          aria-label={`${title}, ${look.label}. ${node.reward.text}`}
+          aria-label={`${title}, ${look.label}. ${ev ? ev.teaser : node.reward.text}${
+            rewardChips(node.reward).length
+              ? ` ${rewardChips(node.reward)
+                  .map((c) => c.text)
+                  .join('. ')}.`
+              : ''
+          }${threat ? ` ${threat}.` : ''}`}
           className="flex flex-col items-center focus-visible:outline-offset-4"
         >
           {body}
@@ -366,9 +400,12 @@ function MapNodeView({
       )}
       <div
         role="tooltip"
-        className={`pointer-events-none invisible absolute z-30 w-64 rounded-xl border border-gold-500/50 bg-ink-900/97 p-3 text-left opacity-0 shadow-2xl shadow-black/70 transition-opacity group-focus-within:visible group-focus-within:opacity-100 group-hover:visible group-hover:opacity-100 ${alignClass} ${below ? 'top-full mt-8' : 'bottom-full mb-8'}`}
+        className={`pointer-events-none absolute z-30 w-72 rounded-xl border border-gold-500/50 bg-ink-900/97 p-3 text-left shadow-2xl shadow-black/70 transition-opacity ${peek ? 'visible opacity-100' : 'invisible opacity-0 group-focus-within:visible group-focus-within:opacity-100 group-hover:visible group-hover:opacity-100'} ${alignClass} ${below ? 'top-full mt-8' : 'bottom-full mb-8'}`}
       >
-        <p className="font-display text-base font-bold text-gold-200">{title}</p>
+        <p className="flex items-center gap-2 font-display text-base font-bold text-gold-200">
+          {eventIcon && <Glyph icon={eventIcon} size={20} style={{ color: look.color }} />}
+          {title}
+        </p>
         <div className="mt-1 flex flex-wrap gap-1.5">
           <Chip color={look.color} icon={look.icon}>
             {look.label}
@@ -377,19 +414,24 @@ function MapNodeView({
           {enc && enc.waves.length > 1 && <Chip>{enc.waves.length} waves</Chip>}
         </div>
         {enc && <p className="mt-2 text-xs italic leading-relaxed text-muted">{enc.flavor}</p>}
-        <p className="mt-2 text-sm leading-snug text-text">{node.reward.text}</p>
-        <div className="mt-2 flex flex-wrap gap-1.5">
-          {node.reward.draft && (
-            <Chip color={RARITY[node.reward.draft].color} icon="diamond">
-              {RARITY[node.reward.draft].label}+ motif
-            </Chip>
+        <p className="mt-2 text-sm leading-snug text-text">{ev ? ev.teaser : node.reward.text}</p>
+        <ul className="mt-2 flex flex-col gap-1">
+          {rewardChips(node.reward).map((c) => (
+            <li
+              key={c.text}
+              className="flex items-center gap-1.5 text-xs font-medium"
+              style={{ color: CHIP_COLOR[c.tone] }}
+            >
+              <Icon name={c.icon} size={13} /> {c.text}
+            </li>
+          ))}
+          {shop && (
+            <li className="flex items-center gap-1.5 text-xs text-muted">
+              <Icon name="aether" size={13} /> You carry {run.aether} Aether
+            </li>
           )}
-          {node.reward.heal > 0 && (
-            <Chip color="var(--color-heal)" icon="heart">
-              +{Math.round(node.reward.heal * 100)}% life
-            </Chip>
-          )}
-        </div>
+        </ul>
+        {threat && <p className="mt-2 font-mono text-xs text-muted">{threat}</p>}
       </div>
     </div>
   );

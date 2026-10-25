@@ -1,4 +1,5 @@
-import { reachable, findNode } from '../meta/run';
+import { reachable, findNode, chooseNode } from '../meta/run';
+import type { NodeKind, RunState } from '../meta/types';
 import { useUi } from '../ui/store';
 import { useProfile } from './profileStore';
 import { useRun } from './runStore';
@@ -60,5 +61,49 @@ export function installRunHook(): void {
     results: () => run().run?.results.length ?? 0,
     lastWithoutYou: () => run().run?.lastResult?.withoutYou ?? null,
     weaverXp: () => useProfile.getState().profile.xp,
+    warp: (kind, aether) => {
+      const state = run().run;
+      if (!state || state.phase !== 'map') return null;
+      const next = warpTo(state, kind, aether);
+      if (!next) return null;
+      useRun.setState({ run: next });
+      return next.phase;
+    },
+    aether: () => run().run?.aether ?? 0,
+    relics: () => run().run?.relics.map((r) => r.id) ?? [],
+    buy: (index) => run().buy(index),
+    leaveShop: () => run().leaveShop(),
+    chooseEvent: (choiceId, motifId) =>
+      run().chooseEvent(choiceId, motifId ? { motifId } : undefined),
+    leaveEvent: () => run().leaveEvent(),
+    pickRelic: (index) => run().pickRelic(index),
+    leaveForge: () => run().leaveForge(),
   };
+}
+
+/**
+ * Test-only: walks the map's links to the first node of `kind` (skipping the fights on the
+ * way, nothing else changes) and enters it. Null if no such node is reachable.
+ */
+function warpTo(state: RunState, kind: NodeKind, aether?: number): RunState | null {
+  const rows = state.map.rows;
+  const from = state.path.length > 0 ? findNode(state, state.path[state.path.length - 1]!) : null;
+  const starts = from ? from.next : rows[0]!.map((n) => n.id);
+  const queue: string[][] = starts.map((id) => [id]);
+  while (queue.length > 0) {
+    const route = queue.shift()!;
+    const node = findNode(state, route[route.length - 1]!);
+    if (!node) continue;
+    if (node.kind === kind) {
+      const walked: RunState = {
+        ...state,
+        path: [...state.path, ...route.slice(0, -1)],
+        aether: aether ?? state.aether,
+      };
+      const next = chooseNode(walked, node.id);
+      return next === walked ? null : next;
+    }
+    for (const id of node.next) queue.push([...route, id]);
+  }
+  return null;
 }

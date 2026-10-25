@@ -199,9 +199,10 @@ const EventSchema = z.object({
       boons: z.array(Str),
       heal: Num,
       hurt: Num,
-      motif: z.object({ id: Str, level: Num }).nullable(),
+      motif: z.object({ id: Str, from: Num.default(0), level: Num }).nullable(),
       lostMotif: Str.nullable(),
       retuned: z.boolean(),
+      before: z.array(Num).default([]),
     })
     .nullable(),
   encounterId: Str.nullable(),
@@ -251,6 +252,7 @@ export const RunStateSchema = z.object({
       nodeId: Str,
       prices: z.object({ temper: Num, retune: Num, cleanse: Num }),
       used: ForgeServiceSchema.nullable(),
+      target: Str.nullable().default(null),
     })
     .nullable(),
   event: EventSchema.nullable(),

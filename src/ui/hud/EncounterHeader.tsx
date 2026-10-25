@@ -18,7 +18,7 @@ export function EncounterHeader({
   const overPar = e.par > 0 && e.elapsed > e.par;
   return (
     <div
-      className="absolute left-4 top-4 max-w-[24rem] rounded-xl border border-ink-600/70 bg-ink-900/85 px-4 py-2.5 shadow-lg shadow-black/40 backdrop-blur-sm"
+      className="max-w-[24rem] rounded-xl border border-ink-600/70 bg-ink-900/85 px-4 py-2.5 shadow-lg shadow-black/40 backdrop-blur-sm"
       data-testid="encounter-header"
     >
       {subtitle && (

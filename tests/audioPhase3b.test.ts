@@ -126,6 +126,8 @@ function simEmittedRelics(): string[] {
         const src = readFileSync(p, 'utf8');
         for (const m of src.matchAll(/type:\s*'relicTriggered'[^}]*?relic:\s*'([a-z_]+)'/gs))
           found.add(m[1] as string);
+        for (const m of src.matchAll(/relicFired\(\s*world,\s*'([a-z_]+)'/g))
+          found.add(m[1] as string);
       }
     }
   };
