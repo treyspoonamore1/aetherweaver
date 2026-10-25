@@ -1,0 +1,11 @@
+{
+  "simVersion": 2,
+  "contentVersion": "c-83b5cf08f5775748",
+  "scenarios": {
+    "patrol": "6133928278fc6d1f",
+    "crowd": "f9f763a21442719f",
+    "skilled-first-light": "310c7ce525a5c566",
+    "skilled-bellwarden": "5938f611ff5c4cbe",
+    "novice-cantor": "f4ef3d2975469c01"
+  }
+}

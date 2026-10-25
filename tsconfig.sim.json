@@ -1,0 +1,11 @@
+{
+  // The simulation and content are type-checked WITHOUT DOM or Node types, so any
+  // use of window/document/performance/timers in src/sim or src/content fails to compile.
+  // See docs/plan/05-technical-architecture.md §1 and §4.
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2023"],
+    "types": []
+  },
+  "include": ["src/sim", "src/content"]
+}

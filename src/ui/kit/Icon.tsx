@@ -1,0 +1,98 @@
+import type { SVGProps } from 'react';
+
+/**
+ * Hand-drawn 24×24 glyphs. Every semantic colour in the UI is paired with one of these (or
+ * a label), so colour is never the only cue (docs/plan/04 §8).
+ */
+const PATHS = {
+  ward: 'M12 3l7 3v5.5c0 4.7-3 8-7 9.5-4-1.5-7-4.8-7-9.5V6z',
+  chime:
+    'M12 3.5a1 1 0 0 1 1 1v.7A6 6 0 0 1 18 11v4l2 2.5H4L6 15v-4a6 6 0 0 1 5-5.8v-.7a1 1 0 0 1 1-1z M10 20a2 2 0 0 0 4 0',
+  reel: 'M20 12H9 M13 7l-5 5 5 5 M4 5v14',
+  glide: 'M5 6l6 6-6 6 M13 6l6 6-6 6',
+  thread:
+    'M9.5 14.5l5-5 M8 11l-1.7 1.7a3.5 3.5 0 0 0 5 5L13 16 M16 13l1.7-1.7a3.5 3.5 0 0 0-5-5L11 8',
+  mend: 'M12 5v14 M5 12h14',
+  empower: 'M12 3l2.2 6.8L21 12l-6.8 2.2L12 21l-2.2-6.8L3 12l6.8-2.2z',
+  note: 'M9 17.5V6l10-2v11.5 M9 17.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 9 17.5z M19 15.5a2.75 2.75 0 1 1-2.75-2.75A2.75 2.75 0 0 1 19 15.5z',
+  skull:
+    'M12 3a8 8 0 0 0-5 14.2V20h10v-2.8A8 8 0 0 0 12 3z M10 20v-2.5 M14 20v-2.5 M9.5 11.5h.01 M14.5 11.5h.01',
+  link: 'M9 12h6 M6 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7z M18 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7z',
+  mute: 'M4 9.5v5h3.5L12 18.5v-13L7.5 9.5z M16 9.5l5 5 M21 9.5l-5 5',
+  stun: 'M12 3.5v4 M12 16.5v4 M3.5 12h4 M16.5 12h4 M6.3 6.3l2.8 2.8 M14.9 14.9l2.8 2.8 M17.7 6.3l-2.8 2.8 M9.1 14.9l-2.8 2.8',
+  immune: 'M12 3.5a8.5 8.5 0 1 0 0 17 8.5 8.5 0 0 0 0-17z M8.5 12.3l2.4 2.4 4.6-5',
+  shaken: 'M13 3l-3 7 4 2-4 4 3 5',
+  sleep: 'M5 6h6L5 13h6 M13 12h5l-5 6h5',
+  heart:
+    'M12 20s-7.5-4.6-7.5-10.3A4.2 4.2 0 0 1 12 7.2a4.2 4.2 0 0 1 7.5 2.5C19.5 15.4 12 20 12 20z',
+  swords:
+    'M5 5l9.5 9.5 M19 5l-9.5 9.5 M13 15.5l2.5 2.5 M11 15.5L8.5 18 M15.5 18l1.5 1.5 M8.5 18L7 19.5 M4.5 4.5l1 3 M19.5 4.5l-1 3',
+  flame:
+    'M12 3c2.3 3.2 3.6 5.6 3.6 8a3.6 3.6 0 0 1-7.2 0c0-1.2.5-2.2 1.4-3.2 M6.5 21h11 M8.5 15.5V21 M15.5 15.5V21',
+  moon: 'M19.5 14.5A8 8 0 1 1 9.5 4.5a6.4 6.4 0 0 0 10 10z',
+  eye: 'M2.5 12S6.5 5.5 12 5.5 21.5 12 21.5 12 17.5 18.5 12 18.5 2.5 12 2.5 12z M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z',
+  crown: 'M4 8l3.5 3.5L12 5l4.5 6.5L20 8v10H4z M4 21h16',
+  bell: 'M12 3.5a1 1 0 0 1 1 1v.7A6 6 0 0 1 18 11v4l2 2.5H4L6 15v-4a6 6 0 0 1 5-5.8v-.7a1 1 0 0 1 1-1z M10 20a2 2 0 0 0 4 0',
+  check: 'M5 12.5l4.5 4.5L19 7.5',
+  close: 'M6 6l12 12 M18 6L6 18',
+  arrow: 'M4 12h15 M13 6l6 6-6 6',
+  back: 'M20 12H5 M11 6l-6 6 6 6',
+  gear: 'M4 7h9 M17 7h3 M4 17h3 M11 17h9 M15 4.5v5 M9 14.5v5',
+  play: 'M7 4.5v15l12-7.5z',
+  pause: 'M8 5v14 M16 5v14',
+  reroll: 'M20 11a8 8 0 1 0-1.8 6.2 M20 5v6h-6',
+  book: 'M5 4.5h10.5A3.5 3.5 0 0 1 19 8v12.5H8.5A3.5 3.5 0 0 1 5 17z M5 17a3.5 3.5 0 0 1 3.5-3.5H19',
+  star: 'M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.9L12 16.8 6.8 19.7l1-5.9L3.5 9.7l5.9-.8z',
+  diamond: 'M12 3l7 9-7 9-7-9z',
+  clock: 'M12 3.5a8.5 8.5 0 1 0 0 17 8.5 8.5 0 0 0 0-17z M12 7.5V12l3 2',
+  flag: 'M6 21V4 M6 5h11l-2 3.5L17 12H6',
+  lock: 'M7 11V8a5 5 0 0 1 10 0v3 M5.5 11h13v9.5h-13z',
+  home: 'M4 11l8-7 8 7 M6 9.5V20h12V9.5',
+  focus: 'M12 3v4 M12 17v4 M3 12h4 M17 12h4 M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7z',
+  scatter:
+    'M12 12L5 5 M12 12l7-7 M12 12l-7 7 M12 12l7 7 M4 4h3 M4 4v3 M20 4h-3 M20 4v3 M4 20h3 M4 20v-3 M20 20h-3 M20 20v-3',
+  stack:
+    'M12 12m-3 0a3 3 0 1 0 6 0 3 3 0 1 0-6 0 M12 12m-7.5 0a7.5 7.5 0 1 0 15 0 7.5 7.5 0 1 0-15 0',
+  move: 'M12 3v18 M3 12h18 M12 3l-3 3 M12 3l3 3 M12 21l-3-3 M12 21l3-3 M3 12l3-3 M3 12l3 3 M21 12l-3-3 M21 12l-3 3',
+  dome: 'M4 18a8 8 0 0 1 16 0z M3 18h18',
+  mouse: 'M12 3a5 5 0 0 0-5 5v8a5 5 0 0 0 10 0V8a5 5 0 0 0-5-5z M12 3v6',
+  sparkle: 'M12 4v4 M12 16v4 M4 12h4 M16 12h4 M7 7l2 2 M15 15l2 2 M17 7l-2 2 M9 15l-2 2',
+  hourglass: 'M7 3.5h10 M7 20.5h10 M8 3.5c0 5 8 5 8 8.5s-8 3.5-8 8.5 M16 3.5c0 5-8 5-8 8.5',
+  info: 'M12 3.5a8.5 8.5 0 1 0 0 17 8.5 8.5 0 0 0 0-17z M12 11v5 M12 7.7h.01',
+} as const;
+
+export type IconName = keyof typeof PATHS;
+
+interface IconProps extends Omit<SVGProps<SVGSVGElement>, 'name'> {
+  name: IconName;
+  size?: number;
+  /** Fill the shape instead of stroking it (solid badges). */
+  solid?: boolean;
+}
+
+export function Icon({ name, size = 16, solid = false, className, ...rest }: IconProps) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width={size}
+      height={size}
+      fill={solid ? 'currentColor' : 'none'}
+      fillOpacity={solid ? 0.28 : undefined}
+      stroke="currentColor"
+      strokeWidth={1.9}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      focusable="false"
+      className={className}
+      {...rest}
+    >
+      <path d={PATHS[name]} />
+    </svg>
+  );
+}
+
+/** Raw path data, for drawing glyphs inside a larger SVG (charts). */
+export function iconPath(name: IconName): string {
+  return PATHS[name];
+}

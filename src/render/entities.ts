@@ -1,0 +1,1134 @@
+import * as THREE from 'three';
+import { CONTENT, auraDef, enemyDef, heroDef } from '../content';
+import type { EntityId, EntityKind, ReadonlyEntity, WorldState } from '../sim';
+import { RING } from './fx/rings';
+import { SHELL } from './fx/shells';
+import { SPRITE } from './fx/sprites';
+import { PARTICLE } from './fx/particles';
+import type { FxKit } from './fx/kit';
+import { ModelBatch } from './models/batch';
+import { buildCrown, buildEnemy, buildHero, buildWeaver } from './models/library';
+import type { ModelMaterial } from './models/material';
+import { C, approach, clamp01, color } from './palette';
+import type { FrameInfo } from './types';
+
+/** Per-entity render state. Views never mutate the sim; this is all presentation. */
+export interface EntityRec {
+  id: EntityId;
+  kind: EntityKind;
+  batch: ModelBatch;
+  radius: number;
+  height: number;
+  /** Signature colour (hero), accent (enemy), gold (Weaver). */
+  color: THREE.Color;
+  hex: string;
+  accent: THREE.Color;
+  role: string;
+  tier: string;
+  affixColor: THREE.Color | null;
+  suppressRadius: number;
+  seen: number;
+  x: number;
+  z: number;
+  y: number;
+  yaw: number;
+  walk: number;
+  flash: number;
+  lunge: number;
+  lungeX: number;
+  lungeZ: number;
+  stagger: number;
+  lie: number;
+  dissolve: number;
+  /** ≥ 0 while the death dissolve plays (seconds). */
+  dying: number;
+  goldRim: number;
+  rimFlash: number;
+  bleedMax: number;
+  smokeAcc: number;
+  sparkleAcc: number;
+  lastHp: number;
+  alive: boolean;
+}
+
+interface Ghost {
+  active: boolean;
+  batch: ModelBatch | null;
+  x: number;
+  z: number;
+  yaw: number;
+  age: number;
+  life: number;
+}
+
+const BLACK = new THREE.Color(0, 0, 0);
+const ENEMY_BAR = color('#ef4444');
+const MUTE_GLASS = color('#c4b5fd');
+const AILMENTS = new Set(['dirge', 'silence', 'sleep', 'stun', 'resound', 'shaken']);
+const HIST = 26;
+
+function hasStatus(list: readonly { readonly id: string }[], id: string): boolean {
+  for (let i = 0; i < list.length; i++) if (list[i]!.id === id) return true;
+  return false;
+}
+
+function angleApproach(current: number, target: number, rate: number, dt: number): number {
+  let d = target - current;
+  while (d > Math.PI) d -= Math.PI * 2;
+  while (d < -Math.PI) d += Math.PI * 2;
+  return current + d * (1 - Math.exp(-rate * dt));
+}
+
+export class EntityLayer {
+  readonly recs = new Map<EntityId, EntityRec>();
+  readonly group = new THREE.Group();
+  private readonly batches = new Map<string, ModelBatch>();
+  private readonly crown: ModelBatch;
+  private readonly ghosts: Ghost[] = [];
+  private frameNo = 0;
+  private readonly m = new THREE.Matrix4();
+  private readonly q = new THREE.Quaternion();
+  private readonly e = new THREE.Euler(0, 0, 0, 'YXZ');
+  private readonly p = new THREE.Vector3();
+  private readonly s = new THREE.Vector3();
+  private readonly tint = new THREE.Color();
+  private readonly tmpColor = new THREE.Color();
+  private readonly fieldColor = new THREE.Color();
+  // Weaver ribbon history.
+  private readonly hist = new Float32Array(HIST * 3);
+  private histCount = 0;
+  private histTimer = 0;
+  private shadowsEnabled = true;
+  weaverId: EntityId = -1;
+  /** Real seconds of the frame (presentation clock). */
+  private now = 0;
+
+  constructor(private readonly model: ModelMaterial) {
+    this.group.name = 'entities';
+    this.crown = new ModelBatch(buildCrown(), model.material, 48, false);
+    this.group.add(this.crown.mesh);
+    for (let i = 0; i < 14; i++) {
+      this.ghosts.push({ active: false, batch: null, x: 0, z: 0, yaw: 0, age: 0, life: 0.4 });
+    }
+  }
+
+  setShadows(enabled: boolean): void {
+    this.shadowsEnabled = enabled;
+    for (const [key, b] of this.batches) b.mesh.castShadow = enabled && this.castsShadow(key);
+  }
+
+  private castsShadow(key: string): boolean {
+    if (key === 'weaver' || key.startsWith('hero:')) return true;
+    if (key.startsWith('enemy:')) {
+      const def = enemyDef(key.slice(6));
+      return (
+        def.role === 'brute' ||
+        def.role === 'miniboss' ||
+        def.role === 'boss' ||
+        def.role === 'controller'
+      );
+    }
+    return false;
+  }
+
+  private batchFor(key: string, build: () => THREE.BufferGeometry, capacity: number): ModelBatch {
+    let b = this.batches.get(key);
+    if (!b) {
+      b = new ModelBatch(
+        build(),
+        this.model.material,
+        capacity,
+        this.shadowsEnabled && this.castsShadow(key),
+      );
+      this.batches.set(key, b);
+      this.group.add(b.mesh);
+    }
+    return b;
+  }
+
+  private createRec(e: ReadonlyEntity): EntityRec {
+    let batch: ModelBatch;
+    let hex = '#f5d78e';
+    let accentHex = '#f5d78e';
+    let role: string = e.kind;
+    let tier = 'normal';
+    let suppressRadius = 0;
+    let affixColor: THREE.Color | null = null;
+    if (e.kind === 'weaver') {
+      batch = this.batchFor('weaver', buildWeaver, 16);
+      this.weaverId = e.id;
+    } else if (e.hero) {
+      const def = heroDef(e.hero.defId);
+      batch = this.batchFor(`hero:${def.id}`, () => buildHero(def), 4);
+      hex = def.color;
+      accentHex = def.color;
+      role = def.role;
+    } else if (e.enemy) {
+      const def = enemyDef(e.enemy.defId);
+      const big = def.role === 'boss' || def.role === 'miniboss';
+      batch = this.batchFor(`enemy:${def.id}`, () => buildEnemy(def), big ? 4 : 64);
+      hex = def.accent;
+      accentHex = def.accent;
+      role = def.role;
+      tier = e.enemy.tier;
+      suppressRadius = def.suppressRadius;
+      const affix = e.enemy.affixes[0];
+      if (affix) {
+        const a = CONTENT.affixes.find((x) => x.id === affix);
+        if (a) affixColor = color(a.color);
+      }
+    } else {
+      // Debug dummies share the chorister silhouette in a neutral grey.
+      batch = this.batchFor(
+        'dummy',
+        () => buildEnemy({ ...enemyDef('hollow_chorister'), color: '#8b8fa8', accent: '#5b5f7a' }),
+        512,
+      );
+      hex = '#8b8fa8';
+      accentHex = '#5b5f7a';
+    }
+    const rec: EntityRec = {
+      id: e.id,
+      kind: e.kind,
+      batch,
+      radius: e.radius,
+      height: e.height,
+      color: color(hex),
+      hex,
+      accent: color(accentHex),
+      role,
+      tier,
+      affixColor,
+      suppressRadius,
+      seen: 0,
+      x: e.x,
+      z: e.z,
+      y: 0,
+      yaw: Math.atan2(-e.fx, -e.fz),
+      walk: Math.random() * 10,
+      flash: 0,
+      lunge: 0,
+      lungeX: 0,
+      lungeZ: 0,
+      stagger: 0,
+      lie: 0,
+      dissolve: 0,
+      dying: -1,
+      goldRim: 0,
+      rimFlash: 0,
+      bleedMax: 0,
+      smokeAcc: 0,
+      sparkleAcc: 0,
+      lastHp: e.health?.hp ?? 0,
+      alive: true,
+    };
+    this.recs.set(e.id, rec);
+    return rec;
+  }
+
+  // ── Event hooks (called by the feedback layer) ─────────────────────────────────────
+
+  hit(id: EntityId, amount = 1): void {
+    const r = this.recs.get(id);
+    if (r) r.flash = Math.max(r.flash, amount);
+  }
+
+  lungeAt(id: EntityId, toX: number, toZ: number): void {
+    const r = this.recs.get(id);
+    if (!r) return;
+    const dx = toX - r.x;
+    const dz = toZ - r.z;
+    const d = Math.hypot(dx, dz) || 1;
+    r.lungeX = dx / d;
+    r.lungeZ = dz / d;
+    r.lunge = 1;
+  }
+
+  staggerEntity(id: EntityId): void {
+    const r = this.recs.get(id);
+    if (r) r.stagger = 1;
+  }
+
+  saveFlash(id: EntityId): void {
+    const r = this.recs.get(id);
+    if (r) r.goldRim = 1;
+  }
+
+  attachFlash(id: EntityId): void {
+    const r = this.recs.get(id);
+    if (r) r.rimFlash = 1;
+  }
+
+  markDying(id: EntityId): void {
+    const r = this.recs.get(id);
+    if (r && r.dying < 0) {
+      r.dying = 0;
+      r.flash = 1;
+    }
+  }
+
+  ghost(x: number, z: number, yaw: number, delay: number): void {
+    const w = this.recs.get(this.weaverId);
+    if (!w) return;
+    const g = this.ghosts.find((k) => !k.active);
+    if (!g) return;
+    g.active = true;
+    g.batch = w.batch;
+    g.x = x;
+    g.z = z;
+    g.yaw = yaw;
+    g.age = -delay;
+    g.life = 0.42;
+  }
+
+  // ── Per-frame sync ─────────────────────────────────────────────────────────────────
+
+  sync(state: WorldState, frame: FrameInfo, kit: FxKit, dt: number): void {
+    this.frameNo++;
+    this.now = frame.time;
+    this.model.uniforms.uTime.value = frame.time;
+    for (const b of this.batches.values()) b.begin();
+    this.crown.begin();
+
+    const weaver = state.entities.get(state.weaverId);
+    const w = weaver?.weaver;
+    const threadedId = w && w.threadSlot !== null ? (state.party[w.threadSlot] ?? null) : null;
+    const threadColor = w?.threadMode === 'empower' ? C.amp : C.heal;
+    this.computeFieldColor(state);
+
+    for (const e of state.entities.list()) {
+      let rec = this.recs.get(e.id);
+      if (!rec) rec = this.createRec(e);
+      rec.seen = this.frameNo;
+      this.updateRec(rec, e, state, frame, kit, dt, threadedId, threadColor);
+    }
+    for (const [id, rec] of this.recs) {
+      if (rec.seen === this.frameNo) continue;
+      if (rec.dying >= 0 && rec.dying < 0.9) {
+        this.updateDying(rec, kit, dt);
+      } else {
+        this.recs.delete(id);
+      }
+    }
+    this.updateGhosts(dt);
+    for (const b of this.batches.values()) b.end();
+    this.crown.end();
+  }
+
+  private computeFieldColor(state: WorldState): void {
+    const auras = state.field.auras;
+    this.fieldColor.setRGB(0, 0, 0);
+    if (auras.length === 0) {
+      this.fieldColor.copy(C.gold);
+      return;
+    }
+    for (const id of auras) {
+      try {
+        this.fieldColor.add(color(auraDef(id).color));
+      } catch {
+        this.fieldColor.add(C.gold);
+      }
+    }
+    this.fieldColor.multiplyScalar(1 / auras.length);
+  }
+
+  private compose(
+    x: number,
+    y: number,
+    z: number,
+    yaw: number,
+    pitch: number,
+    roll: number,
+    scale: number,
+  ): THREE.Matrix4 {
+    this.e.set(pitch, yaw, roll, 'YXZ');
+    this.q.setFromEuler(this.e);
+    this.p.set(x, y, z);
+    this.s.set(scale, scale, scale);
+    return this.m.compose(this.p, this.q, this.s);
+  }
+
+  private updateDying(rec: EntityRec, kit: FxKit, dt: number): void {
+    rec.dying += dt;
+    const t = clamp01(rec.dying / 0.75);
+    rec.flash = Math.max(0, rec.flash - dt * 5);
+    const sink = t * t * 0.25;
+    const m = this.compose(rec.x, -sink, rec.z, rec.yaw, 0.15 * t, 0, 1 + t * 0.06);
+    rec.batch.push(m, rec.flash, 0.05 + t * 0.95, 0.3 * t, 0, rec.accent, 1);
+    kit.shadows.push(
+      rec.x,
+      0.015,
+      rec.z,
+      rec.radius * 1.2,
+      0,
+      0,
+      RING.soft,
+      BLACK,
+      0.45 * (1 - t),
+      0,
+      7,
+      1,
+    );
+  }
+
+  private updateRec(
+    rec: EntityRec,
+    e: ReadonlyEntity,
+    state: WorldState,
+    frame: FrameInfo,
+    kit: FxKit,
+    dt: number,
+    threadedId: EntityId | null,
+    threadColor: THREE.Color,
+  ): void {
+    if (rec.dying >= 0) {
+      rec.x = e.x;
+      rec.z = e.z;
+      this.updateDying(rec, kit, dt);
+      return;
+    }
+    const alpha = frame.alpha;
+    const x = e.px + (e.x - e.px) * alpha;
+    const z = e.pz + (e.z - e.pz) * alpha;
+    rec.x = x;
+    rec.z = z;
+    const h = e.health;
+    const time = state.time;
+
+    rec.yaw = angleApproach(rec.yaw, Math.atan2(-e.fx, -e.fz), 14, dt);
+    const speed = Math.hypot(e.vx, e.vz);
+    rec.walk += dt * speed * 2.2;
+    const moving = Math.min(1, speed / 2.5);
+    const bob = Math.abs(Math.sin(rec.walk * Math.PI)) * 0.07 * moving * (rec.height / 2);
+    let pitch = -0.12 * moving;
+    let roll = Math.sin(rec.walk * Math.PI) * 0.04 * moving;
+    let y = bob;
+    let ox = 0;
+    let oz = 0;
+    let scale = 1;
+    let dissolve = 0;
+    let desat = 0;
+    let ghost = 0;
+
+    // Attack lunge.
+    if (rec.lunge > 0) {
+      const k = Math.sin((1 - rec.lunge) * Math.PI);
+      const amt = k * Math.min(0.45, rec.radius * 0.5);
+      ox += rec.lungeX * amt;
+      oz += rec.lungeZ * amt;
+      pitch -= k * 0.12;
+      rec.lunge = Math.max(0, rec.lunge - dt * 5.5);
+    }
+    // Perfect Ward stagger: a violent shake and a recoil back.
+    if (rec.stagger > 0) {
+      const k = rec.stagger;
+      ox += Math.sin(this.now * 57) * 0.14 * k;
+      oz += Math.cos(this.now * 49) * 0.1 * k;
+      pitch += 0.28 * k;
+      rec.stagger = Math.max(0, rec.stagger - dt * 1.7);
+    }
+    rec.flash = Math.max(0, rec.flash - dt * 9);
+    rec.goldRim = Math.max(0, rec.goldRim - dt * 1.4);
+    rec.rimFlash = Math.max(0, rec.rimFlash - dt * 3);
+
+    // Spawning: rise out of the portal.
+    const enemy = e.enemy;
+    if (enemy?.state === 'spawning') {
+      const s = clamp01(enemy.stateTime / 0.6);
+      dissolve = 1 - s;
+      y -= (1 - s) * 0.4;
+      if (s < 1) rec.flash = Math.max(rec.flash, (1 - s) * 0.6);
+    }
+    if (
+      enemy?.state === 'stunned' ||
+      (h && (hasStatus(h.statuses, 'stun') || hasStatus(h.statuses, 'stagger')))
+    ) {
+      roll += Math.sin(this.now * 9) * 0.06;
+    }
+
+    // Downed / dead heroes lie down and lose their colour.
+    const downed = !!h && (h.downed || h.dead);
+    rec.lie = approach(rec.lie, downed ? 1 : 0, 10, dt);
+    if (rec.lie > 0.001) {
+      pitch = pitch * (1 - rec.lie) + (Math.PI / 2) * rec.lie;
+      roll *= 1 - rec.lie;
+      y += rec.radius * 0.45 * rec.lie;
+      desat = 0.85 * rec.lie;
+    }
+    if (h?.dead && e.kind !== 'enemy') {
+      rec.dissolve = approach(rec.dissolve, 1, 1.4, dt);
+      dissolve = Math.max(dissolve, rec.dissolve);
+    } else rec.dissolve = 0;
+    // The Weaver re-forming.
+    if (e.weaver && e.weaver.reform > 0) {
+      desat = 0.8;
+      ghost = 0.55;
+      y += 0.05 * Math.sin(this.now * 3);
+    }
+    // Reel flight arc.
+    const reel = e.hero?.reel;
+    if (reel && reel.end > reel.start) {
+      const t = clamp01((time - reel.start) / (reel.end - reel.start));
+      y += Math.sin(Math.PI * t) * 1.5;
+      pitch -= 0.4 * Math.sin(Math.PI * t);
+    }
+    // Glide: lean hard into the dash.
+    if (e.weaver && e.weaver.glide > 0) pitch -= 0.35;
+    if (rec.kind === 'enemy' && (rec.role === 'boss' || rec.role === 'miniboss')) {
+      // Bosses breathe.
+      scale *= 1 + Math.sin(this.now * 1.6) * 0.012;
+    }
+    rec.y = y;
+
+    // Rim tint priority: Save gold > threaded > hovered > focus > in-field > affix.
+    let tintStrength = 0;
+    const isHero = e.kind === 'hero';
+    if (rec.goldRim > 0) {
+      this.tint.copy(C.gold);
+      tintStrength = 0.5 + rec.goldRim * 2.2;
+    } else if (isHero && e.id === threadedId) {
+      this.tint.copy(threadColor);
+      tintStrength = 0.5 + rec.rimFlash * 1.5;
+    } else if (isHero && e.id === frame.hoveredHero) {
+      this.tint.setRGB(1, 1, 1);
+      tintStrength = 0.45;
+    } else if (e.kind === 'enemy' && e.id === state.focusTarget) {
+      this.tint.copy(C.gold);
+      tintStrength = 0.55 + 0.25 * Math.sin(this.now * 6);
+    } else if (e.kind === 'enemy' && e.id === frame.hoveredEnemy) {
+      this.tint.setRGB(1, 1, 1);
+      tintStrength = 0.5;
+    } else if (isHero && e.hero?.inField) {
+      this.tint.copy(this.fieldColor);
+      tintStrength = 0.28;
+    } else if (rec.affixColor) {
+      this.tint.copy(rec.affixColor);
+      tintStrength = 0.45 + 0.2 * Math.sin(this.now * 3 + rec.id);
+    } else if (rec.tier === 'elite') {
+      this.tint.copy(C.gold);
+      tintStrength = 0.18;
+    } else {
+      this.tint.copy(BLACK);
+    }
+    if (rec.kind === 'weaver' && tintStrength === 0) {
+      this.tint.copy(C.gold);
+      tintStrength = 0.18;
+    }
+
+    const m = this.compose(x + ox, y, z + oz, rec.yaw, pitch, roll, scale);
+    rec.batch.push(m, rec.flash, dissolve, desat, ghost, this.tint, tintStrength);
+
+    // Blob shadow (fodder has no shadow-map shadow) and selection rings.
+    kit.shadows.push(
+      x,
+      0.015,
+      z,
+      rec.radius * 1.25,
+      0,
+      0,
+      RING.soft,
+      BLACK,
+      0.5 * (1 - dissolve),
+      0,
+      7,
+      1,
+    );
+
+    if (rec.tier === 'elite') {
+      const cm = this.compose(
+        x + ox,
+        y + rec.height + 0.22,
+        z + oz,
+        this.now * 0.8,
+        0,
+        0,
+        Math.max(0.8, rec.radius * 1.2),
+      );
+      this.crown.push(cm, 0, dissolve, 0, 0, C.gold, 0.4);
+    }
+
+    if (isHero) this.heroExtras(rec, e, state, frame, kit, dt, threadedId, threadColor);
+    else if (e.kind === 'enemy') this.enemyExtras(rec, e, state, frame, kit);
+    else if (e.kind === 'weaver') this.weaverExtras(rec, e, kit, dt);
+    if (h) this.shields(rec, e, state, kit);
+    if (h) this.ailments(rec, e, kit, dt);
+    if (h) rec.lastHp = h.hp;
+  }
+
+  private heroExtras(
+    rec: EntityRec,
+    e: ReadonlyEntity,
+    state: WorldState,
+    frame: FrameInfo,
+    kit: FxKit,
+    dt: number,
+    threadedId: EntityId | null,
+    threadColor: THREE.Color,
+  ): void {
+    const h = e.health!;
+    const hero = e.hero!;
+    const x = rec.x;
+    const z = rec.z;
+    if (h.dead) return;
+    const threaded = e.id === threadedId;
+    const hovered = e.id === frame.hoveredHero;
+    const ringColor = threaded ? threadColor : rec.color;
+    const ringAlpha = threaded ? 0.95 : hovered ? 0.8 : 0.38;
+    kit.rings.push(
+      x,
+      0.03,
+      z,
+      rec.radius * 1.45,
+      threaded ? 0.1 : 0.06,
+      threaded ? 0.25 : 0.1,
+      RING.plain,
+      ringColor,
+      ringAlpha,
+    );
+    if (hovered && !threaded) {
+      kit.rings.push(
+        x,
+        0.03,
+        z,
+        rec.radius * 1.8,
+        0.05,
+        0.05,
+        RING.dashed,
+        C.white,
+        0.6,
+        0,
+        7,
+        0,
+        12,
+      );
+    }
+
+    if (h.downed) {
+      if (rec.bleedMax < h.bleedOut) rec.bleedMax = h.bleedOut;
+      const bleed = rec.bleedMax > 0 ? h.bleedOut / rec.bleedMax : 0;
+      kit.rings.push(
+        x,
+        0.04,
+        z,
+        rec.radius * 2.0,
+        0.08,
+        0.15,
+        RING.plain,
+        C.lethal,
+        0.7,
+        -Math.PI / 2,
+        bleed * Math.PI * 2,
+      );
+      if (h.revive > 0) {
+        kit.rings.push(
+          x,
+          0.05,
+          z,
+          rec.radius * 2.4,
+          0.16,
+          0.3,
+          RING.plain,
+          C.heal,
+          1,
+          -Math.PI / 2,
+          h.revive * Math.PI * 2,
+        );
+        rec.sparkleAcc += dt * 18 * kit.particles.density;
+        while (rec.sparkleAcc > 1) {
+          rec.sparkleAcc -= 1;
+          const a = Math.random() * Math.PI * 2;
+          const r = rec.radius * 2.4;
+          kit.particles.emit(
+            x + Math.cos(a) * r,
+            0.1,
+            z + Math.sin(a) * r,
+            0,
+            1.6,
+            0,
+            0.8,
+            0.12,
+            C.heal,
+            0.9,
+            PARTICLE.dot,
+            0.5,
+          );
+        }
+      }
+    } else {
+      rec.bleedMax = 0;
+    }
+
+    // Solo charged and waiting for a Cue: a gold pulse and orbiting motes.
+    if (hero.solo >= 100 && hero.soloActive <= 0 && !h.downed) {
+      const pulse = (this.now * 1.2) % 1;
+      kit.rings.push(
+        x,
+        0.04,
+        z,
+        rec.radius * (1.4 + pulse * 1.1),
+        0.05,
+        0.12,
+        RING.plain,
+        C.amp,
+        0.7 * (1 - pulse),
+      );
+      for (let i = 0; i < 3; i++) {
+        const a = this.now * 2.4 + (i * Math.PI * 2) / 3;
+        kit.sprites.push(
+          x + Math.cos(a) * rec.radius * 1.3,
+          rec.height * 0.55 + Math.sin(this.now * 3 + i) * 0.15,
+          z + Math.sin(a) * rec.radius * 1.3,
+          0.16,
+          SPRITE.diamond,
+          C.amp,
+          0.9,
+        );
+      }
+    }
+    // Active Solo: hero-coloured (gold when Cued) column of light.
+    if (hero.soloActive > 0) {
+      const c = hero.soloCued ? C.amp : rec.color;
+      kit.rings.push(x, 0.04, z, rec.radius * 1.7, 0.1, 0.35, RING.dashed, c, 0.85, 0, 7, 0, 8);
+      rec.sparkleAcc += dt * 14 * kit.particles.density;
+      while (rec.sparkleAcc > 1) {
+        rec.sparkleAcc -= 1;
+        const a = Math.random() * Math.PI * 2;
+        kit.particles.emit(
+          x + Math.cos(a) * rec.radius,
+          0.2,
+          z + Math.sin(a) * rec.radius,
+          0,
+          2.4,
+          0,
+          0.7,
+          0.14,
+          c,
+          0.9,
+          PARTICLE.spark,
+          0.4,
+        );
+      }
+    }
+    // Bars (only when hurt).
+    if (h.hp < h.maxHp - 0.5 || h.downed) {
+      let shield = 0;
+      for (const s of h.shields) shield += s.amount;
+      kit.bars.push(
+        x,
+        rec.height + 0.45,
+        z,
+        34,
+        h.hp / h.maxHp,
+        Math.min(1, shield / h.maxHp),
+        -1,
+        rec.flash,
+        rec.color,
+        0,
+      );
+    }
+    void state;
+  }
+
+  private enemyExtras(
+    rec: EntityRec,
+    e: ReadonlyEntity,
+    state: WorldState,
+    frame: FrameInfo,
+    kit: FxKit,
+  ): void {
+    const h = e.health;
+    const enemy = e.enemy!;
+    const x = rec.x;
+    const z = rec.z;
+    if (e.id === state.focusTarget) {
+      kit.rings.push(
+        x,
+        0.04,
+        z,
+        rec.radius * 1.6 + 0.2,
+        0.09,
+        0.2,
+        RING.reticle,
+        C.amp,
+        1,
+        0,
+        7,
+        0.06,
+        0,
+        this.now,
+      );
+      kit.spritesTop.push(
+        x,
+        rec.height + 0.75 + Math.sin(this.now * 4) * 0.08,
+        z,
+        0.22,
+        SPRITE.diamond,
+        C.amp,
+        1,
+      );
+    } else if (e.id === frame.hoveredEnemy) {
+      kit.rings.push(
+        x,
+        0.04,
+        z,
+        rec.radius * 1.5 + 0.15,
+        0.06,
+        0.1,
+        RING.dashed,
+        C.white,
+        0.75,
+        0,
+        7,
+        0,
+        10,
+      );
+    }
+    // Controller (Mute) dome of cracked glass.
+    if (rec.suppressRadius > 0 && !h?.dead) {
+      const R = rec.suppressRadius;
+      kit.shells.push(
+        x,
+        0,
+        z,
+        R,
+        R * 0.45,
+        R,
+        SHELL.muteDome,
+        MUTE_GLASS,
+        0.32,
+        1,
+        0,
+        true,
+        rec.id * 0.37,
+      );
+      kit.rings.push(x, 0.03, z, R, 0.07, 0.2, RING.dashed, MUTE_GLASS, 0.55, 0, 7, 0.04, 40);
+    }
+    // Caster/support: their focus glows brighter while casting.
+    if (enemy.cast) {
+      kit.sprites.push(
+        x,
+        rec.height * 0.75,
+        z,
+        rec.radius * 1.2,
+        SPRITE.glow,
+        rec.accent,
+        0.35 + 0.2 * Math.sin(this.now * 12),
+      );
+    }
+    if (!h) return;
+    const showBar =
+      h.hp < h.maxHp - 0.5 ||
+      enemy.cast !== null ||
+      e.id === frame.hoveredEnemy ||
+      e.id === state.focusTarget ||
+      rec.tier !== 'normal';
+    if (showBar) {
+      const width =
+        rec.role === 'boss'
+          ? 104
+          : rec.role === 'miniboss'
+            ? 84
+            : rec.tier === 'elite'
+              ? 46
+              : rec.role === 'swarm'
+                ? 26
+                : 36;
+      let shield = 0;
+      for (const s of h.shields) shield += s.amount;
+      const cast = enemy.cast
+        ? clamp01(
+            (state.time - enemy.cast.start) / Math.max(0.01, enemy.cast.end - enemy.cast.start),
+          )
+        : -1;
+      const flags =
+        (rec.tier === 'elite' ? 1 : 0) +
+        (rec.role === 'boss' || rec.role === 'miniboss' ? 2 : 0) +
+        (enemy.cast?.interruptible ? 4 : 0);
+      const top = rec.height + (rec.tier === 'elite' ? 0.65 : 0.4);
+      kit.bars.push(
+        x,
+        top,
+        z,
+        width,
+        h.hp / h.maxHp,
+        Math.min(1, shield / h.maxHp),
+        cast,
+        rec.flash,
+        ENEMY_BAR,
+        flags,
+      );
+    }
+  }
+
+  private weaverExtras(rec: EntityRec, e: ReadonlyEntity, kit: FxKit, dt: number): void {
+    const w = e.weaver!;
+    const x = rec.x;
+    const z = rec.z;
+    kit.rings.push(x, 0.03, z, rec.radius * 1.5, 0.07, 0.2, RING.plain, C.gold, 0.6);
+    // Resonance: orbiting white-gold segments (one per full 25).
+    const full = Math.floor(w.resonance / 25);
+    const partial = (w.resonance % 25) / 25;
+    for (let i = 0; i < 4; i++) {
+      const a = this.now * 1.6 + (i * Math.PI) / 2;
+      const r = 0.85;
+      const lit = i < full ? 1 : i === full ? partial * 0.6 : 0.08;
+      kit.sprites.push(
+        x + Math.cos(a) * r,
+        1.25 + Math.sin(this.now * 2 + i) * 0.08,
+        z + Math.sin(a) * r,
+        i < full ? 0.2 : 0.13,
+        i < full ? SPRITE.star : SPRITE.glow,
+        C.resonance,
+        lit,
+      );
+    }
+    // Ribbons: sample the hand's path and trail three flowing ribbons behind.
+    this.histTimer += dt;
+    const fx = -Math.sin(rec.yaw);
+    const fz = -Math.cos(rec.yaw);
+    const ax = x - fx * 0.18;
+    const az = z - fz * 0.18;
+    const hx = this.hist[0];
+    const hz = this.hist[2];
+    const moved = Math.hypot(ax - hx, az - hz);
+    if (this.histCount === 0 || moved > 0.08 || this.histTimer > 1 / 30) {
+      this.histTimer = 0;
+      this.hist.copyWithin(3, 0, (HIST - 1) * 3);
+      this.hist[0] = ax;
+      this.hist[1] = rec.y;
+      this.hist[2] = az;
+      this.histCount = Math.min(HIST, this.histCount + 1);
+    }
+    if (this.histCount < 3) return;
+    const sideX = -fz;
+    const sideZ = fx;
+    for (let r = 0; r < 3; r++) {
+      const off = (r - 1) * 0.16;
+      const baseY = 1.12 - r * 0.12;
+      const c = r === 1 ? C.goldHot : C.gold;
+      kit.ribbons.beginStrip();
+      const n = Math.min(this.histCount, 18 + r * 3);
+      for (let k = 0; k < n; k++) {
+        const t = k / (n - 1);
+        const px = this.hist[k * 3] + sideX * off * (1 + t);
+        const pz = this.hist[k * 3 + 2] + sideZ * off * (1 + t);
+        const flutter = Math.sin(this.now * 5 + k * 0.55 + r * 2) * 0.09 * t;
+        const droop = t * 0.75;
+        kit.ribbons.point(
+          px - fx * t * 0.55 + sideX * flutter,
+          this.hist[k * 3 + 1] + baseY - droop + Math.sin(this.now * 3.3 + k * 0.4 + r) * 0.06 * t,
+          pz - fz * t * 0.55 + sideZ * flutter,
+          0.075 * (1 - t * 0.7),
+          c,
+          (1 - t) * 0.85,
+          t * 2,
+        );
+      }
+      kit.ribbons.endStrip();
+    }
+  }
+
+  private shields(rec: EntityRec, e: ReadonlyEntity, state: WorldState, kit: FxKit): void {
+    const h = e.health!;
+    if (h.dead || h.shields.length === 0) return;
+    const x = rec.x;
+    const z = rec.z;
+    const time = state.time;
+    for (const s of h.shields) {
+      const age = time - s.appliedAt;
+      const pop = age < 0.3 ? 1 - age / 0.3 : 0;
+      const left = s.expiresAt - time;
+      const fade = left < 0.6 ? clamp01(left / 0.6) : 1;
+      const crack = s.max > 0 ? clamp01(1 - s.amount / s.max) : 0;
+      const sc = 1 + pop * 0.3;
+      const r = rec.radius;
+      const hh = rec.height;
+      switch (s.kind) {
+        case 'ward':
+          kit.shells.push(
+            x,
+            hh * 0.5 + rec.y,
+            z,
+            r * 1.6 * sc,
+            hh * 0.62 * sc,
+            r * 1.6 * sc,
+            SHELL.ward,
+            C.shield,
+            0.95 * fade,
+            crack,
+            pop,
+            false,
+            rec.id,
+          );
+          break;
+        case 'dome':
+          kit.shells.push(
+            x,
+            0,
+            z,
+            r * 2.1 * sc,
+            r * 2.4 * sc,
+            r * 2.1 * sc,
+            SHELL.dome,
+            C.dome,
+            0.8 * fade,
+            crack,
+            pop,
+            true,
+            rec.id,
+          );
+          break;
+        case 'barrier':
+          kit.shells.push(
+            x,
+            hh * 0.5 + rec.y,
+            z,
+            r * 1.35,
+            hh * 0.56,
+            r * 1.35,
+            SHELL.barrier,
+            C.shield,
+            0.7 * fade,
+            crack,
+            pop * 0.3,
+            false,
+            rec.id,
+          );
+          break;
+        case 'overshield':
+          kit.shells.push(
+            x,
+            hh * 0.5 + rec.y,
+            z,
+            r * 1.5 * sc,
+            hh * 0.6 * sc,
+            r * 1.5 * sc,
+            SHELL.overshield,
+            C.amp,
+            0.6 * fade,
+            crack,
+            pop * 0.5,
+            false,
+            rec.id,
+          );
+          break;
+        case 'discord':
+          kit.shells.push(
+            x,
+            hh * 0.5 + rec.y,
+            z,
+            r * 1.55,
+            hh * 0.62,
+            r * 1.55,
+            SHELL.discord,
+            C.discord,
+            0.85 * fade,
+            crack,
+            pop,
+            false,
+            rec.id,
+          );
+          break;
+      }
+    }
+  }
+
+  private ailments(rec: EntityRec, e: ReadonlyEntity, kit: FxKit, dt: number): void {
+    const h = e.health!;
+    if (h.dead || h.statuses.length === 0) return;
+    let ailing = false;
+    let stunned = false;
+    let immune = false;
+    for (const s of h.statuses) {
+      if (AILMENTS.has(s.id)) ailing = true;
+      if (s.id === 'stun' || s.id === 'stagger') stunned = true;
+      if (s.id === 'immune') immune = true;
+    }
+    const x = rec.x;
+    const z = rec.z;
+    if (ailing && rec.kind !== 'enemy') {
+      // Violet dripping smoke.
+      rec.smokeAcc += dt * 16 * kit.smoke.density;
+      while (rec.smokeAcc > 1) {
+        rec.smokeAcc -= 1;
+        const a = Math.random() * Math.PI * 2;
+        const r = rec.radius * 0.7 * Math.random();
+        kit.smoke.emit(
+          x + Math.cos(a) * r,
+          rec.height * (0.5 + Math.random() * 0.5) + rec.y,
+          z + Math.sin(a) * r,
+          0,
+          -0.35,
+          0,
+          1.1,
+          0.35,
+          C.ailment,
+          0.55,
+          PARTICLE.smoke,
+          0.8,
+          0.15,
+          0.25,
+        );
+      }
+    }
+    if (stunned) {
+      for (let i = 0; i < 3; i++) {
+        const a = this.now * 5 + (i * Math.PI * 2) / 3;
+        kit.sprites.push(
+          x + Math.cos(a) * rec.radius * 0.8,
+          rec.height + 0.15 + rec.y,
+          z + Math.sin(a) * rec.radius * 0.8,
+          0.14,
+          SPRITE.star,
+          C.goldHot,
+          0.9,
+        );
+      }
+    }
+    if (immune) {
+      this.tmpColor.copy(C.white).lerp(C.ailment, 0.3);
+      kit.rings.push(
+        x,
+        rec.height * 0.5 + rec.y,
+        z,
+        rec.radius * 1.2,
+        0.03,
+        0.08,
+        RING.dashed,
+        this.tmpColor,
+        0.5,
+        0,
+        7,
+        0,
+        6,
+      );
+    }
+  }
+
+  private updateGhosts(dt: number): void {
+    for (const g of this.ghosts) {
+      if (!g.active || !g.batch) continue;
+      g.age += dt;
+      if (g.age < 0) continue;
+      const t = g.age / g.life;
+      if (t >= 1) {
+        g.active = false;
+        continue;
+      }
+      this.e.set(-0.35, g.yaw, 0, 'YXZ');
+      this.q.setFromEuler(this.e);
+      this.p.set(g.x, 0, g.z);
+      this.s.set(1, 1, 1);
+      this.m.compose(this.p, this.q, this.s);
+      g.batch.push(this.m, 0.7 * (1 - t), 0.15 + t * 0.85, 0, 0.55, C.gold, 1.2);
+    }
+  }
+
+  dispose(): void {
+    for (const b of this.batches.values()) b.dispose();
+    this.batches.clear();
+    this.crown.dispose();
+    this.recs.clear();
+    this.group.removeFromParent();
+  }
+}

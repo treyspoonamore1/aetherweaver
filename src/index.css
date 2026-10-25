@@ -1,0 +1,231 @@
+@import 'tailwindcss';
+
+/* Design tokens (docs/plan/05 §6, 04 §2). Semantic colours always pair with a glyph or label. */
+@theme {
+  --font-display: 'Cinzel', ui-serif, Georgia, serif;
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+
+  --color-ink-950: #050814;
+  --color-ink-900: #0a1022;
+  --color-ink-800: #111a33;
+  --color-ink-700: #1b2647;
+  --color-ink-600: #2a3760;
+  --color-ink-500: #3d4c7d;
+
+  --color-gold-200: #fde9b8;
+  --color-gold-300: #fcd98a;
+  --color-gold-400: #f5b83d;
+  --color-gold-500: #d99a1e;
+
+  --color-text: #e6eaf5;
+  --color-muted: #a3acc7;
+
+  --color-heal: #2dd4bf;
+  --color-shield: #a5f3fc;
+  --color-amp: #fbbf24;
+  --color-ailment: #a78bfa;
+  --color-threat: #fb923c;
+  --color-lethal: #f43f5e;
+  --color-spirit: #8ea2ff;
+
+  --color-common: #cbd5e1;
+  --color-rare: #60a5fa;
+  --color-epic: #c084fc;
+
+  --animate-banner: banner-in 0.45s cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
+  --animate-toast: toast-in 0.25s ease-out both;
+  --animate-rise: rise-in 0.5s ease-out both;
+  --animate-fade: fade-in 0.4s ease-out both;
+  --animate-pulse-lethal: pulse-lethal 0.7s ease-in-out infinite;
+  --animate-pulse-soft: pulse-soft 1.6s ease-in-out infinite;
+  --animate-shimmer: shimmer 2.4s linear infinite;
+  --animate-twinkle: twinkle 3.2s ease-in-out infinite;
+}
+
+@keyframes banner-in {
+  from {
+    opacity: 0;
+    transform: scale(0.7) translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+@keyframes pulse-lethal {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgb(244 63 94 / 0);
+  }
+  50% {
+    box-shadow: 0 0 0 3px rgb(244 63 94 / 0.55);
+  }
+}
+@keyframes pulse-soft {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+@keyframes shimmer {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: 200% 0;
+  }
+}
+@keyframes twinkle {
+  0%,
+  100% {
+    opacity: 0.25;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+@keyframes glow-breathe {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 4px rgb(245 184 61 / 0.45));
+  }
+  50% {
+    filter: drop-shadow(0 0 12px rgb(245 184 61 / 0.95));
+  }
+}
+@keyframes spin-slow {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes drain {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  overflow: hidden;
+  background: var(--color-ink-950);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Everything interactive shows where the keyboard is. */
+:focus-visible {
+  outline: 2px solid var(--color-gold-200);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+button:disabled {
+  cursor: not-allowed;
+}
+button:not(:disabled) {
+  cursor: pointer;
+}
+
+/* Diagonal stripes: the incoming-damage forecast and the reserved part of Spirit. */
+.stripes {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    rgb(255 255 255 / 0.55) 0 3px,
+    rgb(255 255 255 / 0) 3px 6px
+  );
+}
+.stripes-dark {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    rgb(5 8 20 / 0.55) 0 3px,
+    rgb(5 8 20 / 0) 3px 6px
+  );
+}
+
+.anim-banner {
+  animation: var(--animate-banner);
+}
+.anim-rise {
+  animation: var(--animate-rise);
+}
+.anim-fade {
+  animation: var(--animate-fade);
+}
+.anim-toast {
+  animation: var(--animate-toast);
+}
+.anim-glow {
+  animation: glow-breathe 1.8s ease-in-out infinite;
+}
+.anim-spin-slow {
+  animation: spin-slow 120s linear infinite;
+}
+
+/* Thin, themed scrollbars for panels that scroll. */
+.scroll-thin {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-ink-500) transparent;
+}
+
+input[type='range'] {
+  accent-color: var(--color-gold-400);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

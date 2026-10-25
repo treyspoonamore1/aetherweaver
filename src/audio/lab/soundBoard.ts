@@ -1,0 +1,310 @@
+/** Every sound the lab can trigger, grouped. Shared by the buttons and the offline audit. */
+import type { SimEvent } from '../../sim';
+import type { SynthDirector } from '../director';
+import type { UiSound } from '../types';
+import type { FakeWorld } from './labState';
+import { IDS, ev, type HeroKey } from './labState';
+
+export interface SoundButton {
+  id: string;
+  label: string;
+  group: 'support' | 'world' | 'ui';
+  /** Fires the sound. Receives the director and a world to read/mutate. */
+  fire(d: SynthDirector, w: FakeWorld): void;
+}
+
+const fire = (d: SynthDirector, w: FakeWorld, ...events: SimEvent[]) => d.onEvents(events, w.state);
+
+const tele = (
+  answers: ('ward' | 'chime' | 'reel' | 'focus' | 'scatter' | 'stack' | 'move' | 'dome')[],
+  kind: 'cleave' | 'beam' | 'burst' | 'donut' | 'mark' | 'link' | 'raid',
+  x: number,
+  windup = 1.6,
+): SimEvent =>
+  ev('telegraphStarted', {
+    telegraph: 1,
+    owner: IDS.enemyBase,
+    target: IDS.kael,
+    name: 'Lab',
+    kind,
+    shape: kind === 'mark' ? { kind: 'mark', target: IDS.kael } : { kind: 'circle', x, z: 4, r: 3 },
+    start: 0,
+    impact: windup,
+    perfectFrom: windup - 0.35,
+    damage: 300,
+    pctMaxHp: 0,
+    answers,
+    effect: 'damage',
+  });
+
+function mend(d: SynthDirector, w: FakeWorld, hero: HeroKey, frac: number) {
+  w.setHeroHp(hero, frac);
+  fire(
+    d,
+    w,
+    ev('healApplied', {
+      target: IDS[hero],
+      source: IDS.weaver,
+      amount: 60,
+      overheal: 0,
+      via: 'mend',
+    }),
+  );
+}
+
+export const SOUNDS: SoundButton[] = [
+  // ── Support ────────────────────────────────────────────────────────────────────
+  ...[0.1, 0.3, 0.5, 0.7, 0.95].map((f): SoundButton => ({
+    id: `mend-${Math.round(f * 100)}`,
+    label: `Mend ${Math.round(f * 100)}% HP`,
+    group: 'support',
+    fire: (d, w) => mend(d, w, 'kael', f),
+  })),
+  {
+    id: 'ward',
+    label: 'Ward',
+    group: 'support',
+    fire: (d, w) =>
+      fire(d, w, ev('techniqueCast', { technique: 'ward', target: IDS.kael, x: 0, z: 0 })),
+  },
+  {
+    id: 'perfect',
+    label: 'Perfect Ward',
+    group: 'support',
+    fire: (d, w) => fire(d, w, ev('perfectWard', { target: IDS.kael, telegraph: 1, negated: 400 })),
+  },
+  {
+    id: 'save',
+    label: 'Save',
+    group: 'support',
+    fire: (d, w) =>
+      fire(
+        d,
+        w,
+        ev('save', {
+          target: IDS.kael,
+          cause: 'ward',
+          counterfactualDamage: 1140,
+          attack: 'Requiem',
+        }),
+      ),
+  },
+  {
+    id: 'chime-launch',
+    label: 'Chime launch',
+    group: 'support',
+    fire: (d, w) =>
+      fire(d, w, ev('chimeLaunched', { chime: 1, fromX: 0, fromZ: 0, x: 4, z: 0, landsAt: 0.25 })),
+  },
+  {
+    id: 'chime-land',
+    label: 'Chime land',
+    group: 'support',
+    fire: (d, w) =>
+      fire(
+        d,
+        w,
+        ev('chimeLanded', { chime: 1, x: 4, z: 0, radius: 4, cleansed: 2, clutch: false }),
+      ),
+  },
+  {
+    id: 'chime-clutch',
+    label: 'Chime (clutch)',
+    group: 'support',
+    fire: (d, w) =>
+      fire(
+        d,
+        w,
+        ev('chimeLanded', { chime: 1, x: -4, z: 0, radius: 4, cleansed: 2, clutch: true }),
+      ),
+  },
+  {
+    id: 'reel',
+    label: 'Reel',
+    group: 'support',
+    fire: (d, w) =>
+      fire(d, w, ev('reeled', { target: IDS.lyra, fromX: 9, fromZ: 0, toX: 1, toZ: 0 })),
+  },
+  {
+    id: 'glide',
+    label: 'Glide',
+    group: 'support',
+    fire: (d, w) => fire(d, w, ev('glided', { fromX: 0, fromZ: 0, toX: 5, toZ: 1 })),
+  },
+  ...(['kael', 'lyra', 'vexis'] as const).map((h): SoundButton => ({
+    id: `attach-${h}`,
+    label: `Thread → ${h}`,
+    group: 'support',
+    fire: (d, w) => fire(d, w, ev('threadAttached', { hero: IDS[h], slot: 0 })),
+  })),
+  {
+    id: 'taut',
+    label: 'Thread taut',
+    group: 'support',
+    fire: (d, w) => fire(d, w, ev('threadTaut', { target: IDS.kael, tension: 0.8 })),
+  },
+  {
+    id: 'snap',
+    label: 'Thread snap',
+    group: 'support',
+    fire: (d, w) => fire(d, w, ev('threadSnapped', { target: IDS.kael })),
+  },
+  ...(['kael', 'lyra', 'vexis'] as const).map((h): SoundButton => ({
+    id: `cue-${h}`,
+    label: `Cue ${h}`,
+    group: 'support',
+    fire: (d, w) => fire(d, w, ev('cued', { hero: IDS[h] })),
+  })),
+  ...[25, 50, 75, 100].map((total): SoundButton => ({
+    id: `res-${total}`,
+    label: `Resonance ${total}`,
+    group: 'support',
+    fire: (d, w) => fire(d, w, ev('resonanceGained', { amount: 5, reason: 'lab', total })),
+  })),
+  {
+    id: 'crescendo',
+    label: 'Crescendo',
+    group: 'support',
+    fire: (d, w) => {
+      w.setCrescendo(true);
+      fire(d, w, ev('crescendoStart', { calling: 'Lab', duration: 8 }));
+    },
+  },
+  {
+    id: 'reject',
+    label: 'Rejected',
+    group: 'support',
+    fire: (d, w) => fire(d, w, ev('techniqueRejected', { technique: 'ward', reason: 'cooldown' })),
+  },
+  // ── World ──────────────────────────────────────────────────────────────────────
+  {
+    id: 'wave',
+    label: 'Wave start',
+    group: 'world',
+    fire: (d, w) => fire(d, w, ev('waveStarted', { wave: 2, waves: 3 })),
+  },
+  {
+    id: 'decree',
+    label: 'Decree',
+    group: 'world',
+    fire: (d, w) =>
+      fire(
+        d,
+        w,
+        ev('decree', { boss: IDS.enemyBase, name: 'Silent Verse', text: '', answers: ['stack'] }),
+      ),
+  },
+  {
+    id: 'phase',
+    label: 'Boss phase',
+    group: 'world',
+    fire: (d, w) => fire(d, w, ev('phaseChanged', { boss: IDS.enemyBase, phase: 2 })),
+  },
+  ...['swarm', 'brute', 'caster', 'sniper', 'controller', 'support', 'miniboss', 'boss'].map(
+    (role): SoundButton => ({
+      id: `kill-${role}`,
+      label: `Kill ${role}`,
+      group: 'world',
+      fire: (d, w) => {
+        const id = w.addEnemy(role, role === 'swarm' ? -6 : 6);
+        fire(
+          d,
+          w,
+          ev('enemyKilled', {
+            enemy: id,
+            defId: role,
+            killer: null,
+            x: role === 'swarm' ? -6 : 6,
+            z: 5,
+          }),
+        );
+      },
+    }),
+  ),
+  {
+    id: 'hit-small',
+    label: 'Hero hit (small)',
+    group: 'world',
+    fire: (d, w) =>
+      fire(
+        d,
+        w,
+        ev('damageTaken', {
+          target: IDS.kael,
+          source: null,
+          amount: 60,
+          absorbed: 0,
+          amplified: 0,
+          crit: false,
+          telegraph: null,
+          hit: 'hit',
+        }),
+      ),
+  },
+  {
+    id: 'hit-big',
+    label: 'Hero hit (big)',
+    group: 'world',
+    fire: (d, w) =>
+      fire(
+        d,
+        w,
+        ev('damageTaken', {
+          target: IDS.lyra,
+          source: null,
+          amount: 380,
+          absorbed: 0,
+          amplified: 0,
+          crit: true,
+          telegraph: 1,
+          hit: 'hit',
+        }),
+      ),
+  },
+  {
+    id: 'down',
+    label: 'Hero downed',
+    group: 'world',
+    fire: (d, w) => fire(d, w, ev('allyDowned', { hero: IDS.vexis })),
+  },
+  {
+    id: 'out',
+    label: 'Hero out',
+    group: 'world',
+    fire: (d, w) => fire(d, w, ev('allyOut', { hero: IDS.vexis })),
+  },
+  {
+    id: 'revived',
+    label: 'Revived',
+    group: 'world',
+    fire: (d, w) => fire(d, w, ev('revived', { hero: IDS.vexis })),
+  },
+  {
+    id: 'tele-ward-l',
+    label: 'Tank-buster (L)',
+    group: 'world',
+    fire: (d, w) => fire(d, w, tele(['ward', 'dome'], 'burst', -12)),
+  },
+  {
+    id: 'tele-mark-r',
+    label: 'Mark / chime (R)',
+    group: 'world',
+    fire: (d, w) => fire(d, w, tele(['chime', 'ward'], 'mark', 12)),
+  },
+  {
+    id: 'tele-area',
+    label: 'Area: move (C)',
+    group: 'world',
+    fire: (d, w) => fire(d, w, tele(['move', 'reel'], 'burst', 0)),
+  },
+  {
+    id: 'tele-scatter',
+    label: 'Area: scatter (R)',
+    group: 'world',
+    fire: (d, w) => fire(d, w, tele(['scatter'], 'link', 9)),
+  },
+  // ── UI ─────────────────────────────────────────────────────────────────────────
+  ...(['hover', 'click', 'confirm', 'back', 'pick', 'node', 'error', 'reward'] as UiSound[]).map(
+    (s): SoundButton => ({ id: `ui-${s}`, label: s, group: 'ui', fire: (d) => d.playUi(s) }),
+  ),
+];

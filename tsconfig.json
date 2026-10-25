@@ -1,0 +1,9 @@
+{
+  // Editor entry point. `npm run typecheck` runs the three project configs separately.
+  "files": [],
+  "references": [
+    { "path": "./tsconfig.sim.json" },
+    { "path": "./tsconfig.app.json" },
+    { "path": "./tsconfig.node.json" }
+  ]
+}

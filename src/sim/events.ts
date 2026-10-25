@@ -1,0 +1,439 @@
+/**
+ * CONTRACT v2 — Events are the only way out of the simulation (docs/plan/05 §4.5).
+ *
+ * The sim buffers events during a tick; render, audio, UI, the ledger and achievements
+ * drain them after the step. Nothing polls the sim for "did X happen". Every event carries
+ * the `tick` it happened on. Positions are world metres; durations and times are sim seconds.
+ */
+import type { DirectiveKind, PartySlot } from './commands';
+import type {
+  EntityId,
+  EntityKind,
+  SaveCause,
+  ShieldKind,
+  StatusId,
+  TechniqueKey,
+  TelegraphKind,
+  ThreadMode,
+} from './state';
+
+/** How a telegraphed threat can be answered (docs/plan/04 §5.3). Shown as glyphs. */
+export type AnswerTag = 'ward' | 'chime' | 'reel' | 'focus' | 'scatter' | 'stack' | 'move' | 'dome';
+
+export type TelegraphShape =
+  | { kind: 'circle'; x: number; z: number; r: number }
+  | {
+      kind: 'cone';
+      x: number;
+      z: number;
+      r: number;
+      dirX: number;
+      dirZ: number;
+      halfAngleCos: number;
+    }
+  | { kind: 'line'; x: number; z: number; toX: number; toZ: number; width: number }
+  | { kind: 'donut'; x: number; z: number; innerR: number; outerR: number }
+  /** Hits both a and b if they stand closer than r to each other. */
+  | { kind: 'link'; a: EntityId; b: EntityId; r: number }
+  | { kind: 'mark'; target: EntityId }
+  /** Hits the whole party wherever they stand. */
+  | { kind: 'raid' };
+
+/** Visual style of an attack, so render can draw arrows, bolts, swings… */
+export type AttackVisual =
+  'melee' | 'cleave' | 'arrow' | 'bolt' | 'pierce' | 'lance' | 'meteor' | 'starbolt' | 'heal-beam';
+
+interface At {
+  tick: number;
+}
+
+// ── Lifecycle ─────────────────────────────────────────────────────────────────────────
+export interface EntitySpawned extends At {
+  type: 'entitySpawned';
+  id: EntityId;
+  kind: EntityKind;
+}
+export interface EntityDespawned extends At {
+  type: 'entityDespawned';
+  id: EntityId;
+  kind: EntityKind;
+}
+/** A spawn portal opens; the enemy appears after `delay` seconds. */
+export interface SpawnWarning extends At {
+  type: 'spawnWarning';
+  x: number;
+  z: number;
+  delay: number;
+}
+export interface WaveStarted extends At {
+  type: 'waveStarted';
+  wave: number;
+  waves: number;
+}
+export interface EncounterEnded extends At {
+  type: 'encounterEnded';
+  outcome: 'victory' | 'defeat';
+}
+
+// ── Damage, healing, shields, statuses ───────────────────────────────────────────────
+export interface DamageTaken extends At {
+  type: 'damageTaken';
+  target: EntityId;
+  source: EntityId | null;
+  /** HP actually lost. */
+  amount: number;
+  /** Absorbed by shields. */
+  absorbed: number;
+  /** The Weaver's share of the pre-mitigation damage (Empower, auras): the gold chip. */
+  amplified: number;
+  crit: boolean;
+  telegraph: number | null;
+  hit: 'hit' | 'tick' | 'detonation';
+}
+export interface HealApplied extends At {
+  type: 'healApplied';
+  target: EntityId;
+  source: EntityId | null;
+  amount: number;
+  overheal: number;
+  via: 'mend' | 'chime' | 'aura' | 'revive' | 'solo' | 'other';
+}
+export interface ShieldApplied extends At {
+  type: 'shieldApplied';
+  target: EntityId;
+  shield: ShieldKind;
+  amount: number;
+  fromWeaver: boolean;
+}
+export interface ShieldBroken extends At {
+  type: 'shieldBroken';
+  target: EntityId;
+  shield: ShieldKind;
+}
+export interface StatusApplied extends At {
+  type: 'statusApplied';
+  target: EntityId;
+  status: StatusId;
+  duration: number;
+}
+export interface StatusRemoved extends At {
+  type: 'statusRemoved';
+  target: EntityId;
+  status: StatusId;
+  reason: 'expired' | 'cleansed' | 'detonated';
+}
+
+// ── Telegraphs ────────────────────────────────────────────────────────────────────────
+export interface TelegraphStarted extends At {
+  type: 'telegraphStarted';
+  telegraph: number;
+  owner: EntityId;
+  target: EntityId | null;
+  name: string;
+  kind: TelegraphKind;
+  shape: TelegraphShape;
+  start: number;
+  impact: number;
+  /** A Ward cast at or after this sim time on a hero hit at impact is Perfect. */
+  perfectFrom: number;
+  damage: number;
+  pctMaxHp: number;
+  answers: AnswerTag[];
+  /** What the attack does when it resolves. */
+  effect: 'damage' | 'healAllies' | 'summon' | 'suppress';
+}
+/** One per affected hero (or one with `target: null` if nobody was in it). */
+export interface TelegraphResolved extends At {
+  type: 'telegraphResolved';
+  telegraph: number;
+  target: EntityId | null;
+  outcome: 'hit' | 'dodged' | 'warded' | 'perfect' | 'absorbed' | 'cancelled';
+  damage: number;
+}
+export interface TelegraphEnded extends At {
+  type: 'telegraphEnded';
+  telegraph: number;
+}
+
+// ── The Weaver ────────────────────────────────────────────────────────────────────────
+export interface TechniqueCast extends At {
+  type: 'techniqueCast';
+  technique: TechniqueKey;
+  target: EntityId | null;
+  x: number;
+  z: number;
+}
+/** A command the player issued couldn't happen: give feedback (a buzz, a flash). */
+export interface TechniqueRejected extends At {
+  type: 'techniqueRejected';
+  technique: TechniqueKey | 'thread' | 'cue' | 'crescendo';
+  reason:
+    | 'cooldown'
+    | 'spirit'
+    | 'range'
+    | 'target'
+    | 'silenced'
+    | 'down'
+    | 'resonance'
+    | 'not-ready'
+    | 'locked';
+}
+export interface PerfectWard extends At {
+  type: 'perfectWard';
+  target: EntityId;
+  telegraph: number | null;
+  negated: number;
+}
+export interface Save extends At {
+  type: 'save';
+  target: EntityId;
+  cause: SaveCause;
+  /** Damage the hero would have taken without the Weaver's intervention. */
+  counterfactualDamage: number;
+  attack: string;
+}
+export interface ChimeLaunched extends At {
+  type: 'chimeLaunched';
+  chime: number;
+  fromX: number;
+  fromZ: number;
+  x: number;
+  z: number;
+  landsAt: number;
+}
+export interface ChimeLanded extends At {
+  type: 'chimeLanded';
+  chime: number;
+  x: number;
+  z: number;
+  radius: number;
+  cleansed: number;
+  clutch: boolean;
+}
+export interface Cleansed extends At {
+  type: 'cleansed';
+  target: EntityId;
+  removed: number;
+  clutch: boolean;
+}
+export interface Reeled extends At {
+  type: 'reeled';
+  target: EntityId;
+  fromX: number;
+  fromZ: number;
+  toX: number;
+  toZ: number;
+}
+export interface Glided extends At {
+  type: 'glided';
+  fromX: number;
+  fromZ: number;
+  toX: number;
+  toZ: number;
+}
+export interface ThreadAttached extends At {
+  type: 'threadAttached';
+  hero: EntityId;
+  slot: PartySlot;
+}
+export interface ThreadModeChanged extends At {
+  type: 'threadModeChanged';
+  mode: ThreadMode;
+}
+export interface ThreadTaut extends At {
+  type: 'threadTaut';
+  target: EntityId;
+  tension: number;
+}
+export interface ThreadSnapped extends At {
+  type: 'threadSnapped';
+  target: EntityId;
+}
+export interface ReviveStarted extends At {
+  type: 'reviveStarted';
+  hero: EntityId;
+}
+export interface Revived extends At {
+  type: 'revived';
+  hero: EntityId;
+}
+export interface ResonanceGained extends At {
+  type: 'resonanceGained';
+  amount: number;
+  reason: string;
+  total: number;
+}
+export interface ResonanceSpent extends At {
+  type: 'resonanceSpent';
+  amount: number;
+  total: number;
+  on: 'cue' | 'crescendo';
+}
+export interface CrescendoStart extends At {
+  type: 'crescendoStart';
+  calling: string;
+  duration: number;
+}
+export interface CrescendoEnd extends At {
+  type: 'crescendoEnd';
+}
+export interface WeaverDowned extends At {
+  type: 'weaverDowned';
+  reform: number;
+}
+export interface WeaverReformed extends At {
+  type: 'weaverReformed';
+}
+/** Hit-stop / slow-mo inside the sim; render and audio sync to it. */
+export interface TimeScaleChanged extends At {
+  type: 'timeScaleChanged';
+  scale: number;
+  duration: number;
+  reason: 'perfect' | 'save' | 'crescendo' | 'defeat';
+}
+
+// ── Heroes ────────────────────────────────────────────────────────────────────────────
+export interface SoloReady extends At {
+  type: 'soloReady';
+  hero: EntityId;
+}
+export interface Cued extends At {
+  type: 'cued';
+  hero: EntityId;
+}
+export interface SoloStarted extends At {
+  type: 'soloStarted';
+  hero: EntityId;
+  solo: string;
+  cued: boolean;
+  duration: number;
+}
+export interface SoloEnded extends At {
+  type: 'soloEnded';
+  hero: EntityId;
+}
+export interface AllyDowned extends At {
+  type: 'allyDowned';
+  hero: EntityId;
+}
+export interface AllyOut extends At {
+  type: 'allyOut';
+  hero: EntityId;
+}
+export interface DirectiveAck extends At {
+  type: 'directiveAck';
+  hero: EntityId;
+  directive: DirectiveKind;
+}
+export interface Bark extends At {
+  type: 'bark';
+  speaker: EntityId;
+  line: string;
+}
+
+// ── Combat actions (visual) ───────────────────────────────────────────────────────────
+/** Something attacked something: render draws the swing, arrow, bolt or beam. */
+export interface AttackFired extends At {
+  type: 'attackFired';
+  source: EntityId;
+  target: EntityId | null;
+  visual: AttackVisual;
+  fromX: number;
+  fromZ: number;
+  toX: number;
+  toZ: number;
+  /** Seconds until the hit lands (0 = instant). */
+  travel: number;
+}
+/** A named hero or enemy ability went off (Shield Bash, Volley, Gravity Well…). */
+export interface AbilityUsed extends At {
+  type: 'abilityUsed';
+  source: EntityId;
+  ability: string;
+  name: string;
+  x: number;
+  z: number;
+  radius: number;
+}
+export interface CastInterrupted extends At {
+  type: 'castInterrupted';
+  enemy: EntityId;
+  by: EntityId | null;
+  name: string;
+}
+export interface EnemyKilled extends At {
+  type: 'enemyKilled';
+  enemy: EntityId;
+  defId: string;
+  killer: EntityId | null;
+  x: number;
+  z: number;
+}
+export interface PhaseChanged extends At {
+  type: 'phaseChanged';
+  boss: EntityId;
+  phase: number;
+}
+/** A boss announces a signature mechanic (shown on the boss bar and as a callout). */
+export interface DecreeAnnounced extends At {
+  type: 'decree';
+  boss: EntityId;
+  name: string;
+  text: string;
+  answers: AnswerTag[];
+}
+
+export type SimEvent =
+  | EntitySpawned
+  | EntityDespawned
+  | SpawnWarning
+  | WaveStarted
+  | EncounterEnded
+  | DamageTaken
+  | HealApplied
+  | ShieldApplied
+  | ShieldBroken
+  | StatusApplied
+  | StatusRemoved
+  | TelegraphStarted
+  | TelegraphResolved
+  | TelegraphEnded
+  | TechniqueCast
+  | TechniqueRejected
+  | PerfectWard
+  | Save
+  | ChimeLaunched
+  | ChimeLanded
+  | Cleansed
+  | Reeled
+  | Glided
+  | ThreadAttached
+  | ThreadModeChanged
+  | ThreadTaut
+  | ThreadSnapped
+  | ReviveStarted
+  | Revived
+  | ResonanceGained
+  | ResonanceSpent
+  | CrescendoStart
+  | CrescendoEnd
+  | WeaverDowned
+  | WeaverReformed
+  | TimeScaleChanged
+  | SoloReady
+  | Cued
+  | SoloStarted
+  | SoloEnded
+  | AllyDowned
+  | AllyOut
+  | DirectiveAck
+  | Bark
+  | AttackFired
+  | AbilityUsed
+  | CastInterrupted
+  | EnemyKilled
+  | PhaseChanged
+  | DecreeAnnounced;
+
+export type SimEventType = SimEvent['type'];
+export type SimEventOf<T extends SimEventType> = Extract<SimEvent, { type: T }>;

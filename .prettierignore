@@ -1,0 +1,8 @@
+dist
+reference
+docs
+test-results
+playwright-report
+coverage
+package-lock.json
+tests/sim/golden.json
