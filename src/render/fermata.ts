@@ -24,6 +24,10 @@ interface HoldRec {
   until: number;
   seen: number;
   motes: number;
+  /** The Weaver healed them during the hold (`hold.savedBy`): it will release as a Save. */
+  saved: boolean;
+  /** 1 → 0 when they are healed in time. */
+  savedPop: number;
 }
 
 /**
@@ -55,7 +59,7 @@ export class FermataView {
   private rec(hero: EntityId, now: number): HoldRec {
     let r = this.recs.get(hero);
     if (!r) {
-      r = { start: now, until: now + this.holdTime, seen: 0, motes: 0 };
+      r = { start: now, until: now + this.holdTime, seen: 0, motes: 0, saved: false, savedPop: 0 };
       this.recs.set(hero, r);
     }
     return r;
@@ -91,9 +95,33 @@ export class FermataView {
       r.seen = this.frameNo;
       const total = Math.max(0.05, r.until - r.start);
       const remain = clamp01((r.until - state.time) / total);
-      const urgent = remain < 0.4 ? 1 : 0;
-      const beat = 0.75 + 0.25 * Math.sin(time * (8 + urgent * 10));
       const cy = hr.height * 0.5 + hr.y;
+      // Healed in time: the hold still runs out, but now it resolves as a Save.
+      const saved = !!state.entities.get(id)?.hero?.hold?.savedBy;
+      if (saved && !r.saved) {
+        r.savedPop = 1;
+        kit.particles.burst(
+          hr.x,
+          cy,
+          hr.z,
+          16,
+          3,
+          3,
+          0.6,
+          0.12,
+          C.heal,
+          1,
+          PARTICLE.spark,
+          2,
+          1,
+          hr.radius,
+        );
+      }
+      r.saved = saved;
+      r.savedPop = Math.max(0, r.savedPop - dt * 3);
+      const urgent = !saved && remain < 0.4 ? 1 : 0;
+      const beat = saved ? 1 : 0.75 + 0.25 * Math.sin(time * (8 + urgent * 10));
+      const tone = saved ? C.heal : FERMATA_COLOR;
       // Glassy stillness around them.
       kit.shells.push(
         hr.x,
@@ -103,8 +131,8 @@ export class FermataView {
         hr.height * 0.66,
         hr.radius * 1.75,
         SHELL.overshield,
-        FERMATA_COLOR,
-        0.45,
+        tone,
+        0.45 + r.savedPop * 0.5,
         0,
         0,
         false,
@@ -112,8 +140,9 @@ export class FermataView {
       );
       // 𝄐 over the head, with a glow and the countdown ring around it.
       const gy = hr.height + 0.95 + hr.y;
-      kit.spritesTop.push(hr.x, gy, hr.z, 0.95, SPRITE.glow, FERMATA_COLOR, 0.4 * beat);
-      kit.spritesTop.push(hr.x, gy, hr.z, 0.62, SPRITE.fermata, FERMATA_COLOR, 0.6 + 0.6 * beat);
+      const pop = 1 + r.savedPop * 0.5;
+      kit.spritesTop.push(hr.x, gy, hr.z, 0.95 * pop, SPRITE.glow, tone, 0.4 * beat);
+      kit.spritesTop.push(hr.x, gy, hr.z, 0.62 * pop, SPRITE.fermata, tone, 0.6 + 0.6 * beat);
       // Ring timer at the feet: the lavender arc is the hold left; the heal ring beckons.
       kit.rings.push(
         hr.x,
@@ -123,11 +152,23 @@ export class FermataView {
         0.14,
         0.25,
         RING.plain,
-        FERMATA_COLOR,
+        tone,
         0.95,
         -Math.PI / 2,
         remain * Math.PI * 2,
       );
+      if (r.savedPop > 0)
+        kit.rings.push(
+          hr.x,
+          0.05,
+          hr.z,
+          hr.radius * (2.2 + (1 - r.savedPop) * 2),
+          0.12,
+          0.3,
+          RING.plain,
+          C.heal,
+          r.savedPop,
+        );
       kit.rings.push(
         hr.x,
         0.04,
@@ -137,7 +178,7 @@ export class FermataView {
         0.12,
         RING.dashed,
         C.heal,
-        0.75 * beat,
+        saved ? 0 : 0.75 * beat,
         0,
         7,
         0,
@@ -149,12 +190,12 @@ export class FermataView {
         gy,
         hr.z,
         'mend',
-        `Heal ${(remain * total).toFixed(1)}s`,
+        saved ? 'Saved' : `Heal ${(remain * total).toFixed(1)}s`,
         VISION_HEX.heal,
-        remain,
-        1 + urgent * 0.08 * Math.sin(time * 22),
+        saved ? 1 : remain,
+        1 + urgent * 0.08 * Math.sin(time * 22) + r.savedPop * 0.3,
         1,
-        false,
+        saved,
         58,
       );
       // Motes hanging motionless in the air: time has stopped for them.

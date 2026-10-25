@@ -13,7 +13,7 @@ import { RING } from './fx/rings';
 import { SHELL } from './fx/shells';
 import { SPRITE } from './fx/sprites';
 import type { Overlay } from './overlay';
-import { C, auraColor, clamp01, color } from './palette';
+import { C, VISION_HEX, auraColor, clamp01, color, rgba } from './palette';
 import type { Stage } from './stage';
 import type { TelegraphLayer } from './telegraphs';
 import type { ThreadView } from './thread';
@@ -996,7 +996,14 @@ export class Feedback {
     if (b.amount < 2) return;
     const size = Math.min(30, 12 + 18 * Math.sqrt(Math.min(1, b.amount / maxHp)));
     if (fresh || b.handle < 0)
-      b.handle = this.d.overlay.spawnNumber(r.x + 0.35, r.height + 0.2, r.z, '#5eead4', size, 0.9);
+      b.handle = this.d.overlay.spawnNumber(
+        r.x + 0.35,
+        r.height + 0.2,
+        r.z,
+        VISION_HEX.heal,
+        size,
+        0.9,
+      );
     this.d.overlay.setNumber(b.handle, `+${Math.round(b.amount)}`, null, size, !fresh);
   }
 
@@ -1498,10 +1505,10 @@ export class Feedback {
       r.height + 1.1,
       r.z,
       'REVIVED',
-      '#99f6e4',
+      VISION_HEX.heal,
       18,
       1.1,
-      'rgba(45,212,191,0.9)',
+      rgba(VISION_HEX.heal, 0.9),
     );
   }
 

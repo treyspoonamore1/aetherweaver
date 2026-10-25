@@ -352,6 +352,7 @@ export class Overlay {
   /** Settings: scales every full-screen flash (0 = off … 1 = full). */
   setFlashScale(s: number): void {
     this.flashScale = s < 0 ? 0 : s > 1 ? 1 : s;
+    if (this.flashScale === 0) this.flashT = 0;
   }
 
   project(x: number, y: number, z: number, out: Projected): Projected {
