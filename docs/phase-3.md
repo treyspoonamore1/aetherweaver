@@ -54,7 +54,21 @@ Every fight earns Weaver XP: 20 for a skirmish, 35 for an elite, 50 for the Bell
 
 A first run that dies in its third fight still reaches Rank 2. **Settings → Skip the unlocks** opens everything at once. Training Grounds always has everything.
 
-<!-- presentation: filled in as the workstreams land -->
+## Presentation
+
+| | |
+|---|---|
+| ![Prep at Rank 3: the two songs, Rank locks and New marks](phase-3/ui/prep-rank3.jpg) **Prep** at Rank 3: the beam and field songs with their real numbers, presets locked until their Rank, new unlocks marked | ![A real fight: Lyra on the beam](phase-3/ui/real-hud.jpg) **In a fight**: the beam pours into Lyra (♪×2 on her frame and the Thread line) |
+| ![Rank-up card](phase-3/ui/rank-up.jpg) **Rank-up**: what the new Rank opens, in plain words | ![Results with XP and the auras/Thread split](phase-3/ui/result-win.jpg) **Results**: Weaver XP, and what the auras and the Thread each did |
+
+- **UI** ([details](phase-3/ui.md)):
+  - The **song builder** (Prep and Retune) names the two songs and shows their real numbers (×2 on your threaded hero, the echo and its reach, ×1 for the field), with ornaments folded in. Locked songs, slots, auras, ornaments and presets show the Rank that opens them; new unlocks are marked **New** until seen.
+  - **Weaver Rank** on the title screen and in Settings → Progress (with *Skip the unlocks* and *Reset progress*); **+XP** with its lines on every result; a **rank-up card** for each Rank reached; the run's XP and Rank on the summary.
+  - **What you did** splits the auras' work from the Thread's ("Your auras healed 1,402, shielded 841 and added 2,244 damage: 36% of everything you did"), with a three-part bar.
+  - **HUD**: a ♪×2 badge on the hero the beam pours into, aura pips split by song (beam, echo, field), one group per song on the Weaver bar, and a small live readout of the auras' and the Thread's totals.
+  - The Codex explains the songs, the new Unison and Weaver Rank; Training Grounds keeps every preset open.
+- **Audio** ([details](phase-3/audio.md)): the Thread's hum harmonises with the beam song (fuller with Unison), a short arpeggio "pours" when the beam moves to a new hero, and new rank-up and unlock sounds.
+<!-- vfx: filled in when the workstream lands -->
 
 ## Harness
 
