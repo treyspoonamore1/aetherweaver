@@ -39,7 +39,7 @@ export function statLines(r: EncounterResult): { icon: IconName; text: string; m
     icon: 'ward',
     text:
       s.shielded + s.negated > 0
-        ? `${fmt(s.shielded + s.negated)} damage never landed: ${fmt(s.shielded)} absorbed by Wards and ${fmt(s.negated)} negated by ${s.perfects} Perfect ${plural(s.perfects, 'Ward')}.`
+        ? `${fmt(s.shielded + s.negated)} damage never landed: ${fmt(s.shielded)} stopped by your shields and auras, and ${fmt(s.negated)} negated by ${s.perfects} Perfect ${plural(s.perfects, 'Ward')}.`
         : 'No Wards landed. A Ward just before a big hit absorbs it.',
     muted: s.shielded + s.negated === 0,
   });

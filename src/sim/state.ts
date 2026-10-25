@@ -496,7 +496,7 @@ export type LedgerMarkerKind =
 export interface Ledger {
   healing: number;
   overheal: number;
-  /** Damage absorbed by Weaver shields (non-Perfect). */
+  /** Damage absorbed by Weaver shields (non-Perfect) or turned aside by Fermata's guard. */
   shielded: number;
   /** Damage negated by Perfect Wards. */
   negated: number;

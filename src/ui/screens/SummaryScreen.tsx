@@ -291,7 +291,7 @@ export function SummaryView({ run, onNewRun, onTitle, assisted = false }: Summar
               color="var(--color-shield)"
               label="Mitigated"
               value={fmt(mitigated)}
-              sentence={`${fmt(mitigated)} damage never landed: ${fmt(totals.shielded)} absorbed by Wards and ${fmt(totals.negated)} negated by ${totals.perfects} Perfect ${plural(totals.perfects, 'Ward')}.`}
+              sentence={`${fmt(mitigated)} damage never landed: ${fmt(totals.shielded)} stopped by your shields and auras, and ${fmt(totals.negated)} negated by ${totals.perfects} Perfect ${plural(totals.perfects, 'Ward')}.`}
             />
             <Tile
               icon="heart"

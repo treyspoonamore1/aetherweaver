@@ -164,14 +164,28 @@ describe('Chords and ornaments', () => {
 describe('Fermata', () => {
   const fermata = { chords: [{ auras: ['fermata'], ornaments: [] }] };
 
-  it('heroes low on life take less damage', () => {
+  it('heroes low on life take less damage, and the Weaver is credited with it', () => {
     const sim = sandbox(fermata);
     stepFor(sim, 2);
     const lyra = hero(sim, 1);
     hurt(sim, 1, lyra.health!.maxHp * 0.7);
     const before = lyra.health!.hp;
+    const shielded = sim.state.ledger.shielded;
     hurt(sim, 1, 100);
     expect(before - lyra.health!.hp).toBeCloseTo(70, 6);
+    expect(sim.state.ledger.shielded - shielded).toBeCloseTo(30, 6);
+  });
+
+  it('credits the guard only with life the hero kept', () => {
+    const sim = sandbox(fermata);
+    stepFor(sim, 2);
+    const lyra = worldOf(sim).entities.get(sim.state.party[1]!)!;
+    lyra.hero!.fermataUsed = true;
+    hurt(sim, 1, lyra.health!.maxHp * 0.7);
+    const shielded = sim.state.ledger.shielded;
+    hurt(sim, 1, lyra.health!.maxHp);
+    expect(lyra.health!.downed).toBe(true);
+    expect(sim.state.ledger.shielded).toBe(shielded);
   });
 
   it('holds a lethal hit once per fight; Mending during the hold is a Save', () => {

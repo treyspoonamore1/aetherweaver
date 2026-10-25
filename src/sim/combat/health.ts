@@ -311,7 +311,12 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
   if (target.hero && !opts.telegraph) amount *= 1 - heroDef(target.hero.defId).armor;
   // Fermata: heroes low on life take less from everything.
   const fx = target.hero ? heroFx(world, target) : null;
-  if (fx && fx.guardDr > 0 && h.hp < h.maxHp * fx.guardBelow) amount *= 1 - fx.guardDr;
+  let guarded = 0;
+  if (fx && fx.guardDr > 0 && h.hp < h.maxHp * fx.guardBelow) {
+    const before = amount;
+    amount *= 1 - fx.guardDr;
+    guarded = before - amount;
+  }
 
   let absorbed = 0;
   let absorbedByWeaver = 0;
@@ -356,6 +361,8 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
   h.hp -= dealt;
   h.lastHitAt = world.time;
   if (absorbedByWeaver > 0) world.ledger.shielded += absorbedByWeaver;
+  // The guard is credited only with life the hero kept: none if the hit downs them anyway.
+  if (guarded > 0) world.ledger.shielded += Math.min(guarded, h.hp);
 
   const source = opts.source === null ? undefined : world.entities.get(opts.source);
   const total = dealt + absorbed;
