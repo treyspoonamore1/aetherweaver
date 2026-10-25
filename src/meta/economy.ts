@@ -73,11 +73,15 @@ export const FORGE_PRICE: Readonly<Record<ForgeService, number>> = {
   cleanse: 40,
 };
 
-/** Relics to choose from after winning: how many, and how likely each rarity is. */
-export const RELIC_OFFERS: Readonly<
-  Record<'elite' | 'boss' | 'event', { count: number; odds: Partial<Record<RelicRarity, number>> }>
-> = {
+/**
+ * Relics to choose from after winning: how many, and how likely each rarity is. An event's
+ * fight says its own count in content (`fight.relics`); only its odds live here.
+ */
+export const RELIC_OFFERS = {
   elite: { count: 2, odds: { common: 50, rare: 38, legendary: 12 } },
   boss: { count: 3, odds: { rare: 60, legendary: 40 } },
-  event: { count: 3, odds: { common: 40, rare: 42, legendary: 18 } },
-};
+  event: { odds: { common: 40, rare: 42, legendary: 18 } },
+} as const satisfies Record<
+  'elite' | 'boss' | 'event',
+  { count?: number; odds: Partial<Record<RelicRarity, number>> }
+>;

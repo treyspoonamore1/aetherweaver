@@ -138,9 +138,13 @@ describe('Threat', () => {
     expect(threatFor(7)).toBeCloseTo(1 + 6 * THREAT_PER_ROW, 6);
     const run = Run.embark(Run.newRun(12));
     for (const node of nodes(run)) {
-      const fight = node.encounterId !== null || node.kind === 'event';
+      // Only the events that hold a fight (the Unsung Choir) carry Threat.
+      const fight =
+        node.encounterId !== null || (node.eventId !== null && Run.eventHasFight(node.eventId));
       expect(node.reward.threat).toBe(fight ? threatFor(node.row) : 1);
     }
+    expect(Run.eventHasFight('unsung_choir')).toBe(true);
+    expect(Run.eventHasFight('broken_loom')).toBe(false);
     const at7 = at(run, 'miniboss');
     expect(Run.combatConfig(at7)!.threat).toBe(threatFor(7));
   });

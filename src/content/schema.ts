@@ -793,6 +793,19 @@ export const ContentSchema = z
         `choice in event "${ev.id}"`,
         ev.choices.map((ch) => ch.id),
       );
+      // A way out that's always open: free, no motif or Chords to pick, no fight, no gamble.
+      const free = ev.choices.some(
+        (ch) =>
+          ch.cost === 0 &&
+          ch.motif === 'none' &&
+          ch.chance === undefined &&
+          !ch.effects.some((e) => e.kind === 'retune' || e.kind === 'fight'),
+      );
+      if (!free)
+        ctx.addIssue({
+          code: 'custom',
+          message: `event "${ev.id}" needs a choice that is always open (free, nothing to pick)`,
+        });
       for (const ch of ev.choices) {
         const where = `event "${ev.id}" choice "${ch.id}"`;
         if ((ch.chance !== undefined) !== (ch.failOutcome !== undefined))

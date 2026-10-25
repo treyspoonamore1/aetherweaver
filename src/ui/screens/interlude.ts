@@ -4,6 +4,7 @@
  * state or meta/economy.ts, so tuning flows through; tests/uiPhase3b.test.ts pins the wording.
  */
 import {
+  CONTENT,
   boonDef,
   boonText,
   motifDef,
@@ -15,7 +16,7 @@ import {
   type EventEffect,
   type RelicRarity,
 } from '../../content';
-import { FIGHT_AETHER, GRADE_AETHER, RELIC_OFFERS } from '../../meta/economy';
+import { FIGHT_AETHER, GRADE_AETHER } from '../../meta/economy';
 import { findNode, forgeTargets, eventChoiceProblem, motifLine } from '../../meta/run';
 import type {
   ActiveBoon,
@@ -229,13 +230,6 @@ export function relicOfferCopy(
   }
 }
 
-/** How many relics each kind of offer holds (for the Codex and tooltips). */
-export const OFFER_COUNT = {
-  elite: RELIC_OFFERS.elite.count,
-  boss: RELIC_OFFERS.boss.count,
-  event: RELIC_OFFERS.event.count,
-} as const;
-
 // ── Merchants ─────────────────────────────────────────────────────────────────────────
 
 export interface ShopItemStatus {
@@ -327,6 +321,23 @@ export type ForgeResult =
   | { service: 'temper'; step: MotifStep }
   | { service: 'retune' }
   | { service: 'cleanse'; relicId: string };
+
+/**
+ * What the forge did, from the run itself (`forge.used` and `forge.target`), for when the
+ * screen no longer remembers it (a reload mid-visit).
+ */
+export function forgeResultOf(run: Pick<RunState, 'forge' | 'motifs'>): ForgeResult | null {
+  const forge = run.forge;
+  if (!forge?.used) return null;
+  if (forge.used === 'retune') return { service: 'retune' };
+  if (!forge.target) return null;
+  if (forge.used === 'cleanse') return { service: 'cleanse', relicId: forge.target };
+  const level = run.motifs.find((m) => m.id === forge.target)?.level;
+  if (level === undefined) return null;
+  // Tempering added one level: step from the one before.
+  const step = motifStep({ motifs: [{ id: forge.target, level: level - 1 }] }, forge.target, 1);
+  return { service: 'temper', step };
+}
 
 /** A motif before and after gaining `levels` (capped at its last level). */
 export interface MotifStep {
@@ -450,7 +461,31 @@ export interface GainLine {
  * What an event choice gave or took, as lines (relics are shown as cards by the caller, so
  * they're listed here only by name). `run` is the run after the choice.
  */
-export function gainLines(gains: EventGains, run: Pick<RunState, 'chords'>): GainLine[] {
+/**
+ * What a heal or a hurt really did to each hero, from the life they had before the choice:
+ * "Every hero healed 25% of their life." when it's the same for all, else hero by hero.
+ */
+function lifeLine(
+  gains: EventGains,
+  run: Pick<RunState, 'party'>,
+  verb: 'healed' | 'lost',
+  pct: number,
+): string {
+  const deltas = run.party.map((h, i) =>
+    Math.round(Math.abs(h.hpPct - (gains.before[i] ?? h.hpPct)) * 100),
+  );
+  const full = Math.round(pct * 100);
+  if (gains.before.length !== run.party.length || deltas.every((d) => d === full))
+    return `Every hero ${verb} ${full}% of their life.`;
+  const each = run.party.map((h, i) => `${heroName(h.heroId)} ${deltas[i]}%`).join(', ');
+  return `The party ${verb} ${verb === 'healed' ? 'up to' : 'at most'} ${full}% of their life: ${each}.`;
+}
+
+function heroName(heroId: string): string {
+  return CONTENT.heroes.find((h) => h.id === heroId)?.name ?? heroId;
+}
+
+export function gainLines(gains: EventGains, run: Pick<RunState, 'chords' | 'party'>): GainLine[] {
   const lines: GainLine[] = [];
   for (const id of gains.relics)
     lines.push({ icon: 'relic', text: `${relicDef(id).name} is yours.`, tone: 'good' });
@@ -470,22 +505,18 @@ export function gainLines(gains: EventGains, run: Pick<RunState, 'chords'>): Gai
       tone: gains.aether > 0 ? 'good' : 'bad',
     });
   if (gains.heal > 0)
-    lines.push({
-      icon: 'heart',
-      text: `Every hero healed ${Math.round(gains.heal * 100)}% of their life.`,
-      tone: 'good',
-    });
+    lines.push({ icon: 'heart', text: lifeLine(gains, run, 'healed', gains.heal), tone: 'good' });
   if (gains.hurt > 0)
-    lines.push({
-      icon: 'heart',
-      text: `Every hero lost ${Math.round(gains.hurt * 100)}% of their life.`,
-      tone: 'bad',
-    });
+    lines.push({ icon: 'heart', text: lifeLine(gains, run, 'lost', gains.hurt), tone: 'bad' });
   if (gains.motif) {
     const def = motifDef(gains.motif.id);
+    const from =
+      gains.motif.from > 0
+        ? `level ${gains.motif.from} → ${gains.motif.level}`
+        : `level ${gains.motif.level}`;
     lines.push({
       icon: 'note',
-      text: `${def.name} is now level ${gains.motif.level}: ${motifLine(def.id, gains.motif.level)}`,
+      text: `${def.name} rises, ${from}: ${motifLine(def.id, gains.motif.level)}`,
       tone: 'good',
     });
   }

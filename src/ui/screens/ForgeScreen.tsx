@@ -11,6 +11,7 @@ import { playUi, useMood } from '../kit/sound';
 import {
   FORGE_COPY,
   FORGE_SERVICES,
+  forgeResultOf,
   forgeServiceStatus,
   motifStep,
   relicInfo,
@@ -120,7 +121,7 @@ export function ForgeView({
 
   let body;
   if (used !== null) {
-    body = <ForgeDone run={run} used={used} result={result} />;
+    body = <ForgeDone run={run} used={used} result={result ?? forgeResultOf(run)} />;
   } else if (mode === 'temper') {
     const status = forgeServiceStatus(run, 'temper');
     body = (

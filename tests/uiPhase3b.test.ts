@@ -187,7 +187,12 @@ describe('merchant', () => {
   });
 
   it('a real shop’s healing is priced from economy.ts', () => {
-    const run = merchantRun();
+    // A shop the run layer stocks itself, not the lab's hand-made one.
+    let run = Run.embark(Run.newRun(5));
+    const target = run.map.rows.flat().find((n) => n.kind === 'merchant')!;
+    const before = run.map.rows[target.row - 1]!.find((n) => n.next.includes(target.id))!;
+    run = Run.chooseNode({ ...run, path: [before.id] }, target.id);
+    expect(run.phase).toBe('merchant');
     const heal = run.shop!.items.find((i: ShopItem) => i.kind === 'heal')!;
     expect(heal.price).toBe(SHOP_HEAL.price);
     expect(heal.heal).toBe(SHOP_HEAL.pct);
@@ -309,18 +314,31 @@ describe('events', () => {
     });
     const won = eventAfter('shrine_of_discord', 'offer', { won: true });
     expect(won.event!.won).toBe(true);
-    expect(gainLines(won.event!.gains!, won)[0]!.text).toMatch(/is now level \d/);
+    expect(gainLines(won.event!.gains!, won)[0]!.text).toMatch(/rises, level \d → \d/);
   });
 
   it('heal, hurt, Aether, retune and nothing', () => {
+    // The lines say what really happened, hero by hero, when a cap or the floor got in the way.
     const bathe = eventAfter('tuning_pool', 'bathe');
+    const healed = bathe.party.map((h, i) =>
+      Math.round((h.hpPct - bathe.event!.gains!.before[i]!) * 100),
+    );
     expect(gainLines(bathe.event!.gains!, bathe)[0]!.text).toBe(
-      'Every hero healed 25% of their life.',
+      healed.every((d) => d === 25)
+        ? 'Every hero healed 25% of their life.'
+        : `The party healed up to 25% of their life: ${bathe.party
+            .map((h, i) => `${CONTENT.heroes.find((x) => x.id === h.heroId)!.name} ${healed[i]}%`)
+            .join(', ')}.`,
     );
+    const full = { ...bathe, party: bathe.party.map((h) => ({ ...h, hpPct: 0.5 })) };
+    const even = { ...bathe.event!.gains!, before: full.party.map(() => 0.25) };
+    expect(gainLines(even, full)[0]!.text).toBe('Every hero healed 25% of their life.');
     const blood = eventAfter('merchant_of_silences', 'blood');
-    expect(gainLines(blood.event!.gains!, blood).map((l) => l.text)).toContain(
-      'Every hero lost 20% of their life.',
-    );
+    expect(
+      gainLines(blood.event!.gains!, blood)
+        .map((l) => l.text)
+        .join(' '),
+    ).toMatch(/lost (at most )?20% of their life/);
     const salvage = eventAfter('broken_loom', 'salvage');
     expect(gainLines(salvage.event!.gains!, salvage)[0]!.text).toBe('+35 Aether.');
     const retune = eventAfter('tuning_pool', 'retune');
@@ -371,6 +389,14 @@ describe('HUD relic bar', () => {
     const fork = (perfects: number) =>
       relicHuds({ ...src({ ids: ['tuning_fork'] }), ledger: { perfects, downs: 0 } });
     expect(pulsed(fork(1), fork(2))).toEqual(['tuning_fork']);
+    // From a real sim, the relic's own count drives it: a Perfect that charged nothing doesn't.
+    const counted = (triggers: number, perfects: number) =>
+      relicHuds({
+        ...src({ ids: ['tuning_fork'], triggers: { tuning_fork: triggers } }),
+        ledger: { perfects, downs: 0 },
+      });
+    expect(pulsed(counted(1, 1), counted(1, 2))).toEqual([]);
+    expect(pulsed(counted(1, 2), counted(2, 3))).toEqual(['tuning_fork']);
   });
 
   it('the bridge reads WorldState.relics', () => {

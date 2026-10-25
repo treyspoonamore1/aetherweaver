@@ -186,9 +186,26 @@ function shuffle<T>(rng: Rng, items: T[]): T[] {
 
 function rewardFor(kind: NodeKind, eventId: string | null, row: number): MapNode['reward'] {
   const reward = rewardKind(kind, eventId);
-  // Fights (and an event that may hold one) say how dangerous their row is.
-  const fights = kind !== 'shrine' && kind !== 'respite' && kind !== 'merchant' && kind !== 'forge';
+  // Fights (and an event that holds one) say how dangerous their row is.
+  const fights =
+    kind === 'event'
+      ? eventId !== null && eventHasFight(eventId)
+      : kind !== 'shrine' && kind !== 'respite' && kind !== 'merchant' && kind !== 'forge';
   return { ...reward, threat: fights ? threatFor(row) : 1 };
+}
+
+/** Relics offered after winning the event's fight (0 if it has none). */
+export function eventFightRelics(eventId: string): number {
+  for (const c of runEventDef(eventId).choices)
+    for (const e of [...c.effects, ...c.fail]) if (e.kind === 'fight') return e.relics;
+  return 0;
+}
+
+/** Does any of the event's choices lead to a fight? */
+export function eventHasFight(eventId: string): boolean {
+  return runEventDef(eventId).choices.some((c) =>
+    [...c.effects, ...c.fail].some((e) => e.kind === 'fight'),
+  );
 }
 
 function rewardKind(kind: NodeKind, eventId: string | null): Omit<MapNode['reward'], 'threat'> {

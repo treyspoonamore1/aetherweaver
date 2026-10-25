@@ -206,13 +206,16 @@ test('Phase 3b: a merchant through the test hook — buy, the purse drops, leave
     .first()
     .click();
   await expect.poll(() => page.evaluate(() => window.__AWRUN__!.phase())).toBe('map');
-  await expect(page.getByTestId('run-strip')).toContainText('0');
+  // The purse on screen, not just the store: a run starts with none.
+  await expect(page.getByRole('status', { name: '0 Aether' }).first()).toBeVisible();
 
   expect(await page.evaluate(() => window.__AWRUN__!.warp('merchant', 200))).toBe('merchant');
   await expect(page.getByRole('heading', { name: 'The Merchant' })).toBeVisible();
-  // The healing is always on the cloth; buy it by clicking its card.
+  await expect(page.getByRole('status', { name: '200 Aether' }).first()).toBeVisible();
+  // The healing is always on the cloth (25 Aether); buy it by clicking its card.
   await page.getByRole('button', { name: /^Healing:/ }).click();
-  await expect.poll(() => page.evaluate(() => window.__AWRUN__!.aether())).toBeLessThan(200);
+  await expect(page.getByRole('status', { name: '175 Aether' }).first()).toBeVisible();
+  expect(await page.evaluate(() => window.__AWRUN__!.aether())).toBe(175);
   await expect(page.getByText('Sold: yours now')).toBeVisible();
   await page.getByRole('button', { name: /Leave the merchant/ }).click();
   await expect.poll(() => page.evaluate(() => window.__AWRUN__!.phase())).toBe('map');

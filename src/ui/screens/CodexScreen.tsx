@@ -24,6 +24,7 @@ import { useMood } from '../kit/sound';
 import { useUi } from '../store';
 import { HeroDisc } from './shared';
 import { FORGE_PRICE, RELIC_OFFERS, RELIC_PRICE } from '../../meta/economy';
+import { eventFightRelics } from '../../meta/run';
 import { RELIC_RARITY, RelicGlyph, RelicRarityChip, Glyph } from '../kit/RelicGlyph';
 import type { RelicRarity } from '../../content';
 import { EventGlyph } from './EventScreen';
@@ -765,8 +766,8 @@ function Relics() {
           A motif adds a number; a <b className="text-gold-200">relic changes a rule</b>, for the
           rest of the run. Elites offer 1 of {RELIC_OFFERS.elite.count}, the Bellwarden 1 of{' '}
           {RELIC_OFFERS.boss.count} (rare or legendary), the Unsung Choir 1 of{' '}
-          {RELIC_OFFERS.event.count}. Merchants sell them for Aether. Cursed relics are bargains: a
-          forge lifts the curse for {FORGE_PRICE.cleanse} Aether and the blessing stays.
+          {eventFightRelics('unsung_choir')}. Merchants sell them for Aether. Cursed relics are
+          bargains: a forge lifts the curse for {FORGE_PRICE.cleanse} Aether and the blessing stays.
         </p>
       </Panel>
       {RELIC_ORDER.map((rarity) => {

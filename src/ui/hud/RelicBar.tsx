@@ -26,6 +26,16 @@ export function RelicBar({
 }) {
   const [lit, setLit] = useState<Record<string, number>>({});
   const prev = useRef<readonly RelicHud[] | null>(null);
+  // One timer per flashing relic. The HUD sends a new snapshot ~15 times a second, so the timers
+  // must outlive the effect below: a cleanup there would cancel every flash before it ends.
+  const timers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
+  useEffect(() => {
+    const all = timers.current;
+    return () => {
+      for (const t of all.values()) clearTimeout(t);
+      all.clear();
+    };
+  }, []);
   useEffect(() => {
     const before = prev.current;
     prev.current = relics;
@@ -42,11 +52,21 @@ export function RelicBar({
       for (const id of ids) next[id] = now;
       return next;
     });
-    const t = setTimeout(() => {
-      const cut = performance.now() - FLASH_MS + 50;
-      setLit((l) => Object.fromEntries(Object.entries(l).filter(([, at]) => at > cut)));
-    }, FLASH_MS);
-    return () => clearTimeout(t);
+    for (const id of ids) {
+      const running = timers.current.get(id);
+      if (running !== undefined) clearTimeout(running);
+      timers.current.set(
+        id,
+        setTimeout(() => {
+          timers.current.delete(id);
+          setLit((l) => {
+            const next = { ...l };
+            delete next[id];
+            return next;
+          });
+        }, FLASH_MS),
+      );
+    }
   }, [relics, seconds]);
   if (relics.length === 0 && boons.length === 0) return null;
   return (
