@@ -45,7 +45,7 @@ Phase 1 already pulled half of the roadmap's Phase 2 forward (auras, Resonance, 
   - **Resonant Starbolt**: 1.6× damage, 1.5× radius, and it stuns.
 - Everything a Flourish adds counts as the Weaver's share. An answer also gives 10 Resonance.
 - Pacing: the first call comes 6 s in; each hero waits 22 s between calls; calls are at least 6 s apart; and none is made while anything lethal is on the board.
-- The bots answer: the Skilled bot when the answer isn't needed for something more urgent (it keeps its Ward for a Perfect if a big hit is coming), the Novice bot notices calls late but still answers most of them (62–77% in the loadout report), so its results are an upper bound for a player who ignores calls.
+- The bots answer calls. The Skilled bot answers when the technique isn't needed for something more urgent (it keeps its Ward for a Perfect if a big hit is coming). The Novice bot notices calls late but still answers most of them (62–77% in the loadout report), so its results overstate how a novice who ignores calls would do.
 
 ### Proof of support
 
