@@ -136,6 +136,15 @@ The six presets, 20 seeds per fight and 10 whole runs each: `npm run loadouts --
   - **Bastion** became Steady's beam lightened with Grace Note plus Ostinato in the field: the first version reserved so much Spirit that the Shattered Choir won 13% of the time over 60 seeds.
 - Wide Choir's share is lower (31%) because it carries no damage aura: its help is barriers, regeneration and the Fermata.
 
+## Code review
+
+An independent review of the sim, run-layer and app changes found no determinism bugs or crashes, and six real issues, all fixed with regression tests:
+
+- An empty beam song still acted as a live field around the Weaver (cued Starfall aimed into it, and the threaded hero was flagged as the beam's focus with nothing being poured). Empty songs now have no field, and the beam only flags the side it has auras for.
+- `inField` counted the beam, so Lyra's *Wind at her Back* ("while she stands in your field") worked anywhere while she was threaded. Standing in a field and hearing the beam are now separate: the HUD can say "outside your field" truthfully while the beam still reaches the hero.
+- With a defensive beam song (Wide Choir's Sostenuto), the Skilled bot parked Mend on a healthy tank and never used Empower. It now keeps the beam on the tank but Empowers.
+- A run replaced before its summary wasn't counted; Embark accepted Chords chosen while "Skip the unlocks" was on after it was turned off; Retune's Chords weren't remembered for the next run.
+
 ## What's next in Phase 3
 
 The rest of the roadmap's Phase 3, now that the build layer reads clearly:
