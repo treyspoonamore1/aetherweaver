@@ -69,31 +69,31 @@ export const CHORD_PRESETS: readonly {
     id: 'bastion',
     name: 'Bastion',
     summary:
-      'A Grace Note field of barrier and regeneration for everyone near you, and Fortissimo on your beam.',
+      'Steady’s beam, made lighter with Grace Note, and an Ostinato barrier for everyone near you.',
     difficulty: 'easy',
     rank: 3,
     chords: [
-      { auras: ['fortissimo'], ornaments: [] },
-      { auras: ['ostinato', 'sostenuto'], ornaments: ['grace_note'] },
+      { auras: ['sostenuto', 'fortissimo'], ornaments: ['grace_note'] },
+      { auras: ['ostinato'], ornaments: [] },
     ],
   },
   {
     id: 'anchor',
     name: 'Anchor',
     summary:
-      'Plant a slowing Lullaby field with Pedal Point and pull the fight into it; Allegro on your beam hastens whoever you thread.',
+      'Plant a slowing, healing field with Pedal Point and pull the fight into it, while a light Fortissimo on your beam goes where you thread.',
     difficulty: 'medium',
     rank: 4,
     chords: [
-      { auras: ['allegro'], ornaments: [] },
-      { auras: ['lullaby'], ornaments: ['pedal_point'] },
+      { auras: ['fortissimo'], ornaments: ['grace_note'] },
+      { auras: ['lullaby', 'sostenuto'], ornaments: ['pedal_point'] },
     ],
   },
   {
     id: 'all_in',
     name: 'All In',
     summary:
-      'Unison pours Fortissimo and Allegro into one hero at triple strength. A light Fermata field keeps the rest alive.',
+      'Unison pours Fortissimo and Allegro into one hero at ×2.5. A light Fermata field keeps the rest alive.',
     difficulty: 'hard',
     rank: 5,
     chords: [

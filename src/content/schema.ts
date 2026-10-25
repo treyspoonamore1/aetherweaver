@@ -456,7 +456,7 @@ export const OrnamentDefSchema = z.object({
   radiusMult: z.number().positive().default(1),
   /** Where the Chord's field sits (Pedal Point plants it). */
   anchor: ChordAnchorSchema.default('weaver'),
-  /** Beam song only: multiplies the strength on the threaded hero (Unison ×1.5). */
+  /** Beam song only: multiplies the strength on the threaded hero (Unison ×1.25). */
   focusMult: z.number().positive().default(1),
   /** Beam song only: multiplies the echo everyone else hears (Unison 0: no echo). */
   echoMult: z.number().min(0).default(1),

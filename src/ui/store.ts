@@ -131,7 +131,7 @@ export interface ChordHud {
   anchor: ChordAnchor;
   /** Field radius right now: the beam song's echo, or the field song (0 = no echo, Unison). */
   radius: number;
-  /** Strength on the threaded hero (beam ×2, Unison ×3; field 1). */
+  /** Strength on the threaded hero (beam ×2, Unison ×2.5; field 1). */
   focus: number;
   /** Strength for everyone else in the field (beam echo ×0.75, Unison 0; field 1). */
   echo: number;

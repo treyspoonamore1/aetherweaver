@@ -110,7 +110,7 @@ export const UNLOCKS: readonly Unlock[] = [
   aura(4, 'lullaby', 'A hex: enemies in it slow down, and their wind-ups take longer.'),
   ornament(4, 'pedal_point', 'Plant a field where you want it (V) and roam free.'),
   aura(5, 'fermata', 'A lethal hit holds a hero at 1 life for a moment. Heal them in time.'),
-  ornament(5, 'unison', 'All in: the beam song pours into one hero at triple strength.'),
+  ornament(5, 'unison', 'All in: the beam song pours into one hero at ×2.5, with no echo.'),
   {
     id: 'ornamentSlot.2',
     rank: 6,

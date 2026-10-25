@@ -431,7 +431,7 @@ export interface ChordField {
   radius: number;
   /** Ornament effect multiplier (Grace Note ×0.9…), before the Crescendo. */
   effectMult: number;
-  /** Strength on the threaded hero: the beam song's focus (×2, Unison ×3); 1 for the field song. */
+  /** Strength on the threaded hero: the beam song's focus (×2, Unison ×2.5); 1 for the field song. */
   focus: number;
   /** Strength for everyone else in the field: the beam song's echo (×0.75, Unison 0); 1 for the field song. */
   echo: number;

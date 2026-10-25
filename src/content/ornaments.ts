@@ -33,8 +33,8 @@ export const ORNAMENTS: ContentInput['ornaments'] = [
     subtitle: 'All in',
     color: '#fcd34d',
     description:
-      'Beam song only. It pours entirely into your threaded hero at triple strength, and nobody else hears an echo.',
-    focusMult: 1.5,
+      'Beam song only. It pours entirely into your threaded hero at two and a half times the strength, and nobody else hears an echo.',
+    focusMult: 1.25,
     echoMult: 0,
     roles: ['beam'],
     excludes: ['pedal_point', 'reverb'],

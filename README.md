@@ -4,12 +4,13 @@ A support-focused action roguelite: **you are the Weaver, and your party is the 
 
 This repo is the remake of the original prototype, which is kept read-only in [`reference/original/`](reference/original/) and never imported. The design, the analysis of the original and the roadmap are in [`docs/plan/`](docs/plan/README.md).
 
-**Status:** Phase 2 is built on top of Phase 1's playable **Prelude run**:
+**Status:** Phase 3 is under way, on top of Phase 2's playable **Prelude run**:
 
-- the build layer: two Chords of auras plus ornaments, Fermata, and a loadout report;
-- two signature features: heroes _call_ for your help (**Call and Response**), and the game shows the deaths you prevented and replays every fight **without you** (**proof of support**).
+- after the first playtest, the auras became two songs: a **beam song** you pour into the hero you thread (×2) and a **field song** for everyone near you, with numbers that show what they did;
+- a progression slice: **Weaver XP and Rank**, unlocking the build layer one piece at a time;
+- from Phase 2: two signature features, heroes _call_ for your help (**Call and Response**), and the game shows the deaths you prevented and replays every fight **without you** (**proof of support**).
 
-The automated checks pass; the human playtest is next. See [`docs/phase-2.md`](docs/phase-2.md), [`docs/phase-1.md`](docs/phase-1.md) and [`docs/phase-0.md`](docs/phase-0.md).
+See [`docs/phase-3.md`](docs/phase-3.md), [`docs/phase-2.md`](docs/phase-2.md), [`docs/phase-1.md`](docs/phase-1.md) and [`docs/phase-0.md`](docs/phase-0.md).
 
 ![Kael calls for a Ward; answered, his glyph fills and names the Bulwark Flourish](docs/phase-2/vfx/call-answered-real-sim.jpg)
 
@@ -20,7 +21,7 @@ npm install
 npm run dev          # http://localhost:5173
 ```
 
-From the title screen, **New run** starts the Prelude: build your Chords (or pick a preset: Steady, Beam, Anchor, Wide Choir), then travel the branching map through skirmishes, elites, shrines and respites to the **Bellwarden** and the **Hollow Cantor**. **Training Grounds** is a sandbox with an enemy spawner. Append `?seed=123` for a fixed seed.
+From the title screen, **New run** starts the Prelude: build your songs (or pick a preset; new ones open as your Weaver Rank grows, or all at once with **Settings → Skip the unlocks**), then travel the branching map through skirmishes, elites, shrines and respites to the **Bellwarden** and the **Hollow Cantor**. **Training Grounds** is a sandbox with an enemy spawner. Append `?seed=123` for a fixed seed.
 
 | Input                              | Action                                                                     |
 | ---------------------------------- | -------------------------------------------------------------------------- |
@@ -40,6 +41,8 @@ From the title screen, **New run** starts the Prelude: build your Chords (or pic
 | Mouse wheel · Esc · `` ` `` · F3   | Zoom · Pause · Dev panel · Perf HUD                                        |
 
 Keys are bound by physical position (`KeyboardEvent.code`), so they work on AZERTY and QWERTZ layouts too, and every key can be rebound in **Settings → Controls**.
+
+Your **beam song** (Chord I) pours into whoever you Thread at double strength; everyone else near you hears an echo. Your **field song** (Chord II, from Rank 2) reaches everyone near you at full strength.
 
 When a hero **calls** for help (a gold glyph over them), answer it before their move goes off: **Ward** Kael, **Empower** Lyra (Thread her, right mouse), **Chime** Vexis. Their move becomes a stronger _Flourish_.
 

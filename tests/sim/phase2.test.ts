@@ -165,15 +165,15 @@ describe('Chords and ornaments', () => {
     expect(ofType(events, 'techniqueRejected')[0]).toMatchObject({ reason: 'not-ready' });
   });
 
-  it('Unison pours the beam song into the threaded hero at ×3, with no echo', () => {
+  it('Unison pours the beam song into the threaded hero at ×2.5, with no echo', () => {
     const sim = sandbox({ chords: [{ auras: ['fortissimo'], ornaments: ['unison'] }] });
     stepFor(sim, 2);
     expect(partyOf(sim).map((h) => h.hero!.auraMask)).toEqual([0, 0, 0]);
-    expect(sim.state.field.chords[0]).toMatchObject({ radius: 0, focus: 3, echo: 0 });
+    expect(sim.state.field.chords[0]).toMatchObject({ radius: 0, focus: 2.5, echo: 0 });
     stepFor(sim, 2, [{ t: 'thread', slot: 1 }]);
     expect(partyOf(sim).map((h) => h.hero!.auraMask)).toEqual([0, bit('fortissimo'), 0]);
     const w = worldOf(sim);
-    expect(heroFx(w, w.entities.get(sim.state.party[1]!)!).damage).toBeCloseTo(0.18 * 3, 9);
+    expect(heroFx(w, w.entities.get(sim.state.party[1]!)!).damage).toBeCloseTo(0.18 * 2.5, 9);
     expect(sim.state.field.chords[0]!.threadHero).toBe(sim.state.party[1]);
     stepFor(sim, 2, [{ t: 'thread', slot: 0 }]);
     expect(partyOf(sim).map((h) => h.hero!.auraMask)).toEqual([bit('fortissimo'), 0, 0]);

@@ -133,7 +133,7 @@ function chordHud(
     }),
     anchor: ornaments.includes('pedal_point') ? 'planted' : 'weaver',
     radius: unison ? 0 : 8,
-    focus: index === 0 ? (unison ? 3 : 2) : 1,
+    focus: index === 0 ? (unison ? 2.5 : 2) : 1,
     echo: index === 0 ? (unison ? 0 : 0.75) : 1,
     threadSlot: null,
     ...over,
