@@ -1965,7 +1965,7 @@ export class Feedback {
       'HOLD',
       '#f3edff',
       24,
-      1.1,
+      0.7,
       'rgba(226,214,248,0.95)',
     );
     this.d.overlay.spotlight(r.x, cy, r.z, 0.5);
@@ -1997,13 +1997,14 @@ export class Feedback {
       return;
     }
     const cy = r.height * 0.5 + r.y;
-    const s = this.alloc(K.Shell, 0.45);
+    const s = this.alloc(K.Shell, 0.35);
     s.follow = e.hero;
-    s.r0 = r.radius * 1.7;
-    s.r1 = r.radius * 3.2;
+    s.r0 = r.radius * 1.75;
+    s.r1 = r.radius * 2.4;
     s.y = cy;
     s.th = r.height * 0.66;
     s.style = SHELL.flare;
+    s.alpha = 0.35;
     s.color.copy(C.heal);
     this.ring(r.x, r.z, 0.4, 4.5, 0.55, C.heal, 0.2, RING.plain, 1, 0.06);
     this.ring(r.x, r.z, 0.3, 3, 0.45, FERMATA_COLOR, 0.12, RING.plain, 0.9, 0.06);
@@ -2520,9 +2521,9 @@ export class Feedback {
           r,
           t.style,
           t.color,
-          (1 - k) * 1.2,
+          (1 - k) * 1.2 * t.alpha,
           0,
-          1 - k,
+          (1 - k) * t.alpha,
         );
         break;
       }

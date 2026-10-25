@@ -114,7 +114,6 @@ export class FermataView {
       const gy = hr.height + 0.95 + hr.y;
       kit.spritesTop.push(hr.x, gy, hr.z, 0.95, SPRITE.glow, FERMATA_COLOR, 0.4 * beat);
       kit.spritesTop.push(hr.x, gy, hr.z, 0.62, SPRITE.fermata, FERMATA_COLOR, 0.6 + 0.6 * beat);
-      kit.spritesTop.push(hr.x, gy, hr.z, 0.86, SPRITE.timer, FERMATA_COLOR, 1, 0, 1, remain);
       // Ring timer at the feet: the lavender arc is the hold left; the heal ring beckons.
       kit.rings.push(
         hr.x,
