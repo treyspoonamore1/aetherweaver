@@ -56,7 +56,22 @@ Phase 1 already pulled half of the roadmap's Phase 2 forward (auras, Resonance, 
 - **Save v2** migrates Phase 1 saves (auras become Chord I; the renamed motif follows). Settings v2 migrates the same way.
 - The **Call and Response** motif from Phase 1 is renamed **Canon**, so the name belongs to the new mechanic.
 
-<!-- presentation: filled in from the workstream reports -->
+### Presentation
+
+- **UI** ([details](phase-2/ui.md)):
+  - **Chord builder** in Prep and at Retune: two Chords, single-copy ornaments, presets, a live Spirit budget and the legality rules shown as plain sentences.
+  - **"Without you"** panel on the result screen, and the run total on the summary ("Without you, the party would have fallen in 6 of 8 fights").
+  - **HUD:** call strips with the requested answer, its key and a countdown; Fermata "Heal!" strips; aura pips; the Chords on the Weaver bar with the plant key.
+  - **Directive wheel:** hold C or the middle mouse button; a quick middle-click still Focuses.
+  - **Settings:** **Controls** remapping with conflict handling, colour vision, UI scale and flash strength.
+  - Codex entries for Chords, ornaments, calls and "without you"; coach hints for calls, holds, planting and the wheel.
+  - Training Grounds can switch loadouts and stage a call or a hold.
+- **Audio** ([details](phase-2/audio.md)), still all synthesised in D dorian:
+  - A **call** is the hero's leitmotif ending on an unresolved note; your **answer** resolves it to the tonic on the beat.
+  - A **Fermata hold** is a literal held note: the music holds with it, then resolves (saved) or cuts off (down).
+  - Chorus pulses voice bigger chords as auras stack; planted fields add a pedal drone; Unison harmonises the Thread's hum.
+  - The ghost of a save gets a reverse swell. The "without you" reveal plays its own motif.
+<!-- vfx: filled in from the workstream report -->
 
 ## Harness
 
