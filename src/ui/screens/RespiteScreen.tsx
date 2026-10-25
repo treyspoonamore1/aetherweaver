@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useRun } from '../../app/runStore';
 import { auraDef, motifDef } from '../../content';
+import { EVERYTHING, type Allowance, type Unlock } from '../../meta/profile';
 import type { ChordLoadout, RunState } from '../../meta/types';
 import { ScreenFrame, ScreenHeader } from '../kit/Backdrop';
 import { Button } from '../kit/Button';
@@ -10,7 +11,7 @@ import { Panel } from '../kit/Panel';
 import { playUi, useMood } from '../kit/sound';
 import { ChordBuilder } from './ChordBuilder';
 import { sameLoadout } from './chordModel';
-import { useChordDraft } from './PrepScreen';
+import { FreshStrip, useAllowance, useChordDraft, useFreshUnlocks } from './PrepScreen';
 import { PartyHealth, SectionTitle } from './shared';
 
 const REST_HEAL = 0.4;
@@ -22,9 +23,20 @@ export interface RespiteViewProps {
   onRetune(chords: ChordLoadout[]): void;
   /** Open straight into the Retune builder (UI lab). */
   initialRetune?: boolean;
+  /** What the player's Rank opens (default: everything). */
+  allowance?: Allowance;
+  /** Unlocks to mark "New" in the builder. */
+  fresh?: readonly Unlock[];
 }
 
-export function RespiteView({ run, onChoose, onRetune, initialRetune = false }: RespiteViewProps) {
+export function RespiteView({
+  run,
+  onChoose,
+  onRetune,
+  initialRetune = false,
+  allowance = EVERYTHING,
+  fresh = [],
+}: RespiteViewProps) {
   useMood('map');
   const [retuning, setRetuning] = useState(initialRetune);
   const upgradable = run.motifs.filter((m) => m.level < motifDef(m.id).values.length).length;
@@ -48,7 +60,15 @@ export function RespiteView({ run, onChoose, onRetune, initialRetune = false }: 
     return () => window.removeEventListener('keydown', onKey);
   }, [onChoose, retuning]);
   if (retuning) {
-    return <RetuneView run={run} onBack={() => setRetuning(false)} onRetune={onRetune} />;
+    return (
+      <RetuneView
+        run={run}
+        onBack={() => setRetuning(false)}
+        onRetune={onRetune}
+        allowance={allowance}
+        fresh={fresh}
+      />
+    );
   }
   const sung = run.chords.flatMap((c) => c.auras).map((id) => auraDef(id).name);
   return (
@@ -57,7 +77,7 @@ export function RespiteView({ run, onChoose, onRetune, initialRetune = false }: 
         <ScreenHeader eyebrow="A moment's quiet" title="Respite">
           <p className="mt-2 max-w-xl text-sm text-muted">
             The choir cannot reach this alcove. Take one: tend to your wounds, sit with the song, or
-            retune your Chords.
+            retune your songs.
           </p>
         </ScreenHeader>
         <div className="mt-8 grid gap-6 md:grid-cols-3">
@@ -93,7 +113,7 @@ export function RespiteView({ run, onChoose, onRetune, initialRetune = false }: 
             title="Retune"
             color="#fcd98a"
             lines={[
-              `Rebuild your Chords: auras, ornaments, presets. Now singing ${sung.length ? sung.join(', ') : 'nothing'}.`,
+              `Rebuild your songs: auras, ornaments, presets. Now singing ${sung.length ? sung.join(', ') : 'nothing'}.`,
               'No healing and no motif.',
             ]}
             onClick={() => setRetuning(true)}
@@ -163,20 +183,25 @@ function RetuneView({
   run,
   onBack,
   onRetune,
+  allowance,
+  fresh,
 }: {
   run: RunState;
   onBack(): void;
   onRetune(chords: ChordLoadout[]): void;
+  allowance: Allowance;
+  fresh: readonly Unlock[];
 }) {
   const [legalDraft, setLegalDraft] = useState<ChordLoadout[]>(run.chords);
-  const { draft, change, legal } = useChordDraft(run.chords, setLegalDraft);
+  const { draft, change, legal } = useChordDraft(run.chords, allowance, setLegalDraft);
+  const [freshIds] = useState(() => new Set(fresh.map((u) => u.id)));
   const unchanged = sameLoadout(draft, run.chords);
   return (
     <ScreenFrame tone="dusk">
       <div className="mx-auto max-w-7xl px-6 pb-28 pt-8">
         <ScreenHeader
           eyebrow="Respite · Retune"
-          title="Retune your Chords"
+          title="Retune your songs"
           right={
             <Button variant="ghost" onClick={onBack} sound="back">
               <Icon name="back" size={16} /> Rest or meditate instead
@@ -185,21 +210,22 @@ function RetuneView({
         >
           <p className="mt-2 max-w-2xl text-sm text-muted">
             Retuning takes the whole respite: no healing and no motif. Your motifs stay; only the
-            Chords change.
+            songs change.
           </p>
         </ScreenHeader>
+        <FreshStrip fresh={fresh} />
         <div className="mt-6">
-          <ChordBuilder value={draft} onChange={change} />
+          <ChordBuilder value={draft} onChange={change} allowance={allowance} fresh={freshIds} />
         </div>
       </div>
       <div className="pointer-events-none fixed inset-x-0 bottom-0 z-20 flex justify-end bg-gradient-to-t from-ink-950 via-ink-950/80 to-transparent px-6 pb-5 pt-10">
         <div className="pointer-events-auto flex items-center gap-4">
           <p className="text-sm text-muted" role="status">
             {!legal
-              ? 'Fix your Chords first'
+              ? 'Fix your songs first'
               : unchanged
-                ? 'Same Chords as before'
-                : 'Ready to sing the new Chords'}
+                ? 'Same songs as before'
+                : 'Ready to sing the new songs'}
           </p>
           <Button
             variant="primary"
@@ -220,6 +246,16 @@ export function RespiteScreen() {
   const run = useRun((s) => s.run);
   const respite = useRun((s) => s.respite);
   const retune = useRun((s) => s.retune);
+  const allowance = useAllowance();
+  const fresh = useFreshUnlocks();
   if (!run) return null;
-  return <RespiteView run={run} onChoose={respite} onRetune={retune} />;
+  return (
+    <RespiteView
+      run={run}
+      onChoose={respite}
+      onRetune={retune}
+      allowance={allowance}
+      fresh={fresh}
+    />
+  );
 }

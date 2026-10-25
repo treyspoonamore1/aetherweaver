@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { visionPalette, type ColorVision, type VisionPalette } from '../app/colorVision';
 import { auraDef } from '../content';
+import { songHex } from './songs';
 
 /**
  * Semantic VFX colours (docs/plan/04 §2). One meaning per colour, always paired with a shape.
@@ -40,7 +41,7 @@ export function color(hex: string): THREE.Color {
 
 /**
  * Semantic colours. The colour-vision ones (heal, shield, amp, ailment, threat, lethal, mend,
- * empower, call) are *live*: `applyVision` rewrites them in place, so every batch and shader
+ * empower, call, song) are *live*: `applyVision` rewrites them in place, so every batch and shader
  * uniform that holds them switches palette on the next frame. Never mutate them elsewhere.
  */
 export const C = {
@@ -58,6 +59,8 @@ export const C = {
   empower: new THREE.Color(PALETTE.empower),
   /** A hero's call for support: gold = opportunity (never the threat amber / lethal red). */
   call: new THREE.Color('#fde68a'),
+  /** The auras' work (song chips, their sparks): periwinkle, live per colour vision (songs.ts). */
+  song: new THREE.Color(songHex('normal')),
   dome: color(PALETTE.dome),
   discord: color(PALETTE.discord),
   white: color(PALETTE.white),
@@ -83,6 +86,7 @@ export function applyVision(vision: ColorVision): boolean {
   C.mend.set(p.mend);
   C.empower.set(p.empower);
   C.call.set(p.call);
+  C.song.set(songHex(vision));
   return true;
 }
 

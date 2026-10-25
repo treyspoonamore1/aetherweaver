@@ -1,6 +1,8 @@
 import type { HeroHud, HudSnapshot } from '../store';
 import { keyLabel } from '../../input/keyLabel';
 import { ANSWER, bindingLabel } from './labels';
+import { mult } from '../screens/chordModel';
+import { beamSong } from './songs';
 
 /**
  * Contextual coach hints (docs/plan/04 §7). Derived from the HUD snapshot alone; each hint
@@ -157,6 +159,18 @@ export function evaluateHints(hud: HudSnapshot): Hint[] {
     out.push({
       id: 'strayed',
       text: `${reelTarget.name} is outside your field — move closer so your auras reach them, or Reel ${F} them in`,
+    });
+  }
+  // The beam song: the first time it pours into someone, say what that means.
+  const beam = beamSong(w.chords);
+  const focused = party.find((h) => alive(h) && h.beamFocus);
+  if (beam && focused && hud.encounter.elapsed > 4 && !w.fieldSuppressed) {
+    out.push({
+      id: 'beam',
+      text:
+        beam.echo > 0
+          ? `Your beam song pours into whoever you thread: ${mult(beam.focus)} on ${focused.name}. Everyone else near you hears an echo`
+          : `Your beam song pours into whoever you thread: ${mult(beam.focus)} on ${focused.name}, and nobody else`,
     });
   }
   const cueHero = party.find((h) => h.soloReady && alive(h));

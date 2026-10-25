@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useProfile } from '../../app/profileStore';
 import { useRun } from '../../app/runStore';
 import { useSettings } from '../../app/settings';
 import { CONTENT } from '../../content';
+import { EVERYTHING, allowanceFor, rankOf, type Allowance, type Unlock } from '../../meta/profile';
 import type { ChordLoadout, RunState } from '../../meta/types';
 import { canonicalChords } from '../../sim';
 import { ScreenFrame, ScreenHeader } from '../kit/Backdrop';
@@ -14,8 +16,8 @@ import { useMood } from '../kit/sound';
 import { useUi } from '../store';
 import { HeroDisc, SectionTitle } from './shared';
 import { ROLE_LABEL } from '../hud/labels';
-import { ChordBuilder } from './ChordBuilder';
-import { loadoutProblems, padChords } from './chordModel';
+import { ChordBuilder, NewTag, SONG_LOOK } from './ChordBuilder';
+import { freshUnlocks, loadoutProblems, mult, padChords } from './chordModel';
 
 export interface PrepViewProps {
   run: RunState;
@@ -23,6 +25,12 @@ export interface PrepViewProps {
   onChords(chords: ChordLoadout[]): void;
   onEmbark(): void;
   onBack(): void;
+  /** What the player's Rank opens (default: everything). */
+  allowance?: Allowance;
+  /** Unlocks to introduce and mark "New" this visit. */
+  fresh?: readonly Unlock[];
+  /** The player's Weaver Rank, for the header (omitted: no Rank shown). */
+  rank?: number;
 }
 
 /**
@@ -31,21 +39,76 @@ export interface PrepViewProps {
  */
 export function useChordDraft(
   initial: readonly ChordLoadout[],
+  allowance: Allowance,
   onLegal?: (c: ChordLoadout[]) => void,
 ) {
   const [draft, setDraft] = useState(() => padChords(initial));
-  const problems = loadoutProblems(draft);
+  const problems = loadoutProblems(draft, allowance);
   const change = (next: ChordLoadout[]) => {
     setDraft(next);
-    if (loadoutProblems(next).length === 0) onLegal?.(canonicalChords(next));
+    if (loadoutProblems(next, allowance).length === 0) onLegal?.(canonicalChords(next));
   };
   return { draft, change, legal: problems.length === 0 };
 }
 
+/** What Prep and Retune may use, following the profile and Settings → Skip the unlocks. */
+export function useAllowance(): Allowance {
+  const xp = useProfile((s) => s.profile.xp);
+  const unlockAll = useSettings((s) => s.settings.unlockAll);
+  return useMemo(() => (unlockAll ? EVERYTHING : allowanceFor(rankOf(xp))), [xp, unlockAll]);
+}
+
+/**
+ * The unlocks to mark "New" on this visit to the builder: read once when it opens, then
+ * marked introduced, so the badges stay up while the player looks and are gone next time.
+ */
+export function useFreshUnlocks(): Unlock[] {
+  const [fresh] = useState(() => {
+    const p = useProfile.getState().profile;
+    return freshUnlocks(p.xp, p.introduced);
+  });
+  useEffect(() => {
+    if (fresh.length > 0) useProfile.getState().markIntroduced(fresh.map((u) => u.id));
+  }, [fresh]);
+  return fresh;
+}
+
+/** "New since last time": each unlock the player hasn't met yet, with its sentence. */
+export function FreshStrip({ fresh }: { fresh: readonly Unlock[] }) {
+  if (fresh.length === 0) return null;
+  return (
+    <Panel tone="gold" className="anim-rise mt-5 p-4" aria-label="Newly unlocked">
+      <p className="flex items-center gap-2 font-display text-sm font-bold uppercase tracking-[0.2em] text-gold-300">
+        <Icon name="sparkle" size={15} /> Newly unlocked
+      </p>
+      <ul className="mt-2 grid gap-x-6 gap-y-2 md:grid-cols-2">
+        {fresh.map((u) => (
+          <li key={u.id} className="flex items-start gap-2 text-sm leading-relaxed">
+            <NewTag />
+            <span>
+              <b className="text-gold-100">{u.name}</b> <span className="text-muted">{u.text}</span>
+            </span>
+          </li>
+        ))}
+      </ul>
+    </Panel>
+  );
+}
+
 /** Expedition prep: the party's kits and the Chord builder. */
-export function PrepView({ run, onChords, onEmbark, onBack }: PrepViewProps) {
+export function PrepView({
+  run,
+  onChords,
+  onEmbark,
+  onBack,
+  allowance = EVERYTHING,
+  fresh = [],
+  rank,
+}: PrepViewProps) {
   useMood('map');
-  const { draft, change, legal } = useChordDraft(run.chords, onChords);
+  const { draft, change, legal } = useChordDraft(run.chords, allowance, onChords);
+  const [freshIds] = useState(() => new Set(fresh.map((u) => u.id)));
+  const w = CONTENT.weaver;
   const settings = useSettings((s) => s.settings);
   const update = useSettings((s) => s.update);
   return (
@@ -53,22 +116,44 @@ export function PrepView({ run, onChords, onEmbark, onBack }: PrepViewProps) {
       <div className="mx-auto max-w-7xl px-6 pb-28 pt-8">
         <ScreenHeader
           eyebrow="The Prelude · Movement I"
-          title="Prepare your Chords"
+          title="Prepare your songs"
           right={
-            <Button variant="ghost" onClick={onBack} sound="back">
-              <Icon name="back" size={16} /> Title
-            </Button>
+            <>
+              {rank !== undefined && (
+                <span
+                  className="flex items-center gap-1.5 rounded-lg border border-gold-500/50 bg-ink-900/80 px-3 py-1.5 text-sm font-semibold text-gold-200"
+                  title={allowance.all ? 'Settings: the unlocks are skipped' : undefined}
+                >
+                  <Icon name="crown" size={15} /> Weaver Rank {rank}
+                  {allowance.all && <span className="font-normal text-muted">· all unlocked</span>}
+                </span>
+              )}
+              <Button variant="ghost" onClick={onBack} sound="back">
+                <Icon name="back" size={16} /> Title
+              </Button>
+            </>
           }
         >
           <p className="mt-2 max-w-3xl text-sm text-muted">
             You are the Weaver. These three fight on their own; you keep them alive and make them
-            hit harder. Your Chords decide what your field sings: pick a preset, or fill the slots
-            yourself. Whatever Spirit your auras leave free powers Ward, Chime and Reel.
+            hit harder. Your <b style={{ color: SONG_LOOK.beam.color }}>beam song</b> rides the
+            Thread: whoever you thread hears it at {mult(w.beamFocus)}, and everyone else near you
+            hears an echo.
+            {allowance.songs > 1 || allowance.all ? (
+              <>
+                {' '}
+                Your <b style={{ color: SONG_LOOK.field.color }}>field song</b> surrounds you, at
+                full strength for everyone near you.
+              </>
+            ) : null}{' '}
+            Whatever Spirit your auras leave free powers Ward, Chime and Reel.
           </p>
         </ScreenHeader>
 
-        <section className="mt-6" aria-label="Chords">
-          <ChordBuilder value={draft} onChange={change} />
+        <FreshStrip fresh={fresh} />
+
+        <section className="mt-6" aria-label="Songs">
+          <ChordBuilder value={draft} onChange={change} allowance={allowance} fresh={freshIds} />
         </section>
 
         <div className="mt-8 grid gap-6 lg:grid-cols-[1.35fr_1fr]">
@@ -135,7 +220,7 @@ export function PrepView({ run, onChords, onEmbark, onBack }: PrepViewProps) {
           </p>
           {!legal && (
             <p className="text-sm font-semibold text-rose-200" role="status">
-              Fix your Chords to embark
+              Fix your songs to embark
             </p>
           )}
           <Button
@@ -208,8 +293,19 @@ export function PrepScreen() {
   const setChords = useRun((s) => s.setChords);
   const embark = useRun((s) => s.embark);
   const setScreen = useUi((s) => s.setScreen);
+  const xp = useProfile((s) => s.profile.xp);
+  const allowance = useAllowance();
+  const fresh = useFreshUnlocks();
   if (!run) return null;
   return (
-    <PrepView run={run} onChords={setChords} onEmbark={embark} onBack={() => setScreen('title')} />
+    <PrepView
+      run={run}
+      onChords={setChords}
+      onEmbark={embark}
+      onBack={() => setScreen('title')}
+      allowance={allowance}
+      fresh={fresh}
+      rank={rankOf(xp)}
+    />
   );
 }

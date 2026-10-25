@@ -1,19 +1,32 @@
 import * as THREE from 'three';
+import { auraDef } from '../content';
 import type { EntityId, WorldState } from '../sim';
 import type { EntityLayer } from './entities';
 import type { FxKit } from './fx/kit';
 import { PARTICLE } from './fx/particles';
+import { RING } from './fx/rings';
 import { SPRITE } from './fx/sprites';
-import { C, approach, auraColor } from './palette';
+import type { Overlay } from './overlay';
+import { C, approach, auraColor, rgba } from './palette';
+import { SONG_GLYPH, beamSong, focusLabel, focusLevel, isAllIn } from './songs';
 
 const N = 30;
 const PULSES = 6;
+/** The pour: the song's head runs Weaver → hero in this long, then splashes. */
+const POUR_TRAVEL = 0.42;
+const POUR_LIFE = 1.1;
 
 /**
  * ThreadView (docs/plan/05 §5.3): a camera-facing ribbon along a spline from the Weaver's hand
  * to the threaded hero's chest. Sags when slack, goes straight and thin when taut with a
  * high-frequency shimmer near snapping, sends visible pulses on every heal/amp tick, whips on
  * attach and bursts into strands when it snaps. Mend teal, Empower gold.
+ *
+ * Phase 3: the beam song rides the Thread. Whenever Chord I has auras, an aura-coloured sheath
+ * wraps the Thread and beads of song flow Weaver → hero, louder with `chord.focus` (Unison, all
+ * in, adds a second sheath and more, brighter beads). When the beam moves to a hero, the song
+ * **pours**: a bright head floods along the new Thread, splashes on the hero in aura colours
+ * and names the strength ("♪ ×2"); the old hero's halo drains meanwhile (field.ts).
  */
 export class ThreadView {
   private readonly pulses = new Float32Array(PULSES).fill(-10);
@@ -28,11 +41,22 @@ export class ThreadView {
   private hasPath = false;
   private now = 0;
   private visible = 0;
-  private unisonA: THREE.Color | null = null;
-  private unisonB: THREE.Color | null = null;
-  private unison = 0;
+  private songA: THREE.Color | null = null;
+  private songB: THREE.Color | null = null;
+  private song = 0;
+  private songLevel = 0;
+  private songAllIn = false;
+  private pourAt = -10;
+  private pourSplashed = true;
+  private readonly pourA = new THREE.Color();
+  private readonly pourB = new THREE.Color();
+  private pourLabel = '';
+  private pourHex = '#ffffff';
 
-  constructor(private readonly entities: EntityLayer) {}
+  constructor(
+    private readonly entities: EntityLayer,
+    private readonly overlay: Overlay | null = null,
+  ) {}
 
   pulse(): void {
     this.pulses[this.pulseCursor] = this.now;
@@ -95,7 +119,10 @@ export class ThreadView {
     const tr = targetId === null ? undefined : this.entities.recs.get(targetId);
     if (targetId !== this.current) {
       this.current = targetId;
-      if (targetId !== null) this.attach();
+      if (targetId !== null) {
+        this.attach();
+        this.startPour(state);
+      }
     }
     if (!w || !wr || !tr) {
       this.hasPath = false;
@@ -192,42 +219,69 @@ export class ThreadView {
       );
     }
     kit.ribbons.endStrip();
-    // Unison: the Chord rides the Thread — an aura-coloured sheath and beads of light flowing
-    // from the Weaver to the hero.
-    this.findUnison(state, targetId);
-    this.unison = approach(this.unison, this.unisonA ? 1 : 0, 8, dt);
-    const ua = this.unisonA;
-    if (ua && this.unison > 0.02) {
-      const ub = this.unisonB ?? ua;
-      const u = this.unison * vis * (state.field.suppressed ? 0.35 : 1);
+    // The beam song rides the Thread: an aura-coloured sheath and beads of song flowing from
+    // the Weaver to the hero, louder with the focus (all in: a second sheath, more beads).
+    this.findSong(state, targetId);
+    this.song = approach(this.song, this.songA ? 1 : 0, 8, dt);
+    const ua = this.songA;
+    if (ua && this.song > 0.02) {
+      const ub = this.songB ?? ua;
+      const lv = this.songLevel;
+      const allIn = this.songAllIn;
+      const u = this.song * vis * (state.field.suppressed ? 0.35 : 1);
+      const pourAge = time - this.pourAt;
+      const head = pourAge < POUR_TRAVEL ? pourAge / POUR_TRAVEL : 2;
       kit.ribbons.beginStrip();
       for (let i = 0; i <= N; i++) {
         const t = i / N;
+        // During the pour the sheath fills in behind the travelling head.
+        const filled = head > 1 ? 1 : t <= head ? 1 : 0.15;
+        const surge = head <= 1 ? Math.exp(-(((t - head) / 0.08) ** 2)) : 0;
         kit.ribbons.point(
           this.pts[i * 3],
           this.pts[i * 3 + 1],
           this.pts[i * 3 + 2],
-          baseW * 5.5,
+          baseW * (4 + 2.5 * lv) * (1 + surge * 1.5),
           (i & 4) === 0 ? ua : ub,
-          0.2 * u * (0.6 + 0.4 * Math.sin(t * 9 - time * 5)),
+          (0.1 + 0.12 * lv) * u * filled * (0.6 + 0.4 * Math.sin(t * 9 - time * 5)) + surge * 0.6,
           t * len * 0.25 - time * 2,
         );
       }
       kit.ribbons.endStrip();
-      for (let k = 0; k < 5; k++) {
-        const t = (time * 0.55 + k / 5) % 1;
+      if (allIn) {
+        kit.ribbons.beginStrip();
+        for (let i = 0; i <= N; i++) {
+          const t = i / N;
+          kit.ribbons.point(
+            this.pts[i * 3],
+            this.pts[i * 3 + 1],
+            this.pts[i * 3 + 2],
+            baseW * 9,
+            (i & 4) === 0 ? ub : ua,
+            0.07 * u * (0.5 + 0.5 * Math.sin(t * 5 + time * 3)),
+            t * len * 0.15 - time * 1.2,
+          );
+        }
+        kit.ribbons.endStrip();
+      }
+      const beads = allIn ? 8 : 4;
+      const speed = 0.4 + 0.25 * lv;
+      for (let k = 0; k < beads; k++) {
+        const t = (time * speed + k / beads) % 1;
+        if (head <= 1 && t > head) continue;
         const i = Math.min(N, Math.round(t * N));
         kit.sprites.push(
           this.pts[i * 3],
           this.pts[i * 3 + 1],
           this.pts[i * 3 + 2],
-          0.2,
+          0.12 + 0.08 * lv,
           SPRITE.diamond,
           k % 2 === 0 ? ua : ub,
-          0.95 * u * Math.sin(Math.PI * t),
+          (0.6 + 0.35 * Math.min(1, lv)) * u * Math.sin(Math.PI * t),
         );
       }
     }
+    this.pour(kit, time, tr, len);
     // Pulse heads as glows.
     for (let k = 0; k < PULSES; k++) {
       const age = time - this.pulses[k];
@@ -267,18 +321,157 @@ export class ThreadView {
     }
   }
 
-  private findUnison(state: WorldState, heroId: EntityId | null): void {
-    this.unisonA = null;
-    this.unisonB = null;
+  /** The beam song pouring into `heroId`, if any (colours, focus level, all in). */
+  private findSong(state: WorldState, heroId: EntityId | null): void {
+    this.songA = null;
+    this.songB = null;
     if (heroId === null) return;
-    for (const c of state.field.chords) {
-      if (c.role !== 'beam' || c.threadHero !== heroId) continue;
-      const a = c.auras[0];
-      if (!a) continue;
-      this.unisonA = auraColor(a);
-      const b = c.auras[1];
-      this.unisonB = b ? auraColor(b) : null;
+    const c = beamSong(state);
+    if (!c || c.threadHero !== heroId) return;
+    this.songA = auraColor(c.auras[0]!);
+    const b = c.auras[1];
+    this.songB = b ? auraColor(b) : null;
+    this.songLevel = focusLevel(c.focus);
+    this.songAllIn = isAllIn(c);
+  }
+
+  /** The beam just moved to a hero: if a beam song sings, it pours over. */
+  private startPour(state: WorldState): void {
+    const c = beamSong(state);
+    if (!c) return;
+    this.pourAt = this.now;
+    this.pourSplashed = false;
+    this.pourA.copy(auraColor(c.auras[0]!));
+    this.pourB.copy(auraColor(c.auras[1] ?? c.auras[0]!));
+    this.pourLabel = `${SONG_GLYPH} ${isAllIn(c) ? 'All in ' : ''}${focusLabel(c.focus)}`;
+    try {
+      this.pourHex = auraDef(c.auras[0]!).color;
+    } catch {
+      this.pourHex = '#f5d78e';
+    }
+  }
+
+  /** The pour's head along the Thread, then its splash on the hero. */
+  private pour(
+    kit: FxKit,
+    time: number,
+    tr: { x: number; y: number; z: number; radius: number; height: number },
+    len: number,
+  ): void {
+    const age = time - this.pourAt;
+    if (age < 0 || age > POUR_LIFE) return;
+    if (age < POUR_TRAVEL) {
+      const t = age / POUR_TRAVEL;
+      const i = Math.min(N, Math.round(t * N));
+      const x = this.pts[i * 3];
+      const y = this.pts[i * 3 + 1];
+      const z = this.pts[i * 3 + 2];
+      kit.sprites.push(x, y, z, 0.75, SPRITE.glow, this.pourA, 0.9);
+      kit.sprites.push(x, y, z, 0.3, SPRITE.star, C.white, 0.9, time * 6);
+      if (Math.random() < 0.8 * kit.particles.density) {
+        kit.particles.emit(
+          x,
+          y,
+          z,
+          (Math.random() - 0.5) * 1.2,
+          0.6 + Math.random(),
+          (Math.random() - 0.5) * 1.2,
+          0.5,
+          0.12,
+          Math.random() < 0.5 ? this.pourA : this.pourB,
+          0.95,
+          PARTICLE.note,
+          1.5,
+          -0.2,
+        );
+      }
+      void len;
       return;
+    }
+    // Splash: rings of the song washing out from the hero, and a burst of notes.
+    const u = (age - POUR_TRAVEL) / (POUR_LIFE - POUR_TRAVEL);
+    const fade = 1 - u;
+    kit.rings.push(
+      tr.x,
+      0.05,
+      tr.z,
+      tr.radius * (1.2 + 3.2 * u),
+      0.16 * fade + 0.03,
+      0.3,
+      RING.plain,
+      this.pourA,
+      fade,
+    );
+    kit.rings.push(
+      tr.x,
+      0.06,
+      tr.z,
+      tr.radius * (1 + 2.2 * u),
+      0.08,
+      0.2,
+      RING.dashed,
+      this.pourB,
+      0.85 * fade,
+      0,
+      7,
+      0,
+      14,
+      time,
+    );
+    kit.sprites.push(
+      tr.x,
+      tr.height * 0.55 + tr.y,
+      tr.z,
+      tr.radius * (2.6 + 1.6 * u),
+      SPRITE.glow,
+      this.pourA,
+      0.55 * fade,
+    );
+    if (!this.pourSplashed) {
+      this.pourSplashed = true;
+      const y = tr.height * 0.55 + tr.y;
+      kit.particles.burst(
+        tr.x,
+        y,
+        tr.z,
+        16,
+        2.6,
+        2.4,
+        0.8,
+        0.14,
+        this.pourA,
+        1,
+        PARTICLE.note,
+        2,
+        -0.3,
+        tr.radius,
+      );
+      kit.particles.burst(
+        tr.x,
+        y,
+        tr.z,
+        12,
+        3.4,
+        2,
+        0.5,
+        0.11,
+        this.pourB,
+        1,
+        PARTICLE.spark,
+        3,
+        2,
+        tr.radius,
+      );
+      this.overlay?.callout(
+        tr.x,
+        tr.height + 0.9 + tr.y,
+        tr.z,
+        this.pourLabel,
+        this.pourHex,
+        15,
+        0.9,
+        rgba(this.pourHex, 0.85),
+      );
     }
   }
 

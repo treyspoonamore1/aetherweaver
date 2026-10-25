@@ -1,7 +1,9 @@
+import type { RankUp } from '../../app/profileStore';
+import { useProfile } from '../../app/profileStore';
 import { useRun } from '../../app/runStore';
 import { DEFAULT_SETTINGS, useSettings } from '../../app/settings';
 import { auraDef, heroDef, motifDef, ornamentDef } from '../../content';
-import { chordLabel } from '../../sim';
+import { songName } from '../../sim';
 import { motifLine, runTotals } from '../../meta/run';
 import type { EncounterResult, Grade, Highlight, RunState } from '../../meta/types';
 import type { ReactNode } from 'react';
@@ -15,7 +17,10 @@ import { Ring } from '../kit/Ring';
 import { useMood } from '../kit/sound';
 import { useUi } from '../store';
 import { HeroDisc, Pips, SectionTitle } from './shared';
-import { HIGHLIGHT_COLOR } from './resultText';
+import { ContributionBar } from './ContributionBar';
+import { RankUpCard, XpBar, useRankUps } from './Rank';
+import { rankPanel, runRank, xpGain, xpHeadline } from './rankText';
+import { HIGHLIGHT_COLOR, contributionOf, songLines } from './resultText';
 import { HpTimeline, TimelineLegend } from './Timeline';
 import { tallyLine, withoutYouTally, withoutYouLine } from './withoutYouText';
 
@@ -87,10 +92,24 @@ export interface SummaryViewProps {
   onTitle(): void;
   /** Assists in effect (badge). */
   assisted?: boolean;
+  /** The profile's XP now (this run's included); omitted hides the Rank panel. */
+  profileXp?: number;
+  rankUps?: readonly RankUp[];
+  onDismissRankUps?(): void;
+  firstRankUp?: boolean;
 }
 
 /** The run summary, "proof of support" (docs/plan/04 §6.1). */
-export function SummaryView({ run, onNewRun, onTitle, assisted = false }: SummaryViewProps) {
+export function SummaryView({
+  run,
+  onNewRun,
+  onTitle,
+  assisted = false,
+  profileXp,
+  rankUps = [],
+  onDismissRankUps,
+  firstRankUp = false,
+}: SummaryViewProps) {
   useMood('map');
   const totals = runTotals(run);
   const outcome = OUTCOME[run.outcome ?? 'abandoned'];
@@ -169,6 +188,30 @@ export function SummaryView({ run, onNewRun, onTitle, assisted = false }: Summar
             </p>
           </div>
         </header>
+
+        {profileXp !== undefined && <RunRankPanel run={run} profileXp={profileXp} />}
+
+        {totals.encounters > 0 && (
+          <Panel tone="solid" className="mt-6 p-5" data-testid="summary-songs">
+            <SectionTitle>Your songs and your Thread</SectionTitle>
+            <ContributionBar parts={contributionOf(totals)} className="mb-3" />
+            <ul className="flex flex-col gap-2">
+              {songLines(totals).map((l, i) => (
+                <li
+                  key={i}
+                  className={`flex items-start gap-3 text-sm leading-relaxed ${l.muted ? 'text-muted' : 'text-text'}`}
+                >
+                  <Icon
+                    name={l.icon}
+                    size={18}
+                    className={`mt-0.5 shrink-0 ${l.muted ? 'text-ink-500' : 'text-gold-300'}`}
+                  />
+                  {l.text}
+                </li>
+              ))}
+            </ul>
+          </Panel>
+        )}
 
         {tally.fights > 0 && (
           <Panel tone="solid" className="mt-6 p-5" data-testid="summary-without-you">
@@ -275,8 +318,8 @@ export function SummaryView({ run, onNewRun, onTitle, assisted = false }: Summar
               value={fmt(totals.amplified)}
               sentence={
                 totals.amplified > 0
-                  ? `Your Empower thread and auras added ${fmt(totals.amplified)} damage: ${pct(totals.partyDamage > 0 ? totals.amplified / totals.partyDamage : 0)} of everything your party dealt.`
-                  : 'Your Threads stayed on Mend. Empower adds damage when the party is healthy.'
+                  ? `You added ${fmt(totals.amplified)} damage (auras ${fmt(totals.auraAmplified)}, Empower ${fmt(totals.threadAmplified)}): ${pct(totals.partyDamage > 0 ? totals.amplified / totals.partyDamage : 0)} of everything your party dealt.`
+                  : 'Your Thread stayed on Mend and no aura added damage. Empower adds damage when the party is healthy.'
               }
             />
             <Tile
@@ -284,7 +327,7 @@ export function SummaryView({ run, onNewRun, onTitle, assisted = false }: Summar
               color="var(--color-heal)"
               label="Healed"
               value={fmt(totals.healing)}
-              sentence={`You healed ${fmt(totals.healing)} life across ${totals.encounters} ${plural(totals.encounters, 'fight')}${totals.overheal > 0 ? `; ${fmt(totals.overheal)} was overheal` : ''}.`}
+              sentence={`You healed ${fmt(totals.healing)} life across ${totals.encounters} ${plural(totals.encounters, 'fight')} (auras ${fmt(totals.auraHealing)}, your beam ${fmt(totals.threadHealing)})${totals.overheal > 0 ? `; ${fmt(totals.overheal)} was overheal` : ''}.`}
             />
             <Tile
               icon="ward"
@@ -367,7 +410,7 @@ export function SummaryView({ run, onNewRun, onTitle, assisted = false }: Summar
                       </p>
                       <p className="text-sm leading-relaxed text-muted">
                         {h.damage > 0
-                          ? `Dealt ${fmt(h.damage)} damage. Your Empower thread and auras accounted for ${pct(share)} of it.`
+                          ? `Dealt ${fmt(h.damage)} damage. Your auras and Empower accounted for ${pct(share)} of it.`
                           : 'Dealt no recorded damage.'}
                       </p>
                       <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-ink-700">
@@ -447,11 +490,11 @@ export function SummaryView({ run, onNewRun, onTitle, assisted = false }: Summar
             </ul>
           )}
           <p className="mt-3 text-xs text-muted">
-            Chords:{' '}
+            Songs:{' '}
             {run.chords
               .map(
                 (c, i) =>
-                  `${chordLabel(i)}: ${c.auras.map((id) => auraDef(id).name).join(' + ') || '—'}${c.ornaments.length ? ` (${c.ornaments.map((id) => ornamentDef(id).name).join(', ')})` : ''}`,
+                  `${songName(i)}: ${c.auras.map((id) => auraDef(id).name).join(' + ') || '—'}${c.ornaments.length ? ` (${c.ornaments.map((id) => ornamentDef(id).name).join(', ')})` : ''}`,
               )
               .join(' · ') || 'none'}
           </p>
@@ -472,7 +515,52 @@ export function SummaryView({ run, onNewRun, onTitle, assisted = false }: Summar
           New run <Icon name="arrow" size={18} />
         </Button>
       </div>
+      {rankUps.length > 0 && onDismissRankUps && (
+        <RankUpCard rankUps={rankUps} onDismiss={onDismissRankUps} firstTime={firstRankUp} />
+      )}
     </ScreenFrame>
+  );
+}
+
+/** The run's Weaver XP and what it did for the Rank. */
+function RunRankPanel({ run, profileXp }: { run: RunState; profileXp: number }) {
+  const rr = runRank(run, profileXp);
+  const gain = xpGain(profileXp, run.xp);
+  const p = rankPanel({ xp: profileXp, runs: 0, wins: 0 });
+  return (
+    <Panel tone="gold" className="mt-6 p-5" data-testid="summary-rank">
+      <div className="flex flex-wrap items-center gap-x-8 gap-y-3">
+        <div>
+          <p className="flex items-center gap-2 font-display text-2xl font-bold text-gold-200">
+            <Icon name="star" size={20} solid className="text-gold-300" /> {xpHeadline(run.xp)}
+          </p>
+          <p className="mt-0.5 text-sm text-text">{rr.line}</p>
+        </div>
+        <div className="min-w-[16rem] flex-1">
+          <div className="flex items-center gap-2">
+            <span className="shrink-0 text-sm font-semibold text-gold-300">Rank {p.rank}</span>
+            <XpBar
+              before={gain.before}
+              after={gain.after}
+              label={`Weaver XP: ${p.progressText}`}
+              className="flex-1"
+            />
+          </div>
+          <p className="mt-1 font-mono text-xs text-muted">{p.progressText}</p>
+        </div>
+      </div>
+      {rr.unlocks.length > 0 && (
+        <ul className="mt-3 flex flex-wrap gap-1.5" aria-label="Unlocked this run">
+          {rr.unlocks.map((u) => (
+            <li key={u.id}>
+              <Chip icon="sparkle" color="var(--color-gold-300)" title={u.text}>
+                Rank {u.rank} · {u.name}
+              </Chip>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Panel>
   );
 }
 
@@ -513,6 +601,8 @@ export function SummaryScreen() {
   const run = useRun((s) => s.run);
   const settings = useSettings((s) => s.settings);
   const setScreen = useUi((s) => s.setScreen);
+  const xp = useProfile((s) => s.profile.xp);
+  const { rankUps, firstTime, dismiss } = useRankUps();
   if (!run) return null;
   const a = settings.assists;
   const d = DEFAULT_SETTINGS.assists;
@@ -524,6 +614,10 @@ export function SummaryScreen() {
     <SummaryView
       run={run}
       assisted={assisted}
+      profileXp={xp}
+      rankUps={rankUps}
+      onDismissRankUps={dismiss}
+      firstRankUp={firstTime}
       onNewRun={() => {
         useRun.getState().closeRun();
         useRun.getState().newRun();

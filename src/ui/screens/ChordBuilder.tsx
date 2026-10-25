@@ -1,7 +1,8 @@
 import { useState, type KeyboardEvent } from 'react';
 import { CONTENT, auraDef, ornamentDef } from '../../content';
+import { EVERYTHING, UNLOCKS, type Allowance } from '../../meta/profile';
 import { CHORD_PRESETS } from '../../meta/run';
-import { chordLabel, type ChordLoadout } from '../../sim';
+import { chordRole, songName, type ChordLoadout } from '../../sim';
 import { bindingLabel } from '../hud/labels';
 import { fmt, pct } from '../kit/format';
 import { Icon, type IconName } from '../kit/Icon';
@@ -11,51 +12,71 @@ import { playUi } from '../kit/sound';
 import {
   anchorLabel,
   chordNumbers,
+  itemLock,
   itemName,
   loadoutProblems,
+  mult,
   placeItem,
   presetFor,
+  presetLock,
   removeItem,
+  roleNote,
+  slotLock,
+  songInfo,
+  songLock,
   spiritBudget,
+  unlockId,
   whereIs,
   type SlotKind,
   type SlotRef,
 } from './chordModel';
 
-const ANCHOR_ICON = { weaver: 'note', planted: 'flag', thread: 'thread' } as const satisfies Record<
-  string,
-  IconName
->;
+const ANCHOR_ICON = { weaver: 'note', planted: 'pin' } as const satisfies Record<string, IconName>;
 
-function mult(v: number): string {
-  return `×${Number(v.toFixed(2))}`;
+/** Each song's accent: the beam is the Thread's gold, the field a cool blue (glyphs say it too). */
+export const SONG_LOOK = {
+  beam: { color: 'var(--color-gold-300)', icon: 'thread' },
+  field: { color: '#93c5fd', icon: 'scatter' },
+} as const satisfies Record<string, { color: string; icon: IconName }>;
+
+const NO_FRESH: ReadonlySet<string> = new Set();
+
+/** "in the beam song" for the palette's tags. */
+function inSong(index: number): string {
+  return `in the ${songName(index).toLowerCase()}`;
 }
 
 /**
- * The Chord builder (docs/plan/03 §4): up to two Chords of two auras and two ornaments. You
- * own one copy of each aura and ornament, so placing one moves it. Live Spirit budget,
- * legality from the sim, presets, and each Chord's effective radius and strength.
+ * The Chord builder (docs/phase-3.md): the **beam song** (Chord I, it rides the Thread) and the
+ * **field song** (Chord II, around you), each two auras and up to two ornaments. You own one
+ * copy of each aura and ornament, so placing one moves it. Live Spirit budget, legality from
+ * the sim, locks from the player's Rank, presets, and each song's numbers.
  *
  * Controlled: `value` is the draft (it may be illegal while you edit); the owner decides
- * what to do with legal loadouts.
+ * what to do with legal loadouts. `allowance` locks what the Rank hasn't opened yet; `fresh`
+ * holds unlock ids to mark "New".
  */
 export function ChordBuilder({
   value,
   onChange,
+  allowance = EVERYTHING,
+  fresh = NO_FRESH,
 }: {
   value: ChordLoadout[];
   onChange(next: ChordLoadout[]): void;
+  allowance?: Allowance;
+  fresh?: ReadonlySet<string>;
 }) {
   const w = CONTENT.weaver;
   const firstEmpty = (): SlotRef => {
     for (let c = 0; c < value.length; c++) {
-      if (value[c]!.auras.length < w.auraSlots)
-        return { chord: c, kind: 'aura', index: value[c]!.auras.length };
+      const ref: SlotRef = { chord: c, kind: 'aura', index: value[c]!.auras.length };
+      if (value[c]!.auras.length < w.auraSlots && slotLock(allowance, ref) === null) return ref;
     }
     return { chord: 0, kind: 'aura', index: 0 };
   };
   const [selected, setSelected] = useState<SlotRef>(firstEmpty);
-  const problems = loadoutProblems(value);
+  const problems = loadoutProblems(value, allowance);
   const budget = spiritBudget(value);
   const preset = presetFor(value);
 
@@ -63,11 +84,12 @@ export function ChordBuilder({
     const next = placeItem(value, selected, id);
     playUi('pick');
     onChange(next);
-    // Move on to the next empty slot of the same kind in this Chord, if there is one.
+    // Move on to the next empty, open slot of the same kind in this song, if there is one.
     const list =
       selected.kind === 'aura' ? next[selected.chord]!.auras : next[selected.chord]!.ornaments;
     const cap = selected.kind === 'aura' ? w.auraSlots : w.ornamentSlots;
-    if (list.length < cap) setSelected({ ...selected, index: list.length });
+    const ref = { ...selected, index: list.length };
+    if (list.length < cap && slotLock(allowance, ref) === null) setSelected(ref);
   };
   const remove = (ref: SlotRef) => {
     playUi('back');
@@ -85,14 +107,19 @@ export function ChordBuilder({
         >
           Presets · one click
         </h3>
-        <ul className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+        <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
           {CHORD_PRESETS.map((p) => {
             const on = preset?.id === p.id;
+            const lock = presetLock(p, allowance);
             return (
               <li key={p.id}>
                 <button
                   type="button"
                   aria-pressed={on}
+                  disabled={lock !== null}
+                  aria-label={
+                    lock !== null ? `${p.name}: unlocks at Rank ${lock}` : `${p.name}. ${p.summary}`
+                  }
                   onClick={() => {
                     playUi('pick');
                     onChange(
@@ -105,33 +132,61 @@ export function ChordBuilder({
                   className={`h-full w-full rounded-xl border px-3 py-2.5 text-left transition-colors ${
                     on
                       ? 'border-gold-400 bg-gold-400/10'
-                      : 'border-ink-600 bg-ink-900/70 hover:border-gold-500/70 hover:bg-ink-800'
+                      : lock !== null
+                        ? 'cursor-not-allowed border-dashed border-ink-600 bg-ink-900/40'
+                        : 'border-ink-600 bg-ink-900/70 hover:border-gold-500/70 hover:bg-ink-800'
                   }`}
                 >
                   <span className="flex items-center justify-between gap-2">
-                    <span className="font-display text-base font-bold text-gold-200">{p.name}</span>
-                    {on && <Icon name="check" size={16} className="text-gold-300" />}
+                    <span
+                      className={`font-display text-base font-bold ${lock !== null ? 'text-muted' : 'text-gold-200'}`}
+                    >
+                      {p.name}
+                    </span>
+                    {on ? (
+                      <Icon name="check" size={16} className="text-gold-300" />
+                    ) : lock !== null ? (
+                      <LockTag rank={lock} />
+                    ) : (
+                      <span className="font-mono text-xs text-muted">Rank {p.rank}</span>
+                    )}
                   </span>
-                  <span className="mt-1 flex flex-wrap gap-1" aria-hidden>
-                    {p.chords.flatMap((c, ci) => [
-                      ...c.auras.map((id) => (
-                        <Dot
-                          key={`a${ci}${id}`}
-                          color={auraDef(id).color}
-                          label={auraDef(id).name}
-                        />
-                      )),
-                      ...c.ornaments.map((id) => (
-                        <Dot
-                          key={`o${ci}${id}`}
-                          color={ornamentDef(id).color}
-                          label={ornamentDef(id).name}
-                          diamond
-                        />
-                      )),
-                    ])}
+                  <span
+                    className={`mt-1 flex flex-col gap-0.5 ${lock !== null ? 'opacity-50' : ''}`}
+                    aria-hidden
+                  >
+                    {p.chords.map((c, ci) =>
+                      c.auras.length + c.ornaments.length === 0 ? null : (
+                        <span key={ci} className="flex flex-wrap items-center gap-1">
+                          <Icon
+                            name={SONG_LOOK[chordRole(ci)].icon}
+                            size={12}
+                            style={{ color: SONG_LOOK[chordRole(ci)].color }}
+                          />
+                          {c.auras.map((id) => (
+                            <Dot
+                              key={`a${id}`}
+                              color={auraDef(id).color}
+                              label={auraDef(id).name}
+                            />
+                          ))}
+                          {c.ornaments.map((id) => (
+                            <Dot
+                              key={`o${id}`}
+                              color={ornamentDef(id).color}
+                              label={ornamentDef(id).name}
+                              diamond
+                            />
+                          ))}
+                        </span>
+                      ),
+                    )}
                   </span>
-                  <span className="mt-1 block text-xs leading-relaxed text-muted">{p.summary}</span>
+                  <span
+                    className={`mt-1 block text-xs leading-relaxed ${lock !== null ? 'text-ink-500' : 'text-muted'}`}
+                  >
+                    {p.summary}
+                  </span>
                 </button>
               </li>
             );
@@ -143,10 +198,12 @@ export function ChordBuilder({
         <div className="flex flex-col gap-4">
           <div className="grid gap-3 md:grid-cols-2">
             {value.map((chord, i) => (
-              <ChordCard
+              <SongCard
                 key={i}
                 chord={chord}
                 index={i}
+                allowance={allowance}
+                fresh={fresh}
                 selected={selected.chord === i ? selected : null}
                 onSelect={(ref) => {
                   playUi('click');
@@ -164,7 +221,7 @@ export function ChordBuilder({
               data-testid="chord-problems"
             >
               <p className="flex items-center gap-2 font-semibold text-rose-200">
-                <Icon name="info" size={16} /> This loadout can’t be sung yet
+                <Icon name="info" size={16} /> These songs can’t be sung yet
               </p>
               <ul className="mt-1 list-disc pl-6 text-rose-100">
                 {problems.map((p) => (
@@ -174,9 +231,37 @@ export function ChordBuilder({
             </div>
           )}
         </div>
-        <Palette value={value} selected={selected} onPlace={place} onRemove={remove} />
+        <Palette
+          value={value}
+          selected={selected}
+          allowance={allowance}
+          fresh={fresh}
+          onPlace={place}
+          onRemove={remove}
+        />
       </div>
     </div>
+  );
+}
+
+/** A small "locked until Rank N" tag. */
+export function LockTag({ rank }: { rank: number }) {
+  return (
+    <span
+      className="inline-flex shrink-0 items-center gap-1 rounded border border-ink-500 bg-ink-900 px-1.5 text-xs font-medium text-muted"
+      title={`Unlocks at Rank ${rank}`}
+    >
+      <Icon name="lock" size={11} /> Rank {rank}
+    </span>
+  );
+}
+
+/** "New": an unlock the player hasn't been introduced to yet. */
+export function NewTag() {
+  return (
+    <span className="anim-glow inline-flex shrink-0 items-center rounded bg-gold-400 px-1.5 text-xs font-bold uppercase leading-5 tracking-wider text-ink-950">
+      New
+    </span>
   );
 }
 
@@ -205,107 +290,155 @@ function Dot({
   );
 }
 
-function ChordCard({
+function SongCard({
   chord,
   index,
+  allowance,
+  fresh,
   selected,
   onSelect,
   onRemove,
 }: {
   chord: ChordLoadout;
   index: number;
+  allowance: Allowance;
+  fresh: ReadonlySet<string>;
   selected: SlotRef | null;
   onSelect(ref: SlotRef): void;
   onRemove(ref: SlotRef): void;
 }) {
   const w = CONTENT.weaver;
   const n = chordNumbers(chord, index);
+  const info = songInfo(chord, index);
+  const look = SONG_LOOK[info.role];
   const empty = chord.auras.length === 0 && chord.ornaments.length === 0;
-  const unison = chord.ornaments.includes('unison');
   const pedal = chord.ornaments.includes('pedal_point');
+  const lock = songLock(allowance, index);
+  const unlock = UNLOCKS.find((u) => u.id === unlockId({ kind: 'song', index }));
+  const isNew = fresh.has(unlockId({ kind: 'song', index }));
   return (
     <Panel
       tone="solid"
-      className={`p-3.5 ${empty ? 'border-dashed' : ''}`}
-      aria-label={chordLabel(index)}
+      className={`flex flex-col p-3.5 ${empty ? 'border-dashed' : ''} ${lock !== null ? 'bg-ink-900/60' : ''}`}
+      style={{ borderTopColor: lock === null ? look.color : undefined, borderTopWidth: 3 }}
+      aria-label={info.name}
       role="group"
+      data-testid={`song-${info.role}`}
     >
-      <div className="flex items-baseline justify-between gap-2">
-        <h3 className="font-display text-lg font-bold text-gold-300">{chordLabel(index)}</h3>
-        {!empty && (
-          <span className="flex items-center gap-1 text-xs text-muted">
-            <Icon name={ANCHOR_ICON[n.anchor]} size={13} />
-            {anchorLabel(n.anchor)}
-          </span>
+      <div className="flex items-center justify-between gap-2">
+        <h3
+          className="flex items-center gap-2 font-display text-lg font-bold"
+          style={{ color: lock === null ? look.color : 'var(--color-muted)' }}
+        >
+          <Icon name={look.icon} size={18} />
+          {info.name}
+          {isNew && <NewTag />}
+        </h3>
+        {lock !== null ? (
+          <LockTag rank={lock} />
+        ) : (
+          !empty && (
+            <span className="flex items-center gap-1 text-xs text-muted">
+              <Icon name={ANCHOR_ICON[n.anchor]} size={13} />
+              {anchorLabel(n.anchor)}
+            </span>
+          )
         )}
       </div>
-      <p className="mb-1.5 mt-2 text-xs font-semibold uppercase tracking-wider text-muted">Auras</p>
-      <div className="grid grid-cols-2 gap-2">
-        {Array.from({ length: w.auraSlots }, (_, i) => (
-          <Slot
-            key={i}
-            slot={{ chord: index, kind: 'aura', index: i }}
-            id={chord.auras[i]}
-            selected={selected?.kind === 'aura' && selected.index === i}
-            onSelect={onSelect}
-            onRemove={onRemove}
-            note={
-              chord.auras[i] !== undefined
-                ? `${pct(auraDef(chord.auras[i]!).reserve * n.reserveMult)}`
-                : undefined
-            }
-          />
-        ))}
-      </div>
-      <p className="mb-1.5 mt-3 text-xs font-semibold uppercase tracking-wider text-muted">
-        Ornaments{' '}
-        <span className="font-normal normal-case tracking-normal">· change both auras</span>
-      </p>
-      <div className="grid grid-cols-2 gap-2">
-        {Array.from({ length: w.ornamentSlots }, (_, i) => (
-          <Slot
-            key={i}
-            slot={{ chord: index, kind: 'ornament', index: i }}
-            id={chord.ornaments[i]}
-            selected={selected?.kind === 'ornament' && selected.index === i}
-            onSelect={onSelect}
-            onRemove={onRemove}
-            note={chord.ornaments[i] ? ornamentDef(chord.ornaments[i]!).subtitle : undefined}
-          />
-        ))}
-      </div>
-      {!empty && (
-        <dl className="mt-3 grid grid-cols-3 gap-2 rounded-lg bg-ink-900/70 px-3 py-2 text-xs">
-          <div>
-            <dt className="text-muted">Radius</dt>
-            <dd className="font-mono text-sm text-text">
-              {unison ? 'any range' : `${Number(n.radius.toFixed(1))} m`}
-            </dd>
+      {lock !== null && empty ? (
+        <div className="mt-2 flex flex-1 flex-col items-start justify-center gap-1.5 rounded-lg border border-dashed border-ink-600 bg-ink-950/40 px-4 py-5">
+          <p className="flex items-center gap-2 text-sm font-semibold text-text">
+            <Icon name="lock" size={16} className="text-muted" /> Unlocks at Rank {lock}
+          </p>
+          {unlock && <p className="text-xs leading-relaxed text-muted">{unlock.text}</p>}
+        </div>
+      ) : (
+        <>
+          <p className="mt-1 text-xs leading-relaxed text-muted">{info.blurb}</p>
+          <dl className="mt-2 flex flex-wrap gap-2" aria-label={`${info.name} strength`}>
+            {info.facts.map((f) => (
+              <div
+                key={f.label}
+                className="flex min-w-0 flex-1 items-baseline gap-2 rounded-lg bg-ink-900/70 px-2.5 py-1.5"
+              >
+                <dd
+                  className="shrink-0 font-mono text-lg font-bold leading-tight"
+                  style={{ color: f.strength > 0 ? look.color : 'var(--color-muted)' }}
+                >
+                  {f.value}
+                </dd>
+                <dt className="min-w-0 text-xs leading-snug text-muted">{f.label}</dt>
+              </div>
+            ))}
+          </dl>
+          <p className="mb-1.5 mt-3 text-xs font-semibold uppercase tracking-wider text-muted">
+            Auras
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            {Array.from({ length: w.auraSlots }, (_, i) => (
+              <Slot
+                key={i}
+                slot={{ chord: index, kind: 'aura', index: i }}
+                id={chord.auras[i]}
+                lock={lock}
+                isNew={false}
+                selected={selected?.kind === 'aura' && selected.index === i}
+                onSelect={onSelect}
+                onRemove={onRemove}
+                note={
+                  chord.auras[i] !== undefined
+                    ? `reserves ${pct(auraDef(chord.auras[i]!).reserve * n.reserveMult)}`
+                    : undefined
+                }
+              />
+            ))}
           </div>
-          <div>
-            <dt className="text-muted">Strength</dt>
-            <dd
-              className={`font-mono text-sm ${n.effect > 1.001 ? 'text-gold-300' : n.effect < 0.999 ? 'text-threat' : 'text-text'}`}
-            >
-              {mult(n.effect)}
-            </dd>
+          <p className="mb-1.5 mt-3 text-xs font-semibold uppercase tracking-wider text-muted">
+            Ornaments{' '}
+            <span className="font-normal normal-case tracking-normal">· change both auras</span>
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            {Array.from({ length: w.ornamentSlots }, (_, i) => {
+              const ref: SlotRef = { chord: index, kind: 'ornament', index: i };
+              return (
+                <Slot
+                  key={i}
+                  slot={ref}
+                  id={chord.ornaments[i]}
+                  lock={slotLock(allowance, ref)}
+                  isNew={fresh.has(unlockId({ kind: 'ornamentSlot', index: i }))}
+                  selected={selected?.kind === 'ornament' && selected.index === i}
+                  onSelect={onSelect}
+                  onRemove={onRemove}
+                  note={chord.ornaments[i] ? ornamentDef(chord.ornaments[i]!).subtitle : undefined}
+                />
+              );
+            })}
           </div>
-          <div>
-            <dt className="text-muted">Reserves</dt>
-            <dd className="font-mono text-sm text-text">{pct(n.reserve)}</dd>
-          </div>
-        </dl>
-      )}
-      {unison && (
-        <p className="mt-2 flex items-center gap-1.5 text-xs text-gold-200">
-          <Icon name="thread" size={13} /> Rides your Thread: only the threaded hero is touched.
-        </p>
-      )}
-      {pedal && (
-        <p className="mt-2 flex items-center gap-1.5 text-xs text-lime-200">
-          <Icon name="flag" size={13} /> Plant it at the cursor with{' '}
-          <KeyCap label={bindingLabel('plant')} /> (every {CONTENT.weaver.plantCooldown} s).
-        </p>
+          {!empty && (
+            <p className="mt-3 flex flex-wrap gap-x-4 gap-y-1 font-mono text-xs text-muted">
+              <span>
+                reserves <b className="text-text">{pct(n.reserve)}</b> of Spirit
+              </span>
+              {Math.abs(n.effect - 1) > 0.001 && (
+                <span className={n.effect > 1 ? 'text-gold-300' : 'text-threat'}>
+                  ornaments {mult(n.effect)} strength
+                </span>
+              )}
+            </p>
+          )}
+          {pedal && (
+            <p className="mt-2 flex items-center gap-1.5 text-xs text-lime-200">
+              <Icon name="pin" size={13} /> Plant it at the cursor with{' '}
+              <KeyCap label={bindingLabel('plant')} /> (every {CONTENT.weaver.plantCooldown} s).
+            </p>
+          )}
+          {lock !== null && (
+            <p className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-threat">
+              <Icon name="lock" size={13} /> {info.name} unlocks at Rank {lock}: empty it to embark.
+            </p>
+          )}
+        </>
       )}
     </Panel>
   );
@@ -314,6 +447,8 @@ function ChordCard({
 function Slot({
   slot,
   id,
+  lock,
+  isNew,
   selected,
   onSelect,
   onRemove,
@@ -321,6 +456,9 @@ function Slot({
 }: {
   slot: SlotRef;
   id: string | undefined;
+  /** The Rank that opens this slot (null: open). A filled locked slot can still be emptied. */
+  lock: number | null;
+  isNew: boolean;
   selected: boolean;
   onSelect(ref: SlotRef): void;
   onRemove(ref: SlotRef): void;
@@ -328,27 +466,40 @@ function Slot({
 }) {
   const def = id ? (slot.kind === 'aura' ? auraDef(id) : ornamentDef(id)) : null;
   const kindName = slot.kind === 'aura' ? 'aura' : 'ornament';
+  const song = songName(slot.chord);
   const onKey = (e: KeyboardEvent<HTMLButtonElement>) => {
     if (id && (e.key === 'Delete' || e.key === 'Backspace')) {
       e.preventDefault();
       onRemove(slot);
     }
   };
+  if (!def && lock !== null) {
+    return (
+      <div
+        className="flex h-12 w-full items-center gap-1.5 rounded-lg border border-dashed border-ink-600 bg-ink-950/40 px-2.5 text-xs text-muted"
+        aria-label={`${song} ${kindName} slot ${slot.index + 1}: unlocks at Rank ${lock}`}
+        role="img"
+      >
+        <Icon name="lock" size={14} /> {slot.kind === 'aura' ? 'Aura' : 'Ornament'} · Rank {lock}
+      </div>
+    );
+  }
   return (
     <div className="relative">
       <button
         type="button"
         aria-pressed={selected}
+        disabled={lock !== null && !def}
         aria-label={
           def
-            ? `${chordLabel(slot.chord)} ${kindName} slot ${slot.index + 1}: ${def.name}. Select to change, Delete to remove`
-            : `${chordLabel(slot.chord)} ${kindName} slot ${slot.index + 1}: empty. Select to fill`
+            ? `${song} ${kindName} slot ${slot.index + 1}: ${def.name}. Select to change, Delete to remove`
+            : `${song} ${kindName} slot ${slot.index + 1}: empty. Select to fill`
         }
         onClick={() => onSelect(slot)}
         onKeyDown={onKey}
         className={`flex h-12 w-full items-center gap-2 rounded-lg border px-2.5 text-left transition-colors ${
-          selected ? 'ring-2 ring-gold-300' : ''
-        } ${def ? 'bg-ink-800' : 'border-dashed bg-ink-900/40 hover:bg-ink-800'}`}
+          selected && lock === null ? 'ring-2 ring-gold-300' : ''
+        } ${def ? 'bg-ink-800' : 'border-dashed bg-ink-900/40 hover:bg-ink-800'} ${lock !== null ? 'opacity-60' : ''}`}
         style={{ borderColor: def ? def.color : 'var(--color-ink-500)' }}
       >
         {def ? (
@@ -369,6 +520,7 @@ function Slot({
         ) : (
           <span className="flex items-center gap-1.5 text-xs text-muted">
             <Icon name="mend" size={14} /> {slot.kind === 'aura' ? 'Aura' : 'Ornament'}
+            {isNew && <NewTag />}
           </span>
         )}
       </button>
@@ -376,7 +528,7 @@ function Slot({
         <button
           type="button"
           onClick={() => onRemove(slot)}
-          aria-label={`Remove ${def.name} from ${chordLabel(slot.chord)}`}
+          aria-label={`Remove ${def.name} from the ${song.toLowerCase()}`}
           className="absolute right-1 top-1 rounded p-0.5 text-muted hover:bg-ink-700 hover:text-rose-300"
           tabIndex={-1}
         >
@@ -387,15 +539,34 @@ function Slot({
   );
 }
 
+interface PaletteItem {
+  id: string;
+  name: string;
+  subtitle: string;
+  color: string;
+  description: string;
+  stat: string;
+  warn: string | null;
+  /** Rank that opens it (null: open). */
+  lock: number | null;
+  /** Can't go in this song at all ("Beam song only"). */
+  misfit: string | null;
+  isNew: boolean;
+}
+
 /** Everything that fits the selected slot, with where each item sits now. */
 function Palette({
   value,
   selected,
+  allowance,
+  fresh,
   onPlace,
   onRemove,
 }: {
   value: ChordLoadout[];
   selected: SlotRef;
+  allowance: Allowance;
+  fresh: ReadonlySet<string>;
   onPlace(id: string): void;
   onRemove(ref: SlotRef): void;
 }) {
@@ -403,7 +574,9 @@ function Palette({
   const chord = value[selected.chord]!;
   const current = (kind === 'aura' ? chord.auras : chord.ornaments)[selected.index];
   const n = chordNumbers(chord, selected.chord);
-  const items =
+  const song = songName(selected.chord);
+  const slotLocked = slotLock(allowance, selected) !== null;
+  const items: PaletteItem[] =
     kind === 'aura'
       ? CONTENT.auras.map((a) => ({
           id: a.id,
@@ -412,7 +585,10 @@ function Palette({
           color: a.color,
           description: a.description,
           stat: `reserves ${pct(a.reserve * n.reserveMult)}`,
-          warn: null as string | null,
+          warn: null,
+          lock: itemLock(allowance, 'aura', a.id),
+          misfit: null,
+          isNew: fresh.has(unlockId({ kind: 'aura', id: a.id })),
         }))
       : CONTENT.ornaments.map((o) => {
           const clash = chord.ornaments.find(
@@ -426,6 +602,8 @@ function Palette({
             o.reserveMult !== 1 && `reserve ${mult(o.reserveMult)}`,
             o.effectMult !== 1 && `effect ${mult(o.effectMult)}`,
             o.radiusMult !== 1 && `radius ${mult(o.radiusMult)}`,
+            o.focusMult !== 1 && `beam ${mult(CONTENT.weaver.beamFocus * o.focusMult)}`,
+            o.echoMult === 0 && 'no echo',
           ].filter(Boolean);
           return {
             id: o.id,
@@ -434,7 +612,10 @@ function Palette({
             color: o.color,
             description: o.description,
             stat: stats.join(' · '),
-            warn: other ? `Can’t share a Chord with ${ornamentDef(other).name}` : null,
+            warn: other ? `Can’t share a song with ${ornamentDef(other).name}` : null,
+            lock: itemLock(allowance, 'ornament', o.id),
+            misfit: roleNote(o.id, selected.chord),
+            isNew: fresh.has(unlockId({ kind: 'ornament', id: o.id })),
           };
         });
   return (
@@ -444,52 +625,87 @@ function Palette({
           {kind === 'aura' ? 'Auras' : 'Ornaments'}
         </h3>
         <span className="text-xs text-muted">
-          for {chordLabel(selected.chord)}, slot {selected.index + 1}
+          for the {song.toLowerCase()}, slot {selected.index + 1}
         </span>
       </div>
       <p className="mb-2 text-xs text-muted">
         {kind === 'aura'
-          ? 'Each aura reserves Spirit while sung. You have one of each.'
-          : 'An ornament changes both auras in its Chord. You own one copy of each.'}
+          ? selected.chord === 0
+            ? 'On the beam song, an aura is doubled on whoever you thread. Each reserves Spirit while sung; you have one of each.'
+            : 'In the field song, an aura reaches everyone near you. Each reserves Spirit while sung; you have one of each.'
+          : 'An ornament changes both auras in its song. You own one copy of each.'}
       </p>
+      {slotLocked && (
+        <p className="mb-2 flex items-center gap-1.5 rounded-md bg-ink-900 px-2 py-1 text-xs text-muted">
+          <Icon name="lock" size={12} /> This slot is still locked: you can only empty it.
+        </p>
+      )}
       <ul className="scroll-thin -mr-1 flex max-h-[30rem] flex-col gap-1.5 overflow-y-auto pr-1">
         {items.map((it) => {
           const at = whereIs(value, kind, it.id);
           const here = at?.chord === selected.chord && at.index === selected.index;
-          const elsewhere = at && !here ? chordLabel(at.chord) : null;
+          const elsewhere = at && !here ? inSong(at.chord) : null;
+          const blocked = !here && (it.lock !== null || it.misfit !== null || slotLocked);
           return (
             <li key={it.id}>
               <button
                 type="button"
                 aria-pressed={here}
-                onClick={() => (here ? undefined : onPlace(it.id))}
-                aria-label={`${it.name}, ${it.subtitle}. ${it.stat}.${elsewhere ? ` Now in ${elsewhere}: choosing moves it.` : ''}${it.warn ? ` ${it.warn}.` : ''}`}
+                disabled={blocked}
+                onClick={() => (here || blocked ? undefined : onPlace(it.id))}
+                aria-label={`${it.name}, ${it.subtitle}. ${it.lock !== null ? `Unlocks at Rank ${it.lock}.` : `${it.stat}.`}${it.misfit ? ` ${it.misfit}.` : ''}${elsewhere ? ` Now ${elsewhere}: choosing moves it.` : ''}${it.warn ? ` ${it.warn}.` : ''}`}
                 className={`w-full rounded-lg border px-3 py-2 text-left transition-colors ${
-                  here ? 'bg-ink-700' : 'bg-ink-900/70 hover:bg-ink-800'
+                  here
+                    ? 'bg-ink-700'
+                    : blocked
+                      ? 'cursor-not-allowed bg-ink-950/40'
+                      : 'bg-ink-900/70 hover:bg-ink-800'
                 }`}
                 style={{ borderColor: here ? it.color : 'var(--color-ink-600)' }}
               >
                 <span className="flex items-center justify-between gap-2">
                   <span
-                    className="flex items-center gap-1.5 text-sm font-semibold"
+                    className={`flex items-center gap-1.5 text-sm font-semibold ${it.lock !== null ? 'opacity-55' : ''}`}
                     style={{ color: it.color }}
                   >
-                    <Icon name={here ? 'check' : kind === 'aura' ? 'note' : 'diamond'} size={14} />
+                    <Icon
+                      name={
+                        here
+                          ? 'check'
+                          : it.lock !== null
+                            ? 'lock'
+                            : kind === 'aura'
+                              ? 'note'
+                              : 'diamond'
+                      }
+                      size={14}
+                    />
                     {it.name}
                     <span className="text-xs font-normal text-muted">{it.subtitle}</span>
                   </span>
-                  {elsewhere && (
-                    <span className="shrink-0 rounded border border-ink-500 px-1.5 text-xs text-muted">
-                      in {elsewhere}
-                    </span>
-                  )}
+                  <span className="flex shrink-0 items-center gap-1">
+                    {it.isNew && it.lock === null && <NewTag />}
+                    {it.lock !== null && <LockTag rank={it.lock} />}
+                    {elsewhere && (
+                      <span className="rounded border border-ink-500 px-1.5 text-xs text-muted">
+                        {elsewhere}
+                      </span>
+                    )}
+                  </span>
                 </span>
-                {it.stat && (
+                {it.lock === null && it.stat && (
                   <span className="mt-0.5 block font-mono text-xs text-muted">{it.stat}</span>
                 )}
-                <span className="mt-0.5 block text-xs leading-relaxed text-text">
+                <span
+                  className={`mt-0.5 block text-xs leading-relaxed ${it.lock !== null ? 'text-muted' : 'text-text'}`}
+                >
                   {it.description}
                 </span>
+                {it.misfit && it.lock === null && (
+                  <span className="mt-1 flex items-center gap-1 text-xs font-medium text-muted">
+                    <Icon name="thread" size={12} /> {it.misfit}
+                  </span>
+                )}
                 {it.warn && (
                   <span className="mt-1 flex items-center gap-1 text-xs font-medium text-threat">
                     <Icon name="info" size={12} /> {it.warn}

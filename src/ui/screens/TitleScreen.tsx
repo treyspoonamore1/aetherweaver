@@ -1,10 +1,13 @@
 import { useState } from 'react';
+import { useProfile } from '../../app/profileStore';
 import { useRun } from '../../app/runStore';
+import { useSettings } from '../../app/settings';
 import { Backdrop } from '../kit/Backdrop';
 import { Button } from '../kit/Button';
 import { Icon, type IconName } from '../kit/Icon';
 import { playUi, unlockAudio, useMood } from '../kit/sound';
 import { useUi } from '../store';
+import { RankPanelView } from './Rank';
 
 /** Golden threads drifting across the cosmos: the title's "living" layer. */
 function Threads() {
@@ -54,6 +57,8 @@ export function TitleScreen() {
   const setScreen = useUi((s) => s.setScreen);
   const [confirmNew, setConfirmNew] = useState(false);
   const hasSave = useRun.getState().hasSave();
+  const profile = useProfile((s) => s.profile);
+  const unlockAll = useSettings((s) => s.settings.unlockAll);
 
   const startNew = () => {
     useRun.getState().newRun();
@@ -156,6 +161,11 @@ export function TitleScreen() {
               ))
           )}
         </nav>
+        <RankPanelView
+          profile={profile}
+          unlockAll={unlockAll}
+          className="anim-fade mt-6 w-full max-w-sm md:absolute md:bottom-10 md:right-6 md:mt-0 md:w-[22rem]"
+        />
         <p className="absolute bottom-4 text-xs text-muted">
           Arrow keys or Tab to move · Enter to choose
         </p>

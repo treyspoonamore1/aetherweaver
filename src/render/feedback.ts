@@ -13,7 +13,16 @@ import { RING } from './fx/rings';
 import { SHELL } from './fx/shells';
 import { SPRITE } from './fx/sprites';
 import type { Overlay } from './overlay';
-import { C, VISION_HEX, auraColor, clamp01, color, rgba } from './palette';
+import { C, VISION_HEX, auraColor, clamp01, color, currentVision, rgba } from './palette';
+import {
+  REGEN_MASK,
+  SONG_GLYPH,
+  chipText,
+  fieldLook,
+  softenHex,
+  splitAmplified,
+  type ChipSplit,
+} from './songs';
 import type { Stage } from './stage';
 import type { TelegraphLayer } from './telegraphs';
 import type { ThreadView } from './thread';
@@ -66,12 +75,20 @@ interface Bucket {
   start: number;
   amount: number;
   amplified: number;
+  /** The auras' part of `amplified`. */
+  aura: number;
   absorbed: number;
   crit: boolean;
 }
 
+function bucket(): Bucket {
+  return { handle: -1, start: -10, amount: 0, amplified: 0, aura: 0, absorbed: 0, crit: false };
+}
+
 const POOL = 320;
 const AGG = 0.4;
+/** Aura heals arrive about once a second per hero; merge only what lands together. */
+const AURA_AGG = 0.25;
 const SHARD = color('#f1ecf8');
 const WHITE_GOLD = color('#fff4d6');
 const CHIME = color('#efe6ff');
@@ -102,6 +119,11 @@ export class Feedback {
   private cursor = 0;
   private readonly dmg = new Map<EntityId, Bucket>();
   private readonly heal = new Map<EntityId, Bucket>();
+  /** Aura heals (Sostenuto…): their own softer numbers, never merged into Mend's. */
+  private readonly auraHeal = new Map<EntityId, Bucket>();
+  private readonly split: ChipSplit = { empower: 0, aura: 0 };
+  private softHealHex = '';
+  private softHealFor = '';
   private now = 0;
   private settings: FrameInfo['settings'] = {
     screenShake: 1,
@@ -851,7 +873,9 @@ export class Feedback {
         5,
         r.radius,
       );
-      if (e.amplified > 0)
+      splitAmplified(e.amplified, e.aura, this.split);
+      // The Weaver's share as sparks: gold for Empower / Flourishes, song colour for the auras.
+      if (this.split.empower >= 1)
         this.d.kit.particles.burst(
           r.x,
           y,
@@ -866,6 +890,23 @@ export class Feedback {
           PARTICLE.spark,
           3,
           3,
+          r.radius,
+        );
+      if (this.split.aura >= 1)
+        this.d.kit.particles.burst(
+          r.x,
+          y,
+          r.z,
+          3,
+          2,
+          3.4,
+          0.55,
+          0.12,
+          C.song,
+          1,
+          PARTICLE.note,
+          2.5,
+          1,
           r.radius,
         );
     }
@@ -911,19 +952,21 @@ export class Feedback {
     if (!this.settings.damageNumbers) return;
     let b = this.dmg.get(e.target);
     if (!b) {
-      b = { handle: -1, start: -10, amount: 0, amplified: 0, absorbed: 0, crit: false };
+      b = bucket();
       this.dmg.set(e.target, b);
     }
     const fresh = this.now - b.start > AGG || b.handle < 0 || !this.d.overlay.numberAlive(b.handle);
     if (fresh) {
       b.amount = 0;
       b.amplified = 0;
+      b.aura = 0;
       b.absorbed = 0;
       b.crit = false;
       b.start = this.now;
     }
     b.amount += e.amount;
     b.amplified += e.amplified;
+    b.aura += e.aura;
     b.absorbed += e.absorbed;
     b.crit = b.crit || e.crit;
     const shown = b.amount > 0 ? b.amount : b.absorbed;
@@ -936,14 +979,26 @@ export class Feedback {
     if (fresh) b.handle = this.d.overlay.spawnNumber(r.x, r.height + 0.35, r.z, colorHex, size);
     const text =
       b.amount > 0 ? `${Math.round(b.amount)}${b.crit ? '!' : ''}` : `(${Math.round(b.absorbed)})`;
-    const chip = b.amplified >= 1 ? `+${Math.round(b.amplified)}` : null;
-    this.d.overlay.setNumber(b.handle, text, chip, size, !fresh);
+    // Two chips: gold = Empower and Flourishes (`amplified - aura`), ♪ song = the auras' work.
+    splitAmplified(b.amplified, b.aura, this.split);
+    this.d.overlay.setNumber(
+      b.handle,
+      text,
+      chipText(this.split.empower),
+      size,
+      !fresh,
+      chipText(this.split.aura, SONG_GLYPH),
+    );
   }
 
   private healed(e: SimEventOf<'healApplied'>, state: WorldState): void {
     const r = this.rec(e.target);
     const target = state.entities.get(e.target);
     if (!r || !target || e.amount <= 0) return;
+    if (e.via === 'aura') {
+      this.auraHealed(e, r, target);
+      return;
+    }
     if (e.via === 'mend') this.d.thread.pulse();
     const maxHp = target.health?.maxHp ?? 1;
     const n = Math.min(8, 1 + Math.round((e.amount / maxHp) * 20));
@@ -984,7 +1039,7 @@ export class Feedback {
     if (!this.settings.damageNumbers || target.team !== 'party') return;
     let b = this.heal.get(e.target);
     if (!b) {
-      b = { handle: -1, start: -10, amount: 0, amplified: 0, absorbed: 0, crit: false };
+      b = bucket();
       this.heal.set(e.target, b);
     }
     const fresh = this.now - b.start > AGG || b.handle < 0 || !this.d.overlay.numberAlive(b.handle);
@@ -1005,6 +1060,72 @@ export class Feedback {
         0.9,
       );
     this.d.overlay.setNumber(b.handle, `+${Math.round(b.amount)}`, null, size, !fresh);
+  }
+
+  /**
+   * An aura heal (Sostenuto's regeneration, batched by the sim about once a second): a few
+   * notes rising in the healing aura's colour and a small, soft "♪+N" on the hero's other
+   * side, distinct from Mend's numbers (which keep their own aggregation).
+   */
+  private auraHealed(
+    e: SimEventOf<'healApplied'>,
+    r: EntityRec,
+    target: NonNullable<ReturnType<WorldState['entities']['get']>>,
+  ): void {
+    const maxHp = target.health?.maxHp ?? 1;
+    const mask = (target.hero?.auraMask ?? 0) & REGEN_MASK;
+    const cols = this.d.entities.auraColors(mask);
+    const n = Math.min(4, 1 + Math.round((e.amount / maxHp) * 25));
+    for (let i = 0; i < n * this.d.kit.particles.density; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const rr = r.radius * (0.5 + Math.random() * 0.6);
+      this.d.kit.particles.emit(
+        r.x + Math.cos(a) * rr,
+        0.25 + Math.random() * r.height * 0.5,
+        r.z + Math.sin(a) * rr,
+        0,
+        1.1 + Math.random() * 0.6,
+        0,
+        1.1,
+        0.11,
+        cols.length > 0 ? cols[i % cols.length]! : C.heal,
+        0.8,
+        PARTICLE.note,
+        0.6,
+        -0.2,
+      );
+    }
+    if (!this.settings.damageNumbers || target.team !== 'party') return;
+    let b = this.auraHeal.get(e.target);
+    if (!b) {
+      b = bucket();
+      this.auraHeal.set(e.target, b);
+    }
+    const fresh =
+      this.now - b.start > AURA_AGG || b.handle < 0 || !this.d.overlay.numberAlive(b.handle);
+    if (fresh) {
+      b.amount = 0;
+      b.start = this.now;
+    }
+    b.amount += e.amount;
+    if (b.amount < 1) return;
+    const vision = currentVision();
+    if (this.softHealFor !== vision) {
+      this.softHealFor = vision;
+      this.softHealHex = softenHex(VISION_HEX.heal, 0.45);
+    }
+    const size = Math.min(19, 11 + 9 * Math.sqrt(Math.min(1, b.amount / maxHp)));
+    if (fresh)
+      b.handle = this.d.overlay.spawnNumber(
+        r.x - 0.4,
+        r.height + 0.05,
+        r.z,
+        this.softHealHex,
+        size,
+        1.25,
+        true,
+      );
+    this.d.overlay.setNumber(b.handle, `${SONG_GLYPH}+${Math.round(b.amount)}`, null, size, !fresh);
   }
 
   private shieldApplied(e: SimEventOf<'shieldApplied'>): void {
@@ -1889,16 +2010,17 @@ export class Feedback {
     this.d.rig.addTrauma(0.12);
   }
 
-  /** Chorus: every non-Unison field rings out once per aura, in aura colours, scaled by `auras`. */
+  /** Chorus: every field rings out (a Unison beam song at its hero) once per aura, in aura colours, scaled by `auras`. */
   private chorus(e: SimEventOf<'chorusPulse'>, state: WorldState): void {
     const k = 1 + 0.18 * Math.max(0, e.auras - 3);
     const chords = state.field.chords;
     for (let i = 0; i < chords.length; i++) {
       const c = chords[i]!;
+      if (c.auras.length === 0) continue;
       if (!this.d.field.centreOf(state, i, this.centre)) continue;
       const x = this.centre.x;
       const z = this.centre.z;
-      const onHero = c.role === 'beam' && c.radius <= 0;
+      const onHero = fieldLook(c) === 'none';
       const follow = onHero ? (c.threadHero ?? -1) : c.anchor === 'weaver' ? state.weaverId : -1;
       const R = onHero ? 3 : c.radius;
       for (let j = 0; j < c.auras.length; j++) {

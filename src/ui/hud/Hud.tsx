@@ -88,7 +88,12 @@ export function HudView({
         />
       )}
       <Callouts callouts={callouts} barkSpeakers={hud.party.map((p) => p.name)} />
-      <PartyFrames party={hud.party} threadMode={hud.weaver.threadMode} barks={barks} />
+      <PartyFrames
+        party={hud.party}
+        threadMode={hud.weaver.threadMode}
+        barks={barks}
+        chords={hud.weaver.chords}
+      />
       <WeaverBar hud={hud} />
       {coach && !sandbox && <CoachHints hud={hud} force={forceCoach} />}
       {keyHints && <KeyHints />}

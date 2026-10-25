@@ -56,8 +56,8 @@ export class CombatView implements WorldView {
     this.field = new FieldView(this.entities);
     this.root.add(this.field.mesh);
     this.telegraphs = new TelegraphLayer(this.entities);
-    this.thread = new ThreadView(this.entities);
     this.overlay = new Overlay(ctx.overlay, ctx.stage.camera);
+    this.thread = new ThreadView(this.entities, this.overlay);
     this.calls = new CallView(this.entities);
     this.fermata = new FermataView(this.entities);
     this.feedback = new Feedback({

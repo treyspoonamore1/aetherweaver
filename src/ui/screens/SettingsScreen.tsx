@@ -1,4 +1,5 @@
-import { useId, type ReactNode } from 'react';
+import { useId, useState, type ReactNode } from 'react';
+import { useProfile } from '../../app/profileStore';
 import { getAudio } from '../../audio';
 import { useSettings, type Settings } from '../../app/settings';
 import {
@@ -15,6 +16,7 @@ import { ScreenFrame, ScreenHeader } from '../kit/Backdrop';
 import { Icon, type IconName } from '../kit/Icon';
 import { Panel } from '../kit/Panel';
 import { applyUiScale } from '../presentation';
+import { rankPanel } from './rankText';
 import { ControlsSettings } from './ControlsSettings';
 import { Segmented, Slider, Toggle } from '../kit/Slider';
 import { useMood } from '../kit/sound';
@@ -139,6 +141,9 @@ export function SettingsPanel({ compact = false }: { compact?: boolean }) {
       <Section title="Accessibility">
         <AccessibilitySettings />
       </Section>
+      <Section title="Progress">
+        <ProgressSettings />
+      </Section>
       <div className={compact ? '' : 'lg:col-span-2'}>
         <Section title="Controls">
           <ControlsSettings compact={compact} />
@@ -150,6 +155,71 @@ export function SettingsPanel({ compact = false }: { compact?: boolean }) {
         </Button>
       </div>
     </div>
+  );
+}
+
+/** Weaver Rank: skip the unlocks, or start over at Rank 1. */
+function ProgressSettings() {
+  const settings = useSettings((s) => s.settings);
+  const update = useSettings((s) => s.update);
+  const profile = useProfile((s) => s.profile);
+  const [confirm, setConfirm] = useState(false);
+  const [done, setDone] = useState(false);
+  const p = rankPanel(profile);
+  return (
+    <>
+      <p className="text-sm text-text">
+        Weaver Rank <b className="text-gold-300">{p.rank}</b>
+        <span className="ml-2 font-mono text-xs text-muted">
+          {p.progressText} · {p.record}
+        </span>
+      </p>
+      <Toggle
+        label="Skip the unlocks"
+        hint="Every song, aura and ornament from the start. You still earn XP and Rank."
+        checked={settings.unlockAll}
+        onChange={(v) => update((d) => ({ ...d, unlockAll: v }))}
+      />
+      {confirm ? (
+        <div
+          className="rounded-lg border border-lethal/60 bg-lethal/10 p-3"
+          role="alertdialog"
+          aria-labelledby="reset-progress-q"
+        >
+          <p id="reset-progress-q" className="text-sm text-rose-100">
+            Back to Rank 1? Your Weaver XP, runs and wins are cleared and everything locks again.
+            Settings and a run in progress stay.
+          </p>
+          <div className="mt-2 flex gap-2">
+            <Button size="sm" onClick={() => setConfirm(false)} sound="back" autoFocus>
+              Keep my progress
+            </Button>
+            <Button
+              size="sm"
+              variant="danger"
+              onClick={() => {
+                useProfile.getState().resetProgress();
+                setConfirm(false);
+                setDone(true);
+              }}
+            >
+              Reset to Rank 1
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex items-center gap-3">
+          <Button size="sm" variant="danger" onClick={() => setConfirm(true)}>
+            Reset progress…
+          </Button>
+          {done && (
+            <span className="text-xs text-muted" role="status">
+              Progress reset: you’re Rank 1 again.
+            </span>
+          )}
+        </div>
+      )}
+    </>
   );
 }
 

@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import type { AnswerTag } from '../sim';
-import { VISION_HEX, rgba } from './palette';
+import { VISION_HEX, currentVision, rgba } from './palette';
+import { softenHex, songHex } from './songs';
 
 /** Icons the overlay can draw: telegraph answers, plus the Weaver's Mend and Empower. */
 export type GlyphIcon = AnswerTag | 'mend' | 'empower';
@@ -55,6 +56,13 @@ function iconSvg(tag: GlyphIcon): string {
   return `<span style="display:flex;flex-direction:column;align-items:center;gap:1px;color:${ICON_COLORS[tag]}"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${ICONS[tag]}</svg><span style="font:600 8px/1 Inter,sans-serif;letter-spacing:.06em;text-transform:uppercase;opacity:.9">${LABELS[tag]}</span></span>`;
 }
 
+function setChip(el: HTMLSpanElement, text: string | null): void {
+  if (text) {
+    if (el.textContent !== text) el.textContent = text;
+    if (el.style.display !== 'inline-block') el.style.display = 'inline-block';
+  } else if (el.style.display !== 'none') el.style.display = 'none';
+}
+
 export interface Projected {
   x: number;
   y: number;
@@ -65,8 +73,13 @@ export interface Projected {
 interface NumberItem {
   el: HTMLDivElement;
   main: HTMLSpanElement;
+  /** Gold: Empower and Flourishes. */
   chip: HTMLSpanElement;
+  /** ♪ song: the auras' part. */
+  song: HTMLSpanElement;
   active: boolean;
+  /** Aura heals: a quieter number (lower, slower, no big pop). */
+  soft: boolean;
   x: number;
   y: number;
   z: number;
@@ -174,6 +187,7 @@ export class Overlay {
   /** Settings: full-screen flash strength 0..1 (flash, chromatic pulse, danger pulse). */
   private flashScale = 1;
   private lethalHex = '';
+  private vision = '';
 
   constructor(
     host: HTMLElement,
@@ -225,15 +239,22 @@ export class Overlay {
         'position:absolute;left:0;top:0;display:none;white-space:nowrap;font-weight:700;font-variant-numeric:tabular-nums;text-shadow:0 1px 0 rgba(0,0,0,0.9),0 0 6px rgba(0,0,0,0.75);will-change:transform,opacity;',
       );
       const main = document.createElement('span');
+      // Gold chip: a squared tag. Song chip: a rounded pill led by ♪ (shape + glyph, never
+      // colour alone). Colours follow the colour-vision palette (setPalette).
       const chip = document.createElement('span');
       chip.style.cssText =
-        'margin-left:4px;padding:0 4px;border-radius:4px;background:rgba(251,191,36,0.2);border:1px solid rgba(251,191,36,0.8);color:#fde68a;font-size:0.62em;vertical-align:middle;text-shadow:0 0 6px rgba(251,191,36,0.9);';
-      el.append(main, chip);
+        'display:none;margin-left:4px;padding:0 4px;border-radius:3px;border:1px solid;font-size:0.62em;vertical-align:middle;';
+      const song = document.createElement('span');
+      song.style.cssText =
+        'display:none;margin-left:3px;padding:0 5px 0 4px;border-radius:999px;border:1px solid;font-size:0.6em;vertical-align:middle;';
+      el.append(main, chip, song);
       this.numbers.push({
         el,
         main,
         chip,
+        song,
         active: false,
+        soft: false,
         x: 0,
         y: 0,
         z: 0,
@@ -337,8 +358,25 @@ export class Overlay {
     this.setPalette();
   }
 
-  /** Re-reads the live colour-vision palette (danger edge, raid edge, threatened arrows). */
+  /** Re-reads the live colour-vision palette (danger edge, raid edge, arrows, number chips). */
   setPalette(): void {
+    const vision = currentVision();
+    if (vision === this.vision) return;
+    this.vision = vision;
+    const amp = VISION_HEX.amp;
+    const song = songHex(vision);
+    for (const n of this.numbers) {
+      const c = n.chip.style;
+      c.background = rgba(amp, 0.2);
+      c.borderColor = rgba(amp, 0.85);
+      c.color = softenHex(amp, 0.45);
+      c.textShadow = `0 0 6px ${rgba(amp, 0.9)}`;
+      const g = n.song.style;
+      g.background = rgba(song, 0.18);
+      g.borderColor = rgba(song, 0.85);
+      g.color = softenHex(song, 0.35);
+      g.textShadow = `0 0 6px ${rgba(song, 0.9)}`;
+    }
     const lethal = VISION_HEX.lethal;
     if (lethal === this.lethalHex) return;
     this.lethalHex = lethal;
@@ -370,7 +408,15 @@ export class Overlay {
   // ── Floating numbers ───────────────────────────────────────────────────────────────
 
   /** Starts a number; returns a handle the caller can keep updating (aggregation). */
-  spawnNumber(x: number, y: number, z: number, color: string, size: number, life = 0.95): number {
+  spawnNumber(
+    x: number,
+    y: number,
+    z: number,
+    color: string,
+    size: number,
+    life = 0.95,
+    soft = false,
+  ): number {
     let best = 0;
     let bestAge = -1;
     for (let i = 0; i < this.numbers.length; i++) {
@@ -392,23 +438,35 @@ export class Overlay {
     n.age = 0;
     n.life = life;
     n.size = size;
-    n.pop = 1;
-    n.drift = (Math.random() - 0.5) * 26;
+    n.soft = soft;
+    n.pop = soft ? 0.3 : 1;
+    n.drift = (Math.random() - 0.5) * (soft ? 12 : 26);
     n.el.style.display = 'block';
     n.el.style.color = color;
     n.el.style.fontSize = `${Math.round(size)}px`;
+    n.el.style.fontWeight = soft ? '600' : '700';
     n.chip.style.display = 'none';
+    n.song.style.display = 'none';
     return best;
   }
 
-  setNumber(handle: number, text: string, chip: string | null, size: number, bump: boolean): void {
+  /**
+   * Updates a number. `chip` is the gold chip (Empower, Flourishes), `song` the ♪ chip (the
+   * auras' part); either may be null. DOM writes only happen when the text changes.
+   */
+  setNumber(
+    handle: number,
+    text: string,
+    chip: string | null,
+    size: number,
+    bump: boolean,
+    song: string | null = null,
+  ): void {
     const n = this.numbers[handle];
     if (!n) return;
     n.main.textContent = text;
-    if (chip) {
-      n.chip.textContent = chip;
-      n.chip.style.display = 'inline-block';
-    } else n.chip.style.display = 'none';
+    setChip(n.chip, chip);
+    setChip(n.song, song);
     if (Math.abs(size - n.size) > 0.5) {
       n.size = size;
       n.el.style.fontSize = `${Math.round(size)}px`;
@@ -667,9 +725,9 @@ export class Overlay {
       }
       const t = n.age / n.life;
       n.pop = Math.max(0, n.pop - dt * 7);
-      const rise = 46 * (1 - Math.pow(1 - t, 2.2));
+      const rise = (n.soft ? 26 : 46) * (1 - Math.pow(1 - t, 2.2));
       const scale = 1 + n.pop * 0.45;
-      const fade = t > 0.65 ? 1 - (t - 0.65) / 0.35 : 1;
+      const fade = (t > 0.65 ? 1 - (t - 0.65) / 0.35 : 1) * (n.soft ? 0.82 : 1);
       n.el.style.opacity = fade.toFixed(3);
       n.el.style.transform = `translate3d(${(p.x + n.drift * t).toFixed(1)}px,${(p.y - rise).toFixed(1)}px,0) translate(-50%,-50%) scale(${scale.toFixed(3)})`;
     }

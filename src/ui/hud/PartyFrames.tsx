@@ -6,10 +6,11 @@ import { fmt } from '../kit/format';
 import { Icon } from '../kit/Icon';
 import { KeyCap } from '../kit/KeyCap';
 import { Ring } from '../kit/Ring';
-import type { Callout, HeroHud } from '../store';
+import type { Callout, ChordHud, HeroHud } from '../store';
 import type { CallAnswer, ThreadMode } from '../types';
 import { StatusBadge } from './StatusBadge';
 import { ROLE_LABEL, bindingLabel } from './labels';
+import { beamSong, heroSongs, type HeroSongs } from './songs';
 
 const HEAL = 'var(--color-heal)';
 const AMP = 'var(--color-amp)';
@@ -23,11 +24,15 @@ export function PartyFrames({
   party,
   threadMode,
   barks,
+  chords = [],
 }: {
   party: HeroHud[];
   threadMode: ThreadMode;
   barks: Callout[];
+  /** The Weaver's songs: who the beam pours into, who hears its echo. */
+  chords?: ChordHud[];
 }) {
+  const beam = beamSong(chords);
   return (
     <div
       className="pointer-events-auto absolute bottom-5 left-4 flex w-[19rem] flex-col gap-2"
@@ -37,7 +42,12 @@ export function PartyFrames({
     >
       {party.map((h) => (
         <div key={h.id} className="relative">
-          <HeroFrame hero={h} threadMode={threadMode} />
+          <HeroFrame
+            hero={h}
+            threadMode={threadMode}
+            songs={heroSongs(h, chords)}
+            beamColors={beam?.auras.map((a) => a.color) ?? []}
+          />
           <Bark hero={h} callouts={barks} />
         </div>
       ))}
@@ -157,29 +167,87 @@ function HeldStrip({ hero: h }: { hero: HeroHud }) {
   );
 }
 
-/** Which of your auras touch this hero right now (one pip each, in content order). */
-function AuraPips({ auras }: { auras: string[] }) {
-  if (auras.length === 0) return null;
-  const names = auras.map((id) => auraDef(id).name);
+/**
+ * Which of your auras touch this hero right now, one pip each: field-song pips solid, the beam
+ * song's pips solid with a gold ring when it pours into them, hollow when they only hear its
+ * echo. Names (and what each pip means) on hover and in the accessible label.
+ */
+function AuraPips({ songs }: { songs: HeroSongs }) {
+  const all = [
+    ...songs.focusAuras.map((id) => ({ id, how: 'focus' as const })),
+    ...songs.echoAuras.map((id) => ({ id, how: 'echo' as const })),
+    ...songs.fieldAuras.map((id) => ({ id, how: 'field' as const })),
+  ];
+  if (all.length === 0) return null;
+  const describe = (x: (typeof all)[number]) =>
+    `${auraDef(x.id).name}${x.how === 'focus' ? ` (beam ${songs.focus})` : x.how === 'echo' ? ` (echo${songs.echo ? ` ${songs.echo}` : ''})` : ''}`;
+  const names = all.map(describe);
   return (
     <span
       className="ml-auto flex items-center gap-0.5"
       role="img"
       aria-label={`Auras on them: ${names.join(', ')}`}
       title={names.join(' · ')}
+      data-testid="aura-pips"
     >
-      {auras.map((id) => (
-        <span
-          key={id}
-          className="h-2.5 w-2.5 rounded-full border border-ink-950"
-          style={{ background: auraDef(id).color }}
-        />
-      ))}
+      {all.map((x) => {
+        const color = auraDef(x.id).color;
+        return (
+          <span
+            key={x.id}
+            className="h-2.5 w-2.5 rounded-full"
+            style={
+              x.how === 'echo'
+                ? { border: `2px solid ${color}`, background: 'transparent' }
+                : x.how === 'focus'
+                  ? { background: color, boxShadow: `0 0 0 1.5px ${GOLD}` }
+                  : { background: color, border: '1px solid var(--color-ink-950)' }
+            }
+          />
+        );
+      })}
     </span>
   );
 }
 
-export function HeroFrame({ hero: h, threadMode }: { hero: HeroHud; threadMode: ThreadMode }) {
+/** The beam song pours into this hero: "♪ ×2" in the beam song's colours. */
+function BeamBadge({ focus, colors, name }: { focus: string; colors: string[]; name: string }) {
+  const stops = colors.length > 0 ? colors : [GOLD];
+  const gradient =
+    stops.length === 1
+      ? `color-mix(in srgb, ${stops[0]} 22%, transparent)`
+      : `linear-gradient(90deg, ${stops.map((c) => `color-mix(in srgb, ${c} 30%, transparent)`).join(', ')})`;
+  return (
+    <span
+      className="flex items-center gap-0.5 rounded-md border px-1 font-mono text-xs font-bold leading-4 text-gold-100"
+      style={{ borderColor: GOLD, background: gradient }}
+      title={`Your beam song pours into ${name} at ${focus}`}
+      data-testid="beam-badge"
+    >
+      <Icon name="note" size={11} />
+      {focus}
+    </span>
+  );
+}
+
+export function HeroFrame({
+  hero: h,
+  threadMode,
+  songs,
+  beamColors = [],
+}: {
+  hero: HeroHud;
+  threadMode: ThreadMode;
+  songs?: HeroSongs;
+  beamColors?: string[];
+}) {
+  const sung = songs ?? {
+    focus: null,
+    focusAuras: [],
+    echoAuras: [],
+    fieldAuras: h.auras,
+    echo: null,
+  };
   const threadColor = threadMode === 'mend' ? HEAL : AMP;
   const out = h.dead;
   const down = h.downed && !out;
@@ -197,7 +265,7 @@ export function HeroFrame({ hero: h, threadMode }: { hero: HeroHud; threadMode: 
     <button
       type="button"
       aria-pressed={h.threaded}
-      aria-label={`Thread ${h.name}${out ? ' (out of the fight)' : ''}`}
+      aria-label={`Thread ${h.name}${out ? ' (out of the fight)' : ''}${sung.focus ? `. Your beam song pours into them at ${sung.focus}` : ''}`}
       onClick={(e) => {
         getRuntime()?.queue({ t: 'thread', slot: h.slot as PartySlot });
         // Mouse clicks must not leave focus here: Space (Glide) would re-trigger the button.
@@ -233,6 +301,9 @@ export function HeroFrame({ hero: h, threadMode }: { hero: HeroHud; threadMode: 
                   <Icon name={threadMode === 'mend' ? 'mend' : 'empower'} size={12} />
                 </span>
               )}
+              {sung.focus && !out && (
+                <BeamBadge focus={sung.focus} colors={beamColors} name={h.name} />
+              )}
               <InFieldPip inField={h.inField} out={out} />
               <KeyCap label={slotKey} />
             </span>
@@ -260,7 +331,7 @@ export function HeroFrame({ hero: h, threadMode }: { hero: HeroHud; threadMode: 
                     Outside field
                   </span>
                 )}
-                <AuraPips auras={h.auras} />
+                <AuraPips songs={sung} />
               </div>
             </>
           )}

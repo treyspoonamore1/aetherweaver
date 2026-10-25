@@ -5,11 +5,19 @@ import { KeyCap } from '../kit/KeyCap';
 import { Ring } from '../kit/Ring';
 import { keyLabel } from '../../input/keyLabel';
 import type { AuraHud, ChordHud, HeroHud, HudSnapshot, TechniqueHud, WeaverHud } from '../store';
+import { compact, splitContribution } from '../contribution';
+import { mult } from '../screens/chordModel';
+import type { ContributionHud } from '../store';
 import { TECHNIQUE_ICON, WEAVER_BAR_LEFT, WEAVER_BAR_WIDTH, bindingLabel } from './labels';
+import { beamSong, beamTitle } from './songs';
 
 const SPIRIT = '#8ea2ff';
 const LIFE = '#fb7185';
 const GOLD = 'var(--color-gold-300)';
+/** The songs' accents (as on the Prep screen): the beam is the Thread's gold, the field blue. */
+const BEAM = 'var(--color-gold-300)';
+const FIELD = '#93c5fd';
+const AURAS = '#c4b5fd';
 
 /** Weaver bar (docs/plan/04 §5.2, bottom-centre): resources, techniques, Resonance, Thread. */
 export function WeaverBar({ hud }: { hud: HudSnapshot }) {
@@ -21,6 +29,7 @@ export function WeaverBar({ hud }: { hud: HudSnapshot }) {
       style={{ left: WEAVER_BAR_LEFT, width: WEAVER_BAR_WIDTH }}
       data-testid="weaver-bar"
     >
+      <ContributionReadout c={hud.contribution} />
       {w.fieldSuppressed && (
         <span className="animate-pulse-soft absolute -top-3.5 right-4 flex items-center gap-1 rounded-md border border-lethal bg-ink-900 px-2 py-0.5 text-xs font-bold text-rose-200">
           <Icon name="mute" size={13} /> Auras silenced
@@ -39,7 +48,12 @@ export function WeaverBar({ hud }: { hud: HudSnapshot }) {
         <ResonanceArc weaver={w} />
       </div>
       <div className="flex items-center justify-between gap-3 border-t border-ink-600/50 pt-2">
-        <ThreadStatus weaver={w} targetName={target?.name ?? null} targetColor={target?.color} />
+        <ThreadStatus
+          weaver={w}
+          targetName={target?.name ?? null}
+          targetColor={target?.color}
+          beamFocus={target?.beamFocus ? (beamSong(w.chords)?.focus ?? null) : null}
+        />
         <ChordChips weaver={w} party={hud.party} />
       </div>
     </div>
@@ -277,15 +291,57 @@ function ResonanceArc({ weaver: w }: { weaver: WeaverHud }) {
   );
 }
 
+/**
+ * This fight so far: what the auras did against what the Thread did (the sim's ledger), as
+ * two compact numbers and a split line. Sits on the Weaver bar's top edge; hidden until
+ * either has done something.
+ */
+function ContributionReadout({ c }: { c: ContributionHud }) {
+  const s = splitContribution(c);
+  if (s.auras + s.thread < 1) return null;
+  const both = s.auras + s.thread;
+  return (
+    <span
+      className="absolute -top-3 left-4 flex items-center gap-1.5 rounded-md border border-ink-600 bg-ink-900 px-2 py-0.5 text-xs"
+      role="img"
+      aria-label={`This fight: auras ${compact(s.auras)}, Thread ${compact(s.thread)}`}
+      title={`This fight: your auras healed ${compact(c.auras.healing)}, shielded ${compact(c.auras.shielded)} and added ${compact(c.auras.amplified)} damage; your Thread healed ${compact(c.thread.healing)} and added ${compact(c.thread.amplified)}.`}
+      data-testid="contribution-readout"
+    >
+      <Icon name="note" size={11} style={{ color: AURAS }} />
+      <span className="font-mono font-semibold" style={{ color: AURAS }}>
+        {compact(s.auras)}
+      </span>
+      <span
+        className="relative h-1.5 w-12 overflow-hidden rounded-full"
+        style={{ background: BEAM }}
+      >
+        <span
+          className="stripes absolute inset-y-0 left-0"
+          style={{ width: `${(s.auras / both) * 100}%`, backgroundColor: AURAS }}
+        />
+      </span>
+      <span className="font-mono font-semibold" style={{ color: BEAM }}>
+        {compact(s.thread)}
+      </span>
+      <Icon name="thread" size={11} style={{ color: BEAM }} />
+    </span>
+  );
+}
+
 function ThreadStatus({
   weaver: w,
   targetName,
   targetColor,
+  beamFocus,
 }: {
   weaver: WeaverHud;
   targetName: string | null;
   targetColor?: string;
+  /** The beam song's strength on the threaded hero (null: no beam song on them). */
+  beamFocus: number | null;
 }) {
+  void beamFocus; // In progress (UI workstream snapshot).
   const mend = w.threadMode === 'mend';
   const color = mend ? 'var(--color-heal)' : 'var(--color-amp)';
   const taut = w.threadTension > 0.75;
@@ -300,6 +356,8 @@ function ThreadStatus({
         →{' '}
         {targetName ? (
           <span style={{ color: targetColor }}>{targetName}</span>
+        ) : w.chords.some((c) => c.role === 'beam' && c.auras.length > 0) ? (
+          'no one: your beam song waits (1–3)'
         ) : (
           'no one (press 1–3)'
         )}
@@ -335,18 +393,18 @@ function ThreadStatus({
   );
 }
 
-const NUMERAL = ['I', 'II', 'III', 'IV'];
-
-/** Your Chords: aura chips and ornament chips per Chord, Unison's rider, Pedal Point's key. */
+/** Your songs: aura and ornament chips per song, the beam's strength, Pedal Point's key. */
 function ChordChips({ weaver: w, party }: { weaver: WeaverHud; party: HeroHud[] }) {
-  if (w.chords.length === 0) {
+  if (w.chords.every((c) => c.auras.length === 0)) {
     return <span className="text-xs text-muted">No auras sung</span>;
   }
   return (
     <div className="flex min-w-0 flex-wrap items-center justify-end gap-1.5" data-testid="chords">
-      {w.chords.map((c) => (
-        <ChordGroup key={c.index} chord={c} weaver={w} party={party} />
-      ))}
+      {w.chords
+        .filter((c) => c.auras.length > 0)
+        .map((c) => (
+          <ChordGroup key={c.index} chord={c} weaver={w} party={party} />
+        ))}
     </div>
   );
 }
@@ -360,47 +418,33 @@ function ChordGroup({
   weaver: WeaverHud;
   party: HeroHud[];
 }) {
+  const beam = c.role === 'beam';
   const rider = c.threadSlot === null ? null : party.find((p) => p.slot === c.threadSlot);
+  const accent = beam ? BEAM : FIELD;
+  const title = beam
+    ? beamTitle(c, rider?.name ?? null)
+    : `Field song: everyone within ${Number(c.radius.toFixed(1))} m of ${c.anchor === 'planted' ? 'where you planted it' : 'you'} hears it at full strength.`;
   return (
     <span
-      className="flex items-center gap-1 rounded-lg border border-ink-600/70 bg-ink-950/40 py-0.5 pl-1.5 pr-1"
+      className="flex items-center gap-1 rounded-lg border bg-ink-950/40 py-0.5 pl-1.5 pr-1"
+      style={{ borderColor: `color-mix(in srgb, ${accent} 45%, transparent)` }}
       role="group"
-      aria-label={`Chord ${NUMERAL[c.index] ?? c.index + 1}`}
+      aria-label={title}
+      title={title}
+      data-testid={`song-${c.role}`}
     >
-      <span className="font-display text-xs font-bold text-muted" aria-hidden>
-        {NUMERAL[c.index] ?? c.index + 1}
+      <span
+        className="flex items-center gap-0.5 font-mono text-xs font-bold"
+        style={{ color: accent }}
+        aria-hidden
+      >
+        <Icon name={beam ? 'thread' : 'scatter'} size={12} />
+        {beam ? mult(c.focus) : 'Field'}
       </span>
       {c.auras.map((a) => (
         <AuraChip key={a.id} aura={a} suppressed={w.fieldSuppressed} />
       ))}
       {c.ornaments.map((o) => {
-        if (o.id === 'unison') {
-          return (
-            <span
-              key={o.id}
-              className="flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-xs font-medium"
-              style={{
-                color: o.color,
-                borderColor: `color-mix(in srgb, ${o.color} 55%, transparent)`,
-              }}
-              title={
-                rider
-                  ? `Unison rides your Thread on ${rider.name}`
-                  : 'Unison: attach your Thread to a hero'
-              }
-            >
-              <Icon name="thread" size={12} />
-              {rider ? (
-                <>
-                  <span style={{ color: rider.color }}>{rider.name}</span>
-                  <KeyCap label={String(rider.slot + 1)} />
-                </>
-              ) : (
-                <span className="text-muted">no Thread</span>
-              )}
-            </span>
-          );
-        }
         if (o.id === 'pedal_point') {
           const plant = w.plant;
           const cooling = !!plant && plant.remaining > 0.05;
@@ -412,7 +456,7 @@ function ChordGroup({
                 color: o.color,
                 borderColor: `color-mix(in srgb, ${o.color} 55%, transparent)`,
               }}
-              title={`Pedal Point: plant this Chord's field at the cursor${plant ? ` (${keyLabel(plant.key0)})` : ''}`}
+              title={`Pedal Point: plant this song's field at the cursor${plant ? ` (${keyLabel(plant.key0)})` : ''}`}
             >
               <Icon name="pin" size={12} />
               Plant

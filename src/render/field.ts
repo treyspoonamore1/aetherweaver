@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import type { WorldState } from '../sim';
+import type { EntityId, WorldState } from '../sim';
 import type { EntityLayer } from './entities';
 import { BEAM } from './fx/beams';
 import { GLSL_COMMON, InstancedFx, groundQuad } from './fx/instanced';
@@ -8,6 +8,7 @@ import { PARTICLE } from './fx/particles';
 import { RING } from './fx/rings';
 import { SPRITE } from './fx/sprites';
 import { C, approach, auraColor, clamp01, color } from './palette';
+import { beamSong, fieldLook, type ChordView, fieldLoudness, focusLevel, isAllIn } from './songs';
 
 const vertex = /* glsl */ `
 attribute vec4 iPos;   // x z radius extent
@@ -15,12 +16,14 @@ attribute vec4 iC0;    // aura 1 rgb, aura count
 attribute vec4 iC1;    // aura 2 rgb, planted (0 | 1)
 attribute vec4 iState; // suppressed crescendo blaze alpha
 attribute vec4 iExtra; // plant pop, seed, -, -
+attribute vec4 iRole;  // echo (0 | 1), loudness, band offset, -
 varying vec2 vLocal;
 varying vec4 vPos;
 varying vec4 vC0;
 varying vec4 vC1;
 varying vec4 vState;
 varying vec4 vExtra;
+varying vec4 vRole;
 void main() {
   vec2 local = position.xz * iPos.w;
   vLocal = local;
@@ -29,6 +32,7 @@ void main() {
   vC1 = iC1;
   vState = iState;
   vExtra = iExtra;
+  vRole = iRole;
   vec3 world = vec3(iPos.x + local.x, 0.025, iPos.y + local.y);
   gl_Position = projectionMatrix * viewMatrix * vec4(world, 1.0);
 }`;
@@ -41,6 +45,7 @@ varying vec4 vC0;
 varying vec4 vC1;
 varying vec4 vState;
 varying vec4 vExtra;
+varying vec4 vRole;
 ${GLSL_COMMON}
 void main() {
   vec2 p = vLocal;
@@ -57,32 +62,58 @@ void main() {
   vec3 pre = vec3(0.0);
   float a = 0.0;
   vec3 avg = vec3(0.0);
-  // One band per aura in its colour.
+  float echo = vRole.x;
+  float loud = vRole.y;
+  // One band per aura in its colour. The field song (Phase 2 look): solid lines, a glow, glyph
+  // ticks and an inner tint. The beam song's echo is quieter: thin dashed lines, a faint glow,
+  // no ticks or tint, and slow "echo" ripples running out from the centre.
   for (int i = 0; i < 2; i++) {
     if (i >= count) break;
     vec3 c = i == 0 ? vC0.rgb : vC1.rgb;
     avg += c;
-    float ri = R - float(i) * 0.34;
+    float dir = (i == 1) ? -1.0 : 1.0;
     float broken = 1.0;
     if (sup > 0.01) {
       float n = awNoise2(vec2(ang * 7.0 + float(i) * 3.1 + seed, floor(uTime * 9.0) * 0.37));
       broken = mix(1.0, step(0.45, n), sup);
     }
-    float line = awAA(abs(d - ri) - (0.04 + 0.035 * cre + 0.02 * planted));
-    float glow = exp(-abs(d - ri) * (7.0 - 4.0 * cre)) * 0.32;
-    float dir = (i == 1) ? -1.0 : 1.0;
-    // A Weaver field's glyph ticks drift; a planted field's stand still (it is anchored).
-    float spin = (1.0 - planted) * dir * uTime * 0.05;
-    float ticks = step(0.72, fract(ang / 6.2831853 * 40.0 + spin)) * awAA(abs(d - (ri - 0.16)) - 0.04);
-    float bandA = (line * 0.45 + glow * 0.45 + ticks * 0.25) * broken * hot;
+    float bandA;
+    if (echo > 0.5) {
+      float ri = R + vRole.z - float(i) * 0.24;
+      float spin = (1.0 - planted) * dir * uTime * 0.04;
+      float dash = step(0.5, fract(ang / 6.2831853 * 42.0 + spin + float(i) * 0.5));
+      float line = awAA(abs(d - ri) - (0.022 + 0.02 * cre)) * dash;
+      float glow = exp(-abs(d - ri) * 9.0) * 0.1;
+      bandA = (line * 0.9 + glow) * broken * hot * loud;
+    } else {
+      float ri = R - float(i) * 0.34;
+      float line = awAA(abs(d - ri) - (0.04 + 0.035 * cre + 0.02 * planted));
+      float glow = exp(-abs(d - ri) * (7.0 - 4.0 * cre)) * 0.32;
+      // A Weaver field's glyph ticks drift; a planted field's stand still (it is anchored).
+      float spin = (1.0 - planted) * dir * uTime * 0.05;
+      float ticks = step(0.72, fract(ang / 6.2831853 * 40.0 + spin)) * awAA(abs(d - (ri - 0.16)) - 0.04);
+      bandA = (line * 0.45 + glow * 0.45 + ticks * 0.25) * broken * hot;
+    }
     pre += c * bandA;
     a += bandA;
   }
   avg /= max(1.0, float(count));
-  // Subtle inner tint so "in the field" reads without UI.
-  float inside = d < R ? smoothstep(R * 0.15, R, d) * (0.05 + 0.08 * cre) : 0.0;
-  pre += avg * inside;
-  a += inside;
+  if (echo > 0.5) {
+    // Echo ripples: two faint dashed rings expanding from the centre and dying at the rim.
+    for (int k = 0; k < 2; k++) {
+      float ph = fract(uTime * 0.28 + float(k) * 0.5 + seed * 0.13);
+      float pr = R * (0.2 + 0.8 * ph);
+      float rdash = step(0.55, fract(ang / 6.2831853 * 30.0));
+      float w = awAA(abs(d - pr) - 0.02) * rdash * sin(3.14159 * ph) * 0.35 * loud * hot;
+      pre += avg * w;
+      a += w;
+    }
+  } else {
+    // Subtle inner tint so "in the field" reads without UI.
+    float inside = d < R ? smoothstep(R * 0.15, R, d) * (0.05 + 0.08 * cre) : 0.0;
+    pre += avg * inside;
+    a += inside;
+  }
   if (planted > 0.5) {
     // Pedal Point: an outer staff ring with eight heavy notches, a dashed inner ring, faint
     // spokes and a centre rune (the stake seen from above). Nothing rotates: it is planted.
@@ -97,6 +128,7 @@ void main() {
     float spokes = awAA(abs(sin(ang * 4.0 + 0.785)) * d - 0.03)
       * smoothstep(1.0, 1.6, d) * (1.0 - smoothstep(R * 0.48, R * 0.55, d)) * 0.3;
     float pa = (outer * 0.55 + notches * 0.65 + dash * 0.4 + rune * 0.85 + spokes) * hot;
+    if (echo > 0.5) pa *= 0.35 + 0.65 * loud;
     if (sup > 0.01) pa *= mix(1.0, step(0.4, awNoise2(vec2(ang * 5.0 + seed, floor(uTime * 9.0)))), sup);
     pre += pc * pa;
     a += pa;
@@ -140,6 +172,8 @@ void main() {
 
 const MAX_FIELDS = 4;
 const STAKE_HOT = color('#fff4d6');
+/** An echo sharing a field song's circle is drawn this far outside it, so both stay legible. */
+const ECHO_NUDGE = 0.32;
 
 /** Every Chord's field disc in one instanced draw call. */
 class FieldBatch extends InstancedFx {
@@ -148,6 +182,7 @@ class FieldBatch extends InstancedFx {
   private readonly c1: Float32Array;
   private readonly st: Float32Array;
   private readonly ex: Float32Array;
+  private readonly role: Float32Array;
 
   constructor(readonly uniforms = { uTime: { value: 0 } }) {
     super(
@@ -161,7 +196,7 @@ class FieldBatch extends InstancedFx {
         blending: THREE.AdditiveBlending,
       }),
       MAX_FIELDS,
-      { iPos: 4, iC0: 4, iC1: 4, iState: 4, iExtra: 4 },
+      { iPos: 4, iC0: 4, iC1: 4, iState: 4, iExtra: 4, iRole: 4 },
       ORDER.field,
     );
     this.pos = this.array('iPos');
@@ -169,6 +204,7 @@ class FieldBatch extends InstancedFx {
     this.c1 = this.array('iC1');
     this.st = this.array('iState');
     this.ex = this.array('iExtra');
+    this.role = this.array('iRole');
   }
 
   push(
@@ -185,6 +221,9 @@ class FieldBatch extends InstancedFx {
     alpha: number,
     pop: number,
     seed: number,
+    echo = false,
+    loudness = 1,
+    offset = 0,
   ): void {
     const i = this.next();
     if (i < 0) return;
@@ -192,7 +231,7 @@ class FieldBatch extends InstancedFx {
     this.pos[o] = x;
     this.pos[o + 1] = z;
     this.pos[o + 2] = radius;
-    this.pos[o + 3] = radius + 1.6;
+    this.pos[o + 3] = radius + offset + 1.6;
     this.c0[o] = a.r;
     this.c0[o + 1] = a.g;
     this.c0[o + 2] = a.b;
@@ -209,17 +248,28 @@ class FieldBatch extends InstancedFx {
     this.ex[o + 1] = seed;
     this.ex[o + 2] = 0;
     this.ex[o + 3] = 0;
+    this.role[o] = echo ? 1 : 0;
+    this.role[o + 1] = loudness;
+    this.role[o + 2] = offset;
+    this.role[o + 3] = 0;
   }
 }
 
 /**
- * AuraView (docs/plan/05 §5.3), one field per Chord (Phase 2): a ground ring stack at the
- * Chord's true centre and radius, one band per aura in its colour, rotating glyph ticks and a
- * subtle inner tint. Weaver fields follow the Weaver; Pedal Point fields are anchored (still
- * ticks, notched staff ring, centre rune and a standing stake of light); Unison Chords have no
- * disc, only a halo on the threaded hero (the Thread itself glows, see thread.ts). Cracked and
- * flickering when suppressed (Mute, Silent Verse); blazing during a Crescendo. Hymn circles
- * (Silent Verse safe zones) glow on the floor.
+ * AuraView (docs/plan/05 §5.3; Phase 3: the beam song and the field song). One field disc per
+ * Chord at its true centre and radius, one band per aura in its colour:
+ *
+ * - The **field song** keeps the Phase 2 look: solid bands, glow, drifting glyph ticks and an
+ *   inner tint.
+ * - The **beam song's echo** (radius > 0) is drawn clearly quieter: thin dashed bands at
+ *   `echo`-scaled loudness, no tint, and slow echo ripples running out from its centre.
+ * - The **beam song itself** rides the Thread: a halo on the threaded hero at focus strength
+ *   (`chord.focus`), counter-rotating aura rings at the feet, a crown, a body glow and rising
+ *   motes; Unison ("All in", no echo) adds a pool of light, a second crown and flames. When
+ *   the beam moves, the old hero's halo drains as the new one fills (see thread.ts for the pour).
+ *
+ * Weaver fields follow the Weaver; Pedal Point fields (either song) are anchored with a stake.
+ * Cracked and flickering when suppressed; blazing during a Crescendo. Hymn circles glow.
  */
 export class FieldView {
   private readonly batch = new FieldBatch();
@@ -229,9 +279,15 @@ export class FieldView {
   private crescendo = 0;
   private hymnAcc = 0;
   private stakeAcc = 0;
+  private haloAcc = 0;
   private readonly radii = new Float32Array(MAX_FIELDS);
   private readonly pops = new Float32Array(MAX_FIELDS);
+  private readonly fx = new Float32Array(MAX_FIELDS);
+  private readonly fz = new Float32Array(MAX_FIELDS);
+  private readonly fr = new Float32Array(MAX_FIELDS);
   private readonly hymnColor = color('#fff1c4');
+  /** How much of the beam song each hero is holding right now (fades in and drains out). */
+  private readonly halo = new Map<EntityId, number>();
   /** Lab-only override of the hymn circles (they normally need Cantor phase 2). */
   hymnOverride: { x: number; z: number; r: number }[] | null = null;
 
@@ -246,19 +302,28 @@ export class FieldView {
     if (chord >= 0 && chord < MAX_FIELDS) this.pops[chord] = 1;
   }
 
+  /** How much of the beam song `hero` holds right now, 0..1 (render-side fade). */
+  haloOf(hero: EntityId): number {
+    return this.halo.get(hero) ?? 0;
+  }
+
   /** Where a Chord's field is drawn this frame (the Weaver's interpolated position if it follows them). */
   centreOf(state: WorldState, chord: number, out: { x: number; z: number }): boolean {
     const c = state.field.chords[chord];
     if (!c) return false;
+    if (fieldLook(c) === 'none' && c.role === 'beam') {
+      // A beam song with no echo (Unison) lives on its hero.
+      const hr = c.threadHero === null ? undefined : this.entities.recs.get(c.threadHero);
+      if (hr) {
+        out.x = hr.x;
+        out.z = hr.z;
+        return true;
+      }
+    }
     if (c.anchor === 'weaver') {
       const wr = this.entities.recs.get(state.weaverId);
       out.x = wr ? wr.x : c.x;
       out.z = wr ? wr.z : c.z;
-    } else if (c.role === 'beam' && c.radius <= 0) {
-      // A beam song with no echo (Unison) lives on its hero.
-      const hr = c.threadHero === null ? undefined : this.entities.recs.get(c.threadHero);
-      out.x = hr ? hr.x : c.x;
-      out.z = hr ? hr.z : c.z;
     } else {
       out.x = c.x;
       out.z = c.z;
@@ -296,42 +361,69 @@ export class FieldView {
         0,
       );
     }
-    for (let i = 0; i < f.chords.length && i < MAX_FIELDS; i++) {
+    // Pass 1: where each field is drawn (centre and smoothed radius; 0 = no disc).
+    const n = Math.min(MAX_FIELDS, f.chords.length);
+    for (let i = 0; i < n; i++) {
       const c = f.chords[i]!;
       this.pops[i] = Math.max(0, this.pops[i]! - dt * 2.6);
-      if (c.role === 'beam' && c.radius <= 0) {
-        this.unison(state, c.auras, c.threadHero, kit, time, i);
+      if (fieldLook(c) === 'none') {
+        this.fr[i] = 0;
+        this.radii[i] = 0;
         continue;
       }
       const prev = this.radii[i]!;
       const r = prev <= 0 ? c.radius : approach(prev, c.radius, 12, dt);
       this.radii[i] = r;
-      const n = c.auras.length;
-      const a0 = n > 0 ? auraColor(c.auras[0]!) : C.gold;
-      const a1 = n > 1 ? auraColor(c.auras[1]!) : a0;
       const planted = c.anchor === 'planted';
-      const x = planted ? c.x : wx;
-      const z = planted ? c.z : wz;
       const pop = this.pops[i]!;
-      const radius = r * blazeK * (planted ? 1 - 0.25 * pop * pop * pop : 1);
+      this.fx[i] = planted ? c.x : wx;
+      this.fz[i] = planted ? c.z : wz;
+      this.fr[i] = r * blazeK * (planted ? 1 - 0.25 * pop * pop * pop : 1);
+    }
+    // Pass 2: draw. An echo on the same circle as a field song sits just outside it.
+    for (let i = 0; i < n; i++) {
+      const c = f.chords[i]!;
+      const radius = this.fr[i]!;
+      if (radius <= 0) continue;
+      const echo = fieldLook(c) === 'echo';
+      let offset = 0;
+      if (echo) {
+        for (let j = 0; j < n; j++) {
+          if (j === i || this.fr[j]! <= 0 || fieldLook(f.chords[j]!) !== 'song') continue;
+          const dx = this.fx[j]! - this.fx[i]!;
+          const dz = this.fz[j]! - this.fz[i]!;
+          if (dx * dx + dz * dz < 0.25 && Math.abs(this.fr[j]! - radius) < 0.5) {
+            offset = this.fr[j]! - radius + ECHO_NUDGE;
+          }
+        }
+      }
+      const na = c.auras.length;
+      const a0 = auraColor(c.auras[0]!);
+      const a1 = na > 1 ? auraColor(c.auras[1]!) : a0;
+      const planted = c.anchor === 'planted';
+      const pop = this.pops[i]!;
       this.batch.push(
-        x,
-        z,
+        this.fx[i]!,
+        this.fz[i]!,
         radius,
         a0,
         a1,
-        Math.max(1, Math.min(2, n)),
+        Math.max(1, Math.min(2, na)),
         planted,
         this.suppressed,
         this.crescendo,
         this.blaze,
-        n === 0 ? 0.35 : 1,
+        1,
         pop,
         i * 3.7,
+        echo,
+        fieldLoudness(c),
+        offset,
       );
-      if (planted) this.stake(x, z, a0, a1, kit, dt, time, pop);
+      if (planted) this.stake(this.fx[i]!, this.fz[i]!, a0, a1, kit, dt, time, pop, echo ? 0.6 : 1);
     }
     this.batch.end();
+    this.beam(state, kit, dt, time);
 
     const circles = this.hymnOverride ?? f.hymnCircles;
     for (const c of circles) {
@@ -386,9 +478,10 @@ export class FieldView {
     dt: number,
     time: number,
     pop: number,
+    loud: number,
   ): void {
     const sup = this.suppressed;
-    const vis = 1 - 0.55 * sup;
+    const vis = (1 - 0.55 * sup) * loud;
     const h = 1.5 + pop * 1.2;
     kit.beams.push(x, 0.02, z, x, h, z, 0.34, BEAM.glow, a0, 0.55 * vis);
     kit.beams.push(x, 0.02, z, x, h * 0.92, z, 0.1, BEAM.glow, STAKE_HOT, 0.9 * vis);
@@ -396,7 +489,7 @@ export class FieldView {
     kit.sprites.push(x, h + 0.12 + bob, z, 0.3 + pop * 0.3, SPRITE.diamond, a1, 0.95 * vis);
     kit.sprites.push(x, h + 0.12 + bob, z, 0.55 + pop * 0.6, SPRITE.glow, a0, 0.5 * vis);
     kit.rings.push(x, 0.03, z, 0.75, 0.06, 0.18, RING.plain, STAKE_HOT, 0.65 * vis);
-    this.stakeAcc += dt * 5 * kit.particles.density;
+    this.stakeAcc += dt * 5 * kit.particles.density * loud;
     while (this.stakeAcc > 1) {
       this.stakeAcc -= 1;
       const ang = Math.random() * Math.PI * 2;
@@ -419,58 +512,85 @@ export class FieldView {
   }
 
   /**
-   * Unison: no disc. A halo of the Chord's auras rides on the threaded hero (ground rings
-   * counter-rotating in each aura's colour and a crown ring over the head). With the Thread
-   * loose the Chord waits as motes circling the Weaver's hand.
+   * The beam song on its hero. Each party hero's share fades toward 1 while the beam pours
+   * into them and drains back to 0 after it moves on, so a retarget reads as the song pouring
+   * from one hero to the next. With the Thread loose the song waits as motes at the Weaver's hand.
    */
-  private unison(
-    state: WorldState,
-    auras: readonly string[],
-    heroId: number | null,
-    kit: FxKit,
-    time: number,
-    index: number,
-  ): void {
-    const n = Math.min(2, auras.length);
-    if (n === 0) return;
-    const sup = 1 - 0.6 * this.suppressed;
-    const hr = heroId === null ? undefined : this.entities.recs.get(heroId);
-    if (!hr) {
+  private beam(state: WorldState, kit: FxKit, dt: number, time: number): void {
+    const c = beamSong(state);
+    const target = c?.threadHero ?? null;
+    for (const id of state.party) {
+      const prev = this.halo.get(id) ?? 0;
+      const on = id === target;
+      // Fills in ~0.4 s (the pour's travel time along the Thread), drains in ~0.6 s.
+      const next = on ? approach(prev, 1, 5.5, dt) : approach(prev, 0, 4, dt);
+      this.halo.set(id, next < 0.005 ? 0 : next);
+    }
+    if (!c) return;
+    const n = Math.min(2, c.auras.length);
+    const allIn = isAllIn(c);
+    if (target === null) {
       const wr = this.entities.recs.get(state.weaverId);
       if (!wr) return;
+      const sup = 1 - 0.6 * this.suppressed;
       for (let i = 0; i < n; i++) {
-        const a = time * 2.2 + i * Math.PI + index;
+        const a = time * 2.2 + i * Math.PI;
         kit.sprites.push(
           wr.x + Math.cos(a) * 0.55,
           1.05 + Math.sin(time * 3 + i) * 0.08,
           wr.z + Math.sin(a) * 0.55,
-          0.14,
+          allIn ? 0.16 : 0.12,
           SPRITE.diamond,
-          auraColor(auras[i]!),
-          0.75 * sup,
+          auraColor(c.auras[i]!),
+          (allIn ? 0.8 : 0.6) * sup,
         );
       }
-      return;
     }
-    const k = 1 + this.crescendo * 0.25 + this.blaze * 0.4;
+    const level = focusLevel(c.focus);
+    for (const id of state.party) {
+      const share = this.halo.get(id) ?? 0;
+      if (share <= 0) continue;
+      const hr = this.entities.recs.get(id);
+      const e = state.entities.get(id);
+      if (!hr || !e?.health || e.health.dead) continue;
+      // Heard (not suppressed, not in a Mute dome): full; otherwise a dim promise of it.
+      const heard = e.hero?.beamFocus ? 1 : 0.35;
+      this.halo1(c, hr, share * heard, level, allIn, kit, dt, time);
+    }
+  }
+
+  private halo1(
+    c: ChordView,
+    hr: { x: number; y: number; z: number; radius: number; height: number },
+    s: number,
+    level: number,
+    allIn: boolean,
+    kit: FxKit,
+    dt: number,
+    time: number,
+  ): void {
+    const n = Math.min(2, c.auras.length);
+    const sup = s * (1 - 0.6 * this.suppressed);
+    const k = (1 + this.crescendo * 0.25 + this.blaze * 0.4) * (0.85 + 0.25 * level);
+    const pulse = clamp01(Math.sin(time * 3.1) * 0.5 + 0.5);
     for (let i = 0; i < n; i++) {
-      const c = auraColor(auras[i]!);
+      const col = auraColor(c.auras[i]!);
       const dir = i === 0 ? 1 : -1;
       kit.rings.push(
         hr.x,
         0.035,
         hr.z,
         hr.radius * (1.95 + i * 0.32) * k,
-        0.07,
+        0.06 + 0.04 * level,
         0.22,
         RING.dashed,
-        c,
-        0.85 * sup,
+        col,
+        (0.55 + 0.35 * level) * sup,
         0,
         7,
         0,
         10 + i * 4,
-        dir * time * 0.9,
+        dir * time * (0.6 + 0.5 * level),
       );
       // Crown halo: each aura lights half of a ring over the head.
       kit.rings.push(
@@ -478,25 +598,93 @@ export class FieldView {
         hr.height + 0.28 + hr.y,
         hr.z,
         0.42 * k,
-        0.06,
+        0.05 + 0.03 * level,
         0.14,
         RING.plain,
-        c,
-        0.9 * sup,
+        col,
+        (0.6 + 0.35 * level) * sup,
         time * 1.4 + i * Math.PI,
         n === 1 ? 7 : Math.PI - 0.25,
       );
+      if (allIn) {
+        // All in: a second, wider crown turning the other way, and an outer solid ring.
+        kit.rings.push(
+          hr.x,
+          hr.height + 0.5 + hr.y,
+          hr.z,
+          0.62 * k,
+          0.05,
+          0.18,
+          RING.plain,
+          col,
+          0.75 * sup,
+          -time * 1.9 + i * Math.PI,
+          n === 1 ? 7 : Math.PI - 0.35,
+        );
+        kit.rings.push(
+          hr.x,
+          0.04,
+          hr.z,
+          hr.radius * 2.75 * k,
+          0.09,
+          0.3,
+          RING.plain,
+          col,
+          (0.5 + 0.3 * pulse) * sup,
+          time * 0.5 + i * Math.PI,
+          n === 1 ? 7 : Math.PI - 0.2,
+        );
+      }
     }
-    const pulse = clamp01(Math.sin(time * 3.1) * 0.5 + 0.5);
+    const a0 = auraColor(c.auras[0]!);
+    // A pool of the song's light under the hero (stronger when all in).
+    kit.rings.push(
+      hr.x,
+      0.03,
+      hr.z,
+      hr.radius * 2.2 * k,
+      0,
+      0,
+      RING.soft,
+      a0,
+      sup,
+      0,
+      7,
+      (allIn ? 0.34 : 0.16) + 0.06 * pulse,
+    );
     kit.sprites.push(
       hr.x,
       hr.height * 0.55 + hr.y,
       hr.z,
-      hr.radius * 2.2 * k,
+      hr.radius * (2.2 + 0.6 * level) * k,
       SPRITE.glow,
-      auraColor(auras[0]!),
-      (0.18 + 0.1 * pulse) * sup,
+      a0,
+      (0.16 + 0.1 * pulse) * (0.7 + 0.5 * level) * sup,
     );
+    // Rising motes in the song's colours: more of them the stronger the focus.
+    this.haloAcc += dt * (4 + 9 * level + (allIn ? 10 : 0)) * s * kit.particles.density;
+    while (this.haloAcc > 1) {
+      this.haloAcc -= 1;
+      const ang = Math.random() * Math.PI * 2;
+      const rr = hr.radius * (0.6 + Math.random() * 0.7);
+      const col = auraColor(c.auras[Math.floor(Math.random() * n)]!);
+      const flame = allIn && Math.random() < 0.5;
+      kit.particles.emit(
+        hr.x + Math.cos(ang) * rr,
+        0.1 + Math.random() * hr.height * 0.5 + hr.y,
+        hr.z + Math.sin(ang) * rr,
+        0,
+        flame ? 2.4 : 1.3,
+        0,
+        flame ? 0.6 : 1,
+        flame ? 0.15 : 0.11,
+        col,
+        0.9 * sup,
+        flame ? PARTICLE.spark : PARTICLE.note,
+        flame ? 1.2 : 0.4,
+        -0.1,
+      );
+    }
   }
 
   dispose(): void {

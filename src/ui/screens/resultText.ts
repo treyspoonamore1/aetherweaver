@@ -1,5 +1,6 @@
 /** Plain-text parts of the Result screen (testable without React). */
-import type { EncounterResult } from '../../meta/types';
+import type { EncounterResult, EncounterStats } from '../../meta/types';
+import { auraVerbs, splitContribution, type ContributionParts } from '../contribution';
 import { fmt, pct, plural } from '../kit/format';
 import type { IconName } from '../kit/iconPaths';
 
@@ -23,18 +24,63 @@ export const HIGHLIGHT_COLOR: Partial<
   fermata: '#e2d6f8',
 };
 
-/** Plain-English lines for a fight (also reused by tests and the lab). */
-export function statLines(r: EncounterResult): { icon: IconName; text: string; muted?: boolean }[] {
-  const s = r.stats;
-  const lines: { icon: IconName; text: string; muted?: boolean }[] = [];
+/** A fight's (or a run's) stats as the auras / Thread / everything split. */
+export function contributionOf(s: EncounterStats): ContributionParts {
+  return {
+    auras: { healing: s.auraHealing, shielded: s.auraShielded, amplified: s.auraAmplified },
+    thread: { healing: s.threadHealing, amplified: s.threadAmplified },
+    total: s.healing + s.shielded + s.negated + s.amplified,
+  };
+}
+
+export interface StatLine {
+  icon: IconName;
+  text: string;
+  muted?: boolean;
+}
+
+/**
+ * The auras' and the Thread's lines: "Your auras healed 1,840, shielded 960 and added 2,210
+ * damage: 38% of everything you did." / "Your beam healed 2,630 and Empower added 1,980
+ * damage." (Shared by the Result and the Summary.)
+ */
+export function songLines(s: EncounterStats): StatLine[] {
+  const split = splitContribution(contributionOf(s));
+  const verbs = auraVerbs(contributionOf(s).auras);
+  const lines: StatLine[] = [];
+  lines.push(
+    verbs
+      ? {
+          icon: 'note',
+          text: `Your auras ${verbs}: ${pct(split.auraShare)} of everything you did.`,
+        }
+      : {
+          icon: 'note',
+          text: 'Your auras did nothing this time. Sing them where the party is: the beam song on whoever you thread, the field song around you.',
+          muted: true,
+        },
+  );
+  const heal = s.threadHealing >= 1;
+  const amp = s.threadAmplified >= 1;
   lines.push({
-    icon: 'mend',
+    icon: 'thread',
     text:
-      s.healing > 0
-        ? `Mend and auras healed ${fmt(s.healing)} life${s.overheal > 0 ? `; ${fmt(s.overheal)} more was wasted on heroes who were already full` : ''}.`
-        : 'You did no healing this fight.',
-    muted: s.healing === 0,
+      heal && amp
+        ? `Your beam healed ${fmt(s.threadHealing)} and Empower added ${fmt(s.threadAmplified)} damage.`
+        : heal
+          ? `Your beam healed ${fmt(s.threadHealing)}. Empower added no damage: right-click when everyone is healthy.`
+          : amp
+            ? `Empower added ${fmt(s.threadAmplified)} damage. Your beam healed nothing.`
+            : 'Your Thread did no healing or damage. Thread a hero with 1–4 or a click.',
+    muted: !heal && !amp,
   });
+  return lines;
+}
+
+/** Plain-English lines for a fight (also reused by tests and the lab). */
+export function statLines(r: EncounterResult): StatLine[] {
+  const s = r.stats;
+  const lines: StatLine[] = songLines(s);
   lines.push({
     icon: 'ward',
     text:
@@ -46,10 +92,10 @@ export function statLines(r: EncounterResult): { icon: IconName; text: string; m
   lines.push({
     icon: 'empower',
     text:
-      s.amplified > 0
-        ? `Your Empower thread and auras added ${fmt(s.amplified)} damage, ${pct(s.partyDamage > 0 ? s.amplified / s.partyDamage : 0)} of everything your party dealt.`
-        : 'Empower added no damage. Switch the Thread (right-click) when everyone is healthy.',
-    muted: s.amplified === 0,
+      s.healing + s.amplified > 0
+        ? `In all you healed ${fmt(s.healing)} life${s.overheal > 0 ? ` (${fmt(s.overheal)} more went to heroes already full)` : ''} and added ${fmt(s.amplified)} damage, ${pct(s.partyDamage > 0 ? s.amplified / s.partyDamage : 0)} of everything your party dealt.`
+        : 'You did no healing and added no damage this fight.',
+    muted: s.healing + s.amplified === 0,
   });
   if (s.saves > 0) {
     lines.push({

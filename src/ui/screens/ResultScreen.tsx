@@ -1,4 +1,5 @@
 import type { CSSProperties } from 'react';
+import { useProfile, type RankUp } from '../../app/profileStore';
 import { useRun } from '../../app/runStore';
 import { CONTENT, heroDef } from '../../content';
 import type { EncounterResult, Grade, RunState } from '../../meta/types';
@@ -11,7 +12,9 @@ import { Panel } from '../kit/Panel';
 import { useMood } from '../kit/sound';
 import { HeroDisc, SectionTitle } from './shared';
 import { HpTimeline, TimelineLegend } from './Timeline';
-import { HIGHLIGHT_COLOR, HIGHLIGHT_ICON, statLines } from './resultText';
+import { ContributionBar } from './ContributionBar';
+import { RankUpCard, XpGainPanel, useRankUps } from './Rank';
+import { HIGHLIGHT_COLOR, HIGHLIGHT_ICON, contributionOf, statLines } from './resultText';
 import { WithoutYouPanel } from './WithoutYou';
 
 export { HIGHLIGHT_COLOR, HIGHLIGHT_ICON, statLines };
@@ -28,9 +31,24 @@ export interface ResultViewProps {
   run: RunState;
   result: EncounterResult;
   onContinue(): void;
+  /** The profile's XP now (this fight's included); omitted hides the XP panel. */
+  profileXp?: number;
+  /** Rank-ups waiting to be shown: one card over the screen until dismissed. */
+  rankUps?: readonly RankUp[];
+  onDismissRankUps?(): void;
+  /** The player's first rank-up ever (the card points at the builder's "New" marks). */
+  firstRankUp?: boolean;
 }
 
-export function ResultView({ run, result: r, onContinue }: ResultViewProps) {
+export function ResultView({
+  run,
+  result: r,
+  onContinue,
+  profileXp,
+  rankUps = [],
+  onDismissRankUps,
+  firstRankUp = false,
+}: ResultViewProps) {
   useMood('map');
   const victory = r.outcome === 'victory';
   const g = GRADE[r.grade];
@@ -78,6 +96,11 @@ export function ResultView({ run, result: r, onContinue }: ResultViewProps) {
               <span>Weaver share {pct(r.stats.weaverShare)}</span>
             </p>
           </div>
+          {profileXp !== undefined && (
+            <div className="w-full sm:ml-auto sm:w-80">
+              <XpGainPanel result={r} profileXp={profileXp} />
+            </div>
+          )}
         </header>
 
         {best && (
@@ -115,6 +138,7 @@ export function ResultView({ run, result: r, onContinue }: ResultViewProps) {
         <div className="mt-6 grid gap-6 lg:grid-cols-[1.2fr_1fr]">
           <Panel tone="solid" className="p-5">
             <SectionTitle>What you did</SectionTitle>
+            <ContributionBar parts={contributionOf(r.stats)} className="mb-4" />
             <ul className="flex flex-col gap-3">
               {statLines(r).map((l, i) => (
                 <li
@@ -285,6 +309,9 @@ export function ResultView({ run, result: r, onContinue }: ResultViewProps) {
           Continue <Icon name="arrow" size={18} />
         </Button>
       </div>
+      {rankUps.length > 0 && onDismissRankUps && (
+        <RankUpCard rankUps={rankUps} onDismiss={onDismissRankUps} firstTime={firstRankUp} />
+      )}
     </ScreenFrame>
   );
 }
@@ -292,6 +319,18 @@ export function ResultView({ run, result: r, onContinue }: ResultViewProps) {
 export function ResultScreen() {
   const run = useRun((s) => s.run);
   const cont = useRun((s) => s.continueFromResult);
+  const xp = useProfile((s) => s.profile.xp);
+  const { rankUps, firstTime, dismiss } = useRankUps();
   if (!run?.lastResult) return null;
-  return <ResultView run={run} result={run.lastResult} onContinue={cont} />;
+  return (
+    <ResultView
+      run={run}
+      result={run.lastResult}
+      onContinue={cont}
+      profileXp={xp}
+      rankUps={rankUps}
+      onDismissRankUps={dismiss}
+      firstRankUp={firstTime}
+    />
+  );
 }
