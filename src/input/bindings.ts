@@ -17,11 +17,20 @@ function isAction(key: string): key is Action {
   return Object.prototype.hasOwnProperty.call(DEFAULT_BINDINGS, key);
 }
 
+/**
+ * Keys that always work for an action and can't be removed or replaced: Escape always pauses,
+ * because the Pause menu is the only way out of a fight (and Escape can't be captured back).
+ */
+export const FIXED_KEYS: Readonly<Partial<Record<Action, string>>> = { pause: 'Escape' };
+
 /** Defaults with the overrides applied. Unknown actions in the overrides are ignored. */
 export function effectiveBindings(overrides: Overrides): Bindings {
   const out = { ...DEFAULT_BINDINGS } as Record<Action, readonly string[]>;
   for (const [key, codes] of Object.entries(overrides)) {
     if (isAction(key)) out[key] = [...codes].slice(0, MAX_KEYS);
+  }
+  for (const [action, code] of Object.entries(FIXED_KEYS) as [Action, string][]) {
+    if (!out[action].includes(code)) out[action] = [code, ...out[action]].slice(0, MAX_KEYS);
   }
   return out;
 }
@@ -63,6 +72,8 @@ export function assignKey(
 ): Bindings {
   const next = { ...bindings } as Record<Action, readonly string[]>;
   const own = [...bindings[action]];
+  // A fixed key keeps its slot: the new key goes in after it.
+  if (own[slot] !== undefined && FIXED_KEYS[action] === own[slot]) slot = own.length;
   const previous = own[slot];
   if (previous === code) return bindings;
   const other = findConflict(bindings, code, action);
@@ -91,7 +102,7 @@ export function assignKey(
 /** Removes the key in `slot` from `action` (the action may end up unbound). */
 export function clearKey(bindings: Bindings, action: Action, slot: number): Bindings {
   const own = [...bindings[action]];
-  if (slot >= own.length) return bindings;
+  if (slot >= own.length || FIXED_KEYS[action] === own[slot]) return bindings;
   own.splice(slot, 1);
   return { ...bindings, [action]: own };
 }

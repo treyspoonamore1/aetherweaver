@@ -15,6 +15,7 @@ import {
   interruptEnemy,
   isActive,
   isDisabled,
+  shieldOf,
 } from '../combat/health';
 import { bark } from '../combat/feedback';
 import { contains } from '../combat/telegraphs';
@@ -668,8 +669,11 @@ function executeAbility(
       }
       // Bulwark: a barrier for every enemy the answered Challenge catches.
       if (f && f.barrierPerTarget > 0 && caught > 0) {
-        const pct = Math.min(f.barrierCap, f.barrierPerTarget * caught);
-        addShield(world, e, 'overshield', e.health!.maxHp * pct, 5, true);
+        const amount = e.health!.maxHp * Math.min(f.barrierCap, f.barrierPerTarget * caught);
+        // One overshield per hero: never trade a bigger one (Aegis Wall…) for this.
+        const existing = shieldOf(e.health!, 'overshield');
+        if (!existing || existing.amount < amount)
+          addShield(world, e, 'overshield', amount, 5, true);
       }
       return;
     }

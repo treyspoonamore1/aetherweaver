@@ -4,7 +4,7 @@
  */
 import { encounterDef, enemyDef } from '../../content';
 import { len } from '../core/dmath';
-import { isActive, killEnemy } from '../combat/health';
+import { isActive, killEnemy, releaseHold } from '../combat/health';
 import { setTimeScale } from '../combat/feedback';
 import type { Entity } from '../state';
 import type { World } from '../world';
@@ -200,6 +200,11 @@ function endEncounter(world: World, outcome: 'victory' | 'defeat'): void {
   const enc = world.encounter;
   enc.status = outcome;
   enc.endedAt = world.time;
+  // A hero hanging on in a Fermata hold survives the end of the fight.
+  for (const id of world.party) {
+    const e = world.entities.get(id);
+    if (e?.hero?.hold) releaseHold(world, e, true);
+  }
   for (let i = world.telegraphs.length - 1; i >= 0; i--) {
     const t = world.telegraphs[i]!;
     world.events.push({

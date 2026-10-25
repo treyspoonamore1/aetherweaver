@@ -414,3 +414,95 @@ describe('replays', () => {
     expect(runReplay(replay).matches).toBe(true);
   });
 });
+
+describe('review fixes', () => {
+  it('a hero held when the fight is won survives it (no down after victory)', () => {
+    const sim = createSim({
+      seed: 7,
+      encounter: 'first_light',
+      debug: true,
+      chords: [{ auras: ['fermata'] }],
+    });
+    const w = worldOf(sim);
+    const kill = { t: 'debug' as const, op: { op: 'killEnemies' as const } };
+    let held = false;
+    for (let t = 0; t < 60 * 90 && sim.state.encounter.status !== 'victory'; t++) {
+      const lastWave =
+        w.internal.director.nextWave >= sim.state.encounter.waves &&
+        w.internal.pendingSpawns.length === 0;
+      const live = sim.state.entities.list().some((e) => e.enemy && !e.health?.dead);
+      if (lastWave && live && !held) {
+        sim.step([{ t: 'debug', op: { op: 'forceHold', slot: 1 } }]);
+        held = true;
+      } else sim.step(held || !lastWave ? [kill] : []);
+    }
+    expect(held).toBe(true);
+    expect(sim.state.encounter.status).toBe('victory');
+    const events = stepFor(sim, 60 * 3);
+    const lyra = hero(sim, 1);
+    expect(lyra.health!.downed).toBe(false);
+    expect(lyra.hero!.hold).toBeNull();
+    expect(sim.state.ledger.downs).toBe(0);
+    expect(ofType(events, 'allyDowned')).toHaveLength(0);
+  });
+
+  it('Bulwark never trades a bigger overshield for its own', () => {
+    const sim = sandbox({ auras: ['sostenuto'] });
+    // Brutes last long enough to stay loose around the party for the Challenge.
+    stepFor(sim, 1, [
+      spawn('bell_brute', 0, -5),
+      spawn('bell_brute', 4, 3),
+      spawn('bell_brute', -4, 3),
+    ]);
+    stepFor(sim, 30);
+    const w = worldOf(sim);
+    const kael = w.entities.get(sim.state.party[0]!)!;
+    stepFor(sim, 1, [{ t: 'debug', op: { op: 'forceCall', slot: 0 } }]);
+    // Aegis Wall-sized overshield, then answer the call.
+    const big = kael.health!.maxHp * 0.6;
+    kael.health!.shields.push({
+      kind: 'overshield',
+      amount: big,
+      max: big,
+      appliedAt: sim.state.time,
+      expiresAt: sim.state.time + 30,
+      fromWeaver: false,
+    });
+    let events = stepFor(sim, 1, [{ t: 'tech', id: 'ward', slot: 0 }]);
+    // Check on the tick the Flourish lands: the brutes wear the overshield down afterwards.
+    for (let i = 0; i < 60 * 6 && !ofType(events, 'flourish').length; i++) events = stepFor(sim, 1);
+    expect(ofType(events, 'flourish').some((f) => f.name === 'Bulwark')).toBe(true);
+    const shields = kael.health!.shields.filter((s) => s.kind === 'overshield');
+    expect(shields).toHaveLength(1);
+    expect(shields[0]!.fromWeaver).toBe(false);
+  });
+
+  it('a downed caller waits the full spacing before calling again', () => {
+    const sim = sandbox({ auras: ['sostenuto'] });
+    stepFor(sim, 1, [spawn('hollow_chorister', 0, -4)]);
+    stepFor(sim, 60);
+    stepFor(sim, 1, [{ t: 'debug', op: { op: 'forceCall', slot: 1 } }]);
+    hurt(sim, 1, 99999);
+    expect(hero(sim, 1).hero!.call).toBeNull();
+    expect(hero(sim, 1).hero!.callCooldown).toBeGreaterThan(CONTENT.calls.heroCooldown - 0.1);
+  });
+
+  it('the first call comes no sooner than its delay into the fighting', () => {
+    for (const seed of [3, 9, 21]) {
+      const sim = createSim({ seed, encounter: 'tolling_halls', auras: ['sostenuto'] });
+      const events = stepFor(sim, 60 * 40);
+      const first = ofType(events, 'callStarted')[0];
+      if (!first) continue;
+      const started = sim.state.encounter.startedAt;
+      expect(first.tick / 60).toBeGreaterThanOrEqual(started + CONTENT.calls.firstAfter - 1e-6);
+    }
+  });
+
+  it('an ornament exclusion declared on either side is enforced', () => {
+    const content = structuredClone(CONTENT);
+    for (const o of content.ornaments) o.excludes = o.id === 'pedal_point' ? ['grace_note'] : [];
+    expect(
+      chordProblems([{ auras: ['sostenuto'], ornaments: ['grace_note', 'pedal_point'] }], content),
+    ).toEqual(["Grace Note and Pedal Point can't share a Chord."]);
+  });
+});

@@ -6,6 +6,7 @@ import {
   actionLabel,
   assignKey,
   bindableCode,
+  FIXED_KEYS,
   clearKey,
   effectiveBindings,
   findConflict,
@@ -145,6 +146,7 @@ export function ControlsSettings({ compact = false }: { compact?: boolean }) {
                           action={info.action}
                           slot={slot}
                           code={codes[slot]}
+                          fixed={!!codes[slot] && FIXED_KEYS[info.action] === codes[slot]}
                           capturing={capture?.action === info.action && capture.slot === slot}
                           onCapture={() => {
                             setPending(null);
@@ -189,6 +191,7 @@ function KeySlot({
   action,
   slot,
   code,
+  fixed = false,
   capturing,
   onCapture,
   onClear,
@@ -196,11 +199,24 @@ function KeySlot({
   action: Action;
   slot: number;
   code: string | undefined;
+  /** A key that always works for this action (Escape pauses): shown, never changed. */
+  fixed?: boolean;
   capturing: boolean;
   onCapture(): void;
   onClear(): void;
 }) {
   const label = actionLabel(action);
+  if (fixed && code) {
+    return (
+      <span
+        className="min-w-[4.25rem] shrink-0 rounded-md border border-ink-600 px-2 py-1 text-center font-mono text-xs text-muted"
+        title={`${keyLabel(code)} always works for ${label}`}
+        aria-label={`${label}: ${keyLabel(code)}, fixed`}
+      >
+        {keyLabel(code)}
+      </span>
+    );
+  }
   return (
     <span className="flex shrink-0 items-center">
       <button

@@ -98,7 +98,11 @@ function SpawnPalette({ loadout, onLoadout }: { loadout: string; onLoadout(id: s
             <select
               className="mt-1 block w-full rounded-md border border-ink-500 bg-ink-800 px-2 py-1 text-xs font-medium normal-case tracking-normal text-text"
               value={loadout}
-              onChange={(e) => onLoadout(e.target.value)}
+              onChange={(e) => {
+                onLoadout(e.target.value);
+                // Give the keyboard back to the game (a focused select would eat WASD).
+                e.currentTarget.blur();
+              }}
             >
               {CHORD_PRESETS.map((p) => (
                 <option key={p.id} value={p.id}>

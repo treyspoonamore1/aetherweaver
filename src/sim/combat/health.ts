@@ -451,9 +451,10 @@ export function startHold(
 
 /**
  * A Fermata hold ends: healed by the Weaver during it, the hero lives and it's a Save;
- * otherwise the held hit lands after all.
+ * otherwise the held hit lands after all — unless the fight is already over (`fightOver`),
+ * in which case the hero simply lives.
  */
-export function releaseHold(world: World, e: Entity): void {
+export function releaseHold(world: World, e: Entity, fightOver = false): void {
   const hero = e.hero;
   const hold = hero?.hold;
   if (!hero || !hold) return;
@@ -461,10 +462,15 @@ export function releaseHold(world: World, e: Entity): void {
   removeStatus(world, e, 'held', 'expired');
   const h = e.health!;
   if (h.dead || h.downed) return;
-  const saved = hold.savedBy !== null;
-  world.events.push({ type: 'fermataReleased', tick: world.tick, hero: e.id, saved });
-  if (saved) recordSave(world, e, 'fermata', hold.damage, hold.attack);
-  else downHero(world, e, hold.attack);
+  const healed = hold.savedBy !== null;
+  world.events.push({
+    type: 'fermataReleased',
+    tick: world.tick,
+    hero: e.id,
+    saved: healed || fightOver,
+  });
+  if (healed) recordSave(world, e, 'fermata', hold.damage, hold.attack);
+  else if (!fightOver) downHero(world, e, hold.attack);
 }
 
 const BLEED_OUT = 12;
@@ -479,6 +485,7 @@ function downHero(world: World, e: Entity, killer: string): void {
   hero.hold = null;
   if (hero.call) {
     hero.call = null;
+    hero.callCooldown = world.content.calls.heroCooldown;
     world.events.push({ type: 'callEnded', tick: world.tick, hero: e.id, reason: 'cancelled' });
   }
   h.hp = 0;

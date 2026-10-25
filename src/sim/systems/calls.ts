@@ -28,7 +28,10 @@ function castTime(world: World, def: HeroDef): number {
 
 /** Should `e` call for support now: their move is almost ready, it's calm, and an answer is possible? */
 export function canCall(world: World, e: Entity, def: HeroDef): boolean {
-  if (world.config.absent || world.encounter.status !== 'fighting') return false;
+  const enc = world.encounter;
+  if (world.config.absent || enc.status !== 'fighting') return false;
+  // The first call comes a few seconds into the fighting, not into the intro.
+  if (world.time - enc.startedAt < world.content.calls.firstAfter) return false;
   const hero = e.hero!;
   if (hero.call || hero.callCooldown > 0 || world.time < world.internal.nextCallAt) return false;
   const answerTime = def.call.answerTime;

@@ -102,10 +102,11 @@ export function chordProblems(
       if (seenOrnaments.has(id)) problems.push(`You own one ${def.name}: it fits one Chord.`);
       seenOrnaments.add(id);
       for (const other of chord.ornaments) {
-        if (other !== id && def.excludes.includes(other) && id < other) {
-          const o = content.ornaments.find((d) => d.id === other);
+        if (other === id || id > other) continue;
+        // Either side may declare the exclusion.
+        const o = content.ornaments.find((d) => d.id === other);
+        if (def.excludes.includes(other) || o?.excludes.includes(id))
           problems.push(`${def.name} and ${o?.name ?? other} can't share a Chord.`);
-        }
       }
     }
   });

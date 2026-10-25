@@ -323,7 +323,10 @@ export interface FermataHold extends At {
   attack: string;
   damage: number;
 }
-/** A Fermata hold ended: healed in time (`saved`, also logged as a Save) or downed. */
+/**
+ * A Fermata hold ended. `saved`: the hero lives — healed in time (also logged as a Save) or the
+ * fight ended first. Otherwise the held hit lands and they go down.
+ */
 export interface FermataReleased extends At {
   type: 'fermataReleased';
   hero: EntityId;
