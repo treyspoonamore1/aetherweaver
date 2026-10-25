@@ -197,10 +197,12 @@ const RELIC_SCENARIOS: Record<string, RelicScenario> = {
   },
   'Glass Halo': {
     relics: ['glass_halo'],
-    note: 'A Perfect Ward on Kael (choristers hurt Vexis first): the halo heals every hero',
+    note: 'A Perfect Ward on Kael against an elite brute (choristers on Vexis): the halo heals every hero',
     stage: (rt) => {
-      rt.later(0.2, () => rt.attackers(2, 2));
-      rt.later(2.5, () => rt.brute(0));
+      rt.later(0.2, () => {
+        rt.attackers(2, 2);
+        rt.brute(0, true);
+      });
       rt.perfectOn('Toll Cleave', 0);
     },
   },
@@ -357,12 +359,12 @@ class LabRuntime {
    * A Bell Brute beside the hero in `slot`, with the Weaver stepped back out of its Toll Cleave
    * (the cone is 5 m long and one-shots the Weaver), so the Ward is the story.
    */
-  brute(slot: number): void {
+  brute(slot: number, elite = false): void {
     const p = this.heroPos(slot);
     this.queue({ t: 'debug', op: { op: 'teleportWeaver', x: p.x - 4.5, z: p.z + 2.5 } });
     this.queue({
       t: 'debug',
-      op: { op: 'spawnEnemy', defId: 'bell_brute', x: p.x + 2.5, z: p.z - 1 },
+      op: { op: 'spawnEnemy', defId: 'bell_brute', x: p.x + 2.5, z: p.z - 1, elite },
     });
   }
 
@@ -374,10 +376,11 @@ class LabRuntime {
         if (e.type !== 'telegraphStarted') return;
         const t = this.sim.state.telegraphs.find((k) => k.id === e.telegraph);
         if (!t) return;
+        // Ward whoever it is aimed at (the hero in `slot` unless it picked someone else).
+        const aimed = t.target === null ? -1 : this.sim.state.party.indexOf(t.target);
+        const ward = (aimed >= 0 ? aimed : slot) as PartySlot;
         const at = t.perfectFrom + 0.05 - this.sim.state.time;
-        this.later(Math.max(0, at), () =>
-          this.queue({ t: 'tech', id: 'ward', slot: slot as PartySlot }),
-        );
+        this.later(Math.max(0, at), () => this.queue({ t: 'tech', id: 'ward', slot: ward }));
       },
     );
   }

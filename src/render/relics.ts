@@ -99,6 +99,7 @@ const BRASS = color(BRASS_HEX);
 const STEEL = color('#d6e2f5');
 const GLASS = color('#eefbff');
 const IRON = color('#9aa3b2');
+const CHAIN = color('#c3cad6');
 const IRON_DARK = color('#353a44');
 const SPECTRUM = ['#ff9db0', '#ffd27a', '#c2f59a', '#8fe9ff', '#a9b6ff', '#e6a8ff'].map(color);
 
@@ -121,7 +122,7 @@ const LANTERN_FLIGHT = 0.45;
 /** Veil: how long it takes to unfurl from the hero to the Weaver. */
 const UNFURL = 0.28;
 /** Glass Halo: it forms, then shatters. */
-const HALO_FORM = 0.3;
+const HALO_FORM = 0.42;
 const HALO_FLIGHT = 0.42;
 /** Heavy Score: the weight's drop. */
 const DROP = 0.13;
@@ -727,7 +728,7 @@ export class RelicView {
       kit.particles.burst(bx, by, bz, 18, 3, 2, 0.6, 0.13, VEIL, 1, PARTICLE.shard, 3, 3, w.radius);
       this.d.rig?.addTrauma(0.16);
     }
-    this.callout(m, 2, bx, w.height + 1.3, bz, 'VEIL', VEIL_HEX, 28, 'rgba(58,40,82,0.95)');
+    this.callout(m, 2, bx, w.height + 1.9, bz, 'VEIL', VEIL_HEX, 28, 'rgba(58,40,82,0.95)');
     const v = seg(m.age, UNFURL, m.life);
     const fade = 1 - v;
     kit.shells.push(
@@ -942,16 +943,18 @@ export class RelicView {
     const u = seg(m.age, 0, m.life);
     const a = Math.min(1, m.age / 0.08) * (1 - seg(m.age, 0.8, m.life));
     // A tuning fork rings at the hero's shoulder: its prongs shiver, sound rings roll out.
-    const vib = Math.sin(m.age * 75) * 0.04 * (1 - u);
-    const fx = h.x + h.radius + 0.5;
-    const fy = cy - 0.15;
+    const vib = Math.sin(m.age * 75) * 0.05 * (1 - u);
+    const fx = h.x - h.radius - 0.6;
+    const fy = cy - 0.1;
+    kit.sprites.push(fx, fy + 0.45, h.z, 1.1, SPRITE.glow, STEEL, 0.35 * a);
     for (let side = -1; side <= 1; side += 2) {
-      const px = fx + side * (0.1 + vib * side);
-      kit.beams.push(px, fy + 0.12, h.z, px, fy + 0.62, h.z, 0.07, BEAM.glow, STEEL, a);
+      const px = fx + side * (0.17 + vib * side);
+      kit.beams.push(px, fy + 0.15, h.z, px, fy + 1.15, h.z, 0.12, BEAM.glow, STEEL, a);
     }
-    kit.beams.push(fx - 0.11, fy + 0.12, h.z, fx + 0.11, fy + 0.12, h.z, 0.07, BEAM.glow, STEEL, a);
-    kit.beams.push(fx, fy + 0.12, h.z, fx, fy - 0.2, h.z, 0.07, BEAM.glow, STEEL, a);
-    kit.sprites.push(fx, fy + 0.62, h.z, 0.35, SPRITE.glow, STEEL, 0.6 * a);
+    kit.beams.push(fx - 0.15, fy + 0.15, h.z, fx + 0.15, fy + 0.15, h.z, 0.1, BEAM.glow, STEEL, a);
+    kit.beams.push(fx, fy + 0.15, h.z, fx, fy - 0.3, h.z, 0.1, BEAM.glow, STEEL, a);
+    for (let side = -1; side <= 1; side += 2)
+      kit.sprites.push(fx + side * 0.17, fy + 1.15, h.z, 0.36, SPRITE.glow, STEEL, 0.75 * a);
     for (let k = 0; k < 3; k++) {
       const ph = (m.age * 2.2 + k / 3) % 1;
       kit.rings.push(
@@ -978,7 +981,7 @@ export class RelicView {
       a,
     );
     // …and their Solo fills: the gold arc at their feet grows by the Fork's share.
-    const R2 = h.radius * 2.2;
+    const R2 = h.radius * 2.4;
     const before = m.value2 / 100;
     const after = m.value / 100;
     const fill = before + (after - before) * easeOut(seg(m.age, 0.08, 0.45));
@@ -1353,17 +1356,17 @@ export class RelicView {
       IRON,
       fade,
     );
-    const R = w.radius * 1.7 * (1 - 0.25 * easeOut(v));
-    kit.rings.push(w.x, 0.62, w.z, R, 0.045, 0.08, RING.plain, IRON, 0.6 * fade);
+    const R = w.radius * 2.3 * (1 - 0.25 * easeOut(v));
+    kit.rings.push(w.x, 0.62, w.z, R, 0.06, 0.1, RING.plain, IRON, 0.8 * fade);
     for (let k = 0; k < 10; k++) {
       const a = (k * Math.PI * 2) / 10 + v * 0.6;
       kit.sprites.push(
         w.x + Math.cos(a) * R,
         0.62 + 0.06 * Math.sin(k * 1.7),
         w.z + Math.sin(a) * R,
-        0.14,
+        0.2,
         SPRITE.diamond,
-        IRON,
+        CHAIN,
         0.95 * fade,
         a,
       );
@@ -1427,7 +1430,7 @@ export class RelicView {
           const t = i / PRISM_N;
           const p = this.arc(ax, ay, az, bx, by, bz, t, -0.12, this.p);
           const pulse = head >= 0 ? Math.exp(-(((t - head) / 0.1) ** 2)) : 0;
-          this.spectral(t * 3 - time * 0.8, pass === 0 ? 0.5 : 0.3);
+          this.spectral(t * 3 - time * 0.8, pass === 0 ? 0.75 : 0.35);
           if (pass === 0)
             kit.ribbons.point(
               p.x,
@@ -1435,7 +1438,7 @@ export class RelicView {
               p.z,
               0.07 + 0.07 * k,
               this.tint,
-              (0.1 + 0.22 * k + pulse * 0.4) * fade,
+              (0.14 + 0.26 * k + pulse * 0.4) * fade,
               t * 2 - time,
             );
           else
@@ -1445,7 +1448,7 @@ export class RelicView {
               p.z,
               0.02 + 0.018 * k + pulse * 0.03,
               this.tint,
-              (0.4 + 0.45 * k + pulse * 0.5) * fade,
+              (0.28 + 0.34 * k + pulse * 0.5) * fade,
               t * 4 - time * 2.5,
             );
         }
