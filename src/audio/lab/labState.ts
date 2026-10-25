@@ -37,6 +37,9 @@ export class FakeWorld {
     threadHero: number | null;
   }[] = [];
   status = 'fighting';
+  /** Phase 3c: the Calling the fake run carries, and whether Sunrise is up (`field.crescendo`). */
+  calling: { id: string; path: string[] } | null = null;
+  sunrise = false;
   readonly state: WorldState;
 
   constructor() {
@@ -73,7 +76,12 @@ export class FakeWorld {
       focusTarget: null,
       chimes: [],
       get field() {
-        return { chords: self.chords } as unknown as WorldState['field'];
+        return { chords: self.chords, crescendo: self.sunrise } as unknown as WorldState['field'];
+      },
+      get calling() {
+        return self.calling
+          ? { ...self.calling, radiancePerAura: 0.04, sunriseMult: 3, sovereign: false }
+          : null;
       },
       ledger: {} as WorldState['ledger'],
       get telegraphs() {
@@ -129,6 +137,11 @@ export class FakeWorld {
   }
   setCrescendo(on: boolean): void {
     this.weaverData().crescendo = on ? 10 : 0;
+    this.sunrise = on;
+  }
+  /** Phase 3c: a Calling (the Luminary) with the option ids picked so far; null for none. */
+  setCalling(id: string | null, path: string[] = []): void {
+    this.calling = id === null ? null : { id, path };
   }
   setHeroHp(hero: HeroKey, frac: number): void {
     const h = this.entities.get(IDS[hero]);

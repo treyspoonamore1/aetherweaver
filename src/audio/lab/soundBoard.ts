@@ -8,7 +8,7 @@ import { IDS, ev, type HeroKey } from './labState';
 export interface SoundButton {
   id: string;
   label: string;
-  group: 'support' | 'phase2' | 'relic' | 'world' | 'ui';
+  group: 'support' | 'phase2' | 'relic' | 'calling' | 'world' | 'ui';
   /** Fires the sound. Receives the director and a world to read/mutate. */
   fire(d: SynthDirector, w: FakeWorld): void;
   /** Follow-up events, `delay` seconds after the first (call then answer, hold then release). */
@@ -61,6 +61,34 @@ function mend(d: SynthDirector, w: FakeWorld, hero: HeroKey, frac: number) {
       via: 'mend',
     }),
   );
+}
+
+/** A hero's hit on an enemy with `share` of it Radiance's (amount 100, so radiance = share x). */
+function radiantHit(w: FakeWorld, hero: HeroKey, share: number, enemy = IDS.enemyBase): SimEvent {
+  if (!w.entities.has(enemy)) w.setEnemies(3);
+  return ev('damageTaken', {
+    target: enemy,
+    source: IDS[hero],
+    amount: 100,
+    absorbed: 0,
+    amplified: share * 100,
+    aura: 0,
+    radiance: share * 100,
+    crit: false,
+    telegraph: null,
+    hit: 'hit',
+  });
+}
+
+/** One twentieth of a burst: five radiant hits spread over the three heroes. */
+function radiantBurst(d: SynthDirector, w: FakeWorld, step: number): void {
+  const heroes = ['kael', 'lyra', 'vexis'] as const;
+  for (let i = 0; i < 5; i++)
+    fire(d, w, radiantHit(w, heroes[(step + i) % 3] as HeroKey, 0.12 + 0.02 * (i % 3)));
+}
+
+function shieldOn(hero: HeroKey, amount: number): SimEvent {
+  return ev('shieldApplied', { target: IDS[hero], shield: 'overshield', amount, fromWeaver: true });
 }
 
 const ANSWER_OF = { kael: 'ward', lyra: 'empower', vexis: 'chime' } as const;
@@ -581,6 +609,101 @@ export const SOUNDS: SoundButton[] = [
     label: 'Generic reject (compare)',
     group: 'relic',
     fire: (d, w) => fire(d, w, ev('techniqueRejected', { technique: 'glide', reason: 'cooldown' })),
+  },
+  // ── Phase 3c: the Luminary ─────────────────────────────────────────────────────
+  {
+    id: 'calling-radiant-hit',
+    label: 'Radiant hit (single, Lyra)',
+    group: 'calling',
+    length: 3,
+    fire: (d, w) => fire(d, w, radiantHit(w, 'lyra', 0.12)),
+  },
+  {
+    id: 'calling-radiant-big',
+    label: 'Radiant hit (big share, Vexis)',
+    group: 'calling',
+    length: 3,
+    fire: (d, w) => fire(d, w, radiantHit(w, 'vexis', 0.35)),
+  },
+  {
+    id: 'calling-radiant-burst',
+    label: 'Radiant burst (100 hits in 1 s)',
+    group: 'calling',
+    length: 4,
+    fire: (d, w) => radiantBurst(d, w, 0),
+    then: Array.from({ length: 20 }, (_, i) => ({
+      delay: (i + 1) * 0.05,
+      fire: (d: SynthDirector, w: FakeWorld) => radiantBurst(d, w, i + 1),
+    })),
+  },
+  {
+    id: 'calling-radiant-sunrise',
+    label: 'Radiant burst in Sunrise',
+    group: 'calling',
+    length: 4,
+    fire: (d, w) => {
+      w.setCalling('luminary');
+      w.setCrescendo(true);
+      radiantBurst(d, w, 0);
+    },
+    then: Array.from({ length: 20 }, (_, i) => ({
+      delay: (i + 1) * 0.05,
+      fire: (d: SynthDirector, w: FakeWorld) => radiantBurst(d, w, i + 1),
+    })),
+  },
+  {
+    id: 'calling-dawnward',
+    label: 'Dawnward (Kael steps into the light)',
+    group: 'calling',
+    length: 3,
+    fire: (d, w) =>
+      fire(d, w, shieldOn('kael', 60), ev('dawnward', { hero: IDS.kael, amount: 60 })),
+  },
+  {
+    id: 'calling-dawnward-party',
+    label: 'Dawnward (all three, 0.15 s apart)',
+    group: 'calling',
+    length: 3,
+    fire: (d, w) =>
+      fire(d, w, shieldOn('kael', 60), ev('dawnward', { hero: IDS.kael, amount: 60 })),
+    then: (['lyra', 'vexis'] as const).map((h, i) => ({
+      delay: 0.15 * (i + 1),
+      fire: (d: SynthDirector, w: FakeWorld) =>
+        fire(d, w, shieldOn(h, 60), ev('dawnward', { hero: IDS[h], amount: 60 })),
+    })),
+  },
+  {
+    id: 'calling-sunrise-plain',
+    label: 'Sunrise (no Calling, compare)',
+    group: 'calling',
+    length: 6,
+    fire: (d, w) => {
+      w.setCalling(null);
+      w.setCrescendo(true);
+      fire(d, w, ev('crescendoStart', { calling: 'Lab', duration: 8 }));
+    },
+  },
+  {
+    id: 'calling-sunrise-luminary',
+    label: "The Luminary's Sunrise",
+    group: 'calling',
+    length: 6,
+    fire: (d, w) => {
+      w.setCalling('luminary');
+      w.setCrescendo(true);
+      fire(d, w, ev('crescendoStart', { calling: 'Lab', duration: 8 }));
+    },
+  },
+  {
+    id: 'calling-sunrise-eclipse',
+    label: "The Luminary's Sunrise with Eclipse",
+    group: 'calling',
+    length: 6,
+    fire: (d, w) => {
+      w.setCalling('luminary', ['haloed', 'dawnward', 'third_voice', 'eclipse']);
+      w.setCrescendo(true);
+      fire(d, w, ev('crescendoStart', { calling: 'Lab', duration: 8 }));
+    },
   },
   // ── UI ─────────────────────────────────────────────────────────────────────────
   ...(

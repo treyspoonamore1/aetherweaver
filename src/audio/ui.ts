@@ -122,21 +122,13 @@ export function playUiSound(e: Engine, sound: UiSound): void {
       aether(v, t);
       break;
     case 'callingSelect':
-      // A Calling answered: a warm bell and a breath of light opening upwards.
-      handbell(v, t, hz(7), 0.07, 1.6, 0.6);
-      glassNote(v, t + 0.05, hz(14), 0.03, 1.2, 0.8);
-      whoosh(v, t, 0.5, 0.02, 600, 2800, 1);
+      callingSelect(v, t);
       break;
     case 'callingReveal':
-      // The path opens: a slow rising glass run.
-      [4, 7, 9, 11, 14].forEach((idx, i) => glassNote(v, t + i * 0.09, hz(idx), 0.025, 1.1, 0.7));
-      whoosh(v, t, 0.6, 0.015, 800, 3600, 1);
+      callingReveal(v, t);
       break;
     case 'callingPick':
-      // A tier taken: a choir chord with a bell on top, weightier than a pick.
-      choirChord(v, t, [hz(0), hz(4), hz(7)], 0.9, 0.08, 0.2, 0.9);
-      handbell(v, t + 0.04, hz(11), 0.06, 1.8, 0.7);
-      pluck(v, t, hz(7), 0.1, 0.4, 0.6);
+      callingPick(v, t);
       break;
     case 'wheelOpen':
       // A soft bloom: a breath opening upwards and a quiet A4.
@@ -429,4 +421,86 @@ function aether(v: Voice, t: number): void {
     glassNote(v, t + i * 0.045, hz(idx), 0.022 + i * 0.004, 0.35, 1);
   });
   pluck(v, t, hz(14), 0.04, 0.12, 0.9);
+}
+
+// ── Phase 3c: the Luminary's Calling ─────────────────────────────────────────────────
+
+/**
+ * A Calling is chosen in Prep, about 1.8 s: a commitment. A held D and A (a bare fifth that
+ * swells in and stays) under a bright handbell struck on A5, answered by D6 a beat later, a
+ * glass sparkle above them and a breath of light opening upwards. Settled, not busy: the
+ * held tone is what makes it feel like a vow.
+ */
+function callingSelect(v: Voice, t: number): void {
+  for (const [f, g] of [
+    [hz(-7), 0.09],
+    [hz(-3), 0.06],
+    [hz(0), 0.04],
+  ] as const) {
+    v.osc({
+      type: 'sine',
+      freq: f,
+      start: t,
+      dur: 0.7,
+      attack: 0.12,
+      release: 1.0,
+      gain: g,
+      shape: 'sustain',
+    });
+  }
+  handbell(v, t + 0.02, hz(11), 0.08, 1.8, 0.7);
+  handbell(v, t + 0.14, hz(14), 0.07, 2.0, 0.8);
+  glassNote(v, t + 0.14, hz(18), 0.03, 1.4, 1);
+  pluck(v, t, hz(7), 0.09, 0.35, 0.6);
+  whoosh(v, t, 0.6, 0.018, 600, 3200, 1);
+  v.extend(t + 2.0);
+}
+
+/**
+ * The path opens after a milestone fight, about 1.7 s: light gathering. A breath rises from
+ * dull to airy while a glassy run climbs the scale (D5 E5 A5 B5 D6 F6 A6), each note a
+ * little closer to the last and a little louder, until it lands on a long A6 with a bell
+ * and a faint Dm choir beneath.
+ */
+function callingReveal(v: Voice, t: number): void {
+  whoosh(v, t, 1.2, 0.024, 400, 4800, 0.9);
+  choirChord(v, t + 0.1, [hz(0), hz(4), hz(7)], 0.6, 0.06, 0.5, 0.9);
+  const run = [7, 8, 11, 12, 14, 16, 18];
+  let at = t;
+  run.forEach((idx, i) => {
+    const last = i === run.length - 1;
+    glassNote(v, at, hz(idx), last ? 0.05 : 0.022 + i * 0.003, last ? 1.6 : 0.8, 0.9);
+    if (i % 2 === 0) pluck(v, at, hz(idx - 7), 0.04, 0.2, 0.6);
+    at += 0.13 - i * 0.01;
+  });
+  handbell(v, at, hz(14), 0.06, 1.8, 0.7);
+  v.extend(t + 2.2);
+}
+
+/**
+ * A tier of the path is taken, about 2 s: weightier than `relicPick`. A low D thump and a
+ * D-A-D-A choir spread over two octaves swelling open, a pitch rising a whole octave through
+ * it (the dawn), a handbell on D5 and A5 and a glass D6 at the top of the chord.
+ */
+function callingPick(v: Voice, t: number): void {
+  thump(v, t, hz(-7), 0.2, 0.34, 0.65);
+  choirChord(v, t, [hz(-7), hz(-3), hz(0), hz(4), hz(7)], 0.9, 0.16, 0.18, 1.0);
+  v.osc({
+    type: 'sine',
+    freq: hz(0),
+    freqTo: hz(7),
+    glide: 0.35,
+    start: t + 0.02,
+    dur: 0.3,
+    attack: 0.03,
+    release: 0.4,
+    gain: 0.05,
+    shape: 'sustain',
+  });
+  handbell(v, t + 0.05, hz(7), 0.1, 1.8, 0.7);
+  handbell(v, t + 0.12, hz(11), 0.07, 2.0, 0.8);
+  pluck(v, t + 0.05, hz(7), 0.09, 0.35, 0.6);
+  glassNote(v, t + 0.2, hz(14), 0.04, 1.6, 1);
+  whoosh(v, t, 0.5, 0.016, 700, 3400, 1);
+  v.extend(t + 2.2);
 }

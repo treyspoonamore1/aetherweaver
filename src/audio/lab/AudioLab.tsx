@@ -31,13 +31,15 @@ const MOODS: AudioMood[] = [
   'victory',
   'defeat',
 ];
-const GROUPS: { id: 'support' | 'phase2' | 'relic' | 'world' | 'ui'; title: string }[] = [
-  { id: 'support', title: 'Support actions' },
-  { id: 'phase2', title: 'Phase 2: Call and Response, Fermata, Chords' },
-  { id: 'relic', title: 'Phase 3b: relics and the refused Glide' },
-  { id: 'world', title: 'World, enemies and telegraphs' },
-  { id: 'ui', title: 'UI' },
-];
+const GROUPS: { id: 'support' | 'phase2' | 'relic' | 'calling' | 'world' | 'ui'; title: string }[] =
+  [
+    { id: 'support', title: 'Support actions' },
+    { id: 'phase2', title: 'Phase 2: Call and Response, Fermata, Chords' },
+    { id: 'relic', title: 'Phase 3b: relics and the refused Glide' },
+    { id: 'calling', title: 'Phase 3c: the Luminary (Radiance, Dawnward, Sunrise)' },
+    { id: 'world', title: 'World, enemies and telegraphs' },
+    { id: 'ui', title: 'UI' },
+  ];
 
 declare global {
   interface Window {

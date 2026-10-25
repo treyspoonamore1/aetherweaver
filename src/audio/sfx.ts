@@ -235,7 +235,7 @@ export class SfxEngine {
         break;
       }
       case 'crescendoStart':
-        this.crescendo();
+        this.crescendo(state);
         break;
       case 'crescendoEnd':
         this.music.jump();
@@ -261,7 +261,11 @@ export class SfxEngine {
         this.kill(ev.defId, ev.enemy, ev.x, state);
         break;
       case 'damageTaken':
+        if (ev.radiance > 0) this.radiance(ev, state);
         this.heroHit(ev, state);
+        break;
+      case 'dawnward':
+        this.dawnward(ev.hero, ev.amount, state);
         break;
       case 'shieldBroken':
         if (this.e.gate('shield', 0.08)) {
@@ -564,7 +568,7 @@ export class SfxEngine {
     });
   }
 
-  private crescendo(): void {
+  private crescendo(state: WorldState): void {
     const e = this.e;
     if (!e.gate('gate:crescendo', 0.5)) return;
     this.music.jump();
@@ -581,6 +585,66 @@ export class SfxEngine {
         horn(v, t + 0.9, midiToHz(c.root + 12), 1.2, 0.1);
         thump(v, t + 1.0, 70, 0.22, 0.3, 0.5);
         v.extend(t + 4.5);
+      },
+      { big: true },
+    );
+    // Phase 3c: the Luminary's Sunrise rides on top of the ordinary one.
+    if (state.calling?.id === 'luminary')
+      this.luminarySunrise(c, state.calling.path.includes('eclipse'));
+  }
+
+  /**
+   * Phase 3c, the Luminary's Sunrise: the ordinary Crescendo (above) plus a high layer, so
+   * the light seems to rise a register higher than anyone else's. A high choir an octave
+   * above the usual one, a handbell pair on the horn's entry (D6, A6), a glass run climbing
+   * out of it and an airy breath opening to the top of the spectrum. With Eclipse on the
+   * path a dark undertone sits underneath instead of the glass run: a low D and A that beat
+   * slowly, a lowpassed choir and a muffled bell, so the corona has a shadow in it. Always
+   * D and A (the tonic and fifth) whatever chord the music is on, so it cannot clash.
+   */
+  private luminarySunrise(c: Chord, eclipse: boolean): void {
+    const top = chordNotesInRange(c, 74, 90).slice(0, 3).map(midiToHz);
+    this.play(
+      'bigSunriseLuminary',
+      1,
+      'sfx',
+      (v, t) => {
+        const k = eclipse ? 0.8 : 1;
+        choirChord(v, t + 0.1, top, 1.5, 0.09 * k, 0.8, 2.0);
+        whoosh(v, t, 1.4, 0.03 * k, 1800, 7000, 0.9);
+        handbell(v, t + 0.9, midiToHz(86), 0.07 * k, 2.4, 0.8);
+        handbell(v, t + 1.0, midiToHz(93), 0.05 * k, 2.4, 0.8);
+        if (!eclipse) {
+          [74, 77, 81, 86, 89, 93].forEach((m, i) =>
+            glassNote(v, t + 0.55 + i * 0.1, midiToHz(m), 0.03, 1.4, 1),
+          );
+        } else {
+          // The shadow: a low D and A that beat against their twins, and a dull, slow bell.
+          for (const [m, g] of [
+            [38, 0.12],
+            [45, 0.08],
+          ] as const) {
+            for (const detune of [0, 7]) {
+              v.osc({
+                type: 'sine',
+                freq: midiToHz(m),
+                detune,
+                start: t + 0.1,
+                dur: 1.6,
+                attack: 0.7,
+                release: 1.6,
+                gain: g,
+                shape: 'sustain',
+              });
+            }
+          }
+          choirChord(v, t + 0.2, [midiToHz(50), midiToHz(57)], 1.6, 0.1, 0.9, 2.0);
+          handbell(v, t + 0.9, midiToHz(50), 0.08, 3.0, 0.15);
+          [81, 86, 89].forEach((m, i) =>
+            glassNote(v, t + 0.75 + i * 0.16, midiToHz(m), 0.022, 1.6, 0.8),
+          );
+        }
+        v.extend(t + 5);
       },
       { big: true },
     );
@@ -1352,6 +1416,73 @@ export class SfxEngine {
           { pan },
         );
     }
+  }
+
+  /**
+   * Phase 3c, Radiance: a hero who shines lands a hit and a very small glass shimmer answers,
+   * pitched from that hero's own note two octaves up. Much quieter than any core cue: the
+   * gain (0.012 to 0.026, a fifth again in Sunrise) grows with Radiance's share of the hit,
+   * and its glass brightens with it. Rate-limited per hero (0.7 s) and across the party
+   * (0.15 s), so a burst of dozens of hits in a second makes no more than about four shimmers.
+   * It steps back a little further while a telegraph is winding up.
+   */
+  private radiance(ev: Extract<SimEvent, { type: 'damageTaken' }>, state: WorldState): void {
+    const e = this.e;
+    const src = ev.source === null ? undefined : state.entities.get(ev.source);
+    const heroKey = src?.hero ? `radiance:${ev.source}` : 'radiance:other';
+    if (!e.gate(heroKey, 0.7) || !e.gate('radiance', 0.15)) return;
+    const total = Math.max(ev.radiance, ev.amount + ev.absorbed);
+    const share = clamp(ev.radiance / total / 0.4, 0, 1);
+    const sunrise = state.field.crescendo === true;
+    const gain =
+      (0.012 + 0.014 * share) * (sunrise ? 1.35 : 1) * (state.telegraphs.length > 0 ? 0.7 : 1);
+    let idx = heroPluckIndex(src?.hero?.defId) + 14;
+    if (idx < 11) idx += 7;
+    const bright = 0.45 + 0.45 * share + (sunrise ? 0.1 : 0);
+    this.play(
+      'radiance',
+      3,
+      'sfx',
+      (v, t) => {
+        glassNote(v, t, midiToHz(scaleMidi(idx)), gain, 0.5 + 0.5 * share, bright);
+        // A bigger share (or Sunrise) adds a second spark, a fifth above.
+        if (share > 0.55 || sunrise)
+          glassNote(v, t + 0.045, midiToHz(scaleMidi(idx + 4)), gain * 0.6, 0.45, bright);
+      },
+      { pan: src ? this.panFor(state, src.x) : 0 },
+    );
+  }
+
+  /**
+   * Phase 3c, Dawnward: a hero steps into the light and a barrier forms. A warm dawn chime on
+   * that hero: a soft D-A-D choir swell, a handbell on the hero's note and a glass fifth
+   * above it, and a small breath opening upwards. About 1.5 s, panned to the hero. The
+   * `shieldApplied` event that accompanies it has no sound of its own (only a shield
+   * breaking does), so this is the only voice of the barrier forming. Bigger barriers are a
+   * little louder. Gated per hero (1 s) and across the party (0.08 s).
+   */
+  private dawnward(hero: number, amount: number, state: WorldState): void {
+    const e = this.e;
+    const ent = state.entities.get(hero);
+    if (!e.gate(`dawnward:${hero}`, 1) || !e.gate('dawnward', 0.08)) return;
+    const frac = ent?.health ? clamp(amount / Math.max(1, ent.health.maxHp), 0, 1) : 0.05;
+    const k = 0.8 + 0.5 * clamp(frac * 8, 0, 1);
+    let idx = heroPluckIndex(ent?.hero?.defId) + 7;
+    if (idx < 7) idx += 7;
+    this.play(
+      'dawnward',
+      3,
+      'sfx',
+      (v, t) => {
+        choirChord(v, t, [midiToHz(50), midiToHz(57), midiToHz(62)], 0.5, 0.05 * k, 0.15, 0.7);
+        handbell(v, t + 0.02, midiToHz(scaleMidi(idx)), 0.05 * k, 1.4, 0.5);
+        glassNote(v, t + 0.08, midiToHz(scaleMidi(idx + 4)), 0.024 * k, 1.1, 0.9);
+        pluck(v, t, midiToHz(scaleMidi(idx - 7)), 0.04 * k, 0.3, 0.5);
+        whoosh(v, t, 0.5, 0.014, 600, 2800, 1);
+        v.extend(t + 1.6);
+      },
+      { pan: ent ? this.panFor(state, ent.x) : 0 },
+    );
   }
 
   private heroHit(ev: Extract<SimEvent, { type: 'damageTaken' }>, state: WorldState): void {
