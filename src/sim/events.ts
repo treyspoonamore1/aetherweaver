@@ -1,5 +1,5 @@
 /**
- * CONTRACT v3 — Events are the only way out of the simulation (docs/plan/05 §4.5).
+ * CONTRACT v4 — Events are the only way out of the simulation (docs/plan/05 §4.5).
  *
  * The sim buffers events during a tick; render, audio, UI, the ledger and achievements
  * drain them after the step. Nothing polls the sim for "did X happen". Every event carries
@@ -85,8 +85,13 @@ export interface DamageTaken extends At {
   amount: number;
   /** Absorbed by shields. */
   absorbed: number;
-  /** The Weaver's share of the pre-mitigation damage (Empower, auras): the gold chip. */
+  /** The Weaver's share of the pre-mitigation damage (Empower, auras, Flourishes). */
   amplified: number;
+  /**
+   * The auras' part of `amplified` (their damage, plus the extra hits their haste buys). The
+   * rest, `amplified - aura`, is Empower and Flourishes: the gold chip.
+   */
+  aura: number;
   crit: boolean;
   telegraph: number | null;
   hit: 'hit' | 'tick' | 'detonation';

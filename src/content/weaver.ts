@@ -18,6 +18,8 @@ export const WEAVER: ContentInput['weaver'] = {
   ornamentSlots: 2,
   plantRange: 14,
   plantCooldown: 2,
+  beamFocus: 2,
+  beamEcho: 0.75,
 };
 
 export const THREAD: ContentInput['thread'] = {

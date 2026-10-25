@@ -407,11 +407,13 @@ function chorusPulse(world: World, cued: Entity): void {
     const ally = world.entities.get(id);
     if (!isActive(ally) || !ally.hero || ally.hero.auraMask === 0) continue;
     reached++;
-    heal(world, ally, ally.health.maxHp * def.healPctPerAura * auras, 'other');
+    // A Cue's active heal ('other': it can save a Fermata hold), credited to the auras.
+    const healed = heal(world, ally, ally.health.maxHp * def.healPctPerAura * auras, 'other');
+    world.ledger.auras.healing += healed;
     const amount = ally.health.maxHp * def.barrierPctPerAura * auras;
     const existing = shieldOf(ally.health, 'overshield');
     if (!existing || existing.amount < amount)
-      addShield(world, ally, 'overshield', amount, def.barrierDuration, true);
+      addShield(world, ally, 'overshield', amount, def.barrierDuration, true, true);
   }
   world.events.push({ type: 'chorusPulse', tick: world.tick, hero: cued.id, auras, reached });
 }

@@ -371,7 +371,6 @@ function Auras() {
 const ANCHOR_TEXT = {
   weaver: 'Around you',
   planted: 'Planted where you put it',
-  thread: 'On your threaded hero',
 } as const;
 
 function Chords() {
@@ -459,10 +458,8 @@ function Chords() {
                 {o.reserveMult !== 1 && <Chip icon="sparkle">reserve {mult(o.reserveMult)}</Chip>}
                 {o.effectMult !== 1 && <Chip icon="empower">effect {mult(o.effectMult)}</Chip>}
                 {o.radiusMult !== 1 && <Chip icon="scatter">radius {mult(o.radiusMult)}</Chip>}
-                <Chip
-                  icon={o.anchor === 'thread' ? 'thread' : o.anchor === 'planted' ? 'pin' : 'note'}
-                >
-                  {ANCHOR_TEXT[o.anchor]}
+                <Chip icon={o.echoMult === 0 ? 'thread' : o.anchor === 'planted' ? 'pin' : 'note'}>
+                  {o.echoMult === 0 ? 'Only your threaded hero' : ANCHOR_TEXT[o.anchor]}
                 </Chip>
                 {o.excludes.map((x) => (
                   <Chip key={x} icon="close" color="var(--color-threat)">

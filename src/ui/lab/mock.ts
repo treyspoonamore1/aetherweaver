@@ -128,11 +128,7 @@ function chordHud(
       const o = CONTENT.ornaments.find((x) => x.id === id)!;
       return { id, name: o.name, color: o.color };
     }),
-    anchor: ornaments.includes('unison')
-      ? 'thread'
-      : ornaments.includes('pedal_point')
-        ? 'planted'
-        : 'weaver',
+    anchor: ornaments.includes('pedal_point') ? 'planted' : 'weaver',
     radius: ornaments.includes('unison') ? 0 : 8,
     threadSlot: null,
     ...over,
@@ -628,6 +624,8 @@ export function fakeOutcome(
     shielded: 2100 * scale,
     negated: 1300 * scale,
     amplified: 5800 * scale,
+    auras: { healing: 1500 * scale, shielded: 900 * scale, amplified: 2400 * scale },
+    thread: { healing: 2400 * scale, amplified: 2600 * scale },
     partyDamage: 24000 * scale,
     perfects: markers.filter((m) => m.kind === 'perfect').length,
     saves: markers

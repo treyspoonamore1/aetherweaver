@@ -272,7 +272,7 @@ export class ThreadView {
     this.unisonB = null;
     if (heroId === null) return;
     for (const c of state.field.chords) {
-      if (c.anchor !== 'thread' || c.threadHero !== heroId) continue;
+      if (c.role !== 'beam' || c.threadHero !== heroId) continue;
       const a = c.auras[0];
       if (!a) continue;
       this.unisonA = auraColor(a);

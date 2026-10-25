@@ -254,7 +254,8 @@ export class FieldView {
       const wr = this.entities.recs.get(state.weaverId);
       out.x = wr ? wr.x : c.x;
       out.z = wr ? wr.z : c.z;
-    } else if (c.anchor === 'thread') {
+    } else if (c.role === 'beam' && c.radius <= 0) {
+      // A beam song with no echo (Unison) lives on its hero.
       const hr = c.threadHero === null ? undefined : this.entities.recs.get(c.threadHero);
       out.x = hr ? hr.x : c.x;
       out.z = hr ? hr.z : c.z;
@@ -298,7 +299,7 @@ export class FieldView {
     for (let i = 0; i < f.chords.length && i < MAX_FIELDS; i++) {
       const c = f.chords[i]!;
       this.pops[i] = Math.max(0, this.pops[i]! - dt * 2.6);
-      if (c.anchor === 'thread') {
+      if (c.role === 'beam' && c.radius <= 0) {
         this.unison(state, c.auras, c.threadHero, kit, time, i);
         continue;
       }

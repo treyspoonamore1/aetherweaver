@@ -176,8 +176,16 @@ describe('affixes and auras', () => {
     expect(plain.speed).toBeCloseTo(CONTENT.enemies.find((e) => e.id === 'bell_brute')!.speed, 6);
   });
 
+  /** Only a field song (Chord II): full strength for everyone in the field. */
+  const field = (auras: string[]) => ({
+    chords: [
+      { auras: [], ornaments: [] },
+      { auras, ornaments: [] },
+    ],
+  });
+
   it('Ostinato keeps a barrier on heroes in the field and refills it after a lull', () => {
-    const sim = sandbox({ auras: ['ostinato'] });
+    const sim = sandbox(field(['ostinato']));
     stepFor(sim, 10);
     const barrier = () => hero(sim, 0).health!.shields.find((s) => s.kind === 'barrier');
     expect(barrier()?.amount).toBeCloseTo(hero(sim, 0).health!.maxHp * 0.12, 3);
@@ -189,7 +197,7 @@ describe('affixes and auras', () => {
 
   it('Lullaby lengthens wind-ups and widens the Perfect window with them', () => {
     const plain = sandbox();
-    const lull = sandbox({ auras: ['lullaby'] });
+    const lull = sandbox(field(['lullaby']));
     const windows: number[][] = [];
     for (const sim of [plain, lull]) {
       const kael = hero(sim, 0);

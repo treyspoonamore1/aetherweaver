@@ -121,9 +121,9 @@ describe('Chord builder model', () => {
     const reverb = chordNumbers({ auras: ['sostenuto'], ornaments: ['reverb'] }, 0);
     expect(reverb.radius).toBeCloseTo(Math.min(w.fieldRadiusCap, w.fieldRadius * 1.4));
     expect(reverb.effect).toBeCloseTo(0.9);
+    // Unison: no echo, so no field at all; its strength is the beam's focus (×3), not `effect`.
     const unison = chordNumbers({ auras: ['fortissimo'], ornaments: ['unison'] }, 0);
-    expect(unison).toMatchObject({ anchor: 'thread', radius: 0 });
-    expect(unison.effect).toBeCloseTo(2.5);
+    expect(unison).toMatchObject({ anchor: 'weaver', radius: 0, effect: 1 });
     expect(chordNumbers({ auras: ['lullaby'], ornaments: ['pedal_point'] }, 1).anchor).toBe(
       'planted',
     );

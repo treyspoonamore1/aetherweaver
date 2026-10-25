@@ -1898,9 +1898,9 @@ export class Feedback {
       if (!this.d.field.centreOf(state, i, this.centre)) continue;
       const x = this.centre.x;
       const z = this.centre.z;
-      const follow =
-        c.anchor === 'weaver' ? state.weaverId : c.anchor === 'thread' ? (c.threadHero ?? -1) : -1;
-      const R = c.anchor === 'thread' ? 3 : c.radius;
+      const onHero = c.role === 'beam' && c.radius <= 0;
+      const follow = onHero ? (c.threadHero ?? -1) : c.anchor === 'weaver' ? state.weaverId : -1;
+      const R = onHero ? 3 : c.radius;
       for (let j = 0; j < c.auras.length; j++) {
         this.ring(
           x,

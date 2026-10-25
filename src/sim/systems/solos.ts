@@ -131,6 +131,8 @@ function galeBarrage(world: World, hero: Entity, def: HeroDef): void {
       target: target.id,
       amount: hit.amount,
       amplified: hit.amplified,
+      aura: hit.aura,
+      empower: hit.empower,
       crit: hit.crit,
       splashRadius: 0,
       splash: 0,
@@ -168,6 +170,8 @@ function starfall(world: World, hero: Entity, def: HeroDef): void {
       target: target.id,
       amount: hit.amount,
       amplified: hit.amplified,
+      aura: hit.aura,
+      empower: hit.empower,
       crit: hit.crit,
       splashRadius: 2.5,
       splash: 1,
@@ -233,7 +237,7 @@ function randomEnemyInField(world: World): Entity | null {
   const ids = world.scratch.ids;
   ids.length = 0;
   const f = world.field;
-  const anyField = f.chords.some((c) => c.anchor !== 'thread');
+  const anyField = f.chords.some((c) => c.radius > 0);
   const r = f.radius + 2;
   for (const e of world.entities.list()) {
     if (!e.enemy || !isActive(e)) continue;

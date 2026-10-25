@@ -29,20 +29,19 @@ function land(world: World, hit: PendingHit): void {
   if (!isActive(target)) return;
   const x = target.x;
   const z = target.z;
-  strike(world, target, hit, hit.amount, hit.amplified, sourceName);
+  strike(world, target, hit, 1, sourceName);
   if (hit.splashRadius > 0 && hit.splash > 0) {
     for (const e of world.entities.list()) {
       if (e.id === target.id || e.team !== target.team || !isActive(e)) continue;
       if (distSq(e.x, e.z, x, z) > (hit.splashRadius + e.radius) * (hit.splashRadius + e.radius))
         continue;
-      strike(world, e, hit, hit.amount * hit.splash, hit.amplified * hit.splash, sourceName);
+      strike(world, e, hit, hit.splash, sourceName);
     }
   }
   if (hit.chain > 0) {
     let from: Entity = target;
     const struck = new Set<number>([target.id]);
-    let amount = hit.amount;
-    let amplified = hit.amplified;
+    let scale = 1;
     for (let c = 0; c < hit.chain; c++) {
       let next: Entity | null = null;
       let best = CHAIN_RADIUS * CHAIN_RADIUS;
@@ -55,8 +54,7 @@ function land(world: World, hit: PendingHit): void {
         }
       }
       if (!next) break;
-      amount *= CHAIN_FALLOFF;
-      amplified *= CHAIN_FALLOFF;
+      scale *= CHAIN_FALLOFF;
       struck.add(next.id);
       world.events.push({
         type: 'attackFired',
@@ -70,25 +68,21 @@ function land(world: World, hit: PendingHit): void {
         toZ: next.z,
         travel: 0,
       });
-      strike(world, next, hit, amount, amplified, sourceName);
+      strike(world, next, hit, scale, sourceName);
       from = next;
     }
   }
 }
 
-function strike(
-  world: World,
-  e: Entity,
-  hit: PendingHit,
-  amount: number,
-  amplified: number,
-  sourceName: string,
-): void {
+/** Lands `scale` × the hit on `e` (splash and chain falloff scale every share alike). */
+function strike(world: World, e: Entity, hit: PendingHit, scale: number, sourceName: string): void {
   dealDamage(world, e, {
     source: hit.source,
     sourceName,
-    amount,
-    amplified,
+    amount: hit.amount * scale,
+    amplified: hit.amplified * scale,
+    aura: hit.aura * scale,
+    empower: hit.empower * scale,
     crit: hit.crit,
     empowered: hit.empowered,
   });

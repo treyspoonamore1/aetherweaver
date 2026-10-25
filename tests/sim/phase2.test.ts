@@ -5,6 +5,7 @@
 import { describe, expect, it } from 'vitest';
 import { CONTENT } from '../../src/content';
 import {
+  canonicalChords,
   chordProblems,
   createSim,
   parseReplay,
@@ -20,8 +21,16 @@ const bit = (id: string) => auraBit(CONTENT, id);
 const partyOf = (sim: ReturnType<typeof createSim>) =>
   sim.state.party.map((id) => sim.state.entities.get(id)!);
 
+/** A loadout with only a field song (Chord II): full strength for everyone in its field. */
+const fieldSong = (auras: string[], ornaments: string[] = []) => ({
+  chords: [
+    { auras: [], ornaments: [] },
+    { auras, ornaments },
+  ],
+});
+
 describe('Chords and ornaments', () => {
-  it('reads `auras` as Chord I, keeps ornaments, and refuses illegal loadouts', () => {
+  it('reads `auras` as the beam song, keeps positions, and refuses illegal loadouts', () => {
     expect(createSim({ seed: 1, auras: ['sostenuto'] }).config.chords).toEqual([
       { auras: ['sostenuto'], ornaments: [] },
     ]);
@@ -31,6 +40,17 @@ describe('Chords and ornaments', () => {
     ];
     expect(createSim({ seed: 1, chords: two }).config.chords).toEqual(two);
     expect(chordProblems(two)).toEqual([]);
+    // An empty beam song before a field song keeps its place; trailing empty songs go.
+    expect(createSim({ seed: 1, ...fieldSong(['sostenuto']) }).config.chords).toEqual([
+      { auras: [], ornaments: [] },
+      { auras: ['sostenuto'], ornaments: [] },
+    ]);
+    expect(
+      canonicalChords([
+        { auras: ['sostenuto'], ornaments: [] },
+        { auras: [], ornaments: [] },
+      ]),
+    ).toEqual([{ auras: ['sostenuto'], ornaments: [] }]);
     const bad = (chords: { auras: string[]; ornaments: string[] }[]) => chordProblems(chords);
     expect(bad([{ auras: ['sostenuto', 'ostinato', 'allegro'], ornaments: [] }])).toHaveLength(1);
     expect(
@@ -46,21 +66,53 @@ describe('Chords and ornaments', () => {
       ]),
     ).not.toEqual([]);
     expect(bad([{ auras: ['allegro'], ornaments: ['unison', 'pedal_point'] }])).not.toEqual([]);
+    expect(bad(fieldSong(['allegro'], ['unison']).chords)).toEqual([
+      'Unison only fits the beam song.',
+    ]);
     expect(
       bad([
         { auras: ['ostinato', 'fortissimo'], ornaments: [] },
         { auras: ['sostenuto', 'allegro'], ornaments: [] },
       ]),
-    ).toContain('Your Chords reserve more Spirit than you have.');
+    ).toContain('Your songs reserve more Spirit than you have.');
     expect(() =>
       createSim({ seed: 1, chords: [{ auras: ['sostenuto', 'ostinato', 'allegro'] }] }),
     ).toThrow(/Illegal Chords/);
   });
 
+  it('the beam song pours into the threaded hero at ×2; the rest of its field hears an echo', () => {
+    const { beamFocus, beamEcho } = CONTENT.weaver;
+    expect([beamFocus, beamEcho]).toEqual([2, 0.75]);
+    const sim = sandbox({ auras: ['fortissimo'] });
+    const w = worldOf(sim);
+    const damage = (slot: number) => heroFx(w, w.entities.get(sim.state.party[slot]!)!).damage;
+    stepFor(sim, 2);
+    // Nobody threaded: only the echo.
+    for (const slot of [0, 1, 2]) expect(damage(slot)).toBeCloseTo(0.18 * beamEcho, 9);
+    expect(partyOf(sim).some((h) => h.hero!.beamFocus)).toBe(false);
+    stepFor(sim, 2, [{ t: 'thread', slot: 1 }]);
+    expect(sim.state.field.chords[0]!.threadHero).toBe(sim.state.party[1]);
+    expect(partyOf(sim).map((h) => h.hero!.beamFocus)).toEqual([false, true, false]);
+    expect(damage(1)).toBeCloseTo(0.18 * beamFocus, 9);
+    expect(damage(0)).toBeCloseTo(0.18 * beamEcho, 9);
+    // The beam reaches its hero beyond the echo; the others fall out of it.
+    const lyra = hero(sim, 1);
+    stepFor(sim, 1, [{ t: 'debug', op: { op: 'teleportWeaver', x: lyra.x + 10, z: lyra.z } }]);
+    expect(hero(sim, 1).hero!.auraMask).toBe(bit('fortissimo'));
+    expect(damage(1)).toBeCloseTo(0.18 * beamFocus, 9);
+  });
+
+  it('the field song covers everyone in its field at full strength, threaded or not', () => {
+    const sim = sandbox(fieldSong(['fortissimo']));
+    const w = worldOf(sim);
+    stepFor(sim, 2, [{ t: 'thread', slot: 1 }]);
+    for (const slot of [0, 1, 2])
+      expect(heroFx(w, w.entities.get(sim.state.party[slot]!)!).damage).toBeCloseTo(0.18, 9);
+    expect(sim.state.field.chords[1]).toMatchObject({ role: 'field', focus: 1, echo: 1 });
+  });
+
   it('Grace Note cuts the reservation; Reverb widens the field, up to the cap', () => {
-    const grace = sandbox({
-      chords: [{ auras: ['ostinato', 'fortissimo'], ornaments: ['grace_note'] }],
-    });
+    const grace = sandbox(fieldSong(['ostinato', 'fortissimo'], ['grace_note']));
     expect(weaver(grace).weaver!.reservedSpirit).toBeCloseTo(60 * 0.7, 6);
     expect(heroFx(worldOf(grace), worldOf(grace).entities.get(grace.state.party[0]!)!).damage).toBe(
       0,
@@ -70,6 +122,7 @@ describe('Chords and ornaments', () => {
       heroFx(worldOf(grace), worldOf(grace).entities.get(grace.state.party[0]!)!).damage,
     ).toBeCloseTo(0.18 * 0.9, 9);
 
+    // On the beam song, Reverb widens the echo.
     const reverb = sandbox({ chords: [{ auras: ['sostenuto'], ornaments: ['reverb'] }] });
     stepFor(reverb, 1);
     expect(reverb.state.field.chords[0]!.radius).toBeCloseTo(8 * 1.4, 9);
@@ -84,9 +137,9 @@ describe('Chords and ornaments', () => {
   });
 
   it('Pedal Point plants the field where commanded, within range and on a cooldown', () => {
-    const sim = sandbox({ chords: [{ auras: ['sostenuto'], ornaments: ['pedal_point'] }] });
+    const sim = sandbox(fieldSong(['sostenuto'], ['pedal_point']));
     stepFor(sim, 1);
-    const chord = () => sim.state.field.chords[0]!;
+    const chord = () => sim.state.field.chords[1]!;
     expect(chord().anchor).toBe('planted');
     expect(chord().radius).toBeCloseTo(8 * 0.85, 9);
     let events = stepFor(sim, 1, [{ t: 'plant', point: { x: 3, z: 2 } }]);
@@ -112,20 +165,21 @@ describe('Chords and ornaments', () => {
     expect(ofType(events, 'techniqueRejected')[0]).toMatchObject({ reason: 'not-ready' });
   });
 
-  it('Unison rides the Thread: only the threaded hero, at 2.5×', () => {
+  it('Unison pours the beam song into the threaded hero at ×3, with no echo', () => {
     const sim = sandbox({ chords: [{ auras: ['fortissimo'], ornaments: ['unison'] }] });
     stepFor(sim, 2);
     expect(partyOf(sim).map((h) => h.hero!.auraMask)).toEqual([0, 0, 0]);
+    expect(sim.state.field.chords[0]).toMatchObject({ radius: 0, focus: 3, echo: 0 });
     stepFor(sim, 2, [{ t: 'thread', slot: 1 }]);
     expect(partyOf(sim).map((h) => h.hero!.auraMask)).toEqual([0, bit('fortissimo'), 0]);
     const w = worldOf(sim);
-    expect(heroFx(w, w.entities.get(sim.state.party[1]!)!).damage).toBeCloseTo(0.18 * 2.5, 9);
+    expect(heroFx(w, w.entities.get(sim.state.party[1]!)!).damage).toBeCloseTo(0.18 * 3, 9);
     expect(sim.state.field.chords[0]!.threadHero).toBe(sim.state.party[1]);
     stepFor(sim, 2, [{ t: 'thread', slot: 0 }]);
     expect(partyOf(sim).map((h) => h.hero!.auraMask)).toEqual([bit('fortissimo'), 0, 0]);
   });
 
-  it('a Unison hex lulls whatever attacks the threaded hero', () => {
+  it('a beam-song hex lulls whatever attacks the threaded hero', () => {
     const sim = sandbox({ chords: [{ auras: ['lullaby'], ornaments: ['unison'] }] });
     stepFor(sim, 1, [spawn('bell_brute', 0, -3)]);
     stepFor(sim, 90);
@@ -134,11 +188,12 @@ describe('Chords and ornaments', () => {
     expect(targetSlot).toBeGreaterThanOrEqual(0);
     stepFor(sim, 2, [{ t: 'thread', slot: targetSlot as 0 | 1 | 2 }]);
     expect(brute.enemy!.auraMask).toBe(bit('lullaby'));
+    expect(brute.enemy!.beamFocus).toBe(true);
     expect(partyOf(sim).every((h) => h.hero!.auraMask === 0)).toBe(true);
   });
 
   it('Mute domes silence the song inside them; a Weaver inside one silences every Chord', () => {
-    const sim = sandbox({ auras: ['sostenuto'] });
+    const sim = sandbox(fieldSong(['sostenuto']));
     stepFor(sim, 2);
     const kael = hero(sim, 0);
     expect(kael.hero!.auraMask).toBe(bit('sostenuto'));
@@ -152,17 +207,17 @@ describe('Chords and ornaments', () => {
   });
 
   it('the Crescendo grows every field by half and doubles every aura', () => {
-    const sim = sandbox({ chords: [{ auras: ['fortissimo'], ornaments: ['reverb'] }] });
+    const sim = sandbox(fieldSong(['fortissimo'], ['reverb']));
     stepFor(sim, 1, [{ t: 'debug', op: { op: 'setResonance', value: 100 } }]);
     stepFor(sim, 2, [{ t: 'crescendo' }]);
-    expect(sim.state.field.chords[0]!.radius).toBeCloseTo(8 * 1.4 * 1.5, 6);
+    expect(sim.state.field.chords[1]!.radius).toBeCloseTo(8 * 1.4 * 1.5, 6);
     const w = worldOf(sim);
     expect(heroFx(w, w.entities.get(sim.state.party[0]!)!).damage).toBeCloseTo(0.18 * 0.9 * 2, 9);
   });
 });
 
 describe('Fermata', () => {
-  const fermata = { chords: [{ auras: ['fermata'], ornaments: [] }] };
+  const fermata = fieldSong(['fermata']);
 
   it('heroes low on life take less damage, and the Weaver is credited with it', () => {
     const sim = sandbox(fermata);
@@ -286,8 +341,8 @@ describe('Call and Response', () => {
 
   it('Kael calls for a Ward; Warding him makes his Challenge a Bulwark', () => {
     const sim = fight();
-    // Loose enemies on the back line, so the Challenge has someone to pull.
-    stepFor(sim, 30, [spawn('hollow_chorister', 4, 4), spawn('hollow_chorister', -4, 4)]);
+    // Loose enemies on the back line (tough enough to live), so the Challenge has someone to pull.
+    stepFor(sim, 30, [spawn('bell_brute', 4, 4), spawn('bell_brute', -4, 4)]);
     let events = stepFor(sim, 1, [{ t: 'debug', op: { op: 'forceCall', slot: 0 } }]);
     expect(ofType(events, 'callStarted')[0]).toMatchObject({ answer: 'ward', flourish: 'Bulwark' });
     const resonance = weaver(sim).weaver!.resonance;
@@ -481,6 +536,7 @@ describe('review fixes', () => {
       appliedAt: sim.state.time,
       expiresAt: sim.state.time + 30,
       fromWeaver: false,
+      fromAura: false,
     });
     let events = stepFor(sim, 1, [{ t: 'tech', id: 'ward', slot: 0 }]);
     // Check on the tick the Flourish lands: the brutes wear the overshield down afterwards.
@@ -517,6 +573,6 @@ describe('review fixes', () => {
     for (const o of content.ornaments) o.excludes = o.id === 'pedal_point' ? ['grace_note'] : [];
     expect(
       chordProblems([{ auras: ['sostenuto'], ornaments: ['grace_note', 'pedal_point'] }], content),
-    ).toEqual(["Grace Note and Pedal Point can't share a Chord."]);
+    ).toEqual(["Grace Note and Pedal Point can't share a song."]);
   });
 });

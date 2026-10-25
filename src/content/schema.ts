@@ -60,13 +60,22 @@ export const WeaverDefSchema = z.object({
   fieldRadius: z.number().positive(),
   /** No field grows past this radius outside a Crescendo, so positioning always matters. */
   fieldRadiusCap: z.number().positive(),
-  /** Chord slots (docs/plan/03 §4): Chords, and auras and ornaments per Chord. */
+  /**
+   * Chord slots (docs/plan/03 §4): Chords, and auras and ornaments per Chord. Chord I is the
+   * beam song (it rides the Thread), Chord II the field song (it surrounds the Weaver).
+   */
   chords: z.number().int().positive(),
   auraSlots: z.number().int().positive(),
   ornamentSlots: z.number().int().nonnegative(),
   /** Pedal Point: how far from the Weaver a field can be planted, and how often. */
   plantRange: z.number().positive(),
   plantCooldown: Seconds,
+  /**
+   * The beam song: the threaded hero hears it at `beamFocus` strength, everyone else in its
+   * field at `beamEcho` (docs/phase-3.md). The field song is heard at full strength by all.
+   */
+  beamFocus: z.number().positive(),
+  beamEcho: z.number().min(0),
 });
 
 export const ThreadDefSchema = z.object({
@@ -430,7 +439,10 @@ export type AuraDef = z.infer<typeof AuraDefSchema>;
 
 // ── Ornaments ─────────────────────────────────────────────────────────────────────────
 
-export const ChordAnchorSchema = z.enum(['weaver', 'planted', 'thread']);
+/** Where a Chord's field sits: around the Weaver, or where Pedal Point planted it. */
+export const ChordAnchorSchema = z.enum(['weaver', 'planted']);
+/** Chord I is the beam song (rides the Thread), Chord II the field song (around the Weaver). */
+export const ChordRoleSchema = z.enum(['beam', 'field']);
 
 /** Ornaments change both auras in their Chord (docs/plan/03 §4). One copy of each. */
 export const OrnamentDefSchema = z.object({
@@ -442,8 +454,14 @@ export const OrnamentDefSchema = z.object({
   reserveMult: z.number().positive().default(1),
   effectMult: z.number().positive().default(1),
   radiusMult: z.number().positive().default(1),
-  /** Where the Chord's field sits (Pedal Point plants it, Unison puts it on the Thread). */
+  /** Where the Chord's field sits (Pedal Point plants it). */
   anchor: ChordAnchorSchema.default('weaver'),
+  /** Beam song only: multiplies the strength on the threaded hero (Unison ×1.5). */
+  focusMult: z.number().positive().default(1),
+  /** Beam song only: multiplies the echo everyone else hears (Unison 0: no echo). */
+  echoMult: z.number().min(0).default(1),
+  /** The songs this ornament fits (Unison only makes sense on the beam). */
+  roles: z.array(ChordRoleSchema).min(1).default(['beam', 'field']),
   /** Ornaments that can't share a Chord with this one. */
   excludes: z.array(IdSchema).default([]),
 });

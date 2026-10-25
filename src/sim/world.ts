@@ -55,7 +55,10 @@ export interface SimConfig {
   encounter?: string;
   /** Shorthand for a single Chord with these auras and no ornaments. Ignored when `chords` is set. */
   auras?: string[];
-  /** The Weaver's Chords, Chord I first (docs/plan/03 §4). Must be a legal loadout. */
+  /**
+   * The Weaver's Chords, positional: [beam song, field song] (docs/phase-3.md). Must be a
+   * legal loadout; the beam song may be left empty.
+   */
   chords?: ChordConfig[];
   /** Owned motifs and their levels. */
   motifs?: { id: string; level: number }[];
@@ -133,8 +136,11 @@ export interface PendingHit {
   source: EntityId;
   target: EntityId;
   amount: number;
-  /** Weaver share of `amount` (Empower, auras). */
+  /** Weaver share of `amount` (Empower, auras, Flourishes). */
   amplified: number;
+  /** The auras' and Empower's parts of `amplified`. */
+  aura: number;
+  empower: number;
   crit: boolean;
   /** Extra enemies within this radius of the target take `splash` × amount. */
   splashRadius: number;
@@ -239,6 +245,10 @@ export interface World extends WorldState {
     auraTick: number;
     /** Effect multiplier per content aura index this tick (ornaments × Crescendo). */
     auraMult: number[];
+    /** Per content aura index: strength on the beam's hero (beam song: focus; otherwise 1). */
+    auraFocus: number[];
+    /** Per content aura index: strength for everyone else (beam song: echo; otherwise 1). */
+    auraEcho: number[];
   };
 }
 
@@ -264,6 +274,8 @@ export function emptyLedger(): Ledger {
     calls: 0,
     responses: 0,
     holds: 0,
+    auras: { healing: 0, shielded: 0, amplified: 0 },
+    thread: { healing: 0, amplified: 0 },
     timeline: [],
     markers: [],
   };
@@ -302,16 +314,16 @@ export function createWorld(config: SimConfig): World {
       auras: loadout.flatMap((c) => c.auras),
       chords: loadout.map((c) => ({
         index: c.index,
+        role: c.role,
         auras: [...c.auras],
         ornaments: [...c.ornaments],
         anchor: c.anchor,
         x: 0,
         z: 0,
-        radius:
-          c.anchor === 'thread'
-            ? 0
-            : Math.min(content.weaver.fieldRadiusCap, baseRadius * c.radiusMult),
+        radius: c.echo > 0 ? Math.min(content.weaver.fieldRadiusCap, baseRadius * c.radiusMult) : 0,
         effectMult: c.effectMult,
+        focus: c.focus,
+        echo: c.echo,
         threadHero: null,
       })),
       suppressed: false,
@@ -366,6 +378,8 @@ export function createWorld(config: SimConfig): World {
       auraTotals: new Map(),
       auraTick: -1,
       auraMult: content.auras.map(() => 0),
+      auraFocus: content.auras.map(() => 1),
+      auraEcho: content.auras.map(() => 1),
     },
   };
 
@@ -462,6 +476,7 @@ export function createWorld(config: SimConfig): World {
         damageAmplified: 0,
         inField: true,
         auraMask: 0,
+        beamFocus: false,
         call: null,
         hold: null,
         // Staggered so the party doesn't open a fight with three calls in a row.

@@ -403,7 +403,7 @@ function chooseTarget(world: World, weaver: Entity, e: Entity, def: HeroDef): En
 function basicAttack(world: World, e: Entity, def: HeroDef, target: Entity): void {
   const hero = e.hero!;
   hero.attackCooldown = def.attack.interval;
-  const hit = heroDamage(world, e, def.attack.damage, 0);
+  const hit = heroDamage(world, e, def.attack.damage, 0, true);
   if (def.attack.projectileSpeed <= 0) {
     world.events.push({
       type: 'attackFired',
@@ -422,6 +422,8 @@ function basicAttack(world: World, e: Entity, def: HeroDef, target: Entity): voi
       sourceName: def.name,
       amount: hit.amount,
       amplified: hit.amplified,
+      aura: hit.aura,
+      empower: hit.empower,
       crit: hit.crit,
       empowered: hit.empowered,
     });
@@ -435,6 +437,8 @@ function basicAttack(world: World, e: Entity, def: HeroDef, target: Entity): voi
     target: target.id,
     amount: hit.amount,
     amplified: hit.amplified,
+    aura: hit.aura,
+    empower: hit.empower,
     crit: hit.crit,
     splashRadius: 0,
     splash: 0,
@@ -639,6 +643,8 @@ function executeAbility(
       sourceName: f?.name ?? ability.name,
       amount: hit.amount,
       amplified: hit.amplified,
+      aura: hit.aura,
+      empower: hit.empower,
       crit: hit.crit,
       empowered: hit.empowered,
     });
@@ -746,6 +752,8 @@ function executeAbility(
         target: anchor.id,
         amount: hit.amount,
         amplified: hit.amplified,
+        aura: hit.aura,
+        empower: hit.empower,
         crit: hit.crit,
         splashRadius: radius,
         splash: 1,
@@ -803,6 +811,8 @@ function executeAbility(
         target: anchor.id,
         amount: hit.amount,
         amplified: hit.amplified,
+        aura: hit.aura,
+        empower: hit.empower,
         crit: hit.crit,
         splashRadius: radius,
         splash: 1,

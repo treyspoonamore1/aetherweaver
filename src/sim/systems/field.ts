@@ -1,9 +1,11 @@
 /**
- * The aura fields (docs/plan/03 §3–§4). Each Chord's auras reserve Spirit and affect whoever
- * stands in that Chord's field: around the Weaver, where Pedal Point planted it, or — with
- * Unison — on the threaded hero alone (Unison hexes hit whatever attacks that hero). Mutes
- * crack every field inside their dome and silence the Weaver entirely if the Weaver stands in
- * one; during the Silent Verse only the hymn circles carry the song.
+ * The aura fields (docs/plan/03 §3–§4, docs/phase-3.md). Each Chord's auras reserve Spirit.
+ * Chord I, the **beam song**, rides the Thread: the threaded hero hears it at focus strength
+ * wherever they are (its hexes hit whatever attacks that hero), and everyone else in its field
+ * hears an echo. Chord II, the **field song**, covers everyone in its field at full strength.
+ * A field sits around the Weaver or where Pedal Point planted it. Mutes crack every field
+ * inside their dome and silence the Weaver entirely if the Weaver stands in one; during the
+ * Silent Verse only the hymn circles carry the song.
  */
 import { enemyDef } from '../../content';
 import type { Vec2 } from '../commands';
@@ -58,18 +60,26 @@ function chordMask(world: World, chord: ChordField): number {
   return mask;
 }
 
-/** Which auras cover `e` right now (party buffs for heroes and the Weaver, hexes for enemies). */
+/** Set by `coverage`: the entity it just looked at is the beam song's focus. */
+let focused = false;
+
+/**
+ * Which auras cover `e` right now (party buffs for heroes and the Weaver, hexes for enemies).
+ * Also sets `focused`: `e` is the threaded hero, or an enemy attacking them.
+ */
 function coverage(world: World, e: Entity, side: 'party' | 'enemy'): number {
+  focused = false;
   if (world.field.suppressed || inDome(e) || !inHymn(world, e)) return 0;
   const sideMask = side === 'party' ? partyAuraMask(world.content) : enemyAuraMask(world.content);
   let mask = 0;
   for (const chord of world.field.chords) {
-    let covered: boolean;
-    if (chord.anchor === 'thread') {
+    let covered = false;
+    if (chord.role === 'beam' && chord.threadHero !== null) {
       covered =
-        chord.threadHero !== null &&
-        (side === 'party' ? e.id === chord.threadHero : e.enemy?.targetId === chord.threadHero);
-    } else {
+        side === 'party' ? e.id === chord.threadHero : e.enemy?.targetId === chord.threadHero;
+      if (covered) focused = true;
+    }
+    if (!covered && chord.radius > 0) {
       const r = chord.radius + e.radius;
       covered = distSq(e.x, e.z, chord.x, chord.z) <= r * r;
     }
@@ -106,28 +116,32 @@ export function updateField(world: World, dt: number): void {
   const effectMult = f.crescendo ? content.crescendo.auraEffectMult : 1;
   const thread = threadedHero(world, weaver);
   const mult = world.scratch.auraMult;
+  const focus = world.scratch.auraFocus;
+  const echo = world.scratch.auraEcho;
   mult.fill(0);
+  focus.fill(1);
+  echo.fill(1);
   let weaverRadius = 0;
   for (let i = 0; i < f.chords.length; i++) {
     const chord = f.chords[i]!;
     const def = world.loadout[i]!;
-    if (chord.anchor === 'thread') {
-      chord.threadHero = thread;
-      const hero = thread === null ? undefined : world.entities.get(thread);
-      chord.x = hero?.x ?? weaver.x;
-      chord.z = hero?.z ?? weaver.z;
-      chord.radius = 0;
-    } else {
-      if (chord.anchor === 'weaver') {
-        chord.x = weaver.x;
-        chord.z = weaver.z;
-      }
-      chord.radius = Math.min(content.weaver.fieldRadiusCap, base * def.radiusMult) * radiusMult;
-      if (chord.anchor === 'weaver') weaverRadius = Math.max(weaverRadius, chord.radius);
+    chord.threadHero = chord.role === 'beam' ? thread : null;
+    if (chord.anchor === 'weaver') {
+      chord.x = weaver.x;
+      chord.z = weaver.z;
     }
+    // A beam song without an echo (Unison) has no field at all.
+    chord.radius =
+      chord.echo > 0
+        ? Math.min(content.weaver.fieldRadiusCap, base * def.radiusMult) * radiusMult
+        : 0;
+    if (chord.anchor === 'weaver') weaverRadius = Math.max(weaverRadius, chord.radius);
     for (const id of chord.auras) {
       const index = content.auras.findIndex((a) => a.id === id);
-      if (index >= 0) mult[index] = chord.effectMult * effectMult;
+      if (index < 0) continue;
+      mult[index] = chord.effectMult * effectMult;
+      focus[index] = chord.focus;
+      echo[index] = chord.echo;
     }
   }
   f.radius = weaverRadius > 0 ? weaverRadius : base * radiusMult;
@@ -140,10 +154,11 @@ export function updateField(world: World, dt: number): void {
     if (!hero?.hero || !hero.health) continue;
     const mask = !hero.health.dead && !hero.health.downed ? coverage(world, hero, 'party') : 0;
     hero.hero.auraMask = mask;
+    hero.hero.beamFocus = mask !== 0 && focused;
     hero.hero.inField = mask !== 0;
-    applyAuraLife(world, hero, auraTotals(world, mask), dt, flush, refill);
+    applyAuraLife(world, hero, auraTotals(world, mask, hero.hero.beamFocus), dt, flush, refill);
   }
-  // The Weaver hears their own song too (never a Unison Chord: that rides the Thread).
+  // The Weaver hears their own songs too (the beam song only as its echo).
   const weaverMask = weaver.health!.downed ? 0 : coverage(world, weaver, 'party');
   applyAuraLife(world, weaver, auraTotals(world, weaverMask), dt, flush, refill);
 
@@ -151,6 +166,7 @@ export function updateField(world: World, dt: number): void {
     if (!e.enemy || !e.health || e.health.dead) continue;
     const mask = coverage(world, e, 'enemy');
     e.enemy.auraMask = mask;
+    e.enemy.beamFocus = mask !== 0 && focused;
     e.enemy.inField = mask !== 0;
   }
 }
@@ -227,17 +243,17 @@ function applyAuraLife(
   }
   const max = h.maxHp * fx.barrierPct;
   if (world.time - h.lastHitAt < refill) return;
-  if (!barrier) addShield(world, e, 'barrier', max, NEVER, true);
+  if (!barrier) addShield(world, e, 'barrier', max, NEVER, true, true);
   else if (barrier.amount < max - 0.5 || barrier.max !== max) {
     barrier.amount = max;
     barrier.max = max;
   }
 }
 
-/** Any Chord field (not Unison) that contains (x, z) widened by `pad`, for targeting. */
+/** Any Chord field (not a beam song without an echo) containing (x, z) widened by `pad`. */
 export function inAnyField(world: World, x: number, z: number, pad: number): boolean {
   for (const c of world.field.chords) {
-    if (c.anchor === 'thread') continue;
+    if (c.radius <= 0) continue;
     const r = c.radius + pad;
     if (distSq(x, z, c.x, c.z) <= r * r) return true;
   }

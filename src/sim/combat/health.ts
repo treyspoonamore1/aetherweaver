@@ -91,6 +91,7 @@ export function addShield(
   amount: number,
   duration: number,
   fromWeaver: boolean,
+  fromAura = false,
 ): Shield | null {
   const h = target.health;
   if (!h || h.dead || amount <= 0) return null;
@@ -101,6 +102,7 @@ export function addShield(
     appliedAt: world.time,
     expiresAt: duration >= NEVER ? NEVER : world.time + duration,
     fromWeaver,
+    fromAura,
   };
   const index = h.shields.findIndex((s) => s.kind === kind);
   if (index >= 0) h.shields[index] = shield;
@@ -238,6 +240,8 @@ export function heal(
   if (via !== 'solo' && target.team === 'party') {
     world.ledger.healing += effective;
     world.ledger.overheal += overheal;
+    if (via === 'aura') world.ledger.auras.healing += effective;
+    else if (via === 'mend') world.ledger.thread.healing += effective;
     if (effective > 0) addHealingThreat(world, effective);
   }
   if (emit && (effective > 0 || overheal > 0)) {
@@ -259,8 +263,12 @@ export interface DamageOpts {
   /** Shown in death recaps ("Toll Cleave", "Bell Brute"). */
   sourceName: string;
   amount: number;
-  /** The Weaver's share of `amount` (Empower, auras). */
+  /** The Weaver's share of `amount` (Empower, auras, Flourishes). */
   amplified?: number;
+  /** The auras' part of `amplified`. */
+  aura?: number;
+  /** Empower's part of `amplified`. */
+  empower?: number;
   crit?: boolean;
   telegraph?: Telegraph | null;
   kind?: 'hit' | 'tick' | 'detonation';
@@ -320,6 +328,7 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
 
   let absorbed = 0;
   let absorbedByWeaver = 0;
+  let absorbedByAura = 0;
   let absorbedByWard = 0;
   let absorbedByDome = 0;
   if (h.shields.length > 0) {
@@ -344,6 +353,7 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
       amount -= take;
       absorbed += take;
       if (s.fromWeaver) absorbedByWeaver += take;
+      if (s.fromAura) absorbedByAura += take;
       if (s.kind === 'ward') absorbedByWard += take;
       if (s.kind === 'dome' && s.fromWeaver) absorbedByDome += take;
       if (s.amount <= 0.0001) removeShield(world, target, s.kind, true);
@@ -361,18 +371,27 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
   h.hp -= dealt;
   h.lastHitAt = world.time;
   if (absorbedByWeaver > 0) world.ledger.shielded += absorbedByWeaver;
+  if (absorbedByAura > 0) world.ledger.auras.shielded += absorbedByAura;
   // The guard is credited only with life the hero kept: none if the hit downs them anyway.
-  if (guarded > 0) world.ledger.shielded += Math.min(guarded, h.hp);
+  if (guarded > 0) {
+    const kept = Math.min(guarded, h.hp);
+    world.ledger.shielded += kept;
+    world.ledger.auras.shielded += kept;
+  }
 
   const source = opts.source === null ? undefined : world.entities.get(opts.source);
   const total = dealt + absorbed;
   const amplifiedShare =
     opts.amplified && opts.amount > 0 ? (opts.amplified * total) / opts.amount : 0;
+  const auraShare = opts.aura && opts.amount > 0 ? (opts.aura * total) / opts.amount : 0;
+  const empowerShare = opts.empower && opts.amount > 0 ? (opts.empower * total) / opts.amount : 0;
   if (source?.hero && target.enemy) {
     source.hero.damageDealt += total;
     source.hero.damageAmplified += amplifiedShare;
     world.ledger.partyDamage += total;
     world.ledger.amplified += amplifiedShare;
+    world.ledger.auras.amplified += auraShare;
+    world.ledger.thread.amplified += empowerShare;
     addThreat(target, source.hero.slot, total * heroDef(source.hero.defId).threatMult);
     if (target.enemy.tier === 'normal' && world.mods.hammerfallChance > 0) {
       if (
@@ -398,6 +417,7 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
     amount: dealt,
     absorbed,
     amplified: amplifiedShare,
+    aura: auraShare,
     crit: opts.crit ?? false,
     telegraph: opts.telegraph?.id ?? null,
     hit: opts.kind ?? 'hit',

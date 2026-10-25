@@ -1,7 +1,9 @@
 /**
  * Aura effects by coverage mask (docs/plan/03 §3). The field system decides each tick which
  * auras cover whom (a bit per content aura on every hero and enemy) and how strong each aura is
- * right now (ornaments × Crescendo). Everything that reads an aura's effect goes through here.
+ * right now (ornaments × Crescendo). The beam song's auras are stronger on the hero it pours
+ * into (and the enemies attacking them) than in its echo, so every lookup says whether the
+ * entity is the beam's focus. Everything that reads an aura's effect goes through here.
  */
 import type { Content } from '../../content/schema';
 import type { Entity } from '../state';
@@ -41,6 +43,8 @@ export const NO_AURAS: Readonly<AuraTotals> = Object.freeze({
 
 const MAX_SLOW = 0.6;
 const MAX_GUARD = 0.6;
+/** Cache-key bit for "the beam's focus" (above every aura bit). */
+const FOCUS_KEY = 1 << 24;
 
 interface AuraTable {
   bit: Map<string, number>;
@@ -101,24 +105,28 @@ export function auraIds(content: Content, mask: number): string[] {
 }
 
 /**
- * Totals for whoever a `mask` covers, at this tick's strengths. Cached per mask until the
- * field system updates the strengths (each tick), so hot loops don't allocate.
+ * Totals for whoever a `mask` covers, at this tick's strengths. `focus`: the entity is the
+ * beam's focus (the threaded hero, or an enemy attacking them), so beam-song auras act at
+ * focus strength instead of the echo's. Cached per (mask, focus) until the field system
+ * updates the strengths (each tick), so hot loops don't allocate.
  */
-export function auraTotals(world: World, mask: number): Readonly<AuraTotals> {
+export function auraTotals(world: World, mask: number, focus = false): Readonly<AuraTotals> {
   if (mask === 0) return NO_AURAS;
   const cache = world.scratch.auraTotals;
   if (world.scratch.auraTick !== world.tick) {
     cache.clear();
     world.scratch.auraTick = world.tick;
   }
-  const hit = cache.get(mask);
+  const key = focus ? mask | FOCUS_KEY : mask;
+  const hit = cache.get(key);
   if (hit) return hit;
   const out: AuraTotals = { ...NO_AURAS };
   const auras = world.content.auras;
+  const role = focus ? world.scratch.auraFocus : world.scratch.auraEcho;
   for (let i = 0; i < auras.length; i++) {
     if ((mask & (1 << i)) === 0) continue;
     const def = auras[i]!;
-    const k = world.scratch.auraMult[i] ?? 0;
+    const k = (world.scratch.auraMult[i] ?? 0) * (role[i] ?? 1);
     if (k <= 0) continue;
     const fx = def.effects;
     let regen = fx.regenPctPerSec;
@@ -140,7 +148,7 @@ export function auraTotals(world: World, mask: number): Readonly<AuraTotals> {
   }
   out.enemySlow = Math.min(MAX_SLOW, out.enemySlow);
   out.guardDr = Math.min(MAX_GUARD, out.guardDr);
-  cache.set(mask, out);
+  cache.set(key, out);
   return out;
 }
 
@@ -151,9 +159,9 @@ export function invalidateAuraTotals(world: World): void {
 }
 
 export function heroFx(world: World, e: Entity): Readonly<AuraTotals> {
-  return auraTotals(world, e.hero?.auraMask ?? 0);
+  return auraTotals(world, e.hero?.auraMask ?? 0, e.hero?.beamFocus ?? false);
 }
 
 export function enemyFx(world: World, e: Entity): Readonly<AuraTotals> {
-  return auraTotals(world, e.enemy?.auraMask ?? 0);
+  return auraTotals(world, e.enemy?.auraMask ?? 0, e.enemy?.beamFocus ?? false);
 }

@@ -170,7 +170,7 @@ export function escapeFrom(
   return null;
 }
 
-// ── Phase 2: calls, holds, planted and Unison Chords ──────────────────────────────────
+// ── Calls, holds, planted fields and the beam song ────────────────────────────────────
 
 /** The hero with an open, unanswered call, if any. */
 export function caller(party: readonly HeroView[]): HeroView | null {
@@ -186,15 +186,16 @@ export function plantedChord(state: WorldState): WorldState['field']['chords'][n
   return state.field.chords.find((c) => c.anchor === 'planted') ?? null;
 }
 
-export function unisonChord(state: WorldState): WorldState['field']['chords'][number] | null {
-  return state.field.chords.find((c) => c.anchor === 'thread') ?? null;
+/** The beam song (Chord I), if it has any auras. */
+export function beamSong(state: WorldState): WorldState['field']['chords'][number] | null {
+  return state.field.chords.find((c) => c.role === 'beam' && c.auras.length > 0) ?? null;
 }
 
 const DEFENSIVE_AURAS = new Set(['sostenuto', 'ostinato', 'fermata']);
 
-/** A Unison Chord of mostly defensive auras belongs on the tank; offensive ones on a striker. */
-export function unisonDefensive(chord: { auras: readonly string[] }): boolean {
-  return chord.auras.filter((a) => DEFENSIVE_AURAS.has(a)).length * 2 >= chord.auras.length;
+/** A beam song of mostly defensive auras belongs on the tank; mixed or offensive, on a striker. */
+export function defensiveSong(chord: { auras: readonly string[] }): boolean {
+  return chord.auras.filter((a) => DEFENSIVE_AURAS.has(a)).length * 2 > chord.auras.length;
 }
 
 /** Where to plant a Pedal Point field: the party's centre, pulled toward the tank. */

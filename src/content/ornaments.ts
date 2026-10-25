@@ -2,7 +2,8 @@ import type { ContentInput } from './schema';
 
 /**
  * Ornaments (docs/plan/03 §4): each changes both auras in its Chord. You own one copy of
- * each, so which Chord gets your only Grace Note is a real decision.
+ * each, so which song gets your only Grace Note is a real decision. On the beam song, the
+ * field an ornament shapes is the echo the rest of the party hears.
  */
 export const ORNAMENTS: ContentInput['ornaments'] = [
   {
@@ -21,7 +22,7 @@ export const ORNAMENTS: ContentInput['ornaments'] = [
     subtitle: 'Wider',
     color: '#67e8f9',
     description:
-      'Its field reaches 40% farther but works 10% less well. Covers a spread-out party.',
+      'Its field reaches 40% farther but works 10% less well. Covers a spread-out party. On the beam song, it widens the echo.',
     radiusMult: 1.4,
     effectMult: 0.9,
     excludes: ['unison'],
@@ -29,12 +30,13 @@ export const ORNAMENTS: ContentInput['ornaments'] = [
   {
     id: 'unison',
     name: 'Unison',
-    subtitle: 'On the Thread',
+    subtitle: 'All in',
     color: '#fcd34d',
     description:
-      'Its auras only touch your threaded hero, at 2.5× strength and any range. Hexes hit whatever attacks that hero.',
-    effectMult: 2.5,
-    anchor: 'thread',
+      'Beam song only. It pours entirely into your threaded hero at triple strength, and nobody else hears an echo.',
+    focusMult: 1.5,
+    echoMult: 0,
+    roles: ['beam'],
     excludes: ['pedal_point', 'reverb'],
   },
   {
@@ -43,7 +45,7 @@ export const ORNAMENTS: ContentInput['ornaments'] = [
     subtitle: 'Planted',
     color: '#bef264',
     description:
-      'Its field stays where you plant it (V at the cursor, every 2 s) and is 15% smaller. You roam; the party holds the ground.',
+      'Its field stays where you plant it (V at the cursor, every 2 s) and is 15% smaller. You roam; the party holds the ground. On the beam song, it plants the echo.',
     radiusMult: 0.85,
     anchor: 'planted',
     excludes: ['unison'],

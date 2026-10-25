@@ -27,8 +27,8 @@ import {
   shieldOf,
   statusRemaining,
   threatsOn,
-  unisonChord,
-  unisonDefensive,
+  beamSong,
+  defensiveSong,
   weaverOf,
   type HeroView,
 } from './common';
@@ -224,7 +224,7 @@ export class SkilledBot implements Bot {
     const downed = all.filter((h) => h.e.health!.downed && !h.e.health!.dead);
     let threadTo: HeroView | null = null;
     let mend = true;
-    const unison = unisonChord(state);
+    const beam = beamSong(state);
     if (held) {
       threadTo = held;
     } else if (downed.length > 0) {
@@ -242,8 +242,8 @@ export class SkilledBot implements Bot {
         threadTo = calling;
       } else if (effectiveFraction(lowest.e) > 0.85 && calm) {
         const tank = party.find((h) => h.role === 'tank');
-        if (unison && unisonDefensive(unison) && tank) {
-          // A defensive Unison Chord lives on the tank.
+        if (beam && defensiveSong(beam) && tank) {
+          // A defensive beam song lives on the tank.
           threadTo = tank;
         } else {
           mend = false;

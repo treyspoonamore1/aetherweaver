@@ -118,7 +118,7 @@ export function chordNumbers(chord: ChordLoadout, index: number): ChordNumbers {
   }
   return {
     anchor: r.anchor,
-    radius: r.anchor === 'thread' ? 0 : Math.min(w.fieldRadiusCap, w.fieldRadius * r.radiusMult),
+    radius: r.echo > 0 ? Math.min(w.fieldRadiusCap, w.fieldRadius * r.radiusMult) : 0,
     effect: r.effectMult,
     reserveMult: r.reserveMult,
     reserve,
@@ -200,7 +200,7 @@ export function loadoutProblems(chords: readonly ChordLoadout[]): string[] {
 
 /** Short read-out of a Chord's anchor. */
 export function anchorLabel(anchor: ChordAnchor): string {
-  return anchor === 'thread' ? 'On your Thread' : anchor === 'planted' ? 'Planted' : 'Around you';
+  return anchor === 'planted' ? 'Planted' : 'Around you';
 }
 
 /** Names for chips and aria labels. */

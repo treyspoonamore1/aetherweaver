@@ -1,5 +1,5 @@
 /**
- * CONTRACT v3 — read-only world state exposed by the sim (docs/plan/05 §4.2).
+ * CONTRACT v4 — read-only world state exposed by the sim (docs/plan/05 §4.2).
  *
  * Views (render, UI, audio) read this and never mutate it: everything reachable from
  * `WorldState` is deeply read-only at the type level. Persistent visuals reflect state;
@@ -45,6 +45,8 @@ export interface Shield {
   expiresAt: number;
   /** Created by the Weaver (ledger attribution). */
   fromWeaver: boolean;
+  /** Created by an aura (Ostinato's barrier, the chorus pulse): the auras' part of the ledger. */
+  fromAura: boolean;
 }
 
 export type StatusId =
@@ -198,6 +200,8 @@ export interface HeroComponent {
   inField: boolean;
   /** Bit i set ⇔ content.auras[i] affects this hero right now (rim lights, HUD icons). */
   auraMask: number;
+  /** The beam song pours into this hero (they're threaded): its auras act at focus strength. */
+  beamFocus: boolean;
   /** An open call for support, if any. */
   call: HeroCall | null;
   /** Fermata hold in progress, if any. */
@@ -294,6 +298,8 @@ export interface EnemyComponent {
   inField: boolean;
   /** Bit i set ⇔ content.auras[i] (a hex) affects this enemy right now. */
   auraMask: number;
+  /** It's attacking the hero the beam song pours into: the beam's hexes hit it at focus strength. */
+  beamFocus: boolean;
   // ── Sim-internal ──
   /** Elite/affix multipliers fixed at spawn. */
   damageMult: number;
@@ -400,23 +406,36 @@ export interface ChimeInFlight {
 }
 
 /** Where a Chord's field sits: around the Weaver, planted (Pedal Point), or on the Thread (Unison). */
-export type ChordAnchor = 'weaver' | 'planted' | 'thread';
+/** Where a Chord's field sits: around the Weaver, or where Pedal Point planted it. */
+export type ChordAnchor = 'weaver' | 'planted';
+/**
+ * Chord I is the **beam song**: it rides the Thread, so the threaded hero hears it at `focus`
+ * strength (×2) and everyone else in its field hears an echo at `echo` strength (×0.75).
+ * Chord II is the **field song**: everyone in its field hears it at full strength.
+ */
+export type ChordRole = 'beam' | 'field';
 
 /** One Chord: up to two auras sharing up to two ornaments (docs/plan/03 §4). */
 export interface ChordField {
-  /** Position in the loadout: 0 = Chord I. */
+  /** Position in the loadout: 0 = Chord I (the beam song), 1 = Chord II (the field song). */
   index: number;
+  role: ChordRole;
   auras: string[];
   ornaments: string[];
+  /** Where the field part sits (the beam song's echo, or the field song). */
   anchor: ChordAnchor;
-  /** Centre: the Weaver, the planted point, or the threaded hero. */
+  /** Centre of the field part: the Weaver or the planted point. */
   x: number;
   z: number;
-  /** Radius right now (Crescendo included; 0 for Unison, which ignores radius). */
+  /** Radius of the field part right now (Crescendo included; 0 when the beam has no echo). */
   radius: number;
-  /** Ornament effect multiplier (Grace Note ×0.9, Unison ×2.5…), before the Crescendo. */
+  /** Ornament effect multiplier (Grace Note ×0.9…), before the Crescendo. */
   effectMult: number;
-  /** Unison: the hero the Chord rides on right now (null while the Thread is loose). */
+  /** Strength on the threaded hero: the beam song's focus (×2, Unison ×3); 1 for the field song. */
+  focus: number;
+  /** Strength for everyone else in the field: the beam song's echo (×0.75, Unison 0); 1 for the field song. */
+  echo: number;
+  /** Beam song: the hero it pours into right now (null while the Thread is loose). Field song: null. */
   threadHero: EntityId | null;
 }
 
@@ -500,8 +519,15 @@ export interface Ledger {
   shielded: number;
   /** Damage negated by Perfect Wards. */
   negated: number;
-  /** The Weaver's multiplicative share of party damage (Empower, auras). */
+  /**
+   * The Weaver's share of party damage: Empower, auras (including the extra hits their haste
+   * buys) and Flourishes.
+   */
   amplified: number;
+  /** What the auras did: parts of `healing`, `shielded` and `amplified` above. */
+  auras: { healing: number; shielded: number; amplified: number };
+  /** What the Thread did: Mend's healing and Empower's part of `amplified`. */
+  thread: { healing: number; amplified: number };
   partyDamage: number;
   perfects: number;
   saves: SaveRecord[];
