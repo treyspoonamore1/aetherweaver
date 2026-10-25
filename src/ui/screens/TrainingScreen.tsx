@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { GameHost, seedFromUrl } from '../../app/GameHost';
 import type { CombatSession } from '../../app/runtime';
 import { getRuntime } from '../../app/runtimeRegistry';
 import { CONTENT } from '../../content';
+import { CHORD_PRESETS } from '../../meta/run';
 import { DevPanel } from '../../debug/DevPanel';
 import { PerfHud } from '../../debug/PerfHud';
 import type { DebugOp } from '../../sim';
@@ -19,15 +20,20 @@ const debug = (op: DebugOp) => getRuntime()?.queue({ t: 'debug', op });
 /** Training Grounds: the sandbox encounter with the debug commands enabled. */
 export function TrainingScreen() {
   useMood('calm');
-  // One session for the lifetime of the screen.
-  const [session] = useState<CombatSession>(() => ({
-    config: {
-      seed: seedFromUrl(),
-      encounter: 'sandbox',
-      auras: ['sostenuto', 'fortissimo'],
-      debug: true,
-    },
-  }));
+  const [seed] = useState(seedFromUrl);
+  const [loadout, setLoadout] = useState(CHORD_PRESETS[0]!.id);
+  // A new session (and runtime) whenever the loadout changes.
+  const session = useMemo<CombatSession>(() => {
+    const preset = CHORD_PRESETS.find((p) => p.id === loadout) ?? CHORD_PRESETS[0]!;
+    return {
+      config: {
+        seed,
+        encounter: 'sandbox',
+        chords: preset.chords.map((c) => ({ auras: [...c.auras], ornaments: [...c.ornaments] })),
+        debug: true,
+      },
+    };
+  }, [seed, loadout]);
   const showPerf = useUi((s) => s.showPerf);
   const devOpen = useUi((s) => s.devOpen);
   const paused = useUi((s) => s.paused);
@@ -36,7 +42,7 @@ export function TrainingScreen() {
     <div className="relative h-full w-full select-none overflow-hidden">
       <GameHost session={session} />
       <Hud subtitle="Sandbox" keyHints={false} />
-      {!devOpen && <SpawnPalette />}
+      {!devOpen && <SpawnPalette loadout={loadout} onLoadout={setLoadout} />}
       {showPerf && <PerfHud />}
       {devOpen && <DevPanel />}
       {paused && (
@@ -53,10 +59,11 @@ export function TrainingScreen() {
   );
 }
 
-/** Spawn any enemy next to the Weaver, and a few handy buttons. */
-function SpawnPalette() {
+/** Spawn any enemy next to the Weaver, try a loadout, stage a call or a hold. */
+function SpawnPalette({ loadout, onLoadout }: { loadout: string; onLoadout(id: string): void }) {
   const [elite, setElite] = useState(false);
   const [open, setOpen] = useState(true);
+  const [caller, setCaller] = useState(0);
   const spawn = (defId: string) => {
     const w = useUi.getState().hud?.weaver;
     // The UI picks a spot; the command carries it, so the sim stays deterministic.
@@ -86,6 +93,20 @@ function SpawnPalette() {
       </button>
       {open && (
         <>
+          <label className="mt-2 block text-xs font-semibold uppercase tracking-wider text-muted">
+            Chords
+            <select
+              className="mt-1 block w-full rounded-md border border-ink-500 bg-ink-800 px-2 py-1 text-xs font-medium normal-case tracking-normal text-text"
+              value={loadout}
+              onChange={(e) => onLoadout(e.target.value)}
+            >
+              {CHORD_PRESETS.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name} ({p.difficulty})
+                </option>
+              ))}
+            </select>
+          </label>
           <p className="mt-2 text-xs font-semibold uppercase tracking-wider text-muted">Spawn</p>
           <div className="mt-1 grid grid-cols-2 gap-1.5">
             {CONTENT.enemies.map((e) => (
@@ -113,6 +134,19 @@ function SpawnPalette() {
             </Button>
             <Button size="sm" onClick={() => debug({ op: 'setResonance', value: 100 })}>
               <Icon name="note" size={14} /> Resonance 100
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => {
+                // Kael, Lyra, Vexis in turn: each asks for a different answer.
+                debug({ op: 'forceCall', slot: (caller % 3) as 0 | 1 | 2 });
+                setCaller(caller + 1);
+              }}
+            >
+              <Icon name="call" size={14} /> Stage a call
+            </Button>
+            <Button size="sm" onClick={() => debug({ op: 'forceHold', slot: 1 })}>
+              <Icon name="fermata" size={14} /> Stage a Fermata hold
             </Button>
             <Button size="sm" onClick={() => debug({ op: 'spawnDummies', count: 20 })}>
               + 20 dummies

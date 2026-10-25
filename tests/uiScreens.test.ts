@@ -107,3 +107,16 @@ describe('coach hints (Phase 2)', () => {
     expect(ids(hud)).toContain('wheel');
   });
 });
+
+describe('UI scale', () => {
+  it('honours scaling down, and caps scaling up at what the window can fit', async () => {
+    const { fittedScale } = await import('../src/ui/presentation');
+    expect(fittedScale(0.8, 1280)).toBe(0.8);
+    expect(fittedScale(1, 1280)).toBe(1);
+    expect(fittedScale(1.25, 1280)).toBe(1);
+    expect(fittedScale(1.25, 1920)).toBe(1.25);
+    expect(fittedScale(1.5, 1600)).toBeCloseTo(1.25, 9);
+    expect(fittedScale(9, 4000)).toBe(1.5);
+    expect(fittedScale(Number.NaN, 1280)).toBe(1);
+  });
+});
