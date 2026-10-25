@@ -1,11 +1,12 @@
 /**
- * Run save v2 (docs/plan/05 §8): versioned, validated with zod on load, with a backup of
- * the previous save kept before every overwrite. Older versions are migrated on load. Storage
- * is injected so tests can use a map.
+ * Run save v3 and the Weaver's profile (docs/plan/05 §8, docs/phase-3.md): versioned,
+ * validated with zod on load, with a backup of the previous save kept before every overwrite.
+ * Older versions are migrated on load. Storage is injected so tests can use a map.
  */
 import { z } from 'zod';
 import { CONTENT } from '../content';
 import { chordProblems } from '../sim';
+import { newProfile, PROFILE_VERSION, type Profile } from './profile';
 import { RUN_SAVE_VERSION, type RunState } from './types';
 
 export interface KeyValueStore {
@@ -16,6 +17,8 @@ export interface KeyValueStore {
 
 const KEY = 'aetherweaver.run';
 const BACKUP = 'aetherweaver.run.bak';
+const PROFILE_KEY = 'aetherweaver.profile';
+const PROFILE_BACKUP = 'aetherweaver.profile.bak';
 
 const Num = z.number();
 const Str = z.string();
@@ -36,6 +39,11 @@ const StatsSchema = z.object({
   shielded: Num,
   negated: Num,
   amplified: Num,
+  auraHealing: Num,
+  auraShielded: Num,
+  auraAmplified: Num,
+  threadHealing: Num,
+  threadAmplified: Num,
   partyDamage: Num,
   weaverShare: Num,
   perfects: Num,
@@ -93,6 +101,7 @@ const ResultSchema = z.object({
   duration: Num,
   par: Num,
   grade: z.enum(['S', 'A', 'B', 'C', 'D']),
+  xp: Num,
   stats: StatsSchema,
   highlights: z.array(
     z.object({
@@ -136,12 +145,14 @@ const ResultSchema = z.object({
   withoutYou: WithoutYouSchema.nullable(),
 });
 
+const ChordSchema = z.object({ auras: z.array(Str), ornaments: z.array(Str) });
+
 export const RunStateSchema = z.object({
   version: z.literal(RUN_SAVE_VERSION),
   seed: Num,
   phase: z.enum(['prep', 'map', 'combat', 'result', 'draft', 'respite', 'summary']),
   party: z.array(z.object({ heroId: Str, hpPct: Num, shaken: z.boolean() })),
-  chords: z.array(z.object({ auras: z.array(Str), ornaments: z.array(Str) })),
+  chords: z.array(ChordSchema),
   motifs: z.array(z.object({ id: Str, level: Num })),
   map: z.object({ rows: z.array(z.array(NodeSchema)) }),
   path: z.array(Str),
@@ -157,6 +168,7 @@ export const RunStateSchema = z.object({
   results: z.array(ResultSchema),
   encounters: Num,
   outcome: z.enum(['victory', 'defeat', 'abandoned']).nullable(),
+  xp: Num,
 });
 
 /** Motif ids renamed since older saves were written. */
@@ -170,7 +182,14 @@ const isObj = (v: unknown): v is Json => typeof v === 'object' && v !== null && 
  * returned unchanged (and then fail validation).
  */
 export function migrateRunJson(raw: unknown): unknown {
-  if (!isObj(raw) || raw.version !== 1) return raw;
+  let json = raw;
+  if (isObj(json) && json.version === 1) json = v1to2(json);
+  if (isObj(json) && json.version === 2) json = v2to3(json);
+  return json;
+}
+
+/** v1 → v2: auras became Chord I; Call and Response (the motif) became Canon. */
+function v1to2(raw: Json): Json {
   const motif = (id: unknown) => (typeof id === 'string' ? (RENAMED_MOTIFS[id] ?? id) : id);
   const result = (r: unknown) => {
     if (!isObj(r)) return r;
@@ -194,6 +213,46 @@ export function migrateRunJson(raw: unknown): unknown {
       ? raw.motifs.map((m) => (isObj(m) ? { ...m, id: motif(m.id) } : m))
       : raw.motifs,
     draft,
+    lastResult: raw.lastResult === null ? null : result(raw.lastResult),
+    results: Array.isArray(raw.results) ? raw.results.map(result) : raw.results,
+  };
+}
+
+const hasUnison = (c: unknown) =>
+  isObj(c) && Array.isArray(c.ornaments) && c.ornaments.includes('unison');
+
+/**
+ * v2 → v3: Chord I became the beam song and Chord II the field song; results gained XP and the
+ * auras'/Thread's split. A Unison Chord II (it rode the Thread) moves to Chord I; anything that
+ * isn't legal any more falls back to the Steady beam song rather than losing the run.
+ */
+function v2to3(raw: Json): Json {
+  const result = (r: unknown) => {
+    if (!isObj(r)) return r;
+    const stats = isObj(r.stats)
+      ? {
+          ...r.stats,
+          auraHealing: 0,
+          auraShielded: 0,
+          auraAmplified: 0,
+          threadHealing: 0,
+          threadAmplified: 0,
+        }
+      : r.stats;
+    return { ...r, stats, xp: 0 };
+  };
+  let chords = raw.chords;
+  if (Array.isArray(chords) && chords.length === 2 && hasUnison(chords[1]) && !hasUnison(chords[0]))
+    chords = [chords[1], chords[0]];
+  const legal =
+    Array.isArray(chords) &&
+    chords.every((c) => isObj(c) && Array.isArray(c.auras) && Array.isArray(c.ornaments)) &&
+    chordProblems(chords as { auras: string[]; ornaments: string[] }[]).length === 0;
+  return {
+    ...raw,
+    version: 3,
+    xp: 0,
+    chords: legal ? chords : [{ auras: ['sostenuto', 'fortissimo'], ornaments: [] }],
     lastResult: raw.lastResult === null ? null : result(raw.lastResult),
     results: Array.isArray(raw.results) ? raw.results.map(result) : raw.results,
   };
@@ -249,5 +308,48 @@ export function saveRun(store: KeyValueStore, run: RunState | null): void {
     }
   } catch {
     // Storage full or unavailable: the run continues unsaved.
+  }
+}
+
+// ── The Weaver's profile ──────────────────────────────────────────────────────────────
+
+export const ProfileSchema = z.object({
+  version: z.literal(PROFILE_VERSION),
+  xp: Num,
+  introduced: z.array(Str),
+  lastChords: z.array(ChordSchema),
+  runs: Num,
+  wins: Num,
+});
+
+/** Loads the profile (backup if the main copy is unreadable); a new one if there's none. */
+export function loadProfile(store: KeyValueStore): Profile {
+  for (const key of [PROFILE_KEY, PROFILE_BACKUP]) {
+    try {
+      const raw = store.getItem(key);
+      if (!raw) continue;
+      const parsed = ProfileSchema.safeParse(JSON.parse(raw));
+      if (parsed.success) {
+        const profile = parsed.data as Profile;
+        // Forget remembered Chords this build can't play (renamed content).
+        if (chordProblems(profile.lastChords).length > 0) profile.lastChords = [];
+        return profile;
+      }
+    } catch {
+      // Try the backup.
+    }
+  }
+  return newProfile();
+}
+
+export function saveProfile(store: KeyValueStore, profile: Profile): void {
+  try {
+    const previous = store.getItem(PROFILE_KEY);
+    const next = JSON.stringify(profile);
+    if (next === previous) return;
+    if (previous) store.setItem(PROFILE_BACKUP, previous);
+    store.setItem(PROFILE_KEY, next);
+  } catch {
+    // Storage full or unavailable: progress continues for this session only.
   }
 }

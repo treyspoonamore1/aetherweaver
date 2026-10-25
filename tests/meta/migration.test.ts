@@ -1,8 +1,16 @@
 /** Older saves and settings are migrated, never thrown away (docs/plan/05 §8). */
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_SETTINGS, migrateSettings } from '../../src/app/settings';
+import { newProfile } from '../../src/meta/profile';
 import * as Run from '../../src/meta/run';
-import { loadRun, migrateRunJson, saveRun, type KeyValueStore } from '../../src/meta/save';
+import {
+  loadProfile,
+  loadRun,
+  migrateRunJson,
+  saveProfile,
+  saveRun,
+  type KeyValueStore,
+} from '../../src/meta/save';
 import { emptyLedger } from '../../src/sim/world';
 
 function memoryStore(): KeyValueStore & { data: Map<string, string> } {
@@ -15,9 +23,37 @@ function memoryStore(): KeyValueStore & { data: Map<string, string> } {
   };
 }
 
-/** A v2 run turned back into what Phase 1 (save v1) would have written. */
-function asV1(run: ReturnType<typeof Run.newRun>): unknown {
+const V3_STATS = [
+  'auraHealing',
+  'auraShielded',
+  'auraAmplified',
+  'threadHealing',
+  'threadAmplified',
+];
+
+/** A current run turned back into what Phase 2 (save v2) would have written. */
+function asV2(run: ReturnType<typeof Run.newRun>): Record<string, unknown> {
   const json = JSON.parse(JSON.stringify(run)) as Record<string, unknown>;
+  const { xp: _x, ...rest } = json;
+  void _x;
+  const strip = (r: Record<string, unknown>) => {
+    const { xp: _rx, ...res } = r;
+    void _rx;
+    const stats = { ...(res.stats as Record<string, unknown>) };
+    for (const k of V3_STATS) delete stats[k];
+    return { ...res, stats };
+  };
+  return {
+    ...rest,
+    version: 2,
+    results: (json.results as Record<string, unknown>[]).map(strip),
+    lastResult: json.lastResult ? strip(json.lastResult as Record<string, unknown>) : null,
+  };
+}
+
+/** A current run turned back into what Phase 1 (save v1) would have written. */
+function asV1(run: ReturnType<typeof Run.newRun>): unknown {
+  const json = asV2(run);
   const { chords, ...rest } = json as { chords: { auras: string[] }[] };
   const strip = (r: Record<string, unknown>) => {
     const { withoutYou: _w, ...res } = r;
@@ -38,40 +74,77 @@ function asV1(run: ReturnType<typeof Run.newRun>): unknown {
   };
 }
 
+/** A run one fight in. */
+function oneFight(): ReturnType<typeof Run.newRun> {
+  let run = Run.embark(Run.newRun(31));
+  run = Run.chooseNode(run, Run.reachable(run)[0]!.id);
+  const node = Run.findNode(run, run.pending!)!;
+  run = Run.finishCombat(run, {
+    encounterId: node.encounterId!,
+    outcome: 'victory',
+    duration: 40,
+    ledger: emptyLedger(),
+    party: run.party.map((h, slot) => ({
+      slot,
+      heroId: h.heroId,
+      hp: 800,
+      maxHp: 1000,
+      downed: false,
+      dead: false,
+      damage: 100,
+      amplified: 10,
+    })),
+    withoutYou: null,
+  });
+  return run;
+}
+
 describe('save migration', () => {
   it('loads a Phase 1 save: auras become Chord I, renamed motifs follow, stats gain new fields', () => {
-    let run = Run.embark(Run.newRun(31));
-    run = Run.chooseNode(run, Run.reachable(run)[0]!.id);
-    const node = Run.findNode(run, run.pending!)!;
-    run = Run.finishCombat(run, {
-      encounterId: node.encounterId!,
-      outcome: 'victory',
-      duration: 40,
-      ledger: emptyLedger(),
-      party: run.party.map((h, slot) => ({
-        slot,
-        heroId: h.heroId,
-        hp: 800,
-        maxHp: 1000,
-        downed: false,
-        dead: false,
-        damage: 100,
-        amplified: 10,
-      })),
-      withoutYou: null,
-    });
     const store = memoryStore();
-    store.data.set('aetherweaver.run', JSON.stringify(asV1(run)));
+    store.data.set('aetherweaver.run', JSON.stringify(asV1(oneFight())));
     const loaded = loadRun(store)!;
     expect(loaded).not.toBeNull();
-    expect(loaded.version).toBe(2);
+    expect(loaded.version).toBe(3);
     expect(loaded.chords).toEqual([{ auras: ['sostenuto', 'fortissimo'], ornaments: [] }]);
     expect(loaded.motifs).toEqual([{ id: 'canon', level: 2 }]);
     expect(loaded.results[0]!.stats).toMatchObject({ calls: 0, responses: 0, holds: 0 });
+    expect(loaded.results[0]!.stats).toMatchObject({ auraHealing: 0, threadAmplified: 0 });
     expect(loaded.results[0]!.withoutYou).toBeNull();
+    expect(loaded.xp).toBe(0);
     // Saving writes the current version.
     saveRun(store, loaded);
-    expect(JSON.parse(store.data.get('aetherweaver.run')!).version).toBe(2);
+    expect(JSON.parse(store.data.get('aetherweaver.run')!).version).toBe(3);
+  });
+
+  it('loads a Phase 2 save: a Unison Chord II moves to the beam; illegal Chords fall back', () => {
+    const run = oneFight();
+    const v2 = asV2(run);
+    const store = memoryStore();
+    store.data.set(
+      'aetherweaver.run',
+      JSON.stringify({
+        ...v2,
+        chords: [
+          { auras: ['sostenuto'], ornaments: [] },
+          { auras: ['fortissimo'], ornaments: ['unison'] },
+        ],
+      }),
+    );
+    const loaded = loadRun(store)!;
+    expect(loaded.chords).toEqual([
+      { auras: ['fortissimo'], ornaments: ['unison'] },
+      { auras: ['sostenuto'], ornaments: [] },
+    ]);
+    expect(loaded.results[0]!.xp).toBe(0);
+    store.data.set(
+      'aetherweaver.run',
+      JSON.stringify({
+        ...v2,
+        chords: [{ auras: ['sostenuto', 'ostinato', 'allegro'], ornaments: [] }],
+      }),
+    );
+    expect(loadRun(store)!.chords).toEqual([{ auras: ['sostenuto', 'fortissimo'], ornaments: [] }]);
   });
 
   it('leaves current and unknown shapes alone', () => {
@@ -81,8 +154,30 @@ describe('save migration', () => {
   });
 });
 
+describe('profile', () => {
+  it('starts fresh, round-trips, and falls back to the backup', () => {
+    const store = memoryStore();
+    expect(loadProfile(store)).toEqual(newProfile());
+    const profile = { ...newProfile(), xp: 250, runs: 3, wins: 1 };
+    saveProfile(store, profile);
+    expect(loadProfile(store)).toEqual(profile);
+    saveProfile(store, { ...profile, xp: 300 });
+    store.data.set('aetherweaver.profile', '{broken');
+    expect(loadProfile(store).xp).toBe(250);
+  });
+
+  it('forgets remembered Chords this build can no longer play', () => {
+    const store = memoryStore();
+    store.data.set(
+      'aetherweaver.profile',
+      JSON.stringify({ ...newProfile(), lastChords: [{ auras: ['gone'], ornaments: [] }] }),
+    );
+    expect(loadProfile(store).lastChords).toEqual([]);
+  });
+});
+
 describe('settings migration', () => {
-  it('moves Phase 1 settings to v2, keeping the player’s choices', () => {
+  it('moves Phase 1 and Phase 2 settings to v3, keeping the player’s choices', () => {
     const v1 = {
       version: 1,
       volumes: { master: 0.5, music: 0.2, sfx: 0.9, ui: 0.4 },
@@ -94,7 +189,8 @@ describe('settings migration', () => {
     };
     const v2 = migrateSettings(v1)!;
     expect(v2).toMatchObject({
-      version: 2,
+      version: 3,
+      unlockAll: false,
       volumes: v1.volumes,
       screenShake: 0.3,
       flashes: 0,
@@ -106,6 +202,9 @@ describe('settings migration', () => {
     });
     expect(migrateSettings({ ...v1, flashes: true })!.flashes).toBe(1);
     expect(migrateSettings(DEFAULT_SETTINGS)).toEqual(DEFAULT_SETTINGS);
+    const { unlockAll: _u, ...phase2 } = { ...DEFAULT_SETTINGS, version: 2, uiScale: 1.25 };
+    void _u;
+    expect(migrateSettings(phase2)).toEqual({ ...DEFAULT_SETTINGS, uiScale: 1.25 });
     expect(migrateSettings({ version: 7 })).toBeNull();
   });
 });

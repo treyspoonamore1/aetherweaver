@@ -2,6 +2,7 @@ export type {
   AnswerTag,
   CallAnswer,
   ChordAnchor,
+  ChordRole,
   DirectiveKind,
   EncounterKind,
   FollowMode,

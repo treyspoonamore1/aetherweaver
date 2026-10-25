@@ -98,6 +98,7 @@ export function buildHudSnapshot(
       held: heldOf(e, state.time),
       follow: hero.follow,
       threaded: w?.threadSlot === slot,
+      beamFocus: hero.beamFocus,
       hovered: opts.hovered === id,
     });
   });
@@ -173,6 +174,7 @@ export function buildHudSnapshot(
     const slot = c.threadHero === null ? -1 : state.party.indexOf(c.threadHero);
     return {
       index: c.index,
+      role: c.role,
       auras,
       ornaments: c.ornaments.map((id) => {
         const def = ornamentDef(id);
@@ -180,9 +182,17 @@ export function buildHudSnapshot(
       }),
       anchor: c.anchor,
       radius: c.radius,
+      focus: c.focus,
+      echo: c.echo,
       threadSlot: slot >= 0 ? slot : null,
     };
   });
+  const l = state.ledger;
+  const contribution = {
+    auras: { healing: l.auras.healing, shielded: l.auras.shielded, amplified: l.auras.amplified },
+    thread: { healing: l.thread.healing, amplified: l.thread.amplified },
+    total: l.healing + l.shielded + l.negated + l.amplified,
+  };
 
   const enc = state.encounter;
   const encDef = encounterDef(enc.id);
@@ -239,6 +249,7 @@ export function buildHudSnapshot(
     },
     directive: state.directive,
     focusTarget: state.focusTarget,
+    contribution,
     entityCount: state.entities.count,
     dummyCount,
   };

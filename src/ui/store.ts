@@ -1,5 +1,5 @@
 /**
- * CONTRACT v3 — UI state (docs/plan/05 §6). The game runtime writes plain-data snapshots
+ * CONTRACT v4 — UI state (docs/plan/05 §6). The game runtime writes plain-data snapshots
  * here at a fixed rate (HUD 15 Hz, perf 4 Hz); React components subscribe to slices.
  * Nothing in this store references live sim objects.
  *
@@ -11,6 +11,7 @@ import type {
   AnswerTag,
   CallAnswer,
   ChordAnchor,
+  ChordRole,
   DirectiveKind,
   EncounterKind,
   FollowMode,
@@ -86,6 +87,8 @@ export interface HeroHud {
   held: { remaining: number; total: number } | null;
   follow: FollowMode;
   threaded: boolean;
+  /** The beam song pours into this hero right now (its auras at focus strength). */
+  beamFocus: boolean;
   hovered: boolean;
 }
 
@@ -121,13 +124,29 @@ export interface OrnamentHud {
 
 export interface ChordHud {
   index: number;
+  /** 'beam': rides the Thread (Chord I); 'field': surrounds you (Chord II). */
+  role: ChordRole;
   auras: AuraHud[];
   ornaments: OrnamentHud[];
   anchor: ChordAnchor;
-  /** Field radius right now (0 for Unison). */
+  /** Field radius right now: the beam song's echo, or the field song (0 = no echo, Unison). */
   radius: number;
-  /** Unison: the party slot it rides on (null while the Thread is loose). */
+  /** Strength on the threaded hero (beam ×2, Unison ×3; field 1). */
+  focus: number;
+  /** Strength for everyone else in the field (beam echo ×0.75, Unison 0; field 1). */
+  echo: number;
+  /** Beam song: the party slot it pours into (null while the Thread is loose). */
   threadSlot: number | null;
+}
+
+/** What the Weaver has done this fight so far (the sim's ledger), for the live readout. */
+export interface ContributionHud {
+  /** What the auras did: healing, damage soaked or turned aside, damage added. */
+  auras: { healing: number; shielded: number; amplified: number };
+  /** What the Thread did: Mend's healing, Empower's damage. */
+  thread: { healing: number; amplified: number };
+  /** Everything the Weaver did: healing + shielded + negated + amplified. */
+  total: number;
 }
 
 export interface WeaverHud {
@@ -205,6 +224,7 @@ export interface HudSnapshot {
   encounter: EncounterHud;
   directive: DirectiveKind | null;
   focusTarget: number | null;
+  contribution: ContributionHud;
   entityCount: number;
   dummyCount: number;
 }

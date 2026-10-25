@@ -7,6 +7,7 @@ import { CONTENT, encounterDef, motifDef } from '../content';
 import type { MotifDef } from '../content/schema';
 import { Rng, hashString } from '../sim/core/rng';
 import { canonicalChords, chordProblems, type SimConfig } from '../sim';
+import { EVERYTHING, lockedProblems, xpForFight, type Allowance } from './profile';
 import {
   RUN_SAVE_VERSION,
   type ChordLoadout,
@@ -24,68 +25,103 @@ import {
   type RunState,
 } from './types';
 
-/** The Chords a new run starts with: the Prelude's teaching loadout. */
+/** The Chords a new run starts with: Steady, the Prelude's teaching loadout (a beam song). */
 export const DEFAULT_CHORDS: readonly ChordLoadout[] = [
   { auras: ['sostenuto', 'fortissimo'], ornaments: [] },
 ];
 
 /**
- * Ready-made loadouts for the Chord builder: each plays differently (docs/phase-2.md). Every
- * one is legal, and the loadout report (tools/loadouts.ts) checks each is viable for the
- * Skilled bot. `difficulty` comes from how the Novice bot fares with it.
+ * Ready-made loadouts for Prep and Retune, one per Rank (docs/phase-3.md). Chord I is the
+ * beam song (the hero you thread hears it doubled), Chord II the field song (everyone near
+ * you). `difficulty` comes from how the Novice bot fares with it; `rank` is when every part
+ * of it is unlocked (meta/profile.ts).
  */
 export const CHORD_PRESETS: readonly {
   id: string;
   name: string;
   summary: string;
   difficulty: 'easy' | 'medium' | 'hard';
+  rank: number;
   chords: readonly ChordLoadout[];
 }[] = [
   {
     id: 'steady',
     name: 'Steady',
-    summary: 'Regeneration and might around you. Plenty of Spirit for Wards and Chimes.',
+    summary:
+      'Regeneration and might on your beam: whoever you thread heals fast and hits hard, and everyone near you hears the echo.',
     difficulty: 'easy',
+    rank: 1,
     chords: DEFAULT_CHORDS,
   },
   {
-    id: 'beam',
-    name: 'Beam',
+    id: 'guardian',
+    name: 'Guardian',
     summary:
-      'Unison puts Fortissimo and Allegro on your Thread at 2.5×: whoever you thread becomes a weapon. A light Fermata keeps the rest alive.',
-    difficulty: 'hard',
+      'Fortissimo on your beam makes one ally a monster; Sostenuto in your field keeps the whole party regenerating.',
+    difficulty: 'easy',
+    rank: 2,
     chords: [
-      { auras: ['fortissimo', 'allegro'], ornaments: ['unison'] },
-      { auras: ['fermata'], ornaments: ['grace_note'] },
+      { auras: ['fortissimo'], ornaments: [] },
+      { auras: ['sostenuto'], ornaments: [] },
+    ],
+  },
+  {
+    id: 'bastion',
+    name: 'Bastion',
+    summary:
+      'A Grace Note field of barrier and regeneration for everyone near you, and Fortissimo on your beam.',
+    difficulty: 'easy',
+    rank: 3,
+    chords: [
+      { auras: ['fortissimo'], ornaments: [] },
+      { auras: ['ostinato', 'sostenuto'], ornaments: ['grace_note'] },
     ],
   },
   {
     id: 'anchor',
     name: 'Anchor',
     summary:
-      'Plant a slowing, healing field with Pedal Point and pull the fight into it, then roam with Fortissimo around you.',
+      'Plant a slowing Lullaby field with Pedal Point and pull the fight into it; Allegro on your beam hastens whoever you thread.',
     difficulty: 'medium',
+    rank: 4,
     chords: [
-      { auras: ['lullaby', 'sostenuto'], ornaments: ['pedal_point', 'grace_note'] },
-      { auras: ['fortissimo'], ornaments: [] },
+      { auras: ['allegro'], ornaments: [] },
+      { auras: ['lullaby'], ornaments: ['pedal_point'] },
+    ],
+  },
+  {
+    id: 'all_in',
+    name: 'All In',
+    summary:
+      'Unison pours Fortissimo and Allegro into one hero at triple strength. A light Fermata field keeps the rest alive.',
+    difficulty: 'hard',
+    rank: 5,
+    chords: [
+      { auras: ['fortissimo', 'allegro'], ornaments: ['unison'] },
+      { auras: ['fermata'], ornaments: ['grace_note'] },
     ],
   },
   {
     id: 'choir',
     name: 'Wide Choir',
     summary:
-      'Three auras over a wide field: barrier, the Fermata hold and regeneration. Cues release a chorus pulse.',
+      'Barrier and the Fermata hold over a wide field for everyone, and Sostenuto on your beam. Cues release a chorus pulse.',
     difficulty: 'easy',
+    rank: 6,
     chords: [
-      { auras: ['ostinato', 'fermata'], ornaments: ['grace_note', 'reverb'] },
       { auras: ['sostenuto'], ornaments: [] },
+      { auras: ['ostinato', 'fermata'], ornaments: ['grace_note', 'reverb'] },
     ],
   },
 ];
-
 /** Is this loadout legal? (The run only ever stores legal Chords.) */
 export function chordsLegal(chords: readonly ChordLoadout[]): boolean {
   return chordProblems(canonicalChords(chords)).length === 0;
+}
+
+/** Legal, and everything in it is unlocked for this allowance. */
+export function chordsAllowed(chords: readonly ChordLoadout[], allowance: Allowance): boolean {
+  return chordsLegal(chords) && lockedProblems(chords, allowance).length === 0;
 }
 
 const REROLLS = 1;
@@ -230,13 +266,14 @@ export function reachable(run: RunState): MapNode[] {
   return last.next.map((id) => findNode(run, id)).filter((n): n is MapNode => !!n);
 }
 
-export function newRun(seed: number): RunState {
+/** A new run in Prep, starting from `chords` (the last ones used) when they're legal. */
+export function newRun(seed: number, chords: readonly ChordLoadout[] = DEFAULT_CHORDS): RunState {
   return {
     version: RUN_SAVE_VERSION,
     seed: seed >>> 0,
     phase: 'prep',
     party: CONTENT.defaultParty.map((heroId) => ({ heroId, hpPct: 1, shaken: false })),
-    chords: canonicalChords(DEFAULT_CHORDS),
+    chords: canonicalChords(chordsLegal(chords) ? chords : DEFAULT_CHORDS),
     motifs: [],
     map: generateMap(seed >>> 0),
     path: [],
@@ -246,17 +283,26 @@ export function newRun(seed: number): RunState {
     results: [],
     encounters: 0,
     outcome: null,
+    xp: 0,
   };
 }
 
-export function setChords(run: RunState, chords: readonly ChordLoadout[]): RunState {
-  if (run.phase !== 'prep' || !chordsLegal(chords)) return run;
+export function setChords(
+  run: RunState,
+  chords: readonly ChordLoadout[],
+  allowance: Allowance = EVERYTHING,
+): RunState {
+  if (run.phase !== 'prep' || !chordsAllowed(chords, allowance)) return run;
   return { ...run, chords: canonicalChords(chords) };
 }
 
 /** A Respite's third choice: change the Chords instead of resting or meditating. */
-export function retune(run: RunState, chords: readonly ChordLoadout[]): RunState {
-  if (run.phase !== 'respite' || !chordsLegal(chords)) return run;
+export function retune(
+  run: RunState,
+  chords: readonly ChordLoadout[],
+  allowance: Allowance = EVERYTHING,
+): RunState {
+  if (run.phase !== 'respite' || !chordsAllowed(chords, allowance)) return run;
   return { ...run, chords: canonicalChords(chords), phase: 'map', pending: null };
 }
 
@@ -330,6 +376,7 @@ export function finishCombat(run: RunState, outcome: CombatOutcome): RunState {
     results: [...run.results, result],
     encounters: run.encounters + 1,
     outcome: outcome.outcome === 'defeat' ? 'defeat' : run.outcome,
+    xp: run.xp + result.xp,
   };
 }
 
@@ -475,6 +522,11 @@ export function summarize(node: MapNode, outcome: CombatOutcome): EncounterResul
     shielded: Math.round(l.shielded),
     negated: Math.round(l.negated),
     amplified: Math.round(l.amplified),
+    auraHealing: Math.round(l.auras.healing),
+    auraShielded: Math.round(l.auras.shielded),
+    auraAmplified: Math.round(l.auras.amplified),
+    threadHealing: Math.round(l.thread.healing),
+    threadAmplified: Math.round(l.thread.amplified),
     partyDamage: Math.round(l.partyDamage),
     weaverShare: 0,
     perfects: l.perfects,
@@ -565,6 +617,12 @@ export function summarize(node: MapNode, outcome: CombatOutcome): EncounterResul
     });
   }
   highlights.sort((a, b) => b.score - a.score);
+  const fightGrade = grade(outcome.outcome, stats, outcome.duration, def.par);
+  // Winning the boss node wins the run.
+  const xp = xpForFight(
+    { kind: def.kind, outcome: outcome.outcome, grade: fightGrade, name: def.name },
+    outcome.outcome === 'victory' && node.kind === 'boss',
+  ).total;
   return {
     nodeId: node.id,
     encounterId: def.id,
@@ -573,7 +631,8 @@ export function summarize(node: MapNode, outcome: CombatOutcome): EncounterResul
     outcome: outcome.outcome,
     duration: Math.round(outcome.duration * 10) / 10,
     par: def.par,
-    grade: grade(outcome.outcome, stats, outcome.duration, def.par),
+    grade: fightGrade,
+    xp,
     stats,
     highlights: highlights.slice(0, 3).map(({ score, ...h }) => {
       void score;
@@ -642,6 +701,11 @@ export function runTotals(
     shielded: 0,
     negated: 0,
     amplified: 0,
+    auraHealing: 0,
+    auraShielded: 0,
+    auraAmplified: 0,
+    threadHealing: 0,
+    threadAmplified: 0,
     partyDamage: 0,
     weaverShare: 0,
     perfects: 0,
@@ -668,6 +732,11 @@ export function runTotals(
     total.shielded += s.shielded;
     total.negated += s.negated;
     total.amplified += s.amplified;
+    total.auraHealing += s.auraHealing;
+    total.auraShielded += s.auraShielded;
+    total.auraAmplified += s.auraAmplified;
+    total.threadHealing += s.threadHealing;
+    total.threadAmplified += s.threadAmplified;
     total.partyDamage += s.partyDamage;
     total.perfects += s.perfects;
     total.saves += s.saves;

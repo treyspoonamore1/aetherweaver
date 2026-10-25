@@ -1,5 +1,5 @@
 /**
- * CONTRACT v3 — the run layer (docs/plan/02 §8, 03 §9). A run is plain, serialisable data;
+ * CONTRACT v4 — the run layer (docs/plan/02 §8, 03 §9). A run is plain, serialisable data;
  * every transition is a pure function of (state, action) so runs are seedable, testable and
  * resumable. The app wraps it in a store (app/runStore.ts); screens read and act through
  * that store only.
@@ -15,7 +15,7 @@ import type {
 
 export type { ChordLoadout, WithoutYou };
 
-export const RUN_SAVE_VERSION = 2;
+export const RUN_SAVE_VERSION = 3;
 
 export type NodeKind = 'skirmish' | 'elite' | 'shrine' | 'respite' | 'miniboss' | 'boss';
 
@@ -109,8 +109,15 @@ export interface EncounterStats {
   overheal: number;
   shielded: number;
   negated: number;
-  /** Damage the Weaver added to the party's output (Empower, auras). */
+  /** Damage the Weaver added to the party's output (Empower, auras, Flourishes). */
   amplified: number;
+  /** What the auras did: parts of `healing`, `shielded` and `amplified`. */
+  auraHealing: number;
+  auraShielded: number;
+  auraAmplified: number;
+  /** What the Thread did: Mend's healing and Empower's damage. */
+  threadHealing: number;
+  threadAmplified: number;
   partyDamage: number;
   /** The Weaver's share of everything that mattered: (healing + shielded + negated + amplified + saves) / total. 0..1 */
   weaverShare: number;
@@ -142,6 +149,8 @@ export interface EncounterResult {
   duration: number;
   par: number;
   grade: Grade;
+  /** Weaver XP this fight earned (meta/profile.ts `xpForFight`; the run's victory bonus included). */
+  xp: number;
   stats: EncounterStats;
   /** The best moments, most impressive first (at most 3). */
   highlights: Highlight[];
@@ -204,13 +213,18 @@ export interface RunState {
   /** Counts combat encounters started (seeds each encounter's sim). */
   encounters: number;
   outcome: 'victory' | 'defeat' | 'abandoned' | null;
+  /** Weaver XP earned this run so far (the profile already has it). */
+  xp: number;
 }
 
 /** Everything the run screens can do. Implemented by app/runStore.ts. */
 export interface RunActions {
   /** Starts a new run in Prep. */
   newRun(seed?: number): void;
-  /** Prep: set the Chords. Illegal loadouts (see sim `chordProblems`) are ignored. */
+  /**
+   * Prep: set the Chords. Illegal loadouts (sim `chordProblems`) and ones using something the
+   * player hasn't unlocked yet (meta/profile.ts `lockedProblems`) are ignored.
+   */
   setChords(chords: ChordLoadout[]): void;
   /** Prep → Map. */
   embark(): void;
@@ -227,7 +241,7 @@ export interface RunActions {
   rerollDraft(): void;
   /** Respite: rest (heal 40%, clear Shaken) or meditate (upgrade a motif). */
   respite(choice: 'rest' | 'meditate'): void;
-  /** Respite, instead of resting or meditating: change the Chords, then travel on. */
+  /** Respite, instead of resting or meditating: change the Chords (same rules as Prep). */
   retune(chords: ChordLoadout[]): void;
   /** Gives up the current run (goes to Summary). */
   abandon(): void;

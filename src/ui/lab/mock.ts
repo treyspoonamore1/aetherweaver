@@ -97,6 +97,7 @@ function hero(slot: number, defId: string, over: Partial<HeroHud> = {}): HeroHud
     distance: 4,
     inField: true,
     auras: ['sostenuto', 'ostinato'],
+    beamFocus: false,
     call: null,
     held: null,
     follow: 'follow',
@@ -121,15 +122,19 @@ function chordHud(
   over: Partial<ChordHud> = {},
 ): ChordHud {
   const reserveMult = ornaments.includes('grace_note') ? 0.7 : 1;
+  const unison = ornaments.includes('unison');
   return {
     index,
+    role: index === 0 ? 'beam' : 'field',
     auras: auras.map((id) => auraHud(id, reserveMult)),
     ornaments: ornaments.map((id) => {
       const o = CONTENT.ornaments.find((x) => x.id === id)!;
       return { id, name: o.name, color: o.color };
     }),
     anchor: ornaments.includes('pedal_point') ? 'planted' : 'weaver',
-    radius: ornaments.includes('unison') ? 0 : 8,
+    radius: unison ? 0 : 8,
+    focus: index === 0 ? (unison ? 3 : 2) : 1,
+    echo: index === 0 ? (unison ? 0 : 0.75) : 1,
     threadSlot: null,
     ...over,
   };
@@ -183,6 +188,7 @@ export function mockHud(scenario: HudScenario): HudSnapshot {
       chords: [
         {
           index: 0,
+          role: 'beam',
           auras: ['sostenuto', 'ostinato'].map((id) => {
             const a = auraDef(id);
             return { id, name: a.name, color: a.color, reserve: a.reserve };
@@ -190,6 +196,8 @@ export function mockHud(scenario: HudScenario): HudSnapshot {
           ornaments: [],
           anchor: 'weaver',
           radius: 8,
+          focus: 2,
+          echo: 0.75,
           threadSlot: null,
         },
       ],
@@ -222,6 +230,11 @@ export function mockHud(scenario: HudScenario): HudSnapshot {
     },
     directive: null,
     focusTarget: null,
+    contribution: {
+      auras: { healing: 1840, shielded: 960, amplified: 2210 },
+      thread: { healing: 2630, amplified: 1980 },
+      total: 11800,
+    },
     entityCount: 40,
     dummyCount: 0,
   };

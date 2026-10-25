@@ -1,5 +1,5 @@
 /**
- * CONTRACT v3 — player settings (docs/plan/04 §9). Persisted per device in localStorage.
+ * CONTRACT v4 — player settings (docs/plan/04 §9). Persisted per device in localStorage.
  * Assists feed the sim config (and are stamped into replays); the rest is presentation.
  * Older saved settings are migrated, never thrown away.
  */
@@ -19,7 +19,7 @@ const AssistsSchema = z.object({
 });
 
 export const SettingsSchema = z.object({
-  version: z.literal(2),
+  version: z.literal(3),
   volumes: z.object({ master: Volume, music: Volume, sfx: Volume, ui: Volume }),
   /** 0 = off … 1 = full trauma shake. */
   screenShake: z.number().min(0).max(1),
@@ -38,11 +38,13 @@ export const SettingsSchema = z.object({
    */
   bindings: z.record(z.string(), z.array(z.string()).max(3)),
   assists: AssistsSchema,
+  /** Skip the unlocks: every song, aura and ornament from the first run (meta/profile.ts). */
+  unlockAll: z.boolean(),
 });
 export type Settings = z.infer<typeof SettingsSchema>;
 
 export const DEFAULT_SETTINGS: Settings = {
-  version: 2,
+  version: 3,
   volumes: { master: 0.8, music: 0.6, sfx: 0.9, ui: 0.7 },
   screenShake: 1,
   flashes: 1,
@@ -52,7 +54,13 @@ export const DEFAULT_SETTINGS: Settings = {
   colorVision: 'normal',
   bindings: {},
   assists: { perfectWindowBonus: 0, telegraphLead: 1, autonomy: false },
+  unlockAll: false,
 };
+
+/** Settings as Phase 2 saved them (no unlocks yet). */
+const SettingsV2Schema = SettingsSchema.omit({ version: true, unlockAll: true }).extend({
+  version: z.literal(2),
+});
 
 /** Settings as Phase 1 saved them. */
 const SettingsV1Schema = z.object({
@@ -69,6 +77,8 @@ const SettingsV1Schema = z.object({
 export function migrateSettings(raw: unknown): Settings | null {
   const current = SettingsSchema.safeParse(raw);
   if (current.success) return current.data;
+  const v2 = SettingsV2Schema.safeParse(raw);
+  if (v2.success) return { ...v2.data, version: 3, unlockAll: false };
   const v1 = SettingsV1Schema.safeParse(raw);
   if (v1.success) {
     return {
