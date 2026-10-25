@@ -349,6 +349,16 @@ export const SOUNDS: SoundButton[] = [
     group: 'phase2',
     fire: (d, w) => fire(d, w, ev('fieldPlanted', { chord: 0, fromX: 0, fromZ: 0, x: -5, z: 2 })),
   },
+  ...([2, 3] as const).map((focus): SoundButton => ({
+    id: `beam-pour-${focus}`,
+    label: `Beam pour (beam song x${focus}${focus === 3 ? ', Unison' : ''})`,
+    group: 'phase2',
+    fire: (d, w) => {
+      w.setChords(false, focus);
+      d.update(w.state, 0.016);
+      fire(d, w, ev('threadAttached', { hero: IDS.lyra, slot: 1 }));
+    },
+  })),
   {
     id: 'save-ghost',
     label: 'Save (with ghost swell)',
@@ -508,12 +518,14 @@ export const SOUNDS: SoundButton[] = [
       'wheelOpen',
       'wheelPick',
       'reveal',
+      'rankUp',
+      'unlock',
     ] as UiSound[]
   ).map((s): SoundButton => ({
     id: `ui-${s}`,
     label: s,
     group: 'ui',
-    length: s === 'reveal' ? 5 : undefined,
+    length: s === 'reveal' ? 5 : s === 'rankUp' ? 3 : undefined,
     fire: (d) => d.playUi(s),
   })),
 ];

@@ -131,7 +131,7 @@ export function AudioLab() {
     vexis: false,
   });
   const [planted, setPlanted] = useState(false);
-  const [unison, setUnison] = useState(false);
+  const [unison, setUnison] = useState(0);
   const [volumes, setVolumes] = useState<Volumes>(() => ({
     ...useSettings.getState().settings.volumes,
   }));
@@ -376,15 +376,18 @@ export function AudioLab() {
             </label>
             <label
               className="flex items-center gap-1"
-              title="A Unison Chord rides the Thread: raise Thread tension to hear the harmonised hum"
+              title="The beam song rides the Thread: raise Thread tension, or move the beam, to hear it"
             >
-              <input
-                type="checkbox"
-                checked={unison}
+              Beam song on the Thread{' '}
+              <select
+                value={unison}
                 data-testid="chord-unison"
-                onChange={(e) => setUnison(e.target.checked)}
-              />{' '}
-              Unison on the Thread (fifth + octave hum)
+                onChange={(e) => setUnison(Number(e.target.value))}
+              >
+                <option value={0}>off</option>
+                <option value={2}>x2 (subtle hum)</option>
+                <option value={3}>x3 Unison (fuller hum)</option>
+              </select>
             </label>
             {HERO_IDS.map((h) => (
               <span key={h} className="flex items-center gap-2 rounded bg-ink-800 px-2 py-1">

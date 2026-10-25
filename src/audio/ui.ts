@@ -1,6 +1,6 @@
 /** UI sounds: subtle, short, pitched inside D dorian. They bypass the music ducker. */
 import { Voice, type Engine } from './engine';
-import { glassNote, handbell, pluck, whoosh } from './synth';
+import { choirChord, glassNote, handbell, pluck, whoosh } from './synth';
 import { midiToHz, scaleMidi } from './theory';
 import type { UiSound } from './types';
 
@@ -8,6 +8,7 @@ const hz = (idx: number) => midiToHz(scaleMidi(idx));
 
 export function playUiSound(e: Engine, sound: UiSound): void {
   if (sound === 'hover' && !e.gate('ui:hover', 0.045)) return;
+  if (sound === 'unlock' && !e.gate('ui:unlock', 0.06)) return;
   if (!e.admit(`ui:${sound}`, sound === 'hover' ? 2 : 3)) return;
   const t = e.now + 0.004;
   const v = new Voice(e, 'ui');
@@ -69,6 +70,16 @@ export function playUiSound(e: Engine, sound: UiSound): void {
     case 'reveal':
       reveal(v, t);
       break;
+    case 'rankUp':
+      rankUp(v, t);
+      break;
+    case 'unlock':
+      // One per card: a small bell with a glass sparkle, a gentle rising whoosh.
+      handbell(v, t, hz(11), 0.06, 1.1, 0.6);
+      pluck(v, t + 0.06, hz(14), 0.07, 0.3, 0.7);
+      glassNote(v, t + 0.06, hz(18), 0.025, 1.0, 0.9);
+      whoosh(v, t, 0.3, 0.015, 900, 3200, 1);
+      break;
     case 'reward':
       [7, 9, 11, 13, 15].forEach((idx, i) => {
         pluck(v, t + i * 0.075, hz(idx), 0.085, 0.4, 0.7);
@@ -123,4 +134,30 @@ function reveal(v: Voice, t: number): void {
   });
   whoosh(v, echo, 1.8, 0.02, 1800, 300, 0.7);
   v.extend(echo + 2.2);
+}
+
+/**
+ * Rank-up sting, about 1.8 s: a warm choir on D A F (Dm), a rising pluck run
+ * D5 E5 F5 A5 to a long D6, a handbell on the fifth, and a low D to ground it.
+ */
+function rankUp(v: Voice, t: number): void {
+  choirChord(v, t, [hz(-7), hz(-4), hz(-2), hz(0)], 1.1, 0.16, 0.18, 1.0);
+  [7, 8, 9, 11, 14].forEach((idx, i) => {
+    const last = i === 4;
+    pluck(v, t + i * 0.09, hz(idx), last ? 0.12 : 0.09, last ? 0.5 : 0.22, 0.8);
+    glassNote(v, t + i * 0.09, hz(idx), last ? 0.045 : 0.02, last ? 1.6 : 0.5, 0.9);
+  });
+  handbell(v, t + 0.36, hz(11), 0.06, 1.6, 0.7);
+  v.osc({
+    type: 'sine',
+    freq: hz(-7),
+    start: t,
+    dur: 0.5,
+    attack: 0.01,
+    release: 0.6,
+    gain: 0.12,
+    shape: 'sustain',
+  });
+  whoosh(v, t, 0.5, 0.02, 500, 3000, 1);
+  v.extend(t + 2.4);
 }

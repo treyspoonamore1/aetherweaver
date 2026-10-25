@@ -29,7 +29,13 @@ export class FakeWorld {
   readonly entities = new Map<number, FakeEntity>();
   telegraphs: unknown[] = [];
   /** Chords the field reports (planted / thread anchors drive the pedal drone and Unison hum). */
-  readonly chords: { anchor: string; threadHero: number | null }[] = [];
+  readonly chords: {
+    role: string;
+    anchor: string;
+    auras: string[];
+    focus: number;
+    threadHero: number | null;
+  }[] = [];
   status = 'fighting';
   readonly state: WorldState;
 
@@ -100,11 +106,26 @@ export class FakeWorld {
   setTension(v: number): void {
     this.weaverData().threadTension = v;
   }
-  /** Plants / removes a Pedal Point Chord and puts a Unison Chord on the Thread (or not). */
-  setChords(planted: boolean, unison: boolean): void {
+  /** Plants / removes a Pedal Point Chord and sets the beam song's focus (0 off, 2 normal, 3 Unison). */
+  setChords(planted: boolean, beam: number | boolean, beamAuras = 2): void {
     this.chords.length = 0;
-    if (planted) this.chords.push({ anchor: 'planted', threadHero: null });
-    if (unison) this.chords.push({ anchor: 'thread', threadHero: IDS.kael });
+    if (planted)
+      this.chords.push({
+        role: 'field',
+        anchor: 'planted',
+        auras: ['a'],
+        focus: 1,
+        threadHero: null,
+      });
+    const focus = beam === true ? 3 : beam === false ? 0 : beam;
+    if (focus > 0)
+      this.chords.push({
+        role: 'beam',
+        anchor: 'weaver',
+        auras: Array.from({ length: beamAuras }, () => 'a'),
+        focus,
+        threadHero: IDS.kael,
+      });
   }
   setCrescendo(on: boolean): void {
     this.weaverData().crescendo = on ? 10 : 0;

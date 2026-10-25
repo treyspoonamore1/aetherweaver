@@ -41,6 +41,14 @@ interface PlayOpts {
   gain?: number;
 }
 
+interface LooseChord {
+  role?: string;
+  anchor?: string;
+  auras?: readonly string[];
+  focus?: number;
+  threadHero?: number | null;
+}
+
 export class SfxEngine {
   private readonly lastMotif = new Map<number, number>();
   private readonly nextBeat = new Map<number, number>();
@@ -54,6 +62,8 @@ export class SfxEngine {
   private readonly held = new Map<number, VoiceHandle>();
   private drone: { gain: GainNode; oscs: OscillatorNode[] } | null = null;
   private droneOffSince = -1;
+  private beamFocus = 0;
+  private beamAuras = 0;
   private harmony: { gains: GainNode[]; oscs: OscillatorNode[] } | null = null;
 
   constructor(
@@ -150,6 +160,7 @@ export class SfxEngine {
       case 'threadAttached': {
         const id = this.heroId(state, ev.hero);
         const hz = midiToHz(scaleMidi(heroPluckIndex(id)));
+        this.pour(ev.hero, state);
         this.play('attach', 3, 'sfx', (v, t) => {
           pluck(v, t, hz, 0.13, 0.55, 0.7);
           v.noise({ start: t, dur: 0.02, gain: 0.03, filter: { type: 'highpass', freq: 4000 } });
@@ -1450,15 +1461,49 @@ export class SfxEngine {
     this.whine = { gain, osc, band: lp };
   }
 
-  private chordsOf(state: WorldState): readonly { anchor?: string; threadHero?: number | null }[] {
+  private chordsOf(state: WorldState): readonly LooseChord[] {
     const chords = (state.field as { chords?: unknown } | undefined)?.chords;
-    return Array.isArray(chords)
-      ? (chords as { anchor?: string; threadHero?: number | null }[])
-      : [];
+    return Array.isArray(chords) ? (chords as LooseChord[]) : [];
   }
 
-  private unisonRiding(state: WorldState): boolean {
-    return this.chordsOf(state).some((c) => c.anchor === 'thread' && c.threadHero != null);
+  /** Beam song singing on the Thread: its focus (x2, Unison x3) and aura count; (0, 0) if not. */
+  private beamSong(state: WorldState): void {
+    this.beamFocus = 0;
+    this.beamAuras = 0;
+    for (const c of this.chordsOf(state)) {
+      if (c.role !== 'beam' || c.threadHero == null) continue;
+      const n = c.auras?.length ?? 0;
+      if (n <= 0) continue;
+      this.beamFocus = c.focus ?? 2;
+      this.beamAuras = n;
+      return;
+    }
+  }
+
+  /** A short musical "pour" as the beam moves to a new hero while a beam song sings. */
+  private pour(hero: number, state: WorldState): void {
+    this.beamSong(state);
+    if (this.beamFocus <= 0 || !this.e.gate('gate:pour', 0.2)) return;
+    const full = this.beamFocus >= 2.5;
+    const pan = this.panFor(state, state.entities.get(hero)?.x ?? 0);
+    const g = full ? 1 : 0.75;
+    this.play(
+      'pour',
+      1,
+      'sfx',
+      (v, t) => {
+        const notes = chordNotesInRange(this.chord(), 67, 91);
+        const n = full ? 4 : 3;
+        for (let i = 0; i < n; i++) {
+          const m = notes[Math.min(i, notes.length - 1)] ?? 74;
+          pluck(v, t + i * 0.045, midiToHz(m), 0.05 * g, 0.22, 0.5 + 0.1 * i);
+        }
+        const top = notes[Math.min(n, notes.length - 1)] ?? 79;
+        glassNote(v, t + n * 0.045, midiToHz(top), 0.025 * g, 0.9, 0.7);
+        whoosh(v, t, 0.25, 0.012 * g, 700, 2600, 1);
+      },
+      { pan },
+    );
   }
 
   /** Called every frame from the director with the smoothed combat state. */
@@ -1484,14 +1529,16 @@ export class SfxEngine {
       const lift = clamp((tension - 0.55) / 0.45, 0, 1);
       // Unison: a Chord rides the Thread, so the hum gets a fifth and an octave, never drops
       // fully silent, and follows the key instead of sliding between notes.
-      const riding = this.unisonRiding(state);
+      this.beamSong(state);
+      const riding = this.beamFocus > 0;
+      const full = this.beamFocus >= 2.5;
       let freq = 380 + tension * 780;
       if (riding) {
         this.ensureHarmony(this.whine.band);
         freq = midiToHz(quantizeToScale(69 + 12 * Math.log2(freq / 440)));
       }
       this.whine.gain.gain.setTargetAtTime(
-        Math.max(lift * lift * 0.05, riding ? 0.012 : 0),
+        Math.max(lift * lift * 0.05, riding ? (full ? 0.012 : 0.008) : 0),
         now,
         0.06,
       );
@@ -1499,8 +1546,10 @@ export class SfxEngine {
       if (this.harmony) {
         this.harmony.oscs[0]?.frequency.setTargetAtTime(freq * 1.5, now, 0.08);
         this.harmony.oscs[1]?.frequency.setTargetAtTime(freq * 2, now, 0.08);
-        this.harmony.gains[0]?.gain.setTargetAtTime(riding ? 0.7 : 0, now, 0.12);
-        this.harmony.gains[1]?.gain.setTargetAtTime(riding ? 0.45 : 0, now, 0.12);
+        const fifth = riding ? (full ? 0.7 : 0.32) : 0;
+        const oct = riding && this.beamAuras >= 2 ? (full ? 0.45 : 0.2) : 0;
+        this.harmony.gains[0]?.gain.setTargetAtTime(fifth, now, 0.12);
+        this.harmony.gains[1]?.gain.setTargetAtTime(oct, now, 0.12);
       }
       this.lastTension = tension;
     }

@@ -38,6 +38,8 @@ const UI_SOUNDS: UiSound[] = [
   'wheelOpen',
   'wheelPick',
   'reveal',
+  'rankUp',
+  'unlock',
 ];
 
 const ev = (type: SimEvent['type'], rest: Record<string, unknown>): SimEvent =>
@@ -364,7 +366,7 @@ describe('Phase 2 events: sound mapping', () => {
   });
 
   it('plays the three new UI sounds on the UI bus', () => {
-    for (const sound of ['wheelOpen', 'wheelPick', 'reveal'] as const) {
+    for (const sound of ['wheelOpen', 'wheelPick', 'reveal', 'rankUp', 'unlock'] as const) {
       const h = harness();
       const before = h.d.debugStats().activeSources.ui;
       h.d.playUi(sound);
@@ -412,9 +414,32 @@ describe('Phase 2 continuous layers', () => {
     const h = harness();
     h.d.update(h.world.state, 0.016);
     const idle = h.ctx.oscillators;
-    h.world.setChords(false, true);
+    h.world.setChords(false, 3);
     h.d.update(h.world.state, 0.016);
     expect(h.ctx.oscillators).toBe(idle + 2);
+    h.d.dispose();
+  });
+
+  it('pours musically when the beam moves while a beam song sings, and not otherwise', () => {
+    const h = harness();
+    const attach = ev('threadAttached', { hero: 2, slot: 1 });
+    h.d.onEvents([attach], h.world.state);
+    const plain = h.d.debugStats().peakVoices['pour'] ?? 0;
+    expect(plain).toBe(0);
+    h.world.setChords(false, 2);
+    h.d.onEvents([attach], h.world.state);
+    expect(h.d.debugStats().peakVoices['pour']).toBe(1);
+    h.d.dispose();
+  });
+
+  it('keeps passive aura heals silent', () => {
+    const h = harness();
+    const before = h.sources();
+    h.d.onEvents(
+      [ev('healApplied', { target: 2, source: 1, amount: 3, overheal: 0, via: 'aura' })],
+      h.world.state,
+    );
+    expect(h.sources()).toBe(before);
     h.d.dispose();
   });
 

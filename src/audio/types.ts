@@ -22,7 +22,10 @@ export type UiSound =
   | 'wheelOpen'
   | 'wheelPick'
   /** The result screen reveals the "without you" re-run. */
-  | 'reveal';
+  | 'reveal'
+  /** Phase 3: a Weaver Rank is gained (warm, short sting), and one unlock card is revealed. */
+  | 'rankUp'
+  | 'unlock';
 
 export interface Volumes {
   /** 0..1 each. */
