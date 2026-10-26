@@ -17,10 +17,12 @@ import {
 import type { EncounterResult, RunState } from '../../meta/types';
 import { fmt, plural } from '../kit/format';
 import type { IconName } from '../kit/iconPaths';
+import { CALLING_LOOK } from '../kit/callingLook';
 
-/** The glyph for an unlock (the field song gets its own; a Calling, the sun). */
+/** The glyph for an unlock (the field song gets its own; a Calling, its own: the sun, a drop). */
 export function unlockIcon(u: { kind: string; target: string }): IconName {
   if (u.kind === 'song' && u.target === 'field') return 'scatter';
+  if (u.kind === 'calling' && CALLING_LOOK[u.target]) return CALLING_LOOK[u.target]!.icon;
   return UNLOCK_ICON[u.kind] ?? 'sparkle';
 }
 
@@ -130,7 +132,9 @@ export function runRank(
       to > from
         ? `This run took you from Rank ${from} to Rank ${to}.`
         : run.xp > 0
-          ? `This run earned ${fmt(run.xp)} Weaver XP toward Rank ${Math.min(MAX_RANK, to + 1)}.`
+          ? to >= MAX_RANK
+            ? `This run earned ${fmt(run.xp)} Weaver XP. Rank ${MAX_RANK} is the highest for now; your XP keeps counting.`
+            : `This run earned ${fmt(run.xp)} Weaver XP toward Rank ${to + 1}.`
           : 'This run earned no Weaver XP.',
   };
 }

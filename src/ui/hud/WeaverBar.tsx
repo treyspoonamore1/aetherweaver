@@ -8,8 +8,22 @@ import type { AuraHud, ChordHud, HeroHud, HudSnapshot, TechniqueHud, WeaverHud }
 import { compact, splitContribution } from '../contribution';
 import { mult } from '../screens/chordModel';
 import type { ContributionHud } from '../store';
-import { TECHNIQUE_ICON, WEAVER_BAR_LEFT, WEAVER_BAR_WIDTH, bindingLabel } from './labels';
+import {
+  TECHNIQUE_ICON,
+  WEAVER_BAR_LEFT,
+  WEAVER_BAR_WIDTH,
+  bindingCode,
+  bindingLabel,
+} from './labels';
 import { beamSong, beamTitle } from './songs';
+import { CallingGlyph, callingLook } from '../kit/CallingGlyph';
+import { CONTENT } from '../../content';
+
+/** The Vow's length for its ring (content: the Calling's `vow` value; Sunrise's 6 s else). */
+function vowSeconds(callingId: string | undefined): number {
+  const def = CONTENT.callings.find((c) => c.id === callingId);
+  return def?.values.vow ?? CONTENT.crescendo.duration;
+}
 
 const SPIRIT = '#8ea2ff';
 const LIFE = '#fb7185';
@@ -37,7 +51,7 @@ export function WeaverBar({ hud }: { hud: HudSnapshot }) {
       )}
       <div className="flex items-end gap-4">
         <div className="flex w-44 shrink-0 flex-col gap-2">
-          <LifeBar weaver={w} />
+          <LifeBar weaver={w} callingId={hud.calling?.id} />
           <SpiritBar weaver={w} />
         </div>
         <div className="flex flex-1 items-end justify-center gap-2">
@@ -45,7 +59,7 @@ export function WeaverBar({ hud }: { hud: HudSnapshot }) {
             <TechniqueButton key={t.key} technique={t} silenced={w.downed} />
           ))}
         </div>
-        <ResonanceArc weaver={w} />
+        <ResonanceArc weaver={w} callingId={hud.calling?.id} />
       </div>
       <div className="flex items-center justify-between gap-3 border-t border-ink-600/50 pt-2">
         <ThreadStatus
@@ -60,33 +74,113 @@ export function WeaverBar({ hud }: { hud: HudSnapshot }) {
   );
 }
 
-function LifeBar({ weaver: w }: { weaver: WeaverHud }) {
+/**
+ * Life. On a Martyr run (Phase 3d) the bar is all of her Life: what she fights with filled,
+ * what her songs hold hatched at the end (like reserved Spirit), and the thresholds her path
+ * marks (Blood Font, Low-Life Vigil) as notches with their glyphs, lit while she's under them.
+ */
+function LifeBar({ weaver: w, callingId }: { weaver: WeaverHud; callingId?: string }) {
+  const total = Math.max(w.lifeTotal, w.maxLife);
+  const held = w.reservedLife > 0;
+  const look = callingLook(callingId ?? 'martyr');
+  const marks = w.lifeMarks;
+  const low = held && !w.downed && w.life < total * LOW_LIFE;
   return (
-    <div>
+    <div data-testid="weaver-life" data-pool={w.pool}>
       <div className="flex items-center justify-between text-xs text-muted">
         <span className="flex items-center gap-1">
           <Icon name="heart" size={12} style={{ color: LIFE }} /> Life
         </span>
         <span className="font-mono">
-          {w.downed ? `re-forming ${Math.ceil(w.reform)}s` : `${fmt(w.life)} / ${fmt(w.maxLife)}`}
+          {w.downed ? (
+            `re-forming ${Math.ceil(w.reform)}s`
+          ) : (
+            <>
+              <span className={low ? 'font-bold text-lethal' : ''}>{fmt(w.life)}</span> /{' '}
+              {fmt(w.maxLife)}
+              {held && (
+                <span
+                  className="ml-1"
+                  style={{ color: look.light }}
+                  title={`Your songs hold ${fmt(w.reservedLife)} of your ${fmt(total)} Life`}
+                >
+                  ▨{fmt(w.reservedLife)}
+                </span>
+              )}
+            </>
+          )}
         </span>
       </div>
-      <div
-        role="meter"
-        aria-label="Weaver life"
-        aria-valuemin={0}
-        aria-valuemax={w.maxLife}
-        aria-valuenow={Math.round(w.life)}
-        className="relative mt-1 h-3 overflow-hidden rounded-full bg-ink-700"
-      >
+      <div className="relative mt-1">
         <div
-          className="absolute inset-y-0 left-0 transition-[width] duration-150 ease-linear"
-          style={{ width: `${pctOf(w.life, w.maxLife)}%`, background: LIFE }}
-        />
+          role="meter"
+          aria-label="Weaver life"
+          aria-valuemin={0}
+          aria-valuemax={w.maxLife}
+          aria-valuenow={Math.round(w.life)}
+          aria-valuetext={
+            held
+              ? `${fmt(w.life)} of ${fmt(w.maxLife)}, ${fmt(w.reservedLife)} held by your songs, of ${fmt(total)} in all${marks.map((m) => `; ${m.name} below ${fmt(m.at)}${m.active ? ', on' : ''}`).join('')}`
+              : undefined
+          }
+          className={`relative h-3 overflow-hidden rounded-full bg-ink-700 ${low ? 'ring-1 ring-lethal/80' : ''}`}
+        >
+          <div
+            className="absolute inset-y-0 left-0 transition-[width] duration-150 ease-linear"
+            style={{ width: `${pctOf(w.life, total)}%`, background: LIFE }}
+          />
+          {held && (
+            <div
+              className="stripes absolute inset-y-0 right-0 border-l"
+              style={{
+                width: `${pctOf(w.reservedLife, total)}%`,
+                backgroundColor: `color-mix(in srgb, ${look.deep} 85%, transparent)`,
+                borderColor: look.color,
+              }}
+              title="Held by your songs"
+              data-testid="life-reserved"
+            />
+          )}
+        </div>
+        {marks.map((m) => (
+          <span
+            key={m.id}
+            className="absolute -bottom-0.5 -top-0.5 w-0.5 rounded-full"
+            style={{
+              left: `calc(${pctOf(m.at, total)}% - 1px)`,
+              background: m.active ? look.light : 'rgb(255 255 255 / 0.55)',
+              boxShadow: m.active ? `0 0 6px ${look.color}` : undefined,
+            }}
+            title={`${m.name}: below ${fmt(m.at)} Life${m.active ? ' (on)' : ''}`}
+            data-testid={`life-mark-${m.id}`}
+            data-active={m.active || undefined}
+            aria-hidden
+          />
+        ))}
       </div>
+      {marks.length > 0 && (
+        <div className="relative mt-0.5 h-3.5" aria-hidden>
+          {marks.map((m) => (
+            <span
+              key={m.id}
+              className="absolute top-0 flex -translate-x-1/2 items-center"
+              style={{
+                left: `${pctOf(m.at, total)}%`,
+                color: m.active ? look.light : 'var(--color-muted)',
+                filter: m.active ? `drop-shadow(0 0 3px ${look.color})` : undefined,
+              }}
+            >
+              <CallingGlyph icon={m.icon} size={13} />
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
+
+/** On a Martyr run, below this share of all her Life the number turns red. */
+const LOW_LIFE = 0.15;
 
 function pctOf(v: number, max: number): number {
   return max > 0 ? Math.max(0, Math.min(100, (v / max) * 100)) : 0;
@@ -101,6 +195,14 @@ function SpiritBar({ weaver: w }: { weaver: WeaverHud }) {
       <div className="flex items-center justify-between text-xs text-muted">
         <span className="flex items-center gap-1">
           <Icon name="sparkle" size={12} style={{ color: SPIRIT }} /> Spirit
+          {w.pool === 'life' && (
+            <span
+              className="text-[11px]"
+              title="Your songs reserve Life, so all your Spirit is free"
+            >
+              · all free
+            </span>
+          )}
         </span>
         <span className="font-mono">
           {fmt(w.spirit)} / {fmt(freeMax)}
@@ -209,7 +311,7 @@ function TechniqueButton({
 }
 
 /** The Resonance arc: four segments, Crescendo key at its heart. */
-function ResonanceArc({ weaver: w }: { weaver: WeaverHud }) {
+function ResonanceArc({ weaver: w, callingId }: { weaver: WeaverHud; callingId?: string }) {
   const segments = Math.max(1, Math.round(w.resonanceMax / w.segment));
   const ready = w.resonance + 1e-9 >= w.crescendoCost;
   const active = w.crescendo > 0;
@@ -264,8 +366,31 @@ function ResonanceArc({ weaver: w }: { weaver: WeaverHud }) {
         ))}
       </svg>
       <div className="absolute inset-x-0 bottom-0 flex flex-col items-center">
-        {active ? (
-          <span className="flex items-center gap-1 text-xs font-bold text-gold-200">
+        {active && w.vow ? (
+          // The Martyr's Vow: in her blood, its own glyph, the seconds the heroes are held.
+          <span
+            className="flex items-center gap-1 whitespace-nowrap rounded-md px-1 text-xs font-bold"
+            style={{
+              color: callingLook(callingId ?? 'martyr').light,
+              background: `color-mix(in srgb, ${callingLook(callingId ?? 'martyr').color} 30%, transparent)`,
+            }}
+            data-testid="crescendo-active"
+          >
+            <Ring
+              value={Math.min(1, w.crescendo / Math.max(1, vowSeconds(callingId)))}
+              size={20}
+              stroke={3}
+              color={callingLook(callingId ?? 'martyr').color}
+            >
+              <Icon name="vow" size={11} />
+            </Ring>
+            {w.crescendoName} {Math.ceil(w.crescendo)}s
+          </span>
+        ) : active ? (
+          <span
+            className="flex items-center gap-1 text-xs font-bold text-gold-200"
+            data-testid="crescendo-active"
+          >
             <Ring value={w.crescendo / 6} size={20} stroke={3} color={GOLD}>
               <Icon name="note" size={11} className="text-gold-200" />
             </Ring>
@@ -281,7 +406,7 @@ function ResonanceArc({ weaver: w }: { weaver: WeaverHud }) {
             title={`Crescendo: ${w.crescendoName}. Costs a full song (${w.crescendoCost} Resonance).`}
           >
             <KeyCap label={bindingLabel('crescendo')} accent={ready} />
-            <span className="text-xs font-bold leading-none">
+            <span className="whitespace-nowrap text-xs font-bold leading-none">
               {ready ? w.crescendoName.toUpperCase() : `${full}/${segments}`}
             </span>
           </div>
@@ -329,6 +454,18 @@ function ContributionReadout({ c }: { c: ContributionHud }) {
   );
 }
 
+/** How each Thread mode reads: Mend's heal colour, Empower's gold, Bear in the Martyr's blood. */
+function threadLook(mode: WeaverHud['threadMode']): {
+  color: string;
+  icon: 'mend' | 'empower' | 'bear';
+  label: string;
+} {
+  if (mode === 'bear') return { color: callingLook('martyr').color, icon: 'bear', label: 'Bear' };
+  return mode === 'mend'
+    ? { color: 'var(--color-heal)', icon: 'mend', label: 'Mend' }
+    : { color: 'var(--color-amp)', icon: 'empower', label: 'Empower' };
+}
+
 function ThreadStatus({
   weaver: w,
   targetName,
@@ -341,15 +478,35 @@ function ThreadStatus({
   /** The beam song's strength on the threaded hero (null: no beam song on them). */
   beamFocus: number | null;
 }) {
-  const mend = w.threadMode === 'mend';
-  const color = mend ? 'var(--color-heal)' : 'var(--color-amp)';
+  const mode = threadLook(w.threadMode);
+  const bear = w.threadMode === 'bear';
+  // Bear is the Martyr's: its key shows only on her runs.
+  const canBear = w.bearShare > 0 && !!bindingCode('bear');
   const taut = w.threadTension > 0.75;
   return (
-    <div className="flex shrink-0 items-center gap-2 text-sm" data-testid="thread-mode">
+    <div
+      className="flex shrink-0 items-center gap-2 text-sm"
+      data-testid="thread-mode"
+      data-mode={w.threadMode}
+    >
       <Icon name="thread" size={16} className="text-muted" />
-      <span className="flex items-center gap-1 font-semibold" style={{ color }}>
-        <Icon name={mend ? 'mend' : 'empower'} size={14} />
-        {mend ? 'Mend' : 'Empower'}
+      <span
+        className={`flex items-center gap-1 font-semibold ${bear ? 'rounded-md px-1' : ''}`}
+        style={{
+          color: mode.color,
+          background: bear ? `color-mix(in srgb, ${mode.color} 16%, transparent)` : undefined,
+        }}
+        title={
+          bear
+            ? `Bear: you take ${Math.round(w.bearShare * 100)}% of what your threaded hero would lose. No ${w.lastMode === 'mend' ? 'Mend' : 'Empower'} while it’s on.`
+            : undefined
+        }
+      >
+        <Icon name={mode.icon} size={14} />
+        {mode.label}
+        {bear && (
+          <span className="font-mono text-xs font-bold">{Math.round(w.bearShare * 100)}%</span>
+        )}
       </span>
       <span className="truncate text-muted">
         →{' '}
@@ -373,6 +530,7 @@ function ThreadStatus({
         )}
       </span>
       <KeyCap label="RMB" />
+      {canBear && <KeyCap label={bindingLabel('bear')} accent={bear} />}
       {w.threadLock > 0 ? (
         <span className="text-xs font-semibold text-lethal">
           Snapped · {w.threadLock.toFixed(1)}s
@@ -452,7 +610,7 @@ function ChordGroup({
         {beam ? mult(c.focus) : 'Field'}
       </span>
       {c.auras.map((a) => (
-        <AuraChip key={a.id} aura={a} suppressed={w.fieldSuppressed} />
+        <AuraChip key={a.id} aura={a} suppressed={w.fieldSuppressed} pool={w.pool} />
       ))}
       {c.ornaments.map((o) => {
         if (o.id === 'pedal_point') {
@@ -509,7 +667,15 @@ function ChordGroup({
   );
 }
 
-function AuraChip({ aura, suppressed }: { aura: AuraHud; suppressed: boolean }) {
+function AuraChip({
+  aura,
+  suppressed,
+  pool,
+}: {
+  aura: AuraHud;
+  suppressed: boolean;
+  pool: WeaverHud['pool'];
+}) {
   return (
     <span
       className={`flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-0.5 text-xs font-medium ${suppressed ? 'opacity-45' : ''}`}
@@ -518,7 +684,7 @@ function AuraChip({ aura, suppressed }: { aura: AuraHud; suppressed: boolean }) 
         borderColor: `color-mix(in srgb, ${aura.color} 55%, transparent)`,
         background: `color-mix(in srgb, ${aura.color} 12%, transparent)`,
       }}
-      title={`${aura.name} reserves ${Math.round(aura.reserve * 100)}% of your Spirit`}
+      title={`${aura.name} reserves ${Math.round(aura.reserve * 100)}% of your ${pool === 'life' ? 'Life' : 'Spirit'}`}
     >
       <Icon name="note" size={12} />
       {aura.name}

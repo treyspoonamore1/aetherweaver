@@ -3,10 +3,11 @@
  * reviewed (and its edge cases hit) without playing. Runs are built by driving the real
  * pure run functions (meta/run.ts) with fake combat outcomes.
  */
-import { CONTENT, auraDef, encounterDef, heroDef } from '../../content';
+import { CONTENT, auraDef, callingDef, encounterDef, heroDef } from '../../content';
 import * as Run from '../../meta/run';
 import type {
   ActiveBoon,
+  ChordLoadout,
   CombatOutcome,
   ForgeService,
   NodeKind,
@@ -18,7 +19,7 @@ import type {
 } from '../../meta/types';
 import { FORGE_PRICE, MOTIF_PRICE, RELIC_PRICE, SHOP_HEAL } from '../../meta/economy';
 import { relicHuds } from '../hud/relics';
-import { callingHud, shineOf, type CallingSource } from '../hud/calling';
+import { callingHud, lifeMarksOf, shineOf, type CallingSource } from '../hud/calling';
 import { motifStep, type ForgeResult } from '../screens/interlude';
 import { createSim, resolveChord, type Ledger } from '../../sim';
 import { UNLOCKS } from '../../meta/profile';
@@ -115,6 +116,8 @@ function hero(slot: number, defId: string, over: Partial<HeroHud> = {}): HeroHud
     auras: ['sostenuto', 'fortissimo'],
     beamFocus: false,
     radiance: 0,
+    borne: 0,
+    vow: false,
     call: null,
     held: null,
     follow: 'follow',
@@ -138,7 +141,11 @@ export type HudScenario =
   | 'relics'
   | 'relics-waiting'
   | 'luminary'
-  | 'luminary-sunrise';
+  | 'luminary-sunrise'
+  | 'martyr-coach'
+  | 'martyr-bear'
+  | 'martyr-vow'
+  | 'martyr-low';
 
 function auraHud(id: string, reserveMult = 1): AuraHud {
   const a = auraDef(id);
@@ -220,6 +227,10 @@ function mockHudRaw(scenario: HudScenario): HudSnapshot {
       z: 0,
       life: 300,
       maxLife: w.maxLife,
+      lifeTotal: w.maxLife,
+      reservedLife: 0,
+      pool: 'spirit',
+      lifeMarks: [],
       downed: false,
       reform: 0,
       spirit: 38,
@@ -232,6 +243,9 @@ function mockHudRaw(scenario: HudScenario): HudSnapshot {
       crescendo: 0,
       crescendoName: CONTENT.crescendo.name,
       threadMode: 'mend',
+      lastMode: 'mend',
+      bearShare: 0,
+      vow: false,
       threadSlot: 0,
       threadTension: 0.3,
       threadLock: 0,
@@ -596,6 +610,25 @@ function mockHudRaw(scenario: HudScenario): HudSnapshot {
       return luminaryHud(base, ['haloed', null, null, null], false);
     case 'luminary-sunrise':
       return luminaryHud(base, ['haloed', 'dawnward', 'third_voice', 'sovereign_symphony'], true);
+    case 'martyr-coach':
+      return martyrHud(base, ['scarred_hide', null, null, null], {
+        life: 290,
+        mode: 'mend',
+        coach: true,
+      });
+    case 'martyr-bear':
+      return martyrHud(base, ['scarred_hide', 'blood_font', null, null], {
+        life: 236,
+        mode: 'bear',
+      });
+    case 'martyr-vow':
+      return martyrHud(base, ['penitence', 'shared_wounds', 'undying_devotion', null], {
+        life: 188,
+        mode: 'bear',
+        vow: true,
+      });
+    case 'martyr-low':
+      return martyrHud(base, MARTYR_PICKS, { life: 96, mode: 'empower', lastMode: 'empower' });
     case 'resonance':
       return {
         ...base,
@@ -724,6 +757,109 @@ function luminaryHud(
   };
 }
 
+/** The Martyr as the sim resolves her for this path and Guardian's songs. */
+export function mockMartyrSource(path: readonly (string | null)[]): CallingSource {
+  const sim = createSim({
+    seed: 3,
+    encounter: 'first_light',
+    chords: GUARDIAN_CHORDS.map((c) => ({ auras: [...c.auras], ornaments: [...c.ornaments] })),
+    calling: { id: 'martyr', path: path.filter((p): p is string => p !== null) },
+  });
+  const c = sim.state.calling!;
+  return {
+    id: c.id,
+    path: [...c.path],
+    radiancePerAura: c.radiancePerAura,
+    sunriseMult: c.sunriseMult,
+    sovereign: c.sovereign,
+    crescendo: c.crescendo,
+    bearShare: c.bearShare,
+  };
+}
+
+/**
+ * The Martyr in a fight, singing Guardian (55% of her Life held): her Life and what her songs
+ * hold from a real sim, Bear on Kael (the threaded hero) or not, the Vow, and the path's Life
+ * marks lit by `life`.
+ */
+function martyrHud(
+  base: HudSnapshot,
+  path: readonly (string | null)[],
+  opts: {
+    life: number;
+    mode: 'mend' | 'empower' | 'bear';
+    lastMode?: 'mend' | 'empower';
+    vow?: boolean;
+    /** A big hit coming at Kael with Ward cooling: the coach's Bear hint (not yet Bearing). */
+    coach?: boolean;
+  },
+): HudSnapshot {
+  const source = mockMartyrSource(path);
+  const me = mockMartyrWeaver(path);
+  const vow = !!opts.vow;
+  const bearing = opts.mode === 'bear';
+  const marks = lifeMarksOf(source.path, opts.life, me.maxLife);
+  const chords = GUARDIAN_CHORDS.map((c, i) => chordHud(i, [...c.auras], [...c.ornaments]));
+  const weaver: HudSnapshot['weaver'] = {
+    ...base.weaver,
+    life: opts.life,
+    maxLife: me.usable,
+    lifeTotal: me.maxLife,
+    reservedLife: me.reservedLife,
+    pool: 'life',
+    lifeMarks: marks,
+    spirit: 82,
+    maxSpirit: CONTENT.weaver.maxSpirit,
+    reserved: 0,
+    threadMode: opts.mode,
+    lastMode: opts.lastMode ?? 'mend',
+    bearShare: source.bearShare ?? 0,
+    vow,
+    crescendo: vow ? 3.4 : 0,
+    crescendoName: me.vowName,
+    resonance: vow ? 0 : opts.coach ? 52 : 76,
+    threadSlot: 0,
+    chords,
+    auras: chords.flatMap((c) => c.auras),
+    techniques: opts.coach ? techniques({ ward: { remaining: 6.2, total: 9 } }) : techniques(),
+  };
+  const kaelMax = heroDef('kael').maxHp;
+  return {
+    ...base,
+    weaver,
+    party: [
+      hero(0, 'kael', {
+        hp: vow ? 1 : opts.coach ? 1450 : 980,
+        threaded: true,
+        incoming: opts.coach ? Math.round(kaelMax * 0.42) : bearing && !vow ? 640 : 0,
+        borne: bearing ? (source.bearShare ?? 0) : 0,
+        vow,
+        auras: ['fortissimo', 'sostenuto'],
+      }),
+      hero(1, 'lyra', { hp: vow ? 140 : 610, vow, auras: ['sostenuto'] }),
+      hero(2, 'vexis', { hp: vow ? 1 : 540, vow, distance: 6, auras: ['sostenuto'] }),
+    ],
+    relics: relicHuds({
+      relics: {
+        ids: ['tuning_fork', 'martyrs_veil'],
+        cleansed: [],
+        metronomeAt: null,
+        thimbleAt: null,
+        veil: true,
+      },
+      time: 90,
+      ledger: { perfects: 1, downs: 0 },
+    }),
+    calling: callingHud(source, false, {
+      vow,
+      bearing,
+      undyingReady: source.path.includes('undying_devotion'),
+      marks,
+    }),
+    encounter: { ...base.encounter, elapsed: vow ? 71 : 48, enemies: vow ? 7 : 6 },
+  };
+}
+
 export function mockCallouts(scenario: HudScenario): Callout[] {
   const far = performance.now() + 1e9;
   const c = (
@@ -788,6 +924,18 @@ export function mockCallouts(scenario: HudScenario): Callout[] {
       return [c(1, 'perfect', 'Perfect Ward', { detail: 'Kael · 480 negated', color: '#f5d78e' })];
     case 'luminary-sunrise':
       return [c(1, 'perfect', 'Crescendo — Sunrise', { color: '#fff1c4' })];
+    case 'martyr-vow':
+      return [
+        c(1, 'perfect', 'Crescendo — Martyr’s Vow', { color: '#ffd9cf' }),
+        c(2, 'save', 'Your Vow held Vexis', {
+          detail: 'Toll Cleave · 610 prevented',
+          color: '#ffd9cf',
+        }),
+      ];
+    case 'martyr-coach':
+    case 'martyr-bear':
+    case 'martyr-low':
+      return [];
     case 'wheel':
     case 'beam':
     case 'sandbox':
@@ -878,14 +1026,21 @@ export function fakeOutcome(
   // The Calling's share (Phase 3c): Radiance grows with the path; Haloed keeps damage off.
   const path = run.calling?.path ?? [];
   const taken = path.filter(Boolean).length;
+  // The Martyr's: what she bore (more with Shared Wounds), and twice that kept off them.
+  const martyr = run.calling?.id === 'martyr';
+  const borne = martyr
+    ? 260 * scale * (1 + taken * 0.4) * (path.includes('shared_wounds') ? 1.5 : 1)
+    : 0;
   const ledger: Ledger = {
-    calling: run.calling
-      ? {
-          amplified: 380 * scale * (1 + taken) * (path.includes('searing_hymns') ? 1.8 : 1),
-          shielded: path.includes('haloed') ? 140 * scale : 0,
-          borne: 0,
-        }
-      : { amplified: 0, shielded: 0, borne: 0 },
+    calling: martyr
+      ? { amplified: 0, shielded: borne * 2, borne }
+      : run.calling
+        ? {
+            amplified: 380 * scale * (1 + taken) * (path.includes('searing_hymns') ? 1.8 : 1),
+            shielded: path.includes('haloed') ? 140 * scale : 0,
+            borne: 0,
+          }
+        : { amplified: 0, shielded: 0, borne: 0 },
     healing: 4200 * scale,
     overheal: 900 * scale,
     shielded: 2100 * scale,
@@ -1354,10 +1509,16 @@ export function luminaryRun(
     untilTier?: number;
     fights?: number;
     seed?: number;
+    /** The Calling (default the Luminary; `martyrRun` passes the Martyr). */
+    calling?: string;
+    /** Songs to embark with (default the run's own). */
+    chords?: readonly ChordLoadout[];
   } = {},
 ): RunState {
   const picks = opts.picks ?? [];
-  let run = Run.embark(Run.setCalling(Run.newRun(opts.seed ?? 7), 'luminary'));
+  let run = Run.embark(
+    Run.setCalling(Run.newRun(opts.seed ?? 7, opts.chords), opts.calling ?? 'luminary'),
+  );
   let played = 0;
   while (run.phase === 'map' && played < (opts.fights ?? 99)) {
     const options = Run.reachable(run);
@@ -1429,8 +1590,90 @@ export function callingSummaryRun(): RunState {
   return { ...run, phase: 'summary', outcome: 'victory', pending: null };
 }
 
-/** Prep with the Luminary chosen (or not). */
-export function prepCallingRun(chosen: boolean, seed = 7): RunState {
+/** Prep with the Luminary chosen (`true`), another Calling (its id), or none. */
+export function prepCallingRun(chosen: boolean | string, seed = 7): RunState {
   const run = Run.newRun(seed, Run.CHORD_PRESETS.find((p) => p.id === 'guardian')!.chords);
-  return chosen ? Run.setCalling(run, 'luminary') : run;
+  if (chosen === false) return run;
+  return Run.setCalling(run, chosen === true ? 'luminary' : chosen);
+}
+
+// ── Phase 3d: the Martyr ───────────────────────────────────────────────────────────────
+
+/** Guardian's songs: 55% of the Martyr's Life held, so she fights below half. */
+export const GUARDIAN_CHORDS: readonly ChordLoadout[] = Run.CHORD_PRESETS.find(
+  (p) => p.id === 'guardian',
+)!.chords;
+
+/**
+ * Songs that hold 95% (Grace Note on the field song): legal for Spirit, but more than the
+ * Martyr's Life may hold (`LIFE_RESERVE_CAP`).
+ */
+export const OVER_LIFE_CHORDS: readonly ChordLoadout[] = [
+  { auras: ['fortissimo', 'ostinato'], ornaments: [] },
+  { auras: ['sostenuto', 'allegro'], ornaments: ['grace_note'] },
+];
+
+/** A path across the Martyr's three axes: Scarred Hide, Blood Font, Low-Life Vigil, Martyr's Aegis. */
+export const MARTYR_PICKS: readonly string[] = [
+  'scarred_hide',
+  'blood_font',
+  'low_life_vigil',
+  'martyrs_aegis',
+];
+
+/** A run with the Martyr (Guardian's songs), as `luminaryRun` plays one. */
+export function martyrRun(
+  opts: Omit<Parameters<typeof luminaryRun>[0] & object, 'calling'> = {},
+): RunState {
+  return luminaryRun({ chords: GUARDIAN_CHORDS, ...opts, calling: 'martyr' });
+}
+
+/** The Martyr's tier screen for tier `tier`, the earlier tiers taken as `picks`. */
+export function martyrOfferRun(tier: number, picks: readonly string[] = MARTYR_PICKS): RunState {
+  return martyrRun({ picks, untilTier: tier });
+}
+
+/** The Result after the fight at step 4 on a Martyr run (Penitence taken): her line, then the tier. */
+export function martyrResultRun(): RunState {
+  let run = martyrRun({ picks: ['penitence'], fights: 3 });
+  for (let guard = 0; guard < 4 && run.phase === 'map'; guard++) {
+    const options = Run.reachable(run);
+    const next = options.find((n) => n.encounterId) ?? options[0];
+    if (!next) break;
+    run = Run.chooseNode(run, next.id);
+    if (run.phase === 'combat') {
+      run = Run.finishCombat(run, fakeOutcome(run, true));
+      if (Run.CALLING_ROWS.includes(Run.findNode(run, run.pending ?? '')?.row ?? -1)) return run;
+      run = settle(Run.continueFromResult(run));
+      if (run.phase === 'calling') run = settle(pickFor(run, ['penitence']));
+    } else run = settle(run);
+  }
+  return run;
+}
+
+/** A whole run won with the Martyr, the four tiers taken. */
+export function martyrSummaryRun(): RunState {
+  const run = martyrRun({ picks: MARTYR_PICKS });
+  return { ...run, phase: 'summary', outcome: 'victory', pending: null };
+}
+
+/** The Martyr's Weaver as a real sim builds her for these songs and this path. */
+export function mockMartyrWeaver(
+  path: readonly (string | null)[],
+  chords: readonly ChordLoadout[] = GUARDIAN_CHORDS,
+): { maxLife: number; reservedLife: number; usable: number; bearShare: number; vowName: string } {
+  const sim = createSim({
+    seed: 3,
+    encounter: 'first_light',
+    chords: chords.map((c) => ({ auras: [...c.auras], ornaments: [...c.ornaments] })),
+    calling: { id: 'martyr', path: path.filter((p): p is string => p !== null) },
+  });
+  const e = sim.state.entities.get(sim.state.weaverId)!;
+  return {
+    maxLife: e.weaver!.maxLife,
+    reservedLife: e.weaver!.reservedLife,
+    usable: e.health!.maxHp,
+    bearShare: sim.state.calling!.bearShare,
+    vowName: callingDef('martyr').crescendoName ?? CONTENT.crescendo.name,
+  };
 }

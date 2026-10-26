@@ -1,8 +1,11 @@
 import { Panel } from '../kit/Panel';
 import { bindingLabel } from './labels';
 
-/** A quiet controls reminder (bottom-right). Shown for the first fights and in training. */
-export function KeyHints() {
+/**
+ * A quiet controls reminder (bottom-right). Shown for the first fights and in training. `bear`:
+ * a Martyr run, where Bear has its own key (Phase 3d).
+ */
+export function KeyHints({ bear = false }: { bear?: boolean }) {
   const rows: [string, string][] = [
     [
       `${bindingLabel('moveUp')}${bindingLabel('moveLeft')}${bindingLabel('moveDown')}${bindingLabel('moveRight')}`,
@@ -10,6 +13,9 @@ export function KeyHints() {
     ],
     ['1–4 / click', 'Thread a hero'],
     ['RMB', 'Mend ⇄ Empower'],
+    ...(bear
+      ? [[bindingLabel('bear'), 'Bear: take part of their wounds'] as [string, string]]
+      : []),
     [
       `${bindingLabel('ward')} ${bindingLabel('chime')} ${bindingLabel('reel')} ${bindingLabel('glide')}`,
       'Ward · Chime · Reel · Glide',

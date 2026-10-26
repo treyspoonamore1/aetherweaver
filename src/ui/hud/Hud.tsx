@@ -115,7 +115,7 @@ export function HudView({
       />
       <WeaverBar hud={hud} />
       {coach && !sandbox && <CoachHints hud={hud} force={forceCoach} />}
-      {keyHints && <KeyHints />}
+      {keyHints && <KeyHints bear={(hud.calling?.bearShare ?? 0) > 0} />}
       {wheel && <DirectiveWheelView wheel={wheel} focusName={wheel.focusName} fixed={false} />}
     </div>
   );

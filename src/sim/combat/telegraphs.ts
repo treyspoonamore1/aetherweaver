@@ -13,8 +13,10 @@ import type {
   ReadonlyEntity,
   SaveCause,
   Telegraph,
+  WorldState,
 } from '../state';
 import type { World } from '../world';
+import { SIM_DT } from '../constants';
 import { distSq, len } from '../core/dmath';
 import { recordSave } from './saves';
 import {
@@ -191,6 +193,18 @@ function candidates(world: World, t: Telegraph, out: Entity[]): Entity[] {
 
 const scratch: Entity[] = [];
 
+/**
+ * Martyr's Vow will still be holding the heroes at 1 life when a hit due at `impact` lands.
+ * The Vow's clock runs before telegraphs resolve and a hit lands on the first tick at or
+ * after its impact, so a hit in the Vow's last tick doesn't count. (The Vow also ends if the
+ * Weaver goes down, which nothing can foresee.)
+ */
+export function vowHoldsAt(state: WorldState, impact: number): boolean {
+  if (!state.field.vow) return false;
+  const left = state.entities.get(state.weaverId)?.weaver?.crescendo ?? 0;
+  return impact + SIM_DT < state.time + left;
+}
+
 /** Forecast stripes and live severity, every tick. */
 export function updateIncoming(world: World): void {
   for (const id of world.party) {
@@ -201,12 +215,14 @@ export function updateIncoming(world: World): void {
   if (weaver?.health) weaver.health.incoming = 0;
   for (const t of world.telegraphs) {
     let lethal = false;
+    // No hero falls to a hit that lands while Martyr's Vow holds them.
+    const vowed = vowHoldsAt(world, t.impact);
     for (const e of candidates(world, t, scratch)) {
       if (!contains(world, t, e)) continue;
       const dmg = telegraphDamage(t, e);
       const h = e.health!;
       h.incoming += dmg;
-      if (dmg >= h.hp + totalShield(h)) lethal = true;
+      if (dmg >= h.hp + totalShield(h) && !(vowed && e.hero)) lethal = true;
     }
     t.severity = lethal ? 'lethal' : 'normal';
   }

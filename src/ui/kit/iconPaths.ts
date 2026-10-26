@@ -74,6 +74,10 @@ export const PATHS = {
     'M12 3l7 4v6c0 4-3 6.8-7 8-4-1.2-7-4-7-8V7z M12 8.5l1.2 2.4 2.6.4-1.9 1.8.5 2.6-2.4-1.3-2.4 1.3.5-2.6-1.9-1.8 2.6-.4z',
   /** Phase 3c: the Luminary's light (Radiance, the Calling). */
   sun: 'M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z M12 2.5v2.5 M12 19v2.5 M2.5 12H5 M19 12h2.5 M5.3 5.3l1.8 1.8 M16.9 16.9l1.8 1.8 M18.7 5.3l-1.8 1.8 M7.1 16.9l-1.8 1.8',
+  /** Phase 3d: the Martyr's blood (her Life, the Calling), Bear and her Vow. */
+  drop: 'M12 3.5c3 3.8 4.6 6.4 4.6 8.7a4.6 4.6 0 0 1-9.2 0c0-2.3 1.6-4.9 4.6-8.7z',
+  bear: 'M12 3c1.9 2.4 2.9 4.1 2.9 5.5a2.9 2.9 0 0 1-5.8 0c0-1.4 1-3.1 2.9-5.5z M3.5 13.5c1.6 4.2 4.7 6.8 8.5 6.8s6.9-2.6 8.5-6.8 M3.5 13.5h4 M20.5 13.5h-4',
+  vow: 'M12 17.5s-7-4.1-7-9.2A3.9 3.9 0 0 1 12 6a3.9 3.9 0 0 1 7 2.3c0 5.1-7 9.2-7 9.2z M4 21h16',
 } as const;
 
 export type IconName = keyof typeof PATHS;

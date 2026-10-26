@@ -54,7 +54,10 @@ export interface HeroHud {
   shields: ShieldHud[];
   /** Damage of telegraphs currently aimed at this hero (the forecast stripe). */
   incoming: number;
-  /** The incoming damage would down them as things stand. */
+  /**
+   * The incoming damage would down them as things stand. Never while Martyr's Vow will outlast
+   * every hit on the board.
+   */
   lethal: boolean;
   statuses: StatusHud[];
   downed: boolean;
@@ -98,6 +101,13 @@ export interface HeroHud {
    * credited to you. 0 without a Calling, outside the field, or hearing no aura.
    */
   radiance: number;
+  /**
+   * Phase 3d, the Martyr: the Weaver Bears for this hero (threaded, Bear on): she takes this
+   * share of the life they'd lose (`CallingState.bearShare`). 0 otherwise.
+   */
+  borne: number;
+  /** Martyr's Vow is up: they can't drop below 1 life while it lasts. */
+  vow: boolean;
   hovered: boolean;
 }
 
@@ -158,11 +168,35 @@ export interface ContributionHud {
   total: number;
 }
 
+/** A share of all her Life an option on the path works below (Blood Font, Low-Life Vigil). */
+export interface LifeMarkHud {
+  id: string;
+  name: string;
+  /** The option's glyph key. */
+  icon: string;
+  /** The threshold in Life points (a share of `lifeTotal`). */
+  at: number;
+  /** She's below it right now: the option is working. */
+  active: boolean;
+}
+
 export interface WeaverHud {
   x: number;
   z: number;
   life: number;
+  /** The usable part of her Life (`health.maxHp`): heals stop here. */
   maxLife: number;
+  /**
+   * Phase 3d: all of her Life, reserved included (`WeaverComponent.maxLife`). Equals `maxLife`
+   * unless her songs hold Life (the Martyr).
+   */
+  lifeTotal: number;
+  /** Life her songs hold (the Martyr; 0 otherwise), drawn hatched like reserved Spirit. */
+  reservedLife: number;
+  /** What her songs reserve this fight: Spirit, or (the Martyr's) Life. */
+  pool: 'spirit' | 'life';
+  /** Thresholds her path marks on her Life (empty without Blood Font or Low-Life Vigil). */
+  lifeMarks: LifeMarkHud[];
   downed: boolean;
   /** Seconds until the Weaver re-forms (when downed). */
   reform: number;
@@ -178,6 +212,12 @@ export interface WeaverHud {
   crescendo: number;
   crescendoName: string;
   threadMode: ThreadMode;
+  /** The mode Bear returns to (right-click from Bear goes back here). */
+  lastMode: 'mend' | 'empower';
+  /** Bear's share of the threaded hero's wounds (0: no Bear, no Martyr). */
+  bearShare: number;
+  /** Martyr's Vow is up (the Martyr's Crescendo; `crescendo` counts it down). */
+  vow: boolean;
   threadSlot: number | null;
   /** 0 slack … 1 about to snap. */
   threadTension: number;

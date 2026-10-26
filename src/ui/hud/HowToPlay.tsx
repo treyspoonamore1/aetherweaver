@@ -29,7 +29,7 @@ interface Row {
   body: string;
 }
 
-function rows(): Row[] {
+function rows(bear: boolean): Row[] {
   return [
     {
       icon: 'move',
@@ -39,9 +39,9 @@ function rows(): Row[] {
     },
     {
       icon: 'thread',
-      keys: ['1', '2', '3', 'RMB'],
+      keys: ['1', '2', '3', 'RMB', ...(bear ? [bindingLabel('bear')] : [])],
       title: 'Thread a hero',
-      body: 'Click a party frame (or press its number) to tie your Thread to that hero. Mend heals them; right-click switches to Empower for extra damage. Your beam song pours into whoever you thread.',
+      body: `Click a party frame (or press its number) to tie your Thread to that hero. Mend heals them; right-click switches to Empower for extra damage. Your beam song pours into whoever you thread.${bear ? ` As the Martyr, ${bindingLabel('bear')} Bears: you take part of what they would lose, and your songs hold your Life instead of your Spirit.` : ''}`,
     },
     {
       icon: 'ward',
@@ -70,13 +70,16 @@ function rows(): Row[] {
   ];
 }
 
-/** First-fight primer. The sim is paused while it is open (docs/plan/04 §7). */
-export function HowToPlay({ onClose }: { onClose: () => void }) {
+/**
+ * First-fight primer. The sim is paused while it is open (docs/plan/04 §7). `bear`: a Martyr
+ * run, where Bear has its own key (Phase 3d).
+ */
+export function HowToPlay({ onClose, bear = false }: { onClose: () => void; bear?: boolean }) {
   return (
     <Modal title="How to play" width="max-w-2xl" onClose={onClose} closeOnEscape>
       <p className="mt-1 text-sm text-muted">The fight is paused until you begin.</p>
       <ul className="mt-4 flex flex-col gap-3">
-        {rows().map((r) => (
+        {rows(bear).map((r) => (
           <li
             key={r.title}
             className="flex gap-3 rounded-xl border border-ink-600/60 bg-ink-900/60 p-3"

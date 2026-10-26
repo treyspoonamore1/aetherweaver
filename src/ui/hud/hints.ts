@@ -1,6 +1,6 @@
 import type { HeroHud, HudSnapshot } from '../store';
 import { keyLabel } from '../../input/keyLabel';
-import { ANSWER, bindingLabel } from './labels';
+import { ANSWER, bindingCode, bindingLabel } from './labels';
 import { mult } from '../screens/chordModel';
 import { beamSong } from './songs';
 
@@ -132,6 +132,40 @@ export function evaluateHints(hud: HudSnapshot): Hint[] {
       text: `${h.name} is down — Thread them {${h.slot + 1}} and let Mend revive them before they bleed out`,
     });
   }
+  // The Martyr (Phase 3d): Bear has its own key, and costs the threaded hero their Mend.
+  // Bear may be unbound (a player's override took B): the hints then point to Settings.
+  const bearKey = bindingCode('bear');
+  const B = `{${bindingLabel('bear')}}`;
+  if (w.bearShare > 0 && bearKey) {
+    const threaded = party.find((h) => alive(h) && h.threaded);
+    if (
+      threaded &&
+      w.threadMode !== 'bear' &&
+      (threaded.lethal || threaded.incoming >= threaded.maxHp * 0.3)
+    ) {
+      out.push({
+        id: 'bear',
+        text: `${B} Bear — take part of the big hit coming at ${threaded.name} on yourself`,
+      });
+    }
+    if (
+      threaded &&
+      w.threadMode === 'bear' &&
+      threaded.hp < threaded.maxHp * 0.5 &&
+      threaded.incoming <= 0
+    ) {
+      out.push({
+        id: 'bear-back',
+        text: `Bearing stops your ${w.lastMode === 'mend' ? 'Mend' : 'Empower'} on ${threaded.name} — press ${B} again to go back`,
+      });
+    }
+  }
+  if (w.vow && w.bearShare > 0) {
+    out.push({
+      id: 'vow',
+      text: `${w.crescendoName}: your heroes can’t fall below 1 life — what gets past them comes to you, softened`,
+    });
+  }
   const hurt = party.filter((h) => alive(h) && h.hp < h.maxHp * 0.5);
   for (const h of hurt) {
     if (!h.threaded) {
@@ -139,10 +173,16 @@ export function evaluateHints(hud: HudSnapshot): Hint[] {
         id: 'hurt',
         text: `${h.name} is hurt — click their frame or press {${h.slot + 1}} to Thread them`,
       });
-    } else if (w.threadMode === 'empower') {
+    } else if (
+      w.threadMode === 'empower' ||
+      (w.threadMode === 'bear' && w.lastMode === 'empower')
+    ) {
       out.push({
         id: 'hurt-mode',
-        text: `${h.name} is hurt — press {RMB} to switch the Thread back to Mend`,
+        text:
+          w.threadMode === 'bear'
+            ? `${h.name} is hurt — press {RMB} twice${bearKey ? ` (or ${B}, then {RMB})` : ''} to get back to Mend`
+            : `${h.name} is hurt — press {RMB} to switch the Thread back to Mend`,
       });
     }
   }
@@ -216,6 +256,20 @@ export function evaluateHints(hud: HudSnapshot): Hint[] {
     out.push({
       id: 'thread',
       text: `Click a party frame or press {1} to attach your Thread — Mend heals, Empower hits harder`,
+    });
+  }
+  // The Martyr's first fight: introduce Bear once the Thread is on someone.
+  if (
+    w.bearShare > 0 &&
+    w.threadSlot !== null &&
+    w.threadMode !== 'bear' &&
+    hud.encounter.elapsed > 6
+  ) {
+    out.push({
+      id: 'bear-intro',
+      text: bearKey
+        ? `${B}: Bear — take part of a big hit on your threaded hero. Your songs hold your Life, not your Spirit`
+        : 'Bear has no key — bind one in Settings → Controls to take part of a big hit on your threaded hero',
     });
   }
   if (

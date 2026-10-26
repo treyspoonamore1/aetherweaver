@@ -56,6 +56,8 @@ export interface RunHook {
   setCalling(id: string | null): void;
   /** The run's Calling and its path so far (null: none). */
   calling(): { id: string; path: (string | null)[] } | null;
+  /** Phase 3d: what the run's songs reserve (`Run.reservePool`: Life on a Martyr run). */
+  reservePool(): 'spirit' | 'life' | null;
   /** Calling: take option `index` of the tier on offer. */
   pickCalling(index: 0 | 1): void;
   /**

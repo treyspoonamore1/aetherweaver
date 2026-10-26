@@ -11,7 +11,7 @@ import type { CallAnswer, ThreadMode } from '../types';
 import { StatusBadge } from './StatusBadge';
 import { ROLE_LABEL, bindingLabel } from './labels';
 import { beamSong, heroSongs, type HeroSongs } from './songs';
-import { shineLabel } from './calling';
+import { bearLabel, shineLabel } from './calling';
 import { callingLook } from '../kit/CallingGlyph';
 
 const HEAL = 'var(--color-heal)';
@@ -20,6 +20,54 @@ const SHIELD = 'var(--color-shield)';
 const GOLD = 'var(--color-gold-300)';
 const CALL = 'var(--color-call, #fde68a)';
 const HOLD = '#e2d6f8';
+/** The Martyr's blood (Bear, her Vow): her Calling's colours. */
+const BLOOD = callingLook('martyr').color;
+const BLOOD_LIGHT = callingLook('martyr').light;
+const MODE_LABEL: Record<ThreadMode, string> = { mend: 'Mend', empower: 'Empower', bear: 'Bear' };
+
+/**
+ * The Martyr on a hero's frame (Phase 3d): "Borne · 35%" while she Bears for them (a share of
+ * what they'd lose comes to her), and the Vow's floor while it lasts ("Vow: can't fall below
+ * 1"). In her colours with her glyphs, never the lethal red alone.
+ */
+function MartyrMarks({ hero: h }: { hero: HeroHud }) {
+  return (
+    <>
+      {h.borne > 0 && (
+        <span
+          className="flex items-center gap-1 rounded-md border px-1.5 text-xs font-bold leading-5"
+          style={{
+            color: BLOOD_LIGHT,
+            borderColor: BLOOD,
+            background: `color-mix(in srgb, ${BLOOD} 22%, transparent)`,
+          }}
+          role="img"
+          aria-label={`Borne: you take ${bearLabel(h.borne)} of what ${h.name} would lose`}
+          title={`You Bear for ${h.name}: ${bearLabel(h.borne)} of what they’d lose comes to you`}
+          data-testid="borne"
+        >
+          <Icon name="bear" size={12} /> Borne · {bearLabel(h.borne)}
+        </span>
+      )}
+      {h.vow && (
+        <span
+          className="anim-glow flex items-center gap-1 rounded-md px-1.5 text-xs font-bold leading-5"
+          style={{
+            color: BLOOD_LIGHT,
+            background: `color-mix(in srgb, ${BLOOD} 34%, transparent)`,
+            boxShadow: `0 0 0 1px ${BLOOD}`,
+          }}
+          role="img"
+          aria-label={`Martyr’s Vow: ${h.name} can’t fall below 1 life`}
+          title="Martyr’s Vow: they can’t fall below 1 life while it lasts; the rest comes to you"
+          data-testid="vow"
+        >
+          <Icon name="vow" size={12} /> Vow · ≥ 1 life
+        </span>
+      )}
+    </>
+  );
+}
 
 /** The party column (docs/plan/04 §5.2): who is in danger, at a glance. */
 export function PartyFrames({
@@ -97,10 +145,12 @@ const CALL_LOOK: Record<CallAnswer, { icon: 'ward' | 'empower' | 'chime'; label:
 function callKeys(h: HeroHud, answer: CallAnswer, threadMode: ThreadMode): string[] {
   if (answer === 'ward') return [bindingLabel('ward')];
   if (answer === 'chime') return [bindingLabel('chime')];
-  // Empower: Thread on them, in Empower mode.
+  // Empower: Thread on them, in Empower mode (from Bear, right-click goes back to the mode
+  // Bear left, so Bear's own key is the sure way off it first).
   const keys: string[] = [];
   if (!h.threaded) keys.push(String(h.slot + 1));
-  if (!h.threaded || threadMode !== 'empower') keys.push('RMB');
+  if (threadMode === 'bear') keys.push(bindingLabel('bear'));
+  else if (!h.threaded || threadMode !== 'empower') keys.push('RMB');
   return keys.length > 0 ? keys : ['✓'];
 }
 
@@ -296,7 +346,7 @@ export function HeroFrame({
     fieldAuras: h.auras,
     echo: null,
   };
-  const threadColor = threadMode === 'mend' ? HEAL : AMP;
+  const threadColor = threadMode === 'mend' ? HEAL : threadMode === 'bear' ? BLOOD : AMP;
   const out = h.dead;
   const down = h.downed && !out;
   const slotKey = bindingLabel(`focus${h.slot + 1}` as Action);
@@ -343,10 +393,10 @@ export function HeroFrame({
                 <span
                   className="flex items-center gap-0.5 text-xs font-semibold"
                   style={{ color: threadColor }}
-                  title={`Threaded: ${threadMode === 'mend' ? 'Mend' : 'Empower'}`}
+                  title={`Threaded: ${MODE_LABEL[threadMode]}`}
                 >
                   <Icon name="thread" size={13} />
-                  <Icon name={threadMode === 'mend' ? 'mend' : 'empower'} size={12} />
+                  <Icon name={threadMode} size={12} />
                 </span>
               )}
               {sung.focus && !out && (
@@ -368,6 +418,7 @@ export function HeroFrame({
               {h.held && <HeldStrip hero={h} />}
               {h.call && <CallStrip hero={h} threadMode={threadMode} />}
               <div className="mt-1 flex min-h-5 flex-wrap items-center gap-1">
+                {(h.borne > 0 || h.vow) && <MartyrMarks hero={h} />}
                 {h.statuses
                   .filter((s) => !(h.held && s.id === 'held'))
                   .map((s) => (

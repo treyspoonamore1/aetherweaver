@@ -4,11 +4,11 @@
  */
 import { describe, expect, it } from 'vitest';
 import { CONTENT, callingOption } from '../../src/content';
-import type { Command } from '../../src/sim';
+import { vowHoldsAt, type Command } from '../../src/sim';
 import { chordProblems, chordReserve } from '../../src/sim/chords';
 import { dealDamage, heal } from '../../src/sim/combat/health';
 import { resolveConfig, type World } from '../../src/sim/world';
-import { ofType, sandbox, stepFor, worldOf } from './helpers';
+import { ofType, sandbox, stepFor, telegraphOn, worldOf } from './helpers';
 
 const martyr = (...path: string[]) => ({ calling: { id: 'martyr', path } });
 const value = (option: string, key: string) => callingOption(option).values[key]!;
@@ -392,6 +392,35 @@ describe('Martyr’s Vow', () => {
     dealDamage(w, weaverOf(w), { source: null, sourceName: 't', amount: 1e5, telegraph: null });
     expect(weaverOf(w).health!.downed).toBe(true);
     expect(w.field.vow).toBe(false);
+  });
+
+  it('a hit that lands while it holds is never lethal; one that lands after it ends still is', () => {
+    const { sim, w } = vowed();
+    const clock = weaverOf(w).weaver!;
+    clock.crescendo = 30; // (long enough for the brute to wind up)
+    const { telegraph } = telegraphOn('bell_brute', 'Toll Cleave', 0, 2.5, sim, true);
+    // Kael's alone in the cleave (the Vow doesn't hold her), at 1 life.
+    const weaver = weaverOf(w);
+    weaver.x = weaver.px = 0;
+    weaver.z = weaver.pz = 3;
+    heroAt(w, 0).health!.hp = 1;
+    stepFor(sim, 1);
+    expect(weaver.health!.incoming).toBe(0);
+    expect(w.field.vow).toBe(true);
+    expect(vowHoldsAt(w, telegraph.impact)).toBe(true);
+    expect(heroAt(w, 0).health!.incoming).toBeGreaterThan(heroAt(w, 0).health!.hp);
+    expect(telegraph.severity).toBe('normal');
+    // The Vow ends before it lands: lethal again.
+    clock.crescendo = (telegraph.impact - w.time) / 2;
+    stepFor(sim, 1);
+    expect(w.field.vow).toBe(true);
+    expect(vowHoldsAt(w, telegraph.impact)).toBe(false);
+    expect(telegraph.severity).toBe('lethal');
+    // A hit in the Vow's last tick doesn't count: its clock runs out before telegraphs land.
+    clock.crescendo = telegraph.impact - w.time;
+    expect(vowHoldsAt(w, telegraph.impact)).toBe(false);
+    clock.crescendo = telegraph.impact - w.time + 2 / 60;
+    expect(vowHoldsAt(w, telegraph.impact)).toBe(true);
   });
 
   it('doubles her healing received, and ends on time', () => {

@@ -15,7 +15,8 @@ import type {
 } from '../../meta/types';
 import { PathPip, callingLook } from '../kit/CallingGlyph';
 import { CallingTitle } from './CallingParts';
-import { callingParts, pathSteps } from './callingText';
+import { callingNothingText, callingParts, pathSteps } from './callingText';
+import { bindingLabel } from '../hud/labels';
 import type { ReactNode } from 'react';
 import { ScreenFrame } from '../kit/Backdrop';
 import { Button } from '../kit/Button';
@@ -606,20 +607,15 @@ function CallingSummary({
                 style={{ borderColor: `color-mix(in srgb, ${look.color} 35%, transparent)` }}
               >
                 <p className="font-mono text-xl font-bold" style={{ color: look.color }}>
-                  {p.label === 'Haloed' ? fmt(p.amount) : `+${fmt(p.amount)}`}
+                  {p.figure}
                 </p>
-                <p className="text-xs text-muted">
-                  {p.label === 'Haloed'
-                    ? 'damage Haloed kept off'
-                    : `damage through your heroes (${p.label})`}
-                </p>
+                <p className="text-xs text-muted">{p.caption}</p>
               </li>
             ))}
           </ul>
         ) : (
           <p className="max-w-sm text-sm text-muted">
-            Radiance added nothing this run: bring your heroes into your field, and give them auras
-            to hear.
+            {callingNothingText(def.id, bindingLabel('bear'))}
           </p>
         )}
       </div>

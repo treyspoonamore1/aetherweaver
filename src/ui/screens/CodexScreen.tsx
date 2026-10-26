@@ -13,7 +13,7 @@ import { CHORD_PRESETS } from '../../meta/run';
 import { WITHOUT_YOU_MAX_SECONDS } from '../../sim';
 import type { AttackDef, EnemyDef, HeroDef } from '../../content';
 import { AnswerGlyph } from '../hud/AnswerGlyph';
-import { ROLE_LABEL } from '../hud/labels';
+import { ROLE_LABEL, bindingLabel } from '../hud/labels';
 import { ScreenFrame, ScreenHeader } from '../kit/Backdrop';
 import { Button } from '../kit/Button';
 import { CATEGORY, Chip, RARITY, RarityChip } from '../kit/Chip';
@@ -33,9 +33,9 @@ import { BoonTip, RelicBody, boonStyle } from './RelicCard';
 import { CALLING_ROWS, newRun } from '../../meta/run';
 import { EVERYTHING, type Allowance } from '../../meta/profile';
 import { callingLook } from '../kit/CallingGlyph';
-import { AxisChip, CallingPassive, CallingPathPreview, CallingTitle } from './CallingParts';
+import { AxisLegend, CallingPassive, CallingPathPreview, CallingTitle } from './CallingParts';
 import { callingOpen } from './CallingPicker';
-import { AXIS_LOOK, OPTION_AXIS, tierWhenList } from './callingText';
+import { tierWhenList } from './callingText';
 import { useAllowance } from './PrepScreen';
 
 const TABS = [
@@ -134,19 +134,19 @@ export function CodexScreen() {
   return <CodexView onBack={back} allowance={allowance} />;
 }
 
-/** Callings (Phase 3c): each one's passive, Sunrise, flavour and whole path; locks by Rank. */
+/** Callings (Phase 3c, 3d): each one's passive, Crescendo, flavour and whole path; locks by Rank. */
 function Callings({ allowance }: { allowance: Allowance }) {
   return (
     <div className="flex flex-col gap-6">
       <Panel tone="gold" className="p-5">
         <p className="max-w-4xl text-sm leading-relaxed text-text">
           A <b className="text-gold-200">Calling</b> is the Weaver’s class for a run, chosen in
-          Prep. It brings a passive and its own Sunrise, and a <b>path</b>: {CALLING_ROWS.length}{' '}
+          Prep. It brings a passive and its own Crescendo, and a <b>path</b>: {CALLING_ROWS.length}{' '}
           tiers of two options each, picked during the run {tierWhenList(CALLING_ROWS.length)} (the
           first fight you win at that step), before the fight’s relic and motif. Each pick lasts the
           rest of the run. The map marks the fights that bring one. Runs without a Calling play as
           before. The auras themselves never change: a Calling adds to your songs’ reach, strength
-          or slots.
+          or slots, or (the Martyr) changes what they reserve: your Life instead of your Spirit.
         </p>
       </Panel>
       {CONTENT.callings.map((def) => {
@@ -169,7 +169,7 @@ function Callings({ allowance }: { allowance: Allowance }) {
                 <CallingTitle def={def} size={64} muted={!open} />
                 <span className="flex items-center gap-2">
                   {open ? (
-                    <Chip color={look.color} icon="sun">
+                    <Chip color={look.color} icon={look.icon}>
                       {allowance.all ? 'Open (unlocks skipped)' : `Unlocked at Rank ${rank}`}
                     </Chip>
                   ) : (
@@ -189,16 +189,7 @@ function Callings({ allowance }: { allowance: Allowance }) {
               )}
             </Panel>
             <CallingPathPreview def={def} columns={4} />
-            <ul className="flex flex-wrap gap-x-5 gap-y-1 text-xs text-muted">
-              {(Object.keys(AXIS_LOOK) as (keyof typeof AXIS_LOOK)[]).map((k) => (
-                <li key={k} className="flex items-center gap-1.5">
-                  <AxisChip
-                    optionId={Object.keys(OPTION_AXIS).find((id) => OPTION_AXIS[id] === k)!}
-                  />
-                  {AXIS_LOOK[k].blurb}
-                </li>
-              ))}
-            </ul>
+            <AxisLegend def={def} />
           </section>
         );
       })}
@@ -359,7 +350,7 @@ function Weaver() {
       name: 'Thread',
       icon: 'thread',
       keys: '1–4 / click, RMB',
-      body: 'Tie your Thread to a hero. Mend heals them; Empower adds damage and attack speed. Your beam song rides it in both modes. Stray too far and it snaps.',
+      body: `Tie your Thread to a hero. Mend heals them; Empower adds damage and attack speed. Your beam song rides it in every mode. Stray too far and it snaps. On a Martyr run, Bear (${bindingLabel('bear')}) is a third mode: you take part of the life they would lose.`,
       stats: [
         `Mend ${th.mendPerSec}/s`,
         `Empower +${pct(th.empowerMore)} damage`,

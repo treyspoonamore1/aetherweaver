@@ -23,7 +23,7 @@ import {
 
 export { unlockIcon };
 
-/** An unlock's glyph: a Calling shows its own emblem (the Luminary's rising sun). */
+/** An unlock's glyph: a Calling shows its own emblem (the Luminary's sun, the Martyr's heart). */
 function UnlockGlyph({ unlock: u, size }: { unlock: Unlock; size: number }) {
   if (u.kind === 'calling') {
     const def = CONTENT.callings.find((c) => c.id === u.target);
@@ -32,7 +32,7 @@ function UnlockGlyph({ unlock: u, size }: { unlock: Unlock; size: number }) {
   return <Icon name={unlockIcon(u)} size={size} />;
 }
 
-/** The rank-up card's disc for an unlock: a Calling gets its emblem, in its dawn colours. */
+/** The rank-up card's disc for an unlock: a Calling gets its emblem, in its own colours. */
 function UnlockDisc({ unlock: u }: { unlock: Unlock }) {
   if (u.kind === 'calling') {
     const def = CONTENT.callings.find((c) => c.id === u.target);

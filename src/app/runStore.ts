@@ -131,6 +131,9 @@ export const useRun = create<RunStore>()((set, get) => {
   };
 });
 
+/** The run's Calling id (null: none, or no run): Combat's primer mentions Bear for the Martyr. */
+export const selectCallingId = (s: RunStore): string | null => s.run?.calling?.id ?? null;
+
 if (typeof window !== 'undefined') {
   // Save on the way out, so closing the tab never loses a transition.
   window.addEventListener('pagehide', () => saveRun(storage(), useRun.getState().run));

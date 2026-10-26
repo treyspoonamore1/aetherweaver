@@ -11,8 +11,12 @@ import { Icon } from '../kit/Icon';
 import { Tip } from '../kit/Tip';
 import {
   AXIS_LOOK,
+  callingAxes,
+  crescendoLine,
   nextTier,
+  optionAxes,
   optionAxis,
+  type CallingAxis,
   pathLabel,
   pathSteps,
   pathTipLines,
@@ -20,14 +24,12 @@ import {
 } from './callingText';
 
 /**
- * Shared pieces of the Calling's screens (Phase 3c): the axis tag, an option's line, the
- * passive and Sunrise, and the whole path previewed tier by tier (Prep, the Codex).
+ * Shared pieces of the Calling's screens (Phase 3c, 3d): the axis tags, an option's line, the
+ * passive and the Crescendo, and the whole path previewed tier by tier (Prep, the Codex).
  */
 
-/** "Protect", "Reach and number", "Radiance": the option's axis, glyph and colour. */
-export function AxisChip({ optionId, size = 'sm' }: { optionId: string; size?: 'sm' | 'md' }) {
-  const axis = optionAxis(optionId);
-  if (!axis) return null;
+/** "Protect", "Reach and number", "Radiance", "Endure"…: one axis, its glyph and colour. */
+function AxisTag({ axis, size = 'sm' }: { axis: CallingAxis; size?: 'sm' | 'md' }) {
   const look = AXIS_LOOK[axis];
   return (
     <span
@@ -42,6 +44,41 @@ export function AxisChip({ optionId, size = 'sm' }: { optionId: string; size?: '
       <Icon name={look.icon} size={size === 'md' ? 14 : 11} />
       {look.label}
     </span>
+  );
+}
+
+/** The option's axis tag: its own, or with `all` every axis it sits on (Blood Font: two). */
+export function AxisChip({
+  optionId,
+  size = 'sm',
+  all = false,
+}: {
+  optionId: string;
+  size?: 'sm' | 'md';
+  all?: boolean;
+}) {
+  const axes = all ? optionAxes(optionId) : [optionAxis(optionId)].filter((a) => a !== null);
+  if (axes.length === 0) return null;
+  return (
+    <>
+      {axes.map((a) => (
+        <AxisTag key={a} axis={a} size={size} />
+      ))}
+    </>
+  );
+}
+
+/** A Calling's axes with what each means (the Codex). */
+export function AxisLegend({ def }: { def: CallingDef }) {
+  return (
+    <ul className="flex flex-wrap gap-x-5 gap-y-1 text-xs text-muted">
+      {callingAxes(def).map((k) => (
+        <li key={k} className="flex items-center gap-1.5">
+          <AxisTag axis={k} />
+          {AXIS_LOOK[k].blurb}
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -78,7 +115,7 @@ export function OptionLine({
           <b className="text-sm font-semibold" style={{ color: look.color }}>
             {option.name}
           </b>
-          <AxisChip optionId={option.id} />
+          <AxisChip optionId={option.id} all />
           {chosen && (
             <span className="flex items-center gap-0.5 text-xs font-semibold text-gold-200">
               <Icon name="check" size={12} /> taken
@@ -91,7 +128,7 @@ export function OptionLine({
   );
 }
 
-/** The passive (Radiance) and the Sunrise line, filled in from content. */
+/** The passive and the Crescendo line (Sunrise, the Martyr's Vow), filled in from content. */
 export function CallingPassive({
   def,
   compact = false,
@@ -102,6 +139,7 @@ export function CallingPassive({
 }) {
   const t = callingText(def);
   const look = callingLook(def.id);
+  const c = crescendoLine(def);
   return (
     <div className={`flex flex-col ${compact ? 'gap-1' : 'gap-2'}`}>
       <p className={`${compact ? 'text-sm' : 'text-base'} leading-relaxed text-text`}>
@@ -110,10 +148,16 @@ export function CallingPassive({
       <p
         className={`flex items-start gap-1.5 ${compact ? 'text-xs' : 'text-sm'} leading-relaxed`}
         style={{ color: look.light }}
+        data-testid="calling-crescendo"
       >
-        <Icon name="sun" size={compact ? 13 : 15} className="mt-0.5 shrink-0" />
+        <Icon name={look.crescendoIcon} size={compact ? 13 : 15} className="mt-0.5 shrink-0" />
         <span>
-          <b className="font-semibold">Sunrise.</b> {t.crescendo}
+          <b className="font-semibold">
+            {c.name}
+            {c.lead ? '.' : ''}
+          </b>
+          {c.lead ? ' ' : ''}
+          {c.rest}
         </span>
       </p>
     </div>

@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useProfile } from '../../app/profileStore';
 import { useRun } from '../../app/runStore';
 import { useSettings } from '../../app/settings';
 import { CONTENT } from '../../content';
 import { EVERYTHING, allowanceFor, rankOf, type Allowance, type Unlock } from '../../meta/profile';
 import type { ChordLoadout, RunState } from '../../meta/types';
-import { canonicalChords } from '../../sim';
+import { canonicalChords, type ReservePool } from '../../sim';
 import { ScreenFrame, ScreenHeader } from '../kit/Backdrop';
 import { Button } from '../kit/Button';
 import { Chip } from '../kit/Chip';
@@ -19,7 +19,7 @@ import { ROLE_LABEL } from '../hud/labels';
 import { ChordBuilder, NewTag, SONG_LOOK } from './ChordBuilder';
 import { freshUnlocks, loadoutProblems, mult, padChords } from './chordModel';
 import { CallingPicker } from './CallingPicker';
-import { fieldAuraSlots as runFieldAuraSlots } from '../../meta/run';
+import { fieldAuraSlots as runFieldAuraSlots, reservePool } from '../../meta/run';
 import { slotBonus } from './callingText';
 
 export interface PrepViewProps {
@@ -42,7 +42,10 @@ export interface PrepViewProps {
 
 /**
  * The Chord draft while editing: may be illegal for a moment, in which case the run keeps
- * its last legal Chords and Embark waits.
+ * its last legal Chords and Embark waits. `pool` is what the songs reserve
+ * (`Run.reservePool(run)`); in Prep it follows the Calling chosen there, so when it changes
+ * and the draft is legal under the new pool, the run is given the draft again (the Martyr's
+ * Life holds at most 90%: a draft that only Spirit allowed waits while she's chosen).
  */
 export function useChordDraft(
   initial: readonly ChordLoadout[],
@@ -50,15 +53,30 @@ export function useChordDraft(
   onLegal?: (c: ChordLoadout[]) => void,
   /** The field song's aura slots (`Run.fieldAuraSlots(run)`; Third Voice adds one). */
   fieldAuraSlots: number = CONTENT.weaver.auraSlots,
+  pool: ReservePool = 'spirit',
 ) {
   const [draft, setDraft] = useState(() => padChords(initial));
-  const problems = loadoutProblems(draft, allowance, fieldAuraSlots);
+  const problems = loadoutProblems(draft, allowance, fieldAuraSlots, pool);
+  const legal = problems.length === 0;
   const change = (next: ChordLoadout[]) => {
     setDraft(next);
-    if (loadoutProblems(next, allowance, fieldAuraSlots).length === 0)
+    if (loadoutProblems(next, allowance, fieldAuraSlots, pool).length === 0)
       onLegal?.(canonicalChords(next));
   };
-  return { draft, change, legal: problems.length === 0 };
+  const [lastPool, setLastPool] = useState(pool);
+  const pending = useRef<ChordLoadout[] | null>(null);
+  if (pool !== lastPool) {
+    // Adjusting state on a change of prop (React's documented pattern); the run hears in an effect.
+    setLastPool(pool);
+    pending.current = legal ? canonicalChords(draft) : null;
+  }
+  useEffect(() => {
+    if (!pending.current) return;
+    const chords = pending.current;
+    pending.current = null;
+    onLegal?.(chords);
+  });
+  return { draft, change, legal };
 }
 
 /** What Prep and Retune may use, following the profile and Settings → Skip the unlocks. */
@@ -120,7 +138,9 @@ export function PrepView({
   useMood('map');
   // Always the content's two at Prep (the path is empty), but read from the run like Retune.
   const slots = runFieldAuraSlots(run);
-  const { draft, change, legal } = useChordDraft(run.chords, allowance, onChords, slots);
+  // The Calling chosen above decides the pool: the Martyr's songs reserve Life.
+  const pool = reservePool(run);
+  const { draft, change, legal } = useChordDraft(run.chords, allowance, onChords, slots, pool);
   const [freshIds] = useState(() => new Set(fresh.map((u) => u.id)));
   const w = CONTENT.weaver;
   const settings = useSettings((s) => s.settings);
@@ -160,7 +180,9 @@ export function PrepView({
                 full strength for everyone near you.
               </>
             ) : null}{' '}
-            Whatever Spirit your auras leave free powers Ward, Chime and Reel.
+            {pool === 'life'
+              ? 'As the Martyr, your auras reserve Life instead: every point of Spirit powers Ward, Chime and Reel, and you fight with the Life your songs leave you.'
+              : 'Whatever Spirit your auras leave free powers Ward, Chime and Reel.'}
           </p>
         </ScreenHeader>
 
@@ -184,6 +206,8 @@ export function PrepView({
             fresh={freshIds}
             fieldAuraSlots={slots}
             bonus={slotBonus(run)}
+            pool={pool}
+            calling={run.calling}
           />
         </section>
 

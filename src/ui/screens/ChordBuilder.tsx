@@ -2,7 +2,14 @@ import { useState, type KeyboardEvent } from 'react';
 import { CONTENT, auraDef, ornamentDef } from '../../content';
 import { EVERYTHING, UNLOCKS, type Allowance } from '../../meta/profile';
 import { CHORD_PRESETS } from '../../meta/run';
-import { chordRole, songName, type ChordLoadout } from '../../sim';
+import {
+  LIFE_RESERVE_CAP,
+  chordRole,
+  songName,
+  type ChordLoadout,
+  type ReservePool,
+} from '../../sim';
+import type { RunCalling } from '../../meta/types';
 import { bindingLabel } from '../hud/labels';
 import { fmt, pct } from '../kit/format';
 import { Icon, type IconName } from '../kit/Icon';
@@ -20,6 +27,7 @@ import {
   loadoutProblems,
   mult,
   placeItem,
+  poolWord,
   presetFor,
   presetLock,
   removeItem,
@@ -32,7 +40,9 @@ import {
   whereIs,
   type SlotKind,
   type SlotRef,
+  type SpiritBudget,
 } from './chordModel';
+import { lowLifeMarks, type LowLifeMark } from './callingText';
 
 const ANCHOR_ICON = { weaver: 'note', planted: 'pin' } as const satisfies Record<string, IconName>;
 
@@ -76,6 +86,8 @@ export function ChordBuilder({
   fresh = NO_FRESH,
   fieldAuraSlots = CONTENT.weaver.auraSlots,
   bonus = null,
+  pool = 'spirit',
+  calling = null,
 }: {
   value: ChordLoadout[];
   onChange(next: ChordLoadout[]): void;
@@ -85,6 +97,10 @@ export function ChordBuilder({
   fieldAuraSlots?: number;
   /** Who added the extra field slots, to mark them (null: no extra slots). */
   bonus?: SlotBonus | null;
+  /** What the songs reserve: `Run.reservePool(run)` (the Martyr's Life). */
+  pool?: ReservePool;
+  /** The run's Calling: the Martyr's Life and the thresholds her path marks on it. */
+  calling?: RunCalling | null;
 }) {
   const w = CONTENT.weaver;
   const firstEmpty = (): SlotRef => {
@@ -99,8 +115,8 @@ export function ChordBuilder({
     return { chord: 0, kind: 'aura', index: 0 };
   };
   const [selected, setSelected] = useState<SlotRef>(firstEmpty);
-  const problems = loadoutProblems(value, allowance, fieldAuraSlots);
-  const budget = spiritBudget(value);
+  const problems = loadoutProblems(value, allowance, fieldAuraSlots, pool);
+  const budget = spiritBudget(value, pool, calling?.id ?? null);
   const preset = presetFor(value);
 
   const place = (id: string) => {
@@ -230,6 +246,7 @@ export function ChordBuilder({
                 fresh={fresh}
                 auraSlots={auraSlotsFor(i, fieldAuraSlots)}
                 bonus={bonus}
+                pool={pool}
                 selected={selected.chord === i ? selected : null}
                 onSelect={(ref) => {
                   playUi('click');
@@ -239,7 +256,15 @@ export function ChordBuilder({
               />
             ))}
           </div>
-          <BudgetPanel budget={budget} />
+          {budget.pool === 'life' ? (
+            <LifeBudgetPanel
+              budget={budget}
+              marks={lowLifeMarks(calling?.path ?? [])}
+              callingId={calling?.id ?? null}
+            />
+          ) : (
+            <BudgetPanel budget={budget} />
+          )}
           {problems.length > 0 && (
             <div
               role="alert"
@@ -262,6 +287,7 @@ export function ChordBuilder({
           selected={selected}
           allowance={allowance}
           fresh={fresh}
+          pool={pool}
           onPlace={place}
           onRemove={remove}
         />
@@ -323,6 +349,7 @@ function SongCard({
   fresh,
   auraSlots,
   bonus,
+  pool,
   selected,
   onSelect,
   onRemove,
@@ -333,6 +360,7 @@ function SongCard({
   fresh: ReadonlySet<string>;
   auraSlots: number;
   bonus: SlotBonus | null;
+  pool: ReservePool;
   selected: SlotRef | null;
   onSelect(ref: SlotRef): void;
   onRemove(ref: SlotRef): void;
@@ -406,8 +434,8 @@ function SongCard({
             {bonus && auraSlots > w.auraSlots && (
               <span className="font-normal normal-case tracking-normal">
                 {' '}
-                · {bonus.name} adds a {auraSlots === 3 ? 'third' : 'new'} slot: it needs Spirit, and
-                Grace Note helps
+                · {bonus.name} adds a {auraSlots === 3 ? 'third' : 'new'} slot: it needs{' '}
+                {poolWord(pool)}, and Grace Note helps
               </span>
             )}
           </p>
@@ -466,7 +494,7 @@ function SongCard({
           {!empty && (
             <p className="mt-3 flex flex-wrap gap-x-4 gap-y-1 font-mono text-xs text-muted">
               <span>
-                reserves <b className="text-text">{pct(n.reserve)}</b> of Spirit
+                reserves <b className="text-text">{pct(n.reserve)}</b> of {poolWord(pool)}
               </span>
               {Math.abs(n.effect - 1) > 0.001 && (
                 <span className={n.effect > 1 ? 'text-gold-300' : 'text-threat'}>
@@ -642,6 +670,7 @@ function Palette({
   selected,
   allowance,
   fresh,
+  pool,
   onPlace,
   onRemove,
 }: {
@@ -649,6 +678,7 @@ function Palette({
   selected: SlotRef;
   allowance: Allowance;
   fresh: ReadonlySet<string>;
+  pool: ReservePool;
   onPlace(id: string): void;
   onRemove(ref: SlotRef): void;
 }) {
@@ -713,8 +743,8 @@ function Palette({
       <p className="mb-2 text-xs text-muted">
         {kind === 'aura'
           ? selected.chord === 0
-            ? 'On the beam song, an aura is doubled on whoever you thread. Each reserves Spirit while sung; you have one of each.'
-            : 'In the field song, an aura reaches everyone near you. Each reserves Spirit while sung; you have one of each.'
+            ? `On the beam song, an aura is doubled on whoever you thread. Each reserves ${poolWord(pool)} while sung; you have one of each.`
+            : `In the field song, an aura reaches everyone near you. Each reserves ${poolWord(pool)} while sung; you have one of each.`
           : 'An ornament changes both auras in its song. You own one copy of each.'}
       </p>
       {slotLocked && (
@@ -890,6 +920,160 @@ function BudgetPanel({ budget: b }: { budget: ReturnType<typeof spiritBudget> })
           Ward ({ward.cost}).
         </p>
       )}
+      <p
+        className={`mt-2 flex items-center gap-1.5 text-xs ${b.chorus ? 'text-gold-200' : 'text-muted'}`}
+      >
+        <Icon name="sparkle" size={13} />
+        {b.chorus
+          ? `Chorus: ${b.auraCount} auras, so every Cue releases a pulse that heals ${pct(c.healPctPerAura * b.auraCount, 1)} and shields ${pct(c.barrierPctPerAura * b.auraCount, 1)} of life.`
+          : `With ${c.minAuras}+ auras, every Cue also releases a chorus pulse (heal + barrier).`}
+      </p>
+    </Panel>
+  );
+}
+
+/** Life on the bar, as on the Weaver bar. */
+const LIFE = '#fb7185';
+
+/**
+ * The Life budget (Phase 3d, a Martyr run): what the songs hold of all her Life (hatched, in
+ * the auras' colours), what's left to fight with, the most they may hold (`LIFE_RESERVE_CAP`)
+ * and the thresholds her path marks (Blood Font, Low-Life Vigil). Every point of Spirit is
+ * free for Ward, Chime and Reel.
+ */
+function LifeBudgetPanel({
+  budget: b,
+  marks,
+  callingId,
+}: {
+  budget: SpiritBudget;
+  marks: LowLifeMark[];
+  callingId: string | null;
+}) {
+  const scale = Math.max(b.max, b.reserved);
+  const at = (v: number) => `${(v / scale) * 100}%`;
+  const look = callingLook(callingId);
+  const c = CONTENT.chorus;
+  const capPct = Math.round(LIFE_RESERVE_CAP * 100);
+  const heldPct = Math.round((b.reserved / b.max) * 100);
+  return (
+    <Panel
+      tone="solid"
+      className="p-3.5"
+      aria-label="Life budget"
+      data-testid="life-budget"
+      style={{ borderColor: `color-mix(in srgb, ${look.color} 45%, var(--color-ink-600))` }}
+    >
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3">
+        <p className="flex items-center gap-1.5 text-sm font-semibold text-text">
+          <Icon name="drop" size={14} style={{ color: look.color }} /> Life budget
+          <span className="font-normal text-muted">· your songs reserve Life, not Spirit</span>
+        </p>
+        <p className="font-mono text-xs text-muted">
+          <span className={b.over ? 'text-lethal' : ''}>
+            {fmt(b.reserved)} held ({heldPct}%)
+          </span>{' '}
+          · <span style={{ color: LIFE }}>{fmt(b.free)} to fight with</span> of {fmt(b.max)}
+        </p>
+      </div>
+      <div className="relative mt-5">
+        <div
+          className="relative flex h-6 overflow-hidden rounded-full border border-ink-500 bg-ink-700"
+          role="img"
+          aria-label={`${fmt(b.free)} of ${fmt(b.max)} Life to fight with; ${b.slices.map((s) => `${s.name} holds ${fmt(s.spirit)}`).join(', ') || 'no auras'}. Your songs may hold at most ${capPct}%.`}
+        >
+          <div
+            className="flex h-full items-center overflow-hidden px-2 text-xs font-semibold text-ink-950 transition-[width] duration-200"
+            style={{ width: at(b.free), background: LIFE }}
+          >
+            <span className="truncate">{fmt(b.free)} Life</span>
+          </div>
+          {b.slices.map((s) => (
+            <div
+              key={`${s.chord}${s.id}`}
+              className="stripes flex h-full items-center justify-center overflow-hidden border-l border-ink-950 text-xs font-semibold text-ink-950 transition-[width] duration-200"
+              style={{ width: at(s.spirit), backgroundColor: s.color }}
+              title={`${s.name}: holds ${fmt(s.spirit)} Life`}
+            >
+              <span className="truncate px-1">{s.name}</span>
+            </div>
+          ))}
+          {b.over && (
+            <div
+              className="absolute inset-y-0 border-l-2 border-white bg-lethal/70"
+              style={{ left: at(b.max - b.reserved), width: at(b.reserved - b.cap) }}
+              title="More than your songs may hold"
+            />
+          )}
+        </div>
+        {/* The cap: songs may hold at most this much, so she keeps a tenth. */}
+        <span
+          className="absolute -top-4 bottom-0 border-l-2 border-dashed border-white/70"
+          style={{ left: at(b.max - b.cap) }}
+          aria-hidden
+        >
+          <span className="absolute -top-0.5 left-1 whitespace-nowrap font-mono text-[11px] leading-none text-muted">
+            ← you keep at least {100 - capPct}%
+          </span>
+        </span>
+        {marks.map((m) => {
+          const on = b.free < m.below * b.max - 1e-9;
+          return (
+            <span
+              key={m.id}
+              className="absolute -bottom-1.5 -top-1.5 w-0.5"
+              style={{ left: at(m.below * b.max), background: look.light }}
+              title={`${m.name}: below ${Math.round(m.below * 100)}% of your Life`}
+              aria-hidden
+            >
+              <span
+                className="absolute -left-2 top-full mt-0.5 flex h-4 w-4 items-center justify-center rounded-full border"
+                style={{
+                  color: on ? look.light : look.color,
+                  borderColor: look.color,
+                  background: on ? look.deep : 'var(--color-ink-900)',
+                }}
+              >
+                <CallingGlyph icon={m.icon} size={11} />
+              </span>
+            </span>
+          );
+        })}
+      </div>
+      <ul className={`flex flex-col gap-1 text-xs ${marks.length > 0 ? 'mt-5' : 'mt-2'}`}>
+        <li className="flex items-center gap-1.5 text-text">
+          <Icon name="heart" size={12} style={{ color: LIFE }} />
+          You fight with {fmt(b.free)} Life of {fmt(b.max)}: a Weaver without the Martyr has{' '}
+          {fmt(b.baseLife)}.
+          {b.free < b.max * 0.5 && b.reserved > 0 && (
+            <span className="text-muted">You start below half your Life.</span>
+          )}
+        </li>
+        {marks.map((m) => {
+          const on = b.free < m.below * b.max - 1e-9;
+          return (
+            <li key={m.id} className="flex items-center gap-1.5" style={{ color: look.light }}>
+              <CallingGlyph icon={m.icon} size={12} />
+              {m.name} below {Math.round(m.below * 100)}% ({fmt(m.below * b.max)} Life):{' '}
+              {on ? 'on from the start with these songs' : 'once you’ve been hurt'}.
+            </li>
+          );
+        })}
+        <li className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <span className="flex items-center gap-1.5" style={{ color: 'var(--color-spirit)' }}>
+            <Icon name="sparkle" size={12} /> All {fmt(b.spirit)} Spirit is free:
+          </span>
+          {b.techniques.map((t) => (
+            <span
+              key={t.key}
+              className={`flex items-center gap-1 ${t.affordable ? 'text-text' : 'text-lethal'}`}
+            >
+              <Icon name={t.affordable ? 'check' : 'close'} size={12} />
+              {t.name} {t.cost}
+            </span>
+          ))}
+        </li>
+      </ul>
       <p
         className={`mt-2 flex items-center gap-1.5 text-xs ${b.chorus ? 'text-gold-200' : 'text-muted'}`}
       >

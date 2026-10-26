@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { COLOR_VISIONS, applyVisionCss } from '../../app/colorVision';
-import { EVERYTHING, UNLOCKS, allowanceFor, type Allowance } from '../../meta/profile';
+import { EVERYTHING, MAX_RANK, UNLOCKS, allowanceFor, type Allowance } from '../../meta/profile';
 import * as Run from '../../meta/run';
 import { applyUiScale } from '../presentation';
 import type { RunState } from '../../meta/types';
@@ -17,8 +17,8 @@ import { EventView } from '../screens/EventScreen';
 import { ForgeView } from '../screens/ForgeScreen';
 import { MerchantView } from '../screens/MerchantScreen';
 import { RelicOfferView } from '../screens/RelicScreen';
-import { CONTENT } from '../../content';
-import type { ActiveBoon, ForgeService } from '../../meta/types';
+import { CONTENT, callingDef } from '../../content';
+import type { ActiveBoon, ChordLoadout, ForgeService } from '../../meta/types';
 import { MapView } from '../screens/MapScreen';
 import { PrepView } from '../screens/PrepScreen';
 import { RespiteView } from '../screens/RespiteScreen';
@@ -55,7 +55,15 @@ import {
   callingSummaryRun,
   milestoneNode,
   prepCallingRun,
+  GUARDIAN_CHORDS,
+  MARTYR_PICKS,
+  OVER_LIFE_CHORDS,
+  martyrOfferRun,
+  martyrResultRun,
+  martyrRun,
+  martyrSummaryRun,
 } from './mock';
+import { ControlsSettings } from '../screens/ControlsSettings';
 
 /** A stand-in for the 3D arena behind the HUD. */
 function World({ children }: { children: ReactNode }) {
@@ -251,12 +259,35 @@ function LockedBuilder() {
   return <ChordBuilder value={draft} onChange={setDraft} allowance={allowanceFor(2)} />;
 }
 
-/** Prep with the Calling picker: at a Rank (null: everything open), the Luminary chosen or not. */
-function prepCalling(rank: number | null, opts: { chosen?: boolean; openPath?: boolean } = {}) {
+/** The song builder on a Martyr run: the Life budget, Blood Font and Low-Life Vigil marked. */
+function LifeBuilder({ initial }: { initial: readonly ChordLoadout[] }) {
+  const [draft, setDraft] = useState(() => initial.map((c) => ({ ...c, auras: [...c.auras] })));
+  const calling = { id: 'martyr', path: [...MARTYR_PICKS] };
+  return (
+    <ScreenFrame>
+      <div className="mx-auto max-w-7xl px-6 py-8">
+        <ScreenHeader eyebrow="Song builder · the Martyr" title="Your songs hold your Life" />
+        <div className="mt-6">
+          <ChordBuilder value={draft} onChange={setDraft} pool="life" calling={calling} />
+        </div>
+      </div>
+    </ScreenFrame>
+  );
+}
+
+/**
+ * Prep with the Calling picker: at a Rank (null: everything open), a Calling chosen (`true`:
+ * the Luminary) or not, a Calling's path dialog open (`true`: the Luminary's).
+ */
+function prepCalling(
+  rank: number | null,
+  opts: { chosen?: boolean | string; openPath?: boolean | string } = {},
+) {
   const allowance: Allowance = rank === null ? EVERYTHING : allowanceFor(rank);
   const fresh = rank === null ? [] : UNLOCKS.filter((u) => u.rank === rank);
+  const openPath = opts.openPath === true ? 'luminary' : opts.openPath || undefined;
   return (
-    <Interactive initial={() => prepCallingRun(!!opts.chosen)}>
+    <Interactive initial={() => prepCallingRun(opts.chosen ?? false)}>
       {(run, set) => (
         <PrepView
           run={run}
@@ -266,8 +297,8 @@ function prepCalling(rank: number | null, opts: { chosen?: boolean; openPath?: b
           onBack={noop}
           allowance={allowance}
           fresh={fresh}
-          rank={rank ?? 7}
-          openCallingPath={opts.openPath ? 'luminary' : undefined}
+          rank={rank ?? MAX_RANK}
+          openCallingPath={openPath}
         />
       )}
     </Interactive>
@@ -1139,6 +1170,226 @@ const VIEWS: ViewDef[] = [
       <World>
         <RankUpCard rankUps={mockRankUps([7])} onDismiss={noop} />
       </World>
+    ),
+  },
+  // ── Phase 3d: the Martyr ─────────────────────────────────────────────────────────────
+  {
+    id: 'prep-callings-locked',
+    group: 'Martyr',
+    label: 'Prep: both Callings locked (Rank 6)',
+    w: 1280,
+    h: 720,
+    render: () => prepCalling(6),
+  },
+  {
+    id: 'prep-martyr-locked',
+    group: 'Martyr',
+    label: 'Prep: Rank 7, the Luminary New, the Martyr locked',
+    w: 1280,
+    h: 720,
+    render: () => prepCalling(7),
+  },
+  {
+    id: 'prep-martyr-new',
+    group: 'Martyr',
+    label: 'Prep: Rank 8, the Martyr New',
+    w: 1280,
+    h: 720,
+    render: () => prepCalling(8),
+  },
+  {
+    id: 'prep-martyr-chosen',
+    group: 'Martyr',
+    label: 'Prep: the Martyr chosen (the Life budget)',
+    w: 1280,
+    h: 1240,
+    render: () => prepCalling(null, { chosen: 'martyr' }),
+  },
+  {
+    id: 'prep-martyr-path',
+    group: 'Martyr',
+    label: 'Prep: the Martyr’s path dialog',
+    w: 1280,
+    h: 720,
+    render: () => prepCalling(null, { chosen: 'martyr', openPath: 'martyr' }),
+  },
+  ...[0, 1, 2, 3].map((tier): ViewDef => ({
+    id: `martyr-tier-${tier + 1}`,
+    group: 'Martyr',
+    label: `Tier ${['I', 'II', 'III', 'IV'][tier]}: ${callingDef('martyr')
+      .tiers[tier]!.options.map((o) => o.name)
+      .join(' / ')}`,
+    w: 1280,
+    h: 720,
+    render: () => (
+      <Interactive initial={() => martyrOfferRun(tier)}>
+        {(run, set) => (
+          <CallingView run={run} onPick={(i, c) => set((r) => Run.pickCalling(r, i, c))} />
+        )}
+      </Interactive>
+    ),
+  })),
+  {
+    id: 'builder-life',
+    group: 'Martyr',
+    label: 'Builder: the Life budget (Blood Font, Vigil marked)',
+    w: 1280,
+    h: 1000,
+    render: () => <LifeBuilder initial={GUARDIAN_CHORDS} />,
+  },
+  {
+    id: 'builder-life-over',
+    group: 'Martyr',
+    label: 'Builder: songs holding more than 90% of her Life',
+    w: 1280,
+    h: 1000,
+    render: () => <LifeBuilder initial={OVER_LIFE_CHORDS} />,
+  },
+  {
+    id: 'retune-martyr',
+    group: 'Martyr',
+    label: 'Retune at a Respite on a Martyr run',
+    w: 1280,
+    h: 1100,
+    render: () => {
+      const run = martyrRun({ picks: MARTYR_PICKS, fights: 5 });
+      return (
+        <RespiteView
+          run={{ ...run, phase: 'respite' }}
+          onChoose={noop}
+          onRetune={noop}
+          initialRetune
+        />
+      );
+    },
+  },
+  {
+    id: 'map-martyr',
+    group: 'Martyr',
+    label: 'Map: the Martyr in the strip (tooltip)',
+    w: 1280,
+    h: 860,
+    render: () => (
+      <MapView
+        run={{ ...martyrRun({ picks: ['penitence', 'blood_font'], fights: 4 }), aether: 85 }}
+        onChoose={noop}
+        onAbandon={noop}
+        peekCalling
+      />
+    ),
+  },
+  {
+    id: 'hud-martyr-coach',
+    group: 'Martyr',
+    label: 'HUD: a big hit coming, the Bear hint',
+    w: 1280,
+    h: 720,
+    render: () => <HudStage scenario="martyr-coach" coach />,
+  },
+  {
+    id: 'hud-martyr-bear',
+    group: 'Martyr',
+    label: 'HUD: Bearing for Kael, Blood Font on',
+    w: 1280,
+    h: 720,
+    render: () => <HudStage scenario="martyr-bear" coach={false} />,
+  },
+  {
+    id: 'hud-martyr-vow',
+    group: 'Martyr',
+    label: 'HUD: Martyr’s Vow, Undying ready',
+    w: 1280,
+    h: 720,
+    render: () => <HudStage scenario="martyr-vow" coach={false} />,
+  },
+  {
+    id: 'hud-martyr-low',
+    group: 'Martyr',
+    label: 'HUD: low Life, Vigil and Blood Font marks lit',
+    w: 1280,
+    h: 720,
+    render: () => <HudStage scenario="martyr-low" coach={false} />,
+  },
+  {
+    id: 'result-martyr',
+    group: 'Martyr',
+    label: 'Result: the Martyr’s line (→ your Calling grows)',
+    w: 1280,
+    h: 1420,
+    render: () => {
+      const run = martyrResultRun();
+      return <ResultView run={run} result={run.lastResult!} onContinue={noop} profileXp={LAB_XP} />;
+    },
+  },
+  {
+    id: 'summary-martyr',
+    group: 'Martyr',
+    label: 'Summary: the Martyr’s path and totals',
+    w: 1280,
+    h: 1300,
+    render: () => {
+      const run = martyrSummaryRun();
+      return <SummaryView run={run} onNewRun={noop} onTitle={noop} />;
+    },
+  },
+  {
+    id: 'codex-martyr',
+    group: 'Martyr',
+    label: 'Codex: Callings, both open',
+    w: 1280,
+    h: 2000,
+    render: () => <CodexView onBack={noop} initialTab="callings" />,
+  },
+  {
+    id: 'codex-martyr-locked',
+    group: 'Martyr',
+    label: 'Codex: Callings at Rank 7 (the Martyr locked)',
+    w: 1280,
+    h: 2000,
+    render: () => <CodexView onBack={noop} initialTab="callings" allowance={allowanceFor(7)} />,
+  },
+  {
+    id: 'rank-up-8',
+    group: 'Martyr',
+    label: 'Rank 8: the Martyr unlocked',
+    w: 1280,
+    h: 720,
+    render: () => (
+      <World>
+        <RankUpCard rankUps={mockRankUps([8])} onDismiss={noop} />
+      </World>
+    ),
+  },
+  {
+    id: 'rank-panels-8',
+    group: 'Martyr',
+    label: 'Rank panels at Ranks 7 and 8 (the top)',
+    w: 1280,
+    h: 720,
+    render: () => (
+      <ScreenFrame tone="gold">
+        <div className="mx-auto grid max-w-6xl items-start gap-6 px-6 py-10 md:grid-cols-2">
+          <RankPanelView profile={{ xp: 1900, runs: 14, wins: 7 }} />
+          <RankPanelView profile={{ xp: 2730, runs: 19, wins: 10 }} />
+        </div>
+      </ScreenFrame>
+    ),
+  },
+  {
+    id: 'settings-controls-bear',
+    group: 'Martyr',
+    label: 'Settings → Controls: the Bear key',
+    w: 1280,
+    h: 900,
+    render: () => (
+      <ScreenFrame>
+        <div className="mx-auto max-w-4xl px-6 py-8">
+          <ScreenHeader eyebrow="Settings" title="Controls" />
+          <div className="mt-6">
+            <ControlsSettings />
+          </div>
+        </div>
+      </ScreenFrame>
     ),
   },
   {

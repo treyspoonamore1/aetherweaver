@@ -1,4 +1,4 @@
-import { arenaDef, encounterDef, heroDef } from '../content';
+import { arenaDef, callingDef, encounterDef, heroDef } from '../content';
 import { getAudio } from '../audio';
 import { InputController } from '../input/InputController';
 import type { Action } from '../input/actions';
@@ -13,6 +13,7 @@ import {
   type Command,
   type PartySlot,
   type Replay,
+  type SaveCause,
   type Sim,
   type SimConfig,
   type SimEvent,
@@ -20,6 +21,7 @@ import {
 } from '../sim';
 import { makeBot, type Bot, type BotKind } from '../bots';
 import { buildHudSnapshot } from '../ui/hudBridge';
+import { callingLook } from '../ui/kit/callingLook';
 import { takeHudCommits } from '../ui/perfCounters';
 import { useUi } from '../ui/store';
 import { useSettings } from './settings';
@@ -61,6 +63,13 @@ const ANSWER_NAMES: Record<string, string> = {
   ward: 'Ward',
   empower: 'Empower',
   chime: 'Chime',
+};
+/** How a Save reads, by what made it (anything else: "Saved Kael"). */
+const SAVE_CALLOUTS: Partial<Record<SaveCause, (name: string) => string>> = {
+  fermata: (name) => `${name} held on!`,
+  martyr: (name) => `You took the blow for ${name}`,
+  bear: (name) => `You bore it with ${name}`,
+  vow: (name) => `Your Vow held ${name}`,
 };
 const REASONS: Record<string, string> = {
   cooldown: 'not ready',
@@ -366,18 +375,33 @@ export class GameRuntime {
           break;
         }
         case 'save': {
-          const who = this.heroName(state, event.target);
+          const name = this.heroName(state, event.target)?.name ?? '';
+          const martyr = event.cause === 'bear' || event.cause === 'vow';
           ui.pushCallout(
             {
               kind: 'save',
-              text:
-                event.cause === 'fermata'
-                  ? `${who?.name ?? ''} held on!`
-                  : event.cause === 'martyr'
-                    ? `You took the blow for ${who?.name ?? ''}`
-                    : `Saved ${who?.name ?? ''}`,
+              text: SAVE_CALLOUTS[event.cause]?.(name) ?? `Saved ${name}`,
               detail: `${event.attack} · ${Math.round(event.counterfactualDamage)} prevented`,
-              color: '#f5d78e',
+              color: martyr ? callingLook('martyr').light : '#f5d78e',
+            },
+            now,
+            2200,
+          );
+          break;
+        }
+        case 'undying': {
+          const option = state.calling
+            ? callingDef(state.calling.id)
+                .tiers.flatMap((t) => t.options)
+                .find((o) => o.id === 'undying_devotion')
+            : undefined;
+          const v = option?.values ?? {};
+          ui.pushCallout(
+            {
+              kind: 'save',
+              text: 'Undying Devotion',
+              detail: `Untouchable for ${v.seconds ?? 0} s · every hero Mended for ${v.pct ?? 0}%`,
+              color: callingLook('martyr').light,
             },
             now,
             2200,

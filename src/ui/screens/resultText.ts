@@ -1,6 +1,7 @@
 /** Plain-text parts of the Result screen (testable without React). */
 import type { EncounterResult, EncounterStats, RunCalling } from '../../meta/types';
 import { callingResultLine } from './callingText';
+import { callingLook } from '../kit/callingLook';
 import { auraVerbs, splitContribution, type ContributionParts } from '../contribution';
 import { fmt, pct, plural } from '../kit/format';
 import type { IconName } from '../kit/iconPaths';
@@ -38,20 +39,22 @@ export interface StatLine {
   icon: IconName;
   text: string;
   muted?: boolean;
-  /** Drawn in the Calling's dawn colour (Phase 3c). */
+  /** Drawn in the Calling's colour (Phase 3c). */
   calling?: boolean;
 }
 
 /**
- * The Calling's line (Phase 3c): "Radiance: +412 damage through your heroes · Haloed: 96
- * damage kept off", named by the path; nothing if it did nothing (or there is no Calling).
+ * The Calling's line (Phase 3c, 3d): "Radiance: +412 damage through your heroes · Haloed: 96
+ * damage kept off", named by the path; the Martyr's "Bore 640 for your heroes · 1,280 kept off
+ * them"; nothing if it did nothing (or there is no Calling).
  */
 export function callingLine(
-  s: Pick<EncounterStats, 'callingAmplified' | 'callingShielded'>,
-  calling: Pick<RunCalling, 'path'> | null | undefined,
+  s: Pick<EncounterStats, 'callingAmplified' | 'callingShielded'> &
+    Partial<Pick<EncounterStats, 'callingBorne'>>,
+  calling: (Pick<RunCalling, 'path'> & { id?: string }) | null | undefined,
 ): StatLine | null {
   const text = callingResultLine(s, calling ?? null);
-  return text ? { icon: 'sun', text: `${text}.`, calling: true } : null;
+  return text ? { icon: callingLook(calling?.id).icon, text: `${text}.`, calling: true } : null;
 }
 
 /**
@@ -95,8 +98,8 @@ export function songLines(s: EncounterStats): StatLine[] {
 /** Plain-English lines for a fight (also reused by tests and the lab). */
 export function statLines(
   r: EncounterResult,
-  /** The run's Calling, to name its line by the path (Radiance, Eclipse, Haloed). */
-  calling?: Pick<RunCalling, 'path'> | null,
+  /** The run's Calling, to name its line by the path (Radiance, Eclipse, Haloed; the Martyr). */
+  calling?: (Pick<RunCalling, 'path'> & { id?: string }) | null,
 ): StatLine[] {
   const s = r.stats;
   const lines: StatLine[] = songLines(s);

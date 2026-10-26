@@ -277,3 +277,53 @@ test('Phase 3c: the Luminary — skip the unlocks, choose it in Prep, win First 
   });
   expect(errors).toEqual([]);
 });
+
+test('Phase 3d: the Martyr — choose her in Prep, the Life budget, her HUD and Bear', async ({
+  page,
+}) => {
+  const errors = trackErrors(page);
+  await page.goto(START_URL);
+  await page.waitForFunction(() => window.__AWRUN__ !== undefined);
+  // Settings → Skip the unlocks (a new profile is Rank 1: the Martyr is Rank 8).
+  await page
+    .getByRole('button', { name: /^Settings$/ })
+    .first()
+    .click();
+  await page.getByText('Skip the unlocks', { exact: true }).click();
+  await expect(page.getByRole('switch', { name: /Skip the unlocks/ })).toBeChecked();
+
+  await page.evaluate(() => window.__AWRUN__!.newRun(4242));
+  await expect.poll(() => page.evaluate(() => window.__AWRUN__!.phase())).toBe('prep');
+  expect(await page.evaluate(() => window.__AWRUN__!.reservePool())).toBe('spirit');
+  await page.getByRole('radio', { name: /^The Martyr/ }).click();
+  await expect(page.getByRole('radio', { name: /^The Martyr.*chosen/ })).toBeVisible();
+  expect(await page.evaluate(() => window.__AWRUN__!.reservePool())).toBe('life');
+  // The builder's budget is her Life now.
+  await expect(page.getByTestId('life-budget')).toBeVisible();
+  await page
+    .getByRole('button', { name: /Embark/i })
+    .first()
+    .click();
+  await expect.poll(() => page.evaluate(() => window.__AWRUN__!.phase())).toBe('map');
+
+  // Into First Light: the Weaver bar shows what her songs hold of her Life, Spirit all free.
+  expect(await page.evaluate(() => window.__AWRUN__!.choose())).toBe('skirmish');
+  await expect.poll(() => page.evaluate(() => window.__AWRUN__!.phase())).toBe('combat');
+  await page.waitForFunction(() => window.__AW__ !== undefined);
+  // A new profile's first fight opens the primer; on her run it names Bear's key.
+  const begin = page.getByRole('button', { name: /Begin the fight/i });
+  if (await begin.isVisible().catch(() => false)) {
+    await expect(page.getByText(/As the Martyr, B Bears/)).toBeVisible();
+    await begin.click();
+  }
+  await expect(page.getByTestId('weaver-life')).toHaveAttribute('data-pool', 'life');
+  await expect(page.getByTestId('life-reserved')).toBeVisible();
+  await expect(page.getByTestId('calling-chip')).toBeVisible();
+  // Thread Kael, then Bear (B): the read-out and his frame say so.
+  await page.mouse.move(640, 300);
+  await page.keyboard.press('Digit1');
+  await page.keyboard.press('KeyB');
+  await expect(page.getByTestId('thread-mode')).toHaveAttribute('data-mode', 'bear');
+  await expect(page.getByTestId('borne')).toBeVisible();
+  expect(errors).toEqual([]);
+});

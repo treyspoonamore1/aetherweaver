@@ -1,15 +1,26 @@
-import { CONTENT, auraDef, encounterDef, enemyDef, heroDef, ornamentDef } from '../content';
+import {
+  CONTENT,
+  auraDef,
+  callingDef,
+  encounterDef,
+  enemyDef,
+  heroDef,
+  ornamentDef,
+} from '../content';
 import { liveBindings } from '../input/bindings';
 import {
   auraIds,
+  reservePool,
   resolveChord,
+  vowHoldsAt,
   type EntityId,
   type ReadonlyEntity,
   type TechniqueKey,
   type WorldState,
 } from '../sim';
 import { relicHuds } from './hud/relics';
-import { callingHud, shineOf } from './hud/calling';
+import { callingHud, lifeMarksOf, shineOf } from './hud/calling';
+import { crescendoName } from './screens/callingText';
 import type { AuraHud, BossHud, ChordHud, HeroHud, HudSnapshot, TechniqueHud } from './store';
 
 const TECHNIQUE_KEYS: readonly TechniqueKey[] = ['ward', 'chime', 'reel', 'glide'];
@@ -47,6 +58,10 @@ export function buildHudSnapshot(
   const tech = CONTENT.techniques;
 
   const sunrise = state.field.crescendo;
+  const vow = state.field.vow;
+  // Martyr's Vow holds every hero at 1 life: nothing that lands before it ends is lethal.
+  const vowCovers =
+    vow && state.telegraphs.every((t) => t.effect !== 'damage' || vowHoldsAt(state, t.impact));
   const calling = state.calling
     ? {
         id: state.calling.id,
@@ -54,8 +69,14 @@ export function buildHudSnapshot(
         radiancePerAura: state.calling.radiancePerAura,
         sunriseMult: state.calling.sunriseMult,
         sovereign: state.calling.sovereign,
+        crescendo: state.calling.crescendo,
+        bearShare: state.calling.bearShare,
       }
     : null;
+  // The Martyr (Phase 3d): her whole Life, what her songs hold, Bear on the threaded hero.
+  const lifeTotal = w?.maxLife ?? wh?.maxHp ?? 0;
+  const bearing = w?.threadMode === 'bear' && (calling?.bearShare ?? 0) > 0;
+  const lifeMarks = calling ? lifeMarksOf(calling.path, wh?.hp ?? 0, lifeTotal) : [];
 
   const party: HeroHud[] = [];
   state.party.forEach((id, slot) => {
@@ -78,7 +99,7 @@ export function buildHudSnapshot(
       shield,
       shields: h.shields.map((s) => ({ kind: s.kind, amount: s.amount, max: s.max })),
       incoming: h.incoming,
-      lethal: h.incoming > 0 && h.incoming >= h.hp + shield,
+      lethal: !vowCovers && h.incoming > 0 && h.incoming >= h.hp + shield,
       statuses: h.statuses.map((s) => ({
         id: s.id,
         remaining: s.remaining >= 1e8 ? 0 : s.remaining,
@@ -113,6 +134,8 @@ export function buildHudSnapshot(
       threaded: w?.threadSlot === slot,
       beamFocus: hero.beamFocus,
       radiance: h.dead || h.downed ? 0 : shineOf(hero, calling, sunrise),
+      borne: bearing && w?.threadSlot === slot && !h.dead && !h.downed ? calling!.bearShare : 0,
+      vow: vow && !h.dead && !h.downed,
       hovered: opts.hovered === id,
     });
   });
@@ -220,6 +243,12 @@ export function buildHudSnapshot(
       z: weaverEntity?.z ?? 0,
       life: wh?.hp ?? 0,
       maxLife: wh?.maxHp ?? 0,
+      lifeTotal,
+      reservedLife: w?.reservedLife ?? 0,
+      pool: state.calling
+        ? reservePool({ id: state.calling.id, path: [...state.calling.path] })
+        : 'spirit',
+      lifeMarks,
       downed: wh?.downed ?? false,
       reform: w?.reform ?? 0,
       spirit: w?.spirit ?? 0,
@@ -230,8 +259,11 @@ export function buildHudSnapshot(
       segment: resonance.segment,
       crescendoCost: resonance.crescendoCost,
       crescendo: w?.crescendo ?? 0,
-      crescendoName: CONTENT.crescendo.name,
+      crescendoName: crescendoName(calling?.crescendo === 'vow' ? callingDef(calling.id) : null),
       threadMode: w?.threadMode ?? 'mend',
+      lastMode: w?.lastMode ?? 'mend',
+      bearShare: calling?.bearShare ?? 0,
+      vow,
       threadSlot: w?.threadSlot ?? null,
       threadTension: w?.threadTension ?? 0,
       threadLock: w?.threadLock ?? 0,
@@ -269,7 +301,12 @@ export function buildHudSnapshot(
       time: state.time,
       ledger: { perfects: l.perfects, downs: l.downs },
     }),
-    calling: callingHud(calling, sunrise),
+    calling: callingHud(calling, sunrise, {
+      vow,
+      bearing,
+      undyingReady: w?.undying ?? false,
+      marks: lifeMarks,
+    }),
     entityCount: state.entities.count,
     dummyCount,
   };

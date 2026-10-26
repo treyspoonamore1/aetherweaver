@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { GameHost } from '../../app/GameHost';
-import { useRun } from '../../app/runStore';
+import { selectCallingId, useRun } from '../../app/runStore';
+import { CONTENT } from '../../content';
 import type { CombatSession } from '../../app/runtime';
 import { getRuntime } from '../../app/runtimeRegistry';
 import { useSettings } from '../../app/settings';
@@ -18,6 +19,9 @@ export function CombatScreen() {
   const nodesDone = useRun((s) => s.run?.path.length ?? 0);
   const rows = useRun((s) => s.run?.map.rows.length ?? 0);
   const fights = useRun((s) => s.run?.results.length ?? 0);
+  const callingId = useRun(selectCallingId);
+  // The Martyr's Bear has its own key: the primer says so on her runs.
+  const bear = (CONTENT.callings.find((c) => c.id === callingId)?.values.bear ?? 0) > 0;
 
   // One session per pending node: re-renders must never restart the fight.
   const session = useMemo<CombatSession | null>(() => {
@@ -63,7 +67,7 @@ export function CombatScreen() {
       {showPerf && <PerfHud />}
       {devOpen && <DevPanel />}
       {howto ? (
-        <HowToPlay onClose={closeHowTo} />
+        <HowToPlay onClose={closeHowTo} bear={bear} />
       ) : (
         paused && (
           <PauseMenu

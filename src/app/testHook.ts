@@ -1,4 +1,4 @@
-import { reachable, findNode, chooseNode } from '../meta/run';
+import { reachable, findNode, chooseNode, reservePool } from '../meta/run';
 import type { CombatOutcome, NodeKind, RunState } from '../meta/types';
 import { encounterDef, heroDef } from '../content';
 import { emptyLedger } from '../sim/world';
@@ -84,6 +84,10 @@ export function installRunHook(): void {
     calling: () => {
       const c = run().run?.calling;
       return c ? { id: c.id, path: [...c.path] } : null;
+    },
+    reservePool: () => {
+      const state = run().run;
+      return state ? reservePool(state) : null;
     },
     pickCalling: (index) => run().pickCalling(index),
     winFight: () => {

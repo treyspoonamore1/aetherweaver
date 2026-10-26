@@ -1,9 +1,12 @@
 /**
- * The Calling in the fight (Phase 3c): the HUD chip's state and each hero's Radiance, derived
- * from `WorldState.calling` and each hero's `inField` / `auraMask`. A hero shines at
- * `radiancePerAura × auras heard` (× `sunriseMult` in Sunrise) while standing in the field.
+ * The Calling in the fight (Phase 3c, 3d): the HUD chip's state, each hero's Radiance and the
+ * Martyr's Life marks, derived from `WorldState.calling`, the Weaver and each hero's `inField`
+ * / `auraMask`. A hero shines at `radiancePerAura × auras heard` (× `sunriseMult` in Sunrise)
+ * while standing in the field.
  */
 import { callingDef, callingOption, optionTier } from '../../content';
+import { crescendoName, lowLifeMarks } from '../screens/callingText';
+import type { LifeMarkHud } from '../store';
 
 /** The run's Calling as the HUD shows it. */
 export interface CallingHud {
@@ -20,6 +23,19 @@ export interface CallingHud {
   haloed: boolean;
   radiancePerAura: number;
   sunriseMult: number;
+  /** The Calling's Crescendo: Sunrise, or the Martyr's Vow (content `crescendoName`). */
+  crescendo: 'sunrise' | 'vow';
+  crescendoName: string;
+  /** Martyr's Vow is up: heroes can't drop below 1 life. */
+  vow: boolean;
+  /** The Weaver Bears for her threaded hero right now. */
+  bearing: boolean;
+  /** Bear's share of the threaded hero's wounds (0 without the Martyr). */
+  bearShare: number;
+  /** Undying Devotion on the path: still to come this fight, or spent (null: not on the path). */
+  undying: 'ready' | 'spent' | null;
+  /** Blood Font and Low-Life Vigil: working right now (below their share of her Life). */
+  lowLife: { id: string; name: string; icon: string; active: boolean }[];
 }
 
 /** What the view needs from `WorldState.calling` (plain data). */
@@ -29,6 +45,38 @@ export interface CallingSource {
   radiancePerAura: number;
   sunriseMult: number;
   sovereign: boolean;
+  /** Phase 3d: the Crescendo and Bear (`CallingState.crescendo`, `bearShare`). */
+  crescendo?: 'sunrise' | 'vow';
+  bearShare?: number;
+}
+
+/** The Weaver's side of the Martyr, for the chip (all off without her). */
+export interface MartyrState {
+  vow: boolean;
+  bearing: boolean;
+  /** `WeaverComponent.undying`: Undying Devotion is still unused this fight. */
+  undyingReady: boolean;
+  marks: readonly LifeMarkHud[];
+}
+
+const NO_MARTYR: MartyrState = { vow: false, bearing: false, undyingReady: false, marks: [] };
+
+/**
+ * The Life marks the path draws on the Weaver bar: each option's `below` share of all her Life
+ * (`lifeTotal`, reserved included, as the sim counts it), lit while her life is under it.
+ */
+export function lifeMarksOf(
+  path: readonly (string | null)[],
+  life: number,
+  lifeTotal: number,
+): LifeMarkHud[] {
+  return lowLifeMarks(path).map((m) => ({
+    id: m.id,
+    name: m.name,
+    icon: m.icon,
+    at: m.below * lifeTotal,
+    active: life < m.below * lifeTotal,
+  }));
 }
 
 /** Number of bits set (auras a hero hears, from `auraMask`). */
@@ -63,7 +111,11 @@ export function shineLabel(shine: number): string {
 }
 
 /** The HUD chip's state from the world's Calling (null without one). */
-export function callingHud(calling: CallingSource | null, sunrise: boolean): CallingHud | null {
+export function callingHud(
+  calling: CallingSource | null,
+  sunrise: boolean,
+  martyr: MartyrState = NO_MARTYR,
+): CallingHud | null {
   if (!calling) return null;
   const def = callingDef(calling.id);
   const tiers: CallingHud['tiers'] = def.tiers.map(() => null);
@@ -82,7 +134,23 @@ export function callingHud(calling: CallingSource | null, sunrise: boolean): Cal
     haloed: calling.path.includes('haloed'),
     radiancePerAura: calling.radiancePerAura,
     sunriseMult: calling.sunriseMult,
+    crescendo: calling.crescendo ?? 'sunrise',
+    crescendoName: crescendoName(calling.crescendo === 'vow' ? def : null),
+    vow: martyr.vow,
+    bearing: martyr.bearing && (calling.bearShare ?? 0) > 0,
+    bearShare: calling.bearShare ?? 0,
+    undying: calling.path.includes('undying_devotion')
+      ? martyr.undyingReady
+        ? 'ready'
+        : 'spent'
+      : null,
+    lowLife: martyr.marks.map((m) => ({ id: m.id, name: m.name, icon: m.icon, active: m.active })),
   };
+}
+
+/** "Borne · 35%": what Bear takes of a hero's wounds. */
+export function bearLabel(share: number): string {
+  return `${Math.round(share * 100)}%`;
 }
 
 /** The chip's accessible sentence. */
@@ -93,6 +161,11 @@ export function callingHudLabel(c: CallingHud): string {
     c.sunrise ? `Sunrise: Radiance ×${c.sunriseMult}.` : '',
     c.haloed ? 'Haloed: heroes in your field take less from ordinary hits.' : '',
     c.sovereign ? 'Sovereign Symphony: every aura is stronger.' : '',
+    c.vow ? `${c.crescendoName}: your heroes can’t drop below 1 life.` : '',
+    c.bearing ? `Bearing: you take ${bearLabel(c.bearShare)} of your threaded hero’s wounds.` : '',
+    c.undying === 'ready' ? 'Undying Devotion: ready.' : '',
+    c.undying === 'spent' ? 'Undying Devotion: spent this fight.' : '',
+    ...c.lowLife.filter((m) => m.active).map((m) => `${m.name}: on.`),
   ]
     .filter(Boolean)
     .join(' ');

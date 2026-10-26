@@ -12,7 +12,15 @@ import { playUi, useMood } from '../kit/sound';
 import { AxisChip, CallingPassive } from './CallingParts';
 import { RetuneView } from './RespiteScreen';
 import { useAllowance } from './PrepScreen';
-import { pathSteps, tierWhenLabel, withOption, type PathStep } from './callingText';
+import {
+  belowNote,
+  passiveName,
+  pathSteps,
+  reservesLife,
+  tierWhenLabel,
+  withOption,
+  type PathStep,
+} from './callingText';
 
 export interface CallingViewProps {
   run: RunState;
@@ -152,6 +160,7 @@ export function CallingView({
                 option={o}
                 callingId={def.id}
                 keyLabel={String(i + 1)}
+                chords={run.chords}
                 onTake={() => take(i as 0 | 1)}
               />
             </li>
@@ -160,7 +169,7 @@ export function CallingView({
 
         <div className="mt-5 rounded-xl border border-ink-600/60 bg-ink-900/60 px-4 py-3">
           <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted">
-            Always yours · Radiance
+            Always yours · {passiveName(def.id)}
           </p>
           <CallingPassive def={def} compact />
         </div>
@@ -228,15 +237,19 @@ function OptionCard({
   option: o,
   callingId,
   keyLabel,
+  chords,
   onTake,
 }: {
   option: CallingOption;
   callingId: string;
   keyLabel: string;
+  /** The run's songs: what they hold of the Martyr's Life decides when Blood Font and Vigil wake. */
+  chords: readonly ChordLoadout[];
   onTake(): void;
 }) {
   const look = callingLook(callingId);
   const text = optionText(o);
+  const below = reservesLife(callingDef(callingId)) ? belowNote(o, chords) : null;
   return (
     <button
       type="button"
@@ -266,9 +279,19 @@ function OptionCard({
         <span className="font-display text-2xl font-bold" style={{ color: look.color }}>
           {o.name}
         </span>
-        <AxisChip optionId={o.id} size="md" />
+        <AxisChip optionId={o.id} size="md" all />
       </span>
       <span className="mt-2 flex-1 text-base leading-relaxed text-text">{text}</span>
+      {below && (
+        <span
+          className="mt-2 flex items-start gap-1.5 text-sm leading-snug"
+          style={{ color: look.light }}
+          data-testid="below-note"
+        >
+          <Icon name="drop" size={15} className="mt-0.5 shrink-0" />
+          {below.text}
+        </span>
+      )}
       {grantsSlot(o) && (
         <span className="mt-2 flex items-center gap-1.5 text-sm text-gold-200">
           <Icon name="tune" size={15} /> Opens the song builder: retune for free, or keep your

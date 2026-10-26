@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type CSSProperties } from 'react';
 import { unlockRank, type Allowance } from '../../meta/profile';
 import type { CallingDef } from '../../content';
 import { Button } from '../kit/Button';
@@ -16,8 +16,9 @@ export function callingOpen(allowance: Allowance, id: string): boolean {
 }
 
 /**
- * Prep's Calling picker (Phase 3c): "No Calling" and each Calling as a compact card (emblem,
- * passive, Sunrise, the four picks and when they come), with the whole path in a dialog.
+ * Prep's Calling picker (Phase 3c, 3d): "No Calling" and each Calling as a compact card
+ * (emblem, passive, its Crescendo, the four picks and when they come), with the whole path in
+ * a dialog.
  * Locked Callings show their Rank and what they are, and can't be chosen.
  */
 export function CallingPicker({
@@ -43,8 +44,11 @@ export function CallingPicker({
     onChoose(id);
   };
   const shown = callings.find((c) => c.id === viewing) ?? null;
+  // Every Calling picks at the same milestones: say when once, above the cards.
+  const counts = new Set(callings.map((c) => c.tiers.length));
+  const schedule = counts.size === 1 ? callings[0]!.tiers.length : null;
   return (
-    <section className="mt-6" aria-labelledby="calling-title" data-testid="calling-picker">
+    <section className="mt-5" aria-labelledby="calling-title" data-testid="calling-picker">
       <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <h2
           id="calling-title"
@@ -52,16 +56,27 @@ export function CallingPicker({
         >
           Your Calling
         </h2>
-        <p className="text-xs text-muted">
+        <p className="max-w-2xl text-right text-xs leading-relaxed text-muted">
           The Weaver’s class for this run: chosen here, it grows as you win.
+          {schedule !== null && (
+            <>
+              {' '}
+              {schedule} picks along the way, one of two each: {tierWhenList(schedule)}.
+            </>
+          )}
         </p>
       </div>
       <div
-        className="grid gap-3 md:grid-cols-[15rem_1fr]"
+        className="grid gap-3 md:grid-cols-[13rem_1fr]"
         role="radiogroup"
         aria-labelledby="calling-title"
       >
-        <NoCalling selected={chosen === null} onChoose={() => choose(null)} />
+        {/* "No Calling" runs down the left beside every Calling's card. */}
+        <NoCalling
+          selected={chosen === null}
+          onChoose={() => choose(null)}
+          rows={callings.length}
+        />
         {callings.map((def) => (
           <CallingCard
             key={def.id}
@@ -69,6 +84,7 @@ export function CallingPicker({
             selected={chosen === def.id}
             open={callingOpen(allowance, def.id)}
             isNew={fresh.has(`calling.${def.id}`)}
+            schedule={schedule === null}
             onChoose={() => choose(def.id)}
             onView={() => setViewing(def.id)}
           />
@@ -93,14 +109,24 @@ export function CallingPicker({
   );
 }
 
-function NoCalling({ selected, onChoose }: { selected: boolean; onChoose(): void }) {
+function NoCalling({
+  selected,
+  onChoose,
+  rows,
+}: {
+  selected: boolean;
+  onChoose(): void;
+  /** How many Calling cards it stands beside (it spans their rows). */
+  rows: number;
+}) {
   return (
     <button
       type="button"
       role="radio"
       aria-checked={selected}
       onClick={onChoose}
-      className={`flex h-full flex-col items-start gap-1.5 rounded-xl border px-4 py-3 text-left transition-colors ${
+      style={{ '--rows': `span ${Math.max(1, rows)}` } as CSSProperties}
+      className={`flex h-full flex-col items-start gap-1.5 rounded-xl border px-4 py-3 text-left transition-colors md:[grid-row:var(--rows)] ${
         selected
           ? 'border-gold-400 bg-gold-400/10'
           : 'border-ink-600 bg-ink-800/80 hover:border-gold-500/70 hover:bg-ink-800'
@@ -122,6 +148,7 @@ function CallingCard({
   selected,
   open,
   isNew,
+  schedule,
   onChoose,
   onView,
 }: {
@@ -129,6 +156,8 @@ function CallingCard({
   selected: boolean;
   open: boolean;
   isNew: boolean;
+  /** Say when its picks come on the card (when the Callings' schedules differ). */
+  schedule: boolean;
   onChoose(): void;
   onView(): void;
 }) {
@@ -195,17 +224,21 @@ function CallingCard({
           )}
         </span>
       </button>
-      <span className="flex shrink-0 flex-col justify-between gap-2 md:w-60 md:border-l md:border-ink-600/60 md:pl-4">
+      <span
+        className={`flex shrink-0 flex-col justify-center gap-2 md:border-l md:border-ink-600/60 md:pl-4 ${schedule ? 'md:w-60' : 'md:w-40'}`}
+      >
         <span>
           <span className="flex items-center gap-1" aria-hidden>
             {def.tiers.map((_, i) => (
               <PathPip key={i} callingId={def.id} state="open" numeral={numeral(i)} size={22} />
             ))}
           </span>
-          <span className="mt-1.5 block text-xs leading-relaxed text-muted">
-            {def.tiers.length} picks along the way, one of two each:{' '}
-            {tierWhenList(def.tiers.length)}.
-          </span>
+          {schedule && (
+            <span className="mt-1.5 block text-xs leading-relaxed text-muted">
+              {def.tiers.length} picks along the way, one of two each:{' '}
+              {tierWhenList(def.tiers.length)}.
+            </span>
+          )}
         </span>
         <Button size="sm" variant="secondary" onClick={onView} className="self-start">
           <Icon name="book" size={14} /> See the path

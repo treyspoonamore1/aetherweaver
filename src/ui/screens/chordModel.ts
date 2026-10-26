@@ -1,7 +1,7 @@
 /**
  * Pure model behind the Chord builder (Prep and Respite → Retune): slot placement with
- * single-copy auras and ornaments, the Spirit budget, each song's resolved numbers, and what
- * the player's Rank keeps locked. Legality always comes from the sim (`chordProblems`) and
+ * single-copy auras and ornaments, the Spirit budget (Life on a Martyr run), each song's
+ * resolved numbers, and what the player's Rank keeps locked. Legality always comes from the sim (`chordProblems`) and
  * locks from the profile (`lockedProblems`), so the UI can't disagree with either.
  */
 import { CONTENT, auraDef, ornamentDef } from '../../content';
@@ -16,6 +16,7 @@ import {
 } from '../../meta/profile';
 import { CHORD_PRESETS } from '../../meta/run';
 import {
+  LIFE_RESERVE_CAP,
   canonicalChords,
   chordProblems,
   chordReserve,
@@ -25,6 +26,7 @@ import {
   type ChordAnchor,
   type ChordLoadout,
   type ChordRole,
+  type ReservePool,
 } from '../../sim';
 
 export type SlotKind = 'aura' | 'ornament';
@@ -151,30 +153,61 @@ export interface BudgetSlice {
   id: string;
   name: string;
   color: string;
-  /** Spirit points reserved. */
+  /** Points reserved from the pool (Spirit, or the Martyr's Life). */
   spirit: number;
 }
 
 export interface SpiritBudget {
+  /** What the songs reserve from: Spirit, or (the Martyr's) Life. */
+  pool: ReservePool;
+  /** The whole pool: max Spirit, or all of the Martyr's Life. */
   max: number;
-  /** Spirit reserved by auras (may exceed max for an illegal loadout). */
+  /** The most the songs may hold (Spirit: all of it; Life: `LIFE_RESERVE_CAP` of it). */
+  cap: number;
+  /** Reserved by auras (may exceed `cap` for an illegal loadout). */
   reserved: number;
-  /** Left for techniques (never negative). */
+  /** What's left: Spirit for techniques, or the Life she fights with (never negative). */
   free: number;
   over: boolean;
   slices: BudgetSlice[];
-  /** Technique costs against the free Spirit. */
+  /** Technique costs against the free Spirit (all of it on a Martyr run). */
   techniques: { key: 'ward' | 'chime' | 'reel'; name: string; cost: number; affordable: boolean }[];
+  /** The Spirit techniques draw on: `free` for Spirit, all of it when the songs hold Life. */
+  spirit: number;
   wardAffordable: boolean;
   /** Ward + Chime + Reel back to back fits. */
   allThree: boolean;
   /** Total auras across Chords (3+ releases a chorus pulse on every Cue). */
   auraCount: number;
   chorus: boolean;
+  /** Life only: a Weaver without the Martyr's Life (content `maxLife`), to compare against. */
+  baseLife: number;
 }
 
-export function spiritBudget(chords: readonly ChordLoadout[]): SpiritBudget {
-  const max = CONTENT.weaver.maxSpirit;
+/**
+ * The Weaver's whole Life on a run with this Calling: content `maxLife`, grown by the
+ * Calling's `life` value (the Martyr's passive; the sim's `lifeMult`). The UI test checks it
+ * against a real sim's `WeaverComponent.maxLife`.
+ */
+export function weaverLifeFor(callingId: string | null | undefined): number {
+  const base = CONTENT.weaver.maxLife;
+  const def = callingId ? CONTENT.callings.find((c) => c.id === callingId) : undefined;
+  return base * (1 + (def?.values.life ?? 0) / 100);
+}
+
+/**
+ * The songs' budget: reserved against free, for Spirit (the content's `maxSpirit`) or, on a
+ * Martyr run, for Life (`weaverLifeFor`, capped at `LIFE_RESERVE_CAP`). Shares come from the
+ * sim's `chordReserve`, so the numbers match what the fight will hold.
+ */
+export function spiritBudget(
+  chords: readonly ChordLoadout[],
+  pool: ReservePool = 'spirit',
+  callingId: string | null = null,
+): SpiritBudget {
+  const life = pool === 'life';
+  const max = life ? weaverLifeFor(callingId) : CONTENT.weaver.maxSpirit;
+  const cap = life ? max * LIFE_RESERVE_CAP : max;
   const slices: BudgetSlice[] = [];
   chords.forEach((c, chord) => {
     const r = resolveChord(c, chord);
@@ -192,26 +225,36 @@ export function spiritBudget(chords: readonly ChordLoadout[]): SpiritBudget {
   });
   const reserved = max * chordReserve(canonicalChords(chords));
   const free = Math.max(0, max - reserved);
+  const spirit = life ? CONTENT.weaver.maxSpirit : free;
   const t = CONTENT.techniques;
   const techniques = (['ward', 'chime', 'reel'] as const).map((key) => ({
     key,
     name: t[key].name,
     cost: t[key].cost,
-    affordable: free + 1e-9 >= t[key].cost,
+    affordable: spirit + 1e-9 >= t[key].cost,
   }));
   const auraCount = slices.length;
   return {
+    pool,
     max,
+    cap,
     reserved,
     free,
-    over: reserved > max + 1e-9,
+    over: reserved > cap + 1e-9,
     slices,
     techniques,
+    spirit,
     wardAffordable: techniques[0]!.affordable,
-    allThree: free + 1e-9 >= techniques.reduce((s, x) => s + x.cost, 0),
+    allThree: spirit + 1e-9 >= techniques.reduce((s, x) => s + x.cost, 0),
     auraCount,
     chorus: auraCount >= CONTENT.chorus.minAuras,
+    baseLife: CONTENT.weaver.maxLife,
   };
+}
+
+/** "Spirit" or "Life": the word for what the songs reserve. */
+export function poolWord(pool: ReservePool): 'Spirit' | 'Life' {
+  return pool === 'life' ? 'Life' : 'Spirit';
 }
 
 /**
@@ -223,10 +266,12 @@ export function loadoutProblems(
   allowance: Allowance = EVERYTHING,
   /** The field song's aura slots: `Run.fieldAuraSlots(run)` (the Luminary's Third Voice adds one). */
   fieldAuraSlots: number = CONTENT.weaver.auraSlots,
+  /** What the songs reserve: `Run.reservePool(run)` (Life on a Martyr run, at most 90%). */
+  pool: ReservePool = 'spirit',
 ): string[] {
   const canon = canonicalChords(chords);
   return [
-    ...chordProblems(canon, CONTENT, { fieldAuraSlots }),
+    ...chordProblems(canon, CONTENT, { fieldAuraSlots, pool }),
     ...lockedProblems(canon, allowance),
   ];
 }
