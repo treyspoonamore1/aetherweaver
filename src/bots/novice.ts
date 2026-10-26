@@ -12,6 +12,7 @@ import {
   caller,
   damageOf,
   modeCommands,
+  threadingTo,
   centroid,
   dist,
   enemiesOf,
@@ -100,7 +101,7 @@ export class NoviceBot implements Bot {
     // The Martyr's Bear: a big hit coming at the threaded hero, and sometimes she remembers she
     // can take some of it (and forgets, for a moment, to stop).
     let want: ThreadMode = wantEmpower ? 'empower' : 'mend';
-    const threaded = party.find((h) => h.slot === wc.threadSlot);
+    const threaded = party.find((h) => h.slot === threadingTo(out, wc.threadSlot));
     if ((state.calling?.bearShare ?? 0) > 0 && threaded && !wantEmpower) {
       const t = threatsOn(state, threaded.e)[0];
       const scary =

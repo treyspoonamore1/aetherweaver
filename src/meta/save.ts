@@ -445,10 +445,11 @@ export function compatibleWithContent(run: RunState): boolean {
       (id, tier) => id === null || def.tiers[tier]!.options.some((o) => o.id === id),
     );
     if (!ok) return false;
+    // In Prep the pool may not fit yet (a Martyr chosen over heavy songs): embark settles it.
     if (
       chordProblems(run.chords, CONTENT, {
         fieldAuraSlots: fieldAuraSlots(run),
-        pool: reservePool(run),
+        pool: run.phase === 'prep' ? 'spirit' : reservePool(run),
       }).length > 0
     )
       return false;

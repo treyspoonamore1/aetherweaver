@@ -217,6 +217,39 @@ describe('what a pick can and can’t change', () => {
   });
 });
 
+describe('the Martyr in a run', () => {
+  const HEAVY = [
+    { auras: ['fortissimo', 'ostinato'], ornaments: ['grace_note'] },
+    { auras: ['sostenuto', 'allegro'], ornaments: [] },
+  ];
+
+  it('chosen in Prep over songs her Life can’t hold: it still saves, and embark settles them', () => {
+    const prep = Run.setCalling(Run.setChords(Run.newRun(5), HEAVY), 'martyr');
+    expect(prep.calling?.id).toBe('martyr');
+    expect(Run.reservePool(prep)).toBe('life');
+    const store = memoryStore();
+    saveRun(store, prep);
+    expect(loadRun(store)).toEqual(prep);
+    expect(Run.embark(prep).chords).toEqual(Run.DEFAULT_CHORDS);
+    // The same songs suit the Luminary's Spirit.
+    const luminary = Run.setCalling(Run.setChords(Run.newRun(5), HEAVY), 'luminary');
+    expect(Run.embark(luminary).chords).toEqual(prep.chords);
+  });
+
+  it('a result’s Crescendo highlight names the Martyr’s Vow', () => {
+    let run = Run.embark(Run.setCalling(Run.setChords(Run.newRun(4), GUARDIAN), 'martyr'));
+    run = Run.chooseNode(run, run.map.rows[0]![0]!.id);
+    const outcome = win(run);
+    outcome.ledger.crescendos = 1;
+    const node = Run.findNode(run, run.pending!)!;
+    const vow = callingDef('martyr').crescendoName!;
+    const texts = (calling: RunState['calling']) =>
+      Run.summarize(node, outcome, calling).highlights.map((h) => h.text);
+    expect(texts(run.calling)).toContain(`Crescendo — ${vow}`);
+    expect(texts(null)).toContain('Crescendo — Sunrise');
+  });
+});
+
 describe('saves', () => {
   it('a run with a Calling and a tier on offer saves and loads', () => {
     let run = luminaryRun();

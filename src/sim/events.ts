@@ -365,7 +365,8 @@ export interface Dawnward extends At {
 /**
  * The Martyr (docs/phase-3d.md): life a hero would have lost went to the Weaver instead. `via`:
  * Bear on the threaded hero, Shared Wounds on another hero in the field, or the Vow holding a
- * hero at 1 life. `amount` is what came to the Weaver, before her own shields and armour.
+ * hero at 1 life. `amount` is what she took (life and her shields); her `damageTaken` comes
+ * just before.
  */
 export interface Borne extends At {
   type: 'borne';

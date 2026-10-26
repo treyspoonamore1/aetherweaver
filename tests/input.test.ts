@@ -1,11 +1,20 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_BINDINGS, buildCodeIndex, moveVector, type Action } from '../src/input/actions';
+import { effectiveBindings } from '../src/input/bindings';
 import { keyLabel } from '../src/input/keyLabel';
 import { heroAt, smartTarget } from '../src/input/smartCast';
 import { createSim } from '../src/sim';
 import { buildHudSnapshot } from '../src/ui/hudBridge';
 
 describe('input', () => {
+  it('a key a player gave one action leaves the default that had it (the Martyr’s B)', () => {
+    const b = effectiveBindings({ threadMode: ['KeyB'] });
+    expect(b.threadMode).toEqual(['KeyB']);
+    expect(b.bear).toEqual([]);
+    expect(buildCodeIndex(b).get('KeyB')).toBe('threadMode');
+    expect(effectiveBindings({}).bear).toEqual(['KeyB']);
+  });
+
   it('maps physical key codes to actions', () => {
     const index = buildCodeIndex(DEFAULT_BINDINGS);
     expect(index.get('KeyW')).toBe('moveUp');

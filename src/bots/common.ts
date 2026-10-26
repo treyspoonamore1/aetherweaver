@@ -20,6 +20,15 @@ export function weaverOf(state: WorldState): ReadonlyEntity {
   return state.entities.get(state.weaverId)!;
 }
 
+/** The slot the Thread will be on once `out` runs: the last `thread` command's, else `current`. */
+export function threadingTo(out: readonly Command[], current: PartySlot | null): PartySlot | null {
+  for (let i = out.length - 1; i >= 0; i--) {
+    const c = out[i]!;
+    if (c.t === 'thread') return c.slot;
+  }
+  return current;
+}
+
 /**
  * The commands that move the Thread from `current` to `want`. Bear (the Martyr) has its own
  * toggle, and leaving it returns to the mode it left, so a switch can take two decisions.

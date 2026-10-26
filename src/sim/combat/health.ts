@@ -347,8 +347,9 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
     }
   }
   const amountIn = amount;
-  // Scarred Hide (the Martyr): the Weaver takes less while she Bears.
-  if (target.weaver?.threadMode === 'bear') amount *= world.mods.bearDamageTaken;
+  // Scarred Hide (the Martyr): the Weaver takes less while she Bears someone.
+  if (target.weaver?.threadMode === 'bear' && target.weaver.threadSlot !== null)
+    amount *= world.mods.bearDamageTaken;
   // Armour only softens ordinary hits; telegraphed attacks are answered, not soaked.
   if (target.hero && !opts.telegraph) amount *= 1 - heroDef(target.hero.defId).armor;
   // Fermata: heroes low on life take less from everything.
@@ -403,23 +404,32 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
   }
 
   // The Martyr (docs/phase-3d.md): Bear and Shared Wounds send part of what got through to the
-  // Weaver; the Vow holds a hero at 1 life and sends her the rest, softened.
+  // Weaver; the Vow holds a hero at 1 life and sends her the rest, softened. A hero Fermata
+  // already holds needs neither.
   const hpBefore = h.hp;
+  const martyrFor = !!target.hero && amount > 0 && !target.hero.hold;
   let borne = 0;
   let borneVia: 'bear' | 'shared' = 'bear';
-  if (target.hero && amount > 0 && world.mods.bearShare > 0) {
+  if (martyrFor && world.mods.bearShare > 0) {
     const bear = bearShareOf(world, target);
     if (bear.share > 0) {
-      // She takes only what she can bear: never more than would leave her at 1 life.
-      borne = Math.min(amount * bear.share, bearRoom(world));
-      borneVia = bear.via;
-      amount -= borne;
+      // She takes only what she can bear (never more than leaves her at 1 life), and nothing
+      // of a hit that fells the hero anyway: the Veil, Fermata or the Vow may still catch it.
+      const lift = Math.min(amount * bear.share, bearRoom(world));
+      if (amount - lift < h.hp) {
+        borne = lift;
+        borneVia = bear.via;
+        amount -= lift;
+      }
     }
   }
   let vowExcess = 0;
-  if (target.hero && world.field.vow && amount > 0 && amount >= h.hp) {
-    vowExcess = amount - Math.max(0, h.hp - 1);
-    amount -= vowExcess;
+  if (martyrFor && world.field.vow) {
+    const allowed = Math.max(0, h.hp - 1);
+    if (amount > allowed) {
+      vowExcess = amount - allowed;
+      amount = allowed;
+    }
   }
   let dealt = Math.min(h.hp, amount);
   let martyred = false;
@@ -464,8 +474,9 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
     const kept = Math.min(borne + vowExcess, keptLife);
     world.ledger.shielded += kept;
     world.ledger.calling.shielded += kept;
+    // Bear's Save each time it turns a fall; the Vow's once, when it first holds them at 1.
     const lethal = dealt + borne + vowExcess >= hpBefore && h.hp > 0;
-    if (lethal && target.hero && !target.hero.hold && !martyred) {
+    if (lethal && target.hero && !martyred && (vowExcess === 0 || hpBefore > 1)) {
       recordSave(
         world,
         target,
@@ -661,6 +672,8 @@ export function releaseHold(world: World, e: Entity, fightOver = false): void {
     saved: healed || fightOver,
   });
   if (healed) recordSave(world, e, 'fermata', hold.damage, hold.attack);
+  // Martyr's Vow: a hold that runs out while it lasts doesn't fell them; the Vow keeps them.
+  else if (world.field.vow) recordSave(world, e, 'vow', hold.damage, hold.attack);
   else if (!fightOver) downHero(world, e, hold.attack);
 }
 
@@ -734,6 +747,12 @@ function downWeaver(world: World, e: Entity): void {
   h.downed = true;
   h.shields.length = 0;
   w.reform = world.content.weaver.reformTime;
+  // Martyr's Vow ends with her: there's no one left to take the wounds.
+  if (world.field.vow) {
+    world.field.vow = false;
+    w.crescendo = 0;
+    world.events.push({ type: 'crescendoEnd', tick: world.tick });
+  }
   w.glide = 0;
   if (w.threadSlot !== null) {
     const hero = world.party[w.threadSlot];
@@ -844,7 +863,8 @@ export function bearShareOf(world: World, hero: Entity): { share: number; via: '
 function bearRoom(world: World): number {
   const weaver = world.entities.get(world.weaverId);
   const h = weaver?.health;
-  if (!h || h.downed) return 0;
+  // Untouchable, she can't take anything on.
+  if (!h || h.downed || h.invulnerable > 0) return 0;
   let shields = 0;
   for (const s of h.shields) shields += s.amount;
   return (
@@ -868,18 +888,21 @@ function sendToWeaver(
   const weaver = world.entities.get(world.weaverId);
   if (!weaver?.health || lifted <= 0) return;
   const amount = via === 'vow' ? lifted : lifted * world.mods.borneTaken;
-  world.events.push({ type: 'borne', tick: world.tick, hero: hero.id, amount, via });
-  world.ledger.calling.borne += amount;
-  // Penitence: the damage she bears fills Resonance.
-  if (world.mods.penitencePer100 > 0)
-    gainResonance(world, (lifted / 100) * world.mods.penitencePer100, 'penitence');
-  dealDamage(world, weaver, {
+  const r = dealDamage(world, weaver, {
     source: opts.source,
     sourceName: opts.sourceName,
     amount,
     telegraph: null,
     kind: opts.kind,
   });
+  // What she really took (her shields included), not what was sent.
+  const taken = r.dealt + r.absorbed;
+  if (taken <= 0) return;
+  world.events.push({ type: 'borne', tick: world.tick, hero: hero.id, amount: taken, via });
+  world.ledger.calling.borne += taken;
+  // Penitence: the damage she bears fills Resonance.
+  if (world.mods.penitencePer100 > 0)
+    gainResonance(world, (lifted / 100) * world.mods.penitencePer100, 'penitence');
 }
 
 /**

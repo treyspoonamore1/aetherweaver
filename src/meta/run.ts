@@ -580,7 +580,7 @@ export function finishCombat(run: RunState, outcome: CombatOutcome): RunState {
   if (run.phase !== 'combat' || !run.pending) return run;
   const node = findNode(run, run.pending);
   if (!node) return run;
-  const result = summarize(node, outcome);
+  const result = summarize(node, outcome, run.calling);
   const party: RunHero[] = run.party.map((h, slot) => {
     const p = outcome.party.find((x) => x.slot === slot);
     if (!p) return h;
@@ -1198,7 +1198,11 @@ export function weaverShare(
   return total > 0 ? weaver / total : 0;
 }
 
-export function summarize(node: MapNode, outcome: CombatOutcome): EncounterResult {
+export function summarize(
+  node: MapNode,
+  outcome: CombatOutcome,
+  calling: RunState['calling'] = null,
+): EncounterResult {
   const def = encounterDef(outcome.encounterId);
   const l = outcome.ledger;
   const stats: EncounterStats = {
@@ -1290,7 +1294,7 @@ export function summarize(node: MapNode, outcome: CombatOutcome): EncounterResul
       kind: 'crescendo',
       time: m?.time ?? 0,
       slot: null,
-      text: `Crescendo — ${CONTENT.crescendo.name}`,
+      text: `Crescendo — ${(calling && callingDef(calling.id).crescendoName) || CONTENT.crescendo.name}`,
       score: 400,
     });
   }

@@ -26,8 +26,16 @@ export const FIXED_KEYS: Readonly<Partial<Record<Action, string>>> = { pause: 'E
 /** Defaults with the overrides applied. Unknown actions in the overrides are ignored. */
 export function effectiveBindings(overrides: Overrides): Bindings {
   const out = { ...DEFAULT_BINDINGS } as Record<Action, readonly string[]>;
+  const claimed = new Set<string>();
   for (const [key, codes] of Object.entries(overrides)) {
-    if (isAction(key)) out[key] = [...codes].slice(0, MAX_KEYS);
+    if (!isAction(key)) continue;
+    out[key] = [...codes].slice(0, MAX_KEYS);
+    for (const code of out[key]) claimed.add(code);
+  }
+  // A key the player gave to one action leaves any default that had it (a new default, such as
+  // the Martyr's Bear on B, never takes over a key someone already uses).
+  for (const action of Object.keys(out) as Action[]) {
+    if (!Object.hasOwn(overrides, action)) out[action] = out[action].filter((c) => !claimed.has(c));
   }
   for (const [action, code] of Object.entries(FIXED_KEYS) as [Action, string][]) {
     if (!out[action].includes(code)) out[action] = [code, ...out[action]].slice(0, MAX_KEYS);

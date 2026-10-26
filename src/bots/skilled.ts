@@ -16,6 +16,7 @@ import {
   centroid,
   damageOf,
   modeCommands,
+  threadingTo,
   dist,
   effectiveFraction,
   enemiesOf,
@@ -273,7 +274,7 @@ export class SkilledBot implements Bot {
     // take part of it, if she has the life to spare; then back to the Thread's work.
     let want: ThreadMode = mend ? 'mend' : 'empower';
     const share = state.calling?.bearShare ?? 0;
-    const bearFor = party.find((h) => h.slot === wc.threadSlot);
+    const bearFor = party.find((h) => h.slot === threadingTo(out, wc.threadSlot));
     if (share > 0 && bearFor && !bearFor.e.health!.downed && !held) {
       const t = threatsOn(state, bearFor.e)[0];
       if (t && t.impact - now < 1) {

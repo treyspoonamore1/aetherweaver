@@ -139,6 +139,85 @@ describe('Bear', () => {
   });
 });
 
+describe('what Bear and the Vow won’t do', () => {
+  it('Bear never takes more than leaves her at 1 life, Scarred Hide included', () => {
+    const { w } = bearing(['scarred_hide']);
+    const weaver = weaverOf(w);
+    weaver.health!.hp = 20;
+    dealDamage(w, heroAt(w, 0), { source: null, sourceName: 't', amount: 1000, telegraph: null });
+    expect(weaver.health!.downed).toBe(false);
+    expect(weaver.health!.hp).toBeCloseTo(1, 6);
+  });
+
+  it('a hit that fells the hero anyway costs her nothing, and Martyr’s Veil still catches it', () => {
+    const sim = sandbox({ chords: GUARDIAN, ...martyr(), relics: ['martyrs_veil'] });
+    stepFor(sim, 2, [{ t: 'thread', slot: 0 }, BEAR]);
+    const w = worldOf(sim);
+    heroAt(w, 0).health!.hp = 50;
+    dealDamage(w, heroAt(w, 0), { source: null, sourceName: 't', amount: 1000, telegraph: null });
+    expect(w.ledger.calling.borne).toBe(0);
+    expect(w.ledger.saves.map((x) => x.cause)).toEqual(['martyr']);
+  });
+
+  it('while she’s untouchable, Bear lifts nothing', () => {
+    const { w } = bearing();
+    weaverOf(w).health!.invulnerable = 2;
+    const kael = heroAt(w, 0);
+    const before = kael.health!.hp;
+    dealDamage(w, kael, { source: null, sourceName: 't', amount: 200, telegraph: null });
+    const armor = CONTENT.heroes.find((h) => h.id === 'kael')!.armor;
+    expect(before - kael.health!.hp).toBeCloseTo(200 * (1 - armor), 6);
+    expect(w.ledger.calling.borne).toBe(0);
+  });
+
+  it('a hero Fermata holds needs neither Bear nor the Vow', () => {
+    const sim = sandbox({
+      chords: [
+        { auras: ['fortissimo'], ornaments: [] },
+        { auras: ['sostenuto', 'fermata'], ornaments: [] },
+      ],
+      ...martyr(),
+    });
+    stepFor(sim, 2, [{ t: 'thread', slot: 0 }, BEAR]);
+    const w = worldOf(sim);
+    const kael = heroAt(w, 0);
+    kael.health!.hp = 50;
+    dealDamage(w, kael, { source: null, sourceName: 't', amount: 1000, telegraph: null });
+    expect(kael.hero!.hold).not.toBeNull();
+    dealDamage(w, kael, { source: null, sourceName: 't', amount: 300, telegraph: null });
+    expect(kael.health!.hp).toBe(1);
+    expect(w.ledger.calling.borne).toBe(0);
+  });
+
+  it('Scarred Hide needs someone to Bear', () => {
+    const sim = sandbox({ chords: GUARDIAN, ...martyr('scarred_hide') });
+    stepFor(sim, 1, [BEAR]);
+    const weaver = weaverOf(worldOf(sim));
+    expect(weaver.weaver!.threadMode).toBe('bear');
+    const before = weaver.health!.hp;
+    dealDamage(worldOf(sim), weaver, {
+      source: null,
+      sourceName: 't',
+      amount: 100,
+      telegraph: null,
+    });
+    expect(before - weaver.health!.hp).toBeCloseTo(100, 6);
+  });
+
+  it('her own Aegis Ward isn’t counted as shielding the party', () => {
+    const { sim, w } = bearing(
+      ['penitence', 'blood_font', 'undying_devotion', 'martyrs_aegis'],
+      'mend',
+    );
+    stepFor(sim, 1, [{ t: 'tech', id: 'ward', slot: 0 }]);
+    const weaver = weaverOf(w);
+    expect(weaver.health!.shields.some((x) => x.kind === 'ward')).toBe(true);
+    const before = w.ledger.shielded;
+    dealDamage(w, weaver, { source: null, sourceName: 't', amount: 50, telegraph: null });
+    expect(w.ledger.shielded).toBe(before);
+  });
+});
+
 describe('the path', () => {
   it('Penitence: what she bears fills Resonance', () => {
     const { w } = bearing(['penitence']);
@@ -295,6 +374,24 @@ describe('Martyr’s Vow', () => {
       6,
     );
     expect(w.ledger.saves.map((s) => s.cause)).toEqual(['vow']);
+  });
+
+  it('one Save a hero, however often it holds them', () => {
+    const { w } = vowed();
+    const lyra = heroAt(w, 1);
+    // (Small enough that the overflow doesn't down her: that would end the Vow.)
+    for (const amount of [900, 200, 200])
+      dealDamage(w, lyra, { source: null, sourceName: 'Dirge', amount, telegraph: null });
+    expect(weaverOf(w).health!.downed).toBe(false);
+    expect(lyra.health!.hp).toBe(1);
+    expect(w.ledger.saves.map((x) => x.cause)).toEqual(['vow']);
+  });
+
+  it('ends when she goes down', () => {
+    const { w } = vowed();
+    dealDamage(w, weaverOf(w), { source: null, sourceName: 't', amount: 1e5, telegraph: null });
+    expect(weaverOf(w).health!.downed).toBe(true);
+    expect(w.field.vow).toBe(false);
   });
 
   it('doubles her healing received, and ends on time', () => {

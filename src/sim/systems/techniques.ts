@@ -88,7 +88,8 @@ export function castWard(world: World, slot: PartySlot | undefined): void {
   // Martyr's Aegis: each Ward shields the Weaver too, sized from her own Life.
   if (world.mods.aegisSelf) {
     const self = (weaver.health!.maxHp * def.barrierPct + def.barrierFlat) * strength;
-    addShield(world, weaver, 'ward', self, def.duration + world.mods.wardDurationBonus, true);
+    // Her own, not support: it isn't credited as shielding the party.
+    addShield(world, weaver, 'ward', self, def.duration + world.mods.wardDurationBonus, false);
   }
   world.events.push({
     type: 'techniqueCast',
