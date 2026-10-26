@@ -8,13 +8,14 @@
  */
 import { CONTENT } from '../content';
 import { Rng } from '../sim/core/rng';
-import type { Command, PartySlot, ReadonlyEntity, WorldState } from '../sim';
+import type { Command, PartySlot, ReadonlyEntity, ThreadMode, WorldState } from '../sim';
 import type { Bot } from './types';
 import {
   Intent,
   caller,
   centroid,
   damageOf,
+  modeCommands,
   dist,
   effectiveFraction,
   enemiesOf,
@@ -268,7 +269,21 @@ export class SkilledBot implements Bot {
     ) {
       out.push({ t: 'thread', slot: threadTo.slot });
     }
-    if ((wc.threadMode === 'mend') !== mend) out.push({ t: 'mode' });
+    // The Martyr's Bear: just before a big hit on the threaded hero that no shield will stop,
+    // take part of it, if she has the life to spare; then back to the Thread's work.
+    let want: ThreadMode = mend ? 'mend' : 'empower';
+    const share = state.calling?.bearShare ?? 0;
+    const bearFor = party.find((h) => h.slot === wc.threadSlot);
+    if (share > 0 && bearFor && !bearFor.e.health!.downed && !held) {
+      const t = threatsOn(state, bearFor.e)[0];
+      if (t && t.impact - now < 1) {
+        const he = bearFor.e.health!;
+        const me = w.health!;
+        const through = Math.max(0, damageOf(t, bearFor.e) - shieldOf(bearFor.e));
+        if (through > he.hp * 0.6 && through * share < me.hp - me.maxHp * 0.3) want = 'bear';
+      }
+    }
+    out.push(...modeCommands(wc.threadMode, want));
 
     // ── Cues and the Crescendo. ──
     const segment = CONTENT.resonance.cueCost;

@@ -7,6 +7,7 @@ import type {
   PartySlot,
   ReadonlyEntity,
   Telegraph,
+  ThreadMode,
   WorldState,
 } from '../sim';
 
@@ -17,6 +18,16 @@ export const AIM_STEP = 1 / 16;
 
 export function weaverOf(state: WorldState): ReadonlyEntity {
   return state.entities.get(state.weaverId)!;
+}
+
+/**
+ * The commands that move the Thread from `current` to `want`. Bear (the Martyr) has its own
+ * toggle, and leaving it returns to the mode it left, so a switch can take two decisions.
+ */
+export function modeCommands(current: ThreadMode, want: ThreadMode): Command[] {
+  if (want === 'bear') return current === 'bear' ? [] : [{ t: 'mode', mode: 'bear' }];
+  if (current === 'bear') return [{ t: 'mode', mode: 'bear' }];
+  return current === want ? [] : [{ t: 'mode' }];
 }
 
 export interface HeroView {

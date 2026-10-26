@@ -101,6 +101,8 @@ export interface Mods {
   lifeReserve: boolean;
   /** Bear: the share of the threaded hero's wounds the Weaver takes (0 = no Bear). */
   bearShare: number;
+  /** What Bear, Shared Wounds and the Vow send her reaches her at this (1 = full force). */
+  borneTaken: number;
   /** Martyr's Vow replaces Sunrise (0 = Sunrise): its length, the share of the excess that comes to the Weaver, her healing received. */
   vowDuration: number;
   vowRedirect: number;
@@ -193,6 +195,7 @@ export const NO_MODS: Mods = {
   lifeMult: 1,
   lifeReserve: false,
   bearShare: 0,
+  borneTaken: 1,
   vowDuration: 0,
   vowRedirect: 0,
   vowHealMult: 1,
@@ -337,6 +340,7 @@ function applyCalling(m: Mods, id: string, v: Values): void {
       m.lifeMult *= 1 + num(v, 'life') / 100;
       m.lifeReserve = true;
       m.bearShare = num(v, 'bear') / 100;
+      m.borneTaken = 1 - num(v, 'cut') / 100;
       m.vowDuration = num(v, 'vow');
       m.vowRedirect = 1 - num(v, 'redirect') / 100;
       m.vowHealMult = num(v, 'healing');

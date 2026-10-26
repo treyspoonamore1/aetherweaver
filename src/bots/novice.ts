@@ -5,11 +5,13 @@
  */
 import { CONTENT } from '../content';
 import { Rng } from '../sim/core/rng';
-import type { Command, WorldState } from '../sim';
+import type { Command, ThreadMode, WorldState } from '../sim';
 import type { Bot } from './types';
 import {
   Intent,
   caller,
+  damageOf,
+  modeCommands,
   centroid,
   dist,
   enemiesOf,
@@ -95,7 +97,18 @@ export class NoviceBot implements Bot {
       if (to && wc.threadSlot !== to.slot && wc.threadLock <= 0)
         out.push({ t: 'thread', slot: to.slot });
     }
-    if ((wc.threadMode === 'empower') !== wantEmpower) out.push({ t: 'mode' });
+    // The Martyr's Bear: a big hit coming at the threaded hero, and sometimes she remembers she
+    // can take some of it (and forgets, for a moment, to stop).
+    let want: ThreadMode = wantEmpower ? 'empower' : 'mend';
+    const threaded = party.find((h) => h.slot === wc.threadSlot);
+    if ((state.calling?.bearShare ?? 0) > 0 && threaded && !wantEmpower) {
+      const t = threatsOn(state, threaded.e)[0];
+      const scary =
+        !!t && t.impact - now < 1.2 && damageOf(t, threaded.e) > threaded.e.health!.hp * 0.5;
+      if (wc.threadMode === 'bear' ? scary || this.rng.chance(0.6) : scary && this.rng.chance(0.4))
+        want = 'bear';
+    }
+    out.push(...modeCommands(wc.threadMode, want));
     if (answering && call!.answer === 'ward' && wc.wardCharges > 0 && wc.spirit >= tech.ward.cost)
       out.push({ t: 'tech', id: 'ward', slot: calling!.slot });
     if (

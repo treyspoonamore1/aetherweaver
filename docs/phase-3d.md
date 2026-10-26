@@ -17,9 +17,9 @@ The second **Calling**: the one who bleeds for them. The Luminary makes the hero
 
 **Passive.**
 
-- **+40% Life.** The Weaver's 360 becomes 504.
-- **Your songs reserve Life instead of Spirit.** The share a loadout would reserve of your Spirit (Guardian: 55%) comes off your Life instead: you fight with what's left (Guardian: 227 of 504), and every point of Spirit is free for techniques. "Below half your Life" counts against all of it, reserved included, so a Martyr singing two auras is always below half.
-- **Bear**, a third Thread mode (B): you take **35%** of the life the threaded hero would lose. Their shields, Wards and armour act first; Bear splits what gets through.
+- **+100% Life.** The Weaver's 360 becomes 720.
+- **Your songs reserve Life instead of Spirit.** The share a loadout would reserve of your Spirit (Guardian: 55%) comes off your Life instead: you fight with what's left (Guardian: 324 of 720), and every point of Spirit is free for techniques. "Below half your Life" counts against all of it, reserved included, so a Martyr singing two auras is always below half.
+- **Bear**, a third Thread mode (B): you take **35%** of the life the threaded hero would lose, softened by half, and never more than leaves you at 1 life (your shields count). Their shields, Wards and armour act first; Bear splits what gets through.
 
 **Crescendo: Martyr's Vow** (instead of Sunrise). For 5 s heroes cannot drop below 1 life. Damage past that comes to you instead, at −70%, and your healing received is doubled.
 
@@ -36,7 +36,7 @@ Four tiers, two options each, picked after the first fight won on rows 0, 3, 5 a
 
 The axes: **endure** (Scarred Hide, Blood Font, Undying Devotion), **share the pain** (Penitence, Shared Wounds, Martyr's Aegis) and **live at low Life** (Low-Life Vigil, Sanguine Covenant, Blood Font again).
 
-**Changes from the plan.** The plan's Penitence restored Spirit; with every song reserving Life, Spirit is plentiful, so Penitence fills Resonance instead and brings the Vow sooner. The plan's Blood Font regenerated "Life reserved by auras": with Life reservation now the Martyr's passive, it keeps that wording. Martyr's Aegis's "your Wards also shield you" is a Ward barrier on the Weaver herself, sized from her own Life.
+**Changes from the plan.** The plan gave the Martyr +40% Life and Bear at full force. With every song reserving Life, that left a Guardian Martyr 227 Life against a normal Weaver's 360, and Bear turned big hits into downs: the bots lost ten to twenty points of win rate with her. Tuning ([Harness](#harness)) settled on +100% Life, Bear softened by half, and a guard rail: Bear never takes more than leaves her at 1 life. The plan's Penitence restored Spirit; with every song reserving Life, Spirit is plentiful, so Penitence fills Resonance instead and brings the Vow sooner. The plan's Blood Font regenerated "Life reserved by auras": with Life reservation now the Martyr's passive, it keeps that wording. Martyr's Aegis's "your Wards also shield you" is a Ward barrier on the Weaver herself, sized from her own Life.
 
 **What it doesn't change.** The auras work as before: the same effects, the same share of a pool. Only the pool is Life instead of Spirit, and Low-Life Vigil (like the Luminary's Sovereign Symphony) makes every aura stronger while it holds.
 
@@ -51,10 +51,11 @@ The axes: **endure** (Scarred Hide, Blood Font, Undying Devotion), **share the p
 - `WeaverComponent.maxLife` (all of it, reserved included) and `reservedLife`. `health.maxHp` is the usable part, so heals stop there. `reservedSpirit` is 0 on a Martyr run.
 - `FieldState.vow`: Martyr's Vow is up. `field.crescendo` stays "Sunrise is up", so everything that reads it (aura strength, reach, the Luminary's Radiance and Eclipse, the views) is untouched by the Vow. The Weaver's `crescendo` clock times both.
 - Events: `borne { hero, amount, via: 'bear' | 'shared' | 'vow' }` when damage a hero would have taken goes to the Weaver; `undying { }` when Undying Devotion holds. `crescendoStart.calling` carries "Martyr's Vow".
-- Ledger `calling { amplified, shielded, borne }`: `borne` is the damage the Weaver took for her heroes; what Bear, Shared Wounds and the Vow kept off a hero counts as shielded. Save causes `'bear'` and `'vow'`.
+- Ledger `calling { amplified, shielded, borne }`: `borne` is the damage the Weaver took for her heroes (after Bear's softening); what Bear, Shared Wounds and the Vow kept off a hero counts as shielded. `EncounterStats.callingBorne`. Save causes `'bear'` and `'vow'`; `DamageResult.saved` keeps a telegraph from logging a second Save for the same hit.
+- Heal source `'self'`: the Martyr healing herself (Blood Font, Sanguine Covenant), kept out of the support ledger. During the Vow, her healing received doubles.
 - `chordProblems(chords, content, { fieldAuraSlots, pool })`: with `pool: 'life'`, songs may reserve at most 90% (the Weaver keeps a tenth of her Life).
 - `WorldState.calling` adds `crescendo: 'sunrise' | 'vow'` and `bearShare`.
-- Mods: `lifeMult`, `lifeReserve`, `bearShare`, `vowDuration`, `vowRedirect`, `vowHealMult`, `penitencePer100`, `bearDamageTaken`, `bloodFontPct`, `bloodFontBelow`, `sharedWounds`, `undyingInvulnerable`, `undyingMendPct`, `vigilBelow`, `vigilMult`, `aegisWardMult`, `aegisSelf`, `covenantPct`.
+- Mods: `lifeMult`, `lifeReserve`, `bearShare`, `borneTaken` (Bear's softening), `vowDuration`, `vowRedirect`, `vowHealMult`, `penitencePer100`, `bearDamageTaken`, `bloodFontPct`, `bloodFontBelow`, `sharedWounds`, `undyingInvulnerable`, `undyingMendPct`, `vigilBelow`, `vigilMult`, `aegisWardMult`, `aegisSelf`, `covenantPct`.
 
 **Run** (save v5, unchanged shape):
 

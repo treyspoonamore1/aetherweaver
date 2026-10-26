@@ -243,6 +243,9 @@ export class InputController {
       case 'threadMode':
         this.pending.push({ t: 'mode' });
         break;
+      case 'bear':
+        this.pending.push({ t: 'mode', mode: 'bear' });
+        break;
       case 'ward':
         this.pending.push(withSlot({ t: 'tech', id: 'ward' }, this.smartSlot()));
         break;

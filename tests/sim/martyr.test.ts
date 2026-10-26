@@ -102,9 +102,11 @@ describe('Bear', () => {
     // Kael's armour acts first; Bear splits what gets through.
     const through = 200 * (1 - CONTENT.heroes.find((h) => h.id === 'kael')!.armor);
     const share = passive('bear') / 100;
+    const toll = 1 - passive('cut') / 100;
     expect(kaelBefore - kael.health!.hp).toBeCloseTo(through * (1 - share), 6);
-    expect(weaverBefore - weaver.health!.hp).toBeCloseTo(through * share, 6);
-    expect(w.ledger.calling.borne).toBeCloseTo(through * share, 6);
+    // It reaches her softened.
+    expect(weaverBefore - weaver.health!.hp).toBeCloseTo(through * share * toll, 6);
+    expect(w.ledger.calling.borne).toBeCloseTo(through * share * toll, 6);
     expect(w.ledger.calling.shielded).toBeCloseTo(through * share, 6);
     const borne = ofType(sim.drainEvents(), 'borne');
     expect(borne).toHaveLength(1);
@@ -142,9 +144,10 @@ describe('the path', () => {
     const { w } = bearing(['penitence']);
     const before = weaverOf(w).weaver!.resonance;
     dealDamage(w, heroAt(w, 0), { source: null, sourceName: 't', amount: 200, telegraph: null });
-    const borne = w.ledger.calling.borne;
+    // What she lifted off Kael (before the toll softens it).
+    const lifted = w.ledger.calling.shielded;
     expect(weaverOf(w).weaver!.resonance - before).toBeCloseTo(
-      (borne / 100) * value('penitence', 'per'),
+      (lifted / 100) * value('penitence', 'per'),
       6,
     );
   });
@@ -169,7 +172,10 @@ describe('the path', () => {
     dealDamage(w, lyra, { source: null, sourceName: 't', amount: 100, telegraph: null });
     const share = value('shared_wounds', 'pct') / 100;
     expect(lyraBefore - lyra.health!.hp).toBeCloseTo(100 * (1 - share), 6);
-    expect(weaverBefore - weaverOf(w).health!.hp).toBeCloseTo(100 * share, 6);
+    expect(weaverBefore - weaverOf(w).health!.hp).toBeCloseTo(
+      100 * share * (1 - passive('cut') / 100),
+      6,
+    );
     expect(ofType(sim.drainEvents(), 'borne')[0]).toMatchObject({ via: 'shared' });
   });
 

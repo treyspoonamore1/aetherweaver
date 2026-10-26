@@ -181,6 +181,11 @@ export const ACTION_GROUPS: readonly { title: string; actions: readonly ActionIn
       { action: 'focus3', label: 'Thread hero 3', hint: 'With Shift: Cue their Solo' },
       { action: 'focus4', label: 'Thread hero 4', hint: 'With Shift: Cue their Solo' },
       { action: 'threadMode', label: 'Mend ⇄ Empower', hint: 'Right mouse always works too' },
+      {
+        action: 'bear',
+        label: 'Bear',
+        hint: 'The Martyr: take part of the threaded hero’s wounds',
+      },
     ],
   },
   {

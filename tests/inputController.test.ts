@@ -107,10 +107,10 @@ describe('InputController', () => {
 
   describe('remapping', () => {
     it('follows settings.bindings live, merged over the defaults', () => {
-      useSettings.getState().update((d) => ({ ...d, bindings: { ward: ['KeyB'] } }));
+      useSettings.getState().update((d) => ({ ...d, bindings: { ward: ['KeyJ'] } }));
       win.dispatchEvent(key('keydown', 'KeyQ'));
       expect(input.collect()).toEqual([]);
-      win.dispatchEvent(key('keydown', 'KeyB'));
+      win.dispatchEvent(key('keydown', 'KeyJ'));
       expect(input.collect()).toEqual([{ t: 'tech', id: 'ward', slot: 0 }]);
       // Untouched actions keep their default keys.
       win.dispatchEvent(key('keydown', 'KeyE'));
@@ -154,8 +154,8 @@ describe('InputController', () => {
           ward: ['KeyK'],
         },
       );
-      useSettings.getState().update((d) => ({ ...d, bindings: { ward: ['KeyB'] } }));
-      win.dispatchEvent(key('keydown', 'KeyB'));
+      useSettings.getState().update((d) => ({ ...d, bindings: { ward: ['KeyJ'] } }));
+      win.dispatchEvent(key('keydown', 'KeyJ'));
       win.dispatchEvent(key('keydown', 'KeyK'));
       expect(input.collect()).toEqual([{ t: 'tech', id: 'ward' }]);
     });

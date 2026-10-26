@@ -12,6 +12,7 @@ export type Action =
   | 'focus3'
   | 'focus4'
   | 'threadMode'
+  | 'bear'
   | 'ward'
   | 'chime'
   | 'reel'
@@ -40,6 +41,8 @@ export const DEFAULT_BINDINGS: Bindings = {
   focus3: ['Digit3'],
   focus4: ['Digit4'],
   threadMode: [], // right mouse button by default
+  // The Martyr's Bear (docs/phase-3d.md): on and off; refused without the Martyr.
+  bear: ['KeyB'],
   ward: ['KeyQ'],
   chime: ['KeyE'],
   reel: ['KeyF'],

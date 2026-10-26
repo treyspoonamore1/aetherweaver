@@ -410,7 +410,8 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
   if (target.hero && amount > 0 && world.mods.bearShare > 0) {
     const bear = bearShareOf(world, target);
     if (bear.share > 0) {
-      borne = amount * bear.share;
+      // She takes only what she can bear: never more than would leave her at 1 life.
+      borne = Math.min(amount * bear.share, bearRoom(world));
       borneVia = bear.via;
       amount -= borne;
     }
@@ -836,21 +837,42 @@ export function bearShareOf(world: World, hero: Entity): { share: number; via: '
   return { share: hero.hero?.inField ? world.mods.sharedWounds : 0, via: 'shared' };
 }
 
-/** Life a hero would have lost goes to the Weaver: through her own shields and Scarred Hide. */
+/**
+ * What Bear can still send the Weaver without downing her: her life above 1 and her shields,
+ * before Scarred Hide softens it.
+ */
+function bearRoom(world: World): number {
+  const weaver = world.entities.get(world.weaverId);
+  const h = weaver?.health;
+  if (!h || h.downed) return 0;
+  let shields = 0;
+  for (const s of h.shields) shields += s.amount;
+  return (
+    Math.max(0, h.hp - 1 + shields) /
+    Math.max(1e-6, world.mods.bearDamageTaken * world.mods.borneTaken)
+  );
+}
+
+/**
+ * Life a hero would have lost (`lifted`) goes to the Weaver, through her own shields and Scarred
+ * Hide. Bear's and Shared Wounds' reach her softened by the Martyr's toll; the Vow's arrive
+ * already softened by its own.
+ */
 function sendToWeaver(
   world: World,
   hero: Entity,
-  amount: number,
+  lifted: number,
   via: 'bear' | 'shared' | 'vow',
   opts: DamageOpts,
 ): void {
   const weaver = world.entities.get(world.weaverId);
-  if (!weaver?.health || amount <= 0) return;
+  if (!weaver?.health || lifted <= 0) return;
+  const amount = via === 'vow' ? lifted : lifted * world.mods.borneTaken;
   world.events.push({ type: 'borne', tick: world.tick, hero: hero.id, amount, via });
   world.ledger.calling.borne += amount;
-  // Penitence: what she bears fills Resonance.
+  // Penitence: the damage she bears fills Resonance.
   if (world.mods.penitencePer100 > 0)
-    gainResonance(world, (amount / 100) * world.mods.penitencePer100, 'penitence');
+    gainResonance(world, (lifted / 100) * world.mods.penitencePer100, 'penitence');
   dealDamage(world, weaver, {
     source: opts.source,
     sourceName: opts.sourceName,

@@ -1214,6 +1214,7 @@ export function summarize(node: MapNode, outcome: CombatOutcome): EncounterResul
     threadAmplified: Math.round(l.thread.amplified),
     callingAmplified: Math.round(l.calling.amplified),
     callingShielded: Math.round(l.calling.shielded),
+    callingBorne: Math.round(l.calling.borne),
     partyDamage: Math.round(l.partyDamage),
     weaverShare: 0,
     perfects: l.perfects,
@@ -1399,6 +1400,7 @@ export function runTotals(
     threadAmplified: 0,
     callingAmplified: 0,
     callingShielded: 0,
+    callingBorne: 0,
     partyDamage: 0,
     weaverShare: 0,
     perfects: 0,
@@ -1432,6 +1434,7 @@ export function runTotals(
     total.threadAmplified += s.threadAmplified;
     total.callingAmplified += s.callingAmplified;
     total.callingShielded += s.callingShielded;
+    total.callingBorne += s.callingBorne;
     total.partyDamage += s.partyDamage;
     total.perfects += s.perfects;
     total.saves += s.saves;

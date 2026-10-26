@@ -18,8 +18,8 @@ describe('key bindings', () => {
   });
 
   it('merges overrides over the defaults and ignores unknown actions', () => {
-    const b = effectiveBindings({ ward: ['KeyB'], bogus: ['KeyZ'], chime: [] });
-    expect(b.ward).toEqual(['KeyB']);
+    const b = effectiveBindings({ ward: ['KeyJ'], bogus: ['KeyZ'], chime: [] });
+    expect(b.ward).toEqual(['KeyJ']);
     expect(b.chime).toEqual([]);
     expect(b.reel).toEqual(DEFAULT_BINDINGS.reel);
     expect('bogus' in b).toBe(false);
@@ -27,8 +27,8 @@ describe('key bindings', () => {
 
   it('stores only what differs from the defaults', () => {
     expect(overridesFor(DEFAULT_BINDINGS)).toEqual({});
-    const b = assignKey(DEFAULT_BINDINGS, 'ward', 0, 'KeyB');
-    expect(overridesFor(b)).toEqual({ ward: ['KeyB'] });
+    const b = assignKey(DEFAULT_BINDINGS, 'ward', 0, 'KeyJ');
+    expect(overridesFor(b)).toEqual({ ward: ['KeyJ'] });
     expect(effectiveBindings(overridesFor(b))).toEqual(b);
   });
 
