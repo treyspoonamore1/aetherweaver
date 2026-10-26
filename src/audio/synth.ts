@@ -358,3 +358,63 @@ export function anvil(v: Voice, t: number, freq: number, gain: number, dur = 1.5
     gain: gain * 1.4,
   });
 }
+
+/**
+ * Bowed low note (Phase 3d, the Martyr): two detuned saws and a sine an octave down through
+ * a lowpass that opens as the bow bites, then closes. Warm and heavy, never brassy. `freq`
+ * is the fundamental; keep it under about 200 Hz.
+ */
+export function bowed(
+  v: Voice,
+  t: number,
+  freq: number,
+  dur: number,
+  gain: number,
+  attack = 0.5,
+  release = 0.9,
+): void {
+  for (const detune of [-6, 6]) {
+    v.osc({
+      type: 'sawtooth',
+      freq,
+      detune,
+      start: t,
+      dur,
+      attack,
+      release,
+      gain: gain * 0.5,
+      shape: 'sustain',
+      filter: { type: 'lowpass', freq: 220, freqTo: 520, q: 0.7 },
+    });
+  }
+  v.osc({
+    type: 'sine',
+    freq: freq * 0.5,
+    start: t,
+    dur,
+    attack: attack * 1.2,
+    release,
+    gain: gain * 0.6,
+    shape: 'sustain',
+  });
+}
+
+/**
+ * A heartbeat (Phase 3d): "lub" then a softer "dub" `gap` seconds later, each a sine thump
+ * with a short lowpassed noise body so it reads as muffled flesh and not as a drum.
+ */
+export function heartbeat(v: Voice, t: number, freq: number, gain: number, gap = 0.22): void {
+  thump(v, t, freq, gain, 0.2, 0.6);
+  thump(v, t + gap, freq * 1.12, gain * 0.7, 0.18, 0.62);
+  for (const [at, g] of [
+    [0, 0.5],
+    [gap, 0.35],
+  ] as const) {
+    v.noise({
+      start: t + at,
+      dur: 0.07,
+      gain: gain * g,
+      filter: { type: 'lowpass', freq: 260 },
+    });
+  }
+}

@@ -40,6 +40,8 @@ export class FakeWorld {
   /** Phase 3c: the Calling the fake run carries, and whether Sunrise is up (`field.crescendo`). */
   calling: { id: string; path: string[] } | null = null;
   sunrise = false;
+  /** Phase 3d: Martyr's Vow is up (`field.vow`). */
+  vow = false;
   readonly state: WorldState;
 
   constructor() {
@@ -76,11 +78,22 @@ export class FakeWorld {
       focusTarget: null,
       chimes: [],
       get field() {
-        return { chords: self.chords, crescendo: self.sunrise } as unknown as WorldState['field'];
+        return {
+          chords: self.chords,
+          crescendo: self.sunrise,
+          vow: self.vow,
+        } as unknown as WorldState['field'];
       },
       get calling() {
         return self.calling
-          ? { ...self.calling, radiancePerAura: 0.04, sunriseMult: 3, sovereign: false }
+          ? {
+              ...self.calling,
+              radiancePerAura: 0.04,
+              sunriseMult: 3,
+              sovereign: false,
+              crescendo: self.calling.id === 'martyr' ? 'vow' : 'sunrise',
+              bearShare: self.calling.id === 'martyr' ? 0.35 : 0,
+            }
           : null;
       },
       ledger: {} as WorldState['ledger'],
@@ -138,6 +151,11 @@ export class FakeWorld {
   setCrescendo(on: boolean): void {
     this.weaverData().crescendo = on ? 10 : 0;
     this.sunrise = on;
+  }
+  /** Phase 3d: Martyr's Vow up or down (also the Weaver's Crescendo clock). */
+  setVow(on: boolean): void {
+    this.weaverData().crescendo = on ? 5 : 0;
+    this.vow = on;
   }
   /** Phase 3c: a Calling (the Luminary) with the option ids picked so far; null for none. */
   setCalling(id: string | null, path: string[] = []): void {

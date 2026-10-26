@@ -8,7 +8,7 @@ import { IDS, ev, type HeroKey } from './labState';
 export interface SoundButton {
   id: string;
   label: string;
-  group: 'support' | 'phase2' | 'relic' | 'calling' | 'world' | 'ui';
+  group: 'support' | 'phase2' | 'relic' | 'calling' | 'martyr' | 'world' | 'ui';
   /** Fires the sound. Receives the director and a world to read/mutate. */
   fire(d: SynthDirector, w: FakeWorld): void;
   /** Follow-up events, `delay` seconds after the first (call then answer, hold then release). */
@@ -86,6 +86,19 @@ function radiantBurst(d: SynthDirector, w: FakeWorld, step: number): void {
   const heroes = ['kael', 'lyra', 'vexis'] as const;
   for (let i = 0; i < 5; i++)
     fire(d, w, radiantHit(w, heroes[(step + i) % 3] as HeroKey, 0.12 + 0.02 * (i % 3)));
+}
+
+const borneEv = (
+  hero: HeroKey,
+  amount: number,
+  via: 'bear' | 'shared' | 'vow' = 'bear',
+): SimEvent => ev('borne', { hero: IDS[hero], amount, via });
+
+/** One tenth of a borne burst: ten events a 10 ms apart over the three heroes (100 in a second). */
+function borneBurst(d: SynthDirector, w: FakeWorld, step: number): void {
+  const heroes = ['kael', 'lyra', 'vexis'] as const;
+  for (let i = 0; i < 10; i++)
+    fire(d, w, borneEv(heroes[(step + i) % 3] as HeroKey, 30 + 10 * (i % 3)));
 }
 
 function shieldOn(hero: HeroKey, amount: number): SimEvent {
@@ -707,6 +720,177 @@ export const SOUNDS: SoundButton[] = [
       w.setCrescendo(true);
       fire(d, w, ev('crescendoStart', { calling: 'Lab', duration: 8 }));
     },
+  },
+  // ── Phase 3d: the Martyr ───────────────────────────────────────────────────────
+  {
+    id: 'martyr-bear-on',
+    label: 'Bear on (she takes up the burden)',
+    group: 'martyr',
+    length: 3,
+    fire: (d, w) => {
+      w.setCalling('martyr');
+      fire(d, w, ev('threadModeChanged', { mode: 'bear' }));
+    },
+  },
+  {
+    id: 'martyr-bear-off',
+    label: 'Bear off (back to Mend)',
+    group: 'martyr',
+    length: 4.5,
+    fire: (d, w) => {
+      w.setCalling('martyr');
+      fire(d, w, ev('threadModeChanged', { mode: 'bear' }));
+    },
+    then: [
+      {
+        delay: 2.2,
+        fire: (d, w) => fire(d, w, ev('threadModeChanged', { mode: 'mend' })),
+      },
+    ],
+  },
+  {
+    id: 'martyr-mode-mend',
+    label: 'Mend / Empower toggle (compare)',
+    group: 'martyr',
+    length: 2,
+    fire: (d, w) => fire(d, w, ev('threadModeChanged', { mode: 'empower' })),
+  },
+  {
+    id: 'martyr-borne',
+    label: 'Borne (one hit on Kael)',
+    group: 'martyr',
+    length: 2,
+    fire: (d, w) => fire(d, w, borneEv('kael', 60)),
+  },
+  {
+    id: 'martyr-borne-big',
+    label: 'Borne (a big one on Vexis)',
+    group: 'martyr',
+    length: 2,
+    fire: (d, w) => fire(d, w, borneEv('vexis', 140)),
+  },
+  {
+    id: 'martyr-borne-burst',
+    label: 'Borne burst (100 in 1 s)',
+    group: 'martyr',
+    length: 4,
+    fire: (d, w) => borneBurst(d, w, 0),
+    then: Array.from({ length: 10 }, (_, i) => ({
+      delay: (i + 1) * 0.1,
+      fire: (d: SynthDirector, w: FakeWorld) => borneBurst(d, w, i + 1),
+    })),
+  },
+  {
+    id: 'martyr-borne-shared',
+    label: 'Borne, Shared Wounds (quieter)',
+    group: 'martyr',
+    length: 2,
+    fire: (d, w) => fire(d, w, borneEv('lyra', 60, 'shared')),
+  },
+  {
+    id: 'martyr-vow',
+    label: "Martyr's Vow",
+    group: 'martyr',
+    length: 7,
+    fire: (d, w) => {
+      w.setCalling('martyr');
+      w.setVow(true);
+      fire(d, w, ev('crescendoStart', { calling: 'Martyr’s Vow', duration: 5 }));
+    },
+    then: [
+      {
+        delay: 5,
+        fire: (d, w) => {
+          w.setVow(false);
+          fire(d, w, ev('crescendoEnd', {}));
+        },
+      },
+    ],
+  },
+  {
+    id: 'martyr-vow-held',
+    label: 'Vow holds Kael at 1 life',
+    group: 'martyr',
+    length: 4,
+    fire: (d, w) => {
+      w.setCalling('martyr');
+      w.setVow(true);
+      w.setHeroHp('kael', 0);
+      fire(
+        d,
+        w,
+        ev('save', {
+          target: IDS.kael,
+          cause: 'vow',
+          counterfactualDamage: 700,
+          attack: 'Requiem',
+        }),
+      );
+    },
+  },
+  {
+    id: 'martyr-bear-save',
+    label: 'Bear makes a hit survivable',
+    group: 'martyr',
+    length: 4,
+    fire: (d, w) => {
+      w.setCalling('martyr');
+      fire(
+        d,
+        w,
+        ev('save', {
+          target: IDS.lyra,
+          cause: 'bear',
+          counterfactualDamage: 500,
+          attack: 'Requiem',
+        }),
+      );
+    },
+  },
+  {
+    id: 'martyr-save-compare',
+    label: 'Ordinary save (compare)',
+    group: 'martyr',
+    length: 4,
+    fire: (d, w) =>
+      fire(
+        d,
+        w,
+        ev('save', {
+          target: IDS.kael,
+          cause: 'ward',
+          counterfactualDamage: 500,
+          attack: 'Requiem',
+        }),
+      ),
+  },
+  {
+    id: 'martyr-undying',
+    label: 'Undying Devotion',
+    group: 'martyr',
+    length: 6,
+    fire: (d, w) => {
+      w.setCalling('martyr');
+      fire(d, w, ev('undying', {}));
+    },
+  },
+  {
+    id: 'martyr-self-heal',
+    label: 'Self heal (Blood Font, nearly silent)',
+    group: 'martyr',
+    length: 3,
+    fire: (d, w) =>
+      fire(
+        d,
+        w,
+        ev('healApplied', {
+          target: IDS.weaver,
+          source: IDS.weaver,
+          amount: 8,
+          overheal: 0,
+          via: 'self',
+        }),
+      ),
   },
   // ── UI ─────────────────────────────────────────────────────────────────────────
   ...(

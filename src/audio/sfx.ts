@@ -8,11 +8,14 @@ import type { SimEvent, TelegraphStarted, WorldState } from '../sim';
 import { Voice, type BusName, type Engine, type VoiceHandle } from './engine';
 import type { MusicEngine } from './music';
 import {
+  anvil,
+  bowed,
   choirChord,
   cymbalSwell,
   fluteNote,
   glassNote,
   handbell,
+  heartbeat,
   horn,
   pluck,
   thump,
@@ -81,6 +84,9 @@ export class SfxEngine {
   private beamFocus = 0;
   private beamAuras = 0;
   private harmony: { gains: GainNode[]; oscs: OscillatorNode[] } | null = null;
+  /** Phase 3d: the last Thread mode heard (Bear on and off are different sounds), and a Vow up. */
+  private lastMode: string | null = null;
+  private vowUp = false;
 
   constructor(
     private readonly e: Engine,
@@ -141,6 +147,7 @@ export class SfxEngine {
     switch (ev.type) {
       case 'healApplied':
         if (ev.via === 'mend') this.mend(ev.target, ev.amount, state);
+        else if (ev.via === 'self') this.selfHeal(ev.amount);
         break;
       case 'techniqueCast':
         if (ev.technique === 'ward') this.ward();
@@ -149,7 +156,7 @@ export class SfxEngine {
         this.perfectWard();
         break;
       case 'save':
-        this.save();
+        this.save(ev.cause, ev.target, state);
         break;
       case 'chimeLaunched':
         this.chimeLaunched(this.panFor(state, ev.fromX));
@@ -184,12 +191,18 @@ export class SfxEngine {
         break;
       }
       case 'threadModeChanged': {
+        const was = this.lastMode;
+        this.lastMode = ev.mode;
+        // Phase 3d: Bear is its own pair of sounds; leaving it also names the mode returned to.
+        if (ev.mode === 'bear') {
+          this.bearOn();
+          break;
+        }
         const empower = ev.mode === 'empower';
-        const c = this.chord();
         const n = this.pickTone(empower ? 79 : 72, empower ? 2 : 1);
-        void c;
+        const after = was === 'bear' ? this.bearOff() : 0;
         this.play('mode', 2, 'sfx', (v, t) =>
-          pluck(v, t, midiToHz(n), 0.07, 0.3, empower ? 0.9 : 0.4),
+          pluck(v, t + after, midiToHz(n), 0.07, 0.3, empower ? 0.9 : 0.4),
         );
         break;
       }
@@ -235,11 +248,14 @@ export class SfxEngine {
         break;
       }
       case 'crescendoStart':
-        this.crescendo(state);
+        this.crescendo(state, ev.calling);
         break;
       case 'crescendoEnd':
         this.music.jump();
-        this.play('crescEnd', 1, 'sfx', (v, t) => whoosh(v, t, 0.7, 0.06, 4000, 500, 0.8));
+        if (this.vowUp || state.calling?.crescendo === 'vow') {
+          this.vowUp = false;
+          this.vowEnd();
+        } else this.play('crescEnd', 1, 'sfx', (v, t) => whoosh(v, t, 0.7, 0.06, 4000, 500, 0.8));
         break;
       case 'techniqueRejected':
         if (ev.technique === 'glide' && ev.reason === 'locked') this.glideLocked();
@@ -266,6 +282,12 @@ export class SfxEngine {
         break;
       case 'dawnward':
         this.dawnward(ev.hero, ev.amount, state);
+        break;
+      case 'borne':
+        this.borne(ev.hero, ev.amount, ev.via, state);
+        break;
+      case 'undying':
+        this.undying();
         break;
       case 'shieldBroken':
         if (this.e.gate('shield', 0.08)) {
@@ -385,8 +407,17 @@ export class SfxEngine {
     );
   }
 
-  private save(): void {
+  private save(cause?: string, target?: number, state?: WorldState): void {
     const e = this.e;
+    // Phase 3d: the Martyr's saves. The Vow holding a hero at 1 life rings a clang over the
+    // ordinary save sound (which, since the Vow can hold a hero over and over, is limited
+    // to about once a second); a hit Bear made survivable gets a heartbeat under it.
+    if (cause === 'vow' && state) {
+      this.vowHeld(target ?? -1, state);
+      if (!e.gate('gate:save:vow', 1.2)) return;
+    }
+    if (cause === 'bear' && state && e.gate('gate:save:bear', 0.6))
+      this.bearSave(target ?? -1, state);
     if (!e.gate('gate:save', 0.3)) return;
     const c = this.chord();
     e.duck('music', { depth: 0.55, hold: 0.4, release: 0.9 });
@@ -568,10 +599,17 @@ export class SfxEngine {
     });
   }
 
-  private crescendo(state: WorldState): void {
+  private crescendo(state: WorldState, name?: string): void {
     const e = this.e;
     if (!e.gate('gate:crescendo', 0.5)) return;
     this.music.jump();
+    // Phase 3d: the Martyr's Vow is not Sunrise. It keeps the jump and a duck but none of
+    // the bright layers (no cymbal swell, no horn, no Luminary glass).
+    if (state.calling?.crescendo === 'vow' || (name !== undefined && /\bvow\b/i.test(name))) {
+      this.vowUp = true;
+      this.martyrVow();
+      return;
+    }
     e.duck('music', { depth: 0.6, hold: 0.25, release: 0.8 });
     const c = this.chord();
     const choir = chordNotesInRange(c, 55, 74).slice(0, 4).map(midiToHz);
@@ -1483,6 +1521,313 @@ export class SfxEngine {
       },
       { pan: ent ? this.panFor(state, ent.x) : 0 },
     );
+  }
+
+  // ── Phase 3d: the Martyr ─────────────────────────────────────────────────────────
+  // She bleeds so they don't: low, solemn and warm. Nothing here is above about 1.2 kHz
+  // except the bells' upper partials, nothing is a hit-sound (no noise bursts above a
+  // lowpass), and every sound is pitched from the hero it is for, folded down into the bass.
+
+  /** The hero's own pluck note, folded into the twelve semitones from `lo` up. */
+  private heroLow(defId: string | undefined, lo: number): number {
+    let m = scaleMidi(heroPluckIndex(defId));
+    while (m < lo) m += 12;
+    while (m >= lo + 12) m -= 12;
+    return m;
+  }
+
+  /**
+   * Bear taken up: the burden settles. A heartbeat (lub-dub) on D1-ish, again a beat later and
+   * softer, under a bowed D2 and A2 that swell in over half a second and hold. About 2 s.
+   * Nothing like the Mend and Empower plucks, which are bright and short.
+   */
+  private bearOn(): void {
+    if (!this.e.gate('bear:toggle', 0.12)) return;
+    this.play('bear', 2, 'sfx', (v, t) => {
+      heartbeat(v, t, 55, 0.2, 0.24);
+      heartbeat(v, t + 0.95, 52, 0.13, 0.26);
+      bowed(v, t + 0.05, midiToHz(38), 1.0, 0.1, 0.55, 0.9);
+      bowed(v, t + 0.15, midiToHz(45), 0.9, 0.06, 0.6, 0.9);
+      v.extend(t + 2.2);
+    });
+  }
+
+  /**
+   * Bear put down: one last, slow beat, a low sigh falling from D3 to A2 and a breath of dark
+   * air going out. About 1 s. Returns how long to wait before the ordinary mode pluck (the
+   * mode she returns to), or 0 if the release was gated away.
+   */
+  private bearOff(): number {
+    if (!this.e.gate('bear:toggle', 0.12)) return 0;
+    this.play('bear', 2, 'sfx', (v, t) => {
+      thump(v, t, 55, 0.15, 0.3, 0.5);
+      v.osc({
+        type: 'sine',
+        freq: midiToHz(50),
+        freqTo: midiToHz(45),
+        glide: 0.8,
+        start: t + 0.05,
+        dur: 0.5,
+        attack: 0.03,
+        release: 0.5,
+        gain: 0.07,
+        shape: 'sustain',
+      });
+      v.noise({
+        pink: true,
+        start: t,
+        dur: 0.5,
+        attack: 0.05,
+        release: 0.5,
+        gain: 0.035,
+        shape: 'sustain',
+        filter: { type: 'lowpass', freq: 700, freqTo: 200 },
+      });
+      v.extend(t + 1.1);
+    });
+    return 0.4;
+  }
+
+  /**
+   * Life a hero would have lost went to the Weaver: a muffled low thud, on the Weaver. Pitched
+   * from the hero (their own note, folded into A1..G#2), louder with the amount (as a share
+   * of her life), 45% quieter for Shared Wounds and 25% quieter while a telegraph winds up. It
+   * peaks at about 0.12, under the hero-hit thump (up to 0.25, an octave higher) and the
+   * telegraph cues (0.08 to 0.1 and sustained). Rate-limited: once per 0.4 s per hero (0.8 s
+   * for Shared Wounds) and once per 0.25 s across the party, so a hundred in a second make
+   * about four. The `damageTaken` on the Weaver that follows keeps its own hit sound.
+   */
+  private borne(
+    hero: number,
+    amount: number,
+    via: 'bear' | 'shared' | 'vow',
+    state: WorldState,
+  ): void {
+    const e = this.e;
+    if (!(amount > 0)) return;
+    const shared = via === 'shared';
+    if (!e.gate(`borne:${hero}`, shared ? 0.8 : 0.4) || !e.gate('borne', 0.25)) return;
+    const weaver = state.entities.get(state.weaverId)?.health;
+    const size = clamp(amount / (0.2 * Math.max(60, weaver?.maxHp ?? 300)), 0, 1);
+    const ent = state.entities.get(hero);
+    const hz = midiToHz(this.heroLow(ent?.hero?.defId, 33));
+    const gain =
+      (0.04 + 0.07 * size) *
+      (shared ? 0.55 : via === 'vow' ? 1.1 : 1) *
+      (state.telegraphs?.length > 0 ? 0.75 : 1);
+    this.play(
+      'borne',
+      3,
+      'sfx',
+      (v, t) => {
+        thump(v, t, hz * 1.5, gain, 0.2 + 0.1 * size, 0.6);
+        v.noise({
+          start: t,
+          dur: 0.06 + 0.03 * size,
+          gain: gain * 0.55,
+          filter: { type: 'lowpass', freq: 240 },
+        });
+        // The cloth over it: a dull triangle an octave up, left out of Shared Wounds.
+        if (!shared)
+          v.osc({
+            type: 'triangle',
+            freq: hz * 3,
+            start: t,
+            dur: 0.12,
+            attack: 0.004,
+            release: 0.08,
+            gain: gain * 0.4,
+            filter: { type: 'lowpass', freq: 320 },
+          });
+      },
+      { pan: ent ? this.panFor(state, ent.x) * 0.3 : 0 },
+    );
+  }
+
+  /** A hit Bear made survivable: a heartbeat on the hero's note, under the ordinary save. */
+  private bearSave(target: number, state: WorldState): void {
+    const ent = state.entities.get(target);
+    const hz = midiToHz(this.heroLow(ent?.hero?.defId, 33));
+    this.play('bearSave', 1, 'sfx', (v, t) => heartbeat(v, t, hz * 1.5, 0.17, 0.2), {
+      pan: ent ? this.panFor(state, ent.x) * 0.3 : 0,
+    });
+  }
+
+  /**
+   * Martyr's Vow, instead of Sunrise (the Crescendo's music jump stays; the duck is shallower
+   * and holds longer). A solemn low choir on D3, A3, D4 and F4 that swells in over 1.2 s, a
+   * sub drone on D2 and A2 beating slowly against their twins, a dull bell tolled twice (D3
+   * over D2, then A2) and a heartbeat under each toll, and a breath of dark air. No cymbal,
+   * no horn and no glass: everything sits below about 1.2 kHz. About 5 s.
+   */
+  private martyrVow(): void {
+    const e = this.e;
+    e.duck('music', { depth: 0.5, hold: 0.5, release: 1.2 });
+    this.play(
+      'bigVow',
+      1,
+      'sfx',
+      (v, t) => {
+        choirChord(v, t + 0.1, [50, 57, 62, 65].map(midiToHz), 3.0, 0.22, 1.2, 2.2);
+        for (const [m, g] of [
+          [38, 0.12],
+          [45, 0.08],
+        ] as const) {
+          for (const detune of [-5, 5]) {
+            v.osc({
+              type: 'sine',
+              freq: midiToHz(m),
+              detune,
+              start: t,
+              dur: 3.0,
+              attack: 1.0,
+              release: 2.0,
+              gain: g * 0.6,
+              shape: 'sustain',
+            });
+          }
+        }
+        handbell(v, t + 0.7, midiToHz(50), 0.13, 4.0, 0.2);
+        handbell(v, t + 0.7, midiToHz(38), 0.1, 5.0, 0.1);
+        handbell(v, t + 2.1, midiToHz(45), 0.11, 4.5, 0.15);
+        heartbeat(v, t + 0.7, 55, 0.22, 0.25);
+        heartbeat(v, t + 2.1, 52, 0.14, 0.26);
+        v.noise({
+          pink: true,
+          start: t,
+          dur: 1.8,
+          attack: 1.0,
+          release: 1.5,
+          gain: 0.045,
+          shape: 'sustain',
+          filter: { type: 'lowpass', freq: 500, q: 0.6 },
+        });
+        v.extend(t + 5.5);
+      },
+      { big: true },
+    );
+  }
+
+  /** The Vow lapses: one dull bell on D3, a falling sigh and a last slow beat. About 3 s. */
+  private vowEnd(): void {
+    this.play('vowEnd', 1, 'sfx', (v, t) => {
+      handbell(v, t, midiToHz(50), 0.09, 3.0, 0.15);
+      thump(v, t, 52, 0.14, 0.3, 0.5);
+      v.osc({
+        type: 'sine',
+        freq: midiToHz(50),
+        freqTo: midiToHz(43),
+        glide: 1.4,
+        start: t,
+        dur: 1.0,
+        attack: 0.1,
+        release: 1.0,
+        gain: 0.06,
+        shape: 'sustain',
+      });
+      v.extend(t + 3.2);
+    });
+  }
+
+  /**
+   * The Vow holds a hero at 1 life: a sharp, resonant clang over the save sound, "held". A
+   * struck iron bar on the hero's note (folded into D3..C#4), a handbell a twelfth above it
+   * ringing long and a thin sine that rings on a second after. `big` so the save's own duck
+   * does not dip it, and named `big*` so it is admitted on a crowded engine. Once per hero
+   * per 0.7 s and across the party every 0.3 s.
+   */
+  private vowHeld(hero: number, state: WorldState): void {
+    const e = this.e;
+    if (!e.gate(`vowheld:${hero}`, 0.7) || !e.gate('vowheld', 0.3)) return;
+    const ent = state.entities.get(hero);
+    const m = this.heroLow(ent?.hero?.defId, 50);
+    this.play(
+      'bigVowHeld',
+      1,
+      'sfx',
+      (v, t) => {
+        anvil(v, t, midiToHz(m), 0.16, 2.2);
+        handbell(v, t, midiToHz(m + 19), 0.055, 2.0, 1);
+        v.osc({
+          type: 'sine',
+          freq: midiToHz(m + 12),
+          start: t,
+          dur: 0.9,
+          attack: 0.01,
+          release: 0.7,
+          gain: 0.04,
+          shape: 'sustain',
+        });
+        v.extend(t + 2.4);
+      },
+      { big: true, pan: ent ? this.panFor(state, ent.x) * 0.5 : 0 },
+    );
+  }
+
+  /**
+   * Undying Devotion: a hit that would have downed her did not. A caught breath (a rising
+   * band of air that stops dead), a pause, then a deep bell on D3 over D2 with her heart
+   * starting again under it, and the Mend shimmer: a pluck-and-glass run climbing D F A D F A
+   * over the bell's decay. `big`, a music duck. About 3.5 s; it happens once a fight.
+   */
+  private undying(): void {
+    const e = this.e;
+    if (!e.gate('gate:undying', 1.5)) return;
+    e.duck('music', { depth: 0.5, hold: 0.6, release: 1.0 });
+    this.play(
+      'bigUndying',
+      1,
+      'sfx',
+      (v, t) => {
+        v.noise({
+          pink: true,
+          start: t,
+          dur: 0.3,
+          attack: 0.28,
+          release: 0.03,
+          gain: 0.08,
+          shape: 'sustain',
+          filter: { type: 'bandpass', freq: 500, freqTo: 2400, q: 1.2 },
+        });
+        const bell = t + 0.62;
+        handbell(v, bell, midiToHz(50), 0.16, 4.0, 0.25);
+        handbell(v, bell, midiToHz(38), 0.12, 5.0, 0.1);
+        heartbeat(v, bell, 55, 0.24, 0.24);
+        const shimmer = bell + 0.4;
+        [62, 65, 69, 74, 77, 81].forEach((m, i) => {
+          pluck(v, shimmer + i * 0.075, midiToHz(m), 0.06, 0.3, 0.8);
+          glassNote(v, shimmer + i * 0.075, midiToHz(m + 12), 0.025, 1.0 + i * 0.08, 0.8);
+        });
+        whoosh(v, shimmer, 0.6, 0.03, 800, 3200, 1);
+        v.extend(t + 4.5);
+      },
+      { big: true },
+    );
+  }
+
+  /**
+   * The Martyr healing herself (Blood Font, Sanguine Covenant). Nearly silent by design, since
+   * Blood Font ticks all the time: one very soft warm breath (D3 and A3 swelling for half a
+   * second, peak 0.022) at most every 3 s.
+   */
+  private selfHeal(amount: number): void {
+    if (!(amount >= 1) || !this.e.gate('selfheal', 3)) return;
+    this.play('selfHeal', 1, 'sfx', (v, t) => {
+      for (const [m, g] of [
+        [50, 0.022],
+        [57, 0.014],
+      ] as const)
+        v.osc({
+          type: 'sine',
+          freq: midiToHz(m),
+          start: t,
+          dur: 0.15,
+          attack: 0.25,
+          release: 0.5,
+          gain: g,
+          shape: 'sustain',
+        });
+    });
   }
 
   private heroHit(ev: Extract<SimEvent, { type: 'damageTaken' }>, state: WorldState): void {
