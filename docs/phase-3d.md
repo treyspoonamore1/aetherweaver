@@ -119,6 +119,8 @@ An independent review of the sim, run layer, bots and input (read-only, against 
 
 Reviewing the UI and VFX work turned up three more, also fixed with tests: **a hit the Vow would catch still read LETHAL** on the hero's frame and the telegraph (now `vowHoldsAt`, above); **a Save by Bear or the Vow read as a plain "Saved Kael"**, with no callout for Undying Devotion; and **her own healing was never reported**: Blood Font and Sanguine Covenant healed her silently, so the self-heal sound never played and the view had to guess. It now comes once a second (a soft rose "+N" beside her).
 
+After the fixes: 704 unit tests, typecheck and lint clean, and 8/8 end-to-end tests in Chromium against the production build, including the Martyr's own (choose her in Prep, the Life budget, her HUD, Bear on Kael).
+
 ## Known gaps
 
 - **The bots barely use the Martyr's tools.** The Skilled bot rarely Bears (its Wards answer most big hits) and neither bot casts the Vow, so both are tuned by reasoning more than measurement.
