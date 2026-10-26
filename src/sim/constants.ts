@@ -6,7 +6,7 @@ export const SIM_DT = 1 / SIM_HZ;
  * Bump whenever sim behaviour changes in a way that changes results for the same inputs.
  * Stamped into replays and golden hashes; update goldens deliberately (`npm run golden:update`).
  */
-export const SIM_VERSION = 7;
+export const SIM_VERSION = 8;
 
 /** Upper bound on any entity radius; used to size spatial queries. */
 export const MAX_ENTITY_RADIUS = 1;

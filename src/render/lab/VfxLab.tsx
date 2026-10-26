@@ -42,8 +42,12 @@ interface LabApi {
   setPaused(paused: boolean): void;
   /** Slow-mo for sim and FX alike (1 = normal). */
   setSlow(k: number): void;
-  /** Freeze the real-time loop and render `frames` frames of `ms` each (deterministic shots). */
-  manual(frames: number, ms: number): void;
+  /**
+   * Freeze the real-time loop and run `frames` frames of `ms` each (deterministic shots). With
+   * `drawLast`, only the last one is rendered (the views still sync every frame): quicker
+   * under a software renderer.
+   */
+  manual(frames: number, ms: number, drawLast?: boolean): void;
   resume(): void;
   heroId(slot: number): EntityId;
   debug(): Record<string, number>;
@@ -89,6 +93,27 @@ interface LabApi {
   setCalling(path: string[] | null): void;
   /** What the Luminary's views have played and are drawing. */
   callingStats(): CallingStats;
+  /** Phase 3d */
+  martyrScenarios(): string[];
+  /** Restarts the real sim with the Martyr on that scenario's path and Chords and stages it. */
+  martyrScenario(name: string): void;
+  /** Restarts the real sim with the Martyr on this path (null: no Calling). */
+  setMartyr(path: string[] | null): void;
+  /** What the Martyr's view has played and is drawing, and the Weaver's Life. */
+  martyrStats(): MartyrStats;
+}
+
+interface MartyrStats {
+  fired: Record<string, number>;
+  drawn: Record<string, number>;
+  look: Record<string, boolean | number>;
+  /** Bear's weight on the Thread (0..1) and the back pulses it has run. */
+  threadBear: number;
+  backPulses: number;
+  vow: boolean;
+  crescendo: boolean;
+  weaver: { hp: number; maxHp: number; maxLife: number; mode: string };
+  borne: number;
 }
 
 interface CallingStats {
@@ -438,6 +463,177 @@ const LUM_SCENARIOS: Record<string, LumScenario> = {
 };
 const LUM_SCENARIO_NAMES = Object.keys(LUM_SCENARIOS);
 
+interface MartyrScenario {
+  /** The Martyr's path. */
+  path: string[];
+  /** Chords (default: Guardian, which leaves her 45% of her Life). */
+  chords?: ChordConfig[];
+  note: string;
+  stage(rt: LabRuntime): void;
+}
+
+/** Fortissimo + Ostinato on the beam, Sostenuto in the field: 85% of her Life reserved. */
+const HEAVY_CHORDS: ChordConfig[] = [
+  { auras: ['fortissimo', 'ostinato'], ornaments: [] },
+  { auras: ['sostenuto'], ornaments: [] },
+];
+const BEAR: Command = { t: 'mode', mode: 'bear' };
+
+/** Thread the hero in `slot`, then switch the Thread to Bear (`{t:'mode', mode:'bear'}`). */
+function bearOn(rt: LabRuntime, slot: number, at = 0.2): void {
+  rt.later(at, () => rt.thread(slot));
+  rt.later(at + 0.1, () => rt.queue(BEAR));
+}
+
+/**
+ * Enemies in front of the party (they go for Kael), and the Weaver a few steps back so Toll
+ * Cleave's cone takes the hero, not her: what she takes, she Bears.
+ */
+function martyrFight(rt: LabRuntime, brutes = 2, choristers = 2, back = 3): void {
+  frontFight(rt, brutes, choristers);
+  rt.later(0.1, () => {
+    const w = rt.weaverPos();
+    rt.queue({ t: 'debug', op: { op: 'teleportWeaver', x: w.x, z: w.z + back } });
+  });
+}
+
+/**
+ * Phase 3d: one scenario per Martyr visual. Each restarts the real sim with the Martyr on that
+ * path (and its Chords) and stages it with real commands and debug ops (no injected events).
+ */
+const MARTYR_SCENARIOS: Record<string, MartyrScenario> = {
+  Bear: {
+    path: [],
+    note: 'Kael threaded in Bear, a fight: each wound you take for him runs back along the Thread, you flinch',
+    stage: (rt) => {
+      bearOn(rt, 0);
+      rt.later(0.4, () => martyrFight(rt, 2, 2));
+    },
+  },
+  'Thread modes': {
+    path: [],
+    note: 'Lyra threaded in Mend, then Empower (1.4 s), then Bear (2.6 s), for comparison',
+    stage: (rt) => {
+      rt.later(0.2, () => rt.thread(1));
+      rt.later(1.4, () => rt.queue({ t: 'mode' }));
+      rt.later(2.6, () => rt.queue(BEAR));
+    },
+  },
+  'Shared Wounds': {
+    path: ['penitence', 'shared_wounds'],
+    note: 'While Bearing Kael, a share of every other hero in your field: faint pulses from them to you',
+    stage: (rt) => {
+      bearOn(rt, 0);
+      rt.later(0.4, () => {
+        // A chorister on Lyra and a brute on Vexis, so the others are hit too.
+        rt.spawn('hollow_chorister', -8, 5);
+        rt.spawn('bell_brute', 4, 9);
+        rt.spawn('bell_brute', -2.5, -5.5);
+      });
+      rt.later(0.5, () => {
+        const w = rt.weaverPos();
+        rt.queue({ t: 'debug', op: { op: 'teleportWeaver', x: w.x, z: w.z + 3 } });
+      });
+    },
+  },
+  Penitence: {
+    path: ['penitence'],
+    note: 'Damage you Bear fills Resonance: motes rise off you into its orbit as each wound lands',
+    stage: (rt) => {
+      bearOn(rt, 0);
+      rt.later(0.4, () => martyrFight(rt, 2, 2));
+    },
+  },
+  'Scarred Hide': {
+    path: ['scarred_hide'],
+    note: 'You take less while Bearing: a dull bronze, hardened rim on you',
+    stage: (rt) => {
+      bearOn(rt, 0);
+      rt.later(0.4, () => martyrFight(rt, 1, 2));
+    },
+  },
+  'Martyr’s Vow': {
+    path: [],
+    note: 'Three elite brutes, the Vow at 2.8 s: seals on the heroes, the hits it holds come to you',
+    stage: (rt) => {
+      rt.later(0.2, () => rt.thread(1));
+      rt.later(0.2, () => {
+        rt.spawn('bell_brute', -2, -4, true);
+        rt.spawn('bell_brute', 2, -4, true);
+        rt.spawn('bell_brute', 0, -6, true);
+      });
+      rt.later(0.5, () => {
+        const w = rt.weaverPos();
+        rt.queue({ t: 'debug', op: { op: 'teleportWeaver', x: w.x, z: w.z + 5 } });
+      });
+      sunrise(rt, 2.8);
+    },
+  },
+  'Vow · quiet': {
+    path: [],
+    note: 'The Vow without a fight: its start (the field drawn in to you), the seals, its end',
+    stage: (rt) => {
+      rt.later(0.2, () => rt.thread(1));
+      sunrise(rt, 1.4);
+    },
+  },
+  'Undying Devotion': {
+    path: ['penitence', 'blood_font', 'undying_devotion'],
+    chords: HEAVY_CHORDS,
+    note: 'An elite brute beside you (85% of your Life reserved): the blow that would down you, held',
+    stage: (rt) => {
+      rt.later(0.2, () => rt.thread(0));
+      rt.later(0.2, () => rt.spawn('bell_brute', 0, 2, true));
+    },
+  },
+  'Low-Life Vigil': {
+    path: ['penitence', 'shared_wounds', 'low_life_vigil'],
+    chords: HEAVY_CHORDS,
+    note: '85% of your Life reserved, so below 35%: your rim and your field’s edge pulse crimson',
+    stage: (rt) => {
+      rt.later(0.2, () => rt.thread(1));
+    },
+  },
+  'Blood Font': {
+    path: ['penitence', 'blood_font'],
+    note: 'Below half your Life (Guardian): an ember glow; Bearing in a fight, embers rise as it heals you',
+    stage: (rt) => {
+      bearOn(rt, 0);
+      rt.later(0.4, () => martyrFight(rt, 2, 2));
+    },
+  },
+  'Martyr’s Aegis': {
+    path: ['penitence', 'blood_font', 'undying_devotion', 'martyrs_aegis'],
+    note: 'Ward Kael (0.4 s) and Lyra (2.4 s): each Ward links to you and shields you in old gold',
+    stage: (rt) => {
+      rt.later(0.2, () => rt.thread(0));
+      rt.later(0.4, () => rt.queue({ t: 'tech', id: 'ward', slot: 0 }));
+      rt.later(2.4, () => rt.queue({ t: 'tech', id: 'ward', slot: 1 }));
+    },
+  },
+  'Sanguine Covenant': {
+    path: ['penitence', 'blood_font', 'undying_devotion', 'sanguine_covenant'],
+    note: 'Bear in a fight until 2.6 s, then back to Mend: each Mend returns a little to you along the Thread',
+    stage: (rt) => {
+      bearOn(rt, 0);
+      rt.later(0.4, () => martyrFight(rt, 2, 2));
+      rt.later(2.6, () => rt.queue(BEAR));
+    },
+  },
+  'Every option': {
+    path: ['penitence', 'shared_wounds', 'low_life_vigil', 'martyrs_aegis'],
+    chords: HEAVY_CHORDS,
+    note: 'Low Life, Bear, a fight, a Ward and the Vow at once (clutter check)',
+    stage: (rt) => {
+      bearOn(rt, 0);
+      rt.later(0.4, () => martyrFight(rt, 2, 3));
+      rt.later(0.8, () => rt.queue({ t: 'tech', id: 'ward', slot: 1 }));
+      sunrise(rt, 2.2);
+    },
+  },
+};
+const MARTYR_SCENARIO_NAMES = Object.keys(MARTYR_SCENARIOS);
+
 class LabRuntime {
   sim: Sim;
   readonly stage: Stage;
@@ -457,6 +653,7 @@ class LabRuntime {
   private readonly scheduled: { at: number; fn: () => void }[] = [];
   private readonly taps: { pred: (e: SimEvent) => boolean; fn: (e: SimEvent) => void }[] = [];
   private frozen = false;
+  private skipRender = false;
   private clock = 0;
   paused = false;
   timeScale = 1;
@@ -525,8 +722,8 @@ class LabRuntime {
   }
 
   /** Phase 3c: restarts with the Luminary on `path` (null: no Calling), keeping the relics. */
-  setCalling(path: string[] | null, chords: ChordConfig[] | null = null): void {
-    callingCfg = path ? { id: 'luminary', path: [...path] } : null;
+  setCalling(path: string[] | null, chords: ChordConfig[] | null = null, id = 'luminary'): void {
+    callingCfg = path ? { id, path: [...path] } : null;
     chordsOverride = chords;
     this.restart(carried);
   }
@@ -558,6 +755,39 @@ class LabRuntime {
       }),
       sun: v.calling.sun,
       crescendo: st.field.crescendo,
+    };
+  }
+
+  /** Phase 3d: restarts with the Martyr on that scenario's path and stages it. */
+  martyrScenario(name: string): void {
+    const s = MARTYR_SCENARIOS[name];
+    if (!s) return;
+    carried = [];
+    this.setCalling(s.path, s.chords ?? GUARDIAN_CHORDS, 'martyr');
+    s.stage(this);
+  }
+
+  martyrStats(): MartyrStats {
+    const v = this.view;
+    const st = this.sim.state;
+    const e = st.entities.get(st.weaverId);
+    const look: Record<string, boolean | number> = {};
+    for (const [k, val] of Object.entries(v.martyr.look)) look[k] = val;
+    return {
+      fired: { ...v.martyr.fired },
+      drawn: { ...v.martyr.drawn },
+      look,
+      threadBear: v.thread.bearLevel,
+      backPulses: v.thread.backFired,
+      vow: st.field.vow,
+      crescendo: st.field.crescendo,
+      weaver: {
+        hp: e?.health?.hp ?? 0,
+        maxHp: e?.health?.maxHp ?? 0,
+        maxLife: e?.weaver?.maxLife ?? 0,
+        mode: e?.weaver?.threadMode ?? '',
+      },
+      borne: st.ledger.calling.borne,
     };
   }
 
@@ -1161,12 +1391,14 @@ class LabRuntime {
    * Stops the real-time loop and renders `frames` frames of `ms` each instead, so screenshot
    * scripts get the same moment every time (SwiftShader runs a few frames a second).
    */
-  manual(frames: number, ms: number): void {
+  manual(frames: number, ms: number, drawLast = false): void {
     this.frozen = true;
     for (let i = 0; i < frames; i++) {
       this.clock += ms;
+      this.skipRender = drawLast && i < frames - 1;
       this.advance(ms);
     }
+    this.skipRender = false;
   }
 
   resume(): void {
@@ -1206,7 +1438,7 @@ class LabRuntime {
       aim: this.aim,
       settings: this.settings,
     });
-    this.stage.render();
+    if (!this.skipRender) this.stage.render();
     this.frames++;
     this.fpsTimer += elapsed;
     if (this.fpsTimer > 500) {
@@ -1327,7 +1559,7 @@ export function VfxLab() {
       setSlow: (k) => {
         rt.timeScale = k;
       },
-      manual: (n, ms) => rt.manual(n, ms),
+      manual: (n, ms, drawLast) => rt.manual(n, ms, drawLast),
       resume: () => rt.resume(),
       heroId: (s) => rt.heroId(s),
       debug: () => rt.debug(),
@@ -1365,6 +1597,10 @@ export function VfxLab() {
       lumScenario: (name) => rt.lumScenario(name),
       setCalling: (path) => rt.setCalling(path),
       callingStats: () => rt.callingStats(),
+      martyrScenarios: () => MARTYR_SCENARIO_NAMES,
+      martyrScenario: (name) => rt.martyrScenario(name),
+      setMartyr: (path) => rt.setCalling(path, null, 'martyr'),
+      martyrStats: () => rt.martyrStats(),
     };
     const timer = window.setInterval(() => {
       const i = rt.info();
@@ -1686,6 +1922,26 @@ export function VfxLab() {
           ))}
           <Btn onClick={() => rt()?.setCalling(null)} title="Restart without a Calling">
             No Calling
+          </Btn>
+        </Group>
+        <Group title="Phase 3d · Martyr">
+          <p className="w-full text-[10px] text-muted">
+            Each restarts the real sim with the Martyr on a path (and its Chords) and stages it.
+          </p>
+          {MARTYR_SCENARIO_NAMES.map((name) => (
+            <Btn
+              key={name}
+              onClick={() => rt()?.martyrScenario(name)}
+              title={MARTYR_SCENARIOS[name]!.note}
+            >
+              {name}
+            </Btn>
+          ))}
+          <Btn
+            onClick={() => rt()?.setCalling([], null, 'martyr')}
+            title="Restart with the Martyr and no path"
+          >
+            Martyr, no path
           </Btn>
         </Group>
         <Group title="Phase 2 · Chords">

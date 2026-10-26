@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { visionPalette, type ColorVision, type VisionPalette } from '../app/colorVision';
 import { auraDef } from '../content';
+import { MARTYR_HEX } from './martyrCues';
 import { songHex } from './songs';
 
 /**
@@ -64,7 +65,17 @@ export const C = {
   dome: color(PALETTE.dome),
   discord: color(PALETTE.discord),
   white: color(PALETTE.white),
+  /**
+   * The Martyr's Bear (docs/phase-3d/vfx.md): a deep crimson, ΔE ≥ 20 from Mend, Empower and
+   * lethal under every colour-vision palette (tested), so it needs no live variant.
+   */
+  bear: color(MARTYR_HEX.blood),
 } as const;
+
+/** The Thread's colour in a mode: Mend teal, Empower gold, Bear crimson. Shared; never mutate. */
+export function threadColor(mode: 'mend' | 'empower' | 'bear' | undefined): THREE.Color {
+  return mode === 'empower' ? C.empower : mode === 'bear' ? C.bear : C.mend;
+}
 
 /** The live palette as hex strings, for DOM layers (badges, arrows, numbers). */
 export const VISION_HEX: VisionPalette = { ...visionPalette('normal') };

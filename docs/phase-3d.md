@@ -44,7 +44,7 @@ The axes: **endure** (Scarred Hide, Blood Font, Undying Devotion), **share the p
 
 **Content.** The Martyr in `callings`, unlocked at Rank 8. A Calling may name its own Crescendo (`crescendoName`); the Luminary keeps Sunrise.
 
-**Sim** (`SIM_VERSION` 7, replay format 6):
+**Sim** (`SIM_VERSION` 8, replay format 6; 7 when the Martyr landed, 8 since her own healing is reported, so replays from the first Phase 3d builds no longer verify):
 
 - `ThreadMode` adds `'bear'`. `WeaverComponent.lastMode` is the mode Bear returns to.
 - Command `{ t: 'mode', mode?: 'bear' }`: without `mode`, Mend ⇄ Empower (from Bear, back to `lastMode`); with `'bear'`, Bear on and off. Without the Martyr, Bear is refused (`techniqueRejected`, technique `'thread'`, reason `'locked'`).
@@ -52,9 +52,10 @@ The axes: **endure** (Scarred Hide, Blood Font, Undying Devotion), **share the p
 - `FieldState.vow`: Martyr's Vow is up. `field.crescendo` stays "Sunrise is up", so everything that reads it (aura strength, reach, the Luminary's Radiance and Eclipse, the views) is untouched by the Vow. The Weaver's `crescendo` clock times both.
 - Events: `borne { hero, amount, via: 'bear' | 'shared' | 'vow' }` when damage a hero would have taken goes to the Weaver; `undying { }` when Undying Devotion holds. `crescendoStart.calling` carries "Martyr's Vow".
 - Ledger `calling { amplified, shielded, borne }`: `borne` is the damage the Weaver took for her heroes (after Bear's softening); what Bear, Shared Wounds and the Vow kept off a hero counts as shielded. `EncounterStats.callingBorne`. Save causes `'bear'` and `'vow'`; `DamageResult.saved` keeps a telegraph from logging a second Save for the same hit.
-- Heal source `'self'`: the Martyr healing herself (Blood Font, Sanguine Covenant), kept out of the support ledger. During the Vow, her healing received doubles.
+- Heal source `'self'`: the Martyr healing herself (Blood Font, Sanguine Covenant), kept out of the support ledger. It is reported as one `healApplied { via: 'self' }` a second (`WeaverComponent.selfHealAcc` holds what hasn't been yet). During the Vow, her healing received doubles.
 - `chordProblems(chords, content, { fieldAuraSlots, pool })`: with `pool: 'life'`, songs may reserve at most 90% (the Weaver keeps a tenth of her Life).
 - `WorldState.calling` adds `crescendo: 'sunrise' | 'vow'` and `bearShare`.
+- `vowHoldsAt(state, impact)`: Martyr's Vow will still be holding the heroes when a hit due at `impact` lands. A telegraph that lands while it holds isn't `'lethal'` for a hero (the Vow doesn't hold the Weaver), so the HUD, the telegraph's colour and the calls for help all treat the party as safe.
 - Mods: `lifeMult`, `lifeReserve`, `bearShare`, `borneTaken` (Bear's softening), `vowDuration`, `vowRedirect`, `vowHealMult`, `penitencePer100`, `bearDamageTaken`, `bloodFontPct`, `bloodFontBelow`, `sharedWounds`, `undyingInvulnerable`, `undyingMendPct`, `vigilBelow`, `vigilMult`, `aegisWardMult`, `aegisSelf`, `covenantPct`.
 
 **Run** (save v5, unchanged shape):
@@ -64,7 +65,17 @@ The axes: **endure** (Scarred Hide, Blood Font, Undying Devotion), **share the p
 
 ## Presentation
 
-*To be filled in by the UI, VFX and audio workstreams.*
+Details and screenshots: [UI](phase-3d/ui.md), [VFX](phase-3d/vfx.md), [audio](phase-3d/audio.md).
+
+| | |
+|---|---|
+| **Prep** | Both Callings side by side (No Calling down the left), each locked, New or Chosen: the Martyr shows Rank 8 until then. The pick schedule is said once, in the section's header. Each card names its own Crescendo ("**Martyr's Vow** replaces Sunrise…"), and choosing the Martyr turns the song builder's budget into Life at once. |
+| **Song builder** | On a Martyr run the Spirit budget becomes a **Life budget**: what the songs hold of all her Life (hatched, in the auras' colours), the dashed 90% cap, "You fight with 324 Life of 720: a Weaver without the Martyr has 360", where Blood Font and Low-Life Vigil wake when they're on the path, and "All 100 Spirit is free". Over the cap it shows the sim's sentence and holds Embark or the Retune. Every retune site (Prep, a Respite, the forge, the Tuning Pool, events, Third Voice) checks the run's pool. |
+| **The tier screen** | Her emblem and colours, options tagged by axis (Endure, Share the pain, Live at low Life; Blood Font carries two). Blood Font and Low-Life Vigil say what the run's songs mean for them: "Your songs hold 55% of your Life, so you fight below 50% from the start: Blood Font is on all the time." |
+| **HUD** | Her Life bar shows all of her Life: the usable part filled, what the songs hold hatched ("188 / 324 ▨396"), notches with glyphs where Blood Font and Vigil wake (lit while she's under them), and the figure turns red below 15%. Spirit reads "all free". The Thread read-out says "Bear 35%" with the B key (on Martyr runs only); the Crescendo reads "Martyr's Vow 4s". The threaded hero's frame shows "Borne · 35%" while she Bears; every hero shows "Vow · ≥ 1 life" while the Vow holds, and no frame reads LETHAL for a hit the Vow will catch. The Calling chip tracks Bear, Undying (ready or spent), Vigil and Blood Font. A coach hint introduces Bear when a big hit is coming at the threaded hero; the first-fight primer and the key hints name B. Callouts: "You bore it with Kael", "Your Vow held Kael", "Undying Devotion". |
+| **Result, Summary, Codex, Rank 8** | "Bore 472 for your heroes · 945 kept off them"; the Summary lists her path and both totals; the Codex shows both Callings, each with its own axes; the Rank 8 card shows her emblem. |
+| **In the fight** | Crimson and old gold, sacrificial, never gory. **Bear** turns the Thread crimson and heavy: it sags, an old-gold strand braids round it, its flow runs back toward her and embers drip from it; switching to Bear sends a ring sinking in to her. A **borne wound** runs as a pulse from the hero along the Thread into her hand, and she flinches when it lands, more for a bigger wound. **Shared Wounds** sends fainter pulses straight from the other heroes, **Penitence** lifts Resonance motes off her, **Scarred Hide** gives her a dull bronze rim while she Bears. **Martyr's Vow** is not Sunrise: rings draw in to her, a seal stamps over each hero's head with a tether to her, a hit it holds flashes the seal and runs down the tether to her, and at the end the seals break into rising motes. **Undying Devotion** bursts at her and sends a Mend wave to every hero; an old-gold shell breathes round her while she's untouchable, and until it's spent an ember floats over her head. **Low-Life Vigil** pulses her rim and her field's edge like a heartbeat, **Blood Font** glows at her feet and raises embers while it heals, **Martyr's Aegis** links each Ward to her and gives her own an old-gold shell, and **Sanguine Covenant** runs a faint pulse back along the Mend Thread; what she heals herself shows as a soft rose "+N" beside her. The auras' own looks are unchanged, and nothing adds a draw call (21 idle, as without her). |
+| **Sound** | Low, solemn and warm, pitched from the hero: a heartbeat and a bowed swell when she takes up Bear, a sigh when she lets it go, a muffled thud for each borne wound (rate-limited, so a burst is a few thuds), a low choir, drone and dull bell for Martyr's Vow (no Sunrise horn or glass), a struck-iron clang when the Vow holds a hero, a caught breath and a deep bell for Undying Devotion, and a near-silent swell when she heals herself. |
 
 ## Harness
 
@@ -106,9 +117,13 @@ An independent review of the sim, run layer, bots and input (read-only, against 
 - **The new B default took over a key a player had already bound** (now a player's binding always wins), and **a Prep save with the Martyr over songs her Life couldn't hold was thrown away on reload**.
 - The result's Crescendo highlight said Sunrise on a Martyr run; the bots judged Bear on the hero they were leaving.
 
+Reviewing the UI and VFX work turned up three more, also fixed with tests: **a hit the Vow would catch still read LETHAL** on the hero's frame and the telegraph (now `vowHoldsAt`, above); **a Save by Bear or the Vow read as a plain "Saved Kael"**, with no callout for Undying Devotion; and **her own healing was never reported**: Blood Font and Sanguine Covenant healed her silently, so the self-heal sound never played and the view had to guess. It now comes once a second (a soft rose "+N" beside her).
+
 ## Known gaps
 
 - **The bots barely use the Martyr's tools.** The Skilled bot rarely Bears (its Wards answer most big hits) and neither bot casts the Vow, so both are tuned by reasoning more than measurement.
 - **Two loadouts measured.** Heavier songs (Bastion, Anchor, Wide Choir) reserve more of her Life and leave her more fragile; they weren't swept.
 - **Calling mastery** (path tiers earned by playing a Calling) isn't in: every tier is open from the start.
 - Guardian's capstone leans to Martyr's Aegis (above).
+- **On screen**: Martyr's Aegis's shield on her isn't drawn on her Life bar; Shared Wounds marks only the threaded hero's frame; the Crescendo ring assumes the base length (Encore's extra time isn't shown, as for Sunrise). The UI and render each repeat the sim's "below a share of her Life" rule for Blood Font and Low-Life Vigil, and the builder works out her whole Life from content; tests pin all three to the sim.
+- **Bear's crimson can only glow** (the Thread is drawn additively), so over a bright floor it reads rose; its braid, drips, weight and backward flow carry it. Fortissimo's rose on the beam song sits close to it.

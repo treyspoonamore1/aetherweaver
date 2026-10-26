@@ -95,9 +95,17 @@ function mendHero(world: World, hero: Entity, amount: number): void {
   const c = hero.hero!;
   const healed = heal(world, hero, amount, 'mend', false);
   c.mendHealAcc += healed;
-  // Sanguine Covenant (the Martyr): Mend heals the Weaver too.
-  if (healed > 0 && world.mods.covenantPct > 0)
-    heal(world, weaverOf(world), healed * world.mods.covenantPct, 'self', false);
+  // Sanguine Covenant (the Martyr): Mend heals the Weaver too (reported with her own healing).
+  if (healed > 0 && world.mods.covenantPct > 0) {
+    const weaver = weaverOf(world);
+    weaver.weaver!.selfHealAcc += heal(
+      world,
+      weaver,
+      healed * world.mods.covenantPct,
+      'self',
+      false,
+    );
+  }
   if (c.mendHealAcc > 0 && world.tick % Math.round(MEND_FLUSH * 60) === 0) {
     world.events.push({
       type: 'healApplied',

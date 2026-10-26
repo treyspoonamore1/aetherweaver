@@ -10,7 +10,8 @@ import { ModelBatch } from './models/batch';
 import { buildCrown, buildEnemy, buildHero, buildWeaver } from './models/library';
 import type { ModelMaterial } from './models/material';
 import { shineLevel, shineOf } from './callingCues';
-import { C, approach, auraColor, clamp01, color } from './palette';
+import { MARTYR_HEX } from './martyrCues';
+import { C, approach, auraColor, clamp01, color, threadColor as threadModeColor } from './palette';
 import {
   POUR_TRAVEL,
   auraHearing,
@@ -68,6 +69,17 @@ export interface EntityRec {
   lit: number;
   /** Real seconds since this hero last stepped into the light (the kindle flare). */
   kindled: number;
+  /**
+   * The Martyr (docs/phase-3d/vfx.md): the Weaver's flinch when a wound she Bears reaches her
+   * (0..1.4, decays in ~0.3 s): a crimson rim flash and a small recoil.
+   */
+  flinch: number;
+  /**
+   * A held rim tint, written each frame by the Martyr's view (Low-Life Vigil's pulse, Scarred
+   * Hide's hardened rim). 0 for none. Read on the next frame (MartyrView syncs after this).
+   */
+  rimHold: number;
+  rimHoldColor: THREE.Color;
   lastHp: number;
   alive: boolean;
 }
@@ -95,6 +107,8 @@ const AILMENTS = new Set(['dirge', 'silence', 'sleep', 'stun', 'resound', 'shake
 const HIST = 26;
 /** Fermata's stillness: the held hero's rim and the suspended motes around them. */
 const FERMATA = color('#e2d6f8');
+/** The Martyr's flinch: a warm crimson rim. */
+const FLINCH = color(MARTYR_HEX.blood);
 const GHOST_ASH = color('#e8e4f4');
 const SAVE_GHOST_LIFE = 1.05;
 
@@ -279,6 +293,9 @@ export class EntityLayer {
       shine: 0,
       lit: e.hero?.inField ? 1 : 0,
       kindled: 10,
+      flinch: 0,
+      rimHold: 0,
+      rimHoldColor: new THREE.Color(),
       lastHp: e.health?.hp ?? 0,
       alive: true,
     };
@@ -312,6 +329,12 @@ export class EntityLayer {
   saveFlash(id: EntityId): void {
     const r = this.recs.get(id);
     if (r) r.goldRim = 1;
+  }
+
+  /** The Martyr: a wound she Bears reaches her (a crimson flash and a recoil). */
+  flinch(id: EntityId, amount = 1): void {
+    const r = this.recs.get(id);
+    if (r) r.flinch = Math.max(r.flinch, Math.min(1.4, amount));
   }
 
   attachFlash(id: EntityId): void {
@@ -410,7 +433,7 @@ export class EntityLayer {
     const weaver = state.entities.get(state.weaverId);
     const w = weaver?.weaver;
     const threadedId = w && w.threadSlot !== null ? (state.party[w.threadSlot] ?? null) : null;
-    const threadColor = w?.threadMode === 'empower' ? C.empower : C.mend;
+    const threadColor = threadModeColor(w?.threadMode);
     const beam = beamSong(state);
     this.beamMask = beam ? chordMask(beam.auras) : 0;
     this.beamFullEcho = beam ? isFullEcho(beam) : false;
@@ -540,6 +563,13 @@ export class EntityLayer {
       pitch += 0.28 * k;
       rec.stagger = Math.max(0, rec.stagger - dt * 1.7);
     }
+    // The Martyr's flinch: a small recoil back and a shudder.
+    if (rec.flinch > 0.01 && !held) {
+      const k = Math.min(1, rec.flinch);
+      pitch += 0.16 * k * k;
+      ox += Math.sin(this.now * 53) * 0.035 * k;
+    }
+    rec.flinch = Math.max(0, rec.flinch - dt * 3.5);
     rec.flash = Math.max(0, rec.flash - dt * 9);
     rec.goldRim = Math.max(0, rec.goldRim - dt * 1.4);
     rec.rimFlash = Math.max(0, rec.rimFlash - dt * 3);
@@ -649,9 +679,18 @@ export class EntityLayer {
     } else {
       this.tint.copy(BLACK);
     }
-    if (rec.kind === 'weaver' && tintStrength === 0) {
-      this.tint.copy(C.gold);
-      tintStrength = 0.18;
+    if (rec.kind === 'weaver') {
+      // The Martyr: a borne wound flashes her rim crimson; Vigil and Scarred Hide hold one.
+      if (rec.flinch > 0.01) {
+        this.tint.copy(FLINCH);
+        tintStrength = 0.4 + 1.9 * Math.min(1, rec.flinch);
+      } else if (rec.rimHold > 0.01) {
+        this.tint.copy(rec.rimHoldColor);
+        tintStrength = rec.rimHold;
+      } else if (tintStrength === 0) {
+        this.tint.copy(C.gold);
+        tintStrength = 0.18;
+      }
     }
 
     const m = this.compose(x + ox, y, z + oz, rec.yaw, pitch, roll, scale);

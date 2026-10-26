@@ -11,6 +11,8 @@ export const SPRITE = {
   fermata: 5,
   /** A thin ring whose lit arc is `param` (0..1) of the circle, from 12 o'clock. */
   timer: 6,
+  /** The Martyr's Vow: a double ring round an upright drop (a hero held by the Vow). */
+  seal: 7,
 } as const;
 
 const vertex = /* glsl */ `
@@ -65,6 +67,14 @@ void main() {
     float f = (ang < 0.0 ? ang + 6.2831853 : ang) / 6.2831853;
     float band = 1.0 - smoothstep(0.05, 0.09, abs(d - 0.84));
     a = band * (f <= vSize.w ? 1.0 : 0.16);
+  } else if (style == 7) {
+    // Vow seal: a double ring round an upright drop.
+    float outer = exp(-pow((d - 0.84) / 0.07, 2.0));
+    float inner = exp(-pow((d - 0.62) / 0.035, 2.0)) * 0.7;
+    float body = 1.0 - smoothstep(0.19, 0.24, length(vUv - vec2(0.0, -0.1)));
+    float tipW = 0.23 * clamp((0.42 - vUv.y) / 0.52, 0.0, 1.0);
+    float tip = (vUv.y > -0.1 && vUv.y < 0.42) ? 1.0 - smoothstep(tipW - 0.04, tipW, abs(vUv.x)) : 0.0;
+    a = (outer + inner + max(body, tip) * 0.95 + exp(-d * d * 6.0) * 0.25) * (1.0 - smoothstep(0.95, 1.0, d));
   } else {
     // Sigil: a rotating star in a ring (Cue / leitmotif).
     float ang = atan(vUv.y, vUv.x) + uTime * 1.2;

@@ -343,6 +343,38 @@ describe('the path', () => {
   });
 });
 
+describe('her own healing', () => {
+  it('Blood Font and Sanguine Covenant report it once a second, never as support', () => {
+    const run = (path: string[]) => {
+      const { sim, w } = bearing(path, 'mend');
+      const weaver = weaverOf(w);
+      weaver.health!.hp = 50;
+      heroAt(w, 0).health!.hp = 400;
+      const events = stepFor(sim, 180);
+      const self = ofType(events, 'healApplied').filter((e) => e.via === 'self');
+      return { w, weaver, self, healing: w.ledger.healing };
+    };
+    const plain = run(['penitence']);
+    const both = run(['penitence', 'blood_font', 'undying_devotion', 'sanguine_covenant']);
+    expect(plain.self).toHaveLength(0);
+    // Three seconds: three reports, each hers, from her.
+    expect(both.self).toHaveLength(3);
+    for (const e of both.self) {
+      expect(e.target).toBe(both.w.weaverId);
+      expect(e.source).toBe(both.w.weaverId);
+      expect(e.amount).toBeGreaterThan(1);
+    }
+    expect(new Set(both.self.map((e) => e.tick % 60))).toEqual(new Set([0]));
+    // Every point she healed herself is reported once; what's left waits for the next second.
+    const reported = both.self.reduce((sum, e) => sum + e.amount, 0);
+    expect(reported + both.weaver.weaver!.selfHealAcc).toBeCloseTo(
+      both.weaver.health!.hp - plain.weaver.health!.hp,
+      6,
+    );
+    expect(both.healing).toBeCloseTo(plain.healing, 6);
+  });
+});
+
 describe('Martyr’s Vow', () => {
   function vowed() {
     const { sim, w } = bearing([], 'mend');

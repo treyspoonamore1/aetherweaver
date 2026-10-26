@@ -567,6 +567,7 @@ export function createWorld(config: SimConfig): World {
       maxLife,
       reservedLife,
       undying: mods.undyingInvulnerable > 0,
+      selfHealAcc: 0,
       resonance: Math.min(content.resonance.max, mods.startResonance),
       resonanceIdle: 0,
       cooldowns: { ward: 0, chime: 0, reel: 0, glide: 0 },

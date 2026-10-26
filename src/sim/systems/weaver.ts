@@ -1,11 +1,14 @@
 import { len, rotateToward } from '../core/dmath';
 import { heal } from '../combat/health';
 import { decayResonance } from '../combat/resonance';
+import { SIM_HZ } from '../constants';
 import type { TechniqueKey } from '../state';
 import { weaverOf, type World } from '../world';
 import { approachVelocity } from './steering';
 
 const TECHNIQUES: readonly TechniqueKey[] = ['ward', 'chime', 'reel', 'glide'];
+/** The Martyr's healing of herself is reported once a second, not every tick. */
+const SELF_HEAL_FLUSH_TICKS = SIM_HZ;
 const heading = { x: 0, z: 0 };
 
 /** Movement, Glide, Spirit, cooldowns, Resonance decay, the Crescendo clock and re-forming. */
@@ -65,7 +68,20 @@ export function updateWeaver(world: World, dt: number): void {
 
   // Blood Font (the Martyr): below a share of her Life, what her songs reserve regenerates her.
   if (world.mods.bloodFontPct > 0 && !h.downed && h.hp < w.maxLife * world.mods.bloodFontBelow)
-    heal(world, e, w.reservedLife * world.mods.bloodFontPct * dt, 'self', false);
+    w.selfHealAcc += heal(world, e, w.reservedLife * world.mods.bloodFontPct * dt, 'self', false);
+  // Her healing of herself (Blood Font, Sanguine Covenant), reported once a second.
+  if (w.selfHealAcc > 0.5 && world.tick % SELF_HEAL_FLUSH_TICKS === 0) {
+    world.events.push({
+      type: 'healApplied',
+      tick: world.tick,
+      target: e.id,
+      source: e.id,
+      amount: w.selfHealAcc,
+      overheal: 0,
+      via: 'self',
+    });
+    w.selfHealAcc = 0;
+  }
 
   // Cooldowns. Ward recharges one charge at a time.
   for (const key of TECHNIQUES) {

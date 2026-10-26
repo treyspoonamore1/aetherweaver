@@ -4,9 +4,9 @@ const MAX_STRIP_POINTS = 64;
 
 const vertex = /* glsl */ `
 attribute vec4 aColor;
-attribute vec2 aUv;
+attribute vec3 aUv; // u along, v across, how much the core whitens
 varying vec4 vColor;
-varying vec2 vUv;
+varying vec3 vUv;
 void main() {
   vColor = aColor;
   vUv = aUv;
@@ -16,14 +16,14 @@ void main() {
 const fragment = /* glsl */ `
 uniform float uTime;
 varying vec4 vColor;
-varying vec2 vUv;
+varying vec3 vUv;
 void main() {
   float across = exp(-vUv.y * vUv.y * 2.6);
   float core = exp(-vUv.y * vUv.y * 22.0);
   float shimmer = 0.85 + 0.15 * sin(vUv.x * 30.0 - uTime * 9.0);
   float a = (across * 0.75 + core * 0.6) * vColor.a * shimmer;
   if (a < 0.003) discard;
-  gl_FragColor = vec4(mix(vColor.rgb, vec3(1.0), core * 0.35), a);
+  gl_FragColor = vec4(mix(vColor.rgb, vec3(1.0), core * vUv.z), a);
   #include <colorspace_fragment>
 }`;
 
@@ -50,6 +50,7 @@ export class RibbonBatch {
   private readonly sw = new Float32Array(MAX_STRIP_POINTS);
   private readonly sc = new Float32Array(MAX_STRIP_POINTS * 4);
   private readonly su = new Float32Array(MAX_STRIP_POINTS);
+  private readonly swh = new Float32Array(MAX_STRIP_POINTS);
   private stripCount = 0;
   private readonly camera = new THREE.Vector3();
 
@@ -59,11 +60,11 @@ export class RibbonBatch {
   ) {
     this.pos = new Float32Array(maxVertices * 3);
     this.col = new Float32Array(maxVertices * 4);
-    this.uv = new Float32Array(maxVertices * 2);
+    this.uv = new Float32Array(maxVertices * 3);
     this.index = new Uint32Array(maxVertices * 3);
     this.posAttr = new THREE.BufferAttribute(this.pos, 3).setUsage(THREE.DynamicDrawUsage);
     this.colAttr = new THREE.BufferAttribute(this.col, 4).setUsage(THREE.DynamicDrawUsage);
-    this.uvAttr = new THREE.BufferAttribute(this.uv, 2).setUsage(THREE.DynamicDrawUsage);
+    this.uvAttr = new THREE.BufferAttribute(this.uv, 3).setUsage(THREE.DynamicDrawUsage);
     this.indexAttr = new THREE.BufferAttribute(this.index, 1).setUsage(THREE.DynamicDrawUsage);
     this.geometry.setAttribute('position', this.posAttr);
     this.geometry.setAttribute('aColor', this.colAttr);
@@ -109,6 +110,8 @@ export class RibbonBatch {
     c: THREE.Color,
     alpha: number,
     u: number,
+    /** How much the core whitens (0.35; a deep colour that must stay deep, e.g. Bear, less). */
+    white = 0.35,
   ): void {
     if (this.stripCount >= MAX_STRIP_POINTS) return;
     const k = this.stripCount++;
@@ -121,6 +124,7 @@ export class RibbonBatch {
     this.sc[k * 4 + 2] = c.b;
     this.sc[k * 4 + 3] = alpha;
     this.su[k] = u;
+    this.swh[k] = white;
   }
 
   endStrip(): void {
@@ -162,10 +166,12 @@ export class RibbonBatch {
         this.col[v * 4 + j] = this.sc[k * 4 + j];
         this.col[v * 4 + 4 + j] = this.sc[k * 4 + j];
       }
-      this.uv[v * 2] = this.su[k];
-      this.uv[v * 2 + 1] = -1;
-      this.uv[v * 2 + 2] = this.su[k];
-      this.uv[v * 2 + 3] = 1;
+      this.uv[v * 3] = this.su[k];
+      this.uv[v * 3 + 1] = -1;
+      this.uv[v * 3 + 2] = this.swh[k];
+      this.uv[v * 3 + 3] = this.su[k];
+      this.uv[v * 3 + 4] = 1;
+      this.uv[v * 3 + 5] = this.swh[k];
       if (k < n - 1) {
         const i = this.indexCount;
         this.index[i] = v;
@@ -191,7 +197,7 @@ export class RibbonBatch {
     this.colAttr.addUpdateRange(0, this.vertexCount * 4);
     this.colAttr.needsUpdate = true;
     this.uvAttr.clearUpdateRanges();
-    this.uvAttr.addUpdateRange(0, this.vertexCount * 2);
+    this.uvAttr.addUpdateRange(0, this.vertexCount * 3);
     this.uvAttr.needsUpdate = true;
     this.indexAttr.clearUpdateRanges();
     this.indexAttr.addUpdateRange(0, this.indexCount);

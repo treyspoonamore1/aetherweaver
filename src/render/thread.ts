@@ -7,11 +7,17 @@ import { PARTICLE } from './fx/particles';
 import { RING } from './fx/rings';
 import { SPRITE } from './fx/sprites';
 import type { Overlay } from './overlay';
-import { C, approach, auraColor, rgba } from './palette';
+import { BORNE_TRAVEL, MARTYR_HEX } from './martyrCues';
+import { C, approach, auraColor, color, rgba } from './palette';
 import { POUR_TRAVEL, SONG_GLYPH, beamSong, focusLabel, focusLevel, isAllIn } from './songs';
 
 const N = 30;
 const PULSES = 6;
+/** Pulses running back along the Thread, hero → Weaver (the Martyr's Bear, Covenant's return). */
+const BACK = 8;
+const BEAR_HOT = color(MARTYR_HEX.bloodHot);
+const ROSE = color(MARTYR_HEX.rose);
+const OLD_GOLD = color(MARTYR_HEX.oldGold);
 /** The pour splashes on the hero after `POUR_TRAVEL` and is over after this long. */
 const POUR_LIFE = 1.1;
 
@@ -39,10 +45,29 @@ export function weaverHand(
  * in, adds a second sheath and more, brighter beads). When the beam moves to a hero, the song
  * **pours**: a bright head floods along the new Thread, splashes on the hero in aura colours
  * and names the strength ("♪ ×2"); the old hero's halo drains meanwhile (field.ts).
+ *
+ * Phase 3d: **Bear** (the Martyr) turns the Thread crimson and heavy: it sags more, its core
+ * is thicker, an old-gold strand braids round it, its flow runs back toward the Weaver and
+ * crimson embers drip from it. Each wound she takes runs back along it as a pulse
+ * (`backPulse`), from the hero into her hand; Sanguine Covenant's return is a faint one.
  */
 export class ThreadView {
   private readonly pulses = new Float32Array(PULSES).fill(-10);
   private pulseCursor = 0;
+  /** Back pulses: start time, strength (0..1.4), kind (0 Bear, 1 Covenant's return). */
+  private readonly backAt = new Float32Array(BACK).fill(-10);
+  private readonly backK = new Float32Array(BACK);
+  private readonly backKind = new Uint8Array(BACK);
+  private backCursor = 0;
+  /** Bear, smoothed 0..1 (colour, weight, braid). */
+  private bear = 0;
+  /** The flow's phase: forward in Mend / Empower, back toward the Weaver in Bear. */
+  private flowCore = 0;
+  private flowHalo = 0;
+  private dripAcc = 0;
+  private readonly tmpCol = new THREE.Color();
+  /** Back pulses started (tests and the lab read it). */
+  backFired = 0;
   private whipAt = -10;
   private whipSign = 1;
   private mix = 0;
@@ -74,6 +99,29 @@ export class ThreadView {
   pulse(): void {
     this.pulses[this.pulseCursor] = this.now;
     this.pulseCursor = (this.pulseCursor + 1) % PULSES;
+  }
+
+  /**
+   * A wound running back along the Thread from the hero into the Weaver's hand (`kind` 0, Bear),
+   * or Sanguine Covenant's faint return (`kind` 1). It arrives after `BORNE_TRAVEL`.
+   */
+  backPulse(strength: number, kind: 0 | 1 = 0): void {
+    const i = this.backCursor;
+    this.backAt[i] = this.now;
+    this.backK[i] = Math.max(0.2, Math.min(1.4, strength));
+    this.backKind[i] = kind;
+    this.backCursor = (i + 1) % BACK;
+    this.backFired++;
+  }
+
+  /** The Thread is drawn (it has a path this frame). */
+  get drawn(): boolean {
+    return this.hasPath;
+  }
+
+  /** Bear's weight on the Thread now, 0..1 (tests). */
+  get bearLevel(): number {
+    return this.bear;
   }
 
   attach(): void {
@@ -142,10 +190,22 @@ export class ThreadView {
       return;
     }
     this.visible = Math.min(1, this.visible + dt * 6);
-    this.mix = approach(this.mix, w.threadMode === 'empower' ? 1 : 0, 10, dt);
-    this.col.copy(C.mend).lerp(C.empower, this.mix);
-    this.core.copy(this.col).lerp(C.white, 0.55);
+    const toEmpower =
+      w.threadMode === 'bear' ? w.lastMode === 'empower' : w.threadMode === 'empower';
+    this.mix = approach(this.mix, toEmpower ? 1 : 0, 10, dt);
+    this.bear = approach(this.bear, w.threadMode === 'bear' ? 1 : 0, 8, dt);
+    if (this.bear < 0.002) this.bear = 0;
+    const B = this.bear;
+    this.col.copy(C.mend).lerp(C.empower, this.mix).lerp(C.bear, B);
+    // Bear's core glows warm rose, not white, so the crimson holds.
+    this.core
+      .copy(this.col)
+      .lerp(C.white, 0.55 * (1 - B))
+      .lerp(BEAR_HOT, 0.3 * B);
     const tension = w.threadTension;
+    // Mend and Empower flow out to the hero; Bear's flows back to the Weaver.
+    this.flowCore += dt * (-3 + 4.4 * B);
+    this.flowHalo += dt * (-1.4 + 2.2 * B);
 
     // Endpoints: the Weaver's weaving hand → the hero's chest.
     weaverHand(wr, this.hand);
@@ -160,7 +220,11 @@ export class ThreadView {
     const len = Math.hypot(dx, dz) || 1;
     const px = -dz / len;
     const pz = dx / len;
-    const sag = (1 - tension) * Math.min(1.1, len * 0.09) + 0.05;
+    // Bear is heavy: it hangs lower, even pulled taut.
+    const sag =
+      (1 - tension) * Math.min(1.1, len * 0.09) * (1 + 0.45 * B) +
+      0.05 +
+      B * (0.12 + 0.1 * (1 - tension));
     const whipAge = time - this.whipAt;
     const whip =
       whipAge < 0.35 ? (1 - whipAge / 0.35) ** 2 * Math.min(2, len * 0.25) * this.whipSign : 0;
@@ -195,21 +259,22 @@ export class ThreadView {
     }
     this.hasPath = true;
 
-    const baseW = (0.075 - 0.04 * tension) * (1 + shimmer * 0.3);
+    const baseW = (0.075 - 0.04 * tension) * (1 + shimmer * 0.3) * (1 + 0.5 * B);
     const vis = this.visible;
     // Halo strand.
     kit.ribbons.beginStrip();
     for (let i = 0; i <= N; i++) {
       const t = i / N;
-      const p = this.pulseAt(t, time);
+      const p = this.pulseAt(t, time) + this.backSwell(t, time);
       kit.ribbons.point(
         this.pts[i * 3],
         this.pts[i * 3 + 1],
         this.pts[i * 3 + 2],
-        baseW * 3.2 * (1 + p * 0.8),
+        baseW * (3.2 + 3 * B) * (1 + p * 0.8),
         this.col,
-        (0.22 + p * 0.5) * vis * (1 - shimmer * 0.3 * Math.random()),
-        t * len * 0.35 - time * 1.4,
+        (0.22 + 0.4 * B + p * 0.5) * vis * (1 - shimmer * 0.3 * Math.random()),
+        t * len * 0.35 + this.flowHalo,
+        0.35 * (1 - 0.85 * B),
       );
     }
     kit.ribbons.endStrip();
@@ -217,18 +282,21 @@ export class ThreadView {
     kit.ribbons.beginStrip();
     for (let i = 0; i <= N; i++) {
       const t = i / N;
-      const p = this.pulseAt(t, time);
+      const p = this.pulseAt(t, time) + this.backSwell(t, time);
       kit.ribbons.point(
         this.pts[i * 3],
         this.pts[i * 3 + 1],
         this.pts[i * 3 + 2],
         baseW * (1 + p * 1.6),
         p > 0.3 ? this.core : this.col,
-        (0.9 + p) * vis,
-        t * len * 0.6 - time * 3,
+        (0.9 + p) * (1 - 0.2 * B) * vis,
+        t * len * 0.6 + this.flowCore,
+        // Bear's core stays crimson (a white core would turn it pink).
+        0.35 * (1 - 0.8 * B),
       );
     }
     kit.ribbons.endStrip();
+    if (B > 0.02) this.bearBraid(kit, dt, len, px, pz, baseW, vis);
     // The beam song rides the Thread: an aura-coloured sheath and beads of song flowing from
     // the Weaver to the hero, louder with the focus (all in: a second sheath, more beads).
     this.findSong(state, targetId);
@@ -308,27 +376,117 @@ export class ThreadView {
         0.8 * (1 - t * 0.5),
       );
     }
+    this.backHeads(kit, time);
     // Endpoint glows.
     kit.sprites.push(ax, ay, az, 0.22, 0, this.core, 0.7 * vis);
     kit.sprites.push(bx, by, bz, 0.3 + 0.1 * Math.sin(time * 6), 0, this.col, 0.55 * vis);
-    // Mend: teal motes drift up off the hero. Empower: gold sparks.
+    // Mend: teal motes drift up off the hero. Empower: gold sparks. Bear: embers sink.
     if (Math.random() < dt * 10 * kit.particles.density) {
+      const sink = B > 0.5;
       kit.particles.emit(
         bx + (Math.random() - 0.5) * 0.6,
         by - 0.3,
         bz + (Math.random() - 0.5) * 0.6,
         0,
-        1.2,
+        sink ? -0.15 : 1.2,
         0,
         0.9,
         0.11,
         this.col,
         0.9,
-        this.mix > 0.5 ? PARTICLE.spark : PARTICLE.dot,
+        sink ? PARTICLE.dot : this.mix > 0.5 ? PARTICLE.spark : PARTICLE.dot,
         0.6,
-        -0.2,
+        sink ? 0.9 : -0.2,
       );
     }
+  }
+
+  /** Bear: an old-gold strand braided round the crimson core, and embers dripping from it. */
+  private bearBraid(
+    kit: FxKit,
+    dt: number,
+    len: number,
+    px: number,
+    pz: number,
+    baseW: number,
+    vis: number,
+  ): void {
+    const B = this.bear;
+    const turns = Math.max(1.5, len * 0.45);
+    kit.ribbons.beginStrip();
+    for (let i = 0; i <= N; i++) {
+      const t = i / N;
+      const env = Math.sin(Math.PI * t);
+      const a = t * turns * Math.PI * 2 + this.flowCore * 1.3;
+      const r = (0.09 + baseW) * (0.3 + 0.7 * env);
+      kit.ribbons.point(
+        this.pts[i * 3] + px * Math.sin(a) * r,
+        this.pts[i * 3 + 1] + Math.cos(a) * r,
+        this.pts[i * 3 + 2] + pz * Math.sin(a) * r,
+        baseW * 0.8 + 0.008,
+        OLD_GOLD,
+        B * vis * (0.6 + 0.4 * Math.cos(a)),
+        t * len * 0.5 + this.flowCore,
+      );
+    }
+    kit.ribbons.endStrip();
+    // Embers drip off the heavy Thread (glowing, small: never blood).
+    this.dripAcc += dt * 7 * B * kit.particles.density;
+    while (this.dripAcc > 1) {
+      this.dripAcc -= 1;
+      const i = 3 + Math.floor(Math.random() * (N - 6));
+      const gold = Math.random() < 0.3;
+      kit.particles.emit(
+        this.pts[i * 3],
+        this.pts[i * 3 + 1] - 0.03,
+        this.pts[i * 3 + 2],
+        (Math.random() - 0.5) * 0.15,
+        -0.3,
+        (Math.random() - 0.5) * 0.15,
+        0.7 + Math.random() * 0.3,
+        gold ? 0.07 : 0.09,
+        gold ? OLD_GOLD : BEAR_HOT,
+        0.85,
+        PARTICLE.dot,
+        0.3,
+        2.2,
+      );
+    }
+  }
+
+  /** The heads of the pulses running back to the Weaver. */
+  private backHeads(kit: FxKit, time: number): void {
+    for (let k = 0; k < BACK; k++) {
+      const age = time - this.backAt[k]!;
+      if (age < 0 || age > BORNE_TRAVEL) continue;
+      const t = 1 - age / BORNE_TRAVEL;
+      const i = Math.min(N, Math.max(0, Math.round(t * N)));
+      const s = this.backK[k]!;
+      const x = this.pts[i * 3];
+      const y = this.pts[i * 3 + 1];
+      const z = this.pts[i * 3 + 2];
+      if (this.backKind[k] === 1) {
+        // Sanguine Covenant: a faint return of the Mend, rose-tinged.
+        this.tmpCol.copy(C.mend).lerp(ROSE, 0.45);
+        kit.sprites.push(x, y, z, 0.24, SPRITE.glow, this.tmpCol, 0.55);
+        continue;
+      }
+      kit.sprites.push(x, y, z, 0.32 + 0.36 * s, SPRITE.glow, C.bear, 0.95);
+      kit.sprites.push(x, y, z, 0.14 + 0.12 * s, SPRITE.glow, ROSE, 0.9);
+    }
+  }
+
+  /** How much the back pulses swell the Thread at `t` (0 at the Weaver, 1 at the hero). */
+  private backSwell(t: number, time: number): number {
+    let p = 0;
+    for (let k = 0; k < BACK; k++) {
+      const age = time - this.backAt[k]!;
+      if (age < 0 || age > BORNE_TRAVEL + 0.05) continue;
+      const head = 1 - age / BORNE_TRAVEL;
+      const d = (t - head) / 0.08;
+      p += Math.exp(-d * d) * this.backK[k]! * (this.backKind[k] === 1 ? 0.35 : 1);
+    }
+    return Math.min(1.6, p);
   }
 
   /** The beam song pouring into `heroId`, if any (colours, focus level, all in). */

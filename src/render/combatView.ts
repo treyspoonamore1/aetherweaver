@@ -9,6 +9,7 @@ import { FermataView } from './fermata';
 import { Feedback } from './feedback';
 import { FieldView } from './field';
 import { FxKit } from './fx/kit';
+import { MartyrView } from './martyr';
 import { RING } from './fx/rings';
 import { createModelMaterial, type ModelMaterial } from './models/material';
 import { Overlay } from './overlay';
@@ -39,6 +40,7 @@ export class CombatView implements WorldView {
   readonly feedback: Feedback;
   readonly relics: RelicView;
   readonly calling: CallingView;
+  readonly martyr: MartyrView;
   private quality: QualityTier;
   private readonly bufferSize = new THREE.Vector2();
   private readonly heroHex = new Map<number, string>();
@@ -87,6 +89,13 @@ export class CombatView implements WorldView {
       recs: this.entities.recs,
       overlay: this.overlay,
     });
+    this.martyr = new MartyrView({
+      kit: this.kit,
+      recs: this.entities.recs,
+      thread: this.thread,
+      entities: this.entities,
+      overlay: this.overlay,
+    });
     this.quality = ctx.quality;
     this.setQuality(ctx.quality);
     void state;
@@ -116,6 +125,7 @@ export class CombatView implements WorldView {
     this.feedback.sync(state, frame, fxDt);
     this.relics.sync(state, fxDt, frame.time, frame.settings.flashes);
     this.calling.sync(state, fxDt, frame.time, frame.settings.flashes);
+    this.martyr.sync(state, fxDt, frame.time, frame.settings.flashes);
     this.offscreen(state);
     this.aimMarker(state, frame);
 
@@ -132,6 +142,7 @@ export class CombatView implements WorldView {
     this.feedback.handle(events, state);
     this.relics.handle(events, state);
     this.calling.handle(events, state);
+    this.martyr.handle(events, state);
   }
 
   setQuality(quality: QualityTier): void {

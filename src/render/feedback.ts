@@ -13,6 +13,7 @@ import { RING } from './fx/rings';
 import { SHELL } from './fx/shells';
 import { SPRITE } from './fx/sprites';
 import type { Overlay } from './overlay';
+import { MARTYR_HEX, crescendoKind } from './martyrCues';
 import { C, VISION_HEX, auraColor, clamp01, color, currentVision, rgba } from './palette';
 import {
   CALLING_HEX,
@@ -110,6 +111,8 @@ const DUST = color('#b9b2a4');
 const VISION_CALL_TEXT = '#fff3c4';
 /** The Luminary's Sunrise: the key light warms toward this while it lasts. */
 const SUN_LIGHT = color(CALLING_HEX.sunHot);
+/** Martyr's Vow: the key light dims a little toward crimson (never Sunrise's gold swell). */
+const VOW_LIGHT = color(MARTYR_HEX.blood);
 
 export interface FeedbackDeps {
   kit: FxKit;
@@ -136,6 +139,8 @@ export class Feedback {
   private readonly heal = new Map<EntityId, Bucket>();
   /** Aura heals (Sostenuto…): their own softer numbers, never merged into Mend's. */
   private readonly auraHeal = new Map<EntityId, Bucket>();
+  /** The Martyr healing herself (Blood Font, Sanguine Covenant): her own soft numbers. */
+  private readonly selfHeal = new Map<EntityId, Bucket>();
   private readonly split: RadiantSplit = { empower: 0, aura: 0, radiance: 0 };
   /**
    * The Luminary's Sunrise, 0..1 (set by the combat view from CallingView): the key light
@@ -431,7 +436,8 @@ export class Feedback {
           this.d.entities.attachFlash(ev.hero);
           const r = this.rec(ev.hero);
           const w = state.entities.get(state.weaverId)?.weaver;
-          const c = w?.threadMode === 'empower' ? C.amp : C.heal;
+          const c =
+            w?.threadMode === 'empower' ? C.amp : w?.threadMode === 'bear' ? C.bear : C.heal;
           if (r)
             this.ring(
               r.x,
@@ -452,8 +458,11 @@ export class Feedback {
           this.d.thread.pulse();
           this.d.thread.pulse();
           const w = this.rec(state.weaverId);
-          const c = ev.mode === 'empower' ? C.amp : C.heal;
+          const c = ev.mode === 'empower' ? C.amp : ev.mode === 'bear' ? C.bear : C.heal;
           if (w) this.ring(w.x, w.z, 0.4, 1.8, 0.3, c, 0.1, RING.plain, 1, 0.05, state.weaverId);
+          if (ev.mode === 'bear' && w)
+            // Bear settles on her: a heavier ring sinking in, not spreading out.
+            this.ring(w.x, w.z, 1.6, 0.5, 0.4, c, 0.16, RING.plain, 1, 0.05, state.weaverId);
           break;
         }
         case 'threadSnapped': {
@@ -532,9 +541,12 @@ export class Feedback {
           break;
         }
         case 'crescendoStart':
-          this.crescendo(state);
+          // The Martyr's Vow has its own moment (MartyrView): none of Sunrise's gold.
+          if (crescendoKind(state) === 'vow') this.vowStart();
+          else this.crescendo(state);
           break;
         case 'crescendoEnd': {
+          if (crescendoKind(state) === 'vow') break;
           const w = this.rec(state.weaverId);
           if (w)
             this.ring(
@@ -1032,6 +1044,10 @@ export class Feedback {
       this.auraHealed(e, r, target);
       return;
     }
+    if (e.via === 'self') {
+      this.selfHealed(e, r, target);
+      return;
+    }
     if (e.via === 'mend') this.d.thread.pulse();
     const maxHp = target.health?.maxHp ?? 1;
     const n = Math.min(8, 1 + Math.round((e.amount / maxHp) * 20));
@@ -1160,6 +1176,45 @@ export class Feedback {
         true,
       );
     this.d.overlay.setNumber(b.handle, `${SONG_GLYPH}+${Math.round(b.amount)}`, null, size, !fresh);
+  }
+
+  /**
+   * The Martyr healing herself (Blood Font, Sanguine Covenant; the sim reports it about once a
+   * second): a small, soft "+N" in her rose beside her and no burst, since MartyrView already
+   * draws Blood Font's embers and Covenant's return along the Thread.
+   */
+  private selfHealed(
+    e: SimEventOf<'healApplied'>,
+    r: EntityRec,
+    target: NonNullable<ReturnType<WorldState['entities']['get']>>,
+  ): void {
+    if (!this.settings.damageNumbers) return;
+    let b = this.selfHeal.get(e.target);
+    if (!b) {
+      b = bucket();
+      this.selfHeal.set(e.target, b);
+    }
+    const fresh =
+      this.now - b.start > AURA_AGG || b.handle < 0 || !this.d.overlay.numberAlive(b.handle);
+    if (fresh) {
+      b.amount = 0;
+      b.start = this.now;
+    }
+    b.amount += e.amount;
+    if (b.amount < 1) return;
+    const maxHp = target.health?.maxHp ?? 1;
+    const size = 13 + 7 * Math.sqrt(Math.min(1, (b.amount / maxHp) * 8));
+    if (fresh)
+      b.handle = this.d.overlay.spawnNumber(
+        r.x - 0.5,
+        r.height * 0.75 + r.y,
+        r.z,
+        MARTYR_HEX.rose,
+        size,
+        1.25,
+        true,
+      );
+    this.d.overlay.setNumber(b.handle, `+${Math.round(b.amount)}`, null, size, !fresh);
   }
 
   private shieldApplied(e: SimEventOf<'shieldApplied'>): void {
@@ -1579,7 +1634,7 @@ export class Feedback {
     const t = this.alloc(K.Trail, 0.9);
     t.follow = e.target;
     const w = state.entities.get(state.weaverId)?.weaver;
-    t.color.copy(w?.threadMode === 'empower' ? C.amp : C.heal);
+    t.color.copy(w?.threadMode === 'empower' ? C.amp : w?.threadMode === 'bear' ? C.bear : C.heal);
     this.ring(e.fromX, e.fromZ, 0.4, 2, 0.35, t.color, 0.1, RING.plain, 1);
     const r = this.rec(e.target);
     if (r)
@@ -1665,6 +1720,15 @@ export class Feedback {
       1.1,
       rgba(VISION_HEX.heal, 0.9),
     );
+  }
+
+  /** Martyr's Vow: the light dims toward crimson, a small weight on the camera, a soft flash. */
+  private vowStart(): void {
+    this.lightShift = 0.55;
+    this.lightColor.copy(VOW_LIGHT);
+    this.d.rig.punch(-2.2, 2.2);
+    this.d.rig.addTrauma(0.18);
+    this.d.overlay.flash(0.12, 0.2);
   }
 
   private crescendo(state: WorldState): void {
@@ -2919,6 +2983,8 @@ export class Feedback {
     lights.hemi.color.copy(this.baseHemiColor);
     this.dmg.clear();
     this.heal.clear();
+    this.auraHeal.clear();
+    this.selfHeal.clear();
   }
 }
 

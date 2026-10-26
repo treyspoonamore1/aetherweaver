@@ -122,6 +122,11 @@ export interface WeaverComponent {
   reservedLife: number;
   /** Undying Devotion (the Martyr) is still unused this fight. */
   undying: boolean;
+  /**
+   * The Martyr's healing of herself (Blood Font, Sanguine Covenant) not yet reported: it goes
+   * out as one `healApplied { via: 'self' }` about once a second.
+   */
+  selfHealAcc: number;
   /** 0..100 in four segments of 25. */
   resonance: number;
   /** Seconds since Resonance was last gained (decay starts after a delay). */
