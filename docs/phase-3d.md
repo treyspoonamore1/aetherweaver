@@ -68,4 +68,47 @@ The axes: **endure** (Scarred Hide, Blood Font, Undying Devotion), **share the p
 
 ## Harness
 
-*To be filled in after tuning.*
+`npx tsx tools/callings.ts --calling martyr --loadout guardian --seeds 50`: whole Prelude runs, every one of the 16 paths on its own 50 seeds (800 runs a bot), against the same seeds with no Calling.
+
+| Loadout · bot | No Calling | Martyr, all paths | I: Penitence · Scarred Hide | II: Blood Font · Shared Wounds | III: Undying · Vigil | IV: Aegis · Covenant |
+|---|---|---|---|---|---|---|
+| Guardian · Novice | 32% | **46%** | 48 · 44 | 47 · 44 | 44 · 47 | 49 · 42 |
+| Steady · Novice | 38% | **49%** | 50 · 48 | 51 · 47 | 49 · 50 | 49 · 49 |
+| Guardian · Skilled (400 runs) | 86% | **88%** | 91 · 85 | 88 · 88 | 87 · 89 | 88 · 88 |
+| Steady · Skilled (400 runs) | 88% | **89%** | 88 · 89 | 89 · 89 | 89 · 88 | 87 · 91 |
+
+The Martyr is worth 11 to 14 points to the Novice and 1 or 2 to the Skilled bot, level with the Luminary (Guardian 42%, Steady 49% for the Novice). Within each tier the two options sit within five points, except Guardian's capstone (Martyr's Aegis 49, Sanguine Covenant 42; level for Steady).
+
+**How it got there.** The bots first had to learn Bear. A Novice that Bore whenever a hero was low gave up Mend exactly when it mattered; a Skilled bot that Bore any big hit it could afford left the Weaver too low for the next raid. Both now Bear just before a big hit on the threaded hero that no shield will stop (the Novice notices less often and lingers in Bear), and Mend or Empower otherwise. Then the numbers, measured fight by fight (the six hard fights, Threat 1, Guardian, 20 seeds) and in whole runs:
+
+| Martyr | Fights: Novice · Skilled | Whole runs, Novice: Guardian · Steady |
+|---|---|---|
+| No Calling | 73% · 94% | 32% · 38% |
+| The plan: +40% Life, Bear at full force (the first bot policies) | 55% · 87% | |
+| Bear off, +40% Life | 71% · 92% | |
+| +70% Life, Bear softened by half | | 40% · 41% |
+| **+100% Life, Bear softened by half (shipped)** | | **44% · 49%** |
+| +150% Life, Bear softened by half | 73% · 97% | 53% · 56% |
+
+Without Bear the Life reservation is close to neutral: what the songs take from her Life, the free Spirit gives back. Bear at full force was the trap: a big hit's share could be more than her whole usable Life (227 for a Guardian Martyr), downing her and silencing every song. The guard rail (never more than leaves her at 1 life) and the softening made Bear a tool rather than a risk of losing the fight; +100% Life puts her level with the Luminary.
+
+**What the bots can't show.** As for the Luminary, the bots almost never cast a Crescendo, so Martyr's Vow is tuned by reasoning. And the Skilled bot rarely needs Bear (its Wards answer most big hits), so the Martyr is mostly a different way to play for it, not more power.
+
+## Code review
+
+An independent review of the sim, run layer, bots and input (read-only, against a clean copy of the commits) found these, all fixed with regression tests:
+
+- **The Vow logged a Save for every hit on a hero it held**, with a slow-motion beat each time; it now logs one, when it first holds them at 1. A hit could also leave a hero at 0.5.
+- **Bear charged her for hits that felled the hero anyway**, and after Martyr's Veil had spent her life it could still down her. Bear now lifts nothing from a hit that stays lethal (the Veil, Fermata or the Vow may still catch it), and the "never below 1" cap holds.
+- **Bear and the Vow worked for free while she was untouchable or down.** Bear lifts nothing while she's invulnerable; the Vow ends when she goes down; what she bore is credited from what she actually took.
+- **A hero Fermata already held was still Borne and Vowed**, and a hold running out during the Vow downed them.
+- **Her own Martyr's Aegis Ward counted as shielding the party**, and **Scarred Hide worked with no Thread attached**.
+- **The new B default took over a key a player had already bound** (now a player's binding always wins), and **a Prep save with the Martyr over songs her Life couldn't hold was thrown away on reload**.
+- The result's Crescendo highlight said Sunrise on a Martyr run; the bots judged Bear on the hero they were leaving.
+
+## Known gaps
+
+- **The bots barely use the Martyr's tools.** The Skilled bot rarely Bears (its Wards answer most big hits) and neither bot casts the Vow, so both are tuned by reasoning more than measurement.
+- **Two loadouts measured.** Heavier songs (Bastion, Anchor, Wide Choir) reserve more of her Life and leave her more fragile; they weren't swept.
+- **Calling mastery** (path tiers earned by playing a Calling) isn't in: every tier is open from the start.
+- Guardian's capstone leans to Martyr's Aegis (above).
