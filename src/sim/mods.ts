@@ -94,6 +94,37 @@ export interface Mods {
   eclipseVulnerability: number;
   /** The Crescendo's reach (null = content's). */
   crescendoRadiusMult: number | null;
+  // ── The Martyr (docs/phase-3d.md) ──
+  /** The Weaver's Life. */
+  lifeMult: number;
+  /** The songs reserve Life instead of Spirit. */
+  lifeReserve: boolean;
+  /** Bear: the share of the threaded hero's wounds the Weaver takes (0 = no Bear). */
+  bearShare: number;
+  /** Martyr's Vow replaces Sunrise (0 = Sunrise): its length, the share of the excess that comes to the Weaver, her healing received. */
+  vowDuration: number;
+  vowRedirect: number;
+  vowHealMult: number;
+  /** Penitence: Resonance for every 100 damage borne. */
+  penitencePer100: number;
+  /** Scarred Hide: the Weaver's damage taken while Bearing. */
+  bearDamageTaken: number;
+  /** Blood Font: share of reserved Life regenerated per second, below this share of Life. */
+  bloodFontPct: number;
+  bloodFontBelow: number;
+  /** Shared Wounds: share of every other hero-in-the-field's wounds taken while Bearing. */
+  sharedWounds: number;
+  /** Undying Devotion: seconds untouchable, and the Mend for every hero (0 = none). */
+  undyingInvulnerable: number;
+  undyingMendPct: number;
+  /** Low-Life Vigil: every aura × `vigilMult` while the Weaver is below `vigilBelow` of her Life. */
+  vigilBelow: number;
+  vigilMult: number;
+  /** Martyr's Aegis: Ward strength, and the Ward shields the Weaver too. */
+  aegisWardMult: number;
+  aegisSelf: boolean;
+  /** Sanguine Covenant: the Weaver heals for this share of what Mend heals. */
+  covenantPct: number;
 }
 
 export const NO_MODS: Mods = {
@@ -159,6 +190,24 @@ export const NO_MODS: Mods = {
   sovereignMinAuras: 0,
   eclipseVulnerability: 0,
   crescendoRadiusMult: null,
+  lifeMult: 1,
+  lifeReserve: false,
+  bearShare: 0,
+  vowDuration: 0,
+  vowRedirect: 0,
+  vowHealMult: 1,
+  penitencePer100: 0,
+  bearDamageTaken: 1,
+  bloodFontPct: 0,
+  bloodFontBelow: 0,
+  sharedWounds: 0,
+  undyingInvulnerable: 0,
+  undyingMendPct: 0,
+  vigilBelow: 0,
+  vigilMult: 1,
+  aegisWardMult: 1,
+  aegisSelf: false,
+  covenantPct: 0,
 };
 
 export function resolveMods(config: ResolvedSimConfig, content: Content): Mods {
@@ -284,6 +333,14 @@ function applyCalling(m: Mods, id: string, v: Values): void {
       m.sunriseRadianceMult = num(v, 'sunrise');
       m.fieldSongRadiusMult *= 1 + num(v, 'reach') / 100;
       break;
+    case 'martyr':
+      m.lifeMult *= 1 + num(v, 'life') / 100;
+      m.lifeReserve = true;
+      m.bearShare = num(v, 'bear') / 100;
+      m.vowDuration = num(v, 'vow');
+      m.vowRedirect = 1 - num(v, 'redirect') / 100;
+      m.vowHealMult = num(v, 'healing');
+      break;
     default:
       break;
   }
@@ -319,13 +376,41 @@ function applyCallingOption(m: Mods, id: string, v: Values): void {
       m.eclipseVulnerability = num(v, 'pct') / 100;
       m.crescendoRadiusMult = num(v, 'reach');
       break;
+    case 'penitence':
+      m.penitencePer100 = num(v, 'per');
+      break;
+    case 'scarred_hide':
+      m.bearDamageTaken = 1 - num(v, 'pct') / 100;
+      break;
+    case 'blood_font':
+      m.bloodFontPct = num(v, 'pct') / 100;
+      m.bloodFontBelow = num(v, 'below') / 100;
+      break;
+    case 'shared_wounds':
+      m.sharedWounds = num(v, 'pct') / 100;
+      break;
+    case 'undying_devotion':
+      m.undyingInvulnerable = num(v, 'seconds');
+      m.undyingMendPct = num(v, 'pct') / 100;
+      break;
+    case 'low_life_vigil':
+      m.vigilBelow = num(v, 'below') / 100;
+      m.vigilMult = 1 + num(v, 'pct') / 100;
+      break;
+    case 'martyrs_aegis':
+      m.aegisWardMult = 1 + num(v, 'pct') / 100;
+      m.aegisSelf = true;
+      break;
+    case 'sanguine_covenant':
+      m.covenantPct = num(v, 'pct') / 100;
+      break;
     default:
       break;
   }
 }
 
 /** Callings and path options the resolver knows (checked against content in tests). */
-export const KNOWN_CALLINGS: readonly string[] = ['luminary'];
+export const KNOWN_CALLINGS: readonly string[] = ['luminary', 'martyr'];
 export const KNOWN_CALLING_OPTIONS: readonly string[] = [
   'haloed',
   'wide_choir',
@@ -335,6 +420,14 @@ export const KNOWN_CALLING_OPTIONS: readonly string[] = [
   'lantern_bearer',
   'sovereign_symphony',
   'eclipse',
+  'penitence',
+  'scarred_hide',
+  'blood_font',
+  'shared_wounds',
+  'undying_devotion',
+  'low_life_vigil',
+  'martyrs_aegis',
+  'sanguine_covenant',
 ];
 
 type Values = Readonly<Record<string, number>>;

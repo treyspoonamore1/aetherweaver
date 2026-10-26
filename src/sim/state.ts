@@ -26,7 +26,8 @@ export type EntityId = number;
 
 export type EntityKind = 'weaver' | 'hero' | 'enemy' | 'dummy';
 export type Team = 'party' | 'enemy' | 'neutral';
-export type ThreadMode = 'mend' | 'empower';
+/** Mend, Empower, or (the Martyr's) Bear: the Weaver takes part of the hero's wounds. */
+export type ThreadMode = 'mend' | 'empower' | 'bear';
 /** How a hero positions relative to the Weaver, set by Directives. */
 export type FollowMode = 'follow' | 'hold' | 'scatter';
 export type TechniqueKey = 'ward' | 'chime' | 'reel' | 'glide';
@@ -102,6 +103,8 @@ export interface WeaverComponent {
   headingZ: number;
   threadSlot: PartySlot | null;
   threadMode: ThreadMode;
+  /** The mode Bear returns to (the Martyr). */
+  lastMode: 'mend' | 'empower';
   /** 0 = slack … 1 = about to snap. */
   threadTension: number;
   /** Seconds until the Thread can attach again after snapping. */
@@ -110,6 +113,15 @@ export interface WeaverComponent {
   maxSpirit: number;
   /** Spirit reserved by auras. Techniques can only use the rest. */
   reservedSpirit: number;
+  /**
+   * All of the Weaver's Life, reserved included (the Martyr's songs reserve Life:
+   * docs/phase-3d.md). `health.maxHp` is the usable part, `maxLife - reservedLife`; "below
+   * half your Life" counts against `maxLife`.
+   */
+  maxLife: number;
+  reservedLife: number;
+  /** Undying Devotion (the Martyr) is still unused this fight. */
+  undying: boolean;
   /** 0..100 in four segments of 25. */
   resonance: number;
   /** Seconds since Resonance was last gained (decay starts after a delay). */
@@ -453,6 +465,11 @@ export interface FieldState {
   /** The Weaver can't sing: downed, or standing in a Mute's dome. Every Chord is silent. */
   suppressed: boolean;
   crescendo: boolean;
+  /**
+   * Martyr's Vow is up (the Martyr's Crescendo, instead of Sunrise): heroes can't drop below 1
+   * life. `crescendo` stays false while it lasts.
+   */
+  vow: boolean;
   /** Safe zones during the Hollow Cantor's Silent Verse. */
   hymnCircles: { x: number; z: number; r: number }[];
 }
@@ -486,6 +503,10 @@ export type SaveCause =
   | 'fermata'
   /** Martyr's Veil: the Weaver took the blow instead. */
   | 'martyr'
+  /** The Martyr's Bear: the Weaver took enough of it for the hero to live. */
+  | 'bear'
+  /** Martyr's Vow: the hero couldn't drop below 1 life. */
+  | 'vow'
   | 'other';
 
 export interface SaveRecord {
@@ -539,8 +560,12 @@ export interface Ledger {
   auras: { healing: number; shielded: number; amplified: number };
   /** What the Thread did: Mend's healing and Empower's part of `amplified`. */
   thread: { healing: number; amplified: number };
-  /** What the Calling did (docs/phase-3c.md): Radiance and Eclipse's damage, Haloed's guard. */
-  calling: { amplified: number; shielded: number };
+  /**
+   * What the Calling did (docs/phase-3c.md, 3d.md): Radiance and Eclipse's damage; Haloed's guard
+   * and the life Bear, Shared Wounds and the Vow kept off heroes (`shielded`); the damage the
+   * Martyr took for them (`borne`).
+   */
+  calling: { amplified: number; shielded: number; borne: number };
   partyDamage: number;
   perfects: number;
   saves: SaveRecord[];
@@ -595,6 +620,10 @@ export interface CallingState {
   sunriseMult: number;
   /** Sovereign Symphony is in force: on the path, with enough auras across the songs. */
   sovereign: boolean;
+  /** The Calling's Crescendo: Sunrise, or the Martyr's Vow. */
+  crescendo: 'sunrise' | 'vow';
+  /** Bear's share of the threaded hero's wounds (0.35); 0 without the Martyr. */
+  bearShare: number;
 }
 
 export interface WorldState {

@@ -62,6 +62,7 @@ export function normalizeCommand(c: Command): Command | null {
     case 'cue':
       return isSlot(c.slot) ? { t: c.t, slot: c.slot } : null;
     case 'mode':
+      return c.mode === 'bear' ? { t: 'mode', mode: 'bear' } : { t: 'mode' };
     case 'crescendo':
       return { t: c.t };
     case 'tech': {

@@ -130,7 +130,9 @@ export class PrismScan {
     if (!this.carried) return this;
     const weaver = state.entities.get(state.weaverId);
     const w = weaver?.weaver;
+    // The Prism Loom spreads Mend and Empower; Bear (the Martyr) has nothing to spread.
     if (!w || !weaver.health || weaver.health.downed || w.threadSlot === null) return this;
+    if (w.threadMode === 'bear') return this;
     this.mode = w.threadMode;
     const threadedId = state.party[w.threadSlot];
     const threaded = threadedId === undefined ? undefined : state.entities.get(threadedId);

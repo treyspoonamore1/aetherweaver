@@ -626,6 +626,10 @@ export const CallingDefSchema = z
     text: z.string(),
     /** What it does to the Crescendo, with {value} placeholders. */
     crescendo: z.string(),
+    /** Its own Crescendo's name, when it replaces Sunrise (the Martyr's Vow). */
+    crescendoName: z.string().optional(),
+    /** What its songs reserve: Spirit, or Life (the Martyr). */
+    reserves: z.enum(['spirit', 'life']).default('spirit'),
     flavor: z.string(),
     values: ValuesSchema,
     /** The Weaver Rank that unlocks it. */

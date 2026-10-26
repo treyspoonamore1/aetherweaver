@@ -47,8 +47,11 @@ export type Command =
   | { t: 'aim'; x: number; z: number }
   /** Attach / retarget the Thread to a hero. */
   | { t: 'thread'; slot: PartySlot }
-  /** Toggle the Thread between Mend and Empower. */
-  | { t: 'mode' }
+  /**
+   * Toggle the Thread between Mend and Empower (from Bear: back to the mode Bear left). With
+   * `mode: 'bear'`, Bear on and off (the Martyr only; otherwise refused).
+   */
+  | { t: 'mode'; mode?: 'bear' }
   /**
    * Cast a technique. Ward and Reel target a hero (`slot`, else the threaded hero);
    * Chime lands at `point` (snapped to a hovered hero by the input layer).

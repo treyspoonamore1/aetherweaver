@@ -1,6 +1,12 @@
 import { CONTENT, arenaDef, encounterDef, heroDef } from '../content';
 import type { Content } from '../content/schema';
-import { canonicalChords, chordProblems, resolveChord, type ChordResolved } from './chords';
+import {
+  canonicalChords,
+  chordProblems,
+  resolveChord,
+  type ChordResolved,
+  type ReservePool,
+} from './chords';
 import type { AuraTotals } from './combat/auras';
 import type { DirectiveKind, PartySlot } from './commands';
 import { WORLD_HALF_EXTENT } from './constants';
@@ -144,6 +150,7 @@ export function resolveConfig(config: SimConfig, content: Content = CONTENT): Re
       );
   const problems = chordProblems(chords, content, {
     fieldAuraSlots: fieldAuraSlots(calling, content),
+    pool: reservePool(calling, content),
   });
   if (problems.length > 0) throw new Error(`Illegal Chords: ${problems.join(' ')}`);
   const motifs = (config.motifs ?? []).map((m) => {
@@ -217,6 +224,15 @@ export function fieldAuraSlots(
     slots += option?.values.slots ?? 0;
   }
   return slots;
+}
+
+/** What the songs reserve: Spirit, or Life when the Calling says so (the Martyr). */
+export function reservePool(
+  calling: Readonly<Required<CallingConfig>> | null,
+  content: Content = CONTENT,
+): ReservePool {
+  const def = calling ? content.callings.find((d) => d.id === calling.id) : undefined;
+  return def?.reserves ?? 'spirit';
 }
 
 /** A hit in flight (arrows, bolts, delayed blasts). Lands at `at`. */
@@ -367,7 +383,7 @@ export function emptyLedger(): Ledger {
     holds: 0,
     auras: { healing: 0, shielded: 0, amplified: 0 },
     thread: { healing: 0, amplified: 0 },
-    calling: { amplified: 0, shielded: 0 },
+    calling: { amplified: 0, shielded: 0, borne: 0 },
     timeline: [],
     markers: [],
   };
@@ -433,6 +449,7 @@ export function createWorld(config: SimConfig): World {
       })),
       suppressed: false,
       crescendo: false,
+      vow: false,
       hymnCircles: [],
     },
     encounter: {
@@ -465,6 +482,8 @@ export function createWorld(config: SimConfig): World {
       sovereign:
         mods.sovereignMult !== 1 &&
         loadout.reduce((n, c) => n + c.auras.length, 0) >= mods.sovereignMinAuras,
+      crescendo: mods.vowDuration > 0 ? 'vow' : 'sunrise',
+      bearShare: mods.bearShare,
     },
     config: resolved,
     content,
@@ -507,16 +526,19 @@ export function createWorld(config: SimConfig): World {
 
   const w = content.weaver;
   const maxSpirit = w.maxSpirit * mods.spiritMult;
-  const reserved = loadout.reduce(
+  // The share of a pool the songs hold: Spirit, or (the Martyr's) Life.
+  const share = loadout.reduce(
     (sum, c) =>
       sum +
       c.auras.reduce(
-        (s2, id) =>
-          s2 + (content.auras.find((a) => a.id === id)?.reserve ?? 0) * c.reserveMult * maxSpirit,
+        (s2, id) => s2 + (content.auras.find((a) => a.id === id)?.reserve ?? 0) * c.reserveMult,
         0,
       ),
     0,
   );
+  const reserved = mods.lifeReserve ? 0 : share * maxSpirit;
+  const maxLife = w.maxLife * mods.lifeMult;
+  const reservedLife = mods.lifeReserve ? share * maxLife : 0;
   // Combat starts on the near side of the arena (enemies come from the far side).
   const startZ = encounterDefn.kind === 'sandbox' ? 0 : arena.radius * 0.45;
   const weaver = world.entities.spawn('weaver', {
@@ -526,7 +548,7 @@ export function createWorld(config: SimConfig): World {
     speed: w.moveSpeed,
     mass: 0.15,
     team: 'party',
-    health: newHealth(w.maxLife, w.maxLife),
+    health: newHealth(maxLife - reservedLife, maxLife - reservedLife),
     weaver: {
       moveX: 0,
       moveZ: 0,
@@ -536,11 +558,15 @@ export function createWorld(config: SimConfig): World {
       headingZ: -1,
       threadSlot: null,
       threadMode: 'mend',
+      lastMode: 'mend',
       threadTension: 0,
       threadLock: 0,
       spirit: maxSpirit - reserved,
       maxSpirit,
       reservedSpirit: reserved,
+      maxLife,
+      reservedLife,
+      undying: mods.undyingInvulnerable > 0,
       resonance: Math.min(content.resonance.max, mods.startResonance),
       resonanceIdle: 0,
       cooldowns: { ward: 0, chime: 0, reel: 0, glide: 0 },

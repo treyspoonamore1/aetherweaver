@@ -20,6 +20,8 @@ import {
   canonicalChords,
   chordProblems,
   fieldAuraSlots as simFieldAuraSlots,
+  reservePool as simReservePool,
+  type ReservePool,
   type SaveCause,
   type SimConfig,
 } from '../sim';
@@ -152,12 +154,19 @@ export const CHORD_PRESETS: readonly {
 ];
 /**
  * Is this loadout legal? (The run only ever stores legal Chords.) `fieldAuraSlots`: the field
- * song's slots when the run's Calling adds one (`fieldAuraSlots(run)`).
+ * song's slots when the run's Calling adds one (`fieldAuraSlots(run)`); `pool`: what the songs
+ * reserve (`reservePool(run)`: Life on a Martyr run).
  */
-export function chordsLegal(chords: readonly ChordLoadout[], fieldAuraSlots?: number): boolean {
+export function chordsLegal(
+  chords: readonly ChordLoadout[],
+  fieldAuraSlots?: number,
+  pool: ReservePool = 'spirit',
+): boolean {
   return (
-    chordProblems(canonicalChords(chords), CONTENT, fieldAuraSlots ? { fieldAuraSlots } : {})
-      .length === 0
+    chordProblems(canonicalChords(chords), CONTENT, {
+      ...(fieldAuraSlots ? { fieldAuraSlots } : {}),
+      pool,
+    }).length === 0
   );
 }
 
@@ -166,8 +175,11 @@ export function chordsAllowed(
   chords: readonly ChordLoadout[],
   allowance: Allowance,
   fieldAuraSlots?: number,
+  pool: ReservePool = 'spirit',
 ): boolean {
-  return chordsLegal(chords, fieldAuraSlots) && lockedProblems(chords, allowance).length === 0;
+  return (
+    chordsLegal(chords, fieldAuraSlots, pool) && lockedProblems(chords, allowance).length === 0
+  );
 }
 
 /** The run's Calling as the sim takes it: the options chosen so far. */
@@ -179,6 +191,11 @@ function simCalling(run: RunState): { id: string; path: string[] } | null {
 /** Auras the field song can hold in this run (the Luminary's Third Voice adds one). */
 export function fieldAuraSlots(run: RunState): number {
   return simFieldAuraSlots(simCalling(run));
+}
+
+/** What this run's songs reserve: Spirit, or Life on a Martyr run (docs/phase-3d.md). */
+export function reservePool(run: RunState): ReservePool {
+  return simReservePool(simCalling(run));
 }
 
 /**
@@ -440,7 +457,11 @@ export function setChords(
   chords: readonly ChordLoadout[],
   allowance: Allowance = EVERYTHING,
 ): RunState {
-  if (run.phase !== 'prep' || !chordsAllowed(chords, allowance, fieldAuraSlots(run))) return run;
+  if (
+    run.phase !== 'prep' ||
+    !chordsAllowed(chords, allowance, fieldAuraSlots(run), reservePool(run))
+  )
+    return run;
   return { ...run, chords: canonicalChords(chords) };
 }
 
@@ -450,7 +471,11 @@ export function retune(
   chords: readonly ChordLoadout[],
   allowance: Allowance = EVERYTHING,
 ): RunState {
-  if (run.phase !== 'respite' || !chordsAllowed(chords, allowance, fieldAuraSlots(run))) return run;
+  if (
+    run.phase !== 'respite' ||
+    !chordsAllowed(chords, allowance, fieldAuraSlots(run), reservePool(run))
+  )
+    return run;
   return { ...run, chords: canonicalChords(chords), phase: 'map', pending: null };
 }
 
@@ -460,11 +485,13 @@ export function retune(
  */
 export function embark(run: RunState, allowance: Allowance = EVERYTHING): RunState {
   if (run.phase !== 'prep') return run;
-  const chords = chordsAllowed(run.chords, allowance)
+  const calling = run.calling && allowance.callings.has(run.calling.id) ? run.calling : null;
+  const next = { ...run, calling };
+  // Songs the Calling's pool can't hold (the Martyr's Life) fall back to the defaults too.
+  const chords = chordsAllowed(run.chords, allowance, fieldAuraSlots(next), reservePool(next))
     ? run.chords
     : DEFAULT_CHORDS.map((c) => ({ auras: [...c.auras], ornaments: [...c.ornaments] }));
-  const calling = run.calling && allowance.callings.has(run.calling.id) ? run.calling : null;
-  return { ...run, chords, calling, phase: 'map' };
+  return { ...next, chords, phase: 'map' };
 }
 
 /**
@@ -642,7 +669,11 @@ export function pickCalling(
   let next: RunState = { ...run, calling: { ...run.calling, path }, callingOffer: null };
   // Only an option that grants a slot (Third Voice) comes with its free retune.
   const grantsSlot = (callingOption(id).values.slots ?? 0) > 0;
-  if (chords && grantsSlot && chordsAllowed(chords, allowance, fieldAuraSlots(next)))
+  if (
+    chords &&
+    grantsSlot &&
+    chordsAllowed(chords, allowance, fieldAuraSlots(next), reservePool(next))
+  )
     next = { ...next, chords: canonicalChords(chords) };
   const node = run.pending ? findNode(run, run.pending) : undefined;
   return node ? relicThenRewards(next, node) : toMap(next);
@@ -924,7 +955,8 @@ export function forge(
       };
       break;
     case 'retune':
-      if (!chordsAllowed(choice.chords, allowance, fieldAuraSlots(run))) return run;
+      if (!chordsAllowed(choice.chords, allowance, fieldAuraSlots(run), reservePool(run)))
+        return run;
       next = { ...run, chords: canonicalChords(choice.chords) };
       break;
   }
@@ -976,7 +1008,11 @@ export function chooseEvent(
   }
   const effects = [...ch.effects, ...ch.fail];
   if (effects.some((e) => e.kind === 'retune')) {
-    if (!opts.chords || !chordsAllowed(opts.chords, allowance, fieldAuraSlots(run))) return run;
+    if (
+      !opts.chords ||
+      !chordsAllowed(opts.chords, allowance, fieldAuraSlots(run), reservePool(run))
+    )
+      return run;
   }
   const rng = rngFor(run.seed, `event:${event.nodeId}:${choiceId}`);
   const won = ch.chance === undefined ? null : rng.float() < ch.chance;
@@ -1319,6 +1355,8 @@ const SAVE_HOW: Record<SaveCause, string> = {
   dome: 'under Kael’s dome',
   fermata: 'through Fermata',
   martyr: 'by taking the blow yourself',
+  bear: 'by bearing the wound with them',
+  vow: 'through your Vow',
   other: '',
 };
 

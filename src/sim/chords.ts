@@ -97,8 +97,11 @@ export function chordReserve(chords: readonly ChordLoadout[], content: Content =
 export function chordProblems(
   chords: readonly ChordLoadout[],
   content: Content = CONTENT,
-  /** The field song's aura slots, when a Calling adds one (the Luminary's Third Voice). */
-  opts: { fieldAuraSlots?: number } = {},
+  /**
+   * `fieldAuraSlots`: the field song's aura slots, when a Calling adds one (the Luminary's Third
+   * Voice). `pool`: what the songs reserve, Spirit or (the Martyr's) Life.
+   */
+  opts: { fieldAuraSlots?: number; pool?: ReservePool } = {},
 ): string[] {
   const w = content.weaver;
   const problems: string[] = [];
@@ -141,10 +144,19 @@ export function chordProblems(
       }
     }
   });
-  if (chordReserve(chords, content) > 1 + 1e-9)
+  if (opts.pool === 'life') {
+    if (chordReserve(chords, content) > LIFE_RESERVE_CAP + 1e-9)
+      problems.push('Your songs would leave you less than a tenth of your Life.');
+  } else if (chordReserve(chords, content) > 1 + 1e-9)
     problems.push('Your songs reserve more Spirit than you have.');
   return problems;
 }
+
+/** What the songs reserve: Spirit, or Life on a Martyr run (docs/phase-3d.md). */
+export type ReservePool = 'spirit' | 'life';
+
+/** The most Life songs may reserve: the Weaver keeps at least a tenth of it. */
+export const LIFE_RESERVE_CAP = 0.9;
 
 /** "Chord I", "Chord II"… */
 export function chordLabel(index: number): string {

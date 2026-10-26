@@ -124,6 +124,11 @@ export function updateField(world: World, dt: number): void {
   const effectMult = f.crescendo ? content.crescendo.auraEffectMult : 1;
   // Sovereign Symphony (the Luminary): enough auras across the songs make every one stronger.
   const sovereign = world.calling?.sovereign ? world.mods.sovereignMult : 1;
+  // Low-Life Vigil (the Martyr): below a share of her Life, every aura is stronger.
+  const vigil =
+    world.mods.vigilMult !== 1 && weaver.health!.hp < w.maxLife * world.mods.vigilBelow
+      ? world.mods.vigilMult
+      : 1;
   const thread = threadedHero(world, weaver);
   const mult = world.scratch.auraMult;
   const focus = world.scratch.auraFocus;
@@ -156,7 +161,7 @@ export function updateField(world: World, dt: number): void {
       // that's its echo: the beam's pour into the threaded hero isn't a field.
       const planted = chord.anchor === 'planted' ? world.mods.plantedEffectMult : 1;
       const beam = chord.role === 'beam';
-      mult[index] = chord.effectMult * effectMult * (beam ? 1 : planted) * sovereign;
+      mult[index] = chord.effectMult * effectMult * (beam ? 1 : planted) * sovereign * vigil;
       focus[index] = chord.focus;
       echo[index] = chord.echo * (beam ? planted : 1);
     }

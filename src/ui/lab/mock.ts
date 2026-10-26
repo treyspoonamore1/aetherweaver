@@ -883,8 +883,9 @@ export function fakeOutcome(
       ? {
           amplified: 380 * scale * (1 + taken) * (path.includes('searing_hymns') ? 1.8 : 1),
           shielded: path.includes('haloed') ? 140 * scale : 0,
+          borne: 0,
         }
-      : { amplified: 0, shielded: 0 },
+      : { amplified: 0, shielded: 0, borne: 0 },
     healing: 4200 * scale,
     overheal: 900 * scale,
     shielded: 2100 * scale,

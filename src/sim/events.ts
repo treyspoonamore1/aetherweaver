@@ -1,5 +1,5 @@
 /**
- * CONTRACT v6 — Events are the only way out of the simulation (docs/plan/05 §4.5).
+ * CONTRACT v7 — Events are the only way out of the simulation (docs/plan/05 §4.5).
  *
  * The sim buffers events during a tick; render, audio, UI, the ledger and achievements
  * drain them after the step. Nothing polls the sim for "did X happen". Every event carries
@@ -106,7 +106,8 @@ export interface HealApplied extends At {
   source: EntityId | null;
   amount: number;
   overheal: number;
-  via: 'mend' | 'chime' | 'aura' | 'revive' | 'solo' | 'other';
+  /** `self`: the Martyr healing herself (Blood Font, Sanguine Covenant). */
+  via: 'mend' | 'chime' | 'aura' | 'revive' | 'solo' | 'self' | 'other';
 }
 export interface ShieldApplied extends At {
   type: 'shieldApplied';
@@ -361,6 +362,23 @@ export interface Dawnward extends At {
   amount: number;
 }
 
+/**
+ * The Martyr (docs/phase-3d.md): life a hero would have lost went to the Weaver instead. `via`:
+ * Bear on the threaded hero, Shared Wounds on another hero in the field, or the Vow holding a
+ * hero at 1 life. `amount` is what came to the Weaver, before her own shields and armour.
+ */
+export interface Borne extends At {
+  type: 'borne';
+  hero: EntityId;
+  amount: number;
+  via: 'bear' | 'shared' | 'vow';
+}
+
+/** Undying Devotion (the Martyr): a hit that would have downed the Weaver didn't. */
+export interface Undying extends At {
+  type: 'undying';
+}
+
 // ── Call and Response (docs/phase-2.md) ───────────────────────────────────────────────
 /** A hero calls for a specific kind of support before a big move. */
 export interface CallStarted extends At {
@@ -534,6 +552,8 @@ export type SimEvent =
   | FermataReleased
   | RelicTriggered
   | Dawnward
+  | Borne
+  | Undying
   | CallStarted
   | CallAnswered
   | CallEnded

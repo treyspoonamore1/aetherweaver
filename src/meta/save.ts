@@ -7,7 +7,7 @@ import { z } from 'zod';
 import { CONTENT } from '../content';
 import { chordProblems } from '../sim';
 import { FIGHT_AETHER, RELIC_OFFERS } from './economy';
-import { fieldAuraSlots } from './run';
+import { fieldAuraSlots, reservePool } from './run';
 import { newProfile, PROFILE_VERSION, type Profile } from './profile';
 import { RUN_SAVE_VERSION, type RunState } from './types';
 
@@ -444,7 +444,12 @@ export function compatibleWithContent(run: RunState): boolean {
       (id, tier) => id === null || def.tiers[tier]!.options.some((o) => o.id === id),
     );
     if (!ok) return false;
-    if (chordProblems(run.chords, CONTENT, { fieldAuraSlots: fieldAuraSlots(run) }).length > 0)
+    if (
+      chordProblems(run.chords, CONTENT, {
+        fieldAuraSlots: fieldAuraSlots(run),
+        pool: reservePool(run),
+      }).length > 0
+    )
       return false;
   }
   if (

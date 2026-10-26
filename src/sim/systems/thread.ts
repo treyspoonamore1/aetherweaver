@@ -50,9 +50,21 @@ function silverThimble(world: World, hero: Entity): void {
   relicFired(world, 'silver_thimble', hero.id);
 }
 
-export function toggleThreadMode(world: World): void {
+/**
+ * Mend ⇄ Empower, or (with `'bear'`, the Martyr only) Bear on and off. Bear returns to the
+ * mode it left; so does a plain toggle made while Bearing.
+ */
+export function toggleThreadMode(world: World, mode?: 'bear'): void {
   const w = weaverOf(world).weaver!;
-  w.threadMode = w.threadMode === 'mend' ? 'empower' : 'mend';
+  if (mode === 'bear') {
+    if (world.mods.bearShare <= 0) return reject(world, 'thread', 'locked');
+    if (w.threadMode === 'bear') w.threadMode = w.lastMode;
+    else {
+      w.lastMode = w.threadMode;
+      w.threadMode = 'bear';
+    }
+  } else if (w.threadMode === 'bear') w.threadMode = w.lastMode;
+  else w.threadMode = w.threadMode === 'mend' ? 'empower' : 'mend';
   world.events.push({ type: 'threadModeChanged', tick: world.tick, mode: w.threadMode });
 }
 
@@ -83,6 +95,9 @@ function mendHero(world: World, hero: Entity, amount: number): void {
   const c = hero.hero!;
   const healed = heal(world, hero, amount, 'mend', false);
   c.mendHealAcc += healed;
+  // Sanguine Covenant (the Martyr): Mend heals the Weaver too.
+  if (healed > 0 && world.mods.covenantPct > 0)
+    heal(world, weaverOf(world), healed * world.mods.covenantPct, 'self', false);
   if (c.mendHealAcc > 0 && world.tick % Math.round(MEND_FLUSH * 60) === 0) {
     world.events.push({
       type: 'healApplied',
@@ -174,7 +189,11 @@ export function updateThread(world: World, dt: number): void {
         mendHero(world, other, share);
       }
     }
-  } else if (c.action === 'attacking' || c.action === 'casting' || c.soloActive > 0) {
+  } else if (
+    w.threadMode === 'empower' &&
+    (c.action === 'attacking' || c.action === 'casting' || c.soloActive > 0)
+  ) {
     gainResonance(world, world.content.resonance.gains.empowerPerSec * dt, 'empower', true);
   }
+  // Bear works in the damage code (combat/health.ts `bearShareOf`).
 }

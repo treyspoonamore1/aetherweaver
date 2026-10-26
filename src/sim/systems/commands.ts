@@ -31,7 +31,7 @@ export function applyCommands(world: World, commands: readonly Command[]): void 
         attachThread(world, c.slot);
         break;
       case 'mode':
-        toggleThreadMode(world);
+        toggleThreadMode(world, c.mode);
         break;
       case 'tech':
         if (c.id === 'ward') castWard(world, c.slot);

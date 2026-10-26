@@ -31,7 +31,7 @@ export function newProfile(): Profile {
 // ── Ranks ─────────────────────────────────────────────────────────────────────────────
 
 /** Total XP needed for each Rank: RANK_XP[r - 1] reaches Rank r. */
-export const RANK_XP: readonly number[] = [0, 40, 200, 450, 800, 1250, 1800];
+export const RANK_XP: readonly number[] = [0, 40, 200, 450, 800, 1250, 1800, 2500];
 /** The highest Rank for now (the Loom adds more in Phase 4; XP keeps counting). */
 export const MAX_RANK = RANK_XP.length;
 

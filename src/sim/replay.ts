@@ -18,7 +18,7 @@ const CommandSchemaRaw = z.discriminatedUnion('t', [
   z.object({ t: z.literal('move'), x: z.number(), z: z.number() }).strict(),
   z.object({ t: z.literal('aim'), x: z.number(), z: z.number() }).strict(),
   z.object({ t: z.literal('thread'), slot: SlotSchema }).strict(),
-  z.object({ t: z.literal('mode') }).strict(),
+  z.object({ t: z.literal('mode'), mode: z.literal('bear').optional() }).strict(),
   z
     .object({
       t: z.literal('tech'),
@@ -106,7 +106,7 @@ void configSchemaMatches;
 export const ReplaySchema = z
   .object({
     format: z.literal('aetherweaver-replay'),
-    version: z.literal(5),
+    version: z.literal(6),
     simVersion: z.number().int(),
     contentVersion: z.string(),
     config: SimConfigSchema,
@@ -152,7 +152,7 @@ export class ReplayRecorder {
   export(finalTick: number, finalHash: string): Replay {
     return {
       format: 'aetherweaver-replay',
-      version: 5,
+      version: 6,
       simVersion: SIM_VERSION,
       contentVersion: CONTENT_VERSION,
       config: JSON.parse(JSON.stringify(this.config)) as ResolvedSimConfig,

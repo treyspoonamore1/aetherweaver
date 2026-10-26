@@ -213,7 +213,8 @@ export function cleanseAilments(world: World, target: Entity): number {
   return removed;
 }
 
-export type HealVia = 'mend' | 'chime' | 'aura' | 'revive' | 'solo' | 'other';
+/** `self`: the Martyr healing herself (Blood Font, Sanguine Covenant), not support. */
+export type HealVia = 'mend' | 'chime' | 'aura' | 'revive' | 'solo' | 'self' | 'other';
 
 /**
  * Heals `target`. Weaver healing (everything except hero Solos) counts in the ledger and
@@ -228,6 +229,8 @@ export function heal(
 ): number {
   const h = target.health;
   if (!h || h.dead || h.downed || amount <= 0) return 0;
+  // Martyr's Vow: the Weaver's healing received is doubled while it lasts.
+  if (target.weaver && world.field.vow) amount *= world.mods.vowHealMult;
   const effective = Math.min(amount, h.maxHp - h.hp);
   const overheal = amount - effective;
   h.hp += effective;
@@ -237,7 +240,7 @@ export function heal(
     if (via === 'mend' || via === 'chime' || via === 'other')
       hold.savedBy = via === 'chime' ? 'chime' : via === 'mend' ? 'mend' : 'other';
   }
-  if (via !== 'solo' && target.team === 'party') {
+  if (via !== 'solo' && via !== 'self' && target.team === 'party') {
     world.ledger.healing += effective;
     world.ledger.overheal += overheal;
     if (via === 'aura') world.ledger.auras.healing += effective;
@@ -291,6 +294,8 @@ export interface DamageResult {
   downed: boolean;
   /** Martyr's Veil took this hit for the hero (a Save is already recorded). */
   martyred: boolean;
+  /** This hit's Save is already logged (Martyr's Veil, the Martyr's Bear or Vow). */
+  saved: boolean;
 }
 
 const NO_DAMAGE: DamageResult = {
@@ -302,6 +307,7 @@ const NO_DAMAGE: DamageResult = {
   blocked: true,
   downed: false,
   martyred: false,
+  saved: false,
 };
 
 /** Deals damage through armour and shields, then handles downs, deaths, threat and the ledger. */
@@ -341,6 +347,8 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
     }
   }
   const amountIn = amount;
+  // Scarred Hide (the Martyr): the Weaver takes less while she Bears.
+  if (target.weaver?.threadMode === 'bear') amount *= world.mods.bearDamageTaken;
   // Armour only softens ordinary hits; telegraphed attacks are answered, not soaked.
   if (target.hero && !opts.telegraph) amount *= 1 - heroDef(target.hero.defId).armor;
   // Fermata: heroes low on life take less from everything.
@@ -394,8 +402,27 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
     }
   }
 
+  // The Martyr (docs/phase-3d.md): Bear and Shared Wounds send part of what got through to the
+  // Weaver; the Vow holds a hero at 1 life and sends her the rest, softened.
+  const hpBefore = h.hp;
+  let borne = 0;
+  let borneVia: 'bear' | 'shared' = 'bear';
+  if (target.hero && amount > 0 && world.mods.bearShare > 0) {
+    const bear = bearShareOf(world, target);
+    if (bear.share > 0) {
+      borne = amount * bear.share;
+      borneVia = bear.via;
+      amount -= borne;
+    }
+  }
+  let vowExcess = 0;
+  if (target.hero && world.field.vow && amount > 0 && amount >= h.hp) {
+    vowExcess = amount - Math.max(0, h.hp - 1);
+    amount -= vowExcess;
+  }
   let dealt = Math.min(h.hp, amount);
   let martyred = false;
+  let saved = false;
   if (target.hero && dealt >= h.hp && dealt > 0) {
     // Fermata holds a lethal hit at 1 HP (once per encounter); a held hero can't drop below 1.
     if (!target.hero.hold && !target.hero.fermataUsed && fx && fx.holdTime > 0)
@@ -404,7 +431,12 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
     else if (world.relics.veil && martyr(world, target, amount, opts)) {
       dealt = 0;
       martyred = true;
+      saved = true;
     }
+  }
+  if (target.weaver?.undying && dealt >= h.hp && dealt > 0) {
+    dealt = Math.max(0, h.hp - 1);
+    undying(world, target);
   }
   h.hp -= dealt;
   h.lastHitAt = world.time;
@@ -421,8 +453,29 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
   }
   if (haloed > 0) {
     const kept = Math.min(haloed, keptLife);
+    keptLife -= kept;
     world.ledger.shielded += kept;
     world.ledger.calling.shielded += kept;
+  }
+  if (borne > 0 || vowExcess > 0) {
+    // What the Martyr took for the hero: credited with the life it kept; a Save if it was the
+    // difference between standing and falling.
+    const kept = Math.min(borne + vowExcess, keptLife);
+    world.ledger.shielded += kept;
+    world.ledger.calling.shielded += kept;
+    const lethal = dealt + borne + vowExcess >= hpBefore && h.hp > 0;
+    if (lethal && target.hero && !target.hero.hold && !martyred) {
+      recordSave(
+        world,
+        target,
+        vowExcess > 0 ? 'vow' : 'bear',
+        borne + vowExcess + dealt,
+        opts.sourceName,
+      );
+      saved = true;
+    }
+    if (borne > 0) sendToWeaver(world, target, borne, borneVia, opts);
+    if (vowExcess > 0) sendToWeaver(world, target, vowExcess * world.mods.vowRedirect, 'vow', opts);
   }
 
   const total = dealt + absorbed;
@@ -488,6 +541,7 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
     blocked: false,
     downed,
     martyred,
+    saved,
   };
 }
 
@@ -763,6 +817,64 @@ export function killEnemy(world: World, e: Entity, killer: Entity | null): void 
   onEnemyDeath(world, e);
   world.entities.despawn(e.id);
   world.events.push({ type: 'entityDespawned', tick: world.tick, id: e.id, kind: 'enemy' });
+}
+
+/**
+ * Bear (the Martyr): the share of `hero`'s wounds the Weaver takes right now — the threaded hero
+ * at Bear's share (less as the Thread pulls taut), every other hero in a field at Shared
+ * Wounds'. 0 when not Bearing, or the Weaver is down.
+ */
+export function bearShareOf(world: World, hero: Entity): { share: number; via: 'bear' | 'shared' } {
+  const weaver = world.entities.get(world.weaverId);
+  const w = weaver?.weaver;
+  if (!w || w.threadMode !== 'bear' || w.threadSlot === null || weaver!.health!.downed)
+    return { share: 0, via: 'bear' };
+  if (world.party[w.threadSlot] === hero.id) {
+    const potency = 1 - w.threadTension * (1 - world.content.thread.tautPotency);
+    return { share: world.mods.bearShare * potency, via: 'bear' };
+  }
+  return { share: hero.hero?.inField ? world.mods.sharedWounds : 0, via: 'shared' };
+}
+
+/** Life a hero would have lost goes to the Weaver: through her own shields and Scarred Hide. */
+function sendToWeaver(
+  world: World,
+  hero: Entity,
+  amount: number,
+  via: 'bear' | 'shared' | 'vow',
+  opts: DamageOpts,
+): void {
+  const weaver = world.entities.get(world.weaverId);
+  if (!weaver?.health || amount <= 0) return;
+  world.events.push({ type: 'borne', tick: world.tick, hero: hero.id, amount, via });
+  world.ledger.calling.borne += amount;
+  // Penitence: what she bears fills Resonance.
+  if (world.mods.penitencePer100 > 0)
+    gainResonance(world, (amount / 100) * world.mods.penitencePer100, 'penitence');
+  dealDamage(world, weaver, {
+    source: opts.source,
+    sourceName: opts.sourceName,
+    amount,
+    telegraph: null,
+    kind: opts.kind,
+  });
+}
+
+/**
+ * Undying Devotion (the Martyr): once a fight, the hit that would have downed the Weaver leaves
+ * her at 1 life, untouchable for a moment, and Mends every hero.
+ */
+function undying(world: World, weaver: Entity): void {
+  weaver.weaver!.undying = false;
+  weaver.health!.invulnerable = Math.max(
+    weaver.health!.invulnerable,
+    world.mods.undyingInvulnerable,
+  );
+  for (const id of world.party) {
+    const hero = world.entities.get(id);
+    if (isActive(hero)) heal(world, hero, hero.health.maxHp * world.mods.undyingMendPct, 'mend');
+  }
+  world.events.push({ type: 'undying', tick: world.tick });
 }
 
 /** Hook installed by the enemy system (volatile bursts) to avoid an import cycle. */

@@ -1,4 +1,5 @@
 import { len, rotateToward } from '../core/dmath';
+import { heal } from '../combat/health';
 import { decayResonance } from '../combat/resonance';
 import type { TechniqueKey } from '../state';
 import { weaverOf, type World } from '../world';
@@ -62,6 +63,10 @@ export function updateWeaver(world: World, dt: number): void {
     );
   }
 
+  // Blood Font (the Martyr): below a share of her Life, what her songs reserve regenerates her.
+  if (world.mods.bloodFontPct > 0 && !h.downed && h.hp < w.maxLife * world.mods.bloodFontBelow)
+    heal(world, e, w.reservedLife * world.mods.bloodFontPct * dt, 'self', false);
+
   // Cooldowns. Ward recharges one charge at a time.
   for (const key of TECHNIQUES) {
     if (w.cooldowns[key] <= 0) continue;
@@ -80,6 +85,7 @@ export function updateWeaver(world: World, dt: number): void {
     w.crescendo = Math.max(0, w.crescendo - dt);
     if (w.crescendo === 0) {
       world.field.crescendo = false;
+      world.field.vow = false;
       world.events.push({ type: 'crescendoEnd', tick: world.tick });
       if (world.mods.daCapo > 0)
         w.resonance = Math.min(world.content.resonance.max, world.mods.daCapo);

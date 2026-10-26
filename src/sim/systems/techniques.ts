@@ -82,9 +82,14 @@ export function castWard(world: World, slot: PartySlot | undefined): void {
     w.cooldowns.ward = def.cooldown;
     w.cooldownTotals.ward = def.cooldown;
   }
-  const amount =
-    (hero.health!.maxHp * def.barrierPct + def.barrierFlat) * world.mods.wardBarrierMult;
+  const strength = world.mods.wardBarrierMult * world.mods.aegisWardMult;
+  const amount = (hero.health!.maxHp * def.barrierPct + def.barrierFlat) * strength;
   addShield(world, hero, 'ward', amount, def.duration + world.mods.wardDurationBonus, true);
+  // Martyr's Aegis: each Ward shields the Weaver too, sized from her own Life.
+  if (world.mods.aegisSelf) {
+    const self = (weaver.health!.maxHp * def.barrierPct + def.barrierFlat) * strength;
+    addShield(world, weaver, 'ward', self, def.duration + world.mods.wardDurationBonus, true);
+  }
   world.events.push({
     type: 'techniqueCast',
     tick: world.tick,
@@ -382,18 +387,29 @@ export function crescendo(world: World): void {
   if (w.resonance + 1e-9 < world.content.resonance.crescendoCost)
     return reject(world, 'crescendo', 'resonance');
   spendResonance(world, world.content.resonance.crescendoCost, 'crescendo');
-  w.crescendo = def.duration + world.mods.encoreBonus;
-  world.field.crescendo = true;
   world.ledger.crescendos++;
   pushMarker(world, 'crescendo', null);
-  for (const id of world.party) {
-    const hero = world.entities.get(id);
-    if (isActive(hero)) heal(world, hero, hero.health.maxHp * def.healPct, 'other');
+  // The Martyr's Vow replaces Sunrise (docs/phase-3d.md): no aura surge and no heal; heroes
+  // can't drop below 1 life while it lasts (combat/health.ts).
+  const vow = world.mods.vowDuration > 0;
+  if (vow) {
+    w.crescendo = world.mods.vowDuration + world.mods.encoreBonus;
+    world.field.vow = true;
+  } else {
+    w.crescendo = def.duration + world.mods.encoreBonus;
+    world.field.crescendo = true;
+    for (const id of world.party) {
+      const hero = world.entities.get(id);
+      if (isActive(hero)) heal(world, hero, hero.health.maxHp * def.healPct, 'other');
+    }
   }
+  const calling = world.config.calling
+    ? world.content.callings.find((c) => c.id === world.config.calling!.id)
+    : undefined;
   world.events.push({
     type: 'crescendoStart',
     tick: world.tick,
-    calling: def.name,
+    calling: (vow && calling?.crescendoName) || def.name,
     duration: w.crescendo,
   });
   setTimeScale(world, 0.5, 12, 'crescendo');
