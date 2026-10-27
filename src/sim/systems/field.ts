@@ -37,7 +37,11 @@ function collectDomes(world: World): void {
   }
 }
 
+/** Unbroken Chorus (the Astrolabe): Mutes can't crack the fields or silence the Weaver. */
+let unbroken = false;
+
 function inDome(e: Entity): boolean {
+  if (unbroken) return false;
   for (let i = 0; i < domes.length; i += 3) {
     const r = domes[i + 2]!;
     if (distSq(e.x, e.z, domes[i]!, domes[i + 1]!) <= r * r) return true;
@@ -110,6 +114,7 @@ export function updateField(world: World, dt: number): void {
   f.x = weaver.x;
   f.z = weaver.z;
 
+  unbroken = world.mods.unsuppressible;
   collectDomes(world);
   f.suppressed = world.config.absent || weaver.health!.downed || inDome(weaver);
 
@@ -129,6 +134,9 @@ export function updateField(world: World, dt: number): void {
     world.mods.vigilMult !== 1 && weaver.health!.hp < w.maxLife * world.mods.vigilBelow
       ? world.mods.vigilMult
       : 1;
+  // The Astrolabe: Choir's aura effect, and Unbroken Chorus's for every aura beyond the second.
+  const extra = Math.max(0, world.loadout.reduce((n, c) => n + c.auras.length, 0) - 2);
+  const astro = world.mods.auraEffectMult * (1 + world.mods.auraPerExtra * extra);
   const thread = threadedHero(world, weaver);
   const mult = world.scratch.auraMult;
   const focus = world.scratch.auraFocus;
@@ -161,8 +169,10 @@ export function updateField(world: World, dt: number): void {
       // that's its echo: the beam's pour into the threaded hero isn't a field.
       const planted = chord.anchor === 'planted' ? world.mods.plantedEffectMult : 1;
       const beam = chord.role === 'beam';
-      mult[index] = chord.effectMult * effectMult * (beam ? 1 : planted) * sovereign * vigil;
-      focus[index] = chord.focus;
+      mult[index] =
+        chord.effectMult * effectMult * (beam ? 1 : planted) * sovereign * vigil * astro;
+      // Resonant Thread (the Astrolabe): the beam pours stronger into the threaded hero.
+      focus[index] = chord.focus * (beam ? world.mods.beamFocusMult : 1);
       echo[index] = chord.echo * (beam ? planted : 1);
     }
   }

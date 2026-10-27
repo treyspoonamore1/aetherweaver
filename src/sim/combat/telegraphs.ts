@@ -386,10 +386,14 @@ function perfect(
   const weaver = world.entities.get(world.weaverId);
   if (weaver?.weaver) {
     const w = weaver.weaver;
-    w.spirit = Math.min(w.maxSpirit - w.reservedSpirit, w.spirit + tech.cost * tech.perfectRefund);
+    const refund = tech.cost * world.mods.techCostMult * tech.perfectRefund;
+    // Eldritch Conduit (the Astrolabe): what was paid in Life comes back as Life.
+    if (world.mods.techniquesCostLife) w.selfHealAcc += heal(world, weaver, refund, 'self', false);
+    else w.spirit = Math.min(w.maxSpirit - w.reservedSpirit, w.spirit + refund);
   }
+  // Ringing Parry (the Astrolabe): a longer stagger.
   if (owner?.health && !owner.health.dead)
-    addStatus(world, owner, 'stagger', tech.staggerTime, world.weaverId);
+    addStatus(world, owner, 'stagger', tech.staggerTime * world.mods.staggerMult, world.weaverId);
   world.events.push({
     type: 'perfectWard',
     tick: world.tick,
@@ -398,7 +402,11 @@ function perfect(
     negated: damage,
   });
   emitResolved(world, t, e.id, 'perfect', 0);
-  gainResonance(world, world.content.resonance.gains.perfectWard, 'perfect ward');
+  gainResonance(
+    world,
+    world.content.resonance.gains.perfectWard + world.mods.perfectResonance,
+    'perfect ward',
+  );
   // Eternal Moment: a Ward cast during Stasis that turned out Perfect.
   if (ward.stasis && world.mods.stasisPerfectResonance > 0)
     gainResonance(world, world.mods.stasisPerfectResonance, 'eternal moment');

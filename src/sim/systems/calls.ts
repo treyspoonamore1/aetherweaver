@@ -101,7 +101,12 @@ export function answerCall(world: World, e: Entity, how: CallAnswer): void {
   call.answered = true;
   world.ledger.responses++;
   pushMarker(world, 'response', hero.slot);
-  gainResonance(world, world.content.resonance.gains.response, 'response');
+  // Ready Answer (the Astrolabe): more for answering.
+  gainResonance(
+    world,
+    world.content.resonance.gains.response + world.mods.responseBonus,
+    'response',
+  );
   const def = heroDef(hero.defId);
   if (hero.cast && hero.cast.ability === call.ability) {
     hero.cast.flourish = true;

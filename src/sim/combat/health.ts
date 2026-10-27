@@ -4,6 +4,7 @@
  */
 import { heroDef } from '../../content';
 import type { PartySlot } from '../commands';
+import { distSq } from '../core/dmath';
 import type {
   Entity,
   EntityId,
@@ -84,6 +85,39 @@ export function ownShield(h: Health): number {
 }
 
 /** Adds (or replaces) a shield of one kind. One shield per kind per entity. */
+/** Close Ranks: another hero standing within reach of `hero`. */
+function nearAlly(world: World, hero: Entity): boolean {
+  const r = world.mods.closeRanksRadius;
+  for (const id of world.party) {
+    const other = world.entities.get(id);
+    if (!other || other.id === hero.id || !isActive(other)) continue;
+    if (distSq(hero.x, hero.z, other.x, other.z) <= r * r) return true;
+  }
+  return false;
+}
+
+/**
+ * Overflowing Grace: Mend's overheal tops up a shield on the hero, up to a share of their life,
+ * lasting a few seconds from the last top-up. A hero's own overshield (an uncued Aegis Wall)
+ * is theirs to keep.
+ */
+function graceShield(world: World, hero: Entity, overheal: number): void {
+  const h = hero.health!;
+  const cap = h.maxHp * world.mods.graceShieldPct;
+  const existing = shieldOf(h, 'overshield');
+  if (existing && !existing.fromWeaver) return;
+  if (existing) {
+    if (existing.amount >= cap) return;
+    existing.amount = Math.min(cap, existing.amount + overheal);
+    existing.max = Math.max(existing.max, existing.amount);
+    existing.expiresAt = Math.max(existing.expiresAt, world.time + world.mods.graceShieldDuration);
+    return;
+  }
+  const amount = Math.min(cap, overheal);
+  if (addShield(world, hero, 'overshield', amount, world.mods.graceShieldDuration, true))
+    world.events.push({ type: 'graceShield', tick: world.tick, hero: hero.id, amount });
+}
+
 export function addShield(
   world: World,
   target: Entity,
@@ -231,9 +265,15 @@ export function heal(
   if (!h || h.dead || h.downed || amount <= 0) return 0;
   // Martyr's Vow: the Weaver's healing received is doubled while it lasts.
   if (target.weaver && world.field.vow) amount *= world.mods.vowHealMult;
-  const effective = Math.min(amount, h.maxHp - h.hp);
+  // Prism Covenant (the Astrolabe): the Weaver can't be healed above a share of her Life.
+  const ceiling =
+    target.weaver && world.mods.lifeCapPct < 1 ? h.maxHp * world.mods.lifeCapPct : h.maxHp;
+  const effective = Math.max(0, Math.min(amount, ceiling - h.hp));
   const overheal = amount - effective;
   h.hp += effective;
+  // Overflowing Grace (the Astrolabe): Mend's overheal becomes a shield on the hero.
+  if (via === 'mend' && overheal > 0 && target.hero && world.mods.graceShieldPct > 0)
+    graceShield(world, target, overheal);
   // Fermata: the Weaver's healing during a hold is what saves the hero (passive regen doesn't).
   const hold = target.hero?.hold;
   if (hold && hold.savedBy === null && effective > 0) {
@@ -331,8 +371,12 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
   let callingIn = 0;
   let radianceIn = 0;
   if (source?.hero && target.enemy) {
-    const mult =
+    let mult =
       world.mods.partyDamageMult * (target.enemy.defId === 'mute' ? world.mods.muteDamageMult : 1);
+    // The Astrolabe's Anthem and Shield Bearer: heroes in a field, or under a Ward, hit harder.
+    if (world.mods.inFieldDamage > 0 && source.hero.inField) mult *= 1 + world.mods.inFieldDamage;
+    if (world.mods.wardedDamage > 0 && source.health && shieldOf(source.health, 'ward'))
+      mult *= 1 + world.mods.wardedDamage;
     if (mult !== 1) {
       amplifiedIn += amount * (mult - 1);
       amount *= mult;
@@ -367,6 +411,12 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
     haloed = amount * world.mods.haloedReduction;
     amount -= haloed;
   }
+  // Close Ranks (the Astrolabe): a hero near another takes less from ordinary hits.
+  let ranks = 0;
+  if (!opts.telegraph && target.hero && world.mods.closeRanks > 0 && nearAlly(world, target)) {
+    ranks = amount * world.mods.closeRanks;
+    amount -= ranks;
+  }
 
   let absorbed = 0;
   let absorbedByWeaver = 0;
@@ -390,8 +440,11 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
     );
     for (let i = 0; i < h.shields.length && amount > 0;) {
       const s = h.shields[i]!;
-      const take = Math.min(s.amount, amount);
-      s.amount -= take;
+      // Shatterproof Halo (the Astrolabe): a Ward takes the whole hit, and loses at most a share
+      // of its full barrier to it.
+      const halo = s.kind === 'ward' && world.mods.wardHitCap > 0;
+      const take = halo ? amount : Math.min(s.amount, amount);
+      s.amount -= halo ? Math.min(s.amount, take, s.max * world.mods.wardHitCap) : take;
       amount -= take;
       absorbed += take;
       if (s.fromWeaver) absorbedByWeaver += take;
@@ -467,6 +520,11 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
     keptLife -= kept;
     world.ledger.shielded += kept;
     world.ledger.calling.shielded += kept;
+  }
+  if (ranks > 0) {
+    const kept = Math.min(ranks, keptLife);
+    keptLife -= kept;
+    world.ledger.shielded += kept;
   }
   if (borne > 0 || vowExcess > 0) {
     // What the Martyr took for the hero: credited with the life it kept; a Save if it was the
@@ -694,7 +752,7 @@ function downHero(world: World, e: Entity, killer: string): void {
   }
   h.hp = 0;
   h.downed = true;
-  h.bleedOut = BLEED_OUT;
+  h.bleedOut = BLEED_OUT * world.mods.bleedOutMult;
   h.revive = 0;
   h.shields.length = 0;
   h.statuses = h.statuses.filter((s) => s.id === 'shaken');

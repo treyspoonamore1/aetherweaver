@@ -25,6 +25,11 @@ export function attachThread(world: World, slot: PartySlot): void {
   const range = world.content.thread.snapRange + world.mods.threadRangeBonus;
   if (len(hero.x - weaver.x, hero.z - weaver.z) > range) return reject(world, 'thread', 'range');
   const previous = w.threadSlot;
+  // Afterglow (the Astrolabe): Empower lingers on the hero the Thread leaves.
+  if (previous !== null && w.threadMode === 'empower' && world.mods.empowerLinger > 0) {
+    const left = slotHero(world, previous);
+    if (left?.hero) left.hero.afterglowUntil = world.time + world.mods.empowerLinger;
+  }
   w.threadSlot = slot;
   w.threadTension = 0;
   world.events.push({ type: 'threadAttached', tick: world.tick, hero: hero.id, slot });
@@ -123,14 +128,26 @@ function mendHero(world: World, hero: Entity, amount: number): void {
 /** Empower multiplier for a hero's damage (1 when not Empowered). */
 export function empowerBonus(world: World, hero: Entity): { more: number; attackSpeed: number } {
   const w = world.entities.get(world.weaverId)?.weaver;
-  if (!w || w.threadMode !== 'empower') return { more: 0, attackSpeed: 0 };
-  const p = threadPotency(world, hero);
+  const threaded = w?.threadMode === 'empower' ? threadPotency(world, hero) : 0;
+  // Afterglow: a hero the Empowering Thread just left keeps it, at full strength, a moment.
+  const p = threaded > 0 ? threaded : (hero.hero?.afterglowUntil ?? 0) > world.time ? 1 : 0;
   if (p <= 0) return { more: 0, attackSpeed: 0 };
   const def = world.content.thread;
   return {
     more: def.empowerMore * world.mods.empowerMult * p,
     attackSpeed: def.empowerAttackSpeed * p,
   };
+}
+
+/** Mend's bonuses on one hero (the Astrolabe's Second Stitch and Lifeguard; Lifeline). */
+function mendBonus(world: World, hero: Entity): number {
+  const h = hero.health!;
+  const m = world.mods;
+  let mult = h.hp < h.maxHp * 0.5 ? m.lifelineMult : 1;
+  if (m.mendLowBonus > 0 && h.hp < h.maxHp * m.mendLowBelow) mult *= 1 + m.mendLowBonus;
+  if (m.mendWarded > 0 && h.shields.some((s) => s.kind === 'ward' && s.amount > 0))
+    mult *= 1 + m.mendWarded;
+  return mult;
 }
 
 export function updateThread(world: World, dt: number): void {
@@ -178,23 +195,30 @@ export function updateThread(world: World, dt: number): void {
     if (h.downed) {
       if (h.revive === 0)
         world.events.push({ type: 'reviveStarted', tick: world.tick, hero: hero.id });
-      h.revive = Math.min(1, h.revive + (dt / def.reviveTime) * potency);
-      if (h.revive >= 1) reviveHero(world, hero, def.reviveHpPct);
+      h.revive = Math.min(
+        1,
+        h.revive + (dt / def.reviveTime) * potency * world.mods.reviveSpeedMult,
+      );
+      if (h.revive >= 1) {
+        reviveHero(world, hero, world.mods.reviveHpPct ?? def.reviveHpPct);
+        // Second Wind (the Astrolabe): they stand up untouchable for a moment.
+        h.invulnerable = Math.max(h.invulnerable, world.mods.reviveInvulnerable);
+      }
       return;
     }
     const perSec = def.mendPerSec * world.mods.mendMult * dt;
-    let amount = perSec * potency;
-    if (h.hp < h.maxHp * 0.5) amount *= world.mods.lifelineMult;
-    mendHero(world, hero, amount);
+    mendHero(world, hero, perSec * potency * mendBonus(world, hero));
     if (world.mods.prismRadius > 0) {
       // The Prism Loom: Mend spills onto heroes standing close to the threaded one.
       for (const id of world.party) {
         const other = world.entities.get(id);
         if (!other || other.id === hero.id || !isActive(other) || !inPrism(world, hero, other))
           continue;
-        let share = perSec * potency * world.mods.prismPotency;
-        if (other.health.hp < other.health.maxHp * 0.5) share *= world.mods.lifelineMult;
-        mendHero(world, other, share);
+        mendHero(
+          world,
+          other,
+          perSec * potency * world.mods.prismPotency * mendBonus(world, other),
+        );
       }
     }
   } else if (

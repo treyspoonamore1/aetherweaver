@@ -4,6 +4,7 @@
  * the one place that knows what each motif, relic and boon means to the sim.
  */
 import type { Content } from '../content/schema';
+import { applyAstrolabe } from './astrolabe';
 import type { ResolvedSimConfig } from './world';
 
 export interface Mods {
@@ -49,7 +50,7 @@ export interface Mods {
   noGlide: boolean;
   /** Warden's Key: hero damage to Mutes. */
   muteDamageMult: number;
-  /** Heavy Score: every hero hit, credited to the Weaver. */
+  /** Every hero hit (Heavy Score, the Astrolabe's heroes), credited to the Weaver. */
   partyDamageMult: number;
   /** Tuning Fork: Solo charge (0–100) a Perfect Ward gives its hero. */
   perfectSoloCharge: number;
@@ -154,6 +155,61 @@ export interface Mods {
   stasisPerfectResonance: number;
   /** Telegraphs show their timers (a view flag: the Chronomancer's passive). */
   telegraphTimers: boolean;
+
+  // ── The Astrolabe (docs/phase-4.md) ──
+  /** Every aura's effect (Choir, Prism Covenant). */
+  auraEffectMult: number;
+  /** Unbroken Chorus: Mutes can't crack the fields or silence the Weaver. */
+  unsuppressible: boolean;
+  /** Unbroken Chorus: every aura beyond the second makes all of them this much stronger. */
+  auraPerExtra: number;
+  /** Resonant Thread: the beam song's pour into the threaded hero. */
+  beamFocusMult: number;
+  /** What the songs reserve (Clear Voice, Breath, Eldritch Conduit). */
+  reserveMult: number;
+  /** Sanguine Font: songs that reserve Life hold this share of what they would. */
+  lifeReserveMult: number;
+  /** Techniques' cost (Economy). */
+  techCostMult: number;
+  /** Eldritch Conduit: techniques cost Life instead of Spirit. */
+  techniquesCostLife: boolean;
+  /** Prism Covenant: the share of her Life the Weaver fights at and can be healed to (1 = all). */
+  lifeCapPct: number;
+  /** Shieldwright: seconds off the Ward's recharge. */
+  wardCooldownCut: number;
+  /** Shatterproof Halo: the most of its barrier one hit can take from a Ward (0 = no cap). */
+  wardHitCap: number;
+  /** The Ward's duration (Shatterproof Halo). */
+  wardDurationMult: number;
+  /** Ringing Parry: a Perfect Ward's stagger, and Resonance on top for it. */
+  staggerMult: number;
+  perfectResonance: number;
+  /** Overflowing Grace: Mend's overheal becomes a shield, up to this share of the hero's life, for this long (0 = none). */
+  graceShieldPct: number;
+  graceShieldDuration: number;
+  /** Second Stitch: Mend's bonus on a hero below `mendLowBelow` of their life. */
+  mendLowBonus: number;
+  mendLowBelow: number;
+  /** Lifeguard: Mend's bonus on a hero a Ward is on. */
+  mendWarded: number;
+  /** Afterglow: seconds Empower lingers on a hero after the Thread leaves them (0 = none). */
+  empowerLinger: number;
+  /** Heroes' life. */
+  heroLifeMult: number;
+  /** Anthem: heroes standing in a field deal this much more. Shield Bearer: a hero a Ward is on. */
+  inFieldDamage: number;
+  wardedDamage: number;
+  /** Close Ranks: ordinary hits on a hero within `closeRanksRadius` of another take this much less. */
+  closeRanks: number;
+  closeRanksRadius: number;
+  /** Downed heroes' bleed-out, and how fast Mend revives. */
+  bleedOutMult: number;
+  reviveSpeedMult: number;
+  /** Second Wind: a Mend revive's life (null = content's) and seconds untouchable after it. */
+  reviveHpPct: number | null;
+  reviveInvulnerable: number;
+  /** Ready Answer: Resonance on top for answering a call. */
+  responseBonus: number;
 }
 
 export const NO_MODS: Mods = {
@@ -253,6 +309,36 @@ export const NO_MODS: Mods = {
   paradox: false,
   stasisPerfectResonance: 0,
   telegraphTimers: false,
+  auraEffectMult: 1,
+  unsuppressible: false,
+  auraPerExtra: 0,
+  beamFocusMult: 1,
+  reserveMult: 1,
+  lifeReserveMult: 1,
+  techCostMult: 1,
+  techniquesCostLife: false,
+  lifeCapPct: 1,
+  wardCooldownCut: 0,
+  wardHitCap: 0,
+  wardDurationMult: 1,
+  staggerMult: 1,
+  perfectResonance: 0,
+  graceShieldPct: 0,
+  graceShieldDuration: 0,
+  mendLowBonus: 0,
+  mendLowBelow: 0,
+  mendWarded: 0,
+  empowerLinger: 0,
+  heroLifeMult: 1,
+  inFieldDamage: 0,
+  wardedDamage: 0,
+  closeRanks: 0,
+  closeRanksRadius: 0,
+  bleedOutMult: 1,
+  reviveSpeedMult: 1,
+  reviveHpPct: null,
+  reviveInvulnerable: 0,
+  responseBonus: 0,
 };
 
 export function resolveMods(config: ResolvedSimConfig, content: Content): Mods {
@@ -368,6 +454,8 @@ export function resolveMods(config: ResolvedSimConfig, content: Content): Mods {
       }
     }
   }
+  // Last: the tree builds on everything a run gave.
+  applyAstrolabe(m, config.astrolabe, content);
   return m;
 }
 

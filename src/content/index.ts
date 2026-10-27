@@ -5,6 +5,7 @@ import { HEROES } from './heroes';
 import { MOTIFS } from './motifs';
 import { AURAS } from './auras';
 import { ORNAMENTS } from './ornaments';
+import { ASTROLABE } from './astrolabe';
 import { CALLINGS } from './callings';
 import { BOONS, RELICS } from './relics';
 import { RUN_EVENTS } from './runEvents';
@@ -12,6 +13,7 @@ import { CALLS, CHORUS, CRESCENDO, RESONANCE, TECHNIQUES, THREAD, WEAVER } from 
 import {
   ContentSchema,
   type ArenaDef,
+  type AstrolabeNode,
   type AttackDef,
   type AuraDef,
   type BoonDef,
@@ -48,6 +50,7 @@ export const CONTENT: Content = ContentSchema.parse({
   boons: BOONS,
   events: RUN_EVENTS,
   callings: CALLINGS,
+  astrolabe: ASTROLABE,
   arenas: ARENAS,
   encounters: ENCOUNTERS,
   barks: {
@@ -97,6 +100,10 @@ export const relicDef: (id: string) => RelicDef = index('relic', CONTENT.relics)
 export const boonDef: (id: string) => BoonDef = index('boon', CONTENT.boons);
 export const runEventDef: (id: string) => RunEventDef = index('event', CONTENT.events);
 export const callingDef: (id: string) => CallingDef = index('calling', CONTENT.callings);
+export const astrolabeNode: (id: string) => AstrolabeNode = index(
+  'astrolabe node',
+  CONTENT.astrolabe.nodes,
+);
 export const callingOption: (id: string) => CallingOption = index(
   'calling option',
   CONTENT.callings.flatMap((k) => k.tiers.flatMap((t) => t.options)),
@@ -132,6 +139,11 @@ export function boonText(def: BoonDef): string {
   return fillValues(def.text, def.values);
 }
 
+/** An Astrolabe node's effect, filled in. */
+export function astrolabeText(node: AstrolabeNode): string {
+  return fillValues(node.text, node.values);
+}
+
 /** A Calling's passive and its Crescendo line, filled in. */
 export function callingText(def: CallingDef): { passive: string; crescendo: string } {
   return {
@@ -152,6 +164,8 @@ export function motifText(def: MotifDef, level: number): string {
 
 export type {
   ArenaDef,
+  Astrolabe,
+  AstrolabeNode,
   AttackDef,
   AuraDef,
   BoonDef,

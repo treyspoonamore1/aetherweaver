@@ -33,7 +33,8 @@ type Reason =
   | 'down'
   | 'resonance'
   | 'not-ready'
-  | 'locked';
+  | 'locked'
+  | 'life';
 
 export function reject(world: World, technique: Rejectable, reason: Reason): void {
   world.events.push({ type: 'techniqueRejected', tick: world.tick, technique, reason });
@@ -51,8 +52,20 @@ export function weaverReady(world: World, technique: Rejectable): Entity | null 
 
 export function spend(world: World, weaver: Entity, technique: Rejectable, cost: number): boolean {
   const w = weaver.weaver!;
+  // The Astrolabe's Economy.
+  cost *= world.mods.techCostMult;
   // Stasis (the Chronomancer): techniques cost less while it lasts.
   if (world.field.stasis) cost *= world.mods.stasisCostMult;
+  // Eldritch Conduit: paid in Life, never down to nothing (`techniqueCost` agrees).
+  if (world.mods.techniquesCostLife) {
+    const h = weaver.health!;
+    if (h.hp - cost < 1 - 1e-9) {
+      reject(world, technique, 'life');
+      return false;
+    }
+    h.hp -= cost;
+    return true;
+  }
   if (w.spirit + 1e-9 < cost) {
     reject(world, technique, 'spirit');
     return false;
@@ -61,9 +74,21 @@ export function spend(world: World, weaver: Entity, technique: Rejectable, cost:
   return true;
 }
 
-/** A technique's cooldown, Quickened (the Chronomancer) included. */
+/** A technique's cooldown, Quickened (the Chronomancer) and the Astrolabe's Tempo included. */
 export function techCooldown(world: World, base: number): number {
   return base * world.mods.techCooldownMult;
+}
+
+/** The Ward's recharge, a charge at a time (Shieldwright takes seconds off it). */
+export function wardCooldown(world: World): number {
+  const def = world.content.techniques.ward;
+  return techCooldown(world, Math.max(1, def.cooldown - world.mods.wardCooldownCut));
+}
+
+/** How long a Ward lasts (Lingering Aegis adds, Shatterproof Halo shortens). */
+export function wardDuration(world: World): number {
+  const def = world.content.techniques.ward;
+  return (def.duration + world.mods.wardDurationBonus) * world.mods.wardDurationMult;
 }
 
 export function heroForSlot(
@@ -93,28 +118,21 @@ export function castWard(world: World, slot: PartySlot | undefined): void {
   if (!stasis) {
     w.wardCharges--;
     if (w.cooldowns.ward <= 0) {
-      w.cooldowns.ward = techCooldown(world, def.cooldown);
+      w.cooldowns.ward = wardCooldown(world);
       w.cooldownTotals.ward = w.cooldowns.ward;
     }
   }
   w.lastTechnique = 'ward';
   const strength = world.mods.wardBarrierMult * world.mods.aegisWardMult;
   const amount = (hero.health!.maxHp * def.barrierPct + def.barrierFlat) * strength;
-  const ward = addShield(
-    world,
-    hero,
-    'ward',
-    amount,
-    def.duration + world.mods.wardDurationBonus,
-    true,
-  );
+  const ward = addShield(world, hero, 'ward', amount, wardDuration(world), true);
   // Eternal Moment: a Ward cast during Stasis that turns out Perfect gives Resonance.
   if (ward && stasis) ward.stasis = true;
   // Martyr's Aegis: each Ward shields the Weaver too, sized from her own Life.
   if (world.mods.aegisSelf) {
     const self = (weaver.health!.maxHp * def.barrierPct + def.barrierFlat) * strength;
     // Her own, not support: it isn't credited as shielding the party.
-    addShield(world, weaver, 'ward', self, def.duration + world.mods.wardDurationBonus, false);
+    addShield(world, weaver, 'ward', self, wardDuration(world), false);
   }
   world.events.push({
     type: 'techniqueCast',
@@ -483,7 +501,6 @@ function temporalMastery(world: World, weaver: Entity): void {
 export function updateEchoWards(world: World): void {
   const due = world.internal.echoWards;
   if (due.length === 0) return;
-  const def = world.content.techniques.ward;
   for (let i = 0; i < due.length;) {
     const echo = due[i]!;
     if (echo.at > world.time + 1e-9) {
@@ -496,14 +513,7 @@ export function updateEchoWards(world: World): void {
     // Never over a stronger Ward cast since.
     const current = shieldOf(hero.health, 'ward');
     if (current && current.amount >= echo.amount) continue;
-    const ward = addShield(
-      world,
-      hero,
-      'ward',
-      echo.amount,
-      def.duration + world.mods.wardDurationBonus,
-      true,
-    );
+    const ward = addShield(world, hero, 'ward', echo.amount, wardDuration(world), true);
     if (!ward) continue;
     ward.echo = true;
     world.events.push({ type: 'echoWard', tick: world.tick, target: hero.id, amount: echo.amount });

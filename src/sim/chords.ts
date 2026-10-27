@@ -99,9 +99,10 @@ export function chordProblems(
   content: Content = CONTENT,
   /**
    * `fieldAuraSlots`: the field song's aura slots, when a Calling adds one (the Luminary's Third
-   * Voice). `pool`: what the songs reserve, Spirit or (the Martyr's) Life.
+   * Voice). `pool`: what the songs reserve, Spirit or Life (the Martyr, Sanguine Font).
+   * `reserveMult`: the Astrolabe's multiplier on the songs' share of it (`songReserveOf`).
    */
-  opts: { fieldAuraSlots?: number; pool?: ReservePool } = {},
+  opts: { fieldAuraSlots?: number; pool?: ReservePool; reserveMult?: number } = {},
 ): string[] {
   const w = content.weaver;
   const problems: string[] = [];
@@ -144,11 +145,11 @@ export function chordProblems(
       }
     }
   });
+  const held = chordReserve(chords, content) * (opts.reserveMult ?? 1);
   if (opts.pool === 'life') {
-    if (chordReserve(chords, content) > LIFE_RESERVE_CAP + 1e-9)
+    if (held > LIFE_RESERVE_CAP + 1e-9)
       problems.push('Your songs would leave you less than a tenth of your Life.');
-  } else if (chordReserve(chords, content) > 1 + 1e-9)
-    problems.push('Your songs reserve more Spirit than you have.');
+  } else if (held > 1 + 1e-9) problems.push('Your songs reserve more Spirit than you have.');
   return problems;
 }
 

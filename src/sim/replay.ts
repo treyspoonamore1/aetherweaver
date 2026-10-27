@@ -97,6 +97,7 @@ const SimConfigSchema = z
       })
       .strict()
       .nullable(),
+    astrolabe: z.array(z.string()).default([]),
     assists: z
       .object({ perfectWindowBonus: z.number(), telegraphLead: z.number(), autonomy: z.boolean() })
       .strict(),

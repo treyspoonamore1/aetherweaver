@@ -78,7 +78,7 @@ With 19 points you can finish one constellation (15 points, both keystones) and 
 |---|---|---|
 | Trunk ×2 | travel | Ward barrier +5% |
 | **Shieldwright** | notable | Ward barrier +10%; Ward recovers 1 s faster |
-| Guard ×2, Poise ×2 (toward Bond) | travel | Ward barrier +5% · Perfect window +0.03 s |
+| Guard ×2, Poise ×2 (toward Bond) | travel | Ward barrier +5% · Perfect Wards 0.03 s more forgiving |
 | **Ringing Parry** | notable | A Perfect Ward's stagger lasts 50% longer and gives 5 more Resonance |
 | **Shatterproof Halo** | keystone | **No single hit breaks your Ward**: it absorbs the whole hit and loses at most half its barrier. **It lasts 40% shorter** (1.8 s). |
 | Economy ×2, Tempo ×1, Breath ×1 (toward Silk) | travel | Techniques cost 4% less · recover 4% faster · Spirit regenerates 6% faster |
@@ -124,9 +124,10 @@ With 19 points you can finish one constellation (15 points, both keystones) and 
 **Sim** (`SIM_VERSION` 11, replay format 6):
 
 - `SimConfig.astrolabe?: readonly string[]` (resolved: sorted node ids, `[]` by default; the replay schema defaults it). Unknown ids are ignored, as unknown relics are.
-- Mods gain the tree's levers, applied after motifs, relics, boons and the Calling (multipliers multiply, bonuses add): `auraEffectMult`, `reserveMult`, `techCostMult`, `heroLifeMult`, `reviveTimeMult`, `reviveHpPct`, `reviveInvulnerable`, `bleedOutMult`, `staggerMult`, `perfectResonance`, `responseBonus`, `mendLowBonus`/`mendLowBelow`, `empowerLinger`, `beamFocusMult`, `inFieldDamage`, `wardedDamage`, `mendWarded`, `closeRanks`/`closeRanksRadius`, `cueShareSolo`, and the keystones' `graceShieldPct`/`graceShieldDuration`, `lifeReserveMult`, `unsuppressible`, `auraPerExtra`, `lifeCapPct`, `wardHitCap`, `wardDurationMult`, `techniquesCostLife`. With no tree every one is neutral, and a run without one is unchanged seed for seed.
+- Mods gain the tree's levers, applied after motifs, relics, boons and the Calling (multipliers multiply, bonuses add): `auraEffectMult`, `reserveMult`, `techCostMult`, `heroLifeMult`, `reviveTimeMult`, `reviveHpPct`, `reviveInvulnerable`, `bleedOutMult`, `staggerMult`, `perfectResonance`, `responseBonus`, `mendLowBonus`/`mendLowBelow`, `empowerLinger`, `beamFocusMult`, `inFieldDamage`, `wardedDamage`, `mendWarded`, `closeRanks`/`closeRanksRadius`, and the keystones' `graceShieldPct`/`graceShieldDuration`, `lifeReserveMult`, `unsuppressible`, `auraPerExtra`, `lifeCapPct`, `wardHitCap`, `wardDurationMult`, `techniquesCostLife`. Ensemble adds to the Canon motif's charge (`canon`), as it's the same thing. With no tree every one is neutral, and a run without one is unchanged seed for seed.
 - `WorldState.astrolabe: { nodes: readonly string[] }`.
-- `techniqueCost(state, technique)` → `{ amount, pool: 'spirit' | 'life' }` (Stasis, the tree and Eldritch Conduit included), exported for the HUD and the bots. A refused Life cost is `techniqueRejected { reason: 'life' }`.
+- `techniqueCost(state, technique)` → `{ amount, pool: 'spirit' | 'life' }` and `canPay(state, technique)` (Stasis, the tree and Eldritch Conduit included), exported for the HUD and the bots; the sim's own `spend` agrees. A refused Life cost is `techniqueRejected { reason: 'life' }`. `WorldState.calling.stasisCostMult` carries Stasis's discount.
+- `songReserve(callingReservesLife, nodes)` / `songReserveOf(calling, nodes)` → `{ pool, mult }`: the songs' pool and the multiplier on their share, for `chordProblems` and the song builder. `treeNodes`, `treeKeystones`, `KNOWN_ASTROLABE_EFFECTS`.
 - `chordProblems(chords, content, opts)`: `opts.reserveMult` and `opts.pool` now come from the Calling and the tree together (`reservePool(calling, content, astrolabe)`).
 - Event `graceShield { hero, amount }` (Overflowing Grace).
 

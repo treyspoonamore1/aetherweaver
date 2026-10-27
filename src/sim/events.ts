@@ -191,7 +191,9 @@ export interface TechniqueRejected extends At {
     | 'down'
     | 'resonance'
     | 'not-ready'
-    | 'locked';
+    | 'locked'
+    // Eldritch Conduit: paying in Life would down the Weaver.
+    | 'life';
 }
 export interface PerfectWard extends At {
   type: 'perfectWard';
@@ -415,6 +417,15 @@ export interface EchoWard extends At {
   target: EntityId;
   amount: number;
 }
+/**
+ * Overflowing Grace (the Astrolabe, docs/phase-4.md): Mend's overheal formed a shield on `hero`.
+ * Sent when the shield forms, not for each top-up (its size is in the hero's shields).
+ */
+export interface GraceShield extends At {
+  type: 'graceShield';
+  hero: EntityId;
+  amount: number;
+}
 /** Temporal Mastery: Glide reset this technique's cooldown. */
 export interface TemporalMastery extends At {
   type: 'temporalMastery';
@@ -607,6 +618,7 @@ export type SimEvent =
   | EchoWard
   | TemporalMastery
   | Paradox
+  | GraceShield
   | CallStarted
   | CallAnswered
   | CallEnded

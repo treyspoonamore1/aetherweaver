@@ -1,5 +1,6 @@
 import { CONTENT, arenaDef, encounterDef, heroDef } from '../content';
 import type { Content } from '../content/schema';
+import { songReserve, treeKeystones } from './astrolabe';
 import {
   canonicalChords,
   chordProblems,
@@ -17,6 +18,7 @@ import { SpatialHash } from './core/spatialHash';
 import type { SimEvent } from './events';
 import { resolveMods, type Mods } from './mods';
 import type {
+  AstrolabeState,
   CallingState,
   ChimeInFlight,
   EncounterState,
@@ -100,6 +102,11 @@ export interface SimConfig {
    * per tier.
    */
   calling?: CallingConfig | null;
+  /**
+   * The Astrolabe nodes the Weaver fights with (docs/phase-4.md). Unknown ids are ignored; the
+   * run layer keeps the tree connected and within its points.
+   */
+  astrolabe?: readonly string[];
   assists?: AssistConfig;
   /** Enables `debug` commands (spawns, teleport). Debug commands are recorded in replays. */
   debug?: boolean;
@@ -123,6 +130,8 @@ export interface ResolvedSimConfig {
   threat: number;
   /** None when the Weaver is absent. */
   calling: Required<CallingConfig> | null;
+  /** Sorted, known node ids; none when the Weaver is absent. */
+  astrolabe: string[];
   assists: Required<AssistConfig>;
   debug: boolean;
   absent: boolean;
@@ -144,6 +153,11 @@ export function resolveConfig(config: SimConfig, content: Content = CONTENT): Re
   encounterDef(encounter);
   const absent = config.absent ?? false;
   const calling = absent || !config.calling ? null : resolveCalling(config.calling, content);
+  const known = new Set(content.astrolabe.nodes.map((n) => n.id));
+  const astrolabe = absent
+    ? []
+    : [...new Set(config.astrolabe ?? [])].filter((id) => known.has(id)).sort();
+  const reserve = songReserveOf(calling, astrolabe, content);
   const given = config.chords ?? (config.auras ? [{ auras: config.auras }] : []);
   const chords = absent
     ? []
@@ -152,7 +166,8 @@ export function resolveConfig(config: SimConfig, content: Content = CONTENT): Re
       );
   const problems = chordProblems(chords, content, {
     fieldAuraSlots: fieldAuraSlots(calling, content),
-    pool: reservePool(calling, content),
+    pool: reserve.pool,
+    reserveMult: reserve.mult,
   });
   if (problems.length > 0) throw new Error(`Illegal Chords: ${problems.join(' ')}`);
   const motifs = (config.motifs ?? []).map((m) => {
@@ -185,6 +200,7 @@ export function resolveConfig(config: SimConfig, content: Content = CONTENT): Re
     boons,
     threat: Math.max(1, Math.min(3, config.threat ?? 1)),
     calling,
+    astrolabe,
     assists: {
       perfectWindowBonus: Math.max(0, Math.min(0.3, a.perfectWindowBonus ?? 0)),
       telegraphLead: Math.max(1, Math.min(2, a.telegraphLead ?? 1)),
@@ -228,13 +244,29 @@ export function fieldAuraSlots(
   return slots;
 }
 
-/** What the songs reserve: Spirit, or Life when the Calling says so (the Martyr). */
+/**
+ * What the songs reserve: Spirit, or Life when the Calling (the Martyr) or the tree (Sanguine
+ * Font) says so.
+ */
 export function reservePool(
   calling: Readonly<{ id: string; path: readonly string[] }> | null,
   content: Content = CONTENT,
+  astrolabe: readonly string[] = [],
 ): ReservePool {
+  return songReserveOf(calling, astrolabe, content).pool;
+}
+
+/**
+ * The pool the songs reserve and the multiplier on their share of it (docs/phase-4.md): what
+ * `chordProblems` checks a loadout with, as the fight will hold it.
+ */
+export function songReserveOf(
+  calling: Readonly<{ id: string; path: readonly string[] }> | null,
+  astrolabe: readonly string[] = [],
+  content: Content = CONTENT,
+): { pool: ReservePool; mult: number } {
   const def = calling ? content.callings.find((d) => d.id === calling.id) : undefined;
-  return def?.reserves ?? 'spirit';
+  return songReserve(def?.reserves === 'life', astrolabe, content);
 }
 
 /** A hit in flight (arrows, bolts, delayed blasts). Lands at `at`. */
@@ -341,6 +373,7 @@ export interface World extends WorldState {
   ledger: Ledger;
   relics: RelicState;
   readonly calling: CallingState | null;
+  readonly astrolabe: AstrolabeState;
   readonly config: ResolvedSimConfig;
   readonly content: Content;
   readonly mods: Mods;
@@ -497,6 +530,14 @@ export function createWorld(config: SimConfig): World {
       reviveSpent: resolved.calling.reviveSpent,
       timers: mods.telegraphTimers,
       foresight: mods.foresight,
+      stasisCostMult: mods.stasisCostMult,
+    },
+    astrolabe: {
+      nodes: [...resolved.astrolabe],
+      keystones: treeKeystones(resolved.astrolabe, content),
+      techCostMult: mods.techCostMult,
+      techniquesCostLife: mods.techniquesCostLife,
+      lifeCapPct: mods.lifeCapPct,
     },
     config: resolved,
     content,
@@ -552,9 +593,13 @@ export function createWorld(config: SimConfig): World {
       ),
     0,
   );
-  const reserved = mods.lifeReserve ? 0 : share * maxSpirit;
+  // The tree's lighter songs (Clear Voice, Breath, Eldritch Conduit) and Sanguine Font's Life.
+  const held = share * mods.reserveMult;
+  const reserved = mods.lifeReserve ? 0 : held * maxSpirit;
   const maxLife = w.maxLife * mods.lifeMult;
-  const reservedLife = mods.lifeReserve ? share * maxLife : 0;
+  const reservedLife = mods.lifeReserve ? held * mods.lifeReserveMult * maxLife : 0;
+  // Prism Covenant: she fights at a share of what the songs leave her.
+  const usableLife = maxLife - reservedLife;
   // Combat starts on the near side of the arena (enemies come from the far side).
   const startZ = encounterDefn.kind === 'sandbox' ? 0 : arena.radius * 0.45;
   const weaver = world.entities.spawn('weaver', {
@@ -564,7 +609,7 @@ export function createWorld(config: SimConfig): World {
     speed: w.moveSpeed,
     mass: 0.15,
     team: 'party',
-    health: newHealth(maxLife - reservedLife, maxLife - reservedLife),
+    health: newHealth(usableLife * mods.lifeCapPct, usableLife),
     weaver: {
       moveX: 0,
       moveZ: 0,
@@ -614,7 +659,7 @@ export function createWorld(config: SimConfig): World {
     const def = heroDef(member.heroId);
     const slot = index as PartySlot;
     const at = formationSlot(weaver, def.formation, 1, world.scratch.slot);
-    const maxHp = Math.round(def.maxHp * (member.shaken ? 0.9 : 1));
+    const maxHp = Math.round(def.maxHp * (member.shaken ? 0.9 : 1) * mods.heroLifeMult);
     const hero: Entity = world.entities.spawn('hero', {
       x: at.x,
       z: at.z,
@@ -669,6 +714,7 @@ export function createWorld(config: SimConfig): World {
           up: true,
         })),
         pastAt: 0,
+        afterglowUntil: 0,
       },
     });
     if (member.shaken) {

@@ -643,6 +643,36 @@ export const CallingDefSchema = z
   .strict();
 export type CallingDef = z.infer<typeof CallingDefSchema>;
 
+// ── The Astrolabe (docs/phase-4.md) ───────────────────────────────────────────────────
+
+export const AstrolabeNodeSchema = z
+  .object({
+    id: IdSchema,
+    name: z.string(),
+    /** `travel`: a small step; `great`: Bond's rim notables, in place of keystones. */
+    kind: z.enum(['start', 'travel', 'notable', 'great', 'keystone']),
+    constellation: z.enum(['centre', 'silk', 'choir', 'aegis', 'bond', 'bridge']),
+    /** Map units, north up. */
+    x: z.number(),
+    y: z.number(),
+    /** What it does: the sim's Astrolabe resolver knows each effect (sim/mods.ts). */
+    effect: IdSchema,
+    values: ValuesSchema,
+    /** With {value} placeholders filled from `values`. */
+    text: z.string(),
+  })
+  .strict();
+export type AstrolabeNode = z.infer<typeof AstrolabeNodeSchema>;
+
+/** The nodes and the links between them, each link listed once. */
+export const AstrolabeSchema = z
+  .object({
+    nodes: z.array(AstrolabeNodeSchema).min(1),
+    links: z.array(z.tuple([IdSchema, IdSchema])),
+  })
+  .strict();
+export type Astrolabe = z.infer<typeof AstrolabeSchema>;
+
 // ── Arenas and encounters ─────────────────────────────────────────────────────────────
 
 export const ArenaDefSchema = z.object({
@@ -715,6 +745,7 @@ export const ContentSchema = z
     boons: z.array(BoonDefSchema),
     events: z.array(RunEventDefSchema),
     callings: z.array(CallingDefSchema),
+    astrolabe: AstrolabeSchema,
     arenas: z.array(ArenaDefSchema).min(1),
     encounters: z.array(EncounterDefSchema).min(1),
     /** Directive acknowledgement lines. */
@@ -851,6 +882,47 @@ export const ContentSchema = z
       filled(k.crescendo, k.values, `calling "${k.id}"`);
       for (const t of k.tiers)
         for (const o of t.options) filled(o.text, o.values, `calling option "${o.id}"`);
+    }
+    // The Astrolabe: one start, links between real nodes listed once, and every node reachable.
+    const astro = c.astrolabe;
+    unique(
+      'astrolabe node',
+      astro.nodes.map((n) => n.id),
+    );
+    for (const n of astro.nodes) filled(n.text, n.values, `astrolabe node "${n.id}"`);
+    const starts = astro.nodes.filter((n) => n.kind === 'start');
+    if (starts.length !== 1)
+      ctx.addIssue({ code: 'custom', message: 'the astrolabe needs exactly one start node' });
+    const nodeIds = new Set(astro.nodes.map((n) => n.id));
+    const adjacency = new Map<string, string[]>(astro.nodes.map((n) => [n.id, []]));
+    const seenLinks = new Set<string>();
+    for (const [a, b] of astro.links) {
+      if (!nodeIds.has(a) || !nodeIds.has(b) || a === b) {
+        ctx.addIssue({
+          code: 'custom',
+          message: `astrolabe link ${a}–${b} is not between two nodes`,
+        });
+        continue;
+      }
+      const key = a < b ? `${a}|${b}` : `${b}|${a}`;
+      if (seenLinks.has(key))
+        ctx.addIssue({ code: 'custom', message: `astrolabe link ${a}–${b} is listed twice` });
+      seenLinks.add(key);
+      adjacency.get(a)!.push(b);
+      adjacency.get(b)!.push(a);
+    }
+    if (starts[0]) {
+      const reached = new Set([starts[0].id]);
+      const queue = [starts[0].id];
+      while (queue.length > 0)
+        for (const next of adjacency.get(queue.shift()!) ?? [])
+          if (!reached.has(next)) {
+            reached.add(next);
+            queue.push(next);
+          }
+      for (const n of astro.nodes)
+        if (!reached.has(n.id))
+          ctx.addIssue({ code: 'custom', message: `astrolabe node "${n.id}" can't be reached` });
     }
     for (const ev of c.events) {
       unique(

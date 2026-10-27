@@ -5,6 +5,7 @@ import { SIM_HZ } from '../constants';
 import type { TechniqueKey } from '../state';
 import { weaverOf, type World } from '../world';
 import { approachVelocity } from './steering';
+import { wardCooldown } from './techniques';
 
 const TECHNIQUES: readonly TechniqueKey[] = ['ward', 'chime', 'reel', 'glide'];
 /** The Martyr's healing of herself is reported once a second, not every tick. */
@@ -91,7 +92,7 @@ export function updateWeaver(world: World, dt: number): void {
       w.wardCharges++;
       if (w.wardCharges < w.maxWardCharges) {
         // Quickened (the Chronomancer) recharges faster.
-        w.cooldowns.ward = world.content.techniques.ward.cooldown * world.mods.techCooldownMult;
+        w.cooldowns.ward = wardCooldown(world);
         w.cooldownTotals.ward = w.cooldowns.ward;
       }
     }

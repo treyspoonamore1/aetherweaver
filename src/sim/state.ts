@@ -260,6 +260,8 @@ export interface HeroComponent {
    */
   past: PastSample[];
   pastAt: number;
+  /** Afterglow (the Astrolabe): Empower lingers on this hero until this sim time. */
+  afterglowUntil: number;
 }
 
 /** Where a hero stood and how much life they had, a moment ago (Rewind). */
@@ -695,6 +697,25 @@ export interface CallingState {
   timers: boolean;
   /** Foresight: how long before it begins an enemy attack is foreseen (0 = none). */
   foresight: number;
+  /** What techniques cost while Stasis lasts (0.5); 1 without it. */
+  stasisCostMult: number;
+}
+
+/**
+ * The Astrolabe the Weaver fights with (docs/phase-4.md), and what it does that the view needs
+ * to show. Constant through a fight; with no tree, everything is neutral.
+ */
+export interface AstrolabeState {
+  /** The allocated nodes, sorted. */
+  nodes: string[];
+  /** The keystones among them. */
+  keystones: string[];
+  /** Techniques' cost multiplier (Economy). */
+  techCostMult: number;
+  /** Eldritch Conduit: techniques cost Life instead of Spirit. */
+  techniquesCostLife: boolean;
+  /** Prism Covenant: the share of her Life the Weaver can be healed to (1 = all). */
+  lifeCapPct: number;
 }
 
 export interface WorldState {
@@ -721,4 +742,5 @@ export interface WorldState {
   readonly ledger: DeepReadonly<Ledger>;
   readonly relics: DeepReadonly<RelicState>;
   readonly calling: DeepReadonly<CallingState> | null;
+  readonly astrolabe: DeepReadonly<AstrolabeState>;
 }
