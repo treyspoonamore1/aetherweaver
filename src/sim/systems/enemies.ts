@@ -27,6 +27,8 @@ import { approachVelocity, arrive } from './steering';
 /** Normal enemies may have at most this many telegraphs up at once (readability cap). */
 const READABILITY_CAP = 2;
 const SPAWN_TIME = 0.8;
+/** Seconds an enemy stands recovering after a cast before it can act again. */
+const RECOVER_TIME = 0.5;
 const ENEMY_ACCEL = 18;
 
 export interface SpawnOptions {
@@ -116,6 +118,7 @@ export function updateEnemies(world: World, dt: number): void {
       continue;
     }
     if (!c.engaged) engage(world, e);
+    if (world.mods.foresight > 0) foresee(world, e, def);
 
     // Lullaby: slower, and (Heavy Eyelids) sleepy. Slow Dance (the Chronomancer): slower in a field.
     const slow = enemyFx(world, e).enemySlow;
@@ -136,7 +139,6 @@ export function updateEnemies(world: World, dt: number): void {
 
     if (isDisabled(e)) {
       approachVelocity(e, 0, 0, ENEMY_ACCEL * 2, dt);
-      c.foreseen = null;
       continue;
     }
     if (c.attackCooldown > 0) c.attackCooldown -= dt;
@@ -148,10 +150,9 @@ export function updateEnemies(world: World, dt: number): void {
       updateCast(world, e, def, dt);
       continue;
     }
-    if (world.mods.foresight > 0) foresee(world, e, def);
     if (c.state === 'recover') {
       approachVelocity(e, 0, 0, ENEMY_ACCEL, dt);
-      if (c.stateTime >= 0.5) setState(c, 'approach');
+      if (c.stateTime >= RECOVER_TIME) setState(c, 'approach');
       continue;
     }
 
@@ -562,26 +563,36 @@ function scriptedNext(world: World, e: Entity): { attackId: string; at: number }
 
 /**
  * Foresight (the Chronomancer, docs/phase-3e.md): the attack this enemy will use next, once it's
- * due within a second. A target picked by rule (its current target, the farthest, the frailest)
- * is predicted afresh every tick; a random one is rolled now and kept, and the attack uses it
- * when it begins if that hero still qualifies.
+ * due within a second. It looks past a cast, the recovery after it and a stun (cooldowns wait
+ * while it's stunned), and only at attacks the enemy could begin as things stand, picking as
+ * `trySpecial` would: the soonest, then the first in its list. A target picked by rule (its
+ * current target, the farthest, the frailest) is predicted afresh every tick; a random one is
+ * rolled now and kept, and the attack uses it when it begins if that hero still qualifies.
  */
 function foresee(world: World, e: Entity, def: EnemyDef): void {
   const c = e.enemy!;
   const boss = c.tier === 'boss' || c.tier === 'miniboss';
-  let next: { special: number; attackId: string; at: number } | null = null;
+  const stun = disabledFor(e);
+  let free = world.time + stun;
+  if (c.cast) free = Math.max(free, c.cast.end + RECOVER_TIME);
+  else if (c.state === 'recover') free = Math.max(free, world.time + RECOVER_TIME - c.stateTime);
+  if (boss) free = Math.max(free, world.internal.boss.phaseShiftUntil);
+  // The candidates: a boss script's scheduled attack, then every special it could begin.
+  const options: Choice[] = [];
   const script = scriptedNext(world, e);
-  if (script) next = { special: -1, ...script };
+  if (script)
+    options.push({ special: -1, attackId: script.attackId, at: Math.max(script.at, free) });
   // A chained toll owns the bell's next cast.
   if (script?.attackId !== 'bellwarden_toll_in') {
     for (let i = 0; i < def.specials.length; i++) {
       const id = def.specials[i]!;
-      if (SCRIPTED.has(id)) continue;
-      let at = world.time + Math.max(0, c.specialCooldowns[i]!);
-      if (boss) at = Math.max(at, world.internal.boss.phaseShiftUntil);
-      if (!next || at < next.at - 1e-9) next = { special: i, attackId: id, at };
+      if (SCRIPTED.has(id) || !canBegin(world, e, attackDef(id))) continue;
+      const at = Math.max(free, world.time + stun + Math.max(0, c.specialCooldowns[i]!));
+      options.push({ special: i, attackId: id, at });
     }
   }
+  let next: Choice | null = null;
+  for (const o of options) if (!next || o.at < next.at - 1e-9) next = o;
   if (!next || next.at - world.time > world.mods.foresight + 1e-9) {
     c.foreseen = null;
     return;
@@ -634,6 +645,52 @@ function foresee(world: World, e: Entity, def: EnemyDef): void {
     target: c.foreseen.target,
     at: next.at,
   });
+}
+
+/** An attack Foresight could show: a special (or -1, a boss script's) and when it's due. */
+interface Choice {
+  special: number;
+  attackId: string;
+  at: number;
+}
+
+/** Seconds this enemy is still stunned, staggered or asleep (0 if it isn't). */
+function disabledFor(e: Entity): number {
+  let left = 0;
+  for (const s of e.health!.statuses)
+    if (s.id === 'stun' || s.id === 'stagger' || s.id === 'sleep')
+      left = Math.max(left, s.remaining);
+  return left;
+}
+
+/**
+ * Could this special begin as things stand: someone to aim it at in reach, and (for a normal
+ * enemy's damaging attack) room on the board? What `trySpecial` and `beginAttack` would allow.
+ */
+function canBegin(world: World, e: Entity, attack: AttackDef): boolean {
+  const c = e.enemy!;
+  const boss = c.tier === 'boss' || c.tier === 'miniboss';
+  if (!boss && attack.effect === 'damage' && activeNormalTelegraphs(world) >= READABILITY_CAP)
+    return false;
+  const heroes = activeHeroes(world);
+  if (heroes.length === 0) return false;
+  const inRange = (t: Entity) => inReach(e, attack, t);
+  switch (attack.targeting) {
+    case 'current': {
+      const t = c.targetId === null ? undefined : world.entities.get(c.targetId);
+      return isActive(t) && inRange(t);
+    }
+    case 'farthest':
+    case 'squishiest':
+      return heroes.some(inRange);
+    case 'randomHero':
+    case 'randomNonTank':
+      return randomPool(heroes, attack, inRange).length > 0;
+    case 'pair':
+      return heroes.length >= 2;
+    default:
+      return true;
+  }
 }
 
 function inReach(e: Entity, attack: AttackDef, t: Entity): boolean {

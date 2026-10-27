@@ -219,6 +219,8 @@ function endEncounter(world: World, outcome: 'victory' | 'defeat'): void {
   }
   world.telegraphs.length = 0;
   world.internal.reelDodges = [];
+  world.internal.spared = [];
+  world.internal.echoWards = [];
   world.internal.pendingHits.length = 0;
   world.field.hymnCircles = [];
   world.events.push({ type: 'encounterEnded', tick: world.tick, outcome });

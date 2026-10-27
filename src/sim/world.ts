@@ -53,6 +53,8 @@ export interface AssistConfig {
 export interface CallingConfig {
   id: string;
   path?: string[];
+  /** The Chronomancer: this run's Rewind has already stood a hero back up (it does once a run). */
+  reviveSpent?: boolean;
 }
 
 export interface RelicConfig {
@@ -206,7 +208,7 @@ function resolveCalling(c: CallingConfig, content: Content): Required<CallingCon
     tiers.add(tier);
     path.push(id);
   }
-  return { id: def.id, path };
+  return { id: def.id, path, reviveSpent: c.reviveSpent ?? false };
 }
 
 /**
@@ -214,7 +216,7 @@ function resolveCalling(c: CallingConfig, content: Content): Required<CallingCon
  * (the Luminary's Third Voice: an option with `values.slots`).
  */
 export function fieldAuraSlots(
-  calling: Readonly<Required<CallingConfig>> | null,
+  calling: Readonly<{ id: string; path: readonly string[] }> | null,
   content: Content = CONTENT,
 ): number {
   let slots = content.weaver.auraSlots;
@@ -228,7 +230,7 @@ export function fieldAuraSlots(
 
 /** What the songs reserve: Spirit, or Life when the Calling says so (the Martyr). */
 export function reservePool(
-  calling: Readonly<Required<CallingConfig>> | null,
+  calling: Readonly<{ id: string; path: readonly string[] }> | null,
   content: Content = CONTENT,
 ): ReservePool {
   const def = calling ? content.callings.find((d) => d.id === calling.id) : undefined;
@@ -315,6 +317,8 @@ export interface SimInternal {
   echoWards: { hero: EntityId; at: number; amount: number }[];
   /** Paradox: (telegraph, hero) pairs a Rewind took out of an attack's reach. */
   spared: { telegraph: number; hero: EntityId }[];
+  /** Sim time Rewind next remembers the heroes' life and place. */
+  pastSampleAt: number;
 }
 
 /** The sim's mutable world. Exposed to the outside only as the read-only WorldState. */
@@ -490,6 +494,7 @@ export function createWorld(config: SimConfig): World {
       crescendo: mods.stasisDuration > 0 ? 'stasis' : mods.vowDuration > 0 ? 'vow' : 'sunrise',
       bearShare: mods.bearShare,
       rewind: mods.rewindSeconds > 0,
+      reviveSpent: resolved.calling.reviveSpent,
       timers: mods.telegraphTimers,
       foresight: mods.foresight,
     },
@@ -517,6 +522,7 @@ export function createWorld(config: SimConfig): World {
       reelDodges: [],
       echoWards: [],
       spared: [],
+      pastSampleAt: 0,
       rallyUntil: 0,
       directiveBarkAt: -100,
       nextCallAt: content.calls.firstAfter,

@@ -90,7 +90,11 @@ const SimConfigSchema = z
     boons: z.array(z.string()),
     threat: z.number(),
     calling: z
-      .object({ id: z.string(), path: z.array(z.string()) })
+      .object({
+        id: z.string(),
+        path: z.array(z.string()),
+        reviveSpent: z.boolean().default(false),
+      })
       .strict()
       .nullable(),
     assists: z

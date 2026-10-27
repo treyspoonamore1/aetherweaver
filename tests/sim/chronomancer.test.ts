@@ -3,9 +3,10 @@
  * option on the path.
  */
 import { describe, expect, it } from 'vitest';
+import { makeBot } from '../../src/bots';
 import { CONTENT, callingOption } from '../../src/content';
-import type { Command, Telegraph } from '../../src/sim';
-import { dealDamage, heal, shieldOf } from '../../src/sim/combat/health';
+import { rewindCanRevive, type Command, type Telegraph } from '../../src/sim';
+import { dealDamage, heal, killEnemy, shieldOf, startHold } from '../../src/sim/combat/health';
 import { perfectWindow } from '../../src/sim/combat/telegraphs';
 import { pastOf } from '../../src/sim/systems/rewind';
 import type { World } from '../../src/sim/world';
@@ -180,6 +181,94 @@ describe('Rewind', () => {
     expect(resolved.find((r) => r.target === kael.id)?.outcome).toBe('dodged');
     expect(w.ledger.reels).toBe(1);
   });
+
+  it('stands a hero back up once a run: not twice in a fight, not when the run spent it', () => {
+    const down = (w: World, slot: number) =>
+      dealDamage(w, heroAt(w, slot), {
+        source: null,
+        sourceName: 't',
+        amount: 1e5,
+        telegraph: null,
+      });
+    const { sim, w } = chronomancer();
+    stepFor(sim, 200);
+    expect(rewindCanRevive(w)).toBe(true);
+    down(w, 0);
+    stepFor(sim, 30);
+    stepFor(sim, 1, [REWIND]);
+    expect(heroAt(w, 0).health!.downed).toBe(false);
+    expect(rewindCanRevive(w)).toBe(false);
+    weaverOf(w).weaver!.cooldowns.reel = 0;
+    down(w, 1);
+    stepFor(sim, 30);
+    const again = stepFor(sim, 1, [{ t: 'tech', id: 'reel', slot: 1 }]);
+    expect(ofType(again, 'techniqueRejected')[0]).toMatchObject({
+      technique: 'rewind',
+      reason: 'locked',
+    });
+    expect(heroAt(w, 1).health!.downed).toBe(true);
+    // A run that already spent it: Rewind still gives back life and place, but no one stands up.
+    const spent = sandbox({ calling: { id: 'chronomancer', path: [], reviveSpent: true } });
+    const sw = worldOf(spent);
+    stepFor(spent, 200, [{ t: 'thread', slot: 0 }]);
+    expect(sw.calling!.reviveSpent).toBe(true);
+    expect(rewindCanRevive(sw)).toBe(false);
+    down(sw, 0);
+    stepFor(spent, 30);
+    const refused = stepFor(spent, 1, [REWIND]);
+    expect(ofType(refused, 'techniqueRejected')[0]?.reason).toBe('locked');
+    hurt(spent, 1, 300);
+    stepFor(spent, 30);
+    expect(ofType(stepFor(spent, 1, [{ t: 'tech', id: 'reel', slot: 1 }]), 'rewound')).toHaveLength(
+      1,
+    );
+  });
+
+  it('a hero Fermata holds, given their life back, is saved by it', () => {
+    const { sim, w } = chronomancer();
+    const lyra = heroAt(w, 1);
+    stepFor(sim, 200);
+    startHold(w, lyra, 1.5, 'Toll Cleave', 900);
+    const events = stepFor(sim, 1, [{ t: 'tech', id: 'reel', slot: 1 }]);
+    expect(ofType(events, 'rewound')[0]!.restored).toBeGreaterThan(0);
+    const later = stepFor(sim, 120);
+    expect(ofType(later, 'fermataReleased')[0]?.saved).toBe(true);
+    expect(lyra.health!.downed).toBe(false);
+    expect(w.ledger.saves.map((x) => x.cause)).toEqual(['fermata']);
+  });
+
+  it('a revive isn’t a dodge of what they lay in', () => {
+    const { sim, w } = chronomancer();
+    const kael = heroAt(w, 0);
+    stepFor(sim, 200);
+    dealDamage(w, kael, { source: null, sourceName: 't', amount: 1e5, telegraph: null });
+    stepFor(sim, 30);
+    // He stood where he fell; a burst is about to land there.
+    for (const p of kael.hero!.past) Object.assign(p, { x: kael.x, z: kael.z });
+    const t = burst(w, kael.x, kael.z, 3, 0.5);
+    stepFor(sim, 1, [REWIND]);
+    resolvedOf(sim, t.id);
+    expect(w.ledger.reels).toBe(0);
+    expect(w.ledger.saves.map((x) => x.cause)).toEqual(['rewind']);
+  });
+
+  it('a dodge in progress goes on, and they look again at what’s coming', () => {
+    const { sim, w } = chronomancer();
+    const kael = heroAt(w, 0);
+    const { telegraph } = telegraphOn('bell_brute', 'Toll Cleave', 0, 2.5, sim, true);
+    const dodge = {
+      telegraph: telegraph.id,
+      x: kael.x + 6,
+      z: kael.z,
+      at: w.time,
+      until: telegraph.impact + 0.15,
+    };
+    kael.hero!.dodge = { ...dodge };
+    kael.hero!.lastTelegraphSeen = telegraph.id;
+    stepFor(sim, 1, [REWIND]);
+    expect(kael.hero!.dodge).toMatchObject({ telegraph: telegraph.id, x: dodge.x, z: dodge.z });
+    expect(kael.hero!.lastTelegraphSeen).toBeLessThan(telegraph.id + 1);
+  });
 });
 
 describe('Stasis', () => {
@@ -209,6 +298,64 @@ describe('Stasis', () => {
     expect(w.field.stasis).toBe(false);
     expect(ofType(after, 'crescendoEnd')).toHaveLength(1);
     expect(ofType(after, 'telegraphResolved').some((r) => r.telegraph === telegraph.id)).toBe(true);
+  });
+
+  it('a hero stepping out of an attack keeps stepping until it lands', () => {
+    const { sim, w } = chronomancer();
+    const kael = heroAt(w, 0);
+    const { telegraph } = telegraphOn('bell_brute', 'Toll Cleave', 0, 2.5, sim, true);
+    kael.hero!.dodge = {
+      telegraph: telegraph.id,
+      x: kael.x + 6,
+      z: kael.z,
+      at: w.time,
+      until: telegraph.impact + 0.15,
+    };
+    stopTime(sim, w);
+    stepFor(sim, 150);
+    expect(kael.hero!.dodge?.until).toBeCloseTo(telegraph.impact + 0.15, 6);
+  });
+
+  it('enemy projectiles in flight, summons and waves all wait', () => {
+    const { sim, w } = chronomancer();
+    const { telegraph } = telegraphOn('bell_brute', 'Toll Cleave', 0, 2.5, sim, true);
+    const brute = w.entities.get(telegraph.owner)!;
+    const lyra = heroAt(w, 1);
+    const hit = {
+      at: w.time + 0.2,
+      source: brute.id,
+      target: lyra.id,
+      amount: 100,
+      amplified: 0,
+      aura: 0,
+      empower: 0,
+      crit: false,
+      splashRadius: 0,
+      splash: 0,
+      chain: 0,
+      empowered: false,
+      stun: 0,
+    };
+    w.internal.pendingHits.push(hit);
+    w.internal.pendingSpawns.push({
+      at: w.time + 0.2,
+      defId: 'bell_brute',
+      x: 0,
+      z: -8,
+      elite: false,
+      affixes: [],
+      wave: w.encounter.wave,
+    });
+    const enemies = () => w.entities.list().filter((e) => e.enemy).length;
+    const before = { enemies: enemies(), lead: hit.at - w.time };
+    stopTime(sim, w);
+    stepFor(sim, 120);
+    expect(hit.at - w.time).toBeCloseTo(before.lead, 6);
+    expect(w.internal.pendingHits).toContain(hit);
+    expect(enemies()).toBe(before.enemies);
+    stepFor(sim, 200);
+    expect(w.internal.pendingHits).not.toContain(hit);
+    expect(enemies()).toBe(before.enemies + 1);
   });
 
   it('a mark an enemy left waits with its attack', () => {
@@ -316,6 +463,65 @@ describe('the path', () => {
     expect(lamenter.enemy!.foreseen).toBeNull();
   });
 
+  it('Foresight: the attack uses the hero it rolled, not a fresh roll', () => {
+    const targetOf = (swap: boolean) => {
+      const { sim, w } = chronomancer(['foresight']);
+      const lyra = heroAt(w, 1);
+      stepFor(sim, 1, [spawn('lamenter', lyra.x, lyra.z - 6)]);
+      for (const e of w.entities.list())
+        if (e.enemy && e.health) e.health.hp = e.health.maxHp = 1e6;
+      const lamenter = w.entities.list().find((e) => e.enemy)!;
+      // Never stunned: the foresight stands from the first glimpse to the attack.
+      for (const id of w.party) heroAt(w, w.party.indexOf(id)).hero!.abilityCooldowns = [99, 99];
+      stepUntil(sim, (ev) => ev.some((e) => e.type === 'foreseen'), 900);
+      const seen = lamenter.enemy!.foreseen!;
+      // The other hero it could have picked (not Kael: Dirge spares the tank).
+      const other = [heroAt(w, 1).id, heroAt(w, 2).id].find((id) => id !== seen.target)!;
+      if (swap) seen.target = other;
+      const began = stepUntil(sim, (ev) =>
+        ev.some((e) => e.type === 'telegraphStarted' && e.name === 'Dirge'),
+      );
+      const started = ofType(began, 'telegraphStarted').find((e) => e.name === 'Dirge')!;
+      return { started: started.target, seen: seen.target };
+    };
+    for (const swap of [false, true]) {
+      const { started, seen } = targetOf(swap);
+      expect(started).toBe(seen);
+    }
+  });
+
+  it('Foresight sees a boss’s attacks coming, through its casts and staggers', () => {
+    const tally = { attacks: 0, early: 0, wrong: 0 };
+    for (const [encounter, seed] of [
+      ['bellwarden', 1],
+      ['hollow_cantor', 3],
+    ] as const) {
+      const sim = sandbox({ seed, encounter, chords: GUARDIAN, ...chrono('foresight') });
+      const w = worldOf(sim);
+      const bot = makeBot('skilled', seed * 7);
+      let seen: { attack: string; time: number } | null = null;
+      const over = () => w.encounter.status === 'victory' || w.encounter.status === 'defeat';
+      for (let t = 0; t < 150 * 60 && !over(); t++) {
+        sim.step(bot.decide(sim.state));
+        for (const e of sim.drainEvents()) {
+          if (e.type === 'foreseen' && e.enemy === w.encounter.bossId)
+            seen = { attack: e.name, time: w.time };
+          if (e.type === 'telegraphStarted' && e.owner === w.encounter.bossId) {
+            tally.attacks++;
+            if (seen && seen.attack !== e.name) tally.wrong++;
+            else if (seen && e.start - seen.time > 0.9) tally.early++;
+            seen = null;
+          }
+        }
+      }
+    }
+    // Shown as itself a second ahead almost always; wrong rarely (two attacks ready together,
+    // one of them going out of reach at the last moment).
+    expect(tally.attacks).toBeGreaterThan(20);
+    expect(tally.early / tally.attacks).toBeGreaterThan(0.8);
+    expect(tally.wrong / tally.attacks).toBeLessThan(0.1);
+  });
+
   it('without Foresight, nothing is foreseen', () => {
     const { sim, w } = chronomancer(['quickened']);
     const lyra = heroAt(w, 1);
@@ -370,10 +576,15 @@ describe('the path', () => {
     expect(shieldOf(kael.health!, 'ward')).toBe(fresh);
   });
 
-  it('Borrowed Time: Rewind fills part of that hero’s Solo', () => {
+  it('Borrowed Time: a Rewind that gives back life fills part of that hero’s Solo', () => {
     const { sim, w } = chronomancer(['quickened', 'borrowed_time']);
     const kael = heroAt(w, 0);
     kael.hero!.solo = 10;
+    // Nothing to give back: no Solo (so Stasis's free Rewinds can't fill it).
+    stepFor(sim, 1, [REWIND]);
+    expect(kael.hero!.solo).toBeLessThan(10 + value('borrowed_time', 'pct'));
+    weaverOf(w).weaver!.cooldowns.reel = 0;
+    hurt(sim, 0, 500);
     stepFor(sim, 1, [REWIND]);
     expect(kael.hero!.solo).toBeGreaterThanOrEqual(10 + value('borrowed_time', 'pct'));
   });
@@ -459,6 +670,50 @@ describe('the path', () => {
     const resolved = ofType(events, 'telegraphResolved').find((r) => r.telegraph === telegraph.id);
     expect(resolved?.outcome).toBe('cancelled');
     expect(w.ledger.telegraphsAnswered).toBe(answered + 1);
+  });
+
+  it('Paradox: a lance or a link through the hero is undone, both ends of the link freed', () => {
+    const path = ['quickened', 'echo_ward', 'temporal_mastery', 'paradox'];
+    const { sim, w } = chronomancer(path);
+    const [lyra, vexis] = [heroAt(w, 1), heroAt(w, 2)];
+    const lance = burst(w, lyra.x, lyra.z, 1);
+    Object.assign(lance, {
+      kind: 'beam',
+      target: lyra.id,
+      shape: { kind: 'line', x: lyra.x, z: lyra.z - 8, toX: lyra.x, toZ: lyra.z + 1, width: 1.2 },
+    });
+    const link = burst(w, lyra.x, lyra.z, 1);
+    Object.assign(link, {
+      kind: 'link',
+      target: lyra.id,
+      shape: { kind: 'link', a: lyra.id, b: vexis.id, r: 2 },
+    });
+    for (const e of [lyra, vexis])
+      e.health!.statuses.push({ id: 'resound', remaining: 1, duration: 1, stacks: 1, source: -1 });
+    const events = stepFor(sim, 1, [{ t: 'tech', id: 'reel', slot: 1 }]);
+    expect(ofType(events, 'paradox')[0]!.cancelled).toBe(2);
+    expect(w.telegraphs.some((t) => t.id === lance.id || t.id === link.id)).toBe(false);
+    expect([lyra, vexis].every((e) => !e.health!.statuses.some((s) => s.id === 'resound'))).toBe(
+      true,
+    );
+  });
+
+  it('what Paradox spared is forgotten when its caster falls, and echoes when the fight ends', () => {
+    const { sim, w } = chronomancer(['quickened', 'echo_ward']);
+    const { telegraph } = telegraphOn('bell_brute', 'Toll Cleave', 0, 2.5, sim, true);
+    const brute = w.entities.get(telegraph.owner)!;
+    w.internal.spared.push({ telegraph: telegraph.id, hero: heroAt(w, 1).id });
+    killEnemy(w, brute, null);
+    expect(w.internal.spared).toHaveLength(0);
+    // A won fight leaves no Echo Ward to come back.
+    const boss = sandbox({ encounter: 'bellwarden', ...chrono('quickened', 'echo_ward') });
+    const bw = worldOf(boss);
+    stepUntil(boss, () => bw.encounter.status === 'fighting' && bw.encounter.bossId !== null, 3600);
+    bw.internal.echoWards.push({ hero: heroAt(bw, 0).id, at: bw.time + 5, amount: 100 });
+    stepFor(boss, 1, [{ t: 'debug', op: { op: 'killEnemies' } }]);
+    stepFor(boss, 2);
+    expect(bw.encounter.status).toBe('victory');
+    expect(bw.internal.echoWards).toHaveLength(0);
   });
 
   it('Paradox: an area attack passes the Rewound hero by, and still hits the rest', () => {

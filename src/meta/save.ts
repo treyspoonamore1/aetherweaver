@@ -268,7 +268,9 @@ export const RunStateSchema = z.object({
   relicOffer: z
     .object({ reason: z.enum(['elite', 'boss', 'event']), options: z.array(Str) })
     .nullable(),
-  calling: z.object({ id: Str, path: z.array(Str.nullable()) }).nullable(),
+  calling: z
+    .object({ id: Str, path: z.array(Str.nullable()), reviveSpent: z.boolean().optional() })
+    .nullable(),
   callingOffer: z.object({ tier: Num, options: z.tuple([Str, Str]) }).nullable(),
 });
 

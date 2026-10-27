@@ -166,6 +166,8 @@ export interface RunCalling {
   id: string;
   /** The option chosen at each tier of its path, in tier order; null until that tier's pick. */
   path: (string | null)[];
+  /** The Chronomancer's Rewind has stood a hero back up this run (it does once a run). */
+  reviveSpent?: boolean;
 }
 
 /** A tier of the Calling's path on offer: pick one of two. */

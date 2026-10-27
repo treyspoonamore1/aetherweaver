@@ -6,6 +6,7 @@
  */
 import { CONTENT } from '../content';
 import { Rng } from '../sim/core/rng';
+import { rewindCanRevive } from '../sim/systems/rewind';
 import type { Command, ThreadMode, WorldState } from '../sim';
 import type { Bot } from './types';
 import {
@@ -113,8 +114,8 @@ export class NoviceBot implements Bot {
     }
     out.push(...modeCommands(wc.threadMode, want));
     // The Chronomancer's Rewind (in Reel's slot): sometimes they remember it can stand a hero
-    // who just went down back up.
-    if (state.calling?.rewind && wc.cooldowns.reel <= 0 && wc.spirit >= tech.reel.cost) {
+    // who just went down back up (once a run).
+    if (rewindCanRevive(state) && wc.cooldowns.reel <= 0 && wc.spirit >= tech.reel.cost) {
       const fallen = all.find(
         (h) =>
           h.e.health!.downed &&

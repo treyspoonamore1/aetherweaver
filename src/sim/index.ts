@@ -20,3 +20,4 @@ export { FixedStepper } from './core/fixedStep';
 export { fieldAuraSlots, reservePool } from './world';
 export { auraBit, auraIds, enemyAuraMask, partyAuraMask, type AuraTotals } from './combat/auras';
 export { vowHoldsAt } from './combat/telegraphs';
+export { rewindCanRevive } from './systems/rewind';

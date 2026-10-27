@@ -237,8 +237,8 @@ export function heal(
   // Fermata: the Weaver's healing during a hold is what saves the hero (passive regen doesn't).
   const hold = target.hero?.hold;
   if (hold && hold.savedBy === null && effective > 0) {
-    if (via === 'mend' || via === 'chime' || via === 'other')
-      hold.savedBy = via === 'chime' ? 'chime' : via === 'mend' ? 'mend' : 'other';
+    if (via === 'mend' || via === 'chime' || via === 'rewind' || via === 'other')
+      hold.savedBy = via;
   }
   if (via !== 'solo' && via !== 'self' && target.team === 'party') {
     world.ledger.healing += effective;
@@ -962,10 +962,13 @@ export function interruptEnemy(world: World, e: Entity, by: EntityId | null): bo
   return true;
 }
 
-/** Drops Reel-dodge bookkeeping for a telegraph that was removed. */
+/** Drops Reel-dodge and Paradox bookkeeping for a telegraph that was removed. */
 function forgetReel(world: World, telegraph: number): void {
-  if (world.internal.reelDodges.length === 0) return;
-  world.internal.reelDodges = world.internal.reelDodges.filter((r) => r.telegraph !== telegraph);
+  const internal = world.internal;
+  if (internal.reelDodges.length > 0)
+    internal.reelDodges = internal.reelDodges.filter((r) => r.telegraph !== telegraph);
+  if (internal.spared.length > 0)
+    internal.spared = internal.spared.filter((r) => r.telegraph !== telegraph);
 }
 
 export function slotHero(world: World, slot: PartySlot | number): Entity | undefined {

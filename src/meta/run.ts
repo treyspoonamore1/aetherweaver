@@ -183,9 +183,13 @@ export function chordsAllowed(
 }
 
 /** The run's Calling as the sim takes it: the options chosen so far. */
-function simCalling(run: RunState): { id: string; path: string[] } | null {
+function simCalling(run: RunState): { id: string; path: string[]; reviveSpent: boolean } | null {
   if (!run.calling) return null;
-  return { id: run.calling.id, path: run.calling.path.filter((p): p is string => p !== null) };
+  return {
+    id: run.calling.id,
+    path: run.calling.path.filter((p): p is string => p !== null),
+    reviveSpent: run.calling.reviveSpent ?? false,
+  };
 }
 
 /** Auras the field song can hold in this run (the Luminary's Third Voice adds one). */
@@ -613,6 +617,11 @@ export function finishCombat(run: RunState, outcome: CombatOutcome): RunState {
     xp: run.xp + result.xp,
     aether: run.aether + result.aether,
     boons: tickBoons(run.boons),
+    // The Chronomancer's Rewind stands a hero back up once a run (docs/phase-3e.md).
+    calling:
+      run.calling && outcome.ledger.calling.revived > 0
+        ? { ...run.calling, reviveSpent: true }
+        : run.calling,
   };
 }
 

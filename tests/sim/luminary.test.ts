@@ -32,6 +32,7 @@ describe('the Luminary in content and config', () => {
     expect(resolveConfig({ seed: 1, ...luminary('haloed') }).calling).toEqual({
       id: 'luminary',
       path: ['haloed'],
+      reviveSpent: false,
     });
     expect(() => resolveConfig({ seed: 1, calling: { id: 'nope' } })).toThrow(/Unknown calling/);
     expect(() => resolveConfig({ seed: 1, ...luminary('haloed', 'wide_choir') })).toThrow(

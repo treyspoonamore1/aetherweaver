@@ -36,6 +36,8 @@ export function holdEnemyTime(world: World, dt: number): void {
       // Perfect timing is in the enemies' time: a Ward's moment waits with them, so a Ward cast
       // during Stasis counts as cast at the moment time stopped.
       for (const s of e.health.shields) if (s.kind === 'ward') s.appliedAt += dt;
+      // A hero stepping out of an attack keeps going until it lands, however long that takes.
+      if (e.hero?.dodge) e.hero.dodge.until += dt;
     }
   }
   const internal = world.internal;

@@ -90,7 +90,11 @@ describe('the path, picked during the run', () => {
   it('First Light brings tier I, then its draft', () => {
     let run = luminaryRun();
     run = Run.chooseNode(run, run.map.rows[0]![0]!.id);
-    expect(Run.combatConfig(run)!.calling).toEqual({ id: 'luminary', path: [] });
+    expect(Run.combatConfig(run)!.calling).toEqual({
+      id: 'luminary',
+      path: [],
+      reviveSpent: false,
+    });
     run = Run.continueFromResult(Run.finishCombat(run, win(run)));
     expect(run.phase).toBe('calling');
     expect(run.callingOffer).toEqual({ tier: 0, options: ['haloed', 'wide_choir'] });
@@ -277,6 +281,23 @@ describe('the Chronomancer in a run', () => {
     );
     run = Run.finishCombat(run, outcome);
     expect(Run.runTotals(run)).toMatchObject({ callingRewound: 640, callingRevived: 1 });
+  });
+
+  it('its revive is once a run: the fight that used it marks the run, and later fights know', () => {
+    let run = Run.embark(Run.setCalling(Run.setChords(Run.newRun(4), GUARDIAN), 'chronomancer'));
+    run = Run.chooseNode(run, run.map.rows[0]![0]!.id);
+    expect(Run.combatConfig(run)!.calling).toMatchObject({ reviveSpent: false });
+    // A fight without a revive leaves it unspent.
+    expect(Run.finishCombat(run, win(run)).calling?.reviveSpent).toBeFalsy();
+    const outcome = win(run);
+    outcome.ledger.calling.revived = 1;
+    run = Run.finishCombat(run, outcome);
+    expect(run.calling?.reviveSpent).toBe(true);
+    const store = memoryStore();
+    saveRun(store, run);
+    expect(loadRun(store)!.calling?.reviveSpent).toBe(true);
+    const later = at(run, fightOn(run, 1));
+    expect(Run.combatConfig(later)!.calling).toMatchObject({ reviveSpent: true });
   });
 });
 

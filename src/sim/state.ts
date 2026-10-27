@@ -686,6 +686,11 @@ export interface CallingState {
   bearShare: number;
   /** Rewind replaces Reel (the Chronomancer). */
   rewind: boolean;
+  /**
+   * This run's Rewind has already stood a hero back up (it does once a run). In a fight, it can
+   * still revive while this is false and `ledger.calling.revived` is 0 (`rewindCanRevive`).
+   */
+  reviveSpent: boolean;
   /** Telegraphs show their timers (the Chronomancer). */
   timers: boolean;
   /** Foresight: how long before it begins an enemy attack is foreseen (0 = none). */

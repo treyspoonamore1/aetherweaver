@@ -1,6 +1,7 @@
 import { CONTENT } from '../content';
 import { contains, telegraphDamage } from '../sim/combat/telegraphs';
 import { quantize } from '../sim/core/dmath';
+import { rewindCanRevive } from '../sim/systems/rewind';
 import type {
   Command,
   DeepReadonly,
@@ -47,8 +48,9 @@ export function rewindSample(e: ReadonlyEntity): DeepReadonly<PastSample> | null
 }
 
 /**
- * The hero Rewind would help most (the Chronomancer): one who went down since its reach, or
- * one it would give back a big share of their life while they're in danger. Null: hold it.
+ * The hero Rewind would help most (the Chronomancer): one who went down since its reach (while
+ * its once-a-run revive is unspent), or one it would give back a big share of their life while
+ * they're in danger. Null: hold it.
  */
 export function rewindPick(
   state: WorldState,
@@ -58,12 +60,13 @@ export function rewindPick(
 ): HeroView | null {
   let best: HeroView | null = null;
   let score = 0;
+  const revive = rewindCanRevive(state);
   for (const h of heroes) {
     const past = rewindSample(h.e);
     const hp = h.e.health!;
     if (!past || hp.dead || dist(h.e, w) > range - 0.3) continue;
     let s = 0;
-    if (hp.downed) s = past.up ? 2 + past.hp / hp.maxHp : 0;
+    if (hp.downed) s = past.up && revive ? 2 + past.hp / hp.maxHp : 0;
     else {
       const back = (past.hp - hp.hp) / hp.maxHp;
       const danger =

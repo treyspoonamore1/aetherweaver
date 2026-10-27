@@ -186,7 +186,7 @@ export const CALLINGS: ContentInput['callings'] = [
     name: 'Chronomancer',
     title: 'the one who was ready',
     summary: 'You bend time: Rewind a hero’s last seconds, and stop the fight in Stasis.',
-    text: 'Perfect Wards are {perfect} s more forgiving, and every telegraph shows its timer. Rewind replaces Reel: your threaded hero’s life and place return to {rewind} s ago, never to less life than now, and a hero who went down in that time stands back up ({cooldown} s cooldown).',
+    text: 'Perfect Wards are {perfect} s more forgiving, and every telegraph shows its timer. Rewind replaces Reel: your threaded hero’s life and place return to {rewind} s ago, never to less life than now ({cooldown} s cooldown). Once a run, it stands back up a hero who went down in that time.',
     crescendo:
       'Stasis replaces Sunrise: for {stasis} s every enemy and its attacks stand still, and your techniques have no cooldowns and cost {cost}% less Spirit.',
     crescendoName: 'Stasis',
@@ -225,7 +225,7 @@ export const CALLINGS: ContentInput['callings'] = [
           {
             id: 'borrowed_time',
             name: 'Borrowed Time',
-            text: 'Rewind also fills {pct}% of that hero’s Solo.',
+            text: 'A Rewind that gives back life also fills {pct}% of that hero’s Solo.',
             values: { pct: 30 },
             icon: 'borrowed',
           },
