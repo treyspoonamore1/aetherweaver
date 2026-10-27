@@ -22,6 +22,21 @@ export function weaverOf(state: WorldState): ReadonlyEntity {
   return state.entities.get(state.weaverId)!;
 }
 
+/**
+ * Can the Weaver pay for a technique, keeping `margin` in hand? At the Astrolabe's price, and
+ * from her Life with Eldritch Conduit (never down to nothing). Stasis's discount is left out, as
+ * the bots always have; with no tree this is exactly `spirit >= cost + margin`.
+ */
+export function affords(
+  state: WorldState,
+  technique: 'ward' | 'chime' | 'reel',
+  margin = 0,
+): boolean {
+  const w = weaverOf(state);
+  const price = CONTENT.techniques[technique].cost * state.astrolabe.techCostMult + margin;
+  return state.astrolabe.techniquesCostLife ? w.health!.hp - price >= 1 : w.weaver!.spirit >= price;
+}
+
 /** The slot the Thread will be on once `out` runs: the last `thread` command's, else `current`. */
 export function threadingTo(out: readonly Command[], current: PartySlot | null): PartySlot | null {
   for (let i = out.length - 1; i >= 0; i--) {

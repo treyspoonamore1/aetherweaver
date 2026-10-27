@@ -385,6 +385,11 @@ export interface RunState {
   calling: RunCalling | null;
   /** The Calling's tier on offer. */
   callingOffer: CallingOffer | null;
+  /**
+   * The Astrolabe this run fights with (docs/phase-4.md): the profile's tree, kept in step with
+   * it while in Prep and frozen at embark. Saves from before it have none.
+   */
+  astrolabe: string[];
 }
 
 /** Everything the run screens can do. Implemented by app/runStore.ts. */

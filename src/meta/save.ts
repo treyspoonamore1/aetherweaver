@@ -5,10 +5,11 @@
  */
 import { z } from 'zod';
 import { CONTENT } from '../content';
-import { chordProblems } from '../sim';
+import { chordProblems, type ReservePool } from '../sim';
+import { pruneTree } from './astrolabe';
 import { FIGHT_AETHER, RELIC_OFFERS } from './economy';
-import { fieldAuraSlots, reservePool } from './run';
-import { newProfile, PROFILE_VERSION, type Profile } from './profile';
+import { fieldAuraSlots, reserveMult, reservePool } from './run';
+import { MAX_RANK, newProfile, PROFILE_VERSION, type Profile } from './profile';
 import { RUN_SAVE_VERSION, type RunState } from './types';
 
 export interface KeyValueStore {
@@ -272,6 +273,8 @@ export const RunStateSchema = z.object({
     .object({ id: Str, path: z.array(Str.nullable()), reviveSpent: z.boolean().optional() })
     .nullable(),
   callingOffer: z.object({ tier: Num, options: z.tuple([Str, Str]) }).nullable(),
+  // The Astrolabe (docs/phase-4.md): saves from before it fight without a tree.
+  astrolabe: z.array(Str).default([]),
 });
 
 /** Motif ids renamed since older saves were written. */
@@ -425,7 +428,17 @@ export function compatibleWithContent(run: RunState): boolean {
   const heroes = known(CONTENT.heroes);
   const encounters = known(CONTENT.encounters);
   const motifs = new Map(CONTENT.motifs.map((m) => [m.id, m.values.length]));
-  if (!run.calling && chordProblems(run.chords).length > 0) return false;
+  // The songs must fit as the run holds them: its Calling's pool and its tree. In Prep they may
+  // not fit yet (a Martyr chosen over heavy songs, a node given back): embark settles that, so
+  // there they only have to be real songs.
+  const fits = (pool: ReservePool, mult: number) =>
+    chordProblems(run.chords, CONTENT, {
+      fieldAuraSlots: fieldAuraSlots(run),
+      pool,
+      reserveMult: mult,
+    }).length === 0;
+  if (run.phase === 'prep' ? !fits('spirit', 0) : !fits(reservePool(run), reserveMult(run)))
+    return false;
   if (!run.party.every((h) => heroes.has(h.heroId))) return false;
   if (!run.motifs.every((m) => (motifs.get(m.id) ?? 0) >= m.level && m.level >= 1)) return false;
   for (const row of run.map.rows) {
@@ -450,14 +463,6 @@ export function compatibleWithContent(run: RunState): boolean {
       (id, tier) => id === null || def.tiers[tier]!.options.some((o) => o.id === id),
     );
     if (!ok) return false;
-    // In Prep the pool may not fit yet (a Martyr chosen over heavy songs): embark settles it.
-    if (
-      chordProblems(run.chords, CONTENT, {
-        fieldAuraSlots: fieldAuraSlots(run),
-        pool: run.phase === 'prep' ? 'spirit' : reservePool(run),
-      }).length > 0
-    )
-      return false;
   }
   if (
     run.shop &&
@@ -514,7 +519,14 @@ export const ProfileSchema = z.object({
   lastChords: z.array(ChordSchema),
   runs: Num,
   wins: Num,
+  astrolabe: z.array(Str),
 });
+
+/** v1 → v2: the Astrolabe (docs/phase-4.md). Profiles from before it have an empty tree. */
+export function migrateProfileJson(raw: unknown): unknown {
+  if (isObj(raw) && raw.version === 1) return { ...raw, version: 2, astrolabe: [] };
+  return raw;
+}
 
 /** Loads the profile (backup if the main copy is unreadable); a new one if there's none. */
 export function loadProfile(store: KeyValueStore): Profile {
@@ -522,11 +534,13 @@ export function loadProfile(store: KeyValueStore): Profile {
     try {
       const raw = store.getItem(key);
       if (!raw) continue;
-      const parsed = ProfileSchema.safeParse(JSON.parse(raw));
+      const parsed = ProfileSchema.safeParse(migrateProfileJson(JSON.parse(raw)));
       if (parsed.success) {
         const profile = parsed.data as Profile;
         // Forget remembered Chords this build can't play (renamed content).
         if (chordProblems(profile.lastChords).length > 0) profile.lastChords = [];
+        // A tree that no longer connects (renamed nodes) keeps what still does.
+        profile.astrolabe = pruneTree(profile.astrolabe, MAX_RANK - 1);
         return profile;
       }
     } catch {

@@ -21,6 +21,7 @@ import {
   chordProblems,
   fieldAuraSlots as simFieldAuraSlots,
   reservePool as simReservePool,
+  songReserveOf,
   type ReservePool,
   type SaveCause,
   type SimConfig,
@@ -39,6 +40,7 @@ import {
   aetherForFight,
   threatFor,
 } from './economy';
+import { pruneTree } from './astrolabe';
 import { EVERYTHING, lockedProblems, xpForFight, type Allowance } from './profile';
 import {
   RUN_SAVE_VERSION,
@@ -155,17 +157,20 @@ export const CHORD_PRESETS: readonly {
 /**
  * Is this loadout legal? (The run only ever stores legal Chords.) `fieldAuraSlots`: the field
  * song's slots when the run's Calling adds one (`fieldAuraSlots(run)`); `pool`: what the songs
- * reserve (`reservePool(run)`: Life on a Martyr run).
+ * reserve (`reservePool(run)`: Life on a Martyr run or with Sanguine Font); `reserveMult`: the
+ * run's Astrolabe on the songs' share of it (`reserveMult(run)`).
  */
 export function chordsLegal(
   chords: readonly ChordLoadout[],
   fieldAuraSlots?: number,
   pool: ReservePool = 'spirit',
+  reserveMult = 1,
 ): boolean {
   return (
     chordProblems(canonicalChords(chords), CONTENT, {
       ...(fieldAuraSlots ? { fieldAuraSlots } : {}),
       pool,
+      reserveMult,
     }).length === 0
   );
 }
@@ -176,9 +181,11 @@ export function chordsAllowed(
   allowance: Allowance,
   fieldAuraSlots?: number,
   pool: ReservePool = 'spirit',
+  reserveMult = 1,
 ): boolean {
   return (
-    chordsLegal(chords, fieldAuraSlots, pool) && lockedProblems(chords, allowance).length === 0
+    chordsLegal(chords, fieldAuraSlots, pool, reserveMult) &&
+    lockedProblems(chords, allowance).length === 0
   );
 }
 
@@ -197,9 +204,22 @@ export function fieldAuraSlots(run: RunState): number {
   return simFieldAuraSlots(simCalling(run));
 }
 
-/** What this run's songs reserve: Spirit, or Life on a Martyr run (docs/phase-3d.md). */
+/**
+ * What this run's songs reserve: Spirit, or Life on a Martyr run (docs/phase-3d.md) or with the
+ * Astrolabe's Sanguine Font (docs/phase-4.md).
+ */
 export function reservePool(run: RunState): ReservePool {
-  return simReservePool(simCalling(run));
+  return simReservePool(simCalling(run), CONTENT, run.astrolabe);
+}
+
+/** The run's Astrolabe on the songs' share of their pool (1 without a tree). */
+export function reserveMult(run: RunState): number {
+  return songReserveOf(simCalling(run), run.astrolabe).mult;
+}
+
+/** `chordsAllowed` for this run: its slots, pool and tree. */
+function allowedFor(run: RunState, chords: readonly ChordLoadout[], allowance: Allowance): boolean {
+  return chordsAllowed(chords, allowance, fieldAuraSlots(run), reservePool(run), reserveMult(run));
 }
 
 /**
@@ -415,7 +435,11 @@ export function reachable(run: RunState): MapNode[] {
 }
 
 /** A new run in Prep, starting from `chords` (the last ones used) when they're legal. */
-export function newRun(seed: number, chords: readonly ChordLoadout[] = DEFAULT_CHORDS): RunState {
+export function newRun(
+  seed: number,
+  chords: readonly ChordLoadout[] = DEFAULT_CHORDS,
+  astrolabe: readonly string[] = [],
+): RunState {
   return {
     version: RUN_SAVE_VERSION,
     seed: seed >>> 0,
@@ -441,7 +465,18 @@ export function newRun(seed: number, chords: readonly ChordLoadout[] = DEFAULT_C
     relicOffer: null,
     calling: null,
     callingOffer: null,
+    astrolabe: [...astrolabe],
   };
+}
+
+/**
+ * Prep: the profile's Astrolabe changed (it's free between runs); the run follows it until it
+ * embarks. Songs the new tree can't hold stay, and Prep shows why (as for a Calling's pool):
+ * embark settles them.
+ */
+export function setAstrolabe(run: RunState, tree: readonly string[]): RunState {
+  if (run.phase !== 'prep') return run;
+  return { ...run, astrolabe: [...tree] };
 }
 
 /** Prep: choose the run's Calling (null: none), if it's unlocked. */
@@ -461,11 +496,7 @@ export function setChords(
   chords: readonly ChordLoadout[],
   allowance: Allowance = EVERYTHING,
 ): RunState {
-  if (
-    run.phase !== 'prep' ||
-    !chordsAllowed(chords, allowance, fieldAuraSlots(run), reservePool(run))
-  )
-    return run;
+  if (run.phase !== 'prep' || !allowedFor(run, chords, allowance)) return run;
   return { ...run, chords: canonicalChords(chords) };
 }
 
@@ -475,11 +506,7 @@ export function retune(
   chords: readonly ChordLoadout[],
   allowance: Allowance = EVERYTHING,
 ): RunState {
-  if (
-    run.phase !== 'respite' ||
-    !chordsAllowed(chords, allowance, fieldAuraSlots(run), reservePool(run))
-  )
-    return run;
+  if (run.phase !== 'respite' || !allowedFor(run, chords, allowance)) return run;
   return { ...run, chords: canonicalChords(chords), phase: 'map', pending: null };
 }
 
@@ -487,12 +514,19 @@ export function retune(
  * Leaves Prep for the map. Chords or a Calling picked while Settings → "Skip the unlocks" was on
  * don't outlive turning it off: locked Chords fall back to the defaults, a locked Calling goes.
  */
-export function embark(run: RunState, allowance: Allowance = EVERYTHING): RunState {
+export function embark(
+  run: RunState,
+  allowance: Allowance = EVERYTHING,
+  /** The profile's Astrolabe points: a tree with more (Skip the unlocks turned off) is pruned. */
+  points = Infinity,
+): RunState {
   if (run.phase !== 'prep') return run;
   const calling = run.calling && allowance.callings.has(run.calling.id) ? run.calling : null;
-  const next = { ...run, calling };
-  // Songs the Calling's pool can't hold (the Martyr's Life) fall back to the defaults too.
-  const chords = chordsAllowed(run.chords, allowance, fieldAuraSlots(next), reservePool(next))
+  const astrolabe = pruneTree(run.astrolabe, points);
+  const next = { ...run, calling, astrolabe };
+  // Songs the Calling's pool or the tree can't hold (the Martyr's Life) fall back to the
+  // defaults too.
+  const chords = allowedFor(next, run.chords, allowance)
     ? run.chords
     : DEFAULT_CHORDS.map((c) => ({ auras: [...c.auras], ornaments: [...c.ornaments] }));
   return { ...next, chords, phase: 'map' };
@@ -574,6 +608,7 @@ export function combatConfig(run: RunState, assists?: SimConfig['assists']): Sim
     relics: run.relics.map((r) => ({ ...r })),
     boons: run.boons.map((b) => b.id),
     calling: simCalling(run),
+    astrolabe: [...run.astrolabe],
     // The node's own Threat: maps saved before Threat existed keep ×1.
     threat: node.reward.threat,
     ...(assists ? { assists } : {}),
@@ -678,11 +713,7 @@ export function pickCalling(
   let next: RunState = { ...run, calling: { ...run.calling, path }, callingOffer: null };
   // Only an option that grants a slot (Third Voice) comes with its free retune.
   const grantsSlot = (callingOption(id).values.slots ?? 0) > 0;
-  if (
-    chords &&
-    grantsSlot &&
-    chordsAllowed(chords, allowance, fieldAuraSlots(next), reservePool(next))
-  )
+  if (chords && grantsSlot && allowedFor(next, chords, allowance))
     next = { ...next, chords: canonicalChords(chords) };
   const node = run.pending ? findNode(run, run.pending) : undefined;
   return node ? relicThenRewards(next, node) : toMap(next);
@@ -964,8 +995,7 @@ export function forge(
       };
       break;
     case 'retune':
-      if (!chordsAllowed(choice.chords, allowance, fieldAuraSlots(run), reservePool(run)))
-        return run;
+      if (!allowedFor(run, choice.chords, allowance)) return run;
       next = { ...run, chords: canonicalChords(choice.chords) };
       break;
   }
@@ -1017,11 +1047,7 @@ export function chooseEvent(
   }
   const effects = [...ch.effects, ...ch.fail];
   if (effects.some((e) => e.kind === 'retune')) {
-    if (
-      !opts.chords ||
-      !chordsAllowed(opts.chords, allowance, fieldAuraSlots(run), reservePool(run))
-    )
-      return run;
+    if (!opts.chords || !allowedFor(run, opts.chords, allowance)) return run;
   }
   const rng = rngFor(run.seed, `event:${event.nodeId}:${choiceId}`);
   const won = ch.chance === undefined ? null : rng.float() < ch.chance;

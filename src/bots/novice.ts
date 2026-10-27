@@ -15,6 +15,7 @@ import {
   damageOf,
   modeCommands,
   threadingTo,
+  affords,
   centroid,
   dist,
   enemiesOf,
@@ -115,7 +116,7 @@ export class NoviceBot implements Bot {
     out.push(...modeCommands(wc.threadMode, want));
     // The Chronomancer's Rewind (in Reel's slot): sometimes they remember it can stand a hero
     // who just went down back up (once a run).
-    if (rewindCanRevive(state) && wc.cooldowns.reel <= 0 && wc.spirit >= tech.reel.cost) {
+    if (rewindCanRevive(state) && wc.cooldowns.reel <= 0 && affords(state, 'reel')) {
       const fallen = all.find(
         (h) =>
           h.e.health!.downed &&
@@ -125,18 +126,13 @@ export class NoviceBot implements Bot {
       );
       if (fallen && this.rng.chance(0.3)) out.push({ t: 'tech', id: 'reel', slot: fallen.slot });
     }
-    if (answering && call!.answer === 'ward' && wc.wardCharges > 0 && wc.spirit >= tech.ward.cost)
+    if (answering && call!.answer === 'ward' && wc.wardCharges > 0 && affords(state, 'ward'))
       out.push({ t: 'tech', id: 'ward', slot: calling!.slot });
-    if (
-      answering &&
-      call!.answer === 'chime' &&
-      wc.cooldowns.chime <= 0 &&
-      wc.spirit >= tech.chime.cost
-    )
+    if (answering && call!.answer === 'chime' && wc.cooldowns.chime <= 0 && affords(state, 'chime'))
       out.push({ t: 'tech', id: 'chime', point: { x: calling!.e.x, z: calling!.e.z } });
 
     // Ward someone who looks low, or (sometimes) whoever has something scary coming.
-    if (wc.wardCharges > 0 && wc.spirit >= tech.ward.cost) {
+    if (wc.wardCharges > 0 && affords(state, 'ward')) {
       const low = party.find(
         (h) => h.e.health!.hp < h.e.health!.maxHp * 0.45 && dist(h.e, w) < tech.ward.range,
       );
@@ -148,7 +144,7 @@ export class NoviceBot implements Bot {
     }
 
     // Chime a marked hero once they notice the mark.
-    if (wc.cooldowns.chime <= 0 && wc.spirit >= tech.chime.cost) {
+    if (wc.cooldowns.chime <= 0 && affords(state, 'chime')) {
       const marked = party.find((h) => statusRemaining(h.e, 'dirge') < 2.6);
       if (marked && this.rng.chance(0.75))
         out.push({ t: 'tech', id: 'chime', point: { x: marked.e.x, z: marked.e.z } });

@@ -192,11 +192,16 @@ export function playRun(
     /** A Calling for the run (docs/phase-3c.md), and which option to take at each tier. */
     calling?: string;
     path?: readonly (0 | 1)[];
+    /** The Astrolabe tree the run embarks with (docs/phase-4.md). */
+    astrolabe?: readonly string[];
   } = {},
 ): RunSummary {
   const relics = opts.relics ?? true;
   let run = Run.embark(
-    Run.setCalling(Run.setChords(Run.newRun(seed), chords), opts.calling ?? null),
+    Run.setCalling(
+      Run.setChords(Run.newRun(seed, undefined, opts.astrolabe ?? []), chords),
+      opts.calling ?? null,
+    ),
   );
   let seconds = 0;
   let last = '';

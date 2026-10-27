@@ -19,6 +19,8 @@ export interface RunStore extends RunActions {
   hasSave(): boolean;
   /** Loads the saved run. Returns false if there is none. */
   resume(): boolean;
+  /** A run in Prep follows the profile's Astrolabe (free between runs). */
+  followAstrolabe(tree: readonly string[]): void;
 }
 
 export const useRun = create<RunStore>()((set, get) => {
@@ -43,9 +45,11 @@ export const useRun = create<RunStore>()((set, get) => {
       const saved = loadRun(storage());
       if (!saved) return false;
       // A fight can't be resumed mid-way: restart the pending encounter from its start.
-      set({ run: saved });
+      // A run still in Prep picks up the tree as it is now.
+      set({ run: Run.setAstrolabe(saved, useProfile.getState().profile.astrolabe) });
       return true;
     },
+    followAstrolabe: (tree) => apply((run) => Run.setAstrolabe(run, tree)),
     newRun: (seed) => {
       // A run replaced before its summary still counts (won if its last fight beat the boss).
       const previous = get().run;
@@ -63,7 +67,11 @@ export const useRun = create<RunStore>()((set, get) => {
       const chords =
         last.length > 0 && Run.chordsAllowed(last, profile.allowance()) ? last : undefined;
       // Math.random is fine here: the app picks the seed; the run itself is seeded.
-      const run = Run.newRun(seed ?? Math.floor(Math.random() * 2 ** 31), chords);
+      const run = Run.newRun(
+        seed ?? Math.floor(Math.random() * 2 ** 31),
+        chords,
+        profile.profile.astrolabe,
+      );
       saveRun(storage(), run);
       set({ run });
     },
@@ -73,7 +81,8 @@ export const useRun = create<RunStore>()((set, get) => {
     embark: () => {
       const profile = useProfile.getState();
       // Chords or a Calling picked while "Skip the unlocks" was on don't outlive turning it off.
-      apply((run) => Run.embark(run, profile.allowance()));
+      // The tree it embarks with is the run's to keep (pruned to the points the Rank gives).
+      apply((run) => Run.embark(run, profile.allowance(), profile.astrolabePoints()));
       const run = get().run;
       if (run?.phase === 'map') profile.rememberChords(run.chords);
     },
@@ -133,6 +142,12 @@ export const useRun = create<RunStore>()((set, get) => {
 
 /** The run's Calling id (null: none, or no run): Combat's primer mentions Bear for the Martyr. */
 export const selectCallingId = (s: RunStore): string | null => s.run?.calling?.id ?? null;
+
+// The Astrolabe is free between runs: a run still in Prep follows the profile's tree.
+useProfile.subscribe((state, prev) => {
+  if (state.profile.astrolabe !== prev.profile.astrolabe)
+    useRun.getState().followAstrolabe(state.profile.astrolabe);
+});
 
 if (typeof window !== 'undefined') {
   // Save on the way out, so closing the tab never loses a transition.

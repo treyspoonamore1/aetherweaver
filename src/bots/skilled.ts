@@ -22,6 +22,7 @@ import {
   enemiesOf,
   escapeFrom,
   heldHero,
+  affords,
   partyOf,
   rewindPick,
   plantCommand,
@@ -74,7 +75,6 @@ export class SkilledBot implements Bot {
     const all = partyOf(state, true);
     const enemies = enemiesOf(state);
     const tech = CONTENT.techniques;
-    const spirit = wc.spirit;
     const now = state.time;
     let acted = false;
 
@@ -120,7 +120,7 @@ export class SkilledBot implements Bot {
       );
 
     // ── Ward: Perfect timing on incoming hits; emergency shields otherwise. ──
-    if (wc.wardCharges > 0 && spirit >= tech.ward.cost) {
+    if (wc.wardCharges > 0 && affords(state, 'ward')) {
       const window = tech.ward.perfectWindow;
       let best: { slot: PartySlot; score: number } | null = null;
       for (const h of party) {
@@ -152,7 +152,7 @@ export class SkilledBot implements Bot {
           (h) => effectiveFraction(h.e) < 0.3 && dist(h.e, w) < tech.ward.range - 0.3,
         );
         const soon = party.some((h) => threatsOn(state, h.e).some((t) => t.impact - now < 1.6));
-        if (low.length > 0 && !soon && spirit >= tech.ward.cost + 15) {
+        if (low.length > 0 && !soon && affords(state, 'ward', 15)) {
           low.sort((a, b) => effectiveFraction(a.e) - effectiveFraction(b.e));
           out.push({ t: 'tech', id: 'ward', slot: low[0]!.slot });
           acted = true;
@@ -161,7 +161,7 @@ export class SkilledBot implements Bot {
     }
 
     // ── Chime: cleanse marks late (clutch), or anyone silenced/stunned. ──
-    if (!acted && wc.cooldowns.chime <= 0 && spirit >= tech.chime.cost) {
+    if (!acted && wc.cooldowns.chime <= 0 && affords(state, 'chime')) {
       let pick: HeroView | null = null;
       for (const h of party) {
         const dirge = statusRemaining(h.e, 'dirge');
@@ -201,11 +201,11 @@ export class SkilledBot implements Bot {
     // ── Rewind (the Chronomancer, in Reel's slot): stand back up a hero who just went down, or
     // give back a big blow to one still in danger. ──
     if (state.calling?.rewind) {
-      if (!acted && wc.cooldowns.reel <= 0 && spirit >= tech.reel.cost) {
+      if (!acted && wc.cooldowns.reel <= 0 && affords(state, 'reel')) {
         const pick = rewindPick(state, all, w, tech.reel.range);
         if (pick && this.notice()) out.push({ t: 'tech', id: 'reel', slot: pick.slot });
       }
-    } else if (!acted && wc.cooldowns.reel <= 0 && spirit >= tech.reel.cost) {
+    } else if (!acted && wc.cooldowns.reel <= 0 && affords(state, 'reel')) {
       // ── Reel: pull a hero out of a big hit they won't escape (beams, rings). ──
       for (const h of party) {
         if (h.e.hero!.action === 'dodging' || h.e.hero!.reel) continue;

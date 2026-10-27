@@ -4,6 +4,7 @@
  * what Prep may use (`allowance`) and the rank-ups waiting to be shown.
  */
 import { create } from 'zustand';
+import { allocate, astrolabePoints, refund } from '../meta/astrolabe';
 import {
   allowanceFor,
   awardXp,
@@ -43,6 +44,14 @@ export interface ProfileStore {
   recordRun(won: boolean): void;
   /** Settings → Reset progress: back to Rank 1. */
   resetProgress(): void;
+  /** Astrolabe points for the Rank (all of them with Settings → Skip the unlocks). */
+  astrolabePoints(): number;
+  /** The Astrolabe: takes a node and the shortest path to it, if the points allow. */
+  takeNode(id: string): void;
+  /** Gives a node back, if nothing else taken depends on it. */
+  giveBack(id: string): void;
+  /** Gives every node back (respec is free between runs). */
+  respecTree(): void;
 }
 
 export const useProfile = create<ProfileStore>()((set, get) => {
@@ -67,6 +76,22 @@ export const useProfile = create<ProfileStore>()((set, get) => {
       commit(profile, { rankUps: [...get().rankUps, ...rankUps] });
     },
     dismissRankUps: () => set({ rankUps: [] }),
+    astrolabePoints: () =>
+      astrolabePoints(rankOf(get().profile.xp), useSettings.getState().settings.unlockAll),
+    takeNode: (id) => {
+      const profile = get().profile;
+      const tree = allocate(profile.astrolabe, id, get().astrolabePoints());
+      if (tree.length !== profile.astrolabe.length) commit({ ...profile, astrolabe: tree });
+    },
+    giveBack: (id) => {
+      const profile = get().profile;
+      const tree = refund(profile.astrolabe, id);
+      if (tree.length !== profile.astrolabe.length) commit({ ...profile, astrolabe: tree });
+    },
+    respecTree: () => {
+      const profile = get().profile;
+      if (profile.astrolabe.length > 0) commit({ ...profile, astrolabe: [] });
+    },
     markIntroduced: (ids) => {
       const profile = get().profile;
       const fresh = ids.filter((id) => !profile.introduced.includes(id));

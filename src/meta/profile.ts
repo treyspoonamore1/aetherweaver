@@ -10,7 +10,7 @@ import { CONTENT } from '../content';
 import { canonicalChords, type ChordLoadout } from '../sim';
 import type { EncounterResult, Grade } from './types';
 
-export const PROFILE_VERSION = 1;
+export const PROFILE_VERSION = 2;
 
 export interface Profile {
   version: typeof PROFILE_VERSION;
@@ -22,17 +22,36 @@ export interface Profile {
   lastChords: ChordLoadout[];
   runs: number;
   wins: number;
+  /**
+   * The Astrolabe (docs/phase-4.md): the nodes taken, in the order they were taken. The centre is
+   * never listed. Free to change between runs; a run keeps the tree it embarked with.
+   */
+  astrolabe: string[];
 }
 
 export function newProfile(): Profile {
-  return { version: PROFILE_VERSION, xp: 0, introduced: [], lastChords: [], runs: 0, wins: 0 };
+  return {
+    version: PROFILE_VERSION,
+    xp: 0,
+    introduced: [],
+    lastChords: [],
+    runs: 0,
+    wins: 0,
+    astrolabe: [],
+  };
 }
 
 // ── Ranks ─────────────────────────────────────────────────────────────────────────────
 
-/** Total XP needed for each Rank: RANK_XP[r - 1] reaches Rank r. */
-export const RANK_XP: readonly number[] = [0, 40, 200, 450, 800, 1250, 1800, 2500, 3350];
-/** The highest Rank for now (the Loom adds more in Phase 4; XP keeps counting). */
+/**
+ * Total XP needed for each Rank: RANK_XP[r - 1] reaches Rank r. Past the Callings (Rank 9), each
+ * Rank is an Astrolabe point (docs/phase-4.md), 100 XP dearer than the last.
+ */
+export const RANK_XP: readonly number[] = [
+  0, 40, 200, 450, 800, 1250, 1800, 2500, 3350, 4350, 5450, 6650, 7950, 9350, 10850, 12450, 14150,
+  15950, 17850, 19850,
+];
+/** The highest Rank (XP keeps counting past it). */
 export const MAX_RANK = RANK_XP.length;
 
 export function rankOf(xp: number): number {
@@ -51,7 +70,7 @@ export function rankProgress(xp: number): { rank: number; into: number; span: nu
 
 // ── Unlocks ───────────────────────────────────────────────────────────────────────────
 
-export type UnlockKind = 'song' | 'aura' | 'ornament' | 'ornamentSlot' | 'calling';
+export type UnlockKind = 'song' | 'aura' | 'ornament' | 'ornamentSlot' | 'calling' | 'astrolabe';
 
 export interface Unlock {
   /** Stable id: "song.field", "aura.ostinato", "ornament.unison", "ornamentSlot.2". */
@@ -109,6 +128,14 @@ export const UNLOCKS: readonly Unlock[] = [
   ornament(3, 'reverb', 'A wider field, for a party that spreads out.'),
   aura(4, 'lullaby', 'A hex: enemies in it slow down, and their wind-ups take longer.'),
   ornament(4, 'pedal_point', 'Plant a field where you want it (V) and roam free.'),
+  {
+    id: 'astrolabe',
+    rank: 4,
+    kind: 'astrolabe',
+    target: 'astrolabe',
+    name: 'The Astrolabe',
+    text: 'A star map of passives, between runs: a point for every Rank, spent on the Thread, the songs, your techniques or the heroes. Change it freely before you embark.',
+  },
   aura(5, 'fermata', 'A lethal hit holds a hero at 1 life for a moment. Heal them in time.'),
   ornament(5, 'unison', 'All in: the beam song pours into one hero at ×2.5, with no echo.'),
   {
