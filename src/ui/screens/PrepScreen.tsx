@@ -28,6 +28,7 @@ import { slotBonus } from './callingText';
 import { AstrolabeButtonLabel, KeystoneChips } from './AstrolabeParts';
 import { astrolabeOpen } from './astrolabeModel';
 import { astrolabePoints } from '../../meta/astrolabe';
+import { deedPoints } from '../../meta/deeds';
 
 export interface PrepViewProps {
   run: RunState;
@@ -394,6 +395,7 @@ export function PrepScreen() {
   const embark = useRun((s) => s.embark);
   const setScreen = useUi((s) => s.setScreen);
   const xp = useProfile((s) => s.profile.xp);
+  const deeds = useProfile((s) => s.profile.deeds);
   const unlockAll = useSettings((s) => s.settings.unlockAll);
   const allowance = useAllowance();
   const fresh = useFreshUnlocks();
@@ -411,7 +413,10 @@ export function PrepScreen() {
       rank={rank}
       astrolabe={
         astrolabeOpen(rank, unlockAll)
-          ? { points: astrolabePoints(rank, unlockAll), onOpen: () => setScreen('astrolabe') }
+          ? {
+              points: astrolabePoints(rank, unlockAll, deedPoints(deeds)),
+              onOpen: () => setScreen('astrolabe'),
+            }
           : null
       }
     />

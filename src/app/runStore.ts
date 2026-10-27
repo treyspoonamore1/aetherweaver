@@ -106,8 +106,13 @@ export const useRun = create<RunStore>()((set, get) => {
       const before = get().run;
       apply((run) => Run.finishCombat(run, outcome));
       const after = get().run;
-      if (after && after !== before && after.lastResult)
+      if (after && after !== before && after.lastResult) {
         useProfile.getState().award(after.lastResult.xp);
+        // Deeds (docs/phase-4b.md): the fight's feats, and the run's once its boss is beaten;
+        // the run remembers the ones it earned (its Summary lists them).
+        const earned = useProfile.getState().recordDeeds(after);
+        if (earned.length > 0) apply((run) => ({ ...run, deeds: [...run.deeds, ...earned] }));
+      }
     },
     continueFromResult: () => apply(Run.continueFromResult),
     pickCalling: (index, chords) => {

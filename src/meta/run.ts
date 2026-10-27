@@ -469,6 +469,7 @@ export function newRun(
     calling: null,
     callingOffer: null,
     astrolabe: [...astrolabe],
+    deeds: [],
   };
   return chordsLegal(chords, undefined, reservePool(run), reserveMult(run))
     ? { ...run, chords: canonicalChords(chords) }
@@ -1272,6 +1273,7 @@ export function summarize(
     weaverShare: 0,
     perfects: l.perfects,
     saves: l.saves.length,
+    saveCauses: [...new Set(l.saves.map((s) => s.cause))],
     cleanses: l.cleanses,
     clutchCleanses: l.clutchCleanses,
     reels: l.reels,
@@ -1465,6 +1467,7 @@ export function runTotals(
     weaverShare: 0,
     perfects: 0,
     saves: 0,
+    saveCauses: [],
     cleanses: 0,
     clutchCleanses: 0,
     reels: 0,
@@ -1512,6 +1515,7 @@ export function runTotals(
     total.calls += s.calls;
     total.responses += s.responses;
     total.holds += s.holds;
+    for (const c of s.saveCauses) if (!total.saveCauses.includes(c)) total.saveCauses.push(c);
     total.duration += r.duration;
   }
   total.weaverShare = weaverShare(total);

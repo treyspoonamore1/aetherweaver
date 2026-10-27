@@ -9,6 +9,7 @@ import type {
   EncounterKind,
   Ledger,
   LedgerMarkerKind,
+  SaveCause,
   SimConfig,
   WithoutYou,
 } from '../sim';
@@ -274,6 +275,8 @@ export interface EncounterStats {
   responses: number;
   /** Fermata holds (lethal hits caught). */
   holds: number;
+  /** The different ways heroes were saved (Deeds, docs/phase-4b.md); a run's total: all of them. */
+  saveCauses: SaveCause[];
 }
 
 export interface EncounterResult {
@@ -390,6 +393,8 @@ export interface RunState {
    * it while in Prep and frozen at embark. Saves from before it have none.
    */
   astrolabe: string[];
+  /** Deeds this run newly earned (docs/phase-4b.md), as the profile recorded them. */
+  deeds: string[];
 }
 
 /** Everything the run screens can do. Implemented by app/runStore.ts. */

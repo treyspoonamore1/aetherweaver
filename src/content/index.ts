@@ -6,6 +6,7 @@ import { MOTIFS } from './motifs';
 import { AURAS } from './auras';
 import { ORNAMENTS } from './ornaments';
 import { ASTROLABE } from './astrolabe';
+import { DEEDS } from './deeds';
 import { CALLINGS } from './callings';
 import { BOONS, RELICS } from './relics';
 import { RUN_EVENTS } from './runEvents';
@@ -20,6 +21,7 @@ import {
   type CallingDef,
   type CallingOption,
   type Content,
+  type DeedDef,
   type EncounterDef,
   type EnemyDef,
   type HeroDef,
@@ -51,6 +53,7 @@ export const CONTENT: Content = ContentSchema.parse({
   events: RUN_EVENTS,
   callings: CALLINGS,
   astrolabe: ASTROLABE,
+  deeds: DEEDS,
   arenas: ARENAS,
   encounters: ENCOUNTERS,
   barks: {
@@ -144,6 +147,22 @@ export function astrolabeText(node: AstrolabeNode): string {
   return fillValues(node.text, node.values);
 }
 
+/** A Deed by id. */
+export const deedDef: (id: string) => DeedDef = index('deed', CONTENT.deeds);
+
+/** A Deed's condition, filled in: its numbers, and the encounter, Calling and grade by name. */
+export function deedText(deed: DeedDef): string {
+  const named: Record<string, string> = {};
+  // Mid-sentence: "Beat the Bellwarden".
+  if (deed.encounter) named.encounter = encounterDef(deed.encounter).name.replace(/^The /, 'the ');
+  if (deed.calling) named.calling = `the ${callingDef(deed.calling).name}`;
+  if (deed.grade) named.grade = deed.grade;
+  return fillValues(deed.text, deed.values).replace(
+    /\{([a-zA-Z]+)\}/g,
+    (m, k: string) => named[k] ?? m,
+  );
+}
+
 /** A Calling's passive and its Crescendo line, filled in. */
 export function callingText(def: CallingDef): { passive: string; crescendo: string } {
   return {
@@ -172,6 +191,7 @@ export type {
   CallingDef,
   CallingOption,
   Content,
+  DeedDef,
   EncounterDef,
   EnemyDef,
   EventChoice,

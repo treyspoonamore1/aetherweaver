@@ -673,6 +673,54 @@ export const AstrolabeSchema = z
   .strict();
 export type Astrolabe = z.infer<typeof AstrolabeSchema>;
 
+// ── Deeds (docs/phase-4b.md) ─────────────────────────────────────────────────────────
+
+/** The rules a Deed can name; meta/deeds.ts judges each from what the run records. */
+export const DEED_TESTS = [
+  'win',
+  'runCount',
+  'grades',
+  'fight',
+  'callAll',
+  'calling',
+  'keystone',
+  'elites',
+  'flawless',
+  'saveWays',
+] as const;
+/** The fight stats a `runCount` Deed may total over a run. */
+export const DEED_STATS = [
+  'responses',
+  'perfects',
+  'saves',
+  'clutchCleanses',
+  'reels',
+  'cues',
+] as const;
+
+export const DeedDefSchema = z
+  .object({
+    id: IdSchema,
+    name: z.string(),
+    /** 1: it gives an Astrolabe point. */
+    points: z.union([z.literal(0), z.literal(1)]),
+    test: z.enum(DEED_TESTS),
+    /** `runCount`: the fight stat totalled over the run. */
+    stat: z.enum(DEED_STATS).optional(),
+    /** `fight`: the encounter to beat. */
+    encounter: IdSchema.optional(),
+    /** `fight`, `grades`: the grade it asks for. */
+    grade: z.enum(['S', 'A', 'B', 'C']).optional(),
+    /** `calling`: the Calling to win as. */
+    calling: IdSchema.optional(),
+    /** Its numbers: `n` (how many) and, for a fight, `downs` (at most). */
+    values: ValuesSchema,
+    /** {n}, {downs} from `values`; {encounter}, {calling}, {grade} by name. */
+    text: z.string(),
+  })
+  .strict();
+export type DeedDef = z.infer<typeof DeedDefSchema>;
+
 // ── Arenas and encounters ─────────────────────────────────────────────────────────────
 
 export const ArenaDefSchema = z.object({
@@ -746,6 +794,7 @@ export const ContentSchema = z
     events: z.array(RunEventDefSchema),
     callings: z.array(CallingDefSchema),
     astrolabe: AstrolabeSchema,
+    deeds: z.array(DeedDefSchema),
     arenas: z.array(ArenaDefSchema).min(1),
     encounters: z.array(EncounterDefSchema).min(1),
     /** Directive acknowledgement lines. */
@@ -923,6 +972,49 @@ export const ContentSchema = z
       for (const n of astro.nodes)
         if (!reached.has(n.id))
           ctx.addIssue({ code: 'custom', message: `astrolabe node "${n.id}" can't be reached` });
+    }
+    // Deeds: ten give a point, each names what its rule needs, and its text is all filled.
+    unique(
+      'deed',
+      c.deeds.map((d) => d.id),
+    );
+    if (c.deeds.filter((d) => d.points === 1).length !== 10)
+      ctx.addIssue({ code: 'custom', message: 'exactly 10 Deeds give an Astrolabe point' });
+    const encounterIds = new Set(c.encounters.map((e) => e.id));
+    const callingIds = new Set(c.callings.map((k) => k.id));
+    for (const d of c.deeds) {
+      const where = `deed "${d.id}"`;
+      const needs: Record<(typeof DEED_TESTS)[number], string[]> = {
+        win: [],
+        runCount: ['stat', 'n'],
+        grades: ['grade', 'n'],
+        fight: ['encounter'],
+        callAll: ['n'],
+        calling: ['calling'],
+        keystone: [],
+        elites: ['n'],
+        flawless: [],
+        saveWays: ['n'],
+      };
+      for (const field of needs[d.test]) {
+        const has =
+          field === 'n'
+            ? d.values.n !== undefined
+            : d[field as 'stat' | 'encounter' | 'grade' | 'calling'] !== undefined;
+        if (!has) ctx.addIssue({ code: 'custom', message: `${where} (${d.test}) needs ${field}` });
+      }
+      if (d.encounter && !encounterIds.has(d.encounter))
+        ctx.addIssue({ code: 'custom', message: `${where}: unknown encounter "${d.encounter}"` });
+      if (d.calling && !callingIds.has(d.calling))
+        ctx.addIssue({ code: 'custom', message: `${where}: unknown calling "${d.calling}"` });
+      for (const m of d.text.matchAll(/\{([a-zA-Z]+)\}/g)) {
+        const key = m[1]!;
+        const named = key === 'encounter' || key === 'calling' || key === 'grade';
+        const ok = named
+          ? d[key as 'encounter' | 'calling' | 'grade'] !== undefined
+          : d.values[key] !== undefined;
+        if (!ok) ctx.addIssue({ code: 'custom', message: `${where} has no value for {${key}}` });
+      }
     }
     for (const ev of c.events) {
       unique(

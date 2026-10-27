@@ -57,7 +57,8 @@ describe('points', () => {
     expect([1, 2, 3].map((r) => astrolabePoints(r))).toEqual([0, 0, 0]);
     expect(astrolabePoints(4)).toBe(3);
     expect(astrolabePoints(20)).toBe(19);
-    expect(astrolabePoints(1, true)).toBe(19);
+    // Skip the unlocks: every point, the Ranks' 19 and the Deeds' 10 (docs/phase-4b.md).
+    expect(astrolabePoints(1, true)).toBe(29);
   });
 
   it('Ranks reach 20, each dearer than the last; the Astrolabe opens at Rank 4', () => {

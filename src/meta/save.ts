@@ -6,7 +6,7 @@
 import { z } from 'zod';
 import { CONTENT } from '../content';
 import { chordProblems, type ReservePool } from '../sim';
-import { pruneTree } from './astrolabe';
+import { astrolabePoints, pruneTree } from './astrolabe';
 import { FIGHT_AETHER, RELIC_OFFERS } from './economy';
 import { fieldAuraSlots, reserveMult, reservePool } from './run';
 import { MAX_RANK, newProfile, PROFILE_VERSION, type Profile } from './profile';
@@ -90,6 +90,8 @@ const StatsSchema = z.object({
   calls: Num,
   responses: Num,
   holds: Num,
+  /** Deeds (docs/phase-4b.md): saves from before them name no ways. */
+  saveCauses: z.array(Str).default([]),
 });
 
 const WithoutYouSchema = z.object({
@@ -275,6 +277,7 @@ export const RunStateSchema = z.object({
   callingOffer: z.object({ tier: Num, options: z.tuple([Str, Str]) }).nullable(),
   // The Astrolabe (docs/phase-4.md): saves from before it fight without a tree.
   astrolabe: z.array(Str).default([]),
+  deeds: z.array(Str).default([]),
 });
 
 /** Motif ids renamed since older saves were written. */
@@ -520,12 +523,19 @@ export const ProfileSchema = z.object({
   runs: Num,
   wins: Num,
   astrolabe: z.array(Str),
+  deeds: z.array(Str),
+  deedBest: z.record(Str, Num),
 });
 
-/** v1 → v2: the Astrolabe (docs/phase-4.md). Profiles from before it have an empty tree. */
+/**
+ * v1 → v2: the Astrolabe (docs/phase-4.md), an empty tree. v2 → v3: Deeds (docs/phase-4b.md),
+ * none earned yet.
+ */
 export function migrateProfileJson(raw: unknown): unknown {
-  if (isObj(raw) && raw.version === 1) return { ...raw, version: 2, astrolabe: [] };
-  return raw;
+  let p = raw;
+  if (isObj(p) && p.version === 1) p = { ...p, version: 2, astrolabe: [] };
+  if (isObj(p) && p.version === 2) p = { ...p, version: 3, deeds: [], deedBest: {} };
+  return p;
 }
 
 /** Loads the profile (backup if the main copy is unreadable); a new one if there's none. */
@@ -541,8 +551,11 @@ export function loadProfile(store: KeyValueStore): Profile {
         // reserve is the next run's to judge, with its tree and Calling.
         if (chordProblems(profile.lastChords, undefined, { reserveMult: 0 }).length > 0)
           profile.lastChords = [];
-        // A tree that no longer connects (renamed nodes) keeps what still does.
-        profile.astrolabe = pruneTree(profile.astrolabe, MAX_RANK - 1);
+        // A tree that no longer connects (renamed nodes) keeps what still does, within every
+        // point there is; Deeds no longer in the content are forgotten.
+        profile.astrolabe = pruneTree(profile.astrolabe, astrolabePoints(MAX_RANK, true));
+        const deeds = new Set(CONTENT.deeds.map((d) => d.id));
+        profile.deeds = profile.deeds.filter((id) => deeds.has(id));
         return profile;
       }
     } catch {

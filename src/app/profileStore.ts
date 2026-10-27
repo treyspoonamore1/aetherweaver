@@ -5,6 +5,7 @@
  */
 import { create } from 'zustand';
 import { allocate, astrolabePoints, refund } from '../meta/astrolabe';
+import { deedPoints, deedProgress, deedsEarned } from '../meta/deeds';
 import {
   allowanceFor,
   awardXp,
@@ -17,6 +18,8 @@ import {
 } from '../meta/profile';
 import { chordsToRemember } from '../meta/run';
 import { loadProfile, saveProfile } from '../meta/save';
+import type { RunState } from '../meta/types';
+import { CONTENT } from '../content';
 import type { ChordLoadout, ReservePool } from '../sim';
 import { useSettings } from './settings';
 import { storage } from './storage';
@@ -31,6 +34,8 @@ export interface ProfileStore {
   profile: Profile;
   /** Rank-ups not shown yet: the result or summary screen shows them, then `dismissRankUps`. */
   rankUps: RankUp[];
+  /** Deeds earned and not shown yet (docs/phase-4b.md): a toast shows them, then `dismissDeeds`. */
+  deedNotices: string[];
   /** What Prep and Retune may use: by Rank, or everything with Settings → Skip the unlocks. */
   allowance(): Allowance;
   /** Adds Weaver XP (the run store, when a fight finishes). */
@@ -43,9 +48,12 @@ export interface ProfileStore {
   rememberChords(chords: ChordLoadout[], pool?: ReservePool, reserveMult?: number): void;
   /** A run ended: counts runs and wins. */
   recordRun(won: boolean): void;
+  /** A fight ended: records the Deeds the run has earned and its best counts; returns the new. */
+  recordDeeds(run: RunState): string[];
+  dismissDeeds(): void;
   /** Settings → Reset progress: back to Rank 1. */
   resetProgress(): void;
-  /** Astrolabe points for the Rank (all of them with Settings → Skip the unlocks). */
+  /** Astrolabe points for the Rank and the Deeds (all of them with Settings → Skip the unlocks). */
   astrolabePoints(): number;
   /** The Astrolabe: takes a node and the shortest path to it, if the points allow. */
   takeNode(id: string): void;
@@ -63,6 +71,7 @@ export const useProfile = create<ProfileStore>()((set, get) => {
   return {
     profile: loadProfile(storage()),
     rankUps: [],
+    deedNotices: [],
     allowance: () =>
       useSettings.getState().settings.unlockAll
         ? EVERYTHING
@@ -77,8 +86,14 @@ export const useProfile = create<ProfileStore>()((set, get) => {
       commit(profile, { rankUps: [...get().rankUps, ...rankUps] });
     },
     dismissRankUps: () => set({ rankUps: [] }),
-    astrolabePoints: () =>
-      astrolabePoints(rankOf(get().profile.xp), useSettings.getState().settings.unlockAll),
+    astrolabePoints: () => {
+      const profile = get().profile;
+      return astrolabePoints(
+        rankOf(profile.xp),
+        useSettings.getState().settings.unlockAll,
+        deedPoints(profile.deeds),
+      );
+    },
     takeNode: (id) => {
       const profile = get().profile;
       const tree = allocate(profile.astrolabe, id, get().astrolabePoints());
@@ -103,10 +118,27 @@ export const useProfile = create<ProfileStore>()((set, get) => {
       const kept = chordsToRemember(chords, pool, reserveMult);
       if (kept) commit({ ...get().profile, lastChords: kept });
     },
+    recordDeeds: (run) => {
+      const profile = get().profile;
+      const earned = deedsEarned(run, profile.deeds);
+      // The best count so far for each counting Deed.
+      let best = profile.deedBest;
+      for (const d of CONTENT.deeds) {
+        const n = deedProgress(run, d);
+        if (n !== null && n > (best[d.id] ?? 0)) best = { ...best, [d.id]: n };
+      }
+      if (earned.length === 0 && best === profile.deedBest) return earned;
+      commit(
+        { ...profile, deeds: [...profile.deeds, ...earned], deedBest: best },
+        earned.length > 0 ? { deedNotices: [...get().deedNotices, ...earned] } : {},
+      );
+      return earned;
+    },
+    dismissDeeds: () => set({ deedNotices: [] }),
     recordRun: (won) => {
       const p = get().profile;
       commit({ ...p, runs: p.runs + 1, wins: p.wins + (won ? 1 : 0) });
     },
-    resetProgress: () => commit(newProfile(), { rankUps: [] }),
+    resetProgress: () => commit(newProfile(), { rankUps: [], deedNotices: [] }),
   };
 });

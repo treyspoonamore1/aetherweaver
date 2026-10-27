@@ -196,6 +196,8 @@ export function playRun(
     astrolabe?: readonly string[];
     /** Calibration: every fight's enemies have this much more life (1.15: 15% more). */
     threatMult?: number;
+    /** Called with the finished run (the Deeds report reads it). */
+    onEnd?: (run: RunState) => void;
   } = {},
 ): RunSummary {
   const relics = opts.relics ?? true;
@@ -277,6 +279,7 @@ export function playRun(
         throw new Error(`unexpected phase ${run.phase}`);
     }
   }
+  opts.onEnd?.(run);
   return {
     seed,
     bot,

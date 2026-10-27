@@ -7,6 +7,7 @@
  * never listed.
  */
 import { CONTENT } from '../content';
+import { DEED_POINTS_MAX } from './deeds';
 import { MAX_RANK } from './profile';
 
 /** The Rank the Astrolabe opens at. */
@@ -14,10 +15,14 @@ export const ASTROLABE_RANK = 4;
 /** The centre: owned by everyone, never in a tree's list. */
 export const ASTROLABE_START = 'star';
 
-/** Points for a Rank: one for every Rank above 1, once it's open. `all`: Skip the unlocks. */
-export function astrolabePoints(rank: number, all = false): number {
-  if (all) return MAX_RANK - 1;
-  return rank >= ASTROLABE_RANK ? Math.min(rank, MAX_RANK) - 1 : 0;
+/**
+ * Points for a Rank and the Deeds' points (docs/phase-4b.md): one for every Rank above 1 and one
+ * for each point Deed, once the Astrolabe is open. `all`: Skip the unlocks opens every point.
+ */
+export function astrolabePoints(rank: number, all = false, deeds = 0): number {
+  if (all) return MAX_RANK - 1 + DEED_POINTS_MAX;
+  if (rank < ASTROLABE_RANK) return 0;
+  return Math.min(rank, MAX_RANK) - 1 + Math.min(Math.max(0, deeds), DEED_POINTS_MAX);
 }
 
 const NEIGHBOURS: ReadonlyMap<string, readonly string[]> = (() => {

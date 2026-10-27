@@ -3,6 +3,7 @@ import { useProfile } from '../../app/profileStore';
 import { useRun } from '../../app/runStore';
 import { useSettings } from '../../app/settings';
 import { astrolabePoints } from '../../meta/astrolabe';
+import { deedPoints } from '../../meta/deeds';
 import { rankOf } from '../../meta/profile';
 import { AstrolabeGlyph } from '../kit/AstrolabeGlyph';
 import { Backdrop } from '../kit/Backdrop';
@@ -66,7 +67,8 @@ export function TitleScreen() {
   // The Astrolabe (Phase 4): open from Rank 4 (or with Skip the unlocks), points left to spend.
   const rank = rankOf(profile.xp);
   const astrolabe = astrolabeOpen(rank, unlockAll);
-  const toSpend = astrolabePoints(rank, unlockAll) - profile.astrolabe.length;
+  const toSpend =
+    astrolabePoints(rank, unlockAll, deedPoints(profile.deeds)) - profile.astrolabe.length;
 
   const startNew = () => {
     useRun.getState().newRun();

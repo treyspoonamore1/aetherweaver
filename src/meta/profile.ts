@@ -10,7 +10,7 @@ import { CONTENT } from '../content';
 import { canonicalChords, type ChordLoadout } from '../sim';
 import type { EncounterResult, Grade } from './types';
 
-export const PROFILE_VERSION = 2;
+export const PROFILE_VERSION = 3;
 
 export interface Profile {
   version: typeof PROFILE_VERSION;
@@ -27,6 +27,10 @@ export interface Profile {
    * never listed. Free to change between runs; a run keeps the tree it embarked with.
    */
   astrolabe: string[];
+  /** Deeds earned (docs/phase-4b.md), in the order earned. */
+  deeds: string[];
+  /** A counting Deed's best run so far ("best: 7 of 10"), by Deed id. */
+  deedBest: Record<string, number>;
 }
 
 export function newProfile(): Profile {
@@ -38,6 +42,8 @@ export function newProfile(): Profile {
     runs: 0,
     wins: 0,
     astrolabe: [],
+    deeds: [],
+    deedBest: {},
   };
 }
 

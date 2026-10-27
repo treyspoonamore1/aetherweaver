@@ -12,6 +12,7 @@ import { useSettings } from '../../app/settings';
 import { storage } from '../../app/storage';
 import { astrolabeNode, astrolabeText, type AstrolabeNode } from '../../content';
 import { ASTROLABE_START, astrolabePoints } from '../../meta/astrolabe';
+import { deedPoints } from '../../meta/deeds';
 import { rankOf } from '../../meta/profile';
 import { loadRun } from '../../meta/save';
 import { AstrolabeGlyph, KeystoneBadge } from '../kit/AstrolabeGlyph';
@@ -745,6 +746,7 @@ function TreeSummary({ tree }: { tree: readonly string[] }) {
 export function AstrolabeScreen() {
   const tree = useProfile((s) => s.profile.astrolabe);
   const xp = useProfile((s) => s.profile.xp);
+  const deeds = useProfile((s) => s.profile.deeds);
   const unlockAll = useSettings((s) => s.settings.unlockAll);
   const back = useUi((s) => s.back);
   const previous = useUi((s) => s.previous);
@@ -757,7 +759,7 @@ export function AstrolabeScreen() {
   return (
     <AstrolabeView
       tree={tree}
-      points={astrolabePoints(rank, unlockAll)}
+      points={astrolabePoints(rank, unlockAll, deedPoints(deeds))}
       rank={rank}
       unlockAll={unlockAll}
       onTake={(id) => void takeStar(id)}
