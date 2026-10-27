@@ -10,6 +10,8 @@ export const MARKER: Record<MarkerKind, { icon: IconName; label: string; color: 
   save: { icon: 'heart', label: 'Save', color: '#2dd4bf' },
   cleanse: { icon: 'chime', label: 'Chime', color: '#c4b5fd' },
   reel: { icon: 'reel', label: 'Reel', color: '#7dd3fc' },
+  // The UI workstream gives Rewind its own icon (docs/phase-3e.md).
+  rewind: { icon: 'reel', label: 'Rewind', color: '#a5b4fc' },
   cue: { icon: 'note', label: 'Cue', color: '#fbbf24' },
   crescendo: { icon: 'sparkle', label: 'Crescendo', color: '#fff1c7' },
   revive: { icon: 'mend', label: 'Revive', color: '#2dd4bf' },

@@ -9,7 +9,7 @@ import {
 } from './chords';
 import type { AuraTotals } from './combat/auras';
 import type { DirectiveKind, PartySlot } from './commands';
-import { WORLD_HALF_EXTENT } from './constants';
+import { WORLD_HALF_EXTENT, pastSamples } from './constants';
 import { EntityStore } from './core/entities';
 import { EventQueue } from './core/events';
 import { RngStreams } from './core/rng';
@@ -311,6 +311,10 @@ export interface SimInternal {
   directiveBarkAt: number;
   /** Earliest sim time any hero may call (spacing between calls). */
   nextCallAt: number;
+  /** Echo Ward (the Chronomancer): Wards due to come back. */
+  echoWards: { hero: EntityId; at: number; amount: number }[];
+  /** Paradox: (telegraph, hero) pairs a Rewind took out of an attack's reach. */
+  spared: { telegraph: number; hero: EntityId }[];
 }
 
 /** The sim's mutable world. Exposed to the outside only as the read-only WorldState. */
@@ -383,7 +387,7 @@ export function emptyLedger(): Ledger {
     holds: 0,
     auras: { healing: 0, shielded: 0, amplified: 0 },
     thread: { healing: 0, amplified: 0 },
-    calling: { amplified: 0, shielded: 0, borne: 0 },
+    calling: { amplified: 0, shielded: 0, borne: 0, rewound: 0, revived: 0 },
     timeline: [],
     markers: [],
   };
@@ -450,6 +454,7 @@ export function createWorld(config: SimConfig): World {
       suppressed: false,
       crescendo: false,
       vow: false,
+      stasis: false,
       hymnCircles: [],
     },
     encounter: {
@@ -482,8 +487,11 @@ export function createWorld(config: SimConfig): World {
       sovereign:
         mods.sovereignMult !== 1 &&
         loadout.reduce((n, c) => n + c.auras.length, 0) >= mods.sovereignMinAuras,
-      crescendo: mods.vowDuration > 0 ? 'vow' : 'sunrise',
+      crescendo: mods.stasisDuration > 0 ? 'stasis' : mods.vowDuration > 0 ? 'vow' : 'sunrise',
       bearShare: mods.bearShare,
+      rewind: mods.rewindSeconds > 0,
+      timers: mods.telegraphTimers,
+      foresight: mods.foresight,
     },
     config: resolved,
     content,
@@ -507,6 +515,8 @@ export function createWorld(config: SimConfig): World {
       },
       ledgerSampleAt: 0,
       reelDodges: [],
+      echoWards: [],
+      spared: [],
       rallyUntil: 0,
       directiveBarkAt: -100,
       nextCallAt: content.calls.firstAfter,
@@ -568,6 +578,8 @@ export function createWorld(config: SimConfig): World {
       reservedLife,
       undying: mods.undyingInvulnerable > 0,
       selfHealAcc: 0,
+      lastTechnique: null,
+      masteryAt: 0,
       resonance: Math.min(content.resonance.max, mods.startResonance),
       resonanceIdle: 0,
       cooldowns: { ward: 0, chime: 0, reel: 0, glide: 0 },
@@ -643,6 +655,14 @@ export function createWorld(config: SimConfig): World {
         engaged: false,
         soloPulseAt: 0,
         lastTelegraphSeen: 0,
+        // Rewind remembers from the start: a Rewind early in the fight goes back to here.
+        past: Array.from({ length: pastSamples(mods.rewindSeconds) }, () => ({
+          hp: Math.max(1, Math.round(maxHp * member.hpPct)),
+          x: at.x,
+          z: at.z,
+          up: true,
+        })),
+        pastAt: 0,
       },
     });
     if (member.shaken) {

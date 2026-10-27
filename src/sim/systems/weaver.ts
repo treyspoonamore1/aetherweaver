@@ -90,7 +90,8 @@ export function updateWeaver(world: World, dt: number): void {
     if (key === 'ward' && w.cooldowns.ward === 0 && w.wardCharges < w.maxWardCharges) {
       w.wardCharges++;
       if (w.wardCharges < w.maxWardCharges) {
-        w.cooldowns.ward = world.content.techniques.ward.cooldown;
+        // Quickened (the Chronomancer) recharges faster.
+        w.cooldowns.ward = world.content.techniques.ward.cooldown * world.mods.techCooldownMult;
         w.cooldownTotals.ward = w.cooldowns.ward;
       }
     }
@@ -102,6 +103,7 @@ export function updateWeaver(world: World, dt: number): void {
     if (w.crescendo === 0) {
       world.field.crescendo = false;
       world.field.vow = false;
+      world.field.stasis = false;
       world.events.push({ type: 'crescendoEnd', tick: world.tick });
       if (world.mods.daCapo > 0)
         w.resonance = Math.min(world.content.resonance.max, world.mods.daCapo);

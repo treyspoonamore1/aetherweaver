@@ -18,7 +18,7 @@ import {
 import { pickEnemyTarget, WEAVER_THREAT_INDEX } from '../combat/threat';
 import { announceDecree } from '../combat/feedback';
 import { countAimed, perfectWindow, setOnCastComplete, startTelegraph } from '../combat/telegraphs';
-import type { Entity, EnemyTier, Telegraph } from '../state';
+import type { Entity, EnemyTier, Foreseen, Telegraph } from '../state';
 import type { World } from '../world';
 import { newHealth } from '../world';
 import { enemyFx, hasAura } from '../combat/auras';
@@ -88,6 +88,7 @@ export function spawnEnemy(
       lullabyTime: 0,
       sleepImmuneUntil: 0,
       engaged: false,
+      foreseen: null,
     },
   });
   if (affixes.includes('shielded')) addShield(world, e, 'discord', maxHp * 0.4, NEVER, false);
@@ -116,9 +117,10 @@ export function updateEnemies(world: World, dt: number): void {
     }
     if (!c.engaged) engage(world, e);
 
-    // Lullaby: slower, and (Heavy Eyelids) sleepy.
+    // Lullaby: slower, and (Heavy Eyelids) sleepy. Slow Dance (the Chronomancer): slower in a field.
     const slow = enemyFx(world, e).enemySlow;
-    const speed = e.speed * (1 - slow);
+    const dance = c.inField ? world.mods.slowDanceSpeed : 0;
+    const speed = e.speed * (1 - slow) * (1 - dance);
     if (
       world.mods.heavyEyelidsSleep > 0 &&
       c.tier === 'normal' &&
@@ -134,6 +136,7 @@ export function updateEnemies(world: World, dt: number): void {
 
     if (isDisabled(e)) {
       approachVelocity(e, 0, 0, ENEMY_ACCEL * 2, dt);
+      c.foreseen = null;
       continue;
     }
     if (c.attackCooldown > 0) c.attackCooldown -= dt;
@@ -145,6 +148,7 @@ export function updateEnemies(world: World, dt: number): void {
       updateCast(world, e, def, dt);
       continue;
     }
+    if (world.mods.foresight > 0) foresee(world, e, def);
     if (c.state === 'recover') {
       approachVelocity(e, 0, 0, ENEMY_ACCEL, dt);
       if (c.stateTime >= 0.5) setState(c, 'approach');
@@ -301,7 +305,8 @@ function trySpecial(world: World, e: Entity, def: EnemyDef, target: Entity): boo
       c.specialCooldowns[i] = 1.5;
       continue;
     }
-    if (beginAttack(world, e, attack, target)) {
+    const promised = c.foreseen?.special === i ? c.foreseen : null;
+    if (beginAttack(world, e, attack, target, promised)) {
       c.specialCooldowns[i] = attack.cooldown * cooldownMult(world, e);
       return true;
     }
@@ -326,6 +331,7 @@ export function beginAttack(
   e: Entity,
   attack: AttackDef,
   current: Entity | null,
+  promised: Foreseen | null = null,
 ): boolean {
   const c = e.enemy!;
   const heroes: Entity[] = [];
@@ -366,21 +372,22 @@ export function beginAttack(
     }
     case 'randomHero':
     case 'randomNonTank': {
-      const pool = heroes.filter(
-        (hero) =>
-          inRange(hero) &&
-          !hero.health!.statuses.some((s) => s.id === 'dirge' || s.id === 'immune') &&
-          (attack.targeting === 'randomHero' || hero.hero!.defId !== 'kael'),
-      );
-      const fallback = heroes.filter(
-        (hero) => inRange(hero) && !hero.health!.statuses.some((s) => s.id === 'dirge'),
-      );
-      const from = pool.length > 0 ? pool : fallback;
-      if (from.length > 0) target = from[world.rng.ai.int(from.length)]!;
+      const from = randomPool(heroes, attack, inRange);
+      // Foresight rolled it a second early: the same hero, if they still qualify.
+      const kept = promised ? from.find((hero) => hero.id === promised.target) : undefined;
+      if (kept) target = kept;
+      else if (from.length > 0) target = from[world.rng.ai.int(from.length)]!;
       break;
     }
     case 'pair': {
       if (heroes.length < 2) return false;
+      const keptA = promised ? heroes.find((hero) => hero.id === promised.target) : undefined;
+      const keptB = promised ? heroes.find((hero) => hero.id === promised.second) : undefined;
+      if (keptA && keptB && keptA !== keptB) {
+        shape = { kind: 'link', a: keptA.id, b: keptB.id, r: attack.radius };
+        target = keptA;
+        break;
+      }
       const a = world.rng.ai.int(heroes.length);
       let b = world.rng.ai.int(heroes.length - 1);
       if (b >= a) b++;
@@ -459,9 +466,11 @@ export function beginAttack(
   }
 
   let windup = attack.windup * c.windupMult * world.config.assists.telegraphLead;
-  // Lullaby: slower wind-ups, and a Perfect window widened in proportion.
+  // Lullaby: slower wind-ups, and a Perfect window widened in proportion. Slow Dance (the
+  // Chronomancer): longer still for an enemy in a field.
   const lullaby = attack.effect === 'damage' ? enemyFx(world, e).enemyWindup : 0;
-  windup *= 1 + lullaby;
+  const dance = c.inField ? world.mods.slowDanceWindup : 0;
+  windup *= (1 + lullaby) * (1 + dance);
   const scale = c.damageMult * enrageMult(world, c.tier);
   const t = startTelegraph(world, {
     owner: e,
@@ -471,7 +480,7 @@ export function beginAttack(
     windup,
     damage: attack.damage * scale,
     pctMaxHp: (attack.pctMaxHp ?? 0) * (c.tier === 'elite' ? 1.1 : 1),
-    perfectWindowMult: 1 + lullaby,
+    perfectWindowMult: (1 + lullaby) * (1 + dance),
   });
   if (attack.kind === 'mark' && target) addStatus(world, target, 'dirge', windup, e.id);
   if (shape!.kind === 'link') {
@@ -500,6 +509,7 @@ export function beginAttack(
   };
   c.state = attack.effect === 'healAllies' ? 'channel' : 'casting';
   c.stateTime = 0;
+  c.foreseen = null;
   if (target) face(e, target);
   e.vx = 0;
   e.vz = 0;
@@ -507,6 +517,149 @@ export function beginAttack(
 }
 
 const sq = (v: number) => v * v;
+
+/** The heroes a random-target attack may pick (beginAttack and Foresight share it). */
+function randomPool(
+  heroes: readonly Entity[],
+  attack: AttackDef,
+  inRange: (t: Entity) => boolean,
+): Entity[] {
+  const pool = heroes.filter(
+    (hero) =>
+      inRange(hero) &&
+      !hero.health!.statuses.some((s) => s.id === 'dirge' || s.id === 'immune') &&
+      (attack.targeting === 'randomHero' || hero.hero!.defId !== 'kael'),
+  );
+  const fallback = heroes.filter(
+    (hero) => inRange(hero) && !hero.health!.statuses.some((s) => s.id === 'dirge'),
+  );
+  return pool.length > 0 ? pool : fallback;
+}
+
+function activeHeroes(world: World): Entity[] {
+  const heroes: Entity[] = [];
+  for (const id of world.party) {
+    const hero = world.entities.get(id);
+    if (isActive(hero)) heroes.push(hero);
+  }
+  return heroes;
+}
+
+/** A boss script's next scheduled attack (Foresight sees these too). */
+function scriptedNext(world: World, e: Entity): { attackId: string; at: number } | null {
+  if (world.encounter.bossId !== e.id) return null;
+  const c = e.enemy!;
+  const boss = world.internal.boss;
+  if (c.defId === 'the_bellwarden' && boss.doubleTollAt > 0)
+    return {
+      attackId: 'bellwarden_toll_in',
+      at: Math.max(boss.doubleTollAt, boss.phaseShiftUntil),
+    };
+  if (c.defId === 'the_hollow_cantor' && c.phase >= 3)
+    return { attackId: 'cantor_requiem', at: Math.max(boss.nextRequiemAt, boss.phaseShiftUntil) };
+  return null;
+}
+
+/**
+ * Foresight (the Chronomancer, docs/phase-3e.md): the attack this enemy will use next, once it's
+ * due within a second. A target picked by rule (its current target, the farthest, the frailest)
+ * is predicted afresh every tick; a random one is rolled now and kept, and the attack uses it
+ * when it begins if that hero still qualifies.
+ */
+function foresee(world: World, e: Entity, def: EnemyDef): void {
+  const c = e.enemy!;
+  const boss = c.tier === 'boss' || c.tier === 'miniboss';
+  let next: { special: number; attackId: string; at: number } | null = null;
+  const script = scriptedNext(world, e);
+  if (script) next = { special: -1, ...script };
+  // A chained toll owns the bell's next cast.
+  if (script?.attackId !== 'bellwarden_toll_in') {
+    for (let i = 0; i < def.specials.length; i++) {
+      const id = def.specials[i]!;
+      if (SCRIPTED.has(id)) continue;
+      let at = world.time + Math.max(0, c.specialCooldowns[i]!);
+      if (boss) at = Math.max(at, world.internal.boss.phaseShiftUntil);
+      if (!next || at < next.at - 1e-9) next = { special: i, attackId: id, at };
+    }
+  }
+  if (!next || next.at - world.time > world.mods.foresight + 1e-9) {
+    c.foreseen = null;
+    return;
+  }
+  const attack = attackDef(next.attackId);
+  const rolled =
+    attack.targeting === 'randomHero' ||
+    attack.targeting === 'randomNonTank' ||
+    attack.targeting === 'pair';
+  const same =
+    c.foreseen !== null &&
+    c.foreseen.attackId === next.attackId &&
+    c.foreseen.special === next.special;
+  if (same) {
+    c.foreseen!.at = next.at;
+    if (!rolled) c.foreseen!.target = predictedTarget(world, e, attack)?.id ?? null;
+    return;
+  }
+  let target: Entity | null = null;
+  let second: Entity | null = null;
+  if (rolled) {
+    const heroes = activeHeroes(world);
+    if (attack.targeting === 'pair') {
+      if (heroes.length >= 2) {
+        const a = world.rng.ai.int(heroes.length);
+        let b = world.rng.ai.int(heroes.length - 1);
+        if (b >= a) b++;
+        target = heroes[a]!;
+        second = heroes[b]!;
+      }
+    } else {
+      const from = randomPool(heroes, attack, (t) => inReach(e, attack, t));
+      if (from.length > 0) target = from[world.rng.ai.int(from.length)]!;
+    }
+  } else target = predictedTarget(world, e, attack);
+  c.foreseen = {
+    attackId: next.attackId,
+    name: attack.name,
+    target: target?.id ?? null,
+    second: second?.id ?? null,
+    at: next.at,
+    special: next.special,
+  };
+  world.events.push({
+    type: 'foreseen',
+    tick: world.tick,
+    enemy: e.id,
+    attack: next.attackId,
+    name: attack.name,
+    target: c.foreseen.target,
+    at: next.at,
+  });
+}
+
+function inReach(e: Entity, attack: AttackDef, t: Entity): boolean {
+  return distSq(t.x, t.z, e.x, e.z) <= sq(attack.range + e.radius + t.radius);
+}
+
+/** Who a rule-targeted attack would pick if it began now (Foresight's prediction). */
+function predictedTarget(world: World, e: Entity, attack: AttackDef): Entity | null {
+  if (attack.targeting === 'self' || attack.targeting === 'allHeroes') return null;
+  if (attack.targeting === 'current') {
+    const t = e.enemy!.targetId === null ? undefined : world.entities.get(e.enemy!.targetId);
+    return isActive(t) ? t : null;
+  }
+  let best: Entity | null = null;
+  let score = 0;
+  for (const hero of activeHeroes(world)) {
+    if (!inReach(e, attack, hero)) continue;
+    const s =
+      attack.targeting === 'farthest' ? distSq(hero.x, hero.z, e.x, e.z) : -hero.health!.maxHp;
+    if (best === null || s > score) {
+      best = hero;
+      score = s;
+    }
+  }
+  return best;
+}
 
 function updateCast(world: World, e: Entity, def: EnemyDef, dt: number): void {
   const c = e.enemy!;
@@ -608,6 +761,7 @@ export function ringPoint(
 /** Volatile: shatters 3 s after death. */
 function onDeath(world: World, e: Entity): void {
   const c = e.enemy!;
+  c.foreseen = null;
   if (!c.affixes.includes('volatile')) return;
   const t: Telegraph = {
     id: world.internal.nextTelegraphId++,

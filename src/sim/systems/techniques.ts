@@ -23,7 +23,7 @@ import { weaverOf } from '../world';
 import { answerCall } from './calls';
 import { startSolo } from './solos';
 
-type Rejectable = TechniqueKey | 'thread' | 'cue' | 'crescendo' | 'plant';
+type Rejectable = TechniqueKey | 'rewind' | 'thread' | 'cue' | 'crescendo' | 'plant';
 type Reason =
   | 'cooldown'
   | 'spirit'
@@ -39,7 +39,7 @@ export function reject(world: World, technique: Rejectable, reason: Reason): voi
   world.events.push({ type: 'techniqueRejected', tick: world.tick, technique, reason });
 }
 
-function weaverReady(world: World, technique: Rejectable): Entity | null {
+export function weaverReady(world: World, technique: Rejectable): Entity | null {
   const e = weaverOf(world);
   if (e.health!.downed) {
     reject(world, technique, 'down');
@@ -49,8 +49,10 @@ function weaverReady(world: World, technique: Rejectable): Entity | null {
   return e;
 }
 
-function spend(world: World, weaver: Entity, technique: TechniqueKey, cost: number): boolean {
+export function spend(world: World, weaver: Entity, technique: Rejectable, cost: number): boolean {
   const w = weaver.weaver!;
+  // Stasis (the Chronomancer): techniques cost less while it lasts.
+  if (world.field.stasis) cost *= world.mods.stasisCostMult;
   if (w.spirit + 1e-9 < cost) {
     reject(world, technique, 'spirit');
     return false;
@@ -59,7 +61,16 @@ function spend(world: World, weaver: Entity, technique: TechniqueKey, cost: numb
   return true;
 }
 
-function heroForSlot(world: World, weaver: Entity, slot: PartySlot | undefined): Entity | null {
+/** A technique's cooldown, Quickened (the Chronomancer) included. */
+export function techCooldown(world: World, base: number): number {
+  return base * world.mods.techCooldownMult;
+}
+
+export function heroForSlot(
+  world: World,
+  weaver: Entity,
+  slot: PartySlot | undefined,
+): Entity | null {
   const s = slot ?? weaver.weaver!.threadSlot;
   if (s === null || s === undefined) return null;
   const hero = slotHero(world, s);
@@ -73,18 +84,32 @@ export function castWard(world: World, slot: PartySlot | undefined): void {
   const def = world.content.techniques.ward;
   const hero = heroForSlot(world, weaver, slot);
   if (!hero || hero.health!.downed) return reject(world, 'ward', 'target');
-  if (w.wardCharges <= 0) return reject(world, 'ward', 'cooldown');
+  // Stasis: no cooldowns, so no charge is needed or used.
+  const stasis = world.field.stasis;
+  if (w.wardCharges <= 0 && !stasis) return reject(world, 'ward', 'cooldown');
   if (distSq(hero.x, hero.z, weaver.x, weaver.z) > def.range * def.range)
     return reject(world, 'ward', 'range');
   if (!spend(world, weaver, 'ward', def.cost)) return;
-  w.wardCharges--;
-  if (w.cooldowns.ward <= 0) {
-    w.cooldowns.ward = def.cooldown;
-    w.cooldownTotals.ward = def.cooldown;
+  if (!stasis) {
+    w.wardCharges--;
+    if (w.cooldowns.ward <= 0) {
+      w.cooldowns.ward = techCooldown(world, def.cooldown);
+      w.cooldownTotals.ward = w.cooldowns.ward;
+    }
   }
+  w.lastTechnique = 'ward';
   const strength = world.mods.wardBarrierMult * world.mods.aegisWardMult;
   const amount = (hero.health!.maxHp * def.barrierPct + def.barrierFlat) * strength;
-  addShield(world, hero, 'ward', amount, def.duration + world.mods.wardDurationBonus, true);
+  const ward = addShield(
+    world,
+    hero,
+    'ward',
+    amount,
+    def.duration + world.mods.wardDurationBonus,
+    true,
+  );
+  // Eternal Moment: a Ward cast during Stasis that turns out Perfect gives Resonance.
+  if (ward && stasis) ward.stasis = true;
   // Martyr's Aegis: each Ward shields the Weaver too, sized from her own Life.
   if (world.mods.aegisSelf) {
     const self = (weaver.health!.maxHp * def.barrierPct + def.barrierFlat) * strength;
@@ -107,11 +132,15 @@ export function castChime(world: World, point: Vec2 | undefined): void {
   if (!weaver) return;
   const w = weaver.weaver!;
   const def = world.content.techniques.chime;
-  if (w.cooldowns.chime > 0) return reject(world, 'chime', 'cooldown');
+  const stasis = world.field.stasis;
+  if (w.cooldowns.chime > 0 && !stasis) return reject(world, 'chime', 'cooldown');
   if (!spend(world, weaver, 'chime', def.cost)) return;
-  const chimeCooldown = def.cooldown * world.mods.chimeCooldownMult;
-  w.cooldowns.chime = chimeCooldown;
-  w.cooldownTotals.chime = chimeCooldown;
+  if (!stasis) {
+    const chimeCooldown = techCooldown(world, def.cooldown * world.mods.chimeCooldownMult);
+    w.cooldowns.chime = chimeCooldown;
+    w.cooldownTotals.chime = chimeCooldown;
+  }
+  w.lastTechnique = 'chime';
   // Lands at the point, pulled in to the Chime's range.
   let x = point?.x ?? w.aimX;
   let z = point?.z ?? w.aimZ;
@@ -240,9 +269,10 @@ export function castReel(world: World, slot: PartySlot | undefined): void {
   if (distSq(hero.x, hero.z, weaver.x, weaver.z) > def.range * def.range)
     return reject(world, 'reel', 'range');
   if (!spend(world, weaver, 'reel', def.cost)) return;
-  const cd = Math.max(1, def.cooldown - world.mods.reelCooldownCut);
+  const cd = Math.max(1, techCooldown(world, def.cooldown - world.mods.reelCooldownCut));
   w.cooldowns.reel = cd;
   w.cooldownTotals.reel = cd;
+  w.lastTechnique = 'reel';
 
   // Land just in front of the Weaver, toward the aim point.
   let ax = w.aimX - weaver.x;
@@ -304,7 +334,8 @@ export function castGlide(world: World, x: number, z: number): void {
   const def = world.content.techniques.glide;
   // Heavy Score's curse.
   if (world.mods.noGlide) return reject(world, 'glide', 'locked');
-  if (w.cooldowns.glide > 0) return reject(world, 'glide', 'cooldown');
+  const stasis = world.field.stasis;
+  if (w.cooldowns.glide > 0 && !stasis) return reject(world, 'glide', 'cooldown');
   let dx = x;
   let dz = z;
   let m = len(dx, dz);
@@ -321,10 +352,13 @@ export function castGlide(world: World, x: number, z: number): void {
   w.glideX = dx / m;
   w.glideZ = dz / m;
   w.glide = def.duration;
-  const glideCooldown = def.cooldown * world.mods.glideCooldownMult;
-  w.cooldowns.glide = glideCooldown;
-  w.cooldownTotals.glide = glideCooldown;
+  if (!stasis) {
+    const glideCooldown = techCooldown(world, def.cooldown * world.mods.glideCooldownMult);
+    w.cooldowns.glide = glideCooldown;
+    w.cooldownTotals.glide = glideCooldown;
+  }
   weaver.health!.invulnerable = Math.max(weaver.health!.invulnerable, def.iframes);
+  temporalMastery(world, weaver);
   const r = world.arenaRadius - weaver.radius;
   let toX = weaver.x + w.glideX * def.distance;
   let toZ = weaver.z + w.glideZ * def.distance;
@@ -390,10 +424,15 @@ export function crescendo(world: World): void {
   spendResonance(world, world.content.resonance.crescendoCost, 'crescendo');
   world.ledger.crescendos++;
   pushMarker(world, 'crescendo', null);
-  // The Martyr's Vow replaces Sunrise (docs/phase-3d.md): no aura surge and no heal; heroes
-  // can't drop below 1 life while it lasts (combat/health.ts).
+  // The Martyr's Vow and the Chronomancer's Stasis replace Sunrise (docs/phase-3d.md,
+  // phase-3e.md): no aura surge and no heal. While the Vow lasts heroes can't drop below 1 life
+  // (combat/health.ts); while Stasis lasts every enemy stands still (systems/stasis.ts).
   const vow = world.mods.vowDuration > 0;
-  if (vow) {
+  const stasis = world.mods.stasisDuration > 0;
+  if (stasis) {
+    w.crescendo = world.mods.stasisDuration + world.mods.encoreBonus;
+    world.field.stasis = true;
+  } else if (vow) {
     w.crescendo = world.mods.vowDuration + world.mods.encoreBonus;
     world.field.vow = true;
   } else {
@@ -410,10 +449,65 @@ export function crescendo(world: World): void {
   world.events.push({
     type: 'crescendoStart',
     tick: world.tick,
-    calling: (vow && calling?.crescendoName) || def.name,
+    calling: ((vow || stasis) && calling?.crescendoName) || def.name,
     duration: w.crescendo,
   });
   setTimeScale(world, 0.5, 12, 'crescendo');
+}
+
+/**
+ * Temporal Mastery (the Chronomancer): a Glide resets the cooldown of the last technique cast,
+ * once every few seconds, if it has one to reset. Ward gets a charge back.
+ */
+function temporalMastery(world: World, weaver: Entity): void {
+  const w = weaver.weaver!;
+  const last = w.lastTechnique;
+  if (world.mods.masteryCooldown <= 0 || last === null || world.time < w.masteryAt) return;
+  if (last === 'ward') {
+    if (w.wardCharges >= w.maxWardCharges) return;
+    w.wardCharges++;
+    if (w.wardCharges >= w.maxWardCharges) w.cooldowns.ward = 0;
+  } else {
+    if (w.cooldowns[last] <= 0) return;
+    w.cooldowns[last] = 0;
+  }
+  w.masteryAt = world.time + world.mods.masteryCooldown;
+  world.events.push({
+    type: 'temporalMastery',
+    tick: world.tick,
+    technique: last === 'reel' && world.mods.rewindSeconds > 0 ? 'rewind' : last,
+  });
+}
+
+/** Echo Ward (the Chronomancer): Perfect Wards come back, at part strength, when they're due. */
+export function updateEchoWards(world: World): void {
+  const due = world.internal.echoWards;
+  if (due.length === 0) return;
+  const def = world.content.techniques.ward;
+  for (let i = 0; i < due.length;) {
+    const echo = due[i]!;
+    if (echo.at > world.time + 1e-9) {
+      i++;
+      continue;
+    }
+    due.splice(i, 1);
+    const hero = world.entities.get(echo.hero);
+    if (!isActive(hero)) continue;
+    // Never over a stronger Ward cast since.
+    const current = shieldOf(hero.health, 'ward');
+    if (current && current.amount >= echo.amount) continue;
+    const ward = addShield(
+      world,
+      hero,
+      'ward',
+      echo.amount,
+      def.duration + world.mods.wardDurationBonus,
+      true,
+    );
+    if (!ward) continue;
+    ward.echo = true;
+    world.events.push({ type: 'echoWard', tick: world.tick, target: hero.id, amount: echo.amount });
+  }
 }
 
 /**

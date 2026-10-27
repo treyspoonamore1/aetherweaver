@@ -1033,14 +1033,16 @@ export function fakeOutcome(
     : 0;
   const ledger: Ledger = {
     calling: martyr
-      ? { amplified: 0, shielded: borne * 2, borne }
+      ? { amplified: 0, shielded: borne * 2, borne, rewound: 0, revived: 0 }
       : run.calling
         ? {
             amplified: 380 * scale * (1 + taken) * (path.includes('searing_hymns') ? 1.8 : 1),
             shielded: path.includes('haloed') ? 140 * scale : 0,
             borne: 0,
+            rewound: 0,
+            revived: 0,
           }
-        : { amplified: 0, shielded: 0, borne: 0 },
+        : { amplified: 0, shielded: 0, borne: 0, rewound: 0, revived: 0 },
     healing: 4200 * scale,
     overheal: 900 * scale,
     shielded: 2100 * scale,

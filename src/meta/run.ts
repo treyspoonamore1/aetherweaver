@@ -1362,6 +1362,7 @@ const SAVE_HOW: Record<SaveCause, string> = {
   martyr: 'by taking the blow yourself',
   bear: 'by bearing the wound with them',
   vow: 'through your Vow',
+  rewind: 'by rewinding them',
   other: '',
 };
 

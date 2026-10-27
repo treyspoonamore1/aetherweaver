@@ -181,4 +181,92 @@ export const CALLINGS: ContentInput['callings'] = [
       },
     ],
   },
+  {
+    id: 'chronomancer',
+    name: 'Chronomancer',
+    title: 'the one who was ready',
+    summary: 'You bend time: Rewind a hero’s last seconds, and stop the fight in Stasis.',
+    text: 'Perfect Wards are {perfect} s more forgiving, and every telegraph shows its timer. Rewind replaces Reel: your threaded hero’s life and place return to {rewind} s ago, never to less life than now, and a hero who went down in that time stands back up ({cooldown} s cooldown).',
+    crescendo:
+      'Stasis replaces Sunrise: for {stasis} s every enemy and its attacks stand still, and your techniques have no cooldowns and cost {cost}% less Spirit.',
+    crescendoName: 'Stasis',
+    flavor: 'Again. I was ready this time.',
+    values: { perfect: 0.1, rewind: 3, cooldown: 18, stasis: 3, cost: 50 },
+    unlockRank: 9,
+    icon: 'chronomancer',
+    tiers: [
+      {
+        options: [
+          {
+            id: 'quickened',
+            name: 'Quickened',
+            text: 'Your techniques recover {pct}% faster.',
+            values: { pct: 10 },
+            icon: 'quickened',
+          },
+          {
+            id: 'foresight',
+            name: 'Foresight',
+            text: 'You see every enemy attack {seconds} s before it begins: its shape and its target.',
+            values: { seconds: 1 },
+            icon: 'foresight',
+          },
+        ],
+      },
+      {
+        options: [
+          {
+            id: 'echo_ward',
+            name: 'Echo Ward',
+            text: 'A Perfect Ward comes back {delay} s later at {pct}% strength.',
+            values: { delay: 1, pct: 50 },
+            icon: 'echo',
+          },
+          {
+            id: 'borrowed_time',
+            name: 'Borrowed Time',
+            text: 'Rewind also fills {pct}% of that hero’s Solo.',
+            values: { pct: 30 },
+            icon: 'borrowed',
+          },
+        ],
+      },
+      {
+        options: [
+          {
+            id: 'temporal_mastery',
+            name: 'Temporal Mastery',
+            text: 'Glide resets the cooldown of the last technique you used, once every {cooldown} s.',
+            values: { cooldown: 10 },
+            icon: 'mastery',
+          },
+          {
+            id: 'slow_dance',
+            name: 'Slow Dance',
+            text: 'Enemies in your field move {speed}% slower and wind up {windup}% longer.',
+            values: { speed: 15, windup: 10 },
+            icon: 'slow_dance',
+          },
+        ],
+      },
+      {
+        options: [
+          {
+            id: 'paradox',
+            name: 'Paradox',
+            text: 'Rewind also undoes every attack aimed at that hero.',
+            values: {},
+            icon: 'paradox',
+          },
+          {
+            id: 'eternal_moment',
+            name: 'Eternal Moment',
+            text: 'Stasis lasts {seconds} s longer, and a Ward cast during it that turns out Perfect gives {resonance} Resonance.',
+            values: { seconds: 2, resonance: 10 },
+            icon: 'eternal',
+          },
+        ],
+      },
+    ],
+  },
 ];

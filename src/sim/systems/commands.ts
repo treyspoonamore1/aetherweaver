@@ -9,6 +9,7 @@ import { startCall } from './calls';
 import { spawnEnemy } from './enemies';
 import { plantField } from './field';
 import { castChime, castGlide, castReel, castWard, crescendo, cue } from './techniques';
+import { castRewind } from './rewind';
 import { attachThread, toggleThreadMode } from './thread';
 
 /** Applies one tick's (already normalised) commands, in order. */
@@ -36,6 +37,8 @@ export function applyCommands(world: World, commands: readonly Command[]): void 
       case 'tech':
         if (c.id === 'ward') castWard(world, c.slot);
         else if (c.id === 'chime') castChime(world, c.point);
+        // The Chronomancer's Rewind takes Reel's slot (docs/phase-3e.md).
+        else if (world.mods.rewindSeconds > 0) castRewind(world, c.slot);
         else castReel(world, c.slot);
         break;
       case 'glide':

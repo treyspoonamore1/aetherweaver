@@ -24,7 +24,7 @@ export interface CallingHud {
   radiancePerAura: number;
   sunriseMult: number;
   /** The Calling's Crescendo: Sunrise, or the Martyr's Vow (content `crescendoName`). */
-  crescendo: 'sunrise' | 'vow';
+  crescendo: 'sunrise' | 'vow' | 'stasis';
   crescendoName: string;
   /** Martyr's Vow is up: heroes can't drop below 1 life. */
   vow: boolean;
@@ -46,7 +46,7 @@ export interface CallingSource {
   sunriseMult: number;
   sovereign: boolean;
   /** Phase 3d: the Crescendo and Bear (`CallingState.crescendo`, `bearShare`). */
-  crescendo?: 'sunrise' | 'vow';
+  crescendo?: 'sunrise' | 'vow' | 'stasis';
   bearShare?: number;
 }
 

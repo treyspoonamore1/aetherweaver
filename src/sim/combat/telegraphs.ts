@@ -12,6 +12,7 @@ import type {
   EntityStoreView,
   ReadonlyEntity,
   SaveCause,
+  Shield,
   Telegraph,
   WorldState,
 } from '../state';
@@ -218,7 +219,7 @@ export function updateIncoming(world: World): void {
     // No hero falls to a hit that lands while Martyr's Vow holds them.
     const vowed = vowHoldsAt(world, t.impact);
     for (const e of candidates(world, t, scratch)) {
-      if (!contains(world, t, e)) continue;
+      if (!contains(world, t, e) || spared(world, t.id, e.id)) continue;
       const dmg = telegraphDamage(t, e);
       const h = e.health!;
       h.incoming += dmg;
@@ -250,6 +251,13 @@ function resolve(world: World, t: Telegraph): void {
     let hitAnyone = false;
     const victims = candidates(world, t, []);
     for (const e of victims) {
+      // Paradox: a Rewind took them out of its reach.
+      if (spared(world, t.id, e.id)) {
+        hitAnyone = true;
+        answered(world);
+        emitResolved(world, t, e.id, 'dodged', 0);
+        continue;
+      }
       const reeled = world.internal.reelDodges.some((r) => r.telegraph === t.id && r.hero === e.id);
       const inside = contains(world, t, e);
       // A Reel counts whether the hero is already out of the shape or still mid-flight
@@ -285,8 +293,16 @@ function resolve(world: World, t: Telegraph): void {
 
 /** Drops bookkeeping for a telegraph that resolved or was removed. */
 export function forgetTelegraph(world: World, id: number): void {
-  if (world.internal.reelDodges.length === 0) return;
-  world.internal.reelDodges = world.internal.reelDodges.filter((r) => r.telegraph !== id);
+  if (world.internal.reelDodges.length > 0)
+    world.internal.reelDodges = world.internal.reelDodges.filter((r) => r.telegraph !== id);
+  if (world.internal.spared.length > 0)
+    world.internal.spared = world.internal.spared.filter((r) => r.telegraph !== id);
+}
+
+/** Paradox (the Chronomancer) spared `hero` from this telegraph. */
+function spared(world: World, telegraph: number, hero: number): boolean {
+  const list = world.internal.spared;
+  return list.length > 0 && list.some((r) => r.telegraph === telegraph && r.hero === hero);
 }
 
 function hitEntity(
@@ -310,7 +326,7 @@ function hitEntity(
   const inWindow =
     !!ward && ward.appliedAt >= t.perfectFrom - 1e-9 && ward.appliedAt <= t.impact + 1e-9;
   if (ward && (inWindow || metronome(world, e))) {
-    perfect(world, t, e, damage, owner, wouldDie);
+    perfect(world, t, e, ward, damage, owner, wouldDie);
     if (t.shape.kind === 'mark') removeStatus(world, e, 'dirge', 'detonated');
     return;
   }
@@ -348,12 +364,21 @@ function perfect(
   world: World,
   t: Telegraph,
   e: Entity,
+  ward: Shield,
   damage: number,
   owner: Entity | null,
   wouldDie: boolean,
 ): void {
   const tech = world.content.techniques.ward;
   removeShield(world, e, 'ward', true);
+  // Echo Ward (the Chronomancer): it comes back a moment later, weaker. An echo doesn't echo.
+  if (world.mods.echoWardPct > 0 && !ward.echo && e.hero) {
+    world.internal.echoWards.push({
+      hero: e.id,
+      at: world.time + world.mods.echoWardDelay,
+      amount: ward.max * world.mods.echoWardPct,
+    });
+  }
   world.ledger.perfects++;
   world.ledger.negated += damage;
   answered(world);
@@ -374,6 +399,9 @@ function perfect(
   });
   emitResolved(world, t, e.id, 'perfect', 0);
   gainResonance(world, world.content.resonance.gains.perfectWard, 'perfect ward');
+  // Eternal Moment: a Ward cast during Stasis that turned out Perfect.
+  if (ward.stasis && world.mods.stasisPerfectResonance > 0)
+    gainResonance(world, world.mods.stasisPerfectResonance, 'eternal moment');
   setTimeScale(world, 0.2, 6, 'perfect');
   bark(world, e, 'perfect');
   if (world.mods.ripostePower > 0) riposte(world, e);
@@ -447,7 +475,8 @@ function reelDodged(world: World, t: Telegraph, e: Entity): void {
     recordSave(world, e, 'reel', telegraphDamage(t, e), t.name);
 }
 
-function answered(world: World): void {
+/** One more enemy attack aimed at the party was answered. */
+export function answered(world: World): void {
   world.ledger.telegraphsAnswered++;
 }
 

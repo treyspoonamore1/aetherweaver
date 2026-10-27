@@ -33,8 +33,10 @@ import {
   resolveOverlaps,
   updateFacing,
 } from './systems/physics';
+import { recordPast } from './systems/rewind';
+import { holdEnemyTime } from './systems/stasis';
 import { updateStatuses } from './systems/statuses';
-import { updateChimes } from './systems/techniques';
+import { updateChimes, updateEchoWards } from './systems/techniques';
 import { updateThread } from './systems/thread';
 import { updateWeaver } from './systems/weaver';
 import { createWorld, type ResolvedSimConfig, type SimConfig, type World } from './world';
@@ -76,16 +78,22 @@ function stepWorld(world: World, commands: readonly Command[]): void {
   const dt = SIM_DT * world.timeScale;
   world.time += dt;
   updateTimeScale(world);
-  updateDirector(world);
+  // Stasis (the Chronomancer): the enemies' side of the fight waits (systems/stasis.ts).
+  const stasis = world.field.stasis;
+  if (stasis) holdEnemyTime(world, dt);
+  else updateDirector(world);
   // Newly arrived enemies take part in this tick (and count for victory checks).
   world.entities.flush();
   updateWeaver(world, dt);
   updateThread(world, dt);
   updateChimes(world);
+  updateEchoWards(world);
   updateField(world, dt);
   updateHeroes(world, dt);
-  updateEnemies(world, dt);
-  updateBosses(world);
+  if (!stasis) {
+    updateEnemies(world, dt);
+    updateBosses(world);
+  }
   updateDummies(world, dt);
   updatePendingHits(world);
   resolveTelegraphs(world);
@@ -97,6 +105,7 @@ function stepWorld(world: World, commands: readonly Command[]): void {
   updateFacing(world);
   updateIncoming(world);
   updateLedger(world);
+  recordPast(world);
   checkEncounterEnd(world);
   world.entities.flush();
   world.tick++;

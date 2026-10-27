@@ -6,7 +6,15 @@ export const SIM_DT = 1 / SIM_HZ;
  * Bump whenever sim behaviour changes in a way that changes results for the same inputs.
  * Stamped into replays and golden hashes; update goldens deliberately (`npm run golden:update`).
  */
-export const SIM_VERSION = 8;
+export const SIM_VERSION = 9;
+
+/** Rewind's memory (the Chronomancer, docs/phase-3e.md): one sample of each hero every this many ticks. */
+export const PAST_SAMPLE_TICKS = 6;
+
+/** How many samples cover `seconds` of a hero's past, both ends included. */
+export function pastSamples(seconds: number): number {
+  return seconds > 0 ? Math.round((seconds * SIM_HZ) / PAST_SAMPLE_TICKS) + 1 : 0;
+}
 
 /** Upper bound on any entity radius; used to size spatial queries. */
 export const MAX_ENTITY_RADIUS = 1;

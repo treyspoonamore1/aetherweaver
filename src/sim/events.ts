@@ -106,8 +106,11 @@ export interface HealApplied extends At {
   source: EntityId | null;
   amount: number;
   overheal: number;
-  /** `self`: the Martyr healing herself (Blood Font, Sanguine Covenant). */
-  via: 'mend' | 'chime' | 'aura' | 'revive' | 'solo' | 'self' | 'other';
+  /**
+   * `self`: the Martyr healing herself (Blood Font, Sanguine Covenant). `rewind`: the life the
+   * Chronomancer's Rewind gave back.
+   */
+  via: 'mend' | 'chime' | 'aura' | 'revive' | 'solo' | 'self' | 'rewind' | 'other';
 }
 export interface ShieldApplied extends At {
   type: 'shieldApplied';
@@ -169,7 +172,8 @@ export interface TelegraphEnded extends At {
 // ── The Weaver ────────────────────────────────────────────────────────────────────────
 export interface TechniqueCast extends At {
   type: 'techniqueCast';
-  technique: TechniqueKey;
+  /** `'rewind'`: the Chronomancer's Rewind, in Reel's slot (`cooldowns.reel`). */
+  technique: TechniqueKey | 'rewind';
   target: EntityId | null;
   x: number;
   z: number;
@@ -177,7 +181,7 @@ export interface TechniqueCast extends At {
 /** A command the player issued couldn't happen: give feedback (a buzz, a flash). */
 export interface TechniqueRejected extends At {
   type: 'techniqueRejected';
-  technique: TechniqueKey | 'thread' | 'cue' | 'crescendo' | 'plant';
+  technique: TechniqueKey | 'rewind' | 'thread' | 'cue' | 'crescendo' | 'plant';
   reason:
     | 'cooldown'
     | 'spirit'
@@ -380,6 +384,49 @@ export interface Undying extends At {
   type: 'undying';
 }
 
+// ── The Chronomancer (docs/phase-3e.md) ───────────────────────────────────────────────
+/**
+ * Rewind: `target` went back from (fromX, fromZ) to where they stood a few seconds ago, with
+ * `restored` life back (a `healApplied { via: 'rewind' }` carries it too). `revived`: they were
+ * down and stand again (a `revived` event follows as well).
+ */
+export interface Rewound extends At {
+  type: 'rewound';
+  target: EntityId;
+  fromX: number;
+  fromZ: number;
+  toX: number;
+  toZ: number;
+  restored: number;
+  revived: boolean;
+}
+/** Foresight: `enemy` will use `attack` at about `at` (on `target`, if it picks one). */
+export interface ForeseenEvent extends At {
+  type: 'foreseen';
+  enemy: EntityId;
+  attack: string;
+  name: string;
+  target: EntityId | null;
+  at: number;
+}
+/** Echo Ward: a Perfect Ward came back on `target`. */
+export interface EchoWard extends At {
+  type: 'echoWard';
+  target: EntityId;
+  amount: number;
+}
+/** Temporal Mastery: Glide reset this technique's cooldown. */
+export interface TemporalMastery extends At {
+  type: 'temporalMastery';
+  technique: 'ward' | 'chime' | 'reel' | 'rewind';
+}
+/** Paradox: Rewind undid `cancelled` attacks aimed at `target`. */
+export interface Paradox extends At {
+  type: 'paradox';
+  target: EntityId;
+  cancelled: number;
+}
+
 // ── Call and Response (docs/phase-2.md) ───────────────────────────────────────────────
 /** A hero calls for a specific kind of support before a big move. */
 export interface CallStarted extends At {
@@ -555,6 +602,11 @@ export type SimEvent =
   | Dawnward
   | Borne
   | Undying
+  | Rewound
+  | ForeseenEvent
+  | EchoWard
+  | TemporalMastery
+  | Paradox
   | CallStarted
   | CallAnswered
   | CallEnded

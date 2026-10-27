@@ -1,18 +1,24 @@
 /** Status timers, shield expiry, invulnerability, bleeding out and revive decay. */
 import { NEVER, heroOut, releaseHold, removeShield, removeStatus } from '../combat/health';
 import type { World } from '../world';
+import { ofParty } from './stasis';
 
 export function updateStatuses(world: World, dt: number): void {
   const w = world.entities.get(world.weaverId)?.weaver;
   const mendSlot = w && w.threadMode === 'mend' ? w.threadSlot : null;
+  const stasis = world.field.stasis;
   for (const e of world.entities.list()) {
     const h = e.health;
     if (!h || h.dead) continue;
-    if (h.invulnerable > 0) h.invulnerable = Math.max(0, h.invulnerable - dt);
+    // Stasis (the Chronomancer): an enemy's clocks wait, and so do the marks enemies left on
+    // heroes (a mark waits with the attack it belongs to).
+    const frozen = stasis && !!e.enemy;
+    if (h.invulnerable > 0 && !frozen) h.invulnerable = Math.max(0, h.invulnerable - dt);
     let holdEnds = false;
     for (let i = h.statuses.length - 1; i >= 0; i--) {
       const s = h.statuses[i]!;
       if (s.remaining >= NEVER) continue;
+      if (frozen || (stasis && s.source !== null && !ofParty(world, s.source))) continue;
       s.remaining -= dt;
       if (s.remaining <= 0) {
         // Dirge and Resound end through their telegraphs; a Fermata hold resolves after the

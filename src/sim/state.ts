@@ -48,6 +48,10 @@ export interface Shield {
   fromWeaver: boolean;
   /** Created by an aura (Ostinato's barrier, the chorus pulse): the auras' part of the ledger. */
   fromAura: boolean;
+  /** An Echo Ward (the Chronomancer): it never echoes again. Absent on every other shield. */
+  echo?: true;
+  /** A Ward cast during Stasis (Eternal Moment). Absent on every other shield. */
+  stasis?: true;
 }
 
 export type StatusId =
@@ -127,6 +131,10 @@ export interface WeaverComponent {
    * out as one `healApplied { via: 'self' }` about once a second.
    */
   selfHealAcc: number;
+  /** The last technique cast (Ward, Chime, Reel or Rewind): Temporal Mastery resets it. */
+  lastTechnique: 'ward' | 'chime' | 'reel' | null;
+  /** Temporal Mastery (the Chronomancer): sim time Glide can reset a cooldown again. */
+  masteryAt: number;
   /** 0..100 in four segments of 25. */
   resonance: number;
   /** Seconds since Resonance was last gained (decay starts after a delay). */
@@ -246,6 +254,21 @@ export interface HeroComponent {
   soloPulseAt: number;
   /** Highest telegraph id this hero has reacted to. */
   lastTelegraphSeen: number;
+  /**
+   * The Chronomancer's Rewind (docs/phase-3e.md): this hero's last 3 s, sampled every 0.1 s
+   * into a ring buffer (`pastAt` is the next slot to write). Empty without the Chronomancer.
+   */
+  past: PastSample[];
+  pastAt: number;
+}
+
+/** Where a hero stood and how much life they had, a moment ago (Rewind). */
+export interface PastSample {
+  hp: number;
+  x: number;
+  z: number;
+  /** Standing (not downed). */
+  up: boolean;
 }
 
 /** A hero ability (or Solo) being cast. */
@@ -331,6 +354,22 @@ export interface EnemyComponent {
   sleepImmuneUntil: number;
   /** Has noticed the party (specials' initial delays run from here). */
   engaged: boolean;
+  /** Foresight (the Chronomancer): the attack it's about to use, and when (null = none). */
+  foreseen: Foreseen | null;
+}
+
+/** An enemy attack seen a second before it begins (Foresight, docs/phase-3e.md). */
+export interface Foreseen {
+  attackId: string;
+  name: string;
+  /** Its target, chosen early (null: an area around the enemy, or the whole party). */
+  target: EntityId | null;
+  /** A link's second hero (null otherwise). */
+  second: EntityId | null;
+  /** Sim time it's due to begin (it waits while the enemy can't attack). */
+  at: number;
+  /** Its index in the enemy's specials (-1: a boss script's scheduled attack). */
+  special: number;
 }
 
 /** Debug dummies used for crowd/perf tests. */
@@ -475,6 +514,11 @@ export interface FieldState {
    * life. `crescendo` stays false while it lasts.
    */
   vow: boolean;
+  /**
+   * Stasis is up (the Chronomancer's Crescendo, instead of Sunrise): every enemy and its clocks
+   * stand still, and techniques have no cooldowns. `crescendo` stays false while it lasts.
+   */
+  stasis: boolean;
   /** Safe zones during the Hollow Cantor's Silent Verse. */
   hymnCircles: { x: number; z: number; r: number }[];
 }
@@ -512,6 +556,8 @@ export type SaveCause =
   | 'bear'
   /** Martyr's Vow: the hero couldn't drop below 1 life. */
   | 'vow'
+  /** The Chronomancer's Rewind stood a downed hero back up. */
+  | 'rewind'
   | 'other';
 
 export interface SaveRecord {
@@ -541,6 +587,7 @@ export type LedgerMarkerKind =
   | 'save'
   | 'cleanse'
   | 'reel'
+  | 'rewind'
   | 'cue'
   | 'crescendo'
   | 'down'
@@ -566,11 +613,19 @@ export interface Ledger {
   /** What the Thread did: Mend's healing and Empower's part of `amplified`. */
   thread: { healing: number; amplified: number };
   /**
-   * What the Calling did (docs/phase-3c.md, 3d.md): Radiance and Eclipse's damage; Haloed's guard
+   * What the Calling did (docs/phase-3c.md, 3d.md, 3e.md): Radiance and Eclipse’s damage; Haloed’s guard
    * and the life Bear, Shared Wounds and the Vow kept off heroes (`shielded`); the damage the
    * Martyr took for them (`borne`).
    */
-  calling: { amplified: number; shielded: number; borne: number };
+  calling: {
+    amplified: number;
+    shielded: number;
+    borne: number;
+    /** Life the Chronomancer's Rewind restored, revives included. */
+    rewound: number;
+    /** Heroes Rewind stood back up. */
+    revived: number;
+  };
   partyDamage: number;
   perfects: number;
   saves: SaveRecord[];
@@ -625,10 +680,16 @@ export interface CallingState {
   sunriseMult: number;
   /** Sovereign Symphony is in force: on the path, with enough auras across the songs. */
   sovereign: boolean;
-  /** The Calling's Crescendo: Sunrise, or the Martyr's Vow. */
-  crescendo: 'sunrise' | 'vow';
+  /** The Calling's Crescendo: Sunrise, the Martyr's Vow or the Chronomancer's Stasis. */
+  crescendo: 'sunrise' | 'vow' | 'stasis';
   /** Bear's share of the threaded hero's wounds (0.35); 0 without the Martyr. */
   bearShare: number;
+  /** Rewind replaces Reel (the Chronomancer). */
+  rewind: boolean;
+  /** Telegraphs show their timers (the Chronomancer). */
+  timers: boolean;
+  /** Foresight: how long before it begins an enemy attack is foreseen (0 = none). */
+  foresight: number;
 }
 
 export interface WorldState {

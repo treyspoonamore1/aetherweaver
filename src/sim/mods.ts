@@ -127,6 +127,33 @@ export interface Mods {
   aegisSelf: boolean;
   /** Sanguine Covenant: the Weaver heals for this share of what Mend heals. */
   covenantPct: number;
+  // ── The Chronomancer (docs/phase-3e.md) ──
+  /** Rewind replaces Reel: how far back it reaches (0 = Reel), and its cooldown. */
+  rewindSeconds: number;
+  rewindCooldown: number;
+  /** Stasis replaces Sunrise: its length (0 = no Stasis), and techniques' Spirit while it lasts. */
+  stasisDuration: number;
+  stasisCostMult: number;
+  /** Quickened: every technique's cooldown. */
+  techCooldownMult: number;
+  /** Foresight: how long before it begins an enemy attack is foreseen (0 = none). */
+  foresight: number;
+  /** Echo Ward: a Perfect Ward comes back this much later at this strength (0 = none). */
+  echoWardDelay: number;
+  echoWardPct: number;
+  /** Borrowed Time: Solo charge (0–100) Rewind gives its hero. */
+  borrowedTimeSolo: number;
+  /** Temporal Mastery: Glide resets the last technique's cooldown, once every this many s (0 = none). */
+  masteryCooldown: number;
+  /** Slow Dance: enemies in a field move this much slower and wind up this much longer. */
+  slowDanceSpeed: number;
+  slowDanceWindup: number;
+  /** Paradox: Rewind undoes every attack aimed at its hero. */
+  paradox: boolean;
+  /** Eternal Moment: Resonance for a Ward cast during Stasis that turns out Perfect. */
+  stasisPerfectResonance: number;
+  /** Telegraphs show their timers (a view flag: the Chronomancer's passive). */
+  telegraphTimers: boolean;
 }
 
 export const NO_MODS: Mods = {
@@ -211,6 +238,21 @@ export const NO_MODS: Mods = {
   aegisWardMult: 1,
   aegisSelf: false,
   covenantPct: 0,
+  rewindSeconds: 0,
+  rewindCooldown: 0,
+  stasisDuration: 0,
+  stasisCostMult: 1,
+  techCooldownMult: 1,
+  foresight: 0,
+  echoWardDelay: 0,
+  echoWardPct: 0,
+  borrowedTimeSolo: 0,
+  masteryCooldown: 0,
+  slowDanceSpeed: 0,
+  slowDanceWindup: 0,
+  paradox: false,
+  stasisPerfectResonance: 0,
+  telegraphTimers: false,
 };
 
 export function resolveMods(config: ResolvedSimConfig, content: Content): Mods {
@@ -345,6 +387,14 @@ function applyCalling(m: Mods, id: string, v: Values): void {
       m.vowRedirect = 1 - num(v, 'redirect') / 100;
       m.vowHealMult = num(v, 'healing');
       break;
+    case 'chronomancer':
+      m.perfectWindowBonus += num(v, 'perfect');
+      m.rewindSeconds = num(v, 'rewind');
+      m.rewindCooldown = num(v, 'cooldown');
+      m.stasisDuration = num(v, 'stasis');
+      m.stasisCostMult = 1 - num(v, 'cost') / 100;
+      m.telegraphTimers = true;
+      break;
     default:
       break;
   }
@@ -408,13 +458,40 @@ function applyCallingOption(m: Mods, id: string, v: Values): void {
     case 'sanguine_covenant':
       m.covenantPct = num(v, 'pct') / 100;
       break;
+    case 'quickened':
+      m.techCooldownMult *= 1 - num(v, 'pct') / 100;
+      break;
+    case 'foresight':
+      m.foresight = num(v, 'seconds');
+      break;
+    case 'echo_ward':
+      m.echoWardDelay = num(v, 'delay');
+      m.echoWardPct = num(v, 'pct') / 100;
+      break;
+    case 'borrowed_time':
+      m.borrowedTimeSolo = num(v, 'pct');
+      break;
+    case 'temporal_mastery':
+      m.masteryCooldown = num(v, 'cooldown');
+      break;
+    case 'slow_dance':
+      m.slowDanceSpeed = num(v, 'speed') / 100;
+      m.slowDanceWindup = num(v, 'windup') / 100;
+      break;
+    case 'paradox':
+      m.paradox = true;
+      break;
+    case 'eternal_moment':
+      m.stasisDuration += num(v, 'seconds');
+      m.stasisPerfectResonance = num(v, 'resonance');
+      break;
     default:
       break;
   }
 }
 
 /** Callings and path options the resolver knows (checked against content in tests). */
-export const KNOWN_CALLINGS: readonly string[] = ['luminary', 'martyr'];
+export const KNOWN_CALLINGS: readonly string[] = ['luminary', 'martyr', 'chronomancer'];
 export const KNOWN_CALLING_OPTIONS: readonly string[] = [
   'haloed',
   'wide_choir',
@@ -432,6 +509,14 @@ export const KNOWN_CALLING_OPTIONS: readonly string[] = [
   'low_life_vigil',
   'martyrs_aegis',
   'sanguine_covenant',
+  'quickened',
+  'foresight',
+  'echo_ward',
+  'borrowed_time',
+  'temporal_mastery',
+  'slow_dance',
+  'paradox',
+  'eternal_moment',
 ];
 
 type Values = Readonly<Record<string, number>>;
