@@ -85,7 +85,36 @@ The axes: **see it coming** (Foresight, Echo Ward, Slow Dance), **more turns** (
 
 ## Harness
 
-*To be filled in after tuning.*
+`npx tsx tools/callings.ts --calling chronomancer --loadout guardian --seeds 50`: whole Prelude runs, every one of the 16 paths on its own 50 seeds (800 runs a bot), against the same seeds with no Calling.
+
+| Loadout · bot | No Calling | Chronomancer, all paths | I: Quickened · Foresight | II: Echo Ward · Borrowed Time | III: Temporal Mastery · Slow Dance | IV: Paradox · Eternal Moment |
+|---|---|---|---|---|---|---|
+| Guardian · Novice | 32% | **46%** | 48 · 44 | 49 · 43 | 41 · 50 | 46 · 45 |
+| Steady · Novice | 38% | **52%** | 53 · 52 | 52 · 52 | 50 · 55 | 54 · 50 |
+| Guardian · Skilled (400 runs) | 86% | **95%** | 97 · 93 | 97 · 93 | 96 · 94 | 95 · 95 |
+| Steady · Skilled (400 runs) | 88% | **94%** | 97 · 92 | 95 · 94 | 95 · 94 | 94 · 95 |
+
+For the Novice the Chronomancer is worth 14 points, level with the Martyr (46%, 49%) and the Luminary (42%, 49%). For the Skilled bot it's worth 6 to 9, where the others are worth 1 to 3: Rewind rewards being ready. The Skilled bot Rewinds the big blows its Wards didn't stop (in the Hollow Cantor about three a fight, giving back some 2,000 life), and once a run it stands a hero back up.
+
+A longer cooldown isn't the lever: at 24 s instead of 18 every Novice run came out the same (46%, 52%) and the Skilled bot won 95% and 95%. Neither bot often has Rewind waiting on its cooldown. What each Rewind undoes is what it's worth: how far back it reaches and how much life it gives back.
+
+**How it got there.** The first report, with Rewind standing a hero back up whenever it was ready, had the Novice at 58% and 63%, twice what the other Callings give. Fight by fight (the six hard fights, Threat 1, Guardian, 20 seeds) the cause was plain:
+
+| Chronomancer | Fights: Novice · Skilled |
+|---|---|
+| No Calling | 73% · 94% |
+| The passive, as first written | 87% · 98% |
+| …without Rewind | 74% · 94% |
+| …without the longer Perfect window | 88% · 98% |
+| …with a 30 s cooldown | 85% · 98% |
+
+(The Luminary's passive was worth 78% to the Novice, the Martyr's 72%.) Rewind was all of it, and its revive most of that: a second life for a hero in every fight. Its cost changed nothing until the bots stopped casting it at all (45 Spirit), and capping or softening the revive (half life, a longer cooldown for revives) still left ten points a fight. So the user chose how often it may revive. In whole runs (Novice, Guardian): once a fight 53%, never 43%, **once a run 47%** (shipped; 46% after the review's fixes).
+
+**What the bots can't show.**
+
+- **Stasis.** The bots spend their Resonance on Cues: in 48 hard fights each, the Novice cast Stasis twice and the Skilled bot never. Stasis's free, half-cost techniques and all of Eternal Moment barely appear in the table.
+- **Foresight** is information, and the bots don't read it: for them it's an empty tier I option, which is why Quickened leads by four or five points. A player who sees the next attack (and its target) a second early gets more from it than the table says.
+- **Temporal Mastery** needs Glide, and only the Skilled bot Glides; for the Novice it does nothing, so Guardian's tier III shows Slow Dance's own worth (nine points), not a gap between the two.
 
 ## Code review
 
