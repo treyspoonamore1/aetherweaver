@@ -20,7 +20,7 @@ the Martyr's touches are added beside them (the user asked to be consulted on au
 | --- | --- |
 | `martyrCues.ts` (new) | Pure helpers, tested in Node. `MARTYR_HEX` (the Martyr's colours), `martyrLook(state)` reads the path into flags plus her state: `bearing` (the sim's `bearShareOf` condition), `vow`, `life` (hp / maxLife), `vigilOn` and `fontOn` (the sim's own rules, thresholds from content), `fontRegen` (in force and actually healing), `undyingReady`, `undyingGrace`. `crescendoKind(state)` says whether a `crescendoStart` is Sunrise or the Vow. `borneScale(amount, maxHp)` maps a borne amount to a pulse strength (√ of the share of her usable Life, 12% is 1, floor 0.25, cap 1.4). `vowSeals(state, hero)`. The rate limits (`BEAR_GAP`, `SHARED_GAP`, `VOW_GAP`, `FLINCH_GAP`) and `BORNE_TRAVEL`. |
 | `martyr.ts` (new) | `MartyrView`: the Vow's seals and tethers, Vigil's heartbeat, Blood Font's embers, Scarred Hide's rim, Aegis's shell, Undying's ember and grace, and pooled moments for borne pulses, the Vow's start and end, Undying Devotion's burst and Mend wave, and the Aegis link (48 slots, no per-frame allocation). Draws through the existing ring, sprite, beam, shell and particle batches only. `fired`, `drawn`, `look`, `activeCount()`, `sealFlashOf()` are for tests and the lab. |
-| `thread.ts` | **Bear mode**: the Thread turns crimson (`C.bear`), sags more (heavy even taut), its core is half again as thick with a warm-rose (not white) highlight, an **old-gold strand braids** round it, its flow **runs back toward the Weaver**, and small crimson and gold embers **drip** from it. The beam song's sheath rides it as before (see Known gaps). `backPulse(strength, kind)`: a pulse running hero → Weaver along the Thread (a swelling of the ribbon and a crimson head with a rose core), `kind` 1 is Sanguine Covenant's faint return. `drawn`, `bearLevel`, `backFired` for tests. |
+| `thread.ts` | **Bear mode**: the Thread turns crimson (`C.bear`), sags more (heavy even taut), its core is half again as thick with a warm-rose (not white) highlight, an **old-gold strand braids** round it, its flow **runs back toward the Weaver**, and small crimson and gold embers **drip** from it. The beam song's sheath rides it as before, at full strength (the user's choice; see Known gaps). `backPulse(strength, kind)`: a pulse running hero → Weaver along the Thread (a swelling of the ribbon and a crimson head with a rose core), `kind` 1 is Sanguine Covenant's faint return. `drawn`, `bearLevel`, `backFired` for tests. |
 | `entities.ts` | `EntityRec.flinch` (`entities.flinch(id, k)`: a deep-crimson rim flash and a small recoil on the Weaver, decays in ~0.3 s) and `rimHold` / `rimHoldColor` (a held rim tint MartyrView writes each frame: Vigil's heartbeat, Scarred Hide's bronze). The threaded hero's rim takes the Thread's mode colour (`threadColor(mode)`: crimson in Bear). |
 | `palette.ts` | `C.bear` and `threadColor(mode)`. Bear needs no live colour-vision variant (it passes every palette, tested). |
 | `fx/ribbons.ts` | `point(..., u, white = 0.35)`: how much a strip's core whitens, a third component of the existing UV attribute (every other ribbon passes the old 0.35). Bear's crimson strands whiten little, or the white core turned them pink. Same batch, same draw call. |
@@ -208,9 +208,10 @@ brackets):
   carry Bear by shape.
 - **Fortissimo is in the same family.** Guardian's beam song (Fortissimo, rose) rides the Thread
   as a sheath, and the two reds sit close. (This workstream drew the sheath at half strength in
-  Bear so the crimson leads; the lead took that out until the user decides, since it changes how
-  an aura looks. The braid, drips and weight still set Bear apart.) Under tritanopia Empower is pink (`#ff6f91`): Bear is ΔE 30 away and twice as wide with
-  a gold braid, but the hues are near.
+  Bear so the crimson leads; the user chose to keep auras looking the same in every mode, so the
+  sheath stays at full strength. The braid, drips and weight set Bear apart.) Under tritanopia
+  Empower is pink (`#ff6f91`): Bear is ΔE 30 away and twice as wide with a gold braid, but the
+  hues are near.
 - **Two beats on her.** The sim's `damageTaken` on her (the white hit flash and her number)
   shows at once; the crimson flinch lands when the pulse arrives (0.26 s later). Cause → effect
   reads, but it is two beats, not one.

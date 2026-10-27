@@ -10,6 +10,7 @@ The second **Calling**: the one who bleeds for them. The Luminary makes the hero
 | What happens to Sunrise? | **Martyr's Vow replaces it.** Each Calling has its own ultimate. |
 | How does the Martyr reserve Life? | **Every song, as the passive.** On a Martyr run your auras reserve Life instead of Spirit: all your Spirit goes to Ward, Chime and Reel, and your usable Life shrinks by what your songs hold. You live at low Life. |
 | When does it unlock? | **A new Rank 8** (2,500 XP), after the Luminary's Rank 7. |
+| Should Bear dim the beam song on the Thread so its crimson reads first? | **No.** The auras look the same in every Thread mode; Bear stands apart by its crimson, braid, drips, weight and backward flow. |
 
 ## The Martyr: the one who bleeds for them
 
