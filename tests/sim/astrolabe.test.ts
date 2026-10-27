@@ -239,7 +239,10 @@ describe('Silk', () => {
 describe('Choir', () => {
   it('aura effect, lighter songs and a wider field', () => {
     const m = modsOf(['choir_t1', 'choir_t2', 'choir_n1', 'choir_b1', 'choir_b2']);
-    expect(m.auraEffectMult).toBeCloseTo(1 + (2 * 3 + v('choir_n1', 'pct')) / 100, 9);
+    expect(m.auraEffectMult).toBeCloseTo(
+      1 + (v('choir_t1', 'pct') + v('choir_t2', 'pct') + v('choir_n1', 'pct')) / 100,
+      9,
+    );
     expect(m.reserveMult).toBeCloseTo(
       1 - (v('choir_n1', 'reserve') + v('choir_b1', 'pct')) / 100,
       9,
@@ -300,11 +303,12 @@ describe('Aegis', () => {
       return { w, spent: before - weaverOf(w).weaver!.spirit };
     };
     const { w, spent: cheap } = spent(['aegis_b1', 'aegis_b3']);
+    const economy = (v('aegis_b1', 'pct') + v('aegis_b3', 'pct')) / 100;
     const cost = techniqueCost(w, 'ward');
     expect(cost.pool).toBe('spirit');
-    expect(cost.amount).toBeCloseTo(CONTENT.techniques.ward.cost * (1 - 0.08), 9);
+    expect(cost.amount).toBeCloseTo(CONTENT.techniques.ward.cost * (1 - economy), 9);
     // The same Spirit regenerates in both: the difference is the discount.
-    expect(spent([]).spent - cheap).toBeCloseTo(CONTENT.techniques.ward.cost * 0.08, 6);
+    expect(spent([]).spent - cheap).toBeCloseTo(CONTENT.techniques.ward.cost * economy, 6);
     weaverOf(w).weaver!.spirit = cost.amount - 0.5;
     expect(canPay(w, 'ward')).toBe(false);
   });
@@ -451,7 +455,10 @@ describe('Bond', () => {
 
 describe('bridges', () => {
   it('Resonant Thread, Anthem, Shield Bearer and Lifeguard', () => {
-    expect(modsOf(['resonant_thread']).beamFocusMult).toBeCloseTo(1.1, 9);
+    expect(modsOf(['resonant_thread']).beamFocusMult).toBeCloseTo(
+      1 + v('resonant_thread', 'pct') / 100,
+      9,
+    );
     expect(modsOf(['anthem']).inFieldDamage).toBeCloseTo(v('anthem', 'pct') / 100, 9);
     expect(modsOf(['shield_bearer']).wardedDamage).toBeCloseTo(v('shield_bearer', 'pct') / 100, 9);
     expect(modsOf(['lifeguard']).mendWarded).toBeCloseTo(v('lifeguard', 'pct') / 100, 9);
@@ -467,7 +474,10 @@ describe('bridges', () => {
       stepFor(sim, 30);
       return kael.health!.hp - before;
     };
-    expect(mendWith(['lifeguard'])).toBeCloseTo(mendWith([]) * 1.2, 0);
+    expect(mendWith(['lifeguard'])).toBeCloseTo(
+      mendWith([]) * (1 + v('lifeguard', 'pct') / 100),
+      0,
+    );
   });
 });
 
