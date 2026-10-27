@@ -95,13 +95,13 @@ Old saves default both to `[]`.
 | Maestro | 0% | | 22% | 7 | 43% | 0% |
 | Every Way | 2% | 52 | 8% | 15 | 3% | 18% |
 
-200 runs a bot without a Calling, 100 with one. Each Calling's own Deed is earned by every win with it: the Luminary and the Martyr are won 93% and 88% of the Skilled bot's runs. Bent Rules isn't in the table (the harness plays without a tree); a test builds a run that earns it.
+200 runs a bot without a Calling, 100 with one. Each Calling's own Deed is earned by every win with it: the Luminary and the Martyr are won 93% and 88% of the Skilled bot's runs. Bent Rules needs a tree, so it has its own line: with a full tree through Overflowing Grace (`--tree`, 18 points, 60 runs), every win earns it, 52% of the Novice's runs and 88% of the Skilled's.
 
 **The ladder holds.**
 - **Novice:** seven of the ten points come within the first 13 runs, and Encore, Flawless and Perfect Pitch stay out of reach.
 - **Skilled:** nine come within 8 runs, and Perfect Pitch first falls on run 124 without a Calling (on run 9 with the Chronomancer, whose Wards are easier to time).
 - **Elite Company** reads low only because the bots pick routes by seed; a player who takes both elites on purpose earns it far more often.
-- **No Deed is out of reach.** Every one is earned by some bot, except Bent Rules, which a test covers instead.
+- **No Deed is out of reach.** Every one is earned by some bot.
 
 ## Code review
 
