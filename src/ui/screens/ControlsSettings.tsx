@@ -15,12 +15,30 @@ import {
   type ConflictMode,
 } from '../../input/bindings';
 import { keyLabel } from '../../input/keyLabel';
+import { CONTENT } from '../../content';
 import { Button } from '../kit/Button';
 import { Icon } from '../kit/Icon';
 import { playUi } from '../kit/sound';
+import { REWIND_NAME } from './callingText';
 
 /** Key slots shown per action (the schema allows a third, kept if already saved). */
 const SLOTS = 2;
+
+/** The Calling whose Rewind takes Reel's key (Phase 3e: the Chronomancer). */
+const REWINDER = CONTENT.callings.find((c) => (c.values.rewind ?? 0) > 0);
+
+/**
+ * How the UI names an action where one key does two things (Phase 3e): F is Reel's, and Rewind's
+ * on a Chronomancer run.
+ */
+function labelOf(action: Action): string {
+  return action === 'reel' && REWINDER ? `Reel / ${REWIND_NAME}` : actionLabel(action);
+}
+
+function hintOf(action: Action, hint: string | undefined): string | undefined {
+  if (action !== 'reel' || !REWINDER) return hint;
+  return `${hint ? `${hint}. ` : ''}The ${REWINDER.name}: ${REWIND_NAME} them ${REWINDER.values.rewind} s back instead`;
+}
 
 /** Actions that also have a fixed mouse button. */
 const MOUSE: Partial<Record<Action, string>> = {
@@ -129,8 +147,12 @@ export function ControlsSettings({ compact = false }: { compact?: boolean }) {
                   <li key={info.action} className="px-3 py-1.5">
                     <div className="flex items-center gap-2">
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm text-text">{info.label}</p>
-                        {info.hint && <p className="text-xs text-muted">{info.hint}</p>}
+                        <p className="text-sm text-text">
+                          {info.action === 'reel' ? labelOf(info.action) : info.label}
+                        </p>
+                        {hintOf(info.action, info.hint) && (
+                          <p className="text-xs text-muted">{hintOf(info.action, info.hint)}</p>
+                        )}
                       </div>
                       {MOUSE[info.action] && (
                         <span
@@ -163,7 +185,7 @@ export function ControlsSettings({ compact = false }: { compact?: boolean }) {
                           commit(resetAction(bindings, info.action));
                         }}
                         className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted hover:bg-ink-800 hover:text-gold-200 disabled:opacity-25"
-                        aria-label={`Reset ${info.label} to its default keys`}
+                        aria-label={`Reset ${labelOf(info.action)} to its default keys`}
                         title="Reset to default"
                       >
                         <Icon name="reroll" size={14} />
@@ -205,7 +227,7 @@ function KeySlot({
   onCapture(): void;
   onClear(): void;
 }) {
-  const label = actionLabel(action);
+  const label = labelOf(action);
   if (fixed && code) {
     return (
       <span
@@ -269,7 +291,7 @@ function ConflictPrompt({
   previous: string | undefined;
   onResolve(mode: ConflictMode | null): void;
 }) {
-  const other = actionLabel(p.other);
+  const other = labelOf(p.other);
   const key = keyLabel(p.code);
   return (
     <div

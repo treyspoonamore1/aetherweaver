@@ -3,7 +3,8 @@ import { getRuntime } from '../../app/runtimeRegistry';
 import { enemyDef } from '../../content';
 import type { WheelView } from '../../input/wheel';
 import { countHudCommit } from '../perfCounters';
-import { useUi, type Callout, type HudSnapshot } from '../store';
+import { useUi, type Callout, type HudSnapshot, type TechniqueHud } from '../store';
+import { callingLook } from '../kit/callingLook';
 import { useRun } from '../../app/runStore';
 import type { ActiveBoon } from '../../meta/types';
 import { BossBar } from './BossBar';
@@ -18,6 +19,26 @@ import { PartyFrames } from './PartyFrames';
 import { WeaverBar } from './WeaverBar';
 
 const NO_BOONS: readonly ActiveBoon[] = [];
+
+/** The Chronomancer's steel, for the HUD's tint while Stasis holds the fight (Phase 3e). */
+const CHRONO = callingLook('chronomancer');
+
+/**
+ * The latest rejection of each technique slot (its callout id), from the rejection callouts'
+ * `reject:<slot>` keys: the Weaver bar shakes that slot (Rewind's rejections buzz F).
+ */
+export function rejectBuzz(
+  callouts: readonly Callout[],
+): Partial<Record<TechniqueHud['key'], number>> {
+  const out: Partial<Record<TechniqueHud['key'], number>> = {};
+  for (const c of callouts) {
+    if (c.kind !== 'reject' || !c.key?.startsWith('reject:')) continue;
+    const slot = c.key.slice('reject:'.length);
+    if (slot === 'ward' || slot === 'chime' || slot === 'reel' || slot === 'glide')
+      out[slot] = c.id;
+  }
+  return out;
+}
 
 export interface HudProps {
   /** Small line above the encounter name (e.g. "The Prelude · node 3 of 10"). */
@@ -91,8 +112,21 @@ export function HudView({
   const barks = callouts.filter((c) => c.kind === 'bark' || c.kind === 'call');
   const sandbox = hud.encounter.kind === 'sandbox';
   const clockText = `${hud.seconds.toFixed(1)} s · tick ${hud.tick} · seed ${hud.seed}${hud.directive ? ` · ${hud.directive}` : ''}`;
+  const stasis = hud.weaver.stasis;
   return (
     <div className="pointer-events-none absolute inset-0" data-testid="hud">
+      {stasis && (
+        // Stasis: a calm, cool hush at the edges of the screen, under every panel.
+        <div
+          className="absolute inset-0"
+          style={{
+            background: `radial-gradient(ellipse 75% 70% at 50% 46%, transparent 58%, color-mix(in srgb, ${CHRONO.color} 20%, transparent) 86%, color-mix(in srgb, ${CHRONO.color} 34%, transparent) 100%)`,
+            boxShadow: `inset 0 0 0 2px color-mix(in srgb, ${CHRONO.light} 22%, transparent)`,
+          }}
+          aria-hidden
+          data-testid="stasis-tint"
+        />
+      )}
       <div className="absolute left-4 top-4 flex flex-col items-start gap-2">
         <EncounterHeader encounter={hud.encounter} subtitle={subtitle} clockText={clockText} />
         <RelicBar relics={hud.relics} boons={boons} seconds={hud.seconds} flash={relicFlash} />
@@ -103,6 +137,7 @@ export function HudView({
           boss={hud.boss}
           decree={decree}
           decreeBanner={callouts.some((c) => c.kind === 'decree')}
+          rewind={hud.weaver.rewind !== null}
         />
       )}
       <Callouts callouts={callouts} barkSpeakers={hud.party.map((p) => p.name)} />
@@ -112,10 +147,13 @@ export function HudView({
         barks={barks}
         chords={hud.weaver.chords}
         calling={hud.calling}
+        rewind={hud.weaver.rewind}
       />
-      <WeaverBar hud={hud} />
+      <WeaverBar hud={hud} buzz={rejectBuzz(callouts)} />
       {coach && !sandbox && <CoachHints hud={hud} force={forceCoach} />}
-      {keyHints && <KeyHints bear={(hud.calling?.bearShare ?? 0) > 0} />}
+      {keyHints && (
+        <KeyHints bear={(hud.calling?.bearShare ?? 0) > 0} rewind={hud.weaver.rewind !== null} />
+      )}
       {wheel && <DirectiveWheelView wheel={wheel} focusName={wheel.focusName} fixed={false} />}
     </div>
   );

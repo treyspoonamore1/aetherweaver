@@ -128,11 +128,12 @@ export function isMartyr(state: WorldState): boolean {
 }
 
 /**
- * Which Crescendo a `crescendoStart` / `crescendoEnd` is: the Martyr's Vow or Sunrise. The
- * Vow never plays Sunrise's gold (feedback.ts asks this).
+ * Which Crescendo a `crescendoStart` / `crescendoEnd` is: the Martyr's Vow, the Chronomancer's
+ * Stasis or Sunrise. The Vow and Stasis never play Sunrise's gold (feedback.ts asks this).
  */
-export function crescendoKind(state: WorldState): 'sunrise' | 'vow' {
-  return state.calling?.crescendo === 'vow' ? 'vow' : 'sunrise';
+export function crescendoKind(state: WorldState): 'sunrise' | 'vow' | 'stasis' {
+  const c = state.calling?.crescendo;
+  return c === 'vow' ? 'vow' : c === 'stasis' ? 'stasis' : 'sunrise';
 }
 
 /** Fills `out` from the state. */

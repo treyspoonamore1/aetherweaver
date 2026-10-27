@@ -6,11 +6,15 @@
 import { BUS_NAMES, Engine } from './engine';
 import { MusicEngine } from './music';
 import { SfxEngine } from './sfx';
-import { playUiSound } from './ui';
+import { CALLING_UI_SOUNDS, playUiSound } from './ui';
 import type { AudioDebugStats, AudioDirector, AudioMood, UiSound, Volumes } from './types';
 import { BEAT } from './theory';
 import type { SimEvent, WorldState } from '../sim';
+import { useRun } from '../app/runStore';
 import { useSettings } from '../app/settings';
+
+/** The run's Calling: whom the Calling UI sounds are for when a screen doesn't say. */
+const runCalling = (): string | null => useRun.getState().run?.calling?.id ?? null;
 
 export interface DirectorOptions {
   /** Use this context instead of creating one (offline rendering, tests). */
@@ -21,6 +25,12 @@ export interface DirectorOptions {
   installUnlock?: boolean;
   /** Mirror `useSettings().settings.volumes` (default true for the app-wide director). */
   followSettings?: boolean;
+  /**
+   * Phase 3e: where a Calling UI sound played without a Calling learns which Calling it is for.
+   * The app-wide director asks the run store; an injected context (tests, offline renders) has
+   * no source unless one is given, and uses the shared voicing.
+   */
+  calling?: () => string | null;
 }
 
 type AudioContextCtor = new (options?: AudioContextOptions) => AudioContext;
@@ -48,8 +58,10 @@ export class SynthDirector implements AudioDirector {
   private eventsHandled = 0;
   private readonly cleanups: (() => void)[] = [];
   private lastInputs = { intensity: 0, resonance: 0, crescendo: false, downed: 0, bossPhase: 0 };
+  private readonly callingOf: (() => string | null) | null;
 
   constructor(private readonly options: DirectorOptions = {}) {
+    this.callingOf = options.calling ?? (options.context ? null : runCalling);
     if (options.context) {
       // Offline / injected contexts are ready immediately.
       this.build(options.context);
@@ -188,10 +200,30 @@ export class SynthDirector implements AudioDirector {
     this.music?.setMood(mood);
   }
 
-  playUi(sound: UiSound): void {
+  playUi(sound: UiSound, calling?: string | null): void {
+    if (!this.live || !this.engine) return;
+    const source = this.callingOf;
+    if (calling === undefined && source && CALLING_UI_SOUNDS.has(sound)) {
+      // Phase 3e: Prep's picker plays its sound just before it sets the run's Calling, so ask
+      // the run once the click has been handled: the sound is then the new Calling's.
+      queueMicrotask(() => {
+        let id: string | null = null;
+        try {
+          id = source();
+        } catch {
+          // No run to ask: the shared voicing.
+        }
+        this.playUiNow(sound, id);
+      });
+      return;
+    }
+    this.playUiNow(sound, calling ?? null);
+  }
+
+  private playUiNow(sound: UiSound, calling: string | null): void {
     if (!this.live || !this.engine) return;
     try {
-      playUiSound(this.engine, sound);
+      playUiSound(this.engine, sound, calling);
     } catch (err) {
       if (typeof console !== 'undefined') console.warn('[audio] ui failed', err);
     }

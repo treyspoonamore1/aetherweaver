@@ -327,3 +327,62 @@ test('Phase 3d: the Martyr — choose her in Prep, the Life budget, her HUD and 
   await expect(page.getByTestId('borne')).toBeVisible();
   expect(errors).toEqual([]);
 });
+
+test('Phase 3e: the Chronomancer — choose him in Prep, Rewind in Reel’s slot, F Rewinds Kael', async ({
+  page,
+}) => {
+  const errors = trackErrors(page);
+  await page.goto(START_URL);
+  await page.waitForFunction(() => window.__AWRUN__ !== undefined);
+  // Settings → Skip the unlocks (a new profile is Rank 1: the Chronomancer is Rank 9).
+  await page
+    .getByRole('button', { name: /^Settings$/ })
+    .first()
+    .click();
+  await page.getByText('Skip the unlocks', { exact: true }).click();
+  await expect(page.getByRole('switch', { name: /Skip the unlocks/ })).toBeChecked();
+
+  await page.evaluate(() => window.__AWRUN__!.newRun(4242));
+  await expect.poll(() => page.evaluate(() => window.__AWRUN__!.phase())).toBe('prep');
+  // Three Callings side by side; choose the Chronomancer.
+  await expect(page.getByTestId('calling-chronomancer')).toBeVisible();
+  await page.getByRole('radio', { name: /^The Chronomancer/ }).click();
+  await expect(page.getByRole('radio', { name: /^The Chronomancer.*chosen/ })).toBeVisible();
+  expect(await page.evaluate(() => window.__AWRUN__!.calling())).toEqual({
+    id: 'chronomancer',
+    path: [null, null, null, null],
+  });
+  // His songs reserve Spirit, as always.
+  expect(await page.evaluate(() => window.__AWRUN__!.reservePool())).toBe('spirit');
+  await page
+    .getByRole('button', { name: /Embark/i })
+    .first()
+    .click();
+  await expect.poll(() => page.evaluate(() => window.__AWRUN__!.phase())).toBe('map');
+
+  // Into First Light.
+  expect(await page.evaluate(() => window.__AWRUN__!.choose())).toBe('skirmish');
+  await expect.poll(() => page.evaluate(() => window.__AWRUN__!.phase())).toBe('combat');
+  await page.waitForFunction(() => window.__AW__ !== undefined);
+  // A new profile's first fight opens the primer; on his run it says F Rewinds.
+  const begin = page.getByRole('button', { name: /Begin the fight/i });
+  if (await begin.isVisible().catch(() => false)) {
+    await expect(page.getByText(/As the Chronomancer, F Rewinds instead of Reeling/)).toBeVisible();
+    await begin.click();
+  }
+  // Reel's slot is Rewind's: its own name and glyph on the F button, the chip above.
+  await expect(page.getByTestId('technique-reel')).toHaveAttribute('data-name', 'Rewind');
+  await expect(page.getByTestId('calling-chip')).toBeVisible();
+  // Thread Kael, then F: Rewind sends him back (a 'rewind' marker, not a 'reel' one), and its
+  // cooldown starts on the F slot.
+  await page.mouse.move(640, 300);
+  await page.keyboard.press('Digit1');
+  await expect(page.getByTestId('thread-mode')).toContainText('Kael');
+  await page.keyboard.press('KeyF');
+  await expect
+    .poll(() => page.evaluate(() => window.__AW__!.markers()), { timeout: 10_000 })
+    .toContain('rewind');
+  expect(await page.evaluate(() => window.__AW__!.markers())).not.toContain('reel');
+  await expect(page.getByTestId('technique-reel')).not.toHaveAttribute('data-ready', 'true');
+  expect(errors).toEqual([]);
+});

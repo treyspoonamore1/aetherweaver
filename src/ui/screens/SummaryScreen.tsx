@@ -15,7 +15,7 @@ import type {
 } from '../../meta/types';
 import { PathPip, callingLook } from '../kit/CallingGlyph';
 import { CallingTitle } from './CallingParts';
-import { callingNothingText, callingParts, pathSteps } from './callingText';
+import { callingNothingText, callingParts, pathSteps, techniqueName } from './callingText';
 import { bindingLabel } from '../hud/labels';
 import type { ReactNode } from 'react';
 import { ScreenFrame } from '../kit/Backdrop';
@@ -379,7 +379,7 @@ export function SummaryView({
               color="var(--color-gold-300)"
               label="Cues"
               value={String(totals.cues)}
-              sentence={`${totals.cues} ${plural(totals.cues, 'Solo')} cued, ${totals.crescendos} ${plural(totals.crescendos, 'Crescendo')} sung, ${totals.reels} ${plural(totals.reels, 'Reel')} to safety.`}
+              sentence={`${totals.cues} ${plural(totals.cues, 'Solo')} cued, ${totals.crescendos} ${plural(totals.crescendos, 'Crescendo')} sung, ${totals.reels} ${plural(totals.reels, techniqueName('reel', run.calling?.id))} to safety.`}
             />
             <Tile
               icon="call"
@@ -615,7 +615,7 @@ function CallingSummary({
           </ul>
         ) : (
           <p className="max-w-sm text-sm text-muted">
-            {callingNothingText(def.id, bindingLabel('bear'))}
+            {callingNothingText(def.id, bindingLabel('bear'), bindingLabel('reel'))}
           </p>
         )}
       </div>

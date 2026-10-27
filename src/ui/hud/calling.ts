@@ -1,10 +1,10 @@
 /**
- * The Calling in the fight (Phase 3c, 3d): the HUD chip's state, each hero's Radiance and the
- * Martyr's Life marks, derived from `WorldState.calling`, the Weaver and each hero's `inField`
- * / `auraMask`. A hero shines at `radiancePerAura × auras heard` (× `sunriseMult` in Sunrise)
- * while standing in the field.
+ * The Calling in the fight (Phase 3c, 3d, 3e): the HUD chip's state, each hero's Radiance, the
+ * Martyr's Life marks and the Chronomancer's Stasis and Temporal Mastery, derived from
+ * `WorldState.calling`, the Weaver and each hero's `inField` / `auraMask`. A hero shines at
+ * `radiancePerAura × auras heard` (× `sunriseMult` in Sunrise) while standing in the field.
  */
-import { callingDef, callingOption, optionTier } from '../../content';
+import { CONTENT, callingDef, callingOption, optionTier } from '../../content';
 import { crescendoName, lowLifeMarks } from '../screens/callingText';
 import type { LifeMarkHud } from '../store';
 
@@ -23,7 +23,7 @@ export interface CallingHud {
   haloed: boolean;
   radiancePerAura: number;
   sunriseMult: number;
-  /** The Calling's Crescendo: Sunrise, or the Martyr's Vow (content `crescendoName`). */
+  /** The Calling's Crescendo: Sunrise, the Martyr's Vow or Stasis (content `crescendoName`). */
   crescendo: 'sunrise' | 'vow' | 'stasis';
   crescendoName: string;
   /** Martyr's Vow is up: heroes can't drop below 1 life. */
@@ -36,6 +36,15 @@ export interface CallingHud {
   undying: 'ready' | 'spent' | null;
   /** Blood Font and Low-Life Vigil: working right now (below their share of her Life). */
   lowLife: { id: string; name: string; icon: string; active: boolean }[];
+  /** Phase 3e: Stasis is up (the Chronomancer's Crescendo): every enemy waits. */
+  stasis: boolean;
+  /**
+   * Temporal Mastery on the path: ready, or back in `remaining` of its `total` seconds (null:
+   * not on the path).
+   */
+  mastery: { ready: boolean; remaining: number; total: number } | null;
+  /** The Chronomancer's Rewind can still stand a hero back up this run (null: no Rewind). */
+  revive: 'ready' | 'spent' | null;
 }
 
 /** What the view needs from `WorldState.calling` (plain data). */
@@ -48,6 +57,9 @@ export interface CallingSource {
   /** Phase 3d: the Crescendo and Bear (`CallingState.crescendo`, `bearShare`). */
   crescendo?: 'sunrise' | 'vow' | 'stasis';
   bearShare?: number;
+  /** Phase 3e: Rewind replaces Reel; Foresight's reach (`CallingState.rewind`, `foresight`). */
+  rewind?: boolean;
+  foresight?: number;
 }
 
 /** The Weaver's side of the Martyr, for the chip (all off without her). */
@@ -60,6 +72,48 @@ export interface MartyrState {
 }
 
 const NO_MARTYR: MartyrState = { vow: false, bearing: false, undyingReady: false, marks: [] };
+
+/** The Weaver's side of the Chronomancer, for the chip (all off without him). */
+export interface ChronoState {
+  /** `FieldState.stasis`. */
+  stasis: boolean;
+  /** Seconds until Temporal Mastery can reset a cooldown again (`masteryAt − time`; 0: ready). */
+  masteryIn: number;
+  /** Rewind's once-a-run revive: still to come, or spent (`rewindCanRevive`); null: no Rewind. */
+  revive: 'ready' | 'spent' | null;
+}
+
+const NO_CHRONO: ChronoState = { stasis: false, masteryIn: 0, revive: null };
+
+/** Temporal Mastery's own cooldown (content), or null when it isn't on the path. */
+export function masteryCooldown(path: readonly (string | null)[]): number | null {
+  const id = path.find((p) => p === 'temporal_mastery');
+  return id ? (callingOption(id).values.cooldown ?? 0) : null;
+}
+
+/**
+ * The share of a technique's Spirit cost paid during Stasis (content `cost`, the discount in %,
+ * as the sim's `stasisCostMult` reads it); 1 for a Calling without Stasis.
+ */
+export function stasisCostMult(callingId: string | null | undefined): number {
+  const def = callingId ? CONTENT.callings.find((c) => c.id === callingId) : undefined;
+  if (!def || (def.values.stasis ?? 0) <= 0) return 1;
+  return 1 - (def.values.cost ?? 0) / 100;
+}
+
+/** How long Stasis lasts on this path: content `stasis`, plus Eternal Moment's `seconds`. */
+export function stasisSeconds(
+  callingId: string | null | undefined,
+  path: readonly (string | null)[],
+): number {
+  const def = callingId ? CONTENT.callings.find((c) => c.id === callingId) : undefined;
+  const base = def?.values.stasis ?? 0;
+  if (base <= 0) return 0;
+  const eternal = path.includes('eternal_moment')
+    ? (callingOption('eternal_moment').values.seconds ?? 0)
+    : 0;
+  return base + eternal;
+}
 
 /**
  * The Life marks the path draws on the Weaver bar: each option's `below` share of all her Life
@@ -115,6 +169,7 @@ export function callingHud(
   calling: CallingSource | null,
   sunrise: boolean,
   martyr: MartyrState = NO_MARTYR,
+  chrono: ChronoState = NO_CHRONO,
 ): CallingHud | null {
   if (!calling) return null;
   const def = callingDef(calling.id);
@@ -135,7 +190,8 @@ export function callingHud(
     radiancePerAura: calling.radiancePerAura,
     sunriseMult: calling.sunriseMult,
     crescendo: calling.crescendo ?? 'sunrise',
-    crescendoName: crescendoName(calling.crescendo === 'vow' ? def : null),
+    // Sunrise is the Weaver's own; the Vow and Stasis are the Calling's (content `crescendoName`).
+    crescendoName: crescendoName((calling.crescendo ?? 'sunrise') !== 'sunrise' ? def : null),
     vow: martyr.vow,
     bearing: martyr.bearing && (calling.bearShare ?? 0) > 0,
     bearShare: calling.bearShare ?? 0,
@@ -145,7 +201,17 @@ export function callingHud(
         : 'spent'
       : null,
     lowLife: martyr.marks.map((m) => ({ id: m.id, name: m.name, icon: m.icon, active: m.active })),
+    stasis: chrono.stasis,
+    mastery: masteryOf(calling.path, chrono.masteryIn),
+    revive: chrono.revive,
   };
+}
+
+function masteryOf(path: readonly string[], masteryIn: number): CallingHud['mastery'] {
+  const total = masteryCooldown(path);
+  if (total === null) return null;
+  const remaining = Math.max(0, Math.min(total, masteryIn));
+  return { ready: remaining <= 0.05, remaining, total };
 }
 
 /** "Borne · 35%": what Bear takes of a hero's wounds. */
@@ -166,6 +232,16 @@ export function callingHudLabel(c: CallingHud): string {
     c.undying === 'ready' ? 'Undying Devotion: ready.' : '',
     c.undying === 'spent' ? 'Undying Devotion: spent this fight.' : '',
     ...c.lowLife.filter((m) => m.active).map((m) => `${m.name}: on.`),
+    c.stasis
+      ? `${c.crescendoName}: every enemy waits, and your techniques have no cooldowns and cost less.`
+      : '',
+    c.mastery
+      ? c.mastery.ready
+        ? 'Temporal Mastery: ready, your next Glide brings back your last technique.'
+        : `Temporal Mastery: back in ${Math.ceil(c.mastery.remaining)} s.`
+      : '',
+    c.revive === 'ready' ? 'Rewind can stand a fallen hero back up, once this run.' : '',
+    c.revive === 'spent' ? 'Rewind has stood a hero back up this run: its revive is spent.' : '',
   ]
     .filter(Boolean)
     .join(' ');

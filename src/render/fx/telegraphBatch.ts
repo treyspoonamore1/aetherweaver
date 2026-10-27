@@ -103,8 +103,39 @@ void main() {
   float rim = awAA(abs(sd) - 0.06);
   vec3 pre = vec3(0.0);
   float a = 0.0;
+  float ghost = vShape.z;
 
-  if (kind <= 3) {
+  if (ghost > 0.5) {
+    // The Chronomancer (docs/phase-3e/vfx.md), in the colour passed in iColor. Ghost 1, Foresight:
+    // an attack that isn't real yet, a dashed outline with no fill. Ghost 2, Stasis: a held
+    // telegraph's bezel, a thin line just outside it with tick marks across it.
+    vec3 gc = vColor.rgb;
+    if (kind <= 3) {
+      // Distance along the outline: arc length round circles and donuts, along straight edges.
+      float dc = kind == 2 ? p.x + p.y : kind == 1 ? d + ang * vShape.x : atan(p.y, p.x) * max(d, 0.5);
+      if (ghost < 1.5) {
+        float dash = step(0.42, fract(dc * 0.9 - uTime * 0.7));
+        float line = awAA(abs(sd) - 0.045) * dash;
+        float halo = inside * exp(max(sd, -4.0) * 2.2) * 0.14;
+        a = line * 0.95 + halo;
+      } else {
+        float bezel = awAA(abs(sd - 0.34) - 0.025);
+        float ticks = step(0.86, fract(dc * 1.6)) * step(0.2, sd) * step(sd, 0.48);
+        a = bezel * 0.85 + ticks * 0.7 + inside * 0.035;
+      }
+    } else if (kind == 4 || kind == 5) {
+      float r = vShape.x * (ghost < 1.5 ? 1.0 : 1.2);
+      float n = kind == 4 ? 24.0 : 12.0;
+      float dash = ghost < 1.5 ? step(0.42, fract(atan(p.y, p.x) / 6.2831853 * n - uTime * 0.2)) : 1.0;
+      float ring = awAA(abs(d - r) - (ghost < 1.5 ? 0.055 : 0.03)) * dash;
+      a = ring * 0.95 + exp(-abs(d - r) * 8.0) * 0.12;
+    } else {
+      float r = vShape.x;
+      float dash = step(0.5, fract(atan(p.y, p.x) / 6.2831853 * 14.0 + uTime * 0.3));
+      a = awAA(abs(d - r) - 0.05) * dash + (d < r ? 0.04 : 0.0);
+    }
+    pre = gc * a;
+  } else if (kind <= 3) {
     float area = inside * (0.13 + 0.05 * sev);
     float fill = inside * fillMask * (0.2 + 0.25 * prog);
     float leadLine = inside * awAA(lead - 0.06) * (0.55 + 0.4 * prog);
@@ -227,6 +258,11 @@ export class TelegraphBatch extends InstancedFx {
     alpha: number,
     cast: THREE.Color | null = null,
     perfectWidth = 0,
+    /**
+     * The Chronomancer's styles, drawn in `cast`'s colour: 1 Foresight's ghost (a dashed
+     * outline, no fill), 2 Stasis' bezel round a held telegraph. 0 for every real telegraph.
+     */
+    ghost = 0,
   ): void {
     if (alpha <= 0.002) return;
     const i = this.next();
@@ -242,7 +278,7 @@ export class TelegraphBatch extends InstancedFx {
     this.ext[o + 3] = alpha;
     this.shp[o] = a;
     this.shp[o + 1] = b;
-    this.shp[o + 2] = 0;
+    this.shp[o + 2] = ghost;
     this.shp[o + 3] = 0;
     this.sta[o] = progress;
     this.sta[o + 1] = perfect;

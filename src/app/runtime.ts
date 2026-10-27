@@ -350,6 +350,9 @@ export class GameRuntime {
   private callouts(events: SimEvent[], state: WorldState): void {
     const ui = useUi.getState();
     const now = performance.now();
+    // The Chronomancer (docs/phase-3e.md): Rewind in Reel's slot, in steel and silver.
+    const chrono = callingLook('chronomancer').light;
+    const rewinds = !!state.calling?.rewind;
     for (const event of events) {
       switch (event.type) {
         case 'bark': {
@@ -376,16 +379,97 @@ export class GameRuntime {
         }
         case 'save': {
           const name = this.heroName(state, event.target)?.name ?? '';
+          // Rewind stood a fallen hero back up: the life it gave back is what the save is worth.
+          if (event.cause === 'rewind') {
+            ui.pushCallout(
+              {
+                kind: 'save',
+                text: `${name} stands again`,
+                detail: `Rewound from ${event.attack} · ${Math.round(event.counterfactualDamage).toLocaleString('en-US')} life back`,
+                color: chrono,
+                icon: 'rewind',
+              },
+              now,
+              2400,
+            );
+            break;
+          }
           const martyr = event.cause === 'bear' || event.cause === 'vow';
+          // On a Chronomancer run a Reel save is Rewind's: it took them out of the hit.
+          const rewound = event.cause === 'reel' && rewinds;
           ui.pushCallout(
             {
               kind: 'save',
-              text: SAVE_CALLOUTS[event.cause]?.(name) ?? `Saved ${name}`,
+              text: rewound
+                ? `Rewind saved ${name}`
+                : (SAVE_CALLOUTS[event.cause]?.(name) ?? `Saved ${name}`),
               detail: `${event.attack} · ${Math.round(event.counterfactualDamage)} prevented`,
-              color: martyr ? callingLook('martyr').light : '#f5d78e',
+              color: martyr ? callingLook('martyr').light : rewound ? chrono : '#f5d78e',
+              ...(rewound ? { icon: 'rewind' as const } : {}),
             },
             now,
             2200,
+          );
+          break;
+        }
+        case 'rewound': {
+          // A revive has its own banner (the 'rewind' save above); this is the plain Rewind.
+          if (event.revived) break;
+          const name = this.heroName(state, event.target)?.name ?? '';
+          const seconds = state.calling ? (callingDef(state.calling.id).values.rewind ?? 0) : 0;
+          ui.pushCallout(
+            {
+              kind: 'system',
+              text:
+                event.restored >= 1
+                  ? `Rewind · ${name} +${Math.round(event.restored).toLocaleString('en-US')}`
+                  : `Rewind · ${name}, back ${seconds} s`,
+              color: chrono,
+            },
+            now,
+            1600,
+          );
+          break;
+        }
+        case 'paradox': {
+          const name = this.heroName(state, event.target)?.name ?? '';
+          ui.pushCallout(
+            {
+              kind: 'clutch',
+              text: 'Paradox',
+              detail: `${event.cancelled} ${event.cancelled === 1 ? 'attack' : 'attacks'} on ${name} undone`,
+              color: chrono,
+              icon: 'rewind',
+            },
+            now,
+            1800,
+          );
+          break;
+        }
+        case 'temporalMastery':
+          ui.pushCallout(
+            {
+              kind: 'system',
+              text:
+                event.technique === 'ward'
+                  ? 'Temporal Mastery · a Ward charge back'
+                  : `Temporal Mastery · ${event.technique === 'rewind' ? 'Rewind' : (TECH_NAMES[event.technique] ?? event.technique)} is back`,
+              color: chrono,
+            },
+            now,
+            1400,
+          );
+          break;
+        case 'echoWard': {
+          const name = this.heroName(state, event.target)?.name ?? '';
+          ui.pushCallout(
+            {
+              kind: 'system',
+              text: `Echo Ward · ${name} +${Math.round(event.amount).toLocaleString('en-US')}`,
+              color: chrono,
+            },
+            now,
+            1400,
           );
           break;
         }
@@ -485,13 +569,21 @@ export class GameRuntime {
             );
           break;
         }
-        case 'crescendoStart':
+        case 'crescendoStart': {
+          // Stasis (the Chronomancer's) in his silver, with its own glyph.
+          const stasis = state.calling?.crescendo === 'stasis';
           ui.pushCallout(
-            { kind: 'perfect', text: `Crescendo — ${event.calling}`, color: '#fde68a' },
+            {
+              kind: 'perfect',
+              text: `Crescendo — ${event.calling}`,
+              color: stasis ? chrono : '#fde68a',
+              ...(stasis ? { icon: 'stasis' as const } : {}),
+            },
             now,
             2000,
           );
           break;
+        }
         case 'allyDowned': {
           const who = this.heroName(state, event.hero);
           ui.pushCallout(
@@ -505,20 +597,33 @@ export class GameRuntime {
           );
           break;
         }
-        case 'techniqueRejected':
+        case 'techniqueRejected': {
+          // Rewind keeps Reel's slot (the F key): its rejections buzz that slot.
+          const rewind = event.technique === 'rewind';
+          const slot = rewind ? 'reel' : event.technique;
+          // No target for Rewind is usually a hero down for longer than it reaches back.
+          const threaded = state.entities.get(
+            state.party[state.entities.get(state.weaverId)?.weaver?.threadSlot ?? -1] ?? -1,
+          );
+          const reason =
+            rewind && event.reason === 'target' && threaded?.health?.downed
+              ? 'out of reach'
+              : rewind && event.reason === 'locked'
+                ? 'its revive is spent this run'
+                : event.technique === 'plant' && event.reason === 'not-ready'
+                  ? 'no Pedal Point Chord'
+                  : (REASONS[event.reason] ?? event.reason);
           ui.pushCallout(
             {
               kind: 'reject',
-              text: `${TECH_NAMES[event.technique] ?? event.technique}: ${
-                event.technique === 'plant' && event.reason === 'not-ready'
-                  ? 'no Pedal Point Chord'
-                  : (REASONS[event.reason] ?? event.reason)
-              }`,
+              text: `${rewind ? 'Rewind' : (TECH_NAMES[event.technique] ?? event.technique)}: ${reason}`,
+              key: `reject:${slot}`,
             },
             now,
             900,
           );
           break;
+        }
         case 'encounterEnded':
           getAudio().setMood(event.outcome === 'victory' ? 'victory' : 'defeat');
           ui.pushCallout(

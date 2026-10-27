@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import type { AnswerTag } from '../sim';
 import { VISION_HEX, currentVision, rgba } from './palette';
 import { CALLING_HEX } from './callingCues';
+import { CHRONO_HEX } from './chronoCues';
 import { softenHex, songHex } from './songs';
 
 /** Icons the overlay can draw: telegraph answers, plus the Weaver's Mend and Empower. */
@@ -82,6 +83,8 @@ interface NumberItem {
   sun: HTMLSpanElement;
   /** The number's warm glow (a hero who shone), 0 = none; DOM is written on change only. */
   glow: number;
+  /** The glow's colour (the Luminary's sun; the Chronomancer's silver on Rewind's number). */
+  glowHex: string;
   active: boolean;
   /** Aura heals: a quieter number (lower, slower, no big pop). */
   soft: boolean;
@@ -112,8 +115,13 @@ interface BadgeItem {
   label: HTMLSpanElement;
   key: string;
   border: string;
+  /** The label's style: 0 plain, 1 the Chronomancer's timer, 2 a timer held by Stasis. */
+  tone: number;
   used: boolean;
 }
+
+/** Badge label tones (the Chronomancer's telegraph timers, docs/phase-3e/vfx.md). */
+export const BADGE_TONE = { plain: 0, timer: 1, frozen: 2 } as const;
 
 /** A round glyph with a countdown ring: hero calls (gold) and Fermata heal prompts. */
 interface BubbleItem {
@@ -180,6 +188,14 @@ export class Overlay {
   private readonly raidEl: HTMLDivElement;
   private readonly raidText: HTMLDivElement;
   private readonly raidEdge: HTMLDivElement;
+  /** Stasis (the Chronomancer): a cool, still frame round the screen while time is held. */
+  private readonly stasisEl: HTMLDivElement;
+  /** Time stopping and resuming: a cool flash (never Sunrise's warm one). */
+  private readonly coolFlashEl: HTMLDivElement;
+  private stasisShown = '';
+  private coolFlashT = 0;
+  private coolFlashDur = 0.2;
+  private coolFlashStrength = 0;
   private dimT = 0;
   private dimDur = 0.4;
   private dimX = 0;
@@ -237,6 +253,14 @@ export class Overlay {
       this.root,
       'position:absolute;inset:0;opacity:0;background:radial-gradient(ellipse at center, rgba(255,248,225,0.9), rgba(255,226,150,0.35) 70%);',
     );
+    this.stasisEl = div(
+      this.root,
+      `position:absolute;inset:0;opacity:0;background:radial-gradient(ellipse at center, rgba(0,0,0,0) 58%, ${rgba(CHRONO_HEX.frost, 0.16)} 82%, ${rgba(CHRONO_HEX.silver, 0.34)} 100%);box-shadow:inset 0 0 0 1.5px ${rgba(CHRONO_HEX.silver, 0.45)}, inset 0 0 70px ${rgba(CHRONO_HEX.frost, 0.3)};`,
+    );
+    this.coolFlashEl = div(
+      this.root,
+      `position:absolute;inset:0;opacity:0;background:radial-gradient(ellipse at center, ${rgba(CHRONO_HEX.glass, 0.7)}, ${rgba(CHRONO_HEX.frost, 0.32)} 72%);`,
+    );
     this.raidEl = div(
       this.root,
       'position:absolute;left:50%;top:13%;transform:translateX(-50%);display:none;padding:6px 18px;border-radius:999px;background:rgba(20,6,14,0.72);border:1.5px solid rgba(244,63,94,0.9);color:#ffe4e6;font:700 15px/1.1 Cinzel,serif;letter-spacing:.12em;text-transform:uppercase;text-shadow:0 0 10px rgba(244,63,94,0.9);white-space:nowrap;',
@@ -269,6 +293,7 @@ export class Overlay {
         song,
         sun,
         glow: 0,
+        glowHex: SUN_GLOW_HEX,
         active: false,
         soft: false,
         x: 0,
@@ -298,7 +323,7 @@ export class Overlay {
       label.style.cssText =
         'font:700 12px/1 Inter,sans-serif;color:#fff;font-variant-numeric:tabular-nums;min-width:22px;text-align:center;';
       el.appendChild(label);
-      this.badges.push({ el, icons, label, key: '', border: '', used: false });
+      this.badges.push({ el, icons, label, key: '', border: '', tone: 0, used: false });
     }
     for (let i = 0; i < 10; i++) {
       const el = div(
@@ -406,7 +431,10 @@ export class Overlay {
   /** Settings: scales every full-screen flash (0 = off … 1 = full). */
   setFlashScale(s: number): void {
     this.flashScale = s < 0 ? 0 : s > 1 ? 1 : s;
-    if (this.flashScale === 0) this.flashT = 0;
+    if (this.flashScale === 0) {
+      this.flashT = 0;
+      this.coolFlashT = 0;
+    }
   }
 
   project(x: number, y: number, z: number, out: Projected): Projected {
@@ -474,7 +502,8 @@ export class Overlay {
   /**
    * Updates a number. `chip` is the gold chip (Empower, Flourishes), `song` the ♪ chip (the
    * auras' part), `sun` the ☀ chip (Radiance); any may be null. `glow` (0..1) makes the number
-   * itself glow warm: the hit came from a hero who shone. DOM writes only happen on change.
+   * itself glow warm: the hit came from a hero who shone. `glowHex` colours that glow (the
+   * Chronomancer's Rewind glows silver). DOM writes only happen on change.
    */
   setNumber(
     handle: number,
@@ -485,6 +514,7 @@ export class Overlay {
     song: string | null = null,
     sun: string | null = null,
     glow = 0,
+    glowHex: string = SUN_GLOW_HEX,
   ): void {
     const n = this.numbers[handle];
     if (!n) return;
@@ -494,12 +524,13 @@ export class Overlay {
     setChip(n.sun, sun);
     // A hero who shone: the number itself glows warm (stepped, so DOM writes stay rare).
     const g = glow <= 0 ? 0 : glow >= 0.75 ? 2 : 1;
-    if (g !== n.glow) {
+    if (g !== n.glow || (g !== 0 && glowHex !== n.glowHex)) {
       n.glow = g;
+      n.glowHex = glowHex;
       n.main.style.textShadow =
         g === 0
           ? ''
-          : `0 1px 0 rgba(0,0,0,0.9),0 0 5px ${rgba(SUN_GLOW_HEX, 0.95)},0 0 ${g === 2 ? 16 : 11}px ${rgba(SUN_GLOW_HEX, g === 2 ? 0.9 : 0.65)}`;
+          : `0 1px 0 rgba(0,0,0,0.9),0 0 5px ${rgba(glowHex, 0.95)},0 0 ${g === 2 ? 16 : 11}px ${rgba(glowHex, g === 2 ? 0.9 : 0.65)}`;
     }
     if (Math.abs(size - n.size) > 0.5) {
       n.size = size;
@@ -561,6 +592,7 @@ export class Overlay {
     border: string,
     label: string,
     scale = 1,
+    tone: number = BADGE_TONE.plain,
   ): void {
     const b = this.badges[this.badgeCursor];
     if (!b) return;
@@ -595,6 +627,23 @@ export class Overlay {
     if (b.label.textContent !== label) {
       b.label.textContent = label;
       b.label.style.display = label ? 'inline' : 'none';
+    }
+    if (b.tone !== tone) {
+      // The Chronomancer's timers: silver; held by Stasis, a cold glow (docs/phase-3e/vfx.md).
+      b.tone = tone;
+      const ls = b.label.style;
+      ls.color =
+        tone === BADGE_TONE.frozen
+          ? CHRONO_HEX.silver
+          : tone === BADGE_TONE.timer
+            ? CHRONO_HEX.glass
+            : '#fff';
+      ls.textShadow =
+        tone === BADGE_TONE.frozen
+          ? `0 0 3px ${rgba(CHRONO_HEX.glass, 0.9)}, 0 0 9px ${rgba(CHRONO_HEX.silver, 0.95)}`
+          : tone === BADGE_TONE.timer
+            ? `0 0 6px ${rgba(CHRONO_HEX.silver, 0.6)}`
+            : '';
     }
     b.el.style.display = 'flex';
     b.el.style.transform = `translate3d(${bx.toFixed(1)}px,${by.toFixed(1)}px,0) translate(-50%,-50%) scale(${scale.toFixed(3)})`;
@@ -730,6 +779,29 @@ export class Overlay {
     this.flashDur = duration;
   }
 
+  /** Time stopping or resuming (the Chronomancer's Stasis): a cool flash, scaled by Flashes. */
+  coolFlash(strength: number, duration = 0.22): void {
+    strength *= this.flashScale;
+    if (strength <= 0.001) return;
+    this.coolFlashStrength = Math.max(
+      this.coolFlashStrength * (this.coolFlashT / this.coolFlashDur || 0),
+      strength,
+    );
+    this.coolFlashT = duration;
+    this.coolFlashDur = duration;
+  }
+
+  /**
+   * Stasis is up (0..1): a cool, still frame round the screen. A steady state, not a flash: it
+   * stays faint and is written only when it changes.
+   */
+  setStasis(v: number): void {
+    const o = (v <= 0.005 ? 0 : Math.min(1, v) * 0.85).toFixed(2);
+    if (o === this.stasisShown) return;
+    this.stasisShown = o;
+    this.stasisEl.style.opacity = o;
+  }
+
   danger(): void {
     if (this.flashScale > 0) this.dangerT = 1;
   }
@@ -821,6 +893,14 @@ export class Overlay {
       this.flashT = Math.max(0, this.flashT - dt);
       this.flashEl.style.opacity = ((this.flashT / this.flashDur) * this.flashStrength).toFixed(3);
     } else if (this.flashEl.style.opacity !== '0') this.flashEl.style.opacity = '0';
+
+    if (this.coolFlashT > 0) {
+      this.coolFlashT = Math.max(0, this.coolFlashT - dt);
+      this.coolFlashEl.style.opacity = (
+        (this.coolFlashT / this.coolFlashDur) *
+        this.coolFlashStrength
+      ).toFixed(3);
+    } else if (this.coolFlashEl.style.opacity !== '0') this.coolFlashEl.style.opacity = '0';
 
     if (this.dangerT > 0) {
       this.dangerT = Math.max(0, this.dangerT - dt * 1.1);

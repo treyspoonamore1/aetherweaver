@@ -1,9 +1,10 @@
 /**
- * Plain-text parts of the Calling's screens (Phase 3c and 3d, docs/phase-3c.md, 3d.md),
- * testable without React: each option's axis, when each tier of the path is picked (in the
- * map's own terms), the path so far, the map's milestone fights, the Result's Calling line
- * and what the Martyr's low-Life options mean for the run's songs. Every number
- * comes from content (`callingText`, `optionText`) or the run (`CALLING_ROWS`).
+ * Plain-text parts of the Calling's screens (Phase 3c, 3d and 3e, docs/phase-3c.md, 3d.md,
+ * 3e.md), testable without React: each option's axis, when each tier of the path is picked (in
+ * the map's own terms), the path so far, the map's milestone fights, the Result's Calling line,
+ * what the Martyr's low-Life options mean for the run's songs, and the Chronomancer's Rewind in
+ * Reel's slot. Every number comes from content (`callingText`, `optionText`) or the run
+ * (`CALLING_ROWS`).
  */
 import {
   CONTENT,
@@ -31,10 +32,12 @@ import type { IconName } from '../kit/iconPaths';
 // ── Axes ──────────────────────────────────────────────────────────────────────────────
 
 /**
- * The ways a Calling can grow (docs/phase-3c.md and 3d.md "The axes"): the Luminary's
- * protect / reach and number / radiance, the Martyr's endure / share the pain / live at low Life.
+ * The ways a Calling can grow (docs/phase-3c.md, 3d.md and 3e.md "The axes"): the Luminary's
+ * protect / reach and number / radiance, the Martyr's endure / share the pain / live at low
+ * Life, the Chronomancer's see it coming / more turns / undo it.
  */
-export type CallingAxis = 'protect' | 'reach' | 'radiance' | 'endure' | 'share' | 'lowlife';
+export type CallingAxis =
+  'protect' | 'reach' | 'radiance' | 'endure' | 'share' | 'lowlife' | 'foresee' | 'turns' | 'undo';
 
 /**
  * Content has no axis field; the design docs name each option's. An option can sit on two
@@ -57,6 +60,14 @@ export const OPTION_AXES: Readonly<Record<string, readonly CallingAxis[]>> = {
   martyrs_aegis: ['share'],
   low_life_vigil: ['lowlife'],
   sanguine_covenant: ['lowlife'],
+  foresight: ['foresee'],
+  echo_ward: ['foresee'],
+  slow_dance: ['foresee'],
+  quickened: ['turns'],
+  temporal_mastery: ['turns'],
+  eternal_moment: ['turns'],
+  borrowed_time: ['undo'],
+  paradox: ['undo'],
 };
 
 /** Each option's own axis (the first of `OPTION_AXES`). */
@@ -103,6 +114,24 @@ export const AXIS_LOOK: Readonly<
     icon: 'drop',
     color: '#ff6b6b',
   },
+  foresee: {
+    label: 'See it coming',
+    blurb: 'Know what comes, and when',
+    icon: 'eye',
+    color: '#b8d3f2',
+  },
+  turns: {
+    label: 'More turns',
+    blurb: 'Your techniques come back sooner',
+    icon: 'clock',
+    color: '#e3c27e',
+  },
+  undo: {
+    label: 'Undo it',
+    blurb: 'Take back what just happened',
+    icon: 'rewind',
+    color: '#c4b2f4',
+  },
 };
 
 export function optionAxis(id: string): CallingAxis | null {
@@ -146,6 +175,7 @@ export function crescendoLine(def: CallingDef): { name: string; rest: string; le
 export const PASSIVE_NAME: Readonly<Record<string, string>> = {
   luminary: 'Radiance',
   martyr: 'Bear, and songs sung with your Life',
+  chronomancer: 'Rewind, telegraph timers and a wider Perfect window',
 };
 
 export function passiveName(id: string): string {
@@ -155,6 +185,48 @@ export function passiveName(id: string): string {
 /** Does this Calling's songs reserve Life instead of Spirit (the Martyr)? */
 export function reservesLife(def: Pick<CallingDef, 'reserves'> | null | undefined): boolean {
   return def?.reserves === 'life';
+}
+
+// ── Rewind in Reel's slot (the Chronomancer) ──────────────────────────────────────────
+
+/** What Reel's slot is called on a Chronomancer run (the sim's `'rewind'` technique). */
+export const REWIND_NAME = 'Rewind';
+
+/**
+ * Does this Calling's Rewind replace Reel (the F key, `cooldowns.reel`)? Content's `rewind`
+ * value is how far back it reaches; the sim's resolver reads the same (`rewindSeconds`).
+ */
+export function rewindsFor(callingId: string | null | undefined): boolean {
+  if (!callingId) return false;
+  const def = CONTENT.callings.find((c) => c.id === callingId);
+  return (def?.values.rewind ?? 0) > 0;
+}
+
+/** How far back Rewind reaches, in seconds (0 without it). */
+export function rewindSeconds(callingId: string | null | undefined): number {
+  if (!rewindsFor(callingId)) return 0;
+  return CONTENT.callings.find((c) => c.id === callingId)!.values.rewind!;
+}
+
+/**
+ * The run's word on Rewind's revive, which comes once a run: null without Rewind or while it's
+ * still to come.
+ */
+export function reviveSpentLine(
+  calling: Pick<RunCalling, 'id' | 'reviveSpent'> | null,
+): string | null {
+  return calling && rewindsFor(calling.id) && calling.reviveSpent
+    ? 'Rewind has stood a hero back up this run: its revive is spent until your next run.'
+    : null;
+}
+
+/** A technique's name on this run: Reel's slot is Rewind's on a Chronomancer run. */
+export function techniqueName(
+  key: 'ward' | 'chime' | 'reel' | 'glide',
+  callingId: string | null | undefined,
+): string {
+  if (key === 'reel' && rewindsFor(callingId)) return REWIND_NAME;
+  return CONTENT.techniques[key].name;
 }
 
 // ── When each tier comes ──────────────────────────────────────────────────────────────
@@ -387,14 +459,15 @@ export interface CallingPart {
 }
 
 type CallingStats = Pick<EncounterStats, 'callingAmplified' | 'callingShielded'> &
-  Partial<Pick<EncounterStats, 'callingBorne'>>;
+  Partial<Pick<EncounterStats, 'callingBorne' | 'callingRewound' | 'callingRevived'>>;
 
 /**
  * What the Calling did, in its own words. The Luminary: Radiance (and Eclipse) for the damage
  * added through the heroes, Haloed for the damage kept off them. The Martyr: what she bore for
  * them (`callingBorne`), and what Bear, Shared Wounds and the Vow kept off them
- * (`callingShielded`). Zero parts are left out. A Calling given without an id reads as the
- * Luminary (the Phase 3c callers).
+ * (`callingShielded`). The Chronomancer: the life Rewind gave back (`callingRewound`, revives
+ * included) and the heroes it stood back up (`callingRevived`). Zero parts are left out. A
+ * Calling given without an id reads as the Luminary (the Phase 3c callers).
  */
 export function callingParts(
   stats: CallingStats,
@@ -402,6 +475,29 @@ export function callingParts(
 ): CallingPart[] {
   const path = calling?.path ?? [];
   const parts: CallingPart[] = [];
+  if (rewindsFor(calling?.id)) {
+    const rewound = stats.callingRewound ?? 0;
+    const revived = stats.callingRevived ?? 0;
+    if (rewound >= 1)
+      parts.push({
+        label: 'Rewound',
+        amount: rewound,
+        text: `${REWIND_NAME} gave back ${fmt(rewound)} life`,
+        figure: fmt(rewound),
+        caption: `life ${REWIND_NAME} gave back to your heroes`,
+      });
+    if (revived >= 1) {
+      const heroes = `${fmt(revived)} ${revived === 1 ? 'hero' : 'heroes'}`;
+      parts.push({
+        label: 'Stood back up',
+        amount: revived,
+        text: `${parts.length > 0 ? 'stood' : `${REWIND_NAME} stood`} ${heroes} back up`,
+        figure: fmt(revived),
+        caption: `${revived === 1 ? 'hero' : 'heroes'} ${REWIND_NAME} stood back up`,
+      });
+    }
+    return parts;
+  }
   if (calling?.id === 'martyr') {
     const borne = stats.callingBorne ?? 0;
     if (borne >= 1)
@@ -445,7 +541,8 @@ export function callingParts(
 
 /**
  * "Radiance: +412 damage through your heroes · Haloed: 96 damage kept off"; the Martyr's
- * "Bore 640 for your heroes · 1,280 kept off them" (null: nothing).
+ * "Bore 640 for your heroes · 1,280 kept off them"; the Chronomancer's "Rewind gave back 1,240
+ * life · stood 1 hero back up" (null: nothing).
  */
 export function callingResultLine(
   stats: CallingStats,
@@ -455,8 +552,13 @@ export function callingResultLine(
   return parts.length ? parts.map((p) => p.text).join(' · ') : null;
 }
 
-/** The Summary's line when the Calling did nothing over the run (what to try next time). */
-export function callingNothingText(id: string, bearKey = 'B'): string {
+/**
+ * The Summary's line when the Calling did nothing over the run (what to try next time). The
+ * keys are the player's: Bear's for the Martyr, Reel's slot (Rewind) for the Chronomancer.
+ */
+export function callingNothingText(id: string, bearKey = 'B', rewindKey = 'F'): string {
+  if (rewindsFor(id))
+    return `Rewind gave nothing back this run: when a hero takes a big hit or falls, press ${rewindKey} within ${rewindSeconds(id)} s to send them back.`;
   return id === 'martyr'
     ? `You bore nothing this run: thread a hero and press ${bearKey} to Bear when a big hit is coming at them.`
     : 'Radiance added nothing this run: bring your heroes into your field, and give them auras to hear.';

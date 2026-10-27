@@ -31,6 +31,7 @@ export function installTestHook(runtime: GameRuntime): () => void {
       const e = runtime.sim.state.encounter;
       return { id: e.id, status: e.status, wave: e.wave, waves: e.waves };
     },
+    markers: () => runtime.sim.state.ledger.markers.map((m) => m.kind),
   };
   return () => {
     delete window.__AW__;

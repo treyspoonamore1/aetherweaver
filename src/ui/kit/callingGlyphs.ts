@@ -1,5 +1,5 @@
 /**
- * Line-art glyphs for Callings and their path options (Phase 3c, 3d), keyed by content `icon`.
+ * Line-art glyphs for Callings and their path options (Phase 3c, 3d, 3e), keyed by content `icon`.
  * Same 24×24 grid, stroke and round caps as the Icon kit and the relic glyphs.
  */
 export const CALLING_GLYPHS: Readonly<Record<string, string>> = {
@@ -52,6 +52,32 @@ export const CALLING_GLYPHS: Readonly<Record<string, string>> = {
   // Sanguine Covenant: the chalice the blood is shared from.
   covenant:
     'M6.5 3.5h11c0 4.8-2.4 8-5.5 8s-5.5-3.2-5.5-8z M7.2 6.8h9.6 M12 11.5v6 M8.5 20.5h7 M9.8 17.5h4.4',
+  // The Chronomancer: an hourglass inside Rewind's ring, turning back.
+  chronomancer:
+    'M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.7 2.7L3 8 M3 3.5V8h4.5 M9.4 7.4h5.2 M9.4 16.6h5.2 M10.3 7.4c0 2.4 1.7 3.1 1.7 4.6s-1.7 2.2-1.7 4.6 M13.7 7.4c0 2.4-1.7 3.1-1.7 4.6s1.7 2.2 1.7 4.6',
+  // Quickened: a stopwatch, running fast.
+  quickened:
+    'M14 8.2a6.6 6.6 0 1 0 0 13.2 6.6 6.6 0 0 0 0-13.2z M12.4 3.4h3.2 M14 3.4v4.8 M14 14.8l2.6-2.6 M2.5 11.2h3.6 M2 14.8h3.4 M2.5 18.4h3.6 M19.4 6.6l1.3 1.3',
+  // Foresight: an eye whose pupil is a clock.
+  foresight:
+    'M2.5 12S6.5 5.8 12 5.8 21.5 12 21.5 12 17.5 18.2 12 18.2 2.5 12 2.5 12z M12 8.6a3.4 3.4 0 1 0 0 6.8 3.4 3.4 0 0 0 0-6.8z M12 10.2V12l1.3.9',
+  // Echo Ward: a Ward, and its echo coming back.
+  echo: 'M9.5 3.5l6 2.5v4.8c0 4.2-2.6 7.2-6 8.6-3.4-1.4-6-4.4-6-8.6V6z M18.2 8.2a5.5 5.5 0 0 1 0 6.6 M20.6 6a9 9 0 0 1 0 11',
+  // Borrowed Time: sand from the hourglass, into a Solo's ring.
+  borrowed:
+    'M3.5 5h6.5 M3.5 19h6.5 M4.5 5c0 3 2.25 4.2 2.25 7s-2.25 4-2.25 7 M9 5c0 3-2.25 4.2-2.25 7s2.25 4 2.25 7 M17.5 7.5a4.5 4.5 0 1 1-4.5 4.5 M17.5 10v4 M15.5 12h4',
+  // Temporal Mastery: Glide's chevrons, and a cooldown turned back.
+  mastery:
+    'M2.5 7l4.5 5-4.5 5 M7.5 7l4.5 5-4.5 5 M21.5 12a4 4 0 1 1-1.17-2.83 M20.33 6.2v2.97h-2.97',
+  // Slow Dance: a slow spiral, a step trailing off.
+  slow_dance:
+    'M12 12a1.5 1.5 0 0 1 3 0a3 3 0 0 1-6 0a4.5 4.5 0 0 1 9 0a6 6 0 0 1-12 0 M20.4 15.2l1.6 1.6 M19.4 18.4l1.4 1.4',
+  // Paradox: a loop with no end, turning back on itself.
+  paradox:
+    'M12 12c-1.8-2.6-3.3-4-5.2-4a4 4 0 0 0 0 8c1.9 0 3.4-1.4 5.2-4s3.3-4 5.2-4a4 4 0 0 1 0 8c-1.9 0-3.4-1.4-5.2-4z M16.6 5.6l-1.8 2.2 2.4 1.4',
+  // Eternal Moment: a Ward with time held still inside it.
+  eternal:
+    'M12 2.8l7.4 3.1v5.6c0 4.8-3.1 8.2-7.4 9.7-4.3-1.5-7.4-4.9-7.4-9.7V5.9z M9.4 7.6h5.2 M9.4 16.2h5.2 M10.2 7.6c0 2.2 1.8 2.9 1.8 4.3s-1.8 2.1-1.8 4.3 M13.8 7.6c0 2.2-1.8 2.9-1.8 4.3s1.8 2.1 1.8 4.3',
 };
 
 /** A Calling glyph's path data (a plain diamond for an unknown key). */

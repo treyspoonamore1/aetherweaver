@@ -13,6 +13,11 @@ export const SPRITE = {
   timer: 6,
   /** The Martyr's Vow: a double ring round an upright drop (a hero held by the Vow). */
   seal: 7,
+  /**
+   * The Chronomancer: a clock face (a ring, twelve ticks) with its long hand at `param` radians
+   * clockwise from twelve and its short hand at a twelfth of that.
+   */
+  clock: 8,
 } as const;
 
 const vertex = /* glsl */ `
@@ -75,6 +80,20 @@ void main() {
     float tipW = 0.23 * clamp((0.42 - vUv.y) / 0.52, 0.0, 1.0);
     float tip = (vUv.y > -0.1 && vUv.y < 0.42) ? 1.0 - smoothstep(tipW - 0.04, tipW, abs(vUv.x)) : 0.0;
     a = (outer + inner + max(body, tip) * 0.95 + exp(-d * d * 6.0) * 0.25) * (1.0 - smoothstep(0.95, 1.0, d));
+  } else if (style == 8) {
+    // Clock: a ring, twelve ticks, a long hand at param (clockwise from twelve), a short one.
+    float ring = exp(-pow((d - 0.84) / 0.06, 2.0));
+    float ang = atan(vUv.x, vUv.y);
+    float near = (fract(ang / 6.2831853 * 12.0 + 0.5) - 0.5) * 0.5236 * d;
+    float ticks = (1.0 - smoothstep(0.03, 0.06, abs(near))) * step(0.6, d) * step(d, 0.76);
+    vec2 h1 = vec2(sin(vSize.w), cos(vSize.w));
+    float t1 = clamp(dot(vUv, h1), 0.0, 0.68);
+    float hand1 = 1.0 - smoothstep(0.035, 0.07, length(vUv - h1 * t1));
+    vec2 h2 = vec2(sin(vSize.w / 12.0), cos(vSize.w / 12.0));
+    float t2 = clamp(dot(vUv, h2), 0.0, 0.42);
+    float hand2 = 1.0 - smoothstep(0.05, 0.09, length(vUv - h2 * t2));
+    float hub = 1.0 - smoothstep(0.07, 0.11, d);
+    a = (ring + ticks * 0.8 + max(max(hand1, hand2), hub) + exp(-d * d * 5.0) * 0.12) * (1.0 - smoothstep(0.95, 1.0, d));
   } else {
     // Sigil: a rotating star in a ring (Cue / leitmotif).
     float ang = atan(vUv.y, vUv.x) + uTime * 1.2;

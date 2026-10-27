@@ -4,20 +4,32 @@
  * voice limiter (≤ 4 of a kind) and rate gates.
  */
 import { enemyDef } from '../content';
-import type { SimEvent, TelegraphStarted, WorldState } from '../sim';
+import type {
+  DeepReadonly,
+  SimEvent,
+  Telegraph,
+  TelegraphShape,
+  TelegraphStarted,
+  WorldState,
+} from '../sim';
 import { Voice, type BusName, type Engine, type VoiceHandle } from './engine';
 import type { MusicEngine } from './music';
 import {
   anvil,
   bowed,
   choirChord,
+  clockTick,
   cymbalSwell,
   fluteNote,
   glassNote,
+  glassPing,
   handbell,
   heartbeat,
   horn,
   pluck,
+  reverseBell,
+  reverseGlass,
+  tapeSweep,
   thump,
   whoosh,
   zip,
@@ -54,6 +66,35 @@ export const RELIC_SOUND_GROUPS: Readonly<Record<string, string>> = {
 
 const clamp = (x: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, x));
 
+/**
+ * Phase 3e, the Chronomancer: how long a Rewind that stands a hero back up takes to run back
+ * (the save that comes with it waits for it), the slowed tick of Stasis, and where the music's
+ * lowpass sits while time stands still.
+ */
+export const REWIND_REVIVE_SWELL = 0.48;
+export const STASIS_TICK = 0.95;
+export const STASIS_MUSIC_CUTOFF = 900;
+
+/**
+ * A hero's own scale degree (their pluck note), folded into the octave from D4: 0..6. Kael's
+ * D, Lyra's A and Vexis's B; `scaleMidi(degree + 7)` is their note in the Chronomancer's
+ * register (D5, A5, B5).
+ */
+const degreeOf = (heroDefId: string | undefined): number =>
+  ((heroPluckIndex(heroDefId) % 7) + 7) % 7;
+
+/** The fight is won or lost (the sim steps on for a few seconds after, and so may Stasis). */
+const fightOver = (state: WorldState): boolean => {
+  const status = state.encounter?.status;
+  return status === 'victory' || status === 'defeat';
+};
+
+/** Paradox's shards, as scale indices (D6 up to D7), in the order they are dealt out. */
+const PARADOX_SHARDS: readonly number[] = [18, 14, 20, 16, 21, 15, 19, 17];
+
+/** A telegraph as the state holds it (Phase 3e resumes windups and counts down from these). */
+type Telegraphed = DeepReadonly<Telegraph>;
+
 interface PlayOpts {
   pan?: number;
   big?: boolean;
@@ -87,6 +128,33 @@ export class SfxEngine {
   /** Phase 3d: the last Thread mode heard (Bear on and off are different sounds), and a Vow up. */
   private lastMode: string | null = null;
   private vowUp = false;
+  /**
+   * Phase 3e: Stasis is up. When it began (AudioContext time), how long it was meant to last,
+   * its held chord, and the slowed clock's next tick.
+   */
+  private stasis: {
+    at: number;
+    duration: number;
+    hold: VoiceHandle | null;
+    nextTick: number;
+    tock: boolean;
+  } | null = null;
+  /** When the state first said Stasis was over without its event (-1: it hasn't). */
+  private stasisGoneAt = -1;
+  /** A Stasis began and its `crescendoEnd` hasn't come yet (even if it was let go early). */
+  private stasisOwed = false;
+  /** Telegraph windups still sounding, by telegraph id. */
+  private readonly windups = new Map<number, VoiceHandle>();
+  /** Telegraphs whose windups wait for time to resume (Stasis), by id. */
+  private readonly frozen = new Set<number>();
+  /** Telegraphs that have had their final-second tick (or were too short for one). */
+  private readonly ticked = new Set<number>();
+  /** Where each hero's last Rewind lands (AudioContext time): Paradox meets it there. */
+  private readonly rewindLand = new Map<number, number>();
+  /** This batch: heroes a Rewind stood back up, Solos that came ready, attacks cancelled. */
+  private readonly batchRevived = new Set<number>();
+  private readonly batchSoloReady = new Set<number>();
+  private readonly cancelledNow: number[] = [];
 
   constructor(
     private readonly e: Engine,
@@ -133,6 +201,7 @@ export class SfxEngine {
 
   // ── events ───────────────────────────────────────────────────────────────────────
   onEvents(events: readonly SimEvent[], state: WorldState): void {
+    this.scanBatch(events);
     for (const ev of events) {
       try {
         this.handle(ev, state);
@@ -143,14 +212,43 @@ export class SfxEngine {
     }
   }
 
+  /**
+   * Phase 3e: what a batch says about itself before any of it is played. A Rewind that stands
+   * a hero back up comes after that hero's `revived` and save in the same batch; the attacks
+   * Paradox undoes resolve as cancelled just before its own event; Borrowed Time may have made
+   * a Solo ready.
+   */
+  private scanBatch(events: readonly SimEvent[]): void {
+    this.batchRevived.clear();
+    this.batchSoloReady.clear();
+    this.cancelledNow.length = 0;
+    try {
+      for (const ev of events) {
+        if (ev.type === 'rewound' && ev.revived) this.batchRevived.add(ev.target);
+        else if (ev.type === 'soloReady') this.batchSoloReady.add(ev.hero);
+        else if (
+          ev.type === 'telegraphResolved' &&
+          ev.outcome === 'cancelled' &&
+          ev.target === null
+        )
+          this.cancelledNow.push(ev.telegraph);
+      }
+    } catch {
+      // A malformed event: nothing here is worth breaking the batch for.
+    }
+  }
+
   private handle(ev: SimEvent, state: WorldState): void {
     switch (ev.type) {
       case 'healApplied':
         if (ev.via === 'mend') this.mend(ev.target, ev.amount, state);
         else if (ev.via === 'self') this.selfHeal(ev.amount);
+        // Phase 3e: via 'rewind' is the life Rewind gave back; its own sound (on `rewound`)
+        // carries it, so it has none here.
         break;
       case 'techniqueCast':
         if (ev.technique === 'ward') this.ward();
+        // Phase 3e: Rewind (in Reel's slot) speaks on `rewound`, which says where and how much.
         break;
       case 'perfectWard':
         this.perfectWard();
@@ -245,20 +343,27 @@ export class SfxEngine {
         const before = Math.floor((ev.total - ev.amount) / 25 + 1e-6);
         const after = Math.floor(ev.total / 25 + 1e-6);
         if (after > before && after >= 1) this.resonanceArpeggio(Math.min(4, after));
+        // Phase 3e: Eternal Moment's Resonance, from a Perfect Ward cast during Stasis.
+        if (ev.reason === 'eternal moment') this.eternalMoment();
         break;
       }
       case 'crescendoStart':
-        this.crescendo(state, ev.calling);
+        this.crescendo(state, ev.calling, ev.duration);
         break;
       case 'crescendoEnd':
         this.music.jump();
-        if (this.vowUp || state.calling?.crescendo === 'vow') {
+        // Phase 3e: Stasis ends with time resuming, not Sunrise's whoosh.
+        if (this.stasis || this.stasisOwed || state.calling?.crescendo === 'stasis') {
+          this.stasisOwed = false;
+          this.stasisEnd(state);
+        } else if (this.vowUp || state.calling?.crescendo === 'vow') {
           this.vowUp = false;
           this.vowEnd();
         } else this.play('crescEnd', 1, 'sfx', (v, t) => whoosh(v, t, 0.7, 0.06, 4000, 500, 0.8));
         break;
       case 'techniqueRejected':
         if (ev.technique === 'glide' && ev.reason === 'locked') this.glideLocked();
+        else if (ev.technique === 'rewind') this.rewindRefused(ev.reason);
         else this.rejected(ev.reason);
         break;
       case 'relicTriggered':
@@ -289,6 +394,26 @@ export class SfxEngine {
       case 'undying':
         this.undying();
         break;
+      case 'encounterEnded':
+        // Phase 3e: a fight won (or lost) while time stood still. The victory's own music takes
+        // the moment, so Stasis lets go quietly rather than muffle it.
+        if (this.stasis) this.stasisRelease(0.6);
+        break;
+      case 'rewound':
+        this.rewound(ev, state);
+        break;
+      case 'foreseen':
+        this.foreseen(ev, state);
+        break;
+      case 'echoWard':
+        this.echoWard(ev.target, state);
+        break;
+      case 'temporalMastery':
+        this.temporalMastery(ev.technique);
+        break;
+      case 'paradox':
+        this.paradox(ev.target, ev.cancelled, state);
+        break;
       case 'shieldBroken':
         if (this.e.gate('shield', 0.08)) {
           this.play('shieldBreak', 3, 'sfx', (v, t) => {
@@ -307,6 +432,10 @@ export class SfxEngine {
         this.allyDown(true);
         break;
       case 'revived':
+        // Phase 3e: a hero Rewind stood back up has the Rewind's own, stronger sound instead.
+        if (this.batchRevived.has(ev.hero)) this.music.jump();
+        else this.revived();
+        break;
       case 'weaverReformed':
         this.revived();
         break;
@@ -426,11 +555,15 @@ export class SfxEngine {
     const phrase = [notes[0], notes[2], notes[4] ?? (notes[2] as number) + 5].filter(
       (n): n is number => n !== undefined,
     );
+    // Phase 3e: a hero Rewind stood back up. The phrase waits for the rewind to land, so the
+    // seconds run back first and the save rings out after them.
+    const lead = cause === 'rewind' ? REWIND_REVIVE_SWELL : 0;
     this.play(
       'bigSave',
       1,
       'sfx',
-      (v, t) => {
+      (v, start) => {
+        const t = start + lead;
         phrase.forEach((m, i) => {
           const at = t + i * 0.115;
           const last = i === phrase.length - 1;
@@ -599,10 +732,16 @@ export class SfxEngine {
     });
   }
 
-  private crescendo(state: WorldState, name?: string): void {
+  private crescendo(state: WorldState, name?: string, duration?: number): void {
     const e = this.e;
     if (!e.gate('gate:crescendo', 0.5)) return;
     this.music.jump();
+    // Phase 3e: the Chronomancer's Stasis is not Sunrise either: time stops instead (no cymbal,
+    // no horn, no choir).
+    if (state.calling?.crescendo === 'stasis' || (name !== undefined && /\bstasis\b/i.test(name))) {
+      this.stasisStart(state, duration);
+      return;
+    }
     // Phase 3d: the Martyr's Vow is not Sunrise. It keeps the jump and a duck but none of
     // the bright layers (no cymbal swell, no horn, no Luminary glass).
     if (state.calling?.crescendo === 'vow' || (name !== undefined && /\bvow\b/i.test(name))) {
@@ -1105,7 +1244,8 @@ export class SfxEngine {
     const e = this.e;
     const h = this.held.get(hero);
     this.held.delete(hero);
-    if (this.held.size === 0) this.music.releaseHold();
+    // Phase 3e: Stasis keeps the music held until time resumes.
+    if (this.held.size === 0 && !this.stasis) this.music.releaseHold();
     if (saved) {
       h?.kill(e.now, 0.5);
       e.duck('music', { depth: 0.6, hold: 0.3, release: 0.9 });
@@ -1830,6 +1970,571 @@ export class SfxEngine {
     });
   }
 
+  // ── Phase 3e: the Chronomancer ───────────────────────────────────────────────────
+  // The one who was ready: precise, crystalline clockwork, never cartoonish. Escapement ticks,
+  // glassy bells and envelopes played backwards, in the middle register: above the Martyr's
+  // bass and below the Luminary's high glass. Pitched from the hero, by scale degree (so a
+  // "fifth" above Vexis's B is her own F, never an F sharp).
+
+  /**
+   * Rewind: the hero goes back to where they stood seconds ago. The seconds run backwards (tape
+   * chatter rising, the hero's note as a bell played backwards, its fifth above it) and are
+   * caught with a tick and the note heard forwards for a breath. A longer way back runs a little
+   * longer (0.24 to 0.42 s); more life given back warms the catch with the glass fifth. Panned to
+   * where they land. Once per hero per 0.2 s and across the party every 0.1 s (Stasis lets her
+   * cast it again and again; gated together), two voices at most. A Rewind that stands a hero
+   * back up is its own bigger sound (`rewindRevive`).
+   */
+  private rewound(ev: Extract<SimEvent, { type: 'rewound' }>, state: WorldState): void {
+    const e = this.e;
+    const hero = ev.target;
+    const ent = state.entities.get(hero);
+    const deg = degreeOf(ent?.hero?.defId);
+    const maxHp = Math.max(1, ent?.health?.maxHp ?? 1000);
+    const share = clamp((ev.restored || 0) / maxHp / 0.3, 0, 1);
+    const pan = this.panFor(state, ev.toX) * 0.8;
+    if (ev.revived) {
+      if (!e.gate(`rewind:revive:${hero}`, 0.5)) return;
+      const land = e.now + 0.005 + REWIND_REVIVE_SWELL;
+      this.rewindLand.set(hero, land);
+      this.play('bigRewind', 1, 'sfx', (v, t) => this.rewindRevive(v, t, deg, share), {
+        big: true,
+        pan,
+      });
+      this.borrowedTime(hero, land, ev.restored, state);
+      return;
+    }
+    if (!e.gateAll([`rewind:${hero}`, 0.2], ['rewind', 0.1])) return;
+    const dist = Math.hypot(ev.toX - ev.fromX, ev.toZ - ev.fromZ);
+    const swell = clamp(0.24 + (Number.isFinite(dist) ? dist : 0) * 0.012, 0.24, 0.42);
+    const land = e.now + 0.005 + swell;
+    this.rewindLand.set(hero, land);
+    const note = midiToHz(scaleMidi(deg + 7));
+    const fifth = midiToHz(scaleMidi(deg + 11));
+    this.play(
+      'rewind',
+      2,
+      'sfx',
+      (v, t) => {
+        const at = t + swell;
+        tapeSweep(v, t, swell, 0.07, 1100, 4600, 24, 13);
+        reverseBell(v, at, note, 0.11, swell, 0.5);
+        reverseGlass(v, at, fifth, 0.03, swell * 0.7, 0.5);
+        clockTick(v, at, midiToHz(93), 0.075, 0.045);
+        glassPing(v, at, note, 0.06 + 0.025 * share, 0.6 + 0.4 * share);
+        if (share > 0.35) glassPing(v, at + 0.05, fifth, 0.03, 0.7);
+        v.extend(at + 1.1);
+      },
+      { pan },
+    );
+    this.borrowedTime(hero, land, ev.restored, state);
+  }
+
+  /**
+   * Rewind stands a hero back up: the fall undone. Fuller and longer than a Rewind (0.48 s): two
+   * bands of tape running back, the hero's note as a bell played backwards over its octave below
+   * and its fifth above, then tick and tock, the bell rung forwards, a glass fifth and a soft
+   * landing as they stand. The ordinary save phrase waits for it (`save`, cause 'rewind'), and
+   * the plain revive sound gives way to it.
+   */
+  private rewindRevive(v: Voice, t: number, deg: number, share: number): void {
+    const swell = REWIND_REVIVE_SWELL;
+    const at = t + swell;
+    const note = midiToHz(scaleMidi(deg + 7));
+    tapeSweep(v, t, swell, 0.06, 500, 2200, 18, 10);
+    tapeSweep(v, t, swell, 0.055, 1600, 6200, 26, 14);
+    reverseBell(v, at, note, 0.12, swell, 0.7);
+    reverseBell(v, at, midiToHz(scaleMidi(deg)), 0.085, swell * 0.9, 0.4);
+    reverseGlass(v, at, midiToHz(scaleMidi(deg + 11)), 0.045, swell * 0.6, 0.7);
+    clockTick(v, at, midiToHz(95), 0.08, 0.05);
+    clockTick(v, at + 0.1, midiToHz(88), 0.065, 0.06);
+    handbell(v, at, note, 0.13, 1.8, 0.8);
+    glassNote(v, at + 0.04, midiToHz(scaleMidi(deg + 11)), 0.045 + 0.015 * share, 1.4, 0.8);
+    thump(v, at, 110, 0.16, 0.16, 0.6);
+    // They are back: the note and its octave below held for a moment under the bell.
+    for (const [m, g] of [
+      [scaleMidi(deg + 7), 0.045],
+      [scaleMidi(deg), 0.04],
+    ] as const)
+      v.osc({
+        type: 'sine',
+        freq: midiToHz(m),
+        start: at,
+        dur: 0.6,
+        attack: 0.05,
+        release: 0.8,
+        gain: g,
+        shape: 'sustain',
+      });
+    v.extend(at + 2.0);
+  }
+
+  /**
+   * Borrowed Time (a Rewind that gives back life fills part of the hero's Solo): a light rising
+   * figure, four plucks climbing from the hero's note, just after the Rewind lands. Only when it
+   * filled anything: life came back, and the Solo had room (not mid-Solo, not already full
+   * unless this Rewind filled it). Once per hero per second.
+   */
+  private borrowedTime(hero: number, land: number, restored: number, state: WorldState): void {
+    if (!(restored > 0) || !state.calling?.path?.includes('borrowed_time')) return;
+    const h = state.entities.get(hero)?.hero;
+    if (!h || h.soloActive > 0) return;
+    if (h.solo >= 100 && !this.batchSoloReady.has(hero)) return;
+    if (!this.e.gate(`borrowed:${hero}`, 1)) return;
+    const deg = degreeOf(h.defId);
+    const lead = Math.max(0, land - this.e.now) + 0.06;
+    const ent = state.entities.get(hero);
+    this.play(
+      'borrowed',
+      1,
+      'sfx',
+      (v, t) => {
+        [0, 1, 2, 4].forEach((k, i) => {
+          const at = t + lead + i * 0.055;
+          const m = scaleMidi(deg + 7 + k);
+          pluck(v, at, midiToHz(m), 0.034 + 0.005 * i, 0.22, 0.8);
+          if (i === 3) glassPing(v, at, midiToHz(m + 12), 0.02, 0.7);
+        });
+        v.extend(t + lead + 1.0);
+      },
+      { pan: ent ? this.panFor(state, ent.x) * 0.7 : 0 },
+    );
+  }
+
+  /**
+   * A Rewind refused (no hero, one down too long, its once-a-run revive already spent
+   * ('locked'), cooldown, Spirit, range): the hands won't turn back. A tick that catches on
+   * nothing and a dull tock over the usual low "no" at the reason's pitch; never the revive's
+   * voice. Shares the reject gate.
+   */
+  private rewindRefused(reason: string): void {
+    if (!this.e.gate('reject', 0.22)) return;
+    const f = reason === 'spirit' ? 98 : reason === 'cooldown' ? 130.8 : 110;
+    this.play('rejectRewind', 2, 'sfx', (v, t) => {
+      clockTick(v, t, midiToHz(81), 0.045, 0.03);
+      clockTick(v, t + 0.06, midiToHz(77), 0.035, 0.03);
+      v.osc({
+        type: 'sawtooth',
+        freq: f,
+        freqTo: f * 0.9,
+        start: t + 0.02,
+        dur: 0.085,
+        attack: 0.008,
+        release: 0.04,
+        gain: 0.08,
+        filter: { type: 'lowpass', freq: 300, q: 0.6 },
+      });
+    });
+  }
+
+  /** Stasis is up: by the sound's own start, or by the state. */
+  private stasisUp(state: WorldState): boolean {
+    return this.stasis !== null || state.field?.stasis === true;
+  }
+
+  /** Seconds of Stasis left by the state (the Weaver's Crescendo clock), or `fallback`. */
+  private stasisLeft(state: WorldState, fallback = 3): number {
+    const left = state.entities?.get(state.weaverId)?.weaver?.crescendo;
+    return typeof left === 'number' && left > 0 ? left : fallback;
+  }
+
+  /**
+   * Stasis, instead of Sunrise: every enemy and its clocks stand still for `duration` seconds
+   * (3, 5 with Eternal Moment). Time stopping: a clock that halts (tick and tock, each later,
+   * lower and longer than the last, catching on a dull last one) over tape winding down, the
+   * chord's top drawn in backwards into the catch, and a glassy bell left ringing in the
+   * stillness. Then a held suspended chord (`stasisChord`) and the slowed clock (`stasisTicks`)
+   * until it ends; the music freezes (its pulse and melody hold, as for a Fermata) under a 900 Hz
+   * lowpass. No cymbal, no horn, no choir.
+   */
+  private stasisStart(state: WorldState, duration?: number): void {
+    const e = this.e;
+    const dur = clamp(
+      typeof duration === 'number' && Number.isFinite(duration) ? duration : this.stasisLeft(state),
+      0.5,
+      12,
+    );
+    this.beginStasis(dur);
+    e.duck('music', { depth: 0.55, hold: 0.8, release: 1.2 });
+    this.play('bigStasis', 1, 'sfx', (v, t) => this.stasisHalt(v, t), { big: true });
+  }
+
+  /**
+   * Stasis begins (from its event, or from the state if the event was missed): the windups
+   * freeze, the music holds and darkens, the suspended chord swells in and the slowed clock is
+   * wound. Once per Stasis.
+   */
+  private beginStasis(duration: number): void {
+    if (this.stasis) return;
+    const e = this.e;
+    const now = e.now;
+    this.freezeWindups();
+    this.music.extendHold(duration + 1.5);
+    e.holdMusicFilter(STASIS_MUSIC_CUTOFF, 0.35);
+    const hold = this.play('bigStasisHold', 1, 'sfx', (v, t) => this.stasisChord(v, t, duration), {
+      big: true,
+    });
+    this.stasis = { at: now, duration, hold, nextTick: now + 1.35, tock: false };
+    this.stasisGoneAt = -1;
+    this.stasisOwed = true;
+  }
+
+  /** The clock halting (about 1 s, then the bell rings on): the start of Stasis. */
+  private stasisHalt(v: Voice, t: number): void {
+    // Tick and tock, each later, lower and longer: B6 E6 A6 D6 G6, catching on A5.
+    const ticks: [number, number][] = [
+      [0, 95],
+      [0.12, 88],
+      [0.26, 93],
+      [0.43, 86],
+      [0.65, 91],
+      [0.93, 81],
+    ];
+    ticks.forEach(([at, m], i) => {
+      const last = i === ticks.length - 1;
+      clockTick(v, t + at, midiToHz(m), (last ? 0.09 : 0.08) * (1 - 0.06 * i), 0.04 + 0.012 * i);
+    });
+    const halt = t + 0.93;
+    tapeSweep(v, t, 0.9, 0.03, 3600, 450, 20, 3, false);
+    reverseGlass(v, halt, midiToHz(69), 0.065, 0.55, 0.6);
+    reverseGlass(v, halt, midiToHz(76), 0.045, 0.45, 0.7);
+    thump(v, halt, midiToHz(50), 0.14, 0.12, 0.7);
+    handbell(v, halt, midiToHz(74), 0.09, 2.6, 0.7);
+    glassNote(v, halt + 0.03, midiToHz(81), 0.032, 2.2, 0.8);
+    v.extend(halt + 2.8);
+  }
+
+  /**
+   * The held suspended chord: A3, D4, E4 and A4 (Dsus2) as pure sines, each with a twin 2 cents
+   * sharp so it breathes very slowly, and a glass E5 barely there on top. It swells in as the
+   * clock slows and holds until Stasis ends (`stasisEnd` releases it), with a few seconds more
+   * scheduled as a safety net. About 0.16 at its loudest, a bed under the slowed clock.
+   */
+  private stasisChord(v: Voice, t: number, duration: number): void {
+    const hold = duration + 4;
+    for (const [m, g] of [
+      [57, 0.024],
+      [62, 0.029],
+      [64, 0.019],
+      [69, 0.021],
+    ] as const) {
+      for (const [detune, k] of [
+        [0, 1],
+        [2, 0.6],
+      ] as const) {
+        v.osc({
+          type: 'sine',
+          freq: midiToHz(m),
+          detune,
+          start: t + 0.15,
+          dur: hold,
+          attack: 0.75,
+          release: 0.6,
+          gain: g * k,
+          shape: 'sustain',
+        });
+      }
+    }
+    for (const [ratio, g] of [
+      [1, 0.01],
+      [2.32, 0.004],
+    ] as const) {
+      v.osc({
+        type: 'sine',
+        freq: midiToHz(76) * ratio,
+        start: t + 0.6,
+        dur: hold,
+        attack: 0.5,
+        release: 0.5,
+        gain: g,
+        shape: 'sustain',
+      });
+    }
+  }
+
+  /**
+   * The slowed clock while Stasis lasts: a deep tick about once a second (0.95 s), lower and
+   * longer than any other tick (D5 and A4, ringing a quarter of a second), alternating tick and
+   * tock. Driven from `update` so a pause never piles them up, and it leaves the last half
+   * second to the end.
+   */
+  private stasisTicks(state: WorldState, now: number): void {
+    const s = this.stasis;
+    if (!s) return;
+    while (s.nextTick < now - 0.25) s.nextTick += STASIS_TICK;
+    if (now < s.nextTick - 0.03) return;
+    const at = Math.max(now + 0.005, s.nextTick);
+    s.nextTick += STASIS_TICK;
+    if (this.stasisLeft(state, Infinity) < 0.5) return;
+    const tock = s.tock;
+    s.tock = !tock;
+    this.play(
+      'stasisTick',
+      2,
+      'sfx',
+      (v) => clockTick(v, at, midiToHz(tock ? 69 : 74), 0.032, 0.24),
+      {
+        big: true,
+      },
+    );
+  }
+
+  /**
+   * Stasis ends: time resuming. The held chord lets go (0.5 s), and the moment is drawn back in
+   * (tape speeding up, a glass D and A rising backwards) to a bright tick and a glass D6, then
+   * the clock picks up speed (four ticks, closer and closer) as the music's pulse comes back.
+   * The windups that were frozen resume from where they stopped. Replaces Sunrise's whoosh.
+   * After the fight is over it lets go silently (the victory or defeat music has the moment).
+   */
+  private stasisEnd(state: WorldState): void {
+    const e = this.e;
+    this.stasisRelease(0.5);
+    this.resumeWindups(state);
+    // A fight already over (won during Stasis, and the clock ran out after): no gesture.
+    if (fightOver(state) || !e.gate('gate:stasisEnd', 2)) return;
+    this.play(
+      'stasisEnd',
+      1,
+      'sfx',
+      (v, t) => {
+        const go = t + 0.42;
+        tapeSweep(v, t, 0.42, 0.05, 500, 3200, 4, 22);
+        reverseGlass(v, go, midiToHz(74), 0.055, 0.42, 0.6);
+        reverseGlass(v, go, midiToHz(81), 0.035, 0.32, 0.7);
+        clockTick(v, go, midiToHz(96), 0.07, 0.04);
+        glassNote(v, go, midiToHz(86), 0.045, 1.2, 0.8);
+        [0.3, 0.54, 0.74, 0.9].forEach((dt, i) =>
+          clockTick(v, go + dt, midiToHz(i % 2 === 0 ? 88 : 93), 0.05 - 0.006 * i, 0.04),
+        );
+        v.extend(go + 1.4);
+      },
+      { big: true },
+    );
+  }
+
+  /**
+   * Stasis lets go without a sound of its own: the held chord fades over `fade`, the music's
+   * lowpass opens and its pulse moves again (unless a Fermata still holds it).
+   */
+  private stasisRelease(fade: number): void {
+    const s = this.stasis;
+    this.stasis = null;
+    this.stasisGoneAt = -1;
+    s?.hold?.kill(this.e.now, fade);
+    this.e.releaseMusicFilter(0.9);
+    if (this.held.size === 0) this.music.releaseHold();
+  }
+
+  /**
+   * The Chronomancer's telegraphs show their timers. They are visual; the sound adds only a soft
+   * tick as an attack enters its last second, and only for one that matters: a damaging attack
+   * that winds up at least 1.5 s and is lethal as it crosses the mark (someone in it would go
+   * down as things stand). Once per telegraph and at most once per 1.5 s; in the soak fights that
+   * is none to seven a fight, where every long attack would be about twenty. Read from the state
+   * every frame: while Stasis holds `impact - time` still, nothing crosses the mark, so it can
+   * never fire on a stale time.
+   */
+  private finalTicks(state: WorldState): void {
+    const tgs = state.telegraphs ?? [];
+    if (this.ticked.size > 0) {
+      const live = new Set<number>();
+      for (const t of tgs) live.add(t.id);
+      for (const id of this.ticked) if (!live.has(id)) this.ticked.delete(id);
+    }
+    if (!state.calling?.timers || tgs.length === 0 || this.stasisUp(state)) return;
+    let best: Telegraphed | null = null;
+    let bestLeft = Infinity;
+    for (const t of tgs) {
+      if (this.ticked.has(t.id)) continue;
+      const left = t.impact - state.time;
+      if (t.effect !== 'damage' || t.impact - t.start < 1.5) {
+        this.ticked.add(t.id);
+        continue;
+      }
+      if (!(left <= 1)) continue;
+      this.ticked.add(t.id);
+      if (t.severity === 'lethal' && left >= 0.6 && left < bestLeft) {
+        best = t;
+        bestLeft = left;
+      }
+    }
+    if (!best || !this.e.gate('finalTick', 1.5)) return;
+    const x = this.shapeX(best.shape, state);
+    this.play('finalTick', 1, 'sfx', (v, t) => clockTick(v, t, midiToHz(95), 0.045, 0.035), {
+      pan: x === undefined ? 0 : this.panFor(state, x) * 0.6,
+    });
+  }
+
+  /**
+   * Foresight: an enemy's next attack is seen a second early. A glimpse: a glass note drawn in
+   * backwards and gone (0.16 s), then the faintest echo of it, on the target hero's own note
+   * (E5 when it has no target), panned towards the enemy. Peak 0.014, a third quieter under a
+   * live telegraph, and silent on a busy board (four telegraphs or more), during Stasis or when
+   * the attack is already about to begin. Once per enemy per 2.5 s and across the field once a
+   * second (gated together, so a refusal holds neither), two voices at most: a hundred in a
+   * second make one or two.
+   */
+  private foreseen(ev: Extract<SimEvent, { type: 'foreseen' }>, state: WorldState): void {
+    const e = this.e;
+    const live = state.telegraphs?.length ?? 0;
+    if (live >= 4 || this.stasisUp(state)) return;
+    if (typeof state.time === 'number' && ev.at - state.time < 0.3) return;
+    if (!e.gateAll([`foresight:${ev.enemy}`, 2.5], ['foresight', 1])) return;
+    const target = ev.target === null ? undefined : state.entities.get(ev.target);
+    const f = midiToHz(scaleMidi((target?.hero ? degreeOf(target.hero.defId) : 1) + 7));
+    const g = 0.014 * (live > 0 ? 0.65 : 1);
+    const src = state.entities.get(ev.enemy);
+    this.play(
+      'foresight',
+      2,
+      'sfx',
+      (v, t) => {
+        const end = t + 0.16;
+        for (const [ratio, k, len] of [
+          [1, 1, 0.16],
+          [2.32, 0.4, 0.1],
+        ] as const) {
+          v.osc({
+            type: 'sine',
+            freq: f * ratio,
+            start: end - len,
+            dur: len,
+            attack: len,
+            release: 0.01,
+            gain: g * k,
+            shape: 'sustain',
+            attackCurve: 'exp',
+          });
+        }
+        glassPing(v, end + 0.09, f, g * 0.45, 0.35);
+      },
+      { pan: src ? this.panFor(state, src.x) * 0.6 : 0 },
+    );
+  }
+
+  /**
+   * Echo Ward: a Perfect Ward comes back on the hero. The Ward's chime returning as an echo: its
+   * root drawn in backwards, then the chime (root and fifth, as the Ward's own, quieter and
+   * duller) and two fading repeats. Panned to the hero. Once per hero per 0.5 s.
+   */
+  private echoWard(hero: number, state: WorldState): void {
+    const e = this.e;
+    if (!e.gateAll([`echo:${hero}`, 0.5], ['echo', 0.15])) return;
+    const root = midiToHz(this.rootAbove(this.chord(), 72));
+    const fifth = root * 1.4983;
+    const ent = state.entities.get(hero);
+    this.play(
+      'echoWard',
+      2,
+      'sfx',
+      (v, t) => {
+        const at = t + 0.14;
+        reverseGlass(v, at, root, 0.03, 0.14, 0.6);
+        glassNote(v, at, root, 0.055, 1.2, 0.6);
+        glassNote(v, at + 0.045, fifth, 0.03, 1.0, 0.55);
+        glassPing(v, at + 0.16, root, 0.026, 0.8);
+        glassPing(v, at + 0.32, root, 0.012, 0.6);
+        v.extend(at + 1.4);
+      },
+      { pan: ent ? this.panFor(state, ent.x) * 0.7 : 0 },
+    );
+  }
+
+  /**
+   * Temporal Mastery: Glide reset a technique's cooldown. A clock's click and clack, with a
+   * small glass "ready" on the technique's note (Ward A5, Chime D6, Rewind E5). Over the Glide's
+   * whoosh, which still plays.
+   */
+  private temporalMastery(technique: string): void {
+    if (!this.e.gate('mastery', 0.3)) return;
+    const idx = technique === 'ward' ? 11 : technique === 'chime' ? 14 : 8;
+    this.play('mastery', 1, 'sfx', (v, t) => {
+      clockTick(v, t, midiToHz(95), 0.075, 0.04);
+      clockTick(v, t + 0.075, midiToHz(88), 0.06, 0.05);
+      glassPing(v, t + 0.075, midiToHz(scaleMidi(idx)), 0.035, 0.5);
+    });
+  }
+
+  /**
+   * Paradox: Rewind undid the attacks aimed at the hero. Their windups stop (0.12 s), and the
+   * attack is heard undone: a shatter played backwards, glass dust drawing in and shards flying
+   * back together (more of them for more attacks), meeting exactly where the Rewind lands, made
+   * whole in a clear glass note on the hero's own pitch and a tick.
+   */
+  private paradox(hero: number, cancelled: number, state: WorldState): void {
+    const e = this.e;
+    const now = e.now;
+    for (const id of this.cancelledNow) {
+      this.windups.get(id)?.kill(now, 0.12);
+      this.windups.delete(id);
+      this.frozen.delete(id);
+    }
+    if (!(cancelled > 0) || !e.gate('paradox', 0.3)) return;
+    const ent = state.entities.get(hero);
+    const deg = degreeOf(ent?.hero?.defId);
+    const land = this.rewindLand.get(hero);
+    const span = land !== undefined && land > now + 0.08 ? land - now - 0.005 : 0.3;
+    const n = clamp(Math.round(cancelled), 1, 3);
+    this.play(
+      'paradox',
+      1,
+      'sfx',
+      (v, t) => {
+        const end = t + span;
+        v.noise({
+          start: t,
+          dur: span,
+          attack: span,
+          release: 0.012,
+          gain: 0.05 + 0.012 * n,
+          shape: 'sustain',
+          attackCurve: 'exp',
+          filter: { type: 'highpass', freq: 2600, freqTo: 5200 },
+        });
+        const shards = 4 + 2 * n;
+        for (let i = 0; i < shards; i++) {
+          const len = span * (0.35 + 0.65 * ((i * 0.618) % 1));
+          v.osc({
+            type: 'sine',
+            freq: midiToHz(scaleMidi(PARADOX_SHARDS[i % PARADOX_SHARDS.length] as number)),
+            start: end - len,
+            dur: len,
+            attack: len,
+            release: 0.008,
+            gain: 0.015,
+            shape: 'sustain',
+            attackCurve: 'exp',
+          });
+        }
+        glassNote(v, end, midiToHz(scaleMidi(deg + 7)), 0.065, 1.3, 0.8);
+        clockTick(v, end, midiToHz(98), 0.055, 0.035);
+        v.extend(end + 1.4);
+      },
+      { pan: ent ? this.panFor(state, ent.x) * 0.6 : 0 },
+    );
+  }
+
+  /**
+   * Eternal Moment: a Ward cast during Stasis turned out Perfect. A tiny frozen spark in the
+   * Perfect Ward's tail: a tick and two glass notes (E6, A6). `big` only so the Perfect's duck
+   * doesn't swallow it.
+   */
+  private eternalMoment(): void {
+    if (!this.e.gate('eternal', 0.5)) return;
+    this.play(
+      'eternal',
+      1,
+      'sfx',
+      (v, t) => {
+        const at = t + 0.16;
+        clockTick(v, at, midiToHz(98), 0.022, 0.03);
+        glassPing(v, at + 0.01, midiToHz(88), 0.02, 0.8);
+        glassPing(v, at + 0.05, midiToHz(93), 0.015, 0.9);
+      },
+      { big: true },
+    );
+  }
+
   private heroHit(ev: Extract<SimEvent, { type: 'damageTaken' }>, state: WorldState): void {
     const ent = state.entities.get(ev.target);
     if (!ent || !ent.health || (ent.kind !== 'hero' && ent.kind !== 'weaver')) return;
@@ -1948,40 +2653,53 @@ export class SfxEngine {
   }
 
   // ── Telegraph windups ────────────────────────────────────────────────────────────
-  private telegraph(ev: TelegraphStarted, state: WorldState): void {
-    const answers = ev.answers;
-    const style =
-      ev.kind === 'mark' || answers.includes('chime')
-        ? 'glass'
-        : answers.includes('ward') || answers.includes('dome')
-          ? 'brass'
-          : 'swell';
-    if (!this.e.gate('wind', 0.08)) return;
-    const shape = ev.shape;
-    let x: number | undefined;
+  /** How an attack winds up: glass for marks and Chime answers, brass for Ward, else a swell. */
+  private windStyle(kind: string, answers: readonly string[]): 'glass' | 'brass' | 'swell' {
+    return kind === 'mark' || answers.includes('chime')
+      ? 'glass'
+      : answers.includes('ward') || answers.includes('dome')
+        ? 'brass'
+        : 'swell';
+  }
+
+  /** Where a telegraph's shape sits along x (for the pan and distance), if anywhere. */
+  private shapeX(shape: DeepReadonly<TelegraphShape>, state: WorldState): number | undefined {
     switch (shape.kind) {
       case 'circle':
       case 'cone':
       case 'line':
       case 'donut':
-        x = shape.x;
-        break;
+        return shape.x;
       case 'mark':
-        x = state.entities.get(shape.target)?.x;
-        break;
+        return state.entities.get(shape.target)?.x;
       case 'link':
-        x = state.entities.get(shape.a)?.x;
-        break;
+        return state.entities.get(shape.a)?.x;
       case 'raid':
-        break;
+        return undefined;
     }
+  }
+
+  /** The pan, and how near the Weaver it is (1 on her, 0.65 at the arena's edge). */
+  private placeOf(x: number | undefined, state: WorldState): { pan: number; near: number } {
     const pan = x === undefined ? 0 : this.panFor(state, x);
-    const dur = clamp(ev.impact - ev.start, 0.5, 3.2);
-    const c = this.chord();
     const w = state.entities.get(state.weaverId);
     const dist = x === undefined || !w ? 0 : Math.abs(x - w.x);
-    const near = 1 - 0.35 * clamp(dist / Math.max(8, state.arenaRadius), 0, 1);
-    this.play(
+    return { pan, near: 1 - 0.35 * clamp(dist / Math.max(8, state.arenaRadius), 0, 1) };
+  }
+
+  private telegraph(ev: TelegraphStarted, state: WorldState): void {
+    // Phase 3e: during Stasis nothing on the enemies' side moves, so a windup started now would
+    // swell to an impact that keeps moving away. It waits, and plays when time resumes.
+    if (this.stasisUp(state)) {
+      this.frozen.add(ev.telegraph);
+      return;
+    }
+    const style = this.windStyle(ev.kind, ev.answers);
+    if (!this.e.gate('wind', 0.08)) return;
+    const { pan, near } = this.placeOf(this.shapeX(ev.shape, state), state);
+    const dur = clamp(ev.impact - ev.start, 0.5, 3.2);
+    const c = this.chord();
+    const h = this.play(
       `wind:${style}`,
       3,
       'sfx',
@@ -1992,6 +2710,186 @@ export class SfxEngine {
       },
       { pan },
     );
+    if (h) this.trackWindup(ev.telegraph, h);
+  }
+
+  /** Remembers a windup by its telegraph (and forgets the ones that have finished). */
+  private trackWindup(id: number, h: VoiceHandle): void {
+    const now = this.e.now;
+    for (const [k, w] of this.windups) if (w.endsAt <= now) this.windups.delete(k);
+    this.windups.set(id, h);
+  }
+
+  /**
+   * Phase 3e: Stasis begins. Every windup still sounding was scheduled to swell into its
+   * telegraph's impact, a time Stasis keeps pushing back, so none may play on: each fades out
+   * over 0.3 s (the threat holds its breath) and waits to resume.
+   */
+  private freezeWindups(): void {
+    const now = this.e.now;
+    for (const [id, h] of this.windups) {
+      if (h.endsAt <= now) continue;
+      h.kill(now, 0.3);
+      this.frozen.add(id);
+    }
+    this.windups.clear();
+  }
+
+  /**
+   * Time resumes: each frozen telegraph that is still coming winds up again from where it
+   * stopped, read from the state (its `impact` moved on with Stasis), so it peaks on the moment
+   * the attack really lands.
+   */
+  private resumeWindups(state: WorldState): void {
+    if (this.frozen.size === 0) return;
+    const ids = new Set(this.frozen);
+    this.frozen.clear();
+    for (const t of state.telegraphs ?? []) if (ids.has(t.id)) this.resumeWindup(t, state);
+  }
+
+  private resumeWindup(tg: Telegraphed, state: WorldState): void {
+    const total = clamp(tg.impact - tg.start, 0.5, 3.2);
+    const elapsed = Math.max(0, state.time - tg.start);
+    const rem = total - elapsed;
+    // Its windup had (all but) run its course before time stopped.
+    if (!(rem > 0.08)) return;
+    const p = clamp(elapsed / total, 0, 1);
+    const style = this.windStyle(tg.kind, tg.answers);
+    const { pan, near } = this.placeOf(this.shapeX(tg.shape, state), state);
+    const c = this.chord();
+    const h = this.play(
+      `wind:${style}`,
+      3,
+      'sfx',
+      (v, t) => {
+        if (style === 'brass') this.brassResume(v, t, total, p, c, 0.1 * near);
+        else if (style === 'glass') this.glassResume(v, t, total, p, c, 0.08 * near);
+        else this.swellResume(v, t, total, p, c, 0.085 * near);
+      },
+      { pan },
+    );
+    if (h) this.trackWindup(tg.id, h);
+  }
+
+  /**
+   * A resumed windup picks up at the level it had reached (`from`, of its peak) and rises to the
+   * peak over what was left of its attack. On the voice's own gain, so its sources can start
+   * straight at their peak.
+   */
+  private resumeLevel(v: Voice, t: number, from: number, rise: number): void {
+    const g = v.out.gain;
+    g.setValueAtTime(clamp(from, 0.02, 1), t);
+    g.linearRampToValueAtTime(1, t + Math.max(0.03, rise));
+  }
+
+  /** `brassWindup`, taken up again at progress `p` of its `total`. */
+  private brassResume(v: Voice, t: number, total: number, p: number, c: Chord, g: number): void {
+    const hz = midiToHz(this.rootAbove(c, 38));
+    const rem = total * (1 - p);
+    // The lowpass carries on from where it was: 230 to 1100 Hz over the windup and its release.
+    const span = total + 0.3;
+    const filter = {
+      type: 'lowpass' as const,
+      freq: 230 * (1100 / 230) ** ((total * p) / span),
+      freqTo: 1100,
+      q: 0.9,
+    };
+    this.resumeLevel(v, t, p / 0.88, total * (0.88 - p));
+    for (const [type, freq, detune, k] of [
+      ['sawtooth', hz, -6, 1],
+      ['sawtooth', hz * 1.4983, 6, 0.6],
+      ['sine', hz / 2, 0, 0.9],
+    ] as const) {
+      v.osc({
+        type,
+        freq,
+        detune,
+        start: t,
+        dur: rem,
+        attack: 0.04,
+        release: 0.3,
+        gain: g * k,
+        shape: 'sustain',
+        filter: type === 'sine' ? undefined : filter,
+      });
+    }
+  }
+
+  /** `glassWindup`, taken up again at progress `p`: its glide and its quickening tremolo too. */
+  private glassResume(v: Voice, t: number, total: number, p: number, c: Chord, g: number): void {
+    const ctx = this.e.ctx;
+    const notes = chordNotesInRange(c, 84, 100);
+    const f0 = midiToHz(notes[0] ?? 86);
+    const f1 = midiToHz(notes[1] ?? 91);
+    const fp = f0 * (f1 / f0) ** p;
+    const rem = total * (1 - p);
+    const am = ctx.createGain();
+    am.gain.value = 0.55;
+    const lfo = ctx.createOscillator();
+    lfo.frequency.setValueAtTime(5 + 14 * p, t);
+    lfo.frequency.linearRampToValueAtTime(19, t + rem);
+    const depth = ctx.createGain();
+    depth.gain.value = 0.45;
+    lfo.connect(depth).connect(am.gain);
+    am.connect(v.out);
+    v.nodes.push(am, depth);
+    lfo.start(t);
+    lfo.stop(t + rem + 0.4);
+    v.sources.push(lfo);
+    this.resumeLevel(v, t, p / 0.85, total * (0.85 - p));
+    for (const [ratio, k] of [
+      [1, 1],
+      [2.32, 0.35],
+    ] as const) {
+      v.osc({
+        type: 'sine',
+        freq: fp * ratio,
+        freqTo: f1 * ratio,
+        glide: rem,
+        start: t,
+        dur: rem,
+        attack: 0.04,
+        release: 0.25,
+        gain: g * k,
+        shape: 'sustain',
+        dest: am,
+      });
+    }
+    v.extend(t + rem + 0.45);
+  }
+
+  /** `swellWindup`, taken up again at progress `p`. */
+  private swellResume(v: Voice, t: number, total: number, p: number, c: Chord, g: number): void {
+    const notes = chordNotesInRange(c, 60, 76);
+    const f0 = midiToHz(notes[0] ?? 62);
+    const f1 = midiToHz(notes[2] ?? 69);
+    const rem = total * (1 - p);
+    // Its filters sweep over the windup and its release; carry on from where they were.
+    const k = (total * p) / (total + 0.25);
+    this.resumeLevel(v, t, p / 0.85, total * (0.85 - p));
+    v.osc({
+      type: 'triangle',
+      freq: f0 * (f1 / f0) ** p,
+      freqTo: f1,
+      glide: rem,
+      start: t,
+      dur: rem,
+      attack: 0.04,
+      release: 0.25,
+      gain: g,
+      shape: 'sustain',
+      filter: { type: 'lowpass', freq: 700 * (2400 / 700) ** k, freqTo: 2400, q: 0.8 },
+    });
+    v.noise({
+      pink: true,
+      start: t,
+      dur: rem,
+      attack: 0.04,
+      release: 0.25,
+      gain: g * 0.6,
+      shape: 'sustain',
+      filter: { type: 'bandpass', freq: 500 * (2400 / 500) ** k, freqTo: 2400, q: 1.2 },
+    });
   }
 
   private brassWindup(v: Voice, t: number, dur: number, c: Chord, g: number): void {
@@ -2238,6 +3136,11 @@ export class SfxEngine {
       }
     }
 
+    // Phase 3e: Stasis followed in the state as well as its events, its slowed clock, and the
+    // Chronomancer's final-second tick.
+    this.followStasis(state, now);
+    this.finalTicks(state);
+
     // Scan the world a few times a second.
     this.lastIntensityScan += dt;
     let downed = 0;
@@ -2283,10 +3186,32 @@ export class SfxEngine {
     return {
       intensity: this.intensity,
       resonance: weaver?.resonance ?? 0,
-      crescendo: (weaver?.crescendo ?? 0) > 0,
+      // Phase 3e: time stands still in Stasis, so the music doesn't surge to its top layer.
+      crescendo: (weaver?.crescendo ?? 0) > 0 && !this.stasisUp(state),
       downed,
       bossPhase,
     };
+  }
+
+  /**
+   * Phase 3e: Stasis as the state has it. If its start was missed it begins here (silently: the
+   * windups still freeze); if the state has been past it for a quarter second without its end
+   * event, it ends here. While it lasts the music stays held, and the slowed clock ticks.
+   */
+  private followStasis(state: WorldState, now: number): void {
+    const up = state.field?.stasis;
+    if (typeof up === 'boolean') {
+      if (up) {
+        this.stasisGoneAt = -1;
+        if (!this.stasis && !fightOver(state)) this.beginStasis(this.stasisLeft(state));
+      } else if (this.stasis) {
+        if (this.stasisGoneAt < 0) this.stasisGoneAt = now;
+        else if (now - this.stasisGoneAt > 0.25) this.stasisEnd(state);
+      }
+    }
+    if (!this.stasis) return;
+    this.music.extendHold(this.stasisLeft(state, 1) + 0.6);
+    this.stasisTicks(state, now);
   }
 
   private scanCache: {
@@ -2382,6 +3307,16 @@ export class SfxEngine {
     this.callQ.clear();
     for (const h of this.held.values()) h.kill(this.e.now, 0.2);
     this.held.clear();
+    // Phase 3e: Stasis's chord and the music's filter let go; nothing waits to resume.
+    this.stasis?.hold?.kill(this.e.now, 0.2);
+    this.stasis = null;
+    this.stasisGoneAt = -1;
+    this.stasisOwed = false;
+    this.e.releaseMusicFilter(0.3);
+    this.windups.clear();
+    this.frozen.clear();
+    this.ticked.clear();
+    this.rewindLand.clear();
     this.music.releaseHold();
     if (this.drone) this.drone.gain.gain.setTargetAtTime(0, this.e.now, 0.1);
     if (this.harmony)

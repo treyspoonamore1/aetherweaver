@@ -10,6 +10,13 @@ export const RING = {
   swipe: 4,
   soft: 5,
   reticle: 6,
+  /**
+   * A clock face (the Chronomancer): a rim and `param` tick marks (12 by default), turned by
+   * `rotation`. `arcStart` / `arcLen` light part of the rim (a countdown); the rest is dim.
+   */
+  clock: 7,
+  /** A clock's hands: a long hand at `arcStart`, a short one at `arcLen` (radians), a hub. */
+  hands: 8,
 } as const;
 
 const vertex = /* glsl */ `
@@ -80,6 +87,25 @@ void main() {
     col = mix(col, vec3(1.0), lead * 0.35);
   } else if (style == 5) {
     alpha = (1.0 - smoothstep(0.0, r, d)) * vArc.z;
+  } else if (style == 7) {
+    // Clock face: a rim (its lit arc bright, the rest dim) and tick marks inside it.
+    float n = vArc.w > 0.5 ? vArc.w : 12.0;
+    float ta = atan(vLocal.y, vLocal.x) - vRot;
+    float near = (fract(ta / 6.2831853 * n + 0.5) - 0.5) * 6.2831853 / n * d;
+    float tick = awAA(abs(near) - th * 0.45) * smoothstep(r * 0.76, r * 0.8, d) * step(d, r);
+    float lit = arcLen >= 6.28 ? 1.0 : 0.3 + 0.7 * arcMask;
+    alpha = (core + glow * 0.6) * lit + tick * 0.85 + (d < r ? vArc.z : 0.0);
+  } else if (style == 8) {
+    // Clock hands: a long hand at arcStart, a short one at arcLen, a hub.
+    vec2 h1 = vec2(cos(vArc.x), sin(vArc.x));
+    float t1 = clamp(dot(vLocal, h1), 0.0, r);
+    float hand1 = awAA(length(vLocal - h1 * t1) - th * 0.5);
+    vec2 h2 = vec2(cos(vArc.y), sin(vArc.y));
+    float t2 = clamp(dot(vLocal, h2), 0.0, r * 0.58);
+    float hand2 = awAA(length(vLocal - h2 * t2) - th * 0.75);
+    float hub = awAA(d - th * 1.3);
+    float halo = soft > 0.0 ? exp(-min(length(vLocal - h1 * t1), length(vLocal - h2 * t2)) / soft) * 0.45 : 0.0;
+    alpha = max(max(hand1, hand2), hub) + halo;
   } else {
     // Reticle: four corner brackets that rotate.
     float seg = fract((a + uTime * 0.6) / 1.5707963);

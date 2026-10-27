@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react';
+import { useEffect, useRef, type CSSProperties } from 'react';
 import { fmt } from '../kit/format';
 import { Icon } from '../kit/Icon';
 import { KeyCap } from '../kit/KeyCap';
@@ -8,22 +8,13 @@ import type { AuraHud, ChordHud, HeroHud, HudSnapshot, TechniqueHud, WeaverHud }
 import { compact, splitContribution } from '../contribution';
 import { mult } from '../screens/chordModel';
 import type { ContributionHud } from '../store';
-import {
-  TECHNIQUE_ICON,
-  WEAVER_BAR_LEFT,
-  WEAVER_BAR_WIDTH,
-  bindingCode,
-  bindingLabel,
-} from './labels';
+import { WEAVER_BAR_LEFT, WEAVER_BAR_WIDTH, bindingCode, bindingLabel } from './labels';
 import { beamSong, beamTitle } from './songs';
 import { CallingGlyph, callingLook } from '../kit/CallingGlyph';
-import { CONTENT } from '../../content';
+import { rewindSentence } from './rewindText';
 
-/** The Vow's length for its ring (content: the Calling's `vow` value; Sunrise's 6 s else). */
-function vowSeconds(callingId: string | undefined): number {
-  const def = CONTENT.callings.find((c) => c.id === callingId);
-  return def?.values.vow ?? CONTENT.crescendo.duration;
-}
+/** The Chronomancer's clockwork (Phase 3e): Stasis on the buttons, Rewind, Temporal Mastery. */
+const CHRONO = callingLook('chronomancer');
 
 const SPIRIT = '#8ea2ff';
 const LIFE = '#fb7185';
@@ -33,15 +24,42 @@ const BEAM = 'var(--color-gold-300)';
 const FIELD = '#93c5fd';
 const AURAS = '#c4b5fd';
 
-/** Weaver bar (docs/plan/04 §5.2, bottom-centre): resources, techniques, Resonance, Thread. */
-export function WeaverBar({ hud }: { hud: HudSnapshot }) {
+/**
+ * Weaver bar (docs/plan/04 §5.2, bottom-centre): resources, techniques, Resonance, Thread.
+ * `buzz`: the latest rejection per technique slot (a callout id), to shake that slot.
+ */
+export function WeaverBar({
+  hud,
+  buzz = {},
+}: {
+  hud: HudSnapshot;
+  buzz?: Partial<Record<TechniqueHud['key'], number>>;
+}) {
   const w = hud.weaver;
   const target = w.threadSlot === null ? null : hud.party.find((p) => p.slot === w.threadSlot);
+  // Rewind's target (the hovered hero, else the threaded one) and what it would do to them.
+  const rewindTarget = w.rewind ? hud.party.find((p) => p.rewind?.target) : undefined;
+  // Temporal Mastery: the technique a Glide would bring back now (by its own name and glyph).
+  const brings =
+    w.mastery?.ready && w.mastery.resets
+      ? (w.techniques.find((t) => t.key === w.mastery!.resets) ?? null)
+      : null;
   return (
     <div
       className="absolute bottom-5 flex flex-col gap-2 rounded-2xl border border-ink-600/70 bg-ink-900/88 px-4 pb-3 pt-3 shadow-lg shadow-black/40 backdrop-blur-sm"
-      style={{ left: WEAVER_BAR_LEFT, width: WEAVER_BAR_WIDTH }}
+      style={{
+        left: WEAVER_BAR_LEFT,
+        width: WEAVER_BAR_WIDTH,
+        // Stasis: the bar takes the Chronomancer's steel, calm and still.
+        ...(w.stasis
+          ? {
+              borderColor: `color-mix(in srgb, ${CHRONO.color} 80%, transparent)`,
+              boxShadow: `0 0 0 1px color-mix(in srgb, ${CHRONO.light} 18%, transparent), 0 10px 28px rgb(0 0 0 / 0.45), 0 0 22px color-mix(in srgb, ${CHRONO.color} 35%, transparent)`,
+            }
+          : {}),
+      }}
       data-testid="weaver-bar"
+      data-stasis={w.stasis || undefined}
     >
       <ContributionReadout c={hud.contribution} />
       {w.fieldSuppressed && (
@@ -56,7 +74,18 @@ export function WeaverBar({ hud }: { hud: HudSnapshot }) {
         </div>
         <div className="flex flex-1 items-end justify-center gap-2">
           {w.techniques.map((t) => (
-            <TechniqueButton key={t.key} technique={t} silenced={w.downed} />
+            <TechniqueButton
+              key={t.key}
+              technique={t}
+              silenced={w.downed}
+              buzz={buzz[t.key]}
+              brings={t.key === 'glide' ? brings : null}
+              rewind={
+                t.key === 'reel' && w.rewind && rewindTarget?.rewind
+                  ? rewindSentence(rewindTarget.name, rewindTarget.rewind)
+                  : null
+              }
+            />
           ))}
         </div>
         <ResonanceArc weaver={w} callingId={hud.calling?.id} />
@@ -238,14 +267,44 @@ function SpiritBar({ weaver: w }: { weaver: WeaverHud }) {
   );
 }
 
+/** What Temporal Mastery gives back: a Ward charge, or the technique's cooldown. */
+function broughtBack(t: TechniqueHud): string {
+  return t.key === 'ward' ? `a ${t.name} charge` : t.name;
+}
+
+/** A Spirit cost as the button shows it ("20", "12.5" in Stasis). */
+function costLabel(cost: number): string {
+  return String(Number(cost.toFixed(1)));
+}
+
+/** A rejected technique's slot shakes, with a brief red ring (Web Animations: no stylesheet). */
+const BUZZ: Keyframe[] = [
+  { transform: 'translateX(0)', boxShadow: '0 0 0 0 rgb(244 63 94 / 0)' },
+  { transform: 'translateX(-4px)', boxShadow: '0 0 0 3px rgb(244 63 94 / 0.75)' },
+  { transform: 'translateX(4px)' },
+  { transform: 'translateX(-3px)' },
+  { transform: 'translateX(2px)', boxShadow: '0 0 0 2px rgb(244 63 94 / 0.5)' },
+  { transform: 'translateX(0)', boxShadow: '0 0 0 0 rgb(244 63 94 / 0)' },
+];
+
 function TechniqueButton({
   technique: t,
   silenced,
+  buzz,
+  brings = null,
+  rewind = null,
 }: {
   technique: TechniqueHud;
   silenced: boolean;
+  /** The latest rejection of this slot (a callout id): shake when it changes. */
+  buzz?: number;
+  /** Glide only: the technique Temporal Mastery would bring back with this Glide. */
+  brings?: TechniqueHud | null;
+  /** Rewind only: what it would do to its target right now ("Kael +540"). */
+  rewind?: string | null;
 }) {
-  const cooling = t.remaining > 0.05 && t.total > 0;
+  // Stasis: no cooldown applies while it lasts, and it costs less.
+  const cooling = !t.free && t.remaining > 0.05 && t.total > 0;
   const dim = !cooling && !t.affordable;
   const ready = !cooling && t.affordable && !silenced;
   const frac = cooling ? Math.min(1, t.remaining / t.total) : 0;
@@ -254,20 +313,53 @@ function TechniqueButton({
     : {};
   const keyName = t.key0 ? keyLabel(t.key0) : bindingLabel(t.key);
   const state = cooling ? `${Math.ceil(t.remaining)} seconds` : dim ? 'not enough Spirit' : 'ready';
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = box.current;
+    if (buzz === undefined || !el || typeof el.animate !== 'function') return;
+    el.animate(BUZZ, { duration: 380, easing: 'ease-out' });
+  }, [buzz]);
+  const label = [
+    `${t.name}, key ${keyName}, ${state}`,
+    t.cost > 0
+      ? `costs ${costLabel(t.cost)} Spirit${t.free && t.cost < t.baseCost ? ` in Stasis (${costLabel(t.baseCost)} otherwise)` : ''}`
+      : '',
+    t.free ? 'no cooldown while Stasis lasts' : '',
+    rewind && ready ? rewind : '',
+    brings ? `Temporal Mastery: a Glide now brings back ${broughtBack(brings)}` : '',
+  ]
+    .filter(Boolean)
+    .join(', ');
+  const frameClass = ready
+    ? t.free
+      ? 'bg-ink-800'
+      : 'border-gold-400 bg-ink-800 text-gold-200 shadow-[0_0_10px_rgb(245_184_61/0.35)]'
+    : 'border-ink-500 bg-ink-800 text-muted';
+  const frameStyle: CSSProperties | undefined =
+    ready && t.free
+      ? {
+          borderColor: CHRONO.color,
+          color: CHRONO.light,
+          boxShadow: `0 0 12px color-mix(in srgb, ${CHRONO.color} 55%, transparent)`,
+        }
+      : undefined;
   return (
     <div
       role="img"
-      aria-label={`${t.name}, key ${keyName}, ${state}${t.cost > 0 ? `, costs ${t.cost} Spirit` : ''}`}
+      aria-label={label}
+      title={rewind && ready ? `${t.name}: ${rewind}` : undefined}
       className="flex flex-col items-center gap-1"
+      data-testid={`technique-${t.key}`}
+      data-name={t.name}
+      data-ready={ready || undefined}
+      data-free={t.free || undefined}
     >
       <div
-        className={`relative flex h-14 w-14 items-center justify-center rounded-xl border-2 transition-colors ${
-          ready
-            ? 'border-gold-400 bg-ink-800 text-gold-200 shadow-[0_0_10px_rgb(245_184_61/0.35)]'
-            : 'border-ink-500 bg-ink-800 text-muted'
-        } ${dim ? 'opacity-55' : ''}`}
+        ref={box}
+        className={`relative flex h-14 w-14 items-center justify-center rounded-xl border-2 transition-colors ${frameClass} ${dim ? 'opacity-55' : ''}`}
+        style={frameStyle}
       >
-        <Icon name={TECHNIQUE_ICON[t.key]} size={26} className={cooling ? 'opacity-30' : ''} />
+        <Icon name={t.icon} size={26} className={cooling ? 'opacity-30' : ''} />
         {cooling && (
           <>
             <div className="absolute inset-0 rounded-[10px]" style={style} />
@@ -282,15 +374,57 @@ function TechniqueButton({
           className="absolute -left-1.5 -top-2"
           accent={ready}
         />
+        {t.free && (
+          // Stasis: free of its cooldown while it lasts.
+          <span
+            className="absolute -right-1.5 -top-2 flex items-center rounded-md border bg-ink-900 px-0.5 py-px"
+            style={{ color: CHRONO.light, borderColor: CHRONO.color }}
+            title="Stasis: no cooldown while it lasts"
+            data-testid="technique-free"
+          >
+            <Icon name="stasis" size={12} />
+          </span>
+        )}
         {t.cost > 0 && (
           <span
-            className={`absolute -bottom-2 -right-1.5 rounded-md border px-1 font-mono text-xs leading-4 ${
-              dim ? 'border-lethal/70 bg-ink-900 text-rose-300' : 'border-ink-500 bg-ink-900'
+            className={`absolute -bottom-2 -right-1.5 flex items-center gap-0.5 whitespace-nowrap rounded-md border px-1 font-mono text-xs leading-4 ${
+              dim
+                ? 'border-lethal/70 bg-ink-900 text-rose-300'
+                : t.free
+                  ? 'bg-ink-900'
+                  : 'border-ink-500 bg-ink-900'
             }`}
-            style={dim ? undefined : { color: SPIRIT }}
-            title={`Costs ${t.cost} Spirit`}
+            style={
+              dim
+                ? undefined
+                : t.free
+                  ? { color: CHRONO.light, borderColor: CHRONO.color }
+                  : { color: SPIRIT }
+            }
+            title={
+              t.free && t.cost < t.baseCost
+                ? `Costs ${costLabel(t.cost)} Spirit in Stasis (${costLabel(t.baseCost)} otherwise)`
+                : `Costs ${costLabel(t.cost)} Spirit`
+            }
           >
-            {t.cost}
+            {t.free && t.cost < t.baseCost && (
+              <s className="text-muted" aria-hidden>
+                {costLabel(t.baseCost)}
+              </s>
+            )}
+            {costLabel(t.cost)}
+          </span>
+        )}
+        {brings && (
+          // Temporal Mastery: this Glide brings the last technique back.
+          <span
+            className="absolute -bottom-2 -right-1.5 flex items-center gap-px rounded-md border bg-ink-900 px-0.5 py-px"
+            style={{ color: CHRONO.light, borderColor: CHRONO.color }}
+            title={`Temporal Mastery: a Glide now brings back ${broughtBack(brings)}`}
+            data-testid="mastery-mark"
+          >
+            <CallingGlyph icon="mastery" size={11} />
+            <Icon name={brings.icon} size={11} aria-hidden />
           </span>
         )}
       </div>
@@ -366,23 +500,25 @@ function ResonanceArc({ weaver: w, callingId }: { weaver: WeaverHud; callingId?:
         ))}
       </svg>
       <div className="absolute inset-x-0 bottom-0 flex flex-col items-center">
-        {active && w.vow ? (
-          // The Martyr's Vow: in her blood, its own glyph, the seconds the heroes are held.
+        {active && (w.vow || w.stasis) ? (
+          // The Martyr's Vow in her blood; the Chronomancer's Stasis in steel and silver. Each
+          // with its own glyph and the seconds left, its ring timed from content.
           <span
             className="flex items-center gap-1 whitespace-nowrap rounded-md px-1 text-xs font-bold"
             style={{
-              color: callingLook(callingId ?? 'martyr').light,
-              background: `color-mix(in srgb, ${callingLook(callingId ?? 'martyr').color} 30%, transparent)`,
+              color: callingLook(callingId ?? (w.stasis ? 'chronomancer' : 'martyr')).light,
+              background: `color-mix(in srgb, ${callingLook(callingId ?? (w.stasis ? 'chronomancer' : 'martyr')).color} 30%, transparent)`,
             }}
             data-testid="crescendo-active"
+            data-crescendo={w.stasis ? 'stasis' : 'vow'}
           >
             <Ring
-              value={Math.min(1, w.crescendo / Math.max(1, vowSeconds(callingId)))}
+              value={Math.min(1, w.crescendo / Math.max(1, w.crescendoTotal))}
               size={20}
               stroke={3}
-              color={callingLook(callingId ?? 'martyr').color}
+              color={callingLook(callingId ?? (w.stasis ? 'chronomancer' : 'martyr')).color}
             >
-              <Icon name="vow" size={11} />
+              <Icon name={w.stasis ? 'stasis' : 'vow'} size={11} />
             </Ring>
             {w.crescendoName} {Math.ceil(w.crescendo)}s
           </span>
@@ -391,7 +527,12 @@ function ResonanceArc({ weaver: w, callingId }: { weaver: WeaverHud; callingId?:
             className="flex items-center gap-1 text-xs font-bold text-gold-200"
             data-testid="crescendo-active"
           >
-            <Ring value={w.crescendo / 6} size={20} stroke={3} color={GOLD}>
+            <Ring
+              value={w.crescendo / Math.max(1, w.crescendoTotal)}
+              size={20}
+              stroke={3}
+              color={GOLD}
+            >
               <Icon name="note" size={11} className="text-gold-200" />
             </Ring>
             {w.crescendoName} {Math.ceil(w.crescendo)}s

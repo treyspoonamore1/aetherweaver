@@ -2,13 +2,13 @@
 import type { SimEvent } from '../../sim';
 import type { SynthDirector } from '../director';
 import type { UiSound } from '../types';
-import type { FakeWorld } from './labState';
+import type { FakeTelegraph, FakeWorld } from './labState';
 import { IDS, ev, type HeroKey } from './labState';
 
 export interface SoundButton {
   id: string;
   label: string;
-  group: 'support' | 'phase2' | 'relic' | 'calling' | 'martyr' | 'world' | 'ui';
+  group: 'support' | 'phase2' | 'relic' | 'calling' | 'martyr' | 'chrono' | 'world' | 'ui';
   /** Fires the sound. Receives the director and a world to read/mutate. */
   fire(d: SynthDirector, w: FakeWorld): void;
   /** Follow-up events, `delay` seconds after the first (call then answer, hold then release). */
@@ -121,6 +121,137 @@ const callStarted = (h: HeroKey, answer: 'ward' | 'empower' | 'chime'): SimEvent
 /** The lab's fake clock sits at t = 0, so `until` is the hold length. */
 const holdEvent = (seconds: number): SimEvent =>
   ev('fermataHold', { hero: IDS.kael, until: seconds, attack: 'Requiem', damage: 1400 });
+
+// ── Phase 3e helpers ───────────────────────────────────────────────────────────────
+type Follow = { delay: number; fire(d: SynthDirector, w: FakeWorld): void };
+
+/**
+ * Follow-ups every `step` seconds from `from` to `to`: the frames between (the sim clock moving
+ * on, and the director's per-frame update, which an offline render has no loop for).
+ */
+function frames(
+  from: number,
+  to: number,
+  each: (d: SynthDirector, w: FakeWorld) => void = tickFrame,
+  step = 0.1,
+): Follow[] {
+  const out: Follow[] = [];
+  for (let i = 0; from + i * step <= to + 1e-9; i++)
+    out.push({ delay: Math.round((from + i * step) * 1000) / 1000, fire: each });
+  return out;
+}
+
+/** One lab frame of 0.1 s: the clock moves (telegraphs wait in Stasis) and the director looks. */
+function tickFrame(d: SynthDirector, w: FakeWorld): void {
+  w.advance(0.1);
+  d.update(w.state, 0.1);
+}
+
+/** A state telegraph's start event, with the same id and times. */
+function startedEv(t: FakeTelegraph): SimEvent {
+  return ev('telegraphStarted', {
+    telegraph: t.id,
+    owner: t.owner,
+    target: t.target,
+    name: t.name,
+    kind: t.kind,
+    shape: t.shape,
+    start: t.start,
+    impact: t.impact,
+    perfectFrom: t.perfectFrom,
+    damage: t.damage,
+    pctMaxHp: t.pctMaxHp,
+    answers: t.answers,
+    effect: t.effect,
+  });
+}
+
+/** Stasis comes up as the sim brings it: the field's flag and the Crescendo clock, then the event. */
+function stasisOn(d: SynthDirector, w: FakeWorld, seconds: number): void {
+  w.setStasis(true, seconds);
+  fire(d, w, ev('crescendoStart', { calling: 'Stasis', duration: seconds }));
+}
+
+function stasisOff(d: SynthDirector, w: FakeWorld): void {
+  w.setStasis(false);
+  fire(d, w, ev('crescendoEnd', {}));
+}
+
+/** A Stasis of `seconds`, its frames, and its end. */
+function stasisButton(id: string, label: string, seconds: number): SoundButton {
+  return {
+    id,
+    label,
+    group: 'chrono',
+    length: seconds + 3,
+    fire: (d, w) => stasisOn(d, w, seconds),
+    then: [
+      ...frames(0.1, seconds),
+      { delay: Math.round((seconds + 0.05) * 100) / 100, fire: stasisOff },
+    ],
+  };
+}
+
+/**
+ * A Rewind as the sim reports it: the life it gave back, the cast in Reel's slot, then where the
+ * hero went (and, for a revive, the `revived` and the save before them).
+ */
+function rewindEvents(
+  hero: HeroKey,
+  from: [number, number],
+  to: [number, number],
+  restored: number,
+  revived = false,
+): SimEvent[] {
+  const target = IDS[hero];
+  const out: SimEvent[] = [];
+  if (revived) out.push(ev('revived', { hero: target }));
+  if (restored > 0)
+    out.push(
+      ev('healApplied', {
+        target,
+        source: IDS.weaver,
+        amount: restored,
+        overheal: 0,
+        via: 'rewind',
+      }),
+    );
+  if (revived)
+    out.push(
+      ev('save', { target, cause: 'rewind', counterfactualDamage: restored, attack: 'a fall' }),
+      ev('timeScaleChanged', { scale: 0.35, duration: 15, reason: 'save' }),
+    );
+  out.push(
+    ev('techniqueCast', { technique: 'rewind', target, x: to[0], z: to[1] }),
+    ev('rewound', {
+      target,
+      fromX: from[0],
+      fromZ: from[1],
+      toX: to[0],
+      toZ: to[1],
+      restored,
+      revived,
+    }),
+  );
+  return out;
+}
+
+/** One tenth of a Foresight burst: ten enemies foresee an attack each (100 in a second). */
+function foresightBurst(d: SynthDirector, w: FakeWorld, step: number): void {
+  const heroes = [IDS.kael, IDS.lyra, IDS.vexis];
+  for (let i = 0; i < 10; i++)
+    fire(
+      d,
+      w,
+      ev('foreseen', {
+        enemy: IDS.enemyBase + i,
+        attack: 'lab',
+        name: 'Lab',
+        target: heroes[(step + i) % 3] as number,
+        at: w.time + 1,
+      }),
+    );
+}
 
 export const SOUNDS: SoundButton[] = [
   // ── Support ────────────────────────────────────────────────────────────────────
@@ -892,6 +1023,295 @@ export const SOUNDS: SoundButton[] = [
         }),
       ),
   },
+  // ── Phase 3e: the Chronomancer ─────────────────────────────────────────────────
+  {
+    id: 'chrono-rewind',
+    label: 'Rewind (Kael, a short step back)',
+    group: 'chrono',
+    length: 3,
+    fire: (d, w) => fire(d, w, ...rewindEvents('kael', [-3, -3], [-1, -5], 80)),
+  },
+  {
+    id: 'chrono-rewind-far',
+    label: 'Rewind (Vexis, a long way, much life back)',
+    group: 'chrono',
+    length: 3,
+    fire: (d, w) => fire(d, w, ...rewindEvents('vexis', [9, 2], [2, -3], 420)),
+  },
+  {
+    id: 'chrono-rewind-revive',
+    label: 'Rewind stands Lyra back up (then the save)',
+    group: 'chrono',
+    length: 5,
+    fire: (d, w) => fire(d, w, ...rewindEvents('lyra', [6, 4], [1, -2], 380, true)),
+  },
+  {
+    id: 'chrono-reel-compare',
+    label: 'Reel (compare)',
+    group: 'chrono',
+    fire: (d, w) =>
+      fire(d, w, ev('reeled', { target: IDS.lyra, fromX: 9, fromZ: 0, toX: 1, toZ: 0 })),
+  },
+  {
+    id: 'chrono-revive-compare',
+    label: 'Ordinary revive and save (compare)',
+    group: 'chrono',
+    length: 4,
+    fire: (d, w) =>
+      fire(
+        d,
+        w,
+        ev('revived', { hero: IDS.lyra }),
+        ev('save', { target: IDS.lyra, cause: 'ward', counterfactualDamage: 380, attack: 'Lab' }),
+      ),
+  },
+  {
+    id: 'chrono-rewind-reject',
+    label: 'Rewind refused (down too long)',
+    group: 'chrono',
+    fire: (d, w) => fire(d, w, ev('techniqueRejected', { technique: 'rewind', reason: 'target' })),
+  },
+  {
+    id: 'chrono-rewind-spam',
+    label: 'Rewind spam in Stasis (12 in 1 s)',
+    group: 'chrono',
+    length: 3,
+    fire: (d, w) => fire(d, w, ...rewindEvents('kael', [-3, -3], [-1, -5], 40)),
+    then: Array.from({ length: 11 }, (_, i) => ({
+      delay: Math.round((i + 1) * 0.085 * 1000) / 1000,
+      fire: (d: SynthDirector, w: FakeWorld) =>
+        fire(
+          d,
+          w,
+          ...rewindEvents((['lyra', 'vexis', 'kael'] as const)[i % 3], [2, 1], [0, -3], 40),
+        ),
+    })),
+  },
+  stasisButton('chrono-stasis', 'Stasis (3 s: time stops, then resumes)', 3),
+  stasisButton('chrono-stasis-eternal', 'Stasis with Eternal Moment (5 s)', 5),
+  {
+    id: 'chrono-stasis-windups',
+    label: 'Stasis over two windups (they freeze, then resume and land late)',
+    group: 'chrono',
+    length: 7,
+    fire: (d, w) => {
+      const a = w.addTelegraph(901, 2.4, { x: -8 });
+      const b = w.addTelegraph(902, 2.0, {
+        kind: 'mark',
+        answers: ['chime', 'ward'],
+        target: IDS.lyra,
+      });
+      fire(d, w, startedEv(a), startedEv(b));
+    },
+    then: [
+      ...frames(0.1, 0.8),
+      { delay: 0.9, fire: (d, w) => stasisOn(d, w, 3) },
+      ...frames(1.0, 3.9),
+      { delay: 3.95, fire: stasisOff },
+      ...frames(4.0, 5.6),
+      {
+        delay: 5.7,
+        fire: (_d, w) => {
+          w.removeTelegraph(901);
+          w.removeTelegraph(902);
+        },
+      },
+    ],
+  },
+  {
+    id: 'chrono-sunrise-compare',
+    label: 'Sunrise (no Calling, compare)',
+    group: 'chrono',
+    length: 7,
+    fire: (d, w) => {
+      w.setCalling(null);
+      w.setCrescendo(true);
+      fire(d, w, ev('crescendoStart', { calling: 'Sunrise', duration: 8 }));
+    },
+    then: [
+      {
+        delay: 5,
+        fire: (d, w) => {
+          w.setCrescendo(false);
+          fire(d, w, ev('crescendoEnd', {}));
+        },
+      },
+    ],
+  },
+  {
+    id: 'chrono-vow-compare',
+    label: "Martyr's Vow (compare)",
+    group: 'chrono',
+    length: 8,
+    fire: (d, w) => {
+      w.setCalling('martyr');
+      w.setVow(true);
+      fire(d, w, ev('crescendoStart', { calling: 'Martyr’s Vow', duration: 5 }));
+    },
+    then: [
+      {
+        delay: 5,
+        fire: (d, w) => {
+          w.setVow(false);
+          fire(d, w, ev('crescendoEnd', {}));
+          w.setCalling(null);
+        },
+      },
+    ],
+  },
+  {
+    id: 'chrono-foresight',
+    label: 'Foresight glimpse (an attack on Lyra, a second early)',
+    group: 'chrono',
+    length: 2,
+    fire: (d, w) =>
+      fire(
+        d,
+        w,
+        ev('foreseen', {
+          enemy: IDS.enemyBase,
+          attack: 'lab',
+          name: 'Lab',
+          target: IDS.lyra,
+          at: w.time + 1,
+        }),
+      ),
+  },
+  {
+    id: 'chrono-foresight-burst',
+    label: 'Foresight burst (100 in 1 s)',
+    group: 'chrono',
+    length: 3,
+    fire: (d, w) => foresightBurst(d, w, 0),
+    then: Array.from({ length: 9 }, (_, i) => ({
+      delay: Math.round((i + 1) * 0.1 * 1000) / 1000,
+      fire: (d: SynthDirector, w: FakeWorld) => foresightBurst(d, w, i + 1),
+    })),
+  },
+  {
+    id: 'chrono-final-tick',
+    label: 'Final-second tick (a lethal 2.5 s tank-buster, timers on)',
+    group: 'chrono',
+    length: 4,
+    fire: (d, w) => {
+      w.setCalling('chronomancer');
+      fire(d, w, startedEv(w.addTelegraph(911, 2.5, { x: -6, severity: 'lethal' })));
+    },
+    then: [
+      ...frames(0.1, 2.6),
+      {
+        delay: 2.7,
+        fire: (_d, w) => {
+          w.removeTelegraph(911);
+          w.setCalling(null);
+        },
+      },
+    ],
+  },
+  {
+    id: 'chrono-echo-ward',
+    label: 'Echo Ward (a Perfect Ward, then its echo a second later)',
+    group: 'chrono',
+    length: 4,
+    fire: (d, w) => fire(d, w, ev('perfectWard', { target: IDS.kael, telegraph: 1, negated: 400 })),
+    then: [
+      {
+        delay: 1,
+        fire: (d, w) => fire(d, w, ev('echoWard', { target: IDS.kael, amount: 120 })),
+      },
+    ],
+  },
+  {
+    id: 'chrono-mastery',
+    label: 'Temporal Mastery (Glide resets the Ward)',
+    group: 'chrono',
+    fire: (d, w) =>
+      fire(
+        d,
+        w,
+        ev('temporalMastery', { technique: 'ward' }),
+        ev('techniqueCast', { technique: 'glide', target: null, x: 5, z: 1 }),
+        ev('glided', { fromX: 0, fromZ: 0, toX: 5, toZ: 1 }),
+      ),
+  },
+  {
+    id: 'chrono-paradox',
+    label: 'Paradox (Rewind undoes two attacks on Kael)',
+    group: 'chrono',
+    length: 4,
+    fire: (d, w) =>
+      fire(
+        d,
+        w,
+        startedEv(w.addTelegraph(921, 2.2, { x: -4 })),
+        startedEv(w.addTelegraph(922, 2.0, { kind: 'mark', answers: ['chime', 'ward'] })),
+      ),
+    then: [
+      {
+        delay: 0.7,
+        fire: (d, w) => {
+          w.removeTelegraph(921);
+          w.removeTelegraph(922);
+          const undone = (id: number) => [
+            ev('telegraphResolved', {
+              telegraph: id,
+              target: null,
+              outcome: 'cancelled',
+              damage: 0,
+            }),
+            ev('telegraphEnded', { telegraph: id }),
+          ];
+          fire(
+            d,
+            w,
+            ...undone(921),
+            ...undone(922),
+            ...rewindEvents('kael', [-4, 4], [-1, -3], 90),
+            ev('paradox', { target: IDS.kael, cancelled: 2 }),
+          );
+        },
+      },
+    ],
+  },
+  {
+    id: 'chrono-borrowed',
+    label: "Borrowed Time (Rewind fills Lyra's Solo)",
+    group: 'chrono',
+    length: 3,
+    fire: (d, w) => {
+      w.setCalling('chronomancer', ['quickened', 'borrowed_time']);
+      w.setSolo('lyra', 50);
+      fire(d, w, ...rewindEvents('lyra', [5, 2], [2, -2], 150));
+    },
+    then: [{ delay: 1.5, fire: (_d, w) => w.setCalling(null) }],
+  },
+  {
+    id: 'chrono-eternal',
+    label: 'Eternal Moment (a Perfect from a Ward cast in Stasis)',
+    group: 'chrono',
+    length: 4,
+    fire: (d, w) =>
+      fire(
+        d,
+        w,
+        ev('perfectWard', { target: IDS.kael, telegraph: 1, negated: 400 }),
+        ev('resonanceGained', { amount: 5, reason: 'perfect ward', total: 35 }),
+        ev('resonanceGained', { amount: 10, reason: 'eternal moment', total: 45 }),
+      ),
+  },
+  ...(
+    [
+      ['callingSelect', 'Chosen in Prep'],
+      ['callingReveal', 'Its path opens'],
+      ['callingPick', 'A pick taken'],
+    ] as const
+  ).map(([s, label]): SoundButton => ({
+    id: `chrono-ui-${s}`,
+    label: `UI: ${label} (the Chronomancer's ${s})`,
+    group: 'chrono',
+    length: 3,
+    fire: (d) => d.playUi(s, 'chronomancer'),
+  })),
   // ── UI ─────────────────────────────────────────────────────────────────────────
   ...(
     [

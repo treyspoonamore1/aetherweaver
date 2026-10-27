@@ -29,7 +29,13 @@ interface Row {
   body: string;
 }
 
-function rows(bear: boolean): Row[] {
+/** The Chronomancer's Rewind, in Reel's slot (Phase 3e): how far back, and its cooldown. */
+export interface RewindPrimer {
+  seconds: number;
+  cooldown: number;
+}
+
+function rows(bear: boolean, rewind: RewindPrimer | null): Row[] {
   return [
     {
       icon: 'move',
@@ -55,12 +61,19 @@ function rows(bear: boolean): Row[] {
       title: 'Answer their calls',
       body: 'Before a big move a hero calls for help: a gold glyph on their frame shows what they want, its key and a countdown. Answer in time and the move becomes a Flourish.',
     },
-    {
-      icon: 'chime',
-      keys: [bindingLabel('chime'), bindingLabel('reel')],
-      title: 'Chime and Reel',
-      body: 'Chime cleanses marks in a circle under your cursor. Reel yanks a hero out of danger and to your side.',
-    },
+    rewind
+      ? {
+          icon: 'rewind',
+          keys: [bindingLabel('chime'), bindingLabel('reel')],
+          title: 'Chime and Rewind',
+          body: `Chime cleanses marks in a circle under your cursor. As the Chronomancer, ${bindingLabel('reel')} Rewinds instead of Reeling: your threaded hero goes back ${rewind.seconds} s, to where they stood and the life they had (never less than now). ${rewind.cooldown} s cooldown. Once a run, it stands back up a hero who fell in that time.`,
+        }
+      : {
+          icon: 'chime',
+          keys: [bindingLabel('chime'), bindingLabel('reel')],
+          title: 'Chime and Reel',
+          body: 'Chime cleanses marks in a circle under your cursor. Reel yanks a hero out of danger and to your side.',
+        },
     {
       icon: 'note',
       keys: [bindingLabel('cue'), bindingLabel('crescendo')],
@@ -72,14 +85,23 @@ function rows(bear: boolean): Row[] {
 
 /**
  * First-fight primer. The sim is paused while it is open (docs/plan/04 §7). `bear`: a Martyr
- * run, where Bear has its own key (Phase 3d).
+ * run, where Bear has its own key (Phase 3d). `rewind`: a Chronomancer run, where Reel's key
+ * Rewinds (Phase 3e).
  */
-export function HowToPlay({ onClose, bear = false }: { onClose: () => void; bear?: boolean }) {
+export function HowToPlay({
+  onClose,
+  bear = false,
+  rewind = null,
+}: {
+  onClose: () => void;
+  bear?: boolean;
+  rewind?: RewindPrimer | null;
+}) {
   return (
     <Modal title="How to play" width="max-w-2xl" onClose={onClose} closeOnEscape>
       <p className="mt-1 text-sm text-muted">The fight is paused until you begin.</p>
       <ul className="mt-4 flex flex-col gap-3">
-        {rows(bear).map((r) => (
+        {rows(bear, rewind).map((r) => (
           <li
             key={r.title}
             className="flex gap-3 rounded-xl border border-ink-600/60 bg-ink-900/60 p-3"

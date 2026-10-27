@@ -6,8 +6,9 @@ import { PathPip, callingLook } from '../kit/CallingGlyph';
 import { Icon } from '../kit/Icon';
 import { Modal } from '../kit/Modal';
 import { playUi } from '../kit/sound';
+import { callingText } from '../../content';
 import { LockTag, NewTag } from './ChordBuilder';
-import { CallingPassive, CallingPathPreview, CallingTitle } from './CallingParts';
+import { CallingPassive, CallingPathPreview, CallingTitle, CrescendoLine } from './CallingParts';
 import { allCallings, numeral, tierWhenList } from './callingText';
 
 /** Is this Calling open to choose (its Rank reached, or Skip the unlocks)? */
@@ -16,10 +17,11 @@ export function callingOpen(allowance: Allowance, id: string): boolean {
 }
 
 /**
- * Prep's Calling picker (Phase 3c, 3d): "No Calling" and each Calling as a compact card
- * (emblem, passive, its Crescendo, the four picks and when they come), with the whole path in
- * a dialog.
- * Locked Callings show their Rank and what they are, and can't be chosen.
+ * Prep's Calling picker (Phase 3c, 3d, 3e): "No Calling" and each Calling as a compact card,
+ * side by side (emblem, its one-line summary, its Crescendo, the four picks), with the passive
+ * and the whole path in a dialog. Locked Callings show their Rank and what they are, and can't
+ * be chosen. Three Callings and "No Calling" fit a 1280×720 screen above Embark, with the
+ * "Newly unlocked" strip.
  */
 export function CallingPicker({
   chosen,
@@ -56,27 +58,24 @@ export function CallingPicker({
         >
           Your Calling
         </h2>
-        <p className="max-w-2xl text-right text-xs leading-relaxed text-muted">
-          The Weaver’s class for this run: chosen here, it grows as you win.
+        <p className="text-right text-xs leading-relaxed text-muted">
+          The Weaver’s class for this run, chosen here.
           {schedule !== null && (
             <>
               {' '}
-              {schedule} picks along the way, one of two each: {tierWhenList(schedule)}.
+              It grows as you win: {schedule} picks, one of two each, {tierWhenList(schedule)}.
             </>
           )}
         </p>
       </div>
       <div
-        className="grid gap-3 md:grid-cols-[13rem_1fr]"
+        className="grid gap-3 md:grid-cols-[11rem_repeat(var(--callings),minmax(0,1fr))]"
+        style={{ '--callings': Math.max(1, callings.length) } as CSSProperties}
         role="radiogroup"
         aria-labelledby="calling-title"
       >
-        {/* "No Calling" runs down the left beside every Calling's card. */}
-        <NoCalling
-          selected={chosen === null}
-          onChoose={() => choose(null)}
-          rows={callings.length}
-        />
+        {/* "No Calling" stands to the left of every Calling's card. */}
+        <NoCalling selected={chosen === null} onChoose={() => choose(null)} />
         {callings.map((def) => (
           <CallingCard
             key={def.id}
@@ -109,24 +108,14 @@ export function CallingPicker({
   );
 }
 
-function NoCalling({
-  selected,
-  onChoose,
-  rows,
-}: {
-  selected: boolean;
-  onChoose(): void;
-  /** How many Calling cards it stands beside (it spans their rows). */
-  rows: number;
-}) {
+function NoCalling({ selected, onChoose }: { selected: boolean; onChoose(): void }) {
   return (
     <button
       type="button"
       role="radio"
       aria-checked={selected}
       onClick={onChoose}
-      style={{ '--rows': `span ${Math.max(1, rows)}` } as CSSProperties}
-      className={`flex h-full flex-col items-start gap-1.5 rounded-xl border px-4 py-3 text-left transition-colors md:[grid-row:var(--rows)] ${
+      className={`flex h-full flex-col items-start gap-1.5 rounded-xl border px-4 py-3 text-left transition-colors ${
         selected
           ? 'border-gold-400 bg-gold-400/10'
           : 'border-ink-600 bg-ink-800/80 hover:border-gold-500/70 hover:bg-ink-800'
@@ -165,7 +154,7 @@ function CallingCard({
   const rank = unlockRank('calling', def.id);
   return (
     <div
-      className={`relative flex flex-col gap-2 rounded-xl border p-3 transition-colors md:flex-row md:items-stretch ${
+      className={`relative flex min-w-0 flex-col gap-2 rounded-xl border p-3 transition-colors ${
         open ? '' : 'border-dashed'
       }`}
       style={{
@@ -175,7 +164,7 @@ function CallingCard({
             ? `color-mix(in srgb, ${look.color} 35%, var(--color-ink-600))`
             : 'var(--color-ink-500)',
         background: selected
-          ? `linear-gradient(100deg, color-mix(in srgb, ${look.color} 16%, rgb(17 26 51 / 0.92)), rgb(17 26 51 / 0.92) 60%)`
+          ? `linear-gradient(170deg, color-mix(in srgb, ${look.color} 18%, rgb(17 26 51 / 0.92)), rgb(17 26 51 / 0.92) 70%)`
           : open
             ? 'rgb(17 26 51 / 0.85)'
             : 'rgb(10 16 34 / 0.6)',
@@ -193,15 +182,18 @@ function CallingCard({
             ? `The ${def.name}, ${def.title}${selected ? ': chosen' : ''}`
             : `The ${def.name}: unlocks at Rank ${rank}`
         }
+        // The passive in full on hover; the path dialog has it too.
+        title={callingText(def).passive}
         onClick={() => {
           if (open) onChoose();
           else playUi('error');
         }}
-        className={`flex min-w-0 flex-1 flex-col gap-2 rounded-lg text-left md:flex-row md:items-start md:gap-4 ${open ? '' : 'cursor-not-allowed'}`}
+        className={`flex min-w-0 flex-1 flex-col gap-2 rounded-lg text-left ${open ? '' : 'cursor-not-allowed'}`}
       >
-        <span className="flex shrink-0 items-center gap-2 md:w-56 md:flex-col md:items-start">
-          <CallingTitle def={def} size={52} muted={!open} />
-          <span className="flex items-center gap-1.5">
+        <CallingTitle def={def} size={44} muted={!open} compact />
+        {(isNew || !open || selected) && (
+          // On the card's top edge, so the name keeps the whole width.
+          <span className="absolute -top-2.5 right-3 flex items-center gap-1">
             {isNew && open && <NewTag />}
             {!open && <LockTag rank={rank} />}
             {selected && (
@@ -213,34 +205,30 @@ function CallingCard({
               </span>
             )}
           </span>
-        </span>
-        <span className={`min-w-0 flex-1 ${open ? '' : 'opacity-75'}`}>
-          <CallingPassive def={def} compact />
+        )}
+        <span className={`flex flex-col gap-1.5 ${open ? '' : 'opacity-75'}`}>
+          <span className="text-sm leading-snug text-text">{def.summary}</span>
+          <CrescendoLine def={def} compact />
           {!open && (
-            <span className="mt-1.5 flex items-center gap-1.5 text-xs font-semibold text-muted">
-              <Icon name="lock" size={12} /> Reach Weaver Rank {rank} to choose it (or Settings →
-              Skip the unlocks).
+            <span className="flex items-start gap-1.5 text-xs font-semibold leading-snug text-muted">
+              <Icon name="lock" size={12} className="mt-0.5 shrink-0" /> Reach Weaver Rank {rank} to
+              choose it (or Settings → Skip the unlocks).
             </span>
           )}
         </span>
       </button>
-      <span
-        className={`flex shrink-0 flex-col justify-center gap-2 md:border-l md:border-ink-600/60 md:pl-4 ${schedule ? 'md:w-60' : 'md:w-40'}`}
-      >
-        <span>
-          <span className="flex items-center gap-1" aria-hidden>
-            {def.tiers.map((_, i) => (
-              <PathPip key={i} callingId={def.id} state="open" numeral={numeral(i)} size={22} />
-            ))}
-          </span>
-          {schedule && (
-            <span className="mt-1.5 block text-xs leading-relaxed text-muted">
-              {def.tiers.length} picks along the way, one of two each:{' '}
-              {tierWhenList(def.tiers.length)}.
-            </span>
-          )}
+      {schedule && (
+        <span className="block text-xs leading-relaxed text-muted">
+          {def.tiers.length} picks along the way, one of two each: {tierWhenList(def.tiers.length)}.
         </span>
-        <Button size="sm" variant="secondary" onClick={onView} className="self-start">
+      )}
+      <span className="mt-auto flex items-center justify-between gap-2 border-t border-ink-600/60 pt-2">
+        <span className="flex items-center gap-1" aria-hidden>
+          {def.tiers.map((_, i) => (
+            <PathPip key={i} callingId={def.id} state="open" numeral={numeral(i)} size={20} />
+          ))}
+        </span>
+        <Button size="sm" variant="secondary" onClick={onView}>
           <Icon name="book" size={14} /> See the path
         </Button>
       </span>

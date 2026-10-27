@@ -1,7 +1,7 @@
 import { useEffect, type CSSProperties } from 'react';
 import { useProfile, type RankUp } from '../../app/profileStore';
 import { useRun } from '../../app/runStore';
-import { CONTENT, heroDef } from '../../content';
+import { heroDef } from '../../content';
 import type { EncounterResult, Grade, RunState } from '../../meta/types';
 import { ScreenFrame } from '../kit/Backdrop';
 import { Button } from '../kit/Button';
@@ -16,7 +16,13 @@ import { HeroDisc, SectionTitle } from './shared';
 import { HpTimeline, TimelineLegend } from './Timeline';
 import { ContributionBar } from './ContributionBar';
 import { RankUpCard, XpGainPanel, useRankUps } from './Rank';
-import { HIGHLIGHT_COLOR, HIGHLIGHT_ICON, contributionOf, statLines } from './resultText';
+import {
+  HIGHLIGHT_COLOR,
+  HIGHLIGHT_ICON,
+  contributionOf,
+  readyName,
+  statLines,
+} from './resultText';
 import { WithoutYouPanel } from './WithoutYou';
 import { callingLook } from '../kit/CallingGlyph';
 
@@ -306,14 +312,8 @@ export function ResultView({
                       {d.readyTechniques.length > 0 ? (
                         <>
                           <span className="font-semibold text-gold-300">Ready but unused:</span>{' '}
-                          {d.readyTechniques
-                            .map(
-                              (t) =>
-                                (CONTENT.techniques as Record<string, { name?: string }>)[t]
-                                  ?.name ?? t,
-                            )
-                            .join(', ')}
-                          . {possessive(def.name)} fall could have been answered.
+                          {d.readyTechniques.map((t) => readyName(t, run.calling?.id)).join(', ')}.{' '}
+                          {possessive(def.name)} fall could have been answered.
                         </>
                       ) : (
                         <span className="text-muted">Everything you had was on cooldown.</span>

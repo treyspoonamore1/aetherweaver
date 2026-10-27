@@ -1,18 +1,30 @@
+import { CallingGlyph } from '../kit/CallingGlyph';
+import { callingLook } from '../kit/callingLook';
 import { clock, fmt } from '../kit/format';
 import { Icon } from '../kit/Icon';
 import type { BossHud } from '../store';
 import { AnswerGlyph } from './AnswerGlyph';
+import { secondsLabel } from './chrono';
 
-/** Boss bar (docs/plan/04 §5.2, top-centre): HP with phase ticks, the cast and its answers. */
+/** The Chronomancer's silver, for Foresight's line (Phase 3e). */
+const CHRONO = callingLook('chronomancer');
+
+/**
+ * Boss bar (docs/plan/04 §5.2, top-centre): HP with phase ticks, the cast and its answers. With
+ * the Chronomancer's Foresight, the boss's next attack shows before it begins.
+ */
 export function BossBar({
   boss,
   decree,
   decreeBanner = false,
+  rewind = false,
 }: {
   boss: BossHud;
   decree: { name: string; text: string } | null;
   /** The big decree banner is on screen: the quiet line below the bar waits. */
   decreeBanner?: boolean;
+  /** A Chronomancer run: Reel's answer is Rewind's (Phase 3e). */
+  rewind?: boolean;
 }) {
   const hpPct = boss.maxHp > 0 ? Math.max(0, Math.min(100, (boss.hp / boss.maxHp) * 100)) : 0;
   const shieldPct = boss.maxHp > 0 ? Math.min(100 - 0, (boss.shield / boss.maxHp) * 100) : 0;
@@ -91,7 +103,7 @@ export function BossBar({
               <span className="flex flex-wrap items-center justify-end gap-1">
                 <span className="text-xs text-muted">Answer:</span>
                 {boss.cast.answers.map((a) => (
-                  <AnswerGlyph key={a} tag={a} />
+                  <AnswerGlyph key={a} tag={a} rewind={rewind} />
                 ))}
               </span>
             </div>
@@ -105,6 +117,24 @@ export function BossBar({
               />
             </div>
           </div>
+        )}
+        {boss.foreseen && (
+          <p
+            className="mt-1.5 flex items-center gap-1.5 rounded-lg px-3 py-1 text-xs"
+            style={{
+              color: CHRONO.light,
+              background: `color-mix(in srgb, ${CHRONO.color} 18%, rgb(5 8 20 / 0.6))`,
+            }}
+            role="status"
+            aria-label={`Foresight: ${boss.foreseen.name} ${boss.foreseen.in < 0.05 ? 'is about to begin' : `begins in ${boss.foreseen.in.toFixed(1)} seconds`}${boss.foreseen.target ? `, at ${boss.foreseen.target}` : ''}`}
+            data-testid="boss-foreseen"
+          >
+            <CallingGlyph icon="foresight" size={14} />
+            <span className="font-semibold uppercase tracking-wider">Foresight</span>
+            <span className="font-display text-sm font-bold">{boss.foreseen.name}</span>
+            {boss.foreseen.target && <span>→ {boss.foreseen.target}</span>}
+            <span className="ml-auto font-mono">{secondsLabel(boss.foreseen.in)}</span>
+          </p>
         )}
       </div>
       {(boss.decree ?? decree) && !decreeBanner && <DecreeLine decree={(boss.decree ?? decree)!} />}

@@ -21,7 +21,18 @@ import { FORGE_PRICE, MOTIF_PRICE, RELIC_PRICE, SHOP_HEAL } from '../../meta/eco
 import { relicHuds } from '../hud/relics';
 import { callingHud, lifeMarksOf, shineOf, type CallingSource } from '../hud/calling';
 import { motifStep, type ForgeResult } from '../screens/interlude';
-import { createSim, resolveChord, type Ledger } from '../../sim';
+import {
+  createSim,
+  resolveChord,
+  rewindCanRevive,
+  type Command,
+  type Ledger,
+  type Sim,
+  type SimEvent,
+} from '../../sim';
+import { buildHudSnapshot } from '../hudBridge';
+import { foreseenAll, rewindPreview } from '../hud/chrono';
+import { callingLook } from '../kit/callingLook';
 import { UNLOCKS } from '../../meta/profile';
 import type { RankUp } from '../../app/profileStore';
 import type { AuraHud, Callout, ChordHud, HeroHud, HudSnapshot, TechniqueHud } from '../store';
@@ -44,6 +55,9 @@ function techniques(
       maxCharges: 1,
       affordable: true,
       key0: 'KeyQ',
+      icon: 'ward',
+      free: false,
+      baseCost: t.ward.cost,
     },
     {
       key: 'chime',
@@ -55,6 +69,9 @@ function techniques(
       maxCharges: 1,
       affordable: true,
       key0: 'KeyE',
+      icon: 'chime',
+      free: false,
+      baseCost: t.chime.cost,
     },
     {
       key: 'reel',
@@ -66,6 +83,9 @@ function techniques(
       maxCharges: 1,
       affordable: true,
       key0: 'KeyF',
+      icon: 'reel',
+      free: false,
+      baseCost: t.reel.cost,
     },
     {
       key: 'glide',
@@ -77,6 +97,9 @@ function techniques(
       maxCharges: 1,
       affordable: true,
       key0: 'Space',
+      icon: 'glide',
+      free: false,
+      baseCost: 0,
     },
   ];
   return base.map((b) => ({ ...b, ...over[b.key] }));
@@ -118,6 +141,9 @@ function hero(slot: number, defId: string, over: Partial<HeroHud> = {}): HeroHud
     radiance: 0,
     borne: 0,
     vow: false,
+    rewind: null,
+    foreseen: [],
+    lands: null,
     call: null,
     held: null,
     follow: 'follow',
@@ -145,7 +171,22 @@ export type HudScenario =
   | 'martyr-coach'
   | 'martyr-bear'
   | 'martyr-vow'
-  | 'martyr-low';
+  | 'martyr-low'
+  | ChronoScenario;
+
+/**
+ * Phase 3e, the Chronomancer, each from a real sim staged with debug commands and read by the
+ * HUD bridge: Rewind's preview on a big blow (with Foresight on the frames), a fresh fall,
+ * a fall out of reach, the moment after a Rewind stood a hero up, Stasis, and the Bellwarden.
+ */
+export type ChronoScenario =
+  | 'chrono-rewind'
+  | 'chrono-revive'
+  | 'chrono-spent'
+  | 'chrono-reach'
+  | 'chrono-saved'
+  | 'chrono-stasis'
+  | 'chrono-boss';
 
 function auraHud(id: string, reserveMult = 1): AuraHud {
   const a = auraDef(id);
@@ -246,6 +287,10 @@ function mockHudRaw(scenario: HudScenario): HudSnapshot {
       lastMode: 'mend',
       bearShare: 0,
       vow: false,
+      stasis: false,
+      crescendoTotal: CONTENT.crescendo.duration,
+      rewind: null,
+      mastery: null,
       threadSlot: 0,
       threadTension: 0.3,
       threadLock: 0,
@@ -405,6 +450,7 @@ function mockHudRaw(scenario: HudScenario): HudSnapshot {
             name: 'Requiem',
             text: 'Every hero will lose 90% of their life. Cue Kael’s dome, or Ward and heal.',
           },
+          foreseen: null,
         },
         encounter: {
           id: 'hollow_cantor',
@@ -629,6 +675,14 @@ function mockHudRaw(scenario: HudScenario): HudSnapshot {
       });
     case 'martyr-low':
       return martyrHud(base, MARTYR_PICKS, { life: 96, mode: 'empower', lastMode: 'empower' });
+    case 'chrono-rewind':
+    case 'chrono-revive':
+    case 'chrono-spent':
+    case 'chrono-reach':
+    case 'chrono-saved':
+    case 'chrono-stasis':
+    case 'chrono-boss':
+      return chronoStage(scenario).hud;
     case 'resonance':
       return {
         ...base,
@@ -936,6 +990,14 @@ export function mockCallouts(scenario: HudScenario): Callout[] {
     case 'martyr-bear':
     case 'martyr-low':
       return [];
+    case 'chrono-rewind':
+    case 'chrono-revive':
+    case 'chrono-spent':
+    case 'chrono-reach':
+    case 'chrono-saved':
+    case 'chrono-stasis':
+    case 'chrono-boss':
+      return chronoCallouts(scenario, c);
     case 'wheel':
     case 'beam':
     case 'sandbox':
@@ -972,11 +1034,13 @@ export function fakeOutcome(
   const hp = run.party.map((p, i) => p.hpPct * maxHp[i]!);
   const timeline: Ledger['timeline'] = [];
   const markers: Ledger['markers'] = [];
+  // The Chronomancer's Rewind takes Reel's slot (Phase 3e): the sim marks it 'rewind'.
+  const chrono = run.calling?.id === 'chronomancer';
   const kinds: Ledger['markers'][number]['kind'][] = [
     'perfect',
     'cleanse',
     'save',
-    'reel',
+    chrono ? 'rewind' : 'reel',
     'cue',
     'perfect',
     'cleanse',
@@ -1031,18 +1095,24 @@ export function fakeOutcome(
   const borne = martyr
     ? 260 * scale * (1 + taken * 0.4) * (path.includes('shared_wounds') ? 1.5 : 1)
     : 0;
+  // The Chronomancer's: life Rewind gave back (more with Borrowed Time's path), and the one
+  // hero a run it stands back up (in the fourth fight: the Result after step 4 shows it).
+  const rewound = chrono ? 210 * scale * (1 + taken * 0.35) : 0;
+  const revived = chrono && !run.calling?.reviveSpent && run.encounters >= 3 ? 1 : 0;
   const ledger: Ledger = {
-    calling: martyr
-      ? { amplified: 0, shielded: borne * 2, borne, rewound: 0, revived: 0 }
-      : run.calling
-        ? {
-            amplified: 380 * scale * (1 + taken) * (path.includes('searing_hymns') ? 1.8 : 1),
-            shielded: path.includes('haloed') ? 140 * scale : 0,
-            borne: 0,
-            rewound: 0,
-            revived: 0,
-          }
-        : { amplified: 0, shielded: 0, borne: 0, rewound: 0, revived: 0 },
+    calling: chrono
+      ? { amplified: 0, shielded: 0, borne: 0, rewound: rewound + revived * 640, revived }
+      : martyr
+        ? { amplified: 0, shielded: borne * 2, borne, rewound: 0, revived: 0 }
+        : run.calling
+          ? {
+              amplified: 380 * scale * (1 + taken) * (path.includes('searing_hymns') ? 1.8 : 1),
+              shielded: path.includes('haloed') ? 140 * scale : 0,
+              borne: 0,
+              rewound: 0,
+              revived: 0,
+            }
+          : { amplified: 0, shielded: 0, borne: 0, rewound: 0, revived: 0 },
     healing: 4200 * scale,
     overheal: 900 * scale,
     shielded: 2100 * scale,
@@ -1058,13 +1128,16 @@ export function fakeOutcome(
         time: m.time,
         hero: 100 + (m.slot ?? 0),
         heroDefId: run.party[m.slot ?? 0]!.heroId,
-        cause: (['fermata', 'ward', 'reel', 'chime', 'mend', 'dome'] as const)[i % 6]!,
+        cause: ([revived ? 'rewind' : 'fermata', 'ward', 'reel', 'chime', 'mend', 'dome'] as const)[
+          i % 6
+        ]!,
         prevented: 600 + i * 240,
         attack: ['Toll Cleave', 'Glass Lance', 'Dirge'][i % 3]!,
       })),
     cleanses: markers.filter((m) => m.kind === 'cleanse').length,
     clutchCleanses: 1,
-    reels: markers.filter((m) => m.kind === 'reel').length,
+    // Rewind out of a hit's shape is a dodge, as Reel's is (the ledger counts both as reels).
+    reels: markers.filter((m) => m.kind === (chrono ? 'rewind' : 'reel')).length,
     cues: markers.filter((m) => m.kind === 'cue').length,
     crescendos: node?.kind === 'boss' || node?.kind === 'miniboss' ? 1 : 0,
     downs: dead.size + (victory ? 1 : 0),
@@ -1678,4 +1751,268 @@ export function mockMartyrWeaver(
     bearShare: sim.state.calling!.bearShare,
     vowName: callingDef('martyr').crescendoName ?? CONTENT.crescendo.name,
   };
+}
+
+// ── Phase 3e: the Chronomancer ─────────────────────────────────────────────────────────
+
+/** A path across his three axes: Foresight, Borrowed Time, Temporal Mastery, Paradox. */
+export const CHRONO_PICKS: readonly string[] = [
+  'foresight',
+  'borrowed_time',
+  'temporal_mastery',
+  'paradox',
+];
+
+/** A run with the Chronomancer (Guardian's songs), as `luminaryRun` plays one. */
+export function chronoRun(
+  opts: Omit<Parameters<typeof luminaryRun>[0] & object, 'calling'> = {},
+): RunState {
+  return luminaryRun({ chords: GUARDIAN_CHORDS, ...opts, calling: 'chronomancer' });
+}
+
+/** The Chronomancer's tier screen for tier `tier`, the earlier tiers taken as `picks`. */
+export function chronoOfferRun(tier: number, picks: readonly string[] = CHRONO_PICKS): RunState {
+  return chronoRun({ picks, untilTier: tier });
+}
+
+/**
+ * The Result after the fight at step 4 on a Chronomancer run (Foresight taken): his line, a
+ * hero who fell with Rewind ready, then the tier.
+ */
+export function chronoResultRun(): RunState {
+  let run = chronoRun({ picks: ['foresight'], fights: 3 });
+  for (let guard = 0; guard < 4 && run.phase === 'map'; guard++) {
+    const options = Run.reachable(run);
+    const next = options.find((n) => n.encounterId) ?? options[0];
+    if (!next) break;
+    run = Run.chooseNode(run, next.id);
+    if (run.phase === 'combat') {
+      const milestone = Run.CALLING_ROWS.includes(Run.findNode(run, run.pending ?? '')?.row ?? -1);
+      run = Run.finishCombat(run, fakeOutcome(run, true, milestone ? { deaths: 1 } : {}));
+      if (milestone) return run;
+      run = settle(Run.continueFromResult(run));
+      if (run.phase === 'calling') run = settle(pickFor(run, ['foresight']));
+    } else run = settle(run);
+  }
+  return run;
+}
+
+/** A whole run won with the Chronomancer, the four tiers taken. */
+export function chronoSummaryRun(): RunState {
+  const run = chronoRun({ picks: CHRONO_PICKS });
+  return { ...run, phase: 'summary', outcome: 'victory', pending: null };
+}
+
+/** Each staged scenario's path (an option per axis where it shows something). */
+const CHRONO_PATHS: Record<ChronoScenario, string[]> = {
+  'chrono-rewind': ['foresight', 'borrowed_time'],
+  'chrono-revive': ['quickened', 'borrowed_time', 'temporal_mastery'],
+  'chrono-spent': ['quickened', 'borrowed_time', 'temporal_mastery'],
+  'chrono-reach': ['quickened', 'borrowed_time', 'temporal_mastery'],
+  'chrono-saved': ['quickened', 'borrowed_time', 'temporal_mastery', 'paradox'],
+  'chrono-stasis': ['foresight', 'echo_ward', 'temporal_mastery', 'eternal_moment'],
+  'chrono-boss': ['foresight', 'echo_ward', 'slow_dance'],
+};
+
+interface ChronoStage {
+  hud: HudSnapshot;
+  /** Every event the staging produced, in order (the callouts read the last ones). */
+  events: SimEvent[];
+  /** The staging reached what it was after (the tests check; the lab shows whatever it got). */
+  reached: boolean;
+  sim: Sim;
+}
+
+const chronoCache = new Map<ChronoScenario, ChronoStage>();
+
+/**
+ * A real fight with the Chronomancer, staged with debug commands (enemies placed by the heroes,
+ * a Chime, the Crescendo, Rewind) and stepped until it shows what the scenario is for. The HUD
+ * is the bridge's own snapshot of it. Training-ground fights are shown as a Prelude skirmish.
+ */
+export function chronoStage(scenario: ChronoScenario): ChronoStage {
+  const hit = chronoCache.get(scenario);
+  if (hit) return hit;
+  const boss = scenario === 'chrono-boss';
+  const sim = createSim({
+    seed: 7,
+    encounter: boss ? 'bellwarden' : 'sandbox',
+    debug: true,
+    chords: GUARDIAN_CHORDS.map((c) => ({ auras: [...c.auras], ornaments: [...c.ornaments] })),
+    relics: ['tuning_fork'],
+    // `chrono-spent`: a later fight of a run whose Rewind already stood a hero back up.
+    calling: {
+      id: 'chronomancer',
+      path: CHRONO_PATHS[scenario],
+      reviveSpent: scenario === 'chrono-spent',
+    },
+  });
+  const st = sim.state;
+  const events: SimEvent[] = [];
+  const step = (n: number, commands: Command[] = []) => {
+    for (let i = 0; i < n; i++) {
+      sim.step(i === 0 ? commands : []);
+      events.push(...sim.drainEvents());
+    }
+  };
+  const until = (pred: () => boolean, max: number) => {
+    for (let i = 0; i < max && !pred(); i++) step(1);
+    return pred();
+  };
+  const hero = (slot: number) => st.entities.get(st.party[slot]!)!;
+  const spawn = (defId: string, x: number, z: number): Command => ({
+    t: 'debug',
+    op: { op: 'spawnEnemy', defId, x, z },
+  });
+  // The Weaver a few steps behind her party, out of the brutes' reach and the lances' line.
+  if (!boss) step(1, [{ t: 'debug', op: { op: 'teleportWeaver', x: 0, z: 5 } }]);
+  // Kael threaded; Empower, so the Thread's Mend isn't healing him meanwhile.
+  step(2, [{ t: 'thread', slot: 0 }]);
+  if (scenario !== 'chrono-stasis') step(2, [{ t: 'mode' }]);
+  const kael = hero(0);
+  const lyra = hero(1);
+  const vexis = hero(2);
+  if (!boss) {
+    step(1, [spawn('bell_brute', kael.x, kael.z - 2.5)]);
+    step(1, [spawn('bell_brute', kael.x + 1.5, kael.z - 2.5)]);
+    step(1, [spawn('lamenter', lyra.x, lyra.z - 7)]);
+    step(1, [spawn('glass_lancer', vexis.x + 6, vexis.z - 8)]);
+  }
+  const preview = (slot: number) =>
+    rewindPreview(st, hero(slot), {
+      target: true,
+      inRange: true,
+      paradox: false,
+      canRevive: rewindCanRevive(st),
+    });
+  const down = (slot: number) => !!hero(slot).health?.downed;
+  let reached = false;
+  switch (scenario) {
+    case 'chrono-rewind':
+      // A big blow on Kael, and an attack on its way to someone else.
+      reached = until(() => {
+        const r = preview(0);
+        return (
+          r?.kind === 'restore' &&
+          r.amount >= 300 &&
+          foreseenAll(st).some((f) => f.targets.length > 0 && f.damage)
+        );
+      }, 1500);
+      break;
+    case 'chrono-revive':
+    case 'chrono-spent':
+    case 'chrono-reach':
+    case 'chrono-saved': {
+      // A Chime early: Temporal Mastery has a cooldown for Glide to bring back.
+      step(4, [{ t: 'tech', id: 'chime', point: { x: kael.x, z: kael.z - 2.5 } }]);
+      reached = until(() => down(0), 1500);
+      if (scenario === 'chrono-reach') {
+        // Kael down for longer than Rewind reaches; Vexis just fell.
+        reached =
+          reached &&
+          until(() => preview(0)?.kind === 'reach' && down(2), 1500) &&
+          until(() => (preview(2)?.left ?? 0) <= 2.4, 120);
+      } else {
+        step(40);
+        reached =
+          reached && preview(0)?.kind === (scenario === 'chrono-spent' ? 'spent' : 'revive');
+        if (scenario === 'chrono-saved') {
+          step(1, [{ t: 'tech', id: 'reel' }]);
+          reached = reached && events.some((e) => e.type === 'rewound' && e.revived);
+          step(20);
+        }
+      }
+      break;
+    }
+    case 'chrono-stasis': {
+      // Something on its way to Kael, then Stasis: it waits; Ward and Chime cost nothing in time.
+      reached = until(
+        () =>
+          st.telegraphs.some((t) => t.effect === 'damage' && t.impact - st.time > 0.7) &&
+          foreseenAll(st).length > 0,
+        1500,
+      );
+      step(1, [{ t: 'debug', op: { op: 'setResonance', value: CONTENT.resonance.max } }]);
+      step(1, [{ t: 'crescendo' }]);
+      step(10, [{ t: 'tech', id: 'ward', slot: 0 }]);
+      step(10, [{ t: 'tech', id: 'chime', point: { x: kael.x, z: kael.z - 2.5 } }]);
+      step(50);
+      reached = reached && st.field.stasis;
+      break;
+    }
+    case 'chrono-boss':
+      // The Bellwarden casting, with its next attack foreseen on a hero.
+      reached = until(() => {
+        const b = st.encounter.bossId === null ? undefined : st.entities.get(st.encounter.bossId);
+        const f = b?.enemy?.foreseen;
+        return !!b?.enemy?.cast && !!f && f.target !== null;
+      }, 3600);
+      break;
+  }
+  const raw = buildHudSnapshot(st, { seed: 4242, hovered: null });
+  const hud: HudSnapshot = boss
+    ? raw
+    : {
+        ...raw,
+        // The Training Grounds, shown as a Prelude fight.
+        encounter: {
+          ...raw.encounter,
+          id: 'tolling_halls',
+          name: encounterDef('tolling_halls').name,
+          kind: 'skirmish',
+          wave: 2,
+          waves: 3,
+          par: encounterDef('tolling_halls').par,
+        },
+      };
+  const staged = { hud, events, reached, sim };
+  chronoCache.set(scenario, staged);
+  return staged;
+}
+
+/** The callouts the runtime would show at that moment, in its words. */
+function chronoCallouts(
+  scenario: ChronoScenario,
+  c: (id: number, kind: Callout['kind'], text: string, extra?: Partial<Callout>) => Callout,
+): Callout[] {
+  const light = callingLook('chronomancer').light;
+  const { events, sim } = chronoStage(scenario);
+  const name = (id: number) => {
+    const e = sim.state.entities.get(id);
+    return e?.hero ? heroDef(e.hero.defId).name : '';
+  };
+  switch (scenario) {
+    case 'chrono-saved': {
+      const out: Callout[] = [];
+      const save = events.findLast((e) => e.type === 'save' && e.cause === 'rewind');
+      if (save?.type === 'save')
+        out.push(
+          c(1, 'save', `${name(save.target)} stands again`, {
+            detail: `Rewound from ${save.attack} · ${Math.round(save.counterfactualDamage).toLocaleString('en-US')} life back`,
+            color: light,
+            icon: 'rewind',
+          }),
+        );
+      const paradox = events.findLast((e) => e.type === 'paradox');
+      if (paradox?.type === 'paradox')
+        out.push(
+          c(2, 'clutch', 'Paradox', {
+            detail: `${paradox.cancelled} ${paradox.cancelled === 1 ? 'attack' : 'attacks'} on ${name(paradox.target)} undone`,
+            color: light,
+            icon: 'rewind',
+          }),
+        );
+      return out;
+    }
+    case 'chrono-stasis':
+      return [c(1, 'perfect', 'Crescendo — Stasis', { color: light, icon: 'stasis' })];
+    case 'chrono-reach':
+      return [c(1, 'reject', 'Rewind: out of reach', { key: 'reject:reel' })];
+    case 'chrono-spent':
+      return [c(1, 'reject', 'Rewind: its revive is spent this run', { key: 'reject:reel' })];
+    case 'chrono-rewind':
+    case 'chrono-revive':
+    case 'chrono-boss':
+      return [];
+  }
 }

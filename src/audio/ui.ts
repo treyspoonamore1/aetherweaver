@@ -1,6 +1,17 @@
 /** UI sounds: subtle, short, pitched inside D dorian. They bypass the music ducker. */
 import { Voice, type Engine } from './engine';
-import { anvil, choirChord, glassNote, handbell, pluck, thump, whoosh } from './synth';
+import {
+  anvil,
+  choirChord,
+  clockTick,
+  glassNote,
+  glassPing,
+  handbell,
+  pluck,
+  reverseGlass,
+  thump,
+  whoosh,
+} from './synth';
 import { midiToHz, scaleMidi } from './theory';
 import type { UiSound } from './types';
 
@@ -39,7 +50,20 @@ export const UI_SOUND_NAMES = Object.keys({
   callingPick: 0,
 } satisfies Record<UiSound, 0>) as UiSound[];
 
-export function playUiSound(e: Engine, sound: UiSound): void {
+/** Phase 3e: the UI sounds voiced per Calling (the Chronomancer's are its own). */
+export const CALLING_UI_SOUNDS: ReadonlySet<UiSound> = new Set<UiSound>([
+  'callingSelect',
+  'callingReveal',
+  'callingPick',
+]);
+
+/**
+ * Plays a UI sound. `calling` (Phase 3e) is the Calling a Calling sound is for: the
+ * Chronomancer has its own clockwork voicings; the Luminary, the Martyr and none share the
+ * first ones.
+ */
+export function playUiSound(e: Engine, sound: UiSound, calling: string | null = null): void {
+  const chrono = calling === 'chronomancer';
   if (sound === 'hover' && !e.gate('ui:hover', 0.045)) return;
   if (sound === 'unlock' && !e.gate('ui:unlock', 0.06)) return;
   if (sound === 'aether' && !e.gate('ui:aether', 0.05)) return;
@@ -122,13 +146,16 @@ export function playUiSound(e: Engine, sound: UiSound): void {
       aether(v, t);
       break;
     case 'callingSelect':
-      callingSelect(v, t);
+      if (chrono) chronoSelect(v, t);
+      else callingSelect(v, t);
       break;
     case 'callingReveal':
-      callingReveal(v, t);
+      if (chrono) chronoReveal(v, t);
+      else callingReveal(v, t);
       break;
     case 'callingPick':
-      callingPick(v, t);
+      if (chrono) chronoPick(v, t);
+      else callingPick(v, t);
       break;
     case 'wheelOpen':
       // A soft bloom: a breath opening upwards and a quiet A4.
@@ -503,4 +530,100 @@ function callingPick(v: Voice, t: number): void {
   glassNote(v, t + 0.2, hz(14), 0.04, 1.6, 1);
   whoosh(v, t, 0.5, 0.016, 700, 3400, 1);
   v.extend(t + 2.2);
+}
+
+// ── Phase 3e: the Chronomancer's Calling ─────────────────────────────────────────────
+
+/**
+ * The Chronomancer chosen in Prep, about 1.8 s: a commitment, in clockwork. A clock wound
+ * three ticks, a D5 drawn in backwards into the moment and struck forwards as a bell over a
+ * held D, A and E (Dsus2: suspended, ready) with a glass E5 above, and one soft tock a beat
+ * later: the clock has started.
+ */
+function chronoSelect(v: Voice, t: number): void {
+  [0, 0.11, 0.22].forEach((at, i) => clockTick(v, t + at, hz(17 + i), 0.05 + 0.006 * i, 0.04));
+  const at = t + 0.34;
+  reverseGlass(v, at, hz(7), 0.06, 0.34, 0.6);
+  for (const [f, g] of [
+    [hz(0), 0.085],
+    [hz(4), 0.06],
+    [hz(8), 0.042],
+  ] as const) {
+    v.osc({
+      type: 'sine',
+      freq: f,
+      start: at,
+      dur: 0.6,
+      attack: 0.1,
+      release: 1.0,
+      gain: g,
+      shape: 'sustain',
+    });
+  }
+  handbell(v, at, hz(7), 0.1, 1.8, 0.7);
+  glassNote(v, at + 0.05, hz(8), 0.036, 1.4, 0.9);
+  pluck(v, at, hz(4), 0.085, 0.35, 0.6);
+  clockTick(v, at + 0.68, hz(14), 0.04, 0.06);
+  v.extend(t + 2.3);
+}
+
+/**
+ * The Chronomancer's path opens after a milestone fight, about 1.7 s: time gathering. Air drawn
+ * in backwards, then a run of glass notes on the ticks of a clock (D5 E5 A5 B5 D6 E6), each a
+ * little louder, landing on a long A5 with a bell on E6 and a tock.
+ */
+function chronoReveal(v: Voice, t: number): void {
+  const go = t + 0.42;
+  v.noise({
+    pink: true,
+    start: t,
+    dur: 0.42,
+    attack: 0.42,
+    release: 0.015,
+    gain: 0.03,
+    shape: 'sustain',
+    attackCurve: 'exp',
+    filter: { type: 'bandpass', freq: 500, freqTo: 3200, q: 1 },
+  });
+  reverseGlass(v, go, hz(7), 0.03, 0.3, 0.6);
+  const run = [7, 8, 11, 12, 14, 15];
+  run.forEach((idx, i) => {
+    const at = go + i * 0.11;
+    clockTick(v, at, hz(i % 2 === 0 ? 18 : 15), 0.03, 0.03);
+    glassPing(v, at, hz(idx), 0.024 + 0.004 * i, 0.8);
+  });
+  const land = go + run.length * 0.11;
+  glassNote(v, land, hz(11), 0.05, 1.6, 0.9);
+  handbell(v, land, hz(15), 0.05, 1.8, 0.7);
+  clockTick(v, land, hz(14), 0.04, 0.06);
+  v.extend(land + 1.8);
+}
+
+/**
+ * A tier of the Chronomancer's path taken, about 2 s: the moment fixed. At once a low tock and
+ * a struck chord of bells (D4, A4, E5: the suspended chord), then a glass D6 drawn in backwards
+ * and caught by a bright tick, as the E resolves down to D. Weightier than `relicPick`.
+ */
+function chronoPick(v: Voice, t: number): void {
+  thump(v, t, hz(-7), 0.2, 0.3, 0.7);
+  clockTick(v, t, hz(14), 0.075, 0.06);
+  v.osc({
+    type: 'sine',
+    freq: hz(-7),
+    start: t,
+    dur: 0.6,
+    attack: 0.02,
+    release: 0.9,
+    gain: 0.035,
+    shape: 'sustain',
+  });
+  handbell(v, t + 0.01, hz(0), 0.135, 1.8, 0.5);
+  handbell(v, t + 0.03, hz(4), 0.11, 1.8, 0.6);
+  handbell(v, t + 0.05, hz(8), 0.09, 1.6, 0.7);
+  const at = t + 0.36;
+  reverseGlass(v, at, hz(14), 0.055, 0.3, 0.8);
+  clockTick(v, at, hz(21), 0.06, 0.04);
+  glassNote(v, at, hz(14), 0.055, 1.6, 1);
+  pluck(v, at, hz(7), 0.11, 0.4, 0.6);
+  v.extend(t + 2.3);
 }

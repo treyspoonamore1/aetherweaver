@@ -101,6 +101,31 @@ interface LabApi {
   setMartyr(path: string[] | null): void;
   /** What the Martyr's view has played and is drawing, and the Weaver's Life. */
   martyrStats(): MartyrStats;
+  /** Phase 3e */
+  chronoScenarios(): string[];
+  /** Restarts the real sim with the Chronomancer on that scenario's path and stages it. */
+  chronoScenario(name: string): void;
+  /** Restarts the real sim with the Chronomancer on this path (null: no Calling). */
+  setChrono(path: string[] | null): void;
+  /** What the Chronomancer's view has played and is drawing. */
+  chronoStats(): ChronoStats;
+}
+
+interface ChronoStats {
+  fired: Record<string, number>;
+  drawn: Record<string, number>;
+  look: Record<string, boolean | number>;
+  /** Telegraph timers shown and Stasis bezels drawn last frame. */
+  telegraphs: { timers: number; frost: number };
+  /** Rewind's preview ghost (entities.ts). */
+  ghost: { hero: number; alpha: number; revive: number; window: number; drawn: boolean };
+  stasis: boolean;
+  /** Enemies held by Stasis (their frost ≥ 0.5) and the highest frost on a hero (always 0). */
+  frozen: number;
+  heroFrost: number;
+  /** The Weaver's Resonance, Spirit and Rewind cooldown. */
+  weaver: { resonance: number; spirit: number; rewind: number };
+  heroes: { hp: number; maxHp: number; downed: boolean; solo: number }[];
 }
 
 interface MartyrStats {
@@ -634,6 +659,259 @@ const MARTYR_SCENARIOS: Record<string, MartyrScenario> = {
 };
 const MARTYR_SCENARIO_NAMES = Object.keys(MARTYR_SCENARIOS);
 
+interface ChronoScenario {
+  /** The Chronomancer's path. */
+  path: string[];
+  /** Chords (default: Guardian). */
+  chords?: ChordConfig[];
+  note: string;
+  stage(rt: LabRuntime): void;
+}
+
+/** Rewind, as the F key casts it: `{t:'tech', id:'reel'}` (on the hero in `slot`, if given). */
+function rewind(rt: LabRuntime, at: number, slot?: number): void {
+  rt.later(at, () =>
+    rt.queue(
+      slot === undefined
+        ? { t: 'tech', id: 'reel' }
+        : { t: 'tech', id: 'reel', slot: slot as PartySlot },
+    ),
+  );
+}
+
+/** The Weaver walks a short loop (the party follows), so the heroes have somewhere to have been. */
+function walk(rt: LabRuntime, at: number): void {
+  rt.later(at, () => rt.queue({ t: 'move', x: 1, z: 0 }));
+  rt.later(at + 1.1, () => rt.queue({ t: 'move', x: 0, z: -1 }));
+  rt.later(at + 2.0, () => rt.queue({ t: 'move', x: 0, z: 0 }));
+}
+
+/** Enemies that telegraph every shape: a brute's cone, a lancer's line, a lamenter's mark. */
+function shapesFight(rt: LabRuntime): void {
+  rt.spawn('bell_brute', -2.5, -5);
+  rt.spawn('glass_lancer', 7, -9);
+  rt.spawn('lamenter', -7, -9);
+  rt.spawn('hollow_chorister', 1.5, -4.5);
+  rt.later(0.1, () => {
+    const w = rt.weaverPos();
+    rt.queue({ t: 'debug', op: { op: 'teleportWeaver', x: w.x, z: w.z + 3 } });
+  });
+}
+
+/**
+ * Phase 3e: one scenario per Chronomancer visual. Each restarts the real sim with the
+ * Chronomancer on that path (and its Chords) and stages it with real commands and debug ops (no
+ * injected events). Rewind is `{t:'tech', id:'reel'}`; Stasis is staged as the Weaver panel's
+ * Crescendo button does it (Resonance to 100, then `{t:'crescendo'}`).
+ */
+const CHRONO_SCENARIOS: Record<string, ChronoScenario> = {
+  'Rewind · ready': {
+    path: [],
+    note: 'Thread Kael and walk: a faint trail of his last 3 s, his ghost where Rewind would send him',
+    stage: (rt) => {
+      rt.later(0.2, () => rt.thread(0));
+      walk(rt, 0.3);
+    },
+  },
+  Rewind: {
+    path: [],
+    note: 'Kael threaded in Empower tanks two brutes; at 2 s you step away and Rally; Rewind at 3.2 s: he snaps back to where he stood, ↺+N',
+    stage: (rt) => {
+      rt.later(0.2, () => {
+        rt.thread(0);
+        rt.queue({ t: 'mode' });
+      });
+      rt.later(0.4, () => martyrFight(rt, 2, 2, 3));
+      rt.later(2.0, () => {
+        const w = rt.weaverPos();
+        rt.queue({ t: 'debug', op: { op: 'teleportWeaver', x: w.x + 2, z: w.z + 6 } });
+        rt.queue({ t: 'directive', kind: 'rally' });
+      });
+      rewind(rt, 3.2);
+    },
+  },
+  'Rewind · revive': {
+    path: [],
+    note: 'You walk; a Fermata hold on Lyra runs out (debug op) and she goes down; you thread her (the ghost, the revive window) and Rewind her 1.3 s later: her fall plays backwards',
+    stage: (rt) => {
+      rt.later(0.2, () => {
+        rt.thread(0);
+        rt.queue({ t: 'mode' });
+      });
+      walk(rt, 0.2);
+      rt.later(0.9, () => rt.queue({ t: 'debug', op: { op: 'forceHold', slot: 1 } }));
+      rt.onEvent(
+        (e) => e.type === 'allyDowned' && e.hero === rt.heroId(1),
+        () => {
+          rt.later(0.15, () => rt.thread(1));
+          rewind(rt, 1.3, 1);
+        },
+      );
+    },
+  },
+  'Telegraph timers': {
+    path: [],
+    note: 'A brute’s cone, a lancer’s line and a lamenter’s mark: every telegraph shows its seconds (one decimal under 2 s)',
+    stage: (rt) => {
+      rt.later(0.2, () => rt.thread(1));
+      rt.later(0.3, () => shapesFight(rt));
+    },
+  },
+  'Timers · Stasis': {
+    path: [],
+    note: 'The same, with Stasis once the telegraphs are up: timers and fills held, a bezel round each',
+    stage: (rt) => {
+      rt.later(0.2, () => rt.thread(1));
+      rt.later(0.3, () => shapesFight(rt));
+      rt.onEvent(
+        (e) => e.type === 'telegraphStarted' && e.name === 'Toll Cleave',
+        () => sunrise(rt, 0.6),
+      );
+    },
+  },
+  Foresight: {
+    path: ['foresight'],
+    note: 'Every attack 1 s early: a dashed silver outline on its shape and a ring on its target, then the real telegraph',
+    stage: (rt) => {
+      rt.later(0.2, () => rt.thread(1));
+      rt.later(0.3, () => shapesFight(rt));
+    },
+  },
+  Stasis: {
+    path: [],
+    note: 'A fight with bolts in flight; Stasis at 2.4 s: enemies frozen silver, bolts hanging, a clock at your feet',
+    stage: (rt) => {
+      rt.later(0.2, () => rt.thread(0));
+      rt.later(0.3, () => {
+        frontFight(rt, 2, 2);
+        rt.spawn('lamenter', -7, -8);
+        rt.spawn('glass_lancer', 7, -9);
+        rt.spawn('cantor_acolyte', 4, -10);
+      });
+      sunrise(rt, 2.4);
+    },
+  },
+  'Stasis · quiet': {
+    path: [],
+    note: 'Stasis without a fight: time stopping (the wave, the clock), held, and resuming',
+    stage: (rt) => {
+      rt.later(0.2, () => rt.thread(1));
+      rt.later(0.25, () => {
+        rt.spawn('hollow_chorister', -6, -9);
+        rt.spawn('hollow_chorister', 6, -9);
+      });
+      sunrise(rt, 1.2);
+    },
+  },
+  'Echo Ward': {
+    path: ['quickened', 'echo_ward'],
+    note: 'A Perfect Ward on Kael against a Toll Cleave: 1 s later it re-forms as an echo',
+    stage: (rt) => {
+      rt.later(0.2, () => {
+        rt.thread(0);
+        rt.brute(0);
+      });
+      rt.perfectOn('Toll Cleave', 0);
+    },
+  },
+  'Temporal Mastery': {
+    path: ['quickened', 'echo_ward', 'temporal_mastery'],
+    note: 'A Chime, then a Glide: the Glide resets the Chime (a clock’s hand flicks back over you)',
+    stage: (rt) => {
+      rt.later(0.2, () => rt.thread(1));
+      rt.later(0.4, () => {
+        const w = rt.weaverPos();
+        rt.queue({ t: 'tech', id: 'chime', point: { x: w.x + 2, z: w.z - 3 } });
+      });
+      rt.later(1.1, () => rt.queue({ t: 'glide', x: 1, z: 0 }));
+    },
+  },
+  'Slow Dance': {
+    path: ['quickened', 'echo_ward', 'slow_dance'],
+    note: 'Enemies in your field move 15% slower and wind up 10% longer: they cool a little (no new marks)',
+    stage: (rt) => {
+      rt.later(0.2, () => rt.thread(0));
+      rt.later(0.3, () => frontFight(rt, 2, 3));
+    },
+  },
+  'Paradox · mark': {
+    path: ['foresight', 'echo_ward', 'temporal_mastery', 'paradox'],
+    note: 'A lamenter’s Dirge on a hero; Rewind them 1.2 s later: the mark unravels back into the lamenter',
+    stage: (rt) => {
+      rt.later(0.2, () => rt.thread(0));
+      rt.later(0.3, () => rt.spawn('lamenter', -4, -9));
+      rt.onEvent(
+        (e) => e.type === 'telegraphStarted' && e.name === 'Dirge',
+        (e) => {
+          if (e.type !== 'telegraphStarted' || e.target === null) return;
+          rewind(rt, 1.2, Math.max(0, rt.sim.state.party.indexOf(e.target)));
+        },
+      );
+    },
+  },
+  'Paradox · area': {
+    path: ['foresight', 'echo_ward', 'temporal_mastery', 'paradox'],
+    note: 'The Bellwarden tolls round itself; Rewind Kael inside it: it passes him by (a bubble, then untouched)',
+    stage: (rt) => {
+      rt.later(0.2, () => rt.thread(0));
+      rt.later(0.3, () => {
+        rt.spawn('the_bellwarden', 0, -6);
+        const w = rt.weaverPos();
+        rt.queue({ t: 'debug', op: { op: 'teleportWeaver', x: w.x, z: w.z + 9 } });
+      });
+      rt.onEvent(
+        (e) =>
+          e.type === 'telegraphStarted' && (e.name === 'Toll Outward' || e.name === 'Toll Inward'),
+        () => rewind(rt, 0.7, 0),
+      );
+    },
+  },
+  'Borrowed Time': {
+    path: ['quickened', 'borrowed_time'],
+    note: 'Rewind Kael after a walk: brass motes pour from you into him, his Solo filling',
+    stage: (rt) => {
+      rt.later(0.2, () => rt.thread(0));
+      walk(rt, 0.3);
+      rewind(rt, 2.6);
+    },
+  },
+  'Eternal Moment': {
+    path: ['quickened', 'echo_ward', 'temporal_mastery', 'eternal_moment'],
+    note: 'Stasis inside a Toll Cleave’s Perfect window, a Ward on Kael late in it (a brass bezel): Perfect when time resumes, a brass clock strikes',
+    stage: (rt) => {
+      rt.later(0.2, () => {
+        rt.thread(0);
+        rt.brute(0);
+      });
+      rt.onEvent(
+        (e) => e.type === 'telegraphStarted' && e.name === 'Toll Cleave',
+        (e) => {
+          if (e.type !== 'telegraphStarted') return;
+          const at = e.perfectFrom + 0.06 - rt.sim.state.time;
+          rt.later(Math.max(0, at - 0.06), () =>
+            rt.queue({ t: 'debug', op: { op: 'setResonance', value: 100 } }),
+          );
+          rt.later(Math.max(0, at), () => rt.queue({ t: 'crescendo' }));
+          // Late in Stasis (5 s with Eternal Moment), so the Ward (3 s) is up when it lands.
+          rt.later(Math.max(0, at) + 3.0, () => rt.queue({ t: 'tech', id: 'ward', slot: 0 }));
+        },
+      );
+    },
+  },
+  'Every option': {
+    path: ['foresight', 'echo_ward', 'slow_dance', 'paradox'],
+    note: 'Foresight, timers, a fight, Rewind at 2.2 s and Stasis at 3.2 s (the clutter check)',
+    stage: (rt) => {
+      rt.later(0.2, () => rt.thread(0));
+      rt.later(0.3, () => shapesFight(rt));
+      walk(rt, 0.4);
+      rewind(rt, 2.2);
+      sunrise(rt, 3.2);
+    },
+  },
+};
+const CHRONO_SCENARIO_NAMES = Object.keys(CHRONO_SCENARIOS);
+
 class LabRuntime {
   sim: Sim;
   readonly stage: Stage;
@@ -788,6 +1066,54 @@ class LabRuntime {
         mode: e?.weaver?.threadMode ?? '',
       },
       borne: st.ledger.calling.borne,
+    };
+  }
+
+  /** Phase 3e: restarts with the Chronomancer on that scenario's path and stages it. */
+  chronoScenario(name: string): void {
+    const s = CHRONO_SCENARIOS[name];
+    if (!s) return;
+    carried = [];
+    this.setCalling(s.path, s.chords ?? GUARDIAN_CHORDS, 'chronomancer');
+    s.stage(this);
+  }
+
+  chronoStats(): ChronoStats {
+    const v = this.view;
+    const st = this.sim.state;
+    const look: Record<string, boolean | number> = {};
+    for (const [k, val] of Object.entries(v.chrono.look)) look[k] = val;
+    let frozen = 0;
+    let heroFrost = 0;
+    for (const r of v.entities.recs.values()) {
+      if (r.kind === 'enemy' && r.frost >= 0.5) frozen++;
+      if (r.kind === 'hero') heroFrost = Math.max(heroFrost, r.frost);
+    }
+    const g = v.entities.rewindGhost;
+    const w = st.entities.get(st.weaverId)?.weaver;
+    return {
+      fired: { ...v.chrono.fired },
+      drawn: { ...v.chrono.drawn },
+      look,
+      telegraphs: { ...v.telegraphs.drawn },
+      ghost: { hero: g.hero, alpha: g.alpha, revive: g.revive, window: g.window, drawn: g.drawn },
+      stasis: st.field.stasis,
+      frozen,
+      heroFrost,
+      weaver: {
+        resonance: w?.resonance ?? 0,
+        spirit: w?.spirit ?? 0,
+        rewind: w?.cooldowns.reel ?? 0,
+      },
+      heroes: st.party.map((id) => {
+        const e = st.entities.get(id);
+        return {
+          hp: e?.health?.hp ?? 0,
+          maxHp: e?.health?.maxHp ?? 0,
+          downed: !!e?.health?.downed,
+          solo: e?.hero?.solo ?? 0,
+        };
+      }),
     };
   }
 
@@ -1601,6 +1927,10 @@ export function VfxLab() {
       martyrScenario: (name) => rt.martyrScenario(name),
       setMartyr: (path) => rt.setCalling(path, null, 'martyr'),
       martyrStats: () => rt.martyrStats(),
+      chronoScenarios: () => CHRONO_SCENARIO_NAMES,
+      chronoScenario: (name) => rt.chronoScenario(name),
+      setChrono: (path) => rt.setCalling(path, null, 'chronomancer'),
+      chronoStats: () => rt.chronoStats(),
     };
     const timer = window.setInterval(() => {
       const i = rt.info();
@@ -1942,6 +2272,26 @@ export function VfxLab() {
             title="Restart with the Martyr and no path"
           >
             Martyr, no path
+          </Btn>
+        </Group>
+        <Group title="Phase 3e · Chronomancer">
+          <p className="w-full text-[10px] text-muted">
+            Each restarts the real sim with the Chronomancer on a path and stages it.
+          </p>
+          {CHRONO_SCENARIO_NAMES.map((name) => (
+            <Btn
+              key={name}
+              onClick={() => rt()?.chronoScenario(name)}
+              title={CHRONO_SCENARIOS[name]!.note}
+            >
+              {name}
+            </Btn>
+          ))}
+          <Btn
+            onClick={() => rt()?.setCalling([], null, 'chronomancer')}
+            title="Restart with the Chronomancer and no path"
+          >
+            Chronomancer, no path
           </Btn>
         </Group>
         <Group title="Phase 2 · Chords">

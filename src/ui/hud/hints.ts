@@ -1,8 +1,12 @@
+import type { Action } from '../../input/actions';
 import type { HeroHud, HudSnapshot } from '../store';
 import { keyLabel } from '../../input/keyLabel';
+import { fmt } from '../kit/format';
 import { ANSWER, bindingCode, bindingLabel } from './labels';
 import { mult } from '../screens/chordModel';
 import { beamSong } from './songs';
+import { stasisCostMult } from './calling';
+import { secondsLabel } from './chrono';
 
 /**
  * Contextual coach hints (docs/plan/04 §7). Derived from the HUD snapshot alone; each hint
@@ -82,6 +86,19 @@ export function evaluateHints(hud: HudSnapshot): Hint[] {
         : `Fermata is holding ${h.name} at 1 life — Thread them {${h.slot + 1}} or Chime ${E} on them before it ends`,
     });
   }
+  // The Chronomancer (Phase 3e): Rewind is in Reel's slot. F Rewinds the hovered hero, else
+  // the threaded one, so a hero who isn't its target is threaded first.
+  const rewind = w.rewind?.ready ? w.rewind : null;
+  const toRewind = (h: HeroHud) =>
+    h.rewind?.target ? F : `{${bindingLabel(`focus${h.slot + 1}` as Action)}}, then ${F}`;
+  if (rewind) {
+    for (const h of party.filter((p) => p.rewind?.kind === 'revive' && p.rewind.inRange)) {
+      out.push({
+        id: 'rewind-up',
+        text: `${h.name} just went down — press ${toRewind(h)}: Rewind stands them back up, once a run (${secondsLabel(h.rewind!.left)} left)`,
+      });
+    }
+  }
   // Call and Response: the first time a hero asks for something specific.
   for (const h of party.filter((p) => alive(p) && p.call && !p.call.answered)) {
     const call = h.call!;
@@ -103,6 +120,16 @@ export function evaluateHints(hud: HudSnapshot): Hint[] {
           id: 'lethal-ward',
           text: `A lethal hit is coming at ${h.name} — Ward ${Q} just before it lands for a Perfect`,
         });
+      } else if (w.rewind) {
+        // Rewind only helps if where they stood is out of it (or Paradox undoes it).
+        if (rewind && h.rewind?.escape && h.rewind.inRange)
+          out.push({
+            id: 'lethal-rewind',
+            text:
+              h.rewind.escape === 'undo'
+                ? `A lethal hit is coming at ${h.name} — Rewind ${toRewind(h)}: Paradox undoes it`
+                : `${h.name} is in a lethal zone — Rewind ${toRewind(h)} takes them back out of it`,
+          });
       } else if (techReady(hud, 'reel')) {
         out.push({ id: 'lethal-reel', text: `${h.name} is in a lethal zone — Reel them out ${F}` });
       }
@@ -131,6 +158,22 @@ export function evaluateHints(hud: HudSnapshot): Hint[] {
       id: 'downed',
       text: `${h.name} is down — Thread them {${h.slot + 1}} and let Mend revive them before they bleed out`,
     });
+  }
+  // A big blow Rewind would give back, while they're still in danger.
+  if (rewind) {
+    for (const h of party.filter(alive)) {
+      const r = h.rewind;
+      if (
+        r?.kind === 'restore' &&
+        r.inRange &&
+        r.amount >= h.maxHp * 0.35 &&
+        (h.lethal || h.hp < h.maxHp * 0.5)
+      )
+        out.push({
+          id: 'rewind-back',
+          text: `${h.name} took a big blow — Rewind ${toRewind(h)} gives back ${fmt(r.amount)}: their life and place from ${rewind.seconds} s ago`,
+        });
+    }
   }
   // The Martyr (Phase 3d): Bear has its own key, and costs the threaded hero their Mend.
   // Bear may be unbound (a player's override took B): the hints then point to Settings.
@@ -166,6 +209,13 @@ export function evaluateHints(hud: HudSnapshot): Hint[] {
       text: `${w.crescendoName}: your heroes can’t fall below 1 life — what gets past them comes to you, softened`,
     });
   }
+  if (w.stasis) {
+    const less = Math.round((1 - stasisCostMult(hud.calling?.id)) * 100);
+    out.push({
+      id: 'stasis',
+      text: `${w.crescendoName}: every enemy waits — your techniques have no cooldowns${less > 0 ? ` and cost ${less}% less` : ''} while it lasts. Ward ${Q}, Chime ${E} and Rewind ${F} freely`,
+    });
+  }
   const hurt = party.filter((h) => alive(h) && h.hp < h.maxHp * 0.5);
   for (const h of hurt) {
     if (!h.threaded) {
@@ -198,7 +248,10 @@ export function evaluateHints(hud: HudSnapshot): Hint[] {
   if (reelTarget && w.auras.length > 0 && !w.fieldSuppressed) {
     out.push({
       id: 'strayed',
-      text: `${reelTarget.name} is outside your field — move closer so your auras reach them, or Reel ${F} them in`,
+      // Rewind sends a hero back, not to you: on a Chronomancer run, walk to them.
+      text: w.rewind
+        ? `${reelTarget.name} is outside your field — move closer so your auras reach them`
+        : `${reelTarget.name} is outside your field — move closer so your auras reach them, or Reel ${F} them in`,
     });
   }
   // The beam song: the first time it pours into someone, say what that means.
@@ -226,8 +279,19 @@ export function evaluateHints(hud: HudSnapshot): Hint[] {
       text: `Resonance is full — press {${bindingLabel('crescendo')}} for ${w.crescendoName}`,
     });
   }
+  // Foresight: the first time it shows an attack on its way to someone.
+  const seen = party.find((h) => alive(h) && h.foreseen.some((f) => f.aimed));
+  if (seen) {
+    const f = seen.foreseen.find((x) => x.aimed)!;
+    out.push({
+      id: 'foresight',
+      text: `Foresight: ${f.name} is coming for ${seen.name} (${f.in < 0.05 ? 'any moment' : `in ${secondsLabel(f.in)}`}) — be ready before it begins`,
+    });
+  }
   if (hud.boss?.cast && hud.boss.cast.answers.length > 0) {
-    const names = hud.boss.cast.answers.map((a) => ANSWER[a].label).join(' or ');
+    const names = hud.boss.cast.answers
+      .map((a) => (a === 'reel' && w.rewind ? 'Rewind' : ANSWER[a].label))
+      .join(' or ');
     out.push({
       id: 'boss-cast',
       text: `${hud.boss.cast.name} is coming — answer it with ${names}`,
@@ -256,6 +320,13 @@ export function evaluateHints(hud: HudSnapshot): Hint[] {
     out.push({
       id: 'thread',
       text: `Click a party frame or press {1} to attach your Thread — Mend heals, Empower hits harder`,
+    });
+  }
+  // The Chronomancer's first fights: introduce Rewind once the Thread is on someone.
+  if (w.rewind && w.threadSlot !== null && hud.encounter.elapsed > 6) {
+    out.push({
+      id: 'rewind-intro',
+      text: `${F}: Rewind — your threaded hero goes back ${w.rewind.seconds} s: where they stood and the life they had. Once a run, it stands up a hero who just fell. It replaces Reel`,
     });
   }
   // The Martyr's first fight: introduce Bear once the Thread is on someone.

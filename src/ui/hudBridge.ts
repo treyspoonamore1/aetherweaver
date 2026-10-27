@@ -12,6 +12,7 @@ import {
   auraIds,
   reservePool,
   resolveChord,
+  rewindCanRevive,
   vowHoldsAt,
   type EntityId,
   type ReadonlyEntity,
@@ -19,8 +20,24 @@ import {
   type WorldState,
 } from '../sim';
 import { relicHuds } from './hud/relics';
-import { callingHud, lifeMarksOf, shineOf } from './hud/calling';
-import { crescendoName } from './screens/callingText';
+import {
+  callingHud,
+  lifeMarksOf,
+  masteryCooldown,
+  shineOf,
+  stasisCostMult,
+  stasisSeconds,
+} from './hud/calling';
+import {
+  foreseenAll,
+  foreseenOn,
+  landsOn,
+  masteryResets,
+  rewindPreview,
+  type Foreseen,
+} from './hud/chrono';
+import { TECHNIQUE_ICON } from './hud/labels';
+import { REWIND_NAME, crescendoName, rewindSeconds } from './screens/callingText';
 import type { AuraHud, BossHud, ChordHud, HeroHud, HudSnapshot, TechniqueHud } from './store';
 
 const TECHNIQUE_KEYS: readonly TechniqueKey[] = ['ward', 'chime', 'reel', 'glide'];
@@ -45,6 +62,17 @@ function totalShield(e: ReadonlyEntity): number {
 }
 
 /**
+ * The Crescendo's full length for its ring, from content: Sunrise's, the Martyr's Vow (`vow`)
+ * or Stasis (`stasis`, Eternal Moment's seconds added).
+ */
+function crescendoTotal(calling: { id: string; path: string[]; crescendo: string } | null): number {
+  if (calling?.crescendo === 'stasis') return stasisSeconds(calling.id, calling.path);
+  if (calling?.crescendo === 'vow')
+    return callingDef(calling.id).values.vow ?? CONTENT.crescendo.duration;
+  return CONTENT.crescendo.duration;
+}
+
+/**
  * Builds the HUD snapshot from sim state: plain numbers and strings only, so React never
  * holds references into the live simulation. Called at 15 Hz by the runtime.
  */
@@ -59,6 +87,8 @@ export function buildHudSnapshot(
 
   const sunrise = state.field.crescendo;
   const vow = state.field.vow;
+  // The Chronomancer (Phase 3e): Stasis holds every enemy; Rewind takes Reel's slot.
+  const stasis = state.field.stasis;
   // Martyr's Vow holds every hero at 1 life: nothing that lands before it ends is lethal.
   const vowCovers =
     vow && state.telegraphs.every((t) => t.effect !== 'damage' || vowHoldsAt(state, t.impact));
@@ -71,8 +101,28 @@ export function buildHudSnapshot(
         sovereign: state.calling.sovereign,
         crescendo: state.calling.crescendo,
         bearShare: state.calling.bearShare,
+        rewind: state.calling.rewind,
+        foresight: state.calling.foresight,
       }
     : null;
+  const rewinds = !!calling?.rewind;
+  const reelTech = tech.reel;
+  // Techniques cost less while Stasis lasts (the sim's `spend`); content holds the discount.
+  const costMult = stasis ? stasisCostMult(calling?.id) : 1;
+  const rewindCost = reelTech.cost * costMult;
+  const rewindReady =
+    rewinds &&
+    !(wh?.downed ?? true) &&
+    ((w?.cooldowns.reel ?? 0) <= 0.05 || stasis) &&
+    (w?.spirit ?? 0) + 1e-9 >= rewindCost;
+  // F Rewinds the hovered hero, else the threaded one (the input's smart-cast).
+  const hoveredSlot = opts.hovered === null ? -1 : state.party.indexOf(opts.hovered);
+  const rewindSlot = hoveredSlot >= 0 ? hoveredSlot : (w?.threadSlot ?? null);
+  const paradox = !!calling?.path.includes('paradox');
+  // Rewind stands a hero back up once a run (the sim's `rewindCanRevive`).
+  const canRevive = rewinds && rewindCanRevive(state);
+  const foreseen: Foreseen[] = calling && calling.foresight > 0 ? foreseenAll(state) : [];
+  const timers = !!state.calling?.timers;
   // The Martyr (Phase 3d): her whole Life, what her songs hold, Bear on the threaded hero.
   const lifeTotal = w?.maxLife ?? wh?.maxHp ?? 0;
   const bearing = w?.threadMode === 'bear' && (calling?.bearShare ?? 0) > 0;
@@ -136,6 +186,18 @@ export function buildHudSnapshot(
       radiance: h.dead || h.downed ? 0 : shineOf(hero, calling, sunrise),
       borne: bearing && w?.threadSlot === slot && !h.dead && !h.downed ? calling!.bearShare : 0,
       vow: vow && !h.dead && !h.downed,
+      rewind: rewinds
+        ? rewindPreview(state, e, {
+            target: rewindSlot === slot,
+            inRange: weaverEntity
+              ? Math.hypot(e.x - weaverEntity.x, e.z - weaverEntity.z) <= reelTech.range
+              : false,
+            paradox,
+            canRevive,
+          })
+        : null,
+      foreseen: h.dead ? [] : foreseenOn(foreseen, id),
+      lands: timers && !h.dead && !h.downed ? landsOn(state, e) : null,
       hovered: opts.hovered === id,
     });
   });
@@ -143,12 +205,14 @@ export function buildHudSnapshot(
   const bindings = liveBindings();
   const techniques: TechniqueHud[] = TECHNIQUE_KEYS.map((key) => {
     const free = w?.spirit ?? 0;
-    const cost = key === 'glide' ? 0 : tech[key].cost;
+    const baseCost = key === 'glide' ? 0 : tech[key].cost;
+    const cost = baseCost * costMult;
     const charges = key === 'ward' ? (w?.wardCharges ?? 0) : (w?.cooldowns[key] ?? 0) > 0 ? 0 : 1;
     const maxCharges = key === 'ward' ? (w?.maxWardCharges ?? 1) : 1;
+    const rewind = key === 'reel' && rewinds;
     return {
       key,
-      name: tech[key].name,
+      name: rewind ? REWIND_NAME : tech[key].name,
       remaining: w?.cooldowns[key] ?? 0,
       total: w?.cooldownTotals[key] ?? 0,
       cost,
@@ -156,6 +220,9 @@ export function buildHudSnapshot(
       maxCharges,
       affordable: free + 1e-9 >= cost,
       key0: bindings[key][0] ?? '',
+      icon: rewind ? 'rewind' : TECHNIQUE_ICON[key],
+      free: stasis,
+      baseCost,
     };
   });
 
@@ -199,6 +266,7 @@ export function buildHudSnapshot(
         state.encounter.decree && state.time - state.encounter.decree.at < 10
           ? { name: state.encounter.decree.name, text: state.encounter.decree.text }
           : null,
+      foreseen: bossForeseen(state, foreseen, bossEntity.id),
     };
   }
 
@@ -259,11 +327,20 @@ export function buildHudSnapshot(
       segment: resonance.segment,
       crescendoCost: resonance.crescendoCost,
       crescendo: w?.crescendo ?? 0,
-      crescendoName: crescendoName(calling?.crescendo === 'vow' ? callingDef(calling.id) : null),
+      // Sunrise is the Weaver's own; the Vow and Stasis are the Calling's (content `crescendoName`).
+      crescendoName: crescendoName(
+        calling && calling.crescendo !== 'sunrise' ? callingDef(calling.id) : null,
+      ),
       threadMode: w?.threadMode ?? 'mend',
       lastMode: w?.lastMode ?? 'mend',
       bearShare: calling?.bearShare ?? 0,
       vow,
+      stasis,
+      crescendoTotal: crescendoTotal(calling),
+      rewind: rewinds
+        ? { seconds: rewindSeconds(calling!.id), range: reelTech.range, ready: rewindReady }
+        : null,
+      mastery: masteryHud(calling?.path ?? [], w, state.time),
       threadSlot: w?.threadSlot ?? null,
       threadTension: w?.threadTension ?? 0,
       threadLock: w?.threadLock ?? 0,
@@ -301,13 +378,55 @@ export function buildHudSnapshot(
       time: state.time,
       ledger: { perfects: l.perfects, downs: l.downs },
     }),
-    calling: callingHud(calling, sunrise, {
-      vow,
-      bearing,
-      undyingReady: w?.undying ?? false,
-      marks: lifeMarks,
-    }),
+    calling: callingHud(
+      calling,
+      sunrise,
+      { vow, bearing, undyingReady: w?.undying ?? false, marks: lifeMarks },
+      {
+        stasis,
+        masteryIn: Math.max(0, (w?.masteryAt ?? 0) - state.time),
+        revive: rewinds ? (canRevive ? 'ready' : 'spent') : null,
+      },
+    ),
     entityCount: state.entities.count,
     dummyCount,
+  };
+}
+
+/** Temporal Mastery on the Weaver bar: ready or recovering, and what a Glide would bring back. */
+function masteryHud(
+  path: readonly string[],
+  w: ReadonlyEntity['weaver'],
+  now: number,
+): HudSnapshot['weaver']['mastery'] {
+  const total = masteryCooldown(path);
+  if (total === null || !w) return null;
+  const remaining = Math.max(0, Math.min(total, w.masteryAt - now));
+  return {
+    ready: remaining <= 0.05,
+    remaining,
+    total,
+    resets: masteryResets({
+      lastTechnique: w.lastTechnique,
+      wardCharges: w.wardCharges,
+      maxWardCharges: w.maxWardCharges,
+      cooldowns: w.cooldowns,
+    }),
+  };
+}
+
+/** Foresight on the boss bar: the boss's next attack, and the hero it picked. */
+function bossForeseen(
+  state: WorldState,
+  foreseen: readonly Foreseen[],
+  bossId: EntityId,
+): BossHud['foreseen'] {
+  const f = foreseen.find((x) => x.enemy === bossId);
+  if (!f) return null;
+  const hero = f.targets[0] === undefined ? undefined : state.entities.get(f.targets[0]);
+  return {
+    name: f.name,
+    in: f.in,
+    target: hero?.hero ? heroDef(hero.hero.defId).name : null,
   };
 }

@@ -1,12 +1,13 @@
 import * as THREE from 'three';
 import { enemyDef } from '../content';
 import type { AnswerTag, EntityId, SimEventOf, WorldState } from '../sim';
+import { CHRONO_HEX, timerLabel } from './chronoCues';
 import type { EntityLayer, EntityRec } from './entities';
 import { BEAM } from './fx/beams';
 import type { FxKit } from './fx/kit';
 import { PARTICLE } from './fx/particles';
 import { TG } from './fx/telegraphBatch';
-import type { Overlay } from './overlay';
+import { BADGE_TONE, type Overlay } from './overlay';
 import { C, VISION_HEX, approach, clamp01, color } from './palette';
 
 type Effect = SimEventOf<'telegraphStarted'>['effect'];
@@ -44,6 +45,28 @@ interface TgRec {
 
 const FADE_IN = 0.12;
 const END = 0.38;
+/** Stasis' bezel round a held telegraph (the Chronomancer, docs/phase-3e/vfx.md). */
+const FROST = color(CHRONO_HEX.silver);
+
+/**
+ * A telegraph's last drawn geometry (kept after it leaves the state): the Chronomancer's
+ * Paradox unravels a cancelled one back toward its caster from here.
+ */
+export interface TelegraphGeometry {
+  readonly id: number;
+  readonly owner: EntityId;
+  readonly effect: Effect;
+  readonly shape: string;
+  readonly cx: number;
+  readonly cz: number;
+  readonly rot: number;
+  readonly ex: number;
+  readonly ez: number;
+  readonly a: number;
+  readonly b: number;
+  readonly progress: number;
+  readonly sev: number;
+}
 
 /**
  * Telegraph grammar (docs/plan/04 §5.3): filled circles, cones, lines and donuts on the floor;
@@ -58,6 +81,16 @@ export class TelegraphLayer {
   /** Heroes some live threat is aimed at (for off-screen arrows). */
   readonly threatened = new Map<EntityId, number>();
   private readonly tmpColor = new THREE.Color();
+  /**
+   * The Chronomancer (docs/phase-3e/vfx.md): every telegraph shows its timer (`calling.timers`),
+   * and while Stasis holds them they read as held (a cold timer and a bezel round each).
+   */
+  private timers = false;
+  private frozen = false;
+  /** Stasis' hold on the telegraphs, smoothed 0..1 (the bezels fade in and out). */
+  frost = 0;
+  /** What was drawn last frame (tests, the lab): timers shown, bezels drawn. */
+  readonly drawn = { timers: 0, frost: 0 };
 
   constructor(private readonly entities: EntityLayer) {}
 
@@ -78,6 +111,11 @@ export class TelegraphLayer {
   /** The owner of a telegraph (for the Perfect Ward stagger). */
   ownerOf(id: number): EntityId | null {
     return this.recs.get(id)?.owner ?? null;
+  }
+
+  /** A telegraph's last drawn geometry, while it is drawn or fading (null once forgotten). */
+  geometry(id: number): TelegraphGeometry | null {
+    return this.recs.get(id) ?? null;
   }
 
   private createRec(t: WorldState['telegraphs'][number], state: WorldState): TgRec {
@@ -132,6 +170,12 @@ export class TelegraphLayer {
     this.frameNo++;
     this.threatened.clear();
     const time = state.time;
+    this.timers = !!state.calling?.timers;
+    this.frozen = state.field.stasis;
+    this.frost = approach(this.frost, this.frozen ? 1 : 0, this.frozen ? 9 : 10, dt);
+    if (this.frost < 0.004) this.frost = 0;
+    this.drawn.timers = 0;
+    this.drawn.frost = 0;
     for (const t of state.telegraphs) this.syncOne(t, state, kit, overlay, dt, showGlyphs, time);
     if (this.preview) {
       for (const p of this.preview) {
@@ -242,6 +286,15 @@ export class TelegraphLayer {
     const borderHex = sev > 0.5 ? VISION_HEX.lethal : VISION_HEX.threat;
     const remain = Math.max(0, rec.impact - time);
     const glyphScale = 1 + perfect * 0.12 * (0.5 + 0.5 * Math.sin(time * 24));
+    // The Chronomancer: every telegraph shows its timer; held by Stasis, it reads cold.
+    const timer = this.timers && live && showGlyphs ? timerLabel(remain) : '';
+    const tone = this.timers
+      ? this.frozen
+        ? BADGE_TONE.frozen
+        : BADGE_TONE.timer
+      : BADGE_TONE.plain;
+    if (timer) this.drawn.timers++;
+    const frost = live && this.frost > 0.01 ? this.frost * alpha : 0;
 
     if (!live && !cancelled && !rec.impacted) {
       rec.impacted = true;
@@ -271,10 +324,63 @@ export class TelegraphLayer {
         alpha,
         rec.ownerAccent,
       );
-      if (live && showGlyphs && rec.answers.length > 0) {
-        overlay.badge(x, 0.1, z + r, rec.answers, rec.key, rec.ownerHex, '', 1);
+      if (frost > 0) {
+        kit.telegraphs.push(
+          TG.cast,
+          x,
+          0.042,
+          z,
+          0,
+          r + 0.7,
+          r + 0.7,
+          r,
+          0,
+          prog,
+          0,
+          0,
+          0,
+          frost * 0.7,
+          FROST,
+          0,
+          2,
+        );
+        this.drawn.frost++;
+      }
+      if (live && showGlyphs && (rec.answers.length > 0 || timer)) {
+        overlay.badge(x, 0.1, z + r, rec.answers, rec.key, rec.ownerHex, timer, 1, tone);
       }
       return;
+    }
+    if (frost > 0 && rec.shape !== 'mark' && rec.shape !== 'link' && rec.shape !== 'raid') {
+      // Held by Stasis: a thin bezel just outside it, ticked like a clock's.
+      const kind =
+        rec.shape === 'circle'
+          ? TG.circle
+          : rec.shape === 'cone'
+            ? TG.cone
+            : rec.shape === 'line'
+              ? TG.line
+              : TG.donut;
+      kit.telegraphs.push(
+        kind,
+        rec.cx,
+        0.036,
+        rec.cz,
+        rec.rot,
+        rec.ex + 0.3,
+        rec.ez + 0.3,
+        rec.a,
+        rec.b,
+        prog,
+        0,
+        0,
+        0,
+        frost * 0.75,
+        FROST,
+        0,
+        2,
+      );
+      this.drawn.frost++;
     }
 
     switch (rec.shape) {
@@ -305,8 +411,9 @@ export class TelegraphLayer {
             rec.answers,
             rec.key,
             borderHex,
-            '',
+            timer,
             glyphScale,
+            tone,
           );
         break;
       case 'cone':
@@ -336,8 +443,9 @@ export class TelegraphLayer {
             rec.answers,
             rec.key,
             borderHex,
-            '',
+            timer,
             glyphScale,
+            tone,
           );
         }
         break;
@@ -370,8 +478,9 @@ export class TelegraphLayer {
             rec.answers,
             rec.key,
             borderHex,
-            '',
+            timer,
             glyphScale,
+            tone,
           );
         }
         break;
@@ -402,8 +511,9 @@ export class TelegraphLayer {
             rec.answers,
             rec.key,
             borderHex,
-            '',
+            timer,
             glyphScale,
+            tone,
           );
         break;
       case 'mark': {
@@ -414,7 +524,7 @@ export class TelegraphLayer {
           rec.a = target.height;
           rec.b = target.radius;
         }
-        this.drawMark(rec.cx, rec.cz, rec.a, rec.b, kit, prog, perfect, sev, flash, alpha);
+        this.drawMark(rec.cx, rec.cz, rec.a, rec.b, kit, prog, perfect, sev, flash, alpha, frost);
         if (live && showGlyphs) {
           overlay.badge(
             rec.cx,
@@ -423,8 +533,9 @@ export class TelegraphLayer {
             rec.answers,
             rec.key,
             borderHex,
-            remain.toFixed(1),
+            timer || remain.toFixed(1),
             glyphScale,
+            tone,
           );
         }
         break;
@@ -447,8 +558,9 @@ export class TelegraphLayer {
             rec.answers,
             rec.key,
             borderHex,
-            remain.toFixed(1),
+            timer || remain.toFixed(1),
             glyphScale,
+            tone,
           );
         break;
       }
@@ -457,13 +569,14 @@ export class TelegraphLayer {
           const h = this.entities.recs.get(id);
           const e = state.entities.get(id);
           if (!h || !e?.health || e.health.dead || e.health.downed) continue;
-          this.drawMark(h.x, h.z, h.height, h.radius, kit, prog, perfect, sev, flash, alpha);
+          this.drawMark(h.x, h.z, h.height, h.radius, kit, prog, perfect, sev, flash, alpha, frost);
         }
         if (live) {
-          overlay.raid(`${rec.name} · ${remain.toFixed(1)}s`, prog);
+          overlay.raid(`${rec.name} · ${timer || remain.toFixed(1)}s`, prog);
           if (showGlyphs) {
             const w = this.entities.recs.get(state.weaverId);
-            if (w) overlay.badge(w.x, 3.2, w.z, rec.answers, rec.key, borderHex, '', glyphScale);
+            if (w)
+              overlay.badge(w.x, 3.2, w.z, rec.answers, rec.key, borderHex, '', glyphScale, tone);
           }
         }
         break;
@@ -484,6 +597,7 @@ export class TelegraphLayer {
     sev: number,
     flash: number,
     alpha: number,
+    frost = 0,
   ): void {
     kit.marks.push(
       TG.mark,
@@ -501,6 +615,29 @@ export class TelegraphLayer {
       flash,
       alpha,
     );
+    if (frost > 0) {
+      // Held by Stasis: a thin cold ring round the mark.
+      kit.marks.push(
+        TG.mark,
+        x,
+        height + 0.75,
+        z,
+        0,
+        1.3,
+        1.3,
+        0.8,
+        0,
+        prog,
+        0,
+        0,
+        0,
+        frost * 0.8,
+        FROST,
+        0,
+        2,
+      );
+      this.drawn.frost++;
+    }
     const r = radius * 1.9;
     kit.telegraphs.push(
       TG.target,

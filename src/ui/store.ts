@@ -24,6 +24,7 @@ import type {
 } from './types';
 import type { RelicHud } from './hud/relics';
 import type { CallingHud } from './hud/calling';
+import type { IconName } from './kit/iconPaths';
 
 export type { CallingHud, RelicHud };
 
@@ -108,7 +109,56 @@ export interface HeroHud {
   borne: number;
   /** Martyr's Vow is up: they can't drop below 1 life while it lasts. */
   vow: boolean;
+  /**
+   * Phase 3e, the Chronomancer: what Rewind would do to them right now, from the oldest sample
+   * of their past (`past[pastAt]`). Null without the Chronomancer, or when they're out.
+   */
+  rewind: RewindHud | null;
+  /**
+   * Foresight: enemy attacks foreseen on them, the soonest first, with the seconds until each
+   * begins (read from the state every snapshot: Stasis holds them).
+   */
+  foreseen: ForeseenHud[];
+  /**
+   * The Chronomancer's telegraph timers: the soonest hit on its way to them and the seconds until
+   * it lands (`impact − time`, read every snapshot; it stands still in Stasis). Null: nothing
+   * coming, or no timers.
+   */
+  lands: { name: string; in: number } | null;
   hovered: boolean;
+}
+
+/** What the Chronomancer's Rewind would do to a hero now (`HeroHud.rewind`). */
+export interface RewindHud {
+  /**
+   * `revive`: down since its reach began, so they'd stand back up (once a run); `spent`: down,
+   * but this run's revive is spent; `reach`: down for longer than it reaches back; `restore`:
+   * life to give back; `none`: only their place goes back.
+   */
+  kind: 'revive' | 'spent' | 'reach' | 'restore' | 'none';
+  /** Life it gives back: what they had then (revive), or then minus now (restore). */
+  amount: number;
+  /** `revive`: seconds Rewind can still reach back to before they fell. */
+  left: number;
+  /**
+   * Going back takes them out of every hit on its way to them (`dodge`), or Paradox undoes
+   * them (`undo`). Null: nothing coming, or it would still land.
+   */
+  escape: 'dodge' | 'undo' | null;
+  /** F would Rewind this hero (the hovered hero, else the threaded one). */
+  target: boolean;
+  /** Within Rewind's range of the Weaver (Reel's). */
+  inRange: boolean;
+}
+
+/** An enemy attack Foresight sees coming at a hero (`HeroHud.foreseen`). */
+export interface ForeseenHud {
+  /** The attack's name ("Dirge"). */
+  name: string;
+  /** Seconds until it begins (0: due, waiting until the enemy can strike). */
+  in: number;
+  /** It picked them (a mark, a cleave at them); false: it falls on every hero (Requiem). */
+  aimed: boolean;
 }
 
 export interface TechniqueHud {
@@ -125,6 +175,12 @@ export interface TechniqueHud {
   affordable: boolean;
   /** KeyboardEvent.code of the primary binding (label it with keyLabel()). */
   key0: string;
+  /** Its glyph: Reel's slot shows Rewind's on a Chronomancer run (Phase 3e). */
+  icon: IconName;
+  /** Stasis: it neither needs nor starts a cooldown right now (Ward uses no charge). */
+  free: boolean;
+  /** The Spirit cost outside Stasis (`cost` is what it costs right now). */
+  baseCost: number;
 }
 
 export interface AuraHud {
@@ -218,6 +274,25 @@ export interface WeaverHud {
   bearShare: number;
   /** Martyr's Vow is up (the Martyr's Crescendo; `crescendo` counts it down). */
   vow: boolean;
+  /** Phase 3e: Stasis is up (the Chronomancer's Crescendo; `crescendo` counts it down). */
+  stasis: boolean;
+  /** The Crescendo's full length, for its ring (content; Eternal Moment adds to Stasis). */
+  crescendoTotal: number;
+  /**
+   * Rewind in Reel's slot (the Chronomancer; null otherwise): how far back it reaches, its
+   * range, and whether F would cast it now (ready, affordable, the Weaver standing).
+   */
+  rewind: { seconds: number; range: number; ready: boolean } | null;
+  /**
+   * Temporal Mastery (on the path; null otherwise): ready, or back in `remaining` s, and the
+   * technique a Glide would bring back now (null: nothing to bring back).
+   */
+  mastery: {
+    ready: boolean;
+    remaining: number;
+    total: number;
+    resets: 'ward' | 'chime' | 'reel' | null;
+  } | null;
   threadSlot: number | null;
   /** 0 slack … 1 about to snap. */
   threadTension: number;
@@ -247,6 +322,11 @@ export interface BossHud {
   enrageIn: number | null;
   /** The latest decree, while it's relevant. */
   decree: { name: string; text: string } | null;
+  /**
+   * Phase 3e, Foresight: the boss's next attack, seen before it begins (null: none foreseen),
+   * with the hero it picked (null: an area, or everyone).
+   */
+  foreseen: { name: string; in: number; target: string | null } | null;
 }
 
 export interface EncounterHud {
@@ -319,8 +399,13 @@ export interface Callout {
   detail?: string;
   speaker?: string;
   color?: string;
-  /** Callouts sharing a key can be dropped early together (a hero's call once it resolves). */
+  /**
+   * Callouts sharing a key can be dropped early together (a hero's call once it resolves). A
+   * rejection's is `reject:<slot>` (Phase 3e): the Weaver bar buzzes that technique's slot.
+   */
   key?: string;
+  /** The banner's glyph, when the kind's own won't do (Phase 3e: Rewind, Paradox). */
+  icon?: IconName;
   expiresAt: number;
 }
 

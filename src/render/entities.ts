@@ -10,6 +10,16 @@ import { ModelBatch } from './models/batch';
 import { buildCrown, buildEnemy, buildHero, buildWeaver } from './models/library';
 import type { ModelMaterial } from './models/material';
 import { shineLevel, shineOf } from './callingCues';
+import {
+  CHRONO_HEX,
+  chronoLook,
+  emptyChronoLook,
+  reviveWindow,
+  rewindPreviewHero,
+  rewindSample,
+  slowDanced,
+  stasisWave,
+} from './chronoCues';
 import { MARTYR_HEX } from './martyrCues';
 import { C, approach, auraColor, clamp01, color, threadColor as threadModeColor } from './palette';
 import {
@@ -80,14 +90,51 @@ export interface EntityRec {
    */
   rimHold: number;
   rimHoldColor: THREE.Color;
+  /**
+   * The Chronomancer (docs/phase-3e/vfx.md). `frost`: an enemy held by Stasis (0..1, smoothed;
+   * it rises as the stillness spreading from the Weaver reaches it). `slow`: Slow Dance holds it
+   * back in the field (0..1). `chronoFlash`: a silver rim flash (Rewind's arrival, a revive, an
+   * Echo Ward), decaying in ~0.4 s.
+   */
+  frost: number;
+  slow: number;
+  chronoFlash: number;
+  /** The Ward last seen on this entity and the sim time it was first seen (its pop). */
+  wardRef: unknown;
+  wardSeen: number;
   lastHp: number;
   alive: boolean;
+}
+
+/** Rewind's preview (the Chronomancer): where the threaded hero would go back to. */
+export interface RewindGhost {
+  /** The hero, or -1 while there is none. */
+  hero: EntityId;
+  /** Where Rewind would send them (smoothed between samples). */
+  x: number;
+  z: number;
+  yaw: number;
+  /** Shown, 0..1 (fades in and out). */
+  alpha: number;
+  /** The hero is down and Rewind would stand them back up (0..1, smoothed). */
+  revive: number;
+  /** Seconds left to stand a downed hero back up (0 while they stand). */
+  window: number;
+  /** The model ghost is drawn (it hides while the hero stands where they stood). */
+  drawn: boolean;
 }
 
 interface Ghost {
   active: boolean;
   /** Glide afterimage of the Weaver, or the "death that didn't happen" of a saved hero. */
   save: boolean;
+  /**
+   * The Chronomancer's: 1 an afterimage left along Rewind's streak (silver), 2 a downed hero's
+   * fall played backwards, rising and running from (x, z) to (x2, z2) as Rewind stands them up.
+   */
+  chrono: number;
+  x2: number;
+  z2: number;
   batch: ModelBatch | null;
   x: number;
   z: number;
@@ -111,6 +158,10 @@ const FERMATA = color('#e2d6f8');
 const FLINCH = color(MARTYR_HEX.blood);
 const GHOST_ASH = color('#e8e4f4');
 const SAVE_GHOST_LIFE = 1.05;
+/** The Chronomancer's silver: frozen enemies' rims, Rewind's ghosts. */
+const CHRONO_SILVER = color(CHRONO_HEX.silver);
+/** A downed hero's fall played backwards (Rewind standing them up): how long it takes. */
+export const UNFALL_LIFE = 0.55;
 
 function hasStatus(list: readonly { readonly id: string }[], id: string): boolean {
   for (let i = 0; i < list.length; i++) if (list[i]!.id === id) return true;
@@ -159,6 +210,29 @@ export class EntityLayer {
   private now = 0;
   /** The Luminary's Sunrise, smoothed (0..1): the heroes' light turns more golden. */
   sunrise = 0;
+  /** The Chronomancer, read once a frame (docs/phase-3e/vfx.md). */
+  readonly chrono = emptyChronoLook();
+  /**
+   * The enemies' animation clock (real seconds): it stands still while Stasis holds them, so a
+   * frozen enemy keeps its pose mid-motion (a stagger's shake, a stun's wobble, a boss's breath).
+   */
+  private enemyClock = 0;
+  /** Real seconds since Stasis began, and where the Weaver stood (its stillness spreads from there). */
+  private stasisAge = 0;
+  private stasisX = 0;
+  private stasisZ = 0;
+  private stasisOn = false;
+  /** Rewind's preview: the model ghost where the threaded hero would go back to. */
+  readonly rewindGhost: RewindGhost = {
+    hero: -1,
+    x: 0,
+    z: 0,
+    yaw: 0,
+    alpha: 0,
+    revive: 0,
+    window: 0,
+    drawn: false,
+  };
 
   constructor(private readonly model: ModelMaterial) {
     this.group.name = 'entities';
@@ -168,6 +242,9 @@ export class EntityLayer {
       this.ghosts.push({
         active: false,
         save: false,
+        chrono: 0,
+        x2: 0,
+        z2: 0,
         batch: null,
         x: 0,
         z: 0,
@@ -296,6 +373,11 @@ export class EntityLayer {
       flinch: 0,
       rimHold: 0,
       rimHoldColor: new THREE.Color(),
+      frost: 0,
+      slow: 0,
+      chronoFlash: 0,
+      wardRef: null,
+      wardSeen: 0,
       lastHp: e.health?.hp ?? 0,
       alive: true,
     };
@@ -342,6 +424,64 @@ export class EntityLayer {
     if (r) r.rimFlash = 1;
   }
 
+  /** The Chronomancer: a silver rim flash (Rewind's arrival, a revive, an Echo Ward). */
+  chronoFlash(id: EntityId, amount = 1): void {
+    const r = this.recs.get(id);
+    if (r) r.chronoFlash = Math.max(r.chronoFlash, Math.min(1.5, amount));
+  }
+
+  /**
+   * Rewind's streak: afterimages of the hero left behind along it, from where they were (the
+   * first, at once) back toward where they go (later ones), silver and quick to fade.
+   */
+  rewindEchoes(id: EntityId, fromX: number, fromZ: number, toX: number, toZ: number): void {
+    const r = this.recs.get(id);
+    if (!r || r.kind !== 'hero') return;
+    const n = 4;
+    for (let i = 0; i < n; i++) {
+      const g = this.freeGhost();
+      if (!g) return;
+      const k = i / n;
+      g.active = true;
+      g.save = false;
+      g.chrono = 1;
+      g.batch = r.batch;
+      g.hero = id;
+      g.x = fromX + (toX - fromX) * k;
+      g.z = fromZ + (toZ - fromZ) * k;
+      g.yaw = r.yaw;
+      g.age = -k * 0.16;
+      g.life = 0.34;
+      g.radius = r.radius;
+    }
+  }
+
+  /**
+   * Rewind stands a downed hero back up: their fall plays backwards, the body rising from where
+   * it lay and running back to where they stood, silver, merging into the hero there.
+   */
+  unfall(id: EntityId, fromX: number, fromZ: number, toX: number, toZ: number): boolean {
+    const r = this.recs.get(id);
+    if (!r || r.kind !== 'hero') return false;
+    const g = this.freeGhost();
+    if (!g) return false;
+    g.active = true;
+    g.save = false;
+    g.chrono = 2;
+    g.batch = r.batch;
+    g.hero = id;
+    g.x = fromX;
+    g.z = fromZ;
+    g.x2 = toX;
+    g.z2 = toZ;
+    g.yaw = r.yaw;
+    g.age = 0;
+    g.life = UNFALL_LIFE;
+    g.radius = r.radius;
+    g.side = Math.random() < 0.5 ? -1 : 1;
+    return true;
+  }
+
   markDying(id: EntityId): void {
     const r = this.recs.get(id);
     if (r && r.dying < 0) {
@@ -357,12 +497,20 @@ export class EntityLayer {
     if (!g) return;
     g.active = true;
     g.save = false;
+    g.chrono = 0;
     g.batch = w.batch;
     g.x = x;
     g.z = z;
     g.yaw = yaw;
     g.age = -delay;
     g.life = 0.42;
+  }
+
+  /** The Chronomancer's ghosts playing: Rewind's afterimages (1) or a fall played back (2). */
+  chronoGhosts(kind: 1 | 2): number {
+    let n = 0;
+    for (const g of this.ghosts) if (g.active && g.chrono === kind) n++;
+    return n;
   }
 
   private freeGhost(): Ghost | null {
@@ -386,6 +534,7 @@ export class EntityLayer {
     if (!g) return false;
     g.active = true;
     g.save = true;
+    g.chrono = 0;
     g.batch = r.batch;
     g.hero = id;
     g.x = r.x;
@@ -441,6 +590,16 @@ export class EntityLayer {
     this.beamAllIn = beam ? isAllIn(beam) : false;
     const lum = state.calling?.id === 'luminary';
     this.sunrise = approach(this.sunrise, lum && state.field.crescendo ? 1 : 0, 4, dt);
+    // The Chronomancer's Stasis: the enemies' clock stops and the stillness spreads from her.
+    const look = chronoLook(state, this.chrono);
+    if (look.stasis && !this.stasisOn) {
+      this.stasisAge = 0;
+      this.stasisX = weaver?.x ?? state.field.x;
+      this.stasisZ = weaver?.z ?? state.field.z;
+    }
+    this.stasisOn = look.stasis;
+    if (look.stasis) this.stasisAge += dt;
+    else this.enemyClock += dt;
     const target = beam?.threadHero ?? null;
     if (target !== this.beamTarget) {
       this.beamTarget = target;
@@ -462,8 +621,75 @@ export class EntityLayer {
       }
     }
     this.updateGhosts(kit, dt);
+    this.rewindPreview(state, dt);
     for (const b of this.batches.values()) b.end();
     this.crown.end();
+  }
+
+  /**
+   * Rewind's preview (the Chronomancer): while Rewind is ready, a faint silver ghost of the
+   * threaded hero stands where Rewind would send them (their oldest remembered moment). It
+   * hides while they stand where they stood, and shows stronger when they are down and Rewind
+   * would stand them back up. ChronoView draws the trail to it from `rewindGhost`.
+   */
+  private rewindPreview(state: WorldState, dt: number): void {
+    const g = this.rewindGhost;
+    const e = rewindPreviewHero(state, this.chrono);
+    const past = e ? rewindSample(e) : null;
+    const rec = e ? this.recs.get(e.id) : undefined;
+    g.drawn = false;
+    if (e && past && rec) {
+      if (g.hero !== e.id || g.alpha < 0.01) {
+        g.hero = e.id;
+        g.x = past.x;
+        g.z = past.z;
+        g.yaw = rec.yaw;
+      } else {
+        g.x = approach(g.x, past.x, 16, dt);
+        g.z = approach(g.z, past.z, 16, dt);
+      }
+      // Facing the way they were going then (the next remembered moment), else as they face now.
+      const h = e.hero!;
+      const next = h.past[(h.pastAt + 1) % h.past.length]!;
+      const mx = next.x - past.x;
+      const mz = next.z - past.z;
+      const yaw = mx * mx + mz * mz > 1e-4 ? Math.atan2(-mx, -mz) : rec.yaw;
+      g.yaw = angleApproach(g.yaw, yaw, 8, dt);
+      g.alpha = approach(g.alpha, 1, 6, dt);
+      const down = !!e.health?.downed;
+      g.revive = approach(g.revive, down ? 1 : 0, 8, dt);
+      g.window = down ? reviveWindow(e) : 0;
+    } else {
+      g.alpha = approach(g.alpha, 0, 8, dt);
+      g.revive = approach(g.revive, 0, 8, dt);
+      g.window = 0;
+      if (g.alpha < 0.01) {
+        g.alpha = 0;
+        g.hero = -1;
+      }
+    }
+    if (g.hero < 0 || g.alpha <= 0.02) return;
+    const r = this.recs.get(g.hero);
+    if (!r) return;
+    // Hidden while they stand where they stood (it would sit inside them).
+    const apart = clamp01((Math.hypot(r.x - g.x, r.z - g.z) - 0.4) / 0.7);
+    const show = g.alpha * Math.max(apart, g.revive);
+    if (show <= 0.02) return;
+    const m = this.compose(g.x, 0, g.z, g.yaw, 0, 0, 1);
+    const k = g.revive;
+    r.batch.push(
+      m,
+      0,
+      0.62 - 0.4 * show - 0.12 * k,
+      0.9,
+      0.95 - 0.3 * k,
+      CHRONO_SILVER,
+      0.75 + 0.55 * k,
+      0,
+      0,
+      1,
+    );
+    g.drawn = true;
   }
 
   private compose(
@@ -488,7 +714,8 @@ export class EntityLayer {
     rec.flash = Math.max(0, rec.flash - dt * 5);
     const sink = t * t * 0.25;
     const m = this.compose(rec.x, -sink, rec.z, rec.yaw, 0.15 * t, 0, 1 + t * 0.06);
-    rec.batch.push(m, rec.flash, 0.05 + t * 0.95, 0.3 * t, 0, rec.accent, 1);
+    // (Killed while Stasis held it, it stays cold as it goes.)
+    rec.batch.push(m, rec.flash, 0.05 + t * 0.95, 0.3 * t, 0, rec.accent, 1, 0, 0, rec.frost);
     kit.shadows.push(
       rec.x,
       0.015,
@@ -531,8 +758,22 @@ export class EntityLayer {
 
     // Fermata hold: a freeze-frame. The pose stops mid-motion until the hold resolves.
     const held = !!e.hero?.hold || (!!h && hasStatus(h.statuses, 'held'));
-    if (!held) rec.yaw = angleApproach(rec.yaw, Math.atan2(-e.fx, -e.fz), 14, dt);
-    const speed = held ? 0 : Math.hypot(e.vx, e.vz);
+    // Stasis (the Chronomancer): every enemy stands still mid-motion; its own clock waits.
+    const isEnemy = e.kind === 'enemy';
+    const frozen = isEnemy && this.stasisOn;
+    const clock = isEnemy ? this.enemyClock : this.now;
+    if (isEnemy) {
+      const reached =
+        frozen &&
+        stasisWave(this.stasisAge) >=
+          Math.hypot(rec.x - this.stasisX, rec.z - this.stasisZ) - rec.radius;
+      rec.frost = approach(rec.frost, reached ? 1 : 0, reached ? 16 : 6, dt);
+      if (rec.frost < 0.003) rec.frost = 0;
+      rec.slow = approach(rec.slow, slowDanced(state, e) ? 1 : 0, 3, dt);
+      if (rec.slow < 0.003) rec.slow = 0;
+    }
+    if (!held && !frozen) rec.yaw = angleApproach(rec.yaw, Math.atan2(-e.fx, -e.fz), 14, dt);
+    const speed = held || frozen ? 0 : Math.hypot(e.vx, e.vz);
     rec.walk += dt * speed * 2.2;
     const moving = Math.min(1, speed / 2.5);
     const bob = Math.abs(Math.sin(rec.walk * Math.PI)) * 0.07 * moving * (rec.height / 2);
@@ -546,22 +787,22 @@ export class EntityLayer {
     let desat = 0;
     let ghost = 0;
 
-    // Attack lunge.
+    // Attack lunge (Slow Dance: a little slower; Stasis: held mid-swing).
     if (rec.lunge > 0 && !held) {
       const k = Math.sin((1 - rec.lunge) * Math.PI);
       const amt = k * Math.min(0.45, rec.radius * 0.5);
       ox += rec.lungeX * amt;
       oz += rec.lungeZ * amt;
       pitch -= k * 0.12;
-      rec.lunge = Math.max(0, rec.lunge - dt * 5.5);
+      if (!frozen) rec.lunge = Math.max(0, rec.lunge - dt * 5.5 * (1 - 0.15 * rec.slow));
     }
     // Perfect Ward stagger: a violent shake and a recoil back.
     if (rec.stagger > 0) {
       const k = rec.stagger;
-      ox += Math.sin(this.now * 57) * 0.14 * k;
-      oz += Math.cos(this.now * 49) * 0.1 * k;
+      ox += Math.sin(clock * 57) * 0.14 * k;
+      oz += Math.cos(clock * 49) * 0.1 * k;
       pitch += 0.28 * k;
-      rec.stagger = Math.max(0, rec.stagger - dt * 1.7);
+      if (!frozen) rec.stagger = Math.max(0, rec.stagger - dt * 1.7);
     }
     // The Martyr's flinch: a small recoil back and a shudder.
     if (rec.flinch > 0.01 && !held) {
@@ -573,6 +814,7 @@ export class EntityLayer {
     rec.flash = Math.max(0, rec.flash - dt * 9);
     rec.goldRim = Math.max(0, rec.goldRim - dt * 1.4);
     rec.rimFlash = Math.max(0, rec.rimFlash - dt * 3);
+    rec.chronoFlash = Math.max(0, rec.chronoFlash - dt * 2.6);
 
     // Spawning: rise out of the portal.
     const enemy = e.enemy;
@@ -586,7 +828,7 @@ export class EntityLayer {
       enemy?.state === 'stunned' ||
       (h && (hasStatus(h.statuses, 'stun') || hasStatus(h.statuses, 'stagger')))
     ) {
-      roll += Math.sin(this.now * 9) * 0.06;
+      roll += Math.sin(clock * 9) * 0.06;
     }
 
     // Downed / dead heroes lie down and lose their colour.
@@ -623,8 +865,8 @@ export class EntityLayer {
     // Glide: lean hard into the dash.
     if (e.weaver && e.weaver.glide > 0) pitch -= 0.35;
     if (rec.kind === 'enemy' && (rec.role === 'boss' || rec.role === 'miniboss')) {
-      // Bosses breathe.
-      scale *= 1 + Math.sin(this.now * 1.6) * 0.012;
+      // Bosses breathe (held while Stasis holds them).
+      scale *= 1 + Math.sin(clock * 1.6) * 0.012;
     }
     // The beam song pours into this hero: they visibly swell with it (5% at ×2, 8% all in).
     const poured =
@@ -672,12 +914,22 @@ export class EntityLayer {
       tintStrength = 0.3;
     } else if (rec.affixColor) {
       this.tint.copy(rec.affixColor);
-      tintStrength = 0.45 + 0.2 * Math.sin(this.now * 3 + rec.id);
+      tintStrength = 0.45 + 0.2 * Math.sin(clock * 3 + rec.id);
     } else if (rec.tier === 'elite') {
       this.tint.copy(C.gold);
       tintStrength = 0.18;
     } else {
       this.tint.copy(BLACK);
+    }
+    if (isEnemy && rec.frost > 0.01 && e.id !== state.focusTarget && e.id !== frame.hoveredEnemy) {
+      // Held by Stasis: a cold, glassy silver-blue edge.
+      this.tint.lerp(CHRONO_SILVER, 0.8 * rec.frost);
+      tintStrength = Math.max(tintStrength * (1 - 0.4 * rec.frost), 0.42 * rec.frost);
+    }
+    if (rec.chronoFlash > 0.01) {
+      // The Chronomancer's moment on this hero: a silver rim flash.
+      this.tint.lerp(CHRONO_SILVER, Math.min(1, rec.chronoFlash));
+      tintStrength = Math.max(tintStrength, 0.4 + 1.5 * Math.min(1, rec.chronoFlash));
     }
     if (rec.kind === 'weaver') {
       // The Martyr: a borne wound flashes her rim crimson; Vigil and Scarred Hide hold one.
@@ -714,6 +966,8 @@ export class EntityLayer {
       tintStrength,
       Math.min(1.1, rec.shine) * (1 - desat),
       this.sunrise,
+      // Stasis' frost; Slow Dance only cools them a little (no new clutter).
+      Math.max(rec.frost, rec.slow * 0.2),
     );
 
     // Blob shadow (fodder has no shadow-map shadow) and selection rings.
@@ -737,7 +991,7 @@ export class EntityLayer {
         x + ox,
         y + rec.height + 0.22,
         z + oz,
-        this.now * 0.8,
+        clock * 0.8,
         0,
         0,
         Math.max(0.8, rec.radius * 1.2),
@@ -746,7 +1000,7 @@ export class EntityLayer {
     }
 
     if (isHero) this.heroExtras(rec, e, state, frame, kit, dt, threadedId, threadColor);
-    else if (e.kind === 'enemy') this.enemyExtras(rec, e, state, frame, kit);
+    else if (e.kind === 'enemy') this.enemyExtras(rec, e, state, frame, kit, clock);
     else if (e.kind === 'weaver') this.weaverExtras(rec, e, kit, dt);
     if (h) this.shields(rec, e, state, kit);
     if (h) this.ailments(rec, e, kit, dt);
@@ -1028,6 +1282,7 @@ export class EntityLayer {
     state: WorldState,
     frame: FrameInfo,
     kit: FxKit,
+    clock: number,
   ): void {
     const h = e.health;
     const enemy = e.enemy!;
@@ -1200,7 +1455,7 @@ export class EntityLayer {
         rec.radius * 1.2,
         SPRITE.glow,
         rec.accent,
-        0.35 + 0.2 * Math.sin(this.now * 12),
+        (0.35 + 0.2 * Math.sin(clock * 12)) * (1 - 0.6 * rec.frost),
       );
     }
     if (!h) return;
@@ -1323,7 +1578,17 @@ export class EntityLayer {
     const z = rec.z;
     const time = state.time;
     for (const s of h.shields) {
-      const age = time - s.appliedAt;
+      // A Ward's `appliedAt` waits with the enemies during Stasis (Perfect timing is in their
+      // time), so its pop is timed from when render first saw it: a Ward cast in Stasis pops
+      // and settles like any other. Every other shield keeps its own clock.
+      let age = time - s.appliedAt;
+      if (s.kind === 'ward') {
+        if (rec.wardRef !== s) {
+          rec.wardRef = s;
+          rec.wardSeen = Math.min(time, s.appliedAt);
+        }
+        age = time - rec.wardSeen;
+      }
       const pop = age < 0.3 ? 1 - age / 0.3 : 0;
       const left = s.expiresAt - time;
       const fade = left < 0.6 ? clamp01(left / 0.6) : 1;
@@ -1507,6 +1772,16 @@ export class EntityLayer {
         this.updateSaveGhost(g, t, kit);
         continue;
       }
+      if (g.chrono === 1) {
+        // Rewind's afterimage: left behind along the streak, a silver ghost dissolving upward.
+        const m = this.compose(g.x, t * 0.12, g.z, g.yaw, 0, 0, 1);
+        g.batch.push(m, 0.5 * (1 - t), 0.25 + t * 0.75, 0.9, 0.7, CHRONO_SILVER, 1.1, 0, 0, 1);
+        continue;
+      }
+      if (g.chrono === 2) {
+        this.updateUnfall(g, t, kit);
+        continue;
+      }
       this.e.set(-0.35, g.yaw, 0, 'YXZ');
       this.q.setFromEuler(this.e);
       this.p.set(g.x, 0, g.z);
@@ -1514,6 +1789,34 @@ export class EntityLayer {
       this.m.compose(this.p, this.q, this.s);
       g.batch.push(this.m, 0.7 * (1 - t), 0.15 + t * 0.85, 0, 0.55, C.gold, 1.2);
     }
+  }
+
+  /**
+   * Rewind standing a downed hero up: their fall played backwards. The body lies where it fell,
+   * lifts (0–0.45) while running back to where they stood, and dissolves into the hero there.
+   */
+  private updateUnfall(g: Ghost, t: number, kit: FxKit): void {
+    const rise = clamp01(t / 0.7);
+    const up = rise * rise * (3 - 2 * rise);
+    const run = clamp01((t - 0.08) / 0.62);
+    const mv = run * run * (3 - 2 * run);
+    const x = g.x + (g.x2 - g.x) * mv;
+    const z = g.z + (g.z2 - g.z) * mv;
+    const pitch = (Math.PI / 2 - 0.12) * (1 - up);
+    const roll = g.side * 0.22 * (1 - up);
+    const y = g.radius * 0.35 * (1 - up);
+    const m = this.compose(x, y, z, g.yaw, pitch, roll, 1);
+    const dissolve = 0.1 + clamp01((t - 0.65) / 0.35) * 0.9;
+    g.batch!.push(m, 0.4 * (1 - t), dissolve, 0.85, 0.55, CHRONO_SILVER, 1.4, 0, 0, 1);
+    kit.sprites.push(
+      x,
+      0.5 + up * 0.5,
+      z,
+      g.radius * 2.4,
+      SPRITE.glow,
+      CHRONO_SILVER,
+      0.4 * (1 - t),
+    );
   }
 
   /** The ghost buckles (0–0.2), topples onto its back (0.2–0.6) and dissolves in gold. */

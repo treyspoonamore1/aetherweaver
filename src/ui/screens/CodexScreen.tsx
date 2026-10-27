@@ -134,7 +134,10 @@ export function CodexScreen() {
   return <CodexView onBack={back} allowance={allowance} />;
 }
 
-/** Callings (Phase 3c, 3d): each one's passive, Crescendo, flavour and whole path; locks by Rank. */
+/**
+ * Callings (Phase 3c, 3d, 3e): each one's passive, Crescendo, flavour and whole path; locks by
+ * Rank.
+ */
 function Callings({ allowance }: { allowance: Allowance }) {
   return (
     <div className="flex flex-col gap-6">
@@ -147,6 +150,8 @@ function Callings({ allowance }: { allowance: Allowance }) {
           rest of the run. The map marks the fights that bring one. Runs without a Calling play as
           before. The auras themselves never change: a Calling adds to your songs’ reach, strength
           or slots, or (the Martyr) changes what they reserve: your Life instead of your Spirit.
+          Some bring a key of their own: the Martyr’s Bear ({bindingLabel('bear')}), and the
+          Chronomancer’s Rewind, which takes Reel’s ({bindingLabel('reel')}).
         </p>
       </Panel>
       {CONTENT.callings.map((def) => {
@@ -337,6 +342,8 @@ function EnemyEntry({ enemy: e }: { enemy: EnemyDef }) {
 
 function Weaver() {
   const t = CONTENT.techniques;
+  // The Calling whose Rewind takes Reel's key (Phase 3e), for Reel's entry.
+  const rewind = CONTENT.callings.find((c) => (c.values.rewind ?? 0) > 0);
   const r = CONTENT.resonance;
   const th = CONTENT.thread;
   const entries: {
@@ -380,7 +387,7 @@ function Weaver() {
       name: t.reel.name,
       icon: 'reel',
       keys: 'F',
-      body: 'Yank a hero to your side along a ribbon. Out of a lethal zone or a beam, and into your aura field.',
+      body: `Yank a hero to your side along a ribbon. Out of a lethal zone or a beam, and into your aura field.${rewind ? ` On a Chronomancer run, Rewind takes its key: the hero goes back ${rewind.values.rewind} s, to where they stood and the life they had (never less than now). ${rewind.values.cooldown} s cooldown, Reel’s cost and range. Once a run, it stands back up a hero who fell in that time.` : ''}`,
       stats: [`${t.reel.cost} Spirit`, `${t.reel.cooldown}s cooldown`, `${t.reel.range} m range`],
     },
     {

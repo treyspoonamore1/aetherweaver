@@ -78,6 +78,12 @@ export const PATHS = {
   drop: 'M12 3.5c3 3.8 4.6 6.4 4.6 8.7a4.6 4.6 0 0 1-9.2 0c0-2.3 1.6-4.9 4.6-8.7z',
   bear: 'M12 3c1.9 2.4 2.9 4.1 2.9 5.5a2.9 2.9 0 0 1-5.8 0c0-1.4 1-3.1 2.9-5.5z M3.5 13.5c1.6 4.2 4.7 6.8 8.5 6.8s6.9-2.6 8.5-6.8 M3.5 13.5h4 M20.5 13.5h-4',
   vow: 'M12 17.5s-7-4.1-7-9.2A3.9 3.9 0 0 1 12 6a3.9 3.9 0 0 1 7 2.3c0 5.1-7 9.2-7 9.2z M4 21h16',
+  /**
+   * Phase 3e: the Chronomancer's Rewind (in Reel's slot: a clock turning back) and Stasis (time
+   * held still).
+   */
+  rewind: 'M4 12a8 8 0 1 0 8-8 8.7 8.7 0 0 0-6 2.4L4 8.5 M4 4v4.5h4.5 M12 8v4l3 1.8',
+  stasis: 'M12 3.5a8.5 8.5 0 1 0 0 17 8.5 8.5 0 0 0 0-17z M10 9v6 M14 9v6',
 } as const;
 
 export type IconName = keyof typeof PATHS;

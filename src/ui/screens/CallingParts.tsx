@@ -20,6 +20,7 @@ import {
   pathLabel,
   pathSteps,
   pathTipLines,
+  reviveSpentLine,
   tierWhenLabel,
 } from './callingText';
 
@@ -128,39 +129,49 @@ export function OptionLine({
   );
 }
 
-/** The passive and the Crescendo line (Sunrise, the Martyr's Vow), filled in from content. */
+/** The passive and the Crescendo line (Sunrise, the Martyr's Vow, Stasis), filled in from content. */
 export function CallingPassive({
   def,
   compact = false,
 }: {
   def: CallingDef;
-  /** One smaller block (Prep's card). */
+  /** One smaller block (the tier screen's reminder). */
   compact?: boolean;
 }) {
   const t = callingText(def);
-  const look = callingLook(def.id);
-  const c = crescendoLine(def);
   return (
     <div className={`flex flex-col ${compact ? 'gap-1' : 'gap-2'}`}>
       <p className={`${compact ? 'text-sm' : 'text-base'} leading-relaxed text-text`}>
         {t.passive}
       </p>
-      <p
-        className={`flex items-start gap-1.5 ${compact ? 'text-xs' : 'text-sm'} leading-relaxed`}
-        style={{ color: look.light }}
-        data-testid="calling-crescendo"
-      >
-        <Icon name={look.crescendoIcon} size={compact ? 13 : 15} className="mt-0.5 shrink-0" />
-        <span>
-          <b className="font-semibold">
-            {c.name}
-            {c.lead ? '.' : ''}
-          </b>
-          {c.lead ? ' ' : ''}
-          {c.rest}
-        </span>
-      </p>
+      <CrescendoLine def={def} compact={compact} />
     </div>
+  );
+}
+
+/**
+ * The Calling's Crescendo, its name in bold: "**Sunrise** burns brighter…", "**Martyr’s Vow**
+ * replaces Sunrise…", "**Stasis** replaces Sunrise…" (content `crescendo`).
+ */
+export function CrescendoLine({ def, compact = false }: { def: CallingDef; compact?: boolean }) {
+  const look = callingLook(def.id);
+  const c = crescendoLine(def);
+  return (
+    <p
+      className={`flex items-start gap-1.5 ${compact ? 'text-xs' : 'text-sm'} leading-relaxed`}
+      style={{ color: look.light }}
+      data-testid="calling-crescendo"
+    >
+      <Icon name={look.crescendoIcon} size={compact ? 13 : 15} className="mt-0.5 shrink-0" />
+      <span>
+        <b className="font-semibold">
+          {c.name}
+          {c.lead ? '.' : ''}
+        </b>
+        {c.lead ? ' ' : ''}
+        {c.rest}
+      </span>
+    </p>
   );
 }
 
@@ -169,23 +180,28 @@ export function CallingTitle({
   def,
   size = 48,
   muted = false,
+  compact = false,
 }: {
   def: CallingDef;
   size?: number;
   muted?: boolean;
+  /** Smaller type (Prep's cards, three abreast). */
+  compact?: boolean;
 }) {
   const look = callingLook(def.id);
   return (
-    <span className="flex items-center gap-3">
+    <span className={`flex items-center ${compact ? 'gap-2.5' : 'gap-3'}`}>
       <CallingEmblem callingId={def.id} icon={def.icon} size={size} muted={muted} />
       <span className="min-w-0">
         <span
-          className="block font-display text-xl font-bold leading-tight"
+          className={`block font-display font-bold leading-tight ${compact ? 'text-lg' : 'text-xl'}`}
           style={{ color: muted ? 'var(--color-text)' : look.color }}
         >
           The {def.name}
         </span>
-        <span className="block text-sm italic text-muted">{def.title}</span>
+        <span className={`block italic text-muted ${compact ? 'text-xs' : 'text-sm'}`}>
+          {def.title}
+        </span>
       </span>
     </span>
   );
@@ -279,6 +295,12 @@ export function CallingStripItem({
           <span className="mt-1.5 block text-xs leading-relaxed text-muted">
             {callingText(def).passive}
           </span>
+          {reviveSpentLine(calling) && (
+            <span className="mt-1 flex items-center gap-1.5 text-xs" style={{ color: look.light }}>
+              <Icon name="rewind" size={12} className="shrink-0" />
+              {reviveSpentLine(calling)}
+            </span>
+          )}
           <ul className="mt-2 flex flex-col gap-1.5">
             {pathTipLines(calling, map).map((l) => (
               <li key={l.numeral} className="flex items-start gap-2">

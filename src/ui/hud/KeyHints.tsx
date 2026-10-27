@@ -1,11 +1,13 @@
 import { Panel } from '../kit/Panel';
+import { REWIND_NAME } from '../screens/callingText';
 import { bindingLabel } from './labels';
 
 /**
  * A quiet controls reminder (bottom-right). Shown for the first fights and in training. `bear`:
- * a Martyr run, where Bear has its own key (Phase 3d).
+ * a Martyr run, where Bear has its own key (Phase 3d). `rewind`: a Chronomancer run, where
+ * Reel's key Rewinds (Phase 3e).
  */
-export function KeyHints({ bear = false }: { bear?: boolean }) {
+export function KeyHints({ bear = false, rewind = false }: { bear?: boolean; rewind?: boolean }) {
   const rows: [string, string][] = [
     [
       `${bindingLabel('moveUp')}${bindingLabel('moveLeft')}${bindingLabel('moveDown')}${bindingLabel('moveRight')}`,
@@ -18,7 +20,7 @@ export function KeyHints({ bear = false }: { bear?: boolean }) {
       : []),
     [
       `${bindingLabel('ward')} ${bindingLabel('chime')} ${bindingLabel('reel')} ${bindingLabel('glide')}`,
-      'Ward · Chime · Reel · Glide',
+      `Ward · Chime · ${rewind ? REWIND_NAME : 'Reel'} · Glide`,
     ],
     [`${bindingLabel('cue')} / ⇧1–4`, 'Cue a Solo'],
     [bindingLabel('crescendo'), 'Crescendo'],

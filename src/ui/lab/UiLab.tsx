@@ -62,6 +62,11 @@ import {
   martyrResultRun,
   martyrRun,
   martyrSummaryRun,
+  CHRONO_PICKS,
+  chronoOfferRun,
+  chronoResultRun,
+  chronoRun,
+  chronoSummaryRun,
 } from './mock';
 import { ControlsSettings } from '../screens/ControlsSettings';
 
@@ -1379,6 +1384,244 @@ const VIEWS: ViewDef[] = [
     id: 'settings-controls-bear',
     group: 'Martyr',
     label: 'Settings → Controls: the Bear key',
+    w: 1280,
+    h: 900,
+    render: () => (
+      <ScreenFrame>
+        <div className="mx-auto max-w-4xl px-6 py-8">
+          <ScreenHeader eyebrow="Settings" title="Controls" />
+          <div className="mt-6">
+            <ControlsSettings />
+          </div>
+        </div>
+      </ScreenFrame>
+    ),
+  },
+  // ── Phase 3e: the Chronomancer ───────────────────────────────────────────────────────
+  {
+    id: 'prep-chrono-locked',
+    group: 'Chronomancer',
+    label: 'Prep: Rank 8, the Martyr New, the Chronomancer locked',
+    w: 1280,
+    h: 720,
+    render: () => prepCalling(8),
+  },
+  {
+    id: 'prep-chrono-new',
+    group: 'Chronomancer',
+    label: 'Prep: Rank 9, the Chronomancer New',
+    w: 1280,
+    h: 720,
+    render: () => prepCalling(9),
+  },
+  {
+    id: 'prep-chrono-chosen',
+    group: 'Chronomancer',
+    label: 'Prep: the Chronomancer chosen',
+    w: 1280,
+    h: 1240,
+    render: () => prepCalling(null, { chosen: 'chronomancer' }),
+  },
+  {
+    id: 'prep-chrono-path',
+    group: 'Chronomancer',
+    label: 'Prep: the Chronomancer’s path dialog',
+    w: 1280,
+    h: 720,
+    render: () => prepCalling(null, { chosen: 'chronomancer', openPath: 'chronomancer' }),
+  },
+  ...[0, 1, 2, 3].map((tier): ViewDef => ({
+    id: `chrono-tier-${tier + 1}`,
+    group: 'Chronomancer',
+    label: `Tier ${['I', 'II', 'III', 'IV'][tier]}: ${callingDef('chronomancer')
+      .tiers[tier]!.options.map((o) => o.name)
+      .join(' / ')}`,
+    w: 1280,
+    h: 720,
+    render: () => (
+      <Interactive initial={() => chronoOfferRun(tier)}>
+        {(run, set) => (
+          <CallingView run={run} onPick={(i, c) => set((r) => Run.pickCalling(r, i, c))} />
+        )}
+      </Interactive>
+    ),
+  })),
+  {
+    id: 'map-chrono',
+    group: 'Chronomancer',
+    label: 'Map: the Chronomancer in the strip (tooltip)',
+    w: 1280,
+    h: 860,
+    render: () => (
+      <MapView
+        run={{ ...chronoRun({ picks: ['foresight', 'borrowed_time'], fights: 4 }), aether: 85 }}
+        onChoose={noop}
+        onAbandon={noop}
+        peekCalling
+      />
+    ),
+  },
+  {
+    id: 'retune-chrono',
+    group: 'Chronomancer',
+    label: 'Retune on a Chronomancer run: Rewind in the techniques',
+    w: 1280,
+    h: 1100,
+    render: () => {
+      const run = chronoRun({ picks: CHRONO_PICKS, fights: 5 });
+      return (
+        <RespiteView
+          run={{ ...run, phase: 'respite' }}
+          onChoose={noop}
+          onRetune={noop}
+          initialRetune
+        />
+      );
+    },
+  },
+  {
+    id: 'hud-chrono-rewind',
+    group: 'Chronomancer',
+    label: 'HUD: Rewind’s preview on Kael, Foresight on Lyra',
+    w: 1280,
+    h: 720,
+    render: () => <HudStage scenario="chrono-rewind" coach />,
+  },
+  {
+    id: 'hud-chrono-revive',
+    group: 'Chronomancer',
+    label: 'HUD: Kael just fell, Rewind stands him back up',
+    w: 1280,
+    h: 720,
+    render: () => <HudStage scenario="chrono-revive" coach />,
+  },
+  {
+    id: 'hud-chrono-spent',
+    group: 'Chronomancer',
+    label: 'HUD: Kael just fell, but this run’s revive is spent',
+    w: 1280,
+    h: 720,
+    render: () => <HudStage scenario="chrono-spent" coach />,
+  },
+  {
+    id: 'hud-chrono-reach',
+    group: 'Chronomancer',
+    label: 'HUD: Kael out of reach, Vexis within it',
+    w: 1280,
+    h: 720,
+    render: () => <HudStage scenario="chrono-reach" coach />,
+  },
+  {
+    id: 'hud-chrono-saved',
+    group: 'Chronomancer',
+    label: 'HUD: after the Rewind (Kael stands again)',
+    w: 1280,
+    h: 720,
+    render: () => <HudStage scenario="chrono-saved" coach={false} />,
+  },
+  {
+    id: 'hud-chrono-stasis',
+    group: 'Chronomancer',
+    label: 'HUD: Stasis, techniques free and at half cost',
+    w: 1280,
+    h: 720,
+    render: () => <HudStage scenario="chrono-stasis" coach={false} />,
+  },
+  {
+    id: 'hud-chrono-boss',
+    group: 'Chronomancer',
+    label: 'HUD: the Bellwarden, its next attack foreseen',
+    w: 1280,
+    h: 720,
+    render: () => <HudStage scenario="chrono-boss" coach={false} />,
+  },
+  {
+    id: 'howto-chrono',
+    group: 'Chronomancer',
+    label: 'First-fight primer on a Chronomancer run',
+    w: 1280,
+    h: 720,
+    render: () => {
+      const v = callingDef('chronomancer').values;
+      return (
+        <World>
+          <HowToPlay
+            onClose={noop}
+            rewind={{ seconds: v.rewind ?? 0, cooldown: v.cooldown ?? 0 }}
+          />
+        </World>
+      );
+    },
+  },
+  {
+    id: 'result-chrono',
+    group: 'Chronomancer',
+    label: 'Result: his line, a fall with Rewind ready (→ your Calling grows)',
+    w: 1280,
+    h: 2320,
+    render: () => {
+      const run = chronoResultRun();
+      return <ResultView run={run} result={run.lastResult!} onContinue={noop} profileXp={LAB_XP} />;
+    },
+  },
+  {
+    id: 'summary-chrono',
+    group: 'Chronomancer',
+    label: 'Summary: the Chronomancer’s path and totals',
+    w: 1280,
+    h: 1300,
+    render: () => {
+      const run = chronoSummaryRun();
+      return <SummaryView run={run} onNewRun={noop} onTitle={noop} />;
+    },
+  },
+  {
+    id: 'codex-chrono',
+    group: 'Chronomancer',
+    label: 'Codex: three Callings',
+    w: 1280,
+    h: 2700,
+    render: () => <CodexView onBack={noop} initialTab="callings" />,
+  },
+  {
+    id: 'codex-chrono-locked',
+    group: 'Chronomancer',
+    label: 'Codex: Callings at Rank 8 (the Chronomancer locked)',
+    w: 1280,
+    h: 2700,
+    render: () => <CodexView onBack={noop} initialTab="callings" allowance={allowanceFor(8)} />,
+  },
+  {
+    id: 'rank-up-9',
+    group: 'Chronomancer',
+    label: 'Rank 9: the Chronomancer unlocked',
+    w: 1280,
+    h: 720,
+    render: () => (
+      <World>
+        <RankUpCard rankUps={mockRankUps([9])} onDismiss={noop} />
+      </World>
+    ),
+  },
+  {
+    id: 'rank-panels-9',
+    group: 'Chronomancer',
+    label: 'Rank panels at Ranks 8 and 9 (the top)',
+    w: 1280,
+    h: 720,
+    render: () => (
+      <ScreenFrame tone="gold">
+        <div className="mx-auto grid max-w-6xl items-start gap-6 px-6 py-10 md:grid-cols-2">
+          <RankPanelView profile={{ xp: 2730, runs: 19, wins: 10 }} />
+          <RankPanelView profile={{ xp: 3520, runs: 24, wins: 13 }} />
+        </div>
+      </ScreenFrame>
+    ),
+  },
+  {
+    id: 'settings-controls-rewind',
+    group: 'Chronomancer',
+    label: 'Settings → Controls: F reads Reel / Rewind',
     w: 1280,
     h: 900,
     render: () => (

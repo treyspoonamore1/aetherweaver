@@ -1,6 +1,7 @@
 /** Plain-text parts of the Result screen (testable without React). */
 import type { EncounterResult, EncounterStats, RunCalling } from '../../meta/types';
-import { callingResultLine } from './callingText';
+import { CONTENT } from '../../content';
+import { callingResultLine, rewindsFor, techniqueName } from './callingText';
 import { callingLook } from '../kit/callingLook';
 import { auraVerbs, splitContribution, type ContributionParts } from '../contribution';
 import { fmt, pct, plural } from '../kit/format';
@@ -26,6 +27,16 @@ export const HIGHLIGHT_COLOR: Partial<
   fermata: '#e2d6f8',
 };
 
+/**
+ * A technique the death recap found ready but unused (`readyTechniques`): Reel's slot is
+ * Rewind's on a Chronomancer run (Phase 3e).
+ */
+export function readyName(t: string, callingId: string | null | undefined): string {
+  if (t === 'ward' || t === 'chime' || t === 'reel' || t === 'glide')
+    return techniqueName(t, callingId);
+  return (CONTENT.techniques as Record<string, { name?: string }>)[t]?.name ?? t;
+}
+
 /** A fight's (or a run's) stats as the auras / Thread / everything split. */
 export function contributionOf(s: EncounterStats): ContributionParts {
   return {
@@ -44,13 +55,14 @@ export interface StatLine {
 }
 
 /**
- * The Calling's line (Phase 3c, 3d): "Radiance: +412 damage through your heroes · Haloed: 96
+ * The Calling's line (Phase 3c, 3d, 3e): "Radiance: +412 damage through your heroes · Haloed: 96
  * damage kept off", named by the path; the Martyr's "Bore 640 for your heroes · 1,280 kept off
- * them"; nothing if it did nothing (or there is no Calling).
+ * them"; the Chronomancer's "Rewind gave back 1,240 life · stood 1 hero back up"; nothing if it
+ * did nothing (or there is no Calling).
  */
 export function callingLine(
   s: Pick<EncounterStats, 'callingAmplified' | 'callingShielded'> &
-    Partial<Pick<EncounterStats, 'callingBorne'>>,
+    Partial<Pick<EncounterStats, 'callingBorne' | 'callingRewound' | 'callingRevived'>>,
   calling: (Pick<RunCalling, 'path'> & { id?: string }) | null | undefined,
 ): StatLine | null {
   const text = callingResultLine(s, calling ?? null);
@@ -134,10 +146,18 @@ export function statLines(
     });
   }
   if (s.reels > 0)
-    lines.push({
-      icon: 'reel',
-      text: `Reeled heroes out of danger ${s.reels} ${plural(s.reels, 'time')}.`,
-    });
+    lines.push(
+      // On a Chronomancer run Reel's slot is Rewind's, and going back out of a hit dodges it.
+      rewindsFor(calling?.id)
+        ? {
+            icon: 'rewind',
+            text: `Rewind took heroes out of danger ${s.reels} ${plural(s.reels, 'time')}.`,
+          }
+        : {
+            icon: 'reel',
+            text: `Reeled heroes out of danger ${s.reels} ${plural(s.reels, 'time')}.`,
+          },
+    );
   if (s.cues + s.crescendos > 0) {
     lines.push({
       icon: 'note',

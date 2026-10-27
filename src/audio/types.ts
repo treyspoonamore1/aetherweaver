@@ -94,7 +94,13 @@ export interface AudioDirector {
   /** Continuous layers (thread hum by tension, low-HP heartbeat, crescendo swell). */
   update(state: WorldState, realDt: number): void;
   setMood(mood: AudioMood): void;
-  playUi(sound: UiSound): void;
+  /**
+   * A UI sound. Phase 3e: `calling` names the Calling a Calling sound (`callingSelect`,
+   * `callingReveal`, `callingPick`) is for, and the Chronomancer's are its own (the Luminary
+   * and the Martyr share the first voicing). Left out, the app-wide director asks the run for
+   * its Calling, once the click that played it has been handled.
+   */
+  playUi(sound: UiSound, calling?: string | null): void;
   setVolumes(volumes: Volumes): void;
   /** Stops combat layers (leaving combat); music keeps playing per mood. */
   stopCombat(): void;

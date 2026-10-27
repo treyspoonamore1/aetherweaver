@@ -20,7 +20,7 @@ import { ChordBuilder, NewTag, SONG_LOOK } from './ChordBuilder';
 import { freshUnlocks, loadoutProblems, mult, padChords } from './chordModel';
 import { CallingPicker } from './CallingPicker';
 import { fieldAuraSlots as runFieldAuraSlots, reservePool } from '../../meta/run';
-import { slotBonus } from './callingText';
+import { slotBonus, techniqueName } from './callingText';
 
 export interface PrepViewProps {
   run: RunState;
@@ -182,7 +182,7 @@ export function PrepView({
             ) : null}{' '}
             {pool === 'life'
               ? 'As the Martyr, your auras reserve Life instead: every point of Spirit powers Ward, Chime and Reel, and you fight with the Life your songs leave you.'
-              : 'Whatever Spirit your auras leave free powers Ward, Chime and Reel.'}
+              : `Whatever Spirit your auras leave free powers Ward, Chime and ${techniqueName('reel', run.calling?.id)}.`}
           </p>
         </ScreenHeader>
 

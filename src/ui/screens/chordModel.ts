@@ -15,6 +15,7 @@ import {
   type Unlock,
 } from '../../meta/profile';
 import { CHORD_PRESETS } from '../../meta/run';
+import { techniqueName } from './callingText';
 import {
   LIFE_RESERVE_CAP,
   canonicalChords,
@@ -227,9 +228,10 @@ export function spiritBudget(
   const free = Math.max(0, max - reserved);
   const spirit = life ? CONTENT.weaver.maxSpirit : free;
   const t = CONTENT.techniques;
+  // On a Chronomancer run Reel's slot is Rewind (same cost): it reads as Rewind (Phase 3e).
   const techniques = (['ward', 'chime', 'reel'] as const).map((key) => ({
     key,
-    name: t[key].name,
+    name: techniqueName(key, callingId),
     cost: t[key].cost,
     affordable: spirit + 1e-9 >= t[key].cost,
   }));

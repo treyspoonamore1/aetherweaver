@@ -418,3 +418,180 @@ export function heartbeat(v: Voice, t: number, freq: number, gain: number, gap =
     });
   }
 }
+
+// ── Phase 3e: the Chronomancer (clockwork, reversed envelopes) ───────────────────────
+
+/**
+ * A clock's escapement tick: a tiny, precise click (noise band-passed around 2.6x `freq`, about
+ * 10 ms) over the case's short ring (a sine on `freq`) and a dull body an octave down. `freq`
+ * sets the pitch of the ring: about 1-2 kHz for a tick, lower for a tock, and lower and longer
+ * still (`ring`) for a clock slowed down.
+ */
+export function clockTick(v: Voice, t: number, freq: number, gain: number, ring = 0.045): void {
+  v.noise({
+    start: t,
+    dur: 0.008,
+    attack: 0.001,
+    release: 0.006,
+    gain: gain * 0.9,
+    filter: { type: 'bandpass', freq: Math.min(9000, freq * 2.6), q: 4 },
+  });
+  v.osc({
+    type: 'sine',
+    freq,
+    start: t,
+    dur: ring,
+    attack: 0.001,
+    release: 0.02,
+    gain: gain * 0.55,
+  });
+  v.osc({
+    type: 'triangle',
+    freq: freq * 0.5,
+    freqTo: freq * 0.42,
+    glide: ring,
+    start: t,
+    dur: ring * 0.6,
+    attack: 0.001,
+    release: 0.015,
+    gain: gain * 0.3,
+  });
+}
+
+/**
+ * A handbell played backwards: each partial swells in exponentially (the higher ones later and
+ * quicker, as they would have died first) and they all stop together at `end`, with a few
+ * milliseconds' cut so nothing clicks. `swell` is how long the fundamental takes to rise; the
+ * caller keeps `end - swell` at or after the voice's start.
+ */
+export function reverseBell(
+  v: Voice,
+  end: number,
+  freq: number,
+  gain: number,
+  swell: number,
+  bright = 0.6,
+): void {
+  const partials: [number, number, number][] = [
+    [1, 1, 1],
+    [2.01, 0.45, 0.62],
+    [3.0, 0.22 * (0.5 + bright), 0.38],
+    [4.16, 0.12 * bright * 2, 0.22],
+  ];
+  for (const [ratio, g, d] of partials) {
+    const len = Math.max(0.03, swell * d);
+    v.osc({
+      type: 'sine',
+      freq: freq * ratio,
+      start: end - len,
+      dur: len,
+      attack: len,
+      release: 0.012,
+      gain: gain * g,
+      shape: 'sustain',
+      attackCurve: 'exp',
+    });
+  }
+}
+
+/** Glass played backwards: `glassNote`'s partials rising into `end` and cut there. */
+export function reverseGlass(
+  v: Voice,
+  end: number,
+  freq: number,
+  gain: number,
+  swell: number,
+  bright = 0.7,
+): void {
+  const partials: [number, number, number][] = [
+    [1, 1, 1],
+    [2.32, 0.42 * bright + 0.1, 0.7],
+    [4.25, 0.2 * bright + 0.03, 0.45],
+  ];
+  for (const [ratio, g, d] of partials) {
+    if (freq * ratio > 14000) continue;
+    const len = Math.max(0.03, swell * d);
+    v.osc({
+      type: 'sine',
+      freq: freq * ratio,
+      start: end - len,
+      dur: len,
+      attack: len,
+      release: 0.01,
+      gain: gain * g,
+      shape: 'sustain',
+      attackCurve: 'exp',
+    });
+  }
+}
+
+/**
+ * Tape running fast: a band of noise sweeping from `from` to `to` Hz under a chatter (its level
+ * fluttering at `rate` Hz, moving to `rateTo`). `rise`: the seconds running backwards, rising
+ * exponentially and cut off at `t + dur`. Otherwise it decays from the start, the tape winding
+ * down. Two sources (the noise and the flutter).
+ */
+export function tapeSweep(
+  v: Voice,
+  t: number,
+  dur: number,
+  gain: number,
+  from: number,
+  to: number,
+  rate = 22,
+  rateTo = 12,
+  rise = true,
+): void {
+  const ctx = v.e.ctx;
+  const am = ctx.createGain();
+  am.gain.value = 0.6;
+  const lfo = ctx.createOscillator();
+  lfo.type = 'triangle';
+  lfo.frequency.setValueAtTime(rate, t);
+  lfo.frequency.linearRampToValueAtTime(rateTo, t + dur);
+  const depth = ctx.createGain();
+  depth.gain.value = 0.4;
+  lfo.connect(depth).connect(am.gain);
+  am.connect(v.out);
+  v.nodes.push(am, depth);
+  lfo.start(t);
+  lfo.stop(t + dur + 0.08);
+  v.sources.push(lfo);
+  v.noise({
+    start: t,
+    dur: rise ? dur : dur * 0.6,
+    attack: rise ? dur : 0.02,
+    release: rise ? 0.015 : dur * 0.4,
+    gain,
+    shape: rise ? 'sustain' : 'exp',
+    attackCurve: rise ? 'exp' : 'linear',
+    filter: { type: 'bandpass', freq: from, freqTo: to, q: 2.2 },
+    dest: am,
+  });
+  v.extend(t + dur + 0.1);
+}
+
+/**
+ * A small glass ping: `glassNote`'s fundamental and first inharmonic partial, no attack tick.
+ * Two sources, for the quiet and frequent cues (a glimpse, an echo's repeats).
+ */
+export function glassPing(v: Voice, t: number, freq: number, gain: number, ring = 0.6): void {
+  v.osc({
+    type: 'sine',
+    freq,
+    start: t,
+    dur: ring,
+    attack: 0.002,
+    release: 0.06,
+    gain,
+  });
+  v.osc({
+    type: 'sine',
+    freq: freq * 2.32,
+    start: t,
+    dur: ring * 0.6,
+    attack: 0.002,
+    release: 0.05,
+    gain: gain * 0.35,
+  });
+}

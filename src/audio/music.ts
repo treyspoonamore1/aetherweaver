@@ -195,6 +195,15 @@ export class MusicEngine {
     this.e.boostReverb('music', 2.6, 0.2);
   }
 
+  /**
+   * Phase 3e (Stasis): holds as `hold()` does for at least `seconds` from now, but never cuts a
+   * longer hold short (a Fermata already holding keeps its own end).
+   */
+  extendHold(seconds: number): void {
+    if (this.holdUntil > this.e.now + seconds) return;
+    this.hold(seconds);
+  }
+
   get holding(): boolean {
     return this.holdUntil > this.e.now;
   }

@@ -13,6 +13,7 @@ import { RING } from './fx/rings';
 import { SHELL } from './fx/shells';
 import { SPRITE } from './fx/sprites';
 import type { Overlay } from './overlay';
+import { CHRONO_HEX } from './chronoCues';
 import { MARTYR_HEX, crescendoKind } from './martyrCues';
 import { C, VISION_HEX, auraColor, clamp01, color, currentVision, rgba } from './palette';
 import {
@@ -66,6 +67,18 @@ interface Transient {
   travelSim: number;
   target: EntityId;
   gold: boolean;
+  /**
+   * An enemy's projectile (the Chronomancer's Stasis holds it in the air: its clock waits, as
+   * the sim's pending hit does, and it hangs where it was until time resumes).
+   */
+  enemy: boolean;
+  /** Held by Stasis this frame, and where it hangs. */
+  held: boolean;
+  hx: number;
+  hy: number;
+  hz: number;
+  /** Re-aimed from where it hung when time resumed (no arc from there). */
+  rebased: boolean;
   hist: Float32Array;
   histCount: number;
 }
@@ -113,6 +126,9 @@ const VISION_CALL_TEXT = '#fff3c4';
 const SUN_LIGHT = color(CALLING_HEX.sunHot);
 /** Martyr's Vow: the key light dims a little toward crimson (never Sunrise's gold swell). */
 const VOW_LIGHT = color(MARTYR_HEX.blood);
+/** The Chronomancer's Stasis: the light cools toward this while time is held (no gold). */
+const STASIS_LIGHT = color(CHRONO_HEX.frost);
+const CHRONO_SILVER = color(CHRONO_HEX.silver);
 
 export interface FeedbackDeps {
   kit: FxKit;
@@ -147,6 +163,15 @@ export class Feedback {
    * stays warm and a little brighter while it lasts.
    */
   sunWarmth = 0;
+  /**
+   * The Chronomancer's Stasis, 0..1 (set by the combat view from ChronoView): the light cools a
+   * little and dims while time is held.
+   */
+  stasisCool = 0;
+  /** The sim time last frame (enemy projectiles wait as Stasis holds them). */
+  private lastSim = -1;
+  /** Enemy projectiles Stasis held in the air last frame (tests, the lab). */
+  heldProjectiles = 0;
   private lightLive = false;
   private softHealHex = '';
   private softHealFor = '';
@@ -194,6 +219,12 @@ export class Feedback {
         travelSim: 0,
         target: -1,
         gold: false,
+        enemy: false,
+        held: false,
+        hx: 0,
+        hy: 0,
+        hz: 0,
+        rebased: false,
         hist: new Float32Array(24 * 3),
         histCount: 0,
       });
@@ -232,6 +263,9 @@ export class Feedback {
     t.y = 0;
     t.histCount = 0;
     t.gold = false;
+    t.enemy = false;
+    t.held = false;
+    t.rebased = false;
     return t;
   }
 
@@ -342,7 +376,8 @@ export class Feedback {
           this.damage(ev, state);
           break;
         case 'healApplied':
-          this.healed(ev, state);
+          // Rewind's restored life is part of its moment (ChronoView draws its number).
+          if (ev.via !== 'rewind') this.healed(ev, state);
           break;
         case 'shieldApplied':
           // Dawnward's barrier has its own dawn bloom (CallingView): skip the generic ring.
@@ -384,7 +419,7 @@ export class Feedback {
           this.perfectWard(ev);
           break;
         case 'save':
-          this.save(ev);
+          this.save(ev, state, ev.cause === 'rewind');
           break;
         case 'fieldPlanted':
           this.planted(ev, state);
@@ -501,7 +536,8 @@ export class Feedback {
           break;
         }
         case 'revived':
-          this.revived(ev.hero);
+          // Rewind standing a hero back up has its own moment (ChronoView).
+          if (!rewoundIn(events, ev.hero)) this.revived(ev.hero);
           break;
         case 'resonanceGained':
           this.resonanceAcc += ev.amount;
@@ -540,13 +576,19 @@ export class Feedback {
           }
           break;
         }
-        case 'crescendoStart':
-          // The Martyr's Vow has its own moment (MartyrView): none of Sunrise's gold.
-          if (crescendoKind(state) === 'vow') this.vowStart();
+        case 'crescendoStart': {
+          // The Martyr's Vow and the Chronomancer's Stasis have their own moments (MartyrView,
+          // ChronoView): none of Sunrise's gold.
+          const kind = crescendoKind(state);
+          if (kind === 'vow') this.vowStart();
+          else if (kind === 'stasis') this.stasisStart();
           else this.crescendo(state);
           break;
+        }
         case 'crescendoEnd': {
-          if (crescendoKind(state) === 'vow') break;
+          const kind = crescendoKind(state);
+          if (kind === 'stasis') this.d.overlay.coolFlash(0.1, 0.18);
+          if (kind !== 'sunrise') break;
           const w = this.rec(state.weaverId);
           if (w)
             this.ring(
@@ -839,6 +881,7 @@ export class Feedback {
         t.target = e.target ?? -1;
         t.color.copy(c);
         t.gold = c === this.tmp;
+        t.enemy = src?.kind === 'enemy';
         if (e.visual === 'meteor') {
           t.x = e.toX + 3;
           t.y = 16;
@@ -1488,15 +1531,23 @@ export class Feedback {
     this.d.overlay.callout(r.x, r.height + 1.25, r.z, 'PERFECT', '#fff1c4', 28, 1.2);
   }
 
-  private save(e: SimEventOf<'save'>): void {
+  /**
+   * `rewound`: Rewind stood a downed hero back up, so the death did happen and is undone: no
+   * falling ghost here (ChronoView plays their fall backwards instead). The rest is every Save's.
+   */
+  private save(e: SimEventOf<'save'>, state: WorldState, rewound = false): void {
     const r = this.rec(e.target);
     if (!r) return;
     this.d.entities.saveFlash(e.target);
-    this.deathThatDidntHappen(r);
-    const cy = r.height * 0.5 + r.y;
+    if (!rewound) this.deathThatDidntHappen(r);
+    // Rewind moved them this tick: the Save plays where they stand back up.
+    const hero = rewound ? state.entities.get(e.target) : undefined;
+    const x = hero ? hero.x : r.x;
+    const z = hero ? hero.z : r.z;
+    const cy = r.height * 0.5 + (hero ? 0 : r.y);
     this.ring(
-      r.x,
-      r.z,
+      x,
+      z,
       r.radius * 3.5,
       r.radius * 1.2,
       0.45,
@@ -1507,12 +1558,13 @@ export class Feedback {
       0.06,
       e.target,
     );
-    this.ring(r.x, r.z, 0.5, 5, 0.6, C.gold, 0.2, RING.plain, 0.9, 0.06);
-    this.beam(r.x, 0, r.z, r.x, 6, r.z, 1.2, 0.45, C.gold, BEAM.glow, 0.7);
+    this.ring(x, z, 0.5, 5, 0.6, C.gold, 0.2, RING.plain, 0.9, 0.06);
+    // (Rewind's own moment rises from their feet instead of the pillar.)
+    if (!rewound) this.beam(x, 0, z, x, 6, z, 1.2, 0.45, C.gold, BEAM.glow, 0.7);
     this.d.kit.particles.burst(
-      r.x,
+      x,
       cy,
-      r.z,
+      z,
       30,
       3,
       5,
@@ -1525,8 +1577,8 @@ export class Feedback {
       1,
       r.radius * 1.4,
     );
-    this.d.overlay.callout(r.x, r.height + 1.7, r.z, 'SAVED', '#fcd98a', 32, 1.5);
-    this.d.overlay.spotlight(r.x, cy, r.z, 0.45);
+    this.d.overlay.callout(x, r.height + 1.7, z, 'SAVED', '#fcd98a', 32, 1.5);
+    this.d.overlay.spotlight(x, cy, z, 0.45);
     this.d.rig.punch(-1.8, 2.6);
     this.d.overlay.flash(0.2, 0.18);
   }
@@ -1720,6 +1772,15 @@ export class Feedback {
       1.1,
       rgba(VISION_HEX.heal, 0.9),
     );
+  }
+
+  /**
+   * The Chronomancer's Stasis: time stops. A cool flash and the camera held still (a small push
+   * in, no shake); ChronoView draws the moment and the light cools while it lasts (stasisCool).
+   */
+  private stasisStart(): void {
+    this.d.rig.punch(-1.6, 1.4);
+    this.d.overlay.coolFlash(0.22, 0.24);
   }
 
   /** Martyr's Vow: the light dims toward crimson, a small weight on the camera, a soft flash. */
@@ -2560,6 +2621,11 @@ export class Feedback {
     this.settings = frame.settings;
     const kit = this.d.kit;
     const w = this.rec(state.weaverId);
+    // Stasis: an enemy's projectile waits as its pending hit does in the sim (its clock moves
+    // forward with time), hanging where it was; when time resumes it flies on from there.
+    const simDt = this.lastSim < 0 ? 0 : Math.max(0, state.time - this.lastSim);
+    this.lastSim = state.time;
+    this.holdProjectiles(state, simDt);
 
     // Resonance notes rising off the Weaver.
     if (w && this.resonanceAcc > 0) {
@@ -2661,15 +2727,44 @@ export class Feedback {
     // Phase-change light shift: a flare of the key light tinted toward the boss accent. The
     // Luminary's Sunrise holds it warm while it lasts (sunWarmth). One last write restores it.
     const warm = this.sunWarmth < 0.002 ? 0 : Math.min(1, this.sunWarmth);
-    if (this.lightShift > 0 || warm > 0 || this.lightLive) {
+    const cool = this.stasisCool < 0.002 ? 0 : Math.min(1, this.stasisCool);
+    if (this.lightShift > 0 || warm > 0 || cool > 0 || this.lightLive) {
       this.lightShift = Math.max(0, this.lightShift - dt * 0.7);
       const lights = this.d.stage.lights;
       const k = Math.sin(this.lightShift * Math.PI * 0.5);
-      lights.key.intensity = this.baseKey * (1 + 0.6 * k + 0.22 * warm);
+      lights.key.intensity = this.baseKey * (1 + 0.6 * k + 0.22 * warm - 0.12 * cool);
       lights.hemi.intensity = this.baseHemi * (1 + 0.3 * k + 0.12 * warm);
       lights.hemi.color.copy(this.baseHemiColor).lerp(this.lightColor, 0.5 * k);
       if (warm > 0) lights.hemi.color.lerp(SUN_LIGHT, 0.32 * warm);
-      this.lightLive = this.lightShift > 0 || warm > 0;
+      if (cool > 0) lights.hemi.color.lerp(STASIS_LIGHT, 0.3 * cool);
+      this.lightLive = this.lightShift > 0 || warm > 0 || cool > 0;
+    }
+  }
+
+  /** Stasis holds every enemy projectile in the air; when it ends they fly on from there. */
+  private holdProjectiles(state: WorldState, simDt: number): void {
+    const stasis = state.field.stasis;
+    this.heldProjectiles = 0;
+    for (const t of this.pool) {
+      if (!t.active || t.kind !== K.Proj || !t.enemy) continue;
+      if (stasis) {
+        t.startSim += simDt;
+        t.held = true;
+        this.heldProjectiles++;
+      } else if (t.held) {
+        // Time resumes: fly the rest of the way from where it hung (no new arc).
+        const k = clamp01((state.time - t.startSim) / t.travelSim);
+        t.x = t.hx;
+        t.y = t.hy;
+        t.z = t.hz;
+        t.startSim = state.time;
+        t.travelSim = Math.max(0.05, (1 - k) * t.travelSim);
+        t.held = false;
+        t.rebased = true;
+        t.life = t.age + t.travelSim + 0.3;
+      }
+      // Its transient life waits too (it ends when it lands).
+      if (stasis) t.age = Math.min(t.age, Math.max(0, t.life - 0.2));
     }
   }
 
@@ -2878,6 +2973,11 @@ export class Feedback {
 
   private drawProjectile(t: Transient, state: WorldState): void {
     const kit = this.d.kit;
+    if (t.held && t.histCount > 0) {
+      // Held by Stasis: it hangs where it was, cold, with a glint on it.
+      this.heldProjectile(t);
+      return;
+    }
     const k = clamp01((state.time - t.startSim) / t.travelSim);
     // Home on the target's current position.
     const target = t.target >= 0 ? this.d.entities.recs.get(t.target) : undefined;
@@ -2939,18 +3039,24 @@ export class Feedback {
     const sy = t.y;
     x = t.x + (tx - t.x) * k;
     z = t.z + (tz - t.z) * k;
-    const arc =
-      t.visual === 'starbolt'
+    const arc = t.rebased
+      ? 0
+      : t.visual === 'starbolt'
         ? Math.sin(Math.PI * k) * 1.4
         : t.visual === 'arrow'
           ? Math.sin(Math.PI * k) * 0.4
           : 0;
     y = sy + (ty - sy) * k + arc;
+    // Where it is now (Stasis may catch it here; histCount marks it has been drawn once).
+    t.hx = x;
+    t.hy = y;
+    t.hz = z;
+    t.histCount = 1;
     if (t.visual === 'arrow') {
       const kb = Math.max(0, k - 0.09);
       const bx = t.x + (tx - t.x) * kb;
       const bz = t.z + (tz - t.z) * kb;
-      const by = sy + (ty - sy) * kb + Math.sin(Math.PI * kb) * 0.4;
+      const by = sy + (ty - sy) * kb + (t.rebased ? 0 : Math.sin(Math.PI * kb) * 0.4);
       kit.beams.push(bx, by, bz, x, y, z, 0.13, BEAM.lance, t.color, 1, 1, 1, 0);
     } else if (t.visual === 'bolt') {
       kit.sprites.push(x, y, z, 0.32, SPRITE.glow, t.color, 1);
@@ -2976,6 +3082,38 @@ export class Feedback {
     }
   }
 
+  /** An enemy projectile held by Stasis: still, dimmed toward silver, a cold glint and ring. */
+  private heldProjectile(t: Transient): void {
+    const kit = this.d.kit;
+    this.tmp.copy(t.color).lerp(CHRONO_SILVER, 0.55);
+    const x = t.hx;
+    const y = t.hy;
+    const z = t.hz;
+    if (t.visual === 'arrow') {
+      // The shaft hangs along its line of flight.
+      const dx = t.x2 - t.x;
+      const dz = t.z2 - t.z;
+      const d = Math.hypot(dx, dz) || 1;
+      kit.beams.push(
+        x - (dx / d) * 0.7,
+        y,
+        z - (dz / d) * 0.7,
+        x,
+        y,
+        z,
+        0.13,
+        BEAM.lance,
+        this.tmp,
+        0.8,
+      );
+    } else {
+      kit.sprites.push(x, y, z, 0.32, SPRITE.glow, this.tmp, 0.75);
+      kit.sprites.push(x, y, z, 0.13, SPRITE.glow, C.white, 0.6);
+    }
+    kit.sprites.push(x, y, z, 0.46, SPRITE.ring, CHRONO_SILVER, 0.55);
+    kit.sprites.push(x, y + 0.02, z, 0.22, SPRITE.star, CHRONO_SILVER, 0.45, 0.4);
+  }
+
   dispose(): void {
     const lights = this.d.stage.lights;
     lights.key.intensity = this.baseKey;
@@ -2986,6 +3124,15 @@ export class Feedback {
     this.auraHeal.clear();
     this.selfHeal.clear();
   }
+}
+
+/** A Rewind standing `hero` back up among this batch of events (its `revived` is the same tick's). */
+export function rewoundIn(events: readonly SimEvent[], hero: EntityId): boolean {
+  for (let i = 0; i < events.length; i++) {
+    const e = events[i]!;
+    if (e.type === 'rewound' && e.target === hero && e.revived) return true;
+  }
+  return false;
 }
 
 /** A `dawnward` for `hero` among this batch of events (its barrier is the same tick's). */

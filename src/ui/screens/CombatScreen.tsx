@@ -21,7 +21,13 @@ export function CombatScreen() {
   const fights = useRun((s) => s.run?.results.length ?? 0);
   const callingId = useRun(selectCallingId);
   // The Martyr's Bear has its own key: the primer says so on her runs.
-  const bear = (CONTENT.callings.find((c) => c.id === callingId)?.values.bear ?? 0) > 0;
+  const calling = CONTENT.callings.find((c) => c.id === callingId);
+  const bear = (calling?.values.bear ?? 0) > 0;
+  // The Chronomancer's Rewind takes Reel's key (Phase 3e): the primer says how far back it goes.
+  const rewind =
+    calling && (calling.values.rewind ?? 0) > 0
+      ? { seconds: calling.values.rewind!, cooldown: calling.values.cooldown ?? 0 }
+      : null;
 
   // One session per pending node: re-renders must never restart the fight.
   const session = useMemo<CombatSession | null>(() => {
@@ -67,7 +73,7 @@ export function CombatScreen() {
       {showPerf && <PerfHud />}
       {devOpen && <DevPanel />}
       {howto ? (
-        <HowToPlay onClose={closeHowTo} bear={bear} />
+        <HowToPlay onClose={closeHowTo} bear={bear} rewind={rewind} />
       ) : (
         paused && (
           <PauseMenu

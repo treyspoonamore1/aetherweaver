@@ -21,8 +21,27 @@ interface FakeEntity {
     dead: boolean;
   };
   weaver?: { resonance: number; threadTension: number; crescendo: number };
-  hero?: { defId: string; slot: number };
+  hero?: { defId: string; slot: number; solo: number; soloActive: number };
   enemy?: { role: string; tier: string; state: string; phase: number };
+}
+
+/** Phase 3e: a telegraph as the state holds it, for the Stasis and final-second buttons. */
+export interface FakeTelegraph {
+  id: number;
+  owner: number;
+  target: number | null;
+  attackId: string;
+  name: string;
+  kind: 'cleave' | 'beam' | 'burst' | 'donut' | 'mark' | 'link' | 'raid';
+  shape: { kind: 'circle'; x: number; z: number; r: number } | { kind: 'mark'; target: number };
+  start: number;
+  impact: number;
+  perfectFrom: number;
+  damage: number;
+  pctMaxHp: number;
+  effect: 'damage' | 'healAllies' | 'summon' | 'suppress';
+  answers: ('ward' | 'chime' | 'reel' | 'focus' | 'scatter' | 'stack' | 'move' | 'dome')[];
+  severity: 'normal' | 'lethal';
 }
 
 export class FakeWorld {
@@ -42,6 +61,9 @@ export class FakeWorld {
   sunrise = false;
   /** Phase 3d: Martyr's Vow is up (`field.vow`). */
   vow = false;
+  /** Phase 3e: Stasis is up (`field.stasis`), and the sim clock (`state.time`). */
+  stasis = false;
+  time = 0;
   readonly state: WorldState;
 
   constructor() {
@@ -60,14 +82,16 @@ export class FakeWorld {
         x: (slot - 1) * 3,
         z: -3,
         health: { hp: 1000, maxHp: 1000, downed: false, dead: false },
-        hero: { defId, slot },
+        hero: { defId, slot, solo: 0, soloActive: 0 },
       });
     });
     // eslint-disable-next-line @typescript-eslint/no-this-alias
     const self = this;
     this.state = {
       tick: 0,
-      time: 0,
+      get time() {
+        return self.time;
+      },
       timeScale: 1,
       arenaId: 'lab',
       arenaRadius: 20,
@@ -82,19 +106,25 @@ export class FakeWorld {
           chords: self.chords,
           crescendo: self.sunrise,
           vow: self.vow,
+          stasis: self.stasis,
         } as unknown as WorldState['field'];
       },
       get calling() {
-        return self.calling
-          ? {
-              ...self.calling,
-              radiancePerAura: 0.04,
-              sunriseMult: 3,
-              sovereign: false,
-              crescendo: self.calling.id === 'martyr' ? 'vow' : 'sunrise',
-              bearShare: self.calling.id === 'martyr' ? 0.35 : 0,
-            }
-          : null;
+        if (!self.calling) return null;
+        const id = self.calling.id;
+        const chrono = id === 'chronomancer';
+        return {
+          ...self.calling,
+          radiancePerAura: 0.04,
+          sunriseMult: 3,
+          sovereign: false,
+          crescendo: id === 'martyr' ? 'vow' : chrono ? 'stasis' : 'sunrise',
+          bearShare: id === 'martyr' ? 0.35 : 0,
+          rewind: chrono,
+          reviveSpent: false,
+          timers: chrono,
+          foresight: chrono && self.calling.path.includes('foresight') ? 1 : 0,
+        };
       },
       ledger: {} as WorldState['ledger'],
       get telegraphs() {
@@ -160,6 +190,69 @@ export class FakeWorld {
   /** Phase 3c: a Calling (the Luminary) with the option ids picked so far; null for none. */
   setCalling(id: string | null, path: string[] = []): void {
     this.calling = id === null ? null : { id, path };
+  }
+  /** Phase 3e: Stasis up for `seconds` (the Weaver's Crescendo clock), or down. */
+  setStasis(on: boolean, seconds = 3): void {
+    this.weaverData().crescendo = on ? seconds : 0;
+    this.stasis = on;
+  }
+  /** Phase 3e: a hero's Solo gauge (0..100), and whether a Solo is under way. */
+  setSolo(hero: HeroKey, solo: number, active = false): void {
+    const h = this.entities.get(IDS[hero])?.hero;
+    if (!h) return;
+    h.solo = solo;
+    h.soloActive = active ? 4 : 0;
+  }
+  /**
+   * Phase 3e: a telegraph in the state, `windup` seconds long from now, aimed at a hero (a Ward
+   * answer by default). Returns it, so its `telegraphStarted` can be fired with the same id.
+   */
+  addTelegraph(
+    id: number,
+    windup: number,
+    opts: Partial<Pick<FakeTelegraph, 'kind' | 'answers' | 'target' | 'severity'>> & {
+      x?: number;
+    } = {},
+  ): FakeTelegraph {
+    this.removeTelegraph(id);
+    const target = opts.target === undefined ? IDS.kael : opts.target;
+    const kind = opts.kind ?? 'burst';
+    const t: FakeTelegraph = {
+      id,
+      owner: IDS.enemyBase,
+      target,
+      attackId: 'lab',
+      name: 'Lab',
+      kind,
+      shape:
+        kind === 'mark' && target !== null
+          ? { kind: 'mark', target }
+          : { kind: 'circle', x: opts.x ?? 0, z: 4, r: 3 },
+      start: this.time,
+      impact: this.time + windup,
+      perfectFrom: this.time + windup - 0.35,
+      damage: 300,
+      pctMaxHp: 0,
+      effect: 'damage',
+      answers: opts.answers ?? ['ward', 'dome'],
+      severity: opts.severity ?? 'normal',
+    };
+    this.telegraphs.push(t);
+    return t;
+  }
+  removeTelegraph(id: number): void {
+    const i = (this.telegraphs as FakeTelegraph[]).findIndex((t) => t.id === id);
+    if (i >= 0) this.telegraphs.splice(i, 1);
+  }
+  /** The sim clock moves on `dt` seconds; in Stasis every telegraph's times move with it. */
+  advance(dt: number): void {
+    this.time += dt;
+    if (!this.stasis) return;
+    for (const t of this.telegraphs as FakeTelegraph[]) {
+      t.start += dt;
+      t.impact += dt;
+      t.perfectFrom += dt;
+    }
   }
   setHeroHp(hero: HeroKey, frac: number): void {
     const h = this.entities.get(IDS[hero]);

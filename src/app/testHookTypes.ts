@@ -20,6 +20,11 @@ export interface TestHook {
   autoplay(kind: BotKind | null): void;
   /** Encounter status of the current combat. */
   encounter(): { id: string; status: string; wave: number; waves: number };
+  /**
+   * Phase 3e: the kinds of the fight's ledger markers so far, in order ('perfect', 'reel',
+   * 'rewind'…): what the Weaver did, as the timeline will show it.
+   */
+  markers(): string[];
 }
 
 /** Drives the run layer (always installed in dev builds or with `?e2e`). */

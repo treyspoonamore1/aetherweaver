@@ -1,4 +1,11 @@
 import * as THREE from 'three';
+import { CHRONO_HEX } from '../chronoCues';
+
+/** A hex colour as a GLSL vec3 literal (linear, like THREE.Color). */
+function glslColor(hex: string): string {
+  const c = new THREE.Color(hex);
+  return `vec3(${c.r.toFixed(4)}, ${c.g.toFixed(4)}, ${c.b.toFixed(4)})`;
+}
 
 /**
  * The one material every character model uses: flat-shaded standard PBR with vertex colours,
@@ -7,10 +14,12 @@ import * as THREE from 'three';
  *   aFx   = (hitFlash, dissolve, desaturate, ghost)
  *   aTint = (rim rgb, rim strength) — fresnel rim for "in aura", threaded, Save, affixes;
  *           also the glow colour of the dissolve edge.
- *   aShine = (shine, sunrise) — the Luminary's sunlight on a hero standing in the field
+ *   aShine = (shine, sunrise, frost) — the Luminary's sunlight on a hero standing in the field
  *           (docs/phase-3c/vfx.md): light falling on the head and shoulders, a soft warm
  *           lift, more golden in Sunrise. Added on top of the rim, so the aura tint keeps
- *           its colour.
+ *           its colour. `frost` (the Chronomancer, docs/phase-3e/vfx.md): held in time, the
+ *           model drains to a cool silver, its accents stop glowing and pulsing, a glassy
+ *           silver-blue edge catches the light, and a ghost glows silver-blue, not gold.
  *
  * Accent parts (`aGlow` vertex attribute) are emissive in their own vertex colour.
  */
@@ -37,11 +46,11 @@ export function createModelMaterial(): ModelMaterial {
 attribute float aGlow;
 attribute vec4 aFx;
 attribute vec4 aTint;
-attribute vec2 aShine;
+attribute vec3 aShine;
 varying float vGlow;
 varying vec4 vFx;
 varying vec4 vTint;
-varying vec2 vShine;
+varying vec3 vShine;
 varying vec3 vObjPos;`,
       )
       .replace(
@@ -58,8 +67,10 @@ uniform float uGlow;
 varying float vGlow;
 varying vec4 vFx;
 varying vec4 vTint;
-varying vec2 vShine;
+varying vec3 vShine;
 varying vec3 vObjPos;
+const vec3 AW_FROST = ${glslColor(CHRONO_HEX.frost)};
+const vec3 AW_SILVER = ${glslColor(CHRONO_HEX.silver)};
 float awHash(vec3 p) {
   p = fract(p * 0.3183099 + vec3(0.1, 0.2, 0.3));
   p *= 17.0;
@@ -84,24 +95,37 @@ float awDissolve = vFx.y;
 if (awDissolve > 0.001 && awN < awDissolve * 1.08) discard;
 float awEdge = awDissolve > 0.001 ? 1.0 - smoothstep(0.0, 0.09, awN - awDissolve * 1.08) : 0.0;
 float awGhost = vFx.w;
-if (awGhost > 0.001 && fract((gl_FragCoord.x + gl_FragCoord.y) * 0.25) < awGhost * 0.5) discard;`,
+// A frosted ghost (the Chronomancer's Rewind) is cut in still scan lines; others diagonally.
+float awCut = vShine.z > 0.5 ? gl_FragCoord.y * 0.3334 : (gl_FragCoord.x + gl_FragCoord.y) * 0.25;
+if (awGhost > 0.001 && fract(awCut) < awGhost * 0.5) discard;`,
       )
       .replace(
         '#include <color_fragment>',
         `#include <color_fragment>
 float awLum = dot(diffuseColor.rgb, vec3(0.299, 0.587, 0.114));
-diffuseColor.rgb = mix(diffuseColor.rgb, vec3(awLum) * 0.55, vFx.z);`,
+diffuseColor.rgb = mix(diffuseColor.rgb, vec3(awLum) * 0.55, vFx.z);
+float awFrost = vShine.z;
+// Held in time (Stasis): drained to a cold silver-blue and dimmed, like a figure under glass.
+diffuseColor.rgb = mix(diffuseColor.rgb, awLum * AW_FROST * vec3(0.72, 0.84, 1.0) * 0.62, awFrost * 0.9);`,
       )
       .replace(
         '#include <emissivemap_fragment>',
         `#include <emissivemap_fragment>
-float awPulse = 0.85 + 0.15 * sin(uTime * 2.3 + vObjPos.y * 2.0);
-totalEmissiveRadiance += vColor.rgb * vGlow * uGlow * awPulse * (1.0 - vFx.z * 0.85);
+// Frozen accents stop pulsing and fade toward silver.
+float awPulse = mix(0.85 + 0.15 * sin(uTime * 2.3 + vObjPos.y * 2.0), 0.9, awFrost);
+vec3 awAccent = mix(vColor.rgb, AW_SILVER * 0.6, awFrost * 0.75);
+totalEmissiveRadiance += awAccent * vGlow * uGlow * awPulse * (1.0 - vFx.z * 0.85) * (1.0 - awFrost * 0.55);
 float awFres = pow(1.0 - clamp(abs(dot(normalize(normal), normalize(vViewPosition))), 0.0, 1.0), 2.2);
 totalEmissiveRadiance += vTint.rgb * vTint.a * (0.18 + awFres * 1.9);
 totalEmissiveRadiance += vec3(1.0, 0.97, 0.92) * vFx.x * vFx.x * 1.2;
 totalEmissiveRadiance += vTint.rgb * awEdge * 4.0;
-totalEmissiveRadiance += vec3(1.0, 0.9, 0.6) * awGhost * 0.9;
+totalEmissiveRadiance += mix(vec3(1.0, 0.9, 0.6), AW_SILVER, awFrost) * awGhost * 0.9;
+if (awFrost > 0.001) {
+  // A glassy edge: sharp silver-blue fresnel and a cold sheen from above.
+  vec3 awUpF = normalize((viewMatrix * vec4(0.0, 1.0, 0.0, 0.0)).xyz);
+  float awTopF = smoothstep(0.35, 1.0, clamp(dot(normalize(normal), awUpF), 0.0, 1.0));
+  totalEmissiveRadiance += AW_FROST * awFrost * (0.04 + pow(awFres, 1.8) * 0.5 + awTopF * 0.1);
+}
 if (vShine.x > 0.001) {
   // Sunlight from above: brightest on the head and shoulders, a soft lift everywhere else.
   vec3 awUpV = normalize((viewMatrix * vec4(0.0, 1.0, 0.0, 0.0)).xyz);
@@ -114,6 +138,6 @@ if (vShine.x > 0.001) {
 }`,
       );
   };
-  material.customProgramCacheKey = () => 'aw-model-v2';
+  material.customProgramCacheKey = () => 'aw-model-v3';
   return { material, uniforms };
 }

@@ -22,11 +22,11 @@ const BANNER_ICON: Partial<Record<Callout['kind'], IconName>> = {
   response: 'call',
 };
 
-/** Big centred banners: PERFECT, SAVE, CLUTCH, Crescendo. */
+/** Big centred banners: PERFECT, SAVE, CLUTCH, Crescendo (a callout may bring its own glyph). */
 function Banner({ c }: { c: Callout }) {
   const ttl = useLifetime(c.expiresAt);
   const color = c.color ?? '#f5d78e';
-  const icon = c.text.startsWith('Crescendo') ? 'sparkle' : BANNER_ICON[c.kind];
+  const icon = c.icon ?? (c.text.startsWith('Crescendo') ? 'sparkle' : BANNER_ICON[c.kind]);
   return (
     <div
       className="flex flex-col items-center text-center"

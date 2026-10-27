@@ -105,6 +105,8 @@ export class Engine {
   private readonly gates = new Map<string, number>();
   private volumes = { master: 1, music: 1, sfx: 1, ui: 1 };
   private disposed = false;
+  /** Phase 3e: the cutoff the music's lowpass is held at (Stasis), 0 when it is free. */
+  private musicHeldAt = 0;
 
   readonly stats: EngineStats = {
     active: { music: 0, sfx: 0, ui: 0, ambience: 0 },
@@ -227,6 +229,9 @@ export class Engine {
 
   /** Dips the music's brightness for a slow-motion moment, then restores it. */
   muffleMusic(seconds: number): void {
+    // Phase 3e: while Stasis holds the music darker still, a slow-motion dip has nothing to
+    // add, and its restore would lift the hold early.
+    if (this.musicHeldAt > 0) return;
     const f = this.musicFilter.frequency;
     const t = this.now;
     f.cancelScheduledValues(t);
@@ -234,6 +239,35 @@ export class Engine {
     f.exponentialRampToValueAtTime(2600, t + 0.06);
     f.setValueAtTime(2600, t + 0.06 + seconds);
     f.exponentialRampToValueAtTime(20000, t + 0.06 + seconds + 0.5);
+  }
+
+  /**
+   * Phase 3e (Stasis): closes the music's lowpass to `freq` and holds it there until
+   * `releaseMusicFilter()`, whatever slow-motion moments come in between.
+   */
+  holdMusicFilter(freq: number, attack = 0.3): void {
+    this.musicHeldAt = freq;
+    const f = this.musicFilter.frequency;
+    const t = this.now;
+    f.cancelScheduledValues(t);
+    f.setValueAtTime(Math.max(300, f.value), t);
+    f.exponentialRampToValueAtTime(freq, t + attack);
+  }
+
+  /** Opens the music's lowpass again after `holdMusicFilter()`. A no-op when it is free. */
+  releaseMusicFilter(release = 0.8): void {
+    if (this.musicHeldAt === 0) return;
+    this.musicHeldAt = 0;
+    const f = this.musicFilter.frequency;
+    const t = this.now;
+    f.cancelScheduledValues(t);
+    f.setValueAtTime(Math.max(300, f.value), t);
+    f.exponentialRampToValueAtTime(20000, t + release);
+  }
+
+  /** The cutoff the music is held at (Stasis), or 0. */
+  get musicFilterHeld(): number {
+    return this.musicHeldAt;
   }
 
   // ── Rate gates & voice groups ────────────────────────────────────────────────────
@@ -246,6 +280,23 @@ export class Engine {
       return false;
     }
     this.gates.set(key, now);
+    return true;
+  }
+
+  /**
+   * Phase 3e: passes only if every gate is open, and only then arms them all, so a refusal holds
+   * none of them (with `gate()` called in turn, a refused second gate still arms the first).
+   */
+  gateAll(...pairs: [key: string, minInterval: number][]): boolean {
+    const now = this.now;
+    for (const [key, minInterval] of pairs) {
+      const last = this.gates.get(key);
+      if (last !== undefined && now - last < minInterval) {
+        this.stats.skipped++;
+        return false;
+      }
+    }
+    for (const [key] of pairs) this.gates.set(key, now);
     return true;
   }
 
@@ -353,6 +404,11 @@ export interface OscSpec {
   gain: number;
   /** 'exp' = pluck-like exponential decay from the attack peak; 'sustain' = hold then release. */
   shape?: 'exp' | 'sustain';
+  /**
+   * Phase 3e: how the attack rises. 'exp' rises exponentially, like a decay played backwards
+   * (a reversed bell); the default is a linear ramp.
+   */
+  attackCurve?: 'linear' | 'exp';
   filter?: FilterSpec;
   dest?: AudioNode;
 }
@@ -365,6 +421,8 @@ export interface NoiseSpec {
   release?: number;
   gain: number;
   shape?: 'exp' | 'sustain';
+  /** Phase 3e: 'exp' for a reversed (exponentially rising) attack; linear by default. */
+  attackCurve?: 'linear' | 'exp';
   filter?: FilterSpec;
   dest?: AudioNode;
 }
@@ -398,9 +456,11 @@ function applyEnvelope(
   release: number,
   peak: number,
   shape: 'exp' | 'sustain',
+  curve: 'linear' | 'exp' = 'linear',
 ): number {
   g.setValueAtTime(FLOOR, start);
-  g.linearRampToValueAtTime(peak, start + attack);
+  if (curve === 'exp') g.exponentialRampToValueAtTime(Math.max(FLOOR * 2, peak), start + attack);
+  else g.linearRampToValueAtTime(peak, start + attack);
   if (shape === 'exp') {
     g.exponentialRampToValueAtTime(FLOOR, start + attack + dur + release);
     return start + attack + dur + release;
@@ -470,6 +530,7 @@ export class Voice {
       spec.release ?? 0.03,
       spec.gain,
       spec.shape ?? 'exp',
+      spec.attackCurve,
     );
     let chain: AudioNode = o;
     this.nodes.push(env);
@@ -503,6 +564,7 @@ export class Voice {
       spec.release ?? 0.02,
       spec.gain,
       spec.shape ?? 'exp',
+      spec.attackCurve,
     );
     let chain: AudioNode = src;
     this.nodes.push(env);

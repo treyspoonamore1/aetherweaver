@@ -17,6 +17,7 @@ import {
   passiveName,
   pathSteps,
   reservesLife,
+  reviveSpentLine,
   tierWhenLabel,
   withOption,
   type PathStep,
@@ -172,6 +173,15 @@ export function CallingView({
             Always yours · {passiveName(def.id)}
           </p>
           <CallingPassive def={def} compact />
+          {reviveSpentLine(run.calling) && (
+            <p
+              className="mt-1.5 flex items-center gap-1.5 text-xs text-muted"
+              data-testid="revive-spent"
+            >
+              <Icon name="rewind" size={13} className="shrink-0" />
+              {reviveSpentLine(run.calling)}
+            </p>
+          )}
         </div>
       </div>
     </ScreenFrame>

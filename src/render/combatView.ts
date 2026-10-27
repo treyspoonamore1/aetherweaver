@@ -4,6 +4,7 @@ import type { SimEvent, WorldState } from '../sim';
 import { ArenaView } from './arena';
 import { CallView } from './calls';
 import { CallingView } from './calling';
+import { ChronoView } from './chrono';
 import { EntityLayer } from './entities';
 import { FermataView } from './fermata';
 import { Feedback } from './feedback';
@@ -41,7 +42,10 @@ export class CombatView implements WorldView {
   readonly relics: RelicView;
   readonly calling: CallingView;
   readonly martyr: MartyrView;
+  readonly chrono: ChronoView;
   private quality: QualityTier;
+  /** The enemies' clock for the telegraph shaders: it waits while Stasis holds them. */
+  private enemyClock = 0;
   private readonly bufferSize = new THREE.Vector2();
   private readonly heroHex = new Map<number, string>();
   private disposed = false;
@@ -96,6 +100,13 @@ export class CombatView implements WorldView {
       entities: this.entities,
       overlay: this.overlay,
     });
+    this.chrono = new ChronoView({
+      kit: this.kit,
+      recs: this.entities.recs,
+      entities: this.entities,
+      telegraphs: this.telegraphs,
+      overlay: this.overlay,
+    });
     this.quality = ctx.quality;
     this.setQuality(ctx.quality);
     void state;
@@ -113,7 +124,9 @@ export class CombatView implements WorldView {
     if (applyVision(frame.settings.colorVision)) this.overlay.setPalette();
     this.overlay.setFlashScale(frame.settings.flashes);
 
-    this.kit.begin(frame.time, camera.position);
+    // The telegraphs' shader clock is the enemies': Stasis holds it (docs/phase-3e/vfx.md).
+    if (!state.field.stasis) this.enemyClock += realDt;
+    this.kit.begin(frame.time, camera.position, this.enemyClock);
     this.overlay.beginFrame();
     this.entities.sync(state, frame, this.kit, fxDt);
     this.field.sync(state, this.kit, fxDt, frame.time);
@@ -122,10 +135,13 @@ export class CombatView implements WorldView {
     this.calls.sync(state, this.kit, this.overlay, fxDt);
     this.fermata.sync(state, this.kit, this.overlay, fxDt, frame.time);
     this.feedback.sunWarmth = this.calling.warmth;
+    this.feedback.stasisCool = this.chrono.cool;
     this.feedback.sync(state, frame, fxDt);
     this.relics.sync(state, fxDt, frame.time, frame.settings.flashes);
     this.calling.sync(state, fxDt, frame.time, frame.settings.flashes);
     this.martyr.sync(state, fxDt, frame.time, frame.settings.flashes);
+    this.chrono.sync(state, fxDt, frame.time, frame.settings.flashes, frame.settings.damageNumbers);
+    this.overlay.setStasis(this.chrono.cool);
     this.offscreen(state);
     this.aimMarker(state, frame);
 
@@ -143,6 +159,7 @@ export class CombatView implements WorldView {
     this.relics.handle(events, state);
     this.calling.handle(events, state);
     this.martyr.handle(events, state);
+    this.chrono.handle(events, state);
   }
 
   setQuality(quality: QualityTier): void {

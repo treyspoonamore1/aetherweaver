@@ -39,6 +39,11 @@ export const ORDER = {
 /** Every immediate-mode FX batch the combat view draws with. ~12 draw calls in total. */
 export class FxKit {
   readonly time = { uTime: { value: 0 } };
+  /**
+   * The enemies' clock for the telegraph shaders (their hatching, throb and Perfect pulse):
+   * it stands still while the Chronomancer's Stasis holds every enemy (docs/phase-3e/vfx.md).
+   */
+  readonly enemyTime = { uTime: { value: 0 } };
   readonly shadows: RingBatch;
   readonly rings: RingBatch;
   readonly telegraphs: TelegraphBatch;
@@ -57,8 +62,9 @@ export class FxKit {
     this.group.name = 'fx';
     this.shadows = new RingBatch(160, THREE.NormalBlending, ORDER.shadows, this.time);
     this.rings = new RingBatch(384, THREE.AdditiveBlending, ORDER.rings, this.time);
-    this.telegraphs = new TelegraphBatch(48, ORDER.telegraphs, this.time);
-    this.marks = new TelegraphBatch(16, ORDER.marks, this.time, false);
+    // Room for the Chronomancer's Foresight ghosts and Stasis bezels beside the real ones.
+    this.telegraphs = new TelegraphBatch(96, ORDER.telegraphs, this.enemyTime);
+    this.marks = new TelegraphBatch(24, ORDER.marks, this.enemyTime, false);
     this.shells = new ShellBatch(64, ORDER.shells, this.time);
     this.beams = new BeamBatch(160, ORDER.beams, this.time);
     this.ribbons = new RibbonBatch(1600, ORDER.ribbons);
@@ -96,8 +102,10 @@ export class FxKit {
     this.smoke.density = caps.density;
   }
 
-  begin(time: number, cameraPosition: THREE.Vector3): void {
+  /** `enemyTime`: the enemies' clock (it waits during Stasis); the frame's time otherwise. */
+  begin(time: number, cameraPosition: THREE.Vector3, enemyTime = time): void {
     this.time.uTime.value = time;
+    this.enemyTime.uTime.value = enemyTime;
     this.shadows.begin();
     this.rings.begin();
     this.telegraphs.begin();

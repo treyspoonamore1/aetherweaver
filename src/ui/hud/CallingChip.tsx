@@ -4,15 +4,23 @@ import { numeral } from '../screens/callingText';
 import { bearLabel, callingHudLabel, type CallingHud } from './calling';
 
 /**
- * The Calling in the fight (Phase 3c, 3d): its emblem and the path's pips, small, next to the
- * relic bar. The emblem blazes in its Crescendo (Sunrise, the Martyr's Vow); Haloed and
- * Sovereign Symphony, and the Martyr's Bear, Undying Devotion (ready or spent), Blood Font and
- * Low-Life Vigil (while they're working) show as small states.
+ * The Calling in the fight (Phase 3c, 3d, 3e): its emblem and the path's pips, small, next to
+ * the relic bar. The emblem blazes in its Crescendo (Sunrise, the Martyr's Vow, Stasis); Haloed
+ * and Sovereign Symphony, the Martyr's Bear, Undying Devotion (ready or spent), Blood Font and
+ * Low-Life Vigil (while they're working), and the Chronomancer's revive (once a run: ready or
+ * spent) and Temporal Mastery (ready, or back in a few seconds) show as small states.
  */
 export function CallingChip({ calling: c }: { calling: CallingHud }) {
   const look = callingLook(c.id);
-  const blaze = c.sunrise || c.vow;
-  const states = c.haloed || c.sovereign || c.bearing || c.undying !== null || c.lowLife.length > 0;
+  const blaze = c.sunrise || c.vow || c.stasis;
+  const states =
+    c.haloed ||
+    c.sovereign ||
+    c.bearing ||
+    c.undying !== null ||
+    c.lowLife.length > 0 ||
+    c.mastery !== null ||
+    c.revive !== null;
   return (
     <div
       className="flex items-center gap-1.5 rounded-xl border bg-ink-900/80 py-1 pl-1 pr-2 shadow-lg shadow-black/40 backdrop-blur-sm"
@@ -27,6 +35,7 @@ export function CallingChip({ calling: c }: { calling: CallingHud }) {
       data-testid="calling-chip"
       data-sunrise={c.sunrise || undefined}
       data-vow={c.vow || undefined}
+      data-stasis={c.stasis || undefined}
     >
       <CallingEmblem
         callingId={c.id}
@@ -52,7 +61,7 @@ export function CallingChip({ calling: c }: { calling: CallingHud }) {
           Sunrise ×{c.sunriseMult}
         </span>
       )}
-      {c.vow && (
+      {(c.vow || c.stasis) && (
         <span className="font-display text-xs font-bold" style={{ color: look.light }}>
           {c.crescendoName}
         </span>
@@ -77,6 +86,23 @@ export function CallingChip({ calling: c }: { calling: CallingHud }) {
             .map((m) => (
               <State key={m.id} icon={m.icon} label={shortName(m.name)} color={look.light} />
             ))}
+          {c.revive !== null && (
+            // Rewind's revive is once a run: still to come, or spent (struck through).
+            <State
+              icon="chronomancer"
+              label={c.revive === 'ready' ? 'Revive' : 'Revive spent'}
+              color={c.revive === 'ready' ? look.light : 'var(--color-muted)'}
+              dim={c.revive === 'spent'}
+            />
+          )}
+          {c.mastery && (
+            // Temporal Mastery: lit when a Glide would bring a technique back; else when.
+            <State
+              icon="mastery"
+              label={c.mastery.ready ? 'Mastery' : `Mastery ${Math.ceil(c.mastery.remaining)}s`}
+              color={c.mastery.ready ? look.light : 'var(--color-muted)'}
+            />
+          )}
         </span>
       )}
     </div>

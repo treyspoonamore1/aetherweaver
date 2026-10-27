@@ -32,7 +32,7 @@ const MOODS: AudioMood[] = [
   'defeat',
 ];
 const GROUPS: {
-  id: 'support' | 'phase2' | 'relic' | 'calling' | 'martyr' | 'world' | 'ui';
+  id: 'support' | 'phase2' | 'relic' | 'calling' | 'martyr' | 'chrono' | 'world' | 'ui';
   title: string;
 }[] = [
   { id: 'support', title: 'Support actions' },
@@ -40,6 +40,10 @@ const GROUPS: {
   { id: 'relic', title: 'Phase 3b: relics and the refused Glide' },
   { id: 'calling', title: 'Phase 3c: the Luminary (Radiance, Dawnward, Sunrise)' },
   { id: 'martyr', title: 'Phase 3d: the Martyr (Bear, Borne, Vow, Undying Devotion)' },
+  {
+    id: 'chrono',
+    title: 'Phase 3e: the Chronomancer (Rewind, Stasis, Foresight, the path, its UI sounds)',
+  },
   { id: 'world', title: 'World, enemies and telegraphs' },
   { id: 'ui', title: 'UI' },
 ];
