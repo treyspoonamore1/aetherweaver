@@ -265,11 +265,6 @@ export class Engine {
     f.exponentialRampToValueAtTime(20000, t + release);
   }
 
-  /** The cutoff the music is held at (Stasis), or 0. */
-  get musicFilterHeld(): number {
-    return this.musicHeldAt;
-  }
-
   // ── Rate gates & voice groups ────────────────────────────────────────────────────
   /** True (and arms the gate) if at least `minInterval` seconds passed since the last pass. */
   gate(key: string, minInterval: number): boolean {

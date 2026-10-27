@@ -801,6 +801,21 @@ describe('the path', () => {
     h.d.dispose();
   });
 
+  it('any attack called off stops winding up: its caster killed or interrupted', () => {
+    const h = harness();
+    const a = h.world.addTelegraph(51, 2.2);
+    const b = h.world.addTelegraph(52, 2.4, { x: 8 });
+    const windA = h.fire(started(a)).sources;
+    h.advance(0.1, false);
+    const windB = h.fire(started(b)).sources;
+    h.advance(0.5, false);
+    const now = h.ctx.currentTime;
+    expect(h.fire(cancelled(51)).added).toBe(0);
+    for (const s of windA) expect(stopOf(s)).toBeLessThanOrEqual(now + 0.2);
+    expect(Math.max(...windB.map(stopOf))).toBeGreaterThan(now + 1.5);
+    h.d.dispose();
+  });
+
   it('Paradox meets the Rewind where it lands', () => {
     /** When the shards meet: the stop most of the Paradox's sources share. */
     const meet = (withRewind: boolean) => {
@@ -1069,5 +1084,28 @@ describe('audio lab: Phase 3e buttons', () => {
       expect(h.world.calling, id).toBeNull();
       h.d.dispose();
     }
+  });
+});
+
+// ── Found in passing: the Martyr in D dorian ─────────────────────────────────────────
+
+describe('the Martyr’s fifths stay in the key', () => {
+  it('Vexis’s fifth is her F, never F♯: Borne, a Bear save and a Vow hold', () => {
+    const borne = harness().fire(ev('borne', { hero: IDS.vexis, amount: 60, via: 'bear' }));
+    expect(hasPitch(borne.sources, midiToHz(41))).toBe(true);
+    expect(hasPitch(borne.sources, midiToHz(42))).toBe(false);
+    const bear = harness().fire(save('bear', IDS.vexis));
+    expect(bear.groups).toContain('bearSave');
+    expect(hasPitch(bear.sources, midiToHz(41))).toBe(true);
+    expect(hasPitch(bear.sources, midiToHz(42))).toBe(false);
+    const held = harness().fire(save('vow', IDS.vexis));
+    expect(held.groups).toContain('bigVowHeld');
+    expect(hasPitch(held.sources, midiToHz(77))).toBe(true);
+    expect(hasPitch(held.sources, midiToHz(78))).toBe(false);
+  });
+
+  it('Kael’s is still his A', () => {
+    const borne = harness().fire(ev('borne', { hero: IDS.kael, amount: 60, via: 'bear' }));
+    expect(hasPitch(borne.sources, midiToHz(45))).toBe(true);
   });
 });

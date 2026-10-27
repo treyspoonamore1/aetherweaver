@@ -151,10 +151,9 @@ export class SfxEngine {
   private readonly ticked = new Set<number>();
   /** Where each hero's last Rewind lands (AudioContext time): Paradox meets it there. */
   private readonly rewindLand = new Map<number, number>();
-  /** This batch: heroes a Rewind stood back up, Solos that came ready, attacks cancelled. */
+  /** This batch: heroes a Rewind stood back up, and Solos that came ready. */
   private readonly batchRevived = new Set<number>();
   private readonly batchSoloReady = new Set<number>();
-  private readonly cancelledNow: number[] = [];
 
   constructor(
     private readonly e: Engine,
@@ -214,24 +213,16 @@ export class SfxEngine {
 
   /**
    * Phase 3e: what a batch says about itself before any of it is played. A Rewind that stands
-   * a hero back up comes after that hero's `revived` and save in the same batch; the attacks
-   * Paradox undoes resolve as cancelled just before its own event; Borrowed Time may have made
-   * a Solo ready.
+   * a hero back up comes after that hero's `revived` and save in the same batch; Borrowed Time
+   * may have made a Solo ready.
    */
   private scanBatch(events: readonly SimEvent[]): void {
     this.batchRevived.clear();
     this.batchSoloReady.clear();
-    this.cancelledNow.length = 0;
     try {
       for (const ev of events) {
         if (ev.type === 'rewound' && ev.revived) this.batchRevived.add(ev.target);
         else if (ev.type === 'soloReady') this.batchSoloReady.add(ev.hero);
-        else if (
-          ev.type === 'telegraphResolved' &&
-          ev.outcome === 'cancelled' &&
-          ev.target === null
-        )
-          this.cancelledNow.push(ev.telegraph);
       }
     } catch {
       // A malformed event: nothing here is worth breaking the batch for.
@@ -441,6 +432,11 @@ export class SfxEngine {
         break;
       case 'telegraphStarted':
         this.telegraph(ev, state);
+        break;
+      case 'telegraphResolved':
+        // An attack called off before it lands (its caster killed or interrupted, undone by
+        // Paradox, the fight over) stops winding up rather than swell into nothing.
+        if (ev.outcome === 'cancelled') this.cutWindup(ev.telegraph);
         break;
       case 'fieldPlanted':
         this.fieldPlanted(this.panFor(state, ev.x));
@@ -1676,6 +1672,12 @@ export class SfxEngine {
     return m;
   }
 
+  /** The fifth above `heroLow`, counted in scale degrees: Vexis's B has her F, never F♯. */
+  private heroFifth(defId: string | undefined, lo: number): number {
+    const idx = heroPluckIndex(defId);
+    return this.heroLow(defId, lo) + scaleMidi(idx + 4) - scaleMidi(idx);
+  }
+
   /**
    * Bear taken up: the burden settles. A heartbeat (lub-dub) on D1-ish, again a beat later and
    * softer, under a bowed D2 and A2 that swell in over half a second and hold. About 2 s.
@@ -1750,7 +1752,7 @@ export class SfxEngine {
     const weaver = state.entities.get(state.weaverId)?.health;
     const size = clamp(amount / (0.2 * Math.max(60, weaver?.maxHp ?? 300)), 0, 1);
     const ent = state.entities.get(hero);
-    const hz = midiToHz(this.heroLow(ent?.hero?.defId, 33));
+    const fifth = midiToHz(this.heroFifth(ent?.hero?.defId, 33));
     const gain =
       (0.04 + 0.07 * size) *
       (shared ? 0.55 : via === 'vow' ? 1.1 : 1) *
@@ -1760,7 +1762,7 @@ export class SfxEngine {
       3,
       'sfx',
       (v, t) => {
-        thump(v, t, hz * 1.5, gain, 0.2 + 0.1 * size, 0.6);
+        thump(v, t, fifth, gain, 0.2 + 0.1 * size, 0.6);
         v.noise({
           start: t,
           dur: 0.06 + 0.03 * size,
@@ -1771,7 +1773,7 @@ export class SfxEngine {
         if (!shared)
           v.osc({
             type: 'triangle',
-            freq: hz * 3,
+            freq: fifth * 2,
             start: t,
             dur: 0.12,
             attack: 0.004,
@@ -1787,8 +1789,8 @@ export class SfxEngine {
   /** A hit Bear made survivable: a heartbeat on the hero's note, under the ordinary save. */
   private bearSave(target: number, state: WorldState): void {
     const ent = state.entities.get(target);
-    const hz = midiToHz(this.heroLow(ent?.hero?.defId, 33));
-    this.play('bearSave', 1, 'sfx', (v, t) => heartbeat(v, t, hz * 1.5, 0.17, 0.2), {
+    const fifth = midiToHz(this.heroFifth(ent?.hero?.defId, 33));
+    this.play('bearSave', 1, 'sfx', (v, t) => heartbeat(v, t, fifth, 0.17, 0.2), {
       pan: ent ? this.panFor(state, ent.x) * 0.3 : 0,
     });
   }
@@ -1887,7 +1889,7 @@ export class SfxEngine {
       'sfx',
       (v, t) => {
         anvil(v, t, midiToHz(m), 0.16, 2.2);
-        handbell(v, t, midiToHz(m + 19), 0.055, 2.0, 1);
+        handbell(v, t, midiToHz(this.heroFifth(ent?.hero?.defId, 50) + 12), 0.055, 2.0, 1);
         v.osc({
           type: 'sine',
           freq: midiToHz(m + 12),
@@ -2464,11 +2466,7 @@ export class SfxEngine {
   private paradox(hero: number, cancelled: number, state: WorldState): void {
     const e = this.e;
     const now = e.now;
-    for (const id of this.cancelledNow) {
-      this.windups.get(id)?.kill(now, 0.12);
-      this.windups.delete(id);
-      this.frozen.delete(id);
-    }
+    // (The attacks it undid have stopped winding up already: they resolve as cancelled first.)
     if (!(cancelled > 0) || !e.gate('paradox', 0.3)) return;
     const ent = state.entities.get(hero);
     const deg = degreeOf(ent?.hero?.defId);
@@ -2711,6 +2709,13 @@ export class SfxEngine {
       { pan },
     );
     if (h) this.trackWindup(ev.telegraph, h);
+  }
+
+  /** A windup stops (0.12 s) and won't resume: its attack was called off. */
+  private cutWindup(id: number): void {
+    this.windups.get(id)?.kill(this.e.now, 0.12);
+    this.windups.delete(id);
+    this.frozen.delete(id);
   }
 
   /** Remembers a windup by its telegraph (and forgets the ones that have finished). */

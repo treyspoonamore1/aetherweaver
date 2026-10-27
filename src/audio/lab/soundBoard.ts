@@ -1073,7 +1073,7 @@ export const SOUNDS: SoundButton[] = [
   },
   {
     id: 'chrono-rewind-spam',
-    label: 'Rewind spam in Stasis (12 in 1 s)',
+    label: 'Rewind spam (12 in 1 s, as Stasis allows)',
     group: 'chrono',
     length: 3,
     fire: (d, w) => fire(d, w, ...rewindEvents('kael', [-3, -3], [-1, -5], 40)),
