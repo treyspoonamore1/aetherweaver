@@ -11,6 +11,7 @@ import type { ActiveBoon } from '../../meta/types';
 import { BossBar } from './BossBar';
 import { RelicBar } from './RelicBar';
 import { CallingChip } from './CallingChip';
+import { KeystoneChip } from './KeystoneChip';
 import { Callouts } from './Callouts';
 import { CoachHints } from './CoachHints';
 import { DirectiveWheel, DirectiveWheelView } from './DirectiveWheel';
@@ -114,7 +115,12 @@ export function HudView({
       <div className="absolute left-4 top-4 flex flex-col items-start gap-2">
         <EncounterHeader encounter={hud.encounter} subtitle={subtitle} clockText={clockText} />
         <RelicBar relics={hud.relics} boons={boons} seconds={hud.seconds} flash={relicFlash} />
-        {hud.calling && <CallingChip calling={hud.calling} />}
+        {(hud.calling || (hud.astrolabe?.keystones.length ?? 0) > 0) && (
+          <div className="flex items-center gap-2">
+            {hud.calling && <CallingChip calling={hud.calling} />}
+            <KeystoneChip keystones={hud.astrolabe?.keystones ?? []} />
+          </div>
+        )}
       </div>
       {hud.boss && (
         <BossBar

@@ -422,6 +422,15 @@ export class FieldView {
     return this.batch.instance(i);
   }
 
+  /**
+   * How cracked and flickering the fields are drawn, 0..1: `field.suppressed`, smoothed. It
+   * follows the sim's state only (a Mute's dome cracks them because the sim says the Weaver is
+   * silenced; under Unbroken Chorus it never does). Tests read it.
+   */
+  get suppressedLevel(): number {
+    return this.suppressed;
+  }
+
   /** How much of the beam song `hero` holds right now, 0..1 (render-side fade). */
   haloOf(hero: EntityId): number {
     return this.halo.get(hero) ?? 0;

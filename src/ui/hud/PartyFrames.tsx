@@ -15,6 +15,66 @@ import { bearLabel, shineLabel } from './calling';
 import { CallingGlyph, callingLook } from '../kit/CallingGlyph';
 import { secondsLabel } from './chrono';
 import { rewindMark, rewindSentence } from './rewindText';
+import { AstrolabeGlyph } from '../kit/AstrolabeGlyph';
+import { CONSTELLATION_LOOK } from '../kit/astrolabeLook';
+
+/** The Silk's gold: the Astrolabe's Thread stars (Afterglow, Overflowing Grace). */
+const SILK = CONSTELLATION_LOOK.silk;
+
+/**
+ * The Astrolabe on a hero's frame (Phase 4): Afterglow, Empower lingering after the Thread left
+ * them ("Afterglow 2.1 s", Empower's colour and glyph, a ring for what's left); and Overflowing
+ * Grace, the shield Mend's overheal keeps on them ("Grace +210", in the shield's colour, the
+ * keystone's glyph). Both sit in the status row, so frames don't grow.
+ */
+function AstrolabeMarks({ hero: h }: { hero: HeroHud }) {
+  return (
+    <>
+      {h.afterglow && (
+        <span
+          className="flex items-center gap-1 whitespace-nowrap rounded-md border px-1 text-xs font-bold leading-5"
+          style={{
+            color: AMP,
+            borderColor: `color-mix(in srgb, ${AMP} 55%, transparent)`,
+            background: `color-mix(in srgb, ${AMP} 14%, transparent)`,
+          }}
+          role="img"
+          aria-label={`Afterglow: Empower lingers on ${h.name} for ${h.afterglow.remaining.toFixed(1)} more seconds`}
+          title={`Afterglow: Empower lingers on ${h.name} after your Thread left them`}
+          data-testid="afterglow"
+        >
+          <Ring
+            value={h.afterglow.remaining / Math.max(0.01, h.afterglow.total)}
+            size={14}
+            stroke={2}
+            color={AMP}
+          >
+            <Icon name="empower" size={8} />
+          </Ring>
+          Afterglow
+          <span className="font-semibold tabular-nums">{secondsLabel(h.afterglow.remaining)}</span>
+        </span>
+      )}
+      {h.grace && (
+        <span
+          className="flex items-center gap-1 whitespace-nowrap rounded-md border px-1 text-xs font-bold leading-5"
+          style={{
+            color: SHIELD,
+            borderColor: `color-mix(in srgb, ${SILK.color} 55%, transparent)`,
+            background: `color-mix(in srgb, ${SILK.color} 12%, transparent)`,
+          }}
+          role="img"
+          aria-label={`Overflowing Grace: a ${fmt(h.grace.amount)} shield on ${h.name} from Mend's overheal, ${h.grace.remaining.toFixed(1)} seconds left`}
+          title={`Overflowing Grace: Mend’s overheal keeps a shield on ${h.name} (up to ${fmt(h.grace.cap)})`}
+          data-testid="grace"
+        >
+          <AstrolabeGlyph glyph="overflowing_grace" size={12} style={{ color: SILK.color }} />
+          Grace +{fmt(h.grace.amount)}
+        </span>
+      )}
+    </>
+  );
+}
 
 const HEAL = 'var(--color-heal)';
 const AMP = 'var(--color-amp)';
@@ -517,6 +577,7 @@ export function HeroFrame({
                   <ChronoMarks hero={h} rewind={rewind} />
                 )}
                 {(h.borne > 0 || h.vow) && <MartyrMarks hero={h} />}
+                {(h.afterglow || h.grace) && <AstrolabeMarks hero={h} />}
                 {h.statuses
                   .filter((s) => !(h.held && s.id === 'held'))
                   .map((s) => (

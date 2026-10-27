@@ -14,8 +14,15 @@ import {
   type Allowance,
   type Unlock,
 } from '../../meta/profile';
-import { CHORD_PRESETS } from '../../meta/run';
+import { CHORD_PRESETS, reservePool } from '../../meta/run';
+import type { RunState } from '../../meta/types';
 import { techniqueName } from './callingText';
+import {
+  treeLifeCap,
+  treeLifeMult,
+  treeTechCostMult,
+  treeTechniquesCostLife,
+} from './astrolabeModel';
 import {
   LIFE_RESERVE_CAP,
   canonicalChords,
@@ -159,9 +166,9 @@ export interface BudgetSlice {
 }
 
 export interface SpiritBudget {
-  /** What the songs reserve from: Spirit, or (the Martyr's) Life. */
+  /** What the songs reserve from: Spirit, or (the Martyr's, Sanguine Font's) Life. */
   pool: ReservePool;
-  /** The whole pool: max Spirit, or all of the Martyr's Life. */
+  /** The whole pool: max Spirit, or all of her Life. */
   max: number;
   /** The most the songs may hold (Spirit: all of it; Life: `LIFE_RESERVE_CAP` of it). */
   cap: number;
@@ -171,8 +178,13 @@ export interface SpiritBudget {
   free: number;
   over: boolean;
   slices: BudgetSlice[];
-  /** Technique costs against the free Spirit (all of it on a Martyr run). */
+  /**
+   * Technique costs (the tree's Economy included) against what pays them: the free Spirit (all
+   * of it when the songs hold Life), or her Life with Eldritch Conduit.
+   */
   techniques: { key: 'ward' | 'chime' | 'reel'; name: string; cost: number; affordable: boolean }[];
+  /** What techniques are paid from (Phase 4: Life with Eldritch Conduit). */
+  techPool: ReservePool;
   /** The Spirit techniques draw on: `free` for Spirit, all of it when the songs hold Life. */
   spirit: number;
   wardAffordable: boolean;
@@ -183,31 +195,49 @@ export interface SpiritBudget {
   chorus: boolean;
   /** Life only: a Weaver without the Martyr's Life (content `maxLife`), to compare against. */
   baseLife: number;
+  /**
+   * Phase 4: the Astrolabe's multiplier on the songs' share (`Run.reserveMult(run)`; 1 without a
+   * tree): 0.86 reads "−14% from the Astrolabe".
+   */
+  reserveMult: number;
+  /** Prism Covenant: the share of what's left she fights at and can be healed to (1: all). */
+  lifeCap: number;
+  /** Her whole Life, the tree's included, whatever the songs hold (the Life techniques cost). */
+  weaverLife: number;
 }
 
 /**
- * The Weaver's whole Life on a run with this Calling: content `maxLife`, grown by the
- * Calling's `life` value (the Martyr's passive; the sim's `lifeMult`). The UI test checks it
- * against a real sim's `WeaverComponent.maxLife`.
+ * The Weaver's whole Life on a run with this Calling and tree: content `maxLife`, grown by the
+ * Calling's `life` value (the Martyr's passive) and the tree's Blood (the sim's `lifeMult`).
+ * The UI tests check it against a real sim's `WeaverComponent.maxLife`.
  */
-export function weaverLifeFor(callingId: string | null | undefined): number {
+export function weaverLifeFor(
+  callingId: string | null | undefined,
+  astrolabe: readonly string[] = [],
+): number {
   const base = CONTENT.weaver.maxLife;
   const def = callingId ? CONTENT.callings.find((c) => c.id === callingId) : undefined;
-  return base * (1 + (def?.values.life ?? 0) / 100);
+  return base * (1 + (def?.values.life ?? 0) / 100) * treeLifeMult(astrolabe);
 }
 
 /**
- * The songs' budget: reserved against free, for Spirit (the content's `maxSpirit`) or, on a
- * Martyr run, for Life (`weaverLifeFor`, capped at `LIFE_RESERVE_CAP`). Shares come from the
- * sim's `chordReserve`, so the numbers match what the fight will hold.
+ * The songs' budget: reserved against free, for Spirit (the content's `maxSpirit`) or, when the
+ * songs hold Life (the Martyr, Sanguine Font), for Life (`weaverLifeFor`, capped at
+ * `LIFE_RESERVE_CAP`). Shares come from the sim's `chordReserve` times the tree's `reserveMult`
+ * (`Run.reserveMult`), so the numbers match what the fight will hold.
  */
 export function spiritBudget(
   chords: readonly ChordLoadout[],
   pool: ReservePool = 'spirit',
   callingId: string | null = null,
+  /** Phase 4: the run's tree (`run.astrolabe`) and its multiplier on the songs (`Run.reserveMult`). */
+  tree: { reserveMult?: number; astrolabe?: readonly string[] } = {},
 ): SpiritBudget {
+  const mult = tree.reserveMult ?? 1;
+  const astrolabe = tree.astrolabe ?? [];
   const life = pool === 'life';
-  const max = life ? weaverLifeFor(callingId) : CONTENT.weaver.maxSpirit;
+  const weaverLife = weaverLifeFor(callingId, astrolabe);
+  const max = life ? weaverLife : CONTENT.weaver.maxSpirit;
   const cap = life ? max * LIFE_RESERVE_CAP : max;
   const slices: BudgetSlice[] = [];
   chords.forEach((c, chord) => {
@@ -220,20 +250,25 @@ export function spiritBudget(
           id,
           name: a.name,
           color: a.color,
-          spirit: max * a.reserve * r.reserveMult,
+          spirit: max * a.reserve * r.reserveMult * mult,
         });
     }
   });
-  const reserved = max * chordReserve(canonicalChords(chords));
+  const reserved = max * chordReserve(canonicalChords(chords)) * mult;
   const free = Math.max(0, max - reserved);
   const spirit = life ? CONTENT.weaver.maxSpirit : free;
+  const lifeCap = treeLifeCap(astrolabe);
+  // Eldritch Conduit: techniques cost Life, paid from what she fights with (never her last).
+  const techPool: ReservePool = treeTechniquesCostLife(astrolabe) ? 'life' : 'spirit';
+  const payWith = techPool === 'life' ? (life ? free : weaverLife) * lifeCap - 1 : spirit;
   const t = CONTENT.techniques;
+  const costMult = treeTechCostMult(astrolabe);
   // On a Chronomancer run Reel's slot is Rewind (same cost): it reads as Rewind (Phase 3e).
   const techniques = (['ward', 'chime', 'reel'] as const).map((key) => ({
     key,
     name: techniqueName(key, callingId),
-    cost: t[key].cost,
-    affordable: spirit + 1e-9 >= t[key].cost,
+    cost: t[key].cost * costMult,
+    affordable: payWith + 1e-9 >= t[key].cost * costMult,
   }));
   const auraCount = slices.length;
   return {
@@ -245,13 +280,41 @@ export function spiritBudget(
     over: reserved > cap + 1e-9,
     slices,
     techniques,
+    techPool,
     spirit,
     wardAffordable: techniques[0]!.affordable,
-    allThree: spirit + 1e-9 >= techniques.reduce((s, x) => s + x.cost, 0),
+    allThree: payWith + 1e-9 >= techniques.reduce((s, x) => s + x.cost, 0),
     auraCount,
     chorus: auraCount >= CONTENT.chorus.minAuras,
     baseLife: CONTENT.weaver.maxLife,
+    reserveMult: mult,
+    lifeCap,
+    weaverLife,
   };
+}
+
+/** A technique's cost as the builder prints it ("20", "18.4"). */
+export function costText(cost: number): string {
+  return String(Number(cost.toFixed(1)));
+}
+
+/**
+ * What powers what, for Prep's blurb: Spirit for the techniques, unless the songs hold Life
+ * (the Martyr, Sanguine Font) or the techniques cost it (Eldritch Conduit).
+ */
+export function poolBlurb(run: RunState): string {
+  const reel = techniqueName('reel', run.calling?.id);
+  const lifeTech = treeTechniquesCostLife(run.astrolabe);
+  if (reservePool(run) === 'life') {
+    const who =
+      run.calling?.id === 'martyr' ? 'As the Martyr, your auras' : 'With Sanguine Font, your auras';
+    return lifeTech
+      ? `${who} reserve Life instead, and with Eldritch Conduit your techniques cost Life too: you fight with the Life your songs leave you.`
+      : `${who} reserve Life instead: every point of Spirit powers Ward, Chime and ${reel}, and you fight with the Life your songs leave you.`;
+  }
+  return lifeTech
+    ? `With Eldritch Conduit, Ward, Chime and ${reel} cost Life instead: your Spirit is your songs’ alone.`
+    : `Whatever Spirit your auras leave free powers Ward, Chime and ${reel}.`;
 }
 
 /** "Spirit" or "Life": the word for what the songs reserve. */
@@ -270,10 +333,12 @@ export function loadoutProblems(
   fieldAuraSlots: number = CONTENT.weaver.auraSlots,
   /** What the songs reserve: `Run.reservePool(run)` (Life on a Martyr run, at most 90%). */
   pool: ReservePool = 'spirit',
+  /** Phase 4: the tree's multiplier on the songs' share: `Run.reserveMult(run)`. */
+  reserveMult = 1,
 ): string[] {
   const canon = canonicalChords(chords);
   return [
-    ...chordProblems(canon, CONTENT, { fieldAuraSlots, pool }),
+    ...chordProblems(canon, CONTENT, { fieldAuraSlots, pool, reserveMult }),
     ...lockedProblems(canon, allowance),
   ];
 }

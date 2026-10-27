@@ -2,12 +2,14 @@
 import { Voice, type Engine } from './engine';
 import {
   anvil,
+  brassBell,
   choirChord,
   clockTick,
   glassNote,
   glassPing,
   handbell,
   pluck,
+  reverseBrassBell,
   reverseGlass,
   thump,
   whoosh,
@@ -48,6 +50,13 @@ export const UI_SOUND_NAMES = Object.keys({
   callingSelect: 0,
   callingReveal: 0,
   callingPick: 0,
+  starHover: 0,
+  starTake: 0,
+  starNotable: 0,
+  starKeystone: 0,
+  starPath: 0,
+  starRefund: 0,
+  starRespec: 0,
 } satisfies Record<UiSound, 0>) as UiSound[];
 
 /** Phase 3e: the UI sounds voiced per Calling (the Chronomancer's are its own). */
@@ -58,17 +67,41 @@ export const CALLING_UI_SOUNDS: ReadonlySet<UiSound> = new Set<UiSound>([
 ]);
 
 /**
+ * Phase 4, the Astrolabe's star map: each sound's rate gate (seconds) and voice cap. The hover is
+ * swept across many nodes, so it is gated hardest; a keystone and a respec ring long, so they
+ * hold one or two voices.
+ */
+export const STAR_LIMITS: Readonly<Partial<Record<UiSound, readonly [number, number]>>> = {
+  starHover: [0.04, 2],
+  starTake: [0.05, 3],
+  starNotable: [0.08, 2],
+  starKeystone: [0.3, 2],
+  starPath: [0.1, 2],
+  starRefund: [0.05, 3],
+  starRespec: [0.4, 1],
+};
+
+/**
+ * The stars a hover lights, one after another (D6, A6, E6, B6, D7): all from one open chord, so
+ * a sweep across the map twinkles in any order and a single hover is a single glint.
+ */
+export const HOVER_STARS: readonly number[] = [14, 18, 15, 19, 21, 18, 14, 19];
+const hoverTurn = new WeakMap<Engine, number>();
+
+/**
  * Plays a UI sound. `calling` (Phase 3e) is the Calling a Calling sound is for: the
  * Chronomancer has its own clockwork voicings; the Luminary, the Martyr and none share the
  * first ones.
  */
 export function playUiSound(e: Engine, sound: UiSound, calling: string | null = null): void {
   const chrono = calling === 'chronomancer';
+  const star = STAR_LIMITS[sound];
   if (sound === 'hover' && !e.gate('ui:hover', 0.045)) return;
   if (sound === 'unlock' && !e.gate('ui:unlock', 0.06)) return;
   if (sound === 'aether' && !e.gate('ui:aether', 0.05)) return;
   if (sound === 'relicReveal' && !e.gate('ui:relicReveal', 0.12)) return;
-  if (!e.admit(`ui:${sound}`, sound === 'hover' ? 2 : 3)) return;
+  if (star && !e.gate(`ui:${sound}`, star[0])) return;
+  if (!e.admit(`ui:${sound}`, star?.[1] ?? (sound === 'hover' ? 2 : 3))) return;
   const t = e.now + 0.004;
   const v = new Voice(e, 'ui');
   switch (sound) {
@@ -156,6 +189,27 @@ export function playUiSound(e: Engine, sound: UiSound, calling: string | null = 
     case 'callingPick':
       if (chrono) chronoPick(v, t);
       else callingPick(v, t);
+      break;
+    case 'starHover':
+      starHover(e, v, t);
+      break;
+    case 'starTake':
+      starTake(v, t);
+      break;
+    case 'starNotable':
+      starNotable(v, t);
+      break;
+    case 'starKeystone':
+      starKeystone(v, t);
+      break;
+    case 'starPath':
+      starPath(v, t);
+      break;
+    case 'starRefund':
+      starRefund(v, t);
+      break;
+    case 'starRespec':
+      starRespec(v, t);
       break;
     case 'wheelOpen':
       // A soft bloom: a breath opening upwards and a quiet A4.
@@ -626,4 +680,119 @@ function chronoPick(v: Voice, t: number): void {
   glassNote(v, at, hz(14), 0.055, 1.6, 1);
   pluck(v, at, hz(7), 0.11, 0.4, 0.6);
   v.extend(t + 2.3);
+}
+
+// ── Phase 4: the Astrolabe's star map ────────────────────────────────────────────────
+// An astrolabe's brass and glass: small brass bells tuned like a carillon's (their minor third
+// inside them, so they sit on D, E and A) and glass stars kindling above them. Nothing here
+// ticks: the clockwork belongs to the Chronomancer.
+
+/**
+ * A star hovered or focused, gone in 0.2 s: one tiny, very soft glint of glass on the next of
+ * `HOVER_STARS`. The player sweeps across many, so it is gated hardest and twinkles rather than
+ * repeats. Two sources.
+ */
+function starHover(e: Engine, v: Voice, t: number): void {
+  const turn = hoverTurn.get(e) ?? 0;
+  hoverTurn.set(e, turn + 1);
+  glassPing(v, t, hz(HOVER_STARS[turn % HOVER_STARS.length] ?? 14), 0.026, 0.1);
+}
+
+/**
+ * One travel node taken, about 0.7 s: a small brass bell struck on D5 (warm, its F and A inside
+ * it) and the star kindled a breath later, a glass A6. Soft enough to take node after node.
+ */
+function starTake(v: Voice, t: number): void {
+  brassBell(v, t, hz(7), 0.07, 0.7, 0.35);
+  glassPing(v, t + 0.045, hz(18), 0.03, 0.5);
+}
+
+/**
+ * A notable (or a great notable) taken, about 1.4 s: richer. The brass D5 answered a fifth up by
+ * a brass A5, three stars lighting around them (D6 E6 A6, quick) and a glass D7 left shimmering
+ * over a breath of air.
+ */
+function starNotable(v: Voice, t: number): void {
+  brassBell(v, t, hz(7), 0.08, 1.3, 0.5);
+  brassBell(v, t + 0.08, hz(11), 0.06, 1.4, 0.6);
+  [14, 15, 18].forEach((idx, i) =>
+    glassPing(v, t + 0.12 + i * 0.05, hz(idx), 0.022 + 0.005 * i, 0.6),
+  );
+  glassNote(v, t + 0.27, hz(21), 0.022, 1.3, 0.8);
+  whoosh(v, t, 0.6, 0.014, 800, 3600, 1);
+  v.extend(t + 1.7);
+}
+
+/**
+ * A keystone taken, about 2.7 s: deep and resonant, with weight. A great brass bell on D3 (its hum
+ * on D2) over a soft sub thump, a D4 bell an octave up, a Dm choir swelling beneath, and the
+ * constellation lighting star by star above them (A5 D6 E6 A6) to a long glass D7, with a slow
+ * breath as the plates turn.
+ */
+function starKeystone(v: Voice, t: number): void {
+  thump(v, t, hz(-14), 0.15, 0.45, 0.7);
+  brassBell(v, t, hz(-7), 0.13, 3.0, 0.35);
+  brassBell(v, t + 0.025, hz(0), 0.07, 2.4, 0.5);
+  choirChord(v, t + 0.05, [hz(-7), hz(-3), hz(0), hz(2)], 1.0, 0.1, 0.4, 1.5);
+  [11, 14, 15, 18].forEach((idx, i) => glassNote(v, t + 0.2 + i * 0.1, hz(idx), 0.026, 1.3, 0.8));
+  glassNote(v, t + 0.62, hz(21), 0.024, 1.9, 0.9);
+  whoosh(v, t, 1.3, 0.018, 300, 2400, 1.2);
+  v.extend(t + 3.3);
+}
+
+/**
+ * Several nodes taken at once (a path), about 1.1 s: a quick rising run of small brass taps
+ * through an open chord (D5 E5 A5 B5), each with a glint an octave up, landing on a brass D6 and
+ * a glass A6 above it.
+ */
+function starPath(v: Voice, t: number): void {
+  const run = [7, 8, 11, 12];
+  run.forEach((idx, i) => {
+    const at = t + i * 0.05;
+    v.osc({
+      type: 'sine',
+      freq: hz(idx),
+      start: at,
+      dur: 0.16,
+      attack: 0.003,
+      release: 0.04,
+      gain: 0.045 + 0.006 * i,
+    });
+    glassPing(v, at, hz(idx + 7), 0.014 + 0.003 * i, 0.3);
+  });
+  const land = t + run.length * 0.05;
+  brassBell(v, land, hz(14), 0.06, 0.9, 0.55);
+  glassNote(v, land + 0.03, hz(18), 0.025, 1.0, 0.8);
+  whoosh(v, t, 0.4, 0.012, 700, 3200, 1);
+  v.extend(land + 1.1);
+}
+
+/**
+ * One node given back, about half a second: the take reversed. The star's glass A6 drawn back in, then
+ * the brass D5 swelling backwards into silence, and a soft low tap as it comes unseated.
+ */
+function starRefund(v: Voice, t: number): void {
+  const glassEnd = t + 0.12;
+  reverseGlass(v, glassEnd, hz(18), 0.02, 0.12, 0.6);
+  const bellEnd = glassEnd + 0.16;
+  reverseBrassBell(v, bellEnd, hz(7), 0.05, 0.16);
+  v.noise({ start: bellEnd, dur: 0.008, gain: 0.025, filter: { type: 'lowpass', freq: 1200 } });
+  v.extend(bellEnd + 0.1);
+}
+
+/**
+ * Everything given back, about 1.8 s: a sweep down. The stars go out one by one, a falling run of
+ * glass from D7 to D5, softer and duller as it falls over a breath sinking from bright to dark,
+ * and the brass settles on a low D4 bell (the plates at rest) with a soft D3 under it.
+ */
+function starRespec(v: Voice, t: number): void {
+  const fall = [21, 19, 18, 15, 14, 12, 11, 8, 7];
+  fall.forEach((idx, i) =>
+    glassPing(v, t + i * 0.055, hz(idx), 0.03 - 0.0022 * i, 0.32 + 0.03 * i),
+  );
+  whoosh(v, t, 0.9, 0.02, 4200, 380, 0.9);
+  const land = t + fall.length * 0.055 + 0.03;
+  brassBell(v, land, hz(0), 0.075, 1.6, 0.25);
+  thump(v, land, hz(-7), 0.06, 0.25, 0.7);
+  v.extend(land + 1.8);
 }

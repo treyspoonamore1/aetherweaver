@@ -1,14 +1,16 @@
 /** Every sound the lab can trigger, grouped. Shared by the buttons and the offline audit. */
+import { CONTENT } from '../../content';
 import type { SimEvent } from '../../sim';
 import type { SynthDirector } from '../director';
 import type { UiSound } from '../types';
 import type { FakeTelegraph, FakeWorld } from './labState';
-import { IDS, ev, type HeroKey } from './labState';
+import { IDS, ev, nodeWith, type HeroKey } from './labState';
 
 export interface SoundButton {
   id: string;
   label: string;
-  group: 'support' | 'phase2' | 'relic' | 'calling' | 'martyr' | 'chrono' | 'world' | 'ui';
+  group:
+    'support' | 'phase2' | 'relic' | 'calling' | 'martyr' | 'chrono' | 'astrolabe' | 'world' | 'ui';
   /** Fires the sound. Receives the director and a world to read/mutate. */
   fire(d: SynthDirector, w: FakeWorld): void;
   /** Follow-up events, `delay` seconds after the first (call then answer, hold then release). */
@@ -251,6 +253,96 @@ function foresightBurst(d: SynthDirector, w: FakeWorld, step: number): void {
         at: w.time + 1,
       }),
     );
+}
+
+// ── Phase 4 helpers ────────────────────────────────────────────────────────────────
+
+/** A value of the content's node with this effect (so the lab follows the lead's tuning). */
+const nodeValue = (effect: string, key: string): number =>
+  CONTENT.astrolabe.nodes.find((n) => n.effect === effect)?.values[key] ?? 0;
+
+/** The fake fight carries a tree of the nodes with these effects. */
+const tree = (w: FakeWorld, ...effects: string[]) => w.setAstrolabe(effects.map(nodeWith));
+
+/** The last follow-up of a Phase 4 button: the lab world as it was. */
+const restore = (delay: number): Follow => ({
+  delay,
+  fire: (_d, w) => {
+    w.setAstrolabe([]);
+    w.setWard('kael', 0);
+    w.setWeaverHp(1);
+    for (const h of ['kael', 'lyra', 'vexis'] as const) w.setAfterglow(h, 0);
+  },
+});
+
+/** A Ward on a hero of 1000 life, as the content builds it (before the tree's multipliers). */
+const wardMax = () =>
+  CONTENT.techniques.ward.barrierPct * 1000 + CONTENT.techniques.ward.barrierFlat;
+
+/**
+ * Shatterproof Halo: Kael's Ward takes a hit half again its barrier and holds, having lost the
+ * most it can (the node's cap), as the state reports it after the hit.
+ */
+function haloHit(d: SynthDirector, w: FakeWorld): void {
+  const max = wardMax();
+  const cap = nodeValue('shatterproof_halo', 'cap') / 100;
+  w.setWard('kael', max * (1 - cap), max);
+  fire(
+    d,
+    w,
+    ev('damageTaken', {
+      target: IDS.kael,
+      source: IDS.enemyBase,
+      amount: 0,
+      absorbed: max * 1.5,
+      amplified: 0,
+      aura: 0,
+      radiance: 0,
+      eclipse: 0,
+      crit: false,
+      telegraph: 1,
+      hit: 'hit',
+    }),
+  );
+}
+
+/** A technique cast as the sim reports it: the cast, and its own event (Chime and Reel). */
+function castEvents(technique: 'ward' | 'chime' | 'reel'): SimEvent[] {
+  if (technique === 'ward')
+    return [ev('techniqueCast', { technique, target: IDS.kael, x: -3, z: -3 })];
+  if (technique === 'chime')
+    return [
+      ev('techniqueCast', { technique, target: null, x: 4, z: 0 }),
+      ev('chimeLaunched', { chime: 1, fromX: 0, fromZ: 0, x: 4, z: 0, landsAt: 0.25 }),
+    ];
+  return [
+    ev('techniqueCast', { technique, target: IDS.lyra, x: 9, z: 0 }),
+    ev('reeled', { target: IDS.lyra, fromX: 9, fromZ: 0, toX: 1, toZ: 0 }),
+  ];
+}
+
+/** One twentieth of the Phase 4 burst: every keystone's sound asked for at once. */
+function astroBurst(d: SynthDirector, w: FakeWorld, step: number): void {
+  const heroes = [IDS.kael, IDS.lyra, IDS.vexis];
+  const grace = nodeValue('overflowing_grace', 'cap') * 10;
+  fire(
+    d,
+    w,
+    ...heroes.map((hero) => ev('graceShield', { hero, amount: grace })),
+    ...castEvents((['ward', 'chime', 'reel'] as const)[step % 3]),
+    ev('techniqueRejected', { technique: 'ward', reason: 'life' }),
+    ev('revived', { hero: heroes[step % 3] as number }),
+  );
+  haloHit(d, w);
+  w.setAfterglow(
+    (['kael', 'lyra', 'vexis'] as const)[(step + 1) % 3],
+    nodeValue('afterglow', 'seconds'),
+  );
+  fire(
+    d,
+    w,
+    ev('threadAttached', { hero: heroes[step % 3] as number, slot: (step % 3) as 0 | 1 | 2 }),
+  );
 }
 
 export const SOUNDS: SoundButton[] = [
@@ -1312,6 +1404,248 @@ export const SOUNDS: SoundButton[] = [
     length: 3,
     fire: (d) => d.playUi(s, 'chronomancer'),
   })),
+  // ── Phase 4: the Astrolabe ─────────────────────────────────────────────────────
+  ...(
+    [
+      ['starHover', 'Star hovered (a soft glint; each hover the next star)'],
+      ['starTake', 'Travel node taken'],
+      ['starNotable', 'Notable taken'],
+      ['starKeystone', 'Keystone taken'],
+      ['starPath', 'A path taken (several nodes at once)'],
+      ['starRefund', 'A node given back'],
+      ['starRespec', 'Respec (everything given back)'],
+    ] as const
+  ).map(([s, label]): SoundButton => ({
+    id: `ui-${s}`,
+    label: `UI: ${label}`,
+    group: 'astrolabe',
+    length: s === 'starKeystone' || s === 'starRespec' ? 4 : 3,
+    fire: (d) => d.playUi(s),
+  })),
+  {
+    id: 'astro-hover-sweep',
+    label: 'UI: hover sweep (24 stars in 0.6 s: about a dozen glints)',
+    group: 'astrolabe',
+    length: 2,
+    fire: (d) => d.playUi('starHover'),
+    then: Array.from({ length: 23 }, (_, i) => ({
+      delay: Math.round((i + 1) * 0.025 * 1000) / 1000,
+      fire: (d: SynthDirector) => d.playUi('starHover'),
+    })),
+  },
+  {
+    id: 'astro-path-keystone',
+    label: 'UI: a path to a keystone (the run, then the keystone)',
+    group: 'astrolabe',
+    length: 4,
+    fire: (d) => d.playUi('starPath'),
+    then: [{ delay: 0.2, fire: (d) => d.playUi('starKeystone') }],
+  },
+  {
+    id: 'astro-take-refund',
+    label: 'UI: take a node, then give it back',
+    group: 'astrolabe',
+    length: 2,
+    fire: (d) => d.playUi('starTake'),
+    then: [{ delay: 0.6, fire: (d) => d.playUi('starRefund') }],
+  },
+  ...(
+    [
+      ['cantAfford', 'not enough points'],
+      ['unlock', 'unlock'],
+      ['rankUp', 'Rank up'],
+    ] as const
+  ).map(([s, label]): SoundButton => ({
+    id: `astro-ui-${s}`,
+    label: `UI: ${label} (${s}, compare)`,
+    group: 'astrolabe',
+    length: s === 'rankUp' ? 3 : 2,
+    fire: (d) => d.playUi(s),
+  })),
+  {
+    id: 'astro-grace',
+    label: 'Overflowing Grace: Mend runs over into a shield on Lyra',
+    group: 'astrolabe',
+    length: 2,
+    fire: (d, w) => {
+      tree(w, 'overflowing_grace');
+      const amount = nodeValue('overflowing_grace', 'cap') * 10;
+      fire(d, w, ev('graceShield', { hero: IDS.lyra, amount }));
+    },
+    then: [restore(0.1)],
+  },
+  {
+    id: 'astro-grace-party',
+    label: 'Overflowing Grace on all three at once (one chime), then 0.3 s apart',
+    group: 'astrolabe',
+    length: 3,
+    fire: (d, w) => {
+      tree(w, 'overflowing_grace');
+      const amount = nodeValue('overflowing_grace', 'cap') * 5;
+      fire(
+        d,
+        w,
+        ...[IDS.kael, IDS.lyra, IDS.vexis].map((hero) => ev('graceShield', { hero, amount })),
+      );
+    },
+    then: [
+      ...[IDS.lyra, IDS.vexis].map((hero, i) => ({
+        delay: 0.3 * (i + 1),
+        fire: (d: SynthDirector, w: FakeWorld) =>
+          fire(
+            d,
+            w,
+            ev('graceShield', { hero, amount: nodeValue('overflowing_grace', 'cap') * 5 }),
+          ),
+      })),
+      restore(0.7),
+    ],
+  },
+  ...(['ward', 'reel', 'chime'] as const).map((t): SoundButton => ({
+    id: `astro-conduit-${t}`,
+    label:
+      t === 'chime'
+        ? 'Eldritch Conduit: a Chime paid in Life, with little left (a second beat)'
+        : `Eldritch Conduit: a ${t === 'ward' ? 'Ward on Kael' : 'Reel of Lyra'} paid in Life`,
+    group: 'astrolabe',
+    length: 3,
+    fire: (d, w) => {
+      tree(w, 'eldritch_conduit');
+      if (t === 'chime') w.setWeaverHp(0.22);
+      fire(d, w, ...castEvents(t));
+    },
+    then: [restore(0.1)],
+  })),
+  {
+    id: 'astro-conduit-compare',
+    label: 'The same Ward paid in Spirit (compare)',
+    group: 'astrolabe',
+    length: 3,
+    fire: (d, w) => fire(d, w, ...castEvents('ward')),
+  },
+  {
+    id: 'astro-reject-life',
+    label: 'Refused: paying in Life would down her',
+    group: 'astrolabe',
+    fire: (d, w) => fire(d, w, ev('techniqueRejected', { technique: 'ward', reason: 'life' })),
+  },
+  {
+    id: 'astro-reject-spirit',
+    label: 'Refused for Spirit (compare)',
+    group: 'astrolabe',
+    fire: (d, w) => fire(d, w, ev('techniqueRejected', { technique: 'ward', reason: 'spirit' })),
+  },
+  {
+    id: 'astro-reject-rewind-life',
+    label: 'Rewind refused for Life (the clockwork "no", in blood)',
+    group: 'astrolabe',
+    fire: (d, w) => fire(d, w, ev('techniqueRejected', { technique: 'rewind', reason: 'life' })),
+  },
+  {
+    id: 'astro-halo',
+    label: "Shatterproof Halo: Kael's Ward holds a hit that would have broken it",
+    group: 'astrolabe',
+    length: 3,
+    fire: (d, w) => {
+      tree(w, 'shatterproof_halo');
+      haloHit(d, w);
+    },
+    then: [restore(0.1)],
+  },
+  {
+    id: 'astro-halo-compare',
+    label: 'The same hit breaks a Ward without it (compare)',
+    group: 'astrolabe',
+    length: 3,
+    fire: (d, w) =>
+      fire(
+        d,
+        w,
+        ev('damageTaken', {
+          target: IDS.kael,
+          source: IDS.enemyBase,
+          amount: wardMax() * 0.5,
+          absorbed: wardMax(),
+          amplified: 0,
+          aura: 0,
+          radiance: 0,
+          eclipse: 0,
+          crit: false,
+          telegraph: 1,
+          hit: 'hit',
+        }),
+        ev('shieldBroken', { target: IDS.kael, shield: 'ward' }),
+      ),
+  },
+  {
+    id: 'astro-afterglow',
+    label: 'Afterglow: the Thread leaves an Empowered Lyra for Kael (a fading tail)',
+    group: 'astrolabe',
+    length: 5,
+    fire: (d, w) => {
+      tree(w, 'afterglow');
+      w.setAfterglow('lyra', nodeValue('afterglow', 'seconds'));
+      fire(d, w, ev('threadAttached', { hero: IDS.kael, slot: 0 }));
+    },
+    then: [restore(0.1)],
+  },
+  {
+    id: 'astro-afterglow-back',
+    label: 'Afterglow let go: the Thread comes back to Lyra a second later',
+    group: 'astrolabe',
+    length: 3,
+    fire: (d, w) => {
+      tree(w, 'afterglow');
+      w.setAfterglow('lyra', nodeValue('afterglow', 'seconds'));
+      fire(d, w, ev('threadAttached', { hero: IDS.kael, slot: 0 }));
+    },
+    then: [
+      { delay: 1, fire: (d, w) => fire(d, w, ev('threadAttached', { hero: IDS.lyra, slot: 1 })) },
+      restore(1.1),
+    ],
+  },
+  {
+    id: 'astro-second-wind',
+    label: 'Second Wind: Mend revives Vexis (a touch fuller, untouchable a moment)',
+    group: 'astrolabe',
+    length: 4,
+    fire: (d, w) => {
+      tree(w, 'second_wind');
+      fire(d, w, ev('revived', { hero: IDS.vexis }));
+    },
+    then: [restore(0.1)],
+  },
+  {
+    id: 'astro-revive-compare',
+    label: 'Ordinary revive (compare)',
+    group: 'astrolabe',
+    length: 3,
+    fire: (d, w) => fire(d, w, ev('revived', { hero: IDS.vexis })),
+  },
+  {
+    id: 'astro-burst',
+    label: 'Every keystone at once, 20 times in 1 s (the gates hold)',
+    group: 'astrolabe',
+    length: 5,
+    fire: (d, w) => {
+      tree(
+        w,
+        'overflowing_grace',
+        'shatterproof_halo',
+        'eldritch_conduit',
+        'afterglow',
+        'second_wind',
+      );
+      astroBurst(d, w, 0);
+    },
+    then: [
+      ...Array.from({ length: 19 }, (_, i) => ({
+        delay: Math.round((i + 1) * 0.05 * 1000) / 1000,
+        fire: (d: SynthDirector, w: FakeWorld) => astroBurst(d, w, i + 1),
+      })),
+      restore(1),
+    ],
+  },
   // ── UI ─────────────────────────────────────────────────────────────────────────
   ...(
     [

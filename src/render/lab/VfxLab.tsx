@@ -109,6 +109,37 @@ interface LabApi {
   setChrono(path: string[] | null): void;
   /** What the Chronomancer's view has played and is drawing. */
   chronoStats(): ChronoStats;
+  /** Phase 4 */
+  astroScenarios(): string[];
+  /** Restarts the real sim with that scenario's Astrolabe tree (and Chords, relics) and stages it. */
+  astroScenario(name: string): void;
+  /** Restarts the real sim with this Astrolabe tree (node ids; null: none). */
+  setAstrolabe(nodes: string[] | null): void;
+  /** What the Astrolabe's view has played and is drawing, and what it reads. */
+  astroStats(): AstroStats;
+}
+
+interface AstroStats {
+  nodes: string[];
+  fired: Record<string, number>;
+  drawn: Record<string, number>;
+  look: Record<string, boolean | number>;
+  /** Her Life, Prism Covenant's cap, her spectral edge (0..1) and Conduit's flicker. */
+  weaver: { hp: number; maxHp: number; cap: number; prism: number; conduit: number };
+  /** Per hero: life, Grace's fill (-1: no Grace shell), Afterglow left, untouchable seconds. */
+  heroes: {
+    hp: number;
+    maxHp: number;
+    shields: string[];
+    grace: number;
+    afterglow: number;
+    invulnerable: number;
+    wind: boolean;
+    halo: { arc: number; life: number };
+  }[];
+  /** The sim silences her (`field.suppressed`) and how cracked render draws the fields. */
+  suppressed: boolean;
+  fieldCracks: number;
 }
 
 interface ChronoStats {
@@ -187,6 +218,8 @@ let carried: string[] = [];
 /** Phase 3c: the Calling the lab sim takes, and a scenario's own Chords (null: the picker's). */
 let callingCfg: SimConfig['calling'] = null;
 let chordsOverride: ChordConfig[] | null = null;
+/** Phase 4: the Astrolabe tree the lab sim fights with (node ids, as SimConfig.astrolabe). */
+let astrolabeCfg: string[] = [];
 
 interface RelicScenario {
   relics: string[];
@@ -930,6 +963,167 @@ const CHRONO_SCENARIOS: Record<string, ChronoScenario> = {
 };
 const CHRONO_SCENARIO_NAMES = Object.keys(CHRONO_SCENARIOS);
 
+interface AstroScenario {
+  /** The Astrolabe tree (node ids). Keystones work on their own in the sim. */
+  nodes: string[];
+  /** Chords (default: Guardian), relics (default: none) and Calling (default: none). */
+  chords?: ChordConfig[];
+  relics?: string[];
+  calling?: SimConfig['calling'];
+  note: string;
+  stage(rt: LabRuntime): void;
+}
+
+/** Every keystone and great notable render shows, for the clutter check. */
+const ASTRO_ALL = [
+  'overflowing_grace',
+  'shatterproof_halo',
+  'eldritch_conduit',
+  'prism_covenant',
+  'unbroken_chorus',
+  'silk_bn',
+  'second_wind',
+];
+/** Ostinato's barrier in the field song (an aura: its look stays its own beside Grace's). */
+const BARRIER_CHORDS: ChordConfig[] = [
+  { auras: ['fortissimo'], ornaments: [] },
+  { auras: ['ostinato'], ornaments: [] },
+];
+
+/** A Mute beside the Weaver: its dome over her and her field. */
+function muteBeside(rt: LabRuntime, at: number): void {
+  rt.later(at, () => rt.spawn('mute', 3.2, -2.6));
+}
+
+/**
+ * Toll Cleave on Kael, Warded 0.75 s into its wind-up: well before its Perfect window (the hit
+ * is absorbed, not Perfect), late enough that the Halo's shorter Ward outlives the hit a while.
+ */
+function haloHit(rt: LabRuntime, elite = true): void {
+  rt.later(0.2, () => rt.brute(0, elite));
+  rt.onEvent(
+    (e) => e.type === 'telegraphStarted' && e.name === 'Toll Cleave',
+    () => rt.later(0.75, () => rt.queue({ t: 'tech', id: 'ward', slot: 0 })),
+  );
+}
+
+/**
+ * Phase 4: one scenario per Astrolabe visual. Each restarts the real sim with an Astrolabe tree
+ * (SimConfig.astrolabe) and stages it with real commands and debug ops (no injected events).
+ */
+const ASTRO_SCENARIOS: Record<string, AstroScenario> = {
+  'Overflowing Grace': {
+    nodes: ['overflowing_grace'],
+    note: 'Thread Kael at full life: Mend’s overflow forms a shell of light on him, filling as Mend tops it up, brimming at its cap',
+    stage: (rt) => {
+      rt.later(0.2, () => rt.thread(0));
+    },
+  },
+  'Grace · in a fight': {
+    nodes: ['overflowing_grace'],
+    note: 'Kael threaded; at 3 s a brute’s Toll Cleave takes the shield down, and Mend fills it again',
+    stage: (rt) => {
+      rt.later(0.2, () => rt.thread(0));
+      rt.later(3, () => rt.brute(0));
+    },
+  },
+  'Grace · beside the others': {
+    nodes: ['overflowing_grace'],
+    relics: ['silver_thimble'],
+    chords: BARRIER_CHORDS,
+    note: 'Lyra’s Silver Thimble shield (Empower: not Mended over), Kael’s Grace filling, a Ward on Vexis (2.4 s), Ostinato’s barriers on everyone',
+    stage: (rt) => {
+      rt.later(0.2, () => rt.queue({ t: 'mode' }));
+      rt.later(0.25, () => rt.thread(1));
+      rt.later(0.8, () => rt.thread(0));
+      rt.later(0.85, () => rt.queue({ t: 'mode' }));
+      rt.later(2.4, () => rt.queue({ t: 'tech', id: 'ward', slot: 2 }));
+    },
+  },
+  'Shatterproof Halo': {
+    nodes: ['shatterproof_halo'],
+    note: 'An elite brute’s Toll Cleave on Kael, Warded 0.75 s into its wind-up: the Ward takes all of it, rings and holds, halved',
+    stage: (rt) => haloHit(rt),
+  },
+  'Halo · its life': {
+    nodes: ['shatterproof_halo'],
+    note: 'A Ward on Kael, no fight: its circlet sinks from his shoulders to his feet as its shorter life runs out',
+    stage: (rt) => {
+      rt.later(0.3, () => rt.queue({ t: 'tech', id: 'ward', slot: 0 }));
+    },
+  },
+  'Eldritch Conduit': {
+    nodes: ['eldritch_conduit'],
+    note: 'A Ward (0.4 s), a Chime (1.4 s) and a Reel (2.4 s), each paid in Life: a blood-violet flicker from you',
+    stage: (rt) => {
+      rt.later(0.2, () => rt.thread(1));
+      rt.later(0.4, () => rt.queue({ t: 'tech', id: 'ward', slot: 0 }));
+      rt.later(1.4, () => {
+        const p = rt.heroPos(2);
+        rt.queue({ t: 'tech', id: 'chime', point: p });
+      });
+      rt.later(2.4, () => rt.queue({ t: 'tech', id: 'reel', slot: 2 }));
+    },
+  },
+  'Prism Covenant': {
+    nodes: ['prism_covenant'],
+    note: 'You fight at half your Life: a spectral edge on you while you stand at its cap',
+    stage: (rt) => {
+      rt.later(0.2, () => rt.thread(1));
+    },
+  },
+  'Unbroken Chorus': {
+    nodes: ['unbroken_chorus'],
+    note: 'A Mute beside you: your field stays whole; where its dome meets your field, a resisting shimmer',
+    stage: (rt) => {
+      rt.later(0.2, () => rt.thread(1));
+      muteBeside(rt, 0.3);
+    },
+  },
+  'Mute · no tree': {
+    nodes: [],
+    note: 'The same Mute without Unbroken Chorus, for comparison: it silences you and cracks your field',
+    stage: (rt) => {
+      rt.later(0.2, () => rt.thread(1));
+      muteBeside(rt, 0.3);
+    },
+  },
+  Afterglow: {
+    nodes: ['silk_bn'],
+    note: 'Kael Empowered in a fight; at 1.6 s you thread Lyra: the Empower glow lingers on Kael and fades',
+    stage: (rt) => {
+      rt.later(0.2, () => {
+        rt.thread(0);
+        rt.queue({ t: 'mode' });
+      });
+      rt.later(0.4, () => frontFight(rt, 1, 2));
+      rt.later(1.6, () => rt.thread(1));
+    },
+  },
+  'Second Wind': {
+    nodes: ['second_wind'],
+    note: 'A Fermata hold on Kael runs out (debug op) and he goes down; you thread him and Mend stands him up untouchable',
+    stage: (rt) => {
+      rt.later(0.2, () => rt.thread(1));
+      rt.later(0.4, () => rt.queue({ t: 'debug', op: { op: 'forceHold', slot: 0 } }));
+      rt.onEvent(
+        (e) => e.type === 'allyDowned' && e.hero === rt.heroId(0),
+        () => rt.later(0.1, () => rt.thread(0)),
+      );
+    },
+  },
+  'Every keystone': {
+    nodes: ASTRO_ALL,
+    note: 'Grace on Kael, a Halo Ward paid in Life ringing under a Toll Cleave, a Mute’s dome, Prism’s edge (the clutter check)',
+    stage: (rt) => {
+      rt.later(0.15, () => rt.thread(0));
+      haloHit(rt);
+      muteBeside(rt, 0.5);
+    },
+  },
+};
+const ASTRO_SCENARIO_NAMES = Object.keys(ASTRO_SCENARIOS);
+
 class LabRuntime {
   sim: Sim;
   readonly stage: Stage;
@@ -990,6 +1184,7 @@ class LabRuntime {
       chords: chordsOverride ?? LOADOUTS[this.loadout] ?? LOADOUTS.Steady,
       relics: carried,
       calling: callingCfg,
+      astrolabe: astrolabeCfg,
     });
   }
 
@@ -1013,6 +1208,7 @@ class LabRuntime {
     if (!s) return;
     callingCfg = null;
     chordsOverride = null;
+    astrolabeCfg = [];
     this.restart(s.relics);
     s.stage(this);
   }
@@ -1028,6 +1224,7 @@ class LabRuntime {
     const s = LUM_SCENARIOS[name];
     if (!s) return;
     carried = [];
+    astrolabeCfg = [];
     this.setCalling(s.path, s.chords ?? GUARDIAN_CHORDS);
     s.stage(this);
   }
@@ -1059,6 +1256,7 @@ class LabRuntime {
     const s = MARTYR_SCENARIOS[name];
     if (!s) return;
     carried = [];
+    astrolabeCfg = [];
     this.setCalling(s.path, s.chords ?? GUARDIAN_CHORDS, 'martyr');
     s.stage(this);
   }
@@ -1092,8 +1290,67 @@ class LabRuntime {
     const s = CHRONO_SCENARIOS[name];
     if (!s) return;
     carried = [];
+    astrolabeCfg = [];
     this.setCalling(s.path, s.chords ?? GUARDIAN_CHORDS, 'chronomancer');
     s.stage(this);
+  }
+
+  /** Phase 4: restarts with that scenario's Astrolabe tree (and its Chords, relics) and stages it. */
+  astroScenario(name: string): void {
+    const s = ASTRO_SCENARIOS[name];
+    if (!s) return;
+    astrolabeCfg = [...s.nodes];
+    callingCfg = s.calling ?? null;
+    chordsOverride = s.chords ?? GUARDIAN_CHORDS;
+    this.restart(s.relics ?? []);
+    s.stage(this);
+  }
+
+  /** Phase 4: restarts with this tree (null: none), keeping the relics, Calling and Chords. */
+  setAstrolabe(nodes: string[] | null): void {
+    astrolabeCfg = nodes ? [...nodes] : [];
+    this.restart(carried);
+  }
+
+  astroStats(): AstroStats {
+    const v = this.view;
+    const st = this.sim.state;
+    const look: Record<string, boolean | number> = {};
+    for (const [k, val] of Object.entries(v.astrolabe.look))
+      if (typeof val === 'boolean' || typeof val === 'number') look[k] = val;
+    const w = st.entities.get(st.weaverId);
+    const wr = v.entities.recs.get(st.weaverId);
+    return {
+      nodes: [...st.astrolabe.nodes],
+      fired: { ...v.astrolabe.fired },
+      drawn: { ...v.astrolabe.drawn },
+      look,
+      weaver: {
+        hp: w?.health?.hp ?? 0,
+        maxHp: w?.health?.maxHp ?? 0,
+        cap: st.astrolabe.lifeCapPct,
+        prism: wr?.prism ?? 0,
+        conduit: wr?.conduit ?? 0,
+      },
+      heroes: st.party.map((id, slot) => {
+        const e = st.entities.get(id);
+        const r = v.entities.recs.get(id);
+        return {
+          hp: e?.health?.hp ?? 0,
+          maxHp: e?.health?.maxHp ?? 0,
+          shields: (e?.health?.shields ?? []).map(
+            (s) => `${s.kind} ${Math.round(s.amount)}/${Math.round(s.max)}`,
+          ),
+          grace: r?.graceRef ? v.astrolabe.graceFillOf(slot) : -1,
+          afterglow: v.astrolabe.afterglowOf(slot),
+          invulnerable: e?.health?.invulnerable ?? 0,
+          wind: v.astrolabe.windOf(slot),
+          halo: { arc: v.astrolabe.haloOf(slot).arc, life: v.astrolabe.haloOf(slot).life },
+        };
+      }),
+      suppressed: st.field.suppressed,
+      fieldCracks: v.field.suppressedLevel,
+    };
   }
 
   chronoStats(): ChronoStats {
@@ -1949,11 +2206,15 @@ export function VfxLab() {
       chronoScenario: (name) => rt.chronoScenario(name),
       setChrono: (path) => rt.setCalling(path, null, 'chronomancer'),
       chronoStats: () => rt.chronoStats(),
+      astroScenarios: () => ASTRO_SCENARIO_NAMES,
+      astroScenario: (name) => rt.astroScenario(name),
+      setAstrolabe: (nodes) => rt.setAstrolabe(nodes),
+      astroStats: () => rt.astroStats(),
     };
     const timer = window.setInterval(() => {
       const i = rt.info();
       if (statsRef.current) {
-        statsRef.current.textContent = `fps ${i.fps.toFixed(1)}  calls ${i.calls}  tris ${(i.triangles / 1000).toFixed(1)}k\nparticles ${i.particles}  entities ${rt.sim.state.entities.count}  tick ${rt.sim.tick}\nrelics ${rt.sim.state.relics.ids.length ? rt.sim.state.relics.ids.join(', ') : 'none'}\ncalling ${rt.sim.state.calling ? `${rt.sim.state.calling.id} · ${rt.sim.state.calling.path.join(', ') || 'no path'}` : 'none'}`;
+        statsRef.current.textContent = `fps ${i.fps.toFixed(1)}  calls ${i.calls}  tris ${(i.triangles / 1000).toFixed(1)}k\nparticles ${i.particles}  entities ${rt.sim.state.entities.count}  tick ${rt.sim.tick}\nrelics ${rt.sim.state.relics.ids.length ? rt.sim.state.relics.ids.join(', ') : 'none'}\ncalling ${rt.sim.state.calling ? `${rt.sim.state.calling.id} · ${rt.sim.state.calling.path.join(', ') || 'no path'}` : 'none'}\nastrolabe ${rt.sim.state.astrolabe.nodes.length ? rt.sim.state.astrolabe.nodes.join(', ') : 'none'}`;
       }
     }, 250);
     return () => {
@@ -2310,6 +2571,23 @@ export function VfxLab() {
             title="Restart with the Chronomancer and no path"
           >
             Chronomancer, no path
+          </Btn>
+        </Group>
+        <Group title="Phase 4 · Astrolabe">
+          <p className="w-full text-[10px] text-muted">
+            Each restarts the real sim with an Astrolabe tree (and its Chords) and stages it.
+          </p>
+          {ASTRO_SCENARIO_NAMES.map((name) => (
+            <Btn
+              key={name}
+              onClick={() => rt()?.astroScenario(name)}
+              title={ASTRO_SCENARIOS[name]!.note}
+            >
+              {name}
+            </Btn>
+          ))}
+          <Btn onClick={() => rt()?.setAstrolabe(null)} title="Restart without a tree">
+            No tree
           </Btn>
         </Group>
         <Group title="Phase 2 · Chords">

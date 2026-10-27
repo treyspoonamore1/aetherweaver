@@ -54,7 +54,17 @@ function offlineDirector(seconds: number, volumes: Volumes) {
   return { ctx, d };
 }
 
-/** Renders one lab button in isolation (no music). */
+/**
+ * Phase 4: seconds of silence before a rendered sound fires. A freshly built mixer is not yet at
+ * rest (the limiter and the volume ramps settle over the first few hundred milliseconds), and a
+ * sound fired at once read up to 6 dB low (most for low, percussive sounds).
+ */
+export const SETTLE = 0.5;
+
+/**
+ * Renders one lab button in isolation (no music). The mixer settles for `SETTLE` seconds first;
+ * the buffer returned starts as the sound fires.
+ */
 export async function renderSound(
   sound: SoundButton,
   volumes = DEFAULT_VOLUMES,
@@ -62,22 +72,40 @@ export async function renderSound(
 ): Promise<AudioBuffer> {
   // Quantised sounds (the boss phase stinger) wait for the next bar line, so give them time.
   const length = Math.max(seconds, sound.length ?? 0, sound.id === 'phase' ? 7 : 0);
-  const { ctx, d } = offlineDirector(length, volumes);
+  const { ctx, d } = offlineDirector(SETTLE + length, volumes);
   const w = new FakeWorld();
   d.pump();
-  sound.fire(d, w);
   const pending = [...(sound.then ?? [])];
-  for (let t = 0.1; t < length - 0.5; t += 0.1) {
+  let firedAt = -1;
+  for (let i = 1; i * 0.1 < SETTLE + length - 0.5 + 1e-6; i++) {
+    const t = Math.round(i * 100) / 1000;
     void ctx.suspend(t).then(() => {
+      if (firedAt < 0 && t >= SETTLE - 1e-6) {
+        firedAt = ctx.currentTime;
+        sound.fire(d, w);
+      }
       // Follow-up events (an answer, a release) land on the first pump after their delay.
-      while (pending.length && (pending[0] as { delay: number }).delay <= t + 1e-6) {
+      while (
+        firedAt >= 0 &&
+        pending.length &&
+        (pending[0] as { delay: number }).delay <= t - SETTLE + 1e-6
+      ) {
         (pending.shift() as { fire(d: SynthDirector, w: FakeWorld): void }).fire(d, w);
       }
       d.pump();
       void ctx.resume();
     });
   }
-  return ctx.startRendering();
+  const full = await ctx.startRendering();
+  const from = Math.max(0, Math.round(firedAt * full.sampleRate));
+  const out = new AudioBuffer({
+    numberOfChannels: full.numberOfChannels,
+    length: Math.max(1, full.length - from),
+    sampleRate: full.sampleRate,
+  });
+  for (let ch = 0; ch < full.numberOfChannels; ch++)
+    out.copyToChannel(full.getChannelData(ch).subarray(from), ch);
+  return out;
 }
 
 export async function auditSound(

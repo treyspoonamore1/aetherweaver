@@ -3,14 +3,16 @@
  * director's current chord, so good play sounds good. Every sound goes through the engine's
  * voice limiter (≤ 4 of a kind) and rate gates.
  */
-import { enemyDef } from '../content';
-import type {
-  DeepReadonly,
-  SimEvent,
-  Telegraph,
-  TelegraphShape,
-  TelegraphStarted,
-  WorldState,
+import { enemyDef, type AstrolabeNode } from '../content';
+import {
+  techniqueCost,
+  treeNodes,
+  type DeepReadonly,
+  type SimEvent,
+  type Telegraph,
+  type TelegraphShape,
+  type TelegraphStarted,
+  type WorldState,
 } from '../sim';
 import { Voice, type BusName, type Engine, type VoiceHandle } from './engine';
 import type { MusicEngine } from './music';
@@ -92,6 +94,20 @@ const fightOver = (state: WorldState): boolean => {
 /** Paradox's shards, as scale indices (D6 up to D7), in the order they are dealt out. */
 const PARADOX_SHARDS: readonly number[] = [18, 14, 20, 16, 21, 15, 19, 17];
 
+/**
+ * Phase 4, the Astrolabe: the node effects (the sim's, `KNOWN_ASTROLABE_EFFECTS`) whose sounds
+ * read their node from the tree. Overflowing Grace and Eldritch Conduit also speak on their own
+ * event and state flag; Prism Covenant has no sound.
+ */
+export const ASTROLABE_SOUND_EFFECTS = [
+  'overflowing_grace',
+  'shatterproof_halo',
+  'afterglow',
+  'second_wind',
+  'eldritch_conduit',
+] as const;
+type AstroEffect = (typeof ASTROLABE_SOUND_EFFECTS)[number];
+
 /** A telegraph as the state holds it (Phase 3e resumes windups and counts down from these). */
 type Telegraphed = DeepReadonly<Telegraph>;
 
@@ -154,6 +170,11 @@ export class SfxEngine {
   /** This batch: heroes a Rewind stood back up, and Solos that came ready. */
   private readonly batchRevived = new Set<number>();
   private readonly batchSoloReady = new Set<number>();
+  /** Phase 4: the fight's tree (the content's nodes), kept for the array it was read from. */
+  private tree: { ids: readonly string[]; nodes: readonly AstrolabeNode[] } | null = null;
+  /** Afterglow tails still sounding, by hero, and the `afterglowUntil` each one was for. */
+  private readonly afterglowTail = new Map<number, VoiceHandle>();
+  private readonly afterglowSeen = new Map<number, number>();
 
   constructor(
     private readonly e: Engine,
@@ -240,6 +261,11 @@ export class SfxEngine {
       case 'techniqueCast':
         if (ev.technique === 'ward') this.ward();
         // Phase 3e: Rewind (in Reel's slot) speaks on `rewound`, which says where and how much.
+        // Phase 4: Eldritch Conduit's price in Life is heard under the technique's own sound.
+        this.conduitPaid(ev.technique, ev.target, state);
+        break;
+      case 'graceShield':
+        this.graceShield(ev.hero, ev.amount, state);
         break;
       case 'perfectWard':
         this.perfectWard();
@@ -277,6 +303,8 @@ export class SfxEngine {
           pluck(v, t, hz, 0.13, 0.55, 0.7);
           v.noise({ start: t, dur: 0.02, gain: 0.03, filter: { type: 'highpass', freq: 4000 } });
         });
+        // Phase 4: Empower may linger on the hero the Thread left (Afterglow).
+        this.afterglow(ev.hero, state);
         break;
       }
       case 'threadModeChanged': {
@@ -374,7 +402,8 @@ export class SfxEngine {
         break;
       case 'damageTaken':
         if (ev.radiance > 0) this.radiance(ev, state);
-        this.heroHit(ev, state);
+        // Phase 4: a Ward that holds a hit that would have broken it rings in the hit's place.
+        if (!this.haloHeld(ev, state)) this.heroHit(ev, state);
         break;
       case 'dawnward':
         this.dawnward(ev.hero, ev.amount, state);
@@ -414,6 +443,7 @@ export class SfxEngine {
         }
         break;
       case 'allyDowned':
+        this.endAfterglow(ev.hero, 0.3);
         this.allyDown(false);
         break;
       case 'allyOut':
@@ -425,7 +455,11 @@ export class SfxEngine {
       case 'revived':
         // Phase 3e: a hero Rewind stood back up has the Rewind's own, stronger sound instead.
         if (this.batchRevived.has(ev.hero)) this.music.jump();
-        else this.revived();
+        else {
+          this.revived();
+          // Phase 4: Mend's revive with Second Wind, a touch fuller.
+          this.secondWind(ev.hero, state);
+        }
         break;
       case 'weaverReformed':
         this.revived();
@@ -825,6 +859,11 @@ export class SfxEngine {
 
   private rejected(reason: string): void {
     if (!this.e.gate('reject', 0.22)) return;
+    // Phase 4: Eldritch Conduit refuses a technique that would down her (its own variant).
+    if (reason === 'life') {
+      this.play('rejectLife', 2, 'sfx', (v, t) => this.lifeNo(v, t, 0.09));
+      return;
+    }
     const f = reason === 'spirit' ? 98 : reason === 'cooldown' ? 130.8 : 110;
     this.play('reject', 2, 'sfx', (v, t) =>
       v.osc({
@@ -2115,6 +2154,11 @@ export class SfxEngine {
     this.play('rejectRewind', 2, 'sfx', (v, t) => {
       clockTick(v, t, midiToHz(81), 0.045, 0.03);
       clockTick(v, t + 0.06, midiToHz(77), 0.035, 0.03);
+      // Phase 4: paid in Life (Eldritch Conduit), it would have downed her: the blood's "no".
+      if (reason === 'life') {
+        this.lifeNo(v, t + 0.02, 0.07);
+        return;
+      }
       v.osc({
         type: 'sawtooth',
         freq: f,
@@ -2530,6 +2574,286 @@ export class SfxEngine {
         glassPing(v, at + 0.05, midiToHz(93), 0.015, 0.9);
       },
       { big: true },
+    );
+  }
+
+  // ── Phase 4: the Astrolabe ───────────────────────────────────────────────────────
+  // The keystones bend rules in the fight, and each bend is heard as the thing it bends: Mend
+  // running over, a technique paid in blood, a Ward that won't break, a revive that stands up
+  // stronger. Every number is the content's (the node's values) or the state's, every sound is
+  // silent without its node, and each is gated so a burst never stacks it.
+
+  /** The allocated node with this effect (the content's own, with its values), if any. */
+  private astroNode(state: WorldState, effect: AstroEffect): AstrolabeNode | undefined {
+    const ids = state.astrolabe?.nodes;
+    if (!ids || ids.length === 0) return undefined;
+    if (this.tree?.ids !== ids) this.tree = { ids, nodes: treeNodes(ids) };
+    return this.tree.nodes.find((n) => n.effect === effect);
+  }
+
+  /**
+   * Overflowing Grace: Mend's overheal formed a shield on the hero (`graceShield`, sent as it
+   * forms, not for each top-up). A soft overflow chime: the hero's own note two octaves over D4
+   * in glass (D6, A6, B6), brimming, and three drops spilling down from it by degree onto the
+   * octave below (Kael A5 F5 D5), over a little pour of air. A fuller shield (its share of the
+   * node's cap) is a little louder. Once per hero per 1.2 s and across the party every 0.25 s
+   * (gated together: Undying's Mend can form three at once); two voices. Panned to the hero.
+   */
+  private graceShield(hero: number, amount: number, state: WorldState): void {
+    if (!(amount > 0) || !this.e.gateAll([`grace:${hero}`, 1.2], ['grace', 0.25])) return;
+    const ent = state.entities.get(hero);
+    const cap = (this.astroNode(state, 'overflowing_grace')?.values.cap ?? 0) / 100;
+    const maxHp = ent?.health?.maxHp ?? 0;
+    const size = cap > 0 && maxHp > 0 ? clamp(amount / (maxHp * cap), 0, 1) : 0.5;
+    const deg = degreeOf(ent?.hero?.defId);
+    const g = 0.026 + 0.02 * size;
+    this.play(
+      'grace',
+      2,
+      'sfx',
+      (v, t) => {
+        glassNote(v, t, midiToHz(scaleMidi(deg + 14)), g, 1.1, 0.55);
+        [11, 9, 7].forEach((k, i) =>
+          glassPing(
+            v,
+            t + 0.08 + i * 0.075,
+            midiToHz(scaleMidi(deg + k)),
+            g * (0.55 - 0.1 * i),
+            0.4,
+          ),
+        );
+        whoosh(v, t + 0.03, 0.4, 0.01, 2600, 900, 1);
+        v.extend(t + 1.3);
+      },
+      { pan: ent ? this.panFor(state, ent.x) * 0.7 : 0 },
+    );
+  }
+
+  /**
+   * Eldritch Conduit: a technique paid in Life (`state.astrolabe.techniquesCostLife`). A subtle
+   * blood pulse under the technique's own sound: one muffled beat with a dark swell under it,
+   * pitched from the hero it was for (their note folded into D2..C#3; the Chime's, with no hero,
+   * is D), fuller for a bigger share of her Life (the price is `techniqueCost`'s), and a second,
+   * softer beat when what she has left is low (under about a third). Glide is free and silent.
+   * Once per 0.3 s (Stasis lets her cast again and again); two voices.
+   */
+  private conduitPaid(technique: string, target: number | null, state: WorldState): void {
+    if (!state.astrolabe?.techniquesCostLife) return;
+    // Rewind is paid in Reel's slot, at Reel's cost.
+    const costed = technique === 'rewind' ? 'reel' : technique;
+    if (costed !== 'ward' && costed !== 'chime' && costed !== 'reel') return;
+    const cost = techniqueCost(state, costed);
+    if (cost.pool !== 'life' || !(cost.amount > 0) || !this.e.gate('conduit', 0.3)) return;
+    const weaver = state.entities.get(state.weaverId)?.health;
+    const life = Math.max(1, weaver?.maxHp ?? 0);
+    const share = clamp(cost.amount / life / 0.1, 0, 1);
+    const low = weaver ? clamp(1 - weaver.hp / life / 0.35, 0, 1) : 0;
+    const ent = target === null ? undefined : state.entities.get(target);
+    const f = midiToHz(this.heroLow(ent?.hero?.defId, 38));
+    const g = (0.05 + 0.035 * share) * (1 + 0.25 * low);
+    this.play('conduit', 2, 'sfx', (v, t) => {
+      const at = t + 0.015;
+      thump(v, at, f, g, 0.2, 0.6);
+      v.noise({ start: at, dur: 0.07, gain: g * 0.45, filter: { type: 'lowpass', freq: 260 } });
+      v.osc({
+        type: 'sine',
+        freq: f,
+        start: at,
+        dur: 0.12,
+        attack: 0.05,
+        release: 0.25,
+        gain: g * 0.3,
+        shape: 'sustain',
+      });
+      if (low > 0) {
+        thump(v, at + 0.22, f, g * (0.4 + 0.3 * low), 0.18, 0.62);
+        v.noise({
+          start: at + 0.22,
+          dur: 0.06,
+          gain: g * 0.3,
+          filter: { type: 'lowpass', freq: 260 },
+        });
+      }
+    });
+  }
+
+  /**
+   * The "no" of a technique Eldritch Conduit refuses (paying in Life would down her): the usual
+   * low saw "no", a step under Spirit's (F2), with the blood it can't spare under it, one muffled
+   * beat on D2.
+   */
+  private lifeNo(v: Voice, t: number, gain: number): void {
+    v.osc({
+      type: 'sawtooth',
+      freq: midiToHz(41),
+      freqTo: midiToHz(41) * 0.9,
+      start: t,
+      dur: 0.085,
+      attack: 0.008,
+      release: 0.04,
+      gain,
+      filter: { type: 'lowpass', freq: 300, q: 0.6 },
+    });
+    thump(v, t + 0.012, midiToHz(38), gain * 0.7, 0.2, 0.6);
+    v.noise({
+      start: t + 0.012,
+      dur: 0.07,
+      gain: gain * 0.3,
+      filter: { type: 'lowpass', freq: 260 },
+    });
+  }
+
+  /**
+   * Shatterproof Halo: a Ward took a hit that would have broken it, and held (a Ward loses at most
+   * the node's share of its barrier to one hit). Read from the state after the hit: the Ward still
+   * stands, and what was absorbed is at least what it had (what is left plus the most it can
+   * lose). A bright "unbreakable" ring in place of the Ward's break: a clean high ting (no
+   * shatter), the Ward's own root (the chord's, as at its cast) struck as a bell with its octave
+   * in glass and its fifth, and the octave ringing on with a twin a hair apart. True when the
+   * ring takes the hit's place (the small absorb glint is not played). Once per hero per 0.3 s
+   * and across the party every 0.12 s (gated together); two voices. Panned to the hero.
+   */
+  private haloHeld(ev: Extract<SimEvent, { type: 'damageTaken' }>, state: WorldState): boolean {
+    if (!(ev.absorbed > 0) || ev.amount > 0) return false;
+    const cap = (this.astroNode(state, 'shatterproof_halo')?.values.cap ?? 0) / 100;
+    if (!(cap > 0)) return false;
+    const ent = state.entities.get(ev.target);
+    if (!ent?.health || (ent.kind !== 'hero' && ent.kind !== 'weaver')) return false;
+    const ward = ent.health.shields?.find((s) => s.kind === 'ward');
+    if (!ward || !(ward.amount > 0)) return false;
+    if (ev.absorbed + 1e-6 < ward.amount + ward.max * cap) return false;
+    if (!this.e.gateAll([`halo:${ev.target}`, 0.3], ['halo', 0.12])) return true;
+    const root = midiToHz(this.rootAbove(this.chord(), 72));
+    this.play(
+      'halo',
+      2,
+      'sfx',
+      (v, t) => {
+        v.noise({ start: t, dur: 0.01, gain: 0.025, filter: { type: 'highpass', freq: 7000 } });
+        handbell(v, t, root, 0.07, 2.0, 0.9);
+        glassNote(v, t, root * 2, 0.07, 2.0, 1);
+        glassNote(v, t + 0.035, root * 1.4983, 0.04, 1.6, 0.9);
+        for (const [detune, g] of [
+          [0, 0.02],
+          [3, 0.014],
+        ] as const)
+          v.osc({
+            type: 'sine',
+            freq: root * 2,
+            detune,
+            start: t + 0.04,
+            dur: 0.9,
+            attack: 0.05,
+            release: 0.9,
+            gain: g,
+            shape: 'sustain',
+          });
+        v.extend(t + 2.2);
+      },
+      { pan: this.panFor(state, ent.x) * 0.8 },
+    );
+    return true;
+  }
+
+  /**
+   * Afterglow: the Thread moved on and Empower lingers on the hero it left (their
+   * `afterglowUntil`, set as it moves). A fading tail, very quiet and optional: the hero's own
+   * note two octaves over D4 in glass, caught for a moment, then a soft glow on it (with a twin a
+   * few cents off, and its fifth by degree) fading out over exactly the linger the state gives.
+   * Panned to them. A hero the Thread comes back to, or who goes down, lets theirs go. Each
+   * linger is heard once; once per hero per 0.5 s; two voices.
+   */
+  private afterglow(attached: number, state: WorldState): void {
+    this.endAfterglow(attached, 0.25);
+    for (const id of state.party ?? []) {
+      if (id === attached) continue;
+      const ent = state.entities.get(id);
+      const until = ent?.hero?.afterglowUntil ?? 0;
+      if (!ent?.hero || !(until > state.time) || this.afterglowSeen.get(id) === until) continue;
+      this.afterglowSeen.set(id, until);
+      if (ent.health?.downed || ent.health?.dead || !this.e.gate(`afterglow:${id}`, 0.5)) continue;
+      const linger = clamp((until - state.time) / Math.max(0.25, state.timeScale || 1), 0.3, 8);
+      const deg = degreeOf(ent.hero.defId);
+      const note = midiToHz(scaleMidi(deg + 14));
+      const fifth = midiToHz(scaleMidi(deg + 18));
+      const h = this.play(
+        'afterglow',
+        2,
+        'sfx',
+        (v, t) => {
+          glassPing(v, t, note, 0.02, 0.5);
+          for (const [f, detune, g] of [
+            [note, 0, 0.012],
+            [note, 5, 0.0075],
+            [fifth, 0, 0.005],
+          ] as const)
+            v.osc({
+              type: 'sine',
+              freq: f,
+              detune,
+              start: t + 0.03,
+              dur: 0.12,
+              attack: 0.12,
+              release: linger - 0.15,
+              gain: g,
+              shape: 'sustain',
+            });
+        },
+        { pan: this.panFor(state, ent.x) * 0.7 },
+      );
+      if (h) this.afterglowTail.set(id, h);
+    }
+  }
+
+  /** A hero's Afterglow tail lets go (the Thread came back to them, or they went down). */
+  private endAfterglow(hero: number, fade: number): void {
+    this.afterglowTail.get(hero)?.kill(this.e.now, fade);
+    this.afterglowTail.delete(hero);
+  }
+
+  /**
+   * Second Wind: a hero Mend revives stands up with more life and untouchable for a moment. The
+   * revive voiced a touch fuller, over its usual chord: a breath drawn in as they rise, their own
+   * note as a warm bell (warmer for the life the node gives) with its fifth by degree in glass,
+   * and a faint glassy halo held for exactly as long as they can't be hurt (the node's seconds),
+   * then let go. A Rewind's revive is its own sound and gets none of this. Once per hero per
+   * 0.5 s; two voices. Panned to the hero.
+   */
+  private secondWind(hero: number, state: WorldState): void {
+    const node = this.astroNode(state, 'second_wind');
+    if (!node || !this.e.gate(`secondWind:${hero}`, 0.5)) return;
+    const ent = state.entities.get(hero);
+    const deg = degreeOf(ent?.hero?.defId);
+    const untouchable = clamp(node.values.seconds ?? 0, 0, 6);
+    const life = clamp((node.values.life ?? 0) / 100, 0, 1);
+    this.play(
+      'secondWind',
+      2,
+      'sfx',
+      (v, t) => {
+        whoosh(v, t, 0.5, 0.022, 400, 2800, 1);
+        const at = t + 0.3;
+        handbell(v, at, midiToHz(scaleMidi(deg + 7)), 0.05 + 0.04 * life, 1.6, 0.6);
+        glassNote(v, at + 0.04, midiToHz(scaleMidi(deg + 11)), 0.022, 1.2, 0.8);
+        if (untouchable > 0)
+          for (const [detune, g] of [
+            [0, 0.009],
+            [6, 0.006],
+          ] as const)
+            v.osc({
+              type: 'sine',
+              freq: midiToHz(scaleMidi(deg + 14)),
+              detune,
+              start: at,
+              dur: untouchable,
+              attack: 0.15,
+              release: 0.35,
+              gain: g,
+              shape: 'sustain',
+            });
+        v.extend(at + Math.max(1.7, untouchable + 0.4));
+      },
+      { pan: ent ? this.panFor(state, ent.x) * 0.6 : 0 },
     );
   }
 
@@ -3322,6 +3646,10 @@ export class SfxEngine {
     this.frozen.clear();
     this.ticked.clear();
     this.rewindLand.clear();
+    // Phase 4: an Afterglow tail fades with the fight.
+    for (const h of this.afterglowTail.values()) h.kill(this.e.now, 0.2);
+    this.afterglowTail.clear();
+    this.afterglowSeen.clear();
     this.music.releaseHold();
     if (this.drone) this.drone.gain.gain.setTargetAtTime(0, this.e.now, 0.1);
     if (this.harmony)

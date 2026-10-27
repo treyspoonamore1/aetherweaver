@@ -99,6 +99,15 @@ export function installRunHook(): void {
       run().finishCombat(outcome);
       return run().run?.phase !== 'combat';
     },
+    astrolabe: () => {
+      const p = useProfile.getState();
+      const state = run().run;
+      return {
+        tree: [...p.profile.astrolabe],
+        points: p.astrolabePoints(),
+        run: state ? [...state.astrolabe] : null,
+      };
+    },
   };
 }
 

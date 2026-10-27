@@ -2,11 +2,15 @@ import { useState } from 'react';
 import { useProfile } from '../../app/profileStore';
 import { useRun } from '../../app/runStore';
 import { useSettings } from '../../app/settings';
+import { astrolabePoints } from '../../meta/astrolabe';
+import { rankOf } from '../../meta/profile';
+import { AstrolabeGlyph } from '../kit/AstrolabeGlyph';
 import { Backdrop } from '../kit/Backdrop';
 import { Button } from '../kit/Button';
 import { Icon, type IconName } from '../kit/Icon';
 import { playUi, unlockAudio, useMood } from '../kit/sound';
 import { useUi } from '../store';
+import { astrolabeOpen, spendLine } from './astrolabeModel';
 import { RankPanelView } from './Rank';
 
 /** Golden threads drifting across the cosmos: the title's "living" layer. */
@@ -59,6 +63,10 @@ export function TitleScreen() {
   const hasSave = useRun.getState().hasSave();
   const profile = useProfile((s) => s.profile);
   const unlockAll = useSettings((s) => s.settings.unlockAll);
+  // The Astrolabe (Phase 4): open from Rank 4 (or with Skip the unlocks), points left to spend.
+  const rank = rankOf(profile.xp);
+  const astrolabe = astrolabeOpen(rank, unlockAll);
+  const toSpend = astrolabePoints(rank, unlockAll) - profile.astrolabe.length;
 
   const startNew = () => {
     useRun.getState().newRun();
@@ -66,10 +74,12 @@ export function TitleScreen() {
   };
   const items: {
     label: string;
-    icon: IconName;
+    icon: IconName | 'astrolabe';
     onClick(): void;
     primary?: boolean;
     hidden?: boolean;
+    /** A note on the button's right ("3 points to spend"). */
+    badge?: string;
   }[] = [
     {
       label: 'Continue',
@@ -87,6 +97,13 @@ export function TitleScreen() {
       onClick: () => (hasSave ? setConfirmNew(true) : startNew()),
     },
     { label: 'Training Grounds', icon: 'swords', onClick: () => setScreen('training') },
+    {
+      label: 'Astrolabe',
+      icon: 'astrolabe',
+      hidden: !astrolabe,
+      badge: toSpend > 0 ? spendLine(toSpend) : undefined,
+      onClick: () => setScreen('astrolabe'),
+    },
     { label: 'Codex', icon: 'book', onClick: () => setScreen('codex') },
     { label: 'Settings', icon: 'gear', onClick: () => setScreen('settings') },
   ];
@@ -114,7 +131,7 @@ export function TitleScreen() {
 
         <nav
           aria-label="Main menu"
-          className="mt-12 flex w-72 flex-col gap-2.5"
+          className="mt-12 flex w-80 flex-col gap-2.5"
           onKeyDown={(e) => {
             if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
             const buttons = [...e.currentTarget.querySelectorAll('button')];
@@ -154,9 +171,22 @@ export function TitleScreen() {
                   onFocus={() => playUi('hover')}
                   onPointerDown={unlockAudio}
                   className="w-full justify-start gap-3"
+                  aria-label={item.badge ? `${item.label}: ${item.badge}` : undefined}
                 >
-                  <Icon name={item.icon} size={18} />
+                  {item.icon === 'astrolabe' ? (
+                    <AstrolabeGlyph glyph="weaver_star" size={18} />
+                  ) : (
+                    <Icon name={item.icon} size={18} />
+                  )}
                   {item.label}
+                  {item.badge && (
+                    <span
+                      className="ml-auto whitespace-nowrap rounded-md border border-gold-400/70 bg-gold-400/15 px-2 py-0.5 text-xs font-semibold text-gold-200"
+                      data-testid="title-astrolabe-points"
+                    >
+                      {item.badge}
+                    </span>
+                  )}
                 </Button>
               ))
           )}

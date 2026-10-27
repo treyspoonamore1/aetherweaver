@@ -125,6 +125,16 @@ export interface HeroHud {
    * coming, or no timers.
    */
   lands: { name: string; in: number } | null;
+  /**
+   * Phase 4, the Astrolabe's Afterglow: Empower lingering on them after the Thread left
+   * (`HeroComponent.afterglowUntil − time`; `total`: the node's seconds). Null: none.
+   */
+  afterglow: { remaining: number; total: number } | null;
+  /**
+   * Phase 4, Overflowing Grace: the shield Mend's overheal keeps on them (the Weaver's
+   * overshield while the keystone is in the tree), its seconds left and its cap. Null: none.
+   */
+  grace: { amount: number; remaining: number; cap: number } | null;
   hovered: boolean;
 }
 
@@ -179,8 +189,13 @@ export interface TechniqueHud {
   icon: IconName;
   /** Stasis: it neither needs nor starts a cooldown right now (Ward uses no charge). */
   free: boolean;
-  /** The Spirit cost outside Stasis (`cost` is what it costs right now). */
+  /** The cost outside Stasis (`cost` is what it costs right now), the tree's Economy included. */
   baseCost: number;
+  /**
+   * Phase 4: what it's paid from (`techniqueCost`): Spirit, or Life with Eldritch Conduit. With
+   * Life, `affordable` is the sim's `canPay` (it never takes her last Life).
+   */
+  pool: 'spirit' | 'life';
 }
 
 export interface AuraHud {
@@ -253,6 +268,11 @@ export interface WeaverHud {
   pool: 'spirit' | 'life';
   /** Thresholds her path marks on her Life (empty without Blood Font or Low-Life Vigil). */
   lifeMarks: LifeMarkHud[];
+  /**
+   * Phase 4, Prism Covenant: the Life she can't be healed above (`maxLife × lifeCapPct`); null
+   * without the keystone.
+   */
+  lifeCap: number | null;
   downed: boolean;
   /** Seconds until the Weaver re-forms (when downed). */
   reform: number;
@@ -358,6 +378,11 @@ export interface HudSnapshot {
   relics: RelicHud[];
   /** The Weaver's Calling this fight, with its path and Sunrise (Phase 3c); null without one. */
   calling: CallingHud | null;
+  /**
+   * Phase 4: the Astrolabe this fight (`WorldState.astrolabe`): how many stars, and the keystones
+   * (ids, in content order) for the chip. Null without a tree.
+   */
+  astrolabe: { stars: number; keystones: string[] } | null;
   entityCount: number;
   dummyCount: number;
 }
@@ -409,7 +434,8 @@ export interface Callout {
   expiresAt: number;
 }
 
-export type Screen = 'title' | 'run' | 'training' | 'codex' | 'settings';
+/** `astrolabe` (Phase 4): the star map between runs, from the Title and from Prep. */
+export type Screen = 'title' | 'run' | 'training' | 'codex' | 'settings' | 'astrolabe';
 
 export interface UiState {
   screen: Screen;

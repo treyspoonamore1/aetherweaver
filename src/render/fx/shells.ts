@@ -10,6 +10,13 @@ export const SHELL = {
   discord: 4,
   muteDome: 5,
   flare: 6,
+  /**
+   * Overflowing Grace (the Astrolabe): a soft shell of light filling from below. `crack` is how
+   * full it is (0..1); a bright, gently rippling surface rises as Mend tops it up.
+   */
+  grace: 7,
+  /** Second Wind (the Astrolabe): untouchable a moment, a shell of moving air. */
+  wind: 8,
 } as const;
 
 const vertex = /* glsl */ `
@@ -111,6 +118,29 @@ void main() {
     float pedge = voronoiEdge(vLocal.xz * 2.6 + vParams.w * 5.0, pcell);
     float c2 = (1.0 - smoothstep(0.0, 0.03, pedge)) * step(pcell, 0.75);
     a = (fres * 0.6 + c2 * 0.4 + 0.02) * flick;
+  } else if (style == 7) {
+    // Overflowing Grace: light filling a soft shell from below (how full rides in vCrack). The
+    // light glows under its gently rippling surface, brightest just under it, and drifts
+    // upward; above the surface the shell is barely there.
+    float ang = atan(vLocal.z, vLocal.x);
+    float full = clamp(vCrack, 0.0, 1.0);
+    float lv = -1.0 + 2.0 * full;
+    float y = vLocal.y - 0.04 * sin(ang * 3.0 + uTime * 2.4 + vParams.w) * (1.0 - full * 0.7);
+    float below = 1.0 - smoothstep(lv - 0.04, lv + 0.04, y);
+    float depth = clamp(lv - y, 0.0, 2.0);
+    float drift = awNoise2(vec2(ang * 2.2 + vParams.w, vLocal.y * 2.6 - uTime * 0.8));
+    float pool = below * (0.1 + 0.24 * exp(-depth * 2.5)) * (0.75 + 0.5 * drift);
+    float surf = exp(-pow((y - lv) / 0.06, 2.0)) * step(0.01, full) * (1.0 - smoothstep(0.92, 1.0, full));
+    a = fres * (0.12 + 0.55 * below) + pool + surf * 0.85 + 0.008;
+    col = mix(col, vec3(1.0), clamp(surf * 0.65 + pool * 0.8, 0.0, 1.0));
+  } else if (style == 8) {
+    // Second Wind: untouchable for a moment, a shell of moving air (streaks flowing round, up).
+    float ang = atan(vLocal.z, vLocal.x);
+    float s1 = sin(ang * 2.0 + vLocal.y * 4.5 - uTime * 7.0 + vParams.w);
+    float s2 = sin(ang * 3.0 - vLocal.y * 3.5 - uTime * 5.0 + vParams.w * 1.7);
+    float streak = smoothstep(0.72, 0.97, s1) + 0.6 * smoothstep(0.8, 0.99, s2);
+    a = fres * 0.5 + 0.02 + streak * (0.42 + 0.35 * fres);
+    col = mix(col, vec3(1.0), 0.25 + streak * 0.5);
   } else {
     a = fres * 1.2 + 0.25;
     col = mix(col, vec3(1.0), 0.5);
@@ -191,5 +221,19 @@ export class ShellBatch extends InstancedFx {
     this.col[o + 1] = c.g;
     this.col[o + 2] = c.b;
     this.col[o + 3] = intensity;
+  }
+
+  /** How many shells of a style were pushed this frame (tests, the lab). */
+  styleCount(style: number): number {
+    let n = 0;
+    for (let i = 0; i < this.size; i++) if (this.pos[i * 4 + 3] === style) n++;
+    return n;
+  }
+
+  /** The `crack` value (Overflowing Grace: how full) of the first shell of a style, or -1. */
+  crackOf(style: number): number {
+    for (let i = 0; i < this.size; i++)
+      if (this.pos[i * 4 + 3] === style) return this.scl[i * 4 + 3]!;
+    return -1;
   }
 }

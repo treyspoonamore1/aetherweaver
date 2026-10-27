@@ -70,6 +70,11 @@ export interface RunHook {
    * came in) through the run store, without playing it. Returns false outside a fight.
    */
   winFight(): boolean;
+  /**
+   * Phase 4: the profile's Astrolabe (the stars taken, in order, and the points the Rank gives)
+   * and the run's tree (null without a run): the one it follows in Prep, or embarked with.
+   */
+  astrolabe(): { tree: string[]; points: number; run: string[] | null };
 }
 
 declare global {

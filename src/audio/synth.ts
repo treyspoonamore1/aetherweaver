@@ -571,6 +571,95 @@ export function tapeSweep(
   v.extend(t + dur + 0.1);
 }
 
+// ── Phase 4: the Astrolabe (brass and glass) ─────────────────────────────────────────
+
+/**
+ * A small brass bell tuned like a carillon's: the hum an octave down, the prime, the minor-third
+ * tierce, the quint and the nominal an octave up (equal-tempered). As ratio, level and ring (a
+ * share of the prime's).
+ */
+const BRASS_PARTIALS: readonly (readonly [number, number, number])[] = [
+  [0.5, 0.32, 1.25],
+  [1, 1, 1],
+  [2 ** (3 / 12), 0.3, 0.62],
+  [2 ** (7 / 12), 0.22, 0.5],
+  [2, 0.3, 0.42],
+];
+
+/**
+ * A struck brass bell (Phase 4, the Astrolabe's brass): `BRASS_PARTIALS`, so one on D rings D, F
+ * and A, and one on A rings A, C and E. Keep it on D, E or A (its minor third and fifth stay in D
+ * dorian there; on G, C, F or B they leave it). The hum and the prime each ring with a twin a
+ * hair sharp, so it shimmers slowly as struck brass does. A soft mallet: a dull tap, no click.
+ * `dur` is the prime's ring (the upper partials die sooner); `bright` lifts the upper partials
+ * and the tap. Eight sources.
+ */
+export function brassBell(
+  v: Voice,
+  t: number,
+  freq: number,
+  gain: number,
+  dur = 1.2,
+  bright = 0.5,
+): void {
+  BRASS_PARTIALS.forEach(([ratio, g, d], i) => {
+    const level = gain * g * (i >= 2 ? 0.5 + bright : 1);
+    v.osc({
+      type: 'sine',
+      freq: freq * ratio,
+      start: t,
+      dur: dur * d,
+      attack: 0.004,
+      release: 0.06,
+      gain: level,
+    });
+    if (i < 2)
+      v.osc({
+        type: 'sine',
+        freq: freq * ratio * 1.0016,
+        start: t,
+        dur: dur * d * 0.85,
+        attack: 0.004,
+        release: 0.06,
+        gain: level * 0.25,
+      });
+  });
+  v.noise({
+    start: t,
+    dur: 0.006,
+    gain: gain * 0.2 * bright,
+    filter: { type: 'bandpass', freq: Math.min(6000, freq * 4), q: 1.2 },
+  });
+}
+
+/**
+ * `brassBell` played backwards (Phase 4: a node given back): its partials swell in exponentially,
+ * the higher ones later and quicker, and stop together at `end`. The caller keeps `end - swell`
+ * at or after the voice's start. Five sources.
+ */
+export function reverseBrassBell(
+  v: Voice,
+  end: number,
+  freq: number,
+  gain: number,
+  swell: number,
+): void {
+  for (const [ratio, g, d] of BRASS_PARTIALS) {
+    const len = Math.max(0.03, swell * Math.min(1, d));
+    v.osc({
+      type: 'sine',
+      freq: freq * ratio,
+      start: end - len,
+      dur: len,
+      attack: len,
+      release: 0.012,
+      gain: gain * g,
+      shape: 'sustain',
+      attackCurve: 'exp',
+    });
+  }
+}
+
 /**
  * A small glass ping: `glassNote`'s fundamental and first inharmonic partial, no attack tick.
  * Two sources, for the quiet and frequent cues (a glimpse, an echo's repeats).

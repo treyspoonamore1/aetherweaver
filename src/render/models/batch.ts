@@ -9,8 +9,9 @@ export class ModelBatch {
   private readonly fx: THREE.InstancedBufferAttribute;
   private readonly tint: THREE.InstancedBufferAttribute;
   /**
-   * (shine, sunrise, frost): the Luminary's sunlight on a hero (docs/phase-3c/vfx.md), and the
-   * Chronomancer's frost on a model held in time (docs/phase-3e/vfx.md).
+   * (shine, sunrise, frost, prism): the Luminary's sunlight on a hero (docs/phase-3c/vfx.md),
+   * the Chronomancer's frost on a model held in time (docs/phase-3e/vfx.md), and Prism
+   * Covenant's spectral edge on the Weaver (docs/phase-4/vfx.md).
    */
   private readonly shine: THREE.InstancedBufferAttribute;
   private count = 0;
@@ -25,7 +26,7 @@ export class ModelBatch {
     this.tint = new THREE.InstancedBufferAttribute(new Float32Array(capacity * 4), 4);
     this.fx.setUsage(THREE.DynamicDrawUsage);
     this.tint.setUsage(THREE.DynamicDrawUsage);
-    this.shine = new THREE.InstancedBufferAttribute(new Float32Array(capacity * 3), 3);
+    this.shine = new THREE.InstancedBufferAttribute(new Float32Array(capacity * 4), 4);
     this.shine.setUsage(THREE.DynamicDrawUsage);
     geometry.setAttribute('aFx', this.fx);
     geometry.setAttribute('aTint', this.tint);
@@ -54,6 +55,7 @@ export class ModelBatch {
     shine = 0,
     sunrise = 0,
     frost = 0,
+    prism = 0,
   ): void {
     if (this.count >= this.capacity) return;
     const i = this.count++;
@@ -69,9 +71,23 @@ export class ModelBatch {
     t[i * 4 + 2] = tint.b;
     t[i * 4 + 3] = tintStrength;
     const s = this.shine.array as Float32Array;
-    s[i * 3] = shine;
-    s[i * 3 + 1] = sunrise;
-    s[i * 3 + 2] = frost;
+    s[i * 4] = shine;
+    s[i * 4 + 1] = sunrise;
+    s[i * 4 + 2] = frost;
+    s[i * 4 + 3] = prism;
+  }
+
+  /** Instance `i`'s Prism Covenant edge as last pushed (tests, the lab). */
+  prismOf(i: number): number {
+    return i < this.count ? (this.shine.array as Float32Array)[i * 4 + 3]! : 0;
+  }
+
+  /** Instance `i`'s rim as last pushed: its colour into `out`, its strength returned (tests). */
+  tintOf(i: number, out: THREE.Color): number {
+    if (i >= this.count) return 0;
+    const t = this.tint.array as Float32Array;
+    out.setRGB(t[i * 4]!, t[i * 4 + 1]!, t[i * 4 + 2]!);
+    return t[i * 4 + 3]!;
   }
 
   end(): void {
@@ -88,7 +104,7 @@ export class ModelBatch {
       this.tint.addUpdateRange(0, this.count * 4);
       this.tint.needsUpdate = true;
       this.shine.clearUpdateRanges();
-      this.shine.addUpdateRange(0, this.count * 3);
+      this.shine.addUpdateRange(0, this.count * 4);
       this.shine.needsUpdate = true;
     }
   }

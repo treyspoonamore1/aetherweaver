@@ -11,10 +11,14 @@ import type { ContributionHud } from '../store';
 import { WEAVER_BAR_LEFT, WEAVER_BAR_WIDTH, bindingCode, bindingLabel } from './labels';
 import { beamSong, beamTitle } from './songs';
 import { CallingGlyph, callingLook } from '../kit/CallingGlyph';
+import { AstrolabeGlyph } from '../kit/AstrolabeGlyph';
+import { CONSTELLATION_LOOK } from '../kit/astrolabeLook';
 import { rewindSentence } from './rewindText';
 
 /** The Chronomancer's clockwork (Phase 3e): Stasis on the buttons, Rewind, Temporal Mastery. */
 const CHRONO = callingLook('chronomancer');
+/** Prism Covenant's mark on the Life bar (Phase 4), in the Choir's violet. */
+const PRISM = CONSTELLATION_LOOK.choir;
 
 const SPIRIT = '#8ea2ff';
 const LIFE = '#fb7185';
@@ -111,11 +115,20 @@ export function WeaverBar({
 function LifeBar({ weaver: w, callingId }: { weaver: WeaverHud; callingId?: string }) {
   const total = Math.max(w.lifeTotal, w.maxLife);
   const held = w.reservedLife > 0;
-  const look = callingLook(callingId ?? 'martyr');
+  // The Martyr's blood; with Sanguine Font on another run (Phase 4), the Silk's gold.
+  const look =
+    callingId === 'martyr' || !callingId ? callingLook('martyr') : callingLook(callingId);
+  const holdLook = callingId === 'martyr' ? look : CONSTELLATION_LOOK.silk;
   const marks = w.lifeMarks;
   const low = held && !w.downed && w.life < total * LOW_LIFE;
+  // Prism Covenant (Phase 4): she can't be healed above this.
+  const cap = w.lifeCap;
   return (
-    <div data-testid="weaver-life" data-pool={w.pool}>
+    <div
+      data-testid="weaver-life"
+      data-pool={w.pool}
+      data-cap={cap === null ? undefined : Math.round(cap)}
+    >
       <div className="flex items-center justify-between text-xs text-muted">
         <span className="flex items-center gap-1">
           <Icon name="heart" size={12} style={{ color: LIFE }} /> Life
@@ -127,10 +140,20 @@ function LifeBar({ weaver: w, callingId }: { weaver: WeaverHud; callingId?: stri
             <>
               <span className={low ? 'font-bold text-lethal' : ''}>{fmt(w.life)}</span> /{' '}
               {fmt(w.maxLife)}
+              {cap !== null && (
+                <span
+                  className="ml-1 inline-flex items-center gap-0.5 align-middle"
+                  style={{ color: PRISM.light }}
+                  title={`Prism Covenant: you can’t be healed above ${fmt(cap)}`}
+                  data-testid="life-cap"
+                >
+                  <AstrolabeGlyph glyph="prism_covenant" size={11} />≤{fmt(cap)}
+                </span>
+              )}
               {held && (
                 <span
                   className="ml-1"
-                  style={{ color: look.light }}
+                  style={{ color: holdLook.light }}
                   title={`Your songs hold ${fmt(w.reservedLife)} of your ${fmt(total)} Life`}
                 >
                   ▨{fmt(w.reservedLife)}
@@ -148,8 +171,8 @@ function LifeBar({ weaver: w, callingId }: { weaver: WeaverHud; callingId?: stri
           aria-valuemax={w.maxLife}
           aria-valuenow={Math.round(w.life)}
           aria-valuetext={
-            held
-              ? `${fmt(w.life)} of ${fmt(w.maxLife)}, ${fmt(w.reservedLife)} held by your songs, of ${fmt(total)} in all${marks.map((m) => `; ${m.name} below ${fmt(m.at)}${m.active ? ', on' : ''}`).join('')}`
+            held || cap !== null
+              ? `${fmt(w.life)} of ${fmt(w.maxLife)}${held ? `, ${fmt(w.reservedLife)} held by your songs, of ${fmt(total)} in all` : ''}${cap !== null ? `; Prism Covenant: no healing above ${fmt(cap)}` : ''}${marks.map((m) => `; ${m.name} below ${fmt(m.at)}${m.active ? ', on' : ''}`).join('')}`
               : undefined
           }
           className={`relative h-3 overflow-hidden rounded-full bg-ink-700 ${low ? 'ring-1 ring-lethal/80' : ''}`}
@@ -158,13 +181,27 @@ function LifeBar({ weaver: w, callingId }: { weaver: WeaverHud; callingId?: stri
             className="absolute inset-y-0 left-0 transition-[width] duration-150 ease-linear"
             style={{ width: `${pctOf(w.life, total)}%`, background: LIFE }}
           />
+          {cap !== null && cap < w.maxLife && (
+            // Prism Covenant: the part of her Life she can't be healed into, hatched in violet.
+            <div
+              className="stripes-dark absolute inset-y-0 border-l-2"
+              style={{
+                left: `${pctOf(cap, total)}%`,
+                width: `${pctOf(w.maxLife - cap, total)}%`,
+                backgroundColor: `color-mix(in srgb, ${PRISM.deep} 70%, transparent)`,
+                borderColor: PRISM.light,
+              }}
+              title={`Prism Covenant: you can’t be healed above ${fmt(cap)}`}
+              data-testid="life-capped"
+            />
+          )}
           {held && (
             <div
               className="stripes absolute inset-y-0 right-0 border-l"
               style={{
                 width: `${pctOf(w.reservedLife, total)}%`,
-                backgroundColor: `color-mix(in srgb, ${look.deep} 85%, transparent)`,
-                borderColor: look.color,
+                backgroundColor: `color-mix(in srgb, ${holdLook.deep} 85%, transparent)`,
+                borderColor: holdLook.color,
               }}
               title="Held by your songs"
               data-testid="life-reserved"
@@ -312,7 +349,14 @@ function TechniqueButton({
     ? { background: `conic-gradient(rgb(5 8 20 / 0.78) ${frac * 360}deg, transparent 0)` }
     : {};
   const keyName = t.key0 ? keyLabel(t.key0) : bindingLabel(t.key);
-  const state = cooling ? `${Math.ceil(t.remaining)} seconds` : dim ? 'not enough Spirit' : 'ready';
+  // Eldritch Conduit (Phase 4): paid in Life, in Life's colour and with its heart.
+  const lifeCost = t.pool === 'life';
+  const poolName = lifeCost ? 'Life' : 'Spirit';
+  const state = cooling
+    ? `${Math.ceil(t.remaining)} seconds`
+    : dim
+      ? `not enough ${poolName}`
+      : 'ready';
   const box = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const el = box.current;
@@ -322,7 +366,7 @@ function TechniqueButton({
   const label = [
     `${t.name}, key ${keyName}, ${state}`,
     t.cost > 0
-      ? `costs ${costLabel(t.cost)} Spirit${t.free && t.cost < t.baseCost ? ` in Stasis (${costLabel(t.baseCost)} otherwise)` : ''}`
+      ? `costs ${costLabel(t.cost)} ${poolName}${t.free && t.cost < t.baseCost ? ` in Stasis (${costLabel(t.baseCost)} otherwise)` : ''}`
       : '',
     t.free ? 'no cooldown while Stasis lasts' : '',
     rewind && ready ? rewind : '',
@@ -353,6 +397,7 @@ function TechniqueButton({
       data-name={t.name}
       data-ready={ready || undefined}
       data-free={t.free || undefined}
+      data-pool={t.cost > 0 ? t.pool : undefined}
     >
       <div
         ref={box}
@@ -399,14 +444,20 @@ function TechniqueButton({
                 ? undefined
                 : t.free
                   ? { color: CHRONO.light, borderColor: CHRONO.color }
-                  : { color: SPIRIT }
+                  : lifeCost
+                    ? { color: LIFE, borderColor: `color-mix(in srgb, ${LIFE} 60%, transparent)` }
+                    : { color: SPIRIT }
             }
             title={
               t.free && t.cost < t.baseCost
-                ? `Costs ${costLabel(t.cost)} Spirit in Stasis (${costLabel(t.baseCost)} otherwise)`
-                : `Costs ${costLabel(t.cost)} Spirit`
+                ? `Costs ${costLabel(t.cost)} ${poolName} in Stasis (${costLabel(t.baseCost)} otherwise)`
+                : lifeCost
+                  ? `Costs ${costLabel(t.cost)} Life (Eldritch Conduit): never your last`
+                  : `Costs ${costLabel(t.cost)} Spirit`
             }
+            data-testid={lifeCost ? 'technique-life-cost' : undefined}
           >
+            {lifeCost && <Icon name="heart" size={10} aria-hidden />}
             {t.free && t.cost < t.baseCost && (
               <s className="text-muted" aria-hidden>
                 {costLabel(t.baseCost)}

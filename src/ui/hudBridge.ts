@@ -10,9 +10,12 @@ import {
 import { liveBindings } from '../input/bindings';
 import {
   auraIds,
+  canPay,
   reservePool,
   resolveChord,
   rewindCanRevive,
+  songReserveOf,
+  techniqueCost,
   vowHoldsAt,
   type EntityId,
   type ReadonlyEntity,
@@ -20,14 +23,8 @@ import {
   type WorldState,
 } from '../sim';
 import { relicHuds } from './hud/relics';
-import {
-  callingHud,
-  lifeMarksOf,
-  masteryCooldown,
-  shineOf,
-  stasisCostMult,
-  stasisSeconds,
-} from './hud/calling';
+import { callingHud, lifeMarksOf, masteryCooldown, shineOf, stasisSeconds } from './hud/calling';
+import { treeAfterglow, treeBleedOutMult, treeGrace } from './screens/astrolabeModel';
 import {
   foreseenAll,
   foreseenOn,
@@ -107,14 +104,18 @@ export function buildHudSnapshot(
     : null;
   const rewinds = !!calling?.rewind;
   const reelTech = tech.reel;
-  // Techniques cost less while Stasis lasts (the sim's `spend`); content holds the discount.
-  const costMult = stasis ? stasisCostMult(calling?.id) : 1;
-  const rewindCost = reelTech.cost * costMult;
+  // What a technique costs now, and whether it can be paid, are the sim's own (`techniqueCost`,
+  // `canPay`): the Astrolabe's Economy, Stasis's discount, Eldritch Conduit's Life.
   const rewindReady =
     rewinds &&
     !(wh?.downed ?? true) &&
     ((w?.cooldowns.reel ?? 0) <= 0.05 || stasis) &&
-    (w?.spirit ?? 0) + 1e-9 >= rewindCost;
+    canPay(state, 'reel');
+  // The Astrolabe (Phase 4): the tree this fight.
+  const tree = state.astrolabe.nodes;
+  const afterglowTotal = treeAfterglow(tree);
+  const grace = treeGrace(tree);
+  const graceCap = (grace?.values.cap ?? 0) / 100;
   // F Rewinds the hovered hero, else the threaded one (the input's smart-cast).
   const hoveredSlot = opts.hovered === null ? -1 : state.party.indexOf(opts.hovered);
   const rewindSlot = hoveredSlot >= 0 ? hoveredSlot : (w?.threadSlot ?? null);
@@ -136,6 +137,12 @@ export function buildHudSnapshot(
     if (!e || !hero || !h) return;
     const def = heroDef(hero.defId);
     const shield = totalShield(e);
+    const up = !h.dead && !h.downed;
+    // Afterglow: Empower lingers on a hero the Thread left (the threaded one has the real thing).
+    const glow = hero.afterglowUntil - state.time;
+    const empowering = w?.threadSlot === slot && w.threadMode === 'empower';
+    // Overflowing Grace: Mend's overheal as a shield on the hero, the one the sim marks `grace`.
+    const graceShield = grace ? h.shields.find((s) => s.grace && s.amount > 0) : undefined;
     party.push({
       id,
       slot,
@@ -157,7 +164,8 @@ export function buildHudSnapshot(
       })),
       downed: h.downed && !h.dead,
       bleedOut: h.bleedOut,
-      bleedOutMax: BLEED_OUT,
+      // Grit (the Astrolabe) lets them bleed out slower.
+      bleedOutMax: BLEED_OUT * treeBleedOutMult(tree),
       revive: h.revive,
       dead: h.dead,
       solo: hero.solo,
@@ -198,15 +206,26 @@ export function buildHudSnapshot(
         : null,
       foreseen: h.dead ? [] : foreseenOn(foreseen, id),
       lands: timers && !h.dead && !h.downed ? landsOn(state, e) : null,
+      afterglow:
+        afterglowTotal > 0 && glow > 0 && up && !empowering
+          ? { remaining: glow, total: Math.max(afterglowTotal, glow) }
+          : null,
+      grace:
+        graceShield && up
+          ? {
+              amount: graceShield.amount,
+              remaining: Math.max(0, graceShield.expiresAt - state.time),
+              cap: h.maxHp * graceCap,
+            }
+          : null,
       hovered: opts.hovered === id,
     });
   });
 
   const bindings = liveBindings();
   const techniques: TechniqueHud[] = TECHNIQUE_KEYS.map((key) => {
-    const free = w?.spirit ?? 0;
-    const baseCost = key === 'glide' ? 0 : tech[key].cost;
-    const cost = baseCost * costMult;
+    // Glide is free; the others cost what the sim says, from the pool it says.
+    const cost = key === 'glide' ? null : techniqueCost(state, key);
     const charges = key === 'ward' ? (w?.wardCharges ?? 0) : (w?.cooldowns[key] ?? 0) > 0 ? 0 : 1;
     const maxCharges = key === 'ward' ? (w?.maxWardCharges ?? 1) : 1;
     const rewind = key === 'reel' && rewinds;
@@ -215,14 +234,15 @@ export function buildHudSnapshot(
       name: rewind ? REWIND_NAME : tech[key].name,
       remaining: w?.cooldowns[key] ?? 0,
       total: w?.cooldownTotals[key] ?? 0,
-      cost,
+      cost: cost?.amount ?? 0,
       charges,
       maxCharges,
-      affordable: free + 1e-9 >= cost,
+      affordable: key === 'glide' ? true : canPay(state, key),
       key0: bindings[key][0] ?? '',
       icon: rewind ? 'rewind' : TECHNIQUE_ICON[key],
       free: stasis,
-      baseCost,
+      baseCost: key === 'glide' ? 0 : tech[key].cost * state.astrolabe.techCostMult,
+      pool: cost?.pool ?? 'spirit',
     };
   });
 
@@ -270,11 +290,22 @@ export function buildHudSnapshot(
     };
   }
 
+  // What the songs reserve from (the Martyr's or Sanguine Font's Life), and the tree's share of
+  // it (Clear Voice, Breath, Eldritch Conduit, Sanguine Font): what each aura really holds.
+  const songCalling = state.calling
+    ? { id: state.calling.id, path: [...state.calling.path] }
+    : null;
+  const songs = songReserveOf(songCalling, tree);
   const chords: ChordHud[] = state.field.chords.map((c) => {
     const folded = resolveChord({ auras: [...c.auras], ornaments: [...c.ornaments] }, c.index);
     const auras: AuraHud[] = c.auras.map((id) => {
       const def = auraDef(id);
-      return { id, name: def.name, color: def.color, reserve: def.reserve * folded.reserveMult };
+      return {
+        id,
+        name: def.name,
+        color: def.color,
+        reserve: def.reserve * folded.reserveMult * songs.mult,
+      };
     });
     const slot = c.threadHero === null ? -1 : state.party.indexOf(c.threadHero);
     return {
@@ -313,10 +344,9 @@ export function buildHudSnapshot(
       maxLife: wh?.maxHp ?? 0,
       lifeTotal,
       reservedLife: w?.reservedLife ?? 0,
-      pool: state.calling
-        ? reservePool({ id: state.calling.id, path: [...state.calling.path] })
-        : 'spirit',
+      pool: reservePool(songCalling, CONTENT, tree),
       lifeMarks,
+      lifeCap: state.astrolabe.lifeCapPct < 1 && wh ? wh.maxHp * state.astrolabe.lifeCapPct : null,
       downed: wh?.downed ?? false,
       reform: w?.reform ?? 0,
       spirit: w?.spirit ?? 0,
@@ -388,6 +418,8 @@ export function buildHudSnapshot(
         revive: rewinds ? (canRevive ? 'ready' : 'spent') : null,
       },
     ),
+    astrolabe:
+      tree.length > 0 ? { stars: tree.length, keystones: [...state.astrolabe.keystones] } : null,
     entityCount: state.entities.count,
     dummyCount,
   };

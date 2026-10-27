@@ -3,11 +3,19 @@
  * director (entities, weaver, telegraphs, encounter). Used by the lab's sound buttons and
  * the offline loudness audit.
  */
-import type { SimEvent, WorldState } from '../../sim';
+import { CONTENT } from '../../content';
+import type { AstrolabeState, SimEvent, WorldState } from '../../sim';
 
 export const IDS = { weaver: 1, kael: 2, lyra: 3, vexis: 4, enemyBase: 10 } as const;
 export const HERO_IDS = ['kael', 'lyra', 'vexis'] as const;
 export type HeroKey = (typeof HERO_IDS)[number];
+
+/** Phase 4: a shield as the state holds it (the Shatterproof Halo reads the Ward's). */
+interface FakeShield {
+  kind: 'ward' | 'dome' | 'barrier' | 'overshield' | 'discord';
+  amount: number;
+  max: number;
+}
 
 interface FakeEntity {
   id: number;
@@ -19,10 +27,34 @@ interface FakeEntity {
     maxHp: number;
     downed: boolean;
     dead: boolean;
+    shields: FakeShield[];
   };
   weaver?: { resonance: number; threadTension: number; crescendo: number };
-  hero?: { defId: string; slot: number; solo: number; soloActive: number };
+  /** `afterglowUntil` (Phase 4): Empower lingers on this hero until this sim time. */
+  hero?: { defId: string; slot: number; solo: number; soloActive: number; afterglowUntil: number };
   enemy?: { role: string; tier: string; state: string; phase: number };
+}
+
+const health = (hp: number, maxHp: number, dead = false): FakeEntity['health'] => ({
+  hp,
+  maxHp,
+  downed: false,
+  dead,
+  shields: [],
+});
+
+/** Phase 4: the Astrolabe with no tree, as the sim reports it. */
+const NO_TREE: AstrolabeState = {
+  nodes: [],
+  keystones: [],
+  techCostMult: 1,
+  techniquesCostLife: false,
+  lifeCapPct: 1,
+};
+
+/** Phase 4: the id of the content's node with this effect (the lab names nodes by effect). */
+export function nodeWith(effect: string): string {
+  return CONTENT.astrolabe.nodes.find((n) => n.effect === effect)?.id ?? effect;
 }
 
 /** Phase 3e: a telegraph as the state holds it, for the Stasis and final-second buttons. */
@@ -64,6 +96,8 @@ export class FakeWorld {
   /** Phase 3e: Stasis is up (`field.stasis`), and the sim clock (`state.time`). */
   stasis = false;
   time = 0;
+  /** Phase 4: the Astrolabe the fake fight carries (`state.astrolabe`); see `setAstrolabe`. */
+  astrolabe: AstrolabeState = NO_TREE;
   readonly state: WorldState;
 
   constructor() {
@@ -72,7 +106,7 @@ export class FakeWorld {
       kind: 'weaver',
       x: 0,
       z: 0,
-      health: { hp: 300, maxHp: 300, downed: false, dead: false },
+      health: health(300, 300),
       weaver: { resonance: 0, threadTension: 0, crescendo: 0 },
     });
     HERO_IDS.forEach((defId, slot) => {
@@ -81,8 +115,8 @@ export class FakeWorld {
         kind: 'hero',
         x: (slot - 1) * 3,
         z: -3,
-        health: { hp: 1000, maxHp: 1000, downed: false, dead: false },
-        hero: { defId, slot, solo: 0, soloActive: 0 },
+        health: health(1000, 1000),
+        hero: { defId, slot, solo: 0, soloActive: 0, afterglowUntil: 0 },
       });
     });
     // eslint-disable-next-line @typescript-eslint/no-this-alias
@@ -127,6 +161,9 @@ export class FakeWorld {
         };
       },
       ledger: {} as WorldState['ledger'],
+      get astrolabe() {
+        return self.astrolabe;
+      },
       get telegraphs() {
         return self.telegraphs as WorldState['telegraphs'];
       },
@@ -258,6 +295,51 @@ export class FakeWorld {
     const h = this.entities.get(IDS[hero]);
     if (h) h.health.hp = Math.max(1, frac * h.health.maxHp);
   }
+  /**
+   * Phase 4: the Astrolabe the fight carries, as the sim reports it: the known nodes sorted, the
+   * keystones among them, Economy's cost multiplier, Eldritch Conduit's Life and Prism
+   * Covenant's ceiling, from the content's values. `[]` for none.
+   */
+  setAstrolabe(ids: readonly string[]): void {
+    const nodes = CONTENT.astrolabe.nodes.filter((n) => ids.includes(n.id));
+    if (nodes.length === 0) {
+      this.astrolabe = NO_TREE;
+      return;
+    }
+    let cost = 0;
+    let cap = 1;
+    for (const n of nodes) {
+      if (n.effect === 'tech_cost') cost += n.values.pct ?? 0;
+      if (n.effect === 'prism_covenant') cap = Math.min(cap, (n.values.cap ?? 100) / 100);
+    }
+    this.astrolabe = {
+      nodes: nodes.map((n) => n.id).sort(),
+      keystones: nodes.filter((n) => n.kind === 'keystone').map((n) => n.id),
+      techCostMult: Math.max(0, 1 - cost / 100),
+      techniquesCostLife: nodes.some((n) => n.effect === 'eldritch_conduit'),
+      lifeCapPct: cap,
+    };
+  }
+  /** Phase 4: the Weaver's Life, as a share of her usable Life. */
+  setWeaverHp(frac: number): void {
+    const w = this.entities.get(IDS.weaver);
+    if (w) w.health.hp = Math.max(1, frac * w.health.maxHp);
+  }
+  /**
+   * Phase 4: a hero's Ward as the state holds it after a hit: `amount` left of a `max` barrier
+   * (0 takes it away).
+   */
+  setWard(hero: HeroKey | 'weaver', amount: number, max = amount): void {
+    const e = this.entities.get(hero === 'weaver' ? IDS.weaver : IDS[hero]);
+    if (!e) return;
+    e.health.shields = e.health.shields.filter((s) => s.kind !== 'ward');
+    if (amount > 0) e.health.shields.push({ kind: 'ward', amount, max });
+  }
+  /** Phase 4: Empower lingers on a hero for `seconds` from now (Afterglow); 0 for none. */
+  setAfterglow(hero: HeroKey, seconds: number): void {
+    const h = this.entities.get(IDS[hero])?.hero;
+    if (h) h.afterglowUntil = seconds > 0 ? this.time + seconds : 0;
+  }
   setDowned(hero: HeroKey, down: boolean): void {
     const h = this.entities.get(IDS[hero]);
     if (h) h.health.downed = down;
@@ -272,7 +354,7 @@ export class FakeWorld {
         kind: 'enemy',
         x: -8 + (i % 8) * 2.2,
         z: 6 + Math.floor(i / 8) * 2,
-        health: { hp: 100, maxHp: 100, downed: false, dead: false },
+        health: health(100, 100),
         enemy: { role, tier, state: 'approach', phase },
       });
     }
@@ -285,7 +367,7 @@ export class FakeWorld {
       kind: 'enemy',
       x,
       z: 5,
-      health: { hp: 0, maxHp: 100, downed: false, dead: true },
+      health: health(0, 100, true),
       enemy: { role, tier: 'normal', state: 'dying', phase: 0 },
     });
     return id;

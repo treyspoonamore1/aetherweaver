@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { heroDef } from '../content';
 import type { SimEvent, WorldState } from '../sim';
 import { ArenaView } from './arena';
+import { AstrolabeView } from './astrolabe';
 import { CallView } from './calls';
 import { CallingView } from './calling';
 import { ChronoView } from './chrono';
@@ -43,6 +44,7 @@ export class CombatView implements WorldView {
   readonly calling: CallingView;
   readonly martyr: MartyrView;
   readonly chrono: ChronoView;
+  readonly astrolabe: AstrolabeView;
   private quality: QualityTier;
   /** The enemies' clock for the telegraph shaders: it waits while Stasis holds them. */
   private enemyClock = 0;
@@ -107,6 +109,11 @@ export class CombatView implements WorldView {
       telegraphs: this.telegraphs,
       overlay: this.overlay,
     });
+    this.astrolabe = new AstrolabeView({
+      kit: this.kit,
+      recs: this.entities.recs,
+      entities: this.entities,
+    });
     this.quality = ctx.quality;
     this.setQuality(ctx.quality);
     void state;
@@ -141,6 +148,7 @@ export class CombatView implements WorldView {
     this.calling.sync(state, fxDt, frame.time, frame.settings.flashes);
     this.martyr.sync(state, fxDt, frame.time, frame.settings.flashes);
     this.chrono.sync(state, fxDt, frame.time, frame.settings.flashes, frame.settings.damageNumbers);
+    this.astrolabe.sync(state, fxDt, frame.time, frame.settings.flashes);
     this.overlay.setStasis(this.chrono.cool);
     this.offscreen(state);
     this.aimMarker(state, frame);
@@ -160,6 +168,7 @@ export class CombatView implements WorldView {
     this.calling.handle(events, state);
     this.martyr.handle(events, state);
     this.chrono.handle(events, state);
+    this.astrolabe.handle(events, state);
   }
 
   setQuality(quality: QualityTier): void {

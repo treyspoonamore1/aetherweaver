@@ -12,7 +12,11 @@ import { playUi, useMood } from '../kit/sound';
 import { ChordBuilder } from './ChordBuilder';
 import { sameLoadout } from './chordModel';
 import { FreshStrip, useAllowance, useChordDraft, useFreshUnlocks } from './PrepScreen';
-import { fieldAuraSlots as runFieldAuraSlots, reservePool } from '../../meta/run';
+import {
+  fieldAuraSlots as runFieldAuraSlots,
+  reserveMult as runReserveMult,
+  reservePool,
+} from '../../meta/run';
 import { slotBonus } from './callingText';
 import { PartyHealth, SectionTitle } from './shared';
 
@@ -226,10 +230,19 @@ export function RetuneView({
 }) {
   // Third Voice's third field aura: the run layer accepts it only with `Run.fieldAuraSlots`.
   const slots = runFieldAuraSlots(run);
-  // The Martyr's songs reserve Life (at most 90%): the run checks the same pool.
+  // The Martyr's songs reserve Life (at most 90%), and so do Sanguine Font's; the run's tree
+  // makes them lighter (Phase 4). The run checks the same pool and share.
   const pool = reservePool(run);
+  const lighter = runReserveMult(run);
   const [legalDraft, setLegalDraft] = useState<ChordLoadout[]>(run.chords);
-  const { draft, change, legal } = useChordDraft(run.chords, allowance, setLegalDraft, slots, pool);
+  const { draft, change, legal } = useChordDraft(
+    run.chords,
+    allowance,
+    setLegalDraft,
+    slots,
+    pool,
+    lighter,
+  );
   const [freshIds] = useState(() => new Set(fresh.map((u) => u.id)));
   const unchanged = sameLoadout(draft, run.chords);
   return (
@@ -257,6 +270,8 @@ export function RetuneView({
             bonus={slotBonus(run)}
             pool={pool}
             calling={run.calling}
+            reserveMult={lighter}
+            astrolabe={run.astrolabe}
           />
         </div>
       </div>

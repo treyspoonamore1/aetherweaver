@@ -37,6 +37,19 @@ import { AxisLegend, CallingPassive, CallingPathPreview, CallingTitle } from './
 import { callingOpen } from './CallingPicker';
 import { tierWhenList } from './callingText';
 import { useAllowance } from './PrepScreen';
+import { ASTROLABE_RANK, astrolabePoints } from '../../meta/astrolabe';
+import { MAX_RANK } from '../../meta/profile';
+import { AstrolabeGlyph, KeystoneBadge } from '../kit/AstrolabeGlyph';
+import { CONSTELLATIONS, CONSTELLATION_LOOK, STARLIGHT } from '../kit/astrolabeLook';
+import { AstrolabeMap } from './AstrolabeMap';
+import {
+  KIND_LABEL,
+  STARS,
+  constellationStars,
+  keystoneParts,
+  rankAstrolabeLine,
+  starGlyph,
+} from './astrolabeModel';
 
 const TABS = [
   { id: 'heroes', label: 'Heroes' },
@@ -45,6 +58,7 @@ const TABS = [
   { id: 'auras', label: 'Auras' },
   { id: 'chords', label: 'Songs & ornaments' },
   { id: 'rank', label: 'Weaver Rank' },
+  { id: 'astrolabe', label: 'The Astrolabe' },
   { id: 'callings', label: 'Callings' },
   { id: 'calls', label: 'Calls' },
   { id: 'motifs', label: 'Motifs' },
@@ -117,6 +131,7 @@ export function CodexView({
           {tab === 'auras' && <Auras />}
           {tab === 'chords' && <Chords />}
           {tab === 'rank' && <Ranks />}
+          {tab === 'astrolabe' && <Astrolabe />}
           {tab === 'callings' && <Callings allowance={allowance} />}
           {tab === 'calls' && <Calls />}
           {tab === 'motifs' && <Motifs />}
@@ -625,6 +640,117 @@ function Chords() {
   );
 }
 
+/**
+ * The Astrolabe in brief (Phase 4): how its points come and go, and its four constellations
+ * with their landmarks. Everything from content and meta/astrolabe.ts.
+ */
+function Astrolabe() {
+  const first = astrolabePoints(ASTROLABE_RANK);
+  const top = astrolabePoints(MAX_RANK);
+  return (
+    <div className="flex flex-col gap-6">
+      <div className="grid items-start gap-4 lg:grid-cols-[1fr_17rem]">
+        <Panel tone="gold" className="p-5">
+          <h2 className="flex items-center gap-2 font-display text-xl font-bold text-gold-200">
+            <AstrolabeGlyph glyph="weaver_star" size={22} /> The Astrolabe
+          </h2>
+          <p className="mt-2 text-sm leading-relaxed text-text">
+            A star map of passives you change between runs. It opens at Rank {ASTROLABE_RANK} with{' '}
+            {first} points, then every Rank adds one: {top} at Rank {MAX_RANK}, of {STARS.length}{' '}
+            stars. The Weaver’s Star at the centre is always yours. A star can be taken when it
+            touches one you have; pointing at a far one shows the path to it and what it costs, and
+            taking it takes the path.
+          </p>
+          <p className="mt-2 text-sm leading-relaxed text-text">
+            Give a star back if nothing you’ve taken hangs on it, or everything at once: it’s free
+            between runs. A run keeps the tree it embarked with; the Training Grounds use yours, so
+            you can try a change first. Open it from the Title or from Prep. Settings →{' '}
+            <b>Skip the unlocks</b> gives all {top} points.
+          </p>
+          <ul className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs text-muted">
+            {(['travel', 'notable', 'great', 'keystone'] as const).map((kind) => (
+              <li key={kind}>
+                <b className="text-text">{KIND_LABEL[kind]}</b>{' '}
+                {
+                  {
+                    travel: 'small numbers on the way',
+                    notable: 'a new rule or a big number',
+                    great: 'the heroes’ rim stars',
+                    keystone: 'a rule that bends the game, with a price',
+                  }[kind]
+                }
+              </li>
+            ))}
+          </ul>
+        </Panel>
+        <Panel tone="solid" className="p-3">
+          <AstrolabeMap tree={[]} mini label="The Astrolabe’s four constellations" />
+        </Panel>
+      </div>
+      <div className="grid gap-4 md:grid-cols-2">
+        {CONSTELLATIONS.map((c) => {
+          const look = CONSTELLATION_LOOK[c];
+          const stars = constellationStars(c);
+          const notables = stars.filter((n) => n.kind === 'notable');
+          const rim = stars.filter((n) => n.kind === 'keystone' || n.kind === 'great');
+          return (
+            <Panel
+              key={c}
+              tone="solid"
+              className="p-4"
+              style={{ borderTopColor: look.color, borderTopWidth: 3 }}
+            >
+              <h3
+                className="flex items-center gap-2 font-display text-lg font-bold"
+                style={{ color: look.color }}
+              >
+                <AstrolabeGlyph glyph={look.glyph} size={20} /> {look.name}
+                <span className="font-sans text-sm font-normal text-muted">{look.blurb}</span>
+              </h3>
+              <p className="mt-1 text-xs text-muted">
+                {stars.length} stars · notables: {notables.map((n) => n.name).join(', ')}
+              </p>
+              <ul className="mt-2 flex flex-col gap-2">
+                {rim.map((n) => {
+                  const parts = keystoneParts(n);
+                  return (
+                    <li key={n.id} className="flex items-start gap-2">
+                      <KeystoneBadge glyph={starGlyph(n)} constellation={c} size={26} />
+                      <div className="min-w-0 text-xs leading-snug">
+                        <p className="font-semibold" style={{ color: look.light }}>
+                          {n.name}{' '}
+                          <span className="font-normal text-muted">· {KIND_LABEL[n.kind]}</span>
+                        </p>
+                        {parts.gains.map((s) => (
+                          <p key={s} className="text-text">
+                            {s}.
+                          </p>
+                        ))}
+                        {parts.prices.map((s) => (
+                          <p key={s} className="text-rose-200">
+                            − {s}.
+                          </p>
+                        ))}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </Panel>
+          );
+        })}
+      </div>
+      <p className="flex items-center gap-2 text-xs text-muted">
+        <span style={{ color: STARLIGHT.color }}>
+          <AstrolabeGlyph glyph="weaver_star" size={14} />
+        </span>
+        Between each pair of constellations sits a bridge notable, so a build can reach into a
+        neighbour without walking its trunk.
+      </p>
+    </div>
+  );
+}
+
 function Ranks() {
   const kinds = (['skirmish', 'elite', 'miniboss', 'boss'] as const).map((k) => ({
     k,
@@ -697,6 +823,14 @@ function Ranks() {
                         <span className="text-xs text-muted">{u.text}</span>
                       </li>
                     ))}
+                    {rankAstrolabeLine(rank) && (
+                      <li className="flex items-center gap-1.5 text-xs leading-snug text-gold-200">
+                        <AstrolabeGlyph glyph="weaver_star" size={13} />
+                        {rank === ASTROLABE_RANK
+                          ? `The Astrolabe: ${rankAstrolabeLine(rank)}`
+                          : rankAstrolabeLine(rank)}
+                      </li>
+                    )}
                   </ul>
                   {preset && <p className="mt-2 text-xs text-gold-300">Preset · {preset.name}</p>}
                 </Panel>

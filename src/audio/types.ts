@@ -47,7 +47,20 @@ export type UiSound =
    */
   | 'callingSelect'
   | 'callingReveal'
-  | 'callingPick';
+  | 'callingPick'
+  /**
+   * Phase 4 (docs/phase-4.md): the Astrolabe's star map. A node hovered or focused; one travel
+   * node taken; a notable or great notable taken; a keystone taken; several nodes taken at once
+   * (a path); one node given back; everything given back (a respec). Not enough points is the
+   * existing `cantAfford`.
+   */
+  | 'starHover'
+  | 'starTake'
+  | 'starNotable'
+  | 'starKeystone'
+  | 'starPath'
+  | 'starRefund'
+  | 'starRespec';
 
 export interface Volumes {
   /** 0..1 each. */

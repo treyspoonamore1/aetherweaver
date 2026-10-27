@@ -605,6 +605,8 @@ export class GameRuntime {
           const threaded = state.entities.get(
             state.party[state.entities.get(state.weaverId)?.weaver?.threadSlot ?? -1] ?? -1,
           );
+          // Eldritch Conduit (the Astrolabe, docs/phase-4.md): techniques cost Life, never the last.
+          const life = event.reason === 'life';
           const reason =
             rewind && event.reason === 'target' && threaded?.health?.downed
               ? 'out of reach'
@@ -612,15 +614,18 @@ export class GameRuntime {
                 ? 'its revive is spent this run'
                 : event.technique === 'plant' && event.reason === 'not-ready'
                   ? 'no Pedal Point Chord'
-                  : (REASONS[event.reason] ?? event.reason);
+                  : life
+                    ? 'not enough Life'
+                    : (REASONS[event.reason] ?? event.reason);
           ui.pushCallout(
             {
               kind: 'reject',
               text: `${rewind ? 'Rewind' : (TECH_NAMES[event.technique] ?? event.technique)}: ${reason}`,
+              ...(life ? { detail: 'your techniques cost Life, and never your last' } : {}),
               key: `reject:${slot}`,
             },
             now,
-            900,
+            life ? 1400 : 900,
           );
           break;
         }

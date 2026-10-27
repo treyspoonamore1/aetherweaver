@@ -14,12 +14,14 @@ function glslColor(hex: string): string {
  *   aFx   = (hitFlash, dissolve, desaturate, ghost)
  *   aTint = (rim rgb, rim strength) — fresnel rim for "in aura", threaded, Save, affixes;
  *           also the glow colour of the dissolve edge.
- *   aShine = (shine, sunrise, frost) — the Luminary's sunlight on a hero standing in the field
- *           (docs/phase-3c/vfx.md): light falling on the head and shoulders, a soft warm
+ *   aShine = (shine, sunrise, frost, prism) — the Luminary's sunlight on a hero standing in the
+ *           field (docs/phase-3c/vfx.md): light falling on the head and shoulders, a soft warm
  *           lift, more golden in Sunrise. Added on top of the rim, so the aura tint keeps
  *           its colour. `frost` (the Chronomancer, docs/phase-3e/vfx.md): held in time, the
  *           model drains to a cool silver, its accents stop glowing and pulsing, a glassy
  *           silver-blue edge catches the light, and a ghost glows silver-blue, not gold.
+ *           `prism` (the Astrolabe's Prism Covenant, docs/phase-4/vfx.md): a thin spectral edge
+ *           on the Weaver's silhouette, each facet catching its own hue, drifting slowly.
  *
  * Accent parts (`aGlow` vertex attribute) are emissive in their own vertex colour.
  */
@@ -46,11 +48,11 @@ export function createModelMaterial(): ModelMaterial {
 attribute float aGlow;
 attribute vec4 aFx;
 attribute vec4 aTint;
-attribute vec3 aShine;
+attribute vec4 aShine;
 varying float vGlow;
 varying vec4 vFx;
 varying vec4 vTint;
-varying vec3 vShine;
+varying vec4 vShine;
 varying vec3 vObjPos;`,
       )
       .replace(
@@ -67,7 +69,7 @@ uniform float uGlow;
 varying float vGlow;
 varying vec4 vFx;
 varying vec4 vTint;
-varying vec3 vShine;
+varying vec4 vShine;
 varying vec3 vObjPos;
 const vec3 AW_FROST = ${glslColor(CHRONO_HEX.frost)};
 const vec3 AW_SILVER = ${glslColor(CHRONO_HEX.silver)};
@@ -135,9 +137,18 @@ if (vShine.x > 0.001) {
   float awFlick = 0.92 + 0.08 * sin(uTime * 3.7 + vObjPos.y * 4.0);
   float awRim = pow(1.0 - clamp(abs(dot(normalize(normal), normalize(vViewPosition))), 0.0, 1.0), 2.6);
   totalEmissiveRadiance += awSun * vShine.x * (0.05 + awTop * 0.42 + awRim * 0.38) * awFlick;
+}
+if (vShine.w > 0.001) {
+  // Prism Covenant: a thin spectral edge. Each flat facet near the silhouette catches its own
+  // hue (by where it faces round the view and how high it sits), drifting slowly.
+  vec3 awNv = normalize(normal);
+  float awSil = smoothstep(0.42, 0.9, 1.0 - clamp(abs(dot(awNv, normalize(vViewPosition))), 0.0, 1.0));
+  float awHue = fract(atan(awNv.y, awNv.x) * 0.1591549 + vObjPos.y * 0.35 + uTime * 0.07);
+  vec3 awSpec = clamp(abs(fract(vec3(awHue) + vec3(0.0, 0.6666667, 0.3333333)) * 6.0 - 3.0) - 1.0, 0.0, 1.0);
+  totalEmissiveRadiance += awSpec * vShine.w * awSil * 1.25;
 }`,
       );
   };
-  material.customProgramCacheKey = () => 'aw-model-v3';
+  material.customProgramCacheKey = () => 'aw-model-v4';
   return { material, uniforms };
 }

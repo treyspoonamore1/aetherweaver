@@ -11,6 +11,10 @@ const RunScreen = lazy(() =>
   import('../ui/screens/RunScreen').then((m) => ({ default: m.RunScreen })),
 );
 const LabRouter = lazy(() => import('./LabRouter').then((m) => ({ default: m.LabRouter })));
+// The Astrolabe (Phase 4): its own screen between runs, from the Title and from Prep.
+const AstrolabeScreen = lazy(() =>
+  import('../ui/screens/AstrolabeScreen').then((m) => ({ default: m.AstrolabeScreen })),
+);
 
 function Loading({ children }: { children: ReactNode }) {
   return (
@@ -41,6 +45,13 @@ export function App() {
     );
   }
   if (screen === 'title') return <TitleScreen />;
+  if (screen === 'astrolabe') {
+    return (
+      <Loading>
+        <AstrolabeScreen />
+      </Loading>
+    );
+  }
   if (screen === 'run') {
     return (
       <Loading>

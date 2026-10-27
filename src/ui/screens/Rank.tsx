@@ -11,9 +11,12 @@ import { Icon } from '../kit/Icon';
 import { Panel } from '../kit/Panel';
 import { playUi } from '../kit/sound';
 import { bumpHint, hintCount } from '../hud/hints';
+import { AstrolabeGlyph } from '../kit/AstrolabeGlyph';
+import { STARLIGHT } from '../kit/astrolabeLook';
 import {
   NOTHING_NEW,
   fightXp,
+  rankAstrolabeLine,
   rankPanel,
   rankUpTitle,
   unlockIcon,
@@ -29,6 +32,7 @@ function UnlockGlyph({ unlock: u, size }: { unlock: Unlock; size: number }) {
     const def = CONTENT.callings.find((c) => c.id === u.target);
     if (def) return <CallingGlyph icon={def.icon} size={size} />;
   }
+  if (u.kind === 'astrolabe') return <AstrolabeGlyph glyph="weaver_star" size={size} />;
   return <Icon name={unlockIcon(u)} size={size} />;
 }
 
@@ -38,9 +42,31 @@ function UnlockDisc({ unlock: u }: { unlock: Unlock }) {
     const def = CONTENT.callings.find((c) => c.id === u.target);
     if (def) return <CallingEmblem callingId={def.id} icon={def.icon} size={40} bright />;
   }
+  if (u.kind === 'astrolabe') return <StarDisc />;
   return (
     <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-gold-400 text-gold-200">
       <Icon name={unlockIcon(u)} size={16} />
+    </span>
+  );
+}
+
+/** The Weaver's Star in a lit disc: the Astrolabe on the rank-up card (Phase 4). */
+function StarDisc({ small = false }: { small?: boolean }) {
+  const size = small ? 32 : 40;
+  return (
+    <span
+      className="mt-0.5 flex shrink-0 items-center justify-center rounded-full border-2"
+      style={{
+        width: size,
+        height: size,
+        color: STARLIGHT.light,
+        borderColor: STARLIGHT.color,
+        background: `radial-gradient(circle at 50% 45%, color-mix(in srgb, ${STARLIGHT.color} 45%, transparent), rgb(10 16 34 / 0.95) 75%)`,
+        boxShadow: `0 0 16px color-mix(in srgb, ${STARLIGHT.color} 45%, transparent)`,
+      }}
+      aria-hidden
+    >
+      <AstrolabeGlyph glyph="weaver_star" size={Math.round(size * 0.6)} />
     </span>
   );
 }
@@ -120,7 +146,7 @@ export function RankPanelView({
           <p className="mt-1 font-mono text-xs text-muted">{p.progressText}</p>
         </div>
       </div>
-      {p.next.length > 0 && (
+      {(p.next.length > 0 || p.nextAstrolabe) && (
         <div className="mt-2.5 border-t border-ink-600/60 pt-2">
           <p className="text-xs font-semibold uppercase tracking-wider text-muted">
             {unlockAll ? `Rank ${p.nextRank} would open` : `Rank ${p.nextRank} opens`}
@@ -134,9 +160,23 @@ export function RankPanelView({
                 <span>
                   <b className="font-semibold text-text">{u.name}</b>{' '}
                   <span className="text-muted">{u.text}</span>
+                  {u.kind === 'astrolabe' && p.nextAstrolabe && (
+                    <span className="text-gold-200"> {p.nextAstrolabe}</span>
+                  )}
                 </span>
               </li>
             ))}
+            {p.nextAstrolabe && !p.next.some((u) => u.kind === 'astrolabe') && (
+              <li
+                className="flex items-start gap-1.5 text-xs leading-snug"
+                data-testid="rank-next-astrolabe"
+              >
+                <span className="mt-0.5 shrink-0 text-gold-300">
+                  <AstrolabeGlyph glyph="weaver_star" size={13} />
+                </span>
+                <span className="text-text">{p.nextAstrolabe}</span>
+              </li>
+            )}
           </ul>
         </div>
       )}
@@ -206,7 +246,12 @@ export function RankUpCard({
   /** The first rank-up ever: point at the Chord builder's "New" marks. */
   firstTime?: boolean;
 }) {
-  const unlocks = rankUps.flatMap((r) => r.unlocks);
+  // Each Rank's unlocks, then (Phase 4, past the Astrolabe's Rank) its Astrolabe point.
+  const sections = rankUps.map((r) => ({
+    ...r,
+    point: r.unlocks.some((u) => u.kind === 'astrolabe') ? null : rankAstrolabeLine(r.rank),
+  }));
+  const unlocks = sections.flatMap((r) => [...r.unlocks, ...(r.point ? [r.point] : [])]);
   const reduced =
     typeof window !== 'undefined' &&
     window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
@@ -265,14 +310,14 @@ export function RankUpCard({
             : `Weaver ${rankUpTitle(top)}`}
         </h2>
         <div className="mt-4 flex flex-col gap-4 text-left">
-          {rankUps.map((r) => (
+          {sections.map((r) => (
             <section key={r.rank} aria-label={rankUpTitle(r.rank)}>
               {rankUps.length > 1 && (
                 <p className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-gold-300">
                   {rankUpTitle(r.rank)}
                 </p>
               )}
-              {r.unlocks.length === 0 ? (
+              {r.unlocks.length === 0 && !r.point ? (
                 <p className="text-sm text-muted">{NOTHING_NEW}</p>
               ) : (
                 <ul className="flex flex-col gap-2">
@@ -311,10 +356,35 @@ export function RankUpCard({
                               Choose it in your next Prep, above the song builder.
                             </span>
                           )}
+                          {u.kind === 'astrolabe' && (
+                            <span
+                              className="mt-1 block text-sm font-semibold text-gold-200"
+                              data-testid="rank-up-astrolabe"
+                            >
+                              {rankAstrolabeLine(r.rank)}{' '}
+                              <span className="font-normal text-muted">
+                                Open it from the Title or from Prep.
+                              </span>
+                            </span>
+                          )}
                         </span>
                       </li>
                     );
                   })}
+                  {r.point &&
+                    (() => {
+                      const visible = index++ < shown;
+                      return (
+                        <li
+                          className={`flex items-center gap-3 rounded-xl border border-gold-500/30 bg-ink-900/60 px-3 py-2 transition-all duration-300 ${visible ? 'translate-y-0 opacity-100' : 'translate-y-1 opacity-0'}`}
+                          aria-hidden={!visible}
+                          data-unlock="astrolabe-point"
+                        >
+                          <StarDisc small />
+                          <span className="text-sm font-semibold text-gold-100">{r.point}</span>
+                        </li>
+                      );
+                    })()}
                 </ul>
               )}
             </section>

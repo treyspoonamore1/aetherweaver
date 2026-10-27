@@ -18,6 +18,9 @@ import type { EncounterResult, RunState } from '../../meta/types';
 import { fmt, plural } from '../kit/format';
 import type { IconName } from '../kit/iconPaths';
 import { CALLING_LOOK } from '../kit/callingLook';
+import { rankAstrolabeLine } from './astrolabeModel';
+
+export { rankAstrolabeLine };
 
 /** The glyph for an unlock (the field song gets its own; a Calling, its own: the sun, a drop). */
 export function unlockIcon(u: { kind: string; target: string }): IconName {
@@ -32,6 +35,8 @@ const UNLOCK_ICON: Record<string, IconName> = {
   ornament: 'diamond',
   ornamentSlot: 'diamond',
   calling: 'sun',
+  // Where only a kit icon fits; the rank-up card draws the Weaver's Star.
+  astrolabe: 'star',
 };
 
 export interface RankPanel {
@@ -47,6 +52,11 @@ export interface RankPanel {
   /** What the next Rank opens (empty at the top). */
   next: Unlock[];
   nextRank: number | null;
+  /**
+   * Phase 4: what the next Rank gives the Astrolabe ("+1 Astrolabe point (5 in all)."; at Rank 4
+   * the line under its unlock); null at the top or before it.
+   */
+  nextAstrolabe: string | null;
   /** "3 runs · 1 win", or "No runs yet". */
   record: string;
 }
@@ -66,6 +76,7 @@ export function rankPanel(profile: Pick<Profile, 'xp' | 'runs' | 'wins'>): RankP
         : `${fmt(into)} / ${fmt(span)} XP to Rank ${rank + 1}`,
     next: nextRank === null ? [] : UNLOCKS.filter((u) => u.rank === nextRank),
     nextRank,
+    nextAstrolabe: nextRank === null ? null : rankAstrolabeLine(nextRank),
     record:
       profile.runs === 0
         ? 'No runs yet'

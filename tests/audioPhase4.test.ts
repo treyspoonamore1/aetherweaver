@@ -1,0 +1,1059 @@
+/**
+ * Phase 4 audio: the Astrolabe. The star map's UI sounds (`star*`), and the keystones in the
+ * fight: Overflowing Grace's chime, a technique paid in Life (Eldritch Conduit) and its refusal,
+ * the Shatterproof Halo's ring, Afterglow's tail and Second Wind's fuller revive. Each plays on
+ * its bus, is rate-limited, is silent without its node and reads its numbers from the content or
+ * the state; the lab has a button for each.
+ */
+import { describe, expect, it } from 'vitest';
+import { getAudio } from '../src/audio';
+import { SynthDirector } from '../src/audio/director';
+import { FakeWorld, IDS, nodeWith } from '../src/audio/lab/labState';
+import { SOUNDS } from '../src/audio/lab/soundBoard';
+import { ASTROLABE_SOUND_EFFECTS } from '../src/audio/sfx';
+import { brassBell } from '../src/audio/synth';
+import { isInScale, midiToHz } from '../src/audio/theory';
+import type { UiSound } from '../src/audio/types';
+import { HOVER_STARS, STAR_LIMITS, UI_SOUND_NAMES } from '../src/audio/ui';
+import { CONTENT } from '../src/content';
+import { KNOWN_ASTROLABE_EFFECTS, type SimEvent, type WorldState } from '../src/sim';
+
+const ev = (type: SimEvent['type'], rest: Record<string, unknown>): SimEvent =>
+  ({ type, tick: 0, ...rest }) as unknown as SimEvent;
+
+const HEROES = [IDS.kael, IDS.lyra, IDS.vexis];
+const STAR: UiSound[] = [
+  'starHover',
+  'starTake',
+  'starNotable',
+  'starKeystone',
+  'starPath',
+  'starRefund',
+  'starRespec',
+];
+
+/** A node's value, as the content has it (the lead is retuning them). */
+const value = (effect: string, key: string): number =>
+  CONTENT.astrolabe.nodes.find((n) => n.effect === effect)?.values[key] ?? Number.NaN;
+
+const cast = (technique: string, target: number | null = IDS.kael): SimEvent =>
+  ev('techniqueCast', { technique, target, x: 0, z: 0 });
+const grace = (hero: number = IDS.lyra, amount = 300): SimEvent =>
+  ev('graceShield', { hero, amount });
+const rejected = (technique: string, reason: string): SimEvent =>
+  ev('techniqueRejected', { technique, reason });
+const attach = (hero: number, slot = 0): SimEvent => ev('threadAttached', { hero, slot });
+const revived = (hero: number = IDS.vexis): SimEvent => ev('revived', { hero });
+/** A hit on `target`: `absorbed` by shields, `amount` through. */
+const hit = (target: number, absorbed: number, amount = 0): SimEvent =>
+  ev('damageTaken', {
+    target,
+    source: IDS.enemyBase,
+    amount,
+    absorbed,
+    amplified: 0,
+    aura: 0,
+    radiance: 0,
+    eclipse: 0,
+    crit: false,
+    telegraph: 1,
+    hit: 'hit',
+  });
+
+// ── A recording fake AudioContext: what each source plays, when, and every envelope level ──
+
+type Fake = Record<string, unknown>;
+
+interface Source {
+  kind: 'osc' | 'noise';
+  freqs: number[];
+  starts: number[];
+  stops: number[];
+}
+
+/** When a source really stops: WebAudio applies only the last `stop()` it was given. */
+const stopOf = (s: Source) => s.stops[s.stops.length - 1] ?? Infinity;
+const startOf = (s: Source) => s.starts[0] ?? -Infinity;
+
+function param(record?: (v: number) => void, ramps = false): Fake {
+  return {
+    value: 0,
+    setValueAtTime: (v: number) => {
+      record?.(v);
+    },
+    linearRampToValueAtTime: (v: number) => {
+      if (ramps) record?.(v);
+    },
+    exponentialRampToValueAtTime: (v: number) => {
+      if (ramps) record?.(v);
+    },
+    setTargetAtTime: () => undefined,
+    cancelScheduledValues: () => undefined,
+  };
+}
+
+function fakeNode(source?: Source, levels?: number[]): Fake {
+  const base: Fake = {
+    connect: (to: unknown) => to,
+    disconnect: () => undefined,
+    start: (t = 0) => {
+      source?.starts.push(t);
+    },
+    stop: (t = 0) => {
+      source?.stops.push(t);
+    },
+  };
+  if (source?.kind === 'osc') base['frequency'] = param((v) => source.freqs.push(v));
+  if (levels) base['gain'] = param((v) => levels.push(v), true);
+  return new Proxy(base, {
+    get(target, key: string) {
+      if (!(key in target)) target[key] = param();
+      return target[key];
+    },
+  });
+}
+
+class RecordingContext {
+  currentTime = 1;
+  sampleRate = 8000;
+  state = 'running';
+  destination = fakeNode();
+  readonly sources: Source[] = [];
+  /** Every level a gain was set or ramped to (the envelopes' peaks among them), in order. */
+  readonly levels: number[] = [];
+  [k: string]: unknown;
+  constructor() {
+    for (const name of [
+      'createDynamicsCompressor',
+      'createWaveShaper',
+      'createConvolver',
+      'createBiquadFilter',
+      'createStereoPanner',
+    ])
+      this[name] = () => fakeNode();
+    this['createGain'] = () => fakeNode(undefined, this.levels);
+    this['createOscillator'] = () => {
+      const s: Source = { kind: 'osc', freqs: [], starts: [], stops: [] };
+      this.sources.push(s);
+      return fakeNode(s);
+    };
+    this['createBufferSource'] = () => {
+      const s: Source = { kind: 'noise', freqs: [], starts: [], stops: [] };
+      this.sources.push(s);
+      return fakeNode(s);
+    };
+    this['createBuffer'] = (_ch: number, length: number, sr: number) => ({
+      length,
+      sampleRate: sr,
+      duration: length / sr,
+      getChannelData: () => new Float32Array(length),
+    });
+  }
+}
+
+function harness() {
+  const ctx = new RecordingContext();
+  const d = new SynthDirector({
+    context: ctx as unknown as BaseAudioContext,
+    autoPump: false,
+    installUnlock: false,
+    followSettings: false,
+  });
+  d.setMood('combat');
+  const world = new FakeWorld();
+  d.pump();
+  const stats = () => d.debugStats();
+  /**
+   * Fires events; returns the voice groups they opened, the sources added (all, and on the sfx
+   * bus), those sources, and the loudest envelope level among them.
+   */
+  const fire = (...events: SimEvent[]) => {
+    const before = { ...stats().peakVoices };
+    const n = stats().totalSources;
+    const nSfx = stats().activeSources.sfx;
+    const from = ctx.sources.length;
+    const fromLevel = ctx.levels.length;
+    d.onEvents(events, world.state);
+    const after = stats().peakVoices;
+    return {
+      groups: Object.keys(after).filter((k) => (after[k] ?? 0) > (before[k] ?? 0)),
+      added: stats().totalSources - n,
+      addedSfx: stats().activeSources.sfx - nSfx,
+      sources: ctx.sources.slice(from),
+      peak: Math.max(0, ...ctx.levels.slice(fromLevel)),
+    };
+  };
+  /** A UI sound: the sources it added and how many are on the UI bus, its groups and peak. */
+  const ui = (sound: UiSound) => {
+    const before = { ...stats().peakVoices };
+    const n = stats().totalSources;
+    const nUi = stats().activeSources.ui;
+    const from = ctx.sources.length;
+    const fromLevel = ctx.levels.length;
+    d.playUi(sound);
+    const after = stats().peakVoices;
+    return {
+      groups: Object.keys(after).filter((k) => (after[k] ?? 0) > (before[k] ?? 0)),
+      added: stats().totalSources - n,
+      addedUi: stats().activeSources.ui - nUi,
+      sources: ctx.sources.slice(from),
+      peak: Math.max(0, ...ctx.levels.slice(fromLevel)),
+    };
+  };
+  const advance = (dt: number, update = false) => {
+    ctx.currentTime += dt;
+    world.advance(dt);
+    d.pump();
+    if (update) d.update(world.state, dt);
+  };
+  return { ctx, d, world, fire, ui, advance, stats };
+}
+
+/** The fight carries a tree of the nodes with these effects. */
+const tree = (h: ReturnType<typeof harness>, ...effects: string[]) =>
+  h.world.setAstrolabe(effects.map(nodeWith));
+
+const freqsOf = (sources: Source[]) => sources.flatMap((s) => s.freqs);
+const hasPitch = (sources: Source[], hz: number, tol = 0.5) =>
+  freqsOf(sources).some((f) => Math.abs(f - hz) < tol);
+/** Cents from the nearest D dorian pitch. */
+const centsOff = (hz: number) => {
+  const midi = 69 + 12 * Math.log2(hz / 440);
+  let best = Infinity;
+  for (let m = Math.floor(midi) - 1; m <= Math.ceil(midi) + 1; m++)
+    if (isInScale(m)) best = Math.min(best, Math.abs(midi - m) * 100);
+  return best;
+};
+
+/** A Ward on a 1000-life hero, as the content builds it. */
+const WARD = CONTENT.techniques.ward.barrierPct * 1000 + CONTENT.techniques.ward.barrierFlat;
+
+// ── The star map ────────────────────────────────────────────────────────────────────
+
+describe('the star map’s UI sounds', () => {
+  it('are agreed UiSound names, each with its own recipe, gate and cap', () => {
+    for (const s of STAR) {
+      expect(UI_SOUND_NAMES, s).toContain(s);
+      expect(STAR_LIMITS[s], s).toBeDefined();
+    }
+  });
+
+  it('each plays on the UI bus, in its own group, and nothing on the sfx bus', () => {
+    for (const s of STAR) {
+      const h = harness();
+      const r = h.ui(s);
+      expect(r.added, s).toBeGreaterThan(0);
+      expect(r.addedUi, s).toBe(r.added);
+      expect(r.groups, s).toEqual([`ui:${s}`]);
+      h.d.dispose();
+    }
+  });
+
+  it('are distinct from each other and from the sounds they sit with', () => {
+    const signature = (s: UiSound) => {
+      const h = harness();
+      const sig = freqsOf(h.ui(s).sources)
+        .map((f) => f.toFixed(2))
+        .join(',');
+      h.d.dispose();
+      return sig;
+    };
+    const stars = STAR.map(signature);
+    expect(new Set(stars).size).toBe(STAR.length);
+    for (const other of [
+      'hover',
+      'click',
+      'pick',
+      'confirm',
+      'unlock',
+      'cantAfford',
+      'rankUp',
+      'relicPick',
+      'callingPick',
+    ] as UiSound[])
+      expect(stars, other).not.toContain(signature(other));
+  });
+
+  it('the hover is a very soft, quick glint: two sources, gone in a fifth of a second', () => {
+    const h = harness();
+    const now = h.ctx.currentTime;
+    const r = h.ui('starHover');
+    expect(r.added).toBe(2);
+    expect(Math.max(...r.sources.map(stopOf))).toBeLessThanOrEqual(now + 0.2);
+    // Softer than the plain hover, and than anything taken.
+    expect(r.peak).toBeLessThan(h.ui('hover').peak);
+    h.advance(1);
+    expect(r.peak).toBeLessThan(h.ui('starTake').peak);
+    h.d.dispose();
+  });
+
+  it('a sweep twinkles: each hover lights the next star, all in key', () => {
+    const h = harness();
+    const heard: number[] = [];
+    for (let i = 0; i < HOVER_STARS.length; i++) {
+      heard.push(freqsOf(h.ui('starHover').sources)[0] ?? 0);
+      h.advance(0.1);
+    }
+    expect(new Set(heard.map((f) => f.toFixed(1))).size).toBeGreaterThanOrEqual(5);
+    for (const f of heard) expect(centsOff(f), `${f} Hz`).toBeLessThan(1);
+    h.d.dispose();
+  });
+
+  it('weight grows from a take to a notable to a keystone; a refund is softer than a take', () => {
+    const h = harness();
+    const take = h.ui('starTake');
+    const notable = h.ui('starNotable');
+    const keystone = h.ui('starKeystone');
+    const refund = h.ui('starRefund');
+    expect(notable.added).toBeGreaterThan(take.added);
+    expect(keystone.added).toBeGreaterThan(notable.added);
+    expect(keystone.peak).toBeGreaterThan(take.peak);
+    expect(refund.peak).toBeLessThan(take.peak);
+    // A keystone is deep: a bell's hum on D2, and a choir on D3.
+    expect(hasPitch(keystone.sources, midiToHz(38))).toBe(true);
+    expect(Math.min(...freqsOf(keystone.sources))).toBeLessThan(80);
+    expect(Math.min(...freqsOf(take.sources))).toBeGreaterThan(250);
+    // It rings long; a take is short.
+    const end = (r: { sources: Source[] }) =>
+      Math.max(...r.sources.map(stopOf)) - h.ctx.currentTime;
+    expect(end(keystone)).toBeGreaterThan(2.5);
+    expect(end(take)).toBeLessThan(1);
+    h.d.dispose();
+  });
+
+  it('a refund is the take reversed: its star and its bell, drawn in and ending together', () => {
+    const h = harness();
+    const take = h.ui('starTake');
+    const refund = h.ui('starRefund');
+    for (const m of [74, 93]) {
+      expect(hasPitch(take.sources, midiToHz(m)), `take ${m}`).toBe(true);
+      expect(hasPitch(refund.sources, midiToHz(m)), `refund ${m}`).toBe(true);
+    }
+    // Taken: the bell first, then the star. Given back: the star first, then the bell.
+    const firstOf = (r: { sources: Source[] }, m: number) =>
+      Math.min(...r.sources.filter((s) => hasPitch([s], midiToHz(m))).map((s) => startOf(s)));
+    expect(firstOf(take, 74)).toBeLessThan(firstOf(take, 93));
+    expect(firstOf(refund, 93)).toBeLessThan(firstOf(refund, 74));
+    h.d.dispose();
+  });
+
+  it('a respec sweeps down: its stars go out from high to low', () => {
+    const h = harness();
+    const r = h.ui('starRespec');
+    const stars = r.sources
+      .filter((s) => s.kind === 'osc' && (s.freqs[0] ?? 0) > 500 && centsOff(s.freqs[0] ?? 0) < 1)
+      .sort((a, b) => startOf(a) - startOf(b));
+    const firsts = [...new Map(stars.map((s) => [startOf(s), s.freqs[0] ?? 0])).values()];
+    expect(firsts.length).toBeGreaterThanOrEqual(6);
+    expect(firsts).toEqual([...firsts].sort((a, b) => b - a));
+    h.d.dispose();
+  });
+
+  it('is rate-limited: a sweep of 24 hovers in 0.6 s glints about a dozen times, two voices', () => {
+    const h = harness();
+    let played = 0;
+    for (let i = 0; i < 24; i++) {
+      played += h.ui('starHover').added > 0 ? 1 : 0;
+      h.advance(0.025);
+    }
+    expect(played).toBeGreaterThanOrEqual(8);
+    expect(played).toBeLessThanOrEqual(15);
+    expect(h.stats().peakVoices['ui:starHover']).toBeLessThanOrEqual(2);
+    h.d.dispose();
+  });
+
+  it('mashing any of them never stacks: within each cap, most of a burst skipped', () => {
+    const h = harness();
+    for (let i = 0; i < 40; i++) {
+      for (const s of STAR) h.d.playUi(s);
+      h.advance(0.02);
+    }
+    for (const s of STAR) {
+      const cap = STAR_LIMITS[s]?.[1] ?? 0;
+      expect(h.stats().peakVoices[`ui:${s}`] ?? 0, s).toBeLessThanOrEqual(cap);
+    }
+    expect(h.stats().skipped).toBeGreaterThan(150);
+    h.d.dispose();
+  });
+
+  it('its brass bells stay in D dorian on D, E and A (their minor third and fifth inside)', () => {
+    for (const m of [62, 64, 69, 74, 76, 81]) {
+      const freqs: number[] = [];
+      const voice = {
+        osc: (spec: { freq: number }) => freqs.push(spec.freq),
+        noise: () => undefined,
+      };
+      brassBell(voice as unknown as Parameters<typeof brassBell>[0], 0, midiToHz(m), 0.1);
+      expect(freqs.length, `${m}`).toBe(7);
+      // The twins sit a few cents sharp of their partials: the slow shimmer of struck brass.
+      for (const f of freqs) expect(centsOff(f), `${m}: ${f.toFixed(1)} Hz`).toBeLessThan(3);
+    }
+  });
+});
+
+// ── Overflowing Grace ───────────────────────────────────────────────────────────────
+
+describe('Overflowing Grace', () => {
+  it('a soft overflow chime on the sfx bus, pitched from the hero', () => {
+    const notes: Record<number, number[]> = {
+      [IDS.kael]: [86, 81, 77, 74], // D6, then A5 F5 D5 spilling down
+      [IDS.lyra]: [93, 88, 84, 81], // A6, then E6 C6 A5
+      [IDS.vexis]: [95, 89, 86, 83], // B6, then F6 D6 B5
+    };
+    for (const hero of HEROES) {
+      const h = harness();
+      tree(h, 'overflowing_grace');
+      const r = h.fire(grace(hero));
+      expect(r.groups).toEqual(['grace']);
+      expect(r.addedSfx).toBe(r.added);
+      for (const m of notes[hero] ?? [])
+        expect(hasPitch(r.sources, midiToHz(m)), `${m}`).toBe(true);
+      // Soft: under the Ward's own glass.
+      expect(r.peak).toBeLessThan(0.06);
+      h.d.dispose();
+    }
+  });
+
+  it('a fuller shield (its share of the node’s cap) is a little louder', () => {
+    const cap = value('overflowing_grace', 'cap') / 100;
+    const level = (share: number) => {
+      const h = harness();
+      tree(h, 'overflowing_grace');
+      const r = h.fire(grace(IDS.lyra, 1000 * cap * share));
+      h.d.dispose();
+      return r.peak;
+    };
+    expect(level(1)).toBeGreaterThan(level(0.2));
+    // Past the cap is the cap.
+    expect(level(3)).toBeCloseTo(level(1), 6);
+  });
+
+  it('is gated per hero and across the party: three at once make one, a burst stays sparse', () => {
+    const h = harness();
+    tree(h, 'overflowing_grace');
+    expect(h.fire(...HEROES.map((hero) => grace(hero))).groups).toEqual(['grace']);
+    h.advance(0.3);
+    expect(h.fire(grace(IDS.kael)).added).toBe(0); // Kael's own gate
+    expect(h.fire(grace(IDS.lyra)).added).toBeGreaterThan(0);
+    let played = 0;
+    for (let i = 0; i < 100; i++) {
+      played += h.fire(grace(HEROES[i % 3] as number)).added > 0 ? 1 : 0;
+      h.advance(0.01);
+    }
+    expect(played).toBeLessThanOrEqual(5);
+    expect(h.stats().peakVoices['grace']).toBeLessThanOrEqual(2);
+    h.d.dispose();
+  });
+});
+
+// ── Eldritch Conduit ────────────────────────────────────────────────────────────────
+
+describe('Eldritch Conduit: a technique paid in Life', () => {
+  it('a blood pulse under the technique’s own sound: Ward, Chime, Reel and Rewind', () => {
+    for (const t of ['ward', 'chime', 'reel', 'rewind']) {
+      const h = harness();
+      tree(h, 'eldritch_conduit');
+      expect(h.world.state.astrolabe.techniquesCostLife).toBe(true);
+      const r = h.fire(cast(t, t === 'chime' ? null : IDS.kael));
+      expect(r.groups, t).toContain('conduit');
+      expect(r.addedSfx, t).toBe(r.added);
+      if (t === 'ward') expect(r.groups).toContain('ward');
+      h.d.dispose();
+    }
+  });
+
+  it('is subtle: well under the Ward it sits under', () => {
+    const h = harness();
+    tree(h, 'eldritch_conduit');
+    const pulse = h.fire(cast('chime', null)).peak;
+    h.advance(1);
+    h.world.setAstrolabe([]);
+    const ward = h.fire(cast('ward')).peak;
+    expect(pulse).toBeLessThan(ward);
+    h.d.dispose();
+  });
+
+  it('none without the node (paid in Spirit), and none for Glide, which is free', () => {
+    const plain = harness();
+    expect(plain.fire(cast('ward')).groups).toEqual(['ward']);
+    expect(plain.fire(cast('chime', null)).added).toBe(0);
+    const h = harness();
+    tree(h, 'eldritch_conduit');
+    expect(h.fire(cast('glide', null)).added).toBe(0);
+    // The other keystones don't make techniques cost Life.
+    const other = harness();
+    tree(other, 'sanguine_font', 'prism_covenant', 'shatterproof_halo');
+    expect(other.fire(cast('chime', null)).added).toBe(0);
+    for (const x of [plain, h, other]) x.d.dispose();
+  });
+
+  it('is pitched from the hero it was for (their note folded into D2..C#3; the Chime’s is D)', () => {
+    const notes: [number | null, number][] = [
+      [IDS.kael, 38],
+      [IDS.lyra, 45],
+      [IDS.vexis, 47],
+      [null, 38],
+    ];
+    for (const [target, m] of notes) {
+      const h = harness();
+      tree(h, 'eldritch_conduit');
+      const r = h.fire(cast(target === null ? 'chime' : 'reel', target));
+      expect(hasPitch(r.sources, midiToHz(m)), `${target} ${m}`).toBe(true);
+      h.d.dispose();
+    }
+  });
+
+  it('reads the price from the state: Economy makes it cheaper and the pulse softer', () => {
+    const level = (...extra: string[]) => {
+      const h = harness();
+      h.world.setAstrolabe([nodeWith('eldritch_conduit'), ...extra]);
+      // A Chime's cast has no sound of its own: the pulse alone.
+      const r = h.fire(cast('chime', null));
+      h.d.dispose();
+      return r.peak;
+    };
+    const economy = CONTENT.astrolabe.nodes
+      .filter((n) => n.effect === 'tech_cost')
+      .map((n) => n.id);
+    expect(economy.length).toBeGreaterThan(0);
+    expect(level(...economy)).toBeLessThan(level());
+  });
+
+  it('beats twice when little of her Life is left', () => {
+    const count = (life: number) => {
+      const h = harness();
+      tree(h, 'eldritch_conduit');
+      h.world.setWeaverHp(life);
+      const r = h.fire(cast('chime', null));
+      h.d.dispose();
+      return r.added;
+    };
+    expect(count(0.15)).toBeGreaterThan(count(1));
+    expect(count(0.6)).toBe(count(1));
+  });
+
+  it('is gated for Stasis spam: 20 Chimes in a second make a few pulses, two voices', () => {
+    const h = harness();
+    tree(h, 'eldritch_conduit');
+    let pulses = 0;
+    for (let i = 0; i < 20; i++) {
+      pulses += h.fire(cast('chime', null)).added > 0 ? 1 : 0;
+      h.advance(0.05);
+    }
+    expect(pulses).toBeGreaterThanOrEqual(2);
+    expect(pulses).toBeLessThanOrEqual(4);
+    expect(h.stats().peakVoices['conduit']).toBeLessThanOrEqual(2);
+    h.d.dispose();
+  });
+});
+
+describe('the Life refusal', () => {
+  it('is the reject sound’s own variant, on the sfx bus: the low "no" with a beat of blood', () => {
+    const r = harness().fire(rejected('ward', 'life'));
+    expect(r.groups).toEqual(['rejectLife']);
+    expect(r.addedSfx).toBe(r.added);
+    expect(hasPitch(r.sources, midiToHz(41))).toBe(true); // the "no", on F2
+    expect(hasPitch(r.sources, midiToHz(38))).toBe(true); // the beat, on D2
+    const spirit = harness().fire(rejected('ward', 'spirit'));
+    expect(spirit.groups).toEqual(['reject']);
+    expect(hasPitch(spirit.sources, midiToHz(38))).toBe(false);
+  });
+
+  it('shares the reject gate: a mashed key never stacks', () => {
+    const h = harness();
+    expect(h.fire(rejected('reel', 'life')).added).toBeGreaterThan(0);
+    expect(h.fire(rejected('ward', 'spirit')).added).toBe(0);
+    expect(h.fire(rejected('chime', 'life')).added).toBe(0);
+    for (let i = 0; i < 30; i++) {
+      h.fire(rejected('ward', 'life'));
+      h.advance(0.02);
+    }
+    expect(h.stats().peakVoices['rejectLife']).toBeLessThanOrEqual(2);
+    h.d.dispose();
+  });
+
+  it('a Rewind refused for Life keeps its clockwork, with the blood under it', () => {
+    const r = harness().fire(rejected('rewind', 'life'));
+    expect(r.groups).toEqual(['rejectRewind']);
+    expect(hasPitch(r.sources, midiToHz(38))).toBe(true);
+    const plain = harness().fire(rejected('rewind', 'target'));
+    expect(plain.groups).toEqual(['rejectRewind']);
+    expect(hasPitch(plain.sources, midiToHz(38))).toBe(false);
+  });
+});
+
+// ── Shatterproof Halo ───────────────────────────────────────────────────────────────
+
+describe('Shatterproof Halo', () => {
+  const cap = value('shatterproof_halo', 'cap') / 100;
+  /** Kael's Ward after a hit of `size` Wards: it held, having lost the most it can. */
+  const held = (size = 1.5, target: number = IDS.kael) => {
+    const h = harness();
+    tree(h, 'shatterproof_halo');
+    h.world.setWard(target === IDS.weaver ? 'weaver' : 'kael', WARD * (1 - cap), WARD);
+    const r = h.fire(hit(target, WARD * size));
+    h.d.dispose();
+    return r;
+  };
+
+  it('a Ward holding a hit that would have broken it rings, in place of the absorb glint', () => {
+    const r = held();
+    expect(r.groups).toEqual(['halo']);
+    expect(r.addedSfx).toBe(r.added);
+    // On the Ward's own root, as its cast.
+    const h = harness();
+    const ward = freqsOf(h.fire(cast('ward')).sources)[0] ?? 0;
+    h.d.dispose();
+    expect(hasPitch(r.sources, ward)).toBe(true);
+    expect(hasPitch(r.sources, ward * 2)).toBe(true);
+  });
+
+  it('is louder than the absorb glint it replaces, and under the Ward’s cast', () => {
+    const ring = held().peak;
+    const h = harness();
+    const ward = h.fire(cast('ward')).peak;
+    h.advance(1);
+    const glint = h.fire(hit(IDS.kael, 100)).peak;
+    h.d.dispose();
+    expect(ring).toBeGreaterThan(glint);
+    expect(ring).toBeLessThan(ward);
+  });
+
+  it('silent without the node: the same hit is the plain absorb glint', () => {
+    const h = harness();
+    h.world.setWard('kael', WARD * (1 - cap), WARD);
+    expect(h.fire(hit(IDS.kael, WARD * 1.5)).groups).toEqual(['absorb']);
+    h.d.dispose();
+  });
+
+  it('only for a hit that would have broken it: the threshold follows the node’s cap', () => {
+    // It had a full Ward: a hit of exactly that breaks it without the Halo, a little less doesn't.
+    expect(held(1).groups).toEqual(['halo']);
+    expect(held(0.97).groups).toEqual(['absorb']);
+    // A worn Ward: what's left plus what it lost.
+    const h = harness();
+    tree(h, 'shatterproof_halo');
+    h.world.setWard('kael', WARD * 0.1, WARD);
+    expect(h.fire(hit(IDS.kael, WARD * (0.1 + cap) * 0.95)).groups).toEqual(['absorb']);
+    h.advance(1);
+    expect(h.fire(hit(IDS.kael, WARD * (0.1 + cap))).groups).toEqual(['halo']);
+    h.d.dispose();
+  });
+
+  it('a Ward that broke is the break, not the ring; a hit that got through is a hit', () => {
+    const h = harness();
+    tree(h, 'shatterproof_halo');
+    // Worn down to its last half, it breaks: as before, the absorb (or the hit) and the break.
+    const r = h.fire(hit(IDS.kael, WARD), ev('shieldBroken', { target: IDS.kael, shield: 'ward' }));
+    expect(r.groups).toContain('shieldBreak');
+    expect(r.groups).not.toContain('halo');
+    h.advance(1);
+    h.world.setWard('kael', WARD * (1 - cap), WARD);
+    expect(h.fire(hit(IDS.kael, WARD * 1.5, 50)).groups).toEqual(['hit']);
+    h.d.dispose();
+  });
+
+  it('holds on the Weaver’s own Ward too (Martyr’s Aegis)', () => {
+    expect(held(1.5, IDS.weaver).groups).toEqual(['halo']);
+  });
+
+  it('is gated: a dozen big hits in a second ring a few times, two voices', () => {
+    const h = harness();
+    tree(h, 'shatterproof_halo');
+    let rings = 0;
+    for (let i = 0; i < 12; i++) {
+      const hero = (['kael', 'lyra', 'vexis'] as const)[i % 3];
+      h.world.setWard(hero, WARD * (1 - cap), WARD);
+      // A refused ring still takes the glint's place: anything heard is the ring.
+      rings += h.fire(hit(IDS[hero], WARD * 1.5)).added > 0 ? 1 : 0;
+      h.advance(1 / 12);
+    }
+    expect(rings).toBeGreaterThanOrEqual(3);
+    expect(rings).toBeLessThanOrEqual(9);
+    expect(h.stats().peakVoices['halo']).toBeLessThanOrEqual(2);
+    h.d.dispose();
+  });
+});
+
+// ── Afterglow ───────────────────────────────────────────────────────────────────────
+
+describe('Afterglow', () => {
+  const linger = value('afterglow', 'seconds');
+
+  it('a very quiet fading tail on the hero the Thread left, lasting the linger', () => {
+    const h = harness();
+    tree(h, 'afterglow');
+    h.world.setAfterglow('lyra', linger);
+    const now = h.ctx.currentTime;
+    const r = h.fire(attach(IDS.kael));
+    expect(r.groups).toEqual(expect.arrayContaining(['attach', 'afterglow']));
+    const tail = r.sources.filter((s) => hasPitch([s], midiToHz(93)));
+    expect(tail.length).toBeGreaterThanOrEqual(2);
+    // Gone as the linger ends.
+    expect(Math.max(...tail.map(stopOf))).toBeCloseTo(now + 0.005 + linger + 0.03, 2);
+    h.d.dispose();
+    // Very quiet: far under the Thread's own pluck.
+    const a = harness();
+    tree(a, 'afterglow');
+    a.world.setAfterglow('lyra', linger);
+    const both = a.fire(attach(IDS.kael));
+    a.d.dispose();
+    const p = harness();
+    const pluck = p.fire(attach(IDS.kael)).peak;
+    p.d.dispose();
+    expect(both.peak).toBe(pluck); // the loudest thing in the batch is still the pluck
+  });
+
+  it('none without a linger (no node), and each linger is heard once', () => {
+    const h = harness();
+    expect(h.fire(attach(IDS.kael)).groups).toEqual(['attach']);
+    tree(h, 'afterglow');
+    h.world.setAfterglow('lyra', linger);
+    h.advance(1);
+    expect(h.fire(attach(IDS.kael)).groups).toContain('afterglow');
+    h.advance(1);
+    // The Thread moves again: Lyra's linger was already heard.
+    expect(h.fire(attach(IDS.vexis)).groups).not.toContain('afterglow');
+    h.d.dispose();
+  });
+
+  it('lets go when the Thread comes back to that hero, or they go down', () => {
+    for (const end of ['back', 'down'] as const) {
+      const h = harness();
+      tree(h, 'afterglow');
+      h.world.setAfterglow('lyra', linger);
+      const tail = h.fire(attach(IDS.kael)).sources.filter((s) => hasPitch([s], midiToHz(93)));
+      h.advance(0.5);
+      const now = h.ctx.currentTime;
+      if (end === 'back') h.fire(attach(IDS.lyra, 1));
+      else h.fire(ev('allyDowned', { hero: IDS.lyra }));
+      for (const s of tail) expect(stopOf(s), end).toBeLessThanOrEqual(now + 0.4);
+      h.d.dispose();
+    }
+  });
+
+  it('a downed hero, or one whose linger is over, has none', () => {
+    const h = harness();
+    tree(h, 'afterglow');
+    h.world.setAfterglow('lyra', linger);
+    h.world.setDowned('lyra', true);
+    expect(h.fire(attach(IDS.kael)).groups).not.toContain('afterglow');
+    h.d.dispose();
+  });
+});
+
+// ── Second Wind ─────────────────────────────────────────────────────────────────────
+
+describe('Second Wind', () => {
+  it('the revive voiced a touch fuller: the plain revive and its own layer, on the sfx bus', () => {
+    const h = harness();
+    tree(h, 'second_wind');
+    const r = h.fire(revived());
+    expect(r.groups).toEqual(expect.arrayContaining(['revive', 'secondWind']));
+    expect(r.addedSfx).toBe(r.added);
+    const p = harness();
+    const plain = p.fire(revived());
+    expect(plain.groups).toEqual(['revive']);
+    expect(r.added).toBeGreaterThan(plain.added);
+    // A touch: the revive's own chord is still the loudest thing in it.
+    expect(r.peak).toBe(plain.peak);
+    h.d.dispose();
+    p.d.dispose();
+  });
+
+  it('its glassy halo lasts as long as they are untouchable (the node’s seconds)', () => {
+    const seconds = value('second_wind', 'seconds');
+    const h = harness();
+    tree(h, 'second_wind');
+    const now = h.ctx.currentTime;
+    // Vexis's B, two octaves over D4: B6.
+    const halo = h.fire(revived(IDS.vexis)).sources.filter((s) => hasPitch([s], midiToHz(95)));
+    expect(halo.length).toBe(2);
+    for (const s of halo)
+      expect(stopOf(s)).toBeCloseTo(now + 0.005 + 0.3 + seconds + 0.35 + 0.03, 2);
+    h.d.dispose();
+  });
+
+  it('none for a Rewind’s revive, which has its own sound', () => {
+    const h = harness();
+    tree(h, 'second_wind');
+    const r = h.fire(
+      revived(IDS.lyra),
+      ev('rewound', {
+        target: IDS.lyra,
+        fromX: 4,
+        fromZ: 0,
+        toX: 1,
+        toZ: -2,
+        restored: 300,
+        revived: true,
+      }),
+    );
+    expect(r.groups).toContain('bigRewind');
+    expect(r.groups).not.toContain('secondWind');
+    h.d.dispose();
+  });
+
+  it('is gated per hero', () => {
+    const h = harness();
+    tree(h, 'second_wind');
+    expect(h.fire(revived(IDS.vexis)).groups).toContain('secondWind');
+    h.advance(0.2);
+    expect(h.fire(revived(IDS.vexis)).groups).not.toContain('secondWind');
+    expect(h.fire(revived(IDS.kael)).groups).toContain('secondWind');
+    h.d.dispose();
+  });
+});
+
+// ── The rest of the tree ────────────────────────────────────────────────────────────
+
+describe('the rest of the tree', () => {
+  it('names only effects the sim knows and the content has', () => {
+    for (const e of ASTROLABE_SOUND_EFFECTS) {
+      expect(KNOWN_ASTROLABE_EFFECTS, e).toContain(e);
+      expect(
+        CONTENT.astrolabe.nodes.some((n) => n.effect === e),
+        e,
+      ).toBe(true);
+    }
+  });
+
+  it('nothing new for Prism Covenant, Sanguine Font or Unbroken Chorus', () => {
+    const batch = (): SimEvent[] => [
+      cast('ward'),
+      hit(IDS.kael, 100),
+      attach(IDS.lyra),
+      revived(IDS.vexis),
+      rejected('ward', 'spirit'),
+      ev('healApplied', {
+        target: IDS.kael,
+        source: IDS.weaver,
+        amount: 60,
+        overheal: 0,
+        via: 'mend',
+      }),
+    ];
+    const plain = harness();
+    const without = plain.fire(...batch());
+    const h = harness();
+    tree(h, 'prism_covenant', 'sanguine_font', 'unbroken_chorus');
+    const withTree = h.fire(...batch());
+    expect(withTree.groups.sort()).toEqual(without.groups.sort());
+    expect(withTree.added).toBe(without.added);
+    plain.d.dispose();
+    h.d.dispose();
+  });
+
+  it('a whole keystone burst stays within every cap (the gates hold)', () => {
+    const h = harness();
+    tree(
+      h,
+      'overflowing_grace',
+      'shatterproof_halo',
+      'eldritch_conduit',
+      'afterglow',
+      'second_wind',
+    );
+    for (let i = 0; i < 20; i++) {
+      h.world.setWard('kael', WARD * (1 - value('shatterproof_halo', 'cap') / 100), WARD);
+      h.world.setAfterglow((['kael', 'lyra', 'vexis'] as const)[(i + 1) % 3], 3);
+      h.fire(
+        ...HEROES.map((hero) => grace(hero)),
+        cast('ward'),
+        rejected('ward', 'life'),
+        hit(IDS.kael, WARD * 1.5),
+        revived(HEROES[i % 3] as number),
+        attach(HEROES[i % 3] as number, i % 3),
+      );
+      h.advance(0.05);
+    }
+    const peaks = h.stats().peakVoices;
+    for (const [group, cap] of [
+      ['grace', 2],
+      ['conduit', 2],
+      ['rejectLife', 2],
+      ['halo', 2],
+      ['afterglow', 2],
+      ['secondWind', 2],
+    ] as const)
+      expect(peaks[group] ?? 0, group).toBeLessThanOrEqual(cap);
+    expect(h.stats().skipped).toBeGreaterThan(60);
+    h.d.dispose();
+  });
+});
+
+// ── Robustness ──────────────────────────────────────────────────────────────────────
+
+describe('Phase 4 without an AudioContext', () => {
+  const all = (): SimEvent[] => [
+    grace(),
+    cast('ward'),
+    cast('rewind', IDS.lyra),
+    rejected('ward', 'life'),
+    rejected('rewind', 'life'),
+    hit(IDS.kael, WARD * 1.5),
+    attach(IDS.kael),
+    revived(),
+    ev('allyDowned', { hero: IDS.lyra }),
+  ];
+
+  it('is a safe no-op in Node, with a full or a minimal state', () => {
+    const audio = getAudio();
+    const world = new FakeWorld();
+    world.setAstrolabe(CONTENT.astrolabe.nodes.map((n) => n.id));
+    world.setAfterglow('lyra', 3);
+    world.setWard('kael', 100, WARD);
+    expect(() => {
+      audio.onEvents(all(), world.state);
+      audio.onEvents(all(), {} as WorldState);
+      audio.update(world.state, 0.016);
+      for (const s of STAR) audio.playUi(s);
+    }).not.toThrow();
+    audio.dispose();
+  });
+
+  it('does not throw with a context but a minimal or odd state either', () => {
+    const h = harness();
+    expect(() => {
+      h.d.onEvents(all(), {} as WorldState);
+      h.d.onEvents(all(), { entities: { get: () => undefined } } as unknown as WorldState);
+      h.d.onEvents(all(), {
+        astrolabe: { nodes: ['nonsense'], techniquesCostLife: true, techCostMult: 1 },
+        entities: { get: () => undefined },
+      } as unknown as WorldState);
+      tree(
+        h,
+        'overflowing_grace',
+        'shatterproof_halo',
+        'eldritch_conduit',
+        'afterglow',
+        'second_wind',
+      );
+      h.d.onEvents(
+        [grace(9999, Number.NaN), hit(9999, 500), attach(9999), revived(9999), cast('ward', 9999)],
+        h.world.state,
+      );
+      for (const s of STAR) h.d.playUi(s);
+      h.d.stopCombat();
+    }).not.toThrow();
+    h.d.dispose();
+  });
+});
+
+// ── The lab ─────────────────────────────────────────────────────────────────────────
+
+describe('audio lab: the Phase 4 · Astrolabe group', () => {
+  const buttons = SOUNDS.filter((s) => s.group === 'astrolabe');
+  const ids = buttons.map((s) => s.id);
+
+  /** Plays a button as an offline render would: follow-ups in order on a 0.05 s clock. */
+  const press = (id: string) => {
+    const s = SOUNDS.find((b) => b.id === id);
+    const h = harness();
+    s?.fire(h.d, h.world);
+    let at = 0;
+    for (const f of s?.then ?? []) {
+      while (at + 1e-9 < f.delay) {
+        h.ctx.currentTime += 0.05;
+        h.d.pump();
+        at += 0.05;
+      }
+      f.fire(h.d, h.world);
+    }
+    return h;
+  };
+
+  it('has a button for each sound, its comparisons and its stress tests', () => {
+    for (const s of STAR) expect(ids, s).toContain(`ui-${s}`);
+    for (const id of [
+      'astro-hover-sweep',
+      'astro-path-keystone',
+      'astro-take-refund',
+      'astro-ui-cantAfford',
+      'astro-grace',
+      'astro-grace-party',
+      'astro-conduit-ward',
+      'astro-conduit-reel',
+      'astro-conduit-chime',
+      'astro-conduit-compare',
+      'astro-reject-life',
+      'astro-reject-spirit',
+      'astro-reject-rewind-life',
+      'astro-halo',
+      'astro-halo-compare',
+      'astro-afterglow',
+      'astro-afterglow-back',
+      'astro-second-wind',
+      'astro-revive-compare',
+      'astro-burst',
+    ])
+      expect(ids, id).toContain(id);
+  });
+
+  it('fires every button without throwing, and each makes a sound on its bus', () => {
+    expect(buttons.length).toBeGreaterThanOrEqual(25);
+    for (const s of buttons) {
+      let h: ReturnType<typeof harness> | undefined;
+      expect(() => {
+        h = press(s.id);
+      }, s.id).not.toThrow();
+      const made = (h?.stats().activeSources.sfx ?? 0) + (h?.stats().activeSources.ui ?? 0);
+      expect(made, s.id).toBeGreaterThan(0);
+      h?.d.dispose();
+    }
+  });
+
+  it('each keystone button plays its own sound', () => {
+    const own: [string, string][] = [
+      ['astro-grace', 'grace'],
+      ['astro-conduit-ward', 'conduit'],
+      ['astro-conduit-chime', 'conduit'],
+      ['astro-reject-life', 'rejectLife'],
+      ['astro-halo', 'halo'],
+      ['astro-afterglow', 'afterglow'],
+      ['astro-second-wind', 'secondWind'],
+    ];
+    for (const [id, group] of own) {
+      const h = press(id);
+      expect(h.stats().peakVoices[group] ?? 0, id).toBeGreaterThan(0);
+      h.d.dispose();
+    }
+    // The comparisons are without the node.
+    for (const [id, group] of [
+      ['astro-conduit-compare', 'conduit'],
+      ['astro-halo-compare', 'halo'],
+      ['astro-revive-compare', 'secondWind'],
+    ] as const) {
+      const h = press(id);
+      expect(h.stats().peakVoices[group] ?? 0, id).toBe(0);
+      h.d.dispose();
+    }
+  });
+
+  it('follow-ups are in order, and every button leaves the lab world as it found it', () => {
+    for (const s of buttons) {
+      const delays = (s.then ?? []).map((f) => f.delay);
+      expect(delays, s.id).toEqual([...delays].sort((a, b) => a - b));
+      const h = press(s.id);
+      expect(h.world.astrolabe.nodes, s.id).toEqual([]);
+      expect(h.world.state.entities.get(IDS.weaver)?.health?.hp, s.id).toBe(300);
+      for (const hero of HEROES) {
+        const e = h.world.state.entities.get(hero);
+        expect(e?.hero?.afterglowUntil ?? 0, `${s.id} ${hero}`).toBe(0);
+        expect(e?.health?.shields.length ?? 0, `${s.id} ${hero}`).toBe(0);
+      }
+      h.d.dispose();
+    }
+  });
+
+  it('the stress buttons stay within their caps', () => {
+    const sweep = press('astro-hover-sweep');
+    expect(sweep.stats().peakVoices['ui:starHover']).toBeLessThanOrEqual(2);
+    sweep.d.dispose();
+    const burst = press('astro-burst');
+    for (const g of ['grace', 'conduit', 'rejectLife', 'halo', 'afterglow', 'secondWind'])
+      expect(burst.stats().peakVoices[g] ?? 0, g).toBeLessThanOrEqual(2);
+    expect(burst.stats().skipped).toBeGreaterThan(40);
+    burst.d.dispose();
+  });
+});

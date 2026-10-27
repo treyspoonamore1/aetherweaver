@@ -11,7 +11,7 @@
  */
 import { CONTENT, attackDef } from '../content';
 import type { AttackDef } from '../content';
-import { rewindCanRevive } from '../sim';
+import { canPay, rewindCanRevive } from '../sim';
 import type {
   DeepReadonly,
   EntityId,
@@ -139,7 +139,11 @@ export function chronoLook(state: WorldState, out: ChronoLook): ChronoLook {
   return out;
 }
 
-/** Rewind could be cast now (the sim's checks that don't depend on the target). */
+/**
+ * Rewind could be cast now (the sim's checks that don't depend on the target). Its price is the
+ * sim's own `canPay` at Reel's: Stasis's discount, the Astrolabe's Economy, and Eldritch
+ * Conduit's Life instead of Spirit (docs/phase-4.md).
+ */
 export function rewindReady(state: WorldState): boolean {
   const e = state.entities.get(state.weaverId);
   const w = e?.weaver;
@@ -147,9 +151,8 @@ export function rewindReady(state: WorldState): boolean {
   if (!w || !h || h.downed || h.dead) return false;
   const status = state.encounter.status;
   if (status === 'victory' || status === 'defeat') return false;
-  const stasis = state.field.stasis;
-  if (w.cooldowns.reel > 0 && !stasis) return false;
-  return w.spirit + 1e-9 >= rewindCost(stasis);
+  if (w.cooldowns.reel > 0 && !state.field.stasis) return false;
+  return canPay(state, 'reel');
 }
 
 /** Where Rewind would send `e` (its oldest remembered moment), or null. */

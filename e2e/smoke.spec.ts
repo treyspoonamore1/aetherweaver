@@ -386,3 +386,98 @@ test('Phase 3e: the Chronomancer — choose him in Prep, Rewind in Reel’s slot
   await expect(page.getByTestId('technique-reel')).not.toHaveAttribute('data-ready', 'true');
   expect(errors).toEqual([]);
 });
+
+test('Phase 4: the Astrolabe — from Prep, take, give back, respec, a keystone’s path, embark with it', async ({
+  page,
+}) => {
+  const errors = trackErrors(page);
+  await page.goto(START_URL);
+  await page.waitForFunction(() => window.__AWRUN__ !== undefined);
+  // Settings → Skip the unlocks (a new profile is Rank 1: the Astrolabe opens at Rank 4).
+  await page
+    .getByRole('button', { name: /^Settings$/ })
+    .first()
+    .click();
+  await page.getByText('Skip the unlocks', { exact: true }).click();
+  await expect(page.getByRole('switch', { name: /Skip the unlocks/ })).toBeChecked();
+
+  await page.evaluate(() => window.__AWRUN__!.newRun(4242));
+  await expect.poll(() => page.evaluate(() => window.__AWRUN__!.phase())).toBe('prep');
+  const { points } = await page.evaluate(() => window.__AWRUN__!.astrolabe());
+  // Prep's button says how many points there are to spend; it opens the star map.
+  await expect(page.getByTestId('prep-astrolabe')).toContainText(`${points} points to spend`);
+  await page.getByTestId('prep-astrolabe').click();
+  await expect(page.getByTestId('astrolabe-screen')).toBeVisible();
+  const left = () => page.getByTestId('astrolabe-points');
+  // A star on the map (the tooltip and the side card name the star they show, too).
+  const star = (id: string) => page.getByTestId('astrolabe-map').locator(`[data-star="${id}"]`);
+
+  // Spun Silver, three stars out: clicking it takes the path to it.
+  await star('silk_n1').click();
+  await expect
+    .poll(() => page.evaluate(() => window.__AWRUN__!.astrolabe().tree))
+    .toEqual(['silk_t1', 'silk_t2', 'silk_n1']);
+  await expect(left()).toHaveAttribute('data-left', String(points - 3));
+  // The run in Prep follows the tree.
+  expect(await page.evaluate(() => window.__AWRUN__!.astrolabe().run)).toEqual([
+    'silk_t1',
+    'silk_t2',
+    'silk_n1',
+  ]);
+
+  // The trunk can't go back while Spun Silver hangs on it; Spun Silver can (right-click).
+  await star('silk_t1').click({ button: 'right' });
+  expect(await page.evaluate(() => window.__AWRUN__!.astrolabe().tree)).toHaveLength(3);
+  await star('silk_n1').click({ button: 'right' });
+  await expect
+    .poll(() => page.evaluate(() => window.__AWRUN__!.astrolabe().tree))
+    .toEqual(['silk_t1', 'silk_t2']);
+  await expect(left()).toHaveAttribute('data-left', String(points - 2));
+
+  // Respec, confirmed: everything back.
+  await page.getByRole('button', { name: /Respec/ }).click();
+  await page.getByRole('button', { name: /Give everything back/ }).click();
+  await expect.poll(() => page.evaluate(() => window.__AWRUN__!.astrolabe().tree)).toEqual([]);
+  await expect(left()).toHaveAttribute('data-left', String(points));
+
+  // A keystone at the rim: pointing at it shows the path's price; one click takes the path.
+  const prism = star('prism_covenant');
+  await prism.hover();
+  const tip = page.getByTestId('star-tip');
+  await expect(tip).toHaveAttribute('data-star', 'prism_covenant');
+  await expect(tip).toHaveAttribute('data-action', 'take');
+  const cost = Number(await tip.getAttribute('data-cost'));
+  expect(cost).toBeGreaterThan(1);
+  await prism.click();
+  await expect
+    .poll(() => page.evaluate(() => window.__AWRUN__!.astrolabe().tree.length))
+    .toBe(cost);
+  const tree = await page.evaluate(() => window.__AWRUN__!.astrolabe().tree);
+  expect(tree.at(-1)).toBe('prism_covenant');
+  await expect(left()).toHaveAttribute('data-left', String(points - cost));
+  await expect(page.getByTestId('astrolabe-keystones')).toContainText('Prism Covenant');
+
+  // Esc goes back to Prep, which names the keystone.
+  await page.keyboard.press('Escape');
+  await expect.poll(() => page.evaluate(() => window.__AWRUN__!.phase())).toBe('prep');
+  await expect(page.getByTestId('prep-astrolabe')).toContainText(
+    `${points - cost} points to spend`,
+  );
+  await expect(page.getByTestId('keystone-chips')).toContainText('Prism Covenant');
+
+  // Embark: the first fight's config carries the tree (the sim keeps it sorted).
+  await page
+    .getByRole('button', { name: /Embark/i })
+    .first()
+    .click();
+  await expect.poll(() => page.evaluate(() => window.__AWRUN__!.phase())).toBe('map');
+  expect(await page.evaluate(() => window.__AWRUN__!.astrolabe().run)).toEqual(tree);
+  expect(await page.evaluate(() => window.__AWRUN__!.choose())).toBe('skirmish');
+  await expect.poll(() => page.evaluate(() => window.__AWRUN__!.phase())).toBe('combat');
+  await page.waitForFunction(() => window.__AW__ !== undefined);
+  const config = await page.evaluate(() => window.__AW__!.exportReplay().config);
+  expect(config.astrolabe).toEqual([...tree].sort());
+  // The fight shows the keystone beside the Calling chip's place.
+  await expect(page.getByTestId('keystone-chip')).toBeVisible();
+  expect(errors).toEqual([]);
+});

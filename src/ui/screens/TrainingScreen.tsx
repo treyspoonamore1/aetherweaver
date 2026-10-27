@@ -1,8 +1,10 @@
 import { useMemo, useState } from 'react';
 import { GameHost, seedFromUrl } from '../../app/GameHost';
+import { useProfile } from '../../app/profileStore';
 import type { CombatSession } from '../../app/runtime';
 import { getRuntime } from '../../app/runtimeRegistry';
 import { CONTENT, auraDef, ornamentDef } from '../../content';
+import { pruneTree } from '../../meta/astrolabe';
 import { CHORD_PRESETS } from '../../meta/run';
 import { songName } from '../../sim';
 import { DevPanel } from '../../debug/DevPanel';
@@ -23,6 +25,12 @@ export function TrainingScreen() {
   useMood('calm');
   const [seed] = useState(seedFromUrl);
   const [loadout, setLoadout] = useState(CHORD_PRESETS[0]!.id);
+  // The profile's Astrolabe (docs/phase-4.md: try a change before a run), as a run would embark
+  // with it: within the Rank's points. Read once: it can't change while training.
+  const [astrolabe] = useState(() => {
+    const p = useProfile.getState();
+    return pruneTree(p.profile.astrolabe, p.astrolabePoints());
+  });
   // A new session (and runtime) whenever the loadout changes.
   const session = useMemo<CombatSession>(() => {
     const preset = CHORD_PRESETS.find((p) => p.id === loadout) ?? CHORD_PRESETS[0]!;
@@ -31,10 +39,11 @@ export function TrainingScreen() {
         seed,
         encounter: 'sandbox',
         chords: preset.chords.map((c) => ({ auras: [...c.auras], ornaments: [...c.ornaments] })),
+        astrolabe,
         debug: true,
       },
     };
-  }, [seed, loadout]);
+  }, [seed, loadout, astrolabe]);
   const showPerf = useUi((s) => s.showPerf);
   const devOpen = useUi((s) => s.devOpen);
   const paused = useUi((s) => s.paused);

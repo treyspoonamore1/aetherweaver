@@ -19,7 +19,7 @@ import {
   type LevelReport,
   type PitchReport,
 } from './offline';
-import { SOUNDS, fireSound } from './soundBoard';
+import { SOUNDS, fireSound, type SoundButton } from './soundBoard';
 
 const MOODS: AudioMood[] = [
   'silent',
@@ -32,7 +32,7 @@ const MOODS: AudioMood[] = [
   'defeat',
 ];
 const GROUPS: {
-  id: 'support' | 'phase2' | 'relic' | 'calling' | 'martyr' | 'chrono' | 'world' | 'ui';
+  id: SoundButton['group'];
   title: string;
 }[] = [
   { id: 'support', title: 'Support actions' },
@@ -43,6 +43,10 @@ const GROUPS: {
   {
     id: 'chrono',
     title: 'Phase 3e: the Chronomancer (Rewind, Stasis, Foresight, the path, its UI sounds)',
+  },
+  {
+    id: 'astrolabe',
+    title: 'Phase 4 · Astrolabe (the star map, and its keystones in the fight)',
   },
   { id: 'world', title: 'World, enemies and telegraphs' },
   { id: 'ui', title: 'UI' },

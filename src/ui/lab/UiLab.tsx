@@ -1,6 +1,13 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { COLOR_VISIONS, applyVisionCss } from '../../app/colorVision';
-import { EVERYTHING, MAX_RANK, UNLOCKS, allowanceFor, type Allowance } from '../../meta/profile';
+import {
+  EVERYTHING,
+  MAX_RANK,
+  RANK_XP,
+  UNLOCKS,
+  allowanceFor,
+  type Allowance,
+} from '../../meta/profile';
 import * as Run from '../../meta/run';
 import { applyUiScale } from '../presentation';
 import type { RunState } from '../../meta/types';
@@ -67,8 +74,17 @@ import {
   chronoResultRun,
   chronoRun,
   chronoSummaryRun,
+  KEYSTONE_TREE,
+  LIGHT_TREE,
+  RANK12_TREE,
+  RANK20_TREE,
+  SANGUINE_TREE,
+  heavierSongs,
 } from './mock';
+import { useProfile } from '../../app/profileStore';
 import { ControlsSettings } from '../screens/ControlsSettings';
+import { AstrolabeView } from '../screens/AstrolabeScreen';
+import { allocate, astrolabePoints, refund } from '../../meta/astrolabe';
 
 /** A stand-in for the 3D arena behind the HUD. */
 function World({ children }: { children: ReactNode }) {
@@ -331,6 +347,99 @@ function prepAt(rank: number | null, preset = 'steady', seed = 7) {
     </Interactive>
   );
 }
+
+/**
+ * The Astrolabe at a Rank with a tree, held in local state so taking, giving back and Respec
+ * really work (`allocate` / `refund`, as the profile store does). `points` overrides the Rank's
+ * (an over-budget tree); `point` draws a star's path as if pointed at.
+ */
+function AstrolabeLab({
+  rank,
+  initial = [],
+  points,
+  point = null,
+  respec = false,
+  unlockAll = false,
+}: {
+  rank: number;
+  initial?: readonly string[];
+  points?: number;
+  point?: string | null;
+  respec?: boolean;
+  unlockAll?: boolean;
+}) {
+  const [tree, setTree] = useState<string[]>(() => [...initial]);
+  const pts = points ?? astrolabePoints(rank, unlockAll);
+  return (
+    <AstrolabeView
+      tree={tree}
+      points={pts}
+      rank={rank}
+      unlockAll={unlockAll}
+      onTake={(id) => setTree((t) => allocate(t, id, pts))}
+      onGiveBack={(id) => setTree((t) => refund(t, id))}
+      onRespec={() => setTree([])}
+      onBack={noop}
+      backTo="Prep"
+      initialPoint={point}
+      initialRespec={respec}
+    />
+  );
+}
+
+/**
+ * The song builder with a tree (Phase 4): the run's pool and the tree's share of it, as Prep
+ * reads them (`Run.reservePool`, `Run.reserveMult`).
+ */
+function TreeBuilder({
+  tree,
+  initial,
+  title,
+}: {
+  tree: readonly string[];
+  initial: readonly ChordLoadout[];
+  title: string;
+}) {
+  const [draft, setDraft] = useState(() => initial.map((c) => ({ ...c, auras: [...c.auras] })));
+  const run = Run.newRun(7, undefined, tree);
+  return (
+    <ScreenFrame>
+      <div className="mx-auto max-w-7xl px-6 py-8">
+        <ScreenHeader eyebrow="Song builder · the Astrolabe" title={title} />
+        <div className="mt-6">
+          <ChordBuilder
+            value={draft}
+            onChange={setDraft}
+            pool={Run.reservePool(run)}
+            reserveMult={Run.reserveMult(run)}
+            astrolabe={tree}
+          />
+        </div>
+      </div>
+    </ScreenFrame>
+  );
+}
+
+/**
+ * The Title with a profile at a Rank and a tree (the lab sets the profile store once, without
+ * saving it).
+ */
+function TitleAt({ rank, tree }: { rank: number; tree: readonly string[] }) {
+  useState(() => {
+    const p = useProfile.getState().profile;
+    useProfile.setState({
+      profile: { ...p, xp: RANK_XP[rank - 1]! + 10, astrolabe: [...tree], runs: 9, wins: 4 },
+    });
+    return true;
+  });
+  return <TitleScreen />;
+}
+
+/** Four auras, more than all of Spirit: too heavy without a lighter tree. */
+const HEAVY_CHORDS: readonly ChordLoadout[] = [
+  { auras: ['fortissimo', 'ostinato'], ornaments: [] },
+  { auras: ['sostenuto', 'allegro'], ornaments: [] },
+];
 
 /** Profile XP for the lab's result and summary screens (Rank 3, partway to 4). */
 const LAB_XP = 318;
@@ -1634,6 +1743,264 @@ const VIEWS: ViewDef[] = [
         </div>
       </ScreenFrame>
     ),
+  },
+  // ── Phase 4: the Astrolabe ───────────────────────────────────────────────────────────
+  {
+    id: 'astrolabe-rank4',
+    group: 'Astrolabe',
+    label: 'The Astrolabe at Rank 4: 3 points, nothing taken',
+    w: 1280,
+    h: 720,
+    render: () => <AstrolabeLab rank={4} />,
+  },
+  {
+    id: 'astrolabe-rank4-path',
+    group: 'Astrolabe',
+    label: 'Rank 4: pointing at Spun Silver (3 points)',
+    w: 1280,
+    h: 720,
+    render: () => <AstrolabeLab rank={4} point="silk_n1" />,
+  },
+  {
+    id: 'astrolabe-rank12',
+    group: 'Astrolabe',
+    label: 'Rank 12: 9 of 11 points, pointing at a Blood two stars out',
+    w: 1280,
+    h: 720,
+    render: () => <AstrolabeLab rank={12} initial={RANK12_TREE} point="silk_b4" />,
+  },
+  {
+    id: 'astrolabe-short',
+    group: 'Astrolabe',
+    label: 'Rank 12: Sanguine Font, more than the points left',
+    w: 1280,
+    h: 720,
+    render: () => <AstrolabeLab rank={12} initial={RANK12_TREE} point="sanguine_font" />,
+  },
+  {
+    id: 'astrolabe-held',
+    group: 'Astrolabe',
+    label: 'Rank 12: Spun Silver can’t go back (Afterglow hangs on it)',
+    w: 1280,
+    h: 720,
+    render: () => <AstrolabeLab rank={12} initial={RANK12_TREE} point="silk_n1" />,
+  },
+  {
+    id: 'astrolabe-mine',
+    group: 'Astrolabe',
+    label: 'Rank 12: Clear Voice can go back',
+    w: 1280,
+    h: 720,
+    render: () => <AstrolabeLab rank={12} initial={RANK12_TREE} point="choir_n1" />,
+  },
+  {
+    id: 'astrolabe-rank20',
+    group: 'Astrolabe',
+    label: 'Rank 20: 19 points, Prism Covenant',
+    w: 1280,
+    h: 720,
+    render: () => <AstrolabeLab rank={20} initial={RANK20_TREE} />,
+  },
+  {
+    id: 'astrolabe-keystones',
+    group: 'Astrolabe',
+    label: 'A keystone-heavy tree: Prism Covenant and Eldritch Conduit',
+    w: 1280,
+    h: 720,
+    render: () => <AstrolabeLab rank={20} initial={KEYSTONE_TREE} point="eldritch_conduit" />,
+  },
+  {
+    id: 'astrolabe-over',
+    group: 'Astrolabe',
+    label: 'Over budget: 19 stars, Rank 12 (Skip the unlocks turned off)',
+    w: 1280,
+    h: 720,
+    render: () => <AstrolabeLab rank={12} initial={RANK20_TREE} />,
+  },
+  {
+    id: 'astrolabe-respec',
+    group: 'Astrolabe',
+    label: 'Respec: the confirm',
+    w: 1280,
+    h: 720,
+    render: () => <AstrolabeLab rank={20} initial={RANK20_TREE} respec />,
+  },
+  {
+    id: 'hud-astro-conduit',
+    group: 'Astrolabe',
+    label: 'HUD: Eldritch Conduit and Prism Covenant, a technique refused for Life',
+    w: 1280,
+    h: 720,
+    render: () => <HudStage scenario="astro-conduit" coach={false} />,
+  },
+  {
+    id: 'hud-astro-afterglow',
+    group: 'Astrolabe',
+    label: 'HUD: Afterglow on Kael after the Thread moved to Lyra',
+    w: 1280,
+    h: 720,
+    render: () => <HudStage scenario="astro-afterglow" coach={false} />,
+  },
+  {
+    id: 'hud-astro-grace',
+    group: 'Astrolabe',
+    label: 'HUD: Overflowing Grace’s shield on Kael',
+    w: 1280,
+    h: 720,
+    render: () => <HudStage scenario="astro-grace" coach={false} />,
+  },
+  {
+    id: 'hud-astro-sanguine',
+    group: 'Astrolabe',
+    label: 'HUD: Sanguine Font, the songs hold Life (no Calling)',
+    w: 1280,
+    h: 720,
+    render: () => <HudStage scenario="astro-sanguine" coach={false} />,
+  },
+  {
+    id: 'builder-astrolabe',
+    group: 'Astrolabe',
+    label: 'Builder: Clear Voice and the Breaths let heavier songs in',
+    w: 1280,
+    h: 1000,
+    render: () => (
+      <TreeBuilder
+        tree={LIGHT_TREE}
+        initial={heavierSongs(LIGHT_TREE) ?? HEAVY_CHORDS}
+        title="The songs, made lighter"
+      />
+    ),
+  },
+  {
+    id: 'builder-sanguine',
+    group: 'Astrolabe',
+    label: 'Builder: Sanguine Font, the Life budget without the Martyr',
+    w: 1280,
+    h: 1000,
+    render: () => (
+      <TreeBuilder tree={SANGUINE_TREE} initial={GUARDIAN_CHORDS} title="Songs sung with Life" />
+    ),
+  },
+  {
+    id: 'builder-conduit',
+    group: 'Astrolabe',
+    label: 'Builder: Eldritch Conduit, techniques in Life (and the Economy)',
+    w: 1280,
+    h: 1000,
+    render: () => (
+      <TreeBuilder tree={KEYSTONE_TREE} initial={HEAVY_CHORDS} title="Techniques paid in Life" />
+    ),
+  },
+  {
+    id: 'prep-astrolabe',
+    group: 'Astrolabe',
+    label: 'Prep: the Astrolabe button and the keystones',
+    w: 1280,
+    h: 720,
+    render: () => (
+      <Interactive initial={() => Run.newRun(7, GUARDIAN_CHORDS, KEYSTONE_TREE)}>
+        {(run, set) => (
+          <PrepView
+            run={run}
+            onChords={(c) => set((r) => Run.setChords(r, c))}
+            onCalling={(id) => set((r) => Run.setCalling(r, id))}
+            onEmbark={noop}
+            onBack={noop}
+            rank={MAX_RANK}
+            astrolabe={{ points: astrolabePoints(MAX_RANK), onOpen: noop }}
+          />
+        )}
+      </Interactive>
+    ),
+  },
+  {
+    id: 'prep-astrolabe-spend',
+    group: 'Astrolabe',
+    label: 'Prep at Rank 4: the Astrolabe New, 3 points to spend',
+    w: 1280,
+    h: 1100,
+    render: () => (
+      <Interactive initial={() => Run.newRun(7)}>
+        {(run, set) => (
+          <PrepView
+            run={run}
+            onChords={(c) => set((r) => Run.setChords(r, c, allowanceFor(4)))}
+            onEmbark={noop}
+            onBack={noop}
+            allowance={allowanceFor(4)}
+            fresh={UNLOCKS.filter((u) => u.rank === 4)}
+            rank={4}
+            astrolabe={{ points: astrolabePoints(4), onOpen: noop }}
+          />
+        )}
+      </Interactive>
+    ),
+  },
+  {
+    id: 'title-astrolabe',
+    group: 'Astrolabe',
+    label: 'Title at Rank 12: points to spend',
+    w: 1280,
+    h: 720,
+    render: () => <TitleAt rank={12} tree={RANK12_TREE.slice(0, 6)} />,
+  },
+  {
+    id: 'rank-up-4',
+    group: 'Astrolabe',
+    label: 'Rank 4: the Astrolabe opens with its points',
+    w: 1280,
+    h: 800,
+    render: () => (
+      <World>
+        <RankUpCard rankUps={mockRankUps([4])} onDismiss={noop} />
+      </World>
+    ),
+  },
+  {
+    id: 'rank-up-11-12',
+    group: 'Astrolabe',
+    label: 'Ranks 11 and 12: a point each',
+    w: 1280,
+    h: 720,
+    render: () => (
+      <World>
+        <RankUpCard rankUps={mockRankUps([11, 12])} onDismiss={noop} />
+      </World>
+    ),
+  },
+  {
+    id: 'rank-panels-astrolabe',
+    group: 'Astrolabe',
+    label: 'Rank panels at Ranks 3 and 12: what the next Rank opens',
+    w: 1280,
+    h: 720,
+    render: () => (
+      <ScreenFrame tone="gold">
+        <div className="mx-auto grid max-w-6xl items-start gap-6 px-6 py-10 md:grid-cols-2">
+          <RankPanelView profile={{ xp: RANK_XP[2]! + 60, runs: 3, wins: 1 }} />
+          <RankPanelView profile={{ xp: RANK_XP[11]! + 300, runs: 30, wins: 15 }} />
+        </div>
+      </ScreenFrame>
+    ),
+  },
+  {
+    id: 'summary-astrolabe',
+    group: 'Astrolabe',
+    label: 'Summary: the run’s tree in brief',
+    w: 1280,
+    h: 1700,
+    render: () => {
+      const run = { ...summaryRun('victory'), astrolabe: [...KEYSTONE_TREE] };
+      return <SummaryView run={run} onNewRun={noop} onTitle={noop} />;
+    },
+  },
+  {
+    id: 'codex-astrolabe',
+    group: 'Astrolabe',
+    label: 'Codex: the Astrolabe',
+    w: 1280,
+    h: 1250,
+    render: () => <CodexView onBack={noop} initialTab="astrolabe" />,
   },
   {
     id: 'flow',

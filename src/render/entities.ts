@@ -10,6 +10,7 @@ import { ModelBatch } from './models/batch';
 import { buildCrown, buildEnemy, buildHero, buildWeaver } from './models/library';
 import type { ModelMaterial } from './models/material';
 import { shineLevel, shineOf } from './callingCues';
+import { ASTRO_HEX, astroLook, atLifeCap, emptyAstroLook, graceMarked } from './astrolabeCues';
 import {
   CHRONO_HEX,
   chronoLook,
@@ -102,6 +103,16 @@ export interface EntityRec {
   /** The Ward last seen on this entity and the sim time it was first seen (its pop). */
   wardRef: unknown;
   wardSeen: number;
+  /**
+   * The Astrolabe (docs/phase-4/vfx.md). `graceRef`: the overshield Overflowing Grace formed or
+   * feeds on this hero (AstrolabeView draws it in its own look, so the plain overshield shell is
+   * skipped). `conduit`: Eldritch Conduit's blood-violet flicker on the Weaver (0..1.3, decays in
+   * ~0.3 s). `prism`: Prism Covenant's spectral edge on the Weaver (0..1, smoothed). Afterglow
+   * leaves the rim alone (a hero's aura tint shows through it): AstrolabeView draws it.
+   */
+  graceRef: unknown;
+  conduit: number;
+  prism: number;
   lastHp: number;
   alive: boolean;
 }
@@ -160,6 +171,8 @@ const GHOST_ASH = color('#e8e4f4');
 const SAVE_GHOST_LIFE = 1.05;
 /** The Chronomancer's silver: frozen enemies' rims, Rewind's ghosts. */
 const CHRONO_SILVER = color(CHRONO_HEX.silver);
+/** Eldritch Conduit: a technique paid in Life flickers her rim blood-violet. */
+const CONDUIT = color(ASTRO_HEX.conduit);
 /** A downed hero's fall played backwards (Rewind standing them up): how long it takes. */
 export const UNFALL_LIFE = 0.55;
 
@@ -212,6 +225,8 @@ export class EntityLayer {
   sunrise = 0;
   /** The Chronomancer, read once a frame (docs/phase-3e/vfx.md). */
   readonly chrono = emptyChronoLook();
+  /** The Astrolabe, read once a frame (docs/phase-4/vfx.md). */
+  readonly astro = emptyAstroLook();
   /**
    * The enemies' animation clock (real seconds): it stands still while Stasis holds them, so a
    * frozen enemy keeps its pose mid-motion (a stagger's shake, a stun's wobble, a boss's breath).
@@ -378,6 +393,9 @@ export class EntityLayer {
       chronoFlash: 0,
       wardRef: null,
       wardSeen: 0,
+      graceRef: null,
+      conduit: 0,
+      prism: 0,
       lastHp: e.health?.hp ?? 0,
       alive: true,
     };
@@ -428,6 +446,12 @@ export class EntityLayer {
   chronoFlash(id: EntityId, amount = 1): void {
     const r = this.recs.get(id);
     if (r) r.chronoFlash = Math.max(r.chronoFlash, Math.min(1.5, amount));
+  }
+
+  /** Eldritch Conduit: a technique paid in Life flickers the Weaver's rim blood-violet. */
+  conduitFlash(id: EntityId, amount = 1): void {
+    const r = this.recs.get(id);
+    if (r) r.conduit = Math.max(r.conduit, Math.min(1.3, amount));
   }
 
   /**
@@ -590,6 +614,7 @@ export class EntityLayer {
     this.beamAllIn = beam ? isAllIn(beam) : false;
     const lum = state.calling?.id === 'luminary';
     this.sunrise = approach(this.sunrise, lum && state.field.crescendo ? 1 : 0, 4, dt);
+    astroLook(state, this.astro);
     // The Chronomancer's Stasis: the enemies' clock stops and the stillness spreads from her.
     const look = chronoLook(state, this.chrono);
     if (look.stasis && !this.stasisOn) {
@@ -815,6 +840,7 @@ export class EntityLayer {
     rec.goldRim = Math.max(0, rec.goldRim - dt * 1.4);
     rec.rimFlash = Math.max(0, rec.rimFlash - dt * 3);
     rec.chronoFlash = Math.max(0, rec.chronoFlash - dt * 2.6);
+    rec.conduit = Math.max(0, rec.conduit - dt * 3.4);
 
     // Spawning: rise out of the portal.
     const enemy = e.enemy;
@@ -933,9 +959,16 @@ export class EntityLayer {
     }
     if (rec.kind === 'weaver') {
       // The Martyr: a borne wound flashes her rim crimson; Vigil and Scarred Hide hold one.
+      // Eldritch Conduit: a technique paid in Life flickers it blood-violet.
       if (rec.flinch > 0.01) {
         this.tint.copy(FLINCH);
         tintStrength = 0.4 + 1.9 * Math.min(1, rec.flinch);
+      } else if (rec.conduit > 0.01) {
+        // A quick flicker (steady at Flashes 0), gone in ~0.3 s.
+        const wob = 0.38 * clamp01(frame.settings.flashes);
+        const f = Math.min(1, rec.conduit) * (1 - wob + wob * Math.sin(this.now * 47));
+        this.tint.copy(CONDUIT);
+        tintStrength = 0.35 + 1.75 * f;
       } else if (rec.rimHold > 0.01) {
         this.tint.copy(rec.rimHoldColor);
         tintStrength = rec.rimHold;
@@ -955,6 +988,11 @@ export class EntityLayer {
       rec.shine = approach(rec.shine, target, target > rec.shine ? 9 : 4.5, dt);
       if (rec.shine < (target > 0 ? 0.002 : 0.02)) rec.shine = 0;
       rec.lit = approach(rec.lit, e.hero?.inField && !downed ? 1 : 0, 6, dt);
+    } else if (rec.kind === 'weaver') {
+      // Prism Covenant (the Astrolabe): a spectral edge on her while she fights at its cap.
+      const capped = this.astro.prism && atLifeCap(state);
+      rec.prism = approach(rec.prism, capped ? 1 : 0, capped ? 3 : 5, dt);
+      if (rec.prism < 0.003) rec.prism = 0;
     }
     rec.batch.push(
       m,
@@ -968,6 +1006,7 @@ export class EntityLayer {
       this.sunrise,
       // Stasis' frost; Slow Dance only cools them a little (no new clutter).
       Math.max(rec.frost, rec.slow * 0.35),
+      rec.prism * (1 - desat),
     );
 
     // Blob shadow (fodder has no shadow-map shadow) and selection rings.
@@ -1649,6 +1688,8 @@ export class EntityLayer {
           );
           break;
         case 'overshield':
+          // Overflowing Grace's shield has its own look (AstrolabeView draws it).
+          if (s === rec.graceRef || graceMarked(s)) break;
           kit.shells.push(
             x,
             hh * 0.5 + rec.y,

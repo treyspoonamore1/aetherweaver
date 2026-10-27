@@ -20,6 +20,7 @@ import { CallingGlyph, callingLook } from '../kit/CallingGlyph';
 import {
   anchorLabel,
   auraSlotsFor,
+  costText,
   isBonusSlot,
   chordNumbers,
   itemLock as itemLockOf,
@@ -43,6 +44,9 @@ import {
   type SpiritBudget,
 } from './chordModel';
 import { lowLifeMarks, type LowLifeMark } from './callingText';
+import { AstrolabeGlyph } from '../kit/AstrolabeGlyph';
+import { CONSTELLATION_LOOK, STARLIGHT } from '../kit/astrolabeLook';
+import { reserveStars } from './astrolabeModel';
 
 const ANCHOR_ICON = { weaver: 'note', planted: 'pin' } as const satisfies Record<string, IconName>;
 
@@ -53,6 +57,41 @@ export const SONG_LOOK = {
 } as const satisfies Record<string, { color: string; icon: IconName }>;
 
 const NO_FRESH: ReadonlySet<string> = new Set();
+const NO_TREE: readonly string[] = [];
+
+/**
+ * "−14%": the Astrolabe's share of the songs (Clear Voice, Breath, Eldritch Conduit, Sanguine
+ * Font), with the stars behind it in its tooltip. Nothing when the tree leaves the songs alone.
+ */
+export function AstrolabeShare({
+  reserveMult,
+  astrolabe,
+  className = '',
+}: {
+  reserveMult: number;
+  astrolabe: readonly string[];
+  className?: string;
+}) {
+  const less = Math.round((1 - reserveMult) * 100);
+  if (less === 0) return null;
+  const stars = [...new Set(reserveStars(astrolabe).map((n) => n.name))];
+  const text = `${less > 0 ? '−' : '+'}${Math.abs(less)}% from the Astrolabe`;
+  return (
+    <span
+      className={`inline-flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-px text-xs font-semibold ${className}`}
+      style={{
+        color: CONSTELLATION_LOOK.choir.light,
+        borderColor: `color-mix(in srgb, ${CONSTELLATION_LOOK.choir.color} 60%, transparent)`,
+        background: `color-mix(in srgb, ${CONSTELLATION_LOOK.choir.color} 14%, transparent)`,
+      }}
+      title={`Your Astrolabe makes your songs ${Math.abs(less)}% ${less > 0 ? 'lighter' : 'heavier'}: ${stars.join(', ')}`}
+      data-testid="astrolabe-share"
+    >
+      <AstrolabeGlyph glyph="weaver_star" size={12} style={{ color: STARLIGHT.color }} />
+      {text}
+    </span>
+  );
+}
 
 /** Who added the field song's extra aura slots (the Luminary's Third Voice), to mark them. */
 export interface SlotBonus {
@@ -88,6 +127,8 @@ export function ChordBuilder({
   bonus = null,
   pool = 'spirit',
   calling = null,
+  reserveMult = 1,
+  astrolabe = NO_TREE,
 }: {
   value: ChordLoadout[];
   onChange(next: ChordLoadout[]): void;
@@ -97,10 +138,14 @@ export function ChordBuilder({
   fieldAuraSlots?: number;
   /** Who added the extra field slots, to mark them (null: no extra slots). */
   bonus?: SlotBonus | null;
-  /** What the songs reserve: `Run.reservePool(run)` (the Martyr's Life). */
+  /** What the songs reserve: `Run.reservePool(run)` (the Martyr's Life, Sanguine Font's). */
   pool?: ReservePool;
   /** The run's Calling: the Martyr's Life and the thresholds her path marks on it. */
   calling?: RunCalling | null;
+  /** Phase 4: the Astrolabe's multiplier on the songs' share (`Run.reserveMult(run)`). */
+  reserveMult?: number;
+  /** Phase 4: the run's tree (`run.astrolabe`): its Life, its technique costs, its lighter songs. */
+  astrolabe?: readonly string[];
 }) {
   const w = CONTENT.weaver;
   const firstEmpty = (): SlotRef => {
@@ -115,8 +160,8 @@ export function ChordBuilder({
     return { chord: 0, kind: 'aura', index: 0 };
   };
   const [selected, setSelected] = useState<SlotRef>(firstEmpty);
-  const problems = loadoutProblems(value, allowance, fieldAuraSlots, pool);
-  const budget = spiritBudget(value, pool, calling?.id ?? null);
+  const problems = loadoutProblems(value, allowance, fieldAuraSlots, pool, reserveMult);
+  const budget = spiritBudget(value, pool, calling?.id ?? null, { reserveMult, astrolabe });
   const preset = presetFor(value);
 
   const place = (id: string) => {
@@ -247,6 +292,7 @@ export function ChordBuilder({
                 auraSlots={auraSlotsFor(i, fieldAuraSlots)}
                 bonus={bonus}
                 pool={pool}
+                reserveMult={reserveMult}
                 selected={selected.chord === i ? selected : null}
                 onSelect={(ref) => {
                   playUi('click');
@@ -261,9 +307,10 @@ export function ChordBuilder({
               budget={budget}
               marks={lowLifeMarks(calling?.path ?? [])}
               callingId={calling?.id ?? null}
+              astrolabe={astrolabe}
             />
           ) : (
-            <BudgetPanel budget={budget} />
+            <BudgetPanel budget={budget} astrolabe={astrolabe} />
           )}
           {problems.length > 0 && (
             <div
@@ -288,6 +335,7 @@ export function ChordBuilder({
           allowance={allowance}
           fresh={fresh}
           pool={pool}
+          reserveMult={reserveMult}
           onPlace={place}
           onRemove={remove}
         />
@@ -350,6 +398,7 @@ function SongCard({
   auraSlots,
   bonus,
   pool,
+  reserveMult,
   selected,
   onSelect,
   onRemove,
@@ -361,6 +410,8 @@ function SongCard({
   auraSlots: number;
   bonus: SlotBonus | null;
   pool: ReservePool;
+  /** The Astrolabe's multiplier on the songs' share. */
+  reserveMult: number;
   selected: SlotRef | null;
   onSelect(ref: SlotRef): void;
   onRemove(ref: SlotRef): void;
@@ -458,7 +509,7 @@ function SongCard({
                 onRemove={onRemove}
                 note={
                   chord.auras[i] !== undefined
-                    ? `reserves ${pct(auraDef(chord.auras[i]!).reserve * n.reserveMult)}`
+                    ? `reserves ${pct(auraDef(chord.auras[i]!).reserve * n.reserveMult * reserveMult)}`
                     : undefined
                 }
               />
@@ -492,9 +543,10 @@ function SongCard({
             })}
           </div>
           {!empty && (
-            <p className="mt-3 flex flex-wrap gap-x-4 gap-y-1 font-mono text-xs text-muted">
+            <p className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-xs text-muted">
               <span>
-                reserves <b className="text-text">{pct(n.reserve)}</b> of {poolWord(pool)}
+                reserves <b className="text-text">{pct(n.reserve * reserveMult)}</b> of{' '}
+                {poolWord(pool)}
               </span>
               {Math.abs(n.effect - 1) > 0.001 && (
                 <span className={n.effect > 1 ? 'text-gold-300' : 'text-threat'}>
@@ -671,6 +723,7 @@ function Palette({
   allowance,
   fresh,
   pool,
+  reserveMult,
   onPlace,
   onRemove,
 }: {
@@ -679,6 +732,8 @@ function Palette({
   allowance: Allowance;
   fresh: ReadonlySet<string>;
   pool: ReservePool;
+  /** The Astrolabe's multiplier on the songs' share. */
+  reserveMult: number;
   onPlace(id: string): void;
   onRemove(ref: SlotRef): void;
 }) {
@@ -696,7 +751,7 @@ function Palette({
           subtitle: a.subtitle,
           color: a.color,
           description: a.description,
-          stat: `reserves ${pct(a.reserve * n.reserveMult)}`,
+          stat: `reserves ${pct(a.reserve * n.reserveMult * reserveMult)}`,
           warn: null,
           lock: itemLockOf(allowance, 'aura', a.id),
           misfit: null,
@@ -841,16 +896,50 @@ function Palette({
   );
 }
 
+/**
+ * What pays for the techniques, with Eldritch Conduit (Phase 4): their costs in Life, from the
+ * Life she fights with.
+ */
+function LifeTechniques({ budget: b }: { budget: SpiritBudget }) {
+  return (
+    <li className="flex flex-wrap items-center gap-x-3 gap-y-1" data-testid="techniques-life">
+      <span className="flex items-center gap-1.5" style={{ color: LIFE }}>
+        <Icon name="heart" size={12} /> Your techniques cost Life:
+      </span>
+      {b.techniques.map((t) => (
+        <span
+          key={t.key}
+          className={`flex items-center gap-1 ${t.affordable ? 'text-text' : 'text-lethal'}`}
+        >
+          <Icon name={t.affordable ? 'check' : 'close'} size={12} />
+          {t.name} {costText(t.cost)}
+        </span>
+      ))}
+    </li>
+  );
+}
+
 /** Reserved vs free Spirit, and what the free part buys. */
-function BudgetPanel({ budget: b }: { budget: ReturnType<typeof spiritBudget> }) {
+function BudgetPanel({
+  budget: b,
+  astrolabe,
+}: {
+  budget: ReturnType<typeof spiritBudget>;
+  astrolabe: readonly string[];
+}) {
   const scale = Math.max(b.max, b.reserved);
   const width = (v: number) => `${(v / scale) * 100}%`;
   const ward = b.techniques[0]!;
   const c = CONTENT.chorus;
+  // Eldritch Conduit: Spirit is the songs' alone; the techniques cost Life.
+  const lifeTech = b.techPool === 'life';
   return (
     <Panel tone="solid" className="p-3.5" aria-label="Spirit budget">
-      <div className="flex items-baseline justify-between">
-        <p className="text-sm font-semibold text-text">Spirit budget</p>
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+        <p className="flex items-center gap-2 text-sm font-semibold text-text">
+          Spirit budget
+          <AstrolabeShare reserveMult={b.reserveMult} astrolabe={astrolabe} />
+        </p>
         <p className="font-mono text-xs text-muted">
           <span className={b.over ? 'text-lethal' : ''}>{fmt(b.reserved)} reserved</span> ·{' '}
           <span style={{ color: 'var(--color-spirit)' }}>{fmt(b.free)} free</span> of {b.max}
@@ -876,16 +965,17 @@ function BudgetPanel({ budget: b }: { budget: ReturnType<typeof spiritBudget> })
           style={{ width: width(b.free), background: 'var(--color-spirit)' }}
         >
           {/* What the free Spirit buys, back to back: Ward, then Chime, then Reel. */}
-          {b.techniques.map((t) => (
-            <span
-              key={t.key}
-              className="flex h-full shrink-0 items-center justify-center border-r-2 border-dashed border-ink-950/60 text-xs font-semibold text-ink-950"
-              style={{ width: `${(t.cost / Math.max(1, b.free)) * 100}%` }}
-              aria-hidden
-            >
-              {t.name}
-            </span>
-          ))}
+          {!lifeTech &&
+            b.techniques.map((t) => (
+              <span
+                key={t.key}
+                className="flex h-full shrink-0 items-center justify-center border-r-2 border-dashed border-ink-950/60 text-xs font-semibold text-ink-950"
+                style={{ width: `${(t.cost / Math.max(1, b.free)) * 100}%` }}
+                aria-hidden
+              >
+                {t.name}
+              </span>
+            ))}
         </div>
         {b.over && (
           <div
@@ -896,28 +986,34 @@ function BudgetPanel({ budget: b }: { budget: ReturnType<typeof spiritBudget> })
         )}
       </div>
       <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs">
-        {b.techniques.map((t) => (
-          <li
-            key={t.key}
-            className={`flex items-center gap-1.5 ${t.affordable ? 'text-text' : 'text-lethal'}`}
-          >
-            <Icon name={t.affordable ? 'check' : 'close'} size={12} />
-            {t.name} {t.cost}
-          </li>
-        ))}
-        <li className={b.allThree ? 'text-muted' : 'text-threat'}>
-          {b.allThree
-            ? 'Room for all three back to back'
-            : `All three back to back need ${b.techniques.reduce((s, t) => s + t.cost, 0)}`}
-        </li>
+        {lifeTech ? (
+          <LifeTechniques budget={b} />
+        ) : (
+          <>
+            {b.techniques.map((t) => (
+              <li
+                key={t.key}
+                className={`flex items-center gap-1.5 ${t.affordable ? 'text-text' : 'text-lethal'}`}
+              >
+                <Icon name={t.affordable ? 'check' : 'close'} size={12} />
+                {t.name} {costText(t.cost)}
+              </li>
+            ))}
+            <li className={b.allThree ? 'text-muted' : 'text-threat'}>
+              {b.allThree
+                ? 'Room for all three back to back'
+                : `All three back to back need ${costText(b.techniques.reduce((s, t) => s + t.cost, 0))}`}
+            </li>
+          </>
+        )}
       </ul>
-      {!ward.affordable && (
+      {!ward.affordable && !lifeTech && (
         <p
           className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-lethal"
           role="status"
         >
           <Icon name="ward" size={14} /> Only {fmt(b.free)} Spirit stays free: you could never cast
-          Ward ({ward.cost}).
+          Ward ({costText(ward.cost)}).
         </p>
       )}
       <p
@@ -945,17 +1041,23 @@ function LifeBudgetPanel({
   budget: b,
   marks,
   callingId,
+  astrolabe,
 }: {
   budget: SpiritBudget;
   marks: LowLifeMark[];
   callingId: string | null;
+  astrolabe: readonly string[];
 }) {
   const scale = Math.max(b.max, b.reserved);
   const at = (v: number) => `${(v / scale) * 100}%`;
-  const look = callingLook(callingId);
+  // The Martyr's blood; Sanguine Font's (Phase 4) on another Calling's run is the Silk's.
+  const martyr = callingId === 'martyr';
+  const look = martyr ? callingLook(callingId) : CONSTELLATION_LOOK.silk;
   const c = CONTENT.chorus;
   const capPct = Math.round(LIFE_RESERVE_CAP * 100);
   const heldPct = Math.round((b.reserved / b.max) * 100);
+  // Prism Covenant: she fights at a share of what the songs leave her.
+  const prism = b.lifeCap < 1 ? b.free * b.lifeCap : null;
   return (
     <Panel
       tone="solid"
@@ -965,9 +1067,10 @@ function LifeBudgetPanel({
       style={{ borderColor: `color-mix(in srgb, ${look.color} 45%, var(--color-ink-600))` }}
     >
       <div className="flex flex-wrap items-baseline justify-between gap-x-3">
-        <p className="flex items-center gap-1.5 text-sm font-semibold text-text">
+        <p className="flex flex-wrap items-center gap-1.5 text-sm font-semibold text-text">
           <Icon name="drop" size={14} style={{ color: look.color }} /> Life budget
           <span className="font-normal text-muted">· your songs reserve Life, not Spirit</span>
+          <AstrolabeShare reserveMult={b.reserveMult} astrolabe={astrolabe} />
         </p>
         <p className="font-mono text-xs text-muted">
           <span className={b.over ? 'text-lethal' : ''}>
@@ -1016,6 +1119,16 @@ function LifeBudgetPanel({
             ← you keep at least {100 - capPct}%
           </span>
         </span>
+        {prism !== null && (
+          // Prism Covenant (Phase 4): where she fights, and can't be healed above.
+          <span
+            className="absolute -bottom-1 -top-1 w-0.5"
+            style={{ left: at(prism), background: CONSTELLATION_LOOK.choir.light }}
+            title={`Prism Covenant: you fight at ${Math.round(b.lifeCap * 100)}% of it (${fmt(prism)} Life)`}
+            data-testid="life-budget-prism"
+            aria-hidden
+          />
+        )}
         {marks.map((m) => {
           const on = b.free < m.below * b.max - 1e-9;
           return (
@@ -1043,12 +1156,22 @@ function LifeBudgetPanel({
       <ul className={`flex flex-col gap-1 text-xs ${marks.length > 0 ? 'mt-5' : 'mt-2'}`}>
         <li className="flex items-center gap-1.5 text-text">
           <Icon name="heart" size={12} style={{ color: LIFE }} />
-          You fight with {fmt(b.free)} Life of {fmt(b.max)}: a Weaver without the Martyr has{' '}
-          {fmt(b.baseLife)}.
+          You fight with {fmt(b.free)} Life of {fmt(b.max)}
+          {martyr ? `: a Weaver without the Martyr has ${fmt(b.baseLife)}.` : '.'}
           {b.free < b.max * 0.5 && b.reserved > 0 && (
             <span className="text-muted">You start below half your Life.</span>
           )}
         </li>
+        {prism !== null && (
+          <li
+            className="flex items-center gap-1.5"
+            style={{ color: CONSTELLATION_LOOK.choir.light }}
+          >
+            <AstrolabeGlyph glyph="prism_covenant" size={12} />
+            Prism Covenant: you fight at {Math.round(b.lifeCap * 100)}% of that ({fmt(prism)} Life)
+            and can’t be healed above it.
+          </li>
+        )}
         {marks.map((m) => {
           const on = b.free < m.below * b.max - 1e-9;
           return (
@@ -1059,20 +1182,24 @@ function LifeBudgetPanel({
             </li>
           );
         })}
-        <li className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          <span className="flex items-center gap-1.5" style={{ color: 'var(--color-spirit)' }}>
-            <Icon name="sparkle" size={12} /> All {fmt(b.spirit)} Spirit is free:
-          </span>
-          {b.techniques.map((t) => (
-            <span
-              key={t.key}
-              className={`flex items-center gap-1 ${t.affordable ? 'text-text' : 'text-lethal'}`}
-            >
-              <Icon name={t.affordable ? 'check' : 'close'} size={12} />
-              {t.name} {t.cost}
+        {b.techPool === 'life' ? (
+          <LifeTechniques budget={b} />
+        ) : (
+          <li className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <span className="flex items-center gap-1.5" style={{ color: 'var(--color-spirit)' }}>
+              <Icon name="sparkle" size={12} /> All {fmt(b.spirit)} Spirit is free:
             </span>
-          ))}
-        </li>
+            {b.techniques.map((t) => (
+              <span
+                key={t.key}
+                className={`flex items-center gap-1 ${t.affordable ? 'text-text' : 'text-lethal'}`}
+              >
+                <Icon name={t.affordable ? 'check' : 'close'} size={12} />
+                {t.name} {costText(t.cost)}
+              </span>
+            ))}
+          </li>
+        )}
       </ul>
       <p
         className={`mt-2 flex items-center gap-1.5 text-xs ${b.chorus ? 'text-gold-200' : 'text-muted'}`}

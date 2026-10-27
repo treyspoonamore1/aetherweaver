@@ -37,6 +37,11 @@ import { RelicGlyph } from '../kit/RelicGlyph';
 import { aetherEarned, relicInfo } from './interlude';
 import { RelicBody } from './RelicCard';
 import { tallyLine, withoutYouTally, withoutYouLine } from './withoutYouText';
+import { AstrolabeGlyph } from '../kit/AstrolabeGlyph';
+import { CONSTELLATION_LOOK } from '../kit/astrolabeLook';
+import { AstrolabeMap } from './AstrolabeMap';
+import { KeystoneChips } from './AstrolabeParts';
+import { pointsWord, treeTotals } from './astrolabeModel';
 
 const GRADE_COLOR: Record<Grade, string> = {
   S: '#fde9b8',
@@ -228,6 +233,8 @@ export function SummaryView({
         )}
 
         {run.calling && <CallingSummary calling={run.calling} totals={totals} run={run} />}
+
+        {run.astrolabe.length > 0 && <AstrolabeSummary tree={run.astrolabe} />}
 
         {tally.fights > 0 && (
           <Panel tone="solid" className="mt-6 p-5" data-testid="summary-without-you">
@@ -646,6 +653,55 @@ function CallingSummary({
           </li>
         ))}
       </ol>
+    </Panel>
+  );
+}
+
+/**
+ * The tree this run fought with (Phase 4), in brief: a small star map, the points it held, its
+ * keystones (each with its price on hover) and what it added up to.
+ */
+function AstrolabeSummary({ tree }: { tree: readonly string[] }) {
+  const t = treeTotals(tree);
+  const lines = t.groups.flatMap((g) => g.lines.map((l) => ({ ...l, c: g.constellation })));
+  return (
+    <Panel tone="solid" className="mt-6 p-5" data-testid="summary-astrolabe">
+      <div className="flex flex-wrap items-start gap-5">
+        <AstrolabeMap tree={tree} mini className="h-36 w-36 shrink-0" label="Your Astrolabe" />
+        <div className="min-w-0 flex-1">
+          <SectionTitle
+            right={
+              <span className="font-mono text-xs text-muted">
+                {pointsWord(tree.length)} in the tree
+              </span>
+            }
+          >
+            Your Astrolabe
+          </SectionTitle>
+          {t.keystones.length > 0 ? (
+            <KeystoneChips tree={tree} align="start" />
+          ) : (
+            <p className="text-sm text-muted">No keystone this run.</p>
+          )}
+          {lines.length > 0 && (
+            <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm text-text">
+              {lines.map((l) => (
+                <li key={l.key} className="flex items-center gap-1.5">
+                  <span style={{ color: CONSTELLATION_LOOK[l.c].color }}>
+                    <AstrolabeGlyph glyph={CONSTELLATION_LOOK[l.c].glyph} size={13} />
+                  </span>
+                  {l.text}
+                </li>
+              ))}
+            </ul>
+          )}
+          {t.rules.length > 0 && (
+            <p className="mt-2 text-xs text-muted">
+              Notables: {t.rules.map((n) => n.name).join(', ')}
+            </p>
+          )}
+        </div>
+      </div>
     </Panel>
   );
 }

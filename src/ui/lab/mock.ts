@@ -3,7 +3,7 @@
  * reviewed (and its edge cases hit) without playing. Runs are built by driving the real
  * pure run functions (meta/run.ts) with fake combat outcomes.
  */
-import { CONTENT, auraDef, callingDef, encounterDef, heroDef } from '../../content';
+import { CONTENT, astrolabeNode, auraDef, callingDef, encounterDef, heroDef } from '../../content';
 import * as Run from '../../meta/run';
 import type {
   ActiveBoon,
@@ -22,6 +22,7 @@ import { relicHuds } from '../hud/relics';
 import { callingHud, lifeMarksOf, shineOf, type CallingSource } from '../hud/calling';
 import { motifStep, type ForgeResult } from '../screens/interlude';
 import {
+  chordReserve,
   createSim,
   resolveChord,
   rewindCanRevive,
@@ -33,7 +34,9 @@ import {
 import { buildHudSnapshot } from '../hudBridge';
 import { foreseenAll, rewindPreview } from '../hud/chrono';
 import { callingLook } from '../kit/callingLook';
-import { UNLOCKS } from '../../meta/profile';
+import { EVERYTHING, MAX_RANK, UNLOCKS } from '../../meta/profile';
+import { allocate, astrolabePoints } from '../../meta/astrolabe';
+import { STARS, starStats } from '../screens/astrolabeModel';
 import type { RankUp } from '../../app/profileStore';
 import type { AuraHud, Callout, ChordHud, HeroHud, HudSnapshot, TechniqueHud } from '../store';
 import type { WheelView } from '../../input/wheel';
@@ -58,6 +61,7 @@ function techniques(
       icon: 'ward',
       free: false,
       baseCost: t.ward.cost,
+      pool: 'spirit',
     },
     {
       key: 'chime',
@@ -72,6 +76,7 @@ function techniques(
       icon: 'chime',
       free: false,
       baseCost: t.chime.cost,
+      pool: 'spirit',
     },
     {
       key: 'reel',
@@ -86,6 +91,7 @@ function techniques(
       icon: 'reel',
       free: false,
       baseCost: t.reel.cost,
+      pool: 'spirit',
     },
     {
       key: 'glide',
@@ -100,6 +106,7 @@ function techniques(
       icon: 'glide',
       free: false,
       baseCost: 0,
+      pool: 'spirit',
     },
   ];
   return base.map((b) => ({ ...b, ...over[b.key] }));
@@ -144,6 +151,8 @@ function hero(slot: number, defId: string, over: Partial<HeroHud> = {}): HeroHud
     rewind: null,
     foreseen: [],
     lands: null,
+    afterglow: null,
+    grace: null,
     call: null,
     held: null,
     follow: 'follow',
@@ -172,7 +181,8 @@ export type HudScenario =
   | 'martyr-bear'
   | 'martyr-vow'
   | 'martyr-low'
-  | ChronoScenario;
+  | ChronoScenario
+  | AstroScenario;
 
 /**
  * Phase 3e, the Chronomancer, each from a real sim staged with debug commands and read by the
@@ -272,6 +282,7 @@ function mockHudRaw(scenario: HudScenario): HudSnapshot {
       reservedLife: 0,
       pool: 'spirit',
       lifeMarks: [],
+      lifeCap: null,
       downed: false,
       reform: 0,
       spirit: 38,
@@ -333,6 +344,7 @@ function mockHudRaw(scenario: HudScenario): HudSnapshot {
     },
     relics: [],
     calling: null,
+    astrolabe: null,
     entityCount: 40,
     dummyCount: 0,
   };
@@ -683,6 +695,11 @@ function mockHudRaw(scenario: HudScenario): HudSnapshot {
     case 'chrono-stasis':
     case 'chrono-boss':
       return chronoStage(scenario).hud;
+    case 'astro-conduit':
+    case 'astro-afterglow':
+    case 'astro-grace':
+    case 'astro-sanguine':
+      return astroStage(scenario).hud;
     case 'resonance':
       return {
         ...base,
@@ -998,6 +1015,11 @@ export function mockCallouts(scenario: HudScenario): Callout[] {
     case 'chrono-stasis':
     case 'chrono-boss':
       return chronoCallouts(scenario, c);
+    case 'astro-conduit':
+    case 'astro-afterglow':
+    case 'astro-grace':
+    case 'astro-sanguine':
+      return astroCallouts(scenario);
     case 'wheel':
     case 'beam':
     case 'sandbox':
@@ -2015,4 +2037,302 @@ function chronoCallouts(
     case 'chrono-boss':
       return [];
   }
+}
+
+// ── Phase 4: the Astrolabe ─────────────────────────────────────────────────────────────
+
+/**
+ * Trees for the lab, each connected (taken in order from the centre) and within its points:
+ * Rank 12's 9 of 11 (the Silk trunk to Afterglow, the Choir's to Clear Voice); Rank 20's 19 (the
+ * Choir to Prism Covenant, Silk's Afterglow and the bridge between them, Wide Hall); and the
+ * keystone-heavy 19 (Prism Covenant and Eldritch Conduit, with the Economy on its way).
+ */
+export const RANK12_TREE: readonly string[] = [
+  'silk_t1',
+  'silk_t2',
+  'silk_n1',
+  'silk_b1',
+  'silk_b2',
+  'silk_bn',
+  'choir_t1',
+  'choir_t2',
+  'choir_n1',
+];
+
+export const RANK20_TREE: readonly string[] = [
+  'choir_t1',
+  'choir_t2',
+  'choir_n1',
+  'choir_a1',
+  'choir_a2',
+  'choir_an',
+  'choir_a3',
+  'choir_a4',
+  'prism_covenant',
+  'silk_t1',
+  'silk_t2',
+  'silk_n1',
+  'silk_b1',
+  'silk_b2',
+  'silk_bn',
+  'resonant_thread',
+  'choir_b1',
+  'choir_b2',
+  'choir_bn',
+];
+
+export const KEYSTONE_TREE: readonly string[] = [
+  'choir_t1',
+  'choir_t2',
+  'choir_n1',
+  'choir_a1',
+  'choir_a2',
+  'choir_an',
+  'choir_a3',
+  'choir_a4',
+  'prism_covenant',
+  'aegis_t1',
+  'aegis_t2',
+  'aegis_n1',
+  'aegis_b1',
+  'aegis_b2',
+  'aegis_bn',
+  'aegis_b3',
+  'aegis_b4',
+  'eldritch_conduit',
+  'silk_t1',
+];
+
+/** Silk's trunk to Afterglow, with Gilding on the way. */
+export const AFTERGLOW_TREE: readonly string[] = [
+  'silk_t1',
+  'silk_t2',
+  'silk_n1',
+  'silk_b1',
+  'silk_b2',
+  'silk_bn',
+];
+
+/** Silk's Mending branch to Overflowing Grace. */
+export const GRACE_TREE: readonly string[] = [
+  'silk_t1',
+  'silk_t2',
+  'silk_n1',
+  'silk_a1',
+  'silk_a2',
+  'silk_an',
+  'silk_a3',
+  'silk_a4',
+  'overflowing_grace',
+];
+
+/** Silk's Gilding branch to Sanguine Font: the songs hold Life on any run. */
+export const SANGUINE_TREE: readonly string[] = [
+  'silk_t1',
+  'silk_t2',
+  'silk_n1',
+  'silk_b1',
+  'silk_b2',
+  'silk_bn',
+  'silk_b3',
+  'silk_b4',
+  'sanguine_font',
+];
+
+/**
+ * Every star that makes the songs lighter (content's `reserve`: Clear Voice and the Breaths), and
+ * the way to each, nearest first.
+ */
+export const LIGHT_TREE: readonly string[] = STARS.filter(
+  (n) => n.kind !== 'keystone' && (starStats(n).reserve ?? 0) > 0,
+).reduce<string[]>((tree, n) => allocate(tree, n.id, astrolabePoints(MAX_RANK)), []);
+
+/**
+ * The heaviest songs (two auras each, from content) that a tree lets in and nothing else would:
+ * more than the pool holds without the tree, within it with the tree. Null if there are none.
+ */
+export function heavierSongs(tree: readonly string[]): ChordLoadout[] | null {
+  const run = Run.newRun(1, undefined, tree);
+  const pool = Run.reservePool(run);
+  const mult = Run.reserveMult(run);
+  const ids = CONTENT.auras.map((a) => a.id);
+  const pairs: [string, string][] = [];
+  for (let i = 0; i < ids.length; i++)
+    for (let j = i + 1; j < ids.length; j++) pairs.push([ids[i]!, ids[j]!]);
+  let best: { chords: ChordLoadout[]; weight: number } | null = null;
+  for (const beam of pairs)
+    for (const field of pairs) {
+      if (field.some((id) => beam.includes(id))) continue;
+      const chords: ChordLoadout[] = [
+        { auras: [...beam], ornaments: [] },
+        { auras: [...field], ornaments: [] },
+      ];
+      if (Run.chordsAllowed(chords, EVERYTHING, undefined, pool, 1)) continue;
+      if (!Run.chordsAllowed(chords, EVERYTHING, undefined, pool, mult)) continue;
+      const weight = chordReserve(chords);
+      if (!best || weight > best.weight) best = { chords, weight };
+    }
+  return best?.chords ?? null;
+}
+
+/**
+ * Phase 4, the Astrolabe in the fight, each from a real sim with a tree: Eldritch Conduit and
+ * Prism Covenant (techniques paid in Life until one is refused; the Life bar capped at half),
+ * Afterglow (Empower lingering on Kael after the Thread moved to Lyra), Overflowing Grace (Mend's
+ * overheal as a shield on Kael) and Sanguine Font (the songs holding Life on a run without the
+ * Martyr).
+ */
+export type AstroScenario = 'astro-conduit' | 'astro-afterglow' | 'astro-grace' | 'astro-sanguine';
+
+const ASTRO_TREES: Record<AstroScenario, readonly string[]> = {
+  'astro-conduit': KEYSTONE_TREE,
+  'astro-afterglow': AFTERGLOW_TREE,
+  'astro-grace': GRACE_TREE,
+  'astro-sanguine': SANGUINE_TREE,
+};
+
+interface AstroStage {
+  hud: HudSnapshot;
+  events: SimEvent[];
+  /** The staging reached what it was after (the tests check; the lab shows whatever it got). */
+  reached: boolean;
+  sim: Sim;
+}
+
+const astroCache = new Map<AstroScenario, AstroStage>();
+
+/**
+ * A real fight with a tree, staged with debug commands (enemies by the heroes, the Weaver a step
+ * back) and stepped until it shows what the scenario is for. The HUD is the bridge's own
+ * snapshot; the Training Grounds' arena is shown as a Prelude skirmish.
+ */
+export function astroStage(scenario: AstroScenario): AstroStage {
+  const hit = astroCache.get(scenario);
+  if (hit) return hit;
+  // Eldritch Conduit's scene sings no Sostenuto: its regeneration would heal her as fast as the
+  // techniques spend her Life.
+  const chords =
+    scenario === 'astro-conduit'
+      ? [
+          { auras: ['fortissimo'], ornaments: [] },
+          { auras: ['allegro'], ornaments: [] },
+        ]
+      : GUARDIAN_CHORDS.map((c) => ({ auras: [...c.auras], ornaments: [...c.ornaments] }));
+  const sim = createSim({
+    seed: 7,
+    encounter: 'sandbox',
+    debug: true,
+    chords,
+    astrolabe: [...ASTRO_TREES[scenario]],
+  });
+  const st = sim.state;
+  const events: SimEvent[] = [];
+  const step = (n: number, commands: Command[] = []) => {
+    for (let i = 0; i < n; i++) {
+      sim.step(i === 0 ? commands : []);
+      events.push(...sim.drainEvents());
+    }
+  };
+  const until = (pred: () => boolean, max: number, each?: (tick: number) => Command[]) => {
+    for (let i = 0; i < max && !pred(); i++) {
+      sim.step(each ? each(i) : []);
+      events.push(...sim.drainEvents());
+    }
+    return pred();
+  };
+  const hero = (slot: number) => st.entities.get(st.party[slot]!)!;
+  const spawn = (defId: string, x: number, z: number): Command => ({
+    t: 'debug',
+    op: { op: 'spawnEnemy', defId, x, z },
+  });
+  step(1, [{ t: 'debug', op: { op: 'teleportWeaver', x: 0, z: 5 } }]);
+  step(2, [{ t: 'thread', slot: 0 }]);
+  const kael = hero(0);
+  const lyra = hero(1);
+  step(1, [spawn('bell_brute', kael.x, kael.z - 2.5)]);
+  step(1, [spawn('lamenter', lyra.x, lyra.z - 7)]);
+  let reached = false;
+  switch (scenario) {
+    case 'astro-conduit':
+      // Ward, Chime and Reel whenever they're ready, each paid in Life, until one is refused.
+      reached = until(
+        () => events.some((e) => e.type === 'techniqueRejected' && e.reason === 'life'),
+        6000,
+        (i) =>
+          i % 20 === 0
+            ? [
+                { t: 'tech', id: 'ward', slot: 0 },
+                { t: 'tech', id: 'chime', point: { x: kael.x, z: kael.z - 2.5 } },
+                { t: 'tech', id: 'reel', slot: 1 },
+              ]
+            : [],
+      );
+      step(12);
+      break;
+    case 'astro-afterglow':
+      // Kael Empowered, then the Thread moves to Lyra: Empower lingers on him.
+      step(2, [{ t: 'mode' }]);
+      step(90);
+      step(1, [{ t: 'thread', slot: 1 }]);
+      // A quarter of it gone, from content's seconds.
+      until(
+        () =>
+          (kael.hero?.afterglowUntil ?? 0) - st.time <=
+          0.75 * (astrolabeNode('silk_bn').values.seconds ?? 0),
+        600,
+      );
+      reached = (kael.hero?.afterglowUntil ?? 0) > st.time && st.party.indexOf(lyra.id) === 1;
+      break;
+    case 'astro-grace':
+      // Mend on a Kael who needs little: the overheal becomes a shield on him, shown once it
+      // holds a good share of the keystone's cap.
+      reached = until(
+        () =>
+          (kael.health?.shields.find((s) => s.kind === 'overshield')?.amount ?? 0) >=
+          ((kael.health?.maxHp ?? 0) * 0.4 * (astrolabeNode('overflowing_grace').values.cap ?? 0)) /
+            100,
+        1500,
+      );
+      break;
+    case 'astro-sanguine':
+      step(240);
+      reached = (st.entities.get(st.weaverId)?.weaver?.reservedLife ?? 0) > 0;
+      break;
+  }
+  const raw = buildHudSnapshot(st, { seed: 4242, hovered: null });
+  const hud: HudSnapshot = {
+    ...raw,
+    encounter: {
+      ...raw.encounter,
+      id: 'tolling_halls',
+      name: encounterDef('tolling_halls').name,
+      kind: 'skirmish',
+      wave: 2,
+      waves: 3,
+      par: encounterDef('tolling_halls').par,
+    },
+  };
+  const staged = { hud, events, reached, sim };
+  astroCache.set(scenario, staged);
+  return staged;
+}
+
+/** The callouts the runtime would show at that moment, in its words. */
+export function astroCallouts(scenario: AstroScenario): Callout[] {
+  const far = performance.now() + 1e9;
+  if (scenario !== 'astro-conduit') return [];
+  const { events } = astroStage(scenario);
+  const refused = events.findLast((e) => e.type === 'techniqueRejected' && e.reason === 'life');
+  if (refused?.type !== 'techniqueRejected') return [];
+  const name = CONTENT.techniques[refused.technique as 'ward' | 'chime' | 'reel']?.name;
+  return [
+    {
+      id: 1,
+      kind: 'reject',
+      text: `${name ?? refused.technique}: not enough Life`,
+      detail: 'your techniques cost Life, and never your last',
+      key: `reject:${refused.technique}`,
+      expiresAt: far,
+    },
+  ];
 }
