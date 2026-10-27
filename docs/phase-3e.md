@@ -81,7 +81,16 @@ The axes: **see it coming** (Foresight, Echo Ward, Slow Dance), **more turns** (
 
 ## Presentation
 
-*To be filled in by the UI, VFX and audio workstreams.*
+Details and screenshots: [UI](phase-3e/ui.md), [VFX](phase-3e/vfx.md), [audio](phase-3e/audio.md).
+
+| | |
+|---|---|
+| **Prep** | All three Callings side by side (No Calling down the left), each locked, New or Chosen: the Chronomancer shows Rank 9 until then. His card names his Crescendo ("**Stasis** replaces Sunrise…"), and on his runs the intro says Spirit powers "Ward, Chime and Rewind". |
+| **The tier screen** | His emblem and steel, options tagged by axis (See it coming, More turns, Undo it), and the passive (Rewind, the timers and the Perfect window) under "Always yours". Once the run's revive is spent the screen says so; the map's strip and the retune budget name Rewind in F's slot. |
+| **HUD** | **Rewind takes F**: its own glyph, name and 18 s sweep, and a refused press shakes the slot. **F's target shows what Rewind would do**, read from the hero's past: "Rewind +1,149" with a silver ghost on the life bar, "· dodges it" when going back takes them out of a hit on its way (or "· undoes it" with Paradox); on a hero who just fell, "Rewind: stands back up · once a run · 2.4 s" with the key and a countdown ring, or "revive spent", or "out of reach". **Foresight** shows the next attack on each hero's frame and on the boss bar (a link names both its heroes), and the **telegraph timers** show the next hit's seconds on the frame; both freeze in Stasis, as the clocks do. In **Stasis** the techniques read free and cost half (the old cost struck through), the Crescendo reads "Stasis 4s" and the screen's edges take a steel tint. The Calling chip tracks Stasis, Revive (ready or spent) and Temporal Mastery, and with Temporal Mastery Glide's button shows what a Glide would bring back. Coach hints, the first-fight primer, the key hints and Settings name Rewind on his runs; callouts say "Kael stands again", a Paradox banner, and "out of reach" or "its revive is spent this run" for a refused Rewind. |
+| **Result, Summary, Codex, Rank 9** | "Rewind gave back 995 life · stood 1 hero back up", a Rewind marker on the timeline, and the death recap's "Ready but unused" names Rewind; a Save by Rewind's dodge reads "with a Rewind". The Summary lists his path and totals, the Codex all three Callings, and the Rank 9 card his emblem. |
+| **In the fight** | *To come with the VFX workstream.* |
+| **Sound** | Precise, crystalline clockwork in the middle register, between the Martyr's bass and the Luminary's glass, pitched from the hero by scale degree. **Rewind** is a tape sweep and the hero's note as a bell played backwards, caught by a tick (longer for a longer way back, warmer for more life); **a Rewind revive** is a fuller version that lands before the save rings out; a refused Rewind jams with a tick-tock. **Stasis** halts a clock over tape winding down, holds a chord with a slowed tick about once a second while the music freezes under a lowpass, and draws time back in when it ends. **Foresight** is a soft backwards glint on the target's note; a lethal attack's last second gets one soft tick. Echo Ward returns the Ward's chime in fading repeats, Paradox is a shatter played backwards that lands with the Rewind. Windups wait with the attacks in Stasis and resume to peak when they really land, and any attack called off (its caster killed or interrupted, undone by Paradox) now stops winding up. |
 
 ## Harness
 
@@ -140,3 +149,4 @@ The review also noted that during Stasis, Rewind's free, half-cost casts let Bor
 - **Foresight can change its mind at the last moment** when two of an enemy's attacks are ready together and one goes out of reach; about one boss attack in ten isn't shown a full second ahead.
 - **Echo Ward comes back too early for the Bellwarden's second toll** (above).
 - **Heroes can still shove frozen enemies** by walking into them during Stasis.
+- **On screen**: the Stasis ring assumes the base length (Encore's extra time isn't shown, as for Sunrise and the Vow); a foreseen area attack around an enemy shows on the boss bar but on no hero's frame; and the HUD repeats two of the sim's rules (Stasis's discount, and what Rewind would give back), each pinned to the sim by a test.
