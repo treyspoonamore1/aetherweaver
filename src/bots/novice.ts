@@ -1,7 +1,8 @@
 /**
  * Novice bot: a first-time player who understands the basics. Threads whoever looks hurt
  * (with a lag), stays near the party, Wards low heroes without timing, Chimes marks when
- * they notice them, never Reels, and Cues Solos when they happen to be ready.
+ * they notice them, never Reels (though with the Chronomancer they may Rewind a hero who just
+ * went down), and Cues Solos when they happen to be ready.
  */
 import { CONTENT } from '../content';
 import { Rng } from '../sim/core/rng';
@@ -21,6 +22,7 @@ import {
   plantCommand,
   plantSpot,
   plantedChord,
+  rewindSample,
   statusRemaining,
   threatsOn,
   weaverOf,
@@ -110,6 +112,18 @@ export class NoviceBot implements Bot {
         want = 'bear';
     }
     out.push(...modeCommands(wc.threadMode, want));
+    // The Chronomancer's Rewind (in Reel's slot): sometimes they remember it can stand a hero
+    // who just went down back up.
+    if (state.calling?.rewind && wc.cooldowns.reel <= 0 && wc.spirit >= tech.reel.cost) {
+      const fallen = all.find(
+        (h) =>
+          h.e.health!.downed &&
+          !h.e.health!.dead &&
+          rewindSample(h.e)?.up &&
+          dist(h.e, w) < tech.reel.range - 0.3,
+      );
+      if (fallen && this.rng.chance(0.3)) out.push({ t: 'tech', id: 'reel', slot: fallen.slot });
+    }
     if (answering && call!.answer === 'ward' && wc.wardCharges > 0 && wc.spirit >= tech.ward.cost)
       out.push({ t: 'tech', id: 'ward', slot: calling!.slot });
     if (

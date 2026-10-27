@@ -244,12 +244,15 @@ export interface EncounterStats {
   threadHealing: number;
   threadAmplified: number;
   /**
-   * What the Calling did (docs/phase-3c.md, 3d.md): the Luminary's Radiance and Eclipse; what
-   * Haloed, Bear and the Vow kept off heroes; what the Martyr took for them (`callingBorne`).
+   * What the Calling did (docs/phase-3c.md, 3d.md, 3e.md): the Luminary's Radiance and Eclipse;
+   * what Haloed, Bear and the Vow kept off heroes; what the Martyr took for them
+   * (`callingBorne`); the life the Chronomancer's Rewind gave back and the heroes it stood up.
    */
   callingAmplified: number;
   callingShielded: number;
   callingBorne: number;
+  callingRewound: number;
+  callingRevived: number;
   partyDamage: number;
   /** The Weaver's share of everything that mattered: (healing + shielded + negated + amplified + saves) / total. 0..1 */
   weaverShare: number;

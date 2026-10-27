@@ -5,6 +5,7 @@ import type {
   Command,
   DeepReadonly,
   PartySlot,
+  PastSample,
   ReadonlyEntity,
   Telegraph,
   ThreadMode,
@@ -37,6 +38,45 @@ export function modeCommands(current: ThreadMode, want: ThreadMode): Command[] {
   if (want === 'bear') return current === 'bear' ? [] : [{ t: 'mode', mode: 'bear' }];
   if (current === 'bear') return [{ t: 'mode', mode: 'bear' }];
   return current === want ? [] : [{ t: 'mode' }];
+}
+
+/** Where the Chronomancer's Rewind would send `e`, with the life it would give back. */
+export function rewindSample(e: ReadonlyEntity): DeepReadonly<PastSample> | null {
+  const h = e.hero;
+  return h && h.past.length > 0 ? h.past[h.pastAt]! : null;
+}
+
+/**
+ * The hero Rewind would help most (the Chronomancer): one who went down since its reach, or
+ * one it would give back a big share of their life while they're in danger. Null: hold it.
+ */
+export function rewindPick(
+  state: WorldState,
+  heroes: readonly HeroView[],
+  w: ReadonlyEntity,
+  range: number,
+): HeroView | null {
+  let best: HeroView | null = null;
+  let score = 0;
+  for (const h of heroes) {
+    const past = rewindSample(h.e);
+    const hp = h.e.health!;
+    if (!past || hp.dead || dist(h.e, w) > range - 0.3) continue;
+    let s = 0;
+    if (hp.downed) s = past.up ? 2 + past.hp / hp.maxHp : 0;
+    else {
+      const back = (past.hp - hp.hp) / hp.maxHp;
+      const danger =
+        hp.hp < hp.maxHp * 0.35 ||
+        threatsOn(state, h.e).some((t) => damageOf(t, h.e) >= hp.hp + shieldOf(h.e));
+      if (back >= 0.35 && danger) s = back;
+    }
+    if (s > score) {
+      best = h;
+      score = s;
+    }
+  }
+  return best;
 }
 
 export interface HeroView {

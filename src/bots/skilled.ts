@@ -23,6 +23,7 @@ import {
   escapeFrom,
   heldHero,
   partyOf,
+  rewindPick,
   plantCommand,
   plantSpot,
   plantedChord,
@@ -197,8 +198,15 @@ export class SkilledBot implements Bot {
       }
     }
 
-    // ── Reel: pull a hero out of a big hit they won't escape (beams, rings). ──
-    if (!acted && wc.cooldowns.reel <= 0 && spirit >= tech.reel.cost) {
+    // ── Rewind (the Chronomancer, in Reel's slot): stand back up a hero who just went down, or
+    // give back a big blow to one still in danger. ──
+    if (state.calling?.rewind) {
+      if (!acted && wc.cooldowns.reel <= 0 && spirit >= tech.reel.cost) {
+        const pick = rewindPick(state, all, w, tech.reel.range);
+        if (pick && this.notice()) out.push({ t: 'tech', id: 'reel', slot: pick.slot });
+      }
+    } else if (!acted && wc.cooldowns.reel <= 0 && spirit >= tech.reel.cost) {
+      // ── Reel: pull a hero out of a big hit they won't escape (beams, rings). ──
       for (const h of party) {
         if (h.e.hero!.action === 'dodging' || h.e.hero!.reel) continue;
         if (dist(h.e, w) > tech.reel.range - 0.3) continue;

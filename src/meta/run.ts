@@ -1219,6 +1219,8 @@ export function summarize(
     callingAmplified: Math.round(l.calling.amplified),
     callingShielded: Math.round(l.calling.shielded),
     callingBorne: Math.round(l.calling.borne),
+    callingRewound: Math.round(l.calling.rewound),
+    callingRevived: l.calling.revived,
     partyDamage: Math.round(l.partyDamage),
     weaverShare: 0,
     perfects: l.perfects,
@@ -1406,6 +1408,8 @@ export function runTotals(
     callingAmplified: 0,
     callingShielded: 0,
     callingBorne: 0,
+    callingRewound: 0,
+    callingRevived: 0,
     partyDamage: 0,
     weaverShare: 0,
     perfects: 0,
@@ -1440,6 +1444,8 @@ export function runTotals(
     total.callingAmplified += s.callingAmplified;
     total.callingShielded += s.callingShielded;
     total.callingBorne += s.callingBorne;
+    total.callingRewound += s.callingRewound;
+    total.callingRevived += s.callingRevived;
     total.partyDamage += s.partyDamage;
     total.perfects += s.perfects;
     total.saves += s.saves;

@@ -250,7 +250,53 @@ describe('the Martyr in a run', () => {
   });
 });
 
+describe('the Chronomancer in a run', () => {
+  it('unlocks at a new Rank 9, after the Martyr', () => {
+    expect(rankOf(RANK_XP[8]!)).toBe(9);
+    expect(rankOf(RANK_XP[8]! - 1)).toBe(8);
+    expect(allowanceFor(8).callings.has('chronomancer')).toBe(false);
+    expect(allowanceFor(9).callings.has('chronomancer')).toBe(true);
+    expect(unlocksBetween(RANK_XP[7]!, RANK_XP[8]!).map((u) => u.id)).toEqual([
+      'calling.chronomancer',
+    ]);
+    expect(Run.reservePool(Run.setCalling(Run.newRun(3), 'chronomancer'))).toBe('spirit');
+  });
+
+  it('a result carries what Rewind gave back, and names Stasis', () => {
+    let run = Run.embark(Run.setCalling(Run.setChords(Run.newRun(4), GUARDIAN), 'chronomancer'));
+    run = Run.chooseNode(run, run.map.rows[0]![0]!.id);
+    const outcome = win(run);
+    outcome.ledger.crescendos = 1;
+    outcome.ledger.calling.rewound = 640.4;
+    outcome.ledger.calling.revived = 1;
+    const node = Run.findNode(run, run.pending!)!;
+    const result = Run.summarize(node, outcome, run.calling);
+    expect(result.stats).toMatchObject({ callingRewound: 640, callingRevived: 1 });
+    expect(result.highlights.map((h) => h.text)).toContain(
+      `Crescendo — ${callingDef('chronomancer').crescendoName!}`,
+    );
+    run = Run.finishCombat(run, outcome);
+    expect(Run.runTotals(run)).toMatchObject({ callingRewound: 640, callingRevived: 1 });
+  });
+});
+
 describe('saves', () => {
+  it('a result saved before the Chronomancer loads with nothing rewound', () => {
+    let run = luminaryRun();
+    run = Run.chooseNode(run, run.map.rows[0]![0]!.id);
+    run = Run.continueFromResult(Run.finishCombat(run, win(run)));
+    const store = memoryStore();
+    saveRun(store, run);
+    const raw = JSON.parse(store.getItem('aetherweaver.run')!);
+    for (const r of raw.run?.results ?? raw.results) {
+      delete r.stats.callingRewound;
+      delete r.stats.callingRevived;
+    }
+    store.setItem('aetherweaver.run', JSON.stringify(raw));
+    const loaded = loadRun(store)!;
+    expect(loaded.results[0]!.stats).toMatchObject({ callingRewound: 0, callingRevived: 0 });
+  });
+
   it('a run with a Calling and a tier on offer saves and loads', () => {
     let run = luminaryRun();
     run = Run.chooseNode(run, run.map.rows[0]![0]!.id);

@@ -70,6 +70,9 @@ const StatsSchema = z.object({
   callingAmplified: Num.default(0),
   callingShielded: Num.default(0),
   callingBorne: Num.default(0),
+  // Phase 3e: the Chronomancer's Rewind.
+  callingRewound: Num.default(0),
+  callingRevived: Num.default(0),
   partyDamage: Num,
   weaverShare: Num,
   perfects: Num,
