@@ -89,8 +89,25 @@ The axes: **see it coming** (Foresight, Echo Ward, Slow Dance), **more turns** (
 
 ## Code review
 
-*To be filled in after the review.*
+An independent review of the sim, run layer and bots (read-only, against a clean copy of the commits) found nine problems, all fixed with regression tests:
+
+- **Rewind on a hero Fermata held gave their life back, then the hold downed them anyway**: the hold only counted Mend and Chime as a save. Rewind's healing now saves them too (in 648 bot fights it had downed one such hero).
+- **Stasis cut heroes' dodges short**: a hero stepping out of a frozen attack stopped partway through Stasis and walked back into it. The end of a dodge now waits with the attack it escapes.
+- **Foresight often showed a boss's attack late, or the wrong one**: it didn't look while the boss was casting or staggered, and it could show an attack the boss then couldn't begin, while the one it did begin (and its random target) came unannounced. It now looks past casts, recovery and stuns, and only among attacks the enemy could begin; a boss's attack is now shown as itself a full second ahead about 9 times in 10, where the review had found most shown late (65 of the Bellwarden's 90 attacks and 56 of the Hollow Cantor's 132) and 27 shown as a different attack.
+- **A revive counted as a Reel dodge**: a hero stood back up inside an attack got a dodge, a Reel, Resonance and a second Save. Only a standing hero Rewind moves out of an attack's shape dodges it now.
+- **Rewind cancelled a dodge in progress** even when it put the hero back in the attack; the dodge now goes on and they look again at what's coming from where they stand.
+- **What Paradox spared outlived its attack, and Echo Wards outlived the fight**: both are cleared with the attack or at the fight's end.
+- **The spec said an Echo Ward could catch the Bellwarden's second toll**; with these timings it comes back too early, and the doc now says so.
+- **The Foresight test couldn't tell a kept target from a fresh roll**; it now swaps the roll. New tests also cover the Fermata hold, attacks in flight, summons and waves under Stasis, dodges under Stasis, and Paradox on links and lances.
+- **Rewind reached less far back in slow motion**: the past was sampled every few ticks rather than every 0.1 s of sim time.
+
+The review also noted that during Stasis, Rewind's free, half-cost casts let Borrowed Time fill a Solo four times over; it now asks that the Rewind give back life. It confirmed that runs without the Chronomancer are unchanged (the bots draw no new random numbers; checked again seed for seed after every fix and after the once-a-run revive).
 
 ## Known gaps
 
-*To be filled in.*
+- **The bots barely use Stasis**, as with Sunrise and the Vow, so Stasis and Eternal Moment are tuned by reasoning more than measurement.
+- **Two loadouts measured** (Guardian and Steady), as for the other Callings.
+- **Calling mastery** (path tiers earned by playing a Calling) isn't in: every tier is open from the start.
+- **Foresight can change its mind at the last moment** when two of an enemy's attacks are ready together and one goes out of reach; about one boss attack in ten isn't shown a full second ahead.
+- **Echo Ward comes back too early for the Bellwarden's second toll** (above).
+- **Heroes can still shove frozen enemies** by walking into them during Stasis.
