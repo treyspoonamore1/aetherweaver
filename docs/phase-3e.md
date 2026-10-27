@@ -109,6 +109,8 @@ For the Novice the Chronomancer is worth 14 points, level with the Martyr (46%, 
 
 A longer cooldown isn't the lever: at 24 s instead of 18 every Novice run came out the same (46%, 52%) and the Skilled bot won 95% and 95%. Neither bot often has Rewind waiting on its cooldown. What each Rewind undoes is what it's worth: how far back it reaches and how much life it gives back.
 
+**The user's call: leave it.** Rewind keeps its 3 s and its full life. The Skilled bot's edge is the reward for timing Rewind well, and for the Novice the Chronomancer is level with the other Callings.
+
 **How it got there.** The first report, with Rewind standing a hero back up whenever it was ready, had the Novice at 58% and 63%, twice what the other Callings give. Fight by fight (the six hard fights, Threat 1, Guardian, 20 seeds) the cause was plain:
 
 | Chronomancer | Fights: Novice · Skilled |
