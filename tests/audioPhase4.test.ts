@@ -392,6 +392,36 @@ describe('the star map’s UI sounds', () => {
   });
 });
 
+// ── Deeds (Phase 4b) ────────────────────────────────────────────────────────────────
+
+describe('Deeds (Phase 4b)', () => {
+  it('a Deed earned, and one that lights a star: the star adds the map’s brass and stars', () => {
+    const h = harness();
+    const plain = h.ui('deed');
+    h.advance(1);
+    const star = h.ui('deedStar');
+    expect(plain.addedUi).toBeGreaterThan(0);
+    expect(star.added).toBeGreaterThan(plain.added);
+    // The rising fifth over the open fifth: D4 A4 sung, D5 then A5 plucked.
+    for (const m of [62, 69, 74, 81])
+      expect(hasPitch(plain.sources, midiToHz(m)), `${m}`).toBe(true);
+    // The star: its glass stars kindling above (D6 E6 A6); the plain Deed's glass doubles only
+    // its plucks (D6, A6), so E6 is the star's alone.
+    for (const m of [86, 88, 93]) {
+      expect(hasPitch(star.sources, midiToHz(m)), `${m}`).toBe(true);
+      expect(hasPitch(plain.sources, midiToHz(m)), `${m}`).toBe(m !== 88);
+    }
+    h.d.dispose();
+  });
+
+  it('never stacks: two at once make one', () => {
+    const h = harness();
+    expect(h.ui('deedStar').added).toBeGreaterThan(0);
+    expect(h.ui('deedStar').added).toBe(0);
+    h.d.dispose();
+  });
+});
+
 // ── Overflowing Grace ───────────────────────────────────────────────────────────────
 
 describe('Overflowing Grace', () => {

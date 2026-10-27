@@ -1696,6 +1696,8 @@ export const SOUNDS: SoundButton[] = [
       'callingSelect',
       'callingReveal',
       'callingPick',
+      'deed',
+      'deedStar',
     ] as UiSound[]
   ).map((s): SoundButton => ({
     id: `ui-${s}`,

@@ -60,7 +60,13 @@ export type UiSound =
   | 'starKeystone'
   | 'starPath'
   | 'starRefund'
-  | 'starRespec';
+  | 'starRespec'
+  /**
+   * Phase 4b (docs/phase-4b.md): a Deed earned, and one that also gives an Astrolabe point (its
+   * star lit).
+   */
+  | 'deed'
+  | 'deedStar';
 
 export interface Volumes {
   /** 0..1 each. */

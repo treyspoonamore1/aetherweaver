@@ -57,6 +57,8 @@ export const UI_SOUND_NAMES = Object.keys({
   starPath: 0,
   starRefund: 0,
   starRespec: 0,
+  deed: 0,
+  deedStar: 0,
 } satisfies Record<UiSound, 0>) as UiSound[];
 
 /** Phase 3e: the UI sounds voiced per Calling (the Chronomancer's are its own). */
@@ -82,6 +84,15 @@ export const STAR_LIMITS: Readonly<Partial<Record<UiSound, readonly [number, num
 };
 
 /**
+ * Phase 4b, Deeds: each sound's rate gate and voice cap. Two can be earned by one fight (the toast
+ * shows them one after another), so they never stack.
+ */
+export const DEED_LIMITS: Readonly<Partial<Record<UiSound, readonly [number, number]>>> = {
+  deed: [0.3, 2],
+  deedStar: [0.3, 2],
+};
+
+/**
  * The stars a hover lights, one after another (D6, A6, E6, B6, D7): all from one open chord, so
  * a sweep across the map twinkles in any order and a single hover is a single glint.
  */
@@ -95,7 +106,7 @@ const hoverTurn = new WeakMap<Engine, number>();
  */
 export function playUiSound(e: Engine, sound: UiSound, calling: string | null = null): void {
   const chrono = calling === 'chronomancer';
-  const star = STAR_LIMITS[sound];
+  const star = STAR_LIMITS[sound] ?? DEED_LIMITS[sound];
   if (sound === 'hover' && !e.gate('ui:hover', 0.045)) return;
   if (sound === 'unlock' && !e.gate('ui:unlock', 0.06)) return;
   if (sound === 'aether' && !e.gate('ui:aether', 0.05)) return;
@@ -210,6 +221,12 @@ export function playUiSound(e: Engine, sound: UiSound, calling: string | null = 
       break;
     case 'starRespec':
       starRespec(v, t);
+      break;
+    case 'deed':
+      deed(v, t);
+      break;
+    case 'deedStar':
+      deedStar(v, t);
       break;
     case 'wheelOpen':
       // A soft bloom: a breath opening upwards and a quiet A4.
@@ -721,6 +738,36 @@ function starNotable(v: Voice, t: number): void {
   glassNote(v, t + 0.27, hz(21), 0.022, 1.3, 0.8);
   whoosh(v, t, 0.6, 0.014, 800, 3600, 1);
   v.extend(t + 1.7);
+}
+
+// ── Phase 4b: Deeds ──────────────────────────────────────────────────────────────────
+
+/**
+ * A Deed earned, about 1.4 s: a feat remembered. A rising fifth plucked and doubled in glass
+ * (D5 to A5), a small handbell ringing on the A, and the open fifth (D4 A4) sung softly beneath.
+ * Warm and short: it may come with a Rank-up, and stays under it.
+ */
+function deed(v: Voice, t: number): void {
+  choirChord(v, t, [hz(0), hz(4)], 0.7, 0.07, 0.12, 0.8);
+  pluck(v, t, hz(7), 0.09, 0.3, 0.8);
+  glassNote(v, t, hz(14), 0.02, 0.5, 0.9);
+  pluck(v, t + 0.12, hz(11), 0.1, 0.5, 0.8);
+  glassNote(v, t + 0.12, hz(18), 0.026, 0.9, 0.9);
+  handbell(v, t + 0.14, hz(11), 0.045, 1.2, 0.6);
+  whoosh(v, t, 0.35, 0.012, 800, 3000, 1);
+  v.extend(t + 1.6);
+}
+
+/**
+ * A Deed that gives an Astrolabe point, about 2 s: the Deed's rising fifth, then the star it
+ * lights, in the star map's own voice: a brass bell on D5 with glass stars kindling above it
+ * (D6 E6 A6).
+ */
+function deedStar(v: Voice, t: number): void {
+  deed(v, t);
+  brassBell(v, t + 0.3, hz(7), 0.07, 1.6, 0.5);
+  [14, 15, 18].forEach((idx, i) => glassNote(v, t + 0.42 + i * 0.07, hz(idx), 0.02, 1.0, 0.85));
+  v.extend(t + 2.2);
 }
 
 /**
