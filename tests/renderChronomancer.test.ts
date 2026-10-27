@@ -856,8 +856,11 @@ describe('the Chronomancer in the fight (real sim → render)', () => {
     const ev = h.run(2, [{ t: 'glide', x: 1, z: 0 }]);
     expect(ofType(ev, 'temporalMastery').map((e) => e.technique)).toEqual(['chime']);
     expect(h.view.fired.mastery).toBe(1);
-    expect(h.overlay.callouts).toContain(`${REWIND_GLYPH} CHIME`);
     expect(h.view.activeCount('mastery')).toBe(1);
+    // What came back is named once the hand has flicked back (after the Glide carried her).
+    expect(h.overlay.callouts).not.toContain(`${REWIND_GLYPH} CHIME`);
+    h.run(24);
+    expect(h.overlay.callouts).toContain(`${REWIND_GLYPH} CHIME`);
   });
 
   it('Slow Dance: enemies in the field cool a little, and nothing new is drawn for it', () => {
@@ -895,7 +898,7 @@ describe('the Chronomancer in the fight (real sim → render)', () => {
     expect(h.view.activeCount('borrowed')).toBe(1);
   });
 
-  it('Eternal Moment: a Ward cast in Stasis that turns out Perfect strikes a brass clock', () => {
+  it('Eternal Moment: a Ward cast in Stasis that turns out Perfect strikes a clock', () => {
     const sim = sandbox({
       chords: GUARDIAN,
       ...chrono('quickened', 'echo_ward', 'temporal_mastery', 'eternal_moment'),

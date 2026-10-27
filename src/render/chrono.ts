@@ -187,11 +187,13 @@ const LIFE: Record<MomentKind, number> = {
   echo: 0.75,
   mastery: 0.85,
   borrowed: 1.0,
-  eternal: 1.1,
+  eternal: 1.4,
   stasisStart: 1.3,
   stasisEnd: 0.9,
 };
 const POOL = 48;
+/** Eternal Moment strikes after the Perfect Ward's own flash (s). */
+const ETERNAL_DELAY = 0.25;
 const FORESEEN = 32;
 const SPARED = 8;
 const MAX_HEROES = 4;
@@ -614,7 +616,7 @@ export class ChronoView {
     length += Math.hypot(r.x - px, r.z - pz);
     if (length > 0.6) {
       kit.ribbons.beginStrip();
-      kit.ribbons.point(g.x, 0.1, g.z, 0.05, SILVER, 0.34 * A, 0, 0.2);
+      kit.ribbons.point(g.x, 0.1, g.z, 0.065, SILVER, 0.42 * A, 0, 0.2);
       for (let i = 1; i < n; i++) {
         const s = h.past[(h.pastAt + i) % n]!;
         const u = i / n;
@@ -622,15 +624,15 @@ export class ChronoView {
           s.x,
           0.1,
           s.z,
-          0.05 - 0.025 * u,
+          0.065 - 0.035 * u,
           SILVER,
-          (0.34 - 0.2 * u) * A,
+          (0.42 - 0.24 * u) * A,
           u * 3,
           0.2,
         );
         // A tick every half second, like the seconds round a clock.
         if (i % 5 === 0)
-          kit.sprites.push(s.x, 0.14, s.z, 0.085, SPRITE.diamond, SILVER, 0.42 * A * (1 - 0.5 * u));
+          kit.sprites.push(s.x, 0.14, s.z, 0.12, SPRITE.diamond, SILVER, 0.5 * A * (1 - 0.5 * u));
       }
       kit.ribbons.point(r.x, 0.1, r.z, 0.02, SILVER, 0.06 * A, 3, 0.2);
       kit.ribbons.endStrip();
@@ -1052,21 +1054,46 @@ export class ChronoView {
           );
           this.drawn.echo++;
         } else if (s.stasis && look.eternalMoment) {
-          // Eternal Moment: a Ward cast in Stasis counts from the frozen moment (a brass bezel).
+          // Eternal Moment: a Ward cast in Stasis counts from the frozen moment: a clock bezel
+          // with brass hands stopped at twelve, outside the Ward's shell (which would hide it).
           kit.rings.push(
             r.x,
             0.042,
             r.z,
-            r.radius * 1.75,
-            0.04,
-            0.08,
+            r.radius * 2.5,
+            0.06,
+            0.1,
             RING.clock,
-            BRASS,
-            0.55,
+            SILVER,
+            0.85,
             0,
             7,
             0,
             12,
+          );
+          kit.rings.push(
+            r.x,
+            0.046,
+            r.z,
+            r.radius * 2.15,
+            0.07,
+            0.08,
+            RING.hands,
+            BRASS,
+            0.85,
+            TWELVE,
+            TWELVE,
+          );
+          // The bezel sits under any telegraph's fill (the hero is usually in one), so a small
+          // brass clock, stopped, also rides at the Ward's shoulder.
+          kit.sprites.push(
+            r.x + r.radius * 1.35,
+            r.height * 0.8,
+            r.z,
+            0.42,
+            SPRITE.clock,
+            BRASS,
+            0.9,
           );
           this.drawn.stasisWards++;
         }
@@ -1231,11 +1258,12 @@ export class ChronoView {
     const turns = big ? 3 : 1;
     const wind = easeOut(seg(m.age, travel * 0.5, big ? 1.05 : 0.6));
     const hand = TWELVE - (1 - wind) * turns * TAU;
-    kit.rings.push(r.x, 0.05, r.z, R, 0.06, 0.18, RING.clock, SILVER, 0.85 * face, 0, 7, 0, 12);
+    // The clock stays where they landed (they may walk on); the rest follows them.
+    kit.rings.push(m.x2, 0.05, m.z2, R, 0.06, 0.18, RING.clock, SILVER, 0.85 * face, 0, 7, 0, 12);
     kit.rings.push(
-      r.x,
+      m.x2,
       0.055,
-      r.z,
+      m.z2,
       R * 0.86,
       0.08,
       0.1,
@@ -1337,9 +1365,9 @@ export class ChronoView {
           0.85 * (1 - up),
         );
         kit.rings.push(
-          r.x,
+          m.x2,
           0.05,
-          r.z,
+          m.z2,
           R * 1.12,
           0.05,
           0.1,
@@ -1379,9 +1407,11 @@ export class ChronoView {
     if (!o || !this.numbers || m.value < 1) return;
     const big = m.kind === 'revive';
     const size = big ? 26 : 20;
+    // Beside them at chest height, apart from the numbers over heads (and, for a revive, under
+    // the Save's callout).
     const handle = o.spawnNumber(
-      r.x + 0.4,
-      r.height + 0.35,
+      r.x + (big ? 1.25 : 0.95),
+      r.height * (big ? 0.55 : 0.7),
       r.z,
       CHRONO_HEX.glass,
       size,
@@ -1598,9 +1628,9 @@ export class ChronoView {
       r.radius * (1.9 + 0.9 * easeOut(t)),
       SHELL.flare,
       SILVER,
-      0.8 * (1 - t),
+      0.5 * (1 - t),
       0,
-      0.5 * (1 - t) * this.flare,
+      0.3 * (1 - t) * this.flare,
       false,
       m.target + 41,
     );
@@ -1719,7 +1749,8 @@ export class ChronoView {
       BRASS,
       0.75 * (1 - t),
     );
-    if (!m.done) {
+    if (!m.done && flick >= 1) {
+      // Once the Glide has carried her and the hand has flicked back: what came back.
       m.done = true;
       kit.particles.burst(
         w.x,
@@ -1759,21 +1790,22 @@ export class ChronoView {
     if (!r || !w) return false;
     const kit = this.d.kit;
     weaverHand(w, this.hand);
-    const t = m.age / m.life;
     const ty = r.y + r.height * 0.6;
-    for (let i = 0; i < 6; i++) {
-      const u = clamp01((m.age - i * 0.06) / 0.45);
+    // A high arc, bowed to one side, so it reads apart from the Thread (straight, and low).
+    const dx = r.x - this.hand.x;
+    const dz = r.z - this.hand.z;
+    const d = Math.hypot(dx, dz) || 1;
+    const sx = -dz / d;
+    const sz = dx / d;
+    for (let i = 0; i < 7; i++) {
+      const u = clamp01((m.age - i * 0.055) / 0.5);
       if (u <= 0 || u >= 1) continue;
-      const arc = Math.sin(Math.PI * u) * 0.8;
-      kit.sprites.push(
-        this.hand.x + (r.x - this.hand.x) * u,
-        this.hand.y + (ty - this.hand.y) * u + arc,
-        this.hand.z + (r.z - this.hand.z) * u,
-        0.2,
-        SPRITE.diamond,
-        BRASS,
-        0.95,
-      );
+      const bow = Math.sin(Math.PI * u);
+      const x = this.hand.x + dx * u + sx * bow * 0.9;
+      const y = this.hand.y + (ty - this.hand.y) * u + bow * 1.6;
+      const z = this.hand.z + dz * u + sz * bow * 0.9;
+      kit.sprites.push(x, y, z, 0.26, SPRITE.diamond, BRASS, 0.95);
+      kit.sprites.push(x, y, z, 0.11, SPRITE.glow, GLASS, 0.8);
     }
     // The share of their Solo it filled: a brass ring rising up them that far.
     const fill = clamp01(m.value / 100);
@@ -1809,7 +1841,6 @@ export class ChronoView {
         r.radius,
       );
     }
-    void t;
     return true;
   }
 
@@ -1821,11 +1852,15 @@ export class ChronoView {
     const r = this.d.recs.get(m.target);
     const w = this.d.recs.get(state.weaverId);
     if (!r) return false;
+    // It strikes once the Perfect Ward's own flash has passed its peak.
+    const age = m.age - ETERNAL_DELAY;
+    if (age < 0) return true;
     const kit = this.d.kit;
-    const t = m.age / m.life;
-    const R = r.radius * 2.2;
-    const a = 1 - seg(m.age, 0.6, m.life);
-    const sweep = easeOut(seg(m.age, 0, 0.5));
+    // Outside the Perfect Ward's own rings; a silver face (apart from the Perfect's gold) with
+    // brass hands, its lit rim following the long hand round once, and a chime as it strikes.
+    const R = Math.max(2, r.radius * 3);
+    const a = 1 - seg(age, 0.65, m.life - ETERNAL_DELAY);
+    const sweep = easeOut(seg(age, 0, 0.55));
     kit.rings.push(
       r.x,
       0.055,
@@ -1834,8 +1869,8 @@ export class ChronoView {
       0.06,
       0.16,
       RING.clock,
-      BRASS,
-      0.85 * a,
+      SILVER,
+      0.9 * a,
       TWELVE,
       sweep * TAU,
       0,
@@ -1846,17 +1881,30 @@ export class ChronoView {
       0.06,
       r.z,
       R * 0.86,
-      0.07,
-      0.1,
+      0.09,
+      0.12,
       RING.hands,
-      SILVER,
-      0.9 * a,
+      BRASS,
+      0.95 * a,
       TWELVE + sweep * TAU,
       TWELVE + sweep * 0.5,
     );
+    const chime = seg(age, 0.5, 0.95);
+    if (chime > 0 && chime < 1)
+      kit.rings.push(
+        r.x,
+        0.06,
+        r.z,
+        R * (1 + 0.35 * easeOut(chime)),
+        0.05,
+        0.18,
+        RING.plain,
+        BRASS,
+        0.8 * (1 - chime),
+      );
     if (w) {
       for (let i = 0; i < 5; i++) {
-        const u = clamp01((m.age - 0.15 - i * 0.07) / 0.5);
+        const u = clamp01((age - 0.15 - i * 0.07) / 0.5);
         if (u <= 0 || u >= 1) continue;
         kit.sprites.push(
           r.x + (w.x - r.x) * u,
@@ -1888,7 +1936,6 @@ export class ChronoView {
         r.radius,
       );
     }
-    void t;
     return true;
   }
 
@@ -1926,7 +1973,10 @@ export class ChronoView {
     const t = m.age / m.life;
     const spin = easeOut(seg(m.age, 0, 0.32));
     const hand = TWELVE + (1 - spin) * TAU * 1.5;
-    const face = (1 - seg(m.age, 0.5, m.life)) * easeOut(seg(m.age, 0, 0.12));
+    // With Flashes down, the face comes up gentler and dimmer (it is the brightest thing here).
+    const soft = 0.6 + 0.4 * this.flare;
+    const onset = 0.12 / Math.max(0.4, this.flare);
+    const face = (1 - seg(m.age, 0.5, m.life)) * easeOut(seg(m.age, 0, onset)) * soft;
     const y = w.y + w.height * 0.6;
     kit.rings.push(w.x, 0.06, w.z, 2.4, 0.1, 0.3, RING.clock, GLASS, 0.9 * face, 0, 7, 0, 12);
     kit.rings.push(

@@ -120,7 +120,7 @@ void main() {
         a = line * 0.95 + halo;
       } else {
         float bezel = awAA(abs(sd - 0.34) - 0.025);
-        float ticks = step(0.86, fract(dc * 1.6)) * step(0.2, sd) * step(sd, 0.48);
+        float ticks = step(0.88, fract(dc * 1.1)) * step(0.24, sd) * step(sd, 0.44);
         a = bezel * 0.85 + ticks * 0.7 + inside * 0.035;
       }
     } else if (kind == 4 || kind == 5) {

@@ -92,7 +92,8 @@ void main() {
     float n = vArc.w > 0.5 ? vArc.w : 12.0;
     float ta = atan(vLocal.y, vLocal.x) - vRot;
     float near = (fract(ta / 6.2831853 * n + 0.5) - 0.5) * 6.2831853 / n * d;
-    float tick = awAA(abs(near) - th * 0.45) * smoothstep(r * 0.76, r * 0.8, d) * step(d, r);
+    float inner = max(r * 0.8, r - 0.55);
+    float tick = awAA(abs(near) - th * 0.45) * smoothstep(inner - 0.04, inner, d) * step(d, r);
     float lit = arcLen >= 6.28 ? 1.0 : 0.3 + 0.7 * arcMask;
     alpha = (core + glow * 0.6) * lit + tick * 0.85 + (d < r ? vArc.z : 0.0);
   } else if (style == 8) {

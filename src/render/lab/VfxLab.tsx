@@ -724,7 +724,7 @@ const CHRONO_SCENARIOS: Record<string, ChronoScenario> = {
       rt.later(0.4, () => martyrFight(rt, 2, 2, 3));
       rt.later(2.0, () => {
         const w = rt.weaverPos();
-        rt.queue({ t: 'debug', op: { op: 'teleportWeaver', x: w.x + 2, z: w.z + 6 } });
+        rt.queue({ t: 'debug', op: { op: 'teleportWeaver', x: w.x + 1.5, z: w.z + 4.5 } });
         rt.queue({ t: 'directive', kind: 'rally' });
       });
       rewind(rt, 3.2);
@@ -836,10 +836,18 @@ const CHRONO_SCENARIOS: Record<string, ChronoScenario> = {
   },
   'Paradox · mark': {
     path: ['foresight', 'echo_ward', 'temporal_mastery', 'paradox'],
-    note: 'A lamenter’s Dirge on a hero; Rewind them 1.2 s later: the mark unravels back into the lamenter',
+    note: 'An elite lamenter’s Dirge on a hero (a brute keeps the party busy); Rewind them 1.2 s later: the mark unravels back into the lamenter',
     stage: (rt) => {
       rt.later(0.2, () => rt.thread(0));
-      rt.later(0.3, () => rt.spawn('lamenter', -4, -9));
+      rt.later(0.3, () => {
+        rt.spawn('lamenter', -5, -10, true);
+        rt.spawn('bell_brute', 3, -5);
+      });
+      // Out of the brute's Toll Cleave (it would down you, and a downed Weaver can't Rewind).
+      rt.later(0.4, () => {
+        const w = rt.weaverPos();
+        rt.queue({ t: 'debug', op: { op: 'teleportWeaver', x: w.x, z: w.z + 4 } });
+      });
       rt.onEvent(
         (e) => e.type === 'telegraphStarted' && e.name === 'Dirge',
         (e) => {
@@ -857,7 +865,7 @@ const CHRONO_SCENARIOS: Record<string, ChronoScenario> = {
       rt.later(0.3, () => {
         rt.spawn('the_bellwarden', 0, -6);
         const w = rt.weaverPos();
-        rt.queue({ t: 'debug', op: { op: 'teleportWeaver', x: w.x, z: w.z + 9 } });
+        rt.queue({ t: 'debug', op: { op: 'teleportWeaver', x: w.x + 3, z: w.z + 5 } });
       });
       rt.onEvent(
         (e) =>
@@ -868,23 +876,33 @@ const CHRONO_SCENARIOS: Record<string, ChronoScenario> = {
   },
   'Borrowed Time': {
     path: ['quickened', 'borrowed_time'],
-    note: 'Rewind Kael after a walk: brass motes pour from you into him, his Solo filling',
+    note: 'Lyra threaded; Kael hurt in a fight, then Rewound (F on him: it gives life back): brass motes arc from you into him, his Solo filling',
     stage: (rt) => {
-      rt.later(0.2, () => rt.thread(0));
-      walk(rt, 0.3);
-      rewind(rt, 2.6);
+      rt.later(0.2, () => rt.thread(1));
+      rt.later(0.4, () => martyrFight(rt, 2, 2, 3));
+      rt.later(2.0, () => {
+        const w = rt.weaverPos();
+        rt.queue({ t: 'debug', op: { op: 'teleportWeaver', x: w.x + 1.5, z: w.z + 4.5 } });
+        rt.queue({ t: 'directive', kind: 'rally' });
+      });
+      rewind(rt, 3.2, 0);
     },
   },
   'Eternal Moment': {
     path: ['quickened', 'echo_ward', 'temporal_mastery', 'eternal_moment'],
-    note: 'Stasis inside a Toll Cleave’s Perfect window, a Ward on Kael late in it (a brass bezel): Perfect when time resumes, a brass clock strikes',
+    note: 'Stasis inside the Bellwarden’s Bell Slam Perfect window (it lives through Stasis), a Ward on Kael late in it (a clock bezel, its brass hands stopped): Perfect when time resumes, a clock strikes',
     stage: (rt) => {
       rt.later(0.2, () => {
         rt.thread(0);
-        rt.brute(0);
+        const p = rt.heroPos(0);
+        rt.queue({ t: 'debug', op: { op: 'teleportWeaver', x: p.x - 7, z: p.z + 5 } });
+        rt.queue({
+          t: 'debug',
+          op: { op: 'spawnEnemy', defId: 'the_bellwarden', x: p.x + 2.8, z: p.z - 1.2 },
+        });
       });
       rt.onEvent(
-        (e) => e.type === 'telegraphStarted' && e.name === 'Toll Cleave',
+        (e) => e.type === 'telegraphStarted' && e.name === 'Bell Slam',
         (e) => {
           if (e.type !== 'telegraphStarted') return;
           const at = e.perfectFrom + 0.06 - rt.sim.state.time;

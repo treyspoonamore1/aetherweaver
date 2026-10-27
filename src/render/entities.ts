@@ -967,7 +967,7 @@ export class EntityLayer {
       Math.min(1.1, rec.shine) * (1 - desat),
       this.sunrise,
       // Stasis' frost; Slow Dance only cools them a little (no new clutter).
-      Math.max(rec.frost, rec.slow * 0.2),
+      Math.max(rec.frost, rec.slow * 0.35),
     );
 
     // Blob shadow (fodder has no shadow-map shadow) and selection rings.
