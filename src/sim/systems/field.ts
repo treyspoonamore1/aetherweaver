@@ -7,7 +7,7 @@
  * inside their dome and silence the Weaver entirely if the Weaver stands in one; during the
  * Silent Verse only the hymn circles carry the song.
  */
-import { enemyDef } from '../../content';
+import { CONTENT, enemyDef } from '../../content';
 import type { Vec2 } from '../commands';
 import { distSq, len } from '../core/dmath';
 import {
@@ -19,7 +19,7 @@ import {
   type AuraTotals,
 } from '../combat/auras';
 import { addShield, heal, isActive, removeShield, shieldOf, NEVER } from '../combat/health';
-import type { ChordField, Entity, EntityId } from '../state';
+import type { ChordField, Entity, EntityId, WorldState } from '../state';
 import { weaverOf, type World } from '../world';
 import { reject } from './techniques';
 
@@ -35,6 +35,24 @@ function collectDomes(world: World): void {
     const r = enemyDef(m.enemy.defId).suppressRadius;
     if (r > 0) domes.push(m.x, m.z, r);
   }
+}
+
+/** Each Mute's dome radius, by enemy id (the views' lookup; the sim's own uses `enemyDef`). */
+const DOME_RADIUS: ReadonlyMap<string, number> = new Map(
+  CONTENT.enemies.filter((d) => d.suppressRadius > 0).map((d) => [d.id, d.suppressRadius]),
+);
+
+/**
+ * Is (x, z) under a living Mute's dome? The same domes `inDome` uses, for the views: Unbroken
+ * Chorus's sound plays as the Weaver walks under one and her songs hold.
+ */
+export function underMuteDome(state: WorldState, x: number, z: number): boolean {
+  for (const m of state.entities.list()) {
+    if (!m.enemy || m.health?.dead) continue;
+    const r = DOME_RADIUS.get(m.enemy.defId) ?? 0;
+    if (r > 0 && distSq(x, z, m.x, m.z) <= r * r) return true;
+  }
+  return false;
 }
 
 /** Unbroken Chorus (the Astrolabe): Mutes can't crack the fields or silence the Weaver. */

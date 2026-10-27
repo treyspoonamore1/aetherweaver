@@ -13,7 +13,7 @@ In the fight, each keystone is heard as the rule it bends: Mend running over, a 
 - **Every number** is read from the content (the node's `values`) or the state, never written in.
 - **Silent without its node.** Two sounds ride on their own signal instead: Overflowing Grace speaks on its `graceShield` event, and Eldritch Conduit on `state.astrolabe.techniquesCostLife` and the `'life'` refusal.
 - **Gated**, so a burst never stacks them.
-- **Nothing for Prism Covenant**, Sanguine Font or Unbroken Chorus (see the proposals at the end).
+- **Nothing for Prism Covenant or Sanguine Font.** Unbroken Chorus is heard only when it saves her: as she walks under a Mute's dome, her songs hold (added after the user left the proposals at the end to the lead).
 
 There are seven new `UiSound` names, the agreed ones: `starHover`, `starTake`, `starNotable`, `starKeystone`, `starPath`, `starRefund` and `starRespec`. Not enough points is the existing `cantAfford`.
 
@@ -64,6 +64,13 @@ All on the sfx bus. None is `big` and none ducks anything.
 | `damageTaken` on a Ward that held a hit that would have broken it | `halo` (2) | Shatterproof Halo. | A bright "unbreakable" ring instead of the break. See below. |
 | `threadAttached`, with `afterglowUntil` on the hero it left | `afterglow` (2) | Afterglow: Empower lingers. | A fading tail, very quiet. See below. |
 | `revived` (not a Rewind's) with Second Wind | `secondWind` (2), over `revive` | Second Wind. | The revive voiced a touch fuller. See below. |
+| The state, each frame: the Weaver steps under a living Mute's dome (`underMuteDome`) with Unbroken Chorus | `unbroken` (1) | Unbroken Chorus: the dome would have silenced her, and her songs hold. | The songs holding. See below. |
+
+### Unbroken Chorus (the state)
+
+- **When.** On the frame she steps under a living Mute's dome with the node in her tree: once on entering, never while she stays under it, never while she's down, and at most every 4 s. The dome check is the sim's own (`underMuteDome`, the domes that would have silenced her).
+- **What.** The songs' open fifth sung by the choir (D4 A4 D5), swelling in over 0.12 s and holding about a second. The dome's glass is pushed back over it (glass A5, then D6), with a breath outward.
+- **Level.** Quiet and central: it is her own song, and it confirms rather than warns. One voice.
 
 ### Overflowing Grace (`graceShield`)
 
@@ -292,7 +299,7 @@ A recording fake AudioContext: every source's frequencies, start and last stop, 
   - None for a Rewind's revive; gated per hero.
 - **The rest.**
   - The effects named exist in the sim and the content.
-  - Prism Covenant, Sanguine Font and Unbroken Chorus change no sound.
+  - Prism Covenant, Sanguine Font and Unbroken Chorus add nothing to the events above; Unbroken Chorus's own sound plays under a Mute's dome (its four tests: once on entering and not while under, again for the next dome but at most every 4 s, none without the node or while down, and its pitches).
   - A whole keystone burst stays within every cap.
 - **Robustness and the lab.**
   - A safe no-op without an AudioContext. Nothing throws with a minimal or odd state, unknown nodes or NaN amounts included.
@@ -306,11 +313,11 @@ A recording fake AudioContext: every source's frequencies, start and last stop, 
 - **No sim or content change is needed.** `graceShield`, `afterglowUntil`, `techniquesCostLife` and the Ward's `amount`/`max` were enough.
 - **The offline renderer change.** The lab's levels now settle first (above), so the Phase 3 docs' tables read about 1 to 6 dB low beside these. They aren't rewritten.
 
-**Proposals for the user** (the auras' look and sound are theirs to decide; nothing here changes them):
+**Proposals for the user.** The user left these to the lead, to fit the game's theme:
 
-- **Unbroken Chorus.** A Mute that fails to crack the field could be heard as the songs holding: a short, low sustain on the field's root as the dome lands. Today no sound voices a field cracking either, so this would be a new song sound.
-- **Sanguine Font.** While the songs reserve Life, the songs' bed (the beam hum, the pedal drone) could take the Martyr's warmer, darker colour, a quiet heartbeat under the drone.
-- **Prism Covenant.** Left silent as asked. Its 30% stronger auras could brighten the beam hum a little, but that too is a change to the songs.
+- **Unbroken Chorus: built** (above). It makes the keystone heard at the moment it saves her, which is the game's "proof of support" idea, and it plays only then.
+- **Sanguine Font: not built.** A heartbeat bed would sit under every fight on those runs, which tires the ear and borrows the Martyr's colour.
+- **Prism Covenant: not built,** for the same reason: a brighter beam hum would play through every fight.
 
 ## Known gaps
 

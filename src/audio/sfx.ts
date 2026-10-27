@@ -7,6 +7,7 @@ import { enemyDef, type AstrolabeNode } from '../content';
 import {
   techniqueCost,
   treeNodes,
+  underMuteDome,
   type DeepReadonly,
   type SimEvent,
   type Telegraph,
@@ -97,7 +98,7 @@ const PARADOX_SHARDS: readonly number[] = [18, 14, 20, 16, 21, 15, 19, 17];
 /**
  * Phase 4, the Astrolabe: the node effects (the sim's, `KNOWN_ASTROLABE_EFFECTS`) whose sounds
  * read their node from the tree. Overflowing Grace and Eldritch Conduit also speak on their own
- * event and state flag; Prism Covenant has no sound.
+ * event and state flag; Prism Covenant and Sanguine Font have no sound.
  */
 export const ASTROLABE_SOUND_EFFECTS = [
   'overflowing_grace',
@@ -105,6 +106,7 @@ export const ASTROLABE_SOUND_EFFECTS = [
   'afterglow',
   'second_wind',
   'eldritch_conduit',
+  'unbroken_chorus',
 ] as const;
 type AstroEffect = (typeof ASTROLABE_SOUND_EFFECTS)[number];
 
@@ -172,6 +174,8 @@ export class SfxEngine {
   private readonly batchSoloReady = new Set<number>();
   /** Phase 4: the fight's tree (the content's nodes), kept for the array it was read from. */
   private tree: { ids: readonly string[]; nodes: readonly AstrolabeNode[] } | null = null;
+  /** Unbroken Chorus: the Weaver was under a Mute's dome last frame (its cue plays on entering). */
+  private underDome = false;
   /** Afterglow tails still sounding, by hero, and the `afterglowUntil` each one was for. */
   private readonly afterglowTail = new Map<number, VoiceHandle>();
   private readonly afterglowSeen = new Map<number, number>();
@@ -2630,6 +2634,38 @@ export class SfxEngine {
   }
 
   /**
+   * Unbroken Chorus: she walks under a Mute's dome that would have silenced her, and her songs
+   * hold. Heard on entering a dome, not while she stays under it, and never while she's down.
+   */
+  private followUnbroken(state: WorldState): void {
+    const weaver = state.entities.get(state.weaverId);
+    const under =
+      !!weaver?.health &&
+      !weaver.health.downed &&
+      !!this.astroNode(state, 'unbroken_chorus') &&
+      underMuteDome(state, weaver.x, weaver.z);
+    if (under && !this.underDome) this.songsHold();
+    this.underDome = under;
+  }
+
+  /**
+   * Unbroken Chorus's "songs holding": the songs' open fifth sung by the choir (D4 A4 D5),
+   * swelling in and holding, the dome's glass pushed back over it (A5, then D6), and a breath
+   * outward. Quiet and central (it is her own song): it confirms, it doesn't warn. At most every
+   * 4 s; one voice.
+   */
+  private songsHold(): void {
+    if (!this.e.gate('unbroken', 4)) return;
+    this.play('unbroken', 1, 'sfx', (v, t) => {
+      choirChord(v, t, [62, 69, 74].map(midiToHz), 1.1, 0.032, 0.12, 0.7);
+      glassPing(v, t + 0.12, midiToHz(81), 0.014, 0.5);
+      glassPing(v, t + 0.26, midiToHz(86), 0.011, 0.6);
+      whoosh(v, t + 0.04, 0.5, 0.006, 900, 2400, 1);
+      v.extend(t + 2);
+    });
+  }
+
+  /**
    * Eldritch Conduit: a technique paid in Life (`state.astrolabe.techniquesCostLife`). A subtle
    * blood pulse under the technique's own sound: one muffled beat with a dark swell under it,
    * pitched from the hero it was for (their note folded into D2..C#3; the Chime's, with no hero,
@@ -3468,6 +3504,8 @@ export class SfxEngine {
     // Phase 3e: Stasis followed in the state as well as its events, its slowed clock, and the
     // Chronomancer's final-second tick.
     this.followStasis(state, now);
+    // Phase 4: Unbroken Chorus's songs holding under a Mute's dome.
+    this.followUnbroken(state);
     this.finalTicks(state);
 
     // Scan the world a few times a second.

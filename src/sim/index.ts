@@ -30,3 +30,4 @@ export {
 export { auraBit, auraIds, enemyAuraMask, partyAuraMask, type AuraTotals } from './combat/auras';
 export { vowHoldsAt } from './combat/telegraphs';
 export { rewindCanRevive } from './systems/rewind';
+export { underMuteDome } from './systems/field';

@@ -1,7 +1,8 @@
 /**
  * Phase 4 audio: the Astrolabe. The star map's UI sounds (`star*`), and the keystones in the
  * fight: Overflowing Grace's chime, a technique paid in Life (Eldritch Conduit) and its refusal,
- * the Shatterproof Halo's ring, Afterglow's tail and Second Wind's fuller revive. Each plays on
+ * the Shatterproof Halo's ring, Afterglow's tail, Second Wind's fuller revive and Unbroken Chorus's
+ * songs holding under a Mute's dome. Each plays on
  * its bus, is rate-limited, is silent without its node and reads its numbers from the content or
  * the state; the lab has a button for each.
  */
@@ -805,6 +806,84 @@ describe('Second Wind', () => {
   });
 });
 
+// ── Unbroken Chorus ─────────────────────────────────────────────────────────────────
+
+describe('Unbroken Chorus', () => {
+  /** The content's Mute dome. */
+  const dome = CONTENT.enemies.find((d) => d.id === 'mute')!.suppressRadius;
+
+  /** Steps a frame with the state followed; is her songs-holding sound ringing? */
+  const holding = (h: ReturnType<typeof harness>) => {
+    h.advance(1 / 60, true);
+    return (h.stats().voices.unbroken ?? 0) > 0;
+  };
+  const wait = (h: ReturnType<typeof harness>, seconds: number) => {
+    for (let i = 0; i < Math.round(seconds * 60); i++) h.advance(1 / 60, true);
+  };
+
+  /** A tree with the node, a Mute just out of her reach; she steps under its dome. */
+  function underDome() {
+    const h = harness();
+    tree(h, 'unbroken_chorus');
+    h.world.addMute(0, dome + 3);
+    return h;
+  }
+
+  it('her songs hold as she walks under a Mute’s dome: heard on entering, not while under it', () => {
+    const h = underDome();
+    expect(holding(h)).toBe(false);
+    h.world.moveWeaver(0, 3);
+    expect(holding(h)).toBe(true);
+    // It rings out and doesn't come back while she stays under.
+    wait(h, 3);
+    expect(holding(h)).toBe(false);
+    h.d.dispose();
+  });
+
+  it('again for the next dome, but at most every 4 s', () => {
+    const h = underDome();
+    h.world.moveWeaver(0, 3);
+    expect(holding(h)).toBe(true);
+    wait(h, 2.5);
+    h.world.moveWeaver(0, -dome);
+    wait(h, 0.5);
+    // Back under at 3 s: too soon.
+    h.world.moveWeaver(0, 3);
+    expect(holding(h)).toBe(false);
+    h.world.moveWeaver(0, -dome);
+    wait(h, 1.5);
+    // Back under at 4.5 s: again.
+    h.world.moveWeaver(0, 3);
+    expect(holding(h)).toBe(true);
+    h.d.dispose();
+  });
+
+  it('none without the node, and none while she is down', () => {
+    const plain = harness();
+    plain.world.addMute(0, 3);
+    expect(holding(plain)).toBe(false);
+    plain.d.dispose();
+    const h = underDome();
+    h.world.setWeaverHp(0);
+    const weaver = h.world.state.entities.get(IDS.weaver)!;
+    (weaver.health as { downed: boolean }).downed = true;
+    h.world.moveWeaver(0, 3);
+    expect(holding(h)).toBe(false);
+    h.d.dispose();
+  });
+
+  it('the songs’ open fifth and the dome’s glass, all on D and A', () => {
+    const h = underDome();
+    const from = h.ctx.sources.length;
+    h.world.moveWeaver(0, 3);
+    expect(holding(h)).toBe(true);
+    const added = h.ctx.sources.slice(from).filter((s) => s.kind === 'osc');
+    for (const midi of [62, 69, 74, 81, 86])
+      expect(hasPitch(added, midiToHz(midi), 2), String(midi)).toBe(true);
+    h.d.dispose();
+  });
+});
+
 // ── The rest of the tree ────────────────────────────────────────────────────────────
 
 describe('the rest of the tree', () => {
@@ -818,7 +897,7 @@ describe('the rest of the tree', () => {
     }
   });
 
-  it('nothing new for Prism Covenant, Sanguine Font or Unbroken Chorus', () => {
+  it('nothing new on these events for Prism Covenant, Sanguine Font or Unbroken Chorus', () => {
     const batch = (): SimEvent[] => [
       cast('ward'),
       hit(IDS.kael, 100),
@@ -985,6 +1064,7 @@ describe('audio lab: the Phase 4 · Astrolabe group', () => {
       'astro-afterglow-back',
       'astro-second-wind',
       'astro-revive-compare',
+      'astro-unbroken',
       'astro-burst',
     ])
       expect(ids, id).toContain(id);
@@ -1012,6 +1092,7 @@ describe('audio lab: the Phase 4 · Astrolabe group', () => {
       ['astro-halo', 'halo'],
       ['astro-afterglow', 'afterglow'],
       ['astro-second-wind', 'secondWind'],
+      ['astro-unbroken', 'unbroken'],
     ];
     for (const [id, group] of own) {
       const h = press(id);

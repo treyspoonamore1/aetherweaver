@@ -1463,6 +1463,27 @@ export const SOUNDS: SoundButton[] = [
     fire: (d) => d.playUi(s),
   })),
   {
+    id: 'astro-unbroken',
+    label: 'Unbroken Chorus: she walks under a Mute’s dome and her songs hold',
+    group: 'astrolabe',
+    length: 3,
+    fire: (d, w) => {
+      tree(w, 'unbroken_chorus');
+      w.addMute(0, 2);
+      d.update(w.state, 1 / 60);
+    },
+    then: [
+      {
+        delay: 0.1,
+        fire: (d, w) => {
+          w.removeMutes();
+          d.update(w.state, 1 / 60);
+        },
+      },
+      restore(0.2),
+    ],
+  },
+  {
     id: 'astro-grace',
     label: 'Overflowing Grace: Mend runs over into a shield on Lyra',
     group: 'astrolabe',

@@ -32,7 +32,7 @@ interface FakeEntity {
   weaver?: { resonance: number; threadTension: number; crescendo: number };
   /** `afterglowUntil` (Phase 4): Empower lingers on this hero until this sim time. */
   hero?: { defId: string; slot: number; solo: number; soloActive: number; afterglowUntil: number };
-  enemy?: { role: string; tier: string; state: string; phase: number };
+  enemy?: { role: string; tier: string; state: string; phase: number; defId?: string };
 }
 
 const health = (hp: number, maxHp: number, dead = false): FakeEntity['health'] => ({
@@ -357,6 +357,32 @@ export class FakeWorld {
         health: health(100, 100),
         enemy: { role, tier, state: 'approach', phase },
       });
+    }
+  }
+  /** Adds a living Mute at (x, z): its dome is the content's (Unbroken Chorus's sound). */
+  addMute(x: number, z: number): number {
+    const id = IDS.enemyBase + 200 + this.entities.size;
+    this.entities.set(id, {
+      id,
+      kind: 'enemy',
+      x,
+      z,
+      health: health(100, 100),
+      enemy: { role: 'controller', tier: 'normal', state: 'approach', phase: 0, defId: 'mute' },
+    });
+    return id;
+  }
+  /** Takes the Mutes away again. */
+  removeMutes(): void {
+    for (const [id, e] of [...this.entities])
+      if (e.enemy?.defId === 'mute') this.entities.delete(id);
+  }
+  /** Moves the Weaver (Unbroken Chorus: walking under a Mute's dome and out of it). */
+  moveWeaver(x: number, z: number): void {
+    const w = this.entities.get(IDS.weaver);
+    if (w) {
+      w.x = x;
+      w.z = z;
     }
   }
   /** Adds one enemy of a role at x (kill sounds read the role from the entity). */
