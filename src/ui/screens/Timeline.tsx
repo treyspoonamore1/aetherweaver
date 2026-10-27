@@ -37,6 +37,30 @@ export interface TimelineSegment {
  * (docs/plan/04 §6.1). Hero lines differ by dash pattern as well as colour. One or several
  * fights; several are laid end to end with a gap and a separator.
  */
+const NARROW = /[iljtfr .,'’]/;
+const WIDE = /[mwMW]/;
+
+/** About how wide a name is in the chart's 12-unit type (the sans's letters, roughly). */
+function labelWidth(s: string): number {
+  let w = 0;
+  for (const ch of s)
+    w += NARROW.test(ch) ? 3.8 : WIDE.test(ch) ? 10 : ch >= 'A' && ch <= 'Z' ? 8.2 : 6.9;
+  return w;
+}
+
+/**
+ * A fight's name cut to its stretch of the chart, so a short fight's name doesn't run into the
+ * next one's. The full name is its tooltip.
+ */
+function fitLabel(name: string, width: number): string {
+  if (labelWidth(name) <= width) return name;
+  for (let n = name.length - 1; n >= 3; n--) {
+    const cut = `${name.slice(0, n).trimEnd()}…`;
+    if (labelWidth(cut) <= width) return cut;
+  }
+  return '';
+}
+
 export function HpTimeline({
   segments,
   heroIds,
@@ -141,7 +165,11 @@ export function HpTimeline({
                 fill="var(--color-gold-300)"
                 fontFamily="var(--font-sans)"
               >
-                {seg.name}
+                <title>{seg.name}</title>
+                {fitLabel(
+                  seg.name ?? '',
+                  (si + 1 < placed.length ? x(placed[si + 1]!.start) : W - padR) - x(start) - 6,
+                )}
               </text>
             </>
           )}

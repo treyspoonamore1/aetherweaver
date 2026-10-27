@@ -423,10 +423,10 @@ function bossForeseen(
 ): BossHud['foreseen'] {
   const f = foreseen.find((x) => x.enemy === bossId);
   if (!f) return null;
-  const hero = f.targets[0] === undefined ? undefined : state.entities.get(f.targets[0]);
-  return {
-    name: f.name,
-    in: f.in,
-    target: hero?.hero ? heroDef(hero.hero.defId).name : null,
-  };
+  // A link picks two heroes; the frames mark both, so the bar names both.
+  const names = f.targets.flatMap((id) => {
+    const hero = state.entities.get(id)?.hero;
+    return hero ? [heroDef(hero.defId).name] : [];
+  });
+  return { name: f.name, in: f.in, target: names.length > 0 ? names.join(' & ') : null };
 }

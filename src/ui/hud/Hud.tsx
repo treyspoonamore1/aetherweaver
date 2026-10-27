@@ -3,7 +3,8 @@ import { getRuntime } from '../../app/runtimeRegistry';
 import { enemyDef } from '../../content';
 import type { WheelView } from '../../input/wheel';
 import { countHudCommit } from '../perfCounters';
-import { useUi, type Callout, type HudSnapshot, type TechniqueHud } from '../store';
+import { useUi, type Callout, type HudSnapshot } from '../store';
+import { rejectBuzz } from './buzz';
 import { callingLook } from '../kit/callingLook';
 import { useRun } from '../../app/runStore';
 import type { ActiveBoon } from '../../meta/types';
@@ -22,23 +23,6 @@ const NO_BOONS: readonly ActiveBoon[] = [];
 
 /** The Chronomancer's steel, for the HUD's tint while Stasis holds the fight (Phase 3e). */
 const CHRONO = callingLook('chronomancer');
-
-/**
- * The latest rejection of each technique slot (its callout id), from the rejection callouts'
- * `reject:<slot>` keys: the Weaver bar shakes that slot (Rewind's rejections buzz F).
- */
-export function rejectBuzz(
-  callouts: readonly Callout[],
-): Partial<Record<TechniqueHud['key'], number>> {
-  const out: Partial<Record<TechniqueHud['key'], number>> = {};
-  for (const c of callouts) {
-    if (c.kind !== 'reject' || !c.key?.startsWith('reject:')) continue;
-    const slot = c.key.slice('reject:'.length);
-    if (slot === 'ward' || slot === 'chime' || slot === 'reel' || slot === 'glide')
-      out[slot] = c.id;
-  }
-  return out;
-}
 
 export interface HudProps {
   /** Small line above the encounter name (e.g. "The Prelude · node 3 of 10"). */

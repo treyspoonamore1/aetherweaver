@@ -1249,6 +1249,10 @@ export function summarize(
   };
   stats.weaverShare = weaverShare(stats);
   const name = (heroId: string) => CONTENT.heroes.find((h) => h.id === heroId)?.name ?? heroId;
+  // Where Rewind holds Reel's slot (the Chronomancer), the dodges it makes are saved as Reel's.
+  const rewinds = !!calling && (callingDef(calling.id).values.rewind ?? 0) > 0;
+  const how = (cause: SaveCause) =>
+    cause === 'reel' && rewinds ? 'with a Rewind' : SAVE_HOW[cause];
   const highlights: (Highlight & { score: number })[] = [];
   for (const s of l.saves) {
     const fermata = s.cause === 'fermata';
@@ -1258,7 +1262,7 @@ export function summarize(
       slot: outcome.party.find((p) => p.heroId === s.heroDefId)?.slot ?? null,
       text: fermata
         ? `${name(s.heroDefId)} held on through ${s.attack} — and you healed them in time`
-        : `Saved ${name(s.heroDefId)} from ${s.attack} ${SAVE_HOW[s.cause]} (${Math.round(s.prevented).toLocaleString('en-US')} prevented)`,
+        : `Saved ${name(s.heroDefId)} from ${s.attack} ${how(s.cause)} (${Math.round(s.prevented).toLocaleString('en-US')} prevented)`,
       score: 1000 + s.prevented,
     });
   }

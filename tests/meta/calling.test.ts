@@ -283,6 +283,27 @@ describe('the Chronomancer in a run', () => {
     expect(Run.runTotals(run)).toMatchObject({ callingRewound: 640, callingRevived: 1 });
   });
 
+  it('a Save made by Rewind’s dodge says Rewind, not Reel', () => {
+    let run = Run.embark(Run.setCalling(Run.setChords(Run.newRun(4), GUARDIAN), 'chronomancer'));
+    run = Run.chooseNode(run, run.map.rows[0]![0]!.id);
+    const outcome = win(run);
+    outcome.ledger.saves.push({
+      time: 12,
+      hero: 1,
+      heroDefId: 'kael',
+      cause: 'reel',
+      prevented: 480,
+      attack: 'Toll Cleave',
+    });
+    const node = Run.findNode(run, run.pending!)!;
+    const texts = (calling: RunState['calling']) =>
+      Run.summarize(node, outcome, calling).highlights.map((h) => h.text);
+    expect(texts(run.calling)).toContain(
+      'Saved Kael from Toll Cleave with a Rewind (480 prevented)',
+    );
+    expect(texts(null)).toContain('Saved Kael from Toll Cleave with a Reel (480 prevented)');
+  });
+
   it('its revive is once a run: the fight that used it marks the run, and later fights know', () => {
     let run = Run.embark(Run.setCalling(Run.setChords(Run.newRun(4), GUARDIAN), 'chronomancer'));
     run = Run.chooseNode(run, run.map.rows[0]![0]!.id);

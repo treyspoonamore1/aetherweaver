@@ -130,7 +130,9 @@ export const AXIS_LOOK: Readonly<
     label: 'Undo it',
     blurb: 'Take back what just happened',
     icon: 'rewind',
-    color: '#c4b2f4',
+    // A deeper violet than a pale lilac: it stays apart from the ice of "See it coming" for
+    // red-green colour vision (ΔE ≥ 25 between all three of his axes, in every mode).
+    color: '#be9bfa',
   },
 };
 

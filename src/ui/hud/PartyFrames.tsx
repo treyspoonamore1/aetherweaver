@@ -254,6 +254,7 @@ function CallStrip({ hero: h, threadMode }: { hero: HeroHud; threadMode: ThreadM
     );
   }
   const frac = call.total > 0 ? call.remaining / call.total : 0;
+  const keys = callKeys(h, call.answer, threadMode);
   return (
     <div
       className="mt-1.5 flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs"
@@ -269,7 +270,7 @@ function CallStrip({ hero: h, threadMode }: { hero: HeroHud; threadMode: ThreadM
         {look.label}!
       </span>
       <span className="flex items-center gap-0.5">
-        {callKeys(h, call.answer, threadMode).map((k) => (
+        {keys.map((k) => (
           <KeyCap key={k} label={k} accent />
         ))}
       </span>
@@ -277,9 +278,12 @@ function CallStrip({ hero: h, threadMode }: { hero: HeroHud; threadMode: ThreadM
       <Ring value={frac} size={18} stroke={3} color={CALL}>
         <span className="sr-only">{call.remaining.toFixed(1)} s</span>
       </Ring>
-      <span className="w-7 text-right font-mono font-semibold" style={{ color: CALL }}>
-        {call.remaining.toFixed(1)}
-      </span>
+      {/* Two keys (thread them, then RMB) leave no room in the frame: the ring alone counts. */}
+      {keys.length < 2 && (
+        <span className="w-7 text-right font-mono font-semibold" style={{ color: CALL }}>
+          {call.remaining.toFixed(1)}
+        </span>
+      )}
     </div>
   );
 }

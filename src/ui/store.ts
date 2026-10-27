@@ -324,7 +324,7 @@ export interface BossHud {
   decree: { name: string; text: string } | null;
   /**
    * Phase 3e, Foresight: the boss's next attack, seen before it begins (null: none foreseen),
-   * with the hero it picked (null: an area, or everyone).
+   * with the hero it picked ("Vexis & Lyra" for a link's two; null: an area, or everyone).
    */
   foreseen: { name: string; in: number; target: string | null } | null;
 }
