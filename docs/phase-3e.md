@@ -77,7 +77,9 @@ The axes: **see it coming** (Foresight, Echo Ward, Slow Dance), **more turns** (
 
 - `RANK_XP` gains Rank 9 at 3,350 XP, which unlocks `calling.chronomancer`.
 - `RunCalling.reviveSpent`: set when a fight's `ledger.calling.revived` is above 0; passed into every later fight's config.
-- `SAVE_HOW.rewind`; `summarize` names Stasis.
+- `SAVE_HOW.rewind`; `summarize` names Stasis, and on a run where Rewind holds Reel's slot a `'reel'` Save reads "with a Rewind".
+
+**Presentation** (additive): `AudioDirector.playUi(sound, calling?)` voices the three Calling UI sounds for a Calling (the Chronomancer's are clockwork; without one the app-wide director asks the run); the browser test hook gains `markers()`.
 
 ## Presentation
 
@@ -140,6 +142,10 @@ An independent review of the sim, run layer and bots (read-only, against a clean
 - **Rewind reached less far back in slow motion**: the past was sampled every few ticks rather than every 0.1 s of sim time.
 
 The review also noted that during Stasis, Rewind's free, half-cost casts let Borrowed Time fill a Solo four times over; it now asks that the Rewind give back life. It confirmed that runs without the Chronomancer are unchanged (the bots draw no new random numbers; checked again seed for seed after every fix and after the once-a-run revive).
+
+Reviewing the UI, VFX and audio work turned up three more, fixed with tests: **a Save made by Rewind's dodge read "with a Reel"** on the Result (it is saved as Reel's, since Rewind holds Reel's slot); **an attack called off before it landed kept winding up** in the sound, swelling into nothing when its caster was killed or interrupted (only Paradox's undone attacks had been cut); and, found in passing, **three of the Martyr's sounds gave Vexis an F sharp**, outside the game's D dorian, where her fifth is now counted in scale degrees.
+
+After the fixes: 846 unit tests, typecheck and lint clean, and 9/9 end-to-end tests in Chromium against the production build, including the Chronomancer's own (choose him in Prep, Rewind in Reel's slot, F Rewinds Kael). The sim costs what it did before him (0.16 ms a tick in the 250-entity crowd, the same as Phase 3d's), and the fight draws 21 calls idle, as without him.
 
 ## Known gaps
 
