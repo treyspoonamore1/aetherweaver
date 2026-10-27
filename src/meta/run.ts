@@ -434,18 +434,21 @@ export function reachable(run: RunState): MapNode[] {
   return last.next.map((id) => findNode(run, id)).filter((n): n is MapNode => !!n);
 }
 
-/** A new run in Prep, starting from `chords` (the last ones used) when they're legal. */
+/**
+ * A new run in Prep, starting from `chords` (the last ones used) when they're legal: with the
+ * tree's lighter songs (or its Life), as the run will hold them.
+ */
 export function newRun(
   seed: number,
   chords: readonly ChordLoadout[] = DEFAULT_CHORDS,
   astrolabe: readonly string[] = [],
 ): RunState {
-  return {
+  const run: RunState = {
     version: RUN_SAVE_VERSION,
     seed: seed >>> 0,
     phase: 'prep',
     party: CONTENT.defaultParty.map((heroId) => ({ heroId, hpPct: 1, shaken: false })),
-    chords: canonicalChords(chordsLegal(chords) ? chords : DEFAULT_CHORDS),
+    chords: canonicalChords(DEFAULT_CHORDS),
     motifs: [],
     map: generateMap(seed >>> 0),
     path: [],
@@ -467,6 +470,9 @@ export function newRun(
     callingOffer: null,
     astrolabe: [...astrolabe],
   };
+  return chordsLegal(chords, undefined, reservePool(run), reserveMult(run))
+    ? { ...run, chords: canonicalChords(chords) }
+    : run;
 }
 
 /**
@@ -534,14 +540,20 @@ export function embark(
 
 /**
  * The Chords to remember for the next run's Prep. Third Voice's third field aura belongs to
- * this run's path, so it's dropped; null when what's left isn't a legal loadout.
+ * this run's path, so it's dropped; null when what's left isn't a legal loadout for the run
+ * they came from (its `pool` and its tree's `reserveMult`: songs only a tree makes light enough
+ * are remembered, and the next run takes them if its own tree can hold them).
  */
-export function chordsToRemember(chords: readonly ChordLoadout[]): ChordLoadout[] | null {
+export function chordsToRemember(
+  chords: readonly ChordLoadout[],
+  pool: ReservePool = 'spirit',
+  reserveMult = 1,
+): ChordLoadout[] | null {
   const slots = CONTENT.weaver.auraSlots;
   const kept = canonicalChords(
     chords.map((c) => ({ auras: c.auras.slice(0, slots), ornaments: [...c.ornaments] })),
   );
-  return chordsLegal(kept) ? kept : null;
+  return chordsLegal(kept, undefined, pool, reserveMult) ? kept : null;
 }
 
 export function chooseNode(run: RunState, nodeId: string): RunState {

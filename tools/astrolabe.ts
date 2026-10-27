@@ -6,9 +6,12 @@
  *   npx tsx tools/astrolabe.ts --fights --seeds 20            the six hard fights (Threat 1)
  *   npx tsx tools/astrolabe.ts --loadout guardian --seeds 25   whole Prelude runs
  *   npx tsx tools/astrolabe.ts --trees silk,choir --bots novice
+ *   npx tsx tools/astrolabe.ts --threat 1.15                  trees against enemies with 15% more life
  *
  * Fights report the win rate and the Weaver's output (healing, shielding, negation and
- * amplification from the ledger), per fight and per second; runs report the win rate.
+ * amplification from the ledger), per fight and per second; runs report the win rate. With
+ * `--threat`, the trees play runs whose enemies have that much more life: a tree worth +15% wins
+ * as often at 1.15 as no tree does at 1.
  */
 import { makeBot, type BotKind } from '../src/bots';
 import { allocate, astrolabeProblems } from '../src/meta/astrolabe';
@@ -195,20 +198,26 @@ function main(): void {
     return;
   }
 
-  console.log(`astrolabe runs · loadout ${loadout.name} · ${seeds} seeds a tree`);
+  const threat = Number(get('threat') ?? 1);
+  console.log(
+    `astrolabe runs · loadout ${loadout.name} · ${seeds} seeds a tree` +
+      (threat !== 1 ? ` · trees at ×${threat} enemy life` : ''),
+  );
   for (const bot of bots) {
-    const runs = (astrolabe: readonly string[]) => {
+    const runs = (astrolabe: readonly string[], threatMult = 1) => {
       let won = 0;
       for (let i = 0; i < seeds; i++) {
         const seed = 2000 + i * 104729;
-        if (playRun(seed, bot, loadout.chords, { astrolabe }).outcome === 'victory') won++;
+        const opts = { astrolabe, threatMult };
+        if (playRun(seed, bot, loadout.chords, opts).outcome === 'victory') won++;
       }
       return won / seeds;
     };
     const base = runs([]);
-    console.log(`${bot.padEnd(8)} no tree ${pct(base)}`);
+    const harder = threat !== 1 ? ` · at ×${threat} ${pct(runs([], threat))}` : '';
+    console.log(`${bot.padEnd(8)} no tree ${pct(base)}${harder}`);
     for (const { name, tree } of trees) {
-      const win = runs(tree);
+      const win = runs(tree, threat);
       console.log(`  ${name.padEnd(9)} ${pct(win)} (${signed(win - base)})`);
     }
   }

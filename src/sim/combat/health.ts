@@ -15,6 +15,7 @@ import type {
   StatusId,
   Telegraph,
 } from '../state';
+import { canPay } from '../astrolabe';
 import type { World } from '../world';
 import { hasAura, heroFx } from './auras';
 import { addHealingThreat, addThreat } from './threat';
@@ -98,24 +99,25 @@ function nearAlly(world: World, hero: Entity): boolean {
 
 /**
  * Overflowing Grace: Mend's overheal tops up a shield on the hero, up to a share of their life,
- * lasting a few seconds from the last top-up. A hero's own overshield (an uncued Aegis Wall)
- * is theirs to keep.
+ * lasting a few seconds from the last top-up (so it holds while Mend keeps feeding it). It keeps
+ * to its own shield: another overshield (a hero's own, or another of yours) is left as it is.
  */
 function graceShield(world: World, hero: Entity, overheal: number): void {
   const h = hero.health!;
   const cap = h.maxHp * world.mods.graceShieldPct;
   const existing = shieldOf(h, 'overshield');
-  if (existing && !existing.fromWeaver) return;
-  if (existing) {
-    if (existing.amount >= cap) return;
+  if (existing?.grace) {
     existing.amount = Math.min(cap, existing.amount + overheal);
     existing.max = Math.max(existing.max, existing.amount);
     existing.expiresAt = Math.max(existing.expiresAt, world.time + world.mods.graceShieldDuration);
     return;
   }
+  if (existing) return;
   const amount = Math.min(cap, overheal);
-  if (addShield(world, hero, 'overshield', amount, world.mods.graceShieldDuration, true))
-    world.events.push({ type: 'graceShield', tick: world.tick, hero: hero.id, amount });
+  const shield = addShield(world, hero, 'overshield', amount, world.mods.graceShieldDuration, true);
+  if (!shield) return;
+  shield.grace = true;
+  world.events.push({ type: 'graceShield', tick: world.tick, hero: hero.id, amount });
 }
 
 export function addShield(
@@ -771,11 +773,11 @@ function downHero(world: World, e: Entity, killer: string): void {
   const weaver = world.entities.get(world.weaverId)?.weaver;
   const ready: ('ward' | 'chime' | 'reel' | 'glide')[] = [];
   if (weaver) {
-    const tech = world.content.techniques;
-    const free = weaver.spirit;
-    if (weaver.wardCharges > 0 && free >= tech.ward.cost) ready.push('ward');
-    if (weaver.cooldowns.chime <= 0 && free >= tech.chime.cost) ready.push('chime');
-    if (weaver.cooldowns.reel <= 0 && free >= tech.reel.cost) ready.push('reel');
+    // What she could have cast: the tree's costs and Life included, as `spend` would take them.
+    const content = world.content;
+    if (weaver.wardCharges > 0 && canPay(world, 'ward', content)) ready.push('ward');
+    if (weaver.cooldowns.chime <= 0 && canPay(world, 'chime', content)) ready.push('chime');
+    if (weaver.cooldowns.reel <= 0 && canPay(world, 'reel', content)) ready.push('reel');
   }
   world.ledger.deaths.push({
     time: world.time - world.encounter.startedAt,

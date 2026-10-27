@@ -149,13 +149,14 @@ describe('Silk', () => {
 
   it('Overflowing Grace: Mend’s overheal shields the hero, up to a share of their life', () => {
     // Threaded from the first tick: it fills at Mend's overheal, up to the cap, and lasts while
-    // Mend keeps topping it up.
+    // Mend keeps topping it up (well past its own few seconds, the cap reached long before).
     const sim = sandbox({ astrolabe: ['overflowing_grace'] });
     const w = worldOf(sim);
     const kael = heroAt(w, 0);
-    const events = stepFor(sim, 60 * 8, [{ t: 'thread', slot: 0 }]);
+    const events = stepFor(sim, 60 * 20, [{ t: 'thread', slot: 0 }]);
     const shield = shieldOf(kael.health!, 'overshield')!;
     expect(shield.fromWeaver).toBe(true);
+    expect(shield.grace).toBe(true);
     expect(shield.amount).toBeCloseTo(
       (kael.health!.maxHp * v('overflowing_grace', 'cap')) / 100,
       3,
@@ -167,6 +168,27 @@ describe('Silk', () => {
       1 - v('overflowing_grace', 'ward') / 100,
       9,
     );
+  });
+
+  it('Overflowing Grace keeps to its own shield: another of yours is neither topped up nor kept', () => {
+    const { sim, w } = tree(['overflowing_grace']);
+    const kael = heroAt(w, 0);
+    kael.health!.shields.length = 0;
+    const thimble = {
+      kind: 'overshield' as const,
+      amount: 5,
+      max: 5,
+      appliedAt: w.time,
+      expiresAt: w.time + 0.5,
+      fromWeaver: true,
+      fromAura: false,
+    };
+    kael.health!.shields.push(thimble);
+    stepFor(sim, 15);
+    expect(shieldOf(kael.health!, 'overshield')).toEqual(thimble);
+    // Once it's gone, Grace's own forms.
+    stepFor(sim, 60);
+    expect(shieldOf(kael.health!, 'overshield')!.grace).toBe(true);
   });
 
   it('Overflowing Grace leaves a hero’s own overshield alone', () => {
@@ -381,16 +403,46 @@ describe('Aegis', () => {
   });
 });
 
+describe('what the tree changes elsewhere', () => {
+  it('a death recap lists only the techniques she could have paid for, Life costs included', () => {
+    const { w } = tree(['eldritch_conduit']);
+    const weaver = weaverOf(w);
+    weaver.weaver!.cooldowns.chime = 0;
+    weaver.weaver!.cooldowns.reel = 0;
+    // Spirit is full (nothing costs it), but 10 Life pays for nothing.
+    weaver.health!.hp = 10;
+    const kael = heroAt(w, 0);
+    dealDamage(w, kael, { source: null, sourceName: 't', amount: 1e5, telegraph: null });
+    expect(w.ledger.deaths.at(-1)!.readyTechniques).toEqual([]);
+    // With the Life to pay, they're ready.
+    weaver.health!.hp = weaver.health!.maxHp * 0.5;
+    const lyra = heroAt(w, 1);
+    dealDamage(w, lyra, { source: null, sourceName: 't', amount: 1e5, telegraph: null });
+    expect(w.ledger.deaths.at(-1)!.readyTechniques).toEqual(['ward', 'chime', 'reel']);
+  });
+
+  it('Prism Covenant: she re-forms at half her Life, never above the ceiling', () => {
+    const { sim, w } = tree(['prism_covenant']);
+    const weaver = weaverOf(w);
+    weaver.health!.maxHp = 417;
+    weaver.health!.invulnerable = 0;
+    dealDamage(w, weaver, { source: null, sourceName: 't', amount: 1e5, telegraph: null });
+    expect(weaver.health!.downed).toBe(true);
+    stepUntil(sim, () => !weaver.health!.downed, 60 * 30);
+    expect(weaver.health!.hp).toBeLessThanOrEqual((417 * v('prism_covenant', 'cap')) / 100);
+  });
+});
+
 describe('Bond', () => {
   it('heroes have more life and hit harder, and the extra is the Weaver’s', () => {
     const { w } = tree(['bond_t1', 'bond_t2', 'bond_n1']);
     const plain = tree([]).w;
     const life = 1 + (v('bond_t1', 'pct') + v('bond_n1', 'life')) / 100;
     expect(heroAt(w, 0).health!.maxHp).toBe(Math.round(heroAt(plain, 0).health!.maxHp * life));
-    expect(modsOf(['bond_t2', 'bond_n1']).partyDamageMult).toBeCloseTo(
-      1 + (v('bond_t2', 'pct') + v('bond_n1', 'damage')) / 100,
-      9,
-    );
+    const m = modsOf(['bond_t1', 'bond_t2', 'bond_n1']);
+    expect(m.partyDamageMult).toBeCloseTo(1 + v('bond_n1', 'damage') / 100, 9);
+    // The trunk's second node is Rhythm: Solos charge faster.
+    expect(m.soloChargeMult).toBeCloseTo(1 + v('bond_t2', 'pct') / 100, 9);
   });
 
   it('Close Ranks: ordinary hits on a hero near another are softer; telegraphed ones aren’t', () => {

@@ -537,8 +537,10 @@ export function loadProfile(store: KeyValueStore): Profile {
       const parsed = ProfileSchema.safeParse(migrateProfileJson(JSON.parse(raw)));
       if (parsed.success) {
         const profile = parsed.data as Profile;
-        // Forget remembered Chords this build can't play (renamed content).
-        if (chordProblems(profile.lastChords).length > 0) profile.lastChords = [];
+        // Forget remembered Chords this build can't play (renamed content). How much they
+        // reserve is the next run's to judge, with its tree and Calling.
+        if (chordProblems(profile.lastChords, undefined, { reserveMult: 0 }).length > 0)
+          profile.lastChords = [];
         // A tree that no longer connects (renamed nodes) keeps what still does.
         profile.astrolabe = pruneTree(profile.astrolabe, MAX_RANK - 1);
         return profile;

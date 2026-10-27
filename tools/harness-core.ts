@@ -194,6 +194,8 @@ export function playRun(
     path?: readonly (0 | 1)[];
     /** The Astrolabe tree the run embarks with (docs/phase-4.md). */
     astrolabe?: readonly string[];
+    /** Calibration: every fight's enemies have this much more life (1.15: 15% more). */
+    threatMult?: number;
   } = {},
 ): RunSummary {
   const relics = opts.relics ?? true;
@@ -221,6 +223,7 @@ export function playRun(
           const row = Run.findNode(run, run.pending!)!.row;
           config.threat = 1 + Number(perRow) * Math.max(0, row - 1);
         }
+        if (opts.threatMult) config.threat = (config.threat ?? 1) * opts.threatMult;
         const sim = createSim(config);
         const player = makeBot(bot, config.seed);
         for (let t = 0; t < MAX_SECONDS * 60; t++) {

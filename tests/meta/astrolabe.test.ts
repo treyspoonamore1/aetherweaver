@@ -3,6 +3,7 @@
  * map, the profile that keeps the tree, and the run that embarks with it.
  */
 import { describe, expect, it } from 'vitest';
+import { astrolabeNode } from '../../src/content';
 import {
   ASTROLABE_RANK,
   allocate,
@@ -46,8 +47,8 @@ const HEAVY = [
   { auras: ['fortissimo', 'ostinato'], ornaments: [] },
   { auras: ['sostenuto', 'allegro'], ornaments: [] },
 ];
-/** Clear Voice and a Breath: the songs reserve 14% less. */
-const LIGHT = ['choir_t1', 'choir_t2', 'choir_n1', 'choir_b1'];
+/** Clear Voice and both Breaths: songs light enough for HEAVY. */
+const LIGHT = ['choir_t1', 'choir_t2', 'choir_n1', 'choir_b1', 'choir_b2', 'choir_bn', 'choir_b3'];
 
 describe('points', () => {
   it('a point for every Rank above 1, from Rank 4; 19 at Rank 20', () => {
@@ -169,7 +170,11 @@ describe('the run', () => {
     expect(Run.setChords(plain, HEAVY).chords).toEqual(plain.chords);
     const light = Run.setChords(Run.newRun(5, undefined, LIGHT), HEAVY);
     expect(light.chords).toEqual(HEAVY);
-    expect(Run.reserveMult(light)).toBeCloseTo(0.86, 9);
+    const less = ['choir_n1', 'choir_b1', 'choir_b3'].map((id) => {
+      const values = astrolabeNode(id).values;
+      return values.reserve ?? values.pct!;
+    });
+    expect(Run.reserveMult(light)).toBeCloseTo(1 - (less[0]! + less[1]! + less[2]!) / 100, 9);
     // Giving the Choir back in Prep: the songs stay (Prep shows why), and embark settles it.
     const given = Run.setAstrolabe(light, []);
     expect(given.chords).toEqual(HEAVY);
@@ -184,6 +189,20 @@ describe('the run', () => {
     expect(() => resolveConfig(Run.combatConfig(run)!)).not.toThrow();
     saveRun(store, run);
     expect(loadRun(store)?.chords).toEqual(HEAVY);
+  });
+
+  it('songs only a tree makes light enough are remembered; a run takes them if its tree can', () => {
+    const light = Run.setChords(Run.newRun(5, undefined, LIGHT), HEAVY);
+    expect(Run.chordsToRemember(HEAVY)).toBeNull();
+    expect(Run.chordsToRemember(HEAVY, Run.reservePool(light), Run.reserveMult(light))).toEqual(
+      HEAVY,
+    );
+    expect(Run.newRun(6, HEAVY, LIGHT).chords).toEqual(HEAVY);
+    expect(Run.newRun(6, HEAVY).chords).toEqual(Run.DEFAULT_CHORDS);
+    // A profile that remembers them keeps them: how much they reserve is the next run's to judge.
+    const store = memoryStore();
+    saveProfile(store, { ...newProfile(), lastChords: HEAVY, astrolabe: LIGHT });
+    expect(loadProfile(store).lastChords).toEqual(HEAVY);
   });
 
   it('Sanguine Font makes the run’s songs hold Life', () => {

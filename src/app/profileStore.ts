@@ -17,7 +17,7 @@ import {
 } from '../meta/profile';
 import { chordsToRemember } from '../meta/run';
 import { loadProfile, saveProfile } from '../meta/save';
-import type { ChordLoadout } from '../sim';
+import type { ChordLoadout, ReservePool } from '../sim';
 import { useSettings } from './settings';
 import { storage } from './storage';
 
@@ -39,7 +39,8 @@ export interface ProfileStore {
   /** Prep stops marking these unlocks "New". */
   markIntroduced(ids: string[]): void;
   /** Remembers the Chords a run embarked with (the next run starts with them). */
-  rememberChords(chords: ChordLoadout[]): void;
+  /** The songs to start the next run from, if they were legal for the run (its pool, its tree). */
+  rememberChords(chords: ChordLoadout[], pool?: ReservePool, reserveMult?: number): void;
   /** A run ended: counts runs and wins. */
   recordRun(won: boolean): void;
   /** Settings → Reset progress: back to Rank 1. */
@@ -97,9 +98,9 @@ export const useProfile = create<ProfileStore>()((set, get) => {
       const fresh = ids.filter((id) => !profile.introduced.includes(id));
       if (fresh.length > 0) commit({ ...profile, introduced: [...profile.introduced, ...fresh] });
     },
-    rememberChords: (chords) => {
+    rememberChords: (chords, pool, reserveMult) => {
       // Without Third Voice's third field aura, which only this run's path allows.
-      const kept = chordsToRemember(chords);
+      const kept = chordsToRemember(chords, pool, reserveMult);
       if (kept) commit({ ...get().profile, lastChords: kept });
     },
     recordRun: (won) => {

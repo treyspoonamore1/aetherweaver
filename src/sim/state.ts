@@ -52,6 +52,8 @@ export interface Shield {
   echo?: true;
   /** A Ward cast during Stasis (Eternal Moment). Absent on every other shield. */
   stasis?: true;
+  /** Overflowing Grace's shield (the Astrolabe). Absent on every other shield. */
+  grace?: true;
 }
 
 export type StatusId =

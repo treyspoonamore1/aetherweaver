@@ -26,7 +26,8 @@ export function updateWeaver(world: World, dt: number): void {
     if (w.reform <= 0) {
       w.reform = 0;
       h.downed = false;
-      h.hp = Math.round(h.maxHp * 0.5);
+      // Never above Prism Covenant's ceiling (the Astrolabe).
+      h.hp = Math.min(Math.round(h.maxHp * 0.5), h.maxHp * world.mods.lifeCapPct);
       h.invulnerable = Math.max(h.invulnerable, 1.5);
       world.events.push({ type: 'weaverReformed', tick: world.tick });
     }

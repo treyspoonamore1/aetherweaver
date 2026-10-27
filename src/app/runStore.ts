@@ -5,6 +5,7 @@
  * accept what the profile has unlocked.
  */
 import { create } from 'zustand';
+import { pruneTree } from '../meta/astrolabe';
 import * as Run from '../meta/run';
 import { loadRun, saveRun } from '../meta/save';
 import type { CombatOutcome, RunActions, RunState } from '../meta/types';
@@ -21,6 +22,17 @@ export interface RunStore extends RunActions {
   resume(): boolean;
   /** A run in Prep follows the profile's Astrolabe (free between runs). */
   followAstrolabe(tree: readonly string[]): void;
+}
+
+/** The profile's tree as a run may hold it: within the points the Rank (or the settings) give. */
+function profileTree(): string[] {
+  const profile = useProfile.getState();
+  return pruneTree(profile.profile.astrolabe, profile.astrolabePoints());
+}
+
+/** Remembers the run's songs for the next Prep, judged as this run held them. */
+function remember(run: RunState): void {
+  useProfile.getState().rememberChords(run.chords, Run.reservePool(run), Run.reserveMult(run));
 }
 
 export const useRun = create<RunStore>()((set, get) => {
@@ -46,10 +58,13 @@ export const useRun = create<RunStore>()((set, get) => {
       if (!saved) return false;
       // A fight can't be resumed mid-way: restart the pending encounter from its start.
       // A run still in Prep picks up the tree as it is now.
-      set({ run: Run.setAstrolabe(saved, useProfile.getState().profile.astrolabe) });
+      set({ run: Run.setAstrolabe(saved, profileTree()) });
       return true;
     },
-    followAstrolabe: (tree) => apply((run) => Run.setAstrolabe(run, tree)),
+    followAstrolabe: (tree) =>
+      apply((run) =>
+        Run.setAstrolabe(run, pruneTree(tree, useProfile.getState().astrolabePoints())),
+      ),
     newRun: (seed) => {
       // A run replaced before its summary still counts (won if its last fight beat the boss).
       const previous = get().run;
@@ -61,17 +76,12 @@ export const useRun = create<RunStore>()((set, get) => {
             previous.outcome === 'victory' || (last?.kind === 'boss' && last.outcome === 'victory'),
           );
       }
-      // Start from the last Chords used, if they're still unlocked.
+      // Start from the last Chords used, if they're still unlocked and the tree can hold them.
       const profile = useProfile.getState();
       const last = profile.profile.lastChords;
-      const chords =
-        last.length > 0 && Run.chordsAllowed(last, profile.allowance()) ? last : undefined;
       // Math.random is fine here: the app picks the seed; the run itself is seeded.
-      const run = Run.newRun(
-        seed ?? Math.floor(Math.random() * 2 ** 31),
-        chords,
-        profile.profile.astrolabe,
-      );
+      let run = Run.newRun(seed ?? Math.floor(Math.random() * 2 ** 31), undefined, profileTree());
+      if (last.length > 0) run = Run.setChords(run, last, profile.allowance());
       saveRun(storage(), run);
       set({ run });
     },
@@ -84,7 +94,7 @@ export const useRun = create<RunStore>()((set, get) => {
       // The tree it embarks with is the run's to keep (pruned to the points the Rank gives).
       apply((run) => Run.embark(run, profile.allowance(), profile.astrolabePoints()));
       const run = get().run;
-      if (run?.phase === 'map') profile.rememberChords(run.chords);
+      if (run?.phase === 'map') remember(run);
     },
     chooseNode: (id) => apply((run) => Run.chooseNode(run, id)),
     combatConfig: (): SimConfig | null => {
@@ -105,8 +115,7 @@ export const useRun = create<RunStore>()((set, get) => {
       apply((run) => Run.pickCalling(run, index, chords, useProfile.getState().allowance()));
       const run = get().run;
       // Third Voice's free retune took.
-      if (run && before && run.chords !== before.chords)
-        useProfile.getState().rememberChords(run.chords);
+      if (run && before && run.chords !== before.chords) remember(run);
     },
     pickRelic: (index) => apply((run) => Run.pickRelic(run, index)),
     pickDraft: (index) => apply((run) => Run.pickDraft(run, index)),
@@ -115,21 +124,20 @@ export const useRun = create<RunStore>()((set, get) => {
     retune: (chords) => {
       apply((run) => Run.retune(run, chords, useProfile.getState().allowance()));
       const run = get().run;
-      if (run?.phase === 'map') useProfile.getState().rememberChords(run.chords);
+      if (run?.phase === 'map') remember(run);
     },
     buy: (index) => apply((run) => Run.buy(run, index)),
     leaveShop: () => apply(Run.leaveShop),
     forge: (choice) => {
       apply((run) => Run.forge(run, choice, useProfile.getState().allowance()));
       const run = get().run;
-      if (choice.service === 'retune' && run?.forge?.used === 'retune')
-        useProfile.getState().rememberChords(run.chords);
+      if (choice.service === 'retune' && run?.forge?.used === 'retune') remember(run);
     },
     leaveForge: () => apply(Run.leaveForge),
     chooseEvent: (choiceId, opts) => {
       apply((run) => Run.chooseEvent(run, choiceId, opts, useProfile.getState().allowance()));
       const run = get().run;
-      if (run?.event?.gains?.retuned) useProfile.getState().rememberChords(run.chords);
+      if (run?.event?.gains?.retuned) remember(run);
     },
     leaveEvent: () => apply(Run.leaveEvent),
     abandon: () => apply(Run.abandon),
@@ -143,10 +151,15 @@ export const useRun = create<RunStore>()((set, get) => {
 /** The run's Calling id (null: none, or no run): Combat's primer mentions Bear for the Martyr. */
 export const selectCallingId = (s: RunStore): string | null => s.run?.calling?.id ?? null;
 
-// The Astrolabe is free between runs: a run still in Prep follows the profile's tree.
+// The Astrolabe is free between runs: a run still in Prep follows the profile's tree, within
+// the points it has now (turning "Skip the unlocks" off takes the points back).
 useProfile.subscribe((state, prev) => {
-  if (state.profile.astrolabe !== prev.profile.astrolabe)
+  if (state.profile.astrolabe !== prev.profile.astrolabe || state.profile.xp !== prev.profile.xp)
     useRun.getState().followAstrolabe(state.profile.astrolabe);
+});
+useSettings.subscribe((state, prev) => {
+  if (state.settings.unlockAll !== prev.settings.unlockAll)
+    useRun.getState().followAstrolabe(useProfile.getState().profile.astrolabe);
 });
 
 if (typeof window !== 'undefined') {
