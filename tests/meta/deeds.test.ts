@@ -16,9 +16,10 @@ import {
   deedProgress,
   deedsEarned,
 } from '../../src/meta/deeds';
-import { PROFILE_VERSION, RANK_XP } from '../../src/meta/profile';
+import { storage } from '../../src/app/storage';
+import { newProfile, PROFILE_VERSION, RANK_XP } from '../../src/meta/profile';
 import * as Run from '../../src/meta/run';
-import { loadProfile, type KeyValueStore } from '../../src/meta/save';
+import { loadProfile, loadRun, type KeyValueStore } from '../../src/meta/save';
 import type { EncounterResult, EncounterStats, RunState } from '../../src/meta/types';
 import type { SaveCause } from '../../src/sim';
 import { emptyLedger } from '../../src/sim/world';
@@ -101,11 +102,12 @@ function meetsAndMisses(d: DeedDef): [RunState, RunState] {
       return [runOf([yes]), runOf([no])];
     }
     case 'callAll':
+      // Two calls a stun or the fight's end cut short don't count against it; one missed does.
       return [
-        runOf([fight({}, { calls: n, responses: n })]),
+        runOf([fight({}, { calls: n + 2, responses: n, missedCalls: 0 })]),
         runOf([
-          fight({}, { calls: n, responses: n - 1 }),
-          fight({}, { calls: n - 1, responses: n - 1 }),
+          fight({}, { calls: n + 1, responses: n, missedCalls: 1 }),
+          fight({}, { calls: n - 1, responses: n - 1, missedCalls: 0 }),
         ]),
       ];
     case 'calling': {
@@ -171,7 +173,7 @@ describe('the Deeds', () => {
   });
 
   it('newly earned only, in content order; counting Deeds report how far they got', () => {
-    const run = runOf([fight({}, { perfects: 12, responses: 16 }), BOSS]);
+    const run = runOf([fight({}, { perfects: 12, responses: 16, missedCalls: 1 }), BOSS]);
     const earned = deedsEarned(run, ['heard']);
     // The boss beaten with nobody down is Unbowed too.
     expect(earned).toEqual(['through_the_prelude', 'steady_hands', 'unbowed', 'flawless']);
@@ -227,7 +229,7 @@ describe('the profile', () => {
     const p = useProfile.getState();
     p.award(RANK_XP[3]!); // Rank 4: the Astrolabe opens with 3 points.
     expect(useProfile.getState().astrolabePoints()).toBe(3);
-    p.recordDeeds(runOf([fight({}, { perfects: 7, responses: 16 })]));
+    p.recordDeeds(runOf([fight({}, { perfects: 7, responses: 16, missedCalls: 1 })]));
     let s = useProfile.getState();
     expect(s.profile.deeds).toEqual(['heard']);
     expect(s.deedNotices).toEqual(['heard']);
@@ -240,6 +242,28 @@ describe('the profile', () => {
     expect(s.profile.deedBest.steady_hands).toBe(7);
     expect(s.deedNotices).toEqual([]);
     expect(s.profile.deeds).toEqual(['heard']);
+  });
+
+  it('a toast dismisses the notices it showed; one that came in meanwhile waits', () => {
+    const p = useProfile.getState();
+    p.recordDeeds(runOf([fight({}, { responses: 15, missedCalls: 1 })]));
+    p.recordDeeds(runOf([fight({}, { perfects: 10 })]));
+    expect(useProfile.getState().deedNotices).toEqual(['heard', 'steady_hands']);
+    useProfile.getState().dismissDeeds(['heard']);
+    expect(useProfile.getState().deedNotices).toEqual(['steady_hands']);
+    useProfile.getState().dismissDeeds();
+    expect(useProfile.getState().deedNotices).toEqual([]);
+  });
+
+  it('a best that isn’t a count is dropped on load, not the whole profile', () => {
+    const store = memoryStore();
+    const bests = { steady_hands: null, pull: -3, maestro: 7, gone_deed: 2 };
+    const saved = { ...newProfile(), xp: RANK_XP[5]!, deeds: ['heard'], deedBest: bests };
+    store.setItem('aetherweaver.profile', JSON.stringify(saved));
+    const loaded = loadProfile(store);
+    expect(loaded.xp).toBe(RANK_XP[5]);
+    expect(loaded.deeds).toEqual(['heard']);
+    expect(loaded.deedBest).toEqual({ maestro: 7 });
   });
 });
 
@@ -290,5 +314,71 @@ describe('the run', () => {
     });
     expect(after.lastResult!.stats.saveCauses).toEqual(['ward', 'chime']);
     expect(after.lastResult!.stats.saves).toBe(3);
+  });
+
+  it('a call nobody could answer doesn’t spoil “Answered every call”', () => {
+    let run = Run.embark(Run.newRun(9));
+    run = Run.chooseNode(run, run.map.rows[0]![0]!.id);
+    const text = (missedCalls: number) => {
+      const ledger = { ...emptyLedger(), calls: 6, responses: 5, missedCalls };
+      const after = Run.finishCombat(run, {
+        encounterId: 'first_light',
+        outcome: 'victory',
+        duration: 40,
+        ledger,
+        party: [],
+        withoutYou: null,
+      });
+      expect(after.lastResult!.stats.missedCalls).toBe(missedCalls);
+      return after.lastResult!.highlights.find((h) => h.kind === 'response')?.text;
+    };
+    // The sixth call was cut short (a stun, or the fight's end): five of five answered.
+    expect(text(0)).toBe('Answered every call (5)');
+    expect(text(1)).toBe('Answered 5 of 6 calls');
+  });
+
+  it('a reset mid-run earns its Deeds again, and the run lists each once', () => {
+    useRun.setState({ run: null });
+    useRun.getState().newRun(31);
+    useRun.getState().embark();
+    useRun.getState().chooseNode(Run.reachable(useRun.getState().run!)[0]!.id);
+    const ledger = { ...emptyLedger(), calls: 15, responses: 15 };
+    useRun.getState().finishCombat({
+      encounterId: 'first_light',
+      outcome: 'victory',
+      duration: 40,
+      ledger,
+      party: [],
+      withoutYou: null,
+    });
+    useProfile.getState().resetProgress();
+    // Continuing the run (or its next fight) judges it again against the empty profile.
+    expect(useRun.getState().resume()).toBe(true);
+    expect(useProfile.getState().profile.deeds).toEqual(['heard', 'every_call']);
+    expect(useProfile.getState().deedNotices).toEqual(['heard', 'every_call']);
+    expect(useRun.getState().run!.deeds).toEqual(['heard', 'every_call']);
+  });
+
+  it('a run saved before Deeds gets what its fights earned when it’s continued', () => {
+    // Its boss is beaten (the Summary is next), saved without Deeds or missed calls.
+    const json = JSON.parse(JSON.stringify(runOf([fight({}, { perfects: 12 }), BOSS])));
+    delete json.deeds;
+    for (const r of json.results) delete r.stats.missedCalls;
+    storage().setItem('aetherweaver.run', JSON.stringify(json));
+    expect(useRun.getState().resume()).toBe(true);
+    const earned = ['through_the_prelude', 'steady_hands', 'unbowed', 'flawless'];
+    expect(useProfile.getState().profile.deeds).toEqual(earned);
+    expect(useRun.getState().run!.deeds).toEqual(earned);
+  });
+
+  it('a saved run forgets Deeds no longer in the content; older results count unanswered calls missed', () => {
+    const store = memoryStore();
+    const run = runOf([fight({}, { calls: 6, responses: 5 })], { deeds: ['heard', 'gone_deed'] });
+    const json = JSON.parse(JSON.stringify(run));
+    delete json.results[0].stats.missedCalls;
+    store.setItem('aetherweaver.run', JSON.stringify(json));
+    const loaded = loadRun(store)!;
+    expect(loaded.deeds).toEqual(['heard']);
+    expect(loaded.results[0]!.stats.missedCalls).toBe(1);
   });
 });

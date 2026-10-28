@@ -67,7 +67,8 @@ export function deedHolds(run: RunState, deed: DeedDef): boolean {
     case 'fight':
       return run.results.some((r) => fightHolds(r, deed));
     case 'callAll':
-      return run.results.some((r) => r.stats.calls >= n && r.stats.responses >= r.stats.calls);
+      // A call a stun or the fight's end cut short couldn't be answered: only a missed one counts.
+      return run.results.some((r) => r.stats.responses >= n && r.stats.missedCalls === 0);
     case 'calling':
       return won(run) && run.calling?.id === deed.calling;
     case 'keystone':

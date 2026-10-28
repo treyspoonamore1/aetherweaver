@@ -1285,6 +1285,7 @@ export function summarize(
     telegraphsAnswered: l.telegraphsAnswered,
     calls: l.calls,
     responses: l.responses,
+    missedCalls: l.missedCalls,
     holds: l.holds,
   };
   stats.weaverShare = weaverShare(stats);
@@ -1312,10 +1313,11 @@ export function summarize(
       kind: 'response',
       time: m?.time ?? 0,
       slot: m?.slot ?? null,
+      // A call a stun or the fight's end cut short couldn't be answered: it isn't counted.
       text:
-        l.responses === l.calls
+        l.missedCalls === 0
           ? `Answered every call (${l.responses})`
-          : `Answered ${l.responses} of ${l.calls} calls`,
+          : `Answered ${l.responses} of ${l.responses + l.missedCalls} calls`,
       score: 450 + l.responses * 40,
     });
   }
@@ -1479,6 +1481,7 @@ export function runTotals(
     telegraphsAnswered: 0,
     calls: 0,
     responses: 0,
+    missedCalls: 0,
     holds: 0,
     encounters: run.results.length,
     duration: 0,
@@ -1514,6 +1517,7 @@ export function runTotals(
     total.telegraphsAnswered += s.telegraphsAnswered;
     total.calls += s.calls;
     total.responses += s.responses;
+    total.missedCalls += s.missedCalls;
     total.holds += s.holds;
     for (const c of s.saveCauses) if (!total.saveCauses.includes(c)) total.saveCauses.push(c);
     total.duration += r.duration;

@@ -134,6 +134,7 @@ export function endCall(world: World, e: Entity, reason: 'missed' | 'cancelled')
   if (!hero?.call) return;
   hero.call = null;
   hero.callCooldown = world.content.calls.heroCooldown;
+  if (reason === 'missed') world.ledger.missedCalls++;
   world.events.push({ type: 'callEnded', tick: world.tick, hero: e.id, reason });
 }
 
@@ -184,6 +185,8 @@ export function settleCall(world: World, e: Entity, index: 0 | 1): void {
   if (!call || call.ability !== index) return;
   hero.call = null;
   hero.callCooldown = world.content.calls.heroCooldown;
-  if (!call.answered)
+  if (!call.answered) {
+    world.ledger.missedCalls++;
     world.events.push({ type: 'callEnded', tick: world.tick, hero: e.id, reason: 'missed' });
+  }
 }

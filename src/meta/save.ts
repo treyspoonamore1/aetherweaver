@@ -26,6 +26,9 @@ const PROFILE_BACKUP = 'aetherweaver.profile.bak';
 const Num = z.number();
 const Str = z.string();
 
+/** The Deeds this build knows: a save's others (renamed or removed) are forgotten on load. */
+const DEED_IDS: ReadonlySet<string> = new Set(CONTENT.deeds.map((d) => d.id));
+
 const NODE_KINDS = [
   'skirmish',
   'elite',
@@ -56,43 +59,47 @@ const NodeSchema = z.object({
   }),
 });
 
-const StatsSchema = z.object({
-  healing: Num,
-  overheal: Num,
-  shielded: Num,
-  negated: Num,
-  amplified: Num,
-  auraHealing: Num,
-  auraShielded: Num,
-  auraAmplified: Num,
-  threadHealing: Num,
-  threadAmplified: Num,
-  // Phase 3c: results saved before Callings say nothing about them.
-  callingAmplified: Num.default(0),
-  callingShielded: Num.default(0),
-  callingBorne: Num.default(0),
-  // Phase 3e: the Chronomancer's Rewind.
-  callingRewound: Num.default(0),
-  callingRevived: Num.default(0),
-  partyDamage: Num,
-  weaverShare: Num,
-  perfects: Num,
-  saves: Num,
-  cleanses: Num,
-  clutchCleanses: Num,
-  reels: Num,
-  cues: Num,
-  crescendos: Num,
-  downs: Num,
-  deaths: Num,
-  telegraphsAimed: Num,
-  telegraphsAnswered: Num,
-  calls: Num,
-  responses: Num,
-  holds: Num,
-  /** Deeds (docs/phase-4b.md): saves from before them name no ways. */
-  saveCauses: z.array(Str).default([]),
-});
+const StatsSchema = z
+  .object({
+    healing: Num,
+    overheal: Num,
+    shielded: Num,
+    negated: Num,
+    amplified: Num,
+    auraHealing: Num,
+    auraShielded: Num,
+    auraAmplified: Num,
+    threadHealing: Num,
+    threadAmplified: Num,
+    // Phase 3c: results saved before Callings say nothing about them.
+    callingAmplified: Num.default(0),
+    callingShielded: Num.default(0),
+    callingBorne: Num.default(0),
+    // Phase 3e: the Chronomancer's Rewind.
+    callingRewound: Num.default(0),
+    callingRevived: Num.default(0),
+    partyDamage: Num,
+    weaverShare: Num,
+    perfects: Num,
+    saves: Num,
+    cleanses: Num,
+    clutchCleanses: Num,
+    reels: Num,
+    cues: Num,
+    crescendos: Num,
+    downs: Num,
+    deaths: Num,
+    telegraphsAimed: Num,
+    telegraphsAnswered: Num,
+    calls: Num,
+    responses: Num,
+    missedCalls: Num.optional(),
+    holds: Num,
+    /** Deeds (docs/phase-4b.md): saves from before them name no ways. */
+    saveCauses: z.array(Str).default([]),
+  })
+  // Deeds: results from before missed calls were told apart count every unanswered call missed.
+  .transform((s) => ({ ...s, missedCalls: s.missedCalls ?? Math.max(0, s.calls - s.responses) }));
 
 const WithoutYouSchema = z.object({
   outcome: z.enum(['victory', 'defeat', 'timeout']),
@@ -487,7 +494,10 @@ export function loadRun(store: KeyValueStore): RunState | null {
       if (!raw) continue;
       const parsed = RunStateSchema.safeParse(migrateRunJson(JSON.parse(raw)));
       if (parsed.success && compatibleWithContent(parsed.data as RunState)) {
-        return parsed.data as RunState;
+        const run = parsed.data as RunState;
+        // Deeds no longer in the content drop out of the run's Summary.
+        run.deeds = run.deeds.filter((id) => DEED_IDS.has(id));
+        return run;
       }
     } catch {
       // Try the backup.
@@ -524,7 +534,17 @@ export const ProfileSchema = z.object({
   wins: Num,
   astrolabe: z.array(Str),
   deeds: z.array(Str),
-  deedBest: z.record(Str, Num),
+  // A best that isn't a count (a hand-edited save) is dropped, not the whole profile.
+  deedBest: z
+    .record(Str, z.unknown())
+    .transform((best) =>
+      Object.fromEntries(
+        Object.entries(best).filter(
+          (e): e is [string, number] =>
+            typeof e[1] === 'number' && Number.isFinite(e[1]) && e[1] >= 0,
+        ),
+      ),
+    ),
 });
 
 /**
@@ -554,8 +574,10 @@ export function loadProfile(store: KeyValueStore): Profile {
         // A tree that no longer connects (renamed nodes) keeps what still does, within every
         // point there is; Deeds no longer in the content are forgotten.
         profile.astrolabe = pruneTree(profile.astrolabe, astrolabePoints(MAX_RANK, true));
-        const deeds = new Set(CONTENT.deeds.map((d) => d.id));
-        profile.deeds = profile.deeds.filter((id) => deeds.has(id));
+        profile.deeds = profile.deeds.filter((id) => DEED_IDS.has(id));
+        profile.deedBest = Object.fromEntries(
+          Object.entries(profile.deedBest).filter(([id]) => DEED_IDS.has(id)),
+        );
         return profile;
       }
     } catch {

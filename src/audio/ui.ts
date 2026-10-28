@@ -84,8 +84,8 @@ export const STAR_LIMITS: Readonly<Partial<Record<UiSound, readonly [number, num
 };
 
 /**
- * Phase 4b, Deeds: each sound's rate gate and voice cap. Two can be earned by one fight (the toast
- * shows them one after another), so they never stack.
+ * Phase 4b, Deeds: each sound's rate gate (shared by the two) and voice cap. Two can be earned by
+ * one fight (the toast shows them one after another), so they never stack, the same or different.
  */
 export const DEED_LIMITS: Readonly<Partial<Record<UiSound, readonly [number, number]>>> = {
   deed: [0.3, 2],
@@ -107,11 +107,13 @@ const hoverTurn = new WeakMap<Engine, number>();
 export function playUiSound(e: Engine, sound: UiSound, calling: string | null = null): void {
   const chrono = calling === 'chronomancer';
   const star = STAR_LIMITS[sound] ?? DEED_LIMITS[sound];
+  // The Deed sounds share one gate: two at once (a point Deed and a badge) make one.
+  const gate = sound in DEED_LIMITS ? 'ui:deed' : `ui:${sound}`;
   if (sound === 'hover' && !e.gate('ui:hover', 0.045)) return;
   if (sound === 'unlock' && !e.gate('ui:unlock', 0.06)) return;
   if (sound === 'aether' && !e.gate('ui:aether', 0.05)) return;
   if (sound === 'relicReveal' && !e.gate('ui:relicReveal', 0.12)) return;
-  if (star && !e.gate(`ui:${sound}`, star[0])) return;
+  if (star && !e.gate(gate, star[0])) return;
   if (!e.admit(`ui:${sound}`, star?.[1] ?? (sound === 'hover' ? 2 : 3))) return;
   const t = e.now + 0.004;
   const v = new Voice(e, 'ui');

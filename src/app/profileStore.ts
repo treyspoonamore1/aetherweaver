@@ -50,7 +50,8 @@ export interface ProfileStore {
   recordRun(won: boolean): void;
   /** A fight ended: records the Deeds the run has earned and its best counts; returns the new. */
   recordDeeds(run: RunState): string[];
-  dismissDeeds(): void;
+  /** The toast showed these notices (all of them, without ids): they're done. */
+  dismissDeeds(ids?: readonly string[]): void;
   /** Settings → Reset progress: back to Rank 1. */
   resetProgress(): void;
   /** Astrolabe points for the Rank and the Deeds (all of them with Settings → Skip the unlocks). */
@@ -134,7 +135,8 @@ export const useProfile = create<ProfileStore>()((set, get) => {
       );
       return earned;
     },
-    dismissDeeds: () => set({ deedNotices: [] }),
+    dismissDeeds: (ids) =>
+      set({ deedNotices: ids ? get().deedNotices.filter((id) => !ids.includes(id)) : [] }),
     recordRun: (won) => {
       const p = get().profile;
       commit({ ...p, runs: p.runs + 1, wins: p.wins + (won ? 1 : 0) });

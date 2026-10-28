@@ -273,6 +273,8 @@ export interface EncounterStats {
   /** Calls the heroes made and how many the Weaver answered. */
   calls: number;
   responses: number;
+  /** Calls left unanswered until their moment passed (not those a stun or the end cut short). */
+  missedCalls: number;
   /** Fermata holds (lethal hits caught). */
   holds: number;
   /** The different ways heroes were saved (Deeds, docs/phase-4b.md); a run's total: all of them. */

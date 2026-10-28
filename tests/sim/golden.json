@@ -1,11 +1,11 @@
 {
-  "simVersion": 11,
-  "contentVersion": "c-c5cf4638f5775748",
+  "simVersion": 12,
+  "contentVersion": "c-9a7c289af5775748",
   "scenarios": {
-    "patrol": "aa6a215cb1403153",
-    "crowd": "d61d78102264ece8",
-    "skilled-first-light": "23ce174422865a3f",
-    "skilled-bellwarden": "1e04b9021a3fe8d0",
-    "novice-cantor": "5321d3d8b4bace1a"
+    "patrol": "ec9c4cfdffd0206e",
+    "crowd": "3c44f26981233a47",
+    "skilled-first-light": "9b8fd7792fc44f15",
+    "skilled-bellwarden": "89ab30adda7e5769",
+    "novice-cantor": "296f8227488b4e7a"
   }
 }

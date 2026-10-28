@@ -421,6 +421,7 @@ export function emptyLedger(): Ledger {
     telegraphsAnswered: 0,
     calls: 0,
     responses: 0,
+    missedCalls: 0,
     holds: 0,
     auras: { healing: 0, shielded: 0, amplified: 0 },
     thread: { healing: 0, amplified: 0 },

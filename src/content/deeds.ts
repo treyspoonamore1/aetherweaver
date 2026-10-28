@@ -148,7 +148,7 @@ export const DEEDS: DeedDef[] = [
     points: 0,
     test: 'callAll',
     values: { n: 5 },
-    text: 'Answer every call in a fight where the heroes called at least {n} times.',
+    text: 'Answer at least {n} calls in one fight, and miss none.',
   },
   {
     id: 'clutch',
@@ -157,7 +157,7 @@ export const DEEDS: DeedDef[] = [
     test: 'runCount',
     stat: 'clutchCleanses',
     values: { n: 3 },
-    text: 'Make {n} clutch Cleanses in one run.',
+    text: 'Make {n} Clutch Chimes in one run.',
   },
   {
     id: 'pull',

@@ -1168,6 +1168,8 @@ export function fakeOutcome(
     telegraphsAnswered: victory ? 14 : 9,
     calls: 6,
     responses: victory ? 4 : 2,
+    // Phase 4b: the calls that passed unanswered (here, the rest of them).
+    missedCalls: victory ? 2 : 4,
     holds: Math.max(1, markers.filter((m) => m.kind === 'hold').length),
     timeline,
     markers,

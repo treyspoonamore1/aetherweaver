@@ -645,6 +645,11 @@ export interface Ledger {
   /** Calls the heroes made, and how many the Weaver answered in time. */
   calls: number;
   responses: number;
+  /**
+   * Calls that ended unanswered when their moment passed (Deeds: Every Call). A call cut short by
+   * a stun, a silence, a down or the end of the fight isn't missed.
+   */
+  missedCalls: number;
   /** Fermata holds (lethal hits caught), saved or not. */
   holds: number;
   /** Party HP (0..1 by slot) sampled every half second. */

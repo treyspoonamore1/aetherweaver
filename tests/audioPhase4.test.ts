@@ -414,10 +414,14 @@ describe('Deeds (Phase 4b)', () => {
     h.d.dispose();
   });
 
-  it('never stacks: two at once make one', () => {
+  it('never stacks: two at once make one, the same or different; apart, both play', () => {
     const h = harness();
     expect(h.ui('deedStar').added).toBeGreaterThan(0);
     expect(h.ui('deedStar').added).toBe(0);
+    // One fight can earn a point Deed and a badge together (Heard and Every Call).
+    expect(h.ui('deed').added).toBe(0);
+    h.advance(1);
+    expect(h.ui('deed').added).toBeGreaterThan(0);
     h.d.dispose();
   });
 });

@@ -402,6 +402,7 @@ describe('Call and Response', () => {
     const events = settle(sim, [{ t: 'debug', op: { op: 'forceCall', slot: 2 } }]);
     const ended = ofType(events, 'callEnded')[0]!;
     expect(ended.reason).toBe('missed');
+    expect(sim.state.ledger.missedCalls).toBe(1);
     expect(ofType(events, 'flourish')).toHaveLength(0);
     const vexisId = sim.state.party[2];
     expect(
@@ -419,6 +420,18 @@ describe('Call and Response', () => {
     const events = stepFor(sim, 2);
     expect(ofType(events, 'callEnded')[0]).toMatchObject({ reason: 'cancelled' });
     expect(hero(sim, 0).hero!.call).toBeNull();
+    // Nobody could answer it: it isn't missed (Deeds: Every Call).
+    expect(sim.state.ledger.missedCalls).toBe(0);
+  });
+
+  it('a call still open when the fight is won is dropped, not missed', () => {
+    const sim = fight();
+    stepFor(sim, 1, [{ t: 'debug', op: { op: 'forceCall', slot: 2 } }]);
+    worldOf(sim).encounter.status = 'victory';
+    const events = stepFor(sim, 2);
+    expect(ofType(events, 'callEnded')[0]).toMatchObject({ reason: 'cancelled' });
+    expect(sim.state.ledger.calls).toBeGreaterThan(0);
+    expect(sim.state.ledger.missedCalls).toBe(0);
   });
 
   it('heroes call on their own in a real fight, spaced out, and never without a Weaver', () => {
