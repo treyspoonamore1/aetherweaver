@@ -141,6 +141,13 @@ An independent review of the Deeds core (05f4454, f5d91b3) found nothing high-se
 
 It also raised three questions of design, left as they are under *Known gaps*: retrying a fight by quitting, the test hook, and Deeds earned with Skip the unlocks or the assists on.
 
+## Final checks
+
+- `npm run typecheck` and `npm run lint`: clean.
+- `npx vitest run`: 50 files, 1034 tests.
+- `CI=1 npx playwright test`: 11 of 11, the new Deeds test among them.
+- The 96-run fingerprint is identical to Phase 4's, after Deeds and again after `missedCalls`.
+
 ## Known gaps
 
 - **A fight can be retried.** Quitting mid-fight and continuing restarts it from its start, with the same seed, as it has since Phase 1. So a fight feat (Unrung, Bright Finale, Unbowed, and Flawless fight by fight) can be tried again. A run's results, once in, stand.
