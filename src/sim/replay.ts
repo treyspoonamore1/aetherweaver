@@ -3,7 +3,7 @@
  * Used for bug reports, golden tests, the bot harness and verifying seeded runs.
  */
 import { z } from 'zod';
-import { CONTENT_VERSION } from '../content';
+import { CONTENT_VERSION, PASSIVE_EFFECTS } from '../content';
 import { createSim } from './api';
 import type { Command } from './commands';
 import { SIM_VERSION } from './constants';
@@ -86,7 +86,11 @@ const SimConfigSchema = z
       z.object({ auras: z.array(z.string()), ornaments: z.array(z.string()) }).strict(),
     ),
     motifs: z.array(z.object({ id: z.string(), level: z.number().int() }).strict()),
-    relics: z.array(z.object({ id: z.string(), cleansed: z.boolean() }).strict()),
+    relics: z.array(
+      z
+        .object({ id: z.string(), cleansed: z.boolean(), empowered: z.boolean().default(false) })
+        .strict(),
+    ),
     boons: z.array(z.string()),
     threat: z.number(),
     calling: z
@@ -98,6 +102,9 @@ const SimConfigSchema = z
       .strict()
       .nullable(),
     astrolabe: z.array(z.string()).default([]),
+    passives: z
+      .array(z.object({ effect: z.enum(PASSIVE_EFFECTS), value: z.number() }).strict())
+      .default([]),
     assists: z
       .object({ perfectWindowBonus: z.number(), telegraphLead: z.number(), autonomy: z.boolean() })
       .strict(),

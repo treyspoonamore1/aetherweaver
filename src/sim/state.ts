@@ -9,6 +9,7 @@
  * simulated seconds and advances by SIM_DT × timeScale per tick, so hit-stop and slow-mo
  * stretch every gameplay timer consistently. All durations below are in sim seconds.
  */
+import type { PassiveEffect } from '../content/schema';
 import type { DirectiveKind, PartySlot } from './commands';
 import type { AnswerTag, TelegraphShape } from './events';
 
@@ -715,6 +716,8 @@ export interface CallingState {
 export interface AstrolabeState {
   /** The allocated nodes, sorted. */
   nodes: string[];
+  /** The carried relics' passives (the Reliquary, docs/phase-4c.md), folded in with the tree. */
+  passives: { effect: PassiveEffect; value: number }[];
   /** The keystones among them. */
   keystones: string[];
   /** Techniques' cost multiplier (Economy). */

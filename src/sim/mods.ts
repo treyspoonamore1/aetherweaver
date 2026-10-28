@@ -437,7 +437,10 @@ export function resolveMods(config: ResolvedSimConfig, content: Content): Mods {
   }
   for (const owned of config.relics) {
     const def = content.relics.find((d) => d.id === owned.id);
-    if (def) applyRelic(m, def.id, def.values, owned.cleansed);
+    // A relic a Dissonate Empowered plays its empowered numbers (docs/phase-4c.md).
+    const values =
+      owned.empowered && def?.empowered ? { ...def.values, ...def.empowered.values } : def?.values;
+    if (def && values) applyRelic(m, def.id, values, owned.cleansed);
   }
   for (const id of config.boons) {
     const def = content.boons.find((d) => d.id === id);
@@ -454,8 +457,8 @@ export function resolveMods(config: ResolvedSimConfig, content: Content): Mods {
       }
     }
   }
-  // Last: the tree builds on everything a run gave.
-  applyAstrolabe(m, config.astrolabe, content);
+  // Last: the tree (and the carried relics' passives) builds on everything a run gave.
+  applyAstrolabe(m, config.astrolabe, content, config.passives);
   return m;
 }
 

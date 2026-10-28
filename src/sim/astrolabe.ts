@@ -5,10 +5,16 @@
  * (5 = 5%, 0.03 = 0.03 s).
  */
 import { CONTENT } from '../content';
-import type { AstrolabeNode, Content } from '../content/schema';
+import type { AstrolabeNode, Content, PassiveEffect } from '../content/schema';
 import type { ReservePool } from './chords';
 import type { Mods } from './mods';
 import type { WorldState } from './state';
+
+/** A Reliquary passive (docs/phase-4c.md): one of the tree's stats, from a carried relic. */
+export interface Passive {
+  effect: PassiveEffect;
+  value: number;
+}
 
 /** Every effect a node can have. A node with another is a content bug (a test checks). */
 export const KNOWN_ASTROLABE_EFFECTS: readonly string[] = [
@@ -79,12 +85,16 @@ export function treeKeystones(ids: readonly string[], content: Content = CONTENT
  * The songs' reservation from a tree: what the share is multiplied by (Clear Voice and Breath
  * add up to "% less"; Eldritch Conduit multiplies on top), and Sanguine Font's Life.
  */
-function treeReserve(nodes: readonly AstrolabeNode[]): {
+function treeReserve(
+  nodes: readonly AstrolabeNode[],
+  passives: readonly Passive[] = [],
+): {
   mult: number;
   life: boolean;
   lifeMult: number;
 } {
-  let less = 0;
+  // The Reliquary's "songs reserve % less" adds to the tree's (docs/phase-4c.md).
+  let less = passives.reduce((n, p) => n + (p.effect === 'reserve' ? p.value : 0), 0);
   let mult = 1;
   let life = false;
   let lifeMult = 1;
@@ -118,18 +128,28 @@ export function songReserve(
   callingReservesLife: boolean,
   ids: readonly string[],
   content: Content = CONTENT,
+  passives: readonly Passive[] = [],
 ): { pool: ReservePool; mult: number } {
-  const r = treeReserve(treeNodes(ids, content));
+  const r = treeReserve(treeNodes(ids, content), passives);
   return {
     pool: callingReservesLife || r.life ? 'life' : 'spirit',
     mult: r.mult * (r.life ? r.lifeMult : 1),
   };
 }
 
-/** Folds a tree into the mods. Applied last: the tree builds on what the run gave. */
-export function applyAstrolabe(m: Mods, ids: readonly string[], content: Content): void {
+/**
+ * Folds a tree into the mods, with the carried relics' passives (the Reliquary, docs/phase-4c.md)
+ * in the same sums: "+6% Thread potency" from a relic adds to the tree's Thread nodes. Applied
+ * last: the tree builds on what the run gave.
+ */
+export function applyAstrolabe(
+  m: Mods,
+  ids: readonly string[],
+  content: Content,
+  passives: readonly Passive[] = [],
+): void {
   const nodes = treeNodes(ids, content);
-  if (nodes.length === 0) return;
+  if (nodes.length === 0 && passives.length === 0) return;
   // "% more" from the travel nodes adds up within the tree, then multiplies the run's.
   let thread = 0;
   let mend = 0;
@@ -300,6 +320,74 @@ export function applyAstrolabe(m: Mods, ids: readonly string[], content: Content
         break;
     }
   }
+  for (const p of passives) {
+    const v = p.value;
+    switch (p.effect) {
+      case 'thread':
+        thread += v;
+        break;
+      case 'mend':
+        mend += v;
+        break;
+      case 'empower':
+        empower += v;
+        break;
+      case 'thread_range':
+        m.threadRangeBonus += v;
+        break;
+      case 'aura_effect':
+        auraEffect += v;
+        break;
+      case 'field':
+        field += v;
+        break;
+      case 'ward':
+        ward += v;
+        break;
+      case 'perfect':
+        m.perfectWindowBonus += v;
+        break;
+      case 'tech_cost':
+        techCost += v;
+        break;
+      case 'tech_cooldown':
+        techCooldown += v;
+        break;
+      case 'hero_life':
+        heroLife += v;
+        break;
+      case 'hero_damage':
+        heroDamage += v;
+        break;
+      case 'solo_charge':
+        solo += v;
+        break;
+      case 'revive_speed':
+        revive += v;
+        break;
+      case 'life':
+        life += v;
+        break;
+      case 'spirit_regen':
+        spiritRegen += v;
+        break;
+      case 'perfect_resonance':
+        m.perfectResonance += v;
+        break;
+      case 'response':
+        m.responseBonus += v;
+        break;
+      case 'start_resonance':
+        m.startResonance += v;
+        break;
+      case 'spirit':
+        m.spiritMult *= Math.max(0, 1 + v / 100);
+        break;
+      case 'reserve':
+        // The songs' reservation: `treeReserve`'s.
+        break;
+    }
+  }
   m.mendMult *= 1 + (thread + mend) / 100;
   m.empowerMult *= 1 + (thread + empower) / 100;
   m.lifeMult *= 1 + life / 100;
@@ -315,7 +403,7 @@ export function applyAstrolabe(m: Mods, ids: readonly string[], content: Content
   m.reviveSpeedMult *= 1 + revive / 100;
   m.soloChargeMult *= 1 + solo / 100;
   m.cuedSoloDurationMult *= 1 + cued / 100;
-  const r = treeReserve(nodes);
+  const r = treeReserve(nodes, passives);
   m.reserveMult *= r.mult;
   if (r.life) m.lifeReserveMult *= r.lifeMult;
 }

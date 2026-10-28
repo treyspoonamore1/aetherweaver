@@ -46,6 +46,7 @@ const health = (hp: number, maxHp: number, dead = false): FakeEntity['health'] =
 /** Phase 4: the Astrolabe with no tree, as the sim reports it. */
 const NO_TREE: AstrolabeState = {
   nodes: [],
+  passives: [],
   keystones: [],
   techCostMult: 1,
   techniquesCostLife: false,
@@ -314,6 +315,7 @@ export class FakeWorld {
     }
     this.astrolabe = {
       nodes: nodes.map((n) => n.id).sort(),
+      passives: [],
       keystones: nodes.filter((n) => n.kind === 'keystone').map((n) => n.id),
       techCostMult: Math.max(0, 1 - cost / 100),
       techniquesCostLife: nodes.some((n) => n.effect === 'eldritch_conduit'),

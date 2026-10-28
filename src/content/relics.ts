@@ -15,6 +15,7 @@ export const RELICS: ContentInput['relics'] = [
     flavor: 'Every seamstress of the old choir wore one. None of them ever bled.',
     values: { barrier: 8, cooldown: 4, duration: 5 },
     icon: 'thimble',
+    empowered: { values: { barrier: 12, cooldown: 3 } },
   },
   {
     id: 'lantern_of_the_lost',
@@ -24,6 +25,7 @@ export const RELICS: ContentInput['relics'] = [
     flavor: 'It burns brightest for the ones still standing.',
     values: { barrier: 20, duration: 6 },
     icon: 'lantern',
+    empowered: { values: { barrier: 30 } },
   },
   {
     id: 'featherweight_robes',
@@ -33,6 +35,7 @@ export const RELICS: ContentInput['relics'] = [
     flavor: 'Woven from the down of birds that never landed.',
     values: { pct: 40 },
     icon: 'robe',
+    empowered: { values: { pct: 55 } },
   },
   {
     id: 'wardens_key',
@@ -42,6 +45,7 @@ export const RELICS: ContentInput['relics'] = [
     flavor: 'It opens the domes of glass from the inside.',
     values: { mult: 3 },
     icon: 'key',
+    empowered: { values: { mult: 4 } },
   },
   {
     id: 'tuning_fork',
@@ -51,6 +55,7 @@ export const RELICS: ContentInput['relics'] = [
     flavor: 'Strike it true and the whole party hears the note.',
     values: { pct: 25 },
     icon: 'fork',
+    empowered: { values: { pct: 35 } },
   },
   // ── Rare ───────────────────────────────────────────────────────────────────────────
   {
@@ -61,6 +66,7 @@ export const RELICS: ContentInput['relics'] = [
     flavor: 'Hold the note. Hold it. Now.',
     values: { pct: 50 },
     icon: 'baton',
+    empowered: { values: { pct: 75 } },
   },
   {
     id: 'hollow_bell',
@@ -70,6 +76,7 @@ export const RELICS: ContentInput['relics'] = [
     flavor: 'Rung so often it forgot how to be gentle.',
     values: { pct: 40, heal: 50 },
     icon: 'bell',
+    empowered: { values: { pct: 55, heal: 35 } },
   },
   {
     id: 'martyrs_veil',
@@ -88,6 +95,7 @@ export const RELICS: ContentInput['relics'] = [
     flavor: 'The first page is the one everyone knows by heart.',
     values: { resonance: 50 },
     icon: 'hymnal',
+    empowered: { values: { resonance: 75 } },
   },
   {
     id: 'star_chart',
@@ -108,6 +116,7 @@ export const RELICS: ContentInput['relics'] = [
     flavor: 'One thread in, a rainbow out.',
     values: { radius: 5, pct: 60 },
     icon: 'loom',
+    empowered: { values: { radius: 6, pct: 75 } },
   },
   {
     id: 'cracked_metronome',
@@ -117,6 +126,7 @@ export const RELICS: ContentInput['relics'] = [
     flavor: 'It keeps perfect time. It just keeps it a little early.',
     values: { cooldown: 12 },
     icon: 'metronome',
+    empowered: { values: { cooldown: 9 } },
   },
   {
     id: 'spindle_of_fate',
@@ -137,6 +147,7 @@ export const RELICS: ContentInput['relics'] = [
     flavor: 'Too heavy to carry, too loud to put down.',
     values: { pct: 15 },
     icon: 'score',
+    empowered: { values: { pct: 22 } },
   },
   {
     id: 'glass_halo',
@@ -147,6 +158,7 @@ export const RELICS: ContentInput['relics'] = [
     flavor: 'Beautiful, and it breaks if you look at it wrong.',
     values: { heal: 10, pct: 50 },
     icon: 'halo',
+    empowered: { values: { heal: 15 } },
   },
 ];
 

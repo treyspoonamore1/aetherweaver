@@ -295,7 +295,8 @@ export function buildHudSnapshot(
   const songCalling = state.calling
     ? { id: state.calling.id, path: [...state.calling.path] }
     : null;
-  const songs = songReserveOf(songCalling, tree);
+  // The carried relics' "songs reserve % less" too (the Reliquary, docs/phase-4c.md).
+  const songs = songReserveOf(songCalling, tree, CONTENT, state.astrolabe.passives);
   const chords: ChordHud[] = state.field.chords.map((c) => {
     const folded = resolveChord({ auras: [...c.auras], ornaments: [...c.ornaments] }, c.index);
     const auras: AuraHud[] = c.auras.map((id) => {

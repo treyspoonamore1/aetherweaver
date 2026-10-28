@@ -9,6 +9,7 @@ import { ASTROLABE } from './astrolabe';
 import { DEEDS } from './deeds';
 import { CALLINGS } from './callings';
 import { BOONS, RELICS } from './relics';
+import { CURSES, INSCRIPTIONS, RELIQUARY } from './reliquary';
 import { RUN_EVENTS } from './runEvents';
 import { CALLS, CHORUS, CRESCENDO, RESONANCE, TECHNIQUES, THREAD, WEAVER } from './weaver';
 import {
@@ -21,10 +22,12 @@ import {
   type CallingDef,
   type CallingOption,
   type Content,
+  type CurseDef,
   type DeedDef,
   type EncounterDef,
   type EnemyDef,
   type HeroDef,
+  type InscriptionDef,
   type MotifDef,
   type OrnamentDef,
   type RelicDef,
@@ -54,6 +57,9 @@ export const CONTENT: Content = ContentSchema.parse({
   callings: CALLINGS,
   astrolabe: ASTROLABE,
   deeds: DEEDS,
+  inscriptions: INSCRIPTIONS,
+  curses: CURSES,
+  reliquary: RELIQUARY,
   arenas: ARENAS,
   encounters: ENCOUNTERS,
   barks: {
@@ -128,9 +134,14 @@ export function fillValues(text: string, values: Readonly<Record<string, number>
   );
 }
 
-/** A relic's blessing, filled in. */
-export function relicText(def: RelicDef): string {
-  return fillValues(def.text, def.values);
+/** A relic's blessing, filled in: with its empowered numbers when a Dissonate Empowered it. */
+export function relicText(def: RelicDef, empowered = false): string {
+  return fillValues(def.text, relicValues(def, empowered));
+}
+
+/** A relic's numbers: its own, or with its empowered ones in their place. */
+export function relicValues(def: RelicDef, empowered = false): Readonly<Record<string, number>> {
+  return empowered && def.empowered ? { ...def.values, ...def.empowered.values } : def.values;
 }
 
 /** A cursed relic's curse, filled in (null for other relics). */
@@ -145,6 +156,31 @@ export function boonText(def: BoonDef): string {
 /** An Astrolabe node's effect, filled in. */
 export function astrolabeText(node: AstrolabeNode): string {
   return fillValues(node.text, node.values);
+}
+
+/** An Inscription (normal or Dissonant) by id. */
+export const inscriptionDef: (id: string) => InscriptionDef = index(
+  'inscription',
+  CONTENT.inscriptions,
+);
+/** A Reliquary curse by id. */
+export const curseDef: (id: string) => CurseDef = index('curse', CONTENT.curses);
+
+/** {a}, {b}: a Dissonant Inscription's or a curse's effects, in order (sizes, unsigned). */
+function lettered(effects: readonly { value: number }[]): Record<string, number> {
+  return Object.fromEntries(effects.map((e, i) => ['abcdefghij'[i]!, Math.abs(e.value)]));
+}
+
+/** An Inscription's line, with its value (a Dissonant one has its own). */
+export function inscriptionText(def: InscriptionDef, value = 0): string {
+  return def.kind === 'normal'
+    ? def.text.split('{v}').join(String(value))
+    : fillValues(def.text, lettered(def.effects));
+}
+
+/** A Reliquary curse's line. */
+export function curseText(def: CurseDef): string {
+  return fillValues(def.text, lettered(def.effects));
 }
 
 /** A Deed by id. */
@@ -191,15 +227,21 @@ export type {
   CallingDef,
   CallingOption,
   Content,
+  CurseDef,
   DeedDef,
   EncounterDef,
   EnemyDef,
   EventChoice,
   EventEffect,
   HeroDef,
+  InscriptionCategory,
+  InscriptionDef,
   MotifDef,
   OrnamentDef,
+  PassiveEffect,
   RelicDef,
   RelicRarity,
+  ReliquaryDef,
   RunEventDef,
 } from './schema';
+export { INSCRIPTION_CATEGORIES, PASSIVE_EFFECTS } from './schema';

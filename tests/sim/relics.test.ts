@@ -44,14 +44,14 @@ describe('relic content', () => {
       boons: ['last_note', 'last_note'],
     });
     expect(c.relics).toEqual([
-      { id: 'tuning_fork', cleansed: false },
-      { id: 'heavy_score', cleansed: true },
+      { id: 'tuning_fork', cleansed: false, empowered: false },
+      { id: 'heavy_score', cleansed: true, empowered: false },
     ]);
     expect(c.boons).toEqual(['last_note']);
     // Only a cursed relic can be cleansed.
     expect(
       resolveConfig({ seed: 1, relics: [{ id: 'hollow_bell', cleansed: true }] }).relics[0],
-    ).toEqual({ id: 'hollow_bell', cleansed: false });
+    ).toEqual({ id: 'hollow_bell', cleansed: false, empowered: false });
     expect(() => resolveConfig({ seed: 1, relics: ['no_such_relic'] })).toThrow(/Unknown relic/);
     expect(() => resolveConfig({ seed: 1, boons: ['no_such_boon'] })).toThrow(/Unknown boon/);
   });
@@ -74,7 +74,9 @@ describe('relic content', () => {
     stepFor(sim, 30);
     const replay = rec.export(sim.tick, sim.hash());
     expect(ReplaySchema.safeParse(replay).success).toBe(true);
-    expect(replay.config.relics).toEqual([{ id: 'silver_thimble', cleansed: false }]);
+    expect(replay.config.relics).toEqual([
+      { id: 'silver_thimble', cleansed: false, empowered: false },
+    ]);
     expect(replay.config.boons).toEqual(['mended_loom']);
   });
 });

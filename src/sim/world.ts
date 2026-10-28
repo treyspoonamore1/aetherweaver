@@ -1,5 +1,5 @@
 import { CONTENT, arenaDef, encounterDef, heroDef } from '../content';
-import type { Content } from '../content/schema';
+import { PASSIVE_EFFECTS, type Content, type PassiveEffect } from '../content/schema';
 import { songReserve, treeKeystones } from './astrolabe';
 import {
   canonicalChords,
@@ -62,6 +62,17 @@ export interface CallingConfig {
 export interface RelicConfig {
   id: string;
   cleansed?: boolean;
+  /** The Reliquary (docs/phase-4c.md): a Dissonate Empowered it, so it plays its empowered numbers. */
+  empowered?: boolean;
+}
+
+/**
+ * A passive effect from the Reliquary (docs/phase-4c.md): a carried relic's Inscription, a
+ * Dissonant Inscription or a curse, in the Astrolabe's stats. It adds to the tree's sums.
+ */
+export interface PassiveConfig {
+  effect: PassiveEffect;
+  value: number;
 }
 
 /** A Chord as configured (ornaments default to none). */
@@ -107,6 +118,11 @@ export interface SimConfig {
    * run layer keeps the tree connected and within its points.
    */
   astrolabe?: readonly string[];
+  /**
+   * The carried relics' passives (docs/phase-4c.md), folded into the same sums as the tree's
+   * nodes. Unknown effects are refused; none when the Weaver is absent.
+   */
+  passives?: readonly PassiveConfig[];
   assists?: AssistConfig;
   /** Enables `debug` commands (spawns, teleport). Debug commands are recorded in replays. */
   debug?: boolean;
@@ -132,6 +148,8 @@ export interface ResolvedSimConfig {
   calling: Required<CallingConfig> | null;
   /** Sorted, known node ids; none when the Weaver is absent. */
   astrolabe: string[];
+  /** In the order given; none when the Weaver is absent. */
+  passives: PassiveConfig[];
   assists: Required<AssistConfig>;
   debug: boolean;
   absent: boolean;
@@ -157,7 +175,14 @@ export function resolveConfig(config: SimConfig, content: Content = CONTENT): Re
   const astrolabe = absent
     ? []
     : [...new Set(config.astrolabe ?? [])].filter((id) => known.has(id)).sort();
-  const reserve = songReserveOf(calling, astrolabe, content);
+  const knownEffects = new Set<string>(PASSIVE_EFFECTS);
+  const passives: PassiveConfig[] = [];
+  for (const p of absent ? [] : (config.passives ?? [])) {
+    if (!knownEffects.has(p.effect)) throw new Error(`Unknown passive effect "${p.effect}"`);
+    if (!Number.isFinite(p.value)) throw new Error(`Passive "${p.effect}" has no value`);
+    passives.push({ effect: p.effect, value: p.value });
+  }
+  const reserve = songReserveOf(calling, astrolabe, content, passives);
   const given = config.chords ?? (config.auras ? [{ auras: config.auras }] : []);
   const chords = absent
     ? []
@@ -182,7 +207,11 @@ export function resolveConfig(config: SimConfig, content: Content = CONTENT): Re
     const def = content.relics.find((d) => d.id === relic.id);
     if (!def) throw new Error(`Unknown relic "${relic.id}"`);
     if (relics.some((x) => x.id === relic.id)) continue;
-    relics.push({ id: relic.id, cleansed: def.rarity === 'cursed' && (relic.cleansed ?? false) });
+    relics.push({
+      id: relic.id,
+      cleansed: def.rarity === 'cursed' && (relic.cleansed ?? false),
+      empowered: def.empowered !== undefined && (relic.empowered ?? false),
+    });
   }
   const boons: string[] = [];
   for (const id of absent ? [] : (config.boons ?? [])) {
@@ -201,6 +230,7 @@ export function resolveConfig(config: SimConfig, content: Content = CONTENT): Re
     threat: Math.max(1, Math.min(3, config.threat ?? 1)),
     calling,
     astrolabe,
+    passives,
     assists: {
       perfectWindowBonus: Math.max(0, Math.min(0.3, a.perfectWindowBonus ?? 0)),
       telegraphLead: Math.max(1, Math.min(2, a.telegraphLead ?? 1)),
@@ -252,8 +282,9 @@ export function reservePool(
   calling: Readonly<{ id: string; path: readonly string[] }> | null,
   content: Content = CONTENT,
   astrolabe: readonly string[] = [],
+  passives: readonly PassiveConfig[] = [],
 ): ReservePool {
-  return songReserveOf(calling, astrolabe, content).pool;
+  return songReserveOf(calling, astrolabe, content, passives).pool;
 }
 
 /**
@@ -264,9 +295,10 @@ export function songReserveOf(
   calling: Readonly<{ id: string; path: readonly string[] }> | null,
   astrolabe: readonly string[] = [],
   content: Content = CONTENT,
+  passives: readonly PassiveConfig[] = [],
 ): { pool: ReservePool; mult: number } {
   const def = calling ? content.callings.find((d) => d.id === calling.id) : undefined;
-  return songReserve(def?.reserves === 'life', astrolabe, content);
+  return songReserve(def?.reserves === 'life', astrolabe, content, passives);
 }
 
 /** A hit in flight (arrows, bolts, delayed blasts). Lands at `at`. */
@@ -535,6 +567,7 @@ export function createWorld(config: SimConfig): World {
     },
     astrolabe: {
       nodes: [...resolved.astrolabe],
+      passives: resolved.passives.map((p) => ({ ...p })),
       keystones: treeKeystones(resolved.astrolabe, content),
       techCostMult: mods.techCostMult,
       techniquesCostLife: mods.techniquesCostLife,

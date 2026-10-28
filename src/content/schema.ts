@@ -514,6 +514,11 @@ export const RelicDefSchema = z
     runOnly: z.boolean().default(false),
     /** Glyph key for the UI. */
     icon: IdSchema,
+    /**
+     * The Reliquary (docs/phase-4c.md): its numbers once a Dissonate Empowers it, replacing
+     * `values` key by key. Without them, it can't be Empowered.
+     */
+    empowered: z.object({ values: ValuesSchema }).strict().optional(),
   })
   .strict();
 export type RelicDef = z.infer<typeof RelicDefSchema>;
@@ -721,6 +726,129 @@ export const DeedDefSchema = z
   .strict();
 export type DeedDef = z.infer<typeof DeedDefSchema>;
 
+// ── The Reliquary (docs/phase-4c.md) ─────────────────────────────────────────────────
+
+/**
+ * The passive effects an Inscription or a curse may carry: the Astrolabe's stats (sim/astrolabe
+ * folds them into the same sums as the tree's nodes), plus a few of their own. Percentages are
+ * in percent, the Perfect window in seconds, ranges in metres, Resonance in points.
+ */
+export const PASSIVE_EFFECTS = [
+  'thread',
+  'mend',
+  'empower',
+  'thread_range',
+  'aura_effect',
+  'field',
+  'reserve',
+  'ward',
+  'perfect',
+  'tech_cost',
+  'tech_cooldown',
+  'hero_life',
+  'hero_damage',
+  'solo_charge',
+  'revive_speed',
+  'life',
+  'spirit_regen',
+  'perfect_resonance',
+  'response',
+  'start_resonance',
+  'spirit',
+] as const;
+export type PassiveEffect = (typeof PASSIVE_EFFECTS)[number];
+
+/** What Inscribe lets you choose: the Astrolabe's four constellations, and the Weaver. */
+export const INSCRIPTION_CATEGORIES = ['silk', 'choir', 'aegis', 'bond', 'weaver'] as const;
+export type InscriptionCategory = (typeof INSCRIPTION_CATEGORIES)[number];
+
+const PassiveSchema = z.object({ effect: z.enum(PASSIVE_EFFECTS), value: z.number() }).strict();
+
+export const InscriptionDefSchema = z.discriminatedUnion('kind', [
+  z
+    .object({
+      id: IdSchema,
+      name: z.string(),
+      category: z.enum(INSCRIPTION_CATEGORIES),
+      kind: z.literal('normal'),
+      effect: z.enum(PASSIVE_EFFECTS),
+      /** T5 first: each tier's [min, max], rolled in steps of `step`. */
+      tiers: z.array(z.tuple([z.number(), z.number()])).length(5),
+      step: z.number().positive(),
+      /** {v}: the rolled value. */
+      text: z.string(),
+    })
+    .strict(),
+  z
+    .object({
+      id: IdSchema,
+      name: z.string(),
+      category: z.enum(INSCRIPTION_CATEGORIES),
+      /** A Dissonate's fifth slot: fixed values. */
+      kind: z.literal('dissonant'),
+      effects: z.array(PassiveSchema).min(1).max(2),
+      /** {a}, {b}: the effects' values, in order. */
+      text: z.string(),
+    })
+    .strict(),
+]);
+export type InscriptionDef = z.infer<typeof InscriptionDefSchema>;
+
+/** What a Dissonate gone Cursed leaves on a relic. */
+export const CurseDefSchema = z
+  .object({
+    id: IdSchema,
+    name: z.string(),
+    effects: z.array(PassiveSchema).min(1).max(2),
+    /** {a}, {b}: the effects' sizes, in order (the text says which way). */
+    text: z.string(),
+  })
+  .strict();
+export type CurseDef = z.infer<typeof CurseDefSchema>;
+
+const Count = z.number().int().nonnegative();
+const Percent = z.number().min(0).max(100);
+
+export const ReliquaryDefSchema = z
+  .object({
+    /** How many relics it holds. */
+    capacity: z.number().int().positive(),
+    /** The Rank each carry slot opens at, in order; the first opens the Reliquary. */
+    slotRanks: z.array(z.number().int().positive()).min(1),
+    maxInscriptions: z.number().int().positive(),
+    /** The Inscriptions an enshrined relic arrives with, by rarity. */
+    enshrineInscriptions: z.object({ common: Count, rare: Count, legendary: Count, cursed: Count }),
+    /** The best tier crafting reaches for now (3 = T3); a Dissonate gone Cursed may pass it. */
+    tierCap: z.number().int().min(1).max(5),
+    /** Its tier odds in percent, T5 first. */
+    inscribe: z.object({ cost: Count, instability: Count, tierOdds: z.array(Percent).length(5) }),
+    retune: z.object({ cost: Count, instability: Count }),
+    /** The chance in percent to rise from T5, T4, T3 and T2. */
+    ascend: z.object({ cost: Count, instability: Count, odds: z.array(Percent).length(4) }),
+    /** Above `above` Instability, each craft risks a Fracture: `perPoint` percent a point. */
+    fracture: z.object({ above: Percent, perPoint: z.number().nonnegative() }),
+    dissonate: z.object({
+      cost: z.number().int().positive(),
+      weights: z.object({ dissonant: Count, empowered: Count, cursed: Count, shattered: Count }),
+      /** How far a Cursed outcome raises the Inscriptions (2 = T2). */
+      cursedTierCap: z.number().int().min(1).max(5),
+    }),
+    /** Shards a released relic gives: by rarity, and for each Inscription. */
+    release: z.object({
+      common: Count,
+      rare: Count,
+      legendary: Count,
+      cursed: Count,
+      perInscription: Count,
+    }),
+    /** Shards a run pays: for each fight it won, and on top for each kind of fight. */
+    shards: z.object({ perFight: Count, elite: Count, miniboss: Count, boss: Count }),
+    /** A boss beaten with this grade pays a Discord Tear. */
+    tearGrade: z.enum(['S', 'A', 'B', 'C']),
+  })
+  .strict();
+export type ReliquaryDef = z.infer<typeof ReliquaryDefSchema>;
+
 // ── Arenas and encounters ─────────────────────────────────────────────────────────────
 
 export const ArenaDefSchema = z.object({
@@ -795,6 +923,9 @@ export const ContentSchema = z
     callings: z.array(CallingDefSchema),
     astrolabe: AstrolabeSchema,
     deeds: z.array(DeedDefSchema),
+    inscriptions: z.array(InscriptionDefSchema),
+    curses: z.array(CurseDefSchema).min(1),
+    reliquary: ReliquaryDefSchema,
     arenas: z.array(ArenaDefSchema).min(1),
     encounters: z.array(EncounterDefSchema).min(1),
     /** Directive acknowledgement lines. */
@@ -1016,6 +1147,59 @@ export const ContentSchema = z
         if (!ok) ctx.addIssue({ code: 'custom', message: `${where} has no value for {${key}}` });
       }
     }
+    // The Reliquary: Inscriptions in order and filled, every category served, empowered relics
+    // naming only their own numbers, and rules that add up.
+    unique(
+      'inscription',
+      c.inscriptions.map((d) => d.id),
+    );
+    unique(
+      'curse',
+      c.curses.map((d) => d.id),
+    );
+    const lettered = (text: string, count: number, where: string) => {
+      for (const m of text.matchAll(/\{([a-zA-Z]+)\}/g)) {
+        const at = 'abcdefghij'.indexOf(m[1]!);
+        if (m[1]!.length !== 1 || at < 0 || at >= count)
+          ctx.addIssue({ code: 'custom', message: `${where} has no value for {${m[1]}}` });
+      }
+    };
+    for (const d of c.inscriptions) {
+      const where = `inscription "${d.id}"`;
+      if (d.kind === 'dissonant') {
+        lettered(d.text, d.effects.length, where);
+        continue;
+      }
+      if (!d.text.includes('{v}') || /\{(?!v\})/.test(d.text))
+        ctx.addIssue({ code: 'custom', message: `${where}: its text shows {v} and nothing else` });
+      d.tiers.forEach(([min, max], i) => {
+        const prev = d.tiers[i - 1];
+        if (min > max || (prev && min < prev[1]))
+          ctx.addIssue({ code: 'custom', message: `${where}: tier T${5 - i} is out of order` });
+        for (const v of [min, max])
+          if (Math.abs(v / d.step - Math.round(v / d.step)) > 1e-9)
+            ctx.addIssue({ code: 'custom', message: `${where}: ${v} isn't a step of ${d.step}` });
+      });
+    }
+    for (const cat of INSCRIPTION_CATEGORIES)
+      for (const kind of ['normal', 'dissonant'] as const)
+        if (!c.inscriptions.some((d) => d.category === cat && d.kind === kind))
+          ctx.addIssue({ code: 'custom', message: `no ${kind} inscription for ${cat}` });
+    for (const k of c.curses) lettered(k.text, k.effects.length, `curse "${k.id}"`);
+    for (const r of c.relics) {
+      for (const key of Object.keys(r.empowered?.values ?? {}))
+        if (r.values[key] === undefined)
+          ctx.addIssue({ code: 'custom', message: `relic "${r.id}" empowers no value "${key}"` });
+    }
+    const rq = c.reliquary;
+    if (rq.slotRanks.some((r, i) => i > 0 && r <= rq.slotRanks[i - 1]!))
+      ctx.addIssue({ code: 'custom', message: 'the Reliquary’s slots open in Rank order' });
+    if (rq.inscribe.tierOdds.reduce((a, b) => a + b, 0) !== 100)
+      ctx.addIssue({ code: 'custom', message: 'Inscribe’s tier odds add up to 100' });
+    if (rq.inscribe.tierOdds.some((p, i) => p > 0 && 5 - i < rq.tierCap))
+      ctx.addIssue({ code: 'custom', message: 'Inscribe rolls no tier past the cap' });
+    if (Object.values(rq.dissonate.weights).reduce((a, b) => a + b, 0) <= 0)
+      ctx.addIssue({ code: 'custom', message: 'a Dissonate has an outcome' });
     for (const ev of c.events) {
       unique(
         `choice in event "${ev.id}"`,
