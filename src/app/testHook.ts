@@ -6,7 +6,7 @@ import { useUi } from '../ui/store';
 import { useProfile } from './profileStore';
 import { useRun } from './runStore';
 import type { GameRuntime } from './runtime';
-import type {} from './testHookTypes';
+import type { FightTally } from './testHookTypes';
 
 /** Automation hook for E2E tests and bots. Present in dev builds or with `?e2e` in the URL. */
 export function testHookEnabled(): boolean {
@@ -91,10 +91,10 @@ export function installRunHook(): void {
       return state ? reservePool(state) : null;
     },
     pickCalling: (index) => run().pickCalling(index),
-    winFight: () => {
+    winFight: (tally) => {
       const state = run().run;
       if (!state || state.phase !== 'combat') return false;
-      const outcome = plainVictory(state);
+      const outcome = plainVictory(state, tally);
       if (!outcome) return false;
       run().finishCombat(outcome);
       return run().run?.phase !== 'combat';
@@ -108,11 +108,23 @@ export function installRunHook(): void {
         run: state ? [...state.astrolabe] : null,
       };
     },
+    deeds: () => {
+      const p = useProfile.getState();
+      const state = run().run;
+      return {
+        earned: [...p.profile.deeds],
+        notices: [...p.deedNotices],
+        run: state ? [...state.deeds] : null,
+      };
+    },
   };
 }
 
-/** Test-only: a won fight with nothing in its ledger, the party as it came in. */
-function plainVictory(state: RunState): CombatOutcome | null {
+/**
+ * Test-only: a won fight with nothing in its ledger but the `tally` (Phase 4b), the party as it
+ * came in.
+ */
+function plainVictory(state: RunState, tally: FightTally = {}): CombatOutcome | null {
   const node = state.pending ? findNode(state, state.pending) : undefined;
   const encounterId = node?.kind === 'event' ? state.event?.encounterId : node?.encounterId;
   if (!encounterId) return null;
@@ -120,7 +132,7 @@ function plainVictory(state: RunState): CombatOutcome | null {
     encounterId,
     outcome: 'victory',
     duration: Math.max(30, encounterDef(encounterId).par * 0.8),
-    ledger: emptyLedger(),
+    ledger: { ...emptyLedger(), ...tally },
     party: state.party.map((h, slot) => {
       const maxHp = heroDef(h.heroId).maxHp;
       return {

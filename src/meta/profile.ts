@@ -140,7 +140,7 @@ export const UNLOCKS: readonly Unlock[] = [
     kind: 'astrolabe',
     target: 'astrolabe',
     name: 'The Astrolabe',
-    text: 'A star map of passives, between runs: a point for every Rank, spent on the Thread, the songs, your techniques or the heroes. Change it freely before you embark.',
+    text: 'A star map of passives, between runs: a point for every Rank and for each Deed on the ladder, spent on the Thread, the songs, your techniques or the heroes. Change it freely before you embark.',
   },
   aura(5, 'fermata', 'A lethal hit holds a hero at 1 life for a moment. Heal them in time.'),
   ornament(5, 'unison', 'All in: the beam song pours into one hero at ×2.5, with no echo.'),

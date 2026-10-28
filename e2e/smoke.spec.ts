@@ -1,4 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
+import { CONTENT, deedText } from '../src/content';
+import { DEED_POINTS_MAX, deedPoints } from '../src/meta/deeds';
+import { rankOf } from '../src/meta/profile';
 import { runWithoutYou } from '../src/sim/counterfactual';
 import { parseReplay, runReplay } from '../src/sim/replay';
 
@@ -479,5 +482,91 @@ test('Phase 4: the Astrolabe — from Prep, take, give back, respec, a keystone�
   expect(config.astrolabe).toEqual([...tree].sort());
   // The fight shows the keystone beside the Calling chip's place.
   await expect(page.getByTestId('keystone-chip')).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+test('Phase 4b: Deeds — a fight earns two, their toasts follow the rank-up card, lit in the Codex', async ({
+  page,
+}) => {
+  const errors = trackErrors(page);
+  // Two Deeds one fight can earn: answering calls over a run (a point) and every call in a fight
+  // (a badge). The hook wins a fight with that many calls made and answered.
+  const heard = CONTENT.deeds.find((d) => d.test === 'runCount' && d.stat === 'responses')!;
+  const everyCall = CONTENT.deeds.find((d) => d.test === 'callAll')!;
+  const both = CONTENT.deeds.filter((d) => d === heard || d === everyCall).map((d) => d.id);
+  const calls = Math.max(heard.values.n ?? 0, everyCall.values.n ?? 0);
+  const phase = () => page.evaluate(() => window.__AWRUN__!.phase());
+  await page.goto(START_URL);
+  await page.waitForFunction(() => window.__AWRUN__ !== undefined);
+  await page.evaluate(() => window.__AWRUN__!.newRun(4242));
+  await expect.poll(phase).toBe('prep');
+  await page
+    .getByRole('button', { name: /Embark/i })
+    .first()
+    .click();
+  await expect.poll(phase).toBe('map');
+
+  // First Light, a plain win: no Deed, no toast.
+  expect(await page.evaluate(() => window.__AWRUN__!.choose())).toBe('skirmish');
+  await expect.poll(phase).toBe('combat');
+  expect(await page.evaluate(() => window.__AWRUN__!.winFight())).toBe(true);
+  await expect.poll(phase).toBe('result');
+  expect(await page.evaluate(() => window.__AWRUN__!.deeds().notices)).toEqual([]);
+  const xpBefore = await page.evaluate(() => window.__AWRUN__!.weaverXp());
+  await page.evaluate(() => window.__AWRUN__!.continue());
+  await expect.poll(phase).toBe('draft');
+  await page.evaluate(() => window.__AWRUN__!.pick(0));
+  await expect.poll(phase).toBe('map');
+
+  // The next skirmish, every call answered: both Deeds at once.
+  expect(await page.evaluate(() => window.__AWRUN__!.warp('skirmish'))).toBe('combat');
+  expect(
+    await page.evaluate((n) => window.__AWRUN__!.winFight({ calls: n, responses: n }), calls),
+  ).toBe(true);
+  await expect.poll(phase).toBe('result');
+  // The profile keeps them (content order), the run remembers them for its Summary.
+  const deeds = await page.evaluate(() => window.__AWRUN__!.deeds());
+  expect(deeds.earned).toEqual(both);
+  expect(deeds.run).toEqual(both);
+  expect(deeds.notices).toEqual(both);
+
+  const toast = page.getByTestId('deed-toast');
+  await expect(page.getByTestId('xp-gain')).toBeVisible();
+  // Two wins cross a Rank (from a new profile): its card comes first, and the toasts wait.
+  const xp = await page.evaluate(() => window.__AWRUN__!.weaverXp());
+  if (rankOf(xp) > rankOf(xpBefore)) {
+    await expect(page.getByTestId('rank-up')).toBeVisible();
+    await page.waitForTimeout(1500);
+    await expect(toast).toHaveCount(0);
+    await page.getByRole('button', { name: /Onward/ }).click();
+  }
+  // One toast per Deed, one after another, each with its sound: the point's, then the badge's.
+  await expect(toast).toHaveAttribute('data-deed', heard.id);
+  await expect(toast).toContainText(`Deed earned · ${heard.name}`);
+  await expect(toast).toContainText(deedText(heard));
+  await expect(toast).toContainText(`★ +${heard.points} Astrolabe point`);
+  await expect(toast).toHaveAttribute('data-sound', 'deedStar');
+  await expect(toast).toHaveAttribute('data-deed', everyCall.id, { timeout: 10_000 });
+  await expect(toast).toContainText(`Deed earned · ${everyCall.name}`);
+  await expect(toast).toContainText(deedText(everyCall));
+  await expect(toast).not.toContainText('Astrolabe point');
+  await expect(toast).toHaveAttribute('data-sound', 'deed');
+  // All shown: those notices are dismissed.
+  await expect(toast).toHaveCount(0, { timeout: 10_000 });
+  await expect.poll(() => page.evaluate(() => window.__AWRUN__!.deeds().notices)).toEqual([]);
+
+  // The Codex, from the Title: both lit, with the header's counts and Heard's best run.
+  await page.goto(START_URL);
+  await page.getByRole('button', { name: /^Codex$/ }).click();
+  await page.getByRole('tab', { name: 'Deeds' }).click();
+  await expect(page.getByTestId('deeds-header')).toHaveText(
+    `${both.length} of ${CONTENT.deeds.length} earned · ${deedPoints(both)} of ${DEED_POINTS_MAX} Astrolabe points from Deeds`,
+  );
+  for (const d of CONTENT.deeds)
+    await expect(page.getByTestId(`deed-${d.id}`)).toHaveAttribute(
+      'data-earned',
+      String(both.includes(d.id)),
+    );
+  await expect(page.getByTestId(`deed-${heard.id}`)).toContainText(`best ${calls}`);
   expect(errors).toEqual([]);
 });

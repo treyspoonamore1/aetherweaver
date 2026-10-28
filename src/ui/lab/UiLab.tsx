@@ -80,11 +80,20 @@ import {
   RANK20_TREE,
   SANGUINE_TREE,
   heavierSongs,
+  ALL_DEEDS,
+  EARLY_DEEDS,
+  SOME_DEEDS,
+  deedsSummaryRun,
+  mockDeeds,
 } from './mock';
 import { useProfile } from '../../app/profileStore';
 import { ControlsSettings } from '../screens/ControlsSettings';
 import { AstrolabeView } from '../screens/AstrolabeScreen';
 import { allocate, astrolabePoints, refund } from '../../meta/astrolabe';
+import { deedPoints } from '../../meta/deeds';
+import { DeedToastCard, TOAST_PLACE } from '../screens/DeedsParts';
+import { DeedToasts } from '../screens/DeedToasts';
+import { deedToast, pointSources } from '../screens/deedsModel';
 
 /** A stand-in for the 3D arena behind the HUD. */
 function World({ children }: { children: ReactNode }) {
@@ -360,6 +369,7 @@ function AstrolabeLab({
   point = null,
   respec = false,
   unlockAll = false,
+  deeds,
 }: {
   rank: number;
   initial?: readonly string[];
@@ -367,13 +377,29 @@ function AstrolabeLab({
   point?: string | null;
   respec?: boolean;
   unlockAll?: boolean;
+  /** Phase 4b: the Deeds earned (their points, and where the points come from, shown). */
+  deeds?: readonly string[];
 }) {
   const [tree, setTree] = useState<string[]>(() => [...initial]);
-  const pts = points ?? astrolabePoints(rank, unlockAll);
+  const [codex, setCodex] = useState(false);
+  const pts = points ?? astrolabePoints(rank, unlockAll, deedPoints(deeds ?? []));
+  if (codex && deeds) {
+    return (
+      <CodexView
+        onBack={() => setCodex(false)}
+        initialTab="deeds"
+        allowance={unlockAll ? EVERYTHING : allowanceFor(rank)}
+        rank={rank}
+        deeds={mockDeeds(deeds)}
+      />
+    );
+  }
   return (
     <AstrolabeView
       tree={tree}
       points={pts}
+      sources={deeds ? pointSources(rank, unlockAll, deeds) : undefined}
+      onDeeds={deeds ? () => setCodex(true) : undefined}
       rank={rank}
       unlockAll={unlockAll}
       onTake={(id) => setTree((t) => allocate(t, id, pts))}
@@ -443,6 +469,81 @@ const HEAVY_CHORDS: readonly ChordLoadout[] = [
 
 /** Profile XP for the lab's result and summary screens (Rank 3, partway to 4). */
 const LAB_XP = 318;
+
+/**
+ * A Deed's toast where the app puts it (bottom left), over a screen (Phase 4b). The stage is
+ * transformed, so the toast's fixed place is the stage's corner.
+ */
+function ToastStage({
+  id,
+  index = 0,
+  total = 1,
+  behind,
+}: {
+  id: string;
+  index?: number;
+  total?: number;
+  behind?: ReactNode;
+}) {
+  const toast = deedToast(id);
+  return (
+    <div className="relative h-full w-full">
+      {behind ?? (
+        <ScreenFrame tone="gold">
+          <div />
+        </ScreenFrame>
+      )}
+      {toast && (
+        <div className={TOAST_PLACE}>
+          <DeedToastCard toast={toast} index={index} total={total} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * The live toast layer as the app mounts it, fed from the profile store: earn three Deeds, or
+ * three with a rank-up (the toasts wait for its card). Plays the sounds.
+ */
+function ToastQueueLab() {
+  const rankUps = useProfile((s) => s.rankUps);
+  const notices = useProfile((s) => s.deedNotices);
+  const three = ['heard', 'every_call', 'dawns_herald'];
+  return (
+    <ScreenFrame tone="gold">
+      <div className="mx-auto max-w-3xl px-6 py-10">
+        <ScreenHeader eyebrow="Deeds" title="The toasts, live" />
+        <p className="mt-3 text-sm text-muted">
+          One toast per Deed, one after another, each with its sound; then the notices are
+          dismissed. With a rank-up, the toasts wait until its card is dismissed.
+        </p>
+        <div className="mt-5 flex flex-wrap gap-2">
+          <Button
+            variant="primary"
+            onClick={() => useProfile.setState({ deedNotices: three })}
+            sound={null}
+          >
+            Earn three Deeds
+          </Button>
+          <Button
+            onClick={() => useProfile.setState({ deedNotices: three, rankUps: mockRankUps([4]) })}
+            sound={null}
+          >
+            Three, with a rank-up
+          </Button>
+        </div>
+        <p className="mt-4 font-mono text-xs text-muted">
+          Waiting: {notices.length > 0 ? notices.join(', ') : 'none'}
+        </p>
+      </div>
+      {rankUps.length > 0 && (
+        <RankUpCard rankUps={rankUps} onDismiss={() => useProfile.getState().dismissRankUps()} />
+      )}
+      <DeedToasts />
+    </ScreenFrame>
+  );
+}
 
 interface ViewDef {
   id: string;
@@ -2001,6 +2102,148 @@ const VIEWS: ViewDef[] = [
     w: 1280,
     h: 1250,
     render: () => <CodexView onBack={noop} initialTab="astrolabe" />,
+  },
+  // ── Phase 4b: Deeds ──────────────────────────────────────────────────────────────────
+  {
+    id: 'codex-deeds-none',
+    group: 'Deeds',
+    label: 'Codex: Deeds, none earned (a new profile, Rank 1)',
+    w: 1280,
+    h: 1570,
+    render: () => (
+      <CodexView
+        onBack={noop}
+        initialTab="deeds"
+        allowance={allowanceFor(1)}
+        rank={1}
+        deeds={{ earned: [], best: {} }}
+      />
+    ),
+  },
+  {
+    id: 'codex-deeds-early',
+    group: 'Deeds',
+    label: 'Codex: Deeds early on (Rank 3): two points waiting',
+    w: 1280,
+    h: 1570,
+    render: () => (
+      <CodexView
+        onBack={noop}
+        initialTab="deeds"
+        allowance={allowanceFor(3)}
+        rank={3}
+        deeds={mockDeeds(EARLY_DEEDS, 0.4)}
+      />
+    ),
+  },
+  {
+    id: 'codex-deeds-some',
+    group: 'Deeds',
+    label: 'Codex: Deeds partway (Rank 8): seven earned, best runs',
+    w: 1280,
+    h: 1570,
+    render: () => (
+      <CodexView
+        onBack={noop}
+        initialTab="deeds"
+        allowance={allowanceFor(8)}
+        rank={8}
+        deeds={mockDeeds(SOME_DEEDS)}
+      />
+    ),
+  },
+  {
+    id: 'codex-deeds-all',
+    group: 'Deeds',
+    label: 'Codex: every Deed earned',
+    w: 1280,
+    h: 1570,
+    render: () => <CodexView onBack={noop} initialTab="deeds" deeds={mockDeeds(ALL_DEEDS)} />,
+  },
+  {
+    id: 'toast-deed-star',
+    group: 'Deeds',
+    label: 'Toast: a Deed with an Astrolabe point',
+    w: 1280,
+    h: 720,
+    render: () => <ToastStage id="heard" />,
+  },
+  {
+    id: 'toast-deed',
+    group: 'Deeds',
+    label: 'Toast: a badge',
+    w: 1280,
+    h: 720,
+    render: () => <ToastStage id="every_call" />,
+  },
+  {
+    id: 'toast-deed-calling',
+    group: 'Deeds',
+    label: 'Toast: a Calling’s badge, in its colour',
+    w: 1280,
+    h: 720,
+    render: () => <ToastStage id="dawns_herald" index={1} total={2} />,
+  },
+  {
+    id: 'result-deed-toast',
+    group: 'Deeds',
+    label: 'Result: the first of two toasts, bottom left',
+    w: 1280,
+    h: 720,
+    render: () => {
+      const run = resultRun(true);
+      return (
+        <ToastStage
+          id="heard"
+          total={2}
+          behind={
+            <ResultView run={run} result={run.lastResult!} onContinue={noop} profileXp={LAB_XP} />
+          }
+        />
+      );
+    },
+  },
+  {
+    id: 'toast-queue',
+    group: 'Deeds',
+    label: 'The toasts, live (with sounds)',
+    w: 1280,
+    h: 720,
+    render: () => <ToastQueueLab />,
+  },
+  {
+    id: 'summary-deeds',
+    group: 'Deeds',
+    label: 'Summary: Deeds earned this run',
+    w: 1280,
+    h: 1000,
+    render: () => (
+      <SummaryView run={deedsSummaryRun()} onNewRun={noop} onTitle={noop} profileXp={LAB_XP} />
+    ),
+  },
+  {
+    id: 'rank-up-4-deeds',
+    group: 'Deeds',
+    label: 'Rank 4 with six points from Deeds earned before it',
+    w: 1280,
+    h: 800,
+    render: () => (
+      <World>
+        <RankUpCard
+          rankUps={mockRankUps([4])}
+          onDismiss={noop}
+          deedPoints={deedPoints(SOME_DEEDS.concat(['encore', 'flawless']))}
+        />
+      </World>
+    ),
+  },
+  {
+    id: 'astrolabe-deeds',
+    group: 'Deeds',
+    label: 'The Astrolabe at Rank 12 with four points from Deeds',
+    w: 1280,
+    h: 720,
+    render: () => <AstrolabeLab rank={12} initial={RANK12_TREE} deeds={SOME_DEEDS} />,
   },
   {
     id: 'flow',

@@ -1,4 +1,5 @@
 import { useState, type KeyboardEvent } from 'react';
+import { useProfile } from '../../app/profileStore';
 import { CONTENT, motifText, ornamentDef } from '../../content';
 import {
   FIGHT_XP,
@@ -38,18 +39,22 @@ import { callingOpen } from './CallingPicker';
 import { tierWhenList } from './callingText';
 import { useAllowance } from './PrepScreen';
 import { ASTROLABE_RANK, astrolabePoints } from '../../meta/astrolabe';
-import { MAX_RANK } from '../../meta/profile';
+import { DEED_POINTS_MAX, deedPoints } from '../../meta/deeds';
+import { MAX_RANK, rankOf } from '../../meta/profile';
 import { AstrolabeGlyph, KeystoneBadge } from '../kit/AstrolabeGlyph';
 import { CONSTELLATIONS, CONSTELLATION_LOOK, STARLIGHT } from '../kit/astrolabeLook';
 import { AstrolabeMap } from './AstrolabeMap';
 import {
   KIND_LABEL,
   STARS,
+  astrolabeOpen,
   constellationStars,
   keystoneParts,
   rankAstrolabeLine,
   starGlyph,
 } from './astrolabeModel';
+import { DeedsPage } from './DeedsParts';
+import type { DeedsHeld } from './deedsModel';
 
 const TABS = [
   { id: 'heroes', label: 'Heroes' },
@@ -59,6 +64,7 @@ const TABS = [
   { id: 'chords', label: 'Songs & ornaments' },
   { id: 'rank', label: 'Weaver Rank' },
   { id: 'astrolabe', label: 'The Astrolabe' },
+  { id: 'deeds', label: 'Deeds' },
   { id: 'callings', label: 'Callings' },
   { id: 'calls', label: 'Calls' },
   { id: 'motifs', label: 'Motifs' },
@@ -67,16 +73,24 @@ const TABS = [
 ] as const;
 export type TabId = (typeof TABS)[number]['id'];
 
+const NO_DEEDS: DeedsHeld = { earned: [], best: {} };
+
 /** The Codex: everything is generated from content, so it can never drift from the game. */
 export function CodexView({
   onBack,
   initialTab = 'heroes',
   allowance = EVERYTHING,
+  rank = MAX_RANK,
+  deeds = NO_DEEDS,
 }: {
   onBack(): void;
   initialTab?: TabId;
   /** What the player's Rank opens: locked Callings say so (default: everything). */
   allowance?: Allowance;
+  /** The player's Rank: Deeds that need the Astrolabe say when it opens (default: the top). */
+  rank?: number;
+  /** The Deeds the profile holds (Phase 4b): earned, and each counting Deed's best run. */
+  deeds?: DeedsHeld;
 }) {
   useMood('title');
   const [tab, setTab] = useState<TabId>(initialTab);
@@ -130,8 +144,14 @@ export function CodexView({
           {tab === 'weaver' && <Weaver />}
           {tab === 'auras' && <Auras />}
           {tab === 'chords' && <Chords />}
-          {tab === 'rank' && <Ranks />}
-          {tab === 'astrolabe' && <Astrolabe />}
+          {tab === 'rank' && <Ranks deeds={deedPoints(deeds.earned)} />}
+          {tab === 'astrolabe' && <Astrolabe onDeeds={() => setTab('deeds')} />}
+          {tab === 'deeds' && (
+            <DeedsPage
+              held={deeds}
+              open={{ allowance, astrolabe: astrolabeOpen(rank, allowance.all) }}
+            />
+          )}
           {tab === 'callings' && <Callings allowance={allowance} />}
           {tab === 'calls' && <Calls />}
           {tab === 'motifs' && <Motifs />}
@@ -146,7 +166,12 @@ export function CodexView({
 export function CodexScreen() {
   const back = useUi((s) => s.back);
   const allowance = useAllowance();
-  return <CodexView onBack={back} allowance={allowance} />;
+  const xp = useProfile((s) => s.profile.xp);
+  const earned = useProfile((s) => s.profile.deeds);
+  const best = useProfile((s) => s.profile.deedBest);
+  return (
+    <CodexView onBack={back} allowance={allowance} rank={rankOf(xp)} deeds={{ earned, best }} />
+  );
 }
 
 /**
@@ -641,12 +666,14 @@ function Chords() {
 }
 
 /**
- * The Astrolabe in brief (Phase 4): how its points come and go, and its four constellations
- * with their landmarks. Everything from content and meta/astrolabe.ts.
+ * The Astrolabe in brief (Phase 4): how its points come and go (the Rank's, and Phase 4b's
+ * Deeds'), and its four constellations with their landmarks. Everything from content and
+ * meta/astrolabe.ts.
  */
-function Astrolabe() {
+function Astrolabe({ onDeeds }: { onDeeds(): void }) {
   const first = astrolabePoints(ASTROLABE_RANK);
   const top = astrolabePoints(MAX_RANK);
+  const all = astrolabePoints(MAX_RANK, true);
   return (
     <div className="flex flex-col gap-6">
       <div className="grid items-start gap-4 lg:grid-cols-[1fr_17rem]">
@@ -657,15 +684,24 @@ function Astrolabe() {
           <p className="mt-2 text-sm leading-relaxed text-text">
             A star map of passives you change between runs. It opens at Rank {ASTROLABE_RANK} with{' '}
             {first} points, then every Rank adds one: {top} at Rank {MAX_RANK}, of {STARS.length}{' '}
-            stars. The Weaver’s Star at the centre is always yours. A star can be taken when it
-            touches one you have; pointing at a far one shows the path to it and what it costs, and
-            taking it takes the path.
+            stars.{' '}
+            <button
+              type="button"
+              onClick={onDeeds}
+              className="font-semibold text-gold-200 underline decoration-gold-400/60 underline-offset-2 hover:text-gold-100"
+            >
+              Deeds
+            </button>{' '}
+            add up to {DEED_POINTS_MAX} more, a point for each on their ladder: {all} in all. The
+            Weaver’s Star at the centre is always yours. A star can be taken when it touches one you
+            have; pointing at a far one shows the path to it and what it costs, and taking it takes
+            the path.
           </p>
           <p className="mt-2 text-sm leading-relaxed text-text">
             Give a star back if nothing you’ve taken hangs on it, or everything at once: it’s free
             between runs. A run keeps the tree it embarked with; the Training Grounds use yours, so
             you can try a change first. Open it from the Title or from Prep. Settings →{' '}
-            <b>Skip the unlocks</b> gives all {top} points.
+            <b>Skip the unlocks</b> gives all {all} points.
           </p>
           <ul className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs text-muted">
             {(['travel', 'notable', 'great', 'keystone'] as const).map((kind) => (
@@ -751,7 +787,8 @@ function Astrolabe() {
   );
 }
 
-function Ranks() {
+/** Weaver Rank: XP, and what each Rank opens (its Astrolabe totals count `deeds`' points). */
+function Ranks({ deeds }: { deeds: number }) {
   const kinds = (['skirmish', 'elite', 'miniboss', 'boss'] as const).map((k) => ({
     k,
     label: { skirmish: 'Skirmish', elite: 'Elite', miniboss: 'Mini-boss', boss: 'Boss' }[k],
@@ -823,12 +860,12 @@ function Ranks() {
                         <span className="text-xs text-muted">{u.text}</span>
                       </li>
                     ))}
-                    {rankAstrolabeLine(rank) && (
+                    {rankAstrolabeLine(rank, deeds) && (
                       <li className="flex items-center gap-1.5 text-xs leading-snug text-gold-200">
                         <AstrolabeGlyph glyph="weaver_star" size={13} />
                         {rank === ASTROLABE_RANK
-                          ? `The Astrolabe: ${rankAstrolabeLine(rank)}`
-                          : rankAstrolabeLine(rank)}
+                          ? `The Astrolabe: ${rankAstrolabeLine(rank, deeds)}`
+                          : rankAstrolabeLine(rank, deeds)}
                       </li>
                     )}
                   </ul>

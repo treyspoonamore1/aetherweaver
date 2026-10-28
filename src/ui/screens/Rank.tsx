@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useProfile, type RankUp } from '../../app/profileStore';
 import { useSettings } from '../../app/settings';
-import type { Profile, Unlock } from '../../meta/profile';
+import * as Deeds from '../../meta/deeds';
+import type { Unlock } from '../../meta/profile';
 import { CONTENT } from '../../content';
 import { CallingEmblem, CallingGlyph, callingLook } from '../kit/CallingGlyph';
 import type { EncounterResult } from '../../meta/types';
@@ -22,6 +23,7 @@ import {
   unlockIcon,
   xpGain,
   xpHeadline,
+  type RankProfile,
 } from './rankText';
 
 export { unlockIcon };
@@ -114,7 +116,7 @@ export function RankPanelView({
   unlockAll = false,
   className = '',
 }: {
-  profile: Pick<Profile, 'xp' | 'runs' | 'wins'>;
+  profile: RankProfile;
   unlockAll?: boolean;
   className?: string;
 }) {
@@ -240,16 +242,21 @@ export function RankUpCard({
   rankUps,
   onDismiss,
   firstTime = false,
+  deedPoints = 0,
 }: {
   rankUps: readonly RankUp[];
   onDismiss(): void;
   /** The first rank-up ever: point at the Chord builder's "New" marks. */
   firstTime?: boolean;
+  /** The points the profile's Deeds give (Phase 4b): the Astrolabe's totals count them. */
+  deedPoints?: number;
 }) {
   // Each Rank's unlocks, then (Phase 4, past the Astrolabe's Rank) its Astrolabe point.
   const sections = rankUps.map((r) => ({
     ...r,
-    point: r.unlocks.some((u) => u.kind === 'astrolabe') ? null : rankAstrolabeLine(r.rank),
+    point: r.unlocks.some((u) => u.kind === 'astrolabe')
+      ? null
+      : rankAstrolabeLine(r.rank, deedPoints),
   }));
   const unlocks = sections.flatMap((r) => [...r.unlocks, ...(r.point ? [r.point] : [])]);
   const reduced =
@@ -361,7 +368,7 @@ export function RankUpCard({
                               className="mt-1 block text-sm font-semibold text-gold-200"
                               data-testid="rank-up-astrolabe"
                             >
-                              {rankAstrolabeLine(r.rank)}{' '}
+                              {rankAstrolabeLine(r.rank, deedPoints)}{' '}
                               <span className="font-normal text-muted">
                                 Open it from the Title or from Prep.
                               </span>
@@ -415,14 +422,18 @@ export function RankUpCard({
 /** Coach hint id for the first rank-up (shown once, counted with the other hints). */
 export const RANK_UP_HINT = 'rank-up';
 
-/** Rank-up cards from the profile store, with the one-time "look for New" pointer. */
+/**
+ * Rank-up cards from the profile store, with the one-time "look for New" pointer and the points
+ * the profile's Deeds give (the card's Astrolabe totals count them).
+ */
 export function useRankUps() {
   const rankUps = useProfile((s) => s.rankUps);
+  const deeds = useProfile((s) => s.profile.deeds);
   const hints = useSettings((s) => s.settings.hints);
   const firstTime = hints && rankUps.length > 0 && hintCount(RANK_UP_HINT) === 0;
   const dismiss = () => {
     if (firstTime) bumpHint(RANK_UP_HINT);
     useProfile.getState().dismissRankUps();
   };
-  return { rankUps, firstTime, dismiss };
+  return { rankUps, firstTime, dismiss, deedPoints: Deeds.deedPoints(deeds) };
 }

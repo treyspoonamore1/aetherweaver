@@ -47,6 +47,8 @@ export interface ResultViewProps {
   onDismissRankUps?(): void;
   /** The player's first rank-up ever (the card points at the builder's "New" marks). */
   firstRankUp?: boolean;
+  /** The points the profile's Deeds give (Phase 4b): the card's Astrolabe totals count them. */
+  deedPoints?: number;
 }
 
 export function ResultView({
@@ -57,6 +59,7 @@ export function ResultView({
   rankUps = [],
   onDismissRankUps,
   firstRankUp = false,
+  deedPoints = 0,
 }: ResultViewProps) {
   useMood('map');
   const victory = r.outcome === 'victory';
@@ -339,7 +342,12 @@ export function ResultView({
         </Button>
       </div>
       {rankUps.length > 0 && onDismissRankUps && (
-        <RankUpCard rankUps={rankUps} onDismiss={onDismissRankUps} firstTime={firstRankUp} />
+        <RankUpCard
+          rankUps={rankUps}
+          onDismiss={onDismissRankUps}
+          firstTime={firstRankUp}
+          deedPoints={deedPoints}
+        />
       )}
     </ScreenFrame>
   );
@@ -349,7 +357,7 @@ export function ResultScreen() {
   const run = useRun((s) => s.run);
   const cont = useRun((s) => s.continueFromResult);
   const xp = useProfile((s) => s.profile.xp);
-  const { rankUps, firstTime, dismiss } = useRankUps();
+  const { rankUps, firstTime, dismiss, deedPoints } = useRankUps();
   if (!run?.lastResult) return null;
   return (
     <ResultView
@@ -360,6 +368,7 @@ export function ResultScreen() {
       rankUps={rankUps}
       onDismissRankUps={dismiss}
       firstRankUp={firstTime}
+      deedPoints={deedPoints}
     />
   );
 }

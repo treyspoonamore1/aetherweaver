@@ -11,8 +11,7 @@ import { useProfile } from '../../app/profileStore';
 import { useSettings } from '../../app/settings';
 import { storage } from '../../app/storage';
 import { astrolabeNode, astrolabeText, type AstrolabeNode } from '../../content';
-import { ASTROLABE_START, astrolabePoints } from '../../meta/astrolabe';
-import { deedPoints } from '../../meta/deeds';
+import { ASTROLABE_START } from '../../meta/astrolabe';
 import { rankOf } from '../../meta/profile';
 import { loadRun } from '../../meta/save';
 import { AstrolabeGlyph, KeystoneBadge } from '../kit/AstrolabeGlyph';
@@ -26,6 +25,9 @@ import { Panel } from '../kit/Panel';
 import { playUi, useMood } from '../kit/sound';
 import { useUi } from '../store';
 import { AstrolabeMap } from './AstrolabeMap';
+import { CodexView } from './CodexScreen';
+import { pointSourceParts, pointSources, type PointSources } from './deedsModel';
+import { useAllowance } from './PrepScreen';
 import { giveBackStar, respecStars, takeStar } from './astrolabeActions';
 import {
   KIND_LABEL,
@@ -50,8 +52,12 @@ import {
 export interface AstrolabeViewProps {
   /** The stars taken, in the order they were taken (the centre is never listed). */
   tree: readonly string[];
-  /** The points the Rank gives (all of them with Skip the unlocks). */
+  /** The points the Rank and the Deeds give (all of them with Skip the unlocks). */
   points: number;
+  /** Phase 4b: where they come from, the Rank's and the Deeds' (none: not shown). */
+  sources?: PointSources;
+  /** Opens the Codex's Deeds (from "2 from Deeds"). */
+  onDeeds?(): void;
   rank: number;
   /** Settings → Skip the unlocks is on. */
   unlockAll?: boolean;
@@ -87,6 +93,8 @@ const HOVER_SOUND_MS = 70;
 export function AstrolabeView({
   tree,
   points,
+  sources,
+  onDeeds,
   rank,
   unlockAll = false,
   onTake,
@@ -212,7 +220,7 @@ export function AstrolabeView({
               The Astrolabe
             </h1>
           </div>
-          <PointsMeter spent={tree.length} points={points} />
+          <PointsMeter spent={tree.length} points={points} sources={sources} onDeeds={onDeeds} />
           <div className="flex items-center gap-2">
             <Button
               variant="secondary"
@@ -324,41 +332,79 @@ export function AstrolabeView({
   );
 }
 
-/** "3 points to spend · 12 of 15 points", a pip for each point (lit when spent). */
-function PointsMeter({ spent, points }: { spent: number; points: number }) {
+/**
+ * "3 points to spend · 12 of 15 points", a pip for each point (lit when spent), and where the
+ * points come from: "11 from Ranks · 4 from Deeds" (the Deeds' share opens the Codex's Deeds).
+ */
+function PointsMeter({
+  spent,
+  points,
+  sources,
+  onDeeds,
+}: {
+  spent: number;
+  points: number;
+  sources?: PointSources;
+  onDeeds?(): void;
+}) {
   const left = points - spent;
   const pips = Math.max(points, spent);
   return (
-    <div
-      className="flex flex-col items-center"
-      role="status"
-      aria-label={`${spendLine(left)}: ${pointsLine(spent, points)}`}
-      data-testid="astrolabe-points"
-      data-left={left}
-    >
-      <p className="flex items-baseline gap-2">
-        <span
-          className={`font-display text-xl font-bold ${left < 0 ? 'text-threat' : left > 0 ? 'text-gold-200' : 'text-text'}`}
-        >
-          {spendLine(left)}
-        </span>
-        <span className="font-mono text-xs text-muted">{pointsLine(spent, points)}</span>
-      </p>
-      <span className="mt-1 flex gap-1" aria-hidden>
-        {Array.from({ length: pips }, (_, i) => (
+    <div className="flex flex-col items-center">
+      <div
+        className="flex flex-col items-center"
+        role="status"
+        aria-label={`${spendLine(left)}: ${pointsLine(spent, points)}`}
+        data-testid="astrolabe-points"
+        data-left={left}
+      >
+        <p className="flex items-baseline gap-2">
           <span
-            key={i}
-            className="h-2 w-2 rotate-45 rounded-[2px] border"
-            style={
-              i < Math.min(spent, points)
-                ? { background: STARLIGHT.color, borderColor: STARLIGHT.color }
-                : i < points
-                  ? { borderColor: 'var(--color-gold-400)', background: 'transparent' }
-                  : { borderColor: 'var(--color-threat)', background: 'var(--color-threat)' }
-            }
-          />
-        ))}
-      </span>
+            className={`font-display text-xl font-bold ${left < 0 ? 'text-threat' : left > 0 ? 'text-gold-200' : 'text-text'}`}
+          >
+            {spendLine(left)}
+          </span>
+          <span className="font-mono text-xs text-muted">{pointsLine(spent, points)}</span>
+        </p>
+        <span className="mt-1 flex gap-1" aria-hidden>
+          {Array.from({ length: pips }, (_, i) => (
+            <span
+              key={i}
+              className="h-2 w-2 rotate-45 rounded-[2px] border"
+              style={
+                i < Math.min(spent, points)
+                  ? { background: STARLIGHT.color, borderColor: STARLIGHT.color }
+                  : i < points
+                    ? { borderColor: 'var(--color-gold-400)', background: 'transparent' }
+                    : { borderColor: 'var(--color-threat)', background: 'var(--color-threat)' }
+              }
+            />
+          ))}
+        </span>
+      </div>
+      {sources && (
+        <p
+          className="mt-1 font-mono text-xs text-muted"
+          data-testid="astrolabe-sources"
+          data-ranks={sources.ranks}
+          data-deeds={sources.deeds}
+        >
+          {pointSourceParts(sources).ranks} ·{' '}
+          {onDeeds ? (
+            <button
+              type="button"
+              onClick={onDeeds}
+              className="text-gold-200 underline decoration-gold-400/50 decoration-dotted underline-offset-2 hover:text-gold-100"
+              title="The Deeds, in the Codex: each on the ladder gives a point"
+              data-testid="astrolabe-deeds"
+            >
+              {pointSourceParts(sources).deeds}
+            </button>
+          ) : (
+            pointSourceParts(sources).deeds
+          )}
+        </p>
+      )}
     </div>
   );
 }
@@ -742,12 +788,17 @@ function TreeSummary({ tree }: { tree: readonly string[] }) {
   );
 }
 
-/** The Astrolabe from the profile store: Title → Astrolabe → Title, Prep → Astrolabe → Prep. */
+/**
+ * The Astrolabe from the profile store: Title → Astrolabe → Title, Prep → Astrolabe → Prep. Its
+ * "from Deeds" opens the Codex's Deeds here, in place, so Back still knows where it came from.
+ */
 export function AstrolabeScreen() {
   const tree = useProfile((s) => s.profile.astrolabe);
   const xp = useProfile((s) => s.profile.xp);
   const deeds = useProfile((s) => s.profile.deeds);
+  const deedBest = useProfile((s) => s.profile.deedBest);
   const unlockAll = useSettings((s) => s.settings.unlockAll);
+  const allowance = useAllowance();
   const back = useUi((s) => s.back);
   const previous = useUi((s) => s.previous);
   const rank = rankOf(xp);
@@ -756,10 +807,25 @@ export function AstrolabeScreen() {
     const saved = loadRun(storage());
     return !!saved && saved.phase !== 'prep' && saved.phase !== 'summary';
   });
+  const [codex, setCodex] = useState(false);
+  if (codex) {
+    return (
+      <CodexView
+        onBack={() => setCodex(false)}
+        initialTab="deeds"
+        allowance={allowance}
+        rank={rank}
+        deeds={{ earned: deeds, best: deedBest }}
+      />
+    );
+  }
+  const sources = pointSources(rank, unlockAll, deeds);
   return (
     <AstrolabeView
       tree={tree}
-      points={astrolabePoints(rank, unlockAll, deedPoints(deeds))}
+      points={sources.total}
+      sources={sources}
+      onDeeds={() => setCodex(true)}
       rank={rank}
       unlockAll={unlockAll}
       onTake={(id) => void takeStar(id)}

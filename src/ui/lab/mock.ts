@@ -36,7 +36,9 @@ import { foreseenAll, rewindPreview } from '../hud/chrono';
 import { callingLook } from '../kit/callingLook';
 import { EVERYTHING, MAX_RANK, UNLOCKS } from '../../meta/profile';
 import { allocate, astrolabePoints } from '../../meta/astrolabe';
+import { deedsEarned } from '../../meta/deeds';
 import { STARS, starStats } from '../screens/astrolabeModel';
+import { isCounting, type DeedsHeld } from '../screens/deedsModel';
 import type { RankUp } from '../../app/profileStore';
 import type { AuraHud, Callout, ChordHud, HeroHud, HudSnapshot, TechniqueHud } from '../store';
 import type { WheelView } from '../../input/wheel';
@@ -2337,4 +2339,51 @@ export function astroCallouts(scenario: AstroScenario): Callout[] {
       expiresAt: far,
     },
   ];
+}
+
+// ── Phase 4b: Deeds ─────────────────────────────────────────────────────────────────────
+
+/**
+ * A profile's Deeds: these earned, and every counting Deed's best run from its number (a little
+ * past it once earned, `share` of it before).
+ */
+export function mockDeeds(earned: readonly string[], share = 0.6): DeedsHeld {
+  const best: Record<string, number> = {};
+  for (const d of CONTENT.deeds) {
+    if (!isCounting(d)) continue;
+    const n = d.values.n ?? 0;
+    best[d.id] = earned.includes(d.id) ? n + Math.ceil(n * 0.2) : Math.floor(n * share);
+  }
+  return { earned: [...earned], best };
+}
+
+/** Early on (Rank 3): two rungs and a badge, their points waiting for the Astrolabe. */
+export const EARLY_DEEDS: readonly string[] = ['through_the_prelude', 'heard', 'every_call'];
+/** Partway (Rank 8): four rungs of the ladder, three badges. */
+export const SOME_DEEDS: readonly string[] = [
+  'through_the_prelude',
+  'heard',
+  'unrung',
+  'steady_hands',
+  'dawns_herald',
+  'every_call',
+  'pull',
+];
+/** Every Deed. */
+export const ALL_DEEDS: readonly string[] = CONTENT.deeds.map((d) => d.id);
+
+/** What the profile held before the lab's won run: its Summary lists only what's new. */
+const DEEDS_BEFORE: readonly string[] = [
+  'through_the_prelude',
+  'heard',
+  'steady_hands',
+  'perfect_pitch',
+  'encore',
+  'lifeline',
+];
+
+/** A run won, with the Deeds it earned on top of `before` (as the run store records them). */
+export function deedsSummaryRun(before: readonly string[] = DEEDS_BEFORE): RunState {
+  const run = summaryRun('victory');
+  return { ...run, deeds: deedsEarned(run, before) };
 }

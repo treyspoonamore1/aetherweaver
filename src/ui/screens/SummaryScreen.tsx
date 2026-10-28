@@ -42,6 +42,7 @@ import { CONSTELLATION_LOOK } from '../kit/astrolabeLook';
 import { AstrolabeMap } from './AstrolabeMap';
 import { KeystoneChips } from './AstrolabeParts';
 import { pointsWord, treeTotals } from './astrolabeModel';
+import { RunDeedsPanel } from './DeedsParts';
 
 const GRADE_COLOR: Record<Grade, string> = {
   S: '#fde9b8',
@@ -116,6 +117,8 @@ export interface SummaryViewProps {
   rankUps?: readonly RankUp[];
   onDismissRankUps?(): void;
   firstRankUp?: boolean;
+  /** The points the profile's Deeds give (Phase 4b): the rank-up card's totals count them. */
+  deedPoints?: number;
 }
 
 /** The run summary, "proof of support" (docs/plan/04 §6.1). */
@@ -128,6 +131,7 @@ export function SummaryView({
   rankUps = [],
   onDismissRankUps,
   firstRankUp = false,
+  deedPoints = 0,
 }: SummaryViewProps) {
   useMood('map');
   const totals = runTotals(run);
@@ -209,6 +213,8 @@ export function SummaryView({
         </header>
 
         {profileXp !== undefined && <RunRankPanel run={run} profileXp={profileXp} />}
+
+        <RunDeedsPanel ids={run.deeds} className="mt-6" />
 
         {totals.encounters > 0 && (
           <Panel tone="solid" className="mt-6 p-5" data-testid="summary-songs">
@@ -575,7 +581,12 @@ export function SummaryView({
         </Button>
       </div>
       {rankUps.length > 0 && onDismissRankUps && (
-        <RankUpCard rankUps={rankUps} onDismiss={onDismissRankUps} firstTime={firstRankUp} />
+        <RankUpCard
+          rankUps={rankUps}
+          onDismiss={onDismissRankUps}
+          firstTime={firstRankUp}
+          deedPoints={deedPoints}
+        />
       )}
     </ScreenFrame>
   );
@@ -785,7 +796,7 @@ export function SummaryScreen() {
   const settings = useSettings((s) => s.settings);
   const setScreen = useUi((s) => s.setScreen);
   const xp = useProfile((s) => s.profile.xp);
-  const { rankUps, firstTime, dismiss } = useRankUps();
+  const { rankUps, firstTime, dismiss, deedPoints } = useRankUps();
   if (!run) return null;
   const a = settings.assists;
   const d = DEFAULT_SETTINGS.assists;
@@ -801,6 +812,7 @@ export function SummaryScreen() {
       rankUps={rankUps}
       onDismissRankUps={dismiss}
       firstRankUp={firstTime}
+      deedPoints={deedPoints}
       onNewRun={() => {
         useRun.getState().closeRun();
         useRun.getState().newRun();

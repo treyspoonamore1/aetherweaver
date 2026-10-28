@@ -1,5 +1,6 @@
 import { Suspense, lazy, useEffect, type ReactNode } from 'react';
 import { installPresentation } from '../ui/presentation';
+import { DeedToasts } from '../ui/screens/DeedToasts';
 import { TitleScreen } from '../ui/screens/TitleScreen';
 import { useUi } from '../ui/store';
 
@@ -32,18 +33,9 @@ function Loading({ children }: { children: ReactNode }) {
 
 const lab = new URLSearchParams(window.location.search).get('lab');
 
-/** Screen router: Title, the run (Prep → Map → Combat → …), Training Grounds, labs. */
-export function App() {
+/** The screen for the current destination: Title, the run, the Astrolabe, everything else. */
+function Screen() {
   const screen = useUi((s) => s.screen);
-  // Colour-vision palette and UI scale, at startup and whenever Settings change them.
-  useEffect(() => installPresentation(), []);
-  if (lab) {
-    return (
-      <Loading>
-        <LabRouter lab={lab} />
-      </Loading>
-    );
-  }
   if (screen === 'title') return <TitleScreen />;
   if (screen === 'astrolabe') {
     return (
@@ -63,5 +55,27 @@ export function App() {
     <Loading>
       <SandboxScreen />
     </Loading>
+  );
+}
+
+/**
+ * Screen router: Title, the run (Prep → Map → Combat → …), Training Grounds, labs. The Deed
+ * toasts (Phase 4b) sit over every screen, so a Deed earned is marked wherever the player goes.
+ */
+export function App() {
+  // Colour-vision palette and UI scale, at startup and whenever Settings change them.
+  useEffect(() => installPresentation(), []);
+  if (lab) {
+    return (
+      <Loading>
+        <LabRouter lab={lab} />
+      </Loading>
+    );
+  }
+  return (
+    <>
+      <Screen />
+      <DeedToasts />
+    </>
   );
 }

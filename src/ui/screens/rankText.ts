@@ -14,6 +14,7 @@ import {
   type Unlock,
   type XpLine,
 } from '../../meta/profile';
+import { deedPoints } from '../../meta/deeds';
 import type { EncounterResult, RunState } from '../../meta/types';
 import { fmt, plural } from '../kit/format';
 import type { IconName } from '../kit/iconPaths';
@@ -54,14 +55,18 @@ export interface RankPanel {
   nextRank: number | null;
   /**
    * Phase 4: what the next Rank gives the Astrolabe ("+1 Astrolabe point (5 in all)."; at Rank 4
-   * the line under its unlock); null at the top or before it.
+   * the line under its unlock), its total counting the profile's Deeds (Phase 4b); null at the
+   * top or before it.
    */
   nextAstrolabe: string | null;
   /** "3 runs · 1 win", or "No runs yet". */
   record: string;
 }
 
-export function rankPanel(profile: Pick<Profile, 'xp' | 'runs' | 'wins'>): RankPanel {
+/** What the Rank panel reads of a profile (its Deeds, when given, count in the Astrolabe's line). */
+export type RankProfile = Pick<Profile, 'xp' | 'runs' | 'wins'> & { deeds?: readonly string[] };
+
+export function rankPanel(profile: RankProfile): RankPanel {
   const { rank, into, span } = rankProgress(profile.xp);
   const nextRank = span === null ? null : rank + 1;
   return {
@@ -76,7 +81,8 @@ export function rankPanel(profile: Pick<Profile, 'xp' | 'runs' | 'wins'>): RankP
         : `${fmt(into)} / ${fmt(span)} XP to Rank ${rank + 1}`,
     next: nextRank === null ? [] : UNLOCKS.filter((u) => u.rank === nextRank),
     nextRank,
-    nextAstrolabe: nextRank === null ? null : rankAstrolabeLine(nextRank),
+    nextAstrolabe:
+      nextRank === null ? null : rankAstrolabeLine(nextRank, deedPoints(profile.deeds ?? [])),
     record:
       profile.runs === 0
         ? 'No runs yet'

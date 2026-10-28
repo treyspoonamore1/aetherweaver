@@ -187,8 +187,8 @@ function ProgressSettings() {
           aria-labelledby="reset-progress-q"
         >
           <p id="reset-progress-q" className="text-sm text-rose-100">
-            Back to Rank 1? Your Weaver XP, runs and wins are cleared and everything locks again.
-            Settings and a run in progress stay.
+            Back to Rank 1? Your Weaver XP, Deeds, Astrolabe, runs and wins are cleared and
+            everything locks again. Settings and a run in progress stay.
           </p>
           <div className="mt-2 flex gap-2">
             <Button size="sm" onClick={() => setConfirm(false)} sound="back" autoFocus>

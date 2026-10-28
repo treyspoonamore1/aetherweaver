@@ -395,9 +395,9 @@ export function firstNotableLine(): string {
     : `The nearest notable is ${pointsWord(least)} from the centre.`;
 }
 
-/** "Your tree holds 19 points; your Rank gives 11. Embarking keeps the nearest 11…" */
+/** "Your tree holds 19 points; your Rank and Deeds give 11. Embarking keeps the nearest 11…" */
 export function overBudgetLine(held: number, points: number): string {
-  return `Your tree holds ${pointsWord(held)}, and your Rank gives ${points}: Skip the unlocks is off. Embarking keeps the ${points} nearest the centre. Give some back to choose which.`;
+  return `Your tree holds ${pointsWord(held)}, and your Rank and Deeds give ${points}: Skip the unlocks is off. Embarking keeps the ${points} nearest the centre. Give some back to choose which.`;
 }
 
 /** The accessible name of a star on the map. */
@@ -662,14 +662,16 @@ export function litIn(tree: readonly string[], c: Constellation): number {
 // ── Ranks ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * What a Rank gives the Astrolabe, for the rank-up card and the Codex: it opens (with its
- * points), then a point a Rank. Null below it.
+ * What a Rank gives the Astrolabe, for the rank-up card, the Rank panel and the Codex: it opens
+ * (with its points), then a point a Rank. `deeds`: the points the player's Deeds give (Phase 4b,
+ * `deedPoints`), which count from the Astrolabe's Rank, so "opens with" and "in all" are what the
+ * profile store gives. Null below it.
  */
-export function rankAstrolabeLine(rank: number): string | null {
+export function rankAstrolabeLine(rank: number, deeds = 0): string | null {
   if (rank < ASTROLABE_RANK) return null;
-  const points = astrolabePoints(rank);
+  const points = astrolabePoints(rank, false, deeds);
   if (rank === ASTROLABE_RANK) return `It opens with ${pointsWord(points)} to spend.`;
-  const gain = points - astrolabePoints(rank - 1);
+  const gain = points - astrolabePoints(rank - 1, false, deeds);
   if (gain <= 0) return null;
   return `+${pointsWord(gain).replace(' point', ' Astrolabe point')} (${points} in all).`;
 }

@@ -27,6 +27,24 @@ export interface TestHook {
   markers(): string[];
 }
 
+/**
+ * Phase 4b, test-only: what a won fight may claim the Weaver did (`winFight`), to earn a Deed
+ * without playing for it. The rest of its ledger stays empty.
+ */
+export type FightTally = Partial<
+  Record<
+    | 'calls'
+    | 'responses'
+    | 'missedCalls'
+    | 'perfects'
+    | 'cleanses'
+    | 'clutchCleanses'
+    | 'reels'
+    | 'cues',
+    number
+  >
+>;
+
 /** Drives the run layer (always installed in dev builds or with `?e2e`). */
 export interface RunHook {
   phase(): RunPhase | null;
@@ -68,13 +86,19 @@ export interface RunHook {
   /**
    * Test-only: in combat, end the fight as a plain victory (an empty ledger, the party as it
    * came in) through the run store, without playing it. Returns false outside a fight.
+   * Phase 4b: `tally` fills in what the Weaver did (calls answered, Perfect Wards…).
    */
-  winFight(): boolean;
+  winFight(tally?: FightTally): boolean;
   /**
    * Phase 4: the profile's Astrolabe (the stars taken, in order, and the points the Rank gives)
    * and the run's tree (null without a run): the one it follows in Prep, or embarked with.
    */
   astrolabe(): { tree: string[]; points: number; run: string[] | null };
+  /**
+   * Phase 4b: the profile's Deeds (earned, in order), those waiting for their toast, and the
+   * ones the run under way has earned (null without a run).
+   */
+  deeds(): { earned: string[]; notices: string[]; run: string[] | null };
 }
 
 declare global {
