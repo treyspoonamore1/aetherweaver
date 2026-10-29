@@ -167,17 +167,21 @@ describe('Inscribe, Retune, Ascend', () => {
   });
 
   it('Retune rolls the value again inside its tier; a one-value tier can’t be retuned', () => {
-    const rq = holding({ inscriptions: [{ id: 'stout_ward', tier: 3, value: 10 }] });
+    const ward = inscriptionDef('stout_ward');
+    if (ward.kind !== 'normal') throw new Error('normal');
+    const [min, max] = ward.tiers[2]!; // T3
+    const rq = holding({ inscriptions: [{ id: 'stout_ward', tier: 3, value: min }] });
     const seen = new Set<number>();
-    for (let s = 1; s <= 60; s++) {
+    for (let s = 1; s <= 80; s++) {
       const r = ok(retune({ ...rq, seed: s }, 'r1', 0));
       const value = relicOf(r.reliquary).inscriptions[0]!.value;
-      expect(value).toBeGreaterThanOrEqual(10);
-      expect(value).toBeLessThanOrEqual(13);
+      expect(value).toBeGreaterThanOrEqual(min);
+      expect(value).toBeLessThanOrEqual(max);
       expect(relicOf(r.reliquary).instability).toBe(RULES.retune.instability);
       seen.add(value);
     }
-    expect(seen.size).toBe(4);
+    // Every step of the tier comes up.
+    expect(seen.size).toBe(Math.round((max - min) / ward.step) + 1);
     const fixed = holding({ inscriptions: [{ id: 'ringing', tier: 4, value: 2 }] });
     expect(retune(fixed, 'r1', 0).ok).toBe(false);
   });

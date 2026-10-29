@@ -550,15 +550,17 @@ export function snapshotRelic(r: ReliquaryRelic): ReliquaryRelic {
 }
 
 /**
- * Carried relics as a fight takes them (the Training Grounds, the harness): each relic, Empowered
- * or not, and every passive they bring.
+ * Carried relics as a fight takes them (the Training Grounds): the attuned one's own effect (the
+ * first; Empowered or not), and every carried relic's affixes.
  */
 export function carriedConfig(relics: readonly ReliquaryRelic[]): {
   relics: { id: string; cleansed: boolean; empowered: boolean }[];
   passives: { effect: PassiveEffect; value: number }[];
 } {
   return {
-    relics: relics.map((r) => ({ id: r.id, cleansed: r.cleansed, empowered: empowered(r) })),
+    relics: relics
+      .slice(0, 1)
+      .map((r) => ({ id: r.id, cleansed: r.cleansed, empowered: empowered(r) })),
     passives: relics.flatMap(relicPassives),
   };
 }

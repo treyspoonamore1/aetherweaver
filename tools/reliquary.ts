@@ -109,6 +109,41 @@ const SETS: Record<string, () => ReliquaryRelic[]> = {
       ),
       dissonance: { kind: 'cursed' as const, curse: 'thin_spirit' },
     })),
+  /** Three rares' cores alone. */
+  rares: () =>
+    ['cantors_hymnal', 'choirmasters_baton', 'martyrs_veil'].map((id, i) => relicOf(i + 1, id, [])),
+  /** Two rares and a legendary, cores alone. */
+  mixed: () =>
+    ['cantors_hymnal', 'choirmasters_baton', 'prism_loom'].map((id, i) => relicOf(i + 1, id, [])),
+  /** Two rares and a legendary, typically crafted. */
+  'mixed-typical': () =>
+    ['cantors_hymnal', 'choirmasters_baton', 'prism_loom'].map((id, i) =>
+      relicOf(
+        i + 1,
+        id,
+        BUILD[i]!.map((ins, j) => at(ins, j % 2 === 0 ? 4 : 5)),
+      ),
+    ),
+  /** Two rares and a legendary, excellently crafted. */
+  'mixed-excellent': () =>
+    ['cantors_hymnal', 'choirmasters_baton', 'prism_loom'].map((id, i) =>
+      relicOf(
+        i + 1,
+        id,
+        BUILD[i]!.map((ins) => at(ins, 3, 'high')),
+      ),
+    ),
+  /** The Inscriptions alone: a typical set's, on relics with no effect worth carrying. */
+  'inscriptions-typical': () =>
+    ['wardens_key', 'star_chart', 'featherweight_robes'].map((id, i) =>
+      relicOf(
+        i + 1,
+        id,
+        BUILD[i]!.map((ins, j) => at(ins, j % 2 === 0 ? 4 : 5)),
+      ),
+    ),
+  /** One legendary's core alone (Rank 10). */
+  'one-core': () => [relicOf(1, 'prism_loom', [])],
   /** Rank 10's single slot: one relic, typically crafted. */
   one: () => [
     relicOf(

@@ -87,6 +87,11 @@ export interface OwnedRelic {
   cleansed: boolean;
   /** Carried in from the Reliquary (docs/phase-4c.md), not found: it can't be enshrined. */
   carried?: boolean;
+  /**
+   * Carried in a slot past the first: only the first is attuned. Its own effect sleeps; it lends
+   * the run its affixes (Inscriptions, a Dissonant one, a curse).
+   */
+  dormant?: boolean;
   /** A Dissonate Empowered it: it plays its empowered numbers. */
   empowered?: boolean;
 }

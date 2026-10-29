@@ -296,6 +296,7 @@ export const RunStateSchema = z.object({
       cleansed: z.boolean(),
       carried: z.boolean().optional(),
       empowered: z.boolean().optional(),
+      dormant: z.boolean().optional(),
     }),
   ),
   boons: z.array(z.object({ id: Str, fights: Num.nullable() })),

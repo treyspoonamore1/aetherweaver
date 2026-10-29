@@ -130,6 +130,29 @@ describe('the carry', () => {
     expect(Run.hasRelic(run(), 'cantors_hymnal')).toBe(true);
   });
 
+  it('only the first is attuned: the others lend their affixes and sleep', () => {
+    const carried = [
+      relic('r1', 'prism_loom', { inscriptions: [{ id: 'hardy', tier: 4, value: 2 }] }),
+      relic('r2', 'heavy_score', { inscriptions: [{ id: 'fierce', tier: 4, value: 2 }] }),
+      relic('r3', 'cantors_hymnal', { dissonance: { kind: 'empowered' } }),
+    ];
+    let r = Run.embark(Run.newRun(50, undefined, [], carried));
+    expect(r.relics).toEqual([
+      { id: 'prism_loom', cleansed: false, carried: true, empowered: false },
+      { id: 'heavy_score', cleansed: false, carried: true, dormant: true },
+      { id: 'cantors_hymnal', cleansed: false, carried: true, dormant: true },
+    ]);
+    r = Run.chooseNode(r, Run.reachable(r)[0]!.id);
+    const config = Run.combatConfig(r)!;
+    // Only the attuned relic's own effect reaches the fight; every relic's affixes do.
+    expect(config.relics).toEqual([{ id: 'prism_loom', cleansed: false, empowered: false }]);
+    expect(config.passives).toEqual(carried.flatMap(relicPassives));
+    // The run still holds them: offers won't give them again, and a dormant curse is no
+    // Forge's to lift.
+    expect(Run.hasRelic(r, 'heavy_score')).toBe(true);
+    expect(Run.forgeTargets(r, 'cleanse')).toEqual([]);
+  });
+
   it('a lighter reserve from a carried relic counts for the songs Prep allows', () => {
     const light = relic('r1', 'tuning_fork', {
       inscriptions: [{ id: 'light_reserve', tier: 1, value: 10 }],

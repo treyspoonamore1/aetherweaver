@@ -8,14 +8,16 @@ The second piece of the Loom: the **Reliquary**, where relics outlive their runs
 |---|---|
 | Which runs enshrine? | **Won runs.** Beat the Hollow Cantor and keep one relic the run found. This is the plan's "a run that reached Movement II", applied to the one Movement there is. |
 | How deep is crafting? | **The full design.** Inscribe, Retune and Ascend, with Instability and a shown chance to Fracture, plus Dissonate, the one-shot gamble with a Discord Tear. |
-| How strong? | **Tiered, like item level.** The user: "Gear in PoE adds a significant amount of power for mirror-tier items." Inscriptions roll tiers **T5 to T3** now: a typical crafted set adds about **+5–8%**, an excellent one about **+15%**. **T2 and T1** come with Dissonance (Phase 6), where a mirror-tier set reaches about **+30%** against enemies built to need it. Excellent beats typical by about 2× now, and mirror-tier will beat excellent by another 2× later. |
+| How strong? | **Tiered, like item level.** The user: "Gear in PoE adds a significant amount of power for mirror-tier items." Inscriptions roll tiers **T5 to T3** now. **T2 and T1** come with Dissonance (Phase 6), where a mirror-tier set will push further against enemies built to need it. |
 | When does it open? | **Rank 10**, with one carry slot. **Rank 15** gives a second, **Rank 20** a third. Ranks 10–20 gave only an Astrolabe point each until now. |
+| The first measurement found it far too strong (a typical set about +35%, an excellent one about +50%; the relics' own effects alone +15–19%, working from the first fight). How to bring it in? | **Attune one, halve the affixes.** Only the relic in the first carry slot plays its own effect; the others lend their affixes. Like one build-defining unique and rare gear in PoE. Every affix value is roughly halved. The targets: a typical set about **+15%**, an excellent one about **+20%**, a lucky Cursed one about **+25%** (see *Harness*). |
 
 ## How it works
 
 - **Enshrine.** At the Summary of a won run, pick one of the relics the run found (not one it carried in) to enshrine, or none. It arrives with its first Inscriptions, by rarity: one for a common or a rare, two for a legendary or a cursed relic. They're rolled as an Inscribe rolls them, but add no Instability. A cursed relic a Forge cleansed comes cleansed.
 - **The Reliquary** holds **12** relics. A full Reliquary must release one (salvaged for Tuning Shards) before it takes another. The same relic can be enshrined more than once: each is its own, with its own Inscriptions.
 - **Carry.** In Prep, choose up to your slots' worth of enshrined relics (1 at Rank 10, 2 at 15, 3 at 20), never two of the same relic. They're yours from the first fight. The run's offers, merchants and events don't offer them again. A carried relic can't be sold.
+- **Attunement.** The relic in the first slot is **attuned**: it plays its own effect, Empowered if a Dissonate Empowered it, and lends its affixes. The others are **dormant**: their own effect sleeps (a cursed one's curse with it, so a Forge has nothing to lift), and they lend only their affixes (Inscriptions, a Dissonant one, a curse). Which relic to attune is the choice: reorder the carry.
 - **The run's snapshot.** Embarking copies the carried relics, Inscriptions and all, into the run, as it does the Astrolabe. Crafting or releasing one later doesn't change a run in progress, and a resumed run keeps its own. The Training Grounds use the relics you've chosen to carry, so you can try one before a run.
 - **Crafting** happens on the Reliquary's screen, between runs (from the Title and from Prep, like the Astrolabe). Every craft shows its cost, its odds and its chance to Fracture before you commit. Its randomness is seeded and saved in the profile, so reloading can't reroll a craft.
 - **Materials.** Tuning Shards from every fight a run wins, and Discord Tears from a boss beaten with an S (see *Materials*).
@@ -25,31 +27,31 @@ The second piece of the Loom: the **Reliquary**, where relics outlive their runs
 
 Up to **4** on a relic (5 with a Dissonant one), never the same one twice. Each has a **category**, which is what Inscribe lets you choose, and **five tiers**, T5 (weakest) to T1. A tier is a range: the value is rolled within it, and Retune rolls it again. Values grow faster than the tiers do, so a T1 is worth far more than five T5s. **T2 and T1 can't be reached yet**, except by a Dissonate gone Cursed (see *Crafting*). They wait for Dissonance.
 
-The Inscriptions use the Astrolabe's stats and add to them: a "+6% Thread potency" sits in the same sum as the tree's Thread nodes. So the two share their returns, as gear and passives do in PoE.
+The Inscriptions use the Astrolabe's stats and add to them: a "+3% Thread potency" sits in the same sum as the tree's Thread nodes. So the two share their returns, as gear and passives do in PoE.
 
 | Category | Inscription | Effect | T5 | T4 | T3 | T2 | T1 |
 |---|---|---|---|---|---|---|---|
-| **Silk** | Potent Thread | +% Thread potency (Mend and Empower) | 2–3 | 4–5 | 6–7 | 8–10 | 11–14 |
-| | Deep Mend | Mend +% | 3–4 | 5–7 | 8–10 | 11–14 | 15–20 |
-| | Bright Empower | Empower +% | 3–4 | 5–7 | 8–10 | 11–14 | 15–20 |
-| | Long Thread | the Thread reaches m farther | 0.5 | 1 | 1.5 | 2 | 2.5–3 |
-| **Choir** | Clear Tone | aura effect +% | 2–3 | 4–5 | 6–7 | 8–10 | 11–14 |
-| | Wide Field | the field +% wider | 3–5 | 6–8 | 9–11 | 12–15 | 16–20 |
-| | Light Reserve | songs reserve % less | 1–2 | 3 | 4–5 | 6–7 | 8–10 |
-| **Aegis** | Stout Ward | Ward's barrier +% | 4–6 | 7–9 | 10–13 | 14–18 | 19–25 |
-| | True Timing | Perfect window + s | 0.01 | 0.02 | 0.03 | 0.04 | 0.05 |
-| | Light Hands | techniques cost % less | 2–3 | 4–5 | 6–7 | 8–10 | 11–14 |
-| | Quick Hands | techniques recover % sooner | 2–3 | 4–5 | 6–7 | 8–10 | 11–14 |
-| **Bond** | Hardy | heroes +% life | 2–3 | 4–5 | 6–7 | 8–10 | 11–14 |
-| | Fierce | heroes deal % more damage | 2–3 | 4–5 | 6–7 | 8–10 | 11–14 |
-| | Eager Solo | Solos charge % faster | 3–5 | 6–8 | 9–11 | 12–15 | 16–20 |
-| | Swift Rescue | revives % faster | 5–7 | 8–11 | 12–15 | 16–20 | 21–28 |
-| **Weaver** | Vigor | your Life +% | 3–4 | 5–7 | 8–10 | 11–14 | 15–20 |
-| | Deep Breath | Spirit regenerates % faster | 3–4 | 5–7 | 8–10 | 11–14 | 15–20 |
-| | Ringing | + Resonance from a Perfect Ward | 1 | 2 | 3 | 4 | 5 |
-| | Attentive | + Resonance for answering a call | 1–2 | 3 | 4–5 | 6 | 7–8 |
+| **Silk** | Potent Thread | +% Thread potency (Mend and Empower) | 1–1.5 | 2–2.5 | 3–3.5 | 4–5 | 5.5–7 |
+| | Deep Mend | Mend +% | 1.5–2 | 2.5–3.5 | 4–5 | 5.5–7 | 7.5–10 |
+| | Bright Empower | Empower +% | 1.5–2 | 2.5–3.5 | 4–5 | 5.5–7 | 7.5–10 |
+| | Long Thread | the Thread reaches m farther | 0.25 | 0.5 | 0.75 | 1 | 1.25–1.5 |
+| **Choir** | Clear Tone | aura effect +% | 1–1.5 | 2–2.5 | 3–3.5 | 4–5 | 5.5–7 |
+| | Wide Field | the field +% wider | 1.5–2.5 | 3–4 | 4.5–5.5 | 6–7.5 | 8–10 |
+| | Light Reserve | songs reserve % less | 0.5–1 | 1.5 | 2–2.5 | 3–3.5 | 4–5 |
+| **Aegis** | Stout Ward | Ward's barrier +% | 2–3 | 3.5–4.5 | 5–6.5 | 7–9 | 9.5–12.5 |
+| | True Timing | Perfect Wards s more forgiving | 0.005 | 0.01 | 0.015 | 0.02 | 0.025 |
+| | Light Hands | techniques cost % less | 1–1.5 | 2–2.5 | 3–3.5 | 4–5 | 5.5–7 |
+| | Quick Hands | techniques recover % sooner | 1–1.5 | 2–2.5 | 3–3.5 | 4–5 | 5.5–7 |
+| **Bond** | Hardy | heroes +% life | 1–1.5 | 2–2.5 | 3–3.5 | 4–5 | 5.5–7 |
+| | Fierce | heroes deal % more damage | 1–1.5 | 2–2.5 | 3–3.5 | 4–5 | 5.5–7 |
+| | Eager Solo | Solos charge % faster | 1.5–2.5 | 3–4 | 4.5–5.5 | 6–7.5 | 8–10 |
+| | Swift Rescue | revives % faster | 2.5–3.5 | 4–5.5 | 6–7.5 | 8–10 | 10.5–14 |
+| **Weaver** | Vigor | your Life +% | 1.5–2 | 2.5–3.5 | 4–5 | 5.5–7 | 7.5–10 |
+| | Deep Breath | Spirit regenerates % faster | 1.5–2 | 2.5–3.5 | 4–5 | 5.5–7 | 7.5–10 |
+| | Ringing | + Resonance from a Perfect Ward | 0.5 | 1 | 1.5 | 2 | 2.5 |
+| | Attentive | + Resonance for answering a call | 0.5–1 | 1.5 | 2–2.5 | 3 | 3.5–4 |
 
-These are the starting values; *Harness* holds them to the power targets above.
+Values move in steps of 0.5 (0.25 m for the Thread's reach, 0.005 s for timing). They were halved after the first measurement; *Harness* holds them to the targets above.
 
 ## Crafting
 
@@ -68,14 +70,14 @@ These are the starting values; *Harness* holds them to the power targets above.
 
   | Category | Dissonant Inscription |
   |---|---|
-  | Silk | **Gilded Thread**: Thread potency +10%, the Thread reaches 1 m farther |
-  | Choir | **Choral Swell**: aura effect +8%, songs reserve 5% less |
-  | Aegis | **Bell-Forged**: Ward's barrier +15%, Perfect window +0.03 s |
-  | Bond | **Kinship**: heroes +6% life and +6% damage |
-  | Weaver | **Deep Well**: start every fight with 25 Resonance |
+  | Silk | **Gilded Thread**: Thread potency +5%, the Thread reaches 0.5 m farther |
+  | Choir | **Choral Swell**: aura effect +4%, songs reserve 2.5% less |
+  | Aegis | **Bell-Forged**: Ward's barrier +7.5%, Perfect Wards 0.015 s more forgiving |
+  | Bond | **Kinship**: heroes +3% life and +3% damage |
+  | Weaver | **Deep Well**: start every fight with 12 Resonance |
 
 - **Empowered**: the relic's own effect grows (below). A relic with no numbers to grow becomes Dissonant instead.
-- **Cursed**: every Inscription rises a tier, to T2 at most (the only way to T2 before Dissonance), and a curse joins the relic, one of: *Thin Spirit* (Spirit −8%), *Brittle Ward* (Ward's barrier −10%), *Frail* (heroes' life −5%), *Dull Thread* (Thread potency −6%).
+- **Cursed**: every Inscription rises a tier, to T2 at most (the only way to T2 before Dissonance), and a curse joins the relic, one of: *Thin Spirit* (Spirit −4%), *Brittle Ward* (Ward's barrier −5%), *Frail* (heroes' life −2.5%), *Dull Thread* (Thread potency −3%).
 - **Shattered**: nothing changes.
 
 **Empowered relics:**
@@ -137,7 +139,7 @@ Validation:
 - a v3 profile migrates with an empty Reliquary.
 
 **Run:**
-- `RunState.carried: ReliquaryRelic[]` is the snapshot taken at embark. Those relics are also in `run.relics`, marked `carried`.
+- `RunState.carried: ReliquaryRelic[]` is the snapshot taken at embark. Those relics are also in `run.relics`, marked `carried`; all but the first are `dormant` (their own effect sleeps: the fight's `relics` leave them out, and a Forge can't cleanse them).
 - `RunState.reliquary: { paid, enshrined } | null`: what the run's end paid and which relic it enshrined, so neither happens twice.
 - Old saves default to none carried.
 

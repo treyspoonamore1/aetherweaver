@@ -227,14 +227,16 @@ export function carriedPassives(run: RunState): ReturnType<typeof relicPassives>
   return run.carried.flatMap(relicPassives);
 }
 
-/** The run's own relics for what it carries: in `relics`, marked, Empowered or not. */
+/**
+ * The run's own relics for what it carries: in `relics`, marked. Only the first is attuned and
+ * plays its own effect (Empowered or not); the rest are dormant and lend only their affixes.
+ */
 function carriedOwned(carried: readonly ReliquaryRelic[]): OwnedRelic[] {
-  return carried.map((r) => ({
-    id: r.id,
-    cleansed: r.cleansed,
-    carried: true,
-    empowered: empowered(r),
-  }));
+  return carried.map((r, i) =>
+    i === 0
+      ? { id: r.id, cleansed: r.cleansed, carried: true, empowered: empowered(r) }
+      : { id: r.id, cleansed: r.cleansed, carried: true, dormant: true },
+  );
 }
 
 /** `chordsAllowed` for this run: its slots, pool and tree. */
@@ -664,11 +666,10 @@ export function combatConfig(run: RunState, assists?: SimConfig['assists']): Sim
     encounter,
     chords: canonicalChords(run.chords),
     motifs: run.motifs.map((m) => ({ ...m })),
-    relics: run.relics.map((r) => ({
-      id: r.id,
-      cleansed: r.cleansed,
-      empowered: r.empowered ?? false,
-    })),
+    // A dormant carried relic's own effect sleeps (only the attuned one plays).
+    relics: run.relics
+      .filter((r) => !r.dormant)
+      .map((r) => ({ id: r.id, cleansed: r.cleansed, empowered: r.empowered ?? false })),
     boons: run.boons.map((b) => b.id),
     calling: simCalling(run),
     astrolabe: [...run.astrolabe],
@@ -1028,8 +1029,9 @@ export function forgeTargets(run: RunState, service: ForgeChoice['service']): st
     case 'temper':
       return run.motifs.filter((m) => upgradable(run, m.id)).map((m) => m.id);
     case 'cleanse':
+      // A dormant carried relic's curse sleeps with its blessing: nothing to lift.
       return run.relics
-        .filter((r) => !r.cleansed && relicDef(r.id).rarity === 'cursed')
+        .filter((r) => !r.cleansed && !r.dormant && relicDef(r.id).rarity === 'cursed')
         .map((r) => r.id);
     case 'retune':
       return ['chords'];
