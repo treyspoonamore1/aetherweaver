@@ -6,6 +6,12 @@
  */
 import { create } from 'zustand';
 import { pruneTree } from '../meta/astrolabe';
+import {
+  carriedRelics,
+  runMaterials,
+  type EnshrineResult,
+  type ReliquaryRelic,
+} from '../meta/reliquary';
 import * as Run from '../meta/run';
 import { loadRun, saveRun } from '../meta/save';
 import type { CombatOutcome, RunActions, RunState } from '../meta/types';
@@ -22,12 +28,33 @@ export interface RunStore extends RunActions {
   resume(): boolean;
   /** A run in Prep follows the profile's Astrolabe (free between runs). */
   followAstrolabe(tree: readonly string[]): void;
+  /** A run in Prep follows the profile's carry (docs/phase-4c.md). */
+  followReliquary(): void;
+  /** A won run's Summary: enshrine one of the relics it found (once). */
+  enshrine(relicId: string): EnshrineResult;
 }
 
 /** The profile's tree as a run may hold it: within the points the Rank (or the settings) give. */
 function profileTree(): string[] {
   const profile = useProfile.getState();
   return pruneTree(profile.profile.astrolabe, profile.astrolabePoints());
+}
+
+/** The relics the profile carries into a run, within its slots (docs/phase-4c.md). */
+function profileCarry(): ReliquaryRelic[] {
+  const profile = useProfile.getState();
+  return carriedRelics(profile.profile.reliquary, profile.carrySlots());
+}
+
+/**
+ * A run ended, by its Summary, an abandon or a new run (docs/phase-4c.md): it pays the Reliquary
+ * its materials, once, if the Reliquary is open.
+ */
+function settleReliquary(run: RunState): RunState {
+  if (run.reliquary || !useProfile.getState().reliquaryOpen()) return run;
+  const paid = runMaterials(run);
+  useProfile.getState().payReliquary(paid);
+  return { ...run, reliquary: { ...paid, enshrined: null } };
 }
 
 /** Remembers the run's songs for the next Prep, judged as this run held them. */
@@ -39,13 +66,14 @@ export const useRun = create<RunStore>()((set, get) => {
   const apply = (fn: (run: RunState) => RunState) => {
     const run = get().run;
     if (!run) return;
-    const next = fn(run);
+    let next = fn(run);
     if (next === run) return;
+    // A run that just ended pays the Reliquary and counts toward the profile.
+    const ended = run.phase !== 'summary' && next.phase === 'summary';
+    if (ended) next = settleReliquary(next);
     saveRun(storage(), next);
     set({ run: next });
-    // A run that just ended counts toward the profile.
-    if (run.phase !== 'summary' && next.phase === 'summary')
-      useProfile.getState().recordRun(next.outcome === 'victory');
+    if (ended) useProfile.getState().recordRun(next.outcome === 'victory');
   };
   /**
    * Deeds (docs/phase-4b.md): records what the run has earned so far (its fights' feats and
@@ -69,8 +97,8 @@ export const useRun = create<RunStore>()((set, get) => {
       const saved = loadRun(storage());
       if (!saved) return false;
       // A fight can't be resumed mid-way: restart the pending encounter from its start.
-      // A run still in Prep picks up the tree as it is now.
-      set({ run: Run.setAstrolabe(saved, profileTree()) });
+      // A run still in Prep picks up the tree and the carry as they are now.
+      set({ run: Run.setCarried(Run.setAstrolabe(saved, profileTree()), profileCarry()) });
       // A run saved before Deeds (or before a reset) gets what its fights have earned.
       recordDeeds();
       return true;
@@ -79,6 +107,26 @@ export const useRun = create<RunStore>()((set, get) => {
       apply((run) =>
         Run.setAstrolabe(run, pruneTree(tree, useProfile.getState().astrolabePoints())),
       ),
+    followReliquary: () => apply((run) => Run.setCarried(run, profileCarry())),
+    enshrine: (relicId) => {
+      const run = get().run;
+      if (!run || run.phase !== 'summary' || run.outcome !== 'victory')
+        return { ok: false, reason: 'Only a won run enshrines a relic.' };
+      if (run.reliquary?.enshrined) return { ok: false, reason: 'This run has enshrined one.' };
+      const found = Run.enshrineOptions(run).find((r) => r.id === relicId);
+      if (!found) return { ok: false, reason: 'This run didn’t find that relic.' };
+      const result = useProfile.getState().enshrine(found);
+      if (result.ok)
+        apply((r) => ({
+          ...r,
+          reliquary: {
+            shards: r.reliquary?.shards ?? 0,
+            tears: r.reliquary?.tears ?? 0,
+            enshrined: relicId,
+          },
+        }));
+      return result;
+    },
     newRun: (seed) => {
       // A run replaced before its summary still counts (won if its last fight beat the boss).
       const previous = get().run;
@@ -89,12 +137,18 @@ export const useRun = create<RunStore>()((set, get) => {
           .recordRun(
             previous.outcome === 'victory' || (last?.kind === 'boss' && last.outcome === 'victory'),
           );
+        settleReliquary(previous);
       }
       // Start from the last Chords used, if they're still unlocked and the tree can hold them.
       const profile = useProfile.getState();
       const last = profile.profile.lastChords;
       // Math.random is fine here: the app picks the seed; the run itself is seeded.
-      let run = Run.newRun(seed ?? Math.floor(Math.random() * 2 ** 31), undefined, profileTree());
+      let run = Run.newRun(
+        seed ?? Math.floor(Math.random() * 2 ** 31),
+        undefined,
+        profileTree(),
+        profileCarry(),
+      );
       if (last.length > 0) run = Run.setChords(run, last, profile.allowance());
       saveRun(storage(), run);
       set({ run });
@@ -105,8 +159,11 @@ export const useRun = create<RunStore>()((set, get) => {
     embark: () => {
       const profile = useProfile.getState();
       // Chords or a Calling picked while "Skip the unlocks" was on don't outlive turning it off.
-      // The tree it embarks with is the run's to keep (pruned to the points the Rank gives).
-      apply((run) => Run.embark(run, profile.allowance(), profile.astrolabePoints()));
+      // The tree and the relics it embarks with are the run's to keep (within the points and
+      // the carry slots the Rank gives).
+      apply((run) =>
+        Run.embark(run, profile.allowance(), profile.astrolabePoints(), profile.carrySlots()),
+      );
       const run = get().run;
       if (run?.phase === 'map') remember(run);
     },
@@ -174,8 +231,15 @@ useProfile.subscribe((state, prev) => {
     useRun.getState().followAstrolabe(state.profile.astrolabe);
 });
 useSettings.subscribe((state, prev) => {
-  if (state.settings.unlockAll !== prev.settings.unlockAll)
+  if (state.settings.unlockAll !== prev.settings.unlockAll) {
     useRun.getState().followAstrolabe(useProfile.getState().profile.astrolabe);
+    useRun.getState().followReliquary();
+  }
+});
+// So does its carry (docs/phase-4c.md): a relic chosen, crafted or released, or a slot opened.
+useProfile.subscribe((state, prev) => {
+  if (state.profile.reliquary !== prev.profile.reliquary || state.profile.xp !== prev.profile.xp)
+    useRun.getState().followReliquary();
 });
 
 if (typeof window !== 'undefined') {

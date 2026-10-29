@@ -8,9 +8,10 @@
  */
 import { CONTENT } from '../content';
 import { canonicalChords, type ChordLoadout } from '../sim';
+import { emptyReliquary, type Reliquary } from './reliquary';
 import type { EncounterResult, Grade } from './types';
 
-export const PROFILE_VERSION = 3;
+export const PROFILE_VERSION = 4;
 
 export interface Profile {
   version: typeof PROFILE_VERSION;
@@ -31,9 +32,12 @@ export interface Profile {
   deeds: string[];
   /** A counting Deed's best run so far ("best: 7 of 10"), by Deed id. */
   deedBest: Record<string, number>;
+  /** The Reliquary (docs/phase-4c.md): enshrined relics, materials and the carry. */
+  reliquary: Reliquary;
 }
 
-export function newProfile(): Profile {
+/** A new profile; `seed` starts the Reliquary's crafting rolls. */
+export function newProfile(seed = 1): Profile {
   return {
     version: PROFILE_VERSION,
     xp: 0,
@@ -44,6 +48,7 @@ export function newProfile(): Profile {
     astrolabe: [],
     deeds: [],
     deedBest: {},
+    reliquary: emptyReliquary(seed),
   };
 }
 
@@ -76,7 +81,15 @@ export function rankProgress(xp: number): { rank: number; into: number; span: nu
 
 // ── Unlocks ───────────────────────────────────────────────────────────────────────────
 
-export type UnlockKind = 'song' | 'aura' | 'ornament' | 'ornamentSlot' | 'calling' | 'astrolabe';
+export type UnlockKind =
+  | 'song'
+  | 'aura'
+  | 'ornament'
+  | 'ornamentSlot'
+  | 'calling'
+  | 'astrolabe'
+  | 'reliquary'
+  | 'carrySlot';
 
 export interface Unlock {
   /** Stable id: "song.field", "aura.ostinato", "ornament.unison", "ornamentSlot.2". */
@@ -160,6 +173,25 @@ export const UNLOCKS: readonly Unlock[] = [
     name: `The ${c.name}`,
     text: `A Calling: ${c.summary} Choose it in Prep; its path grows as you win.`,
   })),
+  ...CONTENT.reliquary.slotRanks.map((rank, i): Unlock =>
+    i === 0
+      ? {
+          id: 'reliquary',
+          rank,
+          kind: 'reliquary',
+          target: '1',
+          name: 'The Reliquary',
+          text: 'Relics that outlive their runs. Win a run to enshrine one it found, craft its Inscriptions between runs, and carry it into the next. Open it from the Title or from Prep.',
+        }
+      : {
+          id: `carrySlot.${i + 1}`,
+          rank,
+          kind: 'carrySlot',
+          target: String(i + 1),
+          name: i === 1 ? 'A second relic to carry' : 'A third relic to carry',
+          text: `Each run can carry ${i + 1} relics from the Reliquary.`,
+        },
+  ),
 ];
 
 /** Unlocks reached between two XP totals (for the rank-up card). */

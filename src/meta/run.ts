@@ -16,6 +16,7 @@ import {
 } from '../content';
 import type { EventEffect, MotifDef, RelicRarity } from '../content/schema';
 import { Rng, hashString } from '../sim/core/rng';
+import { empowered, relicPassives, snapshotRelic, type ReliquaryRelic } from './reliquary';
 import {
   canonicalChords,
   chordProblems,
@@ -58,6 +59,7 @@ import {
   type Highlight,
   type MapNode,
   type NodeKind,
+  type OwnedRelic,
   type RelicOffer,
   type RunHero,
   type RunMap,
@@ -209,12 +211,30 @@ export function fieldAuraSlots(run: RunState): number {
  * Astrolabe's Sanguine Font (docs/phase-4.md).
  */
 export function reservePool(run: RunState): ReservePool {
-  return simReservePool(simCalling(run), CONTENT, run.astrolabe);
+  return simReservePool(simCalling(run), CONTENT, run.astrolabe, carriedPassives(run));
 }
 
-/** The run's Astrolabe on the songs' share of their pool (1 without a tree). */
+/**
+ * The run's Astrolabe, and its carried relics' "songs reserve % less" (docs/phase-4c.md), on the
+ * songs' share of their pool (1 without either).
+ */
 export function reserveMult(run: RunState): number {
-  return songReserveOf(simCalling(run), run.astrolabe).mult;
+  return songReserveOf(simCalling(run), run.astrolabe, CONTENT, carriedPassives(run)).mult;
+}
+
+/** The passives the run's carried relics bring to every fight (docs/phase-4c.md). */
+export function carriedPassives(run: RunState): ReturnType<typeof relicPassives> {
+  return run.carried.flatMap(relicPassives);
+}
+
+/** The run's own relics for what it carries: in `relics`, marked, Empowered or not. */
+function carriedOwned(carried: readonly ReliquaryRelic[]): OwnedRelic[] {
+  return carried.map((r) => ({
+    id: r.id,
+    cleansed: r.cleansed,
+    carried: true,
+    empowered: empowered(r),
+  }));
 }
 
 /** `chordsAllowed` for this run: its slots, pool and tree. */
@@ -442,7 +462,10 @@ export function newRun(
   seed: number,
   chords: readonly ChordLoadout[] = DEFAULT_CHORDS,
   astrolabe: readonly string[] = [],
+  /** The relics it carries from the Reliquary (docs/phase-4c.md), copied. */
+  carried: readonly ReliquaryRelic[] = [],
 ): RunState {
+  const kept = carried.map(snapshotRelic);
   const run: RunState = {
     version: RUN_SAVE_VERSION,
     seed: seed >>> 0,
@@ -460,7 +483,7 @@ export function newRun(
     outcome: null,
     xp: 0,
     aether: START_AETHER,
-    relics: [],
+    relics: carriedOwned(kept),
     boons: [],
     shop: null,
     forge: null,
@@ -470,6 +493,8 @@ export function newRun(
     callingOffer: null,
     astrolabe: [...astrolabe],
     deeds: [],
+    carried: kept,
+    reliquary: null,
   };
   return chordsLegal(chords, undefined, reservePool(run), reserveMult(run))
     ? { ...run, chords: canonicalChords(chords) }
@@ -484,6 +509,24 @@ export function newRun(
 export function setAstrolabe(run: RunState, tree: readonly string[]): RunState {
   if (run.phase !== 'prep') return run;
   return { ...run, astrolabe: [...tree] };
+}
+
+/**
+ * The relics a won run may enshrine (docs/phase-4c.md): the ones it found, not those it carried
+ * in. None for a run that wasn't won.
+ */
+export function enshrineOptions(run: RunState): OwnedRelic[] {
+  return run.outcome === 'victory' ? run.relics.filter((r) => !r.carried) : [];
+}
+
+/**
+ * Prep: the profile's carry changed (docs/phase-4c.md); the run follows it until it embarks.
+ * Songs only the old relics made light enough stay, as for the tree: embark settles them.
+ */
+export function setCarried(run: RunState, carried: readonly ReliquaryRelic[]): RunState {
+  if (run.phase !== 'prep') return run;
+  const kept = carried.map(snapshotRelic);
+  return { ...run, carried: kept, relics: carriedOwned(kept) };
 }
 
 /** Prep: choose the run's Calling (null: none), if it's unlocked. */
@@ -526,11 +569,14 @@ export function embark(
   allowance: Allowance = EVERYTHING,
   /** The profile's Astrolabe points: a tree with more (Skip the unlocks turned off) is pruned. */
   points = Infinity,
+  /** The profile's carry slots: relics past them (Skip the unlocks turned off) stay home. */
+  carry = Infinity,
 ): RunState {
   if (run.phase !== 'prep') return run;
   const calling = run.calling && allowance.callings.has(run.calling.id) ? run.calling : null;
   const astrolabe = pruneTree(run.astrolabe, points);
-  const next = { ...run, calling, astrolabe };
+  const carried = run.carried.slice(0, Math.max(0, carry));
+  const next = { ...run, calling, astrolabe, carried, relics: carriedOwned(carried) };
   // Songs the Calling's pool or the tree can't hold (the Martyr's Life) fall back to the
   // defaults too.
   const chords = allowedFor(next, run.chords, allowance)
@@ -618,10 +664,16 @@ export function combatConfig(run: RunState, assists?: SimConfig['assists']): Sim
     encounter,
     chords: canonicalChords(run.chords),
     motifs: run.motifs.map((m) => ({ ...m })),
-    relics: run.relics.map((r) => ({ ...r })),
+    relics: run.relics.map((r) => ({
+      id: r.id,
+      cleansed: r.cleansed,
+      empowered: r.empowered ?? false,
+    })),
     boons: run.boons.map((b) => b.id),
     calling: simCalling(run),
     astrolabe: [...run.astrolabe],
+    // The Reliquary's carried relics: their Inscriptions, Dissonance and curses.
+    passives: carriedPassives(run),
     // The node's own Threat: maps saved before Threat existed keep ×1.
     threat: node.reward.threat,
     ...(assists ? { assists } : {}),

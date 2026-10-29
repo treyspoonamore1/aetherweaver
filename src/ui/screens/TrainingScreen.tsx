@@ -5,6 +5,7 @@ import type { CombatSession } from '../../app/runtime';
 import { getRuntime } from '../../app/runtimeRegistry';
 import { CONTENT, auraDef, ornamentDef } from '../../content';
 import { pruneTree } from '../../meta/astrolabe';
+import { carriedConfig, carriedRelics } from '../../meta/reliquary';
 import { CHORD_PRESETS } from '../../meta/run';
 import { songName } from '../../sim';
 import { DevPanel } from '../../debug/DevPanel';
@@ -31,6 +32,11 @@ export function TrainingScreen() {
     const p = useProfile.getState();
     return pruneTree(p.profile.astrolabe, p.astrolabePoints());
   });
+  // The relics chosen to carry (docs/phase-4c.md), so one can be tried before a run.
+  const [carried] = useState(() => {
+    const p = useProfile.getState();
+    return carriedConfig(carriedRelics(p.profile.reliquary, p.carrySlots()));
+  });
   // A new session (and runtime) whenever the loadout changes.
   const session = useMemo<CombatSession>(() => {
     const preset = CHORD_PRESETS.find((p) => p.id === loadout) ?? CHORD_PRESETS[0]!;
@@ -40,10 +46,12 @@ export function TrainingScreen() {
         encounter: 'sandbox',
         chords: preset.chords.map((c) => ({ auras: [...c.auras], ornaments: [...c.ornaments] })),
         astrolabe,
+        relics: carried.relics,
+        passives: carried.passives,
         debug: true,
       },
     };
-  }, [seed, loadout, astrolabe]);
+  }, [seed, loadout, astrolabe, carried]);
   const showPerf = useUi((s) => s.showPerf);
   const devOpen = useUi((s) => s.devOpen);
   const paused = useUi((s) => s.paused);

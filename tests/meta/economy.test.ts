@@ -231,7 +231,7 @@ describe('Aether and relic offers', () => {
       'skirmish',
     );
     const config = Run.combatConfig(run)!;
-    expect(config.relics).toEqual([{ id: 'heavy_score', cleansed: true }]);
+    expect(config.relics).toEqual([{ id: 'heavy_score', cleansed: true, empowered: false }]);
     expect(config.boons).toEqual(['last_note']);
   });
 });

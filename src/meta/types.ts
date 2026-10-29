@@ -13,6 +13,7 @@ import type {
   SimConfig,
   WithoutYou,
 } from '../sim';
+import type { ReliquaryRelic } from './reliquary';
 
 export type { ChordLoadout, WithoutYou };
 
@@ -84,6 +85,20 @@ export interface OwnedRelic {
   id: string;
   /** A cursed relic a Forge cleansed: its blessing stays, its curse is gone. */
   cleansed: boolean;
+  /** Carried in from the Reliquary (docs/phase-4c.md), not found: it can't be enshrined. */
+  carried?: boolean;
+  /** A Dissonate Empowered it: it plays its empowered numbers. */
+  empowered?: boolean;
+}
+
+/**
+ * What a run gave the Reliquary when it ended (docs/phase-4c.md): its materials, paid once, and
+ * the relic it enshrined, if any (a won run, once).
+ */
+export interface RunReliquary {
+  shards: number;
+  tears: number;
+  enshrined: string | null;
 }
 
 /** A boon or bane from an event (content `boons`). */
@@ -397,6 +412,14 @@ export interface RunState {
   astrolabe: string[];
   /** Deeds this run newly earned (docs/phase-4b.md), as the profile recorded them. */
   deeds: string[];
+  /**
+   * The relics it carries from the Reliquary (docs/phase-4c.md), Inscriptions and all: the
+   * profile's carry, kept in step with it while in Prep and frozen at embark. They're in
+   * `relics` too (marked `carried`).
+   */
+  carried: ReliquaryRelic[];
+  /** What its end gave the Reliquary: null until then, or if it wasn't open. */
+  reliquary: RunReliquary | null;
 }
 
 /** Everything the run screens can do. Implemented by app/runStore.ts. */

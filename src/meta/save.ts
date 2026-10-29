@@ -10,6 +10,7 @@ import { astrolabePoints, pruneTree } from './astrolabe';
 import { FIGHT_AETHER, RELIC_OFFERS } from './economy';
 import { fieldAuraSlots, reserveMult, reservePool } from './run';
 import { MAX_RANK, newProfile, PROFILE_VERSION, type Profile } from './profile';
+import { emptyReliquary, fitRelic, fitReliquary, type ReliquaryRelic } from './reliquary';
 import { RUN_SAVE_VERSION, type RunState } from './types';
 
 export interface KeyValueStore {
@@ -28,6 +29,32 @@ const Str = z.string();
 
 /** The Deeds this build knows: a save's others (renamed or removed) are forgotten on load. */
 const DEED_IDS: ReadonlySet<string> = new Set(CONTENT.deeds.map((d) => d.id));
+
+/** An enshrined relic (docs/phase-4c.md); `fitRelic` fits it to the content on load. */
+const ReliquaryRelicSchema = z.object({
+  uid: Str,
+  id: Str,
+  cleansed: z.boolean(),
+  inscriptions: z.array(z.object({ id: Str, tier: Num, value: Num })),
+  instability: Num,
+  fractured: z.boolean(),
+  dissonance: z
+    .object({
+      kind: z.enum(['dissonant', 'empowered', 'cursed', 'shattered']),
+      inscription: Str.optional(),
+      curse: Str.optional(),
+    })
+    .nullable(),
+});
+
+const ReliquarySchema = z.object({
+  relics: z.array(ReliquaryRelicSchema),
+  shards: Num,
+  tears: Num,
+  carry: z.array(Str),
+  seed: Num,
+  next: Num,
+});
 
 const NODE_KINDS = [
   'skirmish',
@@ -263,7 +290,14 @@ export const RunStateSchema = z.object({
   outcome: z.enum(['victory', 'defeat', 'abandoned']).nullable(),
   xp: Num,
   aether: Num,
-  relics: z.array(z.object({ id: Str, cleansed: z.boolean() })),
+  relics: z.array(
+    z.object({
+      id: Str,
+      cleansed: z.boolean(),
+      carried: z.boolean().optional(),
+      empowered: z.boolean().optional(),
+    }),
+  ),
   boons: z.array(z.object({ id: Str, fights: Num.nullable() })),
   shop: ShopSchema.nullable(),
   forge: z
@@ -285,6 +319,12 @@ export const RunStateSchema = z.object({
   // The Astrolabe (docs/phase-4.md): saves from before it fight without a tree.
   astrolabe: z.array(Str).default([]),
   deeds: z.array(Str).default([]),
+  // The Reliquary (docs/phase-4c.md): saves from before it carry nothing and paid nothing.
+  carried: z.array(ReliquaryRelicSchema).default([]),
+  reliquary: z
+    .object({ shards: Num, tears: Num, enshrined: Str.nullable() })
+    .nullable()
+    .default(null),
 });
 
 /** Motif ids renamed since older saves were written. */
@@ -493,8 +533,14 @@ export function loadRun(store: KeyValueStore): RunState | null {
       const raw = store.getItem(key);
       if (!raw) continue;
       const parsed = RunStateSchema.safeParse(migrateRunJson(JSON.parse(raw)));
-      if (parsed.success && compatibleWithContent(parsed.data as RunState)) {
-        const run = parsed.data as RunState;
+      if (!parsed.success) continue;
+      const run = parsed.data as RunState;
+      // Carried relics fitted to the content first (their Inscriptions weigh on the songs the
+      // check below judges); one that's gone leaves the run's relics too.
+      run.carried = run.carried.map(fitRelic).filter((r): r is ReliquaryRelic => r !== null);
+      const carried = new Set(run.carried.map((r) => r.id));
+      run.relics = run.relics.filter((r) => !r.carried || carried.has(r.id));
+      if (compatibleWithContent(run)) {
         // Deeds no longer in the content drop out of the run's Summary.
         run.deeds = run.deeds.filter((id) => DEED_IDS.has(id));
         return run;
@@ -534,6 +580,7 @@ export const ProfileSchema = z.object({
   wins: Num,
   astrolabe: z.array(Str),
   deeds: z.array(Str),
+  reliquary: ReliquarySchema,
   // A best that isn't a count (a hand-edited save) is dropped, not the whole profile.
   deedBest: z
     .record(Str, z.unknown())
@@ -549,12 +596,13 @@ export const ProfileSchema = z.object({
 
 /**
  * v1 → v2: the Astrolabe (docs/phase-4.md), an empty tree. v2 → v3: Deeds (docs/phase-4b.md),
- * none earned yet.
+ * none earned yet. v3 → v4: the Reliquary (docs/phase-4c.md), empty.
  */
 export function migrateProfileJson(raw: unknown): unknown {
   let p = raw;
   if (isObj(p) && p.version === 1) p = { ...p, version: 2, astrolabe: [] };
   if (isObj(p) && p.version === 2) p = { ...p, version: 3, deeds: [], deedBest: {} };
+  if (isObj(p) && p.version === 3) p = { ...p, version: 4, reliquary: emptyReliquary() };
   return p;
 }
 
@@ -578,6 +626,8 @@ export function loadProfile(store: KeyValueStore): Profile {
         profile.deedBest = Object.fromEntries(
           Object.entries(profile.deedBest).filter(([id]) => DEED_IDS.has(id)),
         );
+        // Relics, Inscriptions and curses no longer in the content are left behind.
+        profile.reliquary = fitReliquary(profile.reliquary);
         return profile;
       }
     } catch {

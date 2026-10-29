@@ -16,10 +16,24 @@ import {
   type Profile,
   type Unlock,
 } from '../meta/profile';
+import {
+  ascend,
+  carrySlots,
+  chooseCarry,
+  dissonate,
+  enshrine,
+  inscribe,
+  release,
+  reliquaryOpen,
+  retune,
+  type CraftAction,
+  type CraftResult,
+  type EnshrineResult,
+} from '../meta/reliquary';
 import { chordsToRemember } from '../meta/run';
 import { loadProfile, saveProfile } from '../meta/save';
 import type { RunState } from '../meta/types';
-import { CONTENT } from '../content';
+import { CONTENT, type InscriptionCategory } from '../content';
 import type { ChordLoadout, ReservePool } from '../sim';
 import { useSettings } from './settings';
 import { storage } from './storage';
@@ -62,6 +76,20 @@ export interface ProfileStore {
   giveBack(id: string): void;
   /** Gives every node back (respec is free between runs). */
   respecTree(): void;
+  /** The Reliquary (docs/phase-4c.md) is open: Rank 10, or Settings → Skip the unlocks. */
+  reliquaryOpen(): boolean;
+  /** How many relics a run may carry (0 until the Reliquary opens). */
+  carrySlots(): number;
+  /** A won run's Summary keeps one of its relics; the reason it can't, if it can't. */
+  enshrine(found: { id: string; cleansed: boolean }): EnshrineResult;
+  /** One craft on an enshrined relic: Inscribe (a category), Retune or Ascend (an index). */
+  craft(uid: string, action: CraftAction, arg?: number | InscriptionCategory): CraftResult;
+  /** A relic leaves the Reliquary for Tuning Shards; returns how many (0 if it couldn't). */
+  releaseRelic(uid: string): number;
+  /** The relics to carry into the next run, by uid (kept within the slots, one of each). */
+  setCarry(uids: readonly string[]): void;
+  /** A run ended: what it pays the Reliquary. */
+  payReliquary(materials: { shards: number; tears: number }): void;
 }
 
 export const useProfile = create<ProfileStore>()((set, get) => {
@@ -141,6 +169,72 @@ export const useProfile = create<ProfileStore>()((set, get) => {
       const p = get().profile;
       commit({ ...p, runs: p.runs + 1, wins: p.wins + (won ? 1 : 0) });
     },
-    resetProgress: () => commit(newProfile(), { rankUps: [], deedNotices: [] }),
+    // Math.random is fine here: the crafting rolls are seeded from the profile from then on.
+    resetProgress: () =>
+      commit(newProfile(Math.floor(Math.random() * 2 ** 31) + 1), { rankUps: [], deedNotices: [] }),
+    reliquaryOpen: () =>
+      reliquaryOpen(rankOf(get().profile.xp), useSettings.getState().settings.unlockAll),
+    carrySlots: () =>
+      carrySlots(rankOf(get().profile.xp), useSettings.getState().settings.unlockAll),
+    enshrine: (found) => {
+      const profile = get().profile;
+      if (!get().reliquaryOpen()) return { ok: false, reason: 'The Reliquary isn’t open yet.' };
+      const result = enshrine(profile.reliquary, found);
+      if (result.ok) commit({ ...profile, reliquary: result.reliquary });
+      return result;
+    },
+    craft: (uid, action, arg) => {
+      const profile = get().profile;
+      if (!get().reliquaryOpen()) return { ok: false, reason: 'The Reliquary isn’t open yet.' };
+      const rq = profile.reliquary;
+      let result: CraftResult;
+      switch (action) {
+        case 'inscribe':
+          result =
+            typeof arg === 'string'
+              ? inscribe(rq, uid, arg)
+              : { ok: false, reason: 'Choose a kind.' };
+          break;
+        case 'retune':
+          result =
+            typeof arg === 'number'
+              ? retune(rq, uid, arg)
+              : { ok: false, reason: 'Choose an Inscription.' };
+          break;
+        case 'ascend':
+          result =
+            typeof arg === 'number'
+              ? ascend(rq, uid, arg)
+              : { ok: false, reason: 'Choose an Inscription.' };
+          break;
+        case 'dissonate':
+          result = dissonate(rq, uid);
+          break;
+      }
+      if (result.ok) commit({ ...profile, reliquary: result.reliquary });
+      return result;
+    },
+    releaseRelic: (uid) => {
+      const profile = get().profile;
+      const result = release(profile.reliquary, uid);
+      if (!result.ok) return 0;
+      commit({ ...profile, reliquary: result.reliquary });
+      return result.shards;
+    },
+    setCarry: (uids) => {
+      const profile = get().profile;
+      const reliquary = chooseCarry(profile.reliquary, uids, get().carrySlots());
+      if (reliquary.carry.join() !== profile.reliquary.carry.join())
+        commit({ ...profile, reliquary });
+    },
+    payReliquary: ({ shards, tears }) => {
+      if (shards <= 0 && tears <= 0) return;
+      const profile = get().profile;
+      const rq = profile.reliquary;
+      commit({
+        ...profile,
+        reliquary: { ...rq, shards: rq.shards + shards, tears: rq.tears + tears },
+      });
+    },
   };
 });

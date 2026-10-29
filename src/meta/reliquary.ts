@@ -92,7 +92,7 @@ export function craftable(r: ReliquaryRelic): boolean {
 
 /** It plays its empowered numbers. */
 export function empowered(r: ReliquaryRelic): boolean {
-  return r.dissonance?.kind === 'empowered' || r.dissonance?.kind === 'cursed';
+  return r.dissonance?.kind === 'empowered';
 }
 
 /** What it adds to a fight: its Inscriptions, a Dissonant one, a curse. */
@@ -488,6 +488,79 @@ export function chooseCarry(rq: Reliquary, uids: readonly string[], slots: numbe
 /** The carried relics, in carry order (uids the Reliquary no longer holds are skipped). */
 export function carriedRelics(rq: Reliquary, slots: number): ReliquaryRelic[] {
   return chooseCarry(rq, rq.carry, slots).carry.map((uid) => rq.relics.find((r) => r.uid === uid)!);
+}
+
+/**
+ * A relic from a save, fitted to this build's content: null if the relic is gone; Inscriptions
+ * it no longer knows are dropped, and a Dissonant slot or a curse it no longer knows is emptied.
+ */
+export function fitRelic(r: ReliquaryRelic): ReliquaryRelic | null {
+  if (!CONTENT.relics.some((d) => d.id === r.id)) return null;
+  const normal = new Set(CONTENT.inscriptions.filter((d) => d.kind === 'normal').map((d) => d.id));
+  const seen = new Set<string>();
+  const inscriptions = r.inscriptions.filter((i) => {
+    const ok = normal.has(i.id) && !seen.has(i.id) && Number.isFinite(i.value);
+    seen.add(i.id);
+    return ok;
+  });
+  let dissonance = r.dissonance ? { ...r.dissonance } : null;
+  if (
+    dissonance?.inscription &&
+    !CONTENT.inscriptions.some((d) => d.id === dissonance!.inscription)
+  )
+    delete dissonance.inscription;
+  if (dissonance?.curse && !CONTENT.curses.some((d) => d.id === dissonance!.curse))
+    delete dissonance.curse;
+  if (dissonance?.kind === 'empowered' && !relicDef(r.id).empowered)
+    dissonance = { kind: 'shattered' };
+  return {
+    ...r,
+    inscriptions: inscriptions.map((i) => ({
+      ...i,
+      tier: Math.max(1, Math.min(5, Math.round(i.tier))),
+    })),
+    instability: Math.max(0, Math.min(100, r.instability)),
+    dissonance,
+  };
+}
+
+/** A Reliquary from a save, fitted to this build's content; the carry keeps only what it holds. */
+export function fitReliquary(rq: Reliquary): Reliquary {
+  const relics = rq.relics.map(fitRelic).filter((r): r is ReliquaryRelic => r !== null);
+  const uids = new Set(relics.map((r) => r.uid));
+  const highest = relics.reduce((n, r) => Math.max(n, Number(r.uid.slice(1)) || 0), 0);
+  return {
+    ...rq,
+    relics,
+    carry: rq.carry.filter((u) => uids.has(u)),
+    shards: Math.max(0, Math.floor(rq.shards)),
+    tears: Math.max(0, Math.floor(rq.tears)),
+    seed: rq.seed >>> 0,
+    next: Math.max(rq.next, highest + 1),
+  };
+}
+
+/** A deep copy: what a run keeps of a relic it carries (crafting later doesn't reach it). */
+export function snapshotRelic(r: ReliquaryRelic): ReliquaryRelic {
+  return {
+    ...r,
+    inscriptions: r.inscriptions.map((i) => ({ ...i })),
+    dissonance: r.dissonance ? { ...r.dissonance } : null,
+  };
+}
+
+/**
+ * Carried relics as a fight takes them (the Training Grounds, the harness): each relic, Empowered
+ * or not, and every passive they bring.
+ */
+export function carriedConfig(relics: readonly ReliquaryRelic[]): {
+  relics: { id: string; cleansed: boolean; empowered: boolean }[];
+  passives: { effect: PassiveEffect; value: number }[];
+} {
+  return {
+    relics: relics.map((r) => ({ id: r.id, cleansed: r.cleansed, empowered: empowered(r) })),
+    passives: relics.flatMap(relicPassives),
+  };
 }
 
 /** What a run pays the Reliquary at its end: shards for its won fights, a Tear for its boss. */

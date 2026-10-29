@@ -2,6 +2,7 @@
 import { buildOutcome } from '../src/app/outcome';
 import { CONTENT, callingOption, runEventDef } from '../src/content';
 import { makeBot, type BotKind } from '../src/bots';
+import type { ReliquaryRelic } from '../src/meta/reliquary';
 import * as Run from '../src/meta/run';
 import type { ChordLoadout, RunState } from '../src/meta/types';
 import { weaverShare } from '../src/meta/run';
@@ -194,6 +195,8 @@ export function playRun(
     path?: readonly (0 | 1)[];
     /** The Astrolabe tree the run embarks with (docs/phase-4.md). */
     astrolabe?: readonly string[];
+    /** The Reliquary's relics the run carries (docs/phase-4c.md). */
+    carried?: readonly ReliquaryRelic[];
     /** Calibration: every fight's enemies have this much more life (1.15: 15% more). */
     threatMult?: number;
     /** Called with the finished run (the Deeds report reads it). */
@@ -203,7 +206,7 @@ export function playRun(
   const relics = opts.relics ?? true;
   let run = Run.embark(
     Run.setCalling(
-      Run.setChords(Run.newRun(seed, undefined, opts.astrolabe ?? []), chords),
+      Run.setChords(Run.newRun(seed, undefined, opts.astrolabe ?? [], opts.carried ?? []), chords),
       opts.calling ?? null,
     ),
   );
