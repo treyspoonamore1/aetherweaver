@@ -154,7 +154,34 @@ Validation:
 
 ## Harness
 
-*To be filled in: the power of a typical, an excellent and a Cursed set against no set (by the enemy life each makes up for), and the pace of materials over a career.*
+`npx tsx tools/reliquary.ts --power --seeds 400 --bots novice`: whole Prelude runs (Guardian, the Novice bot: the Skilled one wins too often to show it), each set played against enemies with 15% more life. A set worth +15% wins as often there as no set does against the usual ones. The worth is read on a logistic scale between the two baselines (35.3% and 14.8%), as the Astrolabe's was.
+
+The sets carry the three legendaries (Prism Loom first, so attuned), with a generalist's affixes: Thread, Mend, aura effect and reserve on the first; Ward, timing and the techniques on the second; the heroes and Life on the third.
+
+| Set | First measured | Attuned, affixes halved | Target |
+|---|---|---|---|
+| the relics' own effects alone (no affixes) | +19% | +7.5% | |
+| one relic, typically crafted (Rank 10) | +14% | +9.1% | |
+| typical: four affixes each, T4 and T5 | +31% (about +35% checked at ×1.3) | **+13.8%** | about +15% |
+| excellent: four T3 each, rolled high | +40% (about +50% at ×1.45) | **+17.8%** | about +20% |
+| Cursed: four T2 each, and a curse | +46% | **+22.7%** | about +25% |
+| two rares and a legendary, typical | +25% | +11.0% | |
+
+The first measurement found any three relics' own effects worth +15–19% by themselves, since they work from the first fight, and typical affixes adding about +15%. Past +15% the scale was extrapolated, so it was checked against enemies with 30% and 45% more life: the typical set still beat no set's 35% there, so the extrapolation, if anything, ran low. Attuning one relic and halving the affixes brought each set to within noise (±2–3) of its target. With the Astrolabe's best trees (about +18%), a typical Rank-20 veteran plays at about +30%, the plan's cap, and a lucky one at about +40%.
+
+`npx tsx tools/reliquary.ts --career --runs 40`: from Rank 10, every run carries the best relics held, pays its materials, enshrines the rarest relic it found when won, and crafts with a simple push-your-luck policy (Inscribe to four, Ascend the lowest tier while the Fracture chance is at most 20%, then Dissonate with a Tear).
+
+| Run | Novice: Rank, carried affixes | Skilled: Rank, carried affixes |
+|---|---|---|
+| 5 | 11 · one relic, T4 ×1, T5 ×3 | 11 · one relic, T3 ×1, T4 ×1, T5 ×2 |
+| 10 | 12 · one relic, T3 ×1, T4 ×3 | 13 · one relic, T3 ×1, T4 ×2, T5 ×1 |
+| 20 | 14 · one relic, T3 ×1, T4 ×3 | 15 · two, T3 ×2, T4 ×3, T5 ×3 |
+| 30 | 16 · two, T3 ×2, T4 ×6 | 18 · two, T3 ×2, T4 ×5, T5 ×1 |
+| 40 | 18 · two, T2 ×4 (Cursed), T3 ×4 | 20 · three, T3 ×4, T4 ×7, T5 ×1 |
+
+- **Materials pace well.** A won run pays about 24 shards: enough to craft one relic a run early on. Shards pile up late (150 or so by run 40) only because the policy stops at a 20% Fracture risk. A player who pushes harder spends them.
+- **Tears come with skill.** Over its 40 runs the Novice earned 15 (an S on the boss in 15 of its 25 wins, with its relics carried) and spent each at once; the Skilled bot earned 34 and Dissonated 30 relics.
+- **Fractures were rare** under this careful policy (two in about 120 Ascends): the risk is the player's to take.
 
 ## Code review
 
