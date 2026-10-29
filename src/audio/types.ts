@@ -66,7 +66,27 @@ export type UiSound =
    * star lit).
    */
   | 'deed'
-  | 'deedStar';
+  | 'deedStar'
+  /**
+   * Phase 4c (docs/phase-4c.md): the Reliquary. A relic enshrined; an Inscription etched (a
+   * fine one, T3 or better, rings brighter); a value retuned; an Ascend that rose or missed; a
+   * Fracture; a Dissonate's roll and its four outcomes; a relic released for shards; a relic
+   * placed in a carry slot.
+   */
+  | 'enshrine'
+  | 'inscribe'
+  | 'inscribeFine'
+  | 'retune'
+  | 'ascend'
+  | 'ascendMiss'
+  | 'fracture'
+  | 'dissonate'
+  | 'dissonant'
+  | 'empowered'
+  | 'cursedRelic'
+  | 'shattered'
+  | 'release'
+  | 'carry';
 
 export interface Volumes {
   /** 0..1 each. */

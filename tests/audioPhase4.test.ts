@@ -1172,3 +1172,84 @@ describe('audio lab: the Phase 4 · Astrolabe group', () => {
     burst.d.dispose();
   });
 });
+
+// ── The Reliquary (Phase 4c) ─────────────────────────────────────────────────────────
+
+const RELIQUARY_SOUNDS: UiSound[] = [
+  'enshrine',
+  'inscribe',
+  'inscribeFine',
+  'retune',
+  'ascend',
+  'ascendMiss',
+  'fracture',
+  'dissonate',
+  'dissonant',
+  'empowered',
+  'cursedRelic',
+  'shattered',
+  'release',
+  'carry',
+];
+
+describe('the Reliquary (Phase 4c)', () => {
+  it('each plays on the UI bus, in its own group, and nothing on the sfx bus', () => {
+    for (const s of RELIQUARY_SOUNDS) {
+      expect(UI_SOUND_NAMES, s).toContain(s);
+      const h = harness();
+      const r = h.ui(s);
+      expect(r.added, s).toBeGreaterThan(0);
+      expect(r.addedUi, s).toBe(r.added);
+      expect(r.groups, s).toEqual([`ui:${s}`]);
+      h.d.dispose();
+    }
+  });
+
+  it('are distinct from each other and from the relic sounds they sit with', () => {
+    const signature = (s: UiSound) => {
+      const h = harness();
+      const sources = h.ui(s).sources;
+      const sig = `${sources.length}:${freqsOf(sources)
+        .map((f) => f.toFixed(2))
+        .join(',')}`;
+      h.d.dispose();
+      return sig;
+    };
+    const ours = RELIQUARY_SOUNDS.map(signature);
+    expect(new Set(ours).size).toBe(RELIQUARY_SOUNDS.length);
+    for (const other of [
+      'relicPick',
+      'relicReveal',
+      'gambleWin',
+      'gambleLose',
+      'forge',
+      'curseLifted',
+      'deed',
+    ] as UiSound[])
+      expect(ours, other).not.toContain(signature(other));
+  });
+
+  it('say what happened: the fine etching adds to the plain one; the outcomes have their notes', () => {
+    const sources = (s: UiSound) => {
+      const h = harness();
+      const r = h.ui(s).sources;
+      h.d.dispose();
+      return r;
+    };
+    // An Ascend climbs D5 F5 A5 D6; a miss falls from F5 to E5.
+    for (const m of [74, 77, 81, 86])
+      expect(hasPitch(sources('ascend'), midiToHz(m)), `${m}`).toBe(true);
+    for (const m of [77, 76])
+      expect(hasPitch(sources('ascendMiss'), midiToHz(m)), `${m}`).toBe(true);
+    expect(sources('inscribeFine').length).toBeGreaterThan(sources('inscribe').length);
+    // Empowered lifts to G major: G4 under B5 and D6.
+    for (const m of [67, 83, 86])
+      expect(hasPitch(sources('empowered'), midiToHz(m)), `${m}`).toBe(true);
+    // A Fracture and a Shattered break: noise, not only tones.
+    for (const s of ['fracture', 'shattered'] as UiSound[])
+      expect(
+        sources(s).some((x) => x.kind === 'noise'),
+        s,
+      ).toBe(true);
+  });
+});

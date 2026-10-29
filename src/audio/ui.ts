@@ -2,6 +2,7 @@
 import { Voice, type Engine } from './engine';
 import {
   anvil,
+  bowed,
   brassBell,
   choirChord,
   clockTick,
@@ -59,6 +60,20 @@ export const UI_SOUND_NAMES = Object.keys({
   starRespec: 0,
   deed: 0,
   deedStar: 0,
+  enshrine: 0,
+  inscribe: 0,
+  inscribeFine: 0,
+  retune: 0,
+  ascend: 0,
+  ascendMiss: 0,
+  fracture: 0,
+  dissonate: 0,
+  dissonant: 0,
+  empowered: 0,
+  cursedRelic: 0,
+  shattered: 0,
+  release: 0,
+  carry: 0,
 } satisfies Record<UiSound, 0>) as UiSound[];
 
 /** Phase 3e: the UI sounds voiced per Calling (the Chronomancer's are its own). */
@@ -229,6 +244,48 @@ export function playUiSound(e: Engine, sound: UiSound, calling: string | null = 
       break;
     case 'deedStar':
       deedStar(v, t);
+      break;
+    case 'enshrine':
+      enshrine(v, t);
+      break;
+    case 'inscribe':
+      inscribe(v, t);
+      break;
+    case 'inscribeFine':
+      inscribeFine(v, t);
+      break;
+    case 'retune':
+      retune(v, t);
+      break;
+    case 'ascend':
+      ascend(v, t);
+      break;
+    case 'ascendMiss':
+      ascendMiss(v, t);
+      break;
+    case 'fracture':
+      fracture(v, t);
+      break;
+    case 'dissonate':
+      dissonate(v, t);
+      break;
+    case 'dissonant':
+      dissonant(v, t);
+      break;
+    case 'empowered':
+      empowered(v, t);
+      break;
+    case 'cursedRelic':
+      cursedRelic(v, t);
+      break;
+    case 'shattered':
+      shattered(v, t);
+      break;
+    case 'release':
+      release(v, t);
+      break;
+    case 'carry':
+      carry(v, t);
       break;
     case 'wheelOpen':
       // A soft bloom: a breath opening upwards and a quiet A4.
@@ -770,6 +827,200 @@ function deedStar(v: Voice, t: number): void {
   brassBell(v, t + 0.3, hz(7), 0.07, 1.6, 0.5);
   [14, 15, 18].forEach((idx, i) => glassNote(v, t + 0.42 + i * 0.07, hz(idx), 0.02, 1.0, 0.85));
   v.extend(t + 2.2);
+}
+
+// ── Phase 4c: the Reliquary ──────────────────────────────────────────────────────────
+
+/**
+ * A relic enshrined, about 2.4 s: laid to rest and kept. A low D under a slow D minor choir, a
+ * brass bell on A4 and a handbell on D5, then two glass stars (A5, D6) over a soft breath.
+ * Solemn rather than bright: it marks something kept, not won.
+ */
+function enshrine(v: Voice, t: number): void {
+  thump(v, t, hz(-14), 0.14, 0.4, 0.7);
+  choirChord(v, t, [hz(-7), hz(-3), hz(0), hz(2)], 1.3, 0.11, 0.35, 1.2);
+  brassBell(v, t + 0.05, hz(4), 0.07, 2.0, 0.5);
+  handbell(v, t + 0.25, hz(7), 0.06, 1.6, 0.6);
+  [11, 14].forEach((idx, i) => glassNote(v, t + 0.4 + i * 0.14, hz(idx), 0.03, 1.4, 0.9));
+  whoosh(v, t, 0.9, 0.015, 400, 2400, 1);
+  v.extend(t + 2.4);
+}
+
+/**
+ * An Inscription etched, about 1 s: two light chisel taps (D6, E6) with a scrape of grit, and
+ * the letters catching the light as a rising glass dyad (D6 to A6).
+ */
+function inscribe(v: Voice, t: number): void {
+  anvil(v, t, hz(14), 0.03, 0.25);
+  anvil(v, t + 0.08, hz(15), 0.025, 0.25);
+  v.noise({
+    start: t,
+    dur: 0.07,
+    gain: 0.025,
+    filter: { type: 'bandpass', freq: 5200, q: 2 },
+  });
+  glassNote(v, t + 0.12, hz(14), 0.03, 0.8, 0.9);
+  glassNote(v, t + 0.2, hz(18), 0.025, 0.9, 0.9);
+  v.extend(t + 1.1);
+}
+
+/** A fine Inscription (T3 or better), about 1.4 s: the etching, then a handbell and sparkles. */
+function inscribeFine(v: Voice, t: number): void {
+  inscribe(v, t);
+  handbell(v, t + 0.2, hz(11), 0.05, 1.2, 0.7);
+  [18, 21, 22].forEach((idx, i) => glassPing(v, t + 0.28 + i * 0.06, hz(idx), 0.02, 0.6));
+  v.extend(t + 1.4);
+}
+
+/**
+ * A value retuned, about 0.9 s: two sines a step either side of A5 slide together into unison,
+ * as a string is tuned, and a glass ping marks the new value.
+ */
+function retune(v: Voice, t: number): void {
+  for (const [from, g] of [
+    [hz(10), 0.04],
+    [hz(12), 0.035],
+  ] as const)
+    v.osc({
+      type: 'sine',
+      freq: from,
+      freqTo: hz(11),
+      glide: 0.25,
+      start: t,
+      dur: 0.35,
+      attack: 0.02,
+      release: 0.25,
+      gain: g,
+      shape: 'sustain',
+    });
+  glassPing(v, t + 0.3, hz(11), 0.03, 0.5);
+  v.extend(t + 0.9);
+}
+
+/**
+ * An Ascend that rose, about 1.5 s: a quick plucked climb (D5 F5 A5 D6) into a handbell on D6
+ * and a glass A6, with an upward breath.
+ */
+function ascend(v: Voice, t: number): void {
+  [7, 9, 11, 14].forEach((idx, i) => pluck(v, t + i * 0.06, hz(idx), 0.08, 0.35, 0.8));
+  handbell(v, t + 0.24, hz(14), 0.06, 1.3, 0.7);
+  glassNote(v, t + 0.26, hz(18), 0.03, 1.0, 0.9);
+  whoosh(v, t, 0.4, 0.012, 900, 4000, 1);
+  v.extend(t + 1.5);
+}
+
+/**
+ * An Ascend that missed, about 0.7 s: a muted knock and a soft fall of a step (F5 to E5).
+ * Quiet: a miss costs what it cost, and the screen says so.
+ */
+function ascendMiss(v: Voice, t: number): void {
+  thump(v, t, hz(-3), 0.08, 0.2, 0.5);
+  pluck(v, t + 0.02, hz(9), 0.05, 0.2, 0.6);
+  pluck(v, t + 0.14, hz(8), 0.04, 0.3, 0.6);
+  v.extend(t + 0.7);
+}
+
+/**
+ * A Fracture, about 1.4 s: a sharp crack and a scatter of splinters, a tritone in glass (B5 over
+ * F6) and a dull thud under it. The relic is whole but frozen: final, not violent.
+ */
+function fracture(v: Voice, t: number): void {
+  v.noise({ start: t, dur: 0.05, gain: 0.08, filter: { type: 'highpass', freq: 2500, q: 0.7 } });
+  [0.05, 0.09, 0.15, 0.22, 0.3].forEach((at, i) =>
+    v.noise({
+      start: t + at,
+      dur: 0.02,
+      gain: 0.04 - i * 0.006,
+      filter: { type: 'bandpass', freq: 3500 + i * 900, q: 4 },
+    }),
+  );
+  glassNote(v, t + 0.02, hz(12), 0.03, 0.9, 0.8);
+  glassNote(v, t + 0.02, hz(16), 0.025, 0.9, 0.8);
+  thump(v, t + 0.04, hz(-10), 0.12, 0.35, 0.6);
+  v.extend(t + 1.4);
+}
+
+/**
+ * A Dissonate rolled, about 1.6 s, before its outcome: a low bowed D under a rising breath, a
+ * glass A5 swelling in reverse, and stray glass notes turning round each other.
+ */
+function dissonate(v: Voice, t: number): void {
+  bowed(v, t, hz(-14), 1.4, 0.05, 0.3, 0.6);
+  reverseGlass(v, t + 1.2, hz(11), 0.04, 1.0);
+  whoosh(v, t, 1.2, 0.03, 300, 5000, 1.2);
+  [16, 17, 15, 18, 14, 19].forEach((idx, i) =>
+    glassPing(v, t + 0.15 + i * 0.12, hz(idx), 0.015, 0.4),
+  );
+  v.extend(t + 1.6);
+}
+
+/**
+ * Dissonant: a fifth slot, about 2 s. An open, uncanny chord (D5, E5, B5: no third) in glass
+ * and choir, with a reversed brass bell resolving into a bright ping on E6.
+ */
+function dissonant(v: Voice, t: number): void {
+  choirChord(v, t, [hz(0), hz(1), hz(5)], 1.1, 0.08, 0.2, 1.0);
+  [7, 8, 12].forEach((idx, i) => glassNote(v, t + i * 0.05, hz(idx), 0.028, 1.4, 0.9));
+  reverseBrassBell(v, t + 0.6, hz(7), 0.05, 0.6);
+  glassPing(v, t + 0.6, hz(15), 0.03, 1.0);
+  v.extend(t + 2.0);
+}
+
+/**
+ * Empowered, about 2.2 s: the win. A G major lift (the brightest chord in D dorian): a brass bell
+ * on G4, handbells on B5 and D6 and a glass G6, over a warm swell.
+ */
+function empowered(v: Voice, t: number): void {
+  choirChord(v, t, [hz(-4), hz(3), hz(5), hz(7)], 1.2, 0.12, 0.15, 1.2);
+  brassBell(v, t, hz(3), 0.08, 2.0, 0.5);
+  handbell(v, t + 0.08, hz(12), 0.07, 1.6, 0.8);
+  handbell(v, t + 0.16, hz(14), 0.06, 1.8, 0.8);
+  glassNote(v, t + 0.24, hz(17), 0.035, 1.5, 1);
+  whoosh(v, t, 0.8, 0.02, 1000, 5000, 1);
+  v.extend(t + 2.3);
+}
+
+/**
+ * Cursed, about 2.1 s: double-edged. A low D drone with a close, dark cluster (D3, E3, F3) and a
+ * slow heartbeat thump, then the Inscriptions rising anyway: a plucked climb over the dark.
+ */
+function cursedRelic(v: Voice, t: number): void {
+  bowed(v, t, hz(-14), 1.6, 0.06, 0.2, 0.8);
+  choirChord(v, t, [hz(-7), hz(-6), hz(-5)], 1.0, 0.07, 0.2, 0.9);
+  thump(v, t, hz(-14), 0.12, 0.3, 0.6);
+  thump(v, t + 0.42, hz(-14), 0.1, 0.3, 0.6);
+  [0, 2, 4, 7].forEach((idx, i) => pluck(v, t + 0.7 + i * 0.08, hz(idx), 0.06, 0.4, 0.8));
+  v.extend(t + 2.1);
+}
+
+/**
+ * Shattered, about 1.3 s: nothing happens, but the gamble is spent. A bright spray of glass
+ * splinters falling (A6 down to D6) over a burst of grit, then quiet.
+ */
+function shattered(v: Voice, t: number): void {
+  v.noise({ start: t, dur: 0.12, gain: 0.06, filter: { type: 'highpass', freq: 4000, q: 0.7 } });
+  [18, 17, 16, 15, 14].forEach((idx, i) =>
+    glassPing(v, t + 0.04 + i * 0.07, hz(idx), 0.022 - i * 0.003, 0.35),
+  );
+  v.extend(t + 1.3);
+}
+
+/**
+ * A relic released, about 0.9 s: it breaks down into Tuning Shards. A quick falling run of glass
+ * (A6 F6 D6 A5), like shards poured into a bowl, and a soft breath down.
+ */
+function release(v: Voice, t: number): void {
+  [18, 16, 14, 11].forEach((idx, i) => glassPing(v, t + i * 0.06, hz(idx), 0.03, 0.4));
+  whoosh(v, t, 0.5, 0.012, 3000, 800, 1);
+  v.extend(t + 0.9);
+}
+
+/** A relic placed in a carry slot, about 0.7 s: a soft handbell on D5 and a plucked A5. */
+function carry(v: Voice, t: number): void {
+  handbell(v, t, hz(7), 0.05, 0.9, 0.6);
+  pluck(v, t + 0.06, hz(11), 0.05, 0.3, 0.8);
+  whoosh(v, t, 0.3, 0.01, 1200, 3000, 1);
+  v.extend(t + 0.8);
 }
 
 /**
