@@ -28,6 +28,9 @@ import {
   shardsText,
 } from './reliquaryModel';
 import { SectionTitle } from './shared';
+import { dissonancePoints } from '../../meta/dissonance';
+import { DepthChip } from './DissonanceParts';
+import { wonLine } from './dissonanceModel';
 
 /**
  * The relic a run enshrined, as the Reliquary holds it now: the very one by its uid, or (a run
@@ -81,6 +84,8 @@ export function EnshrinePanel({
   const paid = run.reliquary;
   const choices = enshrineChoices(run);
   const shown = arrived ?? enshrinedNow(rq, paid.enshrined, paid.enshrinedUid);
+  // Phase 4d: what it enshrines remembers the run's Dissonance (its depth).
+  const depth = dissonancePoints(run.dissonance ?? []);
 
   const enshrine = (id: string) => {
     const result = onEnshrine(id);
@@ -154,6 +159,16 @@ export function EnshrinePanel({
               to craft between runs and carry into the next. Once, and only one; leave to keep none.
             </span>
           </p>
+          {depth > 0 && (
+            <p
+              className="mt-1.5 flex flex-wrap items-center gap-2 text-sm text-text"
+              data-testid="enshrine-depth"
+              data-depth={depth}
+            >
+              <DepthChip depth={depth} />
+              {wonLine(depth)}
+            </p>
+          )}
           {error && (
             <p className="mt-2 flex items-center gap-1.5 text-sm text-orange-200" role="alert">
               <Icon name="info" size={14} /> {error}
@@ -347,7 +362,15 @@ function Arrival({ relic }: { relic: ReliquaryRelic }) {
         >
           Enshrined
         </p>
-        <p className="font-display text-xl font-bold text-gold-100">{v.name}</p>
+        <p className="flex flex-wrap items-center gap-2 font-display text-xl font-bold text-gold-100">
+          {v.name}
+          {relic.depth > 0 && <DepthChip depth={relic.depth} className="font-sans" />}
+        </p>
+        {relic.depth > 0 && (
+          <p className="text-xs text-muted" data-testid="arrival-depth">
+            {wonLine(relic.depth)}
+          </p>
+        )}
         <p className="mt-0.5 text-sm text-text">{v.text}</p>
         {v.ownCurse && (
           <p

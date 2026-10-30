@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { CONTENT, deedText, inscriptionDef } from '../src/content';
 import { DEED_POINTS_MAX, deedPoints } from '../src/meta/deeds';
+import { dissonancePoints, fitLevels, xpMult } from '../src/meta/dissonance';
 import { rankOf } from '../src/meta/profile';
 import { runWithoutYou } from '../src/sim/counterfactual';
 import { parseReplay, runReplay } from '../src/sim/replay';
@@ -719,5 +720,119 @@ test('Phase 4c: the Reliquary — from Prep, craft, carry and attune, embark wit
   // Once is all: no more options.
   await expect(panel).toHaveAttribute('data-stage', 'done');
   await expect(page.getByTestId('enshrine-options')).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
+test('Phase 4d: Dissonance — choose levels in Prep, embark, the fight plays them, a win sets the record', async ({
+  page,
+}) => {
+  test.setTimeout(180_000);
+  const errors = trackErrors(page);
+  const rules = CONTENT.dissonanceRules;
+  const phase = () => page.evaluate(() => window.__AWRUN__!.phase());
+  const dissonance = () => page.evaluate(() => window.__AWRUN__!.dissonance());
+  // Two levels of content: one with ranks, taken to its top, and one without (not the Pact,
+  // whose relic would join the run).
+  const ranked = CONTENT.dissonance.find((d) => d.ranks > 1)!;
+  const single = CONTENT.dissonance.find((d) => d.ranks === 1 && d.effect !== 'cursed_start')!;
+  const levels = fitLevels([
+    { id: ranked.id, rank: ranked.ranks },
+    { id: single.id, rank: 1 },
+  ]);
+  const points = dissonancePoints(levels);
+  const level = (id: string) => page.getByTestId(`dissonance-level-${id}`);
+  const panel = page.getByTestId('prep-dissonance');
+
+  // A new profile: closed, and Prep says how it opens.
+  await page.goto(START_URL);
+  await page.waitForFunction(() => window.__AWRUN__ !== undefined);
+  await page.evaluate(() => window.__AWRUN__!.newRun(4242));
+  await expect.poll(phase).toBe('prep');
+  await expect(panel).toHaveAttribute('data-open', 'false');
+  await expect(page.getByTestId('dissonance-closed-line')).toContainText(`Rank ${rules.openRank}`);
+  expect((await dissonance()).open).toBe(false);
+
+  // Settings → Skip the unlocks opens it; Prep shows every level, nothing chosen.
+  await page.goto(START_URL);
+  await page
+    .getByRole('button', { name: /^Settings$/ })
+    .first()
+    .click();
+  await page.getByText('Skip the unlocks', { exact: true }).click();
+  await expect(page.getByRole('switch', { name: /Skip the unlocks/ })).toBeChecked();
+  await page.evaluate(() => window.__AWRUN__!.newRun(4242));
+  await expect.poll(phase).toBe('prep');
+  await expect(panel).toHaveAttribute('data-open', 'true');
+  await expect(panel).toHaveAttribute('data-points', '0');
+  for (const d of CONTENT.dissonance) await expect(level(d.id)).toHaveAttribute('data-on', 'false');
+
+  // Choose: the ranked level on, then up to its top rank; the other on. The panel's numbers are
+  // the meta's, and the profile and the run in Prep follow.
+  await level(ranked.id).getByTestId('level-switch').click();
+  for (let r = 1; r < ranked.ranks; r++)
+    await level(ranked.id).getByTestId('level-rank-more').click();
+  await level(single.id).getByTestId('level-switch').click();
+  await expect(level(ranked.id)).toHaveAttribute('data-rank', String(ranked.ranks));
+  await expect(level(single.id)).toHaveAttribute('data-on', 'true');
+  await expect(panel).toHaveAttribute('data-points', String(points));
+  await expect(page.getByTestId('dissonance-total')).toHaveAttribute(
+    'data-max',
+    String(CONTENT.dissonance.reduce((n, d) => n + d.points * d.ranks, 0)),
+  );
+  await expect(page.getByTestId('dissonance-pays').locator('[data-xp]')).toHaveAttribute(
+    'data-xp',
+    String(Math.round((xpMult(points) - 1) * 1000) / 10),
+  );
+  await expect(page.getByTestId('embark-dissonance')).toHaveAttribute(
+    'data-points',
+    String(points),
+  );
+  let d = await dissonance();
+  expect(d.open).toBe(true);
+  expect(d.levels).toEqual(levels);
+  expect(d.run).toMatchObject({ levels, points, end: null });
+
+  // Embark: the run keeps them; the fight's config plays them, and the HUD says so.
+  await page
+    .getByRole('button', { name: /Embark/i })
+    .first()
+    .click();
+  await expect.poll(phase).toBe('map');
+  expect(await page.evaluate(() => window.__AWRUN__!.choose())).toBe('skirmish');
+  await expect.poll(phase).toBe('combat');
+  await page.waitForFunction(() => window.__AW__ !== undefined);
+  const config = await page.evaluate(() => window.__AW__!.exportReplay().config);
+  expect(config.dissonance).toEqual(levels);
+  await expect(page.getByTestId('hud-dissonance')).toHaveAttribute('data-points', String(points));
+
+  // Win it: the Result's XP has its Dissonance line. Then the run (the hook walks to the boss).
+  expect(await page.evaluate(() => window.__AWRUN__!.winFight())).toBe(true);
+  await expect.poll(phase).toBe('result');
+  await expect(page.getByTestId('xp-gain')).toContainText(`Dissonance ${points}`);
+  await page.evaluate(() => window.__AWRUN__!.continue());
+  await expect.poll(phase).toBe('draft');
+  await page.evaluate(() => window.__AWRUN__!.pick(0));
+  await expect.poll(phase).toBe('map');
+  expect(await page.evaluate(() => window.__AWRUN__!.winRun())).toBe(true);
+  await expect.poll(phase).toBe('summary');
+
+  // The Summary: the run's Dissonance and a new best (without a Calling); the profile keeps it.
+  if ((await page.getByTestId('rank-up').count()) > 0)
+    await page.getByRole('button', { name: /Onward/ }).click();
+  await expect(page.getByTestId('rank-up')).toHaveCount(0);
+  const summary = page.getByTestId('summary-dissonance');
+  await expect(summary).toHaveAttribute('data-points', String(points));
+  await expect(summary).toHaveAttribute('data-best', 'true');
+  await expect(page.getByTestId('dissonance-new-best')).toContainText(String(points));
+  d = await dissonance();
+  expect(d.best.none).toBe(points);
+  expect(d.run!.end).toEqual({ opened: false, best: true });
+
+  // The next Prep shows the record, and that a new best now takes more.
+  await page.getByRole('button', { name: /New run/ }).click();
+  await expect.poll(phase).toBe('prep');
+  const best = page.getByTestId('dissonance-best');
+  await expect(best).toHaveAttribute('data-best', String(points));
+  await expect(best).toContainText(`Best won without a Calling: ${points}.`);
   expect(errors).toEqual([]);
 });

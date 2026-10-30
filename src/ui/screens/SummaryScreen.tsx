@@ -44,6 +44,9 @@ import { KeystoneChips } from './AstrolabeParts';
 import { pointsWord, treeTotals } from './astrolabeModel';
 import { RunDeedsPanel } from './DeedsParts';
 import { EnshrinePanel, type SummaryReliquary } from './ReliquarySummary';
+import { RunDissonancePanel } from './DissonanceParts';
+import { pactLine, pactName } from './dissonanceModel';
+import { DISCORD_LOOK } from '../kit/dissonanceLook';
 import { CarriedChip, InscriptionList } from './ReliquaryParts';
 import { DORMANT_LINE, carriedSnapshot, relicView } from './reliquaryModel';
 import type { ReliquaryRelic } from '../../meta/reliquary';
@@ -228,6 +231,8 @@ export function SummaryView({
         {profileXp !== undefined && <RunRankPanel run={run} profileXp={profileXp} />}
 
         <RunDeedsPanel ids={run.deeds} className="mt-6" />
+
+        <RunDissonancePanel run={run} quiet={rankUps.length > 0 && !!onDismissRankUps} />
 
         {reliquary && run.reliquary && (
           <EnshrinePanel run={run} {...reliquary} initialArrived={enshrined} />
@@ -542,6 +547,11 @@ export function SummaryView({
                         {run.reliquary?.enshrined === r.id && (
                           <Chip color="var(--color-gold-300)" icon="reliquary">
                             Enshrined
+                          </Chip>
+                        )}
+                        {r.pact && (
+                          <Chip color={DISCORD_LOOK.color} icon="dissonance" title={pactLine()}>
+                            From {pactName()}
                           </Chip>
                         )}
                       </p>

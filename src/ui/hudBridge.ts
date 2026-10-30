@@ -22,6 +22,7 @@ import {
   type TechniqueKey,
   type WorldState,
 } from '../sim';
+import { dissonancePoints, parMult } from '../meta/dissonance';
 import { relicHuds } from './hud/relics';
 import { callingHud, lifeMarksOf, masteryCooldown, shineOf, stasisSeconds } from './hud/calling';
 import { treeAfterglow, treeBleedOutMult, treeGrace } from './screens/astrolabeModel';
@@ -356,6 +357,8 @@ export function buildHudSnapshot(
       resonance: w?.resonance ?? 0,
       resonanceMax: resonance.max,
       segment: resonance.segment,
+      // Silent Cues (Phase 4d) raises it: the fight's own.
+      cueCost: state.dissonance.cueCost,
       crescendoCost: resonance.crescendoCost,
       crescendo: w?.crescendo ?? 0,
       // Sunrise is the Weaver's own; the Vow and Stasis are the Calling's (content `crescendoName`).
@@ -398,7 +401,8 @@ export function buildHudSnapshot(
       wave: enc.wave,
       waves: enc.waves,
       elapsed: enc.status === 'intro' ? 0 : (enc.endedAt ?? state.time) - enc.startedAt,
-      par: encDef.par,
+      // As the run grades it (Phase 4d): Dissonance's extra life lengthens the par.
+      par: Math.round(encDef.par * parMult(state.dissonance.levels, encDef.kind)),
       enemies,
     },
     directive: state.directive,
@@ -421,6 +425,15 @@ export function buildHudSnapshot(
     ),
     astrolabe:
       tree.length > 0 ? { stars: tree.length, keystones: [...state.astrolabe.keystones] } : null,
+    // Dissonance (Phase 4d): the levels in force, and Blind Score for the hints and the boss bar.
+    dissonance:
+      state.dissonance.levels.length > 0
+        ? {
+            levels: state.dissonance.levels.map((l) => ({ id: l.id, rank: l.rank })),
+            points: dissonancePoints(state.dissonance.levels),
+            blindScore: state.dissonance.blindScore,
+          }
+        : null,
     entityCount: state.entities.count,
     dummyCount,
   };

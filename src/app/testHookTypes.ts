@@ -117,6 +117,30 @@ export interface RunHook {
    * the Reliquary and its Summary can enshrine. Returns false if it couldn't.
    */
   winRun(found?: string[]): boolean;
+  /**
+   * Phase 4d: the profile's Dissonance (open or not, the levels chosen in Prep, the best won by
+   * Calling, `none` without one) and the run's side of it (null without a run): its levels, their
+   * points, and what its end did (opened it, set a new best).
+   */
+  dissonance(): DissonanceView;
+}
+
+/** A Dissonance level and its rank. */
+export interface HookLevel {
+  id: string;
+  rank: number;
+}
+
+/** What `dissonance()` returns. */
+export interface DissonanceView {
+  open: boolean;
+  levels: HookLevel[];
+  best: Record<string, number>;
+  run: {
+    levels: HookLevel[];
+    points: number;
+    end: { opened: boolean; best: boolean } | null;
+  } | null;
 }
 
 /** An Inscription as the hook reads and seeds it. */
@@ -139,6 +163,8 @@ export interface ReliquaryView {
     instability: number;
     fractured: boolean;
     dissonance: string | null;
+    /** Phase 4d: the Dissonance it was won at. */
+    depth: number;
   }[];
   carry: string[];
   run: {

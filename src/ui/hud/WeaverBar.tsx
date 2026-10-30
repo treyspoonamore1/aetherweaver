@@ -14,6 +14,8 @@ import { CallingGlyph, callingLook } from '../kit/CallingGlyph';
 import { AstrolabeGlyph } from '../kit/AstrolabeGlyph';
 import { CONSTELLATION_LOOK } from '../kit/astrolabeLook';
 import { rewindSentence } from './rewindText';
+import { DISCORD_LOOK } from '../kit/dissonanceLook';
+import { cueLine, cueTicks } from '../screens/dissonanceModel';
 
 /** The Chronomancer's clockwork (Phase 3e): Stasis on the buttons, Rewind, Temporal Mastery. */
 const CHRONO = callingLook('chronomancer');
@@ -504,17 +506,20 @@ function ResonanceArc({ weaver: w, callingId }: { weaver: WeaverHud; callingId?:
   const cy = 62;
   const radius = 54;
   const gap = 5; // degrees
+  const rad = (deg: number) => (deg * Math.PI) / 180;
+  const at = (deg: number, r = radius) =>
+    `${(cx + r * Math.cos(rad(deg))).toFixed(2)} ${(cy + r * Math.sin(rad(deg))).toFixed(2)}`;
   const arcs = Array.from({ length: segments }, (_, i) => {
     const span = 180 / segments;
     const a0 = 180 + i * span + gap / 2;
     const a1 = 180 + (i + 1) * span - gap / 2;
-    const rad = (deg: number) => (deg * Math.PI) / 180;
-    const p = (deg: number) =>
-      `${(cx + radius * Math.cos(rad(deg))).toFixed(2)} ${(cy + radius * Math.sin(rad(deg))).toFixed(2)}`;
     const fill = Math.max(0, Math.min(1, (w.resonance - i * w.segment) / w.segment));
-    return { d: `M ${p(a0)} A ${radius} ${radius} 0 0 1 ${p(a1)}`, fill };
+    return { d: `M ${at(a0)} A ${radius} ${radius} 0 0 1 ${at(a1)}`, fill };
   });
   const full = Math.floor((w.resonance + 1e-9) / w.segment);
+  // Silent Cues (Phase 4d): a Cue costs more than a segment; its price is marked on the arc.
+  const ticks = cueTicks(w);
+  const cues = Math.floor((w.resonance + 1e-9) / Math.max(1e-9, w.cueCost));
   return (
     <div
       className="relative h-[4.6rem] w-[8.5rem] shrink-0"
@@ -523,7 +528,9 @@ function ResonanceArc({ weaver: w, callingId }: { weaver: WeaverHud; callingId?:
       aria-valuemin={0}
       aria-valuemax={w.resonanceMax}
       aria-valuenow={Math.round(w.resonance)}
-      aria-valuetext={`${full} of ${segments} segments${ready ? ', Crescendo ready' : ''}`}
+      aria-valuetext={`${full} of ${segments} segments${ready ? ', Crescendo ready' : ''}${ticks.length > 0 ? `. ${cueLine(w.cueCost)} Enough for ${cues}` : ''}`}
+      title={ticks.length > 0 ? cueLine(w.cueCost) : undefined}
+      data-cue-cost={w.cueCost}
     >
       <svg viewBox="0 0 136 74" width="136" height="74" className="absolute inset-0" aria-hidden>
         {arcs.map((a, i) => (
@@ -549,7 +556,28 @@ function ResonanceArc({ weaver: w, callingId }: { weaver: WeaverHud; callingId?:
             />
           </g>
         ))}
+        {ticks.map((v) => {
+          const deg = 180 + (v / w.resonanceMax) * 180;
+          const d = `M ${at(deg, radius - 7.5)} L ${at(deg, radius + 7.5)}`;
+          return (
+            <g key={v} data-testid="cue-tick">
+              <path d={d} stroke="var(--color-ink-950)" strokeWidth={4.5} strokeLinecap="round" />
+              <path d={d} stroke={DISCORD_LOOK.color} strokeWidth={2.2} strokeLinecap="round" />
+            </g>
+          );
+        })}
       </svg>
+      {ticks.length > 0 && !active && (
+        <span
+          className="absolute inset-x-0 top-[1.3rem] flex items-center justify-center gap-0.5 font-mono text-[11px] font-bold leading-none"
+          style={{ color: DISCORD_LOOK.color }}
+          aria-hidden
+          data-testid="cue-cost"
+        >
+          <Icon name="note" size={10} />
+          Cue {w.cueCost}
+        </span>
+      )}
       <div className="absolute inset-x-0 bottom-0 flex flex-col items-center">
         {active && (w.vow || w.stasis) ? (
           // The Martyr's Vow in her blood; the Chronomancer's Stasis in steel and silver. Each

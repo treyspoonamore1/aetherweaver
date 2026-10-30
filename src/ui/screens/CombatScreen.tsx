@@ -37,6 +37,10 @@ export function CombatScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the node being played
   }, [pending, encounters]);
 
+  // Silent Cues (Phase 4d): the fight's own Cue cost, when it isn't a segment.
+  const cueCost = useUi((s) => s.hud?.weaver.cueCost ?? null);
+  const segment = useUi((s) => s.hud?.weaver.segment ?? null);
+  const cue = cueCost !== null && cueCost !== segment ? { cost: cueCost } : null;
   const paused = useUi((s) => s.paused);
   const showPerf = useUi((s) => s.showPerf);
   const devOpen = useUi((s) => s.devOpen);
@@ -73,7 +77,7 @@ export function CombatScreen() {
       {showPerf && <PerfHud />}
       {devOpen && <DevPanel />}
       {howto ? (
-        <HowToPlay onClose={closeHowTo} bear={bear} rewind={rewind} />
+        <HowToPlay onClose={closeHowTo} bear={bear} rewind={rewind} cue={cue} />
       ) : (
         paused && (
           <PauseMenu

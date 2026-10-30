@@ -360,7 +360,10 @@ export const AttackDefSchema = z.object({
   interruptible: z.boolean(),
   /** Summon: enemy id and count. Heal: amount per second (uses `damage`). */
   summon: z.object({ enemy: IdSchema, count: z.number().int().positive() }).optional(),
-  /** Boss decree text, announced when it starts. */
+  /**
+   * Boss decree text, announced when it starts: what's coming, then how to answer it in later
+   * sentences (Blind Score, Dissonance, shows only the first).
+   */
   decree: z.string().optional(),
 });
 export type AttackDef = z.infer<typeof AttackDefSchema>;

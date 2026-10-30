@@ -5,19 +5,23 @@ import { Icon } from '../kit/Icon';
 import type { BossHud } from '../store';
 import { AnswerGlyph } from './AnswerGlyph';
 import { secondsLabel } from './chrono';
+import { BLIND_LOOK } from '../kit/dissonanceLook';
+import { blindDecree, blindLine, levelName } from '../screens/dissonanceModel';
 
 /** The Chronomancer's silver, for Foresight's line (Phase 3e). */
 const CHRONO = callingLook('chronomancer');
 
 /**
  * Boss bar (docs/plan/04 §5.2, top-centre): HP with phase ticks, the cast and its answers. With
- * the Chronomancer's Foresight, the boss's next attack shows before it begins.
+ * the Chronomancer's Foresight, the boss's next attack shows before it begins. Under Blind Score
+ * (Phase 4d) the cast's answers are hidden, and a decree keeps what's coming but not its answer.
  */
 export function BossBar({
   boss,
   decree,
   decreeBanner = false,
   rewind = false,
+  blind = false,
 }: {
   boss: BossHud;
   decree: { name: string; text: string } | null;
@@ -25,6 +29,8 @@ export function BossBar({
   decreeBanner?: boolean;
   /** A Chronomancer run: Reel's answer is Rewind's (Phase 3e). */
   rewind?: boolean;
+  /** Phase 4d, Blind Score: don't name the answer a telegraph wants. */
+  blind?: boolean;
 }) {
   const hpPct = boss.maxHp > 0 ? Math.max(0, Math.min(100, (boss.hp / boss.maxHp) * 100)) : 0;
   const shieldPct = boss.maxHp > 0 ? Math.min(100 - 0, (boss.shield / boss.maxHp) * 100) : 0;
@@ -102,9 +108,11 @@ export function BossBar({
               </span>
               <span className="flex flex-wrap items-center justify-end gap-1">
                 <span className="text-xs text-muted">Answer:</span>
-                {boss.cast.answers.map((a) => (
-                  <AnswerGlyph key={a} tag={a} rewind={rewind} />
-                ))}
+                {blind ? (
+                  <BlindAnswer />
+                ) : (
+                  boss.cast.answers.map((a) => <AnswerGlyph key={a} tag={a} rewind={rewind} />)
+                )}
               </span>
             </div>
             <div className="mt-1 h-2 overflow-hidden rounded-full bg-ink-700">
@@ -137,19 +145,38 @@ export function BossBar({
           </p>
         )}
       </div>
-      {(boss.decree ?? decree) && !decreeBanner && <DecreeLine decree={(boss.decree ?? decree)!} />}
+      {(boss.decree ?? decree) && !decreeBanner && (
+        <DecreeLine decree={(boss.decree ?? decree)!} blind={blind} />
+      )}
     </div>
   );
 }
 
-function DecreeLine({ decree }: { decree: { name: string; text: string } }) {
+/** Blind Score where a cast's answers would be: the answer is the player's to read. */
+function BlindAnswer() {
+  return (
+    <span
+      className="inline-flex items-center gap-1 rounded-md border border-ink-500 bg-ink-900/70 px-1.5 py-0.5 text-xs font-semibold"
+      style={{ color: BLIND_LOOK.color }}
+      title={blindLine()}
+      data-testid="blind-answer"
+    >
+      <Icon name={BLIND_LOOK.icon} size={13} />
+      {levelName('blind_score')}
+    </span>
+  );
+}
+
+function DecreeLine({ decree, blind }: { decree: { name: string; text: string }; blind: boolean }) {
+  const text = blind ? blindDecree(decree.text) : decree.text;
   return (
     <p
       className="mt-1.5 rounded-lg border border-ailment/50 bg-ink-900/85 px-3 py-1.5 text-xs leading-snug text-violet-200 backdrop-blur-sm"
-      title={decree.text}
+      title={text}
+      data-testid="decree-line"
     >
       <span className="mr-1.5 font-display text-sm font-bold text-violet-100">Decree</span>
-      <span className="line-clamp-2">{decree.text || decree.name}</span>
+      <span className="line-clamp-2">{text || decree.name}</span>
     </p>
   );
 }

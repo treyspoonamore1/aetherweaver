@@ -60,6 +60,7 @@ import { buildHudSnapshot } from '../hudBridge';
 import { foreseenAll, rewindPreview } from '../hud/chrono';
 import { callingLook } from '../kit/callingLook';
 import { EVERYTHING, MAX_RANK, UNLOCKS } from '../../meta/profile';
+import { dissonancePoints, fitLevels, type DissonanceChoice } from '../../meta/dissonance';
 import { allocate, astrolabePoints } from '../../meta/astrolabe';
 import { deedsEarned } from '../../meta/deeds';
 import { STARS, starStats } from '../screens/astrolabeModel';
@@ -318,6 +319,7 @@ function mockHudRaw(scenario: HudScenario): HudSnapshot {
       resonance: 38,
       resonanceMax: 100,
       segment: 25,
+      cueCost: CONTENT.resonance.cueCost,
       crescendoCost: 100,
       crescendo: 0,
       crescendoName: CONTENT.crescendo.name,
@@ -372,6 +374,7 @@ function mockHudRaw(scenario: HudScenario): HudSnapshot {
     relics: [],
     calling: null,
     astrolabe: null,
+    dissonance: null,
     entityCount: 40,
     dummyCount: 0,
   };
@@ -2665,4 +2668,147 @@ export function reliquarySummaryRun(outcome: 'victory' | 'defeat' = 'victory'): 
   };
   const paid = runMaterials(next);
   return { ...next, reliquary: { ...paid, enshrined: null } };
+}
+
+// ── Phase 4d: Dissonance ─────────────────────────────────────────────────────────────
+
+/**
+ * The lab's choices, one rank at a time, in the order it takes them: a varied run (a ranked
+ * level raised early, Silent Cues and Blind Score among the first), then every other level of
+ * content at each of its ranks. Levels content no longer has are skipped.
+ */
+const DISSONANCE_STEPS: readonly (readonly [string, number])[] = [
+  ['hardened', 1],
+  ['brisk_foes', 1],
+  ['silent_cues', 1],
+  ['hardened', 2],
+  ['fragile_threads', 1],
+  ['blind_score', 1],
+  ['short_fuse', 1],
+  ['unforgiving', 1],
+  ['short_fuse', 2],
+  ['wounding_strikes', 1],
+];
+
+/**
+ * Levels adding up to `target` points, or as little past it as content's points allow (the views
+ * follow the tuning: "about 10" lands on the first band or just past it). `Infinity`: every level
+ * at its top rank.
+ */
+export function mockDissonance(target: number): DissonanceChoice[] {
+  if (target === Infinity) return CONTENT.dissonance.map((d) => ({ id: d.id, rank: d.ranks }));
+  const rest = CONTENT.dissonance.flatMap((d) =>
+    Array.from({ length: d.ranks }, (_, i) => [d.id, i + 1] as const),
+  );
+  const steps = [...DISSONANCE_STEPS, ...rest].filter(([id, rank]) =>
+    CONTENT.dissonance.some((d) => d.id === id && rank <= d.ranks),
+  );
+  const take = (levels: DissonanceChoice[], id: string, rank: number) =>
+    fitLevels([...levels.filter((l) => l.id !== id), { id, rank }]);
+  // A step is the next rank of a level (its first, then its second).
+  const next = (levels: DissonanceChoice[], id: string, rank: number) =>
+    (levels.find((l) => l.id === id)?.rank ?? 0) === rank - 1;
+  let levels: DissonanceChoice[] = [];
+  for (const [id, rank] of steps) {
+    if (dissonancePoints(levels) >= target) break;
+    if (!next(levels, id, rank)) continue;
+    const tried = take(levels, id, rank);
+    if (dissonancePoints(tried) <= target) levels = tried;
+  }
+  // Still short: the step that passes it by least.
+  if (dissonancePoints(levels) < target) {
+    const options = steps
+      .filter(([id, rank]) => next(levels, id, rank))
+      .map(([id, rank]) => take(levels, id, rank))
+      .sort((a, b) => dissonancePoints(a) - dissonancePoints(b));
+    levels = options.find((o) => dissonancePoints(o) >= target) ?? options.at(-1) ?? levels;
+  }
+  return levels;
+}
+
+/**
+ * The HUD with Dissonance in force: a scenario's HUD, with what the bridge reads of a real fight
+ * at these levels (its points, Blind Score, the Cue's cost).
+ */
+export function mockDissonanceHud(
+  scenario: HudScenario,
+  levels: readonly DissonanceChoice[],
+): HudSnapshot {
+  const real = buildHudSnapshot(createSim({ seed: 7, dissonance: [...levels] }).state, {
+    seed: 7,
+    hovered: null,
+  });
+  const hud = mockHud(scenario);
+  return {
+    ...hud,
+    weaver: { ...hud.weaver, cueCost: real.weaver.cueCost },
+    dissonance: real.dissonance,
+  };
+}
+
+/**
+ * A Reliquary at every depth (Phase 4d): Prism Loom won without Dissonance (its T3 can't
+ * Ascend), Cantor's Hymnal won at the first band (T2 reachable, T1 not yet), Silver Thimble won at
+ * the deepest (T1 reachable), Tuning Fork won shallow, below the first band.
+ */
+export function depthReliquary(): Reliquary {
+  const bands = CONTENT.reliquary.bands.map((b) => b.depth);
+  const first = bands[0] ?? 10;
+  const deepest = bands.at(-1) ?? 20;
+  return mockReliquary(
+    [
+      mockRelic('r1', 'prism_loom', [
+        ['potent_thread', 3, 0.5],
+        ['clear_tone', 4, 1],
+        ['vigor', 5, 0],
+      ]),
+      mockRelic(
+        'r2',
+        'cantors_hymnal',
+        [
+          ['deep_breath', 2, 0.5],
+          ['attentive', 3],
+          ['hardy', 4, 1],
+        ],
+        { depth: first + 2, instability: 24 },
+      ),
+      mockRelic(
+        'r3',
+        'silver_thimble',
+        [
+          ['clear_tone', 1, 1],
+          ['wide_field', 2, 0.5],
+          ['light_reserve', 3],
+        ],
+        { depth: deepest + 4, instability: 36 },
+      ),
+      mockRelic('r4', 'tuning_fork', [['true_timing', 4]], { depth: Math.max(1, first - 3) }),
+      mockRelic('r5', 'heavy_score', [
+        ['fierce', 4, 1],
+        ['hardy', 5],
+      ]),
+    ],
+    ['r3', 'r2'],
+    48,
+    2,
+  );
+}
+
+/**
+ * A won run at its Summary with Dissonance: these levels, and what its end did (`opened`,
+ * `best`). `calling`: won with the Luminary (its whole path); `reliquary`: the Reliquary open,
+ * the relics it found to enshrine, and its end paid at the run's points.
+ */
+export function dissonanceSummaryRun(
+  levels: readonly DissonanceChoice[],
+  end: { opened: boolean; best: boolean },
+  opts: { calling?: boolean; reliquary?: boolean } = {},
+): RunState {
+  let run: RunState = opts.calling ? callingSummaryRun() : summaryRun('victory');
+  if (opts.reliquary) {
+    const found = reliquarySummaryRun('victory');
+    run = { ...run, carried: found.carried, relics: found.relics };
+  }
+  run = { ...run, dissonance: fitLevels(levels), dissonanceEnd: { ...end } };
+  return opts.reliquary ? { ...run, reliquary: { ...runMaterials(run), enshrined: null } } : run;
 }

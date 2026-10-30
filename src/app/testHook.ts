@@ -1,4 +1,5 @@
 import { reachable, findNode, chooseNode, reservePool } from '../meta/run';
+import { dissonancePoints } from '../meta/dissonance';
 import type { Reliquary } from '../meta/reliquary';
 import { saveProfile } from '../meta/save';
 import type { CombatOutcome, NodeKind, RunState } from '../meta/types';
@@ -136,6 +137,7 @@ export function installRunHook(): void {
           instability: r.instability,
           fractured: r.fractured,
           dissonance: r.dissonance?.kind ?? null,
+          depth: r.depth,
         })),
         carry: [...rq.carry],
         run: state
@@ -157,6 +159,23 @@ export function installRunHook(): void {
       const profile = { ...p, reliquary };
       saveProfile(storage(), profile);
       useProfile.setState({ profile });
+    },
+    dissonance: () => {
+      const p = useProfile.getState();
+      const d = p.profile.dissonance;
+      const state = run().run;
+      return {
+        open: p.dissonanceOpen(),
+        levels: d.levels.map((l) => ({ ...l })),
+        best: { ...d.best },
+        run: state
+          ? {
+              levels: state.dissonance.map((l) => ({ ...l })),
+              points: dissonancePoints(state.dissonance),
+              end: state.dissonanceEnd ? { ...state.dissonanceEnd } : null,
+            }
+          : null,
+      };
     },
     winRun: (found = []) => {
       const state = run().run;

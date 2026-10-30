@@ -14,6 +14,8 @@ import {
 import { CallingStripItem } from './CallingParts';
 import { CarriedMark, CarriedRelicTip } from './ReliquaryParts';
 import { carriedSnapshot, relicView } from './reliquaryModel';
+import { pactLine } from './dissonanceModel';
+import { DISCORD_LOOK } from '../kit/dissonanceLook';
 
 /** The rule, the curse (struck through once cleansed) and the flavour, for cards and tips. */
 export function RelicBody({
@@ -158,7 +160,7 @@ export function RelicBadge({
   align = 'center',
   carried,
 }: {
-  relic: Pick<OwnedRelic, 'id' | 'cleansed' | 'carried' | 'empowered' | 'dormant'>;
+  relic: Pick<OwnedRelic, 'id' | 'cleansed' | 'carried' | 'empowered' | 'dormant' | 'pact'>;
   size?: number;
   open?: boolean;
   align?: 'start' | 'center' | 'end';
@@ -175,13 +177,19 @@ export function RelicBadge({
               .join(' ')}`
           : ''
       }`
-    : relicSentence(info);
+    : `${relicSentence(info)}${relic.pact ? ` ${pactLine()}` : ''}`;
   return (
     <Tip
       open={open}
       align={align}
       width={relic.carried ? 'w-80' : undefined}
-      tip={relic.carried ? <CarriedRelicTip info={info} relic={snap} /> : <RelicTip info={info} />}
+      tip={
+        relic.carried ? (
+          <CarriedRelicTip info={info} relic={snap} />
+        ) : (
+          <RelicTip info={info} pact={!!relic.pact} />
+        )
+      }
     >
       <span
         tabIndex={0}
@@ -207,7 +215,7 @@ export function RelicBadge({
   );
 }
 
-export function RelicTip({ info }: { info: RelicInfo }) {
+export function RelicTip({ info, pact = false }: { info: RelicInfo; pact?: boolean }) {
   return (
     <>
       <span className="flex items-center justify-between gap-2">
@@ -217,6 +225,17 @@ export function RelicTip({ info }: { info: RelicInfo }) {
       <span className="mt-1.5 block">
         <RelicBody info={info} compact />
       </span>
+      {pact && (
+        // Phase 4d: Discordant Pact imposed it.
+        <span
+          className="mt-1.5 flex items-start gap-1.5 border-t border-ink-600/70 pt-1.5 text-xs leading-snug"
+          style={{ color: DISCORD_LOOK.color }}
+          data-testid="pact-line"
+        >
+          <Icon name={DISCORD_LOOK.icon} size={13} className="mt-px shrink-0" />
+          {pactLine()}
+        </span>
+      )}
     </>
   );
 }

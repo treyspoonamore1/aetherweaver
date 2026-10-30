@@ -17,11 +17,11 @@ import {
   fieldAuraSlots as runFieldAuraSlots,
   reserveMult as runReserveMult,
   reservePool,
+  restHeal,
 } from '../../meta/run';
 import { slotBonus } from './callingText';
 import { PartyHealth, SectionTitle } from './shared';
-
-const REST_HEAL = 0.4;
+import { unforgivingLine } from './dissonanceModel';
 
 export interface RespiteViewProps {
   run: RunState;
@@ -48,6 +48,8 @@ export function RespiteView({
   const [retuning, setRetuning] = useState(initialRetune);
   const upgradable = run.motifs.filter((m) => m.level < motifDef(m.id).values.length).length;
   const shaken = run.party.filter((h) => h.shaken).length;
+  // What Rest heals is the run's (Phase 4d: nothing under Dissonance's Unforgiving).
+  const heal = restHeal(run);
   useEffect(() => {
     if (retuning) return;
     const onKey = (e: KeyboardEvent) => {
@@ -94,7 +96,9 @@ export function RespiteView({
             title="Rest"
             color="#86efac"
             lines={[
-              `Every hero recovers ${Math.round(REST_HEAL * 100)}% of their life.`,
+              heal > 0
+                ? `Every hero recovers ${Math.round(heal * 100)}% of their life.`
+                : unforgivingLine('rest'),
               shaken > 0
                 ? `Steadies ${shaken} Shaken ${shaken === 1 ? 'hero' : 'heroes'} (their life is back to full size).`
                 : 'No one is Shaken right now.',
@@ -130,11 +134,13 @@ export function RespiteView({
           <SectionTitle>Your party</SectionTitle>
           <div className="flex flex-col gap-4">
             {run.party.map((h) => (
-              <PartyHealth key={h.heroId} hero={h} preview={REST_HEAL} />
+              <PartyHealth key={h.heroId} hero={h} preview={heal > 0 ? heal : undefined} />
             ))}
           </div>
-          <p className="mt-3 text-xs text-muted">
-            The hatched part of each bar is what Rest would restore.
+          <p className="mt-3 text-xs text-muted" data-testid="rest-heal" data-heal={heal}>
+            {heal > 0
+              ? 'The hatched part of each bar is what Rest would restore.'
+              : unforgivingLine('party')}
           </p>
         </Panel>
       </div>

@@ -281,8 +281,13 @@ export interface WeaverHud {
   reserved: number;
   resonance: number;
   resonanceMax: number;
-  /** Size of one Resonance segment (a Cue costs one). */
+  /** Size of one Resonance segment (a Cue costs one, unless Dissonance raises it). */
   segment: number;
+  /**
+   * Phase 4d: what a Cue costs this fight (`WorldState.dissonance.cueCost`): the content's, or
+   * more with Silent Cues.
+   */
+  cueCost: number;
   crescendoCost: number;
   /** Seconds left in an active Crescendo (0 = none). */
   crescendo: number;
@@ -362,6 +367,16 @@ export interface EncounterHud {
   enemies: number;
 }
 
+/** Phase 4d: the Dissonance in force this fight (`WorldState.dissonance`). */
+export interface DissonanceHud {
+  /** The levels and their ranks, in content order. */
+  levels: { id: string; rank: number }[];
+  /** Their points (`dissonancePoints`). */
+  points: number;
+  /** Blind Score: the HUD doesn't name the answer a telegraph wants. */
+  blindScore: boolean;
+}
+
 export interface HudSnapshot {
   tick: number;
   /** Simulated seconds. */
@@ -383,6 +398,8 @@ export interface HudSnapshot {
    * (ids, in content order) for the chip. Null without a tree.
    */
   astrolabe: { stars: number; keystones: string[] } | null;
+  /** Phase 4d: the Dissonance in force (null: none). */
+  dissonance: DissonanceHud | null;
   entityCount: number;
   dummyCount: number;
 }

@@ -118,7 +118,9 @@ export function ResultView({
           </div>
           {(profileXp !== undefined || aether) && (
             <div className="flex w-full flex-col gap-2 sm:ml-auto sm:w-80">
-              {profileXp !== undefined && <XpGainPanel result={r} profileXp={profileXp} />}
+              {profileXp !== undefined && (
+                <XpGainPanel result={r} profileXp={profileXp} dissonance={run.dissonance} />
+              )}
               {aether && (
                 <div
                   className="rounded-xl border border-gold-500/40 bg-ink-800/90 px-4 py-2.5"

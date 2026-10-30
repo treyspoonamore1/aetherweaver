@@ -99,7 +99,53 @@ Ascend's odds are unchanged (T3→T2 35%, T2→T1 20%), and so are its costs and
 
 ## Presentation
 
-*To be filled in by the UI and audio workstreams.*
+**Screens** (the UI workstream: [phase-4d/ui.md](phase-4d/ui.md), with every view in the lab under *Dissonance*):
+- **Prep**: a Dissonance panel after the Calling picker. Every number on it comes from content and the meta's functions, so it follows any retuning.
+  - Each level is a switch with its points and text. Levels with ranks get a stepper.
+  - The total is shown out of 30, on a bar marked at each band (10 · T2, 20 · T1).
+  - It shows what the total pays (XP, shards, and the Tear rules on or locked), how deep its relics will be, and the best for the chosen Calling with what a new best takes.
+  - A Pact with nothing to give says so and adds no point.
+  - While Dissonance is closed, the panel says how it opens.
+- **Summary**:
+  - a *Dissonance opens* card;
+  - the run's points, levels and pay, with a mark for a new best;
+  - the Enshrine panel shows the relic's depth and what it reaches ("Won at 12 Dissonance: its Inscriptions can reach T2").
+- **In a fight**:
+  - A chip shows the points (an eye for Blind Score) and lists the levels on hover or focus.
+  - The Cue arc, its label and the hints use the fight's Cue cost.
+  - Par times follow `parMult`.
+  - Under Blind Score, every hint, boss-bar answer, status tooltip and decree line that would name an answer is hidden.
+- **The Reliquary**:
+  - depth marks on the shelf, and a depth chip and line on the chosen relic;
+  - Ascend's and Cursed's reach follow the relic's band;
+  - a lock names the depth it waits for.
+- **Codex**: a Dissonance page, locked until it opens. It holds every level, the rewards, the bands and the bests, and names Tyrant, Mimicry and True Dissonance as still to come.
+- **Elsewhere**: the Rank 15 unlock, Respites and drafts under Unforgiving, and the Result's XP line ("Dissonance 10 · +30%").
+
+![Prep at 20 points](phase-4d/ui/prep-dissonance-20.jpg)
+
+**In the world** (the VFX and audio workstream: [phase-4d/vfx-audio.md](phase-4d/vfx-audio.md), with lab scenarios under *Phase 4d · Dissonance*):
+- **Restless Dead**:
+  - The fallen enemy topples into ash, the ash is drawn back in, and it stands up as a grave-light ring climbs it. Its bar refills in ash to 30%.
+  - A risen enemy stays ash-pale, with an ash bar, so you can see it won't rise again.
+  - The rise has a hollow, wrong sound: a tritone scooping up, gated to two voices.
+- **Blind Score**:
+  - Answer badges show a neutral **?**, keeping their place, danger, timers and the Perfect window.
+  - Wind-ups no longer give the answer away by ear: they all sound like the same swell.
+- **Elite Vanguard**: an elite's rim cycles through its affixes' colours, with a gem for each. Before, only the first affix showed.
+- **Silent Cues**: the Resonance orbit marks the Cue's cost. Cantor's Hymnal says it's ready only when the Resonance it gives pays the Cue.
+- **The other levels** are numbers the views already read from the state: the field's ring, the Thread's reach, wind-ups. Each is now tested against the real sim.
+
+![The rise, in four frames](phase-4d/vfx/rise.jpg)
+
+**Sound** (`src/audio/ui.ts`):
+- `dissonanceToggle`: tension rises with the total, and eases as it falls;
+- `dissonanceOpen`: a dark, grand sting;
+- `dissonanceBest`: a clash that resolves, its top note higher with the total.
+
+**From the workstreams**, fixed in the core:
+- Prep's total, the Respite and the draft use `playedDissonance`, `restHeal` and `skipHeal`.
+- Every decree is written as what's coming, then its answer, and a test holds every one of them to it: Blind Score keeps the first sentence.
 
 ## Harness
 
@@ -171,4 +217,16 @@ An independent review read the core (9450fc0 and 29278e2 against 3e4c182) and ra
 
 ## Known gaps
 
-*To be filled in.*
+- **Some points are by judgment.** The bots read answers from the state, so they can't measure Blind Score. They also cost little under Muted Choir and Discordant Pact, which a player would feel more.
+- **Discordant Pact is mild today.** There are two cursed relics: Heavy Score's curse is only "can't Glide", and a Forge can cleanse either one. It should bite when Phase 5 adds more.
+- **Tyrant, Mimicry and True Dissonance** wait for Phase 5's bosses and affixes.
+- **Enemy healers and longer wind-ups.** This predates Dissonance. A Mending Hymn pulses once a second, so anything that lengthens its channel heals more: the timing assist's lead and Lullaby. A Hastened healer heals less. Short Fuse is fixed (see *Code review*). The rest touches an aura, so it waits for the user's call.
+- **A won run replaced before its Summary** opens Dissonance without a card: there is no Summary to show it. The next Prep shows the panel open.
+- **Blind Score and decrees.** A decree is cut after its first sentence. A test holds every decree to that form; content has no separate field for its answer.
+- **Display:**
+  - the HUD's relic bar doesn't mark the Pact's relic (the run's relic strip and the Summary do);
+  - the Result's Threat line shows the node's Threat, not Hardened's life on top;
+  - an idle Pact shows "+0";
+  - the Summary's sounds play again if it's reloaded.
+- **The Training Grounds** play without Dissonance.
+- **The rise** is the same topple-and-stand for every enemy model.

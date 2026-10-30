@@ -2,7 +2,7 @@ import { useEffect, type ReactNode } from 'react';
 import { useRun } from '../../app/runStore';
 import { CONTENT, auraDef, heroDef, motifDef } from '../../content';
 import * as Run from '../../meta/run';
-import { motifLine } from '../../meta/run';
+import { motifLine, skipHeal } from '../../meta/run';
 import type { DraftOffer, DraftOption, RunState } from '../../meta/types';
 import { ScreenFrame, ScreenHeader } from '../kit/Backdrop';
 import { Button } from '../kit/Button';
@@ -11,6 +11,7 @@ import { Icon } from '../kit/Icon';
 import { KeyCap } from '../kit/KeyCap';
 import { playUi, useMood } from '../kit/sound';
 import { Pips } from './shared';
+import { unforgivingLine } from './dissonanceModel';
 
 const REASON: Record<DraftOffer['reason'], { title: string; blurb: string }> = {
   victory: { title: 'Spoils of the fight', blurb: 'Choose one motif to weave into your song.' },
@@ -82,8 +83,14 @@ export function DraftView({ run, onPick, onReroll }: DraftViewProps) {
             <span className="font-mono text-xs text-muted">{rerolls} left</span>
             <KeyCap label="R" />
           </Button>
-          <Button variant="ghost" onClick={() => onPick(null)} sound="back">
-            Skip: heal the party a little
+          <Button
+            variant="ghost"
+            onClick={() => onPick(null)}
+            sound="back"
+            data-testid="draft-skip"
+            data-heal={skipHeal(run)}
+          >
+            {skipHeal(run) > 0 ? 'Skip: heal the party a little' : unforgivingLine('skip')}
           </Button>
         </div>
         <OwnedStrip run={run} />

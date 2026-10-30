@@ -57,6 +57,8 @@ import { DeedsPage } from './DeedsParts';
 import type { DeedsHeld } from './deedsModel';
 import { reliquaryOpen } from '../../meta/reliquary';
 import { ReliquaryCodexPage } from './ReliquaryCodex';
+import { DissonanceCodexPage } from './DissonanceCodex';
+import { useSettings } from '../../app/settings';
 import { UnlockGlyph } from './Rank';
 
 const TABS = [
@@ -69,6 +71,7 @@ const TABS = [
   { id: 'astrolabe', label: 'The Astrolabe' },
   { id: 'deeds', label: 'Deeds' },
   { id: 'reliquary', label: 'The Reliquary' },
+  { id: 'dissonance', label: 'Dissonance' },
   { id: 'callings', label: 'Callings' },
   { id: 'calls', label: 'Calls' },
   { id: 'motifs', label: 'Motifs' },
@@ -79,6 +82,12 @@ export type TabId = (typeof TABS)[number]['id'];
 
 const NO_DEEDS: DeedsHeld = { earned: [], best: {} };
 
+/** Phase 4d: Dissonance as the profile holds it (open, and its bests by Calling). */
+export interface CodexDissonance {
+  open: boolean;
+  best: Readonly<Record<string, number>>;
+}
+
 /** The Codex: everything is generated from content, so it can never drift from the game. */
 export function CodexView({
   onBack,
@@ -86,6 +95,7 @@ export function CodexView({
   allowance = EVERYTHING,
   rank = MAX_RANK,
   deeds = NO_DEEDS,
+  dissonance,
 }: {
   onBack(): void;
   initialTab?: TabId;
@@ -95,11 +105,20 @@ export function CodexView({
   rank?: number;
   /** The Deeds the profile holds (Phase 4b): earned, and each counting Deed's best run. */
   deeds?: DeedsHeld;
+  /**
+   * Phase 4d: Dissonance as the profile holds it. Omitted: open with everything (the default
+   * allowance), else closed, with no records.
+   */
+  dissonance?: CodexDissonance;
 }) {
   useMood('title');
   const [tab, setTab] = useState<TabId>(initialTab);
   // Phase 4c: the Reliquary's page is locked until it opens (Rank 10, or Skip the unlocks).
   const reliquary = reliquaryOpen(rank, allowance.all);
+  // Phase 4d: Dissonance's too, until a win at its Rank (or Skip the unlocks).
+  const dissonant = dissonance ? dissonance.open || allowance.all : allowance.all;
+  const locked = (id: TabId) =>
+    (id === 'reliquary' && !reliquary) || (id === 'dissonance' && !dissonant);
   const onKey = (e: KeyboardEvent<HTMLDivElement>) => {
     if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
     const i = TABS.findIndex((t) => t.id === tab);
@@ -140,11 +159,9 @@ export function CodexView({
                 tab === t.id ? 'bg-gold-400 text-ink-950' : 'bg-ink-800 text-muted hover:text-text'
               }`}
             >
-              {t.id === 'reliquary' && !reliquary && (
-                <Icon name="lock" size={12} className="-mt-0.5 mr-1 inline" />
-              )}
+              {locked(t.id) && <Icon name="lock" size={12} className="-mt-0.5 mr-1 inline" />}
               {t.label}
-              {t.id === 'reliquary' && !reliquary && <span className="sr-only"> (locked)</span>}
+              {locked(t.id) && <span className="sr-only"> (locked)</span>}
             </button>
           ))}
         </div>
@@ -163,6 +180,9 @@ export function CodexView({
             />
           )}
           {tab === 'reliquary' && <ReliquaryCodexPage open={reliquary} rank={rank} />}
+          {tab === 'dissonance' && (
+            <DissonanceCodexPage open={dissonant} rank={rank} best={dissonance?.best} />
+          )}
           {tab === 'callings' && <Callings allowance={allowance} />}
           {tab === 'calls' && <Calls />}
           {tab === 'motifs' && <Motifs />}
@@ -180,9 +200,24 @@ export function CodexScreen() {
   const xp = useProfile((s) => s.profile.xp);
   const earned = useProfile((s) => s.profile.deeds);
   const best = useProfile((s) => s.profile.deedBest);
+  const dissonance = useCodexDissonance();
   return (
-    <CodexView onBack={back} allowance={allowance} rank={rankOf(xp)} deeds={{ earned, best }} />
+    <CodexView
+      onBack={back}
+      allowance={allowance}
+      rank={rankOf(xp)}
+      deeds={{ earned, best }}
+      dissonance={dissonance}
+    />
   );
+}
+
+/** Dissonance as the Codex shows it, from the profile (and Settings → Skip the unlocks). */
+export function useCodexDissonance(): CodexDissonance {
+  const won = useProfile((s) => s.profile.dissonance.open);
+  const best = useProfile((s) => s.profile.dissonance.best);
+  const unlockAll = useSettings((s) => s.settings.unlockAll);
+  return { open: won || unlockAll, best };
 }
 
 /**

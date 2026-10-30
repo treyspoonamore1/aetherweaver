@@ -1,6 +1,7 @@
 import { useState, type CSSProperties } from 'react';
 import { Icon, type IconName } from '../kit/Icon';
 import type { Callout } from '../store';
+import { blindDecree } from '../screens/dissonanceModel';
 import { WEAVER_BAR_LEFT, WEAVER_BAR_WIDTH } from './labels';
 
 /** Fades the element out over its last 350 ms, whatever its lifetime. */
@@ -76,8 +77,10 @@ function HoldBanner({ c }: { c: Callout }) {
   );
 }
 
-function DecreeBanner({ c }: { c: Callout }) {
+/** A boss's decree; under Blind Score (Phase 4d), what's coming without how to answer it. */
+function DecreeBanner({ c, blind }: { c: Callout; blind: boolean }) {
   const ttl = useLifetime(c.expiresAt);
+  const detail = c.detail && blind ? blindDecree(c.detail) : c.detail;
   return (
     <div
       className="max-w-xl rounded-xl border border-ailment/60 bg-ink-950/85 px-5 py-3 text-center shadow-xl shadow-black/60"
@@ -87,7 +90,7 @@ function DecreeBanner({ c }: { c: Callout }) {
         Decree
       </p>
       <p className="font-display text-xl font-bold text-violet-100">{c.text}</p>
-      {c.detail && <p className="mt-0.5 text-sm text-violet-200">{c.detail}</p>}
+      {detail && <p className="mt-0.5 text-sm text-violet-200">{detail}</p>}
     </div>
   );
 }
@@ -120,9 +123,12 @@ const BIG = new Set<Callout['kind']>(['perfect', 'save', 'clutch', 'response']);
 export function Callouts({
   callouts,
   barkSpeakers,
+  blind = false,
 }: {
   callouts: Callout[];
   barkSpeakers: string[];
+  /** Phase 4d, Blind Score: a decree doesn't say how to answer it. */
+  blind?: boolean;
 }) {
   const big = callouts.filter((c) => BIG.has(c.kind));
   const holds = callouts.filter((c) => c.kind === 'hold');
@@ -149,7 +155,7 @@ export function Callouts({
       </div>
       <div className="absolute left-1/2 top-[11.25rem] flex -translate-x-1/2 flex-col items-center gap-2">
         {decrees.slice(-1).map((c) => (
-          <DecreeBanner key={c.id} c={c} />
+          <DecreeBanner key={c.id} c={c} blind={blind} />
         ))}
       </div>
       <div className="absolute left-1/2 top-[7.5rem] flex -translate-x-1/2 flex-col items-center gap-2">

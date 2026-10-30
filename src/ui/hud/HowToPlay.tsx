@@ -3,6 +3,7 @@ import { Icon, type IconName } from '../kit/Icon';
 import { KeyCap } from '../kit/KeyCap';
 import { Modal } from '../kit/Modal';
 import { bindingLabel } from './labels';
+import { levelName } from '../screens/dissonanceModel';
 
 const STORE_KEY = 'aetherweaver.howto.v1';
 
@@ -35,7 +36,15 @@ export interface RewindPrimer {
   cooldown: number;
 }
 
-function rows(bear: boolean, rewind: RewindPrimer | null): Row[] {
+/**
+ * Phase 4d: what a Cue costs this fight, when Dissonance (Silent Cues) makes it more than a
+ * segment of Resonance (null: a segment, as content has it).
+ */
+export interface CuePrimer {
+  cost: number;
+}
+
+function rows(bear: boolean, rewind: RewindPrimer | null, cue: CuePrimer | null): Row[] {
   return [
     {
       icon: 'move',
@@ -78,7 +87,9 @@ function rows(bear: boolean, rewind: RewindPrimer | null): Row[] {
       icon: 'note',
       keys: [bindingLabel('cue'), bindingLabel('crescendo')],
       title: 'Build Resonance',
-      body: 'Good support fills Resonance. Spend a segment to Cue a charged hero’s Solo, or a full song on your Crescendo.',
+      body: cue
+        ? `Good support fills Resonance. Spend ${cue.cost} Resonance to Cue a charged hero’s Solo (${levelName('cue_cost')} raises it this run), or a full song on your Crescendo.`
+        : 'Good support fills Resonance. Spend a segment to Cue a charged hero’s Solo, or a full song on your Crescendo.',
     },
   ];
 }
@@ -86,22 +97,24 @@ function rows(bear: boolean, rewind: RewindPrimer | null): Row[] {
 /**
  * First-fight primer. The sim is paused while it is open (docs/plan/04 §7). `bear`: a Martyr
  * run, where Bear has its own key (Phase 3d). `rewind`: a Chronomancer run, where Reel's key
- * Rewinds (Phase 3e).
+ * Rewinds (Phase 3e). `cue`: a Cue costs more than a segment this fight (Phase 4d).
  */
 export function HowToPlay({
   onClose,
   bear = false,
   rewind = null,
+  cue = null,
 }: {
   onClose: () => void;
   bear?: boolean;
   rewind?: RewindPrimer | null;
+  cue?: CuePrimer | null;
 }) {
   return (
     <Modal title="How to play" width="max-w-2xl" onClose={onClose} closeOnEscape>
       <p className="mt-1 text-sm text-muted">The fight is paused until you begin.</p>
       <ul className="mt-4 flex flex-col gap-3">
-        {rows(bear, rewind).map((r) => (
+        {rows(bear, rewind, cue).map((r) => (
           <li
             key={r.title}
             className="flex gap-3 rounded-xl border border-ink-600/60 bg-ink-900/60 p-3"

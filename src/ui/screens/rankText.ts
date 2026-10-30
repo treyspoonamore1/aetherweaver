@@ -2,6 +2,7 @@
  * Plain-text parts of Weaver Rank (title panel, result, summary, Settings, Codex): testable
  * without React. Every number comes from meta/profile.ts, so tuning there flows through.
  */
+import { dissonancePoints, xpMult, type DissonanceChoice } from '../../meta/dissonance';
 import {
   MAX_RANK,
   RANK_XP,
@@ -41,6 +42,8 @@ const UNLOCK_ICON: Record<string, IconName> = {
   // Phase 4c: the Reliquary's shrine, and a relic carried into a run.
   reliquary: 'reliquary',
   carrySlot: 'carry',
+  // Phase 4d: Dissonance (a calm wave breaking into a jagged one).
+  dissonance: 'dissonance',
 };
 
 export interface RankPanel {
@@ -100,13 +103,24 @@ export function wonTheRun(r: Pick<EncounterResult, 'kind' | 'outcome'>): boolean
 
 /**
  * The XP a fight earned, line by line ("The Tolling Halls +20", "Grade A +6"). The headline is
- * the result's own `xp` (what the profile was given); the lines come from `xpForFight`.
+ * the result's own `xp` (what the profile was given); the lines come from `xpForFight`. Phase 4d:
+ * a run at Dissonance earns more (`xpMult`), its own line ("Dissonance 14 · +42%"), so the lines
+ * add up to the headline.
  */
-export function fightXp(r: Pick<EncounterResult, 'kind' | 'outcome' | 'grade' | 'name' | 'xp'>): {
+export function fightXp(
+  r: Pick<EncounterResult, 'kind' | 'outcome' | 'grade' | 'name' | 'xp'>,
+  dissonance: readonly DissonanceChoice[] = [],
+): {
   total: number;
   lines: XpLine[];
 } {
   const { lines } = xpForFight(r, wonTheRun(r));
+  const extra = r.xp - lines.reduce((n, l) => n + l.xp, 0);
+  if (extra > 0) {
+    const points = dissonancePoints(dissonance);
+    const pct = Math.round((xpMult(points) - 1) * 1000) / 10;
+    lines.push({ label: points > 0 ? `Dissonance ${points} · +${pct}%` : 'Dissonance', xp: extra });
+  }
   return { total: r.xp, lines };
 }
 

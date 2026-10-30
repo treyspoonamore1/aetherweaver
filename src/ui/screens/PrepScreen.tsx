@@ -31,7 +31,9 @@ import { astrolabeOpen } from './astrolabeModel';
 import { astrolabePoints } from '../../meta/astrolabe';
 import { deedPoints } from '../../meta/deeds';
 import { carrySlots, reliquaryOpen } from '../../meta/reliquary';
+import type { DissonanceChoice } from '../../meta/dissonance';
 import { PrepReliquaryRow } from './ReliquaryParts';
+import { EmbarkDissonance, PrepDissonancePanel } from './DissonanceParts';
 
 export interface PrepViewProps {
   run: RunState;
@@ -59,6 +61,16 @@ export interface PrepViewProps {
    * null): no row, as before Rank 10. What the run carries is `run.carried`.
    */
   reliquary?: { slots: number; onOpen(): void } | null;
+  /**
+   * Phase 4d: Dissonance. Open: the profile's bests and how a choice is made (the profile store's
+   * `setDissonance`; the run's levels, `run.dissonance`, follow it). Closed: the panel says how it
+   * opens. Omitted (or null): no panel (the UI lab's older views).
+   */
+  dissonance?: {
+    open: boolean;
+    best: Readonly<Record<string, number>>;
+    onChange(levels: DissonanceChoice[]): void;
+  } | null;
 }
 
 /**
@@ -160,6 +172,7 @@ export function PrepView({
   rank,
   astrolabe = null,
   reliquary = null,
+  dissonance = null,
 }: PrepViewProps) {
   useMood('map');
   // Always the content's two at Prep (the path is empty), but read from the run like Retune.
@@ -259,6 +272,16 @@ export function PrepView({
           />
         )}
 
+        {dissonance && (
+          <PrepDissonancePanel
+            run={run}
+            open={dissonance.open}
+            best={dissonance.best}
+            rank={rank ?? 1}
+            onChange={dissonance.onChange}
+          />
+        )}
+
         <section className="mt-6" aria-label="Songs">
           <ChordBuilder
             value={draft}
@@ -334,6 +357,7 @@ export function PrepView({
       </div>
       <div className="pointer-events-none fixed inset-x-0 bottom-0 z-20 flex justify-end bg-gradient-to-t from-ink-950 via-ink-950/80 to-transparent px-6 pb-5 pt-10">
         <div className="pointer-events-auto flex items-center gap-4">
+          {dissonance?.open && <EmbarkDissonance run={run} />}
           <p className="text-sm text-muted">
             Seed <span className="font-mono text-text">{run.seed}</span>
           </p>
@@ -416,6 +440,9 @@ export function PrepScreen() {
   const xp = useProfile((s) => s.profile.xp);
   const deeds = useProfile((s) => s.profile.deeds);
   const unlockAll = useSettings((s) => s.settings.unlockAll);
+  // Dissonance (Phase 4d): open once won at its Rank, or with Skip the unlocks.
+  const dissonanceWon = useProfile((s) => s.profile.dissonance.open);
+  const best = useProfile((s) => s.profile.dissonance.best);
   const allowance = useAllowance();
   const fresh = useFreshUnlocks();
   if (!run) return null;
@@ -443,6 +470,11 @@ export function PrepScreen() {
           ? { slots: carrySlots(rank, unlockAll), onOpen: () => setScreen('reliquary') }
           : null
       }
+      dissonance={{
+        open: dissonanceWon || unlockAll,
+        best,
+        onChange: (levels) => useProfile.getState().setDissonance(levels),
+      }}
     />
   );
 }

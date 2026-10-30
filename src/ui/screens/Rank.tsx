@@ -16,6 +16,9 @@ import { AstrolabeGlyph } from '../kit/AstrolabeGlyph';
 import { STARLIGHT } from '../kit/astrolabeLook';
 import { CARRIED_LOOK } from '../kit/reliquaryLook';
 import { reliquaryUnlockLine } from './reliquaryModel';
+import { dissonanceUnlockLine } from './dissonanceModel';
+import { DiscordDisc } from './DissonanceParts';
+import type { DissonanceChoice } from '../../meta/dissonance';
 import {
   NOTHING_NEW,
   fightXp,
@@ -48,6 +51,7 @@ function UnlockDisc({ unlock: u }: { unlock: Unlock }) {
   }
   if (u.kind === 'astrolabe') return <StarDisc />;
   if (u.kind === 'reliquary' || u.kind === 'carrySlot') return <ReliquaryDisc kind={u.kind} />;
+  if (u.kind === 'dissonance') return <DiscordDisc />;
   return (
     <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-gold-400 text-gold-200">
       <Icon name={unlockIcon(u)} size={16} />
@@ -220,11 +224,14 @@ export function RankPanelView({
 export function XpGainPanel({
   result,
   profileXp,
+  dissonance = [],
 }: {
   result: Pick<EncounterResult, 'kind' | 'outcome' | 'grade' | 'name' | 'xp'>;
   profileXp: number;
+  /** Phase 4d: the run's Dissonance (its XP has a line). */
+  dissonance?: readonly DissonanceChoice[];
 }) {
-  const xp = fightXp(result);
+  const xp = fightXp(result, dissonance);
   const gain = xpGain(profileXp, xp.total);
   const p = rankPanel({ xp: profileXp, runs: 0, wins: 0 });
   return (
@@ -394,6 +401,14 @@ export function RankUpCard({
                               data-testid="rank-up-reliquary"
                             >
                               {reliquaryUnlockLine(u)}
+                            </span>
+                          )}
+                          {dissonanceUnlockLine(u) && (
+                            <span
+                              className="mt-1 block text-xs text-muted"
+                              data-testid="rank-up-dissonance"
+                            >
+                              {dissonanceUnlockLine(u)}
                             </span>
                           )}
                           {u.kind === 'astrolabe' && (

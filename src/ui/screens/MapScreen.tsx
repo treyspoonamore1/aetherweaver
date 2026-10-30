@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useRun } from '../../app/runStore';
 import { CONTENT, encounterDef, motifDef, runEventDef } from '../../content';
 import { findNode, motifLine, reachable } from '../../meta/run';
+import { parMult } from '../../meta/dissonance';
 import type { MapNode, NodeKind, RunState } from '../../meta/types';
 import { ScreenFrame, ScreenHeader } from '../kit/Backdrop';
 import { Button } from '../kit/Button';
@@ -319,6 +320,8 @@ function MapNodeView({
   const pos = nodePos(run, node);
   const rows = run.map.rows.length;
   const enc = node.encounterId ? encounterDef(node.encounterId) : null;
+  // The fight's par at the run's Dissonance (Phase 4d: its extra life lengthens it).
+  const par = enc ? Math.round(enc.par * parMult(run.dissonance ?? [], enc.kind)) : 0;
   const ev = node.kind === 'event' ? eventPreview(node.eventId) : null;
   const eventIcon = node.eventId ? runEventDef(node.eventId).icon : null;
   const title = enc?.name ?? ev?.name ?? look.label;
@@ -445,7 +448,7 @@ function MapNodeView({
           <Chip color={look.color} icon={look.icon}>
             {look.label}
           </Chip>
-          {enc && enc.par > 0 && <Chip icon="clock">par {clock(enc.par)}</Chip>}
+          {enc && par > 0 && <Chip icon="clock">par {clock(par)}</Chip>}
           {enc && enc.waves.length > 1 && <Chip>{enc.waves.length} waves</Chip>}
         </div>
         {enc && <p className="mt-2 text-xs italic leading-relaxed text-muted">{enc.flavor}</p>}

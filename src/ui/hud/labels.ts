@@ -36,6 +36,16 @@ export interface StatusLook {
   color: string;
   /** One line shown in tooltips. */
   help: string;
+  /**
+   * The answer it wants, said after `help` ("Chime it away."). Phase 4d: Blind Score leaves it
+   * out, as it hides every answer a telegraph wants.
+   */
+  answer?: string;
+}
+
+/** A status's tooltip: its name, what it does and (unless `blind`) how to answer it. */
+export function statusTitle(look: StatusLook, blind = false): string {
+  return `${look.label}: ${look.help}${look.answer && !blind ? ` ${look.answer}` : ''}`;
 }
 
 export const STATUS: Record<StatusId, StatusLook> = {
@@ -43,13 +53,15 @@ export const STATUS: Record<StatusId, StatusLook> = {
     icon: 'skull',
     label: 'Dirge',
     color: '#c4b5fd',
-    help: 'Marked: detonates when it runs out. Chime it away.',
+    help: 'Marked: detonates when it runs out.',
+    answer: 'Chime it away.',
   },
   resound: {
     icon: 'link',
     label: 'Resound',
     color: '#c4b5fd',
-    help: 'Linked: hurts when allies stand together. Scatter.',
+    help: 'Linked: hurts when allies stand together.',
+    answer: 'Scatter.',
   },
   silence: { icon: 'mute', label: 'Silenced', color: '#c4b5fd', help: 'Cannot use abilities.' },
   stun: { icon: 'stun', label: 'Stunned', color: '#fdba74', help: 'Cannot act.' },

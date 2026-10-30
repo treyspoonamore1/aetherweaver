@@ -23,6 +23,7 @@ import {
 } from '../../content';
 import { unlockRank } from '../../meta/profile';
 import {
+  band,
   carriedRelics,
   craftBlocked,
   craftOdds,
@@ -40,6 +41,7 @@ import {
   type ReliquaryRelic,
 } from '../../meta/reliquary';
 import { enshrineOptions } from '../../meta/run';
+import { TEAR_TOO_GRADE } from './dissonanceModel';
 import type { OwnedRelic, RunState } from '../../meta/types';
 import { plural } from '../kit/format';
 import {
@@ -253,6 +255,12 @@ export interface RelicView {
   max: number;
   /** Shards it gives if released. */
   release: number;
+  /**
+   * Phase 4d: its depth, the Dissonance of the run that found it (0 without), and the best tier
+   * its band lets Ascend reach (`band(depth).tierCap`).
+   */
+  depth: number;
+  tierCap: number;
   /** One sentence for screen readers. */
   label: string;
 }
@@ -299,6 +307,8 @@ export function relicView(r: ReliquaryRelic): RelicView {
     used: r.inscriptions.length,
     max: RULES().maxInscriptions,
     release: releaseValue(r),
+    depth: r.depth ?? 0,
+    tierCap: band(r.depth ?? 0).tierCap,
   };
   return { ...view, label: relicLabel(view) };
 }
@@ -316,6 +326,7 @@ function relicLabel(v: Omit<RelicView, 'label'>): string {
     v.dissonant ? `Dissonant: ${v.dissonant.name}.` : '',
     v.curse ? `Curse: ${v.curse.name}.` : '',
     `Instability ${v.instability}.`,
+    v.depth > 0 ? `Depth ${v.depth}: it can reach T${v.tierCap}.` : '',
   ];
   return parts.filter(Boolean).join(' ');
 }
@@ -387,9 +398,13 @@ export const ACTION_LABEL: Readonly<Record<ActionId, string>> = {
   release: 'Release',
 };
 
-/** What each does, in a line (the numbers are in the preview). */
-export function actionBlurb(action: ActionId): string {
-  const tierCap = RULES().tierCap;
+/**
+ * What each does, in a line (the numbers are in the preview). Ascend's reach is the relic's band
+ * (Phase 4d: T3, or T2 and T1 for a relic won deeper); without a relic, a relic won without
+ * Dissonance.
+ */
+export function actionBlurb(action: ActionId, relic?: Pick<ReliquaryRelic, 'depth'>): string {
+  const tierCap = band(relic?.depth ?? 0).tierCap;
   switch (action) {
     case 'inscribe':
       return 'Adds a random Inscription of the kind you choose.';
@@ -468,7 +483,6 @@ export function retuneChances(ins: { id: string; tier: number; value: number }):
 export function dissonateChances(r: ReliquaryRelic): Chance[] {
   const outcomes = craftOdds(r, 'dissonate').outcomes!;
   const def = relicDef(r.id);
-  const rules = RULES();
   const dissonants = CONTENT.inscriptions.filter((d) => d.kind === 'dissonant');
   return DISSONANCE_KINDS.map((kind) => {
     const p = outcomes[kind];
@@ -483,7 +497,8 @@ export function dissonateChances(r: ReliquaryRelic): Chance[] {
           : `It has no numbers to grow: that share turns Dissonant.`;
         break;
       case 'cursed':
-        detail = `Every Inscription rises a tier, as far as T${rules.dissonate.cursedTierCap}, and one of ${CONTENT.curses.length} curses joins it: ${CONTENT.curses.map((c) => c.name).join(', ')}.`;
+        // As far as the relic's band allows (Phase 4d: T1 for a relic won deeper).
+        detail = `Every Inscription rises a tier, as far as T${band(r.depth ?? 0).cursedTierCap}, and one of ${CONTENT.curses.length} curses joins it: ${CONTENT.curses.map((c) => c.name).join(', ')}.`;
         break;
       case 'shattered':
         detail = 'Nothing changes. The Tear is spent.';
@@ -1092,9 +1107,10 @@ function midName(name: string): string {
 export function materialsHow(): { shards: string; tears: string } {
   const s = RULES().shards;
   const grade = RULES().tearGrade;
+  const d = CONTENT.dissonanceRules;
   return {
-    shards: `Every run that ends pays them: ${s.perFight} for each fight it won, ${s.elite} more for an elite, ${s.miniboss} more for ${midName(encounterName('miniboss'))} and ${s.boss} more for ${midName(encounterName('boss'))}.`,
-    tears: `A Discord Tear for beating ${midName(encounterName('boss'))} with ${/^[AEFHILMNORSX]/.test(grade) ? 'an' : 'a'} ${grade}.`,
+    shards: `Every run that ends pays them: ${s.perFight} for each fight it won, ${s.elite} more for an elite, ${s.miniboss} more for ${midName(encounterName('miniboss'))} and ${s.boss} more for ${midName(encounterName('boss'))}. Dissonance adds ${d.shardsPerPoint}% a point.`,
+    tears: `A Discord Tear for beating ${midName(encounterName('boss'))} with ${/^[AEFHILMNORSX]/.test(grade) ? 'an' : 'a'} ${grade}. With Dissonance, from ${d.tearOnA} points an ${TEAR_TOO_GRADE} pays one too, and from ${d.tearOnWin} every won run pays one more.`,
   };
 }
 
@@ -1198,11 +1214,20 @@ export interface CodexInscription {
   category: InscriptionCategory;
   /** Its line with an X for the value: "+X% Thread potency (Mend and Empower)". */
   text: string;
-  /** T5 first: each tier's range. */
-  tiers: { tier: number; text: string; reachable: boolean }[];
+  /**
+   * T5 first: each tier's range; `reachable` without Dissonance, else `depth`, the depth a relic
+   * must be won at for Ascend to reach it (Phase 4d).
+   */
+  tiers: { tier: number; text: string; reachable: boolean; depth: number | null }[];
 }
 
-/** Every normal Inscription with its five tiers, by kind (T2 and T1 marked as not reachable yet). */
+/** The depth a relic must be won at for Ascend to reach this tier (0: any; null: none). */
+export function depthForTier(tier: number): number | null {
+  if (tier >= band(0).tierCap) return 0;
+  return RULES().bands.find((b) => band(b.depth).tierCap <= tier)?.depth ?? null;
+}
+
+/** Every normal Inscription with its five tiers, by kind (T2 and T1 marked with their depth). */
 export function codexInscriptions(): { category: InscriptionCategory; rows: CodexInscription[] }[] {
   const cap = RULES().tierCap;
   return CATEGORIES.map((category) => ({
@@ -1218,6 +1243,7 @@ export function codexInscriptions(): { category: InscriptionCategory; rows: Code
           tier,
           text: rangeText(d, tier),
           reachable: tier >= cap,
+          depth: tier >= cap ? null : depthForTier(tier),
         })),
       })),
   }));

@@ -102,6 +102,13 @@ export const PATHS = {
   release: 'M12 15V3.5 M7.5 8L12 3.5 16.5 8 M5 12.5v8h14v-8',
   crack: 'M13 2.5L9.5 8.5l4 3-4.5 5 2 5.5 M9.5 8.5L6 7.2 M13.5 11.5l4 1.3 M9 16.5l-3.2.9',
   shatter: 'M4 6l5 1.5-2.5 4z M14 3.5l5 3-4.5 2z M15.5 13l4.5 5.5-6 .5z M6 15l4 1-1.5 4.5z',
+  /**
+   * Phase 4d: Dissonance (a calm wave breaking into a jagged one: harmony turned to discord), and
+   * Blind Score (an eye struck through: the answer a telegraph wants stays hidden).
+   */
+  dissonance: 'M2.5 12c.9-2.6 2.6-2.6 3.5 0s2.6 2.6 3.5 0 M9.5 12l2-6 2.5 12 2.5-12 2.5 12 2-6',
+  blind:
+    'M3.5 3.5l17 17 M10.6 5.6a9.9 9.9 0 0 1 1.4-.1c5.5 0 9.5 6.5 9.5 6.5a16.6 16.6 0 0 1-2.3 3.1 M6.5 6.6C3.9 8.3 2.5 12 2.5 12s4 6.5 9.5 6.5a9.3 9.3 0 0 0 4.5-1.2 M9.9 9.9a3 3 0 0 0 4.2 4.2',
 } as const;
 
 export type IconName = keyof typeof PATHS;

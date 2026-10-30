@@ -217,6 +217,7 @@ export function PartyFrames({
   chords = [],
   calling = null,
   rewind = null,
+  blind = false,
 }: {
   party: HeroHud[];
   threadMode: ThreadMode;
@@ -227,6 +228,8 @@ export function PartyFrames({
   calling?: { id: string; sunrise: boolean } | null;
   /** Phase 3e: the Chronomancer's Rewind (ready, its reach); null without it. */
   rewind?: RewindReady;
+  /** Phase 4d, Blind Score: nothing on a frame names the answer a telegraph wants. */
+  blind?: boolean;
 }) {
   const beam = beamSong(chords);
   return (
@@ -245,6 +248,7 @@ export function PartyFrames({
             beamColors={beam?.auras.map((a) => a.color) ?? []}
             calling={calling}
             rewind={rewind}
+            blind={blind}
           />
           <Bark hero={h} callouts={barks} />
         </div>
@@ -481,6 +485,7 @@ export function HeroFrame({
   beamColors = [],
   calling = null,
   rewind = null,
+  blind = false,
 }: {
   hero: HeroHud;
   threadMode: ThreadMode;
@@ -488,6 +493,8 @@ export function HeroFrame({
   beamColors?: string[];
   calling?: { id: string; sunrise: boolean } | null;
   rewind?: RewindReady;
+  /** Phase 4d, Blind Score: a status's tooltip doesn't say how to answer it. */
+  blind?: boolean;
 }) {
   const sung = songs ?? {
     focus: null,
@@ -581,7 +588,7 @@ export function HeroFrame({
                 {h.statuses
                   .filter((s) => !(h.held && s.id === 'held'))
                   .map((s) => (
-                    <StatusBadge key={s.id} status={s} />
+                    <StatusBadge key={s.id} status={s} blind={blind} />
                   ))}
                 {h.castName && <CastLine name={h.castName} progress={h.castProgress} />}
                 {!h.inField && (

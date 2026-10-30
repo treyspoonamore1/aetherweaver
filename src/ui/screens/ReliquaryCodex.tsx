@@ -1,6 +1,6 @@
 import { CONTENT, curseText, inscriptionText } from '../../content';
 import { UNLOCKS } from '../../meta/profile';
-import { craftOdds } from '../../meta/reliquary';
+import { band, craftOdds } from '../../meta/reliquary';
 import { AstrolabeGlyph } from '../kit/AstrolabeGlyph';
 import { Chip } from '../kit/Chip';
 import { Icon } from '../kit/Icon';
@@ -22,6 +22,7 @@ import {
   blankRelic,
   codexEmpowered,
   codexInscriptions,
+  depthForTier,
   dissonateChances,
   fractureExamples,
   instabilityView,
@@ -32,6 +33,7 @@ import {
   tearsText,
   tierLabel,
 } from './reliquaryModel';
+import { bandsSentence, oddsLine } from './dissonanceModel';
 
 const GRID = 'grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(22rem,1fr))]';
 
@@ -42,14 +44,26 @@ function sampleRelics() {
   return { grows, still };
 }
 
-/** Ascend's chance from each tier it can rise from now (`craftOdds`, as the screen shows it). */
-function ascendLadder(): { from: number; p: number }[] {
-  const cap = CONTENT.reliquary.tierCap;
+/**
+ * Ascend's chance from each tier it can rise from (`craftOdds`, as the screen shows it), on a
+ * relic won deep enough to reach T1; with the depth each rise needs (Phase 4d; 0: any relic).
+ */
+function ascendLadder(): { from: number; p: number; depth: number }[] {
+  const deepest = Math.max(0, ...CONTENT.reliquary.bands.map((b) => b.depth));
+  const top = band(deepest).tierCap;
   const id = CONTENT.inscriptions.find((d) => d.kind === 'normal')!.id;
-  const out: { from: number; p: number }[] = [];
-  for (let tier = 5; tier > cap; tier--) {
-    const relic = { ...blankRelic(CONTENT.relics[0]!.id), inscriptions: [{ id, tier, value: 0 }] };
-    out.push({ from: tier, p: craftOdds(relic, 'ascend', 0).success ?? 0 });
+  const out: { from: number; p: number; depth: number }[] = [];
+  for (let tier = 5; tier > top; tier--) {
+    const relic = {
+      ...blankRelic(CONTENT.relics[0]!.id),
+      depth: deepest,
+      inscriptions: [{ id, tier, value: 0 }],
+    };
+    out.push({
+      from: tier,
+      p: craftOdds(relic, 'ascend', 0).success ?? 0,
+      depth: depthForTier(tier - 1) ?? deepest,
+    });
   }
   return out;
 }
@@ -193,7 +207,8 @@ export function ReliquaryCodexPage({ open, rank }: { open: boolean; rank: number
                     .map((p, i) => (p > 0 ? `${tierLabel(5 - i)} ${num(p)}%` : null))
                     .filter(Boolean)
                     .join(', ')}
-                  .
+                  . A relic won deeper rolls higher:{' '}
+                  {rules.bands.map((b) => `from ${b.depth}, ${oddsLine(b.depth)}`).join('; ')}.
                 </td>
                 <td className="py-2 font-mono text-text">+{rules.inscribe.instability}</td>
               </tr>
@@ -211,10 +226,13 @@ export function ReliquaryCodexPage({ open, rank }: { open: boolean; rank: number
                 <td className="py-2 pr-3 text-text">
                   Tries to raise one Inscription a tier:{' '}
                   {ladder
-                    .map((l) => `${tierLabel(l.from)} → ${tierLabel(l.from - 1)} ${oddsText(l.p)}`)
+                    .map(
+                      (l) =>
+                        `${tierLabel(l.from)} → ${tierLabel(l.from - 1)} ${oddsText(l.p)}${l.depth > 0 ? ` (won at ${l.depth}+)` : ''}`,
+                    )
                     .join(', ')}
-                  . A miss changes nothing (the cost and Instability are spent).{' '}
-                  {tierLabel(rules.tierCap - 1)} and {tierLabel(1)} wait for Dissonance.
+                  . A miss changes nothing (the cost and Instability are spent). How far it goes is
+                  the relic’s depth, the Dissonance it was won at: {bandsSentence()}.
                 </td>
                 <td className="py-2 font-mono text-text">+{rules.ascend.instability}</td>
               </tr>
@@ -309,9 +327,9 @@ export function ReliquaryCodexPage({ open, rank }: { open: boolean; rank: number
         <h3 className="mb-1 font-display text-lg font-bold text-gold-300">Inscriptions</h3>
         <p className="mb-3 max-w-4xl text-sm text-muted">
           Up to {rules.maxInscriptions} on a relic (and a Dissonant one), never the same twice. A
-          tier is a range: the value rolls within it. They add to the Astrolabe’s own sums.{' '}
-          {tierLabel(rules.tierCap - 1)} and {tierLabel(1)} can’t be reached yet, except by a
-          Dissonate gone Cursed: they wait for Dissonance.
+          tier is a range: the value rolls within it. They add to the Astrolabe’s own sums. Past{' '}
+          {tierLabel(rules.tierCap)}, a relic’s depth decides: {bandsSentence()} (a Dissonate gone
+          Cursed reaches {tierLabel(rules.dissonate.cursedTierCap)} sooner).
         </p>
         <div className={GRID}>
           {codexInscriptions().map((group) => {
@@ -345,7 +363,7 @@ export function ReliquaryCodexPage({ open, rank }: { open: boolean; rank: number
                             title={
                               t.reachable
                                 ? undefined
-                                : 'Waits for Dissonance (or a Cursed Dissonate)'
+                                : `A relic won at ${t.depth ?? '?'} Dissonance or more`
                             }
                           >
                             <TierBadge tier={t.tier} size="sm" />
@@ -401,8 +419,10 @@ export function ReliquaryCodexPage({ open, rank }: { open: boolean; rank: number
           </h3>
           <p className="mt-1 text-sm text-muted">
             One of these joins a relic when a Dissonate goes Cursed (and its Inscriptions rise a
-            tier, as far as {tierLabel(rules.dissonate.cursedTierCap)}). A curse is an affix: a
-            dormant relic still lends it.
+            tier, as far as {tierLabel(rules.dissonate.cursedTierCap)}
+            {rules.bands.length > 0 &&
+              `, or ${tierLabel(band(rules.bands[0]!.depth).cursedTierCap)} for a relic won at ${rules.bands[0]!.depth} or more`}
+            ). A curse is an affix: a dormant relic still lends it.
           </p>
           <ul className="mt-2 flex flex-col gap-1.5">
             {CONTENT.curses.map((c) => (

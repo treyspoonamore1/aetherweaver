@@ -67,8 +67,26 @@ function techReady(hud: HudSnapshot, key: 'ward' | 'chime' | 'reel'): boolean {
   return !!t && t.remaining <= 0.05 && t.affordable && !hud.weaver.downed;
 }
 
+/**
+ * Hints that name the answer a telegraph wants (Ward it, Chime the mark away, Reel or Rewind them
+ * out of it, the boss cast's answer). Phase 4d: Blind Score hides them, as it hides every answer.
+ */
+export const ANSWER_HINTS: ReadonlySet<string> = new Set([
+  'lethal-ward',
+  'lethal-rewind',
+  'lethal-reel',
+  'big-hit',
+  'marked',
+  'boss-cast',
+]);
+
 /** All hints that apply right now, most important first. */
 export function evaluateHints(hud: HudSnapshot): Hint[] {
+  const all = allHints(hud);
+  return hud.dissonance?.blindScore ? all.filter((h) => !ANSWER_HINTS.has(h.id)) : all;
+}
+
+function allHints(hud: HudSnapshot): Hint[] {
   if (hud.encounter.kind === 'sandbox' || hud.encounter.status !== 'fighting') return [];
   const out: Hint[] = [];
   const w = hud.weaver;
@@ -266,11 +284,12 @@ export function evaluateHints(hud: HudSnapshot): Hint[] {
           : `Your beam song pours into whoever you thread: ${mult(beam.focus)} on ${focused.name}, and nobody else`,
     });
   }
+  // What a Cue costs is the fight's (Silent Cues, Phase 4d, raises it past a segment).
   const cueHero = party.find((h) => h.soloReady && alive(h));
-  if (cueHero && w.resonance >= w.segment) {
+  if (cueHero && w.resonance + 1e-9 >= w.cueCost) {
     out.push({
       id: 'cue',
-      text: `${cueHero.name}'s ${cueHero.soloName} is ready — press {⇧${cueHero.slot + 1}} to Cue it (costs one Resonance segment)`,
+      text: `${cueHero.name}'s ${cueHero.soloName} is ready — press {⇧${cueHero.slot + 1}} to Cue it (costs ${w.cueCost === w.segment ? 'one Resonance segment' : `${w.cueCost} Resonance`})`,
     });
   }
   if (w.resonance >= w.crescendoCost && w.crescendo <= 0) {

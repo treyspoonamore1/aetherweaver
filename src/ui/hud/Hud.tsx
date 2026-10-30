@@ -16,6 +16,7 @@ import { BossBar } from './BossBar';
 import { RelicBar } from './RelicBar';
 import { CallingChip } from './CallingChip';
 import { KeystoneChip } from './KeystoneChip';
+import { DissonanceChip } from './DissonanceChip';
 import { Callouts } from './Callouts';
 import { CoachHints } from './CoachHints';
 import { DirectiveWheel, DirectiveWheelView } from './DirectiveWheel';
@@ -103,8 +104,11 @@ export function HudView({
   boons = [],
   relicFlash,
   carried = NO_RELICS,
+  dissonanceTip = false,
 }: {
   hud: HudSnapshot;
+  /** UI lab: the Dissonance chip's tooltip shown. */
+  dissonanceTip?: boolean;
   /** The run's boons and banes (none in the Training Grounds). */
   boons?: readonly ActiveBoon[];
   /**
@@ -126,6 +130,8 @@ export function HudView({
 }) {
   const barks = callouts.filter((c) => c.kind === 'bark' || c.kind === 'call');
   const sandbox = hud.encounter.kind === 'sandbox';
+  // Phase 4d, Blind Score: nothing on the HUD names the answer a telegraph wants.
+  const blind = hud.dissonance?.blindScore ?? false;
   const clockText = `${hud.seconds.toFixed(1)} s · tick ${hud.tick} · seed ${hud.seed}${hud.directive ? ` · ${hud.directive}` : ''}`;
   const stasis = hud.weaver.stasis;
   return (
@@ -142,8 +148,9 @@ export function HudView({
           data-testid="stasis-tint"
         />
       )}
-      {/* Above the party frames, so the relics' and keystones' tooltips are never under them. */}
-      <div className="absolute left-4 top-4 z-10 flex flex-col items-start gap-2">
+      {/* Above the party frames and their barks: the relics', keystones' and Dissonance's tooltips
+          are never under them. */}
+      <div className="absolute left-4 top-4 z-20 flex flex-col items-start gap-2">
         <EncounterHeader encounter={hud.encounter} subtitle={subtitle} clockText={clockText} />
         <RelicBar
           relics={hud.relics}
@@ -152,10 +159,15 @@ export function HudView({
           flash={relicFlash}
           carried={carried}
         />
-        {(hud.calling || (hud.astrolabe?.keystones.length ?? 0) > 0) && (
+        {(hud.calling || (hud.astrolabe?.keystones.length ?? 0) > 0 || hud.dissonance) && (
           <div className="flex items-center gap-2">
             {hud.calling && <CallingChip calling={hud.calling} />}
             <KeystoneChip keystones={hud.astrolabe?.keystones ?? []} />
+            <DissonanceChip
+              dissonance={hud.dissonance}
+              cueCost={hud.weaver.cueCost}
+              open={dissonanceTip}
+            />
           </div>
         )}
       </div>
@@ -165,9 +177,10 @@ export function HudView({
           decree={decree}
           decreeBanner={callouts.some((c) => c.kind === 'decree')}
           rewind={hud.weaver.rewind !== null}
+          blind={blind}
         />
       )}
-      <Callouts callouts={callouts} barkSpeakers={hud.party.map((p) => p.name)} />
+      <Callouts callouts={callouts} barkSpeakers={hud.party.map((p) => p.name)} blind={blind} />
       <PartyFrames
         party={hud.party}
         threadMode={hud.weaver.threadMode}
@@ -175,6 +188,7 @@ export function HudView({
         chords={hud.weaver.chords}
         calling={hud.calling}
         rewind={hud.weaver.rewind}
+        blind={blind}
       />
       <WeaverBar hud={hud} buzz={rejectBuzz(callouts)} />
       {coach && !sandbox && <CoachHints hud={hud} force={forceCoach} />}

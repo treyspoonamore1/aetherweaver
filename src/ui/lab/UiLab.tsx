@@ -112,12 +112,18 @@ import { relicHuds } from '../hud/relics';
 import {
   EMPTY_RELIQUARY,
   craftOn,
+  depthReliquary,
+  dissonanceSummaryRun,
   dissonated,
   fullReliquary,
   mockCraft,
+  mockDissonance,
+  mockDissonanceHud,
+  mockRelic,
   partwayReliquary,
   reliquarySummaryRun,
 } from './mock';
+import { dissonancePoints, type DissonanceChoice } from '../../meta/dissonance';
 
 /** A stand-in for the 3D arena behind the HUD. */
 function World({ children }: { children: ReactNode }) {
@@ -665,18 +671,23 @@ function SummaryReliquaryLab({
   outcome = 'victory',
   initial,
   enshrine,
+  levels,
 }: {
   outcome?: 'victory' | 'defeat';
   initial: Reliquary;
   enshrine?: string;
+  /** Phase 4d: the run's Dissonance (what it enshrines keeps it as its depth). */
+  levels?: readonly DissonanceChoice[];
 }) {
   const [state, setState] = useState(() => {
-    let run = reliquarySummaryRun(outcome);
+    let run = levels
+      ? dissonanceSummaryRun(levels, { opened: false, best: false }, { reliquary: true })
+      : reliquarySummaryRun(outcome);
     let rq = initial;
     let arrived: ReliquaryRelic | null = null;
     const found = enshrine ? Run.enshrineOptions(run).find((r) => r.id === enshrine) : undefined;
     if (found) {
-      const res = enshrineRelic(rq, found);
+      const res = enshrineRelic(rq, found, dissonancePoints(run.dissonance));
       if (res.ok) {
         rq = res.reliquary;
         arrived = res.relic;
@@ -698,7 +709,8 @@ function SummaryReliquaryLab({
           const found = Run.enshrineOptions(state.run).find((r) => r.id === id);
           if (!found || state.run.reliquary?.enshrined)
             return { ok: false, reason: 'This run has enshrined one.' };
-          const res = enshrineRelic(state.rq, found);
+          // At the run's Dissonance, as the run store enshrines (Phase 4d).
+          const res = enshrineRelic(state.rq, found, dissonancePoints(state.run.dissonance));
           if (res.ok)
             setState((st) => ({
               ...st,
@@ -789,6 +801,89 @@ function TitleReliquary({ rank, rq }: { rank: number; rq: Reliquary }) {
     return true;
   });
   return <TitleScreen />;
+}
+
+/**
+ * Prep with Dissonance (Phase 4d), open or closed, at a Rank: these levels chosen, these bests
+ * kept. Choosing works as the store does it (the run follows the choice: `Run.setDissonance`).
+ */
+function PrepDissonance({
+  rank,
+  open,
+  levels = [],
+  best = {},
+  calling = null,
+  carried = [],
+}: {
+  rank: number;
+  open: boolean;
+  levels?: readonly DissonanceChoice[];
+  best?: Readonly<Record<string, number>>;
+  calling?: string | null;
+  /** Relics the run carries (Discordant Pact has nothing to give when they're every cursed one). */
+  carried?: readonly ReliquaryRelic[];
+}) {
+  const allowance = allowanceFor(rank);
+  return (
+    <Interactive
+      initial={() => {
+        const run = Run.newRun(7, GUARDIAN_CHORDS, [], carried, open ? levels : []);
+        return calling ? Run.setCalling(run, calling, allowance) : run;
+      }}
+    >
+      {(run, set) => (
+        <PrepView
+          run={run}
+          onChords={(c) => set((r) => Run.setChords(r, c, allowance))}
+          onCalling={(id) => set((r) => Run.setCalling(r, id, allowance))}
+          onEmbark={noop}
+          onBack={noop}
+          allowance={allowance}
+          rank={rank}
+          astrolabe={{ points: astrolabePoints(rank), onOpen: noop }}
+          reliquary={{ slots: carrySlots(rank), onOpen: noop }}
+          dissonance={{ open, best, onChange: (lv) => set((r) => Run.setDissonance(r, lv)) }}
+        />
+      )}
+    </Interactive>
+  );
+}
+
+/** Unforgiving's level (by its effect, so the tuning can rename it). */
+function unforgivingId(): string {
+  return CONTENT.dissonance.find((d) => d.effect === 'no_respite_heal')?.id ?? 'unforgiving';
+}
+
+/** The HUD with Dissonance in force (what the bridge reads of a real fight at these levels). */
+function HudDissonance({
+  scenario,
+  levels,
+  tip = false,
+}: {
+  scenario: HudScenario;
+  levels: readonly DissonanceChoice[];
+  tip?: boolean;
+}) {
+  const [hud] = useState(() => mockDissonanceHud(scenario, levels));
+  return (
+    <World>
+      <HudView
+        hud={hud}
+        callouts={mockCallouts(scenario)}
+        decree={
+          scenario === 'boss'
+            ? {
+                name: 'Requiem',
+                text: 'Every hero will lose 90% of their life. Cue Kael’s dome, or Ward and heal.',
+              }
+            : null
+        }
+        subtitle="The Prelude · node 3 of 10"
+        forceCoach
+        dissonanceTip={tip}
+      />
+    </World>
+  );
 }
 
 interface ViewDef {
@@ -2943,6 +3038,330 @@ const VIEWS: ViewDef[] = [
     w: 1280,
     h: 720,
     render: () => <TitleReliquary rank={16} rq={partwayReliquary()} />,
+  },
+  // ── Phase 4d: Dissonance ─────────────────────────────────────────────────────────────
+  {
+    id: 'prep-dissonance-closed',
+    group: 'Dissonance',
+    label: 'Prep: closed (Rank 12): how it opens',
+    w: 1280,
+    h: 860,
+    render: () => <PrepDissonance rank={12} open={false} />,
+  },
+  {
+    id: 'prep-dissonance-closed-16',
+    group: 'Dissonance',
+    label: 'Prep: closed at Rank 16: the next win opens it',
+    w: 1280,
+    h: 860,
+    render: () => <PrepDissonance rank={16} open={false} />,
+  },
+  {
+    id: 'prep-dissonance-open',
+    group: 'Dissonance',
+    label: 'Prep: open, nothing chosen',
+    w: 1280,
+    h: 1160,
+    render: () => <PrepDissonance rank={16} open />,
+  },
+  {
+    id: 'prep-dissonance-10',
+    group: 'Dissonance',
+    label: 'Prep: about 10 points, the Luminary’s best 8',
+    w: 1280,
+    h: 1160,
+    render: () => (
+      <PrepDissonance
+        rank={18}
+        open
+        levels={mockDissonance(10)}
+        calling="luminary"
+        best={{ luminary: 8, none: 12 }}
+      />
+    ),
+  },
+  {
+    id: 'prep-dissonance-20',
+    group: 'Dissonance',
+    label: 'Prep: about 20 points, below the best',
+    w: 1280,
+    h: 1160,
+    render: () => (
+      <PrepDissonance
+        rank={20}
+        open
+        levels={mockDissonance(20)}
+        best={{ none: dissonancePoints(mockDissonance(20)) + 2 }}
+      />
+    ),
+  },
+  {
+    id: 'prep-dissonance-max',
+    group: 'Dissonance',
+    label: 'Prep: every level at its top rank',
+    w: 1280,
+    h: 1160,
+    render: () => (
+      <PrepDissonance
+        rank={20}
+        open
+        levels={mockDissonance(Infinity)}
+        best={{ none: 21, luminary: 14 }}
+      />
+    ),
+  },
+  {
+    id: 'prep-dissonance-pact',
+    group: 'Dissonance',
+    label: 'Prep: Discordant Pact with nothing to give (every cursed relic carried)',
+    w: 1280,
+    h: 1160,
+    render: () => (
+      <PrepDissonance
+        rank={20}
+        open
+        levels={[
+          ...mockDissonance(10),
+          { id: CONTENT.dissonance.find((d) => d.effect === 'cursed_start')!.id, rank: 1 },
+        ]}
+        carried={CONTENT.relics
+          .filter((r) => r.rarity === 'cursed')
+          .map((r, i) => mockRelic(`r${i + 1}`, r.id))}
+      />
+    ),
+  },
+  {
+    id: 'summary-dissonance-opened',
+    group: 'Dissonance',
+    label: 'Summary: the win that opened it (Rank 15)',
+    w: 1280,
+    h: 900,
+    render: () => (
+      <SummaryView
+        run={dissonanceSummaryRun([], { opened: true, best: false })}
+        onNewRun={noop}
+        onTitle={noop}
+        profileXp={RANK_XP[14]! + 300}
+      />
+    ),
+  },
+  {
+    id: 'summary-dissonance-best',
+    group: 'Dissonance',
+    label: 'Summary: a new best as the Luminary',
+    w: 1280,
+    h: 900,
+    render: () => (
+      <SummaryView
+        run={dissonanceSummaryRun(
+          mockDissonance(14),
+          { opened: false, best: true },
+          { calling: true },
+        )}
+        onNewRun={noop}
+        onTitle={noop}
+        profileXp={RANK_XP[17]! + 300}
+      />
+    ),
+  },
+  {
+    id: 'summary-dissonance-enshrine',
+    group: 'Dissonance',
+    label: 'Summary: enshrine at its depth (about 12)',
+    w: 1280,
+    h: 1300,
+    render: () => <SummaryReliquaryLab initial={partwayReliquary()} levels={mockDissonance(12)} />,
+  },
+  {
+    id: 'summary-dissonance-enshrined',
+    group: 'Dissonance',
+    label: 'Summary: enshrined, its depth and what it reaches',
+    w: 1280,
+    h: 1300,
+    render: () => (
+      <SummaryReliquaryLab
+        initial={partwayReliquary()}
+        levels={mockDissonance(12)}
+        enshrine="glass_halo"
+      />
+    ),
+  },
+  {
+    id: 'hud-dissonance',
+    group: 'Dissonance',
+    label: 'HUD: the readout, its levels on hover; Silent Cues on the arc',
+    w: 1280,
+    h: 720,
+    render: () => <HudDissonance scenario="calm" levels={mockDissonance(20)} tip />,
+  },
+  {
+    id: 'hud-dissonance-blind',
+    group: 'Dissonance',
+    label: 'HUD: Blind Score at the Cantor: answers hidden',
+    w: 1280,
+    h: 720,
+    render: () => <HudDissonance scenario="boss" levels={mockDissonance(20)} />,
+  },
+  {
+    id: 'hud-dissonance-seen',
+    group: 'Dissonance',
+    label: 'HUD: the same fight without Blind Score (to compare)',
+    w: 1280,
+    h: 720,
+    render: () => <HudDissonance scenario="boss" levels={mockDissonance(10)} />,
+  },
+  {
+    id: 'reliquary-depth-0',
+    group: 'Dissonance',
+    label: 'Reliquary: depth 0, T3 waits for a deeper relic',
+    w: 1280,
+    h: 720,
+    render: () => (
+      <ReliquaryLab initial={depthReliquary()} rank={20} selected="r1" action="ascend" arg={0} />
+    ),
+  },
+  {
+    id: 'reliquary-depth-10',
+    group: 'Dissonance',
+    label: 'Reliquary: won at the first band, Ascend to T2',
+    w: 1280,
+    h: 720,
+    render: () => (
+      <ReliquaryLab initial={depthReliquary()} rank={20} selected="r2" action="ascend" arg={1} />
+    ),
+  },
+  {
+    id: 'reliquary-depth-20',
+    group: 'Dissonance',
+    label: 'Reliquary: won deepest, Ascend to T1',
+    w: 1280,
+    h: 720,
+    render: () => (
+      <ReliquaryLab initial={depthReliquary()} rank={20} selected="r3" action="ascend" arg={1} />
+    ),
+  },
+  {
+    id: 'reliquary-depth-inscribe',
+    group: 'Dissonance',
+    label: 'Reliquary: Inscribe at the deepest band (T2 and T1 odds)',
+    w: 1280,
+    h: 720,
+    render: () => (
+      <ReliquaryLab
+        initial={depthReliquary()}
+        rank={20}
+        selected="r3"
+        action="inscribe"
+        arg="bond"
+      />
+    ),
+  },
+  {
+    id: 'reliquary-depth-dissonate',
+    group: 'Dissonance',
+    label: 'Reliquary: Dissonate at the first band (Cursed reaches further)',
+    w: 1280,
+    h: 720,
+    render: () => (
+      <ReliquaryLab initial={depthReliquary()} rank={20} selected="r2" action="dissonate" />
+    ),
+  },
+  {
+    id: 'respite-unforgiving',
+    group: 'Dissonance',
+    label: 'Respite under Unforgiving: Rest only steadies the Shaken',
+    w: 1280,
+    h: 800,
+    render: () => (
+      <RespiteView
+        run={{ ...respiteRun(), dissonance: [{ id: unforgivingId(), rank: 1 }] }}
+        onChoose={noop}
+        onRetune={noop}
+      />
+    ),
+  },
+  {
+    id: 'draft-unforgiving',
+    group: 'Dissonance',
+    label: 'Meditate under Unforgiving: skipping heals nothing',
+    w: 1280,
+    h: 800,
+    render: () => (
+      <Interactive
+        initial={() =>
+          Run.respite(
+            { ...respiteRun(), dissonance: [{ id: unforgivingId(), rank: 1 }] },
+            'meditate',
+          )
+        }
+      >
+        {(run, set) => <DraftView run={run} onPick={noop} onReroll={() => set(Run.rerollDraft)} />}
+      </Interactive>
+    ),
+  },
+  {
+    id: 'codex-dissonance',
+    group: 'Dissonance',
+    label: 'Codex: Dissonance',
+    w: 1280,
+    h: 1520,
+    render: () => (
+      <CodexView
+        onBack={noop}
+        initialTab="dissonance"
+        dissonance={{ open: true, best: { none: 21, luminary: 14 } }}
+      />
+    ),
+  },
+  {
+    id: 'codex-dissonance-locked',
+    group: 'Dissonance',
+    label: 'Codex: Dissonance, locked (Rank 12)',
+    w: 1280,
+    h: 720,
+    render: () => (
+      <CodexView
+        onBack={noop}
+        initialTab="dissonance"
+        allowance={allowanceFor(12)}
+        rank={12}
+        dissonance={{ open: false, best: {} }}
+      />
+    ),
+  },
+  {
+    id: 'codex-reliquary-depth',
+    group: 'Dissonance',
+    label: 'Codex: the Reliquary, its crafts with depth',
+    w: 1280,
+    h: 1500,
+    render: () => <CodexView onBack={noop} initialTab="reliquary" />,
+  },
+  {
+    id: 'rank-up-15-dissonance',
+    group: 'Dissonance',
+    label: 'Rank 15: Dissonance, opened by a win',
+    w: 1280,
+    h: 800,
+    render: () => (
+      <World>
+        <RankUpCard rankUps={mockRankUps([15])} onDismiss={noop} />
+      </World>
+    ),
+  },
+  {
+    id: 'rank-panels-dissonance',
+    group: 'Dissonance',
+    label: 'Rank panel at 14: what Rank 15 opens',
+    w: 1280,
+    h: 720,
+    render: () => (
+      <ScreenFrame tone="gold">
+        <div className="mx-auto grid max-w-6xl items-start gap-6 px-6 py-10 md:grid-cols-2">
+          <RankPanelView profile={{ xp: RANK_XP[13]! + 900, runs: 41, wins: 19 }} />
+        </div>
+      </ScreenFrame>
+    ),
   },
   {
     id: 'flow',

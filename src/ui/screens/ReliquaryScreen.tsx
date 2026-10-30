@@ -33,7 +33,7 @@ import {
 } from '../kit/reliquaryLook';
 import { playUi, useMood } from '../kit/sound';
 import { useUi } from '../store';
-import { CodexView } from './CodexScreen';
+import { CodexView, useCodexDissonance } from './CodexScreen';
 import { useAllowance } from './PrepScreen';
 import {
   CarriedChip,
@@ -46,6 +46,8 @@ import {
   StateChip,
   TierBadge,
 } from './ReliquaryParts';
+import { DepthChip, DepthMark } from './DissonanceParts';
+import { relicDepthView } from './dissonanceModel';
 import {
   ACTIONS,
   ACTION_LABEL,
@@ -761,9 +763,11 @@ function RelicTile({
       data-testid="reliquary-tile"
       data-state={v.state?.label ?? 'craftable'}
       data-carried={place ? String(place.index + 1) : ''}
+      data-depth={v.depth}
     >
       <RelicPlate view={v} size={32} rolling={rolling} carried={place?.role ?? null} />
       <RarityMark rarity={v.rarity} cleansed={v.cleansed} />
+      <DepthMark depth={v.depth} />
       <span className="min-w-0 flex-1" aria-hidden>
         <span className="line-clamp-2 pr-4 text-[13px] font-semibold leading-tight text-text">
           {v.name}
@@ -947,6 +951,7 @@ function RelicDetail({
             <h2 className="font-display text-xl font-bold leading-tight text-gold-100">{v.name}</h2>
             <div className="mt-1 flex flex-wrap items-center gap-1.5">
               <RelicRarityChip rarity={v.rarity} cleansed={v.cleansed} />
+              <DepthChip depth={v.depth} />
               {v.state && <StateChip look={v.state} />}
               {place && <CarriedChip index={place.index} role={place.role} />}
             </div>
@@ -1008,6 +1013,7 @@ function RelicDetail({
             </p>
           )
         )}
+        <DepthLine depth={v.depth} />
         <div className="mt-3">
           <PanelLabel
             right={
@@ -1090,6 +1096,25 @@ function RelicDetail({
         </div>
       </div>
     </Panel>
+  );
+}
+
+/**
+ * A relic's depth (Phase 4d): the Dissonance it was won at sets how far crafting takes it. What
+ * it reaches, and what a relic won deeper would.
+ */
+function DepthLine({ depth }: { depth: number }) {
+  const d = relicDepthView(depth);
+  return (
+    <p
+      className="mt-2 text-xs leading-snug text-muted"
+      data-testid="relic-depth"
+      data-depth={depth}
+      data-cap={d.cap}
+    >
+      <span className="text-text">{d.line}</span>
+      {d.deeper && <> {d.deeper}</>}
+    </p>
   );
 }
 
@@ -1197,7 +1222,7 @@ function CraftPanel({
         aria-labelledby={`craft-tab-${action}`}
         className="scroll-thin -mr-1 mt-2 min-h-0 flex-1 overflow-y-auto pr-1"
       >
-        <p className="text-xs leading-snug text-muted">{actionBlurb(action)}</p>
+        <p className="text-xs leading-snug text-muted">{actionBlurb(action, relic)}</p>
         {rollingNow ? (
           // The roll: nothing to choose until its outcome is revealed.
           <OutcomeCard outcome={null} rolling name={v.name} />
@@ -1358,15 +1383,22 @@ function InscriptionChooser({
               data-p={o.p}
             >
               <TierBadge tier={o.row.tier} size="sm" />
-              <span className="min-w-0 flex-1 truncate text-sm font-semibold text-text">
-                {o.row.name}{' '}
-                <span className="font-mono text-xs font-normal">{o.row.valueText}</span>
-              </span>
-              {o.blocked ? (
-                <span className="flex shrink-0 items-center gap-1 text-[11px] text-orange-200">
-                  <Icon name="lock" size={11} /> {o.blocked}
+              <span className="min-w-0 flex-1 text-sm font-semibold text-text">
+                <span className="block truncate">
+                  {o.row.name}{' '}
+                  <span className="font-mono text-xs font-normal">{o.row.valueText}</span>
                 </span>
-              ) : action === 'ascend' ? (
+                {o.blocked && (
+                  // The meta's reason, on a line of its own so a long one reads whole.
+                  <span
+                    className="flex items-start gap-1 text-[11px] font-normal leading-snug text-orange-200"
+                    data-testid="option-blocked"
+                  >
+                    <Icon name="lock" size={11} className="mt-px shrink-0" /> {o.blocked}
+                  </span>
+                )}
+              </span>
+              {o.blocked ? null : action === 'ascend' ? (
                 <span className="shrink-0 text-[11px] text-muted">
                   → T{o.to} <b className="font-mono text-gold-200">{o.pText}</b>
                 </span>
@@ -1697,6 +1729,7 @@ export function ReliquaryScreen() {
     return !!saved && saved.phase !== 'prep' && saved.phase !== 'summary';
   });
   const [codex, setCodex] = useState(false);
+  const dissonance = useCodexDissonance();
   if (codex) {
     return (
       <CodexView
@@ -1705,6 +1738,7 @@ export function ReliquaryScreen() {
         allowance={allowance}
         rank={rank}
         deeds={{ earned: deeds, best: deedBest }}
+        dissonance={dissonance}
       />
     );
   }
