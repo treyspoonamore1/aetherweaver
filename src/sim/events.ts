@@ -554,6 +554,16 @@ export interface EnemyKilled extends At {
   x: number;
   z: number;
 }
+/** Restless Dead (docs/phase-4d.md): an enemy fell and rises again, once, at a share of its life. */
+export interface EnemyRose extends At {
+  type: 'enemyRose';
+  enemy: EntityId;
+  defId: string;
+  x: number;
+  z: number;
+  /** Its life as it rises. */
+  hp: number;
+}
 export interface PhaseChanged extends At {
   type: 'phaseChanged';
   boss: EntityId;
@@ -635,6 +645,7 @@ export type SimEvent =
   | AbilityUsed
   | CastInterrupted
   | EnemyKilled
+  | EnemyRose
   | PhaseChanged
   | DecreeAnnounced;
 

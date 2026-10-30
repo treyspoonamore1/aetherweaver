@@ -2,7 +2,7 @@
  * The encounter director (docs/plan/03 §9): waves with spawn warnings, the next wave when
  * the current one is (almost) cleared, victory and defeat.
  */
-import { encounterDef, enemyDef } from '../../content';
+import { encounterDef, enemyDef, type EncounterDef } from '../../content';
 import { len } from '../core/dmath';
 import { isActive, killEnemy, releaseHold } from '../combat/health';
 import { setTimeScale } from '../combat/feedback';
@@ -102,10 +102,11 @@ function startWave(world: World, index: number): void {
   const wl = len(wx, wz);
   const awayX = wl > 0.5 ? -wx / wl : 0;
   const awayZ = wl > 0.5 ? -wz / wl : -1;
+  const spawns = vanguard(world, wave.spawns, index);
   let n = 0;
-  for (const s of wave.spawns) n += s.count;
+  for (const s of spawns) n += s.count;
   let i = 0;
-  for (const s of wave.spawns) {
+  for (const s of spawns) {
     const role = enemyDef(s.enemy).role;
     const boss = role === 'boss' || role === 'miniboss';
     for (let k = 0; k < s.count; k++) {
@@ -126,10 +127,39 @@ function startWave(world: World, index: number): void {
         affixes: [...s.affixes],
         wave: index + 1,
       });
-      d.waveHp += enemyDef(s.enemy).hp * (s.elite ? 2.2 : 1) * world.config.threat;
+      d.waveHp +=
+        enemyDef(s.enemy).hp * (s.elite ? 2.2 : 1) * world.config.threat * world.mods.enemyLifeMult;
       world.events.push({ type: 'spawnWarning', tick: world.tick, x: p.x, z: p.z, delay: WARNING });
     }
   }
+}
+
+type Spawn = EncounterDef['waves'][number]['spawns'][number];
+
+/**
+ * Elite Vanguard (Dissonance, docs/phase-4d.md): an elite fight's first elite group brings more
+ * of its kind, and every elite carries more affixes. The extra affixes are picked by the wave
+ * and the group (no roll), so nothing else's rolls move.
+ */
+function vanguard(world: World, spawns: readonly Spawn[], wave: number): readonly Spawn[] {
+  const { vanguardElites, vanguardAffixes } = world.mods;
+  if (vanguardElites <= 0 && vanguardAffixes <= 0) return spawns;
+  const eliteFight = encounterDef(world.encounter.id).kind === 'elite';
+  const all = world.content.affixes.map((a) => a.id);
+  const d = world.internal.director;
+  return spawns.map((s, k) => {
+    if (!s.elite) return s;
+    // The fight's first elite group brings the extra elites (once a fight, not once a wave).
+    const grow = eliteFight && !d.vanguard;
+    if (grow) d.vanguard = true;
+    const count = grow ? s.count + vanguardElites : s.count;
+    const free = all.filter((a) => !s.affixes.includes(a));
+    const extra = Array.from(
+      { length: Math.min(vanguardAffixes, free.length) },
+      (_, j) => free.splice((wave * 7 + k * 3 + j) % free.length, 1)[0]!,
+    );
+    return { ...s, count, affixes: [...s.affixes, ...extra] };
+  });
 }
 
 /** Point i of n along an arc of the arena edge centred on (dirX, dirZ). No trig: rotate by steps. */

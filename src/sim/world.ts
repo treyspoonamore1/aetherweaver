@@ -19,6 +19,7 @@ import type { SimEvent } from './events';
 import { resolveMods, type Mods } from './mods';
 import type {
   AstrolabeState,
+  DissonanceState,
   CallingState,
   ChimeInFlight,
   EncounterState,
@@ -75,6 +76,12 @@ export interface PassiveConfig {
   value: number;
 }
 
+/** A Dissonance level in force (docs/phase-4d.md), at a rank from 1 to its content `ranks`. */
+export interface DissonanceConfig {
+  id: string;
+  rank: number;
+}
+
 /** A Chord as configured (ornaments default to none). */
 export interface ChordConfig {
   auras: string[];
@@ -123,6 +130,11 @@ export interface SimConfig {
    * nodes. Unknown effects are refused; none when the Weaver is absent.
    */
   passives?: readonly PassiveConfig[];
+  /**
+   * Dissonance (docs/phase-4d.md): the levels in force and their ranks. Unknown levels are
+   * refused; kept for an absent Weaver too, so "without you" faces the same enemies.
+   */
+  dissonance?: readonly DissonanceConfig[];
   assists?: AssistConfig;
   /** Enables `debug` commands (spawns, teleport). Debug commands are recorded in replays. */
   debug?: boolean;
@@ -150,6 +162,8 @@ export interface ResolvedSimConfig {
   astrolabe: string[];
   /** In the order given; none when the Weaver is absent. */
   passives: PassiveConfig[];
+  /** In content order, one of each, ranks clamped. */
+  dissonance: DissonanceConfig[];
   assists: Required<AssistConfig>;
   debug: boolean;
   absent: boolean;
@@ -183,6 +197,17 @@ export function resolveConfig(config: SimConfig, content: Content = CONTENT): Re
     passives.push({ effect: p.effect, value: p.value });
   }
   const reserve = songReserveOf(calling, astrolabe, content, passives);
+  const dissonance: DissonanceConfig[] = [];
+  for (const level of config.dissonance ?? []) {
+    if (!content.dissonance.some((d) => d.id === level.id))
+      throw new Error(`Unknown Dissonance level "${level.id}"`);
+  }
+  for (const def of content.dissonance) {
+    const ranks = (config.dissonance ?? []).filter((l) => l.id === def.id);
+    if (ranks.length === 0) continue;
+    const rank = Math.max(...ranks.map((l) => Math.floor(l.rank)));
+    if (rank >= 1) dissonance.push({ id: def.id, rank: Math.min(def.ranks, rank) });
+  }
   const given = config.chords ?? (config.auras ? [{ auras: config.auras }] : []);
   const chords = absent
     ? []
@@ -231,6 +256,7 @@ export function resolveConfig(config: SimConfig, content: Content = CONTENT): Re
     calling,
     astrolabe,
     passives,
+    dissonance,
     assists: {
       perfectWindowBonus: Math.max(0, Math.min(0.3, a.perfectWindowBonus ?? 0)),
       telegraphLead: Math.max(1, Math.min(2, a.telegraphLead ?? 1)),
@@ -345,6 +371,8 @@ export interface DirectorState {
   spawned: number;
   /** Sim time of the first spawn: grades and the opening grace count from here. */
   firstSpawnAt: number | null;
+  /** Elite Vanguard (Dissonance): this fight's extra elite has come. */
+  vanguard: boolean;
 }
 
 export interface BossState {
@@ -406,6 +434,7 @@ export interface World extends WorldState {
   relics: RelicState;
   readonly calling: CallingState | null;
   readonly astrolabe: AstrolabeState;
+  readonly dissonance: DissonanceState;
   readonly config: ResolvedSimConfig;
   readonly content: Content;
   readonly mods: Mods;
@@ -566,6 +595,13 @@ export function createWorld(config: SimConfig): World {
       foresight: mods.foresight,
       stasisCostMult: mods.stasisCostMult,
     },
+    dissonance: {
+      levels: resolved.dissonance.map((l) => ({ ...l })),
+      blindScore: resolved.dissonance.some(
+        (l) => content.dissonance.find((d) => d.id === l.id)?.effect === 'blind_score',
+      ),
+      cueCost: content.resonance.cueCost + mods.cueCostBonus,
+    },
     astrolabe: {
       nodes: [...resolved.astrolabe],
       passives: resolved.passives.map((p) => ({ ...p })),
@@ -586,7 +622,14 @@ export function createWorld(config: SimConfig): World {
       timeScaleTicks: 0,
       pendingHits: [],
       pendingSpawns: [],
-      director: { nextWave: 0, nextWaveAt: null, waveHp: 0, spawned: 0, firstSpawnAt: null },
+      director: {
+        nextWave: 0,
+        nextWaveAt: null,
+        waveHp: 0,
+        spawned: 0,
+        firstSpawnAt: null,
+        vanguard: false,
+      },
       boss: {
         nextRequiemAt: 0,
         nextCircleShiftAt: 0,

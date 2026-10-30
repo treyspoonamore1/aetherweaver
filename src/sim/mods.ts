@@ -8,6 +8,22 @@ import { applyAstrolabe } from './astrolabe';
 import type { ResolvedSimConfig } from './world';
 
 export interface Mods {
+  // ── Dissonance (docs/phase-4d.md) ──
+  /** Brisk Foes: enemies' speed. */
+  enemySpeedMult: number;
+  /** Hardened: enemies' life (on top of the run's Threat). */
+  enemyLifeMult: number;
+  /** Short Fuse: enemies' wind-ups (with the assist's lead). */
+  dissonanceWindupMult: number;
+  /** Wounding Strikes: healing heroes receive. */
+  heroHealMult: number;
+  /** Silent Cues: Resonance a Cue costs on top. */
+  cueCostBonus: number;
+  /** Restless Dead: the share of its life (percent) an enemy rises at, once (0: none). */
+  restlessPct: number;
+  /** Elite Vanguard: more elites in an elite fight, and more affixes on every elite. */
+  vanguardElites: number;
+  vanguardAffixes: number;
   relayHealPct: number;
   threadRangeBonus: number;
   lifelineMult: number;
@@ -213,6 +229,14 @@ export interface Mods {
 }
 
 export const NO_MODS: Mods = {
+  enemySpeedMult: 1,
+  enemyLifeMult: 1,
+  dissonanceWindupMult: 1,
+  heroHealMult: 1,
+  cueCostBonus: 0,
+  restlessPct: 0,
+  vanguardElites: 0,
+  vanguardAffixes: 0,
   relayHealPct: 0,
   threadRangeBonus: 0,
   lifelineMult: 1,
@@ -459,7 +483,58 @@ export function resolveMods(config: ResolvedSimConfig, content: Content): Mods {
   }
   // Last: the tree (and the carried relics' passives) builds on everything a run gave.
   applyAstrolabe(m, config.astrolabe, content, config.passives);
+  applyDissonance(m, config.dissonance, content);
   return m;
+}
+
+/**
+ * Dissonance (docs/phase-4d.md): each level, at its rank, on the fight. The run's own levels
+ * (Unforgiving's Respites, Discordant Pact's relic) and Blind Score's views need nothing here.
+ */
+function applyDissonance(
+  m: Mods,
+  levels: readonly { id: string; rank: number }[],
+  content: Content,
+): void {
+  for (const { id, rank } of levels) {
+    const def = content.dissonance.find((d) => d.id === id);
+    if (!def) continue;
+    const v = def.values;
+    switch (def.effect) {
+      case 'enemy_speed':
+        m.enemySpeedMult *= 1 + (num(v, 'pct') * rank) / 100;
+        break;
+      case 'enemy_life':
+        m.enemyLifeMult *= 1 + (num(v, 'pct') * rank) / 100;
+        break;
+      case 'windup':
+        m.dissonanceWindupMult *= Math.max(0.2, 1 - (num(v, 'pct') * rank) / 100);
+        break;
+      case 'aura_radius':
+        m.fieldRadiusMult *= Math.max(0.2, 1 - (num(v, 'pct') * rank) / 100);
+        break;
+      case 'thread_range':
+        m.threadRangeBonus -= num(v, 'metres') * rank;
+        break;
+      case 'heal_received':
+        m.heroHealMult *= Math.max(0, 1 - (num(v, 'pct') * rank) / 100);
+        break;
+      case 'elite_vanguard':
+        m.vanguardElites += num(v, 'elites') * rank;
+        m.vanguardAffixes += num(v, 'affixes') * rank;
+        break;
+      case 'cue_cost':
+        m.cueCostBonus += num(v, 'resonance') * rank;
+        break;
+      case 'restless_dead':
+        m.restlessPct = Math.max(m.restlessPct, num(v, 'pct'));
+        break;
+      case 'no_respite_heal':
+      case 'blind_score':
+      case 'cursed_start':
+        break;
+    }
+  }
 }
 
 function applyCalling(m: Mods, id: string, v: Values): void {

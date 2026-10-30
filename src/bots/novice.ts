@@ -161,7 +161,7 @@ export class NoviceBot implements Bot {
     }
 
     // Cue whoever is ready, now and then; Crescendo when things look bad.
-    if (wc.resonance >= CONTENT.resonance.cueCost && this.rng.chance(0.3)) {
+    if (wc.resonance >= state.dissonance.cueCost && this.rng.chance(0.3)) {
       const ready = party.find((h) => h.e.hero!.solo >= 100 && h.e.hero!.soloActive <= 0);
       if (ready) out.push({ t: 'cue', slot: ready.slot });
     }

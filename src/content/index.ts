@@ -10,6 +10,7 @@ import { DEEDS } from './deeds';
 import { CALLINGS } from './callings';
 import { BOONS, RELICS } from './relics';
 import { CURSES, INSCRIPTIONS, RELIQUARY } from './reliquary';
+import { DISSONANCE, DISSONANCE_RULES } from './dissonance';
 import { RUN_EVENTS } from './runEvents';
 import { CALLS, CHORUS, CRESCENDO, RESONANCE, TECHNIQUES, THREAD, WEAVER } from './weaver';
 import {
@@ -24,6 +25,7 @@ import {
   type Content,
   type CurseDef,
   type DeedDef,
+  type DissonanceLevel,
   type EncounterDef,
   type EnemyDef,
   type HeroDef,
@@ -60,6 +62,8 @@ export const CONTENT: Content = ContentSchema.parse({
   inscriptions: INSCRIPTIONS,
   curses: CURSES,
   reliquary: RELIQUARY,
+  dissonance: DISSONANCE,
+  dissonanceRules: DISSONANCE_RULES,
   arenas: ARENAS,
   encounters: ENCOUNTERS,
   barks: {
@@ -183,6 +187,17 @@ export function curseText(def: CurseDef): string {
   return fillValues(def.text, lettered(def.effects));
 }
 
+/** A Dissonance level by id (docs/phase-4d.md). */
+export const dissonanceLevel: (id: string) => DissonanceLevel = index(
+  'dissonance level',
+  CONTENT.dissonance,
+);
+
+/** A Dissonance level's effect, filled in. */
+export function dissonanceText(level: DissonanceLevel): string {
+  return fillValues(level.text, level.values);
+}
+
 /** A Deed by id. */
 export const deedDef: (id: string) => DeedDef = index('deed', CONTENT.deeds);
 
@@ -229,6 +244,9 @@ export type {
   Content,
   CurseDef,
   DeedDef,
+  DissonanceEffect,
+  DissonanceLevel,
+  DissonanceRules,
   EncounterDef,
   EnemyDef,
   EventChoice,
@@ -244,4 +262,4 @@ export type {
   ReliquaryDef,
   RunEventDef,
 } from './schema';
-export { INSCRIPTION_CATEGORIES, PASSIVE_EFFECTS } from './schema';
+export { DISSONANCE_EFFECTS, INSCRIPTION_CATEGORIES, PASSIVE_EFFECTS } from './schema';

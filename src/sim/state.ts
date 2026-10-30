@@ -341,6 +341,8 @@ export interface EnemyComponent {
   cast: EnemyCast | null;
   /** Boss phase (1-based); 0 for non-bosses. */
   phase: number;
+  /** Restless Dead (docs/phase-4d.md): it has fallen and risen once already. */
+  risen: boolean;
   /** Inside one of the Weaver's fields, whatever the songs hold for enemies (Eclipse). */
   inField: boolean;
   /** Bit i set ⇔ content.auras[i] (a hex) affects this enemy right now. */
@@ -715,6 +717,15 @@ export interface CallingState {
  * The Astrolabe the Weaver fights with (docs/phase-4.md), and what it does that the view needs
  * to show. Constant through a fight; with no tree, everything is neutral.
  */
+/** Dissonance in force this fight (docs/phase-4d.md), for the views. */
+export interface DissonanceState {
+  levels: { id: string; rank: number }[];
+  /** Blind Score: the views don't show which answer a telegraph wants. */
+  blindScore: boolean;
+  /** What a Cue costs this fight (Silent Cues adds to the content's). */
+  cueCost: number;
+}
+
 export interface AstrolabeState {
   /** The allocated nodes, sorted. */
   nodes: string[];
@@ -755,4 +766,5 @@ export interface WorldState {
   readonly relics: DeepReadonly<RelicState>;
   readonly calling: DeepReadonly<CallingState> | null;
   readonly astrolabe: DeepReadonly<AstrolabeState>;
+  readonly dissonance: DeepReadonly<DissonanceState>;
 }

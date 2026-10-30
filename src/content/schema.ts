@@ -843,11 +843,77 @@ export const ReliquaryDefSchema = z
     }),
     /** Shards a run pays: for each fight it won, and on top for each kind of fight. */
     shards: z.object({ perFight: Count, elite: Count, miniboss: Count, boss: Count }),
+    /**
+     * Dissonance (docs/phase-4d.md): a relic's depth (the Dissonance it was won at) raises how
+     * far it can be crafted. From each band's depth: the best tier Ascend reaches, Inscribe's
+     * tier odds (T5 first) and how far a Cursed Dissonate raises. Below the first band,
+     * `tierCap`, Inscribe's `tierOdds` and `dissonate.cursedTierCap` hold.
+     */
+    bands: z.array(
+      z
+        .object({
+          depth: z.number().int().positive(),
+          tierCap: z.number().int().min(1).max(5),
+          tierOdds: z.array(Percent).length(5),
+          cursedTierCap: z.number().int().min(1).max(5),
+        })
+        .strict(),
+    ),
     /** A boss beaten with this grade pays a Discord Tear. */
     tearGrade: z.enum(['S', 'A', 'B', 'C']),
   })
   .strict();
 export type ReliquaryDef = z.infer<typeof ReliquaryDefSchema>;
+
+// ── Dissonance (docs/phase-4d.md) ────────────────────────────────────────────────────
+
+/** What a Dissonance level does: the sim's mods read the fight's, the run layer the run's. */
+export const DISSONANCE_EFFECTS = [
+  'enemy_speed',
+  'enemy_life',
+  'windup',
+  'aura_radius',
+  'thread_range',
+  'heal_received',
+  'elite_vanguard',
+  'cue_cost',
+  'restless_dead',
+  'no_respite_heal',
+  'blind_score',
+  'cursed_start',
+] as const;
+export type DissonanceEffect = (typeof DISSONANCE_EFFECTS)[number];
+
+export const DissonanceLevelSchema = z
+  .object({
+    id: IdSchema,
+    name: z.string(),
+    effect: z.enum(DISSONANCE_EFFECTS),
+    /** How many times it can be taken (each rank adds its effect and its points). */
+    ranks: z.number().int().min(1).max(3),
+    /** Points per rank. */
+    points: z.number().int().positive(),
+    /** Its numbers per rank, in the units its text shows. */
+    values: ValuesSchema,
+    text: z.string(),
+  })
+  .strict();
+export type DissonanceLevel = z.infer<typeof DissonanceLevelSchema>;
+
+export const DissonanceRulesSchema = z
+  .object({
+    /** The first win at this Rank or above opens Dissonance. */
+    openRank: z.number().int().positive(),
+    /** Per point: percent more Weaver XP, and Tuning Shards. */
+    xpPerPoint: z.number().nonnegative(),
+    shardsPerPoint: z.number().nonnegative(),
+    /** From this total, a boss beaten with an A pays a Discord Tear too. */
+    tearOnA: z.number().int().positive(),
+    /** From this total, every win pays one more Tear. */
+    tearOnWin: z.number().int().positive(),
+  })
+  .strict();
+export type DissonanceRules = z.infer<typeof DissonanceRulesSchema>;
 
 // ── Arenas and encounters ─────────────────────────────────────────────────────────────
 
@@ -926,6 +992,8 @@ export const ContentSchema = z
     inscriptions: z.array(InscriptionDefSchema),
     curses: z.array(CurseDefSchema).min(1),
     reliquary: ReliquaryDefSchema,
+    dissonance: z.array(DissonanceLevelSchema),
+    dissonanceRules: DissonanceRulesSchema,
     arenas: z.array(ArenaDefSchema).min(1),
     encounters: z.array(EncounterDefSchema).min(1),
     /** Directive acknowledgement lines. */
@@ -1200,6 +1268,21 @@ export const ContentSchema = z
       ctx.addIssue({ code: 'custom', message: 'Inscribe rolls no tier past the cap' });
     if (Object.values(rq.dissonate.weights).reduce((a, b) => a + b, 0) <= 0)
       ctx.addIssue({ code: 'custom', message: 'a Dissonate has an outcome' });
+    rq.bands.forEach((b, i) => {
+      const prev = rq.bands[i - 1];
+      if (prev && b.depth <= prev.depth)
+        ctx.addIssue({ code: 'custom', message: 'the Reliquary’s bands go deeper in order' });
+      if (b.tierOdds.reduce((a, x) => a + x, 0) !== 100)
+        ctx.addIssue({ code: 'custom', message: `band ${b.depth}: its tier odds add up to 100` });
+      if (b.tierOdds.some((p, t) => p > 0 && 5 - t < b.tierCap))
+        ctx.addIssue({ code: 'custom', message: `band ${b.depth}: no tier past its cap` });
+    });
+    // Dissonance: unique levels, every placeholder filled.
+    unique(
+      'dissonance level',
+      c.dissonance.map((d) => d.id),
+    );
+    for (const d of c.dissonance) filled(d.text, d.values, `dissonance level "${d.id}"`);
     for (const ev of c.events) {
       unique(
         `choice in event "${ev.id}"`,

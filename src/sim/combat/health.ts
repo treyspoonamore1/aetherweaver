@@ -265,6 +265,8 @@ export function heal(
 ): number {
   const h = target.health;
   if (!h || h.dead || h.downed || amount <= 0) return 0;
+  // Wounding Strikes (Dissonance): heroes are healed less.
+  if (target.hero) amount *= world.mods.heroHealMult;
   // Martyr's Vow: the Weaver's healing received is doubled while it lasts.
   if (target.weaver && world.field.vow) amount *= world.mods.vowHealMult;
   // Prism Covenant (the Astrolabe): the Weaver can't be healed above a share of her Life.
@@ -602,7 +604,7 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
     downed = true;
     if (target.hero) downHero(world, target, opts.sourceName);
     else if (target.weaver) downWeaver(world, target);
-    else killEnemy(world, target, source ?? null);
+    else if (!restlessRise(world, target)) killEnemy(world, target, source ?? null);
   }
   return {
     dealt,
@@ -854,14 +856,39 @@ export function reviveHero(world: World, e: Entity, hpPct: number): void {
   bark(world, e, 'revived', true);
 }
 
-export function killEnemy(world: World, e: Entity, killer: Entity | null): void {
-  const h = e.health!;
-  const enemy = e.enemy!;
-  if (h.dead) return;
-  h.dead = true;
-  h.hp = 0;
-  enemy.state = 'dying';
-  // Its pending attacks die with it (a boss's last toll still rings if already in flight).
+/**
+ * Restless Dead (Dissonance, docs/phase-4d.md): an enemy struck down falls and rises once, at a
+ * share of its life, standing up again as it first did (untargeted while it does). Its attacks
+ * in progress die with the fall. Not bosses or mini-bosses; true when it rose instead of dying.
+ */
+function restlessRise(world: World, e: Entity): boolean {
+  const pct = world.mods.restlessPct;
+  const enemy = e.enemy;
+  const h = e.health;
+  if (pct <= 0 || !enemy || !h || enemy.risen) return false;
+  if (enemy.tier === 'boss' || enemy.tier === 'miniboss') return false;
+  if (world.encounter.status !== 'fighting') return false;
+  enemy.risen = true;
+  h.hp = Math.max(1, Math.round((h.maxHp * pct) / 100));
+  h.statuses = [];
+  enemy.cast = null;
+  enemy.state = 'spawning';
+  enemy.stateTime = 0;
+  dropTelegraphs(world, e);
+  world.events.push({
+    type: 'enemyRose',
+    tick: world.tick,
+    enemy: e.id,
+    defId: enemy.defId,
+    x: e.x,
+    z: e.z,
+    hp: h.hp,
+  });
+  return true;
+}
+
+/** An enemy's attacks in progress end with it (a boss's last toll still rings if in flight). */
+function dropTelegraphs(world: World, e: Entity): void {
   for (let i = world.telegraphs.length - 1; i >= 0; i--) {
     const t = world.telegraphs[i]!;
     if (t.owner === e.id && t.attackId !== 'volatile_burst') {
@@ -878,6 +905,16 @@ export function killEnemy(world: World, e: Entity, killer: Entity | null): void 
       world.events.push({ type: 'telegraphEnded', tick: world.tick, telegraph: t.id });
     }
   }
+}
+
+export function killEnemy(world: World, e: Entity, killer: Entity | null): void {
+  const h = e.health!;
+  const enemy = e.enemy!;
+  if (h.dead) return;
+  h.dead = true;
+  h.hp = 0;
+  enemy.state = 'dying';
+  dropTelegraphs(world, e);
   world.events.push({
     type: 'enemyKilled',
     tick: world.tick,

@@ -295,7 +295,7 @@ export class SkilledBot implements Bot {
     out.push(...modeCommands(wc.threadMode, want));
 
     // ── Cues and the Crescendo. ──
-    const segment = CONTENT.resonance.cueCost;
+    const segment = state.dissonance.cueCost;
     const raid = state.telegraphs.find((t) => t.kind === 'raid');
     const bossFight = state.encounter.bossId !== null;
     if (wc.resonance >= segment) {

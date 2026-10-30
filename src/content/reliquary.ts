@@ -420,5 +420,10 @@ export const RELIQUARY: ContentInput['reliquary'] = {
   },
   release: { common: 3, rare: 5, legendary: 8, cursed: 5, perInscription: 2 },
   shards: { perFight: 2, elite: 2, miniboss: 3, boss: 5 },
+  // Dissonance (docs/phase-4d.md): relics won deeper craft further.
+  bands: [
+    { depth: 10, tierCap: 2, tierOdds: [45, 30, 17, 8, 0], cursedTierCap: 1 },
+    { depth: 20, tierCap: 1, tierOdds: [35, 30, 20, 10, 5], cursedTierCap: 1 },
+  ],
   tearGrade: 'S',
 };

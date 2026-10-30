@@ -410,9 +410,10 @@ export function cue(world: World, slot: PartySlot): void {
   if (!isActive(hero) || !hero.hero) return reject(world, 'cue', 'target');
   const h = hero.hero;
   if (h.soloActive > 0 || h.solo < 100) return reject(world, 'cue', 'not-ready');
-  if (weaver.weaver!.resonance + 1e-9 < world.content.resonance.cueCost)
-    return reject(world, 'cue', 'resonance');
-  spendResonance(world, world.content.resonance.cueCost, 'cue');
+  // Silent Cues (Dissonance) raises it.
+  const cost = world.content.resonance.cueCost + world.mods.cueCostBonus;
+  if (weaver.weaver!.resonance + 1e-9 < cost) return reject(world, 'cue', 'resonance');
+  spendResonance(world, cost, 'cue');
   world.ledger.cues++;
   pushMarker(world, 'cue', h.slot);
   world.events.push({ type: 'cued', tick: world.tick, hero: hero.id });

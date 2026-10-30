@@ -57,13 +57,14 @@ export function spawnEnemy(
   const affixes = [...(opts.affixes ?? [])];
   const hpMult = tier === 'elite' ? 2.2 : 1;
   const hastened = affixes.includes('hastened');
-  const maxHp = Math.round(def.hp * hpMult * world.config.threat);
+  // Hardened (Dissonance): more life on top of the run's Threat.
+  const maxHp = Math.round(def.hp * hpMult * world.config.threat * world.mods.enemyLifeMult);
   const e = world.entities.spawn('enemy', {
     x,
     z,
     radius: tier === 'elite' ? Math.min(2.5, def.radius * 1.15) : def.radius,
     height: tier === 'elite' ? def.height * 1.15 : def.height,
-    speed: def.speed * (hastened ? 1.3 : 1),
+    speed: def.speed * (hastened ? 1.3 : 1) * world.mods.enemySpeedMult,
     mass: tier === 'boss' || tier === 'miniboss' ? 0.05 : def.role === 'brute' ? 0.5 : 1,
     team: 'enemy',
     health: newHealth(maxHp, maxHp),
@@ -80,6 +81,7 @@ export function spawnEnemy(
       specialCooldowns: def.specials.map((id) => attackDef(id).initialDelay),
       cast: null,
       phase: tier === 'boss' || tier === 'miniboss' ? 1 : 0,
+      risen: false,
       inField: false,
       auraMask: 0,
       beamFocus: false,
@@ -466,7 +468,12 @@ export function beginAttack(
     }
   }
 
-  let windup = attack.windup * c.windupMult * world.config.assists.telegraphLead;
+  // Short Fuse (Dissonance) shortens it; the assist's lead lengthens it.
+  let windup =
+    attack.windup *
+    c.windupMult *
+    world.config.assists.telegraphLead *
+    world.mods.dissonanceWindupMult;
   // Lullaby: slower wind-ups, and a Perfect window widened in proportion. Slow Dance (the
   // Chronomancer): longer still for an enemy in a field.
   const lullaby = attack.effect === 'damage' ? enemyFx(world, e).enemyWindup : 0;
