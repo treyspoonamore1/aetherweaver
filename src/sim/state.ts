@@ -666,6 +666,8 @@ export interface RelicState {
   ids: string[];
   /** Cursed relics whose curse a Forge lifted (their blessing stays). */
   cleansed: string[];
+  /** Relics a Dissonate Empowered (docs/phase-4c.md): they play their empowered numbers. */
+  empowered: string[];
   /** Cracked Metronome: sim time its next free Perfect is ready (null without it). */
   metronomeAt: number | null;
   /** Silver Thimble: sim time it can shield again (null without it). */

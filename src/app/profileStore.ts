@@ -92,13 +92,21 @@ export interface ProfileStore {
   payReliquary(materials: { shards: number; tears: number }): void;
 }
 
+/**
+ * A new Reliquary's first crafting seed (docs/phase-4c.md). Math.random is fine here: from then
+ * on every roll is seeded from the profile, so no two players share a sequence.
+ */
+function freshSeed(): number {
+  return Math.floor(Math.random() * 2 ** 31) + 1;
+}
+
 export const useProfile = create<ProfileStore>()((set, get) => {
   const commit = (profile: Profile, extra: Partial<ProfileStore> = {}) => {
     saveProfile(storage(), profile);
     set({ profile, ...extra });
   };
   return {
-    profile: loadProfile(storage()),
+    profile: loadProfile(storage(), freshSeed()),
     rankUps: [],
     deedNotices: [],
     allowance: () =>
@@ -169,9 +177,7 @@ export const useProfile = create<ProfileStore>()((set, get) => {
       const p = get().profile;
       commit({ ...p, runs: p.runs + 1, wins: p.wins + (won ? 1 : 0) });
     },
-    // Math.random is fine here: the crafting rolls are seeded from the profile from then on.
-    resetProgress: () =>
-      commit(newProfile(Math.floor(Math.random() * 2 ** 31) + 1), { rankUps: [], deedNotices: [] }),
+    resetProgress: () => commit(newProfile(freshSeed()), { rankUps: [], deedNotices: [] }),
     reliquaryOpen: () =>
       reliquaryOpen(rankOf(get().profile.xp), useSettings.getState().settings.unlockAll),
     carrySlots: () =>

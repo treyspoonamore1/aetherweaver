@@ -255,7 +255,7 @@ export class RelicView {
       const after = he?.hero?.solo ?? 0;
       const slot = state.party.indexOf(hero);
       const prev = slot >= 0 && slot < MAX_TARGETS ? this.lastSolo[slot]! : -1;
-      const share = Math.max(0, after - relicValue('tuning_fork', 'pct', 25));
+      const share = Math.max(0, after - relicValue('tuning_fork', 'pct', 25, state));
       m.value = after;
       m.value2 = prev >= 0 && prev <= after ? Math.max(prev, share) : share;
     }

@@ -128,8 +128,9 @@ export const useRun = create<RunStore>()((set, get) => {
       return result;
     },
     newRun: (seed) => {
-      // A run replaced before its summary still counts (won if its last fight beat the boss).
-      const previous = get().run;
+      // A run replaced before its summary still counts (won if its last fight beat the boss),
+      // and pays the Reliquary: the one in play, or the saved one after a restart.
+      const previous = get().run ?? loadRun(storage());
       if (previous && previous.phase !== 'prep' && previous.phase !== 'summary') {
         const last = previous.lastResult;
         useProfile

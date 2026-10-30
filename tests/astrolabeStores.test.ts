@@ -25,7 +25,7 @@ const run = () => useRun.getState().run!;
 beforeEach(() => {
   useSettings.getState().reset();
   useProfile.getState().resetProgress();
-  useRun.setState({ run: null });
+  useRun.getState().closeRun();
   // Rank 3: every aura HEAVY sings, and no Astrolabe points yet.
   useProfile.getState().award(RANK_XP[2]!);
 });

@@ -343,6 +343,28 @@ describe('relics in the fight (real sim → RelicView)', () => {
     expect(h2.view.fired.heavy).toBe(0);
   });
 
+  it('an Empowered relic’s cues read its empowered numbers (docs/phase-4c.md)', () => {
+    const empowered = sandbox({
+      relics: [
+        { id: 'prism_loom', empowered: true },
+        { id: 'cracked_metronome', empowered: true },
+      ],
+    });
+    expect(empowered.state.relics.empowered).toEqual(['prism_loom', 'cracked_metronome']);
+    const loom = CONTENT.relics.find((r) => r.id === 'prism_loom')!;
+    const scan = new PrismScan().scan(empowered.state);
+    expect(scan.radius).toBe(loom.empowered!.values.radius);
+    expect(scan.pct).toBeCloseTo(loom.empowered!.values.pct! / 100, 9);
+    const metronome = CONTENT.relics.find((r) => r.id === 'cracked_metronome')!;
+    expect(relicValue('cracked_metronome', 'cooldown', 12, empowered.state)).toBe(
+      metronome.empowered!.values.cooldown,
+    );
+    // Not Empowered: its own numbers.
+    expect(new PrismScan().scan(sandbox(relics('prism_loom')).state).radius).toBe(
+      loom.values.radius,
+    );
+  });
+
   it('Prism Loom: reaches exactly the heroes the sim’s threadPotency does, at the same share', () => {
     const sim = sandbox(relics('prism_loom'));
     stepFor(sim, 2, [{ t: 'thread', slot: 1 }]);

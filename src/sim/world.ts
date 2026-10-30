@@ -544,6 +544,7 @@ export function createWorld(config: SimConfig): World {
     relics: {
       ids: resolved.relics.map((r) => r.id),
       cleansed: resolved.relics.filter((r) => r.cleansed).map((r) => r.id),
+      empowered: resolved.relics.filter((r) => r.empowered).map((r) => r.id),
       metronomeAt: carried('cracked_metronome') ? 0 : null,
       thimbleAt: carried('silver_thimble') ? 0 : null,
       veil: carried('martyrs_veil'),

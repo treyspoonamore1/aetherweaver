@@ -10,8 +10,10 @@ import { useSettings } from '../src/app/settings';
 import { PROFILE_VERSION, RANK_XP, newProfile } from '../src/meta/profile';
 import { relicPassives, runMaterials, type ReliquaryRelic } from '../src/meta/reliquary';
 import * as Run from '../src/meta/run';
+import { CONTENT } from '../src/content';
 import { loadProfile, loadRun, type KeyValueStore } from '../src/meta/save';
 import type { EncounterResult, OwnedRelic } from '../src/meta/types';
+import { emptyLedger } from '../src/sim/world';
 
 function memoryStore(): KeyValueStore {
   const data = new Map<string, string>();
@@ -82,7 +84,8 @@ function endRun(won: boolean, found: OwnedRelic[] = [], grade = 'S'): void {
 beforeEach(() => {
   useSettings.getState().reset();
   useProfile.getState().resetProgress();
-  useRun.setState({ run: null });
+  // No run in play, and none saved: a saved one would be a run a new one replaces.
+  useRun.getState().closeRun();
 });
 
 describe('the carry', () => {
@@ -153,6 +156,17 @@ describe('the carry', () => {
     expect(Run.forgeTargets(r, 'cleanse')).toEqual([]);
   });
 
+  it('a dormant Star Chart gives no fourth choice; an attuned one does', () => {
+    const draftOf = (carried: ReliquaryRelic[]) => {
+      const r = Run.embark(Run.newRun(51, undefined, [], carried));
+      return Run.respite({ ...r, phase: 'respite' }, 'meditate').draft!.options.length;
+    };
+    const chart = relic('r2', 'star_chart');
+    expect(draftOf([relic('r1', 'prism_loom')])).toBe(3);
+    expect(draftOf([relic('r1', 'prism_loom'), chart])).toBe(3);
+    expect(draftOf([chart, relic('r1', 'prism_loom')])).toBe(4);
+  });
+
   it('a lighter reserve from a carried relic counts for the songs Prep allows', () => {
     const light = relic('r1', 'tuning_fork', {
       inscriptions: [{ id: 'light_reserve', tier: 1, value: 10 }],
@@ -185,6 +199,31 @@ describe('a run’s end', () => {
     useRun.getState().continueFromResult();
     useRun.getState().abandon();
     expect(reliquary()).toMatchObject({ shards: paid.shards, tears: 1 });
+  });
+
+  it('a saved run a new one replaces after a restart pays too', () => {
+    skipUnlocks(true);
+    useRun.getState().newRun(52);
+    useRun.getState().embark();
+    useRun.getState().chooseNode(Run.reachable(run())[0]!.id);
+    useRun.getState().finishCombat({
+      encounterId: run()
+        .map.rows.flat()
+        .find((n) => n.id === run().pending)!.encounterId!,
+      outcome: 'victory',
+      duration: 40,
+      ledger: emptyLedger(),
+      party: [],
+      withoutYou: null,
+    });
+    // The game closed mid-run: only storage holds it.
+    const saved = run();
+    expect(runMaterials(saved).shards).toBeGreaterThan(0);
+    useRun.setState({ run: null });
+    const runs = useProfile.getState().profile.runs;
+    useRun.getState().newRun(53);
+    expect(reliquary().shards).toBe(runMaterials(saved).shards);
+    expect(useProfile.getState().profile.runs).toBe(runs + 1);
   });
 
   it('an abandoned run pays for the fights it won; so does one a new run replaces', () => {
@@ -249,6 +288,71 @@ describe('saves', () => {
     expect(loaded.reliquary).toMatchObject({ relics: [], shards: 0, tears: 0, carry: [] });
   });
 
+  it('one relic that doesn’t parse is left behind, not the profile; a later kind freezes', () => {
+    const profile = { ...newProfile(), xp: RANK_XP[12]! };
+    const json = JSON.parse(JSON.stringify(profile));
+    json.reliquary.relics = [
+      relic('r1', 'prism_loom', { dissonance: { kind: 'mirrored' as 'shattered' } }),
+      { uid: 'r2', id: 'tuning_fork', inscriptions: 'garbled' },
+      relic('r3', 'tuning_fork'),
+    ];
+    const store = memoryStore();
+    store.setItem('aetherweaver.profile', JSON.stringify(json));
+    const loaded = loadProfile(store);
+    expect(loaded.xp).toBe(RANK_XP[12]);
+    expect(loaded.reliquary.relics.map((r) => [r.uid, r.dissonance?.kind ?? null])).toEqual([
+      ['r1', 'shattered'],
+      ['r3', null],
+    ]);
+    // A Reliquary that's garbled through and through is lost alone.
+    json.reliquary = { relics: 7 };
+    store.setItem('aetherweaver.profile', JSON.stringify(json));
+    expect(loadProfile(store).xp).toBe(RANK_XP[12]);
+  });
+
+  it('values rolled under older tiers come back inside today’s', () => {
+    const profile = newProfile();
+    profile.reliquary.relics = [
+      relic('r1', 'prism_loom', {
+        fractured: true,
+        inscriptions: [{ id: 'potent_thread', tier: 3, value: 7 }],
+      }),
+    ];
+    const store = memoryStore();
+    store.setItem('aetherweaver.profile', JSON.stringify(profile));
+    const ins = loadProfile(store).reliquary.relics[0]!.inscriptions[0]!;
+    const def = CONTENT.inscriptions.find((d) => d.id === 'potent_thread')!;
+    if (def.kind !== 'normal') throw new Error('normal');
+    expect(ins.value).toBe(def.tiers[2]![1]);
+  });
+
+  it('a new or migrated Reliquary takes the seed it’s given', () => {
+    const store = memoryStore();
+    expect(loadProfile(store, 777).reliquary.seed).toBe(777);
+    const { reliquary: _r, ...v3 } = { ...newProfile(), version: 3 };
+    store.setItem('aetherweaver.profile', JSON.stringify(v3));
+    expect(loadProfile(store, 4242).reliquary.seed).toBe(4242);
+  });
+
+  it('a run saved before attunement plays as this build does, keeping a Forge’s cleanse', () => {
+    const carried = [relic('r1', 'heavy_score'), relic('r2', 'prism_loom')];
+    const r = Run.embark(Run.newRun(54, undefined, [], carried));
+    const json = JSON.parse(JSON.stringify(r));
+    // As an older build saved it: every carried relic playing, the first cleansed at a Forge.
+    json.relics = [
+      { id: 'heavy_score', cleansed: true, carried: true, empowered: false },
+      { id: 'prism_loom', cleansed: false, carried: true, empowered: false },
+      { id: 'tuning_fork', cleansed: false },
+    ];
+    const store = memoryStore();
+    store.setItem('aetherweaver.run', JSON.stringify(json));
+    expect(loadRun(store)!.relics).toEqual([
+      { id: 'heavy_score', cleansed: true, carried: true, empowered: false },
+      { id: 'prism_loom', cleansed: false, carried: true, dormant: true },
+      { id: 'tuning_fork', cleansed: false },
+    ]);
+  });
+
   it('relics, Inscriptions and curses no longer in the content are left behind', () => {
     const profile = newProfile();
     profile.reliquary = {
@@ -270,7 +374,12 @@ describe('saves', () => {
     store.setItem('aetherweaver.profile', JSON.stringify(profile));
     const rq = loadProfile(store).reliquary;
     expect(rq.relics).toHaveLength(1);
-    expect(rq.relics[0]!.inscriptions).toEqual([{ id: 'stout_ward', tier: 5, value: 12 }]);
+    // Its tier is T5 now, so its value comes back inside T5's range.
+    const ward = CONTENT.inscriptions.find((d) => d.id === 'stout_ward')!;
+    if (ward.kind !== 'normal') throw new Error('normal');
+    expect(rq.relics[0]!.inscriptions).toEqual([
+      { id: 'stout_ward', tier: 5, value: ward.tiers[0]![1] },
+    ]);
     expect(rq.relics[0]!.dissonance).toEqual({ kind: 'cursed' });
     expect(rq.carry).toEqual(['r7']);
     // The next uid never repeats one held.
@@ -295,7 +404,7 @@ describe('saves', () => {
         relic('r1', 'tuning_fork', {
           inscriptions: [
             { id: 'stout_ward', tier: 3, value: 11 },
-            { id: 'hardy', tier: 4, value: 4 },
+            { id: 'hardy', tier: 4, value: 2 },
           ],
         }),
         relic('r2', 'prism_loom'),
@@ -305,7 +414,7 @@ describe('saves', () => {
     renamed.carried[0].inscriptions[0].id = 'gone_inscription';
     store.setItem('aetherweaver.run', JSON.stringify(renamed));
     const fitted = loadRun(store)!;
-    expect(fitted.carried[0]!.inscriptions).toEqual([{ id: 'hardy', tier: 4, value: 4 }]);
+    expect(fitted.carried[0]!.inscriptions).toEqual([{ id: 'hardy', tier: 4, value: 2 }]);
     // A carried relic that's gone leaves the run's relics too; the run itself stays.
     const json = JSON.parse(JSON.stringify(carrying));
     json.carried[1].id = 'gone_relic';

@@ -39,7 +39,7 @@ function victory(run: RunState): CombatOutcome {
 beforeEach(() => {
   useSettings.getState().reset();
   useProfile.getState().resetProgress();
-  useRun.setState({ run: null });
+  useRun.getState().closeRun();
 });
 
 describe('run and profile stores', () => {

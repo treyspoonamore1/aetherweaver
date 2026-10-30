@@ -8,7 +8,7 @@ import { CONTENT } from '../content';
 import { chordProblems, type ReservePool } from '../sim';
 import { astrolabePoints, pruneTree } from './astrolabe';
 import { FIGHT_AETHER, RELIC_OFFERS } from './economy';
-import { fieldAuraSlots, reserveMult, reservePool } from './run';
+import { fieldAuraSlots, reserveMult, reservePool, withCarried } from './run';
 import { MAX_RANK, newProfile, PROFILE_VERSION, type Profile } from './profile';
 import { emptyReliquary, fitRelic, fitReliquary, type ReliquaryRelic } from './reliquary';
 import { RUN_SAVE_VERSION, type RunState } from './types';
@@ -40,15 +40,24 @@ const ReliquaryRelicSchema = z.object({
   fractured: z.boolean(),
   dissonance: z
     .object({
-      kind: z.enum(['dissonant', 'empowered', 'cursed', 'shattered']),
+      // A kind this build doesn't know (a later build's) leaves it frozen, as Shattered does.
+      kind: z.enum(['dissonant', 'empowered', 'cursed', 'shattered']).catch('shattered'),
       inscription: Str.optional(),
       curse: Str.optional(),
     })
     .nullable(),
 });
 
+/** Relics read one by one: one that doesn't parse is left behind, not the whole list. */
+const RelicListSchema = z.array(z.unknown()).transform((list) =>
+  list.flatMap((r) => {
+    const parsed = ReliquaryRelicSchema.safeParse(r);
+    return parsed.success ? [parsed.data] : [];
+  }),
+);
+
 const ReliquarySchema = z.object({
-  relics: z.array(ReliquaryRelicSchema),
+  relics: RelicListSchema,
   shards: Num,
   tears: Num,
   carry: z.array(Str),
@@ -321,7 +330,7 @@ export const RunStateSchema = z.object({
   astrolabe: z.array(Str).default([]),
   deeds: z.array(Str).default([]),
   // The Reliquary (docs/phase-4c.md): saves from before it carry nothing and paid nothing.
-  carried: z.array(ReliquaryRelicSchema).default([]),
+  carried: RelicListSchema.default([]),
   reliquary: z
     .object({ shards: Num, tears: Num, enshrined: Str.nullable() })
     .nullable()
@@ -537,14 +546,14 @@ export function loadRun(store: KeyValueStore): RunState | null {
       if (!parsed.success) continue;
       const run = parsed.data as RunState;
       // Carried relics fitted to the content first (their Inscriptions weigh on the songs the
-      // check below judges); one that's gone leaves the run's relics too.
+      // check below judges), then rebuilt in its relics (attuned first, the rest dormant): one
+      // that's gone leaves, and a save from before attunement plays as this build does.
       run.carried = run.carried.map(fitRelic).filter((r): r is ReliquaryRelic => r !== null);
-      const carried = new Set(run.carried.map((r) => r.id));
-      run.relics = run.relics.filter((r) => !r.carried || carried.has(r.id));
-      if (compatibleWithContent(run)) {
+      const fitted = withCarried(run);
+      if (compatibleWithContent(fitted)) {
         // Deeds no longer in the content drop out of the run's Summary.
-        run.deeds = run.deeds.filter((id) => DEED_IDS.has(id));
-        return run;
+        fitted.deeds = fitted.deeds.filter((id) => DEED_IDS.has(id));
+        return fitted;
       }
     } catch {
       // Try the backup.
@@ -581,7 +590,8 @@ export const ProfileSchema = z.object({
   wins: Num,
   astrolabe: z.array(Str),
   deeds: z.array(Str),
-  reliquary: ReliquarySchema,
+  // A Reliquary that doesn't parse at all is lost, not the whole profile.
+  reliquary: ReliquarySchema.catch(() => emptyReliquary()),
   // A best that isn't a count (a hand-edited save) is dropped, not the whole profile.
   deedBest: z
     .record(Str, z.unknown())
@@ -599,21 +609,24 @@ export const ProfileSchema = z.object({
  * v1 → v2: the Astrolabe (docs/phase-4.md), an empty tree. v2 → v3: Deeds (docs/phase-4b.md),
  * none earned yet. v3 → v4: the Reliquary (docs/phase-4c.md), empty.
  */
-export function migrateProfileJson(raw: unknown): unknown {
+export function migrateProfileJson(raw: unknown, seed = 1): unknown {
   let p = raw;
   if (isObj(p) && p.version === 1) p = { ...p, version: 2, astrolabe: [] };
   if (isObj(p) && p.version === 2) p = { ...p, version: 3, deeds: [], deedBest: {} };
-  if (isObj(p) && p.version === 3) p = { ...p, version: 4, reliquary: emptyReliquary() };
+  if (isObj(p) && p.version === 3) p = { ...p, version: 4, reliquary: emptyReliquary(seed) };
   return p;
 }
 
-/** Loads the profile (backup if the main copy is unreadable); a new one if there's none. */
-export function loadProfile(store: KeyValueStore): Profile {
+/**
+ * Loads the profile (backup if the main copy is unreadable); a new one if there's none. `seed`
+ * starts the crafting rolls of a new or migrated Reliquary (the app passes a random one).
+ */
+export function loadProfile(store: KeyValueStore, seed = 1): Profile {
   for (const key of [PROFILE_KEY, PROFILE_BACKUP]) {
     try {
       const raw = store.getItem(key);
       if (!raw) continue;
-      const parsed = ProfileSchema.safeParse(migrateProfileJson(JSON.parse(raw)));
+      const parsed = ProfileSchema.safeParse(migrateProfileJson(JSON.parse(raw), seed));
       if (parsed.success) {
         const profile = parsed.data as Profile;
         // Forget remembered Chords this build can't play (renamed content). How much they
@@ -635,7 +648,7 @@ export function loadProfile(store: KeyValueStore): Profile {
       // Try the backup.
     }
   }
-  return newProfile();
+  return newProfile(seed);
 }
 
 export function saveProfile(store: KeyValueStore, profile: Profile): void {

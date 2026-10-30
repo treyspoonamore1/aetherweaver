@@ -515,13 +515,22 @@ export function fitRelic(r: ReliquaryRelic): ReliquaryRelic | null {
     dissonance = { kind: 'shattered' };
   return {
     ...r,
-    inscriptions: inscriptions.map((i) => ({
-      ...i,
-      tier: Math.max(1, Math.min(5, Math.round(i.tier))),
-    })),
+    // Back inside its tier: tiers retuned since a value was rolled don't keep old values.
+    inscriptions: inscriptions.map((i) =>
+      fitValue({ ...i, tier: Math.max(1, Math.min(5, Math.round(i.tier))) }),
+    ),
     instability: Math.max(0, Math.min(100, r.instability)),
     dissonance,
   };
+}
+
+/** A value back inside its tier's range and on its steps. */
+function fitValue(ins: Inscription): Inscription {
+  const def = inscriptionDef(ins.id);
+  if (def.kind !== 'normal') return ins;
+  const [min, max] = def.tiers[5 - ins.tier]!;
+  const stepped = min + Math.round((ins.value - min) / def.step) * def.step;
+  return { ...ins, value: Math.round(Math.min(max, Math.max(min, stepped)) * 1000) / 1000 };
 }
 
 /** A Reliquary from a save, fitted to this build's content; the carry keeps only what it holds. */

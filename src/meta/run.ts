@@ -514,6 +514,18 @@ export function setAstrolabe(run: RunState, tree: readonly string[]): RunState {
 }
 
 /**
+ * A run's carried relics rebuilt in its `relics` from `carried` (attuned first, the rest dormant),
+ * keeping a Forge's cleanse: a save from before attunement plays as this build does.
+ */
+export function withCarried(run: RunState): RunState {
+  const before = new Map(run.relics.filter((r) => r.carried).map((r) => [r.id, r]));
+  const carried = carriedOwned(run.carried).map((r) =>
+    before.get(r.id)?.cleansed ? { ...r, cleansed: true } : r,
+  );
+  return { ...run, relics: [...carried, ...run.relics.filter((r) => !r.carried)] };
+}
+
+/**
  * The relics a won run may enshrine (docs/phase-4c.md): the ones it found, not those it carried
  * in. None for a run that wasn't won.
  */
@@ -883,8 +895,14 @@ function healParty(run: RunState, pct: number): RunState {
 
 // ── Relics ────────────────────────────────────────────────────────────────────────────
 
+/** The run holds the relic (found or carried, dormant or not): offers won't give it again. */
 export function hasRelic(run: RunState, id: string): boolean {
   return run.relics.some((r) => r.id === id);
+}
+
+/** The relic plays its own effect in this run: held and not dormant (docs/phase-4c.md). */
+export function relicActive(run: RunState, id: string): boolean {
+  return run.relics.some((r) => r.id === id && !r.dormant);
 }
 
 function addRelic(run: RunState, id: string): RunState {
@@ -1262,7 +1280,7 @@ export function makeDraft(
   }
   const options: DraftOption[] = [];
   const minRank = RARITY_RANK[floor];
-  const picks = hasRelic(run, 'star_chart') ? 4 : 3;
+  const picks = relicActive(run, 'star_chart') ? 4 : 3;
   for (let pick = 0; pick < picks && pool.length > 0; pick++) {
     // Weighted by rarity above the floor; falls back to anything eligible.
     const roll = rng.float();

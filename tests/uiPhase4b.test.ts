@@ -67,7 +67,7 @@ const held = (earned: readonly string[]): DeedsHeld => mockDeeds(earned);
 beforeEach(() => {
   useSettings.getState().reset();
   useProfile.getState().resetProgress();
-  useRun.setState({ run: null });
+  useRun.getState().closeRun();
 });
 
 describe('the Codex’s Deeds', () => {

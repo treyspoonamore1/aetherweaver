@@ -7,7 +7,7 @@
  * events and the Thread's state. Numbers come from content (`relic.values`), never hard-coded,
  * so the lead's tuning shows up without render changes.
  */
-import { CONTENT } from '../content';
+import { CONTENT, relicValues } from '../content';
 import type { EntityId, SimEvent, WorldState } from '../sim';
 
 /** The relic moments render draws (one per `relicTriggered` relic, plus Heavy Score's curse). */
@@ -48,9 +48,18 @@ export function relicCue(e: SimEvent): RelicCue | null {
   return null;
 }
 
-/** A relic's content value (`values[key]`), or `fallback` for an unknown relic or key. */
-export function relicValue(id: string, key: string, fallback: number): number {
-  const v = CONTENT.relics.find((r) => r.id === id)?.values[key];
+/**
+ * A relic's content value (`values[key]`), or `fallback` for an unknown relic or key. With the
+ * fight's state, an Empowered relic (docs/phase-4c.md) gives its empowered number.
+ */
+export function relicValue(
+  id: string,
+  key: string,
+  fallback: number,
+  state?: Pick<WorldState, 'relics'>,
+): number {
+  const def = CONTENT.relics.find((r) => r.id === id);
+  const v = def ? relicValues(def, state?.relics.empowered.includes(id) ?? false)[key] : undefined;
   return typeof v === 'number' && Number.isFinite(v) ? v : fallback;
 }
 
@@ -74,7 +83,7 @@ export function metronomeCharge(state: WorldState): number | null {
   return relicCharge(
     state.relics.metronomeAt,
     state.time,
-    relicValue('cracked_metronome', 'cooldown', 12),
+    relicValue('cracked_metronome', 'cooldown', 12, state),
   );
 }
 
@@ -83,7 +92,7 @@ export function thimbleCharge(state: WorldState): number | null {
   return relicCharge(
     state.relics.thimbleAt,
     state.time,
-    relicValue('silver_thimble', 'cooldown', 4),
+    relicValue('silver_thimble', 'cooldown', 4, state),
   );
 }
 
@@ -109,8 +118,9 @@ export interface PrismLink {
  * Thread's own potency falls with tension to `tautPotency`. Reused every frame (no allocation).
  */
 export class PrismScan {
-  readonly radius = relicValue('prism_loom', 'radius', 4);
-  readonly pct = relicValue('prism_loom', 'pct', 50) / 100;
+  /** Its reach and share, read each scan (an Empowered Loom reaches farther). */
+  radius = relicValue('prism_loom', 'radius', 4);
+  pct = relicValue('prism_loom', 'pct', 50) / 100;
   /** False without the relic: nothing else is filled in. */
   carried = false;
   threaded: EntityId | null = null;
@@ -123,6 +133,8 @@ export class PrismScan {
 
   scan(state: WorldState): this {
     this.count = 0;
+    this.radius = relicValue('prism_loom', 'radius', 4, state);
+    this.pct = relicValue('prism_loom', 'pct', 50, state) / 100;
     this.threaded = null;
     this.threadedSlot = -1;
     this.base = 0;

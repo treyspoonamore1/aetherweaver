@@ -269,7 +269,7 @@ describe('the profile', () => {
 
 describe('the run', () => {
   it('a fight that earns a Deed: the profile keeps it, a toast waits, and the run remembers it', () => {
-    useRun.setState({ run: null });
+    useRun.getState().closeRun();
     useRun.getState().newRun(31);
     useRun.getState().embark();
     useRun.getState().chooseNode(Run.reachable(useRun.getState().run!)[0]!.id);
@@ -338,7 +338,7 @@ describe('the run', () => {
   });
 
   it('a reset mid-run earns its Deeds again, and the run lists each once', () => {
-    useRun.setState({ run: null });
+    useRun.getState().closeRun();
     useRun.getState().newRun(31);
     useRun.getState().embark();
     useRun.getState().chooseNode(Run.reachable(useRun.getState().run!)[0]!.id);

@@ -146,7 +146,7 @@ const TREES: readonly (readonly string[])[] = [
 beforeEach(() => {
   useSettings.getState().reset();
   useProfile.getState().resetProgress();
-  useRun.setState({ run: null });
+  useRun.getState().closeRun();
 });
 
 describe('the star map', () => {
