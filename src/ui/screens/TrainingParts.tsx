@@ -77,7 +77,8 @@ function TrainingTechniques({
                 data-testid={`training-technique-${slot}`}
                 onChange={(e) => {
                   const id = e.target.value || null;
-                  playUi(id ? VARIANT_SOUNDS.choose : VARIANT_SOUNDS.clear);
+                  if (id) playUi(VARIANT_SOUNDS.choose, { variant: id });
+                  else playUi(VARIANT_SOUNDS.clear);
                   onChange(slot, id);
                   // Give the keyboard back to the game (a focused select would eat WASD).
                   e.currentTarget.blur();

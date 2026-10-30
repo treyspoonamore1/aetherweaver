@@ -23,6 +23,7 @@ import type { QualityTier } from './stage';
 import { TelegraphLayer } from './telegraphs';
 import { ThreadView } from './thread';
 import type { FrameInfo, RenderContext, WorldView } from './types';
+import { VariantsView } from './variants';
 
 /**
  * The Phase 1 combat view (docs/plan/05 §5). Persistent visuals are derived from `WorldState`
@@ -49,6 +50,7 @@ export class CombatView implements WorldView {
   readonly astrolabe: AstrolabeView;
   readonly dissonance: DissonanceView;
   readonly bonds: BondsView;
+  readonly variants: VariantsView;
   private quality: QualityTier;
   /** The enemies' clock for the telegraph shaders: it waits while Stasis holds them. */
   private enemyClock = 0;
@@ -125,6 +127,13 @@ export class CombatView implements WorldView {
       overlay: this.overlay,
       rig: ctx.rig,
     });
+    this.variants = new VariantsView({
+      kit: this.kit,
+      recs: this.entities.recs,
+      overlay: this.overlay,
+      rig: ctx.rig,
+      models: this.entities,
+    });
     this.quality = ctx.quality;
     this.setQuality(ctx.quality);
     void state;
@@ -162,6 +171,7 @@ export class CombatView implements WorldView {
     this.astrolabe.sync(state, fxDt, frame.time, frame.settings.flashes);
     this.dissonance.sync(state, fxDt, frame.time, frame.settings.flashes);
     this.bonds.sync(state, fxDt, frame.time, frame.settings.flashes);
+    this.variants.sync(state, fxDt, frame.time, frame.settings.flashes);
     this.overlay.setStasis(this.chrono.cool);
     this.offscreen(state);
     this.aimMarker(state, frame);
@@ -184,6 +194,7 @@ export class CombatView implements WorldView {
     this.astrolabe.handle(events, state);
     this.dissonance.handle(events, state);
     this.bonds.handle(events, state);
+    this.variants.handle(events, state);
   }
 
   setQuality(quality: QualityTier): void {

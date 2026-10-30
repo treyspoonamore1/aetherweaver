@@ -272,6 +272,12 @@ export class EntityLayer {
   private stasisX = 0;
   private stasisZ = 0;
   private stasisOn = false;
+  /**
+   * Phase Step's decoy (a Glide variant, docs/phase-4f/vfx-audio.md): the Weaver's own model where
+   * she blinked from, standing until `until` (sim time; the enemies lose her that long). `drawn`:
+   * it was drawn last frame (tests, the lab).
+   */
+  readonly decoy = { x: 0, z: 0, yaw: 0, until: -1, drawn: false };
   /** Rewind's preview: the model ghost where the threaded hero would go back to. */
   readonly rewindGhost: RewindGhost = {
     hero: -1,
@@ -553,6 +559,33 @@ export class EntityLayer {
     }
   }
 
+  /** Phase Step: a decoy of the Weaver stands at (x, z), facing `yaw`, until sim time `until`. */
+  phaseDecoy(x: number, z: number, yaw: number, until: number): void {
+    const d = this.decoy;
+    d.x = x;
+    d.z = z;
+    d.yaw = yaw;
+    d.until = until;
+  }
+
+  /**
+   * Phase Step's decoy: the Weaver's model, a gold-rimmed shimmer of her (the same model and draw
+   * call), held still where she was until its time is up; it dissolves in its last moment.
+   */
+  private drawDecoy(state: WorldState): void {
+    const d = this.decoy;
+    d.drawn = false;
+    const left = d.until - state.time;
+    if (left <= 0) return;
+    const w = this.recs.get(this.weaverId);
+    if (!w) return;
+    const out = 1 - clamp01(left / 0.3);
+    const flicker = 0.05 * (0.5 + 0.5 * Math.sin(this.now * 7.3));
+    const m = this.compose(d.x, 0, d.z, d.yaw, 0, 0, 1);
+    w.batch.push(m, 0.06, 0.08 + flicker + 0.85 * out, 0.4, 0.45, C.gold, 1.15);
+    d.drawn = true;
+  }
+
   ghost(x: number, z: number, yaw: number, delay: number): void {
     const w = this.recs.get(this.weaverId);
     if (!w) return;
@@ -714,6 +747,7 @@ export class EntityLayer {
     }
     this.updateGhosts(kit, dt);
     this.rewindPreview(state, dt);
+    this.drawDecoy(state);
     for (const b of this.batches.values()) b.end();
     this.crown.end();
   }
@@ -1833,9 +1867,11 @@ export class EntityLayer {
             r * 1.6 * sc,
             hh * 0.62 * sc,
             r * 1.6 * sc,
-            SHELL.ward,
+            // A Chorale's barrier on a hero you didn't Ward (`plain`, docs/phase-4f.md) only
+            // absorbs: it has a barrier's plain shell, not the Ward's hexes (never Perfect).
+            s.plain ? SHELL.barrier : SHELL.ward,
             C.shield,
-            0.95 * fade,
+            (s.plain ? 0.85 : 0.95) * fade,
             crack,
             pop,
             false,

@@ -11,6 +11,7 @@ import {
   type Command,
   type EntityId,
   type PartySlot,
+  type ReadonlyEntity,
   type Sim,
   type SimConfig,
   type SimEvent,
@@ -20,6 +21,7 @@ import { CameraRig } from '../camera';
 import { CombatView } from '../combatView';
 import { Stage, type QualityTier } from '../stage';
 import type { FrameInfo } from '../types';
+import { VARIANT_SCENARIOS, VARIANT_SCENARIO_NAMES, scenarioConfig } from './variantScenarios';
 
 /**
  * VFX lab (`?lab=vfx`): a Stage + CameraRig + the real combat view over a real debug sim,
@@ -136,6 +138,47 @@ interface LabApi {
   bondStats(): BondStats;
   /** Where a world point is on the page (CSS px), for screenshot scripts' close-ups. */
   screenOf(x: number, y: number, z: number): { x: number; y: number };
+  /** Phase 4f */
+  variantScenarios(): string[];
+  /** Restarts the real sim with that scenario's technique variants (and encounter) and stages it. */
+  variantScenario(name: string): void;
+  /** Restarts the real sim with these variants per slot (null: the defaults). */
+  setVariants(techniques: SimConfig['techniques'] | null): void;
+  /** What the variants' view has played and is drawing, and what it reads. */
+  variantStats(): VariantStats;
+}
+
+interface VariantStats {
+  /** The Weaver's variant in each slot (null: the default). */
+  techniques: Record<string, string | null>;
+  /** Casts seen (by variant); moments started and drawn last frame (and by kind). */
+  fired: Record<string, number>;
+  started: Record<string, number>;
+  drawn: Record<string, number>;
+  drawnBy: Record<string, number>;
+  /** The colour each moment was last drawn in (its slot's). */
+  lastHex: Record<string, string>;
+  /** The Aegis Link as render keeps it: its members, the Weaver in it, seconds left. */
+  link: { on: boolean; a: number; b: number; weaver: boolean; left: number };
+  /** Phase Step's decoy: drawn, where, seconds left. */
+  decoy: { drawn: boolean; x: number; z: number; left: number };
+  heroes: {
+    id: number;
+    def: string;
+    x: number;
+    z: number;
+    height: number;
+    hp: number;
+    maxHp: number;
+    /** Seconds left of Absolve's guard, Anchor's hold and a Chorale barrier. */
+    absolved: number;
+    anchored: number;
+    chorale: number;
+    shields: string[];
+  }[];
+  enemies: { id: number; x: number; z: number; height: number; def: string; taunted: number }[];
+  weaver: { x: number; z: number; glideCharges: number; maxGlideCharges: number; hp: number };
+  time: number;
 }
 
 interface BondStats {
@@ -311,6 +354,10 @@ let encounterOverride: string | null = null;
 let bondsCfg: { talents: string[]; solos: string[] } | null = null;
 let partyCfg: string[] | null = null;
 let autonomyCfg = false;
+/** Phase 4f: the technique variants the lab sim fights with (SimConfig.techniques; null: none). */
+let techniquesCfg: SimConfig['techniques'] | null = null;
+/** Phase 4f: motifs a variant scenario needs (Twin Aegis), or none. */
+let motifsCfg: SimConfig['motifs'] | null = null;
 
 interface RelicScenario {
   relics: string[];
@@ -1401,6 +1448,9 @@ function clearBonds(): void {
   bondsCfg = null;
   partyCfg = null;
   autonomyCfg = false;
+  // Phase 4f: and the techniques' defaults.
+  techniquesCfg = null;
+  motifsCfg = null;
 }
 
 interface BondScenario {
@@ -1796,6 +1846,8 @@ class LabRuntime {
       ...(bondsCfg ? { bonds: bondsCfg } : {}),
       ...(partyCfg ? { party: partyCfg } : {}),
       ...(autonomyCfg ? { assists: { autonomy: true } } : {}),
+      ...(techniquesCfg ? { techniques: techniquesCfg } : {}),
+      ...(motifsCfg ? { motifs: motifsCfg } : {}),
     });
   }
 
@@ -1996,6 +2048,8 @@ class LabRuntime {
   bondScenario(name: string): void {
     const sc = BOND_SCENARIOS[name];
     if (!sc) return;
+    techniquesCfg = null;
+    motifsCfg = null;
     bondsCfg = { talents: [...sc.talents], solos: [...(sc.solos ?? [])] };
     partyCfg = sc.party ? [...sc.party] : null;
     autonomyCfg = !!sc.autonomy;
@@ -2020,6 +2074,99 @@ class LabRuntime {
     for (const e of this.sim.state.entities.list())
       if (e.enemy && !e.health?.dead && (best === null || e.id > best)) best = e.id;
     if (best !== null) this.queue({ t: 'directive', kind: 'focus', target: best });
+  }
+
+  /** Phase 4f: restarts with that scenario's variants (its encounter, Autonomy) and stages it. */
+  variantScenario(name: string): void {
+    const sc = VARIANT_SCENARIOS[name];
+    if (!sc) return;
+    clearBonds();
+    const cfg = scenarioConfig(sc);
+    techniquesCfg = { ...cfg.techniques };
+    motifsCfg = cfg.motifs ?? null;
+    autonomyCfg = !!sc.autonomy;
+    encounterOverride = cfg.encounter ?? 'sandbox';
+    callingCfg = null;
+    chordsOverride = sc.chords ?? GUARDIAN_CHORDS;
+    astrolabeCfg = [];
+    dissonanceCfg = [];
+    this.restart([]);
+    sc.stage(this);
+  }
+
+  /** Phase 4f: restarts with these variants per slot (null: the defaults), keeping the rest. */
+  setVariants(techniques: SimConfig['techniques'] | null): void {
+    techniquesCfg = techniques ? { ...techniques } : null;
+    this.restart(carried);
+  }
+
+  variantStats(): VariantStats {
+    const v = this.view.variants;
+    const st = this.sim.state;
+    const w = st.entities.get(st.weaverId);
+    const left = (e: ReadonlyEntity | undefined, id: string) =>
+      e?.health?.statuses.find((s) => s.id === id)?.remaining ?? 0;
+    const decoy = this.view.entities.decoy;
+    return {
+      techniques: { ...(w?.weaver?.variants ?? {}) },
+      fired: { ...v.fired },
+      started: { ...v.started },
+      drawn: { ...v.drawn },
+      drawnBy: { ...v.drawnBy },
+      lastHex: { ...v.lastHex } as Record<string, string>,
+      link: {
+        on: v.link.on,
+        a: v.link.a,
+        b: v.link.b,
+        weaver: v.link.weaver,
+        left: Math.max(0, v.link.until - st.time),
+      },
+      decoy: {
+        drawn: decoy.drawn,
+        x: decoy.x,
+        z: decoy.z,
+        left: Math.max(0, decoy.until - st.time),
+      },
+      heroes: st.party.map((id) => {
+        const e = st.entities.get(id);
+        const ward = e?.health?.shields.find((s) => s.kind === 'ward');
+        return {
+          id,
+          def: e?.hero?.defId ?? '',
+          x: e?.x ?? 0,
+          z: e?.z ?? 0,
+          height: e?.height ?? 0,
+          hp: Math.round(e?.health?.hp ?? 0),
+          maxHp: Math.round(e?.health?.maxHp ?? 0),
+          absolved: left(e, 'absolved'),
+          anchored: left(e, 'anchored'),
+          chorale: ward?.chorale ? Math.max(0, ward.expiresAt - st.time) : 0,
+          shields: (e?.health?.shields ?? []).map(
+            (s) =>
+              `${s.kind}${s.chorale ? ' chorale' : ''} ${Math.round(s.amount)}/${Math.round(s.max)}`,
+          ),
+        };
+      }),
+      enemies: st.entities
+        .list()
+        .filter((e) => e.enemy && !e.health?.dead)
+        .map((e) => ({
+          id: e.id,
+          x: e.x,
+          z: e.z,
+          height: e.height,
+          def: e.enemy!.defId,
+          taunted: Math.max(0, e.enemy!.tauntUntil - st.time),
+        })),
+      weaver: {
+        x: w?.x ?? 0,
+        z: w?.z ?? 0,
+        glideCharges: w?.weaver?.glideCharges ?? 0,
+        maxGlideCharges: w?.weaver?.maxGlideCharges ?? 0,
+        hp: Math.round(w?.health?.hp ?? 0),
+      },
+      time: st.time,
+    };
   }
 
   bondStats(): BondStats {
@@ -2992,12 +3139,16 @@ export function VfxLab() {
       bondScenario: (name) => rt.bondScenario(name),
       setBonds: (bonds) => rt.setBonds(bonds),
       bondStats: () => rt.bondStats(),
+      variantScenarios: () => VARIANT_SCENARIO_NAMES,
+      variantScenario: (name) => rt.variantScenario(name),
+      setVariants: (techniques) => rt.setVariants(techniques),
+      variantStats: () => rt.variantStats(),
       screenOf: (x, y, z) => rt.screenOf(x, y, z),
     };
     const timer = window.setInterval(() => {
       const i = rt.info();
       if (statsRef.current) {
-        statsRef.current.textContent = `fps ${i.fps.toFixed(1)}  calls ${i.calls}  tris ${(i.triangles / 1000).toFixed(1)}k\nparticles ${i.particles}  entities ${rt.sim.state.entities.count}  tick ${rt.sim.tick}\nrelics ${rt.sim.state.relics.ids.length ? rt.sim.state.relics.ids.join(', ') : 'none'}\ncalling ${rt.sim.state.calling ? `${rt.sim.state.calling.id} · ${rt.sim.state.calling.path.join(', ') || 'no path'}` : 'none'}\nastrolabe ${rt.sim.state.astrolabe.nodes.length ? rt.sim.state.astrolabe.nodes.join(', ') : 'none'}\ndissonance ${rt.sim.state.dissonance.levels.length ? rt.sim.state.dissonance.levels.map((l) => (l.rank > 1 ? `${l.id}×${l.rank}` : l.id)).join(', ') : 'none'}\nbonds ${bondsCfg && bondsCfg.talents.length + bondsCfg.solos.length > 0 ? [...bondsCfg.talents, ...bondsCfg.solos].join(', ') : 'none'}`;
+        statsRef.current.textContent = `fps ${i.fps.toFixed(1)}  calls ${i.calls}  tris ${(i.triangles / 1000).toFixed(1)}k\nparticles ${i.particles}  entities ${rt.sim.state.entities.count}  tick ${rt.sim.tick}\nrelics ${rt.sim.state.relics.ids.length ? rt.sim.state.relics.ids.join(', ') : 'none'}\ncalling ${rt.sim.state.calling ? `${rt.sim.state.calling.id} · ${rt.sim.state.calling.path.join(', ') || 'no path'}` : 'none'}\nastrolabe ${rt.sim.state.astrolabe.nodes.length ? rt.sim.state.astrolabe.nodes.join(', ') : 'none'}\ndissonance ${rt.sim.state.dissonance.levels.length ? rt.sim.state.dissonance.levels.map((l) => (l.rank > 1 ? `${l.id}×${l.rank}` : l.id)).join(', ') : 'none'}\nbonds ${bondsCfg && bondsCfg.talents.length + bondsCfg.solos.length > 0 ? [...bondsCfg.talents, ...bondsCfg.solos].join(', ') : 'none'}\nvariants ${techniquesCfg && Object.values(techniquesCfg).some(Boolean) ? Object.values(techniquesCfg).filter(Boolean).join(', ') : 'none'}`;
       }
     }, 250);
     return () => {
@@ -3407,6 +3558,24 @@ export function VfxLab() {
           ))}
           <Btn onClick={() => rt()?.setBonds(null)} title="Restart without Bonds">
             No Bonds
+          </Btn>
+        </Group>
+        <Group title="Phase 4f · Variants">
+          <p className="w-full text-[10px] text-muted">
+            Each restarts the real sim with a scenario&apos;s technique variants (and its encounter)
+            and stages the moment they act.
+          </p>
+          {VARIANT_SCENARIO_NAMES.map((name) => (
+            <Btn
+              key={name}
+              onClick={() => rt()?.variantScenario(name)}
+              title={VARIANT_SCENARIOS[name]!.note}
+            >
+              {name}
+            </Btn>
+          ))}
+          <Btn onClick={() => rt()?.setVariants(null)} title="Restart with the default techniques">
+            No variants
           </Btn>
         </Group>
         <Group title="Phase 2 · Chords">

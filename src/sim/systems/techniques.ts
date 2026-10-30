@@ -634,7 +634,15 @@ function swap(world: World, weaver: Entity, hero: Entity): void {
   // Her barrier for what was coming, sized for the blow it was meant for: her own, not support
   // of the hero.
   const barrier = hero.health!.maxHp * (variantValue(world, 'swap', 'pct') / 100);
-  addShield(world, weaver, 'ward', barrier, variantValue(world, 'swap', 'seconds'), false);
+  const shield = addShield(
+    world,
+    weaver,
+    'ward',
+    barrier,
+    variantValue(world, 'swap', 'seconds'),
+    false,
+  );
+  if (shield) shield.plain = true;
   const h = hero.hero!;
   h.cast = null;
   h.castName = null;

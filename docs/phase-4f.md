@@ -69,7 +69,14 @@ Costs and cooldowns are the default's unless the table says otherwise (Ward 20 S
 - **The Training Grounds** start from your choice with every variant open, and switch any slot from the tools panel.
 - **The Codex** gains a Techniques page: what variants are, how they're had, and each slot's three, owned or not.
 
-*Effects and sounds: to be filled in.*
+**Effects and sounds** ([docs/phase-4f/vfx-audio.md](phase-4f/vfx-audio.md), with screenshots; the VFX lab's *Phase 4f · Variants* group plays each in a real sim):
+- **Every variant has its own look**, from the events and content's numbers, in the existing batches (no new draw calls):
+  - **Chorale:** waves of song out to its reach, and a run of light to each barrier. The warded hero's keeps the Ward's hex shell; the absorb-only ones are plain shells with a choir band.
+  - **Aegis Link:** a strand between the heroes, with a bead along it on a shared hit and the Weaver's strands joining on its Perfect.
+  - **Purge:** a burst with a dart to each enemy hit. **Absolve:** a veil for as long as the guard lasts.
+  - **Swap:** the two trade places along an arc, leaving her afterimage. **Anchor:** a pillar and chains for as long as the guard lasts.
+  - **Phase Step:** a blink and her decoy. **Skate:** blade marks and a carve, and its charges as diamonds at her feet.
+- **Every variant has its own sound**, pitched on the music's chord like her other techniques, in place of the default's. There are cues for the Link's join and shared hits, Purge's burst and Absolve's guard, each gated and capped. Choosing one in Prep plays its slot's voice.
 
 ## Harness
 
@@ -116,4 +123,5 @@ A review of the core commit ran it as well as reading it: defaults unchanged acr
 
 - **The bots press the same keys for every variant.** The Novice never Reels or Glides, so Swap, Anchor, Phase Step and Skate are read from the Skilled bot alone, and neither bot plays to a variant's strength (gathering the party for a Chorale, Swapping a hero out of a cleave on purpose).
 - **An Echo Ward from a Chorale's Perfect is a plain Ward** on that hero, not another burst.
+- **The HUD can't see the Aegis Link.** Its strand is drawn from the `linked` events, but `WorldState` doesn't carry the Link, so the hero frames don't mark it, and a view opened mid-Link draws nothing until the next one.
 - **Variants add up for a skilled player.** Each is within about 5 points of its default, but the Skilled bot's best four together are worth about 14% more enemy life to it. They're options, not free. The plan's +30% cap counts only the Astrolabe and the Reliquary ([Phase 4h](phase-4h.md)).

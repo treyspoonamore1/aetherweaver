@@ -85,6 +85,7 @@ export const UI_SOUND_NAMES = Object.keys({
   soloPick: 0,
   sceneStart: 0,
   sceneReply: 0,
+  variantPick: 0,
 } satisfies Record<UiSound, 0>) as UiSound[];
 
 /** Phase 3e: the UI sounds voiced per Calling (the Chronomancer's are its own). */
@@ -143,6 +144,22 @@ export const BOND_LIMITS: Readonly<Partial<Record<UiSound, readonly [number, num
 };
 
 /**
+ * Phase 4f, technique variants: choosing one is a click among a few cards, so it is gated lightly
+ * and holds three, as a talent's pick does.
+ */
+export const VARIANT_LIMITS: Readonly<Partial<Record<UiSound, readonly [number, number]>>> = {
+  variantPick: [0.06, 3],
+};
+
+/** The slot a technique variant takes (content), or null for an unknown id. */
+export function variantSlotOf(
+  variant: string | undefined | null,
+): 'ward' | 'chime' | 'reel' | 'glide' | null {
+  if (!variant) return null;
+  return CONTENT.techniqueVariants.find((v) => v.id === variant)?.slot ?? null;
+}
+
+/**
  * A hero's voice in the Bonds sounds: their leitmotif's instrument and their own note, the
  * scale index (D4 = 0) of their "heart" (Kael's D5, Lyra's A5, Vexis's B5: their motif's first
  * note, raised to the fifth octave). An unknown or missing hero is the shared voicing (null).
@@ -198,7 +215,11 @@ export function playUiSound(
 ): void {
   const chrono = calling === 'chronomancer';
   const star =
-    STAR_LIMITS[sound] ?? DEED_LIMITS[sound] ?? DISSONANCE_LIMITS[sound] ?? BOND_LIMITS[sound];
+    STAR_LIMITS[sound] ??
+    DEED_LIMITS[sound] ??
+    DISSONANCE_LIMITS[sound] ??
+    BOND_LIMITS[sound] ??
+    VARIANT_LIMITS[sound];
   // The Deed sounds share one gate: two at once (a point Deed and a badge) make one.
   const gate = sound in DEED_LIMITS ? 'ui:deed' : `ui:${sound}`;
   if (sound === 'hover' && !e.gate('ui:hover', 0.045)) return;
@@ -387,6 +408,9 @@ export function playUiSound(
       break;
     case 'sceneReply':
       sceneReply(v, t, detail);
+      break;
+    case 'variantPick':
+      variantPick(v, t, detail);
       break;
     case 'wheelOpen':
       // A soft bloom: a breath opening upwards and a quiet A4.
@@ -1247,6 +1271,36 @@ function bondRankUp(v: Voice, t: number, detail?: UiSoundDetail | null): void {
  * A talent chosen, about 0.7 s: the hero's heart note plucked and the fifth up their scale after
  * it, with a touch of their instrument on top (Kael's brass, Lyra's flute, Vexis's glass).
  */
+/**
+ * Phase 4f: a technique variant chosen. The Weaver's own pick (a plucked D5 and A5, a glass D6
+ * over them: not the plain `pick`'s E), then its slot's touch: the Ward's glass on A6, the
+ * Chime's handbell on F5, the Reel's string pulled from A4, the Glide's breath and a glass E6.
+ * About 0.7 s, as quiet as a pick.
+ */
+function variantPick(v: Voice, t: number, detail?: UiSoundDetail | null): void {
+  pluck(v, t, hz(7), 0.1, 0.22, 0.6);
+  pluck(v, t + 0.06, hz(11), 0.08, 0.3, 0.7);
+  glassNote(v, t + 0.07, hz(14), 0.03, 0.8, 0.7);
+  switch (variantSlotOf(detail?.variant)) {
+    case 'ward':
+      glassNote(v, t + 0.13, hz(18), 0.022, 0.9, 0.8);
+      break;
+    case 'chime':
+      handbell(v, t + 0.12, hz(9), 0.045, 0.9, 0.5);
+      break;
+    case 'reel':
+      pluck(v, t + 0.11, hz(4), 0.07, 0.25, 0.5);
+      pluck(v, t + 0.16, hz(7), 0.05, 0.3, 0.7);
+      break;
+    case 'glide':
+      whoosh(v, t + 0.08, 0.22, 0.03, 900, 3200, 1.2);
+      glassNote(v, t + 0.14, hz(15), 0.02, 0.7, 0.8);
+      break;
+    default:
+      break;
+  }
+}
+
 function talentPick(v: Voice, t: number, detail?: UiSoundDetail | null): void {
   const who = bondVoice(detail?.hero);
   const heart = who?.heart ?? 7;

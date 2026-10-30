@@ -52,6 +52,10 @@ const GROUPS: {
     id: 'bonds',
     title: 'Phase 4e · Bonds (each talent acting, the alternate Solos starting, their bursts)',
   },
+  {
+    id: 'variants',
+    title: 'Phase 4f · Variants (each cast, the moments after it, their bursts)',
+  },
   { id: 'world', title: 'World, enemies and telegraphs' },
   { id: 'ui', title: 'UI' },
 ];

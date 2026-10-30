@@ -98,7 +98,8 @@ export function PrepTechniquesPanel({
       setSaid({ text: action.announce, locked: true });
       return;
     }
-    playUi(action.id ? VARIANT_SOUNDS.choose : VARIANT_SOUNDS.clear);
+    if (action.id) playUi(VARIANT_SOUNDS.choose, { variant: action.id });
+    else playUi(VARIANT_SOUNDS.clear);
     setSaid({ text: action.announce, locked: false });
     onChoose(action.slot, action.id);
   };

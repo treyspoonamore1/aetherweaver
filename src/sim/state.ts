@@ -57,7 +57,10 @@ export interface Shield {
   grace?: true;
   /** A Chorale's barrier (docs/phase-4f.md). Absent elsewhere. */
   chorale?: true;
-  /** A Chorale's barrier on a hero you didn't Ward: it absorbs, but is never Perfect. */
+  /**
+   * A barrier that only absorbs, never Perfect: a Chorale's on a hero you didn't Ward, Swap's on
+   * the Weaver. Absent elsewhere.
+   */
   plain?: true;
 }
 

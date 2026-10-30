@@ -29,7 +29,18 @@ interface FakeEntity {
     dead: boolean;
     shields: FakeShield[];
   };
-  weaver?: { resonance: number; threadTension: number; crescendo: number };
+  /**
+   * Phase 4f: the Weaver's technique variants (`variants`, null for a slot's default) and Skate's
+   * charges, as the sim reports them.
+   */
+  weaver?: {
+    resonance: number;
+    threadTension: number;
+    crescendo: number;
+    variants: Record<'ward' | 'chime' | 'reel' | 'glide', string | null>;
+    glideCharges: number;
+    maxGlideCharges: number;
+  };
   /**
    * `afterglowUntil` (Phase 4): Empower lingers on this hero until this sim time. Phase 4e
    * (Bonds): the Solo they bring and whether it was cued, and a Celestial Sphere's hits.
@@ -137,7 +148,14 @@ export class FakeWorld {
       x: 0,
       z: 0,
       health: health(300, 300),
-      weaver: { resonance: 0, threadTension: 0, crescendo: 0 },
+      weaver: {
+        resonance: 0,
+        threadTension: 0,
+        crescendo: 0,
+        variants: { ward: null, chime: null, reel: null, glide: null },
+        glideCharges: 1,
+        maxGlideCharges: 1,
+      },
     });
     HERO_IDS.forEach((defId, slot) => {
       this.entities.set(IDS[defId], {
@@ -413,6 +431,25 @@ export class FakeWorld {
     h.sphereHits = hits;
     h.sphereUntil = hits > 0 ? this.time + seconds : 0;
     h.sphereCued = cued;
+  }
+  /**
+   * Phase 4f: the Weaver's variant in a slot (null: its default). Skate brings its charges (all
+   * ready), from the content.
+   */
+  setVariant(slot: 'ward' | 'chime' | 'reel' | 'glide', id: string | null): void {
+    const w = this.weaverData();
+    w.variants[slot] = id;
+    if (slot === 'glide') {
+      const charges =
+        id === null ? 1 : (CONTENT.techniqueVariants.find((v) => v.id === id)?.values.charges ?? 1);
+      w.maxGlideCharges = Math.max(1, charges);
+      w.glideCharges = w.maxGlideCharges;
+    }
+  }
+  /** Phase 4f: Skate's charges left (as the state has them just after a dash). */
+  setGlideCharges(n: number): void {
+    const w = this.weaverData();
+    w.glideCharges = Math.max(0, Math.min(w.maxGlideCharges, n));
   }
   /** Moves a hero (Shieldbearer counts the heroes beside Kael). */
   moveHero(hero: HeroKey, x: number, z: number): void {

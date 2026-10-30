@@ -19,6 +19,7 @@ export interface SoundButton {
     | 'chrono'
     | 'astrolabe'
     | 'bonds'
+    | 'variants'
     | 'world'
     | 'ui';
   /** Fires the sound. Receives the director and a world to read/mutate. */
@@ -232,6 +233,189 @@ function bondsRestore(w: FakeWorld): void {
   w.moveHero('kael', -3, -3);
   w.moveHero('lyra', 0, -3);
   w.moveHero('vexis', 3, -3);
+}
+
+// ── Phase 4f helpers ───────────────────────────────────────────────────────────────
+
+type Slot = 'ward' | 'chime' | 'reel' | 'glide';
+/** A variant's number (content), so the lab follows the lead's tuning. */
+const variantValue = (id: string, key: string): number =>
+  CONTENT.techniqueVariants.find((v) => v.id === id)?.values[key] ?? 0;
+const slotOf = (id: string): Slot =>
+  CONTENT.techniqueVariants.find((v) => v.id === id)?.slot ?? 'ward';
+/** Every variant, in the content's order, with what its button says. */
+const VARIANT_BUTTONS = [
+  [
+    'chorale',
+    'Chorale: a burst of barriers on every hero near (glass sung by a choir, a voice each)',
+  ],
+  ['aegis_link', 'Aegis Link: two heroes linked (two plucks a fifth apart, humming as one)'],
+  ['purge', 'Purge cast: the Chime launched, what it will cleanse drawn up into it'],
+  ['absolve', 'Absolve cast: the Chime launched on a warm handbell (its guard as it lands)'],
+  ['swap', 'Swap: you and the hero trade places (cords crossing, fifth then root)'],
+  ['anchor', 'Anchor: the hero held fast (a deep drop, a low bell, a chain)'],
+  ['phase_step', 'Phase Step: a blink of 8 m and your decoy (folding glass, its shimmer)'],
+  ['skate', 'Skate: a dash on a charge (a quick breath, a blade, a pluck)'],
+] as const;
+
+/** The lab world's techniques back to their defaults. */
+function variantsRestore(w: FakeWorld): void {
+  for (const s of ['ward', 'chime', 'reel', 'glide'] as const) w.setVariant(s, null);
+}
+
+/** A variant's cast as the sim reports it: the cast and its own events (a Chime's land later). */
+function variantCast(w: FakeWorld, id: string): SimEvent[] {
+  const slot = slotOf(id);
+  w.setVariant(slot, id);
+  const l = { x: 0, z: -3 };
+  const cast = (technique: Slot, target: number | null, x: number, z: number) =>
+    ev('techniqueCast', { technique, target, x, z, variant: id });
+  switch (id) {
+    case 'chorale':
+      return [
+        ...[IDS.kael, IDS.lyra, IDS.vexis].map((target) =>
+          ev('shieldApplied', { target, shield: 'ward', amount: 280, fromWeaver: true }),
+        ),
+        cast('ward', IDS.lyra, l.x, l.z),
+        ev('chorale', {
+          x: l.x,
+          z: l.z,
+          radius: variantValue('chorale', 'radius'),
+          targets: [IDS.kael, IDS.lyra, IDS.vexis],
+        }),
+      ];
+    case 'aegis_link':
+      return [
+        cast('ward', IDS.kael, -3, -3),
+        ev('linked', {
+          a: IDS.kael,
+          b: IDS.lyra,
+          weaver: false,
+          until: w.time + variantValue('aegis_link', 'seconds'),
+        }),
+      ];
+    case 'purge':
+    case 'absolve':
+      return [
+        cast('chime', null, l.x, l.z),
+        ev('chimeLaunched', { chime: 1, fromX: 0, fromZ: 0, x: l.x, z: l.z, landsAt: 0.25 }),
+      ];
+    case 'swap':
+      return [
+        cast('reel', IDS.lyra, l.x, l.z),
+        ev('shieldApplied', { target: IDS.weaver, shield: 'ward', amount: 180, fromWeaver: false }),
+        ev('swapped', { hero: IDS.lyra, fromX: l.x, fromZ: l.z, toX: 0, toZ: 0 }),
+      ];
+    case 'anchor':
+      return [
+        cast('reel', IDS.kael, -3, -3),
+        ev('statusApplied', {
+          target: IDS.kael,
+          status: 'anchored',
+          duration: variantValue('anchor', 'seconds'),
+        }),
+      ];
+    case 'phase_step': {
+      const m = variantValue('phase_step', 'metres');
+      return [
+        cast('glide', null, m, 0),
+        ev('phaseStep', {
+          fromX: 0,
+          fromZ: 0,
+          toX: m,
+          toZ: 0,
+          until: w.time + variantValue('phase_step', 'seconds'),
+        }),
+      ];
+    }
+    case 'skate': {
+      const m = variantValue('skate', 'metres');
+      w.setGlideCharges(w.weaverData().glideCharges - 1);
+      return [cast('glide', null, m, 0), ev('glided', { fromX: 0, fromZ: 0, toX: m, toZ: 0 })];
+    }
+    default:
+      return [];
+  }
+}
+
+/** A Chime variant lands (its flight later): Purge bursts at three enemies; Absolve guards. */
+function variantLand(w: FakeWorld, id: string): SimEvent[] {
+  const landed = ev('chimeLanded', {
+    chime: 1,
+    x: 0,
+    z: -3,
+    radius: 4,
+    cleansed: 1,
+    clutch: false,
+  });
+  if (id === 'purge') {
+    if (!w.entities.has(IDS.enemyBase)) w.setEnemies(3);
+    return [
+      ev('cleansed', { target: IDS.lyra, removed: 1, clutch: false }),
+      ev('purged', {
+        hero: IDS.lyra,
+        x: 0,
+        z: -3,
+        radius: variantValue('purge', 'radius'),
+        hit: [IDS.enemyBase, IDS.enemyBase + 1, IDS.enemyBase + 2],
+      }),
+      landed,
+    ];
+  }
+  if (id === 'absolve')
+    return [
+      ...[IDS.kael, IDS.lyra].map((target) =>
+        ev('statusApplied', {
+          target,
+          status: 'absolved',
+          duration: variantValue('absolve', 'seconds'),
+        }),
+      ),
+      landed,
+    ];
+  return [];
+}
+
+/** A variant's whole cast: its events now, a Chime's landing 0.25 s on. */
+function variantButton(id: string, label: string, after = 1.2): SoundButton {
+  const chime = slotOf(id) === 'chime';
+  return {
+    id: `variant-${id}`,
+    label,
+    group: 'variants',
+    length: id === 'phase_step' ? 3.5 : 2.5,
+    fire: (d, w) => fire(d, w, ...variantCast(w, id)),
+    then: [
+      ...(chime
+        ? [
+            {
+              delay: 0.25,
+              fire: (d: SynthDirector, w: FakeWorld) => fire(d, w, ...variantLand(w, id)),
+            },
+          ]
+        : []),
+      { delay: after, fire: (_d: SynthDirector, w: FakeWorld) => variantsRestore(w) },
+    ],
+  };
+}
+
+/** A hit shared along the Link: the hero struck, and the other's share (one source). */
+function sharedHit(): SimEvent[] {
+  const hit = (target: number, amount: number) =>
+    ev('damageTaken', {
+      target,
+      source: IDS.enemyBase,
+      amount,
+      absorbed: 0,
+      amplified: 0,
+      aura: 0,
+      radiance: 0,
+      eclipse: 0,
+      crit: false,
+      telegraph: null,
+      hit: 'hit',
+    });
+  return [hit(IDS.lyra, 60), hit(IDS.kael, 60)];
 }
 
 // ── Phase 4d helpers ───────────────────────────────────────────────────────────────
@@ -1959,6 +2143,162 @@ export const SOUNDS: SoundButton[] = [
       { delay: 8.6, fire: (_d: SynthDirector, w: FakeWorld) => bondsRestore(w) },
     ],
   },
+  // ── Phase 4f: technique variants ─────────────────────────────────────────────────
+  ...VARIANT_BUTTONS.map(([id, label]) => variantButton(id, label)),
+  {
+    id: 'variant-chorale-perfect',
+    label: 'Chorale: three of its barriers Perfect against one attack (the chord over the Perfect)',
+    group: 'variants',
+    length: 3,
+    fire: (d, w) => {
+      w.setVariant('ward', 'chorale');
+      fire(
+        d,
+        w,
+        ...[IDS.kael, IDS.lyra, IDS.vexis].map((target) =>
+          ev('perfectWard', { target, telegraph: 1, negated: 480 }),
+        ),
+      );
+    },
+    then: [{ delay: 1.5, fire: (_d, w) => variantsRestore(w) }],
+  },
+  {
+    id: 'variant-chorale-lone',
+    label: 'Chorale: one barrier Perfect alone (the ordinary Perfect, no chord)',
+    group: 'variants',
+    length: 3,
+    fire: (d, w) => {
+      w.setVariant('ward', 'chorale');
+      fire(d, w, ev('perfectWard', { target: IDS.kael, telegraph: 1, negated: 480 }));
+    },
+    then: [{ delay: 1.5, fire: (_d, w) => variantsRestore(w) }],
+  },
+  {
+    id: 'variant-link-perfect',
+    label: 'Aegis Link, then its Perfect: you join it (a third voice after the strike)',
+    group: 'variants',
+    length: 3.5,
+    fire: (d, w) => fire(d, w, ...variantCast(w, 'aegis_link')),
+    then: [
+      {
+        delay: 0.7,
+        fire: (d, w) =>
+          fire(
+            d,
+            w,
+            ev('perfectWard', { target: IDS.kael, telegraph: 1, negated: 560 }),
+            ev('linked', {
+              a: IDS.kael,
+              b: IDS.lyra,
+              weaver: true,
+              until: w.time + variantValue('aegis_link', 'seconds'),
+            }),
+          ),
+      },
+      { delay: 2, fire: (_d, w) => variantsRestore(w) },
+    ],
+  },
+  {
+    id: 'variant-link-share',
+    label: 'Aegis Link: a hit shared between the two (a low pluck, a muffled knock; light)',
+    group: 'variants',
+    length: 2.5,
+    fire: (d, w) => fire(d, w, ...variantCast(w, 'aegis_link')),
+    then: [
+      { delay: 0.6, fire: (d, w) => fire(d, w, ...sharedHit()) },
+      { delay: 1.2, fire: (_d, w) => variantsRestore(w) },
+    ],
+  },
+  {
+    id: 'variant-share-burst',
+    label: 'Aegis Link: 20 hits shared in a second (the gate holds: light)',
+    group: 'variants',
+    length: 2.5,
+    fire: (d, w) => fire(d, w, ...variantCast(w, 'aegis_link')),
+    then: [
+      ...Array.from({ length: 20 }, (_, i) => ({
+        delay: Math.round((0.3 + i * 0.05) * 1000) / 1000,
+        fire: (d: SynthDirector, w: FakeWorld) => fire(d, w, ...sharedHit()),
+      })),
+      { delay: 1.4, fire: (_d: SynthDirector, w: FakeWorld) => variantsRestore(w) },
+    ],
+  },
+  {
+    id: 'variant-purge-burst',
+    label: 'Purge’s burst alone, at three enemies (noise thrown out, three glass falling)',
+    group: 'variants',
+    length: 2,
+    fire: (d, w) => fire(d, w, ...variantLand(w, 'purge').filter((e) => e.type === 'purged')),
+  },
+  {
+    id: 'variant-purge-none',
+    label: 'Purge’s burst with no enemy near (the throw, one glass)',
+    group: 'variants',
+    length: 2,
+    fire: (d, w) =>
+      fire(
+        d,
+        w,
+        ev('purged', {
+          hero: IDS.lyra,
+          x: 0,
+          z: -3,
+          radius: variantValue('purge', 'radius'),
+          hit: [],
+        }),
+      ),
+  },
+  {
+    id: 'variant-skate-twice',
+    label: 'Skate: both charges, one after the other (the pluck climbs)',
+    group: 'variants',
+    length: 2,
+    fire: (d, w) => {
+      w.setVariant('glide', 'skate');
+      fire(d, w, ...variantCast(w, 'skate'));
+    },
+    then: [
+      { delay: 0.3, fire: (d, w) => fire(d, w, ...variantCast(w, 'skate')) },
+      { delay: 1, fire: (_d, w) => variantsRestore(w) },
+    ],
+  },
+  {
+    id: 'variant-every',
+    label: 'Every variant in turn, 0.7 s apart (each in its own group, in her voice)',
+    group: 'variants',
+    length: 8,
+    fire: (d, w) => fire(d, w, ...variantCast(w, VARIANT_BUTTONS[0][0])),
+    then: [
+      ...VARIANT_BUTTONS.slice(1).flatMap(([id], i) => {
+        const at = Math.round((i + 1) * 0.7 * 1000) / 1000;
+        const out = [
+          {
+            delay: at,
+            fire: (d: SynthDirector, w: FakeWorld) => {
+              variantsRestore(w);
+              fire(d, w, ...variantCast(w, id));
+            },
+          },
+        ];
+        if (slotOf(id) === 'chime')
+          out.push({
+            delay: Math.round((at + 0.25) * 1000) / 1000,
+            fire: (d: SynthDirector, w: FakeWorld) => fire(d, w, ...variantLand(w, id)),
+          });
+        return out;
+      }),
+      { delay: 6.5, fire: (_d: SynthDirector, w: FakeWorld) => variantsRestore(w) },
+    ],
+  },
+  ...(['ward', 'chime', 'reel', 'glide'] as const).map((slot): SoundButton => {
+    const id = CONTENT.techniqueVariants.find((v) => v.slot === slot)?.id ?? slot;
+    return {
+      id: `variant-pick-${slot}`,
+      label: `variantPick: a ${slot} variant chosen in Prep (${id})`,
+      group: 'ui',
+      fire: (d) => d.playUi('variantPick', null, { variant: id }),
+    };
+  }),
   // ── UI ─────────────────────────────────────────────────────────────────────────
   ...(
     [
@@ -2012,6 +2352,7 @@ export const SOUNDS: SoundButton[] = [
       'soloPick',
       'sceneStart',
       'sceneReply',
+      'variantPick',
     ] as UiSound[]
   ).map((s): SoundButton => ({
     id: `ui-${s}`,

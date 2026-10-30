@@ -1709,6 +1709,9 @@ export class Feedback {
   }
 
   private glided(e: SimEventOf<'glided'>, state: WorldState): void {
+    // Skate (a Glide variant, docs/phase-4f/vfx-audio.md) dashes in a look of its own
+    // (VariantsView): blade marks, two afterimages, a carve. The Glide's own is the default's.
+    if (state.entities.get(state.weaverId)?.weaver?.variants?.glide === 'skate') return;
     const w = this.rec(state.weaverId);
     const yaw = Math.atan2(-(e.toX - e.fromX), -(e.toZ - e.fromZ));
     for (let i = 0; i < 5; i++) {

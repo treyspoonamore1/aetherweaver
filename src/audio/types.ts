@@ -105,7 +105,13 @@ export type UiSound =
   | 'talentPick'
   | 'soloPick'
   | 'sceneStart'
-  | 'sceneReply';
+  | 'sceneReply'
+  /**
+   * Phase 4f (docs/phase-4f.md): a technique variant chosen in Prep or the Training Grounds. In
+   * the Weaver's gold, voiced by its slot: pass `{ variant }` (its content id) as `detail`. Left
+   * out, a shared voicing. Back to a slot's default is the existing `back`.
+   */
+  | 'variantPick';
 
 /**
  * Additive (Phase 4d): what a UI sound is about, beyond its name. The Dissonance sounds read
@@ -127,6 +133,12 @@ export interface UiSoundDetail {
   hero?: string;
   /** Phase 4e, `bondRankUp`: the Bond rank reached. A rank that opens a talent or a Solo rings. */
   rank?: number;
+  /**
+   * Phase 4f, `variantPick`: the technique variant chosen (its content id, e.g. 'chorale'). Its
+   * slot voices it: the Ward's glass, the Chime's handbell, the Reel's plucked string, the Glide's
+   * breath. Unknown or left out: a shared voicing.
+   */
+  variant?: string;
 }
 
 export interface Volumes {

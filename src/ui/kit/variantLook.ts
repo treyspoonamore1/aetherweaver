@@ -62,8 +62,8 @@ export const VARIANT_STATUS = {
  * `variantPick`, and it changes here).
  */
 export const VARIANT_SOUNDS = {
-  /** A variant chosen in Prep or the Training Grounds. */
-  choose: 'pick',
+  /** A variant chosen in Prep or the Training Grounds (voiced by its slot: pass `variant`). */
+  choose: 'variantPick',
   /** Back to the slot's default. */
   clear: 'back',
   /** A locked variant clicked: it says why, and nothing changes. */

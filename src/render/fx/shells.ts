@@ -23,6 +23,13 @@ export const SHELL = {
    * turning meridian). `crack` is how spent it is (0 whole, 1 its last hit taken).
    */
   sphere: 9,
+  /**
+   * Absolve (a Chime variant, docs/phase-4f/vfx-audio.md): a veil of light falling over a hero
+   * while its guard lasts. Pushed as a hemisphere from the floor: brightest at its hem, thin at
+   * its crown, with soft lanes of light drifting down it. `crack` is how much of the guard is
+   * spent (0 fresh, 1 gone): the veil thins as it runs out.
+   */
+  veil: 10,
 } as const;
 
 const vertex = /* glsl */ `
@@ -167,6 +174,18 @@ void main() {
     float bands = equator * 0.42 + meridian * 0.32 + tilted * 0.26;
     a = fres * 0.62 + 0.022 + stars * 0.95 + bands * (0.45 + 0.55 * fres) + crack * 0.75;
     col = mix(col, vec3(1.0), clamp(stars * 0.8 + bands * 0.25 + crack * 0.4, 0.0, 1.0));
+  } else if (style == 10) {
+    // Absolve's veil: light falling over the hero. A bright hem at the floor fading to a thin
+    // crown, and lanes of light drifting down it; it thins as the guard runs out (vCrack).
+    float ang = atan(vLocal.z, vLocal.x);
+    float h = clamp(vLocal.y, 0.0, 1.0);
+    float hem = exp(-h * 3.4);
+    float lane = smoothstep(0.62, 1.0, 0.5 + 0.5 * sin(ang * 7.0 + vParams.w * 3.0));
+    float fall = fract(vLocal.y * 1.4 + uTime * 0.6 + awHash21(vec2(floor(ang * 7.0 / 6.2831853 + 0.5), vParams.w)));
+    float drop = smoothstep(0.0, 0.18, fall) * (1.0 - smoothstep(0.18, 0.75, fall));
+    float thin = 1.0 - 0.6 * clamp(vCrack, 0.0, 1.0);
+    a = (fres * 0.4 + hem * 0.3 + lane * drop * 0.55 + 0.012) * thin;
+    col = mix(col, vec3(1.0), clamp(hem * 0.35 + lane * drop * 0.45, 0.0, 1.0));
   } else {
     a = fres * 1.2 + 0.25;
     col = mix(col, vec3(1.0), 0.5);

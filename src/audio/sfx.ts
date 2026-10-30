@@ -120,6 +120,58 @@ export const ALT_SOLO_SOUND_GROUPS: Readonly<Record<string, string>> = {
   celestial_sphere: 'altSolo:sphere',
 };
 
+/**
+ * Phase 4f, technique variants (docs/phase-4f.md): the voice group of each variant's cast sound, by
+ * the id `techniqueCast` carries. Every variant the sim casts is listed (tests read the sim's list
+ * to check). Each is in the Weaver's voice, as her techniques are: glass, handbell, pluck, choir and
+ * breath, pitched on the music's chord, so it sounds like her and never like a hero.
+ */
+export const VARIANT_SOUND_GROUPS: Readonly<Record<string, string>> = {
+  chorale: 'variant:chorale',
+  aegis_link: 'variant:link',
+  purge: 'variant:purge',
+  absolve: 'variant:absolve',
+  swap: 'variant:swap',
+  anchor: 'variant:anchor',
+  phase_step: 'variant:phaseStep',
+  skate: 'variant:skate',
+};
+
+/**
+ * Phase 4f: the moments after a cast that have a sound of their own. `chord`: several Chorale
+ * barriers Perfect against one attack. `join`: a Link's Perfect brings the Weaver in. `share`: a
+ * hit shared along a Link (light: it can come often). `purged`: Purge's burst. `absolved`:
+ * Absolve's guard settling.
+ */
+export const VARIANT_MOMENT_GROUPS = {
+  chord: 'variant:chord',
+  join: 'variant:linkJoin',
+  share: 'variant:linkShare',
+  purged: 'variant:purgeBurst',
+  absolved: 'variant:absolveGuard',
+} as const;
+
+/** Phase 4f: each variant sound's rate gate (seconds) and voice cap, by group. */
+export const VARIANT_SOUND_LIMITS: Readonly<Record<string, readonly [number, number]>> = {
+  'variant:chorale': [0.1, 2],
+  'variant:link': [0.1, 2],
+  'variant:purge': [0.1, 2],
+  'variant:absolve': [0.1, 2],
+  'variant:swap': [0.2, 2],
+  'variant:anchor': [0.2, 2],
+  'variant:phaseStep': [0.15, 2],
+  'variant:skate': [0.08, 2],
+  'variant:chord': [0.3, 1],
+  'variant:linkJoin': [0.3, 1],
+  'variant:linkShare': [0.15, 2],
+  'variant:purgeBurst': [0.2, 2],
+  'variant:absolveGuard': [0.3, 1],
+};
+
+/** Phase 4f: a variant's number from the content (the lead is retuning them). */
+const variantValueOf = (id: string, key: string): number =>
+  CONTENT.techniqueVariants.find((v) => v.id === id)?.values[key] ?? 0;
+
 const clamp = (x: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, x));
 
 /** A scale index (D4 = 0) as Hz: every Bonds note is on D dorian. */
@@ -250,6 +302,19 @@ export class SfxEngine {
   private readonly afterglowSeen = new Map<number, number>();
   /** Phase 4e: Hawk's Vigil's shots turn through three notes. */
   private vigilTurn = 0;
+  /** Phase 4f: the Aegis Link as its `linked` events told it (sim seconds), for its shares. */
+  private link: { a: number; b: number; weaver: boolean; until: number } | null = null;
+  /**
+   * Phase 4f, this batch: the variant cast for each technique (its own cast sound replaces the
+   * default's launch), the heroes a Chorale reached, the most Perfects one attack met, and a hit
+   * shared along a Link.
+   */
+  private readonly batchVariant = new Map<string, string>();
+  private batchChorale = 0;
+  /** A Link cast on a hero alone (no other standing): one voice, not two. */
+  private batchLinkAlone = false;
+  private batchPerfects = 0;
+  private batchShare = false;
 
   constructor(
     private readonly e: Engine,
@@ -296,7 +361,8 @@ export class SfxEngine {
 
   // ── events ───────────────────────────────────────────────────────────────────────
   onEvents(events: readonly SimEvent[], state: WorldState): void {
-    this.scanBatch(events);
+    this.scanBatch(events, state);
+    if (this.batchShare) this.linkShare(state);
     for (const ev of events) {
       try {
         this.handle(ev, state);
@@ -312,17 +378,54 @@ export class SfxEngine {
    * a hero back up comes after that hero's `revived` and save in the same batch; Borrowed Time
    * may have made a Solo ready.
    */
-  private scanBatch(events: readonly SimEvent[]): void {
+  private scanBatch(events: readonly SimEvent[], state: WorldState): void {
     this.batchRevived.clear();
     this.batchSoloReady.clear();
+    this.batchVariant.clear();
+    this.batchChorale = 0;
+    this.batchLinkAlone = false;
+    this.batchPerfects = 0;
+    this.batchShare = false;
     try {
+      // Perfects by the attack they met; link hits as runs from one source (a shared hit is a
+      // run on two members or more).
+      let perfectOf: number | null | undefined;
+      let perfects = 0;
+      let runSource: number | null | undefined;
+      let runTelegraph: number | null | undefined;
+      let run = 0;
       for (const ev of events) {
         if (ev.type === 'rewound' && ev.revived) this.batchRevived.add(ev.target);
         else if (ev.type === 'soloReady') this.batchSoloReady.add(ev.hero);
+        else if (ev.type === 'techniqueCast' && typeof ev.variant === 'string')
+          this.batchVariant.set(ev.technique, ev.variant);
+        else if (ev.type === 'chorale') this.batchChorale = ev.targets?.length ?? 0;
+        else if (ev.type === 'perfectWard') {
+          perfects = ev.telegraph === perfectOf && ev.telegraph !== null ? perfects + 1 : 1;
+          perfectOf = ev.telegraph;
+          this.batchPerfects = Math.max(this.batchPerfects, perfects);
+        } else if (ev.type === 'linked') {
+          this.link = { a: ev.a, b: ev.b, weaver: ev.weaver, until: ev.until };
+          if (!ev.weaver) this.batchLinkAlone = ev.a === ev.b;
+        } else if (ev.type === 'damageTaken' && this.linkMember(ev, state)) {
+          if (ev.source === runSource && ev.telegraph === runTelegraph) run++;
+          else run = 1;
+          runSource = ev.source;
+          runTelegraph = ev.telegraph;
+          if (run >= 2) this.batchShare = true;
+        }
       }
     } catch {
       // A malformed event: nothing here is worth breaking the batch for.
     }
+  }
+
+  /** Phase 4f: a hit (not a tick) on a member of the Aegis Link while it holds. */
+  private linkMember(ev: Extract<SimEvent, { type: 'damageTaken' }>, state: WorldState): boolean {
+    const l = this.link;
+    if (!l || ev.hit === 'tick' || !(ev.amount + ev.absorbed > 0)) return false;
+    if (typeof state.time === 'number' && l.until <= state.time) return false;
+    return ev.target === l.a || ev.target === l.b || (l.weaver && ev.target === state.weaverId);
   }
 
   private handle(ev: SimEvent, state: WorldState): void {
@@ -334,7 +437,11 @@ export class SfxEngine {
         // carries it, so it has none here.
         break;
       case 'techniqueCast':
-        if (ev.technique === 'ward') this.ward();
+        // Phase 4f: a variant's cast has its own sound (in place of the Ward's, the Chime's
+        // launch, the Glide's breath).
+        if (typeof ev.variant === 'string' && VARIANT_SOUND_GROUPS[ev.variant])
+          this.variantCast(ev, state);
+        else if (ev.technique === 'ward') this.ward();
         // Phase 3e: Rewind (in Reel's slot) speaks on `rewound`, which says where and how much.
         // Phase 4: Eldritch Conduit's price in Life is heard under the technique's own sound.
         this.conduitPaid(ev.technique, ev.target, state);
@@ -344,12 +451,25 @@ export class SfxEngine {
         break;
       case 'perfectWard':
         this.perfectWard();
+        // Phase 4f: several Chorale barriers Perfect against one attack sing together.
+        if (this.batchPerfects >= 2) this.choraleChord(state);
+        break;
+      case 'linked':
+        // Phase 4f: a Link's Perfect brings the Weaver in.
+        if (ev.weaver) this.linkJoin(state);
+        break;
+      case 'purged':
+        this.purgeBurst(ev.hit?.length ?? 0, state.entities ? this.panFor(state, ev.x) : 0);
+        break;
+      case 'statusApplied':
+        if (ev.status === 'absolved') this.absolveGuard(ev.target, state);
         break;
       case 'save':
         this.save(ev.cause, ev.target, state);
         break;
       case 'chimeLaunched':
-        this.chimeLaunched(this.panFor(state, ev.fromX));
+        // Phase 4f: a Purge or Absolve Chime's launch is its own cast sound.
+        if (!this.batchVariant.has('chime')) this.chimeLaunched(this.panFor(state, ev.fromX));
         break;
       case 'chimeLanded':
         this.chimeLanded(ev.clutch, this.panFor(state, ev.x));
@@ -364,7 +484,8 @@ export class SfxEngine {
         this.reel(ev.fromX, ev.fromZ, ev.toX, ev.toZ, this.panFor(state, ev.toX));
         break;
       case 'glided':
-        if (this.e.gate('glide', 0.12)) {
+        // Phase 4f: Skate's dash is its own cast sound.
+        if (this.batchVariant.get('glide') !== 'skate' && this.e.gate('glide', 0.12)) {
           this.play('glide', 2, 'sfx', (v, t) => whoosh(v, t, 0.24, 0.2, 900, 2600, 0.9), {
             pan: this.panFor(state, ev.toX) * 0.5,
           });
@@ -2240,6 +2361,371 @@ export class SfxEngine {
       default:
         break;
     }
+  }
+
+  // ── Phase 4f: technique variants ─────────────────────────────────────────────────
+
+  /** Phase 4f: a variant group's gate, passed (true) or not, and its cap. */
+  private variantGate(group: string, key = group): number {
+    const limits = VARIANT_SOUND_LIMITS[group];
+    if (!limits || !this.e.gate(key, limits[0])) return 0;
+    return limits[1];
+  }
+
+  /**
+   * Phase 4f (docs/phase-4f.md): a technique variant's cast (`techniqueCast.variant`), each in the
+   * Weaver's voice on the music's chord, as her techniques are, and each unlike its default: the
+   * Ward's glass strike, the Chime's launch, the Reel's zip, the Glide's breath.
+   * - **Chorale**: the Ward's glass root sung by a choir, and a glass voice rising through the
+   *   chord for each hero it reached (read from the batch's `chorale`), on a breath outward.
+   * - **Aegis Link**: two plucks a fifth apart (the two heroes), a cord drawn taut, and the two
+   *   humming as one under a glass knot.
+   * - **Purge**: the Chime's launch with what it will cleanse drawn up into it (glass in reverse,
+   *   a dark breath).
+   * - **Absolve**: the Chime's launch on a warm handbell and its glass octave.
+   * - **Swap**: two cords crossing, the fifth and then the root (two places traded), a landing.
+   * - **Anchor**: a deep drop, a low handbell held, a chain's rattle.
+   * - **Phase Step**: glass folding away in reverse, a ping where she opens out, and her decoy's
+   *   quiet shimmer for as long as it stands (content).
+   * - **Skate**: a quick breath and a blade's hiss, a pluck that climbs with each charge spent.
+   */
+  private variantCast(ev: Extract<SimEvent, { type: 'techniqueCast' }>, state: WorldState): void {
+    const id = ev.variant!;
+    const group = VARIANT_SOUND_GROUPS[id]!;
+    const cap = this.variantGate(group);
+    if (!cap) return;
+    const c = this.chord();
+    const root = this.rootAbove(c, 72);
+    const up = chordNotesInRange(c, root + 1, root + 24);
+    const hz = midiToHz;
+    const pan = state.entities ? this.panFor(state, ev.x) : 0;
+    switch (id) {
+      case 'chorale': {
+        const n = clamp(this.batchChorale || 1, 1, 4);
+        const choir = chordNotesInRange(c, 60, 72).slice(0, 3).map(hz);
+        this.play(
+          group,
+          cap,
+          'sfx',
+          (v, t) => {
+            glassNote(v, t, hz(root), 0.07, 1.5, 0.8);
+            for (let i = 0; i < n; i++)
+              glassNote(v, t + 0.05 + 0.06 * i, hz(up[i] ?? root + 12), 0.04, 1.1, 0.8);
+            choirChord(v, t + 0.01, choir, 0.55, 0.1, 0.05, 0.6);
+            whoosh(v, t, 0.45, 0.03, 600, 3400, 1.2);
+          },
+          { pan },
+        );
+        break;
+      }
+      case 'aegis_link': {
+        // A hero alone (no other standing): one voice, not two.
+        const alone = this.batchLinkAlone;
+        this.play(
+          group,
+          cap,
+          'sfx',
+          (v, t) => {
+            pluck(v, t, hz(root), 0.14, 0.4, 0.8);
+            if (!alone) pluck(v, t + 0.07, hz(root + 7), 0.12, 0.45, 0.8);
+            v.noise({
+              start: t + 0.02,
+              dur: 0.14,
+              attack: 0.03,
+              release: 0.06,
+              gain: 0.03,
+              shape: 'sustain',
+              filter: { type: 'bandpass', freq: 700, freqTo: 2600, q: 2.5 },
+            });
+            for (const [m, g, at] of [
+              [root - 12, 0.04, 0.05],
+              [root - 5, alone ? 0 : 0.03, 0.09],
+            ] as const)
+              if (g > 0)
+                v.osc({
+                  type: 'triangle',
+                  freq: hz(m),
+                  start: t + at,
+                  dur: 0.8,
+                  attack: 0.12,
+                  release: 0.35,
+                  gain: g,
+                  shape: 'sustain',
+                  filter: { type: 'lowpass', freq: 1400, q: 0.7 },
+                });
+            glassPing(v, t + 0.16, hz(root + 19), 0.03, 0.8);
+          },
+          { pan },
+        );
+        break;
+      }
+      case 'purge':
+        this.play(
+          group,
+          cap,
+          'sfx',
+          (v, t) => {
+            whoosh(v, t, 0.34, 0.12, 500, 2800, 1.1);
+            pluck(v, t, hz(this.pickTone(72, 0)), 0.05, 0.2, 0.9);
+            v.noise({
+              pink: true,
+              start: t,
+              dur: 0.3,
+              attack: 0.2,
+              release: 0.1,
+              gain: 0.04,
+              shape: 'sustain',
+              filter: { type: 'lowpass', freq: 500, freqTo: 1400 },
+            });
+            reverseGlass(v, t + 0.22, hz(root - 12), 0.022, 0.2, 0.6);
+          },
+          { pan },
+        );
+        break;
+      case 'absolve':
+        this.play(
+          group,
+          cap,
+          'sfx',
+          (v, t) => {
+            whoosh(v, t, 0.34, 0.12, 500, 2800, 1.1);
+            handbell(v, t, hz(root), 0.06, 1.3, 0.45);
+            glassNote(v, t + 0.03, hz(root + 12), 0.025, 1.4, 0.8);
+          },
+          { pan },
+        );
+        break;
+      case 'swap':
+        this.play(
+          group,
+          cap,
+          'sfx',
+          (v, t) => {
+            for (const [from, to, at, g] of [
+              [500, 3200, 0, 0.07],
+              [3200, 500, 0.03, 0.06],
+            ] as const)
+              v.noise({
+                start: t + at,
+                dur: 0.18,
+                attack: 0.02,
+                release: 0.07,
+                gain: g,
+                shape: 'sustain',
+                filter: { type: 'bandpass', freq: from, freqTo: to, q: 3 },
+              });
+            pluck(v, t + 0.1, hz(root + 7), 0.08, 0.3, 0.85);
+            pluck(v, t + 0.17, hz(root), 0.09, 0.4, 0.85);
+            thump(v, t + 0.17, hz(root - 24), 0.16, 0.2, 0.55);
+            glassPing(v, t + 0.19, hz(root + 12), 0.02, 0.7);
+          },
+          { pan },
+        );
+        break;
+      case 'anchor':
+        this.play(
+          group,
+          cap,
+          'sfx',
+          (v, t) => {
+            thump(v, t, hz(root - 24), 0.18, 0.35, 0.5);
+            handbell(v, t + 0.01, hz(root - 12), 0.08, 1.8, 0.3);
+            for (let i = 0; i < 4; i++)
+              v.noise({
+                start: t + 0.03 + i * 0.035,
+                dur: 0.02,
+                gain: 0.03 - i * 0.004,
+                filter: { type: 'highpass', freq: 3200 },
+              });
+            glassNote(v, t + 0.04, hz(root + 7), 0.025, 1.2, 0.6);
+          },
+          { pan },
+        );
+        break;
+      case 'phase_step': {
+        const ring = variantValueOf('phase_step', 'seconds') + 0.3;
+        this.play(
+          group,
+          cap,
+          'sfx',
+          (v, t) => {
+            reverseGlass(v, t + 0.14, hz(up[1] ?? root + 7), 0.03, 0.14, 0.7);
+            glassPing(v, t + 0.14, hz(root + 12), 0.035, 0.6);
+            v.noise({
+              start: t + 0.14,
+              dur: 0.03,
+              gain: 0.04,
+              filter: { type: 'highpass', freq: 3000 },
+            });
+            glassNote(v, t + 0.2, hz(root + 7), 0.012, ring, 0.5);
+          },
+          { pan },
+        );
+        break;
+      }
+      case 'skate': {
+        // Which charge it spent (the state has spent it): the first lower, the next higher.
+        const w = state.entities?.get(state.weaverId)?.weaver;
+        const spent = w ? clamp(w.maxGlideCharges - w.glideCharges, 1, 4) : 1;
+        this.play(
+          group,
+          cap,
+          'sfx',
+          (v, t) => {
+            whoosh(v, t, 0.16, 0.12, 1400, 4200, 1.3);
+            v.noise({
+              start: t,
+              dur: 0.1,
+              attack: 0.005,
+              release: 0.06,
+              gain: 0.04,
+              shape: 'sustain',
+              filter: { type: 'highpass', freq: 5000 },
+            });
+            pluck(v, t + 0.02, hz(up[spent - 1] ?? root + 12), 0.05, 0.14, 0.95);
+          },
+          { pan },
+        );
+        break;
+      }
+      default:
+        break;
+    }
+  }
+
+  /**
+   * Phase 4f: several Chorale barriers Perfect against one attack: over the Perfect's strike, a
+   * glass voice rising through the chord for each hero (up to four) and a choir swelling under
+   * them. It bypasses the Perfect's own duck, as the moment it crowns.
+   */
+  private choraleChord(state: WorldState): void {
+    const w = state.entities?.get(state.weaverId)?.weaver;
+    if (w?.variants?.ward !== 'chorale') return;
+    const group = VARIANT_MOMENT_GROUPS.chord;
+    const cap = this.variantGate(group);
+    if (!cap) return;
+    const c = this.chord();
+    const root = this.rootAbove(c, 72);
+    const notes = chordNotesInRange(c, root + 1, root + 24);
+    const choir = chordNotesInRange(c, 60, 76).slice(0, 4).map(midiToHz);
+    const n = clamp(this.batchPerfects, 2, 4);
+    this.play(
+      group,
+      cap,
+      'sfx',
+      (v, t) => {
+        for (let i = 0; i < n; i++)
+          glassNote(v, t + 0.08 + 0.05 * i, midiToHz(notes[i] ?? root + 12), 0.05, 1.6, 0.9);
+        choirChord(v, t + 0.06, choir, 1.0, 0.18, 0.1, 1.0);
+        handbell(v, t + 0.06, midiToHz(root + 12), 0.05, 1.4, 0.6);
+      },
+      { big: true },
+    );
+  }
+
+  /**
+   * Phase 4f: a Link's Perfect brings the Weaver in: a beat after the Perfect's strike, the third
+   * voice joins the Link's fifth (a glass on the chord's next tone), a clasp, a handbell above.
+   */
+  private linkJoin(state: WorldState): void {
+    const group = VARIANT_MOMENT_GROUPS.join;
+    const cap = this.variantGate(group);
+    if (!cap) return;
+    const c = this.chord();
+    const root = this.rootAbove(c, 72);
+    const third = chordNotesInRange(c, root + 1, root + 12)[0] ?? root + 4;
+    const pan = state.entities ? this.heroPan(state, state.weaverId) : 0;
+    this.play(
+      group,
+      cap,
+      'sfx',
+      (v, t) => {
+        v.noise({
+          start: t + 0.1,
+          dur: 0.025,
+          gain: 0.035,
+          filter: { type: 'bandpass', freq: 2400, q: 1.5 },
+        });
+        glassNote(v, t + 0.1, midiToHz(third), 0.06, 1.6, 0.85);
+        handbell(v, t + 0.14, midiToHz(root + 12), 0.045, 1.2, 0.5);
+      },
+      { pan, big: true },
+    );
+  }
+
+  /** Phase 4f: a hit shared along the Link: the fifth plucked low and a muffled knock (light). */
+  private linkShare(state: WorldState): void {
+    const group = VARIANT_MOMENT_GROUPS.share;
+    const cap = this.variantGate(group);
+    if (!cap) return;
+    const c = this.chord();
+    const root = this.rootAbove(c, 72);
+    const pan = state.entities && this.link ? this.heroPan(state, this.link.a) : 0;
+    this.play(
+      group,
+      cap,
+      'sfx',
+      (v, t) => {
+        pluck(v, t, midiToHz(root - 5), 0.035, 0.18, 0.5);
+        thump(v, t, midiToHz(root - 24), 0.05, 0.12, 0.6);
+      },
+      { pan },
+    );
+  }
+
+  /**
+   * Phase 4f: Purge's burst: what the Chime cleansed thrown out (a band of noise falling, a low
+   * knock) and a glass falling through the chord for each enemy it reached (up to four).
+   */
+  private purgeBurst(hit: number, pan: number): void {
+    const group = VARIANT_MOMENT_GROUPS.purged;
+    const cap = this.variantGate(group);
+    if (!cap) return;
+    const c = this.chord();
+    const root = this.rootAbove(c, 72);
+    const down = chordNotesInRange(c, root - 12, root + 12).reverse();
+    const n = Math.min(4, Math.max(0, hit));
+    this.play(
+      group,
+      cap,
+      'sfx',
+      (v, t) => {
+        v.noise({
+          start: t,
+          dur: 0.32,
+          attack: 0.005,
+          release: 0.25,
+          gain: 0.05,
+          filter: { type: 'bandpass', freq: 2800, freqTo: 450, q: 1.2 },
+        });
+        thump(v, t, midiToHz(root - 24), 0.12, 0.25, 0.55);
+        if (n === 0) glassPing(v, t + 0.05, midiToHz(root), 0.016, 0.4);
+        for (let i = 0; i < n; i++)
+          glassPing(v, t + 0.05 + 0.055 * i, midiToHz(down[i] ?? root), 0.024, 0.5);
+      },
+      { pan },
+    );
+  }
+
+  /** Phase 4f: Absolve's guard settles (once per Chime): a soft choir and a high glass fifth. */
+  private absolveGuard(target: number, state: WorldState): void {
+    const group = VARIANT_MOMENT_GROUPS.absolved;
+    const cap = this.variantGate(group);
+    if (!cap) return;
+    const c = this.chord();
+    const root = this.rootAbove(c, 72);
+    const choir = chordNotesInRange(c, 64, 76).slice(0, 3).map(midiToHz);
+    const pan = state.entities ? this.heroPan(state, target) : 0;
+    this.play(
+      group,
+      cap,
+      'sfx',
+      (v, t) => {
+        choirChord(v, t, choir, 0.9, 0.07, 0.15, 0.7);
+        glassNote(v, t + 0.05, midiToHz(root + 19), 0.022, 1.6, 0.8);
+      },
+      { pan },
+    );
   }
 
   /**
