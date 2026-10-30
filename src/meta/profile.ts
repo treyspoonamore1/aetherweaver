@@ -189,7 +189,7 @@ export const UNLOCKS: readonly Unlock[] = [
           kind: 'carrySlot',
           target: String(i + 1),
           name: i === 1 ? 'A second relic to carry' : 'A third relic to carry',
-          text: `Each run can carry ${i + 1} relics from the Reliquary.`,
+          text: `Each run can carry ${i + 1} relics from the Reliquary: the first (attuned) plays its own effect, the others lend their Inscriptions.`,
         },
   ),
 ];

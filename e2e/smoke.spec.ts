@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { CONTENT, deedText } from '../src/content';
+import { CONTENT, deedText, inscriptionDef } from '../src/content';
 import { DEED_POINTS_MAX, deedPoints } from '../src/meta/deeds';
 import { rankOf } from '../src/meta/profile';
 import { runWithoutYou } from '../src/sim/counterfactual';
@@ -568,5 +568,156 @@ test('Phase 4b: Deeds — a fight earns two, their toasts follow the rank-up car
       String(both.includes(d.id)),
     );
   await expect(page.getByTestId(`deed-${heard.id}`)).toContainText(`best ${calls}`);
+  expect(errors).toEqual([]);
+});
+
+test('Phase 4c: the Reliquary — from Prep, craft, carry and attune, embark with it, enshrine at the Summary', async ({
+  page,
+}) => {
+  test.setTimeout(180_000);
+  const errors = trackErrors(page);
+  const rules = CONTENT.reliquary;
+  const phase = () => page.evaluate(() => window.__AWRUN__!.phase());
+  const reliquary = () => page.evaluate(() => window.__AWRUN__!.reliquary());
+  await page.goto(START_URL);
+  await page.waitForFunction(() => window.__AWRUN__ !== undefined);
+  // Settings → Skip the unlocks: the Reliquary opens (a new profile is Rank 1), every slot too.
+  await page
+    .getByRole('button', { name: /^Settings$/ })
+    .first()
+    .click();
+  await page.getByText('Skip the unlocks', { exact: true }).click();
+  await expect(page.getByRole('switch', { name: /Skip the unlocks/ })).toBeChecked();
+  // Two enshrined relics and materials (a profile only earns them from play).
+  const shards = rules.inscribe.cost * 3;
+  await page.evaluate((seed) => window.__AWRUN__!.seedReliquary(seed), {
+    relics: [
+      { id: 'prism_loom', inscriptions: [{ id: 'potent_thread', tier: 5 }] },
+      { id: 'cantors_hymnal', inscriptions: [{ id: 'hardy', tier: 5 }] },
+    ],
+    shards,
+    tears: 1,
+  });
+  expect((await reliquary()).slots).toBe(rules.slotRanks.length);
+
+  // Prep's row: nothing carried yet; its button opens the Reliquary.
+  await page.evaluate(() => window.__AWRUN__!.newRun(4242));
+  await expect.poll(phase).toBe('prep');
+  await expect(page.getByTestId('prep-reliquary')).toHaveAttribute('data-carried', '');
+  await page.getByTestId('prep-reliquary-open').click();
+  await expect(page.getByTestId('reliquary-screen')).toBeVisible();
+  await expect(page.getByTestId('materials')).toHaveAttribute('data-shards', String(shards));
+
+  // Prism Loom: Inscribe an Aegis Inscription. The preview's numbers are the meta's (no risk at
+  // Instability 0), and the craft lands: the shards drop, an Aegis Inscription joins it.
+  await page.locator('[data-testid="reliquary-tile"][data-relic="r1"]').click();
+  await page.getByTestId('craft-tab-inscribe').click();
+  await page.locator('[data-category="aegis"]').click();
+  const preview = page.getByTestId('craft-preview');
+  await expect(preview).toHaveAttribute('data-shards', String(rules.inscribe.cost));
+  await expect(preview).toHaveAttribute('data-fracture', '0');
+  await expect(preview).toHaveAttribute('data-instability', String(rules.inscribe.instability));
+  await page.getByTestId('craft-commit').click();
+  await expect(page.getByTestId('craft-outcome')).toHaveAttribute('data-kind', 'inscribed');
+  let rq = await reliquary();
+  expect(rq.shards).toBe(shards - rules.inscribe.cost);
+  expect(rq.relics[0]!.instability).toBe(rules.inscribe.instability);
+  expect(rq.relics[0]!.inscriptions).toHaveLength(2);
+  const added = rq.relics[0]!.inscriptions[1]!;
+  expect(inscriptionDef(added.id).category).toBe('aegis');
+  await expect(page.getByTestId('reliquary-detail')).toContainText(inscriptionDef(added.id).name);
+
+  // The carry: Prism Loom, then Cantor's Hymnal; then attune the Hymnal (to the first slot).
+  await page.getByTestId('carry-toggle').click();
+  await expect.poll(async () => (await reliquary()).carry).toEqual(['r1']);
+  await page.locator('[data-testid="reliquary-tile"][data-relic="r2"]').click();
+  await page.getByTestId('carry-toggle').click();
+  await expect.poll(async () => (await reliquary()).carry).toEqual(['r1', 'r2']);
+  await expect(page.getByTestId('carry-slot-2')).toHaveAttribute('data-relic', 'r2');
+  await page.getByTestId('attune').click();
+  await expect.poll(async () => (await reliquary()).carry).toEqual(['r2', 'r1']);
+  // The run in Prep follows: the Hymnal attuned, Prism Loom dormant (it lends its Inscriptions).
+  rq = await reliquary();
+  expect(rq.run!.carried).toEqual(['cantors_hymnal', 'prism_loom']);
+  expect(rq.run!.relics).toEqual([
+    { id: 'cantors_hymnal', carried: true, dormant: false },
+    { id: 'prism_loom', carried: true, dormant: true },
+  ]);
+
+  // Esc goes back to Prep, whose row shows what this run carries.
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('prep-reliquary')).toHaveAttribute(
+    'data-carried',
+    'cantors_hymnal prism_loom',
+  );
+  await expect(
+    page.locator('[data-testid="prep-carried"][data-relic="prism_loom"]'),
+  ).toHaveAttribute('data-dormant', 'true');
+
+  // Embark: the map's strip marks both, attuned and dormant; a tooltip lists the Inscriptions.
+  await page
+    .getByRole('button', { name: /Embark/i })
+    .first()
+    .click();
+  await expect.poll(phase).toBe('map');
+  const badge = (id: string) => page.locator(`[data-testid="relic-badge"][data-relic="${id}"]`);
+  await expect(badge('cantors_hymnal')).toHaveAttribute('data-carried', 'attuned');
+  await expect(badge('prism_loom')).toHaveAttribute('data-carried', 'dormant');
+  await badge('prism_loom').hover();
+  await expect(page.getByTestId('carried-tip').filter({ visible: true })).toContainText(
+    inscriptionDef(added.id).name,
+  );
+
+  // The first fight plays the attuned relic's effect and every carried relic's Inscriptions.
+  expect(await page.evaluate(() => window.__AWRUN__!.choose())).toBe('skirmish');
+  await expect.poll(phase).toBe('combat');
+  await page.waitForFunction(() => window.__AW__ !== undefined);
+  const config = await page.evaluate(() => window.__AW__!.exportReplay().config);
+  expect((config.relics ?? []).map((r) => (typeof r === 'string' ? r : r.id))).toEqual([
+    'cantors_hymnal',
+  ]);
+  expect(config.passives).toHaveLength(3);
+  // The HUD: the attuned relic marked, the dormant one dimmed beside it.
+  await expect(
+    page.getByTestId('relic-bar').locator('[data-relic="cantors_hymnal"][data-carried="attuned"]'),
+  ).toBeVisible();
+  await expect(
+    page.getByTestId('relic-bar').locator('[data-relic="prism_loom"][data-state="dormant"]'),
+  ).toBeVisible();
+
+  // Win it, then the run (the hook walks to the boss), having found a Tuning Fork.
+  expect(await page.evaluate(() => window.__AWRUN__!.winFight())).toBe(true);
+  await expect.poll(phase).toBe('result');
+  await page.evaluate(() => window.__AWRUN__!.continue());
+  await expect.poll(phase).toBe('draft');
+  await page.evaluate(() => window.__AWRUN__!.pick(0));
+  await expect.poll(phase).toBe('map');
+  expect(await page.evaluate(() => window.__AWRUN__!.winRun(['tuning_fork']))).toBe(true);
+  await expect.poll(phase).toBe('summary');
+
+  // The Summary: what the run paid, and only what it found to enshrine (not what it carried).
+  const panel = page.getByTestId('summary-reliquary');
+  await expect(panel).toHaveAttribute('data-stage', 'choose');
+  rq = await reliquary();
+  expect(rq.run!.paid).not.toBeNull();
+  expect(rq.shards).toBe(shards - rules.inscribe.cost + rq.run!.paid!.shards);
+  // From a new profile the run's XP crosses a Rank or two: that card comes first.
+  if ((await page.getByTestId('rank-up').count()) > 0)
+    await page.getByRole('button', { name: /Onward/ }).click();
+  await expect(page.getByTestId('rank-up')).toHaveCount(0);
+  const options = page.getByTestId('enshrine-options');
+  await expect(options.locator('[data-relic="tuning_fork"]')).toBeVisible();
+  await expect(options.locator('[data-relic="cantors_hymnal"]')).toHaveCount(0);
+  await expect(options.locator('[data-relic="prism_loom"]')).toHaveCount(0);
+  await options.locator('[data-relic="tuning_fork"]').getByTestId('enshrine').click();
+  await expect(panel.getByTestId('enshrined')).toHaveAttribute('data-relic', 'tuning_fork');
+  rq = await reliquary();
+  expect(rq.run!.paid!.enshrined).toBe('tuning_fork');
+  expect(rq.relics).toHaveLength(3);
+  expect(rq.relics[2]!.id).toBe('tuning_fork');
+  expect(rq.relics[2]!.inscriptions).toHaveLength(rules.enshrineInscriptions.common);
+  // Once is all: no more options.
+  await expect(panel).toHaveAttribute('data-stage', 'done');
+  await expect(page.getByTestId('enshrine-options')).toHaveCount(0);
   expect(errors).toEqual([]);
 });

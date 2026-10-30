@@ -55,6 +55,9 @@ import {
 } from './astrolabeModel';
 import { DeedsPage } from './DeedsParts';
 import type { DeedsHeld } from './deedsModel';
+import { reliquaryOpen } from '../../meta/reliquary';
+import { ReliquaryCodexPage } from './ReliquaryCodex';
+import { UnlockGlyph } from './Rank';
 
 const TABS = [
   { id: 'heroes', label: 'Heroes' },
@@ -65,6 +68,7 @@ const TABS = [
   { id: 'rank', label: 'Weaver Rank' },
   { id: 'astrolabe', label: 'The Astrolabe' },
   { id: 'deeds', label: 'Deeds' },
+  { id: 'reliquary', label: 'The Reliquary' },
   { id: 'callings', label: 'Callings' },
   { id: 'calls', label: 'Calls' },
   { id: 'motifs', label: 'Motifs' },
@@ -94,6 +98,8 @@ export function CodexView({
 }) {
   useMood('title');
   const [tab, setTab] = useState<TabId>(initialTab);
+  // Phase 4c: the Reliquary's page is locked until it opens (Rank 10, or Skip the unlocks).
+  const reliquary = reliquaryOpen(rank, allowance.all);
   const onKey = (e: KeyboardEvent<HTMLDivElement>) => {
     if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
     const i = TABS.findIndex((t) => t.id === tab);
@@ -134,7 +140,11 @@ export function CodexView({
                 tab === t.id ? 'bg-gold-400 text-ink-950' : 'bg-ink-800 text-muted hover:text-text'
               }`}
             >
+              {t.id === 'reliquary' && !reliquary && (
+                <Icon name="lock" size={12} className="-mt-0.5 mr-1 inline" />
+              )}
               {t.label}
+              {t.id === 'reliquary' && !reliquary && <span className="sr-only"> (locked)</span>}
             </button>
           ))}
         </div>
@@ -152,6 +162,7 @@ export function CodexView({
               open={{ allowance, astrolabe: astrolabeOpen(rank, allowance.all) }}
             />
           )}
+          {tab === 'reliquary' && <ReliquaryCodexPage open={reliquary} rank={rank} />}
           {tab === 'callings' && <Callings allowance={allowance} />}
           {tab === 'calls' && <Calls />}
           {tab === 'motifs' && <Motifs />}
@@ -855,9 +866,18 @@ function Ranks({ deeds }: { deeds: number }) {
                   </p>
                   <ul className="mt-2 flex flex-col gap-1.5 text-sm">
                     {UNLOCKS.filter((u) => u.rank === rank).map((u) => (
-                      <li key={u.id} className="leading-snug">
-                        <b className="text-text">{u.name}</b>{' '}
-                        <span className="text-xs text-muted">{u.text}</span>
+                      <li
+                        key={u.id}
+                        className="flex items-start gap-1.5 leading-snug"
+                        data-unlock={u.kind}
+                      >
+                        <span className="mt-0.5 shrink-0 text-gold-300">
+                          <UnlockGlyph unlock={u} size={14} />
+                        </span>
+                        <span>
+                          <b className="text-text">{u.name}</b>{' '}
+                          <span className="text-xs text-muted">{u.text}</span>
+                        </span>
                       </li>
                     ))}
                     {rankAstrolabeLine(rank, deeds) && (

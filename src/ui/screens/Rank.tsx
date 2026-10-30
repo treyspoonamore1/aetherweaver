@@ -14,6 +14,8 @@ import { playUi } from '../kit/sound';
 import { bumpHint, hintCount } from '../hud/hints';
 import { AstrolabeGlyph } from '../kit/AstrolabeGlyph';
 import { STARLIGHT } from '../kit/astrolabeLook';
+import { CARRIED_LOOK } from '../kit/reliquaryLook';
+import { reliquaryUnlockLine } from './reliquaryModel';
 import {
   NOTHING_NEW,
   fightXp,
@@ -29,7 +31,7 @@ import {
 export { unlockIcon };
 
 /** An unlock's glyph: a Calling shows its own emblem (the Luminary's sun, the Martyr's heart). */
-function UnlockGlyph({ unlock: u, size }: { unlock: Unlock; size: number }) {
+export function UnlockGlyph({ unlock: u, size }: { unlock: Unlock; size: number }) {
   if (u.kind === 'calling') {
     const def = CONTENT.callings.find((c) => c.id === u.target);
     if (def) return <CallingGlyph icon={def.icon} size={size} />;
@@ -45,9 +47,32 @@ function UnlockDisc({ unlock: u }: { unlock: Unlock }) {
     if (def) return <CallingEmblem callingId={def.id} icon={def.icon} size={40} bright />;
   }
   if (u.kind === 'astrolabe') return <StarDisc />;
+  if (u.kind === 'reliquary' || u.kind === 'carrySlot') return <ReliquaryDisc kind={u.kind} />;
   return (
     <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-gold-400 text-gold-200">
       <Icon name={unlockIcon(u)} size={16} />
+    </span>
+  );
+}
+
+/**
+ * The Reliquary's shrine (or a carried relic) in a lit disc: its unlocks on the rank-up card
+ * (Phase 4c), in the carry's gold.
+ */
+function ReliquaryDisc({ kind }: { kind: 'reliquary' | 'carrySlot' }) {
+  return (
+    <span
+      className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2"
+      style={{
+        color: '#fff0c2',
+        borderColor: CARRIED_LOOK.color,
+        background: `radial-gradient(circle at 50% 45%, color-mix(in srgb, ${CARRIED_LOOK.color} 38%, transparent), rgb(10 16 34 / 0.95) 75%)`,
+        boxShadow: `0 0 16px color-mix(in srgb, ${CARRIED_LOOK.color} 40%, transparent)`,
+      }}
+      aria-hidden
+      data-testid={`unlock-disc-${kind}`}
+    >
+      <Icon name={kind === 'reliquary' ? 'reliquary' : 'carry'} size={22} />
     </span>
   );
 }
@@ -133,11 +158,11 @@ export function RankPanelView({
           </span>
         </span>
         <div className="min-w-0 flex-1">
-          <p className="flex items-baseline justify-between gap-2">
-            <span className="font-display text-base font-bold tracking-wide text-gold-300">
+          <p className="flex flex-wrap items-baseline justify-between gap-x-2">
+            <span className="whitespace-nowrap font-display text-base font-bold tracking-wide text-gold-300">
               Weaver Rank {p.rank}
             </span>
-            <span className="font-mono text-xs text-muted">{p.record}</span>
+            <span className="whitespace-nowrap font-mono text-xs text-muted">{p.record}</span>
           </p>
           <XpBar
             before={p.fraction}
@@ -361,6 +386,14 @@ export function RankUpCard({
                           {u.kind === 'calling' && (
                             <span className="mt-1 block text-xs text-muted">
                               Choose it in your next Prep, above the song builder.
+                            </span>
+                          )}
+                          {reliquaryUnlockLine(u) && (
+                            <span
+                              className="mt-1 block text-xs text-muted"
+                              data-testid="rank-up-reliquary"
+                            >
+                              {reliquaryUnlockLine(u)}
                             </span>
                           )}
                           {u.kind === 'astrolabe' && (

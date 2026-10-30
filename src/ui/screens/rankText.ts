@@ -38,6 +38,9 @@ const UNLOCK_ICON: Record<string, IconName> = {
   calling: 'sun',
   // Where only a kit icon fits; the rank-up card draws the Weaver's Star.
   astrolabe: 'star',
+  // Phase 4c: the Reliquary's shrine, and a relic carried into a run.
+  reliquary: 'reliquary',
+  carrySlot: 'carry',
 };
 
 export interface RankPanel {

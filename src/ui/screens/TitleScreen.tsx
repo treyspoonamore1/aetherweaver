@@ -5,6 +5,7 @@ import { useSettings } from '../../app/settings';
 import { astrolabePoints } from '../../meta/astrolabe';
 import { deedPoints } from '../../meta/deeds';
 import { rankOf } from '../../meta/profile';
+import { reliquaryOpen } from '../../meta/reliquary';
 import { AstrolabeGlyph } from '../kit/AstrolabeGlyph';
 import { Backdrop } from '../kit/Backdrop';
 import { Button } from '../kit/Button';
@@ -13,6 +14,8 @@ import { playUi, unlockAudio, useMood } from '../kit/sound';
 import { useUi } from '../store';
 import { astrolabeOpen, spendLine } from './astrolabeModel';
 import { RankPanelView } from './Rank';
+import { SHARD_LOOK, TEAR_LOOK } from '../kit/reliquaryLook';
+import { materialsBadge } from './reliquaryModel';
 
 /** Golden threads drifting across the cosmos: the title's "living" layer. */
 function Threads() {
@@ -69,6 +72,9 @@ export function TitleScreen() {
   const astrolabe = astrolabeOpen(rank, unlockAll);
   const toSpend =
     astrolabePoints(rank, unlockAll, deedPoints(profile.deeds)) - profile.astrolabe.length;
+  // The Reliquary (Phase 4c): open from Rank 10 (or with Skip the unlocks), what's to craft with.
+  const reliquary = reliquaryOpen(rank, unlockAll);
+  const materials = materialsBadge(profile.reliquary);
 
   const startNew = () => {
     useRun.getState().newRun();
@@ -82,6 +88,8 @@ export function TitleScreen() {
     hidden?: boolean;
     /** A note on the button's right ("3 points to spend"). */
     badge?: string;
+    /** The Reliquary's materials, drawn with their glyphs instead of the badge's words. */
+    materials?: { shards: number; tears: number };
   }[] = [
     {
       label: 'Continue',
@@ -105,6 +113,14 @@ export function TitleScreen() {
       hidden: !astrolabe,
       badge: toSpend > 0 ? spendLine(toSpend) : undefined,
       onClick: () => setScreen('astrolabe'),
+    },
+    {
+      label: 'Reliquary',
+      icon: 'reliquary',
+      hidden: !reliquary,
+      badge: materials ?? undefined,
+      materials: materials ? profile.reliquary : undefined,
+      onClick: () => setScreen('reliquary'),
     },
     { label: 'Codex', icon: 'book', onClick: () => setScreen('codex') },
     { label: 'Settings', icon: 'gear', onClick: () => setScreen('settings') },
@@ -181,13 +197,30 @@ export function TitleScreen() {
                     <Icon name={item.icon} size={18} />
                   )}
                   {item.label}
-                  {item.badge && (
+                  {item.materials ? (
                     <span
-                      className="ml-auto whitespace-nowrap rounded-md border border-gold-400/70 bg-gold-400/15 px-2 py-0.5 text-xs font-semibold text-gold-200"
-                      data-testid="title-astrolabe-points"
+                      className="ml-auto flex items-center gap-2 whitespace-nowrap rounded-md border border-ink-500 bg-ink-900/70 px-2 py-0.5 font-mono text-xs font-semibold text-text"
+                      data-testid="title-reliquary-materials"
+                      aria-hidden
                     >
-                      {item.badge}
+                      <span className="flex items-center gap-1">
+                        <Icon name="shard" size={13} style={{ color: SHARD_LOOK.color }} />
+                        {item.materials.shards}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Icon name="tear" size={13} style={{ color: TEAR_LOOK.color }} />
+                        {item.materials.tears}
+                      </span>
                     </span>
+                  ) : (
+                    item.badge && (
+                      <span
+                        className="ml-auto whitespace-nowrap rounded-md border border-gold-400/70 bg-gold-400/15 px-2 py-0.5 text-xs font-semibold text-gold-200"
+                        data-testid="title-astrolabe-points"
+                      >
+                        {item.badge}
+                      </span>
+                    )
                   )}
                 </Button>
               ))

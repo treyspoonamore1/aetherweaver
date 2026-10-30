@@ -88,6 +88,7 @@ export function MerchantView({ run, onBuy, onLeave }: MerchantViewProps) {
           aether={run.aether}
           purse={false}
           relics={run.relics}
+          carried={run.carried}
           boons={run.boons}
         />
 

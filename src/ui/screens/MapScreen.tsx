@@ -128,6 +128,7 @@ export function MapView({
           className="mt-4 w-fit"
           aether={run.aether}
           relics={run.relics}
+          carried={run.carried}
           boons={run.boons}
           openRelic={peekRelic}
           calling={run.calling}

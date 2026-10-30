@@ -17,6 +17,7 @@ import {
   pathTo,
   pruneTree,
 } from '../../meta/astrolabe';
+import type { Passive } from '../../sim';
 import { CONSTELLATIONS, isConstellation, type Constellation } from '../kit/astrolabeLook';
 import { plural } from '../kit/format';
 
@@ -698,16 +699,25 @@ export function reserveStars(tree: readonly string[]): AstrolabeNode[] {
  * The tree's multiplier on the Weaver's whole Life (Blood: "% more", added within the tree), as
  * the sim's resolver applies it (`mods.lifeMult`). The UI test pins it to a real sim.
  */
-export function treeLifeMult(tree: readonly string[]): number {
+export function treeLifeMult(tree: readonly string[], passives: readonly Passive[] = []): number {
   let life = 0;
   for (const n of treeNodes(tree)) if (n.effect === 'life') life += n.values.pct ?? 0;
+  // The carried relics' Vigor adds to the same sum (docs/phase-4c.md).
+  for (const p of passives) if (p.effect === 'life') life += p.value;
   return 1 + life / 100;
 }
 
-/** What techniques cost with the tree (Economy), outside Stasis (`mods.techCostMult`). */
-export function treeTechCostMult(tree: readonly string[]): number {
+/**
+ * What techniques cost with the tree (Economy) and the carried relics (Light Hands), outside
+ * Stasis (`mods.techCostMult`).
+ */
+export function treeTechCostMult(
+  tree: readonly string[],
+  passives: readonly Passive[] = [],
+): number {
   let less = 0;
   for (const n of treeNodes(tree)) if (n.effect === 'tech_cost') less += n.values.pct ?? 0;
+  for (const p of passives) if (p.effect === 'tech_cost') less += p.value;
   return Math.max(0, 1 - less / 100);
 }
 

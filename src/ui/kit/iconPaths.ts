@@ -84,6 +84,24 @@ export const PATHS = {
    */
   rewind: 'M4 12a8 8 0 1 0 8-8 8.7 8.7 0 0 0-6 2.4L4 8.5 M4 4v4.5h4.5 M12 8v4l3 1.8',
   stasis: 'M12 3.5a8.5 8.5 0 1 0 0 17 8.5 8.5 0 0 0 0-17z M10 9v6 M14 9v6',
+  /**
+   * Phase 4c: the Reliquary (the shrine, as the events' glyph draws it), its materials (a Tuning
+   * Shard, a Discord Tear with its crack), a relic carried into a run, the crafts (Inscribe's
+   * stylus, Ascend's rise, Dissonate's swirl, Release's way out) and what crafting can leave: a
+   * Fracture's crack and a Shattered relic's splinters.
+   */
+  reliquary:
+    'M4.5 10.5h15v10h-15z M4.5 10.5a7.5 6 0 0 1 15 0 M4.5 14h15 M12 14v3.2 M12 4.5v-1.5 M10.5 3.8h3',
+  shard: 'M14 2.5l5 5.5-8 13.5-5-5.5z M14 2.5l-3 19 M8.5 8.5l3.5 1',
+  tear: 'M12 3c3.3 4.2 5.2 7.2 5.2 9.8a5.2 5.2 0 0 1-10.4 0C6.8 10.2 8.7 7.2 12 3z M12.9 9.4l-1.9 2.7 2.1 1.6-1.7 2.9',
+  carry:
+    'M9.5 3l6 3.4v5.1c0 3.4-2.6 5.8-6 6.8-3.4-1-6-3.4-6-6.8V6.4z M14 19.5h7 M18.5 17l2.5 2.5-2.5 2.5 M9.5 7.5v6 M6.5 10.5h6',
+  inscribe: 'M16.5 3.5l4 4L9 19l-5 1 1-5z M14 6l4 4 M4 20.5h7',
+  ascend: 'M6.5 12.5L12 7l5.5 5.5 M6.5 18.5L12 13l5.5 5.5 M7 3.5h10',
+  dissonate: 'M12 12a2 2 0 0 1 4 0 4 4 0 0 1-8 0 6 6 0 0 1 12 0 8 8 0 0 1-16 0',
+  release: 'M12 15V3.5 M7.5 8L12 3.5 16.5 8 M5 12.5v8h14v-8',
+  crack: 'M13 2.5L9.5 8.5l4 3-4.5 5 2 5.5 M9.5 8.5L6 7.2 M13.5 11.5l4 1.3 M9 16.5l-3.2.9',
+  shatter: 'M4 6l5 1.5-2.5 4z M14 3.5l5 3-4.5 2z M15.5 13l4.5 5.5-6 .5z M6 15l4 1-1.5 4.5z',
 } as const;
 
 export type IconName = keyof typeof PATHS;

@@ -332,7 +332,12 @@ export const RunStateSchema = z.object({
   // The Reliquary (docs/phase-4c.md): saves from before it carry nothing and paid nothing.
   carried: RelicListSchema.default([]),
   reliquary: z
-    .object({ shards: Num, tears: Num, enshrined: Str.nullable() })
+    .object({
+      shards: Num,
+      tears: Num,
+      enshrined: Str.nullable(),
+      enshrinedUid: Str.nullable().optional(),
+    })
     .nullable()
     .default(null),
 });

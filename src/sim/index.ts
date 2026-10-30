@@ -26,6 +26,7 @@ export {
   treeKeystones,
   treeNodes,
   type CostedTechnique,
+  type Passive,
 } from './astrolabe';
 export { auraBit, auraIds, enemyAuraMask, partyAuraMask, type AuraTotals } from './combat/auras';
 export { vowHoldsAt } from './combat/telegraphs';

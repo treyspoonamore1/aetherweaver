@@ -34,7 +34,7 @@ import { rankPanel, runRank, xpGain, xpHeadline } from './rankText';
 import { HIGHLIGHT_COLOR, contributionOf, songLines } from './resultText';
 import { HpTimeline, TimelineLegend } from './Timeline';
 import { RelicGlyph } from '../kit/RelicGlyph';
-import { aetherEarned, relicInfo } from './interlude';
+import { aetherEarned, ownedRelicInfo } from './interlude';
 import { RelicBody } from './RelicCard';
 import { tallyLine, withoutYouTally, withoutYouLine } from './withoutYouText';
 import { AstrolabeGlyph } from '../kit/AstrolabeGlyph';
@@ -43,6 +43,10 @@ import { AstrolabeMap } from './AstrolabeMap';
 import { KeystoneChips } from './AstrolabeParts';
 import { pointsWord, treeTotals } from './astrolabeModel';
 import { RunDeedsPanel } from './DeedsParts';
+import { EnshrinePanel, type SummaryReliquary } from './ReliquarySummary';
+import { CarriedChip, InscriptionList } from './ReliquaryParts';
+import { DORMANT_LINE, carriedSnapshot, relicView } from './reliquaryModel';
+import type { ReliquaryRelic } from '../../meta/reliquary';
 
 const GRADE_COLOR: Record<Grade, string> = {
   S: '#fde9b8',
@@ -119,6 +123,13 @@ export interface SummaryViewProps {
   firstRankUp?: boolean;
   /** The points the profile's Deeds give (Phase 4b): the rank-up card's totals count them. */
   deedPoints?: number;
+  /**
+   * Phase 4c: the profile's Reliquary and its actions, for the Reliquary panel (what the run's
+   * end paid, and a won run's enshrine). Omitted: no panel.
+   */
+  reliquary?: SummaryReliquary | null;
+  /** UI lab: the relic as it arrived, after enshrining. */
+  enshrined?: ReliquaryRelic | null;
 }
 
 /** The run summary, "proof of support" (docs/plan/04 §6.1). */
@@ -132,6 +143,8 @@ export function SummaryView({
   onDismissRankUps,
   firstRankUp = false,
   deedPoints = 0,
+  reliquary = null,
+  enshrined = null,
 }: SummaryViewProps) {
   useMood('map');
   const totals = runTotals(run);
@@ -215,6 +228,10 @@ export function SummaryView({
         {profileXp !== undefined && <RunRankPanel run={run} profileXp={profileXp} />}
 
         <RunDeedsPanel ids={run.deeds} className="mt-6" />
+
+        {reliquary && run.reliquary && (
+          <EnshrinePanel run={run} {...reliquary} initialArrived={enshrined} />
+        )}
 
         {totals.encounters > 0 && (
           <Panel tone="solid" className="mt-6 p-5" data-testid="summary-songs">
@@ -502,18 +519,45 @@ export function SummaryView({
           ) : (
             <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {run.relics.map((r) => {
-                const info = relicInfo(r.id, r.cleansed);
+                const info = ownedRelicInfo(r);
+                const snap = carriedSnapshot(r, run.carried);
                 return (
-                  <li key={r.id} className="flex gap-3 rounded-lg bg-ink-900/60 px-3 py-2.5">
+                  <li
+                    key={r.id}
+                    className="flex gap-3 rounded-lg bg-ink-900/60 px-3 py-2.5"
+                    data-relic={r.id}
+                    data-carried={r.carried ? (r.dormant ? 'dormant' : 'attuned') : undefined}
+                  >
                     <RelicGlyph
                       icon={info.icon}
                       rarity={info.rarity}
                       cleansed={info.cleansed}
                       size={36}
+                      style={info.dormant ? { opacity: 0.55, filter: 'grayscale(0.7)' } : undefined}
                     />
                     <div className="min-w-0">
-                      <p className="text-sm font-semibold text-text">{info.name}</p>
-                      <RelicBody info={info} compact flavor={false} />
+                      <p className="flex flex-wrap items-center gap-1.5 text-sm font-semibold text-text">
+                        {info.name}
+                        {r.carried && <CarriedChip role={r.dormant ? 'lends' : 'attuned'} small />}
+                        {run.reliquary?.enshrined === r.id && (
+                          <Chip color="var(--color-gold-300)" icon="reliquary">
+                            Enshrined
+                          </Chip>
+                        )}
+                      </p>
+                      {info.dormant ? (
+                        <>
+                          <p className="text-sm leading-relaxed text-muted line-through">
+                            {info.rule}
+                          </p>
+                          <p className="text-xs text-muted">{DORMANT_LINE}</p>
+                        </>
+                      ) : (
+                        <RelicBody info={info} compact flavor={false} />
+                      )}
+                      {snap && (
+                        <InscriptionList view={relicView(snap)} compact className="mt-1.5" />
+                      )}
                     </div>
                   </li>
                 );
@@ -796,6 +840,7 @@ export function SummaryScreen() {
   const settings = useSettings((s) => s.settings);
   const setScreen = useUi((s) => s.setScreen);
   const xp = useProfile((s) => s.profile.xp);
+  const rq = useProfile((s) => s.profile.reliquary);
   const { rankUps, firstTime, dismiss, deedPoints } = useRankUps();
   if (!run) return null;
   const a = settings.assists;
@@ -813,6 +858,11 @@ export function SummaryScreen() {
       onDismissRankUps={dismiss}
       firstRankUp={firstTime}
       deedPoints={deedPoints}
+      reliquary={{
+        reliquary: rq,
+        onEnshrine: (id) => useRun.getState().enshrine(id),
+        onRelease: (uid) => useProfile.getState().releaseRelic(uid),
+      }}
       onNewRun={() => {
         useRun.getState().closeRun();
         useRun.getState().newRun();

@@ -123,6 +123,7 @@ export const useRun = create<RunStore>()((set, get) => {
             shards: r.reliquary?.shards ?? 0,
             tears: r.reliquary?.tears ?? 0,
             enshrined: relicId,
+            enshrinedUid: result.relic.uid,
           },
         }));
       return result;

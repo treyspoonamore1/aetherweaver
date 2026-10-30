@@ -16,6 +16,10 @@ const LabRouter = lazy(() => import('./LabRouter').then((m) => ({ default: m.Lab
 const AstrolabeScreen = lazy(() =>
   import('../ui/screens/AstrolabeScreen').then((m) => ({ default: m.AstrolabeScreen })),
 );
+// The Reliquary (Phase 4c): its own screen between runs, from the Title and from Prep too.
+const ReliquaryScreen = lazy(() =>
+  import('../ui/screens/ReliquaryScreen').then((m) => ({ default: m.ReliquaryScreen })),
+);
 
 function Loading({ children }: { children: ReactNode }) {
   return (
@@ -33,7 +37,10 @@ function Loading({ children }: { children: ReactNode }) {
 
 const lab = new URLSearchParams(window.location.search).get('lab');
 
-/** The screen for the current destination: Title, the run, the Astrolabe, everything else. */
+/**
+ * The screen for the current destination: Title, the run, the Astrolabe, the Reliquary, everything
+ * else.
+ */
 function Screen() {
   const screen = useUi((s) => s.screen);
   if (screen === 'title') return <TitleScreen />;
@@ -41,6 +48,13 @@ function Screen() {
     return (
       <Loading>
         <AstrolabeScreen />
+      </Loading>
+    );
+  }
+  if (screen === 'reliquary') {
+    return (
+      <Loading>
+        <ReliquaryScreen />
       </Loading>
     );
   }

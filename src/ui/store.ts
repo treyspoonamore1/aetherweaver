@@ -434,8 +434,12 @@ export interface Callout {
   expiresAt: number;
 }
 
-/** `astrolabe` (Phase 4): the star map between runs, from the Title and from Prep. */
-export type Screen = 'title' | 'run' | 'training' | 'codex' | 'settings' | 'astrolabe';
+/**
+ * `astrolabe` (Phase 4): the star map between runs, from the Title and from Prep. `reliquary`
+ * (Phase 4c): the relics kept between runs, from the Title and from Prep too.
+ */
+export type Screen =
+  'title' | 'run' | 'training' | 'codex' | 'settings' | 'astrolabe' | 'reliquary';
 
 export interface UiState {
   screen: Screen;

@@ -116,6 +116,7 @@ export function ForgeView({
         aether={run.aether}
         purse={false}
         relics={run.relics}
+        carried={run.carried}
         boons={run.boons}
       />
     </>

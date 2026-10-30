@@ -1,12 +1,15 @@
 import { reachable, findNode, chooseNode, reservePool } from '../meta/run';
+import type { Reliquary } from '../meta/reliquary';
+import { saveProfile } from '../meta/save';
 import type { CombatOutcome, NodeKind, RunState } from '../meta/types';
-import { encounterDef, heroDef } from '../content';
+import { encounterDef, heroDef, inscriptionDef } from '../content';
 import { emptyLedger } from '../sim/world';
 import { useUi } from '../ui/store';
 import { useProfile } from './profileStore';
 import { useRun } from './runStore';
 import type { GameRuntime } from './runtime';
-import type { FightTally } from './testHookTypes';
+import { storage } from './storage';
+import type { FightTally, ReliquarySeed } from './testHookTypes';
 
 /** Automation hook for E2E tests and bots. Present in dev builds or with `?e2e` in the URL. */
 export function testHookEnabled(): boolean {
@@ -117,6 +120,88 @@ export function installRunHook(): void {
         run: state ? [...state.deeds] : null,
       };
     },
+    reliquary: () => {
+      const p = useProfile.getState();
+      const rq = p.profile.reliquary;
+      const state = run().run;
+      return {
+        open: p.reliquaryOpen(),
+        slots: p.carrySlots(),
+        shards: rq.shards,
+        tears: rq.tears,
+        relics: rq.relics.map((r) => ({
+          uid: r.uid,
+          id: r.id,
+          inscriptions: r.inscriptions.map((i) => ({ ...i })),
+          instability: r.instability,
+          fractured: r.fractured,
+          dissonance: r.dissonance?.kind ?? null,
+        })),
+        carry: [...rq.carry],
+        run: state
+          ? {
+              carried: state.carried.map((r) => r.id),
+              relics: state.relics.map((r) => ({
+                id: r.id,
+                carried: !!r.carried,
+                dormant: !!r.dormant,
+              })),
+              paid: state.reliquary ? { ...state.reliquary } : null,
+            }
+          : null,
+      };
+    },
+    seedReliquary: (seed) => {
+      const p = useProfile.getState().profile;
+      const reliquary = seededReliquary(p.reliquary, seed);
+      const profile = { ...p, reliquary };
+      saveProfile(storage(), profile);
+      useProfile.setState({ profile });
+    },
+    winRun: (found = []) => {
+      const state = run().run;
+      if (!state || state.phase !== 'map') return false;
+      const relics = [
+        ...state.relics,
+        ...found
+          .filter((id) => !state.relics.some((r) => r.id === id))
+          .map((id) => ({ id, cleansed: false })),
+      ];
+      const next = warpTo({ ...state, relics }, 'boss');
+      if (!next) return false;
+      useRun.setState({ run: next });
+      const fight = run().run;
+      const outcome = fight ? plainVictory(fight) : null;
+      if (!outcome) return false;
+      run().finishCombat(outcome);
+      run().continueFromResult();
+      return run().run?.phase === 'summary';
+    },
+  };
+}
+
+/** Test-only: a Reliquary holding these relics (uids r1, r2…), materials and a carry. */
+function seededReliquary(rq: Reliquary, seed: ReliquarySeed): Reliquary {
+  const relics = seed.relics.map((r, i) => ({
+    uid: `r${i + 1}`,
+    id: r.id,
+    cleansed: false,
+    inscriptions: (r.inscriptions ?? []).map((ins) => {
+      const def = inscriptionDef(ins.id);
+      const low = def.kind === 'normal' ? def.tiers[5 - ins.tier]![0] : 0;
+      return { id: ins.id, tier: ins.tier, value: ins.value ?? low };
+    }),
+    instability: r.instability ?? 0,
+    fractured: false,
+    dissonance: null,
+  }));
+  return {
+    ...rq,
+    relics,
+    shards: seed.shards ?? rq.shards,
+    tears: seed.tears ?? rq.tears,
+    carry: [...(seed.carry ?? [])],
+    next: relics.length + 1,
   };
 }
 

@@ -7,6 +7,7 @@ import {
   chordRole,
   songName,
   type ChordLoadout,
+  type Passive,
   type ReservePool,
 } from '../../sim';
 import type { RunCalling } from '../../meta/types';
@@ -58,6 +59,7 @@ export const SONG_LOOK = {
 
 const NO_FRESH: ReadonlySet<string> = new Set();
 const NO_TREE: readonly string[] = [];
+const NO_PASSIVES: readonly Passive[] = [];
 
 /**
  * "−14%": the Astrolabe's share of the songs (Clear Voice, Breath, Eldritch Conduit, Sanguine
@@ -66,16 +68,29 @@ const NO_TREE: readonly string[] = [];
 export function AstrolabeShare({
   reserveMult,
   astrolabe,
+  passives = NO_PASSIVES,
   className = '',
 }: {
   reserveMult: number;
   astrolabe: readonly string[];
+  /** The carried relics' passives (docs/phase-4c.md): Light Reserve lightens the songs too. */
+  passives?: readonly Passive[];
   className?: string;
 }) {
   const less = Math.round((1 - reserveMult) * 100);
   if (less === 0) return null;
-  const stars = [...new Set(reserveStars(astrolabe).map((n) => n.name))];
-  const text = `${less > 0 ? '−' : '+'}${Math.abs(less)}% from the Astrolabe`;
+  const relics = passives.some((p) => p.effect === 'reserve');
+  const stars = [
+    ...new Set(reserveStars(astrolabe).map((n) => n.name)),
+    ...(relics ? ['your carried relics’ Inscriptions'] : []),
+  ];
+  const source =
+    astrolabe.length > 0 && relics
+      ? 'the Astrolabe and relics'
+      : relics
+        ? 'relics'
+        : 'the Astrolabe';
+  const text = `${less > 0 ? '−' : '+'}${Math.abs(less)}% from ${source}`;
   return (
     <span
       className={`inline-flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-px text-xs font-semibold ${className}`}
@@ -84,7 +99,7 @@ export function AstrolabeShare({
         borderColor: `color-mix(in srgb, ${CONSTELLATION_LOOK.choir.color} 60%, transparent)`,
         background: `color-mix(in srgb, ${CONSTELLATION_LOOK.choir.color} 14%, transparent)`,
       }}
-      title={`Your Astrolabe makes your songs ${Math.abs(less)}% ${less > 0 ? 'lighter' : 'heavier'}: ${stars.join(', ')}`}
+      title={`${relics ? 'Your Astrolabe and relics make' : 'Your Astrolabe makes'} your songs ${Math.abs(less)}% ${less > 0 ? 'lighter' : 'heavier'}: ${stars.join(', ')}`}
       data-testid="astrolabe-share"
     >
       <AstrolabeGlyph glyph="weaver_star" size={12} style={{ color: STARLIGHT.color }} />
@@ -129,6 +144,7 @@ export function ChordBuilder({
   calling = null,
   reserveMult = 1,
   astrolabe = NO_TREE,
+  passives = NO_PASSIVES,
 }: {
   value: ChordLoadout[];
   onChange(next: ChordLoadout[]): void;
@@ -146,6 +162,8 @@ export function ChordBuilder({
   reserveMult?: number;
   /** Phase 4: the run's tree (`run.astrolabe`): its Life, its technique costs, its lighter songs. */
   astrolabe?: readonly string[];
+  /** Phase 4c: the carried relics' passives (`Run.carriedPassives(run)`): Vigor, Light Hands. */
+  passives?: readonly Passive[];
 }) {
   const w = CONTENT.weaver;
   const firstEmpty = (): SlotRef => {
@@ -161,7 +179,11 @@ export function ChordBuilder({
   };
   const [selected, setSelected] = useState<SlotRef>(firstEmpty);
   const problems = loadoutProblems(value, allowance, fieldAuraSlots, pool, reserveMult);
-  const budget = spiritBudget(value, pool, calling?.id ?? null, { reserveMult, astrolabe });
+  const budget = spiritBudget(value, pool, calling?.id ?? null, {
+    reserveMult,
+    astrolabe,
+    passives,
+  });
   const preset = presetFor(value);
 
   const place = (id: string) => {
@@ -938,7 +960,7 @@ function BudgetPanel({
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
         <p className="flex items-center gap-2 text-sm font-semibold text-text">
           Spirit budget
-          <AstrolabeShare reserveMult={b.reserveMult} astrolabe={astrolabe} />
+          <AstrolabeShare reserveMult={b.reserveMult} astrolabe={astrolabe} passives={b.passives} />
         </p>
         <p className="font-mono text-xs text-muted">
           <span className={b.over ? 'text-lethal' : ''}>{fmt(b.reserved)} reserved</span> ·{' '}
@@ -1070,7 +1092,7 @@ function LifeBudgetPanel({
         <p className="flex flex-wrap items-center gap-1.5 text-sm font-semibold text-text">
           <Icon name="drop" size={14} style={{ color: look.color }} /> Life budget
           <span className="font-normal text-muted">· your songs reserve Life, not Spirit</span>
-          <AstrolabeShare reserveMult={b.reserveMult} astrolabe={astrolabe} />
+          <AstrolabeShare reserveMult={b.reserveMult} astrolabe={astrolabe} passives={b.passives} />
         </p>
         <p className="font-mono text-xs text-muted">
           <span className={b.over ? 'text-lethal' : ''}>

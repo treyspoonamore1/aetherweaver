@@ -1,10 +1,19 @@
 import type { ReactNode } from 'react';
+import type { ReliquaryRelic } from '../../meta/reliquary';
 import type { ActiveBoon, OwnedRelic, RunCalling, RunMap } from '../../meta/types';
 import { Icon } from '../kit/Icon';
 import { Glyph, RELIC_RARITY, RelicGlyph, RelicRarityChip, relicColor } from '../kit/RelicGlyph';
 import { Tip } from '../kit/Tip';
-import { boonInfo, relicInfo, relicSentence, type BoonInfo, type RelicInfo } from './interlude';
+import {
+  boonInfo,
+  ownedRelicInfo,
+  relicSentence,
+  type BoonInfo,
+  type RelicInfo,
+} from './interlude';
 import { CallingStripItem } from './CallingParts';
+import { CarriedMark, CarriedRelicTip } from './ReliquaryParts';
+import { carriedSnapshot, relicView } from './reliquaryModel';
 
 /** The rule, the curse (struck through once cleansed) and the flavour, for cards and tips. */
 export function RelicBody({
@@ -136,29 +145,63 @@ export function RelicCard({
   );
 }
 
-/** A small relic badge with a hover/focus tooltip (map strip, merchant, summary). */
+/**
+ * A small relic badge with a hover/focus tooltip (map strip, merchant, summary). A relic carried
+ * from the Reliquary (Phase 4c) wears a mark (gold attuned, grey dormant) and its tooltip lists
+ * its Inscriptions from `carried` (the run's snapshot); a dormant one is dimmed, its own effect
+ * struck in the tooltip.
+ */
 export function RelicBadge({
   relic,
   size = 34,
   open = false,
   align = 'center',
+  carried,
 }: {
-  relic: Pick<OwnedRelic, 'id' | 'cleansed'>;
+  relic: Pick<OwnedRelic, 'id' | 'cleansed' | 'carried' | 'empowered' | 'dormant'>;
   size?: number;
   open?: boolean;
   align?: 'start' | 'center' | 'end';
+  /** The run's carried relics (`run.carried`), for a carried one's Inscriptions. */
+  carried?: readonly ReliquaryRelic[];
 }) {
-  const info = relicInfo(relic.id, relic.cleansed);
+  const info = ownedRelicInfo(relic);
+  const snap = carriedSnapshot(relic, carried);
+  const label = relic.carried
+    ? `${relicSentence(info)} Carried from the Reliquary${info.dormant ? '' : ', attuned'}.${
+        snap
+          ? ` ${relicView(snap)
+              .inscriptions.map((i) => `${i.name} ${i.tierLabel}: ${i.text}.`)
+              .join(' ')}`
+          : ''
+      }`
+    : relicSentence(info);
   return (
-    <Tip open={open} align={align} tip={<RelicTip info={info} />}>
+    <Tip
+      open={open}
+      align={align}
+      width={relic.carried ? 'w-80' : undefined}
+      tip={relic.carried ? <CarriedRelicTip info={info} relic={snap} /> : <RelicTip info={info} />}
+    >
       <span
         tabIndex={0}
         role="img"
-        aria-label={relicSentence(info)}
-        className="rounded-full focus-visible:outline-offset-2"
+        aria-label={label}
+        className="relative rounded-full focus-visible:outline-offset-2"
         data-testid="relic-badge"
+        data-relic={relic.id}
+        data-carried={relic.carried ? (info.dormant ? 'dormant' : 'attuned') : undefined}
       >
-        <RelicGlyph icon={info.icon} rarity={info.rarity} cleansed={info.cleansed} size={size} />
+        <RelicGlyph
+          icon={info.icon}
+          rarity={info.rarity}
+          cleansed={info.cleansed}
+          size={size}
+          style={info.dormant ? { opacity: 0.55, filter: 'grayscale(0.7)' } : undefined}
+        />
+        {relic.carried && (
+          <CarriedMark dormant={info.dormant} size={Math.max(12, Math.round(size * 0.42))} />
+        )}
       </span>
     </Tip>
   );
@@ -273,6 +316,7 @@ export function RunStrip({
   calling = null,
   map,
   openCalling = false,
+  carried,
   className = '',
 }: {
   /** The run's Calling (Phase 3c): emblem and path pips, first in the strip. */
@@ -288,6 +332,8 @@ export function RunStrip({
   boons: readonly ActiveBoon[];
   /** Force one relic's tooltip open (UI lab). */
   openRelic?: string;
+  /** Phase 4c: the run's carried relics (`run.carried`), for their Inscriptions. */
+  carried?: readonly ReliquaryRelic[];
   className?: string;
 }) {
   return (
@@ -310,6 +356,7 @@ export function RunStrip({
                 size={30}
                 open={openRelic === r.id}
                 align={i === 0 ? 'start' : 'center'}
+                carried={carried}
               />
             ))}
           </span>

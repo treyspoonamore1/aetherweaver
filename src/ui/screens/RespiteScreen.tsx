@@ -13,6 +13,7 @@ import { ChordBuilder } from './ChordBuilder';
 import { sameLoadout } from './chordModel';
 import { FreshStrip, useAllowance, useChordDraft, useFreshUnlocks } from './PrepScreen';
 import {
+  carriedPassives,
   fieldAuraSlots as runFieldAuraSlots,
   reserveMult as runReserveMult,
   reservePool,
@@ -272,6 +273,7 @@ export function RetuneView({
             calling={run.calling}
             reserveMult={lighter}
             astrolabe={run.astrolabe}
+            passives={carriedPassives(run)}
           />
         </div>
       </div>

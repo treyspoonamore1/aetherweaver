@@ -34,6 +34,7 @@ import {
   type ChordAnchor,
   type ChordLoadout,
   type ChordRole,
+  type Passive,
   type ReservePool,
 } from '../../sim';
 
@@ -196,10 +197,12 @@ export interface SpiritBudget {
   /** Life only: a Weaver without the Martyr's Life (content `maxLife`), to compare against. */
   baseLife: number;
   /**
-   * Phase 4: the Astrolabe's multiplier on the songs' share (`Run.reserveMult(run)`; 1 without a
-   * tree): 0.86 reads "−14% from the Astrolabe".
+   * Phase 4: the Astrolabe's (and the carried relics') multiplier on the songs' share
+   * (`Run.reserveMult(run)`; 1 without either): 0.86 reads "−14% from the Astrolabe".
    */
   reserveMult: number;
+  /** Phase 4c: the carried relics' passives, so the share can say what's theirs. */
+  passives: readonly Passive[];
   /** Prism Covenant: the share of what's left she fights at and can be healed to (1: all). */
   lifeCap: number;
   /** Her whole Life, the tree's included, whatever the songs hold (the Life techniques cost). */
@@ -214,10 +217,12 @@ export interface SpiritBudget {
 export function weaverLifeFor(
   callingId: string | null | undefined,
   astrolabe: readonly string[] = [],
+  /** The carried relics' passives (docs/phase-4c.md): Vigor adds to the tree's Blood. */
+  passives: readonly Passive[] = [],
 ): number {
   const base = CONTENT.weaver.maxLife;
   const def = callingId ? CONTENT.callings.find((c) => c.id === callingId) : undefined;
-  return base * (1 + (def?.values.life ?? 0) / 100) * treeLifeMult(astrolabe);
+  return base * (1 + (def?.values.life ?? 0) / 100) * treeLifeMult(astrolabe, passives);
 }
 
 /**
@@ -230,13 +235,21 @@ export function spiritBudget(
   chords: readonly ChordLoadout[],
   pool: ReservePool = 'spirit',
   callingId: string | null = null,
-  /** Phase 4: the run's tree (`run.astrolabe`) and its multiplier on the songs (`Run.reserveMult`). */
-  tree: { reserveMult?: number; astrolabe?: readonly string[] } = {},
+  /**
+   * Phase 4: the run's tree (`run.astrolabe`) and its multiplier on the songs (`Run.reserveMult`);
+   * Phase 4c: the carried relics' passives (`Run.carriedPassives`).
+   */
+  tree: {
+    reserveMult?: number;
+    astrolabe?: readonly string[];
+    passives?: readonly Passive[];
+  } = {},
 ): SpiritBudget {
   const mult = tree.reserveMult ?? 1;
   const astrolabe = tree.astrolabe ?? [];
+  const passives = tree.passives ?? [];
   const life = pool === 'life';
-  const weaverLife = weaverLifeFor(callingId, astrolabe);
+  const weaverLife = weaverLifeFor(callingId, astrolabe, passives);
   const max = life ? weaverLife : CONTENT.weaver.maxSpirit;
   const cap = life ? max * LIFE_RESERVE_CAP : max;
   const slices: BudgetSlice[] = [];
@@ -262,7 +275,7 @@ export function spiritBudget(
   const techPool: ReservePool = treeTechniquesCostLife(astrolabe) ? 'life' : 'spirit';
   const payWith = techPool === 'life' ? (life ? free : weaverLife) * lifeCap - 1 : spirit;
   const t = CONTENT.techniques;
-  const costMult = treeTechCostMult(astrolabe);
+  const costMult = treeTechCostMult(astrolabe, passives);
   // On a Chronomancer run Reel's slot is Rewind (same cost): it reads as Rewind (Phase 3e).
   const techniques = (['ward', 'chime', 'reel'] as const).map((key) => ({
     key,
@@ -288,6 +301,7 @@ export function spiritBudget(
     chorus: auraCount >= CONTENT.chorus.minAuras,
     baseLife: CONTENT.weaver.maxLife,
     reserveMult: mult,
+    passives,
     lifeCap,
     weaverLife,
   };

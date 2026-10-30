@@ -49,6 +49,7 @@ export function RelicOfferView({ run, onPick }: RelicOfferViewProps) {
           map={run.map}
           aether={run.aether}
           relics={run.relics}
+          carried={run.carried}
           boons={run.boons}
         />
         <ul

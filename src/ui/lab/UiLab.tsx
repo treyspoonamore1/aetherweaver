@@ -94,6 +94,30 @@ import { deedPoints } from '../../meta/deeds';
 import { DeedToastCard, TOAST_PLACE } from '../screens/DeedsParts';
 import { DeedToasts } from '../screens/DeedToasts';
 import { deedToast, pointSources } from '../screens/deedsModel';
+import {
+  carriedRelics,
+  carrySlots,
+  chooseCarry,
+  enshrine as enshrineRelic,
+  release as releaseRelic,
+  type CraftAction,
+  type CraftOutcome,
+  type Reliquary,
+  type ReliquaryRelic,
+} from '../../meta/reliquary';
+import type { InscriptionCategory } from '../../content';
+import { ReliquaryView } from '../screens/ReliquaryScreen';
+import type { ActionId, CraftRecord } from '../screens/reliquaryModel';
+import { relicHuds } from '../hud/relics';
+import {
+  EMPTY_RELIQUARY,
+  craftOn,
+  dissonated,
+  fullReliquary,
+  mockCraft,
+  partwayReliquary,
+  reliquarySummaryRun,
+} from './mock';
 
 /** A stand-in for the 3D arena behind the HUD. */
 function World({ children }: { children: ReactNode }) {
@@ -543,6 +567,228 @@ function ToastQueueLab() {
       <DeedToasts />
     </ScreenFrame>
   );
+}
+
+/**
+ * The Reliquary in local state (Phase 4c), so crafting, releasing and the carry really work: the
+ * meta's own functions, as the profile store calls them.
+ */
+function ReliquaryLab({
+  initial,
+  rank,
+  unlockAll = false,
+  selected,
+  action,
+  arg,
+  last = null,
+  holdRoll = false,
+  release = false,
+}: {
+  initial: Reliquary;
+  rank: number;
+  unlockAll?: boolean;
+  selected?: string | null;
+  action?: ActionId;
+  arg?: number | InscriptionCategory;
+  last?: CraftRecord | null;
+  holdRoll?: boolean;
+  release?: boolean;
+}) {
+  const [rq, setRq] = useState<Reliquary>(initial);
+  const slots = carrySlots(rank, unlockAll);
+  return (
+    <ReliquaryView
+      reliquary={rq}
+      rank={rank}
+      unlockAll={unlockAll}
+      slots={slots}
+      onCraft={(uid, a, x) => {
+        const res = craftOn(rq, uid, a, x);
+        if (res.ok) setRq(res.reliquary);
+        return res;
+      }}
+      onRelease={(uid) => {
+        const res = releaseRelic(rq, uid);
+        if (!res.ok) return 0;
+        setRq(res.reliquary);
+        return res.shards;
+      }}
+      onCarry={(uids) => setRq((r) => chooseCarry(r, uids, slots))}
+      onBack={noop}
+      backTo="Prep"
+      onRules={noop}
+      initialSelected={selected}
+      initialAction={action}
+      initialArg={arg}
+      initialLast={last}
+      holdRoll={holdRoll}
+      initialRelease={release}
+    />
+  );
+}
+
+/** A craft's outcome, real (the meta's roll on a seed that gives it), as the screen shows it. */
+function CraftedLab({
+  from,
+  uid,
+  action,
+  arg,
+  want,
+  holdRoll = false,
+}: {
+  from: Reliquary;
+  uid: string;
+  action: CraftAction;
+  arg?: number | InscriptionCategory;
+  want(o: CraftOutcome): boolean;
+  holdRoll?: boolean;
+}) {
+  const [made] = useState(() => mockCraft(from, uid, action, arg, want));
+  return (
+    <ReliquaryLab
+      initial={made.reliquary}
+      rank={20}
+      selected={uid}
+      action={action}
+      arg={arg}
+      last={made.record}
+      holdRoll={holdRoll}
+    />
+  );
+}
+
+/**
+ * The Summary of a run that ended with the Reliquary open, its Reliquary in local state: enshrine
+ * (once) and release work as the stores do. `enshrine`: one already enshrined.
+ */
+function SummaryReliquaryLab({
+  outcome = 'victory',
+  initial,
+  enshrine,
+}: {
+  outcome?: 'victory' | 'defeat';
+  initial: Reliquary;
+  enshrine?: string;
+}) {
+  const [state, setState] = useState(() => {
+    let run = reliquarySummaryRun(outcome);
+    let rq = initial;
+    let arrived: ReliquaryRelic | null = null;
+    const found = enshrine ? Run.enshrineOptions(run).find((r) => r.id === enshrine) : undefined;
+    if (found) {
+      const res = enshrineRelic(rq, found);
+      if (res.ok) {
+        rq = res.reliquary;
+        arrived = res.relic;
+        run = { ...run, reliquary: { ...run.reliquary!, enshrined: found.id } };
+      }
+    }
+    return { run, rq, arrived };
+  });
+  return (
+    <SummaryView
+      run={state.run}
+      onNewRun={noop}
+      onTitle={noop}
+      profileXp={RANK_XP[19]! + 400}
+      enshrined={state.arrived}
+      reliquary={{
+        reliquary: state.rq,
+        onEnshrine: (id) => {
+          const found = Run.enshrineOptions(state.run).find((r) => r.id === id);
+          if (!found || state.run.reliquary?.enshrined)
+            return { ok: false, reason: 'This run has enshrined one.' };
+          const res = enshrineRelic(state.rq, found);
+          if (res.ok)
+            setState((st) => ({
+              ...st,
+              rq: res.reliquary,
+              run: { ...st.run, reliquary: { ...st.run.reliquary!, enshrined: id } },
+            }));
+          return res;
+        },
+        onRelease: (uid) => {
+          const res = releaseRelic(state.rq, uid);
+          if (!res.ok) return 0;
+          setState((st) => ({ ...st, rq: res.reliquary }));
+          return res.shards;
+        },
+      }}
+    />
+  );
+}
+
+/** The HUD with three relics carried: the first attuned (marked), the others dormant. */
+function HudReliquary() {
+  const carried = carriedRelics(fullReliquary(), 3);
+  const base = mockHud('calm');
+  const hud = {
+    ...base,
+    relics: relicHuds({
+      relics: {
+        ids: [carried[0]!.id, 'silver_thimble'],
+        cleansed: [],
+        metronomeAt: null,
+        thimbleAt: 92.3,
+        veil: false,
+      },
+      time: base.seconds,
+      ledger: { perfects: 2, downs: 0 },
+    }),
+  };
+  return (
+    <World>
+      <HudView
+        hud={hud}
+        callouts={[]}
+        decree={null}
+        subtitle="The Prelude · node 3 of 10"
+        carried={carried}
+        coach={false}
+      />
+    </World>
+  );
+}
+
+/** Prep with the Reliquary's row: what this run carries, at a Rank. */
+function PrepReliquary({ rank, rq }: { rank: number; rq: Reliquary }) {
+  const slots = carrySlots(rank);
+  return (
+    <Interactive initial={() => Run.newRun(7, GUARDIAN_CHORDS, [], carriedRelics(rq, slots))}>
+      {(run, set) => (
+        <PrepView
+          run={run}
+          onChords={(c) => set((r) => Run.setChords(r, c))}
+          onCalling={(id) => set((r) => Run.setCalling(r, id))}
+          onEmbark={noop}
+          onBack={noop}
+          rank={rank}
+          astrolabe={{ points: astrolabePoints(rank), onOpen: noop }}
+          reliquary={{ slots, onOpen: noop }}
+        />
+      )}
+    </Interactive>
+  );
+}
+
+/** The map of a run that carries three relics (one attuned), a carried one's tooltip open. */
+function MapReliquary({ peek }: { peek: string }) {
+  const [run] = useState(() =>
+    Run.embark(Run.newRun(7, undefined, [], carriedRelics(fullReliquary(), 3))),
+  );
+  return <MapView run={run} onChoose={noop} onAbandon={noop} peekRelic={peek} />;
+}
+
+/** The Title at a Rank with a Reliquary (its materials on the menu). */
+function TitleReliquary({ rank, rq }: { rank: number; rq: Reliquary }) {
+  useState(() => {
+    const p = useProfile.getState().profile;
+    useProfile.setState({
+      profile: { ...p, xp: RANK_XP[rank - 1]! + 10, reliquary: rq, runs: 21, wins: 9 },
+    });
+    return true;
+  });
+  return <TitleScreen />;
 }
 
 interface ViewDef {
@@ -2244,6 +2490,459 @@ const VIEWS: ViewDef[] = [
     w: 1280,
     h: 720,
     render: () => <AstrolabeLab rank={12} initial={RANK12_TREE} deeds={SOME_DEEDS} />,
+  },
+  // ── Phase 4c: the Reliquary ──────────────────────────────────────────────────────────
+  {
+    id: 'reliquary-empty',
+    group: 'Reliquary',
+    label: 'The screen at Rank 10: nothing enshrined yet',
+    w: 1280,
+    h: 720,
+    render: () => <ReliquaryLab initial={EMPTY_RELIQUARY} rank={10} />,
+  },
+  {
+    id: 'reliquary-partway',
+    group: 'Reliquary',
+    label: 'Partway (Rank 15): six relics, two carried, Inscribe’s preview',
+    w: 1280,
+    h: 720,
+    render: () => <ReliquaryLab initial={partwayReliquary()} rank={15} />,
+  },
+  {
+    id: 'reliquary-full',
+    group: 'Reliquary',
+    label: 'Full (Rank 20): twelve relics, every state, three carried',
+    w: 1280,
+    h: 720,
+    render: () => <ReliquaryLab initial={fullReliquary()} rank={20} selected="r7" />,
+  },
+  {
+    id: 'reliquary-inscribe',
+    group: 'Reliquary',
+    label: 'Inscribe: Choir is full on Silver Thimble (disabled, with why)',
+    w: 1280,
+    h: 720,
+    render: () => (
+      <ReliquaryLab
+        initial={partwayReliquary()}
+        rank={15}
+        selected="r3"
+        action="inscribe"
+        arg="aegis"
+      />
+    ),
+  },
+  {
+    id: 'reliquary-retune',
+    group: 'Reliquary',
+    label: 'Retune: the chance of a higher value; a tier of one value refused',
+    w: 1280,
+    h: 720,
+    render: () => (
+      <ReliquaryLab initial={fullReliquary()} rank={20} selected="r12" action="retune" arg={1} />
+    ),
+  },
+  {
+    id: 'reliquary-ascend',
+    group: 'Reliquary',
+    label: 'Ascend: its odds; T3 waits for Dissonance',
+    w: 1280,
+    h: 720,
+    render: () => (
+      <ReliquaryLab initial={partwayReliquary()} rank={15} selected="r1" action="ascend" arg={0} />
+    ),
+  },
+  {
+    id: 'reliquary-risky',
+    group: 'Reliquary',
+    label: 'High Instability: a big Fracture chance before Ascend',
+    w: 1280,
+    h: 720,
+    render: () => (
+      <ReliquaryLab
+        initial={{
+          ...partwayReliquary(),
+          relics: partwayReliquary().relics.map((r) =>
+            r.uid === 'r4' ? { ...r, instability: 74 } : r,
+          ),
+        }}
+        rank={15}
+        selected="r4"
+        action="ascend"
+        arg={1}
+      />
+    ),
+  },
+  {
+    id: 'reliquary-dissonate',
+    group: 'Reliquary',
+    label: 'Dissonate: the four outcomes for this relic',
+    w: 1280,
+    h: 720,
+    render: () => (
+      <ReliquaryLab initial={partwayReliquary()} rank={15} selected="r1" action="dissonate" />
+    ),
+  },
+  {
+    id: 'reliquary-dissonate-veil',
+    group: 'Reliquary',
+    label: 'Dissonate: no numbers to grow (Martyr’s Veil)',
+    w: 1280,
+    h: 720,
+    render: () => (
+      <ReliquaryLab initial={fullReliquary()} rank={20} selected="r12" action="dissonate" />
+    ),
+  },
+  {
+    id: 'reliquary-short',
+    group: 'Reliquary',
+    label: 'Not enough Tuning Shards: the reason before the click',
+    w: 1280,
+    h: 720,
+    render: () => (
+      <ReliquaryLab
+        initial={{ ...partwayReliquary(), shards: 4, tears: 0 }}
+        rank={15}
+        selected="r2"
+        action="inscribe"
+        arg="bond"
+      />
+    ),
+  },
+  {
+    id: 'reliquary-release',
+    group: 'Reliquary',
+    label: 'Release: asked first, with its shards',
+    w: 1280,
+    h: 720,
+    render: () => (
+      <ReliquaryLab initial={partwayReliquary()} rank={15} selected="r1" action="release" release />
+    ),
+  },
+  {
+    id: 'reliquary-four',
+    group: 'Reliquary',
+    label: 'Four Inscriptions: Inscribe refused at the button, Retune’s odds',
+    w: 1280,
+    h: 720,
+    render: () => <ReliquaryLab initial={fullReliquary()} rank={20} selected="r11" />,
+  },
+  {
+    id: 'reliquary-twin',
+    group: 'Reliquary',
+    label: 'The carry: never two of the same relic (a second Cantor’s Hymnal)',
+    w: 1280,
+    h: 720,
+    render: () => <ReliquaryLab initial={fullReliquary()} rank={20} selected="r10" />,
+  },
+  {
+    id: 'reliquary-dormant',
+    group: 'Reliquary',
+    label: 'A carried relic in slot 2: dormant, with Attune',
+    w: 1280,
+    h: 720,
+    render: () => <ReliquaryLab initial={partwayReliquary()} rank={15} selected="r2" />,
+  },
+  {
+    id: 'reliquary-inscribed',
+    group: 'Reliquary',
+    label: 'Outcome: a fine Inscription (T3), etched',
+    w: 1280,
+    h: 720,
+    render: () => (
+      <CraftedLab
+        from={partwayReliquary()}
+        uid="r2"
+        action="inscribe"
+        arg="aegis"
+        want={(o) => o.kind === 'inscribed' && o.inscription.tier === 3}
+      />
+    ),
+  },
+  {
+    id: 'reliquary-retuned',
+    group: 'Reliquary',
+    label: 'Outcome: Retune, a higher value',
+    w: 1280,
+    h: 720,
+    render: () => (
+      <CraftedLab
+        from={partwayReliquary()}
+        uid="r3"
+        action="retune"
+        arg={0}
+        want={(o) => o.kind === 'retuned' && o.to > o.from}
+      />
+    ),
+  },
+  {
+    id: 'reliquary-ascended',
+    group: 'Reliquary',
+    label: 'Outcome: Ascend rose a tier',
+    w: 1280,
+    h: 720,
+    render: () => (
+      <CraftedLab
+        from={partwayReliquary()}
+        uid="r2"
+        action="ascend"
+        arg={0}
+        want={(o) => o.kind === 'ascended'}
+      />
+    ),
+  },
+  {
+    id: 'reliquary-missed',
+    group: 'Reliquary',
+    label: 'Outcome: Ascend missed',
+    w: 1280,
+    h: 720,
+    render: () => (
+      <CraftedLab
+        from={partwayReliquary()}
+        uid="r1"
+        action="ascend"
+        arg={0}
+        want={(o) => o.kind === 'missed'}
+      />
+    ),
+  },
+  {
+    id: 'reliquary-fractured',
+    group: 'Reliquary',
+    label: 'Outcome: a Fracture',
+    w: 1280,
+    h: 720,
+    render: () => (
+      <CraftedLab
+        from={partwayReliquary()}
+        uid="r1"
+        action="inscribe"
+        arg="bond"
+        want={(o) => o.kind === 'fractured'}
+      />
+    ),
+  },
+  {
+    id: 'reliquary-rolling',
+    group: 'Reliquary',
+    label: 'Dissonate: the roll, before its outcome',
+    w: 1280,
+    h: 720,
+    render: () => (
+      <CraftedLab
+        from={partwayReliquary()}
+        uid="r1"
+        action="dissonate"
+        want={dissonated('dissonant')}
+        holdRoll
+      />
+    ),
+  },
+  {
+    id: 'reliquary-dissonant',
+    group: 'Reliquary',
+    label: 'Outcome: Dissonant, a fifth slot',
+    w: 1280,
+    h: 720,
+    render: () => (
+      <CraftedLab
+        from={partwayReliquary()}
+        uid="r1"
+        action="dissonate"
+        want={dissonated('dissonant')}
+      />
+    ),
+  },
+  {
+    id: 'reliquary-empowered',
+    group: 'Reliquary',
+    label: 'Outcome: Empowered, its own effect grows',
+    w: 1280,
+    h: 720,
+    render: () => (
+      <CraftedLab
+        from={partwayReliquary()}
+        uid="r1"
+        action="dissonate"
+        want={dissonated('empowered')}
+      />
+    ),
+  },
+  {
+    id: 'reliquary-cursed',
+    group: 'Reliquary',
+    label: 'Outcome: Cursed, every Inscription a tier up and a curse',
+    w: 1280,
+    h: 720,
+    render: () => (
+      <CraftedLab
+        from={partwayReliquary()}
+        uid="r1"
+        action="dissonate"
+        want={dissonated('cursed')}
+      />
+    ),
+  },
+  {
+    id: 'reliquary-shattered',
+    group: 'Reliquary',
+    label: 'Outcome: Shattered, nothing changes',
+    w: 1280,
+    h: 720,
+    render: () => (
+      <CraftedLab
+        from={partwayReliquary()}
+        uid="r1"
+        action="dissonate"
+        want={dissonated('shattered')}
+      />
+    ),
+  },
+  {
+    id: 'summary-enshrine',
+    group: 'Reliquary',
+    label: 'Summary: a won run’s Enshrine panel',
+    w: 1280,
+    h: 1100,
+    render: () => <SummaryReliquaryLab initial={partwayReliquary()} />,
+  },
+  {
+    id: 'summary-enshrined',
+    group: 'Reliquary',
+    label: 'Summary: enshrined, its first Inscriptions',
+    w: 1280,
+    h: 1100,
+    render: () => <SummaryReliquaryLab initial={partwayReliquary()} enshrine="glass_halo" />,
+  },
+  {
+    id: 'summary-enshrine-full',
+    group: 'Reliquary',
+    label: 'Summary: the Reliquary is full, release one first',
+    w: 1280,
+    h: 1200,
+    render: () => <SummaryReliquaryLab initial={fullReliquary()} />,
+  },
+  {
+    id: 'summary-reliquary-lost',
+    group: 'Reliquary',
+    label: 'Summary: a lost run, what it paid',
+    w: 1280,
+    h: 900,
+    render: () => <SummaryReliquaryLab outcome="defeat" initial={partwayReliquary()} />,
+  },
+  {
+    id: 'prep-reliquary',
+    group: 'Reliquary',
+    label: 'Prep: the Reliquary’s row (Rank 15, two carried)',
+    w: 1280,
+    h: 720,
+    render: () => <PrepReliquary rank={15} rq={partwayReliquary()} />,
+  },
+  {
+    id: 'prep-reliquary-20',
+    group: 'Reliquary',
+    label: 'Prep: Rank 20, three carried',
+    w: 1280,
+    h: 720,
+    render: () => <PrepReliquary rank={20} rq={fullReliquary()} />,
+  },
+  {
+    id: 'hud-reliquary',
+    group: 'Reliquary',
+    label: 'HUD: the attuned relic marked, two dormant',
+    w: 1280,
+    h: 720,
+    render: () => <HudReliquary />,
+  },
+  {
+    id: 'map-reliquary',
+    group: 'Reliquary',
+    label: 'Map: a carried relic’s tooltip (its Inscriptions)',
+    w: 1280,
+    h: 900,
+    render: () => <MapReliquary peek="prism_loom" />,
+  },
+  {
+    id: 'map-reliquary-dormant',
+    group: 'Reliquary',
+    label: 'Map: a dormant relic’s tooltip',
+    w: 1280,
+    h: 900,
+    render: () => <MapReliquary peek="lantern_of_the_lost" />,
+  },
+  {
+    id: 'codex-reliquary',
+    group: 'Reliquary',
+    label: 'Codex: the Reliquary',
+    w: 1280,
+    h: 3300,
+    render: () => <CodexView onBack={noop} initialTab="reliquary" />,
+  },
+  {
+    id: 'codex-reliquary-locked',
+    group: 'Reliquary',
+    label: 'Codex: the Reliquary, locked (Rank 6)',
+    w: 1280,
+    h: 720,
+    render: () => (
+      <CodexView onBack={noop} initialTab="reliquary" allowance={allowanceFor(6)} rank={6} />
+    ),
+  },
+  {
+    id: 'rank-up-10',
+    group: 'Reliquary',
+    label: 'Rank 10: the Reliquary opens',
+    w: 1280,
+    h: 800,
+    render: () => (
+      <World>
+        <RankUpCard rankUps={mockRankUps([10])} onDismiss={noop} />
+      </World>
+    ),
+  },
+  {
+    id: 'rank-up-15-20',
+    group: 'Reliquary',
+    label: 'Ranks 15 and 20: a second and a third relic to carry',
+    w: 1280,
+    h: 900,
+    render: () => (
+      <World>
+        <RankUpCard rankUps={mockRankUps([15, 20])} onDismiss={noop} />
+      </World>
+    ),
+  },
+  {
+    id: 'rank-panels-reliquary',
+    group: 'Reliquary',
+    label: 'Rank panels at Ranks 9 and 14: what the next Rank opens',
+    w: 1280,
+    h: 720,
+    render: () => (
+      <ScreenFrame tone="gold">
+        <div className="mx-auto grid max-w-6xl items-start gap-6 px-6 py-10 md:grid-cols-2">
+          <RankPanelView profile={{ xp: RANK_XP[8]! + 600, runs: 24, wins: 10 }} />
+          <RankPanelView profile={{ xp: RANK_XP[13]! + 900, runs: 41, wins: 19 }} />
+        </div>
+      </ScreenFrame>
+    ),
+  },
+  {
+    id: 'codex-rank-reliquary',
+    group: 'Reliquary',
+    label: 'Codex: Weaver Rank, its unlocks with their icons',
+    w: 1280,
+    h: 2000,
+    render: () => <CodexView onBack={noop} initialTab="rank" />,
+  },
+  {
+    id: 'title-reliquary',
+    group: 'Reliquary',
+    label: 'Title at Rank 16: the Reliquary with its materials',
+    w: 1280,
+    h: 720,
+    render: () => <TitleReliquary rank={16} rq={partwayReliquary()} />,
   },
   {
     id: 'flow',

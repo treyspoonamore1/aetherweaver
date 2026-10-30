@@ -91,7 +91,7 @@ export const RELICS: ContentInput['relics'] = [
     id: 'cantors_hymnal',
     name: 'Cantor’s Hymnal',
     rarity: 'rare',
-    text: 'Start every fight with {resonance} Resonance: two Cues, ready.',
+    text: 'Start every fight with {resonance} Resonance, ready to Cue.',
     flavor: 'The first page is the one everyone knows by heart.',
     values: { resonance: 50 },
     icon: 'hymnal',

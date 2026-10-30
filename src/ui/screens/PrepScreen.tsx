@@ -20,6 +20,7 @@ import { ChordBuilder, NewTag, SONG_LOOK } from './ChordBuilder';
 import { freshUnlocks, loadoutProblems, mult, padChords, poolBlurb } from './chordModel';
 import { CallingPicker } from './CallingPicker';
 import {
+  carriedPassives,
   fieldAuraSlots as runFieldAuraSlots,
   reserveMult as runReserveMult,
   reservePool,
@@ -29,6 +30,8 @@ import { AstrolabeButtonLabel, KeystoneChips } from './AstrolabeParts';
 import { astrolabeOpen } from './astrolabeModel';
 import { astrolabePoints } from '../../meta/astrolabe';
 import { deedPoints } from '../../meta/deeds';
+import { carrySlots, reliquaryOpen } from '../../meta/reliquary';
+import { PrepReliquaryRow } from './ReliquaryParts';
 
 export interface PrepViewProps {
   run: RunState;
@@ -51,6 +54,11 @@ export interface PrepViewProps {
    * button, as before Rank 4.
    */
   astrolabe?: { points: number; onOpen(): void } | null;
+  /**
+   * Phase 4c: the Reliquary's carry slots (what the Rank opens) and how to open it; omitted (or
+   * null): no row, as before Rank 10. What the run carries is `run.carried`.
+   */
+  reliquary?: { slots: number; onOpen(): void } | null;
 }
 
 /**
@@ -151,6 +159,7 @@ export function PrepView({
   fresh = [],
   rank,
   astrolabe = null,
+  reliquary = null,
 }: PrepViewProps) {
   useMood('map');
   // Always the content's two at Prep (the path is empty), but read from the run like Retune.
@@ -229,6 +238,15 @@ export function PrepView({
           </p>
         </ScreenHeader>
 
+        {reliquary && (
+          <PrepReliquaryRow
+            className="mt-4"
+            carried={run.carried}
+            slots={reliquary.slots}
+            onOpen={reliquary.onOpen}
+          />
+        )}
+
         <FreshStrip fresh={fresh} />
 
         {onCalling && (
@@ -253,6 +271,7 @@ export function PrepView({
             calling={run.calling}
             reserveMult={lighter}
             astrolabe={run.astrolabe}
+            passives={carriedPassives(run)}
           />
         </section>
 
@@ -417,6 +436,11 @@ export function PrepScreen() {
               points: astrolabePoints(rank, unlockAll, deedPoints(deeds)),
               onOpen: () => setScreen('astrolabe'),
             }
+          : null
+      }
+      reliquary={
+        reliquaryOpen(rank, unlockAll)
+          ? { slots: carrySlots(rank, unlockAll), onOpen: () => setScreen('reliquary') }
           : null
       }
     />

@@ -3,7 +3,32 @@
  * reviewed (and its edge cases hit) without playing. Runs are built by driving the real
  * pure run functions (meta/run.ts) with fake combat outcomes.
  */
-import { CONTENT, astrolabeNode, auraDef, callingDef, encounterDef, heroDef } from '../../content';
+import {
+  CONTENT,
+  astrolabeNode,
+  auraDef,
+  callingDef,
+  encounterDef,
+  heroDef,
+  inscriptionDef,
+  type InscriptionCategory,
+} from '../../content';
+import {
+  ascend,
+  craftOdds,
+  dissonate,
+  inscribe,
+  retune,
+  runMaterials,
+  type CraftAction,
+  type CraftOutcome,
+  type CraftResult,
+  type DissonanceKind,
+  type Inscription,
+  type Reliquary,
+  type ReliquaryRelic,
+} from '../../meta/reliquary';
+import type { CraftRecord } from '../screens/reliquaryModel';
 import * as Run from '../../meta/run';
 import type {
   ActiveBoon,
@@ -2386,4 +2411,257 @@ const DEEDS_BEFORE: readonly string[] = [
 export function deedsSummaryRun(before: readonly string[] = DEEDS_BEFORE): RunState {
   const run = summaryRun('victory');
   return { ...run, deeds: deedsEarned(run, before) };
+}
+
+// ── Phase 4c: the Reliquary ──────────────────────────────────────────────────────────
+
+/**
+ * An Inscription at a tier, its value `at` (0: the lowest, 1: the highest) through the tier's
+ * range in content's steps, so the lab follows the content's tuning.
+ */
+export function mockInscription(id: string, tier: number, at = 0.5): Inscription {
+  const def = inscriptionDef(id);
+  if (def.kind !== 'normal') return { id, tier, value: 0 };
+  const [min, max] = def.tiers[5 - tier]!;
+  const steps = Math.round((max - min) / def.step);
+  return { id, tier, value: Math.round((min + Math.round(at * steps) * def.step) * 1000) / 1000 };
+}
+
+/** An enshrined relic: `ins` as [id, tier, at] (see `mockInscription`). */
+export function mockRelic(
+  uid: string,
+  id: string,
+  ins: readonly (readonly [string, number, number?])[] = [],
+  over: Partial<ReliquaryRelic> = {},
+): ReliquaryRelic {
+  return {
+    uid,
+    id,
+    cleansed: false,
+    inscriptions: ins.map(([i, tier, at]) => mockInscription(i, tier, at)),
+    instability: 0,
+    fractured: false,
+    dissonance: null,
+    ...over,
+  };
+}
+
+function mockReliquary(
+  relics: ReliquaryRelic[],
+  carry: string[],
+  shards: number,
+  tears: number,
+): Reliquary {
+  return { relics, carry, shards, tears, seed: 4242, next: relics.length + 1 };
+}
+
+/** Just opened (Rank 10): nothing enshrined yet, nothing to craft with. */
+export const EMPTY_RELIQUARY: Reliquary = mockReliquary([], [], 0, 0);
+
+/**
+ * Partway: six relics, two carried (Prism Loom attuned, Cantor's Hymnal lending), one at risk of
+ * a Fracture, one Empowered, one fractured, one full of Choir (Inscribe can't add Choir to it).
+ */
+export function partwayReliquary(): Reliquary {
+  return mockReliquary(
+    [
+      mockRelic(
+        'r1',
+        'prism_loom',
+        [
+          ['potent_thread', 4, 0.5],
+          ['clear_tone', 3, 1],
+          ['vigor', 5, 0],
+        ],
+        { instability: 44 },
+      ),
+      mockRelic('r2', 'cantors_hymnal', [
+        ['deep_breath', 5, 1],
+        ['attentive', 4],
+      ]),
+      mockRelic(
+        'r3',
+        'silver_thimble',
+        [
+          ['clear_tone', 5, 0],
+          ['wide_field', 4, 1],
+          ['light_reserve', 5, 1],
+        ],
+        { instability: 28 },
+      ),
+      mockRelic(
+        'r4',
+        'heavy_score',
+        [
+          ['fierce', 4, 1],
+          ['hardy', 5],
+        ],
+        { instability: 16 },
+      ),
+      mockRelic('r5', 'tuning_fork', [['true_timing', 4]], {
+        instability: 52,
+        dissonance: { kind: 'empowered' },
+      }),
+      mockRelic(
+        'r6',
+        'cracked_metronome',
+        [
+          ['wide_field', 3, 0.5],
+          ['eager_solo', 4],
+          ['quick_hands', 5, 1],
+        ],
+        { instability: 71, fractured: true },
+      ),
+    ],
+    ['r1', 'r2'],
+    34,
+    1,
+  );
+}
+
+/**
+ * Full: twelve relics, three carried, every state (fractured; Dissonant, Empowered, Cursed,
+ * Shattered), a cleansed curse, a second Cantor's Hymnal (it can't be carried beside the first).
+ */
+export function fullReliquary(): Reliquary {
+  const base = partwayReliquary().relics;
+  return mockReliquary(
+    [
+      ...base,
+      mockRelic(
+        'r7',
+        'lantern_of_the_lost',
+        [
+          ['stout_ward', 4, 1],
+          ['hardy', 4],
+          ['potent_thread', 5],
+        ],
+        { instability: 36, dissonance: { kind: 'dissonant', inscription: 'gilded_thread' } },
+      ),
+      mockRelic(
+        'r8',
+        'glass_halo',
+        [
+          ['ringing', 2],
+          ['deep_mend', 2, 0.5],
+        ],
+        { cleansed: true, instability: 40, dissonance: { kind: 'cursed', curse: 'thin_spirit' } },
+      ),
+      mockRelic('r9', 'wardens_key', [['fierce', 5]], {
+        instability: 12,
+        dissonance: { kind: 'shattered' },
+      }),
+      mockRelic('r10', 'cantors_hymnal', [['eager_solo', 5, 1]]),
+      mockRelic(
+        'r11',
+        'choirmasters_baton',
+        [
+          ['light_hands', 4, 1],
+          ['swift_rescue', 5],
+          ['clear_tone', 5, 1],
+          ['vigor', 4],
+        ],
+        { instability: 48 },
+      ),
+      mockRelic('r12', 'martyrs_veil', [
+        ['long_thread', 5],
+        ['hardy', 3],
+      ]),
+    ],
+    ['r1', 'r7', 'r2'],
+    58,
+    2,
+  );
+}
+
+/** One craft, as the profile store makes it (the meta's own functions). */
+export function craftOn(
+  rq: Reliquary,
+  uid: string,
+  action: CraftAction,
+  arg?: number | InscriptionCategory,
+): CraftResult {
+  switch (action) {
+    case 'inscribe':
+      return typeof arg === 'string'
+        ? inscribe(rq, uid, arg)
+        : { ok: false, reason: 'Choose a kind.' };
+    case 'retune':
+      return typeof arg === 'number'
+        ? retune(rq, uid, arg)
+        : { ok: false, reason: 'Choose an Inscription.' };
+    case 'ascend':
+      return typeof arg === 'number'
+        ? ascend(rq, uid, arg)
+        : { ok: false, reason: 'Choose an Inscription.' };
+    case 'dissonate':
+      return dissonate(rq, uid);
+  }
+}
+
+/**
+ * A real craft whose outcome is the one wanted: the meta's own roll, on the first seed that
+ * gives it. The Reliquary after it, and the record the screen keeps.
+ */
+export function mockCraft(
+  rq: Reliquary,
+  uid: string,
+  action: CraftAction,
+  arg: number | InscriptionCategory | undefined,
+  want: (o: CraftOutcome) => boolean,
+): { reliquary: Reliquary; record: CraftRecord } {
+  for (let seed = 1; seed < 20000; seed++) {
+    const from = { ...rq, seed };
+    const res = craftOn(from, uid, action, arg);
+    if (!res.ok || !want(res.outcome)) continue;
+    const before = from.relics.find((r) => r.uid === uid)!;
+    const odds = craftOdds(before, action, typeof arg === 'number' ? arg : undefined);
+    return {
+      reliquary: res.reliquary,
+      record: {
+        uid,
+        action,
+        before,
+        after: res.reliquary.relics.find((r) => r.uid === uid)!,
+        outcome: res.outcome,
+        cost: { shards: odds.shards, tears: odds.tears },
+      },
+    };
+  }
+  throw new Error(`No seed gives that ${action}`);
+}
+
+/** A Dissonate outcome of this kind. */
+export const dissonated =
+  (kind: DissonanceKind) =>
+  (o: CraftOutcome): boolean =>
+    o.kind === 'dissonated' && o.dissonance.kind === kind;
+
+/**
+ * A won run at its Summary with the Reliquary open: it carried Prism Loom in, found three relics
+ * (a cleansed cursed one among them), and its end paid its materials.
+ */
+export function reliquarySummaryRun(outcome: 'victory' | 'defeat' = 'victory'): RunState {
+  const run = summaryRun(outcome);
+  const carried = [
+    mockRelic('r1', 'prism_loom', [
+      ['potent_thread', 4, 0.5],
+      ['clear_tone', 3, 1],
+    ]),
+  ];
+  const found: OwnedRelic[] =
+    outcome === 'victory'
+      ? [
+          { id: 'tuning_fork', cleansed: false },
+          { id: 'glass_halo', cleansed: true },
+          { id: 'choirmasters_baton', cleansed: false },
+        ]
+      : [{ id: 'tuning_fork', cleansed: false }];
+  const next: RunState = {
+    ...run,
+    carried,
+    relics: [{ id: 'prism_loom', cleansed: false, carried: true, empowered: false }, ...found],
+  };
+  const paid = runMaterials(next);
+  return { ...next, reliquary: { ...paid, enshrined: null } };
 }

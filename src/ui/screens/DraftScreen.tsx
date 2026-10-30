@@ -60,7 +60,7 @@ export function DraftView({ run, onPick, onReroll }: DraftViewProps) {
         <ScreenHeader eyebrow="A motif to weave" title={reason.title}>
           <p className="mt-2 text-sm text-muted">
             {reason.blurb}
-            {options.length >= 4 && Run.hasRelic(run, 'star_chart') && (
+            {options.length >= 4 && Run.relicActive(run, 'star_chart') && (
               <span className="ml-1.5 text-gold-200">Your Star Chart adds a fourth choice.</span>
             )}
           </p>

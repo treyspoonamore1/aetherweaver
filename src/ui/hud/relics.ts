@@ -2,7 +2,7 @@
  * The HUD's relic bar, derived from the sim's `WorldState.relics` (docs/phase-3b.md). Pure: the
  * bridge calls it at 15 Hz and the tests call it with hand-made states.
  */
-import { relicDef, type RelicRarity } from '../../content';
+import { relicDef, relicValues, type RelicRarity } from '../../content';
 
 export interface RelicHud {
   id: string;
@@ -10,6 +10,8 @@ export interface RelicHud {
   icon: string;
   rarity: RelicRarity;
   cleansed: boolean;
+  /** A Dissonate Empowered it (docs/phase-4c.md): its numbers are its empowered ones. */
+  empowered: boolean;
   /**
    * 'cooldown': Metronome / Thimble (ready, or seconds left of `total`); 'once': Martyr's
    * Veil (available or spent this fight); 'passive': everything else.
@@ -35,6 +37,8 @@ export interface RelicSource {
   relics: {
     ids: readonly string[];
     cleansed: readonly string[];
+    /** Relics a Dissonate Empowered (the sim's `relics.empowered`): their own numbers grow. */
+    empowered?: readonly string[];
     metronomeAt: number | null;
     thimbleAt: number | null;
     veil: boolean;
@@ -50,9 +54,9 @@ const COOLDOWN: Record<string, 'metronomeAt' | 'thimbleAt'> = {
   silver_thimble: 'thimbleAt',
 };
 
-/** The relic's cooldown in seconds, from content (`values.cooldown`). */
-function cooldownOf(id: string): number {
-  return relicDef(id).values.cooldown ?? 0;
+/** The relic's cooldown in seconds, from content (`values.cooldown`; Empowered, its own). */
+function cooldownOf(id: string, empowered = false): number {
+  return relicValues(relicDef(id), empowered).cooldown ?? 0;
 }
 
 export function relicHuds(src: RelicSource): RelicHud[] {
@@ -66,17 +70,19 @@ export function relicHuds(src: RelicSource): RelicHud[] {
     }
     // Run-only relics (Star Chart) do nothing in a fight.
     if (def.runOnly) continue;
+    const empowered = !!def.empowered && (src.relics.empowered ?? []).includes(id);
     const base = {
       id,
       name: def.name,
       icon: def.icon,
       rarity: def.rarity,
       cleansed: src.relics.cleansed.includes(id),
+      empowered,
     };
     const field = COOLDOWN[id];
     if (field) {
       const at = src.relics[field];
-      const total = cooldownOf(id);
+      const total = cooldownOf(id, empowered);
       const remaining = at === null ? 0 : Math.max(0, at - src.time);
       const ready = remaining <= 0;
       out.push({

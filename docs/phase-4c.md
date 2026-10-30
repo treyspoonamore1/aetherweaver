@@ -63,7 +63,7 @@ Values move in steps of 0.5 (0.25 m for the Thread's reach, 0.005 s for timing).
 | **Dissonate** | 1 Discord Tear | the final gamble, a quarter each (below); the relic can't be crafted afterwards | — |
 | **Release** | — | the relic leaves the Reliquary for shards: 3 for a common, 5 for a rare or a cursed relic, 8 for a legendary, and 2 more for each Inscription | — |
 
-**Instability** runs 0–100 and only rises. Above 40, every craft first risks a **Fracture**: (Instability − 40) × 1.5%, so 15% at 50, 30% at 60 and 90% at 100. A fractured relic freezes as it was, and the craft and its cost are lost. It still works, and can still be carried. The odds are always shown.
+**Instability** runs 0–100 and only rises. Above 40, every craft but a Dissonate (its own gamble) first risks a **Fracture**: (Instability − 40) × 1.5%, so 15% at 50, 30% at 60 and 90% at 100. A fractured relic freezes as it was, and the craft and its cost are lost. It still works, and can still be carried. The odds are always shown.
 
 **Dissonate**, a quarter each:
 - **Dissonant**: a fifth slot holds a Dissonant Inscription, one of five:
@@ -121,13 +121,13 @@ Validation:
 - each category has an Inscription;
 - every `empowered` names only the relic's own values.
 
-**Sim** (`SIM_VERSION` 13):
+**Sim** (`SIM_VERSION` 13, then 14 after the review):
 - `SimConfig.passives?: { effect, value }[]`: the carried relics' Inscriptions, Dissonant Inscriptions and curses, in the Astrolabe's effect names. They fold into the same sums as the tree's nodes, and the song reservation counts them too. The sim never sees an Inscription, only its effects.
-- `RelicConfig.empowered?: boolean`: the relic plays with its empowered values.
+- `RelicConfig.empowered?: boolean`: the relic plays with its empowered values, and `WorldState.relics.empowered` lists those that do, so the HUD and effects show the empowered numbers.
 - Both are hashed, and both are empty for an absent Weaver.
 
 **Meta** (`meta/reliquary.ts`, pure; randomness only from the seed it's given):
-- `enshrine(reliquary, run, relicId)`, `inscribe(reliquary, uid, category)`, `retune(reliquary, uid, index)`, `ascend(reliquary, uid, index)`, `dissonate(reliquary, uid)` and `release(reliquary, uid)`. Each returns the new Reliquary and what happened (`'inscribed' | 'fractured' | 'missed' | …`), or a refusal with its reason.
+- `enshrine(reliquary, found)`, `inscribe(reliquary, uid, category)`, `retune(reliquary, uid, index)`, `ascend(reliquary, uid, index)`, `dissonate(reliquary, uid)` and `release(reliquary, uid)`. Each returns the new Reliquary and what happened (`'inscribed' | 'fractured' | 'missed' | …`), or a refusal with its reason.
 - `craftOdds(relic, action)` returns what the screen shows: the cost, the Fracture chance and the tier or success odds.
 - `relicPassives(relic)` returns its `{ effect, value }` list.
 - `runMaterials(run)` returns the shards and Tears a run pays.
@@ -140,17 +140,46 @@ Validation:
 
 **Run:**
 - `RunState.carried: ReliquaryRelic[]` is the snapshot taken at embark. Those relics are also in `run.relics`, marked `carried`; all but the first are `dormant` (their own effect sleeps: the fight's `relics` leave them out, and a Forge can't cleanse them).
-- `RunState.reliquary: { paid, enshrined } | null`: what the run's end paid and which relic it enshrined, so neither happens twice.
+- `RunState.reliquary: { shards, tears, enshrined } | null`: what the run's end paid and which relic it enshrined, so neither happens twice.
 - Old saves default to none carried.
 
 **Stores:**
-- The profile store gains `enshrine`, `craft`, `release` and `setCarry`.
-- When a run ends, the run store pays its materials once.
+- The profile store gains `enshrine`, `craft`, `releaseRelic` and `setCarry`; a new or migrated Reliquary's crafting seed is random.
+- When a run ends, the run store pays its materials once: at its Summary, an abandon, or when a new run replaces it (the one in play, or the saved one after a restart).
 - Prep's carry follows the profile, as its tree does.
 
 ## Presentation
 
-*To be filled in by the UI, VFX and audio workstreams.*
+**Screens** (the UI workstream: [phase-4c/ui.md](phase-4c/ui.md), with every view in the lab under *Reliquary*):
+- **The Reliquary**, its own screen from the Title and from Prep:
+  - the materials, and the **carry bar**: slot 1 is *Attuned*, the others *Lend their Inscriptions*. Attune moves a relic to slot 1, and a locked slot names its Rank;
+  - the **shelf** of up to 12, each with its rarity, tier badges or state, and a carried mark;
+  - the chosen relic's own effect, its Instability (40 marked, the previewed craft striped) and its Inscriptions, with tier badges, values and ranges.
+  - **Five crafting tabs.** Each preview shows the cost, the Fracture chance, the Instability after, the odds and what's at stake. Where a Fracture is possible, the odds read "if it doesn't Fracture", with the overall chances under them, since the craft's own odds alone would overstate success. A craft that can't be made names its reason.
+  - **Every outcome** has its card, its sound and a small effect: an etch, a rise, a crack, a swirl then the reveal, a shatter. Reduced motion only outlines what changed.
+- **Summary**: what the run paid. A won run gets an **Enshrine** panel: the relic arrives with its first Inscriptions, once, and a full Reliquary can release one right there.
+- **Prep**: a row with the carry and the way in.
+- **In a run**: the HUD and the run's relic strip mark the attuned relic and dim the dormant ones, with Inscriptions in their tooltips.
+- **Codex**: a Reliquary page, locked until Rank 10. It holds the rules, every Inscription's five tiers, the Dissonant ones, the curses and the Empowered relics.
+
+![The Reliquary: an Ascend's odds, with the Fracture risk folded in](phase-4c/ui/reliquary-ascend.jpg)
+
+**Sound** (`src/audio/ui.ts`): fourteen UI sounds:
+- a relic enshrined (solemn: kept rather than won);
+- an Inscription etched, and a fine one (T3 or better) that rings brighter;
+- a value retuned;
+- an Ascend that rose or missed;
+- a Fracture's crack;
+- a Dissonate's roll and its four outcomes;
+- a relic released for shards;
+- a relic placed in a carry slot.
+
+**From the UI workstream**, fixed in the core:
+- The run keeps the enshrined relic's uid, so the Summary finds that very relic after a reload.
+- Retune's odds and the engine read the same `tierValues`.
+- The song builder counts the carried relics' Light Reserve (its share reads "from the Astrolabe and relics"), Vigor and Light Hands.
+- Cantor's Hymnal no longer counts its Cues in its text: an Empowered one gives three.
+- The carry slots' unlock text mentions attunement.
 
 ## Harness
 
@@ -185,8 +214,32 @@ The first measurement found any three relics' own effects worth +15–19% by the
 
 ## Code review
 
-*To be filled in after the review.*
+An independent review of the core (293f878 to b01342b) found nothing high-severity. It fuzzed about 9,700 random crafts over 300 seeds and found no duplicate Inscription, no value outside its tier or off its step, no negative balance, and a seed that moved on every roll. A behaviour hash of five golden scenarios, two relic fights and eight whole bot runs was unchanged from before the phase. Its findings, each fixed with a test:
+
+| Finding | What changed |
+|---|---|
+| **A dormant Star Chart still played**: carried in slot 2, every motif draft offered a fourth choice. | A relic's effect reads `relicActive` (held and not dormant); `hasRelic` still keeps carried relics out of offers. The Draft screen says why the same way. |
+| **A saved run replaced after a restart never paid**: after a reload the run lives only in storage, and New run on the Title replaced it unpaid (and uncounted, as before this phase). | A new run settles the saved one when none is in play. |
+| **One malformed Reliquary entry lost the whole profile** (a Dissonance kind from a later build, a hand edit): XP, Rank, tree and Deeds fell back to new. | Relics are read one by one, a bad one left behind; an unknown Dissonance kind freezes it as Shattered; a Reliquary that doesn't parse at all is lost alone. |
+| **Values rolled under older tiers kept them**: halving the tiers left a T3 Potent Thread at 7, and a fractured or Dissonated relic can never be retuned. Runs saved before attunement played every carried relic. | Values come back inside their tier on load; a saved run's carried relics are rebuilt (attuned first, the rest dormant), keeping a Forge's cleanse. |
+| **The HUD and effects showed an Empowered relic's base numbers**: a 4 s Thimble ring for a 3 s Thimble, Prism Loom's links at 5 m for 6 m. | `WorldState.relics.empowered` (SIM_VERSION 14); the effects and the HUD read the empowered numbers. |
+| **Nearly every profile started its crafting rolls at seed 1**, so every player's first enshrine rolled the same. | A new or migrated profile takes a random seed. |
+| **Wording**: the contracts named `{ paid, enshrined }`, `enshrine(reliquary, run, relicId)` and `release`, and said every craft risks a Fracture. | Fixed (a Dissonate never Fractures; its outcomes are its gamble). |
+
+## Final checks
+
+- `npm run typecheck` and `npm run lint`: clean.
+- `npx vitest run`: 54 files, 1109 tests.
+- `CI=1 npx playwright test`: 12 of 12, the new Reliquary test among them (from Prep: craft, carry and attune, embark with it, enshrine at the Summary).
+- With nothing carried, the 96-run fingerprint is identical to Phase 4's; the review's behaviour hash agreed.
 
 ## Known gaps
 
-*To be filled in.*
+- **No Dissonance yet.** T2 and T1 can only be reached by a Dissonate gone Cursed; the Reliquary's top end waits for Phase 6.
+- **Measured on one build.** Guardian, three legendaries, a generalist's affixes, the Novice bot. Other loadouts and Callings may value relics differently, and the Skilled bot wins too often to measure.
+- **The career's crafting policy is careful.** It stops at a 20% Fracture risk, so its pile of shards late in a career says little about a player who pushes.
+- **In-run relics roll no Inscriptions** (the plan's "0–2 by rarity"). A relic gets its first ones when it's enshrined.
+- **The enshrine choice is lost** if the game closes on the Summary before choosing: the run is over, with nothing to resume.
+- **A Dissonate's reveal waits 1.6 s** even with reduced motion, since it follows the sound.
+- **The Reliquary screen is laid out for 1280 wide and up.** Narrower, its columns stack and the page scrolls.
+- **HUD relic tooltips take the pointer** over the relic bar, as the keystone chip's already did.

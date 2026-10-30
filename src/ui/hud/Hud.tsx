@@ -1,6 +1,10 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { getRuntime } from '../../app/runtimeRegistry';
+import { useProfile } from '../../app/profileStore';
+import { useSettings } from '../../app/settings';
 import { enemyDef } from '../../content';
+import { rankOf } from '../../meta/profile';
+import { carriedRelics, carrySlots, type ReliquaryRelic } from '../../meta/reliquary';
 import type { WheelView } from '../../input/wheel';
 import { countHudCommit } from '../perfCounters';
 import { useUi, type Callout, type HudSnapshot } from '../store';
@@ -21,6 +25,23 @@ import { PartyFrames } from './PartyFrames';
 import { WeaverBar } from './WeaverBar';
 
 const NO_BOONS: readonly ActiveBoon[] = [];
+const NO_RELICS: readonly ReliquaryRelic[] = [];
+
+/**
+ * The relics carried from the Reliquary this fight (Phase 4c), in slot order (the first attuned):
+ * the run's snapshot, or in the Training Grounds the carry chosen in the profile.
+ */
+function useCarried(sandbox: boolean): readonly ReliquaryRelic[] {
+  const fromRun = useRun((s) => s.run?.carried) ?? NO_RELICS;
+  const reliquary = useProfile((s) => s.profile.reliquary);
+  const xp = useProfile((s) => s.profile.xp);
+  const unlockAll = useSettings((s) => s.settings.unlockAll);
+  const fromProfile = useMemo(
+    () => carriedRelics(reliquary, carrySlots(rankOf(xp), unlockAll)),
+    [reliquary, xp, unlockAll],
+  );
+  return sandbox ? fromProfile : fromRun;
+}
 
 /** The Chronomancer's steel, for the HUD's tint while Stasis holds the fight (Phase 3e). */
 const CHRONO = callingLook('chronomancer');
@@ -42,6 +63,7 @@ export function Hud({ subtitle, keyHints = true }: HudProps) {
   const decree = useUi((s) => s.lastDecree);
   const devOpen = useUi((s) => s.devOpen);
   const boons = useRun((s) => s.run?.boons) ?? NO_BOONS;
+  const carried = useCarried(hud?.encounter.kind === 'sandbox');
   useEffect(() => {
     countHudCommit();
   });
@@ -55,6 +77,7 @@ export function Hud({ subtitle, keyHints = true }: HudProps) {
         subtitle={subtitle}
         keyHints={keyHints && !devOpen}
         boons={hud.encounter.kind === 'sandbox' ? NO_BOONS : boons}
+        carried={carried}
       />
       <DirectiveWheel focusName={enemyName} />
     </>
@@ -79,10 +102,17 @@ export function HudView({
   wheel = null,
   boons = [],
   relicFlash,
+  carried = NO_RELICS,
 }: {
   hud: HudSnapshot;
   /** The run's boons and banes (none in the Training Grounds). */
   boons?: readonly ActiveBoon[];
+  /**
+   * Phase 4c: the relics carried from the Reliquary, in slot order: the first attuned (in the
+   * fight's relics, marked), the rest dormant (not in the fight; shown dimmed, lending their
+   * Inscriptions).
+   */
+  carried?: readonly ReliquaryRelic[];
   /** UI lab: relics drawn mid-flash. */
   relicFlash?: readonly string[];
   callouts: Callout[];
@@ -112,9 +142,16 @@ export function HudView({
           data-testid="stasis-tint"
         />
       )}
-      <div className="absolute left-4 top-4 flex flex-col items-start gap-2">
+      {/* Above the party frames, so the relics' and keystones' tooltips are never under them. */}
+      <div className="absolute left-4 top-4 z-10 flex flex-col items-start gap-2">
         <EncounterHeader encounter={hud.encounter} subtitle={subtitle} clockText={clockText} />
-        <RelicBar relics={hud.relics} boons={boons} seconds={hud.seconds} flash={relicFlash} />
+        <RelicBar
+          relics={hud.relics}
+          boons={boons}
+          seconds={hud.seconds}
+          flash={relicFlash}
+          carried={carried}
+        />
         {(hud.calling || (hud.astrolabe?.keystones.length ?? 0) > 0) && (
           <div className="flex items-center gap-2">
             {hud.calling && <CallingChip calling={hud.calling} />}

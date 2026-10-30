@@ -21,6 +21,7 @@ import { findNode, forgeTargets, eventChoiceProblem, motifLine } from '../../met
 import type {
   ActiveBoon,
   EncounterResult,
+  OwnedRelic,
   EventGains,
   ForgeService,
   RelicOffer,
@@ -83,6 +84,13 @@ export interface RelicInfo {
   flavor: string;
   /** Only the run layer reads it (Star Chart): it never shows in a fight. */
   runOnly: boolean;
+  /** A Dissonate Empowered it (docs/phase-4c.md): `rule` has its empowered numbers. */
+  empowered: boolean;
+  /**
+   * Carried in a slot past the first (Phase 4c's attunement): its own effect (and a cursed
+   * relic's own curse) sleeps; it lends the run its Inscriptions.
+   */
+  dormant: boolean;
 }
 
 const RARITY_LABEL: Record<RelicRarity, string> = {
@@ -92,20 +100,35 @@ const RARITY_LABEL: Record<RelicRarity, string> = {
   cursed: 'Cursed',
 };
 
-export function relicInfo(id: string, cleansed = false): RelicInfo {
+export function relicInfo(
+  id: string,
+  cleansed = false,
+  /** Phase 4c: a carried relic's state in the run (`OwnedRelic.empowered`, `.dormant`). */
+  state: { empowered?: boolean; dormant?: boolean } = {},
+): RelicInfo {
   const def = relicDef(id);
+  const empowered = !!state.empowered && !!def.empowered;
   return {
     id,
     name: def.name,
     icon: def.icon,
     rarity: def.rarity,
     rarityLabel: RARITY_LABEL[def.rarity],
-    rule: relicText(def),
+    rule: relicText(def, empowered),
     curse: relicCurse(def),
     cleansed: cleansed && def.rarity === 'cursed',
     flavor: def.flavor,
     runOnly: def.runOnly,
+    empowered,
+    dormant: !!state.dormant,
   };
+}
+
+/** A run's own relic (found, or carried from the Reliquary: Empowered, dormant). */
+export function ownedRelicInfo(
+  r: Pick<OwnedRelic, 'id' | 'cleansed' | 'empowered' | 'dormant'>,
+): RelicInfo {
+  return relicInfo(r.id, r.cleansed, { empowered: r.empowered, dormant: r.dormant });
 }
 
 /** One sentence for screen readers and tooltips' aria: name, rarity, rule, curse. */
@@ -115,7 +138,9 @@ export function relicSentence(r: RelicInfo): string {
       ? ` Its curse is lifted (was: ${r.curse})`
       : ` Curse: ${r.curse}`
     : '';
-  return `${r.name}, ${r.rarityLabel.toLowerCase()} relic. ${r.rule}${curse}`;
+  if (r.dormant)
+    return `${r.name}, ${r.rarityLabel.toLowerCase()} relic, dormant: its own effect sleeps (${r.rule}${curse}). It lends the run its Inscriptions.`;
+  return `${r.name}, ${r.rarityLabel.toLowerCase()} relic${r.empowered ? ', Empowered' : ''}. ${r.rule}${curse}`;
 }
 
 export interface BoonInfo {

@@ -269,12 +269,18 @@ function tierRange(ins: Inscription): [number, number] {
   return def.kind === 'normal' ? def.tiers[5 - ins.tier]! : [ins.value, ins.value];
 }
 
-/** A value within the tier, in the Inscription's steps. */
-function rollValue(rng: Rng, def: InscriptionDef, tier: number): number {
-  if (def.kind !== 'normal') return 0;
+/** The values a tier can roll (and Retune can land on): its range in the Inscription's steps. */
+export function tierValues(def: InscriptionDef, tier: number): number[] {
+  if (def.kind !== 'normal') return [];
   const [min, max] = def.tiers[5 - tier]!;
   const steps = Math.round((max - min) / def.step) + 1;
-  return Math.round((min + rng.int(steps) * def.step) * 1000) / 1000;
+  return Array.from({ length: steps }, (_, i) => Math.round((min + i * def.step) * 1000) / 1000);
+}
+
+/** A value within the tier, each of its steps as likely. */
+function rollValue(rng: Rng, def: InscriptionDef, tier: number): number {
+  const values = tierValues(def, tier);
+  return values.length > 0 ? values[rng.int(values.length)]! : 0;
 }
 
 /** A tier by the given percentages, T5 first. */

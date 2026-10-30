@@ -99,6 +99,63 @@ export interface RunHook {
    * ones the run under way has earned (null without a run).
    */
   deeds(): { earned: string[]; notices: string[]; run: string[] | null };
+  /**
+   * Phase 4c: the profile's Reliquary (open or not, the carry slots, materials, each relic with
+   * its Inscriptions, the carry: the first uid attuned) and the run's side of it (null without a
+   * run): what it carries, its relics as `run.relics` marks them, what its end paid.
+   */
+  reliquary(): ReliquaryView;
+  /**
+   * Phase 4c, test-only: puts relics straight into the profile's Reliquary (uids `r1`, `r2`… in
+   * order), with materials and a carry, and saves the profile. An Inscription without a value
+   * takes its tier's lowest.
+   */
+  seedReliquary(seed: ReliquarySeed): void;
+  /**
+   * Phase 4c, test-only: from the map, wins the run through the run store, as if its boss fell
+   * (the hook's `warp('boss')` and `winFight()`), with `found` among its relics: its end pays
+   * the Reliquary and its Summary can enshrine. Returns false if it couldn't.
+   */
+  winRun(found?: string[]): boolean;
+}
+
+/** An Inscription as the hook reads and seeds it. */
+export interface HookInscription {
+  id: string;
+  tier: number;
+  value?: number;
+}
+
+/** What `reliquary()` returns. */
+export interface ReliquaryView {
+  open: boolean;
+  slots: number;
+  shards: number;
+  tears: number;
+  relics: {
+    uid: string;
+    id: string;
+    inscriptions: Required<HookInscription>[];
+    instability: number;
+    fractured: boolean;
+    dissonance: string | null;
+  }[];
+  carry: string[];
+  run: {
+    /** The relics it carries (ids, slot order: the first attuned). */
+    carried: string[];
+    relics: { id: string; carried: boolean; dormant: boolean }[];
+    paid: { shards: number; tears: number; enshrined: string | null } | null;
+  } | null;
+}
+
+/** What `seedReliquary` takes. */
+export interface ReliquarySeed {
+  relics: { id: string; inscriptions?: HookInscription[]; instability?: number }[];
+  shards?: number;
+  tears?: number;
+  /** Uids, in slot order. */
+  carry?: string[];
 }
 
 declare global {

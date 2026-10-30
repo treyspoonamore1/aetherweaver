@@ -103,7 +103,9 @@ export interface OwnedRelic {
 export interface RunReliquary {
   shards: number;
   tears: number;
+  /** The relic it enshrined (content id), and which of the Reliquary's it became. */
   enshrined: string | null;
+  enshrinedUid?: string | null;
 }
 
 /** A boon or bane from an event (content `boons`). */
