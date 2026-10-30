@@ -48,6 +48,7 @@ export type {
   AssistConfig,
   ChordConfig,
 } from './world';
+import { updateStars } from './systems/solos';
 export type { SimSnapshot } from './hashing';
 
 export interface Sim {
@@ -90,6 +91,7 @@ function stepWorld(world: World, commands: readonly Command[]): void {
   updateEchoWards(world);
   updateField(world, dt);
   updateHeroes(world, dt);
+  updateStars(world);
   if (!stasis) {
     updateEnemies(world, dt);
     updateBosses(world);

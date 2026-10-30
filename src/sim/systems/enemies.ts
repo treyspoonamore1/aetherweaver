@@ -82,6 +82,7 @@ export function spawnEnemy(
       cast: null,
       phase: tier === 'boss' || tier === 'miniboss' ? 1 : 0,
       risen: false,
+      markedUntil: 0,
       inField: false,
       auraMask: 0,
       beamFocus: false,

@@ -35,6 +35,8 @@ import {
 } from './health';
 import { bark, pushMarker, relicFired, setTimeScale } from './feedback';
 import { gainResonance } from './resonance';
+import { hasTalent } from '../bonds';
+import { riposteBash } from '../systems/heroes';
 
 export interface TelegraphSpec {
   owner: Entity;
@@ -381,6 +383,7 @@ function perfect(
   }
   world.ledger.perfects++;
   world.ledger.negated += damage;
+  if (e.hero) e.hero.supportReceived += damage;
   answered(world);
   pushMarker(world, 'perfect', e.hero?.slot ?? null);
   const weaver = world.entities.get(world.weaverId);
@@ -394,6 +397,8 @@ function perfect(
   // Ringing Parry (the Astrolabe): a longer stagger.
   if (owner?.health && !owner.health.dead)
     addStatus(world, owner, 'stagger', tech.staggerTime * world.mods.staggerMult, world.weaverId);
+  // Riposte Bash (Bonds): Kael answers a Perfect Ward on him with his Shield Bash.
+  if (owner && hasTalent(e, 'riposte_bash')) riposteBash(world, e, owner);
   world.events.push({
     type: 'perfectWard',
     tick: world.tick,

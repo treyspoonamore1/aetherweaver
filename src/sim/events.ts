@@ -564,6 +564,17 @@ export interface EnemyRose extends At {
   /** Its life as it rises. */
   hp: number;
 }
+/** A Bond talent visibly acted (docs/phase-4e.md): a bash, a step, a blink, a star, a sphere. */
+export interface TalentFired extends At {
+  type: 'talentFired';
+  hero: EntityId;
+  /** The talent's or alternate Solo's id. */
+  talent: string;
+  x: number;
+  z: number;
+  /** Who it acted on, if anyone. */
+  target: EntityId | null;
+}
 export interface PhaseChanged extends At {
   type: 'phaseChanged';
   boss: EntityId;
@@ -646,6 +657,7 @@ export type SimEvent =
   | CastInterrupted
   | EnemyKilled
   | EnemyRose
+  | TalentFired
   | PhaseChanged
   | DecreeAnnounced;
 

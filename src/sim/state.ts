@@ -262,6 +262,26 @@ export interface HeroComponent {
   soloPulseAt: number;
   /** Highest telegraph id this hero has reacted to. */
   lastTelegraphSeen: number;
+  // ── Bonds (docs/phase-4e.md) ──
+  /** The talents this hero plays with, in content order. */
+  talents: string[];
+  /** The Solo this hero brings: their own, or the alternate their Bond opened. */
+  soloId: string;
+  /** The Weaver's healing, shields and saves on this hero this fight (Bond XP). */
+  supportReceived: number;
+  /** Wind Step, Arcane Ward: sim time the talent can act again. */
+  talentReadyAt: number;
+  /** Unbreakable: spent this fight. */
+  unbreakableUsed: boolean;
+  /** Celestial Sphere: hits it will still swallow, until this sim time; given by a Cue. */
+  sphereHits: number;
+  sphereUntil: number;
+  sphereCued: boolean;
+  /** Hawk's Vigil: the highest telegraph id it has answered. */
+  vigilSeen: number;
+  /** Where this hero's Solo last struck (Supernova's nova). */
+  strikeX: number;
+  strikeZ: number;
   /**
    * The Chronomancer's Rewind (docs/phase-3e.md): this hero's last 3 s, sampled every 0.1 s
    * into a ring buffer (`pastAt` is the next slot to write). Empty without the Chronomancer.
@@ -303,6 +323,8 @@ export interface HeroDodge {
   /** When the hero reacts (reaction delay). */
   at: number;
   until: number;
+  /** Wind Step (Bonds): nothing stops this one, not a quirk, not a rooted Solo. */
+  sure?: true;
 }
 
 /** Being pulled by Reel. */
@@ -348,6 +370,8 @@ export interface EnemyComponent {
   phase: number;
   /** Restless Dead (docs/phase-4d.md): it has fallen and risen once already. */
   risen: boolean;
+  /** Hawk's Vigil, cued (Bonds): it takes more damage from heroes until this sim time. */
+  markedUntil: number;
   /** Inside one of the Weaver's fields, whatever the songs hold for enemies (Eclipse). */
   inField: boolean;
   /** Bit i set ⇔ content.auras[i] (a hex) affects this enemy right now. */

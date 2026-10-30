@@ -11,12 +11,14 @@ import { CALLINGS } from './callings';
 import { BOONS, RELICS } from './relics';
 import { CURSES, INSCRIPTIONS, RELIQUARY } from './reliquary';
 import { DISSONANCE, DISSONANCE_RULES } from './dissonance';
+import { ALT_SOLOS, BOND_RULES, SCENES, TALENTS } from './bonds';
 import { RUN_EVENTS } from './runEvents';
 import { CALLS, CHORUS, CRESCENDO, RESONANCE, TECHNIQUES, THREAD, WEAVER } from './weaver';
 import {
   ContentSchema,
   type ArenaDef,
   type AstrolabeNode,
+  type AltSoloDef,
   type AttackDef,
   type AuraDef,
   type BoonDef,
@@ -34,6 +36,8 @@ import {
   type OrnamentDef,
   type RelicDef,
   type RunEventDef,
+  type SceneDef,
+  type TalentDef,
 } from './schema';
 
 /** Validated at module load: invalid content fails fast in dev, tests and CI. */
@@ -64,6 +68,10 @@ export const CONTENT: Content = ContentSchema.parse({
   reliquary: RELIQUARY,
   dissonance: DISSONANCE,
   dissonanceRules: DISSONANCE_RULES,
+  bondRules: BOND_RULES,
+  talents: TALENTS,
+  altSolos: ALT_SOLOS,
+  scenes: SCENES,
   arenas: ARENAS,
   encounters: ENCOUNTERS,
   barks: {
@@ -198,6 +206,25 @@ export function dissonanceText(level: DissonanceLevel): string {
   return fillValues(level.text, level.values);
 }
 
+/** A Bond talent by id (docs/phase-4e.md). */
+export const talentDef: (id: string) => TalentDef = index('talent', CONTENT.talents);
+
+/** A Bond talent's effect, filled in. */
+export function talentText(def: TalentDef): string {
+  return fillValues(def.text, def.values);
+}
+
+/** An alternate Solo by id. */
+export const altSoloDef: (id: string) => AltSoloDef = index('alternate Solo', CONTENT.altSolos);
+
+/** An alternate Solo's two lines, filled in: uncued, then cued. */
+export function altSoloText(def: AltSoloDef): { text: string; cued: string } {
+  return { text: fillValues(def.text, def.values), cued: fillValues(def.cuedText, def.values) };
+}
+
+/** A Bond scene by id. */
+export const sceneDef: (id: string) => SceneDef = index('scene', CONTENT.scenes);
+
 /** A Deed by id. */
 export const deedDef: (id: string) => DeedDef = index('deed', CONTENT.deeds);
 
@@ -233,11 +260,13 @@ export function motifText(def: MotifDef, level: number): string {
 }
 
 export type {
+  AltSoloDef,
   ArenaDef,
   Astrolabe,
   AstrolabeNode,
   AttackDef,
   AuraDef,
+  BondRules,
   BoonDef,
   CallingDef,
   CallingOption,
@@ -261,5 +290,7 @@ export type {
   RelicRarity,
   ReliquaryDef,
   RunEventDef,
+  SceneDef,
+  TalentDef,
 } from './schema';
 export { DISSONANCE_EFFECTS, INSCRIPTION_CATEGORIES, PASSIVE_EFFECTS } from './schema';

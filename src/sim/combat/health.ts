@@ -22,6 +22,7 @@ import { addHealingThreat, addThreat } from './threat';
 import { bark, pushMarker, relicFired, setTimeScale } from './feedback';
 import { gainResonance } from './resonance';
 import { recordSave } from './saves';
+import { hasTalent, soloValue, talentFired, talentHolder, talentValue } from '../bonds';
 
 /** Shields with no natural expiry (aura barriers, discord) expire at this sim time. */
 export const NEVER = 1e9;
@@ -275,6 +276,9 @@ export function heal(
   if (!h || h.dead || h.downed || amount <= 0) return 0;
   // Wounding Strikes (Dissonance): heroes are healed less.
   if (target.hero) amount *= world.mods.heroHealMult;
+  // Bulwark of Faith (Bonds): Kael is healed more while you Thread him.
+  if (hasTalent(target, 'bulwark_of_faith') && threadedOn(world, target))
+    amount *= 1 + talentValue(world, 'bulwark_of_faith', 'pct') / 100;
   // Martyr's Vow: the Weaver's healing received is doubled while it lasts.
   if (target.weaver && world.field.vow) amount *= world.mods.vowHealMult;
   // Prism Covenant (the Astrolabe): the Weaver can't be healed above a share of her Life.
@@ -295,6 +299,8 @@ export function heal(
   if (via !== 'solo' && via !== 'self' && target.team === 'party') {
     world.ledger.healing += effective;
     world.ledger.overheal += overheal;
+    // Bonds: what you did for this hero.
+    if (target.hero) target.hero.supportReceived += effective;
     if (via === 'aura') world.ledger.auras.healing += effective;
     else if (via === 'mend') world.ledger.thread.healing += effective;
     if (effective > 0) addHealingThreat(world, effective);
@@ -329,6 +335,8 @@ export interface DamageOpts {
   kind?: 'hit' | 'tick' | 'detonation';
   /** Empowered hits can damage Discord shields. */
   empowered?: boolean;
+  /** Already taken over by Oathkeeper (Bonds): not taken over again. */
+  oath?: boolean;
 }
 
 export interface DamageResult {
@@ -376,6 +384,13 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
   }
 
   const source = opts.source === null ? undefined : world.entities.get(opts.source);
+  // Bonds (docs/phase-4e.md): an enemy's hit on a hero may be swallowed by Vexis's sphere, or
+  // taken over by Kael's Oathkeeper.
+  if (target.hero && opts.kind !== 'tick' && (source?.enemy || opts.telegraph)) {
+    const taken =
+      sphere(world, target, opts.amount) ?? (opts.oath ? null : oath(world, target, opts));
+    if (taken) return taken;
+  }
   let amount = opts.amount;
   // Relics on hero hits (Heavy Score, Warden's Key): the extra is the Weaver's share.
   let amplifiedIn = opts.amplified ?? 0;
@@ -383,6 +398,12 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
   let callingIn = 0;
   let radianceIn = 0;
   if (source?.hero && target.enemy) {
+    // Bonds: Hunter's Mark (Lyra) on your Focus, and Hawk's Vigil's mark. The heroes', not your
+    // share.
+    if (target.id === world.focusTarget && isActive(talentHolder(world, 'hunters_mark')))
+      amount *= 1 + talentValue(world, 'hunters_mark', 'pct') / 100;
+    if (target.enemy.markedUntil > world.time)
+      amount *= 1 + soloValue(world, 'hawks_vigil', 'pct') / 100;
     let mult =
       world.mods.partyDamageMult * (target.enemy.defId === 'mute' ? world.mods.muteDamageMult : 1);
     // The Astrolabe's Anthem and Shield Bearer: heroes in a field, or under a Ward, hit harder.
@@ -508,6 +529,12 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
       dealt = 0;
       martyred = true;
       saved = true;
+    } else if (!target.hero.unbreakableUsed && hasTalent(target, 'unbreakable')) {
+      // Unbreakable (Bonds): once a fight, Kael stands through the blow.
+      dealt = Math.max(0, h.hp - 1);
+      target.hero.unbreakableUsed = true;
+      h.invulnerable = Math.max(h.invulnerable, talentValue(world, 'unbreakable', 'seconds'));
+      talentFired(world, target, 'unbreakable', target.x, target.z);
     }
   }
   if (target.weaver?.undying && dealt >= h.hp && dealt > 0) {
@@ -518,6 +545,8 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
   h.lastHitAt = world.time;
   if (absorbedByWeaver > 0) world.ledger.shielded += absorbedByWeaver;
   if (absorbedByAura > 0) world.ledger.auras.shielded += absorbedByAura;
+  // Bonds: the life your shields and guards kept for this hero (summed as it's credited).
+  const shieldedBefore = world.ledger.shielded;
   // The guard and Haloed are credited only with life the hero kept, between them: none if the
   // hit downs them anyway.
   let keptLife = h.hp;
@@ -559,6 +588,8 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
     if (borne > 0) sendToWeaver(world, target, borne, borneVia, opts);
     if (vowExcess > 0) sendToWeaver(world, target, vowExcess * world.mods.vowRedirect, 'vow', opts);
   }
+  if (target.hero)
+    target.hero.supportReceived += absorbedByWeaver + world.ledger.shielded - shieldedBefore;
 
   const total = dealt + absorbed;
   const amplifiedShare = amplifiedIn > 0 && amountIn > 0 ? (amplifiedIn * total) / amountIn : 0;
@@ -584,6 +615,9 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
       }
     }
     if (hasStatus(target, 'sleep')) removeStatus(world, target, 'sleep', 'expired');
+    // Hawk Eye (Bonds): Lyra's Empowered crits ring for you.
+    if (opts.crit && opts.empowered && hasTalent(source, 'hawk_eye'))
+      gainResonance(world, talentValue(world, 'hawk_eye', 'resonance'), 'hawk_eye');
   }
   if (target.hero && dealt > 0) {
     const recent = target.hero.recentDamage;
@@ -613,7 +647,7 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
     if (target.hero) downHero(world, target, opts.sourceName);
     else if (target.weaver) downWeaver(world, target);
     else if (!restlessRise(world, target)) killEnemy(world, target, source ?? null);
-  }
+  } else if (source?.enemy && hasTalent(target, 'arcane_ward')) arcaneWard(world, target, source);
   return {
     dealt,
     absorbed,
@@ -625,6 +659,92 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
     martyred,
     saved,
   };
+}
+
+/** The Weaver's Thread is on this hero. */
+function threadedOn(world: World, e: Entity): boolean {
+  const slot = world.entities.get(world.weaverId)?.weaver?.threadSlot;
+  return slot !== null && slot !== undefined && e.hero?.slot === slot;
+}
+
+/**
+ * Celestial Sphere (Bonds, Vexis's alternate Solo): it swallows a hit whole while it lasts. A
+ * cued one is your Cue's doing: its hits are credited to you.
+ */
+function sphere(world: World, target: Entity, amount: number): DamageResult | null {
+  const hero = target.hero!;
+  if (hero.sphereHits <= 0 || hero.sphereUntil <= world.time) return null;
+  hero.sphereHits--;
+  if (hero.sphereCued) {
+    world.ledger.shielded += amount;
+    hero.supportReceived += amount;
+  }
+  const vexis = world.party
+    .map((id) => world.entities.get(id))
+    .find((e) => e?.hero?.soloId === 'celestial_sphere');
+  if (vexis) talentFired(world, vexis, 'celestial_sphere', target.x, target.z, target.id);
+  return { ...NO_DAMAGE, absorbed: amount, blocked: false };
+}
+
+/**
+ * Oathkeeper (Bonds, Kael's alternate Solo): while it lasts, a hit on a hero near Kael lands on
+ * him instead, at a share.
+ */
+function oath(world: World, target: Entity, opts: DamageOpts): DamageResult | null {
+  for (const id of world.party) {
+    const kael = world.entities.get(id);
+    const k = kael?.hero;
+    if (!k || k.soloId !== 'oathkeeper' || k.soloActive <= 0 || kael === target) continue;
+    if (!isActive(kael)) continue;
+    const radius = soloValue(world, 'oathkeeper', k.soloCued ? 'cuedRadius' : 'radius');
+    if (distSq(kael.x, kael.z, target.x, target.z) > radius * radius) continue;
+    const share = soloValue(world, 'oathkeeper', k.soloCued ? 'cuedPct' : 'pct') / 100;
+    talentFired(world, kael, 'oathkeeper', target.x, target.z, target.id);
+    dealDamage(world, kael, { ...opts, amount: opts.amount * share, oath: true });
+    return { ...NO_DAMAGE, blocked: false };
+  }
+  return null;
+}
+
+/**
+ * Arcane Ward (Bonds): struck up close, Vexis blinks toward the Weaver (or away from the blow if
+ * the Weaver is right there), once in a while.
+ */
+function arcaneWard(world: World, vexis: Entity, enemy: Entity): void {
+  const hero = vexis.hero!;
+  if (world.time < hero.talentReadyAt) return;
+  const reach = vexis.radius + enemy.radius + 2;
+  if (distSq(vexis.x, vexis.z, enemy.x, enemy.z) > reach * reach) return;
+  const metres = talentValue(world, 'arcane_ward', 'metres');
+  const weaver = world.entities.get(world.weaverId);
+  let dx = (weaver?.x ?? vexis.x) - vexis.x;
+  let dz = (weaver?.z ?? vexis.z) - vexis.z;
+  let d = Math.sqrt(dx * dx + dz * dz);
+  let step = Math.min(metres, d - 1.5);
+  if (step < 1) {
+    dx = vexis.x - enemy.x;
+    dz = vexis.z - enemy.z;
+    d = Math.sqrt(dx * dx + dz * dz);
+    step = metres;
+  }
+  if (d < 1e-6) return;
+  const fromX = vexis.x;
+  const fromZ = vexis.z;
+  let x = vexis.x + (dx / d) * step;
+  let z = vexis.z + (dz / d) * step;
+  const edge = world.arenaRadius - 1;
+  const r = Math.sqrt(x * x + z * z);
+  if (r > edge) {
+    x = (x / r) * edge;
+    z = (z / r) * edge;
+  }
+  vexis.x = x;
+  vexis.z = z;
+  vexis.vx = 0;
+  vexis.vz = 0;
+  hero.dodge = null;
+  hero.talentReadyAt = world.time + talentValue(world, 'arcane_ward', 'seconds');
+  talentFired(world, vexis, 'arcane_ward', fromX, fromZ, enemy.id);
 }
 
 /**
@@ -656,6 +776,7 @@ function martyr(world: World, hero: Entity, amount: number, opts: DamageOpts): b
   world.relics.veil = false;
   // Like Fermata's guard, credit only the life the hero kept, not the overkill.
   world.ledger.shielded += Math.min(amount, hero.health!.hp);
+  hero.hero!.supportReceived += Math.min(amount, hero.health!.hp);
   relicFired(world, 'martyrs_veil', hero.id);
   recordSave(world, hero, 'martyr', amount, opts.sourceName);
   const spare = Math.max(0, weaver.health.hp + totalShield(weaver.health) - 1);

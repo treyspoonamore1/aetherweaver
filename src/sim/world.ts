@@ -1,6 +1,7 @@
 import { CONTENT, arenaDef, encounterDef, heroDef } from '../content';
 import { PASSIVE_EFFECTS, type Content, type PassiveEffect } from '../content/schema';
 import { songReserve, treeKeystones } from './astrolabe';
+import { talentHero } from './bonds';
 import {
   canonicalChords,
   chordProblems,
@@ -82,6 +83,15 @@ export interface DissonanceConfig {
   rank: number;
 }
 
+/**
+ * Bonds (docs/phase-4e.md): the heroes' talents in force and the alternate Solos they bring.
+ * Ids are the content's; each belongs to one hero.
+ */
+export interface BondsConfig {
+  talents: readonly string[];
+  solos: readonly string[];
+}
+
 /** A Chord as configured (ornaments default to none). */
 export interface ChordConfig {
   auras: string[];
@@ -135,6 +145,12 @@ export interface SimConfig {
    * refused; kept for an absent Weaver too, so "without you" faces the same enemies.
    */
   dissonance?: readonly DissonanceConfig[];
+  /**
+   * Bonds (docs/phase-4e.md): talents and alternate Solos. Unknown ids are refused; a hero's who
+   * isn't in the party is ignored, as is a second talent in one tier. Kept for an absent Weaver:
+   * the heroes are the same people.
+   */
+  bonds?: BondsConfig;
   assists?: AssistConfig;
   /** Enables `debug` commands (spawns, teleport). Debug commands are recorded in replays. */
   debug?: boolean;
@@ -164,6 +180,8 @@ export interface ResolvedSimConfig {
   passives: PassiveConfig[];
   /** In content order, one of each, ranks clamped. */
   dissonance: DissonanceConfig[];
+  /** In content order: the party's heroes', one talent a tier and one Solo each. */
+  bonds: { talents: string[]; solos: string[] };
   assists: Required<AssistConfig>;
   debug: boolean;
   absent: boolean;
@@ -208,6 +226,7 @@ export function resolveConfig(config: SimConfig, content: Content = CONTENT): Re
     const rank = Math.max(...ranks.map((l) => Math.floor(l.rank)));
     if (rank >= 1) dissonance.push({ id: def.id, rank: Math.min(def.ranks, rank) });
   }
+  const bonds = resolveBonds(config.bonds, party, content);
   const given = config.chords ?? (config.auras ? [{ auras: config.auras }] : []);
   const chords = absent
     ? []
@@ -257,6 +276,7 @@ export function resolveConfig(config: SimConfig, content: Content = CONTENT): Re
     astrolabe,
     passives,
     dissonance,
+    bonds,
     assists: {
       perfectWindowBonus: Math.max(0, Math.min(0.3, a.perfectWindowBonus ?? 0)),
       telegraphLead: Math.max(1, Math.min(2, a.telegraphLead ?? 1)),
@@ -265,6 +285,35 @@ export function resolveConfig(config: SimConfig, content: Content = CONTENT): Re
     debug: config.debug ?? false,
     absent,
   };
+}
+
+function resolveBonds(
+  config: BondsConfig | undefined,
+  party: readonly { heroId: string }[],
+  content: Content,
+): { talents: string[]; solos: string[] } {
+  const heroes = new Set(party.map((m) => m.heroId));
+  for (const id of config?.talents ?? [])
+    if (!content.talents.some((t) => t.id === id)) throw new Error(`Unknown talent "${id}"`);
+  for (const id of config?.solos ?? [])
+    if (!content.altSolos.some((t) => t.id === id)) throw new Error(`Unknown Solo "${id}"`);
+  const chosen = new Set(config?.talents ?? []);
+  const talents: string[] = [];
+  for (const t of content.talents) {
+    if (!chosen.has(t.id) || !heroes.has(t.hero)) continue;
+    // One a tier: the first in content order.
+    if (
+      talents.some((id) =>
+        content.talents.some((o) => o.id === id && o.hero === t.hero && o.tier === t.tier),
+      )
+    )
+      continue;
+    talents.push(t.id);
+  }
+  const solos = content.altSolos
+    .filter((a) => (config?.solos ?? []).includes(a.id) && heroes.has(a.hero))
+    .map((a) => a.id);
+  return { talents, solos };
 }
 
 function resolveCalling(c: CallingConfig, content: Content): Required<CallingConfig> {
@@ -344,6 +393,8 @@ export interface PendingHit {
   splash: number;
   /** Chain to this many extra enemies (Vexis's bolts). */
   chain: number;
+  /** Ricochet (Bonds): it bounces once to another enemy in the field, at this share. */
+  bounce?: number;
   /** Empowered hits can break Discord shields. */
   empowered: boolean;
   stun: number;
@@ -411,6 +462,8 @@ export interface SimInternal {
   spared: { telegraph: number; hero: EntityId }[];
   /** Sim time Rewind next remembers the heroes' life and place. */
   pastSampleAt: number;
+  /** Constellation (Bonds): stars a Cue left, casting Vexis's bolt until they fade. */
+  stars: { x: number; z: number; source: EntityId; until: number; nextAt: number }[];
 }
 
 /** The sim's mutable world. Exposed to the outside only as the read-only WorldState. */
@@ -644,6 +697,7 @@ export function createWorld(config: SimConfig): World {
       echoWards: [],
       spared: [],
       pastSampleAt: 0,
+      stars: [],
       rallyUntil: 0,
       directiveBarkAt: -100,
       nextCallAt: content.calls.firstAfter,
@@ -787,6 +841,19 @@ export function createWorld(config: SimConfig): World {
         engaged: false,
         soloPulseAt: 0,
         lastTelegraphSeen: 0,
+        talents: resolved.bonds.talents.filter((id) => talentHero(content, id) === def.id),
+        soloId:
+          content.altSolos.find((a) => a.hero === def.id && resolved.bonds.solos.includes(a.id))
+            ?.id ?? def.solo.id,
+        supportReceived: 0,
+        talentReadyAt: 0,
+        unbreakableUsed: false,
+        sphereHits: 0,
+        sphereUntil: 0,
+        sphereCued: false,
+        vigilSeen: 0,
+        strikeX: 0,
+        strikeZ: 0,
         // Rewind remembers from the start: a Rewind early in the fight goes back to here.
         past: Array.from({ length: pastSamples(mods.rewindSeconds) }, () => ({
           hp: Math.max(1, Math.round(maxHp * member.hpPct)),

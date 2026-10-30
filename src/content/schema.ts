@@ -918,6 +918,82 @@ export const DissonanceRulesSchema = z
   .strict();
 export type DissonanceRules = z.infer<typeof DissonanceRulesSchema>;
 
+// ── Bonds (docs/phase-4e.md) ──────────────────────────────────────────────────────────
+
+export const BondRulesSchema = z
+  .object({
+    /** The Bond XP each rank needs, cumulative: ranks 1 to 10 (rank 1 at 0). */
+    ranks: z.array(z.number().int().nonnegative()).length(10),
+    /** Per fight, for each hero in it: a base, and their share of a pool by your support. */
+    base: z.number().nonnegative(),
+    pool: z.number().nonnegative(),
+    /** A fight's weight by kind. */
+    kinds: z
+      .object({
+        skirmish: z.number().nonnegative(),
+        elite: z.number().nonnegative(),
+        miniboss: z.number().nonnegative(),
+        boss: z.number().nonnegative(),
+      })
+      .strict(),
+    /** What a lost fight pays, against a won one. */
+    loss: Pct,
+    /** The Bond ranks that open each talent tier, and the alternate Solo. */
+    talentRanks: z.array(z.number().int().min(1).max(10)).length(3),
+    soloRank: z.number().int().min(1).max(10),
+    /** A scene pays this share of the XP between its rank and the next. */
+    scene: Pct,
+  })
+  .strict();
+export type BondRules = z.infer<typeof BondRulesSchema>;
+
+/** A Bond talent: a hero's tier (1–3) holds two, one to choose. */
+export const TalentDefSchema = z
+  .object({
+    id: IdSchema,
+    hero: IdSchema,
+    tier: z.number().int().min(1).max(3),
+    name: z.string(),
+    text: z.string(),
+    values: ValuesSchema,
+  })
+  .strict();
+export type TalentDef = z.infer<typeof TalentDefSchema>;
+
+/** A hero's alternate Solo, chosen at the Solo rank. Its length is `values.seconds`. */
+export const AltSoloDefSchema = z
+  .object({
+    id: IdSchema,
+    hero: IdSchema,
+    name: z.string(),
+    text: z.string(),
+    cuedText: z.string(),
+    chargeTime: Seconds,
+    values: ValuesSchema,
+  })
+  .strict();
+export type AltSoloDef = z.infer<typeof AltSoloDefSchema>;
+
+/**
+ * A Bond scene: a few lines at a Respite's fire, and one reply to choose. A hero's line is their
+ * words alone (the views quote it); narration and a reply's response are prose, quotes and all.
+ */
+export const SceneDefSchema = z
+  .object({
+    id: IdSchema,
+    hero: IdSchema,
+    /** The Bond rank from which it waits for a Respite. */
+    rank: z.number().int().min(1).max(10),
+    title: z.string(),
+    lines: z
+      .array(z.object({ speaker: z.enum(['hero', 'narration']), text: z.string().min(1) }))
+      .min(2),
+    /** The Weaver's two possible replies, and the hero's answer to each. */
+    replies: z.array(z.object({ text: z.string().min(1), response: z.string().min(1) })).length(2),
+  })
+  .strict();
+export type SceneDef = z.infer<typeof SceneDefSchema>;
+
 // ── Arenas and encounters ─────────────────────────────────────────────────────────────
 
 export const ArenaDefSchema = z.object({
@@ -997,6 +1073,10 @@ export const ContentSchema = z
     reliquary: ReliquaryDefSchema,
     dissonance: z.array(DissonanceLevelSchema),
     dissonanceRules: DissonanceRulesSchema,
+    bondRules: BondRulesSchema,
+    talents: z.array(TalentDefSchema),
+    altSolos: z.array(AltSoloDefSchema),
+    scenes: z.array(SceneDefSchema),
     arenas: z.array(ArenaDefSchema).min(1),
     encounters: z.array(EncounterDefSchema).min(1),
     /** Directive acknowledgement lines. */
@@ -1286,6 +1366,49 @@ export const ContentSchema = z
       c.dissonance.map((d) => d.id),
     );
     for (const d of c.dissonance) filled(d.text, d.values, `dissonance level "${d.id}"`);
+    // Bonds: for every hero with any, two talents a tier, one alternate Solo and two scenes.
+    const br = c.bondRules;
+    if (br.ranks[0] !== 0 || br.ranks.some((x, i) => i > 0 && x <= br.ranks[i - 1]!))
+      ctx.addIssue({ code: 'custom', message: 'Bond ranks start at 0 and rise' });
+    if (br.talentRanks.some((r, i) => i > 0 && r <= br.talentRanks[i - 1]!))
+      ctx.addIssue({ code: 'custom', message: 'Bond talent tiers open in order' });
+    if (br.soloRank <= br.talentRanks[2]!)
+      ctx.addIssue({ code: 'custom', message: 'the alternate Solo opens after the talents' });
+    const talentIds = unique(
+      'talent',
+      c.talents.map((t) => t.id),
+    );
+    unique(
+      'alternate Solo',
+      c.altSolos.map((s) => s.id),
+    );
+    unique(
+      'scene',
+      c.scenes.map((s) => s.id),
+    );
+    const bonded = new Set([...c.talents, ...c.altSolos, ...c.scenes].map((x) => x.hero));
+    for (const hero of bonded) {
+      need(heroes, hero, 'Bonds');
+      for (const tier of [1, 2, 3])
+        if (c.talents.filter((t) => t.hero === hero && t.tier === tier).length !== 2)
+          ctx.addIssue({
+            code: 'custom',
+            message: `hero "${hero}" needs two talents in tier ${tier}`,
+          });
+      if (c.altSolos.filter((s) => s.hero === hero).length !== 1)
+        ctx.addIssue({ code: 'custom', message: `hero "${hero}" needs one alternate Solo` });
+      if (c.scenes.filter((s) => s.hero === hero).length !== 2)
+        ctx.addIssue({ code: 'custom', message: `hero "${hero}" needs two scenes` });
+    }
+    for (const t of c.talents) filled(t.text, t.values, `talent "${t.id}"`);
+    for (const s of c.altSolos) {
+      filled(s.text, s.values, `alternate Solo "${s.id}"`);
+      filled(s.cuedText, s.values, `alternate Solo "${s.id}"`);
+      if (!(s.values.seconds! > 0))
+        ctx.addIssue({ code: 'custom', message: `alternate Solo "${s.id}" needs its seconds` });
+      if (talentIds.has(s.id) || c.heroes.some((h) => h.solo.id === s.id))
+        ctx.addIssue({ code: 'custom', message: `alternate Solo "${s.id}" has its own id` });
+    }
     for (const ev of c.events) {
       unique(
         `choice in event "${ev.id}"`,

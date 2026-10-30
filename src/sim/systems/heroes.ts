@@ -26,8 +26,9 @@ import { weaverOf, type World } from '../world';
 import { heroFx } from '../combat/auras';
 import { canCall, flourishing, settleCall, startCall, tendCall } from './calls';
 import { formationSlot } from './formation';
-import { flourishHit, heroAttackSpeed, heroDamage } from './heroDamage';
-import { nearestEnemy, startSolo, tickSoloClock, updateSolo } from './solos';
+import { attackRange, flourishHit, heroAttackSpeed, heroDamage } from './heroDamage';
+import { hasTalent, ricochet, talentFired, talentValue } from '../bonds';
+import { nearestEnemy, soloSpec, startSolo, tickSoloClock, updateSolo } from './solos';
 import { approachVelocity, arrive } from './steering';
 import { empowerBonus } from './thread';
 
@@ -95,16 +96,18 @@ export function updateHeroes(world: World, dt: number): void {
     if (hero.soloActive <= 0 && hero.engaged && hero.solo < 100) {
       hero.solo = Math.min(
         100,
-        hero.solo + (100 / def.solo.chargeTime) * world.mods.soloChargeMult * dt,
+        hero.solo + (100 / soloSpec(world, e).chargeTime) * world.mods.soloChargeMult * dt,
       );
       if (hero.solo >= 100) world.events.push({ type: 'soloReady', tick: world.tick, hero: e.id });
     }
-    if (hero.soloActive <= 0 && hero.solo >= 100 && shouldFireUncued(world, e, def))
+    if (hero.soloActive <= 0 && hero.solo >= 100 && shouldFireUncued(world, e))
       startSolo(world, e, false);
 
     if (hero.soloActive > 0) {
       const rooted = updateSolo(world, e, dt);
-      if (rooted) {
+      // Wind Step (Bonds): her step out of an attack beats even a rooted Solo.
+      const stepping = hero.dodge?.sure === true && world.time >= hero.dodge.at;
+      if (rooted && !stepping) {
         hero.action = 'channeling';
         approachVelocity(e, 0, 0, TUNING.heroAccel * 2, dt);
         faceTarget(world, e);
@@ -162,7 +165,8 @@ export function updateHeroes(world: World, dt: number): void {
 
     const inRange =
       target !== null &&
-      distSq(e.x, e.z, target.x, target.z) <= sqr(def.attack.range + target.radius + e.radius);
+      distSq(e.x, e.z, target.x, target.z) <=
+        sqr(attackRange(world, e, def.attack.range) + target.radius + e.radius);
     if (target && inRange && hero.attackCooldown <= 0) basicAttack(world, e, def, target);
 
     combatMove(world, weaver, e, def, target, dt);
@@ -196,11 +200,12 @@ function lowHpCheck(world: World, e: Entity): void {
   }
 }
 
-function shouldFireUncued(world: World, e: Entity, def: HeroDef): boolean {
+function shouldFireUncued(world: World, e: Entity): boolean {
   const h = e.health!;
-  if (def.solo.id === 'aegisWall' && h.hp < h.maxHp * 0.3) return true; // Kael braces when desperate.
+  const solo = e.hero!.soloId;
+  if (solo === 'aegisWall' && h.hp < h.maxHp * 0.3) return true; // Kael braces when desperate.
   if (!world.config.assists.autonomy) return false;
-  if (def.solo.id === 'aegisWall') return h.hp < h.maxHp * 0.5 || h.incoming > h.hp * 0.5;
+  if (solo === 'aegisWall') return h.hp < h.maxHp * 0.5 || h.incoming > h.hp * 0.5;
   return e.hero!.targetId !== null;
 }
 
@@ -264,7 +269,10 @@ function combatMove(
     desired.x = slotPos.x;
     desired.z = slotPos.z;
     const d = len(target.x - desired.x, target.z - desired.z);
-    const want = Math.min(def.preferredRange, def.attack.range - 0.5) + target.radius;
+    // Hawk Eye (Bonds): Lyra stands as much farther back as she shoots.
+    const farther = attackRange(world, e, def.attack.range) - def.attack.range;
+    const want =
+      Math.min(def.preferredRange + farther, def.attack.range + farther - 0.5) + target.radius;
     if (d > want) {
       const k = (d - want) / d;
       desired.x += (target.x - desired.x) * k;
@@ -351,7 +359,7 @@ function updateReel(world: World, e: Entity, dt: number): void {
 function chooseTarget(world: World, weaver: Entity, e: Entity, def: HeroDef): Entity | null {
   const hero = e.hero!;
   if (world.internal.rallyUntil > world.time)
-    return nearestEnemy(world, e, def.attack.range, hero.targetId);
+    return nearestEnemy(world, e, attackRange(world, e, def.attack.range), hero.targetId);
   const focus = world.focusTarget === null ? undefined : world.entities.get(world.focusTarget);
   if (focus?.enemy && isActive(focus) && !rising(focus)) return focus;
 
@@ -377,7 +385,7 @@ function chooseTarget(world: World, weaver: Entity, e: Entity, def: HeroDef): En
     }
     return best;
   }
-  const keepRange = def.attack.range + 3;
+  const keepRange = attackRange(world, e, def.attack.range) + 3;
   if (
     current?.enemy &&
     isActive(current) &&
@@ -448,6 +456,7 @@ function basicAttack(world: World, e: Entity, def: HeroDef, target: Entity): voi
     chain: def.attack.chain,
     empowered: hit.empowered,
     stun: 0,
+    ...ricochet(world, e),
   });
   world.events.push({
     type: 'attackFired',
@@ -477,6 +486,9 @@ function startCast(
   hero.abilityCooldowns[index] = ability.cooldown;
   let castTime = ability.castTime;
   if (ability.id === 'starbolt') castTime *= world.mods.starboltCastMult;
+  // Overchannel (Bonds): a longer Starbolt.
+  if (ability.id === 'starbolt' && hasTalent(e, 'overchannel'))
+    castTime *= 1 + talentValue(world, 'overchannel', 'cast') / 100;
   const flourish = flourishing(e, index);
   if (castTime <= 0) {
     executeAbility(world, e, def, index, target.id, x, z, flourish);
@@ -767,14 +779,20 @@ function executeAbility(
       return;
     }
     case 'gravityWell': {
-      const radius = ability.radius * radiusMult;
+      // Event Horizon (Bonds): it reaches farther and pulls toward your field's centre.
+      const horizon = hasTalent(e, 'event_horizon') && !world.field.suppressed;
+      const radius =
+        ability.radius * radiusMult + (horizon ? talentValue(world, 'event_horizon', 'radius') : 0);
+      const cx = horizon ? world.field.x : x;
+      const cz = horizon ? world.field.z : z;
       emit(x, z, radius);
+      if (horizon) talentFired(world, e, 'event_horizon', cx, cz);
       for (const m of world.entities.list()) {
         if (!m.enemy || !isActive(m)) continue;
-        const dx = x - m.x;
-        const dz = z - m.z;
+        if (len(x - m.x, z - m.z) > radius + m.radius) continue;
+        const dx = cx - m.x;
+        const dz = cz - m.z;
         const d = len(dx, dz);
-        if (d > radius + m.radius) continue;
         if (m.enemy.tier === 'normal' || m.enemy.tier === 'elite') {
           const pull = Math.min(d * 0.7, 3);
           if (d > 1e-6) {
@@ -807,7 +825,11 @@ function executeAbility(
       });
       if (!anchor) return;
       if (f) emit(tx, tz, radius);
-      const hit = hitOf(ability.damage);
+      // Overchannel (Bonds): a longer cast, a bigger bolt.
+      const power = hasTalent(e, 'overchannel')
+        ? ability.damage * (1 + talentValue(world, 'overchannel', 'damage') / 100)
+        : ability.damage;
+      const hit = hitOf(power);
       world.internal.pendingHits.push({
         at: world.time + travel,
         source: e.id,
@@ -823,6 +845,7 @@ function executeAbility(
         empowered: hit.empowered,
         stun: f?.stun ?? 0,
       });
+      if (hasTalent(e, 'starthread')) starthread(world, e, def, power, radius);
       return;
     }
   }
@@ -851,6 +874,23 @@ function noticeTelegraphs(world: World, e: Entity, def: HeroDef): void {
     hero.lastTelegraphSeen = t.id;
     if (t.kind === 'mark' || t.kind === 'raid' || def.dodge <= 0) continue;
     if (!contains(world, t, e)) continue;
+    // Wind Step (Bonds): every so often, Lyra steps out at once, whatever she's doing.
+    if (hasTalent(e, 'wind_step') && world.time >= hero.talentReadyAt) {
+      const out = escapePoint(world, t, e);
+      if (out) {
+        hero.dodge = {
+          telegraph: t.id,
+          x: out.x,
+          z: out.z,
+          at: world.time + 0.1,
+          until: t.impact + 0.15,
+          sure: true,
+        };
+        hero.talentReadyAt = world.time + talentValue(world, 'wind_step', 'seconds');
+        talentFired(world, e, 'wind_step', e.x, e.z);
+        continue;
+      }
+    }
     if (!world.rng.ai.chance(def.dodge)) continue;
     const escape = escapePoint(world, t, e);
     if (!escape) continue;
@@ -867,8 +907,9 @@ function noticeTelegraphs(world: World, e: Entity, def: HeroDef): void {
   const dodge = hero.dodge;
   if (dodge && world.time >= dodge.at && (hero.cast || hero.soloActive > 0)) {
     const t = world.telegraphs.find((x) => x.id === dodge.telegraph);
-    const greedy = def.quirk.id === 'greedyShot' && t !== undefined && t.impact - world.time < 1;
-    const spellbound = def.quirk.id === 'spellbound' && hero.cast !== null;
+    const greedy =
+      !dodge.sure && def.quirk.id === 'greedyShot' && t !== undefined && t.impact - world.time < 1;
+    const spellbound = !dodge.sure && def.quirk.id === 'spellbound' && hero.cast !== null;
     if (greedy || spellbound) {
       hero.dodge = null;
       bark(world, e, 'quirk');
@@ -968,8 +1009,96 @@ export function onPackArrived(world: World, pack: readonly Entity[]): void {
     if (!isActive(e) || !e.hero) continue;
     if (heroDef(e.hero.defId).quirk.id !== 'gloryHound') continue;
     if (e.hero.cast || e.hero.soloActive > 0) continue;
+    // Steady Vanguard (Bonds): he charges only your Focus, and only if you've set one.
+    let quarry = biggest;
+    if (hasTalent(e, 'steady_vanguard')) {
+      const focus = world.focusTarget === null ? undefined : world.entities.get(world.focusTarget);
+      if (!focus?.enemy || !isActive(focus)) continue;
+      quarry = focus;
+      talentFired(world, e, 'steady_vanguard', focus.x, focus.z, focus.id);
+    }
     e.hero.quirk = GLORY_TIME;
-    e.hero.targetId = biggest.id;
+    e.hero.targetId = quarry.id;
     bark(world, e, 'quirk', true);
+    if (hasTalent(e, 'vanguards_roar')) roar(world, e, quarry);
   }
+}
+
+/** Vanguard's Roar (Bonds): everything near Kael's quarry turns on him. */
+function roar(world: World, kael: Entity, quarry: Entity): void {
+  const radius = talentValue(world, 'vanguards_roar', 'radius');
+  const seconds = talentValue(world, 'vanguards_roar', 'seconds');
+  for (const m of world.entities.list()) {
+    if (!m.enemy || !isActive(m)) continue;
+    if (distSq(m.x, m.z, quarry.x, quarry.z) > sqr(radius + m.radius)) continue;
+    topThreat(m, kael.hero!.slot, 150);
+    if (m.enemy.tier === 'normal' || m.enemy.tier === 'elite') {
+      m.enemy.tauntTarget = kael.id;
+      m.enemy.tauntUntil = Math.max(m.enemy.tauntUntil, world.time + seconds);
+    }
+  }
+  talentFired(world, kael, 'vanguards_roar', quarry.x, quarry.z, quarry.id);
+}
+
+/**
+ * Riposte Bash (Bonds): a Perfect Ward on Kael fires his Shield Bash at the attacker, if it's
+ * close enough, whatever its cooldown.
+ */
+export function riposteBash(world: World, kael: Entity, attacker: Entity): void {
+  if (!isActive(kael) || !isActive(attacker) || !attacker.enemy || isDisabled(kael)) return;
+  const range = talentValue(world, 'riposte_bash', 'range');
+  if (distSq(kael.x, kael.z, attacker.x, attacker.z) > sqr(range + attacker.radius + kael.radius))
+    return;
+  const def = heroDef(kael.hero!.defId);
+  const index = def.abilities.findIndex((a) => a.id === 'shieldBash');
+  if (index !== 0 && index !== 1) return;
+  talentFired(world, kael, 'riposte_bash', attacker.x, attacker.z, attacker.id);
+  executeAbility(world, kael, def, index, attacker.id, attacker.x, attacker.z);
+}
+
+/** Starthread (Bonds): Starbolt also strikes the enemy nearest the hero you Thread. */
+function starthread(
+  world: World,
+  vexis: Entity,
+  def: HeroDef,
+  power: number,
+  radius: number,
+): void {
+  const slot = world.entities.get(world.weaverId)?.weaver?.threadSlot;
+  if (slot === null || slot === undefined) return;
+  const threaded = world.entities.get(world.party[slot] ?? -1);
+  if (!isActive(threaded) || threaded.id === vexis.id) return;
+  const target = nearestAt(world, threaded.x, threaded.z, 8);
+  if (!target) return;
+  const hit = heroDamage(world, vexis, (power * talentValue(world, 'starthread', 'pct')) / 100, 0);
+  const travel =
+    len(target.x - threaded.x, target.z - threaded.z) / Math.max(1, def.attack.projectileSpeed);
+  world.internal.pendingHits.push({
+    at: world.time + travel,
+    source: vexis.id,
+    target: target.id,
+    amount: hit.amount,
+    amplified: hit.amplified,
+    aura: hit.aura,
+    empower: hit.empower,
+    crit: hit.crit,
+    splashRadius: radius,
+    splash: 1,
+    chain: 0,
+    empowered: hit.empowered,
+    stun: 0,
+  });
+  world.events.push({
+    type: 'attackFired',
+    tick: world.tick,
+    source: vexis.id,
+    target: target.id,
+    visual: 'starbolt',
+    fromX: threaded.x,
+    fromZ: threaded.z,
+    toX: target.x,
+    toZ: target.z,
+    travel,
+  });
+  talentFired(world, vexis, 'starthread', threaded.x, threaded.z, target.id);
 }

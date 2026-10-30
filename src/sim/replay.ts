@@ -106,6 +106,10 @@ const SimConfigSchema = z
       .array(z.object({ effect: z.enum(PASSIVE_EFFECTS), value: z.number() }).strict())
       .default([]),
     dissonance: z.array(z.object({ id: z.string(), rank: z.number().int() }).strict()).default([]),
+    bonds: z
+      .object({ talents: z.array(z.string()), solos: z.array(z.string()) })
+      .strict()
+      .default({ talents: [], solos: [] }),
     assists: z
       .object({ perfectWindowBonus: z.number(), telegraphLead: z.number(), autonomy: z.boolean() })
       .strict(),

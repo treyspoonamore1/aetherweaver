@@ -21,7 +21,7 @@ import type { Entity, TechniqueKey } from '../state';
 import type { World } from '../world';
 import { weaverOf } from '../world';
 import { answerCall } from './calls';
-import { startSolo } from './solos';
+import { placeStar, startSolo } from './solos';
 
 type Rejectable = TechniqueKey | 'rewind' | 'thread' | 'cue' | 'crescendo' | 'plant';
 type Reason =
@@ -418,6 +418,8 @@ export function cue(world: World, slot: PartySlot): void {
   pushMarker(world, 'cue', h.slot);
   world.events.push({ type: 'cued', tick: world.tick, hero: hero.id });
   startSolo(world, hero, true);
+  // Constellation (Bonds): a Cue leaves a star where the hero stands.
+  placeStar(world, hero);
   chorusPulse(world, hero);
   if (world.mods.canon > 0) {
     for (const id of world.party) {

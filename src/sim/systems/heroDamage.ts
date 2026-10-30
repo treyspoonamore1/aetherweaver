@@ -2,6 +2,7 @@ import type { Entity } from '../state';
 import type { World } from '../world';
 import { heroFx } from '../combat/auras';
 import { empowerBonus } from './thread';
+import { hasTalent, talentValue } from '../bonds';
 
 const CRIT_CHANCE = 0.1;
 const CRIT_MULT = 1.6;
@@ -58,7 +59,20 @@ export function heroDamage(
 export function heroAttackSpeed(world: World, hero: Entity): number {
   let bonus = heroFx(world, hero).attackSpeed + empowerBonus(world, hero).attackSpeed;
   if (hero.hero?.defId === 'lyra' && hero.hero.inField) bonus += world.mods.lyraAttackSpeed;
+  // Last Light (Bonds): Lyra, low, shoots faster. Her own pace, not your share.
+  const h = hero.health;
+  if (
+    h &&
+    hasTalent(hero, 'last_light') &&
+    h.hp < (h.maxHp * talentValue(world, 'last_light', 'below')) / 100
+  )
+    bonus += talentValue(world, 'last_light', 'pct') / 100;
   return 1 + bonus;
+}
+
+/** A hero's basic attack reach: Hawk Eye (Bonds) takes Lyra's farther. */
+export function attackRange(world: World, hero: Entity, range: number): number {
+  return hasTalent(hero, 'hawk_eye') ? range + talentValue(world, 'hawk_eye', 'range') : range;
 }
 
 /**

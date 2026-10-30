@@ -1,7 +1,8 @@
 /** Hits in flight (arrows, bolts, meteors, Volley) land when their time comes. */
 import { enemyDef, heroDef } from '../../content';
 import { distSq } from '../core/dmath';
-import { addStatus, dealDamage, isActive } from '../combat/health';
+import { addStatus, dealDamage, isActive, rising } from '../combat/health';
+import { inAnyField } from './field';
 import type { Entity } from '../state';
 import type { PendingHit, World } from '../world';
 
@@ -38,6 +39,8 @@ function land(world: World, hit: PendingHit): void {
       strike(world, e, hit, hit.splash, sourceName);
     }
   }
+  // Ricochet (Bonds): Lyra's arrow bounces once, to another enemy inside your field.
+  if (hit.bounce) bounce(world, hit, target, x, z, sourceName);
   if (hit.chain > 0) {
     let from: Entity = target;
     const struck = new Set<number>([target.id]);
@@ -72,6 +75,43 @@ function land(world: World, hit: PendingHit): void {
       from = next;
     }
   }
+}
+
+const BOUNCE_RANGE = 8;
+
+function bounce(
+  world: World,
+  hit: PendingHit,
+  from: Entity,
+  x: number,
+  z: number,
+  sourceName: string,
+): void {
+  let next: Entity | null = null;
+  let best = BOUNCE_RANGE * BOUNCE_RANGE;
+  for (const e of world.entities.list()) {
+    if (e.id === from.id || !e.enemy || !isActive(e) || rising(e)) continue;
+    if (!inAnyField(world, e.x, e.z, 0)) continue;
+    const d = distSq(e.x, e.z, x, z);
+    if (d < best) {
+      best = d;
+      next = e;
+    }
+  }
+  if (!next) return;
+  world.events.push({
+    type: 'attackFired',
+    tick: world.tick,
+    source: hit.source,
+    target: next.id,
+    visual: 'arrow',
+    fromX: x,
+    fromZ: z,
+    toX: next.x,
+    toZ: next.z,
+    travel: 0,
+  });
+  strike(world, next, hit, hit.bounce!, sourceName);
 }
 
 /** Lands `scale` × the hit on `e` (splash and chain falloff scale every share alike). */
