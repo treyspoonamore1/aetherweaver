@@ -279,9 +279,10 @@ export interface HeroComponent {
   sphereCued: boolean;
   /** Hawk's Vigil: the highest telegraph id it has answered. */
   vigilSeen: number;
-  /** Where this hero's Solo last struck (Supernova's nova). */
+  /** Where this hero's Solo last struck (Supernova's nova), if it has struck since it began. */
   strikeX: number;
   strikeZ: number;
+  struck: boolean;
   /**
    * The Chronomancer's Rewind (docs/phase-3e.md): this hero's last 3 s, sampled every 0.1 s
    * into a ring buffer (`pastAt` is the next slot to write). Empty without the Chronomancer.

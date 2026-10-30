@@ -201,6 +201,8 @@ export function updateThread(world: World, dt: number): void {
       );
       if (h.revive >= 1) {
         reviveHero(world, hero, world.mods.reviveHpPct ?? def.reviveHpPct);
+        // Bonds (docs/phase-4e.md): the life a revive gives back is your support.
+        if (hero.hero) hero.hero.supportReceived += h.hp;
         // Second Wind (the Astrolabe): they stand up untouchable for a moment.
         h.invulnerable = Math.max(h.invulnerable, world.mods.reviveInvulnerable);
       }

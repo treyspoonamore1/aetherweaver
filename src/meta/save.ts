@@ -10,7 +10,7 @@ import { astrolabePoints, pruneTree } from './astrolabe';
 import { FIGHT_AETHER, RELIC_OFFERS } from './economy';
 import { fieldAuraSlots, reserveMult, reservePool, withCarried } from './run';
 import { MAX_RANK, newProfile, PROFILE_VERSION, type Profile } from './profile';
-import { bondedHeroes, fitBond } from './bonds';
+import { bondedHeroes, fitBond, fitRunBonds } from './bonds';
 import { fitLevels } from './dissonance';
 import { emptyReliquary, fitRelic, fitReliquary, type ReliquaryRelic } from './reliquary';
 import { RUN_SAVE_VERSION, type RunState } from './types';
@@ -596,6 +596,12 @@ export function loadRun(store: KeyValueStore): RunState | null {
       // that's gone leaves, and a save from before attunement plays as this build does.
       run.carried = run.carried.map(fitRelic).filter((r): r is ReliquaryRelic => r !== null);
       run.dissonance = fitLevels(run.dissonance);
+      // Bonds (docs/phase-4e.md): talents, Solos and a scene the content still knows. A scene
+      // that's gone sends the run back to its Respite, to choose again.
+      run.bonds = fitRunBonds(run.bonds);
+      const scene = run.scene && CONTENT.scenes.find((s) => s.id === run.scene!.sceneId);
+      if (run.phase === 'scene' && !scene) run.phase = 'respite';
+      run.scene = run.phase === 'scene' && scene ? { heroId: scene.hero, sceneId: scene.id } : null;
       const fitted = withCarried(run);
       if (compatibleWithContent(fitted)) {
         // Deeds no longer in the content drop out of the run's Summary.

@@ -7,6 +7,29 @@ import type { Content } from '../content/schema';
 import type { Entity, EntityId } from './state';
 import type { World } from './world';
 
+/** Every talent and alternate Solo the sim acts on (content lint checks each has its hook). */
+export const KNOWN_TALENTS: readonly string[] = [
+  'steady_vanguard',
+  'vanguards_roar',
+  'riposte_bash',
+  'bulwark_of_faith',
+  'unbreakable',
+  'shieldbearer',
+  'wind_step',
+  'hawk_eye',
+  'ricochet',
+  'hunters_mark',
+  'storm_queen',
+  'last_light',
+  'arcane_ward',
+  'overchannel',
+  'starthread',
+  'event_horizon',
+  'supernova',
+  'constellation',
+];
+export const KNOWN_ALT_SOLOS: readonly string[] = ['oathkeeper', 'hawks_vigil', 'celestial_sphere'];
+
 /** The hero a talent belongs to. */
 export function talentHero(content: Content, id: string): string | undefined {
   return content.talents.find((t) => t.id === id)?.hero;

@@ -276,9 +276,12 @@ export function heal(
   if (!h || h.dead || h.downed || amount <= 0) return 0;
   // Wounding Strikes (Dissonance): heroes are healed less.
   if (target.hero) amount *= world.mods.heroHealMult;
-  // Bulwark of Faith (Bonds): Kael is healed more while you Thread him.
-  if (hasTalent(target, 'bulwark_of_faith') && threadedOn(world, target))
-    amount *= 1 + talentValue(world, 'bulwark_of_faith', 'pct') / 100;
+  // Bulwark of Faith (Bonds): Kael is healed more while you Thread him. That part is his.
+  let own = 1;
+  if (hasTalent(target, 'bulwark_of_faith') && threadedOn(world, target)) {
+    own = 1 + talentValue(world, 'bulwark_of_faith', 'pct') / 100;
+    amount *= own;
+  }
   // Martyr's Vow: the Weaver's healing received is doubled while it lasts.
   if (target.weaver && world.field.vow) amount *= world.mods.vowHealMult;
   // Prism Covenant (the Astrolabe): the Weaver can't be healed above a share of her Life.
@@ -297,12 +300,13 @@ export function heal(
       hold.savedBy = via;
   }
   if (via !== 'solo' && via !== 'self' && target.team === 'party') {
-    world.ledger.healing += effective;
-    world.ledger.overheal += overheal;
+    const yours = effective / own;
+    world.ledger.healing += yours;
+    world.ledger.overheal += overheal / own;
     // Bonds: what you did for this hero.
-    if (target.hero) target.hero.supportReceived += effective;
-    if (via === 'aura') world.ledger.auras.healing += effective;
-    else if (via === 'mend') world.ledger.thread.healing += effective;
+    if (target.hero) target.hero.supportReceived += yours;
+    if (via === 'aura') world.ledger.auras.healing += yours;
+    else if (via === 'mend') world.ledger.thread.healing += yours;
     if (effective > 0) addHealingThreat(world, effective);
   }
   if (emit && (effective > 0 || overheal > 0)) {
@@ -350,6 +354,9 @@ export interface DamageResult {
   absorbedByDome: number;
   /** Invulnerable or otherwise ignored. */
   blocked: boolean;
+  /** Oathkeeper (Bonds) took the hit: who did, and what landed on them. */
+  takenBy?: EntityId;
+  takenDealt?: number;
   /** This hit downed or killed the target. */
   downed: boolean;
   /** Martyr's Veil took this hit for the hero (a Save is already recorded). */
@@ -388,7 +395,8 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
   // taken over by Kael's Oathkeeper.
   if (target.hero && opts.kind !== 'tick' && (source?.enemy || opts.telegraph)) {
     const taken =
-      sphere(world, target, opts.amount) ?? (opts.oath ? null : oath(world, target, opts));
+      sphere(world, target, opts.amount, !!opts.telegraph) ??
+      (opts.oath ? null : oath(world, target, opts));
     if (taken) return taken;
   }
   let amount = opts.amount;
@@ -529,13 +537,7 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
       dealt = 0;
       martyred = true;
       saved = true;
-    } else if (!target.hero.unbreakableUsed && hasTalent(target, 'unbreakable')) {
-      // Unbreakable (Bonds): once a fight, Kael stands through the blow.
-      dealt = Math.max(0, h.hp - 1);
-      target.hero.unbreakableUsed = true;
-      h.invulnerable = Math.max(h.invulnerable, talentValue(world, 'unbreakable', 'seconds'));
-      talentFired(world, target, 'unbreakable', target.x, target.z);
-    }
+    } else if (unbreakable(world, target)) dealt = Math.max(0, h.hp - 1);
   }
   if (target.weaver?.undying && dealt >= h.hp && dealt > 0) {
     dealt = Math.max(0, h.hp - 1);
@@ -671,13 +673,21 @@ function threadedOn(world: World, e: Entity): boolean {
  * Celestial Sphere (Bonds, Vexis's alternate Solo): it swallows a hit whole while it lasts. A
  * cued one is your Cue's doing: its hits are credited to you.
  */
-function sphere(world: World, target: Entity, amount: number): DamageResult | null {
+function sphere(
+  world: World,
+  target: Entity,
+  amount: number,
+  telegraph: boolean,
+): DamageResult | null {
   const hero = target.hero!;
   if (hero.sphereHits <= 0 || hero.sphereUntil <= world.time) return null;
   hero.sphereHits--;
   if (hero.sphereCued) {
-    world.ledger.shielded += amount;
-    hero.supportReceived += amount;
+    // The life it kept: after armour (telegraphs ignore it), up to what the hero has.
+    const armor = telegraph ? 0 : heroDef(hero.defId).armor;
+    const kept = Math.min(amount * (1 - armor), target.health!.hp);
+    world.ledger.shielded += kept;
+    hero.supportReceived += kept;
   }
   const vexis = world.party
     .map((id) => world.entities.get(id))
@@ -695,13 +705,14 @@ function oath(world: World, target: Entity, opts: DamageOpts): DamageResult | nu
     const kael = world.entities.get(id);
     const k = kael?.hero;
     if (!k || k.soloId !== 'oathkeeper' || k.soloActive <= 0 || kael === target) continue;
-    if (!isActive(kael)) continue;
+    // Untouchable or held at 1 life, he can't take it: it lands where it was aimed.
+    if (!isActive(kael) || kael.health.invulnerable > 0 || k.hold) continue;
     const radius = soloValue(world, 'oathkeeper', k.soloCued ? 'cuedRadius' : 'radius');
     if (distSq(kael.x, kael.z, target.x, target.z) > radius * radius) continue;
     const share = soloValue(world, 'oathkeeper', k.soloCued ? 'cuedPct' : 'pct') / 100;
     talentFired(world, kael, 'oathkeeper', target.x, target.z, target.id);
-    dealDamage(world, kael, { ...opts, amount: opts.amount * share, oath: true });
-    return { ...NO_DAMAGE, blocked: false };
+    const r = dealDamage(world, kael, { ...opts, amount: opts.amount * share, oath: true });
+    return { ...NO_DAMAGE, blocked: false, takenBy: kael.id, takenDealt: r.downed ? 0 : r.dealt };
   }
   return null;
 }
@@ -865,7 +876,21 @@ export function releaseHold(world: World, e: Entity, fightOver = false): void {
   if (healed) recordSave(world, e, 'fermata', hold.damage, hold.attack);
   // Martyr's Vow: a hold that runs out while it lasts doesn't fell them; the Vow keeps them.
   else if (world.field.vow) recordSave(world, e, 'vow', hold.damage, hold.attack);
-  else if (!fightOver) downHero(world, e, hold.attack);
+  else if (!fightOver && !unbreakable(world, e)) downHero(world, e, hold.attack);
+}
+
+/**
+ * Unbreakable (Bonds): once a fight, Kael stands through what would down him, at 1 life and
+ * untouchable for a moment: a blow, or a Fermata hold you didn't heal him through.
+ */
+function unbreakable(world: World, e: Entity): boolean {
+  const hero = e.hero;
+  if (!hero || hero.unbreakableUsed || !hasTalent(e, 'unbreakable')) return false;
+  hero.unbreakableUsed = true;
+  const h = e.health!;
+  h.invulnerable = Math.max(h.invulnerable, talentValue(world, 'unbreakable', 'seconds'));
+  talentFired(world, e, 'unbreakable', e.x, e.z);
+  return true;
 }
 
 const BLEED_OUT = 12;

@@ -286,4 +286,37 @@ describe('saves', () => {
     expect(loaded.bonds).toEqual([]);
     expect(loaded.scene).toBeNull();
   });
+
+  it('a saved run keeps only the choices and scenes the content knows', () => {
+    const store = memoryStore();
+    const save = (patch: object) => {
+      store.setItem('aetherweaver.run', JSON.stringify({ ...Run.newRun(7), ...patch }));
+      return loadRun(store)!;
+    };
+    const loaded = save({
+      phase: 'scene',
+      scene: { heroId: 'lyra', sceneId: 'kael_unbidden' },
+      bonds: [
+        // Out of order, one renamed away, a second in the same tier, a Solo that's gone.
+        { heroId: 'lyra', talents: ['ricochet', 'gone', 'hunters_mark', 'wind_step'], solo: 'x' },
+        { heroId: 'lyra', talents: ['hawk_eye'], solo: null },
+        { heroId: 'nobody', talents: ['ricochet'], solo: null },
+        { heroId: 'vexis', talents: [], solo: 'celestial_sphere' },
+        { heroId: 'kael', talents: ['gone'], solo: 'hawks_vigil' },
+      ],
+    });
+    expect(loaded.bonds).toEqual([
+      { heroId: 'lyra', talents: ['wind_step', 'ricochet'], solo: null },
+      { heroId: 'vexis', talents: [], solo: 'celestial_sphere' },
+    ]);
+    // The scene is its own hero's.
+    expect(loaded.phase).toBe('scene');
+    expect(loaded.scene).toEqual({ heroId: 'kael', sceneId: 'kael_unbidden' });
+    // A scene that's gone sends the run back to its Respite; outside a scene there's none.
+    const lost = save({ phase: 'scene', scene: { heroId: 'kael', sceneId: 'gone' } });
+    expect(lost.phase).toBe('respite');
+    expect(lost.scene).toBeNull();
+    const stray = save({ phase: 'map', scene: { heroId: 'kael', sceneId: 'kael_unbidden' } });
+    expect(stray.scene).toBeNull();
+  });
 });

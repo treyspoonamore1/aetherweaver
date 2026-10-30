@@ -854,6 +854,7 @@ export function createWorld(config: SimConfig): World {
         vigilSeen: 0,
         strikeX: 0,
         strikeZ: 0,
+        struck: false,
         // Rewind remembers from the start: a Rewind early in the fight goes back to here.
         past: Array.from({ length: pastSamples(mods.rewindSeconds) }, () => ({
           hp: Math.max(1, Math.round(maxHp * member.hpPct)),

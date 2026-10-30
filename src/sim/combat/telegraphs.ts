@@ -257,6 +257,8 @@ function resolve(world: World, t: Telegraph): void {
       if (spared(world, t.id, e.id)) {
         hitAnyone = true;
         answered(world);
+        // Bonds (docs/phase-4e.md): the life your Rewind kept out of its reach.
+        if (e.hero) e.hero.supportReceived += Math.min(telegraphDamage(t, e), e.health!.hp);
         emitResolved(world, t, e.id, 'dodged', 0);
         continue;
       }
@@ -360,6 +362,11 @@ function hitEntity(
   if (attack?.status && result.dealt > 0 && !result.downed) {
     addStatus(world, e, attack.status.id, attack.status.duration, t.owner);
   }
+  // Oathkeeper (Bonds): Kael took the hit, and what it carries.
+  if (attack?.status && result.takenBy !== undefined && (result.takenDealt ?? 0) > 0) {
+    const kael = world.entities.get(result.takenBy);
+    if (kael) addStatus(world, kael, attack.status.id, attack.status.duration, t.owner);
+  }
 }
 
 function perfect(
@@ -383,7 +390,8 @@ function perfect(
   }
   world.ledger.perfects++;
   world.ledger.negated += damage;
-  if (e.hero) e.hero.supportReceived += damage;
+  // Bonds: the life it kept (a hit bigger than the hero counts for what they had).
+  if (e.hero) e.hero.supportReceived += Math.min(damage, e.health!.hp);
   answered(world);
   pushMarker(world, 'perfect', e.hero?.slot ?? null);
   const weaver = world.entities.get(world.weaverId);
@@ -484,6 +492,8 @@ function reelDodged(world: World, t: Telegraph, e: Entity): void {
   gainResonance(world, world.content.resonance.gains.reelDodge, 'reel dodge');
   emitResolved(world, t, e.id, 'dodged', 0);
   const h = e.health;
+  // Bonds (docs/phase-4e.md): the life your Reel kept out of its reach.
+  if (h && e.hero) e.hero.supportReceived += Math.min(telegraphDamage(t, e), h.hp);
   if (h && telegraphDamage(t, e) >= h.hp + ownShield(h))
     recordSave(world, e, 'reel', telegraphDamage(t, e), t.name);
 }

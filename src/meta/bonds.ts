@@ -129,6 +129,25 @@ export function runBonds(
   return out;
 }
 
+/**
+ * A run's saved choices fitted to the content (a run resumed after a talent was renamed): heroes
+ * without Bonds and unknown talents and Solos dropped, one talent a tier.
+ */
+export function fitRunBonds(bonds: readonly RunBond[]): RunBond[] {
+  const out: RunBond[] = [];
+  for (const b of bonds) {
+    if (!bondedHeroes().includes(b.heroId) || out.some((o) => o.heroId === b.heroId)) continue;
+    const talents: string[] = [];
+    for (const tier of [1, 2, 3]) {
+      const id = b.talents.find((t) => talentChoices(b.heroId, tier).some((c) => c.id === t));
+      if (id) talents.push(id);
+    }
+    const solo = b.solo !== null && altSoloOf(b.heroId)?.id === b.solo ? b.solo : null;
+    if (talents.length > 0 || solo !== null) out.push({ heroId: b.heroId, talents, solo });
+  }
+  return out;
+}
+
 /** A run's choices as the fight takes them (`SimConfig.bonds`). */
 export function bondsConfig(bonds: readonly RunBond[]): { talents: string[]; solos: string[] } {
   return {
@@ -170,6 +189,7 @@ export function addBondXp(
   const next: Record<string, Bond> = { ...bonds };
   const rankUps: { heroId: string; rank: number }[] = [];
   for (const [heroId, gained] of Object.entries(xpByHero)) {
+    if (!Number.isFinite(gained)) continue;
     const xp = Math.max(0, Math.round(gained));
     if (xp <= 0 || !bondedHeroes().includes(heroId)) continue;
     const bond = next[heroId] ?? emptyBond();

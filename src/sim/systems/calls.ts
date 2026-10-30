@@ -14,6 +14,7 @@ import { hasStatus, isActive, isDisabled } from '../combat/health';
 import { gainResonance } from '../combat/resonance';
 import type { CallAnswer, Entity } from '../state';
 import { weaverOf, type World } from '../world';
+import { hasTalent, talentValue } from '../bonds';
 
 /** A call opens no earlier than this much of the answer time before the move is ready. */
 const MIN_LEAD = 0.6;
@@ -21,9 +22,14 @@ const MIN_LEAD = 0.6;
 const LINGER = 4;
 
 /** Seconds the call ability's cast takes (0 for instant moves). */
-function castTime(world: World, def: HeroDef): number {
+function castTime(world: World, e: Entity, def: HeroDef): number {
   const ability = def.abilities[def.call.ability];
-  return ability.castTime * (ability.id === 'starbolt' ? world.mods.starboltCastMult : 1);
+  if (ability.id !== 'starbolt') return ability.castTime;
+  // Overchannel (Bonds) lengthens it, as the cast itself does.
+  const over = hasTalent(e, 'overchannel')
+    ? 1 + talentValue(world, 'overchannel', 'cast') / 100
+    : 1;
+  return ability.castTime * world.mods.starboltCastMult * over;
 }
 
 /** Should `e` call for support now: their move is almost ready, it's calm, and an answer is possible? */
@@ -48,7 +54,7 @@ export function canCall(world: World, e: Entity, def: HeroDef): boolean {
   const reach = world.content.techniques.ward.range;
   if (distSq(e.x, e.z, weaver.x, weaver.z) > reach * reach) return false;
   // Only ask for what the Weaver could plausibly give in time.
-  const t = ready + castTime(world, def);
+  const t = ready + castTime(world, e, def);
   const regen = (w.maxSpirit - w.reservedSpirit) * world.content.weaver.spiritRegenPct;
   const spiritBy = (cost: number) => w.spirit + regen * world.mods.spiritRegenMult * t >= cost;
   const tech = world.content.techniques;
@@ -67,7 +73,7 @@ export function startCall(world: World, e: Entity, def: HeroDef): void {
   const hero = e.hero!;
   const call = def.call;
   const index = call.ability;
-  const end = world.time + hero.abilityCooldowns[index] + castTime(world, def);
+  const end = world.time + hero.abilityCooldowns[index] + castTime(world, e, def);
   const target = hero.targetId === null ? undefined : world.entities.get(hero.targetId);
   hero.call = {
     answer: call.answer,
@@ -166,7 +172,7 @@ export function tendCall(world: World, e: Entity, empowered: boolean): void {
   if (casting) call.end = Math.max(call.end, hero.cast!.end);
   else if (world.time > call.end) {
     // Ready, but waiting for a target: keep the call open a little longer.
-    if (world.time > call.start + def.call.answerTime + castTime(world, def) + LINGER)
+    if (world.time > call.start + def.call.answerTime + castTime(world, e, def) + LINGER)
       endCall(world, e, call.answered ? 'cancelled' : 'missed');
     else call.end = world.time + 0.25;
   }

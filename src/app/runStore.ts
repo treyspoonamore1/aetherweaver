@@ -125,11 +125,15 @@ export const useRun = create<RunStore>()((set, get) => {
       const saved = loadRun(storage());
       if (!saved) return false;
       // A fight can't be resumed mid-way: restart the pending encounter from its start.
-      // A run still in Prep picks up the tree, the carry and the Dissonance as they are now.
+      // A run still in Prep picks up the tree, the carry, the Dissonance and the Bonds as they
+      // are now.
       set({
-        run: Run.setDissonance(
-          Run.setCarried(Run.setAstrolabe(saved, profileTree()), profileCarry()),
-          profileDissonance(),
+        run: Run.setBonds(
+          Run.setDissonance(
+            Run.setCarried(Run.setAstrolabe(saved, profileTree()), profileCarry()),
+            profileDissonance(),
+          ),
+          profileBonds(saved.party.map((h) => h.heroId)),
         ),
       });
       // A run saved before Deeds (or before a reset) gets what its fights have earned.

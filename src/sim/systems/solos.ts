@@ -44,6 +44,7 @@ export function startSolo(world: World, hero: Entity, cued: boolean): void {
   h.castName = spec.name;
   h.castProgress = 0;
   h.dodge = null;
+  h.struck = false;
   world.events.push({
     type: 'soloStarted',
     tick: world.tick,
@@ -219,6 +220,7 @@ function starfall(world: World, hero: Entity, def: HeroDef): void {
     if (!target) continue;
     h.strikeX = target.x;
     h.strikeZ = target.z;
+    h.struck = true;
     const base = h.soloCued ? def.solo.cuedPower : def.solo.power;
     const hit = heroDamage(world, hero, base, 0);
     const travel = 0.45;
@@ -315,7 +317,7 @@ function shieldbearer(world: World, kael: Entity, power: number, duration: numbe
     const ally = world.entities.get(id);
     if (!isActive(ally) || ally.id === kael.id) continue;
     if (distSq(ally.x, ally.z, kael.x, kael.z) > radius * radius) continue;
-    const amount = ally.health.maxHp * power * share;
+    const amount = kael.health!.maxHp * power * share;
     // One overshield per hero: never trade a bigger one for this.
     const existing = shieldOf(ally.health, 'overshield');
     if (!existing || existing.amount < amount)
@@ -327,6 +329,8 @@ function shieldbearer(world: World, kael: Entity, power: number, duration: numbe
 /** Supernova (Bonds): Starfall's last meteor bursts into a nova. */
 function supernova(world: World, vexis: Entity): void {
   const h = vexis.hero!;
+  // A Starfall that dropped no meteor has nowhere to burst.
+  if (!h.struck) return;
   const def = heroDef(h.defId);
   const radius = talentValue(world, 'supernova', 'radius');
   const target = nearestTo(world, h.strikeX, h.strikeZ, radius);
@@ -421,6 +425,8 @@ export function updateStars(world: World): void {
   for (let i = 0; i < stars.length;) {
     const star = stars[i]!;
     const vexis = world.entities.get(star.source);
+    // Her stars are hers: they fade when she falls.
+    if (!isActive(vexis)) star.until = world.time;
     while (star.nextAt <= world.time + 1e-9 && star.nextAt <= star.until + 1e-9) {
       star.nextAt += interval;
       const target = vexis?.hero ? nearestTo(world, star.x, star.z, 10) : null;

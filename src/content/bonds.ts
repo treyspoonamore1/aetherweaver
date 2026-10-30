@@ -67,7 +67,7 @@ export const TALENTS: ContentInput['talents'] = [
     tier: 3,
     name: 'Shieldbearer',
     values: { radius: 6, pct: 50 },
-    text: 'Uncued, Aegis Wall also shields every hero within {radius} m of Kael, at {pct}% of its strength.',
+    text: 'Uncued, Aegis Wall also shields every hero within {radius} m of Kael with {pct}% of his barrier.',
   },
   // ── Lyra: alone and alive, or bound to your Thread and field ───────────────────────
   {
@@ -108,7 +108,7 @@ export const TALENTS: ContentInput['talents'] = [
     tier: 3,
     name: 'Storm Queen',
     values: { pct: 50 },
-    text: 'During Gale Barrage, the hero you Thread looses an arrow with each of hers, at {pct}% damage.',
+    text: 'During Gale Barrage, the hero you Thread (if it isn’t Lyra) looses an arrow with each of hers, at {pct}% damage.',
   },
   {
     id: 'last_light',
@@ -141,7 +141,7 @@ export const TALENTS: ContentInput['talents'] = [
     tier: 2,
     name: 'Starthread',
     values: { pct: 50 },
-    text: 'Starbolt also strikes the enemy nearest the hero you Thread, at {pct}% damage.',
+    text: 'Starbolt also strikes the enemy nearest the hero you Thread (if it isn’t Vexis), at {pct}% damage.',
   },
   {
     id: 'event_horizon',

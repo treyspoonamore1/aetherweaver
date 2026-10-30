@@ -5,7 +5,8 @@
 import { describe, expect, it } from 'vitest';
 import { CONTENT, altSoloDef, heroDef, talentDef } from '../../src/content';
 import type { SimConfig } from '../../src/sim';
-import { addShield, dealDamage, heal } from '../../src/sim/combat/health';
+import { addShield, addStatus, dealDamage, heal } from '../../src/sim/combat/health';
+import { KNOWN_ALT_SOLOS, KNOWN_TALENTS } from '../../src/sim/bonds';
 import { resolveConfig } from '../../src/sim/world';
 import { attackRange, heroAttackSpeed } from '../../src/sim/systems/heroDamage';
 import { onPackArrived, riposteBash } from '../../src/sim/systems/heroes';
@@ -166,7 +167,7 @@ describe('Kael', () => {
     expect(kael.health!.downed).toBe(true);
   });
 
-  it('Shieldbearer: uncued, Aegis Wall shields the heroes beside him at half', () => {
+  it('Shieldbearer: uncued, Aegis Wall shields the heroes beside Kael with a share of his barrier', () => {
     const { w, of } = setup(bonds(['shieldbearer']));
     const kael = of(KAEL);
     const near = of(LYRA);
@@ -180,7 +181,7 @@ describe('Kael', () => {
     const shield = (e: Entity) =>
       e.health!.shields.find((s) => s.kind === 'overshield')?.amount ?? 0;
     expect(shield(near)).toBeCloseTo(
-      (near.health!.maxHp * power * v('shieldbearer', 'pct')) / 100,
+      (kael.health!.maxHp * power * v('shieldbearer', 'pct')) / 100,
       6,
     );
     expect(shield(far)).toBe(0);
@@ -451,6 +452,166 @@ describe('the alternate Solos', () => {
     expect(of(LYRA).hero!.sphereHits).toBe(sv('celestial_sphere', 'hits'));
     hit(w, of(LYRA), 300, brute!);
     expect(w.ledger.shielded).toBe(300);
+  });
+});
+
+describe('the review’s fixes', () => {
+  it('the talents and Solos all have their hooks', () => {
+    expect([...CONTENT.talents.map((t) => t.id)].sort()).toEqual([...KNOWN_TALENTS].sort());
+    expect([...CONTENT.altSolos.map((t) => t.id)].sort()).toEqual([...KNOWN_ALT_SOLOS].sort());
+  });
+
+  it('Unbreakable catches a Fermata hold you didn’t heal him through', () => {
+    const { sim, of } = setup(bonds(['unbreakable']));
+    const kael = of(KAEL);
+    stepFor(sim, 1, [{ t: 'debug', op: { op: 'forceHold', slot: KAEL } }]);
+    expect(kael.hero!.hold).not.toBeNull();
+    stepUntil(sim, () => kael.hero!.hold === null, 60 * 5);
+    expect(kael.health!.downed).toBe(false);
+    expect(kael.hero!.unbreakableUsed).toBe(true);
+    expect(kael.health!.invulnerable).toBeGreaterThan(0);
+  });
+
+  it('Supernova needs a meteor this Starfall: no stale strike point', () => {
+    const { sim, w, of } = setup(bonds(['supernova']));
+    const vexis = of(VEXIS);
+    vexis.hero!.strikeX = 0;
+    vexis.hero!.strikeZ = 0;
+    vexis.hero!.struck = true;
+    // Nothing near her: no meteor falls, so no nova, wherever the last one fell.
+    enemies(sim, ['bell_brute', 0, 0]);
+    for (const e of w.entities.list()) if (e.enemy) e.x = 18;
+    vexis.x = -15;
+    startSolo(w, vexis, false);
+    const events = stepUntil(sim, (ev) => ev.some((e) => e.type === 'soloEnded'), 600);
+    expect(ofType(events, 'talentFired').some((e) => e.talent === 'supernova')).toBe(false);
+  });
+
+  it('Oathkeeper can’t pass a hit to an untouchable Kael', () => {
+    const { sim, w, of } = setup(bonds([], ['oathkeeper']));
+    const [brute] = enemies(sim, ['bell_brute', 0, -20]);
+    const kael = of(KAEL);
+    const lyra = of(LYRA);
+    lyra.x = kael.x + 2;
+    lyra.z = kael.z;
+    startSolo(w, kael, false);
+    kael.health!.invulnerable = 2;
+    const hp = lyra.health!.hp;
+    hit(w, lyra, 100, brute!);
+    expect(lyra.health!.hp).toBeLessThan(hp);
+  });
+
+  it('Ricochet bounces only inside a field that’s up', () => {
+    const { sim, w, of } = setup({
+      ...bonds(['ricochet']),
+      chords: [{ auras: ['sostenuto'], ornaments: [] }],
+    });
+    const me = w.entities.get(w.weaverId)!;
+    const [a, b] = enemies(
+      sim,
+      ['bell_brute', me.x + 1, me.z - 3],
+      ['bell_brute', me.x - 1, me.z - 3],
+    );
+    for (const e of [a!, b!]) e.health!.hp = e.health!.maxHp = 1e6;
+    // Down, and not re-forming before the arrow lands.
+    me.health!.downed = true;
+    me.weaver!.reform = 30;
+    stepFor(sim, 2);
+    expect(w.field.suppressed).toBe(true);
+    w.internal.pendingHits.push({
+      at: w.time,
+      source: of(LYRA).id,
+      target: a!.id,
+      amount: 100,
+      amplified: 0,
+      aura: 0,
+      empower: 0,
+      crit: false,
+      splashRadius: 0,
+      splash: 0,
+      chain: 0,
+      empowered: false,
+      stun: 0,
+      bounce: v('ricochet', 'pct') / 100,
+    });
+    stepFor(sim, 1);
+    expect(b!.health!.hp).toBe(1e6);
+  });
+
+  it('Wind Step waits while Lyra is stunned', () => {
+    const { sim, w, of } = setup(bonds(['wind_step']));
+    const lyra = of(LYRA);
+    for (const slot of [KAEL, VEXIS]) Object.assign(of(slot).health!, { hp: 0, dead: true });
+    enemies(sim, ['bell_brute', lyra.x, lyra.z - 2.5]);
+    for (const e of w.entities.list()) if (e.enemy && e.health) e.health.hp = e.health.maxHp = 1e6;
+    addStatus(w, lyra, 'stun', 60, null);
+    const events = stepFor(sim, 60 * 6);
+    expect(ofType(events, 'talentFired').some((e) => e.talent === 'wind_step')).toBe(false);
+    expect(lyra.hero!.talentReadyAt).toBe(0);
+  });
+
+  it('Hawk Eye and Ricochet: one Resonance an arrow', () => {
+    const { sim, w, of } = setup({
+      ...bonds(['hawk_eye', 'ricochet']),
+      chords: [{ auras: ['sostenuto'], ornaments: [] }],
+    });
+    const me = w.entities.get(w.weaverId)!;
+    const [a, b] = enemies(
+      sim,
+      ['bell_brute', me.x + 1, me.z - 3],
+      ['bell_brute', me.x - 1, me.z - 3],
+    );
+    for (const e of [a!, b!]) e.health!.hp = e.health!.maxHp = 1e6;
+    const weaver = me.weaver!;
+    weaver.resonance = 0;
+    w.internal.pendingHits.push({
+      at: w.time,
+      source: of(LYRA).id,
+      target: a!.id,
+      amount: 100,
+      amplified: 0,
+      aura: 0,
+      empower: 0,
+      crit: true,
+      splashRadius: 0,
+      splash: 0,
+      chain: 0,
+      empowered: true,
+      stun: 0,
+      bounce: v('ricochet', 'pct') / 100,
+    });
+    stepFor(sim, 1);
+    expect(b!.health!.hp).toBeLessThan(1e6);
+    expect(weaver.resonance).toBeCloseTo(v('hawk_eye', 'resonance') * w.mods.resonanceMult, 6);
+  });
+
+  it('Constellation’s stars fade when Vexis falls', () => {
+    const { sim, w, of } = setup(bonds(['constellation']));
+    enemies(sim, ['bell_brute', 0, -6]);
+    for (const e of w.entities.list()) if (e.enemy && e.health) e.health.hp = e.health.maxHp = 1e6;
+    stepFor(sim, 2, [
+      { t: 'debug', op: { op: 'chargeSolos' } },
+      { t: 'debug', op: { op: 'setResonance', value: 100 } },
+    ]);
+    stepFor(sim, 1, [{ t: 'cue', slot: KAEL }]);
+    expect(w.internal.stars).toHaveLength(1);
+    Object.assign(of(VEXIS).health!, { hp: 0, downed: true, bleedOut: 99 });
+    const events = stepFor(sim, 60 * 3);
+    const bolts = ofType(events, 'attackFired').filter((e) => e.source === of(VEXIS).id);
+    expect(bolts).toHaveLength(0);
+    expect(w.internal.stars).toHaveLength(0);
+  });
+
+  it('Bulwark of Faith’s extra healing is Kael’s, not yours', () => {
+    const { sim, w, of } = setup(bonds(['bulwark_of_faith']));
+    stepFor(sim, 1, [{ t: 'thread', slot: KAEL }]);
+    const kael = of(KAEL);
+    kael.health!.hp = kael.health!.maxHp / 2;
+    const before = w.ledger.healing;
+    const healed = heal(w, kael, 100, 'mend');
+    expect(healed).toBeCloseTo(100 + v('bulwark_of_faith', 'pct'), 6);
+    expect(w.ledger.healing - before).toBeCloseTo(100, 6);
+    expect(kael.hero!.supportReceived).toBeCloseTo(100, 6);
   });
 });
 

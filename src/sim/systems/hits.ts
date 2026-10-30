@@ -2,7 +2,6 @@
 import { enemyDef, heroDef } from '../../content';
 import { distSq } from '../core/dmath';
 import { addStatus, dealDamage, isActive, rising } from '../combat/health';
-import { inAnyField } from './field';
 import type { Entity } from '../state';
 import type { PendingHit, World } from '../world';
 
@@ -90,8 +89,7 @@ function bounce(
   let next: Entity | null = null;
   let best = BOUNCE_RANGE * BOUNCE_RANGE;
   for (const e of world.entities.list()) {
-    if (e.id === from.id || !e.enemy || !isActive(e) || rising(e)) continue;
-    if (!inAnyField(world, e.x, e.z, 0)) continue;
+    if (e.id === from.id || !e.enemy?.inField || !isActive(e) || rising(e)) continue;
     const d = distSq(e.x, e.z, x, z);
     if (d < best) {
       best = d;
@@ -111,7 +109,8 @@ function bounce(
     toZ: next.z,
     travel: 0,
   });
-  strike(world, next, hit, hit.bounce!, sourceName);
+  // One arrow, one crit: the bounce doesn't ring Hawk Eye again.
+  strike(world, next, { ...hit, crit: false }, hit.bounce!, sourceName);
 }
 
 /** Lands `scale` × the hit on `e` (splash and chain falloff scale every share alike). */

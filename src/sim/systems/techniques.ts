@@ -243,7 +243,11 @@ export function updateChimes(world: World): void {
         gainResonance(world, world.content.resonance.gains.cleanse, 'cleanse');
         if (isClutch)
           gainResonance(world, world.content.resonance.gains.clutchChime, 'clutch chime');
-        if (lethalDirge) recordSave(world, hero, 'chime', dirgeDamage(world, hero), 'Dirge');
+        if (lethalDirge) {
+          recordSave(world, hero, 'chime', dirgeDamage(world, hero), 'Dirge');
+          // Bonds (docs/phase-4e.md): the life the cleanse kept.
+          if (hero.hero) hero.hero.supportReceived += hero.health!.hp;
+        }
       }
     }
     const weaver = world.entities.get(world.weaverId);

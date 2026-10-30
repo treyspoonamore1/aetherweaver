@@ -106,7 +106,8 @@ export function updateHeroes(world: World, dt: number): void {
     if (hero.soloActive > 0) {
       const rooted = updateSolo(world, e, dt);
       // Wind Step (Bonds): her step out of an attack beats even a rooted Solo.
-      const stepping = hero.dodge?.sure === true && world.time >= hero.dodge.at;
+      const stepping =
+        hero.dodge?.sure === true && world.time >= hero.dodge.at && world.time <= hero.dodge.until;
       if (rooted && !stepping) {
         hero.action = 'channeling';
         approachVelocity(e, 0, 0, TUNING.heroAccel * 2, dt);
@@ -875,7 +876,7 @@ function noticeTelegraphs(world: World, e: Entity, def: HeroDef): void {
     if (t.kind === 'mark' || t.kind === 'raid' || def.dodge <= 0) continue;
     if (!contains(world, t, e)) continue;
     // Wind Step (Bonds): every so often, Lyra steps out at once, whatever she's doing.
-    if (hasTalent(e, 'wind_step') && world.time >= hero.talentReadyAt) {
+    if (hasTalent(e, 'wind_step') && world.time >= hero.talentReadyAt && !isDisabled(e)) {
       const out = escapePoint(world, t, e);
       if (out) {
         hero.dodge = {
