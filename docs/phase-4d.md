@@ -24,24 +24,24 @@
 
 ## The levels
 
-Points are first guesses; *Harness* measures each level's difficulty and sets them.
+Points follow each level's measured difficulty (see *Harness*): a point is worth about 8% more enemy life to a Rank-20 build.
 
 | | Level | Effect | Ranks | Points |
 |---|---|---|---|---|
-| 1 | **Brisk Foes** | enemies move 15% faster | 1 | 2 |
+| 1 | **Brisk Foes** | enemies move 15% faster | 1 | 1 |
 | 2 | **Hardened** | enemies have 25% more life | 2 | 3 each |
-| 3 | **Short Fuse** | enemies' wind-ups are 10% shorter | 2 | 3 each |
-| 4 | **Muted Choir** | your field and your beam song's echo reach 15% less far | 1 | 2 |
+| 3 | **Short Fuse** | enemies' wind-ups are 10% shorter | 2 | 1 each |
+| 4 | **Muted Choir** | your field and your beam song's echo reach 15% less far | 1 | 1 |
 | 5 | **Fragile Threads** | the Thread snaps 3 m sooner | 1 | 1 |
 | 6 | **Wounding Strikes** | heroes are healed 15% less | 2 | 2 each |
-| 7 | **Elite Vanguard** | elite fights bring one more elite, and every elite an extra affix | 1 | 3 |
+| 7 | **Elite Vanguard** | elite fights bring one more elite, and every elite an extra affix | 1 | 5 |
 | 8 | **Silent Cues** | a Cue costs 10 more Resonance | 1 | 1 |
-| 9 | **Restless Dead** | enemies rise once at 30% life (not bosses or mini-bosses) | 1 | 3 |
-| 10 | **Unforgiving** | Respites no longer heal | 1 | 2 |
+| 9 | **Restless Dead** | enemies rise once at 30% life (not bosses or mini-bosses) | 1 | 5 |
+| 10 | **Unforgiving** | Respites no longer heal | 1 | 1 |
 | 11 | **Blind Score** | telegraphs don't show which answer they want | 1 | 2 |
 | 12 | **Discordant Pact** | start the run with a random cursed relic | 1 | 1 |
 
-At most **33** points. Tyrant (bosses gain a mechanic per phase), Mimicry (a Mimicking affix) and True Dissonance (the Finale's fourth phase) come with Phase 5.
+At most **30** points. Tyrant (bosses gain a mechanic per phase), Mimicry (a Mimicking affix) and True Dissonance (the Finale's fourth phase) come with Phase 5.
 
 ## The Reliquary's tiers
 
@@ -97,7 +97,41 @@ Ascend's odds are unchanged (T3→T2 35%, T2→T1 20%), and so are its costs and
 
 ## Harness
 
-*To be filled in: each level's difficulty (the win rate it costs the Skilled bot with a Rank-20 build), the points that follow, and a few totals.*
+`npx tsx tools/dissonance.ts`: whole Prelude runs with a Rank-20 build (Guardian, a full 29-point tree through Overflowing Grace and the notables, and a typical carried set of three legendaries).
+
+**Each level's cost.** The Skilled bot with this build wins 98% of runs, and still about three in four against enemies with 90% more life: it wins by surviving, so extra enemy life barely registers. The Novice bot with the same build is sensitive (85% normally, 61% against 25% more life), so each level was measured with it, 300 runs each. The cost is read as the extra enemy life that costs as much, on a logistic scale between those two baselines (one rank of Hardened = 25%), and a point is set at about 8% of enemy life.
+
+| Level | Novice wins | Costs like | Points (first guess → now) |
+|---|---|---|---|
+| none | 85.3% | | |
+| Hardened | 61.0% | 25% (the scale) | 3 → 3 |
+| Hardened ×2 | 40.0% | 41% | 6 → 6 |
+| Restless Dead | 44.3% | 38% | 3 → **5** |
+| Elite Vanguard | 45.3% | 37% | 3 → **5** |
+| Wounding Strikes | 69.0% | 18% | 2 → 2 |
+| Wounding Strikes ×2 | 52.3% | 32% | 4 → 4 |
+| Short Fuse | 79.3% | 8% | 3 → **1** |
+| Short Fuse ×2 | 69.0% | 18% | 6 → **2** |
+| Fragile Threads | 81.3% | 5% | 1 → 1 |
+| Brisk Foes | 83.0% | 3% | 2 → **1** |
+| Silent Cues | 84.0% | 2% | 1 → 1 |
+| Unforgiving | 84.0% | 2% | 2 → **1** |
+| Muted Choir | 87.3% | ~0 | 2 → **1** |
+| Discordant Pact | 87.3% | ~0 | 1 → 1 |
+| Blind Score | 85.3% | none (no effect on a bot) | 2 → 2 |
+
+At these sample sizes a cost within about ±6% of zero can't be told from none. Every level is worth at least a point. Muted Choir, Discordant Pact and Blind Score cost a bot little: it doesn't place itself by the field, rarely Glides, and doesn't read answer glyphs. A player does all three, so they keep a point or two by judgment.
+
+**Totals** (150 runs each, the same build):
+
+| Dissonance | Skilled wins | Novice wins |
+|---|---|---|
+| 0 | 98% | 85% |
+| 10 (Hardened ×2, Wounding Strikes ×2) | 75% | 10% |
+| 20 (and Restless Dead, Elite Vanguard) | 35% | 0% |
+| 30 (everything) | 11% | |
+
+The ladder holds. Ten points is a skilled player's comfortable challenge, so T2 is in reach. Twenty is a real one, won about a third of the time, so T1 relics are the chase. Thirty is mastery.
 
 ## Code review
 

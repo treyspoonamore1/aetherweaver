@@ -14,6 +14,7 @@
  */
 import type { BotKind } from '../src/bots';
 import { CONTENT } from '../src/content';
+import { dissonancePoints } from '../src/meta/dissonance';
 import { CHORD_PRESETS } from '../src/meta/run';
 import { buildTree, TREES } from './astrolabe';
 import { playRun } from './harness-core';
@@ -49,7 +50,8 @@ function main(): void {
 
   if (argv.includes('--find')) {
     console.log(`dissonance base · ${bot} · tree ${tree.length} nodes · ${seeds} runs each`);
-    for (const t of [1, 1.3, 1.5, 1.7, 1.9, 2.1]) console.log(`  ×${t}: ${pct(runs(t))}`);
+    const steps = (get('steps') ?? '1,1.3,1.5,1.7,1.9,2.1').split(',').map(Number);
+    for (const t of steps) console.log(`  ×${t}: ${pct(runs(t))}`);
     return;
   }
 
@@ -67,6 +69,15 @@ function main(): void {
   console.log(
     `dissonance levels · ${bot} · ${seeds} runs each · base ×${threat}: ${pct(hi)}, ×${(threat * 1.25).toFixed(2)}: ${pct(lo)}`,
   );
+  if (argv.includes('--combo')) {
+    // The listed levels together, as one run's Dissonance.
+    const win = runs(threat, levels);
+    const life = (25 * (logit(hi) - logit(win))) / (logit(hi) - logit(lo));
+    console.log(
+      `  together (${dissonancePoints(levels)} pts): ${pct(win)} · like ${life.toFixed(1)}% more enemy life`,
+    );
+    return;
+  }
   for (const level of levels) {
     const def = CONTENT.dissonance.find((d) => d.id === level.id);
     if (!def) throw new Error(`Unknown level "${level.id}"`);
