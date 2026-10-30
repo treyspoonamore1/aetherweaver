@@ -575,6 +575,7 @@ function ailmentsOf(world: World, hero: Entity): Ailment[] {
 function purge(world: World, hero: Entity, ailments: Ailment[]): void {
   const radius = variantValue(world, 'purge', 'radius');
   const share = variantValue(world, 'purge', 'pct') / 100;
+  const hold = variantValue(world, 'purge', 'share') / 100;
   const hit: EntityId[] = [];
   for (const e of world.entities.list()) {
     if (!e.enemy || !isActive(e)) continue;
@@ -588,7 +589,7 @@ function purge(world: World, hero: Entity, ailments: Ailment[]): void {
             sourceName: 'Purge',
             amount: a.damage * share,
           });
-      } else if (a.remaining > 0) addStatus(world, e, a.id, a.remaining, world.weaverId);
+      } else if (a.remaining > 0) addStatus(world, e, a.id, a.remaining * hold, world.weaverId);
     }
     hit.push(e.id);
   }

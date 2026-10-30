@@ -77,7 +77,7 @@ describe('Ward', () => {
     expect(shieldOf(vexis.health!, 'ward')).toBeUndefined();
   });
 
-  it('Chorale: alone, its barrier only absorbs; on two heroes struck together, both are Perfect', () => {
+  it('Chorale: each barrier is Perfect as a Ward is, alone or with another', () => {
     /** Plays the cleave out with these heroes pinned inside it (and the rest well away). */
     const play = (inside: number[]) => {
       const { sim, telegraph: t } = telegraphOn(
@@ -115,8 +115,9 @@ describe('Ward', () => {
       const perfect = ofType(events, 'telegraphResolved').filter((e) => e.outcome === 'perfect');
       return { perfect: perfect.map((e) => e.target), heroes };
     };
-    // Kael alone: the Chorale's barrier soaks the blow, no Perfect.
-    expect(play([KAEL]).perfect).toEqual([]);
+    // Kael alone: Perfect, as a Ward would be.
+    const alone = play([KAEL]);
+    expect(alone.perfect).toEqual([alone.heroes[KAEL]!.id]);
     // Kael and Lyra side by side: one blow strikes both, and both are Perfect.
     const both = play([KAEL, LYRA]);
     expect(both.perfect.sort()).toEqual([both.heroes[KAEL]!.id, both.heroes[LYRA]!.id].sort());
@@ -138,9 +139,10 @@ describe('Ward', () => {
     const kaelLost = k0 - kael.health!.hp;
     const lyraLost = l0 - lyra.health!.hp;
     expect(lyraLost).toBeGreaterThan(0);
-    // Each took half, through their own armour.
-    expect(kaelLost).toBeLessThan(200 * 0.5 + 1e-6);
-    expect(lyraLost).toBeLessThan(200 * 0.5 + 1e-6);
+    // Each took half of what's left once the link lightened it, through their own armour.
+    const each = (200 * (1 - v('aegis_link', 'pct') / 100)) / 2;
+    expect(kaelLost).toBeLessThan(each + 1e-6);
+    expect(lyraLost).toBeLessThan(each + 1e-6);
     // It ends.
     stepFor(sim, 60 * v('aegis_link', 'seconds') + 2);
     expect(w.internal.link).toBeNull();

@@ -252,9 +252,6 @@ function resolve(world: World, t: Telegraph): void {
   if (effect === 'damage') {
     let hitAnyone = false;
     const victims = candidates(world, t, []);
-    // Chorale (a Ward variant): its barriers turn Perfect only when this attack strikes two.
-    const chorale =
-      victims.filter((e) => contains(world, t, e) && choraleInWindow(t, e)).length >= 2;
     for (const e of victims) {
       // Paradox: a Rewind took them out of its reach.
       if (spared(world, t.id, e.id)) {
@@ -282,7 +279,7 @@ function resolve(world: World, t: Telegraph): void {
         emitResolved(world, t, e.id, 'cancelled', 0);
         continue;
       }
-      hitEntity(world, t, e, attack ?? null, owner ?? null, chorale);
+      hitEntity(world, t, e, attack ?? null, owner ?? null);
     }
     if (!hitAnyone) emitResolved(world, t, null, 'dodged', 0);
     if (t.shape.kind === 'link') {
@@ -318,7 +315,6 @@ function hitEntity(
   e: Entity,
   attack: AttackDef | null,
   owner: Entity | null,
-  chorale = false,
 ): void {
   const h = e.health!;
   const damage = telegraphDamage(t, e);
@@ -328,12 +324,11 @@ function hitEntity(
   }
   const wouldDie = damage >= h.hp + ownShield(h);
 
-  // Perfect Ward: a Ward cast inside the window before impact negates the hit outright.
-  // The Cracked Metronome makes an early one Perfect too, every so often. A Chorale's barrier
-  // turns Perfect only with another (`chorale`: this attack strikes two in the window).
+  // Perfect Ward: a Ward cast inside the window before impact negates the hit outright (a
+  // Chorale's barriers too). The Cracked Metronome makes an early one Perfect, every so often.
   const ward = e.hero ? shieldOf(h, 'ward') : undefined;
   const inWindow = !!ward && within(t, ward.appliedAt);
-  if (ward && (ward.chorale ? chorale && inWindow : inWindow || metronome(world, e))) {
+  if (ward && (inWindow || metronome(world, e))) {
     perfect(world, t, e, ward, damage, owner, wouldDie);
     if (t.shape.kind === 'mark') removeStatus(world, e, 'dirge', 'detonated');
     return;
@@ -456,12 +451,6 @@ function perfect(
 /** A Ward (or Link) applied at `at` is inside the attack's Perfect window. */
 function within(t: Telegraph, at: number): boolean {
   return at >= t.perfectFrom - 1e-9 && at <= t.impact + 1e-9;
-}
-
-/** Chorale (a Ward variant): this hero holds a Chorale barrier cast in the attack's window. */
-function choraleInWindow(t: Telegraph, e: Entity): boolean {
-  const ward = e.hero && e.health ? shieldOf(e.health, 'ward') : undefined;
-  return !!ward?.chorale && within(t, ward.appliedAt);
 }
 
 /** Cracked Metronome: spends its charge on an early Ward, if it's ready. */

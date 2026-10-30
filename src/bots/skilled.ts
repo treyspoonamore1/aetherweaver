@@ -219,6 +219,9 @@ export class SkilledBot implements Bot {
         if (!t) continue;
         const left = t.impact - now;
         const dmg = damageOf(t, h.e);
+        // Swap (a variant, docs/phase-4f.md) puts the Weaver where they stood: only if she can
+        // take it.
+        if (w.weaver!.variants.reel === 'swap' && dmg >= w.health!.hp * 0.7) continue;
         const warded = (h.e.health!.shields.find((s) => s.kind === 'ward')?.amount ?? 0) >= dmg;
         if (
           left < 0.75 &&

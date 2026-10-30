@@ -23,7 +23,7 @@ import { bark, pushMarker, relicFired, setTimeScale } from './feedback';
 import { gainResonance } from './resonance';
 import { recordSave } from './saves';
 import { hasTalent, soloValue, talentFired, talentHolder, talentValue } from '../bonds';
-import { variantGuard } from '../variants';
+import { variantGuard, variantValue } from '../variants';
 
 /** Shields with no natural expiry (aura barriers, discord) expire at this sim time. */
 export const NEVER = 1e9;
@@ -737,9 +737,9 @@ function oath(world: World, target: Entity, opts: DamageOpts): DamageResult | nu
 }
 
 /**
- * Aegis Link (a Ward variant): a hit on a linked member is split evenly among the members still
- * standing, the Weaver among them once a Perfect brought her in. The others take their shares
- * here; the target's share goes on. Shares are never split again.
+ * Aegis Link (a Ward variant): a hit on a linked member is lightened, then split evenly among the
+ * members still standing, the Weaver among them once a Perfect brought her in. The others take
+ * their shares here; the target's share goes on. Shares are never split again.
  */
 function linkShare(world: World, target: Entity, opts: DamageOpts): DamageOpts | null {
   const link = world.internal.link;
@@ -748,11 +748,13 @@ function linkShare(world: World, target: Entity, opts: DamageOpts): DamageOpts |
   if (!ids.includes(target.id)) return null;
   const members = ids.map((id) => world.entities.get(id)).filter(isActive);
   if (members.length < 2 || !members.includes(target as Entity & { health: Health })) return null;
-  const share = opts.amount / members.length;
+  const lighter = variantValue(world, 'aegis_link', 'pct') / 100;
+  const share = (opts.amount * (1 - lighter)) / members.length;
+  // Bonds: what the link takes off a hit, and what you take for a hero, is your support of them.
+  if (target.hero) target.hero.supportReceived += opts.amount * lighter;
   for (const m of members) {
     if (m === target) continue;
     const r = dealDamage(world, m, { ...opts, amount: share, oath: true });
-    // Bonds: what you took for a hero is your support of them.
     if (m.weaver && target.hero) target.hero.supportReceived += r.dealt + r.absorbed;
   }
   return { ...opts, amount: share, oath: true };
