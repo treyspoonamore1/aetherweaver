@@ -1,4 +1,4 @@
-import { useState, type KeyboardEvent } from 'react';
+import { useMemo, useState, type KeyboardEvent } from 'react';
 import { useProfile } from '../../app/profileStore';
 import { CONTENT, motifText, ornamentDef } from '../../content';
 import {
@@ -62,6 +62,7 @@ import { useSettings } from '../../app/settings';
 import { UnlockGlyph } from './Rank';
 import type { Bond } from '../../meta/bonds';
 import { BondsCodexPage } from './BondsCodex';
+import { TechniquesCodexPage } from './TechniquesCodex';
 import { bondsOpen } from './bondsModel';
 
 const TABS = [
@@ -69,6 +70,7 @@ const TABS = [
   { id: 'bonds', label: 'Bonds' },
   { id: 'enemies', label: 'Enemies' },
   { id: 'weaver', label: 'The Weaver' },
+  { id: 'techniques', label: 'Techniques' },
   { id: 'auras', label: 'Auras' },
   { id: 'chords', label: 'Songs & ornaments' },
   { id: 'rank', label: 'Weaver Rank' },
@@ -95,6 +97,13 @@ export interface CodexDissonance {
 /** Phase 4e: the profile's Bonds (ranks, scenes seen) for the Codex's Bonds page. */
 export type CodexBonds = Readonly<Record<string, Bond>>;
 
+/** Phase 4f: the technique variants the profile owns, for the Codex's Techniques page. */
+export interface CodexTechniques {
+  owned: readonly string[];
+}
+
+const NO_TECHNIQUES: CodexTechniques = { owned: [] };
+
 const NO_BONDS: CodexBonds = {};
 
 /** The Codex: everything is generated from content, so it can never drift from the game. */
@@ -106,6 +115,7 @@ export function CodexView({
   deeds = NO_DEEDS,
   dissonance,
   bonds,
+  techniques = NO_TECHNIQUES,
 }: {
   onBack(): void;
   initialTab?: TabId;
@@ -125,6 +135,11 @@ export function CodexView({
    * Bond XP and no scenes seen; else locked until a hero's first Bond rank-up.
    */
   bonds?: CodexBonds;
+  /**
+   * Phase 4f: the variants the profile owns (omitted: none). Every variant is open with Skip the
+   * unlocks (the allowance's `all`; the default allowance is everything).
+   */
+  techniques?: CodexTechniques;
 }) {
   useMood('title');
   const [tab, setTab] = useState<TabId>(initialTab);
@@ -189,6 +204,9 @@ export function CodexView({
           {tab === 'bonds' && <BondsCodexPage open={bonded} bonds={bonds ?? NO_BONDS} />}
           {tab === 'enemies' && <Enemies />}
           {tab === 'weaver' && <Weaver />}
+          {tab === 'techniques' && (
+            <TechniquesCodexPage owned={techniques.owned} all={allowance.all} />
+          )}
           {tab === 'auras' && <Auras />}
           {tab === 'chords' && <Chords />}
           {tab === 'rank' && <Ranks deeds={deedPoints(deeds.earned)} />}
@@ -222,6 +240,7 @@ export function CodexScreen() {
   const best = useProfile((s) => s.profile.deedBest);
   const dissonance = useCodexDissonance();
   const bonds = useCodexBonds();
+  const techniques = useCodexTechniques();
   return (
     <CodexView
       onBack={back}
@@ -230,8 +249,15 @@ export function CodexScreen() {
       deeds={{ earned, best }}
       dissonance={dissonance}
       bonds={bonds}
+      techniques={techniques}
     />
   );
+}
+
+/** The technique variants the profile owns, for the Codex's Techniques page (Phase 4f). */
+export function useCodexTechniques(): CodexTechniques {
+  const owned = useProfile((s) => s.profile.variants);
+  return useMemo(() => ({ owned }), [owned]);
 }
 
 /** The profile's Bonds, for the Codex's Bonds page (Phase 4e). */

@@ -1,3 +1,4 @@
+import { CONTENT } from '../../content';
 import type { Action } from '../../input/actions';
 import type { HeroHud, HudSnapshot } from '../store';
 import { keyLabel } from '../../input/keyLabel';
@@ -64,7 +65,19 @@ const alive = (h: HeroHud) => !h.dead && !h.downed;
 
 function techReady(hud: HudSnapshot, key: 'ward' | 'chime' | 'reel'): boolean {
   const t = hud.weaver.techniques.find((x) => x.key === key);
-  return !!t && t.remaining <= 0.05 && t.affordable && !hud.weaver.downed;
+  // With charges (the Ward's), it works while one is left, its cooldown running or not.
+  const charged = !!t && t.maxCharges > 1 && t.charges > 0;
+  return !!t && (t.remaining <= 0.05 || charged) && t.affordable && !hud.weaver.downed;
+}
+
+/** The variant a slot plays this fight (Phase 4f), or null for the default. */
+function variantIn(hud: HudSnapshot, key: 'ward' | 'chime' | 'reel'): string | null {
+  return hud.weaver.techniques.find((x) => x.key === key)?.variant?.id ?? null;
+}
+
+/** A variant's name, from content (Phase 4f). */
+function variantName(id: string): string {
+  return CONTENT.techniqueVariants.find((v) => v.id === id)?.name ?? id;
 }
 
 /**
@@ -131,12 +144,15 @@ function allHints(hud: HudSnapshot): Hint[] {
     });
   }
 
+  // Phase 4f: the Ward's slot may play a variant: the hints name it.
+  const ward = variantIn(hud, 'ward');
+  const wardIt = ward ? `cast ${variantName(ward)} ${Q}` : `Ward ${Q}`;
   for (const h of party.filter(alive)) {
     if (h.lethal) {
       if (techReady(hud, 'ward')) {
         out.push({
           id: 'lethal-ward',
-          text: `A lethal hit is coming at ${h.name} — Ward ${Q} just before it lands for a Perfect`,
+          text: `A lethal hit is coming at ${h.name} — ${wardIt} just before it lands for a Perfect`,
         });
       } else if (w.rewind) {
         // Rewind only helps if where they stood is out of it (or Paradox undoes it).
@@ -149,7 +165,7 @@ function allHints(hud: HudSnapshot): Hint[] {
                 : `${h.name} is in a lethal zone — Rewind ${toRewind(h)} takes them back out of it`,
           });
       } else if (techReady(hud, 'reel')) {
-        out.push({ id: 'lethal-reel', text: `${h.name} is in a lethal zone — Reel them out ${F}` });
+        out.push({ id: 'lethal-reel', text: reelHint(h.name, variantIn(hud, 'reel'), F) });
       }
     }
   }
@@ -157,16 +173,19 @@ function allHints(hud: HudSnapshot): Hint[] {
     if (!h.lethal && h.incoming >= h.maxHp * 0.3 && techReady(hud, 'ward')) {
       out.push({
         id: 'big-hit',
-        text: `A big hit is coming at ${h.name} — Ward ${Q} just before it lands for a Perfect`,
+        text: `A big hit is coming at ${h.name} — ${wardIt} just before it lands for a Perfect`,
       });
     }
   }
+  const chime = variantIn(hud, 'chime');
   for (const h of party.filter(alive)) {
     if (h.statuses.some((s) => s.id === 'dirge')) {
       out.push({
         id: 'marked',
         text: techReady(hud, 'chime')
-          ? `${h.name} is marked — press ${E} to Chime it away`
+          ? chime
+            ? `${h.name} is marked — press ${E} (${variantName(chime)}) to cleanse it`
+            : `${h.name} is marked — press ${E} to Chime it away`
           : `${h.name} is marked — a Ward ${Q} can still soak the blast`,
       });
     }
@@ -385,4 +404,13 @@ export function splitHint(text: string): { key: boolean; text: string }[] {
     .map((part) =>
       part.startsWith('{') ? { key: true, text: part.slice(1, -1) } : { key: false, text: part },
     );
+}
+
+/**
+ * Someone is in a lethal zone and Reel's slot is ready: Reel pulls them out. A variant in the
+ * slot (Phase 4f) is named, not explained: what it does is content's (Prep, the tooltip).
+ */
+function reelHint(name: string, variant: string | null, F: string): string {
+  if (variant) return `${name} is in a lethal zone — ${variantName(variant)} ${F} on them`;
+  return `${name} is in a lethal zone — Reel them out ${F}`;
 }

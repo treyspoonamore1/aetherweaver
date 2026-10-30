@@ -16,6 +16,9 @@ import { CONSTELLATION_LOOK } from '../kit/astrolabeLook';
 import { rewindSentence } from './rewindText';
 import { DISCORD_LOOK } from '../kit/dissonanceLook';
 import { cueLine, cueTicks } from '../screens/dissonanceModel';
+import { VARIANT_LOOK } from '../kit/variantLook';
+import { slotState } from './techniqueState';
+import { defaultName, techniqueTip, type TechniqueTipView } from '../screens/variantsModel';
 
 /** The Chronomancer's clockwork (Phase 3e): Stasis on the buttons, Rewind, Temporal Mastery. */
 const CHRONO = callingLook('chronomancer');
@@ -37,9 +40,12 @@ const AURAS = '#c4b5fd';
 export function WeaverBar({
   hud,
   buzz = {},
+  tip = null,
 }: {
   hud: HudSnapshot;
   buzz?: Partial<Record<TechniqueHud['key'], number>>;
+  /** UI lab: a technique's tooltip shown (its slot). */
+  tip?: TechniqueHud['key'] | null;
 }) {
   const w = hud.weaver;
   const target = w.threadSlot === null ? null : hud.party.find((p) => p.slot === w.threadSlot);
@@ -78,7 +84,7 @@ export function WeaverBar({
           <LifeBar weaver={w} callingId={hud.calling?.id} />
           <SpiritBar weaver={w} />
         </div>
-        <div className="flex flex-1 items-end justify-center gap-2">
+        <div className="flex flex-1 items-end justify-center">
           {w.techniques.map((t) => (
             <TechniqueButton
               key={t.key}
@@ -91,6 +97,8 @@ export function WeaverBar({
                   ? rewindSentence(rewindTarget.name, rewindTarget.rewind)
                   : null
               }
+              rewindSeconds={t.key === 'reel' ? (w.rewind?.seconds ?? null) : null}
+              tipOpen={tip === t.key}
             />
           ))}
         </div>
@@ -332,6 +340,8 @@ function TechniqueButton({
   buzz,
   brings = null,
   rewind = null,
+  rewindSeconds = null,
+  tipOpen = false,
 }: {
   technique: TechniqueHud;
   silenced: boolean;
@@ -341,11 +351,14 @@ function TechniqueButton({
   brings?: TechniqueHud | null;
   /** Rewind only: what it would do to its target right now ("Kael +540"). */
   rewind?: string | null;
+  /** Rewind in Reel's slot (the Chronomancer): how far back it reaches; null otherwise. */
+  rewindSeconds?: number | null;
+  /** UI lab: its tooltip shown. */
+  tipOpen?: boolean;
 }) {
-  // Stasis: no cooldown applies while it lasts, and it costs less.
-  const cooling = !t.free && t.remaining > 0.05 && t.total > 0;
-  const dim = !cooling && !t.affordable;
-  const ready = !cooling && t.affordable && !silenced;
+  // Stasis: no cooldown applies while it lasts, and it costs less. With charges (the Ward's,
+  // Skate's), the slot works while one is left (Phase 4f).
+  const { charged, cooling, refilling, dim, ready } = slotState(t, silenced);
   const frac = cooling ? Math.min(1, t.remaining / t.total) : 0;
   const style: CSSProperties = cooling
     ? { background: `conic-gradient(rgb(5 8 20 / 0.78) ${frac * 360}deg, transparent 0)` }
@@ -365,8 +378,13 @@ function TechniqueButton({
     if (buzz === undefined || !el || typeof el.animate !== 'function') return;
     el.animate(BUZZ, { duration: 380, easing: 'ease-out' });
   }, [buzz]);
+  const tip = techniqueTip(t, rewindSeconds);
+  const tipId = `technique-tip-${t.key}`;
   const label = [
-    `${t.name}, key ${keyName}, ${state}`,
+    `${t.name}${t.variant ? ` (a ${defaultName(t.key)} variant)` : ''}, key ${keyName}, ${state}`,
+    charged
+      ? `${t.charges} of ${t.maxCharges} charges${refilling ? `, the next in ${Math.ceil(t.remaining)} seconds` : ''}`
+      : '',
     t.cost > 0
       ? `costs ${costLabel(t.cost)} ${poolName}${t.free && t.cost < t.baseCost ? ` in Stasis (${costLabel(t.baseCost)} otherwise)` : ''}`
       : '',
@@ -393,20 +411,49 @@ function TechniqueButton({
     <div
       role="img"
       aria-label={label}
-      title={rewind && ready ? `${t.name}: ${rewind}` : undefined}
-      className="flex flex-col items-center gap-1"
+      aria-describedby={tipId}
+      // Focusable, so keyboard players read the tooltip too; a click doesn't take the focus.
+      tabIndex={0}
+      onMouseDown={(e) => e.preventDefault()}
+      className="group/tech pointer-events-auto relative flex w-[4.5rem] flex-col items-center gap-1 outline-none"
       data-testid={`technique-${t.key}`}
       data-name={t.name}
+      data-variant={t.variant?.id}
+      data-charges={charged ? t.charges : undefined}
       data-ready={ready || undefined}
       data-free={t.free || undefined}
       data-pool={t.cost > 0 ? t.pool : undefined}
     >
+      <TechniqueTip
+        id={tipId}
+        tip={tip}
+        keyName={keyName}
+        icon={t.icon}
+        rewind={rewind && ready ? rewind : null}
+        open={tipOpen}
+      />
       <div
         ref={box}
-        className={`relative flex h-14 w-14 items-center justify-center rounded-xl border-2 transition-colors ${frameClass} ${dim ? 'opacity-55' : ''}`}
+        className={`relative flex h-14 w-14 items-center justify-center rounded-xl border-2 transition-colors group-focus-visible/tech:ring-2 group-focus-visible/tech:ring-gold-200 ${frameClass} ${dim ? 'opacity-55' : ''}`}
         style={frameStyle}
       >
         <Icon name={t.icon} size={26} className={cooling ? 'opacity-30' : ''} />
+        {refilling && (
+          // A charge coming back (the Ward's, Skate's): the slot still works; a thin line fills.
+          <span
+            className="absolute inset-x-2 bottom-1 h-[3px] overflow-hidden rounded-full bg-ink-700"
+            aria-hidden
+            data-testid="technique-refill"
+          >
+            <span
+              className="absolute inset-y-0 left-0 rounded-full transition-[width] duration-150 ease-linear"
+              style={{
+                width: `${(1 - Math.min(1, t.remaining / t.total)) * 100}%`,
+                background: GOLD,
+              }}
+            />
+          </span>
+        )}
         {cooling && (
           <>
             <div className="absolute inset-0 rounded-[10px]" style={style} />
@@ -481,19 +528,81 @@ function TechniqueButton({
           </span>
         )}
       </div>
-      <span className="flex h-3 items-center gap-0.5" aria-hidden>
-        {t.maxCharges > 1 &&
+      <span className="flex h-3 max-w-[5rem] items-center gap-0.5" aria-hidden>
+        {charged &&
           Array.from({ length: t.maxCharges }, (_, i) => (
             <Icon
               key={i}
               name="diamond"
               size={9}
               solid={i < t.charges}
+              className="shrink-0"
               style={{ color: i < t.charges ? GOLD : 'var(--color-ink-500)' }}
             />
           ))}
+        {t.variant && (
+          // Phase 4f: the variant this slot plays, by name.
+          <span
+            className={`truncate whitespace-nowrap text-[10px] font-semibold leading-3 ${charged ? 'ml-0.5' : ''}`}
+            style={{ color: ready ? VARIANT_LOOK.light : 'var(--color-muted)' }}
+            data-testid="technique-variant"
+          >
+            {t.variant.name}
+          </span>
+        )}
       </span>
     </div>
+  );
+}
+
+/**
+ * A technique's tooltip (pointing at the slot a moment, or focusing it), above the bar: its name
+ * and key, whose variant it is, what it does (content's words, or the default's) and what it
+ * costs; Rewind's, what it would do now.
+ */
+function TechniqueTip({
+  id,
+  tip,
+  keyName,
+  icon,
+  rewind,
+  open,
+}: {
+  id: string;
+  tip: TechniqueTipView;
+  keyName: string;
+  icon: TechniqueHud['icon'];
+  rewind: string | null;
+  open: boolean;
+}) {
+  return (
+    <span
+      id={id}
+      role="tooltip"
+      className={`pointer-events-none absolute bottom-full left-1/2 z-30 mb-3 w-72 -translate-x-1/2 rounded-xl border border-gold-500/50 bg-ink-900/97 p-3 text-left shadow-2xl shadow-black/70 transition-opacity ${open ? 'visible opacity-100' : 'invisible opacity-0 group-focus-visible/tech:visible group-focus-visible/tech:opacity-100 group-hover/tech:visible group-hover/tech:opacity-100 group-hover/tech:delay-500'}`}
+      data-testid={`technique-tip-${tip.slot}`}
+    >
+      <span className="flex items-center justify-between gap-2">
+        <b className="flex items-center gap-1.5 font-display text-base text-gold-200">
+          <Icon name={icon} size={17} /> {tip.name}
+        </b>
+        <KeyCap label={keyName} />
+      </span>
+      {tip.sub && <span className="mt-0.5 block text-xs text-muted">{tip.sub}</span>}
+      <span className="mt-1.5 block text-xs leading-snug text-text">{tip.text}</span>
+      {rewind && (
+        <span className="mt-1 block text-xs leading-snug" style={{ color: CHRONO.light }}>
+          Now: {rewind}.
+        </span>
+      )}
+      {tip.stats.length > 0 && (
+        <span className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 font-mono text-xs text-muted">
+          {tip.stats.map((s) => (
+            <span key={s}>{s}</span>
+          ))}
+        </span>
+      )}
+    </span>
   );
 }
 

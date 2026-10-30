@@ -130,6 +130,10 @@ import { BondsView } from '../screens/BondsScreen';
 import { BondRankUpCard } from '../screens/BondsParts';
 import { bondRanks } from '../screens/bondsModel';
 import { labSetSolo, labSetTalent, mockBonds, mockBondsHud, mockRunBonds, sceneRun } from './mock';
+import { labSetTechnique, mockVariantsHud, techniquesRun } from './mock';
+import { fitTechniques, noVariants, variantsConfig, type Techniques } from '../../meta/variants';
+import type { TechniqueKey } from '../types';
+import { SpawnPalette } from '../screens/TrainingParts';
 
 /** A stand-in for the 3D arena behind the HUD. */
 function World({ children }: { children: ReactNode }) {
@@ -963,6 +967,116 @@ function TitleBonds({ bonds, rank }: { bonds: Record<string, Bond>; rank: number
     return true;
   });
   return <TitleScreen />;
+}
+
+/** After the view mounts, clicks what this selector finds on the stage (a lab view's moment). */
+function ClickOnMount({ selector, children }: { selector: string; children: ReactNode }) {
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    box.current?.querySelector<HTMLElement>(selector)?.click();
+  }, [selector]);
+  return (
+    <div ref={box} className="contents">
+      {children}
+    </div>
+  );
+}
+
+/**
+ * Prep with the Techniques panel (Phase 4f): the run plays what these variants open (the run
+ * store's `runTechniques`), and choosing works as the profile store's `setTechnique` does.
+ */
+function PrepTechniques({
+  owned,
+  all,
+  initial,
+  calling = null,
+  expanded,
+  rank = 12,
+}: {
+  owned: readonly string[];
+  all: boolean;
+  initial: Partial<Techniques>;
+  calling?: string | null;
+  expanded?: boolean;
+  rank?: number;
+}) {
+  const allowance = all ? EVERYTHING : allowanceFor(rank);
+  return (
+    <Interactive initial={() => techniquesRun(initial, owned, all, calling)}>
+      {(run, set) => (
+        <PrepView
+          run={run}
+          onChords={(c) => set((r) => Run.setChords(r, c, allowance))}
+          onCalling={(id) => set((r) => Run.setCalling(r, id, allowance))}
+          onEmbark={noop}
+          onBack={noop}
+          allowance={allowance}
+          rank={rank}
+          astrolabe={{ points: astrolabePoints(rank, all, 0), onOpen: noop }}
+          techniques={{
+            owned,
+            all,
+            expanded,
+            onRules: noop,
+            onChoose: (slot, id) =>
+              set((r) =>
+                Run.setTechniques(
+                  r,
+                  fitTechniques(labSetTechnique(r.techniques, slot, id, owned, all), owned, all),
+                ),
+              ),
+          }}
+        />
+      )}
+    </Interactive>
+  );
+}
+
+/** The HUD with technique variants (what the bridge reads of a real fight that plays them). */
+function HudVariants({
+  techniques,
+  casts = false,
+  glides = 0,
+  calling,
+  tip = null,
+}: {
+  techniques: Partial<Record<TechniqueKey, string>>;
+  casts?: boolean;
+  glides?: number;
+  calling?: string;
+  tip?: TechniqueKey | null;
+}) {
+  const [hud] = useState(() => mockVariantsHud('calm', techniques, { casts, glides, calling }));
+  return (
+    <World>
+      <HudView
+        hud={hud}
+        callouts={[]}
+        decree={null}
+        subtitle="The Prelude · node 3 of 10"
+        coach={false}
+        techniqueTip={tip}
+      />
+    </World>
+  );
+}
+
+/** The Training Grounds' tools with every variant open (Phase 4f), over the sandbox's HUD. */
+function TrainingTechniquesLab({ initial }: { initial: Partial<Techniques> }) {
+  const [techniques, setTechniques] = useState<Techniques>(() => ({ ...noVariants(), ...initial }));
+  const [hud] = useState(() => mockVariantsHud('sandbox', variantsConfig(techniques)));
+  return (
+    <World>
+      <HudView hud={hud} callouts={[]} decree={null} subtitle="Sandbox" keyHints={false} />
+      <SpawnPalette
+        loadout={Run.CHORD_PRESETS[0]!.id}
+        onLoadout={noop}
+        techniques={techniques}
+        onTechnique={(slot, id) => setTechniques((t) => ({ ...t, [slot]: id }))}
+      />
+    </World>
+  );
 }
 
 interface ViewDef {
@@ -3790,6 +3904,171 @@ const VIEWS: ViewDef[] = [
         bonds={mockBonds(1, { choose: false })}
       />
     ),
+  },
+  // ── Phase 4f: technique variants ─────────────────────────────────────────────────────
+  {
+    id: 'prep-techniques',
+    group: 'Variants',
+    label: 'Prep: Techniques with Skip the unlocks (Chorale, Purge, Skate chosen)',
+    w: 1280,
+    h: 1560,
+    render: () => (
+      <PrepTechniques
+        owned={[]}
+        all
+        initial={{ ward: 'chorale', chime: 'purge', glide: 'skate' }}
+      />
+    ),
+  },
+  {
+    id: 'prep-techniques-owned',
+    group: 'Variants',
+    label: 'Prep: two owned (Absolve, Skate), the rest locked; a locked click explained',
+    w: 1280,
+    h: 1100,
+    render: () => (
+      <ClickOnMount selector='[data-testid="technique-option-chorale"]'>
+        <PrepTechniques
+          owned={['absolve', 'skate']}
+          all={false}
+          initial={{ chime: 'absolve', glide: 'skate' }}
+          expanded
+        />
+      </ClickOnMount>
+    ),
+  },
+  {
+    id: 'prep-techniques-new',
+    group: 'Variants',
+    label: 'Prep: a new profile (none owned), folded',
+    w: 1280,
+    h: 720,
+    render: () => <PrepTechniques owned={[]} all={false} initial={{}} rank={3} />,
+  },
+  {
+    id: 'prep-techniques-folded',
+    group: 'Variants',
+    label: 'Prep: folded, what the four keys play',
+    w: 1280,
+    h: 720,
+    render: () => (
+      <PrepTechniques
+        owned={[]}
+        all
+        initial={{ ward: 'aegis_link', reel: 'anchor', glide: 'phase_step' }}
+        expanded={false}
+      />
+    ),
+  },
+  {
+    id: 'prep-techniques-chrono',
+    group: 'Variants',
+    label: 'Prep: a Chronomancer run, the Reel choice has no effect',
+    w: 1280,
+    h: 1100,
+    render: () => (
+      <PrepTechniques
+        owned={[]}
+        all
+        initial={{ ward: 'aegis_link', reel: 'swap' }}
+        calling="chronomancer"
+        expanded
+      />
+    ),
+  },
+  {
+    id: 'hud-variants',
+    group: 'Variants',
+    label: 'HUD: Chorale, Absolve, Anchor, Skate (a charge coming back), Absolved and Anchored',
+    w: 1280,
+    h: 720,
+    render: () => (
+      <HudVariants
+        techniques={{ ward: 'chorale', chime: 'absolve', reel: 'anchor', glide: 'skate' }}
+        casts
+        glides={1}
+      />
+    ),
+  },
+  {
+    id: 'hud-variants-tip',
+    group: 'Variants',
+    label: 'HUD: Chorale’s tooltip',
+    w: 1280,
+    h: 720,
+    render: () => (
+      <HudVariants
+        techniques={{ ward: 'chorale', chime: 'absolve', reel: 'anchor', glide: 'skate' }}
+        tip="ward"
+      />
+    ),
+  },
+  {
+    id: 'hud-variants-other',
+    group: 'Variants',
+    label: 'HUD: Aegis Link, Purge, Swap, Phase Step; Aegis Link’s tooltip',
+    w: 1280,
+    h: 720,
+    render: () => (
+      <HudVariants
+        techniques={{ ward: 'aegis_link', chime: 'purge', reel: 'swap', glide: 'phase_step' }}
+        tip="ward"
+      />
+    ),
+  },
+  {
+    id: 'hud-variants-skate',
+    group: 'Variants',
+    label: 'HUD: both Skate charges spent; its tooltip',
+    w: 1280,
+    h: 720,
+    render: () => <HudVariants techniques={{ glide: 'skate' }} glides={2} tip="glide" />,
+  },
+  {
+    id: 'hud-variants-chrono',
+    group: 'Variants',
+    label: 'HUD: a Chronomancer run with Swap chosen: Rewind keeps Reel’s slot',
+    w: 1280,
+    h: 720,
+    render: () => (
+      <HudVariants
+        techniques={{ ward: 'aegis_link', reel: 'swap' }}
+        calling="chronomancer"
+        tip="reel"
+      />
+    ),
+  },
+  {
+    id: 'training-techniques',
+    group: 'Variants',
+    label: 'Training Grounds: every variant open (Chorale, Skate chosen)',
+    w: 1280,
+    h: 720,
+    render: () => <TrainingTechniquesLab initial={{ ward: 'chorale', glide: 'skate' }} />,
+  },
+  {
+    id: 'codex-techniques',
+    group: 'Variants',
+    label: 'Codex: Techniques (Absolve and Skate owned)',
+    w: 1280,
+    h: 1320,
+    render: () => (
+      <CodexView
+        onBack={noop}
+        initialTab="techniques"
+        allowance={allowanceFor(12)}
+        rank={12}
+        techniques={{ owned: ['absolve', 'skate'] }}
+      />
+    ),
+  },
+  {
+    id: 'codex-techniques-skip',
+    group: 'Variants',
+    label: 'Codex: Techniques with Skip the unlocks',
+    w: 1280,
+    h: 1320,
+    render: () => <CodexView onBack={noop} initialTab="techniques" />,
   },
   {
     id: 'flow',

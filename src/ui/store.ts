@@ -207,6 +207,12 @@ export interface TechniqueHud {
    * Life, `affordable` is the sim's `canPay` (it never takes her last Life).
    */
   pool: 'spirit' | 'life';
+  /**
+   * Phase 4f: the variant this slot plays (`WeaverComponent.variants`, docs/phase-4f.md): its
+   * id, name and text, from content. Null for the default, and on Reel's slot while Rewind takes
+   * it. `name`, `icon`, `cost` and the charges above already follow it (Skate's two).
+   */
+  variant: { id: string; name: string; text: string } | null;
 }
 
 export interface AuraHud {

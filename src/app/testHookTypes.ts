@@ -25,6 +25,39 @@ export interface TestHook {
    * 'rewind'…): what the Weaver did, as the timeline will show it.
    */
   markers(): string[];
+  /**
+   * Phase 4f: the Weaver's technique variants in this fight (`WeaverComponent.variants`, null:
+   * the default), Glide's charges (Skate's two), and the heroes' Ward barriers (a Chorale's
+   * marked, and `plain` on the heroes it reached but you didn't Ward) and statuses (the variants'
+   * guards: `absolved`, `anchored`).
+   */
+  techniques(): FightTechniquesView;
+}
+
+/** What `__AW__.techniques()` returns. */
+export interface FightTechniquesView {
+  variants: Record<'ward' | 'chime' | 'reel' | 'glide', string | null>;
+  glideCharges: number;
+  maxGlideCharges: number;
+  heroes: {
+    heroId: string;
+    /** Ward barriers on them now: a Chorale's, and one that only absorbs (`plain`). */
+    wards: { amount: number; chorale: boolean; plain: boolean }[];
+    /** Their statuses' ids. */
+    statuses: string[];
+  }[];
+}
+
+/** What `__AWRUN__.techniques()` returns. */
+export interface TechniquesHookView {
+  /** The variants the profile owns. */
+  owned: string[];
+  /** The profile's choice per slot (null: the default). */
+  chosen: Record<'ward' | 'chime' | 'reel' | 'glide', string | null>;
+  /** Settings → Skip the unlocks: every variant can be chosen. */
+  all: boolean;
+  /** The run's (followed in Prep, frozen at embark); null without a run. */
+  run: Record<'ward' | 'chime' | 'reel' | 'glide', string | null> | null;
 }
 
 /**
@@ -136,6 +169,13 @@ export interface RunHook {
   seedBonds(xpByHero: Record<string, number>): void;
   /** Phase 4e: at a Respite, the Bond scenes waiting for the party (`scenesWaiting()`), by id. */
   scenesWaiting(): string[];
+  /**
+   * Phase 4f: technique variants: the ones the profile owns and chose, Skip the unlocks, and the
+   * run's (null without a run).
+   */
+  techniques(): TechniquesHookView;
+  /** Phase 4f, test-only: the profile owns these variants (the store's `ownVariant`). */
+  ownVariants(ids: string[]): void;
 }
 
 /** What `bonds()` returns. */

@@ -34,9 +34,10 @@ import {
   rewindPreview,
   type Foreseen,
 } from './hud/chrono';
-import { TECHNIQUE_ICON } from './hud/labels';
 import { REWIND_NAME, crescendoName, rewindSeconds } from './screens/callingText';
 import { soloView } from './screens/bondsModel';
+import { slotCost, variantHud } from './screens/variantsModel';
+import { techniqueIcon } from './kit/variantLook';
 import type { AuraHud, BossHud, ChordHud, HeroHud, HudSnapshot, TechniqueHud } from './store';
 
 const TECHNIQUE_KEYS: readonly TechniqueKey[] = ['ward', 'chime', 'reel', 'glide'];
@@ -232,15 +233,33 @@ export function buildHudSnapshot(
   });
 
   const bindings = liveBindings();
+  // Skate (Phase 4f): Glide's slot runs on its charges (`glideCharges`), each back after its
+  // cooldown: it's ready while one is left, whatever the cooldown says.
+  const glideCharges = w?.variants.glide === 'skate' || (w?.maxGlideCharges ?? 1) > 1;
   const techniques: TechniqueHud[] = TECHNIQUE_KEYS.map((key) => {
-    // Glide is free; the others cost what the sim says, from the pool it says.
-    const cost = key === 'glide' ? null : techniqueCost(state, key);
-    const charges = key === 'ward' ? (w?.wardCharges ?? 0) : (w?.cooldowns[key] ?? 0) > 0 ? 0 : 1;
-    const maxCharges = key === 'ward' ? (w?.maxWardCharges ?? 1) : 1;
     const rewind = key === 'reel' && rewinds;
+    // Technique variants (Phase 4f): the slot's own, unless Rewind takes Reel's slot.
+    const variant = rewind ? null : variantHud(w?.variants[key]);
+    // Glide is free; the others cost what the sim says (a variant's own cost included), from
+    // the pool it says.
+    const cost = key === 'glide' ? null : techniqueCost(state, key);
+    const charges =
+      key === 'ward'
+        ? (w?.wardCharges ?? 0)
+        : key === 'glide' && glideCharges
+          ? (w?.glideCharges ?? 0)
+          : (w?.cooldowns[key] ?? 0) > 0
+            ? 0
+            : 1;
+    const maxCharges =
+      key === 'ward'
+        ? (w?.maxWardCharges ?? 1)
+        : key === 'glide' && glideCharges
+          ? (w?.maxGlideCharges ?? 1)
+          : 1;
     return {
       key,
-      name: rewind ? REWIND_NAME : tech[key].name,
+      name: rewind ? REWIND_NAME : (variant?.name ?? tech[key].name),
       remaining: w?.cooldowns[key] ?? 0,
       total: w?.cooldownTotals[key] ?? 0,
       cost: cost?.amount ?? 0,
@@ -248,10 +267,13 @@ export function buildHudSnapshot(
       maxCharges,
       affordable: key === 'glide' ? true : canPay(state, key),
       key0: bindings[key][0] ?? '',
-      icon: rewind ? 'rewind' : TECHNIQUE_ICON[key],
+      icon: rewind ? 'rewind' : techniqueIcon(key, variant?.id ?? null),
       free: stasis,
-      baseCost: key === 'glide' ? 0 : tech[key].cost * state.astrolabe.techCostMult,
+      // As `techniqueCost` prices it: the slot's variant's own cost, if it has one.
+      baseCost:
+        key === 'glide' ? 0 : (slotCost(key, w?.variants[key]) ?? 0) * state.astrolabe.techCostMult,
       pool: cost?.pool ?? 'spirit',
+      variant,
     };
   });
 

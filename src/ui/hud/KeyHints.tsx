@@ -1,3 +1,4 @@
+import { CONTENT } from '../../content';
 import { Panel } from '../kit/Panel';
 import { REWIND_NAME } from '../screens/callingText';
 import { bindingLabel } from './labels';
@@ -5,9 +6,25 @@ import { bindingLabel } from './labels';
 /**
  * A quiet controls reminder (bottom-right). Shown for the first fights and in training. `bear`:
  * a Martyr run, where Bear has its own key (Phase 3d). `rewind`: a Chronomancer run, where
- * Reel's key Rewinds (Phase 3e).
+ * Reel's key Rewinds (Phase 3e). `techniques` (Phase 4f): what the four keys play this fight, by
+ * name (the variants chosen, Rewind in Reel's slot), in key order.
  */
-export function KeyHints({ bear = false, rewind = false }: { bear?: boolean; rewind?: boolean }) {
+export function KeyHints({
+  bear = false,
+  rewind = false,
+  techniques,
+}: {
+  bear?: boolean;
+  rewind?: boolean;
+  techniques?: readonly string[];
+}) {
+  const t = CONTENT.techniques;
+  const names = techniques ?? [
+    t.ward.name,
+    t.chime.name,
+    rewind ? REWIND_NAME : t.reel.name,
+    t.glide.name,
+  ];
   const rows: [string, string][] = [
     [
       `${bindingLabel('moveUp')}${bindingLabel('moveLeft')}${bindingLabel('moveDown')}${bindingLabel('moveRight')}`,
@@ -20,7 +37,7 @@ export function KeyHints({ bear = false, rewind = false }: { bear?: boolean; rew
       : []),
     [
       `${bindingLabel('ward')} ${bindingLabel('chime')} ${bindingLabel('reel')} ${bindingLabel('glide')}`,
-      `Ward · Chime · ${rewind ? REWIND_NAME : 'Reel'} · Glide`,
+      names.join(' · '),
     ],
     [`${bindingLabel('cue')} / ⇧1–4`, 'Cue a Solo'],
     [bindingLabel('crescendo'), 'Crescendo'],

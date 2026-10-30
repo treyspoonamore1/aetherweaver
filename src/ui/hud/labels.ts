@@ -1,7 +1,9 @@
+import { CONTENT } from '../../content';
 import type { Action } from '../../input/actions';
 import { liveBindings } from '../../input/bindings';
 import { keyLabel } from '../../input/keyLabel';
 import type { IconName } from '../kit/iconPaths';
+import { VARIANT_STATUS } from '../kit/variantLook';
 import type { AnswerTag, StatusId, TechniqueKey } from '../types';
 
 const DIRECTIVES: ReadonlySet<Action> = new Set<Action>([
@@ -85,19 +87,28 @@ export const STATUS: Record<StatusId, StatusLook> = {
     color: '#e2d6f8',
     help: 'Fermata caught a lethal hit: heal them before it runs out or they go down.',
   },
+  // Phase 4f: two variants' guards, in their glyphs, with content's names and numbers.
   absolved: {
-    icon: 'chime',
+    ...VARIANT_STATUS.absolved,
     label: 'Absolved',
-    color: '#a5f3fc',
-    help: 'Your Absolve: takes less damage for a moment.',
+    help: guardHelp('absolve', 'Absolve'),
   },
   anchored: {
-    icon: 'reel',
+    ...VARIANT_STATUS.anchored,
     label: 'Anchored',
-    color: '#a5f3fc',
-    help: 'Your Anchor: takes less damage, and nothing moves them.',
+    help: guardHelp('anchor', 'Anchor'),
   },
 };
+
+/**
+ * A variant's guard on a hero: "Your Anchor: they take {pct}% less damage while it lasts." The
+ * name and the share are content's (`values.pct`); nothing else of the variant is restated here.
+ */
+function guardHelp(id: string, fallback: string): string {
+  const def = CONTENT.techniqueVariants.find((v) => v.id === id);
+  const share = def?.values.pct;
+  return `Your ${def?.name ?? fallback}: they take ${share === undefined ? 'less' : `${share}% less`} damage while it lasts.`;
+}
 
 export const TECHNIQUE_ICON: Record<TechniqueKey, IconName> = {
   ward: 'ward',

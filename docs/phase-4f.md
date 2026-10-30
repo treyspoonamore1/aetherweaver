@@ -63,7 +63,13 @@ Costs and cooldowns are the default's unless the table says otherwise (Ward 20 S
 
 ## Presentation
 
-*To be filled in by the UI, VFX and audio workstreams.*
+**Screens** ([docs/phase-4f/ui.md](phase-4f/ui.md), with screenshots; the UI lab's *Variants* group shows each state):
+- **Prep: Your techniques.** A column per key (Q, E, F, Space), each a radio group of the default and its two variants in their own words, with a variant's cost or cooldown marked against the default's ("25 Spirit (Ward 20)"). Locked variants say how they're had; on a Chronomancer run the Reel column says the choice waits for the next run. Prep's and Retune's Spirit budgets count the variants' costs.
+- **The HUD.** Each Weaver-bar slot shows its variant's glyph and name, with a tooltip of its text and cost now. Skate (and the Ward's Twin Aegis charges) show charge pips, ready while a charge is left. Absolve's and Anchor's guards have their own glyphs on the hero frames. A refused cast names the variant ("Chorale: not enough Spirit").
+- **The Training Grounds** start from your choice with every variant open, and switch any slot from the tools panel.
+- **The Codex** gains a Techniques page: what variants are, how they're had, and each slot's three, owned or not.
+
+*Effects and sounds: to be filled in.*
 
 ## Harness
 

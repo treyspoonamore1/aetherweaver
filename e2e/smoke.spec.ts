@@ -980,3 +980,143 @@ test('Phase 4e: Bonds — choose talents and a Solo on the Bonds screen, embark 
   expect(b.run!.scene).toBeNull();
   expect(errors).toEqual([]);
 });
+
+test('Phase 4f: technique variants — choose in Prep with Skip the unlocks, embark, the fight plays them', async ({
+  page,
+}) => {
+  test.setTimeout(180_000);
+  const errors = trackErrors(page);
+  const phase = () => page.evaluate(() => window.__AWRUN__!.phase());
+  const techniques = () => page.evaluate(() => window.__AWRUN__!.techniques());
+  // Content's variants, by place: the first of Ward's and Chime's, the second of Reel's and
+  // Glide's (Skate, on its charges). Nothing here names one by its words.
+  const of = (slot: string) => CONTENT.techniqueVariants.filter((v) => v.slot === slot);
+  const ward = of('ward')[0]!;
+  const chime = of('chime')[0]!;
+  const reel = of('reel')[1]!;
+  const glide = CONTENT.techniqueVariants.find((v) => v.slot === 'glide' && v.values.charges)!;
+  const chosen = { ward: ward.id, chime: chime.id, reel: reel.id, glide: glide.id };
+  const option = (id: string) => page.getByTestId(`technique-option-${id}`);
+  const panel = page.getByTestId('prep-techniques');
+
+  // A new profile: none owned, so the panel is folded; opened, every variant is locked and a
+  // click says how it's had, changing nothing.
+  await page.goto(START_URL);
+  await page.waitForFunction(() => window.__AWRUN__ !== undefined);
+  await page.evaluate(() => window.__AWRUN__!.newRun(4242));
+  await expect.poll(phase).toBe('prep');
+  await expect(panel).toHaveAttribute('data-expanded', 'false');
+  await expect(page.getByTestId('techniques-folded')).toContainText(CONTENT.techniques.ward.name);
+  await page.getByTestId('techniques-toggle').click();
+  await expect(panel).toHaveAttribute('data-expanded', 'true');
+  for (const v of CONTENT.techniqueVariants)
+    await expect(option(v.id)).toHaveAttribute('data-open', 'false');
+  // Locked (aria-disabled), so clicked on purpose: the panel says how it's had.
+  await option(ward.id).click({ force: true });
+  await expect(page.getByTestId('techniques-said')).toContainText(`${ward.name}: Starlight`);
+  expect((await techniques()).chosen.ward).toBeNull();
+
+  // Settings → Skip the unlocks: every variant open.
+  await page.goto(START_URL);
+  await page
+    .getByRole('button', { name: /^Settings$/ })
+    .first()
+    .click();
+  await page.getByText('Skip the unlocks', { exact: true }).click();
+  await expect(page.getByRole('switch', { name: /Skip the unlocks/ })).toBeChecked();
+  await page.evaluate(() => window.__AWRUN__!.newRun(4242));
+  await expect.poll(phase).toBe('prep');
+  if ((await panel.getAttribute('data-expanded')) !== 'true')
+    await page.getByTestId('techniques-toggle').click();
+  await expect(panel).toHaveAttribute('data-all', 'true');
+  for (const v of CONTENT.techniqueVariants)
+    await expect(option(v.id)).toHaveAttribute('data-open', 'true');
+
+  // Choose: Ward's and Reel's by click, Chime's by the keyboard (down from the default), Glide's
+  // by click. The profile keeps them; the run in Prep follows.
+  await option(ward.id).click();
+  await page.getByTestId('technique-option-chime-default').focus();
+  await page.keyboard.press('ArrowDown');
+  await expect(page.getByTestId('technique-slot-chime')).toHaveAttribute('data-chosen', chime.id);
+  await expect(option(chime.id)).toBeFocused();
+  await option(reel.id).click();
+  await option(glide.id).click();
+  for (const [slot, id] of Object.entries(chosen)) {
+    await expect(page.getByTestId(`technique-slot-${slot}`)).toHaveAttribute('data-chosen', id);
+    await expect(option(id)).toHaveAttribute('aria-checked', 'true');
+  }
+  await expect(page.getByTestId('techniques-said')).toContainText(`${glide.name} on Space`);
+  expect(await techniques()).toMatchObject({ all: true, owned: [], chosen, run: chosen });
+
+  // Embark: the fight's config plays them, and the Weaver bar names them.
+  await page
+    .getByRole('button', { name: /Embark/i })
+    .first()
+    .click();
+  await expect.poll(phase).toBe('map');
+  expect(await page.evaluate(() => window.__AWRUN__!.choose())).toBe('skirmish');
+  await expect.poll(phase).toBe('combat');
+  await page.waitForFunction(() => window.__AW__ !== undefined);
+  const config = await page.evaluate(() => window.__AW__!.exportReplay().config);
+  expect(config.techniques).toEqual(chosen);
+  if ((await page.getByRole('button', { name: /Begin the fight/i }).count()) > 0)
+    await page.getByRole('button', { name: /Begin the fight/i }).click();
+  for (const [slot, id] of Object.entries(chosen)) {
+    const name = CONTENT.techniqueVariants.find((v) => v.id === id)!.name;
+    await expect(page.getByTestId(`technique-${slot}`)).toHaveAttribute('data-variant', id);
+    await expect(page.getByTestId(`technique-${slot}`)).toHaveAttribute('data-name', name);
+  }
+  const charges = glide.values.charges!;
+  await expect(page.getByTestId('technique-glide')).toHaveAttribute(
+    'data-charges',
+    String(charges),
+  );
+  expect((await page.evaluate(() => window.__AW__!.techniques())).variants).toEqual(chosen);
+
+  // The fight plays them, from real input: Kael threaded and the Ward's variant cast (on him, or
+  // on the hero under the pointer): a Chorale's barriers, Perfect-capable on the hero Warded and
+  // plain on the others it reached. Glide's charges spent one by one, the slot still ready while
+  // one is left.
+  await page.mouse.move(640, 300);
+  await page.keyboard.press('Digit1');
+  await waitTicks(page, 2);
+  await expect(page.getByTestId('technique-ward')).toHaveAttribute('data-ready', 'true', {
+    timeout: 30_000,
+  });
+  await page.keyboard.press('KeyQ');
+  await waitTicks(page, 3);
+  const replay = await page.evaluate(() => window.__AW__!.exportReplay());
+  expect(
+    replay.frames.flatMap(([, cmds]) => cmds).some((c) => c.t === 'tech' && c.id === 'ward'),
+  ).toBe(true);
+  if (ward.id === 'chorale') {
+    const wards = async () =>
+      (await page.evaluate(() => window.__AW__!.techniques())).heroes.flatMap((h) => h.wards);
+    await expect
+      .poll(async () => (await wards()).filter((w) => w.chorale && !w.plain).length)
+      .toBe(1);
+  }
+  await page.keyboard.press('Space');
+  await waitTicks(page, 15);
+  let fight = await page.evaluate(() => window.__AW__!.techniques());
+  expect(fight.maxGlideCharges).toBe(charges);
+  expect(fight.glideCharges).toBe(charges - 1);
+  await expect(page.getByTestId('technique-glide')).toHaveAttribute('data-ready', 'true');
+  await expect(page.getByTestId('technique-glide')).toHaveAttribute(
+    'data-charges',
+    String(charges - 1),
+  );
+  for (let i = 1; i < charges; i++) {
+    await page.keyboard.press('Space');
+    await waitTicks(page, 15);
+  }
+  fight = await page.evaluate(() => window.__AW__!.techniques());
+  expect(fight.glideCharges).toBe(0);
+  await expect(page.getByTestId('technique-glide')).not.toHaveAttribute('data-ready', 'true');
+
+  // Win it: the run keeps what it embarked with.
+  expect(await page.evaluate(() => window.__AWRUN__!.winFight())).toBe(true);
+  await expect.poll(phase).toBe('result');
+  expect((await techniques()).run).toEqual(chosen);
+  expect(errors).toEqual([]);
+});

@@ -117,6 +117,26 @@ export const PATHS = {
   talent: 'M12 3l7.5 4.3v8.6L12 20.2l-7.5-4.3V7.3z M12 16.5v-8 M9 11l3-2.8 3 2.8',
   scene:
     'M12 3.5c1.9 2.5 3.1 4.3 3.1 6.3a3.1 3.1 0 0 1-6.2 0c0-1.1.5-2 1.3-3 .3 1 .9 1.6 1.6 1.9 M4.5 20.5l15-4 M4.5 16.5l15 4',
+  /**
+   * Phase 4f: the technique variants, each drawn from its slot's glyph. Chorale (a Ward ringing
+   * out), Aegis Link (two Wards, split evenly), Purge (a Chime bursting outward), Absolve (a Chime
+   * that heals), Swap (two arrows trading places), Anchor, Phase Step (a decoy left behind, a
+   * blink ahead) and Skate (Glide's chevrons on a blade).
+   */
+  chorale:
+    'M12 6.5l3.6 1.5v2.9c0 2.5-1.5 4.3-3.6 5.1-2.1-.8-3.6-2.6-3.6-5.1V8z M6.3 8.8a4.6 4.6 0 0 0 0 6.4 M17.7 8.8a4.6 4.6 0 0 1 0 6.4 M3.6 6.6a7.6 7.6 0 0 0 0 10.8 M20.4 6.6a7.6 7.6 0 0 1 0 10.8',
+  aegisLink:
+    'M6.5 6l3.8 1.6v3.3c0 2.9-1.6 5-3.8 5.9-2.2-.9-3.8-3-3.8-5.9V7.6z M17.5 6l3.8 1.6v3.3c0 2.9-1.6 5-3.8 5.9-2.2-.9-3.8-3-3.8-5.9V7.6z M10.3 10.2h3.4 M10.3 13h3.4',
+  purge:
+    'M12 6.5a.9.9 0 0 1 .9.9v.4A4.6 4.6 0 0 1 16.5 12.3v2.9l1.6 2H5.9l1.6-2v-2.9a4.6 4.6 0 0 1 3.6-4.5v-.4a.9.9 0 0 1 .9-.9z M10.5 19.7a1.5 1.5 0 0 0 3 0 M4.5 4.5l2 2 M19.5 4.5l-2 2 M2.5 11.5h2.5 M21.5 11.5H19',
+  absolve:
+    'M12 3.5a1 1 0 0 1 1 1v.7A6 6 0 0 1 18 11v4l2 2.5H4L6 15v-4a6 6 0 0 1 5-5.8v-.7a1 1 0 0 1 1-1z M10 20a2 2 0 0 0 4 0 M12 9v5.5 M9.25 11.75h5.5',
+  swap: 'M4 8.5h14 M14.5 5L18 8.5 14.5 12 M20 15.5H6 M9.5 12L6 15.5 9.5 19',
+  anchor:
+    'M12 3.5a2 2 0 1 0 0 4 2 2 0 0 0 0-4z M12 7.5v13 M8.5 10.5h7 M4.5 13.5a7.5 7.5 0 0 0 15 0 M3 15l1.5-1.5L6 15 M18 15l1.5-1.5L21 15',
+  phaseStep:
+    'M5.5 9.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5z M9.5 12h1.5 M13 12h1.5 M15.5 6.5l5.5 5.5-5.5 5.5',
+  skate: 'M6 5l4.5 4.5L6 14 M12.5 5l4.5 4.5-4.5 4.5 M3.5 18.5H18a2.5 2.5 0 0 0 2.5-2.5',
 } as const;
 
 export type IconName = keyof typeof PATHS;

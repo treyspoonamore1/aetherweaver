@@ -37,7 +37,7 @@ import {
   talentClick,
   type TierView,
 } from './bondsModel';
-import { CodexView, useCodexBonds, useCodexDissonance } from './CodexScreen';
+import { CodexView, useCodexBonds, useCodexTechniques, useCodexDissonance } from './CodexScreen';
 import { useAllowance } from './PrepScreen';
 
 const BOND = BOND_LOOK.color;
@@ -377,6 +377,7 @@ export function BondsScreen() {
   const previous = useUi((s) => s.previous);
   const dissonance = useCodexDissonance();
   const codexBonds = useCodexBonds();
+  const codexTechniques = useCodexTechniques();
   const [runUnderWay] = useState(() => {
     if (previous === 'run') return false;
     const saved = loadRun(storage());
@@ -393,6 +394,7 @@ export function BondsScreen() {
         deeds={{ earned: deeds, best: deedBest }}
         dissonance={dissonance}
         bonds={codexBonds}
+        techniques={codexTechniques}
       />
     );
   }

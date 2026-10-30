@@ -362,6 +362,7 @@ export function RetuneView({
             reserveMult={lighter}
             astrolabe={run.astrolabe}
             passives={carriedPassives(run)}
+            techniques={run.techniques}
           />
         </div>
       </div>

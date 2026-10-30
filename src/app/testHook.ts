@@ -37,6 +37,28 @@ export function installTestHook(runtime: GameRuntime): () => void {
       return { id: e.id, status: e.status, wave: e.wave, waves: e.waves };
     },
     markers: () => runtime.sim.state.ledger.markers.map((m) => m.kind),
+    techniques: () => {
+      const st = runtime.sim.state;
+      const w = st.entities.get(st.weaverId)?.weaver;
+      return {
+        variants: { ward: null, chime: null, reel: null, glide: null, ...w?.variants },
+        glideCharges: w?.glideCharges ?? 0,
+        maxGlideCharges: w?.maxGlideCharges ?? 0,
+        heroes: st.party.flatMap((id) => {
+          const e = st.entities.get(id);
+          if (!e?.hero || !e.health) return [];
+          return [
+            {
+              heroId: e.hero.defId,
+              wards: e.health.shields
+                .filter((sh) => sh.kind === 'ward' && sh.amount > 0)
+                .map((sh) => ({ amount: sh.amount, chorale: !!sh.chorale, plain: !!sh.plain })),
+              statuses: e.health.statuses.map((x) => x.id),
+            },
+          ];
+        }),
+      };
+    },
   };
   return () => {
     delete window.__AW__;
@@ -221,6 +243,19 @@ export function installRunHook(): void {
       run()
         .scenesWaiting()
         .map((sc) => sc.id),
+    techniques: () => {
+      const p = useProfile.getState();
+      const state = run().run;
+      return {
+        owned: [...p.profile.variants],
+        chosen: { ...p.profile.techniques },
+        all: p.variantsAll(),
+        run: state ? { ...state.techniques } : null,
+      };
+    },
+    ownVariants: (ids) => {
+      for (const id of ids) useProfile.getState().ownVariant(id);
+    },
     winRun: (found = []) => {
       const state = run().run;
       if (!state || state.phase !== 'map') return false;

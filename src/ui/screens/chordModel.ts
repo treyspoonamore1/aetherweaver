@@ -16,7 +16,8 @@ import {
 } from '../../meta/profile';
 import { CHORD_PRESETS, reservePool } from '../../meta/run';
 import type { RunState } from '../../meta/types';
-import { techniqueName } from './callingText';
+import { rewindsFor, techniqueName } from './callingText';
+import { slotCost as variantSlotCost, slotName } from './variantsModel';
 import {
   treeLifeCap,
   treeLifeMult,
@@ -243,6 +244,8 @@ export function spiritBudget(
     reserveMult?: number;
     astrolabe?: readonly string[];
     passives?: readonly Passive[];
+    /** Phase 4f: the run's technique variants (`run.techniques`): their names and costs. */
+    techniques?: Partial<Record<'ward' | 'chime' | 'reel' | 'glide', string | null>>;
   } = {},
 ): SpiritBudget {
   const mult = tree.reserveMult ?? 1;
@@ -274,15 +277,21 @@ export function spiritBudget(
   // Eldritch Conduit: techniques cost Life, paid from what she fights with (never her last).
   const techPool: ReservePool = treeTechniquesCostLife(astrolabe) ? 'life' : 'spirit';
   const payWith = techPool === 'life' ? (life ? free : weaverLife) * lifeCap - 1 : spirit;
-  const t = CONTENT.techniques;
   const costMult = treeTechCostMult(astrolabe, passives);
   // On a Chronomancer run Reel's slot is Rewind (same cost): it reads as Rewind (Phase 3e).
-  const techniques = (['ward', 'chime', 'reel'] as const).map((key) => ({
-    key,
-    name: techniqueName(key, callingId),
-    cost: t[key].cost * costMult,
-    affordable: payWith + 1e-9 >= t[key].cost * costMult,
-  }));
+  // Phase 4f: a slot's variant by its name, at its own cost (Chorale's), Rewind's aside.
+  const chosen = tree.techniques ?? {};
+  const techniques = (['ward', 'chime', 'reel'] as const).map((key) => {
+    const rewind = key === 'reel' && rewindsFor(callingId);
+    const variant = rewind ? null : (chosen[key] ?? null);
+    const cost = (variantSlotCost(key, variant) ?? 0) * costMult;
+    return {
+      key,
+      name: rewind ? techniqueName(key, callingId) : slotName(key, variant),
+      cost,
+      affordable: payWith + 1e-9 >= cost,
+    };
+  });
   const auraCount = slices.length;
   return {
     pool,

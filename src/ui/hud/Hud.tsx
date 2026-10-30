@@ -8,6 +8,7 @@ import { carriedRelics, carrySlots, type ReliquaryRelic } from '../../meta/reliq
 import type { WheelView } from '../../input/wheel';
 import { countHudCommit } from '../perfCounters';
 import { useUi, type Callout, type HudSnapshot } from '../store';
+import type { TechniqueKey } from '../types';
 import { rejectBuzz } from './buzz';
 import { callingLook } from '../kit/callingLook';
 import { useRun } from '../../app/runStore';
@@ -116,8 +117,11 @@ export function HudView({
   dissonanceTip = false,
   bondRanks = null,
   frameTip = null,
+  techniqueTip = null,
 }: {
   hud: HudSnapshot;
+  /** UI lab: a technique's tooltip on the Weaver bar shown (its slot). */
+  techniqueTip?: TechniqueKey | null;
   /** Phase 4e: each hero's Bond rank by hero id, on their frames (null: Bonds aren't open). */
   bondRanks?: Readonly<Record<string, number>> | null;
   /** UI lab: a hero's frame tooltip shown (a hero id). */
@@ -207,10 +211,14 @@ export function HudView({
         bondRanks={bondRanks}
         tipOpen={frameTip}
       />
-      <WeaverBar hud={hud} buzz={rejectBuzz(callouts)} />
+      <WeaverBar hud={hud} buzz={rejectBuzz(callouts)} tip={techniqueTip} />
       {coach && !sandbox && <CoachHints hud={hud} force={forceCoach} />}
       {keyHints && (
-        <KeyHints bear={(hud.calling?.bearShare ?? 0) > 0} rewind={hud.weaver.rewind !== null} />
+        <KeyHints
+          bear={(hud.calling?.bearShare ?? 0) > 0}
+          rewind={hud.weaver.rewind !== null}
+          techniques={hud.weaver.techniques.map((t) => t.name)}
+        />
       )}
       {wheel && <DirectiveWheelView wheel={wheel} focusName={wheel.focusName} fixed={false} />}
     </div>

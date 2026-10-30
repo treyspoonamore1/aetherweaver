@@ -1,4 +1,4 @@
-import { arenaDef, callingDef, encounterDef, heroDef } from '../content';
+import { arenaDef, callingDef, CONTENT, encounterDef, heroDef } from '../content';
 import { getAudio } from '../audio';
 import { InputController } from '../input/InputController';
 import type { Action } from '../input/actions';
@@ -71,6 +71,8 @@ const SAVE_CALLOUTS: Partial<Record<SaveCause, (name: string) => string>> = {
   bear: (name) => `You bore it with ${name}`,
   vow: (name) => `Your Vow held ${name}`,
 };
+/** The slots a technique variant can fill (docs/phase-4f.md). */
+const VARIANT_SLOTS = ['ward', 'chime', 'reel', 'glide'] as const;
 const REASONS: Record<string, string> = {
   cooldown: 'not ready',
   spirit: 'not enough Spirit',
@@ -617,10 +619,18 @@ export class GameRuntime {
                   : life
                     ? 'not enough Life'
                     : (REASONS[event.reason] ?? event.reason);
+          // A technique variant (docs/phase-4f.md) in the slot is named as itself.
+          const key = VARIANT_SLOTS.find((k) => k === event.technique && !rewind);
+          const variant = key
+            ? (state.entities.get(state.weaverId)?.weaver?.variants[key] ?? null)
+            : null;
+          const name =
+            CONTENT.techniqueVariants.find((v) => v.id === variant)?.name ??
+            (rewind ? 'Rewind' : (TECH_NAMES[event.technique] ?? event.technique));
           ui.pushCallout(
             {
               kind: 'reject',
-              text: `${rewind ? 'Rewind' : (TECH_NAMES[event.technique] ?? event.technique)}: ${reason}`,
+              text: `${name}: ${reason}`,
               ...(life ? { detail: 'your techniques cost Life, and never your last' } : {}),
               key: `reject:${slot}`,
             },

@@ -80,6 +80,8 @@ import {
   type Bond,
   type RunBond,
 } from '../../meta/bonds';
+import { fitTechniques, variantsFor, type Techniques } from '../../meta/variants';
+import type { TechniqueKey } from '../types';
 
 // ── HUD snapshots ─────────────────────────────────────────────────────────────────────
 
@@ -102,6 +104,7 @@ function techniques(
       free: false,
       baseCost: t.ward.cost,
       pool: 'spirit',
+      variant: null,
     },
     {
       key: 'chime',
@@ -117,6 +120,7 @@ function techniques(
       free: false,
       baseCost: t.chime.cost,
       pool: 'spirit',
+      variant: null,
     },
     {
       key: 'reel',
@@ -132,6 +136,7 @@ function techniques(
       free: false,
       baseCost: t.reel.cost,
       pool: 'spirit',
+      variant: null,
     },
     {
       key: 'glide',
@@ -147,6 +152,7 @@ function techniques(
       free: false,
       baseCost: 0,
       pool: 'spirit',
+      variant: null,
     },
   ];
   return base.map((b) => ({ ...b, ...over[b.key] }));
@@ -2951,4 +2957,98 @@ export function mockBondsHud(
       return { ...h, ...fromFight, ...over({ ...h, ...fromFight }) };
     }),
   };
+}
+
+// ── Phase 4f: technique variants ─────────────────────────────────────────────────────
+
+/** A variant chosen as the profile store's `setTechnique` would take it (the lab's Prep). */
+export function labSetTechnique(
+  choice: Techniques,
+  slot: TechniqueKey,
+  id: string | null,
+  owned: readonly string[],
+  all: boolean,
+): Techniques {
+  if (id !== null) {
+    if (!variantsFor(slot).some((v) => v.id === id)) return choice;
+    if (!all && !owned.includes(id)) return choice;
+  }
+  return { ...choice, [slot]: id };
+}
+
+/**
+ * A run in Prep that plays this choice, fitted to what's owned as the run store fits it
+ * (`runTechniques`), with a Calling if given.
+ */
+export function techniquesRun(
+  choice: Partial<Techniques>,
+  owned: readonly string[],
+  all: boolean,
+  calling: string | null = null,
+): RunState {
+  const run = Run.newRun(7, GUARDIAN_CHORDS, [], [], [], [], fitTechniques(choice, owned, all));
+  return calling ? Run.setCalling(run, calling, EVERYTHING) : run;
+}
+
+const variantsCache = new Map<string, HudSnapshot>();
+
+/**
+ * The HUD with technique variants in force: a scenario's HUD, with what the bridge reads of a
+ * real fight that plays them (the Weaver bar's slots: names, glyphs, costs, charges). With
+ * `casts`, that fight has Kael threaded and Anchored (Reel's slot), a Chime on Lyra (Absolve's
+ * guard) and one Glide spent: the heroes' statuses and the slots' cooldowns are the fight's.
+ * `calling`: a Calling's run (the Chronomancer's Rewind takes Reel's slot).
+ */
+export function mockVariantsHud(
+  scenario: HudScenario,
+  techniques: Partial<Record<TechniqueKey, string>>,
+  opts: { casts?: boolean; calling?: string; glides?: number } = {},
+): HudSnapshot {
+  const key = JSON.stringify([scenario, techniques, opts]);
+  const hit = variantsCache.get(key);
+  if (hit) return hit;
+  const sim = createSim({
+    seed: 7,
+    encounter: 'sandbox',
+    debug: true,
+    auras: [],
+    techniques: { ...techniques },
+    calling: opts.calling ? { id: opts.calling, path: [] } : null,
+  });
+  const st = sim.state;
+  const step = (n: number, commands: Command[] = []) => {
+    for (let i = 0; i < n; i++) {
+      sim.step(i === 0 ? commands : []);
+      sim.drainEvents();
+    }
+  };
+  step(30);
+  if (opts.casts) {
+    step(1, [{ t: 'thread', slot: 0 }]);
+    step(1, [{ t: 'tech', id: 'reel', slot: 0 }]);
+    const lyra = st.entities.get(st.party[1]!)!;
+    step(1, [{ t: 'tech', id: 'chime', point: { x: lyra.x, z: lyra.z } }]);
+  }
+  for (let i = 0; i < (opts.glides ?? 0); i++) step(12, [{ t: 'glide', x: 1, z: 0 }]);
+  step(opts.casts || opts.glides ? 30 : 1);
+  const real = buildHudSnapshot(st, { seed: 7, hovered: null });
+  const hud = mockHud(scenario);
+  const guards = new Set(['absolved', 'anchored']);
+  const out: HudSnapshot = {
+    ...hud,
+    weaver: {
+      ...hud.weaver,
+      techniques: real.weaver.techniques,
+      rewind: real.weaver.rewind,
+      mastery: real.weaver.mastery,
+    },
+    calling: opts.calling ? real.calling : hud.calling,
+    party: hud.party.map((h) => {
+      const r = real.party.find((p) => p.defId === h.defId);
+      const extra = r?.statuses.filter((s) => guards.has(s.id)) ?? [];
+      return extra.length > 0 ? { ...h, statuses: [...h.statuses, ...extra] } : h;
+    }),
+  };
+  variantsCache.set(key, out);
+  return out;
 }

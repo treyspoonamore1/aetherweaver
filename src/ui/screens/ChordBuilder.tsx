@@ -11,6 +11,7 @@ import {
   type ReservePool,
 } from '../../sim';
 import type { RunCalling } from '../../meta/types';
+import type { Techniques } from '../../meta/variants';
 import { bindingLabel } from '../hud/labels';
 import { fmt, pct } from '../kit/format';
 import { Icon, type IconName } from '../kit/Icon';
@@ -145,6 +146,7 @@ export function ChordBuilder({
   reserveMult = 1,
   astrolabe = NO_TREE,
   passives = NO_PASSIVES,
+  techniques,
 }: {
   value: ChordLoadout[];
   onChange(next: ChordLoadout[]): void;
@@ -164,6 +166,8 @@ export function ChordBuilder({
   astrolabe?: readonly string[];
   /** Phase 4c: the carried relics' passives (`Run.carriedPassives(run)`): Vigor, Light Hands. */
   passives?: readonly Passive[];
+  /** Phase 4f: the run's technique variants (`run.techniques`): the budget names and costs them. */
+  techniques?: Techniques;
 }) {
   const w = CONTENT.weaver;
   const firstEmpty = (): SlotRef => {
@@ -183,6 +187,7 @@ export function ChordBuilder({
     reserveMult,
     astrolabe,
     passives,
+    techniques,
   });
   const preset = presetFor(value);
 
@@ -1035,7 +1040,7 @@ function BudgetPanel({
           role="status"
         >
           <Icon name="ward" size={14} /> Only {fmt(b.free)} Spirit stays free: you could never cast
-          Ward ({costText(ward.cost)}).
+          {` ${ward.name}`} ({costText(ward.cost)}).
         </p>
       )}
       <p

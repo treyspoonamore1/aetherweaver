@@ -37,6 +37,9 @@ import { EmbarkDissonance, PrepDissonancePanel } from './DissonanceParts';
 import type { Bond, RunBond } from '../../meta/bonds';
 import { PrepBondsRow } from './BondsParts';
 import { bondsOpen, prepBondViews, soloView, talentView } from './bondsModel';
+import { PrepTechniquesPanel } from './TechniquesParts';
+import type { TechniqueKey } from '../types';
+import { CodexView, useCodexBonds, useCodexDissonance, useCodexTechniques } from './CodexScreen';
 
 export interface PrepViewProps {
   run: RunState;
@@ -80,6 +83,20 @@ export interface PrepViewProps {
    * follows the profile until it embarks. Omitted (or null): no row.
    */
   bonds?: { bonds: Readonly<Record<string, Bond>>; onOpen(): void } | null;
+  /**
+   * Phase 4f: technique variants. The profile's (the variants it owns, Skip the unlocks) and how a
+   * choice is made (the profile store's `setTechnique`); what the run plays is `run.techniques`,
+   * which follows the profile until it embarks. Omitted (or null): no panel (the UI lab's older
+   * views).
+   */
+  techniques?: {
+    owned: readonly string[];
+    all: boolean;
+    onChoose(slot: TechniqueKey, id: string | null): void;
+    onRules?(): void;
+    /** UI lab: the panel open or folded. */
+    expanded?: boolean;
+  } | null;
 }
 
 /**
@@ -183,6 +200,7 @@ export function PrepView({
   reliquary = null,
   dissonance = null,
   bonds = null,
+  techniques = null,
 }: PrepViewProps) {
   useMood('map');
   // Always the content's two at Prep (the path is empty), but read from the run like Retune.
@@ -295,6 +313,17 @@ export function PrepView({
           />
         )}
 
+        {techniques && (
+          <PrepTechniquesPanel
+            run={run}
+            owned={techniques.owned}
+            all={techniques.all}
+            onChoose={techniques.onChoose}
+            onRules={techniques.onRules}
+            expanded={techniques.expanded}
+          />
+        )}
+
         {dissonance && (
           <PrepDissonancePanel
             run={run}
@@ -318,6 +347,7 @@ export function PrepView({
             reserveMult={lighter}
             astrolabe={run.astrolabe}
             passives={carriedPassives(run)}
+            techniques={run.techniques}
           />
         </section>
 
@@ -497,10 +527,31 @@ export function PrepScreen() {
   const best = useProfile((s) => s.profile.dissonance.best);
   // Bonds (Phase 4e): open from a hero's first Bond rank-up, or with Skip the unlocks.
   const bonds = useProfile((s) => s.profile.bonds);
+  // Technique variants (Phase 4f): the ones owned; the run follows the choice.
+  const owned = useProfile((s) => s.profile.variants);
   const allowance = useAllowance();
   const fresh = useFreshUnlocks();
+  // The Codex's Techniques page, over Prep (its Rules).
+  const [codex, setCodex] = useState(false);
+  const deedBest = useProfile((s) => s.profile.deedBest);
+  const codexDissonance = useCodexDissonance();
+  const codexBonds = useCodexBonds();
+  const codexTechniques = useCodexTechniques();
   if (!run) return null;
   const rank = rankOf(xp);
+  if (codex)
+    return (
+      <CodexView
+        onBack={() => setCodex(false)}
+        initialTab="techniques"
+        allowance={allowance}
+        rank={rank}
+        deeds={{ earned: deeds, best: deedBest }}
+        dissonance={codexDissonance}
+        bonds={codexBonds}
+        techniques={codexTechniques}
+      />
+    );
   return (
     <PrepView
       run={run}
@@ -530,6 +581,12 @@ export function PrepScreen() {
         onChange: (levels) => useProfile.getState().setDissonance(levels),
       }}
       bonds={bondsOpen(bonds, unlockAll) ? { bonds, onOpen: () => setScreen('bonds') } : null}
+      techniques={{
+        owned,
+        all: unlockAll,
+        onChoose: (slot, id) => useProfile.getState().setTechnique(slot, id),
+        onRules: () => setCodex(true),
+      }}
     />
   );
 }
