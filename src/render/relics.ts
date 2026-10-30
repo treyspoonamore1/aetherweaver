@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import type { EntityId, SimEvent, WorldState } from '../sim';
+import { cueReady } from './dissonanceCues';
 import { BEAM } from './fx/beams';
 import type { FxKit } from './fx/kit';
 import { PARTICLE } from './fx/particles';
@@ -1276,13 +1277,14 @@ export class RelicView {
         -0.4,
         0.8,
       );
+    // Silent Cues (Dissonance) can make a Cue cost more than the Hymnal gives: then it only sings.
     this.callout(
       m,
       2,
       w.x,
       w.height + 1.5,
       w.z,
-      'HYMNAL · CUE READY',
+      cueReady(state) ? 'HYMNAL · CUE READY' : 'HYMNAL',
       '#fff4d6',
       17,
       'rgba(245,215,142,0.9)',

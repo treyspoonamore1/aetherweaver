@@ -404,6 +404,10 @@ export class SfxEngine {
       case 'enemyKilled':
         this.kill(ev.defId, ev.enemy, ev.x, state);
         break;
+      case 'enemyRose':
+        // Phase 4d, Restless Dead: struck down, it rises again (once).
+        this.rose(ev.defId, ev.enemy, ev.x, state);
+        break;
       case 'damageTaken':
         if (ev.radiance > 0) this.radiance(ev, state);
         // Phase 4: a Ward that holds a hit that would have broken it rings in the hit's place.
@@ -1633,6 +1637,128 @@ export class SfxEngine {
           { pan },
         );
     }
+  }
+
+  /**
+   * Phase 4d, Restless Dead (`enemyRose`): an enemy struck down rises again, once, at a share of its
+   * life. A hollow, wrong-sounding rise, about 0.9 s, under the kill sounds:
+   *
+   * - its shatter drawn back in: a breath of grit and a glass A5 swelling backwards into the
+   *   moment it was struck;
+   * - a hollow breath rising through it, like wind across a bone flute: a narrow band of air on D,
+   *   then on the A a fifth above (two octaves under for a big one);
+   * - a bare tritone (F and B, the dorian's own) in hollow triangles swelling up out of nothing,
+   *   then scooping up a tritone onto B and F, each note with a twin out of tune beating against
+   *   it, cut off as it stands;
+   * - a dull knock as it finds its feet, softer the less of its life it comes back with.
+   *
+   * Pitched by its size (a brute, a caster, a controller or an elite an octave down and fuller; a
+   * swarm's lighter, since every enemy rises once), panned to it. Gated: a burst of rises in one
+   * hit is one sound, two voices at most.
+   */
+  private rose(defId: string, enemy: number, x: number, state: WorldState): void {
+    if (!this.e.gate('rose', 0.12)) return;
+    const ent = state.entities?.get(enemy);
+    let role = ent?.enemy?.role as string | undefined;
+    if (!role) {
+      try {
+        role = enemyDef(defId).role;
+      } catch {
+        role = 'swarm';
+      }
+    }
+    const big =
+      role === 'brute' ||
+      role === 'controller' ||
+      role === 'caster' ||
+      ent?.enemy?.tier === 'elite';
+    const lo = big ? -14 : -7;
+    // Every enemy rises once: a swarm's rises stay light, a big one's carry.
+    const k = big ? 1.25 : 0.75;
+    const hp = ent?.health?.hp ?? 0;
+    const max = ent?.health?.maxHp ?? 0;
+    const share = max > 0 ? clamp(hp / max, 0.05, 1) : 0.3;
+    const hz = (idx: number) => midiToHz(scaleMidi(idx));
+    const pan = state.entities ? this.panFor(state, x) : 0;
+    this.play(
+      'rose',
+      2,
+      'sfx',
+      (v, t) => {
+        // The shatter drawn back in, into the moment it was struck.
+        v.noise({
+          start: t,
+          dur: 0.24,
+          attack: 0.24,
+          release: 0.012,
+          gain: 0.045,
+          shape: 'sustain',
+          attackCurve: 'exp',
+          filter: { type: 'bandpass', freq: 2600, freqTo: 4200, q: 1.3 },
+        });
+        reverseGlass(v, t + 0.24, hz(11), 0.024, 0.24, 0.6);
+        // The hollow breath: a narrow band of air on D, then on the A above.
+        for (const [idx, at, hold] of [
+          [lo + 7, 0.06, 0.36],
+          [lo + 11, 0.3, 0.42],
+        ] as const) {
+          v.noise({
+            pink: true,
+            start: t + at,
+            dur: hold,
+            attack: 0.22,
+            release: 0.24,
+            gain: 0.1 * k,
+            shape: 'sustain',
+            filter: { type: 'bandpass', freq: hz(idx), q: 16 },
+          });
+        }
+        // The bare tritone swelling up out of nothing, then scooping up a tritone, out of tune.
+        const up = t + 0.42;
+        for (const [twin, g] of [
+          [0, 0.034],
+          [16, 0.02],
+        ] as const) {
+          for (const idx of [lo + 2, lo + 5])
+            v.osc({
+              type: 'triangle',
+              freq: hz(idx),
+              detune: twin,
+              start: t + 0.1,
+              dur: 0.32,
+              attack: 0.32,
+              release: 0.03,
+              gain: g * k,
+              shape: 'sustain',
+              attackCurve: 'exp',
+              filter: { type: 'lowpass', freq: 1400, q: 0.6 },
+            });
+          // From the step under each, up onto B and F.
+          for (const [from, to] of [
+            [lo + 4, lo + 5],
+            [lo + 8, lo + 9],
+          ] as const)
+            v.osc({
+              type: 'triangle',
+              freq: hz(from),
+              freqTo: hz(to),
+              glide: 0.07,
+              detune: twin,
+              start: up,
+              dur: 0.3,
+              attack: 0.02,
+              release: 0.08,
+              gain: g * k,
+              shape: 'sustain',
+              filter: { type: 'lowpass', freq: 1600, q: 0.6 },
+            });
+        }
+        // It finds its feet.
+        thump(v, up + 0.32, hz(lo), (0.05 + 0.12 * share) * k, 0.22, 0.6);
+        v.extend(up + 0.6);
+      },
+      { pan },
+    );
   }
 
   /**
@@ -3011,9 +3137,19 @@ export class SfxEngine {
   }
 
   // ── Telegraph windups ────────────────────────────────────────────────────────────
-  /** How an attack winds up: glass for marks and Chime answers, brass for Ward, else a swell. */
-  private windStyle(kind: string, answers: readonly string[]): 'glass' | 'brass' | 'swell' {
-    return kind === 'mark' || answers.includes('chime')
+  /**
+   * How an attack winds up: glass for marks and Chime answers, brass for Ward, else a swell.
+   * Phase 4d, Blind Score: the telegraphs don't say which answer they want, so neither do their
+   * windups: a mark (its shape) is still glass, everything else the swell.
+   */
+  private windStyle(
+    kind: string,
+    answers: readonly string[],
+    state?: WorldState,
+  ): 'glass' | 'brass' | 'swell' {
+    if (kind === 'mark') return 'glass';
+    if (state?.dissonance?.blindScore) return 'swell';
+    return answers.includes('chime')
       ? 'glass'
       : answers.includes('ward') || answers.includes('dome')
         ? 'brass'
@@ -3052,7 +3188,7 @@ export class SfxEngine {
       this.frozen.add(ev.telegraph);
       return;
     }
-    const style = this.windStyle(ev.kind, ev.answers);
+    const style = this.windStyle(ev.kind, ev.answers, state);
     if (!this.e.gate('wind', 0.08)) return;
     const { pan, near } = this.placeOf(this.shapeX(ev.shape, state), state);
     const dur = clamp(ev.impact - ev.start, 0.5, 3.2);
@@ -3119,7 +3255,7 @@ export class SfxEngine {
     // Its windup had (all but) run its course before time stopped.
     if (!(rem > 0.08)) return;
     const p = clamp(elapsed / total, 0, 1);
-    const style = this.windStyle(tg.kind, tg.answers);
+    const style = this.windStyle(tg.kind, tg.answers, state);
     const { pan, near } = this.placeOf(this.shapeX(tg.shape, state), state);
     const c = this.chord();
     const h = this.play(

@@ -96,6 +96,18 @@ export class BarBatch extends InstancedFx {
     this.col = this.array('iColor');
   }
 
+  /** Bar `i` as last pushed (tests): where, its life share, its colour and flags. */
+  barOf(i: number): { x: number; z: number; hp: number; color: number[]; flags: number } {
+    const o = i * 4;
+    return {
+      x: this.pos[o]!,
+      z: this.pos[o + 2]!,
+      hp: this.val[o]!,
+      color: [this.col[o]!, this.col[o + 1]!, this.col[o + 2]!],
+      flags: this.col[o + 3]!,
+    };
+  }
+
   push(
     x: number,
     y: number,

@@ -3,10 +3,14 @@ import type { AnswerTag } from '../sim';
 import { VISION_HEX, currentVision, rgba } from './palette';
 import { CALLING_HEX } from './callingCues';
 import { CHRONO_HEX } from './chronoCues';
+import { DISSONANCE_HEX } from './dissonanceCues';
 import { softenHex, songHex } from './songs';
 
-/** Icons the overlay can draw: telegraph answers, plus the Weaver's Mend and Empower. */
-export type GlyphIcon = AnswerTag | 'mend' | 'empower';
+/**
+ * Icons the overlay can draw: telegraph answers, plus the Weaver's Mend and Empower, and Blind
+ * Score's `unknown` (Dissonance, docs/phase-4d/vfx-audio.md): a telegraph that hides its answer.
+ */
+export type GlyphIcon = AnswerTag | 'mend' | 'empower' | 'unknown';
 
 /**
  * World-anchored DOM overlay (docs/plan/05 §5.3): floating numbers, answer glyphs, callouts,
@@ -26,6 +30,8 @@ const ICONS: Record<GlyphIcon, string> = {
   dome: '<path d="M3 18.5a9 9 0 0 1 18 0Z"/><path d="M7 18.5a5 5 0 0 1 10 0"/>',
   mend: '<path d="M12 4.5v15M4.5 12h15"/>',
   empower: '<path d="M5 13.5 12 6.5l7 7"/><path d="M5 19 12 12l7 7"/>',
+  unknown:
+    '<path d="M8.6 8.4a3.5 3.5 0 1 1 5.2 3.1c-1.1.6-1.8 1.4-1.8 2.6v.7"/><circle cx="12" cy="18.9" r="1.25" fill="currentColor" stroke="none"/>',
 };
 
 const ICON_COLORS: Record<GlyphIcon, string> = {
@@ -39,6 +45,7 @@ const ICON_COLORS: Record<GlyphIcon, string> = {
   dome: '#fde9b8',
   mend: '#99f6e4',
   empower: '#fde68a',
+  unknown: DISSONANCE_HEX.blind,
 };
 
 const LABELS: Record<GlyphIcon, string> = {
@@ -52,6 +59,7 @@ const LABELS: Record<GlyphIcon, string> = {
   dome: 'Dome',
   mend: 'Heal',
   empower: 'Empower',
+  unknown: 'Blind',
 };
 
 function iconSvg(tag: GlyphIcon): string {

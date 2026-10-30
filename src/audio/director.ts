@@ -7,7 +7,14 @@ import { BUS_NAMES, Engine } from './engine';
 import { MusicEngine } from './music';
 import { SfxEngine } from './sfx';
 import { CALLING_UI_SOUNDS, playUiSound } from './ui';
-import type { AudioDebugStats, AudioDirector, AudioMood, UiSound, Volumes } from './types';
+import type {
+  AudioDebugStats,
+  AudioDirector,
+  AudioMood,
+  UiSound,
+  UiSoundDetail,
+  Volumes,
+} from './types';
 import { BEAT } from './theory';
 import type { SimEvent, WorldState } from '../sim';
 import { useRun } from '../app/runStore';
@@ -200,7 +207,7 @@ export class SynthDirector implements AudioDirector {
     this.music?.setMood(mood);
   }
 
-  playUi(sound: UiSound, calling?: string | null): void {
+  playUi(sound: UiSound, calling?: string | null, detail?: UiSoundDetail): void {
     if (!this.live || !this.engine) return;
     const source = this.callingOf;
     if (calling === undefined && source && CALLING_UI_SOUNDS.has(sound)) {
@@ -213,17 +220,17 @@ export class SynthDirector implements AudioDirector {
         } catch {
           // No run to ask: the shared voicing.
         }
-        this.playUiNow(sound, id);
+        this.playUiNow(sound, id, detail);
       });
       return;
     }
-    this.playUiNow(sound, calling ?? null);
+    this.playUiNow(sound, calling ?? null, detail);
   }
 
-  private playUiNow(sound: UiSound, calling: string | null): void {
+  private playUiNow(sound: UiSound, calling: string | null, detail?: UiSoundDetail): void {
     if (!this.live || !this.engine) return;
     try {
-      playUiSound(this.engine, sound, calling);
+      playUiSound(this.engine, sound, calling, detail);
     } catch (err) {
       if (typeof console !== 'undefined') console.warn('[audio] ui failed', err);
     }

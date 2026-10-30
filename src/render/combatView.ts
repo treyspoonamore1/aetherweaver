@@ -6,6 +6,7 @@ import { AstrolabeView } from './astrolabe';
 import { CallView } from './calls';
 import { CallingView } from './calling';
 import { ChronoView } from './chrono';
+import { DissonanceView } from './dissonance';
 import { EntityLayer } from './entities';
 import { FermataView } from './fermata';
 import { Feedback } from './feedback';
@@ -45,6 +46,7 @@ export class CombatView implements WorldView {
   readonly martyr: MartyrView;
   readonly chrono: ChronoView;
   readonly astrolabe: AstrolabeView;
+  readonly dissonance: DissonanceView;
   private quality: QualityTier;
   /** The enemies' clock for the telegraph shaders: it waits while Stasis holds them. */
   private enemyClock = 0;
@@ -114,6 +116,7 @@ export class CombatView implements WorldView {
       recs: this.entities.recs,
       entities: this.entities,
     });
+    this.dissonance = new DissonanceView({ kit: this.kit, recs: this.entities.recs });
     this.quality = ctx.quality;
     this.setQuality(ctx.quality);
     void state;
@@ -149,6 +152,7 @@ export class CombatView implements WorldView {
     this.martyr.sync(state, fxDt, frame.time, frame.settings.flashes);
     this.chrono.sync(state, fxDt, frame.time, frame.settings.flashes, frame.settings.damageNumbers);
     this.astrolabe.sync(state, fxDt, frame.time, frame.settings.flashes);
+    this.dissonance.sync(state, fxDt, frame.time, frame.settings.flashes);
     this.overlay.setStasis(this.chrono.cool);
     this.offscreen(state);
     this.aimMarker(state, frame);
@@ -169,6 +173,7 @@ export class CombatView implements WorldView {
     this.martyr.handle(events, state);
     this.chrono.handle(events, state);
     this.astrolabe.handle(events, state);
+    this.dissonance.handle(events, state);
   }
 
   setQuality(quality: QualityTier): void {

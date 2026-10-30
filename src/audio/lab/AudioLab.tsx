@@ -64,6 +64,9 @@ declare global {
       auditMoods(): Promise<Record<string, LevelReport>>;
       renderFight(seconds?: number): Promise<FightRender>;
       pitch(): Promise<Record<string, PitchReport>>;
+      /** Phase 4d: the audit and the pitch report for the named buttons only. */
+      auditIds(ids: string[]): Promise<Record<string, LevelReport>>;
+      pitchIds(ids: string[]): Promise<Record<string, PitchReport>>;
       world: FakeWorld;
     };
   }
@@ -291,6 +294,17 @@ export function AudioLab() {
           if (s.group === 'ui') continue;
           out[s.id] = pitchReport(await renderSound(s), 1.5, false);
         }
+        return out;
+      },
+      auditIds: async (ids) => {
+        const out: Record<string, LevelReport> = {};
+        for (const s of SOUNDS) if (ids.includes(s.id)) out[s.id] = await auditSound(s);
+        return out;
+      },
+      pitchIds: async (ids) => {
+        const out: Record<string, PitchReport> = {};
+        for (const s of SOUNDS)
+          if (ids.includes(s.id)) out[s.id] = pitchReport(await renderSound(s), 1.5, false);
         return out;
       },
     };

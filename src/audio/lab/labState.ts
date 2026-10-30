@@ -4,7 +4,7 @@
  * the offline loudness audit.
  */
 import { CONTENT } from '../../content';
-import type { AstrolabeState, SimEvent, WorldState } from '../../sim';
+import type { AstrolabeState, DissonanceState, SimEvent, WorldState } from '../../sim';
 
 export const IDS = { weaver: 1, kael: 2, lyra: 3, vexis: 4, enemyBase: 10 } as const;
 export const HERO_IDS = ['kael', 'lyra', 'vexis'] as const;
@@ -32,7 +32,15 @@ interface FakeEntity {
   weaver?: { resonance: number; threadTension: number; crescendo: number };
   /** `afterglowUntil` (Phase 4): Empower lingers on this hero until this sim time. */
   hero?: { defId: string; slot: number; solo: number; soloActive: number; afterglowUntil: number };
-  enemy?: { role: string; tier: string; state: string; phase: number; defId?: string };
+  enemy?: {
+    role: string;
+    tier: string;
+    state: string;
+    phase: number;
+    defId?: string;
+    /** Phase 4d, Restless Dead: it has fallen and risen once already. */
+    risen?: boolean;
+  };
 }
 
 const health = (hp: number, maxHp: number, dead = false): FakeEntity['health'] => ({
@@ -99,6 +107,12 @@ export class FakeWorld {
   time = 0;
   /** Phase 4: the Astrolabe the fake fight carries (`state.astrolabe`); see `setAstrolabe`. */
   astrolabe: AstrolabeState = NO_TREE;
+  /** Phase 4d: the Dissonance in force (`state.dissonance`); see `setBlindScore`. */
+  dissonance: DissonanceState = {
+    levels: [],
+    blindScore: false,
+    cueCost: CONTENT.resonance.cueCost,
+  };
   readonly state: WorldState;
 
   constructor() {
@@ -164,6 +178,9 @@ export class FakeWorld {
       ledger: {} as WorldState['ledger'],
       get astrolabe() {
         return self.astrolabe;
+      },
+      get dissonance() {
+        return self.dissonance;
       },
       get telegraphs() {
         return self.telegraphs as WorldState['telegraphs'];
@@ -322,6 +339,15 @@ export class FakeWorld {
       lifeCapPct: cap,
     };
   }
+  /** Phase 4d: Blind Score on or off (the telegraphs' windups stop naming their answer). */
+  setBlindScore(on: boolean): void {
+    const id = CONTENT.dissonance.find((d) => d.effect === 'blind_score')?.id ?? 'blind_score';
+    this.dissonance = {
+      levels: on ? [{ id, rank: 1 }] : [],
+      blindScore: on,
+      cueCost: CONTENT.resonance.cueCost,
+    };
+  }
   /** Phase 4: the Weaver's Life, as a share of her usable Life. */
   setWeaverHp(frac: number): void {
     const w = this.entities.get(IDS.weaver);
@@ -386,6 +412,22 @@ export class FakeWorld {
       w.x = x;
       w.z = z;
     }
+  }
+  /**
+   * Phase 4d, Restless Dead: an enemy of a role at x that has just risen (standing back up at
+   * `share` of its life, as the sim leaves it on `enemyRose`). Returns its id.
+   */
+  addRisen(role: string, x: number, tier = 'normal', share = 0.3): number {
+    const id = IDS.enemyBase + 100 + this.entities.size;
+    this.entities.set(id, {
+      id,
+      kind: 'enemy',
+      x,
+      z: 5,
+      health: health(Math.round(100 * share), 100),
+      enemy: { role, tier, state: 'spawning', phase: 0, risen: true },
+    });
+    return id;
   }
   /** Adds one enemy of a role at x (kill sounds read the role from the entity). */
   addEnemy(role: string, x: number): number {

@@ -347,10 +347,11 @@ class FieldBatch extends InstancedFx {
     this.lum[o + 3] = this.lumSovereign;
   }
 
-  /** The instance data of field `i` (tests). */
-  instance(i: number): { count: number; lum: number[]; third: number[] } {
+  /** The instance data of field `i` (tests): its aura count, the Luminary's look, its radius. */
+  instance(i: number): { count: number; lum: number[]; third: number[]; radius: number } {
     const o = i * 4;
     return {
+      radius: this.pos[o + 2]!,
       count: this.c0[o + 3]!,
       lum: [this.lum[o]!, this.lum[o + 1]!, this.lum[o + 2]!, this.lum[o + 3]!],
       third: [this.c2[o]!, this.c2[o + 1]!, this.c2[o + 2]!],
@@ -418,7 +419,7 @@ export class FieldView {
   }
 
   /** Field `i`'s instance data as last pushed (tests). */
-  batchInstance(i: number): { count: number; lum: number[]; third: number[] } {
+  batchInstance(i: number): { count: number; lum: number[]; third: number[]; radius: number } {
     return this.batch.instance(i);
   }
 

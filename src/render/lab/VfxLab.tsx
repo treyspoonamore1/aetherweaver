@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import * as THREE from 'three';
 import { COLOR_VISIONS, type ColorVision } from '../../app/colorVision';
 import { CONTENT, arenaDef, heroDef } from '../../content';
 import { CHORD_PRESETS } from '../../meta/run';
@@ -117,6 +118,45 @@ interface LabApi {
   setAstrolabe(nodes: string[] | null): void;
   /** What the Astrolabe's view has played and is drawing, and what it reads. */
   astroStats(): AstroStats;
+  /** Phase 4d */
+  dissonanceScenarios(): string[];
+  /** Restarts the real sim with that scenario's Dissonance (and encounter, Chords) and stages it. */
+  dissonanceScenario(name: string): void;
+  /** Restarts the real sim with these Dissonance levels (`{ id, rank }`; null: none). */
+  setDissonance(levels: { id: string; rank: number }[] | null): void;
+  /** What Dissonance's views have played and are drawing, and what they read. */
+  dissonanceStats(): DissonanceStats;
+  /** Where a world point is on the page (CSS px), for screenshot scripts' close-ups. */
+  screenOf(x: number, y: number, z: number): { x: number; y: number };
+}
+
+interface DissonanceStats {
+  levels: { id: string; rank: number }[];
+  blindScore: boolean;
+  cueCost: number;
+  /** Rises started; rises drawn, risen enemies marked, crown gems, Cue ticks, blind badges. */
+  fired: Record<string, number>;
+  drawn: Record<string, number>;
+  enemies: {
+    id: number;
+    x: number;
+    z: number;
+    height: number;
+    def: string;
+    tier: string;
+    affixes: string[];
+    hp: number;
+    maxHp: number;
+    state: string;
+    risen: boolean;
+    rising: number;
+  }[];
+  /** Where the Weaver stands. */
+  weaver: { x: number; z: number };
+  /** The fields' radii as the sim has them, and the Thread's tension (0..1; -1: no Thread). */
+  fieldRadius: number;
+  tension: number;
+  resonance: number;
 }
 
 interface AstroStats {
@@ -220,6 +260,9 @@ let callingCfg: SimConfig['calling'] = null;
 let chordsOverride: ChordConfig[] | null = null;
 /** Phase 4: the Astrolabe tree the lab sim fights with (node ids, as SimConfig.astrolabe). */
 let astrolabeCfg: string[] = [];
+/** Phase 4d: the Dissonance levels the lab sim fights at, and a scenario's own encounter. */
+let dissonanceCfg: { id: string; rank: number }[] = [];
+let encounterOverride: string | null = null;
 
 interface RelicScenario {
   relics: string[];
@@ -1124,6 +1167,187 @@ const ASTRO_SCENARIOS: Record<string, AstroScenario> = {
 };
 const ASTRO_SCENARIO_NAMES = Object.keys(ASTRO_SCENARIOS);
 
+interface DisScenario {
+  /** The levels in force, by their effect (content names the level), at a rank (default 1). */
+  levels: (string | [string, number])[];
+  /** The encounter (default: the sandbox), Chords (default: Guardian) and Calling. */
+  encounter?: string;
+  chords?: ChordConfig[];
+  calling?: SimConfig['calling'];
+  note: string;
+  stage(rt: LabRuntime): void;
+}
+
+/** A Dissonance level by its effect, as `SimConfig.dissonance` takes it (the content's id). */
+function levelOf(effect: string, rank = 1): { id: string; rank: number } {
+  const def = CONTENT.dissonance.find((d) => d.effect === effect);
+  return { id: def?.id ?? effect, rank: Math.min(rank, def?.ranks ?? rank) };
+}
+
+/** Every level the fight reads, at its top rank (the clutter check). */
+const EVERY_LEVEL: [string, number][] = CONTENT.dissonance.map((d) => [d.effect, d.ranks]);
+
+/** Choristers in front of Kael, for the party to strike down (each rises once). */
+function choristers(rt: LabRuntime, n: number, at = 0.2): void {
+  rt.later(at, () => {
+    const p = rt.heroPos(0);
+    for (let i = 0; i < n; i++) {
+      const a = -0.6 + (1.2 * i) / Math.max(1, n - 1);
+      rt.queue({
+        t: 'debug',
+        op: {
+          op: 'spawnEnemy',
+          defId: 'hollow_chorister',
+          x: p.x + Math.sin(a) * 2.2,
+          z: p.z - Math.cos(a) * 2.2,
+        },
+      });
+    }
+  });
+}
+
+/** Keeps the Weaver `d` m west of the hero in `slot` (the heroes follow her; this holds them apart). */
+function holdApart(rt: LabRuntime, slot: number, d: number, from: number): void {
+  const step = () => {
+    const p = rt.heroPos(slot);
+    rt.queue({ t: 'debug', op: { op: 'teleportWeaver', x: p.x - d, z: p.z } });
+    rt.later(1 / 30, step);
+  };
+  rt.later(from, step);
+}
+
+/**
+ * Phase 4d: one scenario per Dissonance visual. Each restarts the real sim at those levels
+ * (SimConfig.dissonance) and stages it with real commands and debug ops (no injected events).
+ */
+const DIS_SCENARIOS: Record<string, DisScenario> = {
+  'Restless Dead · the rise': {
+    levels: ['restless_dead'],
+    note: 'Two choristers in front of Kael, Empowered: struck down, each falls back into ash and stands up out of it, its life back at 30% in ash',
+    stage: (rt) => {
+      rt.later(0.15, () => {
+        rt.thread(0);
+        rt.queue({ t: 'mode' });
+      });
+      choristers(rt, 2);
+    },
+  },
+  'Restless Dead · a pack': {
+    levels: ['restless_dead'],
+    note: 'Six choristers round the party: they rise one after another and fight on, ashen (the clutter check)',
+    stage: (rt) => {
+      rt.later(0.15, () => {
+        rt.thread(0);
+        rt.queue({ t: 'mode' });
+      });
+      rt.later(0.2, () => rt.attackers(0, 3));
+      rt.later(0.25, () => rt.attackers(1, 3));
+    },
+  },
+  'Restless Dead · risen and not': {
+    levels: ['restless_dead'],
+    note: 'Five choristers: as the party strikes them down they rise one by one, ashen with ash life bars, beside the fresh ones',
+    stage: (rt) => choristers(rt, 5),
+  },
+  'Restless Dead · a brute': {
+    levels: ['restless_dead'],
+    note: 'A Bell Brute beside Kael, Empowered: a big body to watch fall into ash and stand up out of it',
+    stage: (rt) => {
+      rt.later(0.15, () => {
+        rt.thread(0);
+        rt.queue({ t: 'mode' });
+      });
+      // You step back out of its Toll Cleave (it would down you): Kael's to hold.
+      rt.later(0.2, () => rt.brute(0));
+    },
+  },
+  'Blind Score · the grammar': {
+    levels: ['blind_score'],
+    note: 'Every telegraph shape and both severities through the real telegraph layer: each badge a neutral "?" (its place, border, timer and Perfect pulse kept)',
+    stage: (rt) => rt.later(0.1, () => rt.grammar(true)),
+  },
+  'Blind Score · a fight': {
+    levels: ['blind_score'],
+    note: 'A Bell Brute’s Toll Cleave on Kael, a Lamenter and choristers: real telegraphs, their answers hidden',
+    stage: (rt) => {
+      rt.later(0.2, () => rt.brute(0));
+      rt.later(0.3, () => rt.spawn('lamenter', -5, -7));
+      rt.later(0.3, () => rt.spawn('glass_lancer', 6, -9));
+    },
+  },
+  'Blind Score · with timers': {
+    levels: ['blind_score'],
+    calling: { id: 'chronomancer', path: [] },
+    note: 'The Chronomancer’s timers on every telegraph, under Blind Score: the "?" with its seconds',
+    stage: (rt) => rt.later(0.1, () => rt.grammar(true)),
+  },
+  'Grammar · no Dissonance': {
+    levels: [],
+    note: 'The same telegraph grammar with its answers, for comparison',
+    stage: (rt) => rt.later(0.1, () => rt.grammar(true)),
+  },
+  'Elite Vanguard': {
+    levels: ['elite_vanguard'],
+    encounter: 'muted_nave',
+    note: 'The Muted Nave: its first wave cleared (debug), the second brings two elite Bell Brutes, each Shielded and Hastened: their rims take each affix in turn, a gem for each on the crown',
+    stage: (rt) => {
+      rt.later(4.2, () => rt.queue({ t: 'debug', op: { op: 'killEnemies' } }));
+      rt.later(4.6, () => rt.queue({ t: 'debug', op: { op: 'healParty' } }));
+    },
+  },
+  'Elite · no Dissonance': {
+    levels: [],
+    encounter: 'muted_nave',
+    note: 'The same wave without Elite Vanguard: one elite brute, Shielded only (as before)',
+    stage: (rt) => {
+      rt.later(4.2, () => rt.queue({ t: 'debug', op: { op: 'killEnemies' } }));
+      rt.later(4.6, () => rt.queue({ t: 'debug', op: { op: 'healParty' } }));
+    },
+  },
+  'Muted Choir': {
+    levels: ['aura_radius'],
+    note: 'Lyra threaded: your field reaches 15% less far, drawn where the sim has it (compare with No Dissonance)',
+    stage: (rt) => rt.later(0.2, () => rt.thread(1)),
+  },
+  'Fragile Threads': {
+    levels: ['thread_range'],
+    note: 'Kael threaded, you held 10.5 m from him: with the Thread 3 m shorter it is near snapping (taut, shimmering)',
+    stage: (rt) => {
+      rt.later(0.2, () => rt.thread(0));
+      holdApart(rt, 0, 10.5, 0.4);
+    },
+  },
+  'Fragile Threads · without': {
+    levels: [],
+    note: 'The same 10.5 m without the level: the Thread barely taut',
+    stage: (rt) => {
+      rt.later(0.2, () => rt.thread(0));
+      holdApart(rt, 0, 10.5, 0.4);
+    },
+  },
+  'Silent Cues': {
+    levels: ['cue_cost'],
+    note: 'A Cue costs 35: gold ticks on your Resonance orbit where each Cue’s cost falls. At 30 the first is dim; at 2 s, 40: lit, a Cue paid for',
+    stage: (rt) => {
+      rt.later(0.1, () => rt.queue({ t: 'debug', op: { op: 'setResonance', value: 30 } }));
+      rt.later(2, () => rt.queue({ t: 'debug', op: { op: 'setResonance', value: 40 } }));
+    },
+  },
+  'Every level': {
+    levels: EVERY_LEVEL,
+    encounter: 'muted_nave',
+    note: 'Every level at its top rank in the Muted Nave: risen choristers, two-affix elites, blind telegraphs, the orbit’s ticks (the clutter check)',
+    stage: (rt) => {
+      rt.later(0.2, () => {
+        rt.thread(0);
+        rt.queue({ t: 'mode' });
+      });
+      rt.later(0.3, () => rt.queue({ t: 'debug', op: { op: 'setResonance', value: 40 } }));
+    },
+  },
+};
+const DIS_SCENARIO_NAMES = Object.keys(DIS_SCENARIOS);
+
 class LabRuntime {
   sim: Sim;
   readonly stage: Stage;
@@ -1179,12 +1403,13 @@ class LabRuntime {
   private createSim(): Sim {
     return createSim({
       seed: 1234,
-      encounter: this.encounter,
+      encounter: encounterOverride ?? this.encounter,
       debug: true,
       chords: chordsOverride ?? LOADOUTS[this.loadout] ?? LOADOUTS.Steady,
       relics: carried,
       calling: callingCfg,
       astrolabe: astrolabeCfg,
+      dissonance: dissonanceCfg,
     });
   }
 
@@ -1209,6 +1434,8 @@ class LabRuntime {
     callingCfg = null;
     chordsOverride = null;
     astrolabeCfg = [];
+    dissonanceCfg = [];
+    encounterOverride = null;
     this.restart(s.relics);
     s.stage(this);
   }
@@ -1225,6 +1452,8 @@ class LabRuntime {
     if (!s) return;
     carried = [];
     astrolabeCfg = [];
+    dissonanceCfg = [];
+    encounterOverride = null;
     this.setCalling(s.path, s.chords ?? GUARDIAN_CHORDS);
     s.stage(this);
   }
@@ -1257,6 +1486,8 @@ class LabRuntime {
     if (!s) return;
     carried = [];
     astrolabeCfg = [];
+    dissonanceCfg = [];
+    encounterOverride = null;
     this.setCalling(s.path, s.chords ?? GUARDIAN_CHORDS, 'martyr');
     s.stage(this);
   }
@@ -1291,6 +1522,8 @@ class LabRuntime {
     if (!s) return;
     carried = [];
     astrolabeCfg = [];
+    dissonanceCfg = [];
+    encounterOverride = null;
     this.setCalling(s.path, s.chords ?? GUARDIAN_CHORDS, 'chronomancer');
     s.stage(this);
   }
@@ -1302,8 +1535,69 @@ class LabRuntime {
     astrolabeCfg = [...s.nodes];
     callingCfg = s.calling ?? null;
     chordsOverride = s.chords ?? GUARDIAN_CHORDS;
+    dissonanceCfg = [];
+    encounterOverride = null;
     this.restart(s.relics ?? []);
     s.stage(this);
+  }
+
+  /** Phase 4d: restarts at that scenario's Dissonance (its encounter, Chords) and stages it. */
+  dissonanceScenario(name: string): void {
+    const s = DIS_SCENARIOS[name];
+    if (!s) return;
+    dissonanceCfg = s.levels.map((l) => (typeof l === 'string' ? levelOf(l) : levelOf(l[0], l[1])));
+    encounterOverride = s.encounter ?? 'sandbox';
+    callingCfg = s.calling ?? null;
+    chordsOverride = s.chords ?? GUARDIAN_CHORDS;
+    astrolabeCfg = [];
+    this.restart([]);
+    s.stage(this);
+  }
+
+  /** Phase 4d: restarts at these levels (null: none), keeping the rest. */
+  setDissonance(levels: { id: string; rank: number }[] | null): void {
+    dissonanceCfg = levels ? levels.map((l) => ({ ...l })) : [];
+    this.restart(carried);
+  }
+
+  dissonanceStats(): DissonanceStats {
+    const v = this.view;
+    const st = this.sim.state;
+    const w = st.entities.get(st.weaverId)?.weaver;
+    const enemies: DissonanceStats['enemies'] = [];
+    for (const e of st.entities.list()) {
+      if (!e.enemy || !e.health) continue;
+      enemies.push({
+        id: e.id,
+        x: e.x,
+        z: e.z,
+        height: e.height,
+        def: e.enemy.defId,
+        tier: e.enemy.tier,
+        affixes: [...e.enemy.affixes],
+        hp: Math.round(e.health.hp),
+        maxHp: Math.round(e.health.maxHp),
+        state: e.enemy.state,
+        risen: !!e.enemy.risen,
+        rising: v.entities.recs.get(e.id)?.rising ?? 0,
+      });
+    }
+    return {
+      levels: st.dissonance.levels.map((l) => ({ ...l })),
+      blindScore: st.dissonance.blindScore,
+      cueCost: st.dissonance.cueCost,
+      fired: { ...v.dissonance.fired },
+      drawn: {
+        ...v.dissonance.drawn,
+        ...v.entities.drawnDis,
+        blind: v.telegraphs.drawn.blind,
+      },
+      enemies,
+      weaver: this.weaverPos(),
+      fieldRadius: st.field.radius,
+      tension: w && w.threadSlot !== null ? w.threadTension : -1,
+      resonance: w?.resonance ?? 0,
+    };
   }
 
   /** Phase 4: restarts with this tree (null: none), keeping the relics, Calling and Chords. */
@@ -1390,6 +1684,14 @@ class LabRuntime {
         };
       }),
     };
+  }
+
+  private readonly projected = new THREE.Vector3();
+
+  screenOf(x: number, y: number, z: number): { x: number; y: number } {
+    const v = this.projected.set(x, y, z).project(this.stage.camera);
+    const r = this.stage.canvas.getBoundingClientRect();
+    return { x: r.left + (v.x * 0.5 + 0.5) * r.width, y: r.top + (-v.y * 0.5 + 0.5) * r.height };
   }
 
   relicStats(): { fired: Record<string, number>; active: number; prism: number } {
@@ -2134,6 +2436,8 @@ export function VfxLab() {
   useEffect(() => {
     const host = hostRef.current;
     if (!host) return;
+    // An encounter picked here wins over a Dissonance scenario's own.
+    encounterOverride = null;
     const rt = new LabRuntime(
       host,
       encounter,
@@ -2210,11 +2514,16 @@ export function VfxLab() {
       astroScenario: (name) => rt.astroScenario(name),
       setAstrolabe: (nodes) => rt.setAstrolabe(nodes),
       astroStats: () => rt.astroStats(),
+      dissonanceScenarios: () => DIS_SCENARIO_NAMES,
+      dissonanceScenario: (name) => rt.dissonanceScenario(name),
+      setDissonance: (levels) => rt.setDissonance(levels),
+      dissonanceStats: () => rt.dissonanceStats(),
+      screenOf: (x, y, z) => rt.screenOf(x, y, z),
     };
     const timer = window.setInterval(() => {
       const i = rt.info();
       if (statsRef.current) {
-        statsRef.current.textContent = `fps ${i.fps.toFixed(1)}  calls ${i.calls}  tris ${(i.triangles / 1000).toFixed(1)}k\nparticles ${i.particles}  entities ${rt.sim.state.entities.count}  tick ${rt.sim.tick}\nrelics ${rt.sim.state.relics.ids.length ? rt.sim.state.relics.ids.join(', ') : 'none'}\ncalling ${rt.sim.state.calling ? `${rt.sim.state.calling.id} · ${rt.sim.state.calling.path.join(', ') || 'no path'}` : 'none'}\nastrolabe ${rt.sim.state.astrolabe.nodes.length ? rt.sim.state.astrolabe.nodes.join(', ') : 'none'}`;
+        statsRef.current.textContent = `fps ${i.fps.toFixed(1)}  calls ${i.calls}  tris ${(i.triangles / 1000).toFixed(1)}k\nparticles ${i.particles}  entities ${rt.sim.state.entities.count}  tick ${rt.sim.tick}\nrelics ${rt.sim.state.relics.ids.length ? rt.sim.state.relics.ids.join(', ') : 'none'}\ncalling ${rt.sim.state.calling ? `${rt.sim.state.calling.id} · ${rt.sim.state.calling.path.join(', ') || 'no path'}` : 'none'}\nastrolabe ${rt.sim.state.astrolabe.nodes.length ? rt.sim.state.astrolabe.nodes.join(', ') : 'none'}\ndissonance ${rt.sim.state.dissonance.levels.length ? rt.sim.state.dissonance.levels.map((l) => (l.rank > 1 ? `${l.id}×${l.rank}` : l.id)).join(', ') : 'none'}`;
       }
     }, 250);
     return () => {
@@ -2588,6 +2897,24 @@ export function VfxLab() {
           ))}
           <Btn onClick={() => rt()?.setAstrolabe(null)} title="Restart without a tree">
             No tree
+          </Btn>
+        </Group>
+        <Group title="Phase 4d · Dissonance">
+          <p className="w-full text-[10px] text-muted">
+            Each restarts the real sim at a scenario&apos;s Dissonance levels (and its encounter)
+            and stages it.
+          </p>
+          {DIS_SCENARIO_NAMES.map((name) => (
+            <Btn
+              key={name}
+              onClick={() => rt()?.dissonanceScenario(name)}
+              title={DIS_SCENARIOS[name]!.note}
+            >
+              {name}
+            </Btn>
+          ))}
+          <Btn onClick={() => rt()?.setDissonance(null)} title="Restart without Dissonance">
+            No Dissonance
           </Btn>
         </Group>
         <Group title="Phase 2 · Chords">

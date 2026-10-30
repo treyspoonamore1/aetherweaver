@@ -27,4 +27,11 @@ hot?.dispose(() => {
 });
 
 export { SynthDirector };
-export type { AudioDebugStats, AudioDirector, AudioMood, UiSound, Volumes } from './types';
+export type {
+  AudioDebugStats,
+  AudioDirector,
+  AudioMood,
+  UiSound,
+  UiSoundDetail,
+  Volumes,
+} from './types';

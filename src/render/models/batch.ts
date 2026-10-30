@@ -82,6 +82,23 @@ export class ModelBatch {
     return i < this.count ? (this.shine.array as Float32Array)[i * 4 + 3]! : 0;
   }
 
+  /** Instance `i`'s effects as last pushed: hit flash, dissolve, desaturation, ghost (tests). */
+  fxOf(i: number): { flash: number; dissolve: number; desat: number; ghost: number } {
+    const f = this.fx.array as Float32Array;
+    if (i >= this.count) return { flash: 0, dissolve: 0, desat: 0, ghost: 0 };
+    return {
+      flash: f[i * 4]!,
+      dissolve: f[i * 4 + 1]!,
+      desat: f[i * 4 + 2]!,
+      ghost: f[i * 4 + 3]!,
+    };
+  }
+
+  /** How many instances were pushed this frame (tests). */
+  get pushed(): number {
+    return this.count;
+  }
+
   /** Instance `i`'s rim as last pushed: its colour into `out`, its strength returned (tests). */
   tintOf(i: number, out: THREE.Color): number {
     if (i >= this.count) return 0;

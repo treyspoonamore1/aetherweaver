@@ -22,6 +22,15 @@ import {
   stasisWave,
 } from './chronoCues';
 import { MARTYR_HEX } from './martyrCues';
+import {
+  DISSONANCE_HEX,
+  RISEN_DESAT,
+  cueTicks,
+  dissonanceLook,
+  emptyDissonanceLook,
+  emptyRiseShape,
+  riseShape,
+} from './dissonanceCues';
 import { C, approach, auraColor, clamp01, color, threadColor as threadModeColor } from './palette';
 import {
   POUR_TRAVEL,
@@ -48,6 +57,11 @@ export interface EntityRec {
   role: string;
   tier: string;
   affixColor: THREE.Color | null;
+  /**
+   * Every affix's colour, in the enemy's order (Elite Vanguard gives elites a second one: its rim
+   * takes each in turn, and its crown wears a gem for each; docs/phase-4d/vfx-audio.md).
+   */
+  affixColors: THREE.Color[];
   suppressRadius: number;
   seen: number;
   x: number;
@@ -113,6 +127,13 @@ export interface EntityRec {
   graceRef: unknown;
   conduit: number;
   prism: number;
+  /**
+   * Restless Dead (Dissonance, docs/phase-4d/vfx-audio.md). `risen`: 1 once this enemy has risen
+   * (it won't again): drawn drained to ash, a pale rim, an ash life bar, ash drifting off it.
+   * `rising`: how far down it is as it stands back up (0..1, the rise's pose; 0 otherwise).
+   */
+  risen: number;
+  rising: number;
   lastHp: number;
   alive: boolean;
 }
@@ -173,6 +194,11 @@ const SAVE_GHOST_LIFE = 1.05;
 const CHRONO_SILVER = color(CHRONO_HEX.silver);
 /** Eldritch Conduit: a technique paid in Life flickers her rim blood-violet. */
 const CONDUIT = color(ASTRO_HEX.conduit);
+/** Restless Dead: a risen enemy's ash (its rim, life bar, motes) and the light it re-forms in. */
+const ASH = color(DISSONANCE_HEX.ash);
+const GRAVE = color(DISSONANCE_HEX.grave);
+/** Elite Vanguard: each affix holds an elite's rim for one pulse of it (2π of the pulse's phase). */
+const AFFIX_TURN = Math.PI * 2;
 /** A downed hero's fall played backwards (Rewind standing them up): how long it takes. */
 export const UNFALL_LIFE = 0.55;
 
@@ -219,14 +245,23 @@ export class EntityLayer {
   private histTimer = 0;
   private shadowsEnabled = true;
   weaverId: EntityId = -1;
-  /** Real seconds of the frame (presentation clock). */
+  /** Real seconds of the frame (presentation clock), and the frame's FX step. */
   private now = 0;
+  private frameDt = 0;
   /** The Luminary's Sunrise, smoothed (0..1): the heroes' light turns more golden. */
   sunrise = 0;
   /** The Chronomancer, read once a frame (docs/phase-3e/vfx.md). */
   readonly chrono = emptyChronoLook();
   /** The Astrolabe, read once a frame (docs/phase-4/vfx.md). */
   readonly astro = emptyAstroLook();
+  /** Dissonance, read once a frame (docs/phase-4d/vfx-audio.md). */
+  readonly dis = emptyDissonanceLook();
+  /** A risen enemy's pose as it stands back up (reused). */
+  private readonly riseOut = emptyRiseShape();
+  /** Silent Cues: where the Cue's cost falls on the Resonance orbit, in segments (reused). */
+  private readonly ticks = new Float32Array(8);
+  /** What was drawn last frame (tests, the lab): risen enemies marked, rising, crown gems, Cue ticks. */
+  readonly drawnDis = { risen: 0, rising: 0, gems: 0, cueTicks: 0 };
   /**
    * The enemies' animation clock (real seconds): it stands still while Stasis holds them, so a
    * frozen enemy keeps its pose mid-motion (a stagger's shake, a stun's wobble, a boss's breath).
@@ -315,6 +350,7 @@ export class EntityLayer {
     let tier = 'normal';
     let suppressRadius = 0;
     let affixColor: THREE.Color | null = null;
+    const affixColors: THREE.Color[] = [];
     if (e.kind === 'weaver') {
       batch = this.batchFor('weaver', buildWeaver, 16);
       this.weaverId = e.id;
@@ -334,11 +370,11 @@ export class EntityLayer {
       role = def.role;
       tier = e.enemy.tier;
       suppressRadius = def.suppressRadius;
-      const affix = e.enemy.affixes[0];
-      if (affix) {
+      for (const affix of e.enemy.affixes) {
         const a = CONTENT.affixes.find((x) => x.id === affix);
-        if (a) affixColor = color(a.color);
+        if (a) affixColors.push(color(a.color));
       }
+      affixColor = affixColors[0] ?? null;
     } else {
       // Debug dummies share the chorister silhouette in a neutral grey.
       batch = this.batchFor(
@@ -361,6 +397,7 @@ export class EntityLayer {
       role,
       tier,
       affixColor,
+      affixColors,
       suppressRadius,
       seen: 0,
       x: e.x,
@@ -396,6 +433,8 @@ export class EntityLayer {
       graceRef: null,
       conduit: 0,
       prism: 0,
+      risen: 0,
+      rising: 0,
       lastHp: e.health?.hp ?? 0,
       alive: true,
     };
@@ -589,6 +628,28 @@ export class EntityLayer {
     return list;
   }
 
+  /**
+   * An affixed enemy's rim colour (into `this.tint`): its one affix's, or with several (Elite
+   * Vanguard) each in turn, one per pulse of the rim, crossing over at the pulse's dimmest.
+   */
+  private affixTint(rec: EntityRec, clock: number): void {
+    const list = rec.affixColors;
+    const n = list.length;
+    if (n <= 1) {
+      this.tint.copy(rec.affixColor ?? list[0] ?? BLACK);
+      return;
+    }
+    // The pulse (0.45 + 0.2 sin(3 clock + id)) is dimmest at whole turns of `u`.
+    const u = (clock * 3 + rec.id) / AFFIX_TURN + 0.25;
+    const turn = Math.floor(u);
+    const f = u - turn;
+    const at = ((turn % n) + n) % n;
+    const a = list[at]!;
+    if (f > 0.9) this.tint.copy(a).lerp(list[(at + 1) % n]!, (f - 0.9) / 0.2);
+    else if (f < 0.1) this.tint.copy(list[(at + n - 1) % n]!).lerp(a, 0.5 + f / 0.2);
+    else this.tint.copy(a);
+  }
+
   private auraTint(mask: number): THREE.Color {
     this.auraColors(mask);
     return this.maskAvg.get(mask)!;
@@ -599,6 +660,7 @@ export class EntityLayer {
   sync(state: WorldState, frame: FrameInfo, kit: FxKit, dt: number): void {
     this.frameNo++;
     this.now = frame.time;
+    this.frameDt = dt;
     this.model.uniforms.uTime.value = frame.time;
     for (const b of this.batches.values()) b.begin();
     this.crown.begin();
@@ -615,6 +677,11 @@ export class EntityLayer {
     const lum = state.calling?.id === 'luminary';
     this.sunrise = approach(this.sunrise, lum && state.field.crescendo ? 1 : 0, 4, dt);
     astroLook(state, this.astro);
+    dissonanceLook(state, this.dis);
+    this.drawnDis.risen = 0;
+    this.drawnDis.rising = 0;
+    this.drawnDis.gems = 0;
+    this.drawnDis.cueTicks = 0;
     // The Chronomancer's Stasis: the enemies' clock stops and the stillness spreads from her.
     const look = chronoLook(state, this.chrono);
     if (look.stasis && !this.stasisOn) {
@@ -738,9 +805,33 @@ export class EntityLayer {
     const t = clamp01(rec.dying / 0.75);
     rec.flash = Math.max(0, rec.flash - dt * 5);
     const sink = t * t * 0.25;
-    const m = this.compose(rec.x, -sink, rec.z, rec.yaw, 0.15 * t, 0, 1 + t * 0.06);
-    // (Killed while Stasis held it, it stays cold as it goes.)
-    rec.batch.push(m, rec.flash, 0.05 + t * 0.95, 0.3 * t, 0, rec.accent, 1, 0, 0, rec.frost);
+    // Gone for good while it was still standing back up (Restless Dead: the sim keeps it
+    // untouchable then, but a debug clear can take it), it crumbles where it lies.
+    const lie = rec.rising;
+    const m = this.compose(
+      rec.x,
+      rec.radius * 0.42 * lie - sink,
+      rec.z,
+      rec.yaw,
+      Math.max(0.15 * t, 1.35 * lie),
+      0,
+      1 + t * 0.06,
+    );
+    // (Killed while Stasis held it, it stays cold as it goes. Risen once already (Restless Dead),
+    // it stays ashen and crumbles to ash for good.)
+    const ash = rec.risen > 0;
+    rec.batch.push(
+      m,
+      rec.flash,
+      0.05 + t * 0.95,
+      Math.max(ash ? RISEN_DESAT : 0, 0.3 * t),
+      0,
+      ash ? ASH : rec.accent,
+      1,
+      0,
+      0,
+      rec.frost,
+    );
     kit.shadows.push(
       rec.x,
       0.015,
@@ -842,13 +933,32 @@ export class EntityLayer {
     rec.chronoFlash = Math.max(0, rec.chronoFlash - dt * 2.6);
     rec.conduit = Math.max(0, rec.conduit - dt * 3.4);
 
-    // Spawning: rise out of the portal.
+    // Spawning: rise out of the portal. Restless Dead (Dissonance): a risen enemy instead falls
+    // back into ash where it was struck down, and stands back up out of it (riseShape).
     const enemy = e.enemy;
-    if (enemy?.state === 'spawning') {
+    let riseGlow = 0;
+    rec.rising = 0;
+    if (enemy?.state === 'spawning' && enemy.risen) {
+      const r = riseShape(enemy.stateTime, this.riseOut);
+      pitch = r.pitch;
+      roll = 0;
+      y += rec.radius * 0.42 * r.lie;
+      dissolve = r.dissolve;
+      desat = Math.max(desat, r.desat);
+      riseGlow = r.glow;
+      rec.rising = Math.max(0.001, r.lie);
+      this.drawnDis.rising++;
+    } else if (enemy?.state === 'spawning') {
       const s = clamp01(enemy.stateTime / 0.6);
       dissolve = 1 - s;
       y -= (1 - s) * 0.4;
       if (s < 1) rec.flash = Math.max(rec.flash, (1 - s) * 0.6);
+    }
+    // Risen once (it won't rise again): drained to ash once it stands.
+    rec.risen = enemy?.risen ? 1 : 0;
+    if (rec.risen > 0 && rec.rising === 0) {
+      desat = Math.max(desat, RISEN_DESAT);
+      this.drawnDis.risen++;
     }
     if (
       enemy?.state === 'stunned' ||
@@ -939,8 +1049,12 @@ export class EntityLayer {
       this.tint.copy(this.auraTint(auraMask));
       tintStrength = 0.3;
     } else if (rec.affixColor) {
-      this.tint.copy(rec.affixColor);
+      this.affixTint(rec, clock);
       tintStrength = 0.45 + 0.2 * Math.sin(clock * 3 + rec.id);
+    } else if (rec.risen > 0) {
+      // Restless Dead: risen once, a pale ash rim (an affix's colour, if any, wins).
+      this.tint.copy(ASH);
+      tintStrength = 0.32;
     } else if (rec.tier === 'elite') {
       this.tint.copy(C.gold);
       tintStrength = 0.18;
@@ -951,6 +1065,12 @@ export class EntityLayer {
       // Held by Stasis: a cold, glassy silver-blue edge.
       this.tint.lerp(CHRONO_SILVER, 0.8 * rec.frost);
       tintStrength = Math.max(tintStrength * (1 - 0.4 * rec.frost), 0.42 * rec.frost);
+    }
+    if (riseGlow > 0.01) {
+      // Standing back up out of the ash: a cold grave-light at its edges, brightest where the ash
+      // is still eating into it (the dissolve's edge takes the rim's colour).
+      this.tint.copy(GRAVE);
+      tintStrength = 0.2 + 0.5 * riseGlow;
     }
     if (rec.chronoFlash > 0.01) {
       // The Chronomancer's moment on this hero: a silver rim flash.
@@ -1036,6 +1156,24 @@ export class EntityLayer {
         Math.max(0.8, rec.radius * 1.2),
       );
       this.crown.push(cm, 0, dissolve, 0, 0, C.gold, 0.4);
+      // Elite Vanguard: an elite with more than one affix wears a gem for each round its crown.
+      const n = rec.affixColors.length;
+      if (n > 1 && dissolve < 0.95) {
+        const s = Math.max(0.8, rec.radius * 1.2);
+        for (let i = 0; i < n; i++) {
+          const a = clock * 0.8 + (i * Math.PI * 2) / n;
+          kit.sprites.push(
+            x + ox + Math.cos(a) * 0.46 * s,
+            y + rec.height + 0.3 + 0.03 * Math.sin(clock * 2.4 + i * 2),
+            z + oz + Math.sin(a) * 0.46 * s,
+            0.15 * s,
+            SPRITE.diamond,
+            rec.affixColors[i]!,
+            0.95 * (1 - dissolve),
+          );
+        }
+        this.drawnDis.gems += n;
+      }
     }
 
     if (isHero) this.heroExtras(rec, e, state, frame, kit, dt, threadedId, threadColor);
@@ -1498,6 +1636,31 @@ export class EntityLayer {
       );
     }
     if (!h) return;
+    // Restless Dead: ash drifting up off a risen enemy (a few motes a second, by quality).
+    if (rec.risen > 0 && rec.rising === 0 && !h.dead) {
+      rec.smokeAcc += kit.smoke.density * 3 * this.frameDt;
+      while (rec.smokeAcc > 1) {
+        rec.smokeAcc -= 1;
+        const a = Math.random() * Math.PI * 2;
+        const rr = rec.radius * (0.3 + Math.random() * 0.6);
+        kit.smoke.emit(
+          x + Math.cos(a) * rr,
+          rec.height * (0.35 + Math.random() * 0.55) + rec.y,
+          z + Math.sin(a) * rr,
+          (Math.random() - 0.5) * 0.15,
+          0.42 + Math.random() * 0.25,
+          (Math.random() - 0.5) * 0.15,
+          1.3,
+          0.11,
+          ASH,
+          0.85,
+          PARTICLE.dot,
+          0.4,
+          0,
+          0.05,
+        );
+      }
+    }
     const showBar =
       h.hp < h.maxHp - 0.5 ||
       enemy.cast !== null ||
@@ -1527,16 +1690,19 @@ export class EntityLayer {
         (rec.role === 'boss' || rec.role === 'miniboss' ? 2 : 0) +
         (enemy.cast?.interruptible ? 4 : 0);
       const top = rec.height + (rec.tier === 'elite' ? 0.65 : 0.4);
+      // Restless Dead: a risen enemy's life comes back in ash, filling as it stands back up
+      // (`riseOut` is this enemy's pose: updateRec worked it out just before calling this).
+      const fill = enemy.risen && enemy.state === 'spawning' ? this.riseOut.fill : 1;
       kit.bars.push(
         x,
         top,
         z,
         width,
-        h.hp / h.maxHp,
+        (h.hp / h.maxHp) * fill,
         Math.min(1, shield / h.maxHp),
         cast,
         rec.flash,
-        ENEMY_BAR,
+        rec.risen > 0 ? ASH : ENEMY_BAR,
         flags,
       );
     }
@@ -1547,12 +1713,16 @@ export class EntityLayer {
     const x = rec.x;
     const z = rec.z;
     kit.rings.push(x, 0.03, z, rec.radius * 1.5, 0.07, 0.2, RING.plain, C.gold, 0.6);
-    // Resonance: orbiting white-gold segments (one per full 25).
-    const full = Math.floor(w.resonance / 25);
-    const partial = (w.resonance % 25) / 25;
-    for (let i = 0; i < 4; i++) {
-      const a = this.now * 1.6 + (i * Math.PI) / 2;
-      const r = 0.85;
+    // Resonance: orbiting white-gold segments (one per full segment, the content's 25 of 100).
+    const look = this.dis;
+    const seg = look.segment > 0 ? look.segment : 25;
+    const stars = Math.max(1, Math.round(look.max / seg));
+    const step = (Math.PI * 2) / stars;
+    const full = Math.floor(w.resonance / seg);
+    const partial = (w.resonance % seg) / seg;
+    const r = 0.85;
+    for (let i = 0; i < stars; i++) {
+      const a = this.now * 1.6 + i * step;
       const lit = i < full ? 1 : i === full ? partial * 0.6 : 0.08;
       kit.sprites.push(
         x + Math.cos(a) * r,
@@ -1564,6 +1734,25 @@ export class EntityLayer {
         lit,
       );
     }
+    // Silent Cues (Dissonance): a Cue costs more than a segment, so a gold tick on the orbit marks
+    // where each Cue's cost falls (lit once it is paid for). At the content's cost there is none.
+    const n = cueTicks(look, this.ticks);
+    for (let k = 0; k < n; k++) {
+      const at = this.ticks[k]!;
+      // A star's segment is full at its own place: `at` segments sits `at - 1` steps on from the first.
+      const a = this.now * 1.6 + (at - 1) * step;
+      const paid = w.resonance + 1e-9 >= at * seg;
+      kit.sprites.push(
+        x + Math.cos(a) * r,
+        1.12,
+        z + Math.sin(a) * r,
+        paid ? 0.15 : 0.1,
+        SPRITE.diamond,
+        C.amp,
+        paid ? 1 : 0.4,
+      );
+    }
+    this.drawnDis.cueTicks = n;
     // Ribbons: sample the hand's path and trail three flowing ribbons behind.
     this.histTimer += dt;
     const fx = -Math.sin(rec.yaw);

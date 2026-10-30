@@ -13,11 +13,17 @@ import { FakeWorld, IDS, nodeWith } from '../src/audio/lab/labState';
 import { SOUNDS } from '../src/audio/lab/soundBoard';
 import { ASTROLABE_SOUND_EFFECTS } from '../src/audio/sfx';
 import { brassBell } from '../src/audio/synth';
-import { isInScale, midiToHz } from '../src/audio/theory';
-import type { UiSound } from '../src/audio/types';
-import { HOVER_STARS, STAR_LIMITS, UI_SOUND_NAMES } from '../src/audio/ui';
+import { isInScale, midiToHz, scaleMidi as scaleMidiOf } from '../src/audio/theory';
+import type { UiSound, UiSoundDetail } from '../src/audio/types';
+import {
+  DISSONANCE_LIMITS,
+  HOVER_STARS,
+  STAR_LIMITS,
+  UI_SOUND_NAMES,
+  dissonanceMax,
+} from '../src/audio/ui';
 import { CONTENT } from '../src/content';
-import { KNOWN_ASTROLABE_EFFECTS, type SimEvent, type WorldState } from '../src/sim';
+import { KNOWN_ASTROLABE_EFFECTS, createSim, type SimEvent, type WorldState } from '../src/sim';
 
 const ev = (type: SimEvent['type'], rest: Record<string, unknown>): SimEvent =>
   ({ type, tick: 0, ...rest }) as unknown as SimEvent;
@@ -184,14 +190,18 @@ function harness() {
       peak: Math.max(0, ...ctx.levels.slice(fromLevel)),
     };
   };
-  /** A UI sound: the sources it added and how many are on the UI bus, its groups and peak. */
-  const ui = (sound: UiSound) => {
+  /**
+   * A UI sound (with its Phase 4d `detail`): the sources it added and how many are on the UI bus,
+   * its groups and peak.
+   */
+  const ui = (sound: UiSound, detail?: UiSoundDetail) => {
     const before = { ...stats().peakVoices };
     const n = stats().totalSources;
     const nUi = stats().activeSources.ui;
     const from = ctx.sources.length;
     const fromLevel = ctx.levels.length;
-    d.playUi(sound);
+    if (detail) d.playUi(sound, null, detail);
+    else d.playUi(sound);
     const after = stats().peakVoices;
     return {
       groups: Object.keys(after).filter((k) => (after[k] ?? 0) > (before[k] ?? 0)),
@@ -1251,5 +1261,396 @@ describe('the Reliquary (Phase 4c)', () => {
         sources(s).some((x) => x.kind === 'noise'),
         s,
       ).toBe(true);
+  });
+});
+
+// ── Dissonance (Phase 4d) ────────────────────────────────────────────────────────────
+
+const DISSONANCE_SOUNDS: UiSound[] = ['dissonanceToggle', 'dissonanceOpen', 'dissonanceBest'];
+/** A scale index (D4 = 0) as Hz, as the recipes pitch them. */
+const deg = (idx: number) => midiToHz(scaleMidiOf(idx));
+/** The toggle's ladder note for a total: D4 with nothing on, D6 at the most. */
+const ladder = (total: number) =>
+  Math.round((14 * Math.min(total, dissonanceMax())) / dissonanceMax());
+
+/**
+ * In D dorian: a note within 3 cents of the scale (a brass bell's twin is 2.8 cents sharp), or one
+ * of glass's inharmonic partials over such a note (as every glass recipe has).
+ */
+const inKey = (f: number) => [1, 2.32, 4.25, 6.63].some((r) => centsOff(f / r) < 3);
+/** A glass note on `hz` (found by its first inharmonic partial: a pluck's octave has none). */
+const glassOn = (sources: Source[], hz: number) => hasPitch(sources, hz * 2.32, 1);
+
+/** An enemy that has just risen (Restless Dead) and its event, as the sim sends it. */
+const rise = (h: ReturnType<typeof harness>, role = 'swarm', x = -6): SimEvent => {
+  const id = h.world.addRisen(role, x);
+  return ev('enemyRose', {
+    enemy: id,
+    defId: role === 'brute' ? 'bell_brute' : 'hollow_chorister',
+    x,
+    z: 5,
+    hp: 30,
+  });
+};
+
+describe('Dissonance’s UI sounds (Phase 4d)', () => {
+  it('are agreed UiSound names, each with its own recipe, gate and cap', () => {
+    for (const s of DISSONANCE_SOUNDS) {
+      expect(UI_SOUND_NAMES, s).toContain(s);
+      expect(DISSONANCE_LIMITS[s], s).toBeDefined();
+    }
+  });
+
+  it('each plays on the UI bus, in its own group, and nothing on the sfx bus', () => {
+    for (const s of DISSONANCE_SOUNDS) {
+      for (const detail of [undefined, { total: 12, from: 9 }]) {
+        const h = harness();
+        const r = h.ui(s, detail);
+        expect(r.added, s).toBeGreaterThan(0);
+        expect(r.addedUi, s).toBe(r.added);
+        expect(r.groups, s).toEqual([`ui:${s}`]);
+        h.d.dispose();
+      }
+    }
+  });
+
+  it('are distinct from each other and from the sounds they sit with', () => {
+    const signature = (s: UiSound, detail?: UiSoundDetail) => {
+      const h = harness();
+      const sources = h.ui(s, detail).sources;
+      const sig = `${sources.length}:${freqsOf(sources)
+        .map((f) => f.toFixed(2))
+        .join(',')}`;
+      h.d.dispose();
+      return sig;
+    };
+    const ours = DISSONANCE_SOUNDS.map((s) => signature(s));
+    expect(new Set(ours).size).toBe(DISSONANCE_SOUNDS.length);
+    for (const other of [
+      'click',
+      'pick',
+      'confirm',
+      'back',
+      'unlock',
+      'cantAfford',
+      'rankUp',
+      'deed',
+      'relicPick',
+      'callingPick',
+      'enshrine',
+      'dissonate',
+      'dissonant',
+      'cursedRelic',
+      'empowered',
+      'reveal',
+      'starKeystone',
+    ] as UiSound[])
+      expect(ours, other).not.toContain(signature(other));
+    // A level turned on and one taken off are different sounds at the same total.
+    expect(signature('dissonanceToggle', { total: 12, from: 9 })).not.toBe(
+      signature('dissonanceToggle', { total: 12, from: 15 }),
+    );
+  });
+
+  it('a level turned on: its note climbs D dorian with the total, the rub and the bed grow', () => {
+    const max = dissonanceMax();
+    let lastPeak = 0;
+    let lastIdx = -1;
+    for (const total of [0, 3, Math.round(max / 3), Math.round((2 * max) / 3), max]) {
+      const h = harness();
+      const r = h.ui('dissonanceToggle', { total, from: Math.max(0, total - 1) });
+      const idx = ladder(total);
+      // The note and the step above it, rubbing.
+      expect(hasPitch(r.sources, deg(idx)), `${total}: note`).toBe(true);
+      expect(hasPitch(r.sources, deg(idx + 1)), `${total}: rub`).toBe(true);
+      expect(idx).toBeGreaterThanOrEqual(lastIdx);
+      lastIdx = idx;
+      // Louder and darker as it builds (the knock and the bed under it).
+      expect(r.peak, `${total}`).toBeGreaterThanOrEqual(lastPeak);
+      lastPeak = r.peak;
+      // From two thirds of the most, a high glass rub joins (the same two steps, an octave up).
+      expect(glassOn(r.sources, deg(idx + 7)), `${total}: glass`).toBe(total / max >= 2 / 3);
+      expect(glassOn(r.sources, deg(idx + 8)), `${total}: glass`).toBe(total / max >= 2 / 3);
+      h.d.dispose();
+    }
+    expect(lastIdx).toBe(14);
+  });
+
+  it('a level taken off eases: the rub first, falling onto the note, softer, no knock', () => {
+    const h = harness();
+    const on = h.ui('dissonanceToggle', { total: 12, from: 9 });
+    h.advance(1);
+    const off = h.ui('dissonanceToggle', { total: 12, from: 15 });
+    expect(off.peak).toBeLessThan(on.peak);
+    expect(off.added).toBeLessThan(on.added);
+    const idx = ladder(12);
+    const firstOf = (r: { sources: Source[] }, hz: number) =>
+      Math.min(...r.sources.filter((s) => hasPitch([s], hz)).map((s) => startOf(s)));
+    expect(firstOf(off, deg(idx + 1))).toBeLessThan(firstOf(off, deg(idx)));
+    h.d.dispose();
+  });
+
+  it('Dissonance opens dark and grand: a great bell on D2, the B against the F, ringing on', () => {
+    const h = harness();
+    const r = h.ui('dissonanceOpen');
+    // The bell's hum on D1 and its prime on D2; the choir's D3 F3 B3 D4; the glass E6 and F6.
+    for (const m of [26, 38, 50, 53, 59, 62, 88, 89])
+      expect(hasPitch(r.sources, midiToHz(m)), `${m}`).toBe(true);
+    expect(Math.min(...freqsOf(r.sources))).toBeLessThan(40);
+    const end = Math.max(...r.sources.map(stopOf)) - h.ctx.currentTime;
+    expect(end).toBeGreaterThan(3);
+    // Heavier than a toggle, about a keystone's weight.
+    h.advance(4);
+    expect(r.peak).toBeGreaterThan(h.ui('dissonanceToggle', { total: 2, from: 0 }).peak);
+    h.d.dispose();
+  });
+
+  it('a new best: the rub resolving onto an open fifth, its star higher the higher the total', () => {
+    const star = (total: number) => {
+      const h = harness();
+      const r = h.ui('dissonanceBest', { total });
+      h.d.dispose();
+      return r;
+    };
+    const low = star(1);
+    const high = star(dissonanceMax());
+    // E5 against F5 first, then the brass D5 and A5.
+    const firstOf = (r: { sources: Source[] }, m: number) =>
+      Math.min(...r.sources.filter((s) => hasPitch([s], midiToHz(m))).map((s) => startOf(s)));
+    expect(firstOf(high, 76)).toBeLessThan(firstOf(high, 74));
+    expect(firstOf(high, 77)).toBeLessThan(firstOf(high, 81));
+    // Its star: a glass D6 for a small total, A6 at the most.
+    expect(glassOn(low.sources, midiToHz(86))).toBe(true);
+    expect(glassOn(low.sources, midiToHz(93))).toBe(false);
+    expect(glassOn(high.sources, midiToHz(93))).toBe(true);
+  });
+
+  it('everything they play is in D dorian (glass’s own partials aside)', () => {
+    for (const s of DISSONANCE_SOUNDS) {
+      for (const total of [0, 7, 18, dissonanceMax()]) {
+        for (const from of [total - 1, total + 2]) {
+          const h = harness();
+          const r = h.ui(s, { total, from });
+          for (const f of freqsOf(r.sources))
+            expect(inKey(f), `${s} ${total} ${f.toFixed(1)} Hz`).toBe(true);
+          h.d.dispose();
+        }
+      }
+    }
+  });
+
+  it('mashing never stacks: within each cap, most of a burst skipped', () => {
+    const h = harness();
+    for (let i = 0; i < 40; i++) {
+      for (const s of DISSONANCE_SOUNDS) h.d.playUi(s, null, { total: i % 30, from: (i + 1) % 30 });
+      h.advance(0.02);
+    }
+    for (const s of DISSONANCE_SOUNDS) {
+      const cap = DISSONANCE_LIMITS[s]?.[1] ?? 0;
+      expect(h.stats().peakVoices[`ui:${s}`] ?? 0, s).toBeLessThanOrEqual(cap);
+    }
+    expect(h.stats().skipped).toBeGreaterThan(60);
+    h.d.dispose();
+  });
+
+  it('a safe no-op without an AudioContext, with or without a detail', () => {
+    const audio = getAudio();
+    expect(() => {
+      for (const s of DISSONANCE_SOUNDS) {
+        audio.playUi(s);
+        audio.playUi(s, null, { total: 7, from: 4 });
+        audio.playUi(s, null, { total: Number.NaN });
+      }
+    }).not.toThrow();
+    audio.dispose();
+  });
+});
+
+describe('Restless Dead: the rise (Phase 4d)', () => {
+  it('a hollow, wrong-sounding rise on the sfx bus, in its own group', () => {
+    const h = harness();
+    const r = h.fire(rise(h));
+    expect(r.groups).toEqual(['rose']);
+    expect(r.added).toBeGreaterThan(0);
+    expect(r.addedSfx).toBe(r.added);
+    // Its shatter drawn back in (noise) and its hollow moan (noise), with tones.
+    expect(r.sources.filter((s) => s.kind === 'noise').length).toBeGreaterThanOrEqual(2);
+    h.d.dispose();
+  });
+
+  it('its notes: the dorian’s tritone, F and B (an octave down for a brute), all in key', () => {
+    const swarm = harness();
+    const s = swarm.fire(rise(swarm, 'swarm'));
+    for (const m of [53, 59]) expect(hasPitch(s.sources, midiToHz(m)), `swarm ${m}`).toBe(true);
+    const brute = harness();
+    const b = brute.fire(rise(brute, 'brute', 6));
+    for (const m of [41, 47]) expect(hasPitch(b.sources, midiToHz(m)), `brute ${m}`).toBe(true);
+    for (const r of [s, b])
+      for (const f of freqsOf(r.sources)) expect(inKey(f), `${f} Hz`).toBe(true);
+    // Its own notes (not the glass) on the scale to the cent.
+    for (const r of [s, b])
+      for (const f of freqsOf(r.sources).filter((x) => x < 600))
+        expect(centsOff(f), `${f.toFixed(1)} Hz`).toBeLessThan(1);
+    // No major third anywhere: nothing on F♯ (over D) or D♯ (over B).
+    for (const m of [42, 54, 63]) expect(hasPitch(s.sources, midiToHz(m)), `${m}`).toBe(false);
+    swarm.d.dispose();
+    brute.d.dispose();
+  });
+
+  it('is its own sound, not a death: distinct from every kill and quieter than a brute’s', () => {
+    const h = harness();
+    const rose = h.fire(rise(h));
+    const sig = (r: { sources: Source[] }) =>
+      `${r.sources.length}:${freqsOf(r.sources)
+        .map((f) => f.toFixed(1))
+        .join(',')}`;
+    for (const role of ['swarm', 'brute', 'caster', 'sniper', 'controller', 'support']) {
+      const k = harness();
+      const id = k.world.addEnemy(role, -6);
+      const kill = k.fire(ev('enemyKilled', { enemy: id, defId: role, killer: null, x: -6, z: 5 }));
+      expect(kill.groups, role).not.toContain('rose');
+      expect(sig(kill), role).not.toBe(sig(rose));
+      if (role === 'brute') expect(rose.peak).toBeLessThan(kill.peak);
+      k.d.dispose();
+    }
+    h.d.dispose();
+  });
+
+  it('is gated: a burst in one blow is one sound; a dozen over a second a few, two voices', () => {
+    const h = harness();
+    const burst = h.fire(...Array.from({ length: 8 }, (_, i) => rise(h, 'swarm', -8 + i * 2)));
+    expect(burst.groups).toEqual(['rose']);
+    expect(h.stats().peakVoices['rose']).toBe(1);
+    let heard = 0;
+    for (let i = 0; i < 12; i++) {
+      h.advance(1 / 12);
+      heard += h.fire(rise(h, 'swarm', i - 6)).added > 0 ? 1 : 0;
+    }
+    expect(heard).toBeGreaterThanOrEqual(4);
+    expect(heard).toBeLessThanOrEqual(10);
+    expect(h.stats().peakVoices['rose']).toBeLessThanOrEqual(2);
+    h.d.dispose();
+  });
+
+  it('in a real fight at Restless Dead: heard as they rise, within its cap, never throwing', () => {
+    const h = harness();
+    const id = CONTENT.dissonance.find((d) => d.effect === 'restless_dead')!.id;
+    const sim = createSim({ seed: 11, encounter: 'first_light', dissonance: [{ id, rank: 1 }] });
+    let rises = 0;
+    for (let i = 0; i < 60 * 40; i++) {
+      sim.step([]);
+      const events = sim.drainEvents();
+      rises += events.filter((e) => e.type === 'enemyRose').length;
+      h.ctx.currentTime += 1 / 60;
+      h.d.onEvents(events, sim.state);
+      if (i % 3 === 0) h.d.update(sim.state, 1 / 20);
+      h.d.pump();
+    }
+    expect(rises).toBeGreaterThan(0);
+    expect(h.stats().peakVoices['rose'] ?? 0).toBeGreaterThan(0);
+    expect(h.stats().peakVoices['rose'] ?? 0).toBeLessThanOrEqual(2);
+    h.d.dispose();
+  });
+});
+
+describe('Blind Score: the windups (Phase 4d)', () => {
+  const windup = (answers: string[], kind = 'burst', blind = true) => {
+    const h = harness();
+    h.world.setBlindScore(blind);
+    const r = h.fire(
+      ev('telegraphStarted', {
+        telegraph: 7,
+        owner: IDS.enemyBase,
+        target: IDS.kael,
+        name: 'Lab',
+        kind,
+        shape:
+          kind === 'mark'
+            ? { kind: 'mark', target: IDS.kael }
+            : { kind: 'circle', x: 0, z: 4, r: 3 },
+        start: 0,
+        impact: 1.6,
+        perfectFrom: 1.25,
+        damage: 300,
+        pctMaxHp: 0,
+        answers,
+        effect: 'damage',
+      }),
+    );
+    h.d.dispose();
+    return r.groups;
+  };
+
+  it('don’t say which answer they want: a Ward’s and a Chime’s wind up as the swell', () => {
+    expect(windup(['ward', 'dome'], 'burst', false)).toEqual(['wind:brass']);
+    expect(windup(['chime'], 'burst', false)).toEqual(['wind:glass']);
+    expect(windup(['ward', 'dome'])).toEqual(['wind:swell']);
+    expect(windup(['chime'])).toEqual(['wind:swell']);
+    expect(windup(['scatter'])).toEqual(['wind:swell']);
+  });
+
+  it('a mark is still glass (its shape says so, not its answer)', () => {
+    expect(windup(['chime', 'ward'], 'mark')).toEqual(['wind:glass']);
+  });
+});
+
+describe('audio lab: the Phase 4d buttons', () => {
+  const press = (id: string) => {
+    const s = SOUNDS.find((b) => b.id === id);
+    const h = harness();
+    s?.fire(h.d, h.world);
+    let at = 0;
+    for (const f of s?.then ?? []) {
+      while (at + 1e-9 < f.delay) {
+        h.ctx.currentTime += 0.05;
+        h.d.pump();
+        at += 0.05;
+      }
+      f.fire(h.d, h.world);
+    }
+    return h;
+  };
+  const IDS_4D = [
+    'ui-dissonanceToggle',
+    'ui-dissonanceOpen',
+    'ui-dissonanceBest',
+    'dis-toggle-low',
+    'dis-toggle-mid',
+    'dis-toggle-max',
+    'dis-toggle-off',
+    'dis-toggle-climb',
+    'dis-best-max',
+    'rise-swarm',
+    'rise-brute',
+    'rise-then-kill',
+    'rise-burst',
+    'tele-blind',
+  ];
+
+  it('has a button for each sound and its comparisons, and each makes its sound', () => {
+    const ids = SOUNDS.map((s) => s.id);
+    for (const id of IDS_4D) {
+      expect(ids, id).toContain(id);
+      const h = press(id);
+      const made = h.stats().activeSources.sfx + h.stats().activeSources.ui;
+      expect(made, id).toBeGreaterThan(0);
+      if (id.startsWith('rise-')) expect(h.stats().peakVoices['rose'] ?? 0, id).toBeGreaterThan(0);
+      if (id.startsWith('dis-toggle'))
+        expect(h.stats().peakVoices['ui:dissonanceToggle'] ?? 0, id).toBeGreaterThan(0);
+      h.d.dispose();
+    }
+    const blind = press('tele-blind');
+    expect(blind.stats().peakVoices['wind:swell'] ?? 0).toBeGreaterThan(0);
+    expect(blind.stats().peakVoices['wind:brass'] ?? 0).toBe(0);
+    blind.d.dispose();
+  });
+
+  it('the climb and the burst stay within their caps', () => {
+    const climb = press('dis-toggle-climb');
+    expect(climb.stats().peakVoices['ui:dissonanceToggle']).toBeLessThanOrEqual(3);
+    climb.d.dispose();
+    const burst = press('rise-burst');
+    expect(burst.stats().peakVoices['rose']).toBeLessThanOrEqual(2);
+    burst.d.dispose();
   });
 });

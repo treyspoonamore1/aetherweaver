@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { enemyDef } from '../content';
 import type { AnswerTag, EntityId, SimEventOf, WorldState } from '../sim';
 import { CHRONO_HEX, timerLabel } from './chronoCues';
+import { BLIND_ANSWERS, BLIND_KEY } from './dissonanceCues';
 import type { EntityLayer, EntityRec } from './entities';
 import { BEAM } from './fx/beams';
 import type { FxKit } from './fx/kit';
@@ -89,8 +90,14 @@ export class TelegraphLayer {
   private frozen = false;
   /** Stasis' hold on the telegraphs, smoothed 0..1 (the bezels fade in and out). */
   frost = 0;
-  /** What was drawn last frame (tests, the lab): timers shown, bezels drawn. */
-  readonly drawn = { timers: 0, frost: 0 };
+  /**
+   * Blind Score (Dissonance, docs/phase-4d/vfx-audio.md): the badges hide which answer a telegraph
+   * wants, a neutral "?" in their place. Their place, border (the danger), timer and the Perfect
+   * window's pulse are kept; the shapes on the floor are unchanged.
+   */
+  private blind = false;
+  /** What was drawn last frame (tests, the lab): timers shown, bezels drawn, blind badges. */
+  readonly drawn = { timers: 0, frost: 0, blind: 0 };
 
   constructor(private readonly entities: EntityLayer) {}
 
@@ -174,8 +181,10 @@ export class TelegraphLayer {
     this.frozen = state.field.stasis;
     this.frost = approach(this.frost, this.frozen ? 1 : 0, this.frozen ? 9 : 10, dt);
     if (this.frost < 0.004) this.frost = 0;
+    this.blind = !!(state as { dissonance?: WorldState['dissonance'] }).dissonance?.blindScore;
     this.drawn.timers = 0;
     this.drawn.frost = 0;
+    this.drawn.blind = 0;
     for (const t of state.telegraphs) this.syncOne(t, state, kit, overlay, dt, showGlyphs, time);
     if (this.preview) {
       for (const p of this.preview) {
@@ -295,6 +304,11 @@ export class TelegraphLayer {
       : BADGE_TONE.plain;
     if (timer) this.drawn.timers++;
     const frost = live && this.frost > 0.01 ? this.frost * alpha : 0;
+    // Blind Score: the badge keeps its place, border, timer and pulse, but not the answer.
+    const hide = this.blind && rec.answers.length > 0;
+    const answers = hide ? BLIND_ANSWERS : rec.answers;
+    const key = hide ? BLIND_KEY : rec.key;
+    if (hide && live && showGlyphs) this.drawn.blind++;
 
     if (!live && !cancelled && !rec.impacted) {
       rec.impacted = true;
@@ -347,7 +361,7 @@ export class TelegraphLayer {
         this.drawn.frost++;
       }
       if (live && showGlyphs && (rec.answers.length > 0 || timer)) {
-        overlay.badge(x, 0.1, z + r, rec.answers, rec.key, rec.ownerHex, timer, 1, tone);
+        overlay.badge(x, 0.1, z + r, answers, key, rec.ownerHex, timer, 1, tone);
       }
       return;
     }
@@ -408,8 +422,8 @@ export class TelegraphLayer {
             rec.cx,
             0.1,
             rec.cz + rec.a,
-            rec.answers,
-            rec.key,
+            answers,
+            key,
             borderHex,
             timer,
             glyphScale,
@@ -440,8 +454,8 @@ export class TelegraphLayer {
             rec.cx + Math.cos(rec.rot) * rec.a,
             0.1,
             rec.cz + Math.sin(rec.rot) * rec.a,
-            rec.answers,
-            rec.key,
+            answers,
+            key,
             borderHex,
             timer,
             glyphScale,
@@ -475,8 +489,8 @@ export class TelegraphLayer {
             rec.cx + Math.cos(rec.rot) * k,
             0.1,
             rec.cz + Math.sin(rec.rot) * k + rec.b + 0.3,
-            rec.answers,
-            rec.key,
+            answers,
+            key,
             borderHex,
             timer,
             glyphScale,
@@ -508,8 +522,8 @@ export class TelegraphLayer {
             rec.cx,
             0.1,
             rec.cz + rec.a * 0.5,
-            rec.answers,
-            rec.key,
+            answers,
+            key,
             borderHex,
             timer,
             glyphScale,
@@ -530,8 +544,8 @@ export class TelegraphLayer {
             rec.cx,
             rec.a + 1.9,
             rec.cz,
-            rec.answers,
-            rec.key,
+            answers,
+            key,
             borderHex,
             timer || remain.toFixed(1),
             glyphScale,
@@ -555,8 +569,8 @@ export class TelegraphLayer {
             rec.cx,
             1.9,
             rec.cz,
-            rec.answers,
-            rec.key,
+            answers,
+            key,
             borderHex,
             timer || remain.toFixed(1),
             glyphScale,
@@ -575,8 +589,7 @@ export class TelegraphLayer {
           overlay.raid(`${rec.name} · ${timer || remain.toFixed(1)}s`, prog);
           if (showGlyphs) {
             const w = this.entities.recs.get(state.weaverId);
-            if (w)
-              overlay.badge(w.x, 3.2, w.z, rec.answers, rec.key, borderHex, '', glyphScale, tone);
+            if (w) overlay.badge(w.x, 3.2, w.z, answers, key, borderHex, '', glyphScale, tone);
           }
         }
         break;

@@ -2,7 +2,8 @@
 import { CONTENT } from '../../content';
 import type { SimEvent } from '../../sim';
 import type { SynthDirector } from '../director';
-import type { UiSound } from '../types';
+import type { UiSound, UiSoundDetail } from '../types';
+import { dissonanceMax } from '../ui';
 import type { FakeTelegraph, FakeWorld } from './labState';
 import { IDS, ev, nodeWith, type HeroKey } from './labState';
 
@@ -123,6 +124,18 @@ const callStarted = (h: HeroKey, answer: 'ward' | 'empower' | 'chime'): SimEvent
 /** The lab's fake clock sits at t = 0, so `until` is the hold length. */
 const holdEvent = (seconds: number): SimEvent =>
   ev('fermataHold', { hero: IDS.kael, until: seconds, attack: 'Requiem', damage: 1400 });
+
+// ── Phase 4d helpers ───────────────────────────────────────────────────────────────
+
+/** Restless Dead: an enemy of `role` at x has just risen; its `enemyRose`, as the sim sends it. */
+function rose(w: FakeWorld, role: string, defId: string, x: number): SimEvent {
+  const id = w.addRisen(role, x);
+  return ev('enemyRose', { enemy: id, defId, x, z: 5, hp: 30 });
+}
+
+/** A Dissonance toggle in Prep: the run's total after it, and before it. */
+const toggle = (total: number, from: number) => (d: SynthDirector) =>
+  d.playUi('dissonanceToggle', null, { total, from } satisfies UiSoundDetail);
 
 // ── Phase 3e helpers ───────────────────────────────────────────────────────────────
 type Follow = { delay: number; fire(d: SynthDirector, w: FakeWorld): void };
@@ -685,6 +698,58 @@ export const SOUNDS: SoundButton[] = [
       },
     }),
   ),
+  // ── Phase 4d: Restless Dead ──
+  {
+    id: 'rise-swarm',
+    label: 'Restless Dead: a chorister rises again (hollow, wrong)',
+    group: 'world',
+    length: 2,
+    fire: (d, w) => fire(d, w, rose(w, 'swarm', 'hollow_chorister', -6)),
+  },
+  {
+    id: 'rise-brute',
+    label: 'Restless Dead: a brute rises again (an octave down)',
+    group: 'world',
+    length: 2,
+    fire: (d, w) => fire(d, w, rose(w, 'brute', 'bell_brute', 6)),
+  },
+  {
+    id: 'rise-then-kill',
+    label: 'Restless Dead: a chorister rises, then dies for good 1.5 s later',
+    group: 'world',
+    length: 3,
+    fire: (d, w) => fire(d, w, rose(w, 'swarm', 'hollow_chorister', -6)),
+    then: [
+      {
+        delay: 1.5,
+        fire: (d, w) => {
+          const id = w.addEnemy('swarm', -6);
+          fire(
+            d,
+            w,
+            ev('enemyKilled', { enemy: id, defId: 'hollow_chorister', killer: null, x: -6, z: 5 }),
+          );
+        },
+      },
+    ],
+  },
+  {
+    id: 'rise-burst',
+    label: 'Restless Dead: eight rise from one blow, four more over a second (the gate holds)',
+    group: 'world',
+    length: 3,
+    fire: (d, w) =>
+      fire(
+        d,
+        w,
+        ...Array.from({ length: 8 }, (_, i) => rose(w, 'swarm', 'hollow_chorister', -8 + i * 2)),
+      ),
+    then: Array.from({ length: 4 }, (_, i) => ({
+      delay: Math.round((i + 1) * 0.25 * 1000) / 1000,
+      fire: (d: SynthDirector, w: FakeWorld) =>
+        fire(d, w, rose(w, 'swarm', 'hollow_chorister', 4 - i * 3)),
+    })),
+  },
   {
     id: 'hit-small',
     label: 'Hero hit (small)',
@@ -772,6 +837,16 @@ export const SOUNDS: SoundButton[] = [
     label: 'Area: scatter (R)',
     group: 'world',
     fire: (d, w) => fire(d, w, tele(['scatter'], 'link', 9)),
+  },
+  {
+    id: 'tele-blind',
+    label: 'Blind Score: the tank-buster (a Ward) winds up as the swell, not its brass',
+    group: 'world',
+    fire: (d, w) => {
+      w.setBlindScore(true);
+      fire(d, w, tele(['ward', 'dome'], 'burst', -12));
+      w.setBlindScore(false);
+    },
   },
   // ── Phase 3b: relics ───────────────────────────────────────────────────────────
   ...(
@@ -1712,13 +1787,73 @@ export const SOUNDS: SoundButton[] = [
       'shattered',
       'release',
       'carry',
+      'dissonanceToggle',
+      'dissonanceOpen',
+      'dissonanceBest',
     ] as UiSound[]
   ).map((s): SoundButton => ({
     id: `ui-${s}`,
     label: s,
     group: 'ui',
     length:
-      s === 'reveal' ? 5 : s === 'rankUp' || s === 'forge' || s === 'eventOpen' ? 3 : undefined,
+      s === 'reveal'
+        ? 5
+        : s === 'rankUp' || s === 'forge' || s === 'eventOpen' || s === 'dissonanceBest'
+          ? 3
+          : s === 'dissonanceOpen'
+            ? 4
+            : undefined,
     fire: (d) => d.playUi(s),
   })),
+  // ── Phase 4d: Dissonance in Prep and at the Summary ──
+  {
+    id: 'dis-toggle-low',
+    label: 'dissonanceToggle: a level on, the total 2',
+    group: 'ui',
+    length: 2,
+    fire: toggle(2, 0),
+  },
+  {
+    id: 'dis-toggle-mid',
+    label: 'dissonanceToggle: a level on, the total half the most',
+    group: 'ui',
+    length: 2,
+    fire: (d) => toggle(Math.round(dissonanceMax() / 2), Math.round(dissonanceMax() / 2) - 3)(d),
+  },
+  {
+    id: 'dis-toggle-max',
+    label: 'dissonanceToggle: the last level on (the most)',
+    group: 'ui',
+    length: 2,
+    fire: (d) => toggle(dissonanceMax(), dissonanceMax() - 2)(d),
+  },
+  {
+    id: 'dis-toggle-off',
+    label: 'dissonanceToggle: a level taken off (12 from 15: the tension eases)',
+    group: 'ui',
+    length: 2,
+    fire: toggle(12, 15),
+  },
+  {
+    id: 'dis-toggle-climb',
+    label: 'dissonanceToggle: level after level, up to the most (the tension rising)',
+    group: 'ui',
+    length: 4,
+    fire: toggle(3, 0),
+    then: [0.4, 0.8, 1.2, 1.6, 2.0].map((delay, i) => ({
+      delay,
+      fire: (d: SynthDirector) => {
+        const max = dissonanceMax();
+        const total = Math.round((max * (i + 2)) / 6);
+        toggle(total, Math.round((max * (i + 1)) / 6))(d);
+      },
+    })),
+  },
+  {
+    id: 'dis-best-max',
+    label: 'dissonanceBest: a new best at the most (its star rings highest)',
+    group: 'ui',
+    length: 3,
+    fire: (d) => d.playUi('dissonanceBest', null, { total: dissonanceMax() }),
+  },
 ];

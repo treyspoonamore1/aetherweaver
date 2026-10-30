@@ -1,4 +1,5 @@
 /** UI sounds: subtle, short, pitched inside D dorian. They bypass the music ducker. */
+import { CONTENT } from '../content';
 import { Voice, type Engine } from './engine';
 import {
   anvil,
@@ -16,7 +17,7 @@ import {
   whoosh,
 } from './synth';
 import { midiToHz, scaleMidi } from './theory';
-import type { UiSound } from './types';
+import type { UiSound, UiSoundDetail } from './types';
 
 const hz = (idx: number) => midiToHz(scaleMidi(idx));
 
@@ -74,6 +75,9 @@ export const UI_SOUND_NAMES = Object.keys({
   shattered: 0,
   release: 0,
   carry: 0,
+  dissonanceToggle: 0,
+  dissonanceOpen: 0,
+  dissonanceBest: 0,
 } satisfies Record<UiSound, 0>) as UiSound[];
 
 /** Phase 3e: the UI sounds voiced per Calling (the Chronomancer's are its own). */
@@ -108,6 +112,30 @@ export const DEED_LIMITS: Readonly<Partial<Record<UiSound, readonly [number, num
 };
 
 /**
+ * Phase 4d, Dissonance: each sound's rate gate (seconds) and voice cap. Levels are toggled one
+ * after another in Prep, so a toggle is gated lightly and holds three; opening Dissonance and a
+ * new best ring long and come once.
+ */
+export const DISSONANCE_LIMITS: Readonly<Partial<Record<UiSound, readonly [number, number]>>> = {
+  dissonanceToggle: [0.05, 3],
+  dissonanceOpen: [0.6, 1],
+  dissonanceBest: [0.6, 1],
+};
+
+/** The most points a run's Dissonance can add up to (every level at every rank; content). */
+export function dissonanceMax(): number {
+  return CONTENT.dissonance.reduce((n, d) => n + d.points * d.ranks, 0);
+}
+
+/** How tense a Dissonance total sounds, 0..1 (its share of the most). Unknown: a little. */
+export function dissonanceTension(detail?: UiSoundDetail | null): number {
+  const total = detail?.total;
+  if (typeof total !== 'number' || !Number.isFinite(total)) return 0.3;
+  const max = dissonanceMax();
+  return max > 0 ? Math.max(0, Math.min(1, total / max)) : 0;
+}
+
+/**
  * The stars a hover lights, one after another (D6, A6, E6, B6, D7): all from one open chord, so
  * a sweep across the map twinkles in any order and a single hover is a single glint.
  */
@@ -119,9 +147,14 @@ const hoverTurn = new WeakMap<Engine, number>();
  * Chronomancer has its own clockwork voicings; the Luminary, the Martyr and none share the
  * first ones.
  */
-export function playUiSound(e: Engine, sound: UiSound, calling: string | null = null): void {
+export function playUiSound(
+  e: Engine,
+  sound: UiSound,
+  calling: string | null = null,
+  detail?: UiSoundDetail | null,
+): void {
   const chrono = calling === 'chronomancer';
-  const star = STAR_LIMITS[sound] ?? DEED_LIMITS[sound];
+  const star = STAR_LIMITS[sound] ?? DEED_LIMITS[sound] ?? DISSONANCE_LIMITS[sound];
   // The Deed sounds share one gate: two at once (a point Deed and a badge) make one.
   const gate = sound in DEED_LIMITS ? 'ui:deed' : `ui:${sound}`;
   if (sound === 'hover' && !e.gate('ui:hover', 0.045)) return;
@@ -286,6 +319,15 @@ export function playUiSound(e: Engine, sound: UiSound, calling: string | null = 
       break;
     case 'carry':
       carry(v, t);
+      break;
+    case 'dissonanceToggle':
+      dissonanceToggle(v, t, detail);
+      break;
+    case 'dissonanceOpen':
+      dissonanceOpen(v, t);
+      break;
+    case 'dissonanceBest':
+      dissonanceBest(v, t, detail);
       break;
     case 'wheelOpen':
       // A soft bloom: a breath opening upwards and a quiet A4.
@@ -1021,6 +1063,79 @@ function carry(v: Voice, t: number): void {
   pluck(v, t + 0.06, hz(11), 0.05, 0.3, 0.8);
   whoosh(v, t, 0.3, 0.01, 1200, 3000, 1);
   v.extend(t + 0.8);
+}
+
+// ── Phase 4d: Dissonance ─────────────────────────────────────────────────────────────
+// Its own voice: dark and drawn tight. Rubbing seconds (E against F), the dorian's tritone (B
+// against F) and a low bowed D, the Reliquary's brass bells and glass, everything in D dorian.
+
+/**
+ * A Dissonance level turned on in Prep, about 0.7 s: a string drawn tighter. A dark knock on D2,
+ * and a plucked note that climbs D dorian with the run's total (D4 with nothing on, up to D6 at
+ * the most), the step above it struck with it and rubbing against it, louder the higher the total.
+ * Under them a low bowed D swells longer and darker with it; from two thirds of the most, a high
+ * glass rub (the same two steps) joins. A level taken off (`total` under `from`) eases instead:
+ * the rub first, falling onto the note, softer, no knock.
+ */
+function dissonanceToggle(v: Voice, t: number, detail?: UiSoundDetail | null): void {
+  const tension = dissonanceTension(detail);
+  const idx = Math.round(14 * tension);
+  const total = detail?.total;
+  const from = detail?.from;
+  if (typeof total === 'number' && typeof from === 'number' && total < from) {
+    pluck(v, t, hz(idx + 1), 0.045 * (0.4 + 0.6 * tension), 0.2, 0.4);
+    pluck(v, t + 0.08, hz(idx), 0.06, 0.4, 0.4);
+    bowed(v, t + 0.02, hz(-14), 0.22, 0.015 + 0.03 * tension, 0.02, 0.35);
+    v.extend(t + 0.8);
+    return;
+  }
+  thump(v, t, hz(-14), 0.08 + 0.06 * tension, 0.2, 0.6);
+  const bright = 0.35 + 0.45 * tension;
+  pluck(v, t + 0.012, hz(idx), 0.08, 0.4, bright);
+  pluck(v, t + 0.012, hz(idx + 1), 0.08 * (0.2 + 0.8 * tension), 0.4, bright);
+  bowed(v, t, hz(-14), 0.3 + 0.4 * tension, 0.025 + 0.045 * tension, 0.03, 0.45);
+  if (tension >= 2 / 3) {
+    glassPing(v, t + 0.05, hz(idx + 7), 0.014 + 0.01 * tension, 0.5);
+    glassPing(v, t + 0.05, hz(idx + 8), 0.012 + 0.01 * tension, 0.5);
+  }
+  v.extend(t + 0.9);
+}
+
+/**
+ * Dissonance opens at a Summary, about 3.5 s: dark and grand. A great brass bell on D2 (its hum
+ * on D1) over a deep knock and a low bowed D, a dark choir swelling on D3 F3 B3 D4 (the dorian's
+ * own shadow: its B against the F), a breath rising slowly out of the dark, and high above, late,
+ * a glass E6 and F6 rubbing against each other: the dissonance, kept for later.
+ */
+function dissonanceOpen(v: Voice, t: number): void {
+  thump(v, t, hz(-14), 0.18, 0.5, 0.6);
+  brassBell(v, t, hz(-14), 0.12, 3.2, 0.3);
+  bowed(v, t, hz(-14), 2.6, 0.055, 0.6, 1.2);
+  choirChord(v, t + 0.12, [hz(-7), hz(-5), hz(-2), hz(0)], 1.7, 0.12, 0.7, 1.4);
+  whoosh(v, t, 1.8, 0.02, 180, 1300, 1.2);
+  glassNote(v, t + 0.75, hz(15), 0.022, 2.0, 0.6);
+  glassNote(v, t + 0.8, hz(16), 0.02, 2.0, 0.6);
+  v.extend(t + 3.6);
+}
+
+/**
+ * A new best Dissonance won, about 2.3 s: the dissonance mastered. A glass E5 and F5 rubbing
+ * against each other, then the resolution: a brass bell on D5 and one on A5 over a low knock, an
+ * open fifth sung under them (D4 A4 D5, no third: strong rather than sweet), and a glass star at
+ * the top that rings higher the higher the total (D6, up to A6 at the most).
+ */
+function dissonanceBest(v: Voice, t: number, detail?: UiSoundDetail | null): void {
+  const tension = detail?.total === undefined ? 0.5 : dissonanceTension(detail);
+  glassPing(v, t, hz(8), 0.03, 0.35);
+  glassPing(v, t, hz(9), 0.028, 0.35);
+  const at = t + 0.22;
+  thump(v, at, hz(-7), 0.13, 0.3, 0.65);
+  brassBell(v, at, hz(7), 0.08, 1.8, 0.6);
+  brassBell(v, at + 0.06, hz(11), 0.06, 1.8, 0.6);
+  choirChord(v, at, [hz(0), hz(4), hz(7)], 1.0, 0.1, 0.18, 1.1);
+  glassNote(v, at + 0.18, hz(14 + Math.round(4 * tension)), 0.032, 1.6, 0.9);
+  whoosh(v, t, 0.7, 0.014, 900, 4200, 1);
+  v.extend(t + 2.4);
 }
 
 /**

@@ -86,7 +86,29 @@ export type UiSound =
   | 'cursedRelic'
   | 'shattered'
   | 'release'
-  | 'carry';
+  | 'carry'
+  /**
+   * Phase 4d (docs/phase-4d.md): Dissonance. A level turned on or off in Prep (tension rising with
+   * the run's total: pass it as `detail`), Dissonance opened at a Summary (a dark, grand sting),
+   * and a new best total won.
+   */
+  | 'dissonanceToggle'
+  | 'dissonanceOpen'
+  | 'dissonanceBest';
+
+/**
+ * Additive (Phase 4d): what a UI sound is about, beyond its name. Only the Dissonance sounds read
+ * it; every other sound ignores it.
+ */
+export interface UiSoundDetail {
+  /** The run's Dissonance total (points) after the change. */
+  total?: number;
+  /**
+   * The total before it. Lower than `from` is a level (or a rank) taken off: the tension eases
+   * instead of rising. Left out, a toggle is a level turned on.
+   */
+  from?: number;
+}
 
 export interface Volumes {
   /** 0..1 each. */
@@ -137,9 +159,10 @@ export interface AudioDirector {
    * A UI sound. Phase 3e: `calling` names the Calling a Calling sound (`callingSelect`,
    * `callingReveal`, `callingPick`) is for, and the Chronomancer's are its own (the Luminary
    * and the Martyr share the first voicing). Left out, the app-wide director asks the run for
-   * its Calling, once the click that played it has been handled.
+   * its Calling, once the click that played it has been handled. Phase 4d: `detail` carries the
+   * Dissonance total for `dissonanceToggle` (and `dissonanceBest`); pass `null` as `calling`.
    */
-  playUi(sound: UiSound, calling?: string | null): void;
+  playUi(sound: UiSound, calling?: string | null, detail?: UiSoundDetail): void;
   setVolumes(volumes: Volumes): void;
   /** Stops combat layers (leaving combat); music keeps playing per mood. */
   stopCombat(): void;
