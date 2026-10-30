@@ -34,6 +34,9 @@ import { carrySlots, reliquaryOpen } from '../../meta/reliquary';
 import type { DissonanceChoice } from '../../meta/dissonance';
 import { PrepReliquaryRow } from './ReliquaryParts';
 import { EmbarkDissonance, PrepDissonancePanel } from './DissonanceParts';
+import type { Bond, RunBond } from '../../meta/bonds';
+import { PrepBondsRow } from './BondsParts';
+import { bondsOpen, prepBondViews, soloView, talentView } from './bondsModel';
 
 export interface PrepViewProps {
   run: RunState;
@@ -71,6 +74,12 @@ export interface PrepViewProps {
     best: Readonly<Record<string, number>>;
     onChange(levels: DissonanceChoice[]): void;
   } | null;
+  /**
+   * Phase 4e: Bonds, once open (a hero's first Bond rank-up, or Skip the unlocks): the profile's
+   * (each hero's rank) and how to open the Bonds screen. What the run plays is `run.bonds`, which
+   * follows the profile until it embarks. Omitted (or null): no row.
+   */
+  bonds?: { bonds: Readonly<Record<string, Bond>>; onOpen(): void } | null;
 }
 
 /**
@@ -173,6 +182,7 @@ export function PrepView({
   astrolabe = null,
   reliquary = null,
   dissonance = null,
+  bonds = null,
 }: PrepViewProps) {
   useMood('map');
   // Always the content's two at Prep (the path is empty), but read from the run like Retune.
@@ -260,6 +270,19 @@ export function PrepView({
           />
         )}
 
+        {bonds && (
+          <PrepBondsRow
+            className={reliquary ? 'mt-2' : 'mt-4'}
+            views={prepBondViews(
+              run.party.map((h) => h.heroId),
+              run.bonds,
+              bonds.bonds,
+              allowance.all,
+            )}
+            onOpen={bonds.onOpen}
+          />
+        )}
+
         <FreshStrip fresh={fresh} />
 
         {onCalling && (
@@ -305,7 +328,11 @@ export function PrepView({
             </SectionTitle>
             <div className="flex flex-col gap-3">
               {run.party.map((p) => (
-                <HeroCard key={p.heroId} heroId={p.heroId} />
+                <HeroCard
+                  key={p.heroId}
+                  heroId={p.heroId}
+                  bond={run.bonds.find((b) => b.heroId === p.heroId)}
+                />
               ))}
             </div>
           </section>
@@ -382,8 +409,14 @@ export function PrepView({
   );
 }
 
-function HeroCard({ heroId }: { heroId: string }) {
+/** A hero's kit, with the talents and Solo the run plays (Phase 4e: `run.bonds`). */
+function HeroCard({ heroId, bond }: { heroId: string; bond?: RunBond }) {
   const def = CONTENT.heroes.find((h) => h.id === heroId)!;
+  const solo = soloView(heroId, bond?.solo ?? null);
+  const talents = (bond?.talents ?? [])
+    .filter((id) => CONTENT.talents.some((t) => t.id === id))
+    .map((id) => talentView(id))
+    .sort((a, b) => a.tier - b.tier);
   return (
     <article
       className="rounded-xl border border-ink-600/70 bg-ink-800/80 p-4"
@@ -414,14 +447,33 @@ function HeroCard({ heroId }: { heroId: string }) {
             <dd className="text-xs leading-relaxed text-muted">{a.description}</dd>
           </div>
         ))}
-        <div className="rounded-lg bg-gold-400/5 px-3 py-2 ring-1 ring-gold-500/30 sm:col-span-2">
+        <div
+          className="rounded-lg bg-gold-400/5 px-3 py-2 ring-1 ring-gold-500/30 sm:col-span-2"
+          data-testid={`prep-solo-${heroId}`}
+          data-solo={solo.id}
+        >
           <dt className="flex items-center gap-1.5 font-semibold text-gold-200">
-            <Icon name="note" size={14} /> Solo · {def.solo.name}
+            <Icon name="note" size={14} /> Solo · {solo.name}
+            {solo.alt && (
+              <span className="text-xs font-normal text-muted">(alternate, from their Bond)</span>
+            )}
           </dt>
           <dd className="text-xs leading-relaxed text-muted">
-            {def.solo.description} <span className="text-gold-300">{def.solo.cuedDescription}</span>
+            {solo.text} <span className="text-gold-300">{solo.cued}</span>
           </dd>
         </div>
+        {talents.map((t) => (
+          <div
+            key={t.id}
+            className="rounded-lg bg-ink-900/60 px-3 py-2 sm:col-span-2"
+            data-talent={t.id}
+          >
+            <dt className="flex items-center gap-1.5 font-semibold text-text">
+              <Icon name="talent" size={14} className="text-muted" /> Talent {t.numeral} · {t.name}
+            </dt>
+            <dd className="text-xs leading-relaxed text-muted">{t.text}</dd>
+          </div>
+        ))}
         <div className="rounded-lg bg-ink-900/60 px-3 py-2 sm:col-span-2">
           <dt className="font-semibold text-text">Quirk · {def.quirk.name}</dt>
           <dd className="text-xs leading-relaxed text-muted">{def.quirk.description}</dd>
@@ -443,6 +495,8 @@ export function PrepScreen() {
   // Dissonance (Phase 4d): open once won at its Rank, or with Skip the unlocks.
   const dissonanceWon = useProfile((s) => s.profile.dissonance.open);
   const best = useProfile((s) => s.profile.dissonance.best);
+  // Bonds (Phase 4e): open from a hero's first Bond rank-up, or with Skip the unlocks.
+  const bonds = useProfile((s) => s.profile.bonds);
   const allowance = useAllowance();
   const fresh = useFreshUnlocks();
   if (!run) return null;
@@ -475,6 +529,7 @@ export function PrepScreen() {
         best,
         onChange: (levels) => useProfile.getState().setDissonance(levels),
       }}
+      bonds={bondsOpen(bonds, unlockAll) ? { bonds, onOpen: () => setScreen('bonds') } : null}
     />
   );
 }

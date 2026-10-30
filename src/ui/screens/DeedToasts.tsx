@@ -4,6 +4,7 @@ import { useRun } from '../../app/runStore';
 import { playUi } from '../kit/sound';
 import { useUi } from '../store';
 import { DeedToastCard, TOAST_PLACE } from './DeedsParts';
+import { bondCardShows } from './bondsModel';
 import {
   TOAST_GAP_MS,
   TOAST_LEAD_MS,
@@ -24,15 +25,19 @@ interface Showing {
  * The Deed toasts (Phase 4b), over whatever screen the player is on: one per Deed in the profile
  * store's `deedNotices`, one after another, each with its sound (`deedStar` for a point, `deed`
  * for a badge) as it appears; then `dismissDeeds` with the ids shown. They wait while something
- * else holds the moment: a rank-up card (its own sounds and a button to press) or a fight (the
- * Training Grounds, or a run's combat); a toast put away mid-way comes back afterwards.
+ * else holds the moment: a rank-up card, the Weaver's or a Bond's (its own sounds and a button to
+ * press), or a fight (the Training Grounds, or a run's combat); a toast put away mid-way comes
+ * back afterwards.
  */
 export function DeedToasts() {
   const notices = useProfile((s) => s.deedNotices);
   const rankUps = useProfile((s) => s.rankUps.length);
+  const bondNotices = useProfile((s) => s.bondNotices.length);
   const screen = useUi((s) => s.screen);
   const phase = useRun((s) => s.run?.phase ?? null);
-  const blocked = toastsBlocked({ rankUps, screen, phase });
+  // Phase 4e: the Bond rank-up card holds the moment too, while it's up.
+  const bondCard = bondCardShows({ notices: bondNotices, rankUps, screen, phase });
+  const blocked = toastsBlocked({ rankUps: rankUps + (bondCard ? 1 : 0), screen, phase });
   // The notices shown since there were none waiting.
   const [shown, setShown] = useState<readonly string[]>([]);
   const [showing, setShowing] = useState<Showing | null>(null);

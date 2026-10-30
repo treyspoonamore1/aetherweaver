@@ -20,6 +20,10 @@ const AstrolabeScreen = lazy(() =>
 const ReliquaryScreen = lazy(() =>
   import('../ui/screens/ReliquaryScreen').then((m) => ({ default: m.ReliquaryScreen })),
 );
+// Bonds (Phase 4e): the heroes' talents, Solos and scenes, from the Title and from Prep.
+const BondsScreen = lazy(() =>
+  import('../ui/screens/BondsScreen').then((m) => ({ default: m.BondsScreen })),
+);
 
 function Loading({ children }: { children: ReactNode }) {
   return (
@@ -38,8 +42,8 @@ function Loading({ children }: { children: ReactNode }) {
 const lab = new URLSearchParams(window.location.search).get('lab');
 
 /**
- * The screen for the current destination: Title, the run, the Astrolabe, the Reliquary, everything
- * else.
+ * The screen for the current destination: Title, the run, the Astrolabe, the Reliquary, Bonds,
+ * everything else.
  */
 function Screen() {
   const screen = useUi((s) => s.screen);
@@ -55,6 +59,13 @@ function Screen() {
     return (
       <Loading>
         <ReliquaryScreen />
+      </Loading>
+    );
+  }
+  if (screen === 'bonds') {
+    return (
+      <Loading>
+        <BondsScreen />
       </Loading>
     );
   }

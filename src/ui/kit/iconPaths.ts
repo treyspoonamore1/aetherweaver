@@ -109,6 +109,14 @@ export const PATHS = {
   dissonance: 'M2.5 12c.9-2.6 2.6-2.6 3.5 0s2.6 2.6 3.5 0 M9.5 12l2-6 2.5 12 2.5-12 2.5 12 2-6',
   blind:
     'M3.5 3.5l17 17 M10.6 5.6a9.9 9.9 0 0 1 1.4-.1c5.5 0 9.5 6.5 9.5 6.5a16.6 16.6 0 0 1-2.3 3.1 M6.5 6.6C3.9 8.3 2.5 12 2.5 12s4 6.5 9.5 6.5a9.3 9.3 0 0 0 4.5-1.2 M9.9 9.9a3 3 0 0 0 4.2 4.2',
+  /**
+   * Phase 4e: a Bond (two rings, linked), a talent (a rune that rises: a hero growing) and a
+   * scene (a fire to sit at: the Respite's).
+   */
+  bond: 'M9.5 6.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11z M14.5 6.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11z',
+  talent: 'M12 3l7.5 4.3v8.6L12 20.2l-7.5-4.3V7.3z M12 16.5v-8 M9 11l3-2.8 3 2.8',
+  scene:
+    'M12 3.5c1.9 2.5 3.1 4.3 3.1 6.3a3.1 3.1 0 0 1-6.2 0c0-1.1.5-2 1.3-3 .3 1 .9 1.6 1.6 1.9 M4.5 20.5l15-4 M4.5 16.5l15 4',
 } as const;
 
 export type IconName = keyof typeof PATHS;

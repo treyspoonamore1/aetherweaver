@@ -7,16 +7,18 @@ import {
   brassBell,
   choirChord,
   clockTick,
+  fluteNote,
   glassNote,
   glassPing,
   handbell,
+  horn,
   pluck,
   reverseBrassBell,
   reverseGlass,
   thump,
   whoosh,
 } from './synth';
-import { midiToHz, scaleMidi } from './theory';
+import { LEITMOTIFS, midiToHz, scaleMidi, type MotifVoice } from './theory';
 import type { UiSound, UiSoundDetail } from './types';
 
 const hz = (idx: number) => midiToHz(scaleMidi(idx));
@@ -78,6 +80,11 @@ export const UI_SOUND_NAMES = Object.keys({
   dissonanceToggle: 0,
   dissonanceOpen: 0,
   dissonanceBest: 0,
+  bondRankUp: 0,
+  talentPick: 0,
+  soloPick: 0,
+  sceneStart: 0,
+  sceneReply: 0,
 } satisfies Record<UiSound, 0>) as UiSound[];
 
 /** Phase 3e: the UI sounds voiced per Calling (the Chronomancer's are its own). */
@@ -122,6 +129,42 @@ export const DISSONANCE_LIMITS: Readonly<Partial<Record<UiSound, readonly [numbe
   dissonanceBest: [0.6, 1],
 };
 
+/**
+ * Phase 4e, Bonds: each sound's rate gate (seconds) and voice cap. Several heroes can grow a rank
+ * from one fight (their cards come one after another), so a rank-up holds two; talents and Solos
+ * are picked one click at a time; a scene's opening comes once.
+ */
+export const BOND_LIMITS: Readonly<Partial<Record<UiSound, readonly [number, number]>>> = {
+  bondRankUp: [0.4, 2],
+  talentPick: [0.06, 3],
+  soloPick: [0.15, 2],
+  sceneStart: [0.8, 1],
+  sceneReply: [0.15, 2],
+};
+
+/**
+ * A hero's voice in the Bonds sounds: their leitmotif's instrument and their own note, the
+ * scale index (D4 = 0) of their "heart" (Kael's D5, Lyra's A5, Vexis's B5: their motif's first
+ * note, raised to the fifth octave). An unknown or missing hero is the shared voicing (null).
+ */
+export function bondVoice(
+  hero: string | undefined | null,
+): { hero: string; voice: MotifVoice; heart: number } | null {
+  if (!hero || !Object.hasOwn(LEITMOTIFS, hero)) return null;
+  const motif = LEITMOTIFS[hero]!;
+  const first = motif.notes[0]?.idx ?? 0;
+  // Fold the motif's first note into D5..C6 (scale indices 7..13).
+  const heart = 7 + ((((first - 7) % 7) + 7) % 7);
+  return { hero, voice: motif.voice, heart };
+}
+
+/** The Bond ranks that open something (a talent tier, the alternate Solo), from the content. */
+export function bondOpeningRank(rank: number | undefined): boolean {
+  if (typeof rank !== 'number') return false;
+  const rules = CONTENT.bondRules;
+  return rules.talentRanks.includes(rank) || rank === rules.soloRank;
+}
+
 /** The most points a run's Dissonance can add up to (every level at every rank; content). */
 export function dissonanceMax(): number {
   return CONTENT.dissonance.reduce((n, d) => n + d.points * d.ranks, 0);
@@ -154,7 +197,8 @@ export function playUiSound(
   detail?: UiSoundDetail | null,
 ): void {
   const chrono = calling === 'chronomancer';
-  const star = STAR_LIMITS[sound] ?? DEED_LIMITS[sound] ?? DISSONANCE_LIMITS[sound];
+  const star =
+    STAR_LIMITS[sound] ?? DEED_LIMITS[sound] ?? DISSONANCE_LIMITS[sound] ?? BOND_LIMITS[sound];
   // The Deed sounds share one gate: two at once (a point Deed and a badge) make one.
   const gate = sound in DEED_LIMITS ? 'ui:deed' : `ui:${sound}`;
   if (sound === 'hover' && !e.gate('ui:hover', 0.045)) return;
@@ -328,6 +372,21 @@ export function playUiSound(
       break;
     case 'dissonanceBest':
       dissonanceBest(v, t, detail);
+      break;
+    case 'bondRankUp':
+      bondRankUp(v, t, detail);
+      break;
+    case 'talentPick':
+      talentPick(v, t, detail);
+      break;
+    case 'soloPick':
+      soloPick(v, t, detail);
+      break;
+    case 'sceneStart':
+      sceneStart(v, t, detail);
+      break;
+    case 'sceneReply':
+      sceneReply(v, t, detail);
       break;
     case 'wheelOpen':
       // A soft bloom: a breath opening upwards and a quiet A4.
@@ -1136,6 +1195,168 @@ function dissonanceBest(v: Voice, t: number, detail?: UiSoundDetail | null): voi
   glassNote(v, at + 0.18, hz(14 + Math.round(4 * tension)), 0.032, 1.6, 0.9);
   whoosh(v, t, 0.7, 0.014, 900, 4200, 1);
   v.extend(t + 2.4);
+}
+
+// ── Phase 4e: Bonds ──────────────────────────────────────────────────────────────────
+// Warm and personal: each hero's own instrument and note (Kael's horn on D, Lyra's flute and
+// pluck on A, Vexis's glass bell on B), over the fire's low warmth. Never the Weaver's gold
+// rank-up (no rising pluck run to a D6, no Dm choir on D2).
+
+/** One note in a hero's own voice (their leitmotif's instrument), as the Bond sounds play them. */
+function heroNote(v: Voice, voice: MotifVoice, t: number, idx: number, dur: number, g: number) {
+  const f = hz(idx);
+  if (voice === 'horn') horn(v, t, f, dur, g);
+  else if (voice === 'pluckFlute') {
+    pluck(v, t, f, g * 0.8, dur, 0.85);
+    fluteNote(v, t, f, g * 0.5, dur);
+  } else {
+    glassNote(v, t, f, g * 0.7, dur + 0.6, 0.85);
+    pluck(v, t, f * 2, g * 0.18, 0.3, 0.9);
+  }
+}
+
+/**
+ * A hero's Bond grew a rank, about 2.4 s: personal, not the Weaver's rank-up. Their own theme,
+ * softly, in their own voice, over a warm bed by the fire (a low bowed D and a hummed F A D, no
+ * low root in it), then a glass note on their heart, two octaves over where their theme began. A
+ * rank that opens a talent tier or the alternate Solo (content) answers it with a second glass
+ * note, the step a fifth up their scale: something new to choose.
+ */
+function bondRankUp(v: Voice, t: number, detail?: UiSoundDetail | null): void {
+  const who = bondVoice(detail?.hero);
+  bowed(v, t, hz(-14), 1.6, 0.04, 0.25, 0.9);
+  choirChord(v, t + 0.05, [hz(-5), hz(-3), hz(0)], 1.3, 0.07, 0.35, 1.0);
+  let end = t + 0.9;
+  const heart = who?.heart ?? 7;
+  if (who) {
+    for (const n of LEITMOTIFS[who.hero]!.notes) {
+      heroNote(v, who.voice, t + 0.12 + n.at, n.idx, n.dur, 0.11 * n.vel);
+      end = Math.max(end, t + 0.12 + n.at);
+    }
+  } else {
+    // The shared voicing: a gentle D F A D, plucked.
+    [0, 2, 4, 7].forEach((idx, i) => pluck(v, t + 0.12 + i * 0.16, hz(idx), 0.07, 0.4, 0.5));
+    end = t + 0.6;
+  }
+  glassNote(v, end + 0.18, hz(heart), 0.03, 1.6, 0.8);
+  if (bondOpeningRank(detail?.rank)) glassNote(v, end + 0.36, hz(heart + 4), 0.026, 1.6, 0.85);
+  v.extend(end + 2);
+}
+
+/**
+ * A talent chosen, about 0.7 s: the hero's heart note plucked and the fifth up their scale after
+ * it, with a touch of their instrument on top (Kael's brass, Lyra's flute, Vexis's glass).
+ */
+function talentPick(v: Voice, t: number, detail?: UiSoundDetail | null): void {
+  const who = bondVoice(detail?.hero);
+  const heart = who?.heart ?? 7;
+  pluck(v, t, hz(heart - 7), 0.08, 0.3, 0.5);
+  pluck(v, t + 0.07, hz(heart + 4 - 7), 0.08, 0.36, 0.6);
+  if (!who) glassPing(v, t + 0.07, hz(heart + 4), 0.02, 0.6);
+  else if (who.voice === 'horn') brassBell(v, t + 0.07, hz(heart), 0.035, 0.8, 0.5);
+  else if (who.voice === 'pluckFlute') fluteNote(v, t + 0.07, hz(heart), 0.045, 0.32);
+  else glassNote(v, t + 0.07, hz(heart), 0.03, 0.9, 0.85);
+  v.extend(t + 0.8);
+}
+
+/**
+ * A Solo chosen, about 1.3 s: weightier than a talent. The first three notes of the hero's theme
+ * in their own voice over a soft low knock and a bowed D2, and a breath of air as it settles.
+ */
+function soloPick(v: Voice, t: number, detail?: UiSoundDetail | null): void {
+  const who = bondVoice(detail?.hero);
+  thump(v, t, hz(-14), 0.09, 0.3, 0.7);
+  bowed(v, t, hz(-14), 0.8, 0.03, 0.08, 0.6);
+  if (who) {
+    const notes = LEITMOTIFS[who.hero]!.notes.slice(0, 3);
+    notes.forEach((n, i) => {
+      const last = i === notes.length - 1;
+      heroNote(v, who.voice, t + n.at * 0.8, n.idx, last ? 0.7 : n.dur * 0.8, 0.12 * n.vel);
+    });
+  } else {
+    [7, 11, 14].forEach((idx, i) => pluck(v, t + i * 0.1, hz(idx), 0.08, 0.4, 0.6));
+  }
+  whoosh(v, t, 0.6, 0.014, 400, 1800, 1);
+  v.extend(t + 1.4);
+}
+
+/** The fire's crackle in a scene's opening: when each pop comes (s) and how bright it is. */
+const CRACKLE: readonly (readonly [number, number])[] = [
+  [0.05, 0.9],
+  [0.31, 0.5],
+  [0.47, 1],
+  [0.83, 0.6],
+  [1.12, 0.8],
+  [1.24, 0.45],
+  [1.61, 0.7],
+  [1.98, 0.55],
+  [2.2, 0.9],
+  [2.57, 0.5],
+];
+
+/**
+ * A scene begins at a Respite's fire, about 3 s and quiet: a fire's low rumble and its crackle,
+ * a warm low drone (a bowed D2 and a soft A2), and a held breath (air drawn in, and held). With a
+ * hero, they look up: a soft note of theirs, low and late.
+ */
+function sceneStart(v: Voice, t: number, detail?: UiSoundDetail | null): void {
+  const who = bondVoice(detail?.hero);
+  v.noise({
+    pink: true,
+    start: t,
+    dur: 2.4,
+    attack: 0.6,
+    release: 0.6,
+    gain: 0.022,
+    shape: 'sustain',
+    filter: { type: 'lowpass', freq: 320, q: 0.6 },
+  });
+  for (const [at, g] of CRACKLE) {
+    v.noise({
+      start: t + at,
+      dur: 0.008 + 0.01 * g,
+      gain: 0.012 + 0.012 * g,
+      filter: { type: 'highpass', freq: 2600 + 1800 * g },
+    });
+  }
+  bowed(v, t + 0.1, hz(-14), 2.2, 0.03, 0.8, 1.0);
+  v.osc({
+    type: 'sine',
+    freq: hz(-10),
+    start: t + 0.3,
+    dur: 1.8,
+    attack: 0.7,
+    release: 0.9,
+    gain: 0.016,
+    shape: 'sustain',
+  });
+  // The held breath: drawn in, and held.
+  v.noise({
+    pink: true,
+    start: t + 0.25,
+    dur: 0.95,
+    attack: 0.9,
+    release: 0.45,
+    gain: 0.024,
+    shape: 'sustain',
+    filter: { type: 'bandpass', freq: 520, freqTo: 1100, q: 1.4 },
+  });
+  if (who) heroNote(v, who.voice, t + 1.7, who.heart - 7, 0.9, 0.05);
+  v.extend(t + 3);
+}
+
+/**
+ * A reply chosen in a scene, about 0.8 s: warm and small. A plucked note on the hero's heart, an
+ * octave down, answered by their own voice a third above it, and an ember of crackle.
+ */
+function sceneReply(v: Voice, t: number, detail?: UiSoundDetail | null): void {
+  const who = bondVoice(detail?.hero);
+  const heart = who?.heart ?? 7;
+  pluck(v, t, hz(heart - 7), 0.075, 0.45, 0.35);
+  if (who) heroNote(v, who.voice, t + 0.09, heart - 5, 0.4, 0.06);
+  else fluteNote(v, t + 0.09, hz(heart - 5), 0.04, 0.4);
+  v.noise({ start: t + 0.04, dur: 0.012, gain: 0.014, filter: { type: 'highpass', freq: 3600 } });
+  v.extend(t + 0.9);
 }
 
 /**

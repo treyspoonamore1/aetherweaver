@@ -33,7 +33,7 @@ import {
 } from '../kit/reliquaryLook';
 import { playUi, useMood } from '../kit/sound';
 import { useUi } from '../store';
-import { CodexView, useCodexDissonance } from './CodexScreen';
+import { CodexView, useCodexBonds, useCodexDissonance } from './CodexScreen';
 import { useAllowance } from './PrepScreen';
 import {
   CarriedChip,
@@ -1730,6 +1730,7 @@ export function ReliquaryScreen() {
   });
   const [codex, setCodex] = useState(false);
   const dissonance = useCodexDissonance();
+  const bonds = useCodexBonds();
   if (codex) {
     return (
       <CodexView
@@ -1739,6 +1740,7 @@ export function ReliquaryScreen() {
         rank={rank}
         deeds={{ earned: deeds, best: deedBest }}
         dissonance={dissonance}
+        bonds={bonds}
       />
     );
   }

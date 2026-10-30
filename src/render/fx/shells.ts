@@ -17,6 +17,12 @@ export const SHELL = {
   grace: 7,
   /** Second Wind (the Astrolabe): untouchable a moment, a shell of moving air. */
   wind: 8,
+  /**
+   * Celestial Sphere (Bonds, Vexis's alternate Solo): a crystal sphere of night sky. A bright rim,
+   * points of starlight scattered over it that twinkle, and an armillary band (its equator and a
+   * turning meridian). `crack` is how spent it is (0 whole, 1 its last hit taken).
+   */
+  sphere: 9,
 } as const;
 
 const vertex = /* glsl */ `
@@ -141,6 +147,26 @@ void main() {
     float streak = smoothstep(0.72, 0.97, s1) + 0.6 * smoothstep(0.8, 0.99, s2);
     a = fres * 0.5 + 0.02 + streak * (0.42 + 0.35 * fres);
     col = mix(col, vec3(1.0), 0.25 + streak * 0.5);
+  } else if (style == 9) {
+    // Celestial Sphere: a crystal sphere of night sky. A bright rim, points of starlight over it
+    // (turning slowly, twinkling), an armillary band (its equator, a tilted ring and a turning
+    // meridian) and, as it is spent, cracks of light (vCrack).
+    float ang = atan(vLocal.z, vLocal.x);
+    float lat = asin(clamp(vLocal.y, -1.0, 1.0));
+    vec2 sp = vec2((ang + uTime * 0.16) * 2.4, lat * 2.4);
+    vec2 cid = floor(sp);
+    vec2 f = fract(sp) - 0.5;
+    float h = awHash21(cid + vParams.w);
+    vec2 off = vec2(awHash21(cid + 3.7), awHash21(cid + 9.1)) - 0.5;
+    float pt = 1.0 - smoothstep(0.035, 0.1, length(f - off * 0.55));
+    float stars = pt * step(0.4, h) * (0.55 + 0.45 * sin(uTime * 3.1 + h * 40.0));
+    float m = uTime * 0.55 + vParams.w;
+    float equator = exp(-pow(vLocal.y / 0.035, 2.0));
+    float meridian = exp(-pow(dot(vLocal, vec3(-sin(m), 0.0, cos(m))) / 0.03, 2.0));
+    float tilted = exp(-pow(dot(vLocal, vec3(0.0, 0.92, 0.39)) / 0.028, 2.0));
+    float bands = equator * 0.42 + meridian * 0.32 + tilted * 0.26;
+    a = fres * 0.62 + 0.022 + stars * 0.95 + bands * (0.45 + 0.55 * fres) + crack * 0.75;
+    col = mix(col, vec3(1.0), clamp(stars * 0.8 + bands * 0.25 + crack * 0.4, 0.0, 1.0));
   } else {
     a = fres * 1.2 + 0.25;
     col = mix(col, vec3(1.0), 0.5);

@@ -17,6 +17,8 @@ import { secondsLabel } from './chrono';
 import { rewindMark, rewindSentence } from './rewindText';
 import { AstrolabeGlyph } from '../kit/AstrolabeGlyph';
 import { CONSTELLATION_LOOK } from '../kit/astrolabeLook';
+import { BOND_LOOK, heroInk } from '../kit/bondLook';
+import { heroBondTip } from '../screens/bondsModel';
 
 /** The Silk's gold: the Astrolabe's Thread stars (Afterglow, Overflowing Grace). */
 const SILK = CONSTELLATION_LOOK.silk;
@@ -218,6 +220,8 @@ export function PartyFrames({
   calling = null,
   rewind = null,
   blind = false,
+  bondRanks = null,
+  tipOpen = null,
 }: {
   party: HeroHud[];
   threadMode: ThreadMode;
@@ -230,6 +234,13 @@ export function PartyFrames({
   rewind?: RewindReady;
   /** Phase 4d, Blind Score: nothing on a frame names the answer a telegraph wants. */
   blind?: boolean;
+  /**
+   * Phase 4e: each hero's Bond rank, by hero id, for the small rank on their frame and its
+   * tooltip (null: Bonds aren't open yet).
+   */
+  bondRanks?: Readonly<Record<string, number>> | null;
+  /** UI lab: this hero's frame tooltip shown (a hero id). */
+  tipOpen?: string | null;
 }) {
   const beam = beamSong(chords);
   return (
@@ -239,20 +250,99 @@ export function PartyFrames({
       role="group"
       aria-label="Party"
     >
-      {party.map((h) => (
-        <div key={h.id} className="relative">
-          <HeroFrame
-            hero={h}
-            threadMode={threadMode}
-            songs={heroSongs(h, chords)}
-            beamColors={beam?.auras.map((a) => a.color) ?? []}
-            calling={calling}
-            rewind={rewind}
-            blind={blind}
-          />
-          <Bark hero={h} callouts={barks} />
+      {party.map((h) => {
+        const rank = bondRanks?.[h.defId] ?? null;
+        return (
+          <div key={h.id} className="group/frame relative">
+            <HeroFrame
+              hero={h}
+              threadMode={threadMode}
+              songs={heroSongs(h, chords)}
+              beamColors={beam?.auras.map((a) => a.color) ?? []}
+              calling={calling}
+              rewind={rewind}
+              blind={blind}
+              bondRank={rank}
+              tipId={`frame-tip-${h.slot}`}
+            />
+            <Bark hero={h} callouts={barks} />
+            <FrameTip hero={h} rank={rank} id={`frame-tip-${h.slot}`} open={tipOpen === h.defId} />
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
+ * Phase 4e, a frame's tooltip (pointing at the frame a moment, or focusing it): the hero's Bond
+ * rank, the Solo they brought (their own or the alternate, with its lines) and the talents in
+ * force this fight.
+ */
+function FrameTip({
+  hero: h,
+  rank,
+  id,
+  open,
+}: {
+  hero: HeroHud;
+  rank: number | null;
+  id: string;
+  open: boolean;
+}) {
+  const tip = heroBondTip(h.defId, h.talents, h.soloId, rank);
+  return (
+    <div
+      id={id}
+      role="tooltip"
+      className={`pointer-events-none absolute bottom-0 left-full z-30 ml-3 w-[23rem] rounded-xl border border-gold-500/50 bg-ink-900/97 p-3 text-left shadow-2xl shadow-black/70 transition-opacity ${open ? 'visible opacity-100' : 'invisible opacity-0 group-focus-within/frame:visible group-focus-within/frame:opacity-100 group-hover/frame:visible group-hover/frame:opacity-100 group-hover/frame:delay-500'}`}
+      data-testid={`frame-tip-${h.defId}`}
+      data-solo={h.soloId}
+      data-talents={h.talents.join(' ')}
+    >
+      <p className="flex items-center justify-between gap-2">
+        <b className="font-display text-base" style={{ color: heroInk(h.defId) }}>
+          {h.name}
+        </b>
+        {rank !== null && (
+          <span
+            className="flex items-center gap-1 text-xs font-semibold"
+            style={{ color: BOND_LOOK.color }}
+          >
+            <Icon name="bond" size={13} /> Bond rank {rank}
+          </span>
+        )}
+      </p>
+      <p className="mt-1.5 flex items-center gap-1.5 text-sm">
+        <Icon name="note" size={13} className="text-gold-300" />
+        <b className="text-gold-200">{tip.solo.name}</b>
+        <span className="text-xs text-muted">
+          {tip.solo.alt ? '· their alternate Solo' : '· Solo'}
+        </span>
+      </p>
+      <p className="text-xs leading-snug text-muted">{tip.solo.text}</p>
+      <p className="text-xs leading-snug text-gold-300">{tip.solo.cued}</p>
+      {(rank !== null || tip.talents.length > 0) && (
+        <div className="mt-2 border-t border-ink-600/70 pt-1.5">
+          {tip.talents.length === 0 ? (
+            <p className="flex items-center gap-1.5 text-xs text-muted">
+              <Icon name="talent" size={13} /> No talents this fight.
+            </p>
+          ) : (
+            <ul className="flex flex-col gap-1">
+              {tip.talents.map((t) => (
+                <li key={t.id} className="text-xs leading-snug" data-talent={t.id}>
+                  <b className="font-semibold text-text">
+                    <Icon name="talent" size={12} className="-mt-0.5 mr-1 inline text-muted" />
+                    {t.numeral} · {t.name}
+                  </b>{' '}
+                  <span className="text-muted">{t.text}</span>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
-      ))}
+      )}
     </div>
   );
 }
@@ -486,6 +576,8 @@ export function HeroFrame({
   calling = null,
   rewind = null,
   blind = false,
+  bondRank = null,
+  tipId,
 }: {
   hero: HeroHud;
   threadMode: ThreadMode;
@@ -495,6 +587,10 @@ export function HeroFrame({
   rewind?: RewindReady;
   /** Phase 4d, Blind Score: a status's tooltip doesn't say how to answer it. */
   blind?: boolean;
+  /** Phase 4e: their Bond rank (null: Bonds aren't open yet). */
+  bondRank?: number | null;
+  /** Phase 4e: the frame's tooltip (their Solo and talents), which describes it. */
+  tipId?: string;
 }) {
   const sung = songs ?? {
     focus: null,
@@ -524,6 +620,7 @@ export function HeroFrame({
       type="button"
       aria-pressed={h.threaded}
       aria-label={`Thread ${h.name}${out ? ' (out of the fight)' : ''}${sung.focus ? `. Your beam song pours into them at ${sung.focus}` : ''}`}
+      aria-describedby={tipId}
       onClick={(e) => {
         getRuntime()?.queue({ t: 'thread', slot: h.slot as PartySlot });
         // Mouse clicks must not leave focus here: Space (Glide) would re-trigger the button.
@@ -542,7 +639,7 @@ export function HeroFrame({
     >
       <div className="flex items-start gap-2.5">
         <span className={grey}>
-          <Portrait hero={h} />
+          <Portrait hero={h} bondRank={bondRank} />
         </span>
         <div className="min-w-0 flex-1">
           <div className={`flex items-center justify-between gap-2 ${grey}`}>
@@ -617,6 +714,26 @@ export function HeroFrame({
   );
 }
 
+/** Phase 4e: the hero's Bond rank on their portrait, small: the rings and the number. */
+function FrameBondRank({ rank }: { rank: number }) {
+  return (
+    <span
+      className="flex shrink-0 items-center gap-px rounded-md border bg-ink-950/95 px-0.5 py-px font-mono text-xs font-bold leading-none"
+      style={{
+        color: BOND_LOOK.color,
+        borderColor: `color-mix(in srgb, ${BOND_LOOK.color} 45%, transparent)`,
+      }}
+      role="img"
+      aria-label={`Bond rank ${rank}`}
+      data-testid="frame-bond-rank"
+      data-rank={rank}
+    >
+      <Icon name="bond" size={12} />
+      {rank}
+    </span>
+  );
+}
+
 function InFieldPip({ inField, out }: { inField: boolean; out: boolean }) {
   if (out) return null;
   return (
@@ -631,11 +748,19 @@ function InFieldPip({ inField, out }: { inField: boolean; out: boolean }) {
   );
 }
 
-/** Portrait disc ringed by the Solo charge; blazes with the Cue key when ready. */
-function Portrait({ hero: h }: { hero: HeroHud }) {
+/**
+ * Portrait disc ringed by the Solo charge; blazes with the Cue key when ready. Phase 4e: their
+ * Bond rank on its corner, once Bonds are open.
+ */
+function Portrait({ hero: h, bondRank = null }: { hero: HeroHud; bondRank?: number | null }) {
   const ready = h.soloReady && !h.dead && !h.downed;
   return (
-    <div className="flex shrink-0 flex-col items-center gap-0.5">
+    <div className="relative flex shrink-0 flex-col items-center gap-0.5">
+      {bondRank !== null && (
+        <span className="absolute -right-2 -top-1 z-10">
+          <FrameBondRank rank={bondRank} />
+        </span>
+      )}
       <Ring
         value={h.soloActive ? 1 : h.solo / 100}
         size={46}

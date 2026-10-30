@@ -42,8 +42,8 @@ Kael needs to be needed. His talents turn Glory Hound from a liability into a to
 |---|---|---|
 | 3 | **Steady Vanguard** | Glory Hound waits for your Focus: when a new pack arrives, Kael charges only if you've set a Focus, and charges that enemy. |
 | 3 | **Vanguard's Roar** | When Glory Hound sends him charging, everything within 8 m of his quarry turns on him for 4 s. |
-| 6 | **Riposte Bash** | When a Ward on Kael takes a blow, he answers with Shield Bash at the attacker, if it's within 6 m, whatever its cooldown (once every 4 s). A Perfect Ward does every time, and sends back half the blow. |
-| 6 | **Bulwark of Faith** | While you Thread him, Kael is healed 20% more. |
+| 6 | **Riposte Bash** | When a Ward on Kael takes a blow, he answers with Shield Bash at the attacker, if it's within 6 m, whatever its cooldown (once every 6 s). A Perfect Ward does every time, and sends back half the blow. |
+| 6 | **Bulwark of Faith** | While you Thread him, Kael is healed 15% more. |
 | 9 | **Unbreakable** | Once a fight, a blow that would down Kael leaves him at 1 life, untouchable for 1 s. |
 | 9 | **Shieldbearer** | Uncued, Aegis Wall also shields every hero within 10 m of Kael with 75% of his barrier. He raises it himself when one of them falls below 30% of their life. |
 
@@ -55,7 +55,7 @@ Lyra trusts no one to have her back. Her talents either keep her alive on her ow
 |---|---|---|
 | 3 | **Wind Step** | Every 6 s, Lyra steps out of the first attack aimed at her, even mid-shot, and keeps shooting. |
 | 3 | **Hawk Eye** | Lyra shoots from 2 m farther, and her Empowered crits give you 1 Resonance. |
-| 6 | **Ricochet** | Her arrows bounce once, to another enemy inside your field, at 25% damage. |
+| 6 | **Ricochet** | Her arrows bounce once, to another enemy inside your field, at 20% damage. |
 | 6 | **Hunter's Mark** | The enemy you Focus takes 20% more damage from every hero while Lyra stands. |
 | 9 | **Storm Queen** | During Gale Barrage, the hero you Thread (if it isn't Lyra) looses an arrow with each of hers, at 50% damage. |
 | 9 | **Last Light** | Below 40% of her life, Lyra attacks 60% faster. |
@@ -68,7 +68,7 @@ Vexis thinks the song can be solved like an equation. Her talents make her commi
 |---|---|---|
 | 3 | **Arcane Ward** | When an enemy strikes Vexis up close, she blinks 6 m away from it (once every 12 s). |
 | 3 | **Overchannel** | Starbolt deals 40% more damage and takes 10% longer to cast. |
-| 6 | **Starthread** | Starbolt also strikes the enemy nearest the hero you Thread (if it isn't Vexis), at 20% damage. |
+| 6 | **Starthread** | Starbolt also strikes the enemy nearest the hero you Thread (if it isn't Vexis), at 15% damage. |
 | 6 | **Event Horizon** | Gravity Well reaches 2 m farther, and pulls the enemies it catches into your field: toward the point within three quarters of its radius nearest the well, never onto you. |
 | 9 | **Supernova** | Starfall ends in a nova: every enemy within 6 m of its last meteor takes five meteors' damage. |
 | 9 | **Constellation** | Each Cue leaves a star where the hero stands, casting Vexis's arcane bolt at the nearest enemy every 1.5 s for 6 s. |
@@ -80,7 +80,7 @@ At Bond rank 10, choose which Solo a hero brings. Each alternate asks something 
 | Hero | Default | Alternate | Uncued | Cued |
 |---|---|---|---|---|
 | Kael | Aegis Wall (a barrier; cued, a party dome) | **Oathkeeper** | For 6 s, hits on you and on the heroes within 9 m of Kael land on him instead, at 40%, and he takes 30% less of everything. Keep him standing. | Within 12 m, and he takes a quarter. |
-| Lyra | Gale Barrage (12 arrows a second) | **Hawk's Vigil** | For 6 s she holds still and shoots every enemy that starts an attack within her range, once. A cast she can interrupt is interrupted. | She can move, and each shot marks its target to take 25% more damage for 4 s. |
+| Lyra | Gale Barrage (12 arrows a second) | **Hawk's Vigil** | For 6 s she holds still and shoots every enemy that starts an attack within her range, once each, as hard as 8 of her arrows. A cast she can interrupt is interrupted. | She can move, and each shot marks its target to take 25% more damage for 4 s. |
 | Vexis | Starfall (meteors) | **Celestial Sphere** | For 5 s, a sphere around the hero you Thread swallows the next 2 hits on them, whole (telegraphs included). Choose whom you Thread. | Every hero in your field gets a sphere of 2 hits. |
 
 ## The scenes
@@ -176,8 +176,23 @@ Talents and Solos add power, but the plan caps meta *raw* power (the Astrolabe a
 - **The Result** shows each fight's Bond XP per hero, with a bar. **The Summary** shows the run's: its fights' and its scenes'.
 - **A Bond rank-up** gets a card saying what the rank opened; the first one introduces Bonds.
 - **A Respite** offers a waiting scene ("Sit with Kael", key 4). **The scene** has the hero by the fire, the lines, two replies (1 and 2), their answer and the Bond XP it pays.
-- **In a fight**, each frame shows a Bond rank badge. Its tooltip names the Solo the hero brought and the talents in force. Unbreakable and Supernova get a callout when they act.
+- **In a fight**, each frame shows a Bond rank badge. Its tooltip names the Solo the hero brought and the talents in force.
 - **The Codex** has a Bonds page.
+
+**Effects and sounds** ([docs/phase-4e/vfx-audio.md](phase-4e/vfx-audio.md)):
+
+- **Every talent that acts has a moment in the world**, in its hero's colour, from `talentFired`. Fourteen ids are covered: Kael's charge, roar, riposte, bastion and shield-sharing; Lyra's step; Vexis's thread, well, nova, stars and blink.
+  - The rare ones float their name above the hero, at most once every 3 s. Those that fire often never do.
+  - Talents that only change numbers (Bulwark of Faith, Hawk Eye, Ricochet, Hunter's Mark, Storm Queen, Last Light, Overchannel) show through what's already drawn.
+- **The alternate Solos are drawn while they last:**
+  - Oathkeeper's reach, around the heroes and the Weaver it covers, dimmed while Kael can't take hits, with a tether for each hit he takes;
+  - Hawk's Vigil's stance, reach, shots and marks;
+  - Celestial Sphere, a new style in the existing shell shader that shows its hits left and cracks as they're spent.
+- **What your Cue added is in the Cue's gold.** No new draw calls, batches or materials, and the auras are untouched.
+- **Sounds:**
+  - each talent in its hero's voice (Kael brass on D, Lyra flute on A, Vexis glass on B and F), quiet for the frequent ones; Unbreakable and Supernova duck the music;
+  - the alternate Solos have their own starts;
+  - five UI sounds for the Bonds screens (`bondRankUp`, `talentPick`, `soloPick`, `sceneStart`, `sceneReply`), each voiced for its hero.
 
 ## Harness
 
@@ -208,7 +223,67 @@ The first guess, base 8 and pool 24, was too slow: the Novice's Kael reached ran
 
 ### Power
 
-*Tuning in progress.*
+Each choice's worth as the enemy life it's worth: negative helps. Each figure comes from 300 runs and is good to about ±3.
+
+- **The Novice** uses the Rank-20 build at Threat ×1; its base wins 85.3%, and 61.0% with 25% more enemy life.
+- **The Skilled bot** uses the same build at ×2; its base wins 75.7%, and 51.3% at ×2.5.
+- The Novice never sets a Focus, so its Steady Vanguard and Hunter's Mark (*) do nothing; the Skilled bot shows them.
+
+| Hero | Tier | Talent | Novice | Skilled |
+|---|---|---|---|---|
+| Kael | I | Steady Vanguard | +0.9* | −4.8 |
+| | I | Vanguard's Roar | +2.8 | −4.3 |
+| | II | Riposte Bash | −4.5 | −1.2 |
+| | II | Bulwark of Faith | −3.9 | +0.9 |
+| | III | Unbreakable | −7.0 | −3.4 |
+| | III | Shieldbearer | −1.6 | −0.8 |
+| | Solo | Oathkeeper (against Aegis Wall) | +4.6 | +2.9 |
+| Lyra | I | Wind Step | −7.0 | +2.1 |
+| | I | Hawk Eye | −2.2 | −5.3 |
+| | II | Ricochet | −3.9 | −4.8 |
+| | II | Hunter's Mark | −0.6* | −4.8 |
+| | III | Storm Queen | −4.5 | −3.4 |
+| | III | Last Light | −2.7 | 0.0 |
+| | Solo | Hawk's Vigil (against Gale Barrage) | −1.6 | +2.5 |
+| Vexis | I | Arcane Ward | −5.1 | −3.9 |
+| | I | Overchannel | −3.3 | −1.2 |
+| | II | Starthread | −5.1 | −7.2 |
+| | II | Event Horizon | −5.7 | −3.4 |
+| | III | Supernova | −2.2 | −2.1 |
+| | III | Constellation | −6.3 | +1.7 |
+| | Solo | Celestial Sphere (against Starfall) | −0.6 | +2.5 |
+
+Most tiers' two talents sit within a few percent of each other on each bot. Two pairs lean different ways for each bot, which is a real choice:
+
+- Wind Step keeps a Novice's Lyra alive, while the Skilled bot gets more from Hawk Eye's reach.
+- Constellation rewards Cues on any team, while Supernova rewards Starfalls that land.
+
+Whole Bonds, with the first or the second talent of each tier, and either Solo (Novice):
+
+| Hero | First picks | First, alternate Solo | Second picks | Second, alternate Solo |
+|---|---|---|---|---|
+| Kael | −9.1 | −9.1 | −5.7 | −0.1 |
+| Lyra | −6.3 | −6.3 | −3.3 | −8.4 |
+| Vexis | −1.6 | −2.2 | −9.1 | −7.0 |
+| **Everyone** | **−16.8** | | **−18.9** | |
+
+- **Against the aim:** a hero's Bond is worth 0–9% (aim 5–8%), and everyone's 17–19% (aim 15–20%).
+- **The Skilled bot gets more from them:** everyone's is worth 28% (first picks) to 31% (second), above the aim. Dissonance is the answer for a player that strong.
+
+**What tuning changed.** These are first guesses against the harness, in order:
+
+1. **The review's fixes.** They mattered most to Ricochet: no bounces while the Weaver is down took it from −16% to −9%.
+2. **Numbers.** Ricochet, Starthread and Unbreakable came down; Overchannel, Wind Step, Last Light, Supernova, Shieldbearer and Hawk's Vigil went up. Bulwark of Faith came down last.
+3. **Mechanics that fought their own talent:**
+   - Event Horizon pulled enemies onto the Weaver.
+   - Arcane Ward blinked Vexis, and her attacker, to the Weaver.
+   - Wind Step broke Lyra's shot, and any Flourish with it.
+   - Riposte Bash waited for a Perfect Ward.
+   - Shieldbearer and Oathkeeper didn't fire when they were needed.
+   - Oathkeeper's self-trigger spent it before a boss's raid.
+
+   Each now does what its name says (see the talent tables).
+4. **The bots.** The Skilled bot Cued every Solo by hero: Kael's against raids, the others' into packs. A guarding alternate (Celestial Sphere) went into packs and measured +13%. It now Cues by kind, guarding Solos against raids and big hits, which took Celestial Sphere to +2.5%. A Focus habit added to the Novice (keep the biggest enemy Focused) cost it most of its wins, since every hero, Kael too, turns on the Focus. It was dropped, and the Focus talents are judged by the Skilled bot.
 
 ## Code review
 
@@ -246,3 +321,10 @@ An independent review of the core (content, sim, meta and stores) confirmed that
 - **Solos are rare in short fights.** A Solo charges in 25 s, so it plays in about a third of the Novice's fights; that caps what the alternate Solos and Supernova can be worth.
 - **Scenes are short and fixed:** two a hero, one reply each, and the reply changes the hero's answer, not the game. Scenes wait for a Respite, so a run that skips Respites skips them.
 - **No Bond XP in the Training Grounds.** They play with your choices, but a sandbox fight pays nothing.
+- **Oathkeeper is a shade weaker than Aegis Wall for the Novice**: taking it costs Kael his desperate brace, and the Novice doesn't keep him healed.
+- **The views copy a few sim rules** that the sim doesn't expose, each copy watched by a test:
+  - Constellation's stars (the sim keeps them internal);
+  - Hawk's Vigil's extra 2 m of reach and the nova's 0.3 s delay (constants, not content);
+  - which enemies Event Horizon pulled (read from how far they moved).
+
+  A read-only `stars` list in the state, those two numbers in content, and the pulled ids on the event would end the copies.

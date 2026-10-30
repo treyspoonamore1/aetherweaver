@@ -42,7 +42,7 @@ export const TALENTS: ContentInput['talents'] = [
     hero: 'kael',
     tier: 2,
     name: 'Riposte Bash',
-    values: { range: 6, pct: 50, seconds: 4 },
+    values: { range: 6, pct: 50, seconds: 6 },
     text: 'When a Ward on Kael takes a blow, he answers with Shield Bash at the attacker, if it’s within {range} m, whatever its cooldown (once every {seconds} s). A Perfect Ward does every time, and sends back {pct}% of the blow.',
   },
   {
@@ -50,7 +50,7 @@ export const TALENTS: ContentInput['talents'] = [
     hero: 'kael',
     tier: 2,
     name: 'Bulwark of Faith',
-    values: { pct: 20 },
+    values: { pct: 15 },
     text: 'While you Thread him, Kael is healed {pct}% more.',
   },
   {
@@ -91,7 +91,7 @@ export const TALENTS: ContentInput['talents'] = [
     hero: 'lyra',
     tier: 2,
     name: 'Ricochet',
-    values: { pct: 25 },
+    values: { pct: 20 },
     text: 'Lyra’s arrows bounce once, to another enemy inside your field, at {pct}% damage.',
   },
   {
@@ -140,7 +140,7 @@ export const TALENTS: ContentInput['talents'] = [
     hero: 'vexis',
     tier: 2,
     name: 'Starthread',
-    values: { pct: 20 },
+    values: { pct: 15 },
     text: 'Starbolt also strikes the enemy nearest the hero you Thread (if it isn’t Vexis), at {pct}% damage.',
   },
   {
@@ -186,7 +186,7 @@ export const ALT_SOLOS: ContentInput['altSolos'] = [
     chargeTime: 25,
     // `power`: each shot, in her basic attacks.
     values: { seconds: 6, power: 8, pct: 25, mark: 4 },
-    text: 'For {seconds} s, Lyra holds still and shoots every enemy that starts an attack within her range, once each. A cast she can interrupt is interrupted.',
+    text: 'For {seconds} s, Lyra holds still and shoots every enemy that starts an attack within her range, once each, as hard as {power} of her arrows. A cast she can interrupt is interrupted.',
     cuedText:
       'Cued: she can move, and each shot marks its target to take {pct}% more damage for {mark} s.',
   },

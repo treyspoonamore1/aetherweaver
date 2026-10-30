@@ -94,11 +94,23 @@ export type UiSound =
    */
   | 'dissonanceToggle'
   | 'dissonanceOpen'
-  | 'dissonanceBest';
+  | 'dissonanceBest'
+  /**
+   * Phase 4e (docs/phase-4e.md): Bonds. A hero's Bond grew a rank (warm and personal: their own
+   * theme, not the Weaver's rank-up); a talent chosen; a Solo chosen; a scene begins at a
+   * Respite's fire; a reply chosen in it. Each is voiced for its hero: pass `{ hero }` (and the
+   * new `rank` for a rank-up) as `detail`.
+   */
+  | 'bondRankUp'
+  | 'talentPick'
+  | 'soloPick'
+  | 'sceneStart'
+  | 'sceneReply';
 
 /**
- * Additive (Phase 4d): what a UI sound is about, beyond its name. Only the Dissonance sounds read
- * it; every other sound ignores it.
+ * Additive (Phase 4d): what a UI sound is about, beyond its name. The Dissonance sounds read
+ * `total` and `from`; the Bonds sounds (Phase 4e) read `hero` and `rank`; every other sound ignores
+ * it.
  */
 export interface UiSoundDetail {
   /** The run's Dissonance total (points) after the change. */
@@ -108,6 +120,13 @@ export interface UiSoundDetail {
    * instead of rising. Left out, a toggle is a level turned on.
    */
   from?: number;
+  /**
+   * Phase 4e, Bonds: the hero a Bond sound is for (their id: 'kael', 'lyra', 'vexis'). It is
+   * voiced in their own instrument and note. Left out (or unknown), a shared voicing.
+   */
+  hero?: string;
+  /** Phase 4e, `bondRankUp`: the Bond rank reached. A rank that opens a talent or a Solo rings. */
+  rank?: number;
 }
 
 export interface Volumes {
@@ -161,6 +180,7 @@ export interface AudioDirector {
    * and the Martyr share the first voicing). Left out, the app-wide director asks the run for
    * its Calling, once the click that played it has been handled. Phase 4d: `detail` carries the
    * Dissonance total for `dissonanceToggle` (and `dissonanceBest`); pass `null` as `calling`.
+   * Phase 4e: the Bonds sounds take the hero (and a rank-up its rank) as `detail`.
    */
   playUi(sound: UiSound, calling?: string | null, detail?: UiSoundDetail): void;
   setVolumes(volumes: Volumes): void;

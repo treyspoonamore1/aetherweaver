@@ -3,6 +3,7 @@ import { heroDef } from '../content';
 import type { SimEvent, WorldState } from '../sim';
 import { ArenaView } from './arena';
 import { AstrolabeView } from './astrolabe';
+import { BondsView } from './bonds';
 import { CallView } from './calls';
 import { CallingView } from './calling';
 import { ChronoView } from './chrono';
@@ -47,6 +48,7 @@ export class CombatView implements WorldView {
   readonly chrono: ChronoView;
   readonly astrolabe: AstrolabeView;
   readonly dissonance: DissonanceView;
+  readonly bonds: BondsView;
   private quality: QualityTier;
   /** The enemies' clock for the telegraph shaders: it waits while Stasis holds them. */
   private enemyClock = 0;
@@ -117,6 +119,12 @@ export class CombatView implements WorldView {
       entities: this.entities,
     });
     this.dissonance = new DissonanceView({ kit: this.kit, recs: this.entities.recs });
+    this.bonds = new BondsView({
+      kit: this.kit,
+      recs: this.entities.recs,
+      overlay: this.overlay,
+      rig: ctx.rig,
+    });
     this.quality = ctx.quality;
     this.setQuality(ctx.quality);
     void state;
@@ -153,6 +161,7 @@ export class CombatView implements WorldView {
     this.chrono.sync(state, fxDt, frame.time, frame.settings.flashes, frame.settings.damageNumbers);
     this.astrolabe.sync(state, fxDt, frame.time, frame.settings.flashes);
     this.dissonance.sync(state, fxDt, frame.time, frame.settings.flashes);
+    this.bonds.sync(state, fxDt, frame.time, frame.settings.flashes);
     this.overlay.setStasis(this.chrono.cool);
     this.offscreen(state);
     this.aimMarker(state, frame);
@@ -174,6 +183,7 @@ export class CombatView implements WorldView {
     this.chrono.handle(events, state);
     this.astrolabe.handle(events, state);
     this.dissonance.handle(events, state);
+    this.bonds.handle(events, state);
   }
 
   setQuality(quality: QualityTier): void {

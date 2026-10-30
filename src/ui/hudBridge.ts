@@ -36,6 +36,7 @@ import {
 } from './hud/chrono';
 import { TECHNIQUE_ICON } from './hud/labels';
 import { REWIND_NAME, crescendoName, rewindSeconds } from './screens/callingText';
+import { soloView } from './screens/bondsModel';
 import type { AuraHud, BossHud, ChordHud, HeroHud, HudSnapshot, TechniqueHud } from './store';
 
 const TECHNIQUE_KEYS: readonly TechniqueKey[] = ['ward', 'chime', 'reel', 'glide'];
@@ -144,6 +145,8 @@ export function buildHudSnapshot(
     const empowering = w?.threadSlot === slot && w.threadMode === 'empower';
     // Overflowing Grace: Mend's overheal as a shield on the hero, the one the sim marks `grace`.
     const graceShield = grace ? h.shields.find((s) => s.grace && s.amount > 0) : undefined;
+    // Bonds (Phase 4e): the Solo they brought, their own or the alternate.
+    const soloDef = soloView(def.id, hero.soloId);
     party.push({
       id,
       slot,
@@ -172,7 +175,12 @@ export function buildHudSnapshot(
       solo: hero.solo,
       soloReady: hero.solo >= 100 && hero.soloActive <= 0,
       soloActive: hero.soloActive > 0,
-      soloName: def.solo.name,
+      soloId: soloDef.id,
+      soloName: soloDef.name,
+      soloText: soloDef.text,
+      soloCued: soloDef.cued,
+      soloAlt: soloDef.alt,
+      talents: [...hero.talents],
       castName: hero.castName,
       castProgress: hero.castProgress,
       action: hero.action,

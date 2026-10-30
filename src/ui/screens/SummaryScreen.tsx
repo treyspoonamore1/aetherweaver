@@ -50,6 +50,9 @@ import { DISCORD_LOOK } from '../kit/dissonanceLook';
 import { CarriedChip, InscriptionList } from './ReliquaryParts';
 import { DORMANT_LINE, carriedSnapshot, relicView } from './reliquaryModel';
 import type { ReliquaryRelic } from '../../meta/reliquary';
+import type { Bond } from '../../meta/bonds';
+import { BondRankUpCard, RunBondsPanel, useBondCard, type BondCardProps } from './BondsParts';
+import { bondXpRows, runBondXp } from './bondsModel';
 
 const GRADE_COLOR: Record<Grade, string> = {
   S: '#fde9b8',
@@ -133,6 +136,13 @@ export interface SummaryViewProps {
   reliquary?: SummaryReliquary | null;
   /** UI lab: the relic as it arrived, after enshrining. */
   enshrined?: ReliquaryRelic | null;
+  /**
+   * Phase 4e: the profile's Bonds now (the run's Bond XP included), for the Bonds panel. Omitted:
+   * no panel.
+   */
+  bonds?: Readonly<Record<string, Bond>>;
+  /** Phase 4e: the Bond rank-up card, shown after the Weaver's rank-up card. */
+  bondCard?: BondCardProps | null;
 }
 
 /** The run summary, "proof of support" (docs/plan/04 §6.1). */
@@ -148,6 +158,8 @@ export function SummaryView({
   deedPoints = 0,
   reliquary = null,
   enshrined = null,
+  bonds,
+  bondCard = null,
 }: SummaryViewProps) {
   useMood('map');
   const totals = runTotals(run);
@@ -229,6 +241,8 @@ export function SummaryView({
         </header>
 
         {profileXp !== undefined && <RunRankPanel run={run} profileXp={profileXp} />}
+
+        {bonds && <RunBondsPanel rows={bondXpRows(heroIds, runBondXp(run), bonds)} />}
 
         <RunDeedsPanel ids={run.deeds} className="mt-6" />
 
@@ -642,6 +656,9 @@ export function SummaryView({
           deedPoints={deedPoints}
         />
       )}
+      {rankUps.length === 0 && bondCard && bondCard.notices.length > 0 && (
+        <BondRankUpCard {...bondCard} />
+      )}
     </ScreenFrame>
   );
 }
@@ -852,6 +869,7 @@ export function SummaryScreen() {
   const xp = useProfile((s) => s.profile.xp);
   const rq = useProfile((s) => s.profile.reliquary);
   const { rankUps, firstTime, dismiss, deedPoints } = useRankUps();
+  const bondCard = useBondCard();
   if (!run) return null;
   const a = settings.assists;
   const d = DEFAULT_SETTINGS.assists;
@@ -868,6 +886,8 @@ export function SummaryScreen() {
       onDismissRankUps={dismiss}
       firstRankUp={firstTime}
       deedPoints={deedPoints}
+      bonds={bondCard.bonds}
+      bondCard={bondCard}
       reliquary={{
         reliquary: rq,
         onEnshrine: (id) => useRun.getState().enshrine(id),

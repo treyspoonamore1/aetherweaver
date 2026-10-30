@@ -3,7 +3,7 @@
  * director's current chord, so good play sounds good. Every sound goes through the engine's
  * voice limiter (≤ 4 of a kind) and rate gates.
  */
-import { enemyDef, type AstrolabeNode } from '../content';
+import { CONTENT, enemyDef, type AstrolabeNode } from '../content';
 import {
   techniqueCost,
   treeNodes,
@@ -20,6 +20,7 @@ import type { MusicEngine } from './music';
 import {
   anvil,
   bowed,
+  brassBell,
   choirChord,
   clockTick,
   cymbalSwell,
@@ -67,7 +68,75 @@ export const RELIC_SOUND_GROUPS: Readonly<Record<string, string>> = {
   cantors_hymnal: 'relic:hymnal',
 };
 
+/**
+ * Phase 4e, Bonds: the voice group of each talent's sound, by the id the sim announces it with
+ * (`talentFired`: a talent's or an alternate Solo's). Every id the sim emits is listed (tests
+ * read the sim sources to check). Each is in its hero's voice: Kael's horn and brass on D, Lyra's
+ * flute and pluck on A, Vexis's glass on B and the F against it. The three that fire often (Hawk's
+ * Vigil, Oathkeeper, the sphere's pop) are small and tightly gated.
+ */
+export const TALENT_SOUND_GROUPS: Readonly<Record<string, string>> = {
+  steady_vanguard: 'talent:steady',
+  vanguards_roar: 'talent:roar',
+  riposte_bash: 'talent:riposte',
+  unbreakable: 'talent:unbreakable',
+  shieldbearer: 'talent:shieldbearer',
+  wind_step: 'talent:windStep',
+  starthread: 'talent:starthread',
+  event_horizon: 'talent:horizon',
+  supernova: 'talent:supernova',
+  constellation: 'talent:constellation',
+  arcane_ward: 'talent:arcaneWard',
+  oathkeeper: 'talent:oath',
+  hawks_vigil: 'talent:vigil',
+  celestial_sphere: 'talent:sphere',
+};
+
+/** Phase 4e: each talent sound's rate gate (seconds) and voice cap. */
+export const TALENT_SOUND_LIMITS: Readonly<Record<string, readonly [number, number]>> = {
+  steady_vanguard: [0.5, 1],
+  vanguards_roar: [0.6, 1],
+  riposte_bash: [0.25, 2],
+  unbreakable: [1, 1],
+  shieldbearer: [0.5, 1],
+  wind_step: [0.3, 2],
+  starthread: [0.25, 2],
+  event_horizon: [0.5, 1],
+  supernova: [0.6, 1],
+  constellation: [0.2, 2],
+  arcane_ward: [0.3, 2],
+  oathkeeper: [0.09, 3],
+  hawks_vigil: [0.07, 3],
+  celestial_sphere: [0.06, 3],
+};
+
+/**
+ * Phase 4e: the alternate Solos' own starts (their default Solos are heard only through the Cue's
+ * leitmotif). Each starts once, cued or not, with a sound of what it asks of you.
+ */
+export const ALT_SOLO_SOUND_GROUPS: Readonly<Record<string, string>> = {
+  oathkeeper: 'altSolo:oathkeeper',
+  hawks_vigil: 'altSolo:vigil',
+  celestial_sphere: 'altSolo:sphere',
+};
+
 const clamp = (x: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, x));
+
+/** A scale index (D4 = 0) as Hz: every Bonds note is on D dorian. */
+const tone = (idx: number) => midiToHz(scaleMidi(idx));
+/** Hawk's Vigil's shots, in turn: A5, C6, E6. */
+const VIGIL_NOTES: readonly number[] = [11, 13, 15];
+/** A talent's number from the content (the lead is retuning them). */
+const talentValueOf = (id: string, key: string): number =>
+  CONTENT.talents.find((t) => t.id === id)?.values[key] ?? 0;
+/** A hero's Celestial Sphere: the hits it still holds (0: none). */
+const sphereHitsOf = (
+  e: { hero?: { sphereHits?: number; sphereUntil?: number } | null } | undefined,
+  time: number,
+): number => {
+  const h = e?.hero;
+  return h && (h.sphereHits ?? 0) > 0 && (h.sphereUntil ?? 0) > time ? (h.sphereHits ?? 0) : 0;
+};
 
 /**
  * Phase 3e, the Chronomancer: how long a Rewind that stands a hero back up takes to run back
@@ -179,6 +248,8 @@ export class SfxEngine {
   /** Afterglow tails still sounding, by hero, and the `afterglowUntil` each one was for. */
   private readonly afterglowTail = new Map<number, VoiceHandle>();
   private readonly afterglowSeen = new Map<number, number>();
+  /** Phase 4e: Hawk's Vigil's shots turn through three notes. */
+  private vigilTurn = 0;
 
   constructor(
     private readonly e: Engine,
@@ -355,6 +426,8 @@ export class SfxEngine {
         break;
       case 'soloStarted':
         if (ev.cued) this.cue(ev.hero, state);
+        // Phase 4e: an alternate Solo starts with a sound of its own (cued, under the leitmotif).
+        this.altSolo(ev.solo, ev.hero, ev.cued, state);
         break;
       case 'soloReady':
         if (this.e.gate(`ready:${ev.hero}`, 1)) {
@@ -407,6 +480,10 @@ export class SfxEngine {
       case 'enemyRose':
         // Phase 4d, Restless Dead: struck down, it rises again (once).
         this.rose(ev.defId, ev.enemy, ev.x, state);
+        break;
+      case 'talentFired':
+        // Phase 4e, Bonds: a hero's talent (or alternate Solo) visibly acted.
+        this.talent(ev, state);
         break;
       case 'damageTaken':
         if (ev.radiance > 0) this.radiance(ev, state);
@@ -1759,6 +1836,410 @@ export class SfxEngine {
       },
       { pan },
     );
+  }
+
+  // ── Phase 4e: Bonds ──────────────────────────────────────────────────────────────
+
+  /**
+   * Phase 4e, Bonds (`talentFired`): a hero's talent, or alternate Solo, visibly acted. Each has a
+   * sound of its own in its hero's voice (Kael's horn and brass on D, Lyra's flute and pluck on A,
+   * Vexis's glass on B against F), every pitch in D dorian, panned to where it acted, on the sfx
+   * bus in its own group (`TALENT_SOUND_GROUPS`) with its gate and cap (`TALENT_SOUND_LIMITS`).
+   * The frequent ones (Hawk's Vigil's shots, Oathkeeper's tethers, the sphere's pops) are two or
+   * three quiet sources each. The two big moments (Unbreakable, Supernova) bypass the sfx duck.
+   */
+  private talent(ev: Extract<SimEvent, { type: 'talentFired' }>, state: WorldState): void {
+    const id = ev.talent;
+    const group = TALENT_SOUND_GROUPS[id];
+    const limits = TALENT_SOUND_LIMITS[id];
+    if (!group || !limits) return;
+    const e = this.e;
+    // A step and a blink are each hero's own (gated per hero); the rest by kind.
+    const gateKey = id === 'wind_step' || id === 'arcane_ward' ? `${group}:${ev.hero}` : group;
+    if (!e.gate(gateKey, limits[0])) return;
+    const cap = limits[1];
+    const ents = state.entities;
+    const at = (x: number) => (ents ? this.panFor(state, x) : 0);
+    const heroX = ents?.get(ev.hero)?.x ?? ev.x;
+    switch (id) {
+      case 'steady_vanguard':
+        // Kael on your mark: a firm horn call, A2 up to D3, a soft knock under it.
+        this.play(
+          group,
+          cap,
+          'sfx',
+          (v, t) => {
+            horn(v, t, tone(-10), 0.16, 0.06);
+            horn(v, t + 0.14, tone(-7), 0.42, 0.075);
+            thump(v, t + 0.14, tone(-14), 0.1, 0.2, 0.6);
+          },
+          { pan: at(heroX) },
+        );
+        break;
+      case 'vanguards_roar':
+        // His Roar: a brass bellow on D2 and A2 with a growl of air in it, a horn D3 over it.
+        this.play(
+          group,
+          cap,
+          'sfx',
+          (v, t) => {
+            horn(v, t, tone(-14), 0.7, 0.1);
+            horn(v, t + 0.02, tone(-10), 0.66, 0.07);
+            v.noise({
+              pink: true,
+              start: t,
+              dur: 0.5,
+              attack: 0.08,
+              release: 0.3,
+              gain: 0.08,
+              shape: 'sustain',
+              filter: { type: 'bandpass', freq: 220, freqTo: 520, q: 1.5 },
+            });
+            horn(v, t + 0.06, tone(-7), 0.5, 0.06);
+            thump(v, t, tone(-14), 0.16, 0.3, 0.6);
+          },
+          { pan: at(ev.x) },
+        );
+        break;
+      case 'riposte_bash':
+        // The counter-clang, a beat after the Perfect Ward's ring: struck brass on A3, a click,
+        // a knock on his D2.
+        this.play(
+          group,
+          cap,
+          'sfx',
+          (v, start) => {
+            const t = start + 0.12;
+            brassBell(v, t, tone(-3), 0.07, 0.8, 1);
+            v.noise({ start: t, dur: 0.02, gain: 0.06, filter: { type: 'highpass', freq: 3000 } });
+            thump(v, t, tone(-14), 0.12, 0.16, 0.6);
+          },
+          { pan: at(ev.x) },
+        );
+        break;
+      case 'unbreakable': {
+        // He stands: the blow lands (a deep knock), a great brass bell on D2 rings under it (its
+        // fifth, A, in it), a defiant horn climbs D3 to D4, and a high glass D6 shimmers while he
+        // is untouchable.
+        const ring = 1 + talentValueOf('unbreakable', 'seconds');
+        e.duck('music', { depth: 0.6, hold: 0.3, release: 0.8 });
+        this.play(
+          group,
+          cap,
+          'sfx',
+          (v, t) => {
+            thump(v, t, tone(-14), 0.25, 0.4, 0.55);
+            brassBell(v, t, tone(-14), 0.12, 2.4, 0.4);
+            horn(v, t + 0.05, tone(-7), 0.9, 0.08);
+            horn(v, t + 0.32, tone(0), 0.9, 0.06);
+            glassNote(v, t + 0.3, tone(14), 0.028, ring, 0.8);
+          },
+          { pan: at(heroX), big: true },
+        );
+        break;
+      }
+      case 'shieldbearer': {
+        // His shield is the party's: a brass bell on D4 and a plucked A4, a breath outward, and a
+        // glint for each hero it reached (A5, D6, E6), counted from the state.
+        const reached = this.besideHero(state, ev.hero, talentValueOf('shieldbearer', 'radius'));
+        this.play(
+          group,
+          cap,
+          'sfx',
+          (v, t) => {
+            brassBell(v, t, tone(0), 0.06, 1.4, 0.5);
+            pluck(v, t + 0.04, tone(4), 0.05, 0.5, 0.6);
+            whoosh(v, t, 0.35, 0.02, 500, 2200, 1);
+            const glints = [11, 14, 15];
+            for (let i = 0; i < Math.min(reached, glints.length); i++)
+              glassPing(v, t + 0.12 + i * 0.07, tone(glints[i]!), 0.018, 0.6);
+          },
+          { pan: at(heroX) },
+        );
+        break;
+      }
+      case 'wind_step':
+        // Lyra steps out of it: a quick gust and a flute's grace note, E5 to A5.
+        this.play(
+          group,
+          cap,
+          'sfx',
+          (v, t) => {
+            whoosh(v, t, 0.22, 0.05, 900, 4200, 1.2);
+            fluteNote(v, t + 0.04, tone(8), 0.06, 0.08);
+            fluteNote(v, t + 0.11, tone(11), 0.07, 0.22);
+          },
+          { pan: at(heroX) },
+        );
+        break;
+      case 'hawks_vigil': {
+        // Her Vigil answers an attack: a tight pluck (A5, C6, E6 in turn) and a string's snap.
+        // Cued, its mark: a small glass E6 over it.
+        const n = this.vigilTurn++ % 3;
+        const cued = !!ents?.get(ev.hero)?.hero?.soloCued;
+        this.play(
+          group,
+          cap,
+          'sfx',
+          (v, t) => {
+            pluck(v, t, tone(VIGIL_NOTES[n]!), 0.05, 0.12, 0.95);
+            v.noise({
+              start: t,
+              dur: 0.02,
+              gain: 0.03,
+              filter: { type: 'bandpass', freq: 2400, q: 1.5 },
+            });
+            if (cued) glassPing(v, t + 0.03, tone(15), 0.014, 0.45);
+          },
+          { pan: at(ev.x) },
+        );
+        break;
+      }
+      case 'starthread':
+        // Her star runs along your Thread: glass B5, a breath of it travelling, then F6 (her
+        // tritone) as it flares on the hero you Thread.
+        this.play(
+          group,
+          cap,
+          'sfx',
+          (v, t) => {
+            glassPing(v, t, tone(12), 0.024, 0.6);
+            v.noise({
+              start: t,
+              dur: 0.12,
+              attack: 0.08,
+              release: 0.04,
+              gain: 0.025,
+              shape: 'sustain',
+              filter: { type: 'bandpass', freq: 1500, freqTo: 5000, q: 1.6 },
+            });
+            glassPing(v, t + 0.08, tone(16), 0.02, 0.5);
+          },
+          { pan: at(ev.x) },
+        );
+        break;
+      case 'event_horizon':
+        // Gravity drags them in: air sucked downward, a glass B4 drawn in backwards, and a low F2
+        // knock as they land in your field.
+        this.play(
+          group,
+          cap,
+          'sfx',
+          (v, t) => {
+            whoosh(v, t, 0.5, 0.05, 2400, 250, 1);
+            reverseGlass(v, t + 0.4, tone(5), 0.022, 0.4, 0.6);
+            thump(v, t + 0.4, tone(-12), 0.13, 0.25, 0.6);
+            glassPing(v, t + 0.42, tone(9), 0.016, 0.5);
+          },
+          { pan: at(ev.x) },
+        );
+        break;
+      case 'supernova':
+        // Starfall's last meteor bursts: glass B5 drawn in backwards as it gathers, then the nova
+        // (a crack of light, a deep knock, glass B5 D6 F6, a choir's D F B, a shimmer).
+        e.duck('music', { depth: 0.7, hold: 0.2, release: 0.8 });
+        this.play(
+          group,
+          cap,
+          'sfx',
+          (v, t) => {
+            reverseGlass(v, t + 0.3, tone(12), 0.03, 0.3, 0.7);
+            const b = t + 0.3;
+            v.noise({
+              start: b,
+              dur: 0.5,
+              gain: 0.12,
+              filter: { type: 'lowpass', freq: 6000, freqTo: 600 },
+            });
+            thump(v, b, tone(-14), 0.24, 0.4, 0.55);
+            glassNote(v, b, tone(12), 0.035, 1.6, 0.9);
+            glassNote(v, b + 0.02, tone(14), 0.03, 1.5, 0.9);
+            glassNote(v, b + 0.04, tone(16), 0.026, 1.4, 0.9);
+            choirChord(v, b, [tone(-7), tone(-5), tone(-2)], 0.9, 0.07, 0.05, 1.2);
+            cymbalSwell(v, b, 0.02, 1.1, 0.045);
+          },
+          { pan: at(ev.x), big: true },
+        );
+        break;
+      case 'constellation':
+        // A star placed where the Cue was: a twinkle, glass D6, then A6 and E7 above it.
+        this.play(
+          group,
+          cap,
+          'sfx',
+          (v, t) => {
+            glassNote(v, t, tone(14), 0.024, 1.2, 0.8);
+            glassPing(v, t + 0.07, tone(18), 0.016, 0.6);
+            glassPing(v, t + 0.13, tone(22), 0.01, 0.5);
+          },
+          { pan: at(ev.x) },
+        );
+        break;
+      case 'arcane_ward':
+        // She blinks: glass B5 drawn in backwards as she folds away, a ping on F6 where she lands.
+        this.play(
+          group,
+          cap,
+          'sfx',
+          (v, t) => {
+            reverseGlass(v, t + 0.12, tone(12), 0.024, 0.12, 0.7);
+            v.noise({
+              start: t,
+              dur: 0.12,
+              attack: 0.1,
+              release: 0.02,
+              gain: 0.025,
+              shape: 'sustain',
+              filter: { type: 'bandpass', freq: 1500, freqTo: 6000, q: 1.5 },
+            });
+            glassPing(v, t + 0.12, tone(16), 0.026, 0.6);
+          },
+          { pan: at(heroX) },
+        );
+        break;
+      case 'oathkeeper':
+        // A hit he took for another: a muted knock on his shield (D3) and a dull ring of it on
+        // D4, three sources (it can come several times a second).
+        this.play(
+          group,
+          cap,
+          'sfx',
+          (v, t) => {
+            thump(v, t, tone(-7), 0.07, 0.12, 0.6);
+            v.osc({
+              type: 'triangle',
+              freq: tone(0),
+              start: t,
+              dur: 0.22,
+              attack: 0.004,
+              release: 0.06,
+              gain: 0.03,
+              filter: { type: 'lowpass', freq: 1100, q: 0.7 },
+            });
+            v.noise({ start: t, dur: 0.04, gain: 0.03, filter: { type: 'lowpass', freq: 900 } });
+          },
+          { pan: at(heroX) },
+        );
+        break;
+      case 'celestial_sphere': {
+        // The sphere swallows a hit: a glass pop on B5. Its last breaks it: a fuller shatter, the
+        // pop falling through F5 to B4.
+        const target = ev.target === null ? undefined : ents?.get(ev.target);
+        const spent = sphereHitsOf(target, state.time) <= 0;
+        this.play(
+          group,
+          cap,
+          'sfx',
+          (v, t) => {
+            v.noise({
+              start: t,
+              dur: 0.04,
+              gain: 0.035,
+              filter: { type: 'bandpass', freq: 3200, q: 1.4 },
+            });
+            glassPing(v, t, tone(12), 0.022, 0.4);
+            if (spent) {
+              v.noise({
+                start: t + 0.02,
+                dur: 0.12,
+                gain: 0.05,
+                filter: { type: 'highpass', freq: 4000 },
+              });
+              glassPing(v, t + 0.05, tone(9), 0.02, 0.5);
+              glassPing(v, t + 0.1, tone(5), 0.018, 0.6);
+            }
+          },
+          { pan: at(ev.x) },
+        );
+        break;
+      }
+      default:
+        break;
+    }
+  }
+
+  /** The heroes standing within `radius` of a hero (Shieldbearer's glints). */
+  private besideHero(state: WorldState, hero: number, radius: number): number {
+    const ents = state.entities;
+    const k = ents?.get(hero);
+    if (!k || !state.party) return 0;
+    let n = 0;
+    for (const id of state.party) {
+      if (id === hero) continue;
+      const o = ents.get(id);
+      if (!o?.health || o.health.dead || o.health.downed) continue;
+      if ((o.x - k.x) ** 2 + (o.z - k.z) ** 2 <= radius * radius) n++;
+    }
+    return n;
+  }
+
+  /**
+   * Phase 4e: an alternate Solo starts (`soloStarted`), cued or not, with a sound of what it asks
+   * of you. Oathkeeper: the oath sworn (a held horn D3 over a bowed D2, a brass bell). Hawk's
+   * Vigil: a held breath (air drawn in, a flute's A5 held, a string drawn taut). Celestial Sphere:
+   * the sphere closing (glass B5 drawn in backwards, then B5 and F6 ringing and a D7 star). Cued,
+   * the Cue's leitmotif is heard with it, so it sits a little under it. Gated per hero.
+   */
+  private altSolo(solo: string, hero: number, cued: boolean, state: WorldState): void {
+    const group = ALT_SOLO_SOUND_GROUPS[solo];
+    if (!group || !this.e.gate(`${group}:${hero}`, 1)) return;
+    const pan = state.entities ? this.heroPan(state, hero) : 0;
+    const k = cued ? 0.7 : 1;
+    switch (solo) {
+      case 'oathkeeper':
+        this.play(
+          group,
+          1,
+          'sfx',
+          (v, t) => {
+            horn(v, t, tone(-7), 0.9, 0.07 * k);
+            bowed(v, t, tone(-14), 1.2, 0.05 * k, 0.2, 0.6);
+            brassBell(v, t + 0.05, tone(0), 0.05 * k, 1.6, 0.4);
+          },
+          { pan },
+        );
+        break;
+      case 'hawks_vigil':
+        this.play(
+          group,
+          1,
+          'sfx',
+          (v, t) => {
+            v.noise({
+              pink: true,
+              start: t,
+              dur: 0.45,
+              attack: 0.4,
+              release: 0.15,
+              gain: 0.04 * k,
+              shape: 'sustain',
+              filter: { type: 'bandpass', freq: 600, freqTo: 1600, q: 1.3 },
+            });
+            fluteNote(v, t + 0.3, tone(11), 0.05 * k, 0.7);
+            glassPing(v, t + 0.32, tone(15), 0.012 * k, 0.6);
+          },
+          { pan },
+        );
+        break;
+      case 'celestial_sphere':
+        this.play(
+          group,
+          1,
+          'sfx',
+          (v, t) => {
+            reverseGlass(v, t + 0.35, tone(12), 0.024 * k, 0.35, 0.7);
+            const close = t + 0.35;
+            glassNote(v, close, tone(12), 0.03 * k, 1.4, 0.85);
+            glassNote(v, close + 0.03, tone(16), 0.022 * k, 1.2, 0.85);
+            glassPing(v, close + 0.08, tone(21), 0.012 * k, 0.8);
+            whoosh(v, t, 0.4, 0.012 * k, 800, 2600, 1);
+          },
+          { pan },
+        );
+        break;
+      default:
+        break;
+    }
   }
 
   /**

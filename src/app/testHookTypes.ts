@@ -123,6 +123,38 @@ export interface RunHook {
    * points, and what its end did (opened it, set a new best).
    */
   dissonance(): DissonanceView;
+  /**
+   * Phase 4e: the profile's Bonds (each hero's Bond XP, rank, talent by tier, Solo and the scenes
+   * seen with the reply chosen), the rank-ups waiting for their card, and the run's side (null
+   * without a run): the talents and Solos it plays, and the scene being played.
+   */
+  bonds(): BondsHookView;
+  /**
+   * Phase 4e, test-only: sets these heroes' Bond XP in the profile (their choices and scenes
+   * kept, no rank-up cards) and saves it.
+   */
+  seedBonds(xpByHero: Record<string, number>): void;
+  /** Phase 4e: at a Respite, the Bond scenes waiting for the party (`scenesWaiting()`), by id. */
+  scenesWaiting(): string[];
+}
+
+/** What `bonds()` returns. */
+export interface BondsHookView {
+  heroes: Record<
+    string,
+    {
+      xp: number;
+      rank: number;
+      talents: (string | null)[];
+      solo: 'default' | 'alt';
+      seen: Record<string, number>;
+    }
+  >;
+  notices: { heroId: string; rank: number }[];
+  run: {
+    bonds: { heroId: string; talents: string[]; solo: string | null }[];
+    scene: { heroId: string; sceneId: string } | null;
+  } | null;
 }
 
 /** A Dissonance level and its rank. */

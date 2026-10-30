@@ -126,8 +126,49 @@ interface LabApi {
   setDissonance(levels: { id: string; rank: number }[] | null): void;
   /** What Dissonance's views have played and are drawing, and what they read. */
   dissonanceStats(): DissonanceStats;
+  /** Phase 4e */
+  bondScenarios(): string[];
+  /** Restarts the real sim with that scenario's Bonds (and encounter, party, Autonomy) and stages it. */
+  bondScenario(name: string): void;
+  /** Restarts the real sim with these talents and alternate Solos (null: none). */
+  setBonds(bonds: { talents: string[]; solos: string[] } | null): void;
+  /** What the Bonds view has played and is drawing, and what it reads. */
+  bondStats(): BondStats;
   /** Where a world point is on the page (CSS px), for screenshot scripts' close-ups. */
   screenOf(x: number, y: number, z: number): { x: number; y: number };
+}
+
+interface BondStats {
+  talents: string[];
+  solos: string[];
+  /** Moments started (by talent), alternate Solos started; drawn last frame (and by talent). */
+  fired: Record<string, number>;
+  started: Record<string, number>;
+  drawn: Record<string, number>;
+  drawnBy: Record<string, number>;
+  /** The colour each talent was last drawn in (its hero's). */
+  lastHex: Record<string, string>;
+  heroes: {
+    id: number;
+    def: string;
+    x: number;
+    z: number;
+    height: number;
+    hp: number;
+    maxHp: number;
+    soloId: string;
+    solo: number;
+    soloActive: number;
+    soloCued: boolean;
+    sphereHits: number;
+    invulnerable: number;
+    /** Oathkeeper's and Hawk's Vigil's reach as drawn (0: none). */
+    reach: { oath: number; vigil: number };
+  }[];
+  enemies: { id: number; x: number; z: number; height: number; def: string; marked: number }[];
+  stars: { x: number; z: number; left: number; bolts: number }[];
+  weaver: { x: number; z: number };
+  time: number;
 }
 
 interface DissonanceStats {
@@ -263,6 +304,13 @@ let astrolabeCfg: string[] = [];
 /** Phase 4d: the Dissonance levels the lab sim fights at, and a scenario's own encounter. */
 let dissonanceCfg: { id: string; rank: number }[] = [];
 let encounterOverride: string | null = null;
+/**
+ * Phase 4e: the Bonds the lab sim fights with (talents and alternate Solos, as SimConfig.bonds),
+ * a scenario's party, and Autonomy (the heroes fire their Solos on their own: the uncued Solos).
+ */
+let bondsCfg: { talents: string[]; solos: string[] } | null = null;
+let partyCfg: string[] | null = null;
+let autonomyCfg = false;
 
 interface RelicScenario {
   relics: string[];
@@ -1348,6 +1396,341 @@ const DIS_SCENARIOS: Record<string, DisScenario> = {
 };
 const DIS_SCENARIO_NAMES = Object.keys(DIS_SCENARIOS);
 
+/** Phase 4e: no Bonds (the other groups' scenarios start from here). */
+function clearBonds(): void {
+  bondsCfg = null;
+  partyCfg = null;
+  autonomyCfg = false;
+}
+
+interface BondScenario {
+  /** The talents and alternate Solos in force (content ids). */
+  talents: string[];
+  solos?: string[];
+  /** The encounter (default: the sandbox), Chords (default: Guardian) and party (default). */
+  encounter?: string;
+  chords?: ChordConfig[];
+  party?: string[];
+  /** The heroes fire their Solos on their own (Autonomy): the uncued Solos. */
+  autonomy?: boolean;
+  note: string;
+  stage(rt: LabRuntime): void;
+}
+
+/** A talent's or alternate Solo's number (content), for the scenarios' notes. */
+const tval = (id: string, key: string) =>
+  CONTENT.talents.find((t) => t.id === id)?.values[key] ?? 0;
+const sval = (id: string, key: string) =>
+  CONTENT.altSolos.find((t) => t.id === id)?.values[key] ?? 0;
+
+/** The sandbox's party: Kael, Lyra, Vexis. */
+const KAEL = 0;
+const LYRA = 1;
+const VEXIS = 2;
+
+/** Every Solo full and Resonance for four Cues. */
+function readySolos(rt: LabRuntime, at: number): void {
+  rt.later(at, () => {
+    rt.queue({ t: 'debug', op: { op: 'chargeSolos' } });
+    rt.queue({ t: 'debug', op: { op: 'setResonance', value: 100 } });
+  });
+}
+
+/** Enemies that start attacks (specials) round the party, kept alive for the scene. */
+function attackersAhead(rt: LabRuntime, at: number): void {
+  rt.later(at, () => {
+    const p = rt.heroPos(KAEL);
+    for (const [id, dx, dz] of [
+      ['bell_brute', -2.5, -3.5],
+      ['bell_brute', 2.8, -3],
+      ['glass_lancer', 7, -9],
+      ['lamenter', -7, -9],
+    ] as const)
+      rt.queue({ t: 'debug', op: { op: 'spawnEnemy', defId: id, x: p.x + dx, z: p.z + dz } });
+  });
+}
+
+/**
+ * Phase 4e: one scenario per Bonds visual. Each restarts the real sim with those talents and
+ * alternate Solos (SimConfig.bonds) and stages the moment with real commands and debug ops.
+ */
+const BOND_SCENARIOS: Record<string, BondScenario> = {
+  'Steady Vanguard': {
+    talents: ['steady_vanguard'],
+    encounter: 'first_light',
+    note: 'First Light: wave 1 cleared (debug), an elite Bell Brute set as your Focus off to the side just before wave 2 arrives: Kael charges your Focus, not the pack',
+    stage: (rt) => {
+      rt.later(3.6, () => rt.queue({ t: 'debug', op: { op: 'killEnemies' } }));
+      // Wave 2's portals open at 6.6 s and its pack lands at 7.8 s: the Focus is set just before.
+      rt.later(7.2, () => {
+        const w = rt.weaverPos();
+        rt.queue({
+          t: 'debug',
+          op: { op: 'spawnEnemy', defId: 'bell_brute', x: w.x - 9, z: w.z + 2, elite: true },
+        });
+      });
+      rt.later(7.4, () => rt.focusNewest());
+    },
+  },
+  'Vanguard’s Roar': {
+    talents: ['vanguards_roar'],
+    encounter: 'first_light',
+    note: `First Light: wave 1 cleared (debug); wave 2 arrives, Glory Hound sends Kael at its brute, and everything within ${tval('vanguards_roar', 'radius')} m of it turns on him`,
+    stage: (rt) => rt.later(3.6, () => rt.queue({ t: 'debug', op: { op: 'killEnemies' } })),
+  },
+  'Riposte Bash': {
+    talents: ['riposte_bash'],
+    note: 'A Bell Brute beside Kael; you Ward him in the Perfect window of its Toll Cleave and he bashes it back',
+    stage: (rt) => {
+      rt.later(0.2, () => rt.brute(KAEL));
+      rt.perfectOn('Toll Cleave', KAEL);
+    },
+  },
+  Unbreakable: {
+    talents: ['unbreakable'],
+    note: `Kael held (debug) and Mended to a sliver; you Thread Vexis and step back, three brutes land the blow that would down him: he stands, untouchable ${tval('unbreakable', 'seconds')} s`,
+    stage: (rt) => {
+      rt.later(0.2, () => {
+        rt.queue({ t: 'debug', op: { op: 'forceHold', slot: KAEL } });
+        rt.thread(KAEL);
+      });
+      rt.onEvent(
+        (e) => e.type === 'fermataReleased',
+        () => {
+          rt.thread(VEXIS);
+          const p = rt.heroPos(KAEL);
+          rt.queue({ t: 'debug', op: { op: 'teleportWeaver', x: p.x - 6, z: p.z + 4 } });
+          for (const [dx, dz] of [
+            [0, -2.2],
+            [-1.8, -1.2],
+            [1.8, -1.2],
+          ] as const)
+            rt.queue({
+              t: 'debug',
+              op: { op: 'spawnEnemy', defId: 'bell_brute', x: p.x + dx, z: p.z + dz },
+            });
+        },
+      );
+      rt.onEvent(
+        (e) => e.type === 'talentFired' && e.talent === 'unbreakable',
+        () =>
+          rt.later(2.6, () => {
+            rt.queue({ t: 'debug', op: { op: 'killEnemies' } });
+            rt.queue({ t: 'debug', op: { op: 'healParty' } });
+          }),
+      );
+    },
+  },
+  Shieldbearer: {
+    talents: ['shieldbearer'],
+    note: 'Kael held (debug) and Mended to a sliver; his Solo full, he braces (Aegis Wall, uncued) and it shields Lyra and Vexis beside him',
+    stage: (rt) => {
+      rt.later(0.2, () => {
+        rt.queue({ t: 'debug', op: { op: 'forceHold', slot: KAEL } });
+        rt.thread(KAEL);
+      });
+      rt.onEvent(
+        (e) => e.type === 'fermataReleased',
+        () => rt.queue({ t: 'debug', op: { op: 'chargeSolos' } }),
+      );
+    },
+  },
+  'Wind Step': {
+    talents: ['wind_step'],
+    note: 'Two elite Glass Lancers across the party from Lyra aim their lances at the farthest hero, her: she steps out of the first at once',
+    stage: (rt) =>
+      rt.later(0.2, () => {
+        // Opposite Lyra, past you: she is the farthest hero from them.
+        const w = rt.weaverPos();
+        const l = rt.heroPos(LYRA);
+        const d = Math.hypot(w.x - l.x, w.z - l.z) || 1;
+        const ux = (w.x - l.x) / d;
+        const uz = (w.z - l.z) / d;
+        for (const [k, side] of [
+          [11, -1.5],
+          [12, 1.5],
+        ] as const)
+          rt.queue({
+            t: 'debug',
+            op: {
+              op: 'spawnEnemy',
+              defId: 'glass_lancer',
+              x: w.x + ux * k - uz * side,
+              z: w.z + uz * k + ux * side,
+              elite: true,
+            },
+          });
+      }),
+  },
+  Starthread: {
+    talents: ['starthread'],
+    note: 'Kael threaded, a Bell Brute on him (you step back out of its cleave): each Starbolt Vexis casts also strikes the enemy nearest Kael, sent along the Thread',
+    stage: (rt) => {
+      rt.later(0.15, () => rt.brute(KAEL));
+      rt.later(0.2, () => rt.thread(KAEL));
+      // Keep Kael up until her Starbolt lands (it takes her 2 s to cast).
+      for (const at of [3, 5, 7])
+        rt.later(at, () => rt.queue({ t: 'debug', op: { op: 'healParty' } }));
+    },
+  },
+  'Event Horizon': {
+    talents: ['event_horizon'],
+    note: 'Elite Lamenters keep their distance, bunched outside your field; Vexis’s Gravity Well pulls them into it (to the point well inside it nearest the well)',
+    stage: (rt) => {
+      rt.later(0.2, () => {
+        const v = rt.heroPos(VEXIS);
+        const w = rt.weaverPos();
+        const d = Math.hypot(v.x - w.x, v.z - w.z) || 1;
+        const ux = (v.x - w.x) / d;
+        const uz = (v.z - w.z) / d;
+        // 11 m out past Vexis, a few metres apart: a cluster her Well can catch.
+        for (const [k, side] of [
+          [11, -1.4],
+          [11.6, 0.4],
+          [12.4, -0.6],
+        ] as const)
+          rt.queue({
+            t: 'debug',
+            op: {
+              op: 'spawnEnemy',
+              defId: 'lamenter',
+              x: w.x + ux * k - uz * side,
+              z: w.z + uz * k + ux * side,
+              elite: true,
+            },
+          });
+      });
+    },
+  },
+  Supernova: {
+    talents: ['supernova'],
+    note: 'Three brutes ahead; you Cue Vexis: Starfall, and its last meteor bursts into a nova',
+    stage: (rt) => {
+      rt.later(0.2, () => {
+        rt.spawn('bell_brute', -2, -7);
+        rt.spawn('bell_brute', 1, -8);
+        rt.spawn('bell_brute', 3, -6);
+      });
+      readySolos(rt, 0.4);
+      rt.later(1.2, () => rt.queue({ t: 'cue', slot: VEXIS }));
+    },
+  },
+  Constellation: {
+    talents: ['constellation'],
+    // Kael's and Lyra's alternate Solos: their Cues are quieter to look at than a dome and a
+    // barrage, so the stars show.
+    solos: ['oathkeeper', 'hawks_vigil'],
+    note: `You Cue Kael, then Lyra: each Cue leaves a star where the hero stood, casting Vexis’s bolt every ${tval('constellation', 'interval')} s for ${tval('constellation', 'seconds')} s, the two joined`,
+    stage: (rt) => {
+      rt.later(0.2, () => {
+        rt.spawn('bell_brute', -3, -7);
+        rt.spawn('hollow_chorister', 3, -6);
+        rt.spawn('hollow_chorister', 0, -8);
+      });
+      readySolos(rt, 0.3);
+      rt.later(0.8, () => rt.queue({ t: 'cue', slot: KAEL }));
+      rt.later(2.0, () => rt.queue({ t: 'cue', slot: LYRA }));
+    },
+  },
+  'Arcane Ward': {
+    talents: ['arcane_ward'],
+    party: ['vexis', 'lyra'],
+    note: `Vexis and Lyra (no tank to draw them off); choristers close in on Vexis: struck up close, she blinks ${tval('arcane_ward', 'metres')} m away from them`,
+    stage: (rt) => rt.later(0.2, () => rt.attackers(0, 3)),
+  },
+  'Oathkeeper · cued': {
+    talents: [],
+    solos: ['oathkeeper'],
+    note: `You Cue Kael (Oathkeeper, ${sval('oathkeeper', 'cuedRadius')} m): choristers on Lyra and Vexis, and their hits land on Kael instead (a tether each)`,
+    stage: (rt) => {
+      readySolos(rt, 0.2);
+      rt.later(0.4, () => rt.queue({ t: 'cue', slot: KAEL }));
+      rt.later(0.5, () => {
+        rt.attackers(LYRA, 3);
+        rt.attackers(VEXIS, 2);
+      });
+    },
+  },
+  'Oathkeeper · uncued': {
+    talents: [],
+    solos: ['oathkeeper'],
+    autonomy: true,
+    note: `Autonomy: Kael fires Oathkeeper himself (${sval('oathkeeper', 'radius')} m), choristers on Lyra`,
+    stage: (rt) => {
+      rt.later(0.2, () => rt.attackers(LYRA, 3));
+      rt.later(0.6, () => rt.queue({ t: 'debug', op: { op: 'chargeSolos' } }));
+    },
+  },
+  'Hawk’s Vigil · cued': {
+    talents: [],
+    solos: ['hawks_vigil'],
+    note: `Brutes, a Lancer and a Lamenter ahead; you Cue Lyra: she shoots each enemy that starts an attack and marks it (${sval('hawks_vigil', 'pct')}% more damage, ${sval('hawks_vigil', 'mark')} s)`,
+    stage: (rt) => {
+      attackersAhead(rt, 0.2);
+      readySolos(rt, 0.3);
+      rt.later(2.4, () => rt.queue({ t: 'cue', slot: LYRA }));
+    },
+  },
+  'Hawk’s Vigil · uncued': {
+    talents: [],
+    solos: ['hawks_vigil'],
+    party: ['kael', 'lyra'],
+    autonomy: true,
+    note: 'Autonomy (Kael and Lyra): she fires her Vigil herself, holds still and shoots each enemy that starts an attack (no marks)',
+    stage: (rt) => {
+      attackersAhead(rt, 0.2);
+      rt.later(2.4, () => rt.queue({ t: 'debug', op: { op: 'chargeSolos' } }));
+    },
+  },
+  'Celestial Sphere · uncued': {
+    talents: [],
+    solos: ['celestial_sphere'],
+    autonomy: true,
+    note: `Autonomy: you Thread Kael, a Bell Brute on him (you step back); Vexis fires her Sphere on him and it swallows the brute’s blows whole, ${sval('celestial_sphere', 'hits')}, then shatters`,
+    stage: (rt) => {
+      rt.later(0.15, () => rt.brute(KAEL));
+      rt.later(0.2, () => rt.thread(KAEL));
+      rt.later(0.5, () => rt.queue({ t: 'debug', op: { op: 'chargeSolos' } }));
+    },
+  },
+  'Celestial Sphere · cued': {
+    talents: [],
+    solos: ['celestial_sphere'],
+    note: `You Cue Vexis: every hero in your field gets a sphere of ${sval('celestial_sphere', 'hits')} hits (gold stars: your Cue’s); choristers test them`,
+    stage: (rt) => {
+      readySolos(rt, 0.2);
+      rt.later(0.4, () => rt.queue({ t: 'cue', slot: VEXIS }));
+      rt.later(0.6, () => {
+        rt.attackers(KAEL, 2);
+        rt.attackers(LYRA, 2);
+      });
+    },
+  },
+  'Every talent': {
+    talents: [
+      'vanguards_roar',
+      'riposte_bash',
+      'unbreakable',
+      'wind_step',
+      'ricochet',
+      'storm_queen',
+      'arcane_ward',
+      'starthread',
+      'constellation',
+    ],
+    solos: ['celestial_sphere'],
+    encounter: 'muted_nave',
+    autonomy: true,
+    note: 'The Muted Nave with a talent of every kind and Vexis’s Sphere, Autonomy on, Kael threaded (the clutter check)',
+    stage: (rt) => {
+      rt.later(0.2, () => rt.thread(KAEL));
+      readySolos(rt, 3.5);
+      rt.later(3.8, () => rt.queue({ t: 'cue', slot: LYRA }));
+    },
+  },
+};
+const BOND_SCENARIO_NAMES = Object.keys(BOND_SCENARIOS);
+
 class LabRuntime {
   sim: Sim;
   readonly stage: Stage;
@@ -1410,6 +1793,9 @@ class LabRuntime {
       calling: callingCfg,
       astrolabe: astrolabeCfg,
       dissonance: dissonanceCfg,
+      ...(bondsCfg ? { bonds: bondsCfg } : {}),
+      ...(partyCfg ? { party: partyCfg } : {}),
+      ...(autonomyCfg ? { assists: { autonomy: true } } : {}),
     });
   }
 
@@ -1433,6 +1819,7 @@ class LabRuntime {
     if (!s) return;
     callingCfg = null;
     chordsOverride = null;
+    clearBonds();
     astrolabeCfg = [];
     dissonanceCfg = [];
     encounterOverride = null;
@@ -1450,6 +1837,7 @@ class LabRuntime {
   lumScenario(name: string): void {
     const s = LUM_SCENARIOS[name];
     if (!s) return;
+    clearBonds();
     carried = [];
     astrolabeCfg = [];
     dissonanceCfg = [];
@@ -1484,6 +1872,7 @@ class LabRuntime {
   martyrScenario(name: string): void {
     const s = MARTYR_SCENARIOS[name];
     if (!s) return;
+    clearBonds();
     carried = [];
     astrolabeCfg = [];
     dissonanceCfg = [];
@@ -1520,6 +1909,7 @@ class LabRuntime {
   chronoScenario(name: string): void {
     const s = CHRONO_SCENARIOS[name];
     if (!s) return;
+    clearBonds();
     carried = [];
     astrolabeCfg = [];
     dissonanceCfg = [];
@@ -1535,6 +1925,7 @@ class LabRuntime {
     astrolabeCfg = [...s.nodes];
     callingCfg = s.calling ?? null;
     chordsOverride = s.chords ?? GUARDIAN_CHORDS;
+    clearBonds();
     dissonanceCfg = [];
     encounterOverride = null;
     this.restart(s.relics ?? []);
@@ -1548,6 +1939,7 @@ class LabRuntime {
     dissonanceCfg = s.levels.map((l) => (typeof l === 'string' ? levelOf(l) : levelOf(l[0], l[1])));
     encounterOverride = s.encounter ?? 'sandbox';
     callingCfg = s.calling ?? null;
+    clearBonds();
     chordsOverride = s.chords ?? GUARDIAN_CHORDS;
     astrolabeCfg = [];
     this.restart([]);
@@ -1597,6 +1989,84 @@ class LabRuntime {
       fieldRadius: st.field.radius,
       tension: w && w.threadSlot !== null ? w.threadTension : -1,
       resonance: w?.resonance ?? 0,
+    };
+  }
+
+  /** Phase 4e: restarts with that scenario's Bonds (its encounter, party, Autonomy) and stages it. */
+  bondScenario(name: string): void {
+    const sc = BOND_SCENARIOS[name];
+    if (!sc) return;
+    bondsCfg = { talents: [...sc.talents], solos: [...(sc.solos ?? [])] };
+    partyCfg = sc.party ? [...sc.party] : null;
+    autonomyCfg = !!sc.autonomy;
+    encounterOverride = sc.encounter ?? 'sandbox';
+    callingCfg = null;
+    chordsOverride = sc.chords ?? GUARDIAN_CHORDS;
+    astrolabeCfg = [];
+    dissonanceCfg = [];
+    this.restart([]);
+    sc.stage(this);
+  }
+
+  /** Phase 4e: restarts with these talents and alternate Solos (null: none), keeping the rest. */
+  setBonds(bonds: { talents: string[]; solos: string[] } | null): void {
+    bondsCfg = bonds ? { talents: [...bonds.talents], solos: [...bonds.solos] } : null;
+    this.restart(carried);
+  }
+
+  /** Phase 4e: Focus the newest living enemy (a scenario's own, just spawned). */
+  focusNewest(): void {
+    let best: EntityId | null = null;
+    for (const e of this.sim.state.entities.list())
+      if (e.enemy && !e.health?.dead && (best === null || e.id > best)) best = e.id;
+    if (best !== null) this.queue({ t: 'directive', kind: 'focus', target: best });
+  }
+
+  bondStats(): BondStats {
+    const v = this.view.bonds;
+    const st = this.sim.state;
+    return {
+      talents: bondsCfg ? [...bondsCfg.talents] : [],
+      solos: bondsCfg ? [...bondsCfg.solos] : [],
+      fired: { ...v.fired },
+      started: { ...v.started },
+      drawn: { ...v.drawn },
+      drawnBy: { ...v.drawnBy },
+      lastHex: { ...v.lastHex } as Record<string, string>,
+      heroes: st.party.map((id, slot) => {
+        const e = st.entities.get(id);
+        const h = e?.hero;
+        return {
+          id,
+          def: h?.defId ?? '',
+          x: e?.x ?? 0,
+          z: e?.z ?? 0,
+          height: e?.height ?? 0,
+          hp: Math.round(e?.health?.hp ?? 0),
+          maxHp: Math.round(e?.health?.maxHp ?? 0),
+          soloId: h?.soloId ?? '',
+          solo: h?.solo ?? 0,
+          soloActive: h?.soloActive ?? 0,
+          soloCued: !!h?.soloCued,
+          sphereHits: h && h.sphereUntil > st.time ? h.sphereHits : 0,
+          invulnerable: e?.health?.invulnerable ?? 0,
+          reach: v.reachOf(slot),
+        };
+      }),
+      enemies: st.entities
+        .list()
+        .filter((e) => e.enemy && !e.health?.dead)
+        .map((e) => ({
+          id: e.id,
+          x: e.x,
+          z: e.z,
+          height: e.height,
+          def: e.enemy!.defId,
+          marked: Math.max(0, (e.enemy!.markedUntil ?? 0) - st.time),
+        })),
+      stars: v.starsOf(st),
+      weaver: this.weaverPos(),
+      time: st.time,
     };
   }
 
@@ -2518,12 +2988,16 @@ export function VfxLab() {
       dissonanceScenario: (name) => rt.dissonanceScenario(name),
       setDissonance: (levels) => rt.setDissonance(levels),
       dissonanceStats: () => rt.dissonanceStats(),
+      bondScenarios: () => BOND_SCENARIO_NAMES,
+      bondScenario: (name) => rt.bondScenario(name),
+      setBonds: (bonds) => rt.setBonds(bonds),
+      bondStats: () => rt.bondStats(),
       screenOf: (x, y, z) => rt.screenOf(x, y, z),
     };
     const timer = window.setInterval(() => {
       const i = rt.info();
       if (statsRef.current) {
-        statsRef.current.textContent = `fps ${i.fps.toFixed(1)}  calls ${i.calls}  tris ${(i.triangles / 1000).toFixed(1)}k\nparticles ${i.particles}  entities ${rt.sim.state.entities.count}  tick ${rt.sim.tick}\nrelics ${rt.sim.state.relics.ids.length ? rt.sim.state.relics.ids.join(', ') : 'none'}\ncalling ${rt.sim.state.calling ? `${rt.sim.state.calling.id} · ${rt.sim.state.calling.path.join(', ') || 'no path'}` : 'none'}\nastrolabe ${rt.sim.state.astrolabe.nodes.length ? rt.sim.state.astrolabe.nodes.join(', ') : 'none'}\ndissonance ${rt.sim.state.dissonance.levels.length ? rt.sim.state.dissonance.levels.map((l) => (l.rank > 1 ? `${l.id}×${l.rank}` : l.id)).join(', ') : 'none'}`;
+        statsRef.current.textContent = `fps ${i.fps.toFixed(1)}  calls ${i.calls}  tris ${(i.triangles / 1000).toFixed(1)}k\nparticles ${i.particles}  entities ${rt.sim.state.entities.count}  tick ${rt.sim.tick}\nrelics ${rt.sim.state.relics.ids.length ? rt.sim.state.relics.ids.join(', ') : 'none'}\ncalling ${rt.sim.state.calling ? `${rt.sim.state.calling.id} · ${rt.sim.state.calling.path.join(', ') || 'no path'}` : 'none'}\nastrolabe ${rt.sim.state.astrolabe.nodes.length ? rt.sim.state.astrolabe.nodes.join(', ') : 'none'}\ndissonance ${rt.sim.state.dissonance.levels.length ? rt.sim.state.dissonance.levels.map((l) => (l.rank > 1 ? `${l.id}×${l.rank}` : l.id)).join(', ') : 'none'}\nbonds ${bondsCfg && bondsCfg.talents.length + bondsCfg.solos.length > 0 ? [...bondsCfg.talents, ...bondsCfg.solos].join(', ') : 'none'}`;
       }
     }, 250);
     return () => {
@@ -2915,6 +3389,24 @@ export function VfxLab() {
           ))}
           <Btn onClick={() => rt()?.setDissonance(null)} title="Restart without Dissonance">
             No Dissonance
+          </Btn>
+        </Group>
+        <Group title="Phase 4e · Bonds">
+          <p className="w-full text-[10px] text-muted">
+            Each restarts the real sim with a scenario&apos;s talents and alternate Solos (and its
+            encounter) and stages the moment they act.
+          </p>
+          {BOND_SCENARIO_NAMES.map((name) => (
+            <Btn
+              key={name}
+              onClick={() => rt()?.bondScenario(name)}
+              title={BOND_SCENARIOS[name]!.note}
+            >
+              {name}
+            </Btn>
+          ))}
+          <Btn onClick={() => rt()?.setBonds(null)} title="Restart without Bonds">
+            No Bonds
           </Btn>
         </Group>
         <Group title="Phase 2 · Chords">

@@ -24,6 +24,7 @@ import { EncounterHeader } from './EncounterHeader';
 import { KeyHints } from './KeyHints';
 import { PartyFrames } from './PartyFrames';
 import { WeaverBar } from './WeaverBar';
+import { bondRanks as ranksOf, bondsOpen } from '../screens/bondsModel';
 
 const NO_BOONS: readonly ActiveBoon[] = [];
 const NO_RELICS: readonly ReliquaryRelic[] = [];
@@ -65,6 +66,13 @@ export function Hud({ subtitle, keyHints = true }: HudProps) {
   const devOpen = useUi((s) => s.devOpen);
   const boons = useRun((s) => s.run?.boons) ?? NO_BOONS;
   const carried = useCarried(hud?.encounter.kind === 'sandbox');
+  // Phase 4e: the heroes' Bond ranks on their frames, once Bonds are open.
+  const bonds = useProfile((s) => s.profile.bonds);
+  const unlockAll = useSettings((s) => s.settings.unlockAll);
+  const bondRanks = useMemo(
+    () => (bondsOpen(bonds, unlockAll) ? ranksOf(bonds) : null),
+    [bonds, unlockAll],
+  );
   useEffect(() => {
     countHudCommit();
   });
@@ -79,6 +87,7 @@ export function Hud({ subtitle, keyHints = true }: HudProps) {
         keyHints={keyHints && !devOpen}
         boons={hud.encounter.kind === 'sandbox' ? NO_BOONS : boons}
         carried={carried}
+        bondRanks={bondRanks}
       />
       <DirectiveWheel focusName={enemyName} />
     </>
@@ -105,8 +114,14 @@ export function HudView({
   relicFlash,
   carried = NO_RELICS,
   dissonanceTip = false,
+  bondRanks = null,
+  frameTip = null,
 }: {
   hud: HudSnapshot;
+  /** Phase 4e: each hero's Bond rank by hero id, on their frames (null: Bonds aren't open). */
+  bondRanks?: Readonly<Record<string, number>> | null;
+  /** UI lab: a hero's frame tooltip shown (a hero id). */
+  frameTip?: string | null;
   /** UI lab: the Dissonance chip's tooltip shown. */
   dissonanceTip?: boolean;
   /** The run's boons and banes (none in the Training Grounds). */
@@ -189,6 +204,8 @@ export function HudView({
         calling={hud.calling}
         rewind={hud.weaver.rewind}
         blind={blind}
+        bondRanks={bondRanks}
+        tipOpen={frameTip}
       />
       <WeaverBar hud={hud} buzz={rejectBuzz(callouts)} />
       {coach && !sandbox && <CoachHints hud={hud} force={forceCoach} />}

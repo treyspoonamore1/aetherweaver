@@ -73,7 +73,18 @@ export interface HeroHud {
   solo: number;
   soloReady: boolean;
   soloActive: boolean;
+  /**
+   * The Solo they brought (Phase 4e: their own, or the alternate their Bond opened, the fight's
+   * `HeroComponent.soloId`): its id, name and lines, uncued and cued.
+   */
+  soloId: string;
   soloName: string;
+  soloText: string;
+  soloCued: string;
+  /** Phase 4e: it's the alternate Solo. */
+  soloAlt: boolean;
+  /** Phase 4e: the Bond talents in force for them this fight (`HeroComponent.talents`). */
+  talents: string[];
   castName: string | null;
   castProgress: number;
   action: HeroAction;
@@ -453,10 +464,11 @@ export interface Callout {
 
 /**
  * `astrolabe` (Phase 4): the star map between runs, from the Title and from Prep. `reliquary`
- * (Phase 4c): the relics kept between runs, from the Title and from Prep too.
+ * (Phase 4c): the relics kept between runs, from the Title and from Prep too. `bonds` (Phase 4e):
+ * the heroes' talents, Solos and scenes, from the Title and from Prep as well.
  */
 export type Screen =
-  'title' | 'run' | 'training' | 'codex' | 'settings' | 'astrolabe' | 'reliquary';
+  'title' | 'run' | 'training' | 'codex' | 'settings' | 'astrolabe' | 'reliquary' | 'bonds';
 
 export interface UiState {
   screen: Screen;

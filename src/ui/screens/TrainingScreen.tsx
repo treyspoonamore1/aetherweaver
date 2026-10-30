@@ -5,6 +5,7 @@ import type { CombatSession } from '../../app/runtime';
 import { getRuntime } from '../../app/runtimeRegistry';
 import { CONTENT, auraDef, ornamentDef } from '../../content';
 import { pruneTree } from '../../meta/astrolabe';
+import { bondsConfig } from '../../meta/bonds';
 import { carriedConfig, carriedRelics } from '../../meta/reliquary';
 import { CHORD_PRESETS } from '../../meta/run';
 import { songName } from '../../sim';
@@ -37,6 +38,9 @@ export function TrainingScreen() {
     const p = useProfile.getState();
     return carriedConfig(carriedRelics(p.profile.reliquary, p.carrySlots()));
   });
+  // The heroes' talents and Solos (docs/phase-4e.md: the Training Grounds play with your current
+  // choices), as a run would embark with them: what their Bond ranks (or the settings) open.
+  const [bonds] = useState(() => bondsConfig(useProfile.getState().runBonds(CONTENT.defaultParty)));
   // A new session (and runtime) whenever the loadout changes.
   const session = useMemo<CombatSession>(() => {
     const preset = CHORD_PRESETS.find((p) => p.id === loadout) ?? CHORD_PRESETS[0]!;
@@ -48,10 +52,11 @@ export function TrainingScreen() {
         astrolabe,
         relics: carried.relics,
         passives: carried.passives,
+        bonds,
         debug: true,
       },
     };
-  }, [seed, loadout, astrolabe, carried]);
+  }, [seed, loadout, astrolabe, carried, bonds]);
   const showPerf = useUi((s) => s.showPerf);
   const devOpen = useUi((s) => s.devOpen);
   const paused = useUi((s) => s.paused);

@@ -25,7 +25,7 @@ import { Panel } from '../kit/Panel';
 import { playUi, useMood } from '../kit/sound';
 import { useUi } from '../store';
 import { AstrolabeMap } from './AstrolabeMap';
-import { CodexView } from './CodexScreen';
+import { CodexView, useCodexBonds, useCodexDissonance } from './CodexScreen';
 import { pointSourceParts, pointSources, type PointSources } from './deedsModel';
 import { useAllowance } from './PrepScreen';
 import { giveBackStar, respecStars, takeStar } from './astrolabeActions';
@@ -808,6 +808,8 @@ export function AstrolabeScreen() {
     return !!saved && saved.phase !== 'prep' && saved.phase !== 'summary';
   });
   const [codex, setCodex] = useState(false);
+  const dissonance = useCodexDissonance();
+  const bonds = useCodexBonds();
   if (codex) {
     return (
       <CodexView
@@ -816,6 +818,8 @@ export function AstrolabeScreen() {
         allowance={allowance}
         rank={rank}
         deeds={{ earned: deeds, best: deedBest }}
+        dissonance={dissonance}
+        bonds={bonds}
       />
     );
   }

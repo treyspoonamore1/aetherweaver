@@ -60,9 +60,13 @@ import { ReliquaryCodexPage } from './ReliquaryCodex';
 import { DissonanceCodexPage } from './DissonanceCodex';
 import { useSettings } from '../../app/settings';
 import { UnlockGlyph } from './Rank';
+import type { Bond } from '../../meta/bonds';
+import { BondsCodexPage } from './BondsCodex';
+import { bondsOpen } from './bondsModel';
 
 const TABS = [
   { id: 'heroes', label: 'Heroes' },
+  { id: 'bonds', label: 'Bonds' },
   { id: 'enemies', label: 'Enemies' },
   { id: 'weaver', label: 'The Weaver' },
   { id: 'auras', label: 'Auras' },
@@ -88,6 +92,11 @@ export interface CodexDissonance {
   best: Readonly<Record<string, number>>;
 }
 
+/** Phase 4e: the profile's Bonds (ranks, scenes seen) for the Codex's Bonds page. */
+export type CodexBonds = Readonly<Record<string, Bond>>;
+
+const NO_BONDS: CodexBonds = {};
+
 /** The Codex: everything is generated from content, so it can never drift from the game. */
 export function CodexView({
   onBack,
@@ -96,6 +105,7 @@ export function CodexView({
   rank = MAX_RANK,
   deeds = NO_DEEDS,
   dissonance,
+  bonds,
 }: {
   onBack(): void;
   initialTab?: TabId;
@@ -110,6 +120,11 @@ export function CodexView({
    * allowance), else closed, with no records.
    */
   dissonance?: CodexDissonance;
+  /**
+   * Phase 4e: the profile's Bonds. Omitted: open with everything (the default allowance), with no
+   * Bond XP and no scenes seen; else locked until a hero's first Bond rank-up.
+   */
+  bonds?: CodexBonds;
 }) {
   useMood('title');
   const [tab, setTab] = useState<TabId>(initialTab);
@@ -117,8 +132,12 @@ export function CodexView({
   const reliquary = reliquaryOpen(rank, allowance.all);
   // Phase 4d: Dissonance's too, until a win at its Rank (or Skip the unlocks).
   const dissonant = dissonance ? dissonance.open || allowance.all : allowance.all;
+  // Phase 4e: Bonds' too, until a hero's first Bond rank-up (or Skip the unlocks).
+  const bonded = bondsOpen(bonds ?? NO_BONDS, allowance.all);
   const locked = (id: TabId) =>
-    (id === 'reliquary' && !reliquary) || (id === 'dissonance' && !dissonant);
+    (id === 'reliquary' && !reliquary) ||
+    (id === 'dissonance' && !dissonant) ||
+    (id === 'bonds' && !bonded);
   const onKey = (e: KeyboardEvent<HTMLDivElement>) => {
     if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
     const i = TABS.findIndex((t) => t.id === tab);
@@ -167,6 +186,7 @@ export function CodexView({
         </div>
         <div id={`panel-${tab}`} role="tabpanel" aria-labelledby={`tab-${tab}`} className="mt-6">
           {tab === 'heroes' && <Heroes />}
+          {tab === 'bonds' && <BondsCodexPage open={bonded} bonds={bonds ?? NO_BONDS} />}
           {tab === 'enemies' && <Enemies />}
           {tab === 'weaver' && <Weaver />}
           {tab === 'auras' && <Auras />}
@@ -201,6 +221,7 @@ export function CodexScreen() {
   const earned = useProfile((s) => s.profile.deeds);
   const best = useProfile((s) => s.profile.deedBest);
   const dissonance = useCodexDissonance();
+  const bonds = useCodexBonds();
   return (
     <CodexView
       onBack={back}
@@ -208,8 +229,14 @@ export function CodexScreen() {
       rank={rankOf(xp)}
       deeds={{ earned, best }}
       dissonance={dissonance}
+      bonds={bonds}
     />
   );
+}
+
+/** The profile's Bonds, for the Codex's Bonds page (Phase 4e). */
+export function useCodexBonds(): CodexBonds {
+  return useProfile((s) => s.profile.bonds);
 }
 
 /** Dissonance as the Codex shows it, from the profile (and Settings → Skip the unlocks). */

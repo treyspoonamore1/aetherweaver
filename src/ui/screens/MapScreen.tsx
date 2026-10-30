@@ -19,6 +19,7 @@ import { RunStrip } from './RelicCard';
 import { CallingGlyph, callingLook } from '../kit/CallingGlyph';
 import { callingTierAt, milestoneLine, numeral } from './callingText';
 import { callingDef } from '../../content';
+import { BondCardLayer } from './BondsParts';
 
 export const NODE_LOOK: Record<
   NodeKind,
@@ -502,5 +503,11 @@ export function MapScreen() {
   const choose = useRun((s) => s.chooseNode);
   const abandon = useRun((s) => s.abandon);
   if (!run) return null;
-  return <MapView run={run} onChoose={choose} onAbandon={abandon} />;
+  return (
+    <>
+      <MapView run={run} onChoose={choose} onAbandon={abandon} />
+      {/* Phase 4e: a scene's Bond XP can reach a rank: its card, back on the map. */}
+      <BondCardLayer />
+    </>
+  );
 }

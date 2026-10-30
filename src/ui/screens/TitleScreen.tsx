@@ -16,6 +16,9 @@ import { astrolabeOpen, spendLine } from './astrolabeModel';
 import { RankPanelView } from './Rank';
 import { SHARD_LOOK, TEAR_LOOK } from '../kit/reliquaryLook';
 import { materialsBadge } from './reliquaryModel';
+import { heroDef } from '../../content';
+import { BOND_LOOK, heroInk } from '../kit/bondLook';
+import { bondRanks, bondsOpen } from './bondsModel';
 
 /** Golden threads drifting across the cosmos: the title's "living" layer. */
 function Threads() {
@@ -75,6 +78,13 @@ export function TitleScreen() {
   // The Reliquary (Phase 4c): open from Rank 10 (or with Skip the unlocks), what's to craft with.
   const reliquary = reliquaryOpen(rank, unlockAll);
   const materials = materialsBadge(profile.reliquary);
+  // Bonds (Phase 4e): open from a hero's first Bond rank-up (or with Skip the unlocks), each
+  // hero's rank on the button.
+  const bonded = bondsOpen(profile.bonds, unlockAll);
+  const ranks = Object.entries(bondRanks(profile.bonds)).map(([heroId, r]) => ({
+    heroId,
+    rank: r,
+  }));
 
   const startNew = () => {
     useRun.getState().newRun();
@@ -90,6 +100,8 @@ export function TitleScreen() {
     badge?: string;
     /** The Reliquary's materials, drawn with their glyphs instead of the badge's words. */
     materials?: { shards: number; tears: number };
+    /** Phase 4e: each hero's Bond rank, drawn as their initial and the rank. */
+    ranks?: { heroId: string; rank: number }[];
   }[] = [
     {
       label: 'Continue',
@@ -107,6 +119,14 @@ export function TitleScreen() {
       onClick: () => (hasSave ? setConfirmNew(true) : startNew()),
     },
     { label: 'Training Grounds', icon: 'swords', onClick: () => setScreen('training') },
+    {
+      label: 'Bonds',
+      icon: 'bond',
+      hidden: !bonded,
+      badge: ranks.map((r) => `${heroDef(r.heroId).name} ${r.rank}`).join(', '),
+      ranks,
+      onClick: () => setScreen('bonds'),
+    },
     {
       label: 'Astrolabe',
       icon: 'astrolabe',
@@ -194,10 +214,34 @@ export function TitleScreen() {
                   {item.icon === 'astrolabe' ? (
                     <AstrolabeGlyph glyph="weaver_star" size={18} />
                   ) : (
-                    <Icon name={item.icon} size={18} />
+                    <Icon
+                      name={item.icon}
+                      size={18}
+                      style={item.icon === 'bond' ? { color: BOND_LOOK.color } : undefined}
+                    />
                   )}
                   {item.label}
-                  {item.materials ? (
+                  {item.ranks ? (
+                    <span
+                      className="ml-auto flex items-center gap-1.5 whitespace-nowrap font-mono text-xs font-semibold"
+                      data-testid="title-bond-ranks"
+                      aria-hidden
+                    >
+                      {item.ranks.map((r) => (
+                        <span
+                          key={r.heroId}
+                          className="flex items-center gap-0.5 rounded-md border bg-ink-900/70 px-1.5 py-0.5"
+                          style={{
+                            borderColor: `color-mix(in srgb, ${BOND_LOOK.color} 40%, transparent)`,
+                            color: heroInk(r.heroId),
+                          }}
+                        >
+                          {heroDef(r.heroId).name.slice(0, 1)}
+                          <span className="text-text">{r.rank}</span>
+                        </span>
+                      ))}
+                    </span>
+                  ) : item.materials ? (
                     <span
                       className="ml-auto flex items-center gap-2 whitespace-nowrap rounded-md border border-ink-500 bg-ink-900/70 px-2 py-0.5 font-mono text-xs font-semibold text-text"
                       data-testid="title-reliquary-materials"

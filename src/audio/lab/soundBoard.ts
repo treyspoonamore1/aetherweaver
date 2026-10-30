@@ -11,7 +11,16 @@ export interface SoundButton {
   id: string;
   label: string;
   group:
-    'support' | 'phase2' | 'relic' | 'calling' | 'martyr' | 'chrono' | 'astrolabe' | 'world' | 'ui';
+    | 'support'
+    | 'phase2'
+    | 'relic'
+    | 'calling'
+    | 'martyr'
+    | 'chrono'
+    | 'astrolabe'
+    | 'bonds'
+    | 'world'
+    | 'ui';
   /** Fires the sound. Receives the director and a world to read/mutate. */
   fire(d: SynthDirector, w: FakeWorld): void;
   /** Follow-up events, `delay` seconds after the first (call then answer, hold then release). */
@@ -124,6 +133,106 @@ const callStarted = (h: HeroKey, answer: 'ward' | 'empower' | 'chime'): SimEvent
 /** The lab's fake clock sits at t = 0, so `until` is the hold length. */
 const holdEvent = (seconds: number): SimEvent =>
   ev('fermataHold', { hero: IDS.kael, until: seconds, attack: 'Requiem', damage: 1400 });
+
+// ── Phase 4e helpers ───────────────────────────────────────────────────────────────
+
+/** A talent (or alternate Solo) acting, as the sim announces it: `talentFired`. */
+function talentEv(talent: string, hero: HeroKey, x: number, z: number, target: number | null) {
+  return ev('talentFired', { hero: IDS[hero], talent, x, z, target });
+}
+
+/** Where a hero stands in the lab world. */
+function heroAt(w: FakeWorld, hero: HeroKey): { x: number; z: number } {
+  const e = w.state.entities.get(IDS[hero]);
+  return { x: e?.x ?? 0, z: e?.z ?? -3 };
+}
+
+/** One of each talent's `talentFired` as the sim sends it, with the lab world set for it. */
+function talentAct(d: SynthDirector, w: FakeWorld, talent: string): void {
+  if (!w.entities.has(IDS.enemyBase)) w.setEnemies(3);
+  const k = heroAt(w, 'kael');
+  const l = heroAt(w, 'lyra');
+  const v = heroAt(w, 'vexis');
+  const foe = IDS.enemyBase;
+  switch (talent) {
+    case 'steady_vanguard':
+    case 'vanguards_roar':
+      fire(d, w, talentEv(talent, 'kael', 6, 8, foe));
+      break;
+    case 'riposte_bash':
+      fire(d, w, talentEv(talent, 'kael', k.x + 1.5, k.z - 1, foe));
+      break;
+    case 'unbreakable':
+    case 'shieldbearer':
+      fire(d, w, talentEv(talent, 'kael', k.x, k.z, null));
+      break;
+    case 'wind_step':
+      fire(d, w, talentEv(talent, 'lyra', l.x, l.z, null));
+      break;
+    case 'hawks_vigil':
+      fire(d, w, talentEv(talent, 'lyra', -6, 6, foe));
+      break;
+    case 'starthread':
+      fire(d, w, talentEv(talent, 'vexis', k.x, k.z, foe));
+      break;
+    case 'event_horizon':
+      fire(d, w, talentEv(talent, 'vexis', 2, 3, null));
+      break;
+    case 'supernova':
+      fire(d, w, talentEv(talent, 'vexis', 4, 7, foe));
+      break;
+    case 'constellation':
+      fire(d, w, talentEv(talent, 'vexis', k.x, k.z, IDS.kael));
+      break;
+    case 'arcane_ward':
+      fire(d, w, talentEv(talent, 'vexis', v.x + 4, v.z + 3, foe));
+      break;
+    case 'oathkeeper':
+      fire(d, w, talentEv(talent, 'kael', l.x, l.z, IDS.lyra));
+      break;
+    case 'celestial_sphere':
+      fire(d, w, talentEv(talent, 'vexis', l.x, l.z, IDS.lyra));
+      break;
+  }
+}
+
+/** Every talent and alternate Solo the sim announces (`talentFired`). */
+const TALENTS_FIRED = [
+  ['steady_vanguard', 'Steady Vanguard: Kael charges your Focus (a firm horn, A2 to D3)'],
+  ['vanguards_roar', 'Vanguard’s Roar: everything near his quarry turns on him (brass bellow)'],
+  ['riposte_bash', 'Riposte Bash: a Perfect Ward on him bashes the attacker (a counter-clang)'],
+  ['unbreakable', 'Unbreakable: he stands through a downing blow (deep bell, horn fifth)'],
+  ['shieldbearer', 'Shieldbearer: Aegis Wall shields the heroes beside him (brass, a glint each)'],
+  ['wind_step', 'Wind Step: Lyra steps out of an attack (a gust, a flute E5 to A5)'],
+  ['hawks_vigil', 'Hawk’s Vigil: a shot at an attacker (a tight pluck; frequent)'],
+  ['starthread', 'Starthread: Starbolt along the Thread (glass B5 then F6)'],
+  ['event_horizon', 'Event Horizon: the Well drags them into your field (sucked down, F2 knock)'],
+  ['supernova', 'Supernova: Starfall ends in a nova (gather, then the burst)'],
+  ['constellation', 'Constellation: a Cue leaves a star (a twinkle, D6 A6 E7)'],
+  ['arcane_ward', 'Arcane Ward: Vexis blinks toward you (glass drawn in, a ping on F6)'],
+  ['oathkeeper', 'Oathkeeper: a hit on Lyra lands on Kael (a muted knock; frequent)'],
+  ['celestial_sphere', 'Celestial Sphere: it swallows a hit (a glass pop; frequent)'],
+] as const;
+
+/** Bonds UI sounds for each hero, and the shared voicing (no hero). */
+const BOND_HEROES = ['kael', 'lyra', 'vexis'] as const;
+/** A Bond rank that opens nothing, and one that opens a talent tier (both from the content). */
+const PLAIN_RANK =
+  [2, 4, 5, 7, 8, 1].find(
+    (r) => !CONTENT.bondRules.talentRanks.includes(r) && r !== CONTENT.bondRules.soloRank,
+  ) ?? 1;
+const TALENT_RANK = CONTENT.bondRules.talentRanks[1] ?? CONTENT.bondRules.talentRanks[0] ?? 1;
+
+/** The lab world back as it was (no alternate Solo, no sphere, the heroes in their places). */
+function bondsRestore(w: FakeWorld): void {
+  for (const h of BOND_HEROES) {
+    w.setAltSolo(h, null);
+    w.setSphere(h, 0);
+  }
+  w.moveHero('kael', -3, -3);
+  w.moveHero('lyra', 0, -3);
+  w.moveHero('vexis', 3, -3);
+}
 
 // ── Phase 4d helpers ───────────────────────────────────────────────────────────────
 
@@ -1742,6 +1851,114 @@ export const SOUNDS: SoundButton[] = [
       restore(1),
     ],
   },
+  // ── Phase 4e: Bonds in the fight ─────────────────────────────────────────────────
+  ...TALENTS_FIRED.map(([talent, label]): SoundButton => ({
+    id: `talent-${talent}`,
+    label,
+    group: 'bonds',
+    length: talent === 'supernova' || talent === 'unbreakable' ? 3 : 2,
+    fire: (d, w) => {
+      if (talent === 'celestial_sphere') w.setSphere('lyra', 1);
+      talentAct(d, w, talent);
+    },
+    then: [{ delay: 0.05, fire: (_d, w) => bondsRestore(w) }],
+  })),
+  {
+    id: 'talent-vigil-cued',
+    label: 'Hawk’s Vigil, cued: a shot that marks (the pluck and a small glass E6)',
+    group: 'bonds',
+    length: 2,
+    fire: (d, w) => {
+      w.setAltSolo('lyra', 'hawks_vigil', true);
+      talentAct(d, w, 'hawks_vigil');
+    },
+    then: [{ delay: 0.05, fire: (_d, w) => bondsRestore(w) }],
+  },
+  {
+    id: 'talent-sphere-last',
+    label: 'Celestial Sphere: its last hit swallowed, it shatters (a fuller pop, falling)',
+    group: 'bonds',
+    length: 2,
+    fire: (d, w) => {
+      w.setSphere('lyra', 0);
+      talentAct(d, w, 'celestial_sphere');
+    },
+  },
+  {
+    id: 'talent-shieldbearer-alone',
+    label: 'Shieldbearer with no one beside Kael (the brass, no glints)',
+    group: 'bonds',
+    length: 2,
+    fire: (d, w) => {
+      w.moveHero('lyra', -16, -3);
+      w.moveHero('vexis', 16, -3);
+      talentAct(d, w, 'shieldbearer');
+    },
+    then: [{ delay: 0.05, fire: (_d, w) => bondsRestore(w) }],
+  },
+  {
+    id: 'talent-riposte-perfect',
+    label: 'Riposte Bash with its Perfect Ward (the clang a beat after the ring)',
+    group: 'bonds',
+    length: 3,
+    fire: (d, w) => {
+      fire(d, w, ev('perfectWard', { target: IDS.kael, telegraph: 1, negated: 560 }));
+      talentAct(d, w, 'riposte_bash');
+    },
+  },
+  ...(['oathkeeper', 'hawks_vigil', 'celestial_sphere'] as const).flatMap((solo) =>
+    [false, true].map((cued): SoundButton => ({
+      id: `altsolo-${solo}${cued ? '-cued' : ''}`,
+      label: `${solo === 'oathkeeper' ? 'Oathkeeper' : solo === 'hawks_vigil' ? 'Hawk’s Vigil' : 'Celestial Sphere'} starts${cued ? ', cued (with the Cue’s leitmotif)' : ''}`,
+      group: 'bonds',
+      length: 3,
+      fire: (d, w) => {
+        const hero: HeroKey =
+          solo === 'oathkeeper' ? 'kael' : solo === 'hawks_vigil' ? 'lyra' : 'vexis';
+        if (cued) fire(d, w, ev('cued', { hero: IDS[hero] }));
+        fire(d, w, ev('soloStarted', { hero: IDS[hero], solo, cued, duration: cued ? 6 : 5 }));
+      },
+    })),
+  ),
+  {
+    id: 'talent-vigil-burst',
+    label: 'Hawk’s Vigil: 20 shots in a second (the gate holds: light)',
+    group: 'bonds',
+    length: 2,
+    fire: (d, w) => talentAct(d, w, 'hawks_vigil'),
+    then: Array.from({ length: 19 }, (_, i) => ({
+      delay: Math.round((i + 1) * 0.05 * 1000) / 1000,
+      fire: (d: SynthDirector, w: FakeWorld) => talentAct(d, w, 'hawks_vigil'),
+    })),
+  },
+  {
+    id: 'talent-oath-burst',
+    label: 'Oathkeeper: 20 hits taken for others in a second (the gate holds: light)',
+    group: 'bonds',
+    length: 2,
+    fire: (d, w) => talentAct(d, w, 'oathkeeper'),
+    then: Array.from({ length: 19 }, (_, i) => ({
+      delay: Math.round((i + 1) * 0.05 * 1000) / 1000,
+      fire: (d: SynthDirector, w: FakeWorld) => talentAct(d, w, 'oathkeeper'),
+    })),
+  },
+  {
+    id: 'talent-every',
+    label: 'Every talent in turn, 0.6 s apart (each in its own group and voice)',
+    group: 'bonds',
+    length: 10,
+    fire: (d, w) => {
+      w.setSphere('lyra', 1);
+      talentAct(d, w, TALENTS_FIRED[0][0]);
+    },
+    then: [
+      ...TALENTS_FIRED.slice(1).map(([talent], i) => ({
+        delay: Math.round((i + 1) * 0.6 * 1000) / 1000,
+        fire: (d: SynthDirector, w: FakeWorld) => talentAct(d, w, talent),
+      })),
+      { delay: 8.6, fire: (_d: SynthDirector, w: FakeWorld) => bondsRestore(w) },
+    ],
+  },
   // ── UI ─────────────────────────────────────────────────────────────────────────
   ...(
     [
@@ -1790,6 +2007,11 @@ export const SOUNDS: SoundButton[] = [
       'dissonanceToggle',
       'dissonanceOpen',
       'dissonanceBest',
+      'bondRankUp',
+      'talentPick',
+      'soloPick',
+      'sceneStart',
+      'sceneReply',
     ] as UiSound[]
   ).map((s): SoundButton => ({
     id: `ui-${s}`,
@@ -1798,13 +2020,60 @@ export const SOUNDS: SoundButton[] = [
     length:
       s === 'reveal'
         ? 5
-        : s === 'rankUp' || s === 'forge' || s === 'eventOpen' || s === 'dissonanceBest'
+        : s === 'rankUp' ||
+            s === 'forge' ||
+            s === 'eventOpen' ||
+            s === 'dissonanceBest' ||
+            s === 'bondRankUp'
           ? 3
-          : s === 'dissonanceOpen'
+          : s === 'dissonanceOpen' || s === 'sceneStart'
             ? 4
             : undefined,
     fire: (d) => d.playUi(s),
   })),
+  // ── Phase 4e: Bonds' UI sounds, for each hero ──
+  ...BOND_HEROES.flatMap((hero): SoundButton[] => [
+    {
+      id: `bond-rank-${hero}`,
+      label: `bondRankUp: ${hero}'s Bond grew (rank ${PLAIN_RANK}: their theme, warm)`,
+      group: 'ui',
+      length: 3,
+      fire: (d) => d.playUi('bondRankUp', null, { hero, rank: PLAIN_RANK }),
+    },
+    {
+      id: `bond-rank-${hero}-talent`,
+      label: `bondRankUp: ${hero} reaches a talent rank (${TALENT_RANK}: a second glass note)`,
+      group: 'ui',
+      length: 3,
+      fire: (d) => d.playUi('bondRankUp', null, { hero, rank: TALENT_RANK }),
+    },
+    {
+      id: `bond-talent-${hero}`,
+      label: `talentPick: one of ${hero}'s talents chosen`,
+      group: 'ui',
+      fire: (d) => d.playUi('talentPick', null, { hero }),
+    },
+    {
+      id: `bond-solo-${hero}`,
+      label: `soloPick: ${hero}'s Solo chosen`,
+      group: 'ui',
+      length: 2,
+      fire: (d) => d.playUi('soloPick', null, { hero }),
+    },
+    {
+      id: `bond-scene-${hero}`,
+      label: `sceneStart: a scene with ${hero} begins (the fire, a held breath)`,
+      group: 'ui',
+      length: 4,
+      fire: (d) => d.playUi('sceneStart', null, { hero }),
+    },
+    {
+      id: `bond-reply-${hero}`,
+      label: `sceneReply: a reply to ${hero}`,
+      group: 'ui',
+      fire: (d) => d.playUi('sceneReply', null, { hero }),
+    },
+  ]),
   // ── Phase 4d: Dissonance in Prep and at the Summary ──
   {
     id: 'dis-toggle-low',

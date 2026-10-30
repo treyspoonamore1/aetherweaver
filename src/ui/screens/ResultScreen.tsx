@@ -25,6 +25,9 @@ import {
 } from './resultText';
 import { WithoutYouPanel } from './WithoutYou';
 import { callingLook } from '../kit/CallingGlyph';
+import type { Bond } from '../../meta/bonds';
+import { BondRankUpCard, BondXpLine, useBondCard, type BondCardProps } from './BondsParts';
+import { bondXpRows, fightBondXp } from './bondsModel';
 
 export { HIGHLIGHT_COLOR, HIGHLIGHT_ICON, statLines };
 
@@ -49,6 +52,13 @@ export interface ResultViewProps {
   firstRankUp?: boolean;
   /** The points the profile's Deeds give (Phase 4b): the card's Astrolabe totals count them. */
   deedPoints?: number;
+  /**
+   * Phase 4e: the profile's Bonds now (this fight's Bond XP included), for each hero's Bond XP
+   * and bar. Omitted: none shown.
+   */
+  bonds?: Readonly<Record<string, Bond>>;
+  /** Phase 4e: the Bond rank-up card, shown after the Weaver's rank-up card. */
+  bondCard?: BondCardProps | null;
 }
 
 export function ResultView({
@@ -60,6 +70,8 @@ export function ResultView({
   onDismissRankUps,
   firstRankUp = false,
   deedPoints = 0,
+  bonds,
+  bondCard = null,
 }: ResultViewProps) {
   useMood('map');
   const victory = r.outcome === 'victory';
@@ -73,6 +85,8 @@ export function ResultView({
   const node = findNode(run, r.nodeId);
   const threat = node ? threatLine(node.reward.threat) : null;
   const gained = aether && r.aether > 0;
+  // Phase 4e: what the fight paid each hero's Bond.
+  const bondRows = bonds ? bondXpRows(heroIds, fightBondXp(r), bonds) : [];
   useEffect(() => {
     if (gained) playUi('aether');
   }, [gained]);
@@ -266,6 +280,11 @@ export function ResultView({
                         )}
                         . Ends at {pct(h.hpPct)} life.
                       </p>
+                      {bondRows
+                        .filter((b) => b.heroId === h.heroId)
+                        .map((b) => (
+                          <BondXpLine key={b.heroId} row={b} />
+                        ))}
                     </div>
                   </li>
                 );
@@ -351,6 +370,9 @@ export function ResultView({
           deedPoints={deedPoints}
         />
       )}
+      {rankUps.length === 0 && bondCard && bondCard.notices.length > 0 && (
+        <BondRankUpCard {...bondCard} />
+      )}
     </ScreenFrame>
   );
 }
@@ -360,6 +382,7 @@ export function ResultScreen() {
   const cont = useRun((s) => s.continueFromResult);
   const xp = useProfile((s) => s.profile.xp);
   const { rankUps, firstTime, dismiss, deedPoints } = useRankUps();
+  const bondCard = useBondCard();
   if (!run?.lastResult) return null;
   return (
     <ResultView
@@ -371,6 +394,8 @@ export function ResultScreen() {
       onDismissRankUps={dismiss}
       firstRankUp={firstTime}
       deedPoints={deedPoints}
+      bonds={bondCard.bonds}
+      bondCard={bondCard}
     />
   );
 }

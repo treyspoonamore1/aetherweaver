@@ -68,6 +68,18 @@ import { isCounting, type DeedsHeld } from '../screens/deedsModel';
 import type { RankUp } from '../../app/profileStore';
 import type { AuraHud, Callout, ChordHud, HeroHud, HudSnapshot, TechniqueHud } from '../store';
 import type { WheelView } from '../../input/wheel';
+import {
+  altSoloOf,
+  bondRank,
+  bondedHeroes,
+  emptyBond,
+  runBonds,
+  soloRank,
+  talentChoices,
+  tierRank,
+  type Bond,
+  type RunBond,
+} from '../../meta/bonds';
 
 // ── HUD snapshots ─────────────────────────────────────────────────────────────────────
 
@@ -165,7 +177,12 @@ function hero(slot: number, defId: string, over: Partial<HeroHud> = {}): HeroHud
     solo: 40,
     soloReady: false,
     soloActive: false,
+    soloId: def.solo.id,
     soloName: def.solo.name,
+    soloText: def.solo.description,
+    soloCued: def.solo.cuedDescription,
+    soloAlt: false,
+    talents: [],
     castName: null,
     castProgress: 0,
     action: 'idle',
@@ -2811,4 +2828,127 @@ export function dissonanceSummaryRun(
   }
   run = { ...run, dissonance: fitLevels(levels), dissonanceEnd: { ...end } };
   return opts.reliquary ? { ...run, reliquary: { ...runMaterials(run), enshrined: null } } : run;
+}
+
+// ── Phase 4e: Bonds ──────────────────────────────────────────────────────────────────
+
+/** Bond XP at `rank` (content's thresholds), `share` of the way to the next. */
+export function bondXpAt(rank: number, share = 0): number {
+  const ranks = CONTENT.bondRules.ranks;
+  const from = ranks[rank - 1]!;
+  const to = ranks[rank];
+  return to === undefined ? from + Math.round(share * 100) : from + Math.round(share * (to - from));
+}
+
+/**
+ * Every hero's Bond at `rank` (a third of the way into it), with what a player there might have
+ * chosen: a talent in each tier their rank opens (heroes take different sides), the alternate
+ * Solo from its rank, and the scenes reached seen, all but the newest, which waits for a Respite
+ * (`seenAll`: that one too). `choose: false`: nothing chosen.
+ */
+export function mockBonds(
+  rank: number,
+  opts: { choose?: boolean; seenAll?: boolean; share?: number } = {},
+): Record<string, Bond> {
+  const { choose = true, seenAll = false, share = 0.35 } = opts;
+  return Object.fromEntries(
+    bondedHeroes().map((h, i) => {
+      const talents = [1, 2, 3].map((tier) =>
+        choose && rank >= tierRank(tier)
+          ? (talentChoices(h, tier)[(i + tier) % 2]?.id ?? null)
+          : null,
+      );
+      const reached = CONTENT.scenes
+        .filter((sc) => sc.hero === h && sc.rank <= rank)
+        .sort((a, b) => a.rank - b.rank);
+      const seen = seenAll ? reached : reached.slice(0, -1);
+      return [
+        h,
+        {
+          xp: bondXpAt(rank, share),
+          talents,
+          solo: choose && rank >= soloRank() && altSoloOf(h) ? 'alt' : 'default',
+          seen: Object.fromEntries(seen.map((sc, j) => [sc.id, (i + j) % 2])),
+        } satisfies Bond,
+      ];
+    }),
+  );
+}
+
+/** A talent chosen as the profile store's `setTalent` would take it (the lab's Bonds screen). */
+export function labSetTalent(
+  bonds: Readonly<Record<string, Bond>>,
+  heroId: string,
+  tier: number,
+  id: string | null,
+  unlockAll: boolean,
+): Record<string, Bond> {
+  const bond = bonds[heroId] ?? emptyBond();
+  if (id !== null) {
+    if (!talentChoices(heroId, tier).some((t) => t.id === id)) return { ...bonds };
+    if (!unlockAll && bondRank(bond.xp) < tierRank(tier)) return { ...bonds };
+  }
+  const talents = [0, 1, 2].map((i) => (i === tier - 1 ? id : (bond.talents[i] ?? null)));
+  return { ...bonds, [heroId]: { ...bond, talents } };
+}
+
+/** A Solo chosen as the profile store's `setSolo` would take it. */
+export function labSetSolo(
+  bonds: Readonly<Record<string, Bond>>,
+  heroId: string,
+  solo: 'default' | 'alt',
+  unlockAll: boolean,
+): Record<string, Bond> {
+  const bond = bonds[heroId] ?? emptyBond();
+  if (!altSoloOf(heroId)) return { ...bonds };
+  if (solo === 'alt' && !unlockAll && bondRank(bond.xp) < soloRank()) return { ...bonds };
+  return { ...bonds, [heroId]: { ...bond, solo } };
+}
+
+/** What a run in Prep plays with these Bonds (the run store's `runBonds`). */
+export function mockRunBonds(bonds: Readonly<Record<string, Bond>>, all = false): RunBond[] {
+  return runBonds(bonds, CONTENT.defaultParty, all);
+}
+
+/** A run at a Respite, standing in a Bond scene. */
+export function sceneRun(sceneId: string): RunState {
+  const scene = CONTENT.scenes.find((sc) => sc.id === sceneId)!;
+  return { ...respiteRun(), phase: 'scene', scene: { heroId: scene.hero, sceneId } };
+}
+
+/**
+ * The HUD with Bonds in force: a scenario's HUD, with what the bridge reads of a real fight that
+ * plays these talents and alternate Solos (each hero's Solo, its lines, their talents).
+ */
+export function mockBondsHud(
+  scenario: HudScenario,
+  bonds: readonly RunBond[],
+  over: (h: HeroHud) => Partial<HeroHud> = () => ({}),
+): HudSnapshot {
+  const config = {
+    talents: bonds.flatMap((b) => b.talents),
+    solos: bonds.flatMap((b) => (b.solo ? [b.solo] : [])),
+  };
+  const real = buildHudSnapshot(createSim({ seed: 7, bonds: config }).state, {
+    seed: 7,
+    hovered: null,
+  });
+  const hud = mockHud(scenario);
+  return {
+    ...hud,
+    party: hud.party.map((h) => {
+      const r = real.party.find((p) => p.defId === h.defId);
+      const fromFight = r
+        ? {
+            soloId: r.soloId,
+            soloName: r.soloName,
+            soloText: r.soloText,
+            soloCued: r.soloCued,
+            soloAlt: r.soloAlt,
+            talents: r.talents,
+          }
+        : {};
+      return { ...h, ...fromFight, ...over({ ...h, ...fromFight }) };
+    }),
+  };
 }

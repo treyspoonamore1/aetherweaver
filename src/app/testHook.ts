@@ -1,5 +1,6 @@
 import { reachable, findNode, chooseNode, reservePool } from '../meta/run';
 import { dissonancePoints } from '../meta/dissonance';
+import { bondRank, bondedHeroes, emptyBond } from '../meta/bonds';
 import type { Reliquary } from '../meta/reliquary';
 import { saveProfile } from '../meta/save';
 import type { CombatOutcome, NodeKind, RunState } from '../meta/types';
@@ -177,6 +178,49 @@ export function installRunHook(): void {
           : null,
       };
     },
+    bonds: () => {
+      const p = useProfile.getState();
+      const state = run().run;
+      return {
+        heroes: Object.fromEntries(
+          bondedHeroes().map((h) => {
+            const b = p.profile.bonds[h] ?? emptyBond();
+            return [
+              h,
+              {
+                xp: b.xp,
+                rank: bondRank(b.xp),
+                talents: [...b.talents],
+                solo: b.solo,
+                seen: { ...b.seen },
+              },
+            ];
+          }),
+        ),
+        notices: p.bondNotices.map((n) => ({ ...n })),
+        run: state
+          ? {
+              bonds: state.bonds.map((b) => ({ ...b, talents: [...b.talents] })),
+              scene: state.scene ? { ...state.scene } : null,
+            }
+          : null,
+      };
+    },
+    seedBonds: (xpByHero) => {
+      const p = useProfile.getState().profile;
+      const bonds = { ...p.bonds };
+      for (const [heroId, xp] of Object.entries(xpByHero)) {
+        if (!bondedHeroes().includes(heroId)) continue;
+        bonds[heroId] = { ...(bonds[heroId] ?? emptyBond()), xp: Math.max(0, Math.round(xp)) };
+      }
+      const profile = { ...p, bonds };
+      saveProfile(storage(), profile);
+      useProfile.setState({ profile });
+    },
+    scenesWaiting: () =>
+      run()
+        .scenesWaiting()
+        .map((sc) => sc.id),
     winRun: (found = []) => {
       const state = run().run;
       if (!state || state.phase !== 'map') return false;

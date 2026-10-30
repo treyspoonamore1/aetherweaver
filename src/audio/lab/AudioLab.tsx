@@ -48,6 +48,10 @@ const GROUPS: {
     id: 'astrolabe',
     title: 'Phase 4 · Astrolabe (the star map, and its keystones in the fight)',
   },
+  {
+    id: 'bonds',
+    title: 'Phase 4e · Bonds (each talent acting, the alternate Solos starting, their bursts)',
+  },
   { id: 'world', title: 'World, enemies and telegraphs' },
   { id: 'ui', title: 'UI' },
 ];

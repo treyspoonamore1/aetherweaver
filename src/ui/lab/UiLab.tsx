@@ -24,7 +24,7 @@ import { EventView } from '../screens/EventScreen';
 import { ForgeView } from '../screens/ForgeScreen';
 import { MerchantView } from '../screens/MerchantScreen';
 import { RelicOfferView } from '../screens/RelicScreen';
-import { CONTENT, callingDef } from '../../content';
+import { CONTENT, callingDef, sceneDef } from '../../content';
 import type { ActiveBoon, ChordLoadout, ForgeService } from '../../meta/types';
 import { MapView } from '../screens/MapScreen';
 import { PrepView } from '../screens/PrepScreen';
@@ -125,6 +125,11 @@ import {
   reliquarySummaryRun,
 } from './mock';
 import { dissonancePoints, type DissonanceChoice } from '../../meta/dissonance';
+import type { Bond } from '../../meta/bonds';
+import { BondsView } from '../screens/BondsScreen';
+import { BondRankUpCard } from '../screens/BondsParts';
+import { bondRanks } from '../screens/bondsModel';
+import { labSetSolo, labSetTalent, mockBonds, mockBondsHud, mockRunBonds, sceneRun } from './mock';
 
 /** A stand-in for the 3D arena behind the HUD. */
 function World({ children }: { children: ReactNode }) {
@@ -887,6 +892,77 @@ function HudDissonance({
       />
     </World>
   );
+}
+
+/**
+ * The Bonds screen (Phase 4e) over mock Bonds: choosing works as the profile store does it
+ * (`labSetTalent`, `labSetSolo`), at these ranks or with Skip the unlocks.
+ */
+function BondsLab({
+  initial,
+  unlockAll = false,
+  hero,
+  reading = null,
+}: {
+  initial(): Record<string, Bond>;
+  unlockAll?: boolean;
+  hero?: string;
+  reading?: string | null;
+}) {
+  const [bonds, setBonds] = useState(initial);
+  return (
+    <BondsView
+      bonds={bonds}
+      unlockAll={unlockAll}
+      onTalent={(h, tier, id) => setBonds((b) => labSetTalent(b, h, tier, id, unlockAll))}
+      onSolo={(h, solo) => setBonds((b) => labSetSolo(b, h, solo, unlockAll))}
+      onBack={noop}
+      backTo="Prep"
+      onRules={noop}
+      initialHero={hero}
+      initialReading={reading}
+    />
+  );
+}
+
+/** Prep with the Bonds row (Phase 4e): the run plays what these Bonds open. */
+function PrepBonds({ bonds, rank }: { bonds: Record<string, Bond>; rank: number }) {
+  const allowance = allowanceFor(rank);
+  return (
+    <Interactive initial={() => Run.newRun(7, GUARDIAN_CHORDS, [], [], [], mockRunBonds(bonds))}>
+      {(run, set) => (
+        <PrepView
+          run={run}
+          onChords={(c) => set((r) => Run.setChords(r, c, allowance))}
+          onCalling={(id) => set((r) => Run.setCalling(r, id, allowance))}
+          onEmbark={noop}
+          onBack={noop}
+          allowance={allowance}
+          rank={rank}
+          astrolabe={{ points: astrolabePoints(rank, false, 0), onOpen: noop }}
+          bonds={{ bonds, onOpen: noop }}
+        />
+      )}
+    </Interactive>
+  );
+}
+
+/** A content scene of a hero's, by its place among theirs (0: the first). */
+function heroScene(heroId: string, index = 0): string {
+  return CONTENT.scenes.filter((sc) => sc.hero === heroId).sort((a, b) => a.rank - b.rank)[index]!
+    .id;
+}
+
+/** The Title with Bonds open (Phase 4e): the button and each hero's rank on it. */
+function TitleBonds({ bonds, rank }: { bonds: Record<string, Bond>; rank: number }) {
+  useState(() => {
+    const p = useProfile.getState().profile;
+    useProfile.setState({
+      profile: { ...p, xp: RANK_XP[rank - 1]! + 10, bonds, runs: 6, wins: 2 },
+    });
+    return true;
+  });
+  return <TitleScreen />;
 }
 
 interface ViewDef {
@@ -3364,6 +3440,355 @@ const VIEWS: ViewDef[] = [
           <RankPanelView profile={{ xp: RANK_XP[13]! + 900, runs: 41, wins: 19 }} />
         </div>
       </ScreenFrame>
+    ),
+  },
+  // ── Phase 4e: Bonds ──────────────────────────────────────────────────────────────────
+  {
+    id: 'bonds-rank-1',
+    group: 'Bonds',
+    label: 'Bonds screen: rank 1, everything ahead',
+    w: 1280,
+    h: 720,
+    render: () => <BondsLab initial={() => mockBonds(1, { choose: false })} />,
+  },
+  {
+    id: 'bonds-rank-4',
+    group: 'Bonds',
+    label: 'Bonds screen: rank 4, tier I chosen, the first scene seen',
+    w: 1280,
+    h: 720,
+    render: () => <BondsLab initial={() => mockBonds(4, { seenAll: true })} />,
+  },
+  {
+    id: 'bonds-rank-7',
+    group: 'Bonds',
+    label: 'Bonds screen: rank 7 (Lyra), two tiers, a scene waiting',
+    w: 1280,
+    h: 720,
+    render: () => <BondsLab initial={() => mockBonds(7)} hero="lyra" />,
+  },
+  {
+    id: 'bonds-rank-10',
+    group: 'Bonds',
+    label: 'Bonds screen: rank 10 (Vexis), every tier and the alternate Solo',
+    w: 1280,
+    h: 720,
+    render: () => <BondsLab initial={() => mockBonds(10, { seenAll: true })} hero="vexis" />,
+  },
+  {
+    id: 'bonds-skip',
+    group: 'Bonds',
+    label: 'Bonds screen: Skip the unlocks at rank 1',
+    w: 1280,
+    h: 760,
+    render: () => <BondsLab initial={() => mockBonds(1, { choose: false })} unlockAll />,
+  },
+  {
+    id: 'bonds-reader',
+    group: 'Bonds',
+    label: 'Bonds screen: a seen scene read again',
+    w: 1280,
+    h: 720,
+    render: () => (
+      <BondsLab initial={() => mockBonds(7)} reading={heroScene(CONTENT.defaultParty[0]!)} />
+    ),
+  },
+  {
+    id: 'title-bonds',
+    group: 'Bonds',
+    label: 'Title: Bonds open, each hero’s rank',
+    w: 1280,
+    h: 720,
+    render: () => <TitleBonds bonds={mockBonds(4)} rank={6} />,
+  },
+  {
+    id: 'prep-bonds',
+    group: 'Bonds',
+    label: 'Prep: the Bonds row and the hero cards (rank 10: alternate Solos)',
+    w: 1280,
+    h: 1400,
+    render: () => <PrepBonds bonds={mockBonds(10)} rank={12} />,
+  },
+  {
+    id: 'prep-bonds-early',
+    group: 'Bonds',
+    label: 'Prep: the Bonds row at ranks 2–4',
+    w: 1280,
+    h: 900,
+    render: () => (
+      <PrepBonds
+        bonds={{ ...mockBonds(4), lyra: mockBonds(2).lyra!, vexis: mockBonds(3).vexis! }}
+        rank={5}
+      />
+    ),
+  },
+  {
+    id: 'result-bonds',
+    group: 'Bonds',
+    label: 'Result: each hero’s Bond XP',
+    w: 1280,
+    h: 900,
+    render: () => (
+      <ResultView
+        run={resultRun(true)}
+        result={resultRun(true).lastResult!}
+        onContinue={noop}
+        profileXp={RANK_XP[5]! + 120}
+        bonds={mockBonds(4)}
+      />
+    ),
+  },
+  {
+    id: 'result-bond-first',
+    group: 'Bonds',
+    label: 'Result: the first Bond rank-up ever introduces Bonds',
+    w: 1280,
+    h: 900,
+    render: () => {
+      const bonds = mockBonds(2, { choose: false, share: 0.05 });
+      return (
+        <ResultView
+          run={resultRun(true)}
+          result={resultRun(true).lastResult!}
+          onContinue={noop}
+          profileXp={RANK_XP[1]! + 40}
+          bonds={bonds}
+          bondCard={{
+            notices: CONTENT.defaultParty.map((heroId) => ({ heroId, rank: 2 })),
+            bonds,
+            first: true,
+            unlockAll: false,
+            onDismiss: noop,
+          }}
+        />
+      );
+    },
+  },
+  {
+    id: 'result-bond-rankup',
+    group: 'Bonds',
+    label: 'Result: Bond rank-ups open a tier, and nothing',
+    w: 1280,
+    h: 900,
+    render: () => {
+      const bonds = { ...mockBonds(3, { share: 0.05 }), lyra: mockBonds(5, { share: 0.05 }).lyra! };
+      return (
+        <ResultView
+          run={resultRun(true)}
+          result={resultRun(true).lastResult!}
+          onContinue={noop}
+          profileXp={RANK_XP[5]! + 40}
+          bonds={bonds}
+          bondCard={{
+            notices: [
+              { heroId: 'kael', rank: 3 },
+              { heroId: 'lyra', rank: 5 },
+            ],
+            bonds,
+            first: false,
+            unlockAll: false,
+            onDismiss: noop,
+          }}
+        />
+      );
+    },
+  },
+  {
+    id: 'summary-bonds',
+    group: 'Bonds',
+    label: 'Summary: the run’s Bond XP; rank 10 opens an alternate Solo, rank 7 a scene',
+    w: 1280,
+    h: 900,
+    render: () => {
+      const bonds = {
+        ...mockBonds(7, { share: 0.05 }),
+        lyra: mockBonds(6).lyra!,
+        vexis: mockBonds(10, { share: 0.02 }).vexis!,
+      };
+      return (
+        <SummaryView
+          run={summaryRun('victory')}
+          onNewRun={noop}
+          onTitle={noop}
+          profileXp={RANK_XP[11]! + 300}
+          bonds={bonds}
+          bondCard={{
+            notices: [
+              { heroId: 'kael', rank: 7 },
+              { heroId: 'vexis', rank: 10 },
+            ],
+            bonds,
+            first: false,
+            unlockAll: false,
+            onDismiss: noop,
+          }}
+        />
+      );
+    },
+  },
+  {
+    id: 'summary-bonds-panel',
+    group: 'Bonds',
+    label: 'Summary: the Bonds panel (no card)',
+    w: 1280,
+    h: 900,
+    render: () => (
+      <SummaryView
+        run={summaryRun('victory')}
+        onNewRun={noop}
+        onTitle={noop}
+        profileXp={RANK_XP[11]! + 300}
+        bonds={mockBonds(5)}
+      />
+    ),
+  },
+  {
+    id: 'map-bond-rankup',
+    group: 'Bonds',
+    label: 'Map after a scene: its Bond XP reached a rank',
+    w: 1280,
+    h: 800,
+    render: () => {
+      const bonds = mockBonds(3, { share: 0.02 });
+      return (
+        <>
+          <MapView run={playedRun(3)} onChoose={noop} onAbandon={noop} />
+          <BondRankUpCard
+            notices={[{ heroId: 'lyra', rank: 3 }]}
+            bonds={bonds}
+            first={false}
+            unlockAll={false}
+            onDismiss={noop}
+          />
+        </>
+      );
+    },
+  },
+  {
+    id: 'respite-scene-1',
+    group: 'Bonds',
+    label: 'Respite: a scene waiting (a fourth choice)',
+    w: 1280,
+    h: 900,
+    render: () => (
+      <RespiteView
+        run={respiteRun()}
+        onChoose={noop}
+        onRetune={noop}
+        scenes={[sceneDef(heroScene('kael'))]}
+        onScene={noop}
+      />
+    ),
+  },
+  {
+    id: 'respite-scenes-2',
+    group: 'Bonds',
+    label: 'Respite: two scenes waiting',
+    w: 1280,
+    h: 900,
+    render: () => (
+      <RespiteView
+        run={respiteRun()}
+        onChoose={noop}
+        onRetune={noop}
+        scenes={[sceneDef(heroScene('lyra')), sceneDef(heroScene('vexis', 1))]}
+        onScene={noop}
+      />
+    ),
+  },
+  ...CONTENT.scenes.map((sc): ViewDef => ({
+    id: `scene-${sc.id}`,
+    group: 'Bonds',
+    label: `Scene: ${sc.title} (${CONTENT.heroes.find((h) => h.id === sc.hero)?.name}, rank ${sc.rank})`,
+    w: 1280,
+    h: 800,
+    render: () => <SceneView run={sceneRun(sc.id)} onEnd={noop} rank={sc.rank} />,
+  })),
+  {
+    id: 'scene-reply',
+    group: 'Bonds',
+    label: 'Scene: a reply chosen, the answer, Continue',
+    w: 1280,
+    h: 800,
+    render: () => (
+      <SceneView
+        run={sceneRun(heroScene('kael'))}
+        onEnd={noop}
+        rank={sceneDef(heroScene('kael')).rank}
+        initialReply={0}
+      />
+    ),
+  },
+  {
+    id: 'hud-bonds-alt',
+    group: 'Bonds',
+    label: 'HUD: Vexis brings Celestial Sphere (her tooltip: the Solo and talents)',
+    w: 1280,
+    h: 720,
+    render: () => {
+      const bonds = mockBonds(10);
+      return (
+        <World>
+          <HudView
+            hud={mockBondsHud('calm', mockRunBonds(bonds), (h) =>
+              h.defId === 'vexis' ? { solo: 100, soloReady: true } : {},
+            )}
+            callouts={[]}
+            decree={null}
+            subtitle="The Prelude · node 3 of 10"
+            coach={false}
+            bondRanks={bondRanks(bonds)}
+            frameTip="vexis"
+          />
+        </World>
+      );
+    },
+  },
+  {
+    id: 'hud-bonds-kael',
+    group: 'Bonds',
+    label: 'HUD: Kael’s tooltip, his own Solo and two talents (rank 7)',
+    w: 1280,
+    h: 720,
+    render: () => {
+      const bonds = mockBonds(7);
+      return (
+        <World>
+          <HudView
+            hud={mockBondsHud('calm', mockRunBonds(bonds))}
+            callouts={[]}
+            decree={null}
+            subtitle="The Prelude · node 3 of 10"
+            coach={false}
+            bondRanks={bondRanks(bonds)}
+            frameTip="kael"
+          />
+        </World>
+      );
+    },
+  },
+  {
+    id: 'codex-bonds',
+    group: 'Bonds',
+    label: 'Codex: Bonds (rank 7, scenes seen)',
+    w: 1280,
+    h: 1960,
+    render: () => <CodexView onBack={noop} initialTab="bonds" bonds={mockBonds(7)} />,
+  },
+  {
+    id: 'codex-bonds-locked',
+    group: 'Bonds',
+    label: 'Codex: Bonds, locked (no rank-up yet)',
+    w: 1280,
+    h: 720,
+    render: () => (
+      <CodexView
+        onBack={noop}
+        initialTab="bonds"
+        allowance={allowanceFor(3)}
+        rank={3}
+        bonds={mockBonds(1, { choose: false })}
+      />
     ),
   },
   {

@@ -1,6 +1,6 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useRun } from '../../app/runStore';
-import { auraDef, motifDef } from '../../content';
+import { auraDef, motifDef, sceneDef, type SceneDef } from '../../content';
 import { EVERYTHING, type Allowance, type Unlock } from '../../meta/profile';
 import type { ChordLoadout, RunState } from '../../meta/types';
 import { ScreenFrame, ScreenHeader } from '../kit/Backdrop';
@@ -22,6 +22,9 @@ import {
 import { slotBonus } from './callingText';
 import { PartyHealth, SectionTitle } from './shared';
 import { unforgivingLine } from './dissonanceModel';
+import { BOND_LOOK, heroInk } from '../kit/bondLook';
+import { BONDS_CSS, BondGlyph, HeroPortrait } from './BondsParts';
+import { sceneChoices, type SceneChoiceView } from './bondsModel';
 
 export interface RespiteViewProps {
   run: RunState;
@@ -34,7 +37,15 @@ export interface RespiteViewProps {
   allowance?: Allowance;
   /** Unlocks to mark "New" in the builder. */
   fresh?: readonly Unlock[];
+  /**
+   * Phase 4e: the Bond scenes waiting for the party (the run store's `scenesWaiting()`): each is a
+   * choice instead of resting (keys 4, 5…), with `onScene` (the run store's `bondScene`).
+   */
+  scenes?: readonly SceneDef[];
+  onScene?(sceneId: string): void;
 }
+
+const NO_SCENES: readonly SceneDef[] = [];
 
 export function RespiteView({
   run,
@@ -43,9 +54,17 @@ export function RespiteView({
   initialRetune = false,
   allowance = EVERYTHING,
   fresh = [],
+  scenes = NO_SCENES,
+  onScene,
 }: RespiteViewProps) {
   useMood('map');
   const [retuning, setRetuning] = useState(initialRetune);
+  // One choice per waiting scene, keyed after Retune's (by their ids, so a new array is the same).
+  const ids = onScene ? scenes.map((sc) => sc.id).join(' ') : '';
+  const choices = useMemo(
+    () => (ids ? sceneChoices(ids.split(' ').map((id) => sceneDef(id))) : []),
+    [ids],
+  );
   const upgradable = run.motifs.filter((m) => m.level < motifDef(m.id).values.length).length;
   const shaken = run.party.filter((h) => h.shaken).length;
   // What Rest heals is the run's (Phase 4d: nothing under Dissonance's Unforgiving).
@@ -63,11 +82,17 @@ export function RespiteView({
       } else if (e.key === '3') {
         playUi('click');
         setRetuning(true);
+      } else {
+        const scene = choices.find((c) => c.key === e.key);
+        if (scene && onScene) {
+          playUi('confirm');
+          onScene(scene.sceneId);
+        }
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [onChoose, retuning]);
+  }, [onChoose, retuning, choices, onScene]);
   if (retuning) {
     return (
       <RetuneView
@@ -85,8 +110,10 @@ export function RespiteView({
       <div className="mx-auto max-w-5xl px-6 py-8">
         <ScreenHeader eyebrow="A moment's quiet" title="Respite">
           <p className="mt-2 max-w-xl text-sm text-muted">
-            The choir cannot reach this alcove. Take one: tend to your wounds, sit with the song, or
-            retune your songs.
+            The choir cannot reach this alcove. Take one: tend to your wounds, sit with the song,
+            {choices.length > 0
+              ? ' retune your songs, or sit by the fire with a friend.'
+              : ' or retune your songs.'}
           </p>
         </ScreenHeader>
         <div className="mt-8 grid gap-6 md:grid-cols-3">
@@ -130,6 +157,20 @@ export function RespiteView({
             onClick={() => setRetuning(true)}
           />
         </div>
+        {choices.length > 0 && onScene && (
+          <section className="mt-6" aria-label="By the fire" data-testid="respite-scenes">
+            <style>{BONDS_CSS}</style>
+            <p className="mb-2.5 flex items-center gap-2 text-sm text-muted">
+              <Icon name="scene" size={16} style={{ color: BOND_LOOK.color }} /> Or, instead of all
+              three: a moment by the fire with one of them.
+            </p>
+            <div className={`grid gap-4 ${choices.length > 1 ? 'md:grid-cols-2' : ''}`}>
+              {choices.map((c) => (
+                <SceneChoice key={c.sceneId} choice={c} onClick={() => onScene(c.sceneId)} />
+              ))}
+            </div>
+          </section>
+        )}
         <Panel tone="solid" className="mx-auto mt-8 max-w-2xl p-5">
           <SectionTitle>Your party</SectionTitle>
           <div className="flex flex-col gap-4">
@@ -187,6 +228,47 @@ function Choice({
           <li key={l}>{l}</li>
         ))}
       </ul>
+    </button>
+  );
+}
+
+/**
+ * Phase 4e: a Respite's fourth choice, a waiting Bond scene: the hero by the fire, the scene's
+ * title and what it pays (no healing, no motif, but Bond XP).
+ */
+function SceneChoice({ choice: c, onClick }: { choice: SceneChoiceView; onClick(): void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="anim-rise group flex items-center gap-5 rounded-2xl border-2 bg-ink-800/90 px-6 py-5 text-left shadow-xl shadow-black/40 transition-all hover:-translate-y-1 hover:bg-ink-700/90"
+      style={{
+        borderColor: `color-mix(in srgb, ${BOND_LOOK.color} 75%, transparent)`,
+        background: `linear-gradient(100deg, color-mix(in srgb, ${c.color} 16%, rgb(17 26 51 / 0.92)), rgb(17 26 51 / 0.9) 65%)`,
+      }}
+      data-testid={`respite-scene-${c.sceneId}`}
+      data-hero={c.heroId}
+      data-xp={c.xp}
+    >
+      <HeroPortrait heroId={c.heroId} size={64} lit />
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center justify-between gap-3">
+          <h2
+            className="flex items-center gap-2 font-display text-2xl font-bold"
+            style={{ color: BOND_LOOK.color }}
+          >
+            <BondGlyph size={20} /> {c.title}
+          </h2>
+          <KeyCap label={c.key} />
+        </div>
+        <ul className="mt-1.5 flex flex-col gap-0.5 text-sm leading-relaxed text-text">
+          {c.lines.map((l, i) => (
+            <li key={l} style={i === 1 ? { color: heroInk(c.heroId) } : undefined}>
+              {l}
+            </li>
+          ))}
+        </ul>
+      </div>
     </button>
   );
 }
@@ -313,6 +395,7 @@ export function RespiteScreen() {
   const run = useRun((s) => s.run);
   const respite = useRun((s) => s.respite);
   const retune = useRun((s) => s.retune);
+  const bondScene = useRun((s) => s.bondScene);
   const allowance = useAllowance();
   const fresh = useFreshUnlocks();
   if (!run) return null;
@@ -323,6 +406,8 @@ export function RespiteScreen() {
       onRetune={retune}
       allowance={allowance}
       fresh={fresh}
+      scenes={useRun.getState().scenesWaiting()}
+      onScene={bondScene}
     />
   );
 }

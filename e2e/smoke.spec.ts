@@ -2,6 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { CONTENT, deedText, inscriptionDef } from '../src/content';
 import { DEED_POINTS_MAX, deedPoints } from '../src/meta/deeds';
 import { dissonancePoints, fitLevels, xpMult } from '../src/meta/dissonance';
+import { altSoloOf, sceneXp, talentChoices } from '../src/meta/bonds';
 import { rankOf } from '../src/meta/profile';
 import { runWithoutYou } from '../src/sim/counterfactual';
 import { parseReplay, runReplay } from '../src/sim/replay';
@@ -834,5 +835,148 @@ test('Phase 4d: Dissonance — choose levels in Prep, embark, the fight plays th
   const best = page.getByTestId('dissonance-best');
   await expect(best).toHaveAttribute('data-best', String(points));
   await expect(best).toContainText(`Best won without a Calling: ${points}.`);
+  expect(errors).toEqual([]);
+});
+
+test('Phase 4e: Bonds — choose talents and a Solo on the Bonds screen, embark with them, a Respite scene played through', async ({
+  page,
+}) => {
+  test.setTimeout(180_000);
+  const errors = trackErrors(page);
+  const phase = () => page.evaluate(() => window.__AWRUN__!.phase());
+  const bonds = () => page.evaluate(() => window.__AWRUN__!.bonds());
+  // Content's: Kael's second talent of tier I and first of tier II, Lyra's first of tier III,
+  // and Vexis's alternate Solo. Nothing of Lyra's or Vexis's own is named here.
+  const kael1 = talentChoices('kael', 1)[1]!;
+  const kael2 = talentChoices('kael', 2)[0]!;
+  const lyra3 = talentChoices('lyra', 3)[0]!;
+  const sphere = altSoloOf('vexis')!;
+  const chosen = new Set([kael1.id, kael2.id, lyra3.id]);
+  const talents = CONTENT.talents.filter((t) => chosen.has(t.id)).map((t) => t.id);
+  const talent = (id: string) => page.getByTestId(`talent-${id}`);
+
+  // Settings → Skip the unlocks: every talent and Solo can be chosen, from rank 1.
+  await page.goto(START_URL);
+  await page.waitForFunction(() => window.__AWRUN__ !== undefined);
+  await page
+    .getByRole('button', { name: /^Settings$/ })
+    .first()
+    .click();
+  await page.getByText('Skip the unlocks', { exact: true }).click();
+  await expect(page.getByRole('switch', { name: /Skip the unlocks/ })).toBeChecked();
+  await page.evaluate(() => window.__AWRUN__!.newRun(4242));
+  await expect.poll(phase).toBe('prep');
+
+  // Prep's Bonds row opens the Bonds screen.
+  await expect(page.getByTestId('prep-bonds')).toBeVisible();
+  await page.getByTestId('prep-bonds-open').click();
+  await expect(page.getByTestId('bonds-screen')).toBeVisible();
+  await expect(page.getByTestId('bonds-skip')).toBeVisible();
+  const pageOf = page.getByTestId('bond-page');
+  await expect(pageOf).toHaveAttribute('data-hero', 'kael');
+  await expect(pageOf).toHaveAttribute('data-rank', '1');
+
+  // Kael: tier I's second talent, then tier II's first. Every tier is open (Skip the unlocks).
+  await expect(page.getByTestId('tier-3')).toHaveAttribute('data-open', 'true');
+  await talent(kael1.id).click();
+  await talent(kael2.id).click();
+  await expect(talent(kael1.id)).toHaveAttribute('aria-pressed', 'true');
+  await expect(talent(kael2.id)).toHaveAttribute('aria-pressed', 'true');
+  // Choosing again clears it; once more chooses it back.
+  await talent(kael2.id).click();
+  await expect(talent(kael2.id)).toHaveAttribute('aria-pressed', 'false');
+  await talent(kael2.id).click();
+
+  // Lyra (the tab, then the keyboard): tier III's first. Vexis: the alternate Solo.
+  await page.getByTestId('bonds-tab-lyra').click();
+  await expect(pageOf).toHaveAttribute('data-hero', 'lyra');
+  await talent(lyra3.id).click();
+  await page.getByTestId('bonds-tab-lyra').press('ArrowRight');
+  await expect(pageOf).toHaveAttribute('data-hero', 'vexis');
+  await page.getByTestId('solo-alt').click();
+  await expect(page.getByTestId('solo-choice')).toHaveAttribute('data-chosen', 'alt');
+
+  let b = await bonds();
+  expect(b.heroes.kael!.talents).toEqual([kael1.id, kael2.id, null]);
+  expect(b.heroes.lyra!.talents).toEqual([null, null, lyra3.id]);
+  expect(b.heroes.vexis!.solo).toBe('alt');
+
+  // Back to Prep (Esc): the row and the run in Prep follow the profile.
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('prep-bonds')).toBeVisible();
+  await expect(page.getByTestId('prep-bond-kael')).toHaveAttribute(
+    'data-talents',
+    `${kael1.id} ${kael2.id}`,
+  );
+  await expect(page.getByTestId('prep-bond-vexis')).toHaveAttribute('data-solo', sphere.id);
+  await expect(page.getByTestId('prep-solo-vexis')).toContainText(sphere.name);
+  b = await bonds();
+  expect(b.run!.bonds).toEqual([
+    { heroId: 'kael', talents: [kael1.id, kael2.id], solo: null },
+    { heroId: 'lyra', talents: [lyra3.id], solo: null },
+    { heroId: 'vexis', talents: [], solo: sphere.id },
+  ]);
+
+  // Embark: the fight's config carries them; the HUD names Vexis's Solo.
+  await page
+    .getByRole('button', { name: /Embark/i })
+    .first()
+    .click();
+  await expect.poll(phase).toBe('map');
+  expect(await page.evaluate(() => window.__AWRUN__!.choose())).toBe('skirmish');
+  await expect.poll(phase).toBe('combat');
+  await page.waitForFunction(() => window.__AW__ !== undefined);
+  const config = await page.evaluate(() => window.__AW__!.exportReplay().config);
+  expect(config.bonds).toEqual({ talents, solos: [sphere.id] });
+  await expect(page.getByTestId('frame-tip-vexis')).toHaveAttribute('data-solo', sphere.id);
+  await expect(page.getByTestId('frame-tip-vexis')).toContainText(sphere.name);
+  await expect(page.getByTestId('frame-tip-kael')).toHaveAttribute(
+    'data-talents',
+    `${kael1.id} ${kael2.id}`,
+  );
+
+  // Win it: the Result shows each hero's Bond XP, as the profile holds it.
+  expect(await page.evaluate(() => window.__AWRUN__!.winFight())).toBe(true);
+  await expect.poll(phase).toBe('result');
+  b = await bonds();
+  for (const h of ['kael', 'lyra', 'vexis'])
+    await expect(page.getByTestId(`bond-xp-${h}`)).toHaveAttribute(
+      'data-xp',
+      String(b.heroes[h]!.xp),
+    );
+  await page.evaluate(() => window.__AWRUN__!.continue());
+  await expect.poll(phase).toBe('draft');
+  await page.evaluate(() => window.__AWRUN__!.pick(0));
+  await expect.poll(phase).toBe('map');
+
+  // Kael reaches his first scene's rank; a Respite offers it as a fourth choice.
+  const scene = CONTENT.scenes
+    .filter((sc) => sc.hero === 'kael')
+    .sort((x, y) => x.rank - y.rank)[0]!;
+  const seeded = CONTENT.bondRules.ranks[scene.rank - 1]!;
+  await page.evaluate((xp) => window.__AWRUN__!.seedBonds({ kael: xp }), seeded);
+  expect(await page.evaluate(() => window.__AWRUN__!.warp('respite'))).toBe('respite');
+  expect(await page.evaluate(() => window.__AWRUN__!.scenesWaiting())).toEqual([scene.id]);
+  const choice = page.getByTestId(`respite-scene-${scene.id}`);
+  await expect(choice).toBeVisible();
+  await expect(choice).toHaveAttribute('data-xp', String(sceneXp(scene)));
+
+  // Past the arrival guard: 4 sits with Kael; 1 replies; Enter goes on, to the map.
+  await page.waitForTimeout(700);
+  await page.keyboard.press('4');
+  await expect.poll(phase).toBe('scene');
+  await expect(page.getByTestId('scene')).toHaveAttribute('data-scene', scene.id);
+  await page.waitForTimeout(700);
+  await page.keyboard.press('1');
+  await expect(page.getByTestId('scene-response')).toContainText(scene.replies[0]!.response);
+  await expect(page.getByTestId('scene-xp')).toContainText(String(sceneXp(scene)));
+  await page.keyboard.press('Enter');
+  await expect.poll(phase).toBe('map');
+
+  // The scene is seen with that reply, and paid its Bond XP.
+  b = await bonds();
+  expect(b.heroes.kael!.seen).toEqual({ [scene.id]: 0 });
+  expect(b.heroes.kael!.xp).toBe(seeded + sceneXp(scene));
+  expect(b.run!.scene).toBeNull();
   expect(errors).toEqual([]);
 });

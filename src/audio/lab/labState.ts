@@ -30,8 +30,23 @@ interface FakeEntity {
     shields: FakeShield[];
   };
   weaver?: { resonance: number; threadTension: number; crescendo: number };
-  /** `afterglowUntil` (Phase 4): Empower lingers on this hero until this sim time. */
-  hero?: { defId: string; slot: number; solo: number; soloActive: number; afterglowUntil: number };
+  /**
+   * `afterglowUntil` (Phase 4): Empower lingers on this hero until this sim time. Phase 4e
+   * (Bonds): the Solo they bring and whether it was cued, and a Celestial Sphere's hits.
+   */
+  hero?: {
+    defId: string;
+    slot: number;
+    solo: number;
+    soloActive: number;
+    afterglowUntil: number;
+    soloId: string;
+    soloCued: boolean;
+    talents: string[];
+    sphereHits: number;
+    sphereUntil: number;
+    sphereCued: boolean;
+  };
   enemy?: {
     role: string;
     tier: string;
@@ -131,7 +146,19 @@ export class FakeWorld {
         x: (slot - 1) * 3,
         z: -3,
         health: health(1000, 1000),
-        hero: { defId, slot, solo: 0, soloActive: 0, afterglowUntil: 0 },
+        hero: {
+          defId,
+          slot,
+          solo: 0,
+          soloActive: 0,
+          afterglowUntil: 0,
+          soloId: '',
+          soloCued: false,
+          talents: [],
+          sphereHits: 0,
+          sphereUntil: 0,
+          sphereCued: false,
+        },
       });
     });
     // eslint-disable-next-line @typescript-eslint/no-this-alias
@@ -367,6 +394,33 @@ export class FakeWorld {
   setAfterglow(hero: HeroKey, seconds: number): void {
     const h = this.entities.get(IDS[hero])?.hero;
     if (h) h.afterglowUntil = seconds > 0 ? this.time + seconds : 0;
+  }
+  /**
+   * Phase 4e, Bonds: a hero's alternate Solo under way (`soloId`), cued or not; `null` for none.
+   * Hawk's Vigil's shots read whether it was cued (its mark).
+   */
+  setAltSolo(hero: HeroKey, solo: string | null, cued = false): void {
+    const h = this.entities.get(IDS[hero])?.hero;
+    if (!h) return;
+    h.soloId = solo ?? '';
+    h.soloActive = solo ? 5 : 0;
+    h.soloCued = cued;
+  }
+  /** Phase 4e: a hero's Celestial Sphere, `hits` left for `seconds` (0: none). */
+  setSphere(hero: HeroKey, hits: number, seconds = 5, cued = false): void {
+    const h = this.entities.get(IDS[hero])?.hero;
+    if (!h) return;
+    h.sphereHits = hits;
+    h.sphereUntil = hits > 0 ? this.time + seconds : 0;
+    h.sphereCued = cued;
+  }
+  /** Moves a hero (Shieldbearer counts the heroes beside Kael). */
+  moveHero(hero: HeroKey, x: number, z: number): void {
+    const h = this.entities.get(IDS[hero]);
+    if (h) {
+      h.x = x;
+      h.z = z;
+    }
   }
   setDowned(hero: HeroKey, down: boolean): void {
     const h = this.entities.get(IDS[hero]);
