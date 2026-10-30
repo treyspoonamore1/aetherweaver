@@ -10,6 +10,7 @@ import { astrolabePoints, pruneTree } from './astrolabe';
 import { FIGHT_AETHER, RELIC_OFFERS } from './economy';
 import { fieldAuraSlots, reserveMult, reservePool, withCarried } from './run';
 import { MAX_RANK, newProfile, PROFILE_VERSION, type Profile } from './profile';
+import { bondedHeroes, fitBond } from './bonds';
 import { fitLevels } from './dissonance';
 import { emptyReliquary, fitRelic, fitReliquary, type ReliquaryRelic } from './reliquary';
 import { RUN_SAVE_VERSION, type RunState } from './types';
@@ -42,6 +43,14 @@ const LevelsSchema = z
       return parsed.success ? [parsed.data] : [];
     }),
   );
+
+/** A hero's Bond (docs/phase-4e.md), field by field: what doesn't parse starts over. */
+const BondSchema = z.object({
+  xp: Num.catch(0),
+  talents: z.array(Str.nullable()).catch([null, null, null]),
+  solo: z.enum(['default', 'alt']).catch('default'),
+  seen: z.record(Str, Num).catch({}),
+});
 
 /** The Deeds this build knows: a save's others (renamed or removed) are forgotten on load. */
 const DEED_IDS: ReadonlySet<string> = new Set(CONTENT.deeds.map((d) => d.id));
@@ -238,6 +247,8 @@ const ResultSchema = z.object({
     }),
   ),
   withoutYou: WithoutYouSchema.nullable(),
+  // Bonds (docs/phase-4e.md): results from before them paid none.
+  bondXp: z.record(Str, Num).catch({}).default({}),
 });
 
 const ChordSchema = z.object({ auras: z.array(Str), ornaments: z.array(Str) });
@@ -294,6 +305,7 @@ export const RunStateSchema = z.object({
     'relic',
     'draft',
     'respite',
+    'scene',
     'merchant',
     'forge',
     'event',
@@ -363,6 +375,12 @@ export const RunStateSchema = z.object({
   // Dissonance (docs/phase-4d.md): saves from before it play without.
   dissonance: LevelsSchema.default([]),
   dissonanceEnd: z.object({ opened: z.boolean(), best: z.boolean() }).nullable().default(null),
+  // Bonds (docs/phase-4e.md): saves from before them play without.
+  bonds: z
+    .array(z.object({ heroId: Str, talents: z.array(Str), solo: Str.nullable() }))
+    .catch([])
+    .default([]),
+  scene: z.object({ heroId: Str, sceneId: Str }).nullable().catch(null).default(null),
 });
 
 /** Motif ids renamed since older saves were written. */
@@ -621,6 +639,19 @@ export const ProfileSchema = z.object({
   deeds: z.array(Str),
   // A Reliquary that doesn't parse at all is lost, not the whole profile.
   reliquary: ReliquarySchema.catch(() => emptyReliquary()),
+  // Bonds (docs/phase-4e.md): a hero's Bond that doesn't parse is reset, not the others.
+  bonds: z
+    .record(Str, z.unknown())
+    .catch({})
+    .default({})
+    .transform((all) =>
+      Object.fromEntries(
+        Object.entries(all).flatMap(([hero, b]) => {
+          const parsed = BondSchema.safeParse(b);
+          return parsed.success ? [[hero, parsed.data]] : [];
+        }),
+      ),
+    ),
   // Dissonance (docs/phase-4d.md): a field that doesn't parse is reset, not the rest of it.
   dissonance: z
     .object({
@@ -644,7 +675,8 @@ export const ProfileSchema = z.object({
 
 /**
  * v1 → v2: the Astrolabe (docs/phase-4.md), an empty tree. v2 → v3: Deeds (docs/phase-4b.md),
- * none earned yet. v3 → v4: the Reliquary (docs/phase-4c.md), empty.
+ * none earned yet. v3 → v4: the Reliquary (docs/phase-4c.md), empty. v4 → v5: Dissonance
+ * (docs/phase-4d.md), closed. v5 → v6: Bonds (docs/phase-4e.md), none yet.
  */
 export function migrateProfileJson(raw: unknown, seed = 1): unknown {
   let p = raw;
@@ -653,6 +685,7 @@ export function migrateProfileJson(raw: unknown, seed = 1): unknown {
   if (isObj(p) && p.version === 3) p = { ...p, version: 4, reliquary: emptyReliquary(seed) };
   if (isObj(p) && p.version === 4)
     p = { ...p, version: 5, dissonance: { open: false, levels: [], best: {} } };
+  if (isObj(p) && p.version === 5) p = { ...p, version: 6, bonds: {} };
   return p;
 }
 
@@ -681,6 +714,13 @@ export function loadProfile(store: KeyValueStore, seed = 1): Profile {
         );
         // Relics, Inscriptions and curses no longer in the content are left behind.
         profile.reliquary = fitReliquary(profile.reliquary);
+        // Bonds: heroes, talents and scenes the content knows. Choices stay above a hero's
+        // rank (Skip the unlocks may have made them): Prep and embark fit them to it.
+        profile.bonds = Object.fromEntries(
+          Object.entries(profile.bonds)
+            .filter(([hero]) => bondedHeroes().includes(hero))
+            .map(([hero, bond]) => [hero, fitBond(hero, bond)]),
+        );
         // Dissonance: levels the content knows, and bests that are counts.
         const d = profile.dissonance;
         profile.dissonance = {

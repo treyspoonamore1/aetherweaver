@@ -14,6 +14,7 @@ import { PrepScreen } from './PrepScreen';
 import { ResultScreen } from './ResultScreen';
 import { RelicScreen } from './RelicScreen';
 import { RespiteScreen } from './RespiteScreen';
+import { SceneScreen } from './SceneScreen';
 import { SummaryScreen } from './SummaryScreen';
 
 // The 3D view (three.js) loads only when a fight starts.
@@ -132,6 +133,8 @@ function screenFor(run: RunState): ReactNode {
       return <DraftScreen />;
     case 'respite':
       return <RespiteScreen />;
+    case 'scene':
+      return <SceneScreen />;
     case 'summary':
       return <SummaryScreen />;
     case 'relic':

@@ -26,6 +26,7 @@ import {
   type DissonanceChoice,
 } from './dissonance';
 import { empowered, relicPassives, snapshotRelic, type ReliquaryRelic } from './reliquary';
+import { bondXpForFight, bondsConfig, type RunBond } from './bonds';
 import {
   canonicalChords,
   chordProblems,
@@ -477,6 +478,8 @@ export function newRun(
   carried: readonly ReliquaryRelic[] = [],
   /** The Dissonance it plays at (docs/phase-4d.md). */
   dissonance: readonly DissonanceChoice[] = [],
+  /** Its heroes' talents and Solos (docs/phase-4e.md). */
+  bonds: readonly RunBond[] = [],
 ): RunState {
   const kept = carried.map(snapshotRelic);
   const run: RunState = {
@@ -510,6 +513,8 @@ export function newRun(
     reliquary: null,
     dissonance: fitLevels(dissonance),
     dissonanceEnd: null,
+    bonds: bonds.map(copyBond),
+    scene: null,
   };
   return chordsLegal(chords, undefined, reservePool(run), reserveMult(run))
     ? { ...run, chords: canonicalChords(chords) }
@@ -566,6 +571,38 @@ export function playedDissonance(
  */
 export function enshrineOptions(run: RunState): OwnedRelic[] {
   return run.outcome === 'victory' ? run.relics.filter((r) => !r.carried && !r.pact) : [];
+}
+
+/** A run's Bond choices, copied. */
+function copyBond(b: RunBond): RunBond {
+  return { heroId: b.heroId, talents: [...b.talents], solo: b.solo };
+}
+
+/**
+ * Prep: the heroes' talents and Solos (docs/phase-4e.md); the run follows the profile's
+ * choices, fitted to each hero's Bond rank, until it embarks.
+ */
+export function setBonds(run: RunState, bonds: readonly RunBond[]): RunState {
+  if (run.phase !== 'prep') return run;
+  const next = bonds.map(copyBond);
+  return JSON.stringify(next) === JSON.stringify(run.bonds) ? run : { ...run, bonds: next };
+}
+
+/**
+ * A Respite's fourth choice (docs/phase-4e.md): a Bond scene with a hero in the party, instead of
+ * resting, meditating or retuning. The run store checks it's waiting for them.
+ */
+export function bondScene(run: RunState, sceneId: string): RunState {
+  if (run.phase !== 'respite') return run;
+  const def = CONTENT.scenes.find((s) => s.id === sceneId);
+  if (!def || !run.party.some((h) => h.heroId === def.hero)) return run;
+  return { ...run, phase: 'scene', scene: { heroId: def.hero, sceneId } };
+}
+
+/** The scene is over: on to the map. */
+export function endScene(run: RunState): RunState {
+  if (run.phase !== 'scene') return run;
+  return toMap({ ...run, scene: null });
 }
 
 /** Prep: the Dissonance to play at (docs/phase-4d.md); the run follows the profile's choice. */
@@ -764,6 +801,8 @@ export function combatConfig(run: RunState, assists?: SimConfig['assists']): Sim
     passives: carriedPassives(run),
     // Dissonance (docs/phase-4d.md): the levels it plays at.
     dissonance: run.dissonance.map((l) => ({ ...l })),
+    // Bonds (docs/phase-4e.md): its heroes' talents and Solos.
+    bonds: bondsConfig(run.bonds),
     // The node's own Threat: maps saved before Threat existed keep ×1.
     threat: node.reward.threat,
     ...(assists ? { assists } : {}),
@@ -1579,6 +1618,8 @@ export function summarize(
       amplified: Math.round(p.amplified),
     })),
     withoutYou: outcome.withoutYou ? { ...outcome.withoutYou } : null,
+    // Bonds (docs/phase-4e.md): what the fight paid each hero.
+    bondXp: bondXpForFight(outcome, def.kind),
   };
 }
 

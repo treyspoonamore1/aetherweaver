@@ -6,13 +6,14 @@
  *
  * Settings → "Skip the unlocks" gives everything at once (`EVERYTHING`).
  */
+import type { Bond } from './bonds';
 import { CONTENT } from '../content';
 import { canonicalChords, type ChordLoadout } from '../sim';
 import type { DissonanceChoice } from './dissonance';
 import { emptyReliquary, type Reliquary } from './reliquary';
 import type { EncounterResult, Grade } from './types';
 
-export const PROFILE_VERSION = 5;
+export const PROFILE_VERSION = 6;
 
 export interface Profile {
   version: typeof PROFILE_VERSION;
@@ -37,6 +38,8 @@ export interface Profile {
   reliquary: Reliquary;
   /** Dissonance (docs/phase-4d.md). */
   dissonance: ProfileDissonance;
+  /** Bonds (docs/phase-4e.md): each hero's Bond XP, choices and scenes seen, by hero id. */
+  bonds: Record<string, Bond>;
 }
 
 /** Dissonance in the profile (docs/phase-4d.md). */
@@ -63,6 +66,7 @@ export function newProfile(seed = 1): Profile {
     deedBest: {},
     reliquary: emptyReliquary(seed),
     dissonance: { open: false, levels: [], best: {} },
+    bonds: {},
   };
 }
 

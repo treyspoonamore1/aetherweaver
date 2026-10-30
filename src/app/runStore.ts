@@ -12,7 +12,9 @@ import {
   type EnshrineResult,
   type ReliquaryRelic,
 } from '../meta/reliquary';
+import { sceneWaiting, type RunBond } from '../meta/bonds';
 import { dissonancePoints, type DissonanceChoice } from '../meta/dissonance';
+import { CONTENT, type SceneDef } from '../content';
 import * as Run from '../meta/run';
 import { loadRun, saveRun } from '../meta/save';
 import type { CombatOutcome, RunActions, RunState } from '../meta/types';
@@ -35,6 +37,14 @@ export interface RunStore extends RunActions {
   enshrine(relicId: string): EnshrineResult;
   /** A run in Prep follows the profile's Dissonance (docs/phase-4d.md). */
   followDissonance(): void;
+  /** A run in Prep follows the profile's Bond choices (docs/phase-4e.md). */
+  followBonds(): void;
+  /** At a Respite: the Bond scenes waiting for the party's heroes, one per hero. */
+  scenesWaiting(): SceneDef[];
+  /** A Respite's fourth choice: a waiting Bond scene, instead of resting. */
+  bondScene(sceneId: string): void;
+  /** The scene is over, with this reply: it's seen, pays its Bond XP, and the run goes on. */
+  endScene(reply: number): void;
 }
 
 /** The profile's tree as a run may hold it: within the points the Rank (or the settings) give. */
@@ -47,6 +57,11 @@ function profileTree(): string[] {
 function profileCarry(): ReliquaryRelic[] {
   const profile = useProfile.getState();
   return carriedRelics(profile.profile.reliquary, profile.carrySlots());
+}
+
+/** What the run's heroes play with, from the profile's Bonds (docs/phase-4e.md). */
+function profileBonds(heroes: readonly string[]): RunBond[] {
+  return useProfile.getState().runBonds(heroes);
 }
 
 /** The Dissonance the profile plays new runs at, if it's open (docs/phase-4d.md). */
@@ -127,6 +142,32 @@ export const useRun = create<RunStore>()((set, get) => {
       ),
     followReliquary: () => apply((run) => Run.setCarried(run, profileCarry())),
     followDissonance: () => apply((run) => Run.setDissonance(run, profileDissonance())),
+    followBonds: () =>
+      apply((run) => Run.setBonds(run, profileBonds(run.party.map((h) => h.heroId)))),
+    scenesWaiting: () => {
+      const run = get().run;
+      if (!run || run.phase !== 'respite') return [];
+      const bonds = useProfile.getState().profile.bonds;
+      return run.party.flatMap((h) => {
+        const scene = sceneWaiting(h.heroId, bonds[h.heroId]);
+        return scene ? [scene] : [];
+      });
+    },
+    bondScene: (sceneId) => {
+      if (
+        !get()
+          .scenesWaiting()
+          .some((s) => s.id === sceneId)
+      )
+        return;
+      apply((run) => Run.bondScene(run, sceneId));
+    },
+    endScene: (reply) => {
+      const scene = get().run?.scene;
+      if (!scene || get().run?.phase !== 'scene') return;
+      apply(Run.endScene);
+      useProfile.getState().seeScene(scene.sceneId, reply);
+    },
     enshrine: (relicId) => {
       const run = get().run;
       if (!run || run.phase !== 'summary' || run.outcome !== 'victory')
@@ -171,6 +212,7 @@ export const useRun = create<RunStore>()((set, get) => {
         profileTree(),
         profileCarry(),
         profileDissonance(),
+        profileBonds(CONTENT.defaultParty),
       );
       if (last.length > 0) run = Run.setChords(run, last, profile.allowance());
       saveRun(storage(), run);
@@ -184,9 +226,10 @@ export const useRun = create<RunStore>()((set, get) => {
       // Chords or a Calling picked while "Skip the unlocks" was on don't outlive turning it off.
       // The tree and the relics it embarks with are the run's to keep (within the points and
       // the carry slots the Rank gives).
+      // Its heroes' Bond choices too, as their ranks (or the settings) open them now.
       apply((run) =>
         Run.embark(
-          run,
+          Run.setBonds(run, profileBonds(run.party.map((h) => h.heroId))),
           profile.allowance(),
           profile.astrolabePoints(),
           profile.carrySlots(),
@@ -208,6 +251,8 @@ export const useRun = create<RunStore>()((set, get) => {
       const after = get().run;
       if (after && after !== before && after.lastResult) {
         useProfile.getState().award(after.lastResult.xp);
+        // Bonds (docs/phase-4e.md): each hero's Bond XP from the fight.
+        useProfile.getState().awardBonds(after.lastResult.bondXp);
         recordDeeds();
       }
     },
@@ -264,6 +309,7 @@ useSettings.subscribe((state, prev) => {
     useRun.getState().followAstrolabe(useProfile.getState().profile.astrolabe);
     useRun.getState().followReliquary();
     useRun.getState().followDissonance();
+    useRun.getState().followBonds();
   }
 });
 // So does its carry (docs/phase-4c.md): a relic chosen, crafted or released, or a slot opened.
@@ -274,6 +320,10 @@ useProfile.subscribe((state, prev) => {
 // And its Dissonance (docs/phase-4d.md): a level chosen, or Dissonance opened.
 useProfile.subscribe((state, prev) => {
   if (state.profile.dissonance !== prev.profile.dissonance) useRun.getState().followDissonance();
+});
+// And its heroes' Bonds (docs/phase-4e.md): a talent or Solo chosen, or a rank reached.
+useProfile.subscribe((state, prev) => {
+  if (state.profile.bonds !== prev.profile.bonds) useRun.getState().followBonds();
 });
 
 if (typeof window !== 'undefined') {

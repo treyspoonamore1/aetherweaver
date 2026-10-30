@@ -13,6 +13,7 @@ import type {
   SimConfig,
   WithoutYou,
 } from '../sim';
+import type { RunBond } from './bonds';
 import type { DissonanceChoice } from './dissonance';
 import type { ReliquaryRelic } from './reliquary';
 
@@ -337,6 +338,8 @@ export interface EncounterResult {
   }[];
   /** The same fight replayed with the Weaver absent (null if it couldn't be computed). */
   withoutYou: WithoutYou | null;
+  /** Bond XP this fight paid each hero (docs/phase-4e.md); none for results from before. */
+  bondXp: Record<string, number>;
 }
 
 /** What the combat runtime hands back when an encounter ends (plain data). */
@@ -355,6 +358,8 @@ export interface CombatOutcome {
     dead: boolean;
     damage: number;
     amplified: number;
+    /** Your healing, shields and saves on them (Bond XP, docs/phase-4e.md). */
+    supported?: number;
   }[];
   /** The "without you" re-run of this fight, if it finished in time. */
   withoutYou: WithoutYou | null;
@@ -371,6 +376,8 @@ export type RunPhase =
   | 'relic'
   | 'draft'
   | 'respite'
+  /** A Bond scene at a Respite (docs/phase-4e.md). */
+  | 'scene'
   | 'merchant'
   | 'forge'
   | 'event'
@@ -437,6 +444,13 @@ export interface RunState {
   dissonance: DissonanceChoice[];
   /** What its end did for Dissonance: opened it, or set a new best. Null until then. */
   dissonanceEnd: { opened: boolean; best: boolean } | null;
+  /**
+   * Bonds (docs/phase-4e.md): the talents and Solos its heroes play with, chosen in Prep
+   * (following the profile) and frozen at embark. None for runs saved before.
+   */
+  bonds: RunBond[];
+  /** The Bond scene being played at a Respite. */
+  scene: { heroId: string; sceneId: string } | null;
 }
 
 /** Everything the run screens can do. Implemented by app/runStore.ts. */

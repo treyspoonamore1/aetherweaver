@@ -25,6 +25,8 @@ export function buildOutcome(
         dead: h?.dead ?? false,
         damage: e?.hero?.damageDealt ?? 0,
         amplified: e?.hero?.damageAmplified ?? 0,
+        // Bonds (docs/phase-4e.md): your healing, shields and saves on them.
+        supported: e?.hero?.supportReceived ?? 0,
       };
     }),
     withoutYou,

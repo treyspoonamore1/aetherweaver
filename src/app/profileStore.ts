@@ -38,6 +38,19 @@ import {
   type DissonanceChoice,
 } from '../meta/dissonance';
 import { chordsToRemember } from '../meta/run';
+import {
+  addBondXp,
+  altSoloOf,
+  bondRank,
+  bondedHeroes,
+  emptyBond,
+  runBonds,
+  sceneXp,
+  soloRank,
+  talentChoices,
+  tierRank,
+  type RunBond,
+} from '../meta/bonds';
 import { loadProfile, saveProfile } from '../meta/save';
 import type { RunState } from '../meta/types';
 import { CONTENT, type InscriptionCategory } from '../content';
@@ -51,8 +64,16 @@ export interface RankUp {
   unlocks: Unlock[];
 }
 
+/** A hero's Bond rank-up (docs/phase-4e.md), for its card. */
+export interface BondRankUp {
+  heroId: string;
+  rank: number;
+}
+
 export interface ProfileStore {
   profile: Profile;
+  /** Bond rank-ups not shown yet: the result or summary screen shows them, then dismisses them. */
+  bondNotices: BondRankUp[];
   /** Rank-ups not shown yet: the result or summary screen shows them, then `dismissRankUps`. */
   rankUps: RankUp[];
   /** Deeds earned and not shown yet (docs/phase-4b.md): a toast shows them, then `dismissDeeds`. */
@@ -106,6 +127,19 @@ export interface ProfileStore {
   setDissonance(levels: readonly DissonanceChoice[]): void;
   /** A run ended: a win opens Dissonance at its Rank, and may set a new best. */
   recordDissonance(run: RunState): { opened: boolean; best: boolean };
+  /** Bonds (docs/phase-4e.md): every talent and Solo can be chosen (Skip the unlocks). */
+  bondsAll(): boolean;
+  /** What a run's heroes play with: the profile's choices their Bond ranks open. */
+  runBonds(heroes: readonly string[]): RunBond[];
+  /** Adds Bond XP (the run store, as each fight finishes); notes the ranks reached. */
+  awardBonds(xpByHero: Readonly<Record<string, number>>): void;
+  dismissBondNotices(): void;
+  /** A hero's talent in a tier (1–3), or none; only one their rank opens (or Skip the unlocks). */
+  setTalent(heroId: string, tier: number, talentId: string | null): void;
+  /** Which Solo a hero brings, once their rank opens the alternate (or Skip the unlocks). */
+  setSolo(heroId: string, solo: 'default' | 'alt'): void;
+  /** A Bond scene was played, with this reply: it's seen, and pays its Bond XP. */
+  seeScene(sceneId: string, reply: number): void;
 }
 
 /**
@@ -125,6 +159,7 @@ export const useProfile = create<ProfileStore>()((set, get) => {
     profile: loadProfile(storage(), freshSeed()),
     rankUps: [],
     deedNotices: [],
+    bondNotices: [],
     allowance: () =>
       useSettings.getState().settings.unlockAll
         ? EVERYTHING
@@ -193,7 +228,47 @@ export const useProfile = create<ProfileStore>()((set, get) => {
       const p = get().profile;
       commit({ ...p, runs: p.runs + 1, wins: p.wins + (won ? 1 : 0) });
     },
-    resetProgress: () => commit(newProfile(freshSeed()), { rankUps: [], deedNotices: [] }),
+    resetProgress: () =>
+      commit(newProfile(freshSeed()), { rankUps: [], deedNotices: [], bondNotices: [] }),
+    bondsAll: () => useSettings.getState().settings.unlockAll,
+    runBonds: (heroes) => runBonds(get().profile.bonds, heroes, get().bondsAll()),
+    awardBonds: (xpByHero) => {
+      const profile = get().profile;
+      const { bonds, rankUps } = addBondXp(profile.bonds, xpByHero);
+      if (JSON.stringify(bonds) === JSON.stringify(profile.bonds)) return;
+      commit({ ...profile, bonds }, { bondNotices: [...get().bondNotices, ...rankUps] });
+    },
+    dismissBondNotices: () => set({ bondNotices: [] }),
+    setTalent: (heroId, tier, talentId) => {
+      const profile = get().profile;
+      if (!bondedHeroes().includes(heroId) || tier < 1 || tier > 3) return;
+      const bond = profile.bonds[heroId] ?? emptyBond();
+      if (talentId !== null) {
+        if (!talentChoices(heroId, tier).some((t) => t.id === talentId)) return;
+        if (!get().bondsAll() && bondRank(bond.xp) < tierRank(tier)) return;
+      }
+      if ((bond.talents[tier - 1] ?? null) === talentId) return;
+      const talents = [0, 1, 2].map((i) => (i === tier - 1 ? talentId : (bond.talents[i] ?? null)));
+      commit({ ...profile, bonds: { ...profile.bonds, [heroId]: { ...bond, talents } } });
+    },
+    setSolo: (heroId, solo) => {
+      const profile = get().profile;
+      if (!altSoloOf(heroId)) return;
+      const bond = profile.bonds[heroId] ?? emptyBond();
+      if (solo === 'alt' && !get().bondsAll() && bondRank(bond.xp) < soloRank()) return;
+      if (bond.solo === solo) return;
+      commit({ ...profile, bonds: { ...profile.bonds, [heroId]: { ...bond, solo } } });
+    },
+    seeScene: (sceneId, reply) => {
+      const scene = CONTENT.scenes.find((s) => s.id === sceneId);
+      if (!scene) return;
+      const profile = get().profile;
+      const bond = profile.bonds[scene.hero] ?? emptyBond();
+      if (sceneId in bond.seen) return;
+      const seen = { ...bond.seen, [sceneId]: reply === 1 ? 1 : 0 };
+      commit({ ...profile, bonds: { ...profile.bonds, [scene.hero]: { ...bond, seen } } });
+      get().awardBonds({ [scene.hero]: sceneXp(scene) });
+    },
     reliquaryOpen: () =>
       reliquaryOpen(rankOf(get().profile.xp), useSettings.getState().settings.unlockAll),
     carrySlots: () =>

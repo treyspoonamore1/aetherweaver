@@ -58,6 +58,7 @@ function fight(
     markers: [],
     heroes: [],
     withoutYou: null,
+    bondXp: {},
     ...over,
   };
 }

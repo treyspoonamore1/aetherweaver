@@ -29,6 +29,7 @@ import type { ActiveBoon, ChordLoadout, ForgeService } from '../../meta/types';
 import { MapView } from '../screens/MapScreen';
 import { PrepView } from '../screens/PrepScreen';
 import { RespiteView } from '../screens/RespiteScreen';
+import { SceneView } from '../screens/SceneScreen';
 import { ResultView } from '../screens/ResultScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
 import { SummaryView } from '../screens/SummaryScreen';
@@ -262,6 +263,8 @@ function Flow() {
           onRetune={(c) => set((r) => Run.retune(r, c))}
         />
       );
+    case 'scene':
+      return <SceneView run={run} onEnd={() => set(Run.endScene)} />;
     case 'summary':
       return (
         <SummaryView

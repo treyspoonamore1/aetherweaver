@@ -7,6 +7,7 @@ import * as Run from '../src/meta/run';
 import type { ChordLoadout, RunState } from '../src/meta/types';
 import { weaverShare } from '../src/meta/run';
 import { chordReserve, createSim, type SimConfig } from '../src/sim';
+import type { RunBond } from '../src/meta/bonds';
 
 export interface EncounterRun {
   encounter: string;
@@ -97,6 +98,8 @@ export interface RunSummary {
   /** Aether earned over the run, and what was left at the end. */
   aetherEarned: number;
   aetherLeft: number;
+  /** Bond XP the run's fights paid each hero (docs/phase-4e.md). */
+  bondXp: Record<string, number>;
 }
 
 /**
@@ -199,6 +202,8 @@ export function playRun(
     carried?: readonly ReliquaryRelic[];
     /** The Dissonance the run plays at (docs/phase-4d.md). */
     dissonance?: readonly { id: string; rank: number }[];
+    /** Its heroes' talents and Solos (docs/phase-4e.md). */
+    bonds?: readonly RunBond[];
     /** Calibration: every fight's enemies have this much more life (1.15: 15% more). */
     threatMult?: number;
     /** Called with the finished run (the Deeds report reads it). */
@@ -215,6 +220,7 @@ export function playRun(
           opts.astrolabe ?? [],
           opts.carried ?? [],
           opts.dissonance ?? [],
+          opts.bonds ?? [],
         ),
         chords,
       ),
@@ -306,5 +312,9 @@ export function playRun(
     path: run.calling?.path.filter((p): p is string => p !== null) ?? [],
     aetherEarned: run.results.reduce((s, r) => s + r.aether, 0),
     aetherLeft: run.aether,
+    bondXp: run.results.reduce<Record<string, number>>((all, r) => {
+      for (const [hero, xp] of Object.entries(r.bondXp ?? {})) all[hero] = (all[hero] ?? 0) + xp;
+      return all;
+    }, {}),
   };
 }
