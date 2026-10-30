@@ -4,7 +4,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { CONTENT, altSoloDef, heroDef, talentDef } from '../../src/content';
-import type { SimConfig } from '../../src/sim';
+import type { SimConfig, SimEvent } from '../../src/sim';
 import { addShield, addStatus, dealDamage, heal } from '../../src/sim/combat/health';
 import { KNOWN_ALT_SOLOS, KNOWN_TALENTS } from '../../src/sim/bonds';
 import { resolveConfig } from '../../src/sim/world';
@@ -129,16 +129,42 @@ describe('Kael', () => {
     kael.hero!.abilityCooldowns = [99, 99];
     stepUntil(sim, () => sim.state.time >= t.perfectFrom + 0.05);
     stepFor(sim, 1, [{ t: 'tech', id: 'ward', slot: KAEL }]);
+    const brute = [...w.entities.list()].find((e) => e.enemy)!;
+    const life = brute.health!.hp;
     const events = stepUntil(sim, (ev) => ev.some((e) => e.type === 'perfectWard'), 300);
     expect(ofType(events, 'talentFired').map((e) => e.talent)).toContain('riposte_bash');
     expect(ofType(events, 'abilityUsed').some((e) => e.ability === 'shieldBash')).toBe(true);
     expect(kael.hero!.abilityCooldowns[0]).toBeGreaterThan(90);
+    // The blow comes back: a share of it, on top of the bash.
+    const back = ofType(events, 'damageTaken').filter(
+      (e) => e.target === brute.id && e.source === kael.id,
+    );
+    expect(back.length).toBeGreaterThanOrEqual(2);
+    expect(life - brute.health!.hp).toBeGreaterThan(heroDef('kael').abilities[0].damage);
     // Out of reach: nothing.
-    const brute = [...w.entities.list()].find((e) => e.enemy)!;
     brute.x = kael.x + 30;
     const before = ofType(stepFor(sim, 0), 'talentFired').length;
-    riposteBash(w, kael, brute);
+    riposteBash(w, kael, brute, 100);
     expect(ofType(stepFor(sim, 1), 'talentFired').length).toBe(before);
+  });
+
+  it('Riposte Bash: a Ward on Kael that takes a blow answers it too, once in a while', () => {
+    const { sim, w, of } = setup(bonds(['riposte_bash']));
+    const kael = of(KAEL);
+    const [brute] = enemies(sim, ['bell_brute', kael.x, kael.z - 2]);
+    brute!.health!.hp = brute!.health!.maxHp = 1e6;
+    kael.hero!.abilityCooldowns = [99, 99];
+    const riposte = () => {
+      addShield(w, kael, 'ward', 500, 5, true);
+      hit(w, kael, 100, brute!);
+      return ofType(stepFor(sim, 1), 'talentFired').filter((e) => e.talent === 'riposte_bash');
+    };
+    expect(riposte()).toHaveLength(1);
+    expect(brute!.health!.hp).toBeLessThan(1e6);
+    // Not again until it's ready.
+    expect(riposte()).toHaveLength(0);
+    stepFor(sim, 60 * v('riposte_bash', 'seconds'));
+    expect(riposte()).toHaveLength(1);
   });
 
   it('Bulwark of Faith: Kael is healed more while you Thread him', () => {
@@ -188,6 +214,40 @@ describe('Kael', () => {
   });
 });
 
+describe('Kael steps in', () => {
+  it('with Shieldbearer, his Aegis Wall goes up for a hero falling beside him', () => {
+    const { sim, of } = setup(bonds(['shieldbearer']));
+    enemies(sim, ['bell_brute', 0, -20]);
+    const kael = of(KAEL);
+    const lyra = of(LYRA);
+    stepFor(sim, 1, [{ t: 'debug', op: { op: 'chargeSolos' } }]);
+    const raised = (events: SimEvent[]) =>
+      ofType(events, 'soloStarted').find((e) => e.hero === kael.id && !e.cued);
+    // Far from him, she's on her own.
+    lyra.x = kael.x + v('shieldbearer', 'radius') + 3;
+    lyra.z = kael.z;
+    lyra.health!.hp = lyra.health!.maxHp * 0.1;
+    expect(raised(stepFor(sim, 1))).toBeUndefined();
+    lyra.x = kael.x + 3;
+    lyra.health!.hp = lyra.health!.maxHp * 0.1;
+    expect(raised(stepFor(sim, 1))?.solo).toBe('aegisWall');
+    expect(lyra.health!.shields.some((sh) => sh.kind === 'overshield')).toBe(true);
+  });
+
+  it('without a Bond, he braces only for himself', () => {
+    const { sim, of } = setup();
+    enemies(sim, ['bell_brute', 0, -20]);
+    const kael = of(KAEL);
+    const lyra = of(LYRA);
+    stepFor(sim, 1, [{ t: 'debug', op: { op: 'chargeSolos' } }]);
+    lyra.x = kael.x + 3;
+    lyra.z = kael.z;
+    lyra.health!.hp = lyra.health!.maxHp * 0.1;
+    const events = stepFor(sim, 1);
+    expect(ofType(events, 'soloStarted').some((e) => e.hero === kael.id)).toBe(false);
+  });
+});
+
 describe('Lyra', () => {
   it('Wind Step: she steps out of an attack even mid-Solo, then waits for it again', () => {
     const { sim, w, of } = setup(bonds(['wind_step']));
@@ -205,6 +265,34 @@ describe('Lyra', () => {
     expect(lyra.hero!.dodge?.sure).toBe(true);
     const at = ofType(events, 'talentFired').find((e) => e.talent === 'wind_step')!.tick / 60;
     expect(lyra.hero!.talentReadyAt).toBeCloseTo(at + v('wind_step', 'seconds'), 1);
+  });
+
+  it('Wind Step: her step doesn’t break her shot', () => {
+    const { sim, w, of } = setup(bonds(['wind_step']));
+    const lyra = of(LYRA);
+    for (const slot of [KAEL, VEXIS]) Object.assign(of(slot).health!, { hp: 0, dead: true });
+    const [brute] = enemies(sim, ['bell_brute', lyra.x, lyra.z - 2.5]);
+    for (const e of w.entities.list()) if (e.enemy && e.health) e.health.hp = e.health.maxHp = 1e6;
+    stepUntil(
+      sim,
+      (ev) => ev.some((e) => e.type === 'talentFired' && e.talent === 'wind_step'),
+      60 * 15,
+    );
+    // Mid-shot when the step comes.
+    lyra.hero!.cast = {
+      ability: 0,
+      name: heroDef('lyra').abilities[0].name,
+      start: w.time,
+      end: w.time + 2,
+      target: brute!.id,
+      x: brute!.x,
+      z: brute!.z,
+      flourish: false,
+    };
+    const from = { x: lyra.x, z: lyra.z };
+    stepFor(sim, 20);
+    expect(lyra.hero!.cast).not.toBeNull();
+    expect(Math.hypot(lyra.x - from.x, lyra.z - from.z)).toBeGreaterThan(0.3);
   });
 
   it('Hawk Eye: she shoots from farther, and her Empowered crits give Resonance', () => {
@@ -299,20 +387,21 @@ describe('Lyra', () => {
 });
 
 describe('Vexis', () => {
-  it('Arcane Ward: struck up close, she blinks toward you, then waits', () => {
+  it('Arcane Ward: struck up close, she blinks away from the blow (not to you), then waits', () => {
     const { sim, w, of } = setup(bonds(['arcane_ward']));
     const vexis = of(VEXIS);
     const me = w.entities.get(w.weaverId)!;
     const [brute] = enemies(sim, ['bell_brute', 0, -20]);
+    // The brute between her and the Weaver: away from it is away from you too.
     vexis.x = me.x + 10;
     vexis.z = me.z;
-    brute!.x = vexis.x + 1;
+    brute!.x = vexis.x - 1;
     brute!.z = vexis.z;
     const from = vexis.x;
     hit(w, vexis, 10, brute!);
-    expect(from - vexis.x).toBeCloseTo(v('arcane_ward', 'metres'), 6);
+    expect(vexis.x - from).toBeCloseTo(v('arcane_ward', 'metres'), 6);
     const again = vexis.x;
-    brute!.x = vexis.x + 1;
+    brute!.x = vexis.x - 1;
     brute!.z = vexis.z;
     hit(w, vexis, 10, brute!);
     expect(vexis.x).toBe(again);
@@ -339,26 +428,29 @@ describe('Vexis', () => {
     expect(over.power).toBeCloseTo(plain.power * (1 + v('overchannel', 'damage') / 100), 4);
   });
 
-  it('Event Horizon: Gravity Well pulls toward your field’s centre', () => {
+  it('Event Horizon: Gravity Well pulls its enemies together in your field, not onto you', () => {
     const { sim, w, of } = setup(bonds(['event_horizon']));
     const me = w.entities.get(w.weaverId)!;
+    // Already in the field, near the Weaver: pulled to its centre, they'd end up on her.
     const [a, b, c] = enemies(
       sim,
-      ['hollow_chorister', me.x + 6, me.z - 6],
-      ['hollow_chorister', me.x + 7, me.z - 6],
-      ['hollow_chorister', me.x + 6, me.z - 7],
+      ['hollow_chorister', me.x + 3, me.z - 3],
+      ['hollow_chorister', me.x + 4.5, me.z - 3],
+      ['hollow_chorister', me.x + 3, me.z - 4.5],
     );
     const vexis = of(VEXIS);
     vexis.hero!.abilityCooldowns = [0, 99];
-    const before = [a!, b!, c!].map((e) => Math.hypot(e.x - me.x, e.z - me.z));
+    const spread = () =>
+      Math.hypot(a!.x - b!.x, a!.z - b!.z) + Math.hypot(a!.x - c!.x, a!.z - c!.z);
+    const before = spread();
     const events = stepUntil(
       sim,
       (ev) => ev.some((e) => e.type === 'talentFired' && e.talent === 'event_horizon'),
       600,
     );
     expect(ofType(events, 'talentFired').some((e) => e.talent === 'event_horizon')).toBe(true);
-    const after = [a!, b!, c!].map((e) => Math.hypot(e.x - me.x, e.z - me.z));
-    expect(after.reduce((s, d) => s + d, 0)).toBeLessThan(before.reduce((s, d) => s + d, 0));
+    expect(spread()).toBeLessThan(before);
+    for (const e of [a!, b!, c!]) expect(Math.hypot(e.x - me.x, e.z - me.z)).toBeGreaterThan(3);
   });
 
   it('Supernova: Starfall ends in a nova where it last struck', () => {
@@ -389,7 +481,8 @@ describe('Vexis', () => {
     const bolts = ofType(events, 'attackFired').filter(
       (e) => e.source === of(VEXIS).id && e.fromX === star.x && e.fromZ === star.z,
     );
-    expect(bolts.length).toBeGreaterThanOrEqual(v('constellation', 'seconds') - 1);
+    const casts = Math.floor(v('constellation', 'seconds') / v('constellation', 'interval'));
+    expect(bolts.length).toBeGreaterThanOrEqual(casts - 1);
     expect(w.internal.stars).toHaveLength(0);
     void kael;
   });
@@ -414,6 +507,63 @@ describe('the alternate Solos', () => {
     lyra.x = kael.x + sv('oathkeeper', 'radius') + 2;
     hit(w, lyra, 200, brute!);
     expect(lyra.health!.hp).toBeLessThan(l0);
+  });
+
+  it('Oathkeeper: hits on you land on him too; what you Bear for him stays yours', () => {
+    const { sim, w, of } = setup({
+      ...bonds([], ['oathkeeper']),
+      calling: { id: 'martyr', path: [] },
+      chords: [
+        { auras: ['fortissimo'], ornaments: [] },
+        { auras: ['sostenuto'], ornaments: [] },
+      ],
+    });
+    const [brute] = enemies(sim, ['bell_brute', 0, -20]);
+    const kael = of(KAEL);
+    const me = w.entities.get(w.weaverId)!;
+    me.x = kael.x + 3;
+    me.z = kael.z;
+    startSolo(w, kael, false);
+    const k0 = kael.health!.hp;
+    const w0 = me.health!.hp;
+    hit(w, me, 200, brute!);
+    expect(me.health!.hp).toBe(w0);
+    expect(k0 - kael.health!.hp).toBeGreaterThan(0);
+    // Bearing Kael: a share of his wounds is hers, and stays hers (not back to him, and round).
+    stepFor(sim, 2, [
+      { t: 'thread', slot: KAEL },
+      { t: 'mode', mode: 'bear' },
+    ]);
+    const before = me.health!.hp;
+    sim.drainEvents();
+    hit(w, kael, 300, brute!);
+    expect(me.health!.hp).toBeLessThan(before);
+    const fired = ofType(sim.drainEvents(), 'talentFired');
+    expect(fired.filter((e) => e.talent === 'oathkeeper')).toHaveLength(0);
+  });
+
+  it('Oathkeeper: yours to raise; while it lasts, Kael takes less of everything', () => {
+    const { sim, w, of } = setup(bonds([], ['oathkeeper']));
+    const [brute] = enemies(sim, ['bell_brute', 0, -20]);
+    const kael = of(KAEL);
+    const lyra = of(LYRA);
+    stepFor(sim, 1, [{ t: 'debug', op: { op: 'chargeSolos' } }]);
+    // A hero falling beside him: he waits for your Cue (it's for the moment you choose).
+    lyra.x = kael.x + 3;
+    lyra.z = kael.z;
+    lyra.health!.hp = lyra.health!.maxHp * 0.1;
+    const events = stepFor(sim, 1);
+    expect(ofType(events, 'soloStarted').some((e) => e.hero === kael.id)).toBe(false);
+    const taken = () => {
+      const before = kael.health!.hp;
+      hit(w, kael, 100, brute!);
+      const lost = before - kael.health!.hp;
+      kael.health!.hp = before;
+      return lost;
+    };
+    const plain = taken();
+    startSolo(w, kael, true);
+    expect(taken()).toBeCloseTo(plain * (1 - sv('oathkeeper', 'guard') / 100), 6);
   });
 
   it('Hawk’s Vigil: Lyra shoots every enemy that starts an attack, and cued, marks it', () => {

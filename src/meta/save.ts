@@ -381,6 +381,7 @@ export const RunStateSchema = z.object({
     .catch([])
     .default([]),
   scene: z.object({ heroId: Str, sceneId: Str }).nullable().catch(null).default(null),
+  scenes: z.array(Str).catch([]).default([]),
 });
 
 /** Motif ids renamed since older saves were written. */
@@ -602,6 +603,7 @@ export function loadRun(store: KeyValueStore): RunState | null {
       const scene = run.scene && CONTENT.scenes.find((s) => s.id === run.scene!.sceneId);
       if (run.phase === 'scene' && !scene) run.phase = 'respite';
       run.scene = run.phase === 'scene' && scene ? { heroId: scene.hero, sceneId: scene.id } : null;
+      run.scenes = run.scenes.filter((id) => CONTENT.scenes.some((s) => s.id === id));
       const fitted = withCarried(run);
       if (compatibleWithContent(fitted)) {
         // Deeds no longer in the content drop out of the run's Summary.

@@ -406,7 +406,7 @@ function perfect(
   if (owner?.health && !owner.health.dead)
     addStatus(world, owner, 'stagger', tech.staggerTime * world.mods.staggerMult, world.weaverId);
   // Riposte Bash (Bonds): Kael answers a Perfect Ward on him with his Shield Bash.
-  if (owner && hasTalent(e, 'riposte_bash')) riposteBash(world, e, owner);
+  if (owner && hasTalent(e, 'riposte_bash')) riposteBash(world, e, owner, damage);
   world.events.push({
     type: 'perfectWard',
     tick: world.tick,

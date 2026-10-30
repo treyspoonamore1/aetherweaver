@@ -515,6 +515,7 @@ export function newRun(
     dissonanceEnd: null,
     bonds: bonds.map(copyBond),
     scene: null,
+    scenes: [],
   };
   return chordsLegal(chords, undefined, reservePool(run), reserveMult(run))
     ? { ...run, chords: canonicalChords(chords) }
@@ -602,7 +603,8 @@ export function bondScene(run: RunState, sceneId: string): RunState {
 /** The scene is over: on to the map. */
 export function endScene(run: RunState): RunState {
   if (run.phase !== 'scene') return run;
-  return toMap({ ...run, scene: null });
+  const scenes = run.scene ? [...run.scenes, run.scene.sceneId] : run.scenes;
+  return toMap({ ...run, scene: null, scenes });
 }
 
 /** Prep: the Dissonance to play at (docs/phase-4d.md); the run follows the profile's choice. */

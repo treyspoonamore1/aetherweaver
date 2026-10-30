@@ -46,6 +46,9 @@ export interface SkilledOptions {
   callReaction: number;
 }
 
+/** The Solos that guard the party (Bonds' alternates included); the rest deal damage. */
+const GUARDING: ReadonlySet<string> = new Set(['aegisWall', 'oathkeeper', 'celestial_sphere']);
+
 export class SkilledBot implements Bot {
   readonly name: string;
   private readonly intent = new Intent();
@@ -303,7 +306,8 @@ export class SkilledBot implements Bot {
         const c = h.e.hero!;
         if (c.solo < 100 || c.soloActive > 0) continue;
         let go: boolean;
-        if (h.defId === 'kael') {
+        // A Solo that guards the party waits for a raid or a big hit; one that deals damage, a pack.
+        if (GUARDING.has(c.soloId)) {
           const bigHit = party.some((p) =>
             threatsOn(state, p.e).some(
               (t) => t.impact - now < 1.2 && damageOf(t, p.e) > p.e.health!.hp * 0.6,
@@ -320,10 +324,10 @@ export class SkilledBot implements Bot {
         // Save one segment for the Requiem dome in boss phase 3.
         if (
           go &&
-          h.defId !== 'kael' &&
+          !GUARDING.has(c.soloId) &&
           bossFight &&
           wc.resonance < segment * 2 &&
-          this.kaelReady(party)
+          this.guardReady(party)
         )
           go = false;
         if (go) {
@@ -377,9 +381,9 @@ export class SkilledBot implements Bot {
     return out;
   }
 
-  private kaelReady(party: HeroView[]): boolean {
-    const kael = party.find((h) => h.defId === 'kael');
-    return !!kael && kael.e.hero!.solo >= 80;
+  /** A guarding Solo (Kael's dome, or an alternate that guards) is nearly ready. */
+  private guardReady(party: HeroView[]): boolean {
+    return party.some((h) => GUARDING.has(h.e.hero!.soloId) && h.e.hero!.solo >= 80);
   }
 
   private notice(): boolean {

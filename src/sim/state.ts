@@ -269,8 +269,10 @@ export interface HeroComponent {
   soloId: string;
   /** The Weaver's healing, shields and saves on this hero this fight (Bond XP). */
   supportReceived: number;
-  /** Wind Step, Arcane Ward: sim time the talent can act again. */
+  /** Wind Step, Arcane Ward, Riposte Bash: sim time the talent can act again. */
   talentReadyAt: number;
+  /** Riposte Bash: a Ward on this hero just took this enemy's blow; answered next tick. */
+  riposteOn: EntityId | null;
   /** Unbreakable: spent this fight. */
   unbreakableUsed: boolean;
   /** Celestial Sphere: hits it will still swallow, until this sim time; given by a Cue. */

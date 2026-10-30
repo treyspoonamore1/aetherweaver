@@ -847,6 +847,7 @@ export function createWorld(config: SimConfig): World {
             ?.id ?? def.solo.id,
         supportReceived: 0,
         talentReadyAt: 0,
+        riposteOn: null,
         unbreakableUsed: false,
         sphereHits: 0,
         sphereUntil: 0,

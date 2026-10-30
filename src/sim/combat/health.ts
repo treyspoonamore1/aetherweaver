@@ -339,7 +339,10 @@ export interface DamageOpts {
   kind?: 'hit' | 'tick' | 'detonation';
   /** Empowered hits can damage Discord shields. */
   empowered?: boolean;
-  /** Already taken over by Oathkeeper (Bonds): not taken over again. */
+  /**
+   * Already taken over by Oathkeeper (Bonds), or borne by the Weaver for a hero (Bear): it lands
+   * where it was sent, not taken over again.
+   */
   oath?: boolean;
 }
 
@@ -391,11 +394,11 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
   }
 
   const source = opts.source === null ? undefined : world.entities.get(opts.source);
-  // Bonds (docs/phase-4e.md): an enemy's hit on a hero may be swallowed by Vexis's sphere, or
-  // taken over by Kael's Oathkeeper.
-  if (target.hero && opts.kind !== 'tick' && (source?.enemy || opts.telegraph)) {
+  // Bonds (docs/phase-4e.md): an enemy's hit on a hero may be swallowed by Vexis's sphere; on a
+  // hero or the Weaver, taken over by Kael's Oathkeeper.
+  if ((target.hero || target.weaver) && opts.kind !== 'tick' && (source?.enemy || opts.telegraph)) {
     const taken =
-      sphere(world, target, opts.amount, !!opts.telegraph) ??
+      (target.hero ? sphere(world, target, opts.amount, !!opts.telegraph) : null) ??
       (opts.oath ? null : oath(world, target, opts));
     if (taken) return taken;
   }
@@ -435,6 +438,9 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
   // Scarred Hide (the Martyr): the Weaver takes less while she Bears someone.
   if (target.weaver?.threadMode === 'bear' && target.weaver.threadSlot !== null)
     amount *= world.mods.bearDamageTaken;
+  // Oathkeeper (Bonds): while he keeps it, Kael takes less of everything, his own hits too.
+  if (target.hero?.soloId === 'oathkeeper' && target.hero.soloActive > 0)
+    amount *= 1 - soloValue(world, 'oathkeeper', 'guard') / 100;
   // Armour only softens ordinary hits; telegraphed attacks are answered, not soaked.
   if (target.hero && !opts.telegraph) amount *= 1 - heroDef(target.hero.defId).armor;
   // Fermata: heroes low on life take less from everything.
@@ -495,6 +501,10 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
       if (s.amount <= 0.0001) removeShield(world, target, s.kind, true);
       else i++;
     }
+    // Riposte Bash (Bonds): a Ward on Kael took a blow; he answers it (heroes.ts).
+    const hero = target.hero;
+    if (absorbedByWard > 0 && source?.enemy && hero && hasTalent(target, 'riposte_bash'))
+      if (world.time >= hero.talentReadyAt) hero.riposteOn = source.id;
   }
 
   // The Martyr (docs/phase-3d.md): Bear and Shared Wounds send part of what got through to the
@@ -717,32 +727,22 @@ function oath(world: World, target: Entity, opts: DamageOpts): DamageResult | nu
   return null;
 }
 
-/**
- * Arcane Ward (Bonds): struck up close, Vexis blinks toward the Weaver (or away from the blow if
- * the Weaver is right there), once in a while.
- */
+/** Arcane Ward (Bonds): struck up close, Vexis blinks away from the blow, once in a while. */
 function arcaneWard(world: World, vexis: Entity, enemy: Entity): void {
   const hero = vexis.hero!;
   if (world.time < hero.talentReadyAt) return;
   const reach = vexis.radius + enemy.radius + 2;
   if (distSq(vexis.x, vexis.z, enemy.x, enemy.z) > reach * reach) return;
   const metres = talentValue(world, 'arcane_ward', 'metres');
-  const weaver = world.entities.get(world.weaverId);
-  let dx = (weaver?.x ?? vexis.x) - vexis.x;
-  let dz = (weaver?.z ?? vexis.z) - vexis.z;
-  let d = Math.sqrt(dx * dx + dz * dz);
-  let step = Math.min(metres, d - 1.5);
-  if (step < 1) {
-    dx = vexis.x - enemy.x;
-    dz = vexis.z - enemy.z;
-    d = Math.sqrt(dx * dx + dz * dz);
-    step = metres;
-  }
+  // Away from it: toward the Weaver, she'd bring it to you.
+  const dx = vexis.x - enemy.x;
+  const dz = vexis.z - enemy.z;
+  const d = Math.sqrt(dx * dx + dz * dz);
   if (d < 1e-6) return;
   const fromX = vexis.x;
   const fromZ = vexis.z;
-  let x = vexis.x + (dx / d) * step;
-  let z = vexis.z + (dz / d) * step;
+  let x = vexis.x + (dx / d) * metres;
+  let z = vexis.z + (dz / d) * metres;
   const edge = world.arenaRadius - 1;
   const r = Math.sqrt(x * x + z * z);
   if (r > edge) {
@@ -1146,6 +1146,8 @@ function sendToWeaver(
     amount,
     telegraph: null,
     kind: opts.kind,
+    // Hers to bear: Oathkeeper doesn't send it back to Kael.
+    oath: true,
   });
   // What she really took (her shields included), not what was sent.
   const taken = r.dealt + r.absorbed;

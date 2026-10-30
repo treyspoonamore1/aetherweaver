@@ -42,8 +42,8 @@ export const TALENTS: ContentInput['talents'] = [
     hero: 'kael',
     tier: 2,
     name: 'Riposte Bash',
-    values: { range: 6 },
-    text: 'A Perfect Ward on Kael fires Shield Bash at the attacker, if it’s within {range} m, whatever its cooldown.',
+    values: { range: 6, pct: 50, seconds: 4 },
+    text: 'When a Ward on Kael takes a blow, he answers with Shield Bash at the attacker, if it’s within {range} m, whatever its cooldown (once every {seconds} s). A Perfect Ward does every time, and sends back {pct}% of the blow.',
   },
   {
     id: 'bulwark_of_faith',
@@ -58,7 +58,7 @@ export const TALENTS: ContentInput['talents'] = [
     hero: 'kael',
     tier: 3,
     name: 'Unbreakable',
-    values: { seconds: 2 },
+    values: { seconds: 1 },
     text: 'Once a fight, a blow that would down Kael leaves him at 1 life, untouchable for {seconds} s.',
   },
   {
@@ -66,8 +66,8 @@ export const TALENTS: ContentInput['talents'] = [
     hero: 'kael',
     tier: 3,
     name: 'Shieldbearer',
-    values: { radius: 6, pct: 50 },
-    text: 'Uncued, Aegis Wall also shields every hero within {radius} m of Kael with {pct}% of his barrier.',
+    values: { radius: 10, pct: 75, below: 30 },
+    text: 'Uncued, Aegis Wall also shields every hero within {radius} m of Kael with {pct}% of his barrier. He raises it himself when one of them falls below {below}% of their life.',
   },
   // ── Lyra: alone and alive, or bound to your Thread and field ───────────────────────
   {
@@ -75,15 +75,15 @@ export const TALENTS: ContentInput['talents'] = [
     hero: 'lyra',
     tier: 1,
     name: 'Wind Step',
-    values: { seconds: 10 },
-    text: 'Every {seconds} s, Lyra steps out of the first attack aimed at her, whatever she’s doing (Greedy Shot included).',
+    values: { seconds: 6 },
+    text: 'Every {seconds} s, Lyra steps out of the first attack aimed at her, even mid-shot, and keeps shooting.',
   },
   {
     id: 'hawk_eye',
     hero: 'lyra',
     tier: 1,
     name: 'Hawk Eye',
-    values: { range: 3, resonance: 1 },
+    values: { range: 2, resonance: 1 },
     text: 'Lyra shoots from {range} m farther, and her Empowered crits give you {resonance} Resonance.',
   },
   {
@@ -91,7 +91,7 @@ export const TALENTS: ContentInput['talents'] = [
     hero: 'lyra',
     tier: 2,
     name: 'Ricochet',
-    values: { pct: 60 },
+    values: { pct: 25 },
     text: 'Lyra’s arrows bounce once, to another enemy inside your field, at {pct}% damage.',
   },
   {
@@ -115,7 +115,7 @@ export const TALENTS: ContentInput['talents'] = [
     hero: 'lyra',
     tier: 3,
     name: 'Last Light',
-    values: { below: 30, pct: 50 },
+    values: { below: 40, pct: 60 },
     text: 'Below {below}% of her life, Lyra attacks {pct}% faster.',
   },
   // ── Vexis: commitment that pays, or spells carried along your Thread and field ─────
@@ -125,14 +125,14 @@ export const TALENTS: ContentInput['talents'] = [
     tier: 1,
     name: 'Arcane Ward',
     values: { metres: 6, seconds: 12 },
-    text: 'When an enemy strikes Vexis up close, she blinks {metres} m toward you (once every {seconds} s).',
+    text: 'When an enemy strikes Vexis up close, she blinks {metres} m away from it (once every {seconds} s).',
   },
   {
     id: 'overchannel',
     hero: 'vexis',
     tier: 1,
     name: 'Overchannel',
-    values: { damage: 30, cast: 20 },
+    values: { damage: 40, cast: 10 },
     text: 'Starbolt deals {damage}% more damage and takes {cast}% longer to cast.',
   },
   {
@@ -140,7 +140,7 @@ export const TALENTS: ContentInput['talents'] = [
     hero: 'vexis',
     tier: 2,
     name: 'Starthread',
-    values: { pct: 50 },
+    values: { pct: 20 },
     text: 'Starbolt also strikes the enemy nearest the hero you Thread (if it isn’t Vexis), at {pct}% damage.',
   },
   {
@@ -149,14 +149,14 @@ export const TALENTS: ContentInput['talents'] = [
     tier: 2,
     name: 'Event Horizon',
     values: { radius: 2 },
-    text: 'Gravity Well pulls enemies toward the centre of your field, from {radius} m farther.',
+    text: 'Gravity Well reaches {radius} m farther, and pulls the enemies it catches into your field.',
   },
   {
     id: 'supernova',
     hero: 'vexis',
     tier: 3,
     name: 'Supernova',
-    values: { radius: 6, meteors: 3 },
+    values: { radius: 6, meteors: 5 },
     text: 'Starfall ends in a nova: every enemy within {radius} m of its last meteor takes {meteors} meteors’ damage.',
   },
   {
@@ -164,7 +164,7 @@ export const TALENTS: ContentInput['talents'] = [
     hero: 'vexis',
     tier: 3,
     name: 'Constellation',
-    values: { interval: 1, seconds: 6 },
+    values: { interval: 1.5, seconds: 6 },
     text: 'Each Cue leaves a star where the hero stands, casting Vexis’s arcane bolt at the nearest enemy every {interval} s for {seconds} s.',
   },
 ];
@@ -175,8 +175,8 @@ export const ALT_SOLOS: ContentInput['altSolos'] = [
     hero: 'kael',
     name: 'Oathkeeper',
     chargeTime: 25,
-    values: { seconds: 5, radius: 6, pct: 50, cuedRadius: 9, cuedPct: 33 },
-    text: 'For {seconds} s, hits on heroes within {radius} m of Kael land on him instead, at {pct}%. Keep him standing.',
+    values: { seconds: 6, radius: 9, pct: 40, cuedRadius: 12, cuedPct: 25, guard: 30 },
+    text: 'For {seconds} s, hits on you and on the heroes within {radius} m of Kael land on him instead, at {pct}%, and he takes {guard}% less of everything. Keep him standing.',
     cuedText: 'Cued: within {cuedRadius} m, and he takes {cuedPct}%.',
   },
   {
@@ -185,7 +185,7 @@ export const ALT_SOLOS: ContentInput['altSolos'] = [
     name: 'Hawk’s Vigil',
     chargeTime: 25,
     // `power`: each shot, in her basic attacks.
-    values: { seconds: 6, power: 2, pct: 25, mark: 4 },
+    values: { seconds: 6, power: 8, pct: 25, mark: 4 },
     text: 'For {seconds} s, Lyra holds still and shoots every enemy that starts an attack within her range, once each. A cast she can interrupt is interrupted.',
     cuedText:
       'Cued: she can move, and each shot marks its target to take {pct}% more damage for {mark} s.',

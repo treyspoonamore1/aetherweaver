@@ -451,6 +451,8 @@ export interface RunState {
   bonds: RunBond[];
   /** The Bond scene being played at a Respite. */
   scene: { heroId: string; sceneId: string } | null;
+  /** The Bond scenes this run has played, by id (the Summary counts their Bond XP). */
+  scenes: string[];
 }
 
 /** Everything the run screens can do. Implemented by app/runStore.ts. */

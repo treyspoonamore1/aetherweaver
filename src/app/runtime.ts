@@ -1,4 +1,4 @@
-import { arenaDef, callingDef, encounterDef, heroDef } from '../content';
+import { arenaDef, callingDef, encounterDef, heroDef, talentDef } from '../content';
 import { getAudio } from '../audio';
 import { InputController } from '../input/InputController';
 import type { Action } from '../input/actions';
@@ -88,6 +88,9 @@ const REASONS: Record<string, string> = {
  * interpolation → HUD snapshot at 15 Hz. Every command the sim consumes is recorded
  * (normalised), so any session can be exported as a replay.
  */
+/** The Bonds talents with a callout of their own (docs/phase-4e.md): rare, and they turn a fight. */
+const CALLED_TALENTS: ReadonlySet<string> = new Set(['unbreakable', 'supernova']);
+
 export class GameRuntime {
   readonly sim: Sim;
   readonly stage: Stage;
@@ -559,6 +562,23 @@ export class GameRuntime {
         case 'waveStarted':
           ui.pushCallout({ kind: 'wave', text: `Wave ${event.wave} of ${event.waves}` }, now, 1800);
           break;
+        case 'talentFired': {
+          // Bonds (docs/phase-4e.md): the rare talents that turn a fight get a word; the rest
+          // show in the world.
+          if (!CALLED_TALENTS.has(event.talent)) break;
+          const who = this.heroName(state, event.hero);
+          ui.pushCallout(
+            {
+              kind: 'solo',
+              text: talentDef(event.talent).name,
+              detail: who?.name,
+              color: who?.color,
+            },
+            now,
+            1800,
+          );
+          break;
+        }
         case 'soloStarted': {
           const who = this.heroName(state, event.hero);
           if (event.cued)

@@ -39,6 +39,8 @@ const slotPos = { x: 0, z: 0 };
 const RANGED_LEASH = 7.5;
 const TANK_LEASH = 11;
 const GLORY_TIME = 5;
+/** Event Horizon (Bonds) draws enemies this deep into the field (its radius's share), no deeper. */
+const HORIZON_DEPTH = 0.75;
 
 export function updateHeroes(world: World, dt: number): void {
   const weaver = weaverOf(world);
@@ -73,6 +75,11 @@ export function updateHeroes(world: World, dt: number): void {
 
     lowHpCheck(world, e);
     if (fighting) noticeTelegraphs(world, e, def);
+    if (hero.riposteOn !== null) {
+      const attacker = world.entities.get(hero.riposteOn);
+      hero.riposteOn = null;
+      if (attacker) riposteBash(world, e, attacker, 0);
+    }
 
     if (isDisabled(e)) {
       hero.cast = null;
@@ -103,11 +110,11 @@ export function updateHeroes(world: World, dt: number): void {
     if (hero.soloActive <= 0 && hero.solo >= 100 && shouldFireUncued(world, e))
       startSolo(world, e, false);
 
+    // Wind Step (Bonds): her step out of an attack beats a rooted Solo, and doesn't break a cast.
+    const stepping =
+      hero.dodge?.sure === true && world.time >= hero.dodge.at && world.time <= hero.dodge.until;
     if (hero.soloActive > 0) {
       const rooted = updateSolo(world, e, dt);
-      // Wind Step (Bonds): her step out of an attack beats even a rooted Solo.
-      const stepping =
-        hero.dodge?.sure === true && world.time >= hero.dodge.at && world.time <= hero.dodge.until;
       if (rooted && !stepping) {
         hero.action = 'channeling';
         approachVelocity(e, 0, 0, TUNING.heroAccel * 2, dt);
@@ -134,7 +141,8 @@ export function updateHeroes(world: World, dt: number): void {
           settleCall(world, e, index);
         } else {
           hero.action = 'casting';
-          approachVelocity(e, 0, 0, TUNING.heroAccel * 2, dt);
+          if (stepping) arrive(e, hero.dodge!.x, hero.dodge!.z, TUNING.heroAccel * 1.5, 0.8, dt);
+          else approachVelocity(e, 0, 0, TUNING.heroAccel * 2, dt);
           faceTarget(world, e);
           continue;
         }
@@ -205,9 +213,27 @@ function shouldFireUncued(world: World, e: Entity): boolean {
   const h = e.health!;
   const solo = e.hero!.soloId;
   if (solo === 'aegisWall' && h.hp < h.maxHp * 0.3) return true; // Kael braces when desperate.
+  if (friendFalling(world, e)) return true;
   if (!world.config.assists.autonomy) return false;
   if (solo === 'aegisWall') return h.hp < h.maxHp * 0.5 || h.incoming > h.hp * 0.5;
   return e.hero!.targetId !== null;
+}
+
+/**
+ * Shieldbearer (Bonds): Kael raises his Aegis Wall himself when a hero within its reach falls
+ * low.
+ */
+function friendFalling(world: World, kael: Entity): boolean {
+  if (kael.hero!.soloId !== 'aegisWall' || !hasTalent(kael, 'shieldbearer')) return false;
+  const reach = talentValue(world, 'shieldbearer', 'radius');
+  const below = talentValue(world, 'shieldbearer', 'below');
+  for (const id of world.party) {
+    const ally = world.entities.get(id);
+    if (!isActive(ally) || ally.id === kael.id) continue;
+    if (ally.health.hp >= (ally.health.maxHp * below) / 100) continue;
+    if (distSq(ally.x, ally.z, kael.x, kael.z) <= reach * reach) return true;
+  }
+  return false;
 }
 
 // ── Movement ──────────────────────────────────────────────────────────────────────────
@@ -780,12 +806,22 @@ function executeAbility(
       return;
     }
     case 'gravityWell': {
-      // Event Horizon (Bonds): it reaches farther and pulls toward your field's centre.
+      // Event Horizon (Bonds): it reaches farther, and pulls its enemies into your field, toward
+      // the point well inside it nearest the well: together still, but not onto the Weaver.
       const horizon = hasTalent(e, 'event_horizon') && !world.field.suppressed;
-      const radius =
-        ability.radius * radiusMult + (horizon ? talentValue(world, 'event_horizon', 'radius') : 0);
-      const cx = horizon ? world.field.x : x;
-      const cz = horizon ? world.field.z : z;
+      const extra = horizon ? talentValue(world, 'event_horizon', 'radius') : 0;
+      const radius = ability.radius * radiusMult + extra;
+      let cx = x;
+      let cz = z;
+      if (horizon) {
+        const f = world.field;
+        const depth = f.radius * HORIZON_DEPTH;
+        const away = len(x - f.x, z - f.z);
+        if (away > depth) {
+          cx = f.x + ((x - f.x) / away) * depth;
+          cz = f.z + ((z - f.z) / away) * depth;
+        }
+      }
       emit(x, z, radius);
       if (horizon) talentFired(world, e, 'event_horizon', cx, cz);
       for (const m of world.entities.list()) {
@@ -795,7 +831,8 @@ function executeAbility(
         const dz = cz - m.z;
         const d = len(dx, dz);
         if (m.enemy.tier === 'normal' || m.enemy.tier === 'elite') {
-          const pull = Math.min(d * 0.7, 3);
+          // Event Horizon's farther reach pulls as much farther.
+          const pull = Math.min(d * 0.7, 3 + extra);
           if (d > 1e-6) {
             m.x += (dx / d) * pull;
             m.z += (dz / d) * pull;
@@ -914,7 +951,7 @@ function noticeTelegraphs(world: World, e: Entity, def: HeroDef): void {
     if (greedy || spellbound) {
       hero.dodge = null;
       bark(world, e, 'quirk');
-    } else {
+    } else if (!dodge.sure) {
       hero.cast = null;
       hero.castName = null;
     }
@@ -1042,10 +1079,11 @@ function roar(world: World, kael: Entity, quarry: Entity): void {
 }
 
 /**
- * Riposte Bash (Bonds): a Perfect Ward on Kael fires his Shield Bash at the attacker, if it's
- * close enough, whatever its cooldown.
+ * Riposte Bash (Bonds): a Ward on Kael that takes a blow fires his Shield Bash at the attacker,
+ * if it's close enough, whatever its cooldown, once in a while. A Perfect Ward does every time,
+ * and sends back a share of the blow you turned (`blow`).
  */
-export function riposteBash(world: World, kael: Entity, attacker: Entity): void {
+export function riposteBash(world: World, kael: Entity, attacker: Entity, blow: number): void {
   if (!isActive(kael) || !isActive(attacker) || !attacker.enemy || isDisabled(kael)) return;
   const range = talentValue(world, 'riposte_bash', 'range');
   if (distSq(kael.x, kael.z, attacker.x, attacker.z) > sqr(range + attacker.radius + kael.radius))
@@ -1054,7 +1092,11 @@ export function riposteBash(world: World, kael: Entity, attacker: Entity): void 
   const index = def.abilities.findIndex((a) => a.id === 'shieldBash');
   if (index !== 0 && index !== 1) return;
   talentFired(world, kael, 'riposte_bash', attacker.x, attacker.z, attacker.id);
+  kael.hero!.talentReadyAt = world.time + talentValue(world, 'riposte_bash', 'seconds');
   executeAbility(world, kael, def, index, attacker.id, attacker.x, attacker.z);
+  const back = (blow * talentValue(world, 'riposte_bash', 'pct')) / 100;
+  if (back > 0 && isActive(attacker))
+    dealDamage(world, attacker, { source: kael.id, sourceName: 'Riposte Bash', amount: back });
 }
 
 /** Starthread (Bonds): Starbolt also strikes the enemy nearest the hero you Thread. */

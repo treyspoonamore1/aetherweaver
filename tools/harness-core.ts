@@ -6,7 +6,7 @@ import type { ReliquaryRelic } from '../src/meta/reliquary';
 import * as Run from '../src/meta/run';
 import type { ChordLoadout, RunState } from '../src/meta/types';
 import { weaverShare } from '../src/meta/run';
-import { chordReserve, createSim, type SimConfig } from '../src/sim';
+import { chordReserve, createSim, type SimConfig, type SimEvent } from '../src/sim';
 import type { RunBond } from '../src/meta/bonds';
 
 export interface EncounterRun {
@@ -208,6 +208,9 @@ export function playRun(
     threatMult?: number;
     /** Called with the finished run (the Deeds report reads it). */
     onEnd?: (run: RunState) => void;
+    /** Called with each fight's events as they happen, and once at its end (the Bonds report). */
+    onEvents?: (events: readonly SimEvent[]) => void;
+    onFight?: () => void;
   } = {},
 ): RunSummary {
   const relics = opts.relics ?? true;
@@ -250,10 +253,12 @@ export function playRun(
         const player = makeBot(bot, config.seed);
         for (let t = 0; t < MAX_SECONDS * 60; t++) {
           sim.step(player.decide(sim.state));
-          sim.drainEvents();
+          const events = sim.drainEvents();
+          opts.onEvents?.(events);
           const s = sim.state.encounter.status;
           if (s === 'victory' || s === 'defeat') break;
         }
+        opts.onFight?.();
         last = config.encounter ?? '';
         seconds += sim.state.time;
         run = Run.finishCombat(

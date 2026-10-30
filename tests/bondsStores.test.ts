@@ -235,6 +235,7 @@ describe('a run and its Bonds', () => {
     const xp = profile().bonds.kael!.xp;
     useRun.getState().endScene(1);
     expect(run().phase).toBe('map');
+    expect(run().scenes).toEqual(['kael_dented_shield']);
     expect(profile().bonds.kael!.seen).toEqual({ kael_dented_shield: 1 });
     expect(profile().bonds.kael!.xp).toBe(xp + sceneXp(waiting[0]!));
     expect(sceneWaiting('kael', profile().bonds.kael)).toBeNull();
@@ -296,6 +297,7 @@ describe('saves', () => {
     const loaded = save({
       phase: 'scene',
       scene: { heroId: 'lyra', sceneId: 'kael_unbidden' },
+      scenes: ['kael_dented_shield', 'gone'],
       bonds: [
         // Out of order, one renamed away, a second in the same tier, a Solo that's gone.
         { heroId: 'lyra', talents: ['ricochet', 'gone', 'hunters_mark', 'wind_step'], solo: 'x' },
@@ -309,6 +311,7 @@ describe('saves', () => {
       { heroId: 'lyra', talents: ['wind_step', 'ricochet'], solo: null },
       { heroId: 'vexis', talents: [], solo: 'celestial_sphere' },
     ]);
+    expect(loaded.scenes).toEqual(['kael_dented_shield']);
     // The scene is its own hero's.
     expect(loaded.phase).toBe('scene');
     expect(loaded.scene).toEqual({ heroId: 'kael', sceneId: 'kael_unbidden' });

@@ -5,10 +5,12 @@
  *   npx tsx tools/bonds.ts --pace --seeds 40                    Bond XP a run, and runs to each tier
  *   npx tsx tools/bonds.ts --find --seeds 100                   the build's win rates at a threat
  *   npx tsx tools/bonds.ts --seeds 300 --base 0.8 --base-hard 0.55 --talents ricochet,last_light
- *   npx tsx tools/bonds.ts --seeds 300 --base 0.8 --base-hard 0.55 --sets
+ *   npx tsx tools/bonds.ts --seeds 300 --base 0.8 --base-hard 0.55 --sets [--hero kael|all]
+ *   npx tsx tools/bonds.ts --fires --seeds 20                  how often each talent acts a fight
  *
  * The build: the Novice bot (or `--bot skilled`), Guardian, and with `--tree` the Rank-20 build
- * of tools/dissonance.ts (a full tree and a typical carried set). Each choice's worth is read as
+ * of tools/dissonance.ts (a full tree and a typical carried set). The Novice never sets a Focus:
+ * judge the Focus talents (Steady Vanguard, Hunter's Mark) with the Skilled bot. Each choice's worth is read as
  * the extra enemy life that costs as much, on a logistic scale between the base and the base
  * with 25% more life; a talent that helps is worth negative life.
  */
@@ -88,6 +90,41 @@ function main(): void {
     return;
   }
 
+  if (argv.includes('--fires')) {
+    // Passive talents (a number changed, nothing that acts) send no event and aren't listed.
+    const ids = (
+      get('talents') ?? [...CONTENT.talents, ...CONTENT.altSolos].map((t) => t.id).join(',')
+    ).split(',');
+    console.log(`talents acting · ${bot} · ${seeds} runs each`);
+    for (const id of ids) {
+      let fights = 0;
+      let fires = 0;
+      let firing = 0;
+      let now = 0;
+      for (let i = 0; i < seeds; i++)
+        playRun(5000 + i * 104729, bot, loadout.chords, {
+          astrolabe: tree,
+          carried,
+          threatMult: threat,
+          bonds: choice(id),
+          onEvents: (events) => {
+            for (const e of events) if (e.type === 'talentFired' && e.talent === id) now++;
+          },
+          onFight: () => {
+            fights++;
+            fires += now;
+            if (now > 0) firing++;
+            now = 0;
+          },
+        });
+      if (fires === 0) continue;
+      console.log(
+        `  ${id.padEnd(18)} ${(fires / fights).toFixed(2).padStart(6)} a fight · in ${pct(firing / fights)} of fights`,
+      );
+    }
+    return;
+  }
+
   if (argv.includes('--find')) {
     console.log(`bonds base · ${bot} · tree ${tree.length} nodes · ${seeds} runs each`);
     const steps = (get('steps') ?? '1,1.25').split(',').map(Number);
@@ -104,8 +141,11 @@ function main(): void {
     `bonds · ${bot} · ${seeds} runs each · base ×${threat}: ${pct(hi)}, ×${(threat * 1.25).toFixed(2)}: ${pct(lo)}`,
   );
   if (argv.includes('--sets')) {
+    // `--hero kael`: that hero's Bonds alone (for running heroes side by side); `--hero all`:
+    // everyone's together alone.
+    const only = get('hero');
     const heroes = [...new Set(CONTENT.talents.map((t) => t.hero))];
-    for (const hero of heroes)
+    for (const hero of heroes.filter((h) => only === undefined || only === h))
       for (const pick of [0, 1] as const)
         for (const alt of [false, true]) {
           const win = play(threat, [fullBond(hero, pick, alt)]).win;
@@ -115,7 +155,7 @@ function main(): void {
             ) + `${pct(win)} · like ${worth(win).toFixed(1)}% enemy life`,
           );
         }
-    for (const pick of [0, 1] as const) {
+    for (const pick of only === undefined || only === 'all' ? ([0, 1] as const) : []) {
       const win = play(
         threat,
         heroes.map((h) => fullBond(h, pick, false)),
