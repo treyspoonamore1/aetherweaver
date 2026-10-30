@@ -112,12 +112,12 @@ Ascend's odds are unchanged (T3→T2 35%, T2→T1 20%), and so are its costs and
 | none | 85.3% | | |
 | Hardened | 61.0% | 25% (the scale) | 3 → 3 |
 | Hardened ×2 | 40.0% | 41% | 6 → 6 |
-| Restless Dead | 44.3% | 38% | 3 → **5** |
-| Elite Vanguard | 45.3% | 37% | 3 → **5** |
+| Restless Dead | 39.0% | 42% | 3 → **5** |
+| Elite Vanguard | 47.7% | 35% | 3 → **5** |
 | Wounding Strikes | 69.0% | 18% | 2 → 2 |
 | Wounding Strikes ×2 | 52.3% | 32% | 4 → 4 |
-| Short Fuse | 79.3% | 8% | 3 → **1** |
-| Short Fuse ×2 | 69.0% | 18% | 6 → **2** |
+| Short Fuse | 80.0% | 7% | 3 → **1** |
+| Short Fuse ×2 | 68.3% | 19% | 6 → **2** |
 | Fragile Threads | 81.3% | 5% | 1 → 1 |
 | Brisk Foes | 83.0% | 3% | 2 → **1** |
 | Silent Cues | 84.0% | 2% | 1 → 1 |
@@ -126,7 +126,9 @@ Ascend's odds are unchanged (T3→T2 35%, T2→T1 20%), and so are its costs and
 | Discordant Pact | 87.3% | ~0 | 1 → 1 |
 | Blind Score | 85.3% | none (no effect on a bot) | 2 → 2 |
 
-At these sample sizes a cost within about ±6% of zero can't be told from none. Every level is worth at least a point. Muted Choir, Discordant Pact and Blind Score cost a bot little: it doesn't place itself by the field, rarely Glides, and doesn't read answer glyphs. A player does all three, so they keep a point or two by judgment.
+Restless Dead, Elite Vanguard, Short Fuse and Muted Choir were measured again after the review's fixes (see *Code review*): rising enemies are untouchable, the extra affixes are seeded, a healer's hymn keeps its pulses, and Muted Choir works past the field's cap. Their points held.
+
+At these sample sizes a cost within about ±6% of zero can't be told from none. Every level is worth at least a point. Muted Choir, Discordant Pact and Blind Score cost a bot little: it doesn't place itself by the field, rarely Glides, and doesn't read answer glyphs. The Novice bot also asks for the Thread without checking its reach, so Fragile Threads' cost includes its refused attaches, as it would for a new player. A player does all three, so they keep a point or two by judgment.
 
 **Totals** (150 runs each, the same build):
 
