@@ -9,8 +9,8 @@ export const BOND_RULES: ContentInput['bondRules'] = {
   // Cumulative Bond XP for ranks 1–10.
   ranks: [0, 80, 220, 420, 680, 1000, 1380, 1820, 2320, 2900],
   // Per fight, for each hero in it: kind × (base + pool × their share of your support).
-  base: 8,
-  pool: 24,
+  base: 12,
+  pool: 30,
   kinds: { skirmish: 1, elite: 1.5, miniboss: 2, boss: 3 },
   loss: 0.5,
   talentRanks: [3, 6, 9],

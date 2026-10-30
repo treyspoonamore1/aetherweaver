@@ -101,7 +101,7 @@ Two for each hero, at Bond ranks 2 and 7. Each is a few lines at a Respite's fir
 First guesses, to be tuned against the harness (see *Harness*). The aim: a hero's first talent in their first run or two, the second around run 6, the third around run 14, and the alternate Solo around run 18. The hero you support most should be a few runs ahead.
 
 - **Per fight**, for each hero in the party: `kind × (base + pool × share)`.
-  - `base` 8 and `pool` 24 (shared among the three by your support).
+  - `base` 12 and `pool` 30 (shared among the three by your support). The first guess, 8 and 24, was too slow: see *Harness*.
   - `kind`: a skirmish 1, an elite 1.5, a mini-boss 2, the boss 3. A lost fight pays half.
   - `share`: the hero's part of your support that fight. Without any support, the pool isn't paid.
 - **A scene** pays 40% of the XP between its rank and the next.
