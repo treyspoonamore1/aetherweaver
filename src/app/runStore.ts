@@ -39,6 +39,8 @@ export interface RunStore extends RunActions {
   followDissonance(): void;
   /** A run in Prep follows the profile's Bond choices (docs/phase-4e.md). */
   followBonds(): void;
+  /** Prep follows the profile's technique variants (docs/phase-4f.md). */
+  followTechniques(): void;
   /** At a Respite: the Bond scenes waiting for the party's heroes, one per hero. */
   scenesWaiting(): SceneDef[];
   /** A Respite's fourth choice: a waiting Bond scene, instead of resting. */
@@ -128,12 +130,15 @@ export const useRun = create<RunStore>()((set, get) => {
       // A run still in Prep picks up the tree, the carry, the Dissonance and the Bonds as they
       // are now.
       set({
-        run: Run.setBonds(
-          Run.setDissonance(
-            Run.setCarried(Run.setAstrolabe(saved, profileTree()), profileCarry()),
-            profileDissonance(),
+        run: Run.setTechniques(
+          Run.setBonds(
+            Run.setDissonance(
+              Run.setCarried(Run.setAstrolabe(saved, profileTree()), profileCarry()),
+              profileDissonance(),
+            ),
+            profileBonds(saved.party.map((h) => h.heroId)),
           ),
-          profileBonds(saved.party.map((h) => h.heroId)),
+          useProfile.getState().runTechniques(),
         ),
       });
       // A run saved before Deeds (or before a reset) gets what its fights have earned.
@@ -148,6 +153,8 @@ export const useRun = create<RunStore>()((set, get) => {
     followDissonance: () => apply((run) => Run.setDissonance(run, profileDissonance())),
     followBonds: () =>
       apply((run) => Run.setBonds(run, profileBonds(run.party.map((h) => h.heroId)))),
+    followTechniques: () =>
+      apply((run) => Run.setTechniques(run, useProfile.getState().runTechniques())),
     scenesWaiting: () => {
       const run = get().run;
       if (!run || run.phase !== 'respite') return [];
@@ -217,6 +224,7 @@ export const useRun = create<RunStore>()((set, get) => {
         profileCarry(),
         profileDissonance(),
         profileBonds(CONTENT.defaultParty),
+        profile.runTechniques(),
       );
       if (last.length > 0) run = Run.setChords(run, last, profile.allowance());
       saveRun(storage(), run);
@@ -233,7 +241,10 @@ export const useRun = create<RunStore>()((set, get) => {
       // Its heroes' Bond choices too, as their ranks (or the settings) open them now.
       apply((run) =>
         Run.embark(
-          Run.setBonds(run, profileBonds(run.party.map((h) => h.heroId))),
+          Run.setTechniques(
+            Run.setBonds(run, profileBonds(run.party.map((h) => h.heroId))),
+            profile.runTechniques(),
+          ),
           profile.allowance(),
           profile.astrolabePoints(),
           profile.carrySlots(),
@@ -314,6 +325,7 @@ useSettings.subscribe((state, prev) => {
     useRun.getState().followReliquary();
     useRun.getState().followDissonance();
     useRun.getState().followBonds();
+    useRun.getState().followTechniques();
   }
 });
 // So does its carry (docs/phase-4c.md): a relic chosen, crafted or released, or a slot opened.
@@ -328,6 +340,14 @@ useProfile.subscribe((state, prev) => {
 // And its heroes' Bonds (docs/phase-4e.md): a talent or Solo chosen, or a rank reached.
 useProfile.subscribe((state, prev) => {
   if (state.profile.bonds !== prev.profile.bonds) useRun.getState().followBonds();
+});
+// And its technique variants (docs/phase-4f.md): one chosen, or bought.
+useProfile.subscribe((state, prev) => {
+  if (
+    state.profile.techniques !== prev.profile.techniques ||
+    state.profile.variants !== prev.profile.variants
+  )
+    useRun.getState().followTechniques();
 });
 
 if (typeof window !== 'undefined') {

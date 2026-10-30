@@ -52,9 +52,10 @@ import {
   type RunBond,
 } from '../meta/bonds';
 import { loadProfile, saveProfile } from '../meta/save';
+import { fitTechniques, variantsFor, type Techniques } from '../meta/variants';
 import type { RunState } from '../meta/types';
 import { CONTENT, type InscriptionCategory } from '../content';
-import type { ChordLoadout, ReservePool } from '../sim';
+import type { ChordLoadout, ReservePool, TechniqueKey } from '../sim';
 import { useSettings } from './settings';
 import { storage } from './storage';
 
@@ -140,6 +141,14 @@ export interface ProfileStore {
   setSolo(heroId: string, solo: 'default' | 'alt'): void;
   /** A Bond scene was played, with this reply: it's seen, and pays its Bond XP. */
   seeScene(sceneId: string, reply: number): void;
+  /** Technique variants (docs/phase-4f.md): every one can be chosen (Skip the unlocks). */
+  variantsAll(): boolean;
+  /** What a run plays with: the profile's choice, fitted to what's owned (or every variant). */
+  runTechniques(): Techniques;
+  /** A variant is the profile's for good (Phase 4g's shop). */
+  ownVariant(id: string): void;
+  /** The variant for a slot, or the default (null); only one owned (or Skip the unlocks). */
+  setTechnique(slot: TechniqueKey, id: string | null): void;
 }
 
 /**
@@ -268,6 +277,24 @@ export const useProfile = create<ProfileStore>()((set, get) => {
       const seen = { ...bond.seen, [sceneId]: reply === 1 ? 1 : 0 };
       commit({ ...profile, bonds: { ...profile.bonds, [scene.hero]: { ...bond, seen } } });
       get().awardBonds({ [scene.hero]: sceneXp(scene) });
+    },
+    variantsAll: () => useSettings.getState().settings.unlockAll,
+    runTechniques: () =>
+      fitTechniques(get().profile.techniques, get().profile.variants, get().variantsAll()),
+    ownVariant: (id) => {
+      const profile = get().profile;
+      if (!CONTENT.techniqueVariants.some((v) => v.id === id) || profile.variants.includes(id))
+        return;
+      commit({ ...profile, variants: [...profile.variants, id] });
+    },
+    setTechnique: (slot, id) => {
+      const profile = get().profile;
+      if (id !== null) {
+        if (!variantsFor(slot).some((v) => v.id === id)) return;
+        if (!get().variantsAll() && !profile.variants.includes(id)) return;
+      }
+      if (profile.techniques[slot] === id) return;
+      commit({ ...profile, techniques: { ...profile.techniques, [slot]: id } });
     },
     reliquaryOpen: () =>
       reliquaryOpen(rankOf(get().profile.xp), useSettings.getState().settings.unlockAll),

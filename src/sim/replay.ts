@@ -110,6 +110,15 @@ const SimConfigSchema = z
       .object({ talents: z.array(z.string()), solos: z.array(z.string()) })
       .strict()
       .default({ talents: [], solos: [] }),
+    techniques: z
+      .object({
+        ward: z.string().nullable(),
+        chime: z.string().nullable(),
+        reel: z.string().nullable(),
+        glide: z.string().nullable(),
+      })
+      .strict()
+      .default({ ward: null, chime: null, reel: null, glide: null }),
     assists: z
       .object({ perfectWindowBonus: z.number(), telegraphLead: z.number(), autonomy: z.boolean() })
       .strict(),

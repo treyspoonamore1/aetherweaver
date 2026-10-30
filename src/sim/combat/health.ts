@@ -23,6 +23,7 @@ import { bark, pushMarker, relicFired, setTimeScale } from './feedback';
 import { gainResonance } from './resonance';
 import { recordSave } from './saves';
 import { hasTalent, soloValue, talentFired, talentHolder, talentValue } from '../bonds';
+import { variantGuard } from '../variants';
 
 /** Shields with no natural expiry (aura barriers, discord) expire at this sim time. */
 export const NEVER = 1e9;
@@ -401,6 +402,8 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
       (target.hero ? sphere(world, target, opts.amount, !!opts.telegraph) : null) ??
       (opts.oath ? null : oath(world, target, opts));
     if (taken) return taken;
+    // Aegis Link (a Ward variant, docs/phase-4f.md): a linked member takes only their share.
+    if (!opts.oath) opts = linkShare(world, target, opts) ?? opts;
   }
   let amount = opts.amount;
   // Relics on hero hits (Heavy Score, Warden's Key): the extra is the Weaver's share.
@@ -441,6 +444,12 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
   // Oathkeeper (Bonds): while he keeps it, Kael takes less of everything, his own hits too.
   if (target.hero?.soloId === 'oathkeeper' && target.hero.soloActive > 0)
     amount *= 1 - soloValue(world, 'oathkeeper', 'guard') / 100;
+  // Absolve and Anchor (technique variants): what they spare a hero is your support of them.
+  const spared = variantGuard(world, target);
+  if (spared > 0) {
+    if (target.hero) target.hero.supportReceived += amount * spared;
+    amount *= 1 - spared;
+  }
   // Armour only softens ordinary hits; telegraphed attacks are answered, not soaked.
   if (target.hero && !opts.telegraph) amount *= 1 - heroDef(target.hero.defId).armor;
   // Fermata: heroes low on life take less from everything.
@@ -725,6 +734,28 @@ function oath(world: World, target: Entity, opts: DamageOpts): DamageResult | nu
     return { ...NO_DAMAGE, blocked: false, takenBy: kael.id, takenDealt: r.downed ? 0 : r.dealt };
   }
   return null;
+}
+
+/**
+ * Aegis Link (a Ward variant): a hit on a linked member is split evenly among the members still
+ * standing, the Weaver among them once a Perfect brought her in. The others take their shares
+ * here; the target's share goes on. Shares are never split again.
+ */
+function linkShare(world: World, target: Entity, opts: DamageOpts): DamageOpts | null {
+  const link = world.internal.link;
+  if (!link || link.until <= world.time) return null;
+  const ids = link.weaver ? [link.a, link.b, world.weaverId] : [link.a, link.b];
+  if (!ids.includes(target.id)) return null;
+  const members = ids.map((id) => world.entities.get(id)).filter(isActive);
+  if (members.length < 2 || !members.includes(target as Entity & { health: Health })) return null;
+  const share = opts.amount / members.length;
+  for (const m of members) {
+    if (m === target) continue;
+    const r = dealDamage(world, m, { ...opts, amount: share, oath: true });
+    // Bonds: what you took for a hero is your support of them.
+    if (m.weaver && target.hero) target.hero.supportReceived += r.dealt + r.absorbed;
+  }
+  return { ...opts, amount: share, oath: true };
 }
 
 /** Arcane Ward (Bonds): struck up close, Vexis blinks away from the blow, once in a while. */

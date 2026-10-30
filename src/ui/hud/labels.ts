@@ -85,6 +85,18 @@ export const STATUS: Record<StatusId, StatusLook> = {
     color: '#e2d6f8',
     help: 'Fermata caught a lethal hit: heal them before it runs out or they go down.',
   },
+  absolved: {
+    icon: 'chime',
+    label: 'Absolved',
+    color: '#a5f3fc',
+    help: 'Your Absolve: takes less damage for a moment.',
+  },
+  anchored: {
+    icon: 'reel',
+    label: 'Anchored',
+    color: '#a5f3fc',
+    help: 'Your Anchor: takes less damage, and nothing moves them.',
+  },
 };
 
 export const TECHNIQUE_ICON: Record<TechniqueKey, IconName> = {

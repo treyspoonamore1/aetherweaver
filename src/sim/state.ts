@@ -55,6 +55,8 @@ export interface Shield {
   stasis?: true;
   /** Overflowing Grace's shield (the Astrolabe). Absent on every other shield. */
   grace?: true;
+  /** A Chorale's barrier (docs/phase-4f.md): Perfect only with another. Absent elsewhere. */
+  chorale?: true;
 }
 
 export type StatusId =
@@ -66,7 +68,9 @@ export type StatusId =
   | 'immune' // ailment immunity (Chime)
   | 'sleep'
   | 'shaken' // carried between encounters: −10% max HP
-  | 'held'; // Fermata: a lethal hit is held at 1 HP until the status runs out
+  | 'held' // Fermata: a lethal hit is held at 1 HP until the status runs out
+  | 'absolved' // Absolve (a Chime variant): takes less damage for a moment
+  | 'anchored'; // Anchor (a Reel variant): takes less damage, and nothing moves them
 
 export interface Status {
   id: StatusId;
@@ -153,6 +157,11 @@ export interface WeaverComponent {
   cooldownTotals: Record<TechniqueKey, number>;
   wardCharges: number;
   maxWardCharges: number;
+  /** Technique variants (docs/phase-4f.md): the variant in each slot, null for the default. */
+  variants: Record<TechniqueKey, string | null>;
+  /** Glide's charges: one, or Skate's two (each back after its cooldown). */
+  glideCharges: number;
+  maxGlideCharges: number;
   /** Seconds left in an active Glide, and its direction. */
   glide: number;
   glideX: number;

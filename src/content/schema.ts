@@ -960,6 +960,21 @@ export const TalentDefSchema = z
   .strict();
 export type TalentDef = z.infer<typeof TalentDefSchema>;
 
+/** A technique variant (docs/phase-4f.md): a different way to use one of the Weaver's slots. */
+export const TechniqueVariantDefSchema = z
+  .object({
+    id: IdSchema,
+    slot: z.enum(['ward', 'chime', 'reel', 'glide']),
+    name: z.string(),
+    text: z.string(),
+    values: ValuesSchema,
+    /** Spirit, and seconds; the default's where absent. */
+    cost: z.number().min(0).optional(),
+    cooldown: z.number().positive().optional(),
+  })
+  .strict();
+export type TechniqueVariantDef = z.infer<typeof TechniqueVariantDefSchema>;
+
 /** A hero's alternate Solo, chosen at the Solo rank. Its length is `values.seconds`. */
 export const AltSoloDefSchema = z
   .object({
@@ -1076,6 +1091,7 @@ export const ContentSchema = z
     bondRules: BondRulesSchema,
     talents: z.array(TalentDefSchema),
     altSolos: z.array(AltSoloDefSchema),
+    techniqueVariants: z.array(TechniqueVariantDefSchema),
     scenes: z.array(SceneDefSchema),
     arenas: z.array(ArenaDefSchema).min(1),
     encounters: z.array(EncounterDefSchema).min(1),
@@ -1409,6 +1425,15 @@ export const ContentSchema = z
       if (talentIds.has(s.id) || c.heroes.some((h) => h.solo.id === s.id))
         ctx.addIssue({ code: 'custom', message: `alternate Solo "${s.id}" has its own id` });
     }
+    // Technique variants: two per slot, their own ids, texts filled from values.
+    unique(
+      'technique variant',
+      c.techniqueVariants.map((v) => v.id),
+    );
+    for (const slot of ['ward', 'chime', 'reel', 'glide'] as const)
+      if (c.techniqueVariants.filter((v) => v.slot === slot).length !== 2)
+        ctx.addIssue({ code: 'custom', message: `technique slot "${slot}" needs two variants` });
+    for (const v of c.techniqueVariants) filled(v.text, v.values, `technique variant "${v.id}"`);
     for (const ev of c.events) {
       unique(
         `choice in event "${ev.id}"`,

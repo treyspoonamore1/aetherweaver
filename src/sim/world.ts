@@ -30,6 +30,7 @@ import type {
   Ledger,
   Obstacle,
   RelicState,
+  TechniqueKey,
   Telegraph,
   WorldState,
 } from './state';
@@ -151,6 +152,11 @@ export interface SimConfig {
    * the heroes are the same people.
    */
   bonds?: BondsConfig;
+  /**
+   * Technique variants (docs/phase-4f.md): the variant chosen for each slot; a slot left out
+   * keeps its default. Unknown ids, or a variant in the wrong slot, are refused.
+   */
+  techniques?: Partial<Record<TechniqueKey, string | null>>;
   assists?: AssistConfig;
   /** Enables `debug` commands (spawns, teleport). Debug commands are recorded in replays. */
   debug?: boolean;
@@ -182,6 +188,8 @@ export interface ResolvedSimConfig {
   dissonance: DissonanceConfig[];
   /** In content order: the party's heroes', one talent a tier and one Solo each. */
   bonds: { talents: string[]; solos: string[] };
+  /** The variant per slot (null: the default); all null when the Weaver is absent. */
+  techniques: Record<TechniqueKey, string | null>;
   assists: Required<AssistConfig>;
   debug: boolean;
   absent: boolean;
@@ -227,6 +235,7 @@ export function resolveConfig(config: SimConfig, content: Content = CONTENT): Re
     if (rank >= 1) dissonance.push({ id: def.id, rank: Math.min(def.ranks, rank) });
   }
   const bonds = resolveBonds(config.bonds, party, content);
+  const techniques = resolveTechniques(config.techniques, absent, content);
   const given = config.chords ?? (config.auras ? [{ auras: config.auras }] : []);
   const chords = absent
     ? []
@@ -277,6 +286,7 @@ export function resolveConfig(config: SimConfig, content: Content = CONTENT): Re
     passives,
     dissonance,
     bonds,
+    techniques,
     assists: {
       perfectWindowBonus: Math.max(0, Math.min(0.3, a.perfectWindowBonus ?? 0)),
       telegraphLead: Math.max(1, Math.min(2, a.telegraphLead ?? 1)),
@@ -314,6 +324,30 @@ function resolveBonds(
     .filter((a) => (config?.solos ?? []).includes(a.id) && heroes.has(a.hero))
     .map((a) => a.id);
   return { talents, solos };
+}
+
+const SLOTS: readonly TechniqueKey[] = ['ward', 'chime', 'reel', 'glide'];
+
+function resolveTechniques(
+  config: Partial<Record<TechniqueKey, string | null>> | undefined,
+  absent: boolean,
+  content: Content,
+): Record<TechniqueKey, string | null> {
+  const out: Record<TechniqueKey, string | null> = {
+    ward: null,
+    chime: null,
+    reel: null,
+    glide: null,
+  };
+  for (const slot of SLOTS) {
+    const id = config?.[slot];
+    if (id === undefined || id === null) continue;
+    const def = content.techniqueVariants.find((v) => v.id === id);
+    if (!def) throw new Error(`Unknown technique variant "${id}"`);
+    if (def.slot !== slot) throw new Error(`Technique variant "${id}" isn't a ${slot}`);
+    if (!absent) out[slot] = id;
+  }
+  return out;
 }
 
 function resolveCalling(c: CallingConfig, content: Content): Required<CallingConfig> {
@@ -464,6 +498,11 @@ export interface SimInternal {
   pastSampleAt: number;
   /** Constellation (Bonds): stars a Cue left, casting Vexis's bolt until they fade. */
   stars: { x: number; z: number; source: EntityId; until: number; nextAt: number }[];
+  /**
+   * Aegis Link (docs/phase-4f.md): two heroes splitting what hits them, and the Weaver too once
+   * a Perfect brought her in. Null when no link holds.
+   */
+  link: { a: EntityId; b: EntityId; weaver: boolean; appliedAt: number; until: number } | null;
 }
 
 /** The sim's mutable world. Exposed to the outside only as the read-only WorldState. */
@@ -543,6 +582,13 @@ export function emptyLedger(): Ledger {
     timeline: [],
     markers: [],
   };
+}
+
+/** Glide's charges: Skate's (docs/phase-4f.md), or one. */
+function glideCharges(resolved: ResolvedSimConfig, content: Content): number {
+  const id = resolved.techniques.glide;
+  const def = id === null ? undefined : content.techniqueVariants.find((v) => v.id === id);
+  return Math.max(1, Math.floor(def?.values.charges ?? 1));
 }
 
 export function createWorld(config: SimConfig): World {
@@ -698,6 +744,7 @@ export function createWorld(config: SimConfig): World {
       spared: [],
       pastSampleAt: 0,
       stars: [],
+      link: null,
       rallyUntil: 0,
       directiveBarkAt: -100,
       nextCallAt: content.calls.firstAfter,
@@ -772,6 +819,9 @@ export function createWorld(config: SimConfig): World {
       cooldownTotals: { ward: 0, chime: 0, reel: 0, glide: 0 },
       wardCharges: mods.wardCharges,
       maxWardCharges: mods.wardCharges,
+      variants: { ...resolved.techniques },
+      glideCharges: glideCharges(resolved, content),
+      maxGlideCharges: glideCharges(resolved, content),
       glide: 0,
       glideX: 0,
       glideZ: 0,

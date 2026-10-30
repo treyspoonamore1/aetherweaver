@@ -177,6 +177,8 @@ export interface TechniqueCast extends At {
   target: EntityId | null;
   x: number;
   z: number;
+  /** The slot's variant (docs/phase-4f.md), when one was cast; absent for the default. */
+  variant?: string;
 }
 /** A command the player issued couldn't happen: give feedback (a buzz, a flash). */
 export interface TechniqueRejected extends At {
@@ -575,6 +577,49 @@ export interface TalentFired extends At {
   /** Who it acted on, if anyone. */
   target: EntityId | null;
 }
+/** Chorale (a Ward variant): a burst of barriers around a hero. */
+export interface ChoraleEvent extends At {
+  type: 'chorale';
+  x: number;
+  z: number;
+  radius: number;
+  targets: EntityId[];
+}
+/** Aegis Link (a Ward variant): heroes linked, and the Weaver once a Perfect brings her in. */
+export interface LinkedEvent extends At {
+  type: 'linked';
+  a: EntityId;
+  b: EntityId;
+  weaver: boolean;
+  until: number;
+}
+/** Purge (a Chime variant): what a hero was cleansed of burst out at the enemies near them. */
+export interface PurgedEvent extends At {
+  type: 'purged';
+  hero: EntityId;
+  x: number;
+  z: number;
+  radius: number;
+  hit: EntityId[];
+}
+/** Swap (a Reel variant): the Weaver and the threaded hero traded places. */
+export interface SwappedEvent extends At {
+  type: 'swapped';
+  hero: EntityId;
+  fromX: number;
+  fromZ: number;
+  toX: number;
+  toZ: number;
+}
+/** Phase Step (a Glide variant): a blink, and the decoy left behind until `until`. */
+export interface PhaseStepEvent extends At {
+  type: 'phaseStep';
+  fromX: number;
+  fromZ: number;
+  toX: number;
+  toZ: number;
+  until: number;
+}
 export interface PhaseChanged extends At {
   type: 'phaseChanged';
   boss: EntityId;
@@ -658,6 +703,11 @@ export type SimEvent =
   | EnemyKilled
   | EnemyRose
   | TalentFired
+  | ChoraleEvent
+  | LinkedEvent
+  | PurgedEvent
+  | SwappedEvent
+  | PhaseStepEvent
   | PhaseChanged
   | DecreeAnnounced;
 

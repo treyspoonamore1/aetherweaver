@@ -8,6 +8,7 @@ import type { ChordLoadout, RunState } from '../src/meta/types';
 import { weaverShare } from '../src/meta/run';
 import { chordReserve, createSim, type SimConfig, type SimEvent } from '../src/sim';
 import type { RunBond } from '../src/meta/bonds';
+import { noVariants, type Techniques } from '../src/meta/variants';
 
 export interface EncounterRun {
   encounter: string;
@@ -204,6 +205,8 @@ export function playRun(
     dissonance?: readonly { id: string; rank: number }[];
     /** Its heroes' talents and Solos (docs/phase-4e.md). */
     bonds?: readonly RunBond[];
+    /** The Weaver's technique variants (docs/phase-4f.md). */
+    techniques?: Partial<Techniques>;
     /** Calibration: every fight's enemies have this much more life (1.15: 15% more). */
     threatMult?: number;
     /** Called with the finished run (the Deeds report reads it). */
@@ -224,6 +227,7 @@ export function playRun(
           opts.carried ?? [],
           opts.dissonance ?? [],
           opts.bonds ?? [],
+          { ...noVariants(), ...opts.techniques },
         ),
         chords,
       ),

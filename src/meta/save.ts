@@ -3,6 +3,7 @@
  * validated with zod on load, with a backup of the previous save kept before every overwrite.
  * Older versions are migrated on load. Storage is injected so tests can use a map.
  */
+import { fitOwned, fitTechniques, noVariants } from './variants';
 import { z } from 'zod';
 import { CONTENT } from '../content';
 import { chordProblems, type ReservePool } from '../sim';
@@ -293,6 +294,17 @@ const EventSchema = z.object({
   relics: Num,
 });
 
+/** A variant per slot (docs/phase-4f.md); a slot that doesn't parse is its default. */
+const TechniquesSchema = z
+  .object({
+    ward: Str.nullable().catch(null).default(null),
+    chime: Str.nullable().catch(null).default(null),
+    reel: Str.nullable().catch(null).default(null),
+    glide: Str.nullable().catch(null).default(null),
+  })
+  .catch(() => noVariants())
+  .default(() => noVariants());
+
 export const RunStateSchema = z.object({
   version: z.literal(RUN_SAVE_VERSION),
   seed: Num,
@@ -382,6 +394,8 @@ export const RunStateSchema = z.object({
     .default([]),
   scene: z.object({ heroId: Str, sceneId: Str }).nullable().catch(null).default(null),
   scenes: z.array(Str).catch([]).default([]),
+  // Technique variants (docs/phase-4f.md): saves from before them play the defaults.
+  techniques: TechniquesSchema,
 });
 
 /** Motif ids renamed since older saves were written. */
@@ -604,6 +618,8 @@ export function loadRun(store: KeyValueStore): RunState | null {
       if (run.phase === 'scene' && !scene) run.phase = 'respite';
       run.scene = run.phase === 'scene' && scene ? { heroId: scene.hero, sceneId: scene.id } : null;
       run.scenes = run.scenes.filter((id) => CONTENT.scenes.some((s) => s.id === id));
+      // Technique variants the content still knows, each in its own slot.
+      run.techniques = fitTechniques(run.techniques, [], true);
       const fitted = withCarried(run);
       if (compatibleWithContent(fitted)) {
         // Deeds no longer in the content drop out of the run's Summary.
@@ -647,6 +663,9 @@ export const ProfileSchema = z.object({
   deeds: z.array(Str),
   // A Reliquary that doesn't parse at all is lost, not the whole profile.
   reliquary: ReliquarySchema.catch(() => emptyReliquary()),
+  // Technique variants (docs/phase-4f.md).
+  variants: z.array(Str).catch([]).default([]),
+  techniques: TechniquesSchema,
   // Bonds (docs/phase-4e.md): a hero's Bond that doesn't parse is reset, not the others.
   bonds: z
     .record(Str, z.unknown())
@@ -694,6 +713,7 @@ export function migrateProfileJson(raw: unknown, seed = 1): unknown {
   if (isObj(p) && p.version === 4)
     p = { ...p, version: 5, dissonance: { open: false, levels: [], best: {} } };
   if (isObj(p) && p.version === 5) p = { ...p, version: 6, bonds: {} };
+  if (isObj(p) && p.version === 6) p = { ...p, version: 7, variants: [], techniques: noVariants() };
   return p;
 }
 
@@ -722,6 +742,10 @@ export function loadProfile(store: KeyValueStore, seed = 1): Profile {
         );
         // Relics, Inscriptions and curses no longer in the content are left behind.
         profile.reliquary = fitReliquary(profile.reliquary);
+        // Technique variants: the ones the content knows. A choice not owned stays (Skip the
+        // unlocks may have made it): Prep and embark fit it to what's owned.
+        profile.variants = fitOwned(profile.variants);
+        profile.techniques = fitTechniques(profile.techniques, profile.variants, true);
         // Bonds: heroes, talents and scenes the content knows. Choices stay above a hero's
         // rank (Skip the unlocks may have made them): Prep and embark fit them to it.
         profile.bonds = Object.fromEntries(

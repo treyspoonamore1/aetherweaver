@@ -27,6 +27,7 @@ import {
 } from './dissonance';
 import { empowered, relicPassives, snapshotRelic, type ReliquaryRelic } from './reliquary';
 import { bondXpForFight, bondsConfig, type RunBond } from './bonds';
+import { noVariants, variantsConfig, type Techniques } from './variants';
 import {
   canonicalChords,
   chordProblems,
@@ -480,6 +481,8 @@ export function newRun(
   dissonance: readonly DissonanceChoice[] = [],
   /** Its heroes' talents and Solos (docs/phase-4e.md). */
   bonds: readonly RunBond[] = [],
+  /** The Weaver's technique variants (docs/phase-4f.md). */
+  techniques: Techniques = noVariants(),
 ): RunState {
   const kept = carried.map(snapshotRelic);
   const run: RunState = {
@@ -516,6 +519,7 @@ export function newRun(
     bonds: bonds.map(copyBond),
     scene: null,
     scenes: [],
+    techniques: { ...techniques },
   };
   return chordsLegal(chords, undefined, reservePool(run), reserveMult(run))
     ? { ...run, chords: canonicalChords(chords) }
@@ -587,6 +591,14 @@ export function setBonds(run: RunState, bonds: readonly RunBond[]): RunState {
   if (run.phase !== 'prep') return run;
   const next = bonds.map(copyBond);
   return JSON.stringify(next) === JSON.stringify(run.bonds) ? run : { ...run, bonds: next };
+}
+
+/** Prep: the technique variants (docs/phase-4f.md); the run follows the profile's choice. */
+export function setTechniques(run: RunState, techniques: Techniques): RunState {
+  if (run.phase !== 'prep') return run;
+  return JSON.stringify(techniques) === JSON.stringify(run.techniques)
+    ? run
+    : { ...run, techniques: { ...techniques } };
 }
 
 /**
@@ -805,6 +817,7 @@ export function combatConfig(run: RunState, assists?: SimConfig['assists']): Sim
     dissonance: run.dissonance.map((l) => ({ ...l })),
     // Bonds (docs/phase-4e.md): its heroes' talents and Solos.
     bonds: bondsConfig(run.bonds),
+    techniques: variantsConfig(run.techniques),
     // The node's own Threat: maps saved before Threat existed keep ×1.
     threat: node.reward.threat,
     ...(assists ? { assists } : {}),

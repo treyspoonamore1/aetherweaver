@@ -11,9 +11,10 @@ import { CONTENT } from '../content';
 import { canonicalChords, type ChordLoadout } from '../sim';
 import type { DissonanceChoice } from './dissonance';
 import { emptyReliquary, type Reliquary } from './reliquary';
+import { noVariants, type Techniques } from './variants';
 import type { EncounterResult, Grade } from './types';
 
-export const PROFILE_VERSION = 6;
+export const PROFILE_VERSION = 7;
 
 export interface Profile {
   version: typeof PROFILE_VERSION;
@@ -40,6 +41,10 @@ export interface Profile {
   dissonance: ProfileDissonance;
   /** Bonds (docs/phase-4e.md): each hero's Bond XP, choices and scenes seen, by hero id. */
   bonds: Record<string, Bond>;
+  /** Technique variants (docs/phase-4f.md): the ones owned. */
+  variants: string[];
+  /** The variant chosen for each slot: the next run's Prep starts from it. */
+  techniques: Techniques;
 }
 
 /** Dissonance in the profile (docs/phase-4d.md). */
@@ -67,6 +72,8 @@ export function newProfile(seed = 1): Profile {
     reliquary: emptyReliquary(seed),
     dissonance: { open: false, levels: [], best: {} },
     bonds: {},
+    variants: [],
+    techniques: noVariants(),
   };
 }
 

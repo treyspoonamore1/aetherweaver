@@ -4,6 +4,7 @@
  * resumable. The app wraps it in a store (app/runStore.ts); screens read and act through
  * that store only.
  */
+import type { Techniques } from './variants';
 import type {
   ChordLoadout,
   EncounterKind,
@@ -451,6 +452,11 @@ export interface RunState {
   bonds: RunBond[];
   /** The Bond scene being played at a Respite. */
   scene: { heroId: string; sceneId: string } | null;
+  /**
+   * Technique variants (docs/phase-4f.md): the variant per slot, followed in Prep and frozen
+   * at embark. None for runs saved before.
+   */
+  techniques: Techniques;
   /** The Bond scenes this run has played, by id (the Summary counts their Bond XP). */
   scenes: string[];
 }

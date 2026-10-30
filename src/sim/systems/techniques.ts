@@ -8,6 +8,7 @@ import {
   addShield,
   addStatus,
   cleanseAilments,
+  dealDamage,
   heal,
   isActive,
   ownShield,
@@ -17,9 +18,10 @@ import {
 import { pushMarker, setTimeScale } from '../combat/feedback';
 import { gainResonance, spendResonance } from '../combat/resonance';
 import { contains, dirgeRemaining, recordSave, telegraphDamage } from '../combat/telegraphs';
-import type { Entity, TechniqueKey } from '../state';
+import type { Entity, EntityId, TechniqueKey } from '../state';
 import type { World } from '../world';
 import { weaverOf } from '../world';
+import { glideDistance, slotCooldown, slotCost, variantValue } from '../variants';
 import { answerCall } from './calls';
 import { placeStar, startSolo } from './solos';
 
@@ -109,12 +111,16 @@ export function castWard(world: World, slot: PartySlot | undefined): void {
   const def = world.content.techniques.ward;
   const hero = heroForSlot(world, weaver, slot);
   if (!hero || hero.health!.downed) return reject(world, 'ward', 'target');
+  // Aegis Link (docs/phase-4f.md) needs a second hero to link.
+  const variant = w.variants.ward;
+  const partner = variant === 'aegis_link' ? linkPartner(world, weaver, hero) : null;
+  if (variant === 'aegis_link' && !partner) return reject(world, 'ward', 'target');
   // Stasis: no cooldowns, so no charge is needed or used.
   const stasis = world.field.stasis;
   if (w.wardCharges <= 0 && !stasis) return reject(world, 'ward', 'cooldown');
   if (distSq(hero.x, hero.z, weaver.x, weaver.z) > def.range * def.range)
     return reject(world, 'ward', 'range');
-  if (!spend(world, weaver, 'ward', def.cost)) return;
+  if (!spend(world, weaver, 'ward', slotCost(world, 'ward', def.cost))) return;
   if (!stasis) {
     w.wardCharges--;
     if (w.cooldowns.ward <= 0) {
@@ -123,6 +129,8 @@ export function castWard(world: World, slot: PartySlot | undefined): void {
     }
   }
   w.lastTechnique = 'ward';
+  if (variant === 'chorale') return chorale(world, weaver, hero, stasis);
+  if (partner) return aegisLink(world, hero, partner);
   const strength = world.mods.wardBarrierMult * world.mods.aegisWardMult;
   const amount = (hero.health!.maxHp * def.barrierPct + def.barrierFlat) * strength;
   const ward = addShield(world, hero, 'ward', amount, wardDuration(world), true);
@@ -152,9 +160,10 @@ export function castChime(world: World, point: Vec2 | undefined): void {
   const def = world.content.techniques.chime;
   const stasis = world.field.stasis;
   if (w.cooldowns.chime > 0 && !stasis) return reject(world, 'chime', 'cooldown');
-  if (!spend(world, weaver, 'chime', def.cost)) return;
+  if (!spend(world, weaver, 'chime', slotCost(world, 'chime', def.cost))) return;
   if (!stasis) {
-    const chimeCooldown = techCooldown(world, def.cooldown * world.mods.chimeCooldownMult);
+    const base = slotCooldown(world, 'chime', def.cooldown);
+    const chimeCooldown = techCooldown(world, base * world.mods.chimeCooldownMult);
     w.cooldowns.chime = chimeCooldown;
     w.cooldownTotals.chime = chimeCooldown;
   }
@@ -187,6 +196,7 @@ export function castChime(world: World, point: Vec2 | undefined): void {
     target: null,
     x,
     z,
+    ...variantField(w.variants.chime),
   });
   world.events.push({
     type: 'chimeLaunched',
@@ -204,6 +214,11 @@ export function castChime(world: World, point: Vec2 | undefined): void {
 export function updateChimes(world: World): void {
   if (world.chimes.length === 0) return;
   const def = world.content.techniques.chime;
+  // Technique variants (docs/phase-4f.md): Purge sends what it cleanses out; Absolve heals more
+  // and guards.
+  const variant = weaverOf(world).weaver?.variants.chime ?? null;
+  const healPct =
+    variant === 'absolve' ? variantValue(world, 'absolve', 'heal') / 100 : def.healPct;
   for (let i = 0; i < world.chimes.length;) {
     const chime = world.chimes[i]!;
     if (chime.landsAt > world.time + 1e-9) {
@@ -221,10 +236,20 @@ export function updateChimes(world: World): void {
       if (distSq(hero.x, hero.z, chime.x, chime.z) > reach * reach) continue;
       const dirge = dirgeRemaining(hero);
       const lethalDirge = dirge !== Infinity && dirgeWouldKill(world, hero);
+      const purged = variant === 'purge' ? ailmentsOf(world, hero) : [];
       const removed = cleanseAilments(world, hero);
       addStatus(world, hero, 'immune', def.immunity, world.weaverId);
       // The Hollow Bell rings softer.
-      heal(world, hero, hero.health.maxHp * def.healPct * world.mods.chimeHealMult, 'chime');
+      heal(world, hero, hero.health.maxHp * healPct * world.mods.chimeHealMult, 'chime');
+      if (variant === 'absolve')
+        addStatus(
+          world,
+          hero,
+          'absolved',
+          variantValue(world, 'absolve', 'seconds'),
+          world.weaverId,
+        );
+      if (purged.length > 0) purge(world, hero, purged);
       answerCall(world, hero, 'chime');
       if (removed > 0) {
         cleansedCount++;
@@ -290,11 +315,14 @@ export function castReel(world: World, slot: PartySlot | undefined): void {
   if (w.cooldowns.reel > 0) return reject(world, 'reel', 'cooldown');
   if (distSq(hero.x, hero.z, weaver.x, weaver.z) > def.range * def.range)
     return reject(world, 'reel', 'range');
-  if (!spend(world, weaver, 'reel', def.cost)) return;
-  const cd = Math.max(1, techCooldown(world, def.cooldown - world.mods.reelCooldownCut));
+  if (!spend(world, weaver, 'reel', slotCost(world, 'reel', def.cost))) return;
+  const base = slotCooldown(world, 'reel', def.cooldown);
+  const cd = Math.max(1, techCooldown(world, base - world.mods.reelCooldownCut));
   w.cooldowns.reel = cd;
   w.cooldownTotals.reel = cd;
   w.lastTechnique = 'reel';
+  if (w.variants.reel === 'swap') return swap(world, weaver, hero);
+  if (w.variants.reel === 'anchor') return anchor(world, hero);
 
   // Land just in front of the Weaver, toward the aim point.
   let ax = w.aimX - weaver.x;
@@ -357,7 +385,10 @@ export function castGlide(world: World, x: number, z: number): void {
   // Heavy Score's curse.
   if (world.mods.noGlide) return reject(world, 'glide', 'locked');
   const stasis = world.field.stasis;
-  if (w.cooldowns.glide > 0 && !stasis) return reject(world, 'glide', 'cooldown');
+  // Skate (docs/phase-4f.md) dashes on charges, each back after its cooldown.
+  const skate = w.variants.glide === 'skate';
+  if (skate ? w.glideCharges <= 0 && !stasis : w.cooldowns.glide > 0 && !stasis)
+    return reject(world, 'glide', 'cooldown');
   let dx = x;
   let dz = z;
   let m = len(dx, dz);
@@ -373,17 +404,26 @@ export function castGlide(world: World, x: number, z: number): void {
   }
   w.glideX = dx / m;
   w.glideZ = dz / m;
-  w.glide = def.duration;
+  const glideCooldown = techCooldown(
+    world,
+    slotCooldown(world, 'glide', def.cooldown) * world.mods.glideCooldownMult,
+  );
   if (!stasis) {
-    const glideCooldown = techCooldown(world, def.cooldown * world.mods.glideCooldownMult);
-    w.cooldowns.glide = glideCooldown;
-    w.cooldownTotals.glide = glideCooldown;
+    if (skate) w.glideCharges--;
+    // Skate's charges come back one at a time: start the clock only if it isn't running.
+    if (!skate || w.cooldowns.glide <= 0) {
+      w.cooldowns.glide = glideCooldown;
+      w.cooldownTotals.glide = glideCooldown;
+    }
   }
+  if (w.variants.glide === 'phase_step') return phaseStep(world, weaver);
+  w.glide = def.duration;
   weaver.health!.invulnerable = Math.max(weaver.health!.invulnerable, def.iframes);
   temporalMastery(world, weaver);
   const r = world.arenaRadius - weaver.radius;
-  let toX = weaver.x + w.glideX * def.distance;
-  let toZ = weaver.z + w.glideZ * def.distance;
+  const distance = glideDistance(world);
+  let toX = weaver.x + w.glideX * distance;
+  let toZ = weaver.z + w.glideZ * distance;
   const tm = len(toX, toZ);
   if (tm > r) {
     toX = (toX / tm) * r;
@@ -396,6 +436,7 @@ export function castGlide(world: World, x: number, z: number): void {
     target: null,
     x: toX,
     z: toZ,
+    ...variantField(w.variants.glide),
   });
   world.events.push({
     type: 'glided',
@@ -405,6 +446,274 @@ export function castGlide(world: World, x: number, z: number): void {
     toX,
     toZ,
   });
+}
+
+// ── Technique variants (docs/phase-4f.md) ────────────────────────────────────────────────
+
+/** The `variant` a cast event carries: present only when one was cast. */
+function variantField(id: string | null): { variant?: string } {
+  return id === null ? {} : { variant: id };
+}
+
+/**
+ * Chorale (a Ward variant): barriers on every hero near the one you Ward. They're Wards, so the
+ * Ward's modifiers shape them; one only turns Perfect with another (combat/telegraphs.ts).
+ */
+function chorale(world: World, weaver: Entity, hero: Entity, stasis: boolean): void {
+  const radius = variantValue(world, 'chorale', 'radius');
+  const pct = variantValue(world, 'chorale', 'pct') / 100;
+  const flat = variantValue(world, 'chorale', 'flat');
+  const strength = world.mods.wardBarrierMult * world.mods.aegisWardMult;
+  const duration =
+    (variantValue(world, 'chorale', 'seconds') + world.mods.wardDurationBonus) *
+    world.mods.wardDurationMult;
+  const targets: EntityId[] = [];
+  for (const id of world.party) {
+    const ally = world.entities.get(id);
+    if (!isActive(ally)) continue;
+    const reach = radius + ally.radius;
+    if (distSq(ally.x, ally.z, hero.x, hero.z) > reach * reach) continue;
+    const amount = (ally.health.maxHp * pct + flat) * strength;
+    const ward = addShield(world, ally, 'ward', amount, duration, true);
+    if (!ward) continue;
+    ward.chorale = true;
+    if (stasis) ward.stasis = true;
+    targets.push(ally.id);
+  }
+  // Martyr's Aegis: the burst shields the Weaver too, sized from her own Life.
+  if (world.mods.aegisSelf)
+    addShield(
+      world,
+      weaver,
+      'ward',
+      (weaver.health!.maxHp * pct + flat) * strength,
+      duration,
+      false,
+    );
+  world.events.push({
+    type: 'techniqueCast',
+    tick: world.tick,
+    technique: 'ward',
+    target: hero.id,
+    x: hero.x,
+    z: hero.z,
+    variant: 'chorale',
+  });
+  world.events.push({ type: 'chorale', tick: world.tick, x: hero.x, z: hero.z, radius, targets });
+  for (const id of targets) answerCall(world, world.entities.get(id)!, 'ward');
+}
+
+/** Aegis Link's second hero: the one you Thread, or the hero nearest the first. */
+function linkPartner(world: World, weaver: Entity, hero: Entity): Entity | null {
+  const threaded = heroForSlot(world, weaver, undefined) ?? undefined;
+  if (isActive(threaded) && threaded.id !== hero.id) return threaded;
+  let best: Entity | null = null;
+  let bestD = Infinity;
+  for (const id of world.party) {
+    const ally = world.entities.get(id);
+    if (!isActive(ally) || ally.id === hero.id) continue;
+    const d = distSq(ally.x, ally.z, hero.x, hero.z);
+    if (d < bestD) {
+      bestD = d;
+      best = ally;
+    }
+  }
+  return best;
+}
+
+/** Aegis Link (a Ward variant): two heroes share what hits them (combat/health.ts). */
+function aegisLink(world: World, hero: Entity, partner: Entity): void {
+  const until = world.time + variantValue(world, 'aegis_link', 'seconds');
+  world.internal.link = { a: hero.id, b: partner.id, weaver: false, appliedAt: world.time, until };
+  world.events.push({
+    type: 'techniqueCast',
+    tick: world.tick,
+    technique: 'ward',
+    target: hero.id,
+    x: hero.x,
+    z: hero.z,
+    variant: 'aegis_link',
+  });
+  world.events.push({
+    type: 'linked',
+    tick: world.tick,
+    a: hero.id,
+    b: partner.id,
+    weaver: false,
+    until,
+  });
+  answerCall(world, hero, 'ward');
+  answerCall(world, partner, 'ward');
+}
+
+/** A Link ends when its time is up. */
+export function updateLink(world: World): void {
+  const link = world.internal.link;
+  if (link && link.until <= world.time + 1e-9) world.internal.link = null;
+}
+
+interface Ailment {
+  id: 'dirge' | 'silence' | 'stun' | 'sleep';
+  remaining: number;
+  /** A Dirge's damage, had it run out. */
+  damage: number;
+}
+
+/** The ailments Purge can send out, read before the Chime cleanses them. */
+function ailmentsOf(world: World, hero: Entity): Ailment[] {
+  const out: Ailment[] = [];
+  for (const s of hero.health!.statuses) {
+    if (s.id === 'dirge')
+      out.push({ id: 'dirge', remaining: s.remaining, damage: dirgeDamage(world, hero) });
+    else if (s.id === 'silence' || s.id === 'stun' || s.id === 'sleep')
+      out.push({ id: s.id, remaining: s.remaining, damage: 0 });
+  }
+  return out;
+}
+
+/** Purge (a Chime variant): what was cleansed bursts out at the enemies near the hero. */
+function purge(world: World, hero: Entity, ailments: Ailment[]): void {
+  const radius = variantValue(world, 'purge', 'radius');
+  const share = variantValue(world, 'purge', 'pct') / 100;
+  const hit: EntityId[] = [];
+  for (const e of world.entities.list()) {
+    if (!e.enemy || !isActive(e)) continue;
+    const reach = radius + e.radius;
+    if (distSq(e.x, e.z, hero.x, hero.z) > reach * reach) continue;
+    for (const a of ailments) {
+      if (a.id === 'dirge') {
+        if (a.damage > 0)
+          dealDamage(world, e, {
+            source: world.weaverId,
+            sourceName: 'Purge',
+            amount: a.damage * share,
+          });
+      } else if (a.remaining > 0) addStatus(world, e, a.id, a.remaining, world.weaverId);
+    }
+    hit.push(e.id);
+  }
+  world.events.push({
+    type: 'purged',
+    tick: world.tick,
+    hero: hero.id,
+    x: hero.x,
+    z: hero.z,
+    radius,
+    hit,
+  });
+}
+
+/** Swap (a Reel variant): the Weaver and the threaded hero trade places, at once. */
+function swap(world: World, weaver: Entity, hero: Entity): void {
+  // The hero leaves the shapes they stood in: a dodge (and a save) as for a Reel.
+  for (const t of world.telegraphs) {
+    if (contains(world, t, hero))
+      world.internal.reelDodges.push({ telegraph: t.id, hero: hero.id });
+  }
+  const fromX = hero.x;
+  const fromZ = hero.z;
+  hero.x = weaver.x;
+  hero.z = weaver.z;
+  weaver.x = fromX;
+  weaver.z = fromZ;
+  hero.vx = hero.vz = weaver.vx = weaver.vz = 0;
+  weaver.weaver!.glide = 0;
+  const h = hero.hero!;
+  h.cast = null;
+  h.castName = null;
+  h.castProgress = 0;
+  h.dodge = null;
+  pushMarker(world, 'reel', h.slot);
+  world.events.push({
+    type: 'techniqueCast',
+    tick: world.tick,
+    technique: 'reel',
+    target: hero.id,
+    x: fromX,
+    z: fromZ,
+    variant: 'swap',
+  });
+  world.events.push({
+    type: 'swapped',
+    tick: world.tick,
+    hero: hero.id,
+    fromX,
+    fromZ,
+    toX: hero.x,
+    toZ: hero.z,
+  });
+}
+
+/** Anchor (a Reel variant): the threaded hero takes less, and holds their ground. */
+function anchor(world: World, hero: Entity): void {
+  addStatus(world, hero, 'anchored', variantValue(world, 'anchor', 'seconds'), world.weaverId);
+  pushMarker(world, 'reel', hero.hero!.slot);
+  world.events.push({
+    type: 'techniqueCast',
+    tick: world.tick,
+    technique: 'reel',
+    target: hero.id,
+    x: hero.x,
+    z: hero.z,
+    variant: 'anchor',
+  });
+}
+
+/**
+ * Phase Step (a Glide variant): a blink, and the enemies hunting the Weaver lose her for a
+ * moment, turning on the hero nearest them.
+ */
+function phaseStep(world: World, weaver: Entity): void {
+  const w = weaver.weaver!;
+  const def = world.content.techniques.glide;
+  const metres = variantValue(world, 'phase_step', 'metres');
+  const seconds = variantValue(world, 'phase_step', 'seconds');
+  const r = world.arenaRadius - weaver.radius;
+  const fromX = weaver.x;
+  const fromZ = weaver.z;
+  let toX = weaver.x + w.glideX * metres;
+  let toZ = weaver.z + w.glideZ * metres;
+  const tm = len(toX, toZ);
+  if (tm > r) {
+    toX = (toX / tm) * r;
+    toZ = (toZ / tm) * r;
+  }
+  weaver.x = toX;
+  weaver.z = toZ;
+  weaver.vx = weaver.vz = 0;
+  w.glide = 0;
+  weaver.health!.invulnerable = Math.max(weaver.health!.invulnerable, def.iframes);
+  temporalMastery(world, weaver);
+  const until = world.time + seconds;
+  for (const e of world.entities.list()) {
+    const c = e.enemy;
+    if (!c || !isActive(e) || c.targetId !== weaver.id) continue;
+    let best: Entity | null = null;
+    let bestD = Infinity;
+    for (const id of world.party) {
+      const ally = world.entities.get(id);
+      if (!isActive(ally)) continue;
+      const d = distSq(ally.x, ally.z, e.x, e.z);
+      if (d < bestD) {
+        bestD = d;
+        best = ally;
+      }
+    }
+    if (!best) continue;
+    c.tauntTarget = best.id;
+    c.tauntUntil = Math.max(c.tauntUntil, until);
+    c.targetId = best.id;
+  }
+  world.events.push({
+    type: 'techniqueCast',
+    tick: world.tick,
+    technique: 'glide',
+    target: null,
+    x: toX,
+    z: toZ,
+    variant: 'phase_step',
+  });
+  world.events.push({ type: 'phaseStep', tick: world.tick, fromX, fromZ, toX, toZ, until });
 }
 
 export function cue(world: World, slot: PartySlot): void {

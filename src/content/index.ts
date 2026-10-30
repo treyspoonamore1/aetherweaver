@@ -12,6 +12,7 @@ import { BOONS, RELICS } from './relics';
 import { CURSES, INSCRIPTIONS, RELIQUARY } from './reliquary';
 import { DISSONANCE, DISSONANCE_RULES } from './dissonance';
 import { ALT_SOLOS, BOND_RULES, SCENES, TALENTS } from './bonds';
+import { TECHNIQUE_VARIANTS } from './variants';
 import { RUN_EVENTS } from './runEvents';
 import { CALLS, CHORUS, CRESCENDO, RESONANCE, TECHNIQUES, THREAD, WEAVER } from './weaver';
 import {
@@ -19,6 +20,7 @@ import {
   type ArenaDef,
   type AstrolabeNode,
   type AltSoloDef,
+  type TechniqueVariantDef,
   type AttackDef,
   type AuraDef,
   type BoonDef,
@@ -71,6 +73,7 @@ export const CONTENT: Content = ContentSchema.parse({
   bondRules: BOND_RULES,
   talents: TALENTS,
   altSolos: ALT_SOLOS,
+  techniqueVariants: TECHNIQUE_VARIANTS,
   scenes: SCENES,
   arenas: ARENAS,
   encounters: ENCOUNTERS,
@@ -222,6 +225,17 @@ export function altSoloText(def: AltSoloDef): { text: string; cued: string } {
   return { text: fillValues(def.text, def.values), cued: fillValues(def.cuedText, def.values) };
 }
 
+/** A technique variant by id (docs/phase-4f.md). */
+export const variantDef: (id: string) => TechniqueVariantDef = index(
+  'technique variant',
+  CONTENT.techniqueVariants,
+);
+
+/** A technique variant's effect, filled in. */
+export function variantText(def: TechniqueVariantDef): string {
+  return fillValues(def.text, def.values);
+}
+
 /** A Bond scene by id. */
 export const sceneDef: (id: string) => SceneDef = index('scene', CONTENT.scenes);
 
@@ -292,5 +306,6 @@ export type {
   RunEventDef,
   SceneDef,
   TalentDef,
+  TechniqueVariantDef,
 } from './schema';
 export { DISSONANCE_EFFECTS, INSCRIPTION_CATEGORIES, PASSIVE_EFFECTS } from './schema';

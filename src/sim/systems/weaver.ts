@@ -5,7 +5,8 @@ import { SIM_HZ } from '../constants';
 import type { TechniqueKey } from '../state';
 import { weaverOf, type World } from '../world';
 import { approachVelocity } from './steering';
-import { wardCooldown } from './techniques';
+import { updateLink, wardCooldown } from './techniques';
+import { glideDistance } from '../variants';
 
 const TECHNIQUES: readonly TechniqueKey[] = ['ward', 'chime', 'reel', 'glide'];
 /** The Martyr's healing of herself is reported once a second, not every tick. */
@@ -33,7 +34,7 @@ export function updateWeaver(world: World, dt: number): void {
     }
   } else if (w.glide > 0) {
     const tech = world.content.techniques.glide;
-    const speed = tech.distance / Math.max(0.01, tech.duration);
+    const speed = glideDistance(world) / Math.max(0.01, tech.duration);
     e.vx = w.glideX * speed;
     e.vz = w.glideZ * speed;
     w.glide = Math.max(0, w.glide - dt);
@@ -97,6 +98,11 @@ export function updateWeaver(world: World, dt: number): void {
         w.cooldownTotals.ward = w.cooldowns.ward;
       }
     }
+    // Skate (docs/phase-4f.md): Glide's charges come back one at a time too.
+    if (key === 'glide' && w.cooldowns.glide === 0 && w.glideCharges < w.maxGlideCharges) {
+      w.glideCharges++;
+      if (w.glideCharges < w.maxGlideCharges) w.cooldowns.glide = w.cooldownTotals.glide;
+    }
   }
   if (w.threadLock > 0) w.threadLock = Math.max(0, w.threadLock - dt);
 
@@ -112,4 +118,5 @@ export function updateWeaver(world: World, dt: number): void {
     }
   }
   decayResonance(world, dt);
+  updateLink(world);
 }
