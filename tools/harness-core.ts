@@ -197,6 +197,8 @@ export function playRun(
     astrolabe?: readonly string[];
     /** The Reliquary's relics the run carries (docs/phase-4c.md). */
     carried?: readonly ReliquaryRelic[];
+    /** The Dissonance the run plays at (docs/phase-4d.md). */
+    dissonance?: readonly { id: string; rank: number }[];
     /** Calibration: every fight's enemies have this much more life (1.15: 15% more). */
     threatMult?: number;
     /** Called with the finished run (the Deeds report reads it). */
@@ -206,7 +208,16 @@ export function playRun(
   const relics = opts.relics ?? true;
   let run = Run.embark(
     Run.setCalling(
-      Run.setChords(Run.newRun(seed, undefined, opts.astrolabe ?? [], opts.carried ?? []), chords),
+      Run.setChords(
+        Run.newRun(
+          seed,
+          undefined,
+          opts.astrolabe ?? [],
+          opts.carried ?? [],
+          opts.dissonance ?? [],
+        ),
+        chords,
+      ),
       opts.calling ?? null,
     ),
   );

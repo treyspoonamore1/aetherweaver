@@ -12,6 +12,7 @@ import {
   type EnshrineResult,
   type ReliquaryRelic,
 } from '../meta/reliquary';
+import { dissonancePoints, type DissonanceChoice } from '../meta/dissonance';
 import * as Run from '../meta/run';
 import { loadRun, saveRun } from '../meta/save';
 import type { CombatOutcome, RunActions, RunState } from '../meta/types';
@@ -32,6 +33,8 @@ export interface RunStore extends RunActions {
   followReliquary(): void;
   /** A won run's Summary: enshrine one of the relics it found (once). */
   enshrine(relicId: string): EnshrineResult;
+  /** A run in Prep follows the profile's Dissonance (docs/phase-4d.md). */
+  followDissonance(): void;
 }
 
 /** The profile's tree as a run may hold it: within the points the Rank (or the settings) give. */
@@ -44,6 +47,12 @@ function profileTree(): string[] {
 function profileCarry(): ReliquaryRelic[] {
   const profile = useProfile.getState();
   return carriedRelics(profile.profile.reliquary, profile.carrySlots());
+}
+
+/** The Dissonance the profile plays new runs at, if it's open (docs/phase-4d.md). */
+function profileDissonance(): DissonanceChoice[] {
+  const profile = useProfile.getState();
+  return profile.dissonanceOpen() ? profile.profile.dissonance.levels : [];
 }
 
 /**
@@ -70,7 +79,11 @@ export const useRun = create<RunStore>()((set, get) => {
     if (next === run) return;
     // A run that just ended pays the Reliquary and counts toward the profile.
     const ended = run.phase !== 'summary' && next.phase === 'summary';
-    if (ended) next = settleReliquary(next);
+    if (ended) {
+      next = settleReliquary(next);
+      // Dissonance (docs/phase-4d.md): a win may open it, or set a new best.
+      next = { ...next, dissonanceEnd: useProfile.getState().recordDissonance(next) };
+    }
     saveRun(storage(), next);
     set({ run: next });
     if (ended) useProfile.getState().recordRun(next.outcome === 'victory');
@@ -97,8 +110,13 @@ export const useRun = create<RunStore>()((set, get) => {
       const saved = loadRun(storage());
       if (!saved) return false;
       // A fight can't be resumed mid-way: restart the pending encounter from its start.
-      // A run still in Prep picks up the tree and the carry as they are now.
-      set({ run: Run.setCarried(Run.setAstrolabe(saved, profileTree()), profileCarry()) });
+      // A run still in Prep picks up the tree, the carry and the Dissonance as they are now.
+      set({
+        run: Run.setDissonance(
+          Run.setCarried(Run.setAstrolabe(saved, profileTree()), profileCarry()),
+          profileDissonance(),
+        ),
+      });
       // A run saved before Deeds (or before a reset) gets what its fights have earned.
       recordDeeds();
       return true;
@@ -108,6 +126,7 @@ export const useRun = create<RunStore>()((set, get) => {
         Run.setAstrolabe(run, pruneTree(tree, useProfile.getState().astrolabePoints())),
       ),
     followReliquary: () => apply((run) => Run.setCarried(run, profileCarry())),
+    followDissonance: () => apply((run) => Run.setDissonance(run, profileDissonance())),
     enshrine: (relicId) => {
       const run = get().run;
       if (!run || run.phase !== 'summary' || run.outcome !== 'victory')
@@ -115,7 +134,8 @@ export const useRun = create<RunStore>()((set, get) => {
       if (run.reliquary?.enshrined) return { ok: false, reason: 'This run has enshrined one.' };
       const found = Run.enshrineOptions(run).find((r) => r.id === relicId);
       if (!found) return { ok: false, reason: 'This run didn’t find that relic.' };
-      const result = useProfile.getState().enshrine(found);
+      // Its depth: the Dissonance the run won at (docs/phase-4d.md).
+      const result = useProfile.getState().enshrine(found, dissonancePoints(run.dissonance));
       if (result.ok)
         apply((r) => ({
           ...r,
@@ -150,6 +170,7 @@ export const useRun = create<RunStore>()((set, get) => {
         undefined,
         profileTree(),
         profileCarry(),
+        profileDissonance(),
       );
       if (last.length > 0) run = Run.setChords(run, last, profile.allowance());
       saveRun(storage(), run);
@@ -164,7 +185,13 @@ export const useRun = create<RunStore>()((set, get) => {
       // The tree and the relics it embarks with are the run's to keep (within the points and
       // the carry slots the Rank gives).
       apply((run) =>
-        Run.embark(run, profile.allowance(), profile.astrolabePoints(), profile.carrySlots()),
+        Run.embark(
+          run,
+          profile.allowance(),
+          profile.astrolabePoints(),
+          profile.carrySlots(),
+          profile.dissonanceOpen(),
+        ),
       );
       const run = get().run;
       if (run?.phase === 'map') remember(run);
@@ -236,12 +263,17 @@ useSettings.subscribe((state, prev) => {
   if (state.settings.unlockAll !== prev.settings.unlockAll) {
     useRun.getState().followAstrolabe(useProfile.getState().profile.astrolabe);
     useRun.getState().followReliquary();
+    useRun.getState().followDissonance();
   }
 });
 // So does its carry (docs/phase-4c.md): a relic chosen, crafted or released, or a slot opened.
 useProfile.subscribe((state, prev) => {
   if (state.profile.reliquary !== prev.profile.reliquary || state.profile.xp !== prev.profile.xp)
     useRun.getState().followReliquary();
+});
+// And its Dissonance (docs/phase-4d.md): a level chosen, or Dissonance opened.
+useProfile.subscribe((state, prev) => {
+  if (state.profile.dissonance !== prev.profile.dissonance) useRun.getState().followDissonance();
 });
 
 if (typeof window !== 'undefined') {

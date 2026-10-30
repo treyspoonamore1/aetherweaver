@@ -10,6 +10,7 @@ import { astrolabePoints, pruneTree } from './astrolabe';
 import { FIGHT_AETHER, RELIC_OFFERS } from './economy';
 import { fieldAuraSlots, reserveMult, reservePool, withCarried } from './run';
 import { MAX_RANK, newProfile, PROFILE_VERSION, type Profile } from './profile';
+import { fitLevels } from './dissonance';
 import { emptyReliquary, fitRelic, fitReliquary, type ReliquaryRelic } from './reliquary';
 import { RUN_SAVE_VERSION, type RunState } from './types';
 
@@ -38,6 +39,8 @@ const ReliquaryRelicSchema = z.object({
   inscriptions: z.array(z.object({ id: Str, tier: Num, value: Num })),
   instability: Num,
   fractured: z.boolean(),
+  // Dissonance (docs/phase-4d.md): relics enshrined before it have depth 0.
+  depth: Num.default(0),
   dissonance: z
     .object({
       // A kind this build doesn't know (a later build's) leaves it frozen, as Shattered does.
@@ -340,6 +343,9 @@ export const RunStateSchema = z.object({
     })
     .nullable()
     .default(null),
+  // Dissonance (docs/phase-4d.md): saves from before it play without.
+  dissonance: z.array(z.object({ id: Str, rank: Num })).default([]),
+  dissonanceEnd: z.object({ opened: z.boolean(), best: z.boolean() }).nullable().default(null),
 });
 
 /** Motif ids renamed since older saves were written. */
@@ -554,6 +560,7 @@ export function loadRun(store: KeyValueStore): RunState | null {
       // check below judges), then rebuilt in its relics (attuned first, the rest dormant): one
       // that's gone leaves, and a save from before attunement plays as this build does.
       run.carried = run.carried.map(fitRelic).filter((r): r is ReliquaryRelic => r !== null);
+      run.dissonance = fitLevels(run.dissonance);
       const fitted = withCarried(run);
       if (compatibleWithContent(fitted)) {
         // Deeds no longer in the content drop out of the run's Summary.
@@ -597,6 +604,14 @@ export const ProfileSchema = z.object({
   deeds: z.array(Str),
   // A Reliquary that doesn't parse at all is lost, not the whole profile.
   reliquary: ReliquarySchema.catch(() => emptyReliquary()),
+  // Dissonance (docs/phase-4d.md): a part that doesn't parse is reset, not the profile.
+  dissonance: z
+    .object({
+      open: z.boolean(),
+      levels: z.array(z.object({ id: Str, rank: Num })),
+      best: z.record(Str, z.unknown()),
+    })
+    .catch(() => ({ open: false, levels: [], best: {} })),
   // A best that isn't a count (a hand-edited save) is dropped, not the whole profile.
   deedBest: z
     .record(Str, z.unknown())
@@ -619,6 +634,8 @@ export function migrateProfileJson(raw: unknown, seed = 1): unknown {
   if (isObj(p) && p.version === 1) p = { ...p, version: 2, astrolabe: [] };
   if (isObj(p) && p.version === 2) p = { ...p, version: 3, deeds: [], deedBest: {} };
   if (isObj(p) && p.version === 3) p = { ...p, version: 4, reliquary: emptyReliquary(seed) };
+  if (isObj(p) && p.version === 4)
+    p = { ...p, version: 5, dissonance: { open: false, levels: [], best: {} } };
   return p;
 }
 
@@ -647,6 +664,18 @@ export function loadProfile(store: KeyValueStore, seed = 1): Profile {
         );
         // Relics, Inscriptions and curses no longer in the content are left behind.
         profile.reliquary = fitReliquary(profile.reliquary);
+        // Dissonance: levels the content knows, and bests that are counts.
+        const d = profile.dissonance;
+        profile.dissonance = {
+          open: d.open,
+          levels: fitLevels(d.levels),
+          best: Object.fromEntries(
+            Object.entries(d.best).filter(
+              (e): e is [string, number] =>
+                typeof e[1] === 'number' && Number.isFinite(e[1]) && e[1] >= 0,
+            ),
+          ),
+        };
         return profile;
       }
     } catch {

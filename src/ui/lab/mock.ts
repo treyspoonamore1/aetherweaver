@@ -2442,6 +2442,7 @@ export function mockRelic(
     instability: 0,
     fractured: false,
     dissonance: null,
+    depth: 0,
     ...over,
   };
 }

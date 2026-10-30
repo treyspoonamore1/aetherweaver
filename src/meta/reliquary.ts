@@ -15,6 +15,7 @@ import {
   type RelicDef,
 } from '../content';
 import { Rng } from '../sim/core/rng';
+import { dissonancePoints, shardsMult, tearsFor } from './dissonance';
 import type { RunState } from './types';
 
 /** An Inscription on a relic: which, its tier (5 = T5, the weakest, to 1 = T1) and its value. */
@@ -48,6 +49,11 @@ export interface ReliquaryRelic {
   /** Frozen as it was: carried and played, never crafted again. */
   fractured: boolean;
   dissonance: Dissonance | null;
+  /**
+   * Its depth: the Dissonance of the run that found it (docs/phase-4d.md). It sets how far
+   * crafting takes it (`band`); 0 for relics won without Dissonance.
+   */
+  depth: number;
 }
 
 export interface Reliquary {
@@ -84,6 +90,32 @@ export function carrySlots(rank: number, all = false): number {
 }
 
 // ── Reading a relic ──────────────────────────────────────────────────────────────────
+
+/** How far crafting takes a relic of this depth: Ascend's best tier, Inscribe's odds, Cursed's. */
+export interface Band {
+  tierCap: number;
+  /** Inscribe's tier odds in percent, T5 first. */
+  tierOdds: readonly number[];
+  cursedTierCap: number;
+}
+
+/** A relic's band by its depth (docs/phase-4d.md): the deepest band it reaches. */
+export function band(depth: number): Band {
+  const rules = RULES();
+  const deepest = [...rules.bands].reverse().find((b) => depth >= b.depth);
+  return deepest
+    ? { tierCap: deepest.tierCap, tierOdds: deepest.tierOdds, cursedTierCap: deepest.cursedTierCap }
+    : {
+        tierCap: rules.tierCap,
+        tierOdds: rules.inscribe.tierOdds,
+        cursedTierCap: rules.dissonate.cursedTierCap,
+      };
+}
+
+/** The depth at which a relic's crafting reaches the next tier (null: it reaches T1). */
+export function nextBandDepth(depth: number): number | null {
+  return RULES().bands.find((b) => b.depth > depth)?.depth ?? null;
+}
 
 /** Can it still be crafted? (Not after a Fracture or a Dissonate.) */
 export function craftable(r: ReliquaryRelic): boolean {
@@ -182,7 +214,13 @@ export function craftBlocked(
     case 'ascend': {
       const ins = typeof arg === 'number' ? r.inscriptions[arg] : undefined;
       if (!ins) return 'Choose an Inscription.';
-      if (ins.tier - 1 < rules.tierCap) return `T${rules.tierCap - 1} and T1 wait for Dissonance.`;
+      const cap = band(r.depth).tierCap;
+      if (ins.tier - 1 < cap) {
+        const deeper = nextBandDepth(r.depth);
+        return deeper === null
+          ? 'It’s at T1, the best there is.'
+          : `T${cap - 1} waits for a relic won at ${deeper} Dissonance or more.`;
+      }
       if (rq.shards < rules.ascend.cost) return 'Not enough Tuning Shards.';
       return null;
     }
@@ -204,7 +242,7 @@ export function craftOdds(r: ReliquaryRelic, action: CraftAction, index?: number
         tears: 0,
         fracture,
         instability: after(rules.inscribe.instability),
-        tiers: rules.inscribe.tierOdds.map((p) => p / 100),
+        tiers: band(r.depth).tierOdds.map((p) => p / 100),
       };
     case 'retune':
       return {
@@ -302,7 +340,7 @@ function rollInscription(
   const options = inscribable(r, category);
   if (options.length === 0) return null;
   const def = options[rng.int(options.length)]!;
-  const tier = rollTier(rng, RULES().inscribe.tierOdds);
+  const tier = rollTier(rng, band(r.depth).tierOdds);
   return { id: def.id, tier, value: rollValue(rng, def, tier) };
 }
 
@@ -403,8 +441,9 @@ export function dissonate(rq: Reliquary, uid: string): CraftResult {
       const options = CONTENT.inscriptions.filter((d) => d.kind === 'dissonant');
       dissonance = { kind, inscription: options[rng.int(options.length)]!.id };
     } else if (kind === 'cursed') {
-      // Every Inscription rises a tier, as far as T2; a curse joins it.
-      const cap = RULES().dissonate.cursedTierCap;
+      // Every Inscription rises a tier, as far as its band allows (T2, or T1 deeper); a curse
+      // joins it.
+      const cap = band(r.depth).cursedTierCap;
       const inscriptions = r.inscriptions.map((ins) => {
         const tier = Math.max(cap, ins.tier - 1);
         return tier === ins.tier
@@ -427,7 +466,12 @@ export type EnshrineResult =
  * A relic a won run found joins the Reliquary, with its first Inscriptions (by rarity, rolled as
  * Inscribe rolls them, from random categories, adding no Instability).
  */
-export function enshrine(rq: Reliquary, found: { id: string; cleansed: boolean }): EnshrineResult {
+export function enshrine(
+  rq: Reliquary,
+  found: { id: string; cleansed: boolean },
+  /** The Dissonance of the run that found it (docs/phase-4d.md). */
+  depth = 0,
+): EnshrineResult {
   const rules = RULES();
   if (rq.relics.length >= rules.capacity)
     return { ok: false, reason: `The Reliquary holds ${rules.capacity}: release one first.` };
@@ -441,6 +485,7 @@ export function enshrine(rq: Reliquary, found: { id: string; cleansed: boolean }
     instability: 0,
     fractured: false,
     dissonance: null,
+    depth: Math.max(0, Math.floor(depth)),
   };
   const categories = ['silk', 'choir', 'aegis', 'bond', 'weaver'] as const;
   for (let n = rules.enshrineInscriptions[def.rarity]; n > 0; n--) {
@@ -527,6 +572,7 @@ export function fitRelic(r: ReliquaryRelic): ReliquaryRelic | null {
     ),
     instability: Math.max(0, Math.min(100, r.instability)),
     dissonance,
+    depth: Number.isFinite(r.depth) ? Math.max(0, Math.floor(r.depth)) : 0,
   };
 }
 
@@ -580,20 +626,23 @@ export function carriedConfig(relics: readonly ReliquaryRelic[]): {
   };
 }
 
-/** What a run pays the Reliquary at its end: shards for its won fights, a Tear for its boss. */
+/**
+ * What a run pays the Reliquary at its end: shards for its won fights (more with Dissonance),
+ * and Discord Tears for its boss (`tearsFor`).
+ */
 export function runMaterials(run: RunState): { shards: number; tears: number } {
   const rules = RULES();
   let shards = 0;
-  let tears = 0;
   for (const r of run.results) {
     if (r.outcome !== 'victory') continue;
     shards += rules.shards.perFight;
     if (r.kind === 'elite') shards += rules.shards.elite;
     if (r.kind === 'miniboss') shards += rules.shards.miniboss;
-    if (r.kind === 'boss') {
-      shards += rules.shards.boss;
-      if (r.grade === rules.tearGrade) tears += 1;
-    }
+    if (r.kind === 'boss') shards += rules.shards.boss;
   }
-  return { shards, tears };
+  const points = dissonancePoints(run.dissonance ?? []);
+  return {
+    shards: Math.round(shards * shardsMult(points)),
+    tears: tearsFor(run, rules.tearGrade),
+  };
 }

@@ -74,11 +74,12 @@ function relicOf(uid: number, id: string, inscriptions: Inscription[]): Reliquar
     instability: 0,
     fractured: false,
     dissonance: null,
+    depth: 0,
   };
 }
 
 /** The named sets: what a carry might be at each stage. */
-const SETS: Record<string, () => ReliquaryRelic[]> = {
+export const SETS: Record<string, () => ReliquaryRelic[]> = {
   /** The relics alone, no Inscriptions: what carrying them is worth by itself. */
   cores: () => TRIO.map((id, i) => relicOf(i + 1, id, [])),
   /** A crafted set as most players will have it: four each, T4 and T5. */

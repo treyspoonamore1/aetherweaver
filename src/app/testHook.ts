@@ -194,6 +194,7 @@ function seededReliquary(rq: Reliquary, seed: ReliquarySeed): Reliquary {
     instability: r.instability ?? 0,
     fractured: false,
     dissonance: null,
+    depth: 0,
   }));
   return {
     ...rq,

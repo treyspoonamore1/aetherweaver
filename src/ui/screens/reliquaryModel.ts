@@ -1181,6 +1181,7 @@ export function blankRelic(id: string, instability = 0): ReliquaryRelic {
     instability,
     fractured: false,
     dissonance: null,
+    depth: 0,
   };
 }
 

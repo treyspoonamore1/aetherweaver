@@ -38,6 +38,7 @@ function relic(uid: string, id: string, over: Partial<ReliquaryRelic> = {}): Rel
     instability: 0,
     fractured: false,
     dissonance: null,
+    depth: 0,
     ...over,
   };
 }

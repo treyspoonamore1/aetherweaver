@@ -16,6 +16,13 @@ import {
 } from '../content';
 import type { EventEffect, MotifDef, RelicRarity } from '../content/schema';
 import { Rng, hashString } from '../sim/core/rng';
+import {
+  dissonancePoints,
+  fitLevels,
+  hasEffect,
+  xpMult,
+  type DissonanceChoice,
+} from './dissonance';
 import { empowered, relicPassives, snapshotRelic, type ReliquaryRelic } from './reliquary';
 import {
   canonicalChords,
@@ -466,6 +473,8 @@ export function newRun(
   astrolabe: readonly string[] = [],
   /** The relics it carries from the Reliquary (docs/phase-4c.md), copied. */
   carried: readonly ReliquaryRelic[] = [],
+  /** The Dissonance it plays at (docs/phase-4d.md). */
+  dissonance: readonly DissonanceChoice[] = [],
 ): RunState {
   const kept = carried.map(snapshotRelic);
   const run: RunState = {
@@ -497,6 +506,8 @@ export function newRun(
     deeds: [],
     carried: kept,
     reliquary: null,
+    dissonance: fitLevels(dissonance),
+    dissonanceEnd: null,
   };
   return chordsLegal(chords, undefined, reservePool(run), reserveMult(run))
     ? { ...run, chords: canonicalChords(chords) }
@@ -525,12 +536,28 @@ export function withCarried(run: RunState): RunState {
   return { ...run, relics: [...carried, ...run.relics.filter((r) => !r.carried)] };
 }
 
+/** Discordant Pact's relic: a cursed one, picked by the run's seed, that it doesn't carry. */
+function pactRelic(seed: number, carried: readonly string[]): string | null {
+  const cursed = CONTENT.relics.filter((r) => r.rarity === 'cursed' && !carried.includes(r.id));
+  if (cursed.length === 0) return null;
+  return cursed[rngFor(seed, 'discordant_pact').int(cursed.length)]!.id;
+}
+
 /**
  * The relics a won run may enshrine (docs/phase-4c.md): the ones it found, not those it carried
  * in. None for a run that wasn't won.
  */
 export function enshrineOptions(run: RunState): OwnedRelic[] {
   return run.outcome === 'victory' ? run.relics.filter((r) => !r.carried) : [];
+}
+
+/** Prep: the Dissonance to play at (docs/phase-4d.md); the run follows the profile's choice. */
+export function setDissonance(run: RunState, levels: readonly DissonanceChoice[]): RunState {
+  if (run.phase !== 'prep') return run;
+  const dissonance = fitLevels(levels);
+  return JSON.stringify(dissonance) === JSON.stringify(run.dissonance)
+    ? run
+    : { ...run, dissonance };
 }
 
 /**
@@ -585,12 +612,23 @@ export function embark(
   points = Infinity,
   /** The profile's carry slots: relics past them (Skip the unlocks turned off) stay home. */
   carry = Infinity,
+  /** Dissonance is open (docs/phase-4d.md): closed, the run plays without it. */
+  dissonanceOpen = true,
 ): RunState {
   if (run.phase !== 'prep') return run;
   const calling = run.calling && allowance.callings.has(run.calling.id) ? run.calling : null;
   const astrolabe = pruneTree(run.astrolabe, points);
   const carried = run.carried.slice(0, Math.max(0, carry));
-  const next = { ...run, calling, astrolabe, carried, relics: carriedOwned(carried) };
+  const dissonance = dissonanceOpen ? fitLevels(run.dissonance) : [];
+  // Discordant Pact (Dissonance): a random cursed relic from the start, one it doesn't carry.
+  const pact = hasEffect(dissonance, 'cursed_start')
+    ? pactRelic(
+        run.seed,
+        carried.map((r) => r.id),
+      )
+    : null;
+  const relics = [...carriedOwned(carried), ...(pact ? [{ id: pact, cleansed: false }] : [])];
+  const next = { ...run, calling, astrolabe, carried, relics, dissonance };
   // Songs the Calling's pool or the tree can't hold (the Martyr's Life) fall back to the
   // defaults too.
   const chords = allowedFor(next, run.chords, allowance)
@@ -687,6 +725,8 @@ export function combatConfig(run: RunState, assists?: SimConfig['assists']): Sim
     astrolabe: [...run.astrolabe],
     // The Reliquary's carried relics: their Inscriptions, Dissonance and curses.
     passives: carriedPassives(run),
+    // Dissonance (docs/phase-4d.md): the levels it plays at.
+    dissonance: run.dissonance.map((l) => ({ ...l })),
     // The node's own Threat: maps saved before Threat existed keep ×1.
     threat: node.reward.threat,
     ...(assists ? { assists } : {}),
@@ -697,7 +737,12 @@ export function finishCombat(run: RunState, outcome: CombatOutcome): RunState {
   if (run.phase !== 'combat' || !run.pending) return run;
   const node = findNode(run, run.pending);
   if (!node) return run;
-  const result = summarize(node, outcome, run.calling);
+  const summary = summarize(node, outcome, run.calling);
+  // Dissonance (docs/phase-4d.md): its points raise the Weaver XP.
+  const result = {
+    ...summary,
+    xp: Math.round(summary.xp * xpMult(dissonancePoints(run.dissonance))),
+  };
   const party: RunHero[] = run.party.map((h, slot) => {
     const p = outcome.party.find((x) => x.slot === slot);
     if (!p) return h;
@@ -878,7 +923,8 @@ export function rerollDraft(run: RunState): RunState {
 export function respite(run: RunState, choice: 'rest' | 'meditate'): RunState {
   if (run.phase !== 'respite') return run;
   if (choice === 'rest') {
-    const healed = healParty(run, REST_HEAL);
+    // Unforgiving (Dissonance): a rest steadies the Shaken, but doesn't heal.
+    const healed = healParty(run, hasEffect(run.dissonance, 'no_respite_heal') ? 0 : REST_HEAL);
     return toMap({ ...healed, party: healed.party.map((h) => ({ ...h, shaken: false })) });
   }
   return { ...run, phase: 'draft', draft: makeDraft(run, 'meditate', 'common') };

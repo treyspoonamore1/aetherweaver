@@ -30,6 +30,13 @@ import {
   type CraftResult,
   type EnshrineResult,
 } from '../meta/reliquary';
+import {
+  bestKey,
+  dissonancePoints,
+  fitLevels,
+  opensAt,
+  type DissonanceChoice,
+} from '../meta/dissonance';
 import { chordsToRemember } from '../meta/run';
 import { loadProfile, saveProfile } from '../meta/save';
 import type { RunState } from '../meta/types';
@@ -80,8 +87,11 @@ export interface ProfileStore {
   reliquaryOpen(): boolean;
   /** How many relics a run may carry (0 until the Reliquary opens). */
   carrySlots(): number;
-  /** A won run's Summary keeps one of its relics; the reason it can't, if it can't. */
-  enshrine(found: { id: string; cleansed: boolean }): EnshrineResult;
+  /**
+   * A won run's Summary keeps one of its relics, at the run's Dissonance (its depth); the
+   * reason it can't, if it can't.
+   */
+  enshrine(found: { id: string; cleansed: boolean }, depth?: number): EnshrineResult;
   /** One craft on an enshrined relic: Inscribe (a category), Retune or Ascend (an index). */
   craft(uid: string, action: CraftAction, arg?: number | InscriptionCategory): CraftResult;
   /** A relic leaves the Reliquary for Tuning Shards; returns how many (0 if it couldn't). */
@@ -90,6 +100,12 @@ export interface ProfileStore {
   setCarry(uids: readonly string[]): void;
   /** A run ended: what it pays the Reliquary. */
   payReliquary(materials: { shards: number; tears: number }): void;
+  /** Dissonance (docs/phase-4d.md) is open: won at its Rank or above, or Skip the unlocks. */
+  dissonanceOpen(): boolean;
+  /** The levels the next runs play at (fitted to the content). */
+  setDissonance(levels: readonly DissonanceChoice[]): void;
+  /** A run ended: a win opens Dissonance at its Rank, and may set a new best. */
+  recordDissonance(run: RunState): { opened: boolean; best: boolean };
 }
 
 /**
@@ -182,10 +198,10 @@ export const useProfile = create<ProfileStore>()((set, get) => {
       reliquaryOpen(rankOf(get().profile.xp), useSettings.getState().settings.unlockAll),
     carrySlots: () =>
       carrySlots(rankOf(get().profile.xp), useSettings.getState().settings.unlockAll),
-    enshrine: (found) => {
+    enshrine: (found, depth = 0) => {
       const profile = get().profile;
       if (!get().reliquaryOpen()) return { ok: false, reason: 'The Reliquary isn’t open yet.' };
-      const result = enshrine(profile.reliquary, found);
+      const result = enshrine(profile.reliquary, found, depth);
       if (result.ok) commit({ ...profile, reliquary: result.reliquary });
       return result;
     },
@@ -232,6 +248,33 @@ export const useProfile = create<ProfileStore>()((set, get) => {
       const reliquary = chooseCarry(profile.reliquary, uids, get().carrySlots());
       if (reliquary.carry.join() !== profile.reliquary.carry.join())
         commit({ ...profile, reliquary });
+    },
+    dissonanceOpen: () =>
+      get().profile.dissonance.open || useSettings.getState().settings.unlockAll,
+    setDissonance: (levels) => {
+      const profile = get().profile;
+      const fitted = fitLevels(levels);
+      if (JSON.stringify(fitted) === JSON.stringify(profile.dissonance.levels)) return;
+      commit({ ...profile, dissonance: { ...profile.dissonance, levels: fitted } });
+    },
+    recordDissonance: (run) => {
+      const profile = get().profile;
+      if (run.outcome !== 'victory') return { opened: false, best: false };
+      const d = profile.dissonance;
+      const opened = !d.open && opensAt(rankOf(profile.xp));
+      const points = dissonancePoints(run.dissonance);
+      const key = bestKey(run);
+      const best = points > 0 && points > (d.best[key] ?? 0);
+      if (!opened && !best && key in d.best) return { opened, best };
+      commit({
+        ...profile,
+        dissonance: {
+          ...d,
+          open: d.open || opened,
+          best: { ...d.best, [key]: Math.max(d.best[key] ?? 0, points) },
+        },
+      });
+      return { opened, best };
     },
     payReliquary: ({ shards, tears }) => {
       if (shards <= 0 && tears <= 0) return;

@@ -13,6 +13,7 @@ import type {
   SimConfig,
   WithoutYou,
 } from '../sim';
+import type { DissonanceChoice } from './dissonance';
 import type { ReliquaryRelic } from './reliquary';
 
 export type { ChordLoadout, WithoutYou };
@@ -427,6 +428,13 @@ export interface RunState {
   carried: ReliquaryRelic[];
   /** What its end gave the Reliquary: null until then, or if it wasn't open. */
   reliquary: RunReliquary | null;
+  /**
+   * Dissonance (docs/phase-4d.md): the levels it plays at, chosen in Prep (following the
+   * profile's choice) and frozen at embark. None for runs saved before.
+   */
+  dissonance: DissonanceChoice[];
+  /** What its end did for Dissonance: opened it, or set a new best. Null until then. */
+  dissonanceEnd: { opened: boolean; best: boolean } | null;
 }
 
 /** Everything the run screens can do. Implemented by app/runStore.ts. */

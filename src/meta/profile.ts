@@ -8,10 +8,11 @@
  */
 import { CONTENT } from '../content';
 import { canonicalChords, type ChordLoadout } from '../sim';
+import type { DissonanceChoice } from './dissonance';
 import { emptyReliquary, type Reliquary } from './reliquary';
 import type { EncounterResult, Grade } from './types';
 
-export const PROFILE_VERSION = 4;
+export const PROFILE_VERSION = 5;
 
 export interface Profile {
   version: typeof PROFILE_VERSION;
@@ -34,6 +35,18 @@ export interface Profile {
   deedBest: Record<string, number>;
   /** The Reliquary (docs/phase-4c.md): enshrined relics, materials and the carry. */
   reliquary: Reliquary;
+  /** Dissonance (docs/phase-4d.md). */
+  dissonance: ProfileDissonance;
+}
+
+/** Dissonance in the profile (docs/phase-4d.md). */
+export interface ProfileDissonance {
+  /** Opened by the first win at its Rank (or above). */
+  open: boolean;
+  /** The levels chosen last: the next run's Prep starts from them. */
+  levels: DissonanceChoice[];
+  /** The highest Dissonance won at, by Calling (`none` for no Calling). */
+  best: Record<string, number>;
 }
 
 /** A new profile; `seed` starts the Reliquary's crafting rolls. */
@@ -49,6 +62,7 @@ export function newProfile(seed = 1): Profile {
     deeds: [],
     deedBest: {},
     reliquary: emptyReliquary(seed),
+    dissonance: { open: false, levels: [], best: {} },
   };
 }
 
@@ -89,7 +103,8 @@ export type UnlockKind =
   | 'calling'
   | 'astrolabe'
   | 'reliquary'
-  | 'carrySlot';
+  | 'carrySlot'
+  | 'dissonance';
 
 export interface Unlock {
   /** Stable id: "song.field", "aura.ostinato", "ornament.unison", "ornamentSlot.2". */
@@ -192,6 +207,14 @@ export const UNLOCKS: readonly Unlock[] = [
           text: `Each run can carry ${i + 1} relics from the Reliquary: the first (attuned) plays its own effect, the others lend their Inscriptions.`,
         },
   ),
+  {
+    id: 'dissonance',
+    rank: CONTENT.dissonanceRules.openRank,
+    kind: 'dissonance',
+    target: 'dissonance',
+    name: 'Dissonance',
+    text: 'The endgame: opt-in levels that make the fight harder and pay more, and relics won deeper craft further. Win a run at this Rank or above to open it.',
+  },
 ];
 
 /** Unlocks reached between two XP totals (for the rank-up card). */
