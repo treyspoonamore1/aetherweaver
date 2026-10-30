@@ -202,7 +202,7 @@ describe('the stores', () => {
 });
 
 describe('saves', () => {
-  it('a v7 profile migrates; unknown keepsakes, looks and Callings are forgotten', () => {
+  it('a v7 profile migrates; unknown or broken keepsakes, looks and Callings are forgotten', () => {
     const {
       starlight: _s,
       cosmetics: _c,
@@ -224,7 +224,9 @@ describe('saves', () => {
       JSON.stringify({
         ...newProfile(),
         starlight: 12.7,
-        cosmetics: [robe, 'gone', robe],
+        // A bad entry is dropped, not what else was bought.
+        cosmetics: [robe, 'gone', 7, robe],
+        variants: ['purge', null, 'swap', 'gone'],
         look: { robe, thread: 'gone', title: 'title_lightbearer' },
         mastery: { luminary: 30, nobody: 99, martyr: 'x' },
       }),
@@ -232,6 +234,7 @@ describe('saves', () => {
     const fitted = loadProfile(store);
     expect(fitted.starlight).toBe(12);
     expect(fitted.cosmetics).toEqual([robe]);
+    expect(fitted.variants).toEqual(['purge', 'swap']);
     // The title isn't earned yet: not worn.
     expect(fitted.look).toEqual({ robe, thread: null, title: null });
     expect(fitted.mastery).toEqual({ luminary: 30 });

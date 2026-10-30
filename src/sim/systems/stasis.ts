@@ -41,6 +41,8 @@ export function holdEnemyTime(world: World, dt: number): void {
     }
   }
   const internal = world.internal;
+  // An Aegis Link's moment too (docs/phase-4f.md).
+  if (internal.link) internal.link.appliedAt += dt;
   for (const hit of internal.pendingHits) if (!ofParty(world, hit.source)) hit.at += dt;
   for (const spawn of internal.pendingSpawns) spawn.at += dt;
   if (internal.director.nextWaveAt !== null) internal.director.nextWaveAt += dt;

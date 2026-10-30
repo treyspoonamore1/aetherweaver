@@ -111,10 +111,7 @@ export function castWard(world: World, slot: PartySlot | undefined): void {
   const def = world.content.techniques.ward;
   const hero = heroForSlot(world, weaver, slot);
   if (!hero || hero.health!.downed) return reject(world, 'ward', 'target');
-  // Aegis Link (docs/phase-4f.md) needs a second hero to link.
   const variant = w.variants.ward;
-  const partner = variant === 'aegis_link' ? linkPartner(world, weaver, hero) : null;
-  if (variant === 'aegis_link' && !partner) return reject(world, 'ward', 'target');
   // Stasis: no cooldowns, so no charge is needed or used.
   const stasis = world.field.stasis;
   if (w.wardCharges <= 0 && !stasis) return reject(world, 'ward', 'cooldown');
@@ -130,7 +127,9 @@ export function castWard(world: World, slot: PartySlot | undefined): void {
   }
   w.lastTechnique = 'ward';
   if (variant === 'chorale') return chorale(world, weaver, hero, stasis);
-  if (partner) return aegisLink(world, hero, partner);
+  // Aegis Link (docs/phase-4f.md): with no other hero standing, the hero alone is linked.
+  if (variant === 'aegis_link')
+    return aegisLink(world, hero, linkPartner(world, weaver, hero) ?? hero, stasis);
   const strength = world.mods.wardBarrierMult * world.mods.aegisWardMult;
   const amount = (hero.health!.maxHp * def.barrierPct + def.barrierFlat) * strength;
   const ward = addShield(world, hero, 'ward', amount, wardDuration(world), true);
@@ -457,7 +456,8 @@ function variantField(id: string | null): { variant?: string } {
 
 /**
  * Chorale (a Ward variant): barriers on every hero near the one you Ward. They're Wards, so the
- * Ward's modifiers shape them; one only turns Perfect with another (combat/telegraphs.ts).
+ * Ward's modifiers shape them; the one on the hero you Ward is Perfect as a Ward is, the others
+ * only absorb (combat/telegraphs.ts).
  */
 function chorale(world: World, weaver: Entity, hero: Entity, stasis: boolean): void {
   const radius = variantValue(world, 'chorale', 'radius');
@@ -477,6 +477,7 @@ function chorale(world: World, weaver: Entity, hero: Entity, stasis: boolean): v
     const ward = addShield(world, ally, 'ward', amount, duration, true);
     if (!ward) continue;
     ward.chorale = true;
+    if (ally.id !== hero.id) ward.plain = true;
     if (stasis) ward.stasis = true;
     targets.push(ally.id);
   }
@@ -521,10 +522,15 @@ function linkPartner(world: World, weaver: Entity, hero: Entity): Entity | null 
   return best;
 }
 
-/** Aegis Link (a Ward variant): two heroes share what hits them (combat/health.ts). */
-function aegisLink(world: World, hero: Entity, partner: Entity): void {
+/**
+ * Aegis Link (a Ward variant): two heroes share what hits them (combat/health.ts). `partner` is
+ * `hero` again when no other hero is standing: then what hits them is only lighter.
+ */
+function aegisLink(world: World, hero: Entity, partner: Entity, stasis: boolean): void {
   const until = world.time + variantValue(world, 'aegis_link', 'seconds');
   world.internal.link = { a: hero.id, b: partner.id, weaver: false, appliedAt: world.time, until };
+  // Eternal Moment: a Link cast during Stasis that turns out Perfect gives Resonance.
+  if (stasis) world.internal.link.stasis = true;
   world.events.push({
     type: 'techniqueCast',
     tick: world.tick,
@@ -543,7 +549,7 @@ function aegisLink(world: World, hero: Entity, partner: Entity): void {
     until,
   });
   answerCall(world, hero, 'ward');
-  answerCall(world, partner, 'ward');
+  if (partner !== hero) answerCall(world, partner, 'ward');
 }
 
 /** A Link ends when its time is up. */
@@ -583,12 +589,15 @@ function purge(world: World, hero: Entity, ailments: Ailment[]): void {
     if (distSq(e.x, e.z, hero.x, hero.z) > reach * reach) continue;
     for (const a of ailments) {
       if (a.id === 'dirge') {
-        if (a.damage > 0)
-          dealDamage(world, e, {
+        if (a.damage > 0) {
+          // Yours, as a Riposte Bloom's is.
+          const r = dealDamage(world, e, {
             source: world.weaverId,
             sourceName: 'Purge',
             amount: a.damage * share,
           });
+          world.ledger.amplified += r.dealt + r.absorbed;
+        }
       } else if (a.remaining > 0) addStatus(world, e, a.id, a.remaining * hold, world.weaverId);
     }
     hit.push(e.id);
@@ -604,7 +613,10 @@ function purge(world: World, hero: Entity, ailments: Ailment[]): void {
   });
 }
 
-/** Swap (a Reel variant): the Weaver and the threaded hero trade places, at once. */
+/**
+ * Swap (a Reel variant): the Weaver and the threaded hero trade places, at once. She takes what
+ * was coming for them behind a barrier sized from their life.
+ */
 function swap(world: World, weaver: Entity, hero: Entity): void {
   // The hero leaves the shapes they stood in: a dodge (and a save) as for a Reel.
   for (const t of world.telegraphs) {
@@ -619,6 +631,10 @@ function swap(world: World, weaver: Entity, hero: Entity): void {
   weaver.z = fromZ;
   hero.vx = hero.vz = weaver.vx = weaver.vz = 0;
   weaver.weaver!.glide = 0;
+  // Her barrier for what was coming, sized for the blow it was meant for: her own, not support
+  // of the hero.
+  const barrier = hero.health!.maxHp * (variantValue(world, 'swap', 'pct') / 100);
+  addShield(world, weaver, 'ward', barrier, variantValue(world, 'swap', 'seconds'), false);
   const h = hero.hero!;
   h.cast = null;
   h.castName = null;

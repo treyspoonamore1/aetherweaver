@@ -15,6 +15,7 @@ import { gainResonance } from '../combat/resonance';
 import type { CallAnswer, Entity } from '../state';
 import { weaverOf, type World } from '../world';
 import { hasTalent, talentValue } from '../bonds';
+import { slotCost } from '../variants';
 
 /** A call opens no earlier than this much of the answer time before the move is ready. */
 const MIN_LEAD = 0.6;
@@ -60,9 +61,12 @@ export function canCall(world: World, e: Entity, def: HeroDef): boolean {
   const tech = world.content.techniques;
   switch (def.call.answer) {
     case 'ward':
-      return (w.wardCharges > 0 || w.cooldowns.ward <= t) && spiritBy(tech.ward.cost);
+      return (
+        (w.wardCharges > 0 || w.cooldowns.ward <= t) &&
+        spiritBy(slotCost(world, 'ward', tech.ward.cost))
+      );
     case 'chime':
-      return w.cooldowns.chime <= t && spiritBy(tech.chime.cost);
+      return w.cooldowns.chime <= t && spiritBy(slotCost(world, 'chime', tech.chime.cost));
     case 'empower':
       return w.threadLock <= t;
   }

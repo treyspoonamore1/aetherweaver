@@ -10,6 +10,7 @@ import {
   addShield,
   addStatus,
   dealDamage,
+  hasStatus,
   isActive,
   isDisabled,
   NEVER,
@@ -296,6 +297,8 @@ const SCRIPTED = new Set(['cantor_silent_verse', 'cantor_requiem']);
 
 function trySpecial(world: World, e: Entity, def: EnemyDef, target: Entity): boolean {
   const c = e.enemy!;
+  // Silenced (by Purge, docs/phase-4f.md): no specials, though it still moves and strikes.
+  if (hasStatus(e, 'silence')) return false;
   const boss = c.tier === 'boss' || c.tier === 'miniboss';
   if (world.internal.boss.phaseShiftUntil > world.time && boss) return false;
   // A chained toll is coming: the boss script owns the next cast.

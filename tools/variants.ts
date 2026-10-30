@@ -5,6 +5,8 @@
  *   npx tsx tools/variants.ts --tree --seeds 300 --base 0.85 --base-hard 0.61
  *   npx tsx tools/variants.ts --tree --bot skilled --threat 2 --seeds 300 --variants chorale,swap
  *   npx tsx tools/variants.ts --tree --fires --seeds 20          how often each variant is cast
+ *   npx tsx tools/variants.ts --tree --bot skilled --threat 2 --variants chorale+purge+anchor+skate
+ *                                                                 a set of them together
  *
  * The build is tools/bonds.ts's: the Novice bot (or `--bot skilled`), Guardian, and with
  * `--tree` the Rank-20 build. Each variant's worth is the extra enemy life that costs as much,
@@ -37,11 +39,15 @@ function main(): void {
   const carried = argv.includes('--tree') ? SETS.typical!() : [];
   const threat = Number(get('threat') ?? 1);
   const ids = (get('variants') ?? CONTENT.techniqueVariants.map((v) => v.id).join(',')).split(',');
-  const technique = (id: string) => {
-    const def = CONTENT.techniqueVariants.find((v) => v.id === id);
-    if (!def) throw new Error(`Unknown technique variant "${id}"`);
-    return { [def.slot]: id };
-  };
+  // "chorale+skate" plays a set of variants together, one per slot.
+  const technique = (id: string) =>
+    Object.fromEntries(
+      id.split('+').map((one) => {
+        const def = CONTENT.techniqueVariants.find((v) => v.id === one);
+        if (!def) throw new Error(`Unknown technique variant "${one}"`);
+        return [def.slot, one];
+      }),
+    );
   const play = (threatMult: number, id: string | null, onCast?: () => void) => {
     let won = 0;
     for (let i = 0; i < seeds; i++) {

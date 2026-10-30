@@ -22,9 +22,11 @@ export function variantIn(world: World, slot: TechniqueKey): string | null {
   return world.entities.get(world.weaverId)?.weaver?.variants[slot] ?? null;
 }
 
-/** A variant's number from content (0 if it has none). */
+/** A variant's number from content (a key it doesn't have is a bug: it throws). */
 export function variantValue(world: World, id: string, key: string): number {
-  return world.content.techniqueVariants.find((v) => v.id === id)?.values[key] ?? 0;
+  const value = world.content.techniqueVariants.find((v) => v.id === id)?.values[key];
+  if (value === undefined) throw new Error(`variant ${id} has no value ${key}`);
+  return value;
 }
 
 /** What a slot costs: its variant's cost, or the default's. */

@@ -36,6 +36,7 @@ import {
 import { bark, pushMarker, relicFired, setTimeScale } from './feedback';
 import { gainResonance } from './resonance';
 import { hasTalent } from '../bonds';
+import { slotCost } from '../variants';
 import { riposteBash } from '../systems/heroes';
 
 export interface TelegraphSpec {
@@ -325,18 +326,27 @@ function hitEntity(
   const wouldDie = damage >= h.hp + ownShield(h);
 
   // Perfect Ward: a Ward cast inside the window before impact negates the hit outright (a
-  // Chorale's barriers too). The Cracked Metronome makes an early one Perfect, every so often.
-  const ward = e.hero ? shieldOf(h, 'ward') : undefined;
+  // Chorale's on the hero you Warded too; its others only absorb). The Cracked Metronome makes an
+  // early one Perfect, every so often.
+  const shield = e.hero ? shieldOf(h, 'ward') : undefined;
+  const ward = shield?.plain ? undefined : shield;
   const inWindow = !!ward && within(t, ward.appliedAt);
   if (ward && (inWindow || metronome(world, e))) {
-    perfect(world, t, e, ward, damage, owner, wouldDie);
+    perfect(world, t, e, ward, damage, owner, wouldDie, !!ward.stasis);
     if (t.shape.kind === 'mark') removeStatus(world, e, 'dirge', 'detonated');
     return;
   }
-  // Aegis Link (a Ward variant): linked in the window, the hit is negated and you join the link.
+  // Aegis Link (a Ward variant): linked in the window, the first hit is negated and you join the
+  // link. Once a cast, as a Ward's barrier is spent by its Perfect.
   const link = world.internal.link;
-  if (e.hero && link && (link.a === e.id || link.b === e.id) && within(t, link.appliedAt)) {
-    perfect(world, t, e, null, damage, owner, wouldDie);
+  if (
+    e.hero &&
+    link &&
+    !link.weaver &&
+    (link.a === e.id || link.b === e.id) &&
+    within(t, link.appliedAt)
+  ) {
+    perfect(world, t, e, null, damage, owner, wouldDie, !!link.stasis);
     if (t.shape.kind === 'mark') removeStatus(world, e, 'dirge', 'detonated');
     if (!link.weaver) {
       link.weaver = true;
@@ -394,6 +404,8 @@ function perfect(
   damage: number,
   owner: Entity | null,
   wouldDie: boolean,
+  /** Cast during Stasis (Eternal Moment). */
+  stasis: boolean,
 ): void {
   const tech = world.content.techniques.ward;
   // An Aegis Link's Perfect (`ward` null) has no barrier to spend or echo.
@@ -415,7 +427,8 @@ function perfect(
   const weaver = world.entities.get(world.weaverId);
   if (weaver?.weaver) {
     const w = weaver.weaver;
-    const refund = tech.cost * world.mods.techCostMult * tech.perfectRefund;
+    const refund =
+      slotCost(world, 'ward', tech.cost) * world.mods.techCostMult * tech.perfectRefund;
     // Eldritch Conduit (the Astrolabe): what was paid in Life comes back as Life.
     if (world.mods.techniquesCostLife) w.selfHealAcc += heal(world, weaver, refund, 'self', false);
     else w.spirit = Math.min(w.maxSpirit - w.reservedSpirit, w.spirit + refund);
@@ -438,8 +451,8 @@ function perfect(
     world.content.resonance.gains.perfectWard + world.mods.perfectResonance,
     'perfect ward',
   );
-  // Eternal Moment: a Ward cast during Stasis that turned out Perfect.
-  if (ward?.stasis && world.mods.stasisPerfectResonance > 0)
+  // Eternal Moment: a Ward (or Link) cast during Stasis that turned out Perfect.
+  if (stasis && world.mods.stasisPerfectResonance > 0)
     gainResonance(world, world.mods.stasisPerfectResonance, 'eternal moment');
   setTimeScale(world, 0.2, 6, 'perfect');
   bark(world, e, 'perfect');

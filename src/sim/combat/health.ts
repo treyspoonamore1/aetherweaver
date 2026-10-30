@@ -345,6 +345,11 @@ export interface DamageOpts {
    * where it was sent, not taken over again.
    */
   oath?: boolean;
+  /**
+   * What an Aegis Link spared a hero of this hit (docs/phase-4f.md): the share it lightened, and
+   * the Weaver's share once she's joined. Credited as support with the life it kept.
+   */
+  linked?: number;
 }
 
 export interface DamageResult {
@@ -444,14 +449,16 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
   // Oathkeeper (Bonds): while he keeps it, Kael takes less of everything, his own hits too.
   if (target.hero?.soloId === 'oathkeeper' && target.hero.soloActive > 0)
     amount *= 1 - soloValue(world, 'oathkeeper', 'guard') / 100;
-  // Absolve and Anchor (technique variants): what they spare a hero is your support of them.
-  const spared = variantGuard(world, target);
-  if (spared > 0) {
-    if (target.hero) target.hero.supportReceived += amount * spared;
-    amount *= 1 - spared;
-  }
   // Armour only softens ordinary hits; telegraphed attacks are answered, not soaked.
   if (target.hero && !opts.telegraph) amount *= 1 - heroDef(target.hero.defId).armor;
+  // Absolve and Anchor (technique variants): credited, as the guards below are, with the life
+  // they kept.
+  let spared = 0;
+  const guard = variantGuard(world, target);
+  if (guard > 0) {
+    spared = amount * guard;
+    amount -= spared;
+  }
   // Fermata: heroes low on life take less from everything.
   const fx = target.hero ? heroFx(world, target) : null;
   let guarded = 0;
@@ -585,6 +592,13 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
   }
   if (ranks > 0) {
     const kept = Math.min(ranks, keptLife);
+    keptLife -= kept;
+    world.ledger.shielded += kept;
+  }
+  // The technique variants' (docs/phase-4f.md): Absolve's and Anchor's guards, an Aegis Link.
+  const variantKept = spared + (target.hero ? (opts.linked ?? 0) : 0);
+  if (variantKept > 0) {
+    const kept = Math.min(variantKept, keptLife);
     keptLife -= kept;
     world.ledger.shielded += kept;
   }
@@ -746,18 +760,24 @@ function linkShare(world: World, target: Entity, opts: DamageOpts): DamageOpts |
   if (!link || link.until <= world.time) return null;
   const ids = link.weaver ? [link.a, link.b, world.weaverId] : [link.a, link.b];
   if (!ids.includes(target.id)) return null;
-  const members = ids.map((id) => world.entities.get(id)).filter(isActive);
-  if (members.length < 2 || !members.includes(target as Entity & { health: Health })) return null;
+  // Who takes a share: the target, and the other members standing who can be hurt (untouchable
+  // or held at 1 life, they can't, as for Oathkeeper). A Link cast alone has its hero once.
+  const members = [...new Set(ids)]
+    .map((id) => world.entities.get(id))
+    .filter(isActive)
+    .filter((m) => m === target || (m.health.invulnerable <= 0 && !rising(m) && !m.hero?.hold));
+  if (!members.includes(target as Entity & { health: Health })) return null;
   const lighter = variantValue(world, 'aegis_link', 'pct') / 100;
   const share = (opts.amount * (1 - lighter)) / members.length;
-  // Bonds: what the link takes off a hit, and what you take for a hero, is your support of them.
-  if (target.hero) target.hero.supportReceived += opts.amount * lighter;
+  // Bonds and the Summary: what the link takes off a hit, and what you take for a hero, is your
+  // support of them (credited in dealDamage with the life it kept).
+  let spared = opts.amount * lighter;
   for (const m of members) {
     if (m === target) continue;
     const r = dealDamage(world, m, { ...opts, amount: share, oath: true });
-    if (m.weaver && target.hero) target.hero.supportReceived += r.dealt + r.absorbed;
+    if (m.weaver) spared += r.dealt + r.absorbed;
   }
-  return { ...opts, amount: share, oath: true };
+  return { ...opts, amount: share, oath: true, linked: spared };
 }
 
 /** Arcane Ward (Bonds): struck up close, Vexis blinks away from the blow, once in a while. */

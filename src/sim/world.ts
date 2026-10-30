@@ -502,7 +502,16 @@ export interface SimInternal {
    * Aegis Link (docs/phase-4f.md): two heroes splitting what hits them, and the Weaver too once
    * a Perfect brought her in. Null when no link holds.
    */
-  link: { a: EntityId; b: EntityId; weaver: boolean; appliedAt: number; until: number } | null;
+  link: {
+    a: EntityId;
+    /** The second hero; `a` again when the Link was cast with no other hero standing. */
+    b: EntityId;
+    weaver: boolean;
+    appliedAt: number;
+    until: number;
+    /** Cast during Stasis (Eternal Moment). */
+    stasis?: true;
+  } | null;
 }
 
 /** The sim's mutable world. Exposed to the outside only as the read-only WorldState. */

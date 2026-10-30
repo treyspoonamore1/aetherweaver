@@ -55,8 +55,10 @@ export interface Shield {
   stasis?: true;
   /** Overflowing Grace's shield (the Astrolabe). Absent on every other shield. */
   grace?: true;
-  /** A Chorale's barrier (docs/phase-4f.md): Perfect only with another. Absent elsewhere. */
+  /** A Chorale's barrier (docs/phase-4f.md). Absent elsewhere. */
   chorale?: true;
+  /** A Chorale's barrier on a hero you didn't Ward: it absorbs, but is never Perfect. */
+  plain?: true;
 }
 
 export type StatusId =

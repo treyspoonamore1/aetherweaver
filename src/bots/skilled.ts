@@ -87,7 +87,9 @@ export class SkilledBot implements Bot {
     if (danger) {
       const escape = escapeFrom(danger, w, w.radius + 1.2);
       if (escape) {
-        if (danger.impact - now < 0.35 && wc.cooldowns.glide <= 0) {
+        // Skate (a variant) glides while it has a charge, its cooldown ticking for the next.
+        const glide = wc.variants.glide === 'skate' ? wc.glideCharges > 0 : wc.cooldowns.glide <= 0;
+        if (danger.impact - now < 0.35 && glide) {
           out.push({ t: 'glide', x: escape.x - w.x, z: escape.z - w.z });
         }
         this.intent.moveTo(out, w, escape, 0.2);
@@ -220,8 +222,9 @@ export class SkilledBot implements Bot {
         const left = t.impact - now;
         const dmg = damageOf(t, h.e);
         // Swap (a variant, docs/phase-4f.md) puts the Weaver where they stood: only if she can
-        // take it.
-        if (w.weaver!.variants.reel === 'swap' && dmg >= w.health!.hp * 0.7) continue;
+        // take it, behind the barrier it gives her.
+        if (w.weaver!.variants.reel === 'swap' && dmg >= w.health!.hp * 0.7 + swapBarrier(h.e))
+          continue;
         const warded = (h.e.health!.shields.find((s) => s.kind === 'ward')?.amount ?? 0) >= dmg;
         if (
           left < 0.75 &&
@@ -440,4 +443,10 @@ export class SkilledBot implements Bot {
     }
     return { x, z };
   }
+}
+
+/** The barrier Swap gives the Weaver for this hero (docs/phase-4f.md): a share of their life. */
+function swapBarrier(hero: ReadonlyEntity): number {
+  const pct = CONTENT.techniqueVariants.find((v) => v.id === 'swap')?.values.pct ?? 0;
+  return hero.health!.maxHp * (pct / 100);
 }

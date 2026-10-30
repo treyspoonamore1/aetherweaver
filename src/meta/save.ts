@@ -31,6 +31,12 @@ const PROFILE_BACKUP = 'aetherweaver.profile.bak';
 const Num = z.number();
 const Str = z.string();
 
+/** Owned ids (bought with Starlight): an entry that isn't a string is dropped, not the rest. */
+const Ids = z
+  .array(z.unknown())
+  .catch([])
+  .transform((ids) => ids.filter((id): id is string => typeof id === 'string'));
+
 /**
  * Dissonance's levels (docs/phase-4d.md): an entry that doesn't parse is dropped, not the rest;
  * `fitLevels` then fits them to the content.
@@ -671,11 +677,11 @@ export const ProfileSchema = z.object({
   // A Reliquary that doesn't parse at all is lost, not the whole profile.
   reliquary: ReliquarySchema.catch(() => emptyReliquary()),
   // Technique variants (docs/phase-4f.md).
-  variants: z.array(Str).catch([]).default([]),
+  variants: Ids.default([]),
   techniques: TechniquesSchema,
   // The Loom (docs/phase-4g.md): a field that doesn't parse is reset, not the rest.
   starlight: Num.catch(0).default(0),
-  cosmetics: z.array(Str).catch([]).default([]),
+  cosmetics: Ids.default([]),
   look: z
     .object({
       robe: Str.nullable().catch(null).default(null),

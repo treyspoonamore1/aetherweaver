@@ -3,10 +3,11 @@
  * Perfect where it has one, and the config that chooses them.
  */
 import { describe, expect, it } from 'vitest';
-import { CONTENT, variantDef } from '../../src/content';
-import type { SimConfig } from '../../src/sim';
+import { CONTENT, heroDef, variantDef } from '../../src/content';
+import { techniqueCost, type SimConfig } from '../../src/sim';
 import { addStatus, dealDamage, hasStatus, shieldOf } from '../../src/sim/combat/health';
 import { contains } from '../../src/sim/combat/telegraphs';
+import { holdEnemyTime } from '../../src/sim/systems/stasis';
 import { KNOWN_VARIANTS } from '../../src/sim/variants';
 import { resolveConfig } from '../../src/sim/world';
 import type { Entity } from '../../src/sim/state';
@@ -77,50 +78,71 @@ describe('Ward', () => {
     expect(shieldOf(vexis.health!, 'ward')).toBeUndefined();
   });
 
-  it('Chorale: each barrier is Perfect as a Ward is, alone or with another', () => {
-    /** Plays the cleave out with these heroes pinned inside it (and the rest well away). */
-    const play = (inside: number[]) => {
-      const { sim, telegraph: t } = telegraphOn(
-        'bell_brute',
-        'Toll Cleave',
-        KAEL,
-        2.5,
-        sandbox(variants({ ward: 'chorale' })),
-      );
-      const w = worldOf(sim);
-      const heroes = w.party.map((id) => w.entities.get(id)!);
-      if (t.shape.kind !== 'cone') throw new Error('a cone');
-      const { x, z, dirX, dirZ } = t.shape;
-      // AI moves heroes about: pin them each tick, side by side in the cone, the rest away.
-      const pin = () =>
-        heroes.forEach((e, slot) => {
-          const k = inside.indexOf(slot);
-          e.x = k >= 0 ? x + dirX * 2.5 - dirZ * 0.4 * k : x + 30;
-          e.z = k >= 0 ? z + dirZ * 2.5 + dirX * 0.4 * k : z + 30 + slot * 3;
-          e.vx = e.vz = 0;
-        });
-      const me = w.entities.get(w.weaverId)!;
-      while (sim.state.time < t.perfectFrom + 0.05) {
-        pin();
-        me.x = x + dirX * 2.5 + 8;
-        me.z = z + dirZ * 2.5;
-        stepFor(sim, 1);
-      }
+  /**
+   * Plays a Toll Cleave out with these heroes pinned inside it (the rest well away), Warding Kael
+   * in its Perfect window with this Ward variant.
+   */
+  const cleave = (ward: string, inside: number[]) => {
+    const { sim, telegraph: t } = telegraphOn(
+      'bell_brute',
+      'Toll Cleave',
+      KAEL,
+      2.5,
+      sandbox(variants({ ward })),
+      true,
+    );
+    const w = worldOf(sim);
+    const heroes = w.party.map((id) => w.entities.get(id)!);
+    if (t.shape.kind !== 'cone') throw new Error('a cone');
+    const { x, z, dirX, dirZ } = t.shape;
+    // AI moves heroes about: pin them each tick, side by side in the cone, the rest away.
+    const pin = () =>
+      heroes.forEach((e, slot) => {
+        const k = inside.indexOf(slot);
+        e.x = k >= 0 ? x + dirX * 2.5 - dirZ * 0.4 * k : x + 30;
+        e.z = k >= 0 ? z + dirZ * 2.5 + dirX * 0.4 * k : z + 30 + slot * 3;
+        e.vx = e.vz = 0;
+      });
+    const me = w.entities.get(w.weaverId)!;
+    while (sim.state.time < t.perfectFrom + 0.05) {
       pin();
-      let events = stepFor(sim, 1, [{ t: 'tech', id: 'ward', slot: KAEL }]);
-      for (let i = 0; i < 300 && !events.some((e) => e.type === 'telegraphResolved'); i++) {
-        pin();
-        events = stepFor(sim, 1);
-      }
-      const perfect = ofType(events, 'telegraphResolved').filter((e) => e.outcome === 'perfect');
-      return { perfect: perfect.map((e) => e.target), heroes };
+      me.x = x + dirX * 2.5 + 8;
+      me.z = z + dirZ * 2.5;
+      stepFor(sim, 1);
+    }
+    pin();
+    const paid = w.ledger.perfects;
+    const weaver = w.entities.get(w.weaverId)!.weaver!;
+    const resonance = weaver.resonance;
+    let events = stepFor(sim, 1, [{ t: 'tech', id: 'ward', slot: KAEL }]);
+    for (let i = 0; i < 300 && !events.some((e) => e.type === 'telegraphResolved'); i++) {
+      pin();
+      events = stepFor(sim, 1);
+    }
+    const resolved = ofType(events, 'telegraphResolved');
+    const perfect = resolved.filter((e) => e.outcome === 'perfect');
+    return {
+      perfect: perfect.map((e) => e.target),
+      resolved,
+      heroes,
+      w,
+      paid: w.ledger.perfects - paid,
+      resonance: weaver.resonance - resonance,
     };
+  };
+
+  it('Chorale: the barrier on the hero you Ward is Perfect as a Ward is; the others absorb', () => {
     // Kael alone: Perfect, as a Ward would be.
-    const alone = play([KAEL]);
+    const alone = cleave('chorale', [KAEL]);
     expect(alone.perfect).toEqual([alone.heroes[KAEL]!.id]);
-    // Kael and Lyra side by side: one blow strikes both, and both are Perfect.
-    const both = play([KAEL, LYRA]);
-    expect(both.perfect.sort()).toEqual([both.heroes[KAEL]!.id, both.heroes[LYRA]!.id].sort());
+    expect(alone.paid).toBe(1);
+    // Kael and Lyra side by side: one blow strikes both. Kael's barrier is Perfect; Lyra's takes
+    // what it can of her share.
+    const both = cleave('chorale', [KAEL, LYRA]);
+    expect(both.perfect).toEqual([both.heroes[KAEL]!.id]);
+    expect(both.paid).toBe(1);
+    const lyra = both.resolved.find((e) => e.target === both.heroes[LYRA]!.id)!;
+    expect(['warded', 'hit']).toContain(lyra.outcome);
   });
 
   it('Aegis Link: damage to either linked hero is split between them', () => {
@@ -164,6 +186,60 @@ describe('Ward', () => {
     expect(ofType(events, 'perfectWard')).toHaveLength(1);
     expect(w.internal.link?.weaver).toBe(true);
     expect(ofType(events, 'linked').some((e) => e.weaver)).toBe(true);
+  });
+
+  it('Aegis Link: its Perfect is once a cast, though one blow strikes both', () => {
+    const { perfect, paid, resolved, heroes } = cleave('aegis_link', [KAEL, LYRA]);
+    expect(perfect).toEqual([heroes[KAEL]!.id]);
+    expect(paid).toBe(1);
+    // Lyra's share of the blow lands, split with Kael and you.
+    expect(resolved.find((e) => e.target === heroes[LYRA]!.id)?.outcome).not.toBe('perfect');
+  });
+
+  it('Aegis Link: in Stasis its moment waits with the enemies, as a Ward’s does', () => {
+    const { sim, w } = setup(variants({ ward: 'aegis_link' }));
+    stepFor(sim, 2, [{ t: 'tech', id: 'ward', slot: KAEL }]);
+    const at = w.internal.link!.appliedAt;
+    holdEnemyTime(w, 0.5);
+    expect(w.internal.link!.appliedAt).toBeCloseTo(at + 0.5, 9);
+  });
+
+  it('Aegis Link: an untouchable member takes no share; alone, a hero is only lighter', () => {
+    const { sim, w, of } = setup(variants({ ward: 'aegis_link' }));
+    const [brute] = enemies(sim, ['bell_brute', 0, -25]);
+    const kael = of(KAEL);
+    const lyra = of(LYRA);
+    stepFor(sim, 1, [{ t: 'thread', slot: LYRA }]);
+    stepFor(sim, 1, [{ t: 'tech', id: 'ward', slot: KAEL }]);
+    const lighter = 1 - v('aegis_link', 'pct') / 100;
+    const armor = 1 - heroDef('kael').armor;
+    lyra.health!.invulnerable = 1;
+    const l0 = lyra.health!.hp;
+    let k0 = kael.health!.hp;
+    hit(w, kael, 200, brute!);
+    expect(lyra.health!.hp).toBe(l0);
+    expect(k0 - kael.health!.hp).toBeCloseTo(200 * lighter * armor, 6);
+    // With no other hero standing, the Link takes Kael alone.
+    const alone = setup(variants({ ward: 'aegis_link' }));
+    const [b2] = enemies(alone.sim, ['bell_brute', 0, -25]);
+    for (const slot of [LYRA, VEXIS]) alone.of(slot).health!.downed = true;
+    const events = stepFor(alone.sim, 1, [{ t: 'tech', id: 'ward', slot: KAEL }]);
+    const k = alone.of(KAEL);
+    expect(ofType(events, 'linked')[0]).toMatchObject({ a: k.id, b: k.id });
+    k0 = k.health!.hp;
+    hit(alone.w, k, 200, b2!);
+    expect(k0 - k.health!.hp).toBeCloseTo(200 * lighter * armor, 6);
+    // What it spared him is your support, as the life it kept.
+    expect(alone.w.ledger.shielded).toBeGreaterThan(0);
+  });
+
+  it('Chorale costs its own Spirit, and what the Weaver can pay says so', () => {
+    const { sim } = setup(variants({ ward: 'chorale' }));
+    stepFor(sim, 1);
+    expect(techniqueCost(sim.state, 'ward').amount).toBeCloseTo(
+      variantDef('chorale').cost! * worldOf(sim).mods.techCostMult,
+      9,
+    );
   });
 });
 
@@ -217,8 +293,19 @@ describe('Chime', () => {
       return h0 - k.health!.hp;
     })();
     const h1 = kael.health!.hp;
+    const shielded = w.ledger.shielded;
     hit(w, kael, 100, brute!);
     expect(h1 - kael.health!.hp).toBeCloseTo(guardFree * (1 - v('absolve', 'pct') / 100), 6);
+    // What it spared him is your support: the life it kept, in the ledger too.
+    expect(w.ledger.shielded - shielded).toBeCloseTo(guardFree * (v('absolve', 'pct') / 100), 6);
+  });
+
+  it('Purge: a silence sent back keeps an enemy from its specials', () => {
+    const { sim, w } = setup();
+    const [brute] = enemies(sim, ['bell_brute', 0, -3]);
+    addStatus(w, brute!, 'silence', 60, w.weaverId);
+    const events = stepFor(sim, 60 * 8);
+    expect(ofType(events, 'telegraphStarted').filter((e) => e.owner === brute!.id)).toEqual([]);
   });
 });
 

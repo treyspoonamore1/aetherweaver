@@ -420,7 +420,14 @@ export function techniqueCost(
   technique: CostedTechnique,
   content: Content = CONTENT,
 ): { amount: number; pool: 'spirit' | 'life' } {
-  let amount = content.techniques[technique].cost * state.astrolabe.techCostMult;
+  // A variant may cost more than its slot's default (docs/phase-4f.md). States from before
+  // variants (the labs' stand-ins) have none.
+  const variants = state.entities.get(state.weaverId)?.weaver?.variants as
+    Partial<Record<CostedTechnique, string | null>> | undefined;
+  const variant = variants?.[technique] ?? null;
+  const def =
+    variant === null ? undefined : content.techniqueVariants.find((v) => v.id === variant);
+  let amount = (def?.cost ?? content.techniques[technique].cost) * state.astrolabe.techCostMult;
   if (state.field.stasis) amount *= state.calling?.stasisCostMult ?? 1;
   return { amount, pool: state.astrolabe.techniquesCostLife ? 'life' : 'spirit' };
 }
