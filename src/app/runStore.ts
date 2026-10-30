@@ -241,9 +241,12 @@ export const useRun = create<RunStore>()((set, get) => {
       // Its heroes' Bond choices too, as their ranks (or the settings) open them now.
       apply((run) =>
         Run.embark(
-          Run.setTechniques(
-            Run.setBonds(run, profileBonds(run.party.map((h) => h.heroId))),
-            profile.runTechniques(),
+          Run.setCallingTiers(
+            Run.setTechniques(
+              Run.setBonds(run, profileBonds(run.party.map((h) => h.heroId))),
+              profile.runTechniques(),
+            ),
+            run.calling ? profile.tiersOpen(run.calling.id) : 0,
           ),
           profile.allowance(),
           profile.astrolabePoints(),
@@ -268,6 +271,10 @@ export const useRun = create<RunStore>()((set, get) => {
         useProfile.getState().award(after.lastResult.xp);
         // Bonds (docs/phase-4e.md): each hero's Bond XP from the fight.
         useProfile.getState().awardBonds(after.lastResult.bondXp);
+        // The Loom (docs/phase-4g.md): Starlight, and the Calling's mastery with the Weaver XP.
+        useProfile.getState().awardStarlight(after.lastResult.starlight);
+        if (after.calling)
+          useProfile.getState().awardMastery(after.calling.id, after.lastResult.xp);
         recordDeeds();
       }
     },

@@ -38,7 +38,12 @@ export type DebugOp =
   /** Make the hero in `slot` call for support now (stage Call and Response). */
   | { op: 'forceCall'; slot: PartySlot }
   /** Catch a lethal hit on the hero in `slot` with a Fermata hold (stage holds). */
-  | { op: 'forceHold'; slot: PartySlot };
+  | { op: 'forceHold'; slot: PartySlot }
+  /**
+   * The Perfect-Ward trainer (docs/phase-4g.md): a training bell telegraphs one blow at the hero
+   * in `slot`, landing after `windup` seconds (0.5–3). It can't be dodged, and a Ward answers it.
+   */
+  | { op: 'drill'; slot: PartySlot; windup: number };
 
 export type Command =
   /** Movement intent, |(x, z)| ≤ 1. Persists until the next `move` (send on change only). */

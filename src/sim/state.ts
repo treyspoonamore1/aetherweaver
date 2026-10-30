@@ -492,6 +492,8 @@ export interface Telegraph {
   answers: AnswerTag[];
   /** Live: 'lethal' if some hero inside would not survive it as things stand. */
   severity: 'normal' | 'lethal';
+  /** A training bell's blow (the Perfect-Ward trainer): a mark with no Dirge behind it. */
+  drill?: true;
 }
 
 export interface Obstacle {

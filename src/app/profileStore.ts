@@ -53,6 +53,15 @@ import {
 } from '../meta/bonds';
 import { loadProfile, saveProfile } from '../meta/save';
 import { fitTechniques, variantsFor, type Techniques } from '../meta/variants';
+import {
+  buy as buyItem,
+  equip as equipItem,
+  shopItems,
+  starlightForDeeds,
+  tiersOpen,
+  type Look,
+  type ShopItem,
+} from '../meta/loom';
 import type { RunState } from '../meta/types';
 import { CONTENT, type InscriptionCategory } from '../content';
 import type { ChordLoadout, ReservePool, TechniqueKey } from '../sim';
@@ -149,6 +158,18 @@ export interface ProfileStore {
   ownVariant(id: string): void;
   /** The variant for a slot, or the default (null); only one owned (or Skip the unlocks). */
   setTechnique(slot: TechniqueKey, id: string | null): void;
+  /** The Loom (docs/phase-4g.md): Starlight earned (a fight, a won run's bonus). */
+  awardStarlight(amount: number): void;
+  /** The Atelier's items, as this profile sees them now. */
+  shop(): ShopItem[];
+  /** Buys an Atelier item; returns why not, or null when bought. */
+  buy(itemId: string): string | null;
+  /** Wears a keepsake (null: the default); only one owned, or a title earned. */
+  equip(slot: keyof Look, id: string | null): void;
+  /** Adds a Calling's mastery XP (the run store, with each fight's Weaver XP). */
+  awardMastery(callingId: string, xp: number): void;
+  /** How many of a Calling's path tiers a run may offer now (every one, Skip the unlocks). */
+  tiersOpen(callingId: string): number;
 }
 
 /**
@@ -225,8 +246,10 @@ export const useProfile = create<ProfileStore>()((set, get) => {
         if (n !== null && n > (best[d.id] ?? 0)) best = { ...best, [d.id]: n };
       }
       if (earned.length === 0 && best === profile.deedBest) return earned;
+      // Each Deed earned pays its Starlight (docs/phase-4g.md).
+      const starlight = profile.starlight + starlightForDeeds(earned);
       commit(
-        { ...profile, deeds: [...profile.deeds, ...earned], deedBest: best },
+        { ...profile, deeds: [...profile.deeds, ...earned], deedBest: best, starlight },
         earned.length > 0 ? { deedNotices: [...get().deedNotices, ...earned] } : {},
       );
       return earned;
@@ -278,6 +301,46 @@ export const useProfile = create<ProfileStore>()((set, get) => {
       commit({ ...profile, bonds: { ...profile.bonds, [scene.hero]: { ...bond, seen } } });
       get().awardBonds({ [scene.hero]: sceneXp(scene) });
     },
+    awardStarlight: (amount) => {
+      const add = Math.max(0, Math.round(Number.isFinite(amount) ? amount : 0));
+      if (add <= 0) return;
+      const profile = get().profile;
+      commit({ ...profile, starlight: profile.starlight + add });
+    },
+    shop: () => {
+      const profile = get().profile;
+      return shopItems(profile, rankOf(profile.xp), useSettings.getState().settings.unlockAll);
+    },
+    buy: (itemId) => {
+      const profile = get().profile;
+      const done = buyItem(
+        profile,
+        itemId,
+        rankOf(profile.xp),
+        useSettings.getState().settings.unlockAll,
+      );
+      if ('refused' in done) return done.refused;
+      commit({ ...profile, ...done.state });
+      return null;
+    },
+    equip: (slot, id) => {
+      const profile = get().profile;
+      const look = equipItem(profile, slot, id);
+      if (JSON.stringify(look) !== JSON.stringify(profile.look)) commit({ ...profile, look });
+    },
+    awardMastery: (callingId, xp) => {
+      const add = Math.max(0, Math.round(Number.isFinite(xp) ? xp : 0));
+      if (add <= 0 || !CONTENT.callings.some((c) => c.id === callingId)) return;
+      const profile = get().profile;
+      const mastery = { ...profile.mastery, [callingId]: (profile.mastery[callingId] ?? 0) + add };
+      commit({ ...profile, mastery });
+    },
+    tiersOpen: (callingId) =>
+      tiersOpen(
+        callingId,
+        get().profile.mastery[callingId] ?? 0,
+        useSettings.getState().settings.unlockAll,
+      ),
     variantsAll: () => useSettings.getState().settings.unlockAll,
     runTechniques: () =>
       fitTechniques(get().profile.techniques, get().profile.variants, get().variantsAll()),

@@ -4,7 +4,7 @@ import { len } from '../core/dmath';
 import { heal, isActive, killEnemy, reviveHero, slotHero, startHold } from '../combat/health';
 import type { FollowMode } from '../state';
 import { weaverOf, type World } from '../world';
-import { clearDummies, spawnDummies } from './dummies';
+import { clearDummies, drill, spawnDummies } from './dummies';
 import { startCall } from './calls';
 import { spawnEnemy } from './enemies';
 import { plantField } from './field';
@@ -120,6 +120,9 @@ function applyDebug(world: World, op: DebugOp): void {
   switch (op.op) {
     case 'spawnDummies':
       spawnDummies(world, op.count);
+      break;
+    case 'drill':
+      drill(world, op.slot, op.windup);
       break;
     case 'clearDummies':
       clearDummies(world);

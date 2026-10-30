@@ -6,7 +6,7 @@ export const SIM_DT = 1 / SIM_HZ;
  * Bump whenever sim behaviour changes in a way that changes results for the same inputs.
  * Stamped into replays and golden hashes; update goldens deliberately (`npm run golden:update`).
  */
-export const SIM_VERSION = 20;
+export const SIM_VERSION = 21;
 
 /**
  * Rewind's memory (the Chronomancer, docs/phase-3e.md): one sample of each hero every 0.1 s of

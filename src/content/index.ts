@@ -13,6 +13,7 @@ import { CURSES, INSCRIPTIONS, RELIQUARY } from './reliquary';
 import { DISSONANCE, DISSONANCE_RULES } from './dissonance';
 import { ALT_SOLOS, BOND_RULES, SCENES, TALENTS } from './bonds';
 import { TECHNIQUE_VARIANTS } from './variants';
+import { COSMETICS, MASTERY, STARLIGHT } from './loom';
 import { RUN_EVENTS } from './runEvents';
 import { CALLS, CHORUS, CRESCENDO, RESONANCE, TECHNIQUES, THREAD, WEAVER } from './weaver';
 import {
@@ -74,6 +75,9 @@ export const CONTENT: Content = ContentSchema.parse({
   talents: TALENTS,
   altSolos: ALT_SOLOS,
   techniqueVariants: TECHNIQUE_VARIANTS,
+  starlight: STARLIGHT,
+  cosmetics: COSMETICS,
+  mastery: MASTERY,
   scenes: SCENES,
   arenas: ARENAS,
   encounters: ENCOUNTERS,
@@ -307,5 +311,8 @@ export type {
   SceneDef,
   TalentDef,
   TechniqueVariantDef,
+  Cosmetics,
+  MasteryRules,
+  StarlightRules,
 } from './schema';
 export { DISSONANCE_EFFECTS, INSCRIPTION_CATEGORIES, PASSIVE_EFFECTS } from './schema';

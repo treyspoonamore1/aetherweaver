@@ -196,6 +196,11 @@ export interface RunCalling {
   path: (string | null)[];
   /** The Chronomancer's Rewind has stood a hero back up this run (it does once a run). */
   reviveSpent?: boolean;
+  /**
+   * How many of its path's tiers this run may offer: its mastery's at embark (docs/phase-4g.md).
+   * Absent (runs from before mastery): every tier.
+   */
+  tiersOpen?: number;
 }
 
 /** A tier of the Calling's path on offer: pick one of two. */
@@ -341,6 +346,8 @@ export interface EncounterResult {
   withoutYou: WithoutYou | null;
   /** Bond XP this fight paid each hero (docs/phase-4e.md); none for results from before. */
   bondXp: Record<string, number>;
+  /** Starlight this fight paid (docs/phase-4g.md); none for results from before. */
+  starlight: number;
 }
 
 /** What the combat runtime hands back when an encounter ends (plain data). */

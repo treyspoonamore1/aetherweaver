@@ -28,6 +28,7 @@ import {
 import { empowered, relicPassives, snapshotRelic, type ReliquaryRelic } from './reliquary';
 import { bondXpForFight, bondsConfig, type RunBond } from './bonds';
 import { noVariants, variantsConfig, type Techniques } from './variants';
+import { starlightForFight } from './loom';
 import {
   canonicalChords,
   chordProblems,
@@ -593,6 +594,12 @@ export function setBonds(run: RunState, bonds: readonly RunBond[]): RunState {
   return JSON.stringify(next) === JSON.stringify(run.bonds) ? run : { ...run, bonds: next };
 }
 
+/** Prep: the Calling's path tiers the run may offer, from its mastery (docs/phase-4g.md). */
+export function setCallingTiers(run: RunState, tiers: number): RunState {
+  if (run.phase !== 'prep' || !run.calling || run.calling.tiersOpen === tiers) return run;
+  return { ...run, calling: { ...run.calling, tiersOpen: tiers } };
+}
+
 /** Prep: the technique variants (docs/phase-4f.md); the run follows the profile's choice. */
 export function setTechniques(run: RunState, techniques: Techniques): RunState {
   if (run.phase !== 'prep') return run;
@@ -904,7 +911,9 @@ export function callingTierDue(
   if (!run.calling || node.kind === 'event' || !node.encounterId) return null;
   const tier = CALLING_ROWS.indexOf(node.row);
   const def = callingDef(run.calling.id);
-  if (tier < 0 || tier >= def.tiers.length || run.calling.path[tier] !== null) return null;
+  // Mastery (docs/phase-4g.md): only the tiers it has opened.
+  const open = Math.min(def.tiers.length, run.calling.tiersOpen ?? def.tiers.length);
+  if (tier < 0 || tier >= open || run.calling.path[tier] !== null) return null;
   const [a, b] = def.tiers[tier]!.options;
   return { tier, options: [a!.id, b!.id] };
 }
@@ -1595,10 +1604,17 @@ export function summarize(
   highlights.sort((a, b) => b.score - a.score);
   const fightGrade = grade(outcome.outcome, stats, outcome.duration, par);
   // Winning the boss node wins the run.
+  const wonRun = outcome.outcome === 'victory' && node.kind === 'boss';
   const xp = xpForFight(
     { kind: def.kind, outcome: outcome.outcome, grade: fightGrade, name: def.name },
-    outcome.outcome === 'victory' && node.kind === 'boss',
+    wonRun,
   ).total;
+  // Starlight (docs/phase-4g.md): Dissonance raises it as it does Weaver XP.
+  const starlight = starlightForFight(
+    { kind: def.kind, outcome: outcome.outcome },
+    wonRun,
+    xpMult(dissonancePoints(dissonance)),
+  );
   return {
     nodeId: node.id,
     encounterId: def.id,
@@ -1635,6 +1651,7 @@ export function summarize(
     withoutYou: outcome.withoutYou ? { ...outcome.withoutYou } : null,
     // Bonds (docs/phase-4e.md): what the fight paid each hero.
     bondXp: bondXpForFight(outcome, def.kind),
+    starlight,
   };
 }
 

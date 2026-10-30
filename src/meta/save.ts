@@ -4,6 +4,7 @@
  * Older versions are migrated on load. Storage is injected so tests can use a map.
  */
 import { fitOwned, fitTechniques, noVariants } from './variants';
+import { fitCosmetics, fitLook, noLook } from './loom';
 import { z } from 'zod';
 import { CONTENT } from '../content';
 import { chordProblems, type ReservePool } from '../sim';
@@ -250,6 +251,7 @@ const ResultSchema = z.object({
   withoutYou: WithoutYouSchema.nullable(),
   // Bonds (docs/phase-4e.md): results from before them paid none.
   bondXp: z.record(Str, Num).catch({}).default({}),
+  starlight: Num.catch(0).default(0),
 });
 
 const ChordSchema = z.object({ auras: z.array(Str), ornaments: z.array(Str) });
@@ -367,7 +369,12 @@ export const RunStateSchema = z.object({
     .object({ reason: z.enum(['elite', 'boss', 'event']), options: z.array(Str) })
     .nullable(),
   calling: z
-    .object({ id: Str, path: z.array(Str.nullable()), reviveSpent: z.boolean().optional() })
+    .object({
+      id: Str,
+      path: z.array(Str.nullable()),
+      reviveSpent: z.boolean().optional(),
+      tiersOpen: Num.optional(),
+    })
     .nullable(),
   callingOffer: z.object({ tier: Num, options: z.tuple([Str, Str]) }).nullable(),
   // The Astrolabe (docs/phase-4.md): saves from before it fight without a tree.
@@ -666,6 +673,18 @@ export const ProfileSchema = z.object({
   // Technique variants (docs/phase-4f.md).
   variants: z.array(Str).catch([]).default([]),
   techniques: TechniquesSchema,
+  // The Loom (docs/phase-4g.md): a field that doesn't parse is reset, not the rest.
+  starlight: Num.catch(0).default(0),
+  cosmetics: z.array(Str).catch([]).default([]),
+  look: z
+    .object({
+      robe: Str.nullable().catch(null).default(null),
+      thread: Str.nullable().catch(null).default(null),
+      title: Str.nullable().catch(null).default(null),
+    })
+    .catch(() => noLook())
+    .default(() => noLook()),
+  mastery: z.record(Str, z.unknown()).catch({}).default({}),
   // Bonds (docs/phase-4e.md): a hero's Bond that doesn't parse is reset, not the others.
   bonds: z
     .record(Str, z.unknown())
@@ -714,6 +733,8 @@ export function migrateProfileJson(raw: unknown, seed = 1): unknown {
     p = { ...p, version: 5, dissonance: { open: false, levels: [], best: {} } };
   if (isObj(p) && p.version === 5) p = { ...p, version: 6, bonds: {} };
   if (isObj(p) && p.version === 6) p = { ...p, version: 7, variants: [], techniques: noVariants() };
+  if (isObj(p) && p.version === 7)
+    p = { ...p, version: 8, starlight: 0, cosmetics: [], look: noLook(), mastery: {} };
   return p;
 }
 
@@ -746,6 +767,20 @@ export function loadProfile(store: KeyValueStore, seed = 1): Profile {
         // unlocks may have made it): Prep and embark fit it to what's owned.
         profile.variants = fitOwned(profile.variants);
         profile.techniques = fitTechniques(profile.techniques, profile.variants, true);
+        // The Loom: a balance that's a count, keepsakes the content knows, a look of them, and
+        // mastery of known Callings.
+        profile.starlight = Math.max(0, Math.floor(profile.starlight));
+        profile.cosmetics = fitCosmetics(profile.cosmetics);
+        profile.mastery = Object.fromEntries(
+          Object.entries(profile.mastery as Record<string, unknown>).filter(
+            (e): e is [string, number] =>
+              CONTENT.callings.some((c) => c.id === e[0]) &&
+              typeof e[1] === 'number' &&
+              Number.isFinite(e[1]) &&
+              e[1] >= 0,
+          ),
+        );
+        profile.look = fitLook(profile);
         // Bonds: heroes, talents and scenes the content knows. Choices stay above a hero's
         // rank (Skip the unlocks may have made them): Prep and embark fit them to it.
         profile.bonds = Object.fromEntries(

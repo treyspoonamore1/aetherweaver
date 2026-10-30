@@ -273,7 +273,7 @@ function resolve(world: World, t: Telegraph): void {
       }
       if (!inside) continue;
       hitAnyone = true;
-      if (t.shape.kind === 'mark' && !hasStatus(e, 'dirge')) {
+      if (t.shape.kind === 'mark' && !t.drill && !hasStatus(e, 'dirge')) {
         // Chimed away in time.
         answered(world);
         emitResolved(world, t, e.id, 'cancelled', 0);

@@ -61,6 +61,7 @@ const CommandSchemaRaw = z.discriminatedUnion('t', [
       z.object({ op: z.literal('setBossHp'), pct: z.number() }).strict(),
       z.object({ op: z.literal('forceCall'), slot: SlotSchema }).strict(),
       z.object({ op: z.literal('forceHold'), slot: SlotSchema }).strict(),
+      z.object({ op: z.literal('drill'), slot: SlotSchema, windup: z.number() }).strict(),
     ]),
   }),
 ]);

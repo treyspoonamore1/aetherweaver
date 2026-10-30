@@ -47,6 +47,10 @@ function normalizeDebug(op: DebugOp): DebugOp | null {
     case 'forceCall':
     case 'forceHold':
       return isSlot(op.slot) ? { op: op.op, slot: op.slot } : null;
+    case 'drill':
+      return isSlot(op.slot) && ok(op.windup)
+        ? { op: 'drill', slot: op.slot, windup: z0(op.windup) }
+        : null;
     default:
       return null;
   }

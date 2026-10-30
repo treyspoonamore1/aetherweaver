@@ -12,9 +12,10 @@ import { canonicalChords, type ChordLoadout } from '../sim';
 import type { DissonanceChoice } from './dissonance';
 import { emptyReliquary, type Reliquary } from './reliquary';
 import { noVariants, type Techniques } from './variants';
+import { noLook, type Look } from './loom';
 import type { EncounterResult, Grade } from './types';
 
-export const PROFILE_VERSION = 7;
+export const PROFILE_VERSION = 8;
 
 export interface Profile {
   version: typeof PROFILE_VERSION;
@@ -45,6 +46,14 @@ export interface Profile {
   variants: string[];
   /** The variant chosen for each slot: the next run's Prep starts from it. */
   techniques: Techniques;
+  /** Starlight (docs/phase-4g.md): the balance to spend at the Atelier. */
+  starlight: number;
+  /** Keepsakes owned: robes, Thread looks and bought titles. */
+  cosmetics: string[];
+  /** What the Weaver wears and is called. */
+  look: Look;
+  /** Calling mastery XP, by Calling id. */
+  mastery: Record<string, number>;
 }
 
 /** Dissonance in the profile (docs/phase-4d.md). */
@@ -74,6 +83,10 @@ export function newProfile(seed = 1): Profile {
     bonds: {},
     variants: [],
     techniques: noVariants(),
+    starlight: 0,
+    cosmetics: [],
+    look: noLook(),
+    mastery: {},
   };
 }
 

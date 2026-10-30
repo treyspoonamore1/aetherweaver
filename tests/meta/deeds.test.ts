@@ -59,6 +59,7 @@ function fight(
     heroes: [],
     withoutYou: null,
     bondXp: {},
+    starlight: 0,
     ...over,
   };
 }

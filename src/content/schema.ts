@@ -960,6 +960,83 @@ export const TalentDefSchema = z
   .strict();
 export type TalentDef = z.infer<typeof TalentDefSchema>;
 
+// ── The Loom (docs/phase-4g.md) ───────────────────────────────────────────────────────
+
+const HexSchema = z.string().regex(/^#[0-9a-fA-F]{6}$/);
+
+/** Starlight, the meta currency: what fights, wins and Deeds pay, and the Atelier's terms. */
+export const StarlightRulesSchema = z
+  .object({
+    fights: z
+      .object({
+        skirmish: z.number().int().min(0),
+        elite: z.number().int().min(0),
+        miniboss: z.number().int().min(0),
+        boss: z.number().int().min(0),
+      })
+      .strict(),
+    winBonus: z.number().int().min(0),
+    deedLadder: z.array(z.number().int().min(0)),
+    deedBadge: z.number().int().min(0),
+    atelierRank: z.number().int().min(1),
+    variantPrice: z.number().int().min(1),
+  })
+  .strict();
+export type StarlightRules = z.infer<typeof StarlightRulesSchema>;
+
+/** The Atelier's keepsakes: robes, Thread looks and titles. */
+export const CosmeticsSchema = z
+  .object({
+    robes: z.array(
+      z
+        .object({
+          id: IdSchema,
+          name: z.string(),
+          price: z.number().int().min(1),
+          colors: z.object({ body: HexSchema, trim: HexSchema, glow: HexSchema }).strict(),
+        })
+        .strict(),
+    ),
+    threads: z.array(
+      z
+        .object({
+          id: IdSchema,
+          name: z.string(),
+          price: z.number().int().min(1),
+          filament: HexSchema,
+          glow: HexSchema,
+        })
+        .strict(),
+    ),
+    titles: z.array(
+      z
+        .object({
+          id: IdSchema,
+          text: z.string(),
+          /** Bought for Starlight, or earned (a Calling's top mastery, a Deed). */
+          price: z.number().int().min(1).optional(),
+          earned: z
+            .union([
+              z.object({ mastery: IdSchema }).strict(),
+              z.object({ deed: IdSchema }).strict(),
+            ])
+            .optional(),
+        })
+        .strict(),
+    ),
+  })
+  .strict();
+export type Cosmetics = z.infer<typeof CosmeticsSchema>;
+
+/** Calling mastery: the XP each level needs, and each Calling's top-mastery rewards. */
+export const MasteryRulesSchema = z
+  .object({
+    levels: z.array(z.number().int().min(0)),
+    callings: z.array(z.object({ calling: IdSchema, variant: IdSchema, title: IdSchema }).strict()),
+  })
+  .strict();
+export type MasteryRules = z.infer<typeof MasteryRulesSchema>;
+
 /** A technique variant (docs/phase-4f.md): a different way to use one of the Weaver's slots. */
 export const TechniqueVariantDefSchema = z
   .object({
@@ -1092,6 +1169,9 @@ export const ContentSchema = z
     talents: z.array(TalentDefSchema),
     altSolos: z.array(AltSoloDefSchema),
     techniqueVariants: z.array(TechniqueVariantDefSchema),
+    starlight: StarlightRulesSchema,
+    cosmetics: CosmeticsSchema,
+    mastery: MasteryRulesSchema,
     scenes: z.array(SceneDefSchema),
     arenas: z.array(ArenaDefSchema).min(1),
     encounters: z.array(EncounterDefSchema).min(1),
@@ -1434,6 +1514,34 @@ export const ContentSchema = z
       if (c.techniqueVariants.filter((v) => v.slot === slot).length !== 2)
         ctx.addIssue({ code: 'custom', message: `technique slot "${slot}" needs two variants` });
     for (const v of c.techniqueVariants) filled(v.text, v.values, `technique variant "${v.id}"`);
+    // The Loom (docs/phase-4g.md): keepsakes with their own ids; titles bought or earned, from
+    // something real; one mastery reward per Calling, each a real variant and title.
+    unique('keepsake', [
+      ...c.cosmetics.robes.map((r) => r.id),
+      ...c.cosmetics.threads.map((t) => t.id),
+      ...c.cosmetics.titles.map((t) => t.id),
+    ]);
+    for (const t of c.cosmetics.titles) {
+      if ((t.price === undefined) === (t.earned === undefined))
+        ctx.addIssue({ code: 'custom', message: `title "${t.id}" is bought or earned, not both` });
+      if (t.earned && 'mastery' in t.earned) need(callingIds, t.earned.mastery, `title "${t.id}"`);
+      if (
+        t.earned &&
+        'deed' in t.earned &&
+        !c.deeds.some((d) => d.id === (t.earned as { deed: string }).deed)
+      )
+        ctx.addIssue({ code: 'custom', message: `title "${t.id}": unknown Deed` });
+    }
+    const ml = c.mastery.levels;
+    if (ml.length !== 5 || ml[0] !== 0 || ml.some((x, i) => i > 0 && x <= ml[i - 1]!))
+      ctx.addIssue({ code: 'custom', message: 'mastery: five levels from 0, rising' });
+    for (const m of c.mastery.callings) {
+      need(callingIds, m.calling, 'mastery');
+      if (!c.techniqueVariants.some((v) => v.id === m.variant))
+        ctx.addIssue({ code: 'custom', message: `mastery: unknown variant "${m.variant}"` });
+      if (!c.cosmetics.titles.some((t) => t.id === m.title))
+        ctx.addIssue({ code: 'custom', message: `mastery: unknown title "${m.title}"` });
+    }
     for (const ev of c.events) {
       unique(
         `choice in event "${ev.id}"`,
