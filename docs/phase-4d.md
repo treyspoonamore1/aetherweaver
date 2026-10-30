@@ -63,10 +63,10 @@ Ascend's odds are unchanged (T3→T2 35%, T2→T1 20%), and so are its costs and
 - `dissonanceRules`: the Rank that opens it (15), the reward per point (XP, shards) and the Tear thresholds.
 - `reliquary.bands`: the depth bands above, replacing `tierCap` and Inscribe's `tierOdds`, which become band 0.
 
-**Sim** (`SIM_VERSION` 16):
+**Sim** (`SIM_VERSION` 17):
 - `SimConfig.dissonance?: { id, rank }[]` folds into the mods:
   - enemies' speed and life;
-  - the wind-up multiplier, alongside the assist (an enemy healer's hymn pulses closer with it, so it heals as many times);
+  - the wind-up multiplier, alongside the assist (an enemy healer's hymn spreads its pulses over its channel, so it heals as many times however long that runs);
   - the field's and echo's radius (`dissonanceRadiusMult`, after the cap and Sunrise), and the Thread's reach;
   - healing received by heroes;
   - the Cue's cost;
@@ -197,7 +197,7 @@ An independent review read the core (9450fc0 and 29278e2 against 3e4c182) and ra
 | **A won run replaced at its Result** (a new run before its Summary) counted as a win and paid the Reliquary, but never opened Dissonance or recorded a best. | The new run records it as the Summary would. |
 | **Unforgiving**: meditating at a Respite and skipping the draft still healed 10%. | Skipping a Respite's draft heals nothing under Unforgiving, and the map's Respites say they won't heal. |
 | **Discordant Pact** could cost nothing. Carrying every cursed relic (one attuned, the rest dormant) left it nothing to give, but its point still raised XP, shards and relic depth. Its relic was also offered to enshrine. | With nothing to give, it isn't played: Prep and embark leave its point out. Its relic is marked and can't be enshrined. |
-| **Short Fuse** made enemy healers heal less. The Mending Hymn pulses once a second, so a shorter channel pulsed fewer times (3 → 2). | The pulses come closer as the channel shortens, so the hymn heals as many times. |
+| **Short Fuse** made enemy healers heal less. The Mending Hymn pulses once a second, so a shorter channel pulsed fewer times (3 → 2). | The pulses come closer as the channel shortens, so the hymn heals as many times. Then, at the user's call, for every channel length (below). |
 | **Restless Dead**: a rising enemy could still be hit while it stood up (a Bell Brute lost 101 of its 720 life), and a killing blow's stun landed again after the rise. | It's untouchable while it rises: hits and statuses pass, and heroes target something else. |
 | **The Skilled bot** threaded anyone within the base 14 m, whatever the Thread's real reach. | The Weaver's state carries `threadRange`, and the bot reads it. |
 | **Saves**: one malformed level reset the profile's whole Dissonance (open, bests). A relic whose depth wasn't a number was dropped on load. | Each field is kept or reset on its own. Such a relic loads at depth 0. |
@@ -208,6 +208,8 @@ An independent review read the core (9450fc0 and 29278e2 against 3e4c182) and ra
 
 **Checked and sound:**
 - Determinism with no levels: the golden scenarios' events, ledger and entities are identical, and so is the 96-run fingerprint. The hashes moved only with `SIM_VERSION` 16 and the new `threadRange` field.
+
+**After the review**, at the user's call: the review also found that a hymn's pulse count followed its channel's length before Dissonance. The timing assist's lead, Lullaby and Slow Dance made enemy healers heal more, and Hastened made them heal less. Every hymn now spreads its pulses over its channel (one for each second of its own wind-up), so it heals as many times however long the channel runs. That changes fights without Dissonance where a healer channels, so it's `SIM_VERSION` 17, and replays from before are flagged as older.
 - Replays round-trip the levels.
 - Every level in the fight, at its ranks.
 - Opening and records: wins below Rank 15, losses and abandons; Skip the unlocks before embarking, mid-run and at the Summary; bests per Calling; a reset.
@@ -220,7 +222,6 @@ An independent review read the core (9450fc0 and 29278e2 against 3e4c182) and ra
 - **Some points are by judgment.** The bots read answers from the state, so they can't measure Blind Score. They also cost little under Muted Choir and Discordant Pact, which a player would feel more.
 - **Discordant Pact is mild today.** There are two cursed relics: Heavy Score's curse is only "can't Glide", and a Forge can cleanse either one. It should bite when Phase 5 adds more.
 - **Tyrant, Mimicry and True Dissonance** wait for Phase 5's bosses and affixes.
-- **Enemy healers and longer wind-ups.** This predates Dissonance. A Mending Hymn pulses once a second, so anything that lengthens its channel heals more: the timing assist's lead and Lullaby. A Hastened healer heals less. Short Fuse is fixed (see *Code review*). The rest touches an aura, so it waits for the user's call.
 - **A won run replaced before its Summary** opens Dissonance without a card: there is no Summary to show it. The next Prep shows the panel open.
 - **Blind Score and decrees.** A decree is cut after its first sentence. A test holds every decree to that form; content has no separate field for its answer.
 - **Display:**

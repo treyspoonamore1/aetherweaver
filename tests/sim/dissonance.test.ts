@@ -116,36 +116,39 @@ describe('Dissonance in the fight', () => {
     plain.forEach((r, i) => expect(muted[i], `radius ${i}`).toBeCloseTo(r * k, 6));
   });
 
-  it('Short Fuse: an enemy healer’s shorter hymn heals as many times', () => {
-    const pulses = (dissonance: SimConfig['dissonance']) => {
+  it('an enemy healer’s hymn heals as many times, however long its channel runs', () => {
+    /** Heal pulses over one hymn, staged with its channel `scale` × its wind-up. */
+    const pulses = (scale: number, dissonance: SimConfig['dissonance'] = []) => {
       const sim = sandbox({ dissonance });
-      stepFor(sim, 60, [spawn('cantor_acolyte', 0, -10), spawn('bell_brute', 1, -10)]);
       const w = worldOf(sim);
+      // No hero to stun the healer and cut its hymn short.
+      for (const id of w.party) Object.assign(w.entities.get(id)!.health!, { hp: 0, dead: true });
+      stepFor(sim, 60, [spawn('cantor_acolyte', 0, -10), spawn('bell_brute', 1, -10)]);
       const [acolyte, brute] = [...w.entities.list()].filter((e) => e.enemy);
       brute!.health!.hp = 10;
-      // The hymn, staged: its channel as long as the wind-up the fight gives it.
-      const windup = attackDef('acolyte_mending_hymn').windup * w.mods.dissonanceWindupMult;
       const c = acolyte!.enemy!;
       c.cast = {
         attackId: 'acolyte_mending_hymn',
         name: 'Mending Hymn',
         telegraph: null,
         start: w.time,
-        end: w.time + windup,
+        end: w.time + attackDef('acolyte_mending_hymn').windup * scale,
         interruptible: true,
       };
       c.state = 'channel';
       c.stateTime = 0;
       const ticks = new Set<number>();
-      for (let t = 0; t < 60 * 5 && c.cast; t++)
+      for (let t = 0; t < 60 * 8 && c.cast; t++)
         for (const e of ofType(stepFor(sim, 1), 'healApplied'))
           if (e.source === acolyte!.id) ticks.add(e.tick);
       expect(c.cast).toBeNull();
       return ticks.size;
     };
-    const plain = pulses([]);
-    expect(plain).toBe(Math.floor(attackDef('acolyte_mending_hymn').windup));
-    expect(pulses([level('short_fuse', 2)])).toBe(plain);
+    const count = Math.floor(attackDef('acolyte_mending_hymn').windup);
+    // Short Fuse ×2, Hastened, as written, the assist's lead, Lullaby or Slow Dance on top.
+    for (const scale of [0.8, 0.85, 1, 1.5, 2]) expect(pulses(scale), `×${scale}`).toBe(count);
+    const fuse = 1 - (2 * v('short_fuse', 'pct')) / 100;
+    expect(pulses(fuse, [level('short_fuse', 2)])).toBe(count);
   });
 
   it('Fragile Threads: the Thread reaches less, for attaching and snapping', () => {

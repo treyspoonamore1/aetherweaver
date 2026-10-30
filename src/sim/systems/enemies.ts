@@ -729,11 +729,12 @@ function updateCast(world: World, e: Entity, def: EnemyDef, dt: number): void {
   const c = e.enemy!;
   const cast = c.cast!;
   approachVelocity(e, 0, 0, ENEMY_ACCEL * 2, dt);
-  // Mending Hymn heals in pulses while channelled, a second apart. Short Fuse (Dissonance)
-  // brings them closer as it shortens the channel, so the hymn heals as many times.
+  // Mending Hymn heals in pulses while channelled: one for each second of its own wind-up,
+  // spread over the channel however long it runs (the assist's lead, Lullaby, Slow Dance,
+  // Hastened, Short Fuse), so it heals as many times. Stasis moves the start and the end alike.
   if (cast.attackId === 'acolyte_mending_hymn') {
     const attack = attackDef(cast.attackId);
-    const pulse = world.mods.dissonanceWindupMult;
+    const pulse = (cast.end - cast.start) / attack.windup;
     const before = Math.floor((c.stateTime - dt) / pulse + 1e-9);
     const now = Math.floor(c.stateTime / pulse + 1e-9);
     if (now > before && now >= 1) {
