@@ -58,7 +58,7 @@ export const DISSONANCE: ContentInput['dissonance'] = [
     ranks: 2,
     points: 2,
     values: { pct: 15 },
-    text: 'Heroes are healed {pct}% less for each rank.',
+    text: 'In fights, heroes are healed {pct}% less for each rank.',
   },
   {
     id: 'elite_vanguard',

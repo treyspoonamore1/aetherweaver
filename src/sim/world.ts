@@ -505,10 +505,12 @@ export function createWorld(config: SimConfig): World {
     return { ...chord, echo: (chord.echo * mods.beamEcho) / content.weaver.beamEcho };
   });
   const carried = (id: string) => resolved.relics.some((r) => r.id === id);
-  const baseRadius = Math.min(
+  const cappedRadius = Math.min(
     content.weaver.fieldRadiusCap,
     content.weaver.fieldRadius * mods.fieldRadiusMult,
   );
+  // Muted Choir (Dissonance) shrinks the reach past the cap.
+  const muted = mods.dissonanceRadiusMult;
 
   const world: World = {
     tick: 0,
@@ -527,7 +529,7 @@ export function createWorld(config: SimConfig): World {
     field: {
       x: 0,
       z: 0,
-      radius: baseRadius,
+      radius: cappedRadius * muted,
       auras: loadout.flatMap((c) => c.auras),
       chords: loadout.map((c) => ({
         index: c.index,
@@ -542,8 +544,8 @@ export function createWorld(config: SimConfig): World {
           c.auras.length > 0 && c.echo > 0
             ? Math.min(
                 content.weaver.fieldRadiusCap,
-                baseRadius * c.radiusMult * (c.role === 'field' ? mods.fieldSongRadiusMult : 1),
-              )
+                cappedRadius * c.radiusMult * (c.role === 'field' ? mods.fieldSongRadiusMult : 1),
+              ) * muted
             : 0,
         effectMult: c.effectMult,
         focus: c.focus,
@@ -700,6 +702,7 @@ export function createWorld(config: SimConfig): World {
       lastMode: 'mend',
       threadTension: 0,
       threadLock: 0,
+      threadRange: content.thread.snapRange + mods.threadRangeBonus,
       spirit: maxSpirit - reserved,
       maxSpirit,
       reservedSpirit: reserved,

@@ -54,6 +54,23 @@ export function shardsMult(points: number): number {
   return 1 + (RULES().shardsPerPoint * Math.max(0, points)) / 100;
 }
 
+/**
+ * How much longer a fight's par is at these levels: it takes as much longer as there is more
+ * life to beat. Hardened's extra life, and Restless Dead's rise where the enemies all rise (not
+ * a boss's or a mini-boss's fight, where the boss is most of it).
+ */
+export function parMult(levels: readonly DissonanceChoice[], kind: string): number {
+  let mult = 1;
+  for (const l of fitLevels(levels)) {
+    const def = CONTENT.dissonance.find((d) => d.id === l.id)!;
+    const pct = def.values.pct ?? 0;
+    if (def.effect === 'enemy_life') mult *= 1 + (pct * l.rank) / 100;
+    if (def.effect === 'restless_dead' && kind !== 'boss' && kind !== 'miniboss')
+      mult *= 1 + pct / 100;
+  }
+  return mult;
+}
+
 /** The first win at this Rank or above opens Dissonance. */
 export function opensAt(rank: number): boolean {
   return rank >= RULES().openRank;

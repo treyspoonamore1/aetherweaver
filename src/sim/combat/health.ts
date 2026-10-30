@@ -48,6 +48,14 @@ export function isActive(e: Entity | undefined): e is Entity & { health: Health 
   return !!e?.health && !e.health.dead && !e.health.downed;
 }
 
+/**
+ * Restless Dead (Dissonance): an enemy standing up again. Nothing touches it until it has:
+ * hits and statuses pass, and heroes look elsewhere.
+ */
+export function rising(e: Entity): boolean {
+  return e.enemy?.risen === true && e.enemy.state === 'spawning';
+}
+
 export function hasStatus(e: Entity, id: StatusId): boolean {
   const statuses = e.health?.statuses;
   if (!statuses) return false;
@@ -178,7 +186,7 @@ export function addStatus(
   source: EntityId | null,
 ): boolean {
   const h = target.health;
-  if (!h || h.dead) return false;
+  if (!h || h.dead || rising(target)) return false;
   if (target.team === 'party' && isAilment(id) && hasStatus(target, 'immune')) return false;
   if (target.enemy && (target.enemy.tier === 'boss' || target.enemy.tier === 'miniboss')) {
     // Bosses shrug off hard control; Perfect Ward stagger still lands, briefly.
@@ -358,7 +366,7 @@ const NO_DAMAGE: DamageResult = {
 export function dealDamage(world: World, target: Entity, opts: DamageOpts): DamageResult {
   const h = target.health;
   if (!h || h.dead || h.downed || opts.amount <= 0) return NO_DAMAGE;
-  if (h.invulnerable > 0) return NO_DAMAGE;
+  if (h.invulnerable > 0 || rising(target)) return NO_DAMAGE;
   if (
     target.enemy &&
     world.internal.boss.phaseShiftUntil > world.time &&
@@ -858,8 +866,9 @@ export function reviveHero(world: World, e: Entity, hpPct: number): void {
 
 /**
  * Restless Dead (Dissonance, docs/phase-4d.md): an enemy struck down falls and rises once, at a
- * share of its life, standing up again as it first did (untargeted while it does). Its attacks
- * in progress die with the fall. Not bosses or mini-bosses; true when it rose instead of dying.
+ * share of its life, standing up again as it first did (untouchable while it does: `rising`).
+ * Its attacks in progress die with the fall. Not bosses or mini-bosses; true when it rose
+ * instead of dying.
  */
 function restlessRise(world: World, e: Entity): boolean {
   const pct = world.mods.restlessPct;

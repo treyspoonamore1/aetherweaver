@@ -15,6 +15,7 @@ import {
   interruptEnemy,
   isActive,
   isDisabled,
+  rising,
   shieldOf,
 } from '../combat/health';
 import { bark } from '../combat/feedback';
@@ -352,9 +353,11 @@ function chooseTarget(world: World, weaver: Entity, e: Entity, def: HeroDef): En
   if (world.internal.rallyUntil > world.time)
     return nearestEnemy(world, e, def.attack.range, hero.targetId);
   const focus = world.focusTarget === null ? undefined : world.entities.get(world.focusTarget);
-  if (focus?.enemy && isActive(focus)) return focus;
+  if (focus?.enemy && isActive(focus) && !rising(focus)) return focus;
 
-  const current = hero.targetId === null ? undefined : world.entities.get(hero.targetId);
+  const found = hero.targetId === null ? undefined : world.entities.get(hero.targetId);
+  // A target standing up again (Restless Dead) is left until it has.
+  const current = found && rising(found) ? undefined : found;
   if (def.role === 'tank') {
     if (hero.quirk > 0 && current?.enemy && isActive(current)) return current;
     // Peel: whatever is hitting a squishy (or the Weaver) near the party.

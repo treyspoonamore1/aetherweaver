@@ -274,7 +274,7 @@ export class SkilledBot implements Bot {
       threadTo &&
       wc.threadLock <= 0 &&
       wc.threadSlot !== threadTo.slot &&
-      dist(threadTo.e, w) < CONTENT.thread.snapRange - 0.5
+      dist(threadTo.e, w) < wc.threadRange - 0.5
     ) {
       out.push({ t: 'thread', slot: threadTo.slot });
     }

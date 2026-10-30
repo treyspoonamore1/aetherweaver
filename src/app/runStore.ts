@@ -154,12 +154,12 @@ export const useRun = create<RunStore>()((set, get) => {
       const previous = get().run ?? loadRun(storage());
       if (previous && previous.phase !== 'prep' && previous.phase !== 'summary') {
         const last = previous.lastResult;
-        useProfile
-          .getState()
-          .recordRun(
-            previous.outcome === 'victory' || (last?.kind === 'boss' && last.outcome === 'victory'),
-          );
+        const won =
+          previous.outcome === 'victory' || (last?.kind === 'boss' && last.outcome === 'victory');
+        useProfile.getState().recordRun(won);
         settleReliquary(previous);
+        // A win may open Dissonance or set a best, as at a Summary (docs/phase-4d.md).
+        if (won) useProfile.getState().recordDissonance({ ...previous, outcome: 'victory' });
       }
       // Start from the last Chords used, if they're still unlocked and the tree can hold them.
       const profile = useProfile.getState();

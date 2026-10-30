@@ -9,6 +9,7 @@ import {
   boonDef,
   callingDef,
   callingOption,
+  dissonanceLevel,
   encounterDef,
   motifDef,
   relicDef,
@@ -20,6 +21,7 @@ import {
   dissonancePoints,
   fitLevels,
   hasEffect,
+  parMult,
   xpMult,
   type DissonanceChoice,
 } from './dissonance';
@@ -537,18 +539,33 @@ export function withCarried(run: RunState): RunState {
 }
 
 /** Discordant Pact's relic: a cursed one, picked by the run's seed, that it doesn't carry. */
-function pactRelic(seed: number, carried: readonly string[]): string | null {
-  const cursed = CONTENT.relics.filter((r) => r.rarity === 'cursed' && !carried.includes(r.id));
+function pactRelic(seed: number, carried: readonly ReliquaryRelic[]): string | null {
+  const cursed = CONTENT.relics.filter(
+    (r) => r.rarity === 'cursed' && !carried.some((c) => c.id === r.id),
+  );
   if (cursed.length === 0) return null;
   return cursed[rngFor(seed, 'discordant_pact').int(cursed.length)]!.id;
 }
 
 /**
+ * The Dissonance a run in Prep will play (docs/phase-4d.md): its levels, without a Discordant
+ * Pact that has nothing to give (the run carries every cursed relic), so its point doesn't count.
+ */
+export function playedDissonance(
+  run: Pick<RunState, 'seed' | 'carried' | 'dissonance'>,
+): DissonanceChoice[] {
+  const levels = fitLevels(run.dissonance);
+  return hasEffect(levels, 'cursed_start') && pactRelic(run.seed, run.carried) === null
+    ? levels.filter((l) => dissonanceLevel(l.id).effect !== 'cursed_start')
+    : levels;
+}
+
+/**
  * The relics a won run may enshrine (docs/phase-4c.md): the ones it found, not those it carried
- * in. None for a run that wasn't won.
+ * in or Discordant Pact gave it. None for a run that wasn't won.
  */
 export function enshrineOptions(run: RunState): OwnedRelic[] {
-  return run.outcome === 'victory' ? run.relics.filter((r) => !r.carried) : [];
+  return run.outcome === 'victory' ? run.relics.filter((r) => !r.carried && !r.pact) : [];
 }
 
 /** Prep: the Dissonance to play at (docs/phase-4d.md); the run follows the profile's choice. */
@@ -619,22 +636,42 @@ export function embark(
   const calling = run.calling && allowance.callings.has(run.calling.id) ? run.calling : null;
   const astrolabe = pruneTree(run.astrolabe, points);
   const carried = run.carried.slice(0, Math.max(0, carry));
-  const dissonance = dissonanceOpen ? fitLevels(run.dissonance) : [];
+  const dissonance = dissonanceOpen ? playedDissonance({ ...run, carried }) : [];
   // Discordant Pact (Dissonance): a random cursed relic from the start, one it doesn't carry.
-  const pact = hasEffect(dissonance, 'cursed_start')
-    ? pactRelic(
-        run.seed,
-        carried.map((r) => r.id),
-      )
-    : null;
-  const relics = [...carriedOwned(carried), ...(pact ? [{ id: pact, cleansed: false }] : [])];
-  const next = { ...run, calling, astrolabe, carried, relics, dissonance };
+  const pact = hasEffect(dissonance, 'cursed_start') ? pactRelic(run.seed, carried) : null;
+  const relics = [
+    ...carriedOwned(carried),
+    ...(pact ? [{ id: pact, cleansed: false, pact: true }] : []),
+  ];
+  // Unforgiving (Dissonance): the map's Respites say what they'll give.
+  const map = hasEffect(dissonance, 'no_respite_heal') ? unforgivingMap(run.map) : run.map;
+  const next = { ...run, calling, astrolabe, carried, relics, dissonance, map };
   // Songs the Calling's pool or the tree can't hold (the Martyr's Life) fall back to the
   // defaults too.
   const chords = allowedFor(next, run.chords, allowance)
     ? run.chords
     : DEFAULT_CHORDS.map((c) => ({ auras: [...c.auras], ornaments: [...c.ornaments] }));
   return { ...next, chords, phase: 'map' };
+}
+
+/** Unforgiving (Dissonance): the map with Respites that steady the Shaken but don't heal. */
+function unforgivingMap(map: RunMap): RunMap {
+  return {
+    rows: map.rows.map((row) =>
+      row.map((node) =>
+        node.kind === 'respite'
+          ? {
+              ...node,
+              reward: {
+                ...node.reward,
+                heal: 0,
+                text: 'Rest (steady the Shaken; Unforgiving: no healing), meditate (upgrade a motif) or retune.',
+              },
+            }
+          : node,
+      ),
+    ),
+  };
 }
 
 /**
@@ -737,7 +774,7 @@ export function finishCombat(run: RunState, outcome: CombatOutcome): RunState {
   if (run.phase !== 'combat' || !run.pending) return run;
   const node = findNode(run, run.pending);
   if (!node) return run;
-  const summary = summarize(node, outcome, run.calling);
+  const summary = summarize(node, outcome, run.calling, run.dissonance);
   // Dissonance (docs/phase-4d.md): its points raise the Weaver XP.
   const result = {
     ...summary,
@@ -903,9 +940,24 @@ export function pickDraft(run: RunState, index: number | null): RunState {
         : [...next.motifs, { id: option.motifId, level: option.level }],
     };
   } else {
-    next = healParty(next, SKIP_HEAL);
+    next = healParty(next, skipHeal(run));
   }
   return next;
+}
+
+/**
+ * What skipping the draft heals. Unforgiving (Dissonance): nothing at a Respite, so meditating
+ * and skipping isn't a rest.
+ */
+export function skipHeal(run: RunState): number {
+  return run.draft?.reason === 'meditate' && hasEffect(run.dissonance, 'no_respite_heal')
+    ? 0
+    : SKIP_HEAL;
+}
+
+/** What a Respite's Rest heals: nothing under Unforgiving (Dissonance). */
+export function restHeal(run: RunState): number {
+  return hasEffect(run.dissonance, 'no_respite_heal') ? 0 : REST_HEAL;
 }
 
 export function rerollDraft(run: RunState): RunState {
@@ -924,7 +976,7 @@ export function respite(run: RunState, choice: 'rest' | 'meditate'): RunState {
   if (run.phase !== 'respite') return run;
   if (choice === 'rest') {
     // Unforgiving (Dissonance): a rest steadies the Shaken, but doesn't heal.
-    const healed = healParty(run, hasEffect(run.dissonance, 'no_respite_heal') ? 0 : REST_HEAL);
+    const healed = healParty(run, restHeal(run));
     return toMap({ ...healed, party: healed.party.map((h) => ({ ...h, shaken: false })) });
   }
   return { ...run, phase: 'draft', draft: makeDraft(run, 'meditate', 'common') };
@@ -1368,8 +1420,11 @@ export function summarize(
   node: MapNode,
   outcome: CombatOutcome,
   calling: RunState['calling'] = null,
+  /** The run's Dissonance: its extra enemy life lengthens the par (docs/phase-4d.md). */
+  dissonance: readonly DissonanceChoice[] = [],
 ): EncounterResult {
   const def = encounterDef(outcome.encounterId);
+  const par = Math.round(def.par * parMult(dissonance, def.kind));
   const l = outcome.ledger;
   const stats: EncounterStats = {
     healing: Math.round(l.healing),
@@ -1484,7 +1539,7 @@ export function summarize(
     });
   }
   highlights.sort((a, b) => b.score - a.score);
-  const fightGrade = grade(outcome.outcome, stats, outcome.duration, def.par);
+  const fightGrade = grade(outcome.outcome, stats, outcome.duration, par);
   // Winning the boss node wins the run.
   const xp = xpForFight(
     { kind: def.kind, outcome: outcome.outcome, grade: fightGrade, name: def.name },
@@ -1497,7 +1552,7 @@ export function summarize(
     kind: def.kind,
     outcome: outcome.outcome,
     duration: Math.round(outcome.duration * 10) / 10,
-    par: def.par,
+    par,
     grade: fightGrade,
     xp,
     aether: aetherForFight(def.kind, outcome.outcome, fightGrade),

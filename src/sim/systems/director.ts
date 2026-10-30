@@ -4,6 +4,7 @@
  */
 import { encounterDef, enemyDef, type EncounterDef } from '../../content';
 import { len } from '../core/dmath';
+import { Rng, hashString } from '../core/rng';
 import { isActive, killEnemy, releaseHold } from '../combat/health';
 import { setTimeScale } from '../combat/feedback';
 import type { Entity } from '../state';
@@ -138,8 +139,9 @@ type Spawn = EncounterDef['waves'][number]['spawns'][number];
 
 /**
  * Elite Vanguard (Dissonance, docs/phase-4d.md): an elite fight's first elite group brings more
- * of its kind, and every elite carries more affixes. The extra affixes are picked by the wave
- * and the group (no roll), so nothing else's rolls move.
+ * of its kind, and every elite carries more affixes. The extra elites take spawn points as any
+ * spawn does (from the AI stream); the extra affixes are rolled on their own stream, seeded by
+ * the fight, the wave and the group, so they change from run to run and move no other roll.
  */
 function vanguard(world: World, spawns: readonly Spawn[], wave: number): readonly Spawn[] {
   const { vanguardElites, vanguardAffixes } = world.mods;
@@ -154,9 +156,10 @@ function vanguard(world: World, spawns: readonly Spawn[], wave: number): readonl
     if (grow) d.vanguard = true;
     const count = grow ? s.count + vanguardElites : s.count;
     const free = all.filter((a) => !s.affixes.includes(a));
+    const rng = new Rng((world.config.seed ^ hashString(`vanguard:${wave}:${k}`)) >>> 0);
     const extra = Array.from(
       { length: Math.min(vanguardAffixes, free.length) },
-      (_, j) => free.splice((wave * 7 + k * 3 + j) % free.length, 1)[0]!,
+      () => free.splice(rng.int(free.length), 1)[0]!,
     );
     return { ...s, count, affixes: [...s.affixes, ...extra] };
   });

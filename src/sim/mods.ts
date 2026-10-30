@@ -15,6 +15,8 @@ export interface Mods {
   enemyLifeMult: number;
   /** Short Fuse: enemies' wind-ups (with the assist's lead). */
   dissonanceWindupMult: number;
+  /** Muted Choir: the field's and the echo's reach, after the cap and Sunrise. */
+  dissonanceRadiusMult: number;
   /** Wounding Strikes: healing heroes receive. */
   heroHealMult: number;
   /** Silent Cues: Resonance a Cue costs on top. */
@@ -232,6 +234,7 @@ export const NO_MODS: Mods = {
   enemySpeedMult: 1,
   enemyLifeMult: 1,
   dissonanceWindupMult: 1,
+  dissonanceRadiusMult: 1,
   heroHealMult: 1,
   cueCostBonus: 0,
   restlessPct: 0,
@@ -511,7 +514,7 @@ function applyDissonance(
         m.dissonanceWindupMult *= Math.max(0.2, 1 - (num(v, 'pct') * rank) / 100);
         break;
       case 'aura_radius':
-        m.fieldRadiusMult *= Math.max(0.2, 1 - (num(v, 'pct') * rank) / 100);
+        m.dissonanceRadiusMult *= Math.max(0.2, 1 - (num(v, 'pct') * rank) / 100);
         break;
       case 'thread_range':
         m.threadRangeBonus -= num(v, 'metres') * rank;

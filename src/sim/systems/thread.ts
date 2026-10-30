@@ -22,8 +22,8 @@ export function attachThread(world: World, slot: PartySlot): void {
   if (!hero?.health || hero.health.dead) return reject(world, 'thread', 'target');
   if (w.threadSlot === slot) return;
   if (w.threadLock > 0) return reject(world, 'thread', 'locked');
-  const range = world.content.thread.snapRange + world.mods.threadRangeBonus;
-  if (len(hero.x - weaver.x, hero.z - weaver.z) > range) return reject(world, 'thread', 'range');
+  if (len(hero.x - weaver.x, hero.z - weaver.z) > w.threadRange)
+    return reject(world, 'thread', 'range');
   const previous = w.threadSlot;
   // Afterglow (the Astrolabe): Empower lingers on the hero the Thread leaves.
   if (previous !== null && w.threadMode === 'empower' && world.mods.empowerLinger > 0) {
@@ -165,7 +165,7 @@ export function updateThread(world: World, dt: number): void {
   }
   const def = world.content.thread;
   const comfort = def.comfortRange + world.mods.threadRangeBonus;
-  const snap = def.snapRange + world.mods.threadRangeBonus;
+  const snap = w.threadRange;
   const d = len(hero.x - weaver.x, hero.z - weaver.z);
   if (d > snap) {
     w.threadSlot = null;

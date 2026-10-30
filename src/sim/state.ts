@@ -116,6 +116,11 @@ export interface WeaverComponent {
   threadTension: number;
   /** Seconds until the Thread can attach again after snapping. */
   threadLock: number;
+  /**
+   * How far the Thread reaches this fight: it attaches within this and snaps past it (the tree,
+   * relics and Fragile Threads move it).
+   */
+  threadRange: number;
   spirit: number;
   maxSpirit: number;
   /** Spirit reserved by auras. Techniques can only use the rest. */

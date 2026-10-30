@@ -140,10 +140,11 @@ export function updateField(world: World, dt: number): void {
     content.weaver.fieldRadiusCap,
     content.weaver.fieldRadius * world.mods.fieldRadiusMult,
   );
-  // Eclipse (the Luminary) takes Sunrise farther.
-  const radiusMult = f.crescendo
-    ? (world.mods.crescendoRadiusMult ?? content.crescendo.radiusMult)
-    : 1;
+  // Eclipse (the Luminary) takes Sunrise farther; Muted Choir (Dissonance) shrinks it all, past
+  // the cap.
+  const radiusMult =
+    (f.crescendo ? (world.mods.crescendoRadiusMult ?? content.crescendo.radiusMult) : 1) *
+    world.mods.dissonanceRadiusMult;
   const effectMult = f.crescendo ? content.crescendo.auraEffectMult : 1;
   // Sovereign Symphony (the Luminary): enough auras across the songs make every one stronger.
   const sovereign = world.calling?.sovereign ? world.mods.sovereignMult : 1;

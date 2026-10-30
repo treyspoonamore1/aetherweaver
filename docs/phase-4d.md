@@ -13,11 +13,12 @@
 ## How it works
 
 - **Opening.** The first win at Rank 15 or above opens Dissonance, with a card at the Summary. "Skip the unlocks" opens it too.
-- **Choosing.** In Prep, turn levels on (some have ranks). Their points add up to the run's **Dissonance**. Prep remembers your last choice, and embarking freezes it for the run.
+- **Choosing.** In Prep, turn levels on (some have ranks). Their points add up to the run's **Dissonance**. Prep remembers your last choice, and embarking freezes it for the run. A Discordant Pact with nothing to give (you carry every cursed relic) isn't played and adds no point.
 - **Rewards**, for a run at *n* points:
   - Weaver XP is +3% a point.
   - Tuning Shards are +4% a point.
   - From 10 points, a boss beaten with an A (not only an S) pays a Discord Tear. From 20, every win pays one more.
+- **Grades stay fair.** A fight's par grows with the life Dissonance adds (Hardened, and Restless Dead outside boss and mini-boss fights), so a fight that takes longer because its enemies have more life doesn't grade lower.
 - **Relics remember.** A relic enshrined from a run keeps that run's points as its **depth**. Depth sets how far crafting can take it (see *The Reliquary's tiers*). Relics enshrined before Dissonance have depth 0.
 - **Records.** The profile keeps the highest Dissonance you've won at, for each Calling and for none. The Codex and Prep show them, and clearing a new total is marked at the Summary.
 - **What it changes.** Most levels are numbers in the fight. Restless Dead and Elite Vanguard change who you fight. Unforgiving and Discordant Pact change the run. Blind Score changes only what you see.
@@ -31,15 +32,15 @@ Points follow each level's measured difficulty (see *Harness*): a point is worth
 | 1 | **Brisk Foes** | enemies move 15% faster | 1 | 1 |
 | 2 | **Hardened** | enemies have 25% more life | 2 | 3 each |
 | 3 | **Short Fuse** | enemies' wind-ups are 10% shorter | 2 | 1 each |
-| 4 | **Muted Choir** | your field and your beam song's echo reach 15% less far | 1 | 1 |
+| 4 | **Muted Choir** | your field and your beam song's echo reach 15% less far (past the field's cap and in Sunrise too) | 1 | 1 |
 | 5 | **Fragile Threads** | the Thread snaps 3 m sooner | 1 | 1 |
-| 6 | **Wounding Strikes** | heroes are healed 15% less | 2 | 2 each |
+| 6 | **Wounding Strikes** | in fights, heroes are healed 15% less | 2 | 2 each |
 | 7 | **Elite Vanguard** | elite fights bring one more elite, and every elite an extra affix | 1 | 5 |
 | 8 | **Silent Cues** | a Cue costs 10 more Resonance | 1 | 1 |
-| 9 | **Restless Dead** | enemies rise once at 30% life (not bosses or mini-bosses) | 1 | 5 |
-| 10 | **Unforgiving** | Respites no longer heal | 1 | 1 |
+| 9 | **Restless Dead** | enemies rise once at 30% life (not bosses or mini-bosses); nothing touches them while they stand up | 1 | 5 |
+| 10 | **Unforgiving** | Respites no longer heal (resting, or meditating and skipping the draft) | 1 | 1 |
 | 11 | **Blind Score** | telegraphs don't show which answer they want | 1 | 2 |
-| 12 | **Discordant Pact** | start the run with a random cursed relic | 1 | 1 |
+| 12 | **Discordant Pact** | start the run with a random cursed relic, one you don't carry; it can't be enshrined | 1 | 1 |
 
 At most **30** points. Tyrant (bosses gain a mechanic per phase), Mimicry (a Mimicking affix) and True Dissonance (the Finale's fourth phase) come with Phase 5.
 
@@ -62,21 +63,24 @@ Ascend's odds are unchanged (T3→T2 35%, T2→T1 20%), and so are its costs and
 - `dissonanceRules`: the Rank that opens it (15), the reward per point (XP, shards) and the Tear thresholds.
 - `reliquary.bands`: the depth bands above, replacing `tierCap` and Inscribe's `tierOdds`, which become band 0.
 
-**Sim** (`SIM_VERSION` 15):
+**Sim** (`SIM_VERSION` 16):
 - `SimConfig.dissonance?: { id, rank }[]` folds into the mods:
   - enemies' speed and life;
-  - the wind-up multiplier, alongside the assist;
-  - the field's and echo's radius, and the Thread's reach;
+  - the wind-up multiplier, alongside the assist (an enemy healer's hymn pulses closer with it, so it heals as many times);
+  - the field's and echo's radius (`dissonanceRadiusMult`, after the cap and Sunrise), and the Thread's reach;
   - healing received by heroes;
   - the Cue's cost;
-  - Restless Dead's single rise at 30%;
-  - Elite Vanguard's extra elite and affix, seeded.
-- `WorldState.dissonance: { levels, blindScore }` for the views. An absent Weaver's re-run keeps the enemies' levels: the "without you" party faces the same fight.
+  - Restless Dead's single rise at 30%: untouchable while it stands up (`rising(e)`: hits and statuses pass, heroes target something else);
+  - Elite Vanguard's extra elite (its spawn point drawn as any spawn's) and affixes, rolled on their own stream from the fight's seed, the wave and the group.
+- `WorldState.dissonance: { levels, blindScore, cueCost }` for the views. An absent Weaver's re-run keeps the enemies' levels: the "without you" party faces the same fight.
+- `WeaverComponent.threadRange`: the Thread's reach this fight (the tree, relics and Fragile Threads move it), for the views and the bots.
 
 **Meta** (`meta/dissonance.ts`, pure):
-- `dissonancePoints(levels)` and `dissonanceOpen(profile, rank)`;
-- `xpMult(points)`, `shardsMult(points)` and `tearsFor(run)`;
-- `band(depth)`.
+- `fitLevels(levels)`, `dissonancePoints(levels)`, `maxDissonance()` and `opensAt(rank)`;
+- `xpMult(points)`, `shardsMult(points)` and `tearsFor(run, tearGrade)`;
+- `parMult(levels, kind)`: how much longer a fight's par is.
+
+`band(depth)` and `nextBandDepth(depth)` are the Reliquary's (`meta/reliquary.ts`).
 
 **Profile v5:**
 - `dissonance: { open, levels, best }`: whether it's open, the last choice, and the best won total per Calling (`none` for no Calling).
@@ -84,12 +88,14 @@ Ascend's odds are unchanged (T3→T2 35%, T2→T1 20%), and so are its costs and
 
 **Run:**
 - `RunState.dissonance: { id, rank }[]`: chosen in Prep, frozen at embark. Old saves have none.
-- The XP and shards of its fights and its end scale with its points.
-- Unforgiving's Respites and Discordant Pact's relic are the run layer's.
+- `playedDissonance(run)`: the levels a run in Prep will play (a Pact with nothing to give dropped); embark freezes it.
+- The XP and shards of its fights and its end scale with its points; each fight's par with `parMult`.
+- Unforgiving: `restHeal(run)` and `skipHeal(run)` are 0 at Respites, and embark rewrites the map's Respites to say so.
+- Discordant Pact's relic is marked `OwnedRelic.pact` and left out of `enshrineOptions`.
 
 **Stores:**
 - The profile store gains `setDissonance(levels)` and records the best on a win, opening Dissonance on the first win at Rank 15+.
-- The run store takes the choice into a new run and freezes it at embark.
+- The run store takes the choice into a new run and freezes it at embark. A won run replaced at its Result (a new run before its Summary) records its Dissonance as the Summary would.
 
 ## Presentation
 
@@ -135,7 +141,31 @@ The ladder holds. Ten points is a skilled player's comfortable challenge, so T2 
 
 ## Code review
 
-*To be filled in after the review.*
+An independent review read the core (9450fc0 and 29278e2 against 3e4c182) and ran scratch tests against it. It found no high-severity bug: no wrong results without Dissonance, no lost saves, no crashes. Each finding below is fixed, with a test that fails without the fix.
+
+| Finding | Fix |
+|---|---|
+| **Muted Choir** was applied before the field's 14 m cap, so a field at the cap didn't shrink. Sunrise's ×1.5 also came after it. | Its own multiplier, applied after the cap and Sunrise: every song reaches 15% less. |
+| **A won run replaced at its Result** (a new run before its Summary) counted as a win and paid the Reliquary, but never opened Dissonance or recorded a best. | The new run records it as the Summary would. |
+| **Unforgiving**: meditating at a Respite and skipping the draft still healed 10%. | Skipping a Respite's draft heals nothing under Unforgiving, and the map's Respites say they won't heal. |
+| **Discordant Pact** could cost nothing. Carrying every cursed relic (one attuned, the rest dormant) left it nothing to give, but its point still raised XP, shards and relic depth. Its relic was also offered to enshrine. | With nothing to give, it isn't played: Prep and embark leave its point out. Its relic is marked and can't be enshrined. |
+| **Short Fuse** made enemy healers heal less. The Mending Hymn pulses once a second, so a shorter channel pulsed fewer times (3 → 2). | The pulses come closer as the channel shortens, so the hymn heals as many times. |
+| **Restless Dead**: a rising enemy could still be hit while it stood up (a Bell Brute lost 101 of its 720 life), and a killing blow's stun landed again after the rise. | It's untouchable while it rises: hits and statuses pass, and heroes target something else. |
+| **The Skilled bot** threaded anyone within the base 14 m, whatever the Thread's real reach. | The Weaver's state carries `threadRange`, and the bot reads it. |
+| **Saves**: one malformed level reset the profile's whole Dissonance (open, bests). A relic whose depth wasn't a number was dropped on load. | Each field is kept or reset on its own. Such a relic loads at depth 0. |
+| **Elite Vanguard's** extra affix came from a formula on the wave, so it was the same every run. Its comment was also wrong. | It's rolled on its own stream from the fight's seed, the wave and the group. |
+| **Par times** ignored Hardened and Restless Dead, so harder runs graded lower. That cost S grades, Tears and grade XP. | A fight's par grows with the life Dissonance adds (`parMult`). |
+| **Wounding Strikes'** text read wider than the rule, which only applies in fights. | It now says "In fights". |
+| **The doc's names** differed from the code (`dissonanceOpen`, `tearsFor`). | Corrected above. |
+
+**Checked and sound:**
+- Determinism with no levels: the golden scenarios' events, ledger and entities are identical, and so is the 96-run fingerprint. The hashes moved only with `SIM_VERSION` 16 and the new `threadRange` field.
+- Replays round-trip the levels.
+- Every level in the fight, at its ranks.
+- Opening and records: wins below Rank 15, losses and abandons; Skip the unlocks before embarking, mid-run and at the Summary; bests per Calling; a reset.
+- Rewards: scaled once and rounded once; Tears at 10 and 20 points.
+- The depth bands, with no path past a relic's band.
+- Old v4 profiles, runs and relics.
 
 ## Known gaps
 

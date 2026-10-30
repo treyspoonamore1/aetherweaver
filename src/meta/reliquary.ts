@@ -485,7 +485,7 @@ export function enshrine(
     instability: 0,
     fractured: false,
     dissonance: null,
-    depth: Math.max(0, Math.floor(depth)),
+    depth: Number.isFinite(depth) ? Math.max(0, Math.floor(depth)) : 0,
   };
   const categories = ['silk', 'choir', 'aegis', 'bond', 'weaver'] as const;
   for (let n = rules.enshrineInscriptions[def.rarity]; n > 0; n--) {

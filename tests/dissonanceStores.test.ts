@@ -8,12 +8,13 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { useProfile } from '../src/app/profileStore';
 import { useRun } from '../src/app/runStore';
 import { useSettings } from '../src/app/settings';
-import { CONTENT } from '../src/content';
+import { CONTENT, encounterDef } from '../src/content';
 import {
   dissonancePoints,
   fitLevels,
   maxDissonance,
   opensAt,
+  parMult,
   shardsMult,
   tearsFor,
   xpMult,
@@ -29,7 +30,7 @@ import {
   type ReliquaryRelic,
 } from '../src/meta/reliquary';
 import * as Run from '../src/meta/run';
-import { loadProfile, loadRun, type KeyValueStore } from '../src/meta/save';
+import { loadProfile, loadRun, saveRun, type KeyValueStore } from '../src/meta/save';
 import type { EncounterResult, RunState } from '../src/meta/types';
 import { emptyLedger } from '../src/sim/world';
 
@@ -129,6 +130,37 @@ describe('points and rewards', () => {
       Math.round(runMaterials(plain).shards * shardsMult(points)),
     );
   });
+
+  it('a fight’s par grows with the life Dissonance adds, so its grade stays fair', () => {
+    const pct = (id: string) => CONTENT.dissonance.find((d) => d.id === id)!.values.pct! / 100;
+    expect(parMult([], 'skirmish')).toBe(1);
+    expect(parMult([L('hardened', 2)], 'boss')).toBeCloseTo(1 + 2 * pct('hardened'), 9);
+    expect(parMult([L('restless_dead')], 'skirmish')).toBeCloseTo(1 + pct('restless_dead'), 9);
+    expect(parMult([L('restless_dead')], 'boss')).toBe(1);
+    expect(parMult([L('restless_dead')], 'miniboss')).toBe(1);
+    expect(parMult([L('brisk_foes'), L('short_fuse', 2)], 'elite')).toBe(1);
+    const resultOf = (lv: { id: string; rank: number }[], duration: number) => {
+      let r = Run.embark(Run.newRun(9, undefined, [], [], lv));
+      r = Run.chooseNode(r, Run.reachable(r)[0]!.id);
+      return Run.finishCombat(r, {
+        encounterId: Run.findNode(r, r.pending!)!.encounterId!,
+        outcome: 'victory',
+        duration,
+        ledger: emptyLedger(),
+        party: [],
+        withoutYou: null,
+      }).lastResult!;
+    };
+    const hard = [L('hardened', 2)];
+    const plain = resultOf([], 40);
+    const def = encounterDef(plain.encounterId);
+    expect(plain.par).toBe(def.par);
+    expect(resultOf(hard, 40).par).toBe(Math.round(def.par * parMult(hard, def.kind)));
+    // As much longer as there's more life: the same grade.
+    expect(resultOf(hard, def.par * parMult(hard, def.kind)).grade).toBe(
+      resultOf([], def.par).grade,
+    );
+  });
 });
 
 describe('opening, the choice and the records', () => {
@@ -194,6 +226,46 @@ describe('opening, the choice and the records', () => {
   });
 });
 
+describe('a run replaced before its Summary', () => {
+  /** The boss beaten, the run at its Result: then a new run before its Summary. */
+  const beatBossThenLeave = (seed: number) => {
+    const r = run();
+    const boss = { kind: 'boss', outcome: 'victory', grade: 'B' } as EncounterResult;
+    useRun.setState({
+      run: { ...r, phase: 'result', pending: null, lastResult: boss, results: [boss] },
+    });
+    useRun.getState().newRun(seed);
+  };
+
+  it('a win still opens Dissonance at its Rank, and records its best', () => {
+    useProfile.getState().award(RANK_XP[RULES.openRank - 1]!);
+    useRun.getState().newRun(50);
+    useRun.getState().embark();
+    beatBossThenLeave(51);
+    expect(profile().wins).toBe(1);
+    expect(useProfile.getState().dissonanceOpen()).toBe(true);
+    useProfile.getState().setDissonance([L('hardened', 2)]);
+    useRun.getState().newRun(52);
+    useRun.getState().embark();
+    beatBossThenLeave(53);
+    expect(profile().dissonance.best).toEqual({ none: dissonancePoints([L('hardened', 2)]) });
+  });
+
+  it('a loss doesn’t', () => {
+    skipUnlocks(true);
+    useProfile.getState().setDissonance([L('hardened', 2)]);
+    useRun.getState().newRun(54);
+    useRun.getState().embark();
+    const r = run();
+    const boss = { kind: 'boss', outcome: 'defeat', grade: 'D' } as EncounterResult;
+    useRun.setState({
+      run: { ...r, phase: 'result', pending: null, lastResult: boss, results: [boss] },
+    });
+    useRun.getState().newRun(55);
+    expect(profile().dissonance.best).toEqual({});
+  });
+});
+
 describe('the run’s own levels', () => {
   it('Unforgiving: a rest steadies the Shaken but doesn’t heal', () => {
     const at = (levels: { id: string; rank: number }[]) => {
@@ -207,6 +279,43 @@ describe('the run’s own levels', () => {
     };
     expect(at([]).every((h) => h.hpPct > 0.5 && !h.shaken)).toBe(true);
     expect(at([L('unforgiving')]).every((h) => h.hpPct === 0.5 && !h.shaken)).toBe(true);
+  });
+
+  it('Unforgiving: meditating and skipping the draft isn’t a rest; the map says so', () => {
+    const at = (levels: { id: string; rank: number }[]) => {
+      const r = Run.embark(Run.newRun(43, undefined, [], [], levels));
+      const hurt = {
+        ...r,
+        phase: 'respite' as const,
+        party: r.party.map((h) => ({ ...h, hpPct: 0.5 })),
+      };
+      const meditating = Run.respite(hurt, 'meditate');
+      // Any other draft skipped still heals.
+      const victory = {
+        ...meditating,
+        draft: { ...meditating.draft!, reason: 'victory' as const },
+      };
+      return {
+        meditated: Run.pickDraft(meditating, null).party,
+        won: Run.pickDraft(victory, null).party,
+        heals: [Run.restHeal(r), Run.skipHeal(meditating), Run.skipHeal(victory)],
+        respites: r.map.rows.flat().filter((n) => n.kind === 'respite'),
+      };
+    };
+    const plain = at([]);
+    const harsh = at([L('unforgiving')]);
+    expect(plain.meditated.every((h) => h.hpPct > 0.5)).toBe(true);
+    expect(harsh.meditated.every((h) => h.hpPct === 0.5)).toBe(true);
+    expect(harsh.won.every((h) => h.hpPct > 0.5)).toBe(true);
+    expect(harsh.heals[0]).toBe(0);
+    expect(harsh.heals[1]).toBe(0);
+    expect(harsh.heals[2]).toBe(plain.heals[2]);
+    expect(plain.respites.every((n) => n.reward.heal > 0)).toBe(true);
+    expect(harsh.respites.length).toBeGreaterThan(0);
+    for (const n of harsh.respites) {
+      expect(n.reward.heal).toBe(0);
+      expect(n.reward.text).toMatch(/Unforgiving/);
+    }
   });
 
   it('Discordant Pact: a random cursed relic from the start, never one carried', () => {
@@ -231,6 +340,43 @@ describe('the run’s own levels', () => {
     const both = Run.embark(Run.newRun(41, undefined, [], [carried], [L('discordant_pact')]));
     expect(both.relics.map((x) => x.id)).not.toContain(undefined);
     expect(new Set(both.relics.map((x) => x.id)).size).toBe(both.relics.length);
+  });
+
+  it('Discordant Pact: with nothing to give it isn’t played; its relic is never enshrined', () => {
+    const relic = (id: string, i: number): ReliquaryRelic => ({
+      uid: `r${i}`,
+      id,
+      cleansed: false,
+      inscriptions: [],
+      instability: 0,
+      fractured: false,
+      dissonance: null,
+      depth: 0,
+    });
+    // Carrying every cursed relic (the attuned one first, the rest dormant).
+    const carry = [
+      relic('tuning_fork', 0),
+      ...CONTENT.relics.filter((r) => r.rarity === 'cursed').map((r, i) => relic(r.id, i + 1)),
+    ];
+    const prep = Run.newRun(44, undefined, [], carry, [L('discordant_pact'), L('brisk_foes')]);
+    expect(Run.playedDissonance(prep)).toEqual([L('brisk_foes')]);
+    const r = Run.embark(prep);
+    expect(r.dissonance).toEqual([L('brisk_foes')]);
+    expect(r.relics.every((x) => x.carried)).toBe(true);
+    // With one to give, it's played, and what it gives isn't the run's to enshrine.
+    const given = Run.embark(Run.newRun(44, undefined, [], [], [L('discordant_pact')]));
+    expect(given.dissonance).toEqual([L('discordant_pact')]);
+    expect(given.relics).toEqual([expect.objectContaining({ pact: true })]);
+    const won = {
+      ...given,
+      outcome: 'victory' as const,
+      relics: [...given.relics, { id: 'tuning_fork', cleansed: false }],
+    };
+    expect(Run.enshrineOptions(won).map((x) => x.id)).toEqual(['tuning_fork']);
+    // The mark survives a save.
+    const store = memoryStore();
+    saveRun(store, won);
+    expect(loadRun(store)!.relics[0]!.pact).toBe(true);
   });
 });
 
@@ -328,5 +474,41 @@ describe('saves', () => {
     ];
     store.setItem('aetherweaver.profile', JSON.stringify(json));
     expect(loadProfile(store).reliquary.relics[0]!.depth).toBe(0);
+  });
+  it('a malformed part loses only itself', () => {
+    const store = memoryStore();
+    const put = (dissonance: unknown) =>
+      store.setItem('aetherweaver.profile', JSON.stringify({ ...newProfile(), dissonance }));
+    put({ open: true, levels: [L('hardened'), { id: 3 }, 'x'], best: { none: 4 } });
+    expect(loadProfile(store).dissonance).toEqual({
+      open: true,
+      levels: [L('hardened')],
+      best: { none: 4 },
+    });
+    put({ open: true, levels: 'x', best: 'no' });
+    expect(loadProfile(store).dissonance).toEqual({ open: true, levels: [], best: {} });
+    // A relic whose depth isn't a number stays, at depth 0.
+    const json = JSON.parse(JSON.stringify(newProfile()));
+    json.reliquary.relics = [
+      {
+        uid: 'r1',
+        id: 'prism_loom',
+        cleansed: false,
+        inscriptions: [],
+        instability: 0,
+        fractured: false,
+        dissonance: null,
+        depth: null,
+      },
+    ];
+    store.setItem('aetherweaver.profile', JSON.stringify(json));
+    expect(loadProfile(store).reliquary.relics.map((r) => r.depth)).toEqual([0]);
+    const made = enshrine(emptyReliquary(5), { id: 'prism_loom', cleansed: false }, NaN);
+    expect(made.ok && made.relic.depth).toBe(0);
+    // A run with a malformed level keeps the rest.
+    const saved = JSON.parse(JSON.stringify(Run.newRun(6, undefined, [], [], [L('hardened')])));
+    saved.dissonance = [...saved.dissonance, { id: 'brisk_foes' }];
+    store.setItem('aetherweaver.run', JSON.stringify(saved));
+    expect(loadRun(store)!.dissonance).toEqual([L('hardened')]);
   });
 });

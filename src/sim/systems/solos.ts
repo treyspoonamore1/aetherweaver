@@ -5,7 +5,7 @@
 import { heroDef } from '../../content';
 import type { HeroDef } from '../../content/schema';
 import { distSq } from '../core/dmath';
-import { addShield, isActive } from '../combat/health';
+import { addShield, isActive, rising } from '../combat/health';
 import { bark } from '../combat/feedback';
 import type { Entity } from '../state';
 import type { World } from '../world';
@@ -211,6 +211,7 @@ export function nearestEnemy(
     if (
       p?.enemy &&
       isActive(p) &&
+      !rising(p) &&
       distSq(p.x, p.z, from.x, from.z) <= (range + p.radius) * (range + p.radius)
     )
       return p;
@@ -218,7 +219,7 @@ export function nearestEnemy(
   let best: Entity | null = null;
   let bestD = Infinity;
   for (const e of world.entities.list()) {
-    if (!e.enemy || !isActive(e)) continue;
+    if (!e.enemy || !isActive(e) || rising(e)) continue;
     const d = distSq(e.x, e.z, from.x, from.z);
     if (d < bestD && d <= (range + e.radius) * (range + e.radius)) {
       best = e;

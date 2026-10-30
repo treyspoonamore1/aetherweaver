@@ -95,6 +95,8 @@ export interface OwnedRelic {
   dormant?: boolean;
   /** A Dissonate Empowered it: it plays its empowered numbers. */
   empowered?: boolean;
+  /** Discordant Pact's relic (docs/phase-4d.md): imposed, not found, so it can't be enshrined. */
+  pact?: boolean;
 }
 
 /**

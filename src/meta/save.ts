@@ -28,6 +28,21 @@ const PROFILE_BACKUP = 'aetherweaver.profile.bak';
 const Num = z.number();
 const Str = z.string();
 
+/**
+ * Dissonance's levels (docs/phase-4d.md): an entry that doesn't parse is dropped, not the rest;
+ * `fitLevels` then fits them to the content.
+ */
+const LevelSchema = z.object({ id: Str, rank: Num });
+const LevelsSchema = z
+  .array(z.unknown())
+  .catch([])
+  .transform((levels) =>
+    levels.flatMap((l) => {
+      const parsed = LevelSchema.safeParse(l);
+      return parsed.success ? [parsed.data] : [];
+    }),
+  );
+
 /** The Deeds this build knows: a save's others (renamed or removed) are forgotten on load. */
 const DEED_IDS: ReadonlySet<string> = new Set(CONTENT.deeds.map((d) => d.id));
 
@@ -39,8 +54,9 @@ const ReliquaryRelicSchema = z.object({
   inscriptions: z.array(z.object({ id: Str, tier: Num, value: Num })),
   instability: Num,
   fractured: z.boolean(),
-  // Dissonance (docs/phase-4d.md): relics enshrined before it have depth 0.
-  depth: Num.default(0),
+  // Dissonance (docs/phase-4d.md): relics enshrined before it have depth 0, and so does one
+  // whose depth isn't a number; `fitRelic` fits the rest.
+  depth: Num.catch(0),
   dissonance: z
     .object({
       // A kind this build doesn't know (a later build's) leaves it frozen, as Shattered does.
@@ -309,6 +325,7 @@ export const RunStateSchema = z.object({
       carried: z.boolean().optional(),
       empowered: z.boolean().optional(),
       dormant: z.boolean().optional(),
+      pact: z.boolean().optional(),
     }),
   ),
   boons: z.array(z.object({ id: Str, fights: Num.nullable() })),
@@ -344,7 +361,7 @@ export const RunStateSchema = z.object({
     .nullable()
     .default(null),
   // Dissonance (docs/phase-4d.md): saves from before it play without.
-  dissonance: z.array(z.object({ id: Str, rank: Num })).default([]),
+  dissonance: LevelsSchema.default([]),
   dissonanceEnd: z.object({ opened: z.boolean(), best: z.boolean() }).nullable().default(null),
 });
 
@@ -604,12 +621,12 @@ export const ProfileSchema = z.object({
   deeds: z.array(Str),
   // A Reliquary that doesn't parse at all is lost, not the whole profile.
   reliquary: ReliquarySchema.catch(() => emptyReliquary()),
-  // Dissonance (docs/phase-4d.md): a part that doesn't parse is reset, not the profile.
+  // Dissonance (docs/phase-4d.md): a field that doesn't parse is reset, not the rest of it.
   dissonance: z
     .object({
-      open: z.boolean(),
-      levels: z.array(z.object({ id: Str, rank: Num })),
-      best: z.record(Str, z.unknown()),
+      open: z.boolean().catch(false),
+      levels: LevelsSchema,
+      best: z.record(Str, z.unknown()).catch({}),
     })
     .catch(() => ({ open: false, levels: [], best: {} })),
   // A best that isn't a count (a hand-edited save) is dropped, not the whole profile.

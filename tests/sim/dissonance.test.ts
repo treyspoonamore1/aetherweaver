@@ -3,9 +3,10 @@
  * rank; Restless Dead's rise; Elite Vanguard's extra elite and affix; the state the views read.
  */
 import { describe, expect, it } from 'vitest';
-import { CONTENT, DISSONANCE_EFFECTS, dissonanceLevel } from '../../src/content';
+import { CONTENT, DISSONANCE_EFFECTS, attackDef, dissonanceLevel } from '../../src/content';
 import { createSim, type SimConfig } from '../../src/sim';
-import { dealDamage, heal } from '../../src/sim/combat/health';
+import { addStatus, dealDamage, heal, rising } from '../../src/sim/combat/health';
+import { updateField } from '../../src/sim/systems/field';
 import { resolveMods } from '../../src/sim/mods';
 import { resolveConfig } from '../../src/sim/world';
 import { hero, ofType, sandbox, spawn, stepFor, stepUntil, worldOf } from './helpers';
@@ -44,7 +45,8 @@ describe('Dissonance in the fight', () => {
     expect(m.enemySpeedMult).toBeCloseTo(1 + v('brisk_foes', 'pct') / 100, 9);
     expect(m.enemyLifeMult).toBeCloseTo(1 + (2 * v('hardened', 'pct')) / 100, 9);
     expect(m.dissonanceWindupMult).toBeCloseTo(1 - (2 * v('short_fuse', 'pct')) / 100, 9);
-    expect(m.fieldRadiusMult).toBeCloseTo(1 - v('muted_choir', 'pct') / 100, 9);
+    expect(m.dissonanceRadiusMult).toBeCloseTo(1 - v('muted_choir', 'pct') / 100, 9);
+    expect(m.fieldRadiusMult).toBe(1);
     expect(m.threadRangeBonus).toBe(-v('fragile_threads', 'metres'));
     expect(m.heroHealMult).toBeCloseTo(1 - (2 * v('wounding_strikes', 'pct')) / 100, 9);
     expect(m.cueCostBonus).toBe(v('silent_cues', 'resonance'));
@@ -88,6 +90,79 @@ describe('Dissonance in the fight', () => {
     expect(healed({ dissonance: [level('wounding_strikes', 2)] })).toBeCloseTo(70, 9);
   });
 
+  it('Muted Choir: every song reaches 15% less, past the field’s cap and in Sunrise', () => {
+    // Reverb on the field song, the Luminary and Wide Choir: the field song is at the cap.
+    const wide: Partial<SimConfig> = {
+      chords: [
+        { auras: ['fortissimo'], ornaments: [] },
+        { auras: ['sostenuto'], ornaments: ['reverb'] },
+      ],
+      calling: { id: 'luminary', path: ['wide_choir'] },
+    };
+    const radii = (config: Partial<SimConfig>) => {
+      const sim = sandbox(config);
+      const first = sim.state.field.chords.map((c) => c.radius);
+      stepFor(sim, 2);
+      const w = worldOf(sim);
+      const after = [w.field.radius, ...w.field.chords.map((c) => c.radius)];
+      w.field.crescendo = true;
+      updateField(w, 1 / 60);
+      return [...first, ...after, w.field.radius, ...w.field.chords.map((c) => c.radius)];
+    };
+    const plain = radii(wide);
+    const muted = radii({ ...wide, dissonance: [level('muted_choir')] });
+    expect(plain[1]).toBe(CONTENT.weaver.fieldRadiusCap);
+    const k = 1 - v('muted_choir', 'pct') / 100;
+    plain.forEach((r, i) => expect(muted[i], `radius ${i}`).toBeCloseTo(r * k, 6));
+  });
+
+  it('Short Fuse: an enemy healer’s shorter hymn heals as many times', () => {
+    const pulses = (dissonance: SimConfig['dissonance']) => {
+      const sim = sandbox({ dissonance });
+      stepFor(sim, 60, [spawn('cantor_acolyte', 0, -10), spawn('bell_brute', 1, -10)]);
+      const w = worldOf(sim);
+      const [acolyte, brute] = [...w.entities.list()].filter((e) => e.enemy);
+      brute!.health!.hp = 10;
+      // The hymn, staged: its channel as long as the wind-up the fight gives it.
+      const windup = attackDef('acolyte_mending_hymn').windup * w.mods.dissonanceWindupMult;
+      const c = acolyte!.enemy!;
+      c.cast = {
+        attackId: 'acolyte_mending_hymn',
+        name: 'Mending Hymn',
+        telegraph: null,
+        start: w.time,
+        end: w.time + windup,
+        interruptible: true,
+      };
+      c.state = 'channel';
+      c.stateTime = 0;
+      const ticks = new Set<number>();
+      for (let t = 0; t < 60 * 5 && c.cast; t++)
+        for (const e of ofType(stepFor(sim, 1), 'healApplied'))
+          if (e.source === acolyte!.id) ticks.add(e.tick);
+      expect(c.cast).toBeNull();
+      return ticks.size;
+    };
+    const plain = pulses([]);
+    expect(plain).toBe(Math.floor(attackDef('acolyte_mending_hymn').windup));
+    expect(pulses([level('short_fuse', 2)])).toBe(plain);
+  });
+
+  it('Fragile Threads: the Thread reaches less, for attaching and snapping', () => {
+    const sim = sandbox({ dissonance: [level('fragile_threads')] });
+    const w = worldOf(sim);
+    const weaver = w.entities.get(w.weaverId)!;
+    const reach = CONTENT.thread.snapRange - v('fragile_threads', 'metres');
+    expect(weaver.weaver!.threadRange).toBe(reach);
+    // A hero just past the shorter reach can't be threaded.
+    const kael = w.entities.get(w.party[0]!)!;
+    kael.x = weaver.x;
+    kael.z = weaver.z - (reach + 0.5);
+    expect(ofType(stepFor(sim, 1, [{ t: 'thread', slot: 0 }]), 'techniqueRejected')).toEqual([
+      expect.objectContaining({ technique: 'thread', reason: 'range' }),
+    ]);
+  });
+
   it('Silent Cues: a Cue costs more', () => {
     const sim = sandbox({ dissonance: [level('silent_cues')] });
     const cost = CONTENT.resonance.cueCost + v('silent_cues', 'resonance');
@@ -126,6 +201,31 @@ describe('Restless Dead', () => {
     stepUntil(sim, () => e.enemy!.state !== 'spawning');
     strike();
     expect(e.health!.dead).toBe(true);
+  });
+
+  it('a rising enemy is untouchable until it stands; heroes look elsewhere', () => {
+    const sim = sandbox({ dissonance: [level('restless_dead')] });
+    stepFor(sim, 60, [spawn('hollow_chorister', 0, -6), spawn('hollow_chorister', 2, -7)]);
+    const w = worldOf(sim);
+    const [e] = [...w.entities.list()].filter((x) => x.enemy);
+    const strike = (amount: number) =>
+      dealDamage(w, e!, { source: w.party[0]!, sourceName: 'test', amount, telegraph: null });
+    strike(e!.health!.hp + 1);
+    expect(rising(e!)).toBe(true);
+    const hp = e!.health!.hp;
+    expect(strike(50).dealt).toBe(0);
+    expect(addStatus(w, e!, 'stun', 2, w.party[0]!)).toBe(false);
+    expect(e!.health!.hp).toBe(hp);
+    expect(e!.health!.statuses).toEqual([]);
+    // Focused, it's still left alone while it stands up.
+    w.focusTarget = e!.id;
+    for (let t = 0; t < 20 && rising(e!); t++) {
+      stepFor(sim, 1);
+      for (const id of w.party) expect(w.entities.get(id)!.hero!.targetId).not.toBe(e!.id);
+    }
+    expect(e!.health!.hp).toBe(hp);
+    stepUntil(sim, () => !rising(e!));
+    expect(strike(10).dealt).toBeGreaterThan(0);
   });
 
   it('bosses and mini-bosses don’t rise', () => {
@@ -177,6 +277,26 @@ describe('Elite Vanguard', () => {
       expect(new Set(e.affixes).size).toBe(e.affixes.length);
       expect(e.affixes.length).toBe([...base][0]! + 1);
     }
+  });
+
+  it('the extra affixes are seeded by the fight: the same seed, the same; others differ', () => {
+    /** The first elite's affixes. */
+    const first = (seed: number) => {
+      const sim = createSim({
+        seed,
+        encounter: 'muted_nave',
+        dissonance: [level('elite_vanguard')],
+      });
+      for (let t = 0; t < 60 * 30; t++) {
+        stepFor(sim, 1);
+        const elite = [...worldOf(sim).entities.list()].find((e) => e.enemy?.tier === 'elite');
+        if (elite) return elite.enemy!.affixes.join(',');
+      }
+      throw new Error('no elite');
+    };
+    expect(first(11)).toBe(first(11));
+    const seen = new Set([1, 2, 3, 4, 5, 6, 7, 8].map(first));
+    expect(seen.size).toBeGreaterThan(1);
   });
 
   it('a fight that isn’t an elite one keeps its count', () => {
