@@ -17,8 +17,12 @@ import { useMood } from '../kit/sound';
 import { useUi } from '../store';
 import { SpawnPalette } from './TrainingParts';
 import { trainingChoice } from './variantsModel';
+import { WardTrainer } from './WardTrainer';
 
-/** Training Grounds: the sandbox encounter with the debug commands enabled. */
+/**
+ * Training Grounds: the sandbox encounter with the debug commands enabled, and the Perfect-Ward
+ * trainer (Phase 4g) at the top.
+ */
 export function TrainingScreen() {
   useMood('calm');
   const [seed] = useState(seedFromUrl);
@@ -76,6 +80,12 @@ export function TrainingScreen() {
           onTechnique={(slot, id) => setTechniques((t) => ({ ...t, [slot]: id }))}
         />
       )}
+      {/* After GameHost: its runtime is started before the trainer listens to it. */}
+      <WardTrainer
+        session={session}
+        hidden={devOpen}
+        className="absolute left-1/2 top-4 -translate-x-1/2"
+      />
       {showPerf && <PerfHud />}
       {devOpen && <DevPanel />}
       {paused && (
@@ -84,7 +94,8 @@ export function TrainingScreen() {
           onResume={() => getRuntime()?.setPaused(false)}
           onLeave={() => {
             getRuntime()?.setPaused(false);
-            setScreen('title');
+            // Back to the Loom, where the Training Grounds are a station.
+            setScreen('loom');
           }}
         />
       )}

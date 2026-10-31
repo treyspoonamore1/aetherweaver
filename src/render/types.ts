@@ -9,6 +9,7 @@ import type { ColorVision } from '../app/colorVision';
 import type { ArenaDef } from '../content';
 import type { EntityId, SimEvent, WorldState } from '../sim';
 import type { CameraRig } from './camera';
+import type { WeaverLook } from './keepsakeCues';
 import type { QualityTier, Stage } from './stage';
 
 export interface RenderContext {
@@ -40,6 +41,11 @@ export interface FrameInfo {
     /** Palette for danger, answers and life (app/colorVision.ts). */
     colorVision: ColorVision;
   };
+  /**
+   * Additive (Phase 4g): what the Weaver wears, the profile's robe and Thread look (keepsake ids;
+   * null or absent: her own). Applied when it changes, like the colour vision.
+   */
+  look?: Readonly<WeaverLook>;
 }
 
 export interface WorldView {

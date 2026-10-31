@@ -469,12 +469,23 @@ export interface Callout {
 }
 
 /**
- * `astrolabe` (Phase 4): the star map between runs, from the Title and from Prep. `reliquary`
- * (Phase 4c): the relics kept between runs, from the Title and from Prep too. `bonds` (Phase 4e):
- * the heroes' talents, Solos and scenes, from the Title and from Prep as well.
+ * `astrolabe` (Phase 4): the star map between runs, from the Loom and from Prep. `reliquary`
+ * (Phase 4c): the relics kept between runs, from the Loom and from Prep too. `bonds` (Phase 4e):
+ * the heroes' talents, Solos and scenes, from the Loom and from Prep as well. `loom` (Phase 4g):
+ * the hub between runs, a station for each of them; the Title is its front door. `atelier`
+ * (Phase 4g): Starlight's shop, a station of the Loom.
  */
 export type Screen =
-  'title' | 'run' | 'training' | 'codex' | 'settings' | 'astrolabe' | 'reliquary' | 'bonds';
+  | 'title'
+  | 'loom'
+  | 'run'
+  | 'training'
+  | 'codex'
+  | 'settings'
+  | 'astrolabe'
+  | 'atelier'
+  | 'reliquary'
+  | 'bonds';
 
 export interface UiState {
   screen: Screen;

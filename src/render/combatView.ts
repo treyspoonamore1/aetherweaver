@@ -13,6 +13,7 @@ import { FermataView } from './fermata';
 import { Feedback } from './feedback';
 import { FieldView } from './field';
 import { FxKit } from './fx/kit';
+import { OWN_LOOK } from './keepsakeCues';
 import { MartyrView } from './martyr';
 import { RING } from './fx/rings';
 import { createModelMaterial, type ModelMaterial } from './models/material';
@@ -150,6 +151,10 @@ export class CombatView implements WorldView {
     // Accessibility settings, live: colour-vision palette and full-screen flash strength.
     if (applyVision(frame.settings.colorVision)) this.overlay.setPalette();
     this.overlay.setFlashScale(frame.settings.flashes);
+    // What the Weaver wears (Phase 4g), live too: her robe, her Thread's look.
+    const look = frame.look ?? OWN_LOOK;
+    this.entities.setLook(look);
+    this.thread.setLook(look.thread);
 
     // The telegraphs' shader clock is the enemies': Stasis holds it (docs/phase-3e/vfx.md).
     if (!state.field.stasis) this.enemyClock += realDt;

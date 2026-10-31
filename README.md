@@ -4,13 +4,13 @@ A support-focused action roguelite: **you are the Weaver, and your party is the 
 
 This repo is the remake of the original prototype, which is kept read-only in [`reference/original/`](reference/original/) and never imported. The design, the analysis of the original and the roadmap are in [`docs/plan/`](docs/plan/README.md).
 
-**Status:** Phase 3 is under way, on top of Phase 2's playable **Prelude run**:
+**Status:** Phase 4, the Loom, is done, and there's a **playtest demo** ([`docs/demo.md`](docs/demo.md)). On top of the playable **Prelude run**:
 
-- after the first playtest, the auras became two songs: a **beam song** you pour into the hero you thread (×2) and a **field song** for everyone near you, with numbers that show what they did;
-- a progression slice: **Weaver XP and Rank**, unlocking the build layer one piece at a time;
-- from Phase 2: two signature features, heroes _call_ for your help (**Call and Response**), and the game shows the deaths you prevented and replays every fight **without you** (**proof of support**).
+- **the Loom**, a hub of stations that light up as you play, each with a short first-contact intro: the **Astrolabe** (a passive tree), **Deeds**, the **Reliquary** (relics kept, crafted and carried), **Dissonance** (endgame difficulty), hero **Bonds**, **technique variants**, and the **Atelier**, where Starlight buys variants and keepsakes. Callings open their paths by **mastery**, and the Training Grounds hold a **Perfect-Ward trainer**;
+- three **Callings** (the Luminary, the Martyr and the Chronomancer), relics, events and a run economy (Phase 3);
+- the signature features: heroes _call_ for your help (**Call and Response**), and the game shows the deaths you prevented and replays every fight **without you** (**proof of support**).
 
-See [`docs/phase-3.md`](docs/phase-3.md), [`docs/phase-2.md`](docs/phase-2.md), [`docs/phase-1.md`](docs/phase-1.md) and [`docs/phase-0.md`](docs/phase-0.md).
+Phase 4's exit checks (pacing, the raw-power cap, first contact) are in [`docs/phase-4h.md`](docs/phase-4h.md). Each step has its own doc: [`docs/phase-0.md`](docs/phase-0.md) through [`docs/phase-4h.md`](docs/phase-4h.md).
 
 ![Kael calls for a Ward; answered, his glyph fills and names the Bulwark Flourish](docs/phase-2/vfx/call-answered-real-sim.jpg)
 
@@ -21,7 +21,7 @@ npm install
 npm run dev          # http://localhost:5173
 ```
 
-From the title screen, **New run** starts the Prelude: build your songs (or pick a preset; new ones open as your Weaver Rank grows, or all at once with **Settings → Skip the unlocks**), then travel the branching map through skirmishes, elites, shrines and respites to the **Bellwarden** and the **Hollow Cantor**. **Training Grounds** is a sandbox with an enemy spawner. Append `?seed=123` for a fixed seed.
+From the title screen, **Enter the Loom**, then **the Gate** starts the Prelude. Build your songs in Prep (or pick a preset: new ones open as your Weaver Rank grows, or all at once with **Settings → Skip the unlocks**). Then travel the branching map through skirmishes, elites, shrines and respites to the **Bellwarden** and the **Hollow Cantor**. The **Training Grounds** are a sandbox with an enemy spawner and the Perfect-Ward trainer. Append `?seed=123` for a fixed seed.
 
 | Input                              | Action                                                                     |
 | ---------------------------------- | -------------------------------------------------------------------------- |
@@ -52,6 +52,7 @@ When a hero **calls** for help (a gold glyph over them), answer it before their 
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
 | `dev`                  | Vite dev server (`?lab=vfx`, `?lab=ui`, `?lab=audio` open the workstream labs)                                                       |
 | `build` · `preview`    | Production build · serve it                                                                                                          |
+| `build:demo`           | The playtest demo's build (`dist-demo/`, relative paths): it offers testers a fresh start or a veteran profile                       |
 | `typecheck`            | Three TS projects: **sim** (no DOM/Node types), **app**, **node** (tools, tests, e2e)                                                |
 | `lint`                 | ESLint (including the architecture rules) and a Prettier check                                                                       |
 | `test`                 | Vitest: combat mechanics, run logic, saves, bots, determinism goldens, replays, architecture                                         |

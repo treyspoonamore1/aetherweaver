@@ -59,6 +59,13 @@ export function installTestHook(runtime: GameRuntime): () => void {
         }),
       };
     },
+    drill: () => {
+      const st = runtime.sim.state;
+      const t = st.telegraphs.find((x) => x.drill);
+      if (!t) return null;
+      const slot = t.target === null ? -1 : st.party.indexOf(t.target);
+      return { time: st.time, perfectFrom: t.perfectFrom, impact: t.impact, slot };
+    },
   };
   return () => {
     delete window.__AW__;
@@ -256,6 +263,16 @@ export function installRunHook(): void {
     ownVariants: (ids) => {
       for (const id of ids) useProfile.getState().ownVariant(id);
     },
+    loom: () => {
+      const p = useProfile.getState().profile;
+      return {
+        starlight: p.starlight,
+        cosmetics: [...p.cosmetics],
+        look: { ...p.look },
+        introduced: p.introduced.filter((id) => id.startsWith('station:')),
+      };
+    },
+    giveStarlight: (amount) => useProfile.getState().awardStarlight(amount),
     winRun: (found = []) => {
       const state = run().run;
       if (!state || state.phase !== 'map') return false;

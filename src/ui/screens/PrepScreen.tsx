@@ -18,7 +18,7 @@ import { HeroDisc, SectionTitle } from './shared';
 import { ROLE_LABEL } from '../hud/labels';
 import { ChordBuilder, NewTag, SONG_LOOK } from './ChordBuilder';
 import { freshUnlocks, loadoutProblems, mult, padChords, poolBlurb } from './chordModel';
-import { CallingPicker } from './CallingPicker';
+import { CallingPicker, type PickerMastery } from './CallingPicker';
 import {
   carriedPassives,
   fieldAuraSlots as runFieldAuraSlots,
@@ -46,6 +46,7 @@ export interface PrepViewProps {
   /** Called with every legal loadout the builder reaches (canonical form). */
   onChords(chords: ChordLoadout[]): void;
   onEmbark(): void;
+  /** Back to the Loom, the hub between runs (Phase 4g). */
   onBack(): void;
   /** Choose the run's Calling (null: none). Omitted: no Calling picker (the UI lab's old views). */
   onCalling?(id: string | null): void;
@@ -97,6 +98,12 @@ export interface PrepViewProps {
     /** UI lab: the panel open or folded. */
     expanded?: boolean;
   } | null;
+  /**
+   * Phase 4g: Calling mastery, each Calling's (the profile's), and the tiers a run would offer
+   * now (the profile store's `tiersOpen`, which embarking snapshots). Omitted (or null): every
+   * tier shows open (the UI lab's older views).
+   */
+  mastery?: PickerMastery | null;
 }
 
 /**
@@ -201,6 +208,7 @@ export function PrepView({
   dissonance = null,
   bonds = null,
   techniques = null,
+  mastery = null,
 }: PrepViewProps) {
   useMood('map');
   // Always the content's two at Prep (the path is empty), but read from the run like Retune.
@@ -228,8 +236,8 @@ export function PrepView({
           eyebrow="The Prelude · Movement I"
           title="Prepare your songs"
           right={
-            // Stacked, so it stays beside the blurb: the Rank and Title, then the Astrolabe
-            // (Phase 4) and the keystones it holds.
+            // Stacked, so it stays beside the blurb: the Rank and the way back to the Loom, then
+            // the Astrolabe (Phase 4) and the keystones it holds.
             <div className="flex flex-col items-end gap-2">
               <div className="flex items-center gap-2">
                 {rank !== undefined && (
@@ -244,7 +252,7 @@ export function PrepView({
                   </span>
                 )}
                 <Button variant="ghost" onClick={onBack} sound="back">
-                  <Icon name="back" size={16} /> Title
+                  <Icon name="back" size={16} /> The Loom
                 </Button>
               </div>
               {astrolabe && (
@@ -310,6 +318,7 @@ export function PrepView({
             fresh={freshIds}
             onChoose={onCalling}
             openPath={openCallingPath}
+            mastery={mastery}
           />
         )}
 
@@ -529,6 +538,9 @@ export function PrepScreen() {
   const bonds = useProfile((s) => s.profile.bonds);
   // Technique variants (Phase 4f): the ones owned; the run follows the choice.
   const owned = useProfile((s) => s.profile.variants);
+  // Calling mastery (Phase 4g): read here so Prep redraws when it (or Skip the unlocks) changes;
+  // the tiers a run would offer are the store's own `tiersOpen`, which embarking snapshots.
+  const mastery = useProfile((s) => s.profile.mastery);
   const allowance = useAllowance();
   const fresh = useFreshUnlocks();
   // The Codex's Techniques page, over Prep (its Rules).
@@ -558,7 +570,7 @@ export function PrepScreen() {
       onChords={setChords}
       onCalling={setCalling}
       onEmbark={embark}
-      onBack={() => setScreen('title')}
+      onBack={() => setScreen('loom')}
       allowance={allowance}
       fresh={fresh}
       rank={rank}
@@ -586,6 +598,11 @@ export function PrepScreen() {
         all: unlockAll,
         onChoose: (slot, id) => useProfile.getState().setTechnique(slot, id),
         onRules: () => setCodex(true),
+      }}
+      mastery={{
+        xp: mastery,
+        tiersOpen: (id) => useProfile.getState().tiersOpen(id),
+        all: unlockAll,
       }}
     />
   );

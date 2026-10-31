@@ -90,7 +90,41 @@ A drill in the Training Grounds:
 
 ## Presentation
 
-*To be filled in by the UI, VFX and audio workstreams.*
+Screenshots are in [docs/phase-4g/ui/](phase-4g/ui/) and [docs/phase-4g/vfx/](phase-4g/vfx/). The UI lab's *Loom* group shows every hub and Atelier state; the VFX lab's *Phase 4g · Keepsakes* shows the looks.
+
+**The Loom** (`src/ui/screens/LoomScreen.tsx`, `LoomParts.tsx`, `loomModel.ts`):
+- **The hall.** An illustrated sanctum in SVG: an apse with a rose-window Loom, pillars, a dais. The Weaver stands at the centre in her robe and title, and threads run from her hands to each station. At phone width it becomes a grid under her.
+- **Opening.** Each station opens by its system's own gate, and while it's dark it says when it opens. A newly lit station pulses, says "New", brightens its thread and gets a banner line. Its first visit plays its intro, with "Try it". The first visit to the hub plays one welcome for the Gate, the Training Grounds and the Codex.
+- **Badges** carry what was on the Title's buttons: points to spend, materials, Bond ranks. The Atelier adds what you can afford, the Hall your Deeds, and Dissonance your best won.
+- **Control.** Arrows move between stations, Enter opens, Esc goes to the front door. A gamepad does the same (a small menu hook, the codebase's first gamepad support).
+- **Back from any station returns to the Loom:** the Astrolabe, Bonds, the Reliquary, the Codex, the Atelier, Prep, the Training Grounds and the Summary.
+
+**The Title** is the front door: Continue (a run in progress), Enter the Loom, Settings, and the Rank panel. In the demo build it first offers the tester a fresh start or a veteran ([docs/demo.md](demo.md)).
+
+**The Atelier** (`AtelierScreen.tsx`):
+- **Shelves.** Four: variants, robes, Thread looks and titles. Each item has its price, state and reason. A refusal shows on the item and is read out.
+- **Wearing** goes through `equip`; each shelf starts with the Weaver's own option.
+- **Preview.** Pointing at an item tries it on: the Weaver in the robe and title, and the Thread in the look, drawn once in Mend and once in Empower.
+
+**Starlight and mastery on the run's screens** (`StarlightParts.tsx`, `MasteryParts.tsx`, `callingText.ts`):
+- **The Result** shows "+N Starlight", what paid it, the balance and what it's for, beside the XP. On a Calling's run it also shows the fight's mastery.
+- **The Summary** shows the run's total (`runStarlight`): fights, the win bonus and Deeds.
+- **Prep** shows each Calling's mastery level and its locked tiers, and the chosen one's progress and what its next level opens. The Calling page, the map's strip, the fight's Calling chip and the Summary mark tiers mastery hasn't opened as locked, with the level that opens them.
+
+**The Perfect-Ward trainer** (`WardTrainer.tsx`, `wardDrill.ts`), at the top of the Training Grounds:
+- **The drill.** Slow, normal or quick blows (2.0, 1.4 and 0.9 s wind-ups) at a chosen hero, or mixed. Blows come on a steady beat, 2.4 s after the last lands.
+- **The verdict.** Each try reads Perfect, early or late by so many milliseconds, warded but not Perfect, or missed with the reason. A timing bar shows where the Ward fell against the window.
+- **Streaks.** It counts the streak and keeps the best per mode in the browser.
+
+**The looks** (`src/render/models/library.ts`, `thread.ts`, `src/app/threadLook.ts`):
+- **Robes.** A robe recolours the Weaver's model in place, with no new draw call, between fights: body and hood, trim on the sash and hem, glow on the halo. Phase Step's decoy wears it too.
+- **Thread looks** colour the Thread's core strand and halo. Mend and Empower stay in what says which it is: beads of the mode's colour flowing to the hero, the pulses, both ends, the hero's rim, ring and motes. Bear's crimson still takes over.
+- **Colour vision.** Under each colour-vision setting, a look keeps clear of Mend's and Empower's colours as that setting sees them, paling toward silver where it can't. Tests hold it on every arena floor. The Atelier's preview fits looks the same way.
+
+**Sounds** (`src/audio/ui.ts`, `music.ts`):
+- **The Loom:** a station lit, a station's intro, buying and a refusal, and wearing a keepsake (a robe rustles, a Thread look is plucked, a title rings). The Loom and the Atelier have their own quiet mood, without drums.
+- **The run's screens:** the Starlight counting up on the Result.
+- **The trainer:** a Perfect, early or late (sliding to or sagging from its note), a miss, a streak of 5, 10 or 25, a new best.
 
 ## Harness
 
@@ -98,12 +132,12 @@ A drill in the Training Grounds:
 
 | | Novice | Skilled |
 |---|---|---|
-| Starlight earned by 1:00 · 2:00 · 3:00 | 227 · 431 · 679 | 414 · 679 · 882 |
+| Starlight earned by 1:00 · 2:00 · 3:00 | 226 · 427 · 636 | 402 · 663 · 873 |
 | The Atelier opens (Rank 5) | 0:52 | 0:32 |
-| The Luminary (Rank 7) | 1:53 | 1:19 |
-| Its mastery 2 · 3 · 4 · 5 | 2:14 · 2:26 · 2:49 · 3:14 | 1:37 · 1:53 · 2:11 · 2:32 |
+| The Luminary (Rank 7) | 1:56 | 1:19 |
+| Its mastery 2 · 3 · 4 · 5 | 2:18 · 2:26 · 2:52 · 3:07 | 1:36 · 1:52 · 2:10 · 2:29 |
 
-- **Starlight.** When the Atelier opens, a newcomer has about 200 Starlight saved: a variant or a keepsake at once. Three hours in, they've earned about half of what it sells (1,590 in all, the mastery variants included), so it lasts.
+- **Starlight.** When the Atelier opens, a newcomer has about 200 Starlight saved: a variant or a keepsake at once. Three hours in, they've earned 40–55% of what it sells (1,590 in all, the mastery variants included), so it lasts.
 - **Mastery.** A Calling's path opens over its first few runs: tier I from the start, tier IV after three or four. Its top mastery (its title and its variant) comes after about an hour and a quarter of playing it, five or six runs.
 
 ## Code review
@@ -125,4 +159,10 @@ A review of the core commit ran it as well as reading it: a whole won run throug
 
 ## Known gaps
 
-*To be filled in.*
+- **Mastery from before Phase 4g isn't kept.** A v7 save brought up to date starts its Callings' mastery from nothing, so a Calling played before offers tier I until it's played again. Its earned Deeds do pay their Starlight.
+- **The Codex's Callings page doesn't show mastery** yet; Prep, the Calling page, the map, the HUD and the Summary do.
+- **Under protanopia and deuteranopia, Starlit and Silver look nearly alike.** Starlit sits next to Mend's sky blue, so it pales toward silver to keep the Thread readable. That's the right trade, but it costs Starlit its colour for those players.
+- **A dark station's click plays the generic buzz,** not a sound of its own.
+- **The trainer's best is kept per browser,** not in the profile.
+- **The hub opens scrolled to a newly lit station on phones,** since it takes first focus.
+- **Gamepad support** covers the Title, the Loom and the Atelier, the codebase's first. It was checked with a stubbed pad, since the e2e runner can't drive one.

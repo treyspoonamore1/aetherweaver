@@ -209,22 +209,25 @@ export function CallingTitle({
 
 /**
  * The path, tier by tier: when each pick comes and both options with what they do. With
- * `path`, the options taken are lit and the others dimmed.
+ * `path`, the options taken are lit and the others dimmed. With `tiersOpen` (Phase 4g, Prep's
+ * dialog), the tiers the Calling's mastery hasn't opened say so, dimmed and dotted.
  */
 export function CallingPathPreview({
   def,
   path,
   map,
   columns = 2,
+  tiersOpen,
 }: {
   def: CallingDef;
   path?: readonly (string | null)[];
   map?: RunMap;
   columns?: 2 | 4;
+  tiersOpen?: number;
 }) {
   const steps = pathSteps(
     { id: def.id, path: path ? [...path] : def.tiers.map(() => null) },
-    { map },
+    { map, tiersOpen },
   );
   const look = callingLook(def.id);
   return (
@@ -232,29 +235,48 @@ export function CallingPathPreview({
       className={`grid gap-3 ${columns === 4 ? 'md:grid-cols-2 xl:grid-cols-4' : 'md:grid-cols-2'}`}
       aria-label={`The ${def.name}'s path`}
     >
-      {steps.map((s) => (
-        <li
-          key={s.tier}
-          className="flex flex-col gap-2.5 rounded-xl border bg-ink-900/60 p-3"
-          style={{ borderColor: `color-mix(in srgb, ${look.color} 30%, var(--color-ink-600))` }}
-        >
-          <p className="flex items-baseline justify-between gap-2">
-            <span className="font-display text-sm font-bold" style={{ color: look.color }}>
-              Tier {s.numeral}
-            </span>
-            <span className="text-xs text-muted">{tierWhenLabel(s.tier, map)}</span>
-          </p>
-          {s.options.map((o) => (
-            <OptionLine
-              key={o.id}
-              option={o}
-              callingId={def.id}
-              chosen={s.chosen?.id === o.id}
-              dim={!!s.chosen && s.chosen.id !== o.id}
-            />
-          ))}
-        </li>
-      ))}
+      {steps.map((s) => {
+        const locked = s.state === 'locked';
+        return (
+          <li
+            key={s.tier}
+            className={`flex flex-col gap-2.5 rounded-xl border bg-ink-900/60 p-3 ${locked ? 'border-dotted' : ''}`}
+            style={{
+              borderColor: locked
+                ? 'var(--color-ink-500)'
+                : `color-mix(in srgb, ${look.color} 30%, var(--color-ink-600))`,
+            }}
+            data-tier-state={s.state}
+          >
+            <p className="flex items-baseline justify-between gap-2">
+              <span
+                className="font-display text-sm font-bold"
+                style={{ color: locked ? 'var(--color-text)' : look.color }}
+              >
+                Tier {s.numeral}
+              </span>
+              {locked ? (
+                <span className="flex items-center gap-1 text-xs font-semibold text-muted">
+                  <Icon name="lock" size={11} /> Locked: mastery {s.mastery}
+                </span>
+              ) : (
+                <span className="text-xs text-muted">{tierWhenLabel(s.tier, map)}</span>
+              )}
+            </p>
+            <div className={`flex flex-col gap-2.5 ${locked ? 'opacity-60' : ''}`}>
+              {s.options.map((o) => (
+                <OptionLine
+                  key={o.id}
+                  option={o}
+                  callingId={def.id}
+                  chosen={s.chosen?.id === o.id}
+                  dim={!!s.chosen && s.chosen.id !== o.id}
+                />
+              ))}
+            </div>
+          </li>
+        );
+      })}
     </ol>
   );
 }
@@ -338,7 +360,7 @@ export function CallingStripItem({
             <PathPip
               key={s.tier}
               callingId={def.id}
-              state={s.chosen ? 'chosen' : 'open'}
+              state={s.state}
               icon={s.chosen?.icon}
               numeral={s.numeral}
               size={22}

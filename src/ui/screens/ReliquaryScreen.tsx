@@ -101,9 +101,9 @@ export interface ReliquaryViewProps {
   /** The relics to carry, by uid: the first is attuned. */
   onCarry(uids: string[]): void;
   onBack(): void;
-  /** Where Back goes ("Prep", "Title"). */
+  /** Where Back goes ("Prep", "The Loom"). */
   backTo?: string;
-  /** A run under way keeps the relics it embarked with (opened from the Title mid-run). */
+  /** A run under way keeps the relics it embarked with (opened from the Loom mid-run). */
   runUnderWay?: boolean;
   /** Opens the Codex's Reliquary page (the rules). */
   onRules?(): void;
@@ -144,7 +144,7 @@ export function ReliquaryView({
   onRelease,
   onCarry,
   onBack,
-  backTo = 'Title',
+  backTo = 'The Loom',
   runUnderWay = false,
   onRules,
   initialSelected,
@@ -1709,7 +1709,7 @@ function ReleaseBody({ relic, onRelease }: { relic: ReliquaryRelic; onRelease():
 }
 
 /**
- * The Reliquary from the stores: Title → Reliquary → Title, Prep → Reliquary → Prep. Crafting,
+ * The Reliquary from the stores: Loom → Reliquary → Loom, Prep → Reliquary → Prep. Crafting,
  * releasing and the carry go through the profile store; "Rules" opens the Codex's page in place,
  * so Back still knows where it came from.
  */
@@ -1757,7 +1757,7 @@ export function ReliquaryScreen() {
       onRelease={(uid) => useProfile.getState().releaseRelic(uid)}
       onCarry={(uids) => useProfile.getState().setCarry(uids)}
       onBack={back}
-      backTo={previous === 'run' ? 'Prep' : 'Title'}
+      backTo={previous === 'run' ? 'Prep' : 'The Loom'}
       runUnderWay={runUnderWay}
       onRules={() => setCodex(true)}
     />

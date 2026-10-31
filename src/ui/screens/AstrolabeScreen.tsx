@@ -65,9 +65,9 @@ export interface AstrolabeViewProps {
   onGiveBack(id: string): void;
   onRespec(): void;
   onBack(): void;
-  /** Where Back goes ("Prep", "Title"). */
+  /** Where Back goes ("Prep", "The Loom"). */
   backTo?: string;
-  /** A run under way keeps the tree it embarked with (opened from the Title mid-run). */
+  /** A run under way keeps the tree it embarked with (opened from the Loom mid-run). */
   runUnderWay?: boolean;
   /** UI lab: a star pointed at (its path drawn), the respec dialog open. */
   initialPoint?: string | null;
@@ -101,7 +101,7 @@ export function AstrolabeView({
   onGiveBack,
   onRespec,
   onBack,
-  backTo = 'Title',
+  backTo = 'The Loom',
   runUnderWay = false,
   initialPoint = null,
   initialRespec = false,
@@ -789,7 +789,7 @@ function TreeSummary({ tree }: { tree: readonly string[] }) {
 }
 
 /**
- * The Astrolabe from the profile store: Title → Astrolabe → Title, Prep → Astrolabe → Prep. Its
+ * The Astrolabe from the profile store: Loom → Astrolabe → Loom, Prep → Astrolabe → Prep. Its
  * "from Deeds" opens the Codex's Deeds here, in place, so Back still knows where it came from.
  */
 export function AstrolabeScreen() {
@@ -838,7 +838,7 @@ export function AstrolabeScreen() {
       onGiveBack={(id) => void giveBackStar(id)}
       onRespec={() => void respecStars()}
       onBack={back}
-      backTo={previous === 'run' ? 'Prep' : 'Title'}
+      backTo={previous === 'run' ? 'Prep' : 'The Loom'}
       runUnderWay={runUnderWay}
     />
   );

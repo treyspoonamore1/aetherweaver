@@ -134,6 +134,8 @@ import { labSetTechnique, mockVariantsHud, techniquesRun } from './mock';
 import { fitTechniques, noVariants, variantsConfig, type Techniques } from '../../meta/variants';
 import type { TechniqueKey } from '../types';
 import { SpawnPalette } from '../screens/TrainingParts';
+import { LOOM_VIEWS, LoomFromStore } from './loomLab';
+import { LOOM_RUN_VIEWS } from './LoomRunLab';
 
 /** A stand-in for the 3D arena behind the HUD. */
 function World({ children }: { children: ReactNode }) {
@@ -279,7 +281,7 @@ function Flow() {
         <SummaryView
           run={run}
           onNewRun={() => set(() => freshRun(Math.floor(Math.random() * 999)))}
-          onTitle={() => set(() => freshRun(11))}
+          onLoom={() => set(() => freshRun(11))}
         />
       );
     case 'relic':
@@ -489,8 +491,8 @@ function TreeBuilder({
 }
 
 /**
- * The Title with a profile at a Rank and a tree (the lab sets the profile store once, without
- * saving it).
+ * The Loom (Phase 4g: the Title's buttons moved there) with a profile at a Rank and a tree (the
+ * lab sets the profile store once, without saving it).
  */
 function TitleAt({ rank, tree }: { rank: number; tree: readonly string[] }) {
   useState(() => {
@@ -500,7 +502,7 @@ function TitleAt({ rank, tree }: { rank: number; tree: readonly string[] }) {
     });
     return true;
   });
-  return <TitleScreen />;
+  return <LoomFromStore />;
 }
 
 /** Four auras, more than all of Spirit: too heavy without a lighter tree. */
@@ -712,7 +714,7 @@ function SummaryReliquaryLab({
     <SummaryView
       run={state.run}
       onNewRun={noop}
-      onTitle={noop}
+      onLoom={noop}
       profileXp={RANK_XP[19]! + 400}
       enshrined={state.arrived}
       reliquary={{
@@ -803,7 +805,7 @@ function MapReliquary({ peek }: { peek: string }) {
   return <MapView run={run} onChoose={noop} onAbandon={noop} peekRelic={peek} />;
 }
 
-/** The Title at a Rank with a Reliquary (its materials on the menu). */
+/** The Loom at a Rank with a Reliquary (its materials on its station; Phase 4g). */
 function TitleReliquary({ rank, rq }: { rank: number; rq: Reliquary }) {
   useState(() => {
     const p = useProfile.getState().profile;
@@ -812,7 +814,7 @@ function TitleReliquary({ rank, rq }: { rank: number; rq: Reliquary }) {
     });
     return true;
   });
-  return <TitleScreen />;
+  return <LoomFromStore />;
 }
 
 /**
@@ -957,7 +959,7 @@ function heroScene(heroId: string, index = 0): string {
     .id;
 }
 
-/** The Title with Bonds open (Phase 4e): the button and each hero's rank on it. */
+/** The Loom with Bonds open (Phase 4e; its station since Phase 4g): each hero's rank on it. */
 function TitleBonds({ bonds, rank }: { bonds: Record<string, Bond>; rank: number }) {
   useState(() => {
     const p = useProfile.getState().profile;
@@ -966,7 +968,7 @@ function TitleBonds({ bonds, rank }: { bonds: Record<string, Bond>; rank: number
     });
     return true;
   });
-  return <TitleScreen />;
+  return <LoomFromStore />;
 }
 
 /** After the view mounts, clicks what this selector finds on the stage (a lab view's moment). */
@@ -1461,7 +1463,7 @@ const VIEWS: ViewDef[] = [
         <SummaryView
           run={run}
           onNewRun={noop}
-          onTitle={noop}
+          onLoom={noop}
           profileXp={Math.max(LAB_XP, run.xp + 40)}
         />
       );
@@ -1477,7 +1479,7 @@ const VIEWS: ViewDef[] = [
       <SummaryView
         run={summaryRun('defeat')}
         onNewRun={noop}
-        onTitle={noop}
+        onLoom={noop}
         assisted
         profileXp={LAB_XP}
       />
@@ -1490,7 +1492,7 @@ const VIEWS: ViewDef[] = [
     w: 1280,
     h: 1500,
     render: () => (
-      <SummaryView run={Run.abandon(Run.embark(freshRun(7)))} onNewRun={noop} onTitle={noop} />
+      <SummaryView run={Run.abandon(Run.embark(freshRun(7)))} onNewRun={noop} onLoom={noop} />
     ),
   },
   {
@@ -1890,7 +1892,7 @@ const VIEWS: ViewDef[] = [
     h: 1300,
     render: () => {
       const run = callingSummaryRun();
-      return <SummaryView run={run} onNewRun={noop} onTitle={noop} />;
+      return <SummaryView run={run} onNewRun={noop} onLoom={noop} />;
     },
   },
   {
@@ -2078,7 +2080,7 @@ const VIEWS: ViewDef[] = [
     h: 1300,
     render: () => {
       const run = martyrSummaryRun();
-      return <SummaryView run={run} onNewRun={noop} onTitle={noop} />;
+      return <SummaryView run={run} onNewRun={noop} onLoom={noop} />;
     },
   },
   {
@@ -2316,7 +2318,7 @@ const VIEWS: ViewDef[] = [
     h: 1300,
     render: () => {
       const run = chronoSummaryRun();
-      return <SummaryView run={run} onNewRun={noop} onTitle={noop} />;
+      return <SummaryView run={run} onNewRun={noop} onLoom={noop} />;
     },
   },
   {
@@ -2574,7 +2576,7 @@ const VIEWS: ViewDef[] = [
   {
     id: 'title-astrolabe',
     group: 'Astrolabe',
-    label: 'Title at Rank 12: points to spend',
+    label: 'The Loom at Rank 12: points to spend',
     w: 1280,
     h: 720,
     render: () => <TitleAt rank={12} tree={RANK12_TREE.slice(0, 6)} />,
@@ -2626,7 +2628,7 @@ const VIEWS: ViewDef[] = [
     h: 1700,
     render: () => {
       const run = { ...summaryRun('victory'), astrolabe: [...KEYSTONE_TREE] };
-      return <SummaryView run={run} onNewRun={noop} onTitle={noop} />;
+      return <SummaryView run={run} onNewRun={noop} onLoom={noop} />;
     },
   },
   {
@@ -2752,7 +2754,7 @@ const VIEWS: ViewDef[] = [
     w: 1280,
     h: 1000,
     render: () => (
-      <SummaryView run={deedsSummaryRun()} onNewRun={noop} onTitle={noop} profileXp={LAB_XP} />
+      <SummaryView run={deedsSummaryRun()} onNewRun={noop} onLoom={noop} profileXp={LAB_XP} />
     ),
   },
   {
@@ -3227,7 +3229,7 @@ const VIEWS: ViewDef[] = [
   {
     id: 'title-reliquary',
     group: 'Reliquary',
-    label: 'Title at Rank 16: the Reliquary with its materials',
+    label: 'The Loom at Rank 16: the Reliquary with its materials',
     w: 1280,
     h: 720,
     render: () => <TitleReliquary rank={16} rq={partwayReliquary()} />,
@@ -3333,7 +3335,7 @@ const VIEWS: ViewDef[] = [
       <SummaryView
         run={dissonanceSummaryRun([], { opened: true, best: false })}
         onNewRun={noop}
-        onTitle={noop}
+        onLoom={noop}
         profileXp={RANK_XP[14]! + 300}
       />
     ),
@@ -3352,7 +3354,7 @@ const VIEWS: ViewDef[] = [
           { calling: true },
         )}
         onNewRun={noop}
-        onTitle={noop}
+        onLoom={noop}
         profileXp={RANK_XP[17]! + 300}
       />
     ),
@@ -3610,7 +3612,7 @@ const VIEWS: ViewDef[] = [
   {
     id: 'title-bonds',
     group: 'Bonds',
-    label: 'Title: Bonds open, each hero’s rank',
+    label: 'The Loom: Bonds open, each hero’s rank',
     w: 1280,
     h: 720,
     render: () => <TitleBonds bonds={mockBonds(4)} rank={6} />,
@@ -3723,7 +3725,7 @@ const VIEWS: ViewDef[] = [
         <SummaryView
           run={summaryRun('victory')}
           onNewRun={noop}
-          onTitle={noop}
+          onLoom={noop}
           profileXp={RANK_XP[11]! + 300}
           bonds={bonds}
           bondCard={{
@@ -3750,7 +3752,7 @@ const VIEWS: ViewDef[] = [
       <SummaryView
         run={summaryRun('victory')}
         onNewRun={noop}
-        onTitle={noop}
+        onLoom={noop}
         profileXp={RANK_XP[11]! + 300}
         bonds={mockBonds(5)}
       />
@@ -4070,6 +4072,10 @@ const VIEWS: ViewDef[] = [
     h: 1320,
     render: () => <CodexView onBack={noop} initialTab="techniques" />,
   },
+  // ── Phase 4g: the Loom, the Atelier and the front door ──────────────────────────────
+  ...LOOM_VIEWS,
+  // ── Phase 4g: Starlight and mastery on the run's screens, the Perfect-Ward trainer ────
+  ...LOOM_RUN_VIEWS,
   {
     id: 'flow',
     group: 'Flow',

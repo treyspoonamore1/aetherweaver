@@ -53,6 +53,10 @@ import type { ReliquaryRelic } from '../../meta/reliquary';
 import type { Bond } from '../../meta/bonds';
 import { BondRankUpCard, RunBondsPanel, useBondCard, type BondCardProps } from './BondsParts';
 import { bondXpRows, runBondXp } from './bondsModel';
+import { rankOf } from '../../meta/profile';
+import { masteryLevel } from '../../meta/loom';
+import { MasteryGainRow } from './MasteryParts';
+import { RunStarlightPanel } from './StarlightParts';
 
 const GRADE_COLOR: Record<Grade, string> = {
   S: '#fde9b8',
@@ -119,7 +123,8 @@ export function runHighlights(results: EncounterResult[]): (Highlight & { fight:
 export interface SummaryViewProps {
   run: RunState;
   onNewRun(): void;
-  onTitle(): void;
+  /** Back to the Loom, the hub between runs (Phase 4g). */
+  onLoom(): void;
   /** Assists in effect (badge). */
   assisted?: boolean;
   /** The profile's XP now (this run's included); omitted hides the Rank panel. */
@@ -143,13 +148,19 @@ export interface SummaryViewProps {
   bonds?: Readonly<Record<string, Bond>>;
   /** Phase 4e: the Bond rank-up card, shown after the Weaver's rank-up card. */
   bondCard?: BondCardProps | null;
+  /**
+   * Phase 4g: the profile's Starlight now (the run's included), its Rank and Skip the unlocks
+   * (what Starlight is for), and its mastery XP for the run's Calling (the run's included).
+   * Omitted: no Starlight panel, and the Calling's panel shows no mastery.
+   */
+  loom?: { starlight: number; rank: number; all?: boolean; mastery?: number } | null;
 }
 
 /** The run summary, "proof of support" (docs/plan/04 §6.1). */
 export function SummaryView({
   run,
   onNewRun,
-  onTitle,
+  onLoom,
   assisted = false,
   profileXp,
   rankUps = [],
@@ -160,6 +171,7 @@ export function SummaryView({
   enshrined = null,
   bonds,
   bondCard = null,
+  loom = null,
 }: SummaryViewProps) {
   useMood('map');
   const totals = runTotals(run);
@@ -242,6 +254,17 @@ export function SummaryView({
 
         {profileXp !== undefined && <RunRankPanel run={run} profileXp={profileXp} />}
 
+        {loom && (
+          // Phase 4g: the run's Starlight, beside its Weaver XP.
+          <RunStarlightPanel
+            run={run}
+            balance={loom.starlight}
+            rank={loom.rank}
+            all={loom.all}
+            className="mt-6"
+          />
+        )}
+
         {bonds && <RunBondsPanel rows={bondXpRows(heroIds, runBondXp(run), bonds)} />}
 
         <RunDeedsPanel ids={run.deeds} className="mt-6" />
@@ -274,7 +297,9 @@ export function SummaryView({
           </Panel>
         )}
 
-        {run.calling && <CallingSummary calling={run.calling} totals={totals} run={run} />}
+        {run.calling && (
+          <CallingSummary calling={run.calling} totals={totals} run={run} mastery={loom?.mastery} />
+        )}
 
         {run.astrolabe.length > 0 && <AstrolabeSummary tree={run.astrolabe} />}
 
@@ -634,8 +659,8 @@ export function SummaryView({
         </Panel>
       </div>
       <div className="pointer-events-none fixed inset-x-0 bottom-0 z-20 flex justify-end gap-3 bg-gradient-to-t from-ink-950 via-ink-950/80 to-transparent px-6 pb-5 pt-10">
-        <Button className="pointer-events-auto" size="lg" onClick={onTitle} sound="back">
-          <Icon name="home" size={18} /> Title
+        <Button className="pointer-events-auto" size="lg" onClick={onLoom} sound="back">
+          <Icon name="loom" size={18} /> The Loom
         </Button>
         <Button
           variant="primary"
@@ -664,15 +689,21 @@ export function SummaryView({
 }
 
 /** The run's Weaver XP and what it did for the Rank. */
-/** The run's Calling: the path taken, tier by tier, and what it did over the run. */
+/**
+ * The run's Calling: the path taken, tier by tier, and what it did over the run. Phase 4g: the
+ * mastery the run earned it, and the tiers its mastery kept shut, as locked.
+ */
 function CallingSummary({
   calling,
   totals,
   run,
+  mastery,
 }: {
   calling: RunCalling;
   totals: EncounterStats;
   run: RunState;
+  /** The profile's mastery XP for the Calling now (the run's included); omitted: not shown. */
+  mastery?: number;
 }) {
   const def = callingDef(calling.id);
   const look = callingLook(def.id);
@@ -708,15 +739,24 @@ function CallingSummary({
           </p>
         )}
       </div>
+      {mastery !== undefined && (
+        <MasteryGainRow
+          callingId={def.id}
+          xpAfter={mastery}
+          gained={run.xp}
+          className="mt-4 max-w-xl"
+        />
+      )}
       <ol className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4" aria-label="The path you took">
         {steps.map((st) => (
           <li
             key={st.tier}
             className={`flex items-start gap-2.5 rounded-lg bg-ink-900/60 px-3 py-2.5 ${st.chosen ? '' : 'opacity-60'}`}
+            data-tier-state={st.state}
           >
             <PathPip
               callingId={def.id}
-              state={st.chosen ? 'chosen' : 'open'}
+              state={st.chosen ? 'chosen' : st.state === 'locked' ? 'locked' : 'open'}
               icon={st.chosen?.icon}
               numeral={st.numeral}
               size={32}
@@ -726,10 +766,20 @@ function CallingSummary({
                 className="text-sm font-semibold"
                 style={{ color: st.chosen ? look.color : undefined }}
               >
-                {st.chosen ? st.chosen.name : `Tier ${st.numeral}: not reached`}
+                {st.chosen
+                  ? st.chosen.name
+                  : st.state === 'locked'
+                    ? `Tier ${st.numeral}: locked by mastery`
+                    : `Tier ${st.numeral}: not reached`}
               </p>
               <p className="text-xs leading-relaxed text-muted">
-                {st.chosen ? optionText(st.chosen) : `It would have come ${st.when}.`}
+                {st.chosen
+                  ? optionText(st.chosen)
+                  : st.state === 'locked'
+                    ? mastery !== undefined && masteryLevel(mastery) >= st.mastery
+                      ? `Mastery ${st.mastery} is yours now: it opens from your next ${def.name} run.`
+                      : `${def.name} mastery ${st.mastery} opens it.`
+                    : `It would have come ${st.when}.`}
               </p>
             </div>
           </li>
@@ -868,6 +918,9 @@ export function SummaryScreen() {
   const setScreen = useUi((s) => s.setScreen);
   const xp = useProfile((s) => s.profile.xp);
   const rq = useProfile((s) => s.profile.reliquary);
+  // Phase 4g: the Starlight and the Calling's mastery the run paid into the profile.
+  const starlight = useProfile((s) => s.profile.starlight);
+  const mastery = useProfile((s) => s.profile.mastery);
   const { rankUps, firstTime, dismiss, deedPoints } = useRankUps();
   const bondCard = useBondCard();
   if (!run) return null;
@@ -888,6 +941,12 @@ export function SummaryScreen() {
       deedPoints={deedPoints}
       bonds={bondCard.bonds}
       bondCard={bondCard}
+      loom={{
+        starlight,
+        rank: rankOf(xp),
+        all: settings.unlockAll,
+        mastery: run.calling ? (mastery[run.calling.id] ?? 0) : undefined,
+      }}
       reliquary={{
         reliquary: rq,
         onEnshrine: (id) => useRun.getState().enshrine(id),
@@ -897,9 +956,9 @@ export function SummaryScreen() {
         useRun.getState().closeRun();
         useRun.getState().newRun();
       }}
-      onTitle={() => {
+      onLoom={() => {
         useRun.getState().closeRun();
-        setScreen('title');
+        setScreen('loom');
       }}
     />
   );

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import type { ColorVision } from '../app/colorVision';
 import { CONTENT, enemyDef, heroDef } from '../content';
 import type { EntityId, EntityKind, ReadonlyEntity, WorldState } from '../sim';
 import { RING } from './fx/rings';
@@ -6,8 +7,16 @@ import { SHELL } from './fx/shells';
 import { SPRITE } from './fx/sprites';
 import { PARTICLE } from './fx/particles';
 import type { FxKit } from './fx/kit';
+import {
+  OWN_LOOK,
+  OWN_RIM,
+  restRim,
+  ribbonHex,
+  weaverPalette,
+  type WeaverLook,
+} from './keepsakeCues';
 import { ModelBatch } from './models/batch';
-import { buildCrown, buildEnemy, buildHero, buildWeaver } from './models/library';
+import { buildCrown, buildEnemy, buildHero, buildWeaver, recolorModel } from './models/library';
 import type { ModelMaterial } from './models/material';
 import { shineLevel, shineOf } from './callingCues';
 import { ASTRO_HEX, astroLook, atLifeCap, emptyAstroLook, graceMarked } from './astrolabeCues';
@@ -31,7 +40,15 @@ import {
   emptyRiseShape,
   riseShape,
 } from './dissonanceCues';
-import { C, approach, auraColor, clamp01, color, threadColor as threadModeColor } from './palette';
+import {
+  C,
+  approach,
+  auraColor,
+  clamp01,
+  color,
+  currentVision,
+  threadColor as threadModeColor,
+} from './palette';
 import {
   POUR_TRAVEL,
   auraHearing,
@@ -201,6 +218,54 @@ const GRAVE = color(DISSONANCE_HEX.grave);
 const AFFIX_TURN = Math.PI * 2;
 /** A downed hero's fall played backwards (Rewind standing them up): how long it takes. */
 export const UNFALL_LIFE = 0.55;
+/** Points of the Weaver's hand path her ribbons trail along (`weaverRibbons`). */
+export const RIBBON_SAMPLES = HIST;
+
+/**
+ * The Weaver's three ribbons, trailing from her hand's path (`hist`: `count` points, newest first,
+ * x y z), fluttering and drooping behind her as she faces `yaw`: the middle one in `inner`, the
+ * outer two in `outer` (her own white-gold, or her Thread look's filament and glow). The lab's
+ * lineup of looks draws them too.
+ */
+export function weaverRibbons(
+  kit: FxKit,
+  hist: Float32Array,
+  count: number,
+  yaw: number,
+  now: number,
+  inner: THREE.Color,
+  outer: THREE.Color,
+): void {
+  if (count < 3) return;
+  const fx = -Math.sin(yaw);
+  const fz = -Math.cos(yaw);
+  const sideX = -fz;
+  const sideZ = fx;
+  for (let r = 0; r < 3; r++) {
+    const off = (r - 1) * 0.16;
+    const baseY = 1.12 - r * 0.12;
+    const c = r === 1 ? inner : outer;
+    kit.ribbons.beginStrip();
+    const n = Math.min(count, 18 + r * 3);
+    for (let k = 0; k < n; k++) {
+      const t = k / (n - 1);
+      const px = hist[k * 3] + sideX * off * (1 + t);
+      const pz = hist[k * 3 + 2] + sideZ * off * (1 + t);
+      const flutter = Math.sin(now * 5 + k * 0.55 + r * 2) * 0.09 * t;
+      const droop = t * 0.75;
+      kit.ribbons.point(
+        px - fx * t * 0.55 + sideX * flutter,
+        hist[k * 3 + 1] + baseY - droop + Math.sin(now * 3.3 + k * 0.4 + r) * 0.06 * t,
+        pz - fz * t * 0.55 + sideZ * flutter,
+        0.075 * (1 - t * 0.7),
+        c,
+        (1 - t) * 0.85,
+        t * 2,
+      );
+    }
+    kit.ribbons.endStrip();
+  }
+}
 
 function hasStatus(list: readonly { readonly id: string }[], id: string): boolean {
   for (let i = 0; i < list.length; i++) if (list[i]!.id === id) return true;
@@ -289,6 +354,17 @@ export class EntityLayer {
     window: 0,
     drawn: false,
   };
+  /**
+   * What the Weaver wears (Phase 4g, keepsakeCues.ts): her robe colours her model and her resting
+   * rim, her Thread look her ribbons and hands. `lookVision`: the colour vision it was fitted to
+   * (null: fit it on the next frame).
+   */
+  private look: WeaverLook = { ...OWN_LOOK };
+  private lookVision: ColorVision | null = null;
+  private ribbonOuter: THREE.Color = C.gold;
+  private ribbonInner: THREE.Color = C.goldHot;
+  private rimAtRest: THREE.Color = C.gold;
+  private rimAtRestStrength: number = OWN_RIM.strength;
 
   constructor(private readonly model: ModelMaterial) {
     this.group.name = 'entities';
@@ -317,6 +393,37 @@ export class EntityLayer {
   setShadows(enabled: boolean): void {
     this.shadowsEnabled = enabled;
     for (const [key, b] of this.batches) b.mesh.castShadow = enabled && this.castsShadow(key);
+  }
+
+  /** What the Weaver wears (the profile's look). Cheap when unchanged: called every frame. */
+  setLook(look: Readonly<WeaverLook>): void {
+    if (look.robe === this.look.robe && look.thread === this.look.thread) return;
+    this.look.robe = look.robe;
+    this.look.thread = look.thread;
+    this.lookVision = null;
+  }
+
+  /** What the Weaver wears now (tests, the lab). */
+  get weaverLook(): Readonly<WeaverLook> {
+    return this.look;
+  }
+
+  /**
+   * Dresses her in the look as the colour vision sees it: the model recoloured in place (her
+   * robe, her hands), her resting rim, her ribbons. Only when the look or the vision changes.
+   */
+  private fitLook(): void {
+    const vision = currentVision();
+    this.lookVision = vision;
+    const weaver = this.batches.get('weaver');
+    if (weaver) recolorModel(weaver.geometry, buildWeaver(weaverPalette(this.look, vision)));
+    const rim = restRim(this.look.robe);
+    this.rimAtRest = color(rim.hex);
+    this.rimAtRestStrength = rim.strength;
+    // (Her own are `C.gold` and `C.goldHot`: the same shared colours.)
+    const ribbons = ribbonHex(this.look.thread, vision);
+    this.ribbonOuter = color(ribbons.glow);
+    this.ribbonInner = color(ribbons.filament);
   }
 
   private castsShadow(key: string): boolean {
@@ -358,7 +465,11 @@ export class EntityLayer {
     let affixColor: THREE.Color | null = null;
     const affixColors: THREE.Color[] = [];
     if (e.kind === 'weaver') {
-      batch = this.batchFor('weaver', buildWeaver, 16);
+      batch = this.batchFor(
+        'weaver',
+        () => buildWeaver(weaverPalette(this.look, currentVision())),
+        16,
+      );
       this.weaverId = e.id;
     } else if (e.hero) {
       const def = heroDef(e.hero.defId);
@@ -694,6 +805,7 @@ export class EntityLayer {
     this.frameNo++;
     this.now = frame.time;
     this.frameDt = dt;
+    if (this.lookVision !== currentVision()) this.fitLook();
     this.model.uniforms.uTime.value = frame.time;
     for (const b of this.batches.values()) b.begin();
     this.crown.begin();
@@ -1127,8 +1239,9 @@ export class EntityLayer {
         this.tint.copy(rec.rimHoldColor);
         tintStrength = rec.rimHold;
       } else if (tintStrength === 0) {
-        this.tint.copy(C.gold);
-        tintStrength = 0.18;
+        // At rest: her own faint gold, or her robe's trim (stronger on a dark robe).
+        this.tint.copy(this.rimAtRest);
+        tintStrength = this.rimAtRestStrength;
       }
     }
 
@@ -1804,33 +1917,16 @@ export class EntityLayer {
       this.hist[2] = az;
       this.histCount = Math.min(HIST, this.histCount + 1);
     }
-    if (this.histCount < 3) return;
-    const sideX = -fz;
-    const sideZ = fx;
-    for (let r = 0; r < 3; r++) {
-      const off = (r - 1) * 0.16;
-      const baseY = 1.12 - r * 0.12;
-      const c = r === 1 ? C.goldHot : C.gold;
-      kit.ribbons.beginStrip();
-      const n = Math.min(this.histCount, 18 + r * 3);
-      for (let k = 0; k < n; k++) {
-        const t = k / (n - 1);
-        const px = this.hist[k * 3] + sideX * off * (1 + t);
-        const pz = this.hist[k * 3 + 2] + sideZ * off * (1 + t);
-        const flutter = Math.sin(this.now * 5 + k * 0.55 + r * 2) * 0.09 * t;
-        const droop = t * 0.75;
-        kit.ribbons.point(
-          px - fx * t * 0.55 + sideX * flutter,
-          this.hist[k * 3 + 1] + baseY - droop + Math.sin(this.now * 3.3 + k * 0.4 + r) * 0.06 * t,
-          pz - fz * t * 0.55 + sideZ * flutter,
-          0.075 * (1 - t * 0.7),
-          c,
-          (1 - t) * 0.85,
-          t * 2,
-        );
-      }
-      kit.ribbons.endStrip();
-    }
+    // They are the Thread's origin: in its look's filament (the middle one) and glow, if worn.
+    weaverRibbons(
+      kit,
+      this.hist,
+      this.histCount,
+      rec.yaw,
+      this.now,
+      this.ribbonInner,
+      this.ribbonOuter,
+    );
   }
 
   private shields(rec: EntityRec, e: ReadonlyEntity, state: WorldState, kit: FxKit): void {

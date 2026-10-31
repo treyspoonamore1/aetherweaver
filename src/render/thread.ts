@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import type { ColorVision } from '../app/colorVision';
 import { auraDef } from '../content';
 import type { EntityId, WorldState } from '../sim';
 import type { EntityLayer } from './entities';
@@ -6,9 +7,10 @@ import type { FxKit } from './fx/kit';
 import { PARTICLE } from './fx/particles';
 import { RING } from './fx/rings';
 import { SPRITE } from './fx/sprites';
+import { threadLookHex } from './keepsakeCues';
 import type { Overlay } from './overlay';
 import { BORNE_TRAVEL, MARTYR_HEX } from './martyrCues';
-import { C, approach, auraColor, color, rgba } from './palette';
+import { C, approach, auraColor, color, currentVision, rgba } from './palette';
 import { POUR_TRAVEL, SONG_GLYPH, beamSong, focusLabel, focusLevel, isAllIn } from './songs';
 
 const N = 30;
@@ -20,6 +22,35 @@ const ROSE = color(MARTYR_HEX.rose);
 const OLD_GOLD = color(MARTYR_HEX.oldGold);
 /** The pour splashes on the hero after `POUR_TRAVEL` and is over after this long. */
 const POUR_LIFE = 1.1;
+/**
+ * A Thread look's beads (Phase 4g): the mode's colour flowing along the Thread from the Weaver's
+ * hand to the hero, this far apart (m), this fast (m/s), at most this many, and how big and bright
+ * (a sprite's size, over the core strand's half-width).
+ */
+export const BEAD_SPACING = 0.6;
+export const BEAD_SPEED = 1.1;
+const MAX_BEADS = 24;
+const BEAD_SIZE = 0.09;
+const BEAD_ALPHA = 0.95;
+/** Beads fade in leaving her hand and out reaching the hero over this much of the Thread (m). */
+const BEAD_EDGE = 0.35;
+
+/** Where the Thread leaves from: the Weaver as drawn (her hand is found from her pose). */
+export interface ThreadFrom {
+  x: number;
+  y: number;
+  z: number;
+  yaw: number;
+}
+
+/** Where the Thread arrives: the hero as drawn (their chest, their size). */
+export interface ThreadTo {
+  x: number;
+  y: number;
+  z: number;
+  height: number;
+  radius: number;
+}
 
 /** The Weaver's weaving hand, where the Thread leaves from (relics.ts reuses it). */
 export function weaverHand(
@@ -50,6 +81,12 @@ export function weaverHand(
  * is thicker, an old-gold strand braids round it, its flow runs back toward the Weaver and
  * crimson embers drip from it. Each wound she takes runs back along it as a pulse
  * (`backPulse`), from the hero into her hand; Sanguine Covenant's return is a faint one.
+ *
+ * Phase 4g: **a Thread look** (`setLook`, keepsakeCues.ts) is its filament, the core strand, and
+ * its glow, the halo round it, fitted to the colour vision. The mode keeps what says which it is:
+ * beads of its colour flow along the Thread from her hand to the hero, its pulses run in it, and
+ * both ends glow in it (with the hero's rim, ring and motes or sparks, entities.ts and below).
+ * Bear's crimson still takes the whole Thread. No look: the mode's colour all through, as before.
  */
 export class ThreadView {
   private readonly pulses = new Float32Array(PULSES).fill(-10);
@@ -90,11 +127,56 @@ export class ThreadView {
   private readonly hand = { x: 0, y: 0, z: 0 };
   private pourLabel = '';
   private pourHex = '#ffffff';
+  /**
+   * The Thread look worn (content id; null: none) and the colour vision its filament and glow
+   * were fitted to (null: fit them on the next frame). `halo` and `body` are this frame's halo and
+   * core strand colours: the look's, or the mode's without one.
+   */
+  private lookId: string | null = null;
+  private lookVision: ColorVision | null = null;
+  private lookFilament: THREE.Color | null = null;
+  private lookGlow: THREE.Color | null = null;
+  private readonly halo = new THREE.Color();
+  private readonly body = new THREE.Color();
+  /** How far the nearest bead has flowed from her hand (m, under `BEAD_SPACING`). */
+  private beadFlow = 0;
+  /** Beads drawn last frame (tests, the lab). */
+  beadsDrawn = 0;
 
   constructor(
-    private readonly entities: EntityLayer,
+    private readonly entities: Pick<EntityLayer, 'recs'>,
     private readonly overlay: Overlay | null = null,
   ) {}
+
+  /** The Thread look worn (its content id; null: none). Cheap when unchanged: called every frame. */
+  setLook(id: string | null): void {
+    if (id === this.lookId) return;
+    this.lookId = id;
+    this.lookVision = null;
+  }
+
+  /** The look's filament and glow as the colour vision sees them (only when either changes). */
+  private fitLook(): void {
+    const vision = currentVision();
+    if (vision === this.lookVision) return;
+    this.lookVision = vision;
+    const hex = threadLookHex(this.lookId, vision);
+    this.lookFilament = hex ? color(hex.filament) : null;
+    this.lookGlow = hex ? color(hex.glow) : null;
+  }
+
+  /** This frame's colours (tests, the lab): the halo, the core strand, and the mode's own. */
+  get haloColor(): THREE.Color {
+    return this.halo;
+  }
+
+  get filamentColor(): THREE.Color {
+    return this.body;
+  }
+
+  get modeColor(): THREE.Color {
+    return this.col;
+  }
 
   pulse(): void {
     this.pulses[this.pulseCursor] = this.now;
@@ -130,7 +212,7 @@ export class ThreadView {
     this.visible = 0.2;
   }
 
-  /** Bursts the last path into strands of light. */
+  /** Bursts the last path into strands of light (its filament's, with a look). */
   snap(kit: FxKit): void {
     if (!this.hasPath) return;
     for (let i = 0; i <= N; i += 2) {
@@ -146,7 +228,7 @@ export class ThreadView {
         (Math.random() - 0.5) * 3,
         0.6,
         0.14,
-        this.col,
+        this.body,
         1,
         PARTICLE.spark,
         2.2,
@@ -189,11 +271,42 @@ export class ThreadView {
       this.hasPath = false;
       return;
     }
-    this.visible = Math.min(1, this.visible + dt * 6);
     const toEmpower =
       w.threadMode === 'bear' ? w.lastMode === 'empower' : w.threadMode === 'empower';
+    this.findSong(state, targetId);
+    this.draw(
+      kit,
+      dt,
+      time,
+      wr,
+      tr,
+      toEmpower,
+      w.threadMode === 'bear',
+      w.threadTension,
+      state.field.suppressed,
+    );
+  }
+
+  /**
+   * Draws the Thread from the Weaver's weaving hand to the hero's chest: in Empower (else Mend),
+   * under Bear, this taut (0..1), the beam song hushed (a Mute's dome). `sync` draws it from the
+   * state; the lab's lineup of looks draws through it too, with no song (the state finds that).
+   */
+  draw(
+    kit: FxKit,
+    dt: number,
+    time: number,
+    wr: ThreadFrom,
+    tr: ThreadTo,
+    toEmpower: boolean,
+    bearing: boolean,
+    tension: number,
+    hushed = false,
+  ): void {
+    this.now = time;
+    this.visible = Math.min(1, this.visible + dt * 6);
     this.mix = approach(this.mix, toEmpower ? 1 : 0, 10, dt);
-    this.bear = approach(this.bear, w.threadMode === 'bear' ? 1 : 0, 8, dt);
+    this.bear = approach(this.bear, bearing ? 1 : 0, 8, dt);
     if (this.bear < 0.002) this.bear = 0;
     const B = this.bear;
     this.col.copy(C.mend).lerp(C.empower, this.mix).lerp(C.bear, B);
@@ -202,7 +315,11 @@ export class ThreadView {
       .copy(this.col)
       .lerp(C.white, 0.55 * (1 - B))
       .lerp(BEAR_HOT, 0.3 * B);
-    const tension = w.threadTension;
+    // A look: its glow round the Thread and its filament at its heart (Bear's crimson takes both).
+    this.fitLook();
+    const look = this.lookFilament !== null;
+    this.halo.copy(this.lookGlow ?? this.col).lerp(C.bear, look ? B : 0);
+    this.body.copy(this.lookFilament ?? this.col).lerp(C.bear, look ? B : 0);
     // Mend and Empower flow out to the hero; Bear's flows back to the Weaver.
     this.flowCore += dt * (-3 + 4.4 * B);
     this.flowHalo += dt * (-1.4 + 2.2 * B);
@@ -261,6 +378,8 @@ export class ThreadView {
 
     const baseW = (0.075 - 0.04 * tension) * (1 + shimmer * 0.3) * (1 + 0.5 * B);
     const vis = this.visible;
+    // A look shows its glow more, and whitens its filament less, so its hues hold.
+    const L = look ? 1 - B : 0;
     // Halo strand.
     kit.ribbons.beginStrip();
     for (let i = 0; i <= N; i++) {
@@ -271,8 +390,8 @@ export class ThreadView {
         this.pts[i * 3 + 1],
         this.pts[i * 3 + 2],
         baseW * (3.2 + 3 * B) * (1 + p * 0.8),
-        this.col,
-        (0.22 + 0.4 * B + p * 0.5) * vis * (1 - shimmer * 0.3 * Math.random()),
+        this.halo,
+        (0.22 + 0.26 * L + 0.4 * B + p * 0.5) * vis * (1 - shimmer * 0.3 * Math.random()),
         t * len * 0.35 + this.flowHalo,
         0.35 * (1 - 0.85 * B),
       );
@@ -288,25 +407,28 @@ export class ThreadView {
         this.pts[i * 3 + 1],
         this.pts[i * 3 + 2],
         baseW * (1 + p * 1.6),
-        p > 0.3 ? this.core : this.col,
+        // A pulse runs in the mode's colour, a look's filament or not.
+        p > 0.3 ? this.core : this.body,
         (0.9 + p) * (1 - 0.2 * B) * vis,
         t * len * 0.6 + this.flowCore,
         // Bear's core stays crimson (a white core would turn it pink).
-        0.35 * (1 - 0.8 * B),
+        0.35 * (1 - 0.8 * B) * (1 - 0.5 * L),
       );
     }
     kit.ribbons.endStrip();
     if (B > 0.02) this.bearBraid(kit, dt, len, px, pz, baseW, vis);
+    // A look's beads: the mode's colour flowing out along it (Bear has its own braid and flow).
+    if (look) this.beads(kit, dt, len, baseW, vis * (1 - B));
+    else this.beadsDrawn = 0;
     // The beam song rides the Thread: an aura-coloured sheath and beads of song flowing from
     // the Weaver to the hero, louder with the focus (all in: a second sheath, more beads).
-    this.findSong(state, targetId);
     this.song = approach(this.song, this.songA ? 1 : 0, 8, dt);
     const ua = this.songA;
     if (ua && this.song > 0.02) {
       const ub = this.songB ?? ua;
       const lv = this.songLevel;
       const allIn = this.songAllIn;
-      const u = this.song * vis * (state.field.suppressed ? 0.35 : 1);
+      const u = this.song * vis * (hushed ? 0.35 : 1);
       const pourAge = time - this.pourAt;
       const head = pourAge < POUR_TRAVEL ? pourAge / POUR_TRAVEL : 2;
       kit.ribbons.beginStrip();
@@ -377,9 +499,17 @@ export class ThreadView {
       );
     }
     this.backHeads(kit, time);
-    // Endpoint glows.
-    kit.sprites.push(ax, ay, az, 0.22, 0, this.core, 0.7 * vis);
-    kit.sprites.push(bx, by, bz, 0.3 + 0.1 * Math.sin(time * 6), 0, this.col, 0.55 * vis);
+    // Endpoint glows, in the mode's colour (a little stronger when a look wears the strands).
+    kit.sprites.push(ax, ay, az, 0.22 + 0.04 * L, 0, this.core, (0.7 + 0.15 * L) * vis);
+    kit.sprites.push(
+      bx,
+      by,
+      bz,
+      0.3 + 0.1 * Math.sin(time * 6),
+      0,
+      this.col,
+      (0.55 + 0.2 * L) * vis,
+    );
     // Mend: teal motes drift up off the hero. Empower: gold sparks. Bear: embers sink.
     if (Math.random() < dt * 10 * kit.particles.density) {
       const sink = B > 0.5;
@@ -398,6 +528,37 @@ export class ThreadView {
         0.6,
         sink ? 0.9 : -0.2,
       );
+    }
+  }
+
+  /**
+   * A look's beads: the mode's colour flowing out along the Thread from her hand to the hero,
+   * `BEAD_SPACING` apart at `BEAD_SPEED`, each a little wider than the core strand. They keep their
+   * place in metres from her hand, so a Thread growing or shrinking never shuffles them; they fade
+   * in leaving her hand and out reaching the hero.
+   */
+  private beads(kit: FxKit, dt: number, len: number, baseW: number, alpha: number): void {
+    this.beadsDrawn = 0;
+    this.beadFlow = (this.beadFlow + dt * BEAD_SPEED) % BEAD_SPACING;
+    if (alpha <= 0.02) return;
+    const size = BEAD_SIZE + baseW * 1.4;
+    for (let d = this.beadFlow; d < len && this.beadsDrawn < MAX_BEADS; d += BEAD_SPACING) {
+      // Along the curve by its parameter: near enough even for a Thread's gentle sag.
+      const f = (d / len) * N;
+      const i = Math.min(N - 1, Math.floor(f));
+      const u = f - i;
+      const o = i * 3;
+      const edge = Math.min(1, d / BEAD_EDGE, (len - d) / BEAD_EDGE);
+      kit.sprites.push(
+        this.pts[o] + (this.pts[o + 3] - this.pts[o]) * u,
+        this.pts[o + 1] + (this.pts[o + 4] - this.pts[o + 1]) * u,
+        this.pts[o + 2] + (this.pts[o + 5] - this.pts[o + 2]) * u,
+        size,
+        SPRITE.glow,
+        this.col,
+        BEAD_ALPHA * alpha * edge,
+      );
+      this.beadsDrawn++;
     }
   }
 

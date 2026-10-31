@@ -6,8 +6,9 @@
  */
 import type { SimEvent, WorldState } from '../sim';
 
+/** Phase 4g: `loom`, the hub between runs (a quiet sanctum: no drums, glass over a warm hum). */
 export type AudioMood =
-  'silent' | 'title' | 'map' | 'calm' | 'combat' | 'boss' | 'victory' | 'defeat';
+  'silent' | 'title' | 'map' | 'loom' | 'calm' | 'combat' | 'boss' | 'victory' | 'defeat';
 
 export type UiSound =
   | 'hover'
@@ -111,7 +112,31 @@ export type UiSound =
    * the Weaver's gold, voiced by its slot: pass `{ variant }` (its content id) as `detail`. Left
    * out, a shared voicing. Back to a slot's default is the existing `back`.
    */
-  | 'variantPick';
+  | 'variantPick'
+  /**
+   * Phase 4g (docs/phase-4g.md): the Loom, in Starlight's cool glass (the twin sparkle). Something
+   * bought at the Atelier, and a purchase refused (not enough Starlight, or locked); a keepsake
+   * worn (pass `{ keepsake }`, its content id: a robe rustles, a Thread look is plucked, a title
+   * rings); a station lit in the hub, and a station's intro opened; Starlight counted up on the
+   * Result (pass `{ amount }`: more counts a longer run).
+   */
+  | 'atelierBuy'
+  | 'atelierRefused'
+  | 'keepsakeWear'
+  | 'stationLit'
+  | 'stationIntro'
+  | 'starlightCount'
+  /**
+   * Phase 4g: the Perfect-Ward trainer, as each try is judged. Perfect; early or late (pass
+   * `{ ms }`: the further off, the further the note bends, up for early, down for late); missed; a
+   * streak milestone (pass `{ streak }`: 5, 10, 25… each grander); a new best (once a streak).
+   */
+  | 'drillPerfect'
+  | 'drillEarly'
+  | 'drillLate'
+  | 'drillMiss'
+  | 'drillStreak'
+  | 'drillBest';
 
 /**
  * Additive (Phase 4d): what a UI sound is about, beyond its name. The Dissonance sounds read
@@ -139,6 +164,17 @@ export interface UiSoundDetail {
    * breath. Unknown or left out: a shared voicing.
    */
   variant?: string;
+  /**
+   * Phase 4g, `keepsakeWear`: the keepsake worn (its content id, e.g. 'robe_dusk'). A robe rustles
+   * and settles, a Thread look is plucked, a title rings. Unknown or left out: a shared voicing.
+   */
+  keepsake?: string;
+  /** Phase 4g, `starlightCount`: the Starlight counted (a longer, higher run for more). */
+  amount?: number;
+  /** Phase 4g, `drillEarly` and `drillLate`: how far from the Perfect window the Ward fell (ms). */
+  ms?: number;
+  /** Phase 4g, `drillStreak`: the streak reached (25 and over is the grandest, then 10, then 5). */
+  streak?: number;
 }
 
 export interface Volumes {

@@ -57,14 +57,14 @@ export function bondOf(bonds: Readonly<Record<string, Bond>>, heroId: string): B
 }
 
 /**
- * Bonds are open (the Title's button, Prep's row, the frames' ranks, the Codex's page) once a hero
+ * Bonds are open (the Loom's station, Prep's row, the frames' ranks, the Codex's page) once a hero
  * has had a Bond rank-up, or with Settings → Skip the unlocks.
  */
 export function bondsOpen(bonds: Readonly<Record<string, Bond>>, unlockAll: boolean): boolean {
   return unlockAll || bondedHeroes().some((h) => bondRank(bonds[h]?.xp ?? 0) > 1);
 }
 
-/** Each bonded hero's rank, by id: the HUD's frames and the Title's button. */
+/** Each bonded hero's rank, by id: the HUD's frames and the Loom's station. */
 export function bondRanks(bonds: Readonly<Record<string, Bond>>): Record<string, number> {
   return Object.fromEntries(bondedHeroes().map((h) => [h, bondRank(bonds[h]?.xp ?? 0)]));
 }
@@ -471,7 +471,7 @@ export function skipLine(): string {
   return `Settings → Skip the unlocks: every talent and Solo can be chosen, as if each Bond were at rank ${maxBondRank()}. Scenes still wait for real ranks.`;
 }
 
-/** The line for a run under way (the screen opened from the Title mid-run). */
+/** The line for a run under way (the screen opened from the Loom mid-run). */
 export const RUN_UNDER_WAY =
   'Your run under way keeps the talents and Solos it embarked with: what you change here is for the next one.';
 
@@ -556,7 +556,7 @@ export interface BondRankUpView {
 }
 
 /** Where talents and Solos are chosen. */
-export const WHERE_TO_CHOOSE = 'on the Bonds screen, from the Title or from Prep';
+export const WHERE_TO_CHOOSE = 'on the Bonds screen, from the Loom or from Prep';
 
 /** One Bond rank-up's card: what the rank opened for the hero (`rankOpens`). */
 export function bondRankUpView(n: BondNotice, bond?: Bond): BondRankUpView {

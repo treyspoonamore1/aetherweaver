@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import type { EnemyDef, HeroDef } from '../../content';
+import { OWN_PALETTE, type WeaverPalette } from '../keepsakeCues';
 import { ModelBuilder } from './builder';
 
 /**
@@ -18,9 +19,14 @@ function shade(hex: string, k: number): string {
 const GOLD = '#e8b54a';
 const GOLD_GLOW = '#ffd27a';
 
-export function buildWeaver(): THREE.BufferGeometry {
+/**
+ * The Weaver in `palette` (keepsakeCues.ts: her robe and her Thread look's hands). Her own is the
+ * ivory robe, gold sash and hem, white-gold halo and hands. Every palette builds the same parts
+ * in the same order, so a robe changed in the fight is recoloured in place (`recolorModel`).
+ */
+export function buildWeaver(palette: Readonly<WeaverPalette> = OWN_PALETTE): THREE.BufferGeometry {
   const b = new ModelBuilder();
-  const ivory = '#f4ecdc';
+  const body = palette.body;
   b.lathe(
     [
       [0.48, 0],
@@ -30,15 +36,15 @@ export function buildWeaver(): THREE.BufferGeometry {
       [0.16, 1.2],
       [0, 1.24],
     ],
-    ivory,
+    body,
     {},
     9,
   );
-  // Gold sash and hem.
+  // The sash and hem, in the robe's trim (her own: gold).
   b.torus(
     0.26,
     0.045,
-    GOLD_GLOW,
+    palette.trim,
     { glow: 0.9, p: [0, 0.82, 0], r: [Math.PI / 2, 0, 0] },
     Math.PI * 2,
     12,
@@ -46,29 +52,44 @@ export function buildWeaver(): THREE.BufferGeometry {
   b.torus(
     0.45,
     0.03,
-    GOLD_GLOW,
+    palette.trim,
     { glow: 0.7, p: [0, 0.06, 0], r: [Math.PI / 2, 0, 0] },
     Math.PI * 2,
     14,
   );
-  b.sphere(0.12, ivory, { p: [0.21, 1.12, 0] });
-  b.sphere(0.12, ivory, { p: [-0.21, 1.12, 0] });
-  b.sphere(0.16, '#fff8ea', { p: [0, 1.36, 0] });
+  b.sphere(0.12, body, { p: [0.21, 1.12, 0] });
+  b.sphere(0.12, body, { p: [-0.21, 1.12, 0] });
+  b.sphere(0.16, palette.head, { p: [0, 1.36, 0] });
   // Hood.
-  b.cone(0.2, 0.34, shade(ivory, -0.06), { p: [0, 1.5, 0.04], r: [-0.25, 0, 0] }, 7);
-  // Halo (horizontal) — the white-gold crown of the Weaver.
+  b.cone(0.2, 0.34, shade(body, -0.06), { p: [0, 1.5, 0.04], r: [-0.25, 0, 0] }, 7);
+  // Halo (horizontal) — the white-gold crown of the Weaver, in the robe's glow.
   b.torus(
     0.24,
     0.028,
-    GOLD_GLOW,
+    palette.halo,
     { glow: 1, p: [0, 1.68, 0.05], r: [Math.PI / 2, 0, 0] },
     Math.PI * 2,
     18,
   );
-  // The weaving hand: threads start here.
-  b.ico(0.075, '#fff1c4', { glow: 1, p: [0.3, 1.02, -0.26] });
-  b.octa(0.07, '#fff1c4', { glow: 1, p: [-0.34, 1.0, -0.12], s: [1, 1.6, 1] });
+  // The weaving hand: threads start here (in the Thread look's filament).
+  b.ico(0.075, palette.hand, { glow: 1, p: [0.3, 1.02, -0.26] });
+  b.octa(0.07, palette.hand, { glow: 1, p: [-0.34, 1.0, -0.12], s: [1, 1.6, 1] });
   return b.build();
+}
+
+/**
+ * Gives `target` the vertex colours of `source`, a build of the same model in other colours (the
+ * same parts in the same order), and disposes `source`. For a look changed while the model is
+ * drawn: no new batch, no new draw call.
+ */
+export function recolorModel(target: THREE.BufferGeometry, source: THREE.BufferGeometry): void {
+  const to = target.getAttribute('color') as THREE.BufferAttribute;
+  const from = source.getAttribute('color') as THREE.BufferAttribute;
+  if (to.count === from.count) {
+    (to.array as Float32Array).set(from.array as Float32Array);
+    to.needsUpdate = true;
+  }
+  source.dispose();
 }
 
 export function buildHero(def: HeroDef): THREE.BufferGeometry {

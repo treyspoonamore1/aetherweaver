@@ -86,6 +86,18 @@ export const UI_SOUND_NAMES = Object.keys({
   sceneStart: 0,
   sceneReply: 0,
   variantPick: 0,
+  atelierBuy: 0,
+  atelierRefused: 0,
+  keepsakeWear: 0,
+  stationLit: 0,
+  stationIntro: 0,
+  starlightCount: 0,
+  drillPerfect: 0,
+  drillEarly: 0,
+  drillLate: 0,
+  drillMiss: 0,
+  drillStreak: 0,
+  drillBest: 0,
 } satisfies Record<UiSound, 0>) as UiSound[];
 
 /** Phase 3e: the UI sounds voiced per Calling (the Chronomancer's are its own). */
@@ -150,6 +162,63 @@ export const BOND_LIMITS: Readonly<Partial<Record<UiSound, readonly [number, num
 export const VARIANT_LIMITS: Readonly<Partial<Record<UiSound, readonly [number, number]>>> = {
   variantPick: [0.06, 3],
 };
+
+/**
+ * Phase 4g, the Loom: each sound's rate gate (seconds) and voice cap. The Atelier is clicked
+ * through quickly (buying, refused, wearing one keepsake after another), so those hold two; a
+ * station's light and an intro come once; the Starlight count may be called on each step of a
+ * count-up, so it is gated as Aether's is.
+ */
+export const LOOM_LIMITS: Readonly<Partial<Record<UiSound, readonly [number, number]>>> = {
+  atelierBuy: [0.12, 2],
+  atelierRefused: [0.1, 2],
+  keepsakeWear: [0.08, 2],
+  stationLit: [0.5, 1],
+  stationIntro: [0.3, 1],
+  starlightCount: [0.05, 2],
+};
+
+/**
+ * Phase 4g, the Perfect-Ward trainer: each try is judged once a beat (the quickest beat is a few
+ * seconds), so the verdicts are gated lightly and hold two; a milestone and a new best ring long
+ * and come once.
+ */
+export const DRILL_LIMITS: Readonly<Partial<Record<UiSound, readonly [number, number]>>> = {
+  drillPerfect: [0.15, 2],
+  drillEarly: [0.15, 2],
+  drillLate: [0.15, 2],
+  drillMiss: [0.15, 2],
+  drillStreak: [0.5, 1],
+  drillBest: [0.8, 1],
+};
+
+/** A keepsake's kind by its content id (robe, Thread look or title), or null for an unknown id. */
+export function keepsakeKind(id: string | undefined | null): 'robe' | 'thread' | 'title' | null {
+  if (!id) return null;
+  const c = CONTENT.cosmetics;
+  if (c.robes.some((r) => r.id === id)) return 'robe';
+  if (c.threads.some((t) => t.id === id)) return 'thread';
+  if (c.titles.some((t) => t.id === id)) return 'title';
+  return null;
+}
+
+/** How grand a streak milestone rings: 3 from 25, 2 from 10, else 1 (5, or unknown). */
+export function streakTier(streak: number | undefined | null): 1 | 2 | 3 {
+  if (typeof streak !== 'number' || !Number.isFinite(streak)) return 1;
+  return streak >= 25 ? 3 : streak >= 10 ? 2 : 1;
+}
+
+/** How far an early or late Ward bends its note (a share of the pitch): more the further off. */
+export function drillBend(ms: number | undefined | null): number {
+  if (typeof ms !== 'number' || !Number.isFinite(ms)) return 0.06;
+  return 0.03 + 0.09 * Math.max(0, Math.min(1, ms / 400));
+}
+
+/** How many twin sparkles a Starlight count runs (2 for a little, up to 7 for a great deal). */
+export function starlightSteps(amount: number | undefined | null): number {
+  if (typeof amount !== 'number' || !Number.isFinite(amount)) return 3;
+  return Math.max(2, Math.min(7, 2 + Math.round(amount / 6)));
+}
 
 /** The slot a technique variant takes (content), or null for an unknown id. */
 export function variantSlotOf(
@@ -219,7 +288,9 @@ export function playUiSound(
     DEED_LIMITS[sound] ??
     DISSONANCE_LIMITS[sound] ??
     BOND_LIMITS[sound] ??
-    VARIANT_LIMITS[sound];
+    VARIANT_LIMITS[sound] ??
+    LOOM_LIMITS[sound] ??
+    DRILL_LIMITS[sound];
   // The Deed sounds share one gate: two at once (a point Deed and a badge) make one.
   const gate = sound in DEED_LIMITS ? 'ui:deed' : `ui:${sound}`;
   if (sound === 'hover' && !e.gate('ui:hover', 0.045)) return;
@@ -411,6 +482,42 @@ export function playUiSound(
       break;
     case 'variantPick':
       variantPick(v, t, detail);
+      break;
+    case 'atelierBuy':
+      atelierBuy(v, t);
+      break;
+    case 'atelierRefused':
+      atelierRefused(v, t);
+      break;
+    case 'keepsakeWear':
+      keepsakeWear(v, t, detail);
+      break;
+    case 'stationLit':
+      stationLit(v, t);
+      break;
+    case 'stationIntro':
+      stationIntro(v, t);
+      break;
+    case 'starlightCount':
+      starlightCount(v, t, detail);
+      break;
+    case 'drillPerfect':
+      drillPerfect(v, t);
+      break;
+    case 'drillEarly':
+      drillOff(v, t, detail, 1);
+      break;
+    case 'drillLate':
+      drillOff(v, t, detail, -1);
+      break;
+    case 'drillMiss':
+      drillMiss(v, t);
+      break;
+    case 'drillStreak':
+      drillStreak(v, t, detail);
+      break;
+    case 'drillBest':
+      drillBest(v, t);
       break;
     case 'wheelOpen':
       // A soft bloom: a breath opening upwards and a quiet A4.
@@ -1485,4 +1592,222 @@ function starRespec(v: Voice, t: number): void {
   brassBell(v, land, hz(0), 0.075, 1.6, 0.25);
   thump(v, land, hz(-7), 0.06, 0.25, 0.7);
   v.extend(land + 1.8);
+}
+
+// ── Phase 4g: the Loom and its keepsakes ─────────────────────────────────────────────
+// Starlight's own voice: cool glass, its sparkles in twins (as its glyph is), high and soft. Never
+// the merchant's coins (Aether) nor the Astrolabe's brass; the hub's stations add a warm hum.
+
+/** A twin sparkle: two glass pings a fifth apart, the upper a breath later. */
+function twin(v: Voice, t: number, idx: number, gain: number, ring = 0.5): void {
+  glassPing(v, t, hz(idx), gain, ring);
+  glassPing(v, t + 0.035, hz(idx + 4), gain * 0.8, ring);
+}
+
+/**
+ * Something bought at the Atelier, about 1.2 s: Starlight spent. A twin sparkle high up (A6, E7)
+ * and the light drawn down into what was bought (a breath falling from bright to soft), then the
+ * settle: a plucked D5 and A5 and a long glass D6. Cooler than the merchant's `buy` (no coins, no
+ * handbell).
+ */
+function atelierBuy(v: Voice, t: number): void {
+  twin(v, t, 18, 0.034, 0.7);
+  whoosh(v, t + 0.02, 0.45, 0.014, 4200, 1300, 1);
+  pluck(v, t + 0.15, hz(7), 0.1, 0.32, 0.55);
+  pluck(v, t + 0.2, hz(11), 0.09, 0.4, 0.65);
+  glassNote(v, t + 0.2, hz(14), 0.035, 1.2, 0.7);
+  v.extend(t + 1.3);
+}
+
+/**
+ * A purchase refused at the Atelier, about 0.45 s: a dim twin that falls (E6, then D6, short and
+ * soft) over a muted low A. A shake of the head in glass: not the merchant's `cantAfford`.
+ */
+function atelierRefused(v: Voice, t: number): void {
+  glassPing(v, t, hz(15), 0.032, 0.16);
+  glassPing(v, t + 0.09, hz(14), 0.027, 0.22);
+  pluck(v, t + 0.02, hz(-3), 0.08, 0.2, 0.12);
+  v.extend(t + 0.5);
+}
+
+/**
+ * A keepsake worn, about 0.8 s, voiced by its kind (`detail.keepsake`): a robe rustles (a soft
+ * swish of cloth) and settles on a warm handbell D5 with a glass A5; a Thread look is plucked, a
+ * string drawn taut from D5 up to A5, with a glass D6; a title rings, a small brass bell on A5
+ * and a glass D6 after it. Unknown: a plucked A5 and a glass D6. Each ends in Starlight's twin.
+ */
+function keepsakeWear(v: Voice, t: number, detail?: UiSoundDetail | null): void {
+  switch (keepsakeKind(detail?.keepsake)) {
+    case 'robe':
+      v.noise({
+        pink: true,
+        start: t,
+        dur: 0.24,
+        attack: 0.06,
+        release: 0.12,
+        gain: 0.03,
+        shape: 'sustain',
+        filter: { type: 'bandpass', freq: 900, freqTo: 2600, q: 0.9 },
+      });
+      handbell(v, t + 0.08, hz(7), 0.06, 1.0, 0.45);
+      glassNote(v, t + 0.1, hz(11), 0.022, 0.8, 0.7);
+      break;
+    case 'thread':
+      pluck(v, t, hz(7), 0.09, 0.3, 0.7);
+      pluck(v, t + 0.07, hz(11), 0.085, 0.4, 0.8);
+      glassNote(v, t + 0.08, hz(14), 0.024, 0.9, 0.8);
+      break;
+    case 'title':
+      brassBell(v, t, hz(11), 0.055, 1.0, 0.55);
+      glassPing(v, t + 0.06, hz(14), 0.026, 0.6);
+      break;
+    default:
+      pluck(v, t, hz(11), 0.08, 0.3, 0.6);
+      glassNote(v, t + 0.05, hz(14), 0.022, 0.8, 0.7);
+      break;
+  }
+  twin(v, t + 0.2, 18, 0.016, 0.4);
+  v.extend(t + 0.9);
+}
+
+/**
+ * A station lit in the hub, about 1.9 s: a lamp kindling in the sanctum. A low bowed D3 swells in
+ * under a breath rising from dull to airy, a soft open fifth is hummed (D4 A4), and the light
+ * catches: a handbell on A5, then glass on D6 and A6. Warmer and slower than `unlock`'s card.
+ */
+function stationLit(v: Voice, t: number): void {
+  bowed(v, t, hz(-7), 1.1, 0.035, 0.45, 0.8);
+  whoosh(v, t, 0.7, 0.018, 300, 2600, 1);
+  choirChord(v, t + 0.15, [hz(0), hz(4)], 0.8, 0.06, 0.35, 0.9);
+  handbell(v, t + 0.42, hz(11), 0.06, 1.4, 0.55);
+  glassNote(v, t + 0.5, hz(14), 0.026, 1.3, 0.8);
+  glassNote(v, t + 0.6, hz(18), 0.02, 1.2, 0.85);
+  v.extend(t + 2);
+}
+
+/**
+ * A station's intro opens, about 1.3 s: a page turned into the light. A breath opening upward and
+ * a harp's rising spread (D4 F4 A4 D5 E5), landing on a soft glass A5.
+ */
+function stationIntro(v: Voice, t: number): void {
+  whoosh(v, t, 0.55, 0.016, 600, 3000, 1.1);
+  [0, 2, 4, 7, 8].forEach((idx, i) => pluck(v, t + i * 0.06, hz(idx), 0.06 + 0.005 * i, 0.4, 0.55));
+  glassNote(v, t + 0.3, hz(11), 0.026, 1.0, 0.75);
+  v.extend(t + 1.3);
+}
+
+/**
+ * Starlight counted on the Result, 0.35 to 0.9 s: twin sparkles stepping up D dorian from A5, one
+ * for every few counted (`starlightSteps`: more Starlight, a longer, higher run), the last left to
+ * ring with a soft glass note under it. Quiet and gated: it may be played on each step of a
+ * count-up.
+ */
+function starlightCount(v: Voice, t: number, detail?: UiSoundDetail | null): void {
+  const n = starlightSteps(detail?.amount);
+  for (let i = 0; i < n; i++) twin(v, t + i * 0.07, 11 + i, 0.016 + 0.002 * i, 0.32);
+  glassNote(v, t + (n - 1) * 0.07, hz(11 + n - 1), 0.018, 0.9, 0.8);
+  v.extend(t + n * 0.07 + 0.9);
+}
+
+// ── Phase 4g: the Perfect-Ward trainer ──────────────────────────────────────────────
+// The Training Grounds' voice: the Ward's glass, cooler and smaller. Each verdict is short and sits
+// above the fight's own Ward sounds (the Perfect's chord rings at the blow; this is its score).
+
+/** A try judged Perfect, about 0.8 s: a plucked D6, a glass D7 and A6 ringing over it. */
+function drillPerfect(v: Voice, t: number): void {
+  pluck(v, t, hz(14), 0.09, 0.3, 0.8);
+  glassNote(v, t + 0.01, hz(21), 0.038, 0.9, 0.85);
+  glassPing(v, t + 0.06, hz(18), 0.032, 0.6);
+  v.extend(t + 0.9);
+}
+
+/**
+ * A try early (`dir` 1) or late (-1), about 0.45 s: soft, on F5. Early rushes up into it (a sine
+ * sliding up to the note, then the note plucked); late drags (the note plucked, then sagging down
+ * after it). The further off (`detail.ms`), the further the slide.
+ */
+function drillOff(
+  v: Voice,
+  t: number,
+  detail: UiSoundDetail | null | undefined,
+  dir: 1 | -1,
+): void {
+  const f = hz(9);
+  const bend = drillBend(detail?.ms);
+  if (dir === 1) {
+    v.osc({
+      type: 'sine',
+      freq: f * (1 - bend),
+      freqTo: f,
+      glide: 0.08,
+      start: t,
+      dur: 0.09,
+      attack: 0.01,
+      release: 0.03,
+      gain: 0.05,
+    });
+    pluck(v, t + 0.08, f, 0.075, 0.26, 0.45);
+  } else {
+    pluck(v, t, f, 0.075, 0.2, 0.45);
+    v.osc({
+      type: 'sine',
+      freq: f,
+      freqTo: f * (1 - bend),
+      glide: 0.16,
+      start: t + 0.05,
+      dur: 0.2,
+      attack: 0.01,
+      release: 0.08,
+      gain: 0.045,
+    });
+  }
+  v.extend(t + 0.45);
+}
+
+/**
+ * A try missed, about 0.6 s: the training bell's blow landing with no Ward. A muted knock, a dull
+ * damped bell on D4 and a soft low A. Gentle: it's practice.
+ */
+function drillMiss(v: Voice, t: number): void {
+  thump(v, t, hz(-7), 0.08, 0.2, 0.5);
+  handbell(v, t, hz(0), 0.04, 0.35, 0.12);
+  pluck(v, t + 0.06, hz(-3), 0.05, 0.25, 0.2);
+  v.extend(t + 0.6);
+}
+
+/**
+ * A streak milestone (`detail.streak`), 0.9 to 2.2 s, grander by `streakTier`: a plucked climb in
+ * glass from D5 (three notes at 5, five at 10, seven to D7 from 25); from 10 a handbell on D6
+ * crowns it; from 25 a choir swells under it and a breath rises.
+ */
+function drillStreak(v: Voice, t: number, detail?: UiSoundDetail | null): void {
+  const tier = streakTier(detail?.streak);
+  const run = [7, 9, 11, 14, 16, 18, 21].slice(0, tier === 3 ? 7 : tier === 2 ? 5 : 3);
+  run.forEach((idx, i) => {
+    const at = t + i * 0.07;
+    pluck(v, at, hz(idx), 0.07 + 0.004 * i, 0.3, 0.75);
+    glassPing(v, at, hz(idx), 0.016 + 0.002 * i, 0.4);
+  });
+  const land = t + run.length * 0.07;
+  if (tier >= 2) handbell(v, land, hz(14), 0.06, 1.4, 0.7);
+  if (tier === 3) {
+    choirChord(v, t, [hz(0), hz(4), hz(7), hz(9)], 1.2, 0.08, 0.3, 1.0);
+    whoosh(v, t, 0.8, 0.016, 700, 4200, 1);
+  }
+  v.extend(land + (tier === 3 ? 1.6 : tier === 2 ? 1.4 : 0.6));
+}
+
+/**
+ * A new best, about 1.9 s: a small fanfare in the Grounds' glass and the Weaver's brass. Brass
+ * bells on D5 and A5 over an open fifth hummed (D4 A4) and a breath rising, then a glass D6 and
+ * Starlight's twin high above (A6, E7). Smaller than a Rank-up; not Dissonance's best.
+ */
+function drillBest(v: Voice, t: number): void {
+  choirChord(v, t, [hz(0), hz(4)], 0.9, 0.07, 0.2, 1.0);
+  brassBell(v, t, hz(7), 0.07, 1.4, 0.55);
+  brassBell(v, t + 0.08, hz(11), 0.06, 1.5, 0.6);
+  glassNote(v, t + 0.16, hz(14), 0.032, 1.4, 0.85);
+  twin(v, t + 0.3, 18, 0.022, 0.8);
+  whoosh(v, t, 0.6, 0.014, 800, 3800, 1);
+  v.extend(t + 2);
 }

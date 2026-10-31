@@ -52,9 +52,9 @@ export interface BondsViewProps {
   /** Which Solo a hero brings (the profile store's `setSolo`). */
   onSolo(heroId: string, solo: 'default' | 'alt'): void;
   onBack(): void;
-  /** Where Back goes ("Prep", "Title"). */
+  /** Where Back goes ("Prep", "The Loom"). */
   backTo?: string;
-  /** A run under way keeps the choices it embarked with (opened from the Title mid-run). */
+  /** A run under way keeps the choices it embarked with (opened from the Loom mid-run). */
   runUnderWay?: boolean;
   /** Opens the Codex's Bonds page (the rules). */
   onRules?(): void;
@@ -76,7 +76,7 @@ export function BondsView({
   onTalent,
   onSolo,
   onBack,
-  backTo = 'Title',
+  backTo = 'The Loom',
   runUnderWay = false,
   onRules,
   initialHero,
@@ -365,7 +365,7 @@ function Notice({ text, heroId }: { text: string; heroId: string }) {
   );
 }
 
-/** The Bonds screen from the stores: from the Title or from Prep (Back returns there). */
+/** The Bonds screen from the stores: from the Loom or from Prep (Back returns there). */
 export function BondsScreen() {
   const bonds = useProfile((s) => s.profile.bonds);
   const xp = useProfile((s) => s.profile.xp);
@@ -405,7 +405,7 @@ export function BondsScreen() {
       onTalent={(h, tier, id) => useProfile.getState().setTalent(h, tier, id)}
       onSolo={(h, solo) => useProfile.getState().setSolo(h, solo)}
       onBack={back}
-      backTo={previous === 'run' ? 'Prep' : 'Title'}
+      backTo={previous === 'run' ? 'Prep' : 'The Loom'}
       runUnderWay={runUnderWay}
       onRules={() => setCodex(true)}
     />

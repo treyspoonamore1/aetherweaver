@@ -18,8 +18,21 @@ function trackErrors(page: Page): string[] {
   return errors;
 }
 
+/**
+ * Phase 4g: from the Title's front door into the Loom, the hub where the stations are. A new
+ * profile's first visit plays the welcome intro: Later closes it.
+ */
+async function enterLoom(page: Page): Promise<void> {
+  await page.getByRole('button', { name: 'Enter the Loom' }).click();
+  await expect(page.getByTestId('loom-screen')).toBeVisible();
+  if (await page.getByTestId('station-intro').isVisible())
+    await page.getByTestId('intro-later').click();
+  await expect(page.getByTestId('station-intro')).toHaveCount(0);
+}
+
 async function enterTraining(page: Page): Promise<void> {
   await page.goto(START_URL);
+  await enterLoom(page);
   await page
     .getByRole('button', { name: /Training Grounds/i })
     .first()
@@ -51,6 +64,7 @@ test('boots to the title and into the Training Grounds with no console errors', 
   const errors = trackErrors(page);
   await page.goto(START_URL);
   await expect(page.getByRole('heading', { name: /Aetherweaver/i })).toBeVisible();
+  await enterLoom(page);
   await page
     .getByRole('button', { name: /Training Grounds/i })
     .first()
@@ -490,6 +504,8 @@ test('Phase 4: the Astrolabe — from Prep, take, give back, respec, a keystone�
 test('Phase 4b: Deeds — a fight earns two, their toasts follow the rank-up card, lit in the Codex', async ({
   page,
 }) => {
+  // A fight, its cards and toasts, then the Codex by way of the Loom (Phase 4g).
+  test.setTimeout(180_000);
   const errors = trackErrors(page);
   // Two Deeds one fight can earn: answering calls over a run (a point) and every call in a fight
   // (a badge). The hook wins a fight with that many calls made and answered.
@@ -557,9 +573,10 @@ test('Phase 4b: Deeds — a fight earns two, their toasts follow the rank-up car
   await expect(toast).toHaveCount(0, { timeout: 10_000 });
   await expect.poll(() => page.evaluate(() => window.__AWRUN__!.deeds().notices)).toEqual([]);
 
-  // The Codex, from the Title: both lit, with the header's counts and Heard's best run.
+  // The Codex, from the Loom: both lit, with the header's counts and Heard's best run.
   await page.goto(START_URL);
-  await page.getByRole('button', { name: /^Codex$/ }).click();
+  await enterLoom(page);
+  await page.getByRole('button', { name: /^Codex:/ }).click();
   await page.getByRole('tab', { name: 'Deeds' }).click();
   await expect(page.getByTestId('deeds-header')).toHaveText(
     `${both.length} of ${CONTENT.deeds.length} earned · ${deedPoints(both)} of ${DEED_POINTS_MAX} Astrolabe points from Deeds`,
@@ -1118,5 +1135,225 @@ test('Phase 4f: technique variants — choose in Prep with Skip the unlocks, emb
   expect(await page.evaluate(() => window.__AWRUN__!.winFight())).toBe(true);
   await expect.poll(phase).toBe('result');
   expect((await techniques()).run).toEqual(chosen);
+  expect(errors).toEqual([]);
+});
+
+test('Phase 4g: the Loom — dark stations and the welcome; with Skip the unlocks the Atelier’s intro once, a robe bought with Starlight and worn', async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  const errors = trackErrors(page);
+  const loom = () => page.evaluate(() => window.__AWRUN__!.loom());
+  const station = (id: string) => page.locator(`[data-station="${id}"]`);
+  const intro = page.getByTestId('station-intro');
+  // Content's first robe, by place: nothing here names it.
+  const robe = CONTENT.cosmetics.robes[0]!;
+  await page.goto(START_URL);
+  await page.waitForFunction(() => window.__AWRUN__ !== undefined);
+
+  // The Title is the front door: no run yet, so Enter the Loom and Settings.
+  const door = page.getByTestId('front-door');
+  await expect(door.getByRole('button')).toHaveText(['Enter the Loom', 'Settings']);
+  await door.getByRole('button', { name: 'Enter the Loom' }).click();
+
+  // A new profile: the Gate, the Grounds and the Codex lit, every other station dark, saying
+  // when it opens; the welcome plays at once, for the three.
+  await expect(page.getByTestId('loom-screen')).toBeVisible();
+  await expect(intro).toHaveAttribute('data-intro', 'gate');
+  for (const id of ['gate', 'training', 'codex'])
+    await expect(station(id)).toHaveAttribute('data-open', 'true');
+  for (const id of ['astrolabe', 'atelier', 'reliquary', 'bonds', 'deeds', 'dissonance'])
+    await expect(station(id)).toHaveAttribute('data-open', 'false');
+  await expect(station('atelier')).toContainText(
+    `Opens at Weaver Rank ${CONTENT.starlight.atelierRank}`,
+  );
+  await page.getByTestId('intro-next').click();
+  await page.getByTestId('intro-next').click();
+  await expect(page.getByTestId('intro-try')).toBeVisible();
+  await page.getByTestId('intro-later').click();
+  await expect(intro).toHaveCount(0);
+  expect((await loom()).introduced.sort()).toEqual([
+    'station:codex',
+    'station:gate',
+    'station:training',
+  ]);
+  // A dark station says when it opens, and nothing opens (aria-disabled: clicked on purpose).
+  await station('atelier').click({ force: true });
+  await expect(page.getByTestId('loom-said')).toContainText(
+    `Opens at Weaver Rank ${CONTENT.starlight.atelierRank}`,
+  );
+  await expect(intro).toHaveCount(0);
+  await expect(page.getByTestId('atelier-screen')).toHaveCount(0);
+
+  // Settings, from the Loom: Skip the unlocks. Back in the Loom every station is lit, the Atelier
+  // draws the eye, and the welcome doesn't play again.
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await page.getByText('Skip the unlocks', { exact: true }).click();
+  await expect(page.getByRole('switch', { name: /Skip the unlocks/ })).toBeChecked();
+  await page.getByRole('button', { name: 'Back' }).click();
+  await expect(page.getByTestId('loom-screen')).toBeVisible();
+  await expect(station('atelier')).toHaveAttribute('data-open', 'true');
+  await expect(station('atelier')).toHaveAttribute('data-fresh', 'true');
+  await expect(intro).toHaveCount(0);
+
+  // Its first visit plays its intro; Try it opens the Atelier, and the intro is recorded.
+  await station('atelier').click();
+  await expect(intro).toHaveAttribute('data-intro', 'atelier');
+  while ((await page.getByTestId('intro-next').count()) > 0)
+    await page.getByTestId('intro-next').click();
+  await page.getByTestId('intro-try').click();
+  await expect(page.getByTestId('atelier-screen')).toBeVisible();
+  expect((await loom()).introduced).toContain('station:atelier');
+
+  // Starlight given through the hook, one short of the robe: the purchase is refused, and says so.
+  await page.evaluate((n) => window.__AWRUN__!.giveStarlight(n), robe.price - 1);
+  await expect(page.getByTestId('atelier-starlight')).toHaveAttribute(
+    'data-amount',
+    String(robe.price - 1),
+  );
+  await page.getByTestId(`atelier-buy-${robe.id}`).click();
+  await expect(page.getByTestId('atelier-said')).toContainText(`${robe.name}:`);
+  await expect(page.getByTestId('atelier-said')).toContainText('1 more to go');
+  expect((await loom()).cosmetics).toEqual([]);
+  // One more: bought, the balance spent, then worn.
+  await page.evaluate(() => window.__AWRUN__!.giveStarlight(1));
+  await page.getByTestId(`atelier-buy-${robe.id}`).click();
+  await expect(page.getByTestId(`atelier-item-${robe.id}`)).toHaveAttribute('data-state', 'owned');
+  await expect(page.getByTestId('atelier-starlight')).toHaveAttribute('data-amount', '0');
+  await page.getByTestId(`atelier-wear-${robe.id}`).click();
+  await expect(page.getByTestId(`atelier-item-${robe.id}`)).toHaveAttribute('data-worn', 'true');
+  await expect(page.getByTestId('atelier-preview')).toHaveAttribute('data-robe', robe.id);
+  expect(await loom()).toMatchObject({
+    starlight: 0,
+    cosmetics: [robe.id],
+    look: { robe: robe.id, thread: null, title: null },
+  });
+
+  // Esc goes back to the Loom, where the Weaver wears it; the Atelier's intro doesn't play again.
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('loom-weaver')).toHaveAttribute('data-robe', robe.id);
+  await station('atelier').click();
+  await expect(page.getByTestId('atelier-screen')).toBeVisible();
+  await expect(intro).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
+test('Phase 4g: a normal build has no playtest demo — no choice at the front door, none in Settings', async ({
+  page,
+}) => {
+  const errors = trackErrors(page);
+  await page.goto(START_URL);
+  await expect(page.getByTestId('front-door')).toBeVisible();
+  await expect(page.getByTestId('demo-choice')).toHaveCount(0);
+  await expect(page.getByTestId('playtest-line')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await expect(page.getByText('Skip the unlocks', { exact: true })).toBeVisible();
+  await expect(page.getByTestId('demo-over')).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
+/**
+ * Phase 4g: presses the Ward key once the training bell's blow is inside its Perfect window, by
+ * the sim's clock (`__AW__.drill()`). The sim runs slowly through the windup, so the real key
+ * press has room whatever the frame rate and the machine's load; between blows it runs fast.
+ */
+async function wardInTheWindow(page: Page): Promise<void> {
+  await page.waitForFunction(() => window.__AW__!.drill() !== null, undefined, {
+    timeout: 90_000,
+  });
+  await page.evaluate(() => window.__AW__!.setDevTimeScale(0.2));
+  await page.waitForFunction(
+    () => {
+      const d = window.__AW__!.drill();
+      return d !== null && d.time >= d.perfectFrom + 0.05;
+    },
+    undefined,
+    { timeout: 90_000 },
+  );
+  await page.keyboard.press('KeyQ');
+}
+
+test('Phase 4g: the Perfect-Ward trainer — a slow drill on Kael, Warded in the window is Perfect, the streak counts', async ({
+  page,
+}) => {
+  test.setTimeout(240_000);
+  const errors = trackErrors(page);
+  await enterTraining(page);
+  // The pointer on the empty floor: Q Wards the threaded hero, not one under the pointer.
+  await page.mouse.move(180, 260);
+  const trainer = page.getByTestId('ward-trainer');
+  await expect(trainer).toBeVisible();
+  // Keyboard only: the speed, the hero and Start, each focused and pressed with Enter.
+  for (const id of ['drill-mode-slow', 'drill-target-0', 'drill-start']) {
+    await page.getByTestId(id).focus();
+    await page.keyboard.press('Enter');
+  }
+  await expect(page.getByTestId('drill-mode-slow')).toHaveAttribute('aria-pressed', 'true');
+  await expect(trainer).toHaveAttribute('data-running', 'true');
+  // The hero key Threads Kael, so Q Wards him.
+  await page.keyboard.press('Digit1');
+  await waitTicks(page, 2);
+  expect((await weaverOf(page)).threadSlot).toBe(0);
+
+  for (const streak of [1, 2]) {
+    await wardInTheWindow(page);
+    // This try's verdict: the history gains it (until then, the last try's result still shows).
+    await expect(page.getByTestId('drill-history').locator('li')).toHaveCount(streak, {
+      timeout: 60_000,
+    });
+    const result = page.getByTestId('drill-result');
+    await expect(result).toHaveAttribute('data-kind', 'perfect');
+    await expect(result).toContainText('Perfect');
+    await expect(page.getByTestId('drill-streak')).toHaveAttribute('data-streak', String(streak));
+    await expect(page.getByTestId('drill-streak')).toHaveAttribute('data-best', String(streak));
+    // That blow has landed; the next comes on the beat, the sim readying the Ward for it.
+    expect(await page.evaluate(() => window.__AW__!.drill())).toBeNull();
+    await page.evaluate(() => window.__AW__!.setDevTimeScale(3));
+  }
+  // The blows don't hurt: Kael is whole.
+  const kael = (await page.evaluate(() => window.__AW__!.snapshot().entities)).find(
+    (e) => e.defId === 'kael',
+  )!;
+  expect(kael.hp).toBe(kael.maxHp);
+
+  await page.getByTestId('drill-start').click();
+  await expect(trainer).toHaveAttribute('data-running', 'false');
+  // Leaving the Grounds goes back to the Loom, the hub they're a station of.
+  await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: /Leave Training Grounds/ }).click();
+  await expect(page.getByTestId('loom-screen')).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+test('Phase 4g: Starlight — a won fight’s Result shows what it paid', async ({ page }) => {
+  const errors = trackErrors(page);
+  const phase = () => page.evaluate(() => window.__AWRUN__!.phase());
+  await page.goto(START_URL);
+  await page.waitForFunction(() => window.__AWRUN__ !== undefined);
+  await page.evaluate(() => window.__AWRUN__!.newRun(4242));
+  await expect.poll(phase).toBe('prep');
+  await page
+    .getByRole('button', { name: /Embark/i })
+    .first()
+    .click();
+  await expect.poll(phase).toBe('map');
+  // First Light, a skirmish, won through the hook.
+  expect(await page.evaluate(() => window.__AWRUN__!.choose())).toBe('skirmish');
+  await expect.poll(phase).toBe('combat');
+  expect(await page.evaluate(() => window.__AWRUN__!.winFight())).toBe(true);
+  await expect.poll(phase).toBe('result');
+
+  const pay = CONTENT.starlight.fights.skirmish;
+  const gain = page.getByTestId('starlight-gain');
+  await expect(gain).toBeVisible();
+  await expect(gain).toHaveAttribute('data-amount', String(pay));
+  await expect(gain).toContainText(`+${pay} Starlight`);
+  // Beside the fight's Weaver XP, with the balance it leaves.
+  await expect(page.getByTestId('xp-gain')).toBeVisible();
+  await expect(gain).toContainText(`${pay} to spend`);
+  // A new profile is below the Atelier's Rank: the line says when it opens.
+  await expect(gain.getByTestId('starlight-use')).toContainText(
+    `Weaver Rank ${CONTENT.starlight.atelierRank}`,
+  );
   expect(errors).toEqual([]);
 });

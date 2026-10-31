@@ -1,24 +1,16 @@
-import { useState } from 'react';
+import { useRef, useState, type KeyboardEvent } from 'react';
+import { DEMO, VETERAN_RANK, type DemoStart } from '../../app/demo';
+import { askDemoChoice, chooseDemo } from '../../app/demoChoice';
 import { useProfile } from '../../app/profileStore';
 import { useRun } from '../../app/runStore';
 import { useSettings } from '../../app/settings';
-import { astrolabePoints } from '../../meta/astrolabe';
-import { deedPoints } from '../../meta/deeds';
-import { rankOf } from '../../meta/profile';
-import { reliquaryOpen } from '../../meta/reliquary';
-import { AstrolabeGlyph } from '../kit/AstrolabeGlyph';
 import { Backdrop } from '../kit/Backdrop';
 import { Button } from '../kit/Button';
 import { Icon, type IconName } from '../kit/Icon';
+import { arrowFocus, useGamepadMenu } from '../kit/menuNav';
 import { playUi, unlockAudio, useMood } from '../kit/sound';
 import { useUi } from '../store';
-import { astrolabeOpen, spendLine } from './astrolabeModel';
 import { RankPanelView } from './Rank';
-import { SHARD_LOOK, TEAR_LOOK } from '../kit/reliquaryLook';
-import { materialsBadge } from './reliquaryModel';
-import { heroDef } from '../../content';
-import { BOND_LOOK, heroInk } from '../kit/bondLook';
-import { bondRanks, bondsOpen } from './bondsModel';
 
 /** Golden threads drifting across the cosmos: the title's "living" layer. */
 function Threads() {
@@ -63,45 +55,103 @@ function Threads() {
   );
 }
 
-export function TitleScreen() {
+/** The demo's quiet line: it's a playtest, and where its progress lives. */
+export const PLAYTEST_LINE = 'A playtest build: your progress stays in this browser.';
+
+const STARTS: readonly { kind: DemoStart; icon: IconName; title: string; text: string }[] = [
+  {
+    kind: 'fresh',
+    icon: 'sparkle',
+    title: 'Start fresh',
+    text: 'A new Weaver: the real first hours. Every station of the Loom stays dark until it opens, and shows you around when it does.',
+  },
+  {
+    kind: 'veteran',
+    icon: 'crown',
+    title: 'Veteran',
+    text: `A Weaver some hours in: Rank ${VETERAN_RANK} with Starlight to spend, the Luminary mastered, Bonds and the Reliquary under way. Try the later systems at once.`,
+  },
+];
+
+/**
+ * The playtest demo's first question (docs/demo.md): start fresh, or as a veteran. Two cards; the
+ * arrows move between them, Enter chooses.
+ */
+export function DemoChoiceView({ onChoose }: { onChoose(kind: DemoStart): void }) {
+  const box = useRef<HTMLDivElement>(null);
+  const onKey = (e: KeyboardEvent<HTMLDivElement>) => {
+    if (box.current && arrowFocus(box.current, e.key)) e.preventDefault();
+  };
+  return (
+    <section
+      aria-labelledby="demo-choice-title"
+      className="anim-fade mt-10 w-full max-w-2xl"
+      data-testid="demo-choice"
+    >
+      <h2
+        id="demo-choice-title"
+        className="text-center font-display text-xl font-bold tracking-wide text-gold-200"
+      >
+        How would you like to begin?
+      </h2>
+      <p className="mt-1 text-center text-sm text-muted">
+        Choose once. Settings can bring you back to this choice.
+      </p>
+      <div ref={box} className="mt-4 grid gap-3 sm:grid-cols-2" onKeyDown={onKey}>
+        {STARTS.map((s, i) => (
+          <button
+            key={s.kind}
+            type="button"
+            data-nav
+            autoFocus={i === 0}
+            onClick={() => {
+              unlockAudio();
+              playUi('confirm');
+              onChoose(s.kind);
+            }}
+            onFocus={() => playUi('hover')}
+            className="flex flex-col gap-1.5 rounded-xl border border-gold-500/50 bg-ink-900/85 p-4 text-left transition-colors hover:border-gold-300 hover:bg-ink-800/90"
+            data-testid={`demo-${s.kind}`}
+          >
+            <span className="flex items-center gap-2 font-display text-lg font-bold text-gold-200">
+              <Icon name={s.icon} size={20} className="text-gold-300" /> {s.title}
+            </span>
+            <span className="text-sm leading-relaxed text-text">{s.text}</span>
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/**
+ * The Title: the front door (Phase 4g). Continue (a run in progress), Enter the Loom (the hub,
+ * where every other system now lives), Settings, and the Weaver's Rank. In the playtest demo's
+ * build, the first visit asks how to start before anything else, and a quiet line says what the
+ * build is.
+ */
+export function TitleScreen({
+  demo = DEMO,
+  onChooseDemo = chooseDemo,
+}: {
+  /** The playtest demo's build (`DEMO`); the UI lab shows it in any build. */
+  demo?: boolean;
+  /** How a start is chosen (`chooseDemo`); the UI lab's changes nothing. */
+  onChooseDemo?(kind: DemoStart): void;
+} = {}) {
   useMood('title');
+  useGamepadMenu();
   const setScreen = useUi((s) => s.setScreen);
-  const [confirmNew, setConfirmNew] = useState(false);
+  const [asking, setAsking] = useState(() => askDemoChoice(demo));
   const hasSave = useRun.getState().hasSave();
   const profile = useProfile((s) => s.profile);
   const unlockAll = useSettings((s) => s.settings.unlockAll);
-  // The Astrolabe (Phase 4): open from Rank 4 (or with Skip the unlocks), points left to spend.
-  const rank = rankOf(profile.xp);
-  const astrolabe = astrolabeOpen(rank, unlockAll);
-  const toSpend =
-    astrolabePoints(rank, unlockAll, deedPoints(profile.deeds)) - profile.astrolabe.length;
-  // The Reliquary (Phase 4c): open from Rank 10 (or with Skip the unlocks), what's to craft with.
-  const reliquary = reliquaryOpen(rank, unlockAll);
-  const materials = materialsBadge(profile.reliquary);
-  // Bonds (Phase 4e): open from a hero's first Bond rank-up (or with Skip the unlocks), each
-  // hero's rank on the button.
-  const bonded = bondsOpen(profile.bonds, unlockAll);
-  const ranks = Object.entries(bondRanks(profile.bonds)).map(([heroId, r]) => ({
-    heroId,
-    rank: r,
-  }));
-
-  const startNew = () => {
-    useRun.getState().newRun();
-    setScreen('run');
-  };
   const items: {
     label: string;
-    icon: IconName | 'astrolabe';
+    icon: IconName;
     onClick(): void;
     primary?: boolean;
     hidden?: boolean;
-    /** A note on the button's right ("3 points to spend"). */
-    badge?: string;
-    /** The Reliquary's materials, drawn with their glyphs instead of the badge's words. */
-    materials?: { shards: number; tears: number };
-    /** Phase 4e: each hero's Bond rank, drawn as their initial and the rank. */
-    ranks?: { heroId: string; rank: number }[];
   }[] = [
     {
       label: 'Continue',
@@ -112,37 +162,7 @@ export function TitleScreen() {
         if (useRun.getState().resume()) setScreen('run');
       },
     },
-    {
-      label: 'New run',
-      icon: 'flag',
-      primary: !hasSave,
-      onClick: () => (hasSave ? setConfirmNew(true) : startNew()),
-    },
-    { label: 'Training Grounds', icon: 'swords', onClick: () => setScreen('training') },
-    {
-      label: 'Bonds',
-      icon: 'bond',
-      hidden: !bonded,
-      badge: ranks.map((r) => `${heroDef(r.heroId).name} ${r.rank}`).join(', '),
-      ranks,
-      onClick: () => setScreen('bonds'),
-    },
-    {
-      label: 'Astrolabe',
-      icon: 'astrolabe',
-      hidden: !astrolabe,
-      badge: toSpend > 0 ? spendLine(toSpend) : undefined,
-      onClick: () => setScreen('astrolabe'),
-    },
-    {
-      label: 'Reliquary',
-      icon: 'reliquary',
-      hidden: !reliquary,
-      badge: materials ?? undefined,
-      materials: materials ? profile.reliquary : undefined,
-      onClick: () => setScreen('reliquary'),
-    },
-    { label: 'Codex', icon: 'book', onClick: () => setScreen('codex') },
+    { label: 'Enter the Loom', icon: 'loom', primary: !hasSave, onClick: () => setScreen('loom') },
     { label: 'Settings', icon: 'gear', onClick: () => setScreen('settings') },
   ];
 
@@ -155,7 +175,7 @@ export function TitleScreen() {
           Movement I · The Prelude
         </p>
         <h1
-          className="anim-rise mt-4 text-center font-display text-6xl font-bold tracking-wide text-gold-300 sm:text-8xl"
+          className="anim-rise mt-4 text-center font-display text-4xl font-bold tracking-wide text-gold-300 min-[430px]:text-5xl sm:text-7xl lg:text-8xl"
           style={{ textShadow: '0 0 40px rgb(245 184 61 / 0.35), 0 4px 0 rgb(0 0 0 / 0.5)' }}
         >
           Aetherweaver
@@ -167,37 +187,28 @@ export function TitleScreen() {
           You are the support. Your party is the weapon.
         </p>
 
-        <nav
-          aria-label="Main menu"
-          className="mt-12 flex w-80 flex-col gap-2.5"
-          onKeyDown={(e) => {
-            if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
-            const buttons = [...e.currentTarget.querySelectorAll('button')];
-            const at = buttons.indexOf(document.activeElement as HTMLButtonElement);
-            const step = e.key === 'ArrowDown' ? 1 : -1;
-            buttons[(at + step + buttons.length) % buttons.length]?.focus();
-            e.preventDefault();
-          }}
-        >
-          {confirmNew ? (
-            <div className="anim-fade rounded-xl border border-gold-500/60 bg-ink-900/90 p-4 text-center">
-              <p className="text-sm text-text">Starting a new run replaces your saved one.</p>
-              <div className="mt-3 flex justify-center gap-2">
-                <Button
-                  variant="secondary"
-                  onClick={() => setConfirmNew(false)}
-                  sound="back"
-                  autoFocus
-                >
-                  Keep it
-                </Button>
-                <Button variant="primary" onClick={startNew} sound="confirm">
-                  New run
-                </Button>
-              </div>
-            </div>
-          ) : (
-            items
+        {asking ? (
+          <DemoChoiceView
+            onChoose={(kind) => {
+              onChooseDemo(kind);
+              setAsking(false);
+            }}
+          />
+        ) : (
+          <nav
+            aria-label="Main menu"
+            className="mt-12 flex w-80 flex-col gap-2.5"
+            data-testid="front-door"
+            onKeyDown={(e) => {
+              if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+              const buttons = [...e.currentTarget.querySelectorAll('button')];
+              const at = buttons.indexOf(document.activeElement as HTMLButtonElement);
+              const step = e.key === 'ArrowDown' ? 1 : -1;
+              buttons[(at + step + buttons.length) % buttons.length]?.focus();
+              e.preventDefault();
+            }}
+          >
+            {items
               .filter((i) => !i.hidden)
               .map((item, idx) => (
                 <Button
@@ -209,75 +220,24 @@ export function TitleScreen() {
                   onFocus={() => playUi('hover')}
                   onPointerDown={unlockAudio}
                   className="w-full justify-start gap-3"
-                  aria-label={item.badge ? `${item.label}: ${item.badge}` : undefined}
                 >
-                  {item.icon === 'astrolabe' ? (
-                    <AstrolabeGlyph glyph="weaver_star" size={18} />
-                  ) : (
-                    <Icon
-                      name={item.icon}
-                      size={18}
-                      style={item.icon === 'bond' ? { color: BOND_LOOK.color } : undefined}
-                    />
-                  )}
+                  <Icon name={item.icon} size={18} />
                   {item.label}
-                  {item.ranks ? (
-                    <span
-                      className="ml-auto flex items-center gap-1.5 whitespace-nowrap font-mono text-xs font-semibold"
-                      data-testid="title-bond-ranks"
-                      aria-hidden
-                    >
-                      {item.ranks.map((r) => (
-                        <span
-                          key={r.heroId}
-                          className="flex items-center gap-0.5 rounded-md border bg-ink-900/70 px-1.5 py-0.5"
-                          style={{
-                            borderColor: `color-mix(in srgb, ${BOND_LOOK.color} 40%, transparent)`,
-                            color: heroInk(r.heroId),
-                          }}
-                        >
-                          {heroDef(r.heroId).name.slice(0, 1)}
-                          <span className="text-text">{r.rank}</span>
-                        </span>
-                      ))}
-                    </span>
-                  ) : item.materials ? (
-                    <span
-                      className="ml-auto flex items-center gap-2 whitespace-nowrap rounded-md border border-ink-500 bg-ink-900/70 px-2 py-0.5 font-mono text-xs font-semibold text-text"
-                      data-testid="title-reliquary-materials"
-                      aria-hidden
-                    >
-                      <span className="flex items-center gap-1">
-                        <Icon name="shard" size={13} style={{ color: SHARD_LOOK.color }} />
-                        {item.materials.shards}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Icon name="tear" size={13} style={{ color: TEAR_LOOK.color }} />
-                        {item.materials.tears}
-                      </span>
-                    </span>
-                  ) : (
-                    item.badge && (
-                      <span
-                        className="ml-auto whitespace-nowrap rounded-md border border-gold-400/70 bg-gold-400/15 px-2 py-0.5 text-xs font-semibold text-gold-200"
-                        data-testid="title-astrolabe-points"
-                      >
-                        {item.badge}
-                      </span>
-                    )
-                  )}
                 </Button>
-              ))
-          )}
-        </nav>
-        <RankPanelView
-          profile={profile}
-          unlockAll={unlockAll}
-          className="anim-fade mt-6 w-full max-w-sm md:absolute md:bottom-10 md:right-6 md:mt-0 md:w-[22rem]"
-        />
-        <p className="absolute bottom-4 text-xs text-muted">
-          Arrow keys or Tab to move · Enter to choose
-        </p>
+              ))}
+          </nav>
+        )}
+        {!asking && (
+          <RankPanelView
+            profile={profile}
+            unlockAll={unlockAll}
+            className="anim-fade mt-6 w-full max-w-sm md:absolute md:bottom-10 md:right-6 md:mt-0 md:w-[22rem]"
+          />
+        )}
+        <div className="absolute bottom-4 flex flex-col items-center gap-0.5 text-xs text-muted">
+          {demo && <p data-testid="playtest-line">{PLAYTEST_LINE}</p>}
+          <p>Arrow keys or Tab to move · Enter to choose</p>
+        </div>
       </div>
     </main>
   );

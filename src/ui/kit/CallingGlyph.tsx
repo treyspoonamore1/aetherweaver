@@ -1,6 +1,7 @@
 import type { CSSProperties } from 'react';
 import { callingGlyphPath } from './callingGlyphs';
 import { callingLook } from './callingLook';
+import { Icon } from './Icon';
 
 export { CALLING_GLYPHS, callingGlyphPath } from './callingGlyphs';
 export { CALLING_LOOK, callingLook, type CallingLook } from './callingLook';
@@ -94,12 +95,13 @@ export function CallingEmblem({
   );
 }
 
-export type PipState = 'chosen' | 'offer' | 'open' | 'passed';
+export type PipState = 'chosen' | 'offer' | 'open' | 'passed' | 'locked';
 
 /**
  * One tier of a Calling's path as a small disc: `chosen` lit with the option's glyph,
  * `offer` the tier being picked now, `open` dim and dashed with its numeral, `passed` an
- * option not taken (greyed glyph).
+ * option not taken (greyed glyph), `locked` a tier the Calling's mastery hasn't opened yet
+ * (Phase 4g): dotted and darker, with a lock, so it reads as shut rather than missing.
  */
 export function PathPip({
   callingId,
@@ -119,6 +121,7 @@ export function PathPip({
 }) {
   const look = callingLook(callingId);
   const lit = state === 'chosen';
+  const locked = state === 'locked';
   return (
     <span
       className={`relative inline-flex shrink-0 items-center justify-center rounded-full font-display font-bold leading-none ${className}`}
@@ -126,21 +129,26 @@ export function PathPip({
         width: size,
         height: size,
         color: lit ? look.light : state === 'offer' ? look.color : 'var(--color-muted)',
-        border: `${size >= 30 ? 2 : 1.5}px ${state === 'open' || state === 'offer' ? 'dashed' : 'solid'} ${
-          lit || state === 'offer' ? look.color : 'var(--color-ink-500)'
-        }`,
+        border: `${size >= 30 ? 2 : 1.5}px ${
+          locked ? 'dotted' : state === 'open' || state === 'offer' ? 'dashed' : 'solid'
+        } ${lit || state === 'offer' ? look.color : 'var(--color-ink-500)'}`,
         background: lit
           ? `radial-gradient(circle at 50% 65%, color-mix(in srgb, ${look.color} 40%, transparent), rgb(10 16 34 / 0.92) 75%)`
-          : 'rgb(10 16 34 / 0.7)',
+          : locked
+            ? 'rgb(5 8 20 / 0.85)'
+            : 'rgb(10 16 34 / 0.7)',
         boxShadow: lit
           ? `0 0 ${Math.round(size * 0.45)}px color-mix(in srgb, ${look.color} 55%, transparent)`
           : undefined,
-        opacity: state === 'passed' ? 0.55 : 1,
+        opacity: state === 'passed' ? 0.55 : locked ? 0.85 : 1,
         fontSize: Math.max(9, Math.round(size * 0.42)),
       }}
       aria-hidden
+      data-pip={state}
     >
-      {icon && state !== 'open' && state !== 'offer' ? (
+      {locked ? (
+        <Icon name="lock" size={Math.max(9, Math.round(size * 0.5))} />
+      ) : icon && state !== 'open' && state !== 'offer' ? (
         <CallingGlyph icon={icon} size={Math.round(size * 0.66)} />
       ) : (
         numeral

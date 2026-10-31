@@ -1,4 +1,5 @@
 import { useEffect, useState, type CSSProperties } from 'react';
+import { useProfile } from '../../app/profileStore';
 import { useRun } from '../../app/runStore';
 import { callingDef, callingOption, optionText, type CallingOption } from '../../content';
 import { EVERYTHING, type Allowance } from '../../meta/profile';
@@ -10,6 +11,7 @@ import { Icon } from '../kit/Icon';
 import { KeyCap } from '../kit/KeyCap';
 import { playUi, useMood } from '../kit/sound';
 import { AxisChip, CallingPassive } from './CallingParts';
+import { MasteryStrip } from './MasteryParts';
 import { RetuneView } from './RespiteScreen';
 import { useAllowance } from './PrepScreen';
 import {
@@ -31,6 +33,11 @@ export interface CallingViewProps {
   allowance?: Allowance;
   /** UI lab: open straight into Third Voice's builder for this option. */
   initialRetune?: 0 | 1;
+  /**
+   * Phase 4g: the profile's mastery XP for the run's Calling, for its level and what the next
+   * opens. The tiers this run offers are its own (`run.calling.tiersOpen`). Omitted: not shown.
+   */
+  mastery?: number;
 }
 
 /** Keys 1 and 2 wait this long after the screen opens (RunScreen's arrival guard is 350 ms). */
@@ -52,6 +59,7 @@ export function CallingView({
   onPick,
   allowance = EVERYTHING,
   initialRetune,
+  mastery,
 }: CallingViewProps) {
   useMood('map');
   const offer = run.callingOffer;
@@ -154,6 +162,16 @@ export function CallingView({
 
         <PathTrack steps={steps} callingId={def.id} map={run.map} />
 
+        {mastery !== undefined && (
+          // Phase 4g: its mastery, and the tiers this run offers (as it embarked).
+          <MasteryStrip
+            callingId={def.id}
+            xp={mastery}
+            tiersOpen={run.calling.tiersOpen ?? def.tiers.length}
+            className="mt-4"
+          />
+        )}
+
         <ul className="mt-5 grid gap-5 md:grid-cols-2" data-testid="calling-options">
           {options.map((o, i) => (
             <li key={o.id} className="anim-rise" style={{ animationDelay: `${120 + i * 110}ms` }}>
@@ -188,7 +206,10 @@ export function CallingView({
   );
 }
 
-/** The path so far, left to right: lit options, the tier on offer, the tiers to come. */
+/**
+ * The path so far, left to right: lit options, the tier on offer, the tiers to come, and
+ * (Phase 4g) the tiers the Calling's mastery kept shut for this run, locked.
+ */
 function PathTrack({
   steps,
   callingId,
@@ -199,46 +220,62 @@ function PathTrack({
   map: RunState['map'];
 }) {
   const look = callingLook(callingId);
+  const name = callingDef(callingId).name;
   return (
     <ol className="mt-5 grid grid-cols-4 gap-2" aria-label="Your path" data-testid="calling-path">
-      {steps.map((s, i) => (
-        <li key={s.tier} className="relative flex flex-col items-center text-center">
-          {i > 0 && (
-            <span
-              aria-hidden
-              className="absolute right-1/2 top-5 h-0.5 w-full -translate-y-1/2"
-              style={{
-                background:
-                  s.state === 'chosen' || s.state === 'offer'
-                    ? `linear-gradient(90deg, ${look.color}, ${look.deep})`
-                    : 'var(--color-ink-600)',
-                opacity: s.state === 'open' ? 0.7 : 1,
-              }}
-            />
-          )}
-          <PathPip
-            callingId={callingId}
-            state={s.state}
-            icon={s.chosen?.icon}
-            numeral={s.numeral}
-            size={40}
-            className={`relative ${s.state === 'offer' ? 'anim-glow' : ''}`}
-          />
-          <span
-            className={`mt-1.5 text-sm font-semibold leading-tight ${s.state === 'open' ? 'text-muted' : ''}`}
-            style={s.state !== 'open' ? { color: look.color } : undefined}
+      {steps.map((s, i) => {
+        const dim = s.state === 'open' || s.state === 'locked';
+        return (
+          <li
+            key={s.tier}
+            className="relative flex flex-col items-center text-center"
+            data-tier-state={s.state}
           >
-            {s.chosen
-              ? s.chosen.name
-              : s.state === 'offer'
-                ? `Tier ${s.numeral}: now`
-                : `Tier ${s.numeral}`}
-          </span>
-          <span className="text-xs leading-tight text-muted">
-            {s.state === 'offer' ? 'Choose below' : tierWhenLabel(s.tier, map)}
-          </span>
-        </li>
-      ))}
+            {i > 0 && (
+              <span
+                aria-hidden
+                className={`absolute right-1/2 top-5 w-full -translate-y-1/2 ${s.state === 'locked' ? 'h-0 border-t-2 border-dotted border-ink-600' : 'h-0.5'}`}
+                style={
+                  s.state === 'locked'
+                    ? undefined
+                    : {
+                        background:
+                          s.state === 'chosen' || s.state === 'offer'
+                            ? `linear-gradient(90deg, ${look.color}, ${look.deep})`
+                            : 'var(--color-ink-600)',
+                        opacity: s.state === 'open' ? 0.7 : 1,
+                      }
+                }
+              />
+            )}
+            <PathPip
+              callingId={callingId}
+              state={s.state}
+              icon={s.chosen?.icon}
+              numeral={s.numeral}
+              size={40}
+              className={`relative ${s.state === 'offer' ? 'anim-glow' : ''}`}
+            />
+            <span
+              className={`mt-1.5 text-sm font-semibold leading-tight ${dim ? 'text-muted' : ''}`}
+              style={!dim ? { color: look.color } : undefined}
+            >
+              {s.chosen
+                ? s.chosen.name
+                : s.state === 'offer'
+                  ? `Tier ${s.numeral}: now`
+                  : `Tier ${s.numeral}`}
+            </span>
+            <span className="text-xs leading-tight text-muted">
+              {s.state === 'offer'
+                ? 'Choose below'
+                : s.state === 'locked'
+                  ? `Locked: ${name} mastery ${s.mastery}`
+                  : tierWhenLabel(s.tier, map)}
+            </span>
+          </li>
+        );
+      })}
     </ol>
   );
 }
@@ -322,6 +359,15 @@ export function CallingScreen() {
   const run = useRun((s) => s.run);
   const pick = useRun((s) => s.pickCalling);
   const allowance = useAllowance();
+  // Phase 4g: the Calling's mastery (the profile's), beside the tiers this run offers.
+  const mastery = useProfile((s) => s.profile.mastery);
   if (!run) return null;
-  return <CallingView run={run} onPick={pick} allowance={allowance} />;
+  return (
+    <CallingView
+      run={run}
+      onPick={pick}
+      allowance={allowance}
+      mastery={run.calling ? (mastery[run.calling.id] ?? 0) : undefined}
+    />
+  );
 }

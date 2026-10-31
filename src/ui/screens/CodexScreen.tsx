@@ -1,4 +1,4 @@
-import { useMemo, useState, type KeyboardEvent } from 'react';
+import { useEffect, useMemo, useState, type KeyboardEvent } from 'react';
 import { useProfile } from '../../app/profileStore';
 import { CONTENT, motifText, ornamentDef } from '../../content';
 import {
@@ -64,6 +64,8 @@ import type { Bond } from '../../meta/bonds';
 import { BondsCodexPage } from './BondsCodex';
 import { TechniquesCodexPage } from './TechniquesCodex';
 import { bondsOpen } from './bondsModel';
+import { STARLIGHT_LOOK } from '../kit/loomLook';
+import { atelierUnlock } from './loomModel';
 
 const TABS = [
   { id: 'heroes', label: 'Heroes' },
@@ -143,6 +145,16 @@ export function CodexView({
 }) {
   useMood('title');
   const [tab, setTab] = useState<TabId>(initialTab);
+  // Phase 4g: Escape goes back too (to the Loom, or wherever the Codex was opened from).
+  useEffect(() => {
+    const onKey = (e: globalThis.KeyboardEvent) => {
+      if (e.key !== 'Escape' || e.defaultPrevented) return;
+      e.preventDefault();
+      onBack();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onBack]);
   // Phase 4c: the Reliquary's page is locked until it opens (Rank 10, or Skip the unlocks).
   const reliquary = reliquaryOpen(rank, allowance.all);
   // Phase 4d: Dissonance's too, until a win at its Rank (or Skip the unlocks).
@@ -799,7 +811,7 @@ function Astrolabe({ onDeeds }: { onDeeds(): void }) {
           <p className="mt-2 text-sm leading-relaxed text-text">
             Give a star back if nothing you’ve taken hangs on it, or everything at once: it’s free
             between runs. A run keeps the tree it embarked with; the Training Grounds use yours, so
-            you can try a change first. Open it from the Title or from Prep. Settings →{' '}
+            you can try a change first. Open it from the Loom or from Prep. Settings →{' '}
             <b>Skip the unlocks</b> gives all {all} points.
           </p>
           <ul className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs text-muted">
@@ -968,6 +980,29 @@ function Ranks({ deeds }: { deeds: number }) {
                         </span>
                       </li>
                     ))}
+                    {(() => {
+                      // Phase 4g: the Atelier opens at its Rank (not one of the profile's unlocks).
+                      const atelier = atelierUnlock(rank);
+                      return (
+                        atelier && (
+                          <li
+                            className="flex items-start gap-1.5 leading-snug"
+                            data-unlock="atelier"
+                          >
+                            <span
+                              className="mt-0.5 shrink-0"
+                              style={{ color: STARLIGHT_LOOK.color }}
+                            >
+                              <Icon name="starlight" size={14} />
+                            </span>
+                            <span>
+                              <b className="text-text">{atelier.name}</b>{' '}
+                              <span className="text-xs text-muted">{atelier.text}</span>
+                            </span>
+                          </li>
+                        )
+                      );
+                    })()}
                     {rankAstrolabeLine(rank, deeds) && (
                       <li className="flex items-center gap-1.5 text-xs leading-snug text-gold-200">
                         <AstrolabeGlyph glyph="weaver_star" size={13} />

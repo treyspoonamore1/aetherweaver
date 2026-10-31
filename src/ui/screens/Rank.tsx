@@ -18,6 +18,9 @@ import { CARRIED_LOOK } from '../kit/reliquaryLook';
 import { reliquaryUnlockLine } from './reliquaryModel';
 import { dissonanceUnlockLine } from './dissonanceModel';
 import { DiscordDisc } from './DissonanceParts';
+import { StarlightDisc } from '../kit/Starlight';
+import { STARLIGHT_LOOK } from '../kit/loomLook';
+import { atelierUnlock } from './loomModel';
 import type { DissonanceChoice } from '../../meta/dissonance';
 import {
   NOTHING_NEW,
@@ -150,6 +153,10 @@ export function RankPanelView({
   className?: string;
 }) {
   const p = rankPanel(profile);
+  // Phase 4g: the Atelier opens at its Rank (it isn't one of the profile's unlocks).
+  const atelier = p.nextRank === null ? null : atelierUnlock(p.nextRank);
+  // What the next Rank opens waits for the first run: before it, its words are only jargon.
+  const preview = profile.runs > 0;
   return (
     <Panel className={`px-4 py-3.5 ${className}`} aria-label="Weaver Rank" data-testid="rank-panel">
       <div className="flex items-center gap-3">
@@ -157,14 +164,12 @@ export function RankPanelView({
           className="flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-full border-2 border-gold-400 bg-ink-950/70 shadow-[0_0_18px_rgb(245_184_61/0.25)]"
           aria-hidden
         >
-          <span className="font-display text-xl font-bold leading-none text-gold-200">
-            {p.rank}
-          </span>
+          <span className="font-sans text-xl font-bold leading-none text-gold-200">{p.rank}</span>
         </span>
         <div className="min-w-0 flex-1">
           <p className="flex flex-wrap items-baseline justify-between gap-x-2">
             <span className="whitespace-nowrap font-display text-base font-bold tracking-wide text-gold-300">
-              Weaver Rank {p.rank}
+              Weaver Rank <span className="font-sans">{p.rank}</span>
             </span>
             <span className="whitespace-nowrap font-mono text-xs text-muted">{p.record}</span>
           </p>
@@ -177,7 +182,7 @@ export function RankPanelView({
           <p className="mt-1 font-mono text-xs text-muted">{p.progressText}</p>
         </div>
       </div>
-      {(p.next.length > 0 || p.nextAstrolabe) && (
+      {preview && (p.next.length > 0 || p.nextAstrolabe || atelier) && (
         <div className="mt-2.5 border-t border-ink-600/60 pt-2">
           <p className="text-xs font-semibold uppercase tracking-wider text-muted">
             {unlockAll ? `Rank ${p.nextRank} would open` : `Rank ${p.nextRank} opens`}
@@ -197,6 +202,20 @@ export function RankPanelView({
                 </span>
               </li>
             ))}
+            {atelier && (
+              <li
+                className="flex items-start gap-1.5 text-xs leading-snug"
+                data-testid="rank-next-atelier"
+              >
+                <span className="mt-0.5 shrink-0" style={{ color: STARLIGHT_LOOK.color }}>
+                  <Icon name="starlight" size={13} />
+                </span>
+                <span>
+                  <b className="font-semibold text-text">{atelier.name}</b>{' '}
+                  <span className="text-muted">{atelier.text}</span>
+                </span>
+              </li>
+            )}
             {p.nextAstrolabe && !p.next.some((u) => u.kind === 'astrolabe') && (
               <li
                 className="flex items-start gap-1.5 text-xs leading-snug"
@@ -283,14 +302,20 @@ export function RankUpCard({
   /** The points the profile's Deeds give (Phase 4b): the Astrolabe's totals count them. */
   deedPoints?: number;
 }) {
-  // Each Rank's unlocks, then (Phase 4, past the Astrolabe's Rank) its Astrolabe point.
+  // Each Rank's unlocks, then (Phase 4g) the Atelier at its Rank, which isn't one of the
+  // profile's unlocks, then (Phase 4, past the Astrolabe's Rank) its Astrolabe point.
   const sections = rankUps.map((r) => ({
     ...r,
+    atelier: atelierUnlock(r.rank),
     point: r.unlocks.some((u) => u.kind === 'astrolabe')
       ? null
       : rankAstrolabeLine(r.rank, deedPoints),
   }));
-  const unlocks = sections.flatMap((r) => [...r.unlocks, ...(r.point ? [r.point] : [])]);
+  const unlocks = sections.flatMap((r) => [
+    ...r.unlocks,
+    ...(r.atelier ? [r.atelier] : []),
+    ...(r.point ? [r.point] : []),
+  ]);
   const reduced =
     typeof window !== 'undefined' &&
     window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
@@ -338,15 +363,17 @@ export function RankUpCard({
           className="anim-glow mx-auto mt-3 flex h-20 w-20 items-center justify-center rounded-full border-4 border-gold-300 bg-ink-950"
           aria-hidden
         >
-          <span className="font-display text-4xl font-bold text-gold-200">{top}</span>
+          <span className="font-sans text-4xl font-bold text-gold-200">{top}</span>
         </div>
         <h2
           id="rank-up-title"
           className="mt-3 font-display text-3xl font-bold tracking-wide text-gold-300"
         >
-          {rankUps.length > 1
-            ? `Ranks ${rankUps.map((r) => r.rank).join(', ')}`
-            : `Weaver ${rankUpTitle(top)}`}
+          {/* Numerals in the sans, as everywhere: the display face's 1 reads as an I. */}
+          {rankUps.length > 1 ? 'Ranks ' : 'Weaver Rank '}
+          <span className="font-sans">
+            {rankUps.length > 1 ? rankUps.map((r) => r.rank).join(', ') : top}
+          </span>
         </h2>
         <div className="mt-4 flex flex-col gap-4 text-left">
           {sections.map((r) => (
@@ -356,7 +383,7 @@ export function RankUpCard({
                   {rankUpTitle(r.rank)}
                 </p>
               )}
-              {r.unlocks.length === 0 && !r.point ? (
+              {r.unlocks.length === 0 && !r.point && !r.atelier ? (
                 <p className="text-sm text-muted">{NOTHING_NEW}</p>
               ) : (
                 <ul className="flex flex-col gap-2">
@@ -418,7 +445,7 @@ export function RankUpCard({
                             >
                               {rankAstrolabeLine(r.rank, deedPoints)}{' '}
                               <span className="font-normal text-muted">
-                                Open it from the Title or from Prep.
+                                Open it from the Loom or from Prep.
                               </span>
                             </span>
                           )}
@@ -426,6 +453,38 @@ export function RankUpCard({
                       </li>
                     );
                   })}
+                  {r.atelier &&
+                    (() => {
+                      const visible = index++ < shown;
+                      const a = r.atelier;
+                      return (
+                        <li
+                          className={`flex items-start gap-3 rounded-xl border bg-ink-900/70 px-3 py-2.5 transition-all duration-300 ${visible ? 'translate-y-0 opacity-100' : 'translate-y-1 opacity-0'}`}
+                          style={{
+                            borderColor: `color-mix(in srgb, ${STARLIGHT_LOOK.color} 50%, transparent)`,
+                          }}
+                          aria-hidden={!visible}
+                          data-unlock="atelier"
+                        >
+                          <StarlightDisc />
+                          <span>
+                            <b
+                              className="block font-display text-base"
+                              style={{ color: STARLIGHT_LOOK.color }}
+                            >
+                              {a.name}
+                            </b>
+                            <span className="text-sm leading-relaxed text-text">{a.text}</span>
+                            <span
+                              className="mt-1 block text-xs text-muted"
+                              data-testid="rank-up-atelier"
+                            >
+                              {a.where}
+                            </span>
+                          </span>
+                        </li>
+                      );
+                    })()}
                   {r.point &&
                     (() => {
                       const visible = index++ < shown;

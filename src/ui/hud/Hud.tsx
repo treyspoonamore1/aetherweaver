@@ -66,6 +66,8 @@ export function Hud({ subtitle, keyHints = true }: HudProps) {
   const decree = useUi((s) => s.lastDecree);
   const devOpen = useUi((s) => s.devOpen);
   const boons = useRun((s) => s.run?.boons) ?? NO_BOONS;
+  // Phase 4g: the Calling's path tiers this run offers (the rest are locked by mastery).
+  const tiersOpen = useRun((s) => s.run?.calling?.tiersOpen);
   const carried = useCarried(hud?.encounter.kind === 'sandbox');
   // Phase 4e: the heroes' Bond ranks on their frames, once Bonds are open.
   const bonds = useProfile((s) => s.profile.bonds);
@@ -89,6 +91,7 @@ export function Hud({ subtitle, keyHints = true }: HudProps) {
         boons={hud.encounter.kind === 'sandbox' ? NO_BOONS : boons}
         carried={carried}
         bondRanks={bondRanks}
+        tiersOpen={hud.encounter.kind === 'sandbox' ? undefined : tiersOpen}
       />
       <DirectiveWheel focusName={enemyName} />
     </>
@@ -118,8 +121,14 @@ export function HudView({
   bondRanks = null,
   frameTip = null,
   techniqueTip = null,
+  tiersOpen,
 }: {
   hud: HudSnapshot;
+  /**
+   * Phase 4g: how many of the Calling's path tiers the run offers (`run.calling.tiersOpen`); the
+   * chip shows the rest locked by mastery. Omitted: every tier.
+   */
+  tiersOpen?: number;
   /** UI lab: a technique's tooltip on the Weaver bar shown (its slot). */
   techniqueTip?: TechniqueKey | null;
   /** Phase 4e: each hero's Bond rank by hero id, on their frames (null: Bonds aren't open). */
@@ -180,7 +189,7 @@ export function HudView({
         />
         {(hud.calling || (hud.astrolabe?.keystones.length ?? 0) > 0 || hud.dissonance) && (
           <div className="flex items-center gap-2">
-            {hud.calling && <CallingChip calling={hud.calling} />}
+            {hud.calling && <CallingChip calling={hud.calling} tiersOpen={tiersOpen} />}
             <KeystoneChip keystones={hud.astrolabe?.keystones ?? []} />
             <DissonanceChip
               dissonance={hud.dissonance}

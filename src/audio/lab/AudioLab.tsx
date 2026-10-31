@@ -25,6 +25,7 @@ const MOODS: AudioMood[] = [
   'silent',
   'title',
   'map',
+  'loom',
   'calm',
   'combat',
   'boss',
@@ -55,6 +56,11 @@ const GROUPS: {
   {
     id: 'variants',
     title: 'Phase 4f · Variants (each cast, the moments after it, their bursts)',
+  },
+  {
+    id: 'loom',
+    title:
+      'Phase 4g · The Loom (the Atelier, keepsakes, stations, Starlight; the Perfect-Ward trainer)',
   },
   { id: 'world', title: 'World, enemies and telegraphs' },
   { id: 'ui', title: 'UI' },
@@ -286,7 +292,7 @@ export function AudioLab() {
       },
       auditMoods: async () => {
         const out: Record<string, LevelReport> = {};
-        for (const m of ['title', 'map', 'calm', 'combat', 'boss'] as AudioMood[]) {
+        for (const m of ['title', 'map', 'loom', 'calm', 'combat', 'boss'] as AudioMood[]) {
           out[`${m}@0`] = await auditMood(m, 0);
           out[`${m}@100`] = await auditMood(m, 100);
         }
@@ -295,7 +301,7 @@ export function AudioLab() {
       renderFight: (s) => renderFight(s ?? 30),
       pitch: async () => {
         const out: Record<string, PitchReport> = {};
-        for (const m of ['title', 'map', 'calm', 'combat', 'boss'] as AudioMood[]) {
+        for (const m of ['title', 'map', 'loom', 'calm', 'combat', 'boss'] as AudioMood[]) {
           out[`${m}@100`] = pitchReport(await renderMood(m, 100));
         }
         for (const s of SOUNDS) {
@@ -331,7 +337,7 @@ export function AudioLab() {
   const runMoodAudit = async () => {
     setBusy('Rendering moods offline…');
     const out: Record<string, LevelReport> = {};
-    for (const m of ['title', 'map', 'calm', 'combat', 'boss'] as AudioMood[]) {
+    for (const m of ['title', 'map', 'loom', 'calm', 'combat', 'boss'] as AudioMood[]) {
       out[`${m} · res 0`] = await auditMood(m, 0, 16, volumes);
       out[`${m} · res 100`] = await auditMood(m, 100, 16, volumes);
     }

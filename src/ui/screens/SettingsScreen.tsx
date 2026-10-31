@@ -1,4 +1,6 @@
 import { useId, useState, type ReactNode } from 'react';
+import { DEMO } from '../../app/demo';
+import { startDemoOver } from '../../app/demoChoice';
 import { useProfile } from '../../app/profileStore';
 import { getAudio } from '../../audio';
 import { useSettings, type Settings } from '../../app/settings';
@@ -143,6 +145,8 @@ export function SettingsPanel({ compact = false }: { compact?: boolean }) {
       </Section>
       <Section title="Progress">
         <ProgressSettings />
+        {/* The playtest demo (docs/demo.md): back to its first choice, from the Settings screen. */}
+        {DEMO && !compact && <DemoOver />}
       </Section>
       <div className={compact ? '' : 'lg:col-span-2'}>
         <Section title="Controls">
@@ -224,6 +228,50 @@ function ProgressSettings() {
   );
 }
 
+/**
+ * The playtest demo's "Start the demo over…" (docs/demo.md): after a confirm, the Title asks again
+ * how to start (fresh, or a veteran). The choice there replaces this Weaver's progress.
+ */
+function DemoOver() {
+  const [confirm, setConfirm] = useState(false);
+  if (!confirm)
+    return (
+      <div className="border-t border-ink-600/60 pt-3">
+        <Button size="sm" onClick={() => setConfirm(true)} data-testid="demo-over">
+          <Icon name="reroll" size={14} /> Start the demo over…
+        </Button>
+      </div>
+    );
+  return (
+    <div
+      className="rounded-lg border border-gold-500/60 bg-gold-400/10 p-3"
+      role="alertdialog"
+      aria-labelledby="demo-over-q"
+    >
+      <p id="demo-over-q" className="text-sm text-gold-100">
+        Back to the demo’s first choice? You’ll choose again how to start, fresh or as a veteran,
+        and that replaces this Weaver’s progress and any run in progress. Settings stay.
+      </p>
+      <div className="mt-2 flex gap-2">
+        <Button size="sm" onClick={() => setConfirm(false)} sound="back" autoFocus>
+          Keep playing
+        </Button>
+        <Button
+          size="sm"
+          variant="primary"
+          onClick={() => {
+            startDemoOver();
+            useUi.getState().setScreen('title');
+          }}
+          data-testid="demo-over-confirm"
+        >
+          Start over
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 const SWATCHES: { key: keyof VisionPalette; label: string; icon: IconName }[] = [
   { key: 'heal', label: 'Life', icon: 'mend' },
   { key: 'threat', label: 'Threat', icon: 'sparkle' },
@@ -296,7 +344,7 @@ function AccessibilitySettings() {
   );
 }
 
-/** Settings from the Title (or anywhere that routes `screen = 'settings'`). */
+/** Settings from the Title or the Loom (or anywhere that routes `screen = 'settings'`). */
 export function SettingsScreen() {
   useMood('title');
   const back = useUi((s) => s.back);

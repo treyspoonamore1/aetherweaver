@@ -8,11 +8,20 @@ import { bearLabel, callingHudLabel, type CallingHud } from './calling';
  * the relic bar. The emblem blazes in its Crescendo (Sunrise, the Martyr's Vow, Stasis); Haloed
  * and Sovereign Symphony, the Martyr's Bear, Undying Devotion (ready or spent), Blood Font and
  * Low-Life Vigil (while they're working), and the Chronomancer's revive (once a run: ready or
- * spent) and Temporal Mastery (ready, or back in a few seconds) show as small states.
+ * spent) and Temporal Mastery (ready, or back in a few seconds) show as small states. Phase 4g:
+ * the tiers past the run's `tiersOpen` are locked by mastery.
  */
-export function CallingChip({ calling: c }: { calling: CallingHud }) {
+export function CallingChip({
+  calling: c,
+  tiersOpen,
+}: {
+  calling: CallingHud;
+  /** The path tiers the run offers (the rest locked by mastery); omitted: every tier. */
+  tiersOpen?: number;
+}) {
   const look = callingLook(c.id);
   const blaze = c.sunrise || c.vow || c.stasis;
+  const shut = tiersOpen === undefined ? 0 : c.tiers.filter((t, i) => !t && i >= tiersOpen).length;
   const states =
     c.haloed ||
     c.sovereign ||
@@ -31,7 +40,7 @@ export function CallingChip({ calling: c }: { calling: CallingHud }) {
         boxShadow: blaze ? `0 0 18px color-mix(in srgb, ${look.color} 55%, transparent)` : '',
       }}
       role="img"
-      aria-label={callingHudLabel(c)}
+      aria-label={`${callingHudLabel(c)}${shut > 0 ? ` ${shut} of its tiers locked by mastery this run.` : ''}`}
       data-testid="calling-chip"
       data-sunrise={c.sunrise || undefined}
       data-vow={c.vow || undefined}
@@ -49,7 +58,7 @@ export function CallingChip({ calling: c }: { calling: CallingHud }) {
           <PathPip
             key={i}
             callingId={c.id}
-            state={t ? 'chosen' : 'open'}
+            state={t ? 'chosen' : tiersOpen !== undefined && i >= tiersOpen ? 'locked' : 'open'}
             icon={t?.icon}
             numeral={numeral(i)}
             size={18}

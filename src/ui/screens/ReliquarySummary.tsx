@@ -385,7 +385,7 @@ function Arrival({ relic }: { relic: ReliquaryRelic }) {
         </p>
         <InscriptionList view={v} className="mt-1 max-w-xl" />
         <p className="mt-2 text-xs text-muted">
-          It waits in the Reliquary: craft it and choose to carry it from the Title or from Prep.
+          It waits in the Reliquary: craft it and choose to carry it from the Loom or from Prep.
         </p>
       </div>
     </div>

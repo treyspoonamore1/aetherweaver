@@ -24,6 +24,7 @@ import { buildHudSnapshot } from '../ui/hudBridge';
 import { callingLook } from '../ui/kit/callingLook';
 import { takeHudCommits } from '../ui/perfCounters';
 import { useUi } from '../ui/store';
+import { useProfile } from './profileStore';
 import { useSettings } from './settings';
 import { buildOutcome } from './outcome';
 import { startWithoutYou, type WithoutYouJob } from './withoutYou';
@@ -48,6 +49,12 @@ export interface RuntimeOptions {
   session: CombatSession;
   quality?: QualityTier;
 }
+
+/**
+ * Hears each batch of ticks after the view, audio and callouts have: its events (often none)
+ * and the state after it. UI tools that follow the fight use it (the Perfect-Ward trainer).
+ */
+export type RuntimeListener = (events: readonly SimEvent[], state: WorldState) => void;
 
 const TECH_NAMES: Record<string, string> = {
   ward: 'Ward',
@@ -116,6 +123,7 @@ export class GameRuntime {
   private autoplay: Bot | null = null;
   /** The same fight with the Weaver absent, computed in the background (run fights only). */
   private readonly withoutYou: WithoutYouJob | null;
+  private readonly listeners = new Set<RuntimeListener>();
 
   private perfFrames = 0;
   private perfFrameMs: number[] = [];
@@ -197,6 +205,12 @@ export class GameRuntime {
     this.autoplay = kind ? makeBot(kind, this.seed) : null;
   }
 
+  /** Follows the fight, batch by batch (see `RuntimeListener`). Returns the unsubscribe. */
+  listen(listener: RuntimeListener): () => void {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
+  }
+
   /** The whole session so far as a replay, ending at the current tick. */
   exportReplay(): Replay {
     return this.recorder.export(this.sim.tick, this.sim.hash());
@@ -227,7 +241,16 @@ export class GameRuntime {
         }
         this.perfSimMs += performance.now() - simStart;
         this.perfTicks += steps;
-        this.dispatch(this.sim.drainEvents());
+        const events = this.sim.drainEvents();
+        this.dispatch(events);
+        for (const listener of this.listeners) {
+          try {
+            listener(events, this.sim.state);
+          } catch (error) {
+            // A UI tool's mistake never stops the fight.
+            console.error('A runtime listener failed.', error);
+          }
+        }
       }
     }
 
@@ -257,6 +280,8 @@ export class GameRuntime {
         damageNumbers: settings.damageNumbers,
         colorVision: settings.colorVision,
       },
+      // Phase 4g: what the Weaver wears (her robe, her Thread's look), from the profile.
+      look: useProfile.getState().profile.look,
     });
     this.stage.render();
     // Continuous layers (heartbeats, thread whine) pause with the game.

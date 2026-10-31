@@ -10,6 +10,11 @@ import { callingText } from '../../content';
 import { LockTag, NewTag } from './ChordBuilder';
 import { CallingPassive, CallingPathPreview, CallingTitle, CrescendoLine } from './CallingParts';
 import { allCallings, numeral, tierWhenList } from './callingText';
+import { masteryLevel } from '../../meta/loom';
+import { MasteryStrip } from './MasteryParts';
+import { tiersLine, type PickerMastery } from './masteryModel';
+
+export type { PickerMastery };
 
 /** Is this Calling open to choose (its Rank reached, or Skip the unlocks)? */
 export function callingOpen(allowance: Allowance, id: string): boolean {
@@ -21,7 +26,9 @@ export function callingOpen(allowance: Allowance, id: string): boolean {
  * side by side (emblem, its one-line summary, its Crescendo, the four picks), with the passive
  * and the whole path in a dialog. Locked Callings show their Rank and what they are, and can't
  * be chosen. Three Callings and "No Calling" fit a 1280×720 screen above Embark, with the
- * "Newly unlocked" strip.
+ * "Newly unlocked" strip. Phase 4g: each card's picks show the tiers its mastery keeps shut as
+ * locked, and the chosen Calling's mastery, what its next level opens and the tiers this run will
+ * offer sit under the cards.
  */
 export function CallingPicker({
   chosen,
@@ -29,6 +36,7 @@ export function CallingPicker({
   fresh,
   onChoose,
   openPath = null,
+  mastery = null,
 }: {
   chosen: string | null;
   allowance: Allowance;
@@ -37,6 +45,8 @@ export function CallingPicker({
   onChoose(id: string | null): void;
   /** UI lab: open one Calling's path dialog. */
   openPath?: string | null;
+  /** Phase 4g: Calling mastery; omitted (the UI lab's older views): every tier open. */
+  mastery?: PickerMastery | null;
 }) {
   const [viewing, setViewing] = useState<string | null>(openPath);
   const callings = allCallings();
@@ -66,6 +76,7 @@ export function CallingPicker({
               It grows as you win: {schedule} picks, one of two each, {tierWhenList(schedule)}.
             </>
           )}
+          {mastery && <> Playing a Calling earns mastery, which opens its path.</>}
         </p>
       </div>
       <div
@@ -86,9 +97,21 @@ export function CallingPicker({
             schedule={schedule === null}
             onChoose={() => choose(def.id)}
             onView={() => setViewing(def.id)}
+            tiersOpen={mastery?.tiersOpen(def.id)}
+            level={mastery ? masteryLevel(mastery.xp[def.id] ?? 0) : undefined}
           />
         ))}
       </div>
+      {mastery && chosen && callings.some((c) => c.id === chosen) && (
+        <MasteryStrip
+          callingId={chosen}
+          xp={mastery.xp[chosen] ?? 0}
+          tiersOpen={mastery.tiersOpen(chosen)}
+          all={mastery.all}
+          prep
+          className="mt-3"
+        />
+      )}
       {shown && (
         // Fixed, so the dialog covers the screen however far Prep has scrolled.
         <div className="fixed inset-0 z-50">
@@ -101,6 +124,7 @@ export function CallingPicker({
               setViewing(null);
             }}
             onClose={() => setViewing(null)}
+            tiersOpen={mastery?.tiersOpen(shown.id)}
           />
         </div>
       )}
@@ -140,6 +164,8 @@ function CallingCard({
   schedule,
   onChoose,
   onView,
+  tiersOpen,
+  level,
 }: {
   def: CallingDef;
   selected: boolean;
@@ -149,9 +175,14 @@ function CallingCard({
   schedule: boolean;
   onChoose(): void;
   onView(): void;
+  /** Phase 4g: the tiers a run would offer now (the rest locked by mastery); omitted: all. */
+  tiersOpen?: number;
+  /** Phase 4g: its mastery level; omitted: not shown. */
+  level?: number;
 }) {
   const look = callingLook(def.id);
   const rank = unlockRank('calling', def.id);
+  const shut = tiersOpen === undefined ? 0 : Math.max(0, def.tiers.length - tiersOpen);
   return (
     <div
       className={`relative flex min-w-0 flex-col gap-2 rounded-xl border p-3 transition-colors ${
@@ -223,10 +254,37 @@ function CallingCard({
         </span>
       )}
       <span className="mt-auto flex items-center justify-between gap-2 border-t border-ink-600/60 pt-2">
-        <span className="flex items-center gap-1" aria-hidden>
-          {def.tiers.map((_, i) => (
-            <PathPip key={i} callingId={def.id} state="open" numeral={numeral(i)} size={20} />
-          ))}
+        <span className="flex min-w-0 items-center gap-1.5">
+          <span
+            className="flex items-center gap-1"
+            role="img"
+            aria-label={
+              shut > 0
+                ? `${def.tiers.length} picks, ${shut} locked by mastery`
+                : `${def.tiers.length} picks`
+            }
+            data-testid={`calling-pips-${def.id}`}
+          >
+            {def.tiers.map((_, i) => (
+              <PathPip
+                key={i}
+                callingId={def.id}
+                state={tiersOpen !== undefined && i >= tiersOpen ? 'locked' : 'open'}
+                numeral={numeral(i)}
+                size={20}
+              />
+            ))}
+          </span>
+          {level !== undefined && open && (
+            <span
+              className="whitespace-nowrap text-xs font-semibold"
+              style={{ color: look.color }}
+              title={`Playing the ${def.name} earns its mastery, which opens its path's tiers`}
+              data-testid={`calling-level-${def.id}`}
+            >
+              Mastery {level}
+            </span>
+          )}
         </span>
         <Button size="sm" variant="secondary" onClick={onView}>
           <Icon name="book" size={14} /> See the path
@@ -243,12 +301,15 @@ function CallingPathDialog({
   selected,
   onChoose,
   onClose,
+  tiersOpen,
 }: {
   def: CallingDef;
   open: boolean;
   selected: boolean;
   onChoose(): void;
   onClose(): void;
+  /** Phase 4g: the tiers a run would offer now (the rest locked by mastery); omitted: all. */
+  tiersOpen?: number;
 }) {
   const look = callingLook(def.id);
   const rank = unlockRank('calling', def.id);
@@ -266,7 +327,12 @@ function CallingPathDialog({
       >
         The path · one of two at each tier, for the rest of the run
       </p>
-      <CallingPathPreview def={def} />
+      {tiersOpen !== undefined && tiersOpen < def.tiers.length && (
+        <p className="-mt-1 mb-2 text-xs text-muted" data-testid="path-mastery">
+          {tiersLine(def.id, tiersOpen, { prep: true })} Playing the {def.name} earns its mastery.
+        </p>
+      )}
+      <CallingPathPreview def={def} tiersOpen={tiersOpen} />
       <div className="mt-5 flex flex-wrap items-center justify-end gap-2">
         {!open && (
           <span className="mr-auto flex items-center gap-1.5 text-sm text-muted">

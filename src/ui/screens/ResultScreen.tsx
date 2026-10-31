@@ -28,6 +28,9 @@ import { callingLook } from '../kit/CallingGlyph';
 import type { Bond } from '../../meta/bonds';
 import { BondRankUpCard, BondXpLine, useBondCard, type BondCardProps } from './BondsParts';
 import { bondXpRows, fightBondXp } from './bondsModel';
+import { useSettings } from '../../app/settings';
+import { rankOf } from '../../meta/profile';
+import { StarlightGainPanel } from './StarlightParts';
 
 export { HIGHLIGHT_COLOR, HIGHLIGHT_ICON, statLines };
 
@@ -59,6 +62,12 @@ export interface ResultViewProps {
   bonds?: Readonly<Record<string, Bond>>;
   /** Phase 4e: the Bond rank-up card, shown after the Weaver's rank-up card. */
   bondCard?: BondCardProps | null;
+  /**
+   * Phase 4g: the profile's Starlight now (this fight's included), its Rank and Skip the unlocks
+   * (what Starlight is for), and its mastery XP for the run's Calling (this fight's included).
+   * Omitted: no Starlight panel.
+   */
+  loom?: { starlight: number; rank: number; all?: boolean; mastery?: number } | null;
 }
 
 export function ResultView({
@@ -72,6 +81,7 @@ export function ResultView({
   deedPoints = 0,
   bonds,
   bondCard = null,
+  loom = null,
 }: ResultViewProps) {
   useMood('map');
   const victory = r.outcome === 'victory';
@@ -87,9 +97,17 @@ export function ResultView({
   const gained = aether && r.aether > 0;
   // Phase 4e: what the fight paid each hero's Bond.
   const bondRows = bonds ? bondXpRows(heroIds, fightBondXp(r), bonds) : [];
+  // Phase 4g: the fight's Starlight counts up after the Aether (docs/phase-4g/vfx-audio.md).
+  const starlight = r.starlight ?? 0;
   useEffect(() => {
     if (gained) playUi('aether');
-  }, [gained]);
+    if (starlight <= 0) return;
+    const timer = window.setTimeout(
+      () => playUi('starlightCount', { amount: starlight }),
+      gained ? 300 : 0,
+    );
+    return () => window.clearTimeout(timer);
+  }, [gained, starlight]);
   return (
     <ScreenFrame tone={victory ? 'gold' : 'dusk'}>
       <div className="mx-auto max-w-6xl px-6 pb-28 pt-8">
@@ -130,10 +148,25 @@ export function ResultView({
             </p>
             {threat && <p className="mt-1 font-mono text-xs text-muted">{threat}</p>}
           </div>
-          {(profileXp !== undefined || aether) && (
+          {(profileXp !== undefined || aether || loom) && (
             <div className="flex w-full flex-col gap-2 sm:ml-auto sm:w-80">
               {profileXp !== undefined && (
                 <XpGainPanel result={r} profileXp={profileXp} dissonance={run.dissonance} />
+              )}
+              {loom && (
+                // Phase 4g: beside the XP, the Starlight the fight paid and its Calling's mastery.
+                <StarlightGainPanel
+                  result={r}
+                  dissonance={run.dissonance}
+                  balance={loom.starlight}
+                  rank={loom.rank}
+                  all={loom.all}
+                  mastery={
+                    run.calling && loom.mastery !== undefined
+                      ? { callingId: run.calling.id, xp: loom.mastery }
+                      : null
+                  }
+                />
               )}
               {aether && (
                 <div
@@ -381,6 +414,10 @@ export function ResultScreen() {
   const run = useRun((s) => s.run);
   const cont = useRun((s) => s.continueFromResult);
   const xp = useProfile((s) => s.profile.xp);
+  // Phase 4g: the Starlight and the Calling's mastery the fight paid into the profile.
+  const starlight = useProfile((s) => s.profile.starlight);
+  const mastery = useProfile((s) => s.profile.mastery);
+  const unlockAll = useSettings((s) => s.settings.unlockAll);
   const { rankUps, firstTime, dismiss, deedPoints } = useRankUps();
   const bondCard = useBondCard();
   if (!run?.lastResult) return null;
@@ -396,6 +433,12 @@ export function ResultScreen() {
       deedPoints={deedPoints}
       bonds={bondCard.bonds}
       bondCard={bondCard}
+      loom={{
+        starlight,
+        rank: rankOf(xp),
+        all: unlockAll,
+        mastery: run.calling ? (mastery[run.calling.id] ?? 0) : undefined,
+      }}
     />
   );
 }

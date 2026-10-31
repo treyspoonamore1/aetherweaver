@@ -17,7 +17,7 @@ export function PauseMenu({
   onResume: () => void;
   /** Run only: gives up the run (goes to the Summary). */
   onAbandon?: () => void;
-  /** Training only: back to the title. */
+  /** Training only: leaves the Training Grounds (for the Loom). */
   onLeave?: () => void;
 }) {
   const [view, setView] = useState<'menu' | 'settings' | 'confirm'>('menu');

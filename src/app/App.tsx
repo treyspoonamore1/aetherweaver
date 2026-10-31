@@ -12,17 +12,24 @@ const RunScreen = lazy(() =>
   import('../ui/screens/RunScreen').then((m) => ({ default: m.RunScreen })),
 );
 const LabRouter = lazy(() => import('./LabRouter').then((m) => ({ default: m.LabRouter })));
-// The Astrolabe (Phase 4): its own screen between runs, from the Title and from Prep.
+// The Astrolabe (Phase 4): its own screen between runs, from the Loom and from Prep.
 const AstrolabeScreen = lazy(() =>
   import('../ui/screens/AstrolabeScreen').then((m) => ({ default: m.AstrolabeScreen })),
 );
-// The Reliquary (Phase 4c): its own screen between runs, from the Title and from Prep too.
+// The Reliquary (Phase 4c): its own screen between runs, from the Loom and from Prep too.
 const ReliquaryScreen = lazy(() =>
   import('../ui/screens/ReliquaryScreen').then((m) => ({ default: m.ReliquaryScreen })),
 );
-// Bonds (Phase 4e): the heroes' talents, Solos and scenes, from the Title and from Prep.
+// Bonds (Phase 4e): the heroes' talents, Solos and scenes, from the Loom and from Prep.
 const BondsScreen = lazy(() =>
   import('../ui/screens/BondsScreen').then((m) => ({ default: m.BondsScreen })),
+);
+// The Loom (Phase 4g): the hub between runs, through the Title's front door, and its Atelier.
+const LoomScreen = lazy(() =>
+  import('../ui/screens/LoomScreen').then((m) => ({ default: m.LoomScreen })),
+);
+const AtelierScreen = lazy(() =>
+  import('../ui/screens/AtelierScreen').then((m) => ({ default: m.AtelierScreen })),
 );
 
 function Loading({ children }: { children: ReactNode }) {
@@ -42,12 +49,26 @@ function Loading({ children }: { children: ReactNode }) {
 const lab = new URLSearchParams(window.location.search).get('lab');
 
 /**
- * The screen for the current destination: Title, the run, the Astrolabe, the Reliquary, Bonds,
- * everything else.
+ * The screen for the current destination: Title, the Loom and its Atelier, the run, the
+ * Astrolabe, the Reliquary, Bonds, everything else.
  */
 function Screen() {
   const screen = useUi((s) => s.screen);
   if (screen === 'title') return <TitleScreen />;
+  if (screen === 'loom') {
+    return (
+      <Loading>
+        <LoomScreen />
+      </Loading>
+    );
+  }
+  if (screen === 'atelier') {
+    return (
+      <Loading>
+        <AtelierScreen />
+      </Loading>
+    );
+  }
   if (screen === 'astrolabe') {
     return (
       <Loading>

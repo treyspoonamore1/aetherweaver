@@ -137,6 +137,19 @@ export const PATHS = {
   phaseStep:
     'M5.5 9.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5z M9.5 12h1.5 M13 12h1.5 M15.5 6.5l5.5 5.5-5.5 5.5',
   skate: 'M6 5l4.5 4.5L6 14 M12.5 5l4.5 4.5-4.5 4.5 M3.5 18.5H18a2.5 2.5 0 0 0 2.5-2.5',
+  /**
+   * Phase 4g: Starlight (a twin sparkle: never the Astrolabe's four-point star or XP's five), the
+   * Loom (a loom's frame, its warp and a weft crossing), the Gate (an arch with its door), the
+   * Atelier (a dress form), a robe, and a title (a ribbon with notched ends).
+   */
+  starlight:
+    'M10 5c.7 4.6 2.4 6.3 7 7-4.6.7-6.3 2.4-7 7-.7-4.6-2.4-6.3-7-7 4.6-.7 6.3-2.4 7-7z M18.5 2.5c.3 1.9 1 2.6 3 3-2 .4-2.7 1.1-3 3-.3-1.9-1-2.6-3-3 2-.4 2.7-1.1 3-3z',
+  loom: 'M4 3.5v17 M20 3.5v17 M4 6h16 M4 18h16 M8 6v12 M12 6v12 M16 6v12 M5 12.5c2.3-1.8 4.7 1.8 7 0s4.7-1.8 7 0',
+  gate: 'M5 21V10a7 7 0 0 1 14 0v11 M3 21h18 M9 21v-7a3 3 0 0 1 6 0v7',
+  atelier:
+    'M9 3.5h6 M8.6 3.5c-.9 3 .4 5-1 7.3 1.4 2 1.4 4.2.9 6.7h7c-.5-2.5-.5-4.7.9-6.7-1.4-2.3-.1-4.3-1-7.3 M12 17.5v3.5 M8.5 21h7',
+  robe: 'M9.5 3.5c.6 1.2 1.4 1.8 2.5 1.8s1.9-.6 2.5-1.8L18 5l3 5.5-3 1.4-.9-1.6L19 20.5H5l1.9-10.2-.9 1.6L3 10.5 6 5z M12 5.3v15.2',
+  banner: 'M3.5 8h17l-2.2 3.5 2.2 3.5h-17l2.2-3.5z M8 11.5h8',
 } as const;
 
 export type IconName = keyof typeof PATHS;

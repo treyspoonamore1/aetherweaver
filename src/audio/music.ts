@@ -27,6 +27,7 @@ import {
   MELODY_DARK,
   PROGRESSION_BRIGHT,
   PROGRESSION_DARK,
+  PROGRESSION_LOOM,
   PROGRESSION_STILL,
   STEP,
   STEPS_PER_BAR,
@@ -87,6 +88,8 @@ function progressionFor(mood: AudioMood): readonly Chord[] {
     case 'victory':
     case 'defeat':
       return PROGRESSION_STILL;
+    case 'loom':
+      return PROGRESSION_LOOM;
     default:
       return PROGRESSION_BRIGHT;
   }
@@ -365,6 +368,14 @@ export class MusicEngine {
         t.pulse = 0.3;
         t.melody = 0.5;
         break;
+      case 'loom':
+        // Phase 4g: the sanctum between runs. A warm pad and a faint hum, glass bells for
+        // melody, and for a pulse only the loom's treadle, a soft low pluck twice a bar.
+        t.pad = 0.75;
+        t.pulse = 0.35;
+        t.melody = 0.45;
+        t.choir = 0.12;
+        break;
       case 'calm':
       case 'combat':
       case 'boss':
@@ -404,6 +415,7 @@ export class MusicEngine {
       {
         title: 900,
         map: 1300,
+        loom: 800,
         calm: 1300,
         combat: 1700,
         boss: 800,
@@ -537,6 +549,15 @@ export class MusicEngine {
       if (inBar === 3 || inBar === 7) hat(0.02);
       return;
     }
+    if (mood === 'loom') {
+      // The treadle: the chord's root, then its fifth, plucked low and soft. No drums.
+      if (inBar === 0 || inBar === 4) {
+        const v = new Voice(e, 'music', { dest });
+        pluck(v, t, midiToHz(root + 12 + (inBar === 4 ? 7 : 0)), 0.07, 0.5, 0.25);
+        v.commit();
+      }
+      return;
+    }
     if (mood === 'boss') {
       if (inBar % 2 === 0) kick(inBar === 0 ? 0.3 : 0.22, 88);
       if (inBar === 5) {
@@ -569,7 +590,8 @@ export class MusicEngine {
     const dark = mood === 'boss';
     const phrase = (dark ? MELODY_DARK : MELODY_BRIGHT)[bar % 8];
     const slot = phrase?.[inBar] ?? null;
-    const sparse = mood === 'title' || mood === 'map' || (mood === 'calm' && this.tier < 2);
+    const sparse =
+      mood === 'title' || mood === 'map' || mood === 'loom' || (mood === 'calm' && this.tier < 2);
     const e = this.e;
     const top = this.targets.top;
     if (slot === null || slot === undefined) {
@@ -589,6 +611,9 @@ export class MusicEngine {
     const v = new Voice(e, 'music', { dest: this.stemIn.melody });
     if (mood === 'title') {
       handbell(v, t, midiToHz(scaleMidi(slot)), 0.06, 2.4, 0.4);
+    } else if (mood === 'loom') {
+      // Starlight in the sanctum: soft glass, an octave up, ringing long.
+      glassNote(v, t, midiToHz(scaleMidi(slot + 7)), 0.03, 2.6, 0.55);
     } else if (dark) {
       horn(v, t, midiToHz(scaleMidi(slot - 7)), STEP * 3.2, 0.07);
     } else if (sparse) {

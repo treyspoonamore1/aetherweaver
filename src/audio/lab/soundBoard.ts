@@ -20,6 +20,7 @@ export interface SoundButton {
     | 'astrolabe'
     | 'bonds'
     | 'variants'
+    | 'loom'
     | 'world'
     | 'ui';
   /** Fires the sound. Receives the director and a world to read/mutate. */
@@ -2353,6 +2354,18 @@ export const SOUNDS: SoundButton[] = [
       'sceneStart',
       'sceneReply',
       'variantPick',
+      'atelierBuy',
+      'atelierRefused',
+      'keepsakeWear',
+      'stationLit',
+      'stationIntro',
+      'starlightCount',
+      'drillPerfect',
+      'drillEarly',
+      'drillLate',
+      'drillMiss',
+      'drillStreak',
+      'drillBest',
     ] as UiSound[]
   ).map((s): SoundButton => ({
     id: `ui-${s}`,
@@ -2365,7 +2378,9 @@ export const SOUNDS: SoundButton[] = [
             s === 'forge' ||
             s === 'eventOpen' ||
             s === 'dissonanceBest' ||
-            s === 'bondRankUp'
+            s === 'bondRankUp' ||
+            s === 'stationLit' ||
+            s === 'drillBest'
           ? 3
           : s === 'dissonanceOpen' || s === 'sceneStart'
             ? 4
@@ -2465,5 +2480,132 @@ export const SOUNDS: SoundButton[] = [
     group: 'ui',
     length: 3,
     fire: (d) => d.playUi('dissonanceBest', null, { total: dissonanceMax() }),
+  },
+  // ── Phase 4g: the Loom, its keepsakes and the Perfect-Ward trainer ──
+  {
+    id: 'loom-buy',
+    label: 'atelierBuy: a keepsake bought at the Atelier (Starlight spent)',
+    group: 'loom',
+    length: 2,
+    fire: (d) => d.playUi('atelierBuy'),
+  },
+  {
+    id: 'loom-refused',
+    label: 'atelierRefused: not enough Starlight (or locked)',
+    group: 'loom',
+    fire: (d) => d.playUi('atelierRefused'),
+  },
+  {
+    id: 'loom-buy-compare',
+    label: "Compare: the merchant's buy and cantAfford, then the Atelier's",
+    group: 'loom',
+    length: 4,
+    fire: (d) => d.playUi('buy'),
+    then: [
+      { delay: 0.9, fire: (d) => d.playUi('cantAfford') },
+      { delay: 1.8, fire: (d) => d.playUi('atelierBuy') },
+      { delay: 2.9, fire: (d) => d.playUi('atelierRefused') },
+    ],
+  },
+  ...(
+    [
+      [CONTENT.cosmetics.robes[0]?.id, 'a robe (it rustles and settles)'],
+      [CONTENT.cosmetics.threads[0]?.id, 'a Thread look (it is plucked)'],
+      [CONTENT.cosmetics.titles[0]?.id, 'a title (it rings)'],
+    ] as const
+  ).map(([keepsake, what], i): SoundButton => ({
+    id: `loom-wear-${i}`,
+    label: `keepsakeWear: ${what} (${keepsake ?? 'none'})`,
+    group: 'loom',
+    fire: (d) => d.playUi('keepsakeWear', null, { keepsake }),
+  })),
+  {
+    id: 'loom-lit',
+    label: 'stationLit: the hub opens with a station newly lit',
+    group: 'loom',
+    length: 3,
+    fire: (d) => d.playUi('stationLit'),
+  },
+  {
+    id: 'loom-intro',
+    label: "stationIntro: a station's intro opens",
+    group: 'loom',
+    length: 2,
+    fire: (d) => d.playUi('stationIntro'),
+  },
+  ...[3, 10, 20, 45].map((amount): SoundButton => ({
+    id: `loom-count-${amount}`,
+    label: `starlightCount: +${amount} Starlight counted on the Result`,
+    group: 'loom',
+    length: 2,
+    fire: (d) => d.playUi('starlightCount', null, { amount }),
+  })),
+  {
+    id: 'loom-count-ticks',
+    label: 'starlightCount: called on every step of a count-up (20 in 0.6 s: gated, two voices)',
+    group: 'loom',
+    length: 2,
+    fire: (d) => d.playUi('starlightCount', null, { amount: 1 }),
+    then: Array.from({ length: 19 }, (_, i) => ({
+      delay: Math.round((i + 1) * 0.03 * 1000) / 1000,
+      fire: (d: SynthDirector) => d.playUi('starlightCount', null, { amount: i + 2 }),
+    })),
+  },
+  {
+    id: 'drill-perfect',
+    label: 'drillPerfect: a try judged Perfect',
+    group: 'loom',
+    fire: (d) => d.playUi('drillPerfect'),
+  },
+  ...[40, 180, 400].flatMap((ms): SoundButton[] => [
+    {
+      id: `drill-early-${ms}`,
+      label: `drillEarly: early by ${ms} ms (it slides up into the note)`,
+      group: 'loom',
+      fire: (d) => d.playUi('drillEarly', null, { ms }),
+    },
+    {
+      id: `drill-late-${ms}`,
+      label: `drillLate: late by ${ms} ms (the note sags after it)`,
+      group: 'loom',
+      fire: (d) => d.playUi('drillLate', null, { ms }),
+    },
+  ]),
+  {
+    id: 'drill-miss',
+    label: 'drillMiss: no Ward reached them',
+    group: 'loom',
+    fire: (d) => d.playUi('drillMiss'),
+  },
+  ...[5, 10, 25].map((streak): SoundButton => ({
+    id: `drill-streak-${streak}`,
+    label: `drillStreak: ${streak} Perfects in a row`,
+    group: 'loom',
+    length: 3,
+    fire: (d) => d.playUi('drillStreak', null, { streak }),
+  })),
+  {
+    id: 'drill-best',
+    label: 'drillBest: a new best streak',
+    group: 'loom',
+    length: 3,
+    fire: (d) => d.playUi('drillBest'),
+  },
+  {
+    id: 'drill-run',
+    label: 'The trainer: early, late, then five Perfects (the milestone, a new best), then a miss',
+    group: 'loom',
+    length: 9,
+    fire: (d) => d.playUi('drillEarly', null, { ms: 120 }),
+    then: [
+      { delay: 1, fire: (d: SynthDirector) => d.playUi('drillLate', null, { ms: 60 }) },
+      ...[2, 3, 4, 5, 6].map((delay) => ({
+        delay,
+        fire: (d: SynthDirector) => d.playUi('drillPerfect'),
+      })),
+      { delay: 6.25, fire: (d: SynthDirector) => d.playUi('drillStreak', null, { streak: 5 }) },
+      { delay: 6.9, fire: (d: SynthDirector) => d.playUi('drillBest') },
+      { delay: 8, fire: (d: SynthDirector) => d.playUi('drillMiss') },
+    ],
   },
 ];

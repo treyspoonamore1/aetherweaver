@@ -88,6 +88,20 @@ export const PROGRESSION_DARK: readonly Chord[] = [
   CHORDS.Dm9,
 ];
 export const PROGRESSION_STILL: readonly Chord[] = Array.from({ length: 8 }, () => CHORDS.Dsus2);
+/**
+ * Phase 4g, the Loom: the bright loop's chords held two bars each (a slower breath), its last
+ * bar left open on Dsus2, as a weaver pauses before the next pass.
+ */
+export const PROGRESSION_LOOM: readonly Chord[] = [
+  CHORDS.Dm9,
+  CHORDS.Dm9,
+  CHORDS.G6,
+  CHORDS.G6,
+  CHORDS.Cmaj7,
+  CHORDS.Cmaj7,
+  CHORDS.Am7,
+  CHORDS.Dsus2,
+];
 
 export function chordPitchClasses(c: Chord): number[] {
   return c.tones.map((t) => (c.root + t) % 12);

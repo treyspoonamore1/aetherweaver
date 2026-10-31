@@ -32,6 +32,12 @@ export interface TestHook {
    * guards: `absolved`, `anchored`).
    */
   techniques(): FightTechniquesView;
+  /**
+   * Phase 4g: the training bell's blow in flight (the Perfect-Ward trainer's `drill`), with the
+   * sim's clock: when its Perfect window opens and when it lands (sim seconds), and its hero's
+   * slot. Null when no blow is winding up.
+   */
+  drill(): { time: number; perfectFrom: number; impact: number; slot: number } | null;
 }
 
 /** What `__AW__.techniques()` returns. */
@@ -176,6 +182,21 @@ export interface RunHook {
   techniques(): TechniquesHookView;
   /** Phase 4f, test-only: the profile owns these variants (the store's `ownVariant`). */
   ownVariants(ids: string[]): void;
+  /**
+   * Phase 4g, the Loom: the profile's Starlight, the keepsakes it owns, what the Weaver wears,
+   * and the hub's intros seen (`station:<id>`).
+   */
+  loom(): LoomHookView;
+  /** Phase 4g, test-only: the profile is paid this much Starlight (the store's `awardStarlight`). */
+  giveStarlight(amount: number): void;
+}
+
+/** What `loom()` returns. */
+export interface LoomHookView {
+  starlight: number;
+  cosmetics: string[];
+  look: { robe: string | null; thread: string | null; title: string | null };
+  introduced: string[];
 }
 
 /** What `bonds()` returns. */

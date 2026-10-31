@@ -16,6 +16,7 @@ import {
   type CallingDef,
   type CallingOption,
 } from '../../content';
+import { tiersOpen } from '../../meta/loom';
 import { CALLING_ROWS, callingTierDue, generateMap } from '../../meta/run';
 import type {
   ChordLoadout,
@@ -315,16 +316,34 @@ export interface PathStep {
   options: readonly CallingOption[];
   /** The option taken at this tier (null: not yet). */
   chosen: CallingOption | null;
-  /** chosen; offer (being picked right now); open (still to come). */
-  state: 'chosen' | 'offer' | 'open';
+  /**
+   * chosen; offer (being picked right now); open (still to come); locked (Phase 4g: the
+   * Calling's mastery hadn't opened it when the run embarked, so this run never offers it).
+   */
+  state: 'chosen' | 'offer' | 'open' | 'locked';
+  /** The mastery level that opens this tier (Phase 4g): tier I at 1. */
+  mastery: number;
 }
 
-/** Each tier of the run's Calling, in order: what was taken, what's on offer, what's to come. */
+/** The mastery level that opens a tier of a Calling's path (Phase 4g): tier I at 1, and so on. */
+export function tierMastery(callingId: string, tier: number): number {
+  const levels = CONTENT.mastery.levels;
+  for (let level = 1; level <= levels.length; level++)
+    if (tiersOpen(callingId, levels[level - 1]!, false) > tier) return level;
+  return levels.length;
+}
+
+/**
+ * Each tier of the run's Calling, in order: what was taken, what's on offer, what's to come, and
+ * (Phase 4g) what its mastery keeps shut: past `tiersOpen` (the run's own, snapshotted at
+ * embark; Prep passes the profile's). None given, as on runs from before mastery: every tier.
+ */
 export function pathSteps(
   calling: RunCalling,
-  opts: { offerTier?: number | null; map?: RunMap } = {},
+  opts: { offerTier?: number | null; map?: RunMap; tiersOpen?: number } = {},
 ): PathStep[] {
   const def = callingDef(calling.id);
+  const open = opts.tiersOpen ?? calling.tiersOpen ?? def.tiers.length;
   return def.tiers.map((t, tier) => {
     const id = calling.path[tier] ?? null;
     const chosen = id ? callingOption(id) : null;
@@ -334,7 +353,14 @@ export function pathSteps(
       when: tierWhen(tier, opts.map),
       options: t.options,
       chosen,
-      state: chosen ? 'chosen' : opts.offerTier === tier ? 'offer' : 'open',
+      state: chosen
+        ? 'chosen'
+        : opts.offerTier === tier
+          ? 'offer'
+          : tier >= open
+            ? 'locked'
+            : 'open',
+      mastery: tierMastery(def.id, tier),
     };
   });
 }
@@ -351,9 +377,10 @@ export interface PathTipLine {
 
 /**
  * The path as tooltip lines: each chosen option with what it does, then each open tier with
- * when it comes and its two options.
+ * when it comes and its two options, and (Phase 4g) each tier its mastery keeps shut.
  */
 export function pathTipLines(calling: RunCalling, map?: RunMap): PathTipLine[] {
+  const name = callingDef(calling.id).name;
   return pathSteps(calling, { map }).map((s) =>
     s.chosen
       ? {
@@ -363,31 +390,64 @@ export function pathTipLines(calling: RunCalling, map?: RunMap): PathTipLine[] {
           chosen: true,
           icon: s.chosen.icon,
         }
-      : {
-          numeral: s.numeral,
-          title: tierWhenLabel(s.tier, map),
-          text: `Choose ${s.options.map((o) => o.name).join(' or ')}.`,
-          chosen: false,
-          icon: null,
-        },
+      : s.state === 'locked'
+        ? {
+            numeral: s.numeral,
+            title: `Locked: ${name} mastery ${s.mastery}`,
+            text: `Not this run: ${s.options.map((o) => o.name).join(' or ')}, once its mastery opens it.`,
+            chosen: false,
+            icon: null,
+          }
+        : {
+            numeral: s.numeral,
+            title: tierWhenLabel(s.tier, map),
+            text: `Choose ${s.options.map((o) => o.name).join(' or ')}.`,
+            chosen: false,
+            icon: null,
+          },
   );
 }
 
-/** "The Luminary: Haloed, Wide Choir. Next pick after your fight at step 6." (aria). */
+/**
+ * "The Luminary: Haloed, Wide Choir. Next pick after your fight at step 6." (aria). Phase 4g:
+ * "…Tiers III and IV are locked: they open with mastery 3 and 4." when they are.
+ */
 export function pathLabel(calling: RunCalling, map?: RunMap): string {
   const def = callingDef(calling.id);
   const steps = pathSteps(calling, { map });
   const taken = steps.flatMap((s) => (s.chosen ? [s.chosen.name] : []));
-  const next = steps.find((s) => !s.chosen);
+  const next = steps.find((s) => s.state === 'open');
+  const locked = steps.filter((s) => s.state === 'locked');
+  const one = locked.length === 1;
+  const shut =
+    locked.length === 0
+      ? ''
+      : ` ${one ? 'Tier' : 'Tiers'} ${spanOf(locked.map((s) => s.numeral))} ${one ? 'is' : 'are'} locked: ${one ? 'it opens' : 'they open'} with mastery ${spanOf(locked.map((s) => String(s.mastery)))}.`;
   return `The ${def.name}: ${taken.length ? taken.join(', ') : 'no path chosen yet'}.${
-    next ? ` Next pick ${next.when}.` : ' The path is complete.'
-  }`;
+    next ? ` Next pick ${next.when}.` : locked.length > 0 ? '' : ' The path is complete.'
+  }${shut}`;
 }
 
-/** The next tier still open, and when it comes (null: the path is complete). */
+/** "I", "I and II", "I, II and III". */
+export function listOf(items: readonly string[]): string {
+  return items.length <= 2
+    ? items.join(' and ')
+    : `${items.slice(0, -1).join(', ')} and ${items.at(-1)}`;
+}
+
+/** A run of three or more as a span ("II–IV", "2–4"); fewer as a list ("III and IV"). */
+export function spanOf(items: readonly string[]): string {
+  return items.length >= 3 ? `${items[0]}–${items.at(-1)}` : listOf(items);
+}
+
+/**
+ * The next tier still to come this run, and when (null: the path is complete, or the rest is
+ * locked by mastery, Phase 4g).
+ */
 export function nextTier(calling: RunCalling, map?: RunMap): { tier: number; when: string } | null {
   const tier = calling.path.findIndex((p) => p === null);
-  return tier < 0 ? null : { tier, when: tierWhen(tier, map) };
+  const open = calling.tiersOpen ?? calling.path.length;
+  return tier < 0 || tier >= open ? null : { tier, when: tierWhen(tier, map) };
 }
 
 /** The option on the path that adds field-song slots (Third Voice), if any. */

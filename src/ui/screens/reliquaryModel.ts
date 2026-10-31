@@ -1114,7 +1114,7 @@ export function materialsHow(): { shards: string; tears: string } {
   };
 }
 
-/** The Title's badge: what there is to craft with (null: nothing). */
+/** The Loom's badge for the Reliquary: what there is to craft with (null: nothing). */
 export function materialsBadge(rq: Pick<Reliquary, 'shards' | 'tears'>): string | null {
   if (rq.shards <= 0 && rq.tears <= 0) return null;
   return [rq.shards > 0 && shardsText(rq.shards), rq.tears > 0 && tearsText(rq.tears)]

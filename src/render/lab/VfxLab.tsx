@@ -19,8 +19,10 @@ import {
 } from '../../sim';
 import { CameraRig } from '../camera';
 import { CombatView } from '../combatView';
+import type { WeaverLook } from '../keepsakeCues';
 import { Stage, type QualityTier } from '../stage';
 import type { FrameInfo } from '../types';
+import { KeepsakeLineup, type LineupPage } from './keepsakeLineup';
 import { VARIANT_SCENARIOS, VARIANT_SCENARIO_NAMES, scenarioConfig } from './variantScenarios';
 
 /**
@@ -146,6 +148,24 @@ interface LabApi {
   setVariants(techniques: SimConfig['techniques'] | null): void;
   /** What the variants' view has played and is drawing, and what it reads. */
   variantStats(): VariantStats;
+  /** Phase 4g: what the Weaver wears in the lab's fight (keepsake ids; null: her own). */
+  setLook(look: WeaverLook): void;
+  /** Phase 4g: the keepsakes side by side (robes, or Thread looks in Mend and Empower); null: the fight. */
+  lineup(page: LineupPage | null): void;
+  /** Phase 4g: what the fight's Weaver and Thread wear and draw, and the lineup's figures. */
+  keepsakeStats(): KeepsakeStats;
+}
+
+interface KeepsakeStats {
+  look: WeaverLook;
+  lineup: LineupPage | null;
+  /** The lineup's figures: robes left to right, or Thread looks row by row, Mend then Empower. */
+  figures: WeaverLook[];
+  /** Beads each lineup Thread drew last frame; the fight's Thread's. */
+  lineupBeads: number[];
+  beads: number;
+  /** The fight's Thread's colours this frame (hex): halo, core strand, the mode's own. */
+  thread: { halo: string; filament: string; mode: string; drawn: boolean };
 }
 
 interface VariantStats {
@@ -358,6 +378,8 @@ let autonomyCfg = false;
 let techniquesCfg: SimConfig['techniques'] | null = null;
 /** Phase 4f: motifs a variant scenario needs (Twin Aegis), or none. */
 let motifsCfg: SimConfig['motifs'] | null = null;
+/** Phase 4g: what the Weaver wears in the lab's fight (kept across loadout / encounter changes). */
+let lookCfg: WeaverLook = { robe: null, thread: null };
 
 interface RelicScenario {
   relics: string[];
@@ -1805,6 +1827,8 @@ class LabRuntime {
   paused = false;
   timeScale = 1;
   settings: Settings = { screenShake: 1, flashes: 1, damageNumbers: true, colorVision: 'normal' };
+  /** Phase 4g: the keepsakes' lineup while it shows (in place of the fight). */
+  private keepsakes: KeepsakeLineup | null = null;
   private frames = 0;
   private fpsTimer = 0;
   fps = 0;
@@ -1853,6 +1877,8 @@ class LabRuntime {
 
   /** Phase 3b: a fresh real sim carrying `relics` (the view is rebuilt on it). */
   restart(relics: string[]): void {
+    // A scenario plays in the fight: the lineup steps aside.
+    this.closeLineup();
     carried = [...relics];
     this.pending.length = 0;
     this.scheduled.length = 0;
@@ -2378,9 +2404,68 @@ class LabRuntime {
 
   setTheme(theme: string): void {
     this.theme = theme;
+    if (this.keepsakes) {
+      // The lineup on the new floor (the fight comes back on it when the lineup closes).
+      this.keepsakes.setTheme(theme);
+      return;
+    }
     this.view.dispose();
     this.view = this.createView();
     this.view.field.hymnOverride = this.hymn ? this.hymnCircles() : null;
+  }
+
+  // ── Phase 4g: keepsakes ────────────────────────────────────────────────────────────
+
+  /** What the Weaver wears in the fight: it reaches the view with each frame, as the profile's does. */
+  setLook(look: WeaverLook): void {
+    lookCfg = { robe: look.robe, thread: look.thread };
+  }
+
+  /**
+   * The keepsakes side by side in place of the fight (the sim waits), on the lab's floor and in
+   * its colour vision, under the lineup's own camera; null: back to the fight, rebuilt on the same
+   * sim.
+   */
+  lineup(page: LineupPage | null): void {
+    this.closeLineup();
+    if (!page) return;
+    this.view.dispose();
+    this.keepsakes = new KeepsakeLineup(
+      this.stage,
+      this.overlay.parentElement ?? this.overlay,
+      page,
+      this.theme,
+    );
+    this.overlay.style.display = 'none';
+  }
+
+  private closeLineup(): void {
+    if (!this.keepsakes) return;
+    this.keepsakes.dispose();
+    this.keepsakes = null;
+    this.overlay.style.display = '';
+    this.view = this.createView();
+    this.view.field.hymnOverride = this.hymn ? this.hymnCircles() : null;
+    const w = this.weaverPos();
+    this.rig.snapTo(w.x, w.z);
+  }
+
+  keepsakeStats(): KeepsakeStats {
+    const k = this.keepsakes;
+    const t = this.view.thread;
+    return {
+      look: { ...lookCfg },
+      lineup: k?.page ?? null,
+      figures: k?.looks() ?? [],
+      lineupBeads: k?.beads() ?? [],
+      beads: k ? 0 : t.beadsDrawn,
+      thread: {
+        halo: `#${t.haloColor.getHexString()}`,
+        filament: `#${t.filamentColor.getHexString()}`,
+        mode: `#${t.modeColor.getHexString()}`,
+        drawn: !k && t.drawn,
+      },
+    };
   }
 
   setQuality(q: QualityTier): void {
@@ -2928,6 +3013,18 @@ class LabRuntime {
   private advance(elapsed: number): void {
     const now = this.clock;
     if (this.start < 0) this.start = now;
+    const lineup = this.keepsakes;
+    if (lineup) {
+      // Phase 4g's lineup in place of the fight: the sim waits.
+      lineup.sync(
+        (now - this.start) / 1000,
+        (elapsed / 1000) * this.timeScale,
+        this.settings.colorVision,
+        this.stage.qualityTier,
+      );
+      if (!this.skipRender) this.stage.render();
+      return;
+    }
     if (!this.paused) {
       const steps = this.stepper.advance(elapsed * this.timeScale);
       if (steps > 0) {
@@ -2957,6 +3054,7 @@ class LabRuntime {
       hoveredEnemy: this.hovered('enemy'),
       aim: this.aim,
       settings: this.settings,
+      look: lookCfg,
     });
     if (!this.skipRender) this.stage.render();
     this.frames++;
@@ -2995,6 +3093,7 @@ class LabRuntime {
 
   dispose(): void {
     cancelAnimationFrame(this.raf);
+    this.keepsakes?.dispose();
     this.stage.canvas.removeEventListener('pointermove', this.onPointer);
     window.removeEventListener('keydown', this.onKey);
     window.removeEventListener('keyup', this.onKey);
@@ -3049,6 +3148,8 @@ export function VfxLab() {
   const [loadout, setLoadout] = useState('Guardian');
   const [vision, setVision] = useState<ColorVision>('normal');
   const [flashes, setFlashes] = useState(1);
+  const [robe, setRobe] = useState<string | null>(lookCfg.robe);
+  const [threadLook, setThreadLook] = useState<string | null>(lookCfg.thread);
 
   useEffect(() => {
     const host = hostRef.current;
@@ -3144,11 +3245,18 @@ export function VfxLab() {
       setVariants: (techniques) => rt.setVariants(techniques),
       variantStats: () => rt.variantStats(),
       screenOf: (x, y, z) => rt.screenOf(x, y, z),
+      setLook: (look) => {
+        rt.setLook(look);
+        setRobe(look.robe);
+        setThreadLook(look.thread);
+      },
+      lineup: (page) => rt.lineup(page),
+      keepsakeStats: () => rt.keepsakeStats(),
     };
     const timer = window.setInterval(() => {
       const i = rt.info();
       if (statsRef.current) {
-        statsRef.current.textContent = `fps ${i.fps.toFixed(1)}  calls ${i.calls}  tris ${(i.triangles / 1000).toFixed(1)}k\nparticles ${i.particles}  entities ${rt.sim.state.entities.count}  tick ${rt.sim.tick}\nrelics ${rt.sim.state.relics.ids.length ? rt.sim.state.relics.ids.join(', ') : 'none'}\ncalling ${rt.sim.state.calling ? `${rt.sim.state.calling.id} · ${rt.sim.state.calling.path.join(', ') || 'no path'}` : 'none'}\nastrolabe ${rt.sim.state.astrolabe.nodes.length ? rt.sim.state.astrolabe.nodes.join(', ') : 'none'}\ndissonance ${rt.sim.state.dissonance.levels.length ? rt.sim.state.dissonance.levels.map((l) => (l.rank > 1 ? `${l.id}×${l.rank}` : l.id)).join(', ') : 'none'}\nbonds ${bondsCfg && bondsCfg.talents.length + bondsCfg.solos.length > 0 ? [...bondsCfg.talents, ...bondsCfg.solos].join(', ') : 'none'}\nvariants ${techniquesCfg && Object.values(techniquesCfg).some(Boolean) ? Object.values(techniquesCfg).filter(Boolean).join(', ') : 'none'}`;
+        statsRef.current.textContent = `fps ${i.fps.toFixed(1)}  calls ${i.calls}  tris ${(i.triangles / 1000).toFixed(1)}k\nparticles ${i.particles}  entities ${rt.sim.state.entities.count}  tick ${rt.sim.tick}\nrelics ${rt.sim.state.relics.ids.length ? rt.sim.state.relics.ids.join(', ') : 'none'}\ncalling ${rt.sim.state.calling ? `${rt.sim.state.calling.id} · ${rt.sim.state.calling.path.join(', ') || 'no path'}` : 'none'}\nastrolabe ${rt.sim.state.astrolabe.nodes.length ? rt.sim.state.astrolabe.nodes.join(', ') : 'none'}\ndissonance ${rt.sim.state.dissonance.levels.length ? rt.sim.state.dissonance.levels.map((l) => (l.rank > 1 ? `${l.id}×${l.rank}` : l.id)).join(', ') : 'none'}\nbonds ${bondsCfg && bondsCfg.talents.length + bondsCfg.solos.length > 0 ? [...bondsCfg.talents, ...bondsCfg.solos].join(', ') : 'none'}\nvariants ${techniquesCfg && Object.values(techniquesCfg).some(Boolean) ? Object.values(techniquesCfg).filter(Boolean).join(', ') : 'none'}\nlook ${lookCfg.robe ?? 'her own robe'} · ${lookCfg.thread ?? 'her own Thread'}`;
       }
     }, 250);
     return () => {
@@ -3577,6 +3685,63 @@ export function VfxLab() {
           <Btn onClick={() => rt()?.setVariants(null)} title="Restart with the default techniques">
             No variants
           </Btn>
+        </Group>
+        <Group title="Phase 4g · Keepsakes">
+          <p className="w-full text-[10px] text-muted">
+            What the Weaver wears in the fight (the profile&apos;s look), and every keepsake side by
+            side on this floor, in this colour vision.
+          </p>
+          <label className="flex w-full items-center justify-between gap-2">
+            Robe
+            <select
+              className="bg-ink-800"
+              value={robe ?? ''}
+              onChange={(e) => {
+                const id = e.target.value || null;
+                setRobe(id);
+                rt()?.setLook({ robe: id, thread: threadLook });
+              }}
+            >
+              <option value="">her own</option>
+              {CONTENT.cosmetics.robes.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex w-full items-center justify-between gap-2">
+            Thread look
+            <select
+              className="bg-ink-800"
+              value={threadLook ?? ''}
+              onChange={(e) => {
+                const id = e.target.value || null;
+                setThreadLook(id);
+                rt()?.setLook({ robe, thread: id });
+              }}
+            >
+              <option value="">her own</option>
+              {CONTENT.cosmetics.threads.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <Btn
+            onClick={() => rt()?.lineup('robes')}
+            title="Her own robe and each robe in the Atelier, side by side (the fight waits)"
+          >
+            Lineup: robes
+          </Btn>
+          <Btn
+            onClick={() => rt()?.lineup('threads')}
+            title="Her own Thread and each Thread look, a row each: Mend on the left, Empower on the right"
+          >
+            Lineup: Threads
+          </Btn>
+          <Btn onClick={() => rt()?.lineup(null)}>Back to the fight</Btn>
         </Group>
         <Group title="Phase 2 · Chords">
           <Btn onClick={() => rt()?.plant(5, -4)} title="{t:'plant'} ahead-right of the Weaver">
