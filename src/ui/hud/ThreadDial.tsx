@@ -42,10 +42,8 @@ export function ThreadDial({ view }: { view: ThreadDialView }) {
   const ring = state === 'snapped' ? LETHAL : look.color;
   const from = swap && swap.from !== view.mode ? threadModeLook(swap.from) : null;
   const n = swap?.n ?? 0;
-  const glyph = (l: typeof look): CSSProperties => ({
-    color: l.color,
-    filter: `drop-shadow(0 0 6px ${mix(l.color, 70)})`,
-  });
+  // No CSS filter on the glyphs: the disc's glow lights them, and the dial stays cheap to draw.
+  const glyph = (l: typeof look): CSSProperties => ({ color: l.color });
   return (
     <div
       className="pointer-events-none relative h-[4.25rem] w-[4.25rem]"

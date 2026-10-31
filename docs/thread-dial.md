@@ -64,6 +64,19 @@ None of them can cover another, however tall the bar grows. At 1280 px wide, the
 
 ![On the Martyr's run, Bearing for Kael: Bear's key lit](thread-dial/hud-bear-1280x720.jpg)
 
+## Cost
+
+The dial is static between switches: over a busy fight's four seconds, nothing in it changed. It sits beside the bar's panel rather than inside it, so the panel's backdrop blur covers no more than it did, and it uses no CSS filters. The glyph over the hero is two sprites in the overhead sprite batch: at most one more draw call.
+
+Measured in the browser under SwiftShader (this container's 4 CPUs), against the commit before. The busy fight is the perf test's: 120 dummies, a dozen enemies, the Skilled bot.
+
+| | Before | With the dial |
+|---|---|---|
+| Frames per second | 4.24 | 4.28 |
+| Sim and bot per tick | 0.63 ms | 0.65 ms |
+
+The perf e2e test's frame budget (95th percentile under 25 ms) can fail in this container with or without the dial. Its frames sometimes jump from about 10 ms to about 100 ms while the software GPU is saturated: the commit before did so in 3 of 4 rounds. That comes from the software GPU, so a real GPU shouldn't see it. `npm run sim:bench -- --check` holds the sim's real budget headless: on average 0.19 ms a tick in its busiest scenario, against 1.5.
+
 ## Checks
 
 - **tests/uiThreadDial.test.ts:** the dial's words and states, the bound key, the shared look and the stylesheet's colours, the rejections it shows.

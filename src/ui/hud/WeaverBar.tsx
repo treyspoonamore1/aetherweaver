@@ -70,22 +70,8 @@ export function WeaverBar({
       ? (w.techniques.find((t) => t.key === w.mastery!.resets) ?? null)
       : null;
   return (
-    <div
-      className="absolute bottom-5 flex flex-col gap-2 rounded-2xl border border-ink-600/70 bg-ink-900/88 px-4 pb-3 pt-3 shadow-lg shadow-black/40 backdrop-blur-sm"
-      style={{
-        left: WEAVER_BAR_LEFT,
-        width: WEAVER_BAR_WIDTH,
-        // Stasis: the bar takes the Chronomancer's steel, calm and still.
-        ...(w.stasis
-          ? {
-              borderColor: `color-mix(in srgb, ${CHRONO.color} 80%, transparent)`,
-              boxShadow: `0 0 0 1px color-mix(in srgb, ${CHRONO.light} 18%, transparent), 0 10px 28px rgb(0 0 0 / 0.45), 0 0 22px color-mix(in srgb, ${CHRONO.color} 35%, transparent)`,
-            }
-          : {}),
-      }}
-      data-testid="weaver-bar"
-      data-stasis={w.stasis || undefined}
-    >
+    // The crest sits beside the panel, not in it: the panel's backdrop blur stays its own size.
+    <div className="absolute bottom-5" style={{ left: WEAVER_BAR_LEFT, width: WEAVER_BAR_WIDTH }}>
       <div className="pointer-events-none absolute inset-x-0 bottom-full mb-2.5 flex flex-col items-center gap-3">
         {coach}
         <div className="relative">
@@ -101,45 +87,60 @@ export function WeaverBar({
           </div>
         </div>
       </div>
-      <ContributionReadout c={hud.contribution} />
-      {w.fieldSuppressed && (
-        <span className="animate-pulse-soft absolute -top-3.5 right-4 flex items-center gap-1 rounded-md border border-lethal bg-ink-900 px-2 py-0.5 text-xs font-bold text-rose-200">
-          <Icon name="mute" size={13} /> Auras silenced
-        </span>
-      )}
-      <div className="flex items-end gap-4">
-        <div className="flex w-44 shrink-0 flex-col gap-2">
-          <LifeBar weaver={w} callingId={hud.calling?.id} />
-          <SpiritBar weaver={w} />
-        </div>
-        <div className="flex flex-1 items-end justify-center">
-          {w.techniques.map((t) => (
-            <TechniqueButton
-              key={t.key}
-              technique={t}
-              silenced={w.downed}
-              buzz={buzz[t.key]}
-              brings={t.key === 'glide' ? brings : null}
-              rewind={
-                t.key === 'reel' && w.rewind && rewindTarget?.rewind
-                  ? rewindSentence(rewindTarget.name, rewindTarget.rewind)
-                  : null
+      <div
+        className="relative flex flex-col gap-2 rounded-2xl border border-ink-600/70 bg-ink-900/88 px-4 pb-3 pt-3 shadow-lg shadow-black/40 backdrop-blur-sm"
+        style={
+          // Stasis: the bar takes the Chronomancer's steel, calm and still.
+          w.stasis
+            ? {
+                borderColor: `color-mix(in srgb, ${CHRONO.color} 80%, transparent)`,
+                boxShadow: `0 0 0 1px color-mix(in srgb, ${CHRONO.light} 18%, transparent), 0 10px 28px rgb(0 0 0 / 0.45), 0 0 22px color-mix(in srgb, ${CHRONO.color} 35%, transparent)`,
               }
-              rewindSeconds={t.key === 'reel' ? (w.rewind?.seconds ?? null) : null}
-              tipOpen={tip === t.key}
-            />
-          ))}
+            : undefined
+        }
+        data-testid="weaver-bar"
+        data-stasis={w.stasis || undefined}
+      >
+        <ContributionReadout c={hud.contribution} />
+        {w.fieldSuppressed && (
+          <span className="animate-pulse-soft absolute -top-3.5 right-4 flex items-center gap-1 rounded-md border border-lethal bg-ink-900 px-2 py-0.5 text-xs font-bold text-rose-200">
+            <Icon name="mute" size={13} /> Auras silenced
+          </span>
+        )}
+        <div className="flex items-end gap-4">
+          <div className="flex w-44 shrink-0 flex-col gap-2">
+            <LifeBar weaver={w} callingId={hud.calling?.id} />
+            <SpiritBar weaver={w} />
+          </div>
+          <div className="flex flex-1 items-end justify-center">
+            {w.techniques.map((t) => (
+              <TechniqueButton
+                key={t.key}
+                technique={t}
+                silenced={w.downed}
+                buzz={buzz[t.key]}
+                brings={t.key === 'glide' ? brings : null}
+                rewind={
+                  t.key === 'reel' && w.rewind && rewindTarget?.rewind
+                    ? rewindSentence(rewindTarget.name, rewindTarget.rewind)
+                    : null
+                }
+                rewindSeconds={t.key === 'reel' ? (w.rewind?.seconds ?? null) : null}
+                tipOpen={tip === t.key}
+              />
+            ))}
+          </div>
+          <ResonanceArc weaver={w} callingId={hud.calling?.id} />
         </div>
-        <ResonanceArc weaver={w} callingId={hud.calling?.id} />
-      </div>
-      <div className="flex items-center justify-between gap-3 border-t border-ink-600/50 pt-2">
-        <ThreadStatus
-          weaver={w}
-          targetName={target?.name ?? null}
-          targetColor={target?.color}
-          beamFocus={target?.beamFocus ? (beamSong(w.chords)?.focus ?? null) : null}
-        />
-        <ChordChips weaver={w} party={hud.party} />
+        <div className="flex items-center justify-between gap-3 border-t border-ink-600/50 pt-2">
+          <ThreadStatus
+            weaver={w}
+            targetName={target?.name ?? null}
+            targetColor={target?.color}
+            beamFocus={target?.beamFocus ? (beamSong(w.chords)?.focus ?? null) : null}
+          />
+          <ChordChips weaver={w} party={hud.party} />
+        </div>
       </div>
     </div>
   );
