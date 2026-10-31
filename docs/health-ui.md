@@ -80,7 +80,7 @@ Settings → **Health and the HUD** (settings v4; older settings get these defau
 | Low-life sound | On | On · Off |
 | Party frame size | 100% | 75–150% |
 | Party frames | Stacked | Stacked · Side by side |
-| Put the frames back | | Moves them to the default place |
+| Reset frame position | | Moves them back to the default place |
 
 Moving the frames is Edit HUD layout's, from the pause menu.
 

@@ -235,7 +235,7 @@ function HudSettings() {
           disabled={hud.frames.at === null}
           data-testid="frames-reset-place"
         >
-          Put the frames back
+          Reset frame position
         </Button>
         <p className="min-w-0 flex-1 text-xs text-muted">
           Move them anywhere in a fight: pause, then Edit HUD layout.
