@@ -9,7 +9,10 @@ const MIN_SHOW_MS = 2500;
 const MAX_SHOW_MS = 9000;
 const COOLDOWN_MS = 3500;
 
-/** One contextual hint at a time, shown ≤ 3 times each, respecting settings.hints. */
+/**
+ * One contextual hint at a time, shown ≤ 3 times each, respecting settings.hints. The Weaver bar
+ * places it, over the Thread dial, so it never covers the dial however tall the bar grows.
+ */
 export function CoachHints({ hud, force }: { hud: HudSnapshot; force?: boolean }) {
   const enabled = useSettings((s) => s.settings.hints);
   const [shown, setShown] = useState<Hint | null>(null);
@@ -51,11 +54,7 @@ export function CoachHints({ hud, force }: { hud: HudSnapshot; force?: boolean }
 
   if (!shown) return null;
   return (
-    <div
-      className="absolute left-1/2 flex -translate-x-1/2 justify-center"
-      style={{ bottom: '15rem' }}
-      role="status"
-    >
+    <div className="flex justify-center" role="status">
       <p
         key={shown.id}
         className="anim-rise flex max-w-xl items-start gap-2.5 rounded-xl border border-gold-500/60 bg-ink-900/92 px-4 py-2.5 text-sm leading-relaxed shadow-xl shadow-black/60"

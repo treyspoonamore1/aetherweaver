@@ -135,7 +135,7 @@ The original already reached for music words: Chorus, Resonance, Symphony, Casca
 
 - Life on the left. Spirit on the right, with the reserved portion hatched and labelled.
 - Techniques with cooldown sweeps, cost and charges.
-- Thread mode indicator.
+- Thread mode indicator. *Since 2026-10-31: the Thread dial over the bar's middle, and a glyph over the threaded hero ([docs/thread-dial.md](../thread-dial.md)).*
 - The Resonance arc with 4 segments, and the Crescendo key that blazes when full.
 
 **Boss bar** (top-centre): HP with phase ticks; a **cast bar that names the ability and shows its answer glyphs**; enrage timer.

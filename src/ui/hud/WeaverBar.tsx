@@ -1,4 +1,4 @@
-import { useEffect, useRef, type CSSProperties } from 'react';
+import { useEffect, useRef, type CSSProperties, type ReactNode } from 'react';
 import { fmt } from '../kit/format';
 import { Icon } from '../kit/Icon';
 import { KeyCap } from '../kit/KeyCap';
@@ -7,8 +7,11 @@ import { keyLabel } from '../../input/keyLabel';
 import type { AuraHud, ChordHud, HeroHud, HudSnapshot, TechniqueHud, WeaverHud } from '../store';
 import { compact, splitContribution } from '../contribution';
 import { mult } from '../screens/chordModel';
-import type { ContributionHud } from '../store';
+import type { Callout, ContributionHud } from '../store';
 import { WEAVER_BAR_LEFT, WEAVER_BAR_WIDTH, bindingCode, bindingLabel } from './labels';
+import { Toast } from './Callouts';
+import { ThreadDial } from './ThreadDial';
+import { switchKeyLabel, threadDialView, threadModeLook } from './threadMode';
 import { beamSong, beamTitle } from './songs';
 import { CallingGlyph, callingLook } from '../kit/CallingGlyph';
 import { AstrolabeGlyph } from '../kit/AstrolabeGlyph';
@@ -36,16 +39,26 @@ const AURAS = '#c4b5fd';
 /**
  * Weaver bar (docs/plan/04 §5.2, bottom-centre): resources, techniques, Resonance, Thread.
  * `buzz`: the latest rejection per technique slot (a callout id), to shake that slot.
+ *
+ * Its crest, stacked over its middle, holds the Thread dial (docs/thread-dial.md) with the
+ * rejections beside it, and the coach hint above both: they rise with the bar however tall its
+ * rows grow, so none of them covers another.
  */
 export function WeaverBar({
   hud,
   buzz = {},
   tip = null,
+  rejects = [],
+  coach = null,
 }: {
   hud: HudSnapshot;
   buzz?: Partial<Record<TechniqueHud['key'], number>>;
   /** UI lab: a technique's tooltip shown (its slot). */
   tip?: TechniqueHud['key'] | null;
+  /** The rejections to show (`rejectCallouts`), beside the dial. */
+  rejects?: readonly Callout[];
+  /** The coach hint (CoachHints), over the dial. */
+  coach?: ReactNode;
 }) {
   const w = hud.weaver;
   const target = w.threadSlot === null ? null : hud.party.find((p) => p.slot === w.threadSlot);
@@ -73,6 +86,21 @@ export function WeaverBar({
       data-testid="weaver-bar"
       data-stasis={w.stasis || undefined}
     >
+      <div className="pointer-events-none absolute inset-x-0 bottom-full mb-2.5 flex flex-col items-center gap-3">
+        {coach}
+        <div className="relative">
+          <ThreadDial view={threadDialView(w, target ?? null)} />
+          <div
+            className="absolute bottom-3 left-full ml-4 flex w-max max-w-[17rem] flex-col items-start gap-1"
+            aria-live="polite"
+            data-testid="reject-toasts"
+          >
+            {rejects.map((c) => (
+              <Toast key={c.id} c={c} small />
+            ))}
+          </div>
+        </div>
+      </div>
       <ContributionReadout c={hud.contribution} />
       {w.fieldSuppressed && (
         <span className="animate-pulse-soft absolute -top-3.5 right-4 flex items-center gap-1 rounded-md border border-lethal bg-ink-900 px-2 py-0.5 text-xs font-bold text-rose-200">
@@ -783,18 +811,6 @@ function ContributionReadout({ c }: { c: ContributionHud }) {
   );
 }
 
-/** How each Thread mode reads: Mend's heal colour, Empower's gold, Bear in the Martyr's blood. */
-function threadLook(mode: WeaverHud['threadMode']): {
-  color: string;
-  icon: 'mend' | 'empower' | 'bear';
-  label: string;
-} {
-  if (mode === 'bear') return { color: callingLook('martyr').color, icon: 'bear', label: 'Bear' };
-  return mode === 'mend'
-    ? { color: 'var(--color-heal)', icon: 'mend', label: 'Mend' }
-    : { color: 'var(--color-amp)', icon: 'empower', label: 'Empower' };
-}
-
 function ThreadStatus({
   weaver: w,
   targetName,
@@ -807,7 +823,7 @@ function ThreadStatus({
   /** The beam song's strength on the threaded hero (null: no beam song on them). */
   beamFocus: number | null;
 }) {
-  const mode = threadLook(w.threadMode);
+  const mode = threadModeLook(w.threadMode);
   const bear = w.threadMode === 'bear';
   // Bear is the Martyr's: its key shows only on her runs.
   const canBear = w.bearShare > 0 && !!bindingCode('bear');
@@ -858,7 +874,7 @@ function ThreadStatus({
           'no one (press 1–3)'
         )}
       </span>
-      <KeyCap label="RMB" />
+      <KeyCap label={switchKeyLabel()} />
       {canBear && <KeyCap label={bindingLabel('bear')} accent={bear} />}
       {w.threadLock > 0 ? (
         <span className="text-xs font-semibold text-lethal">

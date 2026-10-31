@@ -19,6 +19,7 @@ import { AstrolabeGlyph } from '../kit/AstrolabeGlyph';
 import { CONSTELLATION_LOOK } from '../kit/astrolabeLook';
 import { BOND_LOOK, heroInk } from '../kit/bondLook';
 import { heroBondTip } from '../screens/bondsModel';
+import { threadModeLook } from './threadMode';
 
 /** The Silk's gold: the Astrolabe's Thread stars (Afterglow, Overflowing Grace). */
 const SILK = CONSTELLATION_LOOK.silk;
@@ -599,7 +600,7 @@ export function HeroFrame({
     fieldAuras: h.auras,
     echo: null,
   };
-  const threadColor = threadMode === 'mend' ? HEAL : threadMode === 'bear' ? BLOOD : AMP;
+  const threadColor = threadModeLook(threadMode).color;
   const out = h.dead;
   const down = h.downed && !out;
   // A fallen hero greys out, except the Rewind line that can stand them back up (Phase 3e).

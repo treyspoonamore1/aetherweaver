@@ -17,3 +17,8 @@ export function rejectBuzz(
   }
   return out;
 }
+
+/** The rejections to show (the latest two): the Weaver bar draws them, beside the Thread dial. */
+export function rejectCallouts(callouts: readonly Callout[]): Callout[] {
+  return callouts.filter((c) => c.kind === 'reject').slice(-2);
+}

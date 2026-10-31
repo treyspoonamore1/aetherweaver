@@ -154,6 +154,6 @@ export const KIND_LABEL = {
   boss: 'Boss',
 } as const;
 
-/** Weaver bar geometry, shared with the reject toasts that sit on top of it. */
+/** Weaver bar geometry. Its crest, over it, holds the coach hint, Thread dial and rejections. */
 export const WEAVER_BAR_WIDTH = '44rem';
 export const WEAVER_BAR_LEFT = 'max(34rem, calc(50% - 22rem))';

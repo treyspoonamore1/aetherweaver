@@ -87,9 +87,14 @@ test('real input: movement, Thread by key and frame, Mend ⇄ Empower, Ward', as
   await page.getByTestId('party-frames').getByRole('button', { name: /Vexis/ }).first().click();
   await waitTicks(page, 2);
   expect((await weaverOf(page)).threadSlot).toBe(2);
+  // The Thread dial over the Weaver bar says which mode the Thread is in, and turns on a switch.
+  await expect(page.getByTestId('thread-dial')).toHaveAttribute('data-mode', 'mend');
+  await expect(page.getByTestId('thread-dial')).toHaveAttribute('data-state', 'live');
   await page.mouse.click(640, 360, { button: 'right' });
   await waitTicks(page, 2);
   expect((await weaverOf(page)).threadMode).toBe('empower');
+  await expect(page.getByTestId('thread-dial')).toHaveAttribute('data-mode', 'empower');
+  await expect(page.getByTestId('thread-dial-plate')).toHaveText('Empower');
 
   // Ward the threaded hero: the replay records it as a normalised tech command.
   await page.keyboard.press('KeyQ');
@@ -343,6 +348,7 @@ test('Phase 3d: the Martyr — choose her in Prep, the Life budget, her HUD and 
   await page.keyboard.press('Digit1');
   await page.keyboard.press('KeyB');
   await expect(page.getByTestId('thread-mode')).toHaveAttribute('data-mode', 'bear');
+  await expect(page.getByTestId('thread-dial')).toHaveAttribute('data-mode', 'bear');
   await expect(page.getByTestId('borne')).toBeVisible();
   expect(errors).toEqual([]);
 });

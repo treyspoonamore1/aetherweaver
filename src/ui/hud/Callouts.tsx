@@ -2,7 +2,6 @@ import { useState, type CSSProperties } from 'react';
 import { Icon, type IconName } from '../kit/Icon';
 import type { Callout } from '../store';
 import { blindDecree } from '../screens/dissonanceModel';
-import { WEAVER_BAR_LEFT, WEAVER_BAR_WIDTH } from './labels';
 
 /** Fades the element out over its last 350 ms, whatever its lifetime. */
 function useLifetime(expiresAt: number): number {
@@ -95,7 +94,7 @@ function DecreeBanner({ c, blind }: { c: Callout; blind: boolean }) {
   );
 }
 
-function Toast({ c, small = false }: { c: Callout; small?: boolean }) {
+export function Toast({ c, small = false }: { c: Callout; small?: boolean }) {
   const ttl = useLifetime(c.expiresAt);
   return (
     <div
@@ -117,8 +116,9 @@ const BIG = new Set<Callout['kind']>(['perfect', 'save', 'clutch', 'response']);
 
 /**
  * Transient feedback by kind (docs/plan/04 §5.2): big banners centre-low, decrees and wave
- * toasts at the top, rejections beside the Weaver bar. Barks with a known speaker are drawn
- * by the party frames, so `barkSpeakers` lists who already has a bubble.
+ * toasts at the top. Rejections sit over the Weaver bar beside the Thread dial, which the bar
+ * draws (`rejectCallouts`). Barks with a known speaker are drawn by the party frames, so
+ * `barkSpeakers` lists who already has a bubble.
  */
 export function Callouts({
   callouts,
@@ -142,7 +142,6 @@ export function Callouts({
       ((c.kind === 'bark' || c.kind === 'call') &&
         (!c.speaker || !barkSpeakers.includes(c.speaker))),
   );
-  const rejects = callouts.filter((c) => c.kind === 'reject').slice(-2);
   return (
     <div aria-live="polite">
       <div className="absolute left-1/2 top-[42%] flex -translate-x-1/2 flex-col items-center gap-3">
@@ -175,14 +174,6 @@ export function Callouts({
       <div className="absolute left-1/2 top-[56%] flex -translate-x-1/2 flex-col items-center gap-1.5">
         {mid.slice(-2).map((c) => (
           <Toast key={c.id} c={c} />
-        ))}
-      </div>
-      <div
-        className="absolute bottom-[12.25rem] flex flex-col items-center gap-1"
-        style={{ left: WEAVER_BAR_LEFT, width: WEAVER_BAR_WIDTH }}
-      >
-        {rejects.map((c) => (
-          <Toast key={c.id} c={c} small />
         ))}
       </div>
     </div>

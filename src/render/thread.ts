@@ -35,6 +35,14 @@ const BEAD_ALPHA = 0.95;
 /** Beads fade in leaving her hand and out reaching the hero over this much of the Thread (m). */
 const BEAD_EDGE = 0.35;
 
+/**
+ * The mode glyph over the threaded hero (docs/thread-dial.md): its half-size (m), its lift over
+ * the head (m, under a call's bubble), and how long a switch's pop lasts (s).
+ */
+const GLYPH_SIZE = 0.4;
+const GLYPH_LIFT = 0.92;
+const GLYPH_POP = 0.35;
+
 /** Where the Thread leaves from: the Weaver as drawn (her hand is found from her pose). */
 export interface ThreadFrom {
   x: number;
@@ -142,6 +150,15 @@ export class ThreadView {
   private beadFlow = 0;
   /** Beads drawn last frame (tests, the lab). */
   beadsDrawn = 0;
+  /** The mode drawn last frame (null: none yet) and when it last switched, for the glyph's pop. */
+  private glyphMode: 'mend' | 'empower' | 'bear' | null = null;
+  private glyphAt = -10;
+  private readonly glyphCol = new THREE.Color();
+  /**
+   * The mode's glyph over the hero last frame (tests, the lab; null: none): its shape (0 Mend's
+   * plus … 1 Empower's star), how much of it is Bear's drop, and its size (it pops on a switch).
+   */
+  glyphDrawn: { morph: number; bear: number; size: number } | null = null;
 
   constructor(
     private readonly entities: Pick<EntityLayer, 'recs'>,
@@ -181,6 +198,48 @@ export class ThreadView {
   pulse(): void {
     this.pulses[this.pulseCursor] = this.now;
     this.pulseCursor = (this.pulseCursor + 1) % PULSES;
+  }
+
+  /**
+   * The mode's glyph over the threaded hero (docs/thread-dial.md), as the HUD's Thread dial
+   * shows it: Mend's plus, Empower's four-point star, Bear's drop, in the mode's colour. A switch
+   * between Mend and Empower morphs one into the other, Bear's drop fades in over it, and the
+   * glyph pops and turns as it changes. It floats just over the head, under a call's bubble.
+   */
+  private modeGlyph(
+    kit: FxKit,
+    time: number,
+    tr: ThreadTo,
+    toEmpower: boolean,
+    bearing: boolean,
+    vis: number,
+  ): void {
+    const mode = bearing ? 'bear' : toEmpower ? 'empower' : 'mend';
+    if (this.glyphMode !== null && mode !== this.glyphMode) this.glyphAt = time;
+    this.glyphMode = mode;
+    const age = time - this.glyphAt;
+    const k = age < GLYPH_POP ? age / GLYPH_POP : 1;
+    const pop = Math.sin(k * Math.PI);
+    const size = GLYPH_SIZE * (1 + 0.45 * pop) * (0.4 + 0.6 * vis);
+    const y = tr.height + GLYPH_LIFT + tr.y + 0.05 * Math.sin(time * 2.4);
+    const turn = (1 - k) * 0.8;
+    const B = this.bear;
+    const a = 0.95 * vis;
+    this.glyphCol.copy(C.mend).lerp(C.empower, this.mix);
+    kit.spritesTop.push(
+      tr.x,
+      y,
+      tr.z,
+      size,
+      SPRITE.mode,
+      this.glyphCol,
+      a * (1 - B),
+      turn,
+      1,
+      this.mix,
+    );
+    kit.spritesTop.push(tr.x, y, tr.z, size, SPRITE.mode, C.bear, a * B, 0, 1, 2);
+    this.glyphDrawn = { morph: this.mix, bear: B, size };
   }
 
   /**
@@ -269,6 +328,7 @@ export class ThreadView {
     }
     if (!w || !wr || !tr) {
       this.hasPath = false;
+      this.glyphDrawn = null;
       return;
     }
     const toEmpower =
@@ -510,6 +570,7 @@ export class ThreadView {
       this.col,
       (0.55 + 0.2 * L) * vis,
     );
+    this.modeGlyph(kit, time, tr, toEmpower, bearing, vis);
     // Mend: teal motes drift up off the hero. Empower: gold sparks. Bear: embers sink.
     if (Math.random() < dt * 10 * kit.particles.density) {
       const sink = B > 0.5;

@@ -131,6 +131,7 @@ import { BondRankUpCard } from '../screens/BondsParts';
 import { bondRanks } from '../screens/bondsModel';
 import { labSetSolo, labSetTalent, mockBonds, mockBondsHud, mockRunBonds, sceneRun } from './mock';
 import { labSetTechnique, mockVariantsHud, techniquesRun } from './mock';
+import { DialCycle, DialGallery } from './threadDialLab';
 import { fitTechniques, noVariants, variantsConfig, type Techniques } from '../../meta/variants';
 import type { TechniqueKey } from '../types';
 import { SpawnPalette } from '../screens/TrainingParts';
@@ -1181,6 +1182,38 @@ const VIEWS: ViewDef[] = [
     w: 1280,
     h: 720,
     render: () => <HudStage scenario="sandbox" coach={false} />,
+  },
+  {
+    id: 'hud-dial',
+    group: 'Combat HUD',
+    label: 'Thread dial: Mend ⇄ Empower, switching',
+    w: 1280,
+    h: 720,
+    render: () => (
+      <World>
+        <DialCycle />
+      </World>
+    ),
+  },
+  {
+    id: 'hud-dial-martyr',
+    group: 'Combat HUD',
+    label: 'Thread dial: Mend → Empower → Bear (the Martyr)',
+    w: 1280,
+    h: 720,
+    render: () => (
+      <World>
+        <DialCycle martyr />
+      </World>
+    ),
+  },
+  {
+    id: 'hud-dial-states',
+    group: 'Combat HUD',
+    label: 'Thread dial: every state',
+    w: 1280,
+    h: 720,
+    render: () => <DialGallery />,
   },
   {
     id: 'howto',

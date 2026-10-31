@@ -18,6 +18,12 @@ export const SPRITE = {
    * clockwise from twelve and its short hand at a twelfth of that.
    */
   clock: 8,
+  /**
+   * The Thread's mode over the threaded hero (docs/thread-dial.md): Mend's plus, its arms tapering
+   * into Empower's four-point star as `param` goes 0 → 1 (so a switch morphs one into the other);
+   * `param` 2 is Bear's drop. A crisp glyph in a soft halo.
+   */
+  mode: 9,
 } as const;
 
 const vertex = /* glsl */ `
@@ -94,6 +100,25 @@ void main() {
     float hand2 = 1.0 - smoothstep(0.05, 0.09, length(vUv - h2 * t2));
     float hub = 1.0 - smoothstep(0.07, 0.11, d);
     a = (ring + ticks * 0.8 + max(max(hand1, hand2), hub) + exp(-d * d * 5.0) * 0.12) * (1.0 - smoothstep(0.95, 1.0, d));
+  } else if (style == 9) {
+    // The Thread's mode: Mend's plus tapering into Empower's star (param 0 → 1); 2: Bear's drop.
+    float e;
+    if (vSize.w < 1.5) {
+      float m = clamp(vSize.w, 0.0, 1.0);
+      vec2 q = abs(vUv);
+      // Each arm's half-width along it: even for the plus, narrowing to a point for the star.
+      float wx = mix(0.19, 0.38 * (1.0 - q.x / 0.82), m);
+      float wy = mix(0.19, 0.38 * (1.0 - q.y / 0.82), m);
+      e = min(max(q.y - wx, q.x - 0.82), max(q.x - wy, q.y - 0.82));
+    } else {
+      // A drop: a round body, its top drawn up to a point.
+      float body = length(vUv - vec2(0.0, -0.22)) - 0.46;
+      float tipW = 0.46 * clamp((0.82 - vUv.y) / 1.04, 0.0, 1.0);
+      float tip = vUv.y > -0.22 ? max(abs(vUv.x) - tipW, vUv.y - 0.82) : 1.0;
+      e = min(body, tip);
+    }
+    a = (1.0 - smoothstep(-0.07, 0.07, e)) + exp(-d * d * 3.2) * 0.3;
+    a *= 1.0 - smoothstep(0.95, 1.0, d);
   } else {
     // Sigil: a rotating star in a ring (Cue / leitmotif).
     float ang = atan(vUv.y, vUv.x) + uTime * 1.2;

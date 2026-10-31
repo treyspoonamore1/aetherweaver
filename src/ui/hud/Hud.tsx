@@ -9,7 +9,7 @@ import type { WheelView } from '../../input/wheel';
 import { countHudCommit } from '../perfCounters';
 import { useUi, type Callout, type HudSnapshot } from '../store';
 import type { TechniqueKey } from '../types';
-import { rejectBuzz } from './buzz';
+import { rejectBuzz, rejectCallouts } from './buzz';
 import { callingLook } from '../kit/callingLook';
 import { useRun } from '../../app/runStore';
 import type { ActiveBoon } from '../../meta/types';
@@ -220,8 +220,13 @@ export function HudView({
         bondRanks={bondRanks}
         tipOpen={frameTip}
       />
-      <WeaverBar hud={hud} buzz={rejectBuzz(callouts)} tip={techniqueTip} />
-      {coach && !sandbox && <CoachHints hud={hud} force={forceCoach} />}
+      <WeaverBar
+        hud={hud}
+        buzz={rejectBuzz(callouts)}
+        tip={techniqueTip}
+        rejects={rejectCallouts(callouts)}
+        coach={coach && !sandbox ? <CoachHints hud={hud} force={forceCoach} /> : null}
+      />
       {keyHints && (
         <KeyHints
           bear={(hud.calling?.bearShare ?? 0) > 0}
