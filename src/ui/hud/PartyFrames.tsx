@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { getRuntime } from '../../app/runtimeRegistry';
+import { healthLevel } from '../../app/healthLevels';
 import { auraDef } from '../../content';
 import type { Action } from '../../input/actions';
 import type { PartySlot } from '../../sim';
@@ -20,6 +22,9 @@ import { CONSTELLATION_LOOK } from '../kit/astrolabeLook';
 import { BOND_LOOK, heroInk } from '../kit/bondLook';
 import { heroBondTip } from '../screens/bondsModel';
 import { threadModeLook } from './threadMode';
+import { DEFAULT_HUD, type FramesLayout } from '../../app/settings';
+import { frameSide, framesPlaceStyle, type FrameSide } from './framesLayout';
+import { frameState, lifeColor, lifeLabels, type HealthText } from './healthModel';
 
 /** The Silk's gold: the Astrolabe's Thread stars (Afterglow, Overflowing Grace). */
 const SILK = CONSTELLATION_LOOK.silk;
@@ -223,6 +228,8 @@ export function PartyFrames({
   blind = false,
   bondRanks = null,
   tipOpen = null,
+  layout = DEFAULT_HUD.frames,
+  healthText = DEFAULT_HUD.healthText,
 }: {
   party: HeroHud[];
   threadMode: ThreadMode;
@@ -242,38 +249,80 @@ export function PartyFrames({
   bondRanks?: Readonly<Record<string, number>> | null;
   /** UI lab: this hero's frame tooltip shown (a hero id). */
   tipOpen?: string | null;
+  /**
+   * Where the frames sit, how big, and which way (docs/health-ui.md): the player's layout, or
+   * the one being edited. Default: bottom left, stacked.
+   */
+  layout?: FramesLayout;
+  /** The frames' big number: life missing, percent, or life left (Settings). */
+  healthText?: HealthText;
 }) {
   const beam = beamSong(chords);
+  const side = frameSide(layout);
+  const row = layout.orientation === 'horizontal';
+  // Pinned to the bottom, a row lines its frames up along the bottom (they grow upward).
+  const align = row && (layout.at?.corner ?? 'bl')[0] === 'b' ? 'items-end' : 'items-start';
   return (
     <div
-      className="pointer-events-auto absolute bottom-5 left-4 flex w-[19rem] flex-col gap-2"
+      // Over the other panels: wherever the player puts them, they stay seen and clickable.
+      className="pointer-events-auto absolute z-[15]"
+      style={framesPlaceStyle(layout.at)}
       data-testid="party-frames"
+      data-orientation={layout.orientation}
       role="group"
       aria-label="Party"
     >
-      {party.map((h) => {
-        const rank = bondRanks?.[h.defId] ?? null;
-        return (
-          <div key={h.id} className="group/frame relative">
-            <HeroFrame
-              hero={h}
-              threadMode={threadMode}
-              songs={heroSongs(h, chords)}
-              beamColors={beam?.auras.map((a) => a.color) ?? []}
-              calling={calling}
-              rewind={rewind}
-              blind={blind}
-              bondRank={rank}
-              tipId={`frame-tip-${h.slot}`}
-            />
-            <Bark hero={h} callouts={barks} />
-            <FrameTip hero={h} rank={rank} id={`frame-tip-${h.slot}`} open={tipOpen === h.defId} />
-          </div>
-        );
-      })}
+      <div
+        className={`flex gap-2 ${row ? `flex-row ${align}` : 'w-[19rem] flex-col'}`}
+        style={layout.scale !== 1 ? { zoom: layout.scale } : undefined}
+      >
+        {party.map((h) => {
+          const rank = bondRanks?.[h.defId] ?? null;
+          return (
+            <div key={h.id} className={`group/frame relative ${row ? 'w-[19rem]' : ''}`}>
+              <HeroFrame
+                hero={h}
+                threadMode={threadMode}
+                songs={heroSongs(h, chords)}
+                beamColors={beam?.auras.map((a) => a.color) ?? []}
+                calling={calling}
+                rewind={rewind}
+                blind={blind}
+                bondRank={rank}
+                tipId={`frame-tip-${h.slot}`}
+                healthText={healthText}
+              />
+              <Bark hero={h} callouts={barks} side={side} />
+              <FrameTip
+                hero={h}
+                rank={rank}
+                id={`frame-tip-${h.slot}`}
+                open={tipOpen === h.defId}
+                side={side}
+              />
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
+
+/** Where a frame's tooltip opens, by the frames' side (toward the middle of the screen). */
+const TIP_SIDE: Record<FrameSide, string> = {
+  right: 'bottom-0 left-full ml-3',
+  left: 'bottom-0 right-full mr-3',
+  above: 'bottom-full left-0 mb-3',
+  below: 'top-full left-0 mt-3',
+};
+
+/** Where a bark's bubble opens, by the frames' side, its tail toward the frame. */
+const BARK_SIDE: Record<FrameSide, string> = {
+  right: 'left-full top-1/2 ml-3 -translate-y-1/2 rounded-bl-sm',
+  left: 'right-full top-1/2 mr-3 -translate-y-1/2 rounded-br-sm',
+  above: 'bottom-full left-3 mb-2 rounded-bl-sm',
+  below: 'top-full left-3 mt-2 rounded-tl-sm',
+};
 
 /**
  * Phase 4e, a frame's tooltip (pointing at the frame a moment, or focusing it): the hero's Bond
@@ -285,18 +334,20 @@ function FrameTip({
   rank,
   id,
   open,
+  side = 'right',
 }: {
   hero: HeroHud;
   rank: number | null;
   id: string;
   open: boolean;
+  side?: FrameSide;
 }) {
   const tip = heroBondTip(h.defId, h.talents, h.soloId, rank);
   return (
     <div
       id={id}
       role="tooltip"
-      className={`pointer-events-none absolute bottom-0 left-full z-30 ml-3 w-[23rem] rounded-xl border border-gold-500/50 bg-ink-900/97 p-3 text-left shadow-2xl shadow-black/70 transition-opacity ${open ? 'visible opacity-100' : 'invisible opacity-0 group-focus-within/frame:visible group-focus-within/frame:opacity-100 group-hover/frame:visible group-hover/frame:opacity-100 group-hover/frame:delay-500'}`}
+      className={`pointer-events-none absolute ${TIP_SIDE[side]} z-30 w-[23rem] rounded-xl border border-gold-500/50 bg-ink-900/97 p-3 text-left shadow-2xl shadow-black/70 transition-opacity ${open ? 'visible opacity-100' : 'invisible opacity-0 group-focus-within/frame:visible group-focus-within/frame:opacity-100 group-hover/frame:visible group-hover/frame:opacity-100 group-hover/frame:delay-500'}`}
       data-testid={`frame-tip-${h.defId}`}
       data-solo={h.soloId}
       data-talents={h.talents.join(' ')}
@@ -348,7 +399,15 @@ function FrameTip({
   );
 }
 
-function Bark({ hero, callouts }: { hero: HeroHud; callouts: Callout[] }) {
+function Bark({
+  hero,
+  callouts,
+  side = 'right',
+}: {
+  hero: HeroHud;
+  callouts: Callout[];
+  side?: FrameSide;
+}) {
   const bark = [...callouts]
     .reverse()
     .find((c) => (c.kind === 'bark' || c.kind === 'call') && c.speaker === hero.name);
@@ -357,7 +416,7 @@ function Bark({ hero, callouts }: { hero: HeroHud; callouts: Callout[] }) {
   return (
     <div
       key={bark.id}
-      className={`anim-toast pointer-events-none absolute left-full top-1/2 z-10 ml-3 w-[12.5rem] -translate-y-1/2 rounded-xl rounded-bl-sm border bg-ink-900/92 px-3 py-2 text-sm leading-snug shadow-lg shadow-black/50 ${call ? 'border-2' : ''}`}
+      className={`anim-toast pointer-events-none absolute ${BARK_SIDE[side]} z-10 w-[12.5rem] rounded-xl border bg-ink-900/92 px-3 py-2 text-sm leading-snug shadow-lg shadow-black/50 ${call ? 'border-2' : ''}`}
       style={{ borderColor: call ? CALL : hero.color }}
     >
       <span className="flex items-center gap-1 text-xs font-semibold" style={{ color: hero.color }}>
@@ -579,9 +638,12 @@ export function HeroFrame({
   blind = false,
   bondRank = null,
   tipId,
+  healthText = 'missing',
 }: {
   hero: HeroHud;
   threadMode: ThreadMode;
+  /** The frame's big number (Settings → Health and the HUD). */
+  healthText?: HealthText;
   songs?: HeroSongs;
   beamColors?: string[];
   calling?: { id: string; sunrise: boolean } | null;
@@ -607,15 +669,27 @@ export function HeroFrame({
   const rewindUp = down && !!rewind?.ready && h.rewind?.kind === 'revive';
   const grey = rewindUp ? 'saturate-0' : '';
   const slotKey = bindingLabel(`focus${h.slot + 1}` as Action);
+  // What the whole frame says (docs/health-ui.md): critical glows red, an ailment Chime would
+  // cleanse glows violet, out of the Weaver's reach it fades, as WoW's raid frames do.
+  const state = frameState(h, blind);
   const border = h.held
     ? HOLD
-    : h.call && !h.call.answered
-      ? CALL
-      : h.threaded
-        ? threadColor
-        : h.hovered
-          ? 'var(--color-gold-400)'
-          : undefined;
+    : state.critical
+      ? 'var(--color-lethal)'
+      : h.call && !h.call.answered
+        ? CALL
+        : state.ailing
+          ? 'var(--color-ailment)'
+          : h.threaded
+            ? threadColor
+            : h.hovered
+              ? 'var(--color-gold-400)'
+              : undefined;
+  const glow = state.critical
+    ? '0 0 0 1px var(--color-lethal), 0 0 18px color-mix(in srgb, var(--color-lethal) 45%, transparent)'
+    : state.ailing && !h.held
+      ? '0 0 0 1px var(--color-ailment), 0 0 14px color-mix(in srgb, var(--color-ailment) 38%, transparent)'
+      : undefined;
   return (
     <button
       type="button"
@@ -633,10 +707,14 @@ export function HeroFrame({
       onBlur={() => getRuntime()?.setUiHover(null)}
       className={`block w-full rounded-xl border bg-ink-900/88 px-3 py-2 text-left shadow-lg shadow-black/40 backdrop-blur-sm transition-colors hover:bg-ink-800/90 ${
         (h.lethal || h.held) && !down && !out ? 'animate-pulse-lethal' : ''
-      } ${(down && !rewindUp) || out ? 'saturate-0' : ''} ${out ? 'opacity-60' : ''}`}
+      } ${(down && !rewindUp) || out ? 'saturate-0' : ''} ${out ? 'opacity-60' : state.far ? 'opacity-[0.62]' : ''}`}
       style={{
         borderColor: border ?? (h.lethal && !down ? 'var(--color-lethal)' : 'var(--color-ink-600)'),
+        boxShadow: glow,
       }}
+      data-critical={state.critical || undefined}
+      data-ailing={state.ailing || undefined}
+      data-far={state.far || undefined}
     >
       <div className="flex items-start gap-2.5">
         <span className={grey}>
@@ -674,7 +752,7 @@ export function HeroFrame({
             <DownedBlock hero={h} rewind={rewind} />
           ) : (
             <>
-              <HpBar hero={h} rewind={rewind} />
+              <HpBar hero={h} rewind={rewind} healthText={healthText} />
               {h.held && <HeldStrip hero={h} />}
               {h.call && <CallStrip hero={h} threadMode={threadMode} />}
               <div className="mt-1 flex min-h-5 flex-wrap items-center gap-1">
@@ -797,7 +875,22 @@ function Portrait({ hero: h, bondRank = null }: { hero: HeroHud; bondRank?: numb
  * run, the life Rewind would give back is a silver ghost past the life bar (while it's ready
  * and they're its target), and the soonest hit's timer sits by the forecast.
  */
-function HpBar({ hero: h, rewind = null }: { hero: HeroHud; rewind?: RewindReady }) {
+/**
+ * A hero's life (docs/health-ui.md): taller than it was, in the colour of how much is left (soft
+ * white, then the palette's threat under half, its lethal under a quarter, as over their head),
+ * the last hit as a white trail that holds a moment and drains, shields after it, the blow that's
+ * coming as stripes, and Rewind's ghost. On it, the number a healer works from (`healthText`:
+ * the life missing by default) and the percent; under it, the exact life and what's coming.
+ */
+function HpBar({
+  hero: h,
+  rewind = null,
+  healthText = 'missing',
+}: {
+  hero: HeroHud;
+  rewind?: RewindReady;
+  healthText?: HealthText;
+}) {
   const total = h.hp + h.shield;
   const denom = Math.max(h.maxHp, total, 1);
   const pctOf = (v: number) => `${Math.max(0, Math.min(100, (v / denom) * 100))}%`;
@@ -806,6 +899,18 @@ function HpBar({ hero: h, rewind = null }: { hero: HeroHud; rewind?: RewindReady
   const r = h.rewind;
   const ghost =
     r && r.target && rewind?.ready && r.kind === 'restore' ? Math.min(r.amount, h.maxHp - h.hp) : 0;
+  const level = healthLevel(h.hp, h.maxHp);
+  // The big number only: the portrait's ring already shows a percent (the Solo's charge).
+  const labels = lifeLabels(h.hp, h.maxHp, healthText);
+  // The trail: the same width as the life, but it lingers and drains after a hit (and snaps up
+  // with a heal), so the hit just taken shows as white between them. Which way life last moved
+  // is kept from the previous render (React's pattern for it: state set while rendering).
+  const [prev, setPrev] = useState(h.hp);
+  const [falling, setFalling] = useState(false);
+  if (h.hp !== prev) {
+    setPrev(h.hp);
+    setFalling(h.hp < prev - 0.5);
+  }
   return (
     <div className="mt-1.5">
       <div
@@ -815,11 +920,21 @@ function HpBar({ hero: h, rewind = null }: { hero: HeroHud; rewind?: RewindReady
         aria-valuemax={h.maxHp}
         aria-valuenow={Math.round(h.hp)}
         aria-valuetext={`${fmt(h.hp)} of ${fmt(h.maxHp)}${h.shield > 0 ? `, ${fmt(h.shield)} shield` : ''}${h.incoming > 0 ? `, ${fmt(h.incoming)} incoming${h.lethal ? ', lethal' : ''}${h.lands ? `, landing in ${h.lands.in.toFixed(1)} seconds` : ''}` : ''}`}
-        className="relative h-4 overflow-hidden rounded-full bg-ink-700"
+        className="relative h-[1.375rem] overflow-hidden rounded-md bg-ink-950/90 shadow-[inset_0_0_0_1px_rgb(255_255_255/0.07)]"
+        data-testid="hp-bar"
+        data-level={level}
       >
         <div
-          className="absolute inset-y-0 left-0 transition-[width] duration-150 ease-linear"
-          style={{ width: pctOf(h.hp), background: HEAL }}
+          className="absolute inset-y-0 left-0 bg-white/90"
+          style={{
+            width: pctOf(h.hp),
+            transition: falling ? 'width 0.55s ease-in 0.4s' : 'width 0.15s linear',
+          }}
+          data-testid="hp-trail"
+        />
+        <div
+          className="absolute inset-y-0 left-0 transition-[width,background-color] duration-150 ease-linear"
+          style={{ width: pctOf(h.hp), background: lifeColor(level) }}
         />
         {h.shield > 0 && (
           <div
@@ -852,9 +967,18 @@ function HpBar({ hero: h, rewind = null }: { hero: HeroHud; rewind?: RewindReady
             data-testid="rewind-ghost"
           />
         )}
+        {labels.big && (
+          // On a dark tag, so it reads over any colour of life.
+          <span
+            className="pointer-events-none absolute right-1 top-1/2 -translate-y-1/2 rounded bg-ink-950/85 px-1.5 py-px font-mono text-[0.8125rem] font-bold leading-tight text-white"
+            data-testid="hp-big"
+          >
+            {labels.big}
+          </span>
+        )}
       </div>
       <div className="mt-0.5 flex items-center justify-between gap-2 font-mono text-xs">
-        <span className="text-muted">
+        <span className="text-text/75">
           {fmt(h.hp)} / {fmt(h.maxHp)}
           {h.shield > 0 && (
             <span className="ml-1.5" style={{ color: SHIELD }}>

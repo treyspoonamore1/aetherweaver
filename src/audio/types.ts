@@ -232,6 +232,11 @@ export interface AudioDirector {
    */
   playUi(sound: UiSound, calling?: string | null, detail?: UiSoundDetail): void;
   setVolumes(volumes: Volumes): void;
+  /**
+   * Additive (docs/health-ui.md): the low-life alert, a soft cue as a hero falls under a quarter
+   * of their life (Settings → Health and the HUD). On by default; absent on stand-ins.
+   */
+  setLowLifeAlert?(on: boolean): void;
   /** Stops combat layers (leaving combat); music keeps playing per mood. */
   stopCombat(): void;
   dispose(): void;

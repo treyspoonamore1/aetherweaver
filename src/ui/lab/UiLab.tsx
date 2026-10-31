@@ -132,6 +132,7 @@ import { bondRanks } from '../screens/bondsModel';
 import { labSetSolo, labSetTalent, mockBonds, mockBondsHud, mockRunBonds, sceneRun } from './mock';
 import { labSetTechnique, mockVariantsHud, techniquesRun } from './mock';
 import { DialCycle, DialGallery } from './threadDialLab';
+import { EditStage, LayoutStage } from './healthLab';
 import { fitTechniques, noVariants, variantsConfig, type Techniques } from '../../meta/variants';
 import type { TechniqueKey } from '../types';
 import { SpawnPalette } from '../screens/TrainingParts';
@@ -1204,6 +1205,50 @@ const VIEWS: ViewDef[] = [
     render: () => (
       <World>
         <DialCycle martyr />
+      </World>
+    ),
+  },
+  {
+    id: 'hud-layout-edit',
+    group: 'Combat HUD',
+    label: 'Edit HUD layout: drag the party frames, size them, turn them',
+    w: 1280,
+    h: 720,
+    render: () => (
+      <World>
+        <EditStage />
+      </World>
+    ),
+  },
+  {
+    id: 'hud-frames-row',
+    group: 'Combat HUD',
+    label: 'Party frames side by side, centred under the fight',
+    w: 1280,
+    h: 720,
+    render: () => (
+      <World>
+        <LayoutStage
+          layout={{
+            at: { x: 0.5, y: 0.6, corner: 'bc' },
+            scale: 0.85,
+            orientation: 'horizontal',
+          }}
+        />
+      </World>
+    ),
+  },
+  {
+    id: 'hud-frames-right',
+    group: 'Combat HUD',
+    label: 'Party frames on the right, larger',
+    w: 1280,
+    h: 720,
+    render: () => (
+      <World>
+        <LayoutStage
+          layout={{ at: { x: 0.985, y: 0.16, corner: 'tr' }, scale: 1.15, orientation: 'vertical' }}
+        />
       </World>
     ),
   },

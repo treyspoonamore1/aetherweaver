@@ -1,5 +1,6 @@
 /**
  * CONTRACT v4 — player settings (docs/plan/04 §9). Persisted per device in localStorage.
+ * Version 4 adds the HUD's layout and health read-outs (docs/health-ui.md).
  * Assists feed the sim config (and are stamped into replays); the rest is presentation.
  * Older saved settings are migrated, never thrown away.
  */
@@ -18,8 +19,52 @@ const AssistsSchema = z.object({
   autonomy: z.boolean(),
 });
 
+/**
+ * Where the party frames sit (docs/health-ui.md): the screen corner nearest them is pinned at
+ * (`x`, `y`), shares of the screen's width and height, so they keep their place at any
+ * resolution and grow away from the edge they're pinned to. Null: the default place (bottom left).
+ */
+const FramesPlaceSchema = z.object({
+  x: z.number().min(0).max(1),
+  y: z.number().min(0).max(1),
+  /**
+   * The frames' point pinned there: top or bottom, then left, right or centre (`c`: their middle
+   * at `x`, for frames centred under the fight). The one nearest the screen's edges.
+   */
+  corner: z.enum(['tl', 'tc', 'tr', 'bl', 'bc', 'br']),
+});
+export type FramesPlace = z.infer<typeof FramesPlaceSchema>;
+
+export const FramesLayoutSchema = z.object({
+  at: FramesPlaceSchema.nullable(),
+  /** Their size, over the default. */
+  scale: z.number().min(0.75).max(1.5),
+  /** Stacked one above another (the default) or side by side. */
+  orientation: z.enum(['vertical', 'horizontal']),
+});
+export type FramesLayout = z.infer<typeof FramesLayoutSchema>;
+
+/** The fight's health read-outs and the HUD's layout (docs/health-ui.md). */
+const HudSchema = z.object({
+  frames: FramesLayoutSchema,
+  /** Bars over the heroes: always, only while they're hurt, or none. */
+  allyBars: z.enum(['always', 'hurt', 'off']),
+  /** The party frames' big number: the life missing, the percent left, or the life left. */
+  healthText: z.enum(['missing', 'percent', 'current']),
+  /** A soft sound when a hero falls under a quarter of their life. */
+  lowHealthSound: z.boolean(),
+});
+export type HudSettings = z.infer<typeof HudSchema>;
+
+export const DEFAULT_HUD: HudSettings = {
+  frames: { at: null, scale: 1, orientation: 'vertical' },
+  allyBars: 'always',
+  healthText: 'missing',
+  lowHealthSound: true,
+};
+
 export const SettingsSchema = z.object({
-  version: z.literal(3),
+  version: z.literal(4),
   volumes: z.object({ master: Volume, music: Volume, sfx: Volume, ui: Volume }),
   /** 0 = off … 1 = full trauma shake. */
   screenShake: z.number().min(0).max(1),
@@ -40,11 +85,12 @@ export const SettingsSchema = z.object({
   assists: AssistsSchema,
   /** Skip the unlocks: every song, aura and ornament from the first run (meta/profile.ts). */
   unlockAll: z.boolean(),
+  hud: HudSchema,
 });
 export type Settings = z.infer<typeof SettingsSchema>;
 
 export const DEFAULT_SETTINGS: Settings = {
-  version: 3,
+  version: 4,
   volumes: { master: 0.8, music: 0.6, sfx: 0.9, ui: 0.7 },
   screenShake: 1,
   flashes: 1,
@@ -55,10 +101,16 @@ export const DEFAULT_SETTINGS: Settings = {
   bindings: {},
   assists: { perfectWindowBonus: 0, telegraphLead: 1, autonomy: false },
   unlockAll: false,
+  hud: DEFAULT_HUD,
 };
 
+/** Settings as Phase 4 saved them (no HUD settings yet). */
+const SettingsV3Schema = SettingsSchema.omit({ version: true, hud: true }).extend({
+  version: z.literal(3),
+});
+
 /** Settings as Phase 2 saved them (no unlocks yet). */
-const SettingsV2Schema = SettingsSchema.omit({ version: true, unlockAll: true }).extend({
+const SettingsV2Schema = SettingsV3Schema.omit({ version: true, unlockAll: true }).extend({
   version: z.literal(2),
 });
 
@@ -77,8 +129,10 @@ const SettingsV1Schema = z.object({
 export function migrateSettings(raw: unknown): Settings | null {
   const current = SettingsSchema.safeParse(raw);
   if (current.success) return current.data;
+  const v3 = SettingsV3Schema.safeParse(raw);
+  if (v3.success) return { ...v3.data, version: 4, hud: DEFAULT_HUD };
   const v2 = SettingsV2Schema.safeParse(raw);
-  if (v2.success) return { ...v2.data, version: 3, unlockAll: false };
+  if (v2.success) return { ...v2.data, version: 4, unlockAll: false, hud: DEFAULT_HUD };
   const v1 = SettingsV1Schema.safeParse(raw);
   if (v1.success) {
     return {

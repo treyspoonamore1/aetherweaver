@@ -3,7 +3,12 @@ import { DEMO } from '../../app/demo';
 import { startDemoOver } from '../../app/demoChoice';
 import { useProfile } from '../../app/profileStore';
 import { getAudio } from '../../audio';
-import { useSettings, type Settings } from '../../app/settings';
+import {
+  useSettings,
+  type FramesLayout,
+  type HudSettings as HudSettingsShape,
+  type Settings,
+} from '../../app/settings';
 import {
   COLOR_VISIONS,
   COLOR_VISION_LABELS,
@@ -140,6 +145,9 @@ export function SettingsPanel({ compact = false }: { compact?: boolean }) {
           Assists never block anything. They show as a small badge on the run summary.
         </p>
       </Section>
+      <Section title="Health and the HUD">
+        <HudSettings />
+      </Section>
       <Section title="Accessibility">
         <AccessibilitySettings />
       </Section>
@@ -159,6 +167,81 @@ export function SettingsPanel({ compact = false }: { compact?: boolean }) {
         </Button>
       </div>
     </div>
+  );
+}
+
+/**
+ * The fight's health read-outs and the party frames' layout (docs/health-ui.md): the bars over
+ * the heroes, the frames' big number, the low-health sound; the frames' size and direction.
+ * Moving the frames is Edit HUD layout's, from the pause menu.
+ */
+function HudSettings() {
+  const hud = useSettings((s) => s.settings.hud);
+  const update = useSettings((s) => s.update);
+  const set = (patch: Partial<HudSettingsShape>) =>
+    update((d) => ({ ...d, hud: { ...d.hud, ...patch } }));
+  const frames = (patch: Partial<FramesLayout>) => set({ frames: { ...hud.frames, ...patch } });
+  return (
+    <>
+      <Segmented
+        label="Bars over the heroes"
+        hint="Their life over their heads, coloured by how much is left."
+        value={hud.allyBars}
+        options={[
+          { value: 'always', label: 'Always' },
+          { value: 'hurt', label: 'When hurt' },
+          { value: 'off', label: 'Off' },
+        ]}
+        onChange={(v) => set({ allyBars: v })}
+      />
+      <Segmented
+        label="Party frames show"
+        hint="The big number on each frame."
+        value={hud.healthText}
+        options={[
+          { value: 'missing', label: 'Life missing' },
+          { value: 'percent', label: 'Percent' },
+          { value: 'current', label: 'Life left' },
+        ]}
+        onChange={(v) => set({ healthText: v })}
+      />
+      <Toggle
+        label="Low-life sound"
+        hint="A soft tone when a hero falls under a quarter of their life."
+        checked={hud.lowHealthSound}
+        onChange={(v) => set({ lowHealthSound: v })}
+      />
+      <Slider
+        label="Party frame size"
+        value={hud.frames.scale}
+        min={0.75}
+        max={1.5}
+        step={0.05}
+        onChange={(v) => frames({ scale: v })}
+      />
+      <Segmented
+        label="Party frames"
+        value={hud.frames.orientation}
+        options={[
+          { value: 'vertical', label: 'Stacked' },
+          { value: 'horizontal', label: 'Side by side' },
+        ]}
+        onChange={(v) => frames({ orientation: v })}
+      />
+      <div className="flex flex-wrap items-center gap-3">
+        <Button
+          size="sm"
+          onClick={() => frames({ at: null })}
+          disabled={hud.frames.at === null}
+          data-testid="frames-reset-place"
+        >
+          Put the frames back
+        </Button>
+        <p className="min-w-0 flex-1 text-xs text-muted">
+          Move them anywhere in a fight: pause, then Edit HUD layout.
+        </p>
+      </div>
+    </>
   );
 }
 

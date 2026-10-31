@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from 'react';
 import { getRuntime } from '../../app/runtimeRegistry';
 import { useProfile } from '../../app/profileStore';
-import { useSettings } from '../../app/settings';
+import { useSettings, type FramesLayout, type HudSettings } from '../../app/settings';
 import { enemyDef } from '../../content';
 import { rankOf } from '../../meta/profile';
 import { carriedRelics, carrySlots, type ReliquaryRelic } from '../../meta/reliquary';
@@ -23,6 +23,7 @@ import { CoachHints } from './CoachHints';
 import { DirectiveWheel, DirectiveWheelView } from './DirectiveWheel';
 import { EncounterHeader } from './EncounterHeader';
 import { KeyHints } from './KeyHints';
+import { LayoutEditor } from './LayoutEditor';
 import { PartyFrames } from './PartyFrames';
 import { WeaverBar } from './WeaverBar';
 import { bondRanks as ranksOf, bondsOpen } from '../screens/bondsModel';
@@ -76,6 +77,11 @@ export function Hud({ subtitle, keyHints = true }: HudProps) {
     () => (bondsOpen(bonds, unlockAll) ? ranksOf(bonds) : null),
     [bonds, unlockAll],
   );
+  // The party frames' layout: the player's, or the one Edit Layout is changing.
+  const savedFrames = useSettings((s) => s.settings.hud.frames);
+  const draftFrames = useUi((s) => s.framesDraft);
+  const editing = useUi((s) => s.layoutEditing);
+  const healthText = useSettings((s) => s.settings.hud.healthText);
   useEffect(() => {
     countHudCommit();
   });
@@ -83,6 +89,8 @@ export function Hud({ subtitle, keyHints = true }: HudProps) {
   return (
     <>
       <HudView
+        framesLayout={draftFrames ?? savedFrames}
+        healthText={healthText}
         hud={hud}
         callouts={callouts}
         decree={decree}
@@ -94,6 +102,7 @@ export function Hud({ subtitle, keyHints = true }: HudProps) {
         tiersOpen={hud.encounter.kind === 'sandbox' ? undefined : tiersOpen}
       />
       <DirectiveWheel focusName={enemyName} />
+      {editing && <LayoutEditor onDone={() => useUi.getState().setLayoutEditing(false)} />}
     </>
   );
 }
@@ -122,8 +131,14 @@ export function HudView({
   frameTip = null,
   techniqueTip = null,
   tiersOpen,
+  framesLayout,
+  healthText,
 }: {
   hud: HudSnapshot;
+  /** Where the party frames sit, how big and which way (Settings, or Edit Layout's draft). */
+  framesLayout?: FramesLayout;
+  /** The frames' big number (Settings → Health and the HUD). */
+  healthText?: HudSettings['healthText'];
   /**
    * Phase 4g: how many of the Calling's path tiers the run offers (`run.calling.tiersOpen`); the
    * chip shows the rest locked by mastery. Omitted: every tier.
@@ -219,6 +234,8 @@ export function HudView({
         blind={blind}
         bondRanks={bondRanks}
         tipOpen={frameTip}
+        layout={framesLayout}
+        healthText={healthText}
       />
       <WeaverBar
         hud={hud}

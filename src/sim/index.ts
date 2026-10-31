@@ -30,5 +30,6 @@ export {
 } from './astrolabe';
 export { auraBit, auraIds, enemyAuraMask, partyAuraMask, type AuraTotals } from './combat/auras';
 export { vowHoldsAt } from './combat/telegraphs';
+export { isAilment } from './combat/health';
 export { rewindCanRevive } from './systems/rewind';
 export { underMuteDome } from './systems/field';

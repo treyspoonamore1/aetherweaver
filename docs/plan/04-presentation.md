@@ -130,6 +130,7 @@ The original already reached for music words: Chorus, Resonance, Symphony, Casca
 - A **Solo charge ring** around the portrait. It glows and shows its Cue key when ready.
 - A thread marker, an in-field pip and the Bond rank.
 - Hovering a frame targets that hero for mouseover casting.
+- *Since 2026-10-31: healer-style frames (life coloured by how much is left, the life missing in big type, critical and ailing glows), movable anywhere in Edit HUD layout, and bars over the heroes ([docs/health-ui.md](../health-ui.md)).*
 
 **Weaver bar** (bottom-centre):
 

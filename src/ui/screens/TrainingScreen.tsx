@@ -67,6 +67,8 @@ export function TrainingScreen() {
   const showPerf = useUi((s) => s.showPerf);
   const devOpen = useUi((s) => s.devOpen);
   const paused = useUi((s) => s.paused);
+  // Edit HUD layout (from the pause menu) shows the HUD; the fight stays paused under it.
+  const editingLayout = useUi((s) => s.layoutEditing);
   const setScreen = useUi((s) => s.setScreen);
   return (
     <div className="relative h-full w-full select-none overflow-hidden">
@@ -88,7 +90,7 @@ export function TrainingScreen() {
       />
       {showPerf && <PerfHud />}
       {devOpen && <DevPanel />}
-      {paused && (
+      {paused && !editingLayout && (
         <PauseMenu
           mode="training"
           onResume={() => getRuntime()?.setPaused(false)}

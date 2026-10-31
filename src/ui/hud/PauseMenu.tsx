@@ -5,8 +5,12 @@ import { Icon } from '../kit/Icon';
 import { KeyCap } from '../kit/KeyCap';
 import { Modal } from '../kit/Modal';
 import { bindingLabel } from './labels';
+import { useUi } from '../store';
 
-/** Pause menu (Esc): resume, settings, leave. The runtime owns the Esc toggle itself. */
+/**
+ * Pause menu (Esc): resume, settings, Edit HUD layout (the party frames moved and sized,
+ * docs/health-ui.md), leave. The runtime owns the Esc toggle itself.
+ */
 export function PauseMenu({
   mode,
   onResume,
@@ -60,6 +64,13 @@ export function PauseMenu({
         </Button>
         <Button size="lg" onClick={() => setView('settings')}>
           <Icon name="gear" size={16} /> Settings
+        </Button>
+        <Button
+          size="lg"
+          onClick={() => useUi.getState().setLayoutEditing(true)}
+          data-testid="edit-layout"
+        >
+          <Icon name="move" size={16} /> Edit HUD layout
         </Button>
         {mode === 'run' ? (
           <Button variant="danger" size="lg" onClick={() => setView('confirm')}>

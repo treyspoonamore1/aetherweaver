@@ -5,6 +5,8 @@ import { ArenaView } from './arena';
 import { AstrolabeView } from './astrolabe';
 import { BondsView } from './bonds';
 import { CallView } from './calls';
+import { PartyBarsView } from './partyBars';
+import { healthLevel } from '../app/healthLevels';
 import { CallingView } from './calling';
 import { ChronoView } from './chrono';
 import { DissonanceView } from './dissonance';
@@ -42,6 +44,8 @@ export class CombatView implements WorldView {
   readonly thread: ThreadView;
   readonly overlay: Overlay;
   readonly calls: CallView;
+  /** The bars over the heroes (docs/health-ui.md). */
+  readonly partyBars: PartyBarsView;
   readonly fermata: FermataView;
   readonly feedback: Feedback;
   readonly relics: RelicView;
@@ -78,6 +82,7 @@ export class CombatView implements WorldView {
     this.overlay = new Overlay(ctx.overlay, ctx.stage.camera);
     this.thread = new ThreadView(this.entities, this.overlay);
     this.calls = new CallView(this.entities);
+    this.partyBars = new PartyBarsView(this.entities);
     this.fermata = new FermataView(this.entities);
     this.feedback = new Feedback({
       calls: this.calls,
@@ -165,6 +170,14 @@ export class CombatView implements WorldView {
     this.telegraphs.sync(state, this.kit, this.overlay, fxDt, true);
     this.thread.sync(state, this.kit, fxDt, frame.time);
     this.calls.sync(state, this.kit, this.overlay, fxDt);
+    this.partyBars.sync(
+      state,
+      this.overlay,
+      fxDt,
+      frame.time,
+      frame.settings.allyBars,
+      frame.settings.slotKeys,
+    );
     this.fermata.sync(state, this.kit, this.overlay, fxDt, frame.time);
     this.feedback.sunWarmth = this.calling.warmth;
     this.feedback.stasisCool = this.chrono.cool;
@@ -218,8 +231,12 @@ export class CombatView implements WorldView {
         hex = heroDef(e.hero.defId).color;
         this.heroHex.set(id, hex);
       }
-      const danger = this.telegraphs.threatened.get(id) ?? 0;
-      this.overlay.edgeArrow(r.x, r.height * 0.5, r.z, e.health?.downed ? '#94a3b8' : hex, danger);
+      // Off screen and under a quarter of their life (docs/health-ui.md): the arrow pulses red,
+      // as it does for a threat, its dot still in their colour.
+      const h = e.health;
+      const critical = !!h && !h.downed && healthLevel(h.hp, h.maxHp) === 2;
+      const danger = Math.max(this.telegraphs.threatened.get(id) ?? 0, critical ? 0.8 : 0);
+      this.overlay.edgeArrow(r.x, r.height * 0.5, r.z, h?.downed ? '#94a3b8' : hex, danger);
     }
   }
 

@@ -40,7 +40,7 @@ const BEAD_EDGE = 0.35;
  * the head (m, under a call's bubble), and how long a switch's pop lasts (s).
  */
 const GLYPH_SIZE = 0.4;
-const GLYPH_LIFT = 0.92;
+const GLYPH_LIFT = 1.05;
 const GLYPH_POP = 0.35;
 
 /** Where the Thread leaves from: the Weaver as drawn (her hand is found from her pose). */

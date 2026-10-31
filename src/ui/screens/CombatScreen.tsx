@@ -42,6 +42,8 @@ export function CombatScreen() {
   const segment = useUi((s) => s.hud?.weaver.segment ?? null);
   const cue = cueCost !== null && cueCost !== segment ? { cost: cueCost } : null;
   const paused = useUi((s) => s.paused);
+  // Edit HUD layout (from the pause menu) shows the HUD; the fight stays paused under it.
+  const editingLayout = useUi((s) => s.layoutEditing);
   const showPerf = useUi((s) => s.showPerf);
   const devOpen = useUi((s) => s.devOpen);
   const hintsOn = useSettings((s) => s.settings.hints);
@@ -79,7 +81,8 @@ export function CombatScreen() {
       {howto ? (
         <HowToPlay onClose={closeHowTo} bear={bear} rewind={rewind} cue={cue} />
       ) : (
-        paused && (
+        paused &&
+        !editingLayout && (
           <PauseMenu
             mode="run"
             onResume={() => getRuntime()?.setPaused(false)}

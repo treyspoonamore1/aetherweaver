@@ -1580,23 +1580,7 @@ export class EntityLayer {
         );
       }
     }
-    // Bars (only when hurt).
-    if (h.hp < h.maxHp - 0.5 || h.downed) {
-      let shield = 0;
-      for (const s of h.shields) shield += s.amount;
-      kit.bars.push(
-        x,
-        rec.height + 0.45,
-        z,
-        34,
-        h.hp / h.maxHp,
-        Math.min(1, shield / h.maxHp),
-        -1,
-        rec.flash,
-        rec.color,
-        0,
-      );
-    }
+    // Their life over their heads is the overlay's (partyBars.ts, docs/health-ui.md).
     void state;
   }
 

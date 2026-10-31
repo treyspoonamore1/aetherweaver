@@ -104,6 +104,49 @@ test('real input: movement, Thread by key and frame, Mend ⇄ Empower, Ward', as
   expect(commands).toContainEqual({ t: 'tech', id: 'ward', slot: 2 });
 });
 
+test('health at a glance: bars over the heroes; Edit HUD layout moves the party frames', async ({
+  page,
+}) => {
+  const errors = trackErrors(page);
+  await enterTraining(page);
+  await waitTicks(page, 10);
+  // A bar over each hero, with the key that threads them.
+  const bars = page.getByTestId('ally-bar').filter({ visible: true });
+  await expect(bars).toHaveCount(3);
+  await expect(bars.first()).toContainText('1');
+  // Frames say the life missing (nothing at full life) and glow when critical: none yet.
+  await expect(page.locator('[data-critical]')).toHaveCount(0);
+
+  // Pause, then Edit HUD layout: the frames move where they're dropped, and are saved.
+  await page.keyboard.press('Escape');
+  await page.getByTestId('edit-layout').click();
+  await expect(page.getByTestId('layout-editor')).toBeVisible();
+  const frames = page.getByTestId('party-frames');
+  const before = (await frames.boundingBox())!;
+  const handle = (await page.getByTestId('frames-handle').boundingBox())!;
+  await page.mouse.move(handle.x + 40, handle.y + 40);
+  await page.mouse.down();
+  await page.mouse.move(handle.x + 400, handle.y - 200, { steps: 6 });
+  await page.mouse.move(handle.x + 800, handle.y - 300, { steps: 6 });
+  await page.mouse.up();
+  await page.getByText('Side by side', { exact: true }).click();
+  await page.getByTestId('layout-done').click();
+  await expect(page.getByTestId('layout-editor')).toHaveCount(0);
+  // Pinned by their right edge now (dropped in the right half), the row grows leftward from it.
+  const after = (await frames.boundingBox())!;
+  expect(after.x + after.width).toBeGreaterThan(before.x + before.width + 300);
+  await expect(frames).toHaveAttribute('data-orientation', 'horizontal');
+  const saved = await page.evaluate(
+    () => JSON.parse(localStorage.getItem('aetherweaver.settings') ?? 'null')?.hud?.frames,
+  );
+  expect(saved.orientation).toBe('horizontal');
+  expect(saved.at.corner).toMatch(/r$/);
+  // Back to the pause menu, then the fight.
+  await page.getByRole('button', { name: /Resume/ }).click();
+  await waitTicks(page, 5);
+  expect(errors).toEqual([]);
+});
+
 test('a Prelude run: Prep → Map → an autoplayed fight → Result → Draft → Map', async ({ page }) => {
   // A whole fight under SwiftShader (≈ 25 ticks per real second) needs more than the default.
   test.setTimeout(480_000);

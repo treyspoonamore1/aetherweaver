@@ -59,6 +59,8 @@ export class SynthDirector implements AudioDirector {
   private sfx: SfxEngine | null = null;
   private mood: AudioMood = 'silent';
   private volumes: Volumes = { master: 0.8, music: 0.6, sfx: 0.9, ui: 0.7 };
+  /** The low-life alert, kept for an SfxEngine made later (docs/health-ui.md). */
+  private lowLifeAlert = true;
   private timer: ReturnType<typeof setInterval> | null = null;
   private unlocking: Promise<void> | null = null;
   private disabled = false;
@@ -113,6 +115,7 @@ export class SynthDirector implements AudioDirector {
       this.engine = new Engine(ctx);
       this.music = new MusicEngine(this.engine);
       this.sfx = new SfxEngine(this.engine, this.music);
+      this.sfx.lowLifeAlert = this.lowLifeAlert;
       this.engine.setVolumes(this.volumes);
       this.music.setMood(this.mood);
       const offline =
@@ -239,6 +242,11 @@ export class SynthDirector implements AudioDirector {
   setVolumes(volumes: Volumes): void {
     this.volumes = { ...volumes };
     this.engine?.setVolumes(this.volumes);
+  }
+
+  setLowLifeAlert(on: boolean): void {
+    this.lowLifeAlert = on;
+    if (this.sfx) this.sfx.lowLifeAlert = on;
   }
 
   stopCombat(): void {

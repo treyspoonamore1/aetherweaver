@@ -1,6 +1,6 @@
 /** Older saves and settings are migrated, never thrown away (docs/plan/05 §8). */
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_SETTINGS, migrateSettings } from '../../src/app/settings';
+import { DEFAULT_HUD, DEFAULT_SETTINGS, migrateSettings } from '../../src/app/settings';
 import { newProfile } from '../../src/meta/profile';
 import * as Run from '../../src/meta/run';
 import {
@@ -279,7 +279,7 @@ describe('profile', () => {
 });
 
 describe('settings migration', () => {
-  it('moves Phase 1 and Phase 2 settings to v3, keeping the player’s choices', () => {
+  it('moves Phase 1 and Phase 2 settings to v4, keeping the player’s choices', () => {
     const v1 = {
       version: 1,
       volumes: { master: 0.5, music: 0.2, sfx: 0.9, ui: 0.4 },
@@ -291,8 +291,9 @@ describe('settings migration', () => {
     };
     const v2 = migrateSettings(v1)!;
     expect(v2).toMatchObject({
-      version: 3,
+      version: 4,
       unlockAll: false,
+      hud: DEFAULT_HUD,
       volumes: v1.volumes,
       screenShake: 0.3,
       flashes: 0,
@@ -308,5 +309,41 @@ describe('settings migration', () => {
     void _u;
     expect(migrateSettings(phase2)).toEqual({ ...DEFAULT_SETTINGS, uiScale: 1.25 });
     expect(migrateSettings({ version: 7 })).toBeNull();
+  });
+
+  it('moves Phase 4 settings (v3) to v4: the HUD gets its defaults, the rest is kept', () => {
+    const { hud: _h, ...rest } = DEFAULT_SETTINGS;
+    void _h;
+    const v3 = { ...rest, version: 3, uiScale: 1.25, colorVision: 'tritanopia', unlockAll: true };
+    expect(migrateSettings(v3)).toEqual({
+      ...DEFAULT_SETTINGS,
+      uiScale: 1.25,
+      colorVision: 'tritanopia',
+      unlockAll: true,
+    });
+    // The HUD's defaults: the frames where they always were, bars over the heroes always,
+    // missing health on the frames, the low-health sound on.
+    expect(DEFAULT_HUD).toEqual({
+      frames: { at: null, scale: 1, orientation: 'vertical' },
+      allyBars: 'always',
+      healthText: 'missing',
+      lowHealthSound: true,
+    });
+    // A moved, resized, side-by-side layout round-trips.
+    const moved = {
+      ...DEFAULT_SETTINGS,
+      hud: {
+        ...DEFAULT_HUD,
+        frames: { at: { x: 0.5, y: 0.8, corner: 'bl' }, scale: 1.25, orientation: 'horizontal' },
+      },
+    };
+    expect(migrateSettings(moved)).toEqual(moved);
+    // Out of range: not a v4 layout, and not any older version either.
+    expect(
+      migrateSettings({
+        ...moved,
+        hud: { ...moved.hud, frames: { ...moved.hud.frames, scale: 3 } },
+      }),
+    ).toBeNull();
   });
 });

@@ -7,6 +7,7 @@
  * (app/runStore.ts) picks the sub-screen: prep, map, combat, result, draft, respite, summary.
  */
 import { create } from 'zustand';
+import type { FramesLayout } from '../app/settings';
 import type {
   AnswerTag,
   CallAnswer,
@@ -501,6 +502,15 @@ export interface UiState {
   hintsShown: string[];
   /** Latest boss decree this encounter (UI addition: lets the boss bar keep showing it). */
   lastDecree: { name: string; text: string } | null;
+  /**
+   * Edit Layout (docs/health-ui.md): the party frames can be dragged, resized and turned; the
+   * fight stays paused under it.
+   */
+  layoutEditing: boolean;
+  /** The party frames' layout while it's being edited (null: as saved in Settings). */
+  framesDraft: FramesLayout | null;
+  setLayoutEditing(on: boolean): void;
+  setFramesDraft(draft: FramesLayout | null): void;
   setScreen(screen: Screen): void;
   back(): void;
   setHud(hud: HudSnapshot | null): void;
@@ -529,6 +539,10 @@ export const useUi = create<UiState>()((set, get) => ({
   callouts: [],
   hintsShown: [],
   lastDecree: null,
+  layoutEditing: false,
+  framesDraft: null,
+  setLayoutEditing: (on) => set({ layoutEditing: on, framesDraft: null }),
+  setFramesDraft: (draft) => set({ framesDraft: draft }),
   setScreen: (screen) => set((s) => ({ screen, previous: s.screen })),
   back: () => set((s) => ({ screen: s.previous === s.screen ? 'title' : s.previous })),
   setHud: (hud) => set({ hud }),
@@ -562,5 +576,14 @@ export const useUi = create<UiState>()((set, get) => ({
   markHint: (id) =>
     set((s) => (s.hintsShown.includes(id) ? s : { hintsShown: [...s.hintsShown, id] })),
   resetCombat: () =>
-    set({ hud: null, perf: null, paused: false, callouts: [], devOpen: false, lastDecree: null }),
+    set({
+      hud: null,
+      perf: null,
+      paused: false,
+      callouts: [],
+      devOpen: false,
+      lastDecree: null,
+      layoutEditing: false,
+      framesDraft: null,
+    }),
 }));

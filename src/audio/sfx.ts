@@ -248,9 +248,23 @@ interface LooseChord {
   threadHero?: number | null;
 }
 
+/** The low-life alert: under a quarter of a hero's life, re-armed over 40% (docs/health-ui.md). */
+const LOW_ALERT = 0.25;
+const LOW_REARM = 0.4;
+
 export class SfxEngine {
   private readonly lastMotif = new Map<number, number>();
   private readonly nextBeat = new Map<number, number>();
+  /**
+   * The low-life alert (docs/health-ui.md): heroes armed to sound it when they fall under a
+   * quarter of their life (re-armed once back over 40%), when it last sounded, and whether the
+   * player wants it (Settings → Health and the HUD).
+   */
+  private readonly lowArmed = new Map<number, boolean>();
+  private lowAlertAt = -10;
+  lowLifeAlert = true;
+  /** Low-life alerts sounded (tests, the audio lab). */
+  lowAlerts = 0;
   private whine: { gain: GainNode; osc: OscillatorNode; band: BiquadFilterNode } | null = null;
   private lastIntensityScan = 0;
   private intensity = 0;
@@ -4639,6 +4653,7 @@ export class SfxEngine {
           else if (!h.dead && h.maxHp > 0 && h.hp / h.maxHp < 0.3) {
             low.push({ id: ent.id, frac: h.hp / h.maxHp, defId: ent.hero.defId });
           }
+          if (!h.dead && !h.downed && h.maxHp > 0) this.lowAlert(ent.id, h.hp / h.maxHp, now);
         }
       }
       const fighting = state.encounter.status === 'fighting';
@@ -4691,6 +4706,39 @@ export class SfxEngine {
   } | null = null;
 
   /** Per-hero heartbeat timbres: Kael a deep round thump, Lyra a light wooden tap, Vexis a glassy pulse. */
+  /**
+   * A hero falling under a quarter of their life: two soft falling notes, once as they cross
+   * (not again until they're back over 40%), at most one a second and a half across the party,
+   * under the heartbeat that follows. Off in Settings, it stays silent.
+   */
+  private lowAlert(id: number, frac: number, now: number): void {
+    const armed = this.lowArmed.get(id) ?? true;
+    if (frac > LOW_REARM) {
+      if (!armed) this.lowArmed.set(id, true);
+      return;
+    }
+    if (!armed || frac >= LOW_ALERT) return;
+    this.lowArmed.set(id, false);
+    if (!this.lowLifeAlert || now - this.lowAlertAt < 1.5) return;
+    this.lowAlertAt = now;
+    this.lowAlerts++;
+    this.play('lowLife', 1, 'sfx', (v, t) => {
+      for (const [dt, freq] of [
+        [0, 880],
+        [0.13, 659],
+      ] as const)
+        v.osc({
+          type: 'triangle',
+          freq,
+          start: t + dt,
+          dur: 0.16,
+          attack: 0.006,
+          release: 0.1,
+          gain: 0.075,
+        });
+    });
+  }
+
   private heartbeat(id: number, defId: string, frac: number, now: number): void {
     const next = this.nextBeat.get(id) ?? 0;
     if (now < next) return;

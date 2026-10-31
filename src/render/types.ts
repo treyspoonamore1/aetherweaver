@@ -40,6 +40,10 @@ export interface FrameInfo {
     damageNumbers: boolean;
     /** Palette for danger, answers and life (app/colorVision.ts). */
     colorVision: ColorVision;
+    /** Additive (docs/health-ui.md): bars over the heroes (absent: always). */
+    allyBars?: 'always' | 'hurt' | 'off';
+    /** Additive: the keys that thread each party slot, for the bars' tags (absent: 1–4). */
+    slotKeys?: readonly string[];
   };
   /**
    * Additive (Phase 4g): what the Weaver wears, the profile's robe and Thread look (keepsake ids;

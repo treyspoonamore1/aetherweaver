@@ -1,7 +1,9 @@
 import { arenaDef, callingDef, CONTENT, encounterDef, heroDef } from '../content';
 import { getAudio } from '../audio';
 import { InputController } from '../input/InputController';
-import type { Action } from '../input/actions';
+import type { Action, Bindings } from '../input/actions';
+import { liveBindings } from '../input/bindings';
+import { keyLabel } from '../input/keyLabel';
 import type { CombatOutcome } from '../meta/types';
 import { CameraRig } from '../render/camera';
 import { createWorldView, type WorldView } from '../render';
@@ -32,6 +34,21 @@ import { startWithoutYou, type WithoutYouJob } from './withoutYou';
 export { buildOutcome };
 
 const NO_COMMANDS: readonly Command[] = [];
+
+/** The keys that thread each party slot, as the player has bound them (the bars' tags). */
+let keysFor: Bindings | null = null;
+let keysCache: string[] = ['1', '2', '3', '4'];
+function slotKeys(): readonly string[] {
+  const bindings = liveBindings();
+  if (bindings !== keysFor) {
+    keysFor = bindings;
+    keysCache = (['focus1', 'focus2', 'focus3', 'focus4'] as const).map((action, i) => {
+      const code = bindings[action][0];
+      return code ? keyLabel(code) : String(i + 1);
+    });
+  }
+  return keysCache;
+}
 const HUD_INTERVAL_MS = 1000 / 15;
 const PERF_INTERVAL_MS = 250;
 /** Real seconds between the encounter ending and handing back to the run. */
@@ -279,13 +296,19 @@ export class GameRuntime {
         flashes: settings.flashes,
         damageNumbers: settings.damageNumbers,
         colorVision: settings.colorVision,
+        allyBars: settings.hud.allyBars,
+        slotKeys: slotKeys(),
       },
       // Phase 4g: what the Weaver wears (her robe, her Thread's look), from the profile.
       look: useProfile.getState().profile.look,
     });
     this.stage.render();
     // Continuous layers (heartbeats, thread whine) pause with the game.
-    if (!this.paused && !this.hidden) getAudio().update(state, elapsed / 1000);
+    if (!this.paused && !this.hidden) {
+      const audio = getAudio();
+      audio.setLowLifeAlert?.(settings.hud.lowHealthSound);
+      audio.update(state, elapsed / 1000);
+    }
 
     const ui = useUi.getState();
     this.hudTimer += elapsed;

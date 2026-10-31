@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import type { AnswerTag } from '../sim';
+import { LIFE_OK } from '../app/healthLevels';
 import { VISION_HEX, currentVision, rgba } from './palette';
 import { CALLING_HEX } from './callingCues';
 import { CHRONO_HEX } from './chronoCues';
@@ -117,6 +118,55 @@ interface CalloutItem {
   rise: number;
 }
 
+/**
+ * A hero's bar over their head (docs/health-ui.md), as `allyBar` draws it: all in shares of
+ * their max life.
+ */
+export interface AllyBarView {
+  /** Life left. */
+  hp: number;
+  /** Life just lost (≥ `hp`): the white trail that drains after a hit. */
+  trail: number;
+  /** Shields, shown as a band after the life. */
+  shield: number;
+  /** The damage telegraphed at them (stripes at the end of their life). */
+  incoming: number;
+  /** The incoming damage would down them. */
+  lethal: boolean;
+  /** How much is left: 0 healthy, 1 under half, 2 under a quarter. */
+  level: 0 | 1 | 2;
+  /** The key that threads them, on a tag in their colour. */
+  key: string;
+  keyHex: string;
+  /** Out of the Weaver's reach: faded. */
+  dim: boolean;
+  /** 0..1: the glow of a critical or doomed bar, pulsing (0: none). */
+  pulse: number;
+}
+
+interface AllyBarItem {
+  el: HTMLDivElement;
+  key: HTMLSpanElement;
+  track: HTMLDivElement;
+  fill: HTMLDivElement;
+  trail: HTMLDivElement;
+  shield: HTMLDivElement;
+  fc: HTMLDivElement;
+  /** What the elements show now, to touch the DOM only on change. */
+  shown: string;
+  glow: string;
+  used: boolean;
+}
+
+/** A bar's outline at rest (no glow). */
+const ALLY_REST = '0 0 0 1.5px rgba(0,0,0,0.85),0 2px 6px rgba(0,0,0,0.5)';
+
+/** The bar's track: its width and height (px), and the key tag's size and gap before it. */
+const ALLY_BAR_W = 64;
+const ALLY_BAR_H = 8;
+const ALLY_KEY = 13;
+const ALLY_GAP = 3;
+
 interface BadgeItem {
   el: HTMLDivElement;
   icons: HTMLDivElement;
@@ -180,6 +230,8 @@ export class Overlay {
   private readonly numbers: NumberItem[] = [];
   private readonly callouts: CalloutItem[] = [];
   private readonly badges: BadgeItem[] = [];
+  private readonly allyBars: AllyBarItem[] = [];
+  private allyCursor = 0;
   private readonly arrows: ArrowItem[] = [];
   private readonly bubbles: BubbleItem[] = [];
   private bubbleCursor = 0;
@@ -275,6 +327,42 @@ export class Overlay {
     );
     this.raidText = div(this.raidEl, '');
 
+    for (let i = 0; i < 4; i++) {
+      const el = div(
+        this.root,
+        `position:absolute;left:0;top:0;display:none;align-items:center;gap:${ALLY_GAP}px;will-change:transform;`,
+      );
+      el.dataset.testid = 'ally-bar';
+      const key = document.createElement('span');
+      key.style.cssText = `width:${ALLY_KEY}px;height:${ALLY_KEY}px;border-radius:3px;font:700 10px/${ALLY_KEY}px Inter,sans-serif;text-align:center;color:#0b0d18;box-shadow:0 0 0 1px rgba(0,0,0,0.75);`;
+      el.appendChild(key);
+      const track = div(
+        el,
+        `position:relative;width:${ALLY_BAR_W}px;height:${ALLY_BAR_H}px;border-radius:3px;background:rgba(11,15,30,0.92);overflow:hidden;`,
+      );
+      const fill = div(track, 'position:absolute;left:0;top:0;bottom:0;');
+      const trail = div(track, 'position:absolute;top:0;bottom:0;background:#fff;opacity:0.9;');
+      const shield = div(track, 'position:absolute;top:0;height:3px;background:#a5f3fc;');
+      const fc = div(track, 'position:absolute;top:0;bottom:0;');
+      // Quarter ticks: how much at a glance.
+      for (const q of [25, 50, 75])
+        div(
+          track,
+          `position:absolute;top:0;bottom:0;left:${q}%;width:1px;background:rgba(0,0,0,0.5);`,
+        );
+      this.allyBars.push({
+        el,
+        key,
+        track,
+        fill,
+        trail,
+        shield,
+        fc,
+        shown: '',
+        glow: '',
+        used: false,
+      });
+    }
     for (let i = 0; i < 48; i++) {
       const el = div(
         this.root,
@@ -585,10 +673,71 @@ export class Overlay {
   // ── Telegraph answer badges (immediate mode) ───────────────────────────────────────
 
   beginFrame(): void {
+    this.allyCursor = 0;
     this.badgeCursor = 0;
     this.bubbleCursor = 0;
     this.arrowCursor = 0;
     this.raidUsed = false;
+  }
+
+  /**
+   * A hero's bar over their head (immediate mode; docs/health-ui.md): their life coloured by how
+   * much is left (healthy, under half, under a quarter: the palette's threat and lethal), the last
+   * hit as a white trail draining away, shields as a band, the blow that's coming as stripes,
+   * quarter ticks, and the key that threads them on a tag in their colour.
+   */
+  allyBar(x: number, y: number, z: number, bar: AllyBarView): void {
+    const b = this.allyBars[this.allyCursor];
+    if (!b) return;
+    const p = this.project(x, y, z, this.p);
+    if (p.behind) return;
+    this.allyCursor++;
+    b.used = true;
+    const pc = (v: number) => `${(Math.min(1, Math.max(0, v)) * 100).toFixed(1)}%`;
+    const total = Math.min(1, bar.hp + bar.shield);
+    const fcW = Math.min(bar.incoming, total);
+    const fill =
+      bar.level === 2 ? VISION_HEX.lethal : bar.level === 1 ? VISION_HEX.threat : LIFE_OK;
+    const fcHex = bar.lethal ? VISION_HEX.lethal : VISION_HEX.threat;
+    const shown = [
+      pc(bar.hp),
+      pc(bar.trail),
+      pc(bar.shield),
+      pc(fcW),
+      fill,
+      fcHex,
+      bar.key,
+      bar.keyHex,
+      bar.dim,
+    ].join('|');
+    if (b.shown !== shown) {
+      b.shown = shown;
+      b.fill.style.width = pc(bar.hp);
+      b.fill.style.background = fill;
+      b.trail.style.left = pc(bar.hp);
+      b.trail.style.width = pc(Math.max(0, bar.trail - bar.hp));
+      b.shield.style.left = pc(bar.hp);
+      b.shield.style.width = pc(Math.min(bar.shield, 1 - bar.hp));
+      b.fc.style.left = pc(total - fcW);
+      b.fc.style.width = pc(fcW);
+      b.fc.style.background = `repeating-linear-gradient(-45deg, rgba(255,255,255,0.8) 0 2px, transparent 2px 4px), ${fcHex}`;
+      b.key.textContent = bar.key;
+      b.key.style.background = bar.keyHex;
+      b.el.style.opacity = bar.dim ? '0.55' : '1';
+    }
+    // A critical or doomed bar glows, pulsing (written only when it changes).
+    const glow =
+      bar.pulse > 0
+        ? `0 0 0 1.5px rgba(0,0,0,0.85), 0 0 ${(5 + 7 * bar.pulse).toFixed(1)}px ${rgba(VISION_HEX.lethal, 0.45 + 0.45 * bar.pulse)}`
+        : ALLY_REST;
+    if (b.glow !== glow) {
+      b.glow = glow;
+      b.track.style.boxShadow = glow;
+    }
+    if (b.el.style.display !== 'flex') b.el.style.display = 'flex';
+    // The track's middle over the point (the key tag hangs to its left).
+    const shift = (ALLY_KEY + ALLY_GAP) / 2;
+    b.el.style.transform = `translate3d(${(p.x - shift).toFixed(1)}px,${p.y.toFixed(1)}px,0) translate(-50%,-50%)`;
   }
 
   badge(
@@ -860,6 +1009,13 @@ export class Overlay {
       const fade = t > 0.7 ? 1 - (t - 0.7) / 0.3 : Math.min(1, t * 10);
       c.el.style.opacity = fade.toFixed(3);
       c.el.style.transform = `translate3d(${p.x.toFixed(1)}px,${(p.y - rise).toFixed(1)}px,0) translate(-50%,-50%) scale(${punch.toFixed(3)})`;
+    }
+    for (let i = this.allyCursor; i < this.allyBars.length; i++) {
+      const b = this.allyBars[i]!;
+      if (b.used) {
+        b.used = false;
+        b.el.style.display = 'none';
+      }
     }
     for (let i = this.badgeCursor; i < this.badges.length; i++) {
       const b = this.badges[i]!;
