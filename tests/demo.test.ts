@@ -38,6 +38,9 @@ describe('the demo', () => {
       ['lantern_of_the_lost', 'prism_loom'].sort(),
     );
     expect(p.reliquary.shards).toBeGreaterThan(0);
+    expect(p.reliquary.carry).toHaveLength(1);
+    // What Rank 12 opened isn't marked "New" in Prep.
+    expect(p.introduced).toContain('astrolabe');
     // The stations' intros are still to come.
     expect(p.introduced.some((id) => id.startsWith('station:'))).toBe(false);
   });
