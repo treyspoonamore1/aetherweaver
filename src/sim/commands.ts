@@ -41,7 +41,9 @@ export type DebugOp =
   | { op: 'forceHold'; slot: PartySlot }
   /**
    * The Perfect-Ward trainer (docs/phase-4g.md): a training bell telegraphs one blow at the hero
-   * in `slot`, landing after `windup` seconds (0.5–3). It can't be dodged, and a Ward answers it.
+   * in `slot`, landing after `windup` seconds (0.5–3), with the hero healed and the Ward and
+   * Spirit readied first. A Ward answers it (a Reel dodges it, and the trainer counts that as a
+   * miss); it lands even if the bell is cleared.
    */
   | { op: 'drill'; slot: PartySlot; windup: number };
 

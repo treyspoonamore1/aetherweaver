@@ -12,8 +12,8 @@ import * as Run from '../src/meta/run';
 
 /** Four auras holding 110% of Spirit: too heavy without the Choir's lighter songs. */
 const HEAVY = [
-  { auras: ['fortissimo', 'ostinato'], ornaments: [] },
   { auras: ['sostenuto', 'allegro'], ornaments: [] },
+  { auras: ['fortissimo', 'lullaby'], ornaments: [] },
 ];
 /** Clear Voice and both Breaths: songs light enough for HEAVY. */
 const LIGHT = ['choir_t1', 'choir_t2', 'choir_n1', 'choir_b1', 'choir_b2', 'choir_bn', 'choir_b3'];
@@ -26,8 +26,8 @@ beforeEach(() => {
   useSettings.getState().reset();
   useProfile.getState().resetProgress();
   useRun.getState().closeRun();
-  // Rank 3: every aura HEAVY sings, and no Astrolabe points yet.
-  useProfile.getState().award(RANK_XP[2]!);
+  // Rank 4: every aura HEAVY sings (Lullaby opens there), and the Astrolabe's first 3 points.
+  useProfile.getState().award(RANK_XP[3]!);
 });
 
 describe('the Astrolabe in the stores', () => {
@@ -38,10 +38,10 @@ describe('the Astrolabe in the stores', () => {
     expect(run().astrolabe).toEqual(LIGHT);
     useRun.getState().setChords(HEAVY);
     expect(run().chords).toEqual(HEAVY);
-    // Turning "Skip the unlocks" off takes the points back: Prep's tree goes with them, and
-    // songs only that tree could hold aren't offered any more.
+    // Turning "Skip the unlocks" off takes the points back: Prep's tree keeps what 3 points
+    // reach (Clear Voice), and songs only the whole tree could hold aren't offered any more.
     skipUnlocks(false);
-    expect(run().astrolabe).toEqual([]);
+    expect(run().astrolabe).toEqual(LIGHT.slice(0, 3));
     useRun.getState().setChords(Run.DEFAULT_CHORDS.map((c) => ({ ...c, auras: [...c.auras] })));
     useRun.getState().setChords(HEAVY);
     expect(run().chords).toEqual(Run.DEFAULT_CHORDS);

@@ -4,7 +4,7 @@
  * Older versions are migrated on load. Storage is injected so tests can use a map.
  */
 import { fitOwned, fitTechniques, noVariants } from './variants';
-import { fitCosmetics, fitLook, noLook } from './loom';
+import { fitCosmetics, fitLook, noLook, starlightForDeeds } from './loom';
 import { z } from 'zod';
 import { CONTENT } from '../content';
 import { chordProblems, type ReservePool } from '../sim';
@@ -728,7 +728,9 @@ export const ProfileSchema = z.object({
 /**
  * v1 → v2: the Astrolabe (docs/phase-4.md), an empty tree. v2 → v3: Deeds (docs/phase-4b.md),
  * none earned yet. v3 → v4: the Reliquary (docs/phase-4c.md), empty. v4 → v5: Dissonance
- * (docs/phase-4d.md), closed. v5 → v6: Bonds (docs/phase-4e.md), none yet.
+ * (docs/phase-4d.md), closed. v5 → v6: Bonds (docs/phase-4e.md), none yet. v6 → v7: technique
+ * variants (docs/phase-4f.md), none owned. v7 → v8: the Loom (docs/phase-4g.md): the Deeds
+ * already earned pay their Starlight; Calling mastery starts from nothing.
  */
 export function migrateProfileJson(raw: unknown, seed = 1): unknown {
   let p = raw;
@@ -739,8 +741,17 @@ export function migrateProfileJson(raw: unknown, seed = 1): unknown {
     p = { ...p, version: 5, dissonance: { open: false, levels: [], best: {} } };
   if (isObj(p) && p.version === 5) p = { ...p, version: 6, bonds: {} };
   if (isObj(p) && p.version === 6) p = { ...p, version: 7, variants: [], techniques: noVariants() };
-  if (isObj(p) && p.version === 7)
-    p = { ...p, version: 8, starlight: 0, cosmetics: [], look: noLook(), mastery: {} };
+  if (isObj(p) && p.version === 7) {
+    const deeds = Array.isArray(p.deeds) ? p.deeds.filter((d) => typeof d === 'string') : [];
+    p = {
+      ...p,
+      version: 8,
+      starlight: starlightForDeeds(deeds),
+      cosmetics: [],
+      look: noLook(),
+      mastery: {},
+    };
+  }
   return p;
 }
 

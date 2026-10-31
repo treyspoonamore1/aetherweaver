@@ -34,6 +34,7 @@ const NON_DETERMINISTIC_MATH = [
 export default defineConfig([
   globalIgnores([
     'dist/**',
+    'dist-demo/**',
     'reference/**',
     'docs/**',
     'test-results/**',

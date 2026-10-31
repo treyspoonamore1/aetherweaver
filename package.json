@@ -10,6 +10,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:demo": "VITE_DEMO=1 vite build --base ./ --outDir dist-demo",
     "preview": "vite preview",
     "typecheck": "tsc -p tsconfig.sim.json && tsc -p tsconfig.app.json && tsc -p tsconfig.node.json",
     "lint": "eslint . --max-warnings 0 && prettier --check .",

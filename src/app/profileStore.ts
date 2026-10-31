@@ -154,7 +154,10 @@ export interface ProfileStore {
   variantsAll(): boolean;
   /** What a run plays with: the profile's choice, fitted to what's owned (or every variant). */
   runTechniques(): Techniques;
-  /** A variant is the profile's for good (Phase 4g's shop). */
+  /**
+   * A variant is the profile's for good, as a gift: the demo's veteran and the tests. The
+   * Atelier sells them through `buy`, which keeps its gates.
+   */
   ownVariant(id: string): void;
   /** The variant for a slot, or the default (null); only one owned (or Skip the unlocks). */
   setTechnique(slot: TechniqueKey, id: string | null): void;

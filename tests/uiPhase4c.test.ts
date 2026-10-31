@@ -416,9 +416,13 @@ describe('every preview is craftOdds’ and craftBlocked’s', () => {
 
   it('Ascend: T2 and T1 wait for Dissonance; Retune: a tier of one value is refused', () => {
     const fixed = NORMAL.find((d) => d.kind === 'normal' && d.tiers[0]![0] === d.tiers[0]![1])!;
+    // One whose lowest tier has a range to retune within.
+    const ranged = NORMAL.find(
+      (d) => d.kind === 'normal' && d.id !== NORMAL[0]!.id && d.tiers[0]![0] < d.tiers[0]![1],
+    )!;
     const relic = mockRelic('r1', 'prism_loom', [
       [NORMAL[0]!.id, RULES.tierCap],
-      [NORMAL[1]!.id, 5],
+      [ranged.id, 5],
       [fixed.id, 5],
     ]);
     const rq = holding([relic]);

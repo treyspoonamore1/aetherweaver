@@ -214,6 +214,10 @@ export function playRun(
     /** Called with each fight's events as they happen, and once at its end (the Bonds report). */
     onEvents?: (events: readonly SimEvent[]) => void;
     onFight?: () => void;
+    /** The Calling's path tiers its mastery has opened (docs/phase-4g.md); absent: every one. */
+    tiersOpen?: number;
+    /** Called with each phase of the run as it comes up (the pacing report times them). */
+    onPhase?: (phase: RunState['phase']) => void;
   } = {},
 ): RunSummary {
   const relics = opts.relics ?? true;
@@ -234,9 +238,11 @@ export function playRun(
       opts.calling ?? null,
     ),
   );
+  if (opts.tiersOpen !== undefined && run.calling) run = Run.setCallingTiers(run, opts.tiersOpen);
   let seconds = 0;
   let last = '';
   for (let guard = 0; guard < 120 && run.phase !== 'summary'; guard++) {
+    opts.onPhase?.(run.phase);
     switch (run.phase) {
       case 'map': {
         const options = Run.reachable(run);

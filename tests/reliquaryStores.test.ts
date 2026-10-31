@@ -10,10 +10,17 @@ import { useSettings } from '../src/app/settings';
 import { PROFILE_VERSION, RANK_XP, newProfile } from '../src/meta/profile';
 import { relicPassives, runMaterials, type ReliquaryRelic } from '../src/meta/reliquary';
 import * as Run from '../src/meta/run';
-import { CONTENT } from '../src/content';
+import { CONTENT, inscriptionDef } from '../src/content';
 import { loadProfile, loadRun, type KeyValueStore } from '../src/meta/save';
 import type { EncounterResult, OwnedRelic } from '../src/meta/types';
 import { emptyLedger } from '../src/sim/world';
+
+/** An Inscription's range at a tier, as content has it now. */
+function inscriptionTier(id: string, tier: number): readonly [number, number] {
+  const def = inscriptionDef(id);
+  if (def.kind !== 'normal') throw new Error(`${id} isn't a normal Inscription`);
+  return def.tiers[5 - tier]!;
+}
 
 function memoryStore(): KeyValueStore {
   const data = new Map<string, string>();
@@ -397,16 +404,14 @@ describe('saves', () => {
     expect(loaded.carried).toEqual([]);
     expect(loaded.reliquary).toBeNull();
     // A carried relic with an Inscription the content no longer knows keeps the rest.
+    const hardy = { id: 'hardy', tier: 4, value: inscriptionTier('hardy', 4)[0] };
     const carrying = Run.newRun(
       6,
       undefined,
       [],
       [
         relic('r1', 'tuning_fork', {
-          inscriptions: [
-            { id: 'stout_ward', tier: 3, value: 11 },
-            { id: 'hardy', tier: 4, value: 2 },
-          ],
+          inscriptions: [{ id: 'stout_ward', tier: 3, value: 11 }, hardy],
         }),
         relic('r2', 'prism_loom'),
       ],
@@ -415,7 +420,7 @@ describe('saves', () => {
     renamed.carried[0].inscriptions[0].id = 'gone_inscription';
     store.setItem('aetherweaver.run', JSON.stringify(renamed));
     const fitted = loadRun(store)!;
-    expect(fitted.carried[0]!.inscriptions).toEqual([{ id: 'hardy', tier: 4, value: 2 }]);
+    expect(fitted.carried[0]!.inscriptions).toEqual([hardy]);
     // A carried relic that's gone leaves the run's relics too; the run itself stays.
     const json = JSON.parse(JSON.stringify(carrying));
     json.carried[1].id = 'gone_relic';

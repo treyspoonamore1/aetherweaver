@@ -3,7 +3,7 @@
  * mastery. Pure: the profile store keeps the state.
  */
 import { CONTENT } from '../content';
-import type { EncounterResult } from './types';
+import type { EncounterResult, RunState } from './types';
 
 /** What the Weaver wears and is called: a robe, a Thread look, a title (null: the default). */
 export interface Look {
@@ -43,6 +43,17 @@ export function starlightForFight(
   if (result.outcome !== 'victory' || result.kind === 'sandbox') return 0;
   const pay = S().fights[result.kind] + (wonRun ? S().winBonus : 0);
   return Math.round(pay * mult);
+}
+
+/** What a run earned: its fights' Starlight, and its newly earned Deeds' (the Summary's). */
+export function runStarlight(run: Pick<RunState, 'results' | 'deeds'>): {
+  fights: number;
+  deeds: number;
+  total: number;
+} {
+  const fights = run.results.reduce((s, r) => s + (r.starlight ?? 0), 0);
+  const deeds = starlightForDeeds(run.deeds);
+  return { fights, deeds, total: fights + deeds };
 }
 
 /** What these newly earned Deeds pay: the ladder's by their place on it, a badge its own. */
@@ -101,7 +112,7 @@ export interface ShopItem {
   price: number | null;
   /**
    * `owned`, `earned` (a title, by mastery or a Deed), `buyable`, `open` (a variant Skip the
-   * unlocks lets you play without buying) or `locked`.
+   * unlocks lets you play; it's bought only where it's sold without Skip) or `locked`.
    */
   state: 'owned' | 'earned' | 'buyable' | 'open' | 'locked';
   /** Why it's locked, or how a title is earned. */
@@ -131,19 +142,23 @@ export function shopItems(state: LoomState, rank: number, all: boolean): ShopIte
     const name = calling ? CONTENT.callings.find((c) => c.id === calling)?.name : undefined;
     const mastered = !calling || masteryLevel(state.mastery[calling] ?? 0) >= TOP();
     const owned = state.variants.includes(v.id);
+    // On sale without Skip the unlocks: the Atelier's Rank, and its Calling's top mastery.
+    const sold = rank >= S().atelierRank && mastered;
+    const why =
+      rank < S().atelierRank ? closed : `On sale with the ${name ?? calling}'s top mastery.`;
     items.push({
       id: v.id,
       kind: 'variant',
       name: v.name,
       price: S().variantPrice,
-      state: owned ? 'owned' : all ? 'open' : !open || !mastered ? 'locked' : 'buyable',
+      state: owned ? 'owned' : all ? 'open' : sold ? 'buyable' : 'locked',
       reason: owned
         ? null
-        : !open
-          ? closed
-          : mastered
+        : all
+          ? `Open to play with Skip the unlocks.${sold ? ' On sale too.' : ` ${why}`}`
+          : sold
             ? null
-            : `Opens with the ${name ?? calling}'s top mastery.`,
+            : why,
     });
   }
   const sell = (id: string, kind: ShopKind, name: string, price: number) =>
@@ -188,11 +203,15 @@ export function buy(
 ): { state: LoomState } | { refused: string } {
   const item = shopItems(state, rank, all).find((i) => i.id === id);
   if (!item) return { refused: 'unknown' };
-  // Skip the unlocks lets you play a variant without buying it; it can still be bought.
-  const buyable = item.state === 'buyable' || (item.state === 'open' && item.kind === 'variant');
-  if (!buyable || item.price === null) return { refused: item.reason ?? 'not for sale' };
-  if (state.starlight < item.price) return { refused: 'Not enough Starlight.' };
-  const starlight = state.starlight - item.price;
+  if (item.state === 'owned') return { refused: 'Already yours.' };
+  // Skip the unlocks opens every variant to play, never to own: a variant is bought only where
+  // it's sold without Skip. Keepsakes, which add no power, are sold as the Atelier shows them.
+  const sold =
+    item.kind === 'variant' && all ? shopItems(state, rank, false).find((i) => i.id === id)! : item;
+  if (sold.state !== 'buyable' || sold.price === null)
+    return { refused: sold.reason ?? 'Not for sale.' };
+  if (state.starlight < sold.price) return { refused: 'Not enough Starlight.' };
+  const starlight = state.starlight - sold.price;
   return item.kind === 'variant'
     ? { state: { ...state, starlight, variants: [...state.variants, id] } }
     : { state: { ...state, starlight, cosmetics: [...state.cosmetics, id] } };

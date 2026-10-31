@@ -4,7 +4,7 @@
  * Empowered relic plays its empowered numbers.
  */
 import { describe, expect, it } from 'vitest';
-import { CONTENT, PASSIVE_EFFECTS, relicDef } from '../../src/content';
+import { astrolabeNode, CONTENT, PASSIVE_EFFECTS, relicDef } from '../../src/content';
 import { songReserveOf, type SimConfig } from '../../src/sim';
 import { resolveMods } from '../../src/sim/mods';
 import { resolveConfig } from '../../src/sim/world';
@@ -21,13 +21,14 @@ describe('passives', () => {
   });
 
   it('add to the tree’s sums, as gear and passives share theirs', () => {
-    // Two Silk travel nodes (Thread +2% each) and a relic's +6%: ×1.10, not ×1.04 × 1.06.
+    // Two Silk travel nodes (Thread +{pct}% each) and a relic's +6%: one sum, not a product.
+    const nodes = ['silk_t1', 'silk_t2'].reduce((n, id) => n + astrolabeNode(id).values.pct!, 0);
     const m = modsOf({
       astrolabe: ['silk_t1', 'silk_t2'],
       passives: [{ effect: 'thread', value: 6 }],
     });
-    expect(m.mendMult).toBeCloseTo(1.1, 9);
-    expect(m.empowerMult).toBeCloseTo(1.1, 9);
+    expect(m.mendMult).toBeCloseTo(1 + (nodes + 6) / 100, 9);
+    expect(m.empowerMult).toBeCloseTo(1 + (nodes + 6) / 100, 9);
     // Two relics' Thread add up the same way.
     const twice = modsOf({
       passives: [

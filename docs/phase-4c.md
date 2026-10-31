@@ -2,6 +2,8 @@
 
 *2026-10-28 · plan: [docs/plan/02-game-design.md §9](plan/02-game-design.md#9-meta-progression-the-loom), [03 §9.2](plan/03-content-bible.md#92-the-reliquary-persistent) · follows [Phase 4b](phase-4b.md)*
 
+> **Since:** [Phase 4h](phase-4h.md#the-raw-power-cap) halved every Inscription's range again (the Thread's reach, the Perfect window, the field's size and Resonance aside), so the Reliquary and the tree together keep the plan's +30% cap. The numbers below are as this phase set them; the content has today's.
+
 The second piece of the Loom: the **Reliquary**, where relics outlive their runs. A won run lets you **enshrine** one of the relics it found. Between runs you **craft** them with Inscriptions (affixes), pushing your luck against Instability, and you **carry** up to three into each run. This is the plan's answer to the original's item crafting, with fewer currencies and real decisions. The user chose how it works:
 
 | Question | Choice |

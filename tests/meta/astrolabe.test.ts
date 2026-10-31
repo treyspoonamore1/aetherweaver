@@ -44,8 +44,8 @@ function memoryStore(): KeyValueStore {
 
 /** Four auras holding 110% of Spirit: too heavy without the Choir's lighter songs. */
 const HEAVY = [
-  { auras: ['fortissimo', 'ostinato'], ornaments: [] },
   { auras: ['sostenuto', 'allegro'], ornaments: [] },
+  { auras: ['fortissimo', 'lullaby'], ornaments: [] },
 ];
 /** Clear Voice and both Breaths: songs light enough for HEAVY. */
 const LIGHT = ['choir_t1', 'choir_t2', 'choir_n1', 'choir_b1', 'choir_b2', 'choir_bn', 'choir_b3'];

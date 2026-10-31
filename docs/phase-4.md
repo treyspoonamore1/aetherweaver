@@ -2,6 +2,8 @@
 
 *2026-10-27 · plan: [docs/plan/02-game-design.md §9](plan/02-game-design.md#9-meta-progression-the-loom) · keystones: [01 §4](plan/01-findings.md#4-what-the-remake-keeps) · follows [Phase 3e](phase-3e.md)*
 
+> **Since:** [Phase 4h](phase-4h.md#the-raw-power-cap) halved the tree's bonuses (keystones, durations and reaches aside), so the tree and the Reliquary together keep the plan's +30% cap. The numbers below are as this phase set them; the content has today's.
+
 The first piece of the Loom: the **Astrolabe**, a persistent passive tree. Points come from Weaver Rank; you spend them on a star map between runs, and every run carries the tree you embarked with. The user chose how it works:
 
 | Question | Choice |

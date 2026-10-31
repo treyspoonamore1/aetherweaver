@@ -1,5 +1,5 @@
 import type { AttackDef } from '../../content';
-import { isActive, slotHero } from '../combat/health';
+import { heal, isActive, slotHero } from '../combat/health';
 import { startTelegraph } from '../combat/telegraphs';
 import type { PartySlot } from '../commands';
 import { TUNING } from '../constants';
@@ -78,11 +78,19 @@ const DRILL = {
 /**
  * The Perfect-Ward trainer (docs/phase-4g.md): a training bell (a still dummy, spawned beside the
  * hero if none stands) telegraphs one blow at a hero. Unanswered, it takes a quarter of their
- * life; the trainer heals the party between blows.
+ * life. Each try starts even: the hero whole, the Ward ready and Spirit to spare, since the
+ * trainer's beat can be quicker than the Ward's recharge.
  */
 export function drill(world: World, slot: PartySlot, windup: number): void {
   const hero = slotHero(world, slot);
   if (!isActive(hero)) return;
+  heal(world, hero, hero.health.maxHp, 'other');
+  const w = world.entities.get(world.weaverId)?.weaver;
+  if (w) {
+    w.wardCharges = Math.max(w.wardCharges, world.mods.wardCharges);
+    w.cooldowns.ward = 0;
+    w.spirit = w.maxSpirit - w.reservedSpirit;
+  }
   let bell = world.entities.list().find((e) => e.kind === 'dummy');
   if (!bell) {
     bell = world.entities.spawn('dummy', {

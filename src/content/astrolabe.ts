@@ -37,8 +37,8 @@ const NODES: Node[] = [
   },
 
   // ── Silk: the Thread (north) ────────────────────────────────────────────────────────
-  travel('silk_t1', 'silk', 0, 1.1, 'Silk', 'thread', { pct: 2 }, 'Mend and Empower +{pct}%'),
-  travel('silk_t2', 'silk', 0, 2.1, 'Silk', 'thread', { pct: 2 }, 'Mend and Empower +{pct}%'),
+  travel('silk_t1', 'silk', 0, 1.1, 'Silk', 'thread', { pct: 1 }, 'Mend and Empower +{pct}%'),
+  travel('silk_t2', 'silk', 0, 2.1, 'Silk', 'thread', { pct: 1 }, 'Mend and Empower +{pct}%'),
   {
     id: 'silk_n1',
     name: 'Spun Silver',
@@ -47,11 +47,11 @@ const NODES: Node[] = [
     x: 0,
     y: 3.2,
     effect: 'spun_silver',
-    values: { range: 2, pct: 2 },
+    values: { range: 2, pct: 1 },
     text: 'The Thread reaches {range} m farther before it pulls taut. Mend and Empower +{pct}%',
   },
-  travel('silk_a1', 'silk', -0.71, 4.04, 'Mending', 'mend', { pct: 2 }, 'Mend +{pct}%'),
-  travel('silk_a2', 'silk', -1.46, 4.78, 'Mending', 'mend', { pct: 2 }, 'Mend +{pct}%'),
+  travel('silk_a1', 'silk', -0.71, 4.04, 'Mending', 'mend', { pct: 1 }, 'Mend +{pct}%'),
+  travel('silk_a2', 'silk', -1.46, 4.78, 'Mending', 'mend', { pct: 1 }, 'Mend +{pct}%'),
   {
     id: 'silk_an',
     name: 'Second Stitch',
@@ -60,11 +60,11 @@ const NODES: Node[] = [
     x: -2.15,
     y: 5.6,
     effect: 'second_stitch',
-    values: { pct: 12, below: 35 },
+    values: { pct: 6, below: 35 },
     text: 'Mend heals {pct}% more on a hero below {below}% of their life',
   },
-  travel('silk_a3', 'silk', -2.74, 6.44, 'Mending', 'mend', { pct: 2 }, 'Mend +{pct}%'),
-  travel('silk_a4', 'silk', -3.21, 7.22, 'Mending', 'mend', { pct: 2 }, 'Mend +{pct}%'),
+  travel('silk_a3', 'silk', -2.74, 6.44, 'Mending', 'mend', { pct: 1 }, 'Mend +{pct}%'),
+  travel('silk_a4', 'silk', -3.21, 7.22, 'Mending', 'mend', { pct: 1 }, 'Mend +{pct}%'),
   {
     id: 'overflowing_grace',
     name: 'Overflowing Grace',
@@ -76,8 +76,8 @@ const NODES: Node[] = [
     values: { cap: 20, seconds: 4, ward: 40 },
     text: 'Mend’s overheal becomes a shield on the hero, up to {cap}% of their life, lasting {seconds} s. Your Ward’s barrier is {ward}% smaller',
   },
-  travel('silk_b1', 'silk', 0.71, 4.04, 'Gilding', 'empower', { pct: 2 }, 'Empower +{pct}%'),
-  travel('silk_b2', 'silk', 1.46, 4.78, 'Gilding', 'empower', { pct: 2 }, 'Empower +{pct}%'),
+  travel('silk_b1', 'silk', 0.71, 4.04, 'Gilding', 'empower', { pct: 1 }, 'Empower +{pct}%'),
+  travel('silk_b2', 'silk', 1.46, 4.78, 'Gilding', 'empower', { pct: 1 }, 'Empower +{pct}%'),
   {
     id: 'silk_bn',
     name: 'Afterglow',
@@ -89,8 +89,8 @@ const NODES: Node[] = [
     values: { seconds: 2 },
     text: 'Empower lingers on a hero for {seconds} s after you thread another',
   },
-  travel('silk_b3', 'silk', 2.74, 6.44, 'Blood', 'life', { pct: 3 }, '+{pct}% Life'),
-  travel('silk_b4', 'silk', 3.21, 7.22, 'Blood', 'life', { pct: 3 }, '+{pct}% Life'),
+  travel('silk_b3', 'silk', 2.74, 6.44, 'Blood', 'life', { pct: 1.5 }, '+{pct}% Life'),
+  travel('silk_b4', 'silk', 3.21, 7.22, 'Blood', 'life', { pct: 1.5 }, '+{pct}% Life'),
   {
     id: 'sanguine_font',
     name: 'Sanguine Font',
@@ -104,8 +104,8 @@ const NODES: Node[] = [
   },
 
   // ── Choir: the songs (east) ─────────────────────────────────────────────────────────
-  travel('choir_t1', 'choir', 1.1, 0, 'Voice', 'aura_effect', { pct: 2 }, 'Aura effect +{pct}%'),
-  travel('choir_t2', 'choir', 2.1, 0, 'Voice', 'aura_effect', { pct: 2 }, 'Aura effect +{pct}%'),
+  travel('choir_t1', 'choir', 1.1, 0, 'Voice', 'aura_effect', { pct: 1 }, 'Aura effect +{pct}%'),
+  travel('choir_t2', 'choir', 2.1, 0, 'Voice', 'aura_effect', { pct: 1 }, 'Aura effect +{pct}%'),
   {
     id: 'choir_n1',
     name: 'Clear Voice',
@@ -114,7 +114,7 @@ const NODES: Node[] = [
     x: 3.2,
     y: 0,
     effect: 'clear_voice',
-    values: { reserve: 4, pct: 2 },
+    values: { reserve: 2, pct: 1 },
     text: 'Your songs reserve {reserve}% less. Aura effect +{pct}%',
   },
   travel(
@@ -124,7 +124,7 @@ const NODES: Node[] = [
     0.71,
     'Swell',
     'aura_effect',
-    { pct: 2 },
+    { pct: 1 },
     'Aura effect +{pct}%',
   ),
   travel(
@@ -134,7 +134,7 @@ const NODES: Node[] = [
     1.46,
     'Swell',
     'aura_effect',
-    { pct: 2 },
+    { pct: 1 },
     'Aura effect +{pct}%',
   ),
   {
@@ -155,7 +155,7 @@ const NODES: Node[] = [
     2.74,
     'Swell',
     'aura_effect',
-    { pct: 2 },
+    { pct: 1 },
     'Aura effect +{pct}%',
   ),
   travel(
@@ -165,7 +165,7 @@ const NODES: Node[] = [
     3.21,
     'Swell',
     'aura_effect',
-    { pct: 2 },
+    { pct: 1 },
     'Aura effect +{pct}%',
   ),
   {
@@ -186,7 +186,7 @@ const NODES: Node[] = [
     -0.71,
     'Breath',
     'reserve',
-    { pct: 3 },
+    { pct: 1.5 },
     'Your songs reserve {pct}% less',
   ),
   travel(
@@ -217,7 +217,7 @@ const NODES: Node[] = [
     -2.74,
     'Breath',
     'reserve',
-    { pct: 3 },
+    { pct: 1.5 },
     'Your songs reserve {pct}% less',
   ),
   travel(
@@ -243,8 +243,8 @@ const NODES: Node[] = [
   },
 
   // ── Aegis: the techniques (west) ────────────────────────────────────────────────────
-  travel('aegis_t1', 'aegis', -1.1, 0, 'Shield', 'ward', { pct: 2 }, 'Ward barrier +{pct}%'),
-  travel('aegis_t2', 'aegis', -2.1, 0, 'Shield', 'ward', { pct: 2 }, 'Ward barrier +{pct}%'),
+  travel('aegis_t1', 'aegis', -1.1, 0, 'Shield', 'ward', { pct: 1 }, 'Ward barrier +{pct}%'),
+  travel('aegis_t2', 'aegis', -2.1, 0, 'Shield', 'ward', { pct: 1 }, 'Ward barrier +{pct}%'),
   {
     id: 'aegis_n1',
     name: 'Shieldwright',
@@ -253,10 +253,10 @@ const NODES: Node[] = [
     x: -3.2,
     y: 0,
     effect: 'shieldwright',
-    values: { pct: 4, seconds: 0.5 },
+    values: { pct: 2, seconds: 0.5 },
     text: 'Ward barrier +{pct}%. Ward recovers {seconds} s faster',
   },
-  travel('aegis_a1', 'aegis', -4.04, -0.71, 'Guard', 'ward', { pct: 4 }, 'Ward barrier +{pct}%'),
+  travel('aegis_a1', 'aegis', -4.04, -0.71, 'Guard', 'ward', { pct: 2 }, 'Ward barrier +{pct}%'),
   travel(
     'aegis_a2',
     'aegis',
@@ -275,10 +275,10 @@ const NODES: Node[] = [
     x: -5.6,
     y: -2.15,
     effect: 'ringing_parry',
-    values: { pct: 50, resonance: 5 },
+    values: { pct: 25, resonance: 2.5 },
     text: 'A Perfect Ward’s stagger lasts {pct}% longer and gives {resonance} more Resonance',
   },
-  travel('aegis_a3', 'aegis', -6.44, -2.74, 'Guard', 'ward', { pct: 4 }, 'Ward barrier +{pct}%'),
+  travel('aegis_a3', 'aegis', -6.44, -2.74, 'Guard', 'ward', { pct: 2 }, 'Ward barrier +{pct}%'),
   travel(
     'aegis_a4',
     'aegis',
@@ -307,7 +307,7 @@ const NODES: Node[] = [
     0.71,
     'Economy',
     'tech_cost',
-    { pct: 3 },
+    { pct: 1.5 },
     'Techniques cost {pct}% less',
   ),
   travel(
@@ -317,7 +317,7 @@ const NODES: Node[] = [
     1.46,
     'Tempo',
     'tech_cooldown',
-    { pct: 3 },
+    { pct: 1.5 },
     'Techniques recover {pct}% faster',
   ),
   {
@@ -328,7 +328,7 @@ const NODES: Node[] = [
     x: -5.6,
     y: 2.15,
     effect: 'bell_tower',
-    values: { radius: 25, heal: 25 },
+    values: { radius: 25, heal: 12.5 },
     text: 'Chime reaches {radius}% wider and heals {heal}% more',
   },
   travel(
@@ -338,7 +338,7 @@ const NODES: Node[] = [
     2.74,
     'Economy',
     'tech_cost',
-    { pct: 3 },
+    { pct: 1.5 },
     'Techniques cost {pct}% less',
   ),
   travel(
@@ -348,7 +348,7 @@ const NODES: Node[] = [
     3.21,
     'Composure',
     'spirit_regen',
-    { pct: 5 },
+    { pct: 2.5 },
     'Spirit regenerates {pct}% faster',
   ),
   {
@@ -364,7 +364,7 @@ const NODES: Node[] = [
   },
 
   // ── Bond: the heroes (south) ────────────────────────────────────────────────────────
-  travel('bond_t1', 'bond', 0, -1.1, 'Hearth', 'hero_life', { pct: 1 }, 'Heroes +{pct}% life'),
+  travel('bond_t1', 'bond', 0, -1.1, 'Hearth', 'hero_life', { pct: 0.5 }, 'Heroes +{pct}% life'),
   travel(
     'bond_t2',
     'bond',
@@ -372,7 +372,7 @@ const NODES: Node[] = [
     -2.1,
     'Rhythm',
     'solo_charge',
-    { pct: 2 },
+    { pct: 1 },
     'Solos charge {pct}% faster',
   ),
   {
@@ -383,7 +383,7 @@ const NODES: Node[] = [
     x: 0,
     y: -3.2,
     effect: 'fellowship',
-    values: { life: 2, damage: 2 },
+    values: { life: 1, damage: 1 },
     text: 'Heroes +{life}% life and deal {damage}% more damage',
   },
   travel(
@@ -393,7 +393,7 @@ const NODES: Node[] = [
     -4.04,
     'Endurance',
     'hero_life',
-    { pct: 1 },
+    { pct: 0.5 },
     'Heroes +{pct}% life',
   ),
   travel(
@@ -403,7 +403,7 @@ const NODES: Node[] = [
     -4.78,
     'Grit',
     'bleed_out',
-    { pct: 8 },
+    { pct: 4 },
     'Downed heroes bleed out {pct}% slower',
   ),
   {
@@ -414,7 +414,7 @@ const NODES: Node[] = [
     x: 2.15,
     y: -5.6,
     effect: 'close_ranks',
-    values: { pct: 4, radius: 4 },
+    values: { pct: 2, radius: 4 },
     text: 'A hero within {radius} m of another takes {pct}% less from ordinary hits',
   },
   travel(
@@ -424,7 +424,7 @@ const NODES: Node[] = [
     -6.44,
     'Endurance',
     'hero_life',
-    { pct: 1 },
+    { pct: 0.5 },
     'Heroes +{pct}% life',
   ),
   travel(
@@ -434,7 +434,7 @@ const NODES: Node[] = [
     -7.22,
     'Lift',
     'revive_speed',
-    { pct: 8 },
+    { pct: 4 },
     'Mend revives {pct}% faster',
   ),
   {
@@ -445,7 +445,7 @@ const NODES: Node[] = [
     x: 3.8,
     y: -8.16,
     effect: 'second_wind',
-    values: { life: 40, seconds: 1 },
+    values: { life: 35, seconds: 1 },
     text: 'A hero Mend revives stands up with {life}% of their life and is untouchable for {seconds} s',
   },
   travel(
@@ -455,7 +455,7 @@ const NODES: Node[] = [
     -4.04,
     'Rhythm',
     'solo_charge',
-    { pct: 2 },
+    { pct: 1 },
     'Solos charge {pct}% faster',
   ),
   travel(
@@ -465,7 +465,7 @@ const NODES: Node[] = [
     -4.78,
     'Rhythm',
     'solo_charge',
-    { pct: 2 },
+    { pct: 1 },
     'Solos charge {pct}% faster',
   ),
   {
@@ -476,7 +476,7 @@ const NODES: Node[] = [
     x: -2.15,
     y: -5.6,
     effect: 'ready_answer',
-    values: { resonance: 5 },
+    values: { resonance: 2.5 },
     text: 'Answering a hero’s call gives {resonance} more Resonance',
   },
   travel(
@@ -486,7 +486,7 @@ const NODES: Node[] = [
     -6.44,
     'Rhythm',
     'solo_charge',
-    { pct: 2 },
+    { pct: 1 },
     'Solos charge {pct}% faster',
   ),
   travel(
@@ -496,7 +496,7 @@ const NODES: Node[] = [
     -7.22,
     'Spotlight',
     'cued_solo',
-    { pct: 5 },
+    { pct: 2.5 },
     'Cued Solos last {pct}% longer',
   ),
   {
@@ -507,7 +507,7 @@ const NODES: Node[] = [
     x: -3.8,
     y: -8.16,
     effect: 'ensemble',
-    values: { pct: 10 },
+    values: { pct: 5 },
     text: 'When you Cue a Solo, the other heroes’ Solos charge {pct}%',
   },
 
@@ -520,7 +520,7 @@ const NODES: Node[] = [
     x: 3.96,
     y: 3.96,
     effect: 'resonant_thread',
-    values: { pct: 3 },
+    values: { pct: 1.5 },
     text: 'The threaded hero hears your beam song {pct}% stronger',
   },
   {
@@ -531,7 +531,7 @@ const NODES: Node[] = [
     x: 3.96,
     y: -3.96,
     effect: 'anthem',
-    values: { pct: 2 },
+    values: { pct: 1 },
     text: 'Heroes standing in your field deal {pct}% more damage',
   },
   {
@@ -542,7 +542,7 @@ const NODES: Node[] = [
     x: -3.96,
     y: -3.96,
     effect: 'shield_bearer',
-    values: { pct: 2 },
+    values: { pct: 1 },
     text: 'A hero your Ward is on deals {pct}% more damage while it holds',
   },
   {
@@ -553,7 +553,7 @@ const NODES: Node[] = [
     x: -3.96,
     y: 3.96,
     effect: 'lifeguard',
-    values: { pct: 8 },
+    values: { pct: 4 },
     text: 'Mend heals a hero your Ward is on {pct}% more',
   },
 ];

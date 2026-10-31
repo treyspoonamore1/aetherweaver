@@ -25,7 +25,7 @@ The last of the Loom: the meta currency, the hub, Calling mastery and the Perfec
   - **Robes**: the Weaver's colours, 60–90 each.
   - **Thread looks**: the Thread's filament and glow, 60–90 each. Mend's and Empower's colours stay what they are, so the Thread still says which it is.
   - **Titles**, 40 each. Some are earned instead: each Calling's mastery title, and a few Deeds'.
-- **Skip the unlocks** opens the Atelier and every variant, but buys nothing: cosmetics and titles are still bought.
+- **Skip the unlocks** opens the Atelier, and every variant to play, but it buys nothing. A variant is bought only where it's sold without it: from Rank 5, and for the mastery ones at their Calling's top mastery. Keepsakes add no power, so they're sold as the Atelier shows them.
 
 ## Calling mastery
 
@@ -62,9 +62,9 @@ An illustrated sanctum between runs (2D, drawn in code: no image files). Each st
 A drill in the Training Grounds:
 - A training bell telegraphs a blow at one hero on a steady beat, and you Ward it.
 - Each try says how it went: **Perfect**, early or late by how many milliseconds, or missed.
-- It counts your streak and best.
+- It counts your streak, and keeps your best per mode in this browser.
 - Three speeds (slow, normal, quick) and a mixed mode that picks the target at random.
-- The blows don't hurt: the drill heals the party between them.
+- The blows don't hurt for long: each starts with the hero healed and the Ward and Spirit ready, so the beat can be quicker than the Ward's recharge.
 
 ## Contracts (v15)
 
@@ -73,7 +73,7 @@ A drill in the Training Grounds:
 - `cosmetics`: robes `{ id, name, price, colors }`, Thread looks `{ id, name, price, filament, glow }`, titles `{ id, text, price | earned: { mastery } | { deed } }`.
 - `mastery`: level thresholds; each Calling's variant and title.
 
-**Sim** (`SIM_VERSION` 21): a `drill` debug op, `{ op: 'drill', slot, windup }`, that telegraphs a single blow at a hero. Nothing else: cosmetics are the views', read from the profile.
+**Sim** (`SIM_VERSION` 21): a `drill` debug op, `{ op: 'drill', slot, windup }`, that heals the hero, readies the Ward and Spirit, and telegraphs a single blow at them (a Reel dodges it). Nothing else: cosmetics are the views', read from the profile.
 
 **Meta:**
 - `EncounterResult.starlight`; the Summary's Starlight.
@@ -82,7 +82,7 @@ A drill in the Training Grounds:
   - `mastery: Record<callingId, number>`;
   - the hub's intros seen go in the existing `introduced` list, as `station:<id>`.
 - `RunState.calling.tiersOpen`, snapshotted at embark (absent on older runs: every tier).
-- In `src/meta/loom.ts`: `starlightForFight`, `starlightForDeeds`, `masteryLevel`, `masteryProgress`, `tiersOpen(callingId, mastery, all)`, `shopItems(state, rank, all)`, `buy`, `equip`, `earnedTitles`.
+- In `src/meta/loom.ts`: `starlightForFight`, `starlightForDeeds`, `runStarlight` (a run's fights' and Deeds'), `masteryLevel`, `masteryProgress`, `tiersOpen(callingId, mastery, all)`, `shopItems(state, rank, all)`, `buy`, `equip`, `earnedTitles`.
 
 **Stores:**
 - The profile store: `awardStarlight`, `shop()`, `buy(itemId)` (refused without the Starlight, or while locked), `equip(slot, id)`, `awardMastery(callingId, xp)`, `tiersOpen(callingId)`. Newly earned Deeds pay their Starlight as they're recorded.
@@ -94,11 +94,34 @@ A drill in the Training Grounds:
 
 ## Harness
 
-*To be filled in: Starlight and mastery pacing over the first hours.*
+`tools/pacing.ts` plays simulated players' first three hours, run by run, on what their Rank has opened, and pays Weaver XP, Starlight and mastery as the stores do ([Phase 4h](phase-4h.md#pacing) has the model and the whole table). Medians of 16 players each:
+
+| | Novice | Skilled |
+|---|---|---|
+| Starlight earned by 1:00 · 2:00 · 3:00 | 227 · 431 · 679 | 414 · 679 · 882 |
+| The Atelier opens (Rank 5) | 0:52 | 0:32 |
+| The Luminary (Rank 7) | 1:53 | 1:19 |
+| Its mastery 2 · 3 · 4 · 5 | 2:14 · 2:26 · 2:49 · 3:14 | 1:37 · 1:53 · 2:11 · 2:32 |
+
+- **Starlight.** When the Atelier opens, a newcomer has about 200 Starlight saved: a variant or a keepsake at once. Three hours in, they've earned about half of what it sells (1,590 in all, the mastery variants included), so it lasts.
+- **Mastery.** A Calling's path opens over its first few runs: tier I from the start, tier IV after three or four. Its top mastery (its title and its variant) comes after about an hour and a quarter of playing it, five or six runs.
 
 ## Code review
 
-*To be filled in after the review.*
+A review of the core commit ran it as well as reading it: a whole won run through the stores at Dissonance, reloads at a Result and mid-fight, a second report of the same fight, losses, tier gating, the Atelier's every refusal and saves with junk in them. Starlight and mastery are never paid twice, Dissonance applies once, and the drill leaves determinism, replays and golden alone. What it found, fixed with tests unless noted:
+
+| Found | Fixed |
+|---|---|
+| **Skip the unlocks let you buy gated variants for good**: under it every variant was `open`, and an `open` variant was for sale, Rank and mastery unchecked. | A variant is bought only where it's sold without Skip. |
+| **The in-run Calling strip promised tiers mastery hadn't opened** (`nextTier`, `pathLabel`, `pathSteps`). | The screens mark them closed, opening with mastery (see *Presentation*). |
+| **The drill couldn't beat faster than the Ward's 7 s recharge**: a second blow found the Ward spent. | Each blow starts with the hero healed and the Ward and Spirit ready. |
+| **A v7 save brought up to date** started its Callings' mastery from nothing, and its earned Deeds paid no Starlight. | The Deeds pay their Starlight once, as the save is migrated. Mastery still starts from nothing: it's earned by playing. |
+| The drill's "can't be dodged" wasn't true (a Reel dodges it); the doc's "heals the party between blows" and "the Summary's Starlight" had nothing behind them. | The command's doc says what it does; the drill heals as it starts; `runStarlight(run)` gives the Summary its total. |
+| Shop wording: a Skip-opened mastery variant still read "Opens with … top mastery"; buying something owned said "not for sale". | "Open to play with Skip the unlocks. On sale with …"; "Already yours." |
+| `ownVariant` was described as the shop's, though it's an ungated gift. | It's the demo's and the tests'; the Atelier sells through `buy`. |
+| Content checks: keepsake ids weren't checked against variants', and mastery rewards weren't checked one per Calling, or against the title that Calling's mastery earns. | Checked. |
+| The Calling unlock card said "its path grows as you win". | "…playing it earns mastery, which opens its path." |
+| Test gaps: Deeds' Starlight through the store, a lost fight, a fight reported twice, Skip with buying, the migration, the quick drill. | Tested. |
 
 ## Known gaps
 

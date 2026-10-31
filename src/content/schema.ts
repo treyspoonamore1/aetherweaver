@@ -1514,9 +1514,11 @@ export const ContentSchema = z
       if (c.techniqueVariants.filter((v) => v.slot === slot).length !== 2)
         ctx.addIssue({ code: 'custom', message: `technique slot "${slot}" needs two variants` });
     for (const v of c.techniqueVariants) filled(v.text, v.values, `technique variant "${v.id}"`);
-    // The Loom (docs/phase-4g.md): keepsakes with their own ids; titles bought or earned, from
-    // something real; one mastery reward per Calling, each a real variant and title.
-    unique('keepsake', [
+    // The Loom (docs/phase-4g.md): keepsakes with their own ids (the Atelier sells variants
+    // beside them); titles bought or earned, from something real; one mastery reward per
+    // Calling, each its own variant and the title that Calling's mastery earns.
+    unique('Atelier item', [
+      ...c.techniqueVariants.map((v) => v.id),
       ...c.cosmetics.robes.map((r) => r.id),
       ...c.cosmetics.threads.map((t) => t.id),
       ...c.cosmetics.titles.map((t) => t.id),
@@ -1535,12 +1537,24 @@ export const ContentSchema = z
     const ml = c.mastery.levels;
     if (ml.length !== 5 || ml[0] !== 0 || ml.some((x, i) => i > 0 && x <= ml[i - 1]!))
       ctx.addIssue({ code: 'custom', message: 'mastery: five levels from 0, rising' });
+    unique(
+      'mastery Calling',
+      c.mastery.callings.map((m) => m.calling),
+    );
+    unique(
+      'mastery variant',
+      c.mastery.callings.map((m) => m.variant),
+    );
     for (const m of c.mastery.callings) {
       need(callingIds, m.calling, 'mastery');
       if (!c.techniqueVariants.some((v) => v.id === m.variant))
         ctx.addIssue({ code: 'custom', message: `mastery: unknown variant "${m.variant}"` });
-      if (!c.cosmetics.titles.some((t) => t.id === m.title))
-        ctx.addIssue({ code: 'custom', message: `mastery: unknown title "${m.title}"` });
+      const title = c.cosmetics.titles.find((t) => t.id === m.title);
+      if (!title?.earned || !('mastery' in title.earned) || title.earned.mastery !== m.calling)
+        ctx.addIssue({
+          code: 'custom',
+          message: `mastery: "${m.title}" must be the title ${m.calling}'s mastery earns`,
+        });
     }
     for (const ev of c.events) {
       unique(

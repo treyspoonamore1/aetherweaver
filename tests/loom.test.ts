@@ -12,6 +12,7 @@ import {
   buy,
   equip,
   masteryLevel,
+  runStarlight,
   shopItems,
   starlightForDeeds,
   starlightForFight,
@@ -77,6 +78,15 @@ describe('Starlight', () => {
       S.deedLadder[ladder.length - 1]! + S.deedBadge,
     );
     expect(starlightForDeeds(['nope'])).toBe(0);
+  });
+
+  it('a run’s Starlight: its fights’ and its newly earned Deeds’', () => {
+    const deed = CONTENT.deeds.find((d) => d.points === 1)!.id;
+    const total = runStarlight({
+      results: [{ starlight: 3 }, { starlight: 6 }, {}] as never,
+      deeds: [deed],
+    });
+    expect(total).toEqual({ fights: 9, deeds: S.deedLadder[0], total: 9 + S.deedLadder[0]! });
   });
 });
 
@@ -149,10 +159,72 @@ describe('the Atelier', () => {
     expect(variant.state.variants).toEqual(['swap']);
     const earned = loom({ mastery: { martyr: M.levels[4]! } });
     expect(equip(earned, 'title', 'title_unbroken').title).toBe('title_unbroken');
+    // What's yours isn't sold again.
+    expect(buy(variant.state, 'swap', S.atelierRank, false)).toEqual({ refused: 'Already yours.' });
+  });
+
+  it('Skip the unlocks opens variants to play, never to own past their gates', () => {
+    const rich = loom({ starlight: 1000 });
+    // Below the Atelier's Rank, or before a Calling's top mastery, a variant isn't sold.
+    expect('refused' in buy(rich, 'swap', S.atelierRank - 1, true)).toBe(true);
+    expect('refused' in buy(rich, 'chorale', S.atelierRank, true)).toBe(true);
+    // Where it would be sold anyway, it is.
+    expect('state' in buy(rich, 'swap', S.atelierRank, true)).toBe(true);
+    // Keepsakes add no power: Skip sells them as the Atelier shows them.
+    expect('state' in buy(rich, CONTENT.cosmetics.robes[0]!.id, 1, true)).toBe(true);
   });
 });
 
+/** The run's pending fight, ended with this outcome and everyone standing. */
+function outcomeOf(outcome: 'victory' | 'defeat') {
+  return {
+    encounterId: useRun.getState().combatConfig()!.encounter!,
+    outcome,
+    duration: 40,
+    ledger: worldOf(sandbox()).ledger,
+    party: run().party.map((h, slot) => ({
+      slot,
+      heroId: h.heroId,
+      hp: 100,
+      maxHp: 100,
+      downed: false,
+      dead: false,
+      damage: 0,
+      amplified: 0,
+    })),
+    withoutYou: null,
+  };
+}
+
 describe('the stores', () => {
+  it('a lost fight pays no Starlight but still masters; a fight pays once', () => {
+    skipUnlocks(true);
+    useRun.getState().newRun(84);
+    useRun.getState().setCalling('martyr');
+    useRun.getState().embark();
+    useRun.getState().chooseNode(Run.reachable(run())[0]!.id);
+    const lost = outcomeOf('defeat');
+    useRun.getState().finishCombat(lost);
+    expect(run().lastResult!.starlight).toBe(0);
+    expect(profile().starlight).toBe(0);
+    const mastery = profile().mastery.martyr!;
+    expect(mastery).toBe(run().lastResult!.xp);
+    expect(mastery).toBeGreaterThan(0);
+    // The same fight's end, reported again, pays nothing more.
+    useRun.getState().finishCombat(lost);
+    expect(profile().mastery.martyr).toBe(mastery);
+  });
+
+  it('newly earned Deeds pay their Starlight as they’re recorded, once', () => {
+    useRun.getState().newRun(85);
+    const won = { ...run(), outcome: 'victory' as const };
+    const earned = useProfile.getState().recordDeeds(won);
+    expect(earned).toContain('through_the_prelude');
+    expect(profile().starlight).toBe(starlightForDeeds(earned));
+    useProfile.getState().recordDeeds(won);
+    expect(profile().starlight).toBe(starlightForDeeds(earned));
+  });
+
   it('a fight pays Starlight and the Calling’s mastery with its Weaver XP', () => {
     skipUnlocks(true);
     useRun.getState().newRun(82);
@@ -218,6 +290,10 @@ describe('saves', () => {
     const loaded = loadProfile(store);
     expect(loaded.version).toBe(PROFILE_VERSION);
     expect(loaded.starlight).toBe(0);
+    // Deeds earned before Starlight existed pay theirs as the save is brought up to date.
+    const ladder = CONTENT.deeds.filter((d) => d.points === 1).map((d) => d.id);
+    store.setItem('aetherweaver.profile', JSON.stringify({ ...v7, deeds: ladder.slice(0, 2) }));
+    expect(loadProfile(store).starlight).toBe(starlightForDeeds(ladder.slice(0, 2)));
     const robe = CONTENT.cosmetics.robes[0]!.id;
     store.setItem(
       'aetherweaver.profile',
@@ -261,5 +337,22 @@ describe('the Perfect-Ward trainer', () => {
     events = stepUntil(sim, (ev) => ev.some((e) => e.type === 'telegraphEnded'), 200);
     expect(ofType(events, 'telegraphResolved')[0]!.outcome).toBe('hit');
     expect(before - kael.health!.hp).toBeGreaterThan(0);
+  });
+
+  it('each try starts even: the hero whole, the Ward ready, on a beat quicker than its recharge', () => {
+    const sim = sandbox();
+    const w = worldOf(sim);
+    const kael = w.entities.get(w.party[0]!)!;
+    stepFor(sim, 2);
+    for (let i = 0; i < 3; i++) {
+      kael.health!.hp = kael.health!.maxHp * 0.5;
+      let events = stepFor(sim, 1, [{ t: 'debug', op: { op: 'drill', slot: 0, windup: 0.8 } }]);
+      expect(kael.health!.hp).toBe(kael.health!.maxHp);
+      const started = ofType(events, 'telegraphStarted')[0]!;
+      stepUntil(sim, () => sim.state.time >= started.perfectFrom + 0.05);
+      stepFor(sim, 1, [{ t: 'tech', id: 'ward', slot: 0 }]);
+      events = stepUntil(sim, (ev) => ev.some((e) => e.type === 'telegraphEnded'), 200);
+      expect(ofType(events, 'telegraphResolved')[0]!.outcome).toBe('perfect');
+    }
   });
 });

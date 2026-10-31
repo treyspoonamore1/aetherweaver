@@ -210,7 +210,7 @@ export const UNLOCKS: readonly Unlock[] = [
     kind: 'calling',
     target: c.id,
     name: `The ${c.name}`,
-    text: `A Calling: ${c.summary} Choose it in Prep; its path grows as you win.`,
+    text: `A Calling: ${c.summary} Choose it in Prep; playing it earns mastery, which opens its path.`,
   })),
   ...CONTENT.reliquary.slotRanks.map((rank, i): Unlock =>
     i === 0
@@ -220,7 +220,7 @@ export const UNLOCKS: readonly Unlock[] = [
           kind: 'reliquary',
           target: '1',
           name: 'The Reliquary',
-          text: 'Relics that outlive their runs. Win a run to enshrine one it found, craft its Inscriptions between runs, and carry it into the next. Open it from the Title or from Prep.',
+          text: 'Relics that outlive their runs. Win a run to enshrine one it found, craft its Inscriptions between runs, and carry it into the next. Open it from the Loom or from Prep.',
         }
       : {
           id: `carrySlot.${i + 1}`,
