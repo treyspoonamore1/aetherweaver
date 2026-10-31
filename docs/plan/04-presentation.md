@@ -138,6 +138,7 @@ The original already reached for music words: Chorus, Resonance, Symphony, Casca
 - Techniques with cooldown sweeps, cost and charges.
 - Thread mode indicator. *Since 2026-10-31: the Thread dial over the bar's middle, and a glyph over the threaded hero ([docs/thread-dial.md](../thread-dial.md)).*
 - The Resonance arc with 4 segments, and the Crescendo key that blazes when full.
+- *Since 2026-10-31: movable and resizable in Edit HUD layout, like the frames. Put in the top half of the screen, its dial opens under it ([docs/health-ui.md](../health-ui.md)).*
 
 **Boss bar** (top-centre): HP with phase ticks; a **cast bar that names the ability and shows its answer glyphs**; enrage timer.
 

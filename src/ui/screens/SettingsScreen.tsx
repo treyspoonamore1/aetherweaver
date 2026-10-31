@@ -171,9 +171,9 @@ export function SettingsPanel({ compact = false }: { compact?: boolean }) {
 }
 
 /**
- * The fight's health read-outs and the party frames' layout (docs/health-ui.md): the bars over
- * the heroes, the frames' big number, the low-health sound; the frames' size and direction.
- * Moving the frames is Edit HUD layout's, from the pause menu.
+ * The fight's health read-outs and the HUD's layout (docs/health-ui.md): the bars over the
+ * heroes, the frames' big number, the low-health sound; the frames' size and direction, the
+ * Weaver bar's size. Moving them is Edit HUD layout's, from the pause menu.
  */
 function HudSettings() {
   const hud = useSettings((s) => s.settings.hud);
@@ -181,6 +181,7 @@ function HudSettings() {
   const set = (patch: Partial<HudSettingsShape>) =>
     update((d) => ({ ...d, hud: { ...d.hud, ...patch } }));
   const frames = (patch: Partial<FramesLayout>) => set({ frames: { ...hud.frames, ...patch } });
+  const moved = hud.frames.at !== null || hud.weaverBar.at !== null;
   return (
     <>
       <Segmented
@@ -228,17 +229,31 @@ function HudSettings() {
         ]}
         onChange={(v) => frames({ orientation: v })}
       />
+      <Slider
+        label="Weaver bar size"
+        value={hud.weaverBar.scale}
+        min={0.75}
+        max={1.25}
+        step={0.05}
+        onChange={(v) => set({ weaverBar: { ...hud.weaverBar, scale: v } })}
+      />
       <div className="flex flex-wrap items-center gap-3">
         <Button
           size="sm"
-          onClick={() => frames({ at: null })}
-          disabled={hud.frames.at === null}
-          data-testid="frames-reset-place"
+          onClick={() =>
+            set({
+              frames: { ...hud.frames, at: null },
+              weaverBar: { ...hud.weaverBar, at: null },
+            })
+          }
+          disabled={!moved}
+          data-testid="hud-reset-places"
         >
-          Reset frame position
+          Reset positions
         </Button>
         <p className="min-w-0 flex-1 text-xs text-muted">
-          Move them anywhere in a fight: pause, then Edit HUD layout.
+          Puts the party frames and the Weaver bar back. Move them anywhere in a fight: pause, then
+          Edit HUD layout.
         </p>
       </div>
     </>

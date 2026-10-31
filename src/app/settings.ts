@@ -20,11 +20,11 @@ const AssistsSchema = z.object({
 });
 
 /**
- * Where the party frames sit (docs/health-ui.md): the screen corner nearest them is pinned at
- * (`x`, `y`), shares of the screen's width and height, so they keep their place at any
- * resolution and grow away from the edge they're pinned to. Null: the default place (bottom left).
+ * Where a HUD panel sits (docs/health-ui.md), as Edit HUD layout leaves it: the panel's corner
+ * nearest the screen's edges is pinned at (`x`, `y`), shares of the screen's width and height, so
+ * it keeps its place at any resolution and grows away from the edge it's pinned to.
  */
-const FramesPlaceSchema = z.object({
+const PanelPlaceSchema = z.object({
   x: z.number().min(0).max(1),
   y: z.number().min(0).max(1),
   /**
@@ -33,10 +33,11 @@ const FramesPlaceSchema = z.object({
    */
   corner: z.enum(['tl', 'tc', 'tr', 'bl', 'bc', 'br']),
 });
-export type FramesPlace = z.infer<typeof FramesPlaceSchema>;
+export type PanelPlace = z.infer<typeof PanelPlaceSchema>;
 
+/** The party frames: where (null: the default place, bottom left), how big, which way. */
 export const FramesLayoutSchema = z.object({
-  at: FramesPlaceSchema.nullable(),
+  at: PanelPlaceSchema.nullable(),
   /** Their size, over the default. */
   scale: z.number().min(0.75).max(1.5),
   /** Stacked one above another (the default) or side by side. */
@@ -44,9 +45,20 @@ export const FramesLayoutSchema = z.object({
 });
 export type FramesLayout = z.infer<typeof FramesLayoutSchema>;
 
+/** The Weaver bar: where (null: the default place, bottom middle) and how big. */
+export const WeaverBarLayoutSchema = z.object({
+  at: PanelPlaceSchema.nullable(),
+  scale: z.number().min(0.75).max(1.25),
+});
+export type WeaverBarLayout = z.infer<typeof WeaverBarLayoutSchema>;
+
+export const DEFAULT_WEAVER_BAR: WeaverBarLayout = { at: null, scale: 1 };
+
 /** The fight's health read-outs and the HUD's layout (docs/health-ui.md). */
 const HudSchema = z.object({
   frames: FramesLayoutSchema,
+  /** Added after v4 first shipped: settings saved before it take the default. */
+  weaverBar: WeaverBarLayoutSchema.default(DEFAULT_WEAVER_BAR),
   /** Bars over the heroes: always, only while they're hurt, or none. */
   allyBars: z.enum(['always', 'hurt', 'off']),
   /** The party frames' big number: the life missing, the percent left, or the life left. */
@@ -58,6 +70,7 @@ export type HudSettings = z.infer<typeof HudSchema>;
 
 export const DEFAULT_HUD: HudSettings = {
   frames: { at: null, scale: 1, orientation: 'vertical' },
+  weaverBar: DEFAULT_WEAVER_BAR,
   allyBars: 'always',
   healthText: 'missing',
   lowHealthSound: true,

@@ -104,7 +104,7 @@ test('real input: movement, Thread by key and frame, Mend ⇄ Empower, Ward', as
   expect(commands).toContainEqual({ t: 'tech', id: 'ward', slot: 2 });
 });
 
-test('health at a glance: bars over the heroes; Edit HUD layout moves the party frames', async ({
+test('health at a glance: bars over the heroes; Edit HUD layout moves the frames and the Weaver bar', async ({
   page,
 }) => {
   const errors = trackErrors(page);
@@ -130,6 +130,16 @@ test('health at a glance: bars over the heroes; Edit HUD layout moves the party 
   await page.mouse.move(handle.x + 800, handle.y - 300, { steps: 6 });
   await page.mouse.up();
   await page.getByText('Side by side', { exact: true }).click();
+  // The Weaver bar, dragged up into the top half: chosen as it's grabbed, saved as it's dropped.
+  const bar = page.getByTestId('weaver-bar-anchor');
+  const barBefore = (await bar.boundingBox())!;
+  const barHandle = (await page.getByTestId('weaver-bar-handle').boundingBox())!;
+  await page.mouse.move(barHandle.x + 120, barHandle.y + 40);
+  await page.mouse.down();
+  await page.mouse.move(barHandle.x - 100, barHandle.y - 250, { steps: 6 });
+  await page.mouse.move(barHandle.x - 300, barHandle.y - 480, { steps: 6 });
+  await page.mouse.up();
+  await expect(page.getByTestId('weaver-bar-handle')).toHaveAttribute('data-selected', 'true');
   await page.getByTestId('layout-done').click();
   await expect(page.getByTestId('layout-editor')).toHaveCount(0);
   // Pinned by their right edge now (dropped in the right half), the row grows leftward from it.
@@ -141,6 +151,16 @@ test('health at a glance: bars over the heroes; Edit HUD layout moves the party 
   );
   expect(saved.orientation).toBe('horizontal');
   expect(saved.at.corner).toMatch(/r$/);
+  // The bar is in the top half now, its crest (the Thread dial) opening under it.
+  const barAfter = (await bar.boundingBox())!;
+  expect(barAfter.y).toBeLessThan(barBefore.y - 300);
+  await expect(bar).toHaveAttribute('data-crest', 'below');
+  const dial = (await page.getByTestId('thread-dial').boundingBox())!;
+  expect(dial.y).toBeGreaterThan(barAfter.y + barAfter.height - 1);
+  const savedBar = await page.evaluate(
+    () => JSON.parse(localStorage.getItem('aetherweaver.settings') ?? 'null')?.hud?.weaverBar,
+  );
+  expect(savedBar.at.corner).toMatch(/^t/);
   // Back to the pause menu, then the fight.
   await page.getByRole('button', { name: /Resume/ }).click();
   await waitTicks(page, 5);

@@ -321,10 +321,11 @@ describe('settings migration', () => {
       colorVision: 'tritanopia',
       unlockAll: true,
     });
-    // The HUD's defaults: the frames where they always were, bars over the heroes always,
-    // missing health on the frames, the low-health sound on.
+    // The HUD's defaults: the frames and the Weaver bar where they always were, bars over the
+    // heroes always, missing health on the frames, the low-health sound on.
     expect(DEFAULT_HUD).toEqual({
       frames: { at: null, scale: 1, orientation: 'vertical' },
+      weaverBar: { at: null, scale: 1 },
       allyBars: 'always',
       healthText: 'missing',
       lowHealthSound: true,
@@ -345,5 +346,23 @@ describe('settings migration', () => {
         hud: { ...moved.hud, frames: { ...moved.hud.frames, scale: 3 } },
       }),
     ).toBeNull();
+    expect(
+      migrateSettings({ ...moved, hud: { ...moved.hud, weaverBar: { at: null, scale: 1.5 } } }),
+    ).toBeNull();
+  });
+
+  it('v4 settings saved before the Weaver bar moved get its default place and size', () => {
+    const { weaverBar: _w, ...hud } = DEFAULT_HUD;
+    void _w;
+    const before = { ...DEFAULT_SETTINGS, hud: { ...hud, allyBars: 'hurt' } };
+    expect(migrateSettings(before)).toEqual({
+      ...DEFAULT_SETTINGS,
+      hud: { ...DEFAULT_HUD, allyBars: 'hurt', weaverBar: { at: null, scale: 1 } },
+    });
+    const moved = {
+      ...DEFAULT_SETTINGS,
+      hud: { ...DEFAULT_HUD, weaverBar: { at: { x: 0.5, y: 0.03, corner: 'tc' }, scale: 0.85 } },
+    };
+    expect(migrateSettings(moved)).toEqual(moved);
   });
 });

@@ -1,13 +1,13 @@
 /**
- * Health at a glance (docs/health-ui.md): where the party frames sit (moved anywhere in Edit HUD
- * layout, pinned by their nearest corner), what a frame says about a hero's life (the colour of
- * how much is left, the number a healer works from, critical, ailing, out of reach), and the bars
- * over the heroes, drawn by the real render view from a real sim.
+ * Health at a glance (docs/health-ui.md): where the party frames and the Weaver bar sit (moved
+ * anywhere in Edit HUD layout, pinned by their nearest corner), what a frame says about a hero's
+ * life (the colour of how much is left, the number a healer works from, critical, ailing, out of
+ * reach), and the bars over the heroes, drawn by the real render view from a real sim.
  */
 import * as THREE from 'three';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { CRITICAL, HURT, LIFE_OK, healthLevel } from '../src/app/healthLevels';
-import { DEFAULT_HUD, useSettings } from '../src/app/settings';
+import { DEFAULT_HUD, DEFAULT_WEAVER_BAR, useSettings } from '../src/app/settings';
 import { CONTENT, heroDef } from '../src/content';
 import type { Command, Sim } from '../src/sim';
 import { EntityLayer } from '../src/render/entities';
@@ -16,7 +16,17 @@ import { createModelMaterial } from '../src/render/models/material';
 import type { AllyBarView } from '../src/render/overlay';
 import { PartyBarsView, TRAIL_DRAIN, TRAIL_HOLD, type AllyBarsMode } from '../src/render/partyBars';
 import type { FrameInfo } from '../src/render/types';
-import { frameSide, framesPlaceStyle, placeFor, SNAP } from '../src/ui/hud/framesLayout';
+import {
+  coversTopBand,
+  crestBelow,
+  frameSide,
+  framesPlaceStyle,
+  placeFor,
+  SNAP,
+  TOOLBAR_MARGIN,
+  toolbarSpot,
+  weaverBarPlaceStyle,
+} from '../src/ui/hud/framesLayout';
 import { frameState, lifeColor, lifeLabels } from '../src/ui/hud/healthModel';
 import { mockHud } from '../src/ui/lab/mock';
 import { useUi } from '../src/ui/store';
@@ -85,16 +95,79 @@ describe('where the party frames sit', () => {
     );
   });
 
-  it('Edit HUD layout: its draft shows until it ends; leaving the fight closes it', () => {
+  it('Edit HUD layout: its drafts show until it ends; leaving the fight closes it', () => {
     const ui = useUi.getState();
     ui.setLayoutEditing(true);
     ui.setFramesDraft({ ...DEFAULT_HUD.frames, scale: 1.2 });
+    ui.setWeaverBarDraft({ at: { x: 0.5, y: 0.03, corner: 'tc' }, scale: 0.9 });
     expect(useUi.getState().framesDraft?.scale).toBe(1.2);
+    expect(useUi.getState().weaverBarDraft?.scale).toBe(0.9);
     ui.setLayoutEditing(false);
-    expect(useUi.getState()).toMatchObject({ layoutEditing: false, framesDraft: null });
+    expect(useUi.getState()).toMatchObject({
+      layoutEditing: false,
+      framesDraft: null,
+      weaverBarDraft: null,
+    });
     ui.setLayoutEditing(true);
+    ui.setWeaverBarDraft(DEFAULT_WEAVER_BAR);
     ui.resetCombat();
-    expect(useUi.getState().layoutEditing).toBe(false);
+    expect(useUi.getState()).toMatchObject({ layoutEditing: false, weaverBarDraft: null });
+  });
+
+  it('the Weaver bar: bottom middle by default, wider or narrower with its size; moved, pinned', () => {
+    // Centred, but right of the frames' column on a narrow screen, as it always was.
+    expect(weaverBarPlaceStyle(null)).toEqual({
+      left: 'max(34rem, calc(50% - 22.000rem))',
+      bottom: '1.25rem',
+    });
+    expect(weaverBarPlaceStyle(null, 1.2).left).toBe('max(34rem, calc(50% - 26.400rem))');
+    expect(weaverBarPlaceStyle({ x: 0.5, y: 0.03, corner: 'tc' }, 0.9)).toEqual({
+      left: '50.000%',
+      transform: 'translateX(-50%)',
+      top: '3.000%',
+    });
+    expect(weaverBarPlaceStyle({ x: 0.97, y: 0.9, corner: 'br' })).toEqual({
+      right: '3.000%',
+      bottom: '10.000%',
+    });
+  });
+
+  it('put in the top half of the screen, the bar’s crest (the Thread dial) opens under it', () => {
+    expect(crestBelow(null)).toBe(false);
+    expect(crestBelow({ x: 0.5, y: 0.03, corner: 'tc' })).toBe(true);
+    expect(crestBelow({ x: 0.1, y: 0.45, corner: 'tl' })).toBe(true);
+    expect(crestBelow({ x: 0.5, y: 0.98, corner: 'bc' })).toBe(false);
+  });
+
+  it('the editor’s toolbar keeps clear of the panels: top middle, else the bottom, else the middle', () => {
+    const W = 1280;
+    const H = 720;
+    const size = { width: 416, height: 260 };
+    const corner = { left: 16, top: 400, width: 300, height: 300 };
+    expect(toolbarSpot('top', size, [corner, null], W, H)).toBe('top');
+    // A panel moved to the top middle: the toolbar goes to the bottom, and stays there.
+    const top = { left: 340, top: 20, width: 600, height: 130 };
+    expect(toolbarSpot('top', size, [corner, top], W, H)).toBe('bottom');
+    expect(toolbarSpot('bottom', size, [corner], W, H)).toBe('bottom');
+    // Panels at the top and the bottom middle: the middle of the screen.
+    const bottom = { left: 340, top: H - TOOLBAR_MARGIN - 100, width: 600, height: 100 };
+    expect(toolbarSpot('top', size, [top, bottom], W, H)).toBe('middle');
+    // Nowhere clear: it stays where it is.
+    const everywhere = { left: 0, top: 0, width: W, height: H };
+    expect(toolbarSpot('bottom', size, [everywhere], W, H)).toBe('bottom');
+  });
+
+  it('a panel over the top middle, where boss bars and banners show, is said to cover them', () => {
+    const W = 1280;
+    // The band: 36 rem wide in the middle (352–928 px at 16 px), 15 rem down.
+    const bar = { left: 288, top: 14, width: 704, height: 140 };
+    expect(coversTopBand(bar, W, 16)).toBe(true);
+    // Lower down, or off to the side: clear.
+    expect(coversTopBand({ ...bar, top: 15 * 16 }, W, 16)).toBe(false);
+    expect(coversTopBand({ ...bar, left: 940, width: 320 }, W, 16)).toBe(false);
+    expect(coversTopBand({ left: 16, top: 60, width: 330, height: 340 }, W, 16)).toBe(false);
+    // A larger UI scale widens the band.
+    expect(coversTopBand({ left: 16, top: 60, width: 330, height: 340 }, W, 20)).toBe(true);
   });
 
   it('the layout and the health read-outs are saved settings', () => {
@@ -116,6 +189,21 @@ describe('where the party frames sit', () => {
       useSettings.getState().update((s) => ({
         ...s,
         hud: { ...s.hud, frames: { ...s.hud.frames, scale: 2 } },
+      })),
+    ).toThrow();
+    // The Weaver bar's place and size, likewise (75–125%).
+    useSettings.getState().update((s) => ({
+      ...s,
+      hud: { ...s.hud, weaverBar: { at: { x: 0.5, y: 0.03, corner: 'tc' }, scale: 0.85 } },
+    }));
+    expect(useSettings.getState().settings.hud.weaverBar).toEqual({
+      at: { x: 0.5, y: 0.03, corner: 'tc' },
+      scale: 0.85,
+    });
+    expect(() =>
+      useSettings.getState().update((s) => ({
+        ...s,
+        hud: { ...s.hud, weaverBar: { ...s.hud.weaverBar, scale: 1.5 } },
       })),
     ).toThrow();
   });

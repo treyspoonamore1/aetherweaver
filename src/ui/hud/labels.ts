@@ -154,6 +154,8 @@ export const KIND_LABEL = {
   boss: 'Boss',
 } as const;
 
-/** Weaver bar geometry. Its crest, over it, holds the coach hint, Thread dial and rejections. */
+/**
+ * The Weaver bar's width. Its crest, over it (under it in the top half of the screen), holds the
+ * coach hint, the Thread dial and rejections; where it sits is framesLayout.ts's.
+ */
 export const WEAVER_BAR_WIDTH = '44rem';
-export const WEAVER_BAR_LEFT = 'max(34rem, calc(50% - 22rem))';

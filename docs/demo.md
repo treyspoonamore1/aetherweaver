@@ -36,7 +36,7 @@ npm run build:demo        # VITE_DEMO=1, relative paths, no source maps → dist
 ## For testers
 
 - **New since the first build:** the Thread dial over the Weaver bar, and a glyph over the hero you've threaded, show at a glance whether you're Mending or Empowering ([docs/thread-dial.md](thread-dial.md)).
-- **Also new:** bars over the heroes, healer-style party frames you can move and resize (pause, then Edit HUD layout), and a low-life sound ([docs/health-ui.md](health-ui.md)).
+- **Also new:** bars over the heroes, healer-style party frames, a low-life sound, and a HUD layout of your own: pause, then Edit HUD layout to move and resize the party frames and the Weaver bar ([docs/health-ui.md](health-ui.md)).
 - **Play on a computer** with a keyboard and mouse. The Title, the Loom and the Atelier also take a gamepad; fights don't yet.
 - **Sound starts with your first click** (browsers require it).
 - **Nothing is collected.** There's no feedback form or telemetry in this build; tell its owner what you found.

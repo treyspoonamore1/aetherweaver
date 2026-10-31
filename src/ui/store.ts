@@ -7,7 +7,7 @@
  * (app/runStore.ts) picks the sub-screen: prep, map, combat, result, draft, respite, summary.
  */
 import { create } from 'zustand';
-import type { FramesLayout } from '../app/settings';
+import type { FramesLayout, WeaverBarLayout } from '../app/settings';
 import type {
   AnswerTag,
   CallAnswer,
@@ -509,8 +509,11 @@ export interface UiState {
   layoutEditing: boolean;
   /** The party frames' layout while it's being edited (null: as saved in Settings). */
   framesDraft: FramesLayout | null;
+  /** The Weaver bar's, likewise. */
+  weaverBarDraft: WeaverBarLayout | null;
   setLayoutEditing(on: boolean): void;
   setFramesDraft(draft: FramesLayout | null): void;
+  setWeaverBarDraft(draft: WeaverBarLayout | null): void;
   setScreen(screen: Screen): void;
   back(): void;
   setHud(hud: HudSnapshot | null): void;
@@ -541,8 +544,10 @@ export const useUi = create<UiState>()((set, get) => ({
   lastDecree: null,
   layoutEditing: false,
   framesDraft: null,
-  setLayoutEditing: (on) => set({ layoutEditing: on, framesDraft: null }),
+  weaverBarDraft: null,
+  setLayoutEditing: (on) => set({ layoutEditing: on, framesDraft: null, weaverBarDraft: null }),
   setFramesDraft: (draft) => set({ framesDraft: draft }),
+  setWeaverBarDraft: (draft) => set({ weaverBarDraft: draft }),
   setScreen: (screen) => set((s) => ({ screen, previous: s.screen })),
   back: () => set((s) => ({ screen: s.previous === s.screen ? 'title' : s.previous })),
   setHud: (hud) => set({ hud }),
@@ -585,5 +590,6 @@ export const useUi = create<UiState>()((set, get) => ({
       lastDecree: null,
       layoutEditing: false,
       framesDraft: null,
+      weaverBarDraft: null,
     }),
 }));

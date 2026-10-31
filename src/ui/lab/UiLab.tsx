@@ -133,11 +133,15 @@ import { labSetSolo, labSetTalent, mockBonds, mockBondsHud, mockRunBonds, sceneR
 import { labSetTechnique, mockVariantsHud, techniquesRun } from './mock';
 import { DialCycle, DialGallery } from './threadDialLab';
 import { EditStage, LayoutStage } from './healthLab';
+import type { WeaverBarLayout } from '../../app/settings';
 import { fitTechniques, noVariants, variantsConfig, type Techniques } from '../../meta/variants';
 import type { TechniqueKey } from '../types';
 import { SpawnPalette } from '../screens/TrainingParts';
 import { LOOM_VIEWS, LoomFromStore } from './loomLab';
 import { LOOM_RUN_VIEWS } from './LoomRunLab';
+
+/** The lab's Weaver bar moved to the top middle, a little smaller (one object: EditStage keeps it). */
+const BAR_TOP: WeaverBarLayout = { at: { x: 0.5, y: 0.03, corner: 'tc' }, scale: 0.85 };
 
 /** A stand-in for the 3D arena behind the HUD. */
 function World({ children }: { children: ReactNode }) {
@@ -1223,7 +1227,7 @@ const VIEWS: ViewDef[] = [
   {
     id: 'hud-frames-row',
     group: 'Combat HUD',
-    label: 'Party frames side by side, centred under the fight',
+    label: 'Party frames side by side, centred under the fight, over the Weaver bar',
     w: 1280,
     h: 720,
     render: () => (
@@ -1234,6 +1238,7 @@ const VIEWS: ViewDef[] = [
             scale: 0.85,
             orientation: 'horizontal',
           }}
+          bar={{ at: { x: 0.5, y: 0.975, corner: 'bc' }, scale: 0.9 }}
         />
       </World>
     ),
@@ -1248,6 +1253,33 @@ const VIEWS: ViewDef[] = [
       <World>
         <LayoutStage
           layout={{ at: { x: 0.985, y: 0.16, corner: 'tr' }, scale: 1.15, orientation: 'vertical' }}
+        />
+      </World>
+    ),
+  },
+  {
+    id: 'hud-layout-edit-bar',
+    group: 'Combat HUD',
+    label: 'Edit HUD layout: the Weaver bar moved to the top, its crest under it',
+    w: 1280,
+    h: 720,
+    render: () => (
+      <World>
+        <EditStage panel="weaverBar" bar={BAR_TOP} />
+      </World>
+    ),
+  },
+  {
+    id: 'hud-bar-top',
+    group: 'Combat HUD',
+    label: 'Weaver bar at the top, smaller; party frames side by side under the fight',
+    w: 1280,
+    h: 720,
+    render: () => (
+      <World>
+        <LayoutStage
+          layout={{ at: { x: 0.5, y: 0.97, corner: 'bc' }, scale: 0.85, orientation: 'horizontal' }}
+          bar={BAR_TOP}
         />
       </World>
     ),

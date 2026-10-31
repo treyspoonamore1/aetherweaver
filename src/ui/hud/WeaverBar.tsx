@@ -8,7 +8,9 @@ import type { AuraHud, ChordHud, HeroHud, HudSnapshot, TechniqueHud, WeaverHud }
 import { compact, splitContribution } from '../contribution';
 import { mult } from '../screens/chordModel';
 import type { Callout, ContributionHud } from '../store';
-import { WEAVER_BAR_LEFT, WEAVER_BAR_WIDTH, bindingCode, bindingLabel } from './labels';
+import { WEAVER_BAR_WIDTH, bindingCode, bindingLabel } from './labels';
+import { DEFAULT_WEAVER_BAR, type WeaverBarLayout } from '../../app/settings';
+import { crestBelow, weaverBarPlaceStyle } from './framesLayout';
 import { Toast } from './Callouts';
 import { ThreadDial } from './ThreadDial';
 import { switchKeyLabel, threadDialView, threadModeLook } from './threadMode';
@@ -50,8 +52,14 @@ export function WeaverBar({
   tip = null,
   rejects = [],
   coach = null,
+  layout = DEFAULT_WEAVER_BAR,
 }: {
   hud: HudSnapshot;
+  /**
+   * Where the bar sits and how big (Settings, or Edit HUD layout's draft; docs/health-ui.md).
+   * Put in the top half of the screen, its crest and its tooltips open below it.
+   */
+  layout?: WeaverBarLayout;
   buzz?: Partial<Record<TechniqueHud['key'], number>>;
   /** UI lab: a technique's tooltip shown (its slot). */
   tip?: TechniqueHud['key'] | null;
@@ -69,77 +77,98 @@ export function WeaverBar({
     w.mastery?.ready && w.mastery.resets
       ? (w.techniques.find((t) => t.key === w.mastery!.resets) ?? null)
       : null;
+  const below = crestBelow(layout.at);
   return (
     // The crest sits beside the panel, not in it: the panel's backdrop blur stays its own size.
-    <div className="absolute bottom-5" style={{ left: WEAVER_BAR_LEFT, width: WEAVER_BAR_WIDTH }}>
-      <div className="pointer-events-none absolute inset-x-0 bottom-full mb-2.5 flex flex-col items-center gap-3">
-        {coach}
-        <div className="relative">
-          <ThreadDial view={threadDialView(w, target ?? null)} />
-          <div
-            className="absolute bottom-3 left-full ml-4 flex w-max max-w-[17rem] flex-col items-start gap-1"
-            aria-live="polite"
-            data-testid="reject-toasts"
-          >
-            {rejects.map((c) => (
-              <Toast key={c.id} c={c} small />
-            ))}
-          </div>
-        </div>
-      </div>
+    // Under the party frames (z-15) when they overlap: both are where the player put them.
+    <div
+      className="absolute z-[14]"
+      style={weaverBarPlaceStyle(layout.at, layout.scale)}
+      data-testid="weaver-bar-anchor"
+      data-crest={below ? 'below' : 'above'}
+    >
       <div
-        className="relative flex flex-col gap-2 rounded-2xl border border-ink-600/70 bg-ink-900/88 px-4 pb-3 pt-3 shadow-lg shadow-black/40 backdrop-blur-sm"
-        style={
-          // Stasis: the bar takes the Chronomancer's steel, calm and still.
-          w.stasis
-            ? {
-                borderColor: `color-mix(in srgb, ${CHRONO.color} 80%, transparent)`,
-                boxShadow: `0 0 0 1px color-mix(in srgb, ${CHRONO.light} 18%, transparent), 0 10px 28px rgb(0 0 0 / 0.45), 0 0 22px color-mix(in srgb, ${CHRONO.color} 35%, transparent)`,
-              }
-            : undefined
-        }
-        data-testid="weaver-bar"
-        data-stasis={w.stasis || undefined}
+        className="relative"
+        style={{
+          width: WEAVER_BAR_WIDTH,
+          ...(layout.scale !== 1 ? { zoom: layout.scale } : {}),
+        }}
       >
-        <ContributionReadout c={hud.contribution} />
-        {w.fieldSuppressed && (
-          <span className="animate-pulse-soft absolute -top-3.5 right-4 flex items-center gap-1 rounded-md border border-lethal bg-ink-900 px-2 py-0.5 text-xs font-bold text-rose-200">
-            <Icon name="mute" size={13} /> Auras silenced
-          </span>
-        )}
-        <div className="flex items-end gap-4">
-          <div className="flex w-44 shrink-0 flex-col gap-2">
-            <LifeBar weaver={w} callingId={hud.calling?.id} />
-            <SpiritBar weaver={w} />
+        <div
+          className={`pointer-events-none absolute inset-x-0 flex items-center gap-3 ${below ? 'top-full mt-2.5 flex-col-reverse' : 'bottom-full mb-2.5 flex-col'}`}
+        >
+          {coach}
+          <div className="relative">
+            <ThreadDial view={threadDialView(w, target ?? null)} />
+            <div
+              className={`absolute left-full ml-4 flex w-max max-w-[17rem] flex-col items-start gap-1 ${below ? 'top-3' : 'bottom-3'}`}
+              aria-live="polite"
+              data-testid="reject-toasts"
+            >
+              {rejects.map((c) => (
+                <Toast key={c.id} c={c} small />
+              ))}
+            </div>
           </div>
-          <div className="flex flex-1 items-end justify-center">
-            {w.techniques.map((t) => (
-              <TechniqueButton
-                key={t.key}
-                technique={t}
-                silenced={w.downed}
-                buzz={buzz[t.key]}
-                brings={t.key === 'glide' ? brings : null}
-                rewind={
-                  t.key === 'reel' && w.rewind && rewindTarget?.rewind
-                    ? rewindSentence(rewindTarget.name, rewindTarget.rewind)
-                    : null
-                }
-                rewindSeconds={t.key === 'reel' ? (w.rewind?.seconds ?? null) : null}
-                tipOpen={tip === t.key}
-              />
-            ))}
-          </div>
-          <ResonanceArc weaver={w} callingId={hud.calling?.id} />
         </div>
-        <div className="flex items-center justify-between gap-3 border-t border-ink-600/50 pt-2">
-          <ThreadStatus
-            weaver={w}
-            targetName={target?.name ?? null}
-            targetColor={target?.color}
-            beamFocus={target?.beamFocus ? (beamSong(w.chords)?.focus ?? null) : null}
-          />
-          <ChordChips weaver={w} party={hud.party} />
+        <div
+          className="relative flex flex-col gap-2 rounded-2xl border border-ink-600/70 bg-ink-900/88 px-4 pb-3 pt-3 shadow-lg shadow-black/40 backdrop-blur-sm"
+          style={
+            // Stasis: the bar takes the Chronomancer's steel, calm and still.
+            w.stasis
+              ? {
+                  borderColor: `color-mix(in srgb, ${CHRONO.color} 80%, transparent)`,
+                  boxShadow: `0 0 0 1px color-mix(in srgb, ${CHRONO.light} 18%, transparent), 0 10px 28px rgb(0 0 0 / 0.45), 0 0 22px color-mix(in srgb, ${CHRONO.color} 35%, transparent)`,
+                }
+              : undefined
+          }
+          data-testid="weaver-bar"
+          data-stasis={w.stasis || undefined}
+        >
+          {/* The edge badges keep to the side away from the screen's edge. */}
+          <ContributionReadout c={hud.contribution} below={below} />
+          {w.fieldSuppressed && (
+            <span
+              className={`animate-pulse-soft absolute ${below ? '-bottom-3.5' : '-top-3.5'} right-4 flex items-center gap-1 rounded-md border border-lethal bg-ink-900 px-2 py-0.5 text-xs font-bold text-rose-200`}
+            >
+              <Icon name="mute" size={13} /> Auras silenced
+            </span>
+          )}
+          <div className="flex items-end gap-4">
+            <div className="flex w-44 shrink-0 flex-col gap-2">
+              <LifeBar weaver={w} callingId={hud.calling?.id} />
+              <SpiritBar weaver={w} />
+            </div>
+            <div className="flex flex-1 items-end justify-center">
+              {w.techniques.map((t) => (
+                <TechniqueButton
+                  key={t.key}
+                  technique={t}
+                  silenced={w.downed}
+                  buzz={buzz[t.key]}
+                  brings={t.key === 'glide' ? brings : null}
+                  rewind={
+                    t.key === 'reel' && w.rewind && rewindTarget?.rewind
+                      ? rewindSentence(rewindTarget.name, rewindTarget.rewind)
+                      : null
+                  }
+                  rewindSeconds={t.key === 'reel' ? (w.rewind?.seconds ?? null) : null}
+                  tipOpen={tip === t.key}
+                  tipBelow={below}
+                />
+              ))}
+            </div>
+            <ResonanceArc weaver={w} callingId={hud.calling?.id} />
+          </div>
+          <div className="flex items-center justify-between gap-3 border-t border-ink-600/50 pt-2">
+            <ThreadStatus
+              weaver={w}
+              targetName={target?.name ?? null}
+              targetColor={target?.color}
+              beamFocus={target?.beamFocus ? (beamSong(w.chords)?.focus ?? null) : null}
+            />
+            <ChordChips weaver={w} party={hud.party} />
+          </div>
         </div>
       </div>
     </div>
@@ -371,8 +400,11 @@ function TechniqueButton({
   rewind = null,
   rewindSeconds = null,
   tipOpen = false,
+  tipBelow = false,
 }: {
   technique: TechniqueHud;
+  /** The bar sits in the top half of the screen: the tooltip opens below it. */
+  tipBelow?: boolean;
   silenced: boolean;
   /** The latest rejection of this slot (a callout id): shake when it changes. */
   buzz?: number;
@@ -460,6 +492,7 @@ function TechniqueButton({
         icon={t.icon}
         rewind={rewind && ready ? rewind : null}
         open={tipOpen}
+        below={tipBelow}
       />
       <div
         ref={box}
@@ -596,6 +629,7 @@ function TechniqueTip({
   icon,
   rewind,
   open,
+  below = false,
 }: {
   id: string;
   tip: TechniqueTipView;
@@ -603,12 +637,14 @@ function TechniqueTip({
   icon: TechniqueHud['icon'];
   rewind: string | null;
   open: boolean;
+  /** Open below the slot (the bar in the top half of the screen). */
+  below?: boolean;
 }) {
   return (
     <span
       id={id}
       role="tooltip"
-      className={`pointer-events-none absolute bottom-full left-1/2 z-30 mb-3 w-72 -translate-x-1/2 rounded-xl border border-gold-500/50 bg-ink-900/97 p-3 text-left shadow-2xl shadow-black/70 transition-opacity ${open ? 'visible opacity-100' : 'invisible opacity-0 group-focus-visible/tech:visible group-focus-visible/tech:opacity-100 group-hover/tech:visible group-hover/tech:opacity-100 group-hover/tech:delay-500'}`}
+      className={`pointer-events-none absolute ${below ? 'top-full mt-3' : 'bottom-full mb-3'} left-1/2 z-30 w-72 -translate-x-1/2 rounded-xl border border-gold-500/50 bg-ink-900/97 p-3 text-left shadow-2xl shadow-black/70 transition-opacity ${open ? 'visible opacity-100' : 'invisible opacity-0 group-focus-visible/tech:visible group-focus-visible/tech:opacity-100 group-hover/tech:visible group-hover/tech:opacity-100 group-hover/tech:delay-500'}`}
       data-testid={`technique-tip-${tip.slot}`}
     >
       <span className="flex items-center justify-between gap-2">
@@ -776,16 +812,16 @@ function ResonanceArc({ weaver: w, callingId }: { weaver: WeaverHud; callingId?:
 
 /**
  * This fight so far: what the auras did against what the Thread did (the sim's ledger), as
- * two compact numbers and a split line. Sits on the Weaver bar's top edge; hidden until
- * either has done something.
+ * two compact numbers and a split line. Sits on the Weaver bar's top edge (its bottom edge when
+ * the bar is at the top of the screen); hidden until either has done something.
  */
-function ContributionReadout({ c }: { c: ContributionHud }) {
+function ContributionReadout({ c, below = false }: { c: ContributionHud; below?: boolean }) {
   const s = splitContribution(c);
   if (s.auras + s.thread < 1) return null;
   const both = s.auras + s.thread;
   return (
     <span
-      className="absolute -top-3 left-4 flex items-center gap-1.5 rounded-md border border-ink-600 bg-ink-900 px-2 py-0.5 text-xs"
+      className={`absolute ${below ? '-bottom-3' : '-top-3'} left-4 flex items-center gap-1.5 rounded-md border border-ink-600 bg-ink-900 px-2 py-0.5 text-xs`}
       role="img"
       aria-label={`This fight: auras ${compact(s.auras)}, Thread ${compact(s.thread)}`}
       title={`This fight: your auras healed ${compact(c.auras.healing)}, shielded ${compact(c.auras.shielded)} and added ${compact(c.auras.amplified)} damage; your Thread healed ${compact(c.thread.healing)} and added ${compact(c.thread.amplified)}.`}

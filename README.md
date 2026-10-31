@@ -10,7 +10,7 @@ This repo is the remake of the original prototype, which is kept read-only in [`
 - three **Callings** (the Luminary, the Martyr and the Chronomancer), relics, events and a run economy (Phase 3);
 - the signature features: heroes _call_ for your help (**Call and Response**), and the game shows the deaths you prevented and replays every fight **without you** (**proof of support**).
 
-Phase 4's exit checks (pacing, the raw-power cap, first contact) are in [`docs/phase-4h.md`](docs/phase-4h.md). Each step has its own doc: [`docs/phase-0.md`](docs/phase-0.md) through [`docs/phase-4h.md`](docs/phase-4h.md). Since then, the **Thread dial** makes Mend and Empower easy to tell apart mid-fight ([`docs/thread-dial.md`](docs/thread-dial.md)), and **health reads at a glance**: bars over the heroes, healer-style party frames you can move anywhere, a low-life alert ([`docs/health-ui.md`](docs/health-ui.md)).
+Phase 4's exit checks (pacing, the raw-power cap, first contact) are in [`docs/phase-4h.md`](docs/phase-4h.md). Each step has its own doc: [`docs/phase-0.md`](docs/phase-0.md) through [`docs/phase-4h.md`](docs/phase-4h.md). Since then, the **Thread dial** makes Mend and Empower easy to tell apart mid-fight ([`docs/thread-dial.md`](docs/thread-dial.md)), and **health reads at a glance**: bars over the heroes, healer-style party frames, a low-life alert, and party frames and a Weaver bar you can move anywhere ([`docs/health-ui.md`](docs/health-ui.md)).
 
 ![Kael calls for a Ward; answered, his glyph fills and names the Bulwark Flourish](docs/phase-2/vfx/call-answered-real-sim.jpg)
 
