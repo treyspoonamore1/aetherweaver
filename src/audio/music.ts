@@ -4,10 +4,17 @@
  * levels follow the mood, Weaver Resonance (25/50/75/100 → one more stem each), combat
  * intensity, downed heroes and Crescendo, and change on bar lines (beat lines for urgent
  * jumps). Exposes the current key, chord and beat position so SFX can be pitched to it.
+ *
+ * Phase 5a adds a biome axis (docs/phase-5a.md). The Sunlit Reliquary is the music as it always
+ * was. The Crimson Spire, on the map and in the fight, keeps the key and tempo but has its own
+ * progressions, a war-drum pulse, a low horn ostinato, a low choir drone, a darker pad, an
+ * ambience bed, and stems for Vharun's phases.
  */
+import type { Biome } from '../content';
 import type { AudioMood } from './types';
 import { Voice, type Engine } from './engine';
 import {
+  anvil,
   choirChord,
   cymbalSwell,
   fluteNote,
@@ -24,8 +31,12 @@ import {
   CHORDS,
   KEY_NAME,
   MELODY_BRIGHT,
+  MELODY_CRIMSON,
+  MELODY_CRIMSON_BOSS,
   MELODY_DARK,
   PROGRESSION_BRIGHT,
+  PROGRESSION_CRIMSON,
+  PROGRESSION_CRIMSON_BOSS,
   PROGRESSION_DARK,
   PROGRESSION_LOOM,
   PROGRESSION_STILL,
@@ -53,6 +64,11 @@ export interface MusicInputs {
   downed: number;
   /** Boss phase (0 = none). */
   bossPhase: number;
+  /**
+   * Phase 5a: the fight's boss is a final boss (tier 'boss', not a mini-boss), so its phases
+   * change the Crimson Spire's stems (Vharun's Bloodmoon and judgement). Read only there.
+   */
+  apex: boolean;
 }
 
 export interface MusicSnapshot {
@@ -69,6 +85,9 @@ export interface MusicSnapshot {
   nextBarTime: number;
   mood: AudioMood;
   activeMood: AudioMood;
+  /** Phase 5a: the biome asked for, and the one the current bar plays. */
+  biome: Biome;
+  activeBiome: Biome;
   tier: number;
   levels: Record<StemName, number>;
 }
@@ -81,7 +100,27 @@ type StingerKind = 'victory' | 'defeat' | 'phase';
 
 const LOOKAHEAD = 0.4;
 
-function progressionFor(mood: AudioMood): readonly Chord[] {
+/**
+ * Phase 5a: the moods a biome voices (the map and the fight). The title, the Loom and the
+ * victory and defeat stingers are the game's own, wherever the run is.
+ */
+const BIOME_MOODS: ReadonlySet<AudioMood> = new Set(['map', 'calm', 'combat', 'boss']);
+
+/** Phase 5a: the Crimson Spire's pad cutoffs (Hz), darker than the Reliquary's. */
+export const CRIMSON_CUT: Readonly<Partial<Record<AudioMood, number>>> = {
+  map: 900,
+  calm: 1000,
+  combat: 1250,
+  boss: 650,
+};
+
+/** Phase 5a: the Crimson Spire's war drums are tuned to the key: D2 and A1 (and A2, D3 above). */
+const TOM_D = midiToHz(38);
+const TOM_A = midiToHz(33);
+const TOM_HI = midiToHz(45);
+
+function progressionFor(mood: AudioMood, crimson = false): readonly Chord[] {
+  if (crimson) return mood === 'boss' ? PROGRESSION_CRIMSON_BOSS : PROGRESSION_CRIMSON;
   switch (mood) {
     case 'boss':
       return PROGRESSION_DARK;
@@ -102,12 +141,18 @@ export class MusicEngine {
     crescendo: false,
     downed: 0,
     bossPhase: 0,
+    apex: false,
   };
   private readonly stemIn: Record<StemName, AudioNode>;
   private readonly stemGain: Record<StemName, GainNode>;
   private readonly padFilter: BiquadFilterNode;
   private mood: AudioMood = 'silent';
   private activeMood: AudioMood = 'silent';
+  /** Phase 5a: the biome asked for, and the one the bar now playing took up. */
+  private biome: Biome = 'reliquary';
+  private activeBiome: Biome = 'reliquary';
+  /** Phase 5a: the brazier's crackle, a fixed pseudo-random sequence (no Math.random). */
+  private crackle = 0x2f6b;
   private moodAt = 0;
   private started = false;
   private origin = 0;
@@ -172,6 +217,23 @@ export class MusicEngine {
 
   getMood(): AudioMood {
     return this.mood;
+  }
+
+  /**
+   * Phase 5a: the biome the map and fight music voice (docs/phase-5a.md). Like a mood, it is
+   * taken up on the next bar line, so a fight's first bar is already in its own voicing.
+   */
+  setBiome(biome: Biome): void {
+    this.biome = biome;
+  }
+
+  getBiome(): Biome {
+    return this.biome;
+  }
+
+  /** The Crimson Spire's voicing is playing (its biome, in a mood a biome voices). */
+  private get crimson(): boolean {
+    return this.activeBiome === 'crimson_spire' && BIOME_MOODS.has(this.activeMood);
   }
 
   /** Request that the next beat re-evaluates the stem levels (Crescendo, hero down). */
@@ -270,6 +332,8 @@ export class MusicEngine {
       nextBarTime: this.started ? nextBar : now,
       mood: this.mood,
       activeMood: this.activeMood,
+      biome: this.biome,
+      activeBiome: this.activeBiome,
       tier: this.tier,
       levels: {
         pad: this.targets.pad,
@@ -307,7 +371,8 @@ export class MusicEngine {
   private noteBar(bar: number, t: number): void {
     this.barIndex = bar;
     this.activeMood = this.mood;
-    this.chord = (progressionFor(this.activeMood)[bar % 8] as Chord) ?? CHORDS.Dm9;
+    this.activeBiome = this.biome;
+    this.chord = (progressionFor(this.activeMood, this.crimson)[bar % 8] as Chord) ?? CHORDS.Dm9;
     this.bars.push({ start: t, chord: this.chord, index: bar });
     if (this.bars.length > 6) this.bars.shift();
   }
@@ -326,12 +391,19 @@ export class MusicEngine {
     } else if (onBeat && this.urgent) {
       this.urgent = false;
       this.activeMood = this.mood;
+      this.activeBiome = this.biome;
       if (this.activeMood === 'victory' || this.activeMood === 'defeat')
         this.urgentBar = this.barIndex;
       this.refreshTargets(t, 0.12);
       this.scheduleSustain(t, this.origin + (bar + 1) * BAR);
     }
     if (onBeat) for (const k of this.pendingBeat.splice(0)) this.playStinger(k, t);
+    if (this.crimson) {
+      this.crimsonPulse(inBar, t);
+      this.crimsonMelody(bar, inBar, t);
+      this.crimsonAmbience(bar, inBar, t);
+      return;
+    }
     this.pulseStep(inBar, t);
     this.melodyStep(bar, inBar, t);
   }
@@ -395,6 +467,9 @@ export class MusicEngine {
         if (this.barIndex !== this.urgentBar) t.pad = since < 5 ? 0.5 : 0;
         break;
     }
+    // Phase 5a: Vharun's Bloodmoon (his phase 2 on) drops the pad; a heartbeat takes its place
+    // on the ambience bus (crimsonAmbience).
+    if (this.crimson && this.activeMood === 'boss' && this.wardenPhase() >= 2) t.pad = 0;
     this.tier = tier;
     return t;
   }
@@ -411,18 +486,20 @@ export class MusicEngine {
       p.cancelScheduledValues(t);
       p.setTargetAtTime(tg[s] * STEM_GAIN[s], t, tc);
     }
+    const crimsonCut = this.crimson ? CRIMSON_CUT[this.activeMood] : undefined;
     const cut =
-      {
-        title: 900,
-        map: 1300,
-        loom: 800,
-        calm: 1300,
-        combat: 1700,
-        boss: 800,
-        victory: 1800,
-        defeat: 600,
-        silent: 1000,
-      }[this.activeMood] + (tg.top ? 600 : 0);
+      (crimsonCut ??
+        {
+          title: 900,
+          map: 1300,
+          loom: 800,
+          calm: 1300,
+          combat: 1700,
+          boss: 800,
+          victory: 1800,
+          defeat: 600,
+          silent: 1000,
+        }[this.activeMood]) + (tg.top ? 600 : 0);
     this.padFilter.frequency.cancelScheduledValues(t);
     this.padFilter.frequency.setTargetAtTime(cut, t, 0.6);
   }
@@ -478,6 +555,14 @@ export class MusicEngine {
   private choirBar(t: number, tEnd: number): void {
     const e = this.e;
     const v = new Voice(e, 'music', { dest: this.stemIn.choir });
+    if (this.crimson) {
+      // A low male choir's drone: A2, D3 and A3 whatever the chord, D4 over it at the top.
+      const drone = [45, 50, 57].map(midiToHz);
+      if (this.targets.top) drone.push(midiToHz(62));
+      choirChord(v, t, drone, Math.max(0.8, tEnd - t), this.targets.top ? 0.19 : 0.15, 0.8, 1.2);
+      v.commit();
+      return;
+    }
     const notes = chordNotesInRange(this.chord, 57, 76);
     const picks = [notes[1], notes[2], notes[3]].filter((n): n is number => n !== undefined);
     const freqs = picks.map(midiToHz);
@@ -623,6 +708,187 @@ export class MusicEngine {
       if (top) pluck(v, t, midiToHz(scaleMidi(slot + 7)), 0.03, 0.4, 0.8);
     }
     v.commit();
+  }
+
+  // ── Phase 5a: the Crimson Spire ──────────────────────────────────────────────────
+  /** A final boss's phase (Vharun's), 0 when the fight has none or it is a mini-boss's. */
+  private wardenPhase(): number {
+    return this.inputs.apex ? this.inputs.bossPhase : 0;
+  }
+
+  /** A war drum: a low tom on a note of the key, with a skin's thud under it. */
+  private tom(t: number, freq: number, g: number): void {
+    const v = new Voice(this.e, 'music', { dest: this.stemIn.pulse });
+    thump(v, t, freq, g, 0.32, 0.72);
+    v.noise({
+      start: t,
+      dur: 0.09,
+      gain: g * 0.35,
+      filter: { type: 'lowpass', freq: 420, freqTo: 160 },
+    });
+    v.commit();
+  }
+
+  /**
+   * The war-drum pulse: low toms on D and A, an anvil on the backbeat once the fight is busy, a
+   * bass on the chord's root (and its octave: never its fifth, which on B would leave the key).
+   * The boss's drums hit every beat; Vharun's judgement (phase 3) doubles them and adds brass
+   * stabs; a mini-boss's second phase (the Matriarch's Blood Frenzy) adds a pickup.
+   */
+  private crimsonPulse(inBar: number, t: number): void {
+    const level = this.targets.pulse;
+    if (level < 0.02 || this.holdUntil > t) return;
+    const mood = this.activeMood;
+    const e = this.e;
+    const dest = this.stemIn.pulse;
+    const tier = this.tier;
+    const root = this.chord.root;
+    const bass = (midi: number, g: number, dur: number) => {
+      const v = new Voice(e, 'music', { dest });
+      v.osc({
+        type: 'sawtooth',
+        freq: midiToHz(midi),
+        start: t,
+        dur,
+        attack: 0.01,
+        release: 0.08,
+        gain: g,
+        filter: { type: 'lowpass', freq: 340, freqTo: 160, q: 1 },
+      });
+      v.osc({
+        type: 'sine',
+        freq: midiToHz(midi),
+        start: t,
+        dur: dur * 1.1,
+        attack: 0.01,
+        release: 0.08,
+        gain: g * 0.9,
+      });
+      v.commit();
+    };
+    const clank = (g: number) => {
+      const v = new Voice(e, 'music', { dest });
+      anvil(v, t, midiToHz(74), g, 0.5);
+      v.commit();
+    };
+    if (mood === 'map' || mood === 'calm') {
+      // A march heard from far off: two soft toms a bar.
+      if (inBar === 0) this.tom(t, TOM_D, 0.1);
+      if (inBar === 4) this.tom(t, TOM_A, 0.07);
+      return;
+    }
+    if (mood === 'boss') {
+      const judgement = this.wardenPhase() >= 3;
+      if (judgement || inBar % 2 === 0) {
+        const g = inBar === 0 ? 0.3 : judgement ? 0.17 : 0.22;
+        this.tom(t, inBar % 4 === 0 ? TOM_D : TOM_A, g);
+      }
+      if (inBar === 4 && tier >= 2) clank(0.035);
+      if (!this.inputs.apex && this.inputs.bossPhase >= 2 && inBar === 7) this.tom(t, TOM_HI, 0.14);
+      if (judgement && (inBar === 0 || inBar === 3)) {
+        // Brass stabs on the chord.
+        const v = new Voice(e, 'music', { dest });
+        for (const m of chordNotesInRange(this.chord, 50, 64).slice(0, 3))
+          horn(v, t, midiToHz(m), 0.22, 0.045);
+        v.commit();
+      }
+      bass(root + (inBar === 3 || inBar === 7 ? 12 : 0), inBar === 0 ? 0.15 : 0.1, STEP * 0.9);
+      return;
+    }
+    // combat
+    if (inBar === 0 || inBar === 3 || inBar === 4)
+      this.tom(t, inBar === 4 ? TOM_A : TOM_D, inBar === 0 ? 0.26 : 0.19);
+    if (inBar === 6 && tier >= 3) this.tom(t, TOM_HI, 0.13);
+    if (inBar === 4 && tier >= 2) clank(0.03);
+    if (inBar % 2 === 1 && tier >= 2) {
+      // A chain's rattle on the off-beats.
+      const v = new Voice(e, 'music', { dest });
+      v.noise({
+        start: t,
+        dur: 0.035,
+        gain: 0.018,
+        filter: { type: 'bandpass', freq: 4200, q: 2 },
+      });
+      v.commit();
+    }
+    if (inBar === 0) bass(root, 0.17, BEAT * 1.4);
+    else if (inBar === 4 && tier >= 2) bass(root, 0.12, BEAT * 0.9);
+    else if (tier >= 3 && (inBar === 6 || inBar === 7)) bass(root + 12, 0.08, STEP * 0.9);
+  }
+
+  /** The low horn ostinato (an octave under the Reliquary's melody), sparse on the map. */
+  private crimsonMelody(bar: number, inBar: number, t: number): void {
+    const level = this.targets.melody;
+    if (level < 0.02 || this.holdUntil > t) return;
+    const mood = this.activeMood;
+    const phrase = (mood === 'boss' ? MELODY_CRIMSON_BOSS : MELODY_CRIMSON)[bar % 8];
+    const slot = phrase?.[inBar] ?? null;
+    if (slot === null || slot === undefined) return;
+    const sparse = mood === 'map' || (mood === 'calm' && this.tier < 2);
+    if (sparse && inBar !== 0 && inBar !== 4) return;
+    const v = new Voice(this.e, 'music', { dest: this.stemIn.melody });
+    horn(v, t, midiToHz(scaleMidi(slot - 7)), STEP * (sparse ? 3 : 1.6), sparse ? 0.05 : 0.065);
+    if (this.targets.top) horn(v, t, midiToHz(scaleMidi(slot)), STEP * 1.4, 0.025);
+    v.commit();
+  }
+
+  /**
+   * The Crimson Spire's ambience bed, on the ambience bus: distant war drums every other bar, a
+   * brazier's crackle (short bursts of noise, a fixed sequence), and now and then its breath.
+   * Under Vharun's Bloodmoon (his phase 2 on) a slow heartbeat beats in it.
+   */
+  private crimsonAmbience(bar: number, inBar: number, t: number): void {
+    const e = this.e;
+    // A Fermata or Stasis holds the drums and the heartbeat; only the fire keeps crackling.
+    const held = this.holdUntil > t;
+    if (!held && bar % 2 === 0 && (inBar === 0 || inBar === 3 || inBar === 5)) {
+      const v = new Voice(e, 'ambience');
+      thump(v, t, inBar === 0 ? TOM_D : TOM_A, inBar === 0 ? 0.05 : 0.035, 0.4, 0.75);
+      v.noise({ start: t, dur: 0.18, gain: 0.02, filter: { type: 'lowpass', freq: 220 } });
+      v.commit();
+    }
+    // The crackle: an xorshift, so it is the same every time and never touches Math.random.
+    let x = this.crackle;
+    x ^= (x << 7) & 0xffff;
+    x ^= x >> 9;
+    x ^= (x << 8) & 0xffff;
+    this.crackle = x || 0x2f6b;
+    const pops = x % 5 === 0 ? 2 : x % 3 === 0 ? 1 : 0;
+    if (pops > 0) {
+      const v = new Voice(e, 'ambience');
+      for (let i = 0; i < pops; i++) {
+        v.noise({
+          start: t + ((x >> (4 + i * 3)) % 8) * 0.03,
+          dur: 0.012 + ((x >> 2) % 3) * 0.008,
+          gain: 0.012 + ((x >> 6) % 4) * 0.004,
+          filter: { type: 'bandpass', freq: 2200 + ((x >> 8) % 5) * 700, q: 1.4 },
+        });
+      }
+      v.commit();
+    }
+    if (bar % 4 === 1 && inBar === 0) {
+      const v = new Voice(e, 'ambience');
+      v.noise({
+        pink: true,
+        start: t,
+        dur: 1.6,
+        attack: 0.7,
+        release: 0.9,
+        gain: 0.012,
+        shape: 'sustain',
+        filter: { type: 'lowpass', freq: 700, freqTo: 380 },
+      });
+      v.commit();
+    }
+    const beat = inBar === 0 || inBar === 4;
+    if (!held && beat && this.activeMood === 'boss' && this.wardenPhase() >= 2) {
+      const v = new Voice(e, 'ambience');
+      thump(v, t, TOM_D, 0.13, 0.2, 0.6);
+      thump(v, t + 0.22, TOM_D, 0.09, 0.18, 0.62);
+      v.noise({ start: t, dur: 0.07, gain: 0.05, filter: { type: 'lowpass', freq: 260 } });
+      v.noise({ start: t + 0.22, dur: 0.07, gain: 0.035, filter: { type: 'lowpass', freq: 260 } });
+      v.commit();
+    }
   }
 
   // ── Stingers ─────────────────────────────────────────────────────────────────────

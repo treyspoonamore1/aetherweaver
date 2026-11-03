@@ -3,6 +3,7 @@
  * a loudness audit per sound, and a full simulated fight. Peaks are measured on the final
  * output (after the master limiter and soft clip).
  */
+import type { Biome } from '../../content';
 import { SynthDirector } from '../director';
 import type { AudioMood, Volumes } from '../types';
 import { Fight } from './fight';
@@ -116,17 +117,25 @@ export async function auditSound(
   return measure(await renderSound(sound, volumes, seconds));
 }
 
-/** Renders a mood (music only) for a few seconds with the given inputs. */
+/**
+ * Renders a mood (music only) for a few seconds with the given inputs. Phase 5a: in a biome (the
+ * Sunlit Reliquary by default), and for a boss mood at a boss phase (a final boss's, so the
+ * Crimson Spire's Vharun stems play).
+ */
 export async function renderMood(
   mood: AudioMood,
   resonance: number,
   seconds = 16,
   volumes = DEFAULT_VOLUMES,
+  biome: Biome = 'reliquary',
+  bossPhase = 0,
 ): Promise<AudioBuffer> {
   const { ctx, d } = offlineDirector(seconds, volumes);
   const w = new FakeWorld();
   w.setResonance(resonance);
-  w.setEnemies(resonance >= 50 ? 12 : 0);
+  if (bossPhase > 0) w.setEnemies(1, 'boss', 'boss', bossPhase);
+  else w.setEnemies(resonance >= 50 ? 12 : 0);
+  if (biome !== 'reliquary') d.setBiome(biome);
   d.setMood(mood);
   const step = 0.05;
   for (let t = step; t < seconds - 0.5; t += step) {
@@ -144,8 +153,10 @@ export async function auditMood(
   resonance: number,
   seconds = 16,
   volumes = DEFAULT_VOLUMES,
+  biome: Biome = 'reliquary',
+  bossPhase = 0,
 ): Promise<LevelReport> {
-  return measure(await renderMood(mood, resonance, seconds, volumes), 2);
+  return measure(await renderMood(mood, resonance, seconds, volumes, biome, bossPhase), 2);
 }
 
 export interface PitchReport {

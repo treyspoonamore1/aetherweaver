@@ -21,6 +21,8 @@ export interface SoundButton {
     | 'bonds'
     | 'variants'
     | 'loom'
+    /** Phase 5a: the Crimson Legion (its statuses, guard, charges, Tide, Execution, iron). */
+    | 'crimson'
     | 'world'
     | 'ui';
   /** Fires the sound. Receives the director and a world to read/mutate. */
@@ -650,6 +652,114 @@ function astroBurst(d: SynthDirector, w: FakeWorld, step: number): void {
     w,
     ev('threadAttached', { hero: heroes[step % 3] as number, slot: (step % 3) as 0 | 1 | 2 }),
   );
+}
+
+// ── Phase 5a helpers: the Crimson Legion ────────────────────────────────────────────
+
+/** A Movement II status landing on a hero (bleed with its stacks). */
+const statusOn = (hero: HeroKey, status: string, duration: number, stacks?: number): SimEvent =>
+  ev('statusApplied', {
+    target: IDS[hero],
+    status: status as never,
+    duration,
+    ...(stacks === undefined ? {} : { stacks }),
+  });
+
+/**
+ * A Legion attack's telegraph in the world (so its sound finds its attack id) and its
+ * `telegraphStarted`, from the content's own numbers.
+ */
+function legionTele(w: FakeWorld, id: number, attackId: string, target: HeroKey | null): SimEvent {
+  const a = CONTENT.attacks.find((x) => x.id === attackId);
+  const windup = a?.windup ?? 1.5;
+  const kind = (a?.kind ?? 'burst') as FakeTelegraph['kind'];
+  const t = w.addTelegraph(id, windup, {
+    kind,
+    answers: (a?.answers ?? ['move']) as FakeTelegraph['answers'],
+    target: target === null ? null : IDS[target],
+    attackId,
+    name: a?.name ?? 'Lab',
+  });
+  return ev('telegraphStarted', {
+    telegraph: id,
+    owner: t.owner,
+    target: t.target,
+    name: t.name,
+    kind: t.kind,
+    shape: t.shape,
+    start: t.start,
+    impact: t.impact,
+    perfectFrom: t.perfectFrom,
+    damage: t.damage,
+    pctMaxHp: 0,
+    answers: t.answers,
+    effect: 'damage',
+  });
+}
+
+const resolved = (
+  id: number,
+  hero: HeroKey | null,
+  outcome: 'hit' | 'dodged' | 'warded' | 'perfect' | 'absorbed' | 'cancelled',
+): SimEvent =>
+  ev('telegraphResolved', {
+    telegraph: id,
+    target: hero === null ? null : IDS[hero],
+    outcome,
+    damage: outcome === 'hit' ? 300 : 0,
+  });
+
+/** An attack that moved its caster (Impaling Charge, Pounce). */
+const moved = (visual: 'charge' | 'leap', fromX: number, toX: number, travel = 0): SimEvent =>
+  ev('attackFired', {
+    source: IDS.enemyBase,
+    target: IDS.lyra,
+    visual,
+    fromX,
+    fromZ: 8,
+    toX,
+    toZ: -3,
+    travel,
+  });
+
+/** The Legion's iron enemies, from the content (their kill buttons). */
+const IRON_ENEMIES = CONTENT.enemies.filter((e) => e.material === 'iron');
+
+/** Execution on Lyra, cast for its windup, then taking her or sparing her. */
+function execution(taken: boolean): SoundButton {
+  const windup = CONTENT.attacks.find((a) => a.id === 'vharun_execution')?.windup ?? 4;
+  return {
+    id: taken ? 'crimson-execution-gong' : 'crimson-execution-spared',
+    label: taken
+      ? 'Execution: the drum roll, then the gong (she falls under 40%)'
+      : 'Execution: the drum roll, then the bell (lifted above 40%, spared)',
+    group: 'crimson',
+    length: windup + 4,
+    fire: (d, w) => {
+      w.setDowned('lyra', false);
+      w.setHeroHp('lyra', taken ? 0.3 : 0.6);
+      fire(
+        d,
+        w,
+        statusOn('lyra', 'condemned', windup),
+        legionTele(w, 40, 'vharun_execution', 'lyra'),
+      );
+    },
+    then: [
+      {
+        delay: windup,
+        fire: (d, w) => {
+          w.removeTelegraph(40);
+          if (taken) {
+            w.setDowned('lyra', true);
+            fire(d, w, ev('allyDowned', { hero: IDS.lyra }), resolved(40, 'lyra', 'hit'));
+            w.setDowned('lyra', false);
+          } else fire(d, w, resolved(40, 'lyra', 'hit'));
+          w.setHeroHp('lyra', 1);
+        },
+      },
+    ],
+  };
 }
 
 export const SOUNDS: SoundButton[] = [
@@ -2300,6 +2410,177 @@ export const SOUNDS: SoundButton[] = [
       fire: (d) => d.playUi('variantPick', null, { variant: id }),
     };
   }),
+  // ── Phase 5a: the Crimson Legion ───────────────────────────────────────────────
+  ...[1, 5, 8].map((n): SoundButton => ({
+    id: `crimson-bleed-${n}`,
+    label: `Bleed ×${n} (a wet pluck, a step up per stack${n >= 5 ? '; the Chime glint' : ''})`,
+    group: 'crimson',
+    length: 1.5,
+    fire: (d, w) => fire(d, w, statusOn('kael', 'bleed', 6, n)),
+  })),
+  {
+    id: 'crimson-bleed-pack',
+    label: 'Bleed: a pack biting, 1→8 in 0.4 s (gated: a few ticks, not eight)',
+    group: 'crimson',
+    length: 2,
+    fire: (d, w) => fire(d, w, statusOn('kael', 'bleed', 6, 1)),
+    then: [2, 3, 4, 5, 6, 7, 8].map((n, i) => ({
+      delay: 0.05 * (i + 1),
+      fire: (d: SynthDirector, w: FakeWorld) => fire(d, w, statusOn('kael', 'bleed', 6, n)),
+    })),
+  },
+  {
+    id: 'crimson-pinned',
+    label: 'Pinned (the stake, its chain)',
+    group: 'crimson',
+    length: 1.5,
+    fire: (d, w) => fire(d, w, statusOn('lyra', 'pinned', 4)),
+  },
+  {
+    id: 'crimson-latched',
+    label: 'Latched (a suck)',
+    group: 'crimson',
+    length: 1.5,
+    fire: (d, w) => fire(d, w, statusOn('vexis', 'latched', 8)),
+  },
+  {
+    id: 'crimson-wound',
+    label: 'Wound (a muffled thud)',
+    group: 'crimson',
+    length: 1.5,
+    fire: (d, w) => fire(d, w, statusOn('kael', 'wound', 4)),
+  },
+  {
+    id: 'crimson-pact',
+    label: 'Blood Pact (two hearts, one sound)',
+    group: 'crimson',
+    length: 1.5,
+    fire: (d, w) => fire(d, w, statusOn('lyra', 'pact', 6), statusOn('vexis', 'pact', 6)),
+  },
+  {
+    id: 'crimson-freed',
+    label: 'Freed by a Reel (the chain snaps)',
+    group: 'crimson',
+    length: 1.5,
+    fire: (d, w) =>
+      fire(
+        d,
+        w,
+        statusOn('lyra', 'pinned', 4),
+        ev('statusRemoved', { target: IDS.lyra, status: 'pinned', reason: 'freed' }),
+      ),
+  },
+  ...[2, 8].map((n): SoundButton => ({
+    id: `crimson-release-${n}`,
+    label: `Chime release: ${n} bleed stacks cleared`,
+    group: 'crimson',
+    length: 2.5,
+    fire: (d, w) => fire(d, w, statusOn('kael', 'bleed', 6, n)),
+    then: [
+      {
+        delay: 0.4,
+        fire: (d, w) =>
+          fire(
+            d,
+            w,
+            ev('cleansed', { target: IDS.kael, removed: 1, clutch: false }),
+            ev('statusRemoved', { target: IDS.kael, status: 'bleed', reason: 'cleansed' }),
+          ),
+      },
+    ],
+  })),
+  {
+    id: 'crimson-guard-block',
+    label: 'Sentinel guard: a blocked hit (a dull clank, gated)',
+    group: 'crimson',
+    length: 1.5,
+    fire: (d, w) => {
+      const id = w.addEnemy('crimson_sentinel', 4);
+      fire(d, w, ev('guardBlocked', { enemy: id, source: IDS.lyra }));
+    },
+  },
+  {
+    id: 'crimson-guard-break',
+    label: 'Sentinel guard broken (a shatter)',
+    group: 'crimson',
+    length: 2,
+    fire: (d, w) => {
+      const id = w.addEnemy('crimson_sentinel', 4);
+      fire(d, w, ev('guardBroken', { enemy: id }));
+    },
+  },
+  {
+    id: 'crimson-charge',
+    label: 'Impaling Charge (a charge’s whoosh)',
+    group: 'crimson',
+    length: 1.5,
+    fire: (d, w) => fire(d, w, moved('charge', 8, -6)),
+  },
+  {
+    id: 'crimson-pounce',
+    label: 'Pounce (the leap and its landing)',
+    group: 'crimson',
+    length: 1.5,
+    fire: (d, w) => fire(d, w, moved('leap', -6, 3, 0.4)),
+  },
+  {
+    id: 'crimson-tide',
+    label: 'Crimson Tide (its windup, then the wave breaks, front then back)',
+    group: 'crimson',
+    length: 6,
+    fire: (d, w) => fire(d, w, legionTele(w, 41, 'vharun_crimson_tide', 'kael')),
+    then: [
+      {
+        delay: 1.6,
+        fire: (d, w) => {
+          w.removeTelegraph(41);
+          fire(
+            d,
+            w,
+            resolved(41, 'kael', 'hit'),
+            legionTele(w, 42, 'vharun_crimson_tide_back', 'kael'),
+          );
+        },
+      },
+      {
+        delay: 3.2,
+        fire: (d, w) => {
+          w.removeTelegraph(42);
+          fire(d, w, resolved(42, null, 'dodged'));
+        },
+      },
+    ],
+  },
+  {
+    id: 'crimson-pack-call',
+    label: 'Pack Call (the Matriarch’s howl stinger)',
+    group: 'crimson',
+    length: 3,
+    fire: (d, w) => fire(d, w, legionTele(w, 43, 'gorehound_pack_call', null)),
+    then: [{ delay: 1.2, fire: (_d, w) => w.removeTelegraph(43) }],
+  },
+  execution(true),
+  execution(false),
+  ...IRON_ENEMIES.map((e): SoundButton => ({
+    id: `kill-iron-${e.id}`,
+    label: `Kill ${e.name} (iron)`,
+    group: 'crimson',
+    length: e.role === 'boss' || e.role === 'miniboss' ? 4 : 2,
+    fire: (d, w) => {
+      const id = w.addEnemy(e.id, e.role === 'swarm' ? -6 : 6);
+      fire(
+        d,
+        w,
+        ev('enemyKilled', {
+          enemy: id,
+          defId: e.id,
+          killer: null,
+          x: e.role === 'swarm' ? -6 : 6,
+          z: 5,
+        }),
+      );
+    },
+  })),
   // ── UI ─────────────────────────────────────────────────────────────────────────
   ...(
     [
