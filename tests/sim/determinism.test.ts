@@ -6,6 +6,7 @@ import { parseReplay, runReplay } from '../../src/sim/replay';
 import { runScenario } from '../../tools/runScenario';
 import {
   SCENARIOS,
+  SCENARIO_BRANN_CRIMSON_GATE,
   SCENARIO_FIRST_LIGHT,
   SCENARIO_PATROL,
   SCENARIO_VHARUN,
@@ -48,7 +49,12 @@ describe('determinism (docs/plan/05 §4.9)', () => {
   });
 
   // Vharun (docs/phase-5a.md): pins, stacks, pools and scripted follow-ups survive the trip too.
-  for (const scenario of [SCENARIO_PATROL, SCENARIO_FIRST_LIGHT, SCENARIO_VHARUN]) {
+  for (const scenario of [
+    SCENARIO_PATROL,
+    SCENARIO_FIRST_LIGHT,
+    SCENARIO_VHARUN,
+    SCENARIO_BRANN_CRIMSON_GATE,
+  ]) {
     it(`a recorded replay of "${scenario.name}" survives a JSON round-trip and re-simulates bit-exactly`, () => {
       const { replay, hash } = runScenario(scenario);
       const loaded = parseReplay(JSON.parse(JSON.stringify(replay)));

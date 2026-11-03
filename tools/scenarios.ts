@@ -142,6 +142,58 @@ export const SCENARIO_VHARUN = botScenario('skilled-vharun', 'skilled', 9595, 60
   ...kitConfig(ARRIVAL_KIT),
 });
 
+// ── Phase 5b (docs/phase-5b.md, "Golden scenarios"): Brann parties, appended after
+// skilled-vharun, so the eight default-party hashes are untouched. ──
+
+/** Party A on the Crimson Gate with the Skilled bot: Blood Rage, lifesteal and the halved heals. */
+export const SCENARIO_BRANN_CRIMSON_GATE = botScenario(
+  'skilled-brann-crimson-gate',
+  'skilled',
+  7474,
+  60 * 40,
+  {
+    encounter: 'crimson_gate',
+    party: ['kael', 'vexis', 'brann'],
+    ...kitConfig(ARRIVAL_KIT),
+  },
+);
+
+/**
+ * Party B (no tank) on the Bellwarden: threat-led targeting, Blood Tithe, Blood and Silk and
+ * three of Brann's talents on the skilled-bellwarden auras and motifs.
+ */
+export const SCENARIO_BRANN_BELLWARDEN = botScenario(
+  'skilled-brann-bellwarden',
+  'skilled',
+  5252,
+  60 * 60,
+  {
+    encounter: 'bellwarden',
+    party: ['lyra', 'vexis', 'brann'],
+    auras: ['sostenuto', 'ostinato'],
+    motifs: [
+      { id: 'deep_roots', level: 2 },
+      { id: 'twin_aegis', level: 1 },
+      { id: 'blood_tithe', level: 1 },
+      { id: 'taut_release', level: 1 },
+      { id: 'blood_and_silk', level: 1 },
+    ],
+    bonds: { talents: ['red_mist', 'scar_tissue', 'berserkers_hymn'], solos: [] },
+  },
+);
+
+/** Party C on First Light with a Novice: its heal-the-lowest reflex on Brann, Movement I path. */
+export const SCENARIO_BRANN_FIRST_LIGHT = botScenario(
+  'novice-brann-first-light',
+  'novice',
+  3131,
+  60 * 30,
+  {
+    encounter: 'first_light',
+    party: ['kael', 'lyra', 'brann'],
+  },
+);
+
 /**
  * The bench's hound pack (not a golden): the Matriarch's fight with a pack of hounds already
  * loose, so Pack Call stacks on top of them; the Movement II entity peak.
@@ -176,4 +228,7 @@ export const SCENARIOS: readonly Scenario[] = [
   SCENARIO_CRIMSON_GATE,
   SCENARIO_MATRIARCH,
   SCENARIO_VHARUN,
+  SCENARIO_BRANN_CRIMSON_GATE,
+  SCENARIO_BRANN_BELLWARDEN,
+  SCENARIO_BRANN_FIRST_LIGHT,
 ];
