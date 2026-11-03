@@ -159,6 +159,8 @@ export interface StatusRemoved extends At {
   status: StatusId;
   /** `freed`: a Reel pulled the hero out of a pin or a latch (docs/phase-5a.md). */
   reason: 'expired' | 'cleansed' | 'detonated' | 'freed';
+  /** A stacking status's stacks when it was removed (Movement II); absent otherwise. */
+  stacks?: number;
 }
 /** A hero's hit landed on an enemy's guard arc and was mostly blocked (rate-limited). */
 export interface GuardBlocked extends At {
@@ -198,6 +200,13 @@ export interface TelegraphResolved extends At {
   target: EntityId | null;
   outcome: 'hit' | 'dodged' | 'warded' | 'perfect' | 'absorbed' | 'cancelled';
   damage: number;
+  /**
+   * An Execution's verdict (Movement II, `executeBelow`), on its one resolution: `executed`, the
+   * condemned hero was below the line and went down to it; `spared`, they were above it, Warded,
+   * or out of it; `fallen`, they were already down when it landed (`target` is then still the
+   * condemned hero). Absent on every other telegraph.
+   */
+  execution?: 'executed' | 'spared' | 'fallen';
 }
 export interface TelegraphEnded extends At {
   type: 'telegraphEnded';

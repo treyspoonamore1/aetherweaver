@@ -679,6 +679,11 @@ export interface DeathRecord {
   recap: { time: number; amount: number; source: string }[];
   /** Techniques that were ready and unused when it happened. */
   readyTechniques: TechniqueKey[];
+  /**
+   * When a damage-over-time status landed the killing tick (Movement II: bleed, pinned,
+   * latched), its answers (`DOT_ANSWERS`), whether or not they were ready. Absent otherwise.
+   */
+  answers?: AnswerTag[];
 }
 
 export type LedgerMarkerKind =
