@@ -1320,7 +1320,8 @@ function makeRelicOffer(
 
 // ── Merchants ─────────────────────────────────────────────────────────────────────────
 
-function makeShop(run: RunState, node: MapNode): ShopItem[] {
+/** A merchant's stock for `node` (exported for the draft and shop snapshot, docs/phase-5b.md). */
+export function makeShop(run: RunState, node: MapNode): ShopItem[] {
   const rng = rngFor(run.seed, `shop:${node.id}`);
   const item = (kind: ShopItem['kind'], id: string, price: number): ShopItem => ({
     kind,

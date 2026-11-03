@@ -9,3 +9,8 @@ package-lock.json
 tests/sim/golden.json
 tests/meta/__snapshots__/prelude.json
 tools/m1-baseline.json
+tools/m2-baseline.json
+tools/expedition-baseline.json
+tests/meta/draftSnapshot.json
+tests/bots/commandSnapshot.json
+tests/sim/rosterInvariance.keys.json

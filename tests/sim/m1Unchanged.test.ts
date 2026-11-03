@@ -1,7 +1,8 @@
 /**
  * Movement I is bit-for-bit unchanged by Phase 5a (docs/phase-5a.md, "the Movement I
- * contract"). The five Movement I golden hashes are pinned here as literals, so they can't
- * drift through `npm run golden:update`; only new scenarios and `contentVersion` may change.
+ * contract"), and every default-party run by Phase 5b (docs/phase-5b.md, "Engineering ground
+ * rules"). All eight golden hashes are pinned here as literals, so they can't drift through
+ * `npm run golden:update`; only new scenarios and `contentVersion` may change.
  */
 import { describe, expect, it } from 'vitest';
 import { CONTENT } from '../../src/content';
@@ -21,19 +22,29 @@ const M1_HASHES: Readonly<Record<string, string>> = {
   'novice-cantor': 'ef492fba9d6c91ec',
 };
 
+/** Movement II's three default-party goldens (docs/phase-5b.md: pinned before Brann lands). */
+const M2_HASHES: Readonly<Record<string, string>> = {
+  'skilled-crimson-gate': '33de216e886e4fae',
+  'novice-matriarch': 'c189c9db37b9b5f0',
+  'skilled-vharun': '0d468d6046318cd6',
+};
+
+const PINNED: Readonly<Record<string, string>> = { ...M1_HASHES, ...M2_HASHES };
+
 describe('Movement I is unchanged (docs/phase-5a.md)', () => {
   it('SIM_VERSION is still 22', () => {
     expect(SIM_VERSION).toBe(22);
     expect(golden.simVersion).toBe(22);
   });
 
-  it('golden.json still holds the five Movement I hashes', () => {
-    for (const [name, hash] of Object.entries(M1_HASHES))
+  it('golden.json still holds the eight pinned hashes', () => {
+    expect(Object.keys(PINNED)).toHaveLength(8);
+    for (const [name, hash] of Object.entries(PINNED))
       expect((golden.scenarios as Record<string, string>)[name], name).toBe(hash);
   });
 
-  for (const [name, hash] of Object.entries(M1_HASHES))
-    it(`scenario "${name}" reproduces its Movement I hash`, () => {
+  for (const [name, hash] of Object.entries(PINNED))
+    it(`scenario "${name}" reproduces its pinned hash`, () => {
       const scenario = SCENARIOS.find((s) => s.name === name);
       expect(scenario, name).toBeDefined();
       expect(runScenario(scenario!).hash).toBe(hash);

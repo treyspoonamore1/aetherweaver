@@ -7,6 +7,12 @@
  *   npx tsx tools/m1-baseline.ts --check   # compares with tools/m1-baseline.json (exit 1 on drift)
  *   npx tsx tools/m1-baseline.ts --write   # rewrites it (only when Movement I is meant to change)
  *
+ * `--movement 2` does the same for Movement II's default-party table (docs/phase-5b.md, W0a):
+ * the harness's Movement II fights on the arrival kit (`tools/harness.ts --movement 2 --seeds
+ * 10`), every bot, kept in tools/m2-baseline.json. Phase 5b must leave both byte-equal.
+ *
+ *   npx tsx tools/m1-baseline.ts --movement 2 --check
+ *
  * Records are compared on the fields the baseline holds, so fields the harness gains later
  * (Movement II metrics) don't count as drift.
  */
@@ -14,7 +20,8 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import type { BotKind } from '../src/bots';
 import { CHORD_PRESETS } from '../src/meta/run';
-import { playEncounter, type EncounterRun } from './harness-core';
+import { movementEncounters, playEncounter, type EncounterRun } from './harness-core';
+import { ARRIVAL_KIT, kitConfig } from './kits';
 
 /** The harness's default Movement I fights (tools/harness.ts), in its order. */
 export const M1_ENCOUNTERS = [
@@ -50,6 +57,17 @@ export function m1Baseline(): M1Baseline {
   return { loadout: M1_LOADOUT, seeds: M1_SEEDS, rows };
 }
 
+/** Movement II's table: its fights in content order, on the arrival kit (tools/kits.ts). */
+export function m2Baseline(): M1Baseline {
+  const kit = kitConfig(ARRIVAL_KIT);
+  const rows: EncounterRun[] = [];
+  for (const encounter of movementEncounters(2))
+    for (const bot of M1_BOTS)
+      for (let i = 0; i < M1_SEEDS; i++)
+        rows.push(playEncounter({ seed: 1000 + i * 7919, encounter, ...kit }, bot));
+  return { loadout: `${ARRIVAL_KIT.preset} (${ARRIVAL_KIT.name})`, seeds: M1_SEEDS, rows };
+}
+
 /** `fresh` cut down to the keys `kept` has, record by record, in `kept`'s key order. */
 export function projectBaseline(fresh: M1Baseline, kept: M1Baseline): M1Baseline {
   return {
@@ -62,11 +80,18 @@ export function projectBaseline(fresh: M1Baseline, kept: M1Baseline): M1Baseline
   };
 }
 
-const path = fileURLToPath(new URL('./m1-baseline.json', import.meta.url));
+function movementArg(): number {
+  const i = process.argv.indexOf('--movement');
+  return i >= 0 ? Number(process.argv[i + 1]) : 1;
+}
 
 function main(): void {
+  const movement = movementArg();
+  if (movement !== 1 && movement !== 2) throw new Error(`No baseline for Movement ${movement}`);
+  const m = movement === 2 ? 'M2' : 'M1';
+  const path = fileURLToPath(new URL(`./m${movement}-baseline.json`, import.meta.url));
   const t0 = Date.now();
-  const fresh = m1Baseline();
+  const fresh = movement === 2 ? m2Baseline() : m1Baseline();
   if (process.argv.includes('--write')) {
     writeFileSync(path, JSON.stringify(fresh, null, 1) + '\n');
     console.log(`Wrote ${path} (${fresh.rows.length} fights, ${Date.now() - t0} ms).`);
@@ -81,7 +106,7 @@ function main(): void {
   const b = JSON.stringify(projectBaseline(fresh, kept), null, 1);
   if (a === b && fresh.rows.length === kept.rows.length) {
     console.log(
-      `M1 baseline unchanged: ${kept.rows.length} fights byte-equal (${Date.now() - t0} ms).`,
+      `${m} baseline unchanged: ${kept.rows.length} fights byte-equal (${Date.now() - t0} ms).`,
     );
     return;
   }
@@ -94,7 +119,11 @@ function main(): void {
       shown++;
     }
   }
-  console.error('M1 baseline drifted: Movement I is meant to be unchanged (docs/phase-5a.md).');
+  console.error(
+    movement === 2
+      ? 'M2 baseline drifted: default-party Movement II is meant to be unchanged (docs/phase-5b.md).'
+      : 'M1 baseline drifted: Movement I is meant to be unchanged (docs/phase-5a.md).',
+  );
   process.exit(1);
 }
 

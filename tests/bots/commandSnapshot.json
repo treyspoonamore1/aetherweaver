@@ -1,0 +1,102 @@
+{
+ "skilled:first_light:1000": {
+  "commands": "151e14bfcff37661",
+  "count": 760,
+  "final": "95eae650cd18cadc"
+ },
+ "skilled:crimson_gate:1000": {
+  "commands": "075027bd3ffd26a1",
+  "count": 714,
+  "final": "f453cd35b64e25f1"
+ },
+ "skilled:first_light:8919": {
+  "commands": "0d2a66ab660d754a",
+  "count": 645,
+  "final": "ea4ab40c97d2483c"
+ },
+ "skilled:crimson_gate:8919": {
+  "commands": "35c51049f61770e2",
+  "count": 701,
+  "final": "855c49072623f591"
+ },
+ "skilled:first_light:16838": {
+  "commands": "39d0043065fe4bce",
+  "count": 728,
+  "final": "2cce800feef9608a"
+ },
+ "skilled:crimson_gate:16838": {
+  "commands": "217d15936b236d54",
+  "count": 814,
+  "final": "31627a335b28cd22"
+ },
+ "skilled:first_light:24757": {
+  "commands": "0c877020ac79c4cf",
+  "count": 719,
+  "final": "8f15394032be0f91"
+ },
+ "skilled:crimson_gate:24757": {
+  "commands": "cea017dad8e785b4",
+  "count": 794,
+  "final": "a97cc09977afa5ea"
+ },
+ "skilled:first_light:32676": {
+  "commands": "73e6686ff37f3119",
+  "count": 707,
+  "final": "2e914369224bd559"
+ },
+ "skilled:crimson_gate:32676": {
+  "commands": "3d5bd372cd7ff9e2",
+  "count": 644,
+  "final": "b4902c318b2adbee"
+ },
+ "novice:first_light:1000": {
+  "commands": "63cb28a590d91d49",
+  "count": 96,
+  "final": "c8f4f36311d54c61"
+ },
+ "novice:crimson_gate:1000": {
+  "commands": "e7ab8c0f51d486f7",
+  "count": 95,
+  "final": "c320b9a246a288f9"
+ },
+ "novice:first_light:8919": {
+  "commands": "97f26105b65f9baf",
+  "count": 96,
+  "final": "49ae6668b272fac8"
+ },
+ "novice:crimson_gate:8919": {
+  "commands": "72626425a4b26e00",
+  "count": 97,
+  "final": "b82defefcef33aa3"
+ },
+ "novice:first_light:16838": {
+  "commands": "fa889cbe9729a06d",
+  "count": 93,
+  "final": "b55a685de7b387a6"
+ },
+ "novice:crimson_gate:16838": {
+  "commands": "6d5096ffd18db4cf",
+  "count": 98,
+  "final": "85abca3d17e2923c"
+ },
+ "novice:first_light:24757": {
+  "commands": "5bf31606383ac16c",
+  "count": 79,
+  "final": "a125b140553a2625"
+ },
+ "novice:crimson_gate:24757": {
+  "commands": "a5c100aba849933a",
+  "count": 81,
+  "final": "ced74c07189c431b"
+ },
+ "novice:first_light:32676": {
+  "commands": "05b58e8675b0f450",
+  "count": 83,
+  "final": "53517d9c153e4513"
+ },
+ "novice:crimson_gate:32676": {
+  "commands": "c9354e0dbcbac80f",
+  "count": 85,
+  "final": "8618134ddc92370c"
+ }
+}
