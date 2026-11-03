@@ -8,7 +8,7 @@ import type { Biome } from '../../content';
 import { getAudio, type SynthDirector } from '../index';
 import type { AudioDebugStats, AudioMood, Volumes } from '../types';
 import { Fight } from './fight';
-import { FakeWorld, HERO_IDS, type HeroKey } from './labState';
+import { BRANN_LAB_PARTY, FakeWorld, HERO_IDS, type HeroKey } from './labState';
 import {
   auditMood,
   auditSound,
@@ -83,6 +83,11 @@ const GROUPS: {
     id: 'crimson',
     title:
       'Phase 5a · The Crimson Legion (its statuses, the Chime’s release, the guard, charges, the Tide, Execution, iron kills)',
+  },
+  {
+    id: 'brann',
+    title:
+      'Phase 5b · Brann (his leitmotif and Call, Red Comet, his kit, his war drum and alert; he joins the lab party)',
   },
   { id: 'world', title: 'World, enemies and telegraphs' },
   { id: 'ui', title: 'UI' },
@@ -188,6 +193,10 @@ export function AudioLab() {
     lyra: false,
     vexis: false,
   });
+  // Phase 5b: Brann in the lab party (a fourth, opt-in), his life and whether he is falling fast.
+  const [brannIn, setBrannIn] = useState(false);
+  const [brannLife, setBrannLife] = useState(1);
+  const [brannFast, setBrannFast] = useState(false);
   const [planted, setPlanted] = useState(false);
   const [unison, setUnison] = useState(0);
   const [volumes, setVolumes] = useState<Volumes>(() => ({
@@ -304,6 +313,12 @@ export function AudioLab() {
   useEffect(() => {
     for (const h of HERO_IDS) world.setDowned(h, downed[h]);
   }, [world, downed]);
+  useEffect(() => {
+    world.setParty(brannIn ? BRANN_LAB_PARTY : HERO_IDS);
+    if (!brannIn) return;
+    world.setHeroHp('brann', brannLife);
+    world.setBleedRate(brannFast ? 2000 : 0);
+  }, [world, brannIn, brannLife, brannFast]);
 
   const applyVolumes = (v: Volumes) => {
     setVolumes(v);
@@ -538,6 +553,38 @@ export function AudioLab() {
               </span>
             ))}
           </div>
+          <div className="flex flex-wrap items-center gap-2 text-xs text-muted">
+            <label
+              className="flex items-center gap-1"
+              title="Brann joins the lab party as a fourth hero (his buttons bring him in too)"
+            >
+              <input
+                type="checkbox"
+                checked={brannIn}
+                data-testid="brann-in"
+                onChange={(e) => setBrannIn(e.target.checked)}
+              />{' '}
+              Brann in the party
+            </label>
+            <label className="flex items-center gap-1" title="His war drum quickens under 40%">
+              <input
+                type="checkbox"
+                checked={brannFast}
+                disabled={!brannIn}
+                data-testid="brann-fast"
+                onChange={(e) => setBrannFast(e.target.checked)}
+              />{' '}
+              falling fast (the alert)
+            </label>
+          </div>
+          {brannIn && (
+            <Slider
+              label="Brann low (Blood Rage)"
+              value={brannLife}
+              onChange={setBrannLife}
+              testId="brann-life"
+            />
+          )}
           <div className="space-y-1 pt-1">{stemRow}</div>
           <p className="text-xs text-muted">
             Tier {stats.tier}/4 · intensity {stats.intensity.toFixed(2)} · mood {stats.mood} · biome{' '}

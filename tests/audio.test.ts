@@ -154,15 +154,18 @@ describe('scale and chord helpers', () => {
 
   it('gives each hero a distinct 3–5 note leitmotif in key', () => {
     const seen = new Set<string>();
-    for (const id of ['kael', 'lyra', 'vexis']) {
+    for (const id of ['kael', 'lyra', 'vexis', 'brann']) {
       const m = leitmotifFor(id);
       expect(m.notes.length).toBeGreaterThanOrEqual(3);
       expect(m.notes.length).toBeLessThanOrEqual(5);
       for (const n of m.notes) expect(isInScale(scaleMidi(n.idx))).toBe(true);
       seen.add(m.notes.map((n) => n.idx).join(','));
     }
-    expect(seen.size).toBe(3);
-    expect(Object.keys(LEITMOTIFS)).toEqual(['kael', 'lyra', 'vexis']);
+    expect(seen.size).toBe(4);
+    // Phase 5b: Brann's is appended, so the starters keep their order.
+    expect(Object.keys(LEITMOTIFS)).toEqual(['kael', 'lyra', 'vexis', 'brann']);
+    // Each in a voice of its own: four heroes, four instruments.
+    expect(new Set(Object.values(LEITMOTIFS).map((m) => m.voice)).size).toBe(4);
     expect(leitmotifFor('nobody')).toBe(LEITMOTIFS['kael']);
   });
 });
@@ -462,7 +465,8 @@ describe('Phase 2 continuous layers', () => {
 
 describe('Call and Response theory', () => {
   it('asks each hero question in key, ending off the tonic, and resolves to a D', () => {
-    for (const id of ['kael', 'lyra', 'vexis']) {
+    expect(Object.keys(CALL_PHRASES)).toEqual(['kael', 'lyra', 'vexis', 'brann']);
+    for (const id of ['kael', 'lyra', 'vexis', 'brann']) {
       const q = CALL_PHRASES[id];
       const m = LEITMOTIFS[id];
       expect(q, id).toBeDefined();

@@ -419,6 +419,32 @@ export function heartbeat(v: Voice, t: number, freq: number, gain: number, gap =
   }
 }
 
+/**
+ * A war drum (Phase 5b, Brann): a deep skin struck hard. The skin's sine drops from `freq` (keep
+ * it under about 120 Hz), its octave slaps on top and dies at once, and a short lowpassed thud is
+ * the shell. Unlike `heartbeat` it is one stroke, struck, not felt.
+ */
+export function warDrum(v: Voice, t: number, freq: number, gain: number, dur = 0.32): void {
+  thump(v, t, freq, gain, dur, 0.5);
+  v.osc({
+    type: 'triangle',
+    freq: freq * 2,
+    freqTo: freq * 1.2,
+    glide: 0.05,
+    start: t,
+    dur: 0.06,
+    attack: 0.002,
+    release: 0.03,
+    gain: gain * 0.35,
+  });
+  v.noise({
+    start: t,
+    dur: 0.09,
+    gain: gain * 0.4,
+    filter: { type: 'lowpass', freq: 420, freqTo: 160 },
+  });
+}
+
 // ── Phase 3e: the Chronomancer (clockwork, reversed envelopes) ───────────────────────
 
 /**
