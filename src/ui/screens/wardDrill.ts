@@ -284,6 +284,8 @@ export interface DrillView {
   best: number;
   /** The streak running now set a new best (it goes when the streak breaks). */
   newBest: boolean;
+  /** The Perfect window is widened (Settings → Assists): no best is kept. */
+  assisted: boolean;
   tries: number;
   perfects: number;
 }
@@ -341,6 +343,8 @@ export class WardDrill {
   private history: TryKind[] = [];
   private streak = 0;
   private newBest = false;
+  /** The Perfect window is widened (an assist): bests aren't kept. */
+  private assisted = false;
   private tries = 0;
   private perfects = 0;
   private snapshot: DrillView;
@@ -353,6 +357,15 @@ export class WardDrill {
     this.mode = opts.mode ?? 'slow';
     this.target = opts.target ?? 0;
     this.snapshot = this.build();
+  }
+
+  /** The Perfect window's assist is on: streaks still count, but no best is kept. */
+  setAssisted(on: boolean): void {
+    if (on === this.assisted) return;
+    this.assisted = on;
+    this.newBest = false;
+    this.snapshot = this.build();
+    for (const l of this.listeners) l();
   }
 
   /** The view to draw (a new object whenever something shown changes). */
@@ -550,7 +563,7 @@ export class WardDrill {
     if (t.kind === 'perfect') {
       this.perfects++;
       this.streak++;
-      if (this.streak > (this.best[this.mode] ?? 0)) {
+      if (!this.assisted && this.streak > (this.best[this.mode] ?? 0)) {
         this.best = { ...this.best, [this.mode]: this.streak };
         this.newBest = true;
         this.bests.save(this.best);
@@ -594,6 +607,7 @@ export class WardDrill {
       streak: this.streak,
       best: this.best[this.mode] ?? 0,
       newBest: this.newBest,
+      assisted: this.assisted,
       tries: this.tries,
       perfects: this.perfects,
     };

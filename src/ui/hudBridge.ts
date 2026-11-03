@@ -176,7 +176,7 @@ export function buildHudSnapshot(
       solo: hero.solo,
       soloReady: hero.solo >= 100 && hero.soloActive <= 0,
       soloActive: hero.soloActive > 0,
-      soloAuto: opts.autonomy === true,
+      soloAuto: opts.autonomy === true && hero.targetId !== null,
       soloId: soloDef.id,
       soloName: soloDef.name,
       soloText: soloDef.text,

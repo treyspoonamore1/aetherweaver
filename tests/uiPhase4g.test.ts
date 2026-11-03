@@ -172,6 +172,18 @@ describe('the Perfect-Ward trainer', () => {
     expect(v.history).toEqual(['perfect']);
   });
 
+  it('under the wider Perfect window (an assist) a streak counts, but no best is kept', () => {
+    const { drill, sim } = newDrill('slow', 0);
+    drill.setAssisted(true);
+    const t = untilTry(
+      sim,
+      drill,
+      wardAt(0, (b) => b.perfectFrom + 0.1),
+    );
+    expect(t.kind).toBe('perfect');
+    expect(drill.view()).toMatchObject({ streak: 1, best: 0, newBest: false, assisted: true });
+  });
+
   it('early and late by how many milliseconds; missed; the streak starts over, the best stays', () => {
     const { drill, sim } = newDrill('normal', 1);
     const perfect = untilTry(

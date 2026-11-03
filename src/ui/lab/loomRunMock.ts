@@ -159,6 +159,7 @@ export function mockDrillView(over: Partial<DrillView> = {}): DrillView {
     streak: 0,
     best: 0,
     newBest: false,
+    assisted: false,
     tries: history.length,
     perfects: history.filter((k) => k === 'perfect').length,
     ...over,

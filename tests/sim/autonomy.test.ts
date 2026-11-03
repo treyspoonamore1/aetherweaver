@@ -83,6 +83,23 @@ describe('hero autonomy', () => {
     expect(ofType(events, 'soloStarted').find((e) => e.hero === lyra)?.cued).toBe(true);
   });
 
+  it('the Cue window starts over after a gap: a new enemy gets the full wait', () => {
+    const sim = fight(true);
+    stepFor(sim, 1, [CHARGE]);
+    stepFor(sim, Math.floor(AUTONOMY.cueGrace * SIM_HZ * 0.9));
+    // Every enemy gone, then a while with no one to fight.
+    const w = worldOf(sim);
+    for (const e of w.entities.list()) if (e.enemy) w.entities.despawn(e.id);
+    stepFor(sim, 2 * SIM_HZ);
+    expect(hero(sim, LYRA).hero!.soloHeld).toBe(0);
+    const k = hero(sim, KAEL);
+    stepFor(sim, 1, [spawn('bell_brute', k.x, k.z - 4)]);
+    for (const e of w.entities.list()) if (e.enemy && e.health) e.health.hp = e.health.maxHp = 1e6;
+    stepUntil(sim, () => hero(sim, LYRA).hero!.targetId !== null);
+    const fired = firstUncued(sim, 3 * SIM_HZ);
+    expect(fired.get(LYRA)).toBeGreaterThanOrEqual(AUTONOMY.cueGrace * SIM_HZ - 3);
+  });
+
   it('with no one to fight, a charged Solo waits', () => {
     const sim = sandbox({ assists: { autonomy: true } });
     const events = stepFor(sim, 5 * SIM_HZ, [CHARGE]);

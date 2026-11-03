@@ -145,6 +145,15 @@ export function WardTrainerView({
             Best <b className="text-sm text-text">{v.best}</b>
             <span className="sr-only"> at {modeLabel(v.mode)}</span>
           </span>
+          {v.assisted && (
+            <span
+              className="text-[11px] text-muted"
+              title="The Perfect window is widened (Settings → Assists): streaks still count, but no best is kept"
+              data-testid="drill-assisted"
+            >
+              assisted · not kept
+            </span>
+          )}
           {v.newBest && v.streak > 0 && v.streak === v.best && (
             <span
               className="rounded-md px-1.5 font-sans text-[11px] font-bold leading-5 text-ink-950"
@@ -459,6 +468,7 @@ export function WardTrainer({
     // GameHost (before this in the tree) has started the session's runtime by now.
     const runtime = getRuntime();
     if (!runtime) return;
+    drill.setAssisted(runtime.sim.config.assists.perfectWindowBonus > 0);
     return runtime.listen((events, state) => {
       for (const command of drill.step(events, state)) runtime.queue(command);
     });

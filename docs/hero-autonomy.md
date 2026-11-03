@@ -23,12 +23,12 @@ Measured headless before the fix: 6 encounters × 8 seeds, the bot never Cueing,
 
 - **A Cue window.** A charged Solo waits 1 s for the player's Cue, then the hero fires it (`AUTONOMY.cueGrace`, src/sim/constants.ts).
 - **Kael holds at most 3 s.** Hurt (under half his life) or with a big hit coming, he raises his wall at once. Otherwise he waits for one, but never more than 3 s while he has someone to fight (`AUTONOMY.kaelHold`).
-- **No one to fight, no Solo.** The wait only counts with a target (`soloHeld`, src/sim/systems/heroes.ts).
-- **The Training Grounds use your assists.** A change made from the pause menu restarts them as the fight resumes, as a loadout change does.
+- **No one to fight, no Solo.** The wait only counts with a target, and starts over after any gap: between waves, downed, stunned or Reeled (`soloHeld`, src/sim/systems/heroes.ts).
+- **The Training Grounds use your assists.** A change made from the pause menu restarts them as the fight resumes, as a loadout change does. Under the wider Perfect window the Ward trainer's streaks still count, but no best is kept ("assisted · not kept").
 - **Said plainly:**
   - The setting now says "Heroes fire their own Solos a moment after they charge, unless you Cue them first. Kael saves his wall for a big hit, but never for more than 3 seconds."
   - The pause menu says when an assist change applies: from the next fight in a run; on resume in the Training Grounds.
-  - A ready Solo shows **AUTO** instead of READY on its frame, and the coach's hint says it will fire on its own.
+  - A ready Solo shows **AUTO** instead of READY on its frame while there's someone to fight, and the coach's hint says it will fire on its own.
   - A Solo a hero fires on their own is named as it goes up ("Kael: Aegis Wall").
 
 With autonomy off nothing changed: every event of 72 real fights and of the golden scenarios is identical.
@@ -44,12 +44,14 @@ The same measurement:
 
 The Solos left unfired charged in a fight's last seconds.
 
+An independent review found four more problems, all fixed: the wait carried over a gap between waves, AUTO showed with no one to fight, the callout could name the wrong Solo, and assisted drill streaks would have been kept as bests.
+
 ## Checks
 
 - **tests/sim/autonomy.test.ts:**
   - Lyra and Vexis fire 1 s after charging, Kael 3 s.
   - Hurt, Kael fires at once.
   - A Cue in the window gives the stronger form.
-  - With no one to fight, nothing fires.
+  - With no one to fight, nothing fires; after a gap, the next enemy gets the full wait.
   - With autonomy off, nobody healthy fires on their own.
 - **Goldens:** updated for SIM_VERSION 22. The hashes changed because hero state gained a field; the events are the same.

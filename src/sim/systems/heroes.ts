@@ -56,12 +56,14 @@ export function updateHeroes(world: World, dt: number): void {
     if (hero.reel && !h.dead) {
       updateReel(world, e, dt);
       tickSoloClock(world, e, dt);
+      hero.soloHeld = 0;
       continue;
     }
     if (h.dead || h.downed) {
       e.vx = 0;
       e.vz = 0;
       hero.action = 'downed';
+      hero.soloHeld = 0;
       continue;
     }
 
@@ -87,6 +89,7 @@ export function updateHeroes(world: World, dt: number): void {
       tickSoloClock(world, e, dt);
       approachVelocity(e, 0, 0, TUNING.heroAccel, dt);
       hero.action = 'idle';
+      hero.soloHeld = 0;
       continue;
     }
 
@@ -95,6 +98,7 @@ export function updateHeroes(world: World, dt: number): void {
       hero.castName = null;
       hero.castProgress = 0;
       hero.targetId = null;
+      hero.soloHeld = 0;
       formationMove(weaver, e, def, dt);
       continue;
     }
@@ -107,10 +111,10 @@ export function updateHeroes(world: World, dt: number): void {
       );
       if (hero.solo >= 100) world.events.push({ type: 'soloReady', tick: world.tick, hero: e.id });
     }
-    // How long a full Solo has waited with someone to fight (hero autonomy's Cue window).
-    if (hero.soloActive <= 0 && hero.solo >= 100) {
-      if (hero.targetId !== null) hero.soloHeld += dt;
-    } else hero.soloHeld = 0;
+    // How long a full Solo has waited with someone to fight (hero autonomy's Cue window): the
+    // window starts over after any gap (between waves, downed, stunned, Reeled).
+    if (hero.soloActive <= 0 && hero.solo >= 100 && hero.targetId !== null) hero.soloHeld += dt;
+    else hero.soloHeld = 0;
     if (hero.soloActive <= 0 && hero.solo >= 100 && shouldFireUncued(world, e))
       startSolo(world, e, false);
 

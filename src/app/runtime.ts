@@ -1,4 +1,4 @@
-import { arenaDef, callingDef, CONTENT, encounterDef, heroDef } from '../content';
+import { altSoloDef, arenaDef, callingDef, CONTENT, encounterDef, heroDef } from '../content';
 import { getAudio } from '../audio';
 import { InputController } from '../input/InputController';
 import type { Action, Bindings } from '../input/actions';
@@ -625,7 +625,7 @@ export class GameRuntime {
             );
           // Fired on their own (hero autonomy, Kael's brace): named, so it isn't missed.
           else if (who) {
-            const name = state.entities.get(event.hero)?.hero?.castName;
+            const name = soloName(state, event.hero, event.solo);
             ui.pushCallout(
               { kind: 'solo', text: name ? `${who.name}: ${name}` : who.name, color: who.color },
               now,
@@ -745,5 +745,18 @@ export class GameRuntime {
     this.overlay.remove();
     getAudio().stopCombat();
     useUi.getState().resetCombat();
+  }
+}
+
+/** A Solo's name from its id: the hero's own, or the alternate their Bond opened. */
+function soloName(state: WorldState, heroId: number, solo: string): string | null {
+  const e = state.entities.get(heroId);
+  if (!e?.hero) return null;
+  const own = heroDef(e.hero.defId).solo;
+  if (own.id === solo) return own.name;
+  try {
+    return altSoloDef(solo).name;
+  } catch {
+    return null;
   }
 }

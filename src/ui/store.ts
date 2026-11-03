@@ -74,7 +74,7 @@ export interface HeroHud {
   solo: number;
   soloReady: boolean;
   soloActive: boolean;
-  /** Hero autonomy is on: a ready Solo fires on its own in a moment unless Cued first. */
+  /** Hero autonomy, in a fight: a ready Solo fires on its own in a moment unless Cued first. */
   soloAuto?: boolean;
   /**
    * The Solo they brought (Phase 4e: their own, or the alternate their Bond opened, the fight's
