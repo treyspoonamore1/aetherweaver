@@ -66,6 +66,7 @@ import { TechniquesCodexPage } from './TechniquesCodex';
 import { bondsOpen } from './bondsModel';
 import { STARLIGHT_LOOK } from '../kit/loomLook';
 import { atelierUnlock } from './loomModel';
+import { movementLabel, sightedMovement } from './routeText';
 
 const TABS = [
   { id: 'heroes', label: 'Heroes' },
@@ -118,6 +119,7 @@ export function CodexView({
   dissonance,
   bonds,
   techniques = NO_TECHNIQUES,
+  seen,
 }: {
   onBack(): void;
   initialTab?: TabId;
@@ -142,6 +144,11 @@ export function CodexView({
    * unlocks (the allowance's `all`; the default allowance is everything).
    */
   techniques?: CodexTechniques;
+  /**
+   * Phase 5a: the enemies the profile has sighted (`profile.seen`). Unseen enemies show as locked
+   * silhouettes, and a later Movement's events wait until its enemies are met. Omitted: all seen.
+   */
+  seen?: readonly string[];
 }) {
   useMood('title');
   const [tab, setTab] = useState<TabId>(initialTab);
@@ -214,7 +221,7 @@ export function CodexView({
         <div id={`panel-${tab}`} role="tabpanel" aria-labelledby={`tab-${tab}`} className="mt-6">
           {tab === 'heroes' && <Heroes />}
           {tab === 'bonds' && <BondsCodexPage open={bonded} bonds={bonds ?? NO_BONDS} />}
-          {tab === 'enemies' && <Enemies />}
+          {tab === 'enemies' && <Enemies seen={seen} />}
           {tab === 'weaver' && <Weaver />}
           {tab === 'techniques' && (
             <TechniquesCodexPage owned={techniques.owned} all={allowance.all} />
@@ -237,7 +244,7 @@ export function CodexView({
           {tab === 'calls' && <Calls />}
           {tab === 'motifs' && <Motifs />}
           {tab === 'relics' && <Relics />}
-          {tab === 'events' && <Events />}
+          {tab === 'events' && <Events seen={seen} />}
         </div>
       </div>
     </ScreenFrame>
@@ -253,6 +260,7 @@ export function CodexScreen() {
   const dissonance = useCodexDissonance();
   const bonds = useCodexBonds();
   const techniques = useCodexTechniques();
+  const seen = useProfile((s) => s.profile.seen);
   return (
     <CodexView
       onBack={back}
@@ -262,6 +270,7 @@ export function CodexScreen() {
       dissonance={dissonance}
       bonds={bonds}
       techniques={techniques}
+      seen={seen}
     />
   );
 }
@@ -427,13 +436,87 @@ function attackDamage(a: AttackDef): string {
   return `${fmt(a.damage)} damage`;
 }
 
-function Enemies() {
+/**
+ * The enemies, by Movement (Phase 5a), in content order. One not sighted yet is a locked
+ * silhouette: its name and lessons wait until it's met.
+ */
+function Enemies({ seen }: { seen?: readonly string[] }) {
+  const known = seen ? new Set(seen) : null;
+  const groups = byMovement(CONTENT.enemies);
   return (
-    <div className={GRID}>
-      {CONTENT.enemies.map((e) => (
-        <EnemyEntry key={e.id} enemy={e} />
+    <div className="flex flex-col gap-8">
+      {groups.map(({ movement, items }) => (
+        <section
+          key={movement}
+          aria-label={movementLabel(movement)}
+          data-testid={`codex-enemies-${movement}`}
+        >
+          {groups.length > 1 && <MovementHeading movement={movement} />}
+          <div className={GRID}>
+            {items.map((e) =>
+              !known || known.has(e.id) ? (
+                <EnemyEntry key={e.id} enemy={e} />
+              ) : (
+                <LockedEnemy key={e.id} enemy={e} />
+              ),
+            )}
+          </div>
+        </section>
       ))}
     </div>
+  );
+}
+
+/** Content's entries grouped by Movement (content `movement`, 1 when absent), in order. */
+function byMovement<T extends { movement?: number }>(
+  items: readonly T[],
+): { movement: number; items: T[] }[] {
+  const groups: { movement: number; items: T[] }[] = [];
+  for (const item of items) {
+    const m = item.movement ?? 1;
+    let g = groups.find((x) => x.movement === m);
+    if (!g) groups.push((g = { movement: m, items: [] }));
+    g.items.push(item);
+  }
+  return groups.sort((a, b) => a.movement - b.movement);
+}
+
+function MovementHeading({ movement }: { movement: number }) {
+  const def = CONTENT.movements[movement - 1];
+  return (
+    <h2 className="mb-3 flex items-baseline gap-2 font-display text-lg font-bold text-gold-300">
+      {movementLabel(movement)}
+      {def && <span className="text-sm font-normal text-muted">· {def.name}</span>}
+    </h2>
+  );
+}
+
+/** An enemy not met yet: a silhouette, its role, and when it shows. */
+function LockedEnemy({ enemy: e }: { enemy: EnemyDef }) {
+  const boss = e.role === 'boss' || e.role === 'miniboss';
+  return (
+    <Panel
+      tone="solid"
+      className={`border-dashed p-5 ${boss ? 'md:col-span-2' : ''}`}
+      data-testid="codex-enemy-locked"
+      data-enemy={e.id}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <h2 className="flex items-center gap-2 font-display text-xl font-bold text-muted">
+          <Icon name="lock" size={16} /> Unknown foe
+        </h2>
+        <Chip icon={boss ? 'eye' : 'skull'}>{e.role}</Chip>
+      </div>
+      <div
+        className="mt-3 flex h-20 items-center justify-center rounded-lg bg-ink-950/70 text-ink-600"
+        aria-hidden
+      >
+        <Icon name={boss ? 'eye' : 'skull'} size={44} />
+      </div>
+      <p className="mt-3 text-sm text-muted">
+        Met in {movementLabel(e.movement ?? 1)}. Its entry opens once you face it.
+      </p>
+    </Panel>
   );
 }
 
@@ -1217,7 +1300,10 @@ function Relics() {
 /** A run to read choice tags from (no event live: nothing is greyed out). */
 const CODEX_RUN = newRun(1);
 
-function Events() {
+function Events({ seen }: { seen?: readonly string[] }) {
+  // A later Movement's events open once its enemies are met (Phase 5a).
+  const reach = sightedMovement(seen);
+  const groups = byMovement(CONTENT.events);
   return (
     <div className="flex flex-col gap-8">
       <Panel tone="gold" className="p-5">
@@ -1227,40 +1313,60 @@ function Events() {
           go. Gambles are seeded by the run: the same seed and node always roll the same.
         </p>
       </Panel>
-      <div className={GRID}>
-        {CONTENT.events.map((ev) => (
-          <Panel key={ev.id} tone="solid" className="p-5">
-            <div className="flex items-center gap-3">
-              <EventGlyph icon={ev.icon} size={46} />
-              <div>
-                <h2 className="font-display text-xl font-bold leading-tight">{ev.name}</h2>
-                <p className="text-sm italic text-muted">{ev.teaser}</p>
-              </div>
+      {groups.map(({ movement, items }) => (
+        <section key={movement} aria-label={`Events of ${movementLabel(movement)}`}>
+          {groups.length > 1 && <MovementHeading movement={movement} />}
+          {movement > reach ? (
+            <Panel
+              tone="solid"
+              className="border-dashed p-5"
+              data-testid="codex-events-locked"
+              data-movement={movement}
+            >
+              <p className="flex items-center gap-2 text-sm text-muted">
+                <Icon name="lock" size={14} /> {items.length}{' '}
+                {items.length === 1 ? 'event waits' : 'events wait'} in {movementLabel(movement)}:
+                they open once you reach it.
+              </p>
+            </Panel>
+          ) : (
+            <div className={GRID}>
+              {items.map((ev) => (
+                <Panel key={ev.id} tone="solid" className="p-5" data-event={ev.id}>
+                  <div className="flex items-center gap-3">
+                    <EventGlyph icon={ev.icon} size={46} />
+                    <div>
+                      <h2 className="font-display text-xl font-bold leading-tight">{ev.name}</h2>
+                      <p className="text-sm italic text-muted">{ev.teaser}</p>
+                    </div>
+                  </div>
+                  <p className="mt-3 text-sm leading-relaxed text-text">{ev.text}</p>
+                  <ul className="mt-3 flex flex-col gap-2.5 border-t border-ink-600/60 pt-3">
+                    {ev.choices.map((c) => {
+                      const info = choiceInfo(CODEX_RUN, ev.id, c);
+                      return (
+                        <li key={c.id} className="text-sm">
+                          <p className="font-semibold text-gold-200">{c.label}</p>
+                          <p className="leading-relaxed text-muted">{c.text}</p>
+                          {info.tags.length > 0 && (
+                            <div className="mt-1 flex flex-wrap gap-1.5">
+                              {info.tags.map((t) => (
+                                <Chip key={t.text} icon={t.icon}>
+                                  {t.text}
+                                </Chip>
+                              ))}
+                            </div>
+                          )}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </Panel>
+              ))}
             </div>
-            <p className="mt-3 text-sm leading-relaxed text-text">{ev.text}</p>
-            <ul className="mt-3 flex flex-col gap-2.5 border-t border-ink-600/60 pt-3">
-              {ev.choices.map((c) => {
-                const info = choiceInfo(CODEX_RUN, ev.id, c);
-                return (
-                  <li key={c.id} className="text-sm">
-                    <p className="font-semibold text-gold-200">{c.label}</p>
-                    <p className="leading-relaxed text-muted">{c.text}</p>
-                    {info.tags.length > 0 && (
-                      <div className="mt-1 flex flex-wrap gap-1.5">
-                        {info.tags.map((t) => (
-                          <Chip key={t.text} icon={t.icon}>
-                            {t.text}
-                          </Chip>
-                        ))}
-                      </div>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          </Panel>
-        ))}
-      </div>
+          )}
+        </section>
+      ))}
       <section aria-label="Boons and banes">
         <h2 className="mb-3 font-display text-lg font-bold text-gold-300">Boons and banes</h2>
         <div className={GRID}>

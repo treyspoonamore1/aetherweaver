@@ -27,6 +27,7 @@ import type { TechniqueKey } from '../types';
 import { astrolabeOpen, spendLine } from './astrolabeModel';
 import { bondRanks, bondsOpen } from './bondsModel';
 import { slotKey } from './variantsModel';
+import { deedsInSight, gateStep } from './routeText';
 
 export type { StationId };
 
@@ -65,10 +66,14 @@ export type LoomProfile = Pick<
   | 'look'
   | 'runs'
   | 'wins'
->;
+> &
+  /** Phase 5a: the enemies sighted (later Movements' Deeds count once met); omitted: all. */
+  Partial<Pick<Profile, 'seen'>>;
 
 /** The saved run the Gate can continue (null: none), as much of it as the Gate says. */
-export type GateRun = Pick<RunState, 'phase' | 'path' | 'map'>;
+export type GateRun = Pick<RunState, 'phase' | 'path' | 'map'> &
+  /** Phase 5a: an Expedition's Gate names its Movement (omitted: a Prelude). */
+  Partial<Pick<RunState, 'movements'>>;
 
 const NAMES: Readonly<Record<StationId, string>> = {
   gate: 'The Gate',
@@ -257,8 +262,7 @@ function litLine(id: StationId, run: GateRun | null): string {
 export function gateLine(run: GateRun | null): string {
   if (!run) return 'Begin a run';
   if (run.phase === 'prep') return 'Continue · your run is in Prep';
-  const steps = run.map.rows.length;
-  return `Continue · step ${Math.min(run.path.length + 1, steps)} of ${steps}`;
+  return `Continue · ${gateStep(run)}`;
 }
 
 /** The Reliquary's materials, short, as its station shows them: "34 Shards · 1 Tear". */
@@ -299,7 +303,10 @@ function badgeOf(
     case 'bonds':
       return bondRanksLine(p.bonds);
     case 'deeds':
-      return p.deeds.length > 0 ? `${p.deeds.length} of ${CONTENT.deeds.length} earned` : null;
+      // Out of the Deeds in sight: a later Movement's join once its enemies are met.
+      return p.deeds.length > 0
+        ? `${p.deeds.length} of ${deedsInSight(p.seen).length} earned`
+        : null;
     case 'dissonance': {
       const best = Math.max(0, ...Object.values(p.dissonance.best));
       return best > 0 ? `Best won: ${best}` : null;

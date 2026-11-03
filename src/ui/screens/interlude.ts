@@ -5,6 +5,7 @@
  */
 import {
   CONTENT,
+  encounterDef,
   boonDef,
   boonText,
   motifDef,
@@ -17,9 +18,10 @@ import {
   type RelicRarity,
 } from '../../content';
 import { FIGHT_AETHER, GRADE_AETHER } from '../../meta/economy';
-import { findNode, forgeTargets, eventChoiceProblem, motifLine } from '../../meta/run';
+import { findNode, forgeTargets, eventChoiceProblem, isFinalNode, motifLine } from '../../meta/run';
 import type {
   ActiveBoon,
+  DraftOffer,
   EncounterResult,
   OwnedRelic,
   EventGains,
@@ -227,9 +229,78 @@ export function eventPreview(eventId: string | null): { name: string; teaser: st
 
 // ── Relic offers ──────────────────────────────────────────────────────────────────────
 
-/** Title and blurb of a relic offer, by why it's offered. */
+/** A great foe's spoils, in its words: the relic hoard and the epic motif it leaves. */
+export interface BossSpoils {
+  /** "The Bellwarden falls". */
+  fallen: string;
+  /** "The Warden’s hoard". */
+  hoard: string;
+  /** "The Warden’s gift". */
+  gift: string;
+  giftBlurb: string;
+}
+
+const SPOILS: Readonly<Record<string, BossSpoils>> = {
+  bellwarden: {
+    fallen: 'The Bellwarden falls',
+    hoard: 'The Warden’s hoard',
+    gift: 'The Warden’s gift',
+    giftBlurb: 'The great bell is silent. Take something epic.',
+  },
+  hollow_cantor: {
+    fallen: 'The Hollow Cantor falls',
+    hoard: 'The Cantor’s hoard',
+    gift: 'The Cantor’s gift',
+    giftBlurb: 'The hollow song is still, and the Spire waits. Take something epic.',
+  },
+  gorehound_matriarch: {
+    fallen: 'The Gorehound Matriarch falls',
+    hoard: 'The Matriarch’s den',
+    gift: 'The Matriarch’s gift',
+    giftBlurb: 'The pack is scattered. Take something epic.',
+  },
+};
+
+/**
+ * The spoils of the encounter that offers them (docs/phase-5a.md: copy from the source
+ * encounter). An offer without one (saves from before) is the Bellwarden's, as it always was.
+ */
+export function bossSpoils(sourceEncounter?: string | null): BossSpoils {
+  const id = sourceEncounter ?? 'bellwarden';
+  const known = SPOILS[id];
+  if (known) return known;
+  const name = CONTENT.encounters.some((e) => e.id === id) ? encounterDef(id).name : 'A great foe';
+  return {
+    fallen: `${name} falls`,
+    hoard: 'A great foe’s hoard',
+    gift: 'A great foe’s gift',
+    giftBlurb: `${name} has fallen. Take something epic.`,
+  };
+}
+
+const DRAFT_REASON: Record<DraftOffer['reason'], { title: string; blurb: string }> = {
+  victory: { title: 'Spoils of the fight', blurb: 'Choose one motif to weave into your song.' },
+  elite: { title: 'Rare spoils', blurb: 'An elite fell. Its motifs are rarer.' },
+  shrine: { title: 'The shrine offers', blurb: 'A quiet place, and a rare gift.' },
+  meditate: {
+    title: 'Meditation',
+    blurb: 'You sit with the song. Strengthen what you already know.',
+  },
+  boss: { title: 'The Warden’s gift', blurb: 'The great bell is silent. Take something epic.' },
+};
+
+/** A draft's title and blurb: a boss's names the foe that left it (its source encounter). */
+export function draftCopy(
+  draft: Pick<DraftOffer, 'reason'> & Partial<Pick<DraftOffer, 'sourceEncounter'>>,
+): { title: string; blurb: string } {
+  if (draft.reason !== 'boss') return DRAFT_REASON[draft.reason];
+  const spoils = bossSpoils(draft.sourceEncounter);
+  return { title: spoils.gift, blurb: spoils.giftBlurb };
+}
+
+/** Title and blurb of a relic offer, by why it's offered (and, for a boss, who left it). */
 export function relicOfferCopy(
-  offer: Pick<RelicOffer, 'reason' | 'options'>,
+  offer: Pick<RelicOffer, 'reason' | 'options'> & Partial<Pick<RelicOffer, 'sourceEncounter'>>,
   eventName: string | null = null,
 ): { eyebrow: string; title: string; blurb: string } {
   const n = offer.options.length;
@@ -241,12 +312,14 @@ export function relicOfferCopy(
         title: 'A relic for the taking',
         blurb: `${choose} A relic changes a rule for the rest of the run.`,
       };
-    case 'boss':
+    case 'boss': {
+      const spoils = bossSpoils(offer.sourceEncounter);
       return {
-        eyebrow: 'The Bellwarden falls',
-        title: 'The Warden’s hoard',
+        eyebrow: spoils.fallen,
+        title: spoils.hoard,
         blurb: `${choose} Only rare and legendary relics lie here.`,
       };
+    }
     case 'event':
       return {
         eyebrow: eventName ?? 'An event',
@@ -581,7 +654,8 @@ export function nextStep(run: RunState): string {
   const r = run.lastResult;
   if (!r || run.outcome === 'defeat' || r.outcome !== 'victory') return 'Continue';
   const node = run.pending ? findNode(run, run.pending) : undefined;
-  if (!node || node.kind === 'boss') return 'Continue';
+  // The run's last boss ends it; an Expedition's Cantor leads on (docs/phase-5a.md).
+  if (!node || isFinalNode(node)) return 'Continue';
   if (callingTierAt(run, node) !== null) return 'Continue: your Calling grows';
   const relics = node.kind === 'event' ? (run.event?.relics ?? 0) : node.reward.relics;
   if (relics > 0) return `Continue: choose a relic`;

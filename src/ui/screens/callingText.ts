@@ -262,12 +262,23 @@ function inSentence(name: string): string {
 export function tierWhen(tier: number, map?: RunMap): string {
   const row = CALLING_ROWS[tier];
   if (row === undefined) return 'later in the run';
-  const nodes = mapOf(map).rows[row] ?? [];
+  const rows = mapOf(map).rows;
+  const nodes = rows[row] ?? [];
   const fights = nodes.filter((n) => n.encounterId && n.kind !== 'event');
   const encounters = [...new Set(fights.map((n) => n.encounterId!))];
   if (fights.length > 0 && fights.length === nodes.length && encounters.length === 1)
     return `after ${inSentence(encounterDef(encounters[0]!).name)}`;
-  return `after your fight at step ${row + 1}`;
+  return `after your fight at step ${stepInMovement(rows, row)}`;
+}
+
+/**
+ * A row's step as the map's header counts it: from 1, within its Movement (docs/phase-5a.md; the
+ * Calling's tiers all fall in Movement I, whose steps are its rows).
+ */
+function stepInMovement(rows: RunMap['rows'], row: number): number {
+  const movement = rows[row]?.[0]?.movement ?? 1;
+  const first = rows.findIndex((r) => (r[0]?.movement ?? 1) === movement);
+  return row - Math.max(0, first) + 1;
 }
 
 /**

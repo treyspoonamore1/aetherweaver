@@ -10,7 +10,7 @@ import { dissonancePoints, xpMult, type DissonanceChoice } from '../../meta/diss
 import { runStarlight as runPaid } from '../../meta/loom';
 import type { EncounterResult, RunState } from '../../meta/types';
 import { fmt } from '../kit/format';
-import { wonTheRun } from './rankText';
+import { endsRun } from './rankText';
 
 const S = () => CONTENT.starlight;
 
@@ -45,7 +45,8 @@ export function dissonanceLine(dissonance: readonly DissonanceChoice[]): string 
  * sandbox).
  */
 export function fightStarlight(
-  r: Pick<EncounterResult, 'kind' | 'outcome' | 'starlight'>,
+  r: Pick<EncounterResult, 'kind' | 'outcome' | 'starlight'> &
+    Partial<Pick<EncounterResult, 'wonRun'>>,
   dissonance: readonly DissonanceChoice[] = [],
 ): { amount: number; headline: string; detail: string } | null {
   const base = (S().fights as Record<string, number>)[r.kind];
@@ -61,7 +62,7 @@ export function fightStarlight(
   if (amount === 0 && base > 0)
     return { amount, headline: starlightHeadline(0), detail: 'Won before Starlight was paid.' };
   const parts = [`${base} for ${KIND[r.kind] ?? 'a fight'} won`];
-  if (wonTheRun(r)) parts.push(`${S().winBonus} for winning the run`);
+  if (endsRun(r)) parts.push(`${S().winBonus} for winning the run`);
   const d = dissonanceLine(dissonance);
   return {
     amount,
@@ -111,7 +112,7 @@ export function runStarlight(
 ): RunStarlight {
   const paid = runPaid(run);
   const won = run.results.filter((r) => r.outcome === 'victory' && r.kind !== 'sandbox').length;
-  const winner = run.results.some((r) => wonTheRun(r));
+  const winner = run.results.some((r) => endsRun(r));
   const bonus = winner
     ? Math.min(paid.fights, Math.round(S().winBonus * xpMult(dissonancePoints(run.dissonance))))
     : 0;

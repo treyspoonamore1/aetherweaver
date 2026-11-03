@@ -2,6 +2,8 @@ import { useState, type CSSProperties } from 'react';
 import { Icon, type IconName } from '../kit/Icon';
 import type { Callout } from '../store';
 import { blindDecree } from '../screens/dissonanceModel';
+import { AnswerGlyph } from './AnswerGlyph';
+import { sightingDef, sightingOf } from './sighting';
 
 /** Fades the element out over its last 350 ms, whatever its lifetime. */
 function useLifetime(expiresAt: number): number {
@@ -94,6 +96,40 @@ function DecreeBanner({ c, blind }: { c: Callout; blind: boolean }) {
   );
 }
 
+/**
+ * A foe met for the first time (docs/phase-5a.md): its name, its lesson in one line and the answer
+ * glyph. Non-blocking, beside the fight; Blind Score keeps the name and drops the answer.
+ */
+function NewFoe({ c, blind }: { c: Callout; blind: boolean }) {
+  const ttl = useLifetime(c.expiresAt);
+  const defId = sightingDef(c);
+  const s = defId ? sightingOf(defId) : null;
+  return (
+    <div
+      className="w-72 rounded-xl border border-gold-500/60 bg-ink-950/88 px-4 py-3 shadow-xl shadow-black/60"
+      style={fadeStyle(ttl, 'toast-in 0.3s ease-out both')}
+      role="status"
+      aria-label={`New foe: ${c.text}. ${blind ? '' : (c.detail ?? '')}`}
+      data-testid="new-foe"
+      data-foe={defId ?? undefined}
+    >
+      <p className="flex items-center gap-1.5 font-mono text-xs font-semibold uppercase tracking-[0.25em] text-gold-300">
+        <Icon name="sparkle" size={13} /> New foe
+      </p>
+      <p className="mt-0.5 font-display text-lg font-bold leading-tight text-gold-100">{c.text}</p>
+      {c.detail && !blind && <p className="mt-1 text-sm leading-snug text-text">{c.detail}</p>}
+      {s && s.answers.length > 0 && !blind && (
+        <p className="mt-1.5 flex flex-wrap items-center gap-1 text-xs text-muted">
+          Answer:
+          {s.answers.map((a) => (
+            <AnswerGlyph key={a} tag={a} />
+          ))}
+        </p>
+      )}
+    </div>
+  );
+}
+
 export function Toast({ c, small = false }: { c: Callout; small?: boolean }) {
   const ttl = useLifetime(c.expiresAt);
   return (
@@ -134,6 +170,7 @@ export function Callouts({
   const holds = callouts.filter((c) => c.kind === 'hold');
   const decrees = callouts.filter((c) => c.kind === 'decree');
   const waves = callouts.filter((c) => c.kind === 'wave' && !/of 1$/.test(c.text));
+  const foes = callouts.filter((c) => c.kind === 'sighting');
   const mid = callouts.filter(
     (c) =>
       c.kind === 'system' ||
@@ -171,6 +208,13 @@ export function Callouts({
           </p>
         ))}
       </div>
+      {foes.length > 0 && (
+        <div className="absolute right-6 top-[30%] flex flex-col items-end gap-2">
+          {foes.slice(-2).map((c) => (
+            <NewFoe key={c.id} c={c} blind={blind} />
+          ))}
+        </div>
+      )}
       <div className="absolute left-1/2 top-[56%] flex -translate-x-1/2 flex-col items-center gap-1.5">
         {mid.slice(-2).map((c) => (
           <Toast key={c.id} c={c} />

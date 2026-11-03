@@ -40,6 +40,7 @@ import { bondsOpen, prepBondViews, soloView, talentView } from './bondsModel';
 import { PrepTechniquesPanel } from './TechniquesParts';
 import type { TechniqueKey } from '../types';
 import { CodexView, useCodexBonds, useCodexDissonance, useCodexTechniques } from './CodexScreen';
+import { prepEyebrow, routeHint, routeOf, routeOptions, type Route } from './routeText';
 
 export interface PrepViewProps {
   run: RunState;
@@ -104,6 +105,11 @@ export interface PrepViewProps {
    * tier shows open (the UI lab's older views).
    */
   mastery?: PickerMastery | null;
+  /**
+   * Phase 5a: the Route, Prelude or Expedition, once Expeditions are open (Rank 2, or Skip the
+   * unlocks); the run's route is `run.movements`. Omitted (or null): no toggle, as before.
+   */
+  route?: { onChange(route: Route): void } | null;
 }
 
 /**
@@ -209,6 +215,7 @@ export function PrepView({
   bonds = null,
   techniques = null,
   mastery = null,
+  route = null,
 }: PrepViewProps) {
   useMood('map');
   // Always the content's two at Prep (the path is empty), but read from the run like Retune.
@@ -233,7 +240,7 @@ export function PrepView({
     <ScreenFrame>
       <div className="mx-auto max-w-7xl px-6 pb-28 pt-8">
         <ScreenHeader
-          eyebrow="The Prelude · Movement I"
+          eyebrow={prepEyebrow(run)}
           title="Prepare your songs"
           right={
             // Stacked, so it stays beside the blurb: the Rank and the way back to the Loom, then
@@ -377,6 +384,21 @@ export function PrepView({
           </section>
 
           <div className="flex flex-col gap-6">
+            {route && (
+              <Panel tone="solid" className="p-4" data-testid="prep-route">
+                <h2 className="font-display text-base font-bold text-gold-300">Route</h2>
+                <p className="mb-3 text-xs text-muted">
+                  The Prelude is Movement I alone; an Expedition climbs on into Movement II.
+                </p>
+                <Segmented
+                  label="This run"
+                  hint={routeHint(routeOf(run))}
+                  value={routeOf(run)}
+                  options={routeOptions()}
+                  onChange={(v) => route.onChange(v)}
+                />
+              </Panel>
+            )}
             <Panel tone="solid" className="p-4">
               <h2 className="font-display text-base font-bold text-gold-300">Quick assists</h2>
               <p className="mb-3 text-xs text-muted">
@@ -527,6 +549,7 @@ export function PrepScreen() {
   const setChords = useRun((s) => s.setChords);
   const setCalling = useRun((s) => s.setCalling);
   const embark = useRun((s) => s.embark);
+  const newRun = useRun((s) => s.newRun);
   const setScreen = useUi((s) => s.setScreen);
   const xp = useProfile((s) => s.profile.xp);
   const deeds = useProfile((s) => s.profile.deeds);
@@ -562,6 +585,7 @@ export function PrepScreen() {
         dissonance={codexDissonance}
         bonds={codexBonds}
         techniques={codexTechniques}
+        seen={useProfile.getState().profile.seen}
       />
     );
   return (
@@ -604,6 +628,25 @@ export function PrepScreen() {
         tiersOpen: (id) => useProfile.getState().tiersOpen(id),
         all: unlockAll,
       }}
+      route={
+        allowance.expedition ? { onChange: (mode) => chooseRoute(mode, run.seed, newRun) } : null
+      }
     />
   );
+}
+
+/**
+ * Prep's Route toggle (docs/phase-5a.md): the profile remembers the choice for the next runs, and
+ * the run starts again in Prep on its seed with the route (Movement I's map is the same).
+ */
+function chooseRoute(
+  mode: Route,
+  seed: number,
+  newRun: (seed?: number, mode?: Route) => void,
+): void {
+  const profile = useProfile.getState() as ReturnType<typeof useProfile.getState> & {
+    setRunMode?: (mode: Route) => void;
+  };
+  profile.setRunMode?.(mode);
+  newRun(seed, mode);
 }

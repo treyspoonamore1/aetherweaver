@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { getAudio } from '../../audio';
 import { useRun } from '../../app/runStore';
-import { CONTENT, encounterDef, motifDef, runEventDef } from '../../content';
+import { CONTENT, encounterDef, motifDef, movementDef, runEventDef } from '../../content';
 import { findNode, motifLine, reachable } from '../../meta/run';
 import { parMult } from '../../meta/dissonance';
 import type { MapNode, NodeKind, RunState } from '../../meta/types';
@@ -20,6 +21,15 @@ import { CallingGlyph, callingLook } from '../kit/CallingGlyph';
 import { callingTierAt, milestoneLine, numeral } from './callingText';
 import { callingDef } from '../../content';
 import { BondCardLayer } from './BondsParts';
+import {
+  abandonLine,
+  encounterIcon,
+  mapHeader,
+  markCardShown,
+  movementCard,
+  movementRows,
+  wantsMovementCard,
+} from './routeText';
 
 export const NODE_LOOK: Record<
   NodeKind,
@@ -45,12 +55,25 @@ const CHIP_COLOR: Record<RewardChip['tone'], string> = {
   epic: RARITY.epic.color,
 };
 
+/** A stop's look: its kind's, with its encounter's glyph when it has one (Phase 5a). */
+function nodeLook(node: Pick<MapNode, 'kind' | 'encounterId'>): (typeof NODE_LOOK)[NodeKind] {
+  const look = NODE_LOOK[node.kind];
+  const icon = encounterIcon(node.encounterId);
+  return icon ? { ...look, icon } : look;
+}
+
 const W = 1000;
 const H = 460;
 
-function nodePos(run: RunState, node: MapNode): { x: number; y: number } {
-  const n = run.map.rows.length;
-  return { x: ((node.row + 0.5) / n) * W, y: (0.1 + 0.8 * node.x) * H };
+/** The rows the map draws: the current Movement's, laid out by row within it. */
+interface MapLayout {
+  rows: MapNode[][];
+  first: number;
+}
+
+function nodePos(layout: MapLayout, node: MapNode): { x: number; y: number } {
+  const n = layout.rows.length;
+  return { x: ((node.row - layout.first + 0.5) / n) * W, y: (0.1 + 0.8 * node.x) * H };
 }
 
 export interface MapViewProps {
@@ -62,9 +85,14 @@ export interface MapViewProps {
   peekRelic?: string;
   /** UI lab: force the Calling's tooltip in the strip open. */
   peekCalling?: boolean;
+  /** UI lab: the one-time Movement card (true: shown; false: never). Omitted: once a run. */
+  card?: boolean;
 }
 
-/** The Prelude's map, left to right: reachable nodes glow, the path walked is gold. */
+/**
+ * The run's map, left to right: the current Movement's rows only (an Expedition climbs Movement
+ * II on a map of its own). Reachable nodes glow, the path walked is gold.
+ */
 export function MapView({
   run,
   onChoose,
@@ -72,6 +100,7 @@ export function MapView({
   peek,
   peekRelic,
   peekCalling = false,
+  card,
 }: MapViewProps) {
   useMood('map');
   const [confirm, setConfirm] = useState(false);
@@ -79,17 +108,36 @@ export function MapView({
   const optionIds = new Set(options.map((n) => n.id));
   const current = run.path.length > 0 ? run.path[run.path.length - 1]! : null;
   const walked = new Set(run.path);
-  const rows = run.map.rows;
+  // The next reachable stop's Movement, not the last one's (docs/phase-5a.md).
+  const header = mapHeader(run);
+  const movement = header.movement;
+  const def = movementDef(movement);
+  const rows = movementRows(run, movement);
+  const layout: MapLayout = { rows, first: rows[0]?.[0]?.row ?? 0 };
+  const [showCard, setShowCard] = useState(() => card ?? wantsMovementCard(run, movement));
+  const closeCard = useCallback(() => setShowCard(false), []);
+  useEffect(() => {
+    if (showCard && card === undefined) markCardShown(run.seed, movement);
+  }, [showCard, card, run.seed, movement]);
+  useEffect(() => {
+    // The Movement's music (docs/phase-5a.md); audio is garnish.
+    try {
+      getAudio().setBiome?.(def.biome);
+    } catch {
+      // Silent.
+    }
+  }, [def.biome]);
 
   // Edges: walked (gold), live options (bright dashed), the rest (dim).
   const edges: { key: string; d: string; kind: 'walked' | 'option' | 'dim' }[] = [];
   for (const row of rows) {
     for (const node of row) {
-      const a = nodePos(run, node);
+      const a = nodePos(layout, node);
       for (const nextId of node.next) {
         const next = findNode(run, nextId);
-        if (!next) continue;
-        const b = nodePos(run, next);
+        // Only within the Movement drawn (the Cantor's edge into Movement II is off this map).
+        if (!next || next.movement !== node.movement) continue;
+        const b = nodePos(layout, next);
         const mid = (a.x + b.x) / 2;
         const kind =
           walked.has(node.id) && walked.has(next.id)
@@ -105,15 +153,12 @@ export function MapView({
       }
     }
   }
-  // Starting edges from the "party" marker into row 0.
-  const stepNumber = run.path.length;
-
   return (
-    <ScreenFrame>
-      <div className="mx-auto max-w-[88rem] px-6 py-8">
+    <ScreenFrame tone={def.biome === 'crimson_spire' ? 'crimson' : undefined}>
+      <div className="mx-auto max-w-[88rem] px-6 py-8" data-movement={movement}>
         <ScreenHeader
-          eyebrow={`The Prelude · Movement I · step ${Math.min(stepNumber + 1, rows.length)} of ${rows.length}`}
-          title="The Reliquary Road"
+          eyebrow={header.eyebrow}
+          title={header.title}
           right={
             <Button variant="ghost" onClick={() => setConfirm(true)}>
               <Icon name="flag" size={16} /> Abandon run
@@ -185,6 +230,7 @@ export function MapView({
                 <MapNodeView
                   key={node.id}
                   run={run}
+                  layout={layout}
                   node={node}
                   state={
                     node.id === current
@@ -275,9 +321,7 @@ export function MapView({
           onClose={() => setConfirm(false)}
           closeOnEscape
         >
-          <p className="mt-2 text-sm leading-relaxed text-muted">
-            The Prelude ends here and you go to the summary. This cannot be undone.
-          </p>
+          <p className="mt-2 text-sm leading-relaxed text-muted">{abandonLine(run)}</p>
           <div className="mt-5 flex justify-end gap-2">
             <Button data-autofocus onClick={() => setConfirm(false)} sound="back">
               Keep going
@@ -288,7 +332,42 @@ export function MapView({
           </div>
         </Modal>
       )}
+      {showCard && <MovementCard movement={movement} onClose={closeCard} />}
     </ScreenFrame>
+  );
+}
+
+/** "Movement II · The Crimson Legion": the title card on first reaching a later Movement. */
+function MovementCard({ movement, onClose }: { movement: number; onClose(): void }) {
+  const c = movementCard(movement);
+  useEffect(() => {
+    const t = setTimeout(onClose, 6000);
+    return () => clearTimeout(t);
+  }, [onClose]);
+  return (
+    <div
+      className="absolute inset-0 z-40 flex items-center justify-center bg-ink-950/70 backdrop-blur-sm"
+      role="dialog"
+      aria-label={c.title}
+      data-testid="movement-card"
+      onClick={onClose}
+    >
+      <div className="anim-rise flex flex-col items-center px-6 text-center">
+        <p className="font-mono text-xs uppercase tracking-[0.4em] text-rose-200/80">
+          A new movement
+        </p>
+        <h2
+          className="mt-3 font-display text-4xl font-bold tracking-wide text-gold-300 sm:text-6xl"
+          style={{ textShadow: '0 0 36px rgb(168 46 52 / 0.6), 0 3px 0 rgb(0 0 0 / 0.55)' }}
+        >
+          {c.title}
+        </h2>
+        <p className="mt-3 text-lg text-muted">{c.text}</p>
+        <Button className="mt-8" variant="primary" data-autofocus onClick={onClose} sound="confirm">
+          Climb on <Icon name="arrow" size={16} />
+        </Button>
+      </div>
+    </div>
   );
 }
 
@@ -306,20 +385,23 @@ function Legend() {
 
 function MapNodeView({
   run,
+  layout,
   node,
   state,
   onChoose,
   peek = false,
 }: {
   run: RunState;
+  layout: MapLayout;
   node: MapNode;
   state: 'current' | 'visited' | 'option' | 'locked';
   onChoose(id: string): void;
   peek?: boolean;
 }) {
-  const look = NODE_LOOK[node.kind];
-  const pos = nodePos(run, node);
-  const rows = run.map.rows.length;
+  const look = nodeLook(node);
+  const pos = nodePos(layout, node);
+  const rows = layout.rows.length;
+  const col = node.row - layout.first;
   const enc = node.encounterId ? encounterDef(node.encounterId) : null;
   // The fight's par at the run's Dissonance (Phase 4d: its extra life lengthens it).
   const par = enc ? Math.round(enc.par * parMult(run.dissonance ?? [], enc.kind)) : 0;
@@ -337,7 +419,7 @@ function MapNodeView({
   const top = (pos.y / H) * 100;
   const below = node.x < 0.5;
   const alignClass =
-    node.row === 0 ? 'left-0' : node.row === rows - 1 ? 'right-0' : 'left-1/2 -translate-x-1/2';
+    col === 0 ? 'left-0' : col === rows - 1 ? 'right-0' : 'left-1/2 -translate-x-1/2';
   const active = state === 'option';
   const body = (
     <span

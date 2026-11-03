@@ -11,6 +11,7 @@ import { Ring } from '../kit/Ring';
 import type { Callout, ChordHud, HeroHud, WeaverHud } from '../store';
 import type { CallAnswer, ThreadMode } from '../types';
 import { StatusBadge } from './StatusBadge';
+import { healCutTitle } from './legionLook';
 import { ROLE_LABEL, bindingLabel } from './labels';
 import { beamSong, heroSongs, type HeroSongs } from './songs';
 import { bearLabel, shineLabel } from './calling';
@@ -897,6 +898,9 @@ function Portrait({ hero: h, bondRank = null }: { hero: HeroHud; bondRank?: numb
  * coming as stripes, and Rewind's ghost. On it, the number a healer works from (`healthText`:
  * the life missing by default) and the percent; under it, the exact life and what's coming.
  */
+/** The hatch of healing cut (a Wound's violet: it's an ailment, never red). */
+const HEAL_CUT = 'rgb(196 181 253 / 0.55)';
+
 function HpBar({
   hero: h,
   rewind = null,
@@ -934,7 +938,7 @@ function HpBar({
         aria-valuemin={0}
         aria-valuemax={h.maxHp}
         aria-valuenow={Math.round(h.hp)}
-        aria-valuetext={`${fmt(h.hp)} of ${fmt(h.maxHp)}${h.shield > 0 ? `, ${fmt(h.shield)} shield` : ''}${h.incoming > 0 ? `, ${fmt(h.incoming)} incoming${h.lethal ? ', lethal' : ''}${h.lands ? `, landing in ${h.lands.in.toFixed(1)} seconds` : ''}` : ''}`}
+        aria-valuetext={`${fmt(h.hp)} of ${fmt(h.maxHp)}${h.shield > 0 ? `, ${fmt(h.shield)} shield` : ''}${h.incoming > 0 ? `, ${fmt(h.incoming)} incoming${h.lethal ? ', lethal' : ''}${h.lands ? `, landing in ${h.lands.in.toFixed(1)} seconds` : ''}` : ''}${h.healCut !== undefined ? `, ${healCutTitle(h.healCut)}` : ''}${h.execute !== undefined ? `, condemned below ${Math.round(h.execute * 100)}%` : ''}`}
         className="relative h-[1.375rem] overflow-hidden rounded-md bg-ink-950/90 shadow-[inset_0_0_0_1px_rgb(255_255_255/0.07)]"
         data-testid="hp-bar"
         data-level={level}
@@ -980,6 +984,33 @@ function HpBar({
             }}
             title={`Rewind would give back ${fmt(ghost)}`}
             data-testid="rewind-ghost"
+          />
+        )}
+        {h.healCut !== undefined && h.hp < denom && (
+          // Movement II: healing they receive is cut (a Wound, Bloodmoon outside the pools). The
+          // life still to heal is hatched, so the cut reads where the Mend would land.
+          <div
+            className="pointer-events-none absolute inset-y-0 right-0"
+            style={{
+              left: pctOf(h.hp),
+              backgroundImage: `repeating-linear-gradient(135deg, ${HEAL_CUT} 0 2px, transparent 2px 6px)`,
+              borderLeft: `2px solid ${HEAL_CUT}`,
+            }}
+            title={healCutTitle(h.healCut)}
+            data-testid="heal-cut"
+          />
+        )}
+        {h.execute !== undefined && (
+          // Execution (docs/phase-5a.md): below this line when it lands, they die.
+          <span
+            className="pointer-events-none absolute inset-y-0 w-0.5"
+            style={{
+              left: pctOf(h.maxHp * h.execute),
+              background: 'var(--color-lethal)',
+              boxShadow: '0 0 6px var(--color-lethal)',
+            }}
+            title={`Execution: below ${Math.round(h.execute * 100)}% when it lands, they die`}
+            data-testid="execute-tick"
           />
         )}
         {labels.big && (

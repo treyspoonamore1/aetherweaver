@@ -3,7 +3,7 @@ import { useRun } from '../../app/runStore';
 import { CONTENT, auraDef, heroDef, motifDef } from '../../content';
 import * as Run from '../../meta/run';
 import { motifLine, skipHeal } from '../../meta/run';
-import type { DraftOffer, DraftOption, RunState } from '../../meta/types';
+import type { DraftOption, RunState } from '../../meta/types';
 import { ScreenFrame, ScreenHeader } from '../kit/Backdrop';
 import { Button } from '../kit/Button';
 import { CATEGORY, Chip, RARITY, RarityChip } from '../kit/Chip';
@@ -12,17 +12,7 @@ import { KeyCap } from '../kit/KeyCap';
 import { playUi, useMood } from '../kit/sound';
 import { Pips } from './shared';
 import { unforgivingLine } from './dissonanceModel';
-
-const REASON: Record<DraftOffer['reason'], { title: string; blurb: string }> = {
-  victory: { title: 'Spoils of the fight', blurb: 'Choose one motif to weave into your song.' },
-  elite: { title: 'Rare spoils', blurb: 'An elite fell. Its motifs are rarer.' },
-  shrine: { title: 'The shrine offers', blurb: 'A quiet place, and a rare gift.' },
-  meditate: {
-    title: 'Meditation',
-    blurb: 'You sit with the song. Strengthen what you already know.',
-  },
-  boss: { title: 'The Warden’s gift', blurb: 'The great bell is silent. Take something epic.' },
-};
+import { draftCopy } from './interlude';
 
 export interface DraftViewProps {
   run: RunState;
@@ -54,7 +44,7 @@ export function DraftView({ run, onPick, onReroll }: DraftViewProps) {
     return () => window.removeEventListener('keydown', onKey);
   }, [count, rerolls, onPick, onReroll]);
   if (!draft || !options) return null;
-  const reason = REASON[draft.reason];
+  const reason = draftCopy(draft);
   return (
     <ScreenFrame tone="gold">
       <div className="mx-auto max-w-6xl px-6 py-8">

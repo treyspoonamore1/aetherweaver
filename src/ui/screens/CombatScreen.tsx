@@ -11,13 +11,16 @@ import { Hud } from '../hud/Hud';
 import { HowToPlay, howToSeen, markHowToSeen } from '../hud/HowToPlay';
 import { PauseMenu } from '../hud/PauseMenu';
 import { useUi } from '../store';
+import { useFirstSightings } from '../hud/sighting';
+import { combatSubtitle } from './routeText';
 
 /** A combat node of the run: the 3D view, the HUD and the modal layers. */
 export function CombatScreen() {
   const pending = useRun((s) => s.run?.pending ?? null);
   const encounters = useRun((s) => s.run?.encounters ?? 0);
-  const nodesDone = useRun((s) => s.run?.path.length ?? 0);
-  const rows = useRun((s) => s.run?.map.rows.length ?? 0);
+  // "The Prelude · node 3 of 10", or an Expedition's Movement and its node.
+  const subtitle = useRun((s) => (s.run ? combatSubtitle(s.run) : 'The Prelude · node 0 of 0'));
+  const movements = useRun((s) => s.run?.movements ?? 1);
   const fights = useRun((s) => s.run?.results.length ?? 0);
   const callingId = useRun(selectCallingId);
   // The Martyr's Bear has its own key: the primer says so on her runs.
@@ -47,6 +50,8 @@ export function CombatScreen() {
   const showPerf = useUi((s) => s.showPerf);
   const devOpen = useUi((s) => s.devOpen);
   const hintsOn = useSettings((s) => s.settings.hints);
+  // Movement II: a foe met for the first time gets its card (docs/phase-5a.md).
+  useFirstSightings();
 
   // "How to play": the first fight of a fresh player. The sim is paused behind it.
   const [howto, setHowto] = useState(() => fights === 0 && hintsOn && !howToSeen());
@@ -75,7 +80,7 @@ export function CombatScreen() {
   return (
     <div className="relative h-full w-full select-none overflow-hidden">
       {session && <GameHost session={session} />}
-      <Hud subtitle={`The Prelude · node ${nodesDone} of ${rows}`} keyHints={fights < 2} />
+      <Hud subtitle={subtitle} keyHints={fights < 2} />
       {showPerf && <PerfHud />}
       {devOpen && <DevPanel />}
       {howto ? (
@@ -85,6 +90,7 @@ export function CombatScreen() {
         !editingLayout && (
           <PauseMenu
             mode="run"
+            movements={movements}
             onResume={() => getRuntime()?.setPaused(false)}
             onAbandon={() => {
               getRuntime()?.setPaused(false);

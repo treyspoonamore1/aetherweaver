@@ -2,6 +2,7 @@ import { CallingGlyph } from '../kit/CallingGlyph';
 import { callingLook } from '../kit/callingLook';
 import { clock, fmt } from '../kit/format';
 import { Icon } from '../kit/Icon';
+import { EXECUTE_PCT, bossCastIcon, phaseTicks } from './legionLook';
 import type { BossHud } from '../store';
 import { AnswerGlyph } from './AnswerGlyph';
 import { secondsLabel } from './chrono';
@@ -34,10 +35,7 @@ export function BossBar({
 }) {
   const hpPct = boss.maxHp > 0 ? Math.max(0, Math.min(100, (boss.hp / boss.maxHp) * 100)) : 0;
   const shieldPct = boss.maxHp > 0 ? Math.min(100 - 0, (boss.shield / boss.maxHp) * 100) : 0;
-  const ticks = Array.from(
-    { length: Math.max(0, boss.phases - 1) },
-    (_, i) => ((boss.phases - 1 - i) / boss.phases) * 100,
-  );
+  const ticks = phaseTicks(boss);
   const enrageSoon = boss.enrageIn !== null && boss.enrageIn < 30;
   return (
     <div
@@ -104,7 +102,10 @@ export function BossBar({
           <div className="mt-1.5 rounded-lg bg-ink-950/60 px-3 py-1.5">
             <div className="flex items-center justify-between gap-3">
               <span className="flex items-center gap-1.5 text-sm font-bold uppercase tracking-wider text-threat">
-                <Icon name="bell" size={14} /> {boss.cast.name}
+                <Icon name={bossCastIcon(boss.defId)} size={14} /> {boss.cast.name}
+                {boss.pips !== undefined && boss.pips > 1 && (
+                  <BlowPips pips={boss.pips} pip={boss.pip ?? 1} />
+                )}
               </span>
               <span className="flex flex-wrap items-center justify-end gap-1">
                 <span className="text-xs text-muted">Answer:</span>
@@ -125,6 +126,30 @@ export function BossBar({
               />
             </div>
           </div>
+        )}
+        {boss.executeTarget && (
+          <p
+            className="mt-1.5 flex items-center gap-1.5 rounded-lg border border-lethal/60 bg-ink-950/60 px-3 py-1 text-xs font-semibold text-rose-100"
+            role="status"
+            data-testid="boss-execute"
+          >
+            <Icon name="skull" size={14} className="text-lethal" />
+            <span className="uppercase tracking-wider text-lethal">Execution</span>
+            <span className="font-display text-sm font-bold">{boss.executeTarget}</span>
+            <span className="text-muted">· below {EXECUTE_PCT}% when it lands dies</span>
+          </p>
+        )}
+        {boss.bloodmoon && (
+          <p
+            className="mt-1.5 flex items-center gap-1.5 rounded-lg px-3 py-1 text-xs font-semibold"
+            style={{ color: BLOODMOON, background: 'rgb(127 29 29 / 0.35)' }}
+            role="status"
+            data-testid="boss-bloodmoon"
+          >
+            <Icon name="moon" size={14} />
+            <span className="uppercase tracking-wider">Bloodmoon</span>
+            <span className="font-normal text-rose-100">healing −50% outside the pools</span>
+          </p>
         )}
         {boss.foreseen && (
           <p
@@ -149,6 +174,32 @@ export function BossBar({
         <DecreeLine decree={(boss.decree ?? decree)!} blind={blind} />
       )}
     </div>
+  );
+}
+
+/** Bloodmoon's badge: a crimson moon (never the lethal red alone: it has a glyph and words). */
+const BLOODMOON = '#fca5a5';
+
+/** A multi-blow cast's pips: "1/2", the blow being cast filled. */
+function BlowPips({ pips, pip }: { pips: number; pip: number }) {
+  return (
+    <span
+      className="ml-1 flex items-center gap-1"
+      role="img"
+      aria-label={`blow ${pip} of ${pips}`}
+      data-testid="boss-pips"
+    >
+      {Array.from({ length: pips }, (_, i) => (
+        <span
+          key={i}
+          className="h-2 w-2 rounded-full border border-threat"
+          style={{ background: i < pip ? 'var(--color-threat)' : 'transparent' }}
+        />
+      ))}
+      <span className="font-mono text-xs normal-case text-muted">
+        {pip}/{pips}
+      </span>
+    </span>
   );
 }
 
