@@ -150,7 +150,8 @@ export const SCENARIO_HOUND_PACK: Scenario = {
   name: 'hound-pack',
   seed: 8585,
   ticks: 60 * 90,
-  config: { encounter: 'gorehound_matriarch', ...kitConfig(ARRIVAL_KIT) },
+  // debug: the five hounds below are debug spawns, which the sim drops without it.
+  config: { encounter: 'gorehound_matriarch', debug: true, ...kitConfig(ARRIVAL_KIT) },
   driver: () => {
     const player = makeBot('skilled', 8585);
     return (tick, state) => {

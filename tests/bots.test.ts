@@ -5,11 +5,9 @@ import { M1_ENCOUNTERS } from '../tools/m1-baseline';
 import { CONTENT } from '../src/content';
 import * as Run from '../src/meta/run';
 import { makeBot } from '../src/bots';
-import { dotIncoming, effectiveFraction } from '../src/bots/common';
+import { dotIncoming, effectiveFraction, hasFollowUp } from '../src/bots/common';
 import { createSim, type Command, type Sim, type SimEvent, type Status } from '../src/sim';
-import { applyStatusPayload } from '../src/sim/combat/health';
-import { phaseRules } from '../src/sim/systems/bosses';
-import { hero, sandbox, spawn, stepFor, worldOf } from './sim/helpers';
+import { hero, hurt, sandbox, spawn, stepFor, worldOf } from './sim/helpers';
 
 const GUARDIAN = Run.CHORD_PRESETS.find((p) => p.id === 'guardian')!.chords.map((c) => ({
   auras: [...c.auras],
@@ -245,6 +243,58 @@ describe('the Skilled bot reads Movement II (staged)', () => {
     expect(mode === 'mend' || out.some((c) => c.t === 'mode')).toBe(true);
   });
 
+  it('reads only Twin Cleave as a blow with a second on its heels, not the Crimson Tide', () => {
+    const followed = CONTENT.attacks
+      .filter((a) => hasFollowUp({ attackId: a.id } as Parameters<typeof hasFollowUp>[0]))
+      .map((a) => a.id);
+    expect(followed).toEqual(['vharun_twin_cleave']);
+  });
+
+  it('revives a downed hero through an Execution once the condemned is above its line + 0.1', () => {
+    // Lyra condemned (line 40%), Vexis down. Above 50% Lyra needs nothing: the thread goes to
+    // Vexis at once and she is back up before the 4 s wind-up ends. Below it, Lyra is lifted
+    // first, then the thread moves on and stays on the revive.
+    const outcome = (frac: number) => {
+      const sim = sandbox({ chords: GUARDIAN });
+      const w = worldOf(sim);
+      const lyra = w.entities.get(w.party[1]!)!;
+      hurt(sim, 2, 1e5);
+      lyra.health!.hp = lyra.health!.maxHp * frac;
+      w.telegraphs.push({
+        id: 999,
+        owner: w.weaverId,
+        target: lyra.id,
+        attackId: 'vharun_execution',
+        name: 'Execution',
+        kind: 'mark',
+        shape: { kind: 'mark', target: lyra.id },
+        start: w.time,
+        impact: w.time + 4,
+        perfectFrom: w.time + 3.65,
+        damage: 75,
+        pctMaxHp: 0,
+        effect: 'damage',
+        answers: ['mend', 'ward'],
+        severity: 'lethal',
+        executeBelow: 0.4,
+      });
+      const commands = play(sim, 4 * 60 - 1);
+      const threads = commands.filter((c) => c.t === 'thread').map((c) => c.slot);
+      const vexis = hero(sim, 2).health!;
+      return { threads, up: !vexis.downed && !vexis.dead, revive: vexis.revive };
+    };
+    for (const frac of [0.51, 0.55, 0.8]) {
+      const r = outcome(frac);
+      expect(r.threads[0], `${frac}`).toBe(2);
+      expect(r.threads, `${frac}`).not.toContain(1);
+      expect(r.up, `${frac}`).toBe(true);
+    }
+    // Condemned below the line: lifted first, then the revive, which isn't abandoned.
+    const low = outcome(0.3);
+    expect(low.threads).toEqual([1, 2]);
+    expect(low.up || low.revive > 0.5).toBe(true);
+  });
+
   it('stands in a Sanctuary pool under the Bloodmoon, and Rallies the party into it', () => {
     const sim = sandbox({ chords: GUARDIAN });
     worldOf(sim).field.sanctuary = {
@@ -318,22 +368,6 @@ describe('Movement II smoke guards (arrival kit)', () => {
   });
 });
 
-/**
- * TODO(W1-W3 merge): the in-play tests below need the sim's Movement II behaviours (statuses
- * from W1, enemies and guards from W2, Vharun's script from W3), which land in parallel with
- * the bots. Until they are merged the probe finds the W0a stubs and these are skipped; once
- * they are, the probe passes and they run. Drop the probe after integration.
- */
-const SIM_M2 = ((): boolean => {
-  const sim = sandbox();
-  const w = worldOf(sim);
-  const kael = w.entities.get(w.party[0]!)!;
-  const bleeds = applyStatusPayload(w, kael, { id: 'bleed', duration: 6, stacks: 1 }, null);
-  stepFor(sim, 2, [spawn('crimson_sentinel', 0, -10)]);
-  const guards = w.entities.list().some((e) => e.enemy?.guard !== undefined);
-  return bleeds && guards && phaseRules('vharun_crimson_warden', 2) !== null;
-})();
-
 /** Plays a fight with the Skilled bot on the arrival kit, handing each tick to `watch`. */
 function fight(
   encounter: string,
@@ -357,7 +391,7 @@ function fight(
   return sim;
 }
 
-describe.runIf(SIM_M2)('the Skilled bot answers Movement II in play (arrival kit)', () => {
+describe('the Skilled bot answers Movement II in play (arrival kit)', () => {
   it('Reels a pinned hero free within 2 s whenever its Reel is ready', () => {
     let pins = 0;
     let freed = 0;

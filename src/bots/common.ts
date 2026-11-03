@@ -232,10 +232,17 @@ export function guardUp(
   return g && g.brokenUntil <= state.time ? g : null;
 }
 
-/** Attacks that strike again as they land (some telegraphs, a Volatile burst, have no def). */
-const FOLLOWED = new Set(CONTENT.attacks.filter((a) => a.followUp).map((a) => a.id));
+/**
+ * Attacks that strike the same hero again as they land: Twin Cleave's first blow. A reversed
+ * follow-up (the Crimson Tide's back sweep) turns on the boss's other side, not on the hero just
+ * struck, and the Tide's front is a big hit the forecast already sees, so it isn't counted here.
+ * (Some telegraphs, a Volatile burst, have no def.)
+ */
+const FOLLOWED = new Set(
+  CONTENT.attacks.filter((a) => a.followUp && !a.followUp.reverse).map((a) => a.id),
+);
 
-/** A telegraph whose attack strikes again at once when it lands (Twin Cleave's first blow). */
+/** A telegraph whose attack strikes its hero again as it lands (Twin Cleave's first blow). */
 export function hasFollowUp(t: ReadonlyTelegraph): boolean {
   return FOLLOWED.has(t.attackId);
 }
