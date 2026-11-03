@@ -3,8 +3,9 @@ import { CONTENT, deedText, inscriptionDef } from '../src/content';
 import { DEED_POINTS_MAX, deedPoints } from '../src/meta/deeds';
 import { dissonancePoints, fitLevels, xpMult } from '../src/meta/dissonance';
 import { altSoloOf, sceneXp, talentChoices } from '../src/meta/bonds';
-import { rankOf } from '../src/meta/profile';
+import { newProfile, rankOf } from '../src/meta/profile';
 import { runWithoutYou } from '../src/sim/counterfactual';
+import { deedsInSight } from '../src/ui/screens/routeText';
 import { parseReplay, runReplay } from '../src/sim/replay';
 
 const START_URL = '/?e2e=1&seed=4242';
@@ -722,10 +723,13 @@ test('Phase 4b: Deeds — a fight earns two, their toasts follow the rank-up car
   await enterLoom(page);
   await page.getByRole('button', { name: /^Codex:/ }).click();
   await page.getByRole('tab', { name: 'Deeds' }).click();
+  // A Movement I profile: the Legion's Deeds wait until it's met (docs/phase-5a.md).
+  const inSight = deedsInSight(newProfile().seen);
+  expect(inSight.length).toBeLessThan(CONTENT.deeds.length);
   await expect(page.getByTestId('deeds-header')).toHaveText(
-    `${both.length} of ${CONTENT.deeds.length} earned · ${deedPoints(both)} of ${DEED_POINTS_MAX} Astrolabe points from Deeds`,
+    `${both.length} of ${inSight.length} earned · ${deedPoints(both)} of ${DEED_POINTS_MAX} Astrolabe points from Deeds`,
   );
-  for (const d of CONTENT.deeds)
+  for (const d of inSight)
     await expect(page.getByTestId(`deed-${d.id}`)).toHaveAttribute(
       'data-earned',
       String(both.includes(d.id)),
