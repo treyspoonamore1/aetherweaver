@@ -51,5 +51,14 @@ export function holdEnemyTime(world: World, dt: number): void {
   boss.nextCircleShiftAt += dt;
   boss.phaseShiftUntil += dt;
   if (boss.doubleTollAt > 0) boss.doubleTollAt += dt;
+  // Movement II's boss scripts (docs/phase-5a.md): a follow-up, Vharun's cadences, the
+  // Bloodmoon's reform (its pools' drift runs in updateBosses, so it waits too).
+  const m2 = internal.m2;
+  if (m2) {
+    if (m2.followUp) m2.followUp.at += dt;
+    m2.nextTideAt += dt;
+    m2.nextExecutionAt += dt;
+  }
+  if (world.field.sanctuary) world.field.sanctuary.reformAt += dt;
   if (world.encounter.enrageAt !== null) world.encounter.enrageAt += dt;
 }

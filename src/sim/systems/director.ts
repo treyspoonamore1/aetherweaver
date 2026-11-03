@@ -128,8 +128,10 @@ function startWave(world: World, index: number): void {
         affixes: [...s.affixes],
         wave: index + 1,
       });
-      d.waveHp +=
+      // The Movement's life scale too, as spawnEnemy applies it (absent in Movement I).
+      const hp =
         enemyDef(s.enemy).hp * (s.elite ? 2.2 : 1) * world.config.threat * world.mods.enemyLifeMult;
+      d.waveHp += world.config.movement ? hp * world.config.movement.life : hp;
       world.events.push({ type: 'spawnWarning', tick: world.tick, x: p.x, z: p.z, delay: WARNING });
     }
   }
@@ -148,9 +150,7 @@ function vanguard(world: World, spawns: readonly Spawn[], wave: number): readonl
   if (vanguardElites <= 0 && vanguardAffixes <= 0) return spawns;
   const encounter = encounterDef(world.encounter.id);
   const eliteFight = encounter.kind === 'elite';
-  // Affixes of this fight's Movement and earlier, in content order (Movement I: as before).
-  const movement = encounter.movement ?? 1;
-  const all = world.content.affixes.filter((a) => (a.movement ?? 1) <= movement).map((a) => a.id);
+  const all = vanguardPool(world.content.affixes, encounter.movement ?? 1);
   const d = world.internal.director;
   return spawns.map((s, k) => {
     if (!s.elite) return s;
@@ -166,6 +166,17 @@ function vanguard(world: World, spawns: readonly Spawn[], wave: number): readonl
     );
     return { ...s, count, affixes: [...s.affixes, ...extra] };
   });
+}
+
+/**
+ * The affixes Elite Vanguard may add in a fight of `movement`: those of that Movement and
+ * earlier, in content order (Movement I: Shielded, Volatile, Hastened, exactly as before).
+ */
+export function vanguardPool(
+  affixes: readonly { id: string; movement?: number }[],
+  movement: number,
+): string[] {
+  return affixes.filter((a) => (a.movement ?? 1) <= movement).map((a) => a.id);
 }
 
 /** Point i of n along an arc of the arena edge centred on (dirX, dirZ). No trig: rotate by steps. */
@@ -259,6 +270,9 @@ function endEncounter(world: World, outcome: 'victory' | 'defeat'): void {
   world.internal.echoWards = [];
   world.internal.pendingHits.length = 0;
   world.field.hymnCircles = [];
+  // Movement II boss script state ends with the fight (absent in Movement I: no-ops).
+  delete world.field.sanctuary;
+  delete world.internal.m2;
   world.events.push({ type: 'encounterEnded', tick: world.tick, outcome });
   if (outcome === 'defeat') setTimeScale(world, 0.3, 90, 'defeat');
 }

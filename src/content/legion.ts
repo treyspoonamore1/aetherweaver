@@ -34,9 +34,9 @@ const LATCH = { id: 'latched', duration: 8, pctPerSec: 0.04, drain: true } as co
 /** Vampiric's wound: healing received halved for 4 s. */
 const WOUND = { id: 'wound', duration: 4 } as const;
 /** What a Wound or Bloodmoon does to healing received (the sim's ×0.5, docs/phase-5a.md). */
-const HEAL_CUT = 0.5;
+export const HEAL_CUT = 0.5;
 /** Blood Pact: damage taken +20% while linked (the sim's ×1.2). */
-const PACT_TAKEN = 0.2;
+export const PACT_TAKEN = 0.2;
 /** The Crimson Sentinel's guard. */
 const GUARD = { arcDeg: 120, frontMult: 0.1, turnRate: 90, breakTime: 6 } as const;
 /** Execution kills a target below this fraction of its life. */
@@ -168,6 +168,8 @@ export const LEGION_ATTACKS: ContentInput['attacks'] = [
     targeting: 'current',
     answers: ['ward', 'dome'],
     followUp: { attack: 'vharun_twin_cleave_second', delay: 0 },
+    // Announced as a Decree only the first two times (docs/phase-5a.md).
+    decreeLimit: 2,
     decree:
       'Twin Cleave — two blows on one hero. One Ward won’t hold both: a second Ward, Kael’s dome, a Reel, or a full health bar.',
   },

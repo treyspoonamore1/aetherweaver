@@ -3,10 +3,10 @@
  * range, use their two abilities, sometimes dodge — and their quirks get them into the kind
  * of trouble only the Weaver can get them out of.
  */
-import { heroDef } from '../../content';
+import { enemyDef, heroDef } from '../../content';
 import type { HeroDef } from '../../content/schema';
 import { AUTONOMY, TUNING } from '../constants';
-import { distSq, len } from '../core/dmath';
+import { dcos, distSq, dsin, len } from '../core/dmath';
 import {
   addShield,
   addStatus,
@@ -39,6 +39,8 @@ const slotPos = { x: 0, z: 0 };
 const RANGED_LEASH = 7.5;
 const TANK_LEASH = 11;
 const GLORY_TIME = 5;
+/** Flankers stand this far (degrees) past the edge of a guard arc (docs/phase-5a.md). */
+const FLANK_MARGIN = 35;
 /** Event Horizon (Bonds) draws enemies this deep into the field (its radius's share), no deeper. */
 const HORIZON_DEPTH = 0.75;
 
@@ -92,6 +94,9 @@ export function updateHeroes(world: World, dt: number): void {
       hero.soloHeld = 0;
       continue;
     }
+    // Pinned (Movement II): rooted, though they still attack and cast. Reel frees them.
+    const pinned = hasStatus(e, 'pinned');
+    if (pinned && hero.dodge) hero.dodge = null;
 
     if (!fighting) {
       hero.cast = null;
@@ -99,7 +104,8 @@ export function updateHeroes(world: World, dt: number): void {
       hero.castProgress = 0;
       hero.targetId = null;
       hero.soloHeld = 0;
-      formationMove(weaver, e, def, dt);
+      if (pinned) root(e, dt);
+      else formationMove(weaver, e, def, dt);
       continue;
     }
 
@@ -186,13 +192,19 @@ export function updateHeroes(world: World, dt: number): void {
         sqr(attackRange(world, e, def.attack.range) + target.radius + e.radius);
     if (target && inRange && hero.attackCooldown <= 0) basicAttack(world, e, def, target);
 
-    combatMove(world, weaver, e, def, target, dt);
+    if (pinned) root(e, dt);
+    else combatMove(world, weaver, e, def, target, dt);
     hero.action = inRange ? 'attacking' : len(e.vx, e.vz) > 0.3 ? 'moving' : 'idle';
     if (inRange && len(e.vx, e.vz) < 1) faceTarget(world, e);
   }
 }
 
 const sqr = (v: number) => v * v;
+
+/** A pinned hero stays where they are. */
+function root(e: Entity, dt: number): void {
+  approachVelocity(e, 0, 0, TUNING.heroAccel * 2, dt);
+}
 
 function faceTarget(world: World, e: Entity): void {
   const t = e.hero!.targetId === null ? undefined : world.entities.get(e.hero!.targetId);
@@ -300,6 +312,9 @@ function combatMove(
   } else if (tank) {
     chase(e, target, reach);
     if (!glory) leash(weaver, TANK_LEASH);
+  } else if (flank(world, e, def, target)) {
+    // Focus on a guarded enemy: out of its arc, whatever the Weaver's leash says.
+    clampToArena(world, desired);
   } else {
     // Ranged: anchor on the formation slot, step toward the target only as far as needed.
     const spread = hero.follow === 'scatter' ? TUNING.scatterSpread : 1;
@@ -325,6 +340,32 @@ function combatMove(
     leash(weaver, RANGED_LEASH);
   }
   arrive(e, desired.x, desired.z, TUNING.heroAccel, 1.2, dt);
+}
+
+/**
+ * Flanking (docs/phase-5a.md P6): when the Focus target has an unbroken guard, a non-tank
+ * stands at its range, rotated ±(arc/2 + 35°) from the guard's direction, on the nearer side.
+ * Kael holds the front, so the guard keeps facing him. Writes `desired`; false otherwise.
+ */
+function flank(world: World, e: Entity, def: HeroDef, target: Entity): boolean {
+  const g = target.enemy?.guard;
+  if (!g || world.focusTarget !== target.id || g.brokenUntil > world.time) return false;
+  const arc = enemyDef(target.enemy!.defId).guard?.arcDeg ?? 0;
+  const a = ((arc / 2 + FLANK_MARGIN) * Math.PI) / 180;
+  const c = dcos(a);
+  const s = dsin(a);
+  const want = Math.min(def.preferredRange, def.attack.range - 0.5) + target.radius;
+  // The guard direction turned each way.
+  const lx = g.fx * c - g.fz * s;
+  const lz = g.fx * s + g.fz * c;
+  const rx = g.fx * c + g.fz * s;
+  const rz = -g.fx * s + g.fz * c;
+  const left = distSq(e.x, e.z, target.x + lx * want, target.z + lz * want);
+  const right = distSq(e.x, e.z, target.x + rx * want, target.z + rz * want);
+  const useLeft = left <= right;
+  desired.x = target.x + (useLeft ? lx : rx) * want;
+  desired.z = target.z + (useLeft ? lz : rz) * want;
+  return true;
 }
 
 function chase(e: Entity, target: Entity, reach: number): void {
@@ -585,7 +626,10 @@ function tryAbilities(world: World, e: Entity, def: HeroDef, target: Entity): bo
         break;
       }
       case 'piercingShot': {
-        const caster = interruptibleCaster(world, e, ability.range);
+        // Empowered, she breaks a guard first (Movement II); then she interrupts a caster.
+        const guarded = guardedInReach(world, e, ability.range);
+        const breaker = guarded && empowerBonus(world, e).more > 0 ? guarded : null;
+        const caster = breaker ?? interruptibleCaster(world, e, ability.range);
         const t = caster ?? (inReach(target) ? target : null);
         if (t) return beginAbility(world, e, def, index, t, t.x, t.z);
         break;
@@ -608,6 +652,22 @@ function tryAbilities(world: World, e: Entity, def: HeroDef, target: Entity): bo
     }
   }
   return false;
+}
+
+/** The nearest enemy in reach whose guard is up (none in Movement I). */
+function guardedInReach(world: World, e: Entity, range: number): Entity | null {
+  let best: Entity | null = null;
+  let bestD = Infinity;
+  for (const m of world.entities.list()) {
+    const g = m.enemy?.guard;
+    if (!g || g.brokenUntil > world.time || !isActive(m)) continue;
+    const d = distSq(m.x, m.z, e.x, e.z);
+    if (d <= sqr(range + m.radius) && d < bestD) {
+      best = m;
+      bestD = d;
+    }
+  }
+  return best;
 }
 
 function interruptibleCaster(world: World, e: Entity, range: number): Entity | null {
@@ -689,7 +749,8 @@ function executeAbility(
   };
   const hitOf = (amount: number) =>
     f ? flourishHit(world, e, amount, f) : heroDamage(world, e, amount, 0);
-  const hitEnemy = (m: Entity, amount: number) => {
+  // `pierce`: an Empowered hit of it breaks a guard (Piercing Shot, docs/phase-5a.md P6).
+  const hitEnemy = (m: Entity, amount: number, pierce = false) => {
     const hit = hitOf(amount);
     dealDamage(world, m, {
       source: e.id,
@@ -700,6 +761,7 @@ function executeAbility(
       empower: hit.empower,
       crit: hit.crit,
       empowered: hit.empowered,
+      ...(pierce && hit.empowered ? { breaksGuard: true } : {}),
     });
     if (f && f.stun > 0 && isActive(m)) addStatus(world, m, 'stun', f.stun, e.id);
   };
@@ -769,7 +831,7 @@ function executeAbility(
         const perp = Math.abs(rx * dz - rz * dx);
         if (perp > width + m.radius) continue;
         interruptEnemy(world, m, e.id);
-        hitEnemy(m, ability.damage);
+        hitEnemy(m, ability.damage, true);
       }
       // Heartseeker refunds part of the Solo.
       const hero = e.hero!;
@@ -922,6 +984,8 @@ function noticeTelegraphs(world: World, e: Entity, def: HeroDef): void {
     if (t.id <= hero.lastTelegraphSeen) continue;
     hero.lastTelegraphSeen = t.id;
     if (t.kind === 'mark' || t.kind === 'raid' || def.dodge <= 0) continue;
+    // A pinned hero can't step out (no roll is drawn: pins exist only in Movement II).
+    if (hasStatus(e, 'pinned')) continue;
     if (!contains(world, t, e)) continue;
     // Wind Step (Bonds): every so often, Lyra steps out at once, whatever she's doing.
     if (hasTalent(e, 'wind_step') && world.time >= hero.talentReadyAt && !isDisabled(e)) {

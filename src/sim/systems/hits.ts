@@ -1,7 +1,14 @@
 /** Hits in flight (arrows, bolts, meteors, Volley) land when their time comes. */
 import { enemyDef, heroDef } from '../../content';
 import { distSq } from '../core/dmath';
-import { addStatus, dealDamage, isActive, rising } from '../combat/health';
+import {
+  addStatus,
+  applyOnHit,
+  applyStatusPayload,
+  dealDamage,
+  isActive,
+  rising,
+} from '../combat/health';
 import type { Entity } from '../state';
 import type { PendingHit, World } from '../world';
 
@@ -29,17 +36,17 @@ function land(world: World, hit: PendingHit): void {
   if (!isActive(target)) return;
   const x = target.x;
   const z = target.z;
-  strike(world, target, hit, 1, sourceName);
+  strike(world, target, hit, 1, sourceName, source);
   if (hit.splashRadius > 0 && hit.splash > 0) {
     for (const e of world.entities.list()) {
       if (e.id === target.id || e.team !== target.team || !isActive(e)) continue;
       if (distSq(e.x, e.z, x, z) > (hit.splashRadius + e.radius) * (hit.splashRadius + e.radius))
         continue;
-      strike(world, e, hit, hit.splash, sourceName);
+      strike(world, e, hit, hit.splash, sourceName, source);
     }
   }
   // Ricochet (Bonds): Lyra's arrow bounces once, to another enemy inside your field.
-  if (hit.bounce) bounce(world, hit, target, x, z, sourceName);
+  if (hit.bounce) bounce(world, hit, target, x, z, sourceName, source);
   if (hit.chain > 0) {
     let from: Entity = target;
     const struck = new Set<number>([target.id]);
@@ -70,7 +77,7 @@ function land(world: World, hit: PendingHit): void {
         toZ: next.z,
         travel: 0,
       });
-      strike(world, next, hit, scale, sourceName);
+      strike(world, next, hit, scale, sourceName, source);
       from = next;
     }
   }
@@ -85,6 +92,7 @@ function bounce(
   x: number,
   z: number,
   sourceName: string,
+  source: Entity | undefined,
 ): void {
   let next: Entity | null = null;
   let best = BOUNCE_RANGE * BOUNCE_RANGE;
@@ -110,12 +118,19 @@ function bounce(
     travel: 0,
   });
   // One arrow, one crit: the bounce doesn't ring Hawk Eye again.
-  strike(world, next, { ...hit, crit: false }, hit.bounce!, sourceName);
+  strike(world, next, { ...hit, crit: false }, hit.bounce!, sourceName, source);
 }
 
 /** Lands `scale` × the hit on `e` (splash and chain falloff scale every share alike). */
-function strike(world: World, e: Entity, hit: PendingHit, scale: number, sourceName: string): void {
-  dealDamage(world, e, {
+function strike(
+  world: World,
+  e: Entity,
+  hit: PendingHit,
+  scale: number,
+  sourceName: string,
+  source: Entity | undefined,
+): void {
+  const result = dealDamage(world, e, {
     source: hit.source,
     sourceName,
     amount: hit.amount * scale,
@@ -126,6 +141,11 @@ function strike(world: World, e: Entity, hit: PendingHit, scale: number, sourceN
     empowered: hit.empowered,
   });
   if (hit.stun > 0 && isActive(e)) addStatus(world, e, 'stun', hit.stun, hit.source);
+  // On-hit payloads (docs/phase-5a.md P3): the bolt's own and its caster's affixes'. Only an
+  // enemy's bolt carries any; a Ward that takes it all blocks them.
+  if (source?.enemy) applyOnHit(world, source, e, result.dealt, hit.onHit);
+  else if (hit.onHit && result.dealt > 0 && isActive(e))
+    applyStatusPayload(world, e, hit.onHit, hit.source);
 }
 
 function sourceNameOf(e: Entity | undefined): string {

@@ -2,11 +2,12 @@
  * The damage / heal / shield / status pipeline (docs/plan/05 §4.6). Every change to HP goes
  * through here so the ledger, threat and events stay consistent.
  */
-import { heroDef } from '../../content';
-import type { StatusPayload } from '../../content/schema';
+import { enemyDef, heroDef } from '../../content';
+import { HEAL_CUT, PACT_TAKEN } from '../../content/legion';
+import { AILMENT_IDS, type StatusPayload } from '../../content/schema';
 import type { PartySlot } from '../commands';
 import type { AnswerTag } from '../events';
-import { distSq } from '../core/dmath';
+import { dcos, distSq } from '../core/dmath';
 import type {
   Entity,
   EntityId,
@@ -34,14 +35,24 @@ export const NEVER = 1e9;
 const DISCORD_EMPOWERED = 1.5;
 const DISCORD_PLAIN = 0.2;
 
-/** Ailments Chime cleanses and immunity blocks. */
-const AILMENTS: ReadonlySet<StatusId> = new Set<StatusId>([
-  'dirge',
-  'resound',
-  'silence',
-  'stun',
-  'sleep',
-]);
+/**
+ * Ailments Chime cleanses and immunity blocks: content's list (`AILMENT_IDS`), so the lint that
+ * checks Chime answers and the sim that honours them can't drift apart.
+ */
+const AILMENTS: ReadonlySet<StatusId> = new Set<StatusId>(AILMENT_IDS);
+
+/** Seconds between a damage-over-time status's ticks (docs/phase-5a.md P2). */
+export const DOT_TICK = 0.5;
+/** A drain (a Leech's latch) lets go when its source is farther than this, in metres. */
+export const DRAIN_REACH = 4;
+/** Blood Pact: a hero linked by it takes this much damage (docs/phase-5a.md P5). */
+const PACT_MULT = 1 + PACT_TAKEN;
+/** Wound: healing received is multiplied by this. */
+const WOUND_HEAL_MULT = 1 - HEAL_CUT;
+/** A guard break also staggers the enemy this long (docs/phase-5a.md P6). */
+const GUARD_BREAK_STAGGER = 1;
+/** At most one `guardBlocked` event per guarded enemy in this many seconds. */
+const GUARD_BLOCKED_GAP = 0.5;
 
 export function isAilment(id: StatusId): boolean {
   return AILMENTS.has(id);
@@ -233,38 +244,122 @@ export const DOT_ANSWERS: Readonly<Partial<Record<StatusId, readonly AnswerTag[]
  * Applies a content status payload (docs/phase-5a.md P2): stacks up to `maxStacks` with one
  * shared, refreshed timer; `dps` (× the Movement's damage scale) or `pctPerSec` ticks; `drain`
  * heals the source. A plain payload ({id, duration}) behaves as `addStatus`. True if it landed.
- *
- * CONTRACT v16 stub (W0a): no Movement I path calls it; Movement II's sim work implements it.
+ * Chime's immunity blocks new stacks of an ailment; the payload's keys (`dps`, `tickIn`,
+ * `drain`) appear on the status only when it has them.
  */
 export function applyStatusPayload(
-  _world: World,
-  _target: Entity,
-  _payload: StatusPayload,
-  _source: EntityId | null,
+  world: World,
+  target: Entity,
+  payload: StatusPayload,
+  source: EntityId | null,
 ): boolean {
-  return false;
+  const stacking = payload.stacks !== undefined || payload.maxStacks !== undefined;
+  const ticking = payload.dps !== undefined || payload.pctPerSec !== undefined;
+  // Today's statuses (a Dirge's silence): exactly as before.
+  if (!stacking && !ticking && !payload.drain)
+    return addStatus(world, target, payload.id, payload.duration, source);
+  const h = target.health;
+  if (!h || h.dead || h.downed || rising(target)) return false;
+  // Chime's immunity blocks new stacks too: a deliberate reward for cleansing.
+  if (target.team === 'party' && isAilment(payload.id) && hasStatus(target, 'immune')) return false;
+  const add = payload.stacks ?? 1;
+  const cap = payload.maxStacks ?? Infinity;
+  // Per stack, per second: the Movement's damage scale on flat damage, never on a share of life.
+  const dps =
+    (payload.dps ?? 0) * (world.config.movement?.damage ?? 1) + (payload.pctPerSec ?? 0) * h.maxHp;
+  const duration = payload.duration;
+  let status = getStatus(target, payload.id);
+  if (status) {
+    // One shared timer, refreshed by every application.
+    status.stacks = Math.min(cap, status.stacks + add);
+    status.remaining = duration;
+    status.duration = duration;
+    status.source = source;
+    if (ticking) {
+      status.dps = dps;
+      status.tickIn ??= DOT_TICK;
+    }
+    if (payload.drain) status.drain = true;
+  } else {
+    status = { id: payload.id, remaining: duration, duration, stacks: Math.min(cap, add), source };
+    if (ticking) {
+      status.dps = dps;
+      status.tickIn = DOT_TICK;
+    }
+    if (payload.drain) status.drain = true;
+    h.statuses.push(status);
+  }
+  world.events.push({
+    type: 'statusApplied',
+    tick: world.tick,
+    target: target.id,
+    status: payload.id,
+    duration,
+    ...(stacking ? { stacks: status.stacks } : {}),
+  });
+  return true;
 }
 
 /**
  * After a hit from `source` dealt `dealt` to `target` (docs/phase-5a.md P3): applies the hit's
  * payload merged with the source's affix `onHit`, only if `dealt > 0` (a Ward that absorbs it
- * all blocks it). Does nothing when neither is present, as on every Movement I hit.
- *
- * CONTRACT v16 stub (W0a): no Movement I path calls it; Movement II's sim work implements it.
+ * all blocks it). Does nothing when neither is present, as on every Movement I hit. Melee
+ * (enemies.ts), bolts (hits.ts, `PendingHit.onHit`) and telegraphs (telegraphs.ts) call it.
  */
 export function applyOnHit(
-  _world: World,
-  _source: Entity,
-  _target: Entity,
-  _dealt: number,
-  _payload?: StatusPayload,
-): void {}
+  world: World,
+  source: Entity,
+  target: Entity,
+  dealt: number,
+  payload?: StatusPayload,
+): void {
+  if (dealt <= 0 || !isActive(target)) return;
+  if (payload) applyStatusPayload(world, target, payload, source.id);
+  const affixes = source.enemy?.affixes;
+  if (!affixes || affixes.length === 0) return;
+  for (const id of affixes) {
+    const onHit = world.content.affixes.find((a) => a.id === id)?.onHit;
+    // The hit's own payload already landed; an affix naming the same status doesn't stack on it.
+    if (onHit && onHit.id !== payload?.id && isActive(target))
+      applyStatusPayload(world, target, onHit, source.id);
+  }
+}
+
+/**
+ * A damage-over-time status's name in damage events and death recaps: "Bleed ×6 (Sanguine
+ * Hound)", "Pinned (Impaler)".
+ */
+export function dotName(world: World, s: Status): string {
+  const label = s.id.charAt(0).toUpperCase() + s.id.slice(1);
+  const stacks = s.stacks > 1 ? ` ×${s.stacks}` : '';
+  const source = s.source === null ? undefined : world.entities.get(s.source);
+  const by = source?.enemy ? ` (${enemyDef(source.enemy.defId).name})` : '';
+  return `${label}${stacks}${by}`;
+}
+
+/** Inside a Sanctuary pool (Vharun's Bloodmoon), or no Bloodmoon at all. */
+export function inSanctuary(world: World, e: { x: number; z: number }): boolean {
+  const sanctuary = world.field.sanctuary;
+  if (!sanctuary) return true;
+  for (const p of sanctuary.pools) if (distSq(e.x, e.z, p.x, p.z) <= p.r * p.r) return true;
+  return false;
+}
+
+/** What healing `target` receives is multiplied by (Wound, Bloodmoon); 1 almost always. */
+export function healReceivedMult(world: World, target: Entity): number {
+  if (target.team !== 'party') return 1;
+  let mult = 1;
+  if (hasStatus(target, 'wound')) mult *= WOUND_HEAL_MULT;
+  const sanctuary = world.field.sanctuary;
+  if (sanctuary && !inSanctuary(world, target)) mult *= sanctuary.healMult;
+  return mult;
+}
 
 export function removeStatus(
   world: World,
   target: Entity,
   id: StatusId,
-  reason: 'expired' | 'cleansed' | 'detonated',
+  reason: 'expired' | 'cleansed' | 'detonated' | 'freed',
 ): boolean {
   const h = target.health;
   if (!h) return false;
@@ -320,6 +415,12 @@ export function heal(
   if (!h || h.dead || h.downed || amount <= 0) return 0;
   // Wounding Strikes (Dissonance): heroes are healed less.
   if (target.hero) amount *= world.mods.heroHealMult;
+  // Movement II (docs/phase-5a.md): a Wound, and Bloodmoon outside the Sanctuary pools, cut the
+  // party's healing. A revive stands them up whole; shields aren't healing.
+  if (via !== 'revive') {
+    const cut = healReceivedMult(world, target);
+    if (cut !== 1) amount *= cut;
+  }
   // Bulwark of Faith (Bonds): Kael is healed more while you Thread him. That part is his.
   let own = 1;
   if (hasTalent(target, 'bulwark_of_faith') && threadedOn(world, target)) {
@@ -398,6 +499,11 @@ export interface DamageOpts {
    * guard's `breakTime`, with a 1 s stagger.
    */
   breaksGuard?: boolean;
+  /**
+   * A damage-over-time status's tick (with kind 'tick'): the death recap puts the answer it
+   * wanted (`DOT_ANSWERS`) first among the techniques that were ready.
+   */
+  status?: StatusId;
 }
 
 export interface DamageResult {
@@ -491,14 +597,21 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
     }
   }
   const amountIn = amount;
+  // A guard arc (docs/phase-5a.md P6): a hero's hit from in front of it mostly glances off; an
+  // Empowered Piercing Shot breaks it. After `amountIn`, so every share is of what landed.
+  if (source?.hero && target.enemy?.guard) amount *= guardMult(world, target, source, opts);
+  // Blood Pact (P5): a hero it links takes more of everything while it lasts.
+  if (target.hero && hasStatus(target, 'pact')) amount *= PACT_MULT;
   // Scarred Hide (the Martyr): the Weaver takes less while she Bears someone.
   if (target.weaver?.threadMode === 'bear' && target.weaver.threadSlot !== null)
     amount *= world.mods.bearDamageTaken;
   // Oathkeeper (Bonds): while he keeps it, Kael takes less of everything, his own hits too.
   if (target.hero?.soloId === 'oathkeeper' && target.hero.soloActive > 0)
     amount *= 1 - soloValue(world, 'oathkeeper', 'guard') / 100;
-  // Armour only softens ordinary hits; telegraphed attacks are answered, not soaked.
-  if (target.hero && !opts.telegraph) amount *= 1 - heroDef(target.hero.defId).armor;
+  // Armour only softens ordinary hits; telegraphed attacks are answered, not soaked, and so are
+  // damage-over-time ticks (a Chime or a Reel ends them).
+  if (target.hero && !opts.telegraph && opts.kind !== 'tick')
+    amount *= 1 - heroDef(target.hero.defId).armor;
   // Absolve and Anchor (technique variants): credited, as the guards below are, with the life
   // they kept.
   let spared = 0;
@@ -727,7 +840,7 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
   let downed = false;
   if (h.hp <= 0) {
     downed = true;
-    if (target.hero) downHero(world, target, opts.sourceName);
+    if (target.hero) downHero(world, target, opts.sourceName, opts.status);
     else if (target.weaver) downWeaver(world, target);
     else if (!restlessRise(world, target)) killEnemy(world, target, source ?? null);
   } else if (source?.enemy && hasTalent(target, 'arcane_ward')) arcaneWard(world, target, source);
@@ -742,6 +855,42 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
     martyred,
     saved,
   };
+}
+
+/**
+ * A guarded enemy (docs/phase-5a.md P6) struck by `source`: ×`frontMult` from inside the arc
+ * while the guard holds (a grey "Blocked", at most every half second), ×1 from the flank or
+ * while it's broken. A `breaksGuard` hit breaks it for `breakTime`, with a 1 s stagger.
+ */
+function guardMult(world: World, target: Entity, source: Entity, opts: DamageOpts): number {
+  const guard = target.enemy!.guard!;
+  if (guard.brokenUntil > world.time) return 1;
+  const def = enemyDef(target.enemy!.defId).guard;
+  if (!def) return 1;
+  if (opts.breaksGuard) {
+    guard.brokenUntil = world.time + def.breakTime;
+    addStatus(world, target, 'guardBroken', def.breakTime, source.id);
+    addStatus(world, target, 'stagger', GUARD_BREAK_STAGGER, source.id);
+    world.events.push({ type: 'guardBroken', tick: world.tick, enemy: target.id });
+    return 1;
+  }
+  const dx = source.x - target.x;
+  const dz = source.z - target.z;
+  const d = Math.sqrt(dx * dx + dz * dz);
+  // Standing on it, a hero is in front.
+  const front =
+    d < 1e-6 || (dx * guard.fx + dz * guard.fz) / d >= dcos((def.arcDeg / 2) * (Math.PI / 180));
+  if (!front) return 1;
+  if (guard.blockedAt === undefined || world.time - guard.blockedAt >= GUARD_BLOCKED_GAP) {
+    guard.blockedAt = world.time;
+    world.events.push({
+      type: 'guardBlocked',
+      tick: world.tick,
+      enemy: target.id,
+      source: source.id,
+    });
+  }
+  return def.frontMult;
 }
 
 /** The Weaver's Thread is on this hero. */
@@ -1000,7 +1149,7 @@ export function bleedOutTime(): number {
   return BLEED_OUT;
 }
 
-function downHero(world: World, e: Entity, killer: string): void {
+function downHero(world: World, e: Entity, killer: string, dot?: StatusId): void {
   const h = e.health!;
   const hero = e.hero!;
   hero.hold = null;
@@ -1035,6 +1184,12 @@ function downHero(world: World, e: Entity, killer: string): void {
     if (weaver.wardCharges > 0 && canPay(world, 'ward', content)) ready.push('ward');
     if (weaver.cooldowns.chime <= 0 && canPay(world, 'chime', content)) ready.push('chime');
     if (weaver.cooldowns.reel <= 0 && canPay(world, 'reel', content)) ready.push('reel');
+  }
+  // A damage-over-time down (Movement II): the answer it wanted comes first.
+  const wanted = dot ? DOT_ANSWERS[dot] : undefined;
+  if (wanted) {
+    const first = (t: string) => (wanted.includes(t as AnswerTag) ? 0 : 1);
+    ready.sort((a, b) => first(a) - first(b));
   }
   world.ledger.deaths.push({
     time: world.time - world.encounter.startedAt,
