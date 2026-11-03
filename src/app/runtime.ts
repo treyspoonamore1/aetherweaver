@@ -22,7 +22,7 @@ import {
   type WorldState,
 } from '../sim';
 import { makeBot, type Bot, type BotKind } from '../bots';
-import { buildHudSnapshot } from '../ui/hudBridge';
+import { buildHudSnapshot, decreeShownNow } from '../ui/hudBridge';
 import { callingLook } from '../ui/kit/callingLook';
 import { takeHudCommits } from '../ui/perfCounters';
 import { useUi } from '../ui/store';
@@ -613,8 +613,15 @@ export class GameRuntime {
             ui.pushCallout({ kind: 'clutch', text: 'Clutch Chime!', color: '#c4b5fd' }, now, 1600);
           break;
         case 'decree':
+          // Phase 5b: worded for the party now, while Execution's telegraph names the condemned
+          // (`decreeShownNow`), and latched so the banner and the boss bar keep it once it's gone.
           ui.pushCallout(
-            { kind: 'decree', text: event.name, detail: event.text, color: '#e9d5ff' },
+            {
+              kind: 'decree',
+              text: event.name,
+              detail: decreeShownNow(state, event.text),
+              color: '#e9d5ff',
+            },
             now,
             5200,
           );

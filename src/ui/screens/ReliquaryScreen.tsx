@@ -33,7 +33,13 @@ import {
 } from '../kit/reliquaryLook';
 import { playUi, useMood } from '../kit/sound';
 import { useUi } from '../store';
-import { CodexView, useCodexBonds, useCodexTechniques, useCodexDissonance } from './CodexScreen';
+import {
+  CodexView,
+  useCodexBonds,
+  useCodexTechniques,
+  useCodexDissonance,
+  useCodexRoster,
+} from './CodexScreen';
 import { useAllowance } from './PrepScreen';
 import {
   CarriedChip,
@@ -1733,6 +1739,8 @@ export function ReliquaryScreen() {
   const dissonance = useCodexDissonance();
   const bonds = useCodexBonds();
   const codexTechniques = useCodexTechniques();
+  // Phase 5b: the profile's heroes, as the Codex from Prep and the Bonds shows them.
+  const codexRoster = useCodexRoster();
   if (codex) {
     return (
       <CodexView
@@ -1745,6 +1753,7 @@ export function ReliquaryScreen() {
         dissonance={dissonance}
         bonds={bonds}
         techniques={codexTechniques}
+        roster={codexRoster}
       />
     );
   }

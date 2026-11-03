@@ -8,6 +8,7 @@ import { mult } from '../screens/chordModel';
 import { beamSong } from './songs';
 import { stasisCostMult } from './calling';
 import { secondsLabel } from './chrono';
+import { healBarelyTakes } from './legionLook';
 
 /**
  * Contextual coach hints (docs/plan/04 §7). Derived from the HUD snapshot alone; each hint
@@ -461,8 +462,9 @@ function movementTwoHints(hud: HudSnapshot, keys: { Q: string; E: string; F: str
     const pct = Math.round((condemned?.execute ?? EXECUTE_DEFAULT) * 100);
     out.push({
       id: 'execution',
-      // Brann (docs/phase-5b.md): your healing barely takes on him, so the Ward is the answer.
-      text: condemned?.blood
+      // Brann (docs/phase-5b.md): your healing barely takes on him, so the Ward is the answer;
+      // with Blood Oath it takes in full (no live cut), so the generic answer stands.
+      text: healBarelyTakes(condemned)
         ? `${boss.executeTarget} is condemned — Ward ${Q} him: your healing barely takes on him`
         : `${boss.executeTarget} is condemned — lift them above ${pct}% before it lands, or Ward ${Q} them`,
     });

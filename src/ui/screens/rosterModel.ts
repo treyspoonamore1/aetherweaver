@@ -10,6 +10,8 @@ import type { EventChoice } from '../../content/schema';
 import type { HeroBloodStats, RunState } from '../../meta/types';
 import { fmt, pct } from '../kit/format';
 import { PARTY_SIZE } from './prepParty';
+import type { Action } from '../../input/actions';
+import { bindingLabel } from '../hud/labels';
 
 // ── Prep's picker ───────────────────────────────────────────────────────────────────
 
@@ -30,8 +32,18 @@ export interface PickerCard {
    * chosen in content order. Null while not chosen.
    */
   key: number | null;
+  /**
+   * That key as the player has bound it (`bindingLabel('focusN')`), the label the frames show:
+   * "1" unless the focus keys are rebound. Null while not chosen.
+   */
+  keyLabel: string | null;
   /** A pick is full and this one isn't in it: choose it only after dropping someone. */
   full: boolean;
+}
+
+/** Slot `n`'s (1-based) focus key as the player has bound it, as on the party frames. */
+export function focusKeyLabel(n: number): string {
+  return bindingLabel(`focus${n}` as Action);
 }
 
 /** The picker's cards: every roster hero, the chosen marked with the key they will take. */
@@ -48,6 +60,7 @@ export function pickerCards(roster: readonly string[], chosen: readonly string[]
       role: def.role,
       selected: at >= 0,
       key: at >= 0 ? at + 1 : null,
+      keyLabel: at >= 0 ? focusKeyLabel(at + 1) : null,
       full: full && at < 0,
     };
   });

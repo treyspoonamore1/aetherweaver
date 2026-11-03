@@ -2,7 +2,7 @@ import { CallingGlyph } from '../kit/CallingGlyph';
 import { callingLook } from '../kit/callingLook';
 import { clock, fmt } from '../kit/format';
 import { Icon } from '../kit/Icon';
-import { EXECUTE_PCT, bossCastIcon, phaseTicks } from './legionLook';
+import { EXECUTE_PCT, bossCastIcon, bossDecreeShown, phaseTicks } from './legionLook';
 import type { BossHud } from '../store';
 import { AnswerGlyph } from './AnswerGlyph';
 import { secondsLabel } from './chrono';
@@ -25,6 +25,7 @@ export function BossBar({
   blind = false,
 }: {
   boss: BossHud;
+  /** The latest decree, worded as it was announced (the store's `lastDecree`). */
   decree: { name: string; text: string } | null;
   /** The big decree banner is on screen: the quiet line below the bar waits. */
   decreeBanner?: boolean;
@@ -37,6 +38,9 @@ export function BossBar({
   const shieldPct = boss.maxHp > 0 ? Math.min(100 - 0, (boss.shield / boss.maxHp) * 100) : 0;
   const ticks = phaseTicks(boss);
   const enrageSoon = boss.enrageIn !== null && boss.enrageIn < 30;
+  // Phase 5b: the wording latched when the decree was announced (`decree`, the store's) outlasts
+  // the bridge's live rewording, which reverts once Execution has resolved.
+  const shown = bossDecreeShown(boss.decree, decree);
   return (
     <div
       className="absolute left-1/2 top-4 w-[36rem] max-w-[calc(100vw-2rem)] -translate-x-1/2"
@@ -170,9 +174,7 @@ export function BossBar({
           </p>
         )}
       </div>
-      {(boss.decree ?? decree) && !decreeBanner && (
-        <DecreeLine decree={(boss.decree ?? decree)!} blind={blind} />
-      )}
+      {shown && !decreeBanner && <DecreeLine decree={shown} blind={blind} />}
     </div>
   );
 }

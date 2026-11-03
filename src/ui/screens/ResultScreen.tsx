@@ -20,7 +20,7 @@ import {
   HIGHLIGHT_COLOR,
   HIGHLIGHT_ICON,
   contributionOf,
-  deathAnswerLine,
+  deathAdviceLine,
   deathReadyLine,
   statLines,
 } from './resultText';
@@ -96,6 +96,8 @@ export function ResultView({
   const g = GRADE[r.grade];
   const best = r.highlights[0];
   const heroIds = run.party.map((p) => p.heroId);
+  // The fight's own party (its recaps judge the dome by it).
+  const fightParty = r.heroes.length > 0 ? r.heroes.map((h) => h.heroId) : heroIds;
   const kinds = [...new Set(r.markers.map((m) => m.kind))];
   const onPar = r.par <= 0 || r.duration <= r.par;
   const last = run.path.length;
@@ -386,7 +388,8 @@ export function ResultView({
             <div className="grid gap-4 md:grid-cols-2">
               {r.deaths.map((d, i) => {
                 const def = heroDef(d.heroId);
-                const answer = deathAnswerLine(d.answers, run.calling?.id);
+                // Phase 5b: a Blood Rage hero's down names its own answer (`downAdvice`).
+                const answer = deathAdviceLine(d, fightParty, run.calling?.id);
                 const ready = deathReadyLine(d, run.calling?.id);
                 return (
                   <article

@@ -53,28 +53,61 @@ export function phaseTicks(boss: Pick<BossHud, 'phases' | 'phaseAt'>): number[] 
 
 // ── The roster (docs/phase-5b.md): decrees and answers that assume a party ───────────
 
-/** The party's heroes as the HUD knows them: their def, and whether Execution condemns them. */
-type PartyLook = readonly Pick<HeroHud, 'defId' | 'execute'>[];
+/**
+ * The party's heroes as the HUD knows them: their def, whether Execution condemns them, and the
+ * healing cut on them now (`healCut`: absent when your healing takes in full).
+ */
+export type PartyLook = readonly (Pick<HeroHud, 'defId' | 'execute'> &
+  Partial<Pick<HeroHud, 'healCut'>>)[];
+
+/**
+ * Whether your healing barely takes on this condemned hero right now: a hero whose own passive
+ * cuts the Weaver's healing (Brann), while the live cut still holds. Blood Oath lifts his, so the
+ * frame shows no hatch and Mending him above the line works: the generic answer stands.
+ */
+export function healBarelyTakes(h: PartyLook[number] | undefined): boolean {
+  if (!h) return false;
+  const def = CONTENT.heroes.find((d) => d.id === h.defId);
+  return !!def?.passive && def.passive.weaverHealMult < 1 && (h.healCut ?? 1) < 1;
+}
 
 /**
  * A decree as the HUD shows it to this party. The sim's text (hashed, never edited) is matched to
  * its attack def: with no dome in the party (`partyHasDome`) an attack's `decreeNoDome` replaces
- * it, and when Execution condemns a hero whose own passive halves your healing on him (Brann),
- * the decree says to Ward him. Any other text, and every default party, is returned unchanged.
+ * it, and when Execution condemns a hero whose own passive cuts your healing on him (Brann) while
+ * that cut holds (`healBarelyTakes`), the decree says to Ward him. Any other text, and every
+ * default party, is returned unchanged.
  */
 export function shownDecree(text: string, party: PartyLook): string {
   const attack = CONTENT.attacks.find((a) => a.decree === text);
   if (!attack) return text;
   if (attack.executeBelow !== undefined) {
     const condemned = party.find((h) => h.execute !== undefined);
-    const def = condemned ? CONTENT.heroes.find((h) => h.id === condemned.defId) : undefined;
-    if (def?.passive && def.passive.weaverHealMult < 1)
-      return `Execution — ${def.name} is condemned. Ward him: your healing barely takes on him.`;
+    if (condemned && healBarelyTakes(condemned))
+      return `Execution — ${heroName(condemned.defId)} is condemned. Ward him: your healing barely takes on him.`;
     return text;
   }
   if (attack.decreeNoDome !== undefined && !partyHasDome(party.map((h) => h.defId)))
     return attack.decreeNoDome;
   return text;
+}
+
+function heroName(id: string): string {
+  return CONTENT.heroes.find((h) => h.id === id)?.name ?? id;
+}
+
+/**
+ * The decree the boss bar keeps showing: the one latched when it was announced (the store's
+ * `lastDecree`, worded for the party at that moment) over the bridge's, which rewords it from the
+ * live party and so falls back to the generic text once Execution has resolved. The bridge's
+ * when they name different decrees (or nothing was latched).
+ */
+export function bossDecreeShown<D extends { name: string; text: string }>(
+  live: D | null | undefined,
+  latched: D | null | undefined,
+): D | null {
+  if (live && latched && live.name === latched.name) return latched;
+  return live ?? latched ?? null;
 }
 
 /** A decree as shown to this party (`shownDecree`): the same object when nothing changes. */

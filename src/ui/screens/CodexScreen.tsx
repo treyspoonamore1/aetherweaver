@@ -1245,23 +1245,44 @@ function Calls({ roster }: { roster: readonly string[] }) {
   );
 }
 
+/**
+ * Phase 5b: a motif bound to a hero not yet in the roster (docs/phase-5b.md), as a silhouette:
+ * a neutral name, no text (it names him), only how he is earned (both routes).
+ */
+function LockedMotif({ heroId }: { heroId: string }) {
+  const how = lockedHeroText(heroId);
+  return (
+    <Panel
+      tone="solid"
+      className="border-dashed p-4"
+      data-testid="codex-motif-locked"
+      data-hero={heroId}
+    >
+      <div className="flex items-center gap-2">
+        <Icon name="lock" size={16} className="text-ink-600" />
+        <h3 className="font-semibold text-muted">A motif not yet heard</h3>
+      </div>
+      <p className="mt-2 text-sm leading-snug text-muted">
+        Waits for a hero not yet met{how ? ` · ${how}` : ''}
+      </p>
+    </Panel>
+  );
+}
+
 function Motifs({ roster }: { roster: readonly string[] }) {
   const categories = Object.keys(CATEGORY) as (keyof typeof CATEGORY)[];
   return (
     <div className="flex flex-col gap-8">
       {categories.map((cat) => {
-        // A hero's motifs wait for that hero to join the roster (docs/phase-5b.md): a locked
-        // chip says how many, and how he is earned.
+        // A hero's motifs wait for that hero to join the roster (docs/phase-5b.md): each is a
+        // locked silhouette with a neutral name (never his, nor the motif's, whose text names
+        // him), and how he is earned.
         const motifs = CONTENT.motifs.filter(
           (m) => m.category === cat && (!m.requires.hero || roster.includes(m.requires.hero)),
         );
-        const waiting = lockedHeroes(roster)
-          .map((id) => ({
-            id,
-            count: CONTENT.motifs.filter((m) => m.category === cat && m.requires.hero === id)
-              .length,
-          }))
-          .filter((w) => w.count > 0);
+        const waiting = CONTENT.motifs.filter(
+          (m) => m.category === cat && !!m.requires.hero && !roster.includes(m.requires.hero),
+        );
         if (motifs.length === 0 && waiting.length === 0) return null;
         const c = CATEGORY[cat];
         return (
@@ -1273,18 +1294,6 @@ function Motifs({ roster }: { roster: readonly string[] }) {
               <Icon name={c.icon} size={20} /> {c.label}
               <span className="text-sm font-normal text-muted">{c.blurb}</span>
             </h2>
-            {waiting.length > 0 && (
-              <p className="mb-3 flex flex-wrap gap-1.5">
-                {waiting.map((w) => (
-                  <span key={w.id} data-testid="codex-motif-locked" data-hero={w.id}>
-                    <Chip icon="lock" title={lockedHeroText(w.id) ?? undefined}>
-                      {w.count} {w.count === 1 ? 'motif waits' : 'motifs wait'} for a hero not yet
-                      met · {lockedHeroText(w.id)}
-                    </Chip>
-                  </span>
-                ))}
-              </p>
-            )}
             <div className={GRID}>
               {motifs.map((m) => (
                 <Panel
@@ -1326,6 +1335,9 @@ function Motifs({ roster }: { roster: readonly string[] }) {
                     ))}
                   </div>
                 </Panel>
+              ))}
+              {waiting.map((m) => (
+                <LockedMotif key={m.id} heroId={m.requires.hero!} />
               ))}
             </div>
           </section>

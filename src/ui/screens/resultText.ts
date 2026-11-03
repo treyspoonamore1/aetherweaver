@@ -1,6 +1,7 @@
 /** Plain-text parts of the Result screen (testable without React). */
 import type { DeathRecap, EncounterResult, EncounterStats, RunCalling } from '../../meta/types';
 import { CONTENT } from '../../content';
+import { downAdvice } from '../../meta/run';
 import { callingResultLine, rewindsFor, techniqueName } from './callingText';
 import { callingLook } from '../kit/callingLook';
 import { auraVerbs, splitContribution, type ContributionParts } from '../contribution';
@@ -68,6 +69,43 @@ export function deathAnswerLine(
   );
   if (names.length === 0) return null;
   return `${names.length === 1 ? 'Answer' : 'Answers'}: ${names.join(' or ')}`;
+}
+
+/**
+ * Phase 5b: the line a death's recap leads with. A Blood Rage hero's down names what it asked of
+ * the Weaver (`downAdvice`: a refused Rally, a quartered heal, Twin Cleave with no dome), in place
+ * of the generic answers; any other death keeps `deathAnswerLine`. `party` is the fight's.
+ */
+export function deathAdviceLine(
+  d: Pick<DeathRecap, 'heroId' | 'killer' | 'blood' | 'answers'>,
+  party: readonly string[],
+  callingId?: string | null,
+): string | null {
+  return downAdvice(d, party) ?? deathAnswerLine(d.answers, callingId);
+}
+
+/**
+ * Phase 5b: what a hero's downs this run asked of the Weaver (`downAdvice`), each distinct line
+ * once with how many downs it answers, in the order first met. Empty for every hero without
+ * `blood` (the default party), so the Summary shows nothing new for them.
+ */
+export function runDownAdvice(
+  results: readonly Pick<EncounterResult, 'deaths' | 'heroes'>[],
+  heroId: string,
+): { text: string; count: number }[] {
+  const out: { text: string; count: number }[] = [];
+  for (const r of results) {
+    const party = r.heroes.map((h) => h.heroId);
+    for (const d of r.deaths) {
+      if (d.heroId !== heroId) continue;
+      const text = downAdvice(d, party);
+      if (!text) continue;
+      const seen = out.find((a) => a.text === text);
+      if (seen) seen.count++;
+      else out.push({ text, count: 1 });
+    }
+  }
+  return out;
 }
 
 /**
