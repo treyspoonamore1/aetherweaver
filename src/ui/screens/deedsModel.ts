@@ -192,13 +192,15 @@ export function deedsHeader(earned: number, total: number, points: number): stri
 /**
  * The Deeds tally the Loom's badge and the Codex's page both show: of the Deeds in sight (a later
  * Movement's join once its enemies are met, `profile.seen`), how many are earned. `seen` omitted:
- * every Deed (the labs).
+ * every Deed (the labs). `roster` (Phase 5b): a hero's Deed (In the Red) counts once that hero is
+ * in it; omitted, none does.
  */
 export function deedsTally(
   earned: readonly string[],
   seen?: readonly string[],
+  roster?: readonly string[],
 ): { earned: number; total: number } {
-  const inSight = deedsInSight(seen);
+  const inSight = deedsInSight(seen, roster);
   return { earned: inSight.filter((d) => earned.includes(d.id)).length, total: inSight.length };
 }
 
@@ -206,12 +208,18 @@ export function deedsTally(
  * Every Deed in sight for the Codex, in content order: the ladder and the badges, each lit or not.
  * A later Movement's Deeds stay hidden until its enemies are met (`seen`; omitted: all of them).
  */
-export function deedsView(held: DeedsHeld, open: DeedsOpen, seen?: readonly string[]): DeedsView {
-  const inSight = deedsInSight(seen);
+export function deedsView(
+  held: DeedsHeld,
+  open: DeedsOpen,
+  seen?: readonly string[],
+  /** Phase 5b: the hero roster; a hero's Deed (In the Red) shows once he is in it. */
+  roster?: readonly string[],
+): DeedsView {
+  const inSight = deedsInSight(seen, roster);
   const ladderDeeds = inSight.filter((d) => d.points > 0);
   const ladder = ladderDeeds.map((d, i) => deedRow(d, held, open, i + 1));
   const badges = inSight.filter((d) => d.points <= 0).map((d) => deedRow(d, held, open, null));
-  const { earned, total } = deedsTally(held.earned, seen);
+  const { earned, total } = deedsTally(held.earned, seen, roster);
   const points = deedPoints(held.earned);
   return {
     ladder,

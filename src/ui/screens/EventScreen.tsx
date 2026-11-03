@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useProfile } from '../../app/profileStore';
 import { useRun } from '../../app/runStore';
+import { useSettings } from '../../app/settings';
 import { runEventDef, type EventChoice } from '../../content';
-import { EVERYTHING, type Allowance, type Unlock } from '../../meta/profile';
+import { EVERYTHING, heroRoster, type Allowance, type Unlock } from '../../meta/profile';
 import type { ChordLoadout, RunState } from '../../meta/types';
 import { ScreenFrame, ScreenHeader } from '../kit/Backdrop';
 import { Button } from '../kit/Button';
@@ -55,6 +57,11 @@ export interface EventViewProps {
   fresh?: readonly Unlock[];
   /** UI lab: open a choice's motif picker or song builder straight away. */
   initialPending?: string | null;
+  /**
+   * Phase 5b: the profile's hero roster, so a recruiting choice (the Cell's) reads true once its
+   * hero is recruited or in the party (docs/phase-5b.md). Omitted: only the party counts.
+   */
+  roster?: readonly string[];
 }
 
 /** A map event: the scene and its choices, then what happened and what it gave or took. */
@@ -65,6 +72,7 @@ export function EventView({
   allowance = EVERYTHING,
   fresh = [],
   initialPending = null,
+  roster,
 }: EventViewProps) {
   useMood('map');
   const [pending, setPending] = useState<string | null>(initialPending);
@@ -79,7 +87,7 @@ export function EventView({
     else if (relicsGained > 0) playUi('relicReveal');
   }, [chosen, won, relicsGained]);
   const def = event ? runEventDef(event.eventId) : null;
-  const choices = def && run ? def.choices.map((c) => choiceInfo(run, def.id, c)) : [];
+  const choices = def && run ? def.choices.map((c) => choiceInfo(run, def.id, c, roster)) : [];
   const pick = (c: ChoiceInfo) => {
     if (c.problem) {
       playUi(c.problem.startsWith('Needs') && c.cost > 0 ? 'cantAfford' : 'error');
@@ -403,8 +411,19 @@ export function EventScreen() {
   const leave = useRun((s) => s.leaveEvent);
   const allowance = useAllowance();
   const fresh = useFreshUnlocks();
+  // Phase 5b: the roster (the store's, which follows the recruits and Skip the unlocks).
+  const recruited = useProfile((s) => s.profile.recruited);
+  const unlockAll = useSettings((s) => s.settings.unlockAll);
+  const roster = useMemo(() => heroRoster({ recruited }, unlockAll), [recruited, unlockAll]);
   if (!run) return null;
   return (
-    <EventView run={run} onChoose={choose} onLeave={leave} allowance={allowance} fresh={fresh} />
+    <EventView
+      run={run}
+      onChoose={choose}
+      onLeave={leave}
+      allowance={allowance}
+      fresh={fresh}
+      roster={roster}
+    />
   );
 }

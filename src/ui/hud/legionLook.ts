@@ -2,9 +2,9 @@
  * Movement II's HUD looks as plain data (docs/phase-5a.md): stack emphasis, the healing cut's
  * words, the boss bar's phase ticks and cast glyphs. Testable without React.
  */
-import { CONTENT } from '../../content';
+import { CONTENT, partyHasDome } from '../../content';
 import type { IconName } from '../kit/iconPaths';
-import type { BossHud, StatusHud } from '../store';
+import type { BossHud, HeroHud, StatusHud } from '../store';
 
 /**
  * Stacks from which a stacking status asks for its answer (Chime the bleeding at 5 stacks or
@@ -49,4 +49,44 @@ export function phaseTicks(boss: Pick<BossHud, 'phases' | 'phaseAt'>): number[] 
     { length: Math.max(0, boss.phases - 1) },
     (_, i) => ((boss.phases - 1 - i) / boss.phases) * 100,
   );
+}
+
+// ── The roster (docs/phase-5b.md): decrees and answers that assume a party ───────────
+
+/** The party's heroes as the HUD knows them: their def, and whether Execution condemns them. */
+type PartyLook = readonly Pick<HeroHud, 'defId' | 'execute'>[];
+
+/**
+ * A decree as the HUD shows it to this party. The sim's text (hashed, never edited) is matched to
+ * its attack def: with no dome in the party (`partyHasDome`) an attack's `decreeNoDome` replaces
+ * it, and when Execution condemns a hero whose own passive halves your healing on him (Brann),
+ * the decree says to Ward him. Any other text, and every default party, is returned unchanged.
+ */
+export function shownDecree(text: string, party: PartyLook): string {
+  const attack = CONTENT.attacks.find((a) => a.decree === text);
+  if (!attack) return text;
+  if (attack.executeBelow !== undefined) {
+    const condemned = party.find((h) => h.execute !== undefined);
+    const def = condemned ? CONTENT.heroes.find((h) => h.id === condemned.defId) : undefined;
+    if (def?.passive && def.passive.weaverHealMult < 1)
+      return `Execution — ${def.name} is condemned. Ward him: your healing barely takes on him.`;
+    return text;
+  }
+  if (attack.decreeNoDome !== undefined && !partyHasDome(party.map((h) => h.defId)))
+    return attack.decreeNoDome;
+  return text;
+}
+
+/** A decree as shown to this party (`shownDecree`): the same object when nothing changes. */
+export function shownDecreeOf<D extends { text: string }>(decree: D, party: PartyLook): D {
+  const text = shownDecree(decree.text, party);
+  return text === decree.text ? decree : { ...decree, text };
+}
+
+/** A telegraph's answers for this party: the dome only when a party hero brings one. */
+export function shownAnswers<T extends string>(
+  answers: readonly T[],
+  heroIds: readonly string[],
+): T[] {
+  return partyHasDome(heroIds) ? [...answers] : answers.filter((a) => a !== 'dome');
 }

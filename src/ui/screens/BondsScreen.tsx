@@ -34,6 +34,7 @@ import {
   soloLockLine,
   soloAnnounce,
   talentAnnounce,
+  heroTabColumns,
   talentClick,
   type TierView,
 } from './bondsModel';
@@ -180,7 +181,7 @@ export function BondsView({
           <div
             role="tablist"
             aria-label="Heroes"
-            className="order-last grid w-full gap-2 sm:grid-cols-3 xl:order-none xl:w-auto xl:flex-1"
+            className={`order-last grid w-full gap-2 ${heroTabColumns(heroes.length)} xl:order-none xl:w-auto xl:flex-1`}
             onKeyDown={onTabKey}
           >
             {heroes.map((h) => {

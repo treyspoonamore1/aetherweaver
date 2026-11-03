@@ -139,6 +139,7 @@ import type { TechniqueKey } from '../types';
 import { SpawnPalette } from '../screens/TrainingParts';
 import { LOOM_VIEWS, LoomFromStore } from './loomLab';
 import { LOOM_RUN_VIEWS } from './LoomRunLab';
+import { BRANN_VIEWS } from './brannLab';
 import {
   expeditionPrepRun,
   expeditionReliquaryRun,
@@ -4315,6 +4316,8 @@ const VIEWS: ViewDef[] = [
   ...LOOM_VIEWS,
   // ── Phase 4g: Starlight and mastery on the run's screens, the Perfect-Ward trainer ────
   ...LOOM_RUN_VIEWS,
+  // ── Phase 5b: Brann and the roster ────────────────────────────────────────────────────
+  ...BRANN_VIEWS,
   {
     id: 'flow',
     group: 'Flow',

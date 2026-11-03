@@ -13,6 +13,7 @@ import { playUi, useMood } from '../kit/sound';
 import { Pips } from './shared';
 import { unforgivingLine } from './dissonanceModel';
 import { draftCopy } from './interlude';
+import { harmonyHint, harmonyNeeds, isHarmony } from './rosterModel';
 
 export interface DraftViewProps {
   run: RunState;
@@ -62,7 +63,12 @@ export function DraftView({ run, onPick, onReroll }: DraftViewProps) {
         >
           {options.map((o, i) => (
             <li key={o.motifId} className="anim-rise" style={{ animationDelay: `${i * 90}ms` }}>
-              <MotifCard option={o} index={i} onPick={() => onPick(i)} />
+              <MotifCard
+                option={o}
+                index={i}
+                onPick={() => onPick(i)}
+                party={run.party.map((h) => h.heroId)}
+              />
             </li>
           ))}
         </ul>
@@ -102,7 +108,13 @@ export function MotifCard({
   disabled = false,
   dim = false,
   label,
+  party,
 }: {
+  /**
+   * Phase 5b: the run's party (hero ids). A Harmony's prerequisite says what it would enable once
+   * its hero is in it (docs/phase-5b.md). Omitted: no hint.
+   */
+  party?: readonly string[];
   option: DraftOption;
   /** 0-based; shows the number key (omit for none). */
   index?: number;
@@ -118,6 +130,9 @@ export function MotifCard({
   const max = def.values.length;
   const prev = option.upgrade ? motifLine(def.id, option.level - 1) : null;
   const req = def.requires;
+  // Phase 5b: a Harmony wears a ribbon; its prerequisites say what they'd enable.
+  const harmony = isHarmony(def.id);
+  const enables = party ? harmonyHint(def.id, party) : null;
   return (
     <button
       type="button"
@@ -143,6 +158,17 @@ export function MotifCard({
       <h2 className="mt-3 font-display text-2xl font-bold leading-tight text-text">{def.name}</h2>
       <div className="mt-2 flex flex-wrap items-center gap-2">
         <RarityChip rarity={def.rarity} />
+        {harmony && (
+          <span data-testid="harmony-ribbon">
+            <Chip
+              color="var(--color-gold-200)"
+              icon="link"
+              title={`A Harmony: offered once you own ${harmonyNeeds(def.id).join(' and ')}`}
+            >
+              Harmony
+            </Chip>
+          </span>
+        )}
         {option.upgrade ? (
           <Chip color="var(--color-gold-300)" icon="arrow">
             Upgrade · level {option.level - 1} → {option.level}
@@ -163,6 +189,15 @@ export function MotifCard({
         Level <Pips level={option.level} max={max} color={cat.color} />
       </div>
       <div className="mt-auto pt-4">
+        {enables && (
+          <p
+            className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-gold-200"
+            data-testid="harmony-hint"
+          >
+            <Icon name="link" size={13} />
+            {enables}
+          </p>
+        )}
         {(req.aura || req.hero) && (
           <p className="mb-2 flex items-center gap-1.5 text-xs text-heal">
             <Icon name="check" size={13} />

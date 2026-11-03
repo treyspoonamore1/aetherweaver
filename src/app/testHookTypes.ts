@@ -128,6 +128,16 @@ export interface RunHook {
   leaveForge(): void;
   /** Phase 3c: Prep, choose the run's Calling (null: none). Respects the profile's unlocks. */
   setCalling(id: string | null): void;
+  /**
+   * Phase 5b, in Prep: picks the party (the run store's `setParty`: exactly three roster heroes,
+   * kept in content order) and returns the run's party after it (null without a run).
+   */
+  setParty(heroIds: string[]): string[] | null;
+  /**
+   * Phase 5b, test-only: recruits these heroes into the profile's roster (the store's `recruit`)
+   * and returns the roster after it.
+   */
+  recruit(heroIds: string[]): string[];
   /** The run's Calling and its path so far (null: none). */
   calling(): { id: string; path: (string | null)[] } | null;
   /** Phase 3d: what the run's songs reserve (`Run.reservePool`: Life on a Martyr run). */

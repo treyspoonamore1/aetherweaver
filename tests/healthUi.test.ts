@@ -27,7 +27,7 @@ import {
   toolbarSpot,
   weaverBarPlaceStyle,
 } from '../src/ui/hud/framesLayout';
-import { frameState, lifeColor, lifeLabels } from '../src/ui/hud/healthModel';
+import { frameLevel, frameState, lifeColor, lifeLabels } from '../src/ui/hud/healthModel';
 import { mockHud } from '../src/ui/lab/mock';
 import { useUi } from '../src/ui/store';
 import { sandbox, worldOf } from './sim/helpers';
@@ -247,6 +247,24 @@ describe('a hero’s life on their frame', () => {
     expect(raging(max * 0.15, max, 'brann')).toBe(true);
     expect(raging(max * 0.14, max, 'brann')).toBe(false);
     expect(raging(max * 0.3, max)).toBe(false);
+  });
+
+  it('the frame reads each hero’s own bands: the starters’ ramp, Brann’s with falling fast (W6)', () => {
+    const [kael, lyra, vexis] = mockHud('calm').party;
+    for (const h of [kael!, lyra!, vexis!])
+      for (const share of [1, 0.6, 0.49, 0.3, 0.24, 0.1])
+        expect(frameLevel({ ...h, hp: h.maxHp * share }), `${h.defId} ${share}`).toBe(
+          healthLevel(h.maxHp * share, h.maxHp),
+        );
+    const max = heroDef('brann').maxHp;
+    const brann = { ...kael!, id: 9, defId: 'brann', maxHp: max };
+    const blood = { rage: 0, bloodlust: false, deathless: false, oath: 0, tithe: false, bled: 0 };
+    expect(frameLevel({ ...brann, hp: max * 0.3, blood: { ...blood, fast: false } })).toBe(0);
+    expect(frameState({ ...brann, hp: max * 0.3, blood: { ...blood, fast: false } }).critical).toBe(
+      false,
+    );
+    expect(frameLevel({ ...brann, hp: max * 0.3, blood: { ...blood, fast: true } })).toBe(2);
+    expect(frameLevel({ ...brann, hp: max * 0.12 })).toBe(2);
   });
 
   it('the number a healer works from: life missing by default, or the percent, or life left', () => {

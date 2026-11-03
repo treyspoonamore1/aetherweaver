@@ -139,6 +139,14 @@ export function installRunHook(): void {
     pickRelic: (index) => run().pickRelic(index),
     leaveForge: () => run().leaveForge(),
     setCalling: (id) => run().setCalling(id),
+    setParty: (heroIds) => {
+      run().setParty(heroIds);
+      return run().run?.party.map((h) => h.heroId) ?? null;
+    },
+    recruit: (heroIds) => {
+      useProfile.getState().recruit(heroIds);
+      return useProfile.getState().roster();
+    },
     calling: () => {
       const c = run().run?.calling;
       return c ? { id: c.id, path: [...c.path] } : null;

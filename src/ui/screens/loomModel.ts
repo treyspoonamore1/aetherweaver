@@ -16,7 +16,7 @@ import { deedPoints, DEED_POINTS_MAX } from '../../meta/deeds';
 import { rosterHeroes } from '../../meta/bonds';
 import { opensAt } from '../../meta/dissonance';
 import { masteryFor, type Look, type ShopItem, type ShopKind } from '../../meta/loom';
-import { rankOf, rankProgress, type Profile } from '../../meta/profile';
+import { heroRoster, rankOf, rankProgress, type Profile } from '../../meta/profile';
 import { reliquaryOpen, type Reliquary } from '../../meta/reliquary';
 import type { RunState } from '../../meta/types';
 import { fmt, plural } from '../kit/format';
@@ -316,7 +316,7 @@ function badgeOf(
     case 'deeds': {
       // Out of the Deeds in sight (a later Movement's join once its enemies are met), counted as
       // the Codex's Deeds page counts them (`deedsTally`).
-      const { earned, total } = deedsTally(p.deeds, p.seen);
+      const { earned, total } = deedsTally(p.deeds, p.seen, heroRoster(p, unlockAll));
       return earned > 0 ? `${earned} of ${total} earned` : null;
     }
     case 'dissonance': {

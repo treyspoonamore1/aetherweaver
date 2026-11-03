@@ -1,9 +1,14 @@
 import { useState, type CSSProperties } from 'react';
 import { Icon, type IconName } from '../kit/Icon';
-import { useUi, type Callout } from '../store';
+import { useUi, type Callout, type HeroHud } from '../store';
 import { blindDecree } from '../screens/dissonanceModel';
 import { AnswerGlyph } from './AnswerGlyph';
-import { sightingDef, sightingOf } from './sighting';
+import { allyDef, allyOf, sightingDef, sightingOf } from './sighting';
+import { shownDecree } from './legionLook';
+import { heroInk } from '../kit/bondLook';
+
+/** The party as the decree banner reads it (docs/phase-5b.md): who is in it, who is condemned. */
+type CalloutParty = readonly Pick<HeroHud, 'defId' | 'execute'>[];
 
 /** Fades the element out over its last 350 ms, whatever its lifetime. */
 function useLifetime(expiresAt: number): number {
@@ -79,9 +84,11 @@ function HoldBanner({ c }: { c: Callout }) {
 }
 
 /** A boss's decree; under Blind Score (Phase 4d), what's coming without how to answer it. */
-function DecreeBanner({ c, blind }: { c: Callout; blind: boolean }) {
+function DecreeBanner({ c, blind, party }: { c: Callout; blind: boolean; party?: CalloutParty }) {
   const ttl = useLifetime(c.expiresAt);
-  const detail = c.detail && blind ? blindDecree(c.detail) : c.detail;
+  // As this party should read it (docs/phase-5b.md): no dome without one, Brann condemned.
+  const said = c.detail && party ? shownDecree(c.detail, party) : c.detail;
+  const detail = said && blind ? blindDecree(said) : said;
   return (
     <div
       className="max-w-xl rounded-xl border border-ailment/60 bg-ink-950/85 px-5 py-3 text-center shadow-xl shadow-black/60"
@@ -104,6 +111,9 @@ function NewFoe({ c, blind }: { c: Callout; blind: boolean }) {
   const ttl = useLifetime(c.expiresAt);
   const defId = sightingDef(c);
   const rewinds = useUi((st) => !!st.hud?.weaver.rewind);
+  // The fight's party (docs/phase-5b.md): no dome glyph without a hero who brings it.
+  const partyKey = useUi((st) => st.hud?.party.map((h) => h.defId).join(' ') ?? '');
+  const party = partyKey ? partyKey.split(' ') : undefined;
   const s = defId ? sightingOf(defId, rewinds) : null;
   return (
     <div
@@ -123,10 +133,46 @@ function NewFoe({ c, blind }: { c: Callout; blind: boolean }) {
         <p className="mt-1.5 flex flex-wrap items-center gap-1 text-xs text-muted">
           Answer:
           {s.answers.map((a) => (
-            <AnswerGlyph key={a} tag={a} />
+            <AnswerGlyph key={a} tag={a} party={party} />
           ))}
         </p>
       )}
+    </div>
+  );
+}
+
+/**
+ * A hero's first fight beside you (docs/phase-5b.md, the 'New ally' card, `ally:<id>`): who they
+ * are and the one rule that changes how you play them. Non-blocking, like a first sighting.
+ */
+function NewAlly({ c }: { c: Callout }) {
+  const ttl = useLifetime(c.expiresAt);
+  const defId = allyDef(c);
+  const a = defId ? allyOf(defId) : null;
+  if (!a) return null;
+  return (
+    <div
+      className="w-80 rounded-xl border bg-ink-950/90 px-4 py-3 shadow-xl shadow-black/60"
+      style={{ ...fadeStyle(ttl, 'toast-in 0.3s ease-out both'), borderColor: a.color }}
+      role="status"
+      aria-label={`New ally: ${a.name}. ${a.lines.join(' ')}`}
+      data-testid="new-ally"
+      data-ally={defId ?? undefined}
+    >
+      <p className="flex items-center gap-1.5 font-mono text-xs font-semibold uppercase tracking-[0.25em] text-gold-300">
+        <Icon name="sparkle" size={13} /> New ally
+      </p>
+      <p
+        className="mt-0.5 font-display text-lg font-bold leading-tight"
+        style={{ color: heroInk(defId!) }}
+      >
+        {a.name}
+      </p>
+      <ul className="mt-1 flex flex-col gap-0.5 text-sm leading-snug text-text">
+        {a.lines.map((l) => (
+          <li key={l}>{l}</li>
+        ))}
+      </ul>
     </div>
   );
 }
@@ -161,11 +207,14 @@ export function Callouts({
   callouts,
   barkSpeakers,
   blind = false,
+  party,
 }: {
   callouts: Callout[];
   barkSpeakers: string[];
   /** Phase 4d, Blind Score: a decree doesn't say how to answer it. */
   blind?: boolean;
+  /** Phase 5b: the party, so a decree reads true for it (no dome without Kael; Brann condemned). */
+  party?: CalloutParty;
 }) {
   const big = callouts.filter((c) => BIG.has(c.kind));
   const holds = callouts.filter((c) => c.kind === 'hold');
@@ -192,7 +241,7 @@ export function Callouts({
       </div>
       <div className="absolute left-1/2 top-[11.25rem] flex -translate-x-1/2 flex-col items-center gap-2">
         {decrees.slice(-1).map((c) => (
-          <DecreeBanner key={c.id} c={c} blind={blind} />
+          <DecreeBanner key={c.id} c={c} blind={blind} party={party} />
         ))}
       </div>
       <div className="absolute left-1/2 top-[7.5rem] flex -translate-x-1/2 flex-col items-center gap-2">
@@ -212,9 +261,9 @@ export function Callouts({
       {foes.length > 0 && (
         <div className="absolute right-6 top-[30%] flex flex-col items-end gap-2">
           {/* Every card: a foe's first sighting shows once ever (it is recorded as seen). */}
-          {foes.map((c) => (
-            <NewFoe key={c.id} c={c} blind={blind} />
-          ))}
+          {foes.map((c) =>
+            allyDef(c) ? <NewAlly key={c.id} c={c} /> : <NewFoe key={c.id} c={c} blind={blind} />,
+          )}
         </div>
       )}
       <div className="absolute left-1/2 top-[56%] flex -translate-x-1/2 flex-col items-center gap-1.5">

@@ -58,6 +58,7 @@ import { masteryLevel } from '../../meta/loom';
 import { MasteryGainRow } from './MasteryParts';
 import { RunStarlightPanel } from './StarlightParts';
 import { outcomeSub, summaryEyebrow } from './routeText';
+import { bloodLine, oathIn, runBlood } from './rosterModel';
 
 const GRADE_COLOR: Record<Grade, string> = {
   S: '#fde9b8',
@@ -205,7 +206,7 @@ export function SummaryView({
         }
       }
     }
-    return { id, damage, amplified };
+    return { id, damage, amplified, blood: runBlood(run, id) };
   });
   const aimed = totals.telegraphsAimed;
   const tally = withoutYouTally(run.results);
@@ -509,6 +510,15 @@ export function SummaryView({
                       <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-ink-700">
                         <div className="h-full bg-amp" style={{ width: `${share * 100}%` }} />
                       </div>
+                      {h.blood && (
+                        // Phase 5b: Brann's run, from his fights' Blood Rage stats.
+                        <p
+                          className="mt-1 text-xs leading-relaxed text-text"
+                          data-testid="blood-line"
+                        >
+                          {bloodLine(h.id, h.blood, oathIn(run, h.id), true)}
+                        </p>
+                      )}
                     </div>
                   </li>
                 );

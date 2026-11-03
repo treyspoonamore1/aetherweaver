@@ -36,6 +36,7 @@ import { songName } from '../../sim';
 import { plural } from '../kit/format';
 import type { IconName } from '../kit/iconPaths';
 import { callingTierAt } from './callingText';
+import { choiceText } from './rosterModel';
 
 // ── Aether ────────────────────────────────────────────────────────────────────────────
 
@@ -491,7 +492,17 @@ function hasEffect(choice: EventChoice, kind: EventEffect['kind']): boolean {
   return choice.effects.some((e) => e.kind === kind) || choice.fail.some((e) => e.kind === kind);
 }
 
-export function choiceInfo(run: RunState, eventId: string, choice: EventChoice): ChoiceInfo {
+/**
+ * A choice as the event screen shows it. `roster` (Phase 5b, docs/phase-5b.md): the profile's
+ * heroes, so a recruiting choice reads true once its hero is in the roster or the party
+ * (`choiceText`); omitted, only the party counts.
+ */
+export function choiceInfo(
+  run: RunState,
+  eventId: string,
+  choice: EventChoice,
+  roster?: readonly string[],
+): ChoiceInfo {
   const odds =
     choice.chance === undefined
       ? null
@@ -523,7 +534,11 @@ export function choiceInfo(run: RunState, eventId: string, choice: EventChoice):
   return {
     id: choice.id,
     label: choice.label,
-    text: choice.text,
+    text: choiceText(
+      choice,
+      run.party.map((h) => h.heroId),
+      roster,
+    ),
     cost: choice.cost,
     odds,
     problem: live ? eventChoiceProblem(run, choice.id) : null,

@@ -34,6 +34,14 @@ export function lifeLabels(
   return { big: missing >= 1 ? `−${fmt(missing)}` : '', percent };
 }
 
+/**
+ * A hero's alarm level on their frame: the shared ramp, or their own bands (Brann, docs/phase-5b.md:
+ * no hurt tier, critical below 15% or when falling fast).
+ */
+export function frameLevel(h: Pick<HeroHud, 'hp' | 'maxHp' | 'defId' | 'blood'>): HealthLevel {
+  return healthLevel(h.hp, h.maxHp, h.defId, h.blood?.fast);
+}
+
 /** What the whole frame says: critical (under a quarter), an ailment to cleanse, out of reach. */
 export function frameState(
   h: HeroHud,
@@ -41,7 +49,7 @@ export function frameState(
 ): { critical: boolean; ailing: boolean; far: boolean } {
   const standing = !h.dead && !h.downed;
   return {
-    critical: standing && healthLevel(h.hp, h.maxHp) === 2,
+    critical: standing && frameLevel(h) === 2,
     // Blind Score (Phase 4d) names no answer: no cleanse highlight under it.
     ailing: standing && !blind && h.statuses.some((s) => isAilment(s.id)),
     far: !h.dead && h.distance > CONTENT.techniques.ward.range,

@@ -1,4 +1,4 @@
-import { useEffect, type CSSProperties } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import { useProfile, type RankUp } from '../../app/profileStore';
 import { useRun } from '../../app/runStore';
 import { heroDef } from '../../content';
@@ -32,6 +32,7 @@ import { bondXpRows, fightBondXp } from './bondsModel';
 import { useSettings } from '../../app/settings';
 import { rankOf } from '../../meta/profile';
 import { StarlightGainPanel } from './StarlightParts';
+import { bloodLine, oathIn, recruitLine } from './rosterModel';
 
 export { HIGHLIGHT_COLOR, HIGHLIGHT_ICON, statLines };
 
@@ -69,6 +70,11 @@ export interface ResultViewProps {
    * Omitted: no Starlight panel.
    */
   loom?: { starlight: number; rank: number; all?: boolean; mastery?: number } | null;
+  /**
+   * Phase 5b: heroes this fight recruited for later runs (the profile store's `recruitNotices`,
+   * cleared once shown): a gain line each, with their portrait (docs/phase-5b.md).
+   */
+  recruits?: readonly string[];
 }
 
 export function ResultView({
@@ -83,6 +89,7 @@ export function ResultView({
   bonds,
   bondCard = null,
   loom = null,
+  recruits = [],
 }: ResultViewProps) {
   useMood('map');
   const victory = r.outcome === 'victory';
@@ -224,6 +231,29 @@ export function ResultView({
           </div>
         )}
 
+        {recruits.length > 0 && (
+          // Phase 5b: a hero recruited for later runs (the Cell won, or the fallback's fight).
+          <Panel tone="gold" className="anim-rise mt-6 p-4" data-testid="result-recruit">
+            <ul className="flex flex-col gap-2">
+              {recruits.map((id) => (
+                <li
+                  key={id}
+                  className="flex items-center gap-3 text-base leading-relaxed"
+                  data-recruit={id}
+                >
+                  <HeroDisc heroId={id} size={44} />
+                  <span>
+                    <span className="mr-2 font-mono text-xs font-semibold uppercase tracking-[0.25em] text-gold-300">
+                      A new ally
+                    </span>
+                    {recruitLine(id, r.encounterId)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </Panel>
+        )}
+
         {r.withoutYou && <WithoutYouPanel result={r} heroIds={heroIds} />}
 
         <div className="mt-6 grid gap-6 lg:grid-cols-[1.2fr_1fr]">
@@ -319,6 +349,12 @@ export function ResultView({
                         )}
                         . Ends at {pct(h.hpPct)} life.
                       </p>
+                      {h.blood && (
+                        // Phase 5b: Brann's fight, from his Blood Rage stats.
+                        <p className="text-xs leading-relaxed text-text" data-testid="blood-line">
+                          {bloodLine(h.heroId, h.blood, oathIn(run, h.heroId))}
+                        </p>
+                      )}
                       {bondRows
                         .filter((b) => b.heroId === h.heroId)
                         .map((b) => (
@@ -441,6 +477,11 @@ export function ResultScreen() {
   const unlockAll = useSettings((s) => s.settings.unlockAll);
   const { rankUps, firstTime, dismiss, deedPoints } = useRankUps();
   const bondCard = useBondCard();
+  // Phase 5b: the recruits this fight made, read once and then cleared (shown this once).
+  const [recruits] = useState(() => [...useProfile.getState().recruitNotices]);
+  useEffect(() => {
+    if (recruits.length > 0) useProfile.getState().clearRecruitNotices();
+  }, [recruits]);
   if (!run?.lastResult) return null;
   return (
     <ResultView
@@ -460,6 +501,7 @@ export function ResultScreen() {
         all: unlockAll,
         mastery: run.calling ? (mastery[run.calling.id] ?? 0) : undefined,
       }}
+      recruits={recruits}
     />
   );
 }
