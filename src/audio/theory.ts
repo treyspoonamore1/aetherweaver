@@ -63,6 +63,11 @@ export const CHORDS = {
   Am7: chord('Am7', 45, [0, 3, 7, 10]),
   Em7: chord('Em7', 40, [0, 3, 7, 10]),
   Dsus2: chord('Dsus2', 38, [0, 2, 7]),
+  // Phase 5a, the Crimson Spire: plain triads (a war band's chords, not a choir's), and the
+  // dorian's own half-diminished chord on B, which keeps the D and F of the plan's B♭.
+  Dm: chord('Dm', 38, [0, 3, 7]),
+  C: chord('C', 36, [0, 4, 7]),
+  Bm7b5: chord('Bø7', 47, [0, 3, 6, 10]),
 } as const;
 
 /** Bright 8-bar loop for title / map / calm / combat. */
@@ -101,6 +106,34 @@ export const PROGRESSION_LOOM: readonly Chord[] = [
   CHORDS.Cmaj7,
   CHORDS.Am7,
   CHORDS.Dsus2,
+];
+
+/**
+ * Phase 5a, the Crimson Spire (docs/phase-5a.md): Dm–C–B–C, twice. The plan's B♭ is outside D
+ * dorian (and every pitched sound quantises to the key), so the third bar is the dorian's own
+ * Bø7 (B D F A): it keeps the B♭ chord's D and F, and its B♮ is the mode's dark colour. The key
+ * and tempo stay D dorian at 88 BPM.
+ */
+export const PROGRESSION_CRIMSON: readonly Chord[] = [
+  CHORDS.Dm,
+  CHORDS.C,
+  CHORDS.Bm7b5,
+  CHORDS.C,
+  CHORDS.Dm,
+  CHORDS.C,
+  CHORDS.Bm7b5,
+  CHORDS.C,
+];
+/** The Crimson Spire's boss loop: the tonic held, the half-diminished twice, home by Em7–Am7. */
+export const PROGRESSION_CRIMSON_BOSS: readonly Chord[] = [
+  CHORDS.Dm,
+  CHORDS.Dm,
+  CHORDS.Bm7b5,
+  CHORDS.C,
+  CHORDS.Dm,
+  CHORDS.Bm7b5,
+  CHORDS.Em7,
+  CHORDS.Am7,
 ];
 
 export function chordPitchClasses(c: Chord): number[] {
@@ -296,4 +329,30 @@ export const MELODY_DARK: readonly (readonly Slot[])[] = [
   [6, _, 4, _, 6, _, 8, _],
   [5, _, 3, _, 1, _, 3, _],
   [0, _, _, _, _, _, _, _],
+];
+
+/**
+ * Phase 5a: the Crimson Spire's low horn ostinato over PROGRESSION_CRIMSON (played an octave
+ * down): the chord's root, third and fifth hammered out in a march rhythm.
+ */
+export const MELODY_CRIMSON: readonly (readonly Slot[])[] = [
+  [0, _, 0, 2, 4, _, 2, _],
+  [-1, _, -1, 1, 3, _, 1, _],
+  [-2, _, -2, 0, 2, _, 0, _],
+  [-1, _, 1, _, 3, _, 4, _],
+  [0, _, 0, 2, 4, _, 7, _],
+  [3, _, 1, _, -1, _, 1, _],
+  [-2, _, 0, 2, 5, _, 2, _],
+  [-1, _, _, _, 1, _, _, _],
+];
+/** The ostinato over PROGRESSION_CRIMSON_BOSS: heavier, with rests where the drums speak. */
+export const MELODY_CRIMSON_BOSS: readonly (readonly Slot[])[] = [
+  [0, _, _, 0, 2, _, 0, _],
+  [4, _, _, 2, 0, _, _, _],
+  [-2, _, _, -2, 2, _, 0, _],
+  [-1, _, 1, _, 3, _, 1, _],
+  [0, _, _, 0, 4, _, 2, _],
+  [5, _, _, 2, 0, _, -2, _],
+  [1, _, _, 1, 3, _, 5, _],
+  [4, _, 2, _, -3, _, _, _],
 ];

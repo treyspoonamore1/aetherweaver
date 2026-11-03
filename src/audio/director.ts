@@ -16,6 +16,7 @@ import type {
   Volumes,
 } from './types';
 import { BEAT } from './theory';
+import type { Biome } from '../content';
 import type { SimEvent, WorldState } from '../sim';
 import { useRun } from '../app/runStore';
 import { useSettings } from '../app/settings';
@@ -58,6 +59,8 @@ export class SynthDirector implements AudioDirector {
   private music: MusicEngine | null = null;
   private sfx: SfxEngine | null = null;
   private mood: AudioMood = 'silent';
+  /** Phase 5a: the biome the music and ambience voice (kept for a MusicEngine made later). */
+  private biome: Biome = 'reliquary';
   private volumes: Volumes = { master: 0.8, music: 0.6, sfx: 0.9, ui: 0.7 };
   /** The low-life alert, kept for an SfxEngine made later (docs/health-ui.md). */
   private lowLifeAlert = true;
@@ -66,7 +69,14 @@ export class SynthDirector implements AudioDirector {
   private disabled = false;
   private eventsHandled = 0;
   private readonly cleanups: (() => void)[] = [];
-  private lastInputs = { intensity: 0, resonance: 0, crescendo: false, downed: 0, bossPhase: 0 };
+  private lastInputs = {
+    intensity: 0,
+    resonance: 0,
+    crescendo: false,
+    downed: 0,
+    bossPhase: 0,
+    apex: false,
+  };
   private readonly callingOf: (() => string | null) | null;
 
   constructor(private readonly options: DirectorOptions = {}) {
@@ -118,6 +128,7 @@ export class SynthDirector implements AudioDirector {
       this.sfx.lowLifeAlert = this.lowLifeAlert;
       this.engine.setVolumes(this.volumes);
       this.music.setMood(this.mood);
+      this.music.setBiome(this.biome);
       const offline =
         typeof OfflineAudioContext !== 'undefined' && ctx instanceof OfflineAudioContext;
       this.unlocked = offline || ctx.state === 'running';
@@ -210,6 +221,21 @@ export class SynthDirector implements AudioDirector {
     this.music?.setMood(mood);
   }
 
+  /**
+   * Phase 5a (docs/phase-5a.md): the biome the map and the fight are voiced in. The runtime
+   * gives the arena's, the Map the Movement's. The Sunlit Reliquary until called; the title,
+   * the Loom and the victory and defeat stingers sound the same in every biome.
+   */
+  setBiome(biome: Biome): void {
+    this.biome = biome;
+    this.music?.setBiome(biome);
+  }
+
+  /** Phase 5a: the biome last asked for (the lab, tests). */
+  getBiome(): Biome {
+    return this.biome;
+  }
+
   playUi(sound: UiSound, calling?: string | null, detail?: UiSoundDetail): void {
     if (!this.live || !this.engine) return;
     const source = this.callingOf;
@@ -258,9 +284,17 @@ export class SynthDirector implements AudioDirector {
         crescendo: false,
         downed: 0,
         bossPhase: 0,
+        apex: false,
       });
     }
-    this.lastInputs = { intensity: 0, resonance: 0, crescendo: false, downed: 0, bossPhase: 0 };
+    this.lastInputs = {
+      intensity: 0,
+      resonance: 0,
+      crescendo: false,
+      downed: 0,
+      bossPhase: 0,
+      apex: false,
+    };
   }
 
   dispose(): void {

@@ -310,7 +310,9 @@ export class FakeWorld {
   addTelegraph(
     id: number,
     windup: number,
-    opts: Partial<Pick<FakeTelegraph, 'kind' | 'answers' | 'target' | 'severity'>> & {
+    opts: Partial<
+      Pick<FakeTelegraph, 'kind' | 'answers' | 'target' | 'severity' | 'attackId' | 'name'>
+    > & {
       x?: number;
     } = {},
   ): FakeTelegraph {
@@ -321,8 +323,8 @@ export class FakeWorld {
       id,
       owner: IDS.enemyBase,
       target,
-      attackId: 'lab',
-      name: 'Lab',
+      attackId: opts.attackId ?? 'lab',
+      name: opts.name ?? 'Lab',
       kind,
       shape:
         kind === 'mark' && target !== null
@@ -520,16 +522,25 @@ export class FakeWorld {
     });
     return id;
   }
-  /** Adds one enemy of a role at x (kill sounds read the role from the entity). */
-  addEnemy(role: string, x: number): number {
+  /**
+   * Adds one enemy of a role at x (kill sounds read the role from the entity). Phase 5a: or a
+   * content enemy by its def id (a Legion soldier, the Matriarch, Vharun): its role, tier and def
+   * id, as the sim would spawn it, so its sounds read its material.
+   */
+  addEnemy(roleOrDef: string, x: number): number {
     const id = IDS.enemyBase + 100 + this.entities.size;
+    const def = CONTENT.enemies.find((e) => e.id === roleOrDef);
+    const role = def?.role ?? roleOrDef;
+    const tier = role === 'boss' || role === 'miniboss' ? role : 'normal';
     this.entities.set(id, {
       id,
       kind: 'enemy',
       x,
       z: 5,
       health: health(0, 100, true),
-      enemy: { role, tier: 'normal', state: 'dying', phase: 0 },
+      enemy: def
+        ? { role, tier, state: 'dying', phase: 0, defId: def.id }
+        : { role, tier: 'normal', state: 'dying', phase: 0 },
     });
     return id;
   }

@@ -4,6 +4,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSettings } from '../../app/settings';
+import type { Biome } from '../../content';
 import { getAudio, type SynthDirector } from '../index';
 import type { AudioDebugStats, AudioMood, Volumes } from '../types';
 import { Fight } from './fight';
@@ -32,6 +33,22 @@ const MOODS: AudioMood[] = [
   'victory',
   'defeat',
 ];
+/** Phase 5a: the biomes the music and ambience voice, and Vharun's phases (0: no boss). */
+const BIOMES: { id: Biome; label: string }[] = [
+  { id: 'reliquary', label: 'Sunlit Reliquary' },
+  { id: 'crimson_spire', label: 'Crimson Spire' },
+];
+const WARDEN_PHASES = [0, 1, 2, 3] as const;
+/** Phase 5a: the Crimson Spire's moods for the audits (a boss at each of Vharun's phases). */
+const CRIMSON_AUDITS: [AudioMood, number][] = [
+  ['map', 0],
+  ['calm', 0],
+  ['combat', 0],
+  ['boss', 1],
+  ['boss', 2],
+  ['boss', 3],
+];
+
 const GROUPS: {
   id: SoundButton['group'];
   title: string;
@@ -62,6 +79,11 @@ const GROUPS: {
     title:
       'Phase 4g · The Loom (the Atelier, keepsakes, stations, Starlight; the Perfect-Ward trainer)',
   },
+  {
+    id: 'crimson',
+    title:
+      'Phase 5a · The Crimson Legion (its statuses, the Chime’s release, the guard, charges, the Tide, Execution, iron kills)',
+  },
   { id: 'world', title: 'World, enemies and telegraphs' },
   { id: 'ui', title: 'UI' },
 ];
@@ -81,6 +103,9 @@ declare global {
       /** Phase 4d: the audit and the pitch report for the named buttons only. */
       auditIds(ids: string[]): Promise<Record<string, LevelReport>>;
       pitchIds(ids: string[]): Promise<Record<string, PitchReport>>;
+      /** Phase 5a: the biome the music voices, and the Crimson Spire's moods' pitch reports. */
+      setBiome(biome: Biome): void;
+      pitchCrimson(): Promise<Record<string, PitchReport>>;
       world: FakeWorld;
     };
   }
@@ -147,6 +172,8 @@ export function AudioLab() {
   const [fighting, setFighting] = useState(false);
   const [autoSupport, setAutoSupport] = useState(true);
   const [mood, setMoodState] = useState<AudioMood>('calm');
+  const [biome, setBiomeState] = useState<Biome>(() => director.getBiome());
+  const [wardenPhase, setWardenPhase] = useState(0);
   const [resonance, setResonance] = useState(0);
   const [enemies, setEnemies] = useState(0);
   const [tension, setTension] = useState(0);
@@ -184,6 +211,14 @@ export function AudioLab() {
     (m: AudioMood) => {
       setMoodState(m);
       director.setMood(m);
+    },
+    [director],
+  );
+
+  const setBiome = useCallback(
+    (b: Biome) => {
+      setBiomeState(b);
+      director.setBiome(b);
     },
     [director],
   );
@@ -255,7 +290,11 @@ export function AudioLab() {
     world.setResonance(resonance);
     fightRef.current?.setResonance(resonance);
   }, [world, resonance]);
-  useEffect(() => world.setEnemies(enemies), [world, enemies]);
+  // Phase 5a: a final boss at a phase (Vharun's stems) stands in for the enemy count.
+  useEffect(() => {
+    if (wardenPhase > 0) world.setEnemies(1, 'boss', 'boss', wardenPhase);
+    else world.setEnemies(enemies);
+  }, [world, enemies, wardenPhase]);
   useEffect(() => world.setTension(tension), [world, tension]);
   useEffect(() => world.setChords(planted, unison), [world, planted, unison]);
   useEffect(() => world.setCrescendo(crescendo), [world, crescendo]);
@@ -321,11 +360,20 @@ export function AudioLab() {
           if (ids.includes(s.id)) out[s.id] = pitchReport(await renderSound(s), 1.5, false);
         return out;
       },
+      setBiome,
+      pitchCrimson: async () => {
+        const out: Record<string, PitchReport> = {};
+        for (const [m, p] of CRIMSON_AUDITS)
+          out[`crimson:${m}@100/${p}`] = pitchReport(
+            await renderMood(m, 100, 16, undefined, 'crimson_spire', m === 'boss' ? p : 0),
+          );
+        return out;
+      },
     };
     return () => {
       delete window.__audioLab;
     };
-  }, [director, world, startFight, stopFight]);
+  }, [director, world, startFight, stopFight, setBiome]);
 
   const runAudit = async () => {
     setBusy('Auditing every sound offline…');
@@ -341,6 +389,16 @@ export function AudioLab() {
       out[`${m} · res 0`] = await auditMood(m, 0, 16, volumes);
       out[`${m} · res 100`] = await auditMood(m, 100, 16, volumes);
     }
+    // Phase 5a: the Crimson Spire's moods, the boss at each of Vharun's phases.
+    for (const [m, p] of CRIMSON_AUDITS)
+      out[`crimson ${m}${m === 'boss' ? ` p${p}` : ''} · res 100`] = await auditMood(
+        m,
+        100,
+        16,
+        volumes,
+        'crimson_spire',
+        m === 'boss' ? p : 0,
+      );
     setMoodAudit(out);
     setBusy('');
   };
@@ -387,6 +445,33 @@ export function AudioLab() {
                 {m}
               </Btn>
             ))}
+          </div>
+          <div className="flex flex-wrap items-center gap-2 text-xs text-muted">
+            <span className="w-28">Biome</span>
+            {BIOMES.map((b) => (
+              <Btn
+                key={b.id}
+                active={biome === b.id}
+                onClick={() => setBiome(b.id)}
+                testId={`biome-${b.id}`}
+              >
+                {b.label}
+              </Btn>
+            ))}
+            <label className="flex items-center gap-1" title="A final boss at this phase">
+              Vharun phase{' '}
+              <select
+                value={wardenPhase}
+                data-testid="warden-phase"
+                onChange={(e) => setWardenPhase(Number(e.target.value))}
+              >
+                {WARDEN_PHASES.map((p) => (
+                  <option key={p} value={p}>
+                    {p === 0 ? 'none' : p === 2 ? '2 (Bloodmoon)' : p === 3 ? '3 (judgement)' : p}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
           <Slider
             label="Resonance"
@@ -455,7 +540,8 @@ export function AudioLab() {
           </div>
           <div className="space-y-1 pt-1">{stemRow}</div>
           <p className="text-xs text-muted">
-            Tier {stats.tier}/4 · intensity {stats.intensity.toFixed(2)} · mood {stats.mood}
+            Tier {stats.tier}/4 · intensity {stats.intensity.toFixed(2)} · mood {stats.mood} · biome{' '}
+            {biome}
           </p>
         </div>
 

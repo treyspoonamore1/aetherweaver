@@ -168,6 +168,93 @@ export const VARIANT_SOUND_LIMITS: Readonly<Record<string, readonly [number, num
   'variant:absolveGuard': [0.3, 1],
 };
 
+/**
+ * Phase 5a, the Crimson Legion (docs/phase-5a.md): the voice group of each Movement II sound. The
+ * statuses' (`statusApplied`), a hero freed (`statusRemoved` 'freed'), the Chime's release
+ * (scaled by the stacks it cleared), the Sentinel's guard, the attacks that move their caster
+ * (`attackFired` 'charge' and 'leap'), the Crimson Tide breaking, the Matriarch's Pack Call howl,
+ * and Execution's drum roll and its outcome. Movement I has none of these.
+ */
+export const LEGION_SOUND_GROUPS = {
+  bleed: 'legion:bleed',
+  pinned: 'legion:pin',
+  latched: 'legion:latch',
+  wound: 'legion:wound',
+  pact: 'legion:pact',
+  condemned: 'legion:condemned',
+  freed: 'legion:freed',
+  release: 'legion:release',
+  guardBlocked: 'legion:guard',
+  guardBroken: 'legion:guardBreak',
+  charge: 'legion:charge',
+  leap: 'legion:leap',
+  tide: 'legion:tide',
+  howl: 'legion:howl',
+  roll: 'legion:roll',
+  executed: 'legion:gong',
+  spared: 'legion:spared',
+} as const;
+export type LegionGroup = keyof typeof LEGION_SOUND_GROUPS;
+
+/** Phase 5a: each Legion sound's rate gate (seconds) and voice cap. */
+export const LEGION_SOUND_LIMITS: Readonly<Record<LegionGroup, readonly [number, number]>> = {
+  bleed: [0.15, 2],
+  pinned: [0.12, 2],
+  latched: [0.2, 2],
+  wound: [0.2, 2],
+  pact: [0.4, 1],
+  condemned: [1, 1],
+  freed: [0.1, 2],
+  release: [0.1, 2],
+  guardBlocked: [0.25, 2],
+  guardBroken: [0.3, 1],
+  charge: [0.15, 2],
+  leap: [0.15, 2],
+  tide: [0.4, 2],
+  howl: [1, 1],
+  roll: [0.3, 1],
+  executed: [0.5, 1],
+  spared: [0.5, 1],
+};
+
+/** Phase 5a: the attacks with a sound of their own (by content id). */
+export const LEGION_ATTACK_SOUNDS: Readonly<Record<string, 'howl' | 'roll' | 'tide'>> = {
+  gorehound_pack_call: 'howl',
+  vharun_execution: 'roll',
+  vharun_crimson_tide: 'tide',
+  vharun_crimson_tide_back: 'tide',
+};
+
+/** Phase 5a: from this many bleed stacks the Chime is due, and the bleed tick says so. */
+export const BLEED_CHIME_AT = 5;
+
+/** Phase 5a: an enemy's material (iron for the Legion; porcelain, the default, otherwise). */
+const materialOf = (defId: string): string | undefined => {
+  try {
+    return enemyDef(defId).material;
+  } catch {
+    return undefined;
+  }
+};
+
+/** Phase 5a: the Movement II statuses with a voice on `statusApplied`. */
+const LEGION_STATUSES: ReadonlySet<string> = new Set([
+  'bleed',
+  'pinned',
+  'latched',
+  'wound',
+  'pact',
+  'condemned',
+]);
+/** Phase 5a: the Movement II ailments a Chime's release counts (a bleed by its stacks). */
+const LEGION_AILMENTS: ReadonlySet<string> = new Set(['bleed', 'latched', 'wound']);
+/** Phase 5a: the content names of the attacks with their own sound (a lab's telegraph has no id). */
+const LEGION_ATTACK_NAMES: ReadonlyMap<string, string> = new Map(
+  CONTENT.attacks
+    .filter((a) => LEGION_ATTACK_SOUNDS[a.id] !== undefined)
+    .map((a) => [a.id, a.name] as const),
+);
+
 /** Phase 4f: a variant's number from the content (the lead is retuning them). */
 const variantValueOf = (id: string, key: string): number =>
   CONTENT.techniqueVariants.find((v) => v.id === id)?.values[key] ?? 0;
@@ -329,6 +416,17 @@ export class SfxEngine {
   private batchLinkAlone = false;
   private batchPerfects = 0;
   private batchShare = false;
+  /**
+   * Phase 5a: each hero's bleed stacks as the events told them (a cleanse's release counts what
+   * it cleared), this batch's cleared stacks and heroes downed, the Execution and Crimson Tide
+   * telegraphs still to resolve, and a turn for the iron kills' tones.
+   */
+  private readonly bleed = new Map<number, number>();
+  private batchCleared = 0;
+  private readonly batchDowned = new Set<number>();
+  private readonly executions = new Set<number>();
+  private readonly tides = new Set<number>();
+  private ironTurn = 0;
 
   constructor(
     private readonly e: Engine,
@@ -385,6 +483,8 @@ export class SfxEngine {
         if (typeof console !== 'undefined') console.warn('[audio] event failed', ev.type, err);
       }
     }
+    // Phase 5a: a Chime that cleared Movement II ailments releases them, once for the batch.
+    if (this.batchCleared > 0) this.chimeRelease(this.batchCleared);
   }
 
   /**
@@ -400,6 +500,8 @@ export class SfxEngine {
     this.batchLinkAlone = false;
     this.batchPerfects = 0;
     this.batchShare = false;
+    this.batchCleared = 0;
+    this.batchDowned.clear();
     try {
       // Perfects by the attack they met; link hits as runs from one source (a shared hit is a
       // run on two members or more).
@@ -421,6 +523,15 @@ export class SfxEngine {
         } else if (ev.type === 'linked') {
           this.link = { a: ev.a, b: ev.b, weaver: ev.weaver, until: ev.until };
           if (!ev.weaver) this.batchLinkAlone = ev.a === ev.b;
+        } else if (ev.type === 'statusApplied' && ev.status === 'bleed') {
+          // Phase 5a: the stacks after this bite (one more, if the event doesn't say).
+          this.bleed.set(ev.target, ev.stacks ?? (this.bleed.get(ev.target) ?? 0) + 1);
+        } else if (ev.type === 'statusRemoved' && LEGION_AILMENTS.has(ev.status)) {
+          const stacks = ev.status === 'bleed' ? (this.bleed.get(ev.target) ?? 1) : 1;
+          if (ev.status === 'bleed') this.bleed.delete(ev.target);
+          if (ev.reason === 'cleansed') this.batchCleared += stacks;
+        } else if (ev.type === 'allyDowned' || ev.type === 'allyOut') {
+          this.batchDowned.add(ev.hero);
         } else if (ev.type === 'damageTaken' && this.linkMember(ev, state)) {
           if (ev.source === runSource && ev.telegraph === runTelegraph) run++;
           else run = 1;
@@ -477,6 +588,22 @@ export class SfxEngine {
         break;
       case 'statusApplied':
         if (ev.status === 'absolved') this.absolveGuard(ev.target, state);
+        // Phase 5a: the Movement II statuses.
+        else if (LEGION_STATUSES.has(ev.status)) this.legionStatus(ev, state);
+        break;
+      case 'statusRemoved':
+        // Phase 5a: a Reel freed a hero from a pin or a latch.
+        if (ev.reason === 'freed') this.freed(ev.target, state);
+        break;
+      case 'guardBlocked':
+        this.guardBlocked(ev.enemy, state);
+        break;
+      case 'guardBroken':
+        this.guardBroken(ev.enemy, state);
+        break;
+      case 'attackFired':
+        // Phase 5a: an attack that moves its caster (Impaling Charge, Impale, Pounce).
+        if (ev.visual === 'charge' || ev.visual === 'leap') this.attackMoved(ev, state);
         break;
       case 'save':
         this.save(ev.cause, ev.target, state);
@@ -691,6 +818,14 @@ export class SfxEngine {
         // An attack called off before it lands (its caster killed or interrupted, undone by
         // Paradox, the fight over) stops winding up rather than swell into nothing.
         if (ev.outcome === 'cancelled') this.cutWindup(ev.telegraph);
+        // Phase 5a: Execution's gong or bell, and the Crimson Tide breaking (once each).
+        if (this.executions.delete(ev.telegraph) && ev.outcome !== 'cancelled')
+          this.executionOutcome(ev.target, state);
+        if (this.tides.delete(ev.telegraph) && ev.outcome !== 'cancelled') this.tide();
+        break;
+      case 'telegraphEnded':
+        this.executions.delete(ev.telegraph);
+        this.tides.delete(ev.telegraph);
         break;
       case 'fieldPlanted':
         this.fieldPlanted(this.panFor(state, ev.x));
@@ -1679,6 +1814,11 @@ export class SfxEngine {
       }
     }
     const pan = this.panFor(state, x);
+    // Phase 5a: the Legion is iron, not porcelain.
+    if (materialOf(defId) === 'iron') {
+      this.ironKill(role, pan);
+      return;
+    }
     const glassTone = () =>
       midiToHz(scaleMidi([14, 16, 18, 21][Math.floor(Math.random() * 4)] as number));
     switch (role) {
@@ -4117,6 +4257,495 @@ export class SfxEngine {
     });
   }
 
+  // ── Phase 5a: the Crimson Legion ─────────────────────────────────────────────────
+  /** One Legion sound through its own gate and voice cap (LEGION_SOUND_LIMITS). */
+  private legion(
+    group: LegionGroup,
+    build: (v: Voice, t: number) => void,
+    opts: PlayOpts = {},
+  ): VoiceHandle | null {
+    const [gate, cap] = LEGION_SOUND_LIMITS[group];
+    const key = LEGION_SOUND_GROUPS[group];
+    if (!this.e.gate(key, gate)) return null;
+    return this.play(key, cap, 'sfx', build, opts);
+  }
+
+  /** The Movement II statuses' own voices (each Movement I status keeps the sound it had). */
+  private legionStatus(ev: Extract<SimEvent, { type: 'statusApplied' }>, state: WorldState): void {
+    const pan = state.entities ? this.heroPan(state, ev.target) : 0;
+    switch (ev.status) {
+      case 'bleed':
+        this.bleedTick(ev.stacks ?? this.bleed.get(ev.target) ?? 1, pan);
+        break;
+      case 'pinned':
+        this.legion(
+          'pinned',
+          (v, t) => {
+            // The stake goes in (a thunk on A2)…
+            thump(v, t, tone(-10), 0.22, 0.2, 0.55);
+            v.noise({ start: t, dur: 0.06, gain: 0.1, filter: { type: 'lowpass', freq: 900 } });
+            // …and its chain pays out after it: four links, each a glint high in the key.
+            for (let i = 0; i < 4; i++) {
+              const at = t + 0.07 + i * 0.045;
+              v.noise({
+                start: at,
+                dur: 0.02,
+                gain: 0.04 - i * 0.006,
+                filter: { type: 'bandpass', freq: 5200 - i * 400, q: 4 },
+              });
+              v.osc({
+                type: 'sine',
+                freq: tone(i % 2 === 0 ? 21 : 23),
+                start: at,
+                dur: 0.08,
+                attack: 0.002,
+                release: 0.05,
+                gain: 0.012,
+              });
+            }
+          },
+          { pan },
+        );
+        break;
+      case 'latched':
+        this.legion(
+          'latched',
+          (v, t) => {
+            // A suck: air drawn in through a narrowing band, a low note sinking under it.
+            v.noise({
+              start: t,
+              dur: 0.24,
+              attack: 0.2,
+              release: 0.04,
+              gain: 0.07,
+              shape: 'sustain',
+              filter: { type: 'bandpass', freq: 300, freqTo: 1600, q: 2.2 },
+            });
+            v.osc({
+              type: 'sine',
+              freq: tone(-7),
+              freqTo: tone(-10),
+              glide: 0.28,
+              start: t,
+              dur: 0.3,
+              attack: 0.05,
+              release: 0.08,
+              gain: 0.05,
+            });
+          },
+          { pan },
+        );
+        break;
+      case 'wound':
+        this.legion(
+          'wound',
+          (v, t) => {
+            // A muffled thud: healing will land dull for a while.
+            thump(v, t, tone(-14), 0.14, 0.22, 0.6);
+            v.noise({ start: t, dur: 0.08, gain: 0.06, filter: { type: 'lowpass', freq: 240 } });
+            v.osc({
+              type: 'triangle',
+              freq: tone(-5),
+              start: t + 0.01,
+              dur: 0.18,
+              attack: 0.01,
+              release: 0.1,
+              gain: 0.03,
+              filter: { type: 'lowpass', freq: 380 },
+            });
+          },
+          { pan },
+        );
+        break;
+      case 'pact':
+        // Both heroes of a Pact get it in one batch: one sound, two hearts beating together.
+        this.legion('pact', (v, t) => {
+          for (const [at, f, g] of [
+            [0, tone(-14), 0.14],
+            [0.1, tone(-17), 0.1],
+            [0.22, tone(-14), 0.1],
+            [0.32, tone(-17), 0.07],
+          ] as const) {
+            thump(v, t + at, f, g, 0.18, 0.6);
+            v.noise({
+              start: t + at,
+              dur: 0.06,
+              gain: g * 0.35,
+              filter: { type: 'lowpass', freq: 260 },
+            });
+          }
+        });
+        break;
+      case 'condemned':
+        // The sentence: a low horn under the Execution's drum roll.
+        this.legion('condemned', (v, t) => {
+          horn(v, t, tone(-14), 0.9, 0.08);
+          horn(v, t + 0.02, tone(-10), 0.9, 0.05);
+        });
+        break;
+      default:
+        break;
+    }
+  }
+
+  /**
+   * A bleed stack lands: a wet pluck that climbs a step of the key with every stack (E5 for one,
+   * up to E6 at eight). From five stacks on, the Chime's moment, a glass glint rings over it.
+   * Gated (0.15 s), so a pack biting at once is one tick, not eight.
+   */
+  private bleedTick(stacks: number, pan: number): void {
+    const n = clamp(Math.round(stacks), 1, 8);
+    this.legion(
+      'bleed',
+      (v, t) => {
+        pluck(v, t, tone(7 + n), 0.05 + 0.006 * n, 0.18, 0.3);
+        v.noise({
+          start: t,
+          dur: 0.04,
+          gain: 0.03 + 0.003 * n,
+          filter: { type: 'bandpass', freq: 900 + n * 90, q: 3 },
+        });
+        if (n >= BLEED_CHIME_AT) glassNote(v, t + 0.04, tone(14 + n), 0.018, 0.5, 0.8);
+      },
+      { pan },
+    );
+  }
+
+  /**
+   * A Chime cleansed Movement II ailments: a release that grows with what it cleared (every bleed
+   * stack, and one for each latch or wound): a rising glass arpeggio, one to five notes.
+   */
+  private chimeRelease(cleared: number): void {
+    const notes = chordNotesInRange(this.chord(), 76, 100);
+    const n = clamp(1 + Math.floor(cleared / 2), 1, 5);
+    const g = 0.025 + 0.004 * Math.min(cleared, 8);
+    this.legion('release', (v, t) => {
+      for (let i = 0; i < n; i++) {
+        const m = notes[Math.min(i, notes.length - 1)] ?? 79;
+        glassNote(v, t + i * 0.05, midiToHz(m), g * (1 - i * 0.08), 0.9, 0.85);
+      }
+      whoosh(v, t, 0.3 + 0.04 * n, 0.01 + 0.002 * n, 1200, 5200, 1);
+    });
+  }
+
+  /** A Reel pulled a hero out of a pin or a latch: the chain snaps. */
+  private freed(target: number, state: WorldState): void {
+    const pan = state.entities ? this.heroPan(state, target) : 0;
+    this.legion(
+      'freed',
+      (v, t) => {
+        v.noise({ start: t, dur: 0.05, gain: 0.1, filter: { type: 'highpass', freq: 3800 } });
+        anvil(v, t, tone(11), 0.03, 0.4);
+        // The links fall away, ringing down.
+        for (let i = 0; i < 3; i++)
+          v.osc({
+            type: 'sine',
+            freq: tone(18 - i * 2),
+            start: t + 0.05 + i * 0.06,
+            dur: 0.12,
+            attack: 0.002,
+            release: 0.08,
+            gain: 0.015,
+          });
+      },
+      { pan },
+    );
+  }
+
+  /** A hit on a Sentinel's guard: a dull clank. Gated: a volley on the shield is one clank. */
+  private guardBlocked(enemy: number, state: WorldState): void {
+    const x = state.entities?.get(enemy)?.x;
+    this.legion(
+      'guardBlocked',
+      (v, t) => {
+        anvil(v, t, tone(-3), 0.03, 0.35);
+        thump(v, t, tone(-10), 0.1, 0.12, 0.6);
+        v.noise({
+          start: t,
+          dur: 0.04,
+          gain: 0.05,
+          filter: { type: 'bandpass', freq: 1100, q: 2 },
+        });
+      },
+      { pan: x === undefined ? 0 : this.panFor(state, x) },
+    );
+  }
+
+  /** The guard broken (an Empowered Piercing Shot): a shatter of iron and glass. */
+  private guardBroken(enemy: number, state: WorldState): void {
+    const x = state.entities?.get(enemy)?.x;
+    const notes = chordNotesInRange(this.chord(), 79, 98);
+    this.legion(
+      'guardBroken',
+      (v, t) => {
+        v.noise({ start: t, dur: 0.25, gain: 0.1, filter: { type: 'highpass', freq: 3500 } });
+        anvil(v, t, tone(0), 0.05, 1);
+        thump(v, t, tone(-17), 0.2, 0.25, 0.5);
+        for (let i = 0; i < 3; i++) {
+          const m = notes[Math.max(0, notes.length - 1 - i)] ?? 86;
+          glassNote(v, t + 0.03 + i * 0.05, midiToHz(m), 0.035, 0.6, 0.9);
+        }
+      },
+      { pan: x === undefined ? 0 : this.panFor(state, x), big: true },
+    );
+  }
+
+  /** An attack that moves its caster: a charge down its beam, or a leap (Pounce) to its circle. */
+  private attackMoved(ev: Extract<SimEvent, { type: 'attackFired' }>, state: WorldState): void {
+    const pan = state.entities ? this.panFor(state, (ev.fromX + ev.toX) / 2) : 0;
+    if (ev.visual === 'charge') {
+      this.legion(
+        'charge',
+        (v, t) => {
+          whoosh(v, t, 0.5, 0.07, 300, 1600, 0.9);
+          for (let i = 0; i < 3; i++) thump(v, t + i * 0.12, tone(-17), 0.1 + 0.03 * i, 0.12, 0.6);
+          v.noise({
+            start: t + 0.36,
+            dur: 0.12,
+            gain: 0.07,
+            filter: { type: 'lowpass', freq: 700 },
+          });
+        },
+        { pan },
+      );
+    } else {
+      const land = clamp(ev.travel, 0.25, 0.8);
+      this.legion(
+        'leap',
+        (v, t) => {
+          whoosh(v, t, land + 0.1, 0.06, 400, 2400, 1);
+          thump(v, t + land, tone(-14), 0.22, 0.24, 0.5);
+          v.noise({
+            start: t + land,
+            dur: 0.14,
+            gain: 0.08,
+            filter: { type: 'lowpass', freq: 900, freqTo: 300 },
+          });
+        },
+        { pan },
+      );
+    }
+  }
+
+  /** The Crimson Tide breaks over the arena: a wave's rush and its crash. */
+  private tide(): void {
+    this.legion('tide', (v, t) => {
+      whoosh(v, t, 1.1, 0.09, 200, 1400, 0.8);
+      v.noise({
+        pink: true,
+        start: t + 0.3,
+        dur: 0.6,
+        attack: 0.05,
+        release: 0.6,
+        gain: 0.07,
+        shape: 'sustain',
+        filter: { type: 'lowpass', freq: 1800, freqTo: 260 },
+      });
+      thump(v, t + 0.3, tone(-17), 0.18, 0.4, 0.5);
+    });
+  }
+
+  /** The Gorehound Matriarch's Pack Call: a howl, and the pack answering it from further off. */
+  private howl(state: WorldState, owner: number): void {
+    const x = state.entities?.get(owner)?.x;
+    this.e.duck('music', { depth: 0.8, hold: 0.6, release: 0.8 });
+    this.legion(
+      'howl',
+      (v, t) => {
+        for (const [at, from, to, g] of [
+          [0, 4, 7, 0.07],
+          [0.32, 8, 11, 0.04],
+          [0.55, 7, 9, 0.03],
+        ] as const) {
+          v.osc({
+            type: 'triangle',
+            freq: tone(from - 7),
+            freqTo: tone(to - 7),
+            glide: 0.45,
+            start: t + at,
+            dur: 1.2,
+            attack: 0.18,
+            release: 0.6,
+            gain: g,
+            shape: 'sustain',
+            filter: { type: 'bandpass', freq: 900, q: 1.6 },
+          });
+          v.osc({
+            type: 'sine',
+            freq: tone(from),
+            freqTo: tone(to),
+            glide: 0.45,
+            start: t + at,
+            dur: 1.1,
+            attack: 0.2,
+            release: 0.6,
+            gain: g * 0.4,
+            shape: 'sustain',
+          });
+        }
+      },
+      { pan: x === undefined ? 0 : this.panFor(state, x) },
+    );
+  }
+
+  /**
+   * Execution's cast: a drum roll for its whole windup, quickening and swelling into the moment
+   * it resolves. Kept as the telegraph's windup, so a cancelled cast (Vharun interrupted or
+   * killed) cuts it and Stasis holds it.
+   */
+  private drumRoll(ev: TelegraphStarted): VoiceHandle | null {
+    const dur = clamp(ev.impact - ev.start, 0.5, 6);
+    return this.legion('roll', (v, t) => {
+      let at = 0;
+      let i = 0;
+      while (at < dur - 0.02) {
+        const p = at / dur;
+        v.noise({
+          start: t + at,
+          dur: 0.05,
+          gain: 0.012 + 0.05 * p * p,
+          filter: { type: 'bandpass', freq: 1500 + 700 * p, q: 1.1 },
+        });
+        if (i % 4 === 0) thump(v, t + at, tone(-14), 0.05 + 0.12 * p, 0.14, 0.6);
+        at += 0.16 - 0.11 * p;
+        i++;
+      }
+      v.extend(t + dur + 0.1);
+    });
+  }
+
+  /**
+   * Execution resolved: a gong if it took the hero (they went down), a bell if they were spared
+   * (above the line, Warded, held).
+   */
+  private executionOutcome(target: number | null, state: WorldState): void {
+    const ent = target === null ? undefined : state.entities?.get(target);
+    const executed =
+      target !== null &&
+      (this.batchDowned.has(target) || !!ent?.health?.downed || !!ent?.health?.dead);
+    if (executed) {
+      this.e.duck('music', { depth: 0.5, hold: 0.6, release: 1.2 });
+      this.legion(
+        'executed',
+        (v, t) => {
+          brassBell(v, t, tone(-14), 0.16, 4, 0.2);
+          thump(v, t, tone(-17), 0.3, 0.6, 0.45);
+          cymbalSwell(v, t, 0.02, 2.4, 0.05);
+        },
+        { big: true },
+      );
+    } else {
+      this.legion('spared', (v, t) => {
+        handbell(v, t, tone(7), 0.07, 2, 0.6);
+        handbell(v, t + 0.08, tone(11), 0.05, 1.8, 0.6);
+        glassNote(v, t + 0.16, tone(14), 0.03, 1.4, 0.8);
+      });
+    }
+  }
+
+  /**
+   * An iron Legion enemy dies: no porcelain, but iron giving way, by size. A rank-and-file
+   * soldier clatters, a brute's plate crashes with its chain, the Matriarch and Vharun come down
+   * in a cascade of anvils (and Vharun with a choir's last breath).
+   */
+  private ironKill(role: string, pan: number): void {
+    const turn = this.ironTurn++;
+    switch (role) {
+      case 'brute':
+      case 'controller':
+      case 'sniper':
+      case 'support':
+        this.play(
+          'kill:iron:brute',
+          3,
+          'sfx',
+          (v, t) => {
+            anvil(v, t, tone(-7), 0.06, 1.2);
+            thump(v, t, tone(-17), 0.22, 0.3, 0.5);
+            v.noise({
+              start: t,
+              dur: 0.25,
+              gain: 0.11,
+              filter: { type: 'lowpass', freq: 1500, freqTo: 300 },
+            });
+            for (let i = 0; i < 4; i++)
+              v.noise({
+                start: t + 0.12 + i * 0.05,
+                dur: 0.02,
+                gain: 0.03,
+                filter: { type: 'bandpass', freq: 4500, q: 3 },
+              });
+          },
+          { pan },
+        );
+        break;
+      case 'caster':
+        this.play(
+          'kill:iron:caster',
+          3,
+          'sfx',
+          (v, t) => {
+            anvil(v, t, tone(0), 0.04, 0.9);
+            v.noise({
+              start: t,
+              dur: 0.12,
+              gain: 0.08,
+              filter: { type: 'lowpass', freq: 900, freqTo: 200 },
+            });
+            glassNote(v, t + 0.03, tone(11), 0.02, 0.5, 0.5);
+          },
+          { pan },
+        );
+        break;
+      case 'miniboss':
+      case 'boss': {
+        const boss = role === 'boss';
+        this.e.duck('music', { depth: boss ? 0.55 : 0.75, hold: 0.5, release: 1.2 });
+        this.play(
+          `kill:iron:${role}`,
+          2,
+          'sfx',
+          (v, t) => {
+            [-10, -7, -3].forEach((idx, i) => anvil(v, t + i * 0.13, tone(idx), 0.06, 1.6));
+            thump(v, t, tone(-17), 0.32, 0.6, 0.45);
+            v.noise({
+              start: t,
+              dur: 0.6,
+              gain: 0.16,
+              filter: { type: 'lowpass', freq: 2600, freqTo: 250 },
+            });
+            cymbalSwell(v, t, 0.02, boss ? 2 : 1.4, boss ? 0.07 : 0.05);
+            if (boss) {
+              brassBell(v, t + 0.1, tone(-14), 0.1, 3.6, 0.3);
+              choirChord(v, t + 0.1, [45, 50, 57].map(midiToHz), 1.4, 0.14, 0.2, 1.6);
+            }
+          },
+          { pan, big: true },
+        );
+        break;
+      }
+      default:
+        // The rank and file (hounds, leeches): a small clatter of iron, light so packs stay light.
+        if (!this.e.gate('kill:iron:swarm', 0.035)) return;
+        this.play(
+          'kill:iron:swarm',
+          4,
+          'sfx',
+          (v, t) => {
+            v.noise({
+              start: t,
+              dur: 0.05,
+              gain: 0.12,
+              filter: { type: 'bandpass', freq: 2800 + (turn % 3) * 500, q: 1.4 },
+            });
+            anvil(v, t, tone([14, 16, 18][turn % 3] as number), 0.012, 0.25);
+            thump(v, t, tone(-10), 0.06, 0.08, 0.6);
+          },
+          { pan },
+        );
+    }
+  }
+
   // ── Telegraph windups ────────────────────────────────────────────────────────────
   /**
    * How an attack winds up: glass for marks and Chime answers, brass for Ward, else a swell.
@@ -4130,6 +4759,8 @@ export class SfxEngine {
   ): 'glass' | 'brass' | 'swell' {
     if (kind === 'mark') return 'glass';
     if (state?.dissonance?.blindScore) return 'swell';
+    // Phase 5a: 'lift them above the line' (Execution) is a heal's swell, not a Ward's brass.
+    if (answers.includes('mend')) return 'swell';
     return answers.includes('chime')
       ? 'glass'
       : answers.includes('ward') || answers.includes('dome')
@@ -4169,6 +4800,17 @@ export class SfxEngine {
       this.frozen.add(ev.telegraph);
       return;
     }
+    // Phase 5a: the Legion's attacks with sounds of their own.
+    const legion = this.legionAttack(ev, state);
+    if (legion === 'howl') this.howl(state, ev.owner);
+    else if (legion === 'tide') this.tides.add(ev.telegraph);
+    else if (legion === 'roll') {
+      // Execution's windup is its drum roll; its outcome sounds when it resolves.
+      this.executions.add(ev.telegraph);
+      const roll = this.drumRoll(ev);
+      if (roll) this.trackWindup(ev.telegraph, roll);
+      return;
+    }
     const style = this.windStyle(ev.kind, ev.answers, state);
     if (!this.e.gate('wind', 0.08)) return;
     const { pan, near } = this.placeOf(this.shapeX(ev.shape, state), state);
@@ -4186,6 +4828,15 @@ export class SfxEngine {
       { pan },
     );
     if (h) this.trackWindup(ev.telegraph, h);
+  }
+
+  /** Phase 5a: which Legion sound a telegraph's attack has (its state's attack id, else its name). */
+  private legionAttack(ev: TelegraphStarted, state: WorldState): 'howl' | 'roll' | 'tide' | null {
+    const id = state.telegraphs?.find((t) => t.id === ev.telegraph)?.attackId;
+    if (id !== undefined && LEGION_ATTACK_SOUNDS[id]) return LEGION_ATTACK_SOUNDS[id];
+    for (const [attack, sound] of Object.entries(LEGION_ATTACK_SOUNDS))
+      if (LEGION_ATTACK_NAMES.get(attack) === ev.name && id === undefined) return sound;
+    return null;
   }
 
   /** A windup stops (0.12 s) and won't resume: its attack was called off. */
@@ -4566,6 +5217,7 @@ export class SfxEngine {
     crescendo: boolean;
     downed: number;
     bossPhase: number;
+    apex: boolean;
   } {
     const e = this.e;
     const now = e.now;
@@ -4629,6 +5281,7 @@ export class SfxEngine {
     this.lastIntensityScan += dt;
     let downed = 0;
     let bossPhase = 0;
+    let apex = false;
     if (this.lastIntensityScan >= 0.2 || this.scanCache === null) {
       const step = this.lastIntensityScan;
       this.lastIntensityScan = 0;
@@ -4648,6 +5301,7 @@ export class SfxEngine {
                   ? 1.6
                   : 1;
           if (ent.enemy.phase > bossPhase) bossPhase = ent.enemy.phase;
+          if (ent.enemy.tier === 'boss') apex = true;
         } else if (ent.hero) {
           if (h.downed) downed++;
           else if (!h.dead && h.maxHp > 0 && h.hp / h.maxHp < 0.3) {
@@ -4660,12 +5314,13 @@ export class SfxEngine {
       const raw = fighting ? clamp(weight / 14 + state.telegraphs.length * 0.12, 0, 1) : 0;
       const tau = raw > this.intensity ? 0.8 : 3;
       this.intensity += (raw - this.intensity) * (1 - Math.exp(-Math.max(step, 0.016) / tau));
-      this.scanCache = { downed, bossPhase, low };
+      this.scanCache = { downed, bossPhase, apex, low };
     }
     const cache = this.scanCache;
     if (cache) {
       downed = cache.downed;
       bossPhase = cache.bossPhase;
+      apex = cache.apex;
       for (const l of cache.low) this.heartbeat(l.id, l.defId, l.frac, now);
     }
     return {
@@ -4675,6 +5330,7 @@ export class SfxEngine {
       crescendo: (weaver?.crescendo ?? 0) > 0 && !this.stasisUp(state),
       downed,
       bossPhase,
+      apex,
     };
   }
 
@@ -4702,6 +5358,7 @@ export class SfxEngine {
   private scanCache: {
     downed: number;
     bossPhase: number;
+    apex: boolean;
     low: { id: number; frac: number; defId: string }[];
   } | null = null;
 
@@ -4839,6 +5496,10 @@ export class SfxEngine {
     for (const h of this.afterglowTail.values()) h.kill(this.e.now, 0.2);
     this.afterglowTail.clear();
     this.afterglowSeen.clear();
+    // Phase 5a: a fight's bleeds, Executions and Tides end with it.
+    this.bleed.clear();
+    this.executions.clear();
+    this.tides.clear();
     this.music.releaseHold();
     if (this.drone) this.drone.gain.gain.setTargetAtTime(0, this.e.now, 0.1);
     if (this.harmony)

@@ -181,6 +181,8 @@ export class GameRuntime {
     const weaver = this.sim.state.entities.get(this.sim.state.weaverId);
     this.camera.snapTo(weaver?.x ?? 0, weaver?.z ?? 0);
     const kind = this.sim.state.encounter.kind;
+    // Phase 5a: the arena's biome voices the fight (the Sunlit Reliquary when it names none).
+    getAudio().setBiome?.(arena.biome ?? 'reliquary');
     getAudio().setMood(
       kind === 'boss' || kind === 'miniboss' ? 'boss' : kind === 'sandbox' ? 'calm' : 'combat',
     );
