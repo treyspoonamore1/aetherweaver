@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useSettings, type Settings } from '../../app/settings';
 import { GameHost, seedFromUrl } from '../../app/GameHost';
 import { useProfile } from '../../app/profileStore';
 import type { CombatSession } from '../../app/runtime';
@@ -47,7 +48,15 @@ export function TrainingScreen() {
   const [techniques, setTechniques] = useState<Techniques>(() =>
     trainingChoice(useProfile.getState().profile),
   );
-  // A new session (and runtime) whenever the loadout or a technique changes.
+  // The assists (hero autonomy, the Perfect window, telegraph lead), as Settings has them. A
+  // change made from the pause menu takes effect as the fight resumes (a fresh session), never
+  // under the pause.
+  const paused = useUi((s) => s.paused);
+  const liveAssists = useSettings((s) => s.settings.assists);
+  const [assists, setAssists] = useState<Settings['assists']>(liveAssists);
+  // By value: any settings change (a volume, a HUD layout) makes a new assists object.
+  if (!paused && !sameAssists(assists, liveAssists)) setAssists(liveAssists);
+  // A new session (and runtime) whenever the loadout, a technique or an assist changes.
   const session = useMemo<CombatSession>(() => {
     const preset = CHORD_PRESETS.find((p) => p.id === loadout) ?? CHORD_PRESETS[0]!;
     return {
@@ -60,13 +69,13 @@ export function TrainingScreen() {
         passives: carried.passives,
         bonds,
         techniques: variantsConfig(techniques),
+        assists: { ...assists },
         debug: true,
       },
     };
-  }, [seed, loadout, astrolabe, carried, bonds, techniques]);
+  }, [seed, loadout, astrolabe, carried, bonds, techniques, assists]);
   const showPerf = useUi((s) => s.showPerf);
   const devOpen = useUi((s) => s.devOpen);
-  const paused = useUi((s) => s.paused);
   // Edit HUD layout (from the pause menu) shows the HUD; the fight stays paused under it.
   const editingLayout = useUi((s) => s.layoutEditing);
   const setScreen = useUi((s) => s.setScreen);
@@ -102,5 +111,13 @@ export function TrainingScreen() {
         />
       )}
     </div>
+  );
+}
+
+function sameAssists(a: Settings['assists'], b: Settings['assists']): boolean {
+  return (
+    a.autonomy === b.autonomy &&
+    a.perfectWindowBonus === b.perfectWindowBonus &&
+    a.telegraphLead === b.telegraphLead
   );
 }

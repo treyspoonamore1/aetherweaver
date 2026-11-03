@@ -410,7 +410,7 @@ export function PrepView({
                 />
                 <Toggle
                   label="Hero autonomy"
-                  hint="Heroes fire their own Solos when charged."
+                  hint="Heroes fire their own Solos a moment after they charge, unless you Cue them first. Kael saves his wall for a big hit, but never for more than 3 seconds."
                   checked={settings.assists.autonomy}
                   onChange={(v) =>
                     update((d) => ({ ...d, assists: { ...d.assists, autonomy: v } }))

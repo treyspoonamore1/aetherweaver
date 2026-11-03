@@ -210,7 +210,7 @@ The original front-loads a 6-page text primer and a HUD with every system visibl
 | Motion | screen shake 0–100%; flash and chromatic pulses off; reduced-motion UI; hit-stop and slow-mo toggles |
 | Timing | game speed 70–100%; Perfect window width +0–0.25 s; "telegraph lead" assist (+15% windup in the first Movements) |
 | Input | full remapping; mouseover casting toggle; hold-vs-toggle for Thread mode; **gamepad support** (left stick move; right stick snaps a target reticle between heroes; triggers Thread/mode; face buttons techniques; d-pad Directives) |
-| Cognitive | answer glyphs on/off; "important numbers only"; Auto-Thread assist (thread follows the lowest-HP hero after 2 s of no input); **Hero Autonomy** (heroes fire their own Solos at 70% potency) |
+| Cognitive | answer glyphs on/off; "important numbers only"; Auto-Thread assist (thread follows the lowest-HP hero after 2 s of no input); **Hero Autonomy** (heroes fire their own Solos at 70% potency; *since 2026-11-03, the uncued form after a 1 s Cue window, [docs/hero-autonomy.md](../hero-autonomy.md)*) |
 | Audio | separate bus sliders; visual captions for spatial audio cues ("Brass windup — left") |
 
 Assists never block achievements. They show as a small badge on the run summary, nothing more.

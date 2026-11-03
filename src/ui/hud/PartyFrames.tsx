@@ -859,10 +859,25 @@ function Portrait({ hero: h, bondRank = null }: { hero: HeroHud; bondRank?: numb
         className={`font-mono text-xs leading-none ${ready ? 'font-bold text-gold-300' : 'text-muted'}`}
         title={`${h.soloName}: ${Math.floor(h.solo)}% charged`}
       >
-        {h.dead ? '' : h.soloActive ? 'SOLO' : ready ? 'READY' : `${Math.floor(h.solo)}%`}
+        {h.dead
+          ? ''
+          : h.soloActive
+            ? 'SOLO'
+            : ready
+              ? h.soloAuto
+                ? 'AUTO'
+                : 'READY'
+              : `${Math.floor(h.solo)}%`}
       </span>
       {ready && (
-        <span className="mt-0.5 flex items-center gap-0.5" title={`Cue ${h.soloName}`}>
+        <span
+          className="mt-0.5 flex items-center gap-0.5"
+          title={
+            h.soloAuto
+              ? `${h.soloName} fires on its own in a moment. Cue it now for the stronger form.`
+              : `Cue ${h.soloName}`
+          }
+        >
           <KeyCap label={`⇧${h.slot + 1}`} accent />
         </span>
       )}

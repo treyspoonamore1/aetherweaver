@@ -899,6 +899,7 @@ export function createWorld(config: SimConfig): World {
         dawnwardAt: 0,
         engaged: false,
         soloPulseAt: 0,
+        soloHeld: 0,
         lastTelegraphSeen: 0,
         talents: resolved.bonds.talents.filter((id) => talentHero(content, id) === def.id),
         soloId:

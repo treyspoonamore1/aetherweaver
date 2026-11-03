@@ -78,7 +78,7 @@ function crescendoTotal(calling: { id: string; path: string[]; crescendo: string
  */
 export function buildHudSnapshot(
   state: WorldState,
-  opts: { seed: number; hovered: EntityId | null },
+  opts: { seed: number; hovered: EntityId | null; autonomy?: boolean },
 ): HudSnapshot {
   const weaverEntity = state.entities.get(state.weaverId);
   const w = weaverEntity?.weaver;
@@ -176,6 +176,7 @@ export function buildHudSnapshot(
       solo: hero.solo,
       soloReady: hero.solo >= 100 && hero.soloActive <= 0,
       soloActive: hero.soloActive > 0,
+      soloAuto: opts.autonomy === true,
       soloId: soloDef.id,
       soloName: soloDef.name,
       soloText: soloDef.text,

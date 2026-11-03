@@ -15,7 +15,7 @@ const AssistsSchema = z.object({
   perfectWindowBonus: z.union([z.literal(0), z.literal(0.1), z.literal(0.2)]),
   /** Telegraph wind-up multiplier (≥ 1 = more time to react). */
   telegraphLead: z.union([z.literal(1), z.literal(1.25), z.literal(1.5)]),
-  /** Heroes fire their Solos on their own when charged. */
+  /** Heroes fire their own Solos after a moment's Cue window (docs/hero-autonomy.md). */
   autonomy: z.boolean(),
 });
 

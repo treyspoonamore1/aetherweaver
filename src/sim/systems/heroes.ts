@@ -5,7 +5,7 @@
  */
 import { heroDef } from '../../content';
 import type { HeroDef } from '../../content/schema';
-import { TUNING } from '../constants';
+import { AUTONOMY, TUNING } from '../constants';
 import { distSq, len } from '../core/dmath';
 import {
   addShield,
@@ -107,6 +107,10 @@ export function updateHeroes(world: World, dt: number): void {
       );
       if (hero.solo >= 100) world.events.push({ type: 'soloReady', tick: world.tick, hero: e.id });
     }
+    // How long a full Solo has waited with someone to fight (hero autonomy's Cue window).
+    if (hero.soloActive <= 0 && hero.solo >= 100) {
+      if (hero.targetId !== null) hero.soloHeld += dt;
+    } else hero.soloHeld = 0;
     if (hero.soloActive <= 0 && hero.solo >= 100 && shouldFireUncued(world, e))
       startSolo(world, e, false);
 
@@ -215,8 +219,11 @@ function shouldFireUncued(world: World, e: Entity): boolean {
   if (solo === 'aegisWall' && h.hp < h.maxHp * 0.3) return true; // Kael braces when desperate.
   if (friendFalling(world, e)) return true;
   if (!world.config.assists.autonomy) return false;
-  if (solo === 'aegisWall') return h.hp < h.maxHp * 0.5 || h.incoming > h.hp * 0.5;
-  return e.hero!.targetId !== null;
+  // Hero autonomy: Kael raises his wall at once when hurt or a big hit is coming at him...
+  if (solo === 'aegisWall' && (h.hp < h.maxHp * 0.5 || h.incoming > h.hp * 0.5)) return true;
+  // ...and every hero fires once the Cue window (Kael: his hold) has passed in a fight.
+  if (e.hero!.targetId === null) return false;
+  return e.hero!.soloHeld >= (solo === 'aegisWall' ? AUTONOMY.kaelHold : AUTONOMY.cueGrace);
 }
 
 /**

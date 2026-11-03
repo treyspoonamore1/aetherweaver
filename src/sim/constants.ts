@@ -6,7 +6,7 @@ export const SIM_DT = 1 / SIM_HZ;
  * Bump whenever sim behaviour changes in a way that changes results for the same inputs.
  * Stamped into replays and golden hashes; update goldens deliberately (`npm run golden:update`).
  */
-export const SIM_VERSION = 21;
+export const SIM_VERSION = 22;
 
 /**
  * Rewind's memory (the Chronomancer, docs/phase-3e.md): one sample of each hero every 0.1 s of
@@ -19,6 +19,13 @@ export const PAST_SAMPLE_SECONDS = PAST_SAMPLE_TICKS / SIM_HZ;
 export function pastSamples(seconds: number): number {
   return seconds > 0 ? Math.round(seconds / PAST_SAMPLE_SECONDS) + 1 : 0;
 }
+
+/**
+ * Hero autonomy (an assist): a charged Solo waits `cueGrace` seconds for the player's Cue (the
+ * stronger form) before the hero fires it; Kael holds his Aegis Wall for a big hit, but never
+ * longer than `kaelHold` seconds while he has someone to fight.
+ */
+export const AUTONOMY = { cueGrace: 1, kaelHold: 3 } as const;
 
 /** Upper bound on any entity radius; used to size spatial queries. */
 export const MAX_ENTITY_RADIUS = 1;

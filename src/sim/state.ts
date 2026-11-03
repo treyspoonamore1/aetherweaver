@@ -274,6 +274,11 @@ export interface HeroComponent {
   engaged: boolean;
   /** Next Solo pulse (arrow, meteor) time. */
   soloPulseAt: number;
+  /**
+   * Hero autonomy: seconds a full, idle Solo has waited with a target in reach of the hero's
+   * fight (the Cue window before it fires on its own; Kael's longest hold). 0 when not full.
+   */
+  soloHeld: number;
   /** Highest telegraph id this hero has reacted to. */
   lastTelegraphSeen: number;
   // ── Bonds (docs/phase-4e.md) ──

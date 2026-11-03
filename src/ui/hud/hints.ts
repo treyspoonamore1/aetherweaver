@@ -308,7 +308,9 @@ function allHints(hud: HudSnapshot): Hint[] {
   if (cueHero && w.resonance + 1e-9 >= w.cueCost) {
     out.push({
       id: 'cue',
-      text: `${cueHero.name}'s ${cueHero.soloName} is ready — press {⇧${cueHero.slot + 1}} to Cue it (costs ${w.cueCost === w.segment ? 'one Resonance segment' : `${w.cueCost} Resonance`})`,
+      text: cueHero.soloAuto
+        ? `${cueHero.name}'s ${cueHero.soloName} is ready — press {⇧${cueHero.slot + 1}} now to Cue the stronger form, or it fires on its own`
+        : `${cueHero.name}'s ${cueHero.soloName} is ready — press {⇧${cueHero.slot + 1}} to Cue it (costs ${w.cueCost === w.segment ? 'one Resonance segment' : `${w.cueCost} Resonance`})`,
     });
   }
   if (w.resonance >= w.crescendoCost && w.crescendo <= 0) {

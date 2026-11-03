@@ -37,6 +37,7 @@ export function startSolo(world: World, hero: Entity, cued: boolean): void {
   const spec = soloSpec(world, hero);
   const duration = soloLength(world, hero, cued);
   h.solo = 0;
+  h.soloHeld = 0;
   h.soloCued = cued;
   h.soloActive = duration;
   h.soloPulseAt = world.time;

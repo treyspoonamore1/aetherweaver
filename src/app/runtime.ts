@@ -314,7 +314,13 @@ export class GameRuntime {
     this.hudTimer += elapsed;
     if (this.hudTimer >= HUD_INTERVAL_MS) {
       this.hudTimer = 0;
-      ui.setHud(buildHudSnapshot(state, { seed: this.seed, hovered: this.input.hoveredHero }));
+      ui.setHud(
+        buildHudSnapshot(state, {
+          seed: this.seed,
+          hovered: this.input.hoveredHero,
+          autonomy: this.sim.config.assists.autonomy,
+        }),
+      );
       ui.pruneCallouts(now);
     }
 
@@ -617,6 +623,15 @@ export class GameRuntime {
               now,
               1600,
             );
+          // Fired on their own (hero autonomy, Kael's brace): named, so it isn't missed.
+          else if (who) {
+            const name = state.entities.get(event.hero)?.hero?.castName;
+            ui.pushCallout(
+              { kind: 'solo', text: name ? `${who.name}: ${name}` : who.name, color: who.color },
+              now,
+              1200,
+            );
+          }
           break;
         }
         case 'crescendoStart': {

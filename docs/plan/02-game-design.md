@@ -92,7 +92,7 @@ Defaults below; variants per slot are listed in [03 §1](03-content-bible.md#1-t
 - **Cue** costs one Resonance segment. *When* to Cue is a real decision: Kael's dome for the boss's Requiem, Lyra's barrage when the Shielded elite's barrier drops, Vexis's meteors into your Lullaby field.
 - **Crescendo** spends all 4 segments on your Calling's ultimate (Sunrise, Martyr's Vow, Stasis, Grand Finale). Resonance is the currency of agency: spend it on Cues now, or bank it for a Crescendo that turns a boss phase.
 - **No Resonance is gained while a Crescendo is active**, so a Crescendo can never chain itself. The original's ultimate refilled its own charge while running.
-- *Assist option:* **Hero Autonomy** lets heroes fire their own Solos at 70% potency.
+- *Assist option:* **Hero Autonomy** lets heroes fire their own Solos at 70% potency. *Since 2026-11-03: the uncued form, after a 1 s window for a Cue; Kael holds his for a big hit up to 3 s ([docs/hero-autonomy.md](../hero-autonomy.md)).*
 
 ### 4.6 Directives
 

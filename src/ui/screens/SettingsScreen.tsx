@@ -38,8 +38,17 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-/** All settings controls (used by the Settings screen and the pause menu). */
-export function SettingsPanel({ compact = false }: { compact?: boolean }) {
+/**
+ * All settings controls (used by the Settings screen and the pause menu). `context`: opened from
+ * a fight's pause menu, which says when an assist change takes effect there.
+ */
+export function SettingsPanel({
+  compact = false,
+  context,
+}: {
+  compact?: boolean;
+  context?: 'run' | 'training';
+}) {
   const settings = useSettings((s) => s.settings);
   const update = useSettings((s) => s.update);
   const reset = useSettings((s) => s.reset);
@@ -137,13 +146,20 @@ export function SettingsPanel({ compact = false }: { compact?: boolean }) {
         />
         <Toggle
           label="Hero autonomy"
-          hint="Heroes fire their own Solos when charged."
+          hint="Heroes fire their own Solos a moment after they charge, unless you Cue them first. Kael saves his wall for a big hit, but never for more than 3 seconds."
           checked={settings.assists.autonomy}
           onChange={(v) => setAssist('autonomy', v)}
         />
         <p className="text-xs text-muted">
           Assists never block anything. They show as a small badge on the run summary.
         </p>
+        {context && (
+          <p className="text-xs text-gold-200" data-testid="assists-when">
+            {context === 'run'
+              ? 'Assist changes apply from your next fight.'
+              : 'Assist changes restart the Training Grounds when you resume.'}
+          </p>
+        )}
       </Section>
       <Section title="Health and the HUD">
         <HudSettings />

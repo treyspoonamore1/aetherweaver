@@ -28,7 +28,7 @@ export function PauseMenu({
   if (view === 'settings') {
     return (
       <Modal title="Settings" width="max-w-2xl">
-        <SettingsPanel compact />
+        <SettingsPanel compact context={mode} />
         <div className="mt-5 flex justify-end">
           <Button variant="primary" data-autofocus onClick={() => setView('menu')} sound="back">
             <Icon name="back" size={16} /> Back to the pause menu
