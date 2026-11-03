@@ -30,6 +30,7 @@ import { attackRange, flourishHit, heroAttackSpeed, heroDamage } from './heroDam
 import { hasTalent, ricochet, talentFired, talentValue } from '../bonds';
 import { nearestEnemy, soloSpec, startSolo, tickSoloClock, updateSolo } from './solos';
 import { approachVelocity, arrive } from './steering';
+import { clampPointToArena, pushPointOutOfObstacles } from './physics';
 import { empowerBonus } from './thread';
 import { BERSERKER_LEASH, bloodletCost, bloodlusting, leapTarget, tickBlood } from './blood';
 
@@ -1128,6 +1129,8 @@ function executeAbility(
       blood.spent += cost;
       blood.bloodlet = ability.hits ?? 0;
       world.events.push({ type: 'lifeSpent', tick: world.tick, hero: e.id, amount: cost });
+      // His quirk bark ('Blood calls!'), spaced by the shared bark cooldown (Brann-only draw).
+      bark(world, e, 'quirk');
       return;
     }
   }
@@ -1136,7 +1139,8 @@ function executeAbility(
 const landing = { x: 0, z: 0 };
 /**
  * Where Sunder Leap sets him down: `LEAP_SHORT` m short of the target's edge, along his line to
- * it, inside the arena and clear of pillars.
+ * it, then through the physics step's own pillar push and arena clamp, in the step's order, so
+ * a pillar by the wall can never push him out of the arena.
  */
 function leapLanding(world: World, e: Entity, target: Entity): { x: number; z: number } {
   const dx = target.x - e.x;
@@ -1145,21 +1149,8 @@ function leapLanding(world: World, e: Entity, target: Entity): { x: number; z: n
   const back = Math.min(d, target.radius + LEAP_SHORT);
   landing.x = d > 1e-6 ? target.x - (dx / d) * back : e.x;
   landing.z = d > 1e-6 ? target.z - (dz / d) * back : e.z;
-  const max = world.arenaRadius - e.radius;
-  const r = len(landing.x, landing.z);
-  if (r > max) {
-    landing.x = (landing.x / r) * max;
-    landing.z = (landing.z / r) * max;
-  }
-  for (const o of world.obstacles) {
-    const ox = landing.x - o.x;
-    const oz = landing.z - o.z;
-    const min = o.r + e.radius;
-    const od = len(ox, oz);
-    if (od >= min) continue;
-    landing.x = o.x + (od < 1e-9 ? min : (ox / od) * min);
-    landing.z = o.z + (od < 1e-9 ? 0 : (oz / od) * min);
-  }
+  pushPointOutOfObstacles(world, landing, e.radius);
+  clampPointToArena(world, landing, e.radius);
   return landing;
 }
 

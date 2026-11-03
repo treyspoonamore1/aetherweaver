@@ -11,7 +11,7 @@
  */
 import type { Content } from '../../content/schema';
 import { bark } from '../combat/feedback';
-import { heal, isActive, rising, type HealVia } from '../combat/health';
+import { hasStatus, heal, isActive, rising, type HealVia } from '../combat/health';
 import { hasTalent, soloValue, talentFired, talentHolder, talentValue } from '../bonds';
 import type { BloodState, Entity, ReadonlyEntity, WorldState } from '../state';
 import type { World } from '../world';
@@ -40,6 +40,7 @@ export function newBlood(): BloodState {
     bloodlet: 0,
     deathlessUntil: 0,
     refusedRally: 0,
+    ironWillRally: 0,
     bleedRate: 0,
     spent: 0,
   };
@@ -93,7 +94,12 @@ export function bloodlusting(content: HeroesAndTalents, e: ReadonlyEntity): bool
   if (!e.hero?.blood || !h || h.downed || h.dead) return false;
   const below = defOf(content, e)?.quirk.below;
   if (below === undefined || !(h.hp < below * h.maxHp)) return false;
-  return !(has(e, 'iron_will') && h.shields.some((s) => s.kind === 'ward'));
+  return !ironWillHolds(e);
+}
+
+/** Iron Will holds him: he has it, and one of the Weaver's Wards is on him. */
+function ironWillHolds(e: ReadonlyEntity): boolean {
+  return has(e, 'iron_will') && (e.health?.shields.some((s) => s.kind === 'ward') ?? false);
 }
 
 /**
@@ -193,7 +199,8 @@ function bloodBrother(world: World, brann: Entity, dealt: number): void {
  * After a hit on a Blood Rage hero landed (`before` → his life now, `dealt` of it): the bleed
  * rate; Deathless's trigger (once a fight, at or under its `pct`% life; a lethal blow was
  * already clamped to 1, and a Fermata hold at 1 starts it too); Berserker's Hymn turning on as
- * he crosses its line.
+ * he crosses its line; and his quirk bark as a blow takes him into Bloodlust (the shared bark
+ * cooldown spaces it, and it gives way to his low-life bark when the same blow earns that).
  */
 export function afterBloodDamage(world: World, e: Entity, before: number, dealt: number): void {
   const b = e.hero?.blood;
@@ -216,6 +223,12 @@ export function afterBloodDamage(world: World, e: Entity, before: number, dealt:
     const line = (h.maxHp * talentValue(world, 'berserkers_hymn', 'below')) / 100;
     if (!(before < line) && h.hp < line) talentFired(world, e, 'berserkers_hymn', e.x, e.z);
   }
+  const lustLine = bloodLine(world.content, e);
+  if (!(before < lustLine) && h.hp < lustLine && bloodlusting(world.content, e)) {
+    // The low-life bark (under 30%, once until he's back above 60%) has the say if it's due.
+    const lowDue = !hero.lowHpBarked && h.hp < h.maxHp * LOW30;
+    if (!lowDue) bark(world, e, 'quirk');
+  }
 }
 
 /** A lethal blow on a Blood Rage hero leaves him at 1: Deathless is open, or about to open. */
@@ -230,8 +243,9 @@ export function deathlessHolds(world: World, e: Entity): boolean {
  * (one `healApplied` every `STEAL_FLUSH` s, source = him), the bleed rate's decay, Deathless's
  * end, the fight's low-life timers and `peakAfterLow`, and Bloodlust's answer to a Rally:
  * refused (a `bloodlust` event and one `defiant` bark; `refusedRally` = that Rally), or, below
- * his line, obeyed under Iron Will (an `iron_will` talentFired; `refusedRally` = −that Rally,
- * which reads as none). Draws no RNG but the defiant bark's cosmetic pick.
+ * his line, obeyed under Iron Will (an `iron_will` talentFired; `ironWillRally` = that Rally).
+ * Each fires at most once a Rally, however often a Ward comes and goes on him during it. Draws
+ * no RNG but the defiant bark's cosmetic pick.
  */
 export function tickBlood(world: World, e: Entity, dt: number): void {
   const b = e.hero?.blood;
@@ -276,9 +290,9 @@ export function tickBlood(world: World, e: Entity, dt: number): void {
         world.events.push({ type: 'bloodlust', tick: world.tick, hero: e.id });
         bark(world, e, 'defiant', true);
       }
-    } else if (b.refusedRally !== -rally) {
+    } else if (b.ironWillRally !== rally) {
       // Below his line, yet he comes back: Iron Will, and your Ward on him.
-      b.refusedRally = -rally;
+      b.ironWillRally = rally;
       talentFired(world, e, 'iron_will', e.x, e.z);
     }
   }
@@ -305,8 +319,9 @@ export const BERSERKER_LEASH = 11;
 /**
  * Sunder Leap's target (docs/phase-5b.md): an enemy `minRange`-`range` m away — your Focus
  * first, then an interruptible caster, then the nearest. None while he holds (a Hold, or
- * Fermata), while he answers a Rally, or (not bloodlusting) past his leash from the Weaver.
- * The Call opens on the same rule (calls.ts `canCall`). Draws nothing.
+ * Fermata), while pinned or latched (rooted, or held by a Leech: a Reel frees him), while he
+ * answers a Rally, or (not bloodlusting) past his leash from the Weaver. The Call opens on the
+ * same rule and marks the same enemy (calls.ts `canCall`, `startCall`). Draws nothing.
  */
 export function leapTarget(
   world: World,
@@ -315,6 +330,7 @@ export function leapTarget(
 ): Entity | null {
   const hero = e.hero;
   if (!hero || hero.follow === 'hold' || hero.hold) return null;
+  if (hasStatus(e, 'pinned') || hasStatus(e, 'latched')) return null;
   const lust = bloodlusting(world.content, e);
   if (!lust && world.internal.rallyUntil > world.time) return null;
   const weaver = world.entities.get(world.weaverId);
@@ -349,9 +365,13 @@ export function leapTarget(
   return caster ?? nearest;
 }
 
-/** The down record's `blood`: a refused Rally still live, and the Weaver-heal multiplier now. */
+/**
+ * The down record's `blood.refusedRally`: he refused the Rally that is still live, and isn't
+ * answering it now under Iron Will (a Ward of yours on him holds him to it).
+ */
 export function refusedRallyLive(world: World, e: ReadonlyEntity): boolean {
   const b = e.hero?.blood;
   const rally = world.internal.rallyUntil;
-  return !!b && b.refusedRally > 0 && b.refusedRally === rally && rally > world.time;
+  if (!b || !(rally > world.time) || b.refusedRally !== rally) return false;
+  return !(b.ironWillRally === rally && ironWillHolds(e));
 }
