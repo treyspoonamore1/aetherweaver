@@ -2,7 +2,10 @@
  * Novice bot: a first-time player who understands the basics. Threads whoever looks hurt
  * (with a lag), stays near the party, Wards low heroes without timing, Chimes marks when
  * they notice them, never Reels (though with the Chronomancer they may Rewind a hero who just
- * went down), and Cues Solos when they happen to be ready.
+ * went down), and Cues Solos when they happen to be ready. Movement II (docs/phase-5a.md): they
+ * sometimes Chime a hero bleeding at 5+ stacks, Ward or (rarely) Reel a pinned hero, and Scatter
+ * for a Blood Pact. Each of those draws only while its mechanic is on the field, so Movement I
+ * sees exactly the draws it always did.
  */
 import { CONTENT } from '../content';
 import { Rng } from '../sim/core/rng';
@@ -10,6 +13,7 @@ import { rewindCanRevive } from '../sim/systems/rewind';
 import type { Command, ThreadMode, WorldState } from '../sim';
 import type { Bot } from './types';
 import {
+  BLEED_CHIME_AT,
   Intent,
   caller,
   damageOf,
@@ -28,6 +32,9 @@ import {
   statusRemaining,
   threatsOn,
   weaverOf,
+  isPact,
+  isPinned,
+  statusStacks,
 } from './common';
 
 export class NoviceBot implements Bot {
@@ -130,6 +137,16 @@ export class NoviceBot implements Bot {
       out.push({ t: 'tech', id: 'ward', slot: calling!.slot });
     if (answering && call!.answer === 'chime' && wc.cooldowns.chime <= 0 && affords(state, 'chime'))
       out.push({ t: 'tech', id: 'chime', point: { x: calling!.e.x, z: calling!.e.z } });
+    // A pinned hero: now and then they remember Reel frees them (not in Rewind's slot).
+    const pinned = party.find((h) => isPinned(h.e) && dist(h.e, w) < tech.reel.range - 0.3);
+    if (
+      pinned &&
+      !state.calling?.rewind &&
+      wc.cooldowns.reel <= 0 &&
+      affords(state, 'reel') &&
+      this.rng.chance(0.25)
+    )
+      out.push({ t: 'tech', id: 'reel', slot: pinned.slot });
 
     // Ward someone who looks low, or (sometimes) whoever has something scary coming.
     if (wc.wardCharges > 0 && affords(state, 'ward')) {
@@ -139,7 +156,10 @@ export class NoviceBot implements Bot {
       const threatened = party.find(
         (h) => threatsOn(state, h.e).length > 0 && dist(h.e, w) < tech.ward.range,
       );
-      const target = low ?? (threatened && this.rng.chance(0.4) ? threatened : undefined);
+      let target = low ?? (threatened && this.rng.chance(0.4) ? threatened : undefined);
+      // A pinned hero looks like they need a Ward (it soaks the pin's damage).
+      if (!target && pinned && dist(pinned.e, w) < tech.ward.range && this.rng.chance(0.5))
+        target = pinned;
       if (target) out.push({ t: 'tech', id: 'ward', slot: target.slot });
     }
 
@@ -148,7 +168,20 @@ export class NoviceBot implements Bot {
       const marked = party.find((h) => statusRemaining(h.e, 'dirge') < 2.6);
       if (marked && this.rng.chance(0.75))
         out.push({ t: 'tech', id: 'chime', point: { x: marked.e.x, z: marked.e.z } });
+      else {
+        // The bleed counter glows at 5+: they notice it, often.
+        const bleeding = party.find((h) => statusStacks(h.e, 'bleed') >= BLEED_CHIME_AT);
+        if (bleeding && dist(bleeding.e, w) < tech.chime.range && this.rng.chance(0.6))
+          out.push({ t: 'tech', id: 'chime', point: { x: bleeding.e.x, z: bleeding.e.z } });
+      }
     }
+
+    // A Blood Pact: sometimes they Scatter; once it's gone, they call everyone back.
+    const pact = state.telegraphs.some(isPact);
+    if (pact && state.directive !== 'scatter' && this.rng.chance(0.35))
+      out.push({ t: 'directive', kind: 'scatter' });
+    else if (!pact && state.directive === 'scatter' && this.rng.chance(0.5))
+      out.push({ t: 'directive', kind: 'rally' });
 
     // Rings: sometimes remember to call everyone in.
     if (

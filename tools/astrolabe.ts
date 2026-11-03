@@ -7,6 +7,8 @@
  *   npx tsx tools/astrolabe.ts --loadout guardian --seeds 25   whole Prelude runs
  *   npx tsx tools/astrolabe.ts --trees silk,choir --bots novice
  *   npx tsx tools/astrolabe.ts --threat 1.15                  trees against enemies with 15% more life
+ *   npx tsx tools/astrolabe.ts --movement 2 --fights          Movement II's hard fights (arrival kit)
+ *   npx tsx tools/astrolabe.ts --movement 2                   whole Expeditions
  *
  * Fights report the win rate and the Weaver's output (healing, shielding, negation and
  * amplification from the ledger), per fight and per second; runs report the win rate. With
@@ -18,6 +20,7 @@ import { allocate, astrolabeProblems } from '../src/meta/astrolabe';
 import { CHORD_PRESETS } from '../src/meta/run';
 import { createSim } from '../src/sim';
 import { playRun } from './harness-core';
+import { ARRIVAL_KIT } from './kits';
 
 const POINTS = 19;
 
@@ -118,14 +121,18 @@ export const TREES: Readonly<Record<string, readonly string[]>> = {
   ],
 };
 
-const HARD_FIGHTS = [
-  'tolling_halls',
-  'glass_gallery',
-  'muted_nave',
-  'shattered_choir',
-  'bellwarden',
-  'hollow_cantor',
-];
+/** Each Movement's hard fights (Movement II's are played with the arrival kit's motifs and relics). */
+const HARD_FIGHTS: Readonly<Record<number, readonly string[]>> = {
+  1: [
+    'tolling_halls',
+    'glass_gallery',
+    'muted_nave',
+    'shattered_choir',
+    'bellwarden',
+    'hollow_cantor',
+  ],
+  2: ['red_muster', 'leech_warren', 'shield_wall', 'blood_forge', 'gorehound_matriarch', 'vharun'],
+};
 const MAX_SECONDS = 9 * 60;
 
 const argv = process.argv.slice(2);
@@ -135,6 +142,13 @@ const get = (name: string) => {
 };
 
 function main(): void {
+  const movement = Number(get('movement') ?? 1);
+  const fights = HARD_FIGHTS[movement];
+  if (!fights) throw new Error(`No hard fights for Movement ${movement}`);
+  const kit =
+    movement >= 2
+      ? { motifs: ARRIVAL_KIT.motifs.map((m) => ({ ...m })), relics: [...ARRIVAL_KIT.relics] }
+      : {};
   const loadout = CHORD_PRESETS.find((p) => p.id === (get('loadout') ?? 'guardian'));
   if (!loadout) throw new Error(`Unknown loadout (${CHORD_PRESETS.map((p) => p.id)})`);
   const seeds = Number(get('seeds') ?? 20);
@@ -153,21 +167,21 @@ function main(): void {
 
   if (argv.includes('--fights')) {
     console.log(
-      `astrolabe fights · loadout ${loadout.name} · ${HARD_FIGHTS.length} fights × ${seeds} seeds`,
+      `astrolabe fights · loadout ${loadout.name}${movement >= 2 ? ` · Movement ${movement}, ${ARRIVAL_KIT.name}` : ''} · ${fights.length} fights × ${seeds} seeds`,
     );
     for (const bot of bots) {
       const fight = (astrolabe: readonly string[]) => {
         let won = 0;
         let output = 0;
         let seconds = 0;
-        for (const encounter of HARD_FIGHTS)
+        for (const encounter of fights)
           for (let i = 0; i < seeds; i++) {
             const seed = 1000 + i * 7919;
             const chords = loadout.chords.map((c) => ({
               auras: [...c.auras],
               ornaments: [...c.ornaments],
             }));
-            const sim = createSim({ seed, encounter, chords, astrolabe });
+            const sim = createSim({ seed, encounter, chords, astrolabe, ...kit });
             const player = makeBot(bot, seed);
             for (let t = 0; t < MAX_SECONDS * 60; t++) {
               sim.step(player.decide(sim.state));
@@ -181,7 +195,7 @@ function main(): void {
             output += l.healing + l.shielded + l.negated + l.amplified;
             seconds += (st.encounter.endedAt ?? st.time) - st.encounter.startedAt;
           }
-        const n = HARD_FIGHTS.length * seeds;
+        const n = fights.length * seeds;
         return { win: won / n, output: output / n, perSecond: output / Math.max(1, seconds) };
       };
       const base = fight([]);
@@ -201,6 +215,7 @@ function main(): void {
   const threat = Number(get('threat') ?? 1);
   console.log(
     `astrolabe runs · loadout ${loadout.name} · ${seeds} seeds a tree` +
+      (movement >= 2 ? ` · Expeditions (${movement} Movements)` : '') +
       (threat !== 1 ? ` · trees at ×${threat} enemy life` : ''),
   );
   for (const bot of bots) {
@@ -208,7 +223,7 @@ function main(): void {
       let won = 0;
       for (let i = 0; i < seeds; i++) {
         const seed = 2000 + i * 104729;
-        const opts = { astrolabe, threatMult };
+        const opts = { astrolabe, threatMult, movements: movement };
         if (playRun(seed, bot, loadout.chords, opts).outcome === 'victory') won++;
       }
       return won / seeds;

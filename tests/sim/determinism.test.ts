@@ -4,7 +4,12 @@ import { createSim, type SimEvent } from '../../src/sim';
 import { SIM_VERSION } from '../../src/sim/constants';
 import { parseReplay, runReplay } from '../../src/sim/replay';
 import { runScenario } from '../../tools/runScenario';
-import { SCENARIOS, SCENARIO_FIRST_LIGHT, SCENARIO_PATROL } from '../../tools/scenarios';
+import {
+  SCENARIOS,
+  SCENARIO_FIRST_LIGHT,
+  SCENARIO_PATROL,
+  SCENARIO_VHARUN,
+} from '../../tools/scenarios';
 import golden from './golden.json';
 
 const HOW_TO_UPDATE =
@@ -42,7 +47,8 @@ describe('determinism (docs/plan/05 §4.9)', () => {
     expect(collect(12).hash).not.toBe(a.hash);
   });
 
-  for (const scenario of [SCENARIO_PATROL, SCENARIO_FIRST_LIGHT]) {
+  // Vharun (docs/phase-5a.md): pins, stacks, pools and scripted follow-ups survive the trip too.
+  for (const scenario of [SCENARIO_PATROL, SCENARIO_FIRST_LIGHT, SCENARIO_VHARUN]) {
     it(`a recorded replay of "${scenario.name}" survives a JSON round-trip and re-simulates bit-exactly`, () => {
       const { replay, hash } = runScenario(scenario);
       const loaded = parseReplay(JSON.parse(JSON.stringify(replay)));

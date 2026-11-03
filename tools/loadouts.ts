@@ -4,23 +4,27 @@
  * (dead) or beat every other loadout everywhere (dominant).
  *
  *   npx tsx tools/loadouts.ts --seeds 20 --bots skilled,novice --runs 10 --md docs/phase-2/loadouts.md
+ *   npx tsx tools/loadouts.ts --movement 2 --seeds 20    # Movement II's fights, on the arrival kit
+ *
+ * Movement I's cells play bare; Movement II's play each preset with the arrival kit's motifs and
+ * relics (tools/kits.ts), against Movement II's floors (docs/phase-5a.md, "Bands"). `--runs`
+ * plays whole runs on the Movement's route (Movement II: Expeditions).
  */
 import { writeFileSync } from 'node:fs';
 import type { BotKind } from '../src/bots';
+import { encounterDef } from '../src/content';
 import { CHORD_PRESETS } from '../src/meta/run';
-import { playEncounter, playRun } from './harness-core';
+import { movementEncounters, playEncounter, playRun } from './harness-core';
+import { defaultKit, kitById, kitConfig } from './kits';
 
-const ENCOUNTERS = [
-  'first_light',
-  'tolling_halls',
-  'glass_gallery',
-  'choir_loft',
-  'mourning_steps',
-  'muted_nave',
-  'shattered_choir',
-  'bellwarden',
-  'hollow_cantor',
-];
+function arg(name: string): string | undefined {
+  const i = process.argv.indexOf(`--${name}`);
+  return i >= 0 ? process.argv[i + 1] : undefined;
+}
+
+const movement = Number(arg('movement') ?? 1);
+const kit = kitById(arg('kit') ?? defaultKit(movement));
+const ENCOUNTERS = movementEncounters(movement);
 const SHORT: Record<string, string> = {
   first_light: 'First',
   tolling_halls: 'Tolling',
@@ -31,18 +35,27 @@ const SHORT: Record<string, string> = {
   shattered_choir: 'Shatter*',
   bellwarden: 'Bell**',
   hollow_cantor: 'Cantor**',
+  crimson_gate: 'Gate',
+  blood_rites: 'Rites',
+  pike_line: 'Pikes',
+  red_muster: 'Muster',
+  leech_warren: 'Warren',
+  shield_wall: 'Wall*',
+  blood_forge: 'Forge*',
+  gorehound_matriarch: 'Matriarch**',
+  vharun: 'Vharun**',
 };
-/** Skilled-bot floors from the difficulty contract (docs/phase-1.md). */
+/**
+ * Skilled-bot floors from the difficulty contract (docs/phase-1.md; Movement II's from
+ * docs/phase-5a.md: skirmishes and elites 85%, the Matriarch 90%, Vharun 85%).
+ */
 function floor(encounter: string): number {
+  const def = encounterDef(encounter);
+  if ((def.movement ?? 1) >= 2) return def.kind === 'miniboss' ? 0.9 : 0.85;
   if (encounter === 'first_light') return 1;
   if (encounter === 'muted_nave' || encounter === 'shattered_choir') return 0.9;
   if (encounter === 'bellwarden' || encounter === 'hollow_cantor') return 0.9;
   return 0.8;
-}
-
-function arg(name: string): string | undefined {
-  const i = process.argv.indexOf(`--${name}`);
-  return i >= 0 ? process.argv[i + 1] : undefined;
 }
 
 const seeds = Number(arg('seeds') ?? 20);
@@ -62,7 +75,7 @@ const t0 = Date.now();
 out(`# Loadout report`);
 out();
 out(
-  `${seeds} seeds per cell${runsN ? `, ${runsN} whole Prelude runs per loadout` : ''}. * elite, ** boss.`,
+  `${movement >= 2 ? `Movement ${movement}, ${kit.name}. ` : ''}${seeds} seeds per cell${runsN ? `, ${runsN} whole ${movement >= 2 ? 'Expeditions' : 'Prelude runs'} per loadout` : ''}. * elite, ** boss.`,
 );
 for (const bot of bots) {
   out();
@@ -83,7 +96,9 @@ for (const bot of bots) {
       let wins = 0;
       for (let i = 0; i < seeds; i++) {
         const r = playEncounter(
-          { seed: 1000 + i * 7919, encounter, chords: p.chords.map((c) => ({ ...c })) },
+          kit.id === 'bare'
+            ? { seed: 1000 + i * 7919, encounter, chords: p.chords.map((c) => ({ ...c })) }
+            : { seed: 1000 + i * 7919, encounter, ...kitConfig(kit, p.chords) },
           bot,
         );
         if (r.outcome === 'victory') wins++;
@@ -99,7 +114,10 @@ for (const bot of bots) {
     if (runsN) {
       let wins = 0;
       for (let i = 0; i < runsN; i++)
-        if (playRun(2000 + i * 104729, bot, p.chords).outcome === 'victory') wins++;
+        if (
+          playRun(2000 + i * 104729, bot, p.chords, { movements: movement }).outcome === 'victory'
+        )
+          wins++;
       runCell = ` ${pct(wins / runsN)} |`;
     }
     const flags =
