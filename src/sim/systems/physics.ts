@@ -39,21 +39,30 @@ export function resolveOverlaps(world: World): void {
       const dz = b.z - a.z;
       const d2 = dx * dx + dz * dz;
       if (d2 >= minDist * minDist) continue;
-      const totalMass = a.mass + b.mass;
+      // A pinned hero (docs/phase-5a.md P4) doesn't budge: the other body takes it all.
+      const massA = pinned(a) ? 0 : a.mass;
+      const massB = pinned(b) ? 0 : b.mass;
+      const totalMass = massA + massB;
       if (totalMass <= 0) continue;
       const dist = Math.sqrt(d2);
       // Exactly coincident bodies separate along a fixed axis, deterministically.
       const nx = dist < 1e-9 ? 1 : dx / dist;
       const nz = dist < 1e-9 ? 0 : dz / dist;
       const overlap = minDist - dist;
-      const pushA = (overlap * a.mass) / totalMass;
-      const pushB = (overlap * b.mass) / totalMass;
+      const pushA = (overlap * massA) / totalMass;
+      const pushB = (overlap * massB) / totalMass;
       a.x -= nx * pushA;
       a.z -= nz * pushA;
       b.x += nx * pushB;
       b.z += nz * pushB;
     }
   }
+}
+
+function pinned(e: { hero?: unknown; health?: { statuses: readonly { id: string }[] } }): boolean {
+  if (!e.hero || !e.health) return false;
+  for (const s of e.health.statuses) if (s.id === 'pinned') return true;
+  return false;
 }
 
 function solid(e: {

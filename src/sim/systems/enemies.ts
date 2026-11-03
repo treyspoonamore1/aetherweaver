@@ -1,14 +1,18 @@
 /**
  * Enemy AI (docs/plan/03 §6): approach by role, basic attacks, telegraphed specials with a
- * readability cap, threat-driven targeting, affixes (Shielded, Volatile, Hastened).
+ * readability cap, threat-driven targeting, affixes (Shielded, Volatile, Hastened, Vampiric).
+ * Movement II (docs/phase-5a.md P1, P3, P6, P7): the Movement's scale, on-hit payloads, guard
+ * arcs, charges and leaps, follow-ups, lowest-life targeting and per-phase rules. Every one of
+ * them is keyed on content or config that Movement I lacks, so Movement I runs as before.
  */
 import { attackDef, enemyDef } from '../../content';
-import type { AttackDef, EnemyDef } from '../../content/schema';
-import { dcos, distSq, len } from '../core/dmath';
+import type { AttackDef, EnemyDef, StatusPayload } from '../../content/schema';
+import { dcos, distSq, len, rotateToward } from '../core/dmath';
 import type { TelegraphShape } from '../events';
 import {
   addShield,
   addStatus,
+  applyOnHit,
   dealDamage,
   hasStatus,
   isActive,
@@ -16,6 +20,7 @@ import {
   NEVER,
   setOnEnemyDeath,
 } from '../combat/health';
+import { phaseRules, type PhaseRules } from './bosses';
 import { pickEnemyTarget, WEAVER_THREAT_INDEX } from '../combat/threat';
 import { announceDecree } from '../combat/feedback';
 import { countAimed, perfectWindow, setOnCastComplete, startTelegraph } from '../combat/telegraphs';
@@ -31,6 +36,13 @@ const SPAWN_TIME = 0.8;
 /** Seconds an enemy stands recovering after a cast before it can act again. */
 const RECOVER_TIME = 0.5;
 const ENEMY_ACCEL = 18;
+
+/**
+ * Every affix the sim gives behaviour to (the content test checks each content affix is here):
+ * Shielded's Discord barrier, Volatile's death burst, Hastened's speed, and Vampiric's Wound,
+ * applied on hit from its content `onHit` (docs/phase-5a.md).
+ */
+export const KNOWN_AFFIXES: readonly string[] = ['shielded', 'volatile', 'hastened', 'vampiric'];
 
 export interface SpawnOptions {
   elite?: boolean;
@@ -58,8 +70,12 @@ export function spawnEnemy(
   const affixes = [...(opts.affixes ?? [])];
   const hpMult = tier === 'elite' ? 2.2 : 1;
   const hastened = affixes.includes('hastened');
+  // The Movement's scale (absent in Movement I, where it would be {1, 1}).
+  const scale = world.config.movement;
   // Hardened (Dissonance): more life on top of the run's Threat.
-  const maxHp = Math.round(def.hp * hpMult * world.config.threat * world.mods.enemyLifeMult);
+  const base = def.hp * hpMult * world.config.threat * world.mods.enemyLifeMult;
+  const maxHp = Math.round(scale ? base * scale.life : base);
+  const eliteDamage = tier === 'elite' ? 1.25 : 1;
   const e = world.entities.spawn('enemy', {
     x,
     z,
@@ -87,7 +103,7 @@ export function spawnEnemy(
       inField: false,
       auraMask: 0,
       beamFocus: false,
-      damageMult: tier === 'elite' ? 1.25 : 1,
+      damageMult: scale ? eliteDamage * scale.damage : eliteDamage,
       windupMult: hastened ? 0.85 : 1,
       tauntTarget: null,
       tauntUntil: 0,
@@ -95,11 +111,42 @@ export function spawnEnemy(
       sleepImmuneUntil: 0,
       engaged: false,
       foreseen: null,
+      ...(def.guard ? { guard: initialGuard(world, x, z) } : {}),
     },
   });
   if (affixes.includes('shielded')) addShield(world, e, 'discord', maxHp * 0.4, NEVER, false);
   world.events.push({ type: 'entitySpawned', tick: world.tick, id: e.id, kind: 'enemy' });
   return e;
+}
+
+/** A new guard faces the Weaver (or the arena's centre without one). */
+function initialGuard(
+  world: World,
+  x: number,
+  z: number,
+): { fx: number; fz: number; brokenUntil: number } {
+  const w = world.entities.get(world.weaverId);
+  const dx = (w?.x ?? 0) - x;
+  const dz = (w?.z ?? 0) - z;
+  const d = len(dx, dz);
+  return d > 1e-6 ? { fx: dx / d, fz: dz / d, brokenUntil: 0 } : { fx: 0, fz: 1, brokenUntil: 0 };
+}
+
+const turned = { x: 0, z: 0 };
+/** A guard arc turns toward the enemy's current target at its turn rate (P6). */
+function turnGuard(world: World, e: Entity, def: EnemyDef, dt: number): void {
+  const c = e.enemy!;
+  const g = c.guard!;
+  const rate = def.guard?.turnRate ?? 0;
+  const t = c.targetId === null ? undefined : world.entities.get(c.targetId);
+  if (!isActive(t) || rate <= 0) return;
+  const dx = t.x - e.x;
+  const dz = t.z - e.z;
+  const d = len(dx, dz);
+  if (d < 1e-6) return;
+  rotateToward(g.fx, g.fz, dx / d, dz / d, ((rate * Math.PI) / 180) * dt, turned);
+  g.fx = turned.x;
+  g.fz = turned.z;
 }
 
 export function updateEnemies(world: World, dt: number): void {
@@ -145,6 +192,7 @@ export function updateEnemies(world: World, dt: number): void {
       approachVelocity(e, 0, 0, ENEMY_ACCEL * 2, dt);
       continue;
     }
+    if (c.guard) turnGuard(world, e, def, dt);
     if (c.attackCooldown > 0) c.attackCooldown -= dt;
     for (let i = 0; i < c.specialCooldowns.length; i++) {
       if (c.specialCooldowns[i]! > 0) c.specialCooldowns[i] = c.specialCooldowns[i]! - dt;
@@ -154,6 +202,8 @@ export function updateEnemies(world: World, dt: number): void {
       updateCast(world, e, def, dt);
       continue;
     }
+    // A follow-up begins as the attack before it resolves, recovery or not (Movement II only).
+    if (world.internal.m2 && fireFollowUp(world, e)) continue;
     if (c.state === 'recover') {
       approachVelocity(e, 0, 0, ENEMY_ACCEL, dt);
       if (c.stateTime >= RECOVER_TIME) setState(c, 'approach');
@@ -245,11 +295,15 @@ function basicAttack(world: World, e: Entity, def: EnemyDef, target: Entity): vo
       toZ: target.z,
       travel: 0,
     });
-    dealDamage(world, target, { source: e.id, sourceName: def.name, amount });
+    const result = dealDamage(world, target, { source: e.id, sourceName: def.name, amount });
+    // On-hit payloads (P3): the def's and its affix's; applyOnHit needs the hit to have landed.
+    if (def.basic.onHit || affixOnHit(world, c.affixes))
+      applyOnHit(world, e, target, result.dealt, def.basic.onHit);
     return;
   }
   const d = len(target.x - e.x, target.z - e.z);
   const travel = d / 16;
+  const onHit = def.basic.onHit ?? affixOnHit(world, c.affixes);
   world.internal.pendingHits.push({
     at: world.time + travel,
     source: e.id,
@@ -264,6 +318,7 @@ function basicAttack(world: World, e: Entity, def: EnemyDef, target: Entity): vo
     chain: 0,
     empowered: false,
     stun: 0,
+    ...(onHit ? { onHit } : {}),
   });
   world.events.push({
     type: 'attackFired',
@@ -277,6 +332,15 @@ function basicAttack(world: World, e: Entity, def: EnemyDef, target: Entity): vo
     toZ: target.z,
     travel,
   });
+}
+
+/** The first of these affixes with an on-hit payload (Vampiric's Wound), if any. */
+function affixOnHit(world: World, affixes: readonly string[]): StatusPayload | undefined {
+  for (const id of affixes) {
+    const payload = world.content.affixes.find((a) => a.id === id)?.onHit;
+    if (payload) return payload;
+  }
+  return undefined;
 }
 
 export function enrageMult(world: World, tier: EnemyTier): number {
@@ -303,11 +367,15 @@ function trySpecial(world: World, e: Entity, def: EnemyDef, target: Entity): boo
   if (world.internal.boss.phaseShiftUntil > world.time && boss) return false;
   // A chained toll is coming: the boss script owns the next cast.
   if (boss && world.internal.boss.doubleTollAt > 0) return false;
+  // A follow-up is coming (Movement II): it owns the next cast.
+  if (world.internal.m2?.followUp?.owner === e.id) return false;
+  const rules = boss ? rulesOf(c) : null;
   for (let i = 0; i < def.specials.length; i++) {
     if (c.specialCooldowns[i]! > 0) continue;
     const id = def.specials[i]!;
     if (SCRIPTED.has(id)) continue;
     const attack = attackDef(id);
+    if (!pickable(attack, rules)) continue;
     if (!boss && attack.effect === 'damage' && activeNormalTelegraphs(world) >= READABILITY_CAP) {
       c.specialCooldowns[i] = 1.5;
       continue;
@@ -325,8 +393,60 @@ function cooldownMult(world: World, e: Entity): number {
   const c = e.enemy!;
   if (c.defId === 'the_bellwarden' && c.phase >= 2) return 0.85;
   if (c.affixes.includes('hastened')) return 0.85;
+  // A Movement II boss phase's own cadence (Blood Frenzy's ×0.8).
+  const phase = c.tier === 'boss' || c.tier === 'miniboss' ? rulesOf(c) : null;
+  if (phase?.cooldownMult !== undefined) return phase.cooldownMult;
   void world;
   return 1;
+}
+
+/**
+ * The boss's current phase's rules (docs/phase-5a.md: PhaseDef answers, cooldownMult, specials
+ * and summonCount), or null. `c.phase` counts from 1; the phase table from 0.
+ */
+function rulesOf(c: NonNullable<Entity['enemy']>): PhaseRules | null {
+  return c.phase >= 1 ? phaseRules(c.defId, c.phase - 1) : null;
+}
+
+/** May the generic picker use this special? Not a scripted one, nor one the phase rules out. */
+function pickable(attack: AttackDef, rules: PhaseRules | null): boolean {
+  if (attack.scripted) return false;
+  return !rules?.specials || rules.specials.includes(attack.id);
+}
+
+/**
+ * Movement II boss script state (docs/phase-5a.md), created on first use. Only Movement II
+ * attacks (follow-ups, decree limits) and boss scripts reach this, so Movement I never has it.
+ */
+export function ensureM2(world: World): NonNullable<World['internal']['m2']> {
+  if (!world.internal.m2)
+    world.internal.m2 = { followUp: null, nextTideAt: NEVER, nextExecutionAt: NEVER };
+  return world.internal.m2;
+}
+
+/**
+ * Begins `e`'s follow-up if one is due (P7): the attack named by the last one's `followUp`, at
+ * its current target, a `reverse` one aimed 180° from its facing. Waits out a boss's phase
+ * shift and a cast. True if it began. The boss script may call it too; a follow-up fires once.
+ */
+export function fireFollowUp(world: World, e: Entity): boolean {
+  const m2 = world.internal.m2;
+  const f = m2?.followUp;
+  const c = e.enemy;
+  if (!m2 || !f || !c || f.owner !== e.id || world.time < f.at - 1e-9 || c.cast) return false;
+  const boss = c.tier === 'boss' || c.tier === 'miniboss';
+  if (boss && world.internal.boss.phaseShiftUntil > world.time) return false;
+  m2.followUp = null;
+  const found = c.targetId === null ? undefined : world.entities.get(c.targetId);
+  const current = isActive(found) ? found : null;
+  return beginAttack(
+    world,
+    e,
+    attackDef(f.attack),
+    current,
+    null,
+    f.reverse ? { reverse: true } : {},
+  );
 }
 
 /**
@@ -339,6 +459,7 @@ export function beginAttack(
   attack: AttackDef,
   current: Entity | null,
   promised: Foreseen | null = null,
+  opts: BeginOptions = {},
 ): boolean {
   const c = e.enemy!;
   const heroes: Entity[] = [];
@@ -377,6 +498,9 @@ export function beginAttack(
       }
       break;
     }
+    case 'lowestHp':
+      target = lowestHp(heroes, inRange);
+      break;
     case 'randomHero':
     case 'randomNonTank': {
       const from = randomPool(heroes, attack, inRange);
@@ -416,24 +540,29 @@ export function beginAttack(
         const dx = t.x - e.x;
         const dz = t.z - e.z;
         const d = len(dx, dz) || 1;
+        // A reversed follow-up sweeps the half behind the caster (the Crimson Tide's back).
+        const back = opts.reverse === true;
         shape = {
           kind: 'cone',
           x: e.x,
           z: e.z,
           r: attack.radius + e.radius,
-          dirX: dx / d,
-          dirZ: dz / d,
+          dirX: back ? -e.fx : dx / d,
+          dirZ: back ? -e.fz : dz / d,
           halfAngleCos: dcos(((attack.angleDeg / 2) * Math.PI) / 180),
         };
         break;
       }
       case 'beam': {
-        // The lance stops just past its target: a single-target threat, not a line wipe.
+        // The lance stops just past its target: a single-target threat, not a line wipe. A
+        // full-length one (an Impaler's charge) runs its whole length.
         const t = target!;
         const dx = t.x - e.x;
         const dz = t.z - e.z;
         const d = len(dx, dz) || 1;
-        const reach = Math.min(attack.length, d + t.radius + 1.5);
+        const reach = attack.fullLength
+          ? attack.length
+          : Math.min(attack.length, d + t.radius + 1.5);
         shape = {
           kind: 'line',
           x: e.x,
@@ -445,12 +574,16 @@ export function beginAttack(
         break;
       }
       case 'burst':
-        shape = {
-          kind: 'circle',
-          x: e.x,
-          z: e.z,
-          r: attack.radius + (attack.effect === 'damage' ? e.radius : 0),
-        };
+        // Centred on its target (the Pounce's landing spot), or on the caster.
+        shape =
+          attack.centre === 'target' && target
+            ? { kind: 'circle', x: target.x, z: target.z, r: attack.radius }
+            : {
+                kind: 'circle',
+                x: e.x,
+                z: e.z,
+                r: attack.radius + (attack.effect === 'damage' ? e.radius : 0),
+              };
         break;
       case 'donut':
         shape = {
@@ -494,14 +627,20 @@ export function beginAttack(
     pctMaxHp: (attack.pctMaxHp ?? 0) * (c.tier === 'elite' ? 1.1 : 1),
     perfectWindowMult: (1 + lullaby) * (1 + dance),
   });
-  if (attack.kind === 'mark' && target) addStatus(world, target, 'dirge', windup, e.id);
+  // The attack chooses its mark and link statuses (P5); absent: Dirge and Resound, as ever.
+  const mark = attack.markStatus === undefined ? 'dirge' : attack.markStatus;
+  if (attack.kind === 'mark' && target && mark !== null)
+    addStatus(world, target, mark, windup, e.id);
   if (shape!.kind === 'link') {
+    const link = attack.linkStatus ?? 'resound';
+    if (link === 'pact') t.linkStatus = 'pact';
     for (const id of [shape!.a, shape!.b]) {
       const hero = world.entities.get(id);
-      if (hero) addStatus(world, hero, 'resound', windup, e.id);
+      if (hero) addStatus(world, hero, link, windup, e.id);
     }
   }
-  if (attack.decree) {
+  if (attack.executeBelow !== undefined) t.executeBelow = attack.executeBelow;
+  if (attack.decree && decreeDue(world, attack)) {
     announceDecree(world, {
       type: 'decree',
       tick: world.tick,
@@ -522,10 +661,49 @@ export function beginAttack(
   c.state = attack.effect === 'healAllies' ? 'channel' : 'casting';
   c.stateTime = 0;
   c.foreseen = null;
-  if (target) face(e, target);
+  // A reversed sweep keeps the caster facing the way it was: its back is the target.
+  if (target && opts.reverse !== true) face(e, target);
   e.vx = 0;
   e.vz = 0;
   return true;
+}
+
+export interface BeginOptions {
+  /** A `followUp` with `reverse`: a cleave aimed 180° from the caster's facing. */
+  reverse?: boolean;
+}
+
+/**
+ * Announce this cast's decree? Always, unless the attack has a `decreeLimit` and has already
+ * announced that many this fight (counted in `internal.m2.decrees`).
+ */
+function decreeDue(world: World, attack: AttackDef): boolean {
+  if (attack.decreeLimit === undefined) return true;
+  const m2 = ensureM2(world);
+  const decrees = (m2.decrees ??= {});
+  const n = decrees[attack.id] ?? 0;
+  if (n >= attack.decreeLimit) return false;
+  decrees[attack.id] = n + 1;
+  return true;
+}
+
+/** The hero with the lowest share of their life that `ok` allows; ties go to the lower slot. */
+function lowestHp(heroes: readonly Entity[], ok: (t: Entity) => boolean): Entity | null {
+  let best: Entity | null = null;
+  let bestFrac = Infinity;
+  for (const hero of heroes) {
+    if (!ok(hero)) continue;
+    const frac = hero.health!.hp / hero.health!.maxHp;
+    if (
+      best === null ||
+      frac < bestFrac ||
+      (frac === bestFrac && hero.hero!.slot < best.hero!.slot)
+    ) {
+      best = hero;
+      bestFrac = frac;
+    }
+  }
+  return best;
 }
 
 const sq = (v: number) => v * v;
@@ -557,8 +735,14 @@ function activeHeroes(world: World): Entity[] {
   return heroes;
 }
 
-/** A boss script's next scheduled attack (Foresight sees these too). */
-function scriptedNext(world: World, e: Entity): { attackId: string; at: number } | null {
+/**
+ * A boss script's next scheduled attack (Foresight sees these too). `owns`: it is the boss's
+ * next cast whatever else is ready (a chained toll, a follow-up).
+ */
+function scriptedNext(
+  world: World,
+  e: Entity,
+): { attackId: string; at: number; owns?: true } | null {
   if (world.encounter.bossId !== e.id) return null;
   const c = e.enemy!;
   const boss = world.internal.boss;
@@ -566,9 +750,25 @@ function scriptedNext(world: World, e: Entity): { attackId: string; at: number }
     return {
       attackId: 'bellwarden_toll_in',
       at: Math.max(boss.doubleTollAt, boss.phaseShiftUntil),
+      owns: true,
     };
   if (c.defId === 'the_hollow_cantor' && c.phase >= 3)
     return { attackId: 'cantor_requiem', at: Math.max(boss.nextRequiemAt, boss.phaseShiftUntil) };
+  // Movement II (docs/phase-5a.md): a pending follow-up, then Vharun's judgement cadences.
+  const m2 = world.internal.m2;
+  if (m2?.followUp?.owner === e.id)
+    return {
+      attackId: m2.followUp.attack,
+      at: Math.max(m2.followUp.at, boss.phaseShiftUntil),
+      owns: true,
+    };
+  if (m2 && c.defId === 'vharun_crimson_warden' && c.phase >= 3) {
+    const tide = m2.nextTideAt <= m2.nextExecutionAt;
+    return {
+      attackId: tide ? 'vharun_crimson_tide' : 'vharun_execution',
+      at: Math.max(tide ? m2.nextTideAt : m2.nextExecutionAt, boss.phaseShiftUntil),
+    };
+  }
   return null;
 }
 
@@ -593,11 +793,14 @@ function foresee(world: World, e: Entity, def: EnemyDef): void {
   const script = scriptedNext(world, e);
   if (script)
     options.push({ special: -1, attackId: script.attackId, at: Math.max(script.at, free) });
-  // A chained toll owns the bell's next cast.
-  if (script?.attackId !== 'bellwarden_toll_in') {
+  // A chained toll (or a follow-up) owns the boss's next cast.
+  if (!script?.owns) {
+    const rules = boss ? rulesOf(c) : null;
     for (let i = 0; i < def.specials.length; i++) {
       const id = def.specials[i]!;
-      if (SCRIPTED.has(id) || !canBegin(world, e, attackDef(id))) continue;
+      if (SCRIPTED.has(id)) continue;
+      const attack = attackDef(id);
+      if (!pickable(attack, rules) || !canBegin(world, e, attack)) continue;
       const at = Math.max(free, world.time + stun + Math.max(0, c.specialCooldowns[i]!));
       options.push({ special: i, attackId: id, at });
     }
@@ -693,6 +896,7 @@ function canBegin(world: World, e: Entity, attack: AttackDef): boolean {
     }
     case 'farthest':
     case 'squishiest':
+    case 'lowestHp':
       return heroes.some(inRange);
     case 'randomHero':
     case 'randomNonTank':
@@ -715,6 +919,8 @@ function predictedTarget(world: World, e: Entity, attack: AttackDef): Entity | n
     const t = e.enemy!.targetId === null ? undefined : world.entities.get(e.enemy!.targetId);
     return isActive(t) ? t : null;
   }
+  if (attack.targeting === 'lowestHp')
+    return lowestHp(activeHeroes(world), (t) => inReach(e, attack, t));
   let best: Entity | null = null;
   let score = 0;
   for (const hero of activeHeroes(world)) {
@@ -773,7 +979,7 @@ function completeCast(world: World, owner: Entity, t: Telegraph): void {
   const attack = world.content.attacks.find((a) => a.id === t.attackId);
   if (!attack) return;
   if (attack.effect === 'summon' && attack.summon) {
-    const n = attack.summon.count;
+    const n = summonCount(world, owner, attack);
     for (let i = 0; i < n; i++) {
       const p = world.scratch.slot;
       ringPoint(world, owner.x, owner.z, 3 + owner.radius, i, n, p);
@@ -794,7 +1000,78 @@ function completeCast(world: World, owner: Entity, t: Telegraph): void {
     // The cracked bell rings twice: Outward, then Inward.
     world.internal.boss.doubleTollAt = world.time + 1.1;
   }
+  // Movement II (P7): the caster charges down its line or leaps to its circle...
+  if (attack.move && isActive(owner)) moveWithAttack(world, owner, attack.move, t);
+  // ...and its follow-up is due (the second Twin Cleave, the Tide's back half).
+  if (attack.followUp && isActive(owner)) {
+    const f = attack.followUp;
+    ensureM2(world).followUp = {
+      owner: owner.id,
+      attack: f.attack,
+      at: world.time + f.delay,
+      ...(f.reverse ? { reverse: true as const } : {}),
+    };
+  }
   // healAllies pulses during the channel.
+}
+
+/**
+ * How many a summon brings: the phase's count if it has one (Blood Frenzy's 4 hounds), and
+ * never more than keeps `maxAlive` of that enemy alive or on its way.
+ */
+function summonCount(world: World, owner: Entity, attack: AttackDef): number {
+  const summon = attack.summon!;
+  const c = owner.enemy;
+  const rules = c && (c.tier === 'boss' || c.tier === 'miniboss') ? rulesOf(c) : null;
+  const n = rules?.summonCount?.[attack.id] ?? summon.count;
+  if (summon.maxAlive === undefined) return n;
+  let alive = 0;
+  for (const m of world.entities.list())
+    if (m.enemy?.defId === summon.enemy && m.health && !m.health.dead) alive++;
+  for (const p of world.internal.pendingSpawns) if (p.defId === summon.enemy) alive++;
+  return Math.max(0, Math.min(n, summon.maxAlive - alive));
+}
+
+/**
+ * A charge ends at its line's far end, a leap at its circle's centre: the caster snaps there,
+ * kept inside the arena (the tick's obstacle pass pushes it out of pillars), and the render
+ * draws the streak or the arc from the `attackFired` visual.
+ */
+function moveWithAttack(world: World, e: Entity, move: 'charge' | 'leap', t: Telegraph): void {
+  const s = t.shape;
+  let x: number;
+  let z: number;
+  if (move === 'charge' && s.kind === 'line') {
+    x = s.toX;
+    z = s.toZ;
+  } else if (move === 'leap' && s.kind === 'circle') {
+    x = s.x;
+    z = s.z;
+  } else return;
+  const d = len(x, z);
+  const max = world.arenaRadius - e.radius;
+  if (d > max) {
+    x = (x / d) * max;
+    z = (z / d) * max;
+  }
+  const fromX = e.x;
+  const fromZ = e.z;
+  e.x = x;
+  e.z = z;
+  e.vx = 0;
+  e.vz = 0;
+  world.events.push({
+    type: 'attackFired',
+    tick: world.tick,
+    source: e.id,
+    target: t.target,
+    visual: move,
+    fromX,
+    fromZ,
+    toX: x,
+    toZ: z,
+    travel: 0,
+  });
 }
 
 /** Silent Verse: auras only work inside three hymn circles. */
@@ -845,7 +1122,8 @@ function onDeath(world: World, e: Entity): void {
     start: world.time,
     impact: world.time + 3,
     perfectFrom: world.time + 3 - perfectWindow(world),
-    damage: 260,
+    // The Movement's damage scale (absent in Movement I: 260 as ever).
+    damage: world.config.movement ? 260 * world.config.movement.damage : 260,
     pctMaxHp: 0,
     effect: 'damage',
     answers: ['move', 'reel'],

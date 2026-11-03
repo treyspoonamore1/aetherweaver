@@ -13,6 +13,7 @@ import type {
   ReadonlyEntity,
   SaveCause,
   Shield,
+  StatusId,
   Telegraph,
   WorldState,
 } from '../state';
@@ -22,6 +23,8 @@ import { distSq, len } from '../core/dmath';
 import { recordSave } from './saves';
 import {
   addStatus,
+  applyOnHit,
+  applyStatusPayload,
   dealDamage,
   getStatus,
   hasStatus,
@@ -71,6 +74,9 @@ export function startTelegraph(world: World, spec: TelegraphSpec): Telegraph {
     answers: [...spec.attack.answers],
     severity: 'normal',
   };
+  // Movement II (docs/phase-5a.md P5, P7): set only when the attack has them.
+  if (spec.attack.executeBelow !== undefined) t.executeBelow = spec.attack.executeBelow;
+  if (spec.attack.kind === 'link' && spec.attack.linkStatus === 'pact') t.linkStatus = 'pact';
   world.telegraphs.push(t);
   world.events.push({
     type: 'telegraphStarted',
@@ -110,10 +116,40 @@ export function perfectWindow(world: World): number {
   );
 }
 
-/** Damage this telegraph would deal to `e` (before shields). */
+/**
+ * Damage this telegraph would deal to `e` (before shields). Execution (`executeBelow`) deals at
+ * least the target's life + 1 to a target below its threshold: through the normal damage path,
+ * so a Ward, a barrier, Fermata or the Martyr can still spare them, and every forecast (the
+ * lethal flag, the bots) sees it coming.
+ */
 export function telegraphDamage(t: DeepReadonly<Telegraph>, e: ReadonlyEntity): number {
   if (!e.health) return 0;
-  return t.damage + t.pctMaxHp * e.health.maxHp;
+  const damage = t.damage + t.pctMaxHp * e.health.maxHp;
+  if (t.executeBelow !== undefined && e.health.hp < e.health.maxHp * t.executeBelow)
+    return Math.max(damage, e.health.hp + 1);
+  return damage;
+}
+
+/** The status a link puts on the two heroes it binds: Resound, or a Blood Pact. */
+export function linkStatusOf(t: DeepReadonly<Telegraph>): StatusId {
+  return t.linkStatus ?? 'resound';
+}
+
+/**
+ * The status a mark attack puts on its target (absent: Dirge; null: none, and nothing to Chime
+ * away). An unknown attack (a training bell) marks with Dirge, as every mark did before.
+ */
+export function markStatusOf(attack: DeepReadonly<AttackDef> | null | undefined): StatusId | null {
+  const status = attack?.markStatus;
+  return status === undefined ? 'dirge' : status;
+}
+
+/** The mark status of a telegraph's attack (see `markStatusOf`). */
+export function telegraphMarkStatus(
+  world: { content: { attacks: readonly DeepReadonly<AttackDef>[] } },
+  t: DeepReadonly<Telegraph>,
+): StatusId | null {
+  return markStatusOf(world.content.attacks.find((a) => a.id === t.attackId));
 }
 
 /** Would the telegraph hit `e` if it resolved now? (Also used by bots, on read-only state.) */
@@ -155,8 +191,9 @@ export function contains(
       const a = world.entities.get(s.a);
       const b = world.entities.get(s.b);
       if (!standing(a) || !standing(b)) return false;
-      // A Chime that cleanses Resound from either hero breaks the link.
-      if (!hasResound(a) || !hasResound(b)) return false;
+      // A Chime that cleanses Resound from either hero breaks the link (a Blood Pact it can't).
+      const status = linkStatusOf(t);
+      if (!hasLinkStatus(a, status) || !hasLinkStatus(b, status)) return false;
       return distSq(a.x, a.z, b.x, b.z) < sq(s.r);
     }
     case 'raid':
@@ -168,8 +205,8 @@ export function contains(
 
 const sq = (v: number) => v * v;
 
-function hasResound(e: ReadonlyEntity): boolean {
-  return e.health!.statuses.some((x) => x.id === 'resound');
+function hasLinkStatus(e: ReadonlyEntity, status: StatusId): boolean {
+  return e.health!.statuses.some((x) => x.id === status);
 }
 
 function standing(e: ReadonlyEntity | undefined): e is ReadonlyEntity {
@@ -274,7 +311,8 @@ function resolve(world: World, t: Telegraph): void {
       }
       if (!inside) continue;
       hitAnyone = true;
-      if (t.shape.kind === 'mark' && !t.drill && !hasStatus(e, 'dirge')) {
+      const mark = t.shape.kind === 'mark' ? markStatusOf(attack) : null;
+      if (mark !== null && !t.drill && !hasStatus(e, mark)) {
         // Chimed away in time.
         answered(world);
         emitResolved(world, t, e.id, 'cancelled', 0);
@@ -284,9 +322,10 @@ function resolve(world: World, t: Telegraph): void {
     }
     if (!hitAnyone) emitResolved(world, t, null, 'dodged', 0);
     if (t.shape.kind === 'link') {
+      const status = linkStatusOf(t);
       for (const id of [t.shape.a, t.shape.b]) {
         const e = world.entities.get(id);
-        if (e && hasStatus(e, 'resound')) removeStatus(world, e, 'resound', 'detonated');
+        if (e && hasStatus(e, status)) removeStatus(world, e, status, 'detonated');
       }
     }
   }
@@ -319,6 +358,8 @@ function hitEntity(
 ): void {
   const h = e.health!;
   const damage = telegraphDamage(t, e);
+  // A mark's status goes off with it, however it's answered.
+  const mark = t.shape.kind === 'mark' ? markStatusOf(attack) : null;
   if (h.invulnerable > 0) {
     emitResolved(world, t, e.id, 'dodged', 0);
     return;
@@ -333,7 +374,7 @@ function hitEntity(
   const inWindow = !!ward && within(t, ward.appliedAt);
   if (ward && (inWindow || metronome(world, e))) {
     perfect(world, t, e, ward, damage, owner, wouldDie, !!ward.stasis);
-    if (t.shape.kind === 'mark') removeStatus(world, e, 'dirge', 'detonated');
+    if (mark !== null) removeStatus(world, e, mark, 'detonated');
     return;
   }
   // Aegis Link (a Ward variant): linked in the window, the first hit is negated and you join the
@@ -347,7 +388,7 @@ function hitEntity(
     within(t, link.appliedAt)
   ) {
     perfect(world, t, e, null, damage, owner, wouldDie, !!link.stasis);
-    if (t.shape.kind === 'mark') removeStatus(world, e, 'dirge', 'detonated');
+    if (mark !== null) removeStatus(world, e, mark, 'detonated');
     if (!link.weaver) {
       link.weaver = true;
       world.events.push({
@@ -369,7 +410,7 @@ function hitEntity(
     telegraph: t,
     kind: t.shape.kind === 'mark' ? 'detonation' : 'hit',
   });
-  if (t.shape.kind === 'mark') removeStatus(world, e, 'dirge', 'detonated');
+  if (mark !== null) removeStatus(world, e, mark, 'detonated');
 
   let outcome: 'hit' | 'warded' | 'absorbed' = 'hit';
   if (result.dealt <= 0 && result.absorbed > 0)
@@ -387,12 +428,16 @@ function hitEntity(
     if (cause !== 'other') recordSave(world, e, cause, damage, t.name);
   }
   if (attack?.status && result.dealt > 0 && !result.downed) {
-    addStatus(world, e, attack.status.id, attack.status.duration, t.owner);
+    applyStatusPayload(world, e, attack.status, t.owner);
   }
+  // On-hit payloads (docs/phase-5a.md P3): the caster's affixes' (Vampiric's Wound). Nothing on
+  // a Movement I hit.
+  if (owner && result.dealt > 0 && !result.downed) applyOnHit(world, owner, e, result.dealt);
   // Oathkeeper (Bonds): Kael took the hit, and what it carries.
-  if (attack?.status && result.takenBy !== undefined && (result.takenDealt ?? 0) > 0) {
+  if (result.takenBy !== undefined && (result.takenDealt ?? 0) > 0) {
     const kael = world.entities.get(result.takenBy);
-    if (kael) addStatus(world, kael, attack.status.id, attack.status.duration, t.owner);
+    if (kael && attack?.status) applyStatusPayload(world, kael, attack.status, t.owner);
+    if (kael && owner) applyOnHit(world, owner, kael, result.takenDealt ?? 0);
   }
 }
 

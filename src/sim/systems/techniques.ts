@@ -12,12 +12,19 @@ import {
   heal,
   isActive,
   ownShield,
+  removeStatus,
   shieldOf,
   slotHero,
 } from '../combat/health';
 import { pushMarker, setTimeScale } from '../combat/feedback';
 import { gainResonance, spendResonance } from '../combat/resonance';
-import { contains, dirgeRemaining, recordSave, telegraphDamage } from '../combat/telegraphs';
+import {
+  answered,
+  contains,
+  dirgeRemaining,
+  recordSave,
+  telegraphDamage,
+} from '../combat/telegraphs';
 import type { Entity, EntityId, TechniqueKey } from '../state';
 import type { World } from '../world';
 import { weaverOf } from '../world';
@@ -320,6 +327,8 @@ export function castReel(world: World, slot: PartySlot | undefined): void {
   w.cooldowns.reel = cd;
   w.cooldownTotals.reel = cd;
   w.lastTechnique = 'reel';
+  // Every Reel, whatever its variant, frees a pinned or latched hero (docs/phase-5a.md P4).
+  freeHero(world, hero);
   if (w.variants.reel === 'swap') return swap(world, weaver, hero);
   if (w.variants.reel === 'anchor') return anchor(world, hero);
 
@@ -374,6 +383,21 @@ export function castReel(world: World, slot: PartySlot | undefined): void {
     toX,
     toZ,
   });
+}
+
+/** What a Reel frees a hero from: an Impaler's pin, a Leech's latch. */
+const REEL_FREES = ['pinned', 'latched'] as const;
+
+/**
+ * A Reel pulls the hero out of a pin or a latch: it's an answer (and rings like a Reel dodge).
+ * Nothing happens to a hero who is neither.
+ */
+function freeHero(world: World, hero: Entity): void {
+  let freed = false;
+  for (const id of REEL_FREES) if (removeStatus(world, hero, id, 'freed')) freed = true;
+  if (!freed) return;
+  answered(world);
+  gainResonance(world, world.content.resonance.gains.reelDodge, 'reel free');
 }
 
 export function castGlide(world: World, x: number, z: number): void {
