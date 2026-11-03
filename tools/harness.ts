@@ -9,14 +9,20 @@
  *   npx tsx tools/harness.ts --run --seeds 10             # whole Prelude runs (map, drafts, carry-over)
  *   npx tsx tools/harness.ts --run --movements 2          # whole Expeditions (docs/phase-5a.md)
  *   npx tsx tools/harness.ts --movement 2 --seed-base 500003   # another seed set (a check)
+ *   npx tsx tools/harness.ts --party kael,vexis,brann --verbose    # a roster party (docs/phase-5b.md)
+ *   npx tsx tools/harness.ts --party B --compare                    # party B, beside the default party
  *
  * The fight list comes from content by Movement (`--movement`, default 1: Movement I's nine
  * fights). Movement I's cells play bare (the loadout alone), Movement II's the arrival kit
  * (tools/kits.ts); `--kit` overrides it.
+ *
+ * `--party` plays a roster party (docs/phase-5b.md): 3 hero ids, or A (Kael, Vexis, Brann),
+ * B (Lyra, Vexis, Brann) or C (Kael, Lyra, Brann). Without it the config has no `party` key, so
+ * every default-party report keeps its baseline. `--compare` plays the default party beside it.
  */
 import { writeFileSync } from 'node:fs';
 import type { BotKind } from '../src/bots';
-import { encounterDef } from '../src/content';
+import { CONTENT, encounterDef } from '../src/content';
 import { CHORD_PRESETS } from '../src/meta/run';
 import type { ChordLoadout } from '../src/meta/types';
 import { movementEncounters, playEncounter, playRun, type EncounterRun } from './harness-core';
@@ -38,9 +44,36 @@ interface Args {
   movements: number;
   /** The first seed (`--seed-base`): fights 1000 + i × 7919, runs 2000 + i × 104729 by default. */
   seedBase: number | null;
+  /** The party (`--party`), in content order; null: the default party (no `party` key). */
+  party: string[] | null;
+  /** `--compare`: play the default party beside `party`, for the bands' "≥ default − 5". */
+  compare: boolean;
 }
 
-function parseArgs(argv: string[]): Args {
+/** The roster parties the bands measure (docs/phase-5b.md, "Bands"). */
+export const NAMED_PARTIES: Readonly<Record<string, readonly string[]>> = {
+  A: ['kael', 'vexis', 'brann'],
+  B: ['lyra', 'vexis', 'brann'],
+  C: ['kael', 'lyra', 'brann'],
+};
+
+/**
+ * `--party`'s value: A, B or C, or 3 distinct known hero ids, comma-separated; in content
+ * order (the run's slot order). Undefined: null, the default party. Throws on anything else.
+ */
+export function partyArg(value: string | undefined): string[] | null {
+  if (value === undefined) return null;
+  const named = NAMED_PARTIES[value.toUpperCase()];
+  const ids = named ? [...named] : value.split(',').filter(Boolean);
+  const known = CONTENT.heroes.map((h) => h.id);
+  const unknown = ids.filter((id) => !known.includes(id));
+  if (unknown.length > 0) throw new Error(`Unknown hero "${unknown.join(',')}" (${known})`);
+  if (ids.length !== 3 || new Set(ids).size !== 3)
+    throw new Error(`A party is 3 distinct heroes, or A, B or C: "${value}"`);
+  return known.filter((id) => ids.includes(id));
+}
+
+export function parseArgs(argv: string[]): Args {
   const get = (name: string) => {
     const i = argv.indexOf(`--${name}`);
     return i >= 0 ? argv[i + 1] : undefined;
@@ -64,6 +97,8 @@ function parseArgs(argv: string[]): Args {
     kit,
     movements: Number(get('movements') ?? 1),
     seedBase: get('seed-base') === undefined ? null : Number(get('seed-base')),
+    party: partyArg(get('party')),
+    compare: argv.includes('--compare'),
   };
 }
 
@@ -100,7 +135,7 @@ const pathArg = ((): (0 | 1)[] | undefined => {
 function runs(args: Args): void {
   const route = args.movements >= 2 ? `Expeditions (${args.movements} Movements)` : 'Prelude runs';
   console.log(
-    `harness · whole ${route} · ${args.seeds} seeds · loadout ${args.label}${callingArg ? ` · ${callingArg} ${pathArg?.join('') ?? '0000'}` : ''}`,
+    `harness · whole ${route} · ${args.seeds} seeds · loadout ${args.label}${callingArg ? ` · ${callingArg} ${pathArg?.join('') ?? '0000'}` : ''}${args.party ? ` · party ${args.party.join(',')}` : ''}`,
   );
   for (const bot of args.bots) {
     const results = Array.from({ length: args.seeds }, (_, i) =>
@@ -109,6 +144,7 @@ function runs(args: Args): void {
         calling: callingArg,
         path: pathArg,
         movements: args.movements,
+        ...(args.party ? { party: args.party } : {}),
       }),
     );
     const wins = results.filter((r) => r.outcome === 'victory').length;
@@ -132,6 +168,16 @@ function runs(args: Args): void {
     console.log(
       `${bot.padEnd(8)} win ${pct(wins / results.length).padStart(4)} · avg ${mean((r) => r.minutes).toFixed(1)} min of combat · ${mean((r) => r.fights).toFixed(1)} fights · ${mean((r) => r.relics.length).toFixed(1)} relics · Aether ${Math.round(mean((r) => r.aetherEarned))} earned, ${Math.round(mean((r) => r.aetherLeft))} left${movementLine} · lost at ${JSON.stringify(endedAt)}`,
     );
+    const harmony = results.filter((r) => r.harmony);
+    if (harmony.length > 0) {
+      // Harmony reachability (docs/phase-5b.md, "Other gates"): offered ≥ 50% of the runs that
+      // owned both its prerequisites; the overall rate is recorded with no target.
+      const owned = harmony.filter((r) => r.harmony!.prereqsOwned);
+      const offered = owned.filter((r) => r.harmony!.silkOfferedEligible > 0).length;
+      console.log(
+        `         Blood and Silk: offered in ${pct(harmony.filter((r) => r.harmony!.silkOffered > 0).length / harmony.length)} of runs · prerequisites owned in ${owned.length} · offered then in ${owned.length ? pct(offered / owned.length) : '-'} (band ≥50%)`,
+      );
+    }
     if (args.verbose)
       for (const r of results)
         console.log(
@@ -144,8 +190,13 @@ function runs(args: Args): void {
  * The difficulty contract's bands for a fight (docs/phase-1.md; Movement II: docs/phase-5a.md,
  * "Bands"), printed beside each row so a miss shows. Win rates and the Skilled bot's share.
  */
-function band(encounter: string, bot: BotKind): string {
+export function band(
+  encounter: string,
+  bot: BotKind,
+  party: readonly string[] | null = null,
+): string {
   const def = encounterDef(encounter);
+  if (party?.includes('brann')) return brannBand(def.movement ?? 1, def.kind, bot, party);
   if ((def.movement ?? 1) < 2) return '';
   const kind = def.kind;
   const bands: Record<string, Record<BotKind, string>> = {
@@ -155,6 +206,52 @@ function band(encounter: string, bot: BotKind): string {
     boss: { idle: '0%', novice: '35-65%', skilled: '≥85% · share ≥30% · 180-300 s' },
   };
   return bands[kind]?.[bot] ?? '';
+}
+
+/**
+ * Brann's cells (docs/phase-5b.md, "Bands") for parties A, B and C: win and share against the
+ * default party's cell (`--compare` prints it), the Novice and the Idle bot, and Brann's own
+ * numbers from the tally (`--verbose`).
+ */
+function brannBand(movement: number, kind: string, bot: BotKind, party: readonly string[]): string {
+  const noTank = !party.includes('kael');
+  const big = kind === 'miniboss' || kind === 'boss';
+  const own = '· Brann below 40% ≥40% of his time, ≤0.3 downs, lifesteal 20-45% of his healing';
+  if (movement < 2) {
+    if (big)
+      return { idle: '0%', novice: '25-70%', skilled: `≥ default − 5 · share ≥30% ${own}` }[bot];
+    return {
+      idle: 'its Movement I band',
+      novice: '≤ default, ≥ Idle + 30',
+      skilled: `≥ default − 5 · share ≥35% ${own}`,
+    }[bot];
+  }
+  if (!big)
+    return {
+      idle: 'as in 5a',
+      novice: '5-20 pts under default',
+      skilled: `≥ default − 5 · share ≥35% ${own} · ≤3 refused Rallies`,
+    }[bot];
+  if (noTank)
+    return {
+      idle: '0%',
+      novice: '≥10%',
+      skilled: '≥ default − 15 · share ≥30% · Twin Cleave on Brann survived ≥70%',
+    }[bot];
+  return {
+    idle: '0%',
+    novice: '20-60%',
+    skilled: '≥ default − 5 · share ≥30% · Execution on Brann spared ≥80%',
+  }[bot];
+}
+
+/** The tally line for a Brann party's runs (`--verbose`): his numbers, averaged a fight. */
+function brannLine(runs: readonly EncounterRun[]): string | null {
+  const tallies = runs.map((r) => r.brann).filter((b): b is NonNullable<typeof b> => !!b);
+  if (tallies.length === 0) return null;
+  const avg = (f: (b: (typeof tallies)[number]) => number) =>
+    tallies.reduce((s, b) => s + f(b), 0) / tallies.length;
+  return `   Brann: below 40% ${pct(avg((b) => b.lowShare40))} · below 30% ${pct(avg((b) => b.lowShare30))} · downs ${avg((b) => b.downs).toFixed(2)} · Weaver heal ${Math.round(avg((b) => b.weaverHealOn))} · Wards ${avg((b) => b.wardsOn).toFixed(1)} (Perfect ${avg((b) => b.perfectsOn).toFixed(1)}) · lifesteal ${Math.round(avg((b) => b.lifesteal))} (${pct(avg((b) => b.lifestealShare))} of his healing) · Blood and Silk ${avg((b) => b.silkResonance).toFixed(1)} · Deathless ${avg((b) => b.deathless).toFixed(1)} · Rallies refused ${avg((b) => b.refusedRallies).toFixed(1)} of ${avg((b) => b.rallies).toFixed(1)}`;
 }
 
 function main(): void {
@@ -167,7 +264,7 @@ function main(): void {
   const t0 = Date.now();
   const kit = kitConfig(args.kit, args.chords);
   console.log(
-    `harness · ${args.seeds} seeds · loadout ${args.label}${args.kit.id === 'bare' || args.label.includes(args.kit.name) ? '' : ` · ${args.kit.name}`}`,
+    `harness · ${args.seeds} seeds · loadout ${args.label}${args.kit.id === 'bare' || args.label.includes(args.kit.name) ? '' : ` · ${args.kit.name}`}${args.party ? ` · party ${args.party.join(',')}` : ''}`,
   );
   console.log(
     'encounter          bot      win   avg s   wave@loss  boss%@loss  share  perf  saves  downs',
@@ -175,9 +272,18 @@ function main(): void {
   for (const encounter of args.encounters) {
     for (const bot of args.bots) {
       const runs: EncounterRun[] = [];
+      const defaults: EncounterRun[] = [];
       for (let i = 0; i < args.seeds; i++) {
         const seed = (args.seedBase ?? 1000) + i * 7919;
-        runs.push(playEncounter({ seed, encounter, ...kit }, bot));
+        // The party key only when one is asked for: a default party's config stays as it was.
+        runs.push(
+          playEncounter(
+            { seed, encounter, ...kit, ...(args.party ? { party: args.party } : {}) },
+            bot,
+          ),
+        );
+        if (args.party && args.compare)
+          defaults.push(playEncounter({ seed, encounter, ...kit }, bot));
       }
       all.push(...runs);
       const wins = runs.filter((r) => r.outcome === 'victory');
@@ -188,7 +294,11 @@ function main(): void {
         losses.length && losses[0]!.bossPct !== null
           ? pct(avg(losses.map((r) => r.bossPct ?? 0)))
           : '-';
-      const target = band(encounter, bot);
+      const versus =
+        defaults.length > 0
+          ? ` · default ${pct(defaults.filter((r) => r.outcome === 'victory').length / defaults.length)} win, share ${pct(avg(defaults.map((r) => r.share)))}`
+          : '';
+      const target = band(encounter, bot, args.party) + versus;
       console.log(
         [
           encounter.padEnd(18),
@@ -226,6 +336,8 @@ function main(): void {
             `   pins freed ${avg(runs.map((r) => r.pinsFreed)).toFixed(1)} · bleed cleanses ${(cleanses.length / runs.length).toFixed(1)} at ${avg(cleanses).toFixed(1)} stacks · pact blasts ${avg(runs.map((r) => r.pactBlasts)).toFixed(1)} · guard blocked ${guard.length ? pct(avg(guard.map((r) => r.guardBlockedPct!))) : '-'} · executions ${runs.reduce((s, r) => s + r.executions, 0)}/${casts} · in Sanctuary ${pools.length ? pct(avg(pools.map((r) => r.timeInSanctuary!))) : '-'}`,
           );
         }
+        const line = brannLine(runs);
+        if (line) console.log(line);
       }
     }
   }
@@ -235,4 +347,4 @@ function main(): void {
   }
 }
 
-main();
+if (process.argv[1]?.endsWith('harness.ts')) main();

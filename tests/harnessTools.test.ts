@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { playRun, VerbTally } from '../tools/harness-core';
+import { playEncounter, playRun, VerbTally } from '../tools/harness-core';
+import { band, NAMED_PARTIES, parseArgs, partyArg } from '../tools/harness';
+import { ARRIVAL_KIT, kitConfig } from '../tools/kits';
 import { SCENARIO_HOUND_PACK } from '../tools/scenarios';
 import { createSim, type SimEvent } from '../src/sim';
 import { sandbox, worldOf } from './sim/helpers';
@@ -161,5 +163,79 @@ describe('whole runs (playRun)', () => {
     const prelude = playRun(1, 'skilled');
     expect(prelude.movementReached).toBe(1);
     expect(prelude.minutesByMovement.length).toBe(1);
+  });
+});
+
+// ── The roster (docs/phase-5b.md, "Bots and harness") ────────────────────────────────
+
+const BRANN_TALLY_KEYS = [
+  'lowShare40',
+  'lowShare30',
+  'downs',
+  'weaverHealOn',
+  'wardsOn',
+  'perfectsOn',
+  'lifesteal',
+  'lifestealShare',
+  'silkResonance',
+  'deathless',
+  'refusedRallies',
+  'rallies',
+];
+
+describe('the harness and a roster party', () => {
+  it('reads --party as A, B or C, or 3 distinct known heroes, in content order', () => {
+    expect(partyArg(undefined)).toBeNull();
+    expect(partyArg('A')).toEqual(['kael', 'vexis', 'brann']);
+    expect(partyArg('b')).toEqual(['lyra', 'vexis', 'brann']);
+    expect(partyArg('C')).toEqual(['kael', 'lyra', 'brann']);
+    expect(partyArg('brann,vexis,kael')).toEqual(['kael', 'vexis', 'brann']);
+    expect(() => partyArg('kael,vexis')).toThrow();
+    expect(() => partyArg('kael,kael,brann')).toThrow();
+    expect(() => partyArg('kael,vexis,seren')).toThrow();
+    // The config gains a party only when one is asked for.
+    expect(parseArgs([]).party).toBeNull();
+    expect(parseArgs(['--party', 'kael,lyra,brann']).party).toEqual(['kael', 'lyra', 'brann']);
+    expect(parseArgs(['--party', 'B', '--compare']).compare).toBe(true);
+  });
+
+  it('prints Brann’s cells for his parties, and the default bands otherwise', () => {
+    expect(band('first_light', 'skilled')).toBe('');
+    expect(band('first_light', 'skilled', NAMED_PARTIES.A)).toContain('Brann below 40%');
+    expect(band('vharun', 'skilled', NAMED_PARTIES.B)).toContain('default − 15');
+    expect(band('vharun', 'skilled', NAMED_PARTIES.C)).toContain('Execution on Brann');
+    expect(band('crimson_gate', 'skilled')).toBe(band('crimson_gate', 'skilled', null));
+  });
+
+  it('tallies Brann only when he is in the party', () => {
+    const config = { seed: 1000, encounter: 'crimson_gate', ...kitConfig(ARRIVAL_KIT) };
+    const plain = playEncounter(config, 'skilled');
+    expect('brann' in plain).toBe(false);
+    const run = playEncounter({ ...config, party: ['kael', 'vexis', 'brann'] }, 'skilled');
+    expect(Object.keys(run.brann!)).toEqual(BRANN_TALLY_KEYS);
+    expect(run.brann!.lifesteal).toBeGreaterThan(0);
+    expect(run.brann!.lifestealShare).toBeGreaterThan(0);
+    expect(run.brann!.lifestealShare).toBeLessThanOrEqual(1);
+    expect(run.brann!.lowShare30).toBeLessThanOrEqual(run.brann!.lowShare40);
+  });
+
+  it('plays a whole run with a party set in Prep, and records the Harmony only for Brann', () => {
+    const plain = playRun(1, 'skilled');
+    expect('harmony' in plain).toBe(false);
+    let party: string[] = [];
+    const brann = playRun(1, 'skilled', undefined, {
+      party: ['brann', 'kael', 'vexis'],
+      onEnd: (run) => (party = run.party.map((h) => h.heroId)),
+    });
+    // Canonical order, as Prep sets it.
+    expect(party).toEqual(['kael', 'vexis', 'brann']);
+    expect(brann.harmony).toBeDefined();
+    expect(Object.keys(brann.harmony!)).toEqual([
+      'silkOffered',
+      'silkOfferedEligible',
+      'prereqsOwned',
+    ]);
+    expect(brann.harmony!.silkOfferedEligible).toBeLessThanOrEqual(brann.harmony!.silkOffered);
+    expect(() => playRun(1, 'skilled', undefined, { party: ['kael', 'brann'] })).toThrow();
   });
 });

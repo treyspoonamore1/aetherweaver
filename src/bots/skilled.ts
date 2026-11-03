@@ -11,9 +11,19 @@
  * stands in a Sanctuary pool under the Bloodmoon and Rallies the party into it, and tops up (or
  * Wards) the hero condemned by an Execution. Every one of these is gated on its mechanic being
  * present, so Movement I plays exactly as before.
+ *
+ * Brann (docs/phase-5b.md, "Bots and harness") is played low but alive: he reads as healthy to
+ * the Thread above his floor (25%; 15% with Berserker's Hymn) unless he's falling fast or a
+ * lethal hit is on him; below his 40% line he's Perfect-Warded first, Warded freely with Blood
+ * Tithe, Warded or Reeled out of an Execution, Cued into Red Frenzy in a crowd, left out of the
+ * Crescendo's average and of the Bloodmoon's Rally (Reeled in instead, a Rally at most every
+ * 8 s while he refuses them); with no dome the Reel waits for Twin Cleave's second blow; Blood
+ * and Silk parks an Empowering Thread on him. Every such branch is behind his presence and draws
+ * nothing, so a default party's command stream is unchanged (tests/bots/commandSnapshot.test.ts).
  */
-import { CONTENT } from '../content';
+import { CONTENT, partyHasDome } from '../content';
 import { Rng } from '../sim/core/rng';
+import { bloodRageBonus } from '../sim';
 import type { Command, PartySlot, ReadonlyEntity, ThreadMode, WorldState } from '../sim';
 import type { Bot } from './types';
 import {
@@ -49,6 +59,9 @@ import {
   laterMovement,
   statusStacks,
   zoneFor,
+  bloodOf,
+  mendNeed,
+  type BloodView,
   type HeroView,
 } from './common';
 
@@ -66,6 +79,15 @@ const SENTINEL_FOCUS_AT = 3;
 
 /** The Solos that guard the party (Bonds' alternates included); the rest deal damage. */
 const GUARDING: ReadonlySet<string> = new Set(['aegisWall', 'oathkeeper', 'celestial_sphere']);
+
+/** Brann's Solo (docs/phase-5b.md): Cued low and in a crowd, its lifesteal ×3 heals him. */
+const RED_FRENZY = 'redFrenzy';
+/** While Brann refuses Rallies (Bloodlust), the bot calls one at most this often, in seconds. */
+const LUSTING_RALLY_GAP = 8;
+/** Blood and Silk's line (src/sim/systems/thread.ts): Empower him below it and it rings. */
+const SILK_BELOW = 0.3;
+/** How far past his floor a Mend on Brann lifts him before the Thread moves on. */
+const BRANN_LIFT = 0.1;
 
 export class SkilledBot implements Bot {
   readonly name: string;
@@ -98,6 +120,11 @@ export class SkilledBot implements Bot {
     const tech = CONTENT.techniques;
     const now = state.time;
     let acted = false;
+    // Brann (docs/phase-5b.md): every branch below that reads him is behind `blood`, which is
+    // null for a party without a Blood Rage hero, so a default party plays exactly as before.
+    const blood = bloodOf(state, party);
+    /** Brann is in the party, up or down. */
+    const withBrann = blood !== null || all.some((h) => h.e.hero!.blood !== undefined);
 
     // ── Movement: cover the party with the field, stay out of danger, keep off melee. ──
     const desired = this.position(state, w, party, enemies);
@@ -130,6 +157,13 @@ export class SkilledBot implements Bot {
     }
 
     const held = heldHero(party);
+    // A Fermata hold on Brann needs only one Mend tick (any heal saves, even halved): once it
+    // landed, he needs nothing more of the Thread or the Chime.
+    const holding = blood
+      ? (party.find(
+          (h) => h.e.hero!.hold && !(h.slot === blood.hero.slot && h.e.hero!.hold.savedBy),
+        ) ?? null)
+      : held;
     const calling = caller(party);
     const call = calling?.e.hero!.call ?? null;
     const answerNow = !!call && now - call.start >= this.opts.callReaction;
@@ -157,12 +191,17 @@ export class SkilledBot implements Bot {
           const lethal = dmg >= h.e.health!.hp + shieldOf(h.e);
           // An Execution is small but lethal below its line: Ward it whatever its size.
           if (dmg < h.e.health!.maxHp * 0.15 && !(lethal && t.executeBelow !== undefined)) continue;
-          const score = dmg + (lethal ? 5000 : 0);
+          let score = dmg + (lethal ? 5000 : 0);
+          // Brann below his line before a big hit: Perfect-Ward him first.
+          if (blood && blood.low && h.slot === blood.hero.slot) score += 10000;
           if (!best || score > best.score) best = { slot: h.slot, score };
         }
       }
       if (best && this.notice()) {
         out.push({ t: 'tech', id: 'ward', slot: best.slot });
+        acted = true;
+      } else if (blood && !best && brannWard(state, blood, w)) {
+        out.push({ t: 'tech', id: 'ward', slot: blood.hero.slot });
         acted = true;
       } else if (
         answerNow &&
@@ -174,12 +213,12 @@ export class SkilledBot implements Bot {
         out.push({ t: 'tech', id: 'ward', slot: calling!.slot });
         acted = true;
       } else if (!acted) {
-        const low = party.filter(
-          (h) => effectiveFraction(h.e) < 0.3 && dist(h.e, w) < tech.ward.range - 0.3,
-        );
+        // Brann reads by his Mend need: low on purpose isn't an emergency.
+        const need = (h: HeroView) => (blood ? mendNeed(h, blood) : effectiveFraction(h.e));
+        const low = party.filter((h) => need(h) < 0.3 && dist(h.e, w) < tech.ward.range - 0.3);
         const soon = party.some((h) => threatsOn(state, h.e).some((t) => t.impact - now < 1.6));
         if (low.length > 0 && !soon && affords(state, 'ward', 15)) {
-          low.sort((a, b) => effectiveFraction(a.e) - effectiveFraction(b.e));
+          low.sort((a, b) => need(a) - need(b));
           out.push({ t: 'tech', id: 'ward', slot: low[0]!.slot });
           acted = true;
         }
@@ -208,9 +247,9 @@ export class SkilledBot implements Bot {
       if (pick && dist(pick.e, w) < tech.chime.range && this.notice()) {
         out.push({ t: 'tech', id: 'chime', point: { x: pick.e.x, z: pick.e.z } });
         acted = true;
-      } else if (!pick && held && dist(held.e, w) < tech.chime.range && this.notice()) {
+      } else if (!pick && holding && dist(holding.e, w) < tech.chime.range && this.notice()) {
         // A Chime heals a held hero too.
-        out.push({ t: 'tech', id: 'chime', point: { x: held.e.x, z: held.e.z } });
+        out.push({ t: 'tech', id: 'chime', point: { x: holding.e.x, z: holding.e.z } });
         acted = true;
       } else if (
         !pick &&
@@ -240,8 +279,16 @@ export class SkilledBot implements Bot {
         out.push({ t: 'tech', id: 'reel', slot: freeing.slot });
         acted = true;
       }
+      // Brann: out of an Execution no Ward answers, or in from outside every Bloodmoon pool
+      // when he won't Rally.
+      if (!acted && blood && brannReel(state, blood, w)) {
+        out.push({ t: 'tech', id: 'reel', slot: blood.hero.slot });
+        acted = true;
+      }
+      // With no dome, the Reel waits for Twin Cleave's second blow on Brann.
+      const reserve = !!blood && !acted && twinCleaveOn(state, blood);
       // ── Reel: pull a hero out of a big hit they won't escape (beams, rings). ──
-      for (const h of acted ? [] : party) {
+      for (const h of acted || reserve ? [] : party) {
         if (h.e.hero!.action === 'dodging' || h.e.hero!.reel) continue;
         if (dist(h.e, w) > tech.reel.range - 0.3) continue;
         const t = threatsOn(state, h.e).find(
@@ -276,19 +323,32 @@ export class SkilledBot implements Bot {
     // A revive under way keeps the thread unless the condemned hero is right at the line: the
     // revive decays off the thread, so a flip-flop around line + 0.1 would waste the wind-up.
     const reviving = downed.some((h) => h.slot === wc.threadSlot && h.e.health!.revive > 0);
-    const condemned = executionTarget(state, party, reviving ? 0.03 : 0.1);
+    const condemnedAny = executionTarget(state, party, reviving ? 0.03 : 0.1);
+    // An Execution on Brann is answered with a Ward or a Reel, never a Mend his cut halves.
+    const condemned = blood && condemnedAny?.slot === blood.hero.slot ? null : condemnedAny;
+
     // A guard or a discord shield up in Movement II: Lyra's Empowered shots break them.
     const breakers =
       laterMovement(state) &&
       enemies.some((e) => guardUp(state, e) || e.health!.shields.some((s) => s.kind === 'discord'));
-    if (held) {
-      threadTo = held;
+    if (holding) {
+      threadTo = holding;
     } else if (condemned) {
       // An Execution is coming: lift them above its line (the Ward scorer covers the rest).
       threadTo = condemned;
     } else if (downed.length > 0) {
       downed.sort((a, b) => a.e.health!.bleedOut - b.e.health!.bleedOut);
       threadTo = downed[0]!;
+      // With Brann in the party two heroes often fall together: a revive under way is seen
+      // through, rather than swapped each decision for the other's shorter bleed-out.
+      const winding = withBrann
+        ? downed.find((h) => h.slot === wc.threadSlot && h.e.health!.revive > 0)
+        : undefined;
+      if (winding) threadTo = winding;
+    } else if (blood) {
+      const pick = brannThread(state, party, blood, wc.threadSlot, breakers, calling, answerNow);
+      threadTo = pick.to;
+      mend = pick.mend;
     } else if (party.length > 0) {
       const sorted = [...party].sort((a, b) => effectiveFraction(a.e) - effectiveFraction(b.e));
       const lowest = sorted[0]!;
@@ -361,7 +421,12 @@ export class SkilledBot implements Bot {
         if (c.solo < 100 || c.soloActive > 0) continue;
         let go: boolean;
         // A Solo that guards the party waits for a raid or a big hit; one that deals damage, a pack.
-        if (GUARDING.has(c.soloId)) {
+        if (blood && c.soloId === RED_FRENZY && h.slot === blood.hero.slot) {
+          // Red Frenzy Cued is lifesteal ×3: the heal his cut can't touch, low and in a crowd.
+          const r = CONTENT.heroes.find((d) => d.id === h.defId)?.solo.radius ?? 0;
+          const near = enemies.filter((e) => dist(e, h.e) <= r + e.radius).length;
+          go = (blood.low && near >= 2) || bossFight;
+        } else if (GUARDING.has(c.soloId)) {
           const bigHit = party.some((p) =>
             threatsOn(state, p.e).some(
               (t) => t.impact - now < 1.2 && damageOf(t, p.e) > p.e.health!.hp * 0.6,
@@ -391,9 +456,12 @@ export class SkilledBot implements Bot {
       }
     }
     if (wc.resonance >= CONTENT.resonance.crescendoCost && wc.crescendo <= 0) {
+      // Brann sits low on purpose: he's left out of the party's average.
+      const counted =
+        blood && party.length > 1 ? party.filter((h) => h.slot !== blood.hero.slot) : party;
       const avg =
-        party.reduce((s, h) => s + h.e.health!.hp / h.e.health!.maxHp, 0) /
-        Math.max(1, party.length);
+        counted.reduce((s, h) => s + h.e.health!.hp / h.e.health!.maxHp, 0) /
+        Math.max(1, counted.length);
       if (avg < 0.6 || (raid && raid.impact - now < 2.5) || downed.length > 0)
         out.push({ t: 'crescendo' });
     }
@@ -401,15 +469,25 @@ export class SkilledBot implements Bot {
     // ── Directives: scatter for links, stack (rally) for rings, then back to normal. ──
     const link = state.telegraphs.find((t) => t.kind === 'link');
     const ring = state.telegraphs.find((t) => t.kind === 'donut');
+    // Brann refusing Rallies (Bloodlust): one at most every 8 s, and he isn't one to call in.
+    const lusting = !!blood?.lusting;
+    const gap = (s: number) => (lusting ? Math.max(s, LUSTING_RALLY_GAP) : s);
     if (link && state.directive !== 'scatter') out.push({ t: 'directive', kind: 'scatter' });
-    else if (ring && !link && now - this.lastRally > 2) {
+    else if (ring && !link && now - this.lastRally > gap(2)) {
       out.push({ t: 'directive', kind: 'rally' });
       this.lastRally = now;
-    } else if (!link && state.directive === 'scatter') out.push({ t: 'directive', kind: 'rally' });
-    else if (!link && !ring && state.field.sanctuary && now - this.lastRally > 4) {
+    } else if (!link && state.directive === 'scatter') {
+      if (!blood) out.push({ t: 'directive', kind: 'rally' });
+      else if (!lusting || now - this.lastRally > LUSTING_RALLY_GAP) {
+        out.push({ t: 'directive', kind: 'rally' });
+        this.lastRally = now;
+      }
+    } else if (!link && !ring && state.field.sanctuary && now - this.lastRally > gap(4)) {
       // The Bloodmoon: from inside a pool, call everyone outside every pool in to her.
       const pools = state.field.sanctuary.pools;
-      if (inZone(pools, w) && party.some((h) => !inZone(pools, h.e))) {
+      const outside = (h: HeroView) =>
+        !inZone(pools, h.e) && !(lusting && blood!.hero.slot === h.slot);
+      if (inZone(pools, w) && party.some(blood ? outside : (h) => !inZone(pools, h.e))) {
         out.push({ t: 'directive', kind: 'rally' });
         this.lastRally = now;
       }
@@ -579,4 +657,153 @@ function executionTarget(
     if (h && h.e.health!.hp < h.e.health!.maxHp * (t.executeBelow + margin)) return h;
   }
   return null;
+}
+
+// ── Brann (docs/phase-5b.md, "Bots and harness"): read only with a Blood Rage hero up ─────
+
+/** Brann holds one of the Weaver's Wards. */
+function warded(e: ReadonlyEntity): boolean {
+  return e.health!.shields.some((s) => s.kind === 'ward');
+}
+
+/** The Execution condemning Brann (below its line, or within 0.1 of it), if one is cast. */
+function executionOn(state: WorldState, blood: BloodView) {
+  const e = blood.hero.e;
+  return (
+    state.telegraphs.find(
+      (t) =>
+        t.executeBelow !== undefined &&
+        t.target === e.id &&
+        e.health!.hp < e.health!.maxHp * (t.executeBelow + 0.1),
+    ) ?? null
+  );
+}
+
+/** The party has no dome (no Kael): Twin Cleave and Execution find Brann. */
+function noDome(state: WorldState): boolean {
+  const ids = state.party.map((id) => state.entities.get(id)?.hero?.defId ?? '');
+  return !partyHasDome(ids);
+}
+
+/** With no dome, Twin Cleave's first blow is on its way to Brann (its second follows). */
+function twinCleaveOn(state: WorldState, blood: BloodView): boolean {
+  return (
+    noDome(state) &&
+    threatsOn(state, blood.hero.e).some((t) => hasFollowUp(t) && t.impact - state.time < 2.5)
+  );
+}
+
+/**
+ * A Ward on Brann outside the Perfect scorer (which already puts him first below his line),
+ * when he holds none and is in reach: an Execution condemns him (it spares a Warded hero); with
+ * no dome, before Twin Cleave's first blow; with Blood Tithe, whenever he's below his line.
+ */
+function brannWard(state: WorldState, blood: BloodView, w: ReadonlyEntity): boolean {
+  const e = blood.hero.e;
+  const tech = CONTENT.techniques.ward;
+  if (warded(e) || dist(e, w) > tech.range - 0.3) return false;
+  const now = state.time;
+  const exec = executionOn(state, blood);
+  // The Ward lasts its duration: cast it so it's still up when the Execution lands.
+  if (exec && exec.impact - now < tech.duration - 0.5) return true;
+  if (
+    noDome(state) &&
+    threatsOn(state, e).some(
+      (t) => hasFollowUp(t) && t.impact - now < 1 && t.impact - now > tech.perfectWindow,
+    )
+  )
+    return true;
+  return state.mods.bloodTithe > 0 && blood.low;
+}
+
+/**
+ * A Reel for Brann: out of an Execution at its last moment when no Ward is on him (the pull's
+ * flight dodges it), or, Bloodlusting under the Bloodmoon, in from outside every pool to the
+ * Weaver standing in one (he won't answer a Rally).
+ */
+function brannReel(state: WorldState, blood: BloodView, w: ReadonlyEntity): boolean {
+  const e = blood.hero.e;
+  const reel = CONTENT.techniques.reel;
+  if (e.hero!.reel || e.hero!.action === 'dodging' || dist(e, w) > reel.range - 0.3) return false;
+  const exec = executionOn(state, blood);
+  if (exec && !warded(e)) {
+    const left = exec.impact - state.time;
+    if (left < reel.flight - 0.05 && left > 0.05) return true;
+  }
+  const pools = state.field.sanctuary?.pools;
+  return !!pools && blood.lusting && inZone(pools, w) && !inZone(pools, e);
+}
+
+/** The damage a hero's attack deals a second now (Blood Rage included): who breaks shields. */
+function damageRate(h: HeroView): number {
+  const def = CONTENT.heroes.find((d) => d.id === h.defId)!;
+  return (def.attack.damage / def.attack.interval) * (1 + bloodRageBonus(CONTENT, h.e));
+}
+
+/**
+ * The Thread with Brann in the party: the default rules, read by each hero's Mend need (Brann
+ * is healthy while he holds his floor), with Blood and Silk's parking (Empower him below 30%
+ * while nobody else is below half) and, without Lyra, the hardest hitter who isn't the tank to
+ * break discord shields.
+ */
+function brannThread(
+  state: WorldState,
+  party: readonly HeroView[],
+  blood: BloodView,
+  threadSlot: PartySlot | null,
+  breakers: boolean,
+  calling: HeroView | null,
+  answerNow: boolean,
+): { to: HeroView | null; mend: boolean } {
+  if (party.length === 0) return { to: null, mend: true };
+  const brann = blood.hero;
+  // Being Mended up to his floor, he's lifted a little past it before the Thread moves on, so
+  // it doesn't swing between him and the rest as hits come and go.
+  const mending =
+    threadSlot === brann.slot && state.entities.get(state.weaverId)?.weaver?.threadMode === 'mend';
+  const lift = mending && effectiveFraction(brann.e) < blood.floor + BRANN_LIFT;
+  const need = (h: HeroView) =>
+    lift && h.slot === brann.slot ? effectiveFraction(h.e) : mendNeed(h, blood);
+  const sorted = [...party].sort((a, b) => need(a) - need(b));
+  const lowest = sorted[0]!;
+  const current = threadSlot === null ? null : (party.find((h) => h.slot === threadSlot) ?? null);
+  // Brann healthy at his floor isn't in trouble, however much is coming at him.
+  const calm = party.every(
+    (h) => (h.slot === brann.slot && need(h) === 1) || h.e.health!.incoming < h.e.health!.hp * 0.3,
+  );
+  const call = calling?.e.hero!.call ?? null;
+  const bh = brann.e.health!;
+  if (
+    state.mods.bloodAndSilk > 0 &&
+    bh.hp < bh.maxHp * SILK_BELOW &&
+    !blood.fast &&
+    !blood.lethal &&
+    party.every((h) => h.slot === brann.slot || h.e.health!.hp >= h.e.health!.maxHp * 0.5)
+  )
+    return { to: brann, mend: false };
+  if (answerNow && call?.answer === 'empower' && need(lowest) > 0.5 && calm)
+    return { to: calling, mend: false };
+  const lyra = party.find((h) => h.defId === 'lyra');
+  if (breakers && need(lowest) > 0.6 && calm) {
+    if (lyra) return { to: lyra, mend: false };
+    // No Lyra: a discord shield breaks under any Empowered hero; a guard wants Focus and flank.
+    const discord = state.entities
+      .list()
+      .some((e) => e.enemy && e.health?.shields.some((s) => s.kind === 'discord'));
+    const strikers = party.filter((h) => h.role !== 'tank');
+    if (discord && strikers.length > 0) {
+      const top = strikers.reduce((a, b) => (damageRate(b) > damageRate(a) ? b : a));
+      return { to: top, mend: false };
+    }
+  }
+  if (need(lowest) > 0.85 && calm) {
+    const tank = party.find((h) => h.role === 'tank');
+    const beam = beamSong(state);
+    if (beam && defensiveSong(beam) && tank && tank.e.health!.incoming > 0)
+      return { to: tank, mend: false };
+    return { to: lyra ?? party.find((h) => h.role !== 'tank') ?? lowest, mend: false };
+  }
+  if (!current || need(lowest) < need(current) - 0.12 || need(current) > 0.92)
+    return { to: lowest, mend: true };
+  return { to: current, mend: true };
 }

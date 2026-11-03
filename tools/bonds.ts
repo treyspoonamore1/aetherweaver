@@ -13,6 +13,10 @@
  * judge the Focus talents (Steady Vanguard, Hunter's Mark) with the Skilled bot. Each choice's worth is read as
  * the extra enemy life that costs as much, on a logistic scale between the base and the base
  * with 25% more life; a talent that helps is worth negative life.
+ *
+ * A hero outside the default party (Brann, docs/phase-5b.md) is measured in a party that has
+ * him (`heroParty`): a run's Bonds resolve only for the heroes in its party, so with the default
+ * party his rows would read as the base. `--sets`' "everyone" rows are played per party.
  */
 import type { BotKind } from '../src/bots';
 import { CONTENT } from '../src/content';
@@ -32,6 +36,27 @@ const logit = (p: number) => {
   const q = Math.min(0.995, Math.max(0.005, p));
   return Math.log(q / (1 - q));
 };
+
+/**
+ * The party a hero's Bonds are measured in: the default party for its own heroes (undefined, so
+ * their numbers are unchanged), else party A of docs/phase-5b.md: the default party's tank and
+ * mage, with the hero in the archer's place, in content order.
+ */
+export function heroParty(hero: string): string[] | undefined {
+  const base = CONTENT.defaultParty;
+  if (base.includes(hero)) return undefined;
+  const keep = [base[0]!, base[base.length - 1]!, hero];
+  return CONTENT.heroes.map((h) => h.id).filter((id) => keep.includes(id));
+}
+
+/** The hero a talent or alternate Solo belongs to. */
+function heroOf(id: string): string {
+  const owner =
+    CONTENT.talents.find((t) => t.id === id)?.hero ??
+    CONTENT.altSolos.find((s) => s.id === id)?.hero;
+  if (!owner) throw new Error(`Unknown talent or Solo "${id}"`);
+  return owner;
+}
 
 /** One hero's choice as a run's Bonds. */
 function choice(id: string): RunBond[] {
@@ -58,7 +83,7 @@ function main(): void {
   const tree = argv.includes('--tree') ? buildTree([...TREES.grace!, ...TREES.notables!], 29) : [];
   const carried = argv.includes('--tree') ? SETS.typical!() : [];
   const threat = Number(get('threat') ?? 1);
-  const play = (threatMult: number, bonds: RunBond[] = []) => {
+  const play = (threatMult: number, bonds: RunBond[] = [], party?: readonly string[]) => {
     let won = 0;
     const xp: Record<string, number> = {};
     for (let i = 0; i < seeds; i++) {
@@ -68,6 +93,7 @@ function main(): void {
         carried,
         threatMult,
         bonds,
+        ...(party ? { party } : {}),
       });
       if (r.outcome === 'victory') won++;
       for (const [hero, v] of Object.entries(r.bondXp)) xp[hero] = (xp[hero] ?? 0) + v;
@@ -107,6 +133,7 @@ function main(): void {
           carried,
           threatMult: threat,
           bonds: choice(id),
+          ...(heroParty(heroOf(id)) ? { party: heroParty(heroOf(id)) } : {}),
           onEvents: (events) => {
             for (const e of events) if (e.type === 'talentFired' && e.talent === id) now++;
           },
@@ -148,30 +175,38 @@ function main(): void {
     for (const hero of heroes.filter((h) => only === undefined || only === h))
       for (const pick of [0, 1] as const)
         for (const alt of [false, true]) {
-          const win = play(threat, [fullBond(hero, pick, alt)]).win;
+          const win = play(threat, [fullBond(hero, pick, alt)], heroParty(hero)).win;
           console.log(
             `  ${hero} (${pick === 0 ? 'first' : 'second'} picks${alt ? ', alternate Solo' : ''})`.padEnd(
               46,
             ) + `${pct(win)} · like ${worth(win).toFixed(1)}% enemy life`,
           );
         }
-    for (const pick of only === undefined || only === 'all' ? ([0, 1] as const) : []) {
-      const win = play(
-        threat,
-        heroes.map((h) => fullBond(h, pick, false)),
-      ).win;
-      console.log(
-        `  everyone (${pick === 0 ? 'first' : 'second'} picks)`.padEnd(46) +
-          `${pct(win)} · like ${worth(win).toFixed(1)}% enemy life`,
-      );
-    }
+    // Everyone's Bonds together, once for each party the heroes are measured in: the default
+    // party's heroes first (their row as it always was), then each other party's.
+    const parties = [...new Set(heroes.map((h) => (heroParty(h) ?? []).join(',')))];
+    for (const pick of only === undefined || only === 'all' ? ([0, 1] as const) : [])
+      for (const key of parties) {
+        const party = key === '' ? undefined : key.split(',');
+        const members = party ?? CONTENT.defaultParty;
+        const win = play(
+          threat,
+          heroes.filter((h) => members.includes(h)).map((h) => fullBond(h, pick, false)),
+          party,
+        ).win;
+        console.log(
+          `  everyone${party ? ` in ${key}` : ''} (${pick === 0 ? 'first' : 'second'} picks)`.padEnd(
+            46,
+          ) + `${pct(win)} · like ${worth(win).toFixed(1)}% enemy life`,
+        );
+      }
     return;
   }
   const ids = (
     get('talents') ?? [...CONTENT.talents, ...CONTENT.altSolos].map((t) => t.id).join(',')
   ).split(',');
   for (const id of ids) {
-    const win = play(threat, choice(id)).win;
+    const win = play(threat, choice(id), heroParty(heroOf(id))).win;
     console.log(`  ${id.padEnd(18)} ${pct(win)} · like ${worth(win).toFixed(1)}% enemy life`);
   }
 }
