@@ -440,3 +440,60 @@ describe('the run', () => {
     expect(loaded.results[0]!.stats.missedCalls).toBe(1);
   });
 });
+
+describe('In the Red (docs/phase-5b.md)', () => {
+  const RED = CONTENT.deeds.find((d) => d.id === 'in_the_red')!;
+  const hero = (heroId: string, peakAfterLow: number | null = null) => ({
+    heroId,
+    hpPct: 0.3,
+    downed: false,
+    dead: false,
+    damage: 4000,
+    amplified: 0,
+    ...(peakAfterLow === null
+      ? {}
+      : {
+          blood: {
+            lifesteal: 300,
+            lowTime: 40,
+            low30Time: 12,
+            aliveTime: 90,
+            peakAfterLow,
+            spent: 125,
+          },
+        }),
+  });
+  const vharun = (over: Partial<Omit<EncounterResult, 'stats'>> = {}) =>
+    fight({
+      encounterId: 'vharun',
+      name: 'Vharun, the Crimson Warden',
+      kind: 'boss',
+      movement: 2,
+      heroes: [hero('kael'), hero('lyra'), hero('brann', 0.38)],
+      ...over,
+    });
+
+  it('holds when Brann beat Vharun never above 40% once low, up to the line itself', () => {
+    expect(RED.test).toBe('heroCeiling');
+    expect(deedHolds(runOf([vharun()]), RED)).toBe(true);
+    expect(deedHolds(runOf([vharun({ heroes: [hero('brann', 0.4)] })]), RED)).toBe(true);
+    expect(deedHolds(runOf([vharun({ heroes: [hero('brann', 0)] })]), RED)).toBe(true);
+    // Fight-scoped: a lost Vharun fight, then the line held in a later one, holds.
+    expect(deedHolds(runOf([vharun({ outcome: 'defeat' }), vharun()]), RED)).toBe(true);
+    expect(deedsEarned(runOf([vharun()]), [])).toContain('in_the_red');
+  });
+
+  it('fails above the line, never low, lost, elsewhere, or without Brann', () => {
+    expect(deedHolds(runOf([vharun({ heroes: [hero('brann', 0.41)] })]), RED)).toBe(false);
+    expect(deedHolds(runOf([vharun({ heroes: [hero('brann', -1)] })]), RED)).toBe(false);
+    expect(deedHolds(runOf([vharun({ heroes: [hero('brann')] })]), RED)).toBe(false);
+    expect(deedHolds(runOf([vharun({ outcome: 'defeat' })]), RED)).toBe(false);
+    expect(deedHolds(runOf([vharun({ encounterId: 'gorehound_matriarch' })]), RED)).toBe(false);
+    expect(deedHolds(runOf([vharun({ heroes: [hero('kael'), hero('lyra', 0.2)] })]), RED)).toBe(
+      false,
+    );
+    // A default-party run never earns it.
+    const plain = vharun({ heroes: [hero('kael'), hero('lyra'), hero('vexis')] });
+    expect(deedsEarned(runOf([plain]), [])).not.toContain('in_the_red');
+  });
+});

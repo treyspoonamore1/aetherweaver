@@ -10,7 +10,7 @@ import { CONTENT } from '../content';
 import { chordProblems, type ReservePool } from '../sim';
 import { astrolabePoints, pruneTree } from './astrolabe';
 import { FIGHT_AETHER, RELIC_OFFERS } from './economy';
-import { fieldAuraSlots, reserveMult, reservePool, withCarried } from './run';
+import { canonicalParty, fieldAuraSlots, reserveMult, reservePool, withCarried } from './run';
 import { MAX_RANK, movementOneEnemies, newProfile, PROFILE_VERSION, type Profile } from './profile';
 import { bondedHeroes, fitBond, fitRunBonds } from './bonds';
 import { fitLevels } from './dissonance';
@@ -793,6 +793,24 @@ export function migrateProfileJson(raw: unknown, seed = 1): unknown {
   return p;
 }
 
+/** The profile's roster keys fitted to the content, in place (see `loadProfile`). */
+function fitRoster(profile: Profile): void {
+  if (profile.recruited !== undefined) {
+    const recruited = canonicalParty(profile.recruited);
+    if (recruited.length > 0) profile.recruited = recruited;
+    else delete profile.recruited;
+  }
+  if (profile.lastParty !== undefined) {
+    const party = canonicalParty(profile.lastParty);
+    const legal =
+      party.length === 3 &&
+      profile.lastParty.length === 3 &&
+      party.join() !== CONTENT.defaultParty.join();
+    if (legal) profile.lastParty = party;
+    else delete profile.lastParty;
+  }
+}
+
 /**
  * Loads the profile (backup if the main copy is unreadable); a new one if there's none. `seed`
  * starts the crafting rolls of a new or migrated Reliquary (the app passes a random one).
@@ -847,6 +865,11 @@ export function loadProfile(store: KeyValueStore, seed = 1): Profile {
             .filter(([hero]) => bondedHeroes().includes(hero))
             .map(([hero, bond]) => [hero, fitBond(hero, bond)]),
         );
+        // The roster (docs/phase-5b.md): heroes the content knows, in content order. A
+        // remembered party must still be 3 distinct heroes (not the default party, which is
+        // never remembered); whether they're in the roster is the next run's to judge, since
+        // Skip the unlocks lives in the settings. An empty key goes, so it stays absent.
+        fitRoster(profile);
         // Dissonance: levels the content knows, and bests that are counts.
         const d = profile.dissonance;
         profile.dissonance = {
