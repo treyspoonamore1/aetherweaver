@@ -144,8 +144,12 @@ export interface ProfileStore {
   bondsAll(): boolean;
   /** What a run's heroes play with: the profile's choices their Bond ranks open. */
   runBonds(heroes: readonly string[]): RunBond[];
-  /** Adds Bond XP (the run store, as each fight finishes); notes the ranks reached. */
-  awardBonds(xpByHero: Readonly<Record<string, number>>): void;
+  /**
+   * Adds Bond XP (the run store, as each fight finishes); notes the ranks reached. A late
+   * recruit's catch-up applies (`catchUpMult`) unless `catchUp` is false: the amounts are already
+   * the awarded ones (a fight's `bondXp`, judged by `awardedBondXp`).
+   */
+  awardBonds(xpByHero: Readonly<Record<string, number>>, catchUp?: boolean): void;
   dismissBondNotices(): void;
   /** A hero's talent in a tier (1–3), or none; only one their rank opens (or Skip the unlocks). */
   setTalent(heroId: string, tier: number, talentId: string | null): void;
@@ -297,9 +301,9 @@ export const useProfile = create<ProfileStore>()((set, get) => {
       }),
     bondsAll: () => useSettings.getState().settings.unlockAll,
     runBonds: (heroes) => runBonds(get().profile.bonds, heroes, get().bondsAll()),
-    awardBonds: (xpByHero) => {
+    awardBonds: (xpByHero, catchUp = true) => {
       const profile = get().profile;
-      const { bonds, rankUps } = addBondXp(profile.bonds, xpByHero);
+      const { bonds, rankUps } = addBondXp(profile.bonds, xpByHero, catchUp);
       if (JSON.stringify(bonds) === JSON.stringify(profile.bonds)) return;
       commit({ ...profile, bonds }, { bondNotices: [...get().bondNotices, ...rankUps] });
     },

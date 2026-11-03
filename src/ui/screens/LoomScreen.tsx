@@ -19,7 +19,13 @@ import { playUi, useMood } from '../kit/sound';
 import { StarlightChip } from '../kit/Starlight';
 import { WeaverFigure } from '../kit/WeaverFigure';
 import { useUi } from '../store';
-import { CodexView, useCodexBonds, useCodexDissonance, useCodexTechniques } from './CodexScreen';
+import {
+  CodexView,
+  useCodexBonds,
+  useCodexDissonance,
+  useCodexRoster,
+  useCodexTechniques,
+} from './CodexScreen';
 import {
   LOOM_CSS,
   LoomThreads,
@@ -511,6 +517,8 @@ export function LoomScreen() {
   const dissonance = useCodexDissonance();
   const bonds = useCodexBonds();
   const techniques = useCodexTechniques();
+  // Phase 5b: the profile's heroes, as the Codex from Prep and the Bonds shows them.
+  const codexRoster = useCodexRoster();
   const [run] = useState(savedRun);
   const [codex, setCodex] = useState<'deeds' | 'dissonance' | null>(null);
   const [focusOn, setFocusOn] = useState<StationId | null>(lastStation);
@@ -531,6 +539,7 @@ export function LoomScreen() {
         dissonance={dissonance}
         bonds={bonds}
         techniques={techniques}
+        roster={codexRoster}
       />
     );
   }

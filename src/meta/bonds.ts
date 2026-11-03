@@ -206,18 +206,39 @@ export function catchUpMult(bonds: Readonly<Record<string, Bond>>, heroId: strin
 }
 
 /**
+ * The Bond XP each hero is actually awarded for these gains, against these Bonds (before the
+ * award): a late recruit behind the starters gets it doubled (`catchUpMult`). Every other entry is
+ * returned as it is, so a default party's figures never change. What a fight's
+ * `EncounterResult.bondXp` holds once the profile has judged it, so every display shows the XP
+ * the hero really earned.
+ */
+export function awardedBondXp(
+  bonds: Readonly<Record<string, Bond>>,
+  xpByHero: Readonly<Record<string, number>>,
+): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const [heroId, gained] of Object.entries(xpByHero)) {
+    const mult = Number.isFinite(gained) ? catchUpMult(bonds, heroId) : 1;
+    out[heroId] = mult === 1 ? gained : Math.max(0, Math.round(gained)) * mult;
+  }
+  return out;
+}
+
+/**
  * Adds Bond XP; reports the ranks each hero reached. A late recruit behind the starters earns it
- * doubled (`catchUpMult`, judged before this award).
+ * doubled (`catchUpMult`, judged before this award), unless `catchUp` is false: the amounts are
+ * already the awarded ones (`awardedBondXp`, as a fight's result holds them).
  */
 export function addBondXp(
   bonds: Readonly<Record<string, Bond>>,
   xpByHero: Readonly<Record<string, number>>,
+  catchUp = true,
 ): { bonds: Record<string, Bond>; rankUps: { heroId: string; rank: number }[] } {
   const next: Record<string, Bond> = { ...bonds };
   const rankUps: { heroId: string; rank: number }[] = [];
   for (const [heroId, gained] of Object.entries(xpByHero)) {
     if (!Number.isFinite(gained)) continue;
-    const xp = Math.max(0, Math.round(gained)) * catchUpMult(bonds, heroId);
+    const xp = Math.max(0, Math.round(gained)) * (catchUp ? catchUpMult(bonds, heroId) : 1);
     if (xp <= 0 || !bondedHeroes().includes(heroId)) continue;
     const bond = next[heroId] ?? emptyBond();
     const before = bondRank(bond.xp);

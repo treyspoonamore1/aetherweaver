@@ -50,6 +50,7 @@ import { CodexView, useCodexBonds, useCodexDissonance, useCodexTechniques } from
 import { prepRoute } from './prepRoute';
 import { prepParty } from './prepParty';
 import {
+  focusKeyLabel,
   freshHeroes,
   missingStarterNotes,
   type FreshHero,
@@ -552,8 +553,9 @@ function PartyPicker({
   return (
     <Panel tone="solid" className="mb-4 p-4" data-testid="prep-party">
       <p className="mb-3 text-xs text-muted">
-        Choose three. They take the keys 1–3 in this order, so a hero’s key can change with the
-        party: the key each will take is on their card.
+        Choose three. They take the keys {focusKeyLabel(1)}, {focusKeyLabel(2)} and{' '}
+        {focusKeyLabel(3)} in this order, so a hero’s key can change with the party: the key each
+        will take is on their card.
       </p>
       <div
         className="grid gap-2"
@@ -568,7 +570,7 @@ function PartyPicker({
               key={c.heroId}
               type="button"
               aria-pressed={c.selected}
-              aria-label={`${c.name}, ${ROLE_LABEL[c.role]}${c.key ? `: key ${c.key}` : c.full ? ': drop a hero first' : ''}`}
+              aria-label={`${c.name}, ${ROLE_LABEL[c.role]}${c.key ? `: key ${c.keyLabel}` : c.full ? ': drop a hero first' : ''}`}
               onClick={() => onToggle(c.heroId)}
               className={`flex flex-col items-center gap-1.5 rounded-xl border-2 px-2 py-3 text-center transition-colors ${c.selected ? 'bg-ink-800' : 'bg-ink-900/60 opacity-70 hover:opacity-100'} ${c.full ? 'cursor-not-allowed' : ''}`}
               style={{ borderColor: c.selected ? def.color : 'var(--color-ink-600)' }}
@@ -580,7 +582,7 @@ function PartyPicker({
               <span className="font-display text-sm font-bold leading-tight">{c.name}</span>
               <Chip color={def.color}>{ROLE_LABEL[c.role]}</Chip>
               {c.key !== null ? (
-                <KeyCap label={String(c.key)} accent />
+                <KeyCap label={c.keyLabel ?? String(c.key)} accent />
               ) : (
                 <span className="text-xs text-muted">
                   {c.full ? 'Drop one first' : 'Not chosen'}
@@ -754,6 +756,7 @@ export function PrepScreen() {
         bonds={codexBonds}
         techniques={codexTechniques}
         seen={useProfile.getState().profile.seen}
+        roster={roster}
       />
     );
   return (

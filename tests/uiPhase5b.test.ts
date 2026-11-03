@@ -298,8 +298,13 @@ describe('decrees and answers', () => {
   )!;
   const cleave = CONTENT.attacks.find((a) => a.id === 'vharun_twin_cleave')!;
   const execution = CONTENT.attacks.find((a) => a.executeBelow !== undefined)!;
+  // Brann's frame carries his own heal cut (halved) unless Blood Oath lifts it, as the bridge's.
   const party = (ids: readonly string[], condemned?: string) =>
-    ids.map((defId) => ({ defId, ...(defId === condemned ? { execute: 0.4 } : {}) }));
+    ids.map((defId) => ({
+      defId,
+      ...(defId === condemned ? { execute: 0.4 } : {}),
+      ...(defId === 'brann' ? { healCut: 0.5 } : {}),
+    }));
 
   it('the dome clause leaves the decree when no party hero has a dome', () => {
     expect(partyHasDome(CONTENT.defaultParty)).toBe(true);
@@ -498,7 +503,7 @@ describe('the Codex', () => {
       }),
     );
     expect(motifs).toContain('data-testid="codex-motif-locked"');
-    expect(motifs).toContain('2 motifs wait for a hero not');
+    expect(motifs).toContain('Waits for a hero not yet met');
     expect(motifs).not.toContain('Blood Tithe');
   });
 });

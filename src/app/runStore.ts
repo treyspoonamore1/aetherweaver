@@ -12,7 +12,7 @@ import {
   type EnshrineResult,
   type ReliquaryRelic,
 } from '../meta/reliquary';
-import { sceneWaiting, type RunBond } from '../meta/bonds';
+import { awardedBondXp, sceneWaiting, type RunBond } from '../meta/bonds';
 import { dissonancePoints, type DissonanceChoice } from '../meta/dissonance';
 import { CONTENT, type SceneDef } from '../content';
 import * as Run from '../meta/run';
@@ -99,6 +99,25 @@ function settleReliquary(run: RunState): RunState {
   const paid = runMaterials(run);
   useProfile.getState().payReliquary(paid);
   return { ...run, reliquary: { ...paid, enshrined: null } };
+}
+
+/**
+ * A just-finished fight's result with its Bond XP as the profile awards it (`awardedBondXp`), in
+ * `lastResult` and its entry in `results`. The same run when the fight didn't finish, or nothing
+ * changes (every default party).
+ */
+function withAwardedBondXp(
+  next: RunState,
+  prev: RunState,
+  bonds: Parameters<typeof awardedBondXp>[0],
+): RunState {
+  const r = next.lastResult;
+  if (next === prev || !r || r === prev.lastResult || !r.bondXp) return next;
+  const bondXp = awardedBondXp(bonds, r.bondXp);
+  if (Object.keys(bondXp).every((id) => bondXp[id] === r.bondXp[id])) return next;
+  const result = { ...r, bondXp };
+  const results = next.results.map((x) => (x === r ? result : x));
+  return { ...next, lastResult: result, results };
 }
 
 /** Remembers the run's songs for the next Prep, judged as this run held them. */
@@ -329,12 +348,16 @@ export const useRun = create<RunStore>()((set, get) => {
     },
     finishCombat: (outcome: CombatOutcome) => {
       const before = get().run;
-      apply((run) => Run.finishCombat(run, outcome));
+      // Bonds (docs/phase-5b.md): the fight's Bond XP as the profile awards it (a late recruit's
+      // catch-up, judged on the profile's Bonds before this award), so the Result and the Summary
+      // show what each hero really earned.
+      const bonds = useProfile.getState().profile.bonds;
+      apply((run) => withAwardedBondXp(Run.finishCombat(run, outcome), run, bonds));
       const after = get().run;
       if (after && after !== before && after.lastResult) {
         useProfile.getState().award(after.lastResult.xp);
-        // Bonds (docs/phase-4e.md): each hero's Bond XP from the fight.
-        useProfile.getState().awardBonds(after.lastResult.bondXp);
+        // Bonds (docs/phase-4e.md): each hero's Bond XP from the fight, already as awarded.
+        useProfile.getState().awardBonds(after.lastResult.bondXp, false);
         // The Loom (docs/phase-4g.md): Starlight, and the Calling's mastery with the Weaver XP.
         useProfile.getState().awardStarlight(after.lastResult.starlight);
         if (after.calling)

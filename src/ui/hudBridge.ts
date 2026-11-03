@@ -33,7 +33,7 @@ import type { Entity } from '../sim/state';
 import type { World } from '../sim/world';
 import { dissonancePoints, parMult } from '../meta/dissonance';
 import { relicHuds } from './hud/relics';
-import { shownAnswers, shownDecreeOf } from './hud/legionLook';
+import { shownAnswers, shownDecree, shownDecreeOf, type PartyLook } from './hud/legionLook';
 import { callingHud, lifeMarksOf, masteryCooldown, shineOf, stasisSeconds } from './hud/calling';
 import { treeAfterglow, treeBleedOutMult, treeGrace } from './screens/astrolabeModel';
 import {
@@ -589,6 +589,29 @@ function movementTwoMarks(
     ...(cut < 1 && !h.dead ? { healCut: cut } : {}),
     ...(execution ? { execute: execution.executeBelow! } : {}),
   };
+}
+
+/**
+ * The party as a decree reads it now (`PartyLook`): each hero's def, Execution's line on them and
+ * the live healing cut, by the same rules as their frames (`movementTwoMarks`).
+ */
+export function decreeParty(state: WorldState): PartyLook {
+  const out: PartyLook[number][] = [];
+  for (const id of state.party) {
+    const e = state.entities.get(id);
+    if (!e?.hero || !e.health) continue;
+    out.push({ defId: e.hero.defId, ...movementTwoMarks(state, e, e.health) });
+  }
+  return out;
+}
+
+/**
+ * A decree's text as it should be latched when it is announced (docs/phase-5b.md): worded for the
+ * party at that moment (`shownDecree`), so the banner and the boss bar keep it after Execution's
+ * telegraph, which named the condemned hero, has gone.
+ */
+export function decreeShownNow(state: WorldState, text: string): string {
+  return shownDecree(text, decreeParty(state));
 }
 
 /**

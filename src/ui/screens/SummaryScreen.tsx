@@ -31,7 +31,7 @@ import { HeroDisc, Pips, SectionTitle } from './shared';
 import { ContributionBar } from './ContributionBar';
 import { RankUpCard, XpBar, useRankUps } from './Rank';
 import { rankPanel, runRank, xpGain, xpHeadline } from './rankText';
-import { HIGHLIGHT_COLOR, contributionOf, songLines } from './resultText';
+import { HIGHLIGHT_COLOR, contributionOf, runDownAdvice, songLines } from './resultText';
 import { HpTimeline, TimelineLegend } from './Timeline';
 import { RelicGlyph } from '../kit/RelicGlyph';
 import { aetherEarned, ownedRelicInfo } from './interlude';
@@ -206,7 +206,13 @@ export function SummaryView({
         }
       }
     }
-    return { id, damage, amplified, blood: runBlood(run, id) };
+    return {
+      id,
+      damage,
+      amplified,
+      blood: runBlood(run, id),
+      advice: runDownAdvice(run.results, id),
+    };
   });
   const aimed = totals.telegraphsAimed;
   const tally = withoutYouTally(run.results);
@@ -519,6 +525,21 @@ export function SummaryView({
                           {bloodLine(h.id, h.blood, oathIn(run, h.id), true)}
                         </p>
                       )}
+                      {h.advice.map((a) => (
+                        // Phase 5b: what each of his downs asked of you (`downAdvice`).
+                        <p
+                          key={a.text}
+                          className="mt-1 text-xs font-semibold leading-relaxed text-gold-300"
+                          data-testid="down-advice"
+                        >
+                          {a.text}
+                          {a.count > 1 && (
+                            <span className="ml-1.5 font-mono font-normal text-muted">
+                              ×{a.count}
+                            </span>
+                          )}
+                        </p>
+                      ))}
                     </div>
                   </li>
                 );
