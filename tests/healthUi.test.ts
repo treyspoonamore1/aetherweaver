@@ -6,7 +6,7 @@
  */
 import * as THREE from 'three';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { CRITICAL, HURT, LIFE_OK, healthLevel } from '../src/app/healthLevels';
+import { CRITICAL, HURT, LIFE_OK, healthBands, healthLevel, raging } from '../src/app/healthLevels';
 import { DEFAULT_HUD, DEFAULT_WEAVER_BAR, useSettings } from '../src/app/settings';
 import { CONTENT, heroDef } from '../src/content';
 import type { Command, Sim } from '../src/sim';
@@ -218,6 +218,35 @@ describe('a hero’s life on their frame', () => {
     expect(lifeColor(0)).toBe(LIFE_OK);
     expect(lifeColor(1)).toBe('var(--color-threat)');
     expect(lifeColor(2)).toBe('var(--color-lethal)');
+  });
+
+  it('the default heroes keep the shared ramp, whatever their def or a fall (docs/phase-5b.md)', () => {
+    expect(healthBands()).toEqual({ hurt: 0.5, critical: 0.25 });
+    for (const id of CONTENT.defaultParty) {
+      expect(healthBands(id), id).toEqual({ hurt: 0.5, critical: 0.25 });
+      for (const hp of [1600, 801, 799, 401, 399, 1])
+        for (const fast of [undefined, false, true])
+          expect(healthLevel(hp, 1600, id, fast), `${id} ${hp} ${fast}`).toBe(
+            healthLevel(hp, 1600),
+          );
+      expect(raging(500, 1600, id)).toBe(false);
+    }
+  });
+
+  it('Brann: no hurt tier, a raging band from 40% to 15%, critical below 15% or falling fast', () => {
+    expect(healthBands('brann')).toEqual({ hurt: 0, critical: 0.15, raging: 0.4 });
+    const max = 1250;
+    expect(healthLevel(max, max, 'brann')).toBe(0);
+    expect(healthLevel(max * 0.3, max, 'brann')).toBe(0);
+    expect(healthLevel(max * 0.16, max, 'brann')).toBe(0);
+    expect(healthLevel(max * 0.14, max, 'brann')).toBe(2);
+    expect(healthLevel(max * 0.9, max, 'brann', true)).toBe(2);
+    for (let hp = 0; hp <= max; hp += 25) expect(healthLevel(hp, max, 'brann')).not.toBe(1);
+    expect(raging(max * 0.41, max, 'brann')).toBe(false);
+    expect(raging(max * 0.39, max, 'brann')).toBe(true);
+    expect(raging(max * 0.15, max, 'brann')).toBe(true);
+    expect(raging(max * 0.14, max, 'brann')).toBe(false);
+    expect(raging(max * 0.3, max)).toBe(false);
   });
 
   it('the number a healer works from: life missing by default, or the percent, or life left', () => {

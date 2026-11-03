@@ -126,6 +126,21 @@ export interface HeroHud {
   /** Martyr's Vow is up: they can't drop below 1 life while it lasts. */
   vow: boolean;
   /**
+   * Phase 5b, Brann's Blood Rage (docs/phase-5b.md): present only for a hero with `blood`. `rage`:
+   * his damage bonus now (0.6 = +60%); `bloodlust`: he won't Rally; `deathless`: he can't die;
+   * `oath`: Blood Oath's bank; `tithe`: a Blood Tithe Ward holds him; `fast`: falling fast;
+   * `bled`: Bloodletting's empowered swings left.
+   */
+  blood?: {
+    rage: number;
+    bloodlust: boolean;
+    deathless: boolean;
+    oath: number;
+    tithe: boolean;
+    fast: boolean;
+    bled: number;
+  };
+  /**
    * Phase 3e, the Chronomancer: what Rewind would do to them right now, from the oldest sample
    * of their past (`past[pastAt]`). Null without the Chronomancer, or when they're out.
    */

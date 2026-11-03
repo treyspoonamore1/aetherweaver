@@ -5,6 +5,7 @@
  */
 import { CONTENT, type AltSoloDef, type SceneDef, type TalentDef } from '../content';
 import type { CombatOutcome, EncounterResult } from './types';
+import { heroRoster, type Profile } from './profile';
 
 /** A hero's Bond, kept in the profile. */
 export interface Bond {
@@ -30,6 +31,15 @@ const RULES = () => CONTENT.bondRules;
 /** The heroes the content gives Bonds. */
 export function bondedHeroes(): string[] {
   return [...new Set(CONTENT.talents.map((t) => t.hero))];
+}
+
+/**
+ * The Bonded heroes the player can see (docs/phase-5b.md): `bondedHeroes()` within the roster,
+ * in content order. Every Bonds display reads this; validation stays on `bondedHeroes()`.
+ */
+export function rosterHeroes(profile: Pick<Profile, 'recruited'>, all: boolean): string[] {
+  const roster = new Set(heroRoster(profile, all));
+  return bondedHeroes().filter((id) => roster.has(id));
 }
 
 export function emptyBond(): Bond {

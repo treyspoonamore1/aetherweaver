@@ -280,10 +280,20 @@ export function deedText(deed: DeedDef): string {
   if (deed.encounter) named.encounter = encounterDef(deed.encounter).name.replace(/^The /, 'the ');
   if (deed.calling) named.calling = `the ${callingDef(deed.calling).name}`;
   if (deed.grade) named.grade = deed.grade;
+  if (deed.hero) named.hero = heroDef(deed.hero).name;
   return fillValues(deed.text, deed.values).replace(
     /\{([a-zA-Z]+)\}/g,
     (m, k: string) => named[k] ?? m,
   );
+}
+
+/**
+ * Does any of these heroes bring a dome (a Solo that is Kael's Aegis Wall, docs/phase-5b.md)?
+ * The HUD's decree texts, the answer glyphs, the recaps and SAVE_HOW name the dome only then.
+ * Unknown ids count as no dome.
+ */
+export function partyHasDome(heroIds: readonly string[]): boolean {
+  return heroIds.some((id) => CONTENT.heroes.find((h) => h.id === id)?.solo.id === 'aegisWall');
 }
 
 /** A Calling's passive and its Crescendo line, filled in. */

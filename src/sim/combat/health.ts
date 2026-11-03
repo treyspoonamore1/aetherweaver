@@ -423,7 +423,12 @@ export function cleanseAilments(world: World, target: Entity): number {
 }
 
 /** `self`: the Martyr healing herself (Blood Font, Sanguine Covenant), not support. */
-export type HealVia = 'mend' | 'chime' | 'aura' | 'revive' | 'solo' | 'self' | 'rewind' | 'other';
+/**
+ * `lifesteal` (docs/phase-5b.md): what Brann's axe drinks. Never the Weaver's: no ledger,
+ * supportReceived, healing threat or Fermata save; 0 while he is held.
+ */
+export type HealVia =
+  'mend' | 'chime' | 'aura' | 'revive' | 'solo' | 'self' | 'rewind' | 'other' | 'lifesteal';
 
 /**
  * Heals `target`. Weaver healing (everything except hero Solos) counts in the ledger and

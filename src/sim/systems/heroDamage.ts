@@ -17,6 +17,19 @@ export interface HeroHit {
   empower: number;
   crit: boolean;
   empowered: boolean;
+  /**
+   * The hero's own-damage scale (Blood Rage, Berserker's Hymn; docs/phase-5b.md), already in
+   * `amount` and not the Weaver's. Present only when it isn't 1.
+   */
+  own?: number;
+}
+
+/**
+ * The hero's own-damage scale (docs/phase-5b.md): Blood Rage, times Berserker's Hymn where it
+ * applies. 1 for every hero without them. W0 stub: always 1 (W1 implements it).
+ */
+export function ownScale(_world: World, _hero: Entity): number {
+  return 1;
 }
 
 /**
@@ -86,5 +99,9 @@ export function flourishHit(
   f: { damageMult: number; crit: boolean },
 ): HeroHit {
   const hit = heroDamage(world, hero, base * f.damageMult, f.crit ? 1 : 0);
-  return { ...hit, amplified: Math.max(hit.amplified, hit.amount - base) };
+  // The hero's own scale (Blood Rage) is theirs, not the Flourish's: compare with the scaled base.
+  return {
+    ...hit,
+    amplified: Math.max(hit.amplified, hit.amount - (hit.own ? base * hit.own : base)),
+  };
 }

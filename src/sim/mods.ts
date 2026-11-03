@@ -228,6 +228,13 @@ export interface Mods {
   reviveInvulnerable: number;
   /** Ready Answer: Resonance on top for answering a call. */
   responseBonus: number;
+  // ── Brann's motifs (docs/phase-5b.md) ──
+  /** Blood Tithe: a Ward on Brann below his line is this much stronger (0.5 = +50%). */
+  bloodTithe: number;
+  /** …and refunds this much Spirit when it breaks. */
+  bloodTitheRefund: number;
+  /** Blood and Silk: Resonance a second while Empowering Brann below 30%. */
+  bloodAndSilk: number;
 }
 
 export const NO_MODS: Mods = {
@@ -366,6 +373,9 @@ export const NO_MODS: Mods = {
   reviveHpPct: null,
   reviveInvulnerable: 0,
   responseBonus: 0,
+  bloodTithe: 0,
+  bloodTitheRefund: 0,
+  bloodAndSilk: 0,
 };
 
 export function resolveMods(config: ResolvedSimConfig, content: Content): Mods {

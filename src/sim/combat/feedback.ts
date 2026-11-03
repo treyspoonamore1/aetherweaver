@@ -15,9 +15,12 @@ export function bark(
 ): void {
   const h = hero.hero;
   if (!h) return;
+  // An optional category (Brann's `defiant`, docs/phase-5b.md) a hero lacks: no bark, no draw.
+  const lines = heroDef(h.defId).barks[kind];
+  if (!lines || lines.length === 0) return;
   if (!force && world.time - h.lastBarkAt < BARK_COOLDOWN) return;
   h.lastBarkAt = world.time;
-  const line = world.rng.cosmetic.pick(heroDef(h.defId).barks[kind]);
+  const line = world.rng.cosmetic.pick(lines);
   world.events.push({ type: 'bark', tick: world.tick, speaker: hero.id, line });
 }
 

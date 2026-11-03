@@ -186,6 +186,16 @@ export interface ProfileStore {
   setRunMode(mode: RunMode): void;
   /** Enemies sighted (first-sighting cards, the Codex): records the ones not seen before. */
   see(defIds: readonly string[]): void;
+  // ── The roster (docs/phase-5b.md). W0 stubs them; W2 implements them. ──
+  /** The heroes Prep may pick from: the default party and every recruit (all: Skip the unlocks). */
+  roster(): string[];
+  /** Recruits these heroes for later runs. Idempotent: nothing new, no commit and no write. */
+  recruit(ids: readonly string[]): void;
+  /** Remembers a non-default party for the next runs; the default party deletes the key. */
+  setLastParty(ids: readonly string[]): void;
+  /** Heroes newly recruited and not shown yet: the Result screen shows them, then clears them. */
+  recruitNotices: string[];
+  clearRecruitNotices(): void;
 }
 
 /**
@@ -206,6 +216,7 @@ export const useProfile = create<ProfileStore>()((set, get) => {
     rankUps: [],
     deedNotices: [],
     bondNotices: [],
+    recruitNotices: [],
     allowance: () =>
       useSettings.getState().settings.unlockAll
         ? EVERYTHING
@@ -371,6 +382,11 @@ export const useProfile = create<ProfileStore>()((set, get) => {
       );
       if (fresh.length > 0) commit({ ...profile, seen: [...profile.seen, ...fresh] });
     },
+    // The roster's W0 stubs (docs/phase-5b.md): the default party, and nothing recorded.
+    roster: () => [...CONTENT.defaultParty],
+    recruit: () => {},
+    setLastParty: () => {},
+    clearRecruitNotices: () => set({ recruitNotices: [] }),
     variantsAll: () => useSettings.getState().settings.unlockAll,
     runTechniques: () =>
       fitTechniques(get().profile.techniques, get().profile.variants, get().variantsAll()),

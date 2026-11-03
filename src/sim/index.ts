@@ -47,3 +47,12 @@ export {
 export { bossPhaseTable } from './systems/bosses';
 export { rewindCanRevive } from './systems/rewind';
 export { underMuteDome } from './systems/field';
+export {
+  bloodRageBonus,
+  bloodlusting,
+  deathlessActive,
+  fallingFast,
+  isWeaverVia,
+  newBlood,
+  weaverHealCut,
+} from './systems/blood';

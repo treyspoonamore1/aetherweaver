@@ -55,6 +55,18 @@ function fightHolds(r: EncounterResult, deed: DeedDef): boolean {
   return !deed.grade || r.grade === deed.grade;
 }
 
+/**
+ * A fight that earns a `heroCeiling` Deed (In the Red, docs/phase-5b.md): that encounter, won,
+ * with the hero in it, never above `pct`% life once they first fell to their low line.
+ */
+function ceilingHolds(r: EncounterResult, deed: DeedDef): boolean {
+  if (r.outcome !== 'victory' || r.encounterId !== deed.encounter) return false;
+  const pct = deed.values.pct;
+  const hero = r.heroes.find((h) => h.heroId === deed.hero);
+  const peak = hero?.blood?.peakAfterLow;
+  return pct !== undefined && peak !== undefined && peak >= 0 && peak <= pct / 100;
+}
+
 /** Does this run earn the Deed? */
 export function deedHolds(run: RunState, deed: DeedDef): boolean {
   const n = deed.values.n ?? 0;
@@ -81,6 +93,8 @@ export function deedHolds(run: RunState, deed: DeedDef): boolean {
       );
     case 'flawless':
       return won(run) && run.results.every((r) => r.stats.downs === 0);
+    case 'heroCeiling':
+      return run.results.some((r) => ceilingHolds(r, deed));
   }
 }
 

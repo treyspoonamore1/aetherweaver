@@ -248,6 +248,9 @@ export const useRun = create<RunStore>()((set, get) => {
       profile.setRunMode(mode);
       apply((run) => Run.setMovements(run, profile.routeMovements(mode)));
     },
+    // The roster (docs/phase-5b.md): W2 checks the roster, applies Run.setParty, re-follows the
+    // Bonds and remembers the pick. The W0 stub leaves the run unchanged.
+    setParty: () => {},
     embark: () => {
       const profile = useProfile.getState();
       // Chords or a Calling picked while "Skip the unlocks" was on don't outlive turning it off.

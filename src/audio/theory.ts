@@ -182,7 +182,8 @@ export interface MotifNote {
   dur: number;
   vel: number;
 }
-export type MotifVoice = 'horn' | 'pluckFlute' | 'glassBell';
+/** `bowedLow`: Brann's (docs/phase-5b.md; W5 voices it, glass until then). */
+export type MotifVoice = 'horn' | 'pluckFlute' | 'glassBell' | 'bowedLow';
 export interface Leitmotif {
   voice: MotifVoice;
   notes: readonly MotifNote[];

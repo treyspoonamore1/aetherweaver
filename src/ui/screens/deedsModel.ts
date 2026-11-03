@@ -81,6 +81,9 @@ export function deedGlyph(deed: DeedDef): IconName {
       return 'immune';
     case 'saveWays':
       return 'move';
+    // A hero's Deed (In the Red, docs/phase-5b.md): kept low but alive.
+    case 'heroCeiling':
+      return 'heart';
   }
 }
 

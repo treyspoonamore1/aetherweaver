@@ -12,6 +12,7 @@
 import type { PassiveEffect } from '../content/schema';
 import type { DirectiveKind, PartySlot } from './commands';
 import type { AnswerTag, TelegraphShape } from './events';
+import type { Mods } from './mods';
 
 /** Recursively read-only view of a type. */
 export type DeepReadonly<T> = T extends (infer R)[]
@@ -57,6 +58,8 @@ export interface Shield {
   grace?: true;
   /** A Chorale's barrier (docs/phase-4f.md). Absent elsewhere. */
   chorale?: true;
+  /** A Ward Blood Tithe strengthened (docs/phase-5b.md): it refunds Spirit when it breaks. */
+  tithe?: true;
   /**
    * A barrier that only absorbs, never Perfect: a Chorale's on a hero you didn't Ward, Swap's on
    * the Weaver. Absent elsewhere.
@@ -331,6 +334,39 @@ export interface HeroComponent {
   pastAt: number;
   /** Afterglow (the Astrolabe): Empower lingers on this hero until this sim time. */
   afterglowUntil: number;
+  /** Blood Rage (docs/phase-5b.md): set at spawn only for a hero whose def has `passive`. */
+  blood?: BloodState;
+}
+
+/**
+ * Blood Rage's state (Brann, docs/phase-5b.md). Present only on a hero whose def has `passive`:
+ * the default party never carries it, so their state and hashes are untouched.
+ */
+export interface BloodState {
+  /** Life the axe drank this fight (lifesteal that landed). */
+  lifesteal: number;
+  /** Lifesteal landed since the last flush, and the sim time of the next flush (every 0.5 s). */
+  stealAcc: number;
+  stealFlushAt: number;
+  /** Seconds alive below the Bloodlust line (`quirk.below`), and below 30%. */
+  lowTime: number;
+  low30Time: number;
+  /** Seconds alive (not downed) this fight. */
+  aliveTime: number;
+  /** −1 until hp first falls to `quirk.below` × maxHp; then the highest hp/maxHp since. */
+  peakAfterLow: number;
+  /** Blood Oath: overheal banked for the next swing. */
+  oathBank: number;
+  /** Bloodletting: empowered swings left. */
+  bloodlet: number;
+  /** Deathless: sim time the window ends (0: inactive). */
+  deathlessUntil: number;
+  /** The `rallyUntil` of the last Rally he refused (0: none). */
+  refusedRally: number;
+  /** Damage taken per second, an exponential average (τ 2 s; Bloodletting excluded). */
+  bleedRate: number;
+  /** Life Bloodletting spent this fight. */
+  spent: number;
 }
 
 /** Where a hero stood and how much life they had, a moment ago (Rewind). */
@@ -688,6 +724,11 @@ export interface DeathRecord {
    * latched), its answers (`DOT_ANSWERS`), whether or not they were ready. Absent otherwise.
    */
   answers?: AnswerTag[];
+  /**
+   * A Blood Rage hero's down (docs/phase-5b.md): a refused Rally was still live, and the Weaver-heal
+   * multiplier at that moment. Set only for a hero with `blood`.
+   */
+  blood?: { refusedRally: boolean; healCut: number };
 }
 
 export type LedgerMarkerKind =
@@ -868,4 +909,9 @@ export interface WorldState {
   readonly calling: DeepReadonly<CallingState> | null;
   readonly astrolabe: DeepReadonly<AstrolabeState>;
   readonly dissonance: DeepReadonly<DissonanceState>;
+  /**
+   * The resolved motif, relic and Calling numbers (docs/phase-5b.md: the bots read Blood Tithe).
+   * Type-only: World already carries them; they're derived from the config and never hashed.
+   */
+  readonly mods: DeepReadonly<Mods>;
 }

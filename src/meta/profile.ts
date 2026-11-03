@@ -64,6 +64,25 @@ export interface Profile {
    * enemy from the start, so nothing the Prelude shows is ever locked.
    */
   seen: string[];
+  /**
+   * The roster (docs/phase-5b.md): heroes recruited beyond the default party, in content order.
+   * Absent until the first recruit (no version bump).
+   */
+  recruited?: string[];
+  /**
+   * The party the last run chose, in canonical order, when it wasn't the default (absent for the
+   * default party). Checked for shape at load and for roster membership when a run starts.
+   */
+  lastParty?: string[];
+}
+
+/**
+ * The heroes Prep may pick from (docs/phase-5b.md): the default party and every recruit, in
+ * content order; every hero when `all` (Settings → Skip the unlocks).
+ */
+export function heroRoster(profile: Pick<Profile, 'recruited'>, all: boolean): string[] {
+  const owned = new Set([...CONTENT.defaultParty, ...(profile.recruited ?? [])]);
+  return CONTENT.heroes.filter((h) => all || owned.has(h.id)).map((h) => h.id);
 }
 
 /** A run's route: the Prelude (Movement I alone) or an Expedition (Movement I, then II). */

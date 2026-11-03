@@ -142,6 +142,29 @@ function meetsAndMisses(d: DeedDef): [RunState, RunState] {
         ]),
         runOf([fight({}, { saveCauses: [...CAUSES.slice(0, n - 1), 'other'] })]),
       ];
+    case 'heroCeiling': {
+      // In the Red (docs/phase-5b.md): the hero's peak once low, at the line and just over it.
+      const pct = (d.values.pct ?? 0) / 100;
+      const blood = (peakAfterLow: number) => ({
+        lifesteal: 0,
+        lowTime: 1,
+        low30Time: 0,
+        aliveTime: 1,
+        peakAfterLow,
+        spent: 0,
+      });
+      const hero = (peakAfterLow: number) => ({
+        heroId: d.hero!,
+        hpPct: 0.3,
+        downed: false,
+        dead: false,
+        damage: 0,
+        amplified: 0,
+        blood: blood(peakAfterLow),
+      });
+      const won = (peak: number) => fight({ encounterId: d.encounter!, heroes: [hero(peak)] });
+      return [runOf([won(pct)]), runOf([won(pct + 0.01), won(-1)])];
+    }
   }
 }
 

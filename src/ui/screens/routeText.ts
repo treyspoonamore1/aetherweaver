@@ -218,10 +218,20 @@ export function deedMovement(d: { encounter?: string }): number {
   return CONTENT.encounters.find((e) => e.id === d.encounter)?.movement ?? 1;
 }
 
-/** The Deeds a player who has sighted these enemies can see (later Movements' wait). */
-export function deedsInSight(seen?: readonly string[]): typeof CONTENT.deeds {
+/**
+ * The Deeds a player who has sighted these enemies can see (later Movements' wait). A hero's Deed
+ * (In the Red, docs/phase-5b.md) shows only once that hero is in `roster`; without a roster,
+ * none does, so the list is what it was before the roster.
+ */
+export function deedsInSight(
+  seen?: readonly string[],
+  roster?: readonly string[],
+): typeof CONTENT.deeds {
   const reach = sightedMovement(seen);
-  return CONTENT.deeds.filter((d) => deedMovement(d) <= reach);
+  return CONTENT.deeds.filter(
+    (d) =>
+      deedMovement(d) <= reach && (d.hero === undefined || (roster?.includes(d.hero) ?? false)),
+  );
 }
 
 // ── The map's Movement card and glyphs ──────────────────────────────────────────────

@@ -19,6 +19,7 @@ import { describe, expect, it } from 'vitest';
 import { makeBot } from '../../src/bots';
 import { CONTENT } from '../../src/content';
 import { createSim, type WorldState } from '../../src/sim';
+import { NO_MODS } from '../../src/sim/mods';
 import { resolveConfig } from '../../src/sim/world';
 import {
   EXPEDITION_SEEDS,
@@ -130,6 +131,12 @@ describe('the default party is invariant under the roster (docs/phase-5b.md)', (
       writeFileSync(path, JSON.stringify(snapshot, null, 1) + '\n');
     const kept = JSON.parse(readFileSync(path, 'utf8')) as KeySnapshot;
     expect(snapshot).toEqual(kept);
+  });
+
+  it("NO_MODS holds Brann's motif numbers at 0", () => {
+    expect(NO_MODS.bloodTithe).toBe(0);
+    expect(NO_MODS.bloodTitheRefund).toBe(0);
+    expect(NO_MODS.bloodAndSilk).toBe(0);
   });
 
   it('two Expedition baseline runs still play out equal (a smoke of the tool)', () => {

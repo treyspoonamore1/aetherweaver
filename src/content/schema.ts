@@ -242,6 +242,9 @@ export const HeroAbilityKindSchema = z.enum([
   'volley',
   'gravityWell',
   'starbolt',
+  // Brann (docs/phase-5b.md).
+  'sunderLeap',
+  'bloodletting',
 ]);
 
 export const HeroAbilitySchema = z.object({
@@ -254,9 +257,20 @@ export const HeroAbilitySchema = z.object({
   radius: z.number().nonnegative(),
   range: z.number().positive(),
   stun: Seconds,
+  // ── Brann's abilities (docs/phase-5b.md). Absent on every starter ability. ──
+  /** Sunder Leap: the nearest a target may be (it leaps at targets `minRange`–`range` away). */
+  minRange: z.number().positive().optional(),
+  /** Bloodletting: the share of max HP it spends. */
+  lifeCost: Pct.optional(),
+  /** Bloodletting: it never spends him below this share of max HP. */
+  lifeFloor: Pct.optional(),
+  /** Bloodletting: the empowered swings it grants. */
+  hits: z.number().int().positive().optional(),
+  /** Bloodletting: the extra damage on each empowered swing. */
+  hitBonus: Pct.optional(),
 });
 
-export const SoloKindSchema = z.enum(['aegisWall', 'galeBarrage', 'starfall']);
+export const SoloKindSchema = z.enum(['aegisWall', 'galeBarrage', 'starfall', 'redFrenzy']);
 
 export const HeroSoloSchema = z.object({
   id: SoloKindSchema,
@@ -269,12 +283,19 @@ export const HeroSoloSchema = z.object({
   /** Kind-specific numbers (damage per hit, shield %, rate…). */
   power: z.number().nonnegative(),
   cuedPower: z.number().nonnegative(),
+  // ── Red Frenzy (docs/phase-5b.md). Absent on every starter Solo. ──
+  /** Pulses hit every enemy within this many metres. */
+  radius: z.number().positive().optional(),
+  /** Seconds between pulses. */
+  pulse: Seconds.optional(),
 });
 
 export const HeroQuirkSchema = z.object({
-  id: z.enum(['gloryHound', 'greedyShot', 'spellbound']),
+  id: z.enum(['gloryHound', 'greedyShot', 'spellbound', 'bloodlust']),
   name: z.string(),
   description: z.string(),
+  /** Bloodlust: the share of max HP below which it holds (docs/phase-5b.md). */
+  below: Pct.optional(),
 });
 
 export const CallAnswerSchema = z.enum(['ward', 'empower', 'chime']);
@@ -318,6 +339,8 @@ export const HeroBarksSchema = z.object({
   cued: z.array(z.string()).min(1),
   downed: z.array(z.string()).min(1),
   revived: z.array(z.string()).min(1),
+  /** Said once when the hero refuses a Rally (Brann's Bloodlust, docs/phase-5b.md). */
+  defiant: z.array(z.string()).min(1).optional(),
 });
 
 export const HeroDefSchema = z.object({
@@ -344,6 +367,14 @@ export const HeroDefSchema = z.object({
     projectileSpeed: z.number().nonnegative(),
     /** Extra enemies a hit chains to. */
     chain: z.number().int().nonnegative(),
+    /**
+     * Brann's axe (docs/phase-5b.md): every other enemy within `radius` m in the frontal
+     * `arcDeg` takes `pct` of the hit. Absent on every starter.
+     */
+    cleave: z
+      .object({ arcDeg: z.number().min(1).max(360), radius: z.number().positive(), pct: Pct })
+      .strict()
+      .optional(),
   }),
   /** Distance the hero tries to keep from its target. */
   preferredRange: z.number().nonnegative(),
@@ -357,6 +388,28 @@ export const HeroDefSchema = z.object({
   quirk: HeroQuirkSchema,
   barks: HeroBarksSchema,
   codex: z.string(),
+  // ── The roster (docs/phase-5b.md). All optional: absent on every starter. ──
+  /**
+   * Blood Rage: +`perMissing` × missing life damage, up to `maxBonus`; heals `lifesteal` of what
+   * it deals; Weaver healing on the hero ×`weaverHealMult`.
+   */
+  passive: z
+    .object({
+      id: z.literal('bloodRage'),
+      perMissing: z.number().positive(),
+      maxBonus: z.number().min(0).max(2),
+      lifesteal: Pct,
+      weaverHealMult: Pct,
+    })
+    .strict()
+    .optional(),
+  /** What the hero needs from the Weaver, in one line (Prep and the Codex). */
+  needs: z.string().optional(),
+  /**
+   * How a hero outside the default party joins the roster: winning `event`'s fight, or fighting
+   * the `fallback` encounter (an encounter id), won or lost.
+   */
+  recruit: z.object({ event: IdSchema, fallback: IdSchema.optional() }).strict().optional(),
 });
 export type HeroDef = z.infer<typeof HeroDefSchema>;
 
@@ -417,6 +470,11 @@ export const AttackDefSchema = z.object({
   decree: z.string().optional(),
   /** Announce the decree only on the first N casts of a fight (absent: every cast). */
   decreeLimit: z.number().int().positive().optional(),
+  /**
+   * The decree as the HUD shows it when no party hero has a dome (`partyHasDome`, docs/phase-5b.md):
+   * the same sentence with the dome clause removed. Display only: never copied into sim state.
+   */
+  decreeNoDome: z.string().optional(),
   // ── Movement II (docs/phase-5a.md P5, P7). All optional: absent reproduces Movement I. ──
   /** The status a `mark` applies (absent: 'dirge'; null: none, and no chimed-away check). */
   markStatus: StatusIdSchema.nullable().optional(),
@@ -588,7 +646,14 @@ export const MotifDefSchema = z
     /** One value per level; `text` shows the current level's value as {v}. */
     values: z.array(z.number()).min(1).max(3),
     text: z.string().includes('{v}'),
-    requires: z.object({ aura: IdSchema.optional(), hero: IdSchema.optional() }).default({}),
+    requires: z
+      .object({
+        aura: IdSchema.optional(),
+        hero: IdSchema.optional(),
+        /** A Harmony (docs/phase-5b.md): offered only while every listed motif is owned. */
+        motifs: z.array(IdSchema).min(1).optional(),
+      })
+      .default({}),
     tags: z.array(z.string()).default([]),
   })
   .strict();
@@ -660,12 +725,16 @@ export const EventEffectSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('motifLevels'), levels: z.number().int().positive() }).strict(),
   /** The chosen motif is lost. */
   z.object({ kind: z.literal('loseMotif') }).strict(),
-  /** A fight; winning it offers `relics` relics to choose from. */
+  /**
+   * A fight; winning it offers `relics` relics to choose from, and recruits the `recruit` hero
+   * for later runs (docs/phase-5b.md; only when it is won).
+   */
   z
     .object({
       kind: z.literal('fight'),
       encounter: IdSchema,
       relics: z.number().int().positive(),
+      recruit: IdSchema.optional(),
     })
     .strict(),
 ]);
@@ -688,6 +757,10 @@ export const EventChoiceSchema = z
     chance: Pct.optional(),
     fail: z.array(EventEffectSchema).default([]),
     failOutcome: z.string().optional(),
+    /** A recruiting choice's `text` once its hero is in the roster (docs/phase-5b.md). */
+    recruitedText: z.string().optional(),
+    /** …and once that hero is in the party (it wins over `recruitedText`). */
+    partyText: z.string().optional(),
   })
   .strict();
 export type EventChoice = z.infer<typeof EventChoiceSchema>;
@@ -801,6 +874,8 @@ export const DEED_TESTS = [
   'elites',
   'flawless',
   'saveWays',
+  /** Beat the encounter with the hero, never above `pct`% life once they first fell to it. */
+  'heroCeiling',
 ] as const;
 /** The fight stats a `runCount` Deed may total over a run. */
 export const DEED_STATS = [
@@ -827,9 +902,11 @@ export const DeedDefSchema = z
     grade: z.enum(['S', 'A', 'B', 'C']).optional(),
     /** `calling`: the Calling to win as. */
     calling: IdSchema.optional(),
+    /** `heroCeiling`: the hero it is about (docs/phase-5b.md). */
+    hero: IdSchema.optional(),
     /** Its numbers: `n` (how many) and, for a fight, `downs` (at most). */
     values: ValuesSchema,
-    /** {n}, {downs} from `values`; {encounter}, {calling}, {grade} by name. */
+    /** {n}, {downs} from `values`; {encounter}, {calling}, {grade}, {hero} by name. */
     text: z.string(),
   })
   .strict();
@@ -1684,12 +1761,13 @@ export const ContentSchema = z
         elites: ['n'],
         flawless: [],
         saveWays: ['n'],
+        heroCeiling: ['hero', 'encounter', 'pct'],
       };
       for (const field of needs[d.test]) {
         const has =
-          field === 'n'
-            ? d.values.n !== undefined
-            : d[field as 'stat' | 'encounter' | 'grade' | 'calling'] !== undefined;
+          field === 'n' || field === 'pct'
+            ? d.values[field] !== undefined
+            : d[field as 'stat' | 'encounter' | 'grade' | 'calling' | 'hero'] !== undefined;
         if (!has) ctx.addIssue({ code: 'custom', message: `${where} (${d.test}) needs ${field}` });
       }
       if (d.encounter && !encounterIds.has(d.encounter))
@@ -1698,9 +1776,9 @@ export const ContentSchema = z
         ctx.addIssue({ code: 'custom', message: `${where}: unknown calling "${d.calling}"` });
       for (const m of d.text.matchAll(/\{([a-zA-Z]+)\}/g)) {
         const key = m[1]!;
-        const named = key === 'encounter' || key === 'calling' || key === 'grade';
+        const named = key === 'encounter' || key === 'calling' || key === 'grade' || key === 'hero';
         const ok = named
-          ? d[key as 'encounter' | 'calling' | 'grade'] !== undefined
+          ? d[key as 'encounter' | 'calling' | 'grade' | 'hero'] !== undefined
           : d.values[key] !== undefined;
         if (!ok) ctx.addIssue({ code: 'custom', message: `${where} has no value for {${key}}` });
       }

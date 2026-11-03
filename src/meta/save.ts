@@ -257,6 +257,17 @@ const ResultSchema = z.object({
       dead: z.boolean(),
       damage: Num,
       amplified: Num,
+      // Brann (docs/phase-5b.md): only a Blood Rage hero's result has it.
+      blood: z
+        .object({
+          lifesteal: Num,
+          lowTime: Num,
+          low30Time: Num,
+          aliveTime: Num,
+          peakAfterLow: Num,
+          spent: Num,
+        })
+        .optional(),
     }),
   ),
   withoutYou: WithoutYouSchema.nullable(),
@@ -742,6 +753,9 @@ export const ProfileSchema = z.object({
         ),
       ),
     ),
+  // The roster (docs/phase-5b.md): optional v9 keys, absent until used (no version bump).
+  recruited: z.array(Str).optional(),
+  lastParty: z.array(Str).optional(),
 });
 
 /**

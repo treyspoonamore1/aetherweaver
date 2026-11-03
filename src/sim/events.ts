@@ -129,9 +129,10 @@ export interface HealApplied extends At {
   overheal: number;
   /**
    * `self`: the Martyr healing herself (Blood Font, Sanguine Covenant). `rewind`: the life the
-   * Chronomancer's Rewind gave back.
+   * Chronomancer's Rewind gave back. `lifesteal`: what Brann's axe drank (docs/phase-5b.md),
+   * summed every 0.5 s, with `source` = Brann; never the Weaver's.
    */
-  via: 'mend' | 'chime' | 'aura' | 'revive' | 'solo' | 'self' | 'rewind' | 'other';
+  via: 'mend' | 'chime' | 'aura' | 'revive' | 'solo' | 'self' | 'rewind' | 'other' | 'lifesteal';
 }
 export interface ShieldApplied extends At {
   type: 'shieldApplied';
@@ -678,6 +679,26 @@ export interface DecreeAnnounced extends At {
   answers: AnswerTag[];
 }
 
+/** Brann's Bloodlust (docs/phase-5b.md): he refused a Rally below his line. */
+export interface BloodlustEvent extends At {
+  type: 'bloodlust';
+  hero: EntityId;
+}
+/** Blood Tithe (docs/phase-5b.md): a Tithe Ward on Brann broke and gave Spirit (or life) back. */
+export interface TitheRefund extends At {
+  type: 'titheRefund';
+  target: EntityId;
+  /** Spirit refunded; under Eldritch Conduit, `life` instead. */
+  spirit: number;
+  life: number;
+}
+/** Bloodletting (docs/phase-5b.md): life Brann spent on purpose. Not damage. */
+export interface LifeSpent extends At {
+  type: 'lifeSpent';
+  hero: EntityId;
+  amount: number;
+}
+
 export type SimEvent =
   | EntitySpawned
   | EntityDespawned
@@ -755,7 +776,10 @@ export type SimEvent =
   | PhaseChanged
   | DecreeAnnounced
   | GuardBlocked
-  | GuardBrokenEvent;
+  | GuardBrokenEvent
+  | BloodlustEvent
+  | TitheRefund
+  | LifeSpent;
 
 export type SimEventType = SimEvent['type'];
 export type SimEventOf<T extends SimEventType> = Extract<SimEvent, { type: T }>;

@@ -352,6 +352,8 @@ export interface EncounterResult {
     dead: boolean;
     damage: number;
     amplified: number;
+    /** Brann's fight (docs/phase-5b.md): set only for a hero with Blood Rage. */
+    blood?: HeroBloodStats;
   }[];
   /** The same fight replayed with the Weaver absent (null if it couldn't be computed). */
   withoutYou: WithoutYou | null;
@@ -369,6 +371,21 @@ export interface EncounterResult {
 }
 
 /** What the combat runtime hands back when an encounter ends (plain data). */
+/**
+ * A Blood Rage hero's fight (Brann, docs/phase-5b.md), from the sim's `BloodState`: life his
+ * axe drank, seconds alive below his Bloodlust line and below 30%, seconds alive, the highest
+ * hp/maxHp he reached once he first fell to his line (−1: he never did), and life Bloodletting
+ * spent.
+ */
+export interface HeroBloodStats {
+  lifesteal: number;
+  lowTime: number;
+  low30Time: number;
+  aliveTime: number;
+  peakAfterLow: number;
+  spent: number;
+}
+
 export interface CombatOutcome {
   encounterId: string;
   outcome: 'victory' | 'defeat';
@@ -386,6 +403,8 @@ export interface CombatOutcome {
     amplified: number;
     /** Your healing, shields and saves on them (Bond XP, docs/phase-4e.md). */
     supported?: number;
+    /** Brann's fight (docs/phase-5b.md): set only for a hero with Blood Rage. */
+    blood?: HeroBloodStats;
   }[];
   /** The "without you" re-run of this fight, if it finished in time. */
   withoutYou: WithoutYou | null;
@@ -501,6 +520,11 @@ export interface RunActions {
    * The profile remembers it for the next runs; the run's map follows until it embarks.
    */
   setRunMode(mode: 'prelude' | 'expedition'): void;
+  /**
+   * Prep: choose the party (docs/phase-5b.md): exactly 3 distinct roster heroes, kept in
+   * canonical content order. Anything else is ignored. The profile remembers a non-default pick.
+   */
+  setParty(heroIds: string[]): void;
   /**
    * Prep: set the Chords. Illegal loadouts (sim `chordProblems`) and ones using something the
    * player hasn't unlocked yet (meta/profile.ts `lockedProblems`) are ignored.
