@@ -19,6 +19,8 @@ export const AnswerTagSchema = z.enum([
   'stack',
   'move',
   'dome',
+  /** Lift the hero's life above a threshold (Execution, docs/phase-5a.md). */
+  'mend',
 ]);
 export const TelegraphKindSchema = z.enum([
   'cleave',
@@ -39,7 +41,44 @@ export const StatusIdSchema = z.enum([
   'sleep',
   'shaken',
   'held',
+  'absolved',
+  'anchored',
+  // Movement II (docs/phase-5a.md)
+  /** Stacking damage over time (an ailment): Chime clears it. */
+  'bleed',
+  /** Rooted, with damage over time (not an ailment): Reel frees. */
+  'pinned',
+  /** A Leech's drain (an ailment): Reel or Chime frees. */
+  'latched',
+  /** Healing received halved (an ailment). */
+  'wound',
+  /** Blood Pact: damage taken ×1.2 while linked (not an ailment): Scatter. */
+  'pact',
+  /** Execution's mark (display and recap). */
+  'condemned',
+  /** An enemy's guard is broken (display only; the state is `guard.brokenUntil`). */
+  'guardBroken',
 ]);
+
+/**
+ * A status an attack, a basic hit or an affix applies (docs/phase-5a.md P2). Without the
+ * optional fields it is today's refresh-only status. `stacks` adds that many stacks (up to
+ * `maxStacks`) and refreshes the shared timer; `dps` deals damage per stack per second (× the
+ * Movement's damage scale); `pctPerSec` deals that fraction of the target's max HP per second;
+ * `drain` heals the source enemy by what it deals.
+ */
+export const StatusPayloadSchema = z
+  .object({
+    id: StatusIdSchema,
+    duration: Seconds,
+    stacks: z.number().int().positive().optional(),
+    maxStacks: z.number().int().positive().optional(),
+    dps: z.number().nonnegative().optional(),
+    pctPerSec: Pct.optional(),
+    drain: z.literal(true).optional(),
+  })
+  .strict();
+export type StatusPayload = z.infer<typeof StatusPayloadSchema>;
 
 // ── The Weaver ────────────────────────────────────────────────────────────────────────
 
@@ -332,14 +371,16 @@ export const TargetingSchema = z.enum([
   'pair',
   'self',
   'allHeroes',
+  /** The hero with the lowest hp/maxHp; ties broken by slot (Execution). */
+  'lowestHp',
 ]);
 
 export const AttackDefSchema = z.object({
   id: IdSchema,
   name: z.string(),
   kind: TelegraphKindSchema,
-  /** What it does when it resolves. */
-  effect: z.enum(['damage', 'healAllies', 'summon', 'suppress']),
+  /** What it does when it resolves. `script`: nothing; a boss script owns it (docs/phase-5a.md). */
+  effect: z.enum(['damage', 'healAllies', 'summon', 'suppress', 'script']),
   windup: Seconds,
   cooldown: Seconds,
   /** Seconds before the first use after the enemy engages. */
@@ -356,15 +397,50 @@ export const AttackDefSchema = z.object({
   range: z.number().positive(),
   targeting: TargetingSchema,
   answers: z.array(AnswerTagSchema).min(1),
-  status: z.object({ id: StatusIdSchema, duration: Seconds }).optional(),
+  status: StatusPayloadSchema.optional(),
   interruptible: z.boolean(),
-  /** Summon: enemy id and count. Heal: amount per second (uses `damage`). */
-  summon: z.object({ enemy: IdSchema, count: z.number().int().positive() }).optional(),
+  /**
+   * Summon: enemy id and count, and at most `maxAlive` of that enemy alive at once (Movement
+   * II). Heal: amount per second (uses `damage`).
+   */
+  summon: z
+    .object({
+      enemy: IdSchema,
+      count: z.number().int().positive(),
+      maxAlive: z.number().int().positive().optional(),
+    })
+    .optional(),
   /**
    * Boss decree text, announced when it starts: what's coming, then how to answer it in later
    * sentences (Blind Score, Dissonance, shows only the first).
    */
   decree: z.string().optional(),
+  /** Announce the decree only on the first N casts of a fight (absent: every cast). */
+  decreeLimit: z.number().int().positive().optional(),
+  // ── Movement II (docs/phase-5a.md P5, P7). All optional: absent reproduces Movement I. ──
+  /** The status a `mark` applies (absent: 'dirge'; null: none, and no chimed-away check). */
+  markStatus: StatusIdSchema.nullable().optional(),
+  /** The status a `link` applies (absent: 'resound'). */
+  linkStatus: z.enum(['resound', 'pact']).optional(),
+  /** The caster moves with the attack: to a beam's end (charge) or a burst's centre (leap). */
+  move: z.enum(['charge', 'leap']).optional(),
+  /** A burst centred on its target rather than the caster. */
+  centre: z.literal('target').optional(),
+  /** A beam runs its full length, not capped just past its target. */
+  fullLength: z.literal(true).optional(),
+  /** Another attack that begins as this one resolves (`reverse`: aimed 180° from facing). */
+  followUp: z
+    .object({
+      attack: IdSchema,
+      delay: Seconds,
+      reverse: z.literal(true).optional(),
+    })
+    .strict()
+    .optional(),
+  /** Only a boss script or a follow-up starts it: the generic special picker skips it. */
+  scripted: z.literal(true).optional(),
+  /** A target below this fraction of its max HP when it resolves is executed (hp + 1 damage). */
+  executeBelow: Pct.optional(),
 });
 export type AttackDef = z.infer<typeof AttackDefSchema>;
 
@@ -395,6 +471,8 @@ export const EnemyDefSchema = z.object({
     damage: z.number().nonnegative(),
     interval: Seconds,
     range: z.number().positive(),
+    /** A status each basic hit that lands applies (the Sanguine Hound's bleed). */
+    onHit: StatusPayloadSchema.optional(),
   }),
   /** Distance kept from the target (0 = melee). */
   preferredRange: z.number().nonnegative(),
@@ -402,6 +480,25 @@ export const EnemyDefSchema = z.object({
   /** Aura suppression field radius (Mutes); 0 = none. */
   suppressRadius: z.number().nonnegative(),
   codex: z.string(),
+  // ── Movement II (docs/phase-5a.md). All optional: absent reproduces Movement I. ──
+  /**
+   * A guard arc (P6): hits from heroes inside `arcDeg` of its guard direction deal ×`frontMult`.
+   * The guard turns `turnRate` degrees per second toward its target; a guard break lasts
+   * `breakTime` seconds.
+   */
+  guard: z
+    .object({
+      arcDeg: z.number().positive().max(360),
+      frontMult: Pct,
+      turnRate: z.number().positive(),
+      breakTime: Seconds,
+    })
+    .strict()
+    .optional(),
+  /** What it's made of (death debris and kill sounds); absent: porcelain. */
+  material: z.enum(['porcelain', 'iron']).optional(),
+  /** The Movement it belongs to (absent: 1). */
+  movement: z.number().int().positive().optional(),
 });
 export type EnemyDef = z.infer<typeof EnemyDefSchema>;
 
@@ -410,7 +507,14 @@ export const AffixDefSchema = z.object({
   name: z.string(),
   description: z.string(),
   color: ColorSchema,
+  /** The first Movement whose elites may roll it (absent: 1). */
+  movement: z.number().int().positive().optional(),
+  /** A status the affixed enemy's hits that land apply (Vampiric's wound). */
+  onHit: StatusPayloadSchema.optional(),
+  /** How the affix is answered (the HUD glyph and the death recap). */
+  answers: z.array(AnswerTagSchema).min(1).optional(),
 });
+export type AffixDef = z.infer<typeof AffixDefSchema>;
 
 // ── Auras ─────────────────────────────────────────────────────────────────────────────
 
@@ -599,6 +703,8 @@ export const RunEventDefSchema = z
     teaser: z.string(),
     choices: z.array(EventChoiceSchema).min(2).max(4),
     icon: IdSchema,
+    /** The Movement whose map holds it (absent: 1). */
+    movement: z.number().int().positive().optional(),
   })
   .strict();
 export type RunEventDef = z.infer<typeof RunEventDefSchema>;
@@ -1099,6 +1205,8 @@ export const ArenaDefSchema = z.object({
     accent: ColorSchema,
     fog: ColorSchema,
   }),
+  /** Its look and sound (docs/phase-5a.md); absent: the Sunlit Reliquary's. */
+  biome: z.enum(['reliquary', 'crimson_spire']).optional(),
 });
 export type ArenaDef = z.infer<typeof ArenaDefSchema>;
 
@@ -1131,8 +1239,209 @@ export const EncounterDefSchema = z.object({
   /** Contextual hint ids shown the first few times (UI coach). */
   hints: z.array(z.string()).default([]),
   flavor: z.string(),
+  /** The Movement it belongs to (absent: 1): its enemies' scale and its pools. */
+  movement: z.number().int().positive().optional(),
 });
 export type EncounterDef = z.infer<typeof EncounterDefSchema>;
+
+// ── Movements (docs/phase-5a.md) ─────────────────────────────────────────────────────
+
+export const BiomeSchema = z.enum(['reliquary', 'crimson_spire']);
+export type Biome = z.infer<typeof BiomeSchema>;
+
+/** A map stop's kind (meta/types.ts `NodeKind` is this). */
+export const NodeKindSchema = z.enum([
+  'skirmish',
+  'elite',
+  'shrine',
+  'respite',
+  'merchant',
+  'forge',
+  'event',
+  'miniboss',
+  'boss',
+]);
+
+/**
+ * One Movement of an Expedition: its map template and pools, and how much harder its enemies
+ * are. `rows` are row templates whose kinds are shuffled, except the `fixed` rows, which play
+ * the named encounter. Movement I is the Prelude's map exactly (meta/run.ts).
+ */
+export const MovementDefSchema = z
+  .object({
+    id: IdSchema,
+    name: z.string(),
+    /** The map screen's title. */
+    mapTitle: z.string(),
+    biome: BiomeSchema,
+    rows: z.array(z.array(NodeKindSchema).min(1)).min(1),
+    /** Rows (within the Movement) that always play one encounter. */
+    fixed: z.array(z.object({ row: z.number().int().nonnegative(), encounter: IdSchema }).strict()),
+    /** A row of lesson fights: one of these each, every path learns one. */
+    lessons: z.array(IdSchema).optional(),
+    /** The first fight. */
+    opening: IdSchema,
+    skirmishes: z.array(IdSchema).min(1),
+    elites: z.array(IdSchema).min(1),
+    miniboss: IdSchema,
+    boss: IdSchema,
+    /** Its enemies' life and damage (sim `SimConfig.movement`); {1, 1} for Movement I. */
+    scale: z.object({ life: z.number().positive(), damage: z.number().positive() }).strict(),
+    /** Its fights' XP, Starlight and Aether multipliers. */
+    rewards: z
+      .object({
+        xp: z.number().positive(),
+        starlight: z.number().positive(),
+        aether: z.number().positive(),
+      })
+      .strict(),
+  })
+  .strict();
+export type MovementDef = z.infer<typeof MovementDefSchema>;
+
+// ── Movement II lint (docs/phase-5a.md, "Content lint") ───────────────────────────────
+
+/**
+ * The statuses Chime cleanses and immunity blocks, as content declares them (the sim's
+ * `AILMENTS`, src/sim/combat/health.ts, holds the ones it implements): a status an attack
+ * answered by Chime applies must be one of these.
+ */
+export const AILMENT_IDS: readonly StatusId[] = [
+  'dirge',
+  'resound',
+  'silence',
+  'stun',
+  'sleep',
+  'bleed',
+  'latched',
+  'wound',
+];
+export type StatusId = z.infer<typeof StatusIdSchema>;
+
+/** Targetings that pick a hero (a mark or an execution needs one). */
+const HERO_TARGETING: ReadonlySet<z.infer<typeof TargetingSchema>> = new Set([
+  'current',
+  'farthest',
+  'squishiest',
+  'randomHero',
+  'randomNonTank',
+  'lowestHp',
+]);
+
+interface LintSets {
+  attacks: Set<string>;
+  enemies: Set<string>;
+  encounters: Set<string>;
+}
+
+interface ContentShape {
+  attacks: AttackDef[];
+  enemies: EnemyDef[];
+  affixes: AffixDef[];
+  encounters: EncounterDef[];
+  movements: MovementDef[];
+}
+
+function lintMovements(c: ContentShape, ctx: z.RefinementCtx, sets: LintSets): void {
+  const issue = (message: string) => ctx.addIssue({ code: 'custom', message });
+  const need = (set: Set<string>, id: string, where: string) => {
+    if (!set.has(id)) issue(`${where} references unknown "${id}"`);
+  };
+  const ailments = new Set<string>(AILMENT_IDS);
+  for (const a of c.attacks) {
+    const where = `attack "${a.id}"`;
+    if (a.kind === 'link' && a.targeting !== 'pair') issue(`${where}: a link targets a pair`);
+    if ((a.kind === 'mark' || a.executeBelow !== undefined) && !HERO_TARGETING.has(a.targeting))
+      issue(`${where}: a mark or an execution needs a targeting that picks a hero`);
+    if (a.followUp) {
+      need(sets.attacks, a.followUp.attack, where);
+      // A follow-up starts only from the attack before it, never from the generic picker.
+      const next = c.attacks.find((x) => x.id === a.followUp!.attack);
+      if (next && !next.scripted) issue(`${where}: its follow-up "${next.id}" is scripted`);
+      for (const e of c.enemies)
+        if (e.specials.includes(a.id) && !e.specials.includes(a.followUp.attack))
+          issue(`enemy "${e.id}" lists "${a.id}" but not its follow-up "${a.followUp.attack}"`);
+    }
+    // The statuses it applies, and the answers they need.
+    const mark = a.kind === 'mark' ? (a.markStatus === undefined ? 'dirge' : a.markStatus) : null;
+    const applied = [
+      ...(a.status ? [a.status.id] : []),
+      ...(a.kind === 'link' ? [a.linkStatus ?? 'resound'] : []),
+      ...(mark ? [mark] : []),
+    ];
+    for (const id of applied) {
+      if (a.answers.includes('chime') && !ailments.has(id))
+        issue(`${where}: Chime answers it, but "${id}" isn't an ailment`);
+      if (id === 'pinned' && !a.answers.includes('reel')) issue(`${where}: a pin lists reel`);
+      if (id === 'pact' && !a.answers.includes('scatter')) issue(`${where}: a pact lists scatter`);
+    }
+  }
+  for (const f of c.affixes) {
+    if (f.onHit && !f.answers) issue(`affix "${f.id}": what its hits apply names its answers`);
+    if (f.onHit && f.answers?.includes('chime') && !ailments.has(f.onHit.id))
+      issue(`affix "${f.id}": Chime answers it, but "${f.onHit.id}" isn't an ailment`);
+  }
+  const enemyMovement = new Map(c.enemies.map((e) => [e.id, e.movement ?? 1]));
+  for (const e of c.encounters) {
+    const movement = e.movement ?? 1;
+    const where = `encounter "${e.id}"`;
+    if (movement >= 2 && e.par <= 0) issue(`${where}: a Movement II+ encounter needs a par`);
+    const enemies = [
+      ...(e.boss ? [e.boss] : []),
+      ...e.waves.flatMap((w) => w.spawns.map((s) => s.enemy)),
+    ];
+    for (const id of enemies)
+      if ((enemyMovement.get(id) ?? 1) > movement)
+        issue(`${where}: "${id}" belongs to a later Movement`);
+  }
+  const kindOf = new Map(c.encounters.map((e) => [e.id, e.kind]));
+  c.movements.forEach((m, i) => {
+    const where = `movement "${m.id}"`;
+    const encounter = (id: string, kinds: readonly string[], what: string) => {
+      need(sets.encounters, id, where);
+      const kind = kindOf.get(id);
+      if (kind !== undefined && !kinds.includes(kind))
+        issue(`${where}: ${what} "${id}" is a ${kind}`);
+      const movement = c.encounters.find((e) => e.id === id)?.movement ?? 1;
+      if (kind !== undefined && movement !== i + 1)
+        issue(`${where}: "${id}" belongs to Movement ${movement}`);
+    };
+    encounter(m.opening, ['skirmish'], 'opening');
+    for (const id of m.skirmishes) encounter(id, ['skirmish'], 'skirmish');
+    for (const id of m.lessons ?? []) encounter(id, ['skirmish'], 'lesson');
+    for (const id of m.elites) encounter(id, ['elite'], 'elite');
+    encounter(m.miniboss, ['miniboss'], 'miniboss');
+    encounter(m.boss, ['boss'], 'boss');
+    const fixedRows = new Set<number>();
+    for (const f of m.fixed) {
+      if (fixedRows.has(f.row)) issue(`${where}: row ${f.row} is fixed twice`);
+      fixedRows.add(f.row);
+      const row = m.rows[f.row];
+      if (!row) {
+        issue(`${where}: fixed row ${f.row} is past its last row`);
+        need(sets.encounters, f.encounter, where);
+        continue;
+      }
+      // A fixed row is one stop, of the fixed encounter's kind.
+      if (row.length !== 1) issue(`${where}: fixed row ${f.row} has one stop`);
+      encounter(f.encounter, [row[0]!], `fixed row ${f.row}'s`);
+    }
+    if (m.lessons) {
+      // The lesson row: one skirmish stop for each lesson.
+      const n = m.lessons.length;
+      if (!m.rows.some((r) => r.length === n && r.every((k) => k === 'skirmish')))
+        issue(`${where}: no row of ${n} skirmishes for its lessons`);
+    }
+    if (!m.rows.some((r) => r.includes('miniboss'))) issue(`${where}: no row for its miniboss`);
+    const last = m.rows[m.rows.length - 1]!;
+    if (last.length !== 1 || last[0] !== 'boss') issue(`${where}: its last row is its boss`);
+  });
+  if (
+    c.movements[0]?.id !== undefined &&
+    (c.movements[0].scale.life !== 1 || c.movements[0].scale.damage !== 1)
+  )
+    issue(`movement "${c.movements[0].id}": Movement I plays at scale {1, 1}`);
+}
 
 // ── Root ──────────────────────────────────────────────────────────────────────────────
 
@@ -1175,6 +1484,8 @@ export const ContentSchema = z
     scenes: z.array(SceneDefSchema),
     arenas: z.array(ArenaDefSchema).min(1),
     encounters: z.array(EncounterDefSchema).min(1),
+    /** The Movements of an Expedition, in order (docs/phase-5a.md); the first is the Prelude. */
+    movements: z.array(MovementDefSchema).min(1),
     /** Directive acknowledgement lines. */
     barks: z.object({
       rally: z.array(z.string().min(1)).min(1),
@@ -1591,6 +1902,7 @@ export const ContentSchema = z
         }
       }
     }
+    lintMovements(c, ctx, { attacks, enemies, encounters });
   });
 export type Content = z.infer<typeof ContentSchema>;
 export type ContentInput = z.input<typeof ContentSchema>;

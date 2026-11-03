@@ -1,5 +1,10 @@
 import { CONTENT, arenaDef, encounterDef, heroDef } from '../content';
-import { PASSIVE_EFFECTS, type Content, type PassiveEffect } from '../content/schema';
+import {
+  PASSIVE_EFFECTS,
+  type Content,
+  type PassiveEffect,
+  type StatusPayload,
+} from '../content/schema';
 import { songReserve, treeKeystones } from './astrolabe';
 import { talentHero } from './bonds';
 import {
@@ -127,6 +132,12 @@ export interface SimConfig {
    */
   threat?: number;
   /**
+   * The Movement's scale on the enemies (docs/phase-5a.md P1): their life and damage × these.
+   * Absent: the encounter's Movement's (content `movements[n].scale`; {1, 1} in Movement I).
+   * A harness sweep sets it to override that. Never folded into `threat`.
+   */
+  movement?: MovementScale;
+  /**
    * The Weaver's Calling (docs/phase-3c.md) and the path options chosen so far, at most one
    * per tier.
    */
@@ -178,6 +189,12 @@ export interface ResolvedSimConfig {
   relics: Required<RelicConfig>[];
   boons: string[];
   threat: number;
+  /**
+   * The Movement's scale on the enemies. Present only when it matters: absent in Movement I
+   * (and whenever it is {1, 1} and the encounter's own Movement is too), so Movement I configs
+   * hash as they always did.
+   */
+  movement?: MovementScale;
   /** None when the Weaver is absent. */
   calling: Required<CallingConfig> | null;
   /** Sorted, known node ids; none when the Weaver is absent. */
@@ -193,6 +210,33 @@ export interface ResolvedSimConfig {
   assists: Required<AssistConfig>;
   debug: boolean;
   absent: boolean;
+}
+
+/** A Movement's scale on the enemies' life and damage (docs/phase-5a.md P1). */
+export interface MovementScale {
+  life: number;
+  damage: number;
+}
+
+const isUnit = (m: MovementScale): boolean => m.life === 1 && m.damage === 1;
+
+/**
+ * The scale a fight's enemies play at: the override, else the encounter's Movement's. Undefined
+ * when both are {1, 1} (every Movement I fight), so the resolved config has no `movement` key.
+ * An override of {1, 1} on a later Movement's fight is kept, so replays re-resolve the same.
+ */
+export function resolveMovement(
+  encounter: string,
+  override: MovementScale | undefined,
+  content: Content = CONTENT,
+): MovementScale | undefined {
+  const n = content.encounters.find((e) => e.id === encounter)?.movement ?? 1;
+  const own = content.movements?.[n - 1]?.scale ?? { life: 1, damage: 1 };
+  const scale = override ?? own;
+  if (!(scale.life > 0) || !(scale.damage > 0) || !Number.isFinite(scale.life + scale.damage))
+    throw new Error('A Movement scale is positive');
+  if (isUnit(scale) && isUnit(own)) return undefined;
+  return { life: scale.life, damage: scale.damage };
 }
 
 export function resolveConfig(config: SimConfig, content: Content = CONTENT): ResolvedSimConfig {
@@ -272,6 +316,7 @@ export function resolveConfig(config: SimConfig, content: Content = CONTENT): Re
     if (!boons.includes(id)) boons.push(id);
   }
   const a = config.assists ?? {};
+  const movement = resolveMovement(encounter, config.movement, content);
   return {
     seed: config.seed >>> 0,
     party,
@@ -281,6 +326,8 @@ export function resolveConfig(config: SimConfig, content: Content = CONTENT): Re
     relics,
     boons,
     threat: Math.max(1, Math.min(3, config.threat ?? 1)),
+    // Present only when it isn't Movement I's {1, 1} (docs/phase-5a.md: absent, not undefined).
+    ...(movement ? { movement } : {}),
     calling,
     astrolabe,
     passives,
@@ -432,6 +479,11 @@ export interface PendingHit {
   /** Empowered hits can break Discord shields. */
   empowered: boolean;
   stun: number;
+  /**
+   * A status the hit applies if it lands (docs/phase-5a.md P3: a bolt's `basic.onHit` or its
+   * affix's). Absent on every Movement I hit.
+   */
+  onHit?: StatusPayload;
 }
 
 /** An enemy about to appear (spawn portal). */
@@ -512,6 +564,18 @@ export interface SimInternal {
     /** Cast during Stasis (Eternal Moment). */
     stasis?: true;
   } | null;
+  /**
+   * Movement II boss scripts (docs/phase-5a.md): a follow-up attack due (`reverse`: aimed 180°
+   * from the boss's facing), and Vharun's phase-3 cadences. Created lazily for those bosses and
+   * deleted at the encounter's end; absent in every Movement I fight.
+   */
+  m2?: {
+    followUp: { owner: EntityId; attack: string; at: number; reverse?: true } | null;
+    nextTideAt: number;
+    nextExecutionAt: number;
+    /** Decrees announced so far this fight, by attack id (AttackDef.decreeLimit). */
+    decrees?: Record<string, number>;
+  };
 }
 
 /** The sim's mutable world. Exposed to the outside only as the read-only WorldState. */

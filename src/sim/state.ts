@@ -75,7 +75,15 @@ export type StatusId =
   | 'shaken' // carried between encounters: −10% max HP
   | 'held' // Fermata: a lethal hit is held at 1 HP until the status runs out
   | 'absolved' // Absolve (a Chime variant): takes less damage for a moment
-  | 'anchored'; // Anchor (a Reel variant): takes less damage, and nothing moves them
+  | 'anchored' // Anchor (a Reel variant): takes less damage, and nothing moves them
+  // Movement II (docs/phase-5a.md): the same set as content's StatusIdSchema.
+  | 'bleed' // stacking damage over time (an ailment): Chime
+  | 'pinned' // rooted, with damage over time (not an ailment): Reel frees
+  | 'latched' // a Leech's drain (an ailment): Reel or Chime frees
+  | 'wound' // healing received ×0.5 (an ailment)
+  | 'pact' // Blood Pact: damage taken ×1.2 while linked (not an ailment): Scatter
+  | 'condemned' // Execution's mark (display and recap)
+  | 'guardBroken'; // an enemy's guard is broken (display; the state is `guard.brokenUntil`)
 
 export interface Status {
   id: StatusId;
@@ -83,6 +91,13 @@ export interface Status {
   duration: number;
   stacks: number;
   source: EntityId | null;
+  // ── Movement II status payloads (docs/phase-5a.md P2). Absent on every other status. ──
+  /** Damage per stack per second, the Movement's damage scale included. */
+  dps?: number;
+  /** Seconds until its next damage tick. */
+  tickIn?: number;
+  /** What it deals heals its source enemy (a Leech's latch). */
+  drain?: true;
 }
 
 export interface Health {
@@ -414,6 +429,11 @@ export interface EnemyComponent {
   engaged: boolean;
   /** Foresight (the Chronomancer): the attack it's about to use, and when (null = none). */
   foreseen: Foreseen | null;
+  /**
+   * A guard arc (docs/phase-5a.md P6; content `EnemyDef.guard`): the unit direction it guards,
+   * which turns toward its target, and the sim time a guard break ends. Absent without a guard.
+   */
+  guard?: { fx: number; fz: number; brokenUntil: number };
 }
 
 /** An enemy attack seen a second before it begins (Foresight, docs/phase-3e.md). */
@@ -497,13 +517,21 @@ export interface Telegraph {
   damage: number;
   /** Plus this fraction of the victim's max HP (Dirge, Requiem). */
   pctMaxHp: number;
-  /** What it does when it resolves: only 'damage' telegraphs are threats to the party. */
-  effect: 'damage' | 'healAllies' | 'summon' | 'suppress';
+  /**
+   * What it does when it resolves: only 'damage' telegraphs are threats to the party. 'script':
+   * nothing; a boss script owns it (docs/phase-5a.md).
+   */
+  effect: 'damage' | 'healAllies' | 'summon' | 'suppress' | 'script';
   answers: AnswerTag[];
   /** Live: 'lethal' if some hero inside would not survive it as things stand. */
   severity: 'normal' | 'lethal';
   /** A training bell's blow (the Perfect-Ward trainer): a mark with no Dirge behind it. */
   drill?: true;
+  // ── Movement II (docs/phase-5a.md). Absent on every Movement I telegraph. ──
+  /** Execution: a target below this fraction of its max HP when it resolves takes hp + 1. */
+  executeBelow?: number;
+  /** A link's status, when it isn't 'resound' (Blood Pact's 'pact'). */
+  linkStatus?: 'pact';
 }
 
 export interface Obstacle {
@@ -581,6 +609,15 @@ export interface FieldState {
   stasis: boolean;
   /** Safe zones during the Hollow Cantor's Silent Verse. */
   hymnCircles: { x: number; z: number; r: number }[];
+  /**
+   * Vharun's Bloodmoon (docs/phase-5a.md): drifting Sanctuary pools; heroes outside every pool
+   * are healed ×`healMult`; the pools re-form at `reformAt`. Created lazily, absent otherwise.
+   */
+  sanctuary?: {
+    pools: { x: number; z: number; r: number; vx: number; vz: number }[];
+    healMult: number;
+    reformAt: number;
+  };
 }
 
 export type EncounterKind = 'sandbox' | 'skirmish' | 'elite' | 'miniboss' | 'boss';

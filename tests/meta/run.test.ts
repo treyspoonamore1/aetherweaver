@@ -233,6 +233,7 @@ describe('grades', () => {
       eventId: null,
       next: [],
       reward: { draft: 'common', heal: 0, aether: 20, relics: 0, threat: 1, text: '' },
+      movement: 1,
     },
     {
       encounterId: 'first_light',

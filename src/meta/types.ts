@@ -1,5 +1,5 @@
 /**
- * CONTRACT v6 — the run layer (docs/plan/02 §8, 03 §9, docs/phase-3b.md, docs/phase-3c.md). A run is plain, serialisable data;
+ * CONTRACT v7 — the run layer (v7: Movements, docs/phase-5a.md) (docs/plan/02 §8, 03 §9, docs/phase-3b.md, docs/phase-3c.md). A run is plain, serialisable data;
  * every transition is a pure function of (state, action) so runs are seedable, testable and
  * resumable. The app wraps it in a store (app/runStore.ts); screens read and act through
  * that store only.
@@ -51,6 +51,8 @@ export interface MapNode {
   next: string[];
   /** What the node offers, shown on hover before choosing. */
   reward: RewardPreview;
+  /** The Movement it belongs to (1: Movement I; saves from before Movements load as 1). */
+  movement: number;
 }
 
 export interface RewardPreview {
@@ -214,6 +216,8 @@ export interface RelicOffer {
   reason: 'elite' | 'boss' | 'event';
   /** Relic ids to choose one from. */
   options: string[];
+  /** The encounter whose victory offers them (its copy names it); absent on older saves. */
+  sourceEncounter?: string;
 }
 
 export interface OwnedMotif {
@@ -234,6 +238,8 @@ export interface DraftOffer {
   reason: 'victory' | 'elite' | 'shrine' | 'meditate' | 'boss';
   options: DraftOption[];
   rerollsLeft: number;
+  /** The encounter whose victory offers it (its copy names it); absent otherwise. */
+  sourceEncounter?: string;
 }
 
 export type Grade = 'S' | 'A' | 'B' | 'C' | 'D';
@@ -348,6 +354,13 @@ export interface EncounterResult {
   bondXp: Record<string, number>;
   /** Starlight this fight paid (docs/phase-4g.md); none for results from before. */
   starlight: number;
+  /** The Movement the fight was in (docs/phase-5a.md; 1 for results from before). */
+  movement: number;
+  /**
+   * The run's final fight was won: the run is won (only the final node sets it). Absent on
+   * results from before; `endsRun` (meta/run.ts) falls back to a won boss.
+   */
+  wonRun?: boolean;
 }
 
 /** What the combat runtime hands back when an encounter ends (plain data). */
@@ -466,12 +479,18 @@ export interface RunState {
   techniques: Techniques;
   /** The Bond scenes this run has played, by id (the Summary counts their Bond XP). */
   scenes: string[];
+  /**
+   * How many Movements the run plays (docs/phase-5a.md): 1 for the Prelude, 2 for an
+   * Expedition. Saves from before load as 1.
+   */
+  movements: number;
 }
 
 /** Everything the run screens can do. Implemented by app/runStore.ts. */
 export interface RunActions {
   /** Starts a new run in Prep. */
-  newRun(seed?: number): void;
+  /** `mode`: the route (absent: the profile's runMode, Prelude before the Expedition opens). */
+  newRun(seed?: number, mode?: 'prelude' | 'expedition'): void;
   /**
    * Prep: set the Chords. Illegal loadouts (sim `chordProblems`) and ones using something the
    * player hasn't unlocked yet (meta/profile.ts `lockedProblems`) are ignored.

@@ -40,6 +40,9 @@ const OWN_GLYPH: Readonly<Record<string, IconName>> = {
   encore: 'reroll',
   perfect_pitch: 'tune',
   hourglass: 'hourglass',
+  // Movement II's badges (docs/phase-5a.md): the Spire's banner, the Matriarch's paw.
+  crimson_crowned: 'banner',
+  pack_leader: 'paw',
 };
 
 /** A counting Deed's glyph: the stat's own, as the Result and Summary draw it. */

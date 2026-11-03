@@ -17,13 +17,16 @@ const STARS = (() => {
 })();
 
 /** The shared "stained-glass cosmos" backdrop for every non-combat screen. */
-export function Backdrop({ tone = 'navy' }: { tone?: 'navy' | 'gold' | 'dusk' }) {
+export function Backdrop({ tone = 'navy' }: { tone?: 'navy' | 'gold' | 'dusk' | 'crimson' }) {
   const glow =
     tone === 'gold'
       ? 'rgb(245 184 61 / 0.13)'
       : tone === 'dusk'
         ? 'rgb(167 139 250 / 0.14)'
-        : 'rgb(61 76 125 / 0.28)';
+        : tone === 'crimson'
+          ? // Phase 5a: the Crimson Spire's map (Movement II).
+            'rgb(168 46 52 / 0.2)'
+          : 'rgb(61 76 125 / 0.28)';
   return (
     <div
       aria-hidden
@@ -83,7 +86,7 @@ export function ScreenFrame({
   className = '',
 }: {
   children: ReactNode;
-  tone?: 'navy' | 'gold' | 'dusk';
+  tone?: 'navy' | 'gold' | 'dusk' | 'crimson';
   className?: string;
 }) {
   return (

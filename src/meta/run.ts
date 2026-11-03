@@ -388,8 +388,8 @@ export function generateMap(seed: number): RunMap {
   const order = (pool: readonly string[]) => shuffle(rng, [...pool]);
   const skirmishes = order(SKIRMISHES);
   const elites = order(ELITES);
-  // Every event at most once a run, until they run out.
-  const events = order(CONTENT.events.map((e) => e.id));
+  // Every event at most once a run, until they run out. Movement I's own, in content order.
+  const events = order(CONTENT.events.filter((e) => (e.movement ?? 1) === 1).map((e) => e.id));
   let nextEvent = 0;
   const uses = new Map<string, number>();
   const rowsUsed: Set<string>[] = [];
@@ -426,6 +426,7 @@ export function generateMap(seed: number): RunMap {
         eventId,
         next: [],
         reward: rewardFor(kind, eventId, row),
+        movement: 1,
       };
     });
   });
@@ -453,6 +454,41 @@ function nearest(nodes: MapNode[], x: number): MapNode {
   let best = nodes[0]!;
   for (const n of nodes) if (Math.abs(n.x - x) < Math.abs(best.x - x)) best = n;
   return best;
+}
+
+// ── Movements (docs/phase-5a.md) ─────────────────────────────────────────────────────
+
+/** The run's last stop: a boss with nothing after it. (In an Expedition the Cantor isn't.) */
+export function isFinalNode(node: MapNode): boolean {
+  return node.kind === 'boss' && node.next.length === 0;
+}
+
+/**
+ * Did this fight end the run in victory? Only the final node sets `wonRun`; results saved
+ * before Movements have none, and a won boss stood for it.
+ */
+export function endsRun(result: EncounterResult): boolean {
+  return result.wonRun ?? (result.kind === 'boss' && result.outcome === 'victory');
+}
+
+/** The Movement the party stands in (1 before the first step). */
+export function movementOf(run: RunState): number {
+  const here = run.path[run.path.length - 1];
+  return (here !== undefined ? findNode(run, here)?.movement : undefined) ?? 1;
+}
+
+/** Has the run set foot in Movement `n` (any stop of it, or a later one)? */
+export function reachedMovement(run: RunState, n: number): boolean {
+  if (n <= 1) return true;
+  return run.path.some((id) => (findNode(run, id)?.movement ?? 1) >= n);
+}
+
+/**
+ * May the run enshrine a relic (docs/phase-5a.md)? An Expedition that reached Movement II may,
+ * won or not; a Prelude only if it was won (docs/phase-4c.md).
+ */
+export function enshrineEligible(run: RunState): boolean {
+  return run.movements >= 2 ? reachedMovement(run, 2) : run.outcome === 'victory';
 }
 
 export function findNode(run: RunState, id: string): MapNode | undefined {
@@ -521,6 +557,7 @@ export function newRun(
     scene: null,
     scenes: [],
     techniques: { ...techniques },
+    movements: 1,
   };
   return chordsLegal(chords, undefined, reservePool(run), reserveMult(run))
     ? { ...run, chords: canonicalChords(chords) }
@@ -1652,6 +1689,8 @@ export function summarize(
     // Bonds (docs/phase-4e.md): what the fight paid each hero.
     bondXp: bondXpForFight(outcome, def.kind),
     starlight,
+    // Movements (docs/phase-5a.md): the Movement the fight was in.
+    movement: node.movement ?? 1,
   };
 }
 

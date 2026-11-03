@@ -6,6 +6,7 @@ import { attackDef } from '../../content';
 import { isActive } from '../combat/health';
 import { announceDecree, pushMarker } from '../combat/feedback';
 import { cancelTelegraph } from '../combat/telegraphs';
+import type { AnswerTag } from '../events';
 import type { Entity } from '../state';
 import type { World } from '../world';
 import { beginAttack, beginSilentVerse } from './enemies';
@@ -16,6 +17,23 @@ interface PhaseDef {
   /** HP fraction at which the phase begins. */
   at: number;
   decree: { name: string; text: string } | null;
+  // ── Movement II bosses (docs/phase-5a.md). Absent on the Bellwarden's and Cantor's. ──
+  /** The phase decree's answers (absent: ['stack', 'move']). */
+  answers?: AnswerTag[];
+  /** Special cooldowns × this in the phase. */
+  cooldownMult?: number;
+  /** The only specials the generic picker may use in the phase. */
+  specials?: string[];
+  /** Summon counts by attack id in the phase (e.g. Pack Call's 4 hounds in Blood Frenzy). */
+  summonCount?: Record<string, number>;
+}
+
+/** What a boss phase changes for the generic attack picker (W2 reads, W3 writes PHASES). */
+export interface PhaseRules {
+  answers?: AnswerTag[];
+  cooldownMult?: number;
+  specials?: string[];
+  summonCount?: Record<string, number>;
 }
 
 const PHASES: Record<string, PhaseDef[]> = {
@@ -38,6 +56,33 @@ const PHASES: Record<string, PhaseDef[]> = {
 
 export function bossPhases(defId: string): number {
   return PHASES[defId]?.length ?? 1;
+}
+
+/**
+ * A boss's phases: the HP fraction each begins at, and its decree's name if it has one
+ * (docs/phase-5a.md: the boss bar's real thresholds). A boss without a script has one phase.
+ */
+export function bossPhaseTable(defId: string): { at: number; name?: string }[] {
+  const phases = PHASES[defId];
+  if (!phases) return [{ at: 1 }];
+  return phases.map((p) => (p.decree ? { at: p.at, name: p.decree.name } : { at: p.at }));
+}
+
+/**
+ * The phase's rules for `defId` at phase index `phase` (null for bosses without any, and for
+ * every Movement I boss). Pure data: safe to import from enemies.ts despite the module cycle.
+ */
+export function phaseRules(defId: string, phase: number): PhaseRules | null {
+  const p = PHASES[defId]?.[phase];
+  if (!p) return null;
+  const { answers, cooldownMult, specials, summonCount } = p;
+  if (!answers && cooldownMult === undefined && !specials && !summonCount) return null;
+  return {
+    ...(answers ? { answers } : {}),
+    ...(cooldownMult !== undefined ? { cooldownMult } : {}),
+    ...(specials ? { specials } : {}),
+    ...(summonCount ? { summonCount } : {}),
+  };
 }
 
 export function updateBosses(world: World): void {

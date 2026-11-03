@@ -98,6 +98,55 @@ export const STATUS: Record<StatusId, StatusLook> = {
     label: 'Anchored',
     help: guardHelp('anchor', 'Anchor'),
   },
+  // Movement II (docs/phase-5a.md): each threat with the answer it wants.
+  bleed: {
+    icon: 'drop',
+    label: 'Bleeding',
+    color: '#c4b5fd',
+    help: 'Takes damage every second for each stack; every bite adds one.',
+    answer: 'Chime it away (at 5 stacks or more).',
+  },
+  pinned: {
+    icon: 'pin',
+    label: 'Pinned',
+    color: '#fdba74',
+    help: 'Rooted in place, and hurt every second.',
+    answer: 'Reel frees them.',
+  },
+  latched: {
+    icon: 'tear',
+    label: 'Latched',
+    color: '#c4b5fd',
+    help: 'A Leech drains their life and heals itself with it.',
+    answer: 'Reel or Chime frees them.',
+  },
+  wound: {
+    icon: 'crack',
+    label: 'Wounded',
+    color: '#c4b5fd',
+    help: 'Healing received is halved.',
+    answer: 'Chime before you Mend.',
+  },
+  pact: {
+    icon: 'link',
+    label: 'Blood Pact',
+    color: '#f0abfc',
+    help: 'Linked: takes 20% more damage, and the pact bursts on allies standing together.',
+    answer: "Scatter: Chime can't break it.",
+  },
+  condemned: {
+    icon: 'skull',
+    label: 'Condemned',
+    color: '#fda4af',
+    help: 'Execution: below 40% life when it lands, they die.',
+    answer: 'Heal them above 40%, or Ward them.',
+  },
+  guardBroken: {
+    icon: 'shatter',
+    label: 'Guard broken',
+    color: '#fde68a',
+    help: 'Its guard is down: every hit lands in full.',
+  },
 };
 
 /**
@@ -133,6 +182,7 @@ export const ANSWER: Record<AnswerTag, AnswerLook> = {
   stack: { icon: 'stack', label: 'Rally', action: 'directiveRally' },
   move: { icon: 'move', label: 'Move', action: null },
   dome: { icon: 'dome', label: 'Dome', action: null },
+  mend: { icon: 'mend', label: 'Mend', action: null },
 };
 
 export const FOLLOW_LABEL = { follow: 'Following', hold: 'Holding', scatter: 'Scattered' } as const;

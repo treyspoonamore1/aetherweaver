@@ -7,3 +7,5 @@ playwright-report
 coverage
 package-lock.json
 tests/sim/golden.json
+tests/meta/__snapshots__/prelude.json
+tools/m1-baseline.json

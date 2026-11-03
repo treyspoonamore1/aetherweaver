@@ -11,7 +11,7 @@ import { chordProblems, type ReservePool } from '../sim';
 import { astrolabePoints, pruneTree } from './astrolabe';
 import { FIGHT_AETHER, RELIC_OFFERS } from './economy';
 import { fieldAuraSlots, reserveMult, reservePool, withCarried } from './run';
-import { MAX_RANK, newProfile, PROFILE_VERSION, type Profile } from './profile';
+import { MAX_RANK, movementOneEnemies, newProfile, PROFILE_VERSION, type Profile } from './profile';
 import { bondedHeroes, fitBond, fitRunBonds } from './bonds';
 import { fitLevels } from './dissonance';
 import { emptyReliquary, fitRelic, fitReliquary, type ReliquaryRelic } from './reliquary';
@@ -62,6 +62,7 @@ const BondSchema = z.object({
 
 /** The Deeds this build knows: a save's others (renamed or removed) are forgotten on load. */
 const DEED_IDS: ReadonlySet<string> = new Set(CONTENT.deeds.map((d) => d.id));
+const ENEMY_IDS: ReadonlySet<string> = new Set(CONTENT.enemies.map((e) => e.id));
 
 /** An enshrined relic (docs/phase-4c.md); `fitRelic` fits it to the content on load. */
 const ReliquaryRelicSchema = z.object({
@@ -129,6 +130,8 @@ const NodeSchema = z.object({
     threat: Num,
     text: Str,
   }),
+  // Movements (docs/phase-5a.md): maps from before them are Movement I's.
+  movement: Num.default(1),
 });
 
 const StatsSchema = z
@@ -258,6 +261,10 @@ const ResultSchema = z.object({
   // Bonds (docs/phase-4e.md): results from before them paid none.
   bondXp: z.record(Str, Num).catch({}).default({}),
   starlight: Num.catch(0).default(0),
+  // Movements (docs/phase-5a.md): results from before them were Movement I's, and set no
+  // `wonRun` (meta/run.ts `endsRun` falls back to a won boss).
+  movement: Num.default(1),
+  wonRun: z.boolean().optional(),
 });
 
 const ChordSchema = z.object({ auras: z.array(Str), ornaments: z.array(Str) });
@@ -342,6 +349,7 @@ export const RunStateSchema = z.object({
       reason: z.enum(['victory', 'elite', 'shrine', 'meditate', 'boss']),
       options: z.array(z.object({ motifId: Str, level: Num, upgrade: z.boolean() })),
       rerollsLeft: Num,
+      sourceEncounter: Str.optional(),
     })
     .nullable(),
   lastResult: ResultSchema.nullable(),
@@ -372,7 +380,11 @@ export const RunStateSchema = z.object({
     .nullable(),
   event: EventSchema.nullable(),
   relicOffer: z
-    .object({ reason: z.enum(['elite', 'boss', 'event']), options: z.array(Str) })
+    .object({
+      reason: z.enum(['elite', 'boss', 'event']),
+      options: z.array(Str),
+      sourceEncounter: Str.optional(),
+    })
     .nullable(),
   calling: z
     .object({
@@ -409,6 +421,8 @@ export const RunStateSchema = z.object({
   scenes: z.array(Str).catch([]).default([]),
   // Technique variants (docs/phase-4f.md): saves from before them play the defaults.
   techniques: TechniquesSchema,
+  // Movements (docs/phase-5a.md): runs saved before them are Preludes (no RUN_SAVE_VERSION bump).
+  movements: Num.default(1),
 });
 
 /** Motif ids renamed since older saves were written. */
@@ -691,6 +705,9 @@ export const ProfileSchema = z.object({
     .catch(() => noLook())
     .default(() => noLook()),
   mastery: z.record(Str, z.unknown()).catch({}).default({}),
+  // Movements (docs/phase-5a.md): a field that doesn't parse is reset, not the rest.
+  runMode: z.enum(['prelude', 'expedition']).catch('expedition'),
+  seen: z.array(Str).catch(() => movementOneEnemies()),
   // Bonds (docs/phase-4e.md): a hero's Bond that doesn't parse is reset, not the others.
   bonds: z
     .record(Str, z.unknown())
@@ -730,7 +747,8 @@ export const ProfileSchema = z.object({
  * none earned yet. v3 → v4: the Reliquary (docs/phase-4c.md), empty. v4 → v5: Dissonance
  * (docs/phase-4d.md), closed. v5 → v6: Bonds (docs/phase-4e.md), none yet. v6 → v7: technique
  * variants (docs/phase-4f.md), none owned. v7 → v8: the Loom (docs/phase-4g.md): the Deeds
- * already earned pay their Starlight; Calling mastery starts from nothing.
+ * already earned pay their Starlight; Calling mastery starts from nothing. v8 → v9: Movements
+ * (docs/phase-5a.md): Expeditions are the route once open, and every Movement I enemy is seen.
  */
 export function migrateProfileJson(raw: unknown, seed = 1): unknown {
   let p = raw;
@@ -752,6 +770,8 @@ export function migrateProfileJson(raw: unknown, seed = 1): unknown {
       mastery: {},
     };
   }
+  if (isObj(p) && p.version === 8)
+    p = { ...p, version: 9, runMode: 'expedition', seen: movementOneEnemies() };
   return p;
 }
 
@@ -798,6 +818,10 @@ export function loadProfile(store: KeyValueStore, seed = 1): Profile {
           ),
         );
         profile.look = fitLook(profile);
+        // Sightings: enemies the content knows, each once, and every Movement I enemy.
+        profile.seen = [
+          ...new Set([...profile.seen.filter((id) => ENEMY_IDS.has(id)), ...movementOneEnemies()]),
+        ];
         // Bonds: heroes, talents and scenes the content knows. Choices stay above a hero's
         // rank (Skip the unlocks may have made them): Prep and embark fit them to it.
         profile.bonds = Object.fromEntries(

@@ -14,6 +14,15 @@ import { DISSONANCE, DISSONANCE_RULES } from './dissonance';
 import { ALT_SOLOS, BOND_RULES, SCENES, TALENTS } from './bonds';
 import { TECHNIQUE_VARIANTS } from './variants';
 import { COSMETICS, MASTERY, STARLIGHT } from './loom';
+import { MOVEMENTS } from './movements';
+import { LEGION_AFFIXES, LEGION_ATTACKS, LEGION_ENEMIES } from './legion';
+import {
+  CRIMSON_LEGION,
+  LEGION_ARENAS,
+  LEGION_DEEDS,
+  LEGION_ENCOUNTERS,
+  LEGION_EVENTS,
+} from './legionRun';
 import { RUN_EVENTS } from './runEvents';
 import { CALLS, CHORUS, CRESCENDO, RESONANCE, TECHNIQUES, THREAD, WEAVER } from './weaver';
 import {
@@ -36,6 +45,7 @@ import {
   type HeroDef,
   type InscriptionDef,
   type MotifDef,
+  type MovementDef,
   type OrnamentDef,
   type RelicDef,
   type RunEventDef,
@@ -43,7 +53,11 @@ import {
   type TalentDef,
 } from './schema';
 
-/** Validated at module load: invalid content fails fast in dev, tests and CI. */
+/**
+ * Validated at module load: invalid content fails fast in dev, tests and CI. Later Movements'
+ * content is appended after Movement I's, never interleaved, so every Movement I list keeps its
+ * order (docs/phase-5a.md: pools are filtered by Movement in content order).
+ */
 export const CONTENT: Content = ContentSchema.parse({
   weaver: WEAVER,
   thread: THREAD,
@@ -56,16 +70,16 @@ export const CONTENT: Content = ContentSchema.parse({
   defaultParty: ['kael', 'lyra', 'vexis'],
   auras: AURAS,
   ornaments: ORNAMENTS,
-  attacks: ATTACKS,
-  enemies: ENEMIES,
-  affixes: AFFIXES,
+  attacks: [...ATTACKS, ...LEGION_ATTACKS],
+  enemies: [...ENEMIES, ...LEGION_ENEMIES],
+  affixes: [...AFFIXES, ...LEGION_AFFIXES],
   motifs: MOTIFS,
   relics: RELICS,
   boons: BOONS,
-  events: RUN_EVENTS,
+  events: [...RUN_EVENTS, ...LEGION_EVENTS],
   callings: CALLINGS,
   astrolabe: ASTROLABE,
-  deeds: DEEDS,
+  deeds: [...DEEDS, ...LEGION_DEEDS],
   inscriptions: INSCRIPTIONS,
   curses: CURSES,
   reliquary: RELIQUARY,
@@ -79,8 +93,9 @@ export const CONTENT: Content = ContentSchema.parse({
   cosmetics: COSMETICS,
   mastery: MASTERY,
   scenes: SCENES,
-  arenas: ARENAS,
-  encounters: ENCOUNTERS,
+  arenas: [...ARENAS, ...LEGION_ARENAS],
+  encounters: [...ENCOUNTERS, ...LEGION_ENCOUNTERS],
+  movements: [...MOVEMENTS, CRIMSON_LEGION],
   barks: {
     rally: ['On you!', 'Regrouping!', 'Right behind you.'],
     hold: ['Holding here.', 'Standing firm.', 'We wait for your word.'],
@@ -124,6 +139,18 @@ export const ornamentDef: (id: string) => OrnamentDef = index('ornament', CONTEN
 export const motifDef: (id: string) => MotifDef = index('motif', CONTENT.motifs);
 export const arenaDef: (id: string) => ArenaDef = index('arena', CONTENT.arenas);
 export const encounterDef: (id: string) => EncounterDef = index('encounter', CONTENT.encounters);
+
+const movementById = index('movement', CONTENT.movements);
+/**
+ * A Movement (docs/phase-5a.md) by content id, or by its 1-based number (1: Movement I, the
+ * Prelude's map).
+ */
+export function movementDef(id: string | number): MovementDef {
+  if (typeof id === 'string') return movementById(id);
+  const def = CONTENT.movements[id - 1];
+  if (!def) throw new Error(`Unknown movement ${id}`);
+  return def;
+}
 export const relicDef: (id: string) => RelicDef = index('relic', CONTENT.relics);
 export const boonDef: (id: string) => BoonDef = index('boon', CONTENT.boons);
 export const runEventDef: (id: string) => RunEventDef = index('event', CONTENT.events);
@@ -282,8 +309,10 @@ export type {
   ArenaDef,
   Astrolabe,
   AstrolabeNode,
+  AffixDef,
   AttackDef,
   AuraDef,
+  Biome,
   BondRules,
   BoonDef,
   CallingDef,
@@ -302,6 +331,7 @@ export type {
   InscriptionCategory,
   InscriptionDef,
   MotifDef,
+  MovementDef,
   OrnamentDef,
   PassiveEffect,
   RelicDef,
@@ -309,10 +339,11 @@ export type {
   ReliquaryDef,
   RunEventDef,
   SceneDef,
+  StatusPayload,
   TalentDef,
   TechniqueVariantDef,
   Cosmetics,
   MasteryRules,
   StarlightRules,
 } from './schema';
-export { DISSONANCE_EFFECTS, INSCRIPTION_CATEGORIES, PASSIVE_EFFECTS } from './schema';
+export { AILMENT_IDS, DISSONANCE_EFFECTS, INSCRIPTION_CATEGORIES, PASSIVE_EFFECTS } from './schema';

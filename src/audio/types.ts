@@ -4,6 +4,7 @@
  * per frame; screens call `playUi` and `setMood`. Everything is synthesised with WebAudio:
  * no asset files. Audio never affects the simulation.
  */
+import type { Biome } from '../content';
 import type { SimEvent, WorldState } from '../sim';
 
 /** Phase 4g: `loom`, the hub between runs (a quiet sanctum: no drums, glass over a warm hum). */
@@ -237,6 +238,11 @@ export interface AudioDirector {
    * of their life (Settings → Health and the HUD). On by default; absent on stand-ins.
    */
   setLowLifeAlert?(on: boolean): void;
+  /**
+   * Additive (docs/phase-5a.md): the biome the music and ambience voice (the arena's in a fight,
+   * the Movement's on the map). Absent on stand-ins; the Sunlit Reliquary until called.
+   */
+  setBiome?(biome: Biome): void;
   /** Stops combat layers (leaving combat); music keeps playing per mood. */
   stopCombat(): void;
   dispose(): void;

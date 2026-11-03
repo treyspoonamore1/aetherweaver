@@ -107,7 +107,7 @@ export interface FakeTelegraph {
   damage: number;
   pctMaxHp: number;
   effect: 'damage' | 'healAllies' | 'summon' | 'suppress';
-  answers: ('ward' | 'chime' | 'reel' | 'focus' | 'scatter' | 'stack' | 'move' | 'dome')[];
+  answers: ('ward' | 'chime' | 'reel' | 'focus' | 'scatter' | 'stack' | 'move' | 'dome' | 'mend')[];
   severity: 'normal' | 'lethal';
 }
 

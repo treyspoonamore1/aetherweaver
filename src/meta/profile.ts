@@ -15,7 +15,7 @@ import { noVariants, type Techniques } from './variants';
 import { noLook, type Look } from './loom';
 import type { EncounterResult, Grade } from './types';
 
-export const PROFILE_VERSION = 8;
+export const PROFILE_VERSION = 9;
 
 export interface Profile {
   version: typeof PROFILE_VERSION;
@@ -54,6 +54,24 @@ export interface Profile {
   look: Look;
   /** Calling mastery XP, by Calling id. */
   mastery: Record<string, number>;
+  /**
+   * The route Prep starts from once Expeditions are open (docs/phase-5a.md): the last one chosen.
+   * The first run, and every run below the Expedition's Rank, is the Prelude whatever this says.
+   */
+  runMode: RunMode;
+  /**
+   * Enemy defs ever sighted, by id (first-sighting cards, the Codex's locks): every Movement I
+   * enemy from the start, so nothing the Prelude shows is ever locked.
+   */
+  seen: string[];
+}
+
+/** A run's route: the Prelude (Movement I alone) or an Expedition (Movement I, then II). */
+export type RunMode = 'prelude' | 'expedition';
+
+/** Every Movement I enemy, in content order: what a profile has seen from the start. */
+export function movementOneEnemies(): string[] {
+  return CONTENT.enemies.filter((e) => (e.movement ?? 1) === 1).map((e) => e.id);
 }
 
 /** Dissonance in the profile (docs/phase-4d.md). */
@@ -87,6 +105,8 @@ export function newProfile(seed = 1): Profile {
     cosmetics: [],
     look: noLook(),
     mastery: {},
+    runMode: 'expedition',
+    seen: movementOneEnemies(),
   };
 }
 
@@ -128,7 +148,9 @@ export type UnlockKind =
   | 'astrolabe'
   | 'reliquary'
   | 'carrySlot'
-  | 'dissonance';
+  | 'dissonance'
+  /** Expeditions: Movement II after the Prelude (docs/phase-5a.md). */
+  | 'expedition';
 
 export interface Unlock {
   /** Stable id: "song.field", "aura.ostinato", "ornament.unison", "ornamentSlot.2". */
@@ -258,6 +280,8 @@ export interface Allowance {
   ornamentSlots: number;
   /** Callings that can be chosen in Prep. */
   callings: ReadonlySet<string>;
+  /** Expeditions can be chosen in Prep (docs/phase-5a.md). */
+  expedition: boolean;
   /** Everything is open (Skip the unlocks). */
   all: boolean;
 }
@@ -268,6 +292,7 @@ export const EVERYTHING: Allowance = {
   ornaments: new Set(CONTENT.ornaments.map((o) => o.id)),
   ornamentSlots: CONTENT.weaver.ornamentSlots,
   callings: new Set(CONTENT.callings.map((c) => c.id)),
+  expedition: true,
   all: true,
 };
 
@@ -290,6 +315,7 @@ export function allowanceFor(rank: number): Allowance {
     ]),
     ornamentSlots: Math.max(0, ...of('ornamentSlot').map(Number)),
     callings: new Set(of('calling')),
+    expedition: of('expedition').length > 0,
     all: false,
   };
 }

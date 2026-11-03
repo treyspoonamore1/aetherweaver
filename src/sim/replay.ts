@@ -94,6 +94,8 @@ const SimConfigSchema = z
     ),
     boons: z.array(z.string()),
     threat: z.number(),
+    /** The Movement's scale on the enemies (docs/phase-5a.md); absent in Movement I. */
+    movement: z.object({ life: z.number(), damage: z.number() }).strict().optional(),
     calling: z
       .object({
         id: z.string(),

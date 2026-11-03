@@ -19,7 +19,17 @@ import type {
 } from './state';
 
 /** How a telegraphed threat can be answered (docs/plan/04 §5.3). Shown as glyphs. */
-export type AnswerTag = 'ward' | 'chime' | 'reel' | 'focus' | 'scatter' | 'stack' | 'move' | 'dome';
+export type AnswerTag =
+  | 'ward'
+  | 'chime'
+  | 'reel'
+  | 'focus'
+  | 'scatter'
+  | 'stack'
+  | 'move'
+  | 'dome'
+  /** Lift the hero above a threshold (Execution, docs/phase-5a.md). */
+  | 'mend';
 
 export type TelegraphShape =
   | { kind: 'circle'; x: number; z: number; r: number }
@@ -42,7 +52,18 @@ export type TelegraphShape =
 
 /** Visual style of an attack, so render can draw arrows, bolts, swings… */
 export type AttackVisual =
-  'melee' | 'cleave' | 'arrow' | 'bolt' | 'pierce' | 'lance' | 'meteor' | 'starbolt' | 'heal-beam';
+  | 'melee'
+  | 'cleave'
+  | 'arrow'
+  | 'bolt'
+  | 'pierce'
+  | 'lance'
+  | 'meteor'
+  | 'starbolt'
+  | 'heal-beam'
+  /** Movement II (docs/phase-5a.md): the caster charged down its beam, or leapt to its circle. */
+  | 'charge'
+  | 'leap';
 
 interface At {
   tick: number;
@@ -129,12 +150,26 @@ export interface StatusApplied extends At {
   target: EntityId;
   status: StatusId;
   duration: number;
+  /** A stacking status's stacks after this application (Movement II); absent otherwise. */
+  stacks?: number;
 }
 export interface StatusRemoved extends At {
   type: 'statusRemoved';
   target: EntityId;
   status: StatusId;
-  reason: 'expired' | 'cleansed' | 'detonated';
+  /** `freed`: a Reel pulled the hero out of a pin or a latch (docs/phase-5a.md). */
+  reason: 'expired' | 'cleansed' | 'detonated' | 'freed';
+}
+/** A hero's hit landed on an enemy's guard arc and was mostly blocked (rate-limited). */
+export interface GuardBlocked extends At {
+  type: 'guardBlocked';
+  enemy: EntityId;
+  source: EntityId;
+}
+/** An enemy's guard broke (an Empowered Piercing Shot). */
+export interface GuardBrokenEvent extends At {
+  type: 'guardBroken';
+  enemy: EntityId;
 }
 
 // ── Telegraphs ────────────────────────────────────────────────────────────────────────
@@ -154,7 +189,7 @@ export interface TelegraphStarted extends At {
   pctMaxHp: number;
   answers: AnswerTag[];
   /** What the attack does when it resolves. */
-  effect: 'damage' | 'healAllies' | 'summon' | 'suppress';
+  effect: 'damage' | 'healAllies' | 'summon' | 'suppress' | 'script';
 }
 /** One per affected hero (or one with `target: null` if nobody was in it). */
 export interface TelegraphResolved extends At {
@@ -709,7 +744,9 @@ export type SimEvent =
   | SwappedEvent
   | PhaseStepEvent
   | PhaseChanged
-  | DecreeAnnounced;
+  | DecreeAnnounced
+  | GuardBlocked
+  | GuardBrokenEvent;
 
 export type SimEventType = SimEvent['type'];
 export type SimEventOf<T extends SimEventType> = Extract<SimEvent, { type: T }>;

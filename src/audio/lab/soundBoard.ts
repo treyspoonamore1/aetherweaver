@@ -41,7 +41,7 @@ export function fireSound(s: SoundButton, d: SynthDirector, w: FakeWorld): () =>
 const fire = (d: SynthDirector, w: FakeWorld, ...events: SimEvent[]) => d.onEvents(events, w.state);
 
 const tele = (
-  answers: ('ward' | 'chime' | 'reel' | 'focus' | 'scatter' | 'stack' | 'move' | 'dome')[],
+  answers: ('ward' | 'chime' | 'reel' | 'focus' | 'scatter' | 'stack' | 'move' | 'dome' | 'mend')[],
   kind: 'cleave' | 'beam' | 'burst' | 'donut' | 'mark' | 'link' | 'raid',
   x: number,
   windup = 1.6,

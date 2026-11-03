@@ -60,6 +60,7 @@ function fight(
     withoutYou: null,
     bondXp: {},
     starlight: 0,
+    movement: 1,
     ...over,
   };
 }
@@ -150,12 +151,21 @@ beforeEach(() => {
 });
 
 describe('the Deeds', () => {
-  it('twenty, ten of them giving a point, each text filled from its data', () => {
-    expect(CONTENT.deeds).toHaveLength(20);
+  it('twenty-two, ten of them giving a point, each text filled from its data', () => {
+    expect(CONTENT.deeds).toHaveLength(22);
     expect(CONTENT.deeds.filter((d) => d.points === 1)).toHaveLength(DEED_POINTS_MAX);
     for (const d of CONTENT.deeds) expect(deedText(d), d.id).not.toMatch(/[{}]/);
     expect(deedText(deed('unrung'))).toBe('Beat the Bellwarden with no hero going down.');
     expect(deedText(deed('dawns_herald'))).toBe('Win a run as the Luminary.');
+    // Movement II's two badges (docs/phase-5a.md): no point, after Movement I's twenty.
+    expect(CONTENT.deeds.slice(20).map((d) => [d.id, d.points])).toEqual([
+      ['crimson_crowned', 0],
+      ['pack_leader', 0],
+    ]);
+    expect(deedText(deed('crimson_crowned'))).toBe(
+      'Beat Vharun, the Crimson Warden, with no hero going down.',
+    );
+    expect(deedText(deed('pack_leader'))).toBe('Beat the Gorehound Matriarch with an S.');
   });
 
   it('every one can be earned, and a near miss doesn’t earn it', () => {

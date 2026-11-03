@@ -17,7 +17,13 @@ export type * from './events';
 export * from './replay';
 export type * from './state';
 export { FixedStepper } from './core/fixedStep';
-export { fieldAuraSlots, reservePool, songReserveOf } from './world';
+export {
+  fieldAuraSlots,
+  reservePool,
+  resolveMovement,
+  songReserveOf,
+  type MovementScale,
+} from './world';
 export {
   KNOWN_ASTROLABE_EFFECTS,
   canPay,
@@ -30,6 +36,7 @@ export {
 } from './astrolabe';
 export { auraBit, auraIds, enemyAuraMask, partyAuraMask, type AuraTotals } from './combat/auras';
 export { vowHoldsAt } from './combat/telegraphs';
-export { isAilment } from './combat/health';
+export { DOT_ANSWERS, isAilment } from './combat/health';
+export { bossPhaseTable } from './systems/bosses';
 export { rewindCanRevive } from './systems/rewind';
 export { underMuteDome } from './systems/field';

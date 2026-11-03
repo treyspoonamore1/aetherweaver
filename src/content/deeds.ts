@@ -2,7 +2,7 @@
  * Deeds (docs/phase-4b.md): twenty feats within a run. Ten give an Astrolabe point, on a ladder
  * from approachable to mastery (listed easiest first); the other ten are badges. Each names its
  * rule (`test`, judged by meta/deeds.ts from what the run records) and its numbers; the text is
- * built from them.
+ * built from them. Movement II adds two more badges (content/legionRun.ts, docs/phase-5a.md).
  */
 import type { DeedDef } from './schema';
 

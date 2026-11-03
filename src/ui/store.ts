@@ -33,6 +33,8 @@ export interface StatusHud {
   id: StatusId;
   remaining: number;
   duration: number;
+  /** A stacking status's stacks (bleed, docs/phase-5a.md); absent for every other status. */
+  stacks?: number;
 }
 
 export interface ShieldHud {
@@ -372,6 +374,15 @@ export interface BossHud {
    * with the hero it picked ("Vexis & Lyra" for a link's two; null: an area, or everyone).
    */
   foreseen: { name: string; in: number; target: string | null } | null;
+  // ── Movement II (docs/phase-5a.md). Absent: the bar draws as before. ──
+  /** The HP fraction each phase after the first begins at (the bar's ticks). */
+  phaseAt?: number[];
+  /** A multi-blow cast's blows: 2 for Twin Cleave (pips 1/2, 2/2). */
+  pips?: number;
+  /** Bloodmoon is up: healing is halved outside the Sanctuary pools. */
+  bloodmoon?: boolean;
+  /** Execution's target, by name, while it's cast (null: none). */
+  executeTarget?: string | null;
 }
 
 export interface EncounterHud {

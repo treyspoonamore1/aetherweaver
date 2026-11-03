@@ -3,7 +3,9 @@
  * through here so the ledger, threat and events stay consistent.
  */
 import { heroDef } from '../../content';
+import type { StatusPayload } from '../../content/schema';
 import type { PartySlot } from '../commands';
+import type { AnswerTag } from '../events';
 import { distSq } from '../core/dmath';
 import type {
   Entity,
@@ -217,6 +219,47 @@ export function addStatus(
   return true;
 }
 
+/**
+ * The answer a damage-over-time status wants, for the death recap (docs/phase-5a.md: every down
+ * names the answer it missed).
+ */
+export const DOT_ANSWERS: Readonly<Partial<Record<StatusId, readonly AnswerTag[]>>> = {
+  bleed: ['chime'],
+  pinned: ['reel'],
+  latched: ['reel', 'chime'],
+};
+
+/**
+ * Applies a content status payload (docs/phase-5a.md P2): stacks up to `maxStacks` with one
+ * shared, refreshed timer; `dps` (× the Movement's damage scale) or `pctPerSec` ticks; `drain`
+ * heals the source. A plain payload ({id, duration}) behaves as `addStatus`. True if it landed.
+ *
+ * CONTRACT v16 stub (W0a): no Movement I path calls it; Movement II's sim work implements it.
+ */
+export function applyStatusPayload(
+  _world: World,
+  _target: Entity,
+  _payload: StatusPayload,
+  _source: EntityId | null,
+): boolean {
+  return false;
+}
+
+/**
+ * After a hit from `source` dealt `dealt` to `target` (docs/phase-5a.md P3): applies the hit's
+ * payload merged with the source's affix `onHit`, only if `dealt > 0` (a Ward that absorbs it
+ * all blocks it). Does nothing when neither is present, as on every Movement I hit.
+ *
+ * CONTRACT v16 stub (W0a): no Movement I path calls it; Movement II's sim work implements it.
+ */
+export function applyOnHit(
+  _world: World,
+  _source: Entity,
+  _target: Entity,
+  _dealt: number,
+  _payload?: StatusPayload,
+): void {}
+
 export function removeStatus(
   world: World,
   target: Entity,
@@ -350,6 +393,11 @@ export interface DamageOpts {
    * the Weaver's share once she's joined. Credited as support with the life it kept.
    */
   linked?: number;
+  /**
+   * An Empowered Piercing Shot (docs/phase-5a.md P6): it breaks a guarded enemy's guard for the
+   * guard's `breakTime`, with a 1 s stagger.
+   */
+  breaksGuard?: boolean;
 }
 
 export interface DamageResult {

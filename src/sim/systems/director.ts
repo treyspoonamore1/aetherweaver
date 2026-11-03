@@ -146,8 +146,11 @@ type Spawn = EncounterDef['waves'][number]['spawns'][number];
 function vanguard(world: World, spawns: readonly Spawn[], wave: number): readonly Spawn[] {
   const { vanguardElites, vanguardAffixes } = world.mods;
   if (vanguardElites <= 0 && vanguardAffixes <= 0) return spawns;
-  const eliteFight = encounterDef(world.encounter.id).kind === 'elite';
-  const all = world.content.affixes.map((a) => a.id);
+  const encounter = encounterDef(world.encounter.id);
+  const eliteFight = encounter.kind === 'elite';
+  // Affixes of this fight's Movement and earlier, in content order (Movement I: as before).
+  const movement = encounter.movement ?? 1;
+  const all = world.content.affixes.filter((a) => (a.movement ?? 1) <= movement).map((a) => a.id);
   const d = world.internal.director;
   return spawns.map((s, k) => {
     if (!s.elite) return s;
