@@ -1,6 +1,12 @@
 import * as THREE from 'three';
-import { enemyDef, heroDef } from '../content';
-import type { EntityId, SimEvent, SimEventOf, WorldState } from '../sim';
+import { CONTENT, enemyDef, heroDef } from '../content';
+import {
+  bloodlusting,
+  type EntityId,
+  type SimEvent,
+  type SimEventOf,
+  type WorldState,
+} from '../sim';
 import type { CallView } from './calls';
 import type { CameraRig } from './camera';
 import type { EntityLayer, EntityRec } from './entities';
@@ -15,12 +21,16 @@ import { SPRITE } from './fx/sprites';
 import type { Overlay } from './overlay';
 import { CHRONO_HEX } from './chronoCues';
 import {
+  BRANN_HEX,
   CRIMSON_HEX,
   CUT_HEAL_ALPHA,
   CUT_HEAL_SIZE,
+  DRAIN_SIZE,
+  REFUSED_SECONDS,
   SPIRE_HEX,
   healCut,
   materialOf,
+  signalHex,
 } from './crimsonCues';
 import { MARTYR_HEX, crescendoKind } from './martyrCues';
 import { C, VISION_HEX, auraColor, clamp01, color, currentVision, rgba } from './palette';
@@ -225,6 +235,24 @@ export class Feedback {
     ironDeaths: 0,
     cutHeals: 0,
   };
+  /**
+   * Brann (docs/phase-5b.md), what has been played so far (tests, the lab): lifesteal draws (never
+   * a cut heal), Bloodletting drains (never a hit), his own Sunder Leaps and Red Comets, Red
+   * Frenzies begun, Rallies he refused (and refusals Iron Will cleared).
+   */
+  readonly fired5b = {
+    lifesteal: 0,
+    drains: 0,
+    heroLeaps: 0,
+    comets: 0,
+    frenzies: 0,
+    refused: 0,
+    refusedCleared: 0,
+  };
+  /** Brann's refused-Rally glyph: until when it shows (render time), per hero. */
+  private readonly refusedUntil = new Map<EntityId, number>();
+  /** What the refused glyphs drew last frame (tests, the lab). */
+  readonly drawn5b = { refused: 0 };
 
   constructor(private readonly d: FeedbackDeps) {
     for (let i = 0; i < POOL; i++) {
@@ -393,10 +421,20 @@ export class Feedback {
     const e = state.entities.get(id);
     if (!e?.hero) return null;
     try {
-      return heroDef(e.hero.defId).color;
+      // Brann's rings are his brass, never his crimson beside danger (crimsonCues.ts).
+      return signalHex(e.hero.defId, heroDef(e.hero.defId).color);
     } catch {
       return null;
     }
+  }
+
+  /**
+   * A hero's colour where it sits beside danger (swipes, leap rings, Solo and ability rings):
+   * `own` (their record's colour), except Brann's brass. Every default hero keeps `own`.
+   */
+  private signal(state: WorldState, id: EntityId, own: THREE.Color): THREE.Color {
+    const hex = signalHex(state.entities.get(id)?.hero?.defId, '');
+    return hex ? color(hex) : own;
   }
 
   // ── Events ─────────────────────────────────────────────────────────────────────────
@@ -767,6 +805,19 @@ export class Feedback {
         case 'abilityUsed':
           this.ability(ev, state);
           break;
+        case 'lifeSpent':
+          this.lifeSpent(ev, state);
+          break;
+        case 'bloodlust':
+          // Brann refused your Rally: a 'refused' glyph over him while he still refuses.
+          this.refusedUntil.set(ev.hero, this.now + REFUSED_SECONDS);
+          this.fired5b.refused++;
+          break;
+        case 'talentFired':
+          // Iron Will: your Ward made him answer, so the refusal is lifted at once.
+          if (ev.talent === 'iron_will' && this.refusedUntil.delete(ev.hero))
+            this.fired5b.refusedCleared++;
+          break;
         case 'castInterrupted': {
           const r = this.rec(ev.enemy);
           if (r) {
@@ -857,7 +908,7 @@ export class Feedback {
     const isHero = src?.kind === 'hero';
     let c: THREE.Color = C.threat;
     if (isHero && src.hero) {
-      c = sr ? sr.color : C.white;
+      c = this.signal(state, e.source, sr ? sr.color : C.white);
       const w = state.entities.get(state.weaverId)?.weaver;
       const empowered = w?.threadMode === 'empower' && w.threadSlot === src.hero.slot;
       if (empowered || (src.hero.soloActive > 0 && src.hero.soloCued)) {
@@ -872,7 +923,7 @@ export class Feedback {
     switch (e.visual) {
       case 'charge':
       case 'leap':
-        this.travel(e, sr, c);
+        this.travel(e, sr, c, isHero);
         break;
       case 'melee':
       case 'cleave': {
@@ -970,9 +1021,16 @@ export class Feedback {
   /**
    * A charge or a leap (Movement II): the sim snapped the caster to where it lands; the entity
    * layer draws it rushing or arcing there. A charge leaves a streak in its accent along the
-   * line, a leap a ring and a puff of dust where it comes down.
+   * line, a leap a ring and a puff of dust where it comes down. A hero's leap (Brann's Sunder
+   * Leap, docs/phase-5b.md, `source` = the hero) arcs the same way and also leaves a ring of dust
+   * where he lands; its ring is his brass (`c`, from `signal`).
    */
-  private travel(e: SimEventOf<'attackFired'>, sr: EntityRec | undefined, c: THREE.Color): void {
+  private travel(
+    e: SimEventOf<'attackFired'>,
+    sr: EntityRec | undefined,
+    c: THREE.Color,
+    isHero = false,
+  ): void {
     const fromX = sr ? sr.x : e.fromX;
     const fromZ = sr ? sr.z : e.fromZ;
     this.d.entities.travel(e.source, e.visual === 'leap' ? 'leap' : 'charge', e.fromX, e.fromZ);
@@ -1021,6 +1079,13 @@ export class Feedback {
         4,
         1,
       );
+      if (isHero) {
+        this.fired5b.heroLeaps++;
+        // His landing: a low ring of dust kicked out round him, and a second, later one.
+        this.ring(e.toX, e.toZ, 0.4, 2.4, 0.55, DUST, 0.3, RING.soft, 0.6, 0.04);
+        this.ring(e.toX, e.toZ, 0.3, 1.6, 0.4, DUST, 0.2, RING.plain, 0.5, 0.045);
+        this.d.rig.addTrauma(0.1);
+      }
     }
   }
 
@@ -1262,6 +1327,12 @@ export class Feedback {
     const r = this.rec(e.target);
     const target = state.entities.get(e.target);
     if (!r || !target || e.amount <= 0) return;
+    // Brann's axe drinking (docs/phase-5b.md): his own crimson motes and soft "+N", never the
+    // Weaver's heal burst, never a cut heal, never the Thread's Mend pulse.
+    if (e.via === 'lifesteal') {
+      this.lifesteal(e, r, target);
+      return;
+    }
     if (e.via === 'aura') {
       this.auraHealed(e, r, target, state);
       return;
@@ -1452,6 +1523,109 @@ export class Feedback {
         true,
       );
     this.d.overlay.setNumber(b.handle, `+${Math.round(b.amount)}`, null, size, !fresh);
+  }
+
+  /**
+   * Brann's lifesteal (the sim sums it every 0.5 s, `source` = Brann): crimson motes drawn in from
+   * round him, as if pulled off the axe, and a small, soft "+N" in his ink in the self-heal bucket
+   * (his own, so it never stacks with the Weaver's numbers). Never cut, never the Weaver's look.
+   */
+  private lifesteal(
+    e: SimEventOf<'healApplied'>,
+    r: EntityRec,
+    target: NonNullable<ReturnType<WorldState['entities']['get']>>,
+  ): void {
+    this.fired5b.lifesteal++;
+    const maxHp = target.health?.maxHp ?? 1;
+    const ink = color(BRANN_HEX.ink);
+    const n = Math.min(5, 1 + Math.round((e.amount / maxHp) * 30));
+    for (let i = 0; i < n * this.d.kit.particles.density; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const rr = r.radius * (1.6 + Math.random() * 0.8);
+      // From a ring round him, inward and up: drawn into him.
+      this.d.kit.particles.emit(
+        r.x + Math.cos(a) * rr,
+        0.4 + Math.random() * r.height * 0.5,
+        r.z + Math.sin(a) * rr,
+        -Math.cos(a) * rr * 1.6,
+        0.6,
+        -Math.sin(a) * rr * 1.6,
+        0.55,
+        0.1,
+        ink,
+        0.9,
+        PARTICLE.dot,
+        0.6,
+      );
+    }
+    if (!this.settings.damageNumbers || target.team !== 'party') return;
+    let b = this.selfHeal.get(e.target);
+    if (!b) {
+      b = bucket();
+      this.selfHeal.set(e.target, b);
+    }
+    const fresh =
+      this.now - b.start > AURA_AGG || b.handle < 0 || !this.d.overlay.numberAlive(b.handle);
+    if (fresh) {
+      b.amount = 0;
+      b.start = this.now;
+      b.cut = false;
+    }
+    b.amount += e.amount;
+    if (b.amount < 1) return;
+    const size = 13 + 7 * Math.sqrt(Math.min(1, (b.amount / maxHp) * 8));
+    if (fresh)
+      b.handle = this.d.overlay.spawnNumber(
+        r.x - 0.5,
+        r.height * 0.75 + r.y,
+        r.z,
+        BRANN_HEX.ink,
+        size,
+        1.25,
+        true,
+      );
+    this.d.overlay.setNumber(b.handle, `+${Math.round(b.amount)}`, null, size, !fresh);
+  }
+
+  /**
+   * Bloodletting (docs/phase-5b.md): life Brann spent on purpose. A palm-cut spark in his ink at
+   * his hand and a calm "−N Bloodletting" in his ink, drawn as a drain: no hit flash, no shake, no
+   * damage number style (the bar's drain segment is PartyBarsView's). Never an alarm.
+   */
+  private lifeSpent(e: SimEventOf<'lifeSpent'>, state: WorldState): void {
+    const r = this.rec(e.hero);
+    const hero = state.entities.get(e.hero);
+    if (!r || !hero || e.amount <= 0) return;
+    this.fired5b.drains++;
+    const ink = color(BRANN_HEX.ink);
+    this.d.kit.particles.burst(
+      r.x,
+      r.height * 0.5 + r.y,
+      r.z,
+      8,
+      1.2,
+      1.4,
+      0.4,
+      0.08,
+      ink,
+      1,
+      PARTICLE.spark,
+      2,
+      2,
+      r.radius * 0.5,
+    );
+    this.sprite(r.x, r.height * 0.5 + r.y, r.z, 0.25, 0.7, 0.35, ink, SPRITE.diamond, 0.9, e.hero);
+    if (!this.settings.damageNumbers) return;
+    const h = this.d.overlay.spawnNumber(
+      r.x + 0.5,
+      r.height * 0.6 + r.y,
+      r.z,
+      BRANN_HEX.ink,
+      DRAIN_SIZE,
+      1.1,
+      true,
+    );
+    this.d.overlay.setNumber(h, `−${Math.round(e.amount)} Bloodletting`, null, DRAIN_SIZE, false);
   }
 
   /**
@@ -2068,8 +2242,11 @@ export class Feedback {
   private solo(e: SimEventOf<'soloStarted'>, state: WorldState): void {
     const r = this.rec(e.hero);
     if (!r) return;
-    const c = e.cued ? C.amp : r.color;
+    const c = e.cued ? C.amp : this.signal(state, e.hero, r.color);
     this.ring(r.x, r.z, 0.4, 3.4, 0.5, c, 0.2, RING.plain, 1, 0.05, e.hero);
+    // Red Frenzy (Brann): its whirl and swipe ring are drawn from the state while it lasts
+    // (EntityLayer); here, the burst of brass it starts with.
+    if (e.solo === 'redFrenzy') this.fired5b.frenzies++;
     if (e.cued) {
       this.sprite(r.x, r.height + 1.1, r.z, 1.3, 1.6, 1.5, C.amp, SPRITE.sigil, 1, e.hero, true);
       this.sprite(
@@ -2116,7 +2293,11 @@ export class Feedback {
     const src = state.entities.get(e.source);
     const r = this.rec(e.source);
     if (e.ability === 'aegisWall') return;
-    const c = r ? (src?.kind === 'hero' ? r.color : r.accent) : C.threat;
+    const c = r
+      ? src?.kind === 'hero'
+        ? this.signal(state, e.source, r.color)
+        : r.accent
+      : C.threat;
     const radius = Math.max(1.2, e.radius);
     if (e.ability === 'gravityWell') {
       const t = this.ring(e.x, e.z, radius, radius * 0.4, 1.1, c, 0.12, RING.portal, 1, 0.05);
@@ -2691,11 +2872,12 @@ export class Feedback {
         // unknown hero: generic flourish
       }
     }
-    const heroC = r ? r.color : C.call;
+    const heroC = r ? this.signal(state, e.hero, r.color) : C.call;
     const R = Math.max(1.5, e.radius);
     if (ability === 'challenge') this.bulwark(e, state, r, heroC, R);
     else if (ability === 'piercingShot') this.heartseeker(e, r, heroC);
     else if (ability === 'starbolt') this.resonantStarbolt(e, heroC, R);
+    else if (ability === 'sunderLeap') this.redComet(e, heroC, R);
     else {
       this.ring(e.x, e.z, 0.4, R, 0.55, C.call, 0.25, RING.plain, 1);
       this.ring(e.x, e.z, 0.3, R * 0.7, 0.5, heroC, 0.14, RING.plain, 0.9);
@@ -2856,6 +3038,69 @@ export class Feedback {
     this.d.rig.punch(-0.8, 5);
   }
 
+  /**
+   * Bloodlust (Brann, docs/phase-5b.md): he refused your Rally. Over his head, a brass 'refused'
+   * sign (a ring struck through) for a moment; it clears early once he would answer after all
+   * (Iron Will and your Ward, or he climbed above his Bloodlust line), or when he falls.
+   */
+  private refusedGlyphs(state: WorldState): void {
+    const brass = color(BRANN_HEX.brass);
+    for (const [id, until] of this.refusedUntil) {
+      const e = state.entities.get(id);
+      const r = this.rec(id);
+      if (!e || !r || this.now >= until || !bloodlusting(CONTENT, e)) {
+        if (e && r && this.now < until) this.fired5b.refusedCleared++;
+        this.refusedUntil.delete(id);
+        continue;
+      }
+      const k = clamp01((until - this.now) / 0.3);
+      const y = r.height + r.y + 1.05;
+      const R = 0.26;
+      this.d.kit.spritesTop.push(r.x, y, r.z, R * 2.2, SPRITE.ring, brass, 0.95 * k);
+      this.d.kit.beams.push(
+        r.x - R * 0.7,
+        y + R * 0.7,
+        r.z,
+        r.x + R * 0.7,
+        y - R * 0.7,
+        r.z,
+        0.07,
+        BEAM.glow,
+        brass,
+        0.95 * k,
+      );
+      this.drawn5b.refused++;
+    }
+  }
+
+  /**
+   * Red Comet (Brann's Flourish, docs/phase-5b.md): his Sunder Leap lands wider and harder. Over
+   * the leap's own brass ring and dust: a gold shock ring out to the Flourish's reach, a brass
+   * one inside it, and sparks. Never his crimson (it lands among enemies, beside their red).
+   */
+  private redComet(e: SimEventOf<'flourish'>, heroC: THREE.Color, R: number): void {
+    this.fired5b.comets++;
+    this.ring(e.x, e.z, 0.4, R * 1.15, 0.6, C.call, 0.32, RING.plain, 1, 0.06);
+    this.ring(e.x, e.z, 0.3, R * 0.8, 0.5, heroC, 0.18, RING.plain, 0.9, 0.055);
+    this.d.kit.particles.burst(
+      e.x,
+      0.5,
+      e.z,
+      26,
+      6,
+      3,
+      0.7,
+      0.15,
+      C.call,
+      1,
+      PARTICLE.spark,
+      2,
+      4,
+      R * 0.4,
+    );
+    this.d.rig.addTrauma(0.22);
+  }
+
   private resonantStarbolt(e: SimEventOf<'flourish'>, heroC: THREE.Color, R: number): void {
     // The Chime-tuned Starbolt: a bell-ring of light, a star-burst in Vexis' violet and a column.
     this.ring(e.x, e.z, 0.3, R * 1.1, 0.5, CHIME, 0.35, RING.plain, 1, 0.06);
@@ -2926,6 +3171,8 @@ export class Feedback {
     this.settings = frame.settings;
     const kit = this.d.kit;
     const w = this.rec(state.weaverId);
+    this.drawn5b.refused = 0;
+    if (this.refusedUntil.size > 0) this.refusedGlyphs(state);
     // Stasis: an enemy's projectile waits as its pending hit does in the sim (its clock moves
     // forward with time), hanging where it was; when time resumes it flies on from there.
     const simDt = this.lastSim < 0 ? 0 : Math.max(0, state.time - this.lastSim);

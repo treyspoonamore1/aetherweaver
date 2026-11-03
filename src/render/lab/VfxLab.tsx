@@ -6,6 +6,7 @@ import { CHORD_PRESETS } from '../../meta/run';
 import {
   FixedStepper,
   createSim,
+  newBlood,
   type CallAnswer,
   type ChordConfig,
   type Command,
@@ -1543,6 +1544,10 @@ interface BondScenario {
   party?: string[];
   /** The heroes fire their Solos on their own (Autonomy): the uncued Solos. */
   autonomy?: boolean;
+  /** Phase 5b: the floor (default: the one shown), e.g. a Spire arena for Brann's clutter check. */
+  theme?: string;
+  /** Phase 5b: motifs in force (Blood Tithe, Blood and Silk). */
+  motifs?: { id: string; level: number }[];
   note: string;
   stage(rt: LabRuntime): void;
 }
@@ -1557,6 +1562,180 @@ const sval = (id: string, key: string) =>
 const KAEL = 0;
 const LYRA = 1;
 const VEXIS = 2;
+
+/**
+ * Phase 5b: Brann's scenarios (docs/phase-5b.md, Presentation), through the `party` option: he
+ * takes Lyra's slot (Kael, Brann, Vexis: BRANN = 1) or leads a party with no tank. Where the sim
+ * doesn't yet produce one of his mechanics, a lab stand-in (`bloodOf`, `lifesteal`, `bloodlet`,
+ * `sunderLeap`, `refuseRally`, `brannTalent`, `titheRefund`) puts it there as the sim keeps it.
+ */
+const BRANN = 1;
+const WITH_BRANN = ['kael', 'brann', 'vexis'];
+function brannScenarios(): Record<string, BondScenario> {
+  return {
+    'Brann · Blood Rage': {
+      talents: [],
+      party: WITH_BRANN,
+      note: 'Brann drops from full to 12%: his ember glow grows with the life he is missing; his bar goes from healthy, through the ember raging band (40% → 15%), to critical only below 15%',
+      stage: (rt) => {
+        rt.later(0.2, () => rt.bloodOf(BRANN));
+        [0.9, 0.7, 0.5, 0.35, 0.25, 0.12].forEach((pct, i) =>
+          rt.later(0.4 + i * 1.2, () => rt.hurtHero(BRANN, pct)),
+        );
+      },
+    },
+    'Brann · lifesteal and the cut heal': {
+      talents: [],
+      party: WITH_BRANN,
+      note: 'Brann at 45%: his axe drinks (crimson motes, a soft “+N” in his ink, never cut); at 2 s you Thread him with Mend and your heals land halved (smaller, dimmer numbers)',
+      stage: (rt) => {
+        rt.later(0.2, () => {
+          rt.bloodOf(BRANN);
+          rt.hurtHero(BRANN, 0.45);
+        });
+        for (let i = 0; i < 8; i++) rt.later(0.5 + i * 0.5, () => rt.lifesteal(BRANN, 18));
+        rt.later(2.0, () => rt.thread(BRANN));
+      },
+    },
+    'Brann · Bloodletting': {
+      talents: [],
+      party: WITH_BRANN,
+      note: 'Brann at 90% spends 10% of his life: a dark drain segment on his bar (not a white hit trail), a palm-cut spark, “−125 Bloodletting” in his ink, three pips on his axe; no alarm',
+      stage: (rt) => {
+        rt.later(0.2, () => rt.hurtHero(BRANN, 0.9));
+        rt.later(0.8, () => rt.bloodlet(BRANN));
+        rt.later(3.2, () => rt.bloodlet(BRANN));
+      },
+    },
+    'Brann · Sunder Leap and Red Comet': {
+      talents: [],
+      party: WITH_BRANN,
+      note: 'Choristers 7 m out: Brann leaps at one (his brass landing ring and dust), then again with your Ward answered: Red Comet’s gold shock ring',
+      stage: (rt) => {
+        rt.later(0.2, () => rt.spawn('hollow_chorister', 0, -9));
+        rt.later(0.3, () => rt.toughen());
+        rt.later(1.0, () => rt.sunderLeap(BRANN, false));
+        rt.later(3.0, () => rt.sunderLeap(BRANN, true));
+      },
+    },
+    'Brann · Red Frenzy cued': {
+      talents: [],
+      party: WITH_BRANN,
+      note: 'You Cue Brann: he spins as he chases, a brass swipe ring round him edged in gold (Cued: his axe drinks three times as deep)',
+      stage: (rt) => {
+        rt.later(0.2, () => rt.attackers(BRANN, 3));
+        rt.later(0.3, () => rt.bloodOf(BRANN));
+        readySolos(rt, 0.4);
+        rt.later(0.8, () => rt.queue({ t: 'cue', slot: BRANN }));
+      },
+    },
+    'Brann · Red Frenzy uncued': {
+      talents: [],
+      party: WITH_BRANN,
+      autonomy: true,
+      note: 'Autonomy: Brann fires Red Frenzy himself: the spin and the brass ring, no gold',
+      stage: (rt) => {
+        rt.later(0.2, () => rt.attackers(BRANN, 3));
+        rt.later(0.3, () => rt.bloodOf(BRANN));
+        rt.later(0.6, () => rt.queue({ t: 'debug', op: { op: 'chargeSolos' } }));
+      },
+    },
+    'Brann · Bloodlust refuses a Rally': {
+      talents: [],
+      party: WITH_BRANN,
+      note: 'Brann at 30% refuses your Rally: a brass “refused” sign over him; at 3 s, with Iron Will, your Ward on him clears it',
+      stage: (rt) => {
+        rt.later(0.2, () => {
+          rt.bloodOf(BRANN);
+          rt.hurtHero(BRANN, 0.3);
+        });
+        rt.later(0.8, () => rt.refuseRally(BRANN));
+        rt.later(3.0, () => rt.queue({ t: 'tech', id: 'ward', slot: BRANN }));
+        rt.later(3.1, () => rt.brannTalent(BRANN, 'iron_will'));
+      },
+    },
+    'Brann · Deathless': {
+      talents: ['deathless'],
+      party: WITH_BRANN,
+      note: `Brann falls to ${tval('deathless', 'pct')}%: Unbreakable’s bastion in his brass while he can’t die (${tval('deathless', 'seconds')} s), his 10% notch on the bar`,
+      stage: (rt) => {
+        rt.later(0.2, () => rt.hurtHero(BRANN, 0.08));
+        rt.later(0.4, () => rt.brannTalent(BRANN, 'deathless'));
+      },
+    },
+    'Brann · Berserker’s Hymn': {
+      talents: ['berserkers_hymn'],
+      party: WITH_BRANN,
+      note: `Brann below ${tval('berserkers_hymn', 'below')}%: the Hymn turns on (a run of brass to every hero, named), then faint links while it plays; his 30% notch`,
+      stage: (rt) => {
+        rt.later(0.2, () => {
+          rt.bloodOf(BRANN);
+          rt.hurtHero(BRANN, 0.25);
+        });
+        rt.later(0.5, () => rt.brannTalent(BRANN, 'berserkers_hymn'));
+      },
+    },
+    'Brann · Blood Oath': {
+      talents: ['blood_oath'],
+      party: WITH_BRANN,
+      note: 'Blood Oath: your healing on him is whole (no cut numbers), and the overheal rides his swing: a glint on him and a spark on his target',
+      stage: (rt) => {
+        rt.later(0.2, () => rt.attackers(BRANN, 2));
+        rt.later(0.3, () => rt.hurtHero(BRANN, 0.6));
+        rt.later(0.5, () => rt.thread(BRANN));
+        for (let i = 0; i < 4; i++)
+          rt.later(1.2 + i * 1.3, () => rt.brannTalent(BRANN, 'blood_oath'));
+      },
+    },
+    'Brann · Blood Brother': {
+      talents: [],
+      solos: ['blood_brother'],
+      party: WITH_BRANN,
+      note: 'You Thread Kael and Cue Brann (Blood Brother): a brass tether from him to Kael, the heal running along it',
+      stage: (rt) => {
+        rt.later(0.2, () => rt.attackers(BRANN, 3));
+        rt.later(0.3, () => rt.thread(KAEL));
+        readySolos(rt, 0.4);
+        rt.later(0.8, () => rt.queue({ t: 'cue', slot: BRANN }));
+      },
+    },
+    'Brann · Blood Tithe and Blood and Silk': {
+      talents: [],
+      party: WITH_BRANN,
+      motifs: [
+        { id: 'blood_tithe', level: 1 },
+        { id: 'taut_release', level: 1 },
+        { id: 'blood_and_silk', level: 1 },
+      ],
+      note: 'Brann at 25%, Empowered: Blood and Silk’s notes along your Thread (with the motif), and a Tithe Ward breaking gives its “+10 SPIRIT” chip',
+      stage: (rt) => {
+        rt.later(0.2, () => {
+          rt.bloodOf(BRANN);
+          rt.hurtHero(BRANN, 0.25);
+        });
+        rt.later(0.4, () => rt.thread(BRANN));
+        rt.later(1.5, () => rt.titheRefund(BRANN));
+        rt.later(3.5, () => rt.titheRefund(BRANN));
+      },
+    },
+    'Brann · clutter: 8 hounds on the Spire': {
+      talents: ['berserkers_hymn', 'deathless'],
+      party: ['lyra', 'vexis', 'brann'],
+      theme: 'kennels',
+      autonomy: true,
+      note: 'No tank: eight Sanguine Hounds on Brann in the Kennels at 35%, Autonomy on: his ember, brass ring and swipes must stay apart from the hounds’ red and the lethal channels',
+      stage: (rt) => {
+        rt.packOn(2, 'sanguine_hound', 8);
+        rt.later(0.3, () => {
+          rt.bloodOf(2);
+          rt.hurtHero(2, 0.35);
+        });
+        rt.later(1.0, () => rt.queue({ t: 'debug', op: { op: 'chargeSolos' } }));
+        for (let i = 0; i < 10; i++) rt.later(1.5 + i * 0.5, () => rt.lifesteal(2, 14));
+      },
+    },
+  };
+}
 
 /** Every Solo full and Resonance for four Cues. */
 function readySolos(rt: LabRuntime, at: number): void {
@@ -1858,6 +2037,7 @@ const BOND_SCENARIOS: Record<string, BondScenario> = {
       rt.later(3.8, () => rt.queue({ t: 'cue', slot: LYRA }));
     },
   },
+  ...brannScenarios(),
 };
 const BOND_SCENARIO_NAMES = Object.keys(BOND_SCENARIOS);
 
@@ -2366,6 +2546,143 @@ class LabRuntime {
     if (h) h.hp = Math.max(1, h.maxHp * pct);
   }
 
+  // ── Phase 5b: Brann (docs/phase-5b.md) ────────────────────────────────────────────────
+
+  /**
+   * Lab stand-in: Brann's Blood Rage state on the hero in `slot` (a def with `passive`), as the
+   * sim keeps it, if the sim hasn't spawned it. Returns it (null: not a Blood Rage hero).
+   */
+  bloodOf(slot: number): NonNullable<Entity['hero']>['blood'] | null {
+    const e = this.heroAt(slot);
+    if (!e?.hero) return null;
+    if (!e.hero.blood) {
+      if (!heroDef(e.hero.defId).passive) return null;
+      e.hero.blood = newBlood();
+      if (!this.standIns.includes('blood')) this.standIns.push('blood');
+    }
+    return e.hero.blood;
+  }
+
+  /** Lab stand-in: his axe drinks `amount` (one 0.5 s `healApplied` lifesteal, as the sim's). */
+  lifesteal(slot: number, amount: number): void {
+    const e = this.heroAt(slot);
+    const h = e?.health;
+    if (!e || !h || h.dead || !this.bloodOf(slot)) return;
+    const gain = Math.min(amount, h.maxHp - h.hp);
+    h.hp += gain;
+    this.inject([
+      {
+        type: 'healApplied',
+        tick: this.sim.state.tick,
+        target: e.id,
+        source: e.id,
+        amount: gain,
+        overheal: amount - gain,
+        via: 'lifesteal',
+      },
+    ]);
+  }
+
+  /** Lab stand-in: Bloodletting spends 10% of his life (down to 20%) and loads 3 swings. */
+  bloodlet(slot: number): void {
+    const e = this.heroAt(slot);
+    const h = e?.health;
+    const b = this.bloodOf(slot);
+    if (!e || !h || !b) return;
+    const amount = Math.max(0, Math.min(h.maxHp * 0.1, h.hp - h.maxHp * 0.2));
+    if (amount <= 0) return;
+    h.hp -= amount;
+    b.spent += amount;
+    b.bloodlet = 3;
+    this.inject([{ type: 'lifeSpent', tick: this.sim.state.tick, hero: e.id, amount }]);
+  }
+
+  /** Lab stand-in: his Sunder Leap at the nearest enemy (a Red Comet when `comet`). */
+  sunderLeap(slot: number, comet: boolean): void {
+    const e = this.heroAt(slot);
+    if (!e) return;
+    let best: Entity | null = null;
+    let bd = Infinity;
+    for (const o of this.world().entities.list()) {
+      if (!o.enemy || o.health?.dead) continue;
+      const d = Math.hypot(o.x - e.x, o.z - e.z);
+      if (d < bd) {
+        bd = d;
+        best = o;
+      }
+    }
+    if (!best) return;
+    const fromX = e.x;
+    const fromZ = e.z;
+    const k = Math.max(0, (bd - 1.2) / Math.max(1e-3, bd));
+    e.x = fromX + (best.x - fromX) * k;
+    e.z = fromZ + (best.z - fromZ) * k;
+    e.px = e.x;
+    e.pz = e.z;
+    const tick = this.sim.state.tick;
+    const ev: SimEvent[] = [
+      {
+        type: 'attackFired',
+        tick,
+        source: e.id,
+        target: best.id,
+        visual: 'leap',
+        fromX,
+        fromZ,
+        toX: e.x,
+        toZ: e.z,
+        travel: 0,
+      },
+    ];
+    if (comet)
+      ev.push({
+        type: 'flourish',
+        tick,
+        hero: e.id,
+        name: 'Red Comet',
+        x: e.x,
+        z: e.z,
+        radius: 4.5,
+      });
+    this.inject(ev);
+  }
+
+  /** Lab stand-in: Brann refuses your Rally (Bloodlust), as the sim says it. */
+  refuseRally(slot: number): void {
+    const e = this.heroAt(slot);
+    if (!e || !this.bloodOf(slot)) return;
+    this.queue({ t: 'directive', kind: 'rally' });
+    this.inject([{ type: 'bloodlust', tick: this.sim.state.tick, hero: e.id }]);
+  }
+
+  /** Lab stand-in: a Brann talent announces itself (`talentFired`), as the sim's would. */
+  brannTalent(slot: number, talent: string, target: number | null = null): void {
+    const e = this.heroAt(slot);
+    const b = this.bloodOf(slot);
+    if (!e || !b) return;
+    if (talent === 'deathless') b.deathlessUntil = this.sim.state.time + 3;
+    this.inject([
+      {
+        type: 'talentFired',
+        tick: this.sim.state.tick,
+        hero: e.id,
+        talent,
+        x: e.x,
+        z: e.z,
+        target: target === null ? null : this.heroId(target),
+      },
+    ]);
+  }
+
+  /** Lab stand-in: a Tithe Ward on Brann broke and gave Spirit back. */
+  titheRefund(slot: number): void {
+    const e = this.heroAt(slot);
+    if (!e) return;
+    this.inject([
+      { type: 'titheRefund', tick: this.sim.state.tick, target: e.id, spirit: 10, life: 0 },
+    ]);
+  }
+
   /** A real attack begun now by the newest enemy of `defId` at the hero in `slot` (staging). */
   castNow(defId: string, attackId: string, slot: number): void {
     const e = this.newestOf(defId);
@@ -2585,11 +2902,13 @@ class LabRuntime {
     const sc = BOND_SCENARIOS[name];
     if (!sc) return;
     techniquesCfg = null;
-    motifsCfg = null;
+    motifsCfg = sc.motifs ? sc.motifs.map((m) => ({ ...m })) : null;
     bondsCfg = { talents: [...sc.talents], solos: [...(sc.solos ?? [])] };
     partyCfg = sc.party ? [...sc.party] : null;
     autonomyCfg = !!sc.autonomy;
     encounterOverride = sc.encounter ?? 'sandbox';
+    // Phase 5b: a scenario's own floor (Brann's clutter check on the Spire).
+    if (sc.theme) this.theme = sc.theme;
     callingCfg = null;
     chordsOverride = sc.chords ?? GUARDIAN_CHORDS;
     astrolabeCfg = [];
@@ -4191,7 +4510,12 @@ export function VfxLab() {
           {BOND_SCENARIO_NAMES.map((name) => (
             <Btn
               key={name}
-              onClick={() => rt()?.bondScenario(name)}
+              onClick={() => {
+                rt()?.bondScenario(name);
+                // The Theme select shows a floor the scenario put up (Brann's Spire clutter).
+                const theme = BOND_SCENARIOS[name]!.theme;
+                if (theme) setTheme(theme);
+              }}
               title={BOND_SCENARIOS[name]!.note}
             >
               {name}

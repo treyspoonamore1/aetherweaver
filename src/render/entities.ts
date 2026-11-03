@@ -1,7 +1,13 @@
 import * as THREE from 'three';
 import type { ColorVision } from '../app/colorVision';
 import { CONTENT, enemyDef, heroDef } from '../content';
-import type { EntityId, EntityKind, ReadonlyEntity, WorldState } from '../sim';
+import {
+  bloodRageBonus,
+  type EntityId,
+  type EntityKind,
+  type ReadonlyEntity,
+  type WorldState,
+} from '../sim';
 import { BEAM } from './fx/beams';
 import { RING } from './fx/rings';
 import { SHELL } from './fx/shells';
@@ -34,7 +40,9 @@ import {
 import { MARTYR_HEX } from './martyrCues';
 import {
   BLEED_CHIME_AT,
+  BRANN_HEX,
   CRIMSON_HEX,
+  FRENZY_SPIN,
   MAX_PIPS,
   PIP_LIFT,
   WOUND_LIFT,
@@ -47,6 +55,7 @@ import {
   isQuadruped,
   moveOf,
   pipOffset,
+  signalHex,
 } from './crimsonCues';
 import {
   DISSONANCE_HEX,
@@ -260,6 +269,9 @@ const SAVE_GHOST_LIFE = 1.05;
 const CHRONO_SILVER = color(CHRONO_HEX.silver);
 /** Eldritch Conduit: a technique paid in Life flickers her rim blood-violet. */
 const CONDUIT = color(ASTRO_HEX.conduit);
+/** Brann (docs/phase-5b.md): his brass trim (his signal colour) and Blood Rage's ember. */
+const BRASS = color(BRANN_HEX.brass);
+const EMBER = color(BRANN_HEX.ember);
 /** Restless Dead: a risen enemy's ash (its rim, life bar, motes) and the light it re-forms in. */
 const ASH = color(DISSONANCE_HEX.ash);
 const GRAVE = color(DISSONANCE_HEX.grave);
@@ -395,6 +407,11 @@ export class EntityLayer {
     guardArcs: 0,
     guardBroken: 0,
   };
+  /**
+   * Brann (docs/phase-5b.md), what was drawn last frame (tests, the lab): Blood Rage's ember glow,
+   * Red Frenzy's spin and swipe ring (gold-edged when Cued), Bloodletting's pips on his axe.
+   */
+  readonly drawn5b = { rage: 0, spin: 0, frenzy: 0, frenzyGold: 0, bloodlet: 0 };
   /** A hero's Legion statuses this frame (reused). */
   private readonly m2Look = emptyStatusLook();
   private readonly arc = { start: 0, len: 0 };
@@ -947,6 +964,12 @@ export class EntityLayer {
     m2.stakes = 0;
     m2.guardArcs = 0;
     m2.guardBroken = 0;
+    const b5 = this.drawn5b;
+    b5.rage = 0;
+    b5.spin = 0;
+    b5.frenzy = 0;
+    b5.frenzyGold = 0;
+    b5.bloodlet = 0;
     // The Chronomancer's Stasis: the enemies' clock stops and the stillness spreads from her.
     const look = chronoLook(state, this.chrono);
     if (look.stasis && !this.stasisOn) {
@@ -1168,7 +1191,13 @@ export class EntityLayer {
       rec.slow = approach(rec.slow, slowDanced(state, e) ? 1 : 0, 3, dt);
       if (rec.slow < 0.003) rec.slow = 0;
     }
-    if (!held && !frozen) rec.yaw = angleApproach(rec.yaw, Math.atan2(-e.fx, -e.fz), 14, dt);
+    // Red Frenzy (Brann, docs/phase-5b.md): he spins as he chases, a whirlwind, until it ends.
+    const spin =
+      !held && !frozen && !!e.hero && e.hero.soloActive > 0 && e.hero.soloId === 'redFrenzy';
+    if (spin) {
+      rec.yaw = (rec.yaw + FRENZY_SPIN * dt) % (Math.PI * 2);
+      this.drawn5b.spin++;
+    } else if (!held && !frozen) rec.yaw = angleApproach(rec.yaw, Math.atan2(-e.fx, -e.fz), 14, dt);
     const speed = held || frozen ? 0 : Math.hypot(e.vx, e.vz);
     rec.walk += dt * speed * (rec.quad ? 3.6 : 2.2);
     const moving = Math.min(1, speed / 2.5);
@@ -1522,7 +1551,10 @@ export class EntityLayer {
     if (h.dead) return;
     const threaded = e.id === threadedId;
     const hovered = e.id === frame.hoveredHero;
-    const ringColor = threaded ? threadColor : rec.color;
+    // Brann's rings are his brass: his crimson under him would read as a telegraph (Phase 5b).
+    const signal = signalHex(hero.defId, '');
+    const own = signal ? color(signal) : rec.color;
+    const ringColor = threaded ? threadColor : own;
     const ringAlpha = threaded ? 0.95 : hovered ? 0.8 : 0.38;
     kit.rings.push(
       x,
@@ -1730,9 +1762,11 @@ export class EntityLayer {
         );
       }
     }
-    // Active Solo: hero-coloured (gold when Cued) column of light.
+    // Brann's Blood Rage, Red Frenzy and Bloodletting (absent `blood`: every default hero).
+    if (hero.blood && !h.downed) this.blood(rec, e, kit, dt);
+    // Active Solo: hero-coloured (gold when Cued) column of light (Brann's in his brass).
     if (hero.soloActive > 0) {
-      const c = hero.soloCued ? C.amp : rec.color;
+      const c = hero.soloCued ? C.amp : own;
       kit.rings.push(x, 0.04, z, rec.radius * 1.7, 0.1, 0.35, RING.dashed, c, 0.85, 0, 7, 0, 8);
       rec.sparkleAcc += dt * 14 * kit.particles.density;
       while (rec.sparkleAcc > 1) {
@@ -1756,6 +1790,104 @@ export class EntityLayer {
     }
     // Their life over their heads is the overlay's (partyBars.ts, docs/health-ui.md).
     void state;
+  }
+
+  /**
+   * Brann (docs/phase-5b.md): Blood Rage as an ember glow in his chest that grows with the life
+   * he is missing (the shared `bloodRageBonus`, so it shows the bonus the sim applies), embers
+   * rising off him; Red Frenzy's crimson-brass swipe ring that follows him (gold-edged when Cued);
+   * Bloodletting's empowered swings left as pips along his axe.
+   */
+  private blood(rec: EntityRec, e: ReadonlyEntity, kit: FxKit, dt: number): void {
+    const hero = e.hero!;
+    const b = hero.blood!;
+    const x = rec.x;
+    const z = rec.z;
+    const y = rec.y;
+    const def = CONTENT.heroes.find((d) => d.id === hero.defId);
+    const cap = Math.max(1e-3, def?.passive?.maxBonus ?? 1);
+    const rage = clamp01(bloodRageBonus(CONTENT, e) / cap);
+    if (rage > 0.02) {
+      const flick = 0.85 + 0.15 * Math.sin(this.now * 11 + rec.id);
+      kit.sprites.push(
+        x,
+        rec.height * 0.6 + y,
+        z,
+        rec.radius * (1.2 + 1.6 * rage),
+        SPRITE.glow,
+        EMBER,
+        (0.12 + 0.4 * rage) * flick,
+      );
+      rec.sparkleAcc += dt * (2 + 10 * rage) * kit.particles.density;
+      while (rec.sparkleAcc > 1) {
+        rec.sparkleAcc -= 1;
+        const a = Math.random() * Math.PI * 2;
+        kit.particles.emit(
+          x + Math.cos(a) * rec.radius * 0.7,
+          rec.height * (0.3 + Math.random() * 0.5) + y,
+          z + Math.sin(a) * rec.radius * 0.7,
+          (Math.random() - 0.5) * 0.4,
+          0.9 + Math.random() * 0.8,
+          (Math.random() - 0.5) * 0.4,
+          0.6,
+          0.07,
+          EMBER,
+          0.9,
+          PARTICLE.spark,
+          0.3,
+        );
+      }
+      this.drawn5b.rage++;
+    }
+    // Red Frenzy: a swipe ring turning with him, his brass edged gold when you Cued it.
+    if (hero.soloActive > 0 && hero.soloId === 'redFrenzy') {
+      const R = def?.solo.radius ?? 3.5;
+      const turn = (this.now * FRENZY_SPIN) % (Math.PI * 2);
+      for (let i = 0; i < 3; i++)
+        kit.rings.push(
+          x,
+          0.06,
+          z,
+          R * 0.9,
+          0.22,
+          0.4,
+          RING.swipe,
+          BRASS,
+          0.75,
+          turn + (i * Math.PI * 2) / 3,
+          1.4,
+        );
+      this.drawn5b.frenzy++;
+      if (hero.soloCued) {
+        kit.rings.push(x, 0.065, z, R, 0.06, 0.16, RING.plain, C.amp, 0.85);
+        this.drawn5b.frenzyGold++;
+      }
+    }
+    // Bloodletting: a pip per empowered swing left, along his axe (his right, low).
+    if (b.bloodlet > 0) {
+      const n = Math.min(3, Math.ceil(b.bloodlet));
+      const fx = -Math.sin(rec.yaw);
+      const fz = -Math.cos(rec.yaw);
+      // His right hand: forward × up.
+      const rx = -fz;
+      const rz = fx;
+      for (let i = 0; i < n; i++) {
+        const k = 0.45 + i * 0.22;
+        kit.sprites.push(
+          x + rx * rec.radius * 0.75 + fx * 0.3,
+          rec.height * k + y,
+          z + rz * rec.radius * 0.75 + fz * 0.3,
+          0.14,
+          SPRITE.drop,
+          EMBER,
+          0.95,
+          0,
+          1,
+          0.8,
+        );
+      }
+      this.drawn5b.bloodlet += n;
+    }
   }
 
   private enemyExtras(

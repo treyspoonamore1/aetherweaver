@@ -5,7 +5,7 @@ import { VISION_HEX, currentVision, rgba } from './palette';
 import { CALLING_HEX } from './callingCues';
 import { CHRONO_HEX } from './chronoCues';
 import { DISSONANCE_HEX } from './dissonanceCues';
-import { CRIMSON_HEX } from './crimsonCues';
+import { BRANN_HEX, CRIMSON_HEX } from './crimsonCues';
 import { softenHex, songHex } from './songs';
 
 /**
@@ -153,7 +153,22 @@ export interface AllyBarView {
    * they must be lifted above. Absent otherwise.
    */
   notch?: number;
+  /**
+   * Brann (docs/phase-5b.md): ticks at his lines (40%; 30% with the Hymn or Blood and Silk; 10%
+   * with Deathless). Absent for every other hero.
+   */
+  ticks?: readonly number[];
+  /** Brann: his raging band, from his critical line up to his Bloodlust line (shares). */
+  band?: readonly [number, number];
+  /** Brann: he is in that band now (the fill takes its ember). */
+  raging?: boolean;
+  /** Brann: life Bloodletting just spent, a drain segment above what is left, and its alpha. */
+  drain?: number;
+  drainAlpha?: number;
 }
+
+/** Brann's ticks drawn on one bar at most (40, 30, 10). */
+const MAX_TICKS = 3;
 
 interface AllyBarItem {
   el: HTMLDivElement;
@@ -165,6 +180,10 @@ interface AllyBarItem {
   fc: HTMLDivElement;
   /** Execution's notch (Movement II), hidden unless a bar has one. */
   notch: HTMLDivElement;
+  /** Brann's ticks, raging band and Bloodletting drain (hidden unless a bar has them). */
+  ticks: HTMLDivElement[];
+  band: HTMLDivElement;
+  drain: HTMLDivElement;
   /** What the elements show now, to touch the DOM only on change. */
   shown: string;
   glow: string;
@@ -368,6 +387,25 @@ export class Overlay {
         track,
         `display:none;position:absolute;top:-1px;bottom:-1px;width:2px;margin-left:-1px;background:${CRIMSON_HEX.notch};box-shadow:0 0 0 1px rgba(0,0,0,0.85),0 0 4px ${CRIMSON_HEX.notch};`,
       );
+      // Brann (docs/phase-5b.md): Bloodletting's drain, a dark hatched segment above his life
+      // (never a hit's white trail); his raging band, an ember strip along the track's foot; his
+      // ticks, short ember marks from the top. All hidden for every other hero.
+      const drain = div(
+        track,
+        `display:none;position:absolute;top:0;bottom:0;background:repeating-linear-gradient(45deg, ${rgba(BRANN_HEX.ember, 0.55)} 0 1px, transparent 1px 3px), ${BRANN_HEX.drain};`,
+      );
+      const band = div(
+        track,
+        `display:none;position:absolute;bottom:0;height:2px;background:${BRANN_HEX.ember};opacity:0.85;`,
+      );
+      const ticks: HTMLDivElement[] = [];
+      for (let t = 0; t < MAX_TICKS; t++)
+        ticks.push(
+          div(
+            track,
+            `display:none;position:absolute;top:0;height:60%;width:1.5px;margin-left:-0.75px;background:${BRANN_HEX.ember};box-shadow:0 0 0 0.5px rgba(0,0,0,0.8);`,
+          ),
+        );
       this.allyBars.push({
         el,
         key,
@@ -377,6 +415,9 @@ export class Overlay {
         shield,
         fc,
         notch,
+        ticks,
+        band,
+        drain,
         shown: '',
         glow: '',
         used: false,
@@ -718,22 +759,27 @@ export class Overlay {
     const fill =
       bar.level === 2 ? VISION_HEX.lethal : bar.level === 1 ? VISION_HEX.threat : LIFE_OK;
     const fcHex = bar.lethal ? VISION_HEX.lethal : VISION_HEX.threat;
+    // Brann in his raging band: healthy white warming to his ember, never threat or lethal.
+    const fillBg = bar.raging ? `linear-gradient(90deg, ${LIFE_OK}, ${BRANN_HEX.ember})` : fill;
     const shown = [
       pc(bar.hp),
       pc(bar.trail),
       pc(bar.shield),
       pc(fcW),
-      fill,
+      fillBg,
       fcHex,
       bar.key,
       bar.keyHex,
       bar.dim,
       bar.notch ?? '',
+      bar.ticks?.join(',') ?? '',
+      bar.band?.join(',') ?? '',
+      bar.drain !== undefined ? `${pc(bar.drain)}:${(bar.drainAlpha ?? 1).toFixed(2)}` : '',
     ].join('|');
     if (b.shown !== shown) {
       b.shown = shown;
       b.fill.style.width = pc(bar.hp);
-      b.fill.style.background = fill;
+      b.fill.style.background = fillBg;
       b.trail.style.left = pc(bar.hp);
       b.trail.style.width = pc(Math.max(0, bar.trail - bar.hp));
       b.shield.style.left = pc(bar.hp);
@@ -748,6 +794,7 @@ export class Overlay {
         b.notch.style.left = pc(bar.notch);
         b.notch.style.display = 'block';
       } else if (b.notch.style.display !== 'none') b.notch.style.display = 'none';
+      this.brannBar(b, bar, pc);
     }
     // A critical or doomed bar glows, pulsing (written only when it changes).
     const glow =
@@ -762,6 +809,29 @@ export class Overlay {
     // The track's middle over the point (the key tag hangs to its left).
     const shift = (ALLY_KEY + ALLY_GAP) / 2;
     b.el.style.transform = `translate3d(${(p.x - shift).toFixed(1)}px,${p.y.toFixed(1)}px,0) translate(-50%,-50%)`;
+  }
+
+  /** Brann's ticks, raging band and Bloodletting drain on his bar (hidden on anyone else's). */
+  private brannBar(b: AllyBarItem, bar: AllyBarView, pc: (v: number) => string): void {
+    for (let i = 0; i < b.ticks.length; i++) {
+      const el = b.ticks[i]!;
+      const at = bar.ticks?.[i];
+      if (at !== undefined && at > 0) {
+        el.style.left = pc(at);
+        el.style.display = 'block';
+      } else if (el.style.display !== 'none') el.style.display = 'none';
+    }
+    if (bar.band) {
+      b.band.style.left = pc(bar.band[0]);
+      b.band.style.width = pc(Math.max(0, bar.band[1] - bar.band[0]));
+      b.band.style.display = 'block';
+    } else if (b.band.style.display !== 'none') b.band.style.display = 'none';
+    if (bar.drain !== undefined && bar.drain > 0) {
+      b.drain.style.left = pc(bar.hp);
+      b.drain.style.width = pc(Math.min(bar.drain, 1 - bar.hp));
+      b.drain.style.opacity = (bar.drainAlpha ?? 1).toFixed(2);
+      b.drain.style.display = 'block';
+    } else if (b.drain.style.display !== 'none') b.drain.style.display = 'none';
   }
 
   badge(

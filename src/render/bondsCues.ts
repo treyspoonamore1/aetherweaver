@@ -7,6 +7,7 @@
  */
 import { CONTENT } from '../content';
 import type { ReadonlyEntity, WorldState } from '../sim';
+import { signalHex } from './crimsonCues';
 
 /** Every talent and alternate Solo the sim announces with `talentFired`, in the content's order. */
 export const BOND_CUES = [
@@ -24,6 +25,11 @@ export const BOND_CUES = [
   'oathkeeper',
   'hawks_vigil',
   'celestial_sphere',
+  // Brann (docs/phase-5b.md): the four talents that announce themselves.
+  'iron_will',
+  'blood_oath',
+  'deathless',
+  'berserkers_hymn',
 ] as const;
 export type BondCue = (typeof BOND_CUES)[number];
 
@@ -35,7 +41,13 @@ export function bondCue(id: string): BondCue | null {
 }
 
 /** The alternate Solos (their persistent looks: the reach, the stance, the spheres). */
-export const ALT_SOLO_IDS = ['oathkeeper', 'hawks_vigil', 'celestial_sphere'] as const;
+export const ALT_SOLO_IDS = [
+  'oathkeeper',
+  'hawks_vigil',
+  'celestial_sphere',
+  // Brann's (docs/phase-5b.md): it announces nothing; its tether is drawn while it lasts.
+  'blood_brother',
+] as const;
 export type AltSoloId = (typeof ALT_SOLO_IDS)[number];
 
 export function isAltSolo(id: string): id is AltSoloId {
@@ -62,6 +74,14 @@ export function cueName(id: string): string {
 /** A hero's signature colour (content), white for an unknown hero. */
 export function heroHex(defId: string | undefined): string {
   return CONTENT.heroes.find((h) => h.id === defId)?.color ?? '#ffffff';
+}
+
+/**
+ * The colour a hero's Bonds moments are drawn in: their own, except Brann's brass (his crimson
+ * would read as a Blood Pact's or a lethal link in the Spire; crimsonCues.ts `signalHex`).
+ */
+export function cueHex(defId: string | undefined): string {
+  return signalHex(defId, heroHex(defId));
 }
 
 /**
@@ -96,6 +116,14 @@ export const CUE_LIFE: Readonly<Record<BondCue, number>> = {
   oathkeeper: 0.45,
   hawks_vigil: 0.42,
   celestial_sphere: 0.6,
+  // Brann: your Ward makes him answer the Rally (a brass ring closing on him, named).
+  iron_will: 0.9,
+  // The overheal riding his swing lands: a glint on the axe and a spark on the target.
+  blood_oath: 0.5,
+  // Unbreakable's look, for his Deathless seconds (content): see `deathlessSeconds`.
+  deathless: 0,
+  // The Hymn turns on: links from him to every other hero.
+  berserkers_hymn: 1.4,
 };
 
 /**
@@ -109,6 +137,8 @@ export const FREQUENT: ReadonlySet<BondCue> = new Set<BondCue>([
   'celestial_sphere',
   'starthread',
   'constellation',
+  // Blood Oath rides every swing that spends the bank.
+  'blood_oath',
 ]);
 
 /** Supernova: the sim's nova lands this long after its event (its pending hit, solos.ts). */
@@ -163,6 +193,32 @@ export function starInterval(): number {
 /** Unbreakable: how long Kael is untouchable after the blow (content). */
 export function unbreakableSeconds(): number {
   return talentValue('unbreakable', 'seconds');
+}
+
+/** Deathless: how long Brann can't die once he falls to its line (content). */
+export function deathlessSeconds(): number {
+  return talentValue('deathless', 'seconds');
+}
+
+/** Berserker's Hymn: it plays while Brann is below this share of his life (content). */
+export function hymnBelow(): number {
+  return talentValue('berserkers_hymn', 'below') / 100;
+}
+
+/**
+ * Seconds Brann's Deathless window still holds (the state's `deathlessUntil`; 0: none, or a
+ * hero without `blood`).
+ */
+export function deathlessLeft(e: ReadonlyEntity | undefined, time: number): number {
+  const until = e?.hero?.blood?.deathlessUntil ?? 0;
+  return until > time ? until - time : 0;
+}
+
+/** The Hymn plays now: Brann has it, is standing, and is below its line. */
+export function hymnPlaying(e: ReadonlyEntity | undefined): boolean {
+  const h = e?.health;
+  if (!e?.hero?.blood || !h || h.dead || h.downed || h.maxHp <= 0) return false;
+  return e.hero.talents.includes('berserkers_hymn') && h.hp < hymnBelow() * h.maxHp;
 }
 
 /** Celestial Sphere: the hits a sphere swallows when it is given (content). */

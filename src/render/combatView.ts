@@ -1,12 +1,13 @@
 import * as THREE from 'three';
 import { heroDef } from '../content';
-import type { SimEvent, WorldState } from '../sim';
+import { fallingFast, type ReadonlyEntity, type SimEvent, type WorldState } from '../sim';
 import { ArenaView } from './arena';
 import { AstrolabeView } from './astrolabe';
 import { BondsView } from './bonds';
 import { CallView } from './calls';
 import { PartyBarsView } from './partyBars';
 import { healthLevel } from '../app/healthLevels';
+import { signalHex } from './crimsonCues';
 import { CallingView } from './calling';
 import { ChronoView } from './chrono';
 import { DissonanceView } from './dissonance';
@@ -228,14 +229,14 @@ export class CombatView implements WorldView {
       if (!e?.hero || !r || e.health?.dead) continue;
       let hex = this.heroHex.get(id);
       if (!hex) {
-        hex = heroDef(e.hero.defId).color;
+        // Brann's arrow is his brass: his crimson would read as the danger ring (crimsonCues.ts).
+        hex = signalHex(e.hero.defId, heroDef(e.hero.defId).color);
         this.heroHex.set(id, hex);
       }
       // Off screen and under a quarter of their life (docs/health-ui.md): the arrow pulses red,
       // as it does for a threat, its dot still in their colour.
       const h = e.health;
-      const critical = !!h && !h.downed && healthLevel(h.hp, h.maxHp) === 2;
-      const danger = Math.max(this.telegraphs.threatened.get(id) ?? 0, critical ? 0.8 : 0);
+      const danger = edgeDanger(e, this.telegraphs.threatened.get(id) ?? 0);
       this.overlay.edgeArrow(r.x, r.height * 0.5, r.z, h?.downed ? '#94a3b8' : hex, danger);
     }
   }
@@ -261,4 +262,24 @@ export class CombatView implements WorldView {
     this.model.material.dispose();
     this.root.removeFromParent();
   }
+}
+
+/**
+ * How loudly a hero's off-screen arrow warns (0: not at all): the telegraphs aimed at them, or
+ * 0.8 while they are critical. Critical is the shared ramp's (under a quarter) for the default
+ * heroes, exactly as before; for Brann (docs/phase-5b.md) it is his own: below 15%, falling fast,
+ * or a lethal hit on its way, so an arrow never calls you back to a berserker kept low on purpose.
+ */
+export function edgeDanger(e: ReadonlyEntity, threatened: number): number {
+  const h = e.health;
+  let critical = false;
+  if (h && !h.downed) {
+    if (e.hero?.blood) {
+      let shield = 0;
+      for (const s of h.shields) shield += s.amount;
+      const lethal = h.incoming > 0 && h.incoming >= h.hp + shield;
+      critical = healthLevel(h.hp, h.maxHp, e.hero.defId, fallingFast(e)) === 2 || lethal;
+    } else critical = healthLevel(h.hp, h.maxHp) === 2;
+  }
+  return Math.max(threatened, critical ? 0.8 : 0);
 }
