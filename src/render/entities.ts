@@ -36,6 +36,9 @@ import {
   BLEED_CHIME_AT,
   CRIMSON_HEX,
   MAX_PIPS,
+  PIP_LIFT,
+  WOUND_LIFT,
+  WOUND_SIZE,
   crimsonStatuses,
   emptyStatusLook,
   guardArc,
@@ -2257,7 +2260,7 @@ export class EntityLayer {
         pipOffset(i, n, this.pip);
         kit.sprites.push(
           x + this.pip.x,
-          top + 1.02 + this.pip.y,
+          top + PIP_LIFT + this.pip.y,
           z,
           hot ? 0.15 : 0.12,
           SPRITE.drop,
@@ -2270,7 +2273,15 @@ export class EntityLayer {
       }
       this.drawnM2.pips += n;
       if (hot) {
-        kit.sprites.push(x, top + 1.02, z, 0.25 + 0.12 * n, SPRITE.glow, C.ailment, 0.3 * pulse);
+        kit.sprites.push(
+          x,
+          top + PIP_LIFT,
+          z,
+          0.25 + 0.12 * n,
+          SPRITE.glow,
+          C.ailment,
+          0.3 * pulse,
+        );
         this.drawnM2.pipsHot++;
       }
       // Drips: more stacks, more drops falling off them.
@@ -2300,9 +2311,9 @@ export class EntityLayer {
       const bob = Math.sin(this.now * 3) * 0.04;
       kit.sprites.push(
         x - rec.radius - 0.2,
-        top + 0.62 + bob,
+        top + WOUND_LIFT + bob,
         z,
-        0.26,
+        WOUND_SIZE,
         SPRITE.wound,
         C.ailment,
         0.95,

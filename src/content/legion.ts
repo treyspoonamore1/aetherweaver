@@ -447,7 +447,7 @@ export const LEGION_AFFIXES: ContentInput['affixes'] = [
     id: 'vampiric',
     name: 'Vampiric',
     description: `Its hits Wound: healing received −${pct(HEAL_CUT)}% for ${WOUND.duration} s. Chime removes it.`,
-    color: '#9f7aea',
+    color: '#a01a8a',
     movement: 2,
     onHit: { ...WOUND },
     answers: ['chime'],

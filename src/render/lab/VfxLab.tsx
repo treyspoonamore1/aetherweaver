@@ -2913,6 +2913,8 @@ class LabRuntime {
   }
 
   setTheme(theme: string): void {
+    // Already on it (a Movement II scenario set the floor, then the Theme select caught up).
+    if (theme === this.theme && !this.keepsakes) return;
     this.theme = theme;
     if (this.keepsakes) {
       // The lineup on the new floor (the fight comes back on it when the lineup closes).
@@ -4225,7 +4227,11 @@ export function VfxLab() {
           {CRIMSON_SCENARIO_NAMES.map((name) => (
             <Btn
               key={name}
-              onClick={() => rt()?.crimsonScenario(name)}
+              onClick={() => {
+                rt()?.crimsonScenario(name);
+                // The Theme select shows the Spire floor the scenario put up.
+                setTheme(CRIMSON_SCENARIOS[name]!.theme ?? 'spire_gate');
+              }}
               title={CRIMSON_SCENARIOS[name]!.note}
             >
               {name}

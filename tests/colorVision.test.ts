@@ -10,6 +10,7 @@ import {
   visionPalette,
   type VisionPalette,
 } from '../src/app/colorVision';
+import { CONTENT } from '../src/content';
 import { CRIMSON_HEX } from '../src/render/crimsonCues';
 import { MARTYR_HEX } from '../src/render/martyrCues';
 
@@ -107,6 +108,32 @@ describe('Movement II colours (docs/phase-5a/vfx-audio.md)', () => {
         const bear = deltaE(see(hex), see(MARTYR_HEX.blood));
         expect(bear, `${vision}: ${name} ${hex} vs Bear`).toBeGreaterThanOrEqual(20);
       }
+    });
+  }
+});
+
+describe('the Vampiric affix colour (docs/phase-5a.md, Affixes)', () => {
+  /**
+   * An elite's affix rim must not read as an ailment, a threat, a heal or the Bear. `#9f7aea` (the
+   * first pick) failed: ΔE 6.5 from ailment violet, 16.1 from Mend under deuteranopia. The deep
+   * crimson-magenta `#a01a8a` keeps blood in it while staying clear of every one of them.
+   */
+  const AGAINST = ['ailment', 'lethal', 'threat', 'mend', 'heal', 'empower'] as const;
+  const vampiric = CONTENT.affixes.find((a) => a.id === 'vampiric')!.color;
+
+  for (const vision of COLOR_VISIONS) {
+    it(`is ≥ 20 ΔE from ailment violet, lethal, threat, Bear, Mend/heal and Empower with ${vision}`, () => {
+      const palette = VISION_PALETTES[vision];
+      const see = (hex: string) => simulateVision(hex, vision);
+      for (const role of AGAINST) {
+        const d = deltaE(see(vampiric), see(palette[role]));
+        expect(
+          d,
+          `${vision}: vampiric ${vampiric} vs ${role} ${palette[role]}`,
+        ).toBeGreaterThanOrEqual(20);
+      }
+      const bear = deltaE(see(vampiric), see(MARTYR_HEX.blood));
+      expect(bear, `${vision}: vampiric ${vampiric} vs Bear`).toBeGreaterThanOrEqual(20);
     });
   }
 });
