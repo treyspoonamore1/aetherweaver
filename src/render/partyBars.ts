@@ -11,6 +11,17 @@ export const TRAIL_DRAIN = 0.9;
 /** The bars sit this far over the heroes' heads (m): under the mode glyph and a call's bubble. */
 export const BAR_LIFT = 0.42;
 
+/**
+ * Martyr's Vow holds every hero at 1 life: nothing that lands before it ends is lethal. The one
+ * gate for every lethal cue (the bars here, Brann's off-screen arrow in combatView.ts).
+ */
+export function vowCoversAll(state: WorldState): boolean {
+  return (
+    !!state.field.vow &&
+    state.telegraphs.every((t) => t.effect !== 'damage' || vowHoldsAt(state, t.impact))
+  );
+}
+
 /** Bars over the heroes: always, only while hurt, or none (Settings → Health and the HUD). */
 export type AllyBarsMode = 'always' | 'hurt' | 'off';
 
@@ -46,10 +57,7 @@ export class PartyBarsView {
     this.drawn.length = 0;
     const weaver = state.entities.get(state.weaverId);
     const reach = CONTENT.techniques.ward.range;
-    // Martyr's Vow holds every hero at 1 life: nothing that lands before it ends is lethal.
-    const vowCovers =
-      state.field.vow &&
-      state.telegraphs.every((t) => t.effect !== 'damage' || vowHoldsAt(state, t.impact));
+    const vowCovers = vowCoversAll(state);
     state.party.forEach((id, slot) => {
       const e = state.entities.get(id);
       const h = e?.health;

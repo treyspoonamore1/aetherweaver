@@ -8,7 +8,7 @@
  */
 import { createHash } from 'node:crypto';
 import * as THREE from 'three';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { COLOR_VISIONS, deltaE, simulateVision, visionPalette } from '../src/app/colorVision';
 import { CONTENT, heroDef } from '../src/content';
 import { createSim, newBlood, type Command, type Sim, type SimEvent } from '../src/sim';
@@ -22,6 +22,8 @@ import {
   BRANN_HEX,
   CUT_HEAL_SIZE,
   DRAIN_SIZE,
+  LIFESTEAL_MOTE,
+  LIFESTEAL_MOTE_CUED,
   bloodNotches,
   healCut,
   partyDome,
@@ -36,9 +38,9 @@ import { FxKit } from '../src/render/fx/kit';
 import { MartyrView } from '../src/render/martyr';
 import { BRASS_TRIM, buildHero } from '../src/render/models/library';
 import { createModelMaterial } from '../src/render/models/material';
-import type { AllyBarView, Overlay } from '../src/render/overlay';
+import { Overlay, type AllyBarView } from '../src/render/overlay';
 import { VISION_HEX, applyVision } from '../src/render/palette';
-import { PartyBarsView } from '../src/render/partyBars';
+import { PartyBarsView, vowCoversAll } from '../src/render/partyBars';
 import type { Stage } from '../src/render/stage';
 import { TelegraphLayer } from '../src/render/telegraphs';
 import { ThreadView } from '../src/render/thread';
@@ -372,6 +374,29 @@ describe('Brann’s bar', () => {
     // A telegraph at him still warns as for anyone.
     expect(edgeDanger(brann, 0.6)).toBe(0.6);
   });
+
+  it('under the Martyr’s Vow his edge arrow, like his bar, calls no blow lethal', () => {
+    const { of, w, h } = setup();
+    h.run(2);
+    const brann = of(BRANN);
+    blooded(brann);
+    atPct(brann, 0.3);
+    brann.health!.incoming = brann.health!.hp + 10;
+    h.frame([]);
+    expect(barOf(h, brann.id).lethal).toBe(true);
+    expect(edgeDanger(brann, 0, vowCoversAll(w))).toBe(0.8);
+    // The Vow holds every hero at 1 life: nothing on its way (no telegraph outlasts it) is lethal.
+    w.field.vow = true;
+    expect(vowCoversAll(w)).toBe(true);
+    brann.health!.incoming = brann.health!.hp + 10;
+    h.frame([]);
+    expect(barOf(h, brann.id).lethal).toBe(false);
+    expect(edgeDanger(brann, 0, vowCoversAll(w))).toBe(0);
+    // Still critical by his own line (below 15%), Vow or not.
+    atPct(brann, 0.1);
+    expect(edgeDanger(brann, 0, vowCoversAll(w))).toBe(0.8);
+    w.field.vow = false;
+  });
 });
 
 describe('Brann’s healing', () => {
@@ -423,6 +448,45 @@ describe('Brann’s healing', () => {
     h.martyr.handle([heal('lifesteal', 40)], sim.state);
     expect(h.martyr.fired.selfHeal).toBe(0);
   });
+
+  it('a Cued Red Frenzy draws his lifesteal motes larger', () => {
+    const { of, sim, h } = setup();
+    h.run(2);
+    const brann = of(BRANN);
+    blooded(brann);
+    atPct(brann, 0.5);
+    const steal: SimEvent = {
+      type: 'healApplied',
+      tick: sim.tick,
+      target: brann.id,
+      source: brann.id,
+      amount: 40,
+      overheal: 0,
+      via: 'lifesteal',
+    };
+    const ink = new THREE.Color(BRANN_HEX.ink);
+    const emit = vi.spyOn(h.kit.particles, 'emit');
+    /** The sizes of the ink motes the last frame emitted. */
+    const motes = () => {
+      emit.mockClear();
+      h.frame([steal]);
+      return emit.mock.calls.filter((c) => (c[8] as THREE.Color).equals(ink)).map((c) => c[7]);
+    };
+    const plain = motes();
+    expect(plain.length).toBeGreaterThan(0);
+    for (const size of plain) expect(size).toBe(LIFESTEAL_MOTE);
+    // In a Red Frenzy you did not Cue, they are as ever.
+    brann.hero!.soloId = 'redFrenzy';
+    brann.hero!.soloActive = 5;
+    brann.hero!.soloCued = false;
+    for (const size of motes()) expect(size).toBe(LIFESTEAL_MOTE);
+    brann.hero!.soloCued = true;
+    const cued = motes();
+    expect(cued.length).toBeGreaterThan(0);
+    for (const size of cued) expect(size).toBe(LIFESTEAL_MOTE_CUED);
+    expect(LIFESTEAL_MOTE_CUED).toBeGreaterThan(LIFESTEAL_MOTE);
+    emit.mockRestore();
+  });
 });
 
 describe('Bloodletting', () => {
@@ -458,6 +522,71 @@ describe('Bloodletting', () => {
     h.run(1);
     expect(barOf(h, brann.id).trail).toBeGreaterThan(barOf(h, brann.id).hp + 0.05);
     expect(barOf(h, brann.id).drain).toBeUndefined();
+  });
+
+  it('draws its drain segment under his shield band, never over the Ward on him', () => {
+    /** Just enough DOM for the Overlay: elements that keep their children and styles. */
+    class El {
+      style: Record<string, string> = {};
+      children: El[] = [];
+      dataset: Record<string, string> = {};
+      textContent = '';
+      clientWidth = 1280;
+      clientHeight = 720;
+      appendChild(c: El): El {
+        this.children.push(c);
+        return c;
+      }
+      append(...c: El[]): void {
+        this.children.push(...c);
+      }
+      setAttribute(): void {}
+      remove(): void {}
+    }
+    const g = globalThis as unknown as Record<string, unknown>;
+    const saved = { document: g.document, ResizeObserver: g.ResizeObserver };
+    g.document = { createElement: () => new El(), createElementNS: () => new El() };
+    g.ResizeObserver = class {
+      observe(): void {}
+      disconnect(): void {}
+    };
+    try {
+      const camera = new THREE.PerspectiveCamera(45, 1280 / 720, 0.1, 200);
+      camera.position.set(0, 22, 18);
+      camera.lookAt(0, 0, 0);
+      camera.updateMatrixWorld();
+      const overlay = new Overlay(new El() as unknown as HTMLElement, camera);
+      // Brann at 80% with a Ward of a fifth of his life, just after Bloodletting spent a tenth.
+      overlay.allyBar(0, 1, 0, {
+        hp: 0.8,
+        trail: 0.8,
+        shield: 0.2,
+        incoming: 0,
+        lethal: false,
+        level: 0,
+        key: '2',
+        keyHex: BRANN_HEX.brass,
+        dim: false,
+        pulse: 0,
+        drain: 0.1,
+        drainAlpha: 1,
+      });
+      const bar = (overlay as unknown as { allyBars: Record<string, El>[] }).allyBars[0]!;
+      const track = bar.track!.children;
+      const at = (k: string) => track.indexOf(bar[k]!);
+      expect(bar.drain!.style.display).toBe('block');
+      expect(bar.shield!.style.width).toBe('20.0%');
+      // Both start where his life ends; the drain is painted first, so the band shows whole.
+      expect(bar.drain!.style.left).toBe(bar.shield!.style.left);
+      expect(at('drain')).toBeGreaterThanOrEqual(0);
+      expect(at('drain')).toBeLessThan(at('shield'));
+      // And under the blow's stripes as well (they must read over anything of his).
+      expect(at('drain')).toBeLessThan(at('fc'));
+      overlay.dispose();
+    } finally {
+      g.document = saved.document;
+      g.ResizeObserver = saved.ResizeObserver;
+    }
   });
 });
 
@@ -503,7 +632,7 @@ describe('Brann’s moves', () => {
     expect(h.feedback.fired5b.comets).toBe(1);
   });
 
-  it('Red Frenzy: he spins with a brass swipe ring, gold-edged only when Cued', () => {
+  it('Red Frenzy: he spins with a crimson swipe ring, gold-edged only when Cued', () => {
     const { of, h } = setup();
     h.run(2);
     const brann = of(BRANN);
@@ -514,6 +643,8 @@ describe('Brann’s moves', () => {
     expect(h.entities.drawn5b.spin).toBe(1);
     expect(h.entities.drawn5b.frenzy).toBe(1);
     expect(h.entities.drawn5b.frenzyGold).toBe(0);
+    // The ring is his crimson (docs/phase-5b.md), not his brass signal.
+    expect(h.drewIn(BRANN_HEX.body)).toBe(true);
     brann.hero!.soloCued = true;
     h.run(1);
     expect(h.entities.drawn5b.frenzyGold).toBe(1);
@@ -559,6 +690,41 @@ describe('Brann’s moves', () => {
     h.frame([]);
     expect(h.feedback.drawn5b.refused).toBe(0);
     expect(h.feedback.fired5b.refusedCleared).toBe(1);
+  });
+
+  it('a refused Rally strikes its glyph across his Rally acknowledgement too', () => {
+    const { of, sim, h } = setup(WITH_BRANN, { bonds: { talents: ['iron_will'], solos: [] } });
+    h.run(2);
+    const brann = of(BRANN);
+    blooded(brann);
+    atPct(brann, 0.3);
+    h.frame([
+      { type: 'directiveAck', tick: sim.tick, hero: brann.id, directive: 'rally' },
+      { type: 'bloodlust', tick: sim.tick, hero: brann.id },
+    ]);
+    expect(h.feedback.drawn5b.refused).toBe(1);
+    expect(h.feedback.drawn5b.refusedAck).toBe(1);
+    expect(h.drewIn(BRANN_HEX.brass)).toBe(true);
+    // It lasts as the acknowledgement lands, then only the glyph over his head stays.
+    for (let i = 0; i < 50; i++) h.frame([]);
+    expect(h.feedback.drawn5b.refused).toBe(1);
+    expect(h.feedback.drawn5b.refusedAck).toBe(0);
+    // Iron Will lifts both at once.
+    h.frame([{ type: 'bloodlust', tick: sim.tick, hero: brann.id }]);
+    expect(h.feedback.drawn5b.refusedAck).toBe(1);
+    h.frame([
+      {
+        type: 'talentFired',
+        tick: sim.tick,
+        hero: brann.id,
+        talent: 'iron_will',
+        x: brann.x,
+        z: brann.z,
+        target: null,
+      },
+    ]);
+    expect(h.feedback.drawn5b.refused).toBe(0);
+    expect(h.feedback.drawn5b.refusedAck).toBe(0);
   });
 });
 

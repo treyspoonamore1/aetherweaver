@@ -401,8 +401,13 @@ export const BRANN_HEX = {
   body: '#b91c1c',
   /** His ink: the lifesteal motes and their soft "+N", the Bloodletting floater. */
   ink: '#d26b6b',
-  /** The brass trim on his collar and axe edge: his signal colour. */
-  brass: '#c8a46e',
+  /**
+   * The tarnished brass trim on his collar and axe edge: his signal colour. Not the Spire's
+   * polished brass (#c8a46e is the Impaler's accent, so an enemy's telegraph would wear it): an
+   * old, olive-dark brass, ≥ 20 ΔE from every enemy accent and telegraph colour, and from every
+   * other hero and the Weaver's gold in every vision (tests/colorVision.test.ts).
+   */
+  brass: '#a6a650',
   /** Blood Rage's glow and the raging band on his bar (the Spire's pale ember). */
   ember: '#ffd2a6',
   /** Bloodletting's drain segment on the bar: a dark, hatched crimson (never a hit's white). */
@@ -476,5 +481,16 @@ export const DRAIN_HOLD = 0.9;
 export const DRAIN_SIZE = 14;
 /** The Rally-refused glyph over Brann's head holds this long (s), unless Iron Will clears it. */
 export const REFUSED_SECONDS = 1.6;
+/** The same glyph struck across his Rally acknowledgement at his feet holds this long (s). */
+export const REFUSED_ACK_SECONDS = 0.6;
 /** Red Frenzy's swipe ring turns this many radians a second. */
 export const FRENZY_SPIN = 9;
+/** A lifesteal mote's size (m); larger while you Cued his Red Frenzy (docs/phase-5b.md). */
+export const LIFESTEAL_MOTE = 0.1;
+export const LIFESTEAL_MOTE_CUED = 0.16;
+
+/** Brann is in a Red Frenzy that you Cued: his lifesteal motes are larger. */
+export function cuedFrenzy(e: ReadonlyEntity | undefined): boolean {
+  const h = e?.hero;
+  return !!h && h.soloId === 'redFrenzy' && h.soloActive > 0 && !!h.soloCued;
+}

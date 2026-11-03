@@ -12,9 +12,11 @@ import {
 } from '../src/app/colorVision';
 import * as THREE from 'three';
 import { CONTENT } from '../src/content';
-import { BRANN_HEX, CRIMSON_HEX, SPIRE_HEX } from '../src/render/crimsonCues';
+import { BRANN_HEX, CRIMSON_HEX, SPIRE_HEX, signalHex } from '../src/render/crimsonCues';
+import { cueHex } from '../src/render/bondsCues';
 import { MARTYR_HEX } from '../src/render/martyrCues';
 import { BRASS_TRIM, buildHero } from '../src/render/models/library';
+import { PALETTE } from '../src/render/palette';
 
 /** Every role a palette must define (the keys of VisionPalette, taken from the standard one). */
 const ROLES = Object.keys(VISION_PALETTES.normal) as (keyof VisionPalette)[];
@@ -247,6 +249,73 @@ describe('the heroes’ colours (docs/phase-5b.md, Colour)', () => {
         parts,
         `lowest ΔE ${lowest.toFixed(1)}: the model needs its brass trim`,
       ).toBeGreaterThan(0);
+    }
+  });
+
+  /**
+   * The colour actually drawn for him where a hero's colour sits beside danger: his brass trim
+   * (`signalHex`: attack swipes, leap, Solo and ground rings, the edge arrow, the bar's key tag,
+   * his Bonds moments). The first pick, #c8a46e, was the Impaler's own accent (0 ΔE), so an
+   * Impaler's telegraph ring, badge border and charge streak wore the very colour of his swipes;
+   * it sat 11.6 ΔE from Vharun's accent, 13.8 from Lyra under protanopia and 14.5 from the
+   * Weaver's amp gold under tritanopia. The tarnished brass #a6a650 replaces it.
+   *
+   * Recorded (lowest ΔE for #a6a650), 2026-11-03: Weaver gold #f5d78e 20.8 (protanopia); the
+   * red-green lethal #c84300 20.9 (deuteranopia); Leech accent #7a8f5a 21.3, Impaler accent
+   * #c8a46e 21.5, Vharun accent #e0c48a 22.6 (normal); Vexis #a78bfa 21.6 (tritanopia).
+   */
+  describe('his brass, the colour drawn beside danger', () => {
+    const brass = signalHex('brann', brann);
+    const TELEGRAPH_DEFAULT = '#c084fc';
+
+    it('is the colour his signals use, and the model’s trim', () => {
+      expect(brass).toBe(BRANN_HEX.brass);
+      expect(cueHex('brann')).toBe(brass);
+      expect(BRASS_TRIM).toBe(brass);
+    });
+
+    it('is ≥ 20 ΔE (normal vision) from every enemy accent, Movement I and II, and every telegraph colour', () => {
+      const low: string[] = [];
+      const against: [string, string][] = CONTENT.enemies.map((e) => [`${e.id} accent`, e.accent]);
+      expect(CONTENT.enemies.some((e) => e.movement === 2)).toBe(true);
+      expect(CONTENT.enemies.some((e) => e.movement !== 2)).toBe(true);
+      // A telegraph wears its owner's accent (above), the default violet without one, and the
+      // threat and lethal of every palette.
+      against.push(['telegraph default', TELEGRAPH_DEFAULT]);
+      for (const vision of COLOR_VISIONS)
+        against.push(
+          [`${vision} threat`, VISION_PALETTES[vision].threat],
+          [`${vision} lethal`, VISION_PALETTES[vision].lethal],
+        );
+      for (const [name, hex] of against) {
+        const d = deltaE(brass, hex);
+        if (d < 20) low.push(`${name} ${hex} ${d.toFixed(1)}`);
+      }
+      expect(low).toEqual([]);
+    });
+
+    for (const vision of COLOR_VISIONS) {
+      it(`is ≥ 20 ΔE from every other hero, the Weaver’s gold and amp, lethal, threat and Bear with ${vision}`, () => {
+        const see = (hex: string) => simulateVision(hex, vision);
+        const palette = VISION_PALETTES[vision];
+        const against: [string, string][] = HEROES.filter(([id]) => id !== 'brann').map(
+          ([id, hex]) => [id, hex],
+        );
+        against.push(
+          ['Weaver gold', PALETTE.gold],
+          ['amp', palette.amp],
+          ['lethal', palette.lethal],
+          ['threat', palette.threat],
+          ['Bear', MARTYR_HEX.blood],
+        );
+        expect(against.length).toBeGreaterThanOrEqual(8);
+        const low: string[] = [];
+        for (const [name, hex] of against) {
+          const d = deltaE(see(brass), see(hex));
+          if (d < 20) low.push(`${name} ${hex} ${d.toFixed(1)}`);
+        }
+        expect(low, vision).toEqual([]);
+      });
     }
   });
 });

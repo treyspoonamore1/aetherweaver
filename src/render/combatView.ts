@@ -5,7 +5,7 @@ import { ArenaView } from './arena';
 import { AstrolabeView } from './astrolabe';
 import { BondsView } from './bonds';
 import { CallView } from './calls';
-import { PartyBarsView } from './partyBars';
+import { PartyBarsView, vowCoversAll } from './partyBars';
 import { healthLevel } from '../app/healthLevels';
 import { signalHex } from './crimsonCues';
 import { CallingView } from './calling';
@@ -223,6 +223,8 @@ export class CombatView implements WorldView {
   }
 
   private offscreen(state: WorldState): void {
+    // The bars' lethal gate (partyBars.ts): under the Martyr's Vow no hit is lethal.
+    const vow = vowCoversAll(state);
     for (const id of state.party) {
       const e = state.entities.get(id);
       const r = this.entities.recs.get(id);
@@ -236,7 +238,7 @@ export class CombatView implements WorldView {
       // Off screen and under a quarter of their life (docs/health-ui.md): the arrow pulses red,
       // as it does for a threat, its dot still in their colour.
       const h = e.health;
-      const danger = edgeDanger(e, this.telegraphs.threatened.get(id) ?? 0);
+      const danger = edgeDanger(e, this.telegraphs.threatened.get(id) ?? 0, vow);
       this.overlay.edgeArrow(r.x, r.height * 0.5, r.z, h?.downed ? '#94a3b8' : hex, danger);
     }
   }
@@ -269,15 +271,17 @@ export class CombatView implements WorldView {
  * 0.8 while they are critical. Critical is the shared ramp's (under a quarter) for the default
  * heroes, exactly as before; for Brann (docs/phase-5b.md) it is his own: below 15%, falling fast,
  * or a lethal hit on its way, so an arrow never calls you back to a berserker kept low on purpose.
+ * `vowCovers` is the bars' gate (partyBars.ts `vowCoversAll`): under the Martyr's Vow no hit on its
+ * way is lethal, so neither his bar nor his arrow calls it one.
  */
-export function edgeDanger(e: ReadonlyEntity, threatened: number): number {
+export function edgeDanger(e: ReadonlyEntity, threatened: number, vowCovers = false): number {
   const h = e.health;
   let critical = false;
   if (h && !h.downed) {
     if (e.hero?.blood) {
       let shield = 0;
       for (const s of h.shields) shield += s.amount;
-      const lethal = h.incoming > 0 && h.incoming >= h.hp + shield;
+      const lethal = !vowCovers && h.incoming > 0 && h.incoming >= h.hp + shield;
       critical = healthLevel(h.hp, h.maxHp, e.hero.defId, fallingFast(e)) === 2 || lethal;
     } else critical = healthLevel(h.hp, h.maxHp) === 2;
   }
