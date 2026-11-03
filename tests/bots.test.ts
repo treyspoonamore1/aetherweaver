@@ -4,7 +4,7 @@ import { ARRIVAL_KIT, kitConfig } from '../tools/kits';
 import { M1_ENCOUNTERS } from '../tools/m1-baseline';
 import { CONTENT } from '../src/content';
 import * as Run from '../src/meta/run';
-import { makeBot } from '../src/bots';
+import { makeBot, type BotKind } from '../src/bots';
 import { dotIncoming, effectiveFraction, hasFollowUp } from '../src/bots/common';
 import { createSim, type Command, type Sim, type SimEvent, type Status } from '../src/sim';
 import { hero, hurt, sandbox, spawn, stepFor, worldOf } from './sim/helpers';
@@ -368,15 +368,15 @@ describe('Movement II smoke guards (arrival kit)', () => {
   });
 });
 
-/** Plays a fight with the Skilled bot on the arrival kit, handing each tick to `watch`. */
+/** Plays a fight with the Skilled bot (or `opts.bot`) on the arrival kit; each tick to `watch`. */
 function fight(
   encounter: string,
   seed: number,
   watch: (sim: Sim, events: SimEvent[], commands: Command[]) => void,
-  opts: { seconds?: number; bossHp?: number } = {},
+  opts: { seconds?: number; bossHp?: number; bot?: BotKind } = {},
 ): Sim {
   const sim = createSim({ seed, encounter, debug: opts.bossHp !== undefined, ...KIT });
-  const bot = makeBot('skilled', seed);
+  const bot = makeBot(opts.bot ?? 'skilled', seed);
   for (let t = 0; t < (opts.seconds ?? 300) * 60; t++) {
     const commands = bot.decide(sim.state);
     // Once the boss has spawned: at 'fighting' it is still behind its spawn warning, and the
@@ -472,39 +472,65 @@ describe('the Skilled bot answers Movement II in play (arrival kit)', () => {
     expect(focused).toBe(true);
   });
 
-  it('answers every Twin Cleave on its target: a Ward, a Reel or a step for one blow or both', () => {
-    // One answer plus full life survives the pair (850 a blow against Kael's 1,600; docs/
-    // phase-5a.md). So the bot may let one blow land on a full-life tank and answer the other: a
-    // pair goes unanswered only when both its blows hit the hero it aimed at.
-    let pairs = 0;
-    let unanswered = 0;
-    for (const seed of [1000, 8919, 16838]) {
+  /**
+   * Twin Cleave pairs whose two blows both resolved on the hero they aimed at (a Ward, a Reel
+   * dodge or a hit names that hero), and how many of those had at least one blow answered: one
+   * answer plus full life survives the pair (850 a blow against Kael's 1,600; docs/phase-5a.md),
+   * so a pair goes unanswered only when both blows hit. A pair with a blow that missed its hero
+   * (stepped out, or already down) or was cancelled says nothing either way and isn't counted.
+   */
+  function twinCleaves(bot: BotKind, seeds: readonly number[]) {
+    let counted = 0;
+    let answered = 0;
+    for (const seed of seeds) {
       /** Each blow's telegraph → the hero it aimed at and its pair (the first blow's telegraph). */
       const blows = new Map<number, { target: number | null; pair: number }>();
-      const hits = new Map<number, number>();
+      /** Each pair → its blows' outcomes on the hero they aimed at. */
+      const pairs = new Map<number, string[]>();
       let first = -1;
-      fight('vharun', seed, (sim, events) => {
-        for (const e of events) {
-          if (e.type === 'telegraphStarted' && e.name === 'Twin Cleave') {
-            // The second blow is its own attack, started as the first resolves.
-            const t = sim.state.telegraphs.find((x) => x.id === e.telegraph);
-            if (t?.attackId === 'vharun_twin_cleave') {
-              first = e.telegraph;
-              pairs++;
+      fight(
+        'vharun',
+        seed,
+        (sim, events) => {
+          for (const e of events) {
+            if (e.type === 'telegraphStarted' && e.name === 'Twin Cleave') {
+              // The second blow is its own attack, started as the first resolves.
+              const t = sim.state.telegraphs.find((x) => x.id === e.telegraph);
+              if (t?.attackId === 'vharun_twin_cleave') {
+                first = e.telegraph;
+                pairs.set(first, []);
+              }
+              blows.set(e.telegraph, { target: e.target, pair: first });
             }
-            blows.set(e.telegraph, { target: e.target, pair: first });
+            if (e.type !== 'telegraphResolved' || e.outcome === 'cancelled') continue;
+            const blow = blows.get(e.telegraph);
+            if (!blow || e.target === null || e.target !== blow.target) continue;
+            pairs.get(blow.pair)?.push(e.outcome);
           }
-          if (e.type !== 'telegraphResolved' || e.outcome !== 'hit') continue;
-          const blow = blows.get(e.telegraph);
-          if (!blow || e.target === null || e.target !== blow.target) continue;
-          const n = (hits.get(blow.pair) ?? 0) + 1;
-          hits.set(blow.pair, n);
-          if (n === 2) unanswered++;
-        }
-      });
+        },
+        { bot },
+      );
+      for (const outcomes of pairs.values()) {
+        if (outcomes.length < 2) continue;
+        counted++;
+        if (outcomes.some((o) => o !== 'hit')) answered++;
+      }
     }
-    expect(pairs).toBeGreaterThan(5);
-    expect(1 - unanswered / pairs).toBeGreaterThanOrEqual(0.8);
+    return { counted, answered, rate: answered / Math.max(1, counted) };
+  }
+
+  it('answers every Twin Cleave on its target: a Ward, a Reel or a step for one blow or both', () => {
+    // Twelve seeds: the Skilled bot steps out of most blows, so only about one pair in five
+    // resolves both blows on its hero. Measured (seeds 1000 + i × 7919): Skilled 19 of 21 pairs
+    // answered (90%; 14 of 15, 93%, on 500003 + i × 7919), Novice 26 of 121 (21%), Idle 0 of 12.
+    const seeds = Array.from({ length: 12 }, (_, i) => 1000 + i * 7919);
+    const skilled = twinCleaves('skilled', seeds);
+    expect(skilled.counted).toBeGreaterThanOrEqual(10);
+    expect(skilled.rate).toBeGreaterThanOrEqual(0.8);
+    // A bot that answers nothing is nowhere near it.
+    const idle = twinCleaves('idle', seeds);
+    expect(idle.counted).toBeGreaterThan(5);
+    expect(idle.rate).toBeLessThanOrEqual(0.2);
   });
 
   it('keeps the Execution target at or above 40% in 80% of casts', () => {

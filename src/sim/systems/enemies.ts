@@ -297,8 +297,12 @@ function basicAttack(world: World, e: Entity, def: EnemyDef, target: Entity): vo
     });
     const result = dealDamage(world, target, { source: e.id, sourceName: def.name, amount });
     // On-hit payloads (P3): the def's and its affix's; applyOnHit needs the hit to have landed.
-    if (def.basic.onHit || affixOnHit(world, c.affixes))
+    if (def.basic.onHit || affixOnHit(world, c.affixes)) {
       applyOnHit(world, e, target, result.dealt, def.basic.onHit);
+      // Oathkeeper (Bonds): Kael took the hit, and what it carries (as a telegraph's).
+      const kael = result.takenBy === undefined ? undefined : world.entities.get(result.takenBy);
+      if (kael) applyOnHit(world, e, kael, result.takenDealt ?? 0, def.basic.onHit);
+    }
     return;
   }
   const d = len(target.x - e.x, target.z - e.z);

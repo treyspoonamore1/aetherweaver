@@ -234,6 +234,8 @@ export interface HeroHold {
   savedBy: SaveCause | null;
   /** The damage-over-time status whose tick was held (Movement II); absent otherwise. */
   dot?: StatusId;
+  /** The answers the held telegraph wanted (Movement II, as on the death record); absent otherwise. */
+  answers?: AnswerTag[];
 }
 
 export interface HeroComponent {

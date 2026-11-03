@@ -236,7 +236,9 @@ export const LEGION_ENCOUNTERS: ContentInput['encounters'] = [
     movement: 2,
   },
   {
-    // Row 2 elite: Sentinel → Focus; Vampiric → Chime before Mend.
+    // Row 2 elite: Sentinel → Focus; Vampiric → Chime before Mend. A hound more in the second
+    // wave: after the review round's Blood Pact fixes the Novice won 79% (band 35-75%;
+    // docs/phase-5a.md, "Tuning (shipped)").
     id: 'shield_wall',
     name: 'The Shield Wall',
     kind: 'elite',
@@ -255,7 +257,7 @@ export const LEGION_ENCOUNTERS: ContentInput['encounters'] = [
         spawns: [
           { enemy: 'impaler', count: 1, elite: true, affixes: ['hastened'] },
           { enemy: 'hemomancer', count: 1 },
-          { enemy: 'sanguine_hound', count: 4 },
+          { enemy: 'sanguine_hound', count: 5 },
         ],
       },
       {
@@ -279,7 +281,10 @@ export const LEGION_ENCOUNTERS: ContentInput['encounters'] = [
     movement: 2,
   },
   {
-    // Row 3 elite.
+    // Row 3 elite. A hound moved from the second wave (two Impalers' pins and three Leeches'
+    // latches, all wanting Reel at once) to the last, a fourth of them Volatile: the Skilled bot
+    // sat at its floor there (82-92% across seed sets), and a blast the Novice stands in keeps
+    // its rate down (docs/phase-5a.md, "Tuning (shipped)").
     id: 'blood_forge',
     name: 'The Blood Forge',
     kind: 'elite',
@@ -298,16 +303,16 @@ export const LEGION_ENCOUNTERS: ContentInput['encounters'] = [
         spawns: [
           { enemy: 'impaler', count: 2 },
           { enemy: 'leech', count: 3 },
-          { enemy: 'sanguine_hound', count: 2 },
+          { enemy: 'sanguine_hound', count: 1 },
         ],
       },
       {
         delay: 3,
         spawns: [
-          { enemy: 'sanguine_hound', count: 3, elite: true, affixes: ['volatile'] },
+          { enemy: 'sanguine_hound', count: 4, elite: true, affixes: ['volatile'] },
           { enemy: 'hemomancer', count: 1 },
           { enemy: 'impaler', count: 1, elite: true, affixes: ['vampiric'] },
-          { enemy: 'sanguine_hound', count: 2 },
+          { enemy: 'sanguine_hound', count: 3 },
         ],
       },
     ],
