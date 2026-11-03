@@ -34,7 +34,8 @@ export function StarlightGainPanel({
   all = false,
   mastery = null,
 }: {
-  result: Pick<EncounterResult, 'kind' | 'outcome' | 'starlight' | 'xp'>;
+  result: Pick<EncounterResult, 'kind' | 'outcome' | 'starlight' | 'xp'> &
+    Partial<Pick<EncounterResult, 'wonRun' | 'movement'>>;
   dissonance?: readonly DissonanceChoice[];
   /** The profile's Starlight now (this fight's included); omitted: not shown. */
   balance?: number;

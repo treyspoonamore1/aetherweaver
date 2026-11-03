@@ -1,5 +1,5 @@
 /** Plain-text parts of the Result screen (testable without React). */
-import type { EncounterResult, EncounterStats, RunCalling } from '../../meta/types';
+import type { DeathRecap, EncounterResult, EncounterStats, RunCalling } from '../../meta/types';
 import { CONTENT } from '../../content';
 import { callingResultLine, rewindsFor, techniqueName } from './callingText';
 import { callingLook } from '../kit/callingLook';
@@ -39,15 +39,58 @@ export function readyName(t: string, callingId: string | null | undefined): stri
 }
 
 /**
- * Phase 5a: a death to a damage-over-time status names what answered it (the recap's `answers`):
- * "Answer: Chime", "Answers: Reel or Chime". Null when the recap has none (every Movement I death).
+ * The answers a death names, for the run's Calling: on a Chronomancer run Reel's slot casts
+ * Rewind, which frees no one, so Reel is never named. A pin's answer becomes Ward (it soaks what
+ * the pin deals, as the HUD's hint says) and a latch's becomes Chime. Deduplicated, in order.
  */
-export function deathAnswerLine(answers: readonly string[] | undefined): string | null {
-  const names = [...new Set(answers ?? [])].map(
+export function deathAnswers(
+  answers: readonly string[] | undefined,
+  callingId?: string | null,
+): string[] {
+  const tags = [...new Set(answers ?? [])];
+  if (!rewindsFor(callingId) || !tags.includes('reel')) return tags;
+  const rest = tags.filter((t) => t !== 'reel');
+  // Reel alone answered the pin; a latch keeps its Chime.
+  return rest.length > 0 ? rest : ['ward'];
+}
+
+/**
+ * Phase 5a: a death names what answered it (the recap's `answers`: a damage-over-time status's,
+ * Execution's, a Blood Pact's): "Answer: Chime", "Answers: Mend or Ward". Calling-aware like
+ * `readyName` (`deathAnswers`). Null when the recap has none (every Movement I death).
+ */
+export function deathAnswerLine(
+  answers: readonly string[] | undefined,
+  callingId?: string | null,
+): string | null {
+  const names = deathAnswers(answers, callingId).map(
     (a) => (ANSWER as Record<string, { label: string } | undefined>)[a]?.label ?? a,
   );
   if (names.length === 0) return null;
   return `${names.length === 1 ? 'Answer' : 'Answers'}: ${names.join(' or ')}`;
+}
+
+/**
+ * The recap's line on the techniques that were ready: "ready" lists them (`couldAnswer`: one of
+ * them answers the death, or the death names no answer, as every Movement I death); "cooldown"
+ * when nothing was ready and no answer is named; null when nothing was ready but an answer is
+ * named (Mend, Scatter: never on cooldown, so the recap must not say everything was).
+ */
+export function deathReadyLine(
+  d: Pick<DeathRecap, 'readyTechniques' | 'answers'>,
+  callingId?: string | null,
+): { kind: 'ready'; names: string; couldAnswer: boolean } | { kind: 'cooldown' } | null {
+  const wanted = deathAnswers(d.answers, callingId);
+  if (d.readyTechniques.length === 0) return wanted.length > 0 ? null : { kind: 'cooldown' };
+  // Reel's slot is Rewind's on a Chronomancer run, and `deathAnswers` never names Reel there.
+  const rewinds = rewindsFor(callingId);
+  return {
+    kind: 'ready',
+    names: d.readyTechniques.map((t) => readyName(t, callingId)).join(', '),
+    couldAnswer:
+      wanted.length === 0 ||
+      d.readyTechniques.some((t) => wanted.includes(t) && !(t === 'reel' && rewinds)),
+  };
 }
 
 /** A fight's (or a run's) stats as the auras / Thread / everything split. */

@@ -8,9 +8,11 @@
 import { CONTENT } from '../../content';
 import { dissonancePoints, xpMult, type DissonanceChoice } from '../../meta/dissonance';
 import { runStarlight as runPaid } from '../../meta/loom';
+import { movementRewards } from '../../meta/run';
 import type { EncounterResult, RunState } from '../../meta/types';
 import { fmt } from '../kit/format';
 import { endsRun } from './rankText';
+import { movementLabel } from './routeText';
 
 const S = () => CONTENT.starlight;
 
@@ -41,12 +43,12 @@ export function dissonanceLine(dissonance: readonly DissonanceChoice[]): string 
 
 /**
  * What a fight paid and why: "6 for an elite won", "20 for the boss, 15 for winning the run",
- * with Dissonance's multiplier; a loss pays nothing. Null for a fight that never pays (the
- * sandbox).
+ * a later Movement's raise ("9 for Movement II · ×1.25", as `fightXp` shows it), with
+ * Dissonance's multiplier; a loss pays nothing. Null for a fight that never pays (the sandbox).
  */
 export function fightStarlight(
   r: Pick<EncounterResult, 'kind' | 'outcome' | 'starlight'> &
-    Partial<Pick<EncounterResult, 'wonRun'>>,
+    Partial<Pick<EncounterResult, 'wonRun' | 'movement'>>,
   dissonance: readonly DissonanceChoice[] = [],
 ): { amount: number; headline: string; detail: string } | null {
   const base = (S().fights as Record<string, number>)[r.kind];
@@ -62,7 +64,13 @@ export function fightStarlight(
   if (amount === 0 && base > 0)
     return { amount, headline: starlightHeadline(0), detail: 'Won before Starlight was paid.' };
   const parts = [`${base} for ${KIND[r.kind] ?? 'a fight'} won`];
+  const pay = base + (endsRun(r) ? S().winBonus : 0);
   if (endsRun(r)) parts.push(`${S().winBonus} for winning the run`);
+  // Phase 5a: a later Movement's fights pay more (Movement II ×1.25), so the lines add up.
+  const movement = r.movement ?? 1;
+  const mult = movementRewards(movement).starlight;
+  const raised = Math.round(pay * mult) - pay;
+  if (raised > 0) parts.push(`${raised} for ${movementLabel(movement)} · ×${mult}`);
   const d = dissonanceLine(dissonance);
   return {
     amount,
@@ -112,10 +120,12 @@ export function runStarlight(
 ): RunStarlight {
   const paid = runPaid(run);
   const won = run.results.filter((r) => r.outcome === 'victory' && r.kind !== 'sandbox').length;
-  const winner = run.results.some((r) => endsRun(r));
-  const bonus = winner
-    ? Math.min(paid.fights, Math.round(S().winBonus * xpMult(dissonancePoints(run.dissonance))))
-    : 0;
+  const winner = run.results.find((r) => endsRun(r));
+  // The bonus is paid with the run's final fight, at its Movement's multiplier (Phase 5a).
+  const mult =
+    xpMult(dissonancePoints(run.dissonance)) *
+    (winner ? movementRewards(winner.movement ?? 1).starlight : 1);
+  const bonus = winner ? Math.min(paid.fights, Math.round(S().winBonus * mult)) : 0;
   const lines: RunStarlightLine[] = [
     {
       label: 'Fights',
