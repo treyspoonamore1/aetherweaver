@@ -63,6 +63,7 @@ import {
   categoryOptions,
   craftPreview,
   defaultArg,
+  enshrineHow,
   inscriptionOptions,
   instabilityView,
   isFull,
@@ -437,8 +438,7 @@ export function ReliquaryView({
             </div>
             {relics.length === 0 && (
               <p className="mt-2 text-xs leading-relaxed text-muted" data-testid="reliquary-empty">
-                Win a run to enshrine one of the relics it found: its Summary asks which. It arrives
-                with its first Inscriptions.
+                {enshrineHow()}: its Summary asks which. It arrives with its first Inscriptions.
               </p>
             )}
           </Panel>
@@ -859,8 +859,8 @@ function EmptyDetail() {
         <li className="flex gap-2">
           <Icon name="crown" size={16} className="mt-0.5 shrink-0 text-gold-300" />
           <span>
-            <b>Enshrine.</b> A won run’s Summary lets you keep one relic it found. It arrives with
-            its first Inscriptions.
+            <b>Enshrine.</b> The Summary of a won Prelude, or of an Expedition that reached Movement
+            II, lets you keep one relic it found. It arrives with its first Inscriptions.
           </span>
         </li>
         <li className="flex gap-2">

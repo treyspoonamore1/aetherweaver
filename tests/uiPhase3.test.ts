@@ -35,7 +35,7 @@ import {
   fightXp,
   rankPanel,
   runRank,
-  wonTheRun,
+  endsRun,
   xpGain,
   xpHeadline,
 } from '../src/ui/screens/rankText';
@@ -183,13 +183,17 @@ describe('Weaver Rank text', () => {
     const r = resultRun(true).lastResult!;
     const x = fightXp(r);
     expect(x.total).toBe(r.xp);
-    expect(x.lines).toEqual(xpForFight(r, wonTheRun(r)).lines);
+    expect(x.lines).toEqual(xpForFight(r, endsRun(r)).lines);
     expect(x.lines.reduce((s, l) => s + l.xp, 0)).toBe(r.xp);
     expect(xpHeadline(x.total)).toBe(`+${x.total} Weaver XP`);
     const loss = resultRun(false, 1).lastResult!;
     expect(fightXp(loss).lines[0]!.label).toMatch(/\(lost\)/);
-    expect(wonTheRun({ kind: 'boss', outcome: 'victory' })).toBe(true);
-    expect(wonTheRun({ kind: 'miniboss', outcome: 'victory' })).toBe(false);
+    expect(endsRun({ kind: 'boss', outcome: 'victory' })).toBe(true);
+    expect(endsRun({ kind: 'miniboss', outcome: 'victory' })).toBe(false);
+    // Movement II (docs/phase-5a.md): only the final node's `wonRun` wins the run; an
+    // Expedition's Cantor is a won boss that doesn't.
+    expect(endsRun({ kind: 'boss', outcome: 'victory', wonRun: false })).toBe(false);
+    expect(endsRun({ kind: 'boss', outcome: 'victory', wonRun: true })).toBe(true);
   });
 
   it('xp bar before and after a gain, across a rank-up', () => {

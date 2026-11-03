@@ -6,6 +6,7 @@ import { KeyCap } from '../kit/KeyCap';
 import { Modal } from '../kit/Modal';
 import { bindingLabel } from './labels';
 import { useUi } from '../store';
+import { abandonLine } from '../screens/routeText';
 
 /**
  * Pause menu (Esc): resume, settings, Edit HUD layout (the party frames moved and sized,
@@ -16,8 +17,11 @@ export function PauseMenu({
   onResume,
   onAbandon,
   onLeave,
+  movements = 1,
 }: {
   mode: 'run' | 'training';
+  /** The run's Movements (docs/phase-5a.md): 1, the Prelude; more, an Expedition. */
+  movements?: number;
   onResume: () => void;
   /** Run only: gives up the run (goes to the Summary). */
   onAbandon?: () => void;
@@ -41,7 +45,7 @@ export function PauseMenu({
     return (
       <Modal title="Abandon this run?" width="max-w-md">
         <p className="mt-2 text-sm leading-relaxed text-muted">
-          The Prelude ends here and you go straight to the summary. This cannot be undone.
+          {abandonLine({ movements }, true)}
         </p>
         <div className="mt-5 flex justify-end gap-2">
           <Button variant="secondary" data-autofocus onClick={() => setView('menu')} sound="back">

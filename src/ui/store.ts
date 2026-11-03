@@ -152,6 +152,14 @@ export interface HeroHud {
    */
   grace: { amount: number; remaining: number; cap: number } | null;
   hovered: boolean;
+  // ── Movement II (docs/phase-5a.md). Absent: the frame draws as before. ──
+  /**
+   * Healing they receive is cut to this share (a Wound ×0.5, Bloodmoon outside the pools ×0.5,
+   * both ×0.25): the frame's hatched edge. Absent at full healing.
+   */
+  healCut?: number;
+  /** Execution is cast on them: below this share of their life when it lands, they die. */
+  execute?: number;
 }
 
 /** What the Chronomancer's Rewind would do to a hero now (`HeroHud.rewind`). */
@@ -383,6 +391,10 @@ export interface BossHud {
   bloodmoon?: boolean;
   /** Execution's target, by name, while it's cast (null: none). */
   executeTarget?: string | null;
+  /** The boss's enemy def (its cast icon). */
+  defId?: string;
+  /** With `pips`: the blow being cast now (1-based). */
+  pip?: number;
 }
 
 export interface EncounterHud {
@@ -433,6 +445,13 @@ export interface HudSnapshot {
   dissonance: DissonanceHud | null;
   entityCount: number;
   dummyCount: number;
+  /**
+   * Movement II (docs/phase-5a.md): the enemy defs alive in the fight, first seen first (the
+   * first-sighting cards, the Sentinel hint). Absent with none.
+   */
+  foes?: string[];
+  /** The Hollow Cantor's hymn circles standing now (absent: none). */
+  hymnCircles?: number;
 }
 
 export interface PerfStats {
@@ -462,7 +481,9 @@ export type CalloutKind =
   | 'solo'
   | 'call'
   | 'response'
-  | 'hold';
+  | 'hold'
+  /** Movement II: a foe met for the first time (`key` is `sighting:<defId>`). */
+  | 'sighting';
 
 export interface Callout {
   id: number;

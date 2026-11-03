@@ -35,6 +35,7 @@ import type {
   ChordLoadout,
   CombatOutcome,
   ForgeService,
+  MapNode,
   NodeKind,
   OwnedRelic,
   RelicOffer,
@@ -57,6 +58,7 @@ import {
   type SimEvent,
 } from '../../sim';
 import { buildHudSnapshot } from '../hudBridge';
+import { sightingCallout } from '../hud/sighting';
 import { foreseenAll, rewindPreview } from '../hud/chrono';
 import { callingLook } from '../kit/callingLook';
 import { EVERYTHING, MAX_RANK, UNLOCKS } from '../../meta/profile';
@@ -509,6 +511,8 @@ function mockHudRaw(scenario: HudScenario): HudSnapshot {
           shield: 3000,
           phase: 3,
           phases: 3,
+          phaseAt: [0.7, 0.4],
+          defId: 'the_hollow_cantor',
           cast: { name: 'Requiem', progress: 0.55, answers: ['dome', 'ward'] },
           enrageIn: 24,
           decree: {
@@ -3051,4 +3055,276 @@ export function mockVariantsHud(
   };
   variantsCache.set(key, out);
   return out;
+}
+
+// ── Phase 5a: Movement II, the Crimson Legion ─────────────────────────────────────────
+
+/**
+ * The run's map with Movement II appended (global rows 10-16, `movement: 2`), as an Expedition's
+ * is: the fixed stops, the lesson row, the pools in teaching order and the Movement's events.
+ * A map that has Movement II already is kept as it is. Edges join each row to the next; the
+ * Cantor leads to its first stop.
+ */
+export function withMovementTwo(run: RunState): RunState {
+  if (run.map.rows.some((row) => row[0]?.movement === 2)) return { ...run, movements: 2 };
+  const def = CONTENT.movements[1]!;
+  const first = run.map.rows.length;
+  const pools: Record<number, string[]> = {
+    1: [...(def.lessons ?? [])],
+    2: [def.skirmishes[0]!, def.elites[0]!],
+    3: [def.skirmishes[1]!, def.elites[1]!],
+  };
+  const events = CONTENT.events.filter((e) => e.movement === 2).map((e) => e.id);
+  const fixed = new Map(def.fixed.map((f) => [f.row, f.encounter]));
+  const rows: MapNode[][] = def.rows.map((kinds, i) => {
+    const row = first + i;
+    const pool = [...(pools[i] ?? [])];
+    return kinds.map((kind, col): MapNode => {
+      const fight =
+        kind === 'skirmish' || kind === 'elite' || kind === 'miniboss' || kind === 'boss';
+      const pooled = fixed.get(i) ?? (fight ? (pool.shift() ?? null) : null);
+      const next =
+        i + 1 < def.rows.length ? def.rows[i + 1]!.map((_, c) => `r${row + 1}c${c}`) : [];
+      return {
+        id: `r${row}c${col}`,
+        row,
+        x: kinds.length === 1 ? 0.5 : col / (kinds.length - 1),
+        kind,
+        encounterId: kind === 'miniboss' ? def.miniboss : kind === 'boss' ? def.boss : pooled,
+        eventId: kind === 'event' ? (events.shift() ?? null) : null,
+        next,
+        reward: {
+          draft: kind === 'miniboss' ? 'epic' : fight ? 'common' : null,
+          heal: kind === 'respite' ? 0.5 : 0,
+          aether: fight ? 25 : 0,
+          relics: kind === 'elite' ? 2 : kind === 'miniboss' ? 3 : 0,
+          threat: 1 + 0.03 * i,
+          text:
+            kind === 'boss'
+              ? 'Vharun, the Crimson Warden. Break the Legion.'
+              : kind === 'miniboss'
+                ? 'The Gorehound Matriarch. An epic motif and rare relics.'
+                : fight
+                  ? 'A fight: a motif and Aether.'
+                  : 'A stop on the climb.',
+        },
+        movement: 2,
+      };
+    });
+  });
+  // The Cantor is no longer final: it leads on, and pays as a non-final boss does.
+  const mapRows = run.map.rows.map((row) =>
+    row.map((n) =>
+      n.kind === 'boss' && n.next.length === 0
+        ? {
+            ...n,
+            next: [`r${first}c0`],
+            reward: {
+              ...n.reward,
+              draft: 'epic' as const,
+              relics: 3,
+              aether: 50,
+              heal: 0.5,
+              text: 'The Hollow Cantor. Beyond it, the Crimson Spire.',
+            },
+          }
+        : n,
+    ),
+  );
+  return { ...run, movements: 2, map: { rows: [...mapRows, ...rows] } };
+}
+
+/** The Cantor's node of a run's map. */
+function cantorNode(run: RunState): MapNode {
+  return run.map.rows.flat().find((n) => n.encounterId === 'hollow_cantor')!;
+}
+
+/**
+ * An Expedition on its map: `arrive` just past the Cantor (Movement II's first stop ahead, its
+ * card due); `climb` two stops into Movement II.
+ */
+export function expeditionRun(stage: 'arrive' | 'climb' = 'arrive', seed = 7): RunState {
+  const won = victoryRun(seed);
+  let run = withMovementTwo({ ...won, phase: 'map', outcome: null, pending: null });
+  const cantor = cantorNode(run);
+  const path = run.path.includes(cantor.id) ? [...run.path] : [...run.path, cantor.id];
+  run = { ...run, path };
+  if (stage === 'climb') {
+    const r = cantor.row + 1;
+    run = { ...run, path: [...run.path, `r${r}c0`, `r${r + 1}c1`] };
+  }
+  return run;
+}
+
+/** An Expedition in Prep (its route chosen). */
+export function expeditionPrepRun(seed = 7): RunState {
+  return withMovementTwo(Run.newRun(seed));
+}
+
+/**
+ * An Expedition's Summary: `victory` past Vharun; `defeat` fallen at the Matriarch (it reached
+ * Movement II, so it may enshrine).
+ */
+export function expeditionSummaryRun(outcome: 'victory' | 'defeat'): RunState {
+  const run = expeditionRun('climb');
+  const rows = run.map.rows.filter((row) => row[0]?.movement === 2);
+  const through = outcome === 'victory' ? rows : rows.slice(0, 5);
+  const path = [...run.path];
+  for (const row of through) if (!row.some((n) => path.includes(n.id))) path.push(row[0]!.id);
+  return { ...run, path, phase: 'summary', outcome, pending: null };
+}
+
+/** The HUD in Movement II, each a mid-fight moment: the Legion's threats, the two bosses. */
+export type LegionScenario =
+  | 'legion'
+  | 'legion-sighting'
+  | 'matriarch'
+  | 'vharun-cleave'
+  | 'vharun-bloodmoon'
+  | 'vharun-execution';
+
+export function legionHud(scenario: LegionScenario): HudSnapshot {
+  const base = mockHud('calm');
+  const encounter = (id: string) => {
+    const def = CONTENT.encounters.find((e) => e.id === id)!;
+    return { ...base.encounter, id, name: def.name, kind: def.kind, par: def.par };
+  };
+  switch (scenario) {
+    case 'legion':
+    case 'legion-sighting':
+      return {
+        ...base,
+        party: [
+          hero(0, 'kael', {
+            hp: 1080,
+            statuses: [{ id: 'bleed', remaining: 4.2, duration: 6, stacks: 6 }],
+            threaded: true,
+          }),
+          hero(1, 'lyra', {
+            hp: 520,
+            statuses: [{ id: 'pinned', remaining: 2.8, duration: 4 }],
+          }),
+          hero(2, 'vexis', {
+            hp: 430,
+            statuses: [{ id: 'wound', remaining: 3.1, duration: 4 }],
+            healCut: 0.5,
+          }),
+        ],
+        encounter: encounter('red_muster'),
+        foes: ['crimson_sentinel', 'sanguine_hound', 'impaler'],
+      };
+    case 'matriarch':
+      return {
+        ...base,
+        party: [
+          hero(0, 'kael', {
+            hp: 1150,
+            statuses: [{ id: 'bleed', remaining: 5.6, duration: 6, stacks: 4 }],
+          }),
+          hero(1, 'lyra', { hp: 610, incoming: 451, lethal: false }),
+          hero(2, 'vexis', { hp: 690, threaded: true }),
+        ],
+        boss: {
+          id: 7,
+          name: 'Gorehound Matriarch',
+          hp: 17400,
+          maxHp: 38700,
+          shield: 0,
+          phase: 2,
+          phases: 2,
+          phaseAt: [0.5],
+          defId: 'gorehound_matriarch',
+          cast: { name: 'Pounce', progress: 0.6, answers: ['reel', 'ward', 'move'] },
+          enrageIn: 140,
+          decree: {
+            name: 'Blood Frenzy',
+            text: 'The Matriarch hunts faster. Cleanse the bleeding; Focus the pack.',
+          },
+          foreseen: null,
+        },
+        encounter: encounter('gorehound_matriarch'),
+        foes: ['gorehound_matriarch', 'sanguine_hound'],
+      };
+    case 'vharun-cleave':
+    case 'vharun-bloodmoon':
+    case 'vharun-execution': {
+      const phase = scenario === 'vharun-cleave' ? 1 : scenario === 'vharun-bloodmoon' ? 2 : 3;
+      const bloodmoon = phase >= 2;
+      const execution = scenario === 'vharun-execution';
+      return {
+        ...base,
+        party: [
+          hero(0, 'kael', {
+            hp: execution ? 1240 : 1320,
+            incoming: scenario === 'vharun-cleave' ? 940 : 0,
+            threaded: true,
+            ...(bloodmoon ? { healCut: 0.5 } : {}),
+          }),
+          hero(1, 'lyra', {
+            hp: execution ? 260 : 540,
+            statuses: execution
+              ? [{ id: 'condemned', remaining: 2.4, duration: 4 }]
+              : [{ id: 'pact', remaining: 4, duration: 6 }],
+            ...(execution ? { execute: 0.4, incoming: 75 } : {}),
+          }),
+          hero(2, 'vexis', {
+            hp: 520,
+            statuses: execution
+              ? []
+              : bloodmoon
+                ? [
+                    { id: 'pact', remaining: 4, duration: 6 },
+                    { id: 'wound', remaining: 2, duration: 4 },
+                  ]
+                : [{ id: 'pact', remaining: 4, duration: 6 }],
+            ...(bloodmoon ? { healCut: execution ? 0.5 : 0.25 } : {}),
+          }),
+        ],
+        boss: {
+          id: 7,
+          name: 'Vharun, the Crimson Warden',
+          hp: phase === 1 ? 74000 : phase === 2 ? 41000 : 22000,
+          maxHp: 90300,
+          shield: 0,
+          phase,
+          phases: 3,
+          phaseAt: [0.66, 0.33],
+          defId: 'vharun_crimson_warden',
+          cast:
+            scenario === 'vharun-cleave'
+              ? { name: 'Twin Cleave', progress: 0.7, answers: ['ward', 'reel', 'dome'] }
+              : execution
+                ? { name: 'Execution', progress: 0.4, answers: ['mend', 'ward'] }
+                : null,
+          ...(scenario === 'vharun-cleave' ? { pips: 2, pip: 1 } : {}),
+          ...(bloodmoon ? { bloodmoon: true } : {}),
+          ...(execution ? { executeTarget: 'Lyra' } : {}),
+          enrageIn: 210,
+          decree: execution
+            ? {
+                name: 'Execution',
+                text: 'Execution — the weakest hero is condemned. Heal them above 40% or Ward them.',
+              }
+            : null,
+          foreseen: null,
+        },
+        encounter: encounter('vharun'),
+        foes: ['vharun_crimson_warden'],
+      };
+    }
+  }
+}
+
+/** The callouts over a Movement II moment (a first sighting's card among them). */
+export function legionCallouts(scenario: LegionScenario): Callout[] {
+  if (scenario !== 'legion-sighting') return [];
+  const far = performance.now() + 1e9;
+  return [{ id: 900, ...sightingCallout('crimson_sentinel'), expiresAt: far }];
+}
+
+/** An Expedition fallen in Movement II with relics found, its Reliquary open: it may enshrine. */
+export function expeditionReliquaryRun(): RunState {
+  const found = reliquarySummaryRun('victory');
+  const run = { ...expeditionSummaryRun('defeat'), carried: found.carried, relics: found.relics };
+  return { ...run, reliquary: { ...runMaterials(run), enshrined: null } };
 }

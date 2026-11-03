@@ -91,6 +91,15 @@ export const ANSWER_HINTS: ReadonlySet<string> = new Set([
   'big-hit',
   'marked',
   'boss-cast',
+  // Movement II (docs/phase-5a.md): each names the answer its threat wants.
+  'bleed',
+  'pinned',
+  'pact',
+  'latched',
+  'wound',
+  'guard',
+  'bloodmoon',
+  'execution',
 ]);
 
 /** All hints that apply right now, most important first. */
@@ -190,6 +199,7 @@ function allHints(hud: HudSnapshot): Hint[] {
       });
     }
   }
+  out.push(...movementTwoHints(hud, { Q, E, F }));
   for (const h of party.filter((p) => p.downed && !p.dead)) {
     out.push({
       id: 'downed',
@@ -276,9 +286,11 @@ function allHints(hud: HudSnapshot): Hint[] {
   if (w.fieldSuppressed) {
     out.push({
       id: 'silenced',
-      text: hud.boss
-        ? `Your auras are silenced — bring the party into a hymn circle with Rally {${bindingLabel('directiveRally')}}`
-        : `Your auras are silenced — mark the Mute with {${bindingLabel('directiveFocus')}} so the party breaks its dome`,
+      // The hymn circles are the Hollow Cantor's: only while they stand do they help.
+      text:
+        (hud.hymnCircles ?? 0) > 0
+          ? `Your auras are silenced — bring the party into a hymn circle with Rally {${bindingLabel('directiveRally')}}`
+          : `Your auras are silenced — mark the Mute with {${bindingLabel('directiveFocus')}} so the party breaks its dome`,
     });
   }
   const reelTarget = party.find((h) => alive(h) && !h.inField && h.distance > w.fieldRadius + 3);
@@ -416,3 +428,84 @@ function reelHint(name: string, variant: string | null, F: string): string {
   if (variant) return `${name} is in a lethal zone — ${variantName(variant)} ${F} on them`;
   return `${name} is in a lethal zone — Reel them out ${F}`;
 }
+
+// ── Movement II (docs/phase-5a.md) ───────────────────────────────────────────────────
+
+/** Chime the bleeding from this many stacks (the badge's emphasis). */
+const BLEED_CHIME_AT = 5;
+
+function stacksOf(h: HeroHud, id: string): number {
+  const s = h.statuses.find((x) => x.id === id);
+  return s ? (s.stacks ?? 1) : 0;
+}
+
+/** Enemy defs with a guard arc (the Crimson Sentinel), from content. */
+const GUARDED: ReadonlySet<string> = new Set(
+  CONTENT.enemies.filter((e) => e.guard).map((e) => e.id),
+);
+
+/**
+ * The Crimson Legion's threats, each with the verb it teaches: Chime a stack, Reel to free,
+ * Scatter a pact, Focus to flank, heal where Bloodmoon holds, lift the condemned.
+ */
+function movementTwoHints(hud: HudSnapshot, keys: { Q: string; E: string; F: string }): Hint[] {
+  const { Q, E, F } = keys;
+  const out: Hint[] = [];
+  const up = hud.party.filter(alive);
+  const boss = hud.boss;
+  if (boss?.executeTarget) {
+    const pct = Math.round(
+      (up.find((h) => h.execute !== undefined)?.execute ?? EXECUTE_DEFAULT) * 100,
+    );
+    out.push({
+      id: 'execution',
+      text: `${boss.executeTarget} is condemned — lift them above ${pct}% before it lands, or Ward ${Q} them`,
+    });
+  }
+  for (const h of up) {
+    const bleed = stacksOf(h, 'bleed');
+    if (bleed >= BLEED_CHIME_AT)
+      out.push({
+        id: 'bleed',
+        text: `${h.name} is bleeding ×${bleed} — Chime ${E} on them to cleanse every stack`,
+      });
+  }
+  for (const h of up.filter((p) => p.statuses.some((s) => s.id === 'pinned')))
+    out.push({
+      id: 'pinned',
+      text: hud.weaver.rewind
+        ? `${h.name} is pinned — a Ward ${Q} soaks what the pin deals`
+        : `${h.name} is pinned — Reel ${F} frees them`,
+    });
+  for (const h of up.filter((p) => p.statuses.some((s) => s.id === 'latched')))
+    out.push({
+      id: 'latched',
+      text: `A Leech has latched onto ${h.name} — Reel ${F} or Chime ${E} frees them`,
+    });
+  const pact = up.filter((p) => p.statuses.some((s) => s.id === 'pact'));
+  if (pact.length > 0)
+    out.push({
+      id: 'pact',
+      text: `${pact.map((h) => h.name).join(' and ')} ${pact.length > 1 ? 'share' : 'carries'} a Blood Pact — Scatter {${bindingLabel('directiveScatter')}}: Chime can’t break it`,
+    });
+  for (const h of up.filter((p) => p.statuses.some((s) => s.id === 'wound')))
+    out.push({
+      id: 'wound',
+      text: `${h.name} is Wounded: healing on them is halved — Chime ${E} before you Mend`,
+    });
+  if (hud.foes?.some((id) => GUARDED.has(id)) && hud.focusTarget === null)
+    out.push({
+      id: 'guard',
+      text: `A Crimson Sentinel’s shield blocks most of a blow from the front — Focus it {${bindingLabel('directiveFocus')}} so the party flanks`,
+    });
+  if (boss?.bloodmoon)
+    out.push({
+      id: 'bloodmoon',
+      text: `Bloodmoon: healing is halved outside the pools — stand in one and Rally {${bindingLabel('directiveRally')}} the party to you. Reel ${F} frees a pinned hero into your pool`,
+    });
+  return out;
+}
+
+/** Execution's line when no frame carries it (content's `executeBelow`). */
+const EXECUTE_DEFAULT =
+  CONTENT.attacks.find((a) => a.executeBelow !== undefined)?.executeBelow ?? 0.4;

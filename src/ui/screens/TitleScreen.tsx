@@ -11,6 +11,8 @@ import { arrowFocus, useGamepadMenu } from '../kit/menuNav';
 import { playUi, unlockAudio, useMood } from '../kit/sound';
 import { useUi } from '../store';
 import { RankPanelView } from './Rank';
+import { allowanceFor, rankOf } from '../../meta/profile';
+import { titleEyebrow } from './routeText';
 
 /** Golden threads drifting across the cosmos: the title's "living" layer. */
 function Threads() {
@@ -146,6 +148,9 @@ export function TitleScreen({
   const hasSave = useRun.getState().hasSave();
   const profile = useProfile((s) => s.profile);
   const unlockAll = useSettings((s) => s.settings.unlockAll);
+  // The route the next run takes (docs/phase-5a.md): the Prelude until Expeditions open.
+  const expedition =
+    profile.runMode === 'expedition' && (unlockAll || allowanceFor(rankOf(profile.xp)).expedition);
   const items: {
     label: string;
     icon: IconName;
@@ -172,7 +177,7 @@ export function TitleScreen({
       <Threads />
       <div className="relative z-10 flex h-full flex-col items-center justify-center px-6">
         <p className="anim-fade font-mono text-xs uppercase tracking-[0.4em] text-muted">
-          Movement I · The Prelude
+          {titleEyebrow(expedition)}
         </p>
         <h1
           className="anim-rise mt-4 text-center font-display text-4xl font-bold tracking-wide text-gold-300 min-[430px]:text-5xl sm:text-7xl lg:text-8xl"

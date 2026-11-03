@@ -20,6 +20,7 @@ import {
 import {
   capacityLine,
   enshrineChoices,
+  enshrineHow,
   enshrineStage,
   paidLine,
   releaseView,
@@ -142,9 +143,7 @@ export function EnshrinePanel({
       <p className="text-sm text-text">
         This run paid <b className="text-gold-200">{paidLine(paid)}</b>.
       </p>
-      {stage === 'lost' && (
-        <p className="mt-1 text-sm text-muted">Win a run to enshrine one of the relics it found.</p>
-      )}
+      {stage === 'lost' && <p className="mt-1 text-sm text-muted">{enshrineHow(run)}.</p>}
       {stage === 'none' && (
         <p className="mt-1 text-sm text-muted">
           It found no relic of its own to enshrine: only those it carried in.

@@ -40,7 +40,7 @@ import {
   type Reliquary,
   type ReliquaryRelic,
 } from '../../meta/reliquary';
-import { enshrineOptions } from '../../meta/run';
+import { enshrineEligible, enshrineOptions } from '../../meta/run';
 import { TEAR_TOO_GRADE } from './dissonanceModel';
 import type { OwnedRelic, RunState } from '../../meta/types';
 import { plural } from '../kit/format';
@@ -1098,6 +1098,26 @@ function encounterName(kind: 'miniboss' | 'boss'): string {
   );
 }
 
+/**
+ * Every encounter of a kind, mid-sentence and short ("the Bellwarden or the Gorehound Matriarch",
+ * "the Hollow Cantor or Vharun"): one per Movement (Phase 5a).
+ */
+function encounterNames(kind: 'miniboss' | 'boss'): string[] {
+  const names = CONTENT.encounters
+    .filter((e) => e.kind === kind)
+    .map((e) => midName(e.name.split(',')[0]!));
+  return names.length > 0 ? names : [midName(encounterName(kind))];
+}
+
+/**
+ * The run's final boss: Movement I's for a Prelude, the last Movement's for an Expedition
+ * ("the Hollow Cantor, or Vharun on an Expedition").
+ */
+function finalBossName(): string {
+  const [prelude, ...later] = encounterNames('boss');
+  return later.length > 0 ? `${prelude}, or ${later.join(' or ')} on an Expedition,` : prelude!;
+}
+
 /** Mid-sentence: "the Hollow Cantor". */
 function midName(name: string): string {
   return name.replace(/^The /, 'the ');
@@ -1109,8 +1129,8 @@ export function materialsHow(): { shards: string; tears: string } {
   const grade = RULES().tearGrade;
   const d = CONTENT.dissonanceRules;
   return {
-    shards: `Every run that ends pays them: ${s.perFight} for each fight it won, ${s.elite} more for an elite, ${s.miniboss} more for ${midName(encounterName('miniboss'))} and ${s.boss} more for ${midName(encounterName('boss'))}. Dissonance adds ${d.shardsPerPoint}% a point.`,
-    tears: `A Discord Tear for beating ${midName(encounterName('boss'))} with ${/^[AEFHILMNORSX]/.test(grade) ? 'an' : 'a'} ${grade}. With Dissonance, from ${d.tearOnA} points an ${TEAR_TOO_GRADE} pays one too, and from ${d.tearOnWin} every won run pays one more.`,
+    shards: `Every run that ends pays them: ${s.perFight} for each fight it won, ${s.elite} more for an elite, ${s.miniboss} more for ${encounterNames('miniboss').join(' or ')} and ${s.boss} more for ${encounterNames('boss').join(' or ')}. Dissonance adds ${d.shardsPerPoint}% a point.`,
+    tears: `A Discord Tear for beating ${finalBossName()} with ${/^[AEFHILMNORSX]/.test(grade) ? 'an' : 'a'} ${grade}. With Dissonance, from ${d.tearOnA} points an ${TEAR_TOO_GRADE} pays one too, and from ${d.tearOnWin} every won run pays one more.`,
   };
 }
 
@@ -1168,10 +1188,22 @@ export function enshrineChoices(run: RunState): EnshrineChoice[] {
   });
 }
 
+/**
+ * What enshrines (docs/phase-5a.md): a won Prelude; an Expedition once it reaches Movement II,
+ * won or not. `run`: the line for that run's route; omitted, both.
+ */
+export function enshrineHow(run?: Pick<RunState, 'movements'>): string {
+  if (!run)
+    return 'Win a Prelude, or reach Movement II on an Expedition, to enshrine one of the relics it found';
+  return run.movements >= 2
+    ? 'Reach Movement II to enshrine one of the relics it found'
+    : 'Win a run to enshrine one of the relics it found';
+}
+
 /** Where the Summary's Reliquary panel stands. */
 export type EnshrineStage =
   | 'closed' // the run ended with the Reliquary shut: nothing paid, nothing to keep
-  | 'lost' // not won: it paid, nothing to keep
+  | 'lost' // not eligible (a Prelude not won, an Expedition short of Movement II): nothing to keep
   | 'none' // won, but it found no relic
   | 'full' // won, but the Reliquary must release one first
   | 'choose' // won: choose one (or none)
@@ -1180,7 +1212,8 @@ export type EnshrineStage =
 export function enshrineStage(run: RunState, rq: Pick<Reliquary, 'relics'>): EnshrineStage {
   if (!run.reliquary) return 'closed';
   if (run.reliquary.enshrined) return 'done';
-  if (run.outcome !== 'victory') return 'lost';
+  // A won Prelude, or an Expedition that reached Movement II (docs/phase-5a.md).
+  if (!enshrineEligible(run)) return 'lost';
   if (enshrineOptions(run).length === 0) return 'none';
   return isFull(rq) ? 'full' : 'choose';
 }

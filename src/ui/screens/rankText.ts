@@ -16,6 +16,7 @@ import {
   type XpLine,
 } from '../../meta/profile';
 import { deedPoints } from '../../meta/deeds';
+import { endsRun as runEnds } from '../../meta/run';
 import type { EncounterResult, RunState } from '../../meta/types';
 import { fmt, plural } from '../kit/format';
 import type { IconName } from '../kit/iconPaths';
@@ -96,9 +97,18 @@ export function rankPanel(profile: RankProfile): RankPanel {
   };
 }
 
-/** Did this result finish the run? (The boss node is the only one that wins it.) */
-export function wonTheRun(r: Pick<EncounterResult, 'kind' | 'outcome'>): boolean {
-  return r.outcome === 'victory' && r.kind === 'boss';
+/** What `endsRun` reads of a result. */
+export type RunEnding = Pick<EncounterResult, 'kind' | 'outcome'> &
+  Partial<Pick<EncounterResult, 'wonRun'>>;
+
+/**
+ * Did this result win the run? The meta's rule (`endsRun`, docs/phase-5a.md): only the final node
+ * sets `wonRun` (an Expedition's Cantor doesn't); a result from before Movements has none, and a
+ * won boss stood for it.
+ */
+export function endsRun(r: RunEnding): boolean {
+  // The meta reads only these three fields.
+  return runEnds(r as EncounterResult);
 }
 
 /**
@@ -108,13 +118,14 @@ export function wonTheRun(r: Pick<EncounterResult, 'kind' | 'outcome'>): boolean
  * add up to the headline.
  */
 export function fightXp(
-  r: Pick<EncounterResult, 'kind' | 'outcome' | 'grade' | 'name' | 'xp'>,
+  r: Pick<EncounterResult, 'kind' | 'outcome' | 'grade' | 'name' | 'xp'> &
+    Partial<Pick<EncounterResult, 'wonRun'>>,
   dissonance: readonly DissonanceChoice[] = [],
 ): {
   total: number;
   lines: XpLine[];
 } {
-  const { lines } = xpForFight(r, wonTheRun(r));
+  const { lines } = xpForFight(r, endsRun(r));
   const extra = r.xp - lines.reduce((n, l) => n + l.xp, 0);
   if (extra > 0) {
     const points = dissonancePoints(dissonance);

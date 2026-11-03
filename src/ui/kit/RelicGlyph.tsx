@@ -40,6 +40,10 @@ export const GLYPHS: Readonly<Record<string, string>> = {
   hood: 'M12 3c-4 0-6.5 3.5-6.5 8.5V21h13v-9.5C18.5 6.5 16 3 12 3z M9 12.2c1.2-1 4.8-1 6 0v3c-1.2 1.2-4.8 1.2-6 0z',
   reliquary:
     'M4.5 10.5h15v10h-15z M4.5 10.5a7.5 6 0 0 1 15 0 M4.5 14h15 M12 14v3.2 M12 4.5v-1.5 M10.5 3.8h3',
+  // Movement II's events (Phase 5a): the Tithe Altar's bowl and flame, the Bloodsworn's Cell.
+  altar:
+    'M4 20.5h16 M6 20.5v-7h12v7 M4.5 13.5h15 M8.5 13.5c0-2 1.6-3.2 3.5-3.2s3.5 1.2 3.5 3.2 M12 3.5c1.2 1.4 1.7 2.4 1.3 3.3a1.4 1.4 0 0 1-2.6 0c-.4-.9.1-1.9 1.3-3.3z',
+  cell: 'M4.5 4.5h15v16h-15z M8.5 4.5v16 M12 4.5v16 M15.5 4.5v16 M4.5 9.5h15 M10.3 15.5a1.7 1.7 0 1 0 3.4 0 1.7 1.7 0 0 0-3.4 0z',
 };
 
 /** A relic glyph's path data (a plain diamond for an unknown key). */

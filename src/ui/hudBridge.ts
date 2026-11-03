@@ -10,6 +10,7 @@ import {
 import { liveBindings } from '../input/bindings';
 import {
   auraIds,
+  bossPhaseTable,
   canPay,
   reservePool,
   resolveChord,
@@ -42,7 +43,63 @@ import type { AuraHud, BossHud, ChordHud, HeroHud, HudSnapshot, TechniqueHud } f
 
 const TECHNIQUE_KEYS: readonly TechniqueKey[] = ['ward', 'chime', 'reel', 'glide'];
 const BLEED_OUT = 12;
+/**
+ * Fallbacks only: the boss bar reads the sim's own phases (`bossPhaseTable`). Before a boss's
+ * script is in the sim's table, these keep its bar right: its phase count, and the HP share each
+ * later phase begins at (docs/phase-5a.md).
+ */
 const BOSS_PHASES: Record<string, number> = { the_bellwarden: 2, the_hollow_cantor: 3 };
+const PHASE_AT: Record<string, number[]> = {
+  gorehound_matriarch: [0.5],
+  vharun_crimson_warden: [0.66, 0.33],
+};
+
+/** A boss's phase count and the HP share each phase after the first begins at. */
+export function bossPhasesOf(defId: string): { phases: number; phaseAt: number[] } {
+  const table = bossPhaseTable(defId);
+  if (table.length > 1) return { phases: table.length, phaseAt: table.slice(1).map((p) => p.at) };
+  const at = PHASE_AT[defId];
+  if (at) return { phases: at.length + 1, phaseAt: [...at] };
+  const n = BOSS_PHASES[defId] ?? 1;
+  // An even split, as the bar drew before it knew the thresholds.
+  return { phases: n, phaseAt: Array.from({ length: n - 1 }, (_, i) => (n - 1 - i) / n) };
+}
+
+/**
+ * A multi-blow cast (an attack with a `followUp` chain, Twin Cleave's two blows): how many blows,
+ * and which this attack is (1-based). Null for a single blow.
+ */
+export function blowsOf(attackId: string): { pips: number; pip: number } | null {
+  const chain = followChains().get(attackId);
+  return chain && chain.pips > 1 ? chain : null;
+}
+
+let chains: Map<string, { pips: number; pip: number }> | null = null;
+function followChains(): Map<string, { pips: number; pip: number }> {
+  if (chains) return chains;
+  chains = new Map();
+  const targets = new Set(CONTENT.attacks.flatMap((a) => (a.followUp ? [a.followUp.attack] : [])));
+  for (const head of CONTENT.attacks) {
+    if (!head.followUp || targets.has(head.id)) continue;
+    const ids = [head.id];
+    let next: string | undefined = head.followUp.attack;
+    while (next !== undefined && !ids.includes(next)) {
+      const id: string = next;
+      ids.push(id);
+      next = CONTENT.attacks.find((a) => a.id === id)?.followUp?.attack;
+    }
+    ids.forEach((id, i) => chains!.set(id, { pips: ids.length, pip: i + 1 }));
+  }
+  return chains;
+}
+
+/** Inside one of Bloodmoon's Sanctuary pools (docs/phase-5a.md)? */
+function inPool(
+  pools: readonly { x: number; z: number; r: number }[],
+  e: { x: number; z: number; radius: number },
+): boolean {
+  return pools.some((p) => Math.hypot(e.x - p.x, e.z - p.z) <= p.r + e.radius);
+}
 
 /** Fermata hold: time left to heal them. */
 function heldOf(e: ReadonlyEntity, now: number): HeroHud['held'] {
@@ -166,6 +223,8 @@ export function buildHudSnapshot(
         id: s.id,
         remaining: s.remaining >= 1e8 ? 0 : s.remaining,
         duration: s.duration >= 1e8 ? 0 : s.duration,
+        // A stacking status (bleed): its count, from two up.
+        ...(s.stacks > 1 ? { stacks: s.stacks } : {}),
       })),
       downed: h.downed && !h.dead,
       bleedOut: h.bleedOut,
@@ -230,6 +289,7 @@ export function buildHudSnapshot(
             }
           : null,
       hovered: opts.hovered === id,
+      ...movementTwoMarks(state, e, h),
     });
   });
 
@@ -281,9 +341,13 @@ export function buildHudSnapshot(
   let boss: BossHud | null = null;
   let enemies = 0;
   let dummyCount = 0;
+  const foes: string[] = [];
   for (const e of state.entities.list()) {
     if (e.kind === 'dummy') dummyCount++;
-    if (e.enemy && e.health && !e.health.dead) enemies++;
+    if (e.enemy && e.health && !e.health.dead) {
+      enemies++;
+      if (e.kind !== 'dummy' && !foes.includes(e.enemy.defId)) foes.push(e.enemy.defId);
+    }
   }
   const bossEntity =
     state.encounter.bossId === null ? undefined : state.entities.get(state.encounter.bossId);
@@ -292,6 +356,14 @@ export function buildHudSnapshot(
     const cast = bossEntity.enemy.cast;
     const telegraph =
       cast?.telegraph == null ? undefined : state.telegraphs.find((t) => t.id === cast.telegraph);
+    const { phases, phaseAt } = bossPhasesOf(def.id);
+    const blows = telegraph ? blowsOf(telegraph.attackId) : null;
+    // Execution's mark on a hero, while it's cast (docs/phase-5a.md).
+    const execution = state.telegraphs.find(
+      (t) => t.owner === bossEntity.id && t.executeBelow !== undefined && t.target !== null,
+    );
+    const condemned =
+      execution?.target != null ? state.entities.get(execution.target)?.hero : undefined;
     boss = {
       id: bossEntity.id,
       name: def.name,
@@ -299,7 +371,9 @@ export function buildHudSnapshot(
       maxHp: bossEntity.health.maxHp,
       shield: totalShield(bossEntity),
       phase: bossEntity.enemy.phase,
-      phases: BOSS_PHASES[def.id] ?? 1,
+      phases,
+      phaseAt,
+      defId: def.id,
       cast: cast
         ? {
             name: cast.name,
@@ -319,6 +393,9 @@ export function buildHudSnapshot(
           ? { name: state.encounter.decree.name, text: state.encounter.decree.text }
           : null,
       foreseen: bossForeseen(state, foreseen, bossEntity.id),
+      ...(blows ? blows : {}),
+      ...(state.field.sanctuary ? { bloodmoon: true } : {}),
+      ...(condemned ? { executeTarget: heroDef(condemned.defId).name } : {}),
     };
   }
 
@@ -467,8 +544,34 @@ export function buildHudSnapshot(
         : null,
     entityCount: state.entities.count,
     dummyCount,
+    ...(foes.length > 0 ? { foes } : {}),
+    ...(state.field.hymnCircles.length > 0 ? { hymnCircles: state.field.hymnCircles.length } : {}),
   };
 }
+
+/**
+ * Movement II on a party frame (docs/phase-5a.md): healing cut by a Wound, and by Bloodmoon outside
+ * every Sanctuary pool (they stack), and Execution's line while it's cast on them. No keys when
+ * neither applies, so Movement I frames are as they were.
+ */
+function movementTwoMarks(
+  state: WorldState,
+  e: ReadonlyEntity,
+  h: NonNullable<ReadonlyEntity['health']>,
+): Pick<HeroHud, 'healCut' | 'execute'> {
+  let cut = 1;
+  if (h.statuses.some((s) => s.id === 'wound')) cut *= WOUND_CUT;
+  const sanctuary = state.field.sanctuary;
+  if (sanctuary && !inPool(sanctuary.pools, e)) cut *= sanctuary.healMult;
+  const execution = state.telegraphs.find((t) => t.executeBelow !== undefined && t.target === e.id);
+  return {
+    ...(cut < 1 && !h.dead ? { healCut: cut } : {}),
+    ...(execution ? { execute: execution.executeBelow! } : {}),
+  };
+}
+
+/** A Wound halves the healing a hero receives (the sim's ×0.5, docs/phase-5a.md). */
+const WOUND_CUT = 0.5;
 
 /** Temporal Mastery on the Weaver bar: ready or recovering, and what a Glide would bring back. */
 function masteryHud(

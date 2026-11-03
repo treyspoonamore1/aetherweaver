@@ -57,6 +57,7 @@ import { rankOf } from '../../meta/profile';
 import { masteryLevel } from '../../meta/loom';
 import { MasteryGainRow } from './MasteryParts';
 import { RunStarlightPanel } from './StarlightParts';
+import { outcomeSub, summaryEyebrow } from './routeText';
 
 const GRADE_COLOR: Record<Grade, string> = {
   S: '#fde9b8',
@@ -176,6 +177,8 @@ export function SummaryView({
   useMood('map');
   const totals = runTotals(run);
   const outcome = OUTCOME[run.outcome ?? 'abandoned'];
+  // A win names the final boss; an Expedition's defeat, the Movement it reached (Phase 5a).
+  const sub = outcomeSub(run) ?? outcome.sub;
   const heroIds = run.party.map((p) => p.heroId);
   const mitigated = totals.shielded + totals.negated;
   const segments = run.results.map((r) => ({
@@ -217,7 +220,7 @@ export function SummaryView({
         <header className="anim-rise flex flex-wrap items-center justify-between gap-6">
           <div>
             <p className="font-mono text-xs uppercase tracking-[0.3em] text-muted">
-              The Prelude · summary
+              {summaryEyebrow(run)}
             </p>
             <h1
               className="mt-1 font-display text-4xl font-bold tracking-wide sm:text-5xl"
@@ -225,7 +228,7 @@ export function SummaryView({
             >
               {outcome.title}
             </h1>
-            <p className="mt-2 max-w-xl text-base text-muted">{outcome.sub}</p>
+            <p className="mt-2 max-w-xl text-base text-muted">{sub}</p>
             <p className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-xs text-muted">
               <span>
                 {totals.encounters} {plural(totals.encounters, 'fight')}

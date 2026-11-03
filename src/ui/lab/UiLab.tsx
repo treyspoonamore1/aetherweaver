@@ -139,6 +139,15 @@ import type { TechniqueKey } from '../types';
 import { SpawnPalette } from '../screens/TrainingParts';
 import { LOOM_VIEWS, LoomFromStore } from './loomLab';
 import { LOOM_RUN_VIEWS } from './LoomRunLab';
+import {
+  expeditionPrepRun,
+  expeditionReliquaryRun,
+  expeditionRun,
+  expeditionSummaryRun,
+  legionCallouts,
+  legionHud,
+  type LegionScenario,
+} from './mock';
 
 /** The lab's Weaver bar moved to the top middle, a little smaller (one object: EditStage keeps it). */
 const BAR_TOP: WeaverBarLayout = { at: { x: 0.5, y: 0.03, corner: 'tc' }, scale: 0.85 };
@@ -692,17 +701,22 @@ function SummaryReliquaryLab({
   initial,
   enshrine,
   levels,
+  expedition = false,
 }: {
   outcome?: 'victory' | 'defeat';
+  /** Phase 5a: an Expedition fallen in Movement II (it enshrines all the same). */
+  expedition?: boolean;
   initial: Reliquary;
   enshrine?: string;
   /** Phase 4d: the run's Dissonance (what it enshrines keeps it as its depth). */
   levels?: readonly DissonanceChoice[];
 }) {
   const [state, setState] = useState(() => {
-    let run = levels
-      ? dissonanceSummaryRun(levels, { opened: false, best: false }, { reliquary: true })
-      : reliquarySummaryRun(outcome);
+    let run = expedition
+      ? expeditionReliquaryRun()
+      : levels
+        ? dissonanceSummaryRun(levels, { opened: false, best: false }, { reliquary: true })
+        : reliquarySummaryRun(outcome);
     let rq = initial;
     let arrived: ReliquaryRelic | null = null;
     const found = enshrine ? Run.enshrineOptions(run).find((r) => r.id === enshrine) : undefined;
@@ -747,6 +761,28 @@ function SummaryReliquaryLab({
         },
       }}
     />
+  );
+}
+
+/** Movement II's HUD (Phase 5a): the Legion's threats, a first sighting, the two bosses. */
+function LegionStage({ scenario }: { scenario: LegionScenario }) {
+  const hud = legionHud(scenario);
+  return (
+    <World>
+      <HudView
+        hud={hud}
+        callouts={legionCallouts(scenario)}
+        decree={hud.boss?.decree ?? null}
+        subtitle={
+          hud.encounter.kind === 'boss'
+            ? 'Movement II · node 7 of 7'
+            : hud.encounter.kind === 'miniboss'
+              ? 'Movement II · node 5 of 7'
+              : 'Movement II · node 3 of 7'
+        }
+        forceCoach
+      />
+    </World>
   );
 }
 
@@ -4181,6 +4217,99 @@ const VIEWS: ViewDef[] = [
     w: 1280,
     h: 1320,
     render: () => <CodexView onBack={noop} initialTab="techniques" />,
+  },
+  // ── Phase 5a: Movement II, the Crimson Legion ───────────────────────────────────────
+  ...(
+    [
+      ['legion', 'HUD: bleed ×6, pinned, Wounded (healing halved)'],
+      ['legion-sighting', 'HUD: first sighting (New foe)'],
+      ['matriarch', 'HUD: the Gorehound Matriarch, Blood Frenzy, Pounce'],
+      ['vharun-cleave', 'HUD: Vharun, Twin Cleave (blow 1 of 2), Blood Pact'],
+      ['vharun-bloodmoon', 'HUD: Vharun, Bloodmoon'],
+      ['vharun-execution', 'HUD: Vharun, Execution on Lyra'],
+    ] as const
+  ).map(([scenario, label]): ViewDef => ({
+    id: `m2-hud-${scenario}`,
+    group: 'Movement II',
+    label,
+    w: 1280,
+    h: 720,
+    render: () => <LegionStage scenario={scenario} />,
+  })),
+  {
+    id: 'm2-map-arrive',
+    group: 'Movement II',
+    label: 'Map: arriving, the Movement II card',
+    w: 1280,
+    h: 860,
+    render: () => <MapView run={expeditionRun('arrive')} onChoose={noop} onAbandon={noop} card />,
+  },
+  {
+    id: 'm2-map-climb',
+    group: 'Movement II',
+    label: 'Map: the Crimson Ascent, two stops in',
+    w: 1280,
+    h: 860,
+    render: () => (
+      <MapView run={expeditionRun('climb')} onChoose={noop} onAbandon={noop} card={false} />
+    ),
+  },
+  {
+    id: 'm2-prep',
+    group: 'Movement II',
+    label: 'Prep: the Route toggle (Expedition)',
+    w: 1280,
+    h: 1500,
+    render: () => (
+      <PrepView
+        run={expeditionPrepRun()}
+        onChords={noop}
+        onEmbark={noop}
+        onBack={noop}
+        rank={2}
+        route={{ onChange: noop }}
+      />
+    ),
+  },
+  {
+    id: 'm2-summary-win',
+    group: 'Movement II',
+    label: 'Summary: Vharun falls',
+    w: 1280,
+    h: 1800,
+    render: () => (
+      <SummaryView run={expeditionSummaryRun('victory')} onNewRun={noop} onLoom={noop} />
+    ),
+  },
+  {
+    id: 'm2-summary-loss',
+    group: 'Movement II',
+    label: 'Summary: fallen in Movement II, enshrine',
+    w: 1280,
+    h: 2100,
+    render: () => <SummaryReliquaryLab initial={partwayReliquary()} expedition />,
+  },
+  {
+    id: 'm2-codex-locked',
+    group: 'Movement II',
+    label: 'Codex: Enemies, the Legion unseen',
+    w: 1280,
+    h: 2400,
+    render: () => (
+      <CodexView
+        onBack={noop}
+        initialTab="enemies"
+        seen={CONTENT.enemies.filter((e) => (e.movement ?? 1) === 1).map((e) => e.id)}
+      />
+    ),
+  },
+  {
+    id: 'm2-codex',
+    group: 'Movement II',
+    label: 'Codex: Enemies by Movement',
+    w: 1280,
+    h: 2800,
+    render: () => <CodexView onBack={noop} initialTab="enemies" />,
   },
   // ── Phase 4g: the Loom, the Atelier and the front door ──────────────────────────────
   ...LOOM_VIEWS,
