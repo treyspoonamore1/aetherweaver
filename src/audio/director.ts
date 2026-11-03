@@ -16,13 +16,32 @@ import type {
   Volumes,
 } from './types';
 import { BEAT } from './theory';
-import type { Biome } from '../content';
+import { movementDef, type Biome } from '../content';
 import type { SimEvent, WorldState } from '../sim';
 import { useRun } from '../app/runStore';
 import { useSettings } from '../app/settings';
+import { mapMovement } from '../meta/run';
+import type { RunState } from '../meta/types';
 
 /** The run's Calling: whom the Calling UI sounds are for when a screen doesn't say. */
 const runCalling = (): string | null => useRun.getState().run?.calling?.id ?? null;
+
+/**
+ * Phase 5a (docs/phase-5a.md): the biome the Map voices for a run, its Movement's (the Movement
+ * the next stop belongs to, `mapMovement`): the Sunlit Reliquary for a Prelude and Movement I,
+ * the Crimson Spire once an Expedition climbs Movement II. Null without a run (nothing to follow).
+ */
+export function mapBiome(run: RunState | null | undefined): Biome | null {
+  if (!run) return null;
+  try {
+    return movementDef(mapMovement(run)).biome;
+  } catch {
+    return 'reliquary';
+  }
+}
+
+/** The run store's run's map biome (the app-wide director follows it on the Map). */
+const runMapBiome = (): Biome | null => mapBiome(useRun.getState().run);
 
 export interface DirectorOptions {
   /** Use this context instead of creating one (offline rendering, tests). */
@@ -39,6 +58,12 @@ export interface DirectorOptions {
    * no source unless one is given, and uses the shared voicing.
    */
   calling?: () => string | null;
+  /**
+   * Phase 5a: the biome the Map voices (its Movement's), asked whenever the mood turns to 'map'
+   * and, while it is, whenever the run changes. The app-wide director follows the run store
+   * (`mapBiome`); an injected context follows nothing unless one is given.
+   */
+  mapBiome?: () => Biome | null;
 }
 
 type AudioContextCtor = new (options?: AudioContextOptions) => AudioContext;
@@ -78,9 +103,12 @@ export class SynthDirector implements AudioDirector {
     apex: false,
   };
   private readonly callingOf: (() => string | null) | null;
+  private readonly mapBiomeOf: (() => Biome | null) | null;
 
   constructor(private readonly options: DirectorOptions = {}) {
     this.callingOf = options.calling ?? (options.context ? null : runCalling);
+    this.mapBiomeOf = options.mapBiome ?? (options.context ? null : runMapBiome);
+    if (!options.mapBiome && !options.context) this.followRunOnMap();
     if (options.context) {
       // Offline / injected contexts are ready immediately.
       this.build(options.context);
@@ -107,6 +135,26 @@ export class SynthDirector implements AudioDirector {
     window.addEventListener('pointerdown', handler, true);
     window.addEventListener('keydown', handler, true);
     this.cleanups.push(remove);
+  }
+
+  /** Phase 5a: while the Map is up, a run that moves on (into Movement II) moves its biome. */
+  private followRunOnMap(): void {
+    try {
+      this.cleanups.push(useRun.subscribe(() => this.followMapBiome()));
+    } catch {
+      // No run store: the Map's own call (MapScreen) still sets it.
+    }
+  }
+
+  /** On the Map, the biome of the run's Movement (docs/phase-5a.md). */
+  private followMapBiome(): void {
+    if (this.mood !== 'map' || !this.mapBiomeOf) return;
+    try {
+      const biome = this.mapBiomeOf();
+      if (biome && biome !== this.biome) this.setBiome(biome);
+    } catch {
+      // Audio is garnish.
+    }
   }
 
   private followSettings(): void {
@@ -218,6 +266,8 @@ export class SynthDirector implements AudioDirector {
 
   setMood(mood: AudioMood): void {
     this.mood = mood;
+    // Phase 5a: the Map voices its Movement's biome (before the mood, so its first bar does).
+    this.followMapBiome();
     this.music?.setMood(mood);
   }
 

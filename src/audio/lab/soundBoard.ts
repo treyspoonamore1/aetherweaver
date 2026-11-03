@@ -725,14 +725,26 @@ const moved = (visual: 'charge' | 'leap', fromX: number, toX: number, travel = 0
 /** The Legion's iron enemies, from the content (their kill buttons). */
 const IRON_ENEMIES = CONTENT.enemies.filter((e) => e.material === 'iron');
 
-/** Execution on Lyra, cast for its windup, then taking her or sparing her. */
-function execution(taken: boolean): SoundButton {
+/**
+ * Execution on Lyra, cast for its windup, then its verdict: taking her, sparing her, or landing
+ * on her already fallen (the sim's `telegraphResolved.execution`).
+ */
+function execution(verdict: 'executed' | 'spared' | 'fallen'): SoundButton {
   const windup = CONTENT.attacks.find((a) => a.id === 'vharun_execution')?.windup ?? 4;
+  const taken = verdict === 'executed';
   return {
-    id: taken ? 'crimson-execution-gong' : 'crimson-execution-spared',
-    label: taken
-      ? 'Execution: the drum roll, then the gong (she falls under 40%)'
-      : 'Execution: the drum roll, then the bell (lifted above 40%, spared)',
+    id:
+      verdict === 'executed'
+        ? 'crimson-execution-gong'
+        : verdict === 'spared'
+          ? 'crimson-execution-spared'
+          : 'crimson-execution-fallen',
+    label:
+      verdict === 'executed'
+        ? 'Execution: the drum roll, then the gong (she falls under 40%)'
+        : verdict === 'spared'
+          ? 'Execution: the drum roll, then the bell (lifted above 40%, spared)'
+          : 'Execution: the drum roll, then a muted knell (the Tide took her first)',
     group: 'crimson',
     length: windup + 4,
     fire: (d, w) => {
@@ -750,11 +762,16 @@ function execution(taken: boolean): SoundButton {
         delay: windup,
         fire: (d, w) => {
           w.removeTelegraph(40);
+          const verdictOf = { ...resolved(40, 'lyra', 'hit'), execution: verdict } as SimEvent;
           if (taken) {
             w.setDowned('lyra', true);
-            fire(d, w, ev('allyDowned', { hero: IDS.lyra }), resolved(40, 'lyra', 'hit'));
+            fire(d, w, ev('allyDowned', { hero: IDS.lyra }), verdictOf);
             w.setDowned('lyra', false);
-          } else fire(d, w, resolved(40, 'lyra', 'hit'));
+          } else if (verdict === 'fallen') {
+            w.setDowned('lyra', true);
+            fire(d, w, { ...verdictOf, outcome: 'dodged', damage: 0 } as SimEvent);
+            w.setDowned('lyra', false);
+          } else fire(d, w, verdictOf);
           w.setHeroHp('lyra', 1);
         },
       },
@@ -2559,8 +2576,9 @@ export const SOUNDS: SoundButton[] = [
     fire: (d, w) => fire(d, w, legionTele(w, 43, 'gorehound_pack_call', null)),
     then: [{ delay: 1.2, fire: (_d, w) => w.removeTelegraph(43) }],
   },
-  execution(true),
-  execution(false),
+  execution('executed'),
+  execution('spared'),
+  execution('fallen'),
   ...IRON_ENEMIES.map((e): SoundButton => ({
     id: `kill-iron-${e.id}`,
     label: `Kill ${e.name} (iron)`,

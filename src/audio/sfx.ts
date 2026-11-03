@@ -173,7 +173,8 @@ export const VARIANT_SOUND_LIMITS: Readonly<Record<string, readonly [number, num
  * statuses' (`statusApplied`), a hero freed (`statusRemoved` 'freed'), the Chime's release
  * (scaled by the stacks it cleared), the Sentinel's guard, the attacks that move their caster
  * (`attackFired` 'charge' and 'leap'), the Crimson Tide breaking, the Matriarch's Pack Call howl,
- * and Execution's drum roll and its outcome. Movement I has none of these.
+ * and Execution's drum roll and its outcome (a gong, a bell, or a muted knell over a hero who had
+ * already fallen). Movement I has none of these.
  */
 export const LEGION_SOUND_GROUPS = {
   bleed: 'legion:bleed',
@@ -193,6 +194,7 @@ export const LEGION_SOUND_GROUPS = {
   roll: 'legion:roll',
   executed: 'legion:gong',
   spared: 'legion:spared',
+  fallen: 'legion:fallen',
 } as const;
 export type LegionGroup = keyof typeof LEGION_SOUND_GROUPS;
 
@@ -215,6 +217,7 @@ export const LEGION_SOUND_LIMITS: Readonly<Record<LegionGroup, readonly [number,
   roll: [0.3, 1],
   executed: [0.5, 1],
   spared: [0.5, 1],
+  fallen: [0.5, 1],
 };
 
 /** Phase 5a: the attacks with a sound of their own (by content id). */
@@ -419,13 +422,17 @@ export class SfxEngine {
   /**
    * Phase 5a: each hero's bleed stacks as the events told them (a cleanse's release counts what
    * it cleared), this batch's cleared stacks and heroes downed, the Execution and Crimson Tide
-   * telegraphs still to resolve, and a turn for the iron kills' tones.
+   * telegraphs still to resolve (an Execution with the hero it condemned, from its start: its
+   * resolution names no target when that hero is already down), the Pack Calls begun during
+   * Stasis whose howl waits for time to resume (with their caller), and a turn for the iron
+   * kills' tones.
    */
   private readonly bleed = new Map<number, number>();
   private batchCleared = 0;
   private readonly batchDowned = new Set<number>();
-  private readonly executions = new Set<number>();
+  private readonly executions = new Map<number, number | null>();
   private readonly tides = new Set<number>();
+  private readonly frozenHowls = new Map<number, number>();
   private ironTurn = 0;
 
   constructor(
@@ -527,7 +534,8 @@ export class SfxEngine {
           // Phase 5a: the stacks after this bite (one more, if the event doesn't say).
           this.bleed.set(ev.target, ev.stacks ?? (this.bleed.get(ev.target) ?? 0) + 1);
         } else if (ev.type === 'statusRemoved' && LEGION_AILMENTS.has(ev.status)) {
-          const stacks = ev.status === 'bleed' ? (this.bleed.get(ev.target) ?? 1) : 1;
+          // The stacks the event says it took (else as the bites told them).
+          const stacks = ev.status === 'bleed' ? (ev.stacks ?? this.bleed.get(ev.target) ?? 1) : 1;
           if (ev.status === 'bleed') this.bleed.delete(ev.target);
           if (ev.reason === 'cleansed') this.batchCleared += stacks;
         } else if (ev.type === 'allyDowned' || ev.type === 'allyOut') {
@@ -819,13 +827,18 @@ export class SfxEngine {
         // Paradox, the fight over) stops winding up rather than swell into nothing.
         if (ev.outcome === 'cancelled') this.cutWindup(ev.telegraph);
         // Phase 5a: Execution's gong or bell, and the Crimson Tide breaking (once each).
-        if (this.executions.delete(ev.telegraph) && ev.outcome !== 'cancelled')
-          this.executionOutcome(ev.target, state);
+        if (this.executions.has(ev.telegraph) || ev.execution !== undefined) {
+          const condemned = this.executions.get(ev.telegraph);
+          this.executions.delete(ev.telegraph);
+          if (ev.outcome !== 'cancelled') this.executionOutcome(ev, condemned ?? null, state);
+        }
         if (this.tides.delete(ev.telegraph) && ev.outcome !== 'cancelled') this.tide();
+        this.frozenHowls.delete(ev.telegraph);
         break;
       case 'telegraphEnded':
         this.executions.delete(ev.telegraph);
         this.tides.delete(ev.telegraph);
+        this.frozenHowls.delete(ev.telegraph);
         break;
       case 'fieldPlanted':
         this.fieldPlanted(this.panFor(state, ev.x));
@@ -4588,42 +4601,69 @@ export class SfxEngine {
     );
   }
 
+  /** Execution's drum roll lasts its whole cast (its windup, four seconds). */
+  private static rollLength(start: number, impact: number): number {
+    return clamp(impact - start, 0.5, 6);
+  }
+
   /**
-   * Execution's cast: a drum roll for its whole windup, quickening and swelling into the moment
-   * it resolves. Kept as the telegraph's windup, so a cancelled cast (Vharun interrupted or
-   * killed) cuts it and Stasis holds it.
+   * Execution's cast: a drum roll for its whole windup (`dur`), quickening and swelling into the
+   * moment it resolves. Kept as the telegraph's windup, so a cancelled cast (Vharun interrupted
+   * or killed) cuts it and Stasis holds it. `from`: seconds of it already played (a roll taken
+   * up again after Stasis carries on where it stopped, at the pace and loudness it had reached).
    */
-  private drumRoll(ev: TelegraphStarted): VoiceHandle | null {
-    const dur = clamp(ev.impact - ev.start, 0.5, 6);
+  private drumRoll(dur: number, from = 0): VoiceHandle | null {
     return this.legion('roll', (v, t) => {
       let at = 0;
       let i = 0;
       while (at < dur - 0.02) {
         const p = at / dur;
-        v.noise({
-          start: t + at,
-          dur: 0.05,
-          gain: 0.012 + 0.05 * p * p,
-          filter: { type: 'bandpass', freq: 1500 + 700 * p, q: 1.1 },
-        });
-        if (i % 4 === 0) thump(v, t + at, tone(-14), 0.05 + 0.12 * p, 0.14, 0.6);
+        if (at >= from) {
+          const s = t + at - from;
+          v.noise({
+            start: s,
+            dur: 0.05,
+            gain: 0.012 + 0.05 * p * p,
+            filter: { type: 'bandpass', freq: 1500 + 700 * p, q: 1.1 },
+          });
+          if (i % 4 === 0) thump(v, s, tone(-14), 0.05 + 0.12 * p, 0.14, 0.6);
+        }
         at += 0.16 - 0.11 * p;
         i++;
       }
-      v.extend(t + dur + 0.1);
+      v.extend(t + dur - from + 0.1);
     });
   }
 
   /**
    * Execution resolved: a gong if it took the hero (they went down), a bell if they were spared
-   * (above the line, Warded, held).
+   * (above the line, Warded, held), and a muted knell if they had already fallen before it landed
+   * (the Tide took them first): no verdict was passed. The sim's own verdict
+   * (`telegraphResolved.execution`) decides; an event without one (an older recording, the lab)
+   * is read as before, from the heroes downed and the condemned hero's state (`condemned`, the
+   * hero it was cast on, when the resolution names none).
    */
-  private executionOutcome(target: number | null, state: WorldState): void {
-    const ent = target === null ? undefined : state.entities?.get(target);
-    const executed =
-      target !== null &&
-      (this.batchDowned.has(target) || !!ent?.health?.downed || !!ent?.health?.dead);
-    if (executed) {
+  private executionOutcome(
+    ev: Extract<SimEvent, { type: 'telegraphResolved' }>,
+    condemned: number | null,
+    state: WorldState,
+  ): void {
+    const verdict = ev.execution ?? this.inferExecution(ev.target ?? condemned, state);
+    if (verdict === 'fallen') {
+      this.legion('fallen', (v, t) => {
+        thump(v, t, tone(-17), 0.12, 0.5, 0.6);
+        v.osc({
+          type: 'sine',
+          freq: tone(-14),
+          start: t,
+          dur: 1.4,
+          attack: 0.04,
+          release: 1.1,
+          gain: 0.04,
+          filter: { type: 'lowpass', freq: 500 },
+        });
+      });
+    } else if (verdict === 'executed') {
       this.e.duck('music', { depth: 0.5, hold: 0.6, release: 1.2 });
       this.legion(
         'executed',
@@ -4641,6 +4681,18 @@ export class SfxEngine {
         glassNote(v, t + 0.16, tone(14), 0.03, 1.4, 0.8);
       });
     }
+  }
+
+  /**
+   * An Execution's verdict where the event gives none: executed if its hero went down (in this
+   * batch, or is down or dead in the state), spared otherwise.
+   */
+  private inferExecution(target: number | null, state: WorldState): 'executed' | 'spared' {
+    const ent = target === null ? undefined : state.entities?.get(target);
+    const executed =
+      target !== null &&
+      (this.batchDowned.has(target) || !!ent?.health?.downed || !!ent?.health?.dead);
+    return executed ? 'executed' : 'spared';
   }
 
   /**
@@ -4794,20 +4846,23 @@ export class SfxEngine {
   }
 
   private telegraph(ev: TelegraphStarted, state: WorldState): void {
+    // Phase 5a: the Legion's attacks with sounds of their own. Known even during Stasis, so the
+    // windup that waits for time to resume is the right one and its outcome still sounds.
+    const legion = this.legionAttack(ev, state);
+    if (legion === 'tide') this.tides.add(ev.telegraph);
+    else if (legion === 'roll') this.executions.set(ev.telegraph, ev.target);
     // Phase 3e: during Stasis nothing on the enemies' side moves, so a windup started now would
-    // swell to an impact that keeps moving away. It waits, and plays when time resumes.
+    // swell to an impact that keeps moving away. It waits, and plays when time resumes (and a
+    // Pack Call's howl with it: the Matriarch is as still as the rest).
     if (this.stasisUp(state)) {
+      if (legion === 'howl') this.frozenHowls.set(ev.telegraph, ev.owner);
       this.frozen.add(ev.telegraph);
       return;
     }
-    // Phase 5a: the Legion's attacks with sounds of their own.
-    const legion = this.legionAttack(ev, state);
     if (legion === 'howl') this.howl(state, ev.owner);
-    else if (legion === 'tide') this.tides.add(ev.telegraph);
     else if (legion === 'roll') {
       // Execution's windup is its drum roll; its outcome sounds when it resolves.
-      this.executions.add(ev.telegraph);
-      const roll = this.drumRoll(ev);
+      const roll = this.drumRoll(SfxEngine.rollLength(ev.start, ev.impact));
       if (roll) this.trackWindup(ev.telegraph, roll);
       return;
     }
@@ -4844,6 +4899,7 @@ export class SfxEngine {
     this.windups.get(id)?.kill(this.e.now, 0.12);
     this.windups.delete(id);
     this.frozen.delete(id);
+    this.frozenHowls.delete(id);
   }
 
   /** Remembers a windup by its telegraph (and forgets the ones that have finished). */
@@ -4877,10 +4933,28 @@ export class SfxEngine {
     if (this.frozen.size === 0) return;
     const ids = new Set(this.frozen);
     this.frozen.clear();
-    for (const t of state.telegraphs ?? []) if (ids.has(t.id)) this.resumeWindup(t, state);
+    const howls = new Map(this.frozenHowls);
+    this.frozenHowls.clear();
+    for (const t of state.telegraphs ?? []) {
+      if (!ids.has(t.id)) continue;
+      // Phase 5a: a Pack Call begun during Stasis howls now, as time resumes.
+      const owner = howls.get(t.id);
+      if (owner !== undefined) this.howl(state, owner);
+      this.resumeWindup(t, state);
+    }
   }
 
   private resumeWindup(tg: Telegraphed, state: WorldState): void {
+    // Phase 5a: Execution's windup is its drum roll, for its whole cast: it carries on from
+    // where it stopped (however late in the cast Stasis came).
+    if (this.executions.has(tg.id)) {
+      const total = SfxEngine.rollLength(tg.start, tg.impact);
+      const elapsed = clamp(state.time - tg.start, 0, total);
+      if (!(total - elapsed > 0.08)) return;
+      const roll = this.drumRoll(total, elapsed);
+      if (roll) this.trackWindup(tg.id, roll);
+      return;
+    }
     const total = clamp(tg.impact - tg.start, 0.5, 3.2);
     const elapsed = Math.max(0, state.time - tg.start);
     const rem = total - elapsed;
@@ -5500,6 +5574,7 @@ export class SfxEngine {
     this.bleed.clear();
     this.executions.clear();
     this.tides.clear();
+    this.frozenHowls.clear();
     this.music.releaseHold();
     if (this.drone) this.drone.gain.gain.setTargetAtTime(0, this.e.now, 0.1);
     if (this.harmony)
