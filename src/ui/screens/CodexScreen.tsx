@@ -32,7 +32,7 @@ import { EventGlyph } from './EventScreen';
 import { boonDuration, boonInfo, choiceInfo, relicInfo } from './interlude';
 import { BoonTip, RelicBody, boonStyle } from './RelicCard';
 import { CALLING_ROWS, newRun } from '../../meta/run';
-import { EVERYTHING, type Allowance } from '../../meta/profile';
+import { EVERYTHING, heroRoster, type Allowance } from '../../meta/profile';
 import { callingLook } from '../kit/CallingGlyph';
 import { AxisLegend, CallingPassive, CallingPathPreview, CallingTitle } from './CallingParts';
 import { callingOpen } from './CallingPicker';
@@ -60,7 +60,7 @@ import { ReliquaryCodexPage } from './ReliquaryCodex';
 import { DissonanceCodexPage } from './DissonanceCodex';
 import { useSettings } from '../../app/settings';
 import { UnlockGlyph } from './Rank';
-import type { Bond } from '../../meta/bonds';
+import { bondedHeroes, type Bond } from '../../meta/bonds';
 import { BondsCodexPage } from './BondsCodex';
 import { TechniquesCodexPage } from './TechniquesCodex';
 import { bondsOpen } from './bondsModel';
@@ -120,6 +120,7 @@ export function CodexView({
   bonds,
   techniques = NO_TECHNIQUES,
   seen,
+  roster,
 }: {
   onBack(): void;
   initialTab?: TabId;
@@ -149,6 +150,11 @@ export function CodexView({
    * silhouettes, and a later Movement's events wait until its enemies are met. Omitted: all seen.
    */
   seen?: readonly string[];
+  /**
+   * Phase 5b: the profile's hero roster (`heroRoster`). Heroes outside it, and their motifs, don't
+   * show yet (docs/phase-5b.md). Omitted: the starters, or every hero with Skip the unlocks.
+   */
+  roster?: readonly string[];
 }) {
   useMood('title');
   const [tab, setTab] = useState<TabId>(initialTab);
@@ -166,8 +172,11 @@ export function CodexView({
   const reliquary = reliquaryOpen(rank, allowance.all);
   // Phase 4d: Dissonance's too, until a win at its Rank (or Skip the unlocks).
   const dissonant = dissonance ? dissonance.open || allowance.all : allowance.all;
+  // Phase 5b: the heroes the player has (the starters until a recruit; all, Skip the unlocks).
+  const heroes = roster ?? heroRoster({}, allowance.all);
+  const bondHeroes = bondedHeroes().filter((h) => heroes.includes(h));
   // Phase 4e: Bonds' too, until a hero's first Bond rank-up (or Skip the unlocks).
-  const bonded = bondsOpen(bonds ?? NO_BONDS, allowance.all);
+  const bonded = bondsOpen(bonds ?? NO_BONDS, allowance.all, bondHeroes);
   const locked = (id: TabId) =>
     (id === 'reliquary' && !reliquary) ||
     (id === 'dissonance' && !dissonant) ||
@@ -219,8 +228,10 @@ export function CodexView({
           ))}
         </div>
         <div id={`panel-${tab}`} role="tabpanel" aria-labelledby={`tab-${tab}`} className="mt-6">
-          {tab === 'heroes' && <Heroes />}
-          {tab === 'bonds' && <BondsCodexPage open={bonded} bonds={bonds ?? NO_BONDS} />}
+          {tab === 'heroes' && <Heroes roster={heroes} />}
+          {tab === 'bonds' && (
+            <BondsCodexPage open={bonded} bonds={bonds ?? NO_BONDS} heroes={bondHeroes} />
+          )}
           {tab === 'enemies' && <Enemies seen={seen} />}
           {tab === 'weaver' && <Weaver />}
           {tab === 'techniques' && (
@@ -242,8 +253,8 @@ export function CodexView({
             <DissonanceCodexPage open={dissonant} rank={rank} best={dissonance?.best} />
           )}
           {tab === 'callings' && <Callings allowance={allowance} />}
-          {tab === 'calls' && <Calls />}
-          {tab === 'motifs' && <Motifs />}
+          {tab === 'calls' && <Calls roster={heroes} />}
+          {tab === 'motifs' && <Motifs roster={heroes} />}
           {tab === 'relics' && <Relics />}
           {tab === 'events' && <Events seen={seen} />}
         </div>
@@ -262,6 +273,7 @@ export function CodexScreen() {
   const bonds = useCodexBonds();
   const techniques = useCodexTechniques();
   const seen = useProfile((s) => s.profile.seen);
+  const roster = useCodexRoster();
   return (
     <CodexView
       onBack={back}
@@ -272,6 +284,7 @@ export function CodexScreen() {
       bonds={bonds}
       techniques={techniques}
       seen={seen}
+      roster={roster}
     />
   );
 }
@@ -285,6 +298,13 @@ export function useCodexTechniques(): CodexTechniques {
 /** The profile's Bonds, for the Codex's Bonds page (Phase 4e). */
 export function useCodexBonds(): CodexBonds {
   return useProfile((s) => s.profile.bonds);
+}
+
+/** Phase 5b: the heroes the Codex shows, from the profile (and Settings → Skip the unlocks). */
+export function useCodexRoster(): string[] {
+  const recruited = useProfile((s) => s.profile.recruited);
+  const unlockAll = useSettings((s) => s.settings.unlockAll);
+  return useMemo(() => heroRoster({ recruited }, unlockAll), [recruited, unlockAll]);
 }
 
 /** Dissonance as the Codex shows it, from the profile (and Settings → Skip the unlocks). */
@@ -365,12 +385,14 @@ function Callings({ allowance }: { allowance: Allowance }) {
 
 const GRID = 'grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(22rem,1fr))]';
 
-function Heroes() {
+function Heroes({ roster }: { roster: readonly string[] }) {
   return (
     <div className={GRID}>
-      {CONTENT.heroes.map((h) => (
-        <HeroEntry key={h.id} hero={h} />
-      ))}
+      {CONTENT.heroes
+        .filter((h) => roster.includes(h.id))
+        .map((h) => (
+          <HeroEntry key={h.id} hero={h} />
+        ))}
     </div>
   );
 }
@@ -1107,7 +1129,7 @@ function Ranks({ deeds }: { deeds: number }) {
   );
 }
 
-function Calls() {
+function Calls({ roster }: { roster: readonly string[] }) {
   const calls = CONTENT.calls;
   return (
     <div className="flex flex-col gap-6">
@@ -1131,50 +1153,57 @@ function Calls() {
         </div>
       </Panel>
       <div className={GRID}>
-        {CONTENT.heroes.map((h) => {
-          const ability = h.abilities[h.call.ability];
-          return (
-            <Panel
-              key={h.id}
-              tone="solid"
-              className="p-5"
-              style={{ borderTopColor: h.color, borderTopWidth: 3 }}
-            >
-              <div className="flex items-center gap-3">
-                <HeroDisc heroId={h.id} size={40} />
-                <div>
-                  <h3 className="font-display text-lg font-bold leading-tight">{h.name}</h3>
-                  <p className="text-sm text-muted">calls before {ability?.name ?? 'a big move'}</p>
+        {CONTENT.heroes
+          .filter((h) => roster.includes(h.id))
+          .map((h) => {
+            const ability = h.abilities[h.call.ability];
+            return (
+              <Panel
+                key={h.id}
+                tone="solid"
+                className="p-5"
+                style={{ borderTopColor: h.color, borderTopWidth: 3 }}
+              >
+                <div className="flex items-center gap-3">
+                  <HeroDisc heroId={h.id} size={40} />
+                  <div>
+                    <h3 className="font-display text-lg font-bold leading-tight">{h.name}</h3>
+                    <p className="text-sm text-muted">
+                      calls before {ability?.name ?? 'a big move'}
+                    </p>
+                  </div>
                 </div>
-              </div>
-              <p className="mt-3 flex flex-wrap items-center gap-1.5 text-sm">
-                <span className="text-muted">Wants:</span>
-                <Chip icon={CALL_ICON[h.call.answer]} color={CALL}>
-                  {CALL_ANSWER[h.call.answer]}
-                </Chip>
-                <span className="text-muted">within {h.call.answerTime} s</span>
-              </p>
-              <p className="mt-2 font-semibold" style={{ color: CALL }}>
-                Flourish · {h.call.flourish.name}
-              </p>
-              <p className="text-sm leading-relaxed text-text">{h.call.flourish.description}</p>
-              {h.call.lines[0] && (
-                <p className="mt-2 text-xs italic text-muted">“{h.call.lines[0]}”</p>
-              )}
-            </Panel>
-          );
-        })}
+                <p className="mt-3 flex flex-wrap items-center gap-1.5 text-sm">
+                  <span className="text-muted">Wants:</span>
+                  <Chip icon={CALL_ICON[h.call.answer]} color={CALL}>
+                    {CALL_ANSWER[h.call.answer]}
+                  </Chip>
+                  <span className="text-muted">within {h.call.answerTime} s</span>
+                </p>
+                <p className="mt-2 font-semibold" style={{ color: CALL }}>
+                  Flourish · {h.call.flourish.name}
+                </p>
+                <p className="text-sm leading-relaxed text-text">{h.call.flourish.description}</p>
+                {h.call.lines[0] && (
+                  <p className="mt-2 text-xs italic text-muted">“{h.call.lines[0]}”</p>
+                )}
+              </Panel>
+            );
+          })}
       </div>
     </div>
   );
 }
 
-function Motifs() {
+function Motifs({ roster }: { roster: readonly string[] }) {
   const categories = Object.keys(CATEGORY) as (keyof typeof CATEGORY)[];
   return (
     <div className="flex flex-col gap-8">
       {categories.map((cat) => {
-        const motifs = CONTENT.motifs.filter((m) => m.category === cat);
+        // A hero's motifs wait for that hero to join the roster (docs/phase-5b.md).
+        const motifs = CONTENT.motifs.filter(
+          (m) => m.category === cat && (!m.requires.hero || roster.includes(m.requires.hero)),
+        );
         if (motifs.length === 0) return null;
         const c = CATEGORY[cat];
         return (

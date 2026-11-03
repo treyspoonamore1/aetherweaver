@@ -3,7 +3,7 @@ import { useProfile } from '../../app/profileStore';
 import { useSettings } from '../../app/settings';
 import { storage } from '../../app/storage';
 import { heroDef } from '../../content';
-import { bondRank, bondedHeroes, type Bond } from '../../meta/bonds';
+import { bondRank, rosterHeroes, type Bond } from '../../meta/bonds';
 import { rankOf } from '../../meta/profile';
 import { loadRun } from '../../meta/save';
 import { Backdrop } from '../kit/Backdrop';
@@ -37,7 +37,13 @@ import {
   talentClick,
   type TierView,
 } from './bondsModel';
-import { CodexView, useCodexBonds, useCodexTechniques, useCodexDissonance } from './CodexScreen';
+import {
+  CodexView,
+  useCodexBonds,
+  useCodexDissonance,
+  useCodexRoster,
+  useCodexTechniques,
+} from './CodexScreen';
 import { useAllowance } from './PrepScreen';
 
 const BOND = BOND_LOOK.color;
@@ -61,6 +67,11 @@ export interface BondsViewProps {
   /** UI lab: the hero shown first, and a seen scene open in the reader. */
   initialHero?: string;
   initialReading?: string | null;
+  /**
+   * The heroes whose pages show (docs/phase-5b.md): the profile's `rosterHeroes`. Omitted: the
+   * starters, or every Bonded hero with Skip the unlocks.
+   */
+  heroes?: readonly string[];
 }
 
 /**
@@ -81,9 +92,10 @@ export function BondsView({
   onRules,
   initialHero,
   initialReading = null,
+  heroes: shown,
 }: BondsViewProps) {
   useMood('map');
-  const heroes = bondedHeroes();
+  const heroes = shown ?? rosterHeroes({}, unlockAll);
   const [hero, setHero] = useState(
     initialHero && heroes.includes(initialHero) ? initialHero : heroes[0]!,
   );
@@ -373,12 +385,14 @@ export function BondsScreen() {
   const deeds = useProfile((s) => s.profile.deeds);
   const deedBest = useProfile((s) => s.profile.deedBest);
   const unlockAll = useSettings((s) => s.settings.unlockAll);
+  const recruited = useProfile((s) => s.profile.recruited);
   const allowance = useAllowance();
   const back = useUi((s) => s.back);
   const previous = useUi((s) => s.previous);
   const dissonance = useCodexDissonance();
   const codexBonds = useCodexBonds();
   const codexTechniques = useCodexTechniques();
+  const codexRoster = useCodexRoster();
   const [runUnderWay] = useState(() => {
     if (previous === 'run') return false;
     const saved = loadRun(storage());
@@ -397,6 +411,7 @@ export function BondsScreen() {
         dissonance={dissonance}
         bonds={codexBonds}
         techniques={codexTechniques}
+        roster={codexRoster}
       />
     );
   }
@@ -404,6 +419,7 @@ export function BondsScreen() {
     <BondsView
       bonds={bonds}
       unlockAll={unlockAll}
+      heroes={rosterHeroes({ recruited }, unlockAll)}
       onTalent={(h, tier, id) => useProfile.getState().setTalent(h, tier, id)}
       onSolo={(h, solo) => useProfile.getState().setSolo(h, solo)}
       onBack={back}

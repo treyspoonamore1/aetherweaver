@@ -73,8 +73,8 @@ import type { WheelView } from '../../input/wheel';
 import {
   altSoloOf,
   bondRank,
-  bondedHeroes,
   emptyBond,
+  rosterHeroes,
   runBonds,
   soloRank,
   talentChoices,
@@ -2862,7 +2862,8 @@ export function mockBonds(
 ): Record<string, Bond> {
   const { choose = true, seenAll = false, share = 0.35 } = opts;
   return Object.fromEntries(
-    bondedHeroes().map((h, i) => {
+    // The starters' Bonds: the labs mock a profile without recruits (docs/phase-5b.md).
+    rosterHeroes({}, false).map((h, i) => {
       const talents = [1, 2, 3].map((tier) =>
         choose && rank >= tierRank(tier)
           ? (talentChoices(h, tier)[(i + tier) % 2]?.id ?? null)

@@ -13,7 +13,7 @@
 import { CONTENT, heroDef, variantText } from '../../content';
 import { ASTROLABE_RANK, astrolabePoints } from '../../meta/astrolabe';
 import { deedPoints, DEED_POINTS_MAX } from '../../meta/deeds';
-import { bondedHeroes } from '../../meta/bonds';
+import { rosterHeroes } from '../../meta/bonds';
 import { opensAt } from '../../meta/dissonance';
 import { masteryFor, type Look, type ShopItem, type ShopKind } from '../../meta/loom';
 import { rankOf, rankProgress, type Profile } from '../../meta/profile';
@@ -69,7 +69,9 @@ export type LoomProfile = Pick<
   | 'wins'
 > &
   /** Phase 5a: the enemies sighted (later Movements' Deeds count once met); omitted: all. */
-  Partial<Pick<Profile, 'seen'>>;
+  Partial<Pick<Profile, 'seen'>> &
+  /** Phase 5b: the heroes recruited (docs/phase-5b.md); omitted: none. */
+  Pick<Profile, 'recruited'>;
 
 /** The saved run the Gate can continue (null: none), as much of it as the Gate says. */
 export type GateRun = Pick<RunState, 'phase' | 'path' | 'map'> &
@@ -156,7 +158,7 @@ export function stationViews(
       name: stationName(id),
       open,
       fresh,
-      line: open ? litLine(id, opts.run ?? null) : darkLine(id, rank),
+      line: open ? litLine(id, opts.run ?? null) : darkLine(id, rank, rosterHeroes(p, unlockAll)),
       badge: open ? badgeOf(id, p, unlockAll, opts.shop ?? []) : null,
     };
   });
@@ -177,7 +179,7 @@ export function stationOpen(id: StationId, p: LoomProfile, unlockAll: boolean): 
     case 'reliquary':
       return reliquaryOpen(rank, unlockAll);
     case 'bonds':
-      return bondsOpen(p.bonds, unlockAll);
+      return bondsOpen(p.bonds, unlockAll, rosterHeroes(p, unlockAll));
     case 'deeds':
       return deedsOpen(p.deeds, unlockAll);
     case 'dissonance':
@@ -202,16 +204,21 @@ function andList(names: readonly string[]): string {
     : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
 }
 
-/** The heroes who build Bonds, by name. */
-function bondedNames(): string {
-  return andList(bondedHeroes().map((h) => heroDef(h).name));
+/** The heroes who build Bonds, by name: the player's (docs/phase-5b.md), the starters by default. */
+function bondedNames(heroes: readonly string[] = rosterHeroes({}, false)): string {
+  return andList(heroes.map((h) => heroDef(h).name));
 }
 
 /**
  * A dark station's line: what it is, in a few words, then when it opens (its Rank, or what opens
  * it), so a first visit reads as three places and the rest still to come.
  */
-export function darkLine(id: StationId, rank: number): string {
+export function darkLine(
+  id: StationId,
+  rank: number,
+  /** The Bonded heroes the player has (`rosterHeroes`); omitted, the starters. */
+  heroes?: readonly string[],
+): string {
   switch (id) {
     case 'astrolabe':
       return `A star map of bonuses. Opens at Weaver Rank ${ASTROLABE_RANK}.`;
@@ -221,7 +228,7 @@ export function darkLine(id: StationId, rank: number): string {
       return `Relics kept between runs. Opens at Weaver Rank ${CONTENT.reliquary.slotRanks[0]}.`;
     case 'bonds':
       // Open from a hero's first Bond rank-up (`bondsOpen`: a rank above 1).
-      return `Your heroes, ${bondedNames()}, earn Bond XP every fight. Opens when one reaches Bond rank 2.`;
+      return `Your heroes, ${bondedNames(heroes)}, earn Bond XP every fight. Opens when one reaches Bond rank 2.`;
     case 'deeds':
       return 'Deeds are feats within a run, like winning one. Opens with your first Deed.';
     case 'dissonance':
@@ -276,8 +283,11 @@ export function materialsShort(rq: Pick<Reliquary, 'shards' | 'tears'>): string 
 }
 
 /** Each hero's Bond rank, by name, as the Bonds station shows them: "Kael 2 · Lyra 2 · Vexis 2". */
-export function bondRanksLine(bonds: LoomProfile['bonds']): string {
-  return Object.entries(bondRanks(bonds))
+export function bondRanksLine(
+  bonds: LoomProfile['bonds'],
+  heroes: readonly string[] = rosterHeroes({}, false),
+): string {
+  return Object.entries(bondRanks(bonds, heroes))
     .map(([h, r]) => `${heroDef(h).name} ${r}`)
     .join(' · ');
 }
@@ -302,7 +312,7 @@ function badgeOf(
     case 'reliquary':
       return materialsShort(p.reliquary);
     case 'bonds':
-      return bondRanksLine(p.bonds);
+      return bondRanksLine(p.bonds, rosterHeroes(p, unlockAll));
     case 'deeds': {
       // Out of the Deeds in sight (a later Movement's join once its enemies are met), counted as
       // the Codex's Deeds page counts them (`deedsTally`).

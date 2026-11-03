@@ -4,6 +4,10 @@
  * the heroes' own Solos, `CONTENT.scenes`, `CONTENT.bondRules`) or meta (`bondRank`,
  * `bondProgress`, `tierRank`, `soloRank`, `talentChoices`, `altSoloOf`, `rankOpens`,
  * `sceneWaiting`, `sceneXp`, `bondedHeroes`), so the tuning reaches every screen untouched.
+ *
+ * The roster (docs/phase-5b.md): every list of heroes shown is `rosterHeroes` (the Bonded heroes
+ * the player has), passed in as `heroes`; omitted, the starters. A run's own rows (Prep, Result,
+ * Summary) filter its party, which the run keeps inside the roster.
  */
 import {
   CONTENT,
@@ -20,6 +24,7 @@ import {
   bondRank,
   bondedHeroes,
   emptyBond,
+  rosterHeroes,
   rankOpens,
   sceneWaiting,
   sceneXp,
@@ -33,6 +38,9 @@ import type { EncounterResult, RunPhase, RunState } from '../../meta/types';
 import { fmt, pct } from '../kit/format';
 
 const RULES = () => CONTENT.bondRules;
+
+/** The Bonded heroes a profile with no recruit sees: the default when no roster is passed. */
+const starters = (): string[] => rosterHeroes({}, false);
 
 export const NUMERALS = ['I', 'II', 'III'] as const;
 
@@ -60,13 +68,20 @@ export function bondOf(bonds: Readonly<Record<string, Bond>>, heroId: string): B
  * Bonds are open (the Loom's station, Prep's row, the frames' ranks, the Codex's page) once a hero
  * has had a Bond rank-up, or with Settings → Skip the unlocks.
  */
-export function bondsOpen(bonds: Readonly<Record<string, Bond>>, unlockAll: boolean): boolean {
-  return unlockAll || bondedHeroes().some((h) => bondRank(bonds[h]?.xp ?? 0) > 1);
+export function bondsOpen(
+  bonds: Readonly<Record<string, Bond>>,
+  unlockAll: boolean,
+  heroes: readonly string[] = starters(),
+): boolean {
+  return unlockAll || heroes.some((h) => bondRank(bonds[h]?.xp ?? 0) > 1);
 }
 
 /** Each bonded hero's rank, by id: the HUD's frames and the Loom's station. */
-export function bondRanks(bonds: Readonly<Record<string, Bond>>): Record<string, number> {
-  return Object.fromEntries(bondedHeroes().map((h) => [h, bondRank(bonds[h]?.xp ?? 0)]));
+export function bondRanks(
+  bonds: Readonly<Record<string, Bond>>,
+  heroes: readonly string[] = starters(),
+): Record<string, number> {
+  return Object.fromEntries(heroes.map((h) => [h, bondRank(bonds[h]?.xp ?? 0)]));
 }
 
 const WORDS = ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'];
@@ -622,11 +637,13 @@ export function bondRankUpTitle(notices: readonly BondNotice[]): string {
 }
 
 /** The first Bond rank-up ever: what Bonds are, and where to choose. */
-export function bondsIntroLines(): string[] {
-  const names = bondedHeroes().map((h) => heroDef(h).name);
+export function bondsIntroLines(heroes: readonly string[] = starters()): string[] {
+  const names = heroes.map((h) => heroDef(h).name);
   const r = RULES();
-  const sceneRanks = [...new Set(CONTENT.scenes.map((s) => s.rank))].sort((a, b) => a - b);
-  const perHero = CONTENT.scenes.filter((s) => s.hero === bondedHeroes()[0]).length;
+  const sceneRanks = [
+    ...new Set(CONTENT.scenes.filter((s) => heroes.includes(s.hero)).map((s) => s.rank)),
+  ].sort((a, b) => a - b);
+  const perHero = CONTENT.scenes.filter((s) => s.hero === heroes[0]).length;
   return [
     `${listAnd(names)} grow with you. Every fight pays each of them Bond XP, and more for your support of them: your healing, shields and saves, and the damage you add to theirs.`,
     `Their Bond ranks open talents (at ranks ${listAnd(r.talentRanks.map(String))}: one of two each), an alternate Solo (rank ${r.soloRank}) and ${countWord(perHero)} scenes each (ranks ${listAnd(sceneRanks.map(String))}), told at a Respite instead of resting.`,
@@ -832,7 +849,7 @@ export interface RankRow {
 }
 
 /** The ranks, their XP, and what each opens (the same for every hero). */
-export function rankRows(): RankRow[] {
+export function rankRows(heroes: readonly string[] = starters()): RankRow[] {
   const r = RULES();
   return r.ranks.map((xp, i) => {
     const rank = i + 1;
@@ -841,12 +858,12 @@ export function rankRows(): RankRow[] {
     if (tier >= 0) opens.push(`Talents, tier ${numeral(tier + 1)}`);
     if (rank === r.soloRank) opens.push('The alternate Solo');
     // A scene's XP is its rank's (`sceneXp`): the same for every hero at that rank.
-    const scenes = CONTENT.scenes.filter((s) => s.rank === rank);
+    const scenes = CONTENT.scenes.filter((s) => s.rank === rank && heroes.includes(s.hero));
     if (scenes.length > 0) {
-      const heroes = [...new Set(scenes.map((s) => s.hero))];
-      const who = bondedHeroes().every((h) => heroes.includes(h))
+      const at = [...new Set(scenes.map((s) => s.hero))];
+      const who = heroes.every((h) => at.includes(h))
         ? 'A scene each'
-        : `A scene with ${listAnd(heroes.map((h) => heroDef(h).name))}`;
+        : `A scene with ${listAnd(at.map((h) => heroDef(h).name))}`;
       opens.push(`${who} (${fmt(sceneXp(scenes[0]!))} Bond XP)`);
     }
     return { rank, xp, step: i === 0 ? 0 : xp - r.ranks[i - 1]!, opens };

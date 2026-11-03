@@ -15,7 +15,13 @@ import { CONTENT, heroDef } from '../src/content';
 import { ASTROLABE_RANK, astrolabePoints } from '../src/meta/astrolabe';
 import { DEED_POINTS_MAX, deedPoints } from '../src/meta/deeds';
 import { buy, shopItems } from '../src/meta/loom';
-import { bondedHeroes } from '../src/meta/bonds';
+import { rosterHeroes } from '../src/meta/bonds';
+
+/**
+ * The Bonded heroes a profile with no recruit sees (docs/phase-5b.md): the starters, whatever
+ * Brann's Bonds in content. With unlockAll off, the Loom reads as it did before the roster.
+ */
+const bondedHeroes = () => rosterHeroes({}, false);
 import { RANK_XP, UNLOCKS, newProfile, rankOf, type Profile } from '../src/meta/profile';
 import * as Run from '../src/meta/run';
 import { PATHS } from '../src/ui/kit/iconPaths';

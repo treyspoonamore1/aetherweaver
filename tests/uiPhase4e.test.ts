@@ -17,7 +17,7 @@ import {
   altSoloOf,
   bondProgress,
   bondRank,
-  bondedHeroes,
+  rosterHeroes,
   bondsConfig,
   emptyBond,
   rankOpens,
@@ -77,7 +77,11 @@ import {
 import { toastsBlocked } from '../src/ui/screens/deedsModel';
 
 const R = CONTENT.bondRules;
-const HEROES = bondedHeroes();
+/**
+ * The Bonded heroes a profile with no recruit sees (docs/phase-5b.md): the starters. Brann's Bonds
+ * are in content (`bondedHeroes()`), but no display shows him until he's recruited.
+ */
+const HEROES = rosterHeroes({}, false);
 const TOP = R.ranks.length;
 const skipUnlocks = (on: boolean) =>
   useSettings.getState().update((s) => ({ ...s, unlockAll: on }));
@@ -529,6 +533,31 @@ describe('Results, the Summary and rank-ups', () => {
       rankOpens(h, 2).scenes.length > 0 ? ['scene'] : ['none'],
       rankOpens(h, 3).tier !== null ? ['tier'] : ['none'],
     ]);
+  });
+});
+
+describe('the roster gates every Bonds display (docs/phase-5b.md)', () => {
+  it('a profile with no recruit sees the starters; Skip the unlocks appends Brann last', () => {
+    expect(HEROES).toEqual(['kael', 'lyra', 'vexis']);
+    expect(rosterHeroes({ recruited: ['brann'] }, false)).toEqual([
+      'kael',
+      'lyra',
+      'vexis',
+      'brann',
+    ]);
+    // Appended: the starters keep their places (the keyboard path Kael → Lyra → Vexis holds).
+    expect(rosterHeroes({}, true)).toEqual(['kael', 'lyra', 'vexis', 'brann']);
+    const bonds = { brann: withXp(at(3)) };
+    expect(bondsOpen(bonds, false)).toBe(false);
+    expect(bondsOpen(bonds, false, rosterHeroes({ recruited: ['brann'] }, false))).toBe(true);
+    expect(Object.keys(bondRanks(bonds))).toEqual(HEROES);
+    expect(bondsIntroLines().join(' ')).not.toMatch(/Brann/);
+    expect(bondsIntroLines(rosterHeroes({}, true))[0]).toMatch(/Brann/);
+    expect(
+      rankRows()
+        .flatMap((r) => r.opens)
+        .join(' '),
+    ).not.toMatch(/Brann/);
   });
 });
 

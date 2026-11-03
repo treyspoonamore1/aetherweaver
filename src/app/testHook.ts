@@ -8,7 +8,7 @@ import {
   reservePool,
 } from '../meta/run';
 import { dissonancePoints } from '../meta/dissonance';
-import { bondRank, bondedHeroes, emptyBond } from '../meta/bonds';
+import { bondRank, bondedHeroes, emptyBond, rosterHeroes } from '../meta/bonds';
 import type { Reliquary } from '../meta/reliquary';
 import { saveProfile } from '../meta/save';
 import type { CombatOutcome, MapNode, RunState } from '../meta/types';
@@ -18,6 +18,7 @@ import { useUi } from '../ui/store';
 import { useProfile } from './profileStore';
 import { useRun } from './runStore';
 import type { GameRuntime } from './runtime';
+import { useSettings } from './settings';
 import { storage } from './storage';
 import type { FightTally, ReliquarySeed } from './testHookTypes';
 
@@ -233,8 +234,9 @@ export function installRunHook(): void {
       const p = useProfile.getState();
       const state = run().run;
       return {
+        // The Bonded heroes the player has (docs/phase-5b.md), as the Bonds screen shows them.
         heroes: Object.fromEntries(
-          bondedHeroes().map((h) => {
+          rosterHeroes(p.profile, useSettings.getState().settings.unlockAll).map((h) => {
             const b = p.profile.bonds[h] ?? emptyBond();
             return [
               h,

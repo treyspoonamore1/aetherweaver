@@ -1,5 +1,5 @@
 import { CONTENT, heroDef } from '../../content';
-import { bondRank, bondedHeroes, talentChoices, type Bond } from '../../meta/bonds';
+import { bondRank, rosterHeroes, talentChoices, type Bond } from '../../meta/bonds';
 import { BOND_LOOK, heroInk } from '../kit/bondLook';
 import { Chip } from '../kit/Chip';
 import { fmt } from '../kit/format';
@@ -30,12 +30,15 @@ const BOND = BOND_LOOK.color;
 export function BondsCodexPage({
   open,
   bonds,
+  heroes = rosterHeroes({}, false),
 }: {
   open: boolean;
   /** The profile's Bonds: ranks now and the scenes seen. */
   bonds: Readonly<Record<string, Bond>>;
+  /** The Bonded heroes the player has (`rosterHeroes`, docs/phase-5b.md); omitted, the starters. */
+  heroes?: readonly string[];
 }) {
-  const intro = bondsIntroLines();
+  const intro = bondsIntroLines(heroes);
   if (!open) {
     return (
       <Panel tone="solid" className="border-dashed p-6" data-testid="codex-bonds-locked">
@@ -57,7 +60,7 @@ export function BondsCodexPage({
     );
   }
   const rules = bondRulesLines();
-  const rows = rankRows();
+  const rows = rankRows(heroes);
   return (
     <div className="flex flex-col gap-6" data-testid="codex-bonds">
       <div className="grid items-start gap-4 lg:grid-cols-[1fr_24rem]">
@@ -116,7 +119,7 @@ export function BondsCodexPage({
         </Panel>
       </div>
 
-      {bondedHeroes().map((h) => (
+      {heroes.map((h) => (
         <HeroBondEntry key={h} heroId={h} bond={bondOf(bonds, h)} />
       ))}
     </div>

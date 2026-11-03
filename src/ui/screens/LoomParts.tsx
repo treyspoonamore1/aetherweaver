@@ -1,9 +1,10 @@
 import { useEffect, useId, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import type { ColorVision } from '../../app/colorVision';
+import { useProfile } from '../../app/profileStore';
 import { useSettings } from '../../app/settings';
 import { fitThreadLook } from '../../app/threadLook';
 import { heroDef } from '../../content';
-import type { Bond } from '../../meta/bonds';
+import { rosterHeroes, type Bond } from '../../meta/bonds';
 import type { Reliquary } from '../../meta/reliquary';
 import { BOND_LOOK, heroInk } from '../kit/bondLook';
 import { Button } from '../kit/Button';
@@ -623,15 +624,22 @@ export function StationBadge({
   view,
   reliquary,
   bonds,
+  heroes,
 }: {
   view: StationView;
   reliquary: Pick<Reliquary, 'shards' | 'tears'>;
   bonds: Readonly<Record<string, Bond>>;
+  /** The Bonded heroes the player has (docs/phase-5b.md); omitted, the profile's roster. */
+  heroes?: readonly string[];
 }) {
+  const recruited = useProfile((s) => s.profile.recruited);
+  const unlockAll = useSettings((s) => s.settings.unlockAll);
   if (!view.badge) return null;
   if (view.id === 'bonds') {
     // Each hero by name, in their colour, with their Bond rank: "Kael 2 · Lyra 2 · Vexis 2".
-    const ranks = Object.entries(bondRanks(bonds));
+    const ranks = Object.entries(
+      bondRanks(bonds, heroes ?? rosterHeroes({ recruited }, unlockAll)),
+    );
     return (
       <span
         className="flex items-center gap-1 whitespace-nowrap rounded-md border bg-ink-900/80 px-2 py-0.5 text-xs font-semibold"
