@@ -1,9 +1,17 @@
-import { reachable, findNode, chooseNode, reservePool } from '../meta/run';
+import {
+  chooseNode,
+  findNode,
+  isFinalNode,
+  mapMovement,
+  movementOf,
+  reachable,
+  reservePool,
+} from '../meta/run';
 import { dissonancePoints } from '../meta/dissonance';
 import { bondRank, bondedHeroes, emptyBond } from '../meta/bonds';
 import type { Reliquary } from '../meta/reliquary';
 import { saveProfile } from '../meta/save';
-import type { CombatOutcome, NodeKind, RunState } from '../meta/types';
+import type { CombatOutcome, MapNode, RunState } from '../meta/types';
 import { encounterDef, heroDef, inscriptionDef } from '../content';
 import { emptyLedger } from '../sim/world';
 import { useUi } from '../ui/store';
@@ -78,8 +86,8 @@ export function installRunHook(): void {
   const run = () => useRun.getState();
   window.__AWRUN__ = {
     phase: () => run().run?.phase ?? null,
-    newRun: (seed) => {
-      run().newRun(seed);
+    newRun: (seed, mode) => {
+      run().newRun(seed, mode);
       useUi.getState().setScreen('run');
     },
     embark: () => run().embark(),
@@ -101,10 +109,24 @@ export function installRunHook(): void {
     warp: (kind, aether) => {
       const state = run().run;
       if (!state || state.phase !== 'map') return null;
-      const next = warpTo(state, kind, aether);
+      const next = warpTo(state, (n) => n.kind === kind, aether);
       if (!next) return null;
       useRun.setState({ run: next });
       return next.phase;
+    },
+    warpMovement: (movement) => {
+      const state = run().run;
+      if (!state || state.phase !== 'map') return null;
+      const next = walkTo(state, (n) => n.movement >= movement);
+      if (!next) return null;
+      useRun.setState({ run: next });
+      return next.phase;
+    },
+    movement: () => {
+      const state = run().run;
+      return state
+        ? { movements: state.movements, here: movementOf(state), map: mapMovement(state) }
+        : null;
     },
     aether: () => run().run?.aether ?? 0,
     relics: () => run().run?.relics.map((r) => r.id) ?? [],
@@ -282,7 +304,8 @@ export function installRunHook(): void {
           .filter((id) => !state.relics.some((r) => r.id === id))
           .map((id) => ({ id, cleansed: false })),
       ];
-      const next = warpTo({ ...state, relics }, 'boss');
+      // The run's final boss (an Expedition's Vharun, walking past the Cantor).
+      const next = warpTo({ ...state, relics }, isFinalNode);
       if (!next) return false;
       useRun.setState({ run: next });
       const fight = run().run;
@@ -352,10 +375,10 @@ function plainVictory(state: RunState, tally: FightTally = {}): CombatOutcome | 
 }
 
 /**
- * Test-only: walks the map's links to the first node of `kind` (skipping the fights on the
- * way, nothing else changes) and enters it. Null if no such node is reachable.
+ * Test-only: the route along the map's links from where the party stands to the first node that
+ * matches (breadth first), or null if none is reachable.
  */
-function warpTo(state: RunState, kind: NodeKind, aether?: number): RunState | null {
+function routeTo(state: RunState, matches: (node: MapNode) => boolean): string[] | null {
   const rows = state.map.rows;
   const from = state.path.length > 0 ? findNode(state, state.path[state.path.length - 1]!) : null;
   const starts = from ? from.next : rows[0]!.map((n) => n.id);
@@ -364,16 +387,38 @@ function warpTo(state: RunState, kind: NodeKind, aether?: number): RunState | nu
     const route = queue.shift()!;
     const node = findNode(state, route[route.length - 1]!);
     if (!node) continue;
-    if (node.kind === kind) {
-      const walked: RunState = {
-        ...state,
-        path: [...state.path, ...route.slice(0, -1)],
-        aether: aether ?? state.aether,
-      };
-      const next = chooseNode(walked, node.id);
-      return next === walked ? null : next;
-    }
+    if (matches(node)) return route;
     for (const id of node.next) queue.push([...route, id]);
   }
   return null;
+}
+
+/**
+ * Test-only: walks the map's links to the first node that matches (skipping the fights on the
+ * way, nothing else changes) and enters it. Null if no such node is reachable.
+ */
+function warpTo(
+  state: RunState,
+  matches: (node: MapNode) => boolean,
+  aether?: number,
+): RunState | null {
+  const route = routeTo(state, matches);
+  if (!route) return null;
+  const walked: RunState = {
+    ...state,
+    path: [...state.path, ...route.slice(0, -1)],
+    aether: aether ?? state.aether,
+  };
+  const next = chooseNode(walked, route[route.length - 1]!);
+  return next === walked ? null : next;
+}
+
+/**
+ * Test-only: walks the map's links to just before the first node that matches, and stays on the
+ * map with it next (an Expedition's Movement II: the Cantor behind, the Crimson Gate ahead).
+ */
+function walkTo(state: RunState, matches: (node: MapNode) => boolean): RunState | null {
+  const route = routeTo(state, matches);
+  if (!route) return null;
+  return { ...state, path: [...state.path, ...route.slice(0, -1)] };
 }

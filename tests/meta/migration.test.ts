@@ -249,6 +249,34 @@ describe('save migration', () => {
     expect(loadRun(store)!.chords).toEqual([{ auras: ['sostenuto', 'fortissimo'], ornaments: [] }]);
   });
 
+  it('saves from before Movements (Phase 3b on) load as Preludes whose Cantor is final', () => {
+    for (const version of [4, 5]) {
+      const json = JSON.parse(JSON.stringify(oneFight())) as Record<string, unknown>;
+      delete json.movements;
+      for (const row of (json.map as { rows: Record<string, unknown>[][] }).rows)
+        for (const node of row) delete node.movement;
+      for (const r of json.results as Record<string, unknown>[]) delete r.movement;
+      delete (json.lastResult as Record<string, unknown>).movement;
+      const store = memoryStore();
+      store.data.set('aetherweaver.run', JSON.stringify({ ...json, version }));
+      const loaded = loadRun(store)!;
+      expect(loaded.movements, `v${version}`).toBe(1);
+      expect(loaded.map.rows.flat().every((n) => n.movement === 1)).toBe(true);
+      expect(loaded.results.every((r) => r.movement === 1 && r.wonRun === undefined)).toBe(true);
+      expect(loaded.map.rows.flat().filter((n) => Run.isFinalNode(n))).toHaveLength(1);
+      expect(Run.isFinalNode(loaded.map.rows.at(-1)![0]!)).toBe(true);
+    }
+  });
+
+  it('an Expedition saved mid-run keeps its route and its two Movements', () => {
+    const run = Run.embark(Run.newRun(32, undefined, [], [], [], [], undefined, 2));
+    const store = memoryStore();
+    saveRun(store, run);
+    const loaded = loadRun(store)!;
+    expect(loaded.movements).toBe(2);
+    expect(loaded.map).toEqual(run.map);
+  });
+
   it('leaves current and unknown shapes alone', () => {
     const run = Run.newRun(4);
     expect(migrateRunJson(run)).toBe(run);
@@ -257,6 +285,16 @@ describe('save migration', () => {
 });
 
 describe('profile', () => {
+  it('a v8 profile becomes v9 with its route and the Movement I enemies seen', () => {
+    const { runMode: _m, seen: _s, ...v8 } = { ...newProfile(), version: 8, xp: 120, runs: 2 };
+    const store = memoryStore();
+    store.data.set('aetherweaver.profile', JSON.stringify(v8));
+    expect(loadProfile(store)).toEqual({ ...newProfile(), xp: 120, runs: 2 });
+    // A route this build doesn't know falls back to the Expedition.
+    store.data.set('aetherweaver.profile', JSON.stringify({ ...newProfile(), runMode: 'odd' }));
+    expect(loadProfile(store).runMode).toBe('expedition');
+  });
+
   it('starts fresh, round-trips, and falls back to the backup', () => {
     const store = memoryStore();
     expect(loadProfile(store)).toEqual(newProfile());

@@ -11,7 +11,8 @@ export const START_AETHER = 0;
 
 /**
  * Threat (docs/phase-3b.md): the deeper the row, the more life every enemy has, so the party's
- * growth (motifs, relics, a merchant's healing) never outruns the fights. Row 1 is ×1.
+ * growth (motifs, relics, a merchant's healing) never outruns the fights. Row 1 is ×1. `row` is
+ * the row within its Movement (docs/phase-5a.md): Threat restarts in each one.
  */
 export const THREAT_PER_ROW = 0.0375;
 
@@ -27,6 +28,11 @@ export const FIGHT_AETHER: Readonly<Record<EncounterKind, number>> = {
   miniboss: 50,
   boss: 0,
 };
+/**
+ * Aether for beating a boss that doesn't end the run (docs/phase-5a.md: the Hollow Cantor of an
+ * Expedition), before the grade bonus: a mini-boss's.
+ */
+export const INTERLUDE_AETHER = 50;
 export const GRADE_AETHER: Readonly<Record<Grade, number>> = {
   S: 1.5,
   A: 1.3,
@@ -35,13 +41,18 @@ export const GRADE_AETHER: Readonly<Record<Grade, number>> = {
   D: 0.85,
 };
 
+/**
+ * A won fight's Aether: its kind's (or `base`: what its node pays, a Movement's multiplier in it),
+ * by its grade. A loss earns none.
+ */
 export function aetherForFight(
   kind: EncounterKind,
   outcome: 'victory' | 'defeat',
   grade: Grade,
+  base: number = FIGHT_AETHER[kind],
 ): number {
   if (outcome !== 'victory') return 0;
-  return Math.round(FIGHT_AETHER[kind] * GRADE_AETHER[grade]);
+  return Math.round(base * GRADE_AETHER[grade]);
 }
 
 export const RELIC_PRICE: Readonly<Record<RelicRarity, number>> = {

@@ -15,7 +15,7 @@ import {
   relicDef,
   runEventDef,
 } from '../content';
-import type { EventEffect, MotifDef, RelicRarity } from '../content/schema';
+import type { Biome, EventEffect, MotifDef, MovementDef, RelicRarity } from '../content/schema';
 import { Rng, hashString } from '../sim/core/rng';
 import {
   dissonancePoints,
@@ -29,6 +29,7 @@ import { empowered, relicPassives, snapshotRelic, type ReliquaryRelic } from './
 import { bondXpForFight, bondsConfig, type RunBond } from './bonds';
 import { noVariants, variantsConfig, type Techniques } from './variants';
 import { starlightForFight } from './loom';
+import { endsRun, isFinalNode } from './runEnd';
 import {
   canonicalChords,
   chordProblems,
@@ -42,6 +43,7 @@ import {
 import {
   FIGHT_AETHER,
   FORGE_PRICE,
+  INTERLUDE_AETHER,
   MOTIF_PRICE,
   RELIC_OFFERS,
   RELIC_PRICE,
@@ -269,26 +271,20 @@ const REST_HEAL = 0.4;
 const VICTORY_HEAL = 0.2;
 const BOSS_HP_FLOOR = 0.75;
 
-const SKIRMISHES = ['tolling_halls', 'glass_gallery', 'choir_loft', 'mourning_steps'] as const;
-const ELITES = ['muted_nave', 'shattered_choir'] as const;
+/** What a boss that isn't the run's end heals (it also steadies the Shaken). */
+const INTERLUDE_HEAL = 0.5;
 
-/**
- * Row templates for the Prelude (docs/phase-3b.md): ten stops, every path at least three
- * fights before the Bellwarden, and a merchant, a forge or an event between most of them.
- * Each row's kinds are shuffled.
- */
-const ROWS: readonly (readonly NodeKind[])[] = [
-  ['skirmish'],
-  ['skirmish', 'skirmish', 'event'],
-  ['merchant', 'skirmish', 'shrine'],
-  ['skirmish', 'elite', 'skirmish'],
-  ['event', 'forge', 'merchant'],
-  ['elite', 'skirmish', 'skirmish'],
-  ['respite', 'event', 'forge'],
-  ['miniboss'],
-  ['respite', 'merchant'],
-  ['boss'],
-];
+/** Where each biome's Movement climbs: the copy of the boss before it names it. */
+const BIOME_PLACE: Readonly<Record<Biome, string>> = {
+  reliquary: 'the Reliquary',
+  crimson_spire: 'the Crimson Spire',
+};
+
+/** What a run's final boss asks of it (the node's text, after the boss's name). */
+const FINAL_CALL: Readonly<Record<string, string>> = {
+  hollow_cantor: 'End the silence.',
+  vharun: 'Break the Legion.',
+};
 
 function rngFor(seed: number, label: string): Rng {
   return new Rng((seed ^ hashString(label)) >>> 0);
@@ -302,14 +298,28 @@ function shuffle<T>(rng: Rng, items: T[]): T[] {
   return items;
 }
 
-function rewardFor(kind: NodeKind, eventId: string | null, row: number): MapNode['reward'] {
-  const reward = rewardKind(kind, eventId);
+/** A node's place in its run: its row within its Movement, the Movement, and the next one. */
+interface NodePlace {
+  /** Row within its Movement (Threat restarts in each one). */
+  row: number;
+  movement: MovementDef;
+  /** The Movement after this one in the run (null: this is the run's last). */
+  next: MovementDef | null;
+}
+
+function rewardFor(
+  kind: NodeKind,
+  encounterId: string | null,
+  eventId: string | null,
+  place: NodePlace,
+): MapNode['reward'] {
+  const reward = rewardKind(kind, encounterId, eventId, place);
   // Fights (and an event that holds one) say how dangerous their row is.
   const fights =
     kind === 'event'
       ? eventId !== null && eventHasFight(eventId)
       : kind !== 'shrine' && kind !== 'respite' && kind !== 'merchant' && kind !== 'forge';
-  return { ...reward, threat: fights ? threatFor(row) : 1 };
+  return { ...reward, threat: fights ? threatFor(place.row) : 1 };
 }
 
 /** Relics offered after winning the event's fight (0 if it has none). */
@@ -326,22 +336,30 @@ export function eventHasFight(eventId: string): boolean {
   );
 }
 
-function rewardKind(kind: NodeKind, eventId: string | null): Omit<MapNode['reward'], 'threat'> {
+function rewardKind(
+  kind: NodeKind,
+  encounterId: string | null,
+  eventId: string | null,
+  place: NodePlace,
+): Omit<MapNode['reward'], 'threat'> {
   const none = { draft: null, heal: 0, aether: 0, relics: 0 } as const;
+  // A Movement's fights pay its Aether (Movement II: ×1.25).
+  const pays = (base: number) => Math.round(base * place.movement.rewards.aether);
+  const name = encounterId ? encounterDef(encounterId).name : null;
   switch (kind) {
     case 'skirmish':
       return {
         ...none,
         draft: 'common',
         heal: VICTORY_HEAL,
-        aether: FIGHT_AETHER.skirmish,
+        aether: pays(FIGHT_AETHER.skirmish),
         text: 'A fight: Aether and a motif.',
       };
     case 'elite':
       return {
         draft: 'rare',
         heal: VICTORY_HEAL,
-        aether: FIGHT_AETHER.elite,
+        aether: pays(FIGHT_AETHER.elite),
         relics: RELIC_OFFERS.elite.count,
         text: 'A hard fight: Aether, a relic and a rare motif.',
       };
@@ -373,23 +391,75 @@ function rewardKind(kind: NodeKind, eventId: string | null): Omit<MapNode['rewar
       return {
         draft: 'epic',
         heal: VICTORY_HEAL,
-        aether: FIGHT_AETHER.miniboss,
+        aether: pays(FIGHT_AETHER.miniboss),
         relics: RELIC_OFFERS.boss.count,
-        text: 'The Bellwarden guards the way: Aether, a relic and an epic motif.',
+        text: `${name ?? 'The guardian'} guards the way: Aether, a relic and an epic motif.`,
       };
     case 'boss':
-      return { ...none, text: 'The Hollow Cantor. End the silence.' };
+      // A boss with a Movement after it pays like a mini-boss, and the party catches its
+      // breath before the climb (docs/phase-5a.md); the run's last one ends it.
+      if (place.next)
+        return {
+          draft: 'epic',
+          heal: INTERLUDE_HEAL,
+          aether: pays(INTERLUDE_AETHER),
+          relics: RELIC_OFFERS.boss.count,
+          text: `${name ?? 'The boss'}. Beyond it, ${BIOME_PLACE[place.next.biome]}.`,
+        };
+      return {
+        ...none,
+        text: `${name ?? 'The boss'}. ${(encounterId && FINAL_CALL[encounterId]) || 'End the run.'}`,
+      };
   }
 }
 
-/** Generates the Prelude map for a seed. */
-export function generateMap(seed: number): RunMap {
-  const rng = rngFor(seed, 'map');
-  const order = (pool: readonly string[]) => shuffle(rng, [...pool]);
-  const skirmishes = order(SKIRMISHES);
-  const elites = order(ELITES);
-  // Every event at most once a run, until they run out. Movement I's own, in content order.
-  const events = order(CONTENT.events.filter((e) => (e.movement ?? 1) === 1).map((e) => e.id));
+/** The node kinds that hold an encounter. */
+const FIGHT_KINDS: ReadonlySet<NodeKind> = new Set(['skirmish', 'elite', 'miniboss', 'boss']);
+
+/** The Movements a run of `movements` plays, in order (Movement I at least). */
+function runMovements(movements: number): MovementDef[] {
+  const n = Math.max(1, Math.min(CONTENT.movements.length, Math.floor(movements) || 1));
+  return CONTENT.movements.slice(0, n);
+}
+
+/**
+ * One Movement's rows (docs/phase-5a.md), numbered on from `firstRow`. Each Movement draws from
+ * its own RNG (Movement I from 'map', exactly as the Prelude always has; Movement n from
+ * `map:m{n}`), its own pools and its own events, in content order:
+ * - a fixed row plays its encounter; the miniboss and boss rows play the Movement's whether
+ *   `fixed` lists them or not;
+ * - a Movement with lessons plays one of each on its lesson row (every path learns one), and
+ *   draws its pools in their teaching order instead of shuffling them.
+ */
+function buildMovement(
+  seed: number,
+  def: MovementDef,
+  movement: number,
+  firstRow: number,
+  next: MovementDef | null,
+): MapNode[][] {
+  const rng = rngFor(seed, movement === 1 ? 'map' : `map:m${movement}`);
+  const taught = def.lessons ?? [];
+  const ladder = taught.length > 0;
+  const order = (pool: readonly string[]) => (ladder ? [...pool] : shuffle(rng, [...pool]));
+  const skirmishes = order(def.skirmishes);
+  const elites = order(def.elites);
+  // Every event at most once a run, until they run out: the Movement's own, in content order.
+  const events = shuffle(
+    rng,
+    CONTENT.events.filter((e) => (e.movement ?? 1) === movement).map((e) => e.id),
+  );
+  const fixedAt = new Map(def.fixed.map((f) => [f.row, f.encounter]));
+  // The lesson row: the first row, not fixed, of one skirmish per lesson.
+  const lessons = ladder ? shuffle(rng, [...taught]) : [];
+  const lessonRow = ladder
+    ? def.rows.findIndex(
+        (kinds, row) =>
+          !fixedAt.has(row) &&
+          kinds.length === lessons.length &&
+          kinds.every((k) => k === 'skirmish'),
+      )
+    : -1;
   let nextEvent = 0;
   const uses = new Map<string, number>();
   const rowsUsed: Set<string>[] = [];
@@ -403,32 +473,49 @@ export function generateMap(seed: number): RunMap {
     uses.set(best, (uses.get(best) ?? 0) + 1);
     return best;
   };
-  const rows: MapNode[][] = ROWS.map((template, row) => {
-    const kinds = row === 0 ? [...template] : shuffle(rng, [...template]);
+  return def.rows.map((template, row) => {
+    const fixed = fixedAt.get(row);
+    const kinds = fixed !== undefined ? [...template] : shuffle(rng, [...template]);
     rowsUsed[row] = new Set();
     return kinds.map((kind, col) => {
-      let encounterId: string | null = null;
-      if (row === 0) encounterId = 'first_light';
+      let encounterId: string | null;
+      if (!FIGHT_KINDS.has(kind)) encounterId = null;
+      else if (fixed !== undefined) encounterId = fixed;
+      else if (kind === 'miniboss') encounterId = def.miniboss;
+      else if (kind === 'boss') encounterId = def.boss;
+      else if (row === lessonRow) encounterId = lessons[col] ?? null;
+      else if (row === 0 && kind === 'skirmish') encounterId = def.opening;
       else if (kind === 'skirmish') encounterId = pick(skirmishes, row);
-      else if (kind === 'elite') encounterId = pick(elites, row);
-      else if (kind === 'miniboss') encounterId = 'bellwarden';
-      else if (kind === 'boss') encounterId = 'hollow_cantor';
+      else encounterId = pick(elites, row);
       if (encounterId) rowsUsed[row]!.add(encounterId);
       const eventId =
         kind === 'event' && events.length > 0 ? events[nextEvent++ % events.length]! : null;
       const n = kinds.length;
       return {
-        id: `r${row}c${col}`,
-        row,
+        id: `r${firstRow + row}c${col}`,
+        row: firstRow + row,
         x: n === 1 ? 0.5 : 0.15 + (0.7 * col) / (n - 1),
         kind,
         encounterId,
         eventId,
         next: [],
-        reward: rewardFor(kind, eventId, row),
-        movement: 1,
+        reward: rewardFor(kind, encounterId, eventId, { row, movement: def, next }),
+        movement,
       };
     });
+  });
+}
+
+/**
+ * Generates a run's map for a seed (docs/phase-5a.md): Movement I (the Prelude's map, exactly),
+ * then each later Movement's rows, generated up front and numbered on, the boss before each
+ * linked to the next Movement's first stop. Only the last Movement's boss is final.
+ */
+export function generateMap(seed: number, movements = 1): RunMap {
+  const defs = runMovements(movements);
+  const rows: MapNode[][] = [];
+  defs.forEach((def, i) => {
+    rows.push(...buildMovement(seed, def, i + 1, rows.length, defs[i + 1] ?? null));
   });
   // Connect each node to the nearby nodes of the next row; every node stays reachable.
   for (let r = 0; r < rows.length - 1; r++) {
@@ -458,18 +545,7 @@ function nearest(nodes: MapNode[], x: number): MapNode {
 
 // ── Movements (docs/phase-5a.md) ─────────────────────────────────────────────────────
 
-/** The run's last stop: a boss with nothing after it. (In an Expedition the Cantor isn't.) */
-export function isFinalNode(node: MapNode): boolean {
-  return node.kind === 'boss' && node.next.length === 0;
-}
-
-/**
- * Did this fight end the run in victory? Only the final node sets `wonRun`; results saved
- * before Movements have none, and a won boss stood for it.
- */
-export function endsRun(result: EncounterResult): boolean {
-  return result.wonRun ?? (result.kind === 'boss' && result.outcome === 'victory');
-}
+export { endsRun, isFinalNode };
 
 /** The Movement the party stands in (1 before the first step). */
 export function movementOf(run: RunState): number {
@@ -477,10 +553,17 @@ export function movementOf(run: RunState): number {
   return (here !== undefined ? findNode(run, here)?.movement : undefined) ?? 1;
 }
 
-/** Has the run set foot in Movement `n` (any stop of it, or a later one)? */
+/**
+ * Has the run reached Movement `n`: set foot on any stop of it (or a later one), or beaten the
+ * boss that opens the way to it?
+ */
 export function reachedMovement(run: RunState, n: number): boolean {
   if (n <= 1) return true;
-  return run.path.some((id) => (findNode(run, id)?.movement ?? 1) >= n);
+  if (run.path.some((id) => (findNode(run, id)?.movement ?? 1) >= n)) return true;
+  return run.results.some(
+    (r) =>
+      r.kind === 'boss' && r.outcome === 'victory' && r.movement >= n - 1 && r.wonRun === false,
+  );
 }
 
 /**
@@ -489,6 +572,39 @@ export function reachedMovement(run: RunState, n: number): boolean {
  */
 export function enshrineEligible(run: RunState): boolean {
   return run.movements >= 2 ? reachedMovement(run, 2) : run.outcome === 'victory';
+}
+
+/**
+ * The Movement the map is showing (docs/phase-5a.md): the one the next stop belongs to. Unlike
+ * `movementOf` (the last stop's), it is Movement II as soon as the Cantor of an Expedition is
+ * beaten; on the run's last stop, that stop's.
+ */
+export function mapMovement(run: RunState): number {
+  const here = run.path.length > 0 ? findNode(run, run.path[run.path.length - 1]!) : undefined;
+  const ahead = here
+    ? here.next.map((id) => findNode(run, id)).find((n) => n !== undefined)
+    : run.map.rows[0]?.[0];
+  return ahead?.movement ?? here?.movement ?? 1;
+}
+
+/** Movement `n`'s rows of the map, in order (none if the run doesn't play it). */
+export function rowsOfMovement(map: RunMap, n: number): MapNode[][] {
+  return map.rows.filter((row) => (row[0]?.movement ?? 1) === n);
+}
+
+/** What Movement `n`'s fights pay, against Movement I's: XP, Starlight and Aether. */
+export function movementRewards(n: number): MovementDef['rewards'] {
+  return (CONTENT.movements[n - 1] ?? CONTENT.movements[0]!).rewards;
+}
+
+/**
+ * Prep: the run's route (docs/phase-5a.md), 1 Movement (the Prelude) or 2 (an Expedition). Its
+ * map is drawn again for the seed; Movement I comes out the same. Frozen at embark.
+ */
+export function setMovements(run: RunState, movements: number): RunState {
+  const n = runMovements(movements).length;
+  if (run.phase !== 'prep' || run.movements === n) return run;
+  return { ...run, movements: n, map: generateMap(run.seed, n) };
 }
 
 export function findNode(run: RunState, id: string): MapNode | undefined {
@@ -520,8 +636,11 @@ export function newRun(
   bonds: readonly RunBond[] = [],
   /** The Weaver's technique variants (docs/phase-4f.md). */
   techniques: Techniques = noVariants(),
+  /** Its route (docs/phase-5a.md): 1 Movement, the Prelude; 2, an Expedition. */
+  movements = 1,
 ): RunState {
   const kept = carried.map(snapshotRelic);
+  const route = runMovements(movements).length;
   const run: RunState = {
     version: RUN_SAVE_VERSION,
     seed: seed >>> 0,
@@ -529,7 +648,7 @@ export function newRun(
     party: CONTENT.defaultParty.map((heroId) => ({ heroId, hpPct: 1, shaken: false })),
     chords: canonicalChords(DEFAULT_CHORDS),
     motifs: [],
-    map: generateMap(seed >>> 0),
+    map: generateMap(seed >>> 0, route),
     path: [],
     pending: null,
     draft: null,
@@ -557,7 +676,7 @@ export function newRun(
     scene: null,
     scenes: [],
     techniques: { ...techniques },
-    movements: 1,
+    movements: route,
   };
   return chordsLegal(chords, undefined, reservePool(run), reserveMult(run))
     ? { ...run, chords: canonicalChords(chords) }
@@ -609,11 +728,12 @@ export function playedDissonance(
 }
 
 /**
- * The relics a won run may enshrine (docs/phase-4c.md): the ones it found, not those it carried
- * in or Discordant Pact gave it. None for a run that wasn't won.
+ * The relics a run may enshrine (docs/phase-4c.md): the ones it found, not those it carried in or
+ * Discordant Pact gave it. None for a run that may not (`enshrineEligible`: a won Prelude, or an
+ * Expedition that reached Movement II).
  */
 export function enshrineOptions(run: RunState): OwnedRelic[] {
-  return run.outcome === 'victory' ? run.relics.filter((r) => !r.carried && !r.pact) : [];
+  return enshrineEligible(run) ? run.relics.filter((r) => !r.carried && !r.pact) : [];
 }
 
 /** A run's Bond choices, copied. */
@@ -878,9 +998,16 @@ export function finishCombat(run: RunState, outcome: CombatOutcome): RunState {
     ...summary,
     xp: Math.round(summary.xp * xpMult(dissonancePoints(run.dissonance))),
   };
+  // A boss with a Movement after it: the party catches its breath, and the Shaken steady
+  // (docs/phase-5a.md).
+  const interlude = outcome.outcome === 'victory' && node.kind === 'boss' && !isFinalNode(node);
   const party: RunHero[] = run.party.map((h, slot) => {
     const p = outcome.party.find((x) => x.slot === slot);
     if (!p) return h;
+    if (interlude) {
+      const pct = p.dead ? 0.25 : p.downed ? 0.3 : p.maxHp > 0 ? p.hp / p.maxHp : 1;
+      return { heroId: h.heroId, hpPct: Math.min(1, pct + node.reward.heal), shaken: false };
+    }
     if (p.dead) return { heroId: h.heroId, hpPct: 0.25, shaken: true };
     if (p.downed) return { heroId: h.heroId, hpPct: 0.3, shaken: true };
     const pct = p.maxHp > 0 ? p.hp / p.maxHp : 1;
@@ -929,7 +1056,8 @@ export function continueFromResult(run: RunState): RunState {
   if (run.phase !== 'result') return run;
   const node = run.pending ? findNode(run, run.pending) : undefined;
   if (run.outcome === 'defeat') return { ...run, phase: 'summary', pending: null };
-  if (!node || node.kind === 'boss')
+  // Only the run's last stop ends it (an Expedition's Cantor goes on to its rewards).
+  if (!node || isFinalNode(node))
     return { ...run, phase: 'summary', pending: null, outcome: 'victory' };
   // A milestone fight brings the Calling's next tier, before anything else.
   const tier = callingTierDue(run, node);
@@ -981,26 +1109,46 @@ export function pickCalling(
 
 /** After a victory (and the Calling's tier): a relic offer if the node has one, then rewards. */
 function relicThenRewards(run: RunState, node: MapNode): RunState {
-  // Elites, the Bellwarden and an event's fight offer a relic first.
+  // Elites, a mini-boss, a boss that isn't the end and an event's fight offer a relic first.
   const offer =
     node.kind === 'event'
       ? makeRelicOffer(run, 'event', run.event?.relics ?? 0)
       : node.reward.relics > 0
-        ? makeRelicOffer(run, node.kind === 'miniboss' ? 'boss' : 'elite', node.reward.relics)
+        ? makeRelicOffer(run, bossLike(node) ? 'boss' : 'elite', node.reward.relics)
         : null;
-  if (offer) return { ...run, phase: 'relic', relicOffer: offer };
+  if (offer) {
+    // Its copy names the fight that offers it.
+    const source = sourceOf(run, node);
+    return {
+      ...run,
+      phase: 'relic',
+      relicOffer: source ? { ...offer, sourceEncounter: source } : offer,
+    };
+  }
   return afterRewards(run, node);
+}
+
+/** A mini-boss, or a boss with a Movement after it: they pay the boss's rewards. */
+function bossLike(node: MapNode): boolean {
+  return node.kind === 'miniboss' || (node.kind === 'boss' && !isFinalNode(node));
+}
+
+/** The encounter a node's victory was won in (an event's fight, or the node's own). */
+function sourceOf(run: RunState, node: MapNode): string | null {
+  return (node.kind === 'event' ? run.event?.encounterId : node.encounterId) ?? null;
 }
 
 /** After a victory's relic (if any): the node's draft, or back to the map. */
 function afterRewards(run: RunState, node: MapNode): RunState {
   if (!node.reward.draft) return toMap(run);
-  const reason = node.kind === 'elite' ? 'elite' : node.kind === 'miniboss' ? 'boss' : 'victory';
+  const reason = node.kind === 'elite' ? 'elite' : bossLike(node) ? 'boss' : 'victory';
+  const draft = makeDraft(run, reason, node.reward.draft);
+  const source = sourceOf(run, node);
   return {
     ...run,
     phase: 'draft',
     relicOffer: null,
-    draft: makeDraft(run, reason, node.reward.draft),
+    draft: source ? { ...draft, sourceEncounter: source } : draft,
   };
 }
 
@@ -1069,7 +1217,15 @@ export function rerollDraft(run: RunState): RunState {
         ? 'epic'
         : 'common';
   const fresh = makeDraft(run, run.draft.reason, rarity, REROLLS - run.draft.rerollsLeft + 1);
-  return { ...run, draft: { ...fresh, rerollsLeft: run.draft.rerollsLeft - 1 } };
+  const source = run.draft.sourceEncounter;
+  return {
+    ...run,
+    draft: {
+      ...fresh,
+      rerollsLeft: run.draft.rerollsLeft - 1,
+      ...(source !== undefined ? { sourceEncounter: source } : {}),
+    },
+  };
 }
 
 export function respite(run: RunState, choice: 'rest' | 'meditate'): RunState {
@@ -1640,18 +1796,28 @@ export function summarize(
   }
   highlights.sort((a, b) => b.score - a.score);
   const fightGrade = grade(outcome.outcome, stats, outcome.duration, par);
-  // Winning the boss node wins the run.
-  const wonRun = outcome.outcome === 'victory' && node.kind === 'boss';
-  const xp = xpForFight(
-    { kind: def.kind, outcome: outcome.outcome, grade: fightGrade, name: def.name },
-    wonRun,
-  ).total;
+  // Winning the run's last stop wins the run (docs/phase-5a.md: not an Expedition's Cantor).
+  const wonRun = outcome.outcome === 'victory' && isFinalNode(node);
+  // Its Movement's rewards (Movement II: ×1.25 XP, Starlight and Aether).
+  const movement = node.movement ?? 1;
+  const pays = movementRewards(movement);
+  const xp = Math.round(
+    xpForFight(
+      { kind: def.kind, outcome: outcome.outcome, grade: fightGrade, name: def.name },
+      wonRun,
+    ).total * pays.xp,
+  );
   // Starlight (docs/phase-4g.md): Dissonance raises it as it does Weaver XP.
   const starlight = starlightForFight(
     { kind: def.kind, outcome: outcome.outcome },
     wonRun,
-    xpMult(dissonancePoints(dissonance)),
+    xpMult(dissonancePoints(dissonance)) * pays.starlight,
   );
+  // A boss with a Movement after it pays what its node says; every other fight its kind's.
+  const aetherBase =
+    node.kind === 'boss' && !isFinalNode(node)
+      ? node.reward.aether
+      : FIGHT_AETHER[def.kind] * pays.aether;
   return {
     nodeId: node.id,
     encounterId: def.id,
@@ -1662,7 +1828,7 @@ export function summarize(
     par,
     grade: fightGrade,
     xp,
-    aether: aetherForFight(def.kind, outcome.outcome, fightGrade),
+    aether: aetherForFight(def.kind, outcome.outcome, fightGrade, aetherBase),
     stats,
     highlights: highlights.slice(0, 3).map(({ score, ...h }) => {
       void score;
@@ -1689,8 +1855,10 @@ export function summarize(
     // Bonds (docs/phase-4e.md): what the fight paid each hero.
     bondXp: bondXpForFight(outcome, def.kind),
     starlight,
-    // Movements (docs/phase-5a.md): the Movement the fight was in.
-    movement: node.movement ?? 1,
+    // Movements (docs/phase-5a.md): the Movement the fight was in, and whether it won the run
+    // (said on every boss: an Expedition's Cantor doesn't).
+    movement,
+    ...(node.kind === 'boss' ? { wonRun } : {}),
   };
 }
 

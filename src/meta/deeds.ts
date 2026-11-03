@@ -5,6 +5,7 @@
  */
 import { CONTENT, type DeedDef } from '../content';
 import { treeKeystones } from '../sim';
+import { endsRun } from './runEnd';
 import type { EncounterResult, RunState } from './types';
 
 /** The most Astrolabe points Deeds give (the ten point Deeds). */
@@ -17,12 +18,12 @@ export function deedPoints(earned: readonly string[]): number {
   return Math.min(DEED_POINTS_MAX, points);
 }
 
-/** The run is won: its boss is beaten (the result is in), or it ended in victory. */
+/**
+ * The run is won: it ended in victory, or its final boss is beaten (the result is in; not an
+ * Expedition's Cantor, docs/phase-5a.md).
+ */
 function won(run: RunState): boolean {
-  return (
-    run.outcome === 'victory' ||
-    run.results.some((r) => r.kind === 'boss' && r.outcome === 'victory')
-  );
+  return run.outcome === 'victory' || run.results.some(endsRun);
 }
 
 /**

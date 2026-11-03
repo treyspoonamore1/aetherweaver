@@ -87,7 +87,8 @@ export type FightTally = Partial<
 /** Drives the run layer (always installed in dev builds or with `?e2e`). */
 export interface RunHook {
   phase(): RunPhase | null;
-  newRun(seed: number): void;
+  /** Phase 5a: `mode` picks the route (absent: the profile's, as the Title's New run does). */
+  newRun(seed: number, mode?: 'prelude' | 'expedition'): void;
   embark(): void;
   /** Chooses the first reachable node (or the given one). Returns the node kind. */
   choose(nodeId?: string): string | null;
@@ -105,6 +106,17 @@ export interface RunHook {
    * `kind` and enter it (optionally setting the purse). Returns the new phase, or null.
    */
   warp(kind: NodeKind, aether?: number): RunPhase | null;
+  /**
+   * Phase 5a, test-only: from the map, walk along its links (skipping the stops on the way) to
+   * the doorstep of Movement `movement`: still on the map, its first stop next. Returns the
+   * phase ('map'), or null if the run doesn't reach it.
+   */
+  warpMovement(movement: number): RunPhase | null;
+  /**
+   * Phase 5a: the run's Movements (1: the Prelude, 2: an Expedition), the one its last stop
+   * was in, and the one the map shows (its next stop's). Null without a run.
+   */
+  movement(): { movements: number; here: number; map: number } | null;
   aether(): number;
   /** Relic ids carried. */
   relics(): string[];
@@ -151,9 +163,10 @@ export interface RunHook {
    */
   seedReliquary(seed: ReliquarySeed): void;
   /**
-   * Phase 4c, test-only: from the map, wins the run through the run store, as if its boss fell
-   * (the hook's `warp('boss')` and `winFight()`), with `found` among its relics: its end pays
-   * the Reliquary and its Summary can enshrine. Returns false if it couldn't.
+   * Phase 4c, test-only: from the map, wins the run through the run store, as if its final boss
+   * fell (a walk to the final node, then `winFight()`; Phase 5a: an Expedition's Vharun, past
+   * the Cantor), with `found` among its relics: its end pays the Reliquary and its Summary can
+   * enshrine. Returns false if it couldn't.
    */
   winRun(found?: string[]): boolean;
   /**

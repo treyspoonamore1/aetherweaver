@@ -181,8 +181,15 @@ export const useRun = create<RunStore>()((set, get) => {
     },
     enshrine: (relicId) => {
       const run = get().run;
-      if (!run || run.phase !== 'summary' || run.outcome !== 'victory')
-        return { ok: false, reason: 'Only a won run enshrines a relic.' };
+      // A won Prelude, or an Expedition that reached Movement II (docs/phase-5a.md).
+      if (!run || run.phase !== 'summary' || !Run.enshrineEligible(run))
+        return {
+          ok: false,
+          reason:
+            run && run.movements >= 2
+              ? 'Only an Expedition that reached Movement II enshrines a relic.'
+              : 'Only a won run enshrines a relic.',
+        };
       if (run.reliquary?.enshrined) return { ok: false, reason: 'This run has enshrined one.' };
       const found = Run.enshrineOptions(run).find((r) => r.id === relicId);
       if (!found) return { ok: false, reason: 'This run didn’t find that relic.' };
@@ -200,14 +207,14 @@ export const useRun = create<RunStore>()((set, get) => {
         }));
       return result;
     },
-    newRun: (seed) => {
-      // A run replaced before its summary still counts (won if its last fight beat the boss),
-      // and pays the Reliquary: the one in play, or the saved one after a restart.
+    newRun: (seed, mode) => {
+      // A run replaced before its summary still counts (won if its last fight won the run: its
+      // final boss, not an Expedition's Cantor), and pays the Reliquary: the one in play, or the
+      // saved one after a restart.
       const previous = get().run ?? loadRun(storage());
       if (previous && previous.phase !== 'prep' && previous.phase !== 'summary') {
         const last = previous.lastResult;
-        const won =
-          previous.outcome === 'victory' || (last?.kind === 'boss' && last.outcome === 'victory');
+        const won = previous.outcome === 'victory' || (!!last && Run.endsRun(last));
         useProfile.getState().recordRun(won);
         settleReliquary(previous);
         // A win may open Dissonance or set a best, as at a Summary (docs/phase-4d.md).
@@ -225,6 +232,8 @@ export const useRun = create<RunStore>()((set, get) => {
         profileDissonance(),
         profileBonds(CONTENT.defaultParty),
         profile.runTechniques(),
+        // Its route (docs/phase-5a.md): the Prelude, or an Expedition once they're open.
+        profile.routeMovements(mode),
       );
       if (last.length > 0) run = Run.setChords(run, last, profile.allowance());
       saveRun(storage(), run);
@@ -233,17 +242,28 @@ export const useRun = create<RunStore>()((set, get) => {
     setChords: (chords) =>
       apply((run) => Run.setChords(run, chords, useProfile.getState().allowance())),
     setCalling: (id) => apply((run) => Run.setCalling(run, id, useProfile.getState().allowance())),
+    setRunMode: (mode) => {
+      const profile = useProfile.getState();
+      if (mode === 'expedition' && !profile.expeditionOpen()) return;
+      profile.setRunMode(mode);
+      apply((run) => Run.setMovements(run, profile.routeMovements(mode)));
+    },
     embark: () => {
       const profile = useProfile.getState();
       // Chords or a Calling picked while "Skip the unlocks" was on don't outlive turning it off.
       // The tree and the relics it embarks with are the run's to keep (within the points and
       // the carry slots the Rank gives).
       // Its heroes' Bond choices too, as their ranks (or the settings) open them now.
+      // An Expedition chosen while "Skip the unlocks" was on plays as the Prelude if Expeditions
+      // aren't open any more (docs/phase-5a.md); the route is frozen from here.
       apply((run) =>
         Run.embark(
           Run.setCallingTiers(
             Run.setTechniques(
-              Run.setBonds(run, profileBonds(run.party.map((h) => h.heroId))),
+              Run.setBonds(
+                Run.setMovements(run, profile.expeditionOpen() ? run.movements : 1),
+                profileBonds(run.party.map((h) => h.heroId)),
+              ),
               profile.runTechniques(),
             ),
             run.calling ? profile.tiersOpen(run.calling.id) : 0,

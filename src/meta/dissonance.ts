@@ -4,6 +4,7 @@
  * records the best won totals and opens it.
  */
 import { CONTENT, type DissonanceEffect } from '../content';
+import { endsRun } from './runEnd';
 import type { RunState } from './types';
 
 /** A level in force and its rank (1 to its content `ranks`). */
@@ -77,12 +78,13 @@ export function opensAt(rank: number): boolean {
 }
 
 /**
- * The Discord Tears a run pays: one for a boss beaten with the Reliquary's grade (S), and with
- * Dissonance, an A too from `tearOnA` points, and one more for any win from `tearOnWin`.
+ * The Discord Tears a run pays: one for its final boss beaten with the Reliquary's grade (S), and
+ * with Dissonance, an A too from `tearOnA` points, and one more for any win from `tearOnWin`. Only
+ * the boss that ends the run pays them (docs/phase-5a.md: not an Expedition's Cantor).
  */
 export function tearsFor(run: RunState, tearGrade: string): number {
   const points = dissonancePoints(run.dissonance);
-  const boss = run.results.find((r) => r.kind === 'boss' && r.outcome === 'victory');
+  const boss = run.results.find(endsRun);
   if (!boss) return 0;
   const rules = RULES();
   const graded = boss.grade === tearGrade || (points >= rules.tearOnA && boss.grade === 'A');
