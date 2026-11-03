@@ -9,7 +9,13 @@ import { distSq } from '../core/dmath';
 import { pushMarker } from '../combat/feedback';
 import { heal, removeStatus, reviveHero } from '../combat/health';
 import { recordSave } from '../combat/saves';
-import { answered, cancelTelegraph, contains } from '../combat/telegraphs';
+import {
+  answered,
+  cancelTelegraph,
+  contains,
+  linkStatusOf,
+  telegraphMarkStatus,
+} from '../combat/telegraphs';
 import type { Entity, PastSample, WorldState } from '../state';
 import type { World } from '../world';
 import { heroForSlot, reject, spend, techCooldown, weaverReady } from './techniques';
@@ -167,8 +173,8 @@ function paradox(world: World, hero: Entity): number {
       for (const id of marked) {
         const e = world.entities.get(id);
         if (!e?.health) continue;
-        const status = s.kind === 'link' ? 'resound' : 'dirge';
-        if (e.health.statuses.some((x) => x.id === status))
+        const status = s.kind === 'link' ? linkStatusOf(t) : telegraphMarkStatus(world, t);
+        if (status !== null && e.health.statuses.some((x) => x.id === status))
           removeStatus(world, e, status, 'expired');
       }
       undone++;

@@ -432,8 +432,10 @@ export interface EnemyComponent {
   /**
    * A guard arc (docs/phase-5a.md P6; content `EnemyDef.guard`): the unit direction it guards,
    * which turns toward its target, and the sim time a guard break ends. Absent without a guard.
+   * `blockedAt`: when it last reported a blocked hit (`guardBlocked` is rate-limited); absent
+   * until it first blocks one.
    */
-  guard?: { fx: number; fz: number; brokenUntil: number };
+  guard?: { fx: number; fz: number; brokenUntil: number; blockedAt?: number };
 }
 
 /** An enemy attack seen a second before it begins (Foresight, docs/phase-3e.md). */
