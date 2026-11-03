@@ -23,7 +23,11 @@ import {
   isInScale,
   midiToHz,
 } from '../src/audio/theory';
+import { mapBiome } from '../src/audio/director';
+import { useRun } from '../src/app/runStore';
 import { CONTENT } from '../src/content';
+import * as Run from '../src/meta/run';
+import type { RunState } from '../src/meta/types';
 import type { SimEvent } from '../src/sim';
 
 // ── A recording fake AudioContext (as tests/audioPhase4g.test.ts) ─────────────────────
@@ -565,6 +569,7 @@ const BUTTON_VOICES: Record<string, string[]> = {
   'crimson-pack-call': [G.howl],
   'crimson-execution-gong': [G.condemned, G.roll, G.executed],
   'crimson-execution-spared': [G.roll, G.spared],
+  'crimson-execution-fallen': [G.roll, G.fallen],
 };
 
 const IRON = CONTENT.enemies.filter((e) => e.material === 'iron');
@@ -793,5 +798,325 @@ describe('the Crimson Legion’s sounds (Phase 5a)', () => {
     expect(of('vharun_crimson_warden').enemy).toMatchObject({ role: 'boss', tier: 'boss' });
     // A role, as before: no def.
     expect(of('brute').enemy).toEqual({ role: 'brute', tier: 'normal', state: 'dying', phase: 0 });
+  });
+});
+
+// ── Movement II integration fixes ─────────────────────────────────────────────────────
+
+type Tele = ReturnType<FakeWorld['addTelegraph']>;
+type Harness = ReturnType<typeof harness>;
+
+const startedOf = (t: Tele): SimEvent =>
+  ev('telegraphStarted', {
+    telegraph: t.id,
+    owner: t.owner,
+    target: t.target,
+    name: t.name,
+    kind: t.kind,
+    shape: t.shape,
+    start: t.start,
+    impact: t.impact,
+    perfectFrom: t.perfectFrom,
+    damage: t.damage,
+    pctMaxHp: 0,
+    answers: t.answers,
+    effect: 'damage',
+  });
+
+const EXECUTION_WINDUP = CONTENT.attacks.find((a) => a.id === 'vharun_execution')!.windup;
+
+const execTele = (h: Harness, id = 9) =>
+  h.world.addTelegraph(id, EXECUTION_WINDUP, {
+    kind: 'mark',
+    answers: ['mend', 'ward'],
+    target: IDS.lyra,
+    attackId: 'vharun_execution',
+    name: 'Execution',
+  });
+
+const stasisOn = (h: Harness, seconds = 2) => {
+  h.world.setStasis(true, seconds);
+  fire(h, ev('crescendoStart', { calling: 'Stasis', duration: seconds }));
+};
+const stasisOff = (h: Harness) => {
+  h.world.setStasis(false);
+  fire(h, ev('crescendoEnd', {}));
+};
+const steps = (h: Harness, n: number) => {
+  for (let i = 0; i < n; i++) h.advance(0.1);
+};
+
+/** The sound groups `fn` plays (by the SFX engine's `play`). */
+const playedBy = (fn: () => void): string[] => {
+  const play = vi.spyOn(SfxEngine.prototype as unknown as { play: () => unknown }, 'play');
+  try {
+    fn();
+    return play.mock.calls.map((c: unknown[]) => c[0] as string);
+  } finally {
+    play.mockRestore();
+  }
+};
+
+describe('Movement II audio integration fixes', () => {
+  it('Execution’s drum roll resumes after Stasis as a drum roll, for the rest of its 4 s', () => {
+    const h = harness();
+    h.d.setMood('combat');
+    const t = execTele(h);
+    expect(t.impact - t.start).toBe(4);
+    fire(h, startedOf(t));
+    steps(h, 15);
+    stasisOn(h, 2);
+    steps(h, 20);
+    const now = h.ctx.currentTime;
+    const from = h.ctx.sources.length;
+    const groups = playedBy(() => stasisOff(h));
+    expect(groups).toContain(G.roll);
+    expect(groups.some((g) => g.startsWith('wind:'))).toBe(false);
+    // 2.5 s of the cast left: the roll runs on to the (later) impact, not 3.2 s into the cast.
+    const roll = h.ctx.sources.slice(from).filter((s) => (s.starts[0] ?? 0) > now + 1.5);
+    expect(roll.length).toBeGreaterThan(5);
+    const last = Math.max(...h.ctx.sources.slice(from).map(stopOf));
+    expect(last).toBeGreaterThan(now + 2.4);
+    expect(last).toBeLessThan(now + 2.5 + 0.6);
+    h.d.dispose();
+  });
+
+  it('a Stasis late in Execution’s cast (past 3.2 s) still resumes the roll', () => {
+    const h = harness();
+    h.d.setMood('combat');
+    const t = execTele(h);
+    fire(h, startedOf(t));
+    steps(h, 35);
+    stasisOn(h, 2);
+    steps(h, 20);
+    const groups = playedBy(() => stasisOff(h));
+    expect(groups.filter((g) => g === G.roll)).toHaveLength(1);
+    expect(groups.some((g) => g.startsWith('wind:'))).toBe(false);
+    h.d.dispose();
+  });
+
+  it('an Execution begun during Stasis rolls when time resumes, and its verdict sounds', () => {
+    const h = harness();
+    h.d.setMood('combat');
+    stasisOn(h, 2);
+    h.advance(0.5);
+    const t = execTele(h);
+    expect(playedBy(() => fire(h, startedOf(t)))).toEqual([]);
+    steps(h, 15);
+    expect(playedBy(() => stasisOff(h))).toContain(G.roll);
+    steps(h, 40);
+    h.world.removeTelegraph(t.id);
+    const groups = playedBy(() =>
+      fire(
+        h,
+        ev('telegraphResolved', {
+          telegraph: t.id,
+          target: IDS.lyra,
+          outcome: 'hit',
+          damage: 0,
+          execution: 'executed',
+        }),
+      ),
+    );
+    expect(groups).toContain(G.executed);
+    h.d.dispose();
+  });
+
+  it('a Pack Call begun during Stasis howls when time resumes (not before, not twice)', () => {
+    const h = harness();
+    h.d.setMood('combat');
+    stasisOn(h, 2);
+    h.advance(0.5);
+    const t = h.world.addTelegraph(43, 1.2, {
+      attackId: 'gorehound_pack_call',
+      name: 'Pack Call',
+      target: null,
+    });
+    expect(playedBy(() => fire(h, startedOf(t)))).toEqual([]);
+    steps(h, 15);
+    const groups = playedBy(() => stasisOff(h));
+    expect(groups.filter((g) => g === G.howl)).toHaveLength(1);
+    expect(groups.some((g) => g.startsWith('wind:'))).toBe(true);
+    h.d.dispose();
+  });
+
+  it('a Crimson Tide begun during Stasis still breaks when it resolves', () => {
+    const h = harness();
+    h.d.setMood('combat');
+    stasisOn(h, 2);
+    const t = h.world.addTelegraph(41, 1.6, {
+      attackId: 'vharun_crimson_tide',
+      name: 'Crimson Tide',
+    });
+    fire(h, startedOf(t));
+    steps(h, 20);
+    stasisOff(h);
+    steps(h, 20);
+    h.world.removeTelegraph(t.id);
+    const groups = playedBy(() =>
+      fire(
+        h,
+        ev('telegraphResolved', { telegraph: 41, target: null, outcome: 'dodged', damage: 0 }),
+      ),
+    );
+    expect(groups).toContain(G.tide);
+    h.d.dispose();
+  });
+
+  /** An Execution cast on Lyra and resolved (with `before` in its batch): which outcome sounded. */
+  const verdict = (resolution: Record<string, unknown>, before: SimEvent[] = [], down = false) => {
+    const h = harness();
+    h.d.setMood('combat');
+    const t = execTele(h);
+    fire(h, startedOf(t));
+    steps(h, 40);
+    h.world.removeTelegraph(t.id);
+    h.world.setDowned('lyra', down);
+    const groups = playedBy(() =>
+      fire(h, ...before, {
+        ...ev('telegraphResolved', {
+          telegraph: t.id,
+          target: IDS.lyra,
+          outcome: 'hit',
+          damage: 0,
+        }),
+        ...resolution,
+      } as SimEvent),
+    );
+    h.d.dispose();
+    return {
+      gong: groups.includes(G.executed),
+      bell: groups.includes(G.spared),
+      fallen: groups.includes(G.fallen),
+    };
+  };
+
+  it('the sim’s Execution verdict decides the gong, the bell or the muted knell', () => {
+    // Executed without an allyDowned in the batch: still the gong.
+    expect(verdict({ execution: 'executed' })).toEqual({ gong: true, bell: false, fallen: false });
+    // Spared, even with the hero downed in the batch (by something else): the bell.
+    expect(verdict({ execution: 'spared' }, [ev('allyDowned', { hero: IDS.lyra })], true)).toEqual({
+      gong: false,
+      bell: true,
+      fallen: false,
+    });
+    // Already fallen when it landed: neither the gong nor the bell.
+    expect(verdict({ execution: 'fallen', outcome: 'dodged' }, [], true)).toEqual({
+      gong: false,
+      bell: false,
+      fallen: true,
+    });
+    // Cancelled: nothing.
+    expect(verdict({ outcome: 'cancelled' })).toEqual({ gong: false, bell: false, fallen: false });
+  });
+
+  it('without a verdict it reads the hero’s state, and remembers whom it condemned', () => {
+    expect(verdict({}, [ev('allyDowned', { hero: IDS.lyra })])).toEqual({
+      gong: true,
+      bell: false,
+      fallen: false,
+    });
+    expect(verdict({})).toEqual({ gong: false, bell: true, fallen: false });
+    // The condemned hero is down and the resolution names no target: not the spared bell.
+    expect(verdict({ target: null, outcome: 'dodged' }, [], true)).toEqual({
+      gong: true,
+      bell: false,
+      fallen: false,
+    });
+  });
+
+  it('a Chime’s release counts the stacks the event says it took', () => {
+    const release = (stacks: number, bitten?: number) => {
+      const h = harness();
+      if (bitten !== undefined) {
+        fire(
+          h,
+          ev('statusApplied', { target: IDS.kael, status: 'bleed', duration: 6, stacks: bitten }),
+        );
+        h.advance(0.5);
+      }
+      const from = h.ctx.sources.length;
+      fire(
+        h,
+        ev('statusRemoved', { target: IDS.kael, status: 'bleed', reason: 'cleansed', stacks }),
+      );
+      const out = h.ctx.sources.slice(from).length;
+      h.d.dispose();
+      return out;
+    };
+    // No bite heard before (audio came in late): the event's own count.
+    expect(release(8)).toBeGreaterThan(release(1));
+    // The event's count outranks the bites' (one bite heard, then a cleanse of eight).
+    expect(release(8, 1)).toBe(release(8));
+    expect(release(8, 1)).toBeGreaterThan(release(1, 1));
+  });
+
+  it('the Map voices the Movement of the run: the Reliquary for Movement I, the Spire for II', () => {
+    expect(mapBiome(null)).toBeNull();
+    expect(mapBiome(Run.newRun(1))).toBe('reliquary');
+    const exp = Run.newRun(1, undefined, [], [], [], [], undefined, 2);
+    expect(mapBiome(exp)).toBe('reliquary');
+    const cantor = exp.map.rows.flat().find((n) => n.encounterId === 'hollow_cantor')!;
+    expect(mapBiome({ ...exp, path: [cantor.id] })).toBe('crimson_spire');
+    const m2 = exp.map.rows.flat().find((n) => n.movement === 2)!;
+    expect(mapBiome({ ...exp, path: [m2.id] })).toBe('crimson_spire');
+  });
+
+  it('a director turns to the Map’s biome with the mood, and only on the Map', () => {
+    let biome: 'reliquary' | 'crimson_spire' | null = 'crimson_spire';
+    const ctx = new RecordingContext();
+    const d = new SynthDirector({
+      context: ctx as unknown as BaseAudioContext,
+      autoPump: false,
+      installUnlock: false,
+      followSettings: false,
+      mapBiome: () => biome,
+    });
+    d.setMood('combat');
+    expect(d.getBiome()).toBe('reliquary');
+    d.setMood('map');
+    expect(d.getBiome()).toBe('crimson_spire');
+    // A Prelude's map after an Expedition: the Reliquary again.
+    biome = 'reliquary';
+    d.setMood('title');
+    d.setMood('map');
+    expect(d.getBiome()).toBe('reliquary');
+    // A fight sets its arena's own; its mood doesn't override it.
+    d.setBiome('crimson_spire');
+    d.setMood('boss');
+    expect(d.getBiome()).toBe('crimson_spire');
+    d.dispose();
+    // An injected context without a source follows nothing (Movement I tests and renders).
+    const plain = harness();
+    plain.d.setBiome('crimson_spire');
+    plain.d.setMood('map');
+    expect(plain.d.getBiome()).toBe('crimson_spire');
+    plain.d.dispose();
+  });
+
+  it('the app-wide director follows the run store on the Map', () => {
+    const before = useRun.getState().run;
+    const d = new SynthDirector({ installUnlock: false, followSettings: false });
+    try {
+      const exp = Run.newRun(3, undefined, [], [], [], [], undefined, 2);
+      useRun.setState({ run: exp });
+      d.setMood('map');
+      expect(d.getBiome()).toBe('reliquary');
+      const cantor = exp.map.rows.flat().find((n) => n.encounterId === 'hollow_cantor')!;
+      // The run moves on (the Cantor beaten) while the Map is up: the Spire.
+      useRun.setState({ run: { ...exp, path: [cantor.id] } as RunState });
+      expect(d.getBiome()).toBe('crimson_spire');
+      // A new Prelude run's map: the Reliquary.
+      useRun.setState({ run: Run.newRun(4) });
+      expect(d.getBiome()).toBe('reliquary');
+      // Off the Map, the run store doesn't move it.
+      d.setMood('combat');
+      d.setBiome('crimson_spire');
+      useRun.setState({ run: Run.newRun(5) });
+      expect(d.getBiome()).toBe('crimson_spire');
+    } finally {
+      d.dispose();
+      useRun.setState({ run: before });
+    }
   });
 });
