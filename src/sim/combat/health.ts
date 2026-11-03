@@ -137,17 +137,22 @@ function nearAlly(world: World, hero: Entity): boolean {
  * Overflowing Grace: Mend's overheal tops up a shield on the hero, up to a share of their life,
  * lasting a few seconds from the last top-up (so it holds while Mend keeps feeding it). It keeps
  * to its own shield: another overshield (a hero's own, or another of yours) is left as it is.
+ * Returns the overheal it took. On Brann with Scar Tissue the shield (its cap too) is that much
+ * stronger, as `addShield` makes it: a top-up never cuts it back below what it already holds.
  */
 function graceShield(world: World, hero: Entity, overheal: number): number {
   const h = hero.health!;
   const cap = h.maxHp * world.mods.graceShieldPct;
   const existing = shieldOf(h, 'overshield');
   if (existing?.grace) {
+    const scar = scarTissueMult(world, hero);
     const before = existing.amount;
-    existing.amount = Math.min(cap, existing.amount + overheal);
+    if (scar === 1) existing.amount = Math.min(cap, existing.amount + overheal);
+    else existing.amount = Math.max(before, Math.min(cap * scar, before + overheal * scar));
     existing.max = Math.max(existing.max, existing.amount);
     existing.expiresAt = Math.max(existing.expiresAt, world.time + world.mods.graceShieldDuration);
-    return Math.max(0, existing.amount - before);
+    const gained = Math.max(0, existing.amount - before);
+    return scar === 1 ? gained : gained / scar;
   }
   if (existing) return 0;
   const amount = Math.min(cap, overheal);

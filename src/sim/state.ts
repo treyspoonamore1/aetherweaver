@@ -361,8 +361,10 @@ export interface BloodState {
   bloodlet: number;
   /** Deathless: sim time the window ends (0: inactive). */
   deathlessUntil: number;
-  /** The `rallyUntil` of the last Rally he refused (0: none). */
+  /** The `rallyUntil` of the last Rally he refused (0: none). Never negative. */
   refusedRally: number;
+  /** The `rallyUntil` of the last Rally he answered under Iron Will (0: none). */
+  ironWillRally: number;
   /** Damage taken per second, an exponential average (τ 2 s; Bloodletting excluded). */
   bleedRate: number;
   /** Life Bloodletting spent this fight. */

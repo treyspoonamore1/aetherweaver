@@ -115,6 +115,36 @@ export function clampToArena(world: World): void {
   }
 }
 
+/**
+ * `resolveObstacles`'s push for one point (a body of `radius` set down there, e.g. Brann's
+ * Sunder Leap landing): out of every pillar it overlaps, in the same order and by the same rule.
+ */
+export function pushPointOutOfObstacles(
+  world: World,
+  p: { x: number; z: number },
+  radius: number,
+): void {
+  for (const o of world.obstacles) {
+    const dx = p.x - o.x;
+    const dz = p.z - o.z;
+    const min = o.r + radius;
+    const d2 = dx * dx + dz * dz;
+    if (d2 >= min * min) continue;
+    const d = Math.sqrt(d2);
+    p.x = o.x + (d < 1e-9 ? 1 : dx / d) * min;
+    p.z = o.z + (d < 1e-9 ? 0 : dz / d) * min;
+  }
+}
+
+/** `clampToArena`'s rule for one point: a body of `radius` there stays inside the arena. */
+export function clampPointToArena(world: World, p: { x: number; z: number }, radius: number): void {
+  const r = len(p.x, p.z);
+  const maxR = world.arenaRadius - radius;
+  if (r <= maxR || r === 0) return;
+  p.x = (p.x / r) * maxR;
+  p.z = (p.z / r) * maxR;
+}
+
 /** The Weaver faces the aim point; everyone else faces where they're going. */
 export function updateFacing(world: World): void {
   for (const e of world.entities.list()) {

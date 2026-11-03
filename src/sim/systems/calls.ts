@@ -83,7 +83,15 @@ export function startCall(world: World, e: Entity, def: HeroDef): void {
   const call = def.call;
   const index = call.ability;
   const end = world.time + hero.abilityCooldowns[index] + castTime(world, e, def);
-  const target = hero.targetId === null ? undefined : world.entities.get(hero.targetId);
+  // A move with a minimum reach (Sunder Leap) marks the enemy it would leap at, as `canCall`
+  // found it, not the one he's swinging at.
+  const ability = def.abilities[index];
+  const target =
+    ability.minRange !== undefined
+      ? (leapTarget(world, e, ability) ?? undefined)
+      : hero.targetId === null
+        ? undefined
+        : world.entities.get(hero.targetId);
   hero.call = {
     answer: call.answer,
     ability: index,
