@@ -184,6 +184,9 @@ export function updateBosses(world: World): void {
     fireFollowUp(world, boss);
     return;
   }
+  // ...and so does one about to be due: a blow whose cast ended this tick but whose telegraph
+  // hasn't resolved yet (it registers its follow-up as it does). The script waits for the chain.
+  if (chainUnresolved(world, boss)) return;
 
   if (c.defId === 'the_bellwarden' && state.doubleTollAt > 0 && world.time >= state.doubleTollAt) {
     state.doubleTollAt = 0;
@@ -207,6 +210,18 @@ export function updateBosses(world: World): void {
   }
 
   if (c.defId === VHARUN) vharunScript(world, boss);
+}
+
+/**
+ * The boss owns an unresolved telegraph whose attack has a follow-up (Twin Cleave's first blow,
+ * the Tide's front half). Only Movement II attacks have follow-ups; reading is all it does.
+ */
+function chainUnresolved(world: World, boss: Entity): boolean {
+  for (const t of world.telegraphs) {
+    if (t.owner !== boss.id) continue;
+    if (world.content.attacks.find((a) => a.id === t.attackId)?.followUp) return true;
+  }
+  return false;
 }
 
 /** Vharun's scripted casts: the judgement's Tide and Execution, then the Bloodmoon's reform. */
@@ -306,6 +321,8 @@ function enterPhase(world: World, boss: Entity, phase: number, def: PhaseDef): v
   c.cast = null;
   c.state = 'recover';
   c.stateTime = 0;
+  // ...and a follow-up still to come (Movement II only: `m2` exists only there).
+  if (world.internal.m2) world.internal.m2.followUp = null;
   world.events.push({ type: 'phaseChanged', tick: world.tick, boss: boss.id, phase });
   pushMarker(world, 'phase', null);
   if (def.decree) {
