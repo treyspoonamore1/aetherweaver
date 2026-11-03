@@ -1330,8 +1330,8 @@ function dissonanceBest(v: Voice, t: number, detail?: UiSoundDetail | null): voi
 
 // ── Phase 4e: Bonds ──────────────────────────────────────────────────────────────────
 // Warm and personal: each hero's own instrument and note (Kael's horn on D, Lyra's flute and
-// pluck on A, Vexis's glass bell on B), over the fire's low warmth. Never the Weaver's gold
-// rank-up (no rising pluck run to a D6, no Dm choir on D2).
+// pluck on A, Vexis's glass bell on B; Phase 5b: Brann's low bowed string on A), over the fire's
+// low warmth. Never the Weaver's gold rank-up (no rising pluck run to a D6, no Dm choir on D2).
 
 /** One note in a hero's own voice (their leitmotif's instrument), as the Bond sounds play them. */
 function heroNote(v: Voice, voice: MotifVoice, t: number, idx: number, dur: number, g: number) {
@@ -1340,6 +1340,11 @@ function heroNote(v: Voice, voice: MotifVoice, t: number, idx: number, dur: numb
   else if (voice === 'pluckFlute') {
     pluck(v, t, f, g * 0.8, dur, 0.85);
     fluteNote(v, t, f, g * 0.5, dur);
+  } else if (voice === 'bowedLow') {
+    // Brann's (Phase 5b): a low string bitten by the bow over a soft knock, its octave plucked.
+    bowed(v, t, f, dur + 0.25, g * 1.1, 0.03, 0.45);
+    thump(v, t, f, g * 0.8, 0.2, 0.7);
+    pluck(v, t, f * 2, g * 0.25, 0.28, 0.4);
   } else {
     glassNote(v, t, f, g * 0.7, dur + 0.6, 0.85);
     pluck(v, t, f * 2, g * 0.18, 0.3, 0.9);
@@ -1416,6 +1421,8 @@ function talentPick(v: Voice, t: number, detail?: UiSoundDetail | null): void {
   if (!who) glassPing(v, t + 0.07, hz(heart + 4), 0.02, 0.6);
   else if (who.voice === 'horn') brassBell(v, t + 0.07, hz(heart), 0.035, 0.8, 0.5);
   else if (who.voice === 'pluckFlute') fluteNote(v, t + 0.07, hz(heart), 0.045, 0.32);
+  // Brann's (Phase 5b): his bowed string, three octaves under his heart.
+  else if (who.voice === 'bowedLow') bowed(v, t + 0.07, hz(heart - 21), 0.5, 0.05, 0.03, 0.3);
   else glassNote(v, t + 0.07, hz(heart), 0.03, 0.9, 0.85);
   v.extend(t + 0.8);
 }

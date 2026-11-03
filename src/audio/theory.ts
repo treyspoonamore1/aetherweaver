@@ -182,7 +182,10 @@ export interface MotifNote {
   dur: number;
   vel: number;
 }
-/** `bowedLow`: Brann's (docs/phase-5b.md; W5 voices it, glass until then). */
+/**
+ * `bowedLow` (Phase 5b): Brann's, a low bowed string struck like a war drum (`bowed()` over a
+ * `thump()`), in the register under everyone else's: never glass.
+ */
 export type MotifVoice = 'horn' | 'pluckFlute' | 'glassBell' | 'bowedLow';
 export interface Leitmotif {
   voice: MotifVoice;
@@ -220,6 +223,17 @@ export const LEITMOTIFS: Record<string, Leitmotif> = {
       { idx: 9, at: 0.2, dur: 0.9, vel: 0.9 },
       { idx: 8, at: 0.36, dur: 0.9, vel: 0.85 },
       { idx: 6, at: 0.62, dur: 1.4, vel: 1 },
+    ],
+  },
+  // Brann the Bloodsworn (Phase 5b): a war song dragged up from the low strings, under the
+  // others' registers (A2 C3 D3 E3). It passes the tonic and keeps climbing: unfinished.
+  brann: {
+    voice: 'bowedLow',
+    notes: [
+      { idx: -10, at: 0, dur: 0.3, vel: 0.85 },
+      { idx: -8, at: 0.24, dur: 0.3, vel: 0.85 },
+      { idx: -7, at: 0.48, dur: 0.3, vel: 0.9 },
+      { idx: -6, at: 0.72, dur: 1.0, vel: 1 },
     ],
   },
 };
@@ -280,6 +294,19 @@ export const CALL_PHRASES: Record<string, CallPhrase> = {
       { idx: 9, at: 0.2, dur: 0.9, vel: 0.9 },
       { idx: 6, at: 0.4, dur: 0.9, vel: 0.85 },
       { idx: 8, at: 0.62, dur: 1.8, vel: 0.95 },
+    ],
+  },
+  // Brann: his motif's A2 C3 pick-up, then D F … E (it overshoots to F and falls back, hanging on
+  // the 2nd); the Weaver's Ward answers it down to the D3.
+  brann: {
+    voice: 'bowedLow',
+    resolve: -7,
+    notes: [
+      { idx: -10, at: 0, dur: 0.3, vel: 0.85 },
+      { idx: -8, at: 0.24, dur: 0.3, vel: 0.85 },
+      { idx: -7, at: 0.48, dur: 0.3, vel: 0.9 },
+      { idx: -5, at: 0.72, dur: 0.3, vel: 0.9 },
+      { idx: -6, at: 0.96, dur: 1.6, vel: 0.95 },
     ],
   },
 };

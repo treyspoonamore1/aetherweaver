@@ -11,7 +11,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { getAudio } from '../src/audio';
 import { SynthDirector } from '../src/audio/director';
-import { FakeWorld, IDS, type HeroKey } from '../src/audio/lab/labState';
+import { BRANN_LAB_PARTY, FakeWorld, IDS, type LabHero } from '../src/audio/lab/labState';
 import { SOUNDS } from '../src/audio/lab/soundBoard';
 import { ALT_SOLO_SOUND_GROUPS, TALENT_SOUND_GROUPS, TALENT_SOUND_LIMITS } from '../src/audio/sfx';
 import { LEITMOTIFS, isInScale, midiToHz, scaleMidi } from '../src/audio/theory';
@@ -237,7 +237,9 @@ const talentValue = (id: string, key: string) =>
 /** A talent's `talentFired`, as the sim sends it, with the lab world set for it. */
 function talentEv(h: ReturnType<typeof harness>, id: string): SimEvent {
   if (!h.world.entities.has(IDS.enemyBase)) h.world.setEnemies(3);
-  const hero = (heroOf(id) ?? 'kael') as HeroKey;
+  const hero = (heroOf(id) ?? 'kael') as LabHero;
+  // Phase 5b: Brann's talents bring him into the lab party (a fourth).
+  if (hero === 'brann') h.world.setParty(BRANN_LAB_PARTY);
   const at = h.world.state.entities.get(IDS[hero])!;
   const target =
     id === 'oathkeeper' || id === 'celestial_sphere'
@@ -262,6 +264,9 @@ describe('Bonds in the fight: a sound for every talent the sim announces', () =>
   it('covers every talent and alternate Solo the sim announces, and only known ones', () => {
     const found = simTalents();
     expect(found.length).toBeGreaterThanOrEqual(14);
+    // Phase 5b (docs/phase-5b.md, "Expected reds"): Brann's four (iron_will, blood_oath,
+    // deathless, berserkers_hymn) have their sounds here before the sim announces them (W1);
+    // this goes green when the two merge (W7).
     expect([...TALENTS].sort()).toEqual(found);
     for (const id of TALENTS) {
       expect(heroOf(id), id).toBeDefined();
@@ -329,12 +334,17 @@ describe('Bonds in the fight: a sound for every talent the sim announces', () =>
       constellation: [86, 93, 100],
       arcane_ward: [83, 89],
       celestial_sphere: [83],
+      // Phase 5b, Brann: his bowed A2 and its E3, plucked A3s, a war drum on A1 and E2.
+      iron_will: [45, 52, 57],
+      blood_oath: [57, 40],
+      deathless: [45, 52, 57],
+      berserkers_hymn: [45, 52, 57, 40],
     };
     for (const id of TALENTS) {
       const { h, r } = talentSound(id, (k) => k.world.setSphere('lyra', 1));
       for (const m of notes[id] ?? []) expect(hasMidi(r, m), `${id} ${m}`).toBe(true);
-      // Its hero's own pitch class is in it: Kael's D, Lyra's A, Vexis's B.
-      const pc = { kael: 2, lyra: 9, vexis: 11 }[heroOf(id) as 'kael' | 'lyra' | 'vexis'];
+      // Its hero's own pitch class is in it: Kael's D, Lyra's A, Vexis's B, Brann's A.
+      const pc = { kael: 2, lyra: 9, vexis: 11, brann: 9 }[heroOf(id) as LabHero];
       const pcs = freqsOf(r.sources).map(
         (f) => ((Math.round(69 + 12 * Math.log2(f / 440)) % 12) + 12) % 12,
       );
@@ -492,15 +502,17 @@ describe('Bonds in the fight: a sound for every talent the sim announces', () =>
 });
 
 describe('the alternate Solos’ starts (Phase 4e)', () => {
-  const start = (solo: string, hero: HeroKey, cued: boolean) => {
+  const start = (solo: string, hero: LabHero, cued: boolean) => {
     const h = harness();
+    if (hero === 'brann') h.world.setParty(BRANN_LAB_PARTY);
     const r = h.fire(ev('soloStarted', { hero: IDS[hero], solo, cued, duration: 5 }));
     return { h, r };
   };
-  const ALT: [string, HeroKey][] = [
+  const ALT: [string, LabHero][] = [
     ['oathkeeper', 'kael'],
     ['hawks_vigil', 'lyra'],
     ['celestial_sphere', 'vexis'],
+    ['blood_brother', 'brann'],
   ];
 
   it('each starts with a sound of its own, cued or not; the default Solos have none of these', () => {
@@ -515,7 +527,8 @@ describe('the alternate Solos’ starts (Phase 4e)', () => {
         h.d.dispose();
       }
     }
-    expect(new Set(sigs).size).toBe(3);
+    expect(new Set(sigs).size).toBe(ALT.length);
+    expect(Object.keys(ALT_SOLO_SOUND_GROUPS)).toEqual(ALT.map(([solo]) => solo));
     for (const [solo, hero] of [
       ['aegisWall', 'kael'],
       ['galeBarrage', 'lyra'],

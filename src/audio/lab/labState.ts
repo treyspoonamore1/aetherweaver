@@ -4,11 +4,26 @@
  * the offline loudness audit.
  */
 import { CONTENT } from '../../content';
-import type { AstrolabeState, DissonanceState, SimEvent, WorldState } from '../../sim';
+import {
+  newBlood,
+  type AstrolabeState,
+  type BloodState,
+  type DissonanceState,
+  type SimEvent,
+  type WorldState,
+} from '../../sim';
 
-export const IDS = { weaver: 1, kael: 2, lyra: 3, vexis: 4, enemyBase: 10 } as const;
+export const IDS = { weaver: 1, kael: 2, lyra: 3, vexis: 4, brann: 5, enemyBase: 10 } as const;
+/** The default lab party (the starters): the lab's and the offline audit's world. */
 export const HERO_IDS = ['kael', 'lyra', 'vexis'] as const;
 export type HeroKey = (typeof HERO_IDS)[number];
+/**
+ * Phase 5b: every hero the lab can field. Brann (`IDS.brann`) is opt-in: a `FakeWorld` built with
+ * a `party` naming him, or `setParty`. The default world never has him.
+ */
+export type LabHero = HeroKey | 'brann';
+/** Phase 5b: a lab party with Brann as the fourth (the sim takes up to four), for his buttons. */
+export const BRANN_LAB_PARTY: readonly LabHero[] = ['kael', 'lyra', 'vexis', 'brann'];
 
 /** Phase 4: a shield as the state holds it (the Shatterproof Halo reads the Ward's). */
 interface FakeShield {
@@ -28,6 +43,8 @@ interface FakeEntity {
     downed: boolean;
     dead: boolean;
     shields: FakeShield[];
+    /** Phase 5b: damage on its way (Brann's alert reads a lethal hit); absent until set. */
+    incoming?: number;
   };
   /**
    * Phase 4f: the Weaver's technique variants (`variants`, null for a slot's default) and Skate's
@@ -40,6 +57,9 @@ interface FakeEntity {
     variants: Record<'ward' | 'chime' | 'reel' | 'glide', string | null>;
     glideCharges: number;
     maxGlideCharges: number;
+    /** Phase 5b: the Thread (Blood and Silk reads it); absent until `setThread`. */
+    threadSlot?: number | null;
+    threadMode?: 'mend' | 'empower' | 'bear';
   };
   /**
    * `afterglowUntil` (Phase 4): Empower lingers on this hero until this sim time. Phase 4e
@@ -57,6 +77,8 @@ interface FakeEntity {
     sphereHits: number;
     sphereUntil: number;
     sphereCued: boolean;
+    /** Phase 5b: Brann's Blood Rage state (only his; the sim's shape). */
+    blood?: BloodState;
   };
   enemy?: {
     role: string;
@@ -140,8 +162,13 @@ export class FakeWorld {
     cueCost: CONTENT.resonance.cueCost,
   };
   readonly state: WorldState;
+  /** The party in slot order (Phase 5b: Brann only when asked for). */
+  private party: LabHero[];
+  /** Phase 5b: the run's Mods as the state reports them (Blood and Silk); absent by default. */
+  mods: { bloodAndSilk: number } | undefined = undefined;
 
-  constructor() {
+  constructor(opts: { party?: readonly LabHero[] } = {}) {
+    this.party = [...(opts.party ?? HERO_IDS)];
     this.entities.set(IDS.weaver, {
       id: IDS.weaver,
       kind: 'weaver',
@@ -157,28 +184,7 @@ export class FakeWorld {
         maxGlideCharges: 1,
       },
     });
-    HERO_IDS.forEach((defId, slot) => {
-      this.entities.set(IDS[defId], {
-        id: IDS[defId],
-        kind: 'hero',
-        x: (slot - 1) * 3,
-        z: -3,
-        health: health(1000, 1000),
-        hero: {
-          defId,
-          slot,
-          solo: 0,
-          soloActive: 0,
-          afterglowUntil: 0,
-          soloId: '',
-          soloCued: false,
-          talents: [],
-          sphereHits: 0,
-          sphereUntil: 0,
-          sphereCued: false,
-        },
-      });
-    });
+    this.party.forEach((defId, slot) => this.addHero(defId, slot));
     // eslint-disable-next-line @typescript-eslint/no-this-alias
     const self = this;
     this.state = {
@@ -191,7 +197,12 @@ export class FakeWorld {
       arenaRadius: 20,
       obstacles: [],
       weaverId: IDS.weaver,
-      party: [IDS.kael, IDS.lyra, IDS.vexis],
+      get party() {
+        return self.party.map((h) => IDS[h]);
+      },
+      get mods() {
+        return self.mods;
+      },
       directive: null,
       focusTarget: null,
       chimes: [],
@@ -243,6 +254,73 @@ export class FakeWorld {
           [...self.entities.values()] as unknown as ReturnType<WorldState['entities']['list']>,
       },
     } as unknown as WorldState;
+  }
+
+  /** A hero in a slot, fresh (full life; Brann with his Blood Rage state and his own life). */
+  private addHero(defId: LabHero, slot: number): void {
+    const brann = defId === 'brann';
+    const max = brann ? (CONTENT.heroes.find((h) => h.id === 'brann')?.maxHp ?? 1250) : 1000;
+    this.entities.set(IDS[defId], {
+      id: IDS[defId],
+      kind: 'hero',
+      x: (slot - 1) * 3,
+      z: -3,
+      health: health(max, max),
+      hero: {
+        defId,
+        slot,
+        solo: 0,
+        soloActive: 0,
+        afterglowUntil: 0,
+        soloId: '',
+        soloCued: false,
+        talents: [],
+        sphereHits: 0,
+        sphereUntil: 0,
+        sphereCued: false,
+        ...(brann ? { blood: newBlood() } : {}),
+      },
+    });
+  }
+
+  /** The party's heroes, in slot order. */
+  heroes(): readonly LabHero[] {
+    return this.party;
+  }
+
+  /**
+   * Phase 5b: a new party (1-4 heroes). Heroes staying keep their state; those leaving go; those
+   * joining arrive fresh. The same party is a no-op.
+   */
+  setParty(heroes: readonly LabHero[]): void {
+    if (heroes.length === this.party.length && heroes.every((h, i) => this.party[i] === h)) return;
+    for (const h of this.party) if (!heroes.includes(h)) this.entities.delete(IDS[h]);
+    this.party = [...heroes];
+    this.party.forEach((h, slot) => {
+      const e = this.entities.get(IDS[h]);
+      if (!e?.hero) this.addHero(h, slot);
+      else e.hero.slot = slot;
+    });
+  }
+
+  /** Phase 5b: Brann's bleed rate (damage a second; `fallingFast` reads twice it against life). */
+  setBleedRate(rate: number): void {
+    const b = this.entities.get(IDS.brann)?.hero?.blood;
+    if (b) b.bleedRate = rate;
+  }
+
+  /** Phase 5b: damage on its way to a hero (0 for none). */
+  setIncoming(hero: LabHero, amount: number): void {
+    const h = this.entities.get(IDS[hero]);
+    if (h) h.health.incoming = amount;
+  }
+
+  /** Phase 5b: the Thread on a hero in a mode (null: off). */
+  setThread(hero: LabHero | null, mode: 'mend' | 'empower' | 'bear' = 'mend'): void {
+    const w = this.weaverData();
+    const slot = hero === null ? -1 : this.party.indexOf(hero);
+    w.threadSlot = slot < 0 ? null : slot;
+    w.threadMode = mode;
   }
 
   weaverData(): NonNullable<FakeEntity['weaver']> {
@@ -297,7 +375,7 @@ export class FakeWorld {
     this.stasis = on;
   }
   /** Phase 3e: a hero's Solo gauge (0..100), and whether a Solo is under way. */
-  setSolo(hero: HeroKey, solo: number, active = false): void {
+  setSolo(hero: LabHero, solo: number, active = false): void {
     const h = this.entities.get(IDS[hero])?.hero;
     if (!h) return;
     h.solo = solo;
@@ -356,7 +434,7 @@ export class FakeWorld {
       t.perfectFrom += dt;
     }
   }
-  setHeroHp(hero: HeroKey, frac: number): void {
+  setHeroHp(hero: LabHero, frac: number): void {
     const h = this.entities.get(IDS[hero]);
     if (h) h.health.hp = Math.max(1, frac * h.health.maxHp);
   }
@@ -404,14 +482,14 @@ export class FakeWorld {
    * Phase 4: a hero's Ward as the state holds it after a hit: `amount` left of a `max` barrier
    * (0 takes it away).
    */
-  setWard(hero: HeroKey | 'weaver', amount: number, max = amount): void {
+  setWard(hero: LabHero | 'weaver', amount: number, max = amount): void {
     const e = this.entities.get(hero === 'weaver' ? IDS.weaver : IDS[hero]);
     if (!e) return;
     e.health.shields = e.health.shields.filter((s) => s.kind !== 'ward');
     if (amount > 0) e.health.shields.push({ kind: 'ward', amount, max });
   }
   /** Phase 4: Empower lingers on a hero for `seconds` from now (Afterglow); 0 for none. */
-  setAfterglow(hero: HeroKey, seconds: number): void {
+  setAfterglow(hero: LabHero, seconds: number): void {
     const h = this.entities.get(IDS[hero])?.hero;
     if (h) h.afterglowUntil = seconds > 0 ? this.time + seconds : 0;
   }
@@ -419,7 +497,7 @@ export class FakeWorld {
    * Phase 4e, Bonds: a hero's alternate Solo under way (`soloId`), cued or not; `null` for none.
    * Hawk's Vigil's shots read whether it was cued (its mark).
    */
-  setAltSolo(hero: HeroKey, solo: string | null, cued = false): void {
+  setAltSolo(hero: LabHero, solo: string | null, cued = false): void {
     const h = this.entities.get(IDS[hero])?.hero;
     if (!h) return;
     h.soloId = solo ?? '';
@@ -427,7 +505,7 @@ export class FakeWorld {
     h.soloCued = cued;
   }
   /** Phase 4e: a hero's Celestial Sphere, `hits` left for `seconds` (0: none). */
-  setSphere(hero: HeroKey, hits: number, seconds = 5, cued = false): void {
+  setSphere(hero: LabHero, hits: number, seconds = 5, cued = false): void {
     const h = this.entities.get(IDS[hero])?.hero;
     if (!h) return;
     h.sphereHits = hits;
@@ -454,14 +532,14 @@ export class FakeWorld {
     w.glideCharges = Math.max(0, Math.min(w.maxGlideCharges, n));
   }
   /** Moves a hero (Shieldbearer counts the heroes beside Kael). */
-  moveHero(hero: HeroKey, x: number, z: number): void {
+  moveHero(hero: LabHero, x: number, z: number): void {
     const h = this.entities.get(IDS[hero]);
     if (h) {
       h.x = x;
       h.z = z;
     }
   }
-  setDowned(hero: HeroKey, down: boolean): void {
+  setDowned(hero: LabHero, down: boolean): void {
     const h = this.entities.get(IDS[hero]);
     if (h) h.health.downed = down;
   }

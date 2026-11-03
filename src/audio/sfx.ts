@@ -3,12 +3,16 @@
  * director's current chord, so good play sounds good. Every sound goes through the engine's
  * voice limiter (≤ 4 of a kind) and rate gates.
  */
+import { healthBands } from '../app/healthLevels';
 import { CONTENT, enemyDef, type AstrolabeNode } from '../content';
 import {
+  fallingFast,
   techniqueCost,
   treeNodes,
   underMuteDome,
+  vowHoldsAt,
   type DeepReadonly,
+  type ReadonlyEntity,
   type SimEvent,
   type Telegraph,
   type TelegraphShape,
@@ -35,6 +39,7 @@ import {
   reverseGlass,
   tapeSweep,
   thump,
+  warDrum,
   whoosh,
   zip,
 } from './synth';
@@ -90,6 +95,11 @@ export const TALENT_SOUND_GROUPS: Readonly<Record<string, string>> = {
   oathkeeper: 'talent:oath',
   hawks_vigil: 'talent:vigil',
   celestial_sphere: 'talent:sphere',
+  // Phase 5b, Brann (docs/phase-5b.md): low bowed strings and the war drum, on A and its E.
+  iron_will: 'talent:ironWill',
+  blood_oath: 'talent:bloodOath',
+  deathless: 'talent:deathless',
+  berserkers_hymn: 'talent:hymn',
 };
 
 /** Phase 4e: each talent sound's rate gate (seconds) and voice cap. */
@@ -108,6 +118,10 @@ export const TALENT_SOUND_LIMITS: Readonly<Record<string, readonly [number, numb
   oathkeeper: [0.09, 3],
   hawks_vigil: [0.07, 3],
   celestial_sphere: [0.06, 3],
+  iron_will: [0.5, 1],
+  blood_oath: [0.3, 2],
+  deathless: [1, 1],
+  berserkers_hymn: [1, 1],
 };
 
 /**
@@ -118,6 +132,7 @@ export const ALT_SOLO_SOUND_GROUPS: Readonly<Record<string, string>> = {
   oathkeeper: 'altSolo:oathkeeper',
   hawks_vigil: 'altSolo:vigil',
   celestial_sphere: 'altSolo:sphere',
+  blood_brother: 'altSolo:bloodBrother',
 };
 
 /**
@@ -197,6 +212,45 @@ export const LEGION_SOUND_GROUPS = {
   fallen: 'legion:fallen',
 } as const;
 export type LegionGroup = keyof typeof LEGION_SOUND_GROUPS;
+
+/**
+ * Phase 5b, Brann (docs/phase-5b.md, "Audio"): the voice group of each of his kit's sounds, all in
+ * his voice (low bowed strings and a war drum, on A and E) save the two that are the Weaver's (her
+ * Tithe's refund, her Thread's Blood and Silk). `leap`: Sunder Leap (a hero-sourced `attackFired`
+ * 'leap'). `bloodletting`: `lifeSpent`. `frenzy` and `frenzyHit`: Red Frenzy's whirl (its
+ * `soloStarted`) and its spins (`attackFired` 'cleave' while it lasts). `lifesteal`: his axe
+ * drinking (`healApplied` via 'lifesteal'). `refused`: a Rally refused (`bloodlust`). `tithe`:
+ * `titheRefund`. `silk`: Blood and Silk making Resonance (read from the state). `drum`: his
+ * heartbeat. None of these can sound without Brann in the party.
+ */
+export const BRANN_SOUND_GROUPS = {
+  leap: 'brann:leap',
+  bloodletting: 'brann:bloodletting',
+  frenzy: 'brann:frenzy',
+  frenzyHit: 'brann:frenzyHit',
+  lifesteal: 'brann:lifesteal',
+  refused: 'brann:refused',
+  tithe: 'brann:tithe',
+  silk: 'brann:silk',
+  drum: 'heart:brann',
+} as const;
+export type BrannGroup = keyof typeof BRANN_SOUND_GROUPS;
+
+/** Phase 5b: each of Brann's sounds' rate gate (seconds) and voice cap. The sip: one per 0.25 s. */
+export const BRANN_SOUND_LIMITS: Readonly<Record<BrannGroup, readonly [number, number]>> = {
+  leap: [0.4, 1],
+  bloodletting: [0.5, 1],
+  frenzy: [1, 1],
+  frenzyHit: [0.3, 2],
+  lifesteal: [0.25, 2],
+  refused: [1, 1],
+  tithe: [0.2, 2],
+  silk: [0.8, 1],
+  drum: [0, 2],
+};
+
+/** Blood and Silk counts while Brann is under this share of his life (its text: 30%). */
+const SILK_BELOW = 0.3;
 
 /** Phase 5a: each Legion sound's rate gate (seconds) and voice cap. */
 export const LEGION_SOUND_LIMITS: Readonly<Record<LegionGroup, readonly [number, number]>> = {
@@ -418,6 +472,13 @@ export class SfxEngine {
   /** A Link cast on a hero alone (no other standing): one voice, not two. */
   private batchLinkAlone = false;
   private batchPerfects = 0;
+  /**
+   * Phase 5b, Brann: Red Frenzy's whirl by hero; when his danger last cleared (his low-life alert
+   * re-arms 2 s after); Blood and Silk's next tick (AudioContext time).
+   */
+  private readonly frenzy = new Map<number, VoiceHandle>();
+  private readonly bloodClear = new Map<number, number>();
+  private silkAt = -1;
   private batchShare = false;
   /**
    * Phase 5a: each hero's bleed stacks as the events told them (a cleanse's release counts what
@@ -566,6 +627,8 @@ export class SfxEngine {
       case 'healApplied':
         if (ev.via === 'mend') this.mend(ev.target, ev.amount, state);
         else if (ev.via === 'self') this.selfHeal(ev.amount);
+        // Phase 5b: Brann's axe drinking (never the Weaver's Blood Font).
+        else if (ev.via === 'lifesteal') this.lifesteal(ev.target, state);
         // Phase 3e: via 'rewind' is the life Rewind gave back; its own sound (on `rewound`)
         // carries it, so it has none here.
         break;
@@ -610,8 +673,12 @@ export class SfxEngine {
         this.guardBroken(ev.enemy, state);
         break;
       case 'attackFired':
+        // Phase 5b: a hero's leap is Brann's Sunder Leap; a cleave in his Red Frenzy, its spin.
+        if (ev.visual === 'leap' && state.entities?.get(ev.source)?.hero)
+          this.sunderLeap(ev, state);
         // Phase 5a: an attack that moves its caster (Impaling Charge, Impale, Pounce).
-        if (ev.visual === 'charge' || ev.visual === 'leap') this.attackMoved(ev, state);
+        else if (ev.visual === 'charge' || ev.visual === 'leap') this.attackMoved(ev, state);
+        else if (ev.visual === 'cleave') this.frenzyHit(ev, state);
         break;
       case 'save':
         this.save(ev.cause, ev.target, state);
@@ -698,6 +765,20 @@ export class SfxEngine {
         if (ev.cued) this.cue(ev.hero, state);
         // Phase 4e: an alternate Solo starts with a sound of its own (cued, under the leitmotif).
         this.altSolo(ev.solo, ev.hero, ev.cued, state);
+        // Phase 5b: Red Frenzy whirls for as long as it lasts.
+        if (ev.solo === 'redFrenzy') this.frenzyStart(ev.hero, ev.duration, ev.cued, state);
+        break;
+      case 'soloEnded':
+        this.frenzyEnd(ev.hero, 0.25);
+        break;
+      case 'bloodlust':
+        this.refusedRally(ev.hero, state);
+        break;
+      case 'titheRefund':
+        this.titheRefund(ev.target, state);
+        break;
+      case 'lifeSpent':
+        this.bloodletting(ev.hero, state);
         break;
       case 'soloReady':
         if (this.e.gate(`ready:${ev.hero}`, 1)) {
@@ -1092,6 +1173,12 @@ export class SfxEngine {
     else if (voice === 'pluckFlute') {
       pluck(v, at, hz, g * 0.8, dur, 0.85);
       fluteNote(v, at, hz, g * 0.5, dur);
+    } else if (voice === 'bowedLow') {
+      // Brann: a low string bitten by the bow over a war drum's thump, its octave plucked so the
+      // low note carries on small speakers. Never glass.
+      bowed(v, at, hz, dur + 0.25, g * 1.1, 0.03, 0.45);
+      thump(v, at, hz, g * 0.9, 0.2, 0.7);
+      pluck(v, at, hz * 2, g * 0.25, 0.28, 0.4);
     } else {
       glassNote(v, at, hz, g * 0.7, dur + 0.6, 0.85);
       pluck(v, at, hz * 2, g * 0.18, 0.3, 0.9);
@@ -1554,7 +1641,9 @@ export class SfxEngine {
         ? 'bulwark'
         : lower.includes('heartseeker') || defId === 'lyra'
           ? 'heartseeker'
-          : 'starbolt';
+          : lower.includes('red comet') || defId === 'brann'
+            ? 'redComet'
+            : 'starbolt';
     e.duck('music', { depth: 0.62, hold: 0.22, release: 0.7 });
     const c = this.chord();
     this.play(
@@ -1587,6 +1676,16 @@ export class SfxEngine {
           whoosh(v, t, 0.3, 0.1, 350, 6200, 1.6);
           zip(v, t, 0.2, 0.05);
           glassNote(v, t + 0.17, midiToHz(notes[4] ?? 96), 0.05, 1.2, 1);
+        } else if (kind === 'redComet') {
+          // Brann's Red Comet: a fall from the sky (air rushing down), a war drum's slam on the
+          // chord's low root, his bowed A2 and E3 bitten hard, and the ground ringing a fifth up.
+          const low = this.rootAbove(c, 38);
+          whoosh(v, t, 0.35, 0.09, 2600, 280, 1.2);
+          warDrum(v, t + 0.3, midiToHz(low), 0.3, 0.45);
+          thump(v, t + 0.3, midiToHz(low - 12), 0.2, 0.5, 0.5);
+          bowed(v, t + 0.3, tone(-10), 1.1, 0.12, 0.02, 0.8);
+          bowed(v, t + 0.32, tone(-6), 0.9, 0.07, 0.02, 0.7);
+          handbell(v, t + 0.32, midiToHz(low + 19), 0.06, 1.6, 0.25);
         } else {
           // A bell and a shimmer, as the star is tuned.
           const root = this.rootAbove(c, 72);
@@ -2409,6 +2508,72 @@ export class SfxEngine {
           { pan: at(heroX) },
         );
         break;
+      case 'iron_will':
+        // Brann holds his ground under your Ward: a war drum on A1, his bowed A2 bitten short and
+        // firm, and the E3 and A3 over it plucked a step later (the fifth, set like iron).
+        this.play(
+          group,
+          cap,
+          'sfx',
+          (v, t) => {
+            warDrum(v, t, tone(-17), 0.2, 0.32);
+            bowed(v, t, tone(-10), 0.5, 0.08, 0.02, 0.3);
+            pluck(v, t + 0.12, tone(-6), 0.06, 0.4, 0.4);
+            pluck(v, t + 0.2, tone(-3), 0.05, 0.45, 0.5);
+          },
+          { pan: at(heroX) },
+        );
+        break;
+      case 'blood_oath':
+        // What overhealed him rides on his swing: light (it can come every swing) - a plucked A3
+        // over a knock on his E2 and the axe's breath.
+        this.play(
+          group,
+          cap,
+          'sfx',
+          (v, t) => {
+            pluck(v, t, tone(-3), 0.06, 0.3, 0.5);
+            thump(v, t, tone(-13), 0.1, 0.14, 0.6);
+            v.noise({ start: t, dur: 0.05, gain: 0.025, filter: { type: 'lowpass', freq: 900 } });
+          },
+          { pan: at(ev.x) },
+        );
+        break;
+      case 'deathless': {
+        // He can't die: a war drum's stroke on A1, his A2 bowed and held for the seconds he
+        // can't fall (content), its E3 drawn in over it, and an A3 plucked as he stands.
+        const ring = 1 + talentValueOf('deathless', 'seconds');
+        e.duck('music', { depth: 0.6, hold: 0.3, release: 0.8 });
+        this.play(
+          group,
+          cap,
+          'sfx',
+          (v, t) => {
+            warDrum(v, t, tone(-17), 0.28, 0.4);
+            bowed(v, t, tone(-10), ring, 0.1, 0.02, 0.9);
+            bowed(v, t + 0.1, tone(-6), ring * 0.8, 0.05, 0.3, 0.9);
+            pluck(v, t + 0.06, tone(-3), 0.08, 0.6, 0.5);
+          },
+          { pan: at(heroX), big: true },
+        );
+        break;
+      }
+      case 'berserkers_hymn':
+        // Low, he sings them on: an open fifth (A2 and E3) swelling on the bow, a drum under it,
+        // and a plucked A3 as the war song takes them all.
+        this.play(
+          group,
+          cap,
+          'sfx',
+          (v, t) => {
+            bowed(v, t, tone(-10), 1.4, 0.07, 0.25, 0.8);
+            bowed(v, t + 0.04, tone(-6), 1.3, 0.05, 0.3, 0.8);
+            warDrum(v, t + 0.22, tone(-13), 0.16, 0.3);
+            pluck(v, t + 0.3, tone(-3), 0.05, 0.6, 0.6);
+          },
+          { pan: at(heroX) },
+        );
+        break;
       case 'celestial_sphere': {
         // The sphere swallows a hit: a glass pop on B5. Its last breaks it: a fuller shatter, the
         // pop falling through F5 to B4.
@@ -2521,6 +2686,22 @@ export class SfxEngine {
             glassNote(v, close + 0.03, tone(16), 0.022 * k, 1.2, 0.85);
             glassPing(v, close + 0.08, tone(21), 0.012 * k, 0.8);
             whoosh(v, t, 0.4, 0.012 * k, 800, 2600, 1);
+          },
+          { pan },
+        );
+        break;
+      case 'blood_brother':
+        // Phase 5b, Blood Brother: his blood given over the Thread. His bowed A2, and the blood
+        // running up it to the one you Thread (an A3, then an E4, plucked), on a breath.
+        this.play(
+          group,
+          1,
+          'sfx',
+          (v, t) => {
+            bowed(v, t, tone(-10), 1.0, 0.06 * k, 0.05, 0.6);
+            pluck(v, t + 0.15, tone(-3), 0.06 * k, 0.4, 0.5);
+            pluck(v, t + 0.3, tone(1), 0.05 * k, 0.5, 0.6);
+            whoosh(v, t + 0.1, 0.4, 0.014 * k, 400, 1600, 1);
           },
           { pan },
         );
@@ -4173,7 +4354,15 @@ export class SfxEngine {
     const frac = clamp(ev.amount / ent.health.maxHp, 0, 1);
     const defId = ent.hero?.defId;
     const base =
-      ent.kind === 'weaver' ? 146.8 : defId === 'kael' ? 73.4 : defId === 'lyra' ? 98 : 110;
+      ent.kind === 'weaver'
+        ? 146.8
+        : defId === 'kael'
+          ? 73.4
+          : defId === 'lyra'
+            ? 98
+            : defId === 'brann'
+              ? 82.4
+              : 110;
     const gain = (0.05 + 0.2 * Math.min(1, frac * 4)) * (ev.hit === 'tick' ? 0.5 : 1);
     this.play(
       'hit',
@@ -5360,7 +5549,7 @@ export class SfxEngine {
       const step = this.lastIntensityScan;
       this.lastIntensityScan = 0;
       let weight = 0;
-      const low: { id: number; frac: number; defId: string }[] = [];
+      const low: { id: number; frac: number; defId: string; line?: number }[] = [];
       for (const ent of state.entities.list()) {
         const h = ent.health;
         if (!h) continue;
@@ -5377,6 +5566,17 @@ export class SfxEngine {
           if (ent.enemy.phase > bossPhase) bossPhase = ent.enemy.phase;
           if (ent.enemy.tier === 'boss') apex = true;
         } else if (ent.hero) {
+          // Phase 5b: a hero with alarm lines of their own (Brann) has his own drum and alert.
+          const own = healthBands(ent.hero.defId);
+          if (own.raging !== undefined) {
+            if (h.downed) downed++;
+            else if (!h.dead && h.maxHp > 0 && h.hp / h.maxHp < own.raging) {
+              const frac = h.hp / h.maxHp;
+              low.push({ id: ent.id, frac, defId: ent.hero.defId, line: own.raging });
+            }
+            if (!h.dead && !h.downed && h.maxHp > 0) this.bloodAlert(ent, own.critical, state, now);
+            continue;
+          }
           if (h.downed) downed++;
           else if (!h.dead && h.maxHp > 0 && h.hp / h.maxHp < 0.3) {
             low.push({ id: ent.id, frac: h.hp / h.maxHp, defId: ent.hero.defId });
@@ -5395,8 +5595,13 @@ export class SfxEngine {
       downed = cache.downed;
       bossPhase = cache.bossPhase;
       apex = cache.apex;
-      for (const l of cache.low) this.heartbeat(l.id, l.defId, l.frac, now);
+      for (const l of cache.low) {
+        if (l.line !== undefined) this.bloodDrum(l.id, l.frac, l.line, now);
+        else this.heartbeat(l.id, l.defId, l.frac, now);
+      }
     }
+    // Phase 5b: Blood and Silk's tick while it makes Resonance.
+    this.followSilk(state, now);
     return {
       intensity: this.intensity,
       resonance: weaver?.resonance ?? 0,
@@ -5433,7 +5638,8 @@ export class SfxEngine {
     downed: number;
     bossPhase: number;
     apex: boolean;
-    low: { id: number; frac: number; defId: string }[];
+    /** `line`: the top of a hero's raging band (Brann's war drum); absent for the heartbeat. */
+    low: { id: number; frac: number; defId: string; line?: number }[];
   } | null = null;
 
   /** Per-hero heartbeat timbres: Kael a deep round thump, Lyra a light wooden tap, Vexis a glassy pulse. */
@@ -5453,6 +5659,11 @@ export class SfxEngine {
     if (!this.lowLifeAlert || now - this.lowAlertAt < 1.5) return;
     this.lowAlertAt = now;
     this.lowAlerts++;
+    this.lowLifeChime();
+  }
+
+  /** The low-life alert's two soft falling notes (A5, E5). */
+  private lowLifeChime(): void {
     this.play('lowLife', 1, 'sfx', (v, t) => {
       for (const [dt, freq] of [
         [0, 880],
@@ -5544,6 +5755,269 @@ export class SfxEngine {
     });
   }
 
+  // ── Phase 5b: Brann, the Bloodsworn ─────────────────────────────────────────────────
+  // His voice is the low strings and a war drum, on A and its E: under every other hero's
+  // register, never glass. His alarms keep to his danger line, not his designed band.
+
+  /** One of Brann's sounds, through its group's gate (`key`: per hero) and cap. */
+  private brann(
+    group: BrannGroup,
+    build: (v: Voice, t: number) => void,
+    opts: PlayOpts = {},
+    key: string = BRANN_SOUND_GROUPS[group],
+  ): VoiceHandle | null {
+    const [gate, cap] = BRANN_SOUND_LIMITS[group];
+    if (gate > 0 && !this.e.gate(key, gate)) return null;
+    return this.play(BRANN_SOUND_GROUPS[group], cap, 'sfx', build, opts);
+  }
+
+  /**
+   * Brann's low-life alert: the same two soft notes, but only in real danger - below his critical
+   * line (15%), falling fast (the last two seconds' damage would take what he has left), or with
+   * a lethal hit coming (as the bars over the heads show it). Never for the band he fights in. Once
+   * per danger: it re-arms when the danger has been gone two seconds.
+   */
+  private bloodAlert(ent: ReadonlyEntity, critical: number, state: WorldState, now: number): void {
+    const h = ent.health;
+    if (!h) return;
+    let shield = 0;
+    for (const s of h.shields) shield += s.amount;
+    const vowCovers =
+      state.field?.vow === true &&
+      (state.telegraphs ?? []).every((t) => t.effect !== 'damage' || vowHoldsAt(state, t.impact));
+    const lethal = !vowCovers && h.incoming > 0 && h.incoming >= h.hp + shield;
+    const danger = h.hp < critical * h.maxHp || fallingFast(ent) || lethal;
+    const armed = this.lowArmed.get(ent.id) ?? true;
+    if (!danger) {
+      if (armed) return;
+      const since = this.bloodClear.get(ent.id);
+      if (since === undefined) this.bloodClear.set(ent.id, now);
+      else if (now - since >= 2) {
+        this.lowArmed.set(ent.id, true);
+        this.bloodClear.delete(ent.id);
+      }
+      return;
+    }
+    this.bloodClear.delete(ent.id);
+    if (!armed) return;
+    this.lowArmed.set(ent.id, false);
+    if (!this.lowLifeAlert || now - this.lowAlertAt < 1.5) return;
+    this.lowAlertAt = now;
+    this.lowAlerts++;
+    this.lowLifeChime();
+  }
+
+  /**
+   * Brann's heartbeat under his raging line: a war drum (A1, then E2), not a heart. Its tempo
+   * follows the life he is missing (1.3 s apart at his line, 0.7 s with none left), and it never
+   * swells: Blood Rage, heard, with no alarm in it.
+   */
+  private bloodDrum(id: number, frac: number, line: number, now: number): void {
+    const next = this.nextBeat.get(id) ?? 0;
+    if (now < next) return;
+    const rage = clamp(1 - frac / line, 0, 1);
+    this.nextBeat.set(id, now + 1.3 - 0.6 * rage);
+    const g = 0.1;
+    this.play(BRANN_SOUND_GROUPS.drum, BRANN_SOUND_LIMITS.drum[1], 'ambience', (v, t) => {
+      warDrum(v, t, tone(-17), g * 1.3, 0.3);
+      warDrum(v, t + 0.2, tone(-13), g * 0.7, 0.22);
+    });
+  }
+
+  /**
+   * Blood and Silk: while it makes Resonance (Brann Empowered on the Thread below 30%, the motif
+   * owned, no Crescendo, Resonance not full), the Thread ticks once a second (the Weaver's own: a
+   * taut silk plucked on A5 and a click). Read from the state: its Resonance has no event.
+   */
+  private followSilk(state: WorldState, now: number): void {
+    const mods = (state as unknown as { mods?: { bloodAndSilk?: number } }).mods;
+    const w = state.entities?.get(state.weaverId)?.weaver;
+    const slot = w?.threadSlot;
+    const id = slot === null || slot === undefined ? undefined : state.party?.[slot];
+    const b = id === undefined ? undefined : state.entities.get(id);
+    const h = b?.health;
+    const on =
+      (mods?.bloodAndSilk ?? 0) > 0 &&
+      !!w &&
+      w.threadMode === 'empower' &&
+      !(w.crescendo > 0) &&
+      w.resonance < CONTENT.resonance.max &&
+      !!b?.hero?.blood &&
+      !!h &&
+      !h.dead &&
+      !h.downed &&
+      h.hp < SILK_BELOW * h.maxHp &&
+      !fightOver(state);
+    if (!on) {
+      this.silkAt = -1;
+      return;
+    }
+    if (this.silkAt >= 0 && now < this.silkAt) return;
+    this.silkAt = now + 1;
+    this.brann(
+      'silk',
+      (v, t) => {
+        pluck(v, t, tone(11), 0.035, 0.2, 1);
+        v.noise({ start: t, dur: 0.012, gain: 0.02, filter: { type: 'highpass', freq: 5000 } });
+      },
+      { pan: b ? this.panFor(state, b.x) * 0.5 : 0 },
+    );
+  }
+
+  /** His axe drinks (`healApplied` via 'lifesteal'): a small sip, E3 drawn up to A3. */
+  private lifesteal(target: number, state: WorldState): void {
+    const x = state.entities?.get(target)?.x;
+    this.brann(
+      'lifesteal',
+      (v, t) => {
+        v.osc({
+          type: 'sine',
+          freq: tone(-6),
+          freqTo: tone(-3),
+          glide: 0.12,
+          start: t,
+          dur: 0.12,
+          attack: 0.03,
+          release: 0.08,
+          gain: 0.03,
+          shape: 'sustain',
+        });
+        v.noise({
+          start: t,
+          dur: 0.08,
+          attack: 0.04,
+          release: 0.05,
+          gain: 0.012,
+          shape: 'sustain',
+          filter: { type: 'bandpass', freq: 600, freqTo: 1300, q: 2 },
+        });
+      },
+      { pan: x === undefined ? 0 : this.panFor(state, x) * 0.6 },
+    );
+  }
+
+  /**
+   * Sunder Leap (a hero's `attackFired` 'leap'): the bow drawn as he rises on a rush of air, and
+   * the slam where he lands - a war drum on E2 over A1, and the ground's thud. Not the Pounce.
+   */
+  private sunderLeap(ev: Extract<SimEvent, { type: 'attackFired' }>, state: WorldState): void {
+    const land = clamp(ev.travel, 0.25, 0.8);
+    this.brann(
+      'leap',
+      (v, t) => {
+        whoosh(v, t, land + 0.1, 0.07, 300, 1800, 1);
+        bowed(v, t, tone(-10), land + 0.1, 0.05, land * 0.8, 0.15);
+        warDrum(v, t + land, tone(-13), 0.26, 0.36);
+        thump(v, t + land, tone(-17), 0.16, 0.4, 0.5);
+        v.noise({
+          start: t + land,
+          dur: 0.16,
+          gain: 0.08,
+          filter: { type: 'lowpass', freq: 1100, freqTo: 250 },
+        });
+      },
+      { pan: this.panFor(state, (ev.fromX + ev.toX) / 2) },
+    );
+  }
+
+  /** Red Frenzy's spin (a `cleave` while his Frenzy lasts): the axe's swipe, a knock on E2. */
+  private frenzyHit(ev: Extract<SimEvent, { type: 'attackFired' }>, state: WorldState): void {
+    const hero = state.entities?.get(ev.source)?.hero;
+    if (!hero || !(hero.soloActive > 0) || hero.soloId !== 'redFrenzy') return;
+    this.brann(
+      'frenzyHit',
+      (v, t) => {
+        whoosh(v, t, 0.18, 0.05, 500, 2200, 1.3);
+        thump(v, t + 0.06, tone(-13), 0.1, 0.12, 0.6);
+      },
+      { pan: this.panFor(state, ev.fromX) },
+    );
+  }
+
+  /**
+   * Red Frenzy starts: a whirl for as long as it lasts (a swipe of air each pulse, content's, over
+   * his bowed E2). Cued, his axe drinks deeper: the A2 a fifth under it joins. Ends on `soloEnded`.
+   */
+  private frenzyStart(hero: number, duration: number, cued: boolean, state: WorldState): void {
+    this.frenzyEnd(hero, 0.1);
+    const scale = Math.max(0.25, state.timeScale ?? 1);
+    const real = clamp(duration / scale, 0.5, 8);
+    const def = CONTENT.heroes.find((h) => h.id === this.heroId(state, hero));
+    const pulse = clamp((def?.solo.pulse ?? 0.5) / scale, 0.25, 1);
+    const h = this.brann(
+      'frenzy',
+      (v, t) => {
+        for (let at = 0; at < real - 0.05; at += pulse)
+          whoosh(v, t + at, pulse * 0.9, 0.035, 350, 1500, 1.1);
+        bowed(v, t, tone(-13), real, 0.05, 0.15, 0.4);
+        if (cued) bowed(v, t, tone(-10), real, 0.04, 0.3, 0.4);
+        v.extend(t + real + 0.5);
+      },
+      { pan: state.entities ? this.heroPan(state, hero) : 0 },
+      `${BRANN_SOUND_GROUPS.frenzy}:${hero}`,
+    );
+    if (h) this.frenzy.set(hero, h);
+  }
+
+  private frenzyEnd(hero: number, fade: number): void {
+    const h = this.frenzy.get(hero);
+    if (!h) return;
+    h.kill(this.e.now, fade);
+    this.frenzy.delete(hero);
+  }
+
+  /** He refused a Rally (`bloodlust`): two war-drum strokes (E2, then A1) and a growl of the bow. */
+  private refusedRally(hero: number, state: WorldState): void {
+    this.brann(
+      'refused',
+      (v, t) => {
+        warDrum(v, t, tone(-13), 0.18, 0.26);
+        warDrum(v, t + 0.16, tone(-17), 0.24, 0.34);
+        bowed(v, t + 0.16, tone(-10), 0.4, 0.04, 0.03, 0.25);
+      },
+      { pan: state.entities ? this.heroPan(state, hero) : 0 },
+      `${BRANN_SOUND_GROUPS.refused}:${hero}`,
+    );
+  }
+
+  /**
+   * Blood Tithe's refund (`titheRefund`): the Weaver's chime (a handbell on the chord's root and
+   * its fifth) as the Spirit comes back, his A2 plucked under it.
+   */
+  private titheRefund(target: number, state: WorldState): void {
+    const x = state.entities?.get(target)?.x;
+    const root = this.rootAbove(this.chord(), 74);
+    this.brann(
+      'tithe',
+      (v, t) => {
+        handbell(v, t, midiToHz(root), 0.07, 1.2, 0.5);
+        handbell(v, t + 0.06, midiToHz(root + 7), 0.04, 1.0, 0.5);
+        pluck(v, t, tone(-10), 0.05, 0.4, 0.3);
+      },
+      { pan: x === undefined ? 0 : this.panFor(state, x) * 0.6 },
+    );
+  }
+
+  /** Bloodletting (`lifeSpent`): a hiss of breath drawn through the teeth, a low E2 plucked. */
+  private bloodletting(hero: number, state: WorldState): void {
+    this.brann(
+      'bloodletting',
+      (v, t) => {
+        v.noise({
+          start: t,
+          dur: 0.36,
+          attack: 0.02,
+          release: 0.22,
+          gain: 0.05,
+          shape: 'sustain',
+          filter: { type: 'highpass', freq: 5200, freqTo: 1800, q: 0.7 },
+        });
+        pluck(v, t + 0.05, tone(-13), 0.12, 0.5, 0.25);
+      },
+      { pan: state.entities ? this.heroPan(state, hero) : 0 },
+    );
+  }
+
   /** Leaving combat: silence the continuous layers. */
   stopCombat(): void {
     this.nextBeat.clear();
@@ -5575,6 +6049,10 @@ export class SfxEngine {
     this.executions.clear();
     this.tides.clear();
     this.frozenHowls.clear();
+    // Phase 5b: Red Frenzy stops whirling; Brann's alert and Blood and Silk start afresh.
+    for (const id of [...this.frenzy.keys()]) this.frenzyEnd(id, 0.2);
+    this.bloodClear.clear();
+    this.silkAt = -1;
     this.music.releaseHold();
     if (this.drone) this.drone.gain.gain.setTargetAtTime(0, this.e.now, 0.1);
     if (this.harmony)

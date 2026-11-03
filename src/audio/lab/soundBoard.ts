@@ -5,7 +5,7 @@ import type { SynthDirector } from '../director';
 import type { UiSound, UiSoundDetail } from '../types';
 import { dissonanceMax } from '../ui';
 import type { FakeTelegraph, FakeWorld } from './labState';
-import { IDS, ev, nodeWith, type HeroKey } from './labState';
+import { IDS, ev, nodeWith, type HeroKey, type LabHero } from './labState';
 
 export interface SoundButton {
   id: string;
@@ -23,6 +23,8 @@ export interface SoundButton {
     | 'loom'
     /** Phase 5a: the Crimson Legion (its statuses, guard, charges, Tide, Execution, iron). */
     | 'crimson'
+    /** Phase 5b: Brann (his voice, his drum and alert, his kit; Brann joins the lab party). */
+    | 'brann'
     | 'world'
     | 'ui';
   /** Fires the sound. Receives the director and a world to read/mutate. */
@@ -141,12 +143,12 @@ const holdEvent = (seconds: number): SimEvent =>
 // ── Phase 4e helpers ───────────────────────────────────────────────────────────────
 
 /** A talent (or alternate Solo) acting, as the sim announces it: `talentFired`. */
-function talentEv(talent: string, hero: HeroKey, x: number, z: number, target: number | null) {
+function talentEv(talent: string, hero: LabHero, x: number, z: number, target: number | null) {
   return ev('talentFired', { hero: IDS[hero], talent, x, z, target });
 }
 
 /** Where a hero stands in the lab world. */
-function heroAt(w: FakeWorld, hero: HeroKey): { x: number; z: number } {
+function heroAt(w: FakeWorld, hero: LabHero): { x: number; z: number } {
   const e = w.state.entities.get(IDS[hero]);
   return { x: e?.x ?? 0, z: e?.z ?? -3 };
 }
@@ -197,7 +199,27 @@ function talentAct(d: SynthDirector, w: FakeWorld, talent: string): void {
     case 'celestial_sphere':
       fire(d, w, talentEv(talent, 'vexis', l.x, l.z, IDS.lyra));
       break;
+    // Phase 5b: Brann's (he joins the lab party for them).
+    case 'iron_will':
+    case 'deathless':
+    case 'berserkers_hymn': {
+      withBrann(w);
+      const b = heroAt(w, 'brann');
+      fire(d, w, talentEv(talent, 'brann', b.x, b.z, null));
+      break;
+    }
+    case 'blood_oath': {
+      withBrann(w);
+      const b = heroAt(w, 'brann');
+      fire(d, w, talentEv(talent, 'brann', b.x + 1.5, b.z + 1, foe));
+      break;
+    }
   }
+}
+
+/** Phase 5b: Brann joins the lab world (a fourth hero) if he isn't in it; nobody leaves. */
+function withBrann(w: FakeWorld): void {
+  if (!w.heroes().includes('brann')) w.setParty([...w.heroes(), 'brann']);
 }
 
 /** Every talent and alternate Solo the sim announces (`talentFired`). */
@@ -216,16 +238,34 @@ const TALENTS_FIRED = [
   ['arcane_ward', 'Arcane Ward: Vexis blinks toward you (glass drawn in, a ping on F6)'],
   ['oathkeeper', 'Oathkeeper: a hit on Lyra lands on Kael (a muted knock; frequent)'],
   ['celestial_sphere', 'Celestial Sphere: it swallows a hit (a glass pop; frequent)'],
+  ['iron_will', 'Iron Will: Brann answers a Rally under your Ward (a drum, the bowed A2, a fifth)'],
+  ['blood_oath', 'Blood Oath: the overheal rides his swing (a plucked A3, a knock; frequent)'],
+  ['deathless', 'Deathless: he can’t die for a few seconds (a drum, his A2 held under its E3)'],
+  ['berserkers_hymn', 'Berserker’s Hymn: low, he drives them all on (an open fifth swelling)'],
 ] as const;
 
 /** Bonds UI sounds for each hero, and the shared voicing (no hero). */
-const BOND_HEROES = ['kael', 'lyra', 'vexis'] as const;
+const BOND_HEROES = ['kael', 'lyra', 'vexis', 'brann'] as const;
 /** A Bond rank that opens nothing, and one that opens a talent tier (both from the content). */
 const PLAIN_RANK =
   [2, 4, 5, 7, 8, 1].find(
     (r) => !CONTENT.bondRules.talentRanks.includes(r) && r !== CONTENT.bondRules.soloRank,
   ) ?? 1;
 const TALENT_RANK = CONTENT.bondRules.talentRanks[1] ?? CONTENT.bondRules.talentRanks[0] ?? 1;
+
+/** The alternate Solos' names and heroes (their start buttons). */
+const ALT_SOLO_NAME = {
+  oathkeeper: 'Oathkeeper',
+  hawks_vigil: 'Hawk’s Vigil',
+  celestial_sphere: 'Celestial Sphere',
+  blood_brother: 'Blood Brother',
+} as const;
+const ALT_SOLO_HERO: Record<keyof typeof ALT_SOLO_NAME, LabHero> = {
+  oathkeeper: 'kael',
+  hawks_vigil: 'lyra',
+  celestial_sphere: 'vexis',
+  blood_brother: 'brann',
+};
 
 /** The lab world back as it was (no alternate Solo, no sphere, the heroes in their places). */
 function bondsRestore(w: FakeWorld): void {
@@ -778,6 +818,109 @@ function execution(verdict: 'executed' | 'spared' | 'fallen'): SoundButton {
     ],
   };
 }
+
+// ── Phase 5b helpers: Brann ──────────────────────────────────────────────────────────
+
+/** Brann's life (a share of it) and the drum and alert's frames for `seconds`, then full again. */
+function brannLow(
+  id: string,
+  label: string,
+  frac: number,
+  set: (w: FakeWorld) => void = () => undefined,
+  seconds = 4,
+): SoundButton {
+  return {
+    id,
+    label,
+    group: 'brann',
+    length: seconds + 1,
+    fire: (d, w) => {
+      withBrann(w);
+      w.setHeroHp('brann', frac);
+      set(w);
+      d.update(w.state, 0.1);
+    },
+    then: [
+      ...frames(0.1, seconds),
+      {
+        delay: seconds + 0.05,
+        fire: (d, w) => {
+          w.setHeroHp('brann', 1);
+          w.setBleedRate(0);
+          w.setIncoming('brann', 0);
+          w.mods = undefined;
+          w.setThread(null);
+          d.update(w.state, 0.1);
+        },
+      },
+    ],
+  };
+}
+
+/** Brann's attack fired (a leap, or a Frenzy's spin), from where he stands. */
+function brannAttack(w: FakeWorld, visual: 'leap' | 'cleave', travel = 0): SimEvent {
+  withBrann(w);
+  if (!w.entities.has(IDS.enemyBase)) w.setEnemies(3);
+  const b = heroAt(w, 'brann');
+  return ev('attackFired', {
+    source: IDS.brann,
+    target: IDS.enemyBase,
+    visual,
+    fromX: b.x,
+    fromZ: b.z,
+    toX: visual === 'leap' ? b.x - 4 : b.x + 1,
+    toZ: visual === 'leap' ? b.z + 6 : b.z + 1,
+    travel,
+  });
+}
+
+/** Red Frenzy for 5 s (its whirl, a spin each half second, then its end), cued or not. */
+function frenzyButton(cued: boolean): SoundButton {
+  return {
+    id: `brann-frenzy${cued ? '-cued' : ''}`,
+    label: `Red Frenzy${cued ? ', cued (lifesteal x3: the A2 joins)' : ''}: 5 s of whirl and spins`,
+    group: 'brann',
+    length: 7,
+    fire: (d, w) => {
+      withBrann(w);
+      w.setAltSolo('brann', 'redFrenzy', cued);
+      if (cued) fire(d, w, ev('cued', { hero: IDS.brann }));
+      fire(d, w, ev('soloStarted', { hero: IDS.brann, solo: 'redFrenzy', cued, duration: 5 }));
+    },
+    then: [
+      ...Array.from({ length: 10 }, (_, i) => ({
+        delay: Math.round((i + 1) * 0.5 * 1000) / 1000 - 0.25,
+        fire: (d: SynthDirector, w: FakeWorld) => fire(d, w, brannAttack(w, 'cleave')),
+      })),
+      {
+        delay: 5,
+        fire: (d, w) => {
+          w.setAltSolo('brann', null);
+          fire(d, w, ev('soloEnded', { hero: IDS.brann }));
+        },
+      },
+    ],
+  };
+}
+
+const lifestealEv = (amount = 18): SimEvent =>
+  ev('healApplied', {
+    target: IDS.brann,
+    source: IDS.brann,
+    amount,
+    overheal: 0,
+    via: 'lifesteal',
+  });
+
+const brannCall = (): SimEvent =>
+  ev('callStarted', {
+    hero: IDS.brann,
+    answer: 'ward',
+    ability: 'sunderLeap',
+    flourish: 'Red Comet',
+    until: 2.8,
+    line: 'Ward me — I’m going in!',
+  });
 
 export const SOUNDS: SoundButton[] = [
   // ── Support ────────────────────────────────────────────────────────────────────
@@ -2218,15 +2361,15 @@ export const SOUNDS: SoundButton[] = [
       talentAct(d, w, 'riposte_bash');
     },
   },
-  ...(['oathkeeper', 'hawks_vigil', 'celestial_sphere'] as const).flatMap((solo) =>
+  ...(['oathkeeper', 'hawks_vigil', 'celestial_sphere', 'blood_brother'] as const).flatMap((solo) =>
     [false, true].map((cued): SoundButton => ({
       id: `altsolo-${solo}${cued ? '-cued' : ''}`,
-      label: `${solo === 'oathkeeper' ? 'Oathkeeper' : solo === 'hawks_vigil' ? 'Hawk’s Vigil' : 'Celestial Sphere'} starts${cued ? ', cued (with the Cue’s leitmotif)' : ''}`,
+      label: `${ALT_SOLO_NAME[solo]} starts${cued ? ', cued (with the Cue’s leitmotif)' : ''}`,
       group: 'bonds',
       length: 3,
       fire: (d, w) => {
-        const hero: HeroKey =
-          solo === 'oathkeeper' ? 'kael' : solo === 'hawks_vigil' ? 'lyra' : 'vexis';
+        const hero = ALT_SOLO_HERO[solo];
+        if (hero === 'brann') withBrann(w);
         if (cued) fire(d, w, ev('cued', { hero: IDS[hero] }));
         fire(d, w, ev('soloStarted', { hero: IDS[hero], solo, cued, duration: cued ? 6 : 5 }));
       },
@@ -2258,7 +2401,7 @@ export const SOUNDS: SoundButton[] = [
     id: 'talent-every',
     label: 'Every talent in turn, 0.6 s apart (each in its own group and voice)',
     group: 'bonds',
-    length: 10,
+    length: 13,
     fire: (d, w) => {
       w.setSphere('lyra', 1);
       talentAct(d, w, TALENTS_FIRED[0][0]);
@@ -2268,7 +2411,10 @@ export const SOUNDS: SoundButton[] = [
         delay: Math.round((i + 1) * 0.6 * 1000) / 1000,
         fire: (d: SynthDirector, w: FakeWorld) => talentAct(d, w, talent),
       })),
-      { delay: 8.6, fire: (_d: SynthDirector, w: FakeWorld) => bondsRestore(w) },
+      {
+        delay: Math.round(TALENTS_FIRED.length * 0.6 * 1000) / 1000,
+        fire: (_d: SynthDirector, w: FakeWorld) => bondsRestore(w),
+      },
     ],
   },
   // ── Phase 4f: technique variants ─────────────────────────────────────────────────
@@ -2907,4 +3053,178 @@ export const SOUNDS: SoundButton[] = [
       { delay: 8, fire: (d: SynthDirector) => d.playUi('drillMiss') },
     ],
   },
+  // ── Phase 5b: Brann, the Bloodsworn (he joins the lab party for these) ──────────────
+  {
+    id: 'brann-cue',
+    label: 'Cue Brann: his leitmotif (A2 C3 D3 E3, low bowed strings and a drum)',
+    group: 'brann',
+    length: 3,
+    fire: (d, w) => {
+      withBrann(w);
+      fire(d, w, ev('cued', { hero: IDS.brann }));
+    },
+  },
+  {
+    id: 'brann-call',
+    label: 'Brann calls (question only): A2 C3 D3 F3 … E3',
+    group: 'brann',
+    length: 4,
+    fire: (d, w) => {
+      withBrann(w);
+      fire(d, w, brannCall());
+    },
+  },
+  {
+    id: 'brann-call-answer',
+    label: 'Brann calls → your Ward answers (to D3), and Red Comet lands',
+    group: 'brann',
+    length: 6,
+    fire: (d, w) => {
+      withBrann(w);
+      fire(d, w, brannCall());
+    },
+    then: [
+      {
+        delay: 1.6,
+        fire: (d, w) =>
+          fire(
+            d,
+            w,
+            ev('callAnswered', {
+              hero: IDS.brann,
+              answer: 'ward',
+              flourish: 'Red Comet',
+              after: 1.6,
+            }),
+          ),
+      },
+      {
+        delay: 1.9,
+        fire: (d, w) => {
+          fire(d, w, brannAttack(w, 'leap', 0.45));
+          fire(
+            d,
+            w,
+            ev('flourish', { hero: IDS.brann, name: 'Red Comet', x: 2, z: 3, radius: 4.5 }),
+          );
+        },
+      },
+    ],
+  },
+  {
+    id: 'brann-flourish',
+    label: 'Flourish: Red Comet (the fall, the war drum’s slam, his A2 and E3)',
+    group: 'brann',
+    length: 3,
+    fire: (d, w) => {
+      withBrann(w);
+      fire(d, w, ev('flourish', { hero: IDS.brann, name: 'Red Comet', x: 2, z: 3, radius: 4.5 }));
+    },
+  },
+  {
+    id: 'brann-leap',
+    label: 'Sunder Leap (the bow drawn as he rises, the slam where he lands)',
+    group: 'brann',
+    length: 2,
+    fire: (d, w) => fire(d, w, brannAttack(w, 'leap', 0.45)),
+  },
+  {
+    id: 'brann-hit',
+    label: 'Brann takes a hit (his own thump, on E2)',
+    group: 'brann',
+    fire: (d, w) => {
+      withBrann(w);
+      fire(
+        d,
+        w,
+        ev('damageTaken', {
+          target: IDS.brann,
+          source: IDS.enemyBase,
+          amount: 160,
+          absorbed: 0,
+          amplified: 0,
+          aura: 0,
+          radiance: 0,
+          eclipse: 0,
+          crit: false,
+          telegraph: null,
+          hit: 'hit',
+        }),
+      );
+    },
+  },
+  {
+    id: 'brann-bloodletting',
+    label: 'Bloodletting: he spends his own life (a hiss, a low E2 pluck)',
+    group: 'brann',
+    length: 2,
+    fire: (d, w) => {
+      withBrann(w);
+      fire(d, w, ev('lifeSpent', { hero: IDS.brann, amount: 125 }));
+    },
+  },
+  frenzyButton(false),
+  frenzyButton(true),
+  {
+    id: 'brann-lifesteal',
+    label: 'Lifesteal: his axe drinks (a small sip, E3 to A3)',
+    group: 'brann',
+    fire: (d, w) => {
+      withBrann(w);
+      fire(d, w, lifestealEv());
+    },
+  },
+  {
+    id: 'brann-lifesteal-burst',
+    label: 'Lifesteal: 20 in a second (the gate holds: one sip a quarter second)',
+    group: 'brann',
+    length: 2,
+    fire: (d, w) => {
+      withBrann(w);
+      fire(d, w, lifestealEv());
+    },
+    then: Array.from({ length: 19 }, (_, i) => ({
+      delay: Math.round((i + 1) * 0.05 * 1000) / 1000,
+      fire: (d: SynthDirector, w: FakeWorld) => fire(d, w, lifestealEv()),
+    })),
+  },
+  {
+    id: 'brann-refused',
+    label: 'Bloodlust: he refuses your Rally (two war-drum strokes and a growl)',
+    group: 'brann',
+    length: 2,
+    fire: (d, w) => {
+      withBrann(w);
+      fire(d, w, ev('bloodlust', { hero: IDS.brann }));
+    },
+  },
+  {
+    id: 'brann-tithe',
+    label: 'Blood Tithe: the Ward on him broke and paid you back (your chime, his A2 under it)',
+    group: 'brann',
+    length: 2,
+    fire: (d, w) => {
+      withBrann(w);
+      fire(d, w, ev('titheRefund', { target: IDS.brann, spirit: 10, life: 0 }));
+    },
+  },
+  brannLow('brann-drum-raging', 'His war drum at 35% (raging: slow, no alarm)', 0.35),
+  brannLow('brann-drum-deep', 'His war drum at 18% (quicker, still no alarm)', 0.18),
+  brannLow('brann-critical', 'Brann at 10% (below his 15% line: the alert, then the drum)', 0.1),
+  brannLow('brann-falling-fast', 'Brann at 30% falling fast (the alert)', 0.3, (w) =>
+    w.setBleedRate(400),
+  ),
+  brannLow('brann-lethal', 'Brann at 30% with a lethal hit coming (the alert)', 0.3, (w) =>
+    w.setIncoming('brann', 1000),
+  ),
+  brannLow(
+    'brann-silk',
+    'Blood and Silk: Empowering him under 30% (the Thread ticks once a second)',
+    0.2,
+    (w) => {
+      w.mods = { bloodAndSilk: 3 };
+      w.setThread('brann', 'empower');
+    },
+    3.2,
+  ),
 ];
