@@ -18,7 +18,15 @@ import {
   partyAuraMask,
   type AuraTotals,
 } from '../combat/auras';
-import { addShield, heal, isActive, removeShield, shieldOf, NEVER } from '../combat/health';
+import {
+  addShield,
+  heal,
+  isActive,
+  removeShield,
+  scarTissueMult,
+  shieldOf,
+  NEVER,
+} from '../combat/health';
 import type { ChordField, Entity, EntityId, WorldState } from '../state';
 import { weaverOf, type World } from '../world';
 import { reject } from './techniques';
@@ -317,9 +325,13 @@ function applyAuraLife(
     if (barrier) removeShield(world, e, 'barrier', false);
     return;
   }
-  const max = h.maxHp * fx.barrierPct;
+  const base = h.maxHp * fx.barrierPct;
+  // Scar Tissue (Bonds, docs/phase-5b.md): stronger on Brann, refilled to its stronger max
+  // (addShield applies it to a new barrier).
+  const scar = e.hero?.blood ? scarTissueMult(world, e) : 1;
+  const max = scar !== 1 ? base * scar : base;
   if (world.time - h.lastHitAt < refill) return;
-  if (!barrier) addShield(world, e, 'barrier', max, NEVER, true, true);
+  if (!barrier) addShield(world, e, 'barrier', base, NEVER, true, true);
   else if (barrier.amount < max - 0.5 || barrier.max !== max) {
     barrier.amount = max;
     barrier.max = max;

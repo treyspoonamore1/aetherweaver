@@ -3,6 +3,7 @@ import type { World } from '../world';
 import { heroFx } from '../combat/auras';
 import { empowerBonus } from './thread';
 import { hasTalent, talentValue } from '../bonds';
+import { bloodRageBonus, hymnScale } from './blood';
 
 const CRIT_CHANCE = 0.1;
 const CRIT_MULT = 1.6;
@@ -25,11 +26,19 @@ export interface HeroHit {
 }
 
 /**
- * The hero's own-damage scale (docs/phase-5b.md): Blood Rage, times Berserker's Hymn where it
- * applies. 1 for every hero without them. W0 stub: always 1 (W1 implements it).
+ * The hero's own-damage scale (docs/phase-5b.md): Blood Rage (1 + its bonus, Red Mist's cap),
+ * times Berserker's Hymn while it holds. Exactly 1 for every hero without them, so the default
+ * party's hits never see it.
  */
-export function ownScale(_world: World, _hero: Entity): number {
-  return 1;
+export function ownScale(world: World, hero: Entity): number {
+  let k = 1;
+  if (hero.hero?.blood) {
+    const rage = bloodRageBonus(world.content, hero);
+    if (rage > 0) k = 1 + rage;
+  }
+  const hymn = hymnScale(world);
+  if (hymn !== 1) k *= hymn;
+  return k;
 }
 
 /**
@@ -46,6 +55,9 @@ export function heroDamage(
   critBonus: number,
   hasted = false,
 ): HeroHit {
+  // Blood Rage and Berserker's Hymn (docs/phase-5b.md): the hero's own, so on the base.
+  const k = ownScale(world, hero);
+  if (k !== 1) base *= k;
   const fx = heroFx(world, hero);
   const empower = empowerBonus(world, hero);
   const crit = world.rng.combat.chance(CRIT_CHANCE + critBonus);
@@ -57,7 +69,15 @@ export function heroDamage(
   if (!hasted) {
     const aura = withAuras - own;
     const boost = amount - withAuras;
-    return { amount, amplified: aura + boost, aura, empower: boost, crit, empowered };
+    return {
+      amount,
+      amplified: aura + boost,
+      aura,
+      empower: boost,
+      crit,
+      empowered,
+      ...(k !== 1 ? { own: k } : {}),
+    };
   }
   const pace = heroAttackSpeed(world, hero);
   const ownPace = pace - fx.attackSpeed - empower.attackSpeed;
@@ -65,7 +85,15 @@ export function heroDamage(
   // Damage rates (per base attack rate): alone, with the auras, with everything.
   const aura = (withAuras * auraPace - own * ownPace) / pace;
   const boost = (amount * pace - withAuras * auraPace) / pace;
-  return { amount, amplified: aura + boost, aura, empower: boost, crit, empowered };
+  return {
+    amount,
+    amplified: aura + boost,
+    aura,
+    empower: boost,
+    crit,
+    empowered,
+    ...(k !== 1 ? { own: k } : {}),
+  };
 }
 
 /** Attack-speed multiplier from auras, Empower and motifs. */

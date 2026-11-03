@@ -31,6 +31,15 @@ import { gainResonance } from './resonance';
 import { recordSave } from './saves';
 import { hasTalent, soloValue, talentFired, talentHolder, talentValue } from '../bonds';
 import { variantGuard, variantValue } from '../variants';
+import {
+  afterBloodDamage,
+  deathlessActive,
+  deathlessHolds,
+  isWeaverVia,
+  onBloodHit,
+  refusedRallyLive,
+  weaverHealCut,
+} from '../systems/blood';
 
 /** Shields with no natural expiry (aura barriers, discord) expire at this sim time. */
 export const NEVER = 1e9;
@@ -129,22 +138,30 @@ function nearAlly(world: World, hero: Entity): boolean {
  * lasting a few seconds from the last top-up (so it holds while Mend keeps feeding it). It keeps
  * to its own shield: another overshield (a hero's own, or another of yours) is left as it is.
  */
-function graceShield(world: World, hero: Entity, overheal: number): void {
+function graceShield(world: World, hero: Entity, overheal: number): number {
   const h = hero.health!;
   const cap = h.maxHp * world.mods.graceShieldPct;
   const existing = shieldOf(h, 'overshield');
   if (existing?.grace) {
+    const before = existing.amount;
     existing.amount = Math.min(cap, existing.amount + overheal);
     existing.max = Math.max(existing.max, existing.amount);
     existing.expiresAt = Math.max(existing.expiresAt, world.time + world.mods.graceShieldDuration);
-    return;
+    return Math.max(0, existing.amount - before);
   }
-  if (existing) return;
+  if (existing) return 0;
   const amount = Math.min(cap, overheal);
   const shield = addShield(world, hero, 'overshield', amount, world.mods.graceShieldDuration, true);
-  if (!shield) return;
+  if (!shield) return 0;
   shield.grace = true;
   world.events.push({ type: 'graceShield', tick: world.tick, hero: hero.id, amount });
+  return amount;
+}
+
+/** Scar Tissue (Bonds, docs/phase-5b.md): the Weaver's barriers on Brann are stronger. 1 else. */
+export function scarTissueMult(world: World, target: Entity): number {
+  if (!target.hero?.blood || !hasTalent(target, 'scar_tissue')) return 1;
+  return 1 + talentValue(world, 'scar_tissue', 'pct') / 100;
 }
 
 export function addShield(
@@ -158,6 +175,11 @@ export function addShield(
 ): Shield | null {
   const h = target.health;
   if (!h || h.dead || amount <= 0) return null;
+  // Scar Tissue: every barrier of yours on Brann (Kael's Cued dome counts as yours).
+  if (fromWeaver && target.hero?.blood) {
+    const scar = scarTissueMult(world, target);
+    if (scar !== 1) amount *= scar;
+  }
   const shield: Shield = {
     kind,
     amount,
@@ -191,9 +213,34 @@ export function removeShield(
   if (!h) return;
   const index = h.shields.findIndex((s) => s.kind === kind);
   if (index < 0) return;
-  h.shields.splice(index, 1);
+  const [removed] = h.shields.splice(index, 1);
   if (broken)
     world.events.push({ type: 'shieldBroken', tick: world.tick, target: target.id, shield: kind });
+  // Blood Tithe (docs/phase-5b.md): a Tithe Ward gives Spirit back when it breaks (a blow or a
+  // Perfect), never when it runs out.
+  if (broken && removed?.tithe) titheRefund(world, target);
+}
+
+/**
+ * Blood Tithe's refund: Spirit, capped like the Perfect Ward's; under Eldritch Conduit, Life
+ * instead, by the same rule (telegraphs.ts `perfect`).
+ */
+function titheRefund(world: World, target: Entity): void {
+  const weaver = world.entities.get(world.weaverId);
+  const w = weaver?.weaver;
+  const refund = world.mods.bloodTitheRefund;
+  if (!weaver || !w || !(refund > 0)) return;
+  let spirit = 0;
+  let life = 0;
+  if (world.mods.techniquesCostLife) {
+    life = heal(world, weaver, refund, 'self', false);
+    w.selfHealAcc += life;
+  } else {
+    const before = w.spirit;
+    w.spirit = Math.min(w.maxSpirit - w.reservedSpirit, w.spirit + refund);
+    spirit = Math.max(0, w.spirit - before);
+  }
+  world.events.push({ type: 'titheRefund', tick: world.tick, target: target.id, spirit, life });
 }
 
 /** Applies a status, unless immunity blocks it. Re-applying refreshes the duration. */
@@ -443,12 +490,20 @@ export function heal(
 ): number {
   const h = target.health;
   if (!h || h.dead || h.downed || amount <= 0) return 0;
+  // Lifesteal (docs/phase-5b.md) is blocked while Fermata holds him: a release can't stand him
+  // up on his own axe.
+  if (via === 'lifesteal' && target.hero?.hold) return 0;
   // Wounding Strikes (Dissonance): heroes are healed less.
   if (target.hero) amount *= world.mods.heroHealMult;
   // Movement II (docs/phase-5a.md): a Wound, and Bloodmoon outside the Sanctuary pools, cut the
   // party's healing. A revive stands them up whole; shields aren't healing.
   if (via !== 'revive') {
     const cut = healReceivedMult(world, target);
+    if (cut !== 1) amount *= cut;
+  }
+  // Blood Rage (docs/phase-5b.md): the Weaver's healing on Brann is halved (Blood Oath lifts it).
+  if (target.hero?.blood) {
+    const cut = weaverHealCut(world.content, target, via);
     if (cut !== 1) amount *= cut;
   }
   // Bulwark of Faith (Bonds): Kael is healed more while you Thread him. That part is his.
@@ -466,15 +521,22 @@ export function heal(
   const overheal = amount - effective;
   h.hp += effective;
   // Overflowing Grace (the Astrolabe): Mend's overheal becomes a shield on the hero.
+  let graced = 0;
   if (via === 'mend' && overheal > 0 && target.hero && world.mods.graceShieldPct > 0)
-    graceShield(world, target, overheal);
+    graced = graceShield(world, target, overheal);
+  // Blood Oath (Bonds): what Grace didn't take of your overheal on Brann rides on his next swing.
+  const blood = target.hero?.blood;
+  if (blood && overheal > graced && isWeaverVia(via) && hasTalent(target, 'blood_oath')) {
+    const cap = (h.maxHp * talentValue(world, 'blood_oath', 'cap')) / 100;
+    blood.oathBank = Math.min(cap, blood.oathBank + (overheal - graced));
+  }
   // Fermata: the Weaver's healing during a hold is what saves the hero (passive regen doesn't).
   const hold = target.hero?.hold;
   if (hold && hold.savedBy === null && effective > 0) {
     if (via === 'mend' || via === 'chime' || via === 'rewind' || via === 'other')
       hold.savedBy = via;
   }
-  if (via !== 'solo' && via !== 'self' && target.team === 'party') {
+  if (via !== 'solo' && via !== 'self' && via !== 'lifesteal' && target.team === 'party') {
     const yours = effective / own;
     world.ledger.healing += yours;
     world.ledger.overheal += overheal / own;
@@ -489,7 +551,7 @@ export function heal(
       type: 'healApplied',
       tick: world.tick,
       target: target.id,
-      source: via === 'solo' ? null : world.weaverId,
+      source: via === 'solo' ? null : via === 'lifesteal' ? target.id : world.weaverId,
       amount: effective,
       overheal,
       via,
@@ -765,6 +827,8 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
         telegraphAnswers(world, opts.telegraph),
       );
     if (target.hero.hold) dealt = Math.max(0, h.hp - 1);
+    // Deathless (Bonds, docs/phase-5b.md): open, or about to open on this very blow, at 1 life.
+    else if (target.hero.blood && deathlessHolds(world, target)) dealt = Math.max(0, h.hp - 1);
     else if (world.relics.veil && martyr(world, target, amount, opts)) {
       dealt = 0;
       martyred = true;
@@ -777,6 +841,8 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
   }
   h.hp -= dealt;
   h.lastHitAt = world.time;
+  // Brann (docs/phase-5b.md): his bleed rate, Deathless's trigger, Berserker's Hymn turning on.
+  if (target.hero?.blood) afterBloodDamage(world, target, hpBefore, dealt);
   if (absorbedByWeaver > 0) world.ledger.shielded += absorbedByWeaver;
   if (absorbedByAura > 0) world.ledger.auras.shielded += absorbedByAura;
   // Bonds: the life your shields and guards kept for this hero (summed as it's credited).
@@ -859,6 +925,8 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
     // Hawk Eye (Bonds): Lyra's Empowered crits ring for you.
     if (opts.crit && opts.empowered && hasTalent(source, 'hawk_eye'))
       gainResonance(world, talentValue(world, 'hawk_eye', 'resonance'), 'hawk_eye');
+    // Blood Rage (docs/phase-5b.md): Brann's axe drinks from what it cuts.
+    if (source.hero.blood) onBloodHit(world, source, target, total);
   }
   if (target.hero && dealt > 0) {
     const recent = target.hero.recentDamage;
@@ -1188,7 +1256,8 @@ export function releaseHold(world: World, e: Entity, fightOver = false): void {
   if (healed) recordSave(world, e, 'fermata', hold.damage, hold.attack);
   // Martyr's Vow: a hold that runs out while it lasts doesn't fell them; the Vow keeps them.
   else if (world.field.vow) recordSave(world, e, 'vow', hold.damage, hold.attack);
-  else if (!fightOver && !unbreakable(world, e))
+  // Deathless (docs/phase-5b.md): inside its window the held blow can't fell him either.
+  else if (!fightOver && !deathlessActive(world, e) && !unbreakable(world, e))
     downHero(world, e, hold.attack, hold.dot, hold.answers);
 }
 
@@ -1240,6 +1309,17 @@ function downHero(
 ): void {
   const h = e.health!;
   const hero = e.hero!;
+  // Brann's down (docs/phase-5b.md), read before the down clears his statuses: a refused Rally
+  // still live, and what the Weaver's healing on him was worth.
+  const blood = hero.blood
+    ? {
+        refusedRally: refusedRallyLive(world, e),
+        healCut:
+          world.mods.heroHealMult *
+          healReceivedMult(world, e) *
+          weaverHealCut(world.content, e, 'mend'),
+      }
+    : undefined;
   hero.hold = null;
   if (hero.call) {
     hero.call = null;
@@ -1294,6 +1374,7 @@ function downHero(
     readyTechniques: ready,
     // The answers the killing tick wanted, ready or not (docs/phase-5a.md: every down names it).
     ...(wanted ? { answers: [...wanted] } : {}),
+    ...(blood ? { blood } : {}),
   });
   pushMarker(world, 'down', hero.slot);
   world.events.push({ type: 'allyDowned', tick: world.tick, hero: e.id });

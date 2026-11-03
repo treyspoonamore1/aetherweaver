@@ -31,6 +31,7 @@ import { weaverOf } from '../world';
 import { glideDistance, slotCooldown, slotCost, variantValue } from '../variants';
 import { answerCall } from './calls';
 import { placeStar, startSolo } from './solos';
+import { bloodLine } from './blood';
 
 type Rejectable = TechniqueKey | 'rewind' | 'thread' | 'cue' | 'crescendo' | 'plant';
 type Reason =
@@ -138,8 +139,16 @@ export function castWard(world: World, slot: PartySlot | undefined): void {
   if (variant === 'aegis_link')
     return aegisLink(world, hero, linkPartner(world, weaver, hero) ?? hero, stasis);
   const strength = world.mods.wardBarrierMult * world.mods.aegisWardMult;
-  const amount = (hero.health!.maxHp * def.barrierPct + def.barrierFlat) * strength;
+  let amount = (hero.health!.maxHp * def.barrierPct + def.barrierFlat) * strength;
+  // Blood Tithe (docs/phase-5b.md): a Ward on Brann below his line is stronger and gives Spirit
+  // back when it breaks. This path only: a Chorale and an Aegis Link returned above.
+  const tithe =
+    world.mods.bloodTithe > 0 &&
+    !!hero.hero?.blood &&
+    hero.health!.hp < bloodLine(world.content, hero);
+  if (tithe) amount *= 1 + world.mods.bloodTithe;
   const ward = addShield(world, hero, 'ward', amount, wardDuration(world), true);
+  if (ward && tithe) ward.tithe = true;
   // Eternal Moment: a Ward cast during Stasis that turns out Perfect gives Resonance.
   if (ward && stasis) ward.stasis = true;
   // Martyr's Aegis: each Ward shields the Weaver too, sized from her own Life.
