@@ -379,7 +379,9 @@ function fight(
   const bot = makeBot('skilled', seed);
   for (let t = 0; t < (opts.seconds ?? 300) * 60; t++) {
     const commands = bot.decide(sim.state);
-    if (opts.bossHp !== undefined && sim.state.encounter.status === 'fighting') {
+    // Once the boss has spawned: at 'fighting' it is still behind its spawn warning, and the
+    // op would find no boss to set.
+    if (opts.bossHp !== undefined && sim.state.encounter.bossId !== null) {
       commands.push({ t: 'debug', op: { op: 'setBossHp', pct: opts.bossHp } });
       opts.bossHp = undefined;
     }
@@ -470,25 +472,39 @@ describe('the Skilled bot answers Movement II in play (arrival kit)', () => {
     expect(focused).toBe(true);
   });
 
-  it('answers both blows of Twin Cleave on its target: a Ward each, a Reel, or a step', () => {
-    let blows = 0;
-    let answered = 0;
+  it('answers every Twin Cleave on its target: a Ward, a Reel or a step for one blow or both', () => {
+    // One answer plus full life survives the pair (850 a blow against Kael's 1,600; docs/
+    // phase-5a.md). So the bot may let one blow land on a full-life tank and answer the other: a
+    // pair goes unanswered only when both its blows hit the hero it aimed at.
+    let pairs = 0;
+    let unanswered = 0;
     for (const seed of [1000, 8919, 16838]) {
-      const targets = new Map<number, number | null>();
-      fight('vharun', seed, (_sim, events) => {
+      /** Each blow's telegraph → the hero it aimed at and its pair (the first blow's telegraph). */
+      const blows = new Map<number, { target: number | null; pair: number }>();
+      const hits = new Map<number, number>();
+      let first = -1;
+      fight('vharun', seed, (sim, events) => {
         for (const e of events) {
-          if (e.type === 'telegraphStarted' && e.name === 'Twin Cleave')
-            targets.set(e.telegraph, e.target);
-          if (e.type !== 'telegraphResolved' || !targets.has(e.telegraph)) continue;
-          if (e.target === null || e.target !== targets.get(e.telegraph)) continue;
-          if (e.outcome === 'cancelled') continue;
-          blows++;
-          if (e.outcome !== 'hit') answered++;
+          if (e.type === 'telegraphStarted' && e.name === 'Twin Cleave') {
+            // The second blow is its own attack, started as the first resolves.
+            const t = sim.state.telegraphs.find((x) => x.id === e.telegraph);
+            if (t?.attackId === 'vharun_twin_cleave') {
+              first = e.telegraph;
+              pairs++;
+            }
+            blows.set(e.telegraph, { target: e.target, pair: first });
+          }
+          if (e.type !== 'telegraphResolved' || e.outcome !== 'hit') continue;
+          const blow = blows.get(e.telegraph);
+          if (!blow || e.target === null || e.target !== blow.target) continue;
+          const n = (hits.get(blow.pair) ?? 0) + 1;
+          hits.set(blow.pair, n);
+          if (n === 2) unanswered++;
         }
       });
     }
-    expect(blows).toBeGreaterThan(5);
-    expect(answered / blows).toBeGreaterThanOrEqual(0.75);
+    expect(pairs).toBeGreaterThan(5);
+    expect(1 - unanswered / pairs).toBeGreaterThanOrEqual(0.8);
   });
 
   it('keeps the Execution target at or above 40% in 80% of casts', () => {

@@ -26,7 +26,7 @@ The design follows three principles:
 
 | Question | Choice | Why |
 |---|---|---|
-| Scaling model | **Enemy side only.** A per-Movement `scale {life, damage}` reaches the sim as `SimConfig.movement`. It starts at **life x1.29, damage x0.94**, the plan's hero-relative ratios: enemy HP 1.8 / hero damage 1.4, and enemy damage 1.5 / hero HP 1.6. Heroes and the Weaver do not scale. | Every hero-to-enemy exchange matches the plan. The Weaver's flat outputs (Mend 90/s, Ward +120; `src/content/weaver.ts:26,44`) keep their Movement I relative strength. Literal hero x1.6 would make every Mend about 37% weaker, which is invisible and feels bad for a healer. The bots' relative thresholds (`src/bots/skilled.ts:137, :232`) keep holding. This is one sim field instead of four, and it is a knob the harness can sweep. |
+| Scaling model | **Enemy side only.** A per-Movement `scale {life, damage}` reaches the sim as `SimConfig.movement`. It started at **life x1.29, damage x0.94**, the plan's hero-relative ratios: enemy HP 1.8 / hero damage 1.4, and enemy damage 1.5 / hero HP 1.6, and **ships at life ×1.5, damage ×1.0** after the whole-Expedition sweep (see *Tuning*). Heroes and the Weaver do not scale. | Every hero-to-enemy exchange matches the plan. The Weaver's flat outputs (Mend 90/s, Ward +120; `src/content/weaver.ts:26,44`) keep their Movement I relative strength. Literal hero x1.6 would make every Mend about 37% weaker, which is invisible and feels bad for a healer. The bots' relative thresholds (`src/bots/skilled.ts:137, :232`) keep holding. This is one sim field instead of four, and it is a knob the harness can sweep. |
 | Where the scale comes from | The encounter's Movement (content `movements[n].scale`), with an optional `SimConfig.movement` override for sweeps. The resolved key is present **only** when it differs from {1,1}. | Isolated harness fights and the 'without you' re-run (`src/sim/counterfactual.ts:36`) scale correctly. Movement I configs hash identically. It is never folded into `threat`, which is life-only and clamped to 1-3 (`src/sim/world.ts:283`). |
 | Who plays Movement II | **Expedition** (Movement I then Movement II) from **Rank 2** (02 §9 line 228). Prep has a Route toggle (Prelude / Expedition) that remembers the last choice and defaults to Expedition once unlocked. The first run is always the Prelude (02 §8.6). `newRun` defaults to 1 Movement. | Every tool, test and calibrated report (pacing, powercap, dissonance, callings, reliquary, astrolabe, bonds, deeds) keeps its Prelude baseline. |
 | Map | Movement II's **7 stops** are generated **up front**. They are appended to `map.rows` as global rows 10-16 with their own RNG label `map:m2`. | Node ids, shop and event RNG labels (`src/meta/run.ts:1131, :1298`), `reachable` and `unforgivingMap` at embark (`run.ts:705, 716-733`) all keep working. Movement I rows come out byte-identical. |
@@ -169,8 +169,8 @@ An in-flight v5 save loads as a Prelude, and its Cantor stays final.
 - `updateIncoming` and severity (`telegraphs.ts:213-233`), the HUD's lethal flag and the bots' Ward scorer all see the threat with no extra code.
 
 **Healing multipliers.** `heal()` (`health.ts:269-327`) applies two multipliers next to `heroHealMult` (`:278`):
-- Wound: ×0.5 on a hero with `wound`.
-- Bloodmoon: ×0.5 on a hero outside every Sanctuary pool.
+- Wound: ×0.5 on whoever carries `wound`, the Weaver included.
+- Bloodmoon: ×0.5 on a **hero** outside every Sanctuary pool. The Weaver's own healing received is not cut (as shipped, `healReceivedMult` in `health.ts`).
 
 They stack multiplicatively, so a wounded hero outside a pool gets ×0.25; the Codex says so. Revive (`reviveHero`, `health.ts:1051`) and shields are exempt, which makes 'Ward instead of heal' a discoverable second answer.
 
@@ -193,19 +193,19 @@ They stack multiplicatively, so a wounded hero outside a pool gets ×0.25; the C
 
 ## The Crimson Legion
 
-Code life is the plan's Movement-I-scale HP × 2.2, the same calibration Movement I uses (`src/content/enemies.ts:243-391`). Damage is at plan value. 'Effective' is after the starting scale (life ×1.29, damage ×0.94), before row Threat. Reference hero HP (unscaled): Kael 1,600, Lyra 820, Vexis 740, Weaver 360.
+Code life is the plan's Movement-I-scale HP × 2.2, the same calibration Movement I uses (`src/content/enemies.ts:243-391`). Damage is at plan value. 'Effective' is after the shipped scale (life ×1.5, damage ×1.0), before row Threat. Numbers are as tuned (see *Tuning* for what moved from the first draft). Reference hero HP (unscaled): Kael 1,600, Lyra 820, Vexis 740, Weaver 360.
 
 | Enemy | Role | HP code / eff. | Speed | Basic | Special or property | Answers |
 |---|---|---|---|---|---|---|
-| **Sanguine Hound** `sanguine_hound` | swarm | 570 / 735 | 5.0 | melee 30 per 1.0 s, range 1.1; **onHit** bleed +1 (max 8, 6 s, 12/s) | — | Chime at 5+ stacks; Ward blocks stacks |
-| **Hemomancer** `hemomancer` | caster, preferredRange 10 | 1,320 / 1,703 | 3.0 | bolt 45 per 2.0 s, range 12 | `hemomancer_blood_pact`: link, `pair`, `linkStatus:'pact'`, windup 6, r 6, damage 300 (282), cd 16, init 5 | Scatter (heroes also step apart, `heroes.ts:1017-1033`) |
-| **Impaler** `impaler` | brute, preferredRange 8 | 1,980 / 2,554 | 3.2 | melee 90 per 1.8 s, range 1.8 | `impaler_charge`: beam, `farthest`, `fullLength`, `move:'charge'`, windup **1.2**, length 16, width 1.6, range 14, damage 150 (141), status pinned 4 s at 60/s; cd 9, init 4 | Reel (dodge or free), Ward (no damage, no pin), move |
-| **Crimson Sentinel** `crimson_sentinel` | brute | 3,520 / 4,541 | 2.2 | melee 120 per 2.0 s, range 1.9 | `guard {arcDeg 120, frontMult 0.1, turnRate 90°/s, breakTime 6}` | Focus (the party flanks); an Empowered Piercing Shot breaks it for 6 s |
-| **Leech** `leech` | swarm | 660 / 851 | 4.4 | melee 20 per 1.2 s, range 1.0 | `leech_latch`: cleave `current`, windup 0.9, r 2.0, 70°, range 1.8, damage 30, status latched 8 s (`pctPerSec 0.04, drain`); cd 10, init 3 | the telegraph: Reel or Ward; once latched: Reel or Chime |
+| **Sanguine Hound** `sanguine_hound` | swarm | 640 / 960 | 5.0 | melee 32 per 1.0 s, range 1.1; **onHit** bleed +1 (max 8, 6 s, 12/s) | — | Chime at 5+ stacks; Ward blocks stacks |
+| **Hemomancer** `hemomancer` | caster, preferredRange 10 | 1,320 / 1,980 | 3.0 | bolt 45 per 2.0 s, range 12 | `hemomancer_blood_pact`: link, `pair`, `linkStatus:'pact'`, windup 6, r 6, damage 300 (300), cd 16, init 5 | Scatter (heroes also step apart, `heroes.ts:1017-1033`) |
+| **Impaler** `impaler` | brute, preferredRange 8 | 1,980 / 2,970 | 3.2 | melee 90 per 1.8 s, range 1.8 | `impaler_charge`: beam, `farthest`, `fullLength`, `move:'charge'`, windup **1.2**, length 16, width 1.6, range 14, damage 150 (150), status pinned 4 s at 60/s; cd 9, init 4 | Reel (dodge or free), Ward (no damage, no pin), move |
+| **Crimson Sentinel** `crimson_sentinel` | brute | 2,600 / 3,900 | 2.2 | melee 120 per 2.0 s, range 1.9 | `guard {arcDeg 120, frontMult 0.1, turnRate 90°/s, breakTime 6}` | Focus (the party flanks); an Empowered Piercing Shot breaks it for 6 s |
+| **Leech** `leech` | swarm | 660 / 990 | 4.4 | melee 20 per 1.2 s, range 1.0 | `leech_latch`: cleave `current`, windup 0.9, r 2.0, 70°, range 1.8, damage 30, status latched 8 s (`pctPerSec 0.04, drain`); cd 10, init 3 | the telegraph: Reel or Ward; once latched: Reel or Chime |
 
 Notes on each enemy:
 
-- **Hound.** No telegraph. Bleed shows as violet drop pips with a count on the party frame and over the head. At 5+ the count glows and shows the Chime glyph. Bleed is violet, because it is an ailment, and is never red. Pressure check: 5 hounds on Kael come to about 140/s in bites plus about 90/s of bleed at the cap. First Light's 6 choristers do about 370/s.
+- **Hound.** No telegraph. Bleed shows as violet drop pips with a count on the party frame and over the head. At 5+ the count glows and shows the Chime glyph. Bleed is violet, because it is an ailment, and is never red. Pressure check: 5 hounds on Kael come to about 160/s in bites plus about 96/s of bleed at the cap (they prefer Vexis, as every swarm does). First Light's 6 choristers do about 370/s.
 - **Hemomancer.** It reuses the link renderer (`src/render/telegraphs.ts:557-580, 673-730`) with a pact tint and a '+20%' glyph. Hint: 'Chime can't break a Blood Pact. Scatter.'
 - **Impaler.** It charges to the line's end, leaving a streak. A pinned hero gets a steel stake sprite and the Reel glyph.
 - **Sentinel.**
@@ -239,14 +239,14 @@ Every Legion enemy has `material: 'iron'`, which drives death debris and kill so
 
 The Matriarch is a big quadruped with a mane of spines.
 
-- HP 30,000 (38,700 effective); speed 3.4; radius 1.5; height 2.2.
+- HP 33,000 (49,500 effective); speed 3.4; radius 1.5; height 2.2.
 - Melee 90 per 1.6 s, range 2.6.
-- Encounter: arena `kennels` (r 20, open), enrage 300 s, par 170.
+- Encounter: arena `kennels` (r 20, open), enrage 300 s, par 85.
 
 | Attack | Shape | Numbers | Tell | Answers |
 |---|---|---|---|---|
-| **Rend** `gorehound_rend` | cleave `current`, r 3.6, 100° | windup 1.3, damage 260 (244), bleed **+4 stacks** (max 8, 6 s, 12/s); cd 9, init 4 | amber cone; the stack count jumps on Kael | Chime, Ward (blocks the stacks) |
-| **Pounce** `gorehound_pounce` | burst `centre:'target'`, r 2.6, `squishiest`, `move:'leap'` | windup **1.0** (the crouch), range 18, damage 480 (451); cd 13, init 8 | crouch squash plus a circle at the target, then a leap arc | Reel, Ward, move |
+| **Rend** `gorehound_rend` | cleave `current`, r 3.6, 100° | windup 1.3, damage 300 (300), bleed **+4 stacks** (max 8, 6 s, 12/s); cd 9, init 4 | amber cone; the stack count jumps on Kael | Chime, Ward (blocks the stacks) |
+| **Pounce** `gorehound_pounce` | burst `centre:'target'`, r 2.6, `squishiest`, `move:'leap'` | windup **1.0** (the crouch), range 18, damage 560 (560); cd 13, init 8 | crouch squash plus a circle at the target, then a leap arc | Reel, Ward, move |
 | **Pack Call** `gorehound_pack_call` | burst self, summon 3 `sanguine_hound` (4 in phase 2), `maxAlive 8` | windup 1.2; cd 22, init 12 | spawn warnings, howl stinger | Focus |
 
 **Phase 2 at 50%, Decree 'Blood Frenzy'.** Text: 'The Matriarch hunts faster. Cleanse the bleeding; Focus the pack.'
@@ -259,27 +259,29 @@ The Matriarch is a big quadruped with a mane of spines.
 
 Vharun is an armoured warden with a twin-blade glaive and a brass crown.
 
-- HP 70,000 (90,300 effective, ×1.188 at the last row).
+- HP 80,000 (120,000 effective, ×1.188 at the last row).
 - Speed 2.6; radius 1.5; height 4.2.
 - Melee 110 per 1.6 s, range 2.8.
-- Encounter: arena `wardens_throne` (r 22, open), enrage **420 s** (inside the harness's 9 min, `harness-core.ts:37`), par 280.
+- Encounter: arena `wardens_throne` (r 22, open), enrage **420 s** (inside the harness's 9 min, `harness-core.ts:37`), par 225.
 - Phases at 1.0, **0.66** and **0.33**, the bible's boss pattern (03 §7 lines 294-296). Each phase entry has a 2 s phase shift (`bosses.ts:98-148`).
 
 ### Phase 1 (100–66%)
 
 | Attack | Numbers | Answers |
 |---|---|---|
-| **Twin Cleave** `vharun_twin_cleave` → `vharun_twin_cleave_second` | First blow: cleave `current`, r 4.2, 110°, windup 2.0, damage 1,000 (940); cd 14, init 5; `followUp {attack: second, delay: 0}`. Second blow: `scripted`, re-aimed at its own start, windup **1.2**, so the impacts land 1.2 s apart. Each blow begins as the previous resolves and owns `c.cast`; the cast bar shows pips 1/2 and 2/2. | Ward one blow, then Ward, Reel or dome (Aegis Wall) the second. Perfect consumes the shield (`telegraphs.ts:411`), so one charge covers one blow. One answer plus full life survives (940 against Kael's 1,600); no answer does not. |
-| **Blood Pact** `vharun_blood_pact` | link `pair`, `linkStatus:'pact'`, windup 6, r 6, damage 360 (338); cd 22, init 14 | Scatter |
-| **Impale** `vharun_impale` | beam `farthest`, `fullLength`, `move:'charge'`, windup 1.4, length 18, width 1.8, damage 200 (188), pinned 4 s at 60/s; cd 16, init 9 | Reel, Ward, move |
+| **Twin Cleave** `vharun_twin_cleave` → `vharun_twin_cleave_second` | First blow: cleave `current`, r 4.2, 110°, windup 2.0, damage 850 (850); cd 16, init 5; `followUp {attack: second, delay: 0}`. Second blow: `scripted`, re-aimed at its own start, windup **1.2**, so the impacts land 1.2 s apart. Each blow begins as the previous resolves and owns `c.cast`; the cast bar shows pips 1/2 and 2/2. | Ward one blow, then Ward, Reel or dome (Aegis Wall) the second. Perfect consumes the shield (`telegraphs.ts:411`), so one charge covers one blow. One answer plus full life survives (850 a blow against Kael's 1,600); no answer does not (1,700). |
+| **Blood Pact** `vharun_blood_pact` | link `pair`, `linkStatus:'pact'`, windup 6, r 6, damage 360 (360); cd 22, init 14 | Scatter |
+| **Impale** `vharun_impale` | beam `farthest`, `fullLength`, `move:'charge'`, windup 1.4, length 18, width 1.8, damage 200 (200), pinned 4 s at 60/s; cd 16, init 9 | Reel, Ward, move |
 
 Twin Cleave is announced as a Decree the first two times: 'Twin Cleave — two blows on one hero. One Ward won't hold both: a second Ward, Kael's dome, a Reel, or a full health bar.'
+
+**As shipped:** Vharun's follow-ups (Twin Cleave's second blow, the Tide's back sweep) always cast, even when their target has moved out of reach: `fireFollowUp` starts the follow-up without the generic picker's range check, so stepping away during the first blow does not cancel the second; the second blow's shape still decides who it hits.
 
 ### Phase 2 (66–33%): Bloodmoon
 
 `vharun_bloodmoon` is `scripted`, effect 'script'.
 
-- **Decree:** 'Bloodmoon — healing is halved outside the Sanctuary pools. Stand in a pool and Rally the party to you.' Answers `['stack','move']`.
+- **Decree:** 'Bloodmoon — healing is cut by 50% outside the Sanctuary pools. Stand in a pool and Rally the party to you.' Answers `['stack','move']`. The cut falls on heroes only; the Weaver's own healing is not cut (a Wound still cuts whoever carries it).
 - **Pools:** two Sanctuary pools, r 3.6, spawn at ±0.4R. They drift at 0.9 m/s and bounce inside 0.6R. Drift uses a precomputed direction table (dmath) and plain arithmetic, with directions drawn from `rng.ai`. It runs in `updateBosses`, so Stasis freezes it (`src/sim/api.ts:91-94`).
 - **Reform:** every 30 s the pools re-form at new points and the Decree re-announces, so it is seen at least twice.
 - Phase 1's attacks continue.
@@ -291,8 +293,8 @@ Bloodmoon **persists**. Pact and Impale **stop** (`PhaseDef.specials` restricts 
 
 | Attack | Numbers | Answers |
 |---|---|---|
-| **Crimson Tide** `vharun_crimson_tide` → `vharun_crimson_tide_back` (scripted) | Two cones from Vharun, each r 30 and **180°**: his front half first, then his back half (`followUp {delay:0, reverse:true}`). Windup 1.6 each. Damage 420 (395) each. Every 20 s (12 s enraged); first at +4 s. A Decree on each sweep: 'The tide sweeps his front, then turns to his back. Step behind him, then back.' | move, reel |
-| **Execution** `vharun_execution` (scripted) | Mark on `lowestHp`, `markStatus:'condemned'`, windup **4** (cast bar), damage 80 (75), `executeBelow 0.4`. Every 22 s (11 s enraged); first at +9 s, so a Tide lands just before it resolves. Decree: 'Execution — the weakest hero is condemned. Heal them above 40% or Ward them.' | **mend**, ward |
+| **Crimson Tide** `vharun_crimson_tide` → `vharun_crimson_tide_back` (scripted) | Two cones from Vharun, each r 30 and **180°**: his front half first, then his back half (`followUp {delay:0, reverse:true}`). Windup 1.6 each. Damage 380 (380) each. Every 20 s (12 s enraged); first at +4 s. A Decree once per Tide pair (on the front sweep; the back sweep is its follow-up and does not re-announce): 'Crimson Tide — the tide sweeps his front, then turns to his back. Step behind him, then back.' | move, reel |
+| **Execution** `vharun_execution` (scripted) | Mark on `lowestHp`, `markStatus:'condemned'`, windup **4** (cast bar), damage 80 (80), `executeBelow 0.4`. Every 22 s (11 s enraged); first at +9 s, so a Tide lands just before it resolves. Decree: 'Execution — the weakest hero is condemned. Heal them above 40% or Ward them.' | **mend**, ward |
 | Twin Cleave | continues | as above |
 
 The Tide is the Bellwarden's out-then-in grammar (Toll Out → Toll In), so it is readable at once. Hero escape and `escapeFrom` already handle cones (`heroes.ts:995-1007`, `src/bots/common.ts:215-249`). Enrage is ×2.5 (`enemies.ts:282-284`).
@@ -307,20 +309,20 @@ The Tide is the Bellwarden's out-then-in grammar (Toll Out → Toll In), so it i
 
 ## Encounters and arenas
 
-Every encounter below has `movement: 2`. Par is a starting value; W9 sets it to the Skilled average × 1.15.
+Every encounter below has `movement: 2`. Waves and pars are as tuned (see *Tuning*); par is the Skilled average on the arrival kit × 1.15, to the nearest 5 s.
 
 | id | Kind | Arena | Par | Waves | Hints |
 |---|---|---|---|---|---|
-| `crimson_gate` | skirmish (row 0) | spire_gate | 90 | hound×4 · hound×5 · hound×6 | bleed |
-| `blood_rites` | skirmish (lesson) | blood_forge | 100 | hemomancer + hound×3 · hemomancer + hound×4 · hemomancer×2 + hound×3 | pact |
-| `pike_line` | skirmish (lesson) | spire_gate | 100 | impaler + hound×3 · impaler + hound×4 · impaler×2 + hound×2 | pin |
-| `red_muster` | skirmish | barracks | 115 | sentinel + hound×4 · sentinel + hemomancer + hound×3 · sentinel + impaler + hound×3 | focus |
-| `leech_warren` | skirmish | blood_forge | 115 | leech×3 + hound×2 · leech×2 + sentinel · leech×3 + hemomancer + hound×2 | latch |
-| `shield_wall` | elite | barracks | 140 | sentinel★vampiric + hound×4 · impaler★hastened + sentinel + hound×3 · hemomancer + sentinel★shielded + leech×2 | focus, empower, wound |
-| `blood_forge` | elite | blood_forge | 145 | hemomancer★vampiric + hound×4 · impaler×2 + leech×2 · hound×2★volatile + hemomancer + impaler★vampiric | wound, scatter |
-| `legion_vanguard` | elite (event-only) | barracks | 130 | hound×5 + impaler★vampiric · hemomancer + sentinel + leech×2 | wound |
-| `gorehound_matriarch` | miniboss | kennels | 170 | the Matriarch (enrage 300) | bleed, pounce |
-| `vharun` | boss | wardens_throne | 280 | Vharun (enrage 420) | decree |
+| `crimson_gate` | skirmish (row 0) | spire_gate | 40 | hound×5 · hound×6 · hound×7 · hound×8 | bleed |
+| `blood_rites` | skirmish (lesson) | blood_forge | 45 | hemomancer + hound×4 · hemomancer + hound×5 · hemomancer×2 + hound×4 | pact |
+| `pike_line` | skirmish (lesson) | spire_gate | 45 | impaler + hound×3 · impaler + hound×4 · impaler×2 + hound×2 | pin |
+| `red_muster` | skirmish | barracks | 65 | sentinel + hound×4 · sentinel + hemomancer + hound×3 · sentinel + impaler + hound×3 | focus |
+| `leech_warren` | skirmish | blood_forge | 50 | leech×3 + hound×3 · leech×2 + sentinel + hound×2 · leech×3 + hound×3 · leech×3 + hemomancer + hound×2 | latch |
+| `shield_wall` | elite | barracks | 90 | sentinel★vampiric + hound×4 · impaler★hastened + hemomancer + hound×4 · sentinel + leech×2 + hound×4 · hemomancer + hound×5 | focus, empower, wound |
+| `blood_forge` | elite | blood_forge | 75 | hemomancer★vampiric + hound×6 · impaler×2 + leech×3 + hound×2 · hound×3★volatile + hemomancer + impaler★vampiric + hound×2 | wound, scatter |
+| `legion_vanguard` | elite (event-only) | barracks | 70 | hound×6 + impaler★vampiric · hemomancer + sentinel + leech×3 + hound×3 · impaler + hemomancer★vampiric + hound×5 | wound |
+| `gorehound_matriarch` | miniboss | kennels | 85 | the Matriarch (enrage 300) | bleed, pounce |
+| `vharun` | boss | wardens_throne | 225 | Vharun (enrage 420) | decree |
 
 Every new enemy, attack and affix appears, which satisfies the coverage test (`tests/sim/combat.test.ts:321-331`).
 
@@ -404,7 +406,7 @@ Budget: no growth in FX batches (about 12) and the particle caps hold. Every new
 
 - An optional `AudioDirector.setBiome?(biome)` (`audio/types.ts:216-245`). It is called from `runtime.ts:184-186` (the arena's biome) and from MapScreen (the Movement's biome).
 - **Crimson voicing** stays in **D dorian at 88 BPM** (`theory.ts:7-17`; every pitched SFX quantises to it):
-  - `PROGRESSION_CRIMSON` (Dm–C–B♭–C) and `PROGRESSION_CRIMSON_BOSS`;
+  - `PROGRESSION_CRIMSON` (shipped as **Dm–C–Bø7–C**, twice: the plan's B♭ is outside D dorian, and every pitched sound quantises to the key, so the third bar is the mode's own Bø7, which keeps B♭'s D and F; `src/audio/theory.ts`) and `PROGRESSION_CRIMSON_BOSS`;
   - a war-drum pulse (low toms, anvil), a low horn ostinato, a low male choir drone;
   - the pad cutoff set per biome.
 - **Vharun stems** keyed on `bossPhase` (`music.ts:569`):
@@ -470,7 +472,7 @@ Budget: no growth in FX batches (about 12) and the particle caps hold. Every new
 | Bloodmoon | `position()` uses `zoneFor` (`:419-425`) and Rallies the party into the pool. |
 | Execution | No new branch: `telegraphDamage` forecasts the lethal hit, which drives Mend and Ward. |
 
-**Novice bot**, presence-gated chances: Chime at 5+ bleed 0.6; Ward a pinned hero 0.5; Reel a pinned hero 0.25; Scatter on a link 0.35.
+**Novice bot**, presence-gated chances: Chime at 5+ bleed 0.6; Ward a pinned hero 0.5; Reel a pinned hero 0.25; Scatter on a link 0.35. As shipped, the Novice's Scatter answers **only Blood Pact links** (`linkStatus: 'pact'`); a Movement I Resound link draws no Scatter, as before, so Movement I draws no new chance.
 
 **Harness** (`tools/harness-core.ts`):
 - `playRun(…, {movements})`, default 1.
@@ -484,7 +486,8 @@ Budget: no growth in FX batches (about 12) and the particle caps hold. Every new
 - `tools/harness.ts --movement 2 --kit arrival|bare` and `--run --movements 2`; encounter lists are read from content by Movement.
 - `loadouts.ts`, `relics.ts` and `astrolabe.ts` get Movement II lists and floors.
 - `sim-bench.ts` adds a hound-pack scenario (Matriarch plus Pack Call).
-- `pacing.ts` plays the Expedition from Rank 2 and splits minutes by Movement.
+- `pacing.ts` plays the Expedition from Rank 2 and splits minutes by Movement, and Weaver XP a minute by Movement (on the modelled clock and in combat, without the run's win bonus).
+- `decrees.ts` (new, tuning) measures the Decree gate: each Vharun Decree's sightings a fight and how often each bot answers it.
 
 **Golden scenarios**, appended (the five M1 hashes are untouched):
 - `skilled-crimson-gate` (2,400 ticks);
@@ -512,6 +515,91 @@ Budget: no growth in FX batches (about 12) and the particle caps hold. Every new
 3. Par = Skilled average × 1.15.
 
 **Pacing targets:** Movement II about 11-14 modelled minutes (6-8 of them combat). An Expedition 26-32 min. Movement II XP per minute within ±15% of Movement I.
+
+### Tuning (shipped)
+
+**Where it started.** On the first numbers (`--movement 2 --seeds 30`, arrival kit) the skirmishes were far too easy: Idle won `crimson_gate` 100%, `leech_warren` 93% and `blood_rites` 43%, and Skilled finished them in 25–36 s. Novice won the elites 93–100%. The Matriarch fell to the Novice 87% of the time and Vharun to the Skilled in 153 s; Skilled lost `red_muster` and `shield_wall` 3–10% of the time, all early, while the Novice won them.
+
+**What moved.** Authored numbers, then the Movement scale, then par:
+
+| What | Was | Now | Why |
+|---|---|---|---|
+| Movement II `scale` | life ×1.29, damage ×0.94 | **life ×1.5, damage ×1.0** | the whole-Expedition sweep below; life lengthens every fight, damage moves the Novice |
+| Sanguine Hound | 570 HP, bite 30 | 640 HP, bite 32 | the pack is every skirmish's pressure; Idle won hound fights outright |
+| Crimson Sentinel | 3,520 HP | 2,600 HP | its fights ran over their length band once the Skilled bot flanks it after the pack (below) |
+| Gorehound Matriarch | 30,000 HP; Rend 260; Pounce 480 | 33,000 HP; Rend 300; Pounce 560 | Novice 87% (band 40-70%) |
+| Vharun | 70,000 HP; Twin Cleave 1,000 a blow, cd 14; Tide 420 a sweep | 80,000 HP; Twin Cleave 850, cd 16; Tide 380 | Skilled lasted 153 s (band 180-300 s); once longer, the Novice fell to Twin Cleave and the Tide (17% at 70,000 HP and the new scale); 850 keeps 'one answer plus full life survives, no answer doesn't' (2 × 850 > Kael's 1,600) |
+| `crimson_gate` | hound ×4 · ×5 · ×6 | hound ×5 · ×6 · ×7 · ×8 | Idle 100%; Skilled 25 s |
+| `blood_rites` | hounds 3 · 4 · 3 | hounds 4 · 5 · 4 | Idle 43%; Skilled 29 s |
+| `leech_warren` | three waves | a fourth (leech ×3 + hound ×3), a hound more in the first two | Idle 93%; Skilled 30 s |
+| `shield_wall` | three waves, a Shielded elite Sentinel last | four: sentinel★vampiric + hound ×4 · impaler★hastened + hemomancer + hound ×4 · sentinel + leech ×2 + hound ×4 · hemomancer + hound ×5 | Novice 93%; pressure the Novice can't sustain through a guarded grind |
+| `blood_forge` | hound ×4 first; 2 volatile hounds | hound ×6 first; leech ×3 + hound ×2 second; 3 volatile hounds + 2 hounds last | Novice 100% |
+| `legion_vanguard` (event) | two waves | three (see the table above) | Skilled 38 s, Novice 98% |
+| Pars | 90 · 100 · 100 · 115 · 115 · 140 · 145 · 130 · 170 · 280 | 40 · 45 · 45 · 65 · 50 · 90 · 75 · 70 · 85 · 225 | Skilled average (arrival kit, 50 seeds) × 1.15, to the nearest 5 s, in the encounter table's order |
+
+**One bot fix.** The Skilled bot Focused a guarded Sentinel the moment one stood, so the whole party went round a 4,000-HP wall while the hounds beside it stacked bleed on them: Skilled lost `red_muster` and `shield_wall` more often than the Novice did, every loss inside the first 25 s, to bleed ticks and bites (with no Sentinel Focus it won both 100%). That is plainly broken for this mechanic, so it now Focuses a guarded Sentinel once no more than three enemies stand (`SENTINEL_FOCUS_AT`, `src/bots/skilled.ts`); the pack first, then the wall. Movement I has no guarded enemy, so its bots are unchanged (the M1 baseline and the five hashes hold).
+
+**Isolated cells, final** (`npx tsx tools/harness.ts --movement 2 --seeds 50 --verbose`, arrival kit; `legion_vanguard` with `--encounters legion_vanguard --kit arrival`):
+
+| Fight | Idle | Novice | Skilled | Skilled share | Skilled length | Band |
+|---|---|---|---|---|---|---|
+| `crimson_gate` | 6% | 98% | 100% | 43% | 36 s | skirmish |
+| `blood_rites` | 2% | 100% | 100% | 49% | 40 s | skirmish |
+| `pike_line` | 4% | 100% | 100% | 50% | 41 s | skirmish |
+| `red_muster` | 0% | 100% | 100% | 52% | 57 s | skirmish |
+| `leech_warren` | 0% | 96% | 100% | 49% | 46 s | skirmish |
+| `shield_wall` | 0% | 64% | 100% | 51% | 77 s | elite |
+| `blood_forge` | 0% | 64% | 92% | 47% | 65 s | elite |
+| `legion_vanguard` (event) | 0% | 70% | 96% | 48% | 60 s | elite |
+| `gorehound_matriarch` | 0% | 62% | 100% | 47% | 73 s | miniboss |
+| `vharun` | 0% | 44% | 98% | 47% | 195 s | boss |
+
+Every cell is inside its band. The verbs show up as intended: Skilled cleanses bleed at 4.3–5.5 stacks on average, frees 1–2 pins a fight where Impalers or Vharun pin, and lands 34–41% of its party's hits on a Sentinel's guard where the Novice's lands 54–63% (Idle's 77–84%); under the Bloodmoon its party stands in a pool 41% of the time (the Novice's 12%), and Vharun executes 2 of its 159 condemned heroes (the Novice's 37 of 178).
+
+**The Movement scale, on whole Expeditions** (`npx tsx tools/harness.ts --run --movements 2 --seeds N --bots novice,skilled`, the default loadout; won %, Novice / Skilled). Life barely moves the win rates; damage moves the Novice:
+
+| `scale` | 80 seeds (cells before their last pass) | 200 seeds |
+|---|---|---|
+| life 1.3 · damage 0.9 / 1.0 / 1.1 | 25/84 · 18/83 · 10/71 | |
+| life 1.45 · damage 0.9 / 1.0 / 1.1 | 24/83 · 14/81 · 6/73 | |
+| life 1.6 · damage 0.9 / 1.0 / 1.1 | 24/89 · 14/81 · 9/71 | |
+| life 1.5 · damage 0.9 / 0.95 / 1.0 | | 25/85 · 21/84 · 19/80 |
+| **life 1.5 · damage 1.0, shipped (final content and pars)** | | **16/78** |
+
+Damage 0.95 would centre the whole-run Novice better (about 21%), but it lifts the isolated cells' Novice to their edges or past them (Matriarch 74%, the elites 70–74%, Vharun 62%), so the shipped damage is 1.0 and the cells sit inside their bands.
+
+**Whole Expeditions, final** (200 seeds, `--run --movements 2`):
+
+| | Idle | Novice | Skilled | Band |
+|---|---|---|---|---|
+| Won | 0% | 16% | 78% | 0% · 15-30% · ≥70% |
+| Reached Movement II | 0% | 39% | 89% | — · 40-50% · ≥90% |
+| Combat minutes, Movement I / II | 0.8 / 0 | 5.6 / 2.9 | 6.2 / 6.1 | |
+| Lost in Movement II (of 200) | — | 45 (Matriarch 15, Vharun 14, Blood Forge 9, Vanguard 4, Shield Wall 3) | 22 (Blood Forge 9, Vharun 5, Shield Wall 4, Matriarch 2, Vanguard 2) | |
+
+'Reached Movement II' is Movement I's own result (the Prelude's win rate, unchanged by this work): 39% and 89% sit one point under their bands, and Movement II can't move them without touching Movement I.
+
+**Decree gate** (`npx tsx tools/decrees.ts --seeds 50`, Vharun on the arrival kit). A Twin Cleave or a Tide is answered when no hero goes down to either of its two blows; an Execution when the sim's verdict is `spared`; a Bloodmoon spell (announcement to announcement) when no hero falls in it except to another Decree's blow.
+
+| Decree | Skilled: seen a fight (min) | Skilled answered | Novice answered | Idle |
+|---|---|---|---|---|
+| Twin Cleave | 2.0 (2) | 91% of 447 | 59% of 689 | 13% of 123 pairs; loses every fight |
+| Bloodmoon | 4.8 (4) | 100% of 240 | 94% of 288 | never reaches it |
+| Crimson Tide | 3.7 (3) | 100% of 186 | 78% of 206 | never reaches it |
+| Execution | 3.2 (2) | 99% of 151 | 75% of 169 | never reaches it |
+
+Every Decree is seen at least twice in every Skilled fight and answered ≥ 91%. Idle loses every Vharun fight in phase 1 (at 92% of his life, 47 s), so it never sees Bloodmoon, the Tide or Execution; it survives 13% of Twin Cleave pairs only on passive relic shields and regeneration (2 × 850 against Kael's 1,600 leaves a 100-point margin).
+
+**Pacing** (`npx tsx tools/pacing.ts --players 16 --hours 3 --route expedition [--bot skilled]`):
+
+| | Novice | Skilled | Target |
+|---|---|---|---|
+| An Expedition, modelled | 18.8 min (13.4 + 5.4; most end in Movement I or II) | **28.4 min** (17.0 + 11.4) | 26-32 min |
+| Movement II, modelled | 5.4 min | **11.4 min** (6.1 of combat) | 11-14 (6-8 combat) |
+| Weaver XP a combat minute, II / I | 29.6 / 31.2 (**0.95**) | 45.6 / 43.8 (**1.04**) | within ±15% |
+| Weaver XP a modelled minute, II / I | 20.4 / 13.6 (1.51) | 29.1 / 18.0 (1.62) | |
+
+XP a minute leaves out the run's win bonus, which belongs to the run wherever it ends. The reward multiplier stays at ×1.25: it was set so that a Movement II *fight* pays per minute what a Movement I fight does, and per combat minute it holds within 5%. On the modelled clock Movement II pays more, because Movement I carries the run's Prep, Loom and Summary and more non-fight stops (events, shops, shrines, forges); matching that clock would mean paying Movement II fights less than Movement I's, against the design. **Sim bench:** the hound pack (the Matriarch, Pack Call) runs at p95 0.053 ms a tick (budget 1.5).
 
 ## Tests
 

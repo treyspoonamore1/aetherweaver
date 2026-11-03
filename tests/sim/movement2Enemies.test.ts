@@ -61,7 +61,9 @@ afterEach(() => {
   forced.calls = [];
 });
 
-const M2 = { life: 1.29, damage: 0.94 };
+/** Movement II's own scale, and a hound's code life (both read from content, so tuning holds). */
+const M2 = CONTENT.movements[1]!.scale;
+const HOUND = enemyDef('sanguine_hound').hp;
 
 function enemies(sim: Sim, defId?: string): Entity[] {
   return [...worldOf(sim).entities.list()].filter(
@@ -149,9 +151,9 @@ describe('the Movement’s scale', () => {
       stepFor(sim, 1, [spawn('sanguine_hound', 0, -12), spawn('sanguine_hound', 3, -12, true)]);
     const [p, pe] = enemies(plain);
     const [s, se] = enemies(scaled);
-    expect(p!.health!.maxHp).toBe(570);
-    expect(s!.health!.maxHp).toBe(Math.round(570 * M2.life));
-    expect(se!.health!.maxHp).toBe(Math.round(570 * 2.2 * M2.life));
+    expect(p!.health!.maxHp).toBe(HOUND);
+    expect(s!.health!.maxHp).toBe(Math.round(HOUND * M2.life));
+    expect(se!.health!.maxHp).toBe(Math.round(HOUND * 2.2 * M2.life));
     expect(p!.enemy!.damageMult).toBe(1);
     expect(pe!.enemy!.damageMult).toBe(1.25);
     expect(s!.enemy!.damageMult).toBeCloseTo(M2.damage, 12);
@@ -162,11 +164,11 @@ describe('the Movement’s scale', () => {
     const sim = createSim({ seed: 3, encounter: 'crimson_gate' });
     stepUntil(sim, () => enemies(sim).length > 0, 60 * 20);
     const hound = enemies(sim)[0]!;
-    expect(hound.health!.maxHp).toBe(Math.round(570 * M2.life));
+    expect(hound.health!.maxHp).toBe(Math.round(HOUND * M2.life));
     expect(hound.enemy!.damageMult).toBeCloseTo(M2.damage, 12);
     const count = CONTENT.encounters.find((e) => e.id === 'crimson_gate')!.waves[0]!.spawns[0]!
       .count;
-    expect(worldOf(sim).internal.director.waveHp).toBeCloseTo(570 * count * M2.life, 6);
+    expect(worldOf(sim).internal.director.waveHp).toBeCloseTo(HOUND * count * M2.life, 6);
   });
 
   it('Movement I keeps every new key absent', () => {

@@ -21,8 +21,8 @@ import type { BotKind } from '../src/bots';
 import { astrolabePoints } from '../src/meta/astrolabe';
 import { deedPoints, deedsEarned } from '../src/meta/deeds';
 import { masteryLevel, starlightForDeeds, tiersOpen } from '../src/meta/loom';
-import { rankOf } from '../src/meta/profile';
-import { CHORD_PRESETS, movementOf } from '../src/meta/run';
+import { rankOf, RUN_WIN_XP } from '../src/meta/profile';
+import { CHORD_PRESETS, movementOf, movementRewards } from '../src/meta/run';
 import type { RunState } from '../src/meta/types';
 import { buildTree, TREES } from './astrolabe';
 import { playRun } from './harness-core';
@@ -95,6 +95,9 @@ function main(): void {
   let reachedII = 0;
   let expeditionWins = 0;
   const minutesByMovement = [0, 0];
+  // Weaver XP by Movement, without the run's win bonus (it belongs to the run, wherever it ends).
+  const xpByMovement = [0, 0];
+  const combatByMovement = [0, 0];
 
   for (let p = 0; p < players; p++) {
     let xp = 0;
@@ -163,6 +166,12 @@ function main(): void {
         if (summary.outcome === 'victory') expeditionWins++;
         for (let k = 0; k < 2; k++)
           minutesByMovement[k]! += (summary.minutesByMovement[k] ?? 0) + aroundBy[k]! / 60;
+        for (let k = 0; k < 2; k++) combatByMovement[k]! += summary.minutesByMovement[k] ?? 0;
+        for (const x of run.results) {
+          const m = x.movement ?? 1;
+          const win = x.wonRun ? Math.round(RUN_WIN_XP * movementRewards(m).xp) : 0;
+          xpByMovement[Math.min(1, m - 1)]! += x.xp - win;
+        }
       }
       const now = rankOf(xp);
       for (let k = 2; k <= Math.min(10, now); k++) reach(`rank${k}`);
@@ -195,6 +204,16 @@ function main(): void {
     console.log(
       `  Expeditions (from Rank ${EXPEDITION_RANK}): ${expeditions} runs · reach II ${((100 * reachedII) / expeditions).toFixed(0)}% · won ${((100 * expeditionWins) / expeditions).toFixed(0)}% · ${minutesByMovement.map((m) => (m / expeditions).toFixed(1)).join(' + ')} min a run (Movement I + II)`,
     );
+  if (expeditions > 0) {
+    const perMin = (mins: number[]) => xpByMovement.map((x, k) => x / Math.max(1e-9, mins[k]!));
+    const line = (mins: number[]) => {
+      const [i, ii] = perMin(mins);
+      return `${i!.toFixed(1)} / ${ii!.toFixed(1)} (II/I ${(ii! / i!).toFixed(2)})`;
+    };
+    console.log(
+      `  Weaver XP a minute, Movement I / II, without the win bonus: ${line(minutesByMovement)} of the modelled clock · ${line(combatByMovement)} of combat`,
+    );
+  }
   console.log('  first reached (median, h:mm) · how many players reached it');
   for (const m of milestones) {
     const times = at[m.id]!;
