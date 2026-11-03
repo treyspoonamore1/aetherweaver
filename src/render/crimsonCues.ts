@@ -1,6 +1,7 @@
 import type { ArenaDef, EnemyDef } from '../content';
 import { attackDef, enemyDef } from '../content';
 import type { EntityId, ReadonlyEntity, WorldState } from '../sim';
+import { healReceivedMult } from '../sim/combat/health';
 
 /**
  * Movement II, the Crimson Legion (docs/phase-5a.md, Presentation; docs/phase-5a/vfx-audio.md):
@@ -53,6 +54,18 @@ export const SPIRE_HEX = {
 export const MAX_PIPS = 8;
 /** From this many bleed stacks the pips glow and the Chime glyph shows (docs/phase-5a.md). */
 export const BLEED_CHIME_AT = 5;
+/**
+ * Over-head layout (metres above `height + y`). The hero's bar sits at 0.42 (partyBars.ts), a
+ * ~13 px DOM row; a status's answer badge is a 34 px DOM chip centred on its point. Seen in the
+ * lab at 1280x720, the badge at 1.5 hid the pips and Wound's heart sat behind the bar's slot chip,
+ * so they stack: the bar, then the pips and the heart, then the badge, each clear of the one below
+ * at 720p from the default zoom out to the farthest (tests/renderMovement2.test.ts).
+ */
+export const PIP_LIFT = 1.15;
+/** Wound's cracked heart: over the shoulder, at the pips' height (its half size). */
+export const WOUND_LIFT = 1.3;
+export const WOUND_SIZE = 0.22;
+export const STATUS_BADGE_LIFT = 2.6;
 
 /** The light mood an arena is lit in (Stage.setMood's argument). */
 export interface ArenaMood {
@@ -344,3 +357,26 @@ export function bloodmoonOn(state: WorldState): boolean {
 /** A heal number outside the pools under the Bloodmoon: this much smaller and this dim. */
 export const CUT_HEAL_SIZE = 0.72;
 export const CUT_HEAL_ALPHA = 0.55;
+
+type SimWorld = Parameters<typeof healReceivedMult>[0];
+type SimEntity = Parameters<typeof healReceivedMult>[1];
+
+/**
+ * A heal of `via` on `target` was cut by the sim (docs/phase-5a.md, Healing multipliers): a
+ * Wound on whoever carries it, the Bloodmoon on a hero outside every Sanctuary pool. The sim's own
+ * `healReceivedMult` decides, so render never disagrees with it; a revive is exempt, as in the
+ * sim. `pools` are the pools drawn (FieldView.pools): the VFX lab's override shows the cut on a
+ * hero outside them while no sim Bloodmoon is up. Movement I has neither, so nothing is cut there.
+ */
+export function healCut(
+  state: WorldState,
+  target: ReadonlyEntity,
+  via: string,
+  pools: readonly Pool[] | null | undefined,
+): boolean {
+  if (via === 'revive') return false;
+  // Read-only here: healReceivedMult only reads the field and the target's statuses.
+  if (healReceivedMult(state as unknown as SimWorld, target as unknown as SimEntity) < 1)
+    return true;
+  return !state.field.sanctuary && !!target.hero && !inSanctuary(pools, target.x, target.z);
+}

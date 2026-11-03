@@ -6,6 +6,7 @@ import { BLIND_ANSWERS, BLIND_KEY } from './dissonanceCues';
 import {
   CRIMSON_HEX,
   PACT_LABEL,
+  STATUS_BADGE_LIFT,
   TIDE_HALF,
   crimsonStatuses,
   emptyStatusLook,
@@ -257,7 +258,7 @@ export class TelegraphLayer {
       const label = pinned ? 'Pinned' : look.latchedBy >= 0 ? 'Latched' : `×${look.bleed}`;
       overlay.badge(
         r.x,
-        r.height + 1.5 + r.y,
+        r.height + STATUS_BADGE_LIFT + r.y,
         r.z,
         answers,
         answers.join(','),

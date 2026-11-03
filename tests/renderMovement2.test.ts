@@ -10,16 +10,20 @@ import * as THREE from 'three';
 import { afterEach, describe, expect, it } from 'vitest';
 import { COLOR_VISIONS, deltaE, simulateVision, visionPalette } from '../src/app/colorVision';
 import { CONTENT, arenaDef, attackDef, enemyDef } from '../src/content';
-import type { Command, Sim, SimEvent, Status } from '../src/sim';
-import { dealDamage } from '../src/sim/combat/health';
+import type { Command, Sim, SimEvent, SimEventOf, Status } from '../src/sim';
+import { dealDamage, healReceivedMult } from '../src/sim/combat/health';
 import { beginAttack } from '../src/sim/systems/enemies';
 import type { Entity } from '../src/sim';
 import { ArenaView } from '../src/render/arena';
-import type { CameraRig } from '../src/render/camera';
+import { CameraRig } from '../src/render/camera';
 import { CallView } from '../src/render/calls';
 import {
   BLEED_CHIME_AT,
   CRIMSON_HEX,
+  PIP_LIFT,
+  STATUS_BADGE_LIFT,
+  WOUND_LIFT,
+  WOUND_SIZE,
   SPIRE_HEX,
   arenaLook,
   arenaMood,
@@ -28,7 +32,7 @@ import {
   isPact,
   pipOffset,
 } from '../src/render/crimsonCues';
-import { EntityLayer, LEAP_SECONDS } from '../src/render/entities';
+import { CHARGE_SECONDS, EntityLayer, LEAP_SECONDS } from '../src/render/entities';
 import { FermataView } from '../src/render/fermata';
 import { Feedback } from '../src/render/feedback';
 import { FieldView } from '../src/render/field';
@@ -38,7 +42,7 @@ import { buildEnemy } from '../src/render/models/library';
 import { createModelMaterial } from '../src/render/models/material';
 import { glyphLabel, type Overlay } from '../src/render/overlay';
 import { MARTYR_HEX } from '../src/render/martyrCues';
-import { PartyBarsView } from '../src/render/partyBars';
+import { BAR_LIFT, PartyBarsView } from '../src/render/partyBars';
 import type { Stage } from '../src/render/stage';
 import { TelegraphLayer } from '../src/render/telegraphs';
 import { ThreadView } from '../src/render/thread';
@@ -545,6 +549,39 @@ describe('Legion statuses on a hero', () => {
     expect(BLEED_CHIME_AT).toBe(5);
   });
 
+  it('over the head, bar, pips, Wound’s heart and the answer badge stack clear at 720p', () => {
+    // DOM rows centred on their points: the bar row ~13 px tall, the badge 34 px.
+    const BAR_HALF = 6.5;
+    const BADGE_HALF = 17;
+    const PIP = 0.15; // a hot pip's half size (m, view space)
+    for (const wheel of [0, 2000]) {
+      const camera = new THREE.PerspectiveCamera(40, 1280 / 720, 0.5, 220);
+      const rig = new CameraRig(camera);
+      rig.zoomBy(wheel);
+      rig.snapTo(0, 0);
+      camera.updateMatrixWorld();
+      camera.updateProjectionMatrix();
+      const top = 2; // a hero's height
+      /** Screen y (px, down) of a point `lift` over the head, raised `half` metres in view space. */
+      const sy = (lift: number, half = 0) => {
+        const v = new THREE.Vector3(0, top + lift, 0).applyMatrix4(camera.matrixWorldInverse);
+        v.y += half;
+        v.applyMatrix4(camera.projectionMatrix);
+        return ((1 - v.y) / 2) * 720;
+      };
+      const barTop = sy(BAR_LIFT) - BAR_HALF;
+      const at = `zoom ${wheel}`;
+      // The pips and the heart sit above the bar (the heart was behind its slot chip)...
+      expect(sy(PIP_LIFT, -PIP), at).toBeLessThan(barTop);
+      expect(sy(WOUND_LIFT, -WOUND_SIZE), at).toBeLessThan(barTop);
+      // ...and the badge above the pips (at 1.5 m its lower half hid them).
+      const badgeBottom = sy(STATUS_BADGE_LIFT) + BADGE_HALF;
+      expect(badgeBottom, at).toBeLessThan(sy(PIP_LIFT, PIP));
+      // Clear of the heart too at the default zoom (zoomed all the way out they may touch).
+      if (wheel === 0) expect(badgeBottom, at).toBeLessThan(sy(WOUND_LIFT, WOUND_SIZE));
+    }
+  });
+
   it('wound: a cracked heart; latched: a violet tether to its Leech; pinned: a stake, a ring and Reel', () => {
     const sim = sandbox();
     const h = harness(sim);
@@ -712,6 +749,98 @@ describe('Bloodmoon: the Sanctuary pools', () => {
   });
 });
 
+describe('Cut heals render as the sim cuts them (healReceivedMult)', () => {
+  const healEv = (sim: Sim, target: number, via: string, amount = 120): SimEvent =>
+    ({
+      type: 'healApplied',
+      tick: sim.tick,
+      target,
+      source: sim.state.weaverId,
+      amount,
+      overheal: 0,
+      via,
+    }) as SimEvent;
+  const lum = (hex: string) => new THREE.Color(hex).getHSL({ h: 0, s: 0, l: 0 }).l;
+
+  /** A sandbox with Kael outside the one Sanctuary pool (the Bloodmoon up). */
+  function outsidePool() {
+    const sim = sandbox();
+    const h = harness(sim);
+    h.run(2);
+    const w = worldOf(sim);
+    const k = kael(sim);
+    w.field.sanctuary = {
+      pools: [{ x: k.x + 30, z: k.z, r: 3.6, vx: 0, vz: 0 }],
+      healMult: 0.5,
+      reformAt: 99,
+    };
+    h.tick();
+    return { sim, h, w, k };
+  }
+
+  it('a revive outside every pool is not cut: full size and colour, no cut counted', () => {
+    const { sim, h, w, k } = outsidePool();
+    expect(healReceivedMult(w, k)).toBe(0.5);
+    h.frame([healEv(sim, k.id, 'revive')]);
+    const revive = h.overlay.numbers.at(-1)!;
+    expect(h.feedback.firedM2.cutHeals).toBe(0);
+    h.run(40);
+    h.frame([healEv(sim, k.id, 'mend')]);
+    const mend = h.overlay.numbers.at(-1)!;
+    expect(h.feedback.firedM2.cutHeals).toBe(1);
+    expect(mend.size).toBeLessThan(revive.size);
+    expect(lum(mend.color)).toBeLessThan(lum(revive.color));
+  });
+
+  it('an aura heal outside every pool shows smaller and dimmer than one inside', () => {
+    const { sim, h, w, k } = outsidePool();
+    h.frame([healEv(sim, k.id, 'aura', 30)]);
+    const outside = h.overlay.numbers.at(-1)!;
+    expect(h.feedback.firedM2.cutHeals).toBe(1);
+    w.field.sanctuary!.pools[0]!.x = k.x;
+    h.run(40);
+    h.frame([healEv(sim, k.id, 'aura', 30)]);
+    const inside = h.overlay.numbers.at(-1)!;
+    expect(h.feedback.firedM2.cutHeals).toBe(1);
+    expect(outside.size).toBeLessThan(inside.size);
+    expect(lum(outside.color)).toBeLessThan(lum(inside.color));
+  });
+
+  it('a Wound cuts Mend and aura heals inside a pool, and the Weaver’s own heals', () => {
+    const sim = sandbox();
+    const h = harness(sim);
+    h.run(2);
+    const k = kael(sim);
+    const wv = worldOf(sim).entities.get(sim.state.weaverId)! as Entity;
+    h.frame([healEv(sim, k.id, 'mend')]);
+    const plain = h.overlay.numbers.at(-1)!;
+    h.frame([healEv(sim, wv.id, 'self', 30)]);
+    const plainSelf = h.overlay.numbers.at(-1)!;
+    expect(h.feedback.firedM2.cutHeals).toBe(0);
+    giveStatus(k, { id: 'wound', remaining: 30, duration: 30 });
+    giveStatus(wv, { id: 'wound', remaining: 30, duration: 30 });
+    h.run(40);
+    h.frame([healEv(sim, k.id, 'mend')]);
+    const wounded = h.overlay.numbers.at(-1)!;
+    expect(wounded.size).toBeLessThan(plain.size);
+    expect(lum(wounded.color)).toBeLessThan(lum(plain.color));
+    h.frame([healEv(sim, k.id, 'aura', 30)]);
+    h.frame([healEv(sim, wv.id, 'self', 30)]);
+    const woundedSelf = h.overlay.numbers.at(-1)!;
+    expect(woundedSelf.size).toBeLessThan(plainSelf.size);
+    expect(lum(woundedSelf.color)).toBeLessThan(lum(plainSelf.color));
+    expect(h.feedback.firedM2.cutHeals).toBe(3);
+  });
+
+  it('the Weaver’s heals under the Bloodmoon render cut exactly when the sim cuts them', () => {
+    const { sim, h, w } = outsidePool();
+    const wv = w.entities.get(sim.state.weaverId)! as Entity;
+    w.field.sanctuary!.pools[0]!.x = wv.x + 30;
+    h.frame([healEv(sim, wv.id, 'self', 30)]);
+    expect(h.feedback.firedM2.cutHeals).toBe(healReceivedMult(w, wv) < 1 ? 1 : 0);
+  });
+});
+
 describe('Legion telegraphs', () => {
   it('the Crimson Tide: two half-arena cones (front, then back), badged near Vharun', () => {
     const sim = sandbox();
@@ -869,6 +998,41 @@ describe('Legion bodies in motion', () => {
     expect(h.feedback.firedM2.charges).toBe(1);
     expect(h.entities.drawnM2.charges).toBe(1);
     expect(h.kit.beams.size).toBeGreaterThanOrEqual(beams);
+  });
+
+  it('a real charge: the sim moves the caster before attackFired; render rushes it from where it stood', () => {
+    const sim = sandbox();
+    const h = harness(sim);
+    const k = kael(sim);
+    h.run(2, [spawn('impaler', k.x, k.z - 9)]);
+    tough(sim);
+    const imp = newest(sim, 'impaler');
+    const rec = h.entities.recs.get(imp.id)!;
+    expect(beginAttack(worldOf(sim), imp, attackDef('impaler_charge'), k)).toBe(true);
+    // Step the real sim until the charge lands (completeCast: move, then 'charge').
+    let fired: SimEventOf<'attackFired'> | undefined;
+    let drawnBefore = { x: 0, z: 0 };
+    for (let i = 0; i < 240 && !fired; i++) {
+      drawnBefore = { x: rec.x, z: rec.z };
+      const { events } = h.tick();
+      fired = ofType(events, 'attackFired').find((e) => e.visual === 'charge');
+    }
+    expect(fired).toBeDefined();
+    // The order the render assumes: by the event, the sim has the caster at its destination
+    // (the tick's overlap pass may nudge it), and `from` is where it stood.
+    expect(Math.hypot(imp.x - fired!.toX, imp.z - fired!.toZ)).toBeLessThan(0.5);
+    expect(Math.hypot(fired!.fromX - drawnBefore.x, fired!.fromZ - drawnBefore.z)).toBeLessThan(
+      0.5,
+    );
+    expect(Math.hypot(fired!.toX - fired!.fromX, fired!.toZ - fired!.fromZ)).toBeGreaterThan(3);
+    expect(h.feedback.firedM2.charges).toBe(1);
+    // Drawn on the event's frame near where it stood, not snapped to the end...
+    expect(Math.hypot(rec.x - fired!.fromX, rec.z - fired!.fromZ)).toBeLessThan(
+      Math.hypot(rec.x - fired!.toX, rec.z - fired!.toZ),
+    );
+    // ...and where the sim put it once the rush is drawn.
+    for (let i = 0; i < Math.round(CHARGE_SECONDS * 60) + 2; i++) h.frame([]);
+    expect(Math.hypot(rec.x - imp.x, rec.z - imp.z)).toBeLessThan(1e-6);
   });
 
   it('an iron body dies in iron (shards, embers, smoke); porcelain stays porcelain', () => {

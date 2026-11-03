@@ -230,7 +230,7 @@ Every Legion enemy has `material: 'iron'`, which drives death debris and kill so
 - **Vampiric** (`vampiric`, new, `movement: 2`).
   - `onHit: {id:'wound', duration:4}` on basic and special hits; answers `['chime']`.
   - Text is generated from values: 'Its hits Wound: healing received −50% for 4 s. Chime removes it.'
-  - Colour `#9f7aea`, checked against ailment violet, lethal and Bear.
+  - Colour `#a01a8a` (a deep crimson-magenta), ΔE ≥ 20 from ailment violet, lethal, threat, Bear, Mend/heal and Empower in every colour-vision palette (tests/colorVision.test.ts).
   - The party frame's HP bar gets a hatched 'healing halved' edge. Hint: 'Chime before you Mend.'
 - **Volatile.** Damage × scale.damage (×1 in Movement I). Its answers stay `['move','reel']`, because the bible's Scatter/Reel would change Movement I telegraphs (see Open questions).
 - **Pool filter.** `AffixDef.movement?` defaults to 1. Elite Vanguard (`director.ts:150`) draws only from affixes with `movement ≤ encounter.movement`, in content order. Movement I's pool stays [shielded, volatile, hastened].

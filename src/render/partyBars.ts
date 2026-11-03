@@ -9,7 +9,7 @@ import { executeBelowOf } from './crimsonCues';
 export const TRAIL_HOLD = 0.4;
 export const TRAIL_DRAIN = 0.9;
 /** The bars sit this far over the heroes' heads (m): under the mode glyph and a call's bubble. */
-const BAR_LIFT = 0.42;
+export const BAR_LIFT = 0.42;
 
 /** Bars over the heroes: always, only while hurt, or none (Settings → Health and the HUD). */
 export type AllyBarsMode = 'always' | 'hurt' | 'off';

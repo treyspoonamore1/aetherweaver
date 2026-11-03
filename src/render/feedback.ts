@@ -19,7 +19,7 @@ import {
   CUT_HEAL_ALPHA,
   CUT_HEAL_SIZE,
   SPIRE_HEX,
-  inSanctuary,
+  healCut,
   materialOf,
 } from './crimsonCues';
 import { MARTYR_HEX, crescendoKind } from './martyrCues';
@@ -104,6 +104,8 @@ interface Bucket {
   eclipse: number;
   absorbed: number;
   crit: boolean;
+  /** A heal number the sim cut (Movement II: Wound, Bloodmoon), decided when it is fresh. */
+  cut: boolean;
 }
 
 function bucket(): Bucket {
@@ -117,6 +119,7 @@ function bucket(): Bucket {
     eclipse: 0,
     absorbed: 0,
     crit: false,
+    cut: false,
   };
 }
 
@@ -1260,11 +1263,11 @@ export class Feedback {
     const target = state.entities.get(e.target);
     if (!r || !target || e.amount <= 0) return;
     if (e.via === 'aura') {
-      this.auraHealed(e, r, target);
+      this.auraHealed(e, r, target, state);
       return;
     }
     if (e.via === 'self') {
-      this.selfHealed(e, r, target);
+      this.selfHealed(e, r, target, state);
       return;
     }
     if (e.via === 'mend') this.d.thread.pulse();
@@ -1314,14 +1317,13 @@ export class Feedback {
     if (fresh) {
       b.amount = 0;
       b.start = this.now;
+      b.cut = this.healWasCut(e, target, state);
     }
     b.amount += e.amount;
     if (b.amount < 2) return;
-    // The Bloodmoon (Movement II): a heal landing outside every Sanctuary pool was halved; its
-    // number shows smaller and dimmer.
-    const pools = this.d.field.pools(state);
-    const cut = !!pools && !inSanctuary(pools, r.x, r.z);
-    if (cut && fresh) this.firedM2.cutHeals++;
+    // Movement II: a heal the sim cut (a Wound; the Bloodmoon outside every Sanctuary pool) shows
+    // smaller and dimmer. A revive is exempt: it stood them up whole.
+    const cut = b.cut;
     const size =
       Math.min(30, 12 + 18 * Math.sqrt(Math.min(1, b.amount / maxHp))) * (cut ? CUT_HEAL_SIZE : 1);
     if (fresh || b.handle < 0)
@@ -1345,6 +1347,7 @@ export class Feedback {
     e: SimEventOf<'healApplied'>,
     r: EntityRec,
     target: NonNullable<ReturnType<WorldState['entities']['get']>>,
+    state: WorldState,
   ): void {
     const maxHp = target.health?.maxHp ?? 1;
     const mask = (target.hero?.auraMask ?? 0) & REGEN_MASK;
@@ -1380,6 +1383,7 @@ export class Feedback {
     if (fresh) {
       b.amount = 0;
       b.start = this.now;
+      b.cut = this.healWasCut(e, target, state);
     }
     b.amount += e.amount;
     if (b.amount < 1) return;
@@ -1388,14 +1392,17 @@ export class Feedback {
       this.softHealFor = vision;
       this.softHealHex = softenHex(VISION_HEX.heal, 0.45);
     }
+    // A cut regen tick (Wound, Bloodmoon outside the pools) reads as Mend's cut numbers do.
+    const cut = b.cut;
     // Smaller than Mend's (12–30 px) but legible: a regen tick is ~1–3% of max life.
-    const size = 13 + 7 * Math.sqrt(Math.min(1, (b.amount / maxHp) * 8));
+    const size =
+      (13 + 7 * Math.sqrt(Math.min(1, (b.amount / maxHp) * 8))) * (cut ? CUT_HEAL_SIZE : 1);
     if (fresh)
       b.handle = this.d.overlay.spawnNumber(
         r.x - 0.5,
         r.height * 0.75 + r.y,
         r.z,
-        this.softHealHex,
+        cut ? dimHex(this.softHealHex, CUT_HEAL_ALPHA) : this.softHealHex,
         size,
         1.25,
         true,
@@ -1412,6 +1419,7 @@ export class Feedback {
     e: SimEventOf<'healApplied'>,
     r: EntityRec,
     target: NonNullable<ReturnType<WorldState['entities']['get']>>,
+    state: WorldState,
   ): void {
     if (!this.settings.damageNumbers) return;
     let b = this.selfHeal.get(e.target);
@@ -1424,22 +1432,40 @@ export class Feedback {
     if (fresh) {
       b.amount = 0;
       b.start = this.now;
+      b.cut = this.healWasCut(e, target, state);
     }
     b.amount += e.amount;
     if (b.amount < 1) return;
     const maxHp = target.health?.maxHp ?? 1;
-    const size = 13 + 7 * Math.sqrt(Math.min(1, (b.amount / maxHp) * 8));
+    // Blood Font under a Wound (or a Bloodmoon, if the sim cuts her): smaller and dimmer.
+    const cut = b.cut;
+    const size =
+      (13 + 7 * Math.sqrt(Math.min(1, (b.amount / maxHp) * 8))) * (cut ? CUT_HEAL_SIZE : 1);
     if (fresh)
       b.handle = this.d.overlay.spawnNumber(
         r.x - 0.5,
         r.height * 0.75 + r.y,
         r.z,
-        MARTYR_HEX.rose,
+        cut ? dimHex(MARTYR_HEX.rose, CUT_HEAL_ALPHA) : MARTYR_HEX.rose,
         size,
         1.25,
         true,
       );
     this.d.overlay.setNumber(b.handle, `+${Math.round(b.amount)}`, null, size, !fresh);
+  }
+
+  /**
+   * The sim cut this heal (Movement II: Wound, the Bloodmoon outside the pools; never a revive).
+   * Counted once per number shown (`firedM2.cutHeals`).
+   */
+  private healWasCut(
+    e: SimEventOf<'healApplied'>,
+    target: NonNullable<ReturnType<WorldState['entities']['get']>>,
+    state: WorldState,
+  ): boolean {
+    const cut = healCut(state, target, e.via, this.d.field.pools(state));
+    if (cut) this.firedM2.cutHeals++;
+    return cut;
   }
 
   private shieldApplied(e: SimEventOf<'shieldApplied'>): void {
