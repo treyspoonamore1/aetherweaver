@@ -23,6 +23,9 @@ import {
   type TechniqueKey,
   type WorldState,
 } from '../sim';
+import { healReceivedMult } from '../sim/combat/health';
+import type { Entity } from '../sim/state';
+import type { World } from '../sim/world';
 import { dissonancePoints, parMult } from '../meta/dissonance';
 import { relicHuds } from './hud/relics';
 import { callingHud, lifeMarksOf, masteryCooldown, shineOf, stasisSeconds } from './hud/calling';
@@ -44,22 +47,16 @@ import type { AuraHud, BossHud, ChordHud, HeroHud, HudSnapshot, TechniqueHud } f
 const TECHNIQUE_KEYS: readonly TechniqueKey[] = ['ward', 'chime', 'reel', 'glide'];
 const BLEED_OUT = 12;
 /**
- * Fallbacks only: the boss bar reads the sim's own phases (`bossPhaseTable`). Before a boss's
- * script is in the sim's table, these keep its bar right: its phase count, and the HP share each
- * later phase begins at (docs/phase-5a.md).
+ * Fallback only: the boss bar reads the sim's own phases (`bossPhaseTable`, which has every boss's
+ * thresholds, Movement II's included). Before a boss's script is in the sim's table, this keeps its
+ * phase count right.
  */
 const BOSS_PHASES: Record<string, number> = { the_bellwarden: 2, the_hollow_cantor: 3 };
-const PHASE_AT: Record<string, number[]> = {
-  gorehound_matriarch: [0.5],
-  vharun_crimson_warden: [0.66, 0.33],
-};
 
 /** A boss's phase count and the HP share each phase after the first begins at. */
 export function bossPhasesOf(defId: string): { phases: number; phaseAt: number[] } {
   const table = bossPhaseTable(defId);
   if (table.length > 1) return { phases: table.length, phaseAt: table.slice(1).map((p) => p.at) };
-  const at = PHASE_AT[defId];
-  if (at) return { phases: at.length + 1, phaseAt: [...at] };
   const n = BOSS_PHASES[defId] ?? 1;
   // An even split, as the bar drew before it knew the thresholds.
   return { phases: n, phaseAt: Array.from({ length: n - 1 }, (_, i) => (n - 1 - i) / n) };
@@ -91,14 +88,6 @@ function followChains(): Map<string, { pips: number; pip: number }> {
     ids.forEach((id, i) => chains!.set(id, { pips: ids.length, pip: i + 1 }));
   }
   return chains;
-}
-
-/** Inside one of Bloodmoon's Sanctuary pools (docs/phase-5a.md)? */
-function inPool(
-  pools: readonly { x: number; z: number; r: number }[],
-  e: { x: number; z: number; radius: number },
-): boolean {
-  return pools.some((p) => Math.hypot(e.x - p.x, e.z - p.z) <= p.r + e.radius);
 }
 
 /** Fermata hold: time left to heal them. */
@@ -135,7 +124,13 @@ function crescendoTotal(calling: { id: string; path: string[]; crescendo: string
  */
 export function buildHudSnapshot(
   state: WorldState,
-  opts: { seed: number; hovered: EntityId | null; autonomy?: boolean },
+  opts: {
+    seed: number;
+    hovered: EntityId | null;
+    autonomy?: boolean;
+    /** Sim time of the last `guardBlocked` event the runtime heard (Movement II). */
+    guardBlockedAt?: number | null;
+  },
 ): HudSnapshot {
   const weaverEntity = state.entities.get(state.weaverId);
   const w = weaverEntity?.weaver;
@@ -546,7 +541,18 @@ export function buildHudSnapshot(
     dummyCount,
     ...(foes.length > 0 ? { foes } : {}),
     ...(state.field.hymnCircles.length > 0 ? { hymnCircles: state.field.hymnCircles.length } : {}),
+    ...(guardBlockedRecently(state.time, opts.guardBlockedAt)
+      ? { guardBlocked: true as const }
+      : {}),
   };
+}
+
+/** How long after a guard blocks a blow the Sentinel hint stays, in sim seconds. */
+export const GUARD_HINT_SECONDS = 4;
+
+/** Did a guard block a hero's blow (`guardBlocked`) within the last few seconds? */
+export function guardBlockedRecently(now: number, at: number | null | undefined): boolean {
+  return at !== null && at !== undefined && now - at >= 0 && now - at <= GUARD_HINT_SECONDS;
 }
 
 /**
@@ -559,19 +565,15 @@ function movementTwoMarks(
   e: ReadonlyEntity,
   h: NonNullable<ReadonlyEntity['health']>,
 ): Pick<HeroHud, 'healCut' | 'execute'> {
-  let cut = 1;
-  if (h.statuses.some((s) => s.id === 'wound')) cut *= WOUND_CUT;
-  const sanctuary = state.field.sanctuary;
-  if (sanctuary && !inPool(sanctuary.pools, e)) cut *= sanctuary.healMult;
+  // The sim's own rule (`healReceivedMult`): a Wound, and Bloodmoon on a hero whose centre is
+  // outside every pool. It only reads, so the read-only state stands in for the world.
+  const cut = healReceivedMult(state as World, e as Entity);
   const execution = state.telegraphs.find((t) => t.executeBelow !== undefined && t.target === e.id);
   return {
     ...(cut < 1 && !h.dead ? { healCut: cut } : {}),
     ...(execution ? { execute: execution.executeBelow! } : {}),
   };
 }
-
-/** A Wound halves the healing a hero receives (the sim's ×0.5, docs/phase-5a.md). */
-const WOUND_CUT = 0.5;
 
 /** Temporal Mastery on the Weaver bar: ready or recovering, and what a Glide would bring back. */
 function masteryHud(

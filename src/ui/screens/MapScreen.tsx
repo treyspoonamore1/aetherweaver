@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
-import { getAudio } from '../../audio';
 import { useRun } from '../../app/runStore';
 import { CONTENT, encounterDef, motifDef, movementDef, runEventDef } from '../../content';
 import { findNode, motifLine, reachable } from '../../meta/run';
+import { voiceMapBiome } from './mapBiome';
 import { parMult } from '../../meta/dissonance';
 import type { MapNode, NodeKind, RunState } from '../../meta/types';
 import { ScreenFrame, ScreenHeader } from '../kit/Backdrop';
@@ -102,6 +102,10 @@ export function MapView({
   peekCalling = false,
   card,
 }: MapViewProps) {
+  // The Movement's music (docs/phase-5a.md), before the mood: on every visit to the map, its
+  // Movement's biome (a fight may have voiced another; a Prelude after an Expedition is the
+  // Reliquary's).
+  useEffect(() => voiceMapBiome(run), [run]);
   useMood('map');
   const [confirm, setConfirm] = useState(false);
   const options = reachable(run);
@@ -119,14 +123,6 @@ export function MapView({
   useEffect(() => {
     if (showCard && card === undefined) markCardShown(run.seed, movement);
   }, [showCard, card, run.seed, movement]);
-  useEffect(() => {
-    // The Movement's music (docs/phase-5a.md); audio is garnish.
-    try {
-      getAudio().setBiome?.(def.biome);
-    } catch {
-      // Silent.
-    }
-  }, [def.biome]);
 
   // Edges: walked (gold), live options (bright dashed), the rest (dim).
   const edges: { key: string; d: string; kind: 'walked' | 'option' | 'dim' }[] = [];

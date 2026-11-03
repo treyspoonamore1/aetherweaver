@@ -20,6 +20,7 @@ import {
   HIGHLIGHT_COLOR,
   HIGHLIGHT_ICON,
   contributionOf,
+  deathAnswerLine,
   readyName,
   statLines,
 } from './resultText';
@@ -151,7 +152,12 @@ export function ResultView({
           {(profileXp !== undefined || aether || loom) && (
             <div className="flex w-full flex-col gap-2 sm:ml-auto sm:w-80">
               {profileXp !== undefined && (
-                <XpGainPanel result={r} profileXp={profileXp} dissonance={run.dissonance} />
+                <XpGainPanel
+                  result={r}
+                  profileXp={profileXp}
+                  dissonance={run.dissonance}
+                  movement={node?.movement ?? 1}
+                />
               )}
               {loom && (
                 // Phase 4g: beside the XP, the Starlight the fight paid and its Calling's mastery.
@@ -365,6 +371,15 @@ export function ResultView({
                         </li>
                       ))}
                     </ul>
+                    {deathAnswerLine(d.answers) && (
+                      // Phase 5a: a bleed, pin or latch that killed names its answer.
+                      <p
+                        className="mt-3 text-sm font-semibold text-gold-300"
+                        data-testid="death-answer"
+                      >
+                        {deathAnswerLine(d.answers)}
+                      </p>
+                    )}
                     <p className="mt-3 text-sm leading-relaxed">
                       {d.readyTechniques.length > 0 ? (
                         <>

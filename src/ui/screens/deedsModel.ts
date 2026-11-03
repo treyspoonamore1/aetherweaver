@@ -13,6 +13,7 @@ import type { RunPhase } from '../../meta/types';
 import { callingLook } from '../kit/callingLook';
 import { plural } from '../kit/format';
 import type { IconName } from '../kit/iconPaths';
+import { deedsInSight } from './routeText';
 
 /** Every Deed, in content order: the ladder (easiest first), then the badges. */
 export const DEEDS: readonly DeedDef[] = CONTENT.deeds;
@@ -185,21 +186,38 @@ export function deedsHeader(earned: number, total: number, points: number): stri
   return `${earned} of ${total} earned · ${points} of ${DEED_POINTS_MAX} Astrolabe points from Deeds`;
 }
 
-/** Every Deed for the Codex, in content order: the ladder and the badges, each lit or not. */
-export function deedsView(held: DeedsHeld, open: DeedsOpen): DeedsView {
-  const ladderDeeds = DEEDS.filter((d) => d.points > 0);
+/**
+ * The Deeds tally the Loom's badge and the Codex's page both show: of the Deeds in sight (a later
+ * Movement's join once its enemies are met, `profile.seen`), how many are earned. `seen` omitted:
+ * every Deed (the labs).
+ */
+export function deedsTally(
+  earned: readonly string[],
+  seen?: readonly string[],
+): { earned: number; total: number } {
+  const inSight = deedsInSight(seen);
+  return { earned: inSight.filter((d) => earned.includes(d.id)).length, total: inSight.length };
+}
+
+/**
+ * Every Deed in sight for the Codex, in content order: the ladder and the badges, each lit or not.
+ * A later Movement's Deeds stay hidden until its enemies are met (`seen`; omitted: all of them).
+ */
+export function deedsView(held: DeedsHeld, open: DeedsOpen, seen?: readonly string[]): DeedsView {
+  const inSight = deedsInSight(seen);
+  const ladderDeeds = inSight.filter((d) => d.points > 0);
   const ladder = ladderDeeds.map((d, i) => deedRow(d, held, open, i + 1));
-  const badges = DEEDS.filter((d) => d.points <= 0).map((d) => deedRow(d, held, open, null));
-  const earned = DEEDS.filter((d) => held.earned.includes(d.id)).length;
+  const badges = inSight.filter((d) => d.points <= 0).map((d) => deedRow(d, held, open, null));
+  const { earned, total } = deedsTally(held.earned, seen);
   const points = deedPoints(held.earned);
   return {
     ladder,
     badges,
     earned,
-    total: DEEDS.length,
+    total,
     points,
     pointsMax: DEED_POINTS_MAX,
-    header: deedsHeader(earned, DEEDS.length, points),
+    header: deedsHeader(earned, total, points),
     waiting:
       points > 0 && !open.astrolabe
         ? `Your ${points} ${plural(points, 'point waits', 'points wait')} for the Astrolabe: it opens at Rank ${ASTROLABE_RANK}.`

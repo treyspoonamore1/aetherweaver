@@ -221,8 +221,17 @@ function PointPips({ points, max }: { points: number; max: number }) {
  * The Codex's Deeds (Phase 4b): what they are, the tally, then all of them in content order (the
  * ladder, a point each, easiest first; then the badges), each lit once earned.
  */
-export function DeedsPage({ held, open }: { held: DeedsHeld; open: DeedsOpen }) {
-  const v = deedsView(held, open);
+export function DeedsPage({
+  held,
+  open,
+  seen,
+}: {
+  held: DeedsHeld;
+  open: DeedsOpen;
+  /** The profile's sightings: a later Movement's Deeds wait until its enemies are met. */
+  seen?: readonly string[];
+}) {
+  const v = deedsView(held, open, seen);
   const earnedShare = v.total > 0 ? v.earned / v.total : 0;
   return (
     <div className="flex flex-col gap-6" data-testid="codex-deeds">

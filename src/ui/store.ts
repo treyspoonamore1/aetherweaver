@@ -452,6 +452,11 @@ export interface HudSnapshot {
   foes?: string[];
   /** The Hollow Cantor's hymn circles standing now (absent: none). */
   hymnCircles?: number;
+  /**
+   * Movement II: a guard (the Crimson Sentinel's shield) blocked a hero's blow within the last
+   * few seconds (the sim's `guardBlocked`; the Sentinel hint). Absent otherwise.
+   */
+  guardBlocked?: true;
 }
 
 export interface PerfStats {

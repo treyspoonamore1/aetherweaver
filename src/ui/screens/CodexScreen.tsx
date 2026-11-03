@@ -233,6 +233,7 @@ export function CodexView({
           {tab === 'deeds' && (
             <DeedsPage
               held={deeds}
+              seen={seen}
               open={{ allowance, astrolabe: astrolabeOpen(rank, allowance.all) }}
             />
           )}

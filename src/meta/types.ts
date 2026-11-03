@@ -268,6 +268,11 @@ export interface DeathRecap {
   killer: string;
   recap: { time: number; amount: number; source: string }[];
   readyTechniques: string[];
+  /**
+   * Phase 5a: when a damage-over-time status landed the killing tick, what answers it (the
+   * sim's `DeathRecord.answers`). Absent otherwise, and on every Movement I death.
+   */
+  answers?: string[];
 }
 
 export interface EncounterStats {

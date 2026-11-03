@@ -40,6 +40,7 @@ import { bondsOpen, prepBondViews, soloView, talentView } from './bondsModel';
 import { PrepTechniquesPanel } from './TechniquesParts';
 import type { TechniqueKey } from '../types';
 import { CodexView, useCodexBonds, useCodexDissonance, useCodexTechniques } from './CodexScreen';
+import { prepRoute } from './prepRoute';
 import { prepEyebrow, routeHint, routeOf, routeOptions, type Route } from './routeText';
 
 export interface PrepViewProps {
@@ -549,7 +550,6 @@ export function PrepScreen() {
   const setChords = useRun((s) => s.setChords);
   const setCalling = useRun((s) => s.setCalling);
   const embark = useRun((s) => s.embark);
-  const newRun = useRun((s) => s.newRun);
   const setScreen = useUi((s) => s.setScreen);
   const xp = useProfile((s) => s.profile.xp);
   const deeds = useProfile((s) => s.profile.deeds);
@@ -628,25 +628,8 @@ export function PrepScreen() {
         tiersOpen: (id) => useProfile.getState().tiersOpen(id),
         all: unlockAll,
       }}
-      route={
-        allowance.expedition ? { onChange: (mode) => chooseRoute(mode, run.seed, newRun) } : null
-      }
+      // Phase 5a: the Route, once Expeditions are open; switching keeps the Calling and Chords.
+      route={prepRoute()}
     />
   );
-}
-
-/**
- * Prep's Route toggle (docs/phase-5a.md): the profile remembers the choice for the next runs, and
- * the run starts again in Prep on its seed with the route (Movement I's map is the same).
- */
-function chooseRoute(
-  mode: Route,
-  seed: number,
-  newRun: (seed?: number, mode?: Route) => void,
-): void {
-  const profile = useProfile.getState() as ReturnType<typeof useProfile.getState> & {
-    setRunMode?: (mode: Route) => void;
-  };
-  profile.setRunMode?.(mode);
-  newRun(seed, mode);
 }

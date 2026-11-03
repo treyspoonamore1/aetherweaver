@@ -244,13 +244,17 @@ export function XpGainPanel({
   result,
   profileXp,
   dissonance = [],
+  movement = 1,
 }: {
-  result: Pick<EncounterResult, 'kind' | 'outcome' | 'grade' | 'name' | 'xp'>;
+  result: Pick<EncounterResult, 'kind' | 'outcome' | 'grade' | 'name' | 'xp'> &
+    Partial<Pick<EncounterResult, 'wonRun'>>;
   profileXp: number;
   /** Phase 4d: the run's Dissonance (its XP has a line). */
   dissonance?: readonly DissonanceChoice[];
+  /** Phase 5a: the fight's Movement (a later one's XP has a line). */
+  movement?: number;
 }) {
-  const xp = fightXp(result, dissonance);
+  const xp = fightXp(result, dissonance, movement);
   const gain = xpGain(profileXp, xp.total);
   const p = rankPanel({ xp: profileXp, runs: 0, wins: 0 });
   return (
