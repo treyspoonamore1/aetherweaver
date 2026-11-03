@@ -27,7 +27,8 @@ import type { TechniqueKey } from '../types';
 import { astrolabeOpen, spendLine } from './astrolabeModel';
 import { bondRanks, bondsOpen } from './bondsModel';
 import { slotKey } from './variantsModel';
-import { deedsInSight, gateStep } from './routeText';
+import { deedsTally } from './deedsModel';
+import { gateStep } from './routeText';
 
 export type { StationId };
 
@@ -302,11 +303,12 @@ function badgeOf(
       return materialsShort(p.reliquary);
     case 'bonds':
       return bondRanksLine(p.bonds);
-    case 'deeds':
-      // Out of the Deeds in sight: a later Movement's join once its enemies are met.
-      return p.deeds.length > 0
-        ? `${p.deeds.length} of ${deedsInSight(p.seen).length} earned`
-        : null;
+    case 'deeds': {
+      // Out of the Deeds in sight (a later Movement's join once its enemies are met), counted as
+      // the Codex's Deeds page counts them (`deedsTally`).
+      const { earned, total } = deedsTally(p.deeds, p.seen);
+      return earned > 0 ? `${earned} of ${total} earned` : null;
+    }
     case 'dissonance': {
       const best = Math.max(0, ...Object.values(p.dissonance.best));
       return best > 0 ? `Best won: ${best}` : null;

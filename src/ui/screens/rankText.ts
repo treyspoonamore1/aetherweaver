@@ -16,12 +16,14 @@ import {
   type XpLine,
 } from '../../meta/profile';
 import { deedPoints } from '../../meta/deeds';
-import { endsRun as runEnds } from '../../meta/run';
+import { movementRewards } from '../../meta/run';
+import { endsRun as runEnds } from '../../meta/runEnd';
 import type { EncounterResult, RunState } from '../../meta/types';
 import { fmt, plural } from '../kit/format';
 import type { IconName } from '../kit/iconPaths';
 import { CALLING_LOOK } from '../kit/callingLook';
 import { rankAstrolabeLine } from './astrolabeModel';
+import { movementLabel } from './routeText';
 
 export { rankAstrolabeLine };
 
@@ -107,8 +109,7 @@ export type RunEnding = Pick<EncounterResult, 'kind' | 'outcome'> &
  * won boss stood for it.
  */
 export function endsRun(r: RunEnding): boolean {
-  // The meta reads only these three fields.
-  return runEnds(r as EncounterResult);
+  return runEnds(r);
 }
 
 /**
@@ -121,11 +122,16 @@ export function fightXp(
   r: Pick<EncounterResult, 'kind' | 'outcome' | 'grade' | 'name' | 'xp'> &
     Partial<Pick<EncounterResult, 'wonRun'>>,
   dissonance: readonly DissonanceChoice[] = [],
+  movement = 1,
 ): {
   total: number;
   lines: XpLine[];
 } {
-  const { lines } = xpForFight(r, endsRun(r));
+  const { lines, total } = xpForFight(r, endsRun(r));
+  // Phase 5a: a later Movement's fights pay more (Movement II ×1.25), on its own line.
+  const mult = movementRewards(movement).xp;
+  const raised = Math.round(total * mult) - total;
+  if (raised > 0) lines.push({ label: `${movementLabel(movement)} · ×${mult}`, xp: raised });
   const extra = r.xp - lines.reduce((n, l) => n + l.xp, 0);
   if (extra > 0) {
     const points = dissonancePoints(dissonance);

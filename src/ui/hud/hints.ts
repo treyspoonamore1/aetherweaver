@@ -439,11 +439,6 @@ function stacksOf(h: HeroHud, id: string): number {
   return s ? (s.stacks ?? 1) : 0;
 }
 
-/** Enemy defs with a guard arc (the Crimson Sentinel), from content. */
-const GUARDED: ReadonlySet<string> = new Set(
-  CONTENT.enemies.filter((e) => e.guard).map((e) => e.id),
-);
-
 /**
  * The Crimson Legion's threats, each with the verb it teaches: Chime a stack, Reel to free,
  * Scatter a pact, Focus to flank, heal where Bloodmoon holds, lift the condemned.
@@ -493,7 +488,9 @@ function movementTwoHints(hud: HudSnapshot, keys: { Q: string; E: string; F: str
       id: 'wound',
       text: `${h.name} is Wounded: healing on them is halved — Chime ${E} before you Mend`,
     });
-  if (hud.foes?.some((id) => GUARDED.has(id)) && hud.focusTarget === null)
+  // Keyed on the Sentinel blocking a blow (the sim's `guardBlocked`, via the HUD bridge), while
+  // nothing is focused.
+  if (hud.guardBlocked && hud.focusTarget === null)
     out.push({
       id: 'guard',
       text: `A Crimson Sentinel’s shield blocks most of a blow from the front — Focus it {${bindingLabel('directiveFocus')}} so the party flanks`,

@@ -5,6 +5,7 @@ import { callingResultLine, rewindsFor, techniqueName } from './callingText';
 import { callingLook } from '../kit/callingLook';
 import { auraVerbs, splitContribution, type ContributionParts } from '../contribution';
 import { fmt, pct, plural } from '../kit/format';
+import { ANSWER } from '../hud/labels';
 import type { IconName } from '../kit/iconPaths';
 
 export const HIGHLIGHT_ICON: Record<EncounterResult['highlights'][number]['kind'], IconName> = {
@@ -35,6 +36,18 @@ export function readyName(t: string, callingId: string | null | undefined): stri
   if (t === 'ward' || t === 'chime' || t === 'reel' || t === 'glide')
     return techniqueName(t, callingId);
   return (CONTENT.techniques as Record<string, { name?: string }>)[t]?.name ?? t;
+}
+
+/**
+ * Phase 5a: a death to a damage-over-time status names what answered it (the recap's `answers`):
+ * "Answer: Chime", "Answers: Reel or Chime". Null when the recap has none (every Movement I death).
+ */
+export function deathAnswerLine(answers: readonly string[] | undefined): string | null {
+  const names = [...new Set(answers ?? [])].map(
+    (a) => (ANSWER as Record<string, { label: string } | undefined>)[a]?.label ?? a,
+  );
+  if (names.length === 0) return null;
+  return `${names.length === 1 ? 'Answer' : 'Answers'}: ${names.join(' or ')}`;
 }
 
 /** A fight's (or a run's) stats as the auras / Thread / everything split. */

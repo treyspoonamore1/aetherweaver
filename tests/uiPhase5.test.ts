@@ -319,9 +319,8 @@ describe('enshrine after a Movement II defeat', () => {
     expect(fallen.outcome).toBe('defeat');
     expect(Run.enshrineEligible(fallen)).toBe(true);
     // Its relics found are the meta's to offer (`enshrineOptions`, which follows the same rule).
-    const stage = enshrineStage(fallen, EMPTY_RELIQUARY);
-    expect(stage).not.toBe('lost');
-    expect(stage).toBe(Run.enshrineOptions(fallen).length > 0 ? 'choose' : 'none');
+    expect(Run.enshrineOptions(fallen).length).toBeGreaterThan(0);
+    expect(enshrineStage(fallen, EMPTY_RELIQUARY)).toBe('choose');
     expect(enshrineStage(reliquarySummaryRun('defeat'), EMPTY_RELIQUARY)).toBe('lost');
     expect(enshrineHow(fallen)).toBe('Reach Movement II to enshrine one of the relics it found');
     expect(enshrineHow({ movements: 1 })).toBe('Win a run to enshrine one of the relics it found');

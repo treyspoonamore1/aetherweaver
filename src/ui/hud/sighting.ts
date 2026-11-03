@@ -6,9 +6,7 @@
  */
 import { useEffect } from 'react';
 import { useProfile } from '../../app/profileStore';
-import { storage } from '../../app/storage';
 import { CONTENT, enemyDef } from '../../content';
-import { saveProfile } from '../../meta/save';
 import type { AnswerTag } from '../types';
 import { useUi, type Callout } from '../store';
 
@@ -121,25 +119,10 @@ export function sightingDef(c: Pick<Callout, 'kind' | 'key'>): string | null {
   return isEnemy(id) ? id : null;
 }
 
-/**
- * Records sightings on the profile: the profile store's own `see` when it has one, else the same
- * thing here (the profile, saved).
- */
+/** Records sightings on the profile (the profile store's `see`: each once, saved). */
 export function recordSeen(ids: readonly string[]): void {
   if (ids.length === 0) return;
-  const store = useProfile.getState() as ReturnType<typeof useProfile.getState> & {
-    see?: (defIds: readonly string[]) => void;
-  };
-  if (typeof store.see === 'function') {
-    store.see(ids);
-    return;
-  }
-  const profile = store.profile;
-  const fresh = ids.filter((id, i) => ids.indexOf(id) === i && !profile.seen.includes(id));
-  if (fresh.length === 0) return;
-  const next = { ...profile, seen: [...profile.seen, ...fresh] };
-  saveProfile(storage(), next);
-  useProfile.setState({ profile: next });
+  useProfile.getState().see(ids);
 }
 
 /**

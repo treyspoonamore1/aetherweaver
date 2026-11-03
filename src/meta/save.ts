@@ -243,6 +243,8 @@ const ResultSchema = z.object({
       killer: Str,
       recap: z.array(z.object({ time: Num, amount: Num, source: Str })),
       readyTechniques: z.array(Str),
+      // Phase 5a: a damage-over-time death's answers (absent otherwise).
+      answers: z.array(Str).optional(),
     }),
   ),
   timeline: z.array(z.object({ time: Num, hp: z.array(Num) })),

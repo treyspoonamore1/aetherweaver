@@ -128,6 +128,8 @@ export class GameRuntime {
   private lastFrame = -1;
   private startedAt = -1;
   private hudTimer = 0;
+  /** Sim time of the last `guardBlocked` event (Movement II: the Sentinel hint). */
+  private guardBlockedAt: number | null = null;
   private perfTimer = 0;
   private paused = false;
   private hidden = false;
@@ -321,6 +323,7 @@ export class GameRuntime {
           seed: this.seed,
           hovered: this.input.hoveredHero,
           autonomy: this.sim.config.assists.autonomy,
+          guardBlockedAt: this.guardBlockedAt,
         }),
       );
       ui.pruneCallouts(now);
@@ -393,6 +396,8 @@ export class GameRuntime {
   private dispatch(events: SimEvent[]): void {
     if (events.length === 0) return;
     const state = this.sim.state;
+    // Movement II: the Sentinel hint follows its shield blocking a blow (the HUD bridge).
+    if (events.some((e) => e.type === 'guardBlocked')) this.guardBlockedAt = state.time;
     this.view.onEvents(events, state);
     getAudio().onEvents(events, state);
     this.callouts(events, state);

@@ -4,7 +4,12 @@
  * an Expedition's derive from its Movements (content `movements`) and the map.
  */
 import { CONTENT, encounterDef, movementDef } from '../../content';
-import { findNode } from '../../meta/run';
+import {
+  findNode,
+  isFinalNode,
+  mapMovement as metaMapMovement,
+  rowsOfMovement,
+} from '../../meta/run';
 import type { MapNode, RunState } from '../../meta/types';
 import type { IconName } from '../kit/iconPaths';
 
@@ -44,20 +49,16 @@ type MapRun = Pick<RunState, 'map' | 'path'>;
 
 /**
  * The Movement the map is in: the next reachable stop's, not the last one's (after the Cantor,
- * an Expedition is already climbing Movement II). Before the first step, the first row's.
+ * an Expedition is already climbing Movement II). The meta's rule (`mapMovement`); it reads only
+ * the map and the path.
  */
 export function mapMovement(run: MapRun): number {
-  const lastId = run.path[run.path.length - 1];
-  const here = lastId !== undefined ? findNode(run as RunState, lastId) : undefined;
-  const ahead = here
-    ? here.next.map((id) => findNode(run as RunState, id)).find((n) => n !== undefined)
-    : run.map.rows[0]?.[0];
-  return ahead?.movement ?? here?.movement ?? 1;
+  return metaMapMovement(run as RunState);
 }
 
-/** Movement `n`'s rows, in map order (each row's nodes share a Movement). */
+/** Movement `n`'s rows, in map order (the meta's `rowsOfMovement`). */
 export function movementRows(run: Pick<RunState, 'map'>, n: number): MapNode[][] {
-  return run.map.rows.filter((row) => (row[0]?.movement ?? 1) === n);
+  return rowsOfMovement(run.map, n);
 }
 
 /** The stop the run is on in Movement `n` ("step k of N"): its stops walked, plus the next. */
@@ -147,8 +148,7 @@ export function abandonLine(run: Partial<Pick<RunState, 'movements'>>, straight 
 /** The run's final stop: a boss with nothing after it (the Prelude's Cantor, an Expedition's last boss). */
 export function finalEncounter(run: Pick<RunState, 'map'>): string | null {
   for (const row of run.map.rows)
-    for (const node of row)
-      if (node.kind === 'boss' && node.next.length === 0) return node.encounterId;
+    for (const node of row) if (isFinalNode(node)) return node.encounterId;
   return null;
 }
 

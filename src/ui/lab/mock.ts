@@ -3212,6 +3212,8 @@ export function legionHud(scenario: LegionScenario): HudSnapshot {
         ],
         encounter: encounter('red_muster'),
         foes: ['crimson_sentinel', 'sanguine_hound', 'impaler'],
+        // The Sentinel's shield just blocked a blow (the sim's `guardBlocked`).
+        guardBlocked: true,
       };
     case 'matriarch':
       return {
