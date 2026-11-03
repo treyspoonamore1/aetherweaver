@@ -270,7 +270,10 @@ export class SkilledBot implements Bot {
     let threadTo: HeroView | null = null;
     let mend = true;
     const beam = beamSong(state);
-    const condemned = executionTarget(state, party);
+    // A revive under way keeps the thread unless the condemned hero is right at the line: the
+    // revive decays off the thread, so a flip-flop around line + 0.1 would waste the wind-up.
+    const reviving = downed.some((h) => h.slot === wc.threadSlot && h.e.health!.revive > 0);
+    const condemned = executionTarget(state, party, reviving ? 0.03 : 0.1);
     // A guard or a discord shield up in Movement II: Lyra's Empowered shots break them.
     const breakers =
       laterMovement(state) &&
@@ -557,14 +560,19 @@ function reelToFree(party: readonly HeroView[], w: ReadonlyEntity, range: number
 }
 
 /**
- * The hero an Execution has condemned while they're below (or just above) its line: Mend them up.
+ * The hero an Execution has condemned while they're below its line or within `margin` above it:
+ * Mend them up. Above that the thread is free for everyone else, a downed hero's revive first.
  * Null with no Execution cast, as always in Movement I.
  */
-function executionTarget(state: WorldState, party: readonly HeroView[]): HeroView | null {
+function executionTarget(
+  state: WorldState,
+  party: readonly HeroView[],
+  margin = 0.1,
+): HeroView | null {
   for (const t of state.telegraphs) {
     if (t.executeBelow === undefined || t.target === null) continue;
     const h = party.find((p) => p.e.id === t.target);
-    if (h && h.e.health!.hp < h.e.health!.maxHp * (t.executeBelow + 0.1)) return h;
+    if (h && h.e.health!.hp < h.e.health!.maxHp * (t.executeBelow + margin)) return h;
   }
   return null;
 }

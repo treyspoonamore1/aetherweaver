@@ -78,6 +78,9 @@ export function movementEncounters(movement: number): string[] {
   return all.filter((id, i) => all.indexOf(id) === i);
 }
 
+/** The resolutions of a Blood Pact that mean it went off on a hero (`VerbTally.pactBlasts`). */
+const BLAST_OUTCOMES: ReadonlySet<string> = new Set(['hit', 'warded', 'absorbed', 'perfect']);
+
 /** Tallies Movement II's verbs from a fight's events and state, tick by tick. */
 export class VerbTally {
   pinsFreed = 0;
@@ -117,10 +120,20 @@ export class VerbTally {
           break;
         }
         case 'telegraphResolved':
-          if (e.outcome !== 'hit' || e.target === null) break;
-          if (this.pacts.has(e.telegraph)) this.blasted.add(e.telegraph);
-          if (this.executes.has(e.telegraph) && state.entities.get(e.target)?.health?.downed)
-            this.executions++;
+          if (e.target === null) break;
+          // A Pact blasted when it landed on a hero of a pair still close, however that hero
+          // met it: hit, Warded, absorbed or Perfect. (Its 'detonated' statusRemoved comes
+          // whether or not the pair had split, so it can't tell a blast on its own.) 'dodged'
+          // is a Reel or i-frames: no blast; 'cancelled' never applies to a link.
+          if (this.pacts.has(e.telegraph) && BLAST_OUTCOMES.has(e.outcome))
+            this.blasted.add(e.telegraph);
+          if (this.executes.has(e.telegraph)) {
+            // The sim's verdict when it gives one; else read it from the target's state.
+            if (e.execution !== undefined) {
+              if (e.execution === 'executed') this.executions++;
+            } else if (e.outcome === 'hit' && state.entities.get(e.target)?.health?.downed)
+              this.executions++;
+          }
           break;
         case 'damageTaken': {
           if (e.source === null || !state.party.includes(e.source)) break;
@@ -245,15 +258,6 @@ export interface RunSummary {
 
 /** The most phases a run may take; a run that needs more is stuck, and `playRun` throws. */
 const MAX_PHASES = 240;
-
-/**
- * `Run.newRun` with its route: the trailing `movements` argument (docs/phase-5a.md, CONTRACTS §6:
- * "newRun gains movements = 1"). Typed here so the harness builds before and after the run layer
- * takes it; a newRun without it plays the Prelude.
- */
-const newRunWithRoute = Run.newRun as (
-  ...args: [...Parameters<typeof Run.newRun>, movements?: number]
-) => RunState;
 
 /** The Movement a map node belongs to (1 for nodes from before Movements). */
 function movementOfNode(run: RunState, id: string): number {
@@ -392,7 +396,7 @@ export function playRun(
 ): RunSummary {
   const relics = opts.relics ?? true;
   const movements = opts.movements ?? 1;
-  const route: Parameters<typeof newRunWithRoute> = [
+  const fresh = Run.newRun(
     seed,
     undefined,
     opts.astrolabe ?? [],
@@ -400,12 +404,9 @@ export function playRun(
     opts.dissonance ?? [],
     opts.bonds ?? [],
     { ...noVariants(), ...opts.techniques },
-  ];
-  // A Prelude calls newRun exactly as before; only an Expedition passes its route.
-  if (movements !== 1) route.push(movements);
-  let run = Run.embark(
-    Run.setCalling(Run.setChords(newRunWithRoute(...route), chords), opts.calling ?? null),
+    movements,
   );
+  let run = Run.embark(Run.setCalling(Run.setChords(fresh, chords), opts.calling ?? null));
   if (opts.tiersOpen !== undefined && run.calling) run = Run.setCallingTiers(run, opts.tiersOpen);
   let seconds = 0;
   const byMovement: number[] = [0];
