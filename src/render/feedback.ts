@@ -14,6 +14,14 @@ import { SHELL } from './fx/shells';
 import { SPRITE } from './fx/sprites';
 import type { Overlay } from './overlay';
 import { CHRONO_HEX } from './chronoCues';
+import {
+  CRIMSON_HEX,
+  CUT_HEAL_ALPHA,
+  CUT_HEAL_SIZE,
+  SPIRE_HEX,
+  inSanctuary,
+  materialOf,
+} from './crimsonCues';
 import { MARTYR_HEX, crescendoKind } from './martyrCues';
 import { C, VISION_HEX, auraColor, clamp01, color, currentVision, rgba } from './palette';
 import {
@@ -129,6 +137,17 @@ const VOW_LIGHT = color(MARTYR_HEX.blood);
 /** The Chronomancer's Stasis: the light cools toward this while time is held (no gold). */
 const STASIS_LIGHT = color(CHRONO_HEX.frost);
 const CHRONO_SILVER = color(CHRONO_HEX.silver);
+/**
+ * Movement II (docs/phase-5a/vfx-audio.md): iron deaths (dark shards, ember sparks, smoke; never
+ * red mist), the Bloodmoon's crimson sky, a guard's brass and its 'Blocked' grey.
+ */
+const IRON = color(SPIRE_HEX.iron);
+const IRON_SMOKE = color(SPIRE_HEX.smoke);
+const EMBER = color(CRIMSON_HEX.ember);
+const BLOODMOON_SKY = color(SPIRE_HEX.bloodmoon);
+const GUARD = color(CRIMSON_HEX.guard);
+/** A guard's 'Blocked' floater shows at most this often per enemy (s, render clock). */
+const BLOCKED_EVERY = 0.6;
 
 export interface FeedbackDeps {
   kit: FxKit;
@@ -190,6 +209,19 @@ export class Feedback {
   private readonly baseHemiColor = new THREE.Color();
   private readonly tmp = new THREE.Color();
   private readonly centre = { x: 0, z: 0 };
+  /** The Bloodmoon (Movement II), smoothed 0..1: the sky and fill light lerp toward crimson. */
+  bloodmoon = 0;
+  /** When each guarded enemy last threw back a 'Blocked' (render clock). */
+  private readonly blockedAt = new Map<EntityId, number>();
+  /** Movement II, what has been played so far (tests, the lab). */
+  readonly firedM2 = {
+    leaps: 0,
+    charges: 0,
+    blocked: 0,
+    guardBroken: 0,
+    ironDeaths: 0,
+    cutHeals: 0,
+  };
 
   constructor(private readonly d: FeedbackDeps) {
     for (let i = 0; i < POOL; i++) {
@@ -767,6 +799,12 @@ export class Feedback {
         case 'enemyKilled':
           this.killed(ev, state);
           break;
+        case 'guardBlocked':
+          this.blocked(ev);
+          break;
+        case 'guardBroken':
+          this.guardBroken(ev);
+          break;
         case 'phaseChanged':
           this.phase(ev);
           break;
@@ -829,6 +867,10 @@ export class Feedback {
     const dz = e.toZ - e.fromZ;
     const dist = Math.hypot(dx, dz) || 1;
     switch (e.visual) {
+      case 'charge':
+      case 'leap':
+        this.travel(e, sr, c);
+        break;
       case 'melee':
       case 'cleave': {
         const ang = Math.atan2(dz, dx);
@@ -920,6 +962,140 @@ export class Feedback {
       default:
         break;
     }
+  }
+
+  /**
+   * A charge or a leap (Movement II): the sim snapped the caster to where it lands; the entity
+   * layer draws it rushing or arcing there. A charge leaves a streak in its accent along the
+   * line, a leap a ring and a puff of dust where it comes down.
+   */
+  private travel(e: SimEventOf<'attackFired'>, sr: EntityRec | undefined, c: THREE.Color): void {
+    const fromX = sr ? sr.x : e.fromX;
+    const fromZ = sr ? sr.z : e.fromZ;
+    this.d.entities.travel(e.source, e.visual === 'leap' ? 'leap' : 'charge', e.fromX, e.fromZ);
+    if (e.visual === 'charge') {
+      this.firedM2.charges++;
+      this.beam(fromX, 0.6, fromZ, e.toX, 0.6, e.toZ, 0.5, 0.45, c, BEAM.lance, 0.8);
+      this.beam(fromX, 0.6, fromZ, e.toX, 0.6, e.toZ, 1.6, 0.55, c, BEAM.glow, 0.3);
+      const n = Math.min(16, Math.round(Math.hypot(e.toX - fromX, e.toZ - fromZ)));
+      for (let i = 0; i < n; i++) {
+        const k = i / Math.max(1, n - 1);
+        this.d.kit.smoke.emit(
+          fromX + (e.toX - fromX) * k,
+          0.15,
+          fromZ + (e.toZ - fromZ) * k,
+          (Math.random() - 0.5) * 0.6,
+          0.3,
+          (Math.random() - 0.5) * 0.6,
+          0.8,
+          0.4,
+          DUST,
+          0.35,
+          PARTICLE.smoke,
+          1.2,
+          0,
+          0.6,
+        );
+      }
+      this.d.rig.addTrauma(0.08);
+    } else {
+      this.firedM2.leaps++;
+      // Where it comes down: a ring spreading there and a puff of dust as it lands.
+      this.ring(e.toX, e.toZ, 0.6, 3.2, 0.8, c, 0.14, RING.plain, 0.9);
+      this.d.kit.particles.burst(
+        e.toX,
+        0.2,
+        e.toZ,
+        10,
+        3,
+        1.5,
+        0.5,
+        0.14,
+        DUST,
+        0.7,
+        PARTICLE.dot,
+        3,
+        4,
+        1,
+      );
+    }
+  }
+
+  /** A hero's hit glanced off a guard arc: a grey 'Blocked' and a brass spark (rate-limited). */
+  private blocked(e: SimEventOf<'guardBlocked'>): void {
+    const r = this.rec(e.enemy);
+    if (!r) return;
+    const last = this.blockedAt.get(e.enemy) ?? -Infinity;
+    if (this.now - last < BLOCKED_EVERY) return;
+    this.blockedAt.set(e.enemy, this.now);
+    this.firedM2.blocked++;
+    const src = this.rec(e.source);
+    const ang = src ? Math.atan2(src.z - r.z, src.x - r.x) : 0;
+    const R = r.radius * 1.9 + 0.35;
+    const t = this.ring(r.x, r.z, R, R + 0.3, 0.25, GUARD, 0.18, RING.swipe, 0.95, 0.06);
+    t.arcStart = ang - 0.35;
+    t.arcLen = 0.7;
+    this.d.kit.particles.burst(
+      r.x + Math.cos(ang) * R,
+      r.height * 0.5,
+      r.z + Math.sin(ang) * R,
+      6,
+      3,
+      1.5,
+      0.3,
+      0.1,
+      GUARD,
+      0.9,
+      PARTICLE.spark,
+      4,
+      6,
+    );
+    if (this.settings.damageNumbers)
+      this.d.overlay.callout(
+        r.x,
+        r.height + 0.9,
+        r.z,
+        'Blocked',
+        CRIMSON_HEX.blocked,
+        13,
+        0.7,
+        'rgba(100,116,139,0.8)',
+      );
+  }
+
+  /** A guard broke (an Empowered Piercing Shot): its arc flashes and shatters in brass. */
+  private guardBroken(e: SimEventOf<'guardBroken'>): void {
+    const r = this.rec(e.enemy);
+    if (!r) return;
+    this.firedM2.guardBroken++;
+    this.d.entities.guardBreak(e.enemy);
+    this.d.kit.particles.burst(
+      r.x,
+      r.height * 0.5,
+      r.z,
+      26,
+      5,
+      3,
+      0.7,
+      0.14,
+      GUARD,
+      1,
+      PARTICLE.shard,
+      2.5,
+      7,
+      r.radius,
+    );
+    this.ring(r.x, r.z, r.radius, r.radius * 3.4, 0.4, GUARD, 0.16, RING.plain, 1);
+    this.d.overlay.callout(
+      r.x,
+      r.height + 1.2,
+      r.z,
+      'GUARD BROKEN',
+      '#fef3c7',
+      15,
+      1.1,
+      'rgba(201,178,138,0.9)',
+    );
   }
 
   private damage(e: SimEventOf<'damageTaken'>, state: WorldState): void {
@@ -1141,13 +1317,19 @@ export class Feedback {
     }
     b.amount += e.amount;
     if (b.amount < 2) return;
-    const size = Math.min(30, 12 + 18 * Math.sqrt(Math.min(1, b.amount / maxHp)));
+    // The Bloodmoon (Movement II): a heal landing outside every Sanctuary pool was halved; its
+    // number shows smaller and dimmer.
+    const pools = this.d.field.pools(state);
+    const cut = !!pools && !inSanctuary(pools, r.x, r.z);
+    if (cut && fresh) this.firedM2.cutHeals++;
+    const size =
+      Math.min(30, 12 + 18 * Math.sqrt(Math.min(1, b.amount / maxHp))) * (cut ? CUT_HEAL_SIZE : 1);
     if (fresh || b.handle < 0)
       b.handle = this.d.overlay.spawnNumber(
         r.x + 0.35,
         r.height + 0.2,
         r.z,
-        VISION_HEX.heal,
+        cut ? dimHex(VISION_HEX.heal, CUT_HEAL_ALPHA) : VISION_HEX.heal,
         size,
         0.9,
       );
@@ -1984,17 +2166,23 @@ export class Feedback {
     let size = 0.5;
     let height = 1.5;
     let boss = false;
+    let iron = false;
     try {
       const def = enemyDef(e.defId);
       accent = color(def.accent);
       size = def.radius;
       height = def.height;
       boss = def.role === 'boss' || def.role === 'miniboss';
+      iron = materialOf(def) === 'iron';
     } catch {
       // unknown def
     }
     const x = r?.x ?? e.x;
     const z = r?.z ?? e.z;
+    if (iron) {
+      this.ironDeath(x, z, size, height, accent, boss);
+      return;
+    }
     this.d.kit.particles.burst(
       x,
       height * 0.5,
@@ -2047,6 +2235,94 @@ export class Feedback {
       this.d.overlay.flash(0.35, 0.3);
     }
     void state;
+  }
+
+  /**
+   * An iron body's death (Movement II, `material: 'iron'`): dark iron shards and ember sparks
+   * thrown out, smoke rising where it fell, its accent's ring. Never a red mist.
+   */
+  private ironDeath(
+    x: number,
+    z: number,
+    size: number,
+    height: number,
+    accent: THREE.Color,
+    boss: boolean,
+  ): void {
+    this.firedM2.ironDeaths++;
+    const kit = this.d.kit;
+    kit.particles.burst(
+      x,
+      height * 0.5,
+      z,
+      12 + size * 12,
+      3 + size * 2,
+      3,
+      0.9,
+      0.15 + size * 0.06,
+      IRON,
+      1,
+      PARTICLE.shard,
+      2,
+      9,
+      size,
+    );
+    kit.particles.burst(
+      x,
+      height * 0.55,
+      z,
+      12 + size * 10,
+      3.5,
+      4,
+      0.8,
+      0.1,
+      EMBER,
+      1,
+      PARTICLE.spark,
+      2,
+      3,
+      size,
+    );
+    const puffs = Math.round((5 + size * 6) * kit.smoke.density);
+    for (let i = 0; i < puffs; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const rr = size * Math.random();
+      kit.smoke.emit(
+        x + Math.cos(a) * rr,
+        0.3 + Math.random() * height * 0.5,
+        z + Math.sin(a) * rr,
+        Math.cos(a) * 0.4,
+        0.5 + Math.random() * 0.4,
+        Math.sin(a) * 0.4,
+        1.4,
+        0.5 + size * 0.3,
+        IRON_SMOKE,
+        0.5,
+        PARTICLE.smoke,
+        1.2,
+        0,
+        0.8,
+      );
+    }
+    this.ring(x, z, size, size * 3.2, 0.4, accent, 0.12, RING.plain, 0.9);
+    this.sprite(x, height * 0.55, z, size * 1.5, size * 3, 0.18, EMBER, SPRITE.glow, 0.8);
+    if (boss) {
+      this.d.rig.addTrauma(0.6);
+      this.d.rig.panToward(x, z, 0.5, 1.4);
+      for (let i = 0; i < 3; i++)
+        this.ring(
+          x,
+          z,
+          size,
+          10 + i * 5,
+          0.8 + i * 0.3,
+          i === 0 ? EMBER : accent,
+          0.3,
+          RING.plain,
+          1,
+        );
+      this.d.overlay.flash(0.35, 0.3);
+    }
   }
 
   private phase(e: SimEventOf<'phaseChanged'>): void {
@@ -2731,7 +3007,11 @@ export class Feedback {
     // Luminary's Sunrise holds it warm while it lasts (sunWarmth). One last write restores it.
     const warm = this.sunWarmth < 0.002 ? 0 : Math.min(1, this.sunWarmth);
     const cool = this.stasisCool < 0.002 ? 0 : Math.min(1, this.stasisCool);
-    if (this.lightShift > 0 || warm > 0 || cool > 0 || this.lightLive) {
+    // The Bloodmoon (Movement II): the sky lerps crimson while Vharun's pools are up.
+    this.bloodmoon = approachTo(this.bloodmoon, this.d.field.pools(state) ? 1 : 0, 1.2, dt);
+    if (this.bloodmoon < 0.002) this.bloodmoon = 0;
+    const blood = this.bloodmoon;
+    if (this.lightShift > 0 || warm > 0 || cool > 0 || blood > 0 || this.lightLive) {
       this.lightShift = Math.max(0, this.lightShift - dt * 0.7);
       const lights = this.d.stage.lights;
       const k = Math.sin(this.lightShift * Math.PI * 0.5);
@@ -2740,7 +3020,11 @@ export class Feedback {
       lights.hemi.color.copy(this.baseHemiColor).lerp(this.lightColor, 0.5 * k);
       if (warm > 0) lights.hemi.color.lerp(SUN_LIGHT, 0.32 * warm);
       if (cool > 0) lights.hemi.color.lerp(STASIS_LIGHT, 0.3 * cool);
-      this.lightLive = this.lightShift > 0 || warm > 0 || cool > 0;
+      if (blood > 0) {
+        lights.hemi.color.lerp(BLOODMOON_SKY, 0.55 * blood);
+        lights.hemi.intensity *= 1 - 0.15 * blood;
+      }
+      this.lightLive = this.lightShift > 0 || warm > 0 || cool > 0 || blood > 0;
     }
   }
 
@@ -3145,4 +3429,15 @@ export function dawnwardIn(events: readonly SimEvent[], hero: EntityId): boolean
     if (e.type === 'dawnward' && e.hero === hero) return true;
   }
   return false;
+}
+
+/** Frame-rate independent approach (as palette.approach). */
+function approachTo(current: number, target: number, rate: number, dt: number): number {
+  return current + (target - current) * (1 - Math.exp(-rate * dt));
+}
+
+/** A hex toward the dark at `alpha` (a dimmed heal number, Movement II's Bloodmoon). */
+function dimHex(hex: string, alpha: number): string {
+  const c = new THREE.Color(hex).multiplyScalar(0.35 + 0.65 * alpha);
+  return `#${c.getHexString()}`;
 }

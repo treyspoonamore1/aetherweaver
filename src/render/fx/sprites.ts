@@ -24,6 +24,15 @@ export const SPRITE = {
    * `param` 2 is Bear's drop. A crisp glyph in a soft halo.
    */
   mode: 9,
+  /**
+   * Movement II (docs/phase-5a/vfx-audio.md). A stack pip: a small upright drop, its core
+   * brighter as `param` goes 0 → 1 (a bleed's pips glow from 5 stacks).
+   */
+  drop: 10,
+  /** Wound: a heart split by a crack (healing received halved). */
+  wound: 11,
+  /** Pinned: a steel stake driven point-down, its head a flat cap. */
+  stake: 12,
 } as const;
 
 const vertex = /* glsl */ `
@@ -118,6 +127,33 @@ void main() {
       e = min(body, tip);
     }
     a = (1.0 - smoothstep(-0.07, 0.07, e)) + exp(-d * d * 3.2) * 0.3;
+    a *= 1.0 - smoothstep(0.95, 1.0, d);
+  } else if (style == 10) {
+    // A stack pip: a drop (a round body drawn up to a point), brighter at the core with param.
+    float body = length(vUv - vec2(0.0, -0.25)) - 0.5;
+    float tipW = 0.5 * clamp((0.85 - vUv.y) / 1.1, 0.0, 1.0);
+    float tip = vUv.y > -0.25 ? max(abs(vUv.x) - tipW, vUv.y - 0.85) : 1.0;
+    float e = min(body, tip);
+    float shape = 1.0 - smoothstep(-0.06, 0.06, e);
+    float core = exp(-dot(vUv - vec2(0.0, -0.3), vUv - vec2(0.0, -0.3)) * 6.0);
+    a = shape * (0.7 + 0.3 * core * (0.5 + vSize.w)) + exp(-d * d * 3.0) * 0.2 * vSize.w;
+    a *= 1.0 - smoothstep(0.95, 1.0, d);
+  } else if (style == 11) {
+    // Wound: a heart (two lobes over a point) split by a zig-zag crack.
+    vec2 q = vec2(abs(vUv.x), vUv.y);
+    float lobe = length(q - vec2(0.3, 0.22)) - 0.36;
+    float vee = dot(q - vec2(0.0, -0.8), vec2(0.815, -0.58));
+    float heart = min(lobe, max(vee, q.y - 0.25));
+    float zig = vUv.x - 0.12 * sin(vUv.y * 13.0);
+    float crack = 1.0 - smoothstep(0.03, 0.07, abs(zig));
+    a = (1.0 - smoothstep(-0.05, 0.05, heart)) * (1.0 - 0.85 * crack) + exp(-d * d * 3.0) * 0.15;
+    a *= 1.0 - smoothstep(0.95, 1.0, d);
+  } else if (style == 12) {
+    // A stake: a shaft narrowing to a point below, a flat cap above.
+    float shaft = max(abs(vUv.x) - 0.11 * clamp((vUv.y + 0.9) / 0.5, 0.0, 1.0), abs(vUv.y + 0.05) - 0.85);
+    float cap = max(abs(vUv.x) - 0.3, abs(vUv.y - 0.72) - 0.09);
+    float e = min(shaft, cap);
+    a = (1.0 - smoothstep(-0.04, 0.04, e)) + exp(-d * d * 4.0) * 0.12;
     a *= 1.0 - smoothstep(0.95, 1.0, d);
   } else {
     // Sigil: a rotating star in a ring (Cue / leitmotif).

@@ -3,6 +3,16 @@ import { enemyDef } from '../content';
 import type { AnswerTag, EntityId, SimEventOf, WorldState } from '../sim';
 import { CHRONO_HEX, timerLabel } from './chronoCues';
 import { BLIND_ANSWERS, BLIND_KEY } from './dissonanceCues';
+import {
+  CRIMSON_HEX,
+  PACT_LABEL,
+  TIDE_HALF,
+  crimsonStatuses,
+  emptyStatusLook,
+  executeBelowOf,
+  isPact,
+  statusAnswers,
+} from './crimsonCues';
 import type { EntityLayer, EntityRec } from './entities';
 import { BEAM } from './fx/beams';
 import type { FxKit } from './fx/kit';
@@ -42,12 +52,17 @@ interface TgRec {
   ending: number;
   outcome: Outcome | null;
   impacted: boolean;
+  /** Movement II: a Blood Pact link; Execution's threshold (0: not an Execution). */
+  pact: boolean;
+  execute: number;
 }
 
 const FADE_IN = 0.12;
 const END = 0.38;
 /** Stasis' bezel round a held telegraph (the Chronomancer, docs/phase-3e/vfx.md). */
 const FROST = color(CHRONO_HEX.silver);
+/** Blood Pact's link tint (Movement II). */
+const PACT = color(CRIMSON_HEX.pact);
 
 /**
  * A telegraph's last drawn geometry (kept after it leaves the state): the Chronomancer's
@@ -98,6 +113,13 @@ export class TelegraphLayer {
   private blind = false;
   /** What was drawn last frame (tests, the lab): timers shown, bezels drawn, blind badges. */
   readonly drawn = { timers: 0, frost: 0, blind: 0 };
+  /**
+   * Movement II, drawn last frame (tests, the lab): Blood Pact links, Crimson Tide cones,
+   * Execution marks, and the answer badges over heroes held by a Legion status (bleed at 5+,
+   * a pin, a latch).
+   */
+  readonly drawnM2 = { pacts: 0, tides: 0, executions: 0, statusBadges: 0 };
+  private readonly m2Look = emptyStatusLook();
 
   constructor(private readonly entities: EntityLayer) {}
 
@@ -161,6 +183,8 @@ export class TelegraphLayer {
       ending: -1,
       outcome: null,
       impacted: false,
+      pact: t.shape.kind === 'link' && isPact(t),
+      execute: t.shape.kind === 'mark' ? executeBelowOf(t) : 0,
     };
     this.effects.delete(t.id);
     this.recs.set(t.id, rec);
@@ -185,6 +209,10 @@ export class TelegraphLayer {
     this.drawn.timers = 0;
     this.drawn.frost = 0;
     this.drawn.blind = 0;
+    this.drawnM2.pacts = 0;
+    this.drawnM2.tides = 0;
+    this.drawnM2.executions = 0;
+    this.drawnM2.statusBadges = 0;
     for (const t of state.telegraphs) this.syncOne(t, state, kit, overlay, dt, showGlyphs, time);
     if (this.preview) {
       for (const p of this.preview) {
@@ -205,6 +233,38 @@ export class TelegraphLayer {
         continue;
       }
       this.draw(rec, state, kit, overlay, time, false, null);
+    }
+    if (showGlyphs) this.statusBadges(state, overlay);
+  }
+
+  /**
+   * Movement II: a hero a Legion status holds shows its answer over the head, where you are
+   * already looking: Chime at 5+ bleed stacks (with the count), Reel for a pin, Reel or Chime
+   * for a latch. Nothing in Movement I has these statuses.
+   */
+  private statusBadges(state: WorldState, overlay: Overlay): void {
+    const look = this.m2Look;
+    for (const id of state.party) {
+      const e = state.entities.get(id);
+      const h = e?.health;
+      if (!e || !h || h.dead || h.downed || h.statuses.length === 0) continue;
+      if (!crimsonStatuses(e, look)) continue;
+      const answers = statusAnswers(look);
+      if (!answers) continue;
+      const r = this.entities.recs.get(id);
+      if (!r) continue;
+      const pinned = look.pinned;
+      const label = pinned ? 'Pinned' : look.latchedBy >= 0 ? 'Latched' : `×${look.bleed}`;
+      overlay.badge(
+        r.x,
+        r.height + 1.5 + r.y,
+        r.z,
+        answers,
+        answers.join(','),
+        pinned ? CRIMSON_HEX.pin : VISION_HEX.ailment,
+        label,
+      );
+      this.drawnM2.statusBadges++;
     }
   }
 
@@ -449,11 +509,15 @@ export class TelegraphLayer {
           null,
           pw,
         );
+        // A Crimson Tide (Movement II): half the arena; its badge sits near the caster, not at
+        // its far edge (off the arena).
+        if (rec.b >= TIDE_HALF && live) this.drawnM2.tides++;
         if (live && showGlyphs) {
+          const reach = rec.b >= TIDE_HALF ? Math.min(rec.a, 6) : rec.a;
           overlay.badge(
-            rec.cx + Math.cos(rec.rot) * rec.a,
+            rec.cx + Math.cos(rec.rot) * reach,
             0.1,
-            rec.cz + Math.sin(rec.rot) * rec.a,
+            rec.cz + Math.sin(rec.rot) * reach,
             answers,
             key,
             borderHex,
@@ -539,7 +603,10 @@ export class TelegraphLayer {
           rec.b = target.radius;
         }
         this.drawMark(rec.cx, rec.cz, rec.a, rec.b, kit, prog, perfect, sev, flash, alpha, frost);
+        // Execution (Movement II): its threshold on the badge; the ally bar shows the notch.
+        if (rec.execute > 0 && live) this.drawnM2.executions++;
         if (live && showGlyphs) {
+          const left = timer || remain.toFixed(1);
           overlay.badge(
             rec.cx,
             rec.a + 1.9,
@@ -547,7 +614,7 @@ export class TelegraphLayer {
             answers,
             key,
             borderHex,
-            timer || remain.toFixed(1),
+            rec.execute > 0 ? `<${Math.round(rec.execute * 100)}% · ${left}` : left,
             glyphScale,
             tone,
           );
@@ -561,9 +628,10 @@ export class TelegraphLayer {
           if (a && b) {
             rec.cx = (a.x + b.x) / 2;
             rec.cz = (a.z + b.z) / 2;
-            this.drawLink(a, b, shape.r, kit, prog, sev, alpha, time);
+            this.drawLink(a, b, shape.r, kit, prog, sev, alpha, time, rec.pact);
           }
         }
+        if (rec.pact && live) this.drawnM2.pacts++;
         if (live && showGlyphs)
           overlay.badge(
             rec.cx,
@@ -572,7 +640,8 @@ export class TelegraphLayer {
             answers,
             key,
             borderHex,
-            timer || remain.toFixed(1),
+            // Blood Pact (Movement II): both take +20% while linked.
+            rec.pact ? `${PACT_LABEL} · ${timer || remain.toFixed(1)}` : timer || remain.toFixed(1),
             glyphScale,
             tone,
           );
@@ -679,10 +748,12 @@ export class TelegraphLayer {
     sev: number,
     alpha: number,
     time: number,
+    pact = false,
   ): void {
     const d = Math.hypot(a.x - b.x, a.z - b.z);
     const close = d < r;
-    this.tmpColor.copy(close ? C.lethal : C.threat);
+    // Close is lethal for any link; apart, a Blood Pact keeps its own plum tint.
+    this.tmpColor.copy(close ? C.lethal : pact ? PACT : C.threat);
     if (!close && sev > 0.5) this.tmpColor.lerp(C.lethal, 0.5);
     const pulse = close ? 0.75 + 0.25 * Math.sin(time * 18) : 1;
     const width = close ? 0.42 : 0.3;

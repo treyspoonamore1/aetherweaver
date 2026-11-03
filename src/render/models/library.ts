@@ -192,6 +192,9 @@ export function buildEnemy(def: EnemyDef): THREE.BufferGeometry {
   const h = def.height;
   const under = shade(body, -0.35);
 
+  // The Crimson Legion (Movement II): their own bodies by id, never a porcelain role's.
+  if (buildLegion(def, b)) return b.build();
+
   if (def.id === 'the_bellwarden') {
     // A giant walking bell with a cracked, molten waist.
     b.lathe(
@@ -474,5 +477,350 @@ export function buildPillar(stone: string, trim: string): THREE.BufferGeometry {
   b.cyl(0.9, 0.92, 0.5, shade(stone, -0.05), { p: [0.05, 3.05, 0], r: [0.1, 0, 0.08] }, 8);
   b.torus(1.0, 0.05, trim, { p: [0, 0.5, 0], r: [Math.PI / 2, 0, 0], glow: 0.5 }, Math.PI * 2, 16);
   b.box(0.08, 1.2, 0.05, trim, { p: [0, 1.6, -0.95], glow: 0.6 });
+  return b.build();
+}
+
+// ── The Crimson Legion (Movement II, docs/phase-5a.md) ───────────────────────────────────
+
+/** Brass for the Legion's trim (the Spire's line colour) and a hot ember for eyes and coals. */
+const BRASS = '#a8875a';
+const EMBER = '#ffb27a';
+
+/**
+ * The Crimson Legion's silhouettes, by def id (null: not a Legion body). Steel-bone bodies, an
+ * accent each (content), brass trim; each one distinct from every Movement I role's porcelain.
+ */
+function buildLegion(def: EnemyDef, b: ModelBuilder): boolean {
+  const body = def.color;
+  const acc = def.accent;
+  const r = def.radius;
+  const h = def.height;
+  const iron = shade(body, -0.45);
+  switch (def.id) {
+    case 'sanguine_hound':
+      quadruped(b, r, h, body, acc, iron, false);
+      return true;
+    case 'gorehound_matriarch':
+      quadruped(b, r, h, body, acc, iron, true);
+      return true;
+    case 'hemomancer': {
+      // Robed and hooded, a blood orb held out before it.
+      b.lathe(
+        [
+          [r * 1.05, 0],
+          [r * 0.95, h * 0.12],
+          [r * 0.62, h * 0.55],
+          [r * 0.5, h * 0.72],
+          [0, h * 0.74],
+        ],
+        shade(body, -0.25),
+        {},
+        10,
+      );
+      b.box(r * 0.5, h * 0.55, 0.05, acc, { p: [0, h * 0.35, -r * 0.82], r: [-0.22, 0, 0] });
+      b.cone(r * 0.55, h * 0.3, iron, { p: [0, h * 0.86, 0.04] }, 8);
+      b.sphere(r * 0.3, '#1a1416', { p: [0, h * 0.78, -r * 0.2] }, 6, 4);
+      b.box(r * 0.12, 0.04, 0.03, EMBER, { p: [r * 0.12, h * 0.8, -r * 0.48], glow: 1 });
+      b.box(r * 0.12, 0.04, 0.03, EMBER, { p: [-r * 0.12, h * 0.8, -r * 0.48], glow: 1 });
+      b.cyl(0.07, 0.06, h * 0.32, iron, { p: [r * 0.5, h * 0.55, -r * 0.55], r: [0.9, 0, 0.3] }, 5);
+      b.cyl(
+        0.07,
+        0.06,
+        h * 0.32,
+        iron,
+        { p: [-r * 0.5, h * 0.55, -r * 0.55], r: [0.9, 0, -0.3] },
+        5,
+      );
+      // The orb, in a brass cage.
+      b.sphere(r * 0.34, acc, { p: [0, h * 0.5, -r * 1.35], glow: 1 }, 8, 6);
+      b.torus(r * 0.42, 0.025, BRASS, { p: [0, h * 0.5, -r * 1.35], glow: 0.3 }, Math.PI * 2, 14);
+      b.torus(r * 0.42, 0.025, BRASS, {
+        p: [0, h * 0.5, -r * 1.35],
+        r: [0, Math.PI / 2, 0],
+        glow: 0.3,
+      });
+      return true;
+    }
+    case 'impaler': {
+      // A plated charger leaning on a long forward pike.
+      b.lathe(
+        [
+          [r * 0.85, 0],
+          [r * 0.8, h * 0.1],
+          [r * 0.95, h * 0.45],
+          [r * 0.7, h * 0.66],
+          [0, h * 0.7],
+        ],
+        body,
+        {},
+        8,
+      );
+      b.box(r * 1.5, h * 0.12, r * 1.2, iron, { p: [0, h * 0.62, 0] });
+      b.cyl(r * 0.36, r * 0.42, h * 0.22, iron, { p: [0, h * 0.8, 0] }, 8);
+      b.cone(r * 0.38, h * 0.12, iron, { p: [0, h * 0.97, 0] }, 8);
+      b.box(r * 0.5, 0.05, 0.04, EMBER, { p: [0, h * 0.82, -r * 0.4], glow: 1 });
+      b.box(r * 1.6, 0.08, 0.1, acc, { p: [0, h * 0.4, -r * 0.62], glow: 0.35 });
+      // The pike: a shaft held low and level, a long steel point well past the body.
+      const len = 2.6 + r;
+      b.cyl(0.06, 0.06, len, shade(BRASS, -0.35), {
+        p: [r * 0.55, h * 0.48, -len * 0.38],
+        r: [Math.PI / 2, 0, 0],
+      });
+      b.cone(0.13, 0.7, '#d9dde3', {
+        p: [r * 0.55, h * 0.48, -len * 0.88 - 0.3],
+        r: [-Math.PI / 2, 0, 0],
+      });
+      b.torus(0.1, 0.03, acc, { p: [r * 0.55, h * 0.48, -len * 0.84], glow: 0.6 });
+      return true;
+    }
+    case 'crimson_sentinel': {
+      // Wide and squat behind a great tower shield.
+      b.lathe(
+        [
+          [r * 0.9, 0],
+          [r * 0.85, h * 0.12],
+          [r * 0.8, h * 0.55],
+          [r * 0.55, h * 0.72],
+          [0, h * 0.74],
+        ],
+        body,
+        {},
+        8,
+      );
+      b.sphere(r * 0.42, iron, { p: [r * 0.62, h * 0.66, 0] }, 6, 4);
+      b.sphere(r * 0.42, iron, { p: [-r * 0.62, h * 0.66, 0] }, 6, 4);
+      b.cyl(r * 0.3, r * 0.34, h * 0.2, iron, { p: [0, h * 0.82, 0] }, 8);
+      b.box(r * 0.42, 0.05, 0.04, EMBER, { p: [0, h * 0.84, -r * 0.33], glow: 1 });
+      // The shield: tall, faintly curved by three plates, brass-rimmed, its boss in the accent.
+      const sw = r * 1.9;
+      const sh = h * 0.82;
+      const sz = -r * 1.05;
+      b.box(sw * 0.36, sh, 0.14, shade(body, -0.15), { p: [0, sh * 0.55, sz] });
+      b.box(sw * 0.34, sh * 0.96, 0.14, shade(body, -0.2), {
+        p: [sw * 0.33, sh * 0.55, sz + 0.06],
+        r: [0, -0.3, 0],
+      });
+      b.box(sw * 0.34, sh * 0.96, 0.14, shade(body, -0.2), {
+        p: [-sw * 0.33, sh * 0.55, sz + 0.06],
+        r: [0, 0.3, 0],
+      });
+      b.box(sw, 0.08, 0.18, BRASS, { p: [0, sh * 1.06, sz + 0.02], glow: 0.2 });
+      b.box(sw, 0.08, 0.18, BRASS, { p: [0, sh * 0.06, sz + 0.02], glow: 0.2 });
+      b.sphere(r * 0.22, acc, { p: [0, sh * 0.6, sz - 0.1], s: [1, 1, 0.55], glow: 0.7 }, 8, 6);
+      b.box(0.06, sh * 0.7, 0.05, acc, { p: [0, sh * 0.55, sz - 0.08], glow: 0.5 });
+      return true;
+    }
+    case 'leech': {
+      // A ribbed bulb on stubby legs, a ringed sucker for a mouth.
+      b.sphere(r * 1.0, shade(body, -0.2), { p: [0, r * 1.05, 0.1], s: [1, 0.85, 1.25] }, 10, 8);
+      for (let i = 0; i < 3; i++) {
+        b.torus(r * (0.95 - i * 0.12), 0.04, acc, {
+          p: [0, r * 1.05, 0.1 + (i - 1) * r * 0.45],
+          s: [1, 0.85, 1],
+          glow: 0.25,
+        });
+      }
+      b.cyl(r * 0.42, r * 0.55, r * 0.5, iron, {
+        p: [0, r * 0.95, -r * 1.25],
+        r: [Math.PI / 2, 0, 0],
+      });
+      b.torus(r * 0.36, 0.05, acc, { p: [0, r * 0.95, -r * 1.52], glow: 1 });
+      for (let i = 0; i < 4; i++) {
+        const sx = i < 2 ? 1 : -1;
+        const sz = i % 2 === 0 ? -0.35 : 0.5;
+        b.cyl(
+          0.05,
+          0.04,
+          r * 0.7,
+          iron,
+          {
+            p: [sx * r * 0.8, r * 0.3, sz * r],
+            r: [0, 0, sx * 0.6],
+          },
+          5,
+        );
+      }
+      return true;
+    }
+    case 'vharun_crimson_warden': {
+      // An armoured warden with a twin-bladed glaive and a brass crown.
+      b.lathe(
+        [
+          [r * 0.95, 0],
+          [r * 0.9, h * 0.08],
+          [r * 0.62, h * 0.4],
+          [r * 0.72, h * 0.62],
+          [r * 0.5, h * 0.76],
+          [0, h * 0.78],
+        ],
+        body,
+        {},
+        10,
+      );
+      b.box(r * 1.1, h * 0.36, 0.06, shade(acc, -0.55), {
+        p: [0, h * 0.28, -r * 0.6],
+        r: [-0.15, 0, 0],
+      });
+      b.sphere(r * 0.42, iron, { p: [r * 0.68, h * 0.72, 0], s: [1, 0.8, 1] }, 8, 6);
+      b.sphere(r * 0.42, iron, { p: [-r * 0.68, h * 0.72, 0], s: [1, 0.8, 1] }, 8, 6);
+      b.cyl(r * 0.26, r * 0.3, h * 0.12, iron, { p: [0, h * 0.84, 0] }, 8);
+      b.box(r * 0.34, 0.06, 0.05, EMBER, { p: [0, h * 0.85, -r * 0.27], glow: 1 });
+      // The crown: a brass band with points.
+      b.torus(
+        r * 0.3,
+        0.05,
+        acc,
+        { p: [0, h * 0.92, 0], r: [Math.PI / 2, 0, 0], glow: 0.6 },
+        Math.PI * 2,
+        16,
+      );
+      for (let i = 0; i < 6; i++) {
+        const a = (i / 6) * Math.PI * 2;
+        b.cone(
+          0.07,
+          0.3,
+          acc,
+          {
+            p: [Math.cos(a) * r * 0.3, h * 0.92 + 0.15, Math.sin(a) * r * 0.3],
+            glow: 0.8,
+          },
+          4,
+        );
+      }
+      // The glaive: a long shaft held across the body, a blade at either end.
+      const len = h * 0.95;
+      const gx = r * 0.85;
+      b.cyl(0.07, 0.07, len, shade(BRASS, -0.3), { p: [gx, h * 0.5, -r * 0.4], r: [0.35, 0, 0] });
+      const tip = len / 2;
+      b.box(0.08, 0.9, 0.36, '#d9dde3', {
+        p: [gx, h * 0.5 + Math.cos(0.35) * tip + 0.35, -r * 0.4 + Math.sin(0.35) * tip],
+        r: [0.35, 0, 0],
+        s: [1, 1, 1],
+      });
+      b.box(0.08, 0.9, 0.36, '#d9dde3', {
+        p: [gx, h * 0.5 - Math.cos(0.35) * tip - 0.35, -r * 0.4 - Math.sin(0.35) * tip],
+        r: [0.35, 0, 0],
+      });
+      b.torus(0.12, 0.04, acc, {
+        p: [gx, h * 0.5, -r * 0.4],
+        r: [0.35 + Math.PI / 2, 0, 0],
+        glow: 0.6,
+      });
+      return true;
+    }
+    default:
+      return false;
+  }
+}
+
+/**
+ * A low four-legged body (forward −z): a long barrel, a lowered head and snout, ember eyes,
+ * iron back plates in the accent; the Matriarch adds a mane of spines.
+ */
+function quadruped(
+  b: ModelBuilder,
+  r: number,
+  h: number,
+  body: string,
+  acc: string,
+  iron: string,
+  mane: boolean,
+): void {
+  const back = h * 0.62;
+  const legH = h * 0.5;
+  b.sphere(r * 0.95, body, { p: [0, back, 0.05 * r], s: [0.78, 0.7, 1.5] }, 10, 8);
+  // Head and snout, held low and forward.
+  b.sphere(r * 0.5, body, { p: [0, back + r * 0.1, -r * 1.35], s: [0.85, 0.8, 1] }, 8, 6);
+  b.cone(
+    r * 0.3,
+    r * 0.7,
+    shade(body, -0.15),
+    {
+      p: [0, back - r * 0.02, -r * 1.85],
+      r: [-Math.PI / 2, 0, 0],
+    },
+    6,
+  );
+  b.box(r * 0.14, r * 0.08, 0.03, EMBER, { p: [r * 0.2, back + r * 0.24, -r * 1.76], glow: 1 });
+  b.box(r * 0.14, r * 0.08, 0.03, EMBER, { p: [-r * 0.2, back + r * 0.24, -r * 1.76], glow: 1 });
+  b.cone(
+    r * 0.12,
+    r * 0.4,
+    iron,
+    { p: [r * 0.24, back + r * 0.55, -r * 1.25], r: [0.3, 0, -0.3] },
+    4,
+  );
+  b.cone(
+    r * 0.12,
+    r * 0.4,
+    iron,
+    { p: [-r * 0.24, back + r * 0.55, -r * 1.25], r: [0.3, 0, 0.3] },
+    4,
+  );
+  // Legs.
+  for (let i = 0; i < 4; i++) {
+    const sx = i < 2 ? 1 : -1;
+    const sz = i % 2 === 0 ? -0.8 : 0.85;
+    b.cyl(r * 0.16, r * 0.12, legH, iron, { p: [sx * r * 0.45, legH / 2, sz * r] }, 6);
+  }
+  // Iron plates down the back, in the accent.
+  for (let i = 0; i < 3; i++) {
+    b.box(r * 0.9, 0.05, r * 0.42, acc, {
+      p: [0, back + r * 0.62, (i - 1) * r * 0.5],
+      r: [0.08, 0, 0],
+    });
+  }
+  b.cyl(
+    r * 0.07,
+    r * 0.04,
+    r * 1.0,
+    iron,
+    { p: [0, back + r * 0.15, r * 1.75], r: [-0.9, 0, 0] },
+    5,
+  );
+  if (mane) {
+    // A mane of spines over the neck and shoulders, raked back.
+    for (let i = 0; i < 9; i++) {
+      const k = i / 8;
+      const side = (i % 3) - 1;
+      b.cone(
+        r * 0.12,
+        r * (0.55 + 0.25 * Math.sin(k * Math.PI)),
+        BRASS,
+        {
+          p: [side * r * 0.28, back + r * 0.62, -r * (0.95 - k * 0.9)],
+          r: [0.75, 0, -side * 0.35],
+          glow: 0.15,
+        },
+        4,
+      );
+    }
+  }
+}
+
+/**
+ * A Crimson Spire column (unit radius, height 1, scaled like `buildPillar`): obsidian, banded in
+ * brass, a crimson inlay down its face, a spiked cap.
+ */
+export function buildSpirePillar(
+  stone: string,
+  brass: string,
+  inlay: string,
+): THREE.BufferGeometry {
+  const b = new ModelBuilder();
+  b.cyl(1.2, 1.3, 0.35, shade(stone, -0.15), { p: [0, 0.175, 0] }, 6);
+  b.cyl(0.85, 0.95, 3.0, stone, { p: [0, 1.85, 0] }, 6);
+  b.cone(0.85, 0.9, shade(stone, -0.1), { p: [0, 3.8, 0] }, 6);
+  for (const y of [0.55, 2.1, 3.3]) {
+    b.torus(
+      0.94,
+      0.05,
+      brass,
+      { p: [0, y, 0], r: [Math.PI / 2, 0, 0], glow: 0.35 },
+      Math.PI * 2,
+      6,
+    );
+  }
+  b.box(0.1, 1.2, 0.05, inlay, { p: [0, 1.35, -0.92], glow: 0.25 });
   return b.build();
 }

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import * as THREE from 'three';
 import { COLOR_VISIONS, type ColorVision } from '../../app/colorVision';
-import { CONTENT, arenaDef, heroDef } from '../../content';
+import { CONTENT, arenaDef, attackDef, enemyDef, heroDef } from '../../content';
 import { CHORD_PRESETS } from '../../meta/run';
 import {
   FixedStepper,
@@ -15,8 +15,13 @@ import {
   type Sim,
   type SimConfig,
   type SimEvent,
+  type Entity,
+  type Status,
   type WorldState,
 } from '../../sim';
+import { dealDamage } from '../../sim/combat/health';
+import { beginAttack } from '../../sim/systems/enemies';
+import type { World } from '../../sim/world';
 import { CameraRig } from '../camera';
 import { CombatView } from '../combatView';
 import type { WeaverLook } from '../keepsakeCues';
@@ -154,6 +159,47 @@ interface LabApi {
   lineup(page: LineupPage | null): void;
   /** Phase 4g: what the fight's Weaver and Thread wear and draw, and the lineup's figures. */
   keepsakeStats(): KeepsakeStats;
+  /** Phase 5a: Movement II's scenarios (docs/phase-5a/vfx-audio.md). */
+  crimsonScenarios(): string[];
+  /** Restarts the real sim on that scenario's Crimson Spire floor and stages it. */
+  crimsonScenario(name: string): void;
+  /** What Movement II's visuals drew last frame and have played, and the lab stand-ins used. */
+  crimsonStats(): CrimsonStats;
+  /** The lab's drifting Sanctuary pools (FieldView's override), on or off. */
+  setSanctuary(on: boolean): void;
+}
+
+interface CrimsonStats {
+  theme: string;
+  biome: string;
+  /** Drawn last frame: pips, wounds, tethers, stakes, guard arcs, leaps, pacts, tides, pools… */
+  drawn: Record<string, number>;
+  /** Played so far: leaps, charges, blocked, guard breaks, iron deaths, dimmed heals. */
+  fired: Record<string, number>;
+  /** The Bloodmoon's sky, 0..1. */
+  bloodmoon: number;
+  pools: { x: number; z: number; r: number }[];
+  /** The lab stand-ins this scenario used (mechanics the sim didn't produce itself). */
+  standIns: string[];
+  heroes: {
+    id: number;
+    x: number;
+    z: number;
+    height: number;
+    hp: number;
+    maxHp: number;
+    statuses: string[];
+  }[];
+  enemies: {
+    id: number;
+    def: string;
+    x: number;
+    z: number;
+    height: number;
+    cast: string | null;
+    guard: { fx: number; fz: number; broken: boolean } | null;
+  }[];
+  weaver: { x: number; z: number };
 }
 
 interface KeepsakeStats {
@@ -332,7 +378,19 @@ declare global {
   }
 }
 
-const ENCOUNTERS = ['sandbox', 'first_light', 'muted_nave', 'bellwarden', 'hollow_cantor'];
+const ENCOUNTERS = [
+  'sandbox',
+  'first_light',
+  'muted_nave',
+  'bellwarden',
+  'hollow_cantor',
+  // Phase 5a: Movement II.
+  'crimson_gate',
+  'red_muster',
+  'blood_forge',
+  'gorehound_matriarch',
+  'vharun',
+];
 
 /**
  * Chord loadouts (SimConfig.chords): the six presets straight from meta/run.ts (so the lead's
@@ -1803,6 +1861,170 @@ const BOND_SCENARIOS: Record<string, BondScenario> = {
 };
 const BOND_SCENARIO_NAMES = Object.keys(BOND_SCENARIOS);
 
+/**
+ * Phase 5a: one scenario per Movement II visual (docs/phase-5a/vfx-audio.md). Each restarts the
+ * real sim on a Crimson Spire floor and stages it with real spawns and commands. Where the sim
+ * does not yet produce a Legion mechanic (its statuses, a guard, the pools, a scripted attack),
+ * a lab stand-in puts it in place a moment later, only if the sim hasn't: `crimsonStats().standIns`
+ * names every one used. Once the sim has it, the stand-ins stand aside on their own.
+ */
+interface CrimsonScenario {
+  /** The encounter (default: the sandbox) and the floor (default: the Spire Gate). */
+  encounter?: string;
+  theme?: string;
+  note: string;
+  stage(rt: LabRuntime): void;
+}
+
+const CRIMSON_SCENARIOS: Record<string, CrimsonScenario> = {
+  'Gallery · the Legion': {
+    note: 'Every Legion body side by side on the Spire Gate: hound, Hemomancer, Impaler, Sentinel, Leech, the Matriarch and Vharun',
+    stage: (rt) => rt.later(0.1, () => rt.preset('gallery2')),
+  },
+  'Hounds · bleed stacks': {
+    note: 'Five Sanguine Hounds on Kael: a violet pip per bleed stack over his head, drips, and from 5 the pips glow and Chime shows with the count',
+    stage: (rt) => {
+      rt.packOn(KAEL, 'sanguine_hound', 5);
+      for (let i = 1; i <= 7; i++)
+        rt.later(0.6 + i * 0.5, () =>
+          rt.standInStatus(KAEL, { id: 'bleed', stacks: i, dps: 12, tickIn: 0.5 }, 'bleed'),
+        );
+    },
+  },
+  'Hemomancer · Blood Pact': {
+    theme: 'blood_forge',
+    note: 'A Hemomancer links two heroes in a Blood Pact: the link in its plum tint with “+20%”, lethal-red while they stand within 6 m; at 3 s you Scatter',
+    stage: (rt) => {
+      rt.later(0.2, () => rt.spawn('hemomancer', 2, -10));
+      rt.later(0.4, () => rt.toughen());
+      rt.later(0.6, () => rt.castNow('hemomancer', 'hemomancer_blood_pact', KAEL));
+      rt.later(3, () => rt.queue({ t: 'directive', kind: 'scatter' }));
+    },
+  },
+  'Impaler · charge and pin': {
+    note: 'An Impaler leans in over its pike and charges the line; the struck hero is pinned: a steel stake, an amber ring and the Reel glyph',
+    stage: (rt) => {
+      rt.later(0.2, () => rt.spawn('impaler', 0, -12));
+      rt.later(0.4, () => rt.toughen());
+      rt.later(0.6, () => rt.castNow('impaler', 'impaler_charge', LYRA));
+      rt.leapOrCharge('impaler', 'charge', 2.0);
+      rt.later(2.2, () =>
+        rt.standInStatus(LYRA, { id: 'pinned', remaining: 4, duration: 4, dps: 60 }, 'pinned'),
+      );
+    },
+  },
+  'Sentinel · guard and flank': {
+    theme: 'barracks',
+    note: 'A Crimson Sentinel behind its tower shield: the brass arc at its feet faces the sim’s guard direction; Focus it and the party flanks',
+    stage: (rt) => {
+      rt.later(0.2, () => rt.spawn('crimson_sentinel', 0, -8));
+      rt.later(0.4, () => {
+        rt.toughen();
+        rt.standInGuard();
+        rt.focusNewest();
+      });
+      rt.later(1.2, () => rt.blocked());
+    },
+  },
+  'Sentinel · guard broken': {
+    theme: 'barracks',
+    note: 'An Empowered Piercing Shot breaks the guard: the arc flashes and cracks for 6 s, then mends',
+    stage: (rt) => {
+      rt.later(0.2, () => rt.spawn('crimson_sentinel', 0, -8));
+      rt.later(0.4, () => {
+        rt.toughen();
+        rt.standInGuard();
+        rt.thread(LYRA);
+        rt.queue({ t: 'mode' });
+      });
+      rt.later(2, () => rt.breakGuard());
+    },
+  },
+  'Leech · latch': {
+    theme: 'blood_forge',
+    note: 'Leeches on Lyra: a latch shows as a violet tether from the Leech to her, with Reel and Chime over her head',
+    stage: (rt) => {
+      rt.packOn(LYRA, 'leech', 2);
+      rt.later(1.6, () => rt.standInLatch(LYRA));
+    },
+  },
+  'Vampiric · wound': {
+    note: 'A Vampiric elite hound on Kael: its hits Wound him, a cracked heart over his head (healing halved)',
+    stage: (rt) => {
+      rt.packOn(KAEL, 'sanguine_hound', 1, true);
+      rt.later(1.2, () =>
+        rt.standInStatus(KAEL, { id: 'wound', remaining: 4, duration: 4 }, 'wound'),
+      );
+    },
+  },
+  'Matriarch · Pounce': {
+    theme: 'kennels',
+    note: 'The Gorehound Matriarch crouches (the 1 s tell) and leaps onto the squishiest hero: an arc through the air, a ring where she lands',
+    stage: (rt) => {
+      rt.later(0.2, () => rt.spawn('gorehound_matriarch', 0, -12));
+      rt.later(0.4, () => rt.toughen());
+      rt.later(0.6, () => rt.castNow('gorehound_matriarch', 'gorehound_pounce', LYRA));
+      rt.leapOrCharge('gorehound_matriarch', 'leap', 1.7);
+    },
+  },
+  'Vharun · Twin Cleave': {
+    theme: 'wardens_throne',
+    note: 'Vharun’s Twin Cleave on Kael: two cleaves, the second re-aimed as the first resolves (1.2 s apart)',
+    stage: (rt) => {
+      rt.later(0.2, () => rt.spawn('vharun_crimson_warden', 0, -7));
+      rt.later(0.4, () => rt.toughen());
+      rt.later(0.6, () => rt.castNow('vharun_crimson_warden', 'vharun_twin_cleave', KAEL));
+    },
+  },
+  'Vharun · Bloodmoon pools': {
+    theme: 'wardens_throne',
+    note: 'The Bloodmoon: two drifting Sanctuary pools (teal and gold, motes rising), the sky lerps crimson, and a Mend outside the pools shows small and dim',
+    stage: (rt) => {
+      rt.later(0.2, () => rt.spawn('vharun_crimson_warden', 0, -12));
+      rt.later(0.4, () => {
+        rt.toughen();
+        rt.standInSanctuary();
+      });
+      rt.later(1.5, () => rt.thread(KAEL));
+    },
+  },
+  'Vharun · Crimson Tide': {
+    theme: 'wardens_throne',
+    note: 'The Crimson Tide: a half-arena cone over Vharun’s front, then one over his back (step behind him, then back)',
+    stage: (rt) => {
+      rt.later(0.2, () => rt.spawn('vharun_crimson_warden', 0, -7));
+      rt.later(0.4, () => rt.toughen());
+      rt.later(0.6, () => rt.castNow('vharun_crimson_warden', 'vharun_crimson_tide', KAEL));
+      rt.later(2.3, () => rt.castNow('vharun_crimson_warden', 'vharun_crimson_tide_back', KAEL));
+    },
+  },
+  'Vharun · Execution': {
+    theme: 'wardens_throne',
+    note: 'Execution on the weakest hero: the mark’s badge reads “<40%” and their bar over the head shows the 40% notch',
+    stage: (rt) => {
+      rt.later(0.2, () => rt.spawn('vharun_crimson_warden', 0, -9));
+      rt.later(0.4, () => {
+        rt.toughen();
+        rt.hurtHero(LYRA, 0.32);
+      });
+      rt.later(0.6, () => rt.castNow('vharun_crimson_warden', 'vharun_execution', LYRA));
+    },
+  },
+  'Iron deaths': {
+    note: 'Three hounds struck down: dark iron shards, ember sparks and smoke (never a red mist); a chorister beside them still breaks into porcelain',
+    stage: (rt) => {
+      rt.later(0.2, () => {
+        rt.spawn('sanguine_hound', -3, -7);
+        rt.spawn('sanguine_hound', 0, -8);
+        rt.spawn('sanguine_hound', 3, -7);
+        rt.spawn('hollow_chorister', 6, -6);
+      });
+      rt.later(1.2, () => rt.strikeAll());
+    },
+  },
+};
+const CRIMSON_SCENARIO_NAMES = Object.keys(CRIMSON_SCENARIOS);
+
 class LabRuntime {
   sim: Sim;
   readonly stage: Stage;
@@ -1819,6 +2041,11 @@ class LabRuntime {
   private moveX = 0;
   private moveZ = 0;
   private hymn = false;
+  /** Phase 5a: the lab's Sanctuary pools (drifting), and the stand-ins a scenario used. */
+  private sanctuaryOn = false;
+  private pools: { x: number; z: number; r: number; vx: number; vz: number }[] = [];
+  readonly standIns: string[] = [];
+  private readonly stood = new Set<string>();
   private readonly scheduled: { at: number; fn: () => void }[] = [];
   private readonly taps: { pred: (e: SimEvent) => boolean; fn: (e: SimEvent) => void }[] = [];
   private frozen = false;
@@ -1883,6 +2110,9 @@ class LabRuntime {
     this.pending.length = 0;
     this.scheduled.length = 0;
     this.taps.length = 0;
+    this.sanctuaryOn = false;
+    this.standIns.length = 0;
+    this.stood.clear();
     this.sim = this.createSim();
     this.view.dispose();
     this.view = this.createView();
@@ -2067,6 +2297,286 @@ class LabRuntime {
       fieldRadius: st.field.radius,
       tension: w && w.threadSlot !== null ? w.threadTension : -1,
       resonance: w?.resonance ?? 0,
+    };
+  }
+
+  // ── Phase 5a: Movement II ─────────────────────────────────────────────────────────────
+
+  /** Restarts on that scenario's Spire floor (and encounter) and stages it. */
+  crimsonScenario(name: string): void {
+    const s = CRIMSON_SCENARIOS[name];
+    if (!s) return;
+    clearBonds();
+    encounterOverride = s.encounter ?? 'sandbox';
+    callingCfg = null;
+    chordsOverride = GUARDIAN_CHORDS;
+    astrolabeCfg = [];
+    dissonanceCfg = [];
+    this.theme = s.theme ?? 'spire_gate';
+    this.restart([]);
+    s.stage(this);
+  }
+
+  /** The mutable world, for lab stand-ins only (never the game runtime). */
+  private world(): World {
+    return this.sim.state as unknown as World;
+  }
+
+  /** The newest living enemy of a def (null: none). */
+  private newestOf(defId: string): Entity | null {
+    let best: Entity | null = null;
+    for (const e of this.world().entities.list())
+      if (e.enemy?.defId === defId && !e.health?.dead && (!best || e.id > best.id)) best = e;
+    return best;
+  }
+
+  private heroAt(slot: number): Entity | null {
+    return this.world().entities.get(this.heroId(slot)) ?? null;
+  }
+
+  /** `n` of an enemy round the hero in `slot` (the first elite, if asked). */
+  packOn(slot: number, defId: string, n: number, elite = false): void {
+    this.later(0.2, () => {
+      const p = this.heroPos(slot);
+      for (let i = 0; i < n; i++) {
+        const a = -Math.PI / 2 + (i - (n - 1) / 2) * 0.7;
+        this.queue({
+          t: 'debug',
+          op: {
+            op: 'spawnEnemy',
+            defId,
+            x: p.x + Math.cos(a) * 3.5,
+            z: p.z + Math.sin(a) * 3.5,
+            elite: elite && i === 0,
+          },
+        });
+      }
+    });
+  }
+
+  /** Every enemy on the field holds out (so a scenario's moment isn't cut short). */
+  toughen(): void {
+    for (const e of this.world().entities.list())
+      if (e.enemy && e.health && !e.health.dead) e.health.hp = e.health.maxHp = 1e6;
+  }
+
+  /** Brings the hero in `slot` down to `pct` of their life (staging). */
+  hurtHero(slot: number, pct: number): void {
+    const h = this.heroAt(slot)?.health;
+    if (h) h.hp = Math.max(1, h.maxHp * pct);
+  }
+
+  /** A real attack begun now by the newest enemy of `defId` at the hero in `slot` (staging). */
+  castNow(defId: string, attackId: string, slot: number): void {
+    const e = this.newestOf(defId);
+    const target = this.heroAt(slot);
+    if (!e || !target) return;
+    const attack = attackDef(attackId);
+    if (!beginAttack(this.world(), e, attack, target)) {
+      // A targeting the sim doesn't pick by yet (Execution's lowest life): at that hero instead.
+      beginAttack(this.world(), e, { ...attack, targeting: 'squishiest' }, target);
+    }
+  }
+
+  /** Lab stand-in: the status on the hero in `slot`, unless the sim already put it there. */
+  standInStatus(slot: number, status: Partial<Status> & { id: Status['id'] }, name: string): void {
+    const h = this.heroAt(slot)?.health;
+    if (!h || h.dead) return;
+    const list = h.statuses as Status[];
+    const had = list.find((s) => s.id === status.id);
+    // The sim's own (it has payload keys, or stacks beyond what we'd set): leave it be.
+    if (had && !this.stood.has(`${status.id}:${slot}`)) return;
+    const s: Status = { remaining: 6, duration: 6, stacks: 1, source: null, ...status };
+    if (had) Object.assign(had, s);
+    else list.push(s);
+    this.stood.add(`${status.id}:${slot}`);
+    if (!this.standIns.includes(name)) this.standIns.push(name);
+  }
+
+  /** Lab stand-in: a latch from the newest Leech onto the hero in `slot`. */
+  standInLatch(slot: number): void {
+    const leech = this.newestOf('leech');
+    if (!leech) return;
+    this.standInStatus(
+      slot,
+      { id: 'latched', remaining: 8, duration: 8, source: leech.id, drain: true, tickIn: 0.5 },
+      'latched',
+    );
+  }
+
+  /** Lab stand-in: every Sentinel keeps a guard (P6), facing its target, unless the sim gave one. */
+  standInGuard(): void {
+    for (const e of this.world().entities.list()) {
+      if (!e.enemy || e.health?.dead || !enemyDef(e.enemy.defId).guard || e.enemy.guard) continue;
+      e.enemy.guard = { fx: e.fx, fz: e.fz, brokenUntil: 0 };
+      if (!this.standIns.includes('guard')) this.standIns.push('guard');
+    }
+  }
+
+  /** A 'Blocked' off the newest Sentinel's guard (synthetic: the sim's is rate-limited). */
+  blocked(): void {
+    const s = this.newestOf('crimson_sentinel');
+    if (!s) return;
+    this.inject([
+      { type: 'guardBlocked', tick: this.sim.tick, enemy: s.id, source: this.heroId(KAEL) },
+    ]);
+  }
+
+  /** The newest Sentinel's guard breaks for its break time (a stand-in for Lyra's Empowered shot). */
+  breakGuard(): void {
+    const s = this.newestOf('crimson_sentinel');
+    const g = s?.enemy?.guard;
+    if (!s || !g) return;
+    if (g.brokenUntil <= this.sim.state.time) {
+      g.brokenUntil = this.sim.state.time + (enemyDef(s.enemy!.defId).guard?.breakTime ?? 6);
+      this.inject([{ type: 'guardBroken', tick: this.sim.tick, enemy: s.id }]);
+      if (!this.standIns.includes('guardBroken')) this.standIns.push('guardBroken');
+    }
+  }
+
+  /**
+   * Lab stand-in for the sim's charge and leap (P7): at `at` seconds, unless the sim already
+   * said 'charge' / 'leap' for it, the newest enemy of `defId` is snapped to its target and the
+   * event goes to the view, as the sim's would.
+   */
+  leapOrCharge(defId: string, kind: 'charge' | 'leap', at: number): void {
+    let seen = false;
+    this.onEvent(
+      (e) => e.type === 'attackFired' && e.visual === kind,
+      () => {
+        seen = true;
+      },
+    );
+    this.later(at, () => {
+      if (seen) return;
+      const e = this.newestOf(defId);
+      const t = e?.enemy?.targetId != null ? this.world().entities.get(e.enemy.targetId) : null;
+      const target = t ?? this.heroAt(LYRA);
+      if (!e || !target) return;
+      const fromX = e.x;
+      const fromZ = e.z;
+      const dx = target.x - e.x;
+      const dz = target.z - e.z;
+      const d = Math.hypot(dx, dz) || 1;
+      const reach = kind === 'charge' ? d + 4 : d - target.radius - e.radius;
+      e.x = e.px = e.x + (dx / d) * reach;
+      e.z = e.pz = e.z + (dz / d) * reach;
+      this.inject([
+        {
+          type: 'attackFired',
+          tick: this.sim.tick,
+          source: e.id,
+          target: target.id,
+          visual: kind,
+          fromX,
+          fromZ,
+          toX: e.x,
+          toZ: e.z,
+          travel: 0,
+        },
+      ]);
+      if (!this.standIns.includes(kind)) this.standIns.push(kind);
+    });
+  }
+
+  /**
+   * Lab stand-in for the Bloodmoon (the sim keeps the pools in phase 2): two Sanctuary pools
+   * drifting at 0.9 m/s and bouncing inside 0.6 of the arena's radius.
+   */
+  standInSanctuary(): void {
+    if (this.sim.state.field.sanctuary) return;
+    this.setSanctuary(true);
+    if (!this.standIns.includes('sanctuary')) this.standIns.push('sanctuary');
+  }
+
+  /** The lab's Sanctuary pools (FieldView's override), drifting; off clears them. */
+  setSanctuary(on: boolean): void {
+    this.sanctuaryOn = on;
+    if (!on) {
+      this.view.field.sanctuaryOverride = null;
+      return;
+    }
+    const R = arenaDef(this.theme).radius;
+    this.pools = [
+      { x: -0.4 * R, z: 0, r: 3.6, vx: 0.64, vz: 0.64 },
+      { x: 0.4 * R, z: 0, r: 3.6, vx: -0.64, vz: -0.64 },
+    ];
+    this.view.field.sanctuaryOverride = this.pools;
+    const step = () => {
+      if (!this.sanctuaryOn) return;
+      const lim = 0.6 * R;
+      for (const p of this.pools) {
+        p.x += p.vx / 30;
+        p.z += p.vz / 30;
+        if (Math.abs(p.x) > lim) p.vx = -p.vx;
+        if (Math.abs(p.z) > lim) p.vz = -p.vz;
+      }
+      this.later(1 / 30, step);
+    };
+    this.later(1 / 30, step);
+  }
+
+  /** Every enemy on the field struck down by Kael (a real kill, through the sim's damage). */
+  strikeAll(): void {
+    const w = this.world();
+    const kael = w.entities.get(this.heroId(KAEL));
+    for (const e of w.entities.list()) {
+      if (!e.enemy || !e.health || e.health.dead) continue;
+      dealDamage(w, e, {
+        source: kael ? kael.id : null,
+        sourceName: 'lab',
+        amount: e.health.hp + 1,
+        telegraph: null,
+      });
+    }
+  }
+
+  crimsonStats(): CrimsonStats {
+    const v = this.view;
+    const st = this.sim.state;
+    const heroes: CrimsonStats['heroes'] = [];
+    for (const id of st.party) {
+      const e = st.entities.get(id);
+      if (!e?.health) continue;
+      heroes.push({
+        id,
+        x: e.x,
+        z: e.z,
+        height: e.height,
+        hp: Math.round(e.health.hp),
+        maxHp: Math.round(e.health.maxHp),
+        statuses: e.health.statuses.map((s) => (s.stacks > 1 ? `${s.id}×${s.stacks}` : s.id)),
+      });
+    }
+    const enemies: CrimsonStats['enemies'] = [];
+    for (const e of st.entities.list()) {
+      if (!e.enemy || !e.health || e.health.dead) continue;
+      const g = e.enemy.guard;
+      enemies.push({
+        id: e.id,
+        def: e.enemy.defId,
+        x: e.x,
+        z: e.z,
+        height: e.height,
+        cast: e.enemy.cast?.attackId ?? null,
+        guard: g ? { fx: g.fx, fz: g.fz, broken: g.brokenUntil > st.time } : null,
+      });
+    }
+    return {
+      theme: this.theme,
+      biome: arenaDef(this.theme).biome ?? 'reliquary',
+      drawn: {
+        ...v.entities.drawnM2,
+        ...v.telegraphs.drawnM2,
+        pools: v.field.drawnM2.pools,
+      },
+      fired: { ...v.feedback.firedM2 },
+      bloodmoon: v.feedback.bloodmoon,
+      pools: (v.field.pools(st) ?? []).map((p) => ({ x: p.x, z: p.z, r: p.r })),
+      standIns: [...this.standIns],
+      heroes,
+      enemies,
+      weaver: this.weaverPos(),
     };
   }
 
@@ -2412,6 +2922,7 @@ class LabRuntime {
     this.view.dispose();
     this.view = this.createView();
     this.view.field.hymnOverride = this.hymn ? this.hymnCircles() : null;
+    this.view.field.sanctuaryOverride = this.sanctuaryOn ? this.pools : null;
   }
 
   // ── Phase 4g: keepsakes ────────────────────────────────────────────────────────────
@@ -2665,6 +3176,22 @@ class LabRuntime {
         this.spawn('lamenter', -8, -10);
         this.spawn('cantor_acolyte', 3, -12);
         this.spawn('mute', 6, -3);
+        break;
+      case 'gallery2':
+        // Phase 5a: the Crimson Legion, side by side (the Spire's floor reads best).
+        q({ t: 'debug', op: { op: 'killEnemies' } });
+        this.spawn('sanguine_hound', -6, -6);
+        this.spawn('sanguine_hound', -4.6, -5.2);
+        this.spawn('hemomancer', -2.5, -9);
+        this.spawn('impaler', 1, -7);
+        this.spawn('crimson_sentinel', 4.5, -7);
+        this.spawn('leech', 7, -5);
+        this.spawn('gorehound_matriarch', -6, -13);
+        this.spawn('vharun_crimson_warden', 3, -14);
+        this.later(0.3, () => {
+          this.toughen();
+          this.standInGuard();
+        });
         break;
       case 'busy': {
         q({ t: 'debug', op: { op: 'killEnemies' } });
@@ -3252,6 +3779,10 @@ export function VfxLab() {
       },
       lineup: (page) => rt.lineup(page),
       keepsakeStats: () => rt.keepsakeStats(),
+      crimsonScenarios: () => CRIMSON_SCENARIO_NAMES,
+      crimsonScenario: (name) => rt.crimsonScenario(name),
+      crimsonStats: () => rt.crimsonStats(),
+      setSanctuary: (on) => rt.setSanctuary(on),
     };
     const timer = window.setInterval(() => {
       const i = rt.info();
@@ -3685,6 +4216,28 @@ export function VfxLab() {
           <Btn onClick={() => rt()?.setVariants(null)} title="Restart with the default techniques">
             No variants
           </Btn>
+        </Group>
+        <Group title="Phase 5a · Movement II">
+          <p className="w-full text-[10px] text-muted">
+            Each restarts the real sim on a Crimson Spire floor and stages a Legion moment. Lab
+            stand-ins fill in what the sim doesn&apos;t produce yet (see crimsonStats).
+          </p>
+          {CRIMSON_SCENARIO_NAMES.map((name) => (
+            <Btn
+              key={name}
+              onClick={() => rt()?.crimsonScenario(name)}
+              title={CRIMSON_SCENARIOS[name]!.note}
+            >
+              {name}
+            </Btn>
+          ))}
+          <Btn onClick={() => rt()?.preset('gallery2')} title="The Legion, side by side">
+            Legion gallery
+          </Btn>
+          <Btn onClick={() => rt()?.setSanctuary(true)} title="Two drifting Sanctuary pools">
+            Sanctuary pools
+          </Btn>
+          <Btn onClick={() => rt()?.setSanctuary(false)}>No pools</Btn>
         </Group>
         <Group title="Phase 4g · Keepsakes">
           <p className="w-full text-[10px] text-muted">

@@ -5,6 +5,7 @@ import { VISION_HEX, currentVision, rgba } from './palette';
 import { CALLING_HEX } from './callingCues';
 import { CHRONO_HEX } from './chronoCues';
 import { DISSONANCE_HEX } from './dissonanceCues';
+import { CRIMSON_HEX } from './crimsonCues';
 import { softenHex, songHex } from './songs';
 
 /**
@@ -58,10 +59,15 @@ const LABELS: Record<GlyphIcon, string> = {
   stack: 'Stack',
   move: 'Move',
   dome: 'Dome',
-  mend: 'Heal',
+  mend: 'Mend',
   empower: 'Empower',
   unknown: 'Blind',
 };
+
+/** The word under a glyph (matches the HUD's ANSWER labels for the Weaver's own verbs). */
+export function glyphLabel(tag: GlyphIcon): string {
+  return LABELS[tag];
+}
 
 function iconSvg(tag: GlyphIcon): string {
   return `<span style="display:flex;flex-direction:column;align-items:center;gap:1px;color:${ICON_COLORS[tag]}"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${ICONS[tag]}</svg><span style="font:600 8px/1 Inter,sans-serif;letter-spacing:.06em;text-transform:uppercase;opacity:.9">${LABELS[tag]}</span></span>`;
@@ -142,6 +148,11 @@ export interface AllyBarView {
   dim: boolean;
   /** 0..1: the glow of a critical or doomed bar, pulsing (0: none). */
   pulse: number;
+  /**
+   * Movement II: Execution's threshold on this hero (a share of max life): a notch on the bar
+   * they must be lifted above. Absent otherwise.
+   */
+  notch?: number;
 }
 
 interface AllyBarItem {
@@ -152,6 +163,8 @@ interface AllyBarItem {
   trail: HTMLDivElement;
   shield: HTMLDivElement;
   fc: HTMLDivElement;
+  /** Execution's notch (Movement II), hidden unless a bar has one. */
+  notch: HTMLDivElement;
   /** What the elements show now, to touch the DOM only on change. */
   shown: string;
   glow: string;
@@ -350,6 +363,11 @@ export class Overlay {
           track,
           `position:absolute;top:0;bottom:0;left:${q}%;width:1px;background:rgba(0,0,0,0.5);`,
         );
+      // Execution's notch (Movement II): a bright bar across the track at its threshold.
+      const notch = div(
+        track,
+        `display:none;position:absolute;top:-1px;bottom:-1px;width:2px;margin-left:-1px;background:${CRIMSON_HEX.notch};box-shadow:0 0 0 1px rgba(0,0,0,0.85),0 0 4px ${CRIMSON_HEX.notch};`,
+      );
       this.allyBars.push({
         el,
         key,
@@ -358,6 +376,7 @@ export class Overlay {
         trail,
         shield,
         fc,
+        notch,
         shown: '',
         glow: '',
         used: false,
@@ -709,6 +728,7 @@ export class Overlay {
       bar.key,
       bar.keyHex,
       bar.dim,
+      bar.notch ?? '',
     ].join('|');
     if (b.shown !== shown) {
       b.shown = shown;
@@ -724,6 +744,10 @@ export class Overlay {
       b.key.textContent = bar.key;
       b.key.style.background = bar.keyHex;
       b.el.style.opacity = bar.dim ? '0.55' : '1';
+      if (bar.notch !== undefined && bar.notch > 0) {
+        b.notch.style.left = pc(bar.notch);
+        b.notch.style.display = 'block';
+      } else if (b.notch.style.display !== 'none') b.notch.style.display = 'none';
     }
     // A critical or doomed bar glows, pulsing (written only when it changes).
     const glow =

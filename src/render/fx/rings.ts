@@ -17,6 +17,12 @@ export const RING = {
   clock: 7,
   /** A clock's hands: a long hand at `arcStart`, a short one at `arcLen` (radians), a hub. */
   hands: 8,
+  /**
+   * A guard arc (Movement II's Crimson Sentinel): its lit band from `arcStart`, `arcLen` long,
+   * ribbed like shield plates, the sector it guards faintly filled (`fillAlpha`). `param` 0..1
+   * cracks it (a broken guard: the band breaks into shards and the fill drains).
+   */
+  guard: 9,
 } as const;
 
 const vertex = /* glsl */ `
@@ -107,6 +113,14 @@ void main() {
     float hub = awAA(d - th * 1.3);
     float halo = soft > 0.0 ? exp(-min(length(vLocal - h1 * t1), length(vLocal - h2 * t2)) / soft) * 0.45 : 0.0;
     alpha = max(max(hand1, hand2), hub) + halo;
+  } else if (style == 9) {
+    // Guard arc: a ribbed band over the guarded sector, the sector faintly filled toward the rim.
+    float t = clamp(a / max(arcLen, 0.01), 0.0, 1.0);
+    float ribs = 0.55 + 0.45 * step(0.18, fract(t * 7.0));
+    float broken = vArc.w;
+    float shards = mix(1.0, step(0.45, fract(t * 11.0 + 0.3 * sin(t * 40.0))), broken);
+    float sector = d < r ? smoothstep(r * 0.35, r, d) * vArc.z * (1.0 - broken) : 0.0;
+    alpha = ((core * ribs + glow * 0.7) * shards + sector) * arcMask;
   } else {
     // Reticle: four corner brackets that rotate.
     float seg = fract((a + uTime * 0.6) / 1.5707963);

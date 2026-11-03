@@ -10,6 +10,8 @@ import {
   visionPalette,
   type VisionPalette,
 } from '../src/app/colorVision';
+import { CRIMSON_HEX } from '../src/render/crimsonCues';
+import { MARTYR_HEX } from '../src/render/martyrCues';
 
 /** Every role a palette must define (the keys of VisionPalette, taken from the standard one). */
 const ROLES = Object.keys(VISION_PALETTES.normal) as (keyof VisionPalette)[];
@@ -85,4 +87,26 @@ describe('colour-vision palettes', () => {
       expect(set.get(`--color-${role}`)).toBe(VISION_PALETTES.protanopia[role]);
     }
   });
+});
+
+describe('Movement II colours (docs/phase-5a/vfx-audio.md)', () => {
+  /** The roles a new semantic colour must never be mistaken for (and the Martyr's Bear). */
+  const AGAINST = ['lethal', 'threat', 'mend', 'empower'] as const;
+
+  for (const vision of COLOR_VISIONS) {
+    it(`keeps every Crimson Legion colour ≥ 20 ΔE from lethal, threat, Bear, Mend and Empower with ${vision}`, () => {
+      const palette = VISION_PALETTES[vision];
+      const see = (hex: string) => simulateVision(hex, vision);
+      for (const [name, hex] of Object.entries(CRIMSON_HEX)) {
+        for (const role of AGAINST) {
+          const d = deltaE(see(hex), see(palette[role]));
+          expect(d, `${vision}: ${name} ${hex} vs ${role} ${palette[role]}`).toBeGreaterThanOrEqual(
+            20,
+          );
+        }
+        const bear = deltaE(see(hex), see(MARTYR_HEX.blood));
+        expect(bear, `${vision}: ${name} ${hex} vs Bear`).toBeGreaterThanOrEqual(20);
+      }
+    });
+  }
 });

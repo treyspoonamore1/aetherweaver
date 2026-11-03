@@ -397,6 +397,14 @@ export class FieldView {
   private haloSince = 0;
   /** Lab-only override of the hymn circles (they normally need Cantor phase 2). */
   hymnOverride: { x: number; z: number; r: number }[] | null = null;
+  /**
+   * Lab-only override of Vharun's Sanctuary pools (they normally need his Bloodmoon, phase 2;
+   * docs/phase-5a/vfx-audio.md). Never set by the game runtime.
+   */
+  sanctuaryOverride: { x: number; z: number; r: number }[] | null = null;
+  private poolAcc = 0;
+  /** Movement II, drawn last frame (tests, the lab): Sanctuary pools. */
+  readonly drawnM2 = { pools: 0 };
   /** The Calling's look this frame (callingCues.ts). */
   readonly look = emptyLook();
   /** The Luminary, smoothed 0..1: its Sunrise, Eclipse in force, Sovereign Symphony. */
@@ -650,6 +658,84 @@ export class FieldView {
         PARTICLE.note,
         0.3,
         -0.1,
+      );
+    }
+    this.sanctuary(state, kit, dt, time);
+  }
+
+  /**
+   * Vharun's Bloodmoon (Movement II): each Sanctuary pool a teal heal ring with a gold rim and
+   * motes rising from it, as the hymn circles are drawn (healing is halved outside them).
+   * Absent in Movement I (`field.sanctuary` is never there).
+   */
+  /**
+   * The Sanctuary pools drawn this frame: the lab's override, else the sim's; null for none (no
+   * Bloodmoon). Feedback reads it too (the sky, the dimmed heal numbers).
+   */
+  pools(state: WorldState): readonly { x: number; z: number; r: number }[] | null {
+    const pools = this.sanctuaryOverride ?? state.field.sanctuary?.pools;
+    return pools && pools.length > 0 ? pools : null;
+  }
+
+  private sanctuary(state: WorldState, kit: FxKit, dt: number, time: number): void {
+    this.drawnM2.pools = 0;
+    const pools = this.pools(state);
+    if (!pools) return;
+    for (const c of pools) {
+      const breathe = 1 + Math.sin(time * 1.8 + c.x * 0.7) * 0.025;
+      kit.rings.push(
+        c.x,
+        0.03,
+        c.z,
+        c.r * breathe,
+        0.14,
+        0.32,
+        RING.filled,
+        C.heal,
+        0.6,
+        0,
+        7,
+        0.32,
+      );
+      kit.rings.push(c.x, 0.034, c.z, c.r * 1.02, 0.07, 0.14, RING.plain, C.gold, 0.75);
+      kit.rings.push(
+        c.x,
+        0.036,
+        c.z,
+        c.r * 0.78,
+        0.05,
+        0.1,
+        RING.dashed,
+        C.gold,
+        0.55,
+        0,
+        7,
+        0,
+        14,
+        -time * 0.3,
+      );
+      this.poolAcc += dt * 7 * kit.particles.density;
+      this.drawnM2.pools++;
+    }
+    while (this.poolAcc > 1) {
+      this.poolAcc -= 1;
+      const c = pools[Math.floor(Math.random() * pools.length)]!;
+      const a = Math.random() * Math.PI * 2;
+      const r = Math.sqrt(Math.random()) * c.r;
+      kit.particles.emit(
+        c.x + Math.cos(a) * r,
+        0.1,
+        c.z + Math.sin(a) * r,
+        0,
+        1.2 + Math.random() * 0.6,
+        0,
+        1.3,
+        0.12,
+        Math.random() < 0.35 ? C.gold : C.heal,
+        0.85,
+        PARTICLE.dot,
+        0.4,
+        -0.15,
       );
     }
   }

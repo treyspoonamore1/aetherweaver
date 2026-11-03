@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import type { ColorVision } from '../app/colorVision';
 import { CONTENT, enemyDef, heroDef } from '../content';
 import type { EntityId, EntityKind, ReadonlyEntity, WorldState } from '../sim';
+import { BEAM } from './fx/beams';
 import { RING } from './fx/rings';
 import { SHELL } from './fx/shells';
 import { SPRITE } from './fx/sprites';
@@ -31,6 +32,19 @@ import {
   stasisWave,
 } from './chronoCues';
 import { MARTYR_HEX } from './martyrCues';
+import {
+  BLEED_CHIME_AT,
+  CRIMSON_HEX,
+  MAX_PIPS,
+  crimsonStatuses,
+  emptyStatusLook,
+  guardArc,
+  guardBrokenAt,
+  guardHalf,
+  isQuadruped,
+  moveOf,
+  pipOffset,
+} from './crimsonCues';
 import {
   DISSONANCE_HEX,
   RISEN_DESAT,
@@ -151,6 +165,21 @@ export interface EntityRec {
    */
   risen: number;
   rising: number;
+  /**
+   * Movement II (docs/phase-5a/vfx-audio.md). `quad`: a Legion quadruped (a dog's gait).
+   * `guardHalf`: its guard arc's half angle (0: no guard); `guardWasBroken`, `guardFlash`: the
+   * flash as it breaks. `travel`: a charge (1) or leap (2) being drawn from where it stood to
+   * where the sim snapped it (`travelT` of `travelDur` seconds).
+   */
+  quad: boolean;
+  guardHalf: number;
+  guardWasBroken: boolean;
+  guardFlash: number;
+  travel: number;
+  travelT: number;
+  travelDur: number;
+  travelFromX: number;
+  travelFromZ: number;
   lastHp: number;
   alive: boolean;
 }
@@ -199,7 +228,24 @@ interface Ghost {
 const BLACK = new THREE.Color(0, 0, 0);
 const ENEMY_BAR = color('#ef4444');
 const MUTE_GLASS = color('#c4b5fd');
-const AILMENTS = new Set(['dirge', 'silence', 'sleep', 'stun', 'resound', 'shaken']);
+const AILMENTS = new Set([
+  'dirge',
+  'silence',
+  'sleep',
+  'stun',
+  'resound',
+  'shaken',
+  // Movement II (docs/phase-5a.md): the sim's AILMENTS gain the same three.
+  'bleed',
+  'latched',
+  'wound',
+]);
+const GUARD = color(CRIMSON_HEX.guard);
+const PIN = color(CRIMSON_HEX.pin);
+const STAKE = color(CRIMSON_HEX.stake);
+/** How long a leap's arc and a charge's rush are drawn (s): the sim snaps the position. */
+export const LEAP_SECONDS = 0.42;
+export const CHARGE_SECONDS = 0.22;
 const HIST = 26;
 /** Fermata's stillness: the held hero's rim and the suspended motes around them. */
 const FERMATA = color('#e2d6f8');
@@ -327,6 +373,29 @@ export class EntityLayer {
   private readonly ticks = new Float32Array(8);
   /** What was drawn last frame (tests, the lab): risen enemies marked, rising, crown gems, Cue ticks. */
   readonly drawnDis = { risen: 0, rising: 0, gems: 0, cueTicks: 0 };
+  /**
+   * Movement II, what was drawn last frame (tests, the lab): quadrupeds in their gait, a Pounce's
+   * crouch, a charge's lean, leaps and charges in flight, stack pips, Wound hearts, latch
+   * tethers, pin stakes, guard arcs (and broken ones).
+   */
+  readonly drawnM2 = {
+    quadrupeds: 0,
+    crouch: 0,
+    lean: 0,
+    leaps: 0,
+    charges: 0,
+    pips: 0,
+    pipsHot: 0,
+    wounds: 0,
+    tethers: 0,
+    stakes: 0,
+    guardArcs: 0,
+    guardBroken: 0,
+  };
+  /** A hero's Legion statuses this frame (reused). */
+  private readonly m2Look = emptyStatusLook();
+  private readonly arc = { start: 0, len: 0 };
+  private readonly pip = { x: 0, y: 0 };
   /**
    * The enemies' animation clock (real seconds): it stands still while Stasis holds them, so a
    * frozen enemy keeps its pose mid-motion (a stagger's shake, a stun's wobble, a boss's breath).
@@ -462,6 +531,8 @@ export class EntityLayer {
     let role: string = e.kind;
     let tier = 'normal';
     let suppressRadius = 0;
+    let quad = false;
+    let half = 0;
     let affixColor: THREE.Color | null = null;
     const affixColors: THREE.Color[] = [];
     if (e.kind === 'weaver') {
@@ -487,6 +558,8 @@ export class EntityLayer {
       role = def.role;
       tier = e.enemy.tier;
       suppressRadius = def.suppressRadius;
+      quad = isQuadruped(def.id);
+      half = def.guard ? guardHalf(def.id) : 0;
       for (const affix of e.enemy.affixes) {
         const a = CONTENT.affixes.find((x) => x.id === affix);
         if (a) affixColors.push(color(a.color));
@@ -552,6 +625,15 @@ export class EntityLayer {
       prism: 0,
       risen: 0,
       rising: 0,
+      quad,
+      guardHalf: half,
+      guardWasBroken: false,
+      guardFlash: 0,
+      travel: 0,
+      travelT: 0,
+      travelDur: 0,
+      travelFromX: 0,
+      travelFromZ: 0,
       lastHp: e.health?.hp ?? 0,
       alive: true,
     };
@@ -560,6 +642,28 @@ export class EntityLayer {
   }
 
   // ── Event hooks (called by the feedback layer) ─────────────────────────────────────
+
+  /**
+   * A charge or a leap (`attackFired` 'charge' / 'leap', Movement II): the sim snapped the
+   * caster to where it lands; it is drawn rushing (or arcing) there from where it was drawn.
+   */
+  travel(id: EntityId, kind: 'charge' | 'leap', fromX: number, fromZ: number): void {
+    const r = this.recs.get(id);
+    if (!r) return;
+    r.travel = kind === 'leap' ? 2 : 1;
+    r.travelT = 0;
+    r.travelDur = kind === 'leap' ? LEAP_SECONDS : CHARGE_SECONDS;
+    // From where it was last drawn (the event's own start, if it was never drawn).
+    const drawn = r.seen > 0;
+    r.travelFromX = drawn ? r.x : fromX;
+    r.travelFromZ = drawn ? r.z : fromZ;
+  }
+
+  /** A guard broke (`guardBroken`): its arc flashes. */
+  guardBreak(id: EntityId): void {
+    const r = this.recs.get(id);
+    if (r) r.guardFlash = 1;
+  }
 
   hit(id: EntityId, amount = 1): void {
     const r = this.recs.get(id);
@@ -827,6 +931,19 @@ export class EntityLayer {
     this.drawnDis.rising = 0;
     this.drawnDis.gems = 0;
     this.drawnDis.cueTicks = 0;
+    const m2 = this.drawnM2;
+    m2.quadrupeds = 0;
+    m2.crouch = 0;
+    m2.lean = 0;
+    m2.leaps = 0;
+    m2.charges = 0;
+    m2.pips = 0;
+    m2.pipsHot = 0;
+    m2.wounds = 0;
+    m2.tethers = 0;
+    m2.stakes = 0;
+    m2.guardArcs = 0;
+    m2.guardBroken = 0;
     // The Chronomancer's Stasis: the enemies' clock stops and the stillness spreads from her.
     const look = chronoLook(state, this.chrono);
     if (look.stasis && !this.stasisOn) {
@@ -938,11 +1055,12 @@ export class EntityLayer {
     pitch: number,
     roll: number,
     scale: number,
+    scaleY = scale,
   ): THREE.Matrix4 {
     this.e.set(pitch, yaw, roll, 'YXZ');
     this.q.setFromEuler(this.e);
     this.p.set(x, y, z);
-    this.s.set(scale, scale, scale);
+    this.s.set(scale, scaleY, scale);
     return this.m.compose(this.p, this.q, this.s);
   }
 
@@ -1011,8 +1129,21 @@ export class EntityLayer {
       return;
     }
     const alpha = frame.alpha;
-    const x = e.px + (e.x - e.px) * alpha;
-    const z = e.pz + (e.z - e.pz) * alpha;
+    let x = e.px + (e.x - e.px) * alpha;
+    let z = e.pz + (e.z - e.pz) * alpha;
+    // A charge or a leap (Movement II): drawn from where it stood to where the sim put it.
+    let travelK = -1;
+    if (rec.travel > 0) {
+      rec.travelT += dt;
+      const t = clamp01(rec.travelT / rec.travelDur);
+      if (t >= 1) rec.travel = 0;
+      else {
+        travelK = t;
+        const ease = rec.travel === 2 ? t : 1 - (1 - t) * (1 - t);
+        x = rec.travelFromX + (x - rec.travelFromX) * ease;
+        z = rec.travelFromZ + (z - rec.travelFromZ) * ease;
+      }
+    }
     rec.x = x;
     rec.z = z;
     const h = e.health;
@@ -1036,12 +1167,20 @@ export class EntityLayer {
     }
     if (!held && !frozen) rec.yaw = angleApproach(rec.yaw, Math.atan2(-e.fx, -e.fz), 14, dt);
     const speed = held || frozen ? 0 : Math.hypot(e.vx, e.vz);
-    rec.walk += dt * speed * 2.2;
+    rec.walk += dt * speed * (rec.quad ? 3.6 : 2.2);
     const moving = Math.min(1, speed / 2.5);
-    const bob = Math.abs(Math.sin(rec.walk * Math.PI)) * 0.07 * moving * (rec.height / 2);
+    let bob = Math.abs(Math.sin(rec.walk * Math.PI)) * 0.07 * moving * (rec.height / 2);
     let pitch = -0.12 * moving;
     let roll = Math.sin(rec.walk * Math.PI) * 0.04 * moving;
+    if (rec.quad) {
+      // A dog's gait (Movement II): a quicker, deeper bob and a pitch rock, no side sway.
+      bob = Math.abs(Math.sin(rec.walk * Math.PI)) * 0.1 * moving * (rec.height / 2);
+      pitch = -0.05 * moving + Math.sin(rec.walk * Math.PI * 2) * 0.07 * moving;
+      roll = 0;
+      this.drawnM2.quadrupeds++;
+    }
     let y = bob;
+    let scaleY = 1;
     let ox = 0;
     let oz = 0;
     let scale = 1;
@@ -1065,6 +1204,37 @@ export class EntityLayer {
       oz += Math.cos(clock * 49) * 0.1 * k;
       pitch += 0.28 * k;
       if (!frozen) rec.stagger = Math.max(0, rec.stagger - dt * 1.7);
+    }
+    // Movement II: a Pounce's crouch (a squash before the leap) and a charge's lean, read from
+    // the cast; then the leap's arc and the charge's rush while it is drawn travelling.
+    const cast = e.enemy?.cast;
+    if (cast && !held) {
+      const move = moveOf(cast.attackId);
+      if (move) {
+        const k = clamp01((time - cast.start) / Math.max(0.01, cast.end - cast.start));
+        if (move === 'leap') {
+          scaleY *= 1 - 0.26 * k;
+          pitch -= 0.14 * k;
+          ox += Math.sin(clock * 31) * 0.02 * k;
+          this.drawnM2.crouch++;
+        } else {
+          // Braced, leaning in over the pike, a shudder as it is about to go.
+          pitch -= 0.32 * k;
+          ox += Math.sin(clock * 37) * 0.025 * k * k;
+          this.drawnM2.lean++;
+        }
+      }
+    }
+    if (travelK >= 0) {
+      if (rec.travel === 2) {
+        y += Math.sin(Math.PI * travelK) * (1.4 + rec.radius * 0.8);
+        pitch += 0.35 - 0.7 * travelK;
+        scaleY *= 1 + 0.12 * Math.sin(Math.PI * travelK);
+        this.drawnM2.leaps++;
+      } else {
+        pitch -= 0.5;
+        this.drawnM2.charges++;
+      }
     }
     // The Martyr's flinch: a small recoil back and a shudder.
     if (rec.flinch > 0.01 && !held) {
@@ -1245,7 +1415,7 @@ export class EntityLayer {
       }
     }
 
-    const m = this.compose(x + ox, y, z + oz, rec.yaw, pitch, roll, scale);
+    const m = this.compose(x + ox, y, z + oz, rec.yaw, pitch, roll, scale, scale * scaleY);
     if (isHero) {
       // The Luminary's Radiance: a hero standing in the field shines (brighten in ~0.15 s,
       // fade out in ~0.5 s, so stepping in and out reads without a pop).
@@ -1328,6 +1498,7 @@ export class EntityLayer {
     else if (e.kind === 'weaver') this.weaverExtras(rec, e, kit, dt);
     if (h) this.shields(rec, e, state, kit);
     if (h) this.ailments(rec, e, kit, dt);
+    if (h && h.statuses.length > 0 && !h.dead) this.crimson(rec, e, kit, dt);
     if (h) rec.lastHp = h.hp;
   }
 
@@ -1754,6 +1925,39 @@ export class EntityLayer {
       );
       kit.rings.push(x, 0.03, z, R, 0.07, 0.2, RING.dashed, MUTE_GLASS, 0.55, 0, 7, 0.04, 40);
     }
+    // The Crimson Sentinel's guard (Movement II): a brass arc at its feet facing the *sim's*
+    // guard direction, the sector it blocks faintly filled; cracked while broken, with a flash.
+    const guard = enemy.guard;
+    if (guard && rec.guardHalf > 0 && !h?.dead) {
+      const broken = guardBrokenAt(guard, state.time);
+      if (broken && !rec.guardWasBroken) rec.guardFlash = 1;
+      rec.guardWasBroken = broken;
+      const arc = guardArc(guard, rec.guardHalf, this.arc);
+      const R = rec.radius * 1.9 + 0.35;
+      kit.rings.push(
+        x,
+        0.034,
+        z,
+        R,
+        0.16,
+        0.22,
+        RING.guard,
+        GUARD,
+        broken ? 0.4 : 0.9,
+        arc.start,
+        arc.len,
+        broken ? 0 : 0.14,
+        broken ? 1 : 0,
+      );
+      this.drawnM2.guardArcs++;
+      if (broken) this.drawnM2.guardBroken++;
+      if (rec.guardFlash > 0.01) {
+        const f = rec.guardFlash;
+        kit.rings.push(x, 0.05, z, R * (1 + 0.5 * (1 - f)), 0.12, 0.3, RING.plain, C.white, f);
+        kit.sprites.push(x, rec.height * 0.5, z, rec.radius * 2.4 * f + 0.4, SPRITE.glow, GUARD, f);
+        rec.guardFlash = Math.max(0, rec.guardFlash - this.frameDt * 2.5);
+      }
+    }
     // Caster/support: their focus glows brighter while casting.
     if (enemy.cast) {
       kit.sprites.push(
@@ -2029,6 +2233,105 @@ export class EntityLayer {
           );
           break;
       }
+    }
+  }
+
+  /**
+   * The Legion's statuses on a hero or the Weaver (docs/phase-5a/vfx-audio.md): bleed's violet
+   * pips over the head (glowing from 5, where Chime answers) and its drips, Wound's cracked
+   * heart, a latch's violet tether to its Leech, a pin's steel stake and amber ring.
+   */
+  private crimson(rec: EntityRec, e: ReadonlyEntity, kit: FxKit, dt: number): void {
+    const look = this.m2Look;
+    if (!crimsonStatuses(e, look)) return;
+    const x = rec.x;
+    const z = rec.z;
+    const top = rec.height + rec.y;
+    if (look.bleed > 0) {
+      const n = Math.min(look.bleed, MAX_PIPS);
+      const hot = look.bleed >= BLEED_CHIME_AT;
+      const pulse = hot ? 0.75 + 0.25 * Math.sin(this.now * 8) : 0;
+      this.tmpColor.copy(C.ailment);
+      if (hot) this.tmpColor.lerp(C.white, 0.3 * pulse);
+      for (let i = 0; i < n; i++) {
+        pipOffset(i, n, this.pip);
+        kit.sprites.push(
+          x + this.pip.x,
+          top + 1.02 + this.pip.y,
+          z,
+          hot ? 0.15 : 0.12,
+          SPRITE.drop,
+          this.tmpColor,
+          hot ? 1 : 0.85,
+          0,
+          1,
+          hot ? pulse : 0,
+        );
+      }
+      this.drawnM2.pips += n;
+      if (hot) {
+        kit.sprites.push(x, top + 1.02, z, 0.25 + 0.12 * n, SPRITE.glow, C.ailment, 0.3 * pulse);
+        this.drawnM2.pipsHot++;
+      }
+      // Drips: more stacks, more drops falling off them.
+      rec.sparkleAcc += dt * (1.5 + look.bleed) * kit.particles.density;
+      while (rec.sparkleAcc > 1) {
+        rec.sparkleAcc -= 1;
+        const a = Math.random() * Math.PI * 2;
+        const r = rec.radius * 0.6;
+        kit.particles.emit(
+          x + Math.cos(a) * r,
+          rec.height * (0.4 + Math.random() * 0.4) + rec.y,
+          z + Math.sin(a) * r,
+          0,
+          -0.6,
+          0,
+          0.7,
+          0.09,
+          C.ailment,
+          0.9,
+          PARTICLE.dot,
+          0.5,
+          -4,
+        );
+      }
+    }
+    if (look.wound) {
+      const bob = Math.sin(this.now * 3) * 0.04;
+      kit.sprites.push(
+        x - rec.radius - 0.2,
+        top + 0.62 + bob,
+        z,
+        0.26,
+        SPRITE.wound,
+        C.ailment,
+        0.95,
+      );
+      this.drawnM2.wounds++;
+    }
+    if (look.latchedBy >= 0) {
+      const src = this.recs.get(look.latchedBy);
+      if (src && src.dying < 0) {
+        const ay = src.height * 0.5 + src.y;
+        const by = rec.height * 0.5 + rec.y;
+        kit.beams.push(src.x, ay, src.z, x, by, z, 0.12, BEAM.dashed, C.ailment, 0.9, 1, 1, -2.2);
+        kit.beams.push(src.x, ay, src.z, x, by, z, 0.4, BEAM.glow, C.ailment, 0.35);
+        this.drawnM2.tethers++;
+      }
+    }
+    if (look.pinned) {
+      kit.sprites.push(
+        x + rec.radius * 0.7,
+        rec.height * 0.55 + rec.y,
+        z,
+        0.55,
+        SPRITE.stake,
+        STAKE,
+        0.95,
+      );
+      kit.rings.push(x, 0.035, z, rec.radius * 1.6, 0.1, 0.18, RING.plain, PIN, 0.9);
+      kit.rings.push(x, 0.036, z, rec.radius * 2.0, 0.05, 0.08, RING.dashed, PIN, 0.6, 0, 7, 0, 8);
+      this.drawnM2.stakes++;
     }
   }
 

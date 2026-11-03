@@ -3,6 +3,7 @@ import { CONTENT, heroDef } from '../content';
 import { vowHoldsAt, type EntityId, type WorldState } from '../sim';
 import type { EntityLayer } from './entities';
 import type { AllyBarView } from './overlay';
+import { executeBelowOf } from './crimsonCues';
 
 /** A hit's white trail holds this long (s), then drains at this share of max life a second. */
 export const TRAIL_HOLD = 0.4;
@@ -76,6 +77,9 @@ export class PartyBarsView {
         dim: weaver ? Math.hypot(e.x - weaver.x, e.z - weaver.z) > reach : false,
         pulse: level === 2 || lethal ? 0.5 + 0.5 * Math.sin(time * 9) : 0,
       };
+      // Execution (Movement II): its threshold as a notch on the bar of the hero it marks.
+      const notch = executionOn(state, id);
+      if (notch > 0) bar.notch = notch;
       this.drawn.push({ ...bar, id });
       overlay?.allyBar(rec.x, rec.height + BAR_LIFT + rec.y, rec.z, bar);
     });
@@ -97,5 +101,15 @@ export class PartyBarsView {
 }
 
 const DEFAULT_KEYS = ['1', '2', '3', '4'];
+
+/** The threshold of an Execution marking `id` (a share of max life), or 0 for none. */
+export function executionOn(state: WorldState, id: EntityId): number {
+  for (const t of state.telegraphs) {
+    if (t.shape.kind !== 'mark' || t.shape.target !== id) continue;
+    const below = executeBelowOf(t);
+    if (below > 0) return below;
+  }
+  return 0;
+}
 
 const clamp01 = (v: number) => (v < 0 ? 0 : v > 1 ? 1 : v);
