@@ -5,7 +5,14 @@
 import { heroDef } from '../../content';
 import type { HeroDef } from '../../content/schema';
 import { distSq } from '../core/dmath';
-import { addShield, interruptEnemy, isActive, rising, shieldOf } from '../combat/health';
+import {
+  addShield,
+  dealDamage,
+  interruptEnemy,
+  isActive,
+  rising,
+  shieldOf,
+} from '../combat/health';
 import { bark } from '../combat/feedback';
 import type { Entity } from '../state';
 import type { World } from '../world';
@@ -97,12 +104,13 @@ export function updateSolo(world: World, hero: Entity, dt: number): boolean {
   if (id === 'galeBarrage') galeBarrage(world, hero, def);
   else if (id === 'starfall') starfall(world, hero, def);
   else if (id === 'hawks_vigil') hawksVigil(world, hero, def);
+  else if (id === 'redFrenzy') redFrenzy(world, hero, def);
   if (h.soloActive <= 0) {
     finishSolo(world, hero);
     return false;
   }
   // Gale Barrage and Hawk's Vigil root Lyra unless cued; Starfall always roots Vexis; the
-  // others never root.
+  // others never root (Red Frenzy: Brann keeps chasing as he spins).
   if (id === 'galeBarrage' || id === 'hawks_vigil') return !h.soloCued;
   return id === 'starfall';
 }
@@ -144,6 +152,50 @@ function finishSolo(world: World, hero: Entity): void {
 
 const GALE_RATE = 1 / 12;
 const STAR_RATE = 0.3;
+
+/**
+ * Red Frenzy (Brann, docs/phase-5b.md): a whirlwind. Every `pulse` s it cuts every enemy within
+ * its `radius` for `power` × his axe hit (through heroDamage, so Blood Rage counts). Cued, his
+ * lifesteal drinks `cuedPower` times as deep (blood.ts `onBloodHit`). Not rooted, no axe swings.
+ */
+function redFrenzy(world: World, hero: Entity, def: HeroDef): void {
+  const h = hero.hero!;
+  const solo = def.solo;
+  const every = Math.max(0.05, solo.pulse ?? 0.5);
+  const radius = solo.radius ?? 0;
+  while (h.soloPulseAt <= world.time && h.soloActive > 0) {
+    h.soloPulseAt += every;
+    world.events.push({
+      type: 'attackFired',
+      tick: world.tick,
+      source: hero.id,
+      target: null,
+      visual: 'cleave',
+      fromX: hero.x,
+      fromZ: hero.z,
+      toX: hero.x,
+      toZ: hero.z,
+      travel: 0,
+    });
+    let hit: ReturnType<typeof heroDamage> | null = null;
+    for (const m of world.entities.list()) {
+      if (!m.enemy || !isActive(m) || rising(m)) continue;
+      if (distSq(m.x, m.z, hero.x, hero.z) > (radius + m.radius) * (radius + m.radius)) continue;
+      // One roll a pulse: every enemy it cuts takes the same blow.
+      hit ??= heroDamage(world, hero, def.attack.damage * solo.power, 0);
+      dealDamage(world, m, {
+        source: hero.id,
+        sourceName: solo.name,
+        amount: hit.amount,
+        amplified: hit.amplified,
+        aura: hit.aura,
+        empower: hit.empower,
+        crit: hit.crit,
+        empowered: hit.empowered,
+      });
+    }
+  }
+}
 
 function galeBarrage(world: World, hero: Entity, def: HeroDef): void {
   const h = hero.hero!;

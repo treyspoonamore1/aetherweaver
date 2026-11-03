@@ -9,6 +9,7 @@ import { weaverShare } from '../src/meta/run';
 import {
   chordReserve,
   createSim,
+  isWeaverVia,
   type EntityId,
   type Sim,
   type SimConfig,
@@ -56,6 +57,30 @@ export interface EncounterRun {
   executions: number;
   /** Under the Bloodmoon: the share of hero-time spent inside a Sanctuary pool; else null. */
   timeInSanctuary: number | null;
+  /** Brann's fight (docs/phase-5b.md, "Bots and harness"); absent without him in the party. */
+  brann?: BrannTally;
+}
+
+/**
+ * How a Blood Rage hero's fight went (docs/phase-5b.md, "Bands"): the share of his alive time
+ * below 40% and 30% life, his downs, the Weaver's (effective, halved) healing on him, the Wards
+ * and Perfect Wards he got, what his axe drank and its share of all the healing he took, the
+ * Resonance Blood and Silk made, Deathless's windows, and the Rallies he refused out of all the
+ * Rallies called.
+ */
+export interface BrannTally {
+  lowShare40: number;
+  lowShare30: number;
+  downs: number;
+  weaverHealOn: number;
+  wardsOn: number;
+  perfectsOn: number;
+  lifesteal: number;
+  lifestealShare: number;
+  silkResonance: number;
+  deathless: number;
+  refusedRallies: number;
+  rallies: number;
 }
 
 const MAX_SECONDS = 9 * 60;
@@ -175,12 +200,124 @@ export class VerbTally {
   }
 }
 
+/** Blood and Silk's Resonance line (src/sim/systems/thread.ts `SILK_BELOW`). */
+const SILK_BELOW = 0.3;
+
+/**
+ * Tallies a Blood Rage hero's fight (`BrannTally`), tick by tick. `BrannWatch.of` is null
+ * without one in the party, so a default party's `EncounterRun` never gains the key.
+ */
+export class BrannWatch {
+  private downs = 0;
+  private weaverHeal = 0;
+  private otherHeal = 0;
+  private wards = 0;
+  private perfects = 0;
+  private silk = 0;
+  private deathless = 0;
+  private refused = 0;
+  private rallies = 0;
+  private rallyTick = -1;
+  private lastTime: number;
+
+  private constructor(
+    readonly id: EntityId,
+    sim: Sim,
+  ) {
+    this.lastTime = sim.state.time;
+  }
+
+  /** A watch on the party's Blood Rage hero (Brann), or null when it has none. */
+  static of(sim: Sim): BrannWatch | null {
+    const id = sim.state.party.find((p) => sim.state.entities.get(p)?.hero?.blood !== undefined);
+    return id === undefined ? null : new BrannWatch(id, sim);
+  }
+
+  tick(sim: Sim, events: readonly SimEvent[]): void {
+    const state = sim.state;
+    for (const e of events) {
+      switch (e.type) {
+        case 'allyDowned':
+          if (e.hero === this.id) this.downs++;
+          break;
+        case 'healApplied':
+          if (e.target !== this.id || e.via === 'lifesteal') break;
+          if (isWeaverVia(e.via)) this.weaverHeal += e.amount;
+          else this.otherHeal += e.amount;
+          break;
+        case 'techniqueCast':
+          if (e.technique === 'ward' && e.target === this.id) this.wards++;
+          break;
+        case 'perfectWard':
+          if (e.target === this.id) this.perfects++;
+          break;
+        case 'talentFired':
+          if (e.talent === 'deathless' && e.hero === this.id) this.deathless++;
+          break;
+        case 'bloodlust':
+          if (e.hero === this.id) this.refused++;
+          break;
+        case 'directiveAck':
+          // One ack a hero: count the Rally once.
+          if (e.directive === 'rally' && e.tick !== this.rallyTick) {
+            this.rallyTick = e.tick;
+            this.rallies++;
+          }
+          break;
+        default:
+          break;
+      }
+    }
+    // Blood and Silk's Resonance is silent in the sim: read it off the rule it follows.
+    const dt = state.time - this.lastTime;
+    this.lastTime = state.time;
+    const v = state.mods.bloodAndSilk;
+    const w = state.entities.get(state.weaverId)?.weaver;
+    const h = state.entities.get(this.id)?.health;
+    if (
+      v > 0 &&
+      dt > 0 &&
+      w &&
+      h &&
+      w.crescendo <= 0 &&
+      w.threadMode === 'empower' &&
+      w.threadSlot !== null &&
+      state.party[w.threadSlot] === this.id &&
+      !h.downed &&
+      h.hp < h.maxHp * SILK_BELOW
+    )
+      this.silk += v * dt * state.mods.resonanceMult;
+  }
+
+  result(sim: Sim): BrannTally {
+    const b = sim.state.entities.get(this.id)?.hero?.blood;
+    const alive = b?.aliveTime ?? 0;
+    const lifesteal = b?.lifesteal ?? 0;
+    const received = lifesteal + this.weaverHeal + this.otherHeal;
+    return {
+      lowShare40: alive > 0 ? (b?.lowTime ?? 0) / alive : 0,
+      lowShare30: alive > 0 ? (b?.low30Time ?? 0) / alive : 0,
+      downs: this.downs,
+      weaverHealOn: this.weaverHeal,
+      wardsOn: this.wards,
+      perfectsOn: this.perfects,
+      lifesteal,
+      lifestealShare: received > 0 ? lifesteal / received : 0,
+      silkResonance: this.silk,
+      deathless: this.deathless,
+      refusedRallies: this.refused,
+      rallies: this.rallies,
+    };
+  }
+}
+
 export function playEncounter(config: SimConfig, bot: BotKind): EncounterRun {
   const sim = createSim(config);
   const player = makeBot(bot, config.seed);
   const maxTicks = MAX_SECONDS * 60;
   let incoming = 0;
   const verbs = new VerbTally();
+  const brann = BrannWatch.of(sim);
   for (let t = 0; t < maxTicks; t++) {
     sim.step(player.decide(sim.state));
     const events = sim.drainEvents();
@@ -189,6 +326,7 @@ export function playEncounter(config: SimConfig, bot: BotKind): EncounterRun {
         incoming += e.amount + e.absorbed;
     }
     verbs.tick(sim, events);
+    brann?.tick(sim, events);
     const s = sim.state.encounter.status;
     if (s === 'victory' || s === 'defeat') break;
   }
@@ -230,6 +368,7 @@ export function playEncounter(config: SimConfig, bot: BotKind): EncounterRun {
     executeCasts: verbs.executeCasts,
     executions: verbs.executions,
     timeInSanctuary: verbs.timeInSanctuary,
+    ...(brann ? { brann: brann.result(sim) } : {}),
   };
 }
 
@@ -254,6 +393,81 @@ export interface RunSummary {
   movementReached: number;
   /** Minutes of combat in each Movement, Movement I first. */
   minutesByMovement: number[];
+  /**
+   * Blood and Silk's reachability (docs/phase-5b.md, "Other gates"); only for a party with
+   * Brann. `silkOffered`: draft and shop offers that held it; `silkOfferedEligible`: those made
+   * while both its prerequisites were owned; `prereqsOwned`: both were owned at some offer.
+   */
+  harmony?: { silkOffered: number; silkOfferedEligible: number; prereqsOwned: boolean };
+}
+
+/** The Harmony the harness watches for (docs/phase-5b.md), and what it needs owned. */
+const SILK = 'blood_and_silk';
+const SILK_NEEDS: readonly string[] =
+  CONTENT.motifs.find((m) => m.id === SILK)?.requires.motifs ?? [];
+
+/** Records Blood and Silk's offers as a run's drafts and shops come up (`RunSummary.harmony`). */
+class HarmonyWatch {
+  silkOffered = 0;
+  silkOfferedEligible = 0;
+  prereqsOwned = false;
+  /** The draft or shop already looked at (each offer counts once, however many phases it spans). */
+  private seen: unknown = null;
+
+  look(run: RunState): void {
+    const offer = run.phase === 'draft' ? run.draft : run.phase === 'merchant' ? run.shop : null;
+    if (!offer || offer === this.seen) return;
+    this.seen = offer;
+    const owned =
+      SILK_NEEDS.length > 0 && SILK_NEEDS.every((id) => run.motifs.some((m) => m.id === id));
+    if (owned) this.prereqsOwned = true;
+    const held =
+      run.phase === 'draft'
+        ? (run.draft?.options.some((o) => o.motifId === SILK) ?? false)
+        : (run.shop?.items.some((i) => i.kind === 'motif' && i.id === SILK) ?? false);
+    if (!held) return;
+    this.silkOffered++;
+    if (owned) this.silkOfferedEligible++;
+  }
+}
+
+type SetParty = (run: RunState, heroIds: readonly string[], roster: readonly string[]) => RunState;
+
+/**
+ * Prep's party choice (docs/phase-5b.md): `Run.setParty` (exactly 3 distinct roster heroes, in
+ * content order, fresh, the Bond choices of heroes who left dropped). Until the meta layer's
+ * lands beside it, the same rule here.
+ */
+const setParty: SetParty =
+  (Run as unknown as { setParty?: SetParty }).setParty ??
+  ((run, heroIds, roster) => {
+    const known = CONTENT.heroes.map((h) => h.id);
+    const ok =
+      run.phase === 'prep' &&
+      heroIds.length === 3 &&
+      new Set(heroIds).size === 3 &&
+      heroIds.every((id) => known.includes(id) && roster.includes(id));
+    if (!ok) return run;
+    const ids = known.filter((id) => heroIds.includes(id));
+    if (ids.join() === run.party.map((h) => h.heroId).join()) return run;
+    return {
+      ...run,
+      party: ids.map((heroId) => ({ heroId, hpPct: 1, shaken: false })),
+      bonds: run.bonds.filter((b) => ids.includes(b.heroId)),
+    };
+  });
+
+/** The run's party, as `playRun`'s `party` option asks: exactly 3 distinct known heroes. */
+export function withParty(run: RunState, party: readonly string[]): RunState {
+  const next = setParty(
+    run,
+    party,
+    CONTENT.heroes.map((h) => h.id),
+  );
+  const want = CONTENT.heroes.map((h) => h.id).filter((id) => party.includes(id));
+  if (party.length !== 3 || next.party.map((h) => h.heroId).join() !== want.join())
+    throw new Error(`Not a party of 3 known heroes: ${party.join(',')}`);
+  return next;
 }
 
 /** The most phases a run may take; a run that needs more is stuck, and `playRun` throws. */
@@ -392,11 +606,16 @@ export function playRun(
      * keeps its baseline); 2, an Expedition through the Crimson Legion.
      */
     movements?: number;
+    /**
+     * The party (docs/phase-5b.md): 3 hero ids, set in Prep as `Run.setParty` does (content
+     * order); absent, the default party, so every calibrated report keeps its baseline.
+     */
+    party?: readonly string[];
   } = {},
 ): RunSummary {
   const relics = opts.relics ?? true;
   const movements = opts.movements ?? 1;
-  const fresh = Run.newRun(
+  const created = Run.newRun(
     seed,
     undefined,
     opts.astrolabe ?? [],
@@ -406,6 +625,11 @@ export function playRun(
     { ...noVariants(), ...opts.techniques },
     movements,
   );
+  const fresh = opts.party ? withParty(created, opts.party) : created;
+  // Blood and Silk's offers, for a party with a Blood Rage hero only.
+  const harmony = fresh.party.some((h) => CONTENT.heroes.find((d) => d.id === h.heroId)?.passive)
+    ? new HarmonyWatch()
+    : null;
   let run = Run.embark(Run.setCalling(Run.setChords(fresh, chords), opts.calling ?? null));
   if (opts.tiersOpen !== undefined && run.calling) run = Run.setCallingTiers(run, opts.tiersOpen);
   let seconds = 0;
@@ -413,6 +637,7 @@ export function playRun(
   let last = '';
   for (let guard = 0; guard < MAX_PHASES && run.phase !== 'summary'; guard++) {
     opts.onPhase?.(run.phase, run);
+    harmony?.look(run);
     switch (run.phase) {
       case 'map': {
         const options = Run.reachable(run);
@@ -508,5 +733,14 @@ export function playRun(
     }, {}),
     movementReached: run.path.reduce((m, id) => Math.max(m, movementOfNode(run, id)), 1),
     minutesByMovement: byMovement.map((s) => s / 60),
+    ...(harmony
+      ? {
+          harmony: {
+            silkOffered: harmony.silkOffered,
+            silkOfferedEligible: harmony.silkOfferedEligible,
+            prereqsOwned: harmony.prereqsOwned,
+          },
+        }
+      : {}),
   };
 }

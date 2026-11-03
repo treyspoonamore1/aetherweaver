@@ -41,6 +41,7 @@ import type {
 } from './state';
 import { relicFired } from './combat/feedback';
 import { formationSlot } from './systems/formation';
+import { newBlood } from './systems/blood';
 
 /** A party member as configured by the run (or a test). */
 export interface PartyMemberConfig {
@@ -989,6 +990,8 @@ export function createWorld(config: SimConfig): World {
         })),
         pastAt: 0,
         afterglowUntil: 0,
+        // Blood Rage (docs/phase-5b.md): only a hero whose def has `passive` carries it.
+        ...(def.passive ? { blood: newBlood() } : {}),
       },
     });
     if (member.shaken) {

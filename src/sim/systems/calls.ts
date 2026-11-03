@@ -16,6 +16,7 @@ import type { CallAnswer, Entity } from '../state';
 import { weaverOf, type World } from '../world';
 import { hasTalent, talentValue } from '../bonds';
 import { slotCost } from '../variants';
+import { leapTarget } from './blood';
 
 /** A call opens no earlier than this much of the answer time before the move is ready. */
 const MIN_LEAD = 0.6;
@@ -46,6 +47,10 @@ export function canCall(world: World, e: Entity, def: HeroDef): boolean {
   if (ready > answerTime || ready < answerTime * MIN_LEAD) return false;
   if (hero.cast || hero.soloActive > 0 || hero.hold || hasStatus(e, 'silence') || isDisabled(e))
     return false;
+  // A move with a minimum reach (Brann's Sunder Leap, docs/phase-5b.md) calls only when it has
+  // an enemy in its band: no call while he's already in contact.
+  const ability = def.abilities[def.call.ability];
+  if (ability.minRange !== undefined && !leapTarget(world, e, ability)) return false;
   // Danger first: no calls while anything lethal is on the board.
   for (const t of world.telegraphs) if (t.severity === 'lethal') return false;
   for (const id of world.party) if (world.entities.get(id)?.hero?.call) return false;

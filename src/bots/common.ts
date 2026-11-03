@@ -2,6 +2,7 @@ import { CONTENT, encounterDef } from '../content';
 import { contains, telegraphDamage } from '../sim/combat/telegraphs';
 import { quantize } from '../sim/core/dmath';
 import { rewindCanRevive } from '../sim/systems/rewind';
+import { bloodlusting, fallingFast } from '../sim';
 import type {
   Command,
   DeepReadonly,
@@ -386,4 +387,71 @@ export function plantSpot(party: readonly HeroView[]): { x: number; z: number } 
 
 export function plantCommand(at: { x: number; z: number }): Command {
   return { t: 'plant', point: { x: quantize(at.x, AIM_STEP), z: quantize(at.z, AIM_STEP) } };
+}
+
+// ── Brann, the Bloodsworn (docs/phase-5b.md, "Bots and harness") ─────────────────────
+
+/** The party's hero with this def, or null (a slot by defId: the roster moves keys). */
+export function heroByDef(party: readonly HeroView[], defId: string): HeroView | null {
+  return party.find((h) => h.defId === defId) ?? null;
+}
+
+/** The slot of the party's hero with this def, or null when it isn't in the party. */
+export function slotOf(state: WorldState, defId: string): PartySlot | null {
+  const slot = state.party.findIndex((id) => state.entities.get(id)?.hero?.defId === defId);
+  return slot < 0 ? null : (slot as PartySlot);
+}
+
+/** Below this effective life the bots Mend Brann; above it he's where he fights best. */
+export const BRANN_FLOOR = 0.25;
+/** With Berserker's Hymn the bots let him sit lower: his healthy band is 0.15–0.30. */
+export const BRANN_HYMN_FLOOR = 0.15;
+
+/**
+ * What the bots read of a Blood Rage hero (Brann), through the sim's own rules
+ * (`bloodlusting`, `fallingFast`): where he stands against his 40% line, whether he'd refuse a
+ * Rally, whether he's dropping faster than he has life, and whether a hit on the way would kill
+ * him.
+ */
+export interface BloodView {
+  hero: HeroView;
+  /** Below his quirk's line (40%): Bloodlust, Blood Tithe and the Ward-first rule hold. */
+  low: boolean;
+  /** Bloodlust holds now: he won't come back for a Rally. */
+  lusting: boolean;
+  fast: boolean;
+  /** A telegraph on him (an Execution aside) would take more than his life and shields. */
+  lethal: boolean;
+  /** The effective life the bots Mend him up to (BRANN_FLOOR, or the Hymn's band). */
+  floor: number;
+}
+
+/** The party's Blood Rage hero, read for the bots; null without one (every default party). */
+export function bloodOf(state: WorldState, party: readonly HeroView[]): BloodView | null {
+  const hero = party.find((h) => h.e.hero!.blood !== undefined);
+  if (!hero) return null;
+  const e = hero.e;
+  const h = e.health!;
+  const below = CONTENT.heroes.find((d) => d.id === hero.defId)?.quirk.below ?? 0;
+  return {
+    hero,
+    low: h.hp < h.maxHp * below,
+    lusting: bloodlusting(CONTENT, e),
+    fast: fallingFast(e),
+    // An Execution isn't counted: a Ward or a Reel answers it, never a Mend his cut halves.
+    lethal: threatsOn(state, e).some(
+      (t) => t.executeBelow === undefined && damageOf(t, e) >= h.hp + shieldOf(e),
+    ),
+    floor: e.hero!.talents.includes('berserkers_hymn') ? BRANN_HYMN_FLOOR : BRANN_FLOOR,
+  };
+}
+
+/**
+ * The bots' Mend need for a hero (lower is more urgent): its effective life, except that Brann
+ * reads as healthy (1) while he holds his floor, isn't falling fast and no lethal hit is on him.
+ */
+export function mendNeed(h: HeroView, blood: BloodView | null): number {
+  const f = effectiveFraction(h.e);
+  if (!blood || blood.hero.slot !== h.slot) return f;
+  return f >= blood.floor && !blood.fast && !blood.lethal ? 1 : f;
 }

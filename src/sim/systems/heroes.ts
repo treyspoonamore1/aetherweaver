@@ -31,6 +31,7 @@ import { hasTalent, ricochet, talentFired, talentValue } from '../bonds';
 import { nearestEnemy, soloSpec, startSolo, tickSoloClock, updateSolo } from './solos';
 import { approachVelocity, arrive } from './steering';
 import { empowerBonus } from './thread';
+import { BERSERKER_LEASH, bloodletCost, bloodlusting, leapTarget, tickBlood } from './blood';
 
 const desired = { x: 0, z: 0 };
 const slotPos = { x: 0, z: 0 };
@@ -43,6 +44,10 @@ const GLORY_TIME = 5;
 const FLANK_MARGIN = 35;
 /** Event Horizon (Bonds) draws enemies this deep into the field (its radius's share), no deeper. */
 const HORIZON_DEPTH = 0.75;
+/** Sunder Leap lands this far short of its target's edge (docs/phase-5b.md). */
+const LEAP_SHORT = 1.2;
+/** Bloodletting is used only above this share of his life. */
+const BLOODLET_ABOVE = 0.5;
 
 export function updateHeroes(world: World, dt: number): void {
   const weaver = weaverOf(world);
@@ -53,6 +58,8 @@ export function updateHeroes(world: World, dt: number): void {
     const h = e?.health;
     if (!e || !hero || !h) continue;
     const def = heroDef(hero.defId);
+    // Blood Rage (docs/phase-5b.md): Brann's own clocks, whatever he's doing.
+    if (hero.blood) tickBlood(world, e, dt);
 
     // A Reel also drags a downed hero's body out of danger.
     if (hero.reel && !h.dead) {
@@ -190,7 +197,10 @@ export function updateHeroes(world: World, dt: number): void {
       target !== null &&
       distSq(e.x, e.z, target.x, target.z) <=
         sqr(attackRange(world, e, def.attack.range) + target.radius + e.radius);
-    if (target && inRange && hero.attackCooldown <= 0) basicAttack(world, e, def, target);
+    // Red Frenzy (docs/phase-5b.md): he spins instead of swinging his axe.
+    const frenzy = hero.soloId === 'redFrenzy' && hero.soloActive > 0;
+    if (target && inRange && hero.attackCooldown <= 0 && !frenzy)
+      basicAttack(world, e, def, target);
 
     if (pinned) root(e, dt);
     else combatMove(world, weaver, e, def, target, dt);
@@ -297,7 +307,10 @@ function combatMove(
   dt: number,
 ): void {
   const hero = e.hero!;
-  if (world.internal.rallyUntil > world.time || !target) {
+  // Brann (docs/phase-5b.md): bloodlusting, he refuses the Rally and has no leash.
+  const berserker = def.role === 'berserker';
+  const lust = berserker && bloodlusting(world.content, e);
+  if ((world.internal.rallyUntil > world.time && !lust) || !target) {
     formationMove(weaver, e, def, dt);
     return;
   }
@@ -307,11 +320,15 @@ function combatMove(
   if (hero.follow === 'hold') {
     desired.x = hero.holdX;
     desired.z = hero.holdZ;
-    if (tank && distSq(target.x, target.z, hero.holdX, hero.holdZ) < sqr(4))
+    if ((tank || berserker) && distSq(target.x, target.z, hero.holdX, hero.holdZ) < sqr(4))
       chase(e, target, reach);
   } else if (tank) {
     chase(e, target, reach);
     if (!glory) leash(weaver, TANK_LEASH);
+  } else if (berserker) {
+    // The berserker chases to reach: no kite, no flank, never gives ground.
+    chase(e, target, reach);
+    if (!lust) leash(weaver, BERSERKER_LEASH);
   } else if (flank(world, e, def, target)) {
     // Focus on a guarded enemy: out of its arc, whatever the Weaver's leash says.
     clampToArena(world, desired);
@@ -437,7 +454,8 @@ function updateReel(world: World, e: Entity, dt: number): void {
 
 function chooseTarget(world: World, weaver: Entity, e: Entity, def: HeroDef): Entity | null {
   const hero = e.hero!;
-  if (world.internal.rallyUntil > world.time)
+  const berserker = def.role === 'berserker';
+  if (world.internal.rallyUntil > world.time && !(berserker && bloodlusting(world.content, e)))
     return nearestEnemy(world, e, attackRange(world, e, def.attack.range), hero.targetId);
   const focus = world.focusTarget === null ? undefined : world.entities.get(world.focusTarget);
   if (focus?.enemy && isActive(focus) && !rising(focus)) return focus;
@@ -445,6 +463,7 @@ function chooseTarget(world: World, weaver: Entity, e: Entity, def: HeroDef): En
   const found = hero.targetId === null ? undefined : world.entities.get(hero.targetId);
   // A target standing up again (Restless Dead) is left until it has.
   const current = found && rising(found) ? undefined : found;
+  if (berserker) return berserkerTarget(world, e, def, current);
   if (def.role === 'tank') {
     if (hero.quirk > 0 && current?.enemy && isActive(current)) return current;
     // Peel: whatever is hitting a squishy (or the Weaver) near the party.
@@ -488,35 +507,83 @@ function chooseTarget(world: World, weaver: Entity, e: Entity, def: HeroDef): En
   return best;
 }
 
+/**
+ * The berserker's target (docs/phase-5b.md): the one he's on while it's in reach, else the
+ * nearest enemy. (The Focus, and a Rally he obeys, were decided before.)
+ */
+function berserkerTarget(
+  world: World,
+  e: Entity,
+  def: HeroDef,
+  current: Entity | undefined,
+): Entity | null {
+  const reach = attackRange(world, e, def.attack.range) + e.radius;
+  if (
+    current?.enemy &&
+    isActive(current) &&
+    distSq(current.x, current.z, e.x, e.z) <= sqr(reach + current.radius)
+  )
+    return current;
+  let best: Entity | null = null;
+  let bestD = Infinity;
+  for (const m of world.entities.list()) {
+    if (!m.enemy || !isActive(m) || m.enemy.state === 'spawning' || rising(m)) continue;
+    const d = distSq(m.x, m.z, e.x, e.z);
+    if (d > sqr(20) || d >= bestD) continue;
+    best = m;
+    bestD = d;
+  }
+  return best;
+}
+
 // ── Attacks and abilities ─────────────────────────────────────────────────────────────
 
 function basicAttack(world: World, e: Entity, def: HeroDef, target: Entity): void {
   const hero = e.hero!;
   hero.attackCooldown = def.attack.interval;
-  const hit = heroDamage(world, e, def.attack.damage, 0, true);
+  // Bloodletting (docs/phase-5b.md): an empowered swing hits harder, all round him.
+  const blood = hero.blood;
+  const bloodlet = !!blood && blood.bloodlet > 0;
+  let base = def.attack.damage;
+  if (blood && bloodlet) {
+    base *= 1 + (def.abilities.find((a) => a.id === 'bloodletting')?.hitBonus ?? 0);
+    blood.bloodlet--;
+  }
+  const hit = heroDamage(world, e, base, 0, true);
   if (def.attack.projectileSpeed <= 0) {
+    const cleave = def.attack.cleave;
     world.events.push({
       type: 'attackFired',
       tick: world.tick,
       source: e.id,
       target: target.id,
-      visual: 'melee',
+      visual: cleave ? 'cleave' : 'melee',
       fromX: e.x,
       fromZ: e.z,
       toX: target.x,
       toZ: target.z,
       travel: 0,
     });
+    let amount = hit.amount;
+    let amplified = hit.amplified;
+    // Blood Oath (Bonds): the overheal he banked rides on this swing, your healing's doing.
+    if (blood && blood.oathBank > 0) {
+      amount += blood.oathBank;
+      amplified += blood.oathBank;
+      blood.oathBank = 0;
+      talentFired(world, e, 'blood_oath', target.x, target.z, target.id);
+    }
     dealDamage(world, target, {
       source: e.id,
       sourceName: def.name,
-      amount: hit.amount,
-      amplified: hit.amplified,
+      amount,
+      amplified,
       aura: hit.aura,
       empower: hit.empower,
       crit: hit.crit,
       empowered: hit.empowered,
     });
+    if (cleave) cleaveAround(world, e, def, target, hit, bloodlet ? 360 : cleave.arcDeg);
     return;
   }
   const d = len(target.x - e.x, target.z - e.z);
@@ -549,6 +616,51 @@ function basicAttack(world: World, e: Entity, def: HeroDef, target: Entity): voi
     toZ: target.z,
     travel,
   });
+}
+
+/**
+ * The axe's cleave (docs/phase-5b.md): every other enemy within its radius, in its arc toward
+ * the target (all round him when Bloodlet), takes its share of the swing.
+ */
+function cleaveAround(
+  world: World,
+  e: Entity,
+  def: HeroDef,
+  target: Entity,
+  hit: ReturnType<typeof heroDamage>,
+  arcDeg: number,
+): void {
+  const cleave = def.attack.cleave!;
+  let fx = target.x - e.x;
+  let fz = target.z - e.z;
+  const m0 = len(fx, fz);
+  if (m0 > 1e-6) {
+    fx /= m0;
+    fz /= m0;
+  } else {
+    fx = e.fx;
+    fz = e.fz;
+  }
+  const all = arcDeg >= 360;
+  const minCos = dcos(((arcDeg / 2) * Math.PI) / 180);
+  for (const m of world.entities.list()) {
+    if (m === target || !m.enemy || !isActive(m) || rising(m)) continue;
+    const dx = m.x - e.x;
+    const dz = m.z - e.z;
+    const d = len(dx, dz);
+    if (d > cleave.radius + m.radius) continue;
+    if (!all && d > 1e-6 && (dx * fx + dz * fz) / d < minCos) continue;
+    dealDamage(world, m, {
+      source: e.id,
+      sourceName: def.name,
+      amount: hit.amount * cleave.pct,
+      amplified: hit.amplified * cleave.pct,
+      aura: hit.aura * cleave.pct,
+      empower: hit.empower * cleave.pct,
+      crit: hit.crit,
+      empowered: hit.empowered,
+    });
+  }
 }
 
 function startCast(
@@ -649,6 +761,18 @@ function tryAbilities(world: World, e: Entity, def: HeroDef, target: Entity): bo
       case 'starbolt':
         if (inReach(target)) return beginAbility(world, e, def, index, target, target.x, target.z);
         break;
+      // Brann (docs/phase-5b.md).
+      case 'sunderLeap': {
+        const t = leapTarget(world, e, ability);
+        if (t) return beginAbility(world, e, def, index, t, t.x, t.z);
+        break;
+      }
+      case 'bloodletting': {
+        const h = e.health!;
+        if (hero.blood && h.hp > h.maxHp * BLOODLET_ABOVE && inReach(target))
+          return beginAbility(world, e, def, index, target, e.x, e.z);
+        break;
+      }
     }
   }
   return false;
@@ -959,7 +1083,84 @@ function executeAbility(
       if (hasTalent(e, 'starthread')) starthread(world, e, def, power, radius);
       return;
     }
+    case 'sunderLeap': {
+      // A gap-closer slam (docs/phase-5b.md): he lands just short of it and hits all round.
+      if (!isActive(target)) return;
+      const fromX = e.x;
+      const fromZ = e.z;
+      const land = leapLanding(world, e, target);
+      e.x = land.x;
+      e.z = land.z;
+      e.vx = 0;
+      e.vz = 0;
+      world.events.push({
+        type: 'attackFired',
+        tick: world.tick,
+        source: e.id,
+        target: target.id,
+        visual: 'leap',
+        fromX,
+        fromZ,
+        toX: e.x,
+        toZ: e.z,
+        travel: 0,
+      });
+      const radius = ability.radius * radiusMult;
+      emit(e.x, e.z, radius);
+      for (const m of world.entities.list()) {
+        if (!m.enemy || !isActive(m)) continue;
+        if (distSq(m.x, m.z, e.x, e.z) > sqr(radius + m.radius)) continue;
+        if (m.enemy.cast?.interruptible) interruptEnemy(world, m, e.id);
+        if (ability.stun > 0) addStatus(world, m, 'stun', ability.stun, e.id);
+        hitEnemy(m, ability.damage);
+      }
+      return;
+    }
+    case 'bloodletting': {
+      // He cuts his own palm: life spent, not damage taken (no ledger, threat, Fermata or recap).
+      const h = e.health!;
+      const blood = e.hero!.blood;
+      if (!blood) return;
+      const cost = bloodletCost(h.hp, h.maxHp, ability);
+      emit(e.x, e.z, 0);
+      if (!(cost > 0)) return;
+      h.hp -= cost;
+      blood.spent += cost;
+      blood.bloodlet = ability.hits ?? 0;
+      world.events.push({ type: 'lifeSpent', tick: world.tick, hero: e.id, amount: cost });
+      return;
+    }
   }
+}
+
+const landing = { x: 0, z: 0 };
+/**
+ * Where Sunder Leap sets him down: `LEAP_SHORT` m short of the target's edge, along his line to
+ * it, inside the arena and clear of pillars.
+ */
+function leapLanding(world: World, e: Entity, target: Entity): { x: number; z: number } {
+  const dx = target.x - e.x;
+  const dz = target.z - e.z;
+  const d = len(dx, dz);
+  const back = Math.min(d, target.radius + LEAP_SHORT);
+  landing.x = d > 1e-6 ? target.x - (dx / d) * back : e.x;
+  landing.z = d > 1e-6 ? target.z - (dz / d) * back : e.z;
+  const max = world.arenaRadius - e.radius;
+  const r = len(landing.x, landing.z);
+  if (r > max) {
+    landing.x = (landing.x / r) * max;
+    landing.z = (landing.z / r) * max;
+  }
+  for (const o of world.obstacles) {
+    const ox = landing.x - o.x;
+    const oz = landing.z - o.z;
+    const min = o.r + e.radius;
+    const od = len(ox, oz);
+    if (od >= min) continue;
+    landing.x = o.x + (od < 1e-9 ? min : (ox / od) * min);
+    landing.z = o.z + (od < 1e-9 ? 0 : (oz / od) * min);
+  }
+  return landing;
 }
 
 function nearestAt(world: World, x: number, z: number, radius: number): Entity | null {

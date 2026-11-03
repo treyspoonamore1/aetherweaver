@@ -34,6 +34,7 @@ import {
   ownShield,
   removeShield,
   removeStatus,
+  scarTissueMult,
   shieldOf,
   totalShield,
 } from './health';
@@ -459,10 +460,13 @@ function perfect(
   if (ward) removeShield(world, e, 'ward', true);
   // Echo Ward (the Chronomancer): it comes back a moment later, weaker. An echo doesn't echo.
   if (ward && world.mods.echoWardPct > 0 && !ward.echo && e.hero) {
+    // Scar Tissue (docs/phase-5b.md) is already in the Ward's max; the echo's addShield adds it.
+    const scar = scarTissueMult(world, e);
+    const amount = ward.max * world.mods.echoWardPct;
     world.internal.echoWards.push({
       hero: e.id,
       at: world.time + world.mods.echoWardDelay,
-      amount: ward.max * world.mods.echoWardPct,
+      amount: scar !== 1 ? amount / scar : amount,
     });
   }
   world.ledger.perfects++;

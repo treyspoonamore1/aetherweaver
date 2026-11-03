@@ -13,6 +13,8 @@ import { weaverOf, type World } from '../world';
 import { reject } from './techniques';
 
 const MEND_FLUSH = 0.5;
+/** Blood and Silk counts while Brann is below this share of his life (docs/phase-5b.md). */
+const SILK_BELOW = 0.3;
 
 export function attachThread(world: World, slot: PartySlot): void {
   const weaver = weaverOf(world);
@@ -229,5 +231,14 @@ export function updateThread(world: World, dt: number): void {
   ) {
     gainResonance(world, world.content.resonance.gains.empowerPerSec * dt, 'empower', true);
   }
+  // Blood and Silk (a Harmony, docs/phase-5b.md): Empowering Brann below 30% rings for you.
+  if (
+    world.mods.bloodAndSilk > 0 &&
+    w.threadMode === 'empower' &&
+    c.blood &&
+    !h.downed &&
+    h.hp < h.maxHp * SILK_BELOW
+  )
+    gainResonance(world, world.mods.bloodAndSilk * dt, 'blood_and_silk', true);
   // Bear works in the damage code (combat/health.ts `bearShareOf`).
 }
