@@ -167,6 +167,55 @@ export const TALENTS: ContentInput['talents'] = [
     values: { interval: 1.5, seconds: 6 },
     text: 'Each Cue leaves a star where the hero stands, casting Vexis’s arcane bolt at the nearest enemy every {interval} s for {seconds} s.',
   },
+  // ── Brann (docs/phase-5b.md), appended after the starters. ──
+  {
+    id: 'iron_will',
+    hero: 'brann',
+    tier: 1,
+    name: 'Iron Will',
+    values: { pct: 40 },
+    text: 'While your Ward holds him, Brann answers a Rally even below {pct}% life.',
+  },
+  {
+    id: 'red_mist',
+    hero: 'brann',
+    tier: 1,
+    name: 'Red Mist',
+    values: { max: 100 },
+    text: 'Blood Rage can reach +{max}% damage.',
+  },
+  {
+    id: 'blood_oath',
+    hero: 'brann',
+    tier: 2,
+    name: 'Blood Oath',
+    values: { cap: 25 },
+    text: 'Your healing on Brann is no longer halved, and what overheals him, up to {cap}% of his life, rides on his next swing.',
+  },
+  {
+    id: 'scar_tissue',
+    hero: 'brann',
+    tier: 2,
+    name: 'Scar Tissue',
+    values: { pct: 30 },
+    text: 'Your barriers on Brann are {pct}% stronger.',
+  },
+  {
+    id: 'deathless',
+    hero: 'brann',
+    tier: 3,
+    name: 'Deathless',
+    values: { pct: 10, seconds: 3 },
+    text: 'The first time Brann falls to {pct}% life in a fight, he can’t die for {seconds} s.',
+  },
+  {
+    id: 'berserkers_hymn',
+    hero: 'brann',
+    tier: 3,
+    name: 'Berserker’s Hymn',
+    values: { below: 30, pct: 15 },
+    text: 'While Brann is below {below}% life, every hero deals {pct}% more damage.',
+  },
 ];
 
 export const ALT_SOLOS: ContentInput['altSolos'] = [
@@ -198,6 +247,15 @@ export const ALT_SOLOS: ContentInput['altSolos'] = [
     values: { seconds: 5, hits: 2 },
     text: 'For {seconds} s, a sphere around the hero you Thread swallows the next {hits} hits on them, whole, telegraphs included. Choose whom you Thread.',
     cuedText: 'Cued: every hero in your field gets a sphere of {hits} hits.',
+  },
+  {
+    id: 'blood_brother',
+    hero: 'brann',
+    name: 'Blood Brother',
+    chargeTime: 25,
+    values: { seconds: 6, pct: 16, cuedPct: 8 },
+    text: 'For {seconds} s, Brann’s axe feeds the hero you Thread: {pct}% of his damage heals them instead of him.',
+    cuedText: 'Cued: it heals every hero in your field, {cuedPct}% each.',
   },
 ];
 
@@ -405,6 +463,75 @@ export const SCENES: ContentInput['scenes'] = [
         text: 'Draw me in anyway.',
         response:
           '“In what ink?” But she takes out her pen and draws a small, careful star in the gap, and doesn’t join it to anything.',
+      },
+    ],
+  },
+  // ── Brann (docs/phase-5b.md). ──
+  {
+    id: 'brann_collar',
+    hero: 'brann',
+    rank: 2,
+    title: 'The Collar',
+    lines: [
+      {
+        speaker: 'narration',
+        text: 'By the fire, Brann works a file at the iron collar the Legion welded round his neck. It doesn’t give.',
+      },
+      {
+        speaker: 'hero',
+        text: 'Nine years I sang the war song for Vharun. Nine years at the front of his line.',
+      },
+      {
+        speaker: 'hero',
+        text: 'Then they told me to cut down the Spire’s prisoners. I cut my own palm instead, and swore on the blood that I never would.',
+      },
+      {
+        speaker: 'hero',
+        text: 'So they gave me this. A collar for the dog that wouldn’t bite.',
+      },
+    ],
+    replies: [
+      {
+        text: 'Let me help with that.',
+        response:
+          'He shakes his head and sets the file down. “Leave it. I want to remember what it cost.”',
+      },
+      {
+        text: 'You chose them over yourself.',
+        response:
+          '“I chose.” He turns the scarred palm to the fire. “That’s the part they couldn’t take.”',
+      },
+    ],
+  },
+  {
+    id: 'brann_war_song',
+    hero: 'brann',
+    rank: 7,
+    title: 'The War Song',
+    lines: [
+      {
+        speaker: 'narration',
+        text: 'Brann is humming the song from the cell, low, into the dark past the firelight.',
+      },
+      {
+        speaker: 'hero',
+        text: 'It’s made for a whole Legion. A thousand throats, and the drums under them.',
+      },
+      {
+        speaker: 'hero',
+        text: 'One voice can’t carry it. Alone it just sounds like grief.',
+      },
+    ],
+    replies: [
+      {
+        text: 'Then sing it with mine.',
+        response:
+          'You weave a thread of your own song under his. He falters, then finds the beat again, and for a while the dark sounds less empty.',
+      },
+      {
+        text: 'Teach me the words.',
+        response:
+          'He laughs, rough and surprised. “There are nine hundred of them.” He starts at the first one anyway, slowly, so you can follow.',
       },
     ],
   },

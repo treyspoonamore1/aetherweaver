@@ -469,9 +469,13 @@ export const LEGION_EVENTS: ContentInput['events'] = [
       {
         id: 'free',
         label: 'Free the prisoner',
-        text: 'An elite fight. Win, and choose one of 3 relics.',
-        effects: [{ kind: 'fight', encounter: 'legion_vanguard', relics: 3 }],
+        text: 'An elite fight. Win, choose one of 3 relics, and the prisoner joins your heroes for your next runs.',
+        effects: [{ kind: 'fight', encounter: 'legion_vanguard', relics: 3, recruit: 'brann' }],
         outcome: 'His guards turn on you. Behind the bars, the prisoner grins.',
+        // The roster (docs/phase-5b.md): the copy stays true once he's free.
+        recruitedText: 'An elite fight. Win, and choose one of 3 relics.',
+        partyText:
+          'Brann stops at the bars of his old cell. “Someone else is in there now. Open it.”',
       },
       {
         id: 'leave',
@@ -503,5 +507,16 @@ export const LEGION_DEEDS: DeedDef[] = [
     grade: 'S',
     values: {},
     text: 'Beat {encounter} with an {grade}.',
+  },
+  // Brann's badge (docs/phase-5b.md): seen only once he's in the roster.
+  {
+    id: 'in_the_red',
+    name: 'In the Red',
+    points: 0,
+    test: 'heroCeiling',
+    hero: 'brann',
+    encounter: 'vharun',
+    values: { pct: 40 },
+    text: 'Beat {encounter}, with {hero}, never letting him above {pct}% life once he first falls to it.',
   },
 ];

@@ -45,8 +45,10 @@ import {
   type DeedsOpen,
 } from '../src/ui/screens/deedsModel';
 
+/** The Deeds a player sees before any recruit: a hero's Deed waits for the roster (docs/phase-5b.md). */
+const SHOWN = CONTENT.deeds.filter((d) => d.hero === undefined);
 const LADDER = CONTENT.deeds.filter((d) => d.points > 0);
-const BADGES = CONTENT.deeds.filter((d) => d.points <= 0);
+const BADGES = SHOWN.filter((d) => d.points <= 0);
 const COUNTING = CONTENT.deeds.filter(isCounting);
 /** The Deed for answering calls over a run, and the one for answering every call in a fight. */
 const HEARD = CONTENT.deeds.find((d) => d.test === 'runCount' && d.stat === 'responses')!;
@@ -77,8 +79,8 @@ describe('the Codex’s Deeds', () => {
     expect(v.ladder.map((r) => r.id)).toEqual(LADDER.map((d) => d.id));
     expect(v.badges.map((r) => r.id)).toEqual(BADGES.map((d) => d.id));
     // The ladder comes first in content, so the page reads in content order throughout.
-    expect([...v.ladder, ...v.badges].map((r) => r.id)).toEqual(CONTENT.deeds.map((d) => d.id));
-    expect(v.total).toBe(CONTENT.deeds.length);
+    expect([...v.ladder, ...v.badges].map((r) => r.id)).toEqual(SHOWN.map((d) => d.id));
+    expect(v.total).toBe(SHOWN.length);
     expect(LADDER.length).toBe(DEED_POINTS_MAX);
     for (const [i, row] of v.ladder.entries()) {
       const d = deedDef(row.id);
@@ -118,7 +120,7 @@ describe('the Codex’s Deeds', () => {
       [BADGES[0]!.id],
       LADDER.slice(0, 3).map((d) => d.id),
       [...LADDER.slice(0, 4), ...BADGES.slice(0, 5)].map((d) => d.id),
-      CONTENT.deeds.map((d) => d.id),
+      SHOWN.map((d) => d.id),
     ];
     for (const earned of cases) {
       const v = deedsView(held(earned), ALL_OPEN);
@@ -127,7 +129,7 @@ describe('the Codex’s Deeds', () => {
       expect(v.points).toBe(points);
       expect(v.pointsMax).toBe(DEED_POINTS_MAX);
       expect(v.header).toBe(
-        `${earned.length} of ${CONTENT.deeds.length} earned · ${points} of ${DEED_POINTS_MAX} Astrolabe points from Deeds`,
+        `${earned.length} of ${SHOWN.length} earned · ${points} of ${DEED_POINTS_MAX} Astrolabe points from Deeds`,
       );
     }
     // Ids content doesn't know don't count.

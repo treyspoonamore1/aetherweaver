@@ -261,4 +261,25 @@ export const MOTIFS: ContentInput['motifs'] = [
     text: 'When the Crescendo ends, you keep {v} Resonance.',
     tags: ['crescendo', 'resonance'],
   },
+  // ── Brann (docs/phase-5b.md), appended last: his Bond motif and the Harmony it opens. ──
+  {
+    id: 'blood_tithe',
+    name: 'Blood Tithe',
+    category: 'bond',
+    rarity: 'rare',
+    values: [50, 60, 70],
+    text: 'While Brann is below 40% life, your Wards on him are {v}% stronger and give back 10 Spirit when they break.',
+    requires: { hero: 'brann' },
+    tags: ['shield', 'ward'],
+  },
+  {
+    id: 'blood_and_silk',
+    name: 'Blood and Silk',
+    category: 'bond',
+    rarity: 'epic',
+    values: [3],
+    text: 'While Brann is below 30% life and you Empower him, your Thread makes {v} Resonance a second.',
+    requires: { hero: 'brann', motifs: ['blood_tithe', 'taut_release'] },
+    tags: ['harmony', 'thread', 'resonance'],
+  },
 ];

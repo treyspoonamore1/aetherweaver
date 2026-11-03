@@ -23,6 +23,7 @@ import { loadProfile, loadRun, type KeyValueStore } from '../../src/meta/save';
 import type { EncounterResult, EncounterStats, RunState } from '../../src/meta/types';
 import type { SaveCause } from '../../src/sim';
 import { emptyLedger } from '../../src/sim/world';
+import { deedsInSight } from '../../src/ui/screens/routeText';
 
 function memoryStore(): KeyValueStore {
   const data = new Map<string, string>();
@@ -174,21 +175,43 @@ beforeEach(() => {
 });
 
 describe('the Deeds', () => {
-  it('twenty-two, ten of them giving a point, each text filled from its data', () => {
-    expect(CONTENT.deeds).toHaveLength(22);
+  it('twenty-three, ten of them giving a point, each text filled from its data', () => {
+    expect(CONTENT.deeds).toHaveLength(23);
     expect(CONTENT.deeds.filter((d) => d.points === 1)).toHaveLength(DEED_POINTS_MAX);
     for (const d of CONTENT.deeds) expect(deedText(d), d.id).not.toMatch(/[{}]/);
     expect(deedText(deed('unrung'))).toBe('Beat the Bellwarden with no hero going down.');
     expect(deedText(deed('dawns_herald'))).toBe('Win a run as the Luminary.');
     // Movement II's two badges (docs/phase-5a.md): no point, after Movement I's twenty.
+    // …and Brann's (docs/phase-5b.md), after them.
     expect(CONTENT.deeds.slice(20).map((d) => [d.id, d.points])).toEqual([
       ['crimson_crowned', 0],
       ['pack_leader', 0],
+      ['in_the_red', 0],
     ]);
+    expect(deedText(deed('in_the_red'))).toBe(
+      'Beat Vharun, the Crimson Warden, with Brann, never letting him above 40% life once he first falls to it.',
+    );
     expect(deedText(deed('crimson_crowned'))).toBe(
       'Beat Vharun, the Crimson Warden, with no hero going down.',
     );
     expect(deedText(deed('pack_leader'))).toBe('Beat the Gorehound Matriarch with an S.');
+  });
+
+  it('a hero’s Deed is in sight only with a roster that has the hero (docs/phase-5b.md)', () => {
+    const all = CONTENT.enemies.map((e) => e.id);
+    const plain = deedsInSight(all).map((d) => d.id);
+    expect(plain).toHaveLength(22);
+    expect(plain).not.toContain('in_the_red');
+    expect(deedsInSight(all, ['kael', 'lyra', 'vexis']).map((d) => d.id)).toEqual(plain);
+    expect(deedsInSight(all, ['kael', 'lyra', 'vexis', 'brann']).map((d) => d.id)).toEqual(
+      CONTENT.deeds.map((d) => d.id),
+    );
+    // Its fight is Movement II's: not before the Spire is sighted, roster or not.
+    const prelude = newProfile().seen;
+    expect(deedsInSight(prelude, ['brann']).map((d) => d.id)).toEqual(
+      deedsInSight(prelude).map((d) => d.id),
+    );
+    expect(deedsInSight(prelude).map((d) => d.id)).not.toContain('in_the_red');
   });
 
   it('every one can be earned, and a near miss doesn’t earn it', () => {

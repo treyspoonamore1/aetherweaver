@@ -176,6 +176,9 @@ export const LEGION_ATTACKS: ContentInput['attacks'] = [
     decreeLimit: 2,
     decree:
       'Twin Cleave — two blows on one hero. One Ward won’t hold both: a second Ward, Kael’s dome, a Reel, or a full health bar.',
+    // Without a dome in the party (docs/phase-5b.md): the HUD shows this instead.
+    decreeNoDome:
+      'Twin Cleave — two blows on one hero. One Ward won’t hold both: a second Ward, a Reel, or a full health bar.',
   },
   {
     ...BASE,

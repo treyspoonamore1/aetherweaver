@@ -161,6 +161,19 @@ describe("Brann's pure rules (docs/phase-5b.md)", () => {
     expect(deathlessActive({ time: 1 }, entity('kael', { hp: 1, blood: null }))).toBe(false);
   });
 
+  it("the content's Brann plays by the same rules", () => {
+    const brann = (o: Opts) => entity('brann', { maxHp: 1250, ...o });
+    expect(weaverHealCut(CONTENT, brann({ hp: 600 }), 'mend')).toBe(0.5);
+    expect(weaverHealCut(CONTENT, brann({ hp: 600 }), 'revive')).toBe(1);
+    expect(bloodRageBonus(CONTENT, brann({ hp: 500 }))).toBeCloseTo(0.6, 12);
+    expect(bloodRageBonus(CONTENT, brann({ hp: 0, talents: ['red_mist'] }))).toBe(1);
+    expect(bloodlusting(CONTENT, brann({ hp: 499 }))).toBe(true);
+    expect(
+      bloodlusting(CONTENT, brann({ hp: 499, talents: ['iron_will'], shields: ['ward'] })),
+    ).toBe(false);
+    expect(weaverHealCut(CONTENT, brann({ hp: 600, talents: ['blood_oath'] }), 'mend')).toBe(1);
+  });
+
   it('partyHasDome: a party with Kael (Aegis Wall) has one; any other does not', () => {
     expect(partyHasDome(CONTENT.defaultParty)).toBe(true);
     expect(partyHasDome(['kael'])).toBe(true);

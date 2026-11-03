@@ -2,11 +2,14 @@ import { describe, expect, it } from 'vitest';
 import { CONTENT } from '../src/content';
 import { EffectBundleSchema } from '../src/content/effects';
 import { ContentSchema } from '../src/content/schema';
+import { KNOWN_ALT_SOLOS, KNOWN_TALENTS } from '../src/sim/bonds';
+import { KNOWN_MOTIFS } from '../src/sim/mods';
 import { STATUS } from '../src/ui/hud/labels';
 
 describe('content', () => {
   it('validates and has the starter party', () => {
-    expect(CONTENT.heroes.map((h) => h.id)).toEqual(['kael', 'lyra', 'vexis']);
+    // Brann is appended (docs/phase-5b.md); the default party is still the three starters.
+    expect(CONTENT.heroes.map((h) => h.id)).toEqual(['kael', 'lyra', 'vexis', 'brann']);
     expect(CONTENT.defaultParty).toEqual(['kael', 'lyra', 'vexis']);
   });
 
@@ -17,6 +20,260 @@ describe('content', () => {
     const unknown = structuredClone(CONTENT);
     unknown.defaultParty = ['kael', 'nobody'];
     expect(ContentSchema.safeParse(unknown).success).toBe(false);
+  });
+});
+
+describe('Brann, the Bloodsworn (docs/phase-5b.md)', () => {
+  const brann = CONTENT.heroes.find((h) => h.id === 'brann')!;
+
+  it('ships at the doc’s numbers', () => {
+    expect(brann).toMatchObject({
+      name: 'Brann',
+      title: 'the Bloodsworn',
+      role: 'berserker',
+      color: '#b91c1c',
+      maxHp: 1250,
+      armor: 0.15,
+      moveSpeed: 7.4,
+      radius: 0.7,
+      height: 2.1,
+      formation: { forward: 2, right: 1.9 },
+      preferredRange: 1.4,
+      threatMult: 1.5,
+      dodge: 0,
+      attack: {
+        kind: 'melee',
+        damage: 84,
+        interval: 1.3,
+        range: 2.4,
+        projectileSpeed: 0,
+        chain: 0,
+        cleave: { arcDeg: 120, radius: 2.8, pct: 0.5 },
+      },
+      passive: {
+        id: 'bloodRage',
+        perMissing: 1,
+        maxBonus: 0.8,
+        lifesteal: 0.08,
+        weaverHealMult: 0.5,
+      },
+      recruit: { event: 'bloodsworn_cell', fallback: 'vharun' },
+    });
+    expect(brann.abilities[0]).toMatchObject({
+      id: 'sunderLeap',
+      cooldown: 10,
+      castTime: 0,
+      damage: 120,
+      radius: 3,
+      range: 9,
+      minRange: 4,
+      stun: 0.5,
+    });
+    expect(brann.abilities[1]).toMatchObject({
+      id: 'bloodletting',
+      cooldown: 14,
+      lifeCost: 0.1,
+      lifeFloor: 0.2,
+      hits: 3,
+      hitBonus: 0.4,
+    });
+    expect(brann.call).toMatchObject({ ability: 0, answer: 'ward', answerTime: 2 });
+    expect(brann.call.flourish).toMatchObject({
+      name: 'Red Comet',
+      damageMult: 1.6,
+      radiusMult: 1.5,
+      stun: 1,
+    });
+    expect(brann.solo).toMatchObject({
+      id: 'redFrenzy',
+      chargeTime: 25,
+      duration: 5,
+      power: 0.6,
+      cuedPower: 3,
+      radius: 3.5,
+      pulse: 0.5,
+    });
+    expect(brann.quirk).toMatchObject({ id: 'bloodlust', below: 0.4 });
+    expect(Object.keys(brann.barks)).toEqual([
+      'quirk',
+      'lowHp',
+      'saved',
+      'perfect',
+      'cued',
+      'downed',
+      'revived',
+      'defiant',
+    ]);
+    expect(brann.needs).toMatch(/Wards and barriers/);
+  });
+
+  it('the starters gain no key, and no starter has the roster fields', () => {
+    for (const id of CONTENT.defaultParty) {
+      const h = CONTENT.heroes.find((x) => x.id === id)!;
+      for (const k of ['passive', 'needs', 'recruit']) expect(k in h, `${id}.${k}`).toBe(false);
+      expect('cleave' in h.attack, id).toBe(false);
+      expect('defiant' in h.barks, id).toBe(false);
+      expect('below' in h.quirk, id).toBe(false);
+      for (const k of ['radius', 'pulse']) expect(k in h.solo, `${id}.solo.${k}`).toBe(false);
+      for (const ab of h.abilities)
+        for (const k of ['minRange', 'lifeCost', 'lifeFloor', 'hits', 'hitBonus'])
+          expect(k in ab, `${id}.${ab.id}.${k}`).toBe(false);
+    }
+  });
+
+  it('his Bonds, motifs, Deed and the Cell are appended, and the sim knows their ids', () => {
+    const bonds = CONTENT.talents.filter((t) => t.hero === 'brann');
+    expect(bonds.map((t) => [t.id, t.tier])).toEqual([
+      ['iron_will', 1],
+      ['red_mist', 1],
+      ['blood_oath', 2],
+      ['scar_tissue', 2],
+      ['deathless', 3],
+      ['berserkers_hymn', 3],
+    ]);
+    expect(CONTENT.talents.slice(-6)).toEqual(bonds);
+    expect(KNOWN_TALENTS.slice(-6)).toEqual(bonds.map((t) => t.id));
+    expect(CONTENT.altSolos.at(-1)).toMatchObject({
+      id: 'blood_brother',
+      hero: 'brann',
+      chargeTime: 25,
+      values: { seconds: 6, pct: 16, cuedPct: 8 },
+    });
+    expect(KNOWN_ALT_SOLOS.at(-1)).toBe('blood_brother');
+    expect(CONTENT.scenes.filter((x) => x.hero === 'brann').map((x) => [x.id, x.rank])).toEqual([
+      ['brann_collar', 2],
+      ['brann_war_song', 7],
+    ]);
+    expect(CONTENT.motifs.slice(-2).map((m) => [m.id, m.rarity, m.values])).toEqual([
+      ['blood_tithe', 'rare', [50, 60, 70]],
+      ['blood_and_silk', 'epic', [3]],
+    ]);
+    expect(CONTENT.motifs.at(-1)!.requires).toEqual({
+      hero: 'brann',
+      motifs: ['blood_tithe', 'taut_release'],
+    });
+    expect(CONTENT.motifs.at(-1)!.tags).toContain('harmony');
+    expect(KNOWN_MOTIFS.slice(-2)).toEqual(['blood_tithe', 'blood_and_silk']);
+    expect(CONTENT.deeds.at(-1)).toMatchObject({
+      id: 'in_the_red',
+      points: 0,
+      test: 'heroCeiling',
+      hero: 'brann',
+      encounter: 'vharun',
+      values: { pct: 40 },
+    });
+    const cell = CONTENT.events.find((e) => e.id === 'bloodsworn_cell')!;
+    expect(cell.choices.map((c) => c.id)).toEqual(['free', 'leave']);
+    expect(cell.choices[0]!.effects).toEqual([
+      { kind: 'fight', encounter: 'legion_vanguard', relics: 3, recruit: 'brann' },
+    ]);
+    expect(cell.choices[0]!.recruitedText).toBeDefined();
+    expect(cell.choices[0]!.partyText).toBeDefined();
+    const noDome = CONTENT.attacks.filter((a) => a.decreeNoDome !== undefined);
+    expect(noDome.map((a) => a.id).sort()).toEqual(['cantor_requiem', 'vharun_twin_cleave'].sort());
+    for (const a of noDome) {
+      expect(a.decreeNoDome, a.id).not.toMatch(/dome|Kael/);
+      expect(a.decree, a.id).toMatch(/dome/);
+    }
+  });
+});
+
+describe('content lint: the roster (docs/phase-5b.md)', () => {
+  const rejects = (edit: (c: typeof CONTENT) => void, message: RegExp) => {
+    const c = structuredClone(CONTENT);
+    edit(c);
+    const parsed = ContentSchema.safeParse(c);
+    expect(parsed.success).toBe(false);
+    expect(parsed.error!.issues.map((i) => i.message).join('\n')).toMatch(message);
+  };
+  const hero = (c: typeof CONTENT, id: string) => c.heroes.find((h) => h.id === id)!;
+  const cell = (c: typeof CONTENT) => c.events.find((e) => e.id === 'bloodsworn_cell')!;
+
+  it('the default party names each hero once', () => {
+    rejects((c) => void (c.defaultParty = ['kael', 'lyra', 'kael']), /each hero once/);
+  });
+
+  it('starters have no recruit; every other hero has one, through a real fight', () => {
+    rejects(
+      (c) => void (hero(c, 'kael').recruit = { event: 'bloodsworn_cell' }),
+      /"kael" is in the default party/,
+    );
+    rejects((c) => void delete hero(c, 'brann').recruit, /"brann" needs a recruit/);
+    rejects(
+      (c) => void (hero(c, 'brann').recruit = { event: 'unsung_choir' }),
+      /no fight that recruits/,
+    );
+    rejects(
+      (c) => void (hero(c, 'brann').recruit = { event: 'bloodsworn_cell', fallback: 'nowhere' }),
+      /recruit fallback references unknown "nowhere"/,
+    );
+    rejects((c) => {
+      const e = cell(c).choices[0]!.effects[0]!;
+      if (e.kind === 'fight') e.recruit = 'nobody';
+    }, /recruit references unknown "nobody"/);
+  });
+
+  it('recruit texts only on a choice whose fight recruits', () => {
+    rejects(
+      (c) => void (cell(c).choices[1]!.partyText = 'x'),
+      /recruit texts need a fight that recruits/,
+    );
+  });
+
+  it('formation spots are 1.5 m apart', () => {
+    rejects(
+      (c) => void (hero(c, 'brann').formation = { forward: 2.4, right: 0.5 }),
+      /"kael" and "brann": formation spots/,
+    );
+  });
+
+  it("each new kind's fields, and minRange below range", () => {
+    rejects((c) => void delete hero(c, 'brann').abilities[0].minRange, /needs minRange/);
+    rejects((c) => void (hero(c, 'brann').abilities[0].minRange = 9), /minRange is below range/);
+    rejects(
+      (c) => void delete hero(c, 'brann').abilities[1].hits,
+      /needs lifeCost, lifeFloor, hits and hitBonus/,
+    );
+    rejects((c) => void delete hero(c, 'brann').solo.pulse, /needs radius and pulse/);
+    rejects((c) => void delete hero(c, 'brann').quirk.below, /bloodlust" needs below/);
+  });
+
+  it('a passive needs a Needs line, and a Codex that names healing', () => {
+    rejects((c) => void delete hero(c, 'brann').needs, /needs a Needs line/);
+    rejects((c) => void (hero(c, 'brann').codex = 'A Legion champion.'), /its Codex names healing/);
+  });
+
+  it('a Harmony names real motifs, not itself, and is hero-gated', () => {
+    const silk = (c: typeof CONTENT) => c.motifs.find((m) => m.id === 'blood_and_silk')!;
+    rejects(
+      (c) => void (silk(c).requires.motifs = ['blood_tithe', 'nothing']),
+      /"blood_and_silk" references unknown "nothing"/,
+    );
+    rejects((c) => void (silk(c).requires.motifs = ['blood_and_silk']), /can't require itself/);
+    rejects(
+      (c) => void (silk(c).requires = { motifs: ['taut_release', 'canon'] }),
+      /must be hero-gated/,
+    );
+  });
+
+  it('decreeNoDome only where the dome answers', () => {
+    rejects((c) => {
+      c.attacks.find(
+        (a) => a.decree !== undefined && !/dome/.test(a.decree) && !a.answers.includes('dome'),
+      )!.decreeNoDome = 'x';
+    }, /decreeNoDome is for attacks the dome answers/);
+  });
+
+  it('a heroCeiling Deed names a real hero and encounter and gives no point', () => {
+    const red = (c: typeof CONTENT) => c.deeds.find((d) => d.id === 'in_the_red')!;
+    rejects((c) => void (red(c).hero = 'nobody'), /deed "in_the_red" references unknown/);
+    rejects((c) => void (red(c).encounter = 'nowhere'), /unknown encounter "nowhere"/);
+    rejects((c) => void delete red(c).hero, /needs hero/);
+    rejects((c) => {
+      // Trade a point Deed's point for this one's, so the ten still add up.
+      red(c).points = 1;
+      c.deeds.find((d) => d.points === 1)!.points = 0;
+    }, /a heroCeiling Deed gives no point/);
   });
 });
 

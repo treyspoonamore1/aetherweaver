@@ -378,6 +378,9 @@ export const NO_MODS: Mods = {
   bloodAndSilk: 0,
 };
 
+/** Blood Tithe's fixed refund: Spirit a Tithe Ward gives back when it breaks (docs/phase-5b.md). */
+export const BLOOD_TITHE_REFUND = 10;
+
 export function resolveMods(config: ResolvedSimConfig, content: Content): Mods {
   const m: Mods = { ...NO_MODS };
   for (const owned of config.motifs) {
@@ -466,6 +469,14 @@ export function resolveMods(config: ResolvedSimConfig, content: Content): Mods {
         break;
       case 'da_capo':
         m.daCapo = v;
+        break;
+      // Brann's (docs/phase-5b.md): numbers only; the sim reads them from W1 on.
+      case 'blood_tithe':
+        m.bloodTithe = pct;
+        m.bloodTitheRefund = BLOOD_TITHE_REFUND;
+        break;
+      case 'blood_and_silk':
+        m.bloodAndSilk = v;
         break;
       default:
         // A motif without sim behaviour is a content bug; tests check every motif is known.
@@ -824,4 +835,7 @@ export const KNOWN_MOTIFS: readonly string[] = [
   'canon',
   'encore',
   'da_capo',
+  // Brann's (docs/phase-5b.md): resolved in W1.
+  'blood_tithe',
+  'blood_and_silk',
 ];

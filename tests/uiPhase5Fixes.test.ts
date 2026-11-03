@@ -94,12 +94,15 @@ describe('the heal-cut hatch follows the sim (inPool)', () => {
 describe('the Deeds count: the Loom and the Codex agree', () => {
   const open: DeedsOpen = { allowance: EVERYTHING, astrolabe: true };
   const legion = ['crimson_crowned', 'pack_leader'];
+  /** Every Deed but a hero's, which waits for the roster (docs/phase-5b.md). */
+  const SHOWN = CONTENT.deeds.filter((d) => !d.hero).length;
 
   it('a Movement I profile counts (and lists) only the Deeds in sight', () => {
     const p = newProfile();
     const earned = CONTENT.deeds.slice(0, 3).map((d) => d.id);
     const profile: Profile = { ...p, xp: RANK_XP[MAX_RANK - 1]!, deeds: earned };
-    const inSight = CONTENT.deeds.filter((d) => !legion.includes(d.id)).length;
+    // A hero's Deed (In the Red) waits for the roster (docs/phase-5b.md).
+    const inSight = CONTENT.deeds.filter((d) => !legion.includes(d.id) && !d.hero).length;
     const tally = deedsTally(earned, profile.seen);
     expect(tally).toEqual({ earned: 3, total: inSight });
     const v = deedsView({ earned, best: {} }, open, profile.seen);
@@ -116,13 +119,13 @@ describe('the Deeds count: the Loom and the Codex agree', () => {
     const earned = [CONTENT.deeds[0]!.id];
     const profile: Profile = { ...newProfile(), deeds: earned, seen };
     const v = deedsView({ earned, best: {} }, open, seen);
-    expect(v.total).toBe(CONTENT.deeds.length);
+    expect(v.total).toBe(SHOWN);
     for (const id of legion) expect(v.badges.map((b) => b.id)).toContain(id);
     expect(stationViews(profile, false).find((s) => s.id === 'deeds')!.badge).toBe(
-      `1 of ${CONTENT.deeds.length} earned`,
+      `1 of ${SHOWN} earned`,
     );
     // Without sightings (the labs), everything shows.
-    expect(deedsView({ earned, best: {} }, open).total).toBe(CONTENT.deeds.length);
+    expect(deedsView({ earned, best: {} }, open).total).toBe(SHOWN);
   });
 });
 

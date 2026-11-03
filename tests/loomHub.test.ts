@@ -189,7 +189,7 @@ describe('the Loom’s stations', () => {
     );
     // Out of the Deeds in sight (docs/phase-5a.md): Movement II's two wait until it's met.
     expect(station(views, 'deeds').badge).toBe(
-      `3 of ${CONTENT.deeds.filter((d) => !['crimson_crowned', 'pack_leader'].includes(d.id)).length} earned`,
+      `3 of ${CONTENT.deeds.filter((d) => !['crimson_crowned', 'pack_leader'].includes(d.id) && !d.hero).length} earned`,
     );
     expect(station(views, 'dissonance').badge).toBe('Best won: 14');
     const n = shop.filter(

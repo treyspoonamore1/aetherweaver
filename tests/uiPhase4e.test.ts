@@ -414,7 +414,8 @@ describe('Results, the Summary and rank-ups', () => {
       fightBondXp(r),
       profile().bonds,
     );
-    expect(rows.map((x) => x.heroId)).toEqual(HEROES);
+    // The run's party, the starters (Brann's Bonds exist, but he isn't in it; docs/phase-5b.md).
+    expect(rows.map((x) => x.heroId)).toEqual(CONTENT.defaultParty);
     for (const row of rows) {
       expect(row.gained).toBe(r.bondXp[row.heroId]);
       expect(row.rank).toBe(bondRank(profile().bonds[row.heroId]!.xp));
@@ -544,7 +545,7 @@ describe('opening', () => {
 
   it('Prep’s row before any tier opens says from which rank', () => {
     const v = prepBondViews(CONTENT.defaultParty, [], {}, false);
-    expect(v.map((x) => x.heroId)).toEqual(HEROES);
+    expect(v.map((x) => x.heroId)).toEqual(CONTENT.defaultParty);
     for (const x of v) {
       expect(x.rank).toBe(1);
       expect(x.openTiers).toBe(0);

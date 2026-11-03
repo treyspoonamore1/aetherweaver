@@ -27,8 +27,20 @@ export const KNOWN_TALENTS: readonly string[] = [
   'event_horizon',
   'supernova',
   'constellation',
+  // Brann (docs/phase-5b.md): their hooks land in W1.
+  'iron_will',
+  'red_mist',
+  'blood_oath',
+  'scar_tissue',
+  'deathless',
+  'berserkers_hymn',
 ];
-export const KNOWN_ALT_SOLOS: readonly string[] = ['oathkeeper', 'hawks_vigil', 'celestial_sphere'];
+export const KNOWN_ALT_SOLOS: readonly string[] = [
+  'oathkeeper',
+  'hawks_vigil',
+  'celestial_sphere',
+  'blood_brother',
+];
 
 /** The hero a talent belongs to. */
 export function talentHero(content: Content, id: string): string | undefined {

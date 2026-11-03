@@ -295,7 +295,9 @@ describe('motifs', () => {
       const changed = (Object.keys(NO_MODS) as (keyof typeof NO_MODS)[]).filter(
         (k) => level1[k] !== NO_MODS[k],
       );
-      expect(changed, m.id).toHaveLength(1);
+      // Blood Tithe (docs/phase-5b.md) sets its strength and its fixed refund together.
+      if (m.id === 'blood_tithe') expect(changed).toEqual(['bloodTithe', 'bloodTitheRefund']);
+      else expect(changed, m.id).toHaveLength(1);
     }
     const lo = resolveMods(
       resolveConfig({ seed: 1, motifs: [{ id: 'deep_roots', level: 1 }] }),

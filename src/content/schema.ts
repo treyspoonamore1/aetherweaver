@@ -1980,6 +1980,102 @@ export const ContentSchema = z
         }
       }
     }
+    // The roster (docs/phase-5b.md, "Content lint").
+    const issue = (message: string) => ctx.addIssue({ code: 'custom', message });
+    if (new Set(c.defaultParty).size !== c.defaultParty.length)
+      issue('defaultParty names each hero once');
+    const starters = new Set(c.defaultParty);
+    const fightRecruits = c.events.flatMap((ev) =>
+      ev.choices.flatMap((ch) =>
+        [...ch.effects, ...ch.fail].flatMap((e) =>
+          e.kind === 'fight' && e.recruit !== undefined ? [{ ev, ch, hero: e.recruit }] : [],
+        ),
+      ),
+    );
+    for (const h of c.heroes) {
+      const where = `hero "${h.id}"`;
+      if (starters.has(h.id) && h.recruit) issue(`${where} is in the default party: no recruit`);
+      if (!starters.has(h.id) && !h.recruit) issue(`${where} needs a recruit`);
+      if (h.recruit) {
+        if (!fightRecruits.some((r) => r.ev.id === h.recruit!.event && r.hero === h.id))
+          issue(`${where}: event "${h.recruit.event}" has no fight that recruits them`);
+        if (h.recruit.fallback !== undefined)
+          need(encounters, h.recruit.fallback, `${where} recruit fallback`);
+      }
+      // Each kit's own fields, for its kinds.
+      for (const ab of h.abilities) {
+        const at = `${where} ability "${ab.id}"`;
+        if (ab.id === 'sunderLeap' && ab.minRange === undefined) issue(`${at} needs minRange`);
+        if (ab.minRange !== undefined && !(ab.minRange < ab.range))
+          issue(`${at}: minRange is below range`);
+        if (
+          ab.id === 'bloodletting' &&
+          (ab.lifeCost === undefined ||
+            ab.lifeFloor === undefined ||
+            ab.hits === undefined ||
+            ab.hitBonus === undefined)
+        )
+          issue(`${at} needs lifeCost, lifeFloor, hits and hitBonus`);
+      }
+      if (h.solo.id === 'redFrenzy' && (h.solo.radius === undefined || h.solo.pulse === undefined))
+        issue(`${where} solo "redFrenzy" needs radius and pulse`);
+      if (h.quirk.id === 'bloodlust' && h.quirk.below === undefined)
+        issue(`${where} quirk "bloodlust" needs below`);
+      if (h.passive) {
+        if (!h.needs) issue(`${where} has a passive: it needs a Needs line`);
+        if (!/heal/i.test(h.codex)) issue(`${where} has a passive: its Codex names healing`);
+      }
+    }
+    for (const r of fightRecruits) {
+      const where = `event "${r.ev.id}" choice "${r.ch.id}"`;
+      need(heroes, r.hero, `${where} recruit`);
+      if (starters.has(r.hero)) issue(`${where} recruits "${r.hero}", a starter`);
+    }
+    for (const ev of c.events)
+      for (const ch of ev.choices)
+        if (
+          (ch.recruitedText !== undefined || ch.partyText !== undefined) &&
+          !fightRecruits.some((r) => r.ev === ev && r.ch === ch)
+        )
+          issue(`event "${ev.id}" choice "${ch.id}": recruit texts need a fight that recruits`);
+    for (let i = 0; i < c.heroes.length; i++)
+      for (let j = i + 1; j < c.heroes.length; j++) {
+        const a = c.heroes[i]!.formation;
+        const b = c.heroes[j]!.formation;
+        const df = a.forward - b.forward;
+        const dr = a.right - b.right;
+        if (df * df + dr * dr < 1.5 * 1.5)
+          issue(
+            `heroes "${c.heroes[i]!.id}" and "${c.heroes[j]!.id}": formation spots 1.5 m apart`,
+          );
+      }
+    const motifIds = new Set(c.motifs.map((m) => m.id));
+    const motifById = new Map(c.motifs.map((m) => [m.id, m]));
+    for (const m of c.motifs) {
+      const pre = m.requires.motifs;
+      if (!pre) continue;
+      const where = `motif "${m.id}"`;
+      for (const id of pre) {
+        need(motifIds, id, where);
+        if (id === m.id) issue(`${where} can't require itself`);
+      }
+      const gated =
+        m.requires.hero !== undefined ||
+        pre.some((id) => motifById.get(id)?.requires.hero !== undefined);
+      if (!gated) issue(`${where} requires motifs: it must be hero-gated`);
+    }
+    for (const a of c.attacks)
+      if (
+        a.decreeNoDome !== undefined &&
+        !(a.answers.includes('dome') || /dome/i.test(a.decree ?? ''))
+      )
+        issue(`attack "${a.id}": decreeNoDome is for attacks the dome answers`);
+    for (const d of c.deeds)
+      if (d.test === 'heroCeiling') {
+        const where = `deed "${d.id}"`;
+        if (d.hero !== undefined) need(heroes, d.hero, where);
+        if (d.points !== 0) issue(`${where}: a heroCeiling Deed gives no point`);
+      }
     lintMovements(c, ctx, { attacks, enemies, encounters });
   });
 export type Content = z.infer<typeof ContentSchema>;
