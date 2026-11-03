@@ -570,6 +570,13 @@ export interface UiState {
 
 let nextCalloutId = 1;
 
+/** The newest 5 callouts, and every live first-sighting card besides (in order). */
+function capCallouts(all: Callout[]): Callout[] {
+  if (!all.some((c) => c.kind === 'sighting')) return all.slice(-5);
+  const kept = new Set(all.filter((c) => c.kind !== 'sighting').slice(-5));
+  return all.filter((c) => c.kind === 'sighting' || kept.has(c));
+}
+
 export const useUi = create<UiState>()((set, get) => ({
   screen: 'title',
   previous: 'title',
@@ -596,10 +603,12 @@ export const useUi = create<UiState>()((set, get) => ({
   setPaused: (paused) => set({ paused }),
   pushCallout: (callout, now, ttlMs = 2600) =>
     set((s) => ({
-      // Rate-limited by construction: at most 5 on screen.
-      callouts: [...s.callouts, { ...callout, id: nextCalloutId++, expiresAt: now + ttlMs }].slice(
-        -5,
-      ),
+      // Rate-limited by construction: at most 5 on screen. A first-sighting card (Phase 5a) is
+      // outside the cap: it is shown once ever, so nothing else may evict it before it expires.
+      callouts: capCallouts([
+        ...s.callouts,
+        { ...callout, id: nextCalloutId++, expiresAt: now + ttlMs },
+      ]),
       lastDecree:
         callout.kind === 'decree'
           ? { name: callout.text, text: callout.detail ?? '' }

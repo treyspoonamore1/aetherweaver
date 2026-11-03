@@ -146,12 +146,29 @@ export class SynthDirector implements AudioDirector {
     }
   }
 
-  /** On the Map, the biome of the run's Movement (docs/phase-5a.md). */
+  /**
+   * On the Map, the biome of the run's Movement (docs/phase-5a.md). Without a run (the Loom's
+   * Reliquary and Astrolabe, which use the map mood) it is the Reliquary's: a run's last biome
+   * (the Crimson Spire) never lingers after the run closes.
+   */
   private followMapBiome(): void {
     if (this.mood !== 'map' || !this.mapBiomeOf) return;
     try {
-      const biome = this.mapBiomeOf();
-      if (biome && biome !== this.biome) this.setBiome(biome);
+      const biome = this.mapBiomeOf() ?? 'reliquary';
+      if (biome !== this.biome) this.setBiome(biome);
+    } catch {
+      // Audio is garnish.
+    }
+  }
+
+  /**
+   * Training's calm outside a run is the Reliquary's, as before Phase 5a (its fight then sets
+   * the arena's). Asked only when the mood turns calm, so the arena's biome stands once set.
+   */
+  private calmWithoutRun(): void {
+    if (this.mood !== 'calm' || !this.mapBiomeOf) return;
+    try {
+      if (this.mapBiomeOf() === null && this.biome !== 'reliquary') this.setBiome('reliquary');
     } catch {
       // Audio is garnish.
     }
@@ -268,6 +285,7 @@ export class SynthDirector implements AudioDirector {
     this.mood = mood;
     // Phase 5a: the Map voices its Movement's biome (before the mood, so its first bar does).
     this.followMapBiome();
+    this.calmWithoutRun();
     this.music?.setMood(mood);
   }
 

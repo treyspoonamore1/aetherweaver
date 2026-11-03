@@ -21,7 +21,7 @@ import {
   HIGHLIGHT_ICON,
   contributionOf,
   deathAnswerLine,
-  readyName,
+  deathReadyLine,
   statLines,
 } from './resultText';
 import { WithoutYouPanel } from './WithoutYou';
@@ -350,6 +350,8 @@ export function ResultView({
             <div className="grid gap-4 md:grid-cols-2">
               {r.deaths.map((d, i) => {
                 const def = heroDef(d.heroId);
+                const answer = deathAnswerLine(d.answers, run.calling?.id);
+                const ready = deathReadyLine(d, run.calling?.id);
                 return (
                   <article
                     key={i}
@@ -371,26 +373,30 @@ export function ResultView({
                         </li>
                       ))}
                     </ul>
-                    {deathAnswerLine(d.answers) && (
-                      // Phase 5a: a bleed, pin or latch that killed names its answer.
+                    {answer && (
+                      // Phase 5a: a bleed, pin, latch, Execution or Blood Pact names its answer.
                       <p
                         className="mt-3 text-sm font-semibold text-gold-300"
                         data-testid="death-answer"
                       >
-                        {deathAnswerLine(d.answers)}
+                        {answer}
                       </p>
                     )}
-                    <p className="mt-3 text-sm leading-relaxed">
-                      {d.readyTechniques.length > 0 ? (
-                        <>
-                          <span className="font-semibold text-gold-300">Ready but unused:</span>{' '}
-                          {d.readyTechniques.map((t) => readyName(t, run.calling?.id)).join(', ')}.{' '}
-                          {possessive(def.name)} fall could have been answered.
-                        </>
-                      ) : (
-                        <span className="text-muted">Everything you had was on cooldown.</span>
-                      )}
-                    </p>
+                    {ready && (
+                      <p className="mt-3 text-sm leading-relaxed">
+                        {ready.kind === 'ready' ? (
+                          <>
+                            <span className="font-semibold text-gold-300">Ready but unused:</span>{' '}
+                            {ready.names}.{' '}
+                            {ready.couldAnswer
+                              ? `${possessive(def.name)} fall could have been answered.`
+                              : `None of it answers ${d.killer}.`}
+                          </>
+                        ) : (
+                          <span className="text-muted">Everything you had was on cooldown.</span>
+                        )}
+                      </p>
+                    )}
                   </article>
                 );
               })}

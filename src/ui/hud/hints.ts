@@ -475,7 +475,10 @@ function movementTwoHints(hud: HudSnapshot, keys: { Q: string; E: string; F: str
   for (const h of up.filter((p) => p.statuses.some((s) => s.id === 'latched')))
     out.push({
       id: 'latched',
-      text: `A Leech has latched onto ${h.name} — Reel ${F} or Chime ${E} frees them`,
+      // On a Chronomancer run Reel's key casts Rewind, which frees no one: Chime does.
+      text: hud.weaver.rewind
+        ? `A Leech has latched onto ${h.name} — Chime ${E} frees them`
+        : `A Leech has latched onto ${h.name} — Reel ${F} or Chime ${E} frees them`,
     });
   const pact = up.filter((p) => p.statuses.some((s) => s.id === 'pact'));
   if (pact.length > 0)
@@ -498,7 +501,7 @@ function movementTwoHints(hud: HudSnapshot, keys: { Q: string; E: string; F: str
   if (boss?.bloodmoon)
     out.push({
       id: 'bloodmoon',
-      text: `Bloodmoon: healing is halved outside the pools — stand in one and Rally {${bindingLabel('directiveRally')}} the party to you. Reel ${F} frees a pinned hero into your pool`,
+      text: `Bloodmoon: healing is halved outside the pools — stand in one and Rally {${bindingLabel('directiveRally')}} the party to you${hud.weaver.rewind ? '' : `. Reel ${F} frees a pinned hero into your pool`}`,
     });
   return out;
 }

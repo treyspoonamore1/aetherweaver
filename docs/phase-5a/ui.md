@@ -13,8 +13,8 @@ derives from content (`movements`, encounters, attacks, statuses) and the run.*
 | Phase ticks | `BossHud.phaseAt` from the sim's `bossPhaseTable`, which has every boss (the Cantor at 70/40, its coded thresholds, a deliberate Movement I UI fix; the Matriarch at 50; Vharun at 66/33). `BOSS_PHASES` is the last fallback (a phase count only). | `hudBridge.ts` `bossPhasesOf` |
 | Boss cast | A per-boss glyph (the Bellwarden and the Cantor keep the bell; the Matriarch's paw, Vharun's crown). A `followUp` chain draws pips: Twin Cleave 1/2, 2/2. | `BossBar.tsx`, `hudBridge.ts` `blowsOf` |
 | Bloodmoon | "Bloodmoon: healing −50% outside the pools", a crimson badge with the moon glyph. | `BossBar.tsx` |
-| Hints | bleed ≥5 → Chime; pinned → Reel frees; Blood Pact → Scatter (Chime can't); latched → Reel or Chime; Wound → Chime before Mend; a Sentinel's shield blocking a blow (the sim's `guardBlocked`: the runtime notes its time, the bridge sets `HudSnapshot.guardBlocked` for 4 s) and no Focus → Focus it; Bloodmoon → stand in a pool and Rally (Reel frees into your pool); Execution → lift above 40% or Ward. All are answer hints (Blind Score hides them). The silenced hint names hymn circles only while they stand (`HudSnapshot.hymnCircles`). | `hud/hints.ts` |
-| First sighting | `HudSnapshot.foes` lists the live enemy defs. The combat screen checks them against `profile.seen`: each new one pushes a "New foe" card (name, one-line lesson, answer glyphs) and is recorded (the profile store's `see`: once each, saved). The Prelude never shows one: every Movement I enemy is seen from the start. | `hud/sighting.ts`, `hud/Callouts.tsx`, `screens/CombatScreen.tsx` |
+| Hints | bleed ≥5 → Chime; pinned → Reel frees; Blood Pact → Scatter (Chime can't); latched → Reel or Chime; Wound → Chime before Mend; a Sentinel's shield blocking a blow (the sim's `guardBlocked`: the runtime notes its time, the bridge sets `HudSnapshot.guardBlocked` for 4 s) and no Focus → Focus it; Bloodmoon → stand in a pool and Rally (Reel frees into your pool); Execution → lift above 40% or Ward. All are answer hints (Blind Score hides them). The silenced hint names hymn circles only while they stand (`HudSnapshot.hymnCircles`). On a Chronomancer run (`hud.weaver.rewind`: Reel's key casts Rewind, which frees no one) the pinned hint says a Ward soaks the pin, the latched one says Chime alone, and Bloodmoon's drops its Reel sentence. | `hud/hints.ts` |
+| First sighting | `HudSnapshot.foes` lists the live enemy defs. The combat screen checks them against `profile.seen`: each new one pushes a "New foe" card (name, one-line lesson, answer glyphs) and is recorded (the profile store's `see`: once each, saved). Every card is drawn, however many foes are new at once, and the store's 5-callout cap leaves live sighting cards out, so none is evicted before it is seen. The Prelude never shows one: every Movement I enemy is seen from the start. | `hud/sighting.ts`, `hud/Callouts.tsx`, `screens/CombatScreen.tsx` |
 
 ## Screens
 
@@ -29,7 +29,8 @@ derives from content (`movements`, encounters, attacks, statuses) and the run.*
 | Relic / draft spoils | Without a source: the Bellwarden's ("The Bellwarden falls", "The Warden's hoard", "The Warden's gift") | From `sourceEncounter`: the Cantor's, the Matriarch's |
 | Result's Continue | The Cantor: "Continue" | A non-final Cantor leads to its relic (`isFinalNode`); its XP and Starlight carry no run-win line (`endsRun`) |
 | Result's XP | As it was | A Movement II fight's ×1.25 is its own line ("Movement II · ×1.25"), not folded into Dissonance's |
-| Result's death recap | As it was | A hero killed by a bleed, pin or latch names the answer (`DeathRecap.answers`): "Answer: Chime", "Answers: Reel or Chime" |
+| Result's and Summary's Starlight | As it was | A Movement II fight's detail has its raise, so the lines add up ("20 for the boss won, 15 for winning the run, 9 for Movement II · ×1.25"); the Summary's "Winning the run" is the bonus at the final fight's Movement (19 for Vharun) |
+| Result's death recap | As it was | A hero killed by a bleed, pin, latch, Execution or Blood Pact names the answer (`DeathRecap.answers`, `deathAnswerLine`): "Answer: Chime", "Answers: Mend or Ward", "Answer: Scatter". Calling-aware: a Chronomancer run never names Reel (a pin's answer is Ward, a latch's Chime). The ready line (`deathReadyLine`) says "None of it answers …" when nothing ready answers the named answer, and with nothing ready but a named answer (Mend, Scatter are never on cooldown) it doesn't say "Everything you had was on cooldown" |
 | Reliquary | "Win a run to enshrine…" | `enshrineEligible`: an Expedition that reached Movement II enshrines even after a defeat; "Reach Movement II to enshrine…" |
 | Codex | — | Enemies grouped by Movement; unseen ones are locked silhouettes (`profile.seen`). A later Movement's events wait until its enemies are met |
 | Loom, Codex Deeds | Gate "Continue · step k of 10"; Deeds "N of 20 earned" on the Loom and the Codex alike, Crimson Crowned and Pack Leader hidden | Gate names the Movement; Movement II's two badge Deeds show and count, on both, once its enemies are met (`deedsTally`, `deedsInSight(profile.seen)`) |
@@ -88,5 +89,10 @@ Expedition's Cantor leads on and pays no run-win line, a Prelude's ends the run;
 XP line; a Movement II defeat enshrines through the store; the recap's answer line (and the save
 keeps it); the Map's biome (a Prelude after an Expedition is the Reliquary's); the Sentinel hint
 keyed on `guardBlocked`.
+`tests/uiPhase5Review.test.ts` (review fixes): Movement II Starlight lines add up (a skirmish,
+Vharun, the Summary's win bonus); the Chronomancer's recap and hints never name Reel; Execution's
+and the Blood Pact's answers on injected recaps, with no "on cooldown"; three new foes at once
+all drawn, and no sighting evicted by the callout cap. `tests/audioPhase5Review.test.ts`: with no
+run, the map mood (the Loom's Reliquary and Astrolabe) and Training's calm are the Reliquary's.
 `tests/uiPhase3.test.ts` (`endsRun`) and `tests/uiPhase4c.test.ts` (the materials' bosses) are
 updated.

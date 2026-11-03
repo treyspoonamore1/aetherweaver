@@ -210,7 +210,8 @@ export function Callouts({
       </div>
       {foes.length > 0 && (
         <div className="absolute right-6 top-[30%] flex flex-col items-end gap-2">
-          {foes.slice(-2).map((c) => (
+          {/* Every card: a foe's first sighting shows once ever (it is recorded as seen). */}
+          {foes.map((c) => (
             <NewFoe key={c.id} c={c} blind={blind} />
           ))}
         </div>
