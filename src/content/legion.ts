@@ -168,6 +168,8 @@ export const LEGION_ATTACKS: ContentInput['attacks'] = [
     targeting: 'current',
     answers: ['ward', 'dome'],
     followUp: { attack: 'vharun_twin_cleave_second', delay: 0 },
+    // Announced as a Decree only the first two times (docs/phase-5a.md).
+    decreeLimit: 2,
     decree:
       'Twin Cleave — two blows on one hero. One Ward won’t hold both: a second Ward, Kael’s dome, a Reel, or a full health bar.',
   },
