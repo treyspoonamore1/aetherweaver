@@ -166,6 +166,15 @@ describe('the death recap names Execution’s and the Blood Pact’s answers', (
     expect(deathReadyLine({ ...d, readyTechniques: [] })).toBeNull();
   });
 
+  it('a bleed or pin death with every technique spent still says so', () => {
+    expect(deathReadyLine(recap({ killer: 'Bleed ×6', answers: ['chime'] }))).toEqual({
+      kind: 'cooldown',
+    });
+    expect(deathReadyLine(recap({ killer: 'Pinned', answers: ['reel'] }))).toEqual({
+      kind: 'cooldown',
+    });
+  });
+
   it('a Movement I death (no answers) reads as it did', () => {
     expect(deathAnswerLine(undefined)).toBeNull();
     expect(deathReadyLine(recap({ killer: 'Dirge' }))).toEqual({ kind: 'cooldown' });
@@ -244,5 +253,21 @@ describe('first-sighting cards', () => {
     useUi.setState({ callouts: [] });
     for (let i = 0; i < 8; i++) ui.pushCallout({ kind: 'system', text: `t${i}` }, 2000 + i);
     expect(useUi.getState().callouts).toHaveLength(5);
+  });
+});
+
+describe('first-sighting cards on a Chronomancer run never teach Reel', () => {
+  it('the Impaler, the Leech and the Matriarch name only answers the run has', async () => {
+    const { sightingOf, sightingCallout } = await import('../src/ui/hud/sighting');
+    for (const id of ['impaler', 'leech', 'gorehound_matriarch']) {
+      const plain = sightingOf(id);
+      const chrono = sightingOf(id, true);
+      expect(plain.answers, id).toContain('reel');
+      expect(chrono.answers, id).not.toContain('reel');
+      expect(chrono.lesson, id).not.toMatch(/Reel/);
+      expect(sightingCallout(id, true).detail, id).toBe(chrono.lesson);
+    }
+    expect(sightingOf('impaler', true).answers).toEqual(['ward']);
+    expect(sightingOf('leech', true).answers).toEqual(['chime']);
   });
 });

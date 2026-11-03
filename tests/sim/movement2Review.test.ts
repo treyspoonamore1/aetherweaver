@@ -13,6 +13,7 @@ import {
   getStatus,
   hasStatus,
   killEnemy,
+  interruptEnemy,
 } from '../../src/sim/combat/health';
 import { cancelTelegraph, startTelegraph } from '../../src/sim/combat/telegraphs';
 import type { Entity, Telegraph } from '../../src/sim/state';
@@ -188,6 +189,25 @@ describe('a cancelled Blood Pact takes its pact with it', () => {
     expect(hasStatus(lyra, 'pact')).toBe(false);
     const removed = ofType(sim.drainEvents(), 'statusRemoved').filter((e) => e.status === 'pact');
     expect(removed.map((e) => e.reason)).toEqual(['expired', 'expired']);
+  });
+
+  it('interrupted mid-cast: both heroes lose the ×1.2', () => {
+    const { sim, w, party } = stage();
+    const [kael, lyra] = party as [Entity, Entity];
+    const hemo = enemyAt(sim, w, 'hemomancer', 0, -30);
+    const t = pact(w, hemo, kael, lyra, 6);
+    // No Blood Pact is interruptible today; stage one that is.
+    hemo.enemy!.cast = {
+      attackId: 'hemomancer_blood_pact',
+      name: 'Blood Pact',
+      telegraph: t.id,
+      start: w.time,
+      end: w.time + 6,
+      interruptible: true,
+    };
+    expect(interruptEnemy(w, hemo, null)).toBe(true);
+    expect(hasStatus(kael, 'pact')).toBe(false);
+    expect(hasStatus(lyra, 'pact')).toBe(false);
   });
 
   it('cancelled (a phase shift): gone, except on a hero another Pact still binds', () => {

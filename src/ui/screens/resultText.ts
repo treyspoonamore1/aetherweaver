@@ -73,15 +73,20 @@ export function deathAnswerLine(
 /**
  * The recap's line on the techniques that were ready: "ready" lists them (`couldAnswer`: one of
  * them answers the death, or the death names no answer, as every Movement I death); "cooldown"
- * when nothing was ready and no answer is named; null when nothing was ready but an answer is
- * named (Mend, Scatter: never on cooldown, so the recap must not say everything was).
+ * when nothing was ready and every named answer is a technique (Chime, Reel, Ward), as true as
+ * ever; null when nothing was ready but a named answer is never on cooldown (Mend, Scatter), so
+ * the recap must not say everything was.
  */
+/** The answers that are techniques with a cooldown or charges (the rest, Mend and Scatter, are always there). */
+const COOLDOWN_ANSWERS: ReadonlySet<string> = new Set(['chime', 'reel', 'ward']);
+
 export function deathReadyLine(
   d: Pick<DeathRecap, 'readyTechniques' | 'answers'>,
   callingId?: string | null,
 ): { kind: 'ready'; names: string; couldAnswer: boolean } | { kind: 'cooldown' } | null {
   const wanted = deathAnswers(d.answers, callingId);
-  if (d.readyTechniques.length === 0) return wanted.length > 0 ? null : { kind: 'cooldown' };
+  if (d.readyTechniques.length === 0)
+    return wanted.some((a) => !COOLDOWN_ANSWERS.has(a)) ? null : { kind: 'cooldown' };
   // Reel's slot is Rewind's on a Chronomancer run, and `deathAnswers` never names Reel there.
   const rewinds = rewindsFor(callingId);
   return {

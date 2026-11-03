@@ -586,13 +586,13 @@ Damage 0.95 would centre the whole-run Novice better (about 21%), but it lifts t
 | | Idle | Novice | Skilled | Band |
 |---|---|---|---|---|
 | Won | 0% | 15.5% (15 / 16) | 80% (79 / 81) | 0% · 15-30% · ≥70% |
-| Reached Movement II | 0% | 38% (39 / 36.5) | 89.5% (89 / 90) | — · 40-50% · ≥90% |
+| Reached Movement II | 0% | 38% (39 / 37) | 89.5% (89 / 90) | — · 40-50% · ≥90% |
 | Combat minutes, Movement I / II | 0.8 / 0 | 5.6 / 2.6 | 6.2 / 6.15 | |
 | Lost in Movement II (of 400) | — | 89 (Vharun 24, Blood Forge 21, Matriarch 20, Shield Wall 15, Vanguard 5, four skirmishes 1 each) | 38 (Vharun 11, Blood Forge 11, Shield Wall 9, Matriarch 4, Vanguard 2, Blood Rites 1) | |
 
 Before the review round the same two sets gave the Novice 16% and 19% won (the tuner's and the verifier's numbers); the fixes and the elite changes moved it to 15-16%, on the band's floor.
 
-**Reach-II misses its band, and Movement II can't fix it.** 'Reached Movement II' is decided entirely by Movement I: it is the Prelude's own win rate on these seeds, and Movement I is unchangeable here (the M1 baseline and the five hashes are byte-identical). Across the two seed sets it is 36.5-39% for the Novice (band 40-50%) and 89-90% for the Skilled (band ≥90%): a few points under both bands. Movement II content cannot move it.
+**Reach-II misses its band, and Movement II can't fix it.** 'Reached Movement II' is decided entirely by Movement I: it is the Prelude's own win rate on these seeds, and Movement I is unchangeable here (the M1 baseline and the five hashes are byte-identical). Across the two seed sets it is 36.5-39% for the Novice (37-39% on the final content) (band 40-50%) and 89-90% for the Skilled (band ≥90%): a few points under both bands. Movement II content cannot move it.
 
 **Decree gate** (`npx tsx tools/decrees.ts --seeds 50 --seed-base B`, B = 1000 and 500003; Vharun on the arrival kit, 100 fights a bot). A Twin Cleave or a Tide is answered when no hero goes down to either of its two blows; an Execution when the sim's verdict is `spared`; a Bloodmoon spell (announcement to announcement) when no hero falls in it except to another Decree's blow.
 

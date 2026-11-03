@@ -137,38 +137,34 @@ export class SynthDirector implements AudioDirector {
     this.cleanups.push(remove);
   }
 
-  /** Phase 5a: while the Map is up, a run that moves on (into Movement II) moves its biome. */
+  /**
+   * Phase 5a: while the Map is up, a run that moves on (into Movement II) moves its biome; and a
+   * run that closes takes its biome with it, so the Crimson Spire never lingers on the Loom's
+   * screens or in Training. Without a run, whoever set the biome last (a fight's arena, the
+   * audio lab) keeps it.
+   */
   private followRunOnMap(): void {
     try {
-      this.cleanups.push(useRun.subscribe(() => this.followMapBiome()));
+      let hadRun = this.mapBiomeOf?.() != null;
+      this.cleanups.push(
+        useRun.subscribe(() => {
+          const hasRun = this.mapBiomeOf?.() != null;
+          if (hadRun && !hasRun && this.biome !== 'reliquary') this.setBiome('reliquary');
+          hadRun = hasRun;
+          this.followMapBiome();
+        }),
+      );
     } catch {
       // No run store: the Map's own call (MapScreen) still sets it.
     }
   }
 
-  /**
-   * On the Map, the biome of the run's Movement (docs/phase-5a.md). Without a run (the Loom's
-   * Reliquary and Astrolabe, which use the map mood) it is the Reliquary's: a run's last biome
-   * (the Crimson Spire) never lingers after the run closes.
-   */
+  /** On the Map, the biome of the run's Movement (docs/phase-5a.md). */
   private followMapBiome(): void {
     if (this.mood !== 'map' || !this.mapBiomeOf) return;
     try {
-      const biome = this.mapBiomeOf() ?? 'reliquary';
-      if (biome !== this.biome) this.setBiome(biome);
-    } catch {
-      // Audio is garnish.
-    }
-  }
-
-  /**
-   * Training's calm outside a run is the Reliquary's, as before Phase 5a (its fight then sets
-   * the arena's). Asked only when the mood turns calm, so the arena's biome stands once set.
-   */
-  private calmWithoutRun(): void {
-    if (this.mood !== 'calm' || !this.mapBiomeOf) return;
-    try {
-      if (this.mapBiomeOf() === null && this.biome !== 'reliquary') this.setBiome('reliquary');
+      const biome = this.mapBiomeOf();
+      if (biome && biome !== this.biome) this.setBiome(biome);
     } catch {
       // Audio is garnish.
     }
@@ -285,7 +281,6 @@ export class SynthDirector implements AudioDirector {
     this.mood = mood;
     // Phase 5a: the Map voices its Movement's biome (before the mood, so its first bar does).
     this.followMapBiome();
-    this.calmWithoutRun();
     this.music?.setMood(mood);
   }
 

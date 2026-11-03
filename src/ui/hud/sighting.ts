@@ -27,8 +27,14 @@ export interface Sighting {
 /** The status a payload names, as a number for text (a whole percent of a share). */
 const pctOf = (x: number | undefined, fallback: number) => Math.round((x ?? fallback) * 100);
 
-/** The Crimson Legion's lessons, in the words of the hints; numbers from content. */
-function legionLesson(defId: string): { lesson: string; answers: AnswerTag[] } | null {
+/**
+ * The Crimson Legion's lessons, in the words of the hints; numbers from content. `rewinds`: a
+ * Chronomancer run, whose Reel slot casts Rewind and frees no one, so Reel is never taught.
+ */
+function legionLesson(
+  defId: string,
+  rewinds: boolean,
+): { lesson: string; answers: AnswerTag[] } | null {
   switch (defId) {
     case 'sanguine_hound': {
       const bleed = enemyDef(defId).basic.onHit;
@@ -44,11 +50,16 @@ function legionLesson(defId: string): { lesson: string; answers: AnswerTag[] } |
         answers: ['scatter'],
       };
     case 'impaler':
-      return {
-        lesson:
-          'It charges the farthest hero and pins them in place. Reel frees them; a Ward stops the pin.',
-        answers: ['reel', 'ward'],
-      };
+      return rewinds
+        ? {
+            lesson: 'It charges the farthest hero and pins them in place. A Ward stops the pin.',
+            answers: ['ward'],
+          }
+        : {
+            lesson:
+              'It charges the farthest hero and pins them in place. Reel frees them; a Ward stops the pin.',
+            answers: ['reel', 'ward'],
+          };
     case 'crimson_sentinel': {
       const guard = enemyDef(defId).guard;
       return {
@@ -58,14 +69,13 @@ function legionLesson(defId: string): { lesson: string; answers: AnswerTag[] } |
     }
     case 'leech':
       return {
-        lesson: 'It latches on and drinks a hero’s life to heal itself. Reel or Chime frees them.',
-        answers: ['reel', 'chime'],
+        lesson: `It latches on and drinks a hero’s life to heal itself. ${rewinds ? 'Chime frees them.' : 'Reel or Chime frees them.'}`,
+        answers: rewinds ? ['chime'] : ['reel', 'chime'],
       };
     case 'gorehound_matriarch':
       return {
-        lesson:
-          'Rend stacks Bleed on the tank, Pounce leaps on the frailest, Pack Call brings hounds. Chime, Reel, Focus.',
-        answers: ['chime', 'reel', 'focus'],
+        lesson: `Rend stacks Bleed on the tank, Pounce leaps on the frailest, Pack Call brings hounds. ${rewinds ? 'Chime, Focus.' : 'Chime, Reel, Focus.'}`,
+        answers: rewinds ? ['chime', 'focus'] : ['chime', 'reel', 'focus'],
       };
     case 'vharun_crimson_warden':
       return {
@@ -78,10 +88,13 @@ function legionLesson(defId: string): { lesson: string; answers: AnswerTag[] } |
   }
 }
 
-/** A foe's card: its name, lesson and answers (any enemy: its Codex line and its attacks'). */
-export function sightingOf(defId: string): Sighting {
+/**
+ * A foe's card: its name, lesson and answers (any enemy: its Codex line and its attacks').
+ * `rewinds`: a Chronomancer run (Rewind in Reel's slot), whose cards never teach Reel.
+ */
+export function sightingOf(defId: string, rewinds = false): Sighting {
   const def = enemyDef(defId);
-  const legion = legionLesson(defId);
+  const legion = legionLesson(defId, rewinds);
   if (legion) return { defId, name: def.name, ...legion };
   const answers = [
     ...new Set(
@@ -107,8 +120,8 @@ function isEnemy(id: string): boolean {
 }
 
 /** The callout for a foe's first sighting. */
-export function sightingCallout(defId: string): Omit<Callout, 'id' | 'expiresAt'> {
-  const s = sightingOf(defId);
+export function sightingCallout(defId: string, rewinds = false): Omit<Callout, 'id' | 'expiresAt'> {
+  const s = sightingOf(defId, rewinds);
   return { kind: 'sighting', text: s.name, detail: s.lesson, key: `${SIGHTING_KEY}${defId}` };
 }
 
@@ -129,11 +142,15 @@ export function recordSeen(ids: readonly string[]): void {
  * The fight's foes, against the profile: each one new shows its card, then is recorded, so it
  * never shows twice. Returns the new ones.
  */
-export function noteSightings(foes: readonly string[] | undefined, now: number): string[] {
+export function noteSightings(
+  foes: readonly string[] | undefined,
+  now: number,
+  rewinds = false,
+): string[] {
   const fresh = newSightings(foes, useProfile.getState().profile.seen);
   if (fresh.length === 0) return fresh;
   const ui = useUi.getState();
-  for (const id of fresh) ui.pushCallout(sightingCallout(id), now, SIGHTING_TTL);
+  for (const id of fresh) ui.pushCallout(sightingCallout(id, rewinds), now, SIGHTING_TTL);
   recordSeen(fresh);
   return fresh;
 }
@@ -143,8 +160,9 @@ export function useFirstSightings(enabled = true): void {
   const foes = useUi((s) => s.hud?.foes);
   const fighting = useUi((s) => s.hud?.encounter.status === 'fighting');
   const sandbox = useUi((s) => s.hud?.encounter.kind === 'sandbox');
+  const rewinds = useUi((s) => !!s.hud?.weaver.rewind);
   useEffect(() => {
     if (!enabled || !fighting || sandbox) return;
-    noteSightings(foes, performance.now());
-  }, [enabled, foes, fighting, sandbox]);
+    noteSightings(foes, performance.now(), rewinds);
+  }, [enabled, foes, fighting, sandbox, rewinds]);
 }

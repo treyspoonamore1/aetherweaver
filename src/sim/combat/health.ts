@@ -1570,8 +1570,10 @@ export function interruptEnemy(world: World, e: Entity, by: EntityId | null): bo
   if (cast.telegraph !== null) {
     const index = world.telegraphs.findIndex((t) => t.id === cast.telegraph);
     if (index >= 0) {
-      world.telegraphs.splice(index, 1);
+      const [t] = world.telegraphs.splice(index, 1);
       forgetReel(world, cast.telegraph);
+      // A Blood Pact cut off mid-cast takes its ×1.2 with it (Movement II only).
+      releaseLink(world, t!, 'expired');
       world.events.push({
         type: 'telegraphResolved',
         tick: world.tick,

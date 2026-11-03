@@ -41,27 +41,28 @@ describe('the Crimson Spire after its run', () => {
     }
   });
 
-  it('Training’s calm outside a run is the Reliquary’s; its arena’s biome then stands', () => {
+  it('without a run, whoever set the biome last keeps it (a fight’s arena, the audio lab)', () => {
     const before = useRun.getState().run;
     const d = new SynthDirector({ installUnlock: false, followSettings: false });
     try {
-      useRun.setState({ run: climbing() });
+      useRun.setState({ run: null });
+      // The runtime sets a sandbox fight's arena biome, then the calm mood.
+      d.setBiome('crimson_spire');
+      d.setMood('calm');
+      expect(d.getBiome()).toBe('crimson_spire');
+      // The audio lab picks the Crimson Spire, then the map mood.
       d.setMood('map');
       expect(d.getBiome()).toBe('crimson_spire');
+      // An unrelated run-store change with no run doesn't reset it.
       useRun.setState({ run: null });
-      d.setMood('title');
-      // A fight left the arena's biome on: Training must not keep it.
-      d.setBiome('crimson_spire');
+      expect(d.getBiome()).toBe('crimson_spire');
+      // A run that closes from a fight takes its biome with it, whatever the mood.
+      useRun.setState({ run: climbing() });
+      d.setMood('combat');
+      useRun.getState().closeRun();
+      expect(d.getBiome()).toBe('reliquary');
       d.setMood('calm');
       expect(d.getBiome()).toBe('reliquary');
-      // Training's fight sets its arena's; the calm doesn't override it again.
-      d.setBiome('crimson_spire');
-      useRun.setState({ run: null });
-      expect(d.getBiome()).toBe('crimson_spire');
-      // Inside a run, the calm leaves the biome alone.
-      useRun.setState({ run: climbing() });
-      d.setMood('calm');
-      expect(d.getBiome()).toBe('crimson_spire');
     } finally {
       d.dispose();
       useRun.setState({ run: before });

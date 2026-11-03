@@ -1,6 +1,6 @@
 import { useState, type CSSProperties } from 'react';
 import { Icon, type IconName } from '../kit/Icon';
-import type { Callout } from '../store';
+import { useUi, type Callout } from '../store';
 import { blindDecree } from '../screens/dissonanceModel';
 import { AnswerGlyph } from './AnswerGlyph';
 import { sightingDef, sightingOf } from './sighting';
@@ -103,7 +103,8 @@ function DecreeBanner({ c, blind }: { c: Callout; blind: boolean }) {
 function NewFoe({ c, blind }: { c: Callout; blind: boolean }) {
   const ttl = useLifetime(c.expiresAt);
   const defId = sightingDef(c);
-  const s = defId ? sightingOf(defId) : null;
+  const rewinds = useUi((st) => !!st.hud?.weaver.rewind);
+  const s = defId ? sightingOf(defId, rewinds) : null;
   return (
     <div
       className="w-72 rounded-xl border border-gold-500/60 bg-ink-950/88 px-4 py-3 shadow-xl shadow-black/60"
