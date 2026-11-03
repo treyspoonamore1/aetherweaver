@@ -19,7 +19,7 @@ function shade(hex: string, k: number): string {
 const GOLD = '#e8b54a';
 const GOLD_GLOW = '#ffd27a';
 /** Brann's brass trim (his collar and axe edge, docs/phase-5b.md): BRANN_HEX.brass. */
-export const BRASS_TRIM = '#c8a46e';
+export const BRASS_TRIM = '#a6a650';
 
 /**
  * The Weaver in `palette` (keepsakeCues.ts: her robe and her Thread look's hands). Her own is the

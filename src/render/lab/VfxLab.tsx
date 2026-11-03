@@ -1621,7 +1621,7 @@ function brannScenarios(): Record<string, BondScenario> {
     'Brann · Red Frenzy cued': {
       talents: [],
       party: WITH_BRANN,
-      note: 'You Cue Brann: he spins as he chases, a brass swipe ring round him edged in gold (Cued: his axe drinks three times as deep)',
+      note: 'You Cue Brann: he spins as he chases, a crimson swipe ring round him edged in gold, his lifesteal motes larger (Cued: his axe drinks three times as deep)',
       stage: (rt) => {
         rt.later(0.2, () => rt.attackers(BRANN, 3));
         rt.later(0.3, () => rt.bloodOf(BRANN));
@@ -1633,7 +1633,7 @@ function brannScenarios(): Record<string, BondScenario> {
       talents: [],
       party: WITH_BRANN,
       autonomy: true,
-      note: 'Autonomy: Brann fires Red Frenzy himself: the spin and the brass ring, no gold',
+      note: 'Autonomy: Brann fires Red Frenzy himself: the spin and the crimson ring, no gold',
       stage: (rt) => {
         rt.later(0.2, () => rt.attackers(BRANN, 3));
         rt.later(0.3, () => rt.bloodOf(BRANN));

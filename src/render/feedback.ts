@@ -26,8 +26,12 @@ import {
   CUT_HEAL_ALPHA,
   CUT_HEAL_SIZE,
   DRAIN_SIZE,
+  LIFESTEAL_MOTE,
+  LIFESTEAL_MOTE_CUED,
+  REFUSED_ACK_SECONDS,
   REFUSED_SECONDS,
   SPIRE_HEX,
+  cuedFrenzy,
   healCut,
   materialOf,
   signalHex,
@@ -251,8 +255,10 @@ export class Feedback {
   };
   /** Brann's refused-Rally glyph: until when it shows (render time), per hero. */
   private readonly refusedUntil = new Map<EntityId, number>();
-  /** What the refused glyphs drew last frame (tests, the lab). */
-  readonly drawn5b = { refused: 0 };
+  /** The same glyph struck across his Rally acknowledgement at his feet: until when, per hero. */
+  private readonly refusedAckUntil = new Map<EntityId, number>();
+  /** What the refused glyphs drew last frame (tests, the lab): over his head, and on the ack. */
+  readonly drawn5b = { refused: 0, refusedAck: 0 };
 
   constructor(private readonly d: FeedbackDeps) {
     for (let i = 0; i < POOL; i++) {
@@ -811,12 +817,15 @@ export class Feedback {
         case 'bloodlust':
           // Brann refused your Rally: a 'refused' glyph over him while he still refuses.
           this.refusedUntil.set(ev.hero, this.now + REFUSED_SECONDS);
+          this.refusedAckUntil.set(ev.hero, this.now + REFUSED_ACK_SECONDS);
           this.fired5b.refused++;
           break;
         case 'talentFired':
           // Iron Will: your Ward made him answer, so the refusal is lifted at once.
-          if (ev.talent === 'iron_will' && this.refusedUntil.delete(ev.hero))
-            this.fired5b.refusedCleared++;
+          if (ev.talent === 'iron_will') {
+            this.refusedAckUntil.delete(ev.hero);
+            if (this.refusedUntil.delete(ev.hero)) this.fired5b.refusedCleared++;
+          }
           break;
         case 'castInterrupted': {
           const r = this.rec(ev.enemy);
@@ -1538,6 +1547,7 @@ export class Feedback {
     this.fired5b.lifesteal++;
     const maxHp = target.health?.maxHp ?? 1;
     const ink = color(BRANN_HEX.ink);
+    const mote = cuedFrenzy(target) ? LIFESTEAL_MOTE_CUED : LIFESTEAL_MOTE;
     const n = Math.min(5, 1 + Math.round((e.amount / maxHp) * 30));
     for (let i = 0; i < n * this.d.kit.particles.density; i++) {
       const a = Math.random() * Math.PI * 2;
@@ -1551,7 +1561,7 @@ export class Feedback {
         0.6,
         -Math.sin(a) * rr * 1.6,
         0.55,
-        0.1,
+        mote,
         ink,
         0.9,
         PARTICLE.dot,
@@ -3041,7 +3051,8 @@ export class Feedback {
   /**
    * Bloodlust (Brann, docs/phase-5b.md): he refused your Rally. Over his head, a brass 'refused'
    * sign (a ring struck through) for a moment; it clears early once he would answer after all
-   * (Iron Will and your Ward, or he climbed above his Bloodlust line), or when he falls.
+   * (Iron Will and your Ward, or he climbed above his Bloodlust line), or when he falls. The same
+   * sign is struck across his Rally acknowledgement (the dashed ring at his feet) while it lands.
    */
   private refusedGlyphs(state: WorldState): void {
     const brass = color(BRANN_HEX.brass);
@@ -3051,8 +3062,29 @@ export class Feedback {
       if (!e || !r || this.now >= until || !bloodlusting(CONTENT, e)) {
         if (e && r && this.now < until) this.fired5b.refusedCleared++;
         this.refusedUntil.delete(id);
+        this.refusedAckUntil.delete(id);
         continue;
       }
+      const ack = this.refusedAckUntil.get(id) ?? 0;
+      if (this.now < ack) {
+        // On the ack: a ring where the dashed acknowledgement closes (1.2 × his radius), struck.
+        const a = 0.9 * clamp01((ack - this.now) / 0.25);
+        const RA = r.radius * 1.2;
+        this.d.kit.rings.push(r.x, 0.07, r.z, RA, 0.07, 0.08, RING.plain, brass, a);
+        this.d.kit.beams.push(
+          r.x - RA * 0.75,
+          0.08,
+          r.z - RA * 0.75,
+          r.x + RA * 0.75,
+          0.08,
+          r.z + RA * 0.75,
+          0.09,
+          BEAM.glow,
+          brass,
+          a,
+        );
+        this.drawn5b.refusedAck++;
+      } else if (ack > 0) this.refusedAckUntil.delete(id);
       const k = clamp01((until - this.now) / 0.3);
       const y = r.height + r.y + 1.05;
       const R = 0.26;
@@ -3172,6 +3204,7 @@ export class Feedback {
     const kit = this.d.kit;
     const w = this.rec(state.weaverId);
     this.drawn5b.refused = 0;
+    this.drawn5b.refusedAck = 0;
     if (this.refusedUntil.size > 0) this.refusedGlyphs(state);
     // Stasis: an enemy's projectile waits as its pending hit does in the sim (its clock moves
     // forward with time), hanging where it was; when time resumes it flies on from there.

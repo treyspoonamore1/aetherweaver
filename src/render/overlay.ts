@@ -374,6 +374,13 @@ export class Overlay {
       );
       const fill = div(track, 'position:absolute;left:0;top:0;bottom:0;');
       const trail = div(track, 'position:absolute;top:0;bottom:0;background:#fff;opacity:0.9;');
+      // Brann (docs/phase-5b.md): Bloodletting's drain, a dark hatched segment above his life
+      // (never a hit's white trail). Made before the shield band and the blow's stripes, so it
+      // draws under them: a Ward on him reads at its full length while he spends his life.
+      const drain = div(
+        track,
+        `display:none;position:absolute;top:0;bottom:0;background:repeating-linear-gradient(45deg, ${rgba(BRANN_HEX.ember, 0.55)} 0 1px, transparent 1px 3px), ${BRANN_HEX.drain};`,
+      );
       const shield = div(track, 'position:absolute;top:0;height:3px;background:#a5f3fc;');
       const fc = div(track, 'position:absolute;top:0;bottom:0;');
       // Quarter ticks: how much at a glance.
@@ -387,13 +394,8 @@ export class Overlay {
         track,
         `display:none;position:absolute;top:-1px;bottom:-1px;width:2px;margin-left:-1px;background:${CRIMSON_HEX.notch};box-shadow:0 0 0 1px rgba(0,0,0,0.85),0 0 4px ${CRIMSON_HEX.notch};`,
       );
-      // Brann (docs/phase-5b.md): Bloodletting's drain, a dark hatched segment above his life
-      // (never a hit's white trail); his raging band, an ember strip along the track's foot; his
-      // ticks, short ember marks from the top. All hidden for every other hero.
-      const drain = div(
-        track,
-        `display:none;position:absolute;top:0;bottom:0;background:repeating-linear-gradient(45deg, ${rgba(BRANN_HEX.ember, 0.55)} 0 1px, transparent 1px 3px), ${BRANN_HEX.drain};`,
-      );
+      // Brann (docs/phase-5b.md): his raging band, an ember strip along the track's foot; his
+      // ticks, short ember marks from the top. Hidden for every other hero (as is his drain).
       const band = div(
         track,
         `display:none;position:absolute;bottom:0;height:2px;background:${BRANN_HEX.ember};opacity:0.85;`,

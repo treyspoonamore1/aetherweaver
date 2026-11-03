@@ -269,9 +269,10 @@ const SAVE_GHOST_LIFE = 1.05;
 const CHRONO_SILVER = color(CHRONO_HEX.silver);
 /** Eldritch Conduit: a technique paid in Life flickers her rim blood-violet. */
 const CONDUIT = color(ASTRO_HEX.conduit);
-/** Brann (docs/phase-5b.md): his brass trim (his signal colour) and Blood Rage's ember. */
-const BRASS = color(BRANN_HEX.brass);
+/** Brann (docs/phase-5b.md): Blood Rage's ember. */
 const EMBER = color(BRANN_HEX.ember);
+/** Red Frenzy's swipe ring: his own crimson (docs/phase-5b.md), his Solo rather than a signal. */
+const FRENZY = color(BRANN_HEX.body);
 /** Restless Dead: a risen enemy's ash (its rim, life bar, motes) and the light it re-forms in. */
 const ASH = color(DISSONANCE_HEX.ash);
 const GRAVE = color(DISSONANCE_HEX.grave);
@@ -1795,7 +1796,7 @@ export class EntityLayer {
   /**
    * Brann (docs/phase-5b.md): Blood Rage as an ember glow in his chest that grows with the life
    * he is missing (the shared `bloodRageBonus`, so it shows the bonus the sim applies), embers
-   * rising off him; Red Frenzy's crimson-brass swipe ring that follows him (gold-edged when Cued);
+   * rising off him; Red Frenzy's crimson swipe ring that follows him (gold-edged when Cued);
    * Bloodletting's empowered swings left as pips along his axe.
    */
   private blood(rec: EntityRec, e: ReadonlyEntity, kit: FxKit, dt: number): void {
@@ -1839,7 +1840,7 @@ export class EntityLayer {
       }
       this.drawn5b.rage++;
     }
-    // Red Frenzy: a swipe ring turning with him, his brass edged gold when you Cued it.
+    // Red Frenzy: a crimson swipe ring turning with him, edged gold when you Cued it.
     if (hero.soloActive > 0 && hero.soloId === 'redFrenzy') {
       const R = def?.solo.radius ?? 3.5;
       const turn = (this.now * FRENZY_SPIN) % (Math.PI * 2);
@@ -1852,7 +1853,7 @@ export class EntityLayer {
           0.22,
           0.4,
           RING.swipe,
-          BRASS,
+          FRENZY,
           0.75,
           turn + (i * Math.PI * 2) / 3,
           1.4,
