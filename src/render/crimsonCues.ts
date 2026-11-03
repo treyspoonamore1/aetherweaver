@@ -1,7 +1,8 @@
 import type { ArenaDef, EnemyDef } from '../content';
-import { attackDef, enemyDef } from '../content';
+import { CONTENT, attackDef, enemyDef, partyHasDome } from '../content';
 import type { EntityId, ReadonlyEntity, WorldState } from '../sim';
-import { healReceivedMult } from '../sim/combat/health';
+import { weaverHealCut } from '../sim';
+import { healReceivedMult, type HealVia } from '../sim/combat/health';
 
 /**
  * Movement II, the Crimson Legion (docs/phase-5a.md, Presentation; docs/phase-5a/vfx-audio.md):
@@ -376,8 +377,104 @@ export function healCut(
   pools: readonly Pool[] | null | undefined,
 ): boolean {
   if (via === 'revive') return false;
+  // Brann's axe drinking (docs/phase-5b.md) is his own: never drawn as a cut heal.
+  if (via === 'lifesteal') return false;
+  // Blood Rage halves the Weaver's healing on him (her vias only; Blood Oath lifts it): the
+  // shared rule, so render agrees with the sim (1 for every hero without `passive`).
+  if (target.hero && weaverHealCut(CONTENT, target, via as HealVia) < 1) return true;
   // Read-only here: healReceivedMult only reads the field and the target's statuses.
   if (healReceivedMult(state as unknown as SimWorld, target as unknown as SimEntity) < 1)
     return true;
   return !state.field.sanctuary && !!target.hero && !inSanctuary(pools, target.x, target.z);
 }
+
+// ── Brann, the Bloodsworn (docs/phase-5b.md, Presentation) ────────────────────────────────
+
+/**
+ * Brann's colours. `body` is his content colour, an identity colour only: no saturated crimson
+ * clears lethal and Bear in every colour vision, so it never fills a danger channel. Where a
+ * hero's colour sits beside danger (attack swipes, leap rings, the edge arrow, the key tag on the
+ * bar) he signals in his `brass` trim instead (`signalHex`). Not semantic colours, so they are
+ * kept out of CRIMSON_HEX's ΔE ≥ 20 set; tests/colorVision.test.ts measures each of them.
+ */
+export const BRANN_HEX = {
+  body: '#b91c1c',
+  /** His ink: the lifesteal motes and their soft "+N", the Bloodletting floater. */
+  ink: '#d26b6b',
+  /** The brass trim on his collar and axe edge: his signal colour. */
+  brass: '#c8a46e',
+  /** Blood Rage's glow and the raging band on his bar (the Spire's pale ember). */
+  ember: '#ffd2a6',
+  /** Bloodletting's drain segment on the bar: a dark, hatched crimson (never a hit's white). */
+  drain: '#7f1d1d',
+} as const;
+
+/** Heroes whose own colour sits next to danger, and the colour they signal in instead. */
+const SIGNAL_HEX: Readonly<Record<string, string>> = { brann: BRANN_HEX.brass };
+
+/**
+ * The colour a hero is drawn in where a danger channel sits beside it: `own`, except Brann's
+ * brass. Every default hero keeps their own colour, untouched.
+ */
+export function signalHex(defId: string | undefined, own: string): string {
+  return (defId !== undefined && SIGNAL_HEX[defId]) || own;
+}
+
+/** Blood and Silk counts while Brann is below this share of his life (docs/phase-5b.md). */
+export const SILK_BELOW = 0.3;
+
+/**
+ * The notches on a Blood Rage hero's bar (shares of max life, from the content): his Bloodlust
+ * line (the quirk's `below`, 40%); Berserker's Hymn's `below` with that talent, or Blood and
+ * Silk's 30% with that motif; Deathless's `pct` with that talent. Empty for a hero without
+ * `blood` (every default hero).
+ */
+export function bloodNotches(state: Pick<WorldState, 'mods'>, e: ReadonlyEntity): number[] {
+  const h = e.hero;
+  if (!h?.blood) return [];
+  const out: number[] = [];
+  const below = CONTENT.heroes.find((d) => d.id === h.defId)?.quirk.below;
+  if (below !== undefined) out.push(below);
+  const talent = (id: string, key: string) =>
+    CONTENT.talents.find((t) => t.id === id)?.values[key] ?? 0;
+  const hymn = h.talents.includes('berserkers_hymn') ? talent('berserkers_hymn', 'below') / 100 : 0;
+  const silk = (state.mods?.bloodAndSilk ?? 0) > 0 ? SILK_BELOW : 0;
+  const low = Math.max(hymn, silk);
+  if (low > 0) out.push(low);
+  if (h.talents.includes('deathless')) {
+    const pct = talent('deathless', 'pct') / 100;
+    if (pct > 0) out.push(pct);
+  }
+  return out;
+}
+
+/** Some hero in the party brings a dome (Kael's Aegis Wall: `partyHasDome`, the content's). */
+export function partyDome(state: Pick<WorldState, 'party' | 'entities'>): boolean {
+  const ids: string[] = [];
+  for (const id of state.party) {
+    const defId = state.entities.get(id)?.hero?.defId;
+    if (defId !== undefined) ids.push(defId);
+  }
+  return partyHasDome(ids);
+}
+
+/**
+ * A telegraph's answers as its glyph shows them (docs/phase-5b.md): the dome only when some hero
+ * in the party brings one. The default party has Kael, so its glyphs are exactly the sim's.
+ */
+export function shownAnswers<T extends string>(
+  state: Pick<WorldState, 'party' | 'entities'>,
+  answers: readonly T[],
+): T[] {
+  if (!answers.includes('dome' as T) || partyDome(state)) return [...answers];
+  return answers.filter((a) => a !== 'dome');
+}
+
+/** A Bloodletting drain segment stays on the bar this long (s), fading out. */
+export const DRAIN_HOLD = 0.9;
+/** The Bloodletting floater's size (px): small and calm, never a hit's number. */
+export const DRAIN_SIZE = 14;
+/** The Rally-refused glyph over Brann's head holds this long (s), unless Iron Will clears it. */
+export const REFUSED_SECONDS = 1.6;
+/** Red Frenzy's swipe ring turns this many radians a second. */
+export const FRENZY_SPIN = 9;

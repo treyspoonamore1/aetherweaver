@@ -248,6 +248,9 @@ export class MartyrView {
           }
           break;
         case 'healApplied':
+          // Brann's lifesteal (docs/phase-5b.md) is his own, never the Weaver's: no Covenant
+          // return, no Blood Font.
+          if (e.via === 'lifesteal') break;
           if (e.via === 'mend' && this.look.covenant) this.covenant(e.target, e.amount, state);
           else if (e.via === 'self' && e.target === state.weaverId) this.fired.selfHeal++;
           break;

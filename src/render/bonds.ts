@@ -11,9 +11,12 @@ import {
   bondCue,
   bondsLook,
   cueHero,
+  cueHex,
   cueName,
+  deathlessLeft,
+  deathlessSeconds,
   emptyBondsLook,
-  heroHex,
+  hymnPlaying,
   markLeft,
   markSeconds,
   novaRadius,
@@ -28,6 +31,7 @@ import {
   vigilReach,
   type BondCue,
 } from './bondsCues';
+import { SILK_BELOW } from './crimsonCues';
 import { BEAM } from './fx/beams';
 import type { FxKit } from './fx/kit';
 import { PARTICLE } from './fx/particles';
@@ -148,6 +152,11 @@ interface Star {
   color: THREE.Color;
 }
 
+/** Blood Tithe's refund chip: the Ward's own pale cyan (a shield's colour, not his). */
+const TITHE_HEX = '#a5f3fc';
+const TITHE = color(TITHE_HEX);
+/** Blood and Silk's pulse along the Thread: Resonance's warm white. */
+const SILK = color('#fff4d6');
 const STARLIGHT = color(BONDS_HEX.starlight);
 const HORIZON = color(BONDS_HEX.horizon);
 const WHITE = color('#ffffff');
@@ -186,7 +195,9 @@ export class BondsView {
   /** How many of each moment started (tests and the lab read these). */
   readonly fired = Object.fromEntries(BOND_CUES.map((c) => [c, 0])) as Record<BondCue, number>;
   /** Alternate Solos started (the reach, the stance, the spheres forming). */
-  readonly started = { oathkeeper: 0, hawks_vigil: 0, celestial_sphere: 0 };
+  readonly started = { oathkeeper: 0, hawks_vigil: 0, celestial_sphere: 0, blood_brother: 0 };
+  /** Brann's Bonds beyond the cues (tests, the lab): Blood Tithe's refunds shown. */
+  readonly fired5b = { tithe: 0 };
   /** What was drawn last frame (tests, the lab). */
   readonly drawn = {
     moments: 0,
@@ -202,6 +213,11 @@ export class BondsView {
     tethers: 0,
     /** Event Horizon: enemies drawn being dragged into the field. */
     pulled: 0,
+    /** Brann: Deathless's bastion, the Hymn's links, Blood Brother's tether, Blood and Silk. */
+    deathless: 0,
+    hymnLinks: 0,
+    brother: 0,
+    silk: 0,
   };
   /** Moments drawn last frame, by cue. */
   readonly drawnBy = Object.fromEntries(BOND_CUES.map((c) => [c, 0])) as Record<BondCue, number>;
@@ -294,7 +310,7 @@ export class BondsView {
   }
 
   private heroColor(defId: string | undefined): THREE.Color {
-    return color(heroHex(defId));
+    return color(cueHex(defId));
   }
 
   // ── Events ────────────────────────────────────────────────────────────────────────
@@ -305,7 +321,38 @@ export class BondsView {
       if (e.type === 'talentFired') this.start(e, state, events);
       else if (e.type === 'attackFired') this.bolt(e);
       else if (e.type === 'soloStarted') this.soloStarted(e, state);
+      else if (e.type === 'titheRefund') this.tithe(e, state);
     }
+  }
+
+  /**
+   * Blood Tithe (docs/phase-5b.md): a Tithe Ward on Brann broke and gave back Spirit (or life,
+   * under Eldritch Conduit). A chip with what came back over him, in the Ward's colour, and a
+   * small ring of it closing on him. Shown only when it pays.
+   */
+  private tithe(e: SimEventOf<'titheRefund'>, state: WorldState): void {
+    const r = this.d.recs.get(e.target);
+    const target = state.entities.get(e.target);
+    if (!r || !target) return;
+    this.fired5b.tithe++;
+    const text = e.spirit > 0 ? `+${Math.round(e.spirit)} SPIRIT` : `+${Math.round(e.life)} LIFE`;
+    this.d.overlay?.callout(r.x, r.y + r.height + 1.4, r.z, text, TITHE_HEX, 13, 1.0);
+    this.d.kit.particles.burst(
+      r.x,
+      chestY(r),
+      r.z,
+      8,
+      1.6,
+      1.2,
+      0.45,
+      0.1,
+      TITHE,
+      1,
+      PARTICLE.shard,
+      3,
+      0,
+      r.radius,
+    );
   }
 
   private start(e: SimEventOf<'talentFired'>, state: WorldState, batch: readonly SimEvent[]): void {
@@ -313,7 +360,7 @@ export class BondsView {
     if (!cue) return;
     const hero = state.entities.get(e.hero);
     const defId = hero?.hero?.defId ?? cueHero(e.talent);
-    const hex = heroHex(defId);
+    const hex = cueHex(defId);
     const col = this.heroColor(defId);
     this.fired[cue]++;
     this.lastHex[cue] = hex;
@@ -342,6 +389,15 @@ export class BondsView {
       case 'unbreakable':
         m.life = unbreakableSeconds() + 0.45;
         m.h = hero?.height ?? m.h;
+        break;
+      case 'deathless':
+        // Unbreakable's look, for Deathless's seconds (the state's `deathlessUntil`).
+        m.life = deathlessSeconds() + 0.45;
+        m.h = hero?.height ?? m.h;
+        break;
+      case 'berserkers_hymn':
+        // Every other standing hero: the Hymn links them to him.
+        this.gather(m, state, hero?.x ?? e.x, hero?.z ?? e.z, 1e4, false);
         break;
       case 'wind_step':
       case 'arcane_ward':
@@ -482,7 +538,12 @@ export class BondsView {
   }
 
   private soloStarted(e: SimEventOf<'soloStarted'>, state: WorldState): void {
-    if (e.solo !== 'oathkeeper' && e.solo !== 'hawks_vigil' && e.solo !== 'celestial_sphere')
+    if (
+      e.solo !== 'oathkeeper' &&
+      e.solo !== 'hawks_vigil' &&
+      e.solo !== 'celestial_sphere' &&
+      e.solo !== 'blood_brother'
+    )
       return;
     this.started[e.solo]++;
     const slot = state.party.indexOf(e.hero);
@@ -511,6 +572,10 @@ export class BondsView {
     dr.unbreakable = 0;
     dr.tethers = 0;
     dr.pulled = 0;
+    dr.deathless = 0;
+    dr.hymnLinks = 0;
+    dr.brother = 0;
+    dr.silk = 0;
     for (const c of BOND_CUES) this.drawnBy[c] = 0;
     this.oathDrawn.fill(0);
     this.vigilDrawn.fill(0);
@@ -530,10 +595,14 @@ export class BondsView {
         }
         if (alt === 'oathkeeper') this.oath(state, e, r, slot, time);
         else if (alt === 'hawks_vigil') this.vigil(e, r, slot, time);
+        else if (alt === 'blood_brother') this.brother(state, e, r, time);
         this.sphere(state, e, r, slot, time);
+        if (hymnPlaying(e)) this.hymnLinks(state, e, r, time);
       }
       if (this.look.alt) this.marks(state, time);
     }
+    // Blood and Silk (a motif, so it needs no talent): the Thread on Brann makes Resonance.
+    if ((state.mods?.bloodAndSilk ?? 0) > 0) this.silk(state, time);
     this.drawStars(state, time);
     for (const m of this.pool) {
       if (!m.active) continue;
@@ -604,6 +673,14 @@ export class BondsView {
         return this.spherePop(m, time);
       case 'constellation':
         return false;
+      case 'iron_will':
+        return this.ironWill(m, time);
+      case 'blood_oath':
+        return this.oathGlint(m, time);
+      case 'deathless':
+        return this.unbreakable(m, state, time);
+      case 'berserkers_hymn':
+        return this.hymn(m, time);
     }
   }
 
@@ -875,8 +952,12 @@ export class BondsView {
       const rr = k.radius * (1.2 + 3 * ring);
       kit.rings.push(k.x, 0.05, k.z, rr, 0.2, 0.4, RING.plain, m.color, flash);
     }
-    const inv = state.entities.get(m.hero)?.health?.invulnerable ?? 0;
-    const secs = Math.max(0.1, unbreakableSeconds());
+    // Deathless (Brann) reuses this look: his seconds are the state's `deathlessUntil`.
+    const deathless = m.cue === 'deathless';
+    const inv = deathless
+      ? deathlessLeft(state.entities.get(m.hero), state.time)
+      : (state.entities.get(m.hero)?.health?.invulnerable ?? 0);
+    const secs = Math.max(0.1, deathless ? deathlessSeconds() : unbreakableSeconds());
     const a = clamp01(inv / 0.3) * seg(t, 0.04, 0.22);
     if (a > 0.005) {
       // A bastion of his light: six pillars round him, crowned with a ring and a star each.
@@ -909,7 +990,8 @@ export class BondsView {
         left * TAU,
       );
       kit.sprites.push(k.x, cy, k.z, k.radius * 3.6, SPRITE.glow, m.color, 0.24 * a);
-      this.drawn.unbreakable++;
+      if (deathless) this.drawn.deathless++;
+      else this.drawn.unbreakable++;
     } else if (t > 0.45) {
       // His seconds are up (or the fight moved on): done.
       m.life = Math.min(m.life, t);
@@ -1343,6 +1425,177 @@ export class BondsView {
     }
     this.callout(m, dx, m.h + 1.6, dz, 15);
     return true;
+  }
+
+  // ── Brann (docs/phase-5b.md) ──────────────────────────────────────────────────────
+  // His moments are in his brass (`cueHex`), never his crimson: in the Spire a crimson link
+  // reads as a Blood Pact's, a crimson ring as lethal.
+
+  /** Iron Will: your Ward made him answer the Rally. A brass ring closes on him, named. */
+  private ironWill(m: Moment, time: number): boolean {
+    const kit = this.d.kit;
+    const k = this.d.recs.get(m.hero);
+    if (!k) return m.age > 0;
+    const t = m.age;
+    const close = easeOut(seg(t, 0, 0.35));
+    const fade = 1 - seg(t, m.life - 0.35, m.life);
+    kit.rings.push(
+      k.x,
+      0.05,
+      k.z,
+      k.radius * (3.2 - 1.8 * close),
+      0.12,
+      0.25,
+      RING.plain,
+      m.color,
+      0.9 * fade,
+    );
+    kit.sprites.push(k.x, chestY(k), k.z, 0.5 + 0.3 * bump(t / 0.4), SPRITE.diamond, m.color, fade);
+    void time;
+    this.callout(m, k.x, k.height + 1.7, k.z, 15);
+    return true;
+  }
+
+  /** Blood Oath: the overheal riding his swing lands. A glint on him, a spark on his target. */
+  private oathGlint(m: Moment, time: number): boolean {
+    const kit = this.d.kit;
+    const k = this.d.recs.get(m.hero);
+    if (!k) return m.age > 0;
+    const t = m.age;
+    const g = 1 - seg(t, 0, m.life);
+    kit.sprites.push(k.x, chestY(k), k.z, 0.35 + 0.25 * g, SPRITE.star, m.color, g, time * 4);
+    const q = this.d.recs.get(m.target);
+    if (q && this.once(m, BIT_BURST))
+      kit.particles.burst(
+        q.x,
+        chestY(q),
+        q.z,
+        6,
+        2.2,
+        1.2,
+        0.3,
+        0.09,
+        m.color,
+        1,
+        PARTICLE.spark,
+        3,
+        2,
+      );
+    return true;
+  }
+
+  /** Berserker's Hymn turns on: a run of his brass from him out to every other hero. */
+  private hymn(m: Moment, time: number): boolean {
+    const kit = this.d.kit;
+    const k = this.d.recs.get(m.hero);
+    if (!k) return m.age > 0;
+    const t = m.age;
+    const run = easeOut(seg(t, 0, 0.4));
+    const fade = 1 - seg(t, m.life - 0.5, m.life);
+    const ky = chestY(k);
+    for (let i = 0; i < m.tcount; i++) {
+      const o = this.d.recs.get(m.targets[i]!);
+      if (!o) continue;
+      const oy = chestY(o);
+      const ex = k.x + (o.x - k.x) * run;
+      const ey = ky + (oy - ky) * run;
+      const ez = k.z + (o.z - k.z) * run;
+      kit.beams.push(k.x, ky, k.z, ex, ey, ez, 0.3, BEAM.glow, m.color, 0.7 * fade);
+      if (run >= 1) kit.sprites.push(o.x, oy, o.z, 0.5, SPRITE.glow, m.color, 0.6 * fade);
+    }
+    kit.rings.push(
+      k.x,
+      0.05,
+      k.z,
+      k.radius * (1.2 + 2 * run),
+      0.12,
+      0.3,
+      RING.plain,
+      m.color,
+      fade,
+    );
+    void time;
+    this.callout(m, k.x, k.height + 1.8, k.z, 17);
+    return true;
+  }
+
+  /** While the Hymn plays (he is below its line): faint links from him to the other heroes. */
+  private hymnLinks(state: WorldState, e: ReadonlyEntity, r: BondsRec, time: number): void {
+    const kit = this.d.kit;
+    const col = this.heroColor(e.hero!.defId);
+    const a = 0.22 + 0.08 * Math.sin(time * 4);
+    const ry = chestY(r);
+    for (const id of state.party) {
+      if (id === e.id) continue;
+      const o = state.entities.get(id);
+      const or = this.d.recs.get(id);
+      if (!o?.health || o.health.dead || o.health.downed || !or) continue;
+      kit.beams.push(r.x, ry, r.z, or.x, chestY(or), or.z, 0.1, BEAM.dashed, col, a, 1, 1, 1.5);
+      this.drawn.hymnLinks++;
+    }
+  }
+
+  /**
+   * Blood Brother (his alternate Solo): his axe feeds the hero you Thread. A tether from him to
+   * them, the heal running along it.
+   */
+  private brother(state: WorldState, e: ReadonlyEntity, r: BondsRec, time: number): void {
+    const slot = state.entities.get(state.weaverId)?.weaver?.threadSlot;
+    const to = slot === null || slot === undefined ? undefined : state.party[slot];
+    if (to === undefined || to === e.id) return;
+    const o = this.d.recs.get(to);
+    if (!o) return;
+    const kit = this.d.kit;
+    const col = this.heroColor(e.hero!.defId);
+    const ay = chestY(r);
+    const by = chestY(o);
+    kit.beams.push(r.x, ay, r.z, o.x, by, o.z, 0.34, BEAM.glow, col, 0.55);
+    kit.beams.push(r.x, ay, r.z, o.x, by, o.z, 0.1, BEAM.dashed, col, 0.9, 1, 1, -2.5);
+    const u = (time * 1.4) % 1;
+    kit.sprites.push(
+      r.x + (o.x - r.x) * u,
+      ay + (by - ay) * u,
+      r.z + (o.z - r.z) * u,
+      0.3,
+      SPRITE.glow,
+      col,
+      0.9,
+    );
+    this.drawn.brother++;
+  }
+
+  /**
+   * Blood and Silk (the Harmony): while you Empower Brann below its line, your Thread makes
+   * Resonance. Notes of Resonance's warm white pulse along the Thread from him to you.
+   */
+  private silk(state: WorldState, time: number): void {
+    const w = state.entities.get(state.weaverId);
+    const slot = w?.weaver?.threadSlot;
+    if (!w?.weaver || slot === null || slot === undefined) return;
+    if (w.weaver.threadMode !== 'empower') return;
+    const id = state.party[slot];
+    const e = id === undefined ? undefined : state.entities.get(id);
+    const h = e?.health;
+    if (!e?.hero?.blood || !h || h.dead || h.downed || !(h.hp < SILK_BELOW * h.maxHp)) return;
+    const a = this.d.recs.get(e.id);
+    const b = this.d.recs.get(state.weaverId);
+    if (!a || !b) return;
+    const ay = chestY(a);
+    const by = chestY(b);
+    for (let i = 0; i < 3; i++) {
+      const u = (time * 0.9 + i / 3) % 1;
+      this.d.kit.sprites.push(
+        a.x + (b.x - a.x) * u,
+        ay + (by - ay) * u + Math.sin(u * Math.PI) * 0.25,
+        a.z + (b.z - a.z) * u,
+        0.22 + 0.1 * Math.sin(u * Math.PI),
+        SPRITE.star,
+        SILK,
+        0.85,
+        time * 3 + i,
+      );
+    }
+    this.drawn.silk++;
   }
 
   // ── The alternate Solos' moments ──────────────────────────────────────────────────

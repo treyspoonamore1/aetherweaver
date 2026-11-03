@@ -18,6 +18,8 @@ function shade(hex: string, k: number): string {
 
 const GOLD = '#e8b54a';
 const GOLD_GLOW = '#ffd27a';
+/** Brann's brass trim (his collar and axe edge, docs/phase-5b.md): BRANN_HEX.brass. */
+export const BRASS_TRIM = '#c8a46e';
 
 /**
  * The Weaver in `palette` (keepsakeCues.ts: her robe and her Thread look's hands). Her own is the
@@ -173,6 +175,60 @@ export function buildHero(def: HeroDef): THREE.BufferGeometry {
         Math.PI * 2,
         12,
       );
+      break;
+    }
+    case 'berserker': {
+      // Brann (docs/phase-5b.md): broad and bare-armed, scarred, a two-handed axe carried low,
+      // a crimson sash, dark-iron bracers and the Legion's broken collar. Brass trims the collar
+      // and the axe's edge: what carries him in the crimson Spire (his colour alone can't).
+      const skin = '#c99a7c';
+      const scar = '#efd2bf';
+      const iron = '#3a3638';
+      const k = h / 2.1;
+      // Legs in dark leather, a wide stance.
+      b.box(0.26, 0.74, 0.28, '#4a3426', { p: [0.21, 0.37, 0] });
+      b.box(0.26, 0.74, 0.28, '#4a3426', { p: [-0.21, 0.37, 0] });
+      // A bare, broad torso (wider at the shoulders than at the waist), the sash across it.
+      b.cyl(0.5, 0.36, 0.7 * k, skin, { p: [0, 1.1 * k, 0], s: [1, 1, 0.62] }, 8);
+      b.box(0.82, 0.16, 0.42, col, { p: [0, 0.8 * k, 0] });
+      b.box(0.16, 0.86, 0.06, col, { p: [0.12, 1.12 * k, -0.24], r: [0, 0, 0.62] });
+      // Scars: pale welts across his chest.
+      b.box(0.34, 0.025, 0.02, scar, { p: [-0.08, 1.2 * k, -0.24], r: [0, 0, -0.4] });
+      b.box(0.22, 0.025, 0.02, scar, { p: [0.14, 1.02 * k, -0.24], r: [0, 0, 0.3] });
+      // Bare arms, dark-iron bracers.
+      b.cyl(0.11, 0.1, 0.62, skin, { p: [0.56, 1.12 * k, -0.04], r: [0, 0, 0.18] }, 6);
+      b.cyl(0.11, 0.1, 0.62, skin, { p: [-0.56, 1.12 * k, -0.04], r: [0, 0, -0.18] }, 6);
+      b.cyl(0.12, 0.12, 0.22, iron, { p: [0.62, 0.86 * k, -0.06], r: [0, 0, 0.18] }, 6);
+      b.cyl(0.12, 0.12, 0.22, iron, { p: [-0.62, 0.86 * k, -0.06], r: [0, 0, -0.18] }, 6);
+      // Head, a shock of dark hair.
+      b.sphere(0.18, skin, { p: [0, 1.62 * k, 0] });
+      b.sphere(0.16, '#2b1a14', { p: [0, 1.72 * k, 0.05], s: [1, 0.6, 1] });
+      // The broken collar: dark iron, a brass band, a snapped link hanging off it.
+      b.torus(
+        0.21,
+        0.055,
+        iron,
+        { p: [0, 1.44 * k, 0], r: [Math.PI / 2, 0, 0] },
+        Math.PI * 1.7,
+        12,
+      );
+      b.torus(
+        0.21,
+        0.022,
+        BRASS_TRIM,
+        { p: [0, 1.48 * k, 0], r: [Math.PI / 2, 0, 0], glow: 0.2 },
+        Math.PI * 1.7,
+        12,
+      );
+      b.torus(0.05, 0.016, iron, { p: [0.2, 1.36 * k, -0.08], r: [0, 0.4, 0] }, Math.PI * 2, 6);
+      // The two-handed axe, carried low in his right hand: haft, a broad head, its brass edge.
+      b.cyl(0.035, 0.035, 1.5, '#5a4630', { p: [0.58, 0.72 * k, -0.24], r: [0.5, 0, 0.12] }, 5);
+      b.box(0.08, 0.42, 0.36, iron, { p: [0.62, 0.18 * k, -0.6], r: [0.5, 0, 0.12] });
+      b.box(0.04, 0.46, 0.06, BRASS_TRIM, {
+        p: [0.62, 0.12 * k, -0.78],
+        r: [0.5, 0, 0.12],
+        glow: 0.35,
+      });
       break;
     }
     default: {

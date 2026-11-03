@@ -29,6 +29,7 @@ import {
   bondCue,
   bondsLook,
   cueHero,
+  cueHex,
   emptyBondsLook,
   markLeft,
   markSeconds,
@@ -191,6 +192,8 @@ const hit = (sim: Sim, target: Entity, amount: number, source: Entity | null) =>
     telegraph: null,
   });
 const heroHexOf = (slot: number) => heroDef(['kael', 'lyra', 'vexis'][slot]!).color;
+/** The default party and Brann after them (a cue's hero by its slot). */
+const ALL_FOUR = ['kael', 'lyra', 'vexis', 'brann'];
 const tough = (sim: Sim) => {
   for (const e of worldOf(sim).entities.list())
     if (e.enemy && e.health) e.health.hp = e.health.maxHp = 1e6;
@@ -219,7 +222,7 @@ describe('Bonds cues', () => {
     expect([...BOND_CUES].sort()).toEqual(simTalents());
     for (const id of BOND_CUES) {
       expect(bondCue(id)).toBe(id);
-      expect(['kael', 'lyra', 'vexis'], id).toContain(cueHero(id));
+      expect(['kael', 'lyra', 'vexis', 'brann'], id).toContain(cueHero(id));
       expect(CUE_LIFE[id], id).toBeGreaterThanOrEqual(0);
     }
     // Talents with nothing visible to announce (their effect is a number) have no cue.
@@ -626,7 +629,7 @@ describe('every moment, and the rules they keep', () => {
   /** Each cue's `talentFired`, built as the sim builds it, from a real sandbox's heroes. */
   const synthetic = (id: BondCue, sim: Sim): SimEvent => {
     const st = sim.state;
-    const hero = st.party[['kael', 'lyra', 'vexis'].indexOf(cueHero(id)!)]!;
+    const hero = st.party[ALL_FOUR.indexOf(cueHero(id)!)]!;
     const he = st.entities.get(hero)!;
     const foe = [...st.entities.list()].find((e) => e.enemy)!;
     const target =
@@ -651,14 +654,18 @@ describe('every moment, and the rules they keep', () => {
   it('each is drawn in its hero’s colour, at Flashes 0 too', () => {
     for (const flashes of [1, 0]) {
       for (const id of BOND_CUES) {
-        const { sim, h } = setup(bonds([]));
+        // Brann's cues need Brann: a fourth hero after the default three (their slots as ever).
+        const brann = cueHero(id) === 'brann';
+        const { sim, h } = setup(brann ? { ...bonds([]), party: ALL_FOUR } : bonds([]));
         enemies(h, ['bell_brute', 0, -8]);
         h.view.handle([synthetic(id, sim)], sim.state);
         h.tick([], flashes);
         h.tick([], flashes);
         h.tick([], flashes);
         expect(h.view.fired[id], id).toBe(1);
-        expect(h.drewIn(heroDef(cueHero(id)!).color), `${id} at flashes ${flashes}`).toBe(true);
+        // His colour is his brass (cueHex); every default hero's is their own.
+        const hex = brann ? cueHex('brann') : heroDef(cueHero(id)!).color;
+        expect(h.drewIn(hex), `${id} at flashes ${flashes}`).toBe(true);
       }
     }
   });

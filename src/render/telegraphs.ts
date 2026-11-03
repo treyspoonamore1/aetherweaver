@@ -12,6 +12,7 @@ import {
   emptyStatusLook,
   executeBelowOf,
   isPact,
+  shownAnswers,
   statusAnswers,
 } from './crimsonCues';
 import type { EntityLayer, EntityRec } from './entities';
@@ -158,13 +159,15 @@ export class TelegraphLayer {
         // keep default
       }
     }
+    // The dome glyph only when the party brings one (docs/phase-5b.md; the default party does).
+    const answers = shownAnswers(state, t.answers);
     const rec: TgRec = {
       id: t.id,
       seen: 0,
       effect: t.effect ?? this.effects.get(t.id) ?? 'damage',
       name: t.name,
-      answers: [...t.answers],
-      key: t.answers.join(','),
+      answers,
+      key: answers.join(','),
       owner: t.owner,
       ownerAccent: color(accentHex),
       ownerHex: accentHex,
