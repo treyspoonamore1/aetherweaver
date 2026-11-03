@@ -3,12 +3,18 @@
  *
  *   npx tsx tools/pacing.ts --players 12 --hours 3
  *   npx tsx tools/pacing.ts --players 12 --hours 3 --bot skilled
+ *   npx tsx tools/pacing.ts --players 12 --hours 3 --route expedition
  *
  * Each player plays whole runs with the bot on what their Rank has opened: the newest preset it
  * allows, its Astrolabe points spent on a fixed tree, and from the first Calling's Rank that
  * Calling, with the path tiers its mastery has opened. Weaver XP, Starlight (fights and Deeds) and
  * mastery accrue as the stores pay them. The clock is each run's fights plus a fixed allowance for
  * everything around them (`AROUND`); it's a model of a player, not a measurement of one.
+ *
+ * The route (docs/phase-5a.md): by default every run is a Prelude, the calibrated baseline of
+ * docs/phase-4h.md. `--route expedition` plays as the game does: the first run is the Prelude,
+ * and from Rank 2 (when Expeditions open) every run is an Expedition through the Crimson Legion;
+ * it then splits each run's minutes by Movement.
  */
 import { CONTENT } from '../src/content';
 import type { BotKind } from '../src/bots';
@@ -16,7 +22,7 @@ import { astrolabePoints } from '../src/meta/astrolabe';
 import { deedPoints, deedsEarned } from '../src/meta/deeds';
 import { masteryLevel, starlightForDeeds, tiersOpen } from '../src/meta/loom';
 import { rankOf } from '../src/meta/profile';
-import { CHORD_PRESETS } from '../src/meta/run';
+import { CHORD_PRESETS, movementOf } from '../src/meta/run';
 import type { RunState } from '../src/meta/types';
 import { buildTree, TREES } from './astrolabe';
 import { playRun } from './harness-core';
@@ -55,6 +61,9 @@ function main(): void {
   const players = Number(get('players') ?? 12);
   const hours = Number(get('hours') ?? 3);
   const bot = (get('bot') ?? 'novice') as BotKind;
+  const expedition = (get('route') ?? 'prelude') === 'expedition';
+  /** Rank 2 opens Expeditions (docs/phase-5a.md); the first run is always the Prelude. */
+  const EXPEDITION_RANK = 2;
   const calling = CONTENT.callings.reduce((a, b) => (b.unlockRank < a.unlockRank ? b : a));
   const cheapest = Math.min(
     ...[...CONTENT.cosmetics.robes, ...CONTENT.cosmetics.threads].map((c) => c.price),
@@ -81,6 +90,11 @@ function main(): void {
   let allWins = 0;
   let allXp = 0;
   let allMinutes = 0;
+  // Expeditions only: their count, the Movement II reached, minutes by Movement.
+  let expeditions = 0;
+  let reachedII = 0;
+  let expeditionWins = 0;
+  const minutesByMovement = [0, 0];
 
   for (let p = 0; p < players; p++) {
     let xp = 0;
@@ -103,14 +117,21 @@ function main(): void {
       const tree = points > 0 ? buildTree([...TREES.grace!, ...TREES.notables!], points) : [];
       const callingId = rank >= calling.unlockRank ? calling.id : undefined;
       let around = BEFORE_RUN + AFTER_RUN;
+      const movements = expedition && rank >= EXPEDITION_RANK ? 2 : 1;
+      const aroundBy = [BEFORE_RUN + AFTER_RUN, 0];
       let finished: RunState | null = null;
       const summary = playRun(9001 + p * 7919 + r * 104729, bot, preset.chords, {
         astrolabe: tree,
         calling: callingId,
         path: [0, 0, 0, 0],
         tiersOpen: callingId ? tiersOpen(callingId, mastery[callingId] ?? 0, false) : undefined,
-        onPhase: (phase) => (around += AROUND[phase] ?? 0),
+        onPhase: (phase, now) => {
+          const s = AROUND[phase] ?? 0;
+          around += s;
+          aroundBy[Math.min(1, movementOf(now) - 1)]! += s;
+        },
         onEnd: (run) => (finished = run),
+        movements,
       });
       const run = finished as RunState | null;
       if (!run) throw new Error('the run never ended');
@@ -136,6 +157,13 @@ function main(): void {
       allRuns++;
       allXp += runXp;
       allMinutes += summary.minutes + around / 60;
+      if (movements >= 2) {
+        expeditions++;
+        if (summary.movementReached >= 2) reachedII++;
+        if (summary.outcome === 'victory') expeditionWins++;
+        for (let k = 0; k < 2; k++)
+          minutesByMovement[k]! += (summary.minutesByMovement[k] ?? 0) + aroundBy[k]! / 60;
+      }
       const now = rankOf(xp);
       for (let k = 2; k <= Math.min(10, now); k++) reach(`rank${k}`);
       if (now >= CONTENT.starlight.atelierRank) {
@@ -163,6 +191,10 @@ function main(): void {
   console.log(
     `pacing · ${bot} · ${players} players · ${hours} h each · ${allRuns} runs · wins ${((100 * allWins) / allRuns).toFixed(0)}% · ${(allMinutes / allRuns).toFixed(1)} min and ${(allXp / allRuns).toFixed(0)} XP a run`,
   );
+  if (expeditions > 0)
+    console.log(
+      `  Expeditions (from Rank ${EXPEDITION_RANK}): ${expeditions} runs · reach II ${((100 * reachedII) / expeditions).toFixed(0)}% · won ${((100 * expeditionWins) / expeditions).toFixed(0)}% · ${minutesByMovement.map((m) => (m / expeditions).toFixed(1)).join(' + ')} min a run (Movement I + II)`,
+    );
   console.log('  first reached (median, h:mm) · how many players reached it');
   for (const m of milestones) {
     const times = at[m.id]!;

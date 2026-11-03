@@ -5,7 +5,13 @@
  */
 import { performance } from 'node:perf_hooks';
 import { runScenario } from './runScenario';
-import { SCENARIO_CANTOR, SCENARIO_CROWD, SCENARIO_FIRST_LIGHT, type Scenario } from './scenarios';
+import {
+  SCENARIO_CANTOR,
+  SCENARIO_CROWD,
+  SCENARIO_FIRST_LIGHT,
+  SCENARIO_HOUND_PACK,
+  type Scenario,
+} from './scenarios';
 
 const BUDGET_MS_PER_TICK = 1.5;
 const check = process.argv.includes('--check');
@@ -31,6 +37,8 @@ function bench(scenario: Scenario): void {
   }
 }
 
-for (const scenario of [SCENARIO_CROWD, SCENARIO_FIRST_LIGHT, SCENARIO_CANTOR]) bench(scenario);
+// The hound pack (docs/phase-5a.md): the Matriarch, Pack Call and a loose pack, Movement II's peak.
+for (const scenario of [SCENARIO_CROWD, SCENARIO_FIRST_LIGHT, SCENARIO_CANTOR, SCENARIO_HOUND_PACK])
+  bench(scenario);
 if (check && over) process.exit(1);
 if (check) console.log('✔ within budget');

@@ -1,12 +1,19 @@
 /** Plays one encounter with a bot, headlessly. Shared by the harness CLI and tests. */
 import { buildOutcome } from '../src/app/outcome';
-import { CONTENT, callingOption, runEventDef } from '../src/content';
+import { CONTENT, callingOption, enemyDef, movementDef, runEventDef } from '../src/content';
 import { makeBot, type BotKind } from '../src/bots';
 import type { ReliquaryRelic } from '../src/meta/reliquary';
 import * as Run from '../src/meta/run';
 import type { ChordLoadout, RunState } from '../src/meta/types';
 import { weaverShare } from '../src/meta/run';
-import { chordReserve, createSim, type SimConfig, type SimEvent } from '../src/sim';
+import {
+  chordReserve,
+  createSim,
+  type EntityId,
+  type Sim,
+  type SimConfig,
+  type SimEvent,
+} from '../src/sim';
 import type { RunBond } from '../src/meta/bonds';
 import { noVariants, type Techniques } from '../src/meta/variants';
 
@@ -32,21 +39,143 @@ export interface EncounterRun {
   calls: number;
   responses: number;
   holds: number;
+  // ── Movement II's verbs (docs/phase-5a.md); 0, empty or null in Movement I. ──
+  /** Pins and latches a Reel freed. */
+  pinsFreed: number;
+  /** The bleed stacks each Chime cleansed, one entry per bleeding hero cleansed. */
+  bleedCleanses: number[];
+  /** Blood Pacts that blasted (the pair still close when it landed). */
+  pactBlasts: number;
+  /**
+   * The share of the heroes' hits on a guarded enemy that landed on its guard (×0.1), read
+   * from where each hitter stood; null when no guarded enemy was hit.
+   */
+  guardBlockedPct: number | null;
+  /** Execution casts, and the heroes they downed. */
+  executeCasts: number;
+  executions: number;
+  /** Under the Bloodmoon: the share of hero-time spent inside a Sanctuary pool; else null. */
+  timeInSanctuary: number | null;
 }
 
 const MAX_SECONDS = 9 * 60;
+
+/**
+ * The fights a Movement's isolated cells play, read from content in its order: the opening, the
+ * lessons, the skirmish and elite pools, the mini-boss and the boss. Event-only fights (the
+ * Unsung Choir, the Legion Vanguard) aren't in it. Movement I's is the harness's table.
+ */
+export function movementEncounters(movement: number): string[] {
+  const def = movementDef(movement);
+  const all = [
+    def.opening,
+    ...(def.lessons ?? []),
+    ...def.skirmishes,
+    ...def.elites,
+    def.miniboss,
+    def.boss,
+  ];
+  return all.filter((id, i) => all.indexOf(id) === i);
+}
+
+/** Tallies Movement II's verbs from a fight's events and state, tick by tick. */
+export class VerbTally {
+  pinsFreed = 0;
+  bleedCleanses: number[] = [];
+  private readonly bleed = new Map<EntityId, number>();
+  private readonly pacts = new Set<number>();
+  private readonly blasted = new Set<number>();
+  private readonly executes = new Set<number>();
+  executeCasts = 0;
+  executions = 0;
+  private guardHits = 0;
+  private guardBlocked = 0;
+  private bloodmoon = 0;
+  private sheltered = 0;
+
+  tick(sim: Sim, events: readonly SimEvent[]): void {
+    const state = sim.state;
+    for (const e of events) {
+      switch (e.type) {
+        case 'statusApplied':
+          if (e.status === 'bleed' && e.stacks !== undefined) this.bleed.set(e.target, e.stacks);
+          break;
+        case 'statusRemoved':
+          if (e.status === 'bleed') {
+            if (e.reason === 'cleansed') this.bleedCleanses.push(this.bleed.get(e.target) ?? 0);
+            this.bleed.delete(e.target);
+          } else if ((e.status === 'pinned' || e.status === 'latched') && e.reason === 'freed')
+            this.pinsFreed++;
+          break;
+        case 'telegraphStarted': {
+          const t = state.telegraphs.find((x) => x.id === e.telegraph);
+          if (t?.linkStatus === 'pact') this.pacts.add(t.id);
+          if (t?.executeBelow !== undefined) {
+            this.executes.add(t.id);
+            this.executeCasts++;
+          }
+          break;
+        }
+        case 'telegraphResolved':
+          if (e.outcome !== 'hit' || e.target === null) break;
+          if (this.pacts.has(e.telegraph)) this.blasted.add(e.telegraph);
+          if (this.executes.has(e.telegraph) && state.entities.get(e.target)?.health?.downed)
+            this.executions++;
+          break;
+        case 'damageTaken': {
+          if (e.source === null || !state.party.includes(e.source)) break;
+          const enemy = state.entities.get(e.target);
+          const guard = enemy?.enemy?.guard;
+          if (!enemy || !guard) break;
+          this.guardHits++;
+          const source = state.entities.get(e.source);
+          if (!source || guard.brokenUntil > state.time) break;
+          const dx = source.x - enemy.x;
+          const dz = source.z - enemy.z;
+          const d = Math.sqrt(dx * dx + dz * dz) || 1;
+          const half = ((enemyDef(enemy.enemy!.defId).guard?.arcDeg ?? 0) / 2) * (Math.PI / 180);
+          if ((dx * guard.fx + dz * guard.fz) / d >= Math.cos(half)) this.guardBlocked++;
+          break;
+        }
+        default:
+          break;
+      }
+    }
+    const pools = state.field.sanctuary?.pools;
+    if (pools)
+      for (const id of state.party) {
+        const h = state.entities.get(id);
+        if (!h?.health || h.health.downed || h.health.dead) continue;
+        this.bloodmoon++;
+        if (pools.some((p) => Math.hypot(h.x - p.x, h.z - p.z) <= p.r)) this.sheltered++;
+      }
+  }
+
+  get pactBlasts(): number {
+    return this.blasted.size;
+  }
+  get guardBlockedPct(): number | null {
+    return this.guardHits > 0 ? this.guardBlocked / this.guardHits : null;
+  }
+  get timeInSanctuary(): number | null {
+    return this.bloodmoon > 0 ? this.sheltered / this.bloodmoon : null;
+  }
+}
 
 export function playEncounter(config: SimConfig, bot: BotKind): EncounterRun {
   const sim = createSim(config);
   const player = makeBot(bot, config.seed);
   const maxTicks = MAX_SECONDS * 60;
   let incoming = 0;
+  const verbs = new VerbTally();
   for (let t = 0; t < maxTicks; t++) {
     sim.step(player.decide(sim.state));
-    for (const e of sim.drainEvents()) {
+    const events = sim.drainEvents();
+    for (const e of events) {
       if (e.type === 'damageTaken' && sim.state.party.includes(e.target))
         incoming += e.amount + e.absorbed;
     }
+    verbs.tick(sim, events);
     const s = sim.state.encounter.status;
     if (s === 'victory' || s === 'defeat') break;
   }
@@ -81,6 +210,13 @@ export function playEncounter(config: SimConfig, bot: BotKind): EncounterRun {
     calls: l.calls,
     responses: l.responses,
     holds: l.holds,
+    pinsFreed: verbs.pinsFreed,
+    bleedCleanses: verbs.bleedCleanses,
+    pactBlasts: verbs.pactBlasts,
+    guardBlockedPct: verbs.guardBlockedPct,
+    executeCasts: verbs.executeCasts,
+    executions: verbs.executions,
+    timeInSanctuary: verbs.timeInSanctuary,
   };
 }
 
@@ -101,6 +237,35 @@ export interface RunSummary {
   aetherLeft: number;
   /** Bond XP the run's fights paid each hero (docs/phase-4e.md). */
   bondXp: Record<string, number>;
+  /** The furthest Movement the run set foot in (docs/phase-5a.md): 1 for a Prelude. */
+  movementReached: number;
+  /** Minutes of combat in each Movement, Movement I first. */
+  minutesByMovement: number[];
+}
+
+/** The most phases a run may take; a run that needs more is stuck, and `playRun` throws. */
+const MAX_PHASES = 240;
+
+/**
+ * `Run.newRun` with its route: the trailing `movements` argument (docs/phase-5a.md, CONTRACTS §6:
+ * "newRun gains movements = 1"). Typed here so the harness builds before and after the run layer
+ * takes it; a newRun without it plays the Prelude.
+ */
+const newRunWithRoute = Run.newRun as (
+  ...args: [...Parameters<typeof Run.newRun>, movements?: number]
+) => RunState;
+
+/** The Movement a map node belongs to (1 for nodes from before Movements). */
+function movementOfNode(run: RunState, id: string): number {
+  return Run.findNode(run, id)?.movement ?? 1;
+}
+
+/** A node's row counted from its Movement's first row (Threat restarts in each Movement). */
+function rowInMovement(run: RunState, id: string): number {
+  const node = Run.findNode(run, id)!;
+  const m = node.movement ?? 1;
+  const start = run.map.rows.findIndex((r) => r.some((n) => (n.movement ?? 1) === m));
+  return node.row - Math.max(0, start);
 }
 
 /**
@@ -217,32 +382,36 @@ export function playRun(
     /** The Calling's path tiers its mastery has opened (docs/phase-4g.md); absent: every one. */
     tiersOpen?: number;
     /** Called with each phase of the run as it comes up (the pacing report times them). */
-    onPhase?: (phase: RunState['phase']) => void;
+    onPhase?: (phase: RunState['phase'], run: RunState) => void;
+    /**
+     * The route (docs/phase-5a.md): 1, the Prelude (the default, so every calibrated report
+     * keeps its baseline); 2, an Expedition through the Crimson Legion.
+     */
+    movements?: number;
   } = {},
 ): RunSummary {
   const relics = opts.relics ?? true;
+  const movements = opts.movements ?? 1;
+  const route: Parameters<typeof newRunWithRoute> = [
+    seed,
+    undefined,
+    opts.astrolabe ?? [],
+    opts.carried ?? [],
+    opts.dissonance ?? [],
+    opts.bonds ?? [],
+    { ...noVariants(), ...opts.techniques },
+  ];
+  // A Prelude calls newRun exactly as before; only an Expedition passes its route.
+  if (movements !== 1) route.push(movements);
   let run = Run.embark(
-    Run.setCalling(
-      Run.setChords(
-        Run.newRun(
-          seed,
-          undefined,
-          opts.astrolabe ?? [],
-          opts.carried ?? [],
-          opts.dissonance ?? [],
-          opts.bonds ?? [],
-          { ...noVariants(), ...opts.techniques },
-        ),
-        chords,
-      ),
-      opts.calling ?? null,
-    ),
+    Run.setCalling(Run.setChords(newRunWithRoute(...route), chords), opts.calling ?? null),
   );
   if (opts.tiersOpen !== undefined && run.calling) run = Run.setCallingTiers(run, opts.tiersOpen);
   let seconds = 0;
+  const byMovement: number[] = [0];
   let last = '';
-  for (let guard = 0; guard < 120 && run.phase !== 'summary'; guard++) {
-    opts.onPhase?.(run.phase);
+  for (let guard = 0; guard < MAX_PHASES && run.phase !== 'summary'; guard++) {
+    opts.onPhase?.(run.phase, run);
     switch (run.phase) {
       case 'map': {
         const options = Run.reachable(run);
@@ -255,7 +424,7 @@ export function playRun(
         // Calibration: THREAT_PER_ROW=0.05 overrides the run's Threat curve.
         const perRow = process.env.THREAT_PER_ROW;
         if (perRow !== undefined) {
-          const row = Run.findNode(run, run.pending!)!.row;
+          const row = rowInMovement(run, run.pending!);
           config.threat = 1 + Number(perRow) * Math.max(0, row - 1);
         }
         if (opts.threatMult) config.threat = (config.threat ?? 1) * opts.threatMult;
@@ -271,6 +440,9 @@ export function playRun(
         opts.onFight?.();
         last = config.encounter ?? '';
         seconds += sim.state.time;
+        const m = movementOfNode(run, run.pending!);
+        while (byMovement.length < m) byMovement.push(0);
+        byMovement[m - 1]! += sim.state.time;
         run = Run.finishCombat(
           run,
           buildOutcome(
@@ -314,6 +486,8 @@ export function playRun(
         throw new Error(`unexpected phase ${run.phase}`);
     }
   }
+  if (run.phase !== 'summary')
+    throw new Error(`run ${seed} (${bot}) did not end within ${MAX_PHASES} phases`);
   opts.onEnd?.(run);
   return {
     seed,
@@ -331,5 +505,7 @@ export function playRun(
       for (const [hero, xp] of Object.entries(r.bondXp ?? {})) all[hero] = (all[hero] ?? 0) + xp;
       return all;
     }, {}),
+    movementReached: run.path.reduce((m, id) => Math.max(m, movementOfNode(run, id)), 1),
+    minutesByMovement: byMovement.map((s) => s / 60),
   };
 }

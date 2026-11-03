@@ -4,13 +4,20 @@
  * (clutch), Reels heroes out of lethal shapes, revives, Cues Solos into the right moments
  * and fires the Crescendo when the party needs it. Phase 2: heals heroes held by Fermata,
  * answers calls when the answer isn't needed for something more urgent, plants Pedal Point
- * fields under the party and keeps a Unison Chord on the hero it suits.
+ * fields under the party and keeps a Unison Chord on the hero it suits. Movement II
+ * (docs/phase-5a.md): Chimes the bleeding at 5+ stacks (and latches and Wounds), Reels heroes
+ * out of pins and latches, Scatters for a Blood Pact, Focuses a guarded Sentinel and Empowers
+ * Lyra to break it, keeps both Twin Cleave blows in mind, stands in a Sanctuary pool under the
+ * Bloodmoon and Rallies the party into it, and tops up (or Wards) the hero condemned by an
+ * Execution. Every one of these is gated on its mechanic being present, so Movement I plays
+ * exactly as before.
  */
 import { CONTENT } from '../content';
 import { Rng } from '../sim/core/rng';
 import type { Command, PartySlot, ReadonlyEntity, ThreadMode, WorldState } from '../sim';
 import type { Bot } from './types';
 import {
+  BLEED_CHIME_AT,
   Intent,
   caller,
   centroid,
@@ -34,6 +41,14 @@ import {
   beamSong,
   defensiveSong,
   weaverOf,
+  guardUp,
+  hasFollowUp,
+  inZone,
+  isLatched,
+  isPinned,
+  laterMovement,
+  statusStacks,
+  zoneFor,
   type HeroView,
 } from './common';
 
@@ -116,13 +131,15 @@ export class SkilledBot implements Bot {
     const call = calling?.e.hero!.call ?? null;
     const answerNow = !!call && now - call.start >= this.opts.callReaction;
     // A big hit soon: keep the Ward for its Perfect window rather than spend it on a call.
+    // Twin Cleave's first blow counts its second too: it lands 1.2 s after the first.
     const bigHitSoon =
       wc.wardCharges < 2 &&
-      party.some((p) =>
+      (party.some((p) =>
         threatsOn(state, p.e).some(
           (t) => t.impact - now < 2.5 && damageOf(t, p.e) > p.e.health!.maxHp * 0.25,
         ),
-      );
+      ) ||
+        state.telegraphs.some((t) => t.impact - now < 2.5 && hasFollowUp(t)));
 
     // ── Ward: Perfect timing on incoming hits; emergency shields otherwise. ──
     if (wc.wardCharges > 0 && affords(state, 'ward')) {
@@ -134,8 +151,9 @@ export class SkilledBot implements Bot {
           const left = t.impact - now;
           if (left > window - 0.06 || left < 0.04) continue;
           const dmg = damageOf(t, h.e);
-          if (dmg < h.e.health!.maxHp * 0.15) continue;
           const lethal = dmg >= h.e.health!.hp + shieldOf(h.e);
+          // An Execution is small but lethal below its line: Ward it whatever its size.
+          if (dmg < h.e.health!.maxHp * 0.15 && !(lethal && t.executeBelow !== undefined)) continue;
           const score = dmg + (lethal ? 5000 : 0);
           if (!best || score > best.score) best = { slot: h.slot, score };
         }
@@ -182,6 +200,8 @@ export class SkilledBot implements Bot {
         if (statusRemaining(h.e, 'silence') < Infinity || statusRemaining(h.e, 'stun') < Infinity)
           pick = h;
       }
+      // Movement II: the cluster with the most bleed, a latched hero, or a Wounded one who's low.
+      pick ??= chimeCluster(party, w, tech.chime.range, tech.chime.radius);
       if (pick && dist(pick.e, w) < tech.chime.range && this.notice()) {
         out.push({ t: 'tech', id: 'chime', point: { x: pick.e.x, z: pick.e.z } });
         acted = true;
@@ -211,8 +231,14 @@ export class SkilledBot implements Bot {
         if (pick && this.notice()) out.push({ t: 'tech', id: 'reel', slot: pick.slot });
       }
     } else if (!acted && wc.cooldowns.reel <= 0 && affords(state, 'reel')) {
+      // ── Reel frees a pinned or latched hero (Movement II), ahead of the generic Reel. ──
+      const freeing = reelToFree(party, w, tech.reel.range);
+      if (freeing && this.notice()) {
+        out.push({ t: 'tech', id: 'reel', slot: freeing.slot });
+        acted = true;
+      }
       // ── Reel: pull a hero out of a big hit they won't escape (beams, rings). ──
-      for (const h of party) {
+      for (const h of acted ? [] : party) {
         if (h.e.hero!.action === 'dodging' || h.e.hero!.reel) continue;
         if (dist(h.e, w) > tech.reel.range - 0.3) continue;
         const t = threatsOn(state, h.e).find(
@@ -244,8 +270,16 @@ export class SkilledBot implements Bot {
     let threadTo: HeroView | null = null;
     let mend = true;
     const beam = beamSong(state);
+    const condemned = executionTarget(state, party);
+    // A guard or a discord shield up in Movement II: Lyra's Empowered shots break them.
+    const breakers =
+      laterMovement(state) &&
+      enemies.some((e) => guardUp(state, e) || e.health!.shields.some((s) => s.kind === 'discord'));
     if (held) {
       threadTo = held;
+    } else if (condemned) {
+      // An Execution is coming: lift them above its line (the Ward scorer covers the rest).
+      threadTo = condemned;
     } else if (downed.length > 0) {
       downed.sort((a, b) => a.e.health!.bleedOut - b.e.health!.bleedOut);
       threadTo = downed[0]!;
@@ -259,6 +293,14 @@ export class SkilledBot implements Bot {
         // Lyra asks for Empower: give it to her while nobody is in trouble.
         mend = false;
         threadTo = calling;
+      } else if (
+        breakers &&
+        effectiveFraction(lowest.e) > 0.6 &&
+        calm &&
+        party.some((h) => h.defId === 'lyra')
+      ) {
+        mend = false;
+        threadTo = party.find((h) => h.defId === 'lyra')!;
       } else if (effectiveFraction(lowest.e) > 0.85 && calm) {
         const tank = party.find((h) => h.role === 'tank');
         if (beam && defensiveSong(beam) && tank && tank.e.health!.incoming > 0) {
@@ -358,12 +400,22 @@ export class SkilledBot implements Bot {
       out.push({ t: 'directive', kind: 'rally' });
       this.lastRally = now;
     } else if (!link && state.directive === 'scatter') out.push({ t: 'directive', kind: 'rally' });
+    else if (!link && !ring && state.field.sanctuary && now - this.lastRally > 4) {
+      // The Bloodmoon: from inside a pool, call everyone outside every pool in to her.
+      const pools = state.field.sanctuary.pools;
+      if (inZone(pools, w) && party.some((h) => !inZone(pools, h.e))) {
+        out.push({ t: 'directive', kind: 'rally' });
+        this.lastRally = now;
+      }
+    }
 
     // ── Focus interruptible casters / Mutes; rally a wandering tank. ──
     if (now - this.lastFocus > 4) {
       const caster =
         enemies.find((e) => e.enemy!.cast?.interruptible) ??
-        enemies.find((e) => e.enemy!.defId === 'mute');
+        enemies.find((e) => e.enemy!.defId === 'mute') ??
+        // A Crimson Sentinel's guard: Focus sends the party round its flanks.
+        enemies.find((e) => guardUp(state, e));
       if (caster && state.focusTarget !== caster.id) {
         out.push({ t: 'directive', kind: 'focus', target: caster.id });
         this.lastFocus = now;
@@ -416,10 +468,11 @@ export class SkilledBot implements Bot {
       x += (dx / d) * 1.5;
       z += (dz / d) * 1.5;
     }
-    // Hymn circles: stand in the one nearest the party.
-    if (state.field.hymnCircles.length > 0) {
-      let best = state.field.hymnCircles[0]!;
-      for (const h of state.field.hymnCircles) if (dist(h, c) < dist(best, c)) best = h;
+    // Hymn circles, or the Bloodmoon's Sanctuary pools: stand in the one nearest the party.
+    const zones = zoneFor(state);
+    if (zones.length > 0) {
+      let best = zones[0]!;
+      for (const h of zones) if (dist(h, c) < dist(best, c)) best = h;
       x = best.x;
       z = best.z;
     }
@@ -449,4 +502,69 @@ export class SkilledBot implements Bot {
 function swapBarrier(hero: ReadonlyEntity): number {
   const pct = CONTENT.techniqueVariants.find((v) => v.id === 'swap')?.values.pct ?? 0;
   return hero.health!.maxHp * (pct / 100);
+}
+
+/**
+ * Where a Chime does the most Movement II good (docs/phase-5a.md): on the hero whose 4 m takes in
+ * the most bleed among heroes at 5+ stacks, a latch, or a Wound on someone below 60%. Null when
+ * nobody needs one, as always in Movement I.
+ */
+function chimeCluster(
+  party: readonly HeroView[],
+  w: ReadonlyEntity,
+  range: number,
+  radius: number,
+): HeroView | null {
+  const need = (h: HeroView): number => {
+    const e = h.e;
+    const stacks = statusStacks(e, 'bleed');
+    let n = stacks >= BLEED_CHIME_AT ? stacks : 0;
+    if (isLatched(e)) n += BLEED_CHIME_AT + 1;
+    if (statusRemaining(e, 'wound') < Infinity && e.health!.hp < e.health!.maxHp * 0.6)
+      n += BLEED_CHIME_AT;
+    return n;
+  };
+  let best: HeroView | null = null;
+  let score = 0;
+  for (const h of party) {
+    if (need(h) === 0 || dist(h.e, w) >= range) continue;
+    let s = 0;
+    for (const o of party) if (dist(o.e, h.e) <= radius + o.e.radius) s += need(o);
+    if (s > score) {
+      best = h;
+      score = s;
+    }
+  }
+  return best;
+}
+
+/**
+ * A pinned or latched hero to Reel free (docs/phase-5a.md P4), the most hurt first; null when
+ * nobody is held (always in Movement I) or the hold is about to end on its own.
+ */
+function reelToFree(party: readonly HeroView[], w: ReadonlyEntity, range: number): HeroView | null {
+  let best: HeroView | null = null;
+  for (const h of party) {
+    if (h.e.hero!.reel || h.e.hero!.action === 'dodging') continue;
+    if (dist(h.e, w) > range - 0.3) continue;
+    const held =
+      (isPinned(h.e) && statusRemaining(h.e, 'pinned') > 0.6) ||
+      (isLatched(h.e) && statusRemaining(h.e, 'latched') > 1);
+    if (!held) continue;
+    if (!best || effectiveFraction(h.e) < effectiveFraction(best.e)) best = h;
+  }
+  return best;
+}
+
+/**
+ * The hero an Execution has condemned while they're below (or just above) its line: Mend them up.
+ * Null with no Execution cast, as always in Movement I.
+ */
+function executionTarget(state: WorldState, party: readonly HeroView[]): HeroView | null {
+  for (const t of state.telegraphs) {
+    if (t.executeBelow === undefined || t.target === null) continue;
+    const h = party.find((p) => p.e.id === t.target);
+    if (h && h.e.health!.hp < h.e.health!.maxHp * (t.executeBelow + 0.1)) return h;
+  }
+  return null;
 }

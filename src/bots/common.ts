@@ -1,4 +1,4 @@
-import { CONTENT } from '../content';
+import { CONTENT, encounterDef } from '../content';
 import { contains, telegraphDamage } from '../sim/combat/telegraphs';
 import { quantize } from '../sim/core/dmath';
 import { rewindCanRevive } from '../sim/systems/rewind';
@@ -7,6 +7,7 @@ import type {
   DeepReadonly,
   PartySlot,
   PastSample,
+  EntityId,
   ReadonlyEntity,
   Telegraph,
   ThreadMode,
@@ -128,10 +129,13 @@ export function shieldOf(e: ReadonlyEntity): number {
   return total;
 }
 
-/** HP fraction after shields and the damage already aimed at them. */
+/**
+ * HP fraction after shields, the damage already aimed at them, and what their damage-over-time
+ * statuses will still deal (Movement II's bleed, pin and latch; none in Movement I).
+ */
 export function effectiveFraction(e: ReadonlyEntity): number {
   const h = e.health!;
-  return (h.hp + shieldOf(e) - h.incoming) / h.maxHp;
+  return (h.hp + shieldOf(e) - h.incoming - dotIncoming(e)) / h.maxHp;
 }
 
 export function dist(a: { x: number; z: number }, b: { x: number; z: number }): number {
@@ -156,6 +160,89 @@ export function damageOf(t: ReadonlyTelegraph, e: ReadonlyEntity): number {
 export function statusRemaining(e: ReadonlyEntity, id: string): number {
   const s = e.health?.statuses.find((x) => x.id === id);
   return s ? s.remaining : Infinity;
+}
+
+// ── Movement II (docs/phase-5a.md, "Bots and harness") ───────────────────────────────
+
+/** The bleed stacks at which the bots (and the hints) Chime: the content's rule of thumb. */
+export const BLEED_CHIME_AT = 5;
+
+/** A status's stacks on `e` (bleed); 0 without it. */
+export function statusStacks(e: ReadonlyEntity, id: string): number {
+  return e.health?.statuses.find((x) => x.id === id)?.stacks ?? 0;
+}
+
+/** Rooted by an Impaler's charge or Vharun's Impale (Reel frees them). */
+export function isPinned(e: ReadonlyEntity): boolean {
+  return e.health?.statuses.some((x) => x.id === 'pinned') ?? false;
+}
+
+/** Held by a Leech's latch (Reel or Chime frees them). */
+export function isLatched(e: ReadonlyEntity): boolean {
+  return e.health?.statuses.some((x) => x.id === 'latched') ?? false;
+}
+
+/** The Leech holding `e`, or null (not latched, or its source is gone). */
+export function latchedBy(e: ReadonlyEntity): EntityId | null {
+  return e.health?.statuses.find((x) => x.id === 'latched')?.source ?? null;
+}
+
+/**
+ * The damage `e`'s damage-over-time statuses will still deal if left alone: each status that
+ * ticks (bleed, pinned, latched) deals `dps × stacks` a second for its remaining time. 0 when
+ * none ticks, which is always so in Movement I.
+ */
+export function dotIncoming(e: ReadonlyEntity): number {
+  let total = 0;
+  for (const s of e.health?.statuses ?? []) {
+    if (s.dps === undefined) continue;
+    total += s.dps * Math.max(1, s.stacks) * s.remaining;
+  }
+  return total;
+}
+
+/**
+ * The places worth standing in: the Hollow Cantor's hymn circles, or Vharun's Sanctuary pools
+ * under the Bloodmoon. Empty when there are none.
+ */
+export function zoneFor(state: WorldState): readonly { x: number; z: number; r: number }[] {
+  if (state.field.hymnCircles.length > 0) return state.field.hymnCircles;
+  return state.field.sanctuary?.pools ?? [];
+}
+
+/** Is `p` inside one of `zones`? */
+export function inZone(
+  zones: readonly { x: number; z: number; r: number }[],
+  p: { x: number; z: number },
+): boolean {
+  return zones.some((z) => dist(z, p) <= z.r);
+}
+
+/** Is this a Movement II (or later) fight? Gates the bots' Movement II habits. */
+export function laterMovement(state: WorldState): boolean {
+  return (encounterDef(state.encounter.id).movement ?? 1) >= 2;
+}
+
+/** A Crimson Sentinel's guard that is up (not broken), or null. */
+export function guardUp(
+  state: WorldState,
+  e: ReadonlyEntity,
+): { fx: number; fz: number; brokenUntil: number } | null {
+  const g = e.enemy?.guard;
+  return g && g.brokenUntil <= state.time ? g : null;
+}
+
+/** Attacks that strike again as they land (some telegraphs, a Volatile burst, have no def). */
+const FOLLOWED = new Set(CONTENT.attacks.filter((a) => a.followUp).map((a) => a.id));
+
+/** A telegraph whose attack strikes again at once when it lands (Twin Cleave's first blow). */
+export function hasFollowUp(t: ReadonlyTelegraph): boolean {
+  return FOLLOWED.has(t.attackId);
+}
+
+/** A Blood Pact link (Scatter answers it; Chime can't). */
+export function isPact(t: ReadonlyTelegraph): boolean {
+  return t.kind === 'link' && t.linkStatus === 'pact';
 }
 
 /** Emits move/aim only when they change, quantised like the input layer. */

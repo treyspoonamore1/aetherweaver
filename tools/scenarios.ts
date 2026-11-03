@@ -7,6 +7,7 @@ import { makeBot, type BotKind } from '../src/bots';
 import type { Command } from '../src/sim/commands';
 import type { WorldState } from '../src/sim/state';
 import type { SimConfig } from '../src/sim/world';
+import { ARRIVAL_KIT, kitConfig } from './kits';
 
 export type Driver = (tick: number, state: WorldState) => Command[];
 
@@ -117,10 +118,61 @@ export const SCENARIO_CANTOR = botScenario('novice-cantor', 'novice', 6262, 60 *
   auras: ['sostenuto', 'fortissimo'],
 });
 
+// ── Movement II (docs/phase-5a.md, "Golden scenarios"): appended, so the five Movement I
+// hashes are untouched. Each plays its fight at the Movement's scale. ──
+
+/** The Crimson Gate with the Skilled bot: hound packs, bleed stacks and the Chime at 5+. */
+export const SCENARIO_CRIMSON_GATE = botScenario('skilled-crimson-gate', 'skilled', 7373, 60 * 40, {
+  encounter: 'crimson_gate',
+  ...kitConfig(ARRIVAL_KIT),
+});
+
+/** The Gorehound Matriarch with a Novice: Rend, Pounce, Pack Call and Blood Frenzy. */
+export const SCENARIO_MATRIARCH = botScenario('novice-matriarch', 'novice', 8484, 60 * 90, {
+  encounter: 'gorehound_matriarch',
+  ...kitConfig(ARRIVAL_KIT),
+});
+
+/**
+ * Vharun with the Skilled bot on the arrival kit: Twin Cleave, Blood Pact, Impale, the
+ * Bloodmoon's pools, the Crimson Tide and Execution, all three phases.
+ */
+export const SCENARIO_VHARUN = botScenario('skilled-vharun', 'skilled', 9595, 60 * 180, {
+  encounter: 'vharun',
+  ...kitConfig(ARRIVAL_KIT),
+});
+
+/**
+ * The bench's hound pack (not a golden): the Matriarch's fight with a pack of hounds already
+ * loose, so Pack Call stacks on top of them; the Movement II entity peak.
+ */
+export const SCENARIO_HOUND_PACK: Scenario = {
+  name: 'hound-pack',
+  seed: 8585,
+  ticks: 60 * 90,
+  config: { encounter: 'gorehound_matriarch', ...kitConfig(ARRIVAL_KIT) },
+  driver: () => {
+    const player = makeBot('skilled', 8585);
+    return (tick, state) => {
+      const out = player.decide(state);
+      if (tick === 600)
+        for (let i = 0; i < 5; i++)
+          out.push({
+            t: 'debug',
+            op: { op: 'spawnEnemy', defId: 'sanguine_hound', x: 8 - i * 4, z: -12 },
+          });
+      return out;
+    };
+  },
+};
+
 export const SCENARIOS: readonly Scenario[] = [
   SCENARIO_PATROL,
   SCENARIO_CROWD,
   SCENARIO_FIRST_LIGHT,
   SCENARIO_BELLWARDEN,
   SCENARIO_CANTOR,
+  SCENARIO_CRIMSON_GATE,
+  SCENARIO_MATRIARCH,
+  SCENARIO_VHARUN,
 ];
