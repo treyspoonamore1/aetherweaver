@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { playEncounter, playRun, VerbTally } from '../tools/harness-core';
+import { BrannWatch, playEncounter, playRun, VerbTally } from '../tools/harness-core';
 import { band, NAMED_PARTIES, parseArgs, partyArg } from '../tools/harness';
 import { ARRIVAL_KIT, kitConfig } from '../tools/kits';
 import { SCENARIO_HOUND_PACK } from '../tools/scenarios';
+import { CONTENT } from '../src/content';
 import { createSim, type SimEvent } from '../src/sim';
 import { sandbox, worldOf } from './sim/helpers';
 
@@ -237,5 +238,56 @@ describe('the harness and a roster party', () => {
     ]);
     expect(brann.harmony!.silkOfferedEligible).toBeLessThanOrEqual(brann.harmony!.silkOffered);
     expect(() => playRun(1, 'skilled', undefined, { party: ['kael', 'brann'] })).toThrow();
+  });
+});
+
+describe('the harness and a roster party: the Phase 5b review fixes', () => {
+  /** Party B with Blood and Silk, Brann at 25%, Empower-Threaded; Resonance held at `held`. */
+  function silk(held: number | null): number {
+    const sim = sandbox({
+      party: ['lyra', 'vexis', 'brann'],
+      motifs: [{ id: 'blood_and_silk', level: 1 }],
+    });
+    const w = worldOf(sim);
+    const slot = w.party.findIndex((id) => w.entities.get(id)!.hero!.blood !== undefined);
+    const b = w.entities.get(w.party[slot]!)!;
+    const wc = w.entities.get(w.weaverId)!.weaver!;
+    if (held !== null) wc.resonance = held;
+    const watch = BrannWatch.of(sim)!;
+    for (let t = 0; t < 120; t++) {
+      b.health!.hp = b.health!.maxHp * 0.25;
+      if (held !== null) wc.resonance = held;
+      const commands =
+        t === 0
+          ? [
+              { t: 'thread' as const, slot: slot as 0 | 1 | 2 },
+              ...(wc.threadMode === 'empower' ? [] : [{ t: 'mode' as const }]),
+            ]
+          : [];
+      sim.step(commands);
+      watch.tick(sim, sim.drainEvents());
+    }
+    expect(wc.threadMode).toBe('empower');
+    return watch.result(sim).silkResonance;
+  }
+
+  it('caps Blood and Silk’s tallied Resonance at the bar’s max, as the sim does', () => {
+    // An empty bar fills at 3 a second over the 2 s.
+    expect(silk(0)).toBeGreaterThan(4);
+    // A full bar takes nothing, so nothing is tallied.
+    expect(silk(CONTENT.resonance.max)).toBe(0);
+    // Nearly full: no more than the room left each tick.
+    expect(silk(CONTENT.resonance.max - 0.01)).toBeLessThanOrEqual(0.01 * 120 + 1e-9);
+  });
+
+  it('records Blood and Silk offered only once both its prerequisites are owned', () => {
+    // Seed 15, party B, an Expedition: the one run in 120 (A, B, C × seeds 1-40) to own both.
+    const run = playRun(15, 'skilled', undefined, {
+      party: ['lyra', 'vexis', 'brann'],
+      movements: 2,
+    });
+    expect(run.harmony!.prereqsOwned).toBe(true);
+    expect(run.harmony!.silkOffered).toBeGreaterThan(0);
+    expect(run.harmony!.silkOffered).toBe(run.harmony!.silkOfferedEligible);
   });
 });

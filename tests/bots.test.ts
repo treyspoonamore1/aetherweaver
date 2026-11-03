@@ -11,6 +11,7 @@ import {
   dotIncoming,
   effectiveFraction,
   hasFollowUp,
+  shieldOf,
   slotOf,
   threatsOn,
 } from '../src/bots/common';
@@ -831,6 +832,172 @@ describe('the Skilled bot with Brann (staged)', () => {
   });
 });
 
+/** A telegraph of attack `attackId` staged on a hero as a mark (so it reaches them alone). */
+function blow(
+  sim: Sim,
+  target: number,
+  attackId: string,
+  damage: number,
+  impact: number,
+  id: number,
+  executeBelow?: number,
+): void {
+  const w = worldOf(sim);
+  w.telegraphs.push({
+    id,
+    owner: w.weaverId,
+    target,
+    attackId,
+    name: attackId,
+    kind: 'mark',
+    shape: { kind: 'mark', target },
+    start: w.time,
+    impact: w.time + impact,
+    perfectFrom: w.time + impact - 0.35,
+    damage,
+    pctMaxHp: 0,
+    effect: 'damage',
+    answers: ['ward'],
+    severity: executeBelow !== undefined ? 'lethal' : 'normal',
+    ...(executeBelow !== undefined ? { executeBelow } : {}),
+  });
+}
+
+/** Plays the Skilled bot for `ticks`, noting each Ward it casts: its slot and the time it went. */
+function wardsCast(sim: Sim, ticks: number): { slot: number; at: number }[] {
+  const bot = makeBot('skilled', 1);
+  const wards: { slot: number; at: number }[] = [];
+  for (let t = 0; t < ticks; t++) {
+    const out = bot.decide(sim.state);
+    for (const c of out)
+      if (c.t === 'tech' && c.id === 'ward') wards.push({ slot: c.slot!, at: sim.state.time });
+    sim.step(out);
+    sim.drainEvents();
+  }
+  return wards;
+}
+
+describe('the Skilled bot with Brann: the Phase 5b review fixes (staged)', () => {
+  it('gives the one Ward to a lethal hit on Kael over a hit low Brann lives through', () => {
+    const { sim, b } = brannSandbox(PARTY_A, 0.35);
+    const w = worldOf(sim);
+    const kael = w.entities.get(w.party[0]!)!;
+    kael.health!.hp = 400;
+    w.entities.get(w.weaverId)!.weaver!.wardCharges = 1;
+    bigHit(sim, kael.id, 600, 0.2, 801);
+    bigHit(sim, b.id, 300, 0.2, 802);
+    const out = makeBot('skilled', 1).decide(sim.state);
+    expect(out).toContainEqual({ t: 'tech', id: 'ward', slot: 0 });
+    // Both lethal: Brann below his line goes first.
+    b.health!.hp = 250;
+    expect(makeBot('skilled', 1).decide(sim.state)).toContainEqual({
+      t: 'tech',
+      id: 'ward',
+      slot: brannSlot(sim),
+    });
+  });
+
+  it('holds the last Ward for Brann’s Perfect due within 1.5 s, over a smaller window first', () => {
+    const staged = (frac: number) => {
+      const { sim, b } = brannSandbox(PARTY_A, frac);
+      const w = worldOf(sim);
+      w.entities.get(w.weaverId)!.weaver!.wardCharges = 1;
+      // Vexis (slot 1, full life): a hit she lives through, its window open now.
+      bigHit(sim, w.party[1]!, 300, 0.2, 801);
+      // Brann: a big hit 1 s out.
+      bigHit(sim, b.id, 300, 1, 802);
+      return sim;
+    };
+    const low = staged(0.35);
+    expect(makeBot('skilled', 1).decide(low.state)).not.toContainEqual({
+      t: 'tech',
+      id: 'ward',
+      slot: 1,
+    });
+    const wards = wardsCast(low, 62);
+    expect(wards.map((x) => x.slot)).toEqual([brannSlot(low)]);
+    // Above his line there's nothing to hold for: Vexis gets it.
+    const high = staged(0.6);
+    expect(makeBot('skilled', 1).decide(high.state)).toContainEqual({
+      t: 'tech',
+      id: 'ward',
+      slot: 1,
+    });
+  });
+
+  it('with Blood Tithe keeps the free Ward while a Perfect is pending on another hero', () => {
+    const { sim } = brannSandbox(PARTY_A, 0.35, { motifs: [{ id: 'blood_tithe', level: 1 }] });
+    const w = worldOf(sim);
+    w.entities.get(w.weaverId)!.weaver!.wardCharges = 1;
+    // Kael: a 600 hit 0.8 s out, outside its window yet.
+    bigHit(sim, w.party[0]!, 600, 0.8, 801);
+    const out = makeBot('skilled', 1).decide(sim.state);
+    expect(out.some((c) => c.t === 'tech' && c.id === 'ward')).toBe(false);
+    // The Ward goes to Kael's Perfect.
+    expect(wardsCast(sim, 50).map((x) => x.slot)).toEqual([0]);
+  });
+
+  it('does not Ward Brann twice for one Execution when it holds two charges', () => {
+    const { sim, b } = brannSandbox(PARTY_A, 0.3);
+    const wc = worldOf(sim).entities.get(sim.state.weaverId)!.weaver!;
+    wc.wardCharges = wc.maxWardCharges = 2;
+    blow(sim, b.id, 'vharun_execution', 75, 2, 999, 0.4);
+    const wards = wardsCast(sim, 2 * 60 + 6);
+    expect(wards.filter((x) => x.slot === brannSlot(sim))).toHaveLength(1);
+    expect(b.health!.downed).toBe(false);
+  });
+
+  it('with no dome Wards Twin Cleave’s first blow on Brann in its Perfect window, not before', () => {
+    for (const charges of [1, 2]) {
+      const { sim, b } = brannSandbox(PARTY_B, 0.35);
+      const wc = worldOf(sim).entities.get(sim.state.weaverId)!.weaver!;
+      wc.wardCharges = wc.maxWardCharges = charges;
+      const impact = sim.state.time + 1.5;
+      blow(sim, b.id, 'vharun_twin_cleave', 850, 1.5, 998);
+      const wards = wardsCast(sim, 1.5 * 60 - 3).filter((x) => x.slot === brannSlot(sim));
+      expect(wards, `${charges} charges`).toHaveLength(1);
+      expect(impact - wards[0]!.at, `${charges} charges`).toBeLessThanOrEqual(
+        CONTENT.techniques.ward.perfectWindow,
+      );
+    }
+  });
+
+  it('keeps the Reel for Twin Cleave’s second blow over a Bloodmoon Reel into a pool', () => {
+    const staged = (second: boolean) => {
+      const { sim, b } = brannSandbox(PARTY_B, 0.35);
+      const w = worldOf(sim);
+      const me = w.entities.get(w.weaverId)!;
+      Object.assign(b, { x: me.x + 6, z: me.z });
+      w.field.sanctuary = {
+        pools: [{ x: me.x, z: me.z, r: 2, vx: 0, vz: 0 }],
+        healMult: 1,
+        reformAt: 1e9,
+      };
+      if (second) blow(sim, b.id, 'vharun_twin_cleave_second', 850, 1.1, 997);
+      expect(bloodlusting(CONTENT, b)).toBe(true);
+      return makeBot('skilled', 1).decide(sim.state);
+    };
+    const slot = 2;
+    expect(staged(false)).toContainEqual({ t: 'tech', id: 'reel', slot });
+    expect(staged(true)).not.toContainEqual({ t: 'tech', id: 'reel', slot });
+  });
+
+  it('Cues Red Frenzy in a boss fight only once Brann is below his line', () => {
+    const cues = (frac: number) => {
+      const { sim, b } = brannSandbox(PARTY_A, frac);
+      const w = worldOf(sim);
+      w.encounter.bossId = w.weaverId;
+      b.hero!.solo = 100;
+      w.entities.get(w.weaverId)!.weaver!.resonance = 50;
+      return makeBot('skilled', 1)
+        .decide(sim.state)
+        .some((c) => c.t === 'cue' && c.slot === brannSlot(sim));
+    };
+    expect(cues(1)).toBe(false);
+    expect(cues(0.35)).toBe(true);
+  });
+});
+
 describe('the Skilled bot with Brann in play (parties A, B and C)', () => {
   it('clears the Crimson Gate with each party, its share above 30%', () => {
     for (const [name, party] of Object.entries(PARTIES))
@@ -863,7 +1030,9 @@ describe('the Skilled bot with Brann in play (parties A, B and C)', () => {
   it('Wards Brann before a big hit below his line in 80% of the times a Ward was ready', () => {
     // Each hit over 15% of his life whose Perfect window opened on him below 40% with a Ward in
     // hand and in reach; met when it didn't land as a plain hit (Perfect, Warded, or Reeled).
-    // Measured (10 seeds): A 25 of 27, B 2 of 4, C 9 of 9.
+    // A hit he'd live through while one in the same window would kill another hero in reach
+    // isn't counted: the Ward rightly goes to that life (his priority sits below lethality).
+    // Measured (8 seeds): A 11 of 13, B 8 of 8, C 8 of 11.
     const ward = CONTENT.techniques.ward;
     let big = 0;
     let met = 0;
@@ -871,6 +1040,7 @@ describe('the Skilled bot with Brann in play (parties A, B and C)', () => {
       for (let i = 0; i < 8; i++) {
         const seed = 1000 + i * 7919;
         const watched = new Set<number>();
+        const judged = new Set<number>();
         let id = -1;
         fight(
           'vharun',
@@ -893,16 +1063,28 @@ describe('the Skilled bot with Brann in play (parties A, B and C)', () => {
             const ready =
               wc.wardCharges > 0 && wc.spirit >= ward.cost && dist(w, b) < ward.range - 0.3;
             if (!ready) return;
+            const inWindow = (t: { impact: number }) => t.impact - st.time <= ward.perfectWindow;
+            const lethalOn = (e: typeof b, t: Parameters<typeof damageOf>[0]) =>
+              damageOf(t, e) >= e.health!.hp + shieldOf(e);
+            const lifeElsewhere = () =>
+              st.party.some((p) => {
+                const o = st.entities.get(p)!;
+                if (p === id || o.health!.downed || dist(w, o) >= ward.range - 0.3) return false;
+                return threatsOn(st, o).some((t) => inWindow(t) && lethalOn(o, t));
+              });
             for (const t of threatsOn(st, b))
-              if (t.impact - st.time <= ward.perfectWindow && damageOf(t, b) > h.maxHp * 0.15)
-                watched.add(t.id);
+              if (!judged.has(t.id) && inWindow(t) && damageOf(t, b) > h.maxHp * 0.15) {
+                // Judged once, as its window opens (before the Ward changes who'd die).
+                judged.add(t.id);
+                if (lethalOn(b, t) || !lifeElsewhere()) watched.add(t.id);
+              }
           },
           { bot: 'skilled', party },
         );
       }
     expect(big).toBeGreaterThanOrEqual(10);
     expect(met / big).toBeGreaterThanOrEqual(0.8);
-  });
+  }, 30_000);
 
   it('calls at most one Rally every 8 s while Brann refuses them', () => {
     let rallies = 0;

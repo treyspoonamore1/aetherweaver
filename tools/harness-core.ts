@@ -219,12 +219,15 @@ export class BrannWatch {
   private rallies = 0;
   private rallyTick = -1;
   private lastTime: number;
+  /** The Weaver's Resonance as the last tick ended: the room Blood and Silk had to fill. */
+  private lastResonance: number;
 
   private constructor(
     readonly id: EntityId,
     sim: Sim,
   ) {
     this.lastTime = sim.state.time;
+    this.lastResonance = sim.state.entities.get(sim.state.weaverId)?.weaver?.resonance ?? 0;
   }
 
   /** A watch on the party's Blood Rage hero (Brann), or null when it has none. */
@@ -274,6 +277,8 @@ export class BrannWatch {
     const v = state.mods.bloodAndSilk;
     const w = state.entities.get(state.weaverId)?.weaver;
     const h = state.entities.get(this.id)?.health;
+    const room = Math.max(0, CONTENT.resonance.max - this.lastResonance);
+    this.lastResonance = w?.resonance ?? 0;
     if (
       v > 0 &&
       dt > 0 &&
@@ -286,7 +291,8 @@ export class BrannWatch {
       !h.downed &&
       h.hp < h.maxHp * SILK_BELOW
     )
-      this.silk += v * dt * state.mods.resonanceMult;
+      // The sim's gainResonance clamps to the bar's max: a full bar takes nothing.
+      this.silk += Math.min(room, v * dt * state.mods.resonanceMult);
   }
 
   result(sim: Sim): BrannTally {
@@ -431,35 +437,13 @@ class HarmonyWatch {
   }
 }
 
-type SetParty = (run: RunState, heroIds: readonly string[], roster: readonly string[]) => RunState;
-
 /**
- * Prep's party choice (docs/phase-5b.md): `Run.setParty` (exactly 3 distinct roster heroes, in
- * content order, fresh, the Bond choices of heroes who left dropped). Until the meta layer's
- * lands beside it, the same rule here.
+ * The run's party, as `playRun`'s `party` option asks: exactly 3 distinct known heroes, set as
+ * Prep sets it (`Run.setParty`: content order, fresh, the Bond choices of heroes who left
+ * dropped), with every hero in the roster.
  */
-const setParty: SetParty =
-  (Run as unknown as { setParty?: SetParty }).setParty ??
-  ((run, heroIds, roster) => {
-    const known = CONTENT.heroes.map((h) => h.id);
-    const ok =
-      run.phase === 'prep' &&
-      heroIds.length === 3 &&
-      new Set(heroIds).size === 3 &&
-      heroIds.every((id) => known.includes(id) && roster.includes(id));
-    if (!ok) return run;
-    const ids = known.filter((id) => heroIds.includes(id));
-    if (ids.join() === run.party.map((h) => h.heroId).join()) return run;
-    return {
-      ...run,
-      party: ids.map((heroId) => ({ heroId, hpPct: 1, shaken: false })),
-      bonds: run.bonds.filter((b) => ids.includes(b.heroId)),
-    };
-  });
-
-/** The run's party, as `playRun`'s `party` option asks: exactly 3 distinct known heroes. */
 export function withParty(run: RunState, party: readonly string[]): RunState {
-  const next = setParty(
+  const next = Run.setParty(
     run,
     party,
     CONTENT.heroes.map((h) => h.id),
