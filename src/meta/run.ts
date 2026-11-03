@@ -1842,6 +1842,7 @@ export function summarize(
       recap: d.recap.map((r) => ({ ...r })),
       readyTechniques: [...d.readyTechniques],
       ...(d.answers ? { answers: [...d.answers] } : {}),
+      ...(d.blood ? { blood: { ...d.blood } } : {}),
     })),
     timeline: l.timeline.map((t) => ({ time: t.time, hp: [...t.hp] })),
     markers: l.markers.map((m) => ({ ...m })),

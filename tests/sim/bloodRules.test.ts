@@ -54,6 +54,7 @@ interface Opts {
   shields?: ShieldKind[];
   blood?: Partial<BloodState> | null;
   downed?: boolean;
+  dead?: boolean;
 }
 
 function entity(defId: string, o: Opts): ReadonlyEntity {
@@ -68,7 +69,7 @@ function entity(defId: string, o: Opts): ReadonlyEntity {
       hp: o.hp,
       maxHp,
       downed: o.downed ?? false,
-      dead: false,
+      dead: o.dead ?? false,
       shields: (o.shields ?? []).map((kind) => ({ kind, amount: 100, max: 100 })),
     },
   } as unknown as ReadonlyEntity;
@@ -139,6 +140,25 @@ describe("Brann's pure rules (docs/phase-5b.md)", () => {
     expect(bloodlusting(content, entity('rager', { hp: 200, shields: ['ward'] }))).toBe(true);
     for (const id of CONTENT.defaultParty)
       expect(bloodlusting(content, entity(id, { hp: 1, blood: null }))).toBe(false);
+  });
+
+  it('a downed or dead Blood Rage hero has no rage and no Bloodlust', () => {
+    // At 0 life the formula alone would say +80% and bloodlusting: the bots' Rally limits and
+    // the HUD's Bloodlust chip would keep reading a hero who lies downed.
+    for (const fallen of [{ downed: true }, { dead: true }, { downed: true, dead: true }]) {
+      const e = entity('rager', { hp: 0, ...fallen });
+      expect(bloodRageBonus(content, e)).toBe(0);
+      expect(bloodlusting(content, e)).toBe(false);
+      const mist = entity('rager', { hp: 0, talents: ['red_mist'], ...fallen });
+      expect(bloodRageBonus(content, mist)).toBe(0);
+    }
+    // Standing at the same 0 life (the frame before he goes down) he still has both.
+    expect(bloodRageBonus(content, entity('rager', { hp: 0 }))).toBe(0.8);
+    expect(bloodlusting(content, entity('rager', { hp: 0 }))).toBe(true);
+    // The content's Brann too.
+    const brann = entity('brann', { hp: 0, maxHp: 1250, downed: true });
+    expect(bloodRageBonus(CONTENT, brann)).toBe(0);
+    expect(bloodlusting(CONTENT, brann)).toBe(false);
   });
 
   it('falling fast: twice the bleed rate reaches his life; never without blood or once down', () => {

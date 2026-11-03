@@ -58,12 +58,13 @@ function has(e: ReadonlyEntity, talent: string): boolean {
 
 /**
  * Blood Rage's damage bonus now: `perMissing` × missing life, up to `maxBonus` (Red Mist:
- * its `max`%). 0 for a hero without `passive`, or without health.
+ * its `max`%). 0 for a hero without `passive`, without health, or downed or dead (a fallen
+ * hero swings nothing, so no HUD chip or bot reads a rage he can't use).
  */
 export function bloodRageBonus(content: HeroesAndTalents, e: ReadonlyEntity): number {
   const passive = defOf(content, e)?.passive;
   const h = e.health;
-  if (!passive || !h || h.maxHp <= 0) return 0;
+  if (!passive || !h || h.downed || h.dead || h.maxHp <= 0) return 0;
   const cap = has(e, 'red_mist')
     ? (talentNumber(content, 'red_mist', 'max') ?? passive.maxBonus * 100) / 100
     : passive.maxBonus;
@@ -74,11 +75,12 @@ export function bloodRageBonus(content: HeroesAndTalents, e: ReadonlyEntity): nu
 
 /**
  * Bloodlust: a hero with `blood` below its quirk's `below` × maxHp, unless Iron Will and one of
- * the Weaver's Wards holds it. While it holds he ignores Rally and has no leash.
+ * the Weaver's Wards holds it. While it holds he ignores Rally and has no leash. Never while
+ * downed or dead: a fallen hero refuses nothing, so the bots' Rally limits and the HUD chip lift.
  */
 export function bloodlusting(content: HeroesAndTalents, e: ReadonlyEntity): boolean {
   const h = e.health;
-  if (!e.hero?.blood || !h) return false;
+  if (!e.hero?.blood || !h || h.downed || h.dead) return false;
   const below = defOf(content, e)?.quirk.below;
   if (below === undefined || !(h.hp < below * h.maxHp)) return false;
   return !(has(e, 'iron_will') && h.shields.some((s) => s.kind === 'ward'));

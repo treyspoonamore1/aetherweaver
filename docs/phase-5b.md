@@ -259,7 +259,7 @@ There are 7 standard categories plus an optional `defiant` category. `bark()` (`
 
 ### Deed: In the Red (`in_the_red`)
 
-`{points: 0, test: 'heroCeiling', hero: 'brann', encounter: 'vharun', values: {pct: 40}}`. Text: 'Beat {encounter} with {hero}, never letting him above {pct}% life once he first falls to it.'
+`{points: 0, test: 'heroCeiling', hero: 'brann', encounter: 'vharun', values: {pct: 40}}`. Text: 'Beat {encounter}, with {hero}, never letting him above {pct}% life once he first falls to it.' The comma after `{encounter}` closes the appositive in 'Vharun, the Crimson Warden', so the shown line reads 'Beat Vharun, the Crimson Warden, with Brann, …'.
 
 - `blood.peakAfterLow` is −1 until he first drops to `quirk.below` or lower. From then on it is the running maximum of hp/maxHp. It reaches `EncounterResult.heroes[i].blood.peakAfterLow`.
 - `deedHolds('heroCeiling')` needs a victory over the encounter, the hero in the result, and `0 ≤ peakAfterLow ≤ pct/100`.
@@ -332,7 +332,7 @@ There are 7 standard categories plus an optional `defiant` category. `bark()` (`
 
 ## Recaps for Brann's downs
 
-The sim's down record gains an optional `blood: {refusedRally: boolean, healCut: number}`, set only for Brann. `refusedRally` is true when a refused Rally was still live at the down. `healCut` is the Weaver-heal multiplier at that moment. `run.ts` recap wording, in priority order:
+The sim's down record gains an optional `blood: {refusedRally: boolean, healCut: number}`, set only for Brann. `refusedRally` is true when a refused Rally was still live at the down. `healCut` is the Weaver-heal multiplier at that moment. W0 carries it out of the sim: `DeathRecap.blood?` (`src/meta/types.ts`) and the saved `ResultSchema.deaths[].blood?` (`src/meta/save.ts`), copied in `run.ts` only when present, so a resumed run keeps it and every other death is unchanged. `run.ts` recap wording, in priority order:
 
 1. **A refused Rally:** 'He wouldn't Rally below 40%: Reel him, or Ward him so Iron Will brings him back.'
 2. **A heal cut of 0.25 or less (Bloodmoon):** 'Your healing on him was quartered outside the pool: Ward him or give him a barrier.'
@@ -360,7 +360,7 @@ The sim's down record gains an optional `blood: {refusedRally: boolean, healCut:
 
 **Novice bot:** unchanged. If `novice.ts:108`'s `party.find(lyra)` can throw without Lyra, a guard is added, with no draw. A test checks that it does not throw.
 
-**Harness** (`tools/harness-core.ts`):
+**Harness** (`tools/harness-core.ts`). These three contracts land with W3, which owns `harness-core.ts`; W0 does not touch it:
 
 - **`playRun(…, {party?})`** applies the party through `Run.setParty` in Prep. `embark`'s permissive default roster keeps it.
 - **`EncounterRun.brann?: BrannTally`** follows the VerbTally pattern and is absent without Brann. Its fields: `lowShare40`, `lowShare30`, `downs`, `weaverHealOn`, `wardsOn`, `perfectsOn`, `lifesteal`, `lifestealShare` (lifesteal ÷ all healing he received), `silkResonance`, `deathless`, `refusedRallies`, `rallies`.

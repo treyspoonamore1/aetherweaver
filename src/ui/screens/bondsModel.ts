@@ -514,6 +514,8 @@ export function prepBondViews(
   bonds: Readonly<Record<string, Bond>>,
   unlockAll: boolean,
 ): PrepBondView[] {
+  // Not a roster gate: this filters the run's own party, which `newRun` and `setParty` keep
+  // inside the roster, so `rosterHeroes` would drop nothing here (it needs no profile).
   const bonded = new Set(bondedHeroes());
   return party
     .filter((h) => bonded.has(h))
@@ -696,6 +698,8 @@ export function bondXpRows(
   gained: Readonly<Record<string, number>>,
   bonds: Readonly<Record<string, Bond>>,
 ): BondXpRow[] {
+  // Not a roster gate: `heroIds` is the run's own party (always inside the roster), so this
+  // stays a validity filter on `bondedHeroes`, like save.ts and setTalent.
   const bonded = new Set(bondedHeroes());
   return heroIds
     .filter((h) => bonded.has(h) && h in gained)
