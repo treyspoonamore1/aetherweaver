@@ -3,14 +3,31 @@ import type { ArenaDef } from '../content';
 import type { ModelMaterial } from './models/material';
 import { ModelBatch } from './models/batch';
 import { ModelBuilder } from './models/builder';
-import { buildPillar } from './models/library';
+import { buildPillar, buildSpirePillar } from './models/library';
 import type { Stage } from './stage';
+import { CRIMSON_HEX, SPIRE_HEX, arenaLook, arenaMood, type ArenaLook } from './crimsonCues';
 
 /**
  * Arena (docs/plan/04 §1): a low-contrast, low-detail combat floor in the theme's colours so
  * telegraphs always pop (readability rule 1), set dressing on the perimeter only, pillars for
  * obstacles, and a warm "Sunlit Reliquary" mood: slanted god rays and drifting dust motes.
+ * The Crimson Spire (Movement II, docs/phase-5a.md) swaps in its own floor, ramparts, pillars,
+ * torch cards and embers; a Movement I arena (no `biome`) is built exactly as before.
  */
+/** A Spire plate's rivets, as shares of the plate. */
+const RIVETS = [
+  [0.07, 0.07],
+  [0.93, 0.07],
+  [0.07, 0.93],
+  [0.93, 0.93],
+] as const;
+
+/** A torch's cards: [kind (0 flame, 1 halo), width, height, base below the coal]. */
+const TORCH_CARDS = [
+  [0, 0.55, 1.0, -0.05],
+  [1, 2.6, 2.6, -1.0],
+] as const;
+
 export class ArenaView {
   readonly group = new THREE.Group();
   private readonly disposables: { dispose(): void }[] = [];
@@ -19,6 +36,10 @@ export class ArenaView {
   private readonly batches: ModelBatch[] = [];
   private readonly dust: THREE.Points;
   private readonly rays: THREE.Mesh;
+  /** Reliquary (warm), the sandbox's cool light, or the Crimson Spire. */
+  readonly look: ArenaLook;
+  /** The Spire's braziers (x, y, z triples): where the torch cards burn. */
+  private readonly torchSpots: number[] = [];
 
   constructor(
     readonly def: ArenaDef,
@@ -26,27 +47,21 @@ export class ArenaView {
     model: ModelMaterial,
   ) {
     this.group.name = 'arena';
-    const theme = def.theme;
-    const warm = def.id !== 'sandbox';
-    stage.setMood({
-      sky: warm ? '#ffe7c2' : '#c9d6ff',
-      ground: theme.floor,
-      hemi: warm ? 0.6 : 0.65,
-      key: warm ? '#ffd9a0' : '#fff1dc',
-      keyIntensity: warm ? 1.85 : 1.9,
-      rim: warm ? theme.accent : '#8fb0ff',
-      rimIntensity: 0.55,
-      fog: theme.fog,
-      fogNear: 46,
-      fogFar: 96,
-    });
+    // The per-biome mood table (crimsonCues.ts): Movement I's arenas keep their exact mood.
+    this.look = arenaLook(def);
+    stage.setMood(arenaMood(def));
+    const crimson = this.look === 'crimson';
+    const warm = this.look === 'warm';
 
-    this.group.add(this.createFloor());
-    this.createPerimeter(model);
+    this.group.add(crimson ? this.createSpireFloor() : this.createFloor());
+    if (crimson) this.createRamparts(model);
+    else this.createPerimeter(model);
     this.createPillars(model);
-    this.rays = this.createGodRays(warm);
+    // The Crimson Spire: flickering torch cards in place of the god rays, rising embers in place
+    // of the dust (the same budget: one mesh each, hidden on low quality).
+    this.rays = crimson ? this.createTorches() : this.createGodRays(warm);
     this.group.add(this.rays);
-    this.dust = this.createDust(warm);
+    this.dust = crimson ? this.createEmbers() : this.createDust(warm);
     this.group.add(this.dust);
   }
 
@@ -127,6 +142,13 @@ export class ArenaView {
       }
       ctx.globalAlpha = 1;
     }
+    this.floorMeshes(group, canvas, floor);
+    return group;
+  }
+
+  /** The floor disc (the painted canvas), the apron receding into fog, the accent rim. */
+  private floorMeshes(group: THREE.Group, canvas: HTMLCanvasElement, floor: THREE.Color): void {
+    const radius = this.def.radius;
     const texture = new THREE.CanvasTexture(canvas);
     texture.colorSpace = THREE.SRGBColorSpace;
     texture.anisotropy = 4;
@@ -168,7 +190,6 @@ export class ArenaView {
     rim.position.y = 0.012;
     group.add(rim);
     this.disposables.push(rimGeo, rimMat);
-    return group;
   }
 
   /** Broken columns, low walls and arches around the perimeter, in one draw call. */
@@ -228,8 +249,15 @@ export class ArenaView {
   private createPillars(model: ModelMaterial): void {
     if (this.def.obstacles.length === 0) return;
     const theme = this.def.theme;
-    const stone = new THREE.Color(theme.floor).lerp(new THREE.Color('#e8dcc2'), 0.55);
-    const base = buildPillar(`#${stone.getHexString()}`, theme.accent);
+    let base: THREE.BufferGeometry;
+    if (this.look === 'crimson') {
+      // An obsidian spire column, brass-banded, with a crimson inlay (library.ts).
+      const stone = new THREE.Color(theme.floor).lerp(new THREE.Color(SPIRE_HEX.obsidian), 0.4);
+      base = buildSpirePillar(`#${stone.getHexString()}`, theme.line, SPIRE_HEX.banner);
+    } else {
+      const stone = new THREE.Color(theme.floor).lerp(new THREE.Color('#e8dcc2'), 0.55);
+      base = buildPillar(`#${stone.getHexString()}`, theme.accent);
+    }
     const batch = new ModelBatch(base, model.material, this.def.obstacles.length, true);
     batch.begin();
     const m = new THREE.Matrix4();
@@ -377,6 +405,355 @@ varying float vA;
 void main() {
   float d = length(gl_PointCoord * 2.0 - 1.0);
   float a = (1.0 - smoothstep(0.2, 1.0, d)) * vA * 0.55;
+  gl_FragColor = vec4(uColor, a);
+  #include <colorspace_fragment>
+}`,
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    });
+    const points = new THREE.Points(geo, mat);
+    points.frustumCulled = false;
+    points.renderOrder = 12;
+    this.disposables.push(geo, mat);
+    return points;
+  }
+
+  // ── The Crimson Spire (Movement II, docs/phase-5a.md) ──────────────────────────────────
+
+  /**
+   * Obsidian iron plates: a plate grid with faint blood-channel grooves and brass inlay rings.
+   * As dark and as low in contrast as the Reliquary's flagstones (the same ×0.78), so lethal
+   * and threat telegraphs pop; no crimson on the combat disc.
+   */
+  private createSpireFloor(): THREE.Group {
+    const def = this.def;
+    const radius = def.radius;
+    const group = new THREE.Group();
+    const size = 2048;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    const floor = new THREE.Color(def.theme.floor).multiplyScalar(0.78);
+    const floorHex = `#${floor.getHexString()}`;
+    const line = def.theme.line;
+    if (ctx) {
+      const c = size / 2;
+      const px = c / radius;
+      const lighter = `#${floor.clone().lerp(new THREE.Color('#ffffff'), 0.05).getHexString()}`;
+      const darker = `#${floor.clone().multiplyScalar(0.7).getHexString()}`;
+      const g = ctx.createRadialGradient(c, c, 0, c, c, c);
+      g.addColorStop(0, lighter);
+      g.addColorStop(0.72, floorHex);
+      g.addColorStop(1, darker);
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, size, size);
+      // Iron plates on a square grid, each a hair lighter or darker, with dark seams and rivets.
+      let seed = 11;
+      const rand = () => {
+        seed = (seed * 16807) % 2147483647;
+        return seed / 2147483647;
+      };
+      const plate = 3;
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(c, c, radius * px, 0, Math.PI * 2);
+      ctx.clip();
+      for (let gx = -radius; gx < radius; gx += plate) {
+        for (let gz = -radius; gz < radius; gz += plate) {
+          const shade = (rand() - 0.5) * 0.05;
+          ctx.fillStyle = shade > 0 ? `rgba(255,255,255,${shade})` : `rgba(0,0,0,${-shade * 1.5})`;
+          const x0 = c + gx * px;
+          const y0 = c + gz * px;
+          ctx.fillRect(x0, y0, plate * px, plate * px);
+          ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+          ctx.lineWidth = 3;
+          ctx.strokeRect(x0, y0, plate * px, plate * px);
+          ctx.fillStyle = 'rgba(255,255,255,0.05)';
+          for (const [rx, rz] of RIVETS) {
+            ctx.beginPath();
+            ctx.arc(x0 + rx * plate * px, y0 + rz * plate * px, 0.07 * px, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+      }
+      // Blood channels: six grooves from the centre to the rim, darker than the plates.
+      ctx.strokeStyle = 'rgba(0,0,0,0.35)';
+      ctx.lineWidth = 0.22 * px;
+      for (let i = 0; i < 6; i++) {
+        const a = (i / 6) * Math.PI * 2 + Math.PI / 6;
+        ctx.beginPath();
+        ctx.moveTo(c + Math.cos(a) * 3.2 * px, c + Math.sin(a) * 3.2 * px);
+        ctx.lineTo(c + Math.cos(a) * radius * px, c + Math.sin(a) * radius * px);
+        ctx.stroke();
+      }
+      ctx.restore();
+      // Brass inlay rings and a hexagonal seal at the centre, very faint.
+      ctx.strokeStyle = line;
+      ctx.lineWidth = 3;
+      ctx.globalAlpha = 0.16;
+      for (const r of [3.2, radius * 0.55, radius - 1.2]) {
+        ctx.beginPath();
+        ctx.arc(c, c, r * px, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 0.12;
+      ctx.beginPath();
+      for (let i = 0; i <= 6; i++) {
+        const a = (i / 6) * Math.PI * 2;
+        const x = c + Math.cos(a) * 2.6 * px;
+        const y = c + Math.sin(a) * 2.6 * px;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+    this.floorMeshes(group, canvas, floor);
+    return group;
+  }
+
+  /**
+   * Obsidian ramparts, banners, brass braziers in place of candles, and hanging chains: one draw
+   * call. Tall pieces only on the far (−z) side, as for the Reliquary. The braziers' spots are
+   * kept for the torch cards.
+   */
+  private createRamparts(model: ModelMaterial): void {
+    const theme = this.def.theme;
+    const stone = new THREE.Color(theme.floor).lerp(new THREE.Color(SPIRE_HEX.obsidian), 0.5);
+    const stoneHex = `#${stone.clone().lerp(new THREE.Color('#5a4e52'), 0.35).getHexString()}`;
+    const darkHex = `#${stone.getHexString()}`;
+    const brass = theme.line;
+    const b = new ModelBuilder();
+    const R = this.def.radius;
+    const count = 16;
+    for (let i = 0; i < count; i++) {
+      const a = (i / count) * Math.PI * 2 + 0.1;
+      const r = R + 3.2;
+      const x = Math.cos(a) * r;
+      const z = Math.sin(a) * r;
+      const near = z > -R * 0.15;
+      // Rampart towers: squared and crenellated; only the far side's are tall.
+      const h = near ? 0.6 + ((i * 5) % 3) * 0.2 : 5.5 + ((i * 13) % 3) * 1.2;
+      b.box(1.7, 0.4, 1.7, darkHex, { p: [x, 0.2, z], r: [0, -a, 0] });
+      b.box(1.3, h, 1.3, stoneHex, { p: [x, 0.4 + h / 2, z], r: [0, -a, 0] });
+      if (!near) {
+        for (let k = 0; k < 4; k++) {
+          const ca = -a + (k * Math.PI) / 2 + Math.PI / 4;
+          b.box(0.4, 0.5, 0.4, darkHex, {
+            p: [x + Math.cos(ca) * 0.6, 0.4 + h + 0.25, z + Math.sin(ca) * 0.6],
+            r: [0, -a, 0],
+          });
+        }
+        // A long banner down the tower's inner face, brass-tipped.
+        if (i % 2 === 0) {
+          const fx = x - Math.cos(a) * 0.68;
+          const fz = z - Math.sin(a) * 0.68;
+          b.box(0.85, h * 0.6, 0.05, SPIRE_HEX.banner, {
+            p: [fx, 0.4 + h * 0.62, fz],
+            r: [0, -a + Math.PI / 2, 0],
+          });
+          b.box(0.95, 0.07, 0.08, brass, {
+            p: [fx, 0.4 + h * 0.93, fz],
+            r: [0, -a + Math.PI / 2, 0],
+            glow: 0.25,
+          });
+        }
+      }
+      // Wall segments between the towers, with hanging chains on the far side.
+      const a2 = a + Math.PI / count;
+      const wx = Math.cos(a2) * (R + 3.6);
+      const wz = Math.sin(a2) * (R + 3.6);
+      const wallLen = (2 * Math.PI * (R + 3.6)) / count - 1.4;
+      const far = wz <= -R * 0.15;
+      const wallH = far ? 1.4 + ((i * 3) % 2) * 0.6 : 0.5;
+      b.box(wallLen, wallH, 0.8, darkHex, { p: [wx, wallH / 2, wz], r: [0, -a2 + Math.PI / 2, 0] });
+      if (far) {
+        const inX = -Math.cos(a2) * 0.45;
+        const inZ = -Math.sin(a2) * 0.45;
+        for (let k = 0; k < 4; k++) {
+          b.torus(0.12, 0.03, brass, {
+            p: [
+              wx + inX + Math.sin(a2) * 0.5,
+              wallH - 0.15 - k * 0.2,
+              wz + inZ - Math.cos(a2) * 0.5,
+            ],
+            r: [0, k % 2 === 0 ? 0 : Math.PI / 2, 0],
+          });
+        }
+      }
+      // Brass braziers on the wall (their flame is a torch card): a stem, a bowl, a hot coal.
+      if (i % 2 === 0) {
+        b.cyl(0.1, 0.07, 0.5, brass, { p: [wx, wallH + 0.25, wz] }, 6);
+        b.cyl(0.3, 0.14, 0.22, brass, { p: [wx, wallH + 0.6, wz] }, 8);
+        b.ico(0.16, SPIRE_HEX.torch, { p: [wx, wallH + 0.7, wz], glow: 1 });
+        this.torchSpots.push(wx, wallH + 0.72, wz);
+      }
+    }
+    // Iron debris scattered just outside the rim.
+    for (let i = 0; i < 22; i++) {
+      const a = i * 2.39996;
+      const r = R + 1 + (i % 3) * 0.6;
+      b.box(0.3 + (i % 4) * 0.12, 0.12, 0.22, darkHex, {
+        p: [Math.cos(a) * r, 0.06, Math.sin(a) * r],
+        r: [0, i * 1.7, (i % 3) * 0.1],
+      });
+    }
+    this.addStatic(b.build(), model, false);
+  }
+
+  /**
+   * Flickering emissive torch cards over the braziers (no real lights): a flame and a soft halo
+   * per brazier, all in one additive mesh. They take the god rays' place on the Spire.
+   */
+  private createTorches(): THREE.Mesh {
+    const positions: number[] = [];
+    const uvs: number[] = [];
+    const seeds: number[] = [];
+    const index: number[] = [];
+    const spots = this.torchSpots;
+    for (let i = 0; i < spots.length / 3; i++) {
+      const x = spots[i * 3]!;
+      const y = spots[i * 3 + 1]!;
+      const z = spots[i * 3 + 2]!;
+      // A flame card and a wide halo card (seed + 100), facing the camera's way (+z).
+      for (const [kind, w, h, y0] of TORCH_CARDS) {
+        const base = positions.length / 3;
+        const yb = y + y0;
+        positions.push(
+          x - w / 2,
+          yb,
+          z,
+          x + w / 2,
+          yb,
+          z,
+          x + w / 2,
+          yb + h,
+          z,
+          x - w / 2,
+          yb + h,
+          z,
+        );
+        uvs.push(0, 0, 1, 0, 1, 1, 0, 1);
+        const sd = i + kind * 100;
+        seeds.push(sd, sd, sd, sd);
+        index.push(base, base + 1, base + 2, base, base + 2, base + 3);
+      }
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+    geo.setAttribute('aSeed', new THREE.Float32BufferAttribute(seeds, 1));
+    geo.setIndex(index);
+    const mat = new THREE.ShaderMaterial({
+      uniforms: {
+        ...this.rayUniforms,
+        uColor: { value: new THREE.Color(SPIRE_HEX.torch) },
+        uHot: { value: new THREE.Color('#fff1d6') },
+      },
+      vertexShader: /* glsl */ `
+attribute float aSeed;
+varying vec2 vUv;
+varying float vSeed;
+void main() {
+  vUv = uv;
+  vSeed = aSeed;
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+}`,
+      fragmentShader: /* glsl */ `
+uniform float uTime;
+uniform vec3 uColor;
+uniform vec3 uHot;
+varying vec2 vUv;
+varying float vSeed;
+void main() {
+  float seed = mod(vSeed, 100.0);
+  float flicker = 0.78 + 0.14 * sin(uTime * 9.0 + seed * 2.3) + 0.08 * sin(uTime * 23.0 + seed * 5.1);
+  vec2 p = vUv * 2.0 - 1.0;
+  float a;
+  vec3 col;
+  if (vSeed < 99.5) {
+    // A teardrop flame that sways and licks upward.
+    float sway = sin(uTime * 6.0 + seed + vUv.y * 4.0) * 0.12 * vUv.y;
+    float w = (1.0 - vUv.y) * 0.85 * (0.6 + 0.4 * smoothstep(0.0, 0.25, vUv.y));
+    float d = abs(p.x - sway) / max(w, 0.02);
+    a = (1.0 - smoothstep(0.55, 1.0, d)) * smoothstep(0.0, 0.08, vUv.y) * (1.0 - smoothstep(0.75, 1.0, vUv.y));
+    col = mix(uColor, uHot, clamp((1.0 - d) * (1.0 - vUv.y), 0.0, 1.0));
+    a *= flicker;
+  } else {
+    // The halo: a soft warm glow round the brazier.
+    float d = length(p);
+    a = exp(-d * d * 3.5) * 0.22 * flicker;
+    col = uColor;
+  }
+  gl_FragColor = vec4(col, a);
+  #include <colorspace_fragment>
+}`,
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      side: THREE.DoubleSide,
+    });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.renderOrder = 12;
+    mesh.frustumCulled = false;
+    this.disposables.push(geo, mat);
+    return mesh;
+  }
+
+  /** Rising embers: the dust's points, drifting upward and fading as they climb. */
+  private createEmbers(): THREE.Points {
+    const count = 320;
+    const R = this.def.radius + 4;
+    const positions = new Float32Array(count * 3);
+    const seeds = new Float32Array(count);
+    let s = 5;
+    const rand = () => {
+      s = (s * 16807) % 2147483647;
+      return s / 2147483647;
+    };
+    for (let i = 0; i < count; i++) {
+      const a = rand() * Math.PI * 2;
+      // Mostly toward the rim and the braziers: the combat disc stays clear.
+      const r = (0.45 + 0.55 * Math.sqrt(rand())) * R;
+      positions[i * 3] = Math.cos(a) * r;
+      positions[i * 3 + 1] = rand() * 8;
+      positions[i * 3 + 2] = Math.sin(a) * r;
+      seeds[i] = rand() * 100;
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geo.setAttribute('aSeed', new THREE.BufferAttribute(seeds, 1));
+    const mat = new THREE.ShaderMaterial({
+      uniforms: {
+        ...this.dustUniforms,
+        uColor: { value: new THREE.Color(CRIMSON_HEX.ember) },
+      },
+      vertexShader: /* glsl */ `
+uniform float uTime;
+uniform float uScale;
+attribute float aSeed;
+varying float vA;
+void main() {
+  vec3 p = position;
+  float t = uTime * 0.15 + aSeed;
+  float climb = mod(p.y + uTime * (0.35 + fract(aSeed) * 0.4), 8.0);
+  p.y = 0.2 + climb;
+  p.x += sin(t * 1.7) * 0.6;
+  p.z += cos(t * 1.1) * 0.6;
+  vec4 mv = modelViewMatrix * vec4(p, 1.0);
+  gl_PointSize = clamp(0.06 * uScale / max(-mv.z, 0.1), 1.0, 5.0);
+  float life = 1.0 - climb / 8.0;
+  vA = life * (0.55 + 0.45 * sin(t * 9.0 + aSeed));
+  gl_Position = projectionMatrix * mv;
+}`,
+      fragmentShader: /* glsl */ `
+uniform vec3 uColor;
+varying float vA;
+void main() {
+  float d = length(gl_PointCoord * 2.0 - 1.0);
+  float a = (1.0 - smoothstep(0.1, 1.0, d)) * vA * 0.7;
   gl_FragColor = vec4(uColor, a);
   #include <colorspace_fragment>
 }`,
