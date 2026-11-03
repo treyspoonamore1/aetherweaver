@@ -290,6 +290,8 @@ describe('profile', () => {
     const store = memoryStore();
     store.data.set('aetherweaver.profile', JSON.stringify(v8));
     expect(loadProfile(store)).toEqual({ ...newProfile(), xp: 120, runs: 2 });
+    // The roster's keys stay absent (docs/phase-5b.md).
+    expect(Object.keys(loadProfile(store)).sort()).toEqual(Object.keys(newProfile()).sort());
     // A route this build doesn't know falls back to the Expedition.
     store.data.set('aetherweaver.profile', JSON.stringify({ ...newProfile(), runMode: 'odd' }));
     expect(loadProfile(store).runMode).toBe('expedition');
@@ -304,6 +306,23 @@ describe('profile', () => {
     saveProfile(store, { ...profile, xp: 300 });
     store.data.set('aetherweaver.profile', '{broken');
     expect(loadProfile(store).xp).toBe(250);
+  });
+
+  it('a v9 profile without the roster keys loads without them (docs/phase-5b.md)', () => {
+    const store = memoryStore();
+    store.data.set('aetherweaver.profile', JSON.stringify({ ...newProfile(), xp: 40 }));
+    const loaded = loadProfile(store);
+    expect(loaded).toEqual({ ...newProfile(), xp: 40 });
+    expect('recruited' in loaded).toBe(false);
+    expect('lastParty' in loaded).toBe(false);
+    expect('recruited' in newProfile()).toBe(false);
+    expect('lastParty' in newProfile()).toBe(false);
+    // Empty ones go, so they stay absent.
+    store.data.set(
+      'aetherweaver.profile',
+      JSON.stringify({ ...newProfile(), recruited: [], lastParty: [] }),
+    );
+    expect(loadProfile(store)).toEqual(newProfile());
   });
 
   it('forgets remembered Chords this build can no longer play', () => {

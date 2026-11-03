@@ -323,3 +323,37 @@ describe('saves', () => {
     expect(stray.scene).toBeNull();
   });
 });
+
+describe('Bonds and the roster (docs/phase-5b.md)', () => {
+  it('a party chosen in Prep follows its heroes’ Bonds', () => {
+    useProfile.getState().recruit(['brann']);
+    useProfile.getState().awardBonds({ kael: at(3), brann: at(3) });
+    useProfile.getState().setTalent('kael', 1, 'steady_vanguard');
+    useProfile.getState().setTalent('brann', 1, 'iron_will');
+    useRun.getState().newRun(71);
+    expect(run().bonds).toEqual([{ heroId: 'kael', talents: ['steady_vanguard'], solo: null }]);
+    useRun.getState().setParty(['lyra', 'vexis', 'brann']);
+    expect(run().bonds).toEqual([{ heroId: 'brann', talents: ['iron_will'], solo: null }]);
+    // A talent chosen in Prep reaches the run as before.
+    useProfile.getState().setTalent('brann', 1, 'red_mist');
+    expect(run().bonds).toEqual([{ heroId: 'brann', talents: ['red_mist'], solo: null }]);
+    useRun.getState().setParty(['kael', 'lyra', 'brann']);
+    expect(run().bonds.map((b) => b.heroId)).toEqual(['kael', 'brann']);
+    useRun.getState().embark();
+    expect(run().bonds.map((b) => b.heroId)).toEqual(['kael', 'brann']);
+  });
+
+  it('Brann’s fight Bond XP is doubled while he trails the starters, through the store', () => {
+    useProfile.getState().awardBonds({ kael: at(4), lyra: at(4), vexis: at(4) });
+    useProfile.getState().recruit(['brann']);
+    useProfile.getState().awardBonds({ brann: 30, kael: 30 });
+    expect(profile().bonds.brann!.xp).toBe(60);
+    expect(profile().bonds.kael!.xp).toBe(at(4) + 30);
+    // Caught up: plain XP again.
+    useProfile.getState().awardBonds({ brann: at(4) });
+    const xp = profile().bonds.brann!.xp;
+    expect(bondRank(xp)).toBeGreaterThanOrEqual(4);
+    useProfile.getState().awardBonds({ brann: 10 });
+    expect(profile().bonds.brann!.xp).toBe(xp + 10);
+  });
+});

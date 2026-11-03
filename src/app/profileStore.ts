@@ -10,6 +10,7 @@ import {
   allowanceFor,
   awardXp,
   EVERYTHING,
+  heroRoster,
   newProfile,
   rankOf,
   routeMovements,
@@ -39,7 +40,7 @@ import {
   opensAt,
   type DissonanceChoice,
 } from '../meta/dissonance';
-import { chordsToRemember } from '../meta/run';
+import { canonicalParty, chordsToRemember } from '../meta/run';
 import {
   addBondXp,
   altSoloOf,
@@ -288,7 +289,12 @@ export const useProfile = create<ProfileStore>()((set, get) => {
       commit({ ...p, runs: p.runs + 1, wins: p.wins + (won ? 1 : 0) });
     },
     resetProgress: () =>
-      commit(newProfile(freshSeed()), { rankUps: [], deedNotices: [], bondNotices: [] }),
+      commit(newProfile(freshSeed()), {
+        rankUps: [],
+        deedNotices: [],
+        bondNotices: [],
+        recruitNotices: [],
+      }),
     bondsAll: () => useSettings.getState().settings.unlockAll,
     runBonds: (heroes) => runBonds(get().profile.bonds, heroes, get().bondsAll()),
     awardBonds: (xpByHero) => {
@@ -382,10 +388,35 @@ export const useProfile = create<ProfileStore>()((set, get) => {
       );
       if (fresh.length > 0) commit({ ...profile, seen: [...profile.seen, ...fresh] });
     },
-    // The roster's W0 stubs (docs/phase-5b.md): the default party, and nothing recorded.
-    roster: () => [...CONTENT.defaultParty],
-    recruit: () => {},
-    setLastParty: () => {},
+    // The roster (docs/phase-5b.md).
+    roster: () => heroRoster(get().profile, useSettings.getState().settings.unlockAll),
+    recruit: (ids) => {
+      const profile = get().profile;
+      const have = new Set([...CONTENT.defaultParty, ...(profile.recruited ?? [])]);
+      // Heroes that join by recruiting, not yet recruited, each once, in content order.
+      const fresh = canonicalParty(ids).filter(
+        (id) => !have.has(id) && !!CONTENT.heroes.find((h) => h.id === id)?.recruit,
+      );
+      if (fresh.length === 0) return;
+      commit(
+        { ...profile, recruited: canonicalParty([...(profile.recruited ?? []), ...fresh]) },
+        { recruitNotices: [...get().recruitNotices, ...fresh] },
+      );
+    },
+    setLastParty: (ids) => {
+      const profile = get().profile;
+      const party = canonicalParty(ids);
+      if (party.length !== 3 || ids.length !== 3) return;
+      if (party.join() === CONTENT.defaultParty.join()) {
+        if (profile.lastParty === undefined) return;
+        const { lastParty, ...rest } = profile;
+        void lastParty;
+        commit(rest);
+        return;
+      }
+      if (profile.lastParty?.join() === party.join()) return;
+      commit({ ...profile, lastParty: party });
+    },
     clearRecruitNotices: () => set({ recruitNotices: [] }),
     variantsAll: () => useSettings.getState().settings.unlockAll,
     runTechniques: () =>

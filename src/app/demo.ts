@@ -21,7 +21,7 @@ export const VETERAN_RANK = 12;
  * Starts the demo over as a fresh Weaver or a veteran, dropping any run in progress. The veteran
  * is built through the stores' own actions, as play would have built them: Rank 12 with the
  * Astrolabe's points left to spend, Starlight, a variant owned, the Luminary mastered and the
- * Martyr on her way, Bonds at rank 4 (their first talents), a won run's Deed, and two relics
+ * Martyr on her way, Brann recruited, Bonds at rank 4 (their first talents), a won run's Deed, and two relics
  * enshrined with materials to craft, Prism Loom carried. Their runs are Expeditions.
  */
 export function startDemo(kind: DemoStart): void {
@@ -38,7 +38,11 @@ export function startDemo(kind: DemoStart): void {
   store.ownVariant('purge');
   store.awardMastery('luminary', 1500);
   store.awardMastery('martyr', 480);
-  store.awardBonds({ kael: 440, lyra: 440, vexis: 440 });
+  // Brann freed from his cell on an earlier Expedition (docs/phase-5b.md), so Prep picks 3 of 4,
+  // his Bond level with the others'.
+  store.recruit(['brann']);
+  useProfile.getState().clearRecruitNotices();
+  store.awardBonds({ kael: 440, lyra: 440, vexis: 440, brann: 440 });
   useProfile.getState().dismissBondNotices();
   // A run won: its Deed lights the Hall of Deeds, and the record counts it.
   store.recordDeeds({ ...Run.newRun(1), outcome: 'victory' });

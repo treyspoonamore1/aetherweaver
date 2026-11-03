@@ -32,8 +32,13 @@ describe('the demo', () => {
     expect(earnedTitles(p)).toContain('title_lightbearer');
     expect(p.deeds).toContain('through_the_prelude');
     expect(useProfile.getState().deedNotices).toEqual([]);
-    for (const hero of ['kael', 'lyra', 'vexis'])
+    for (const hero of ['kael', 'lyra', 'vexis', 'brann'])
       expect(bondRank(p.bonds[hero]?.xp ?? 0)).toBeGreaterThanOrEqual(3);
+    // Brann freed on an earlier Expedition (docs/phase-5b.md): Prep picks 3 of 4.
+    expect(p.recruited).toEqual(['brann']);
+    expect(useProfile.getState().roster()).toEqual(['kael', 'lyra', 'vexis', 'brann']);
+    expect(useProfile.getState().recruitNotices).toEqual([]);
+    expect('lastParty' in p).toBe(false);
     expect(p.reliquary.relics.map((r) => r.id).sort()).toEqual(
       ['lantern_of_the_lost', 'prism_loom'].sort(),
     );
@@ -52,5 +57,8 @@ describe('the demo', () => {
     expect(rankOf(profile().xp)).toBe(1);
     expect(profile().starlight).toBe(0);
     expect(useRun.getState().run).toBeNull();
+    // The fresh start is untouched: the starters only.
+    expect('recruited' in profile()).toBe(false);
+    expect(useProfile.getState().roster()).toEqual(['kael', 'lyra', 'vexis']);
   });
 });

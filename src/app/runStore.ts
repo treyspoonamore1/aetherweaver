@@ -66,6 +66,24 @@ function profileBonds(heroes: readonly string[]): RunBond[] {
   return useProfile.getState().runBonds(heroes);
 }
 
+/**
+ * The party a new run starts with (docs/phase-5b.md): the one the profile remembers, when every
+ * hero in it is still in the roster; the default party otherwise.
+ */
+function startingParty(): string[] {
+  const profile = useProfile.getState();
+  const last = profile.profile.lastParty;
+  const roster = new Set(profile.roster());
+  return last && last.length === 3 && last.every((id) => roster.has(id))
+    ? [...last]
+    : [...CONTENT.defaultParty];
+}
+
+/** Recruits whatever the run has recruited so far (idempotent: nothing new, no write). */
+function recruitFrom(run: RunState | null): void {
+  if (run) useProfile.getState().recruit(Run.recruitsOf(run));
+}
+
 /** The Dissonance the profile plays new runs at, if it's open (docs/phase-4d.md). */
 function profileDissonance(): DissonanceChoice[] {
   const profile = useProfile.getState();
@@ -143,6 +161,8 @@ export const useRun = create<RunStore>()((set, get) => {
       });
       // A run saved before Deeds (or before a reset) gets what its fights have earned.
       recordDeeds();
+      // …and a recruit its fights made (docs/phase-5b.md), if the app closed before it was kept.
+      recruitFrom(get().run);
       return true;
     },
     followAstrolabe: (tree) =>
@@ -223,6 +243,8 @@ export const useRun = create<RunStore>()((set, get) => {
       // Start from the last Chords used, if they're still unlocked and the tree can hold them.
       const profile = useProfile.getState();
       const last = profile.profile.lastChords;
+      // The party the profile remembers, if the roster still has it (docs/phase-5b.md).
+      const party = startingParty();
       // Math.random is fine here: the app picks the seed; the run itself is seeded.
       let run = Run.newRun(
         seed ?? Math.floor(Math.random() * 2 ** 31),
@@ -230,11 +252,13 @@ export const useRun = create<RunStore>()((set, get) => {
         profileTree(),
         profileCarry(),
         profileDissonance(),
-        profileBonds(CONTENT.defaultParty),
+        profileBonds(party),
         profile.runTechniques(),
         // Its route (docs/phase-5a.md): the Prelude, or an Expedition once they're open.
         profile.routeMovements(mode),
       );
+      if (party.join() !== CONTENT.defaultParty.join())
+        run = Run.setParty(run, party, profile.roster());
       if (last.length > 0) run = Run.setChords(run, last, profile.allowance());
       saveRun(storage(), run);
       set({ run });
@@ -248,9 +272,20 @@ export const useRun = create<RunStore>()((set, get) => {
       profile.setRunMode(mode);
       apply((run) => Run.setMovements(run, profile.routeMovements(mode)));
     },
-    // The roster (docs/phase-5b.md): W2 checks the roster, applies Run.setParty, re-follows the
-    // Bonds and remembers the pick. The W0 stub leaves the run unchanged.
-    setParty: () => {},
+    // The roster (docs/phase-5b.md): 3 heroes the roster has, in canonical order; the run
+    // follows their Bonds, and the profile remembers a pick that isn't the default party.
+    setParty: (ids) => {
+      const before = get().run;
+      apply((run) => {
+        const next = Run.setParty(run, ids, useProfile.getState().roster());
+        return next === run
+          ? run
+          : Run.setBonds(next, profileBonds(next.party.map((h) => h.heroId)));
+      });
+      const after = get().run;
+      if (after && after !== before && after.phase === 'prep')
+        useProfile.getState().setLastParty(after.party.map((h) => h.heroId));
+    },
     embark: () => {
       const profile = useProfile.getState();
       // Chords or a Calling picked while "Skip the unlocks" was on don't outlive turning it off.
@@ -259,8 +294,13 @@ export const useRun = create<RunStore>()((set, get) => {
       // Its heroes' Bond choices too, as their ranks (or the settings) open them now.
       // An Expedition chosen while "Skip the unlocks" was on plays as the Prelude if Expeditions
       // aren't open any more (docs/phase-5a.md); the route is frozen from here.
-      apply((run) =>
-        Run.embark(
+      // A hero picked while "Skip the unlocks" was on doesn't outlive turning it off either
+      // (docs/phase-5b.md): the run plays the default party, and follows its Bonds.
+      const roster = profile.roster();
+      apply((current) => {
+        const owned = current.party.every((h) => roster.includes(h.heroId));
+        const run = owned ? current : Run.setParty(current, CONTENT.defaultParty, roster);
+        return Run.embark(
           Run.setCallingTiers(
             Run.setTechniques(
               Run.setBonds(
@@ -275,8 +315,9 @@ export const useRun = create<RunStore>()((set, get) => {
           profile.astrolabePoints(),
           profile.carrySlots(),
           profile.dissonanceOpen(),
-        ),
-      );
+          roster,
+        );
+      });
       const run = get().run;
       if (run?.phase === 'map') remember(run);
     },
@@ -299,6 +340,8 @@ export const useRun = create<RunStore>()((set, get) => {
         if (after.calling)
           useProfile.getState().awardMastery(after.calling.id, after.lastResult.xp);
         recordDeeds();
+        // The roster (docs/phase-5b.md): a hero this fight freed joins from the next Prep.
+        recruitFrom(get().run);
       }
     },
     continueFromResult: () => apply(Run.continueFromResult),

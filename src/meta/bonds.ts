@@ -191,7 +191,24 @@ export function bondXpForFight(
   return out;
 }
 
-/** Adds Bond XP; reports the ranks each hero reached. */
+/** A late recruit's Bond XP multiplier while behind the starters (docs/phase-5b.md). */
+export const CATCH_UP = 2;
+
+/**
+ * A late recruit's catch-up (Brann, docs/phase-5b.md): a hero who joins by `recruit` earns ×2
+ * Bond XP while their rank is below the lowest starter's (the default party's). ×1 for every
+ * starter, and once they've caught up.
+ */
+export function catchUpMult(bonds: Readonly<Record<string, Bond>>, heroId: string): number {
+  if (!CONTENT.heroes.find((h) => h.id === heroId)?.recruit) return 1;
+  const floor = Math.min(...CONTENT.defaultParty.map((id) => bondRank(bonds[id]?.xp ?? 0)));
+  return bondRank(bonds[heroId]?.xp ?? 0) < floor ? CATCH_UP : 1;
+}
+
+/**
+ * Adds Bond XP; reports the ranks each hero reached. A late recruit behind the starters earns it
+ * doubled (`catchUpMult`, judged before this award).
+ */
 export function addBondXp(
   bonds: Readonly<Record<string, Bond>>,
   xpByHero: Readonly<Record<string, number>>,
@@ -200,7 +217,7 @@ export function addBondXp(
   const rankUps: { heroId: string; rank: number }[] = [];
   for (const [heroId, gained] of Object.entries(xpByHero)) {
     if (!Number.isFinite(gained)) continue;
-    const xp = Math.max(0, Math.round(gained));
+    const xp = Math.max(0, Math.round(gained)) * catchUpMult(bonds, heroId);
     if (xp <= 0 || !bondedHeroes().includes(heroId)) continue;
     const bond = next[heroId] ?? emptyBond();
     const before = bondRank(bond.xp);

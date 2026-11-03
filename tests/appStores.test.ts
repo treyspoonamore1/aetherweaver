@@ -2,11 +2,12 @@
  * The run and profile stores together (app/runStore.ts, app/profileStore.ts): XP flows into the
  * profile as fights finish, Prep honours the unlocks, and every run is counted once.
  */
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useProfile } from '../src/app/profileStore';
 import { useRun } from '../src/app/runStore';
 import { DEFAULT_SETTINGS, useSettings } from '../src/app/settings';
-import { RANK_XP, movementOneEnemies } from '../src/meta/profile';
+import { RANK_XP, movementOneEnemies, newProfile } from '../src/meta/profile';
+import { storage } from '../src/app/storage';
 import * as Run from '../src/meta/run';
 import type { CombatOutcome, RunState } from '../src/meta/types';
 import { emptyLedger } from '../src/sim/world';
@@ -203,5 +204,89 @@ describe('run and profile stores', () => {
     const after = useProfile.getState().profile;
     useProfile.getState().see(['sanguine_hound']);
     expect(useProfile.getState().profile).toBe(after);
+  });
+});
+
+describe('the roster in the stores (docs/phase-5b.md)', () => {
+  const ids = () => useRun.getState().run!.party.map((h) => h.heroId);
+
+  it('setParty takes roster heroes only, and the profile remembers a non-default pick', () => {
+    useRun.getState().newRun(61);
+    const before = useRun.getState().run!;
+    useRun.getState().setParty(['kael', 'lyra', 'brann']);
+    expect(useRun.getState().run).toBe(before);
+    expect('lastParty' in useProfile.getState().profile).toBe(false);
+    useProfile.getState().recruit(['brann']);
+    useRun.getState().setParty(['brann', 'lyra', 'kael']);
+    expect(ids()).toEqual(['kael', 'lyra', 'brann']);
+    expect(useProfile.getState().profile.lastParty).toEqual(['kael', 'lyra', 'brann']);
+    // The next run starts from it; back to the default party, the key goes.
+    useRun.getState().newRun(62);
+    expect(ids()).toEqual(['kael', 'lyra', 'brann']);
+    useRun.getState().setParty(['kael', 'lyra', 'vexis']);
+    expect(ids()).toEqual(['kael', 'lyra', 'vexis']);
+    expect('lastParty' in useProfile.getState().profile).toBe(false);
+  });
+
+  it('a default-party run is the same whatever the roster', () => {
+    useRun.getState().newRun(63);
+    const plain = JSON.stringify(useRun.getState().run);
+    useProfile.getState().recruit(['brann']);
+    useRun.getState().newRun(63);
+    expect(JSON.stringify(useRun.getState().run)).toBe(plain);
+    useSettings.getState().update((s) => ({ ...s, unlockAll: true }));
+    useSettings.getState().update((s) => ({ ...s, unlockAll: false }));
+    useRun.getState().newRun(63);
+    expect(JSON.stringify(useRun.getState().run)).toBe(plain);
+    useRun.getState().embark();
+    const embarked = JSON.stringify(useRun.getState().run);
+    useProfile.getState().resetProgress();
+    useRun.getState().newRun(63);
+    useRun.getState().embark();
+    expect(JSON.stringify(useRun.getState().run)).toBe(embarked);
+  });
+
+  it('a Brann picked under Skip the unlocks embarks as the default party once it’s off', () => {
+    useSettings.getState().update((s) => ({ ...s, unlockAll: true }));
+    useRun.getState().newRun(64);
+    useRun.getState().setParty(['lyra', 'vexis', 'brann']);
+    expect(ids()).toEqual(['lyra', 'vexis', 'brann']);
+    useSettings.getState().update((s) => ({ ...s, unlockAll: false }));
+    useRun.getState().embark();
+    expect(useRun.getState().run!.phase).toBe('map');
+    expect(ids()).toEqual(['kael', 'lyra', 'vexis']);
+    // The pick stays remembered for when the roster has him again.
+    expect(useProfile.getState().profile.lastParty).toEqual(['lyra', 'vexis', 'brann']);
+  });
+
+  it('a fight against Vharun recruits Brann once; nothing new writes nothing; a resume catches up', () => {
+    const run = Run.embark(Run.newRun(65, undefined, [], [], [], [], undefined, 2));
+    const nodes = run.map.rows.flat();
+    const target = nodes.find((n) => n.encounterId === 'vharun')!;
+    const before = nodes.find((n) => n.next.includes(target.id))!;
+    useRun.setState({ run: { ...run, path: [before.id] } });
+    useRun.getState().chooseNode(target.id);
+    const fight = useRun.getState().run!;
+    useRun.getState().finishCombat({
+      ...victory({ ...fight, pending: fight.pending }),
+      encounterId: 'vharun',
+      outcome: 'defeat',
+    });
+    expect(useProfile.getState().profile.recruited).toEqual(['brann']);
+    expect(useProfile.getState().recruitNotices).toEqual(['brann']);
+    expect(useProfile.getState().roster()).toEqual(['kael', 'lyra', 'vexis', 'brann']);
+    // Resuming the same run finds nothing new: no write, no second notice.
+    const profile = useProfile.getState().profile;
+    const writes = vi.spyOn(storage(), 'setItem');
+    useProfile.getState().recruit(['brann']);
+    expect(writes).not.toHaveBeenCalled();
+    writes.mockRestore();
+    expect(useRun.getState().resume()).toBe(true);
+    expect(useProfile.getState().profile).toBe(profile);
+    expect(useProfile.getState().recruitNotices).toEqual(['brann']);
+    // A profile that lost the recruit (the app closed between the saves) gets it on resume.
+    useProfile.setState({ profile: { ...newProfile(), seen: profile.seen }, recruitNotices: [] });
+    expect(useRun.getState().resume()).toBe(true);
+    expect(useProfile.getState().profile.recruited).toEqual(['brann']);
   });
 });

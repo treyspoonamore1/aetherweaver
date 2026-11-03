@@ -12,6 +12,7 @@ import {
   dissonanceLevel,
   encounterDef,
   motifDef,
+  partyHasDome,
   relicDef,
   runEventDef,
 } from '../content';
@@ -63,6 +64,7 @@ import {
   type CallingOffer,
   type ChordLoadout,
   type CombatOutcome,
+  type DeathRecap,
   type DraftOffer,
   type DraftOption,
   type EncounterResult,
@@ -607,7 +609,7 @@ export function setMovements(run: RunState, movements: number): RunState {
   return { ...run, movements: n, map: generateMap(run.seed, n) };
 }
 
-export function findNode(run: RunState, id: string): MapNode | undefined {
+export function findNode(run: Pick<RunState, 'map'>, id: string): MapNode | undefined {
   for (const row of run.map.rows) for (const node of row) if (node.id === id) return node;
   return undefined;
 }
@@ -681,6 +683,91 @@ export function newRun(
   return chordsLegal(chords, undefined, reservePool(run), reserveMult(run))
     ? { ...run, chords: canonicalChords(chords) }
     : run;
+}
+
+// ── The roster (docs/phase-5b.md) ──────────────────────────────────────────────────────
+
+/** Every hero the content knows, in content order: `embark`'s permissive default roster. */
+function allHeroIds(): string[] {
+  return CONTENT.heroes.map((h) => h.id);
+}
+
+/**
+ * A party in canonical content order (Kael, Lyra, Vexis, Brann): known heroes only, each once.
+ * Slot order follows it, so the default party stays byte-identical.
+ */
+export function canonicalParty(ids: readonly string[]): string[] {
+  const chosen = new Set(ids);
+  return allHeroIds().filter((id) => chosen.has(id));
+}
+
+/** Is this exactly 3 distinct known heroes, all in `roster`? */
+function legalParty(ids: readonly string[], roster: readonly string[]): boolean {
+  const known = new Set(allHeroIds());
+  const owned = new Set(roster);
+  return (
+    ids.length === 3 && new Set(ids).size === 3 && ids.every((id) => known.has(id) && owned.has(id))
+  );
+}
+
+/** The run's party as hero ids, by slot. */
+function partyIds(run: Pick<RunState, 'party'>): string[] {
+  return run.party.map((h) => h.heroId);
+}
+
+/** A party of fresh heroes (Prep: everyone at full life, nobody Shaken). */
+function freshParty(ids: readonly string[]): RunHero[] {
+  return ids.map((heroId) => ({ heroId, hpPct: 1, shaken: false }));
+}
+
+/** The run's Bond choices for heroes still in the party (the rest are dropped). */
+function bondsInParty(bonds: readonly RunBond[], ids: readonly string[]): RunBond[] {
+  return bonds.filter((b) => ids.includes(b.heroId));
+}
+
+/**
+ * Prep: choose the party (docs/phase-5b.md): exactly 3 distinct known heroes from `roster`, kept
+ * in canonical content order, each at full life and steady. Bond choices for a hero who left are
+ * dropped (the run store re-follows the profile's Bonds). Anything else, or the same party, gives
+ * back the same run.
+ */
+export function setParty(
+  run: RunState,
+  heroIds: readonly string[],
+  roster: readonly string[],
+): RunState {
+  if (run.phase !== 'prep' || !legalParty(heroIds, roster)) return run;
+  const ids = canonicalParty(heroIds);
+  if (ids.join() === partyIds(run).join()) return run;
+  const kept = bondsInParty(run.bonds, ids);
+  return {
+    ...run,
+    party: freshParty(ids),
+    bonds: kept.length === run.bonds.length ? run.bonds : kept,
+  };
+}
+
+/**
+ * The heroes this run recruits for later runs (docs/phase-5b.md), in content order. It reads
+ * `run.results` only, so it holds after `toMap` clears `run.event` and after a resume:
+ * - a won fight at an event node whose event has a fight for that encounter that recruits;
+ * - any fight, won or lost, against a hero's `recruit.fallback` encounter (Vharun).
+ */
+export function recruitsOf(run: Pick<RunState, 'results' | 'map'>): string[] {
+  const found = new Set<string>();
+  const fallbacks = CONTENT.heroes.filter((h) => h.recruit?.fallback !== undefined);
+  for (const r of run.results) {
+    for (const h of fallbacks) if (h.recruit!.fallback === r.encounterId) found.add(h.id);
+    if (r.outcome !== 'victory') continue;
+    const node = findNode(run, r.nodeId);
+    if (node?.kind !== 'event' || !node.eventId) continue;
+    const event = CONTENT.events.find((e) => e.id === node.eventId);
+    for (const ch of event?.choices ?? [])
+      for (const e of [...ch.effects, ...ch.fail])
+        if (e.kind === 'fight' && e.recruit !== undefined && e.encounter === r.encounterId)
+          found.add(e.recruit);
+  }
+  return allHeroIds().filter((id) => found.has(id));
 }
 
 /**
@@ -846,8 +933,19 @@ export function embark(
   carry = Infinity,
   /** Dissonance is open (docs/phase-4d.md): closed, the run plays without it. */
   dissonanceOpen = true,
+  /**
+   * The heroes the player may take (docs/phase-5b.md); every hero by default, so a harness's
+   * party stands. A party with a hero outside it (Skip the unlocks turned off) plays as the
+   * default party, without the Bond choices of the heroes who left.
+   */
+  roster: readonly string[] = allHeroIds(),
 ): RunState {
   if (run.phase !== 'prep') return run;
+  const owned = new Set(roster);
+  if (!run.party.every((h) => owned.has(h.heroId))) {
+    const ids = [...CONTENT.defaultParty];
+    run = { ...run, party: freshParty(ids), bonds: bondsInParty(run.bonds, ids) };
+  }
   const calling = run.calling && allowance.callings.has(run.calling.id) ? run.calling : null;
   const astrolabe = pruneTree(run.astrolabe, points);
   const carried = run.carried.slice(0, Math.max(0, carry));
@@ -1616,6 +1714,10 @@ function eligible(run: RunState, def: MotifDef): DraftOption | null {
     if (owned.level >= def.values.length) return null;
     return { motifId: def.id, level: owned.level + 1, upgrade: true };
   }
+  // A Harmony (docs/phase-5b.md) is offered once every motif it needs is owned. Only the offer
+  // checks it: one already owned stays, and grows, if a prerequisite is lost later.
+  const needs = def.requires.motifs;
+  if (needs && !needs.every((id) => run.motifs.some((m) => m.id === id))) return null;
   return { motifId: def.id, level: 1, upgrade: false };
 }
 
@@ -1722,8 +1824,15 @@ export function summarize(
   const name = (heroId: string) => CONTENT.heroes.find((h) => h.id === heroId)?.name ?? heroId;
   // Where Rewind holds Reel's slot (the Chronomancer), the dodges it makes are saved as Reel's.
   const rewinds = !!calling && (callingDef(calling.id).values.rewind ?? 0) > 0;
+  // Only a party with a dome hero (Kael) hears of the dome (docs/phase-5b.md). An outcome that
+  // names no heroes (a hand-built one) is taken as the default party's.
+  const dome = outcome.party.length === 0 || partyHasDome(outcome.party.map((p) => p.heroId));
   const how = (cause: SaveCause) =>
-    cause === 'reel' && rewinds ? 'with a Rewind' : SAVE_HOW[cause];
+    cause === 'reel' && rewinds
+      ? 'with a Rewind'
+      : cause === 'dome' && !dome
+        ? SAVE_NO_DOME
+        : SAVE_HOW[cause];
   const highlights: (Highlight & { score: number })[] = [];
   for (const s of l.saves) {
     const fermata = s.cause === 'fermata';
@@ -1841,7 +1950,9 @@ export function summarize(
       killer: d.killer,
       recap: d.recap.map((r) => ({ ...r })),
       readyTechniques: [...d.readyTechniques],
-      ...(d.answers ? { answers: [...d.answers] } : {}),
+      ...(d.answers
+        ? { answers: dome ? [...d.answers] : d.answers.filter((a) => a !== 'dome') }
+        : {}),
       ...(d.blood ? { blood: { ...d.blood } } : {}),
     })),
     timeline: l.timeline.map((t) => ({ time: t.time, hp: [...t.hp] })),
@@ -1853,6 +1964,8 @@ export function summarize(
       dead: p.dead,
       damage: Math.round(p.damage),
       amplified: Math.round(p.amplified),
+      // Brann's fight (docs/phase-5b.md): only a Blood Rage hero has it.
+      ...(p.blood ? { blood: { ...p.blood } } : {}),
     })),
     withoutYou: outcome.withoutYou ? { ...outcome.withoutYou } : null,
     // Bonds (docs/phase-4e.md): what the fight paid each hero.
@@ -1878,6 +1991,37 @@ const SAVE_HOW: Record<SaveCause, string> = {
   rewind: 'by rewinding them',
   other: '',
 };
+
+/** A dome save's wording for a party with no dome hero (it can't happen; said plainly if it does). */
+const SAVE_NO_DOME = 'with a shield';
+
+/** The names of Vharun's Twin Cleave blows (its first and its scripted second). */
+const TWIN_CLEAVE: ReadonlySet<string> = new Set(
+  CONTENT.attacks.filter((a) => a.id.startsWith('vharun_twin_cleave')).map((a) => a.name),
+);
+
+/**
+ * What a Blood Rage hero's down asks of the Weaver (Brann, docs/phase-5b.md, "Recaps for
+ * Brann's downs"), from the down record's `blood`, in priority order: a refused Rally, then a heal
+ * cut to a quarter or less (Bloodmoon), then Twin Cleave with no dome in the party. Null for any
+ * other down, and for every hero without `blood`: the recap's generic answers stand.
+ */
+export function downAdvice(
+  d: Pick<DeathRecap, 'heroId' | 'killer' | 'blood'>,
+  party: readonly string[],
+): string | null {
+  if (!d.blood) return null;
+  const def = CONTENT.heroes.find((h) => h.id === d.heroId);
+  if (d.blood.refusedRally) {
+    const below = Math.round((def?.quirk.below ?? 0.4) * 100);
+    return `He wouldn’t Rally below ${below}%: Reel him, or Ward him so Iron Will brings him back.`;
+  }
+  if (d.blood.healCut <= 0.25)
+    return 'Your healing on him was quartered outside the pool: Ward him or give him a barrier.';
+  if (TWIN_CLEAVE.has(d.killer) && !partyHasDome(party))
+    return `Two blows on ${def?.name ?? 'him'}: Reel him, or Ward him twice.`;
+  return null;
+}
 
 export function grade(
   outcome: 'victory' | 'defeat',
