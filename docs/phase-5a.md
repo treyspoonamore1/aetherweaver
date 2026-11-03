@@ -318,8 +318,8 @@ Every encounter below has `movement: 2`. Waves and pars are as tuned (see *Tunin
 | `pike_line` | skirmish (lesson) | spire_gate | 45 | impaler + hound×3 · impaler + hound×4 · impaler×2 + hound×2 | pin |
 | `red_muster` | skirmish | barracks | 65 | sentinel + hound×4 · sentinel + hemomancer + hound×3 · sentinel + impaler + hound×3 | focus |
 | `leech_warren` | skirmish | blood_forge | 50 | leech×3 + hound×3 · leech×2 + sentinel + hound×2 · leech×3 + hound×3 · leech×3 + hemomancer + hound×2 | latch |
-| `shield_wall` | elite | barracks | 90 | sentinel★vampiric + hound×4 · impaler★hastened + hemomancer + hound×4 · sentinel + leech×2 + hound×4 · hemomancer + hound×5 | focus, empower, wound |
-| `blood_forge` | elite | blood_forge | 75 | hemomancer★vampiric + hound×6 · impaler×2 + leech×3 + hound×2 · hound×3★volatile + hemomancer + impaler★vampiric + hound×2 | wound, scatter |
+| `shield_wall` | elite | barracks | 90 | sentinel★vampiric + hound×4 · impaler★hastened + hemomancer + hound×5 · sentinel + leech×2 + hound×4 · hemomancer + hound×5 | focus, empower, wound |
+| `blood_forge` | elite | blood_forge | 75 | hemomancer★vampiric + hound×6 · impaler×2 + leech×3 + hound · hound×4★volatile + hemomancer + impaler★vampiric + hound×3 | wound, scatter |
 | `legion_vanguard` | elite (event-only) | barracks | 70 | hound×6 + impaler★vampiric · hemomancer + sentinel + leech×3 + hound×3 · impaler + hemomancer★vampiric + hound×5 | wound |
 | `gorehound_matriarch` | miniboss | kennels | 85 | the Matriarch (enrage 300) | bleed, pounce |
 | `vharun` | boss | wardens_throne | 225 | Vharun (enrage 420) | decree |
@@ -532,29 +532,42 @@ Budget: no growth in FX batches (about 12) and the particle caps hold. Every new
 | `crimson_gate` | hound ×4 · ×5 · ×6 | hound ×5 · ×6 · ×7 · ×8 | Idle 100%; Skilled 25 s |
 | `blood_rites` | hounds 3 · 4 · 3 | hounds 4 · 5 · 4 | Idle 43%; Skilled 29 s |
 | `leech_warren` | three waves | a fourth (leech ×3 + hound ×3), a hound more in the first two | Idle 93%; Skilled 30 s |
-| `shield_wall` | three waves, a Shielded elite Sentinel last | four: sentinel★vampiric + hound ×4 · impaler★hastened + hemomancer + hound ×4 · sentinel + leech ×2 + hound ×4 · hemomancer + hound ×5 | Novice 93%; pressure the Novice can't sustain through a guarded grind |
-| `blood_forge` | hound ×4 first; 2 volatile hounds | hound ×6 first; leech ×3 + hound ×2 second; 3 volatile hounds + 2 hounds last | Novice 100% |
+| `shield_wall` | three waves, a Shielded elite Sentinel last | four: sentinel★vampiric + hound ×4 · impaler★hastened + hemomancer + hound ×5 · sentinel + leech ×2 + hound ×4 · hemomancer + hound ×5 | Novice 93%; pressure the Novice can't sustain through a guarded grind. The review round added a hound to the second wave: after its sim fixes (a cancelled Blood Pact now takes its ×1.2 with it; two Pacts sharing a hero both land), the Novice won 79% (76 / 82 / 80 on three seed sets) |
+| `blood_forge` | hound ×4 first; 2 volatile hounds | hound ×6 first; leech ×3 + hound second; 4 volatile hounds + 3 hounds last | Novice 100%. The review round moved a hound from the second wave (two Impalers' pins and three Leeches' latches all want Reel at once) to the last and made a fourth hound Volatile: Skilled sat at its floor (82-92% across seed sets), and a blast the Novice stands in keeps the Novice's rate down |
 | `legion_vanguard` (event) | two waves | three (see the table above) | Skilled 38 s, Novice 98% |
 | Pars | 90 · 100 · 100 · 115 · 115 · 140 · 145 · 130 · 170 · 280 | 40 · 45 · 45 · 65 · 50 · 90 · 75 · 70 · 85 · 225 | Skilled average (arrival kit, 50 seeds) × 1.15, to the nearest 5 s, in the encounter table's order |
 
-**One bot fix.** The Skilled bot Focused a guarded Sentinel the moment one stood, so the whole party went round a 4,000-HP wall while the hounds beside it stacked bleed on them: Skilled lost `red_muster` and `shield_wall` more often than the Novice did, every loss inside the first 25 s, to bleed ticks and bites (with no Sentinel Focus it won both 100%). That is plainly broken for this mechanic, so it now Focuses a guarded Sentinel once no more than three enemies stand (`SENTINEL_FOCUS_AT`, `src/bots/skilled.ts`); the pack first, then the wall. Movement I has no guarded enemy, so its bots are unchanged (the M1 baseline and the five hashes hold).
+**Deliberate exceptions to the ±20% rule.** Tuning order step 1 keeps authored numbers within ±20%. These changes went past it on purpose: a wave's head count was the one lever that moved Idle and the Novice in a single fight without changing an enemy every other fight shares, and the first numbers were far outside their bands (Idle won `crimson_gate` 100%, the Novice won the elites 93-100%).
+- `crimson_gate`: hounds 15 → 26 (+73%); with the hound's +12% life, its enemy life is about +94%.
+- `blood_rites`: hounds 10 → 13 (+30%).
+- `leech_warren`: a fourth wave; leeches 8 → 11, hounds 4 → 10.
+- `shield_wall`: rebuilt into four waves, its Shielded elite Sentinel dropped; hounds 7 → 18 (17 at the tuning pass, 18 after the review round).
+- `blood_forge`: hounds 6 → 14 (4 of them Volatile), leeches 2 → 3.
+- `legion_vanguard`: a third wave.
+- Crimson Sentinel life −26% (3,520 → 2,600).
 
-**Isolated cells, final** (`npx tsx tools/harness.ts --movement 2 --seeds 50 --verbose`, arrival kit; `legion_vanguard` with `--encounters legion_vanguard --kit arrival`):
+Pars moved −40% to −56% (90 → 40, 170 → 85), but a par is derived (step 3: the Skilled average × 1.15), not authored. Lower pars also tighten the grade thresholds, and so XP and Starlight; the pacing numbers below include that.
+
+**One bot fix.** The Skilled bot Focused a guarded Sentinel the moment one stood, so the whole party went round a 4,541-HP wall (3,520 × the ×1.29 life of the time; an ordinary Sentinel is 2,600 × 1.5 = 3,900 now, an elite 2.2× that) while the hounds beside it stacked bleed on them: Skilled lost `red_muster` and `shield_wall` more often than the Novice did, every loss inside the first 25 s, to bleed ticks and bites (with no Sentinel Focus it won both 100%). That is plainly broken for this mechanic, so it now Focuses a guarded Sentinel once no more than three enemies stand (`SENTINEL_FOCUS_AT`, `src/bots/skilled.ts`); the pack first, then the wall. Movement I has no guarded enemy, so its bots are unchanged (the M1 baseline and the five hashes hold).
+
+**Seed sets.** The tuning pass measured on the tools' default seeds; the verifier re-measured on other sets, and some cells moved by more than the tables first showed. Every number below is from the review round's content (the sim fixes and the `blood_forge` and `shield_wall` changes above), pooled over the tuner's seed set and the verifier's, each run with `--seed-base` (`tools/harness.ts`, `tools/decrees.ts`, `tools/pacing.ts`). Isolated cells: 1000, 500003 and 900007 (+ i × 7919), 150 seeds a cell. Whole Expeditions: 2000 and 3000017 (+ i × 104729), 400 seeds. Pacing: 9001 and 77003, 16 players each.
+
+**Isolated cells, final** (`npx tsx tools/harness.ts --movement 2 --seeds 50 --verbose --seed-base B`, arrival kit; `legion_vanguard` with `--encounters legion_vanguard --kit arrival`). Pooled over 150 seeds; the range across the three sets in brackets where it is wide or near a band edge:
 
 | Fight | Idle | Novice | Skilled | Skilled share | Skilled length | Band |
 |---|---|---|---|---|---|---|
-| `crimson_gate` | 6% | 98% | 100% | 43% | 36 s | skirmish |
-| `blood_rites` | 2% | 100% | 100% | 49% | 40 s | skirmish |
-| `pike_line` | 4% | 100% | 100% | 50% | 41 s | skirmish |
-| `red_muster` | 0% | 100% | 100% | 52% | 57 s | skirmish |
-| `leech_warren` | 0% | 96% | 100% | 49% | 46 s | skirmish |
-| `shield_wall` | 0% | 64% | 100% | 51% | 77 s | elite |
-| `blood_forge` | 0% | 64% | 92% | 47% | 65 s | elite |
-| `legion_vanguard` (event) | 0% | 70% | 96% | 48% | 60 s | elite |
-| `gorehound_matriarch` | 0% | 62% | 100% | 47% | 73 s | miniboss |
-| `vharun` | 0% | 44% | 98% | 47% | 195 s | boss |
+| `crimson_gate` | 3% | 98% | 100% | 43% | 36 s | skirmish |
+| `blood_rites` | 1% | 100% | 100% | 48% | 40 s | skirmish |
+| `pike_line` | 3% | 97% | 100% | 50% | 41 s | skirmish |
+| `red_muster` | 0% | 100% | 100% | 52% | 59 s (57-60) | skirmish |
+| `leech_warren` | 2% | 98% | 100% | 49% | 46 s | skirmish |
+| `shield_wall` | 0% | 66% (54-76) | 95% | 50% | 76 s | elite |
+| `blood_forge` | 0% | 67% | 94% (92-96) | 48% | 66 s | elite |
+| `legion_vanguard` (event) | 0% | 55% (42-64) | 96% | 48% | 61 s | elite |
+| `gorehound_matriarch` | 0% | 54% (44-62) | 100% | 47% | 74 s | miniboss |
+| `vharun` | 0% | 47% | 99% | 47% | 197 s | boss |
 
-Every cell is inside its band. The verbs show up as intended: Skilled cleanses bleed at 4.3–5.5 stacks on average, frees 1–2 pins a fight where Impalers or Vharun pin, and lands 34–41% of its party's hits on a Sentinel's guard where the Novice's lands 54–63% (Idle's 77–84%); under the Bloodmoon its party stands in a pool 41% of the time (the Novice's 12%), and Vharun executes 2 of its 159 condemned heroes (the Novice's 37 of 178).
+Pooled, every cell is inside its band; some sit near an edge on one seed set (`red_muster`'s Skilled length reached the 60 s ceiling on one, `shield_wall`'s Novice 76% on one), so a single 50-seed set can read either side of a band. `blood_forge` Skilled was 82-92% across seed sets before the review round (88.7% pooled) and is 92-96% now. Pars agree with the pooled Skilled average × 1.15 within one 5 s step. The verbs show up as intended (tuner's seeds): Skilled cleanses bleed at 4.3–5.5 stacks on average, frees 1–2 pins a fight where Impalers or Vharun pin, and lands 34–41% of its party's hits on a Sentinel's guard where the Novice's lands 54–63% (Idle's 77–84%); under the Bloodmoon its party stands in a pool 40-41% of the time (the Novice's 12-13%), and Vharun executes 2 of its 159 condemned heroes (the Novice's 37 of 178).
 
 **The Movement scale, on whole Expeditions** (`npx tsx tools/harness.ts --run --movements 2 --seeds N --bots novice,skilled`, the default loadout; won %, Novice / Skilled). Life barely moves the win rates; damage moves the Novice:
 
@@ -564,42 +577,46 @@ Every cell is inside its band. The verbs show up as intended: Skilled cleanses b
 | life 1.45 · damage 0.9 / 1.0 / 1.1 | 24/83 · 14/81 · 6/73 | |
 | life 1.6 · damage 0.9 / 1.0 / 1.1 | 24/89 · 14/81 · 9/71 | |
 | life 1.5 · damage 0.9 / 0.95 / 1.0 | | 25/85 · 21/84 · 19/80 |
-| **life 1.5 · damage 1.0, shipped (final content and pars)** | | **16/78** |
+| **life 1.5 · damage 1.0, shipped (tuning pass)** | | **16/78** |
 
 Damage 0.95 would centre the whole-run Novice better (about 21%), but it lifts the isolated cells' Novice to their edges or past them (Matriarch 74%, the elites 70–74%, Vharun 62%), so the shipped damage is 1.0 and the cells sit inside their bands.
 
-**Whole Expeditions, final** (200 seeds, `--run --movements 2`):
+**Whole Expeditions, final** (`--run --movements 2 --seeds 200 --seed-base B`, B = 2000 and 3000017; 400 seeds pooled, each set in brackets):
 
 | | Idle | Novice | Skilled | Band |
 |---|---|---|---|---|
-| Won | 0% | 16% | 78% | 0% · 15-30% · ≥70% |
-| Reached Movement II | 0% | 39% | 89% | — · 40-50% · ≥90% |
-| Combat minutes, Movement I / II | 0.8 / 0 | 5.6 / 2.9 | 6.2 / 6.1 | |
-| Lost in Movement II (of 200) | — | 45 (Matriarch 15, Vharun 14, Blood Forge 9, Vanguard 4, Shield Wall 3) | 22 (Blood Forge 9, Vharun 5, Shield Wall 4, Matriarch 2, Vanguard 2) | |
+| Won | 0% | 15.5% (15 / 16) | 80% (79 / 81) | 0% · 15-30% · ≥70% |
+| Reached Movement II | 0% | 38% (39 / 36.5) | 89.5% (89 / 90) | — · 40-50% · ≥90% |
+| Combat minutes, Movement I / II | 0.8 / 0 | 5.6 / 2.6 | 6.2 / 6.15 | |
+| Lost in Movement II (of 400) | — | 89 (Vharun 24, Blood Forge 21, Matriarch 20, Shield Wall 15, Vanguard 5, four skirmishes 1 each) | 38 (Vharun 11, Blood Forge 11, Shield Wall 9, Matriarch 4, Vanguard 2, Blood Rites 1) | |
 
-'Reached Movement II' is Movement I's own result (the Prelude's win rate, unchanged by this work): 39% and 89% sit one point under their bands, and Movement II can't move them without touching Movement I.
+Before the review round the same two sets gave the Novice 16% and 19% won (the tuner's and the verifier's numbers); the fixes and the elite changes moved it to 15-16%, on the band's floor.
 
-**Decree gate** (`npx tsx tools/decrees.ts --seeds 50`, Vharun on the arrival kit). A Twin Cleave or a Tide is answered when no hero goes down to either of its two blows; an Execution when the sim's verdict is `spared`; a Bloodmoon spell (announcement to announcement) when no hero falls in it except to another Decree's blow.
+**Reach-II misses its band, and Movement II can't fix it.** 'Reached Movement II' is decided entirely by Movement I: it is the Prelude's own win rate on these seeds, and Movement I is unchangeable here (the M1 baseline and the five hashes are byte-identical). Across the two seed sets it is 36.5-39% for the Novice (band 40-50%) and 89-90% for the Skilled (band ≥90%): a few points under both bands. Movement II content cannot move it.
+
+**Decree gate** (`npx tsx tools/decrees.ts --seeds 50 --seed-base B`, B = 1000 and 500003; Vharun on the arrival kit, 100 fights a bot). A Twin Cleave or a Tide is answered when no hero goes down to either of its two blows; an Execution when the sim's verdict is `spared`; a Bloodmoon spell (announcement to announcement) when no hero falls in it except to another Decree's blow.
 
 | Decree | Skilled: seen a fight (min) | Skilled answered | Novice answered | Idle |
 |---|---|---|---|---|
-| Twin Cleave | 2.0 (2) | 91% of 447 | 59% of 689 | 13% of 123 pairs; loses every fight |
-| Bloodmoon | 4.8 (4) | 100% of 240 | 94% of 288 | never reaches it |
-| Crimson Tide | 3.7 (3) | 100% of 186 | 78% of 206 | never reaches it |
-| Execution | 3.2 (2) | 99% of 151 | 75% of 169 | never reaches it |
+| Twin Cleave | 2.0 (2) | 91% of 891 | 60% of 1,375 | 13% of 277 pairs (12% / 14%; the verifier measured 16% before the review round); loses every fight |
+| Bloodmoon | 4.8-4.9 (4) | 100% of 486 | 95% of 571 | never reaches it |
+| Crimson Tide | 3.7-3.9 (3) | 99.5% of 381 | 80% of 406 | never reaches it |
+| Execution | 3.2-3.4 (2) | 99.5% of 311 | 78% of 336 | never reaches it |
 
-Every Decree is seen at least twice in every Skilled fight and answered ≥ 91%. Idle loses every Vharun fight in phase 1 (at 92% of his life, 47 s), so it never sees Bloodmoon, the Tide or Execution; it survives 13% of Twin Cleave pairs only on passive relic shields and regeneration (2 × 850 against Kael's 1,600 leaves a 100-point margin).
+Every Decree is seen at least twice in every Skilled fight and answered ≥ 91%. Idle loses every Vharun fight in phase 1 (at 91% of his life, 47-50 s), so it never sees Bloodmoon, the Tide or Execution; it survives 12-16% of Twin Cleave pairs only on passive relic shields and regeneration (2 × 850 against Kael's 1,600 leaves a 100-point margin). Read per occurrence, 'Idle fails every Decree' holds for every Decree but those Twin Cleave pairs.
 
-**Pacing** (`npx tsx tools/pacing.ts --players 16 --hours 3 --route expedition [--bot skilled]`):
+**Pacing** (`npx tsx tools/pacing.ts --players 16 --hours 3 --route expedition [--bot skilled] [--seed-base 77003]`; the two seed sets, 9001 / 77003):
 
 | | Novice | Skilled | Target |
 |---|---|---|---|
-| An Expedition, modelled | 18.8 min (13.4 + 5.4; most end in Movement I or II) | **28.4 min** (17.0 + 11.4) | 26-32 min |
-| Movement II, modelled | 5.4 min | **11.4 min** (6.1 of combat) | 11-14 (6-8 combat) |
-| Weaver XP a combat minute, II / I | 29.6 / 31.2 (**0.95**) | 45.6 / 43.8 (**1.04**) | within ±15% |
-| Weaver XP a modelled minute, II / I | 20.4 / 13.6 (1.51) | 29.1 / 18.0 (1.62) | |
+| An Expedition, modelled | 19.7 / 22.0 min (13.7 + 6.0 / 15.1 + 6.9; most end in Movement I or II) | **28.4 / 27.7 min** (17.1 + 11.3 / 16.8 + 10.9) | 26-32 min |
+| Movement II, modelled | 6.0 / 6.9 min | **11.3 / 10.9 min** (6.2 of combat) | 11-14 (6-8 combat) |
+| Weaver XP a combat minute, II / I | 30.2 / 31.5, 28.7 / 31.8 (**0.96, 0.90**) | 46.2 / 43.8, 46.1 / 43.7 (**1.05, 1.06**) | within ±15% |
+| Weaver XP a modelled minute, II / I | 20.8 / 13.7, 20.1 / 14.2 (1.51, 1.42) | 29.4 / 18.0, 29.7 / 18.1 (1.64, 1.64) | |
 
-XP a minute leaves out the run's win bonus, which belongs to the run wherever it ends. The reward multiplier stays at ×1.25: it was set so that a Movement II *fight* pays per minute what a Movement I fight does, and per combat minute it holds within 5%. On the modelled clock Movement II pays more, because Movement I carries the run's Prep, Loom and Summary and more non-fight stops (events, shops, shrines, forges); matching that clock would mean paying Movement II fights less than Movement I's, against the design. **Sim bench:** the hound pack (the Matriarch, Pack Call) runs at p95 0.053 ms a tick (budget 1.5).
+Earlier measurements put the Novice Expedition at 18.8 min (the tuner) and 21.0 min (the verifier) and the Novice's combat-minute ratio at 0.87-0.95; across all of them it is 0.87-1.06.
+
+**XP a minute is held per combat minute, not on the modelled clock.** XP a minute leaves out the run's win bonus, which belongs to the run wherever it ends. The reward multiplier stays at ×1.25: it was set so that a Movement II *fight* pays per minute what a Movement I fight does, and per combat minute Movement II / Movement I is 0.87-1.06 across every measurement, inside ±15%. On the modelled clock Movement II pays about 1.4-1.6× what Movement I does, because Movement I carries the run's Prep, Loom and Summary and more of the non-fight stops (events, shops, shrines, forges). Matching that clock would mean paying Movement II fights less than Movement I's, against the design; so the ±15% target is met per combat minute and missed, by design, on the modelled clock. **Sim bench:** the hound pack (the Matriarch, Pack Call) runs at p95 0.053 ms a tick (budget 1.5).
 
 ## Tests
 
@@ -617,6 +634,12 @@ XP a minute leaves out the run's win bonus, which belongs to the run wherever it
   - Vampiric halves Mend; Wound plus Bloodmoon gives ×0.25;
   - the scale multiplies life and damage;
   - the M1 Elite Vanguard pool is unchanged (exact array).
+- **`tests/sim/movement2Review.test.ts`** (the review round's fixes):
+  - a pin lands on heroes only: the Weaver in an Impale or an Impaling Charge line takes the hit, never the pin or its ticks;
+  - two Blood Pacts sharing a hero both land (resolving together or one after the other), and the shared hero keeps the pact while the second is pending;
+  - a cancelled Pact (its caster killed, or `cancelTelegraph` on a phase shift) takes its pact off both heroes at once, except a hero another Pact still binds; Movement I's Resound is left to its clock on a cancel, as before;
+  - Oathkeeper hands Kael what a melee bite (bleed) or a bolt (Wound) carries;
+  - an Execution down names Mend or Ward, a Blood Pact down names Scatter, through a Fermata hold too; a Movement I telegraph down has no `answers`.
 - **`tests/sim/scripts2.test.ts`:**
   - Twin Cleave impacts 1.2 s apart (±1 tick), and one Ward Perfects one blow;
   - Pounce's 1.0 s tell lands on the squishiest, and the Matriarch lands at the centre;
@@ -641,6 +664,7 @@ XP a minute leaves out the run's win bonus, which belongs to the run wherever it
   - Skilled clears `crimson_gate` (share > 0.3);
   - Idle loses the Matriarch and Vharun;
   - Skilled Reels a pin within 2 s, Chimes at 5+, Scatters a Pact, Focuses a Sentinel, and keeps the Execution target at or above 40% in ≥80% of casts;
+  - Twin Cleave, over 12 seeds, counting only pairs whose two blows both resolved on the hero they aimed at: Skilled answers ≥80% (measured 19 of 21, 90%; 14 of 15 on another seed set), Idle ≤20% (measured 0 of 12; the Novice 26 of 121);
   - Novice Movement II runs are deterministic.
 - **Presentation:**
   - `tests/renderMovement2.test.ts`: drawn counters, FX budget, Movement I mood args unchanged, ΔE;

@@ -4,6 +4,7 @@
  *   npx tsx tools/pacing.ts --players 12 --hours 3
  *   npx tsx tools/pacing.ts --players 12 --hours 3 --bot skilled
  *   npx tsx tools/pacing.ts --players 12 --hours 3 --route expedition
+ *   npx tsx tools/pacing.ts --players 12 --hours 3 --seed-base 77003   # another seed set
  *
  * Each player plays whole runs with the bot on what their Rank has opened: the newest preset it
  * allows, its Astrolabe points spent on a fixed tree, and from the first Calling's Rank that
@@ -62,6 +63,7 @@ function main(): void {
   const hours = Number(get('hours') ?? 3);
   const bot = (get('bot') ?? 'novice') as BotKind;
   const expedition = (get('route') ?? 'prelude') === 'expedition';
+  const seedBase = Number(get('seed-base') ?? 9001);
   /** Rank 2 opens Expeditions (docs/phase-5a.md); the first run is always the Prelude. */
   const EXPEDITION_RANK = 2;
   const calling = CONTENT.callings.reduce((a, b) => (b.unlockRank < a.unlockRank ? b : a));
@@ -123,7 +125,7 @@ function main(): void {
       const movements = expedition && rank >= EXPEDITION_RANK ? 2 : 1;
       const aroundBy = [BEFORE_RUN + AFTER_RUN, 0];
       let finished: RunState | null = null;
-      const summary = playRun(9001 + p * 7919 + r * 104729, bot, preset.chords, {
+      const summary = playRun(seedBase + p * 7919 + r * 104729, bot, preset.chords, {
         astrolabe: tree,
         calling: callingId,
         path: [0, 0, 0, 0],

@@ -257,6 +257,8 @@ export function applyStatusPayload(
   payload: StatusPayload,
   source: EntityId | null,
 ): boolean {
+  // A pin roots a hero (docs/phase-5a.md: heroes only); the Weaver and enemies take the hit alone.
+  if (payload.id === 'pinned' && !target.hero) return false;
   const stacking = payload.stacks !== undefined || payload.maxStacks !== undefined;
   const ticking = payload.dps !== undefined || payload.pctPerSec !== undefined;
   // Today's statuses (a Dirge's silence): exactly as before.
@@ -748,7 +750,15 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
   if (target.hero && dealt >= h.hp && dealt > 0) {
     // Fermata holds a lethal hit at 1 HP (once per encounter); a held hero can't drop below 1.
     if (!target.hero.hold && !target.hero.fermataUsed && fx && fx.holdTime > 0)
-      startHold(world, target, fx.holdTime, opts.sourceName, amount, opts.status);
+      startHold(
+        world,
+        target,
+        fx.holdTime,
+        opts.sourceName,
+        amount,
+        opts.status,
+        telegraphAnswers(world, opts.telegraph),
+      );
     if (target.hero.hold) dealt = Math.max(0, h.hp - 1);
     else if (world.relics.veil && martyr(world, target, amount, opts)) {
       dealt = 0;
@@ -870,7 +880,14 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
   let downed = false;
   if (h.hp <= 0) {
     downed = true;
-    if (target.hero) downHero(world, target, opts.sourceName, opts.status);
+    if (target.hero)
+      downHero(
+        world,
+        target,
+        opts.sourceName,
+        opts.status,
+        telegraphAnswers(world, opts.telegraph),
+      );
     else if (target.weaver) downWeaver(world, target);
     else if (!restlessRise(world, target)) killEnemy(world, target, source ?? null);
   } else if (opts.kind !== 'tick' && source?.enemy && hasTalent(target, 'arcane_ward'))
@@ -1122,11 +1139,19 @@ export function startHold(
   attack: string,
   damage: number,
   dot?: StatusId,
+  answers?: readonly AnswerTag[],
 ): void {
   const hero = e.hero!;
   const until = world.time + duration;
   hero.fermataUsed = true;
-  hero.hold = { until, attack, damage, savedBy: null, ...(dot ? { dot } : {}) };
+  hero.hold = {
+    until,
+    attack,
+    damage,
+    savedBy: null,
+    ...(dot ? { dot } : {}),
+    ...(answers ? { answers: [...answers] } : {}),
+  };
   e.health!.hp = Math.max(1, Math.min(e.health!.hp, 1));
   addStatus(world, e, 'held', duration, null);
   world.ledger.holds++;
@@ -1158,7 +1183,8 @@ export function releaseHold(world: World, e: Entity, fightOver = false): void {
   if (healed) recordSave(world, e, 'fermata', hold.damage, hold.attack);
   // Martyr's Vow: a hold that runs out while it lasts doesn't fell them; the Vow keeps them.
   else if (world.field.vow) recordSave(world, e, 'vow', hold.damage, hold.attack);
-  else if (!fightOver && !unbreakable(world, e)) downHero(world, e, hold.attack, hold.dot);
+  else if (!fightOver && !unbreakable(world, e))
+    downHero(world, e, hold.attack, hold.dot, hold.answers);
 }
 
 /**
@@ -1181,7 +1207,32 @@ export function bleedOutTime(): number {
   return BLEED_OUT;
 }
 
-function downHero(world: World, e: Entity, killer: string, dot?: StatusId): void {
+/**
+ * The answers a killing telegraph wanted, for the death recap (docs/phase-5a.md exit criterion
+ * 4: Execution's Mend or Ward, a Blood Pact's Scatter). Movement II only: a Movement I death
+ * record stays exactly as it was.
+ */
+function telegraphAnswers(
+  world: World,
+  t: Telegraph | null | undefined,
+): readonly AnswerTag[] | undefined {
+  if (!t || t.answers.length === 0) return undefined;
+  const movement2 =
+    world.config.movement !== undefined || t.executeBelow !== undefined || t.linkStatus === 'pact';
+  return movement2 ? t.answers : undefined;
+}
+
+/**
+ * Down a hero. `dot` is the damage-over-time status whose tick felled them; `hit` the answers
+ * the killing telegraph wanted (Movement II), named when no DoT did it.
+ */
+function downHero(
+  world: World,
+  e: Entity,
+  killer: string,
+  dot?: StatusId,
+  hit?: readonly AnswerTag[],
+): void {
   const h = e.health!;
   const hero = e.hero!;
   hero.hold = null;
@@ -1217,8 +1268,8 @@ function downHero(world: World, e: Entity, killer: string, dot?: StatusId): void
     if (weaver.cooldowns.chime <= 0 && canPay(world, 'chime', content)) ready.push('chime');
     if (weaver.cooldowns.reel <= 0 && canPay(world, 'reel', content)) ready.push('reel');
   }
-  // A damage-over-time down (Movement II): the answer it wanted comes first.
-  const wanted = dot ? DOT_ANSWERS[dot] : undefined;
+  // A damage-over-time or telegraph down (Movement II): the answer it wanted comes first.
+  const wanted = dot ? DOT_ANSWERS[dot] : hit && hit.length > 0 ? hit : undefined;
   if (wanted) {
     const first = (t: string) => (wanted.includes(t as AnswerTag) ? 0 : 1);
     ready.sort((a, b) => first(a) - first(b));
@@ -1332,6 +1383,41 @@ function restlessRise(world: World, e: Entity): boolean {
   return true;
 }
 
+/**
+ * A link telegraph `t` is over, detonated (`'detonated'`) or cancelled (`'expired'`: its caster
+ * killed, interrupted or phase-shifted): a Blood Pact's status comes off both heroes, unless
+ * another live Pact still binds the hero (two Pacts sharing one, whose second must still land).
+ * `pending` is the rest of a tick's due batch, already out of `world.telegraphs`. Movement I's
+ * Resound keeps its rules exactly (a detonation strips it, a cancel leaves it to its clock): its
+ * event stream stays byte-identical.
+ */
+export function releaseLink(
+  world: World,
+  t: Telegraph,
+  reason: 'detonated' | 'expired',
+  pending: readonly Telegraph[] = [],
+): void {
+  if (t.shape.kind !== 'link') return;
+  const pact = t.linkStatus === 'pact';
+  if (!pact && reason === 'expired') return;
+  const status: StatusId = pact ? 'pact' : 'resound';
+  for (const id of [t.shape.a, t.shape.b]) {
+    const e = world.entities.get(id);
+    if (!e || !hasStatus(e, status)) continue;
+    if (!pact) {
+      removeStatus(world, e, status, reason);
+      continue;
+    }
+    const binds = (o: Telegraph) =>
+      o !== t &&
+      o.shape.kind === 'link' &&
+      o.linkStatus === 'pact' &&
+      (o.shape.a === id || o.shape.b === id);
+    if (world.telegraphs.some(binds) || pending.some(binds)) continue;
+    removeStatus(world, e, status, reason);
+  }
+}
+
 /** An enemy's attacks in progress end with it (a boss's last toll still rings if in flight). */
 function dropTelegraphs(world: World, e: Entity): void {
   for (let i = world.telegraphs.length - 1; i >= 0; i--) {
@@ -1339,6 +1425,7 @@ function dropTelegraphs(world: World, e: Entity): void {
     if (t.owner === e.id && t.attackId !== 'volatile_burst') {
       world.telegraphs.splice(i, 1);
       forgetReel(world, t.id);
+      releaseLink(world, t, 'expired');
       world.events.push({
         type: 'telegraphResolved',
         tick: world.tick,

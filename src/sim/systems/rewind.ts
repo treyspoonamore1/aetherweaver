@@ -168,8 +168,16 @@ function paradox(world: World, hero: Entity): number {
     if (aimed) {
       cancelTelegraph(world, t.id, hero.id);
       answered(world);
-      // Its mark goes with it.
-      const marked = s.kind === 'link' ? [s.a, s.b] : s.kind === 'mark' ? [s.target] : [];
+      // Its mark goes with it. (A Blood Pact's went with the cancel, unless another Pact still
+      // binds the hero.)
+      const marked =
+        s.kind === 'link'
+          ? t.linkStatus === 'pact'
+            ? []
+            : [s.a, s.b]
+          : s.kind === 'mark'
+            ? [s.target]
+            : [];
       for (const id of marked) {
         const e = world.entities.get(id);
         if (!e?.health) continue;

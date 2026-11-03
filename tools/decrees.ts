@@ -4,6 +4,7 @@
  *
  *   npx tsx tools/decrees.ts --seeds 50
  *   npx tsx tools/decrees.ts --seeds 50 --bots idle,skilled
+ *   npx tsx tools/decrees.ts --seeds 50 --seed-base 500003   # another seed set (a check)
  *
  * What counts as answered, one occurrence at a time:
  * - **Twin Cleave**, **Crimson Tide**: a pair of blows (or sweeps) answered when no hero goes
@@ -27,6 +28,7 @@ const get = (name: string) => {
   return i >= 0 ? argv[i + 1] : undefined;
 };
 const SEEDS = Number(get('seeds') ?? 20);
+const SEED_BASE = Number(get('seed-base') ?? 1000);
 const BOTS = (get('bots') ?? 'idle,novice,skilled').split(',') as BotKind[];
 const ENCOUNTER = get('encounter') ?? 'vharun';
 const MAX_TICKS = 9 * 60 * 60;
@@ -160,7 +162,7 @@ function main(): void {
     'bot      won   decree         seen/fight (min)  answered          fights seeing it ≥2',
   );
   for (const bot of BOTS) {
-    const fights = Array.from({ length: SEEDS }, (_, i) => fight(1000 + i * 7919, bot));
+    const fights = Array.from({ length: SEEDS }, (_, i) => fight(SEED_BASE + i * 7919, bot));
     const won = fights.filter((f) => f.won).length / fights.length;
     for (const d of DECREES) {
       const tally: Tally = { seen: [], answered: 0, occurrences: 0 };

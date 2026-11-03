@@ -8,6 +8,7 @@
  *   npx tsx tools/harness.ts --movement 2 --kit bare      # …or bare, as Movement I is measured
  *   npx tsx tools/harness.ts --run --seeds 10             # whole Prelude runs (map, drafts, carry-over)
  *   npx tsx tools/harness.ts --run --movements 2          # whole Expeditions (docs/phase-5a.md)
+ *   npx tsx tools/harness.ts --movement 2 --seed-base 500003   # another seed set (a check)
  *
  * The fight list comes from content by Movement (`--movement`, default 1: Movement I's nine
  * fights). Movement I's cells play bare (the loadout alone), Movement II's the arrival kit
@@ -35,6 +36,8 @@ interface Args {
   kit: Kit;
   /** Whole runs: the route (`--movements`, 1 the Prelude). */
   movements: number;
+  /** The first seed (`--seed-base`): fights 1000 + i × 7919, runs 2000 + i × 104729 by default. */
+  seedBase: number | null;
 }
 
 function parseArgs(argv: string[]): Args {
@@ -60,6 +63,7 @@ function parseArgs(argv: string[]): Args {
     movement,
     kit,
     movements: Number(get('movements') ?? 1),
+    seedBase: get('seed-base') === undefined ? null : Number(get('seed-base')),
   };
 }
 
@@ -100,7 +104,7 @@ function runs(args: Args): void {
   );
   for (const bot of args.bots) {
     const results = Array.from({ length: args.seeds }, (_, i) =>
-      playRun(2000 + i * 104729, bot, args.chords, {
+      playRun((args.seedBase ?? 2000) + i * 104729, bot, args.chords, {
         relics: !process.argv.includes('--no-relics'),
         calling: callingArg,
         path: pathArg,
@@ -172,7 +176,7 @@ function main(): void {
     for (const bot of args.bots) {
       const runs: EncounterRun[] = [];
       for (let i = 0; i < args.seeds; i++) {
-        const seed = 1000 + i * 7919;
+        const seed = (args.seedBase ?? 1000) + i * 7919;
         runs.push(playEncounter({ seed, encounter, ...kit }, bot));
       }
       all.push(...runs);

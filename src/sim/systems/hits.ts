@@ -143,8 +143,12 @@ function strike(
   if (hit.stun > 0 && isActive(e)) addStatus(world, e, 'stun', hit.stun, hit.source);
   // On-hit payloads (docs/phase-5a.md P3): the bolt's own and its caster's affixes'. Only an
   // enemy's bolt carries any; a Ward that takes it all blocks them.
-  if (source?.enemy) applyOnHit(world, source, e, result.dealt, hit.onHit);
-  else if (hit.onHit && result.dealt > 0 && isActive(e))
+  if (source?.enemy) {
+    applyOnHit(world, source, e, result.dealt, hit.onHit);
+    // Oathkeeper (Bonds): Kael took the hit, and what it carries (as a telegraph's).
+    const kael = result.takenBy === undefined ? undefined : world.entities.get(result.takenBy);
+    if (kael) applyOnHit(world, source, kael, result.takenDealt ?? 0, hit.onHit);
+  } else if (hit.onHit && result.dealt > 0 && isActive(e))
     applyStatusPayload(world, e, hit.onHit, hit.source);
 }
 

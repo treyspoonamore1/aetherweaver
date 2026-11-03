@@ -25,6 +25,7 @@ import {
   addStatus,
   applyOnHit,
   applyStatusPayload,
+  releaseLink,
   dealDamage,
   getStatus,
   hasStatus,
@@ -280,10 +281,11 @@ export function resolveTelegraphs(world: World): void {
       world.telegraphs.splice(i, 1);
     } else i++;
   }
-  for (const t of due) resolve(world, t);
+  for (let i = 0; i < due.length; i++) resolve(world, due[i]!, due.slice(i + 1));
 }
 
-function resolve(world: World, t: Telegraph): void {
+/** `pending`: the rest of this tick's due batch, not yet resolved. */
+function resolve(world: World, t: Telegraph, pending: readonly Telegraph[] = []): void {
   const attack = world.content.attacks.find((a) => a.id === t.attackId);
   const effect = attack?.effect ?? 'damage';
   const owner = world.entities.get(t.owner);
@@ -326,13 +328,8 @@ function resolve(world: World, t: Telegraph): void {
         t.executeBelow !== undefined && t.shape.kind === 'mark' ? t.shape.target : null;
       emitResolved(world, t, condemned, 'dodged', 0);
     }
-    if (t.shape.kind === 'link') {
-      const status = linkStatusOf(t);
-      for (const id of [t.shape.a, t.shape.b]) {
-        const e = world.entities.get(id);
-        if (e && hasStatus(e, status)) removeStatus(world, e, status, 'detonated');
-      }
-    }
+    // Its status comes off both heroes, unless another live link still binds one.
+    releaseLink(world, t, 'detonated', pending);
   }
   forgetTelegraph(world, t.id);
   // The caster's script follows up: heals, summons, suppression, chained tolls.
@@ -632,6 +629,8 @@ export function cancelTelegraph(world: World, id: number, answeredFor?: EntityId
   const t = world.telegraphs[index]!;
   world.telegraphs.splice(index, 1);
   forgetTelegraph(world, id);
+  // A cancelled link's status goes with it (a Blood Pact's ×1.2 is only "while linked").
+  releaseLink(world, t, 'expired');
   // An Execution answered away for its condemned hero (a Paradox Rewind) spares them; one whose
   // caster was interrupted, killed or phase-shifted gives no verdict.
   const spared = answeredFor !== undefined && t.executeBelow !== undefined;
