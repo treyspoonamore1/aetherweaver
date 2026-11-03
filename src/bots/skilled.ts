@@ -15,11 +15,12 @@
  * Brann (docs/phase-5b.md, "Bots and harness") is played low but alive: he reads as healthy to
  * the Thread above his floor (25%; 15% with Berserker's Hymn) unless he's falling fast or a
  * lethal hit is on him; below his 40% line he's Perfect-Warded first, Warded freely with Blood
- * Tithe, Warded or Reeled out of an Execution, Cued into Red Frenzy in a crowd, left out of the
- * Crescendo's average and of the Bloodmoon's Rally (Reeled in instead, a Rally at most every
- * 8 s while he refuses them); with no dome the Reel waits for Twin Cleave's second blow; Blood
- * and Silk parks an Empowering Thread on him. Every such branch is behind his presence and draws
- * nothing, so a default party's command stream is unchanged (tests/bots/commandSnapshot.test.ts).
+ * Tithe, Warded or Reeled out of an Execution, Cued into Red Frenzy low in a crowd or a boss
+ * fight, left out of the Crescendo's average and of the Bloodmoon's Rally (Reeled in instead, a
+ * Rally at most every 8 s while he refuses them); with no dome his Ward goes on Twin Cleave's
+ * first blow and the Reel waits for the second; Blood and Silk parks an Empowering Thread on
+ * him. Every such branch is behind his presence and draws nothing, so a default party's command
+ * stream is unchanged (tests/bots/commandSnapshot.test.ts).
  */
 import { CONTENT, partyHasDome } from '../content';
 import { Rng } from '../sim/core/rng';
@@ -63,6 +64,7 @@ import {
   mendNeed,
   type BloodView,
   type HeroView,
+  type ReadonlyTelegraph,
 } from './common';
 
 export interface SkilledOptions {
@@ -181,6 +183,8 @@ export class SkilledBot implements Bot {
     // ── Ward: Perfect timing on incoming hits; emergency shields otherwise. ──
     if (wc.wardCharges > 0 && affords(state, 'ward')) {
       const window = tech.ward.perfectWindow;
+      // Brann (docs/phase-5b.md): his Perfect due within 1.5 s holds the last charge for him.
+      const holdFor = blood ? brannPerfectDue(state, blood, w) : false;
       let best: { slot: PartySlot; score: number } | null = null;
       for (const h of party) {
         if (dist(h.e, w) > tech.ward.range - 0.3) continue;
@@ -191,16 +195,30 @@ export class SkilledBot implements Bot {
           const lethal = dmg >= h.e.health!.hp + shieldOf(h.e);
           // An Execution is small but lethal below its line: Ward it whatever its size.
           if (dmg < h.e.health!.maxHp * 0.15 && !(lethal && t.executeBelow !== undefined)) continue;
-          let score = dmg + (lethal ? 5000 : 0);
-          // Brann below his line before a big hit: Perfect-Ward him first.
-          if (blood && blood.low && h.slot === blood.hero.slot) score += 10000;
+          let score: number;
+          if (!blood) score = dmg + (lethal ? 5000 : 0);
+          else {
+            const isBrann = h.slot === blood.hero.slot;
+            // The Ward he holds already answers it: another would only replace it.
+            if (isBrann && wardCovers(h.e, t, dmg, lethal)) continue;
+            // His Perfect is due: only a lethal hit elsewhere takes the last charge first.
+            if (holdFor && !isBrann && !lethal && wc.wardCharges < 2) continue;
+            // A lethal hit first (whoever's; Brann's among them), then Brann's, then the biggest:
+            // his priority never outranks a hit that would kill someone else.
+            const first = isBrann && brannFirst(state, blood, t);
+            score = ((lethal ? 2 : 0) + (first ? 1 : 0)) * 1e6 + dmg;
+          }
           if (!best || score > best.score) best = { slot: h.slot, score };
         }
       }
       if (best && this.notice()) {
         out.push({ t: 'tech', id: 'ward', slot: best.slot });
         acted = true;
-      } else if (blood && !best && brannWard(state, blood, w)) {
+      } else if (
+        blood &&
+        !best &&
+        brannWard(state, blood, w, perfectPending(state, party, blood, w, wc.wardCharges))
+      ) {
         out.push({ t: 'tech', id: 'ward', slot: blood.hero.slot });
         acted = true;
       } else if (
@@ -280,8 +298,8 @@ export class SkilledBot implements Bot {
         acted = true;
       }
       // Brann: out of an Execution no Ward answers, or in from outside every Bloodmoon pool
-      // when he won't Rally.
-      if (!acted && blood && brannReel(state, blood, w)) {
+      // when he won't Rally (not while Twin Cleave's second blow still wants the Reel).
+      if (!acted && blood && brannReel(state, blood, w, twinCleavePending(state, blood))) {
         out.push({ t: 'tech', id: 'reel', slot: blood.hero.slot });
         acted = true;
       }
@@ -425,7 +443,7 @@ export class SkilledBot implements Bot {
           // Red Frenzy Cued is lifesteal ×3: the heal his cut can't touch, low and in a crowd.
           const r = CONTENT.heroes.find((d) => d.id === h.defId)?.solo.radius ?? 0;
           const near = enemies.filter((e) => dist(e, h.e) <= r + e.radius).length;
-          go = (blood.low && near >= 2) || bossFight;
+          go = blood.low && (near >= 2 || bossFight);
         } else if (GUARDING.has(c.soloId)) {
           const bigHit = party.some((p) =>
             threatsOn(state, p.e).some(
@@ -693,12 +711,113 @@ function twinCleaveOn(state: WorldState, blood: BloodView): boolean {
   );
 }
 
+/** The blows that follow a first one onto the same hero: Twin Cleave's second. */
+const SECOND_BLOWS: ReadonlySet<string> = new Set(
+  CONTENT.attacks.flatMap((a) => (a.followUp && !a.followUp.reverse ? [a.followUp.attack] : [])),
+);
+
 /**
- * A Ward on Brann outside the Perfect scorer (which already puts him first below his line),
- * when he holds none and is in reach: an Execution condemns him (it spares a Warded hero); with
- * no dome, before Twin Cleave's first blow; with Blood Tithe, whenever he's below his line.
+ * With no dome, Twin Cleave is on Brann: its first blow on the way, or its second (which the
+ * Reel is kept for) still to land.
  */
-function brannWard(state: WorldState, blood: BloodView, w: ReadonlyEntity): boolean {
+function twinCleavePending(state: WorldState, blood: BloodView): boolean {
+  return (
+    noDome(state) &&
+    threatsOn(state, blood.hero.e).some(
+      (t) => SECOND_BLOWS.has(t.attackId) || (hasFollowUp(t) && t.impact - state.time < 2.5),
+    )
+  );
+}
+
+/** How far ahead the bot keeps a Ward for a Perfect (docs/phase-5b.md, "Bots and harness"). */
+const PERFECT_AHEAD = 1.5;
+
+/** A hit the Perfect scorer Wards: 15% of the hero's life, or an Execution that would kill. */
+function wardWorthy(e: ReadonlyEntity, t: ReadonlyTelegraph, dmg: number): boolean {
+  const h = e.health!;
+  return dmg >= h.maxHp * 0.15 || (t.executeBelow !== undefined && dmg >= h.hp + shieldOf(e));
+}
+
+/**
+ * The Ward a hero holds already answers this hit: it lasts until the hit lands and either went
+ * on inside its Perfect window (it will be Perfect), takes all of it, or leaves them alive
+ * through an Execution (which spares them). A second Ward would only replace it (`addShield`
+ * keeps one of each kind).
+ */
+function wardCovers(
+  e: ReadonlyEntity,
+  t: ReadonlyTelegraph,
+  dmg: number,
+  lethal: boolean,
+): boolean {
+  const ward = e.health!.shields.find((s) => s.kind === 'ward');
+  if (!ward || ward.expiresAt < t.impact) return false;
+  if (ward.appliedAt >= t.perfectFrom - 1e-9) return true;
+  return ward.amount >= dmg || (t.executeBelow !== undefined && !lethal);
+}
+
+/**
+ * A hit on Brann the Ward goes to first (after a lethal one on anyone): below his line, or, with
+ * no dome, Twin Cleave's first blow (his Ward before it; the Reel waits for the second).
+ */
+function brannFirst(state: WorldState, blood: BloodView, t: ReadonlyTelegraph): boolean {
+  return blood.low || (hasFollowUp(t) && noDome(state));
+}
+
+/**
+ * A hit on Brann that his Perfect Ward goes first to lands within 1.5 s, while he's in reach and
+ * the Ward he holds doesn't already answer it: the scorer keeps the last charge for it.
+ */
+function brannPerfectDue(state: WorldState, blood: BloodView, w: ReadonlyEntity): boolean {
+  const e = blood.hero.e;
+  const ward = CONTENT.techniques.ward;
+  if (dist(e, w) > ward.range - 0.3) return false;
+  return threatsOn(state, e).some((t) => {
+    const left = t.impact - state.time;
+    if (left < 0.04 || left > PERFECT_AHEAD) return false;
+    const dmg = damageOf(t, e);
+    const lethal = dmg >= e.health!.hp + shieldOf(e);
+    return wardWorthy(e, t, dmg) && brannFirst(state, blood, t) && !wardCovers(e, t, dmg, lethal);
+  });
+}
+
+/**
+ * A Perfect is pending within 1.5 s that a Ward cast now would take the charge from: on Brann
+ * himself (a Ward now would be replaced in his window), or on anyone else in reach while only
+ * one charge is held.
+ */
+function perfectPending(
+  state: WorldState,
+  party: readonly HeroView[],
+  blood: BloodView,
+  w: ReadonlyEntity,
+  charges: number,
+): boolean {
+  const range = CONTENT.techniques.ward.range - 0.3;
+  return party.some((h) => {
+    const isBrann = h.slot === blood.hero.slot;
+    if ((!isBrann && charges >= 2) || dist(h.e, w) > range) return false;
+    return threatsOn(state, h.e).some((t) => {
+      const left = t.impact - state.time;
+      if (left < 0.04 || left > PERFECT_AHEAD) return false;
+      const dmg = damageOf(t, h.e);
+      return wardWorthy(h.e, t, dmg) && !(isBrann && wardCovers(h.e, t, dmg, false));
+    });
+  });
+}
+
+/**
+ * A Ward on Brann outside the Perfect scorer (which already puts him first below his line, and
+ * Wards Twin Cleave's first blow on him when there's no dome), when he holds none and is in
+ * reach: an Execution condemns him (it spares a Warded hero); with Blood Tithe, whenever he's
+ * below his line and no Perfect is `pending` within 1.5 s to want the charge.
+ */
+function brannWard(
+  state: WorldState,
+  blood: BloodView,
+  w: ReadonlyEntity,
+  pending: boolean,
+): boolean {
   const e = blood.hero.e;
   const tech = CONTENT.techniques.ward;
   if (warded(e) || dist(e, w) > tech.range - 0.3) return false;
@@ -706,22 +825,16 @@ function brannWard(state: WorldState, blood: BloodView, w: ReadonlyEntity): bool
   const exec = executionOn(state, blood);
   // The Ward lasts its duration: cast it so it's still up when the Execution lands.
   if (exec && exec.impact - now < tech.duration - 0.5) return true;
-  if (
-    noDome(state) &&
-    threatsOn(state, e).some(
-      (t) => hasFollowUp(t) && t.impact - now < 1 && t.impact - now > tech.perfectWindow,
-    )
-  )
-    return true;
-  return state.mods.bloodTithe > 0 && blood.low;
+  return state.mods.bloodTithe > 0 && blood.low && !pending;
 }
 
 /**
  * A Reel for Brann: out of an Execution at its last moment when no Ward is on him (the pull's
  * flight dodges it), or, Bloodlusting under the Bloodmoon, in from outside every pool to the
- * Weaver standing in one (he won't answer a Rally).
+ * Weaver standing in one (he won't answer a Rally) unless the Reel is `kept` for Twin Cleave's
+ * second blow.
  */
-function brannReel(state: WorldState, blood: BloodView, w: ReadonlyEntity): boolean {
+function brannReel(state: WorldState, blood: BloodView, w: ReadonlyEntity, kept: boolean): boolean {
   const e = blood.hero.e;
   const reel = CONTENT.techniques.reel;
   if (e.hero!.reel || e.hero!.action === 'dodging' || dist(e, w) > reel.range - 0.3) return false;
@@ -730,6 +843,7 @@ function brannReel(state: WorldState, blood: BloodView, w: ReadonlyEntity): bool
     const left = exec.impact - state.time;
     if (left < reel.flight - 0.05 && left > 0.05) return true;
   }
+  if (kept) return false;
   const pools = state.field.sanctuary?.pools;
   return !!pools && blood.lusting && inZone(pools, w) && !inZone(pools, e);
 }
