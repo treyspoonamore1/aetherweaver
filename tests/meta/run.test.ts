@@ -153,6 +153,33 @@ describe('a run', () => {
     expect(totals.weaverShare).toBeGreaterThan(0);
   });
 
+  it('an Expedition plays on past the Hollow Cantor to Vharun’s Summary', () => {
+    let run = Run.embark(Run.newRun(42, undefined, [], [], [], [], undefined, 2));
+    expect(run.movements).toBe(2);
+    let guard = 0;
+    while (run.phase !== 'summary' && guard++ < 120) {
+      if (run.phase === 'map') run = Run.chooseNode(run, Run.reachable(run)[0]!.id);
+      else if (run.phase === 'combat')
+        run = Run.continueFromResult(Run.finishCombat(run, outcomeFor(run, 'victory')));
+      else if (run.phase === 'draft') run = Run.pickDraft(run, 0);
+      else if (run.phase === 'respite') run = Run.respite(run, 'rest');
+      else if (run.phase === 'relic') run = Run.pickRelic(run, 0);
+      else if (run.phase === 'merchant') run = Run.leaveShop(run);
+      else if (run.phase === 'forge') run = Run.leaveForge(run);
+      else if (run.phase === 'event')
+        run = Run.leaveEvent(
+          Run.chooseEvent(run, runEventDef(run.event!.eventId).choices.at(-1)!.id),
+        );
+      else throw new Error(`unexpected phase ${run.phase}`);
+    }
+    expect(run).toMatchObject({ phase: 'summary', outcome: 'victory' });
+    const ids = run.results.map((r) => r.encounterId);
+    expect(ids).toContain('hollow_cantor');
+    expect(ids.at(-1)).toBe('vharun');
+    expect(run.results.filter((r) => Run.endsRun(r)).map((r) => r.encounterId)).toEqual(['vharun']);
+    expect(run.results.filter((r) => r.movement === 2).length).toBeGreaterThanOrEqual(5);
+  });
+
   it('a defeat ends the run; carry-over marks downed heroes Shaken', () => {
     let run = Run.embark(Run.newRun(7));
     run = Run.chooseNode(run, Run.reachable(run)[0]!.id);

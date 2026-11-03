@@ -74,6 +74,22 @@ export function movementOneEnemies(): string[] {
   return CONTENT.enemies.filter((e) => (e.movement ?? 1) === 1).map((e) => e.id);
 }
 
+/**
+ * How many Movements a new run plays (docs/phase-5a.md): 2 for an Expedition, 1 for the Prelude.
+ * Expeditions need their unlock (Rank 2, or Skip the unlocks). A route asked for (`mode`, Prep's
+ * toggle) is taken when they're open; otherwise the profile's last route, except that the first
+ * run is always the Prelude.
+ */
+export function routeMovements(
+  profile: Pick<Profile, 'runs' | 'runMode'>,
+  allowance: Pick<Allowance, 'expedition'>,
+  mode?: RunMode,
+): number {
+  if (!allowance.expedition) return 1;
+  if (mode !== undefined) return mode === 'expedition' ? 2 : 1;
+  return profile.runs > 0 && profile.runMode === 'expedition' ? 2 : 1;
+}
+
 /** Dissonance in the profile (docs/phase-4d.md). */
 export interface ProfileDissonance {
   /** Opened by the first win at its Rank (or above). */
@@ -197,6 +213,14 @@ export const UNLOCKS: readonly Unlock[] = [
   },
   aura(2, 'ostinato', 'Barrier. Heroes carry a shield that refills after a few seconds unhit.'),
   {
+    id: 'expedition',
+    rank: 2,
+    kind: 'expedition',
+    target: 'expedition',
+    name: 'Expeditions',
+    text: 'Beyond the Hollow Cantor, the Crimson Spire: an Expedition climbs on through Movement II to Vharun, the Crimson Warden. Choose the route in Prep; the Prelude stays open.',
+  },
+  {
     id: 'ornamentSlot.1',
     rank: 3,
     kind: 'ornamentSlot',
@@ -242,7 +266,7 @@ export const UNLOCKS: readonly Unlock[] = [
           kind: 'reliquary',
           target: '1',
           name: 'The Reliquary',
-          text: 'Relics that outlive their runs. Win a run to enshrine one it found, craft its Inscriptions between runs, and carry it into the next. Open it from the Loom or from Prep.',
+          text: 'Relics that outlive their runs. Reach Movement II (or win a Prelude) to enshrine one the run found, craft its Inscriptions between runs, and carry it into the next. Open it from the Loom or from Prep.',
         }
       : {
           id: `carrySlot.${i + 1}`,

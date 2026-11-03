@@ -7,6 +7,7 @@ import { CONTENT, relicDef } from '../../src/content';
 import {
   FIGHT_AETHER,
   FORGE_PRICE,
+  INTERLUDE_AETHER,
   RELIC_OFFERS,
   SHOP_HEAL,
   THREAT_PER_ROW,
@@ -148,6 +149,18 @@ describe('Threat', () => {
     const at7 = at(run, 'miniboss');
     expect(Run.combatConfig(at7)!.threat).toBe(threatFor(7));
   });
+
+  it('restarts in each Movement of an Expedition', () => {
+    const run = Run.embark(Run.newRun(12, undefined, [], [], [], [], undefined, 2));
+    const start = run.map.rows.findIndex((r) => r[0]!.movement === 2);
+    expect(start).toBe(10);
+    for (const node of nodes(run)) {
+      const fight =
+        node.encounterId !== null || (node.eventId !== null && Run.eventHasFight(node.eventId));
+      const row = node.movement === 2 ? node.row - start : node.row;
+      expect(node.reward.threat, node.id).toBe(fight ? threatFor(row) : 1);
+    }
+  });
 });
 
 describe('Aether and relic offers', () => {
@@ -177,6 +190,11 @@ describe('Aether and relic offers', () => {
 
   it('a victory pays Aether by kind and grade; a loss pays nothing', () => {
     expect(aetherForFight('skirmish', 'victory', 'C')).toBe(20);
+    // What the node pays, when it says (an Expedition's Cantor; Movement II's ×1.25).
+    expect(aetherForFight('boss', 'victory', 'C')).toBe(0);
+    expect(aetherForFight('boss', 'victory', 'C', INTERLUDE_AETHER)).toBe(INTERLUDE_AETHER);
+    expect(aetherForFight('skirmish', 'victory', 'S', 25)).toBe(Math.round(25 * 1.5));
+    expect(aetherForFight('skirmish', 'defeat', 'S', 25)).toBe(0);
     expect(aetherForFight('elite', 'victory', 'S')).toBe(Math.round(35 * 1.5));
     expect(aetherForFight('skirmish', 'defeat', 'D')).toBe(0);
     let run = at(Run.embark(Run.newRun(4)), 'skirmish');

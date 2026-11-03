@@ -12,8 +12,10 @@ import {
   EVERYTHING,
   newProfile,
   rankOf,
+  routeMovements,
   type Allowance,
   type Profile,
+  type RunMode,
   type Unlock,
 } from '../meta/profile';
 import {
@@ -173,6 +175,17 @@ export interface ProfileStore {
   awardMastery(callingId: string, xp: number): void;
   /** How many of a Calling's path tiers a run may offer now (every one, Skip the unlocks). */
   tiersOpen(callingId: string): number;
+  /** Expeditions (docs/phase-5a.md) can be chosen: Rank 2, or Skip the unlocks. */
+  expeditionOpen(): boolean;
+  /**
+   * How many Movements a new run plays: `mode` if asked for and open; else the last route, but
+   * the first run, and every run before Expeditions open, is the Prelude.
+   */
+  routeMovements(mode?: RunMode): number;
+  /** Prep's Route toggle: the route the next runs start from (kept while Expeditions are open). */
+  setRunMode(mode: RunMode): void;
+  /** Enemies sighted (first-sighting cards, the Codex): records the ones not seen before. */
+  see(defIds: readonly string[]): void;
 }
 
 /**
@@ -344,6 +357,20 @@ export const useProfile = create<ProfileStore>()((set, get) => {
         get().profile.mastery[callingId] ?? 0,
         useSettings.getState().settings.unlockAll,
       ),
+    expeditionOpen: () => get().allowance().expedition,
+    routeMovements: (mode) => routeMovements(get().profile, get().allowance(), mode),
+    setRunMode: (mode) => {
+      const profile = get().profile;
+      if (profile.runMode === mode || (mode === 'expedition' && !get().expeditionOpen())) return;
+      commit({ ...profile, runMode: mode });
+    },
+    see: (defIds) => {
+      const profile = get().profile;
+      const fresh = [...new Set(defIds)].filter(
+        (id) => !profile.seen.includes(id) && CONTENT.enemies.some((e) => e.id === id),
+      );
+      if (fresh.length > 0) commit({ ...profile, seen: [...profile.seen, ...fresh] });
+    },
     variantsAll: () => useSettings.getState().settings.unlockAll,
     runTechniques: () =>
       fitTechniques(get().profile.techniques, get().profile.variants, get().variantsAll()),

@@ -215,6 +215,81 @@ test('a Prelude run: Prep → Map → an autoplayed fight → Result → Draft �
   expect(errors).toEqual([]);
 });
 
+test('Phase 5a: an Expedition — past the Hollow Cantor into Movement II, Vharun, the Summary', async ({
+  page,
+}) => {
+  test.setTimeout(240_000);
+  const errors = trackErrors(page);
+  const phase = () => page.evaluate(() => window.__AWRUN__!.phase());
+  const movement = () => page.evaluate(() => window.__AWRUN__!.movement());
+  await page.goto(START_URL);
+  await page.waitForFunction(() => window.__AWRUN__ !== undefined);
+  // Settings → Skip the unlocks opens Expeditions (a new profile is Rank 1).
+  await page
+    .getByRole('button', { name: /^Settings$/ })
+    .first()
+    .click();
+  await page.getByText('Skip the unlocks', { exact: true }).click();
+  await expect(page.getByRole('switch', { name: /Skip the unlocks/ })).toBeChecked();
+  // The first run is still the Prelude; asked for, the Expedition is taken.
+  await page.evaluate(() => window.__AWRUN__!.newRun(4242));
+  await expect.poll(phase).toBe('prep');
+  expect(await movement()).toEqual({ movements: 1, here: 1, map: 1 });
+  await page.evaluate(() => window.__AWRUN__!.newRun(4242, 'expedition'));
+  await expect.poll(phase).toBe('prep');
+  expect(await movement()).toEqual({ movements: 2, here: 1, map: 1 });
+  await page
+    .getByRole('button', { name: /Embark/i })
+    .first()
+    .click();
+  await expect.poll(phase).toBe('map');
+
+  // To Movement II's doorstep: the Cantor behind, the Crimson Gate next.
+  expect(await page.evaluate(() => window.__AWRUN__!.warpMovement(2))).toBe('map');
+  expect(await movement()).toEqual({ movements: 2, here: 1, map: 2 });
+  expect(await page.evaluate(() => window.__AWRUN__!.choose())).toBe('skirmish');
+  await expect.poll(phase).toBe('combat');
+  await page.waitForFunction(() => window.__AW__ !== undefined);
+  await expect.poll(() => page.evaluate(() => window.__AW__!.encounter().id)).toBe('crimson_gate');
+  // Movement II's fight: the sim scales it from the encounter's Movement.
+  const config = await page.evaluate(() => window.__AW__!.exportReplay().config);
+  expect(config.encounter).toBe('crimson_gate');
+  expect(await page.evaluate(() => window.__AWRUN__!.winFight())).toBe(true);
+  await expect.poll(phase).toBe('result');
+  await page.evaluate(() => window.__AWRUN__!.continue());
+  await expect.poll(phase).toBe('draft');
+  await page.evaluate(() => window.__AWRUN__!.pick(0));
+  await expect.poll(phase).toBe('map');
+  expect(await movement()).toEqual({ movements: 2, here: 2, map: 2 });
+
+  // On to Vharun, the Crimson Warden: the run's last stop.
+  expect(await page.evaluate(() => window.__AWRUN__!.warp('boss'))).toBe('combat');
+  await page.waitForFunction(() => window.__AW__ !== undefined);
+  await expect.poll(() => page.evaluate(() => window.__AW__!.encounter().id)).toBe('vharun');
+  expect(await page.evaluate(() => window.__AWRUN__!.winFight())).toBe(true);
+  await expect.poll(phase).toBe('result');
+  await page.evaluate(() => window.__AWRUN__!.continue());
+  await expect.poll(phase).toBe('summary');
+  expect(await page.evaluate(() => window.__AWRUN__!.outcome())).toBe('victory');
+  expect(await page.evaluate(() => window.__AWRUN__!.results())).toBe(2);
+  if ((await page.getByTestId('rank-up').count()) > 0)
+    await page.getByRole('button', { name: /Onward/ }).click();
+  await expect(page.getByTestId('summary-songs')).toBeVisible();
+
+  // A second Expedition, won through the hook: winRun walks past the Cantor to Vharun.
+  await page.evaluate(() => window.__AWRUN__!.newRun(4243, 'expedition'));
+  await expect.poll(phase).toBe('prep');
+  await page
+    .getByRole('button', { name: /Embark/i })
+    .first()
+    .click();
+  await expect.poll(phase).toBe('map');
+  expect(await page.evaluate(() => window.__AWRUN__!.winRun())).toBe(true);
+  await expect.poll(phase).toBe('summary');
+  expect(await movement()).toMatchObject({ movements: 2, here: 2 });
+  expect(errors).toEqual([]);
+});
+
 test('an autoplayed fight in the browser replays bit-exactly in Node', async ({
   page,
 }, testInfo) => {

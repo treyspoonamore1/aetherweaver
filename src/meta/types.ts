@@ -492,6 +492,11 @@ export interface RunActions {
   /** `mode`: the route (absent: the profile's runMode, Prelude before the Expedition opens). */
   newRun(seed?: number, mode?: 'prelude' | 'expedition'): void;
   /**
+   * Prep: the route (docs/phase-5a.md), Prelude or Expedition (only once Expeditions are open).
+   * The profile remembers it for the next runs; the run's map follows until it embarks.
+   */
+  setRunMode(mode: 'prelude' | 'expedition'): void;
+  /**
    * Prep: set the Chords. Illegal loadouts (sim `chordProblems`) and ones using something the
    * player hasn't unlocked yet (meta/profile.ts `lockedProblems`) are ignored.
    */

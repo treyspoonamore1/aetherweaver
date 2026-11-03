@@ -22,7 +22,7 @@ export const VETERAN_RANK = 12;
  * is built through the stores' own actions, as play would have built them: Rank 12 with the
  * Astrolabe's points left to spend, Starlight, a variant owned, the Luminary mastered and the
  * Martyr on her way, Bonds at rank 4 (their first talents), a won run's Deed, and two relics
- * enshrined with materials to craft, Prism Loom carried.
+ * enshrined with materials to craft, Prism Loom carried. Their runs are Expeditions.
  */
 export function startDemo(kind: DemoStart): void {
   useRun.getState().closeRun();
@@ -40,9 +40,12 @@ export function startDemo(kind: DemoStart): void {
   store.awardMastery('martyr', 480);
   store.awardBonds({ kael: 440, lyra: 440, vexis: 440 });
   useProfile.getState().dismissBondNotices();
-  // A run won: its Deed lights the Hall of Deeds.
+  // A run won: its Deed lights the Hall of Deeds, and the record counts it.
   store.recordDeeds({ ...Run.newRun(1), outcome: 'victory' });
   useProfile.getState().dismissDeeds();
+  store.recordRun(true);
+  // Past their first run and Rank 2, a veteran's runs are Expeditions (docs/phase-5a.md).
+  store.setRunMode('expedition');
   for (const id of ['prism_loom', 'lantern_of_the_lost']) store.enshrine({ id, cleansed: false });
   store.payReliquary({ shards: 40, tears: 2 });
   // Prism Loom carried (and attuned): a run shows a relic at work from its first fight.
