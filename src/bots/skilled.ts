@@ -6,11 +6,11 @@
  * answers calls when the answer isn't needed for something more urgent, plants Pedal Point
  * fields under the party and keeps a Unison Chord on the hero it suits. Movement II
  * (docs/phase-5a.md): Chimes the bleeding at 5+ stacks (and latches and Wounds), Reels heroes
- * out of pins and latches, Scatters for a Blood Pact, Focuses a guarded Sentinel and Empowers
- * Lyra to break it, keeps both Twin Cleave blows in mind, stands in a Sanctuary pool under the
- * Bloodmoon and Rallies the party into it, and tops up (or Wards) the hero condemned by an
- * Execution. Every one of these is gated on its mechanic being present, so Movement I plays
- * exactly as before.
+ * out of pins and latches, Scatters for a Blood Pact, Focuses a guarded Sentinel once the pack
+ * around it has thinned and Empowers Lyra to break it, keeps both Twin Cleave blows in mind,
+ * stands in a Sanctuary pool under the Bloodmoon and Rallies the party into it, and tops up (or
+ * Wards) the hero condemned by an Execution. Every one of these is gated on its mechanic being
+ * present, so Movement I plays exactly as before.
  */
 import { CONTENT } from '../content';
 import { Rng } from '../sim/core/rng';
@@ -60,6 +60,9 @@ export interface SkilledOptions {
   /** Seconds before answering a hero's call (human reaction). */
   callReaction: number;
 }
+
+/** Focus a guarded Sentinel once no more than this many enemies stand (the pack first). */
+const SENTINEL_FOCUS_AT = 3;
 
 /** The Solos that guard the party (Bonds' alternates included); the rest deal damage. */
 const GUARDING: ReadonlySet<string> = new Set(['aegisWall', 'oathkeeper', 'celestial_sphere']);
@@ -417,8 +420,9 @@ export class SkilledBot implements Bot {
       const caster =
         enemies.find((e) => e.enemy!.cast?.interruptible) ??
         enemies.find((e) => e.enemy!.defId === 'mute') ??
-        // A Crimson Sentinel's guard: Focus sends the party round its flanks.
-        enemies.find((e) => guardUp(state, e));
+        // A Crimson Sentinel's guard: Focus sends the party round its flanks, once the pack
+        // around it has thinned (focused on the wall, the party lets the hounds bleed it out).
+        (enemies.length <= SENTINEL_FOCUS_AT ? enemies.find((e) => guardUp(state, e)) : undefined);
       if (caster && state.focusTarget !== caster.id) {
         out.push({ t: 'directive', kind: 'focus', target: caster.id });
         this.lastFocus = now;

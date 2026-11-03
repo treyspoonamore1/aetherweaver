@@ -69,7 +69,7 @@ export const LEGION_ARENAS: ContentInput['arenas'] = [
   },
 ];
 
-/** Movement II's encounters. Par is a starting value (W9: the Skilled average × 1.15). */
+/** Movement II's encounters. Par is the Skilled average (arrival kit) × 1.15, to the nearest 5 s. */
 export const LEGION_ENCOUNTERS: ContentInput['encounters'] = [
   {
     // Row 0, fixed: Bleed → Chime at 5+. Hounds only.
@@ -77,11 +77,12 @@ export const LEGION_ENCOUNTERS: ContentInput['encounters'] = [
     name: 'The Crimson Gate',
     kind: 'skirmish',
     arena: 'spire_gate',
-    par: 90,
+    par: 40,
     waves: [
-      { delay: 2, spawns: [{ enemy: 'sanguine_hound', count: 4 }] },
-      { delay: 3, spawns: [{ enemy: 'sanguine_hound', count: 5 }] },
+      { delay: 2, spawns: [{ enemy: 'sanguine_hound', count: 5 }] },
       { delay: 3, spawns: [{ enemy: 'sanguine_hound', count: 6 }] },
+      { delay: 3, spawns: [{ enemy: 'sanguine_hound', count: 7 }] },
+      { delay: 3, spawns: [{ enemy: 'sanguine_hound', count: 8 }] },
     ],
     hints: ['bleed'],
     flavor: 'The Legion’s hounds hold the gate of the Spire. They smell the Reliquary on you.',
@@ -93,17 +94,10 @@ export const LEGION_ENCOUNTERS: ContentInput['encounters'] = [
     name: 'The Blood Rites',
     kind: 'skirmish',
     arena: 'blood_forge',
-    par: 100,
+    par: 45,
     waves: [
       {
         delay: 2,
-        spawns: [
-          { enemy: 'hemomancer', count: 1 },
-          { enemy: 'sanguine_hound', count: 3 },
-        ],
-      },
-      {
-        delay: 3,
         spawns: [
           { enemy: 'hemomancer', count: 1 },
           { enemy: 'sanguine_hound', count: 4 },
@@ -112,8 +106,15 @@ export const LEGION_ENCOUNTERS: ContentInput['encounters'] = [
       {
         delay: 3,
         spawns: [
+          { enemy: 'hemomancer', count: 1 },
+          { enemy: 'sanguine_hound', count: 5 },
+        ],
+      },
+      {
+        delay: 3,
+        spawns: [
           { enemy: 'hemomancer', count: 2 },
-          { enemy: 'sanguine_hound', count: 3 },
+          { enemy: 'sanguine_hound', count: 4 },
         ],
       },
     ],
@@ -127,7 +128,7 @@ export const LEGION_ENCOUNTERS: ContentInput['encounters'] = [
     name: 'The Pike Line',
     kind: 'skirmish',
     arena: 'spire_gate',
-    par: 100,
+    par: 45,
     waves: [
       {
         delay: 2,
@@ -161,7 +162,7 @@ export const LEGION_ENCOUNTERS: ContentInput['encounters'] = [
     name: 'The Red Muster',
     kind: 'skirmish',
     arena: 'barracks',
-    par: 115,
+    par: 65,
     waves: [
       {
         delay: 2,
@@ -197,13 +198,13 @@ export const LEGION_ENCOUNTERS: ContentInput['encounters'] = [
     name: 'The Leech Warren',
     kind: 'skirmish',
     arena: 'blood_forge',
-    par: 115,
+    par: 50,
     waves: [
       {
         delay: 2,
         spawns: [
           { enemy: 'leech', count: 3 },
-          { enemy: 'sanguine_hound', count: 2 },
+          { enemy: 'sanguine_hound', count: 3 },
         ],
       },
       {
@@ -211,6 +212,14 @@ export const LEGION_ENCOUNTERS: ContentInput['encounters'] = [
         spawns: [
           { enemy: 'leech', count: 2 },
           { enemy: 'crimson_sentinel', count: 1 },
+          { enemy: 'sanguine_hound', count: 2 },
+        ],
+      },
+      {
+        delay: 3,
+        spawns: [
+          { enemy: 'leech', count: 3 },
+          { enemy: 'sanguine_hound', count: 3 },
         ],
       },
       {
@@ -232,7 +241,7 @@ export const LEGION_ENCOUNTERS: ContentInput['encounters'] = [
     name: 'The Shield Wall',
     kind: 'elite',
     arena: 'barracks',
-    par: 140,
+    par: 90,
     waves: [
       {
         delay: 2,
@@ -245,16 +254,23 @@ export const LEGION_ENCOUNTERS: ContentInput['encounters'] = [
         delay: 3,
         spawns: [
           { enemy: 'impaler', count: 1, elite: true, affixes: ['hastened'] },
+          { enemy: 'hemomancer', count: 1 },
+          { enemy: 'sanguine_hound', count: 4 },
+        ],
+      },
+      {
+        delay: 3,
+        spawns: [
           { enemy: 'crimson_sentinel', count: 1 },
-          { enemy: 'sanguine_hound', count: 3 },
+          { enemy: 'leech', count: 2 },
+          { enemy: 'sanguine_hound', count: 4 },
         ],
       },
       {
         delay: 3,
         spawns: [
           { enemy: 'hemomancer', count: 1 },
-          { enemy: 'crimson_sentinel', count: 1, elite: true, affixes: ['shielded'] },
-          { enemy: 'leech', count: 2 },
+          { enemy: 'sanguine_hound', count: 5 },
         ],
       },
     ],
@@ -268,28 +284,30 @@ export const LEGION_ENCOUNTERS: ContentInput['encounters'] = [
     name: 'The Blood Forge',
     kind: 'elite',
     arena: 'blood_forge',
-    par: 145,
+    par: 75,
     waves: [
       {
         delay: 2,
         spawns: [
           { enemy: 'hemomancer', count: 1, elite: true, affixes: ['vampiric'] },
-          { enemy: 'sanguine_hound', count: 4 },
+          { enemy: 'sanguine_hound', count: 6 },
         ],
       },
       {
         delay: 3,
         spawns: [
           { enemy: 'impaler', count: 2 },
-          { enemy: 'leech', count: 2 },
+          { enemy: 'leech', count: 3 },
+          { enemy: 'sanguine_hound', count: 2 },
         ],
       },
       {
         delay: 3,
         spawns: [
-          { enemy: 'sanguine_hound', count: 2, elite: true, affixes: ['volatile'] },
+          { enemy: 'sanguine_hound', count: 3, elite: true, affixes: ['volatile'] },
           { enemy: 'hemomancer', count: 1 },
           { enemy: 'impaler', count: 1, elite: true, affixes: ['vampiric'] },
+          { enemy: 'sanguine_hound', count: 2 },
         ],
       },
     ],
@@ -303,12 +321,12 @@ export const LEGION_ENCOUNTERS: ContentInput['encounters'] = [
     name: 'The Legion Vanguard',
     kind: 'elite',
     arena: 'barracks',
-    par: 130,
+    par: 70,
     waves: [
       {
         delay: 2,
         spawns: [
-          { enemy: 'sanguine_hound', count: 5 },
+          { enemy: 'sanguine_hound', count: 6 },
           { enemy: 'impaler', count: 1, elite: true, affixes: ['vampiric'] },
         ],
       },
@@ -317,7 +335,16 @@ export const LEGION_ENCOUNTERS: ContentInput['encounters'] = [
         spawns: [
           { enemy: 'hemomancer', count: 1 },
           { enemy: 'crimson_sentinel', count: 1 },
-          { enemy: 'leech', count: 2 },
+          { enemy: 'leech', count: 3 },
+          { enemy: 'sanguine_hound', count: 3 },
+        ],
+      },
+      {
+        delay: 3,
+        spawns: [
+          { enemy: 'impaler', count: 1 },
+          { enemy: 'hemomancer', count: 1, elite: true, affixes: ['vampiric'] },
+          { enemy: 'sanguine_hound', count: 5 },
         ],
       },
     ],
@@ -330,7 +357,7 @@ export const LEGION_ENCOUNTERS: ContentInput['encounters'] = [
     name: 'The Gorehound Matriarch',
     kind: 'miniboss',
     arena: 'kennels',
-    par: 170,
+    par: 85,
     waves: [{ delay: 2, spawns: [{ enemy: 'gorehound_matriarch', count: 1 }] }],
     boss: 'gorehound_matriarch',
     enrage: 300,
@@ -343,7 +370,7 @@ export const LEGION_ENCOUNTERS: ContentInput['encounters'] = [
     name: 'Vharun, the Crimson Warden',
     kind: 'boss',
     arena: 'wardens_throne',
-    par: 280,
+    par: 225,
     waves: [{ delay: 3, spawns: [{ enemy: 'vharun_crimson_warden', count: 1 }] }],
     boss: 'vharun_crimson_warden',
     enrage: 420,
@@ -383,7 +410,7 @@ export const CRIMSON_LEGION: ContentInput['movements'][number] = {
   elites: ['shield_wall', 'blood_forge'],
   miniboss: 'gorehound_matriarch',
   boss: 'vharun',
-  scale: { life: 1.29, damage: 0.94 },
+  scale: { life: 1.5, damage: 1 },
   rewards: { xp: 1.25, starlight: 1.25, aether: 1.25 },
 };
 

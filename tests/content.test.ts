@@ -137,7 +137,7 @@ describe('Movement II: the Crimson Legion (docs/phase-5a.md)', () => {
       elites: ['shield_wall', 'blood_forge'],
       miniboss: 'gorehound_matriarch',
       boss: 'vharun',
-      scale: { life: 1.29, damage: 0.94 },
+      scale: { life: 1.5, damage: 1 },
       rewards: { xp: 1.25, starlight: 1.25, aether: 1.25 },
     });
     expect(m.rows).toHaveLength(7);
