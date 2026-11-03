@@ -626,18 +626,23 @@ function executionVerdict(
 }
 
 /** Removes a telegraph early (caster interrupted or killed). */
-export function cancelTelegraph(world: World, id: number): void {
+export function cancelTelegraph(world: World, id: number, answeredFor?: EntityId): void {
   const index = world.telegraphs.findIndex((t) => t.id === id);
   if (index < 0) return;
+  const t = world.telegraphs[index]!;
   world.telegraphs.splice(index, 1);
   forgetTelegraph(world, id);
+  // An Execution answered away for its condemned hero (a Paradox Rewind) spares them; one whose
+  // caster was interrupted, killed or phase-shifted gives no verdict.
+  const spared = answeredFor !== undefined && t.executeBelow !== undefined;
   world.events.push({
     type: 'telegraphResolved',
     tick: world.tick,
     telegraph: id,
-    target: null,
+    target: spared ? answeredFor : null,
     outcome: 'cancelled',
     damage: 0,
+    ...(spared ? { execution: 'spared' as const } : {}),
   });
   world.events.push({ type: 'telegraphEnded', tick: world.tick, telegraph: id });
 }

@@ -795,6 +795,7 @@ function TreeSummary({ tree }: { tree: readonly string[] }) {
 export function AstrolabeScreen() {
   const tree = useProfile((s) => s.profile.astrolabe);
   const xp = useProfile((s) => s.profile.xp);
+  const seen = useProfile((s) => s.profile.seen);
   const deeds = useProfile((s) => s.profile.deeds);
   const deedBest = useProfile((s) => s.profile.deedBest);
   const unlockAll = useSettings((s) => s.settings.unlockAll);
@@ -817,6 +818,7 @@ export function AstrolabeScreen() {
         onBack={() => setCodex(false)}
         initialTab="deeds"
         allowance={allowance}
+        seen={seen}
         rank={rank}
         deeds={{ earned: deeds, best: deedBest }}
         dissonance={dissonance}

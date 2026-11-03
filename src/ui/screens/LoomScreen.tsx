@@ -525,6 +525,7 @@ export function LoomScreen() {
         }}
         initialTab={codex}
         allowance={allowance}
+        seen={profile.seen}
         rank={rankOf(profile.xp)}
         deeds={{ earned: profile.deeds, best: profile.deedBest }}
         dissonance={dissonance}

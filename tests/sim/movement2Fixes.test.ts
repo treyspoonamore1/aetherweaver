@@ -17,7 +17,8 @@ import {
   heal,
   healReceivedMult,
 } from '../../src/sim/combat/health';
-import { startTelegraph } from '../../src/sim/combat/telegraphs';
+import { cancelTelegraph, startTelegraph } from '../../src/sim/combat/telegraphs';
+import { startHold } from '../../src/sim/combat/health';
 import type { Command, SimConfig, SimEvent } from '../../src/sim';
 import type { Entity, Telegraph } from '../../src/sim/state';
 import { ensureM2, fireFollowUp } from '../../src/sim/systems/enemies';
@@ -194,6 +195,21 @@ describe('a DoT down names its answers', () => {
     expect(plain.w.ledger.deaths).toHaveLength(1);
     expect('answers' in plain.w.ledger.deaths[0]!).toBe(false);
   });
+
+  it('a DoT tick held by Fermata still names its answers when the hold lets go', () => {
+    const { sim, w, party } = stage();
+    const vexis = party[2]!;
+    startHold(w, vexis, 0.2, 'Bleed ×4 (Sanguine Hound)', 50, 'bleed');
+    expect(vexis.hero!.hold!.dot).toBe('bleed');
+    stepUntil(sim, () => w.ledger.deaths.length > 0, 60);
+    expect(w.ledger.deaths[0]!.answers).toEqual(['chime']);
+
+    const plain = stage();
+    startHold(plain.w, plain.party[2]!, 0.2, 'Toll Cleave', 50);
+    expect('dot' in plain.party[2]!.hero!.hold!).toBe(false);
+    stepUntil(plain.sim, () => plain.w.ledger.deaths.length > 0, 60);
+    expect('answers' in plain.w.ledger.deaths[0]!).toBe(false);
+  });
 });
 
 describe('statusRemoved carries a stacking status’s stacks', () => {
@@ -282,6 +298,32 @@ describe("Execution's verdict", () => {
       damage: 0,
       execution: 'fallen',
     });
+  });
+
+  it('spared: cancelled for the condemned hero (a Paradox Rewind); no verdict when interrupted', () => {
+    for (const answered of [true, false]) {
+      const { sim, w, party } = stage();
+      const vharun = enemyAt(sim, w, VHARUN, 0, -18);
+      const lyra = party[1]!;
+      const t: Telegraph = startTelegraph(w, {
+        owner: vharun,
+        attack: attackDef('vharun_execution'),
+        target: lyra,
+        shape: { kind: 'mark', target: lyra.id },
+        windup: 1.5,
+        damage: 75,
+        pctMaxHp: 0,
+      });
+      t.executeBelow = 0.4;
+      sim.drainEvents();
+      cancelTelegraph(w, t.id, answered ? lyra.id : undefined);
+      const resolved = ofType(sim.drainEvents(), 'telegraphResolved').find(
+        (e) => e.telegraph === t.id,
+      )!;
+      expect(resolved.outcome).toBe('cancelled');
+      if (answered) expect(resolved).toMatchObject({ target: lyra.id, execution: 'spared' });
+      else expect('execution' in resolved).toBe(false);
+    }
   });
 
   it('is absent on every other telegraph', () => {

@@ -377,3 +377,18 @@ describe('phase ticks come from the sim alone', () => {
     expect(bossPhasesOf('gorehound_matriarch')).toEqual({ phases: 2, phaseAt: [0.5] });
   });
 });
+
+describe('every Codex a screen opens knows what the profile has seen', () => {
+  it('passes `seen`, so its Deeds page agrees with the Loom badge', async () => {
+    const { readFileSync, readdirSync } = await import('node:fs');
+    const dir = 'src/ui/screens';
+    const sites = readdirSync(dir)
+      .filter((f) => f.endsWith('.tsx'))
+      .flatMap((f) => {
+        const src = readFileSync(`${dir}/${f}`, 'utf8');
+        return [...src.matchAll(/<CodexView\b[\s\S]*?\n\s*\/>/g)].map((m) => ({ f, tag: m[0] }));
+      });
+    expect(sites.length).toBeGreaterThanOrEqual(6);
+    for (const { f, tag } of sites) expect(tag, f).toMatch(/\bseen=\{/);
+  });
+});

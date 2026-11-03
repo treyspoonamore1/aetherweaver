@@ -1716,6 +1716,7 @@ function ReleaseBody({ relic, onRelease }: { relic: ReliquaryRelic; onRelease():
 export function ReliquaryScreen() {
   const reliquary = useProfile((s) => s.profile.reliquary);
   const xp = useProfile((s) => s.profile.xp);
+  const seen = useProfile((s) => s.profile.seen);
   const deeds = useProfile((s) => s.profile.deeds);
   const deedBest = useProfile((s) => s.profile.deedBest);
   const unlockAll = useSettings((s) => s.settings.unlockAll);
@@ -1738,6 +1739,7 @@ export function ReliquaryScreen() {
         onBack={() => setCodex(false)}
         initialTab="reliquary"
         allowance={allowance}
+        seen={seen}
         rank={rank}
         deeds={{ earned: deeds, best: deedBest }}
         dissonance={dissonance}

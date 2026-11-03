@@ -748,7 +748,7 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
   if (target.hero && dealt >= h.hp && dealt > 0) {
     // Fermata holds a lethal hit at 1 HP (once per encounter); a held hero can't drop below 1.
     if (!target.hero.hold && !target.hero.fermataUsed && fx && fx.holdTime > 0)
-      startHold(world, target, fx.holdTime, opts.sourceName, amount);
+      startHold(world, target, fx.holdTime, opts.sourceName, amount, opts.status);
     if (target.hero.hold) dealt = Math.max(0, h.hp - 1);
     else if (world.relics.veil && martyr(world, target, amount, opts)) {
       dealt = 0;
@@ -1121,11 +1121,12 @@ export function startHold(
   duration: number,
   attack: string,
   damage: number,
+  dot?: StatusId,
 ): void {
   const hero = e.hero!;
   const until = world.time + duration;
   hero.fermataUsed = true;
-  hero.hold = { until, attack, damage, savedBy: null };
+  hero.hold = { until, attack, damage, savedBy: null, ...(dot ? { dot } : {}) };
   e.health!.hp = Math.max(1, Math.min(e.health!.hp, 1));
   addStatus(world, e, 'held', duration, null);
   world.ledger.holds++;
@@ -1157,7 +1158,7 @@ export function releaseHold(world: World, e: Entity, fightOver = false): void {
   if (healed) recordSave(world, e, 'fermata', hold.damage, hold.attack);
   // Martyr's Vow: a hold that runs out while it lasts doesn't fell them; the Vow keeps them.
   else if (world.field.vow) recordSave(world, e, 'vow', hold.damage, hold.attack);
-  else if (!fightOver && !unbreakable(world, e)) downHero(world, e, hold.attack);
+  else if (!fightOver && !unbreakable(world, e)) downHero(world, e, hold.attack, hold.dot);
 }
 
 /**

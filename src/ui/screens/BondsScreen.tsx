@@ -369,6 +369,7 @@ function Notice({ text, heroId }: { text: string; heroId: string }) {
 export function BondsScreen() {
   const bonds = useProfile((s) => s.profile.bonds);
   const xp = useProfile((s) => s.profile.xp);
+  const seen = useProfile((s) => s.profile.seen);
   const deeds = useProfile((s) => s.profile.deeds);
   const deedBest = useProfile((s) => s.profile.deedBest);
   const unlockAll = useSettings((s) => s.settings.unlockAll);
@@ -390,6 +391,7 @@ export function BondsScreen() {
         onBack={() => setCodex(false)}
         initialTab="bonds"
         allowance={allowance}
+        seen={seen}
         rank={rankOf(xp)}
         deeds={{ earned: deeds, best: deedBest }}
         dissonance={dissonance}

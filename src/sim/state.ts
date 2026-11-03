@@ -232,6 +232,8 @@ export interface HeroHold {
   damage: number;
   /** Set when the Weaver heals them during the hold. */
   savedBy: SaveCause | null;
+  /** The damage-over-time status whose tick was held (Movement II); absent otherwise. */
+  dot?: StatusId;
 }
 
 export interface HeroComponent {

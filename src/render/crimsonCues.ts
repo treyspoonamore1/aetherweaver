@@ -364,7 +364,8 @@ type SimEntity = Parameters<typeof healReceivedMult>[1];
 /**
  * A heal of `via` on `target` was cut by the sim (docs/phase-5a.md, Healing multipliers): a
  * Wound on whoever carries it, the Bloodmoon on a hero outside every Sanctuary pool. The sim's own
- * `healReceivedMult` decides, so render never disagrees with it; a revive is exempt, as in the
+ * `healReceivedMult` decides, read after the tick, so render agrees with the sim except on the one
+ * tick a Wound lands or runs out (or a hero crosses a pool's edge); a revive is exempt, as in the
  * sim. `pools` are the pools drawn (FieldView.pools): the VFX lab's override shows the cut on a
  * hero outside them while no sim Bloodmoon is up. Movement I has neither, so nothing is cut there.
  */

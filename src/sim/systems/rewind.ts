@@ -166,7 +166,7 @@ function paradox(world: World, hero: Entity): number {
       (s.kind === 'mark' && s.target === hero.id) ||
       (s.kind === 'link' && (s.a === hero.id || s.b === hero.id));
     if (aimed) {
-      cancelTelegraph(world, t.id);
+      cancelTelegraph(world, t.id, hero.id);
       answered(world);
       // Its mark goes with it.
       const marked = s.kind === 'link' ? [s.a, s.b] : s.kind === 'mark' ? [s.target] : [];
