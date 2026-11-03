@@ -10,14 +10,19 @@ import {
 import { liveBindings } from '../input/bindings';
 import {
   auraIds,
+  bloodRageBonus,
+  bloodlusting,
   bossPhaseTable,
   canPay,
+  deathlessActive,
+  fallingFast,
   reservePool,
   resolveChord,
   rewindCanRevive,
   songReserveOf,
   techniqueCost,
   vowHoldsAt,
+  weaverHealCut,
   type EntityId,
   type ReadonlyEntity,
   type TechniqueKey,
@@ -28,6 +33,7 @@ import type { Entity } from '../sim/state';
 import type { World } from '../sim/world';
 import { dissonancePoints, parMult } from '../meta/dissonance';
 import { relicHuds } from './hud/relics';
+import { shownAnswers, shownDecreeOf } from './hud/legionLook';
 import { callingHud, lifeMarksOf, masteryCooldown, shineOf, stasisSeconds } from './hud/calling';
 import { treeAfterglow, treeBleedOutMult, treeGrace } from './screens/astrolabeModel';
 import {
@@ -285,8 +291,10 @@ export function buildHudSnapshot(
           : null,
       hovered: opts.hovered === id,
       ...movementTwoMarks(state, e, h),
+      ...bloodHud(state, e),
     });
   });
+  const partyIds = party.map((p) => p.defId);
 
   const bindings = liveBindings();
   // Skate (Phase 4f): Glide's slot runs on its charges (`glideCharges`), each back after its
@@ -376,7 +384,8 @@ export function buildHudSnapshot(
               1,
               (state.time - cast.start) / Math.max(0.01, cast.end - cast.start),
             ),
-            answers: telegraph ? [...telegraph.answers] : [],
+            // The roster (docs/phase-5b.md): no dome to answer with when no party hero has one.
+            answers: telegraph ? shownAnswers(telegraph.answers, partyIds) : [],
           }
         : null,
       enrageIn:
@@ -385,7 +394,10 @@ export function buildHudSnapshot(
           : Math.max(0, state.encounter.enrageAt - state.time),
       decree:
         state.encounter.decree && state.time - state.encounter.decree.at < 10
-          ? { name: state.encounter.decree.name, text: state.encounter.decree.text }
+          ? shownDecreeOf(
+              { name: state.encounter.decree.name, text: state.encounter.decree.text },
+              party,
+            )
           : null,
       foreseen: bossForeseen(state, foreseen, bossEntity.id),
       ...(blows ? blows : {}),
@@ -567,11 +579,36 @@ function movementTwoMarks(
 ): Pick<HeroHud, 'healCut' | 'execute'> {
   // The sim's own rule (`healReceivedMult`): a Wound, and Bloodmoon on a hero whose centre is
   // outside every pool. It only reads, so the read-only state stands in for the world.
-  const cut = healReceivedMult(state as World, e as Entity);
+  let cut = healReceivedMult(state as World, e as Entity);
+  // Brann's Blood Rage (docs/phase-5b.md): the Weaver's healing on him is halved for good (Blood
+  // Oath lifts it), so his frame keeps the hatch; with Bloodmoon it reads "quartered".
+  const own = weaverHealCut(CONTENT, e, 'mend');
+  if (own !== 1) cut *= own;
   const execution = state.telegraphs.find((t) => t.executeBelow !== undefined && t.target === e.id);
   return {
     ...(cut < 1 && !h.dead ? { healCut: cut } : {}),
     ...(execution ? { execute: execution.executeBelow! } : {}),
+  };
+}
+
+/**
+ * Brann's Blood Rage on his frame (docs/phase-5b.md): the rage bonus now, Bloodlust, Deathless,
+ * Blood Oath's bank, a Blood Tithe Ward, falling fast and Bloodletting's swings, all from the sim's
+ * own rules. No key for a hero without `blood`, so the default party's frames are as they were.
+ */
+function bloodHud(state: WorldState, e: ReadonlyEntity): Pick<HeroHud, 'blood'> {
+  const b = e.hero?.blood;
+  if (!b) return {};
+  return {
+    blood: {
+      rage: bloodRageBonus(CONTENT, e),
+      bloodlust: bloodlusting(CONTENT, e),
+      deathless: deathlessActive(state, e),
+      oath: b.oathBank,
+      tithe: e.health?.shields.some((s) => s.tithe === true) ?? false,
+      fast: fallingFast(e),
+      bled: b.bloodlet,
+    },
   };
 }
 

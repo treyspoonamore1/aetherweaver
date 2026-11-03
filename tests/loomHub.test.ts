@@ -539,3 +539,39 @@ describe('the Loom’s look', () => {
     for (const id of STATIONS) expect(PATHS[STATION_LOOK[id].icon], id).toBeTruthy();
   });
 });
+
+describe('the roster at the Loom (docs/phase-5b.md)', () => {
+  const second = CONTENT.bondRules.ranks[1]!;
+  const bond = (xp: number) => ({
+    xp,
+    talents: [null, null, null] as (string | null)[],
+    solo: 'default' as const,
+    seen: {},
+  });
+
+  it('a default profile is unchanged: three heroes, no Brann, no In the Red', () => {
+    const p = at(12, { bonds: { kael: bond(second) }, deeds: [CONTENT.deeds[0]!.id] });
+    expect(station(stationViews(p, false), 'bonds').badge).toBe('Kael 2 · Lyra 1 · Vexis 1');
+    expect(station(stationViews(newProfile(), false), 'bonds').line).not.toMatch(/Brann/);
+    const seenAll = { ...p, seen: CONTENT.enemies.map((e) => e.id) };
+    expect(station(stationViews(seenAll, false), 'deeds').badge).toBe(
+      `1 of ${CONTENT.deeds.filter((d) => !d.hero).length} earned`,
+    );
+  });
+
+  it('a recruited profile adds Brann: his rank, his name, his Deed', () => {
+    const p = at(12, {
+      recruited: ['brann'],
+      bonds: { brann: bond(second) },
+      deeds: [CONTENT.deeds[0]!.id],
+      seen: CONTENT.enemies.map((e) => e.id),
+    });
+    const views = stationViews(p, false);
+    expect(station(views, 'bonds').open).toBe(true);
+    expect(station(views, 'bonds').badge).toBe('Kael 1 · Lyra 1 · Vexis 1 · Brann 2');
+    expect(station(stationViews({ ...p, bonds: {} }, false), 'bonds').line).toMatch(
+      /Kael, Lyra, Vexis and Brann/,
+    );
+    expect(station(views, 'deeds').badge).toBe(`1 of ${CONTENT.deeds.length} earned`);
+  });
+});

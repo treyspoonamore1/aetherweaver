@@ -225,13 +225,16 @@ export function DeedsPage({
   held,
   open,
   seen,
+  roster,
 }: {
   held: DeedsHeld;
   open: DeedsOpen;
   /** The profile's sightings: a later Movement's Deeds wait until its enemies are met. */
   seen?: readonly string[];
+  /** Phase 5b: the hero roster; a hero's Deed (In the Red) shows once he is in it. */
+  roster?: readonly string[];
 }) {
-  const v = deedsView(held, open, seen);
+  const v = deedsView(held, open, seen, roster);
   const earnedShare = v.total > 0 ? v.earned / v.total : 0;
   return (
     <div className="flex flex-col gap-6" data-testid="codex-deeds">

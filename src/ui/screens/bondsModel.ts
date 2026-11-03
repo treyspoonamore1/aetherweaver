@@ -76,6 +76,14 @@ export function bondsOpen(
   return unlockAll || heroes.some((h) => bondRank(bonds[h]?.xp ?? 0) > 1);
 }
 
+/**
+ * The Bonds screen's hero tabs, one column each (docs/phase-5b.md): three for the starters, four
+ * once a recruit joins. Literal classes, so the stylesheet keeps them.
+ */
+export function heroTabColumns(count: number): string {
+  return count >= 4 ? 'sm:grid-cols-4' : count === 2 ? 'sm:grid-cols-2' : 'sm:grid-cols-3';
+}
+
 /** Each bonded hero's rank, by id: the HUD's frames and the Loom's station. */
 export function bondRanks(
   bonds: Readonly<Record<string, Bond>>,

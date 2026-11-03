@@ -24,6 +24,7 @@ import { Panel } from '../kit/Panel';
 import { useMood } from '../kit/sound';
 import { useUi } from '../store';
 import { HeroDisc } from './shared';
+import { lockedHeroText, lockedHeroes, needsRow, passiveRow } from './rosterModel';
 import { FORGE_PRICE, RELIC_OFFERS, RELIC_PRICE } from '../../meta/economy';
 import { eventFightRelics } from '../../meta/run';
 import { RELIC_RARITY, RelicGlyph, RelicRarityChip, Glyph } from '../kit/RelicGlyph';
@@ -245,6 +246,7 @@ export function CodexView({
             <DeedsPage
               held={deeds}
               seen={seen}
+              roster={heroes}
               open={{ allowance, astrolabe: astrolabeOpen(rank, allowance.all) }}
             />
           )}
@@ -393,11 +395,44 @@ function Heroes({ roster }: { roster: readonly string[] }) {
         .map((h) => (
           <HeroEntry key={h.id} hero={h} />
         ))}
+      {lockedHeroes(roster).map((id) => (
+        <LockedHero key={id} heroId={id} />
+      ))}
     </div>
   );
 }
 
+/**
+ * Phase 5b: a hero not yet in the roster (docs/phase-5b.md), as a silhouette: no name, no kit,
+ * only how he is earned (both routes). Used on the Heroes and Calls pages.
+ */
+function LockedHero({ heroId, compact = false }: { heroId: string; compact?: boolean }) {
+  const how = lockedHeroText(heroId);
+  return (
+    <Panel
+      tone="solid"
+      className={`border-dashed ${compact ? 'p-4' : 'p-5'}`}
+      data-testid="codex-hero-locked"
+      data-hero={heroId}
+    >
+      <div className="flex items-center gap-3">
+        <span
+          className="flex h-11 w-11 items-center justify-center rounded-full bg-ink-950/80 text-ink-600"
+          aria-hidden
+        >
+          <Icon name="lock" size={20} />
+        </span>
+        <h2 className="font-display text-xl font-bold text-muted">A hero not yet met</h2>
+      </div>
+      {how && <p className="mt-3 text-sm leading-relaxed text-muted">{how}</p>}
+    </Panel>
+  );
+}
+
 function HeroEntry({ hero: h }: { hero: HeroDef }) {
+  // Phase 5b: a passive and what they need of you, only for a hero who has them (Brann).
+  const passive = passiveRow(h);
+  const needs = needsRow(h);
   return (
     <Panel tone="solid" className="p-5" style={{ borderTopColor: h.color, borderTopWidth: 3 }}>
       <div className="flex items-center gap-3">
@@ -441,6 +476,18 @@ function HeroEntry({ hero: h }: { hero: HeroDef }) {
           <dt className="font-semibold">Quirk · {h.quirk.name}</dt>
           <dd className="text-xs leading-relaxed text-muted">{h.quirk.description}</dd>
         </div>
+        {passive && (
+          <div data-testid={`codex-passive-${h.id}`}>
+            <dt className="font-semibold">Passive · {passive.name}</dt>
+            <dd className="text-xs leading-relaxed text-muted">{passive.text}</dd>
+          </div>
+        )}
+        {needs && (
+          <div data-testid={`codex-needs-${h.id}`}>
+            <dt className="font-semibold">Needs</dt>
+            <dd className="text-xs leading-relaxed text-muted">{needs}</dd>
+          </div>
+        )}
       </dl>
     </Panel>
   );
@@ -1190,6 +1237,9 @@ function Calls({ roster }: { roster: readonly string[] }) {
               </Panel>
             );
           })}
+        {lockedHeroes(roster).map((id) => (
+          <LockedHero key={id} heroId={id} compact />
+        ))}
       </div>
     </div>
   );
@@ -1200,11 +1250,19 @@ function Motifs({ roster }: { roster: readonly string[] }) {
   return (
     <div className="flex flex-col gap-8">
       {categories.map((cat) => {
-        // A hero's motifs wait for that hero to join the roster (docs/phase-5b.md).
+        // A hero's motifs wait for that hero to join the roster (docs/phase-5b.md): a locked
+        // chip says how many, and how he is earned.
         const motifs = CONTENT.motifs.filter(
           (m) => m.category === cat && (!m.requires.hero || roster.includes(m.requires.hero)),
         );
-        if (motifs.length === 0) return null;
+        const waiting = lockedHeroes(roster)
+          .map((id) => ({
+            id,
+            count: CONTENT.motifs.filter((m) => m.category === cat && m.requires.hero === id)
+              .length,
+          }))
+          .filter((w) => w.count > 0);
+        if (motifs.length === 0 && waiting.length === 0) return null;
         const c = CATEGORY[cat];
         return (
           <section key={cat} aria-label={c.label}>
@@ -1215,6 +1273,18 @@ function Motifs({ roster }: { roster: readonly string[] }) {
               <Icon name={c.icon} size={20} /> {c.label}
               <span className="text-sm font-normal text-muted">{c.blurb}</span>
             </h2>
+            {waiting.length > 0 && (
+              <p className="mb-3 flex flex-wrap gap-1.5">
+                {waiting.map((w) => (
+                  <span key={w.id} data-testid="codex-motif-locked" data-hero={w.id}>
+                    <Chip icon="lock" title={lockedHeroText(w.id) ?? undefined}>
+                      {w.count} {w.count === 1 ? 'motif waits' : 'motifs wait'} for a hero not yet
+                      met · {lockedHeroText(w.id)}
+                    </Chip>
+                  </span>
+                ))}
+              </p>
+            )}
             <div className={GRID}>
               {motifs.map((m) => (
                 <Panel

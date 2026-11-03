@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { getRuntime } from '../../app/runtimeRegistry';
-import { healthLevel } from '../../app/healthLevels';
 import { auraDef } from '../../content';
 import type { Action } from '../../input/actions';
 import type { PartySlot } from '../../sim';
@@ -25,7 +24,16 @@ import { heroBondTip } from '../screens/bondsModel';
 import { threadModeLook } from './threadMode';
 import { DEFAULT_HUD, type FramesLayout } from '../../app/settings';
 import { frameSide, framesPlaceStyle, type FrameSide } from './framesLayout';
-import { frameState, lifeColor, lifeLabels, type HealthText } from './healthModel';
+import { frameLevel, frameState, lifeColor, lifeLabels, type HealthText } from './healthModel';
+import {
+  RAGING_COLOR,
+  bloodChips,
+  bloodTicks,
+  callNamed,
+  frameRaging,
+  ragingBand,
+  type BloodChip,
+} from './bloodLook';
 
 /** The Silk's gold: the Astrolabe's Thread stars (Afterglow, Overflowing Grace). */
 const SILK = CONSTELLATION_LOOK.silk;
@@ -292,6 +300,7 @@ export function PartyFrames({
                 bondRank={rank}
                 tipId={`frame-tip-${h.slot}`}
                 healthText={healthText}
+                callNamed={callNamed(h, party)}
               />
               <Bark hero={h} callouts={barks} side={side} />
               <FrameTip
@@ -453,8 +462,20 @@ function callKeys(h: HeroHud, answer: CallAnswer, threadMode: ThreadMode): strin
   return keys.length > 0 ? keys : ['✓'];
 }
 
-/** Call and Response: the answer they want (gold glyph + key) and the time left. */
-function CallStrip({ hero: h, threadMode }: { hero: HeroHud; threadMode: ThreadMode }) {
+/**
+ * Call and Response: the answer they want (gold glyph + key) and the time left. `named`: the
+ * prompt carries the hero's initial and name (docs/phase-5b.md), so Brann's Ward call can't be
+ * mistaken for Kael's.
+ */
+function CallStrip({
+  hero: h,
+  threadMode,
+  named = false,
+}: {
+  hero: HeroHud;
+  threadMode: ThreadMode;
+  named?: boolean;
+}) {
   const call = h.call!;
   const look = CALL_LOOK[call.answer];
   if (call.answered) {
@@ -481,6 +502,18 @@ function CallStrip({ hero: h, threadMode }: { hero: HeroHud; threadMode: ThreadM
     >
       <span className="flex items-center gap-1 font-bold" style={{ color: CALL }}>
         <Icon name="call" size={13} />
+        {named && (
+          <span className="flex items-center gap-1" data-testid="call-named">
+            <span
+              className="flex h-4 w-4 items-center justify-center rounded-full font-display text-xs font-bold leading-none text-ink-950"
+              style={{ background: h.color }}
+              aria-hidden
+            >
+              {h.name.slice(0, 1)}
+            </span>
+            {h.name}:
+          </span>
+        )}
         <Icon name={look.icon} size={14} />
         {look.label}!
       </span>
@@ -640,9 +673,12 @@ export function HeroFrame({
   bondRank = null,
   tipId,
   healthText = 'missing',
+  callNamed: named = false,
 }: {
   hero: HeroHud;
   threadMode: ThreadMode;
+  /** The Call prompt names the hero (`callNamed`, docs/phase-5b.md). */
+  callNamed?: boolean;
   /** The frame's big number (Settings → Health and the HUD). */
   healthText?: HealthText;
   songs?: HeroSongs;
@@ -742,7 +778,10 @@ export function HeroFrame({
                 <BeamBadge focus={sung.focus} colors={beamColors} name={h.name} />
               )}
               <InFieldPip inField={h.inField} out={out} />
-              <KeyCap label={slotKey} />
+              {/* The key that threads them: a hero's key follows the party (docs/phase-5b.md). */}
+              <span data-testid="frame-key" data-key={slotKey} data-hero={h.defId}>
+                <KeyCap label={slotKey} />
+              </span>
             </span>
           </div>
           {out ? (
@@ -755,13 +794,14 @@ export function HeroFrame({
             <>
               <HpBar hero={h} rewind={rewind} healthText={healthText} />
               {h.held && <HeldStrip hero={h} />}
-              {h.call && <CallStrip hero={h} threadMode={threadMode} />}
+              {h.call && <CallStrip hero={h} threadMode={threadMode} named={named} />}
               <div className="mt-1 flex min-h-5 flex-wrap items-center gap-1">
                 {(h.rewind || h.foreseen.length > 0 || h.lands) && (
                   <ChronoMarks hero={h} rewind={rewind} />
                 )}
                 {(h.borne > 0 || h.vow) && <MartyrMarks hero={h} />}
                 {(h.afterglow || h.grace) && <AstrolabeMarks hero={h} />}
+                {h.blood && <BloodMarks chips={bloodChips(h)} />}
                 {h.statuses
                   .filter((s) => !(h.held && s.id === 'held'))
                   .map((s) => (
@@ -793,6 +833,47 @@ export function HeroFrame({
     </button>
   );
 }
+
+/**
+ * Brann on his frame (docs/phase-5b.md): Blood Rage's bonus, Bloodlust (he won't Rally),
+ * Bloodletting's swings, Deathless, Blood Oath and a Blood Tithe Ward, each a chip in his crimson
+ * or the ember, with a glyph; never the lethal red.
+ */
+function BloodMarks({ chips }: { chips: readonly BloodChip[] }) {
+  return (
+    <>
+      {chips.map((c) => (
+        <span
+          key={c.id}
+          className={`flex items-center gap-1 whitespace-nowrap rounded-md border px-1 text-xs font-bold leading-5 ${c.id === 'deathless' ? 'anim-glow' : ''}`}
+          style={{
+            color: c.id === 'rage' ? '#fdba74' : '#fca5a5',
+            borderColor: `color-mix(in srgb, ${c.id === 'rage' ? RAGING_COLOR : BLOOD_CHIP} 60%, transparent)`,
+            background: `color-mix(in srgb, ${c.id === 'rage' ? RAGING_COLOR : BLOOD_CHIP} 18%, transparent)`,
+          }}
+          role="img"
+          aria-label={c.title}
+          title={c.title}
+          data-testid={`blood-${c.id}`}
+        >
+          <Icon name={BLOOD_ICON[c.id]} size={12} />
+          {c.label}
+        </span>
+      ))}
+    </>
+  );
+}
+
+/** Brann's crimson (his def's colour) for the chips that aren't the rage ember. */
+const BLOOD_CHIP = '#b91c1c';
+const BLOOD_ICON: Record<BloodChip['id'], 'flame' | 'stack' | 'heart' | 'vow' | 'ward'> = {
+  rage: 'flame',
+  bloodlust: 'stack',
+  bloodlet: 'heart',
+  deathless: 'vow',
+  oath: 'heart',
+  tithe: 'ward',
+};
 
 /** Phase 4e: the hero's Bond rank on their portrait, small: the rings and the number. */
 function FrameBondRank({ rank }: { rank: number }) {
@@ -918,7 +999,12 @@ function HpBar({
   const r = h.rewind;
   const ghost =
     r && r.target && rewind?.ready && r.kind === 'restore' ? Math.min(r.amount, h.maxHp - h.hp) : 0;
-  const level = healthLevel(h.hp, h.maxHp);
+  // The hero's own alarm bands (Brann's: no hurt tier; docs/phase-5b.md).
+  const level = frameLevel(h);
+  // Brann between 40% and 15%: his designed band, an ember, never the alarm colours.
+  const ember = frameRaging(h);
+  const band = h.blood ? ragingBand(h.defId) : null;
+  const ticks = bloodTicks(h);
   // The big number only: the portrait's ring already shows a percent (the Solo's charge).
   const labels = lifeLabels(h.hp, h.maxHp, healthText);
   // The trail: the same width as the life, but it lingers and drains after a hit (and snaps up
@@ -942,6 +1028,7 @@ function HpBar({
         className="relative h-[1.375rem] overflow-hidden rounded-md bg-ink-950/90 shadow-[inset_0_0_0_1px_rgb(255_255_255/0.07)]"
         data-testid="hp-bar"
         data-level={level}
+        data-raging={ember || undefined}
       >
         <div
           className="absolute inset-y-0 left-0 bg-white/90"
@@ -953,7 +1040,7 @@ function HpBar({
         />
         <div
           className="absolute inset-y-0 left-0 transition-[width,background-color] duration-150 ease-linear"
-          style={{ width: pctOf(h.hp), background: lifeColor(level) }}
+          style={{ width: pctOf(h.hp), background: ember ? RAGING_COLOR : lifeColor(level) }}
         />
         {h.shield > 0 && (
           <div
@@ -1000,6 +1087,30 @@ function HpBar({
             data-testid="heal-cut"
           />
         )}
+        {band && (
+          // Brann's raging band (docs/phase-5b.md): where he fights best, an ember strip along
+          // the bar's foot, from his Bloodlust line down to critical.
+          <span
+            className="pointer-events-none absolute bottom-0 h-1 opacity-80"
+            style={{
+              left: pctOf(h.maxHp * band.bottom),
+              width: pctOf(h.maxHp * (band.top - band.bottom)),
+              background: RAGING_COLOR,
+            }}
+            title="Raging: he fights best here. Keep him alive, not full"
+            data-testid="raging-band"
+          />
+        )}
+        {ticks.map((t) => (
+          <span
+            key={t.at}
+            className="pointer-events-none absolute inset-y-0 w-px bg-white/55"
+            style={{ left: pctOf(h.maxHp * t.at) }}
+            title={t.title}
+            data-testid="blood-tick"
+            data-at={t.at}
+          />
+        ))}
         {h.execute !== undefined && (
           // Execution (docs/phase-5a.md): below this line when it lands, they die.
           <span

@@ -3,7 +3,14 @@ import { useProfile } from '../../app/profileStore';
 import { useRun } from '../../app/runStore';
 import { useSettings } from '../../app/settings';
 import { CONTENT } from '../../content';
-import { EVERYTHING, allowanceFor, rankOf, type Allowance, type Unlock } from '../../meta/profile';
+import {
+  EVERYTHING,
+  allowanceFor,
+  heroRoster,
+  rankOf,
+  type Allowance,
+  type Unlock,
+} from '../../meta/profile';
 import type { ChordLoadout, RunState } from '../../meta/types';
 import { canonicalChords, type ReservePool } from '../../sim';
 import { ScreenFrame, ScreenHeader } from '../kit/Backdrop';
@@ -41,6 +48,19 @@ import { PrepTechniquesPanel } from './TechniquesParts';
 import type { TechniqueKey } from '../types';
 import { CodexView, useCodexBonds, useCodexDissonance, useCodexTechniques } from './CodexScreen';
 import { prepRoute } from './prepRoute';
+import { prepParty } from './prepParty';
+import {
+  freshHeroes,
+  missingStarterNotes,
+  type FreshHero,
+  needsRow,
+  passiveRow,
+  pickLegal,
+  pickProblem,
+  pickerCards,
+  togglePick,
+} from './rosterModel';
+import { KeyCap } from '../kit/KeyCap';
 import { prepEyebrow, routeHint, routeOf, routeOptions, type Route } from './routeText';
 
 export interface PrepViewProps {
@@ -58,6 +78,8 @@ export interface PrepViewProps {
   allowance?: Allowance;
   /** Unlocks to introduce and mark "New" this visit. */
   fresh?: readonly Unlock[];
+  /** Phase 5b: heroes recruited since the last Prep, named in the same strip. */
+  freshHeroes?: readonly FreshHero[];
   /** The player's Weaver Rank, for the header (omitted: no Rank shown). */
   rank?: number;
   /**
@@ -111,6 +133,12 @@ export interface PrepViewProps {
    * unlocks); the run's route is `run.movements`. Omitted (or null): no toggle, as before.
    */
   route?: { onChange(route: Route): void } | null;
+  /**
+   * Phase 5b: the party picker, once the roster holds more heroes than a party (`prepParty`): the
+   * heroes it offers and how a pick reaches the run (the run store's `setParty`, which keeps them
+   * in content order). Omitted (or null): no picker, as before the roster.
+   */
+  party?: { roster: readonly string[]; onChange(heroIds: string[]): void } | null;
 }
 
 /**
@@ -177,8 +205,23 @@ export function useFreshUnlocks(): Unlock[] {
   return fresh;
 }
 
+/**
+ * Phase 5b: heroes recruited since the last Prep (`profile.introduced` keeps `hero.<id>` once
+ * shown): read once when Prep opens, then marked, so the strip names them this visit only.
+ */
+export function useFreshHeroes(): FreshHero[] {
+  const [fresh] = useState(() => {
+    const p = useProfile.getState().profile;
+    return freshHeroes(p.recruited ?? [], p.introduced);
+  });
+  useEffect(() => {
+    if (fresh.length > 0) useProfile.getState().markIntroduced(fresh.map((h) => h.id));
+  }, [fresh]);
+  return fresh;
+}
+
 /** "New since last time": each unlock the player hasn't met yet, with its sentence. */
-export function FreshStrip({ fresh }: { fresh: readonly Unlock[] }) {
+export function FreshStrip({ fresh }: { fresh: readonly Pick<Unlock, 'id' | 'name' | 'text'>[] }) {
   if (fresh.length === 0) return null;
   return (
     <Panel tone="gold" className="anim-rise mt-5 p-4" aria-label="Newly unlocked">
@@ -209,6 +252,7 @@ export function PrepView({
   openCallingPath,
   allowance = EVERYTHING,
   fresh = [],
+  freshHeroes: newHeroes = [],
   rank,
   astrolabe = null,
   reliquary = null,
@@ -217,6 +261,7 @@ export function PrepView({
   techniques = null,
   mastery = null,
   route = null,
+  party = null,
 }: PrepViewProps) {
   useMood('map');
   // Always the content's two at Prep (the path is empty), but read from the run like Retune.
@@ -234,6 +279,16 @@ export function PrepView({
     lighter,
   );
   const [freshIds] = useState(() => new Set(fresh.map((u) => u.id)));
+  // Phase 5b: the pick while choosing (it may hold fewer than three for a moment; the run keeps
+  // its last legal party, and Embark waits).
+  const [pick, setPick] = useState<string[]>(() => run.party.map((h) => h.heroId));
+  const partyLegal = !party || pickLegal(pick, party.roster);
+  const choose = (heroId: string) => {
+    if (!party) return;
+    const next = togglePick(pick, heroId, party.roster);
+    setPick(next);
+    if (pickLegal(next, party.roster)) party.onChange(next);
+  };
   const w = CONTENT.weaver;
   const settings = useSettings((s) => s.settings);
   const update = useSettings((s) => s.update);
@@ -317,7 +372,7 @@ export function PrepView({
           />
         )}
 
-        <FreshStrip fresh={fresh} />
+        <FreshStrip fresh={[...fresh, ...newHeroes]} />
 
         {onCalling && (
           <CallingPicker
@@ -373,6 +428,7 @@ export function PrepView({
             <SectionTitle>
               <span id="party-title">Your party</span>
             </SectionTitle>
+            {party && <PartyPicker roster={party.roster} pick={pick} onToggle={choose} />}
             <div className="flex flex-col gap-3">
               {run.party.map((p) => (
                 <HeroCard
@@ -455,12 +511,17 @@ export function PrepView({
               Fix your songs to embark
             </p>
           )}
+          {legal && !partyLegal && (
+            <p className="text-sm font-semibold text-rose-200" role="status">
+              {pickProblem(pick)} to embark
+            </p>
+          )}
           <Button
             variant="primary"
             size="lg"
             onClick={onEmbark}
             sound="confirm"
-            disabled={!legal}
+            disabled={!legal || !partyLegal}
             autoFocus
           >
             Embark <Icon name="arrow" size={18} />
@@ -468,6 +529,82 @@ export function PrepView({
         </div>
       </div>
     </ScreenFrame>
+  );
+}
+
+/**
+ * Phase 5b, Prep's party picker (docs/phase-5b.md, "Choosing the party"): every roster hero as a
+ * toggle, exactly three chosen, each chosen card showing the number key it will take (the chosen
+ * go in content order, so a hero's key can change with the party). Under it, one note for each
+ * starter the pick leaves out.
+ */
+function PartyPicker({
+  roster,
+  pick,
+  onToggle,
+}: {
+  roster: readonly string[];
+  pick: readonly string[];
+  onToggle(heroId: string): void;
+}) {
+  const cards = pickerCards(roster, pick);
+  const notes = missingStarterNotes(pick);
+  return (
+    <Panel tone="solid" className="mb-4 p-4" data-testid="prep-party">
+      <p className="mb-3 text-xs text-muted">
+        Choose three. They take the keys 1–3 in this order, so a hero’s key can change with the
+        party: the key each will take is on their card.
+      </p>
+      <div
+        className="grid gap-2"
+        style={{ gridTemplateColumns: `repeat(${Math.min(cards.length, 4)}, minmax(0, 1fr))` }}
+        role="group"
+        aria-label="Choose your party: three heroes"
+      >
+        {cards.map((c) => {
+          const def = CONTENT.heroes.find((h) => h.id === c.heroId)!;
+          return (
+            <button
+              key={c.heroId}
+              type="button"
+              aria-pressed={c.selected}
+              aria-label={`${c.name}, ${ROLE_LABEL[c.role]}${c.key ? `: key ${c.key}` : c.full ? ': drop a hero first' : ''}`}
+              onClick={() => onToggle(c.heroId)}
+              className={`flex flex-col items-center gap-1.5 rounded-xl border-2 px-2 py-3 text-center transition-colors ${c.selected ? 'bg-ink-800' : 'bg-ink-900/60 opacity-70 hover:opacity-100'} ${c.full ? 'cursor-not-allowed' : ''}`}
+              style={{ borderColor: c.selected ? def.color : 'var(--color-ink-600)' }}
+              data-testid={`prep-pick-${c.heroId}`}
+              data-selected={c.selected || undefined}
+              data-key={c.key ?? undefined}
+            >
+              <HeroDisc heroId={c.heroId} size={40} />
+              <span className="font-display text-sm font-bold leading-tight">{c.name}</span>
+              <Chip color={def.color}>{ROLE_LABEL[c.role]}</Chip>
+              {c.key !== null ? (
+                <KeyCap label={String(c.key)} accent />
+              ) : (
+                <span className="text-xs text-muted">
+                  {c.full ? 'Drop one first' : 'Not chosen'}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+      {notes.length > 0 && (
+        <ul className="mt-3 flex flex-col gap-1.5" data-testid="prep-party-notes">
+          {notes.map((n) => (
+            <li
+              key={n.heroId}
+              className="flex items-start gap-2 text-xs leading-relaxed text-threat"
+              data-note={n.heroId}
+            >
+              <Icon name="info" size={14} className="mt-0.5 shrink-0" />
+              {n.text}
+            </li>
+          ))}
+        </ul>
+      )}
+    </Panel>
   );
 }
 
@@ -479,6 +616,9 @@ function HeroCard({ heroId, bond }: { heroId: string; bond?: RunBond }) {
     .filter((id) => CONTENT.talents.some((t) => t.id === id))
     .map((id) => talentView(id))
     .sort((a, b) => a.tier - b.tier);
+  // Phase 5b: a passive and what they need of you, only for a hero who has them (Brann).
+  const passive = passiveRow(def);
+  const needs = needsRow(def);
   return (
     <article
       className="rounded-xl border border-ink-600/70 bg-ink-800/80 p-4"
@@ -540,6 +680,28 @@ function HeroCard({ heroId, bond }: { heroId: string; bond?: RunBond }) {
           <dt className="font-semibold text-text">Quirk · {def.quirk.name}</dt>
           <dd className="text-xs leading-relaxed text-muted">{def.quirk.description}</dd>
         </div>
+        {passive && (
+          <div
+            className="rounded-lg bg-ink-900/60 px-3 py-2 sm:col-span-2"
+            data-testid={`prep-passive-${heroId}`}
+          >
+            <dt className="flex items-center gap-1.5 font-semibold text-text">
+              <Icon name="flame" size={14} className="text-muted" /> Passive · {passive.name}
+            </dt>
+            <dd className="text-xs leading-relaxed text-muted">{passive.text}</dd>
+          </div>
+        )}
+        {needs && (
+          <div
+            className="rounded-lg bg-ink-900/60 px-3 py-2 ring-1 ring-ink-500 sm:col-span-2"
+            data-testid={`prep-needs-${heroId}`}
+          >
+            <dt className="flex items-center gap-1.5 font-semibold text-text">
+              <Icon name="heart" size={14} className="text-muted" /> Needs
+            </dt>
+            <dd className="text-xs leading-relaxed text-muted">{needs}</dd>
+          </div>
+        )}
       </dl>
     </article>
   );
@@ -566,12 +728,18 @@ export function PrepScreen() {
   const mastery = useProfile((s) => s.profile.mastery);
   const allowance = useAllowance();
   const fresh = useFreshUnlocks();
+  const freshRecruits = useFreshHeroes();
   // The Codex's Techniques page, over Prep (its Rules).
   const [codex, setCodex] = useState(false);
   const deedBest = useProfile((s) => s.profile.deedBest);
   const codexDissonance = useCodexDissonance();
   const codexBonds = useCodexBonds();
   const codexTechniques = useCodexTechniques();
+  // Phase 5b: the roster (the profile's, or every hero with Skip the unlocks) for the picker.
+  const recruited = useProfile((s) => s.profile.recruited);
+  // As the store's `roster()` reckons it (`heroRoster`), following both.
+  const roster = useMemo(() => heroRoster({ recruited }, unlockAll), [recruited, unlockAll]);
+  const pickable = prepParty(roster);
   if (!run) return null;
   const rank = rankOf(xp);
   if (codex)
@@ -597,6 +765,7 @@ export function PrepScreen() {
       onBack={() => setScreen('loom')}
       allowance={allowance}
       fresh={fresh}
+      freshHeroes={freshRecruits}
       rank={rank}
       astrolabe={
         astrolabeOpen(rank, unlockAll)
@@ -630,6 +799,10 @@ export function PrepScreen() {
       }}
       // Phase 5a: the Route, once Expeditions are open; switching keeps the Calling and Chords.
       route={prepRoute()}
+      // Phase 5b: the party picker, once the roster outgrows a party.
+      party={
+        pickable ? { roster: pickable, onChange: (ids) => useRun.getState().setParty(ids) } : null
+      }
     />
   );
 }

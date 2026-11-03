@@ -161,8 +161,78 @@ export function useFirstSightings(enabled = true): void {
   const fighting = useUi((s) => s.hud?.encounter.status === 'fighting');
   const sandbox = useUi((s) => s.hud?.encounter.kind === 'sandbox');
   const rewinds = useUi((s) => !!s.hud?.weaver.rewind);
+  // Phase 5b: the party's def ids, as one string so the effect runs only when it changes.
+  const party = useUi((s) => s.hud?.party.map((h) => h.defId).join(' ') ?? '');
   useEffect(() => {
     if (!enabled || !fighting || sandbox) return;
     noteSightings(foes, performance.now(), rewinds);
-  }, [enabled, foes, fighting, sandbox, rewinds]);
+    noteAllies(party ? party.split(' ') : [], performance.now());
+  }, [enabled, foes, fighting, sandbox, rewinds, party]);
+}
+
+// ── A new ally (docs/phase-5b.md) ────────────────────────────────────────────────────
+
+/** A callout's key for a recruit's first fight: `ally:<heroId>` (kind 'sighting'). */
+export const ALLY_KEY = 'ally:';
+
+/** How long a "New ally" card stays, in ms. */
+export const ALLY_TTL = 9000;
+
+export interface Ally {
+  heroId: string;
+  name: string;
+  color: string;
+  /** What changes in how you play them, a line each. */
+  lines: string[];
+}
+
+/** A recruit's card: who joined, and the rules that ask a different hand of you. */
+export function allyOf(heroId: string): Ally | null {
+  const def = CONTENT.heroes.find((h) => h.id === heroId);
+  if (!def || CONTENT.defaultParty.includes(def.id)) return null;
+  const lines: string[] = [];
+  const passive = def.passive;
+  if (passive && passive.weaverHealMult < 1)
+    lines.push(
+      `Your healing on him is ${passive.weaverHealMult === 0.5 ? 'halved' : `cut to ${Math.round(passive.weaverHealMult * 100)}%`}: his axe heals him, and he hits harder the lower he falls.`,
+      'Ward him and give him barriers: they aren’t cut. Keep him low, but alive.',
+      'Fermata still saves him: one touch of the Thread during the hold.',
+    );
+  else lines.push(def.quirk.description);
+  return { heroId: def.id, name: `${def.name}, ${def.title}`, color: def.color, lines };
+}
+
+/** An ally callout's hero (null for any other callout). */
+export function allyDef(c: Pick<Callout, 'kind' | 'key'>): string | null {
+  if (c.kind !== 'sighting' || !c.key?.startsWith(ALLY_KEY)) return null;
+  const id = c.key.slice(ALLY_KEY.length);
+  return allyOf(id) ? id : null;
+}
+
+/** The party's recruits whose first fight this is (no `ally:<id>` introduced yet). */
+export function newAllies(party: readonly string[], introduced: readonly string[]): string[] {
+  return party.filter(
+    (id, i) =>
+      party.indexOf(id) === i && allyOf(id) !== null && !introduced.includes(`${ALLY_KEY}${id}`),
+  );
+}
+
+/** The callout for a recruit's first fight. */
+export function allyCallout(heroId: string): Omit<Callout, 'id' | 'expiresAt'> {
+  const a = allyOf(heroId);
+  return { kind: 'sighting', text: a?.name ?? heroId, key: `${ALLY_KEY}${heroId}` };
+}
+
+/**
+ * The fight's party, against the profile: each recruit fighting for the first time shows its
+ * "New ally" card once, then it is recorded (`introduced`). The default party never shows one.
+ */
+export function noteAllies(party: readonly string[], now: number): string[] {
+  const p = useProfile.getState();
+  const fresh = newAllies(party, p.profile.introduced);
+  if (fresh.length === 0) return fresh;
+  const ui = useUi.getState();
+  for (const id of fresh) ui.pushCallout(allyCallout(id), now, ALLY_TTL);
+  p.markIntroduced(fresh.map((id) => `${ALLY_KEY}${id}`));
+  return fresh;
 }

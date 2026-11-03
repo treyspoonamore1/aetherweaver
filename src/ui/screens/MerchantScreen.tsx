@@ -124,6 +124,7 @@ export function MerchantView({ run, onBuy, onLeave }: MerchantViewProps) {
                   <MotifCard
                     option={{ motifId: item.id, level: item.level, upgrade: item.upgrade }}
                     onPick={() => buy(index)}
+                    party={run.party.map((h) => h.heroId)}
                     disabled={!status.available}
                     dim={item.sold}
                     label={`${shopItemName(item)}${item.upgrade ? `, upgrade to level ${item.level}` : ', new motif'}, ${item.price} Aether${status.problem ? `: ${status.problem}` : ''}`}

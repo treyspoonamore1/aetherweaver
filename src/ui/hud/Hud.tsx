@@ -32,6 +32,8 @@ import { LayoutEditor } from './LayoutEditor';
 import { PartyFrames } from './PartyFrames';
 import { WeaverBar } from './WeaverBar';
 import { bondRanks as ranksOf, bondsOpen } from '../screens/bondsModel';
+import { rosterHeroes } from '../../meta/bonds';
+import { shownDecreeOf } from './legionLook';
 
 const NO_BOONS: readonly ActiveBoon[] = [];
 const NO_RELICS: readonly ReliquaryRelic[] = [];
@@ -78,10 +80,12 @@ export function Hud({ subtitle, keyHints = true }: HudProps) {
   // Phase 4e: the heroes' Bond ranks on their frames, once Bonds are open.
   const bonds = useProfile((s) => s.profile.bonds);
   const unlockAll = useSettings((s) => s.settings.unlockAll);
-  const bondRanks = useMemo(
-    () => (bondsOpen(bonds, unlockAll) ? ranksOf(bonds) : null),
-    [bonds, unlockAll],
-  );
+  // Phase 5b: the roster's Bonded heroes (a recruit's rank shows on his frame too).
+  const recruited = useProfile((s) => s.profile.recruited);
+  const bondRanks = useMemo(() => {
+    const heroes = rosterHeroes({ recruited }, unlockAll);
+    return bondsOpen(bonds, unlockAll, heroes) ? ranksOf(bonds, heroes) : null;
+  }, [bonds, unlockAll, recruited]);
   // The party frames' and the Weaver bar's layouts: the player's, or the ones Edit Layout is changing.
   const savedFrames = useSettings((s) => s.settings.hud.frames);
   const draftFrames = useUi((s) => s.framesDraft);
@@ -228,13 +232,19 @@ export function HudView({
       {hud.boss && (
         <BossBar
           boss={hud.boss}
-          decree={decree}
+          // As the party should read it (docs/phase-5b.md): no dome without one, Brann condemned.
+          decree={decree && shownDecreeOf(decree, hud.party)}
           decreeBanner={callouts.some((c) => c.kind === 'decree')}
           rewind={hud.weaver.rewind !== null}
           blind={blind}
         />
       )}
-      <Callouts callouts={callouts} barkSpeakers={hud.party.map((p) => p.name)} blind={blind} />
+      <Callouts
+        callouts={callouts}
+        barkSpeakers={hud.party.map((p) => p.name)}
+        blind={blind}
+        party={hud.party}
+      />
       <PartyFrames
         party={hud.party}
         threadMode={hud.weaver.threadMode}

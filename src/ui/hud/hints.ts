@@ -119,6 +119,12 @@ function allHints(hud: HudSnapshot): Hint[] {
 
   // Fermata hold: the most urgent thing on screen.
   for (const h of party.filter((p) => p.held && !p.dead)) {
+    // Brann (docs/phase-5b.md): your healing on him is halved, but any of it saves him.
+    if (h.blood)
+      out.push({
+        id: 'brannHold',
+        text: `Fermata holds ${h.name} at 1 life — one touch of the Thread saves him, even halved: ${h.threaded ? 'keep Mending him' : `Thread him {${h.slot + 1}}`}`,
+      });
     out.push({
       id: 'hold',
       text: h.threaded
@@ -263,7 +269,9 @@ function allHints(hud: HudSnapshot): Hint[] {
       text: `${w.crescendoName}: every enemy waits — your techniques have no cooldowns${less > 0 ? ` and cost ${less}% less` : ''} while it lasts. Ward ${Q}, Chime ${E} and Rewind ${F} freely`,
     });
   }
-  const hurt = party.filter((h) => alive(h) && h.hp < h.maxHp * 0.5);
+  // Brann fights best hurt (docs/phase-5b.md): his own hints, never the 'hurt' ones.
+  out.push(...brannHints(hud, { Q, F }));
+  const hurt = party.filter((h) => alive(h) && !h.blood && h.hp < h.maxHp * 0.5);
   for (const h of hurt) {
     if (!h.threaded) {
       out.push({
@@ -449,12 +457,14 @@ function movementTwoHints(hud: HudSnapshot, keys: { Q: string; E: string; F: str
   const up = hud.party.filter(alive);
   const boss = hud.boss;
   if (boss?.executeTarget) {
-    const pct = Math.round(
-      (up.find((h) => h.execute !== undefined)?.execute ?? EXECUTE_DEFAULT) * 100,
-    );
+    const condemned = up.find((h) => h.execute !== undefined);
+    const pct = Math.round((condemned?.execute ?? EXECUTE_DEFAULT) * 100);
     out.push({
       id: 'execution',
-      text: `${boss.executeTarget} is condemned — lift them above ${pct}% before it lands, or Ward ${Q} them`,
+      // Brann (docs/phase-5b.md): your healing barely takes on him, so the Ward is the answer.
+      text: condemned?.blood
+        ? `${boss.executeTarget} is condemned — Ward ${Q} him: your healing barely takes on him`
+        : `${boss.executeTarget} is condemned — lift them above ${pct}% before it lands, or Ward ${Q} them`,
     });
   }
   for (const h of up) {
@@ -509,3 +519,33 @@ function movementTwoHints(hud: HudSnapshot, keys: { Q: string; E: string; F: str
 /** Execution's line when no frame carries it (content's `executeBelow`). */
 const EXECUTE_DEFAULT =
   CONTENT.attacks.find((a) => a.executeBelow !== undefined)?.executeBelow ?? 0.4;
+
+// ── Brann (docs/phase-5b.md) ─────────────────────────────────────────────────────────
+
+/**
+ * Brann's hints, each with its own id so the existing hints' counts are untouched: hurt, he wants
+ * a Ward, not a Mend (`brannLow`); a Rally he refuses (`brannRally`). His Fermata hint
+ * (`brannHold`) sits with the hold's.
+ */
+function brannHints(hud: HudSnapshot, keys: { Q: string; F: string }): Hint[] {
+  const { Q, F } = keys;
+  const out: Hint[] = [];
+  for (const h of hud.party.filter((p) => alive(p) && p.blood)) {
+    if (hud.directive === 'rally' && h.blood!.bloodlust)
+      out.push({
+        id: 'brannRally',
+        text: `Bloodlust: ${h.name} won’t Rally below ${bloodlustPct(h.defId)}% — Ward ${Q} him${h.talents.includes('iron_will') ? ' (Iron Will brings him back)' : ''}${hud.weaver.rewind ? '' : ` or Reel ${F} him`}`,
+      });
+    if (h.hp < h.maxHp * 0.5)
+      out.push({
+        id: 'brannLow',
+        text: `${h.name} fights harder hurt — Ward ${Q} him, don’t Mend him`,
+      });
+  }
+  return out;
+}
+
+/** Bloodlust's line, as a whole percent (content's `quirk.below`). */
+function bloodlustPct(defId: string): number {
+  return Math.round((CONTENT.heroes.find((h) => h.id === defId)?.quirk.below ?? 0.4) * 100);
+}

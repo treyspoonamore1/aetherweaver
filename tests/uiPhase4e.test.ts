@@ -559,6 +559,24 @@ describe('the roster gates every Bonds display (docs/phase-5b.md)', () => {
         .join(' '),
     ).not.toMatch(/Brann/);
   });
+
+  it('with Skip the unlocks, HEROES[3] is Brann and indices 0–2 are unchanged (W6)', () => {
+    skipUnlocks(true);
+    const all = rosterHeroes({}, useSettings.getState().settings.unlockAll);
+    expect(all[3]).toBe('brann');
+    expect(all.slice(0, 3)).toEqual(HEROES);
+    // His rank shows on the HUD with the roster's heroes; Bonds open from his rank-up alone.
+    const bonds = { brann: withXp(at(4)) };
+    expect(bondRanks(bonds, all)).toEqual({ kael: 1, lyra: 1, vexis: 1, brann: 4 });
+    expect(bondsOpen(bonds, false, all)).toBe(true);
+    // A recruited profile's rank rows say "A scene each" over all four.
+    expect(
+      rankRows(all)
+        .flatMap((r) => r.opens)
+        .join(' '),
+    ).not.toMatch(/A scene with/);
+    skipUnlocks(false);
+  });
 });
 
 describe('opening', () => {

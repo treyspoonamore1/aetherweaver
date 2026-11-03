@@ -35,6 +35,7 @@ import type {
   ChordLoadout,
   CombatOutcome,
   ForgeService,
+  HeroBloodStats,
   MapNode,
   NodeKind,
   OwnedRelic,
@@ -58,7 +59,8 @@ import {
   type SimEvent,
 } from '../../sim';
 import { buildHudSnapshot } from '../hudBridge';
-import { sightingCallout } from '../hud/sighting';
+import { allyCallout, sightingCallout } from '../hud/sighting';
+import { shownAnswers, shownDecreeOf } from '../hud/legionLook';
 import { foreseenAll, rewindPreview } from '../hud/chrono';
 import { callingLook } from '../kit/callingLook';
 import { EVERYTHING, MAX_RANK, UNLOCKS } from '../../meta/profile';
@@ -2940,11 +2942,13 @@ export function mockBondsHud(
     talents: bonds.flatMap((b) => b.talents),
     solos: bonds.flatMap((b) => (b.solo ? [b.solo] : [])),
   };
-  const real = buildHudSnapshot(createSim({ seed: 7, bonds: config }).state, {
+  const hud = mockHud(scenario);
+  // The scenario's own party (Phase 5b, `SimConfig.party`): a Brann scenario fights with him.
+  const party = hud.party.map((h) => h.defId);
+  const real = buildHudSnapshot(createSim({ seed: 7, bonds: config, party }).state, {
     seed: 7,
     hovered: null,
   });
-  const hud = mockHud(scenario);
   return {
     ...hud,
     party: hud.party.map((h) => {
@@ -3330,4 +3334,267 @@ export function expeditionReliquaryRun(): RunState {
   const found = reliquarySummaryRun('victory');
   const run = { ...expeditionSummaryRun('defeat'), carried: found.carried, relics: found.relics };
   return { ...run, reliquary: { ...runMaterials(run), enshrined: null } };
+}
+
+// ── Phase 5b: Brann and the roster ───────────────────────────────────────────────────
+
+/** Brann's frame readouts (`HeroHud.blood`), all quiet unless set. */
+function blood(over: Partial<NonNullable<HeroHud['blood']>> = {}): NonNullable<HeroHud['blood']> {
+  return {
+    rage: 0,
+    bloodlust: false,
+    deathless: false,
+    oath: 0,
+    tithe: false,
+    fast: false,
+    bled: 0,
+    ...over,
+  };
+}
+
+/** Brann in a slot at this share of his life, Blood Rage as the sim reckons it (+1% per 1%). */
+function brann(
+  slot: number,
+  share: number,
+  over: Partial<Omit<HeroHud, 'blood'>> & { blood?: Partial<NonNullable<HeroHud['blood']>> } = {},
+): HeroHud {
+  const max = heroDef('brann').maxHp;
+  const rage = Math.min(0.8, 1 - share);
+  const { blood: own, ...rest } = over;
+  return hero(slot, 'brann', {
+    hp: Math.round(max * share),
+    healCut: 0.5,
+    ...rest,
+    blood: blood({ rage, bloodlust: share < 0.4, ...own }),
+  });
+}
+
+/** The parties the bands measure (docs/phase-5b.md): A, B (no tank) and C (no Vexis). */
+export const BRANN_PARTIES = {
+  A: ['kael', 'vexis', 'brann'],
+  B: ['lyra', 'vexis', 'brann'],
+  C: ['kael', 'lyra', 'brann'],
+} as const;
+
+export type BrannScenario =
+  | 'brann-raging'
+  | 'brann-rally'
+  | 'brann-critical'
+  | 'brann-fast'
+  | 'brann-bloodlet'
+  | 'brann-deathless'
+  | 'brann-held'
+  | 'brann-calls'
+  | 'brann-oath'
+  | 'brann-execution'
+  | 'brann-cleave';
+
+/**
+ * Brann on the HUD, each a mid-fight moment: his raging band (no alarm, the hint to Ward him), a
+ * Rally he refuses, critical below 15%, falling fast, Bloodletting's swings, Deathless, a Fermata
+ * hold, two Ward calls told apart, Blood Oath and a Tithe Ward, and Vharun against party B (the
+ * dome gone from the decree and the answers; Execution on Brann).
+ */
+export function brannHud(scenario: BrannScenario): HudSnapshot {
+  const base = mockHud('calm');
+  const partyA = (b: HeroHud, kael: Partial<HeroHud> = {}) => [
+    hero(0, 'kael', { hp: 1420, threaded: false, ...kael }),
+    hero(1, 'vexis', { hp: 700 }),
+    b,
+  ];
+  switch (scenario) {
+    case 'brann-raging':
+      return {
+        ...base,
+        party: partyA(brann(2, 0.32, { threaded: true })),
+        weaver: { ...base.weaver, threadSlot: 2 },
+      };
+    case 'brann-rally':
+      return {
+        ...base,
+        directive: 'rally',
+        party: partyA(brann(2, 0.28, { distance: 13, inField: false })),
+      };
+    case 'brann-critical':
+      return {
+        ...base,
+        party: partyA(
+          brann(2, 0.12, { incoming: 210, talents: ['deathless'], blood: { rage: 0.8 } }),
+        ),
+      };
+    case 'brann-fast':
+      return { ...base, party: partyA(brann(2, 0.55, { blood: { fast: true } })) };
+    case 'brann-bloodlet':
+      return { ...base, party: partyA(brann(2, 0.78, { blood: { bled: 3 } })) };
+    case 'brann-deathless':
+      return {
+        ...base,
+        party: partyA(
+          brann(2, 0.001, {
+            hp: 1,
+            talents: ['deathless', 'berserkers_hymn'],
+            blood: { deathless: true, rage: 0.8 },
+          }),
+        ),
+      };
+    case 'brann-held':
+      return {
+        ...base,
+        party: partyA(
+          brann(2, 0.001, {
+            hp: 1,
+            held: { remaining: 1.6, total: 2.5 },
+            statuses: [{ id: 'held', remaining: 1.6, duration: 2.5 }],
+          }),
+        ),
+      };
+    case 'brann-calls':
+      return {
+        ...base,
+        party: partyA(
+          brann(2, 0.62, {
+            call: {
+              answer: 'ward',
+              remaining: 1.4,
+              total: 2,
+              flourish: 'Red Comet',
+              answered: false,
+            },
+          }),
+          {
+            call: {
+              answer: 'ward',
+              remaining: 0.9,
+              total: 1.6,
+              flourish: heroDef('kael').call.flourish.name,
+              answered: false,
+            },
+          },
+        ),
+      };
+    case 'brann-oath':
+      return {
+        ...base,
+        party: partyA(
+          brann(2, 0.36, {
+            healCut: undefined,
+            talents: ['iron_will', 'blood_oath'],
+            shield: 742,
+            shields: [{ kind: 'ward', amount: 742, max: 742 }],
+            blood: { oath: 140, tithe: true, bloodlust: false },
+          }),
+        ),
+      };
+    case 'brann-execution':
+    case 'brann-cleave': {
+      const execution = scenario === 'brann-execution';
+      const vharun = legionHud(execution ? 'vharun-execution' : 'vharun-cleave');
+      const party = [
+        hero(0, 'lyra', { hp: 610, threaded: !execution }),
+        hero(1, 'vexis', { hp: 580 }),
+        brann(
+          2,
+          execution ? 0.31 : 0.58,
+          execution
+            ? {
+                threaded: true,
+                execute: 0.4,
+                incoming: 75,
+                statuses: [{ id: 'condemned', remaining: 2.4, duration: 4 }],
+              }
+            : { incoming: 940 },
+        ),
+      ];
+      const boss = vharun.boss!;
+      const attack = CONTENT.attacks.find((a) =>
+        execution ? a.executeBelow !== undefined : a.id === 'vharun_twin_cleave',
+      )!;
+      return {
+        ...vharun,
+        party,
+        boss: {
+          ...boss,
+          ...(execution ? { executeTarget: 'Brann' } : {}),
+          cast: boss.cast && {
+            ...boss.cast,
+            answers: shownAnswers(boss.cast.answers, BRANN_PARTIES.B),
+          },
+          decree: shownDecreeOf(
+            { name: execution ? 'Execution' : 'Twin Cleave', text: attack.decree! },
+            party,
+          ),
+        },
+      };
+    }
+  }
+}
+
+/** The callouts over a Brann moment: his first fight's 'New ally' card, or a decree as cast. */
+export function brannCallouts(scenario: BrannScenario | 'brann-ally'): Callout[] {
+  const far = performance.now() + 1e9;
+  if (scenario === 'brann-ally') return [{ id: 950, ...allyCallout('brann'), expiresAt: far }];
+  if (scenario === 'brann-cleave') {
+    const text = CONTENT.attacks.find((a) => a.id === 'vharun_twin_cleave')!.decree!;
+    return [
+      {
+        id: 951,
+        kind: 'decree',
+        text: 'Twin Cleave',
+        detail: text,
+        color: '#e9d5ff',
+        expiresAt: far,
+      },
+    ];
+  }
+  return [];
+}
+
+/** A run with this party (content order), each hero at full life, as `Run.setParty` leaves it. */
+export function withParty(run: RunState, heroIds: readonly string[]): RunState {
+  const ids = CONTENT.heroes.filter((h) => heroIds.includes(h.id)).map((h) => h.id);
+  return { ...run, party: ids.map((heroId) => ({ heroId, hpPct: 1, shaken: false })) };
+}
+
+/** Prep with the roster's picker: a run with this party (the default when omitted). */
+export function brannPrepRun(party: readonly string[] = CONTENT.defaultParty, seed = 7): RunState {
+  return withParty(Run.newRun(seed), party);
+}
+
+/** Brann's Blood Rage stats over a fight, as `EncounterResult.heroes[i].blood` carries them. */
+export function mockBloodStats(aliveTime = 96, lowShare = 0.62): HeroBloodStats {
+  return {
+    lifesteal: 1240,
+    lowTime: aliveTime * lowShare,
+    low30Time: aliveTime * lowShare * 0.4,
+    aliveTime,
+    peakAfterLow: 0.38,
+    spent: 250,
+  };
+}
+
+/** A won fight with Brann in the party: his line, from `heroes[i].blood`. */
+export function brannResultRun(party: readonly string[] = BRANN_PARTIES.A): RunState {
+  let run = withParty(Run.embark(Run.newRun(7)), party);
+  const options = Run.reachable(run);
+  const next = options.find((n) => n.encounterId) ?? options[0];
+  if (next) run = Run.chooseNode(run, next.id);
+  if (run.phase === 'combat') run = Run.finishCombat(run, fakeOutcome(run, true));
+  const r = run.lastResult;
+  if (!r) return run;
+  const heroes = r.heroes.map((h) =>
+    h.heroId === 'brann' ? { ...h, blood: mockBloodStats(r.duration) } : h,
+  );
+  const result = { ...r, heroes };
+  return { ...run, lastResult: result, results: [...run.results.slice(0, -1), result] };
+}
+
+/** The Summary of a run Brann fought in: his line totalled over its fights. */
+export function brannSummaryRun(): RunState {
+  const run = brannResultRun();
+  return { ...run, phase: 'summary', outcome: 'defeat', pending: null };
+}
+
+/** The Bloodsworn's Cell, with this party (the Cell's copy reads the roster and the party). */
+export function cellRun(party: readonly string[] = CONTENT.defaultParty): RunState {
+  return withParty(eventRun('bloodsworn_cell'), party);
 }
