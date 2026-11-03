@@ -9,14 +9,18 @@ import type { PartySlot } from '../commands';
 import type { AnswerTag } from '../events';
 import { dcos, distSq } from '../core/dmath';
 import type {
+  DeepReadonly,
   Entity,
   EntityId,
+  EntityStoreView,
+  ReadonlyEntity,
   Health,
   Shield,
   ShieldKind,
   Status,
   StatusId,
   Telegraph,
+  WorldState,
 } from '../state';
 import { canPay } from '../astrolabe';
 import type { World } from '../world';
@@ -270,8 +274,9 @@ export function applyStatusPayload(
   const duration = payload.duration;
   let status = getStatus(target, payload.id);
   if (status) {
-    // One shared timer, refreshed by every application.
-    status.stacks = Math.min(cap, status.stacks + add);
+    // One shared timer, refreshed by every application. A payload that doesn't stack (a pin, a
+    // latch) only refreshes: one stack, its source the latest to apply it (never doubled).
+    status.stacks = stacking ? Math.min(cap, status.stacks + add) : 1;
     status.remaining = duration;
     status.duration = duration;
     status.source = source;
@@ -281,7 +286,8 @@ export function applyStatusPayload(
     }
     if (payload.drain) status.drain = true;
   } else {
-    status = { id: payload.id, remaining: duration, duration, stacks: Math.min(cap, add), source };
+    const stacks = stacking ? Math.min(cap, add) : 1;
+    status = { id: payload.id, remaining: duration, duration, stacks, source };
     if (ticking) {
       status.dps = dps;
       status.tickIn = DOT_TICK;
@@ -329,7 +335,10 @@ export function applyOnHit(
  * A damage-over-time status's name in damage events and death recaps: "Bleed ×6 (Sanguine
  * Hound)", "Pinned (Impaler)".
  */
-export function dotName(world: World, s: Status): string {
+export function dotName(
+  world: { readonly entities: EntityStoreView },
+  s: DeepReadonly<Status>,
+): string {
   const label = s.id.charAt(0).toUpperCase() + s.id.slice(1);
   const stacks = s.stacks > 1 ? ` ×${s.stacks}` : '';
   const source = s.source === null ? undefined : world.entities.get(s.source);
@@ -338,20 +347,27 @@ export function dotName(world: World, s: Status): string {
 }
 
 /** Inside a Sanctuary pool (Vharun's Bloodmoon), or no Bloodmoon at all. */
-export function inSanctuary(world: World, e: { x: number; z: number }): boolean {
+export function inSanctuary(
+  world: Pick<WorldState, 'field'>,
+  e: { readonly x: number; readonly z: number },
+): boolean {
   const sanctuary = world.field.sanctuary;
   if (!sanctuary) return true;
   for (const p of sanctuary.pools) if (distSq(e.x, e.z, p.x, p.z) <= p.r * p.r) return true;
   return false;
 }
 
-/** What healing `target` receives is multiplied by (Wound, Bloodmoon); 1 almost always. */
-export function healReceivedMult(world: World, target: Entity): number {
+/**
+ * What healing `target` receives is multiplied by (Wound, Bloodmoon); 1 almost always. A Wound
+ * cuts whoever carries it, the Weaver included; the Bloodmoon cuts heroes outside every pool
+ * (docs/phase-5a.md), never the Weaver.
+ */
+export function healReceivedMult(world: Pick<WorldState, 'field'>, target: ReadonlyEntity): number {
   if (target.team !== 'party') return 1;
   let mult = 1;
-  if (hasStatus(target, 'wound')) mult *= WOUND_HEAL_MULT;
+  if (target.health?.statuses.some((s) => s.id === 'wound')) mult *= WOUND_HEAL_MULT;
   const sanctuary = world.field.sanctuary;
-  if (sanctuary && !inSanctuary(world, target)) mult *= sanctuary.healMult;
+  if (sanctuary && target.hero && !inSanctuary(world, target)) mult *= sanctuary.healMult;
   return mult;
 }
 
@@ -365,15 +381,21 @@ export function removeStatus(
   if (!h) return false;
   const index = h.statuses.findIndex((s) => s.id === id);
   if (index < 0) return false;
-  h.statuses.splice(index, 1);
+  const [removed] = h.statuses.splice(index, 1);
   world.events.push({
     type: 'statusRemoved',
     tick: world.tick,
     target: target.id,
     status: id,
     reason,
+    ...stacksOf(removed!),
   });
   return true;
+}
+
+/** `statusRemoved.stacks`: only for a stacking status with more than one stack. */
+function stacksOf(s: Status): { stacks?: number } {
+  return s.stacks > 1 ? { stacks: s.stacks } : {};
 }
 
 /** Removes every ailment. Returns how many were removed. */
@@ -391,6 +413,7 @@ export function cleanseAilments(world: World, target: Entity): number {
       target: target.id,
       status: s.id,
       reason: 'cleansed',
+      ...stacksOf(s),
     });
     removed++;
   }
@@ -680,7 +703,14 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
     }
     // Riposte Bash (Bonds): a Ward on Kael took a blow; he answers it (heroes.ts).
     const hero = target.hero;
-    if (absorbedByWard > 0 && source?.enemy && hero && hasTalent(target, 'riposte_bash'))
+    // Not on a damage-over-time tick: there's no blow to answer.
+    if (
+      absorbedByWard > 0 &&
+      opts.kind !== 'tick' &&
+      source?.enemy &&
+      hero &&
+      hasTalent(target, 'riposte_bash')
+    )
       if (world.time >= hero.talentReadyAt) hero.riposteOn = source.id;
   }
 
@@ -843,7 +873,8 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
     if (target.hero) downHero(world, target, opts.sourceName, opts.status);
     else if (target.weaver) downWeaver(world, target);
     else if (!restlessRise(world, target)) killEnemy(world, target, source ?? null);
-  } else if (source?.enemy && hasTalent(target, 'arcane_ward')) arcaneWard(world, target, source);
+  } else if (opts.kind !== 'tick' && source?.enemy && hasTalent(target, 'arcane_ward'))
+    arcaneWard(world, target, source);
   return {
     dealt,
     absorbed,
@@ -1204,6 +1235,8 @@ function downHero(world: World, e: Entity, killer: string, dot?: StatusId): void
         source: d.source,
       })),
     readyTechniques: ready,
+    // The answers the killing tick wanted, ready or not (docs/phase-5a.md: every down names it).
+    ...(wanted ? { answers: [...wanted] } : {}),
   });
   pushMarker(world, 'down', hero.slot);
   world.events.push({ type: 'allyDowned', tick: world.tick, hero: e.id });

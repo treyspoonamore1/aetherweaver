@@ -428,6 +428,9 @@ export function ensureM2(world: World): NonNullable<World['internal']['m2']> {
  * Begins `e`'s follow-up if one is due (P7): the attack named by the last one's `followUp`, at
  * its current target, a `reverse` one aimed 180° from its facing. Waits out a boss's phase
  * shift and a cast. True if it began. The boss script may call it too; a follow-up fires once.
+ * It is never dropped for reach: the boss turns and swings at its target, in reach or not (a
+ * cone that misses is fine). If the target fell, a reversed one needs none (the boss's facing)
+ * and any other picks a new target as the boss would.
  */
 export function fireFollowUp(world: World, e: Entity): boolean {
   const m2 = world.internal.m2;
@@ -438,14 +441,19 @@ export function fireFollowUp(world: World, e: Entity): boolean {
   if (boss && world.internal.boss.phaseShiftUntil > world.time) return false;
   m2.followUp = null;
   const found = c.targetId === null ? undefined : world.entities.get(c.targetId);
-  const current = isActive(found) ? found : null;
+  let current = isActive(found) ? found : null;
+  if (!current && !f.reverse) {
+    c.targetId = pickEnemyTarget(world, e);
+    const next = c.targetId === null ? undefined : world.entities.get(c.targetId);
+    current = isActive(next) ? next : null;
+  }
   return beginAttack(
     world,
     e,
     attackDef(f.attack),
     current,
     null,
-    f.reverse ? { reverse: true } : {},
+    f.reverse ? { followUp: true, reverse: true } : { followUp: true },
   );
 }
 
@@ -467,9 +475,13 @@ export function beginAttack(
     const hero = world.entities.get(id);
     if (isActive(hero)) heroes.push(hero);
   }
-  if (heroes.length === 0) return false;
+  // A reversed follow-up sweeps the boss's back whoever is standing (it needs no target); any
+  // other follow-up swings at its target, the Weaver too once every hero is down.
+  const facingSweep = opts.followUp === true && opts.reverse === true && attack.kind === 'cleave';
+  if (heroes.length === 0 && !facingSweep && !(opts.followUp === true && current)) return false;
+  // A follow-up is never out of reach: it begins as the blow before it resolves.
   const inRange = (t: Entity) =>
-    distSq(t.x, t.z, e.x, e.z) <= sq(attack.range + e.radius + t.radius);
+    opts.followUp === true || distSq(t.x, t.z, e.x, e.z) <= sq(attack.range + e.radius + t.radius);
 
   let target: Entity | null = null;
   let shape: TelegraphShape | null = null;
@@ -531,17 +543,18 @@ export function beginAttack(
       target = current;
       break;
   }
-  if (!target && attack.targeting !== 'self' && attack.targeting !== 'allHeroes') return false;
+  if (!target && attack.targeting !== 'self' && attack.targeting !== 'allHeroes' && !facingSweep)
+    return false;
 
   if (!shape) {
     switch (attack.kind) {
       case 'cleave': {
-        const t = target!;
-        const dx = t.x - e.x;
-        const dz = t.z - e.z;
-        const d = len(dx, dz) || 1;
-        // A reversed follow-up sweeps the half behind the caster (the Crimson Tide's back).
+        // A reversed follow-up sweeps the half behind the caster (the Crimson Tide's back), with
+        // or without a target.
         const back = opts.reverse === true;
+        const dx = target ? target.x - e.x : 0;
+        const dz = target ? target.z - e.z : 0;
+        const d = len(dx, dz) || 1;
         shape = {
           kind: 'cone',
           x: e.x,
@@ -671,6 +684,8 @@ export function beginAttack(
 export interface BeginOptions {
   /** A `followUp` with `reverse`: a cleave aimed 180° from the caster's facing. */
   reverse?: boolean;
+  /** A follow-up (P7): it ignores reach, and a reversed cleave needs no target. */
+  followUp?: boolean;
 }
 
 /**
@@ -1002,8 +1017,9 @@ function completeCast(world: World, owner: Entity, t: Telegraph): void {
   }
   // Movement II (P7): the caster charges down its line or leaps to its circle...
   if (attack.move && isActive(owner)) moveWithAttack(world, owner, attack.move, t);
-  // ...and its follow-up is due (the second Twin Cleave, the Tide's back half).
-  if (attack.followUp && isActive(owner)) {
+  // ...and its follow-up is due (the second Twin Cleave, the Tide's back half), unless a phase
+  // shift began this tick: phase shifts cancel what the boss was doing.
+  if (attack.followUp && isActive(owner) && !shifting(world, owner)) {
     const f = attack.followUp;
     ensureM2(world).followUp = {
       owner: owner.id,
@@ -1013,6 +1029,14 @@ function completeCast(world: World, owner: Entity, t: Telegraph): void {
     };
   }
   // healAllies pulses during the channel.
+}
+
+/** A boss (or miniboss) in its phase shift. */
+function shifting(world: World, e: Entity): boolean {
+  const tier = e.enemy?.tier;
+  return (
+    (tier === 'boss' || tier === 'miniboss') && world.internal.boss.phaseShiftUntil > world.time
+  );
 }
 
 /**

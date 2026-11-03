@@ -30,6 +30,8 @@ export function holdEnemyTime(world: World, dt: number): void {
       }
       c.tauntUntil += dt;
       c.sleepImmuneUntil += dt;
+      // A broken guard stays broken as long as it would have (Movement II's guarded enemies).
+      if (c.guard && c.guard.brokenUntil > world.time) c.guard.brokenUntil += dt;
       if (c.foreseen) c.foreseen.at += dt;
       if (e.health) for (const s of e.health.shields) s.expiresAt += dt;
     } else if (e.health) {

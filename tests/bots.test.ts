@@ -460,7 +460,8 @@ describe.runIf(SIM_M2)('the Skilled bot answers Movement II in play (arrival kit
   it('keeps the Execution target at or above 40% in 80% of casts', () => {
     let casts = 0;
     let kept = 0;
-    for (const seed of [1000, 8919, 16838]) {
+    // Eight seeds: one Execution each, so three made the share hang on a single cast.
+    for (const seed of [1000, 8919, 16838, 24757, 32676, 40595, 48514, 56433]) {
       // The judgement (phase 3) from the start; the bot does the rest.
       const live = new Map<number, { target: number; frac: number }>();
       fight(

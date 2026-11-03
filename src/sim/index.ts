@@ -35,8 +35,15 @@ export {
   type Passive,
 } from './astrolabe';
 export { auraBit, auraIds, enemyAuraMask, partyAuraMask, type AuraTotals } from './combat/auras';
-export { vowHoldsAt } from './combat/telegraphs';
-export { DOT_ANSWERS, isAilment } from './combat/health';
+export { linkStatusOf, markStatusOf, vowHoldsAt } from './combat/telegraphs';
+export {
+  DOT_ANSWERS,
+  DOT_TICK,
+  dotName,
+  healReceivedMult,
+  inSanctuary,
+  isAilment,
+} from './combat/health';
 export { bossPhaseTable } from './systems/bosses';
 export { rewindCanRevive } from './systems/rewind';
 export { underMuteDome } from './systems/field';

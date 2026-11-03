@@ -320,7 +320,12 @@ function resolve(world: World, t: Telegraph): void {
       }
       hitEntity(world, t, e, attack ?? null, owner ?? null);
     }
-    if (!hitAnyone) emitResolved(world, t, null, 'dodged', 0);
+    if (!hitAnyone) {
+      // Execution's condemned hero already fell before it landed: it names them (`fallen`).
+      const condemned =
+        t.executeBelow !== undefined && t.shape.kind === 'mark' ? t.shape.target : null;
+      emitResolved(world, t, condemned, 'dodged', 0);
+    }
     if (t.shape.kind === 'link') {
       const status = linkStatusOf(t);
       for (const id of [t.shape.a, t.shape.b]) {
@@ -598,7 +603,26 @@ function emitResolved(
     target,
     outcome,
     damage,
+    ...(t.executeBelow !== undefined
+      ? { execution: executionVerdict(world, target, outcome) }
+      : {}),
   });
+}
+
+/**
+ * An Execution's verdict on its one resolution (docs/phase-5a.md): `executed` when it landed and
+ * the condemned hero went down to it; `fallen` when they were already down (no hit); `spared`
+ * otherwise (above the line, Warded, out of it, Chimed away).
+ */
+function executionVerdict(
+  world: World,
+  target: EntityId | null,
+  outcome: 'hit' | 'dodged' | 'warded' | 'perfect' | 'absorbed' | 'cancelled',
+): 'executed' | 'spared' | 'fallen' {
+  const e = target === null ? undefined : world.entities.get(target);
+  const down = !!e?.health && (e.health.downed || e.health.dead);
+  if (outcome === 'hit') return down ? 'executed' : 'spared';
+  return down && outcome === 'dodged' ? 'fallen' : 'spared';
 }
 
 /** Removes a telegraph early (caster interrupted or killed). */
