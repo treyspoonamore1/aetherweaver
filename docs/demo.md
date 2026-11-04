@@ -29,10 +29,10 @@ npm run build:demo        # VITE_DEMO=1, relative paths, no source maps → dist
 
 ## Publishing
 
-`dist-demo/index.html` is the page, and its `assets/` (109 files, 4.6 MB) are published beside it as the artifact's own files. The page loads nothing from anywhere else.
+`dist-demo/index.html` is the page, and its `assets/` (109 files, 4.7 MB) are published beside it as the artifact's own files. The page loads nothing from anywhere else.
 - **Where it is:** [Aetherweaver](https://claude.ai/artifact/WQmazTSTrGDW3SpS4CQ9Uv), a private claude.ai artifact (slug `ee2a9adf-b9b9-4612-abe0-a64652bfb45b`). Only its owner sees it until they share it from its page on claude.ai.
 - **To update it,** rebuild and republish the folder to the same artifact (its slug and current version), so the link stays the same.
-- **Checked before publishing:** the build was served under a content policy like the host's (its own files only, no eval), and both starts were clicked through. Fresh and veteran, the Title, the Loom with its welcome, Prep: no console errors, page errors or failed requests. For the Thread dial's update, a fresh start went on into the Training Grounds, and the dial turned from Mend to Empower on a right-click, again with no errors. For Movement II (version 1793691876-2760), the Veteran start went on to Prep, which opened on the Expedition route ("The Expedition · Movements I-II"), again with no errors; the e2e suite's Expedition smoke plays past the Cantor to Vharun and the Summary.
+- **Checked before publishing:** the build was served under a content policy like the host's (its own files only, no eval), and both starts were clicked through. Fresh and veteran, the Title, the Loom with its welcome, Prep: no console errors, page errors or failed requests. For the Thread dial's update, a fresh start went on into the Training Grounds, and the dial turned from Mend to Empower on a right-click, again with no errors. For Movement II (version 1793691876-2760), the Veteran start went on to Prep, which opened on the Expedition route ("The Expedition · Movements I-II"), again with no errors; the e2e suite's Expedition smoke plays past the Cantor to Vharun and the Summary. For Phase 5b (version 1793773158-83ac), both starts were clicked through again with no errors, and the e2e roster smoke recruits Brann, picks him in Prep and plays a fight beside him.
 
 ## For testers
 
@@ -47,9 +47,8 @@ npm run build:demo        # VITE_DEMO=1, relative paths, no source maps → dist
 ## Phase 5b: Brann and the roster
 
 *For testers.* Phase 5b adds a fourth hero, **Brann, the Bloodsworn**, and a roster: once he has
-joined, Prep asks you to choose three of four heroes. The published link above is the Phase 5a
-build until the demo is rebuilt and republished; a local `npm run build:demo` or `npm run dev`
-has Brann.
+joined, Prep asks you to choose three of four heroes. The published link above has Brann since
+version 1793773158-83ac, which includes the rebalance (he keeps out of blows swung at the others).
 
 **How to get him.**
 
@@ -74,6 +73,8 @@ aren't.** He hits harder the lower his life, and his axe heals him. Please tell 
 - **Bloodlust:** below 40% he won't come back for a Rally. Reel him; or, once he has his Iron
   Will talent, Ward him and he obeys. Was it clear why he stayed?
 - **When he goes down,** the Result says what would have saved him. Did it help?
+- **His footwork:** he steps out of blows swung at the hero beside him, but never out of one aimed
+  at him (those are yours to Ward). Did he ever stand in a cleave meant for Kael?
 - **Without Kael** (Lyra, Vexis and Brann) there is no dome: Brann is the front line, and Prep
   says what each missing starter takes with them.
 - **In the Crimson Spire,** among the crimson Legion, could you find him at a glance (his
