@@ -6,7 +6,7 @@
 import { enemyDef, heroDef } from '../../content';
 import type { HeroDef } from '../../content/schema';
 import { AUTONOMY, TUNING } from '../constants';
-import { dcos, distSq, dsin, len } from '../core/dmath';
+import { datan2, dcos, distSq, dsin, len } from '../core/dmath';
 import {
   addShield,
   addStatus,
@@ -319,6 +319,8 @@ function combatMove(
   const berserker = def.role === 'berserker';
   const lust = berserker && bloodlusting(world.content, e);
   if ((world.internal.rallyUntil > world.time && !lust) || !target) {
+    // Answering a Rally (or with no one to fight), Brann still walks round a blow aimed elsewhere.
+    if (berserker && formationSidestep(world, weaver, e, def, dt)) return;
     formationMove(weaver, e, def, dt);
     return;
   }
@@ -342,6 +344,8 @@ function combatMove(
       keepApart(world, e, BERSERKER_SCATTER_GAP);
       clampToArena(world, desired);
     }
+    // He never dodges a blow aimed at him, but he doesn't stand in one aimed at someone else.
+    sidestepOthers(world, e);
   } else if (flank(world, e, def, target)) {
     // Focus on a guarded enemy: out of its arc, whatever the Weaver's leash says.
     clampToArena(world, desired);
@@ -370,6 +374,114 @@ function combatMove(
     leash(weaver, RANGED_LEASH);
   }
   arrive(e, desired.x, desired.z, TUNING.heroAccel, 1.2, dt);
+}
+
+// ── Brann keeps out of others' blows (docs/phase-5b.md, "Keeping out of others' blows") ──
+
+/** The spot Brann tests against a telegraph: his body moved to `desired` (see `sidestepOthers`). */
+const spot = { id: 0, x: 0, z: 0, radius: 0, fx: 1, fz: 0 };
+/** How far past a cone's edge or radius his body's edge stops (m). */
+const SIDESTEP_MARGIN = 0.6;
+
+/**
+ * Brann has no dodge (`dodge 0`) and never steps out of a blow aimed at him: that one is the
+ * Weaver's to Ward. But he doesn't stand in one aimed at someone else (a Toll Cleave swung at
+ * Kael, a Twin Cleave at Lyra, a lance at Vexis) or at no one (a burst on the ground): before he
+ * moves, `desired` is carried to the nearest point outside each live damage telegraph that holds
+ * it and isn't aimed at him. Marks, raids and links hit whoever they name wherever he stands, so
+ * they're left alone. Two passes, so clearing one shape doesn't leave him in another. A fixed
+ * rule, checked every tick: no RNG, and only his own branch of `combatMove` calls it.
+ */
+function sidestepOthers(world: World, e: Entity): void {
+  spot.id = e.id;
+  spot.radius = e.radius;
+  spot.fx = e.fx;
+  spot.fz = e.fz;
+  // `contains` and `escapePoint` read only id, x, z, radius and facing.
+  const body = spot as unknown as Entity;
+  for (let pass = 0; pass < 2; pass++) {
+    let moved = false;
+    for (const t of world.telegraphs) {
+      if (t.effect !== 'damage' || t.target === e.id) continue;
+      const k = t.shape.kind;
+      if (k === 'mark' || k === 'raid' || k === 'link') continue;
+      spot.x = desired.x;
+      spot.z = desired.z;
+      if (!contains(world, t, body)) continue;
+      const out =
+        t.shape.kind === 'cone' ? coneStep(world, t.shape, spot) : escapePoint(world, t, body);
+      if (!out) continue;
+      desired.x = out.x;
+      desired.z = out.z;
+      moved = true;
+    }
+    if (!moved) break;
+  }
+}
+
+/**
+ * Out of a cone: round its apex to past the edge of its arc at the same distance, which keeps
+ * him in reach of the enemy swinging it, or straight out past its radius, whichever is nearer.
+ * Standing on the apex itself (the cone always holds that), only the second works.
+ */
+function coneStep(
+  world: World,
+  s: { x: number; z: number; r: number; dirX: number; dirZ: number; halfAngleCos: number },
+  p: { x: number; z: number; radius: number },
+): { x: number; z: number } {
+  let dx = p.x - s.x;
+  let dz = p.z - s.z;
+  let d = len(dx, dz);
+  if (d < 1e-3) {
+    // Exactly on the apex: out behind it.
+    dx = -s.dirX;
+    dz = -s.dirZ;
+    d = 1;
+  }
+  const margin = p.radius + SIDESTEP_MARGIN;
+  const ux = dx / d;
+  const uz = dz / d;
+  escape.x = s.x + ux * (s.r + margin);
+  escape.z = s.z + uz * (s.r + margin);
+  if (d > p.radius + 0.5) {
+    // Turned from the axis toward the side he's on, by the half-angle plus his body's width.
+    const side = s.dirX * dz - s.dirZ * dx >= 0 ? 1 : -1;
+    const hc = Math.max(-1, Math.min(1, s.halfAngleCos));
+    const a = datan2(Math.sqrt(1 - hc * hc), hc) + datan2(margin, d);
+    const c = dcos(a);
+    const sn = dsin(a) * side;
+    const lx = s.x + (s.dirX * c - s.dirZ * sn) * d;
+    const lz = s.z + (s.dirX * sn + s.dirZ * c) * d;
+    if (distSq(p.x, p.z, lx, lz) <= distSq(p.x, p.z, escape.x, escape.z)) {
+      escape.x = lx;
+      escape.z = lz;
+    }
+  }
+  return clampToArena(world, escape);
+}
+
+/**
+ * Brann answering a Rally (or with no one to fight): when his formation slot lies in a blow
+ * aimed at someone else, he walks to the nearest point outside it instead (`sidestepOthers`), and
+ * returns true. Otherwise false, and he keeps formation as every hero does. Not while Held.
+ */
+function formationSidestep(
+  world: World,
+  weaver: Entity,
+  e: Entity,
+  def: HeroDef,
+  dt: number,
+): boolean {
+  const hero = e.hero!;
+  if (hero.follow === 'hold' || world.telegraphs.length === 0) return false;
+  const spread = hero.follow === 'scatter' ? TUNING.scatterSpread : 1;
+  formationSlot(weaver, def.formation, spread, slotPos);
+  desired.x = slotPos.x;
+  desired.z = slotPos.z;
+  sidestepOthers(world, e);
+  if (desired.x === slotPos.x && desired.z === slotPos.z) return false;
+  arrive(e, desired.x, desired.z, TUNING.heroAccel, 1.2, dt);
+  return true;
 }
 
 /**
@@ -562,22 +674,37 @@ function berserkerTarget(
   current: Entity | undefined,
 ): Entity | null {
   const reach = attackRange(world, e, def.attack.range) + e.radius;
+  // His axe barely scratches a discord barrier unless the Weaver Empowers him: he leaves a
+  // shielded enemy to the Empowered while anything else is in reach of a chase.
+  const plain = empowerBonus(world, e).more <= 0;
+  const barred = (m: Entity) => plain && m.health!.shields.some((x) => x.kind === 'discord');
   if (
     current?.enemy &&
     isActive(current) &&
+    !barred(current) &&
     distSq(current.x, current.z, e.x, e.z) <= sqr(reach + current.radius)
   )
     return current;
   let best: Entity | null = null;
   let bestD = Infinity;
+  let fallback: Entity | null = null;
+  let fallbackD = Infinity;
   for (const m of world.entities.list()) {
     if (!m.enemy || !isActive(m) || m.enemy.state === 'spawning' || rising(m)) continue;
     const d = distSq(m.x, m.z, e.x, e.z);
-    if (d > sqr(20) || d >= bestD) continue;
+    if (d > sqr(20)) continue;
+    if (barred(m)) {
+      if (d < fallbackD) {
+        fallback = m;
+        fallbackD = d;
+      }
+      continue;
+    }
+    if (d >= bestD) continue;
     best = m;
     bestD = d;
   }
-  return best;
+  return best ?? fallback;
 }
 
 // ── Attacks and abilities ─────────────────────────────────────────────────────────────

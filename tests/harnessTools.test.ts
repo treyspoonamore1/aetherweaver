@@ -173,6 +173,8 @@ describe('whole runs (playRun)', () => {
 const BRANN_TALLY_KEYS = [
   'lowShare40',
   'lowShare30',
+  'dealtLow60',
+  'rageBonus',
   'downs',
   'weaverHealOn',
   'wardsOn',
@@ -219,6 +221,11 @@ describe('the harness and a roster party', () => {
     expect(run.brann!.lifestealShare).toBeGreaterThan(0);
     expect(run.brann!.lifestealShare).toBeLessThanOrEqual(1);
     expect(run.brann!.lowShare30).toBeLessThanOrEqual(run.brann!.lowShare40);
+    // Blood Rage as he dealt it: a share, and a bonus within Blood Rage's cap (0.8).
+    expect(run.brann!.dealtLow60).toBeGreaterThanOrEqual(0);
+    expect(run.brann!.dealtLow60).toBeLessThanOrEqual(1);
+    expect(run.brann!.rageBonus).toBeGreaterThan(0);
+    expect(run.brann!.rageBonus).toBeLessThanOrEqual(0.8);
   });
 
   it('plays a whole run with a party set in Prep, and records the Harmony only for Brann', () => {

@@ -173,7 +173,7 @@ export function cellLine(c: Cell): string {
   const b = rs.map((r) => r.brann).filter((t): t is NonNullable<typeof t> => !!t);
   if (b.length > 0) {
     parts.push(
-      `brann <40% ${pct(mean(b.map((t) => t.lowShare40)))} <30% ${pct(mean(b.map((t) => t.lowShare30)))} downs ${mean(b.map((t) => t.downs)).toFixed(2)} steal ${pct(mean(b.map((t) => t.lifestealShare)))} refused ${mean(b.map((t) => t.refusedRallies)).toFixed(1)}/${mean(b.map((t) => t.rallies)).toFixed(1)}`,
+      `brann <40% ${pct(mean(b.map((t) => t.lowShare40)))} <30% ${pct(mean(b.map((t) => t.lowShare30)))} dealt<=60% ${pct(mean(b.map((t) => t.dealtLow60)))} rage +${pct(mean(b.map((t) => t.rageBonus)))} downs ${mean(b.map((t) => t.downs)).toFixed(2)} steal ${pct(mean(b.map((t) => t.lifestealShare)))} refused ${mean(b.map((t) => t.refusedRallies)).toFixed(1)}/${mean(b.map((t) => t.rallies)).toFixed(1)}`,
     );
     const exec = rs.reduce((s, r) => s + r.extra.execOnBrann, 0);
     const spared = rs.reduce((s, r) => s + r.extra.execSpared, 0);
@@ -299,6 +299,16 @@ function runsMain(): void {
         const offered = owned.filter((r) => r.harmony!.silkOfferedEligible > 0).length;
         line += ` · Blood and Silk offered in ${pct(harmony.filter((r) => r.harmony!.silkOffered > 0).length / harmony.length)} of runs; prerequisites owned in ${owned.length}, offered then ${owned.length ? `${offered}/${owned.length} ${pct(offered / owned.length)}` : '-'}`;
       }
+      // Where the lost runs ended, most first (the harness's 'lost at').
+      const lost: Record<string, number> = {};
+      for (const r of results)
+        if (r.outcome !== 'victory') lost[r.lastEncounter] = (lost[r.lastEncounter] ?? 0) + 1;
+      const lostAt = Object.entries(lost)
+        .sort((a, z) => z[1] - a[1] || a[0].localeCompare(z[0]))
+        .slice(0, 6)
+        .map(([k, v]) => `${k} ${v}`)
+        .join(', ');
+      if (lostAt) line += ` · lost at ${lostAt}`;
       console.log(line);
       rows.push({ party: name, bot, wins, results });
     }

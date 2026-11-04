@@ -284,7 +284,7 @@ export const HEROES: ContentInput['heroes'] = [
     formation: { forward: 2.0, right: 1.9 },
     attack: {
       kind: 'melee',
-      damage: 84,
+      damage: 100,
       interval: 1.3,
       range: 2.4,
       projectileSpeed: 0,
@@ -292,7 +292,7 @@ export const HEROES: ContentInput['heroes'] = [
       cleave: { arcDeg: 120, radius: 2.8, pct: 0.5 },
     },
     preferredRange: 1.4,
-    threatMult: 1.5,
+    threatMult: 1.2,
     dodge: 0,
     abilities: [
       {
@@ -374,16 +374,16 @@ export const HEROES: ContentInput['heroes'] = [
       defiant: ['I don’t run!', 'Rally yourself!', 'They’re bleeding — I stay!'],
     },
     codex:
-      'A Legion champion who broke his oath rather than kill prisoners. Brann is calm only in pain: the lower his life, the harder his axe falls, and it drinks from what it cuts. Your healing barely takes on him; your Wards do. Fermata still holds him — one touch of the Thread saves him.',
+      'A Legion champion who broke his oath rather than kill prisoners. Brann is calm only in pain: the lower his life, the harder his axe falls, and it drinks from what it cuts. Your healing barely takes on him; your Wards do. He steps out of a blow swung at the others, never one meant for him: that one is yours to Ward. Fermata still holds him — one touch of the Thread saves him.',
     passive: {
       id: 'bloodRage',
       perMissing: 1,
       maxBonus: 0.8,
-      lifesteal: 0.06,
+      lifesteal: 0.048,
       weaverHealMult: 0.5,
     },
     needs:
-      'Kept low but alive: Wards and barriers, not heals · Fermata holds him: one Mend tick saves him · Reel him when he won’t Rally · Cue Red Frenzy to heal him.',
+      'Kept low but alive: Wards and barriers, not heals · Ward the blows aimed at him: he steps out of the rest · Fermata holds him: one Mend tick saves him · Reel him when he won’t Rally · Cue Red Frenzy to heal him.',
     recruit: { event: 'bloodsworn_cell', fallback: 'vharun' },
   },
 ];

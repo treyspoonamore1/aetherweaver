@@ -164,7 +164,7 @@ export function passiveRow(def: HeroDef): { name: string; text: string } | null 
     p.weaverHealMult === 0.5 ? 'halved' : `cut to ${Math.round(p.weaverHealMult * 100)}%`;
   return {
     name: PASSIVE_NAME[p.id] ?? p.id,
-    text: `Up to +${Math.round(p.maxBonus * 100)}% damage the lower his life (+${Math.round(p.perMissing * 100) / 100}% for each 1% missing), and his axe heals him for ${Math.round(p.lifesteal * 100)}% of what it deals. Your healing on him is ${halved}; your Wards and barriers aren’t.`,
+    text: `Up to +${Math.round(p.maxBonus * 100)}% damage the lower his life (+${Math.round(p.perMissing * 100) / 100}% for each 1% missing), and his axe heals him for ${Math.round(p.lifesteal * 1000) / 10}% of what it deals. Your healing on him is ${halved}; your Wards and barriers aren’t.`,
   };
 }
 

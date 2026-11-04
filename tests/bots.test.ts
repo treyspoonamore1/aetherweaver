@@ -1010,83 +1010,94 @@ describe('the Skilled bot with Brann in play (parties A, B and C)', () => {
   });
 
   /**
-   * The band (docs/phase-5b.md, "Bands": below 40% for ≥ 40% of his alive time). Still missed
-   * after W7's tuning (docs/phase-5b.md, "Measured bands"), so it stays skipped. Measured share
-   * on the Crimson Gate with the tuned numbers (lifesteal 6%, Bloodletting 12%, armour 0.25),
-   * 50 seeds from 1000 / from 500003: A 8% / 11%, B 4% / 3%, C 4% / 6%; on this test's 4 seeds
-   * A 8%, B 0%, C 0%. The Skilled bot already leaves him alone above his floor (the staged test
-   * above); in this 40 s fight he takes about 1,200 and heals about 1,000 (the field's aura and
-   * his axe), and no number within its ±20% lever closes that gap.
+   * The low-life band as the rebalance revised it (docs/phase-5b.md, "Bands": his Blood Rage
+   * bonus as he deals damage, damage-weighted, averages +30% to +50%). 'Below 40% for ≥ 40% of
+   * his alive time' measured the others' cleaves that downed him, not Blood Rage, and pulled
+   * against ≤ 0.3 downs; see the doc. Here: the Movement II skirmishes and elites, 2 seeds each.
+   * Met by A and B, missed by C (docs/phase-5b.md, "Measured bands": over the 14 skirmish and
+   * elite cells, 50 seeds, A +33% / +34%, B +35% / +36%, C +28% / +28%), so it stays skipped;
+   * on this test's 14 fights A reads +29%.
+   * With Kael and Lyra beside him he is healed and shielded most, and Bloodletting's +20% cost
+   * lost Expeditions (A 77 → 71 on set 2000).
    */
-  it.skip('keeps Brann below 40% for at least 40% of his alive time (band; missed after W7 tuning)', () => {
+  it.skip('keeps Brann in the red: his damage-weighted Blood Rage averages +30% to +50% (band; missed by C)', () => {
+    const cells = movementEncounters(2).slice(0, 7);
     for (const [name, party] of Object.entries(PARTIES)) {
-      let low = 0;
-      for (const seed of [1000, 8919, 16838, 24757]) {
-        const run = playEncounter({ seed, encounter: 'crimson_gate', ...KIT, party }, 'skilled');
-        low += run.brann!.lowShare40;
-      }
-      expect(low / 4, name).toBeGreaterThanOrEqual(0.4);
+      let rage = 0;
+      for (const encounter of cells)
+        for (const seed of [1000, 8919]) {
+          const run = playEncounter({ seed, encounter, ...KIT, party }, 'skilled');
+          rage += run.brann!.rageBonus;
+        }
+      const mean = rage / (cells.length * 2);
+      expect(mean, name).toBeGreaterThanOrEqual(0.3);
+      expect(mean, name).toBeLessThanOrEqual(0.5);
     }
-  });
+  }, 120_000);
 
   it('Wards Brann before a big hit below his line in 80% of the times a Ward was ready', () => {
     // Each hit over 15% of his life whose Perfect window opened on him below 40% with a Ward in
     // hand and in reach; met when it didn't land as a plain hit (Perfect, Warded, or Reeled).
     // A hit he'd live through while one in the same window would kill another hero in reach
     // isn't counted: the Ward rightly goes to that life (his priority sits below lethality).
-    // Measured (8 seeds): A 11 of 13, B 8 of 8, C 8 of 11.
+    // Since he steps out of blows aimed at others (docs/phase-5b.md, "Keeping out of others'
+    // blows"), such hits are rare: 8 Vharun seeds a party gave 2 (it was about 32). So it pools
+    // Vharun and the Shattered Choir (its Dirges and Toll Cleaves on him; on the arrival kit), 24
+    // seeds a party each.
+    // Measured: 14 hits, 12 met (86%): Vharun 4 of 4, the Choir 8 of 10.
     const ward = CONTENT.techniques.ward;
     let big = 0;
     let met = 0;
-    for (const party of Object.values(PARTIES))
-      for (let i = 0; i < 8; i++) {
-        const seed = 1000 + i * 7919;
-        const watched = new Set<number>();
-        const judged = new Set<number>();
-        let id = -1;
-        fight(
-          'vharun',
-          seed,
-          (sim, events) => {
-            const st = sim.state;
-            if (id < 0) id = st.party[brannSlot(sim)]!;
-            const b = st.entities.get(id)!;
-            const w = st.entities.get(st.weaverId)!;
-            for (const e of events) {
-              if (e.type !== 'telegraphResolved' || e.target !== id || !watched.has(e.telegraph))
-                continue;
-              watched.delete(e.telegraph);
-              big++;
-              if (e.outcome !== 'hit') met++;
-            }
-            const h = b.health!;
-            if (h.downed || h.hp >= h.maxHp * 0.4) return;
-            const wc = w.weaver!;
-            const ready =
-              wc.wardCharges > 0 && wc.spirit >= ward.cost && dist(w, b) < ward.range - 0.3;
-            if (!ready) return;
-            const inWindow = (t: { impact: number }) => t.impact - st.time <= ward.perfectWindow;
-            const lethalOn = (e: typeof b, t: Parameters<typeof damageOf>[0]) =>
-              damageOf(t, e) >= e.health!.hp + shieldOf(e);
-            const lifeElsewhere = () =>
-              st.party.some((p) => {
-                const o = st.entities.get(p)!;
-                if (p === id || o.health!.downed || dist(w, o) >= ward.range - 0.3) return false;
-                return threatsOn(st, o).some((t) => inWindow(t) && lethalOn(o, t));
-              });
-            for (const t of threatsOn(st, b))
-              if (!judged.has(t.id) && inWindow(t) && damageOf(t, b) > h.maxHp * 0.15) {
-                // Judged once, as its window opens (before the Ward changes who'd die).
-                judged.add(t.id);
-                if (lethalOn(b, t) || !lifeElsewhere()) watched.add(t.id);
+    for (const encounter of ['vharun', 'shattered_choir'])
+      for (const party of Object.values(PARTIES))
+        for (let i = 0; i < 24; i++) {
+          const seed = 1000 + i * 7919;
+          const watched = new Set<number>();
+          const judged = new Set<number>();
+          let id = -1;
+          fight(
+            encounter,
+            seed,
+            (sim, events) => {
+              const st = sim.state;
+              if (id < 0) id = st.party[brannSlot(sim)]!;
+              const b = st.entities.get(id)!;
+              const w = st.entities.get(st.weaverId)!;
+              for (const e of events) {
+                if (e.type !== 'telegraphResolved' || e.target !== id || !watched.has(e.telegraph))
+                  continue;
+                watched.delete(e.telegraph);
+                big++;
+                if (e.outcome !== 'hit') met++;
               }
-          },
-          { bot: 'skilled', party },
-        );
-      }
+              const h = b.health!;
+              if (h.downed || h.hp >= h.maxHp * 0.4) return;
+              const wc = w.weaver!;
+              const ready =
+                wc.wardCharges > 0 && wc.spirit >= ward.cost && dist(w, b) < ward.range - 0.3;
+              if (!ready) return;
+              const inWindow = (t: { impact: number }) => t.impact - st.time <= ward.perfectWindow;
+              const lethalOn = (e: typeof b, t: Parameters<typeof damageOf>[0]) =>
+                damageOf(t, e) >= e.health!.hp + shieldOf(e);
+              const lifeElsewhere = () =>
+                st.party.some((p) => {
+                  const o = st.entities.get(p)!;
+                  if (p === id || o.health!.downed || dist(w, o) >= ward.range - 0.3) return false;
+                  return threatsOn(st, o).some((t) => inWindow(t) && lethalOn(o, t));
+                });
+              for (const t of threatsOn(st, b))
+                if (!judged.has(t.id) && inWindow(t) && damageOf(t, b) > h.maxHp * 0.15) {
+                  // Judged once, as its window opens (before the Ward changes who'd die).
+                  judged.add(t.id);
+                  if (lethalOn(b, t) || !lifeElsewhere()) watched.add(t.id);
+                }
+            },
+            { bot: 'skilled', party },
+          );
+        }
     expect(big).toBeGreaterThanOrEqual(10);
     expect(met / big).toBeGreaterThanOrEqual(0.8);
-  }, 30_000);
+  }, 90_000);
 
   it('calls at most one Rally every 8 s while Brann refuses them', () => {
     let rallies = 0;
@@ -1133,6 +1144,27 @@ describe('the Skilled bot with Brann in play (parties A, B and C)', () => {
 });
 
 describe('the Novice bot with Brann', () => {
+  it('stays with the others, two parts back line to one part front, not with Brann', () => {
+    // Party A placed by hand: Kael in front, Vexis behind, Brann deep on the right.
+    const sim = sandbox({ party: PARTY_A });
+    const w = worldOf(sim);
+    const at = (slot: number, x: number, z: number) =>
+      Object.assign(w.entities.get(w.party[slot]!)!, { x, z, vx: 0, vz: 0 });
+    at(0, 0, -4);
+    at(1, 0, 5);
+    at(2, 12, -21);
+    Object.assign(w.entities.get(w.weaverId)!, { x: -10, z: 2, vx: 0, vz: 0 });
+    const move = makeBot('novice', 1)
+      .decide(sim.state)
+      .find((c) => c.t === 'move');
+    // (Kael + 2 × Vexis) / 3 is (0, 2), due east of her; the whole party's centroid, (4, -6.7),
+    // would take her south-east, toward Brann.
+    expect(move).toBeDefined();
+    if (move?.t !== 'move') return;
+    expect(move.x).toBeGreaterThan(0.9);
+    expect(Math.abs(move.z)).toBeLessThan(0.1);
+  });
+
   it('plays party B deterministically, and parties without Lyra without throwing', () => {
     const a = playEncounter(
       { seed: 77, encounter: 'crimson_gate', ...KIT, party: PARTY_B },

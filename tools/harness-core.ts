@@ -7,6 +7,7 @@ import * as Run from '../src/meta/run';
 import type { ChordLoadout, RunState } from '../src/meta/types';
 import { weaverShare } from '../src/meta/run';
 import {
+  bloodRageBonus,
   chordReserve,
   createSim,
   isWeaverVia,
@@ -66,11 +67,16 @@ export interface EncounterRun {
  * below 40% and 30% life, his downs, the Weaver's (effective, halved) healing on him, the Wards
  * and Perfect Wards he got, what his axe drank and its share of all the healing he took, the
  * Resonance Blood and Silk made, Deathless's windows, and the Rallies he refused out of all the
- * Rallies called.
+ * Rallies called. Blood Rage where he fights: the share of his damage dealt at 60% life or less,
+ * and his Blood Rage bonus weighted by the damage he dealt (0.45 is +45%).
  */
 export interface BrannTally {
   lowShare40: number;
   lowShare30: number;
+  /** His damage dealt (HP and shields) while at ≤ 60% life, as a share of all he dealt. */
+  dealtLow60: number;
+  /** His Blood Rage bonus as he dealt it, weighted by damage. */
+  rageBonus: number;
   downs: number;
   weaverHealOn: number;
   wardsOn: number;
@@ -218,6 +224,9 @@ export class BrannWatch {
   private refused = 0;
   private rallies = 0;
   private rallyTick = -1;
+  private dealt = 0;
+  private dealtLow = 0;
+  private dealtRage = 0;
   private lastTime: number;
   /** The Weaver's Resonance as the last tick ended: the room Blood and Silk had to fill. */
   private lastResonance: number;
@@ -238,8 +247,18 @@ export class BrannWatch {
 
   tick(sim: Sim, events: readonly SimEvent[]): void {
     const state = sim.state;
+    const me = state.entities.get(this.id);
     for (const e of events) {
       switch (e.type) {
+        case 'damageTaken': {
+          if (e.source !== this.id || !me?.health) break;
+          // Read at the tick's end: his life as he swung, give or take one tick's lifesteal.
+          const dealt = e.amount + e.absorbed;
+          this.dealt += dealt;
+          if (me.health.hp <= me.health.maxHp * 0.6) this.dealtLow += dealt;
+          this.dealtRage += dealt * bloodRageBonus(CONTENT, me);
+          break;
+        }
         case 'allyDowned':
           if (e.hero === this.id) this.downs++;
           break;
@@ -303,6 +322,8 @@ export class BrannWatch {
     return {
       lowShare40: alive > 0 ? (b?.lowTime ?? 0) / alive : 0,
       lowShare30: alive > 0 ? (b?.low30Time ?? 0) / alive : 0,
+      dealtLow60: this.dealt > 0 ? this.dealtLow / this.dealt : 0,
+      rageBonus: this.dealt > 0 ? this.dealtRage / this.dealt : 0,
       downs: this.downs,
       weaverHealOn: this.weaverHeal,
       wardsOn: this.wards,

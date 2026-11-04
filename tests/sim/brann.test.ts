@@ -114,18 +114,18 @@ describe('Blood Rage: lifesteal', () => {
   const strike = (w: ReturnType<typeof worldOf>, brann: Entity, enemy: Entity, amount: number) =>
     dealDamage(w, enemy, { source: brann.id, sourceName: 'Brann', amount });
 
-  it('drinks 6% of what he deals, ×3 in a Cued Red Frenzy', () => {
+  it('drinks 4.8% of what he deals, ×3 in a Cued Red Frenzy', () => {
     const { sim, w, brann } = setup();
     const [enemy] = foes(sim, [['bell_brute', 0, -12]]);
     brann.health!.hp = 500;
     strike(w, brann, enemy!, 1000);
     expect(brann.health!.hp).toBeCloseTo(500 + 1000 * BRANN.passive!.lifesteal, 6);
-    expect(brann.hero!.blood!.lifesteal).toBeCloseTo(60, 6);
+    expect(brann.hero!.blood!.lifesteal).toBeCloseTo(48, 6);
     brann.health!.hp = 500;
     startSolo(w, brann, true);
     expect(brann.hero!.soloId).toBe('redFrenzy');
     strike(w, brann, enemy!, 1000);
-    expect(brann.health!.hp).toBeCloseTo(500 + 60 * BRANN.solo.cuedPower, 6);
+    expect(brann.health!.hp).toBeCloseTo(500 + 48 * BRANN.solo.cuedPower, 6);
   });
 
   it('is summed into one healApplied every 0.5 s, sourced to Brann, with no credit for you', () => {

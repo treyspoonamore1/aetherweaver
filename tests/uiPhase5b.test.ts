@@ -161,7 +161,7 @@ describe('Prep: the party picker', () => {
     const p = passiveRow(heroDef('brann'))!;
     expect(p.name).toBe('Blood Rage');
     expect(p.text).toMatch(/\+80% damage/);
-    expect(p.text).toMatch(/6% of what it deals/);
+    expect(p.text).toMatch(/4\.8% of what it deals/);
     expect(p.text).toMatch(/halved/);
     expect(needsRow(heroDef('brann'))).toMatch(/Fermata holds him/);
   });

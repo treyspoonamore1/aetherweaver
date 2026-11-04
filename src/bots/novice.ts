@@ -35,6 +35,7 @@ import {
   isPact,
   isPinned,
   statusStacks,
+  type HeroView,
 } from './common';
 
 export class NoviceBot implements Bot {
@@ -64,7 +65,7 @@ export class NoviceBot implements Bot {
 
     const enemies = enemiesOf(state);
     // Stay with the party (roughly), step out of things that are obviously about to land.
-    const c = centroid(party.map((h) => h.e));
+    const c = centroid(noviceAnchor(party, all).map((h) => h.e));
     const danger = threatsOn(state, w).find((t) => t.impact - now < 0.6);
     if (danger && this.rng.chance(0.5)) {
       this.intent.move(
@@ -206,4 +207,19 @@ export class NoviceBot implements Bot {
     }
     return out;
   }
+}
+
+/**
+ * Who a Novice stays near: the standing party. With Brann (docs/phase-5b.md), who always charges
+ * into the melee, she stays where she would with the default party instead: on the others, two
+ * parts back line to one part front (with Kael and one ranger, the ranger counts twice), so his
+ * charge doesn't pull her into the cleaves aimed at Kael. Without Brann it is the party, as before
+ * (no new draw either way).
+ */
+function noviceAnchor(party: readonly HeroView[], all: readonly HeroView[]): readonly HeroView[] {
+  if (!all.some((h) => h.role === 'berserker')) return party;
+  const rest = party.filter((h) => h.role !== 'berserker');
+  if (rest.length === 0) return party;
+  const back = rest.filter((h) => h.role !== 'tank');
+  return back.length === 1 ? [...rest, back[0]!] : rest;
 }

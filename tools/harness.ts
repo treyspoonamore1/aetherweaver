@@ -251,7 +251,7 @@ function brannLine(runs: readonly EncounterRun[]): string | null {
   if (tallies.length === 0) return null;
   const avg = (f: (b: (typeof tallies)[number]) => number) =>
     tallies.reduce((s, b) => s + f(b), 0) / tallies.length;
-  return `   Brann: below 40% ${pct(avg((b) => b.lowShare40))} · below 30% ${pct(avg((b) => b.lowShare30))} · downs ${avg((b) => b.downs).toFixed(2)} · Weaver heal ${Math.round(avg((b) => b.weaverHealOn))} · Wards ${avg((b) => b.wardsOn).toFixed(1)} (Perfect ${avg((b) => b.perfectsOn).toFixed(1)}) · lifesteal ${Math.round(avg((b) => b.lifesteal))} (${pct(avg((b) => b.lifestealShare))} of his healing) · Blood and Silk ${avg((b) => b.silkResonance).toFixed(1)} · Deathless ${avg((b) => b.deathless).toFixed(1)} · Rallies refused ${avg((b) => b.refusedRallies).toFixed(1)} of ${avg((b) => b.rallies).toFixed(1)}`;
+  return `   Brann: below 40% ${pct(avg((b) => b.lowShare40))} · below 30% ${pct(avg((b) => b.lowShare30))} · dealt at ≤ 60% ${pct(avg((b) => b.dealtLow60))} · rage +${pct(avg((b) => b.rageBonus))} · downs ${avg((b) => b.downs).toFixed(2)} · Weaver heal ${Math.round(avg((b) => b.weaverHealOn))} · Wards ${avg((b) => b.wardsOn).toFixed(1)} (Perfect ${avg((b) => b.perfectsOn).toFixed(1)}) · lifesteal ${Math.round(avg((b) => b.lifesteal))} (${pct(avg((b) => b.lifestealShare))} of his healing) · Blood and Silk ${avg((b) => b.silkResonance).toFixed(1)} · Deathless ${avg((b) => b.deathless).toFixed(1)} · Rallies refused ${avg((b) => b.refusedRallies).toFixed(1)} of ${avg((b) => b.rallies).toFixed(1)}`;
 }
 
 function main(): void {
