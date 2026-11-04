@@ -383,7 +383,7 @@ export const HEROES: ContentInput['heroes'] = [
       weaverHealMult: 0.5,
     },
     needs:
-      'Kept low but alive: Wards and barriers, not heals · Ward the blows aimed at him: he steps out of the rest · Fermata holds him: one Mend tick saves him · Reel him when he won’t Rally · Cue Red Frenzy to heal him.',
+      'Kept low but alive: Wards and barriers, not heals · Ward the blows aimed at him and the room: he steps out of those swung at the others · Fermata holds him: one Mend tick saves him · Reel him when he won’t Rally · Cue Red Frenzy to heal him.',
     recruit: { event: 'bloodsworn_cell', fallback: 'vharun' },
   },
 ];

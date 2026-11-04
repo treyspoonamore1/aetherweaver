@@ -35,6 +35,7 @@ import { empowerBonus } from './thread';
 import {
   BERSERKER_LEASH,
   BERSERKER_SCATTER_GAP,
+  BERSERKER_UNTARGETED_DODGE,
   bloodletCost,
   bloodlusting,
   leapTarget,
@@ -340,12 +341,18 @@ function combatMove(
     // still keeps clear of the other heroes, bloodlusting or not (docs/phase-5b.md).
     chase(e, target, reach);
     if (!lust) leash(weaver, BERSERKER_LEASH);
-    if (hero.follow === 'scatter') {
+    const scatter = hero.follow === 'scatter';
+    if (scatter) {
       keepApart(world, e, BERSERKER_SCATTER_GAP);
       clampToArena(world, desired);
     }
     // He never dodges a blow aimed at him, but he doesn't stand in one aimed at someone else.
     sidestepOthers(world, e);
+    // The Scatter gap wins over the step: it is what breaks a link on him and his neighbour.
+    if (scatter) {
+      keepApart(world, e, BERSERKER_SCATTER_GAP);
+      clampToArena(world, desired);
+    }
   } else if (flank(world, e, def, target)) {
     // Focus on a guarded enemy: out of its arc, whatever the Weaver's leash says.
     clampToArena(world, desired);
@@ -385,11 +392,12 @@ const SIDESTEP_MARGIN = 0.6;
 
 /**
  * Brann has no dodge (`dodge 0`) and never steps out of a blow aimed at him: that one is the
- * Weaver's to Ward. But he doesn't stand in one aimed at someone else (a Toll Cleave swung at
- * Kael, a Twin Cleave at Lyra, a lance at Vexis) or at no one (a burst on the ground): before he
- * moves, `desired` is carried to the nearest point outside each live damage telegraph that holds
- * it and isn't aimed at him. Marks, raids and links hit whoever they name wherever he stands, so
- * they're left alone. Two passes, so clearing one shape doesn't leave him in another. A fixed
+ * Weaver's to Ward. But he doesn't stand in one aimed at another hero (a Toll Cleave swung at
+ * Kael, a Twin Cleave at Lyra, a lance at Vexis): before he moves, `desired` is carried to the
+ * nearest point outside each live damage telegraph that holds it and names another hero as its
+ * target. A blow aimed at no one (`target: null`, a caster-centred burst or donut) he leaves only
+ * by chance (`untargetedDodge`). Marks, raids and links hit whoever they name wherever he stands,
+ * so they're left alone. Two passes, so clearing one shape doesn't leave him in another. A fixed
  * rule, checked every tick: no RNG, and only his own branch of `combatMove` calls it.
  */
 function sidestepOthers(world: World, e: Entity): void {
@@ -402,14 +410,16 @@ function sidestepOthers(world: World, e: Entity): void {
   for (let pass = 0; pass < 2; pass++) {
     let moved = false;
     for (const t of world.telegraphs) {
-      if (t.effect !== 'damage' || t.target === e.id) continue;
+      // Aimed at another hero only: one aimed at no one is his to dodge by chance, as the
+      // starters do (`untargetedDodge`); one aimed at him is the Weaver's to Ward.
+      if (t.effect !== 'damage' || t.target === null || t.target === e.id) continue;
       const k = t.shape.kind;
       if (k === 'mark' || k === 'raid' || k === 'link') continue;
       spot.x = desired.x;
       spot.z = desired.z;
       if (!contains(world, t, body)) continue;
       const out =
-        t.shape.kind === 'cone' ? coneStep(world, t.shape, spot) : escapePoint(world, t, body);
+        t.shape.kind === 'cone' ? coneStep(world, t, t.shape, body) : escapePoint(world, t, body);
       if (!out) continue;
       desired.x = out.x;
       desired.z = out.z;
@@ -419,18 +429,27 @@ function sidestepOthers(world: World, e: Entity): void {
   }
 }
 
+/** The lateral exit `coneStep` weighs against the radial one (`escape`). */
+const lateral = { x: 0, z: 0 };
+
 /**
  * Out of a cone: round its apex to past the edge of its arc at the same distance, which keeps
  * him in reach of the enemy swinging it, or straight out past its radius, whichever is nearer.
- * Standing on the apex itself (the cone always holds that), only the second works.
+ * Standing on the apex itself (the cone always holds that), only the second works. Both points
+ * are clamped to the arena before they're weighed: by a wall the radial exit can be clamped back
+ * into the cone, and then the lateral one wins even when it is farther. `body` is `spot` (see
+ * `sidestepOthers`), moved here to test each point and left where the caller resets it.
  */
 function coneStep(
   world: World,
+  t: Telegraph,
   s: { x: number; z: number; r: number; dirX: number; dirZ: number; halfAngleCos: number },
-  p: { x: number; z: number; radius: number },
+  body: Entity,
 ): { x: number; z: number } {
-  let dx = p.x - s.x;
-  let dz = p.z - s.z;
+  const px = body.x;
+  const pz = body.z;
+  let dx = px - s.x;
+  let dz = pz - s.z;
   let d = len(dx, dz);
   if (d < 1e-3) {
     // Exactly on the apex: out behind it.
@@ -438,26 +457,36 @@ function coneStep(
     dz = -s.dirZ;
     d = 1;
   }
-  const margin = p.radius + SIDESTEP_MARGIN;
+  const margin = body.radius + SIDESTEP_MARGIN;
   const ux = dx / d;
   const uz = dz / d;
   escape.x = s.x + ux * (s.r + margin);
   escape.z = s.z + uz * (s.r + margin);
-  if (d > p.radius + 0.5) {
-    // Turned from the axis toward the side he's on, by the half-angle plus his body's width.
-    const side = s.dirX * dz - s.dirZ * dx >= 0 ? 1 : -1;
-    const hc = Math.max(-1, Math.min(1, s.halfAngleCos));
-    const a = datan2(Math.sqrt(1 - hc * hc), hc) + datan2(margin, d);
-    const c = dcos(a);
-    const sn = dsin(a) * side;
-    const lx = s.x + (s.dirX * c - s.dirZ * sn) * d;
-    const lz = s.z + (s.dirX * sn + s.dirZ * c) * d;
-    if (distSq(p.x, p.z, lx, lz) <= distSq(p.x, p.z, escape.x, escape.z)) {
-      escape.x = lx;
-      escape.z = lz;
-    }
+  clampToArena(world, escape);
+  if (d <= body.radius + 0.5) return escape;
+  // Turned from the axis toward the side he's on, by the half-angle plus his body's width.
+  const side = s.dirX * dz - s.dirZ * dx >= 0 ? 1 : -1;
+  const hc = Math.max(-1, Math.min(1, s.halfAngleCos));
+  const a = datan2(Math.sqrt(1 - hc * hc), hc) + datan2(margin, d);
+  const c = dcos(a);
+  const sn = dsin(a) * side;
+  lateral.x = s.x + (s.dirX * c - s.dirZ * sn) * d;
+  lateral.z = s.z + (s.dirX * sn + s.dirZ * c) * d;
+  clampToArena(world, lateral);
+  const nearer = distSq(px, pz, lateral.x, lateral.z) <= distSq(px, pz, escape.x, escape.z);
+  const outside = (q: { x: number; z: number }) => {
+    body.x = q.x;
+    body.z = q.z;
+    return !contains(world, t, body);
+  };
+  const radialOut = outside(escape);
+  const lateralOut = outside(lateral);
+  // The nearer exit that leaves the cone; with neither out (or both), the nearer.
+  if (radialOut === lateralOut ? nearer : lateralOut) {
+    escape.x = lateral.x;
+    escape.z = lateral.z;
   }
-  return clampToArena(world, escape);
+  return escape;
 }
 
 /**
@@ -1345,7 +1374,10 @@ function noticeTelegraphs(world: World, e: Entity, def: HeroDef): void {
   for (const t of world.telegraphs) {
     if (t.id <= hero.lastTelegraphSeen) continue;
     hero.lastTelegraphSeen = t.id;
-    if (t.kind === 'mark' || t.kind === 'raid' || def.dodge <= 0) continue;
+    // Brann (`dodge 0`) rolls only for a blow aimed at no one (`untargetedDodge`); every other
+    // hero's chance, and so every roll a default party draws, is its `dodge` as before.
+    const chance = def.dodge > 0 ? def.dodge : untargetedDodge(def, t);
+    if (t.kind === 'mark' || t.kind === 'raid' || chance <= 0) continue;
     // A pinned hero can't step out (no roll is drawn: pins exist only in Movement II).
     if (hasStatus(e, 'pinned')) continue;
     if (!contains(world, t, e)) continue;
@@ -1366,7 +1398,7 @@ function noticeTelegraphs(world: World, e: Entity, def: HeroDef): void {
         continue;
       }
     }
-    if (!world.rng.ai.chance(def.dodge)) continue;
+    if (!world.rng.ai.chance(chance)) continue;
     const escape = escapePoint(world, t, e);
     if (!escape) continue;
     const reaction = 0.3 + world.rng.ai.float() * 0.45;
@@ -1393,6 +1425,19 @@ function noticeTelegraphs(world: World, e: Entity, def: HeroDef): void {
       hero.castName = null;
     }
   }
+}
+
+/**
+ * Brann's chance to step out of a telegraph he notices (his `dodge` is 0): a damage blow on the
+ * ground aimed at no one, `BERSERKER_UNTARGETED_DODGE`; 0 for everything else, and for every
+ * other hero. A blow aimed at another hero he walks out of with no roll (`sidestepOthers`).
+ */
+function untargetedDodge(def: HeroDef, t: Telegraph): number {
+  if (def.role !== 'berserker' || t.effect !== 'damage' || t.target !== null) return 0;
+  const k = t.shape.kind;
+  return k === 'circle' || k === 'donut' || k === 'cone' || k === 'line'
+    ? BERSERKER_UNTARGETED_DODGE
+    : 0;
 }
 
 const escape = { x: 0, z: 0 };

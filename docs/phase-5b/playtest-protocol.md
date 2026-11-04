@@ -96,7 +96,7 @@ bands" in the design). Then read again with a fresh reader or player. In order o
 - **G4:** the Bloodlust chip and the refused-Rally hint; the 'refused' glyph on the Rally ack.
 - **G5:** `downAdvice`'s wording (`src/meta/run.ts`).
 - **G6:** the brass trim's size on the model (not its colour: `#a6a650` is held by the ΔE tests).
-- **G7:** his Needs row and Codex line ('Ward the blows aimed at him: he steps out of the rest').
+- **G7:** his Needs row and Codex line ('Ward the blows aimed at him and the room: he steps out of those swung at the others').
   His movement is the bands' business, like his numbers.
 
 Record the result here, under a dated heading, with what changed and the new scores.

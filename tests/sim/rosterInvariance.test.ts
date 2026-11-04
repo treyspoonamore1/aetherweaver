@@ -150,5 +150,6 @@ describe('the default party is invariant under the roster (docs/phase-5b.md)', (
       const fresh = projectRun(expeditionRun(bot, 0), kept.runs[index]);
       expect(fresh, bot).toEqual(kept.runs[index]);
     }
-  });
+    // Two whole runs: about 3 s alone, past vitest's 5 s default on a loaded machine.
+  }, 60_000);
 });

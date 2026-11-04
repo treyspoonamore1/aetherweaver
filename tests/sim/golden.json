@@ -1,6 +1,6 @@
 {
   "simVersion": 22,
-  "contentVersion": "c-2eaf6974f5775748",
+  "contentVersion": "c-4fa60f70f5775748",
   "scenarios": {
     "patrol": "2626acee5ce8d584",
     "crowd": "323bd3a88aea3f1b",
@@ -11,7 +11,7 @@
     "novice-matriarch": "c189c9db37b9b5f0",
     "skilled-vharun": "0d468d6046318cd6",
     "skilled-brann-crimson-gate": "5831f3df358d5c5d",
-    "skilled-brann-bellwarden": "945ec25ec28cc0f1",
+    "skilled-brann-bellwarden": "10e99af8f2dd8003",
     "novice-brann-first-light": "9ba4ea40f94cd1aa"
   }
 }

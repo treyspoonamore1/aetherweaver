@@ -515,7 +515,9 @@ describe('no rng.ai', () => {
     return fromHeroes;
   }
 
-  it('Brann never draws from rng.ai (dodge 0), through a whole fight', () => {
+  // His one roll is for a blow aimed at no one (tests/sim/brannSidestep.test.ts); this fight
+  // has none, so he draws nothing.
+  it('Brann never draws from rng.ai for blows aimed at a hero (dodge 0), through a whole fight', () => {
     expect(BRANN.dodge).toBe(0);
     expect(heroDraws('brann')).toBe(0);
     // The probe works: Lyra (dodge > 0) rolls her dodges in the same fight.

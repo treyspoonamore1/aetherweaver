@@ -329,6 +329,15 @@ export const BERSERKER_LEASH = 11;
 export const BERSERKER_SCATTER_GAP = 6.5;
 
 /**
+ * The berserker's `dodge` is 0: he never steps out of a blow aimed at him, and he walks out of
+ * one aimed at another hero by where he stands (`sidestepOthers`, no roll). A blow aimed at no
+ * one (`target: null`: the Bellwarden's Tolls round itself, a volatile enemy's Shatter) is aimed
+ * at him as much as at anyone, so he only steps out of it by chance, as the starters do: this
+ * chance, rolled on `rng.ai` when he notices it (docs/phase-5b.md).
+ */
+export const BERSERKER_UNTARGETED_DODGE = 0.2;
+
+/**
  * Sunder Leap's target (docs/phase-5b.md): an enemy `minRange`-`range` m away — your Focus
  * first, then an interruptible caster, then the nearest. None while he holds (a Hold, or
  * Fermata), while pinned or latched (rooted, or held by a Leech: a Reel frees him), while he

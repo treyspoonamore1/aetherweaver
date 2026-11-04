@@ -165,7 +165,8 @@ describe('whole runs (playRun)', () => {
     const prelude = playRun(1, 'skilled');
     expect(prelude.movementReached).toBe(1);
     expect(prelude.minutesByMovement.length).toBe(1);
-  });
+    // Two whole runs: about 3 s alone, past vitest's 5 s default on a loaded machine.
+  }, 60_000);
 });
 
 // ── The roster (docs/phase-5b.md, "Bots and harness") ────────────────────────────────
