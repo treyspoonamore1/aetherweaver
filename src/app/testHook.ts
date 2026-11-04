@@ -15,6 +15,7 @@ import type { CombatOutcome, MapNode, RunState } from '../meta/types';
 import { encounterDef, heroDef, inscriptionDef } from '../content';
 import { emptyLedger } from '../sim/world';
 import { useUi } from '../ui/store';
+import { startDemo } from './demo';
 import { useProfile } from './profileStore';
 import { useRun } from './runStore';
 import type { GameRuntime } from './runtime';
@@ -147,6 +148,8 @@ export function installRunHook(): void {
       useProfile.getState().recruit(heroIds);
       return useProfile.getState().roster();
     },
+    veteran: () => startDemo('veteran', { recruit: false }),
+    party: () => run().run?.party.map((h) => h.heroId) ?? null,
     calling: () => {
       const c = run().run?.calling;
       return c ? { id: c.id, path: [...c.path] } : null;

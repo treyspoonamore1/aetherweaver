@@ -56,6 +56,24 @@ async function holdKey(page: Page, code: string, ticks: number): Promise<void> {
   await page.keyboard.up(code);
 }
 
+/**
+ * Phase 5b: what Prep shows of the party (docs/phase-5b.md, "Choosing the party"). With three
+ * heroes in the roster there is no picker; with more (Skip the unlocks, or a recruit) it opens on
+ * the default party, so a flow that never touches it embarks Kael, Lyra and Vexis with no clicks.
+ */
+async function expectDefaultPrep(page: Page, picker: boolean): Promise<void> {
+  await expect(page.getByTestId('prep-party')).toHaveCount(picker ? 1 : 0);
+  if (picker) {
+    for (const h of CONTENT.heroes) {
+      const card = page.getByTestId(`prep-pick-${h.id}`);
+      if (CONTENT.defaultParty.includes(h.id))
+        await expect(card).toHaveAttribute('data-selected', 'true');
+      else await expect(card).not.toHaveAttribute('data-selected');
+    }
+  }
+  expect(await page.evaluate(() => window.__AWRUN__!.party())).toEqual(CONTENT.defaultParty);
+}
+
 const weaverOf = (page: Page) =>
   page.evaluate(() => window.__AW__!.snapshot().entities.find((e) => e.kind === 'weaver')!);
 
@@ -177,11 +195,13 @@ test('a Prelude run: Prep → Map → an autoplayed fight → Result → Draft �
   await page.evaluate(() => window.__AWRUN__!.newRun(4242));
   await expect.poll(() => page.evaluate(() => window.__AWRUN__!.phase())).toBe('prep');
   const xpBefore = await page.evaluate(() => window.__AWRUN__!.weaverXp());
+  await expectDefaultPrep(page, false);
   await page
     .getByRole('button', { name: /Embark/i })
     .first()
     .click();
   await expect.poll(() => page.evaluate(() => window.__AWRUN__!.phase())).toBe('map');
+  expect(await page.evaluate(() => window.__AWRUN__!.party())).toEqual(CONTENT.defaultParty);
 
   // The first node is always First Light.
   expect(await page.evaluate(() => window.__AWRUN__!.choose())).toBe('skirmish');
@@ -239,11 +259,13 @@ test('Phase 5a: an Expedition — past the Hollow Cantor into Movement II, Vharu
   await page.evaluate(() => window.__AWRUN__!.newRun(4242, 'expedition'));
   await expect.poll(phase).toBe('prep');
   expect(await movement()).toEqual({ movements: 2, here: 1, map: 1 });
+  await expectDefaultPrep(page, true);
   await page
     .getByRole('button', { name: /Embark/i })
     .first()
     .click();
   await expect.poll(phase).toBe('map');
+  expect(await page.evaluate(() => window.__AWRUN__!.party())).toEqual(CONTENT.defaultParty);
 
   // To Movement II's doorstep: the Cantor behind, the Crimson Gate next.
   expect(await page.evaluate(() => window.__AWRUN__!.warpMovement(2))).toBe('map');
@@ -364,11 +386,13 @@ test('Phase 3b: a merchant through the test hook — buy, the purse drops, leave
   await page.goto(START_URL);
   await page.waitForFunction(() => window.__AWRUN__ !== undefined);
   await page.evaluate(() => window.__AWRUN__!.newRun(4242));
+  await expectDefaultPrep(page, false);
   await page
     .getByRole('button', { name: /Embark/i })
     .first()
     .click();
   await expect.poll(() => page.evaluate(() => window.__AWRUN__!.phase())).toBe('map');
+  expect(await page.evaluate(() => window.__AWRUN__!.party())).toEqual(CONTENT.defaultParty);
   // The purse on screen, not just the store: a run starts with none.
   await expect(page.getByRole('status', { name: '0 Aether' }).first()).toBeVisible();
 
@@ -408,11 +432,13 @@ test('Phase 3c: the Luminary — skip the unlocks, choose it in Prep, win First 
     id: 'luminary',
     path: [null, null, null, null],
   });
+  await expectDefaultPrep(page, true);
   await page
     .getByRole('button', { name: /Embark/i })
     .first()
     .click();
   await expect.poll(() => page.evaluate(() => window.__AWRUN__!.phase())).toBe('map');
+  expect(await page.evaluate(() => window.__AWRUN__!.party())).toEqual(CONTENT.defaultParty);
   // The strip carries the Calling; First Light is marked as the fight that grows it.
   await expect(page.getByTestId('calling-strip')).toBeVisible();
   await expect(page.getByTestId('calling-mark').first()).toBeVisible();
@@ -463,11 +489,13 @@ test('Phase 3d: the Martyr — choose her in Prep, the Life budget, her HUD and 
   expect(await page.evaluate(() => window.__AWRUN__!.reservePool())).toBe('life');
   // The builder's budget is her Life now.
   await expect(page.getByTestId('life-budget')).toBeVisible();
+  await expectDefaultPrep(page, true);
   await page
     .getByRole('button', { name: /Embark/i })
     .first()
     .click();
   await expect.poll(() => page.evaluate(() => window.__AWRUN__!.phase())).toBe('map');
+  expect(await page.evaluate(() => window.__AWRUN__!.party())).toEqual(CONTENT.defaultParty);
 
   // Into First Light: the Weaver bar shows what her songs hold of her Life, Spirit all free.
   expect(await page.evaluate(() => window.__AWRUN__!.choose())).toBe('skirmish');
@@ -518,11 +546,13 @@ test('Phase 3e: the Chronomancer — choose him in Prep, Rewind in Reel’s slot
   });
   // His songs reserve Spirit, as always.
   expect(await page.evaluate(() => window.__AWRUN__!.reservePool())).toBe('spirit');
+  await expectDefaultPrep(page, true);
   await page
     .getByRole('button', { name: /Embark/i })
     .first()
     .click();
   await expect.poll(() => page.evaluate(() => window.__AWRUN__!.phase())).toBe('map');
+  expect(await page.evaluate(() => window.__AWRUN__!.party())).toEqual(CONTENT.defaultParty);
 
   // Into First Light.
   expect(await page.evaluate(() => window.__AWRUN__!.choose())).toBe('skirmish');
@@ -630,11 +660,13 @@ test('Phase 4: the Astrolabe — from Prep, take, give back, respec, a keystone�
   await expect(page.getByTestId('keystone-chips')).toContainText('Prism Covenant');
 
   // Embark: the first fight's config carries the tree (the sim keeps it sorted).
+  await expectDefaultPrep(page, true);
   await page
     .getByRole('button', { name: /Embark/i })
     .first()
     .click();
   await expect.poll(() => page.evaluate(() => window.__AWRUN__!.phase())).toBe('map');
+  expect(await page.evaluate(() => window.__AWRUN__!.party())).toEqual(CONTENT.defaultParty);
   expect(await page.evaluate(() => window.__AWRUN__!.astrolabe().run)).toEqual(tree);
   expect(await page.evaluate(() => window.__AWRUN__!.choose())).toBe('skirmish');
   await expect.poll(() => page.evaluate(() => window.__AWRUN__!.phase())).toBe('combat');
@@ -663,11 +695,13 @@ test('Phase 4b: Deeds — a fight earns two, their toasts follow the rank-up car
   await page.waitForFunction(() => window.__AWRUN__ !== undefined);
   await page.evaluate(() => window.__AWRUN__!.newRun(4242));
   await expect.poll(phase).toBe('prep');
+  await expectDefaultPrep(page, false);
   await page
     .getByRole('button', { name: /Embark/i })
     .first()
     .click();
   await expect.poll(phase).toBe('map');
+  expect(await page.evaluate(() => window.__AWRUN__!.party())).toEqual(CONTENT.defaultParty);
 
   // First Light, a plain win: no Deed, no toast.
   expect(await page.evaluate(() => window.__AWRUN__!.choose())).toBe('skirmish');
@@ -822,11 +856,13 @@ test('Phase 4c: the Reliquary — from Prep, craft, carry and attune, embark wit
   ).toHaveAttribute('data-dormant', 'true');
 
   // Embark: the map's strip marks both, attuned and dormant; a tooltip lists the Inscriptions.
+  await expectDefaultPrep(page, true);
   await page
     .getByRole('button', { name: /Embark/i })
     .first()
     .click();
   await expect.poll(phase).toBe('map');
+  expect(await page.evaluate(() => window.__AWRUN__!.party())).toEqual(CONTENT.defaultParty);
   const badge = (id: string) => page.locator(`[data-testid="relic-badge"][data-relic="${id}"]`);
   await expect(badge('cantors_hymnal')).toHaveAttribute('data-carried', 'attuned');
   await expect(badge('prism_loom')).toHaveAttribute('data-carried', 'dormant');
@@ -959,11 +995,13 @@ test('Phase 4d: Dissonance — choose levels in Prep, embark, the fight plays th
   expect(d.run).toMatchObject({ levels, points, end: null });
 
   // Embark: the run keeps them; the fight's config plays them, and the HUD says so.
+  await expectDefaultPrep(page, true);
   await page
     .getByRole('button', { name: /Embark/i })
     .first()
     .click();
   await expect.poll(phase).toBe('map');
+  expect(await page.evaluate(() => window.__AWRUN__!.party())).toEqual(CONTENT.defaultParty);
   expect(await page.evaluate(() => window.__AWRUN__!.choose())).toBe('skirmish');
   await expect.poll(phase).toBe('combat');
   await page.waitForFunction(() => window.__AW__ !== undefined);
@@ -1083,11 +1121,13 @@ test('Phase 4e: Bonds — choose talents and a Solo on the Bonds screen, embark 
   ]);
 
   // Embark: the fight's config carries them; the HUD names Vexis's Solo.
+  await expectDefaultPrep(page, true);
   await page
     .getByRole('button', { name: /Embark/i })
     .first()
     .click();
   await expect.poll(phase).toBe('map');
+  expect(await page.evaluate(() => window.__AWRUN__!.party())).toEqual(CONTENT.defaultParty);
   expect(await page.evaluate(() => window.__AWRUN__!.choose())).toBe('skirmish');
   await expect.poll(phase).toBe('combat');
   await page.waitForFunction(() => window.__AW__ !== undefined);
@@ -1214,11 +1254,13 @@ test('Phase 4f: technique variants — choose in Prep with Skip the unlocks, emb
   expect(await techniques()).toMatchObject({ all: true, owned: [], chosen, run: chosen });
 
   // Embark: the fight's config plays them, and the Weaver bar names them.
+  await expectDefaultPrep(page, true);
   await page
     .getByRole('button', { name: /Embark/i })
     .first()
     .click();
   await expect.poll(phase).toBe('map');
+  expect(await page.evaluate(() => window.__AWRUN__!.party())).toEqual(CONTENT.defaultParty);
   expect(await page.evaluate(() => window.__AWRUN__!.choose())).toBe('skirmish');
   await expect.poll(phase).toBe('combat');
   await page.waitForFunction(() => window.__AW__ !== undefined);
@@ -1480,11 +1522,13 @@ test('Phase 4g: Starlight — a won fight’s Result shows what it paid', async 
   await page.waitForFunction(() => window.__AWRUN__ !== undefined);
   await page.evaluate(() => window.__AWRUN__!.newRun(4242));
   await expect.poll(phase).toBe('prep');
+  await expectDefaultPrep(page, false);
   await page
     .getByRole('button', { name: /Embark/i })
     .first()
     .click();
   await expect.poll(phase).toBe('map');
+  expect(await page.evaluate(() => window.__AWRUN__!.party())).toEqual(CONTENT.defaultParty);
   // First Light, a skirmish, won through the hook.
   expect(await page.evaluate(() => window.__AWRUN__!.choose())).toBe('skirmish');
   await expect.poll(phase).toBe('combat');
@@ -1502,6 +1546,100 @@ test('Phase 4g: Starlight — a won fight’s Result shows what it paid', async 
   // A new profile is below the Atelier's Rank: the line says when it opens.
   await expect(gain.getByTestId('starlight-use')).toContainText(
     `Weaver Rank ${CONTENT.starlight.atelierRank}`,
+  );
+  expect(errors).toEqual([]);
+});
+
+test('Phase 5b: the roster — a veteran recruits Brann, picks him in Prep, fights beside him; his frame and his Summary line', async ({
+  page,
+}) => {
+  // A whole First Light, autoplayed, under SwiftShader.
+  test.setTimeout(480_000);
+  const errors = trackErrors(page);
+  const phase = () => page.evaluate(() => window.__AWRUN__!.phase());
+  await page.goto(START_URL);
+  await page.waitForFunction(() => window.__AWRUN__ !== undefined);
+  // The demo's veteran, with Brann still in his cell: three heroes, so Prep is today's.
+  await page.evaluate(() => window.__AWRUN__!.veteran());
+  await page.evaluate(() => window.__AWRUN__!.newRun(5150));
+  await expect.poll(phase).toBe('prep');
+  await expectDefaultPrep(page, false);
+  await expect(page.getByTestId('prep-passive-brann')).toHaveCount(0);
+
+  // Freed (the hook stands in for the Cell's fight): the roster is four, and Prep's picker opens
+  // on the default party.
+  expect(await page.evaluate(() => window.__AWRUN__!.recruit(['brann']))).toEqual([
+    'kael',
+    'lyra',
+    'vexis',
+    'brann',
+  ]);
+  await expectDefaultPrep(page, true);
+  // A full pick: Brann waits for a hero to be dropped.
+  await expect(page.getByTestId('prep-pick-brann')).toContainText('Drop one first');
+  await page.getByTestId('prep-pick-vexis').click();
+  await expect(page.getByTestId('prep-pick-vexis')).not.toHaveAttribute('data-selected');
+  await page.getByTestId('prep-pick-brann').click();
+  await expect(page.getByTestId('prep-pick-brann')).toHaveAttribute('data-selected', 'true');
+  // Content order: he takes the third key.
+  await expect(page.getByTestId('prep-pick-brann')).toHaveAttribute('data-key', '3');
+  // No Vexis: Prep names what the party now lacks. His card: the Passive and Needs rows.
+  await expect(page.getByTestId('prep-party-notes')).toContainText('Gravity Well');
+  await expect(page.getByTestId('prep-passive-brann')).toContainText('Blood Rage');
+  await expect(page.getByTestId('prep-needs-brann')).toContainText('Wards and barriers');
+  expect(await page.evaluate(() => window.__AWRUN__!.party())).toEqual(['kael', 'lyra', 'brann']);
+  await page
+    .getByRole('button', { name: /Embark/i })
+    .first()
+    .click();
+  await expect.poll(phase).toBe('map');
+  expect(await page.evaluate(() => window.__AWRUN__!.party())).toEqual(['kael', 'lyra', 'brann']);
+
+  // First Light, beside him.
+  expect(await page.evaluate(() => window.__AWRUN__!.choose())).toBe('skirmish');
+  await expect.poll(phase).toBe('combat');
+  await page.waitForFunction(() => window.__AW__ !== undefined);
+  await expect.poll(() => page.evaluate(() => window.__AW__!.encounter().id)).toBe('first_light');
+  const begin = page.getByRole('button', { name: /Begin the fight/i });
+  if (await begin.isVisible()) await begin.click();
+  const config = await page.evaluate(() => window.__AW__!.exportReplay().config);
+  expect((config.party ?? []).map((h) => h.heroId)).toEqual(['kael', 'lyra', 'brann']);
+  // His frame: key 3, his Bloodlust and critical lines on the bar, his raging band.
+  const frame = page.getByTestId('party-frames').getByRole('button', { name: /^Thread Brann/ });
+  await expect(frame.getByTestId('frame-key')).toHaveAttribute('data-key', '3');
+  await expect(frame.getByTestId('blood-tick')).toHaveCount(2);
+  await expect(frame.getByTestId('raging-band')).toHaveCount(1);
+  // The starters' frames have none of it.
+  const kael = page.getByTestId('party-frames').getByRole('button', { name: /^Thread Kael/ });
+  await expect(kael.getByTestId('blood-tick')).toHaveCount(0);
+  await page.evaluate(() => window.__AW__!.autoplay('skilled'));
+  await page.evaluate(() => window.__AW__!.setDevTimeScale(2));
+  // Once the fight is on, his first fight beside you shows the 'New ally' card.
+  await expect(page.getByTestId('new-ally')).toHaveAttribute('data-ally', 'brann', {
+    timeout: 30_000,
+  });
+  // Hurt, he hits harder: Blood Rage's chip.
+  await expect(frame.getByTestId('blood-rage')).toBeVisible({ timeout: 120_000 });
+  await expect.poll(phase, { timeout: 420_000, intervals: [2000] }).toBe('result');
+  expect(await page.evaluate(() => window.__AWRUN__!.outcome())).toBeNull();
+  // The Result: his fight's line.
+  if ((await page.getByTestId('rank-up').count()) > 0)
+    await page.getByRole('button', { name: /Onward/ }).click();
+  await expect(page.getByTestId('blood-line')).toContainText(
+    /^Under 40%: \d+% of the fight · Lifesteal [\d,]+ · Your healing on him: halved$/,
+  );
+  await page.evaluate(() => window.__AWRUN__!.continue());
+  await expect.poll(phase).toBe('draft');
+  await page.evaluate(() => window.__AWRUN__!.pick(0));
+  await expect.poll(phase).toBe('map');
+
+  // The run won through the hook: the Summary carries his line for the run.
+  expect(await page.evaluate(() => window.__AWRUN__!.winRun())).toBe(true);
+  await expect.poll(phase).toBe('summary');
+  if ((await page.getByTestId('rank-up').count()) > 0)
+    await page.getByRole('button', { name: /Onward/ }).click();
+  await expect(page.getByTestId('blood-line')).toContainText(
+    /^Under 40%: \d+% of the run · Lifesteal [\d,]+ · Your healing on him: halved$/,
   );
   expect(errors).toEqual([]);
 });

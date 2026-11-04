@@ -133,11 +133,18 @@ export interface RunHook {
    * kept in content order) and returns the run's party after it (null without a run).
    */
   setParty(heroIds: string[]): string[] | null;
+  /** Phase 5b: the run's party, in slot order (null without a run). */
+  party(): string[] | null;
   /**
    * Phase 5b, test-only: recruits these heroes into the profile's roster (the store's `recruit`)
    * and returns the roster after it.
    */
   recruit(heroIds: string[]): string[];
+  /**
+   * Phase 5b, test-only: starts over as the playtest demo's veteran (`startDemo('veteran')`:
+   * Rank 12, Bonds at rank 4, Expeditions), with Brann still in his cell, so a test recruits him.
+   */
+  veteran(): void;
   /** The run's Calling and its path so far (null: none). */
   calling(): { id: string; path: (string | null)[] } | null;
   /** Phase 3d: what the run's songs reserve (`Run.reservePool`: Life on a Martyr run). */

@@ -23,8 +23,9 @@ export const VETERAN_RANK = 12;
  * Astrolabe's points left to spend, Starlight, a variant owned, the Luminary mastered and the
  * Martyr on her way, Brann recruited, Bonds at rank 4 (their first talents), a won run's Deed, and two relics
  * enshrined with materials to craft, Prism Loom carried. Their runs are Expeditions.
+ * `recruit: false` leaves Brann in his cell (the e2e roster smoke recruits him itself).
  */
-export function startDemo(kind: DemoStart): void {
+export function startDemo(kind: DemoStart, { recruit = true }: { recruit?: boolean } = {}): void {
   useRun.getState().closeRun();
   const store = useProfile.getState();
   store.resetProgress();
@@ -40,9 +41,11 @@ export function startDemo(kind: DemoStart): void {
   store.awardMastery('martyr', 480);
   // Brann freed from his cell on an earlier Expedition (docs/phase-5b.md), so Prep picks 3 of 4,
   // his Bond level with the others'.
-  store.recruit(['brann']);
-  useProfile.getState().clearRecruitNotices();
-  store.awardBonds({ kael: 440, lyra: 440, vexis: 440, brann: 440 });
+  if (recruit) {
+    store.recruit(['brann']);
+    useProfile.getState().clearRecruitNotices();
+  }
+  store.awardBonds({ kael: 440, lyra: 440, vexis: 440, ...(recruit ? { brann: 440 } : {}) });
   useProfile.getState().dismissBondNotices();
   // A run won: its Deed lights the Hall of Deeds, and the record counts it.
   store.recordDeeds({ ...Run.newRun(1), outcome: 'victory' });
