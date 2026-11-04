@@ -1010,13 +1010,15 @@ describe('the Skilled bot with Brann in play (parties A, B and C)', () => {
   });
 
   /**
-   * The band (docs/phase-5b.md, "Bands": below 40% for ≥ 40% of his alive time). Measured with
-   * W1's numbers over 10 seeds on the Crimson Gate: A 3%, B 9%, C 2%; the Skilled bot already
-   * leaves him alone above his floor (the staged test above), and in this short fight nothing
-   * else takes him that low. Reaching the band is Brann's own numbers' job (W7's tuning order:
-   * Bloodletting, lifesteal, threatMult, armour), so it's kept here, skipped, to unskip then.
+   * The band (docs/phase-5b.md, "Bands": below 40% for ≥ 40% of his alive time). Still missed
+   * after W7's tuning (docs/phase-5b.md, "Measured bands"), so it stays skipped. Measured share
+   * on the Crimson Gate with the tuned numbers (lifesteal 6%, Bloodletting 12%, armour 0.25),
+   * 50 seeds from 1000 / from 500003: A 8% / 11%, B 4% / 3%, C 4% / 6%; on this test's 4 seeds
+   * A 8%, B 0%, C 0%. The Skilled bot already leaves him alone above his floor (the staged test
+   * above); in this 40 s fight he takes about 1,200 and heals about 1,000 (the field's aura and
+   * his axe), and no number within its ±20% lever closes that gap.
    */
-  it.skip('keeps Brann below 40% for at least 40% of his alive time (band; W7 tunes to it)', () => {
+  it.skip('keeps Brann below 40% for at least 40% of his alive time (band; missed after W7 tuning)', () => {
     for (const [name, party] of Object.entries(PARTIES)) {
       let low = 0;
       for (const seed of [1000, 8919, 16838, 24757]) {

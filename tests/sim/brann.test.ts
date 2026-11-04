@@ -114,18 +114,18 @@ describe('Blood Rage: lifesteal', () => {
   const strike = (w: ReturnType<typeof worldOf>, brann: Entity, enemy: Entity, amount: number) =>
     dealDamage(w, enemy, { source: brann.id, sourceName: 'Brann', amount });
 
-  it('drinks 8% of what he deals, ×3 in a Cued Red Frenzy', () => {
+  it('drinks 6% of what he deals, ×3 in a Cued Red Frenzy', () => {
     const { sim, w, brann } = setup();
     const [enemy] = foes(sim, [['bell_brute', 0, -12]]);
     brann.health!.hp = 500;
     strike(w, brann, enemy!, 1000);
     expect(brann.health!.hp).toBeCloseTo(500 + 1000 * BRANN.passive!.lifesteal, 6);
-    expect(brann.hero!.blood!.lifesteal).toBeCloseTo(80, 6);
+    expect(brann.hero!.blood!.lifesteal).toBeCloseTo(60, 6);
     brann.health!.hp = 500;
     startSolo(w, brann, true);
     expect(brann.hero!.soloId).toBe('redFrenzy');
     strike(w, brann, enemy!, 1000);
-    expect(brann.health!.hp).toBeCloseTo(500 + 80 * BRANN.solo.cuedPower, 6);
+    expect(brann.health!.hp).toBeCloseTo(500 + 60 * BRANN.solo.cuedPower, 6);
   });
 
   it('is summed into one healApplied every 0.5 s, sourced to Brann, with no credit for you', () => {
@@ -154,12 +154,15 @@ describe('Blood Rage: lifesteal', () => {
     brann.health!.hp = 400;
     addStatus(w, brann, 'wound', 30, null);
     strike(w, brann, enemy!, 1000);
-    expect(brann.health!.hp).toBeCloseTo(400 + 80 * (1 - HEAL_CUT), 6);
+    expect(brann.health!.hp).toBeCloseTo(400 + 1000 * BRANN.passive!.lifesteal * (1 - HEAL_CUT), 6);
     w.field.sanctuary = { pools: [], healMult: 0.5, reformAt: 1e9 };
     expect(healReceivedMult(w, brann)).toBeCloseTo((1 - HEAL_CUT) * 0.5, 9);
     brann.health!.hp = 400;
     strike(w, brann, enemy!, 1000);
-    expect(brann.health!.hp).toBeCloseTo(400 + 80 * (1 - HEAL_CUT) * 0.5, 6);
+    expect(brann.health!.hp).toBeCloseTo(
+      400 + 1000 * BRANN.passive!.lifesteal * (1 - HEAL_CUT) * 0.5,
+      6,
+    );
 
     const held = setup();
     const [e2] = foes(held.sim, [['bell_brute', 0, -12]]);
@@ -264,9 +267,9 @@ describe('the axe', () => {
 describe('Bloodletting', () => {
   const bloodletting = BRANN.abilities[1];
 
-  it('costs a tenth of his life, never past its floor', () => {
+  it('costs 12% of his life, never past its floor', () => {
     expect(bloodletting.id).toBe('bloodletting');
-    expect(bloodletCost(MAX, MAX, bloodletting)).toBeCloseTo(MAX * 0.1, 9);
+    expect(bloodletCost(MAX, MAX, bloodletting)).toBeCloseTo(MAX * 0.12, 9);
     expect(bloodletCost(MAX * 0.25, MAX, bloodletting)).toBeCloseTo(MAX * 0.05, 9);
     expect(bloodletCost(MAX * 0.2, MAX, bloodletting)).toBe(0);
     expect(bloodletCost(MAX * 0.1, MAX, bloodletting)).toBe(0);
@@ -291,8 +294,8 @@ describe('Bloodletting', () => {
     const spent = ofType(events, 'lifeSpent');
     expect(spent).toHaveLength(1);
     expect(spent[0]!.hero).toBe(brann.id);
-    expect(spent[0]!.amount).toBeCloseTo(MAX * 0.1, 6);
-    expect(brann.hero!.blood!.spent).toBeCloseTo(MAX * 0.1, 6);
+    expect(spent[0]!.amount).toBeCloseTo(MAX * 0.12, 6);
+    expect(brann.hero!.blood!.spent).toBeCloseTo(MAX * 0.12, 6);
     // The first empowered swing went straight out after it.
     expect(brann.hero!.blood!.bloodlet).toBe(2);
     expect(ofType(events, 'damageTaken').filter((d) => d.target === brann.id)).toHaveLength(0);
