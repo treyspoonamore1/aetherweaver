@@ -175,7 +175,7 @@ describe('Brann’s downs name their answer on the Result and the Summary', () =
     );
     const r = withDeaths([
       down({ refusedRally: true, healCut: 0.5 }),
-      down({ refusedRally: false, healCut: 0.25 }),
+      down({ refusedRally: false, healCut: 0.25, bloodmoon: true }),
     ]);
     const html = renderToStaticMarkup(
       createElement(ResultView, { run: r, result: r.lastResult!, onContinue: () => {} }),

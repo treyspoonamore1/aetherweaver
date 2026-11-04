@@ -1323,6 +1323,7 @@ function downHero(
           world.mods.heroHealMult *
           healReceivedMult(world, e) *
           weaverHealCut(world.content, e, 'mend'),
+        ...(world.field.sanctuary && !inSanctuary(world, e) ? { bloodmoon: true as const } : {}),
       }
     : undefined;
   hero.hold = null;

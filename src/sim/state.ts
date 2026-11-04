@@ -728,9 +728,10 @@ export interface DeathRecord {
   answers?: AnswerTag[];
   /**
    * A Blood Rage hero's down (docs/phase-5b.md): a refused Rally was still live, and the Weaver-heal
-   * multiplier at that moment. Set only for a hero with `blood`.
+   * multiplier at that moment; `bloodmoon` (present only when true): the Bloodmoon's cut was on him,
+   * outside every pool, so the recap can tell it from a Wound's. Set only for a hero with `blood`.
    */
-  blood?: { refusedRally: boolean; healCut: number };
+  blood?: { refusedRally: boolean; healCut: number; bloodmoon?: true };
 }
 
 export type LedgerMarkerKind =

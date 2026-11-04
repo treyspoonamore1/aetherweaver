@@ -177,7 +177,11 @@ export function onBloodHit(world: World, source: Entity, _target: Entity, dealt:
   }
 }
 
-/** Blood Brother (Brann's alternate Solo): his axe feeds the hero you Thread, not him. */
+/**
+ * Blood Brother (Brann's alternate Solo): his axe feeds the hero you Thread, not him. He is never
+ * one of the heroes it feeds (Threaded, or in your field when Cued): during it he gets no
+ * lifesteal at all (docs/phase-5b.md).
+ */
 function bloodBrother(world: World, brann: Entity, dealt: number): void {
   const cued = brann.hero!.soloCued;
   const share = soloValue(world, 'blood_brother', cued ? 'cuedPct' : 'pct') / 100;
@@ -185,6 +189,7 @@ function bloodBrother(world: World, brann: Entity, dealt: number): void {
   if (cued) {
     for (const id of world.party) {
       const ally = world.entities.get(id);
+      if (ally === brann) continue;
       if (isActive(ally) && ally.hero?.inField) heal(world, ally, dealt * share, 'solo');
     }
     return;
@@ -192,7 +197,7 @@ function bloodBrother(world: World, brann: Entity, dealt: number): void {
   const slot = world.entities.get(world.weaverId)?.weaver?.threadSlot;
   if (slot === null || slot === undefined) return;
   const threaded = world.entities.get(world.party[slot] ?? -1);
-  if (isActive(threaded)) heal(world, threaded, dealt * share, 'solo');
+  if (threaded !== brann && isActive(threaded)) heal(world, threaded, dealt * share, 'solo');
 }
 
 /**
@@ -317,6 +322,13 @@ export function bloodletCost(
 export const BERSERKER_LEASH = 11;
 
 /**
+ * Under Scatter the berserker keeps this far from every other hero (docs/phase-5b.md, "Bloodlust
+ * scope": he always obeys Scatter), so a link on him and the hero beside him can be broken: the
+ * widest pair link (radius 6) and half a metre more. He chases as far as that lets him.
+ */
+export const BERSERKER_SCATTER_GAP = 6.5;
+
+/**
  * Sunder Leap's target (docs/phase-5b.md): an enemy `minRange`-`range` m away — your Focus
  * first, then an interruptible caster, then the nearest. None while he holds (a Hold, or
  * Fermata), while pinned or latched (rooted, or held by a Leech: a Reel frees him), while he
@@ -329,7 +341,8 @@ export function leapTarget(
   ability: { readonly range: number; readonly minRange?: number },
 ): Entity | null {
   const hero = e.hero;
-  if (!hero || hero.follow === 'hold' || hero.hold) return null;
+  // Held or Scattered, he stays where the Weaver put him: no leaping in.
+  if (!hero || hero.follow === 'hold' || hero.follow === 'scatter' || hero.hold) return null;
   if (hasStatus(e, 'pinned') || hasStatus(e, 'latched')) return null;
   const lust = bloodlusting(world.content, e);
   if (!lust && world.internal.rallyUntil > world.time) return null;

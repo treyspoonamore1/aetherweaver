@@ -246,7 +246,9 @@ const ResultSchema = z.object({
       // Phase 5a: a damage-over-time death's answers (absent otherwise).
       answers: z.array(Str).optional(),
       // Phase 5b: a Blood Rage hero's down (absent for every other hero).
-      blood: z.object({ refusedRally: z.boolean(), healCut: Num }).optional(),
+      blood: z
+        .object({ refusedRally: z.boolean(), healCut: Num, bloodmoon: z.literal(true).optional() })
+        .optional(),
     }),
   ),
   timeline: z.array(z.object({ time: Num, hp: z.array(Num) })),

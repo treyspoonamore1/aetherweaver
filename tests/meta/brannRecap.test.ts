@@ -34,7 +34,7 @@ describe("Brann's down records reach the recap (docs/phase-5b.md)", () => {
     run = Run.chooseNode(run, run.map.rows[0]![0]!.id);
     const ledger = emptyLedger();
     ledger.deaths.push(
-      death('brann', { blood: { refusedRally: true, healCut: 0.25 } }),
+      death('brann', { blood: { refusedRally: true, healCut: 0.25, bloodmoon: true } }),
       death('kael'),
     );
     const after = Run.finishCombat(run, {
@@ -46,7 +46,7 @@ describe("Brann's down records reach the recap (docs/phase-5b.md)", () => {
       withoutYou: null,
     });
     const deaths = after.lastResult!.deaths;
-    expect(deaths[0]!.blood).toEqual({ refusedRally: true, healCut: 0.25 });
+    expect(deaths[0]!.blood).toEqual({ refusedRally: true, healCut: 0.25, bloodmoon: true });
     expect('blood' in deaths[1]!).toBe(false);
     // The recap's blood is a copy, not the ledger's object.
     expect(deaths[0]!.blood).not.toBe(ledger.deaths[0]!.blood);
@@ -55,9 +55,13 @@ describe("Brann's down records reach the recap (docs/phase-5b.md)", () => {
     saveRun(store, after);
     const loaded = loadRun(store)!;
     expect(loaded).not.toBeNull();
-    expect(loaded.lastResult!.deaths[0]!.blood).toEqual({ refusedRally: true, healCut: 0.25 });
+    expect(loaded.lastResult!.deaths[0]!.blood).toEqual({
+      refusedRally: true,
+      healCut: 0.25,
+      bloodmoon: true,
+    });
     expect('blood' in loaded.lastResult!.deaths[1]!).toBe(false);
     const saved = loaded.results.at(-1)!.deaths;
-    expect(saved[0]!.blood).toEqual({ refusedRally: true, healCut: 0.25 });
+    expect(saved[0]!.blood).toEqual({ refusedRally: true, healCut: 0.25, bloodmoon: true });
   });
 });

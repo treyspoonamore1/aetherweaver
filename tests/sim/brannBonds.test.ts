@@ -274,7 +274,7 @@ describe('Blood Brother', () => {
     expect(brann.hero!.blood!.lifesteal).toBe(0);
   });
 
-  it('Cued, it heals every hero in your field', () => {
+  it('Cued, it heals every other hero in your field (never him: he gets no lifesteal)', () => {
     const { sim, w, of } = setup(bb, ['kael', 'brann']);
     const kael = of('kael');
     const brann = of('brann');
@@ -287,7 +287,7 @@ describe('Blood Brother', () => {
     strike(w, brann, e, 1000);
     const each = (1000 * sv('blood_brother', 'cuedPct')) / 100;
     expect(kael.health!.hp).toBeCloseTo(500 + each, 6);
-    expect(brann.health!.hp).toBeCloseTo(500 + each, 6);
+    expect(brann.health!.hp).toBe(500);
   });
 });
 
@@ -431,7 +431,7 @@ describe('the down record’s blood', () => {
     w.field.sanctuary = { pools: [], healMult: 0.5, reformAt: 1e9 };
     blow(w, brann, 1e5);
     const death = w.ledger.deaths[w.ledger.deaths.length - 1]!;
-    expect(death.blood).toEqual({ refusedRally: true, healCut: 0.25 });
+    expect(death.blood).toEqual({ refusedRally: true, healCut: 0.25, bloodmoon: true });
   });
 
   it('no refused Rally: false, and his plain halving; a starter’s down has no blood', () => {

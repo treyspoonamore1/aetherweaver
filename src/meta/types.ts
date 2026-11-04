@@ -277,8 +277,10 @@ export interface DeathRecap {
    * Phase 5b: a Blood Rage hero's down (the sim's `DeathRecord.blood`): whether a refused Rally
    * was still live, and the Weaver-heal multiplier at that moment. The recap's wording keys on
    * it. Absent for every hero without `blood`, so every default-party death is unchanged.
+   * `bloodmoon`: the Bloodmoon's cut was on him, outside every pool (absent otherwise, and on
+   * records saved before it was kept).
    */
-  blood?: { refusedRally: boolean; healCut: number };
+  blood?: { refusedRally: boolean; healCut: number; bloodmoon?: true };
 }
 
 export interface EncounterStats {

@@ -2003,8 +2003,10 @@ const TWIN_CLEAVE: ReadonlySet<string> = new Set(
 /**
  * What a Blood Rage hero's down asks of the Weaver (Brann, docs/phase-5b.md, "Recaps for
  * Brann's downs"), from the down record's `blood`, in priority order: a refused Rally, then a heal
- * cut to a quarter or less (Bloodmoon), then Twin Cleave with no dome in the party. Null for any
- * other down, and for every hero without `blood`: the recap's generic answers stand.
+ * cut to a quarter or less with the Bloodmoon's cut on him (outside every pool: a Wound or
+ * Dissonance can cut as deep, and their answer is not the pool's), then Twin Cleave with no dome
+ * in the party. Null for any other down, and for every hero without `blood`: the recap's generic
+ * answers stand.
  */
 export function downAdvice(
   d: Pick<DeathRecap, 'heroId' | 'killer' | 'blood'>,
@@ -2016,7 +2018,7 @@ export function downAdvice(
     const below = Math.round((def?.quirk.below ?? 0.4) * 100);
     return `He wouldn’t Rally below ${below}%: Reel him, or Ward him so Iron Will brings him back.`;
   }
-  if (d.blood.healCut <= 0.25)
+  if (d.blood.bloodmoon && d.blood.healCut <= 0.25)
     return 'Your healing on him was quartered outside the pool: Ward him or give him a barrier.';
   if (TWIN_CLEAVE.has(d.killer) && !partyHasDome(party))
     return `Two blows on ${def?.name ?? 'him'}: Reel him, or Ward him twice.`;

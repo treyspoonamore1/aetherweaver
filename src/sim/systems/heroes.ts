@@ -32,7 +32,14 @@ import { nearestEnemy, soloSpec, startSolo, tickSoloClock, updateSolo } from './
 import { approachVelocity, arrive } from './steering';
 import { clampPointToArena, pushPointOutOfObstacles } from './physics';
 import { empowerBonus } from './thread';
-import { BERSERKER_LEASH, bloodletCost, bloodlusting, leapTarget, tickBlood } from './blood';
+import {
+  BERSERKER_LEASH,
+  BERSERKER_SCATTER_GAP,
+  bloodletCost,
+  bloodlusting,
+  leapTarget,
+  tickBlood,
+} from './blood';
 
 const desired = { x: 0, z: 0 };
 const slotPos = { x: 0, z: 0 };
@@ -327,9 +334,14 @@ function combatMove(
     chase(e, target, reach);
     if (!glory) leash(weaver, TANK_LEASH);
   } else if (berserker) {
-    // The berserker chases to reach: no kite, no flank, never gives ground.
+    // The berserker chases to reach: no kite, no flank, never gives ground. Under Scatter he
+    // still keeps clear of the other heroes, bloodlusting or not (docs/phase-5b.md).
     chase(e, target, reach);
     if (!lust) leash(weaver, BERSERKER_LEASH);
+    if (hero.follow === 'scatter') {
+      keepApart(world, e, BERSERKER_SCATTER_GAP);
+      clampToArena(world, desired);
+    }
   } else if (flank(world, e, def, target)) {
     // Focus on a guarded enemy: out of its arc, whatever the Weaver's leash says.
     clampToArena(world, desired);
@@ -384,6 +396,37 @@ function flank(world: World, e: Entity, def: HeroDef, target: Entity): boolean {
   desired.x = target.x + (useLeft ? lx : rx) * want;
   desired.z = target.z + (useLeft ? lz : rz) * want;
   return true;
+}
+
+/**
+ * Moves `desired` to at least `gap` from every other standing hero: straight away from each one
+ * (from where `e` stands when the point is on them). Two passes, so clearing one hero doesn't
+ * leave him on another.
+ */
+function keepApart(world: World, e: Entity, gap: number): void {
+  for (let pass = 0; pass < 2; pass++) {
+    for (const id of world.party) {
+      if (id === e.id) continue;
+      const o = world.entities.get(id);
+      if (!isActive(o)) continue;
+      let dx = desired.x - o.x;
+      let dz = desired.z - o.z;
+      let d = len(dx, dz);
+      if (d >= gap) continue;
+      if (d < 1e-6) {
+        dx = e.x - o.x;
+        dz = e.z - o.z;
+        d = len(dx, dz);
+        if (d < 1e-6) {
+          dx = 1;
+          dz = 0;
+          d = 1;
+        }
+      }
+      desired.x = o.x + (dx / d) * gap;
+      desired.z = o.z + (dz / d) * gap;
+    }
+  }
 }
 
 function chase(e: Entity, target: Entity, reach: number): void {

@@ -95,10 +95,16 @@ describe('Brann’s downs, in priority order', () => {
     expect(Run.downAdvice(brann({ refusedRally: true, healCut: 0.25 }), B)).toBe(
       'He wouldn’t Rally below 40%: Reel him, or Ward him so Iron Will brings him back.',
     );
-    expect(Run.downAdvice(brann({ refusedRally: false, healCut: 0.25 }), B)).toBe(
+    expect(Run.downAdvice(brann({ refusedRally: false, healCut: 0.25, bloodmoon: true }), B)).toBe(
       'Your healing on him was quartered outside the pool: Ward him or give him a barrier.',
     );
-    expect(Run.downAdvice(brann({ refusedRally: false, healCut: 0.125 }), B)).toMatch(/quartered/);
+    expect(
+      Run.downAdvice(brann({ refusedRally: false, healCut: 0.125, bloodmoon: true }), B),
+    ).toMatch(/quartered/);
+    // A Wound (or Dissonance) cutting as deep with no Bloodmoon is not the pool's to answer.
+    expect(Run.downAdvice(brann({ refusedRally: false, healCut: 0.25 }), B)).toBe(
+      'Two blows on Brann: Reel him, or Ward him twice.',
+    );
     expect(Run.downAdvice(brann({ refusedRally: false, healCut: 0.5 }), B)).toBe(
       'Two blows on Brann: Reel him, or Ward him twice.',
     );
