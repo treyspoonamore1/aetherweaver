@@ -317,7 +317,16 @@ export class BrannWatch {
   }
 }
 
-export function playEncounter(config: SimConfig, bot: BotKind): EncounterRun {
+/**
+ * Plays one fight to its end (or 9 minutes). `watch`, when given, sees the sim and each tick's
+ * events after the harness's own tallies (tools/brann-bands.ts reads more from them); it only
+ * reads, so a fight plays the same with or without one.
+ */
+export function playEncounter(
+  config: SimConfig,
+  bot: BotKind,
+  watch?: (sim: Sim, events: readonly SimEvent[]) => void,
+): EncounterRun {
   const sim = createSim(config);
   const player = makeBot(bot, config.seed);
   const maxTicks = MAX_SECONDS * 60;
@@ -333,6 +342,7 @@ export function playEncounter(config: SimConfig, bot: BotKind): EncounterRun {
     }
     verbs.tick(sim, events);
     brann?.tick(sim, events);
+    watch?.(sim, events);
     const s = sim.state.encounter.status;
     if (s === 'victory' || s === 'defeat') break;
   }

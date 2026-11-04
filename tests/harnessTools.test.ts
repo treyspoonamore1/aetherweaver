@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { BrannWatch, playEncounter, playRun, VerbTally } from '../tools/harness-core';
+import { ExtraWatch } from '../tools/brann-bands';
 import { band, NAMED_PARTIES, parseArgs, partyArg } from '../tools/harness';
 import { ARRIVAL_KIT, kitConfig } from '../tools/kits';
 import { SCENARIO_HOUND_PACK } from '../tools/scenarios';
@@ -289,5 +290,55 @@ describe('the harness and a roster party: the Phase 5b review fixes', () => {
     expect(run.harmony!.prereqsOwned).toBe(true);
     expect(run.harmony!.silkOffered).toBeGreaterThan(0);
     expect(run.harmony!.silkOffered).toBe(run.harmony!.silkOfferedEligible);
+  });
+});
+
+describe('the Bands tool (tools/brann-bands.ts)', () => {
+  it('a watch on a fight only reads: the fight plays the same with or without one', () => {
+    const config = {
+      seed: 1000,
+      encounter: 'crimson_gate',
+      party: ['kael', 'vexis', 'brann'],
+      ...kitConfig(ARRIVAL_KIT),
+    };
+    const plain = playEncounter(config, 'skilled');
+    const watch = new ExtraWatch();
+    const watched = playEncounter(config, 'skilled', watch.watch);
+    expect(watched).toStrictEqual(plain);
+    // The Weaver's support it read lands on the party's heroes, Brann among them.
+    expect(Object.keys(watch.x.weaverHeal).every((h) => config.party.includes(h))).toBe(true);
+    expect(watch.x.weaverShield.brann ?? 0).toBeGreaterThan(0);
+  });
+
+  it('counts a Twin Cleave down on Brann though his allyDowned comes before the resolution', () => {
+    // A staged tick: the second blow downs Brann; the sim emits allyDowned ahead of the
+    // telegraphResolved that names him, so the down is read off his state after the tick.
+    const brann = { id: 3, hero: { defId: 'brann' }, health: { downed: false } };
+    const state = {
+      time: 1,
+      party: [3],
+      weaverId: 9,
+      telegraphs: [{ id: 7, attackId: 'vharun_twin_cleave_second' }],
+      encounter: { bossId: null },
+      entities: { get: (id: number) => (id === 3 ? brann : undefined) },
+    };
+    const sim = { state } as unknown as Parameters<ExtraWatch['watch']>[0];
+    const watch = new ExtraWatch();
+    watch.watch(sim, [{ type: 'telegraphStarted', tick: 0, telegraph: 7 } as SimEvent]);
+    brann.health.downed = true;
+    state.time = 2;
+    watch.watch(sim, [
+      { type: 'allyDowned', tick: 60, hero: 3 } as SimEvent,
+      {
+        type: 'telegraphResolved',
+        tick: 60,
+        telegraph: 7,
+        target: 3,
+        outcome: 'hit',
+        damage: 850,
+      } as SimEvent,
+    ]);
+    expect(watch.x.twinDownedBrann).toBe(1);
+    expect(watch.x.twinFirstOnBrann).toBe(0);
   });
 });
