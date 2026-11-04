@@ -78,7 +78,7 @@ Revision 1 had two critiques. Everything below was fixed, unless it is listed un
 | Decree texts and answers that assume Kael | **No hashed text is edited.**<br>• The Cantor Requiem and Twin Cleave attack defs gain an optional `decreeNoDome` text. The HUD shows it when `partyHasDome(party)` is false.<br>• Every 'dome' answer glyph, recap answer and SAVE_HOW line is filtered by the same helper.<br>• The Execution decree is rewritten in the HUD when Brann is the condemned hero. | `encounter.decree` and telegraph answers are hashed (`feedback.ts:72`, `state.ts:531`). The HUD matches the decree text to its attack def, so no regex is needed. |
 | Colour | `#b91c1c`, heroInk `#d26b6b`, plus a **brass trim** (`#c8a46e`) on his axe edge and collar. His colour never fills a danger channel. | It is ≥ 44 ΔE from every other hero and from threat. No saturated crimson clears 20 ΔE from lethal and Bear in every vision, and the Spire is crimson, so silhouette, trim and voice carry his identity. |
 | Health alarms on Brann | His frame shows LIFE_OK above 40% and an ember **raging band** from 40% down to 15%, with no 'hurt' tier. Critical applies below 15%, when he is **falling fast** (more damage in the last ~2 s than his remaining life), or when a lethal hit is incoming. Ticks mark 40/30/15/10. The default heroes are unchanged. | The shared alarms would teach players to heal him. 10% (125 HP) is too thin for damage that isn't telegraphed. |
-| Bloodletting presentation | Its own channel: a crimson drain segment on the bar, a '−125 Bloodletting' floater in his ink, and a 'Bloodlet ×3' chip. No flash, no alarm, and it is not counted as falling fast. | A drop the player didn't cause must not read as damage. |
+| Bloodletting presentation | Its own channel: a crimson drain segment on the bar, a '−150 Bloodletting' floater in his ink, and a 'Bloodlet ×3' chip. No flash, no alarm, and it is not counted as falling fast. | A drop the player didn't cause must not read as damage. |
 | Profile and saves | **No PROFILE_VERSION bump.** The keys `recruited?` and `lastParty?` are optional v9 keys, absent until used. Run saves change only through an optional `blood` on result heroes. | `preludeSnapshot.test.ts:172` pins v9. `migration.test.ts:291,300` compare against `newProfile()`. |
 | Pools | **No Brann relics and no new events.** The Cell is edited in place. | `rollRelics` has no hero filter. A new M2 event would move `map:m2`. |
 | Bond XP for a late recruit | Brann earns **×2 Bond XP** until his rank reaches the lowest starter's rank. This is meta-only. | A recruit starting at rank 0 against rank-9 starters would otherwise stay behind for good. Default parties are unaffected. |
@@ -123,7 +123,7 @@ These are code numbers, scaled like Kael's: his plan sword of 85 ships at 76.
 | Field | Value | Note |
 |---|---|---|
 | maxHp | **1,250** | plan |
-| armor | 0.15 | half of Kael's. Tuning lever up to 0.25 (see *Bands*). |
+| armor | **0.25** | W7 tuning: 0.15 → 0.25, the lever's ceiling (see *Measured bands*). Armour softens ordinary hits only, never telegraphs. |
 | moveSpeed | 7.4 | above the Weaver's 6.5 (lint `schema.ts:1563`) |
 | radius / height | 0.7 / 2.1 | |
 | formation | `{forward: 2.0, right: 1.9}` | front-right. It is **1.99 m** from Kael `{2.6, 0}` and ≥ 4.2 m from the rangers `{-2.2, ±2.6}`. New lint: spots are pairwise ≥ 1.5 m apart. |
@@ -137,7 +137,7 @@ These are code numbers, scaled like Kael's: his plan sword of 85 ships at 76.
 
 ### Passive: Blood Rage
 
-`passive: {id:'bloodRage', perMissing: 1, maxBonus: 0.8, lifesteal: 0.08, weaverHealMult: 0.5}`
+`passive: {id:'bloodRage', perMissing: 1, maxBonus: 0.8, lifesteal: 0.06, weaverHealMult: 0.5}` (lifesteal 0.08 → 0.06 in W7 tuning, see *Measured bands*)
 
 - **Damage.** `heroDamage()` (`heroDamage.ts:30`) computes `own = ownScale(world, hero)`. That is Blood Rage, `1 + min(cap, perMissing × (1 − hp/maxHp))` with `cap` = 0.8 (1.0 with Red Mist), multiplied by Berserker's Hymn where it applies. When `own !== 1`, `base *= own` is applied before every amplifier. `HeroHit` gains `own?: number`, present only when it isn't 1. `flourishHit` (`heroDamage.ts:89`) becomes `amplified: max(hit.amplified, hit.amount − (hit.own ? base × hit.own : base))`, so rage and the Hymn are never counted as the Weaver's. Default heroes take the untouched path.
 - **Lifesteal.** In the hero-hit block of `dealDamage` (`health.ts:832-858`), when the source has `blood`, `onBloodHit` does `heal(source, dealt × lifesteal × (cued Red Frenzy ? 3 : 1), 'lifesteal')`.
@@ -153,7 +153,7 @@ These are code numbers, scaled like Kael's: his plan sword of 85 ships at 76.
 | Ability | Numbers | AI rule |
 |---|---|---|
 | **Sunder Leap** `sunderLeap` | cd 10, castTime 0, damage 120 in r 3, stun 0.5, range 9, `minRange 4` | Leaps at the nearest enemy 4-9 m away, preferring the Focus target, then an interruptible caster, then his own target. He does not leap while Held. He lands 1.2 m short, through `clampToArena`/`resolveObstacles`. Emits `attackFired {visual:'leap', source: brann, from, to}`, the existing enemy-leap event, and `abilityUsed`. Calls `interruptEnemy` on interruptible casters within the radius (the Shield Bash pattern, `heroes.ts:772`). |
-| **Bloodletting** `bloodletting` | cd 14, `lifeCost 0.1` (125), `lifeFloor 0.2`, `hits 3`, `hitBonus 0.4` | Only above 50% life, with an enemy in reach. He loses `min(125, hp − 0.2 × maxHp)` directly. This is not damage: no ledger, threat, Fermata, recap, bleedRate or Deathless. His next 3 swings get +40% and cleave 360°. Emits `lifeSpent {hero, amount}`. |
+| **Bloodletting** `bloodletting` | cd 14, `lifeCost 0.12` (150; 0.1 before W7 tuning), `lifeFloor 0.2`, `hits 3`, `hitBonus 0.4` | Only above 50% life, with an enemy in reach. He loses `min(150, hp − 0.2 × maxHp)` directly. This is not damage: no ledger, threat, Fermata, recap, bleedRate or Deathless. His next 3 swings get +40% and cleave 360°. Emits `lifeSpent {hero, amount}`. |
 
 - **Call** (`call.ability: 0`, answer `ward`, answerTime 2.0). It opens only when a Sunder Leap target 4-9 m away exists. `canCall` (`calls.ts:37`) gains a check for abilities with `minRange`. A call whose target vanishes expires as today (`LINGER`).
   - Lines: 'Ward me — I'm going in!', 'Shield on me, Weaver, then watch!', 'Cover me. I'm jumping.'
@@ -418,6 +418,284 @@ Enemy and encounter numbers never move.
 2. The bot thresholds.
 3. Bond and motif values.
 
+### Measured bands
+
+*W7, measured on main after every workstream and fix merged.* Every number below comes from `tools/brann-bands.ts` (new in W7). It plays each cell exactly as `tools/harness.ts` does: Movement I bare with Sostenuto + Fortissimo, Movement II on the arrival kit, and the default party beside A, B and C in the same run. On top of the harness's `BrannTally` it records boss targets, Executions and Twin Cleaves on Brann, the Weaver's Mend time and support per hero, and per-hero Bond XP and Blood and Silk offers over whole runs.
+
+- **Two seed sets.** Cells: 50 seeds from `--seed-base 1000` and from `500003` (seed = base + i × 7919). Whole runs: 200 seeds from `2000` and from `900007` (seed = base + i × 104729). Cell figures read *set 1000 / set 500003*; run figures read *set 2000 / set 900007*.
+- **Commands.**
+  - `npx tsx tools/brann-bands.ts --movement 1|2 --parties default,A,B,C --seeds 50 --seed-base 1000|500003`
+  - `npx tsx tools/brann-bands.ts --runs --movements 1|2 --parties default,A,C|default,A,B,C --seeds 200 --seed-base 2000|900007`
+  - `tools/harness.ts --party X --compare --verbose` and `--run --movements 2 --party X` print the same cells and runs, with the run's 'lost at' tally.
+- **The default party is untouched.** The 8 golden hashes are byte-identical and SIM_VERSION is 22. `tools/m1-baseline.ts --check`, `--movement 2 --check` and `tools/expedition-baseline.ts --check` are byte-equal. Only `contentVersion` and the three Brann goldens moved.
+
+#### Tuning changes
+
+Only Brann's own numbers changed: **3 numbers, 1 text**. No bot threshold, Bond value or motif value changed, and no enemy, encounter, Movement, Weaver or starter number moved.
+
+| Number | From → to | Why |
+|---|---|---|
+| `passive.lifesteal` | 0.08 → **0.06** (the floor of its 6-10% lever) | lifestealShare was 38-58%, out of its 20-45% band in 4-9 of 16 cells per party. It is now 28-52%, with at most one cell out per party. With the change below, the mean below-40% time rose 2-3 points (A 17-18% → 20-21%, B 14-15% → 16-17%, C 13% → 15-16%). |
+| Bloodletting `lifeCost` | 0.10 → **0.12** (+20%, 125 → 150 life) | The only lever that spends his life on purpose. It shares the 2-3 point rise above (at 16 seeds alone: Crimson Gate A 2% → 5%, Pike Line A 17% → 25%). The ability text now reads '12% of his life'. |
+| `armor` | 0.15 → **0.25** (the lever's ceiling; B's lever 2) | Without it, the two cuts above cost whole runs 4-9 points (Prelude A 70 → 62, C 59 → 50; Expedition A 47 → 43, C 53 → 46, on set 2000), because his life carries between fights. With it, C and B are back within noise of where they started: Prelude C 61 (59 before), Expedition C 54 (53) and B 70 (75). A stays lower: Prelude 61 (70) and Expedition 44 (47). Cells moved within noise. Armour softens ordinary hits only, never a telegraph (`health.ts:709-711`), so it cannot touch Twin Cleave, Execution, Toll, Toll Cleave or Requiem. |
+
+**Tried and not kept.** Each was measured at 50 seeds on the losing cells (or 200 runs) and reverted.
+
+- **threatMult 1.5 → 2.0.**
+  - Party B is unchanged: the bosses stay on Lyra 93-98% of the time.
+  - In party A, 49-55% of Vharun's time moves onto Brann and off Kael. That breaks the design's 'Kael keeps aggro when he is present'.
+  - The Skilled win changed by −2 to +10 points, which is within noise.
+- **threatMult 1.2.** No gain.
+- **Bloodletting cooldown 14 → 11.2.** Below-40% time rose 0-3 points; downs and wins were within noise.
+- **Axe 84 → 100, cleave pct 0.5 → 0.6 and Red Frenzy power 0.6 → 0.72 (all +20%).**
+  - The losing cells gain 4-14 points (C Glass Gallery 50 → 64, A Shattered Choir 74 → 84), and Expedition A gains 44 → 52.
+  - None of those bands is reached.
+  - lifestealShare climbs above 45% in 3-7 cells per party.
+- **Bot thresholds** (Brann-only, `src/bots/skilled.ts`):
+  - Twin Cleave's pre-Ward and Reel reserve when Kael's dome isn't charged, not only without Kael;
+  - a near-lethal hit on Brann ranked with his 'first' hits;
+  - the last Ward charge held when Twin Cleave is due within 3 s and Brann is in its reach;
+  - the Mend lift past his floor, 0.1 → 0.05 and 0;
+  - `BRANN_FLOOR` 0.25 → 0.2.
+
+  Twin Cleave survival stayed 21-40% against 26-43%. The Mend-lift changes cut the Skilled's Mend time on Brann by 1-2 s a fight but added up to +0.6 downs at the Bellwarden. None moved a band, so the bot is as W3 left it.
+- **Bond and motif values.** None was changed. No band reads Blood Tithe's, Blood and Silk's or a talent's values. Harmony reachability is an offer rate, and it is met.
+
+#### Band summary
+
+'Cells' rows count the cells that meet the band out of the group. The no-tank boss band is the *(no tank)* rows.
+
+| Band | Target | Party | Set 1000 | Set 500003 | Result |
+|---|---|---|---|---|---|
+| M1 skirmishes and elites: Skilled win | ≥ default − 5 | A | 5/7 cells (missed: muted_nave -34, shattered_choir -16) | 4/7 cells (missed: choir_loft -8, muted_nave -28, shattered_choir -16) | **missed** |
+| M1 skirmishes and elites: Skilled win | ≥ default − 5 | B | 6/7 cells (missed: glass_gallery -6) | 7/7 cells | **missed** |
+| M1 skirmishes and elites: Skilled win | ≥ default − 5 | C | 5/7 cells (missed: glass_gallery -42, muted_nave -8) | 6/7 cells (missed: glass_gallery -44) | **missed** |
+| Bellwarden, Cantor: Skilled win | ≥ default − 5 | A | 2/2 cells | 2/2 cells | met |
+| Bellwarden, Cantor: Skilled win | ≥ default − 5 | B | 2/2 cells | 2/2 cells | met |
+| Bellwarden, Cantor: Skilled win | ≥ default − 5 | C | 1/2 cells (missed: hollow_cantor -32) | 1/2 cells (missed: hollow_cantor -20) | **missed** |
+| M2 skirmishes and elites: Skilled win | ≥ default − 5 | A | 6/7 cells (missed: blood_forge -10) | 5/7 cells (missed: shield_wall -6, blood_forge -16) | **missed** |
+| M2 skirmishes and elites: Skilled win | ≥ default − 5 | B | 7/7 cells | 6/7 cells (missed: shield_wall -6) | **missed** |
+| M2 skirmishes and elites: Skilled win | ≥ default − 5 | C | 7/7 cells | 7/7 cells | met |
+| Matriarch, Vharun: Skilled win | ≥ default − 5 | A | 1/2 cells (missed: vharun -24) | 1/2 cells (missed: vharun -36) | **missed** |
+| Matriarch, Vharun: Skilled win | ≥ default − 5 | C | 2/2 cells | 2/2 cells | met |
+| Matriarch, Vharun: Skilled win (no tank) | ≥ default − 15 | B | 2/2 cells | 2/2 cells | met |
+| Skirmishes and elites: Skilled share | ≥ 35% | A | 40%–49% | 39%–50% | met |
+| Skirmishes and elites: Skilled share | ≥ 35% | B | 41%–47% | 41%–48% | met |
+| Skirmishes and elites: Skilled share | ≥ 35% | C | 40%–54% | 39%–54% | met |
+| Bosses: Skilled share | ≥ 30% | A | 40%–47% | 41%–47% | met |
+| Bosses: Skilled share | ≥ 30% | B | 36%–44% | 35%–45% | met |
+| Bosses: Skilled share | ≥ 30% | C | 42%–51% | 42%–51% | met |
+| Bellwarden, Cantor: Novice win | 25–70% | A | 22%–26%; 1 of 2 out | 22%–26%; 1 of 2 out | **missed** |
+| Bellwarden, Cantor: Novice win | 25–70% | B | 38%–42% | 30%–42% | met |
+| Bellwarden, Cantor: Novice win | 25–70% | C | 6%–28%; 1 of 2 out | 14%–24%; 2 of 2 out | **missed** |
+| Matriarch, Vharun: Novice win | 20–60% | A | 2%–18%; 2 of 2 out | 0%–14%; 2 of 2 out | **missed** |
+| Matriarch, Vharun: Novice win | 20–60% | C | 12%–16%; 2 of 2 out | 4%–26%; 1 of 2 out | **missed** |
+| Matriarch, Vharun: Novice win (no tank) | ≥ 10% | B | 24%–42% | 8%–48%; 1 of 2 out | **missed** |
+| Bosses: Idle win | 0% | A | 0%–0% | 0%–0% | met |
+| Bosses: Idle win | 0% | B | 0%–0% | 0%–0% | met |
+| Bosses: Idle win | 0% | C | 0%–0% | 0%–0% | met |
+| M1 skirmishes: Idle win | ≤ 45% (loses 55–100%) | A | 0%–0% | 0%–0% | met |
+| M1 skirmishes: Idle win | ≤ 45% (loses 55–100%) | B | 0%–46%; 1 of 5 out | 0%–36% | **missed** |
+| M1 skirmishes: Idle win | ≤ 45% (loses 55–100%) | C | 0%–0% | 0%–0% | met |
+| M1 elites: Idle win | 0% | A | 0%–0% | 0%–0% | met |
+| M1 elites: Idle win | 0% | B | 0%–0% | 0%–0% | met |
+| M1 elites: Idle win | 0% | C | 0%–0% | 0%–0% | met |
+| M2 skirmishes: Idle win | ≤ 15% | A | 0%–0% | 0%–0% | met |
+| M2 skirmishes: Idle win | ≤ 15% | B | 0%–8% | 0%–14% | met |
+| M2 skirmishes: Idle win | ≤ 15% | C | 0%–0% | 0%–0% | met |
+| M2 elites: Idle win | 0% | A | 0%–0% | 0%–0% | met |
+| M2 elites: Idle win | 0% | B | 0%–0% | 0%–0% | met |
+| M2 elites: Idle win | 0% | C | 0%–0% | 0%–0% | met |
+| M1 skirmishes and elites: Novice win | ≤ default and ≥ Idle + 30 | A | 6/7 cells; out: muted_nave 4 (default 66, Idle 0) | 6/7 cells; out: muted_nave 14 (default 68, Idle 0) | **missed** |
+| M1 skirmishes and elites: Novice win | ≤ default and ≥ Idle + 30 | B | 5/7 cells; out: tolling_halls 96 (default 90, Idle 2), glass_gallery 82 (default 80, Idle 0) | 5/7 cells; out: tolling_halls 100 (default 88, Idle 0), glass_gallery 82 (default 76, Idle 6) | **missed** |
+| M1 skirmishes and elites: Novice win | ≤ default and ≥ Idle + 30 | C | 6/7 cells; out: shattered_choir 90 (default 80, Idle 0) | 6/7 cells; out: muted_nave 28 (default 68, Idle 0) | **missed** |
+| M2 skirmishes and elites: Novice win | 5–20 pts under default | A | 1/7 cells; out: crimson_gate -2, blood_rites +0, pike_line +2, red_muster +0, leech_warren +2, blood_forge -26 | 2/7 cells; out: blood_rites +0, pike_line +2, red_muster +0, leech_warren +0, shield_wall +2 | **missed** |
+| M2 skirmishes and elites: Novice win | 5–20 pts under default | B | 1/7 cells; out: crimson_gate -2, blood_rites +0, pike_line +2, red_muster +0, leech_warren +0, shield_wall -4 | 2/7 cells; out: blood_rites -2, pike_line +2, red_muster +0, leech_warren -2, shield_wall -30 | **missed** |
+| M2 skirmishes and elites: Novice win | 5–20 pts under default | C | 0/7 cells; out: crimson_gate +2, blood_rites +0, pike_line +2, red_muster +0, leech_warren +4, shield_wall -22, blood_forge -40 | 1/7 cells; out: crimson_gate +0, pike_line +2, red_muster +0, leech_warren +0, shield_wall -36, blood_forge -34 | **missed** |
+| Brann below 40% (Skilled), M1 and M2 cells | ≥ 40% of his alive time | A | mean 20%, range 2–33% | mean 21%, range 1–37% | **missed** |
+| Brann below 40% (Skilled), M1 and M2 cells | ≥ 40% of his alive time | B | mean 17%, range 2–33% | mean 16%, range 2–37% | **missed** |
+| Brann below 40% (Skilled), M1 and M2 cells | ≥ 40% of his alive time | C | mean 15%, range 1–29% | mean 16%, range 1–30% | **missed** |
+| Brann downs a fight (Skilled), M1 and M2 cells | ≤ 0.3 | A | mean 0.69, max 4.36; 8 of 16 over | mean 0.73, max 4.32; 10 of 16 over | **missed** |
+| Brann downs a fight (Skilled), M1 and M2 cells | ≤ 0.3 | B | mean 0.24, max 1.16; 5 of 16 over | mean 0.34, max 1.78; 8 of 16 over | **missed** |
+| Brann downs a fight (Skilled), M1 and M2 cells | ≤ 0.3 | C | mean 0.59, max 4.46; 7 of 16 over | mean 0.63, max 4.84; 8 of 16 over | **missed** |
+| lifestealShare (Skilled), M1 and M2 cells | 20–45% | A | 32–43% | 34–46%; out: first_light 46% | **missed** |
+| lifestealShare (Skilled), M1 and M2 cells | 20–45% | B | 28–52%; out: hollow_cantor 52% | 29–52%; out: hollow_cantor 52% | **missed** |
+| lifestealShare (Skilled), M1 and M2 cells | 20–45% | C | 29–48%; out: crimson_gate 48% | 30–48%; out: crimson_gate 48% | **missed** |
+| Refused Rallies a fight (Skilled), M2 skirmishes and elites | ≤ 3 | A | max 1.8 | max 2.1 | met |
+| Refused Rallies a fight (Skilled), M2 skirmishes and elites | ≤ 3 | B | max 1.6 | max 1.6 | met |
+| Refused Rallies a fight (Skilled), M2 skirmishes and elites | ≤ 3 | C | max 1.4 | max 1.2 | met |
+| Execution on Brann spared (Skilled, Vharun) | ≥ 80% | A | 100/117 = 85% | 115/125 = 92% | met |
+| Execution on Brann spared (Skilled, Vharun) | ≥ 80% | C | 109/117 = 93% | 118/124 = 95% | met |
+| Twin Cleave on Brann survived (Skilled, Vharun) | ≥ 70% | B | 42/145 = 29% | 44/140 = 31% | **missed** |
+| Refused Rallies a fight at Vharun (recorded, no band) | — | A | 11.9 of 37.5 | 11.0 of 35.6 | recorded |
+| Refused Rallies a fight at Vharun (recorded, no band) | — | B | 6.8 of 23.0 | 6.0 of 23.5 | recorded |
+| Refused Rallies a fight at Vharun (recorded, no band) | — | C | 7.7 of 28.6 | 7.6 of 28.4 | recorded |
+| Boss targets (Skilled; share of boss time) | — | A | Vharun: vexis 50% kael 47% brann 3%; Matriarch: kael 83% vexis 14% brann 2% | Vharun: vexis 52% kael 42% brann 5%; Matriarch: kael 82% vexis 15% brann 1% | recorded |
+| Boss targets (Skilled; share of boss time) | — | B | Vharun: lyra 94% vexis 4% brann 1%; Matriarch: lyra 98% brann 1% | Vharun: lyra 98% vexis 1% brann 1%; Matriarch: lyra 97% brann 1% vexis 0% | recorded |
+| Boss targets (Skilled; share of boss time) | — | C | Vharun: lyra 93% kael 7% brann 0%; Matriarch: lyra 51% kael 48% | Vharun: lyra 92% kael 7% brann 0%; Matriarch: lyra 53% kael 46% | recorded |
+
+#### Whole runs (200 seeds; set 2000 / set 900007)
+
+| Run | Bot | Target | Default | A | B | C | Result |
+|---|---|---|---|---|---|---|---|
+| Whole Prelude (A, C) | Skilled | ≥ default − 5 | 89 / 88 | 61 / 65 | | 61 / 46 | **missed** (A, C) |
+| | Novice | ≥ 50% of default | 39 / 33 | 1 / 0 | | 2 / 1 | **missed** (A, C) |
+| | Idle | 0% | 0 / 0 | 0 / 0 | | 0 / 0 | met |
+| Whole Expedition (A, B, C) | Skilled | won ≥ 75% (B ≥ 65%) | 79 / 76 | 44 / 43 | 70 / 68 | 54 / 42 | B met; **A, C missed** |
+| | Novice | won 8-20% | 15 / 12 | 1 / 0 | 2 / 2 | 0 / 0 | **missed** (A, B, C) |
+| | Idle | 0% | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | met |
+
+Where the Expedition runs end (`tools/harness.ts --run --movements 2 --party X`, 100 seeds, Skilled):
+
+- **A:** Muted Nave 8, Shattered Choir 8, Vharun 11, and Movement I skirmishes 17.
+- **B:** spread out, with no cell above 6.
+- **C:** Glass Gallery **33** and the Cantor 9.
+
+The Novice's A and C runs end in their first 2-3 fights: First Light, Tolling Halls and Glass Gallery.
+
+#### Other gates
+
+| Gate | Target | A | B | C | Result |
+|---|---|---|---|---|---|
+| Bond XP floor: Brann's Skilled Bond XP a fight against the starters' average in his party, catch-up off (Expedition; Prelude) | ≥ 75% | 87% / 87%; 90% / 90% | **74%** / 75% | 76% / 77%; 80% / 80% | **missed** (B, set 2000, by 1 point) |
+| Harmony reachability: Skilled Expeditions that owned both prerequisites at an offer and were then offered Blood and Silk | ≥ 50% | 4/5 = 80% / 11/13 = 85% | 6/8 = 75% / 18/19 = 95% | 6/6 = 100% / 11/12 = 92% | met |
+| Blood and Silk's overall offer rate (Skilled Expeditions) | recorded | 2% / 6% | 3% / 9% | 3% / 6% | recorded |
+| Default party, every cell | identical to the W0 baselines | | | | met (8 hashes, both m1-baseline modes, expedition-baseline) |
+
+**Inversion check** (a fight's figures, averaged over the Movement's cells; 'support' is the Weaver's healing plus her shields on that hero):
+
+| Party | Movement | Set | Skilled: heal / ward share of support, Brann | Skilled: same, starters | Mend s a fight on Brann: Novice / Skilled | Result |
+|---|---|---|---|---|---|---|
+| A | 1 | 1000 | 36% / 45% | 53% / 30% | 17.8 / 13.3 (1.34×) | **missed** |
+| A | 1 | 500003 | 36% / 47% | 52% / 31% | 17.8 / 13.4 (1.33×) | **missed** |
+| A | 2 | 1000 | 28% / 55% | 42% / 40% | 33.0 / 8.3 (3.98×) | met |
+| A | 2 | 500003 | 27% / 56% | 42% / 39% | 33.6 / 7.9 (4.25×) | met |
+| B | 1 | 1000 | 35% / 65% | 64% / 36% | 28.0 / 6.6 (4.24×) | met |
+| B | 1 | 500003 | 35% / 65% | 62% / 38% | 27.3 / 6.7 (4.07×) | met |
+| B | 2 | 1000 | 30% / 64% | 44% / 47% | 43.1 / 5.0 (8.62×) | met |
+| B | 2 | 500003 | 29% / 65% | 45% / 46% | 40.3 / 5.0 (8.06×) | met |
+| C | 1 | 1000 | 38% / 47% | 51% / 34% | 16.9 / 10.2 (1.66×) | met |
+| C | 1 | 500003 | 39% / 47% | 52% / 34% | 17.0 / 11.0 (1.55×) | met |
+| C | 2 | 1000 | 29% / 53% | 38% / 42% | 36.2 / 5.1 (7.10×) | met |
+| C | 2 | 500003 | 28% / 54% | 38% / 40% | 35.1 / 4.8 (7.31×) | met |
+
+#### Misses, and why tuning stopped
+
+1. **Brann below 40% for ≥ 40% of his alive time.**
+   - **Measured:** a mean of 15-21% and at most 37% per cell (both sets). On the Crimson Gate it is A 8% / 11%, B 4% / 3%, C 4% / 6%.
+   - **Why:** in a 35-50 s skirmish he takes about 1,000-1,600 damage and spends 150-350 on Bloodletting. He regains about 1,000: the field's Sostenuto aura (about 350 even halved), his lifesteal (400-550) and Chimes.
+   - **Levers tried:** lifesteal at its 6% floor, Bloodletting at +20% cost and −20% cooldown, and armour left at 0.15. Together they add only 3-8 points.
+   - **The conflict:** the cells where he does sit lowest (A Muted Nave and Shattered Choir, 27-37%) already have 1.3-1.5 Brann downs a fight against the ≤ 0.3 band.
+   - Reaching 40% needs more damage coming in (enemy numbers) or the field not healing him (Weaver rules). Both are off-limits, so the band was left. The `it.skip` test in `tests/bots.test.ts` stays skipped, and its comment names these shares.
+2. **≤ 0.3 Brann downs a fight.**
+   - **Measured:** over in 5-10 of the 16 non-boss-pair cells per party. Cantor 3-5 a fight (A and C), Vharun 2-4.
+   - **Why:** almost all of them come from telegraphed cleaves aimed at the hero beside him: Toll Cleave, the Cantor's Toll and Requiem, and Twin Cleave. He has `dodge 0` by design and stands in their cone. Armour never softens a telegraph.
+3. **Skilled win ≥ default − 5.**
+   - **Measured:**
+     - A: Muted Nave −28 to −34, Shattered Choir −16, Choir Loft −8 (set 500003), Blood Forge −10 to −16, Shield Wall −6 (set 500003), Vharun −24 to −36;
+     - C: Glass Gallery −42 to −44, Muted Nave −8 (set 1000), the Cantor −20 to −32;
+     - B: Glass Gallery −6 (set 1000) and Shield Wall −6 (set 500003).
+   - Brann's +20% damage (tried above) narrows those gaps by 4-14 points, but none of them closes.
+   - The losing parties are the ones with Kael and Brann side by side in one cone, and C also lacks Vexis's damage at Glass Gallery.
+4. **Whole runs (A, C), and every Novice run band.** These follow from 2 and 3: life carries between fights, and the Novice's A and C runs end in their first fights. No ±20% number moved a run more than about 9 points.
+5. **Novice cell bands.**
+   - **M1 'not above default':** B's Novice beats the default Novice at Tolling Halls and Glass Gallery (by 2-12 points). Brann taking the hits there makes the party easier for a heal-the-lowest Weaver.
+   - **M2 '5-20 points under default':** where the default Novice wins 96-100% (Crimson Gate, Blood Rites, Pike Line, Red Muster, Leech Warren), Brann's parties win the same 96-100%. At the elites the gap runs from +2 to −40 points. A band on both sides can't be met by one number.
+   - **Boss Novice:** A and C win 0-28%, against 20-60% (25-70% at Bellwarden and the Cantor).
+6. **lifestealShare 20-45%.**
+   - **Measured:** met in all cells but one per party: A First Light 46% (one set), B the Cantor 52%, C the Crimson Gate 48%.
+   - Lifesteal is already at its lever's floor.
+7. **The no-tank boss band: Twin Cleave on Brann survived ≥ 70%.**
+   - **Measured:** party B 42/145 = 29% and 44/140 = 31%. The rest of the no-tank boss band is met: Skilled win ≥ default − 15, share ≥ 30% and Idle 0%. The Novice is ≥ 10% except Vharun on set 500003 (8%).
+   - **The pre-agreed levers, in order:**
+     1. **The bot's Reel reservation and pre-Ward.** Already in W3's bot. The three extensions above (dome readiness, near-lethal priority, holding a charge) gave 27-40%.
+     2. **Armour up to 0.25.** Applied. It changes nothing here, because telegraphs ignore armour.
+     3. **Deathless and Iron Will in the hints.** This has no sim effect for a bot to measure.
+   - **Why it misses:** in party B the boss targets Lyra 93-98% of the time. Twin Cleave aimed at her also lands on Brann, who stands in its 4.2 m cone. That is 2 × 850 on him, not softened by armour, while the Weaver's two Ward charges also answer Lyra's blows. The Reel lands 2 m from the Weaver, often still inside the cone.
+   - **What is left:** enemy numbers or Brann's position (the sim's berserker movement), both outside this pass.
+8. **Inversion check, party A in Movement I.**
+   - **Measured:** the Novice Mends Brann only 1.33-1.34× as long as the Skilled, against ≥ 1.5×. The heal and Ward share halves of the check are met everywhere, and the whole check is met for B, for C, and for A in Movement II.
+   - **Why:** the Skilled's Thread time on Brann there is mostly reviving him at the Cantor (37-47 s a fight) after Toll and Requiem downs. The Mend-lift and floor changes reach about 1.5× only by costing downs.
+9. **Bond XP floor, party B.**
+   - **Measured:** 74% and 75%. Lyra's share in B is the largest of any hero.
+10. **The known starting misses from the build.**
+    - **'Without Kael the bosses target Lyra, not Brann'** holds, and it is not threat. Vharun targets Lyra about 90% of the time even in the default party, with Kael present (Kael gets 7-10%); the Matriarch targets her about 63%.
+    - **Vharun A and C below default − 5:** C now meets it (96 / 96 against 98 / 100). A misses by 24-36.
+    - **5-13 refused Rallies a fight at Vharun:** now A 11-12, B 6-7 and C about 7.7, out of 23-38 Rallies a fight. Under the Bloodmoon the bot keeps calling the party into the pools. That has no band; the ≤ 3 band covers Movement II skirmishes and elites, where the most is 2.1 (met).
+
+#### Cells by party
+
+Each figure reads *set 1000 / set 500003*. Skilled and Novice wins show the default party's win beside them, in brackets. Wins, share, below-40% time and lifestealShare are in %; downs are Brann's own, a fight.
+
+**Party A**
+
+| Cell | Skilled win (default) | Share | Novice win (default) | Idle | Brann below 40% | Brann downs | lifestealShare | Refused Rallies |
+|---|---|---|---|---|---|---|---|---|
+| first_light | 98 (100) / 96 (100) | 48 / 47 | 70 (100) / 74 (98) | 0 / 0 | 20 / 20 | 0.62 / 0.64 | 42 / 46 | 0.0 / 0.0 |
+| tolling_halls | 96 (100) / 98 (100) | 46 / 47 | 48 (90) / 54 (88) | 0 / 0 | 25 / 21 | 0.58 / 0.48 | 34 / 34 | 0.0 / 0.0 |
+| glass_gallery | 96 (94) / 92 (92) | 46 / 44 | 36 (80) / 48 (76) | 0 / 0 | 19 / 23 | 0.26 / 0.46 | 41 / 41 | 0.0 / 0.0 |
+| choir_loft | 96 (100) / 92 (100) | 40 / 39 | 82 (100) / 86 (100) | 0 / 0 | 30 / 30 | 0.32 / 0.60 | 40 / 45 | 0.0 / 0.0 |
+| mourning_steps | 100 (98) / 100 (100) | 46 / 45 | 82 (100) / 82 (96) | 0 / 0 | 14 / 10 | 0.12 / 0.08 | 39 / 38 | 0.0 / 0.0 |
+| muted_nave | 66 (100) / 72 (100) | 44 / 44 | 4 (66) / 14 (68) | 0 / 0 | 27 / 32 | 1.46 / 1.40 | 43 / 39 | 0.0 / 0.0 |
+| shattered_choir | 76 (92) / 78 (94) | 43 / 43 | 36 (80) / 34 (86) | 0 / 0 | 30 / 37 | 1.38 / 1.30 | 32 / 35 | 0.0 / 0.0 |
+| bellwarden | 98 (98) / 94 (96) | 46 / 46 | 22 (72) / 22 (82) | 0 / 0 | 33 / 34 | 0.66 / 1.04 | 36 / 35 | 4.3 / 4.9 |
+| hollow_cantor | 100 (96) / 96 (90) | 40 / 41 | 26 (56) / 26 (62) | 0 / 0 | 20 / 17 | 4.36 / 4.32 | 43 / 43 | 0.0 / 0.0 |
+| crimson_gate | 98 (100) / 100 (100) | 42 / 42 | 96 (98) / 94 (100) | 0 / 0 | 8 / 11 | 0.06 / 0.08 | 43 / 45 | 0.0 / 0.0 |
+| blood_rites | 100 (100) / 100 (100) | 45 / 44 | 100 (100) / 100 (100) | 0 / 0 | 10 / 15 | 0.12 / 0.12 | 41 / 41 | 0.6 / 0.8 |
+| pike_line | 100 (100) / 98 (100) | 43 / 45 | 100 (98) / 100 (98) | 0 / 0 | 23 / 23 | 0.20 / 0.20 | 40 / 39 | 0.0 / 0.0 |
+| red_muster | 100 (100) / 98 (100) | 49 / 50 | 100 (100) / 100 (100) | 0 / 0 | 13 / 12 | 0.00 / 0.02 | 37 / 36 | 0.7 / 0.7 |
+| leech_warren | 100 (100) / 100 (100) | 46 / 46 | 98 (96) / 100 (100) | 0 / 0 | 2 / 1 | 0.00 / 0.00 | 38 / 37 | 0.1 / 0.1 |
+| shield_wall | 100 (94) / 88 (94) | 48 / 45 | 60 (68) / 78 (76) | 0 / 0 | 19 / 26 | 0.18 / 0.32 | 41 / 44 | 1.8 / 2.1 |
+| blood_forge | 82 (92) / 78 (94) | 45 / 44 | 42 (68) / 46 (66) | 0 / 0 | 24 / 20 | 0.66 / 0.66 | 43 / 40 | 1.3 / 1.2 |
+| gorehound_matriarch | 100 (100) / 100 (100) | 46 / 46 | 18 (62) / 14 (56) | 0 / 0 | 6 / 5 | 0.00 / 0.02 | 42 / 42 | 0.0 / 0.0 |
+| vharun | 74 (98) / 64 (100) | 47 / 47 | 2 (46) / 0 (50) | 0 / 0 | 36 / 35 | 4.20 / 3.98 | 33 / 33 | 11.9 / 11.0 |
+
+**Party B**
+
+| Cell | Skilled win (default) | Share | Novice win (default) | Idle | Brann below 40% | Brann downs | lifestealShare | Refused Rallies |
+|---|---|---|---|---|---|---|---|---|
+| first_light | 100 (100) / 100 (100) | 45 / 45 | 96 (100) / 94 (98) | 46 / 36 | 7 / 9 | 0.12 / 0.16 | 42 / 42 | 0.0 / 0.0 |
+| tolling_halls | 100 (100) / 100 (100) | 43 / 42 | 96 (90) / 100 (88) | 2 / 0 | 17 / 15 | 0.16 / 0.16 | 31 / 32 | 0.0 / 0.0 |
+| glass_gallery | 88 (94) / 98 (92) | 43 / 43 | 82 (80) / 82 (76) | 0 / 6 | 33 / 37 | 0.48 / 0.76 | 35 / 34 | 0.0 / 0.0 |
+| choir_loft | 100 (100) / 100 (100) | 43 / 43 | 100 (100) / 94 (100) | 8 / 8 | 18 / 15 | 0.10 / 0.02 | 37 / 38 | 0.0 / 0.0 |
+| mourning_steps | 100 (98) / 100 (100) | 44 / 44 | 94 (100) / 94 (96) | 6 / 12 | 21 / 21 | 0.22 / 0.32 | 33 / 31 | 0.0 / 0.0 |
+| muted_nave | 98 (100) / 98 (100) | 46 / 45 | 54 (66) / 42 (68) | 0 / 0 | 26 / 17 | 0.42 / 0.32 | 33 / 37 | 0.0 / 0.0 |
+| shattered_choir | 98 (92) / 96 (94) | 42 / 42 | 70 (80) / 76 (86) | 0 / 0 | 29 / 25 | 0.32 / 0.44 | 28 / 29 | 0.0 / 0.0 |
+| bellwarden | 100 (98) / 98 (96) | 44 / 45 | 38 (72) / 42 (82) | 0 / 0 | 8 / 8 | 0.16 / 0.36 | 43 / 44 | 1.3 / 1.3 |
+| hollow_cantor | 92 (96) / 90 (90) | 36 / 35 | 42 (56) / 30 (62) | 0 / 0 | 12 / 14 | 1.16 / 1.78 | 52 / 52 | 0.0 / 0.0 |
+| crimson_gate | 100 (100) / 100 (100) | 41 / 41 | 96 (98) / 94 (100) | 2 / 2 | 4 / 3 | 0.00 / 0.02 | 38 / 39 | 0.0 / 0.0 |
+| blood_rites | 98 (100) / 98 (100) | 47 / 47 | 100 (100) / 98 (100) | 0 / 0 | 8 / 12 | 0.08 / 0.10 | 34 / 36 | 0.3 / 0.5 |
+| pike_line | 100 (100) / 100 (100) | 47 / 47 | 100 (98) / 100 (98) | 8 / 14 | 13 / 12 | 0.02 / 0.00 | 33 / 32 | 0.0 / 0.0 |
+| red_muster | 100 (100) / 100 (100) | 47 / 48 | 100 (100) / 100 (100) | 0 / 0 | 16 / 15 | 0.02 / 0.02 | 37 / 39 | 0.5 / 0.5 |
+| leech_warren | 100 (100) / 100 (100) | 46 / 46 | 96 (96) / 98 (100) | 0 / 0 | 2 / 2 | 0.00 / 0.00 | 38 / 38 | 0.1 / 0.2 |
+| shield_wall | 94 (94) / 88 (94) | 46 / 46 | 64 (68) / 46 (76) | 0 / 0 | 26 / 29 | 0.20 / 0.44 | 37 / 41 | 1.4 / 1.6 |
+| blood_forge | 92 (92) / 92 (94) | 44 / 44 | 60 (68) / 48 (66) | 0 / 0 | 27 / 26 | 0.46 / 0.46 | 42 / 41 | 1.6 / 1.3 |
+| gorehound_matriarch | 98 (100) / 100 (100) | 43 / 43 | 42 (62) / 48 (56) | 0 / 0 | 2 / 2 | 0.04 / 0.02 | 43 / 41 | 0.0 / 0.0 |
+| vharun | 96 (98) / 96 (100) | 42 / 43 | 24 (46) / 8 (50) | 0 / 0 | 28 / 26 | 2.34 / 2.26 | 34 / 33 | 6.8 / 6.0 |
+
+**Party C**
+
+| Cell | Skilled win (default) | Share | Novice win (default) | Idle | Brann below 40% | Brann downs | lifestealShare | Refused Rallies |
+|---|---|---|---|---|---|---|---|---|
+| first_light | 100 (100) / 100 (100) | 47 / 46 | 92 (100) / 98 (98) | 0 / 0 | 21 / 21 | 0.32 / 0.38 | 41 / 40 | 0.0 / 0.0 |
+| tolling_halls | 100 (100) / 100 (100) | 51 / 50 | 60 (90) / 72 (88) | 0 / 0 | 10 / 11 | 0.10 / 0.18 | 33 / 36 | 0.0 / 0.0 |
+| glass_gallery | 52 (94) / 48 (92) | 40 / 39 | 48 (80) / 42 (76) | 0 / 0 | 29 / 30 | 1.10 / 1.12 | 40 / 38 | 0.0 / 0.0 |
+| choir_loft | 100 (100) / 100 (100) | 45 / 44 | 92 (100) / 88 (100) | 0 / 0 | 13 / 9 | 0.12 / 0.02 | 38 / 39 | 0.0 / 0.0 |
+| mourning_steps | 100 (98) / 100 (100) | 49 / 47 | 92 (100) / 86 (96) | 0 / 0 | 26 / 30 | 0.30 / 0.66 | 29 / 30 | 0.0 / 0.0 |
+| muted_nave | 92 (100) / 96 (100) | 49 / 50 | 36 (66) / 28 (68) | 0 / 0 | 19 / 21 | 0.70 / 1.04 | 40 / 42 | 0.0 / 0.0 |
+| shattered_choir | 98 (92) / 94 (94) | 50 / 50 | 90 (80) / 82 (86) | 0 / 0 | 25 / 22 | 0.82 / 0.46 | 31 / 33 | 0.0 / 0.0 |
+| bellwarden | 100 (98) / 100 (96) | 50 / 50 | 28 (72) / 24 (82) | 0 / 0 | 21 / 25 | 0.56 / 0.58 | 41 / 40 | 3.4 / 3.7 |
+| hollow_cantor | 64 (96) / 70 (90) | 42 / 42 | 6 (56) / 14 (62) | 0 / 0 | 25 / 27 | 4.46 / 4.84 | 41 / 40 | 0.0 / 0.0 |
+| crimson_gate | 100 (100) / 100 (100) | 47 / 47 | 100 (98) / 100 (100) | 0 / 0 | 4 / 6 | 0.04 / 0.06 | 48 / 48 | 0.0 / 0.0 |
+| blood_rites | 100 (100) / 100 (100) | 52 / 52 | 100 (100) / 94 (100) | 0 / 0 | 6 / 6 | 0.02 / 0.08 | 37 / 35 | 0.4 / 0.3 |
+| pike_line | 100 (100) / 100 (100) | 53 / 52 | 100 (98) / 100 (98) | 0 / 0 | 3 / 4 | 0.02 / 0.00 | 35 / 35 | 0.0 / 0.0 |
+| red_muster | 100 (100) / 100 (100) | 54 / 54 | 100 (100) / 100 (100) | 0 / 0 | 4 / 6 | 0.00 / 0.00 | 36 / 35 | 0.3 / 0.3 |
+| leech_warren | 100 (100) / 100 (100) | 52 / 52 | 100 (96) / 100 (100) | 0 / 0 | 1 / 1 | 0.02 / 0.00 | 37 / 36 | 0.1 / 0.1 |
+| shield_wall | 100 (94) / 100 (94) | 52 / 52 | 46 (68) / 40 (76) | 0 / 0 | 11 / 10 | 0.28 / 0.18 | 43 / 43 | 1.1 / 1.1 |
+| blood_forge | 98 (92) / 90 (94) | 50 / 49 | 28 (68) / 32 (66) | 0 / 0 | 26 / 24 | 0.52 / 0.42 | 43 / 44 | 1.4 / 1.2 |
+| gorehound_matriarch | 100 (100) / 100 (100) | 51 / 51 | 16 (62) / 26 (56) | 0 / 0 | 1 / 2 | 0.00 / 0.02 | 41 / 40 | 0.0 / 0.0 |
+| vharun | 96 (98) / 96 (100) | 51 / 50 | 12 (46) / 4 (50) | 0 / 0 | 26 / 25 | 1.94 / 2.00 | 34 / 34 | 7.7 / 7.6 |
+
 ## Presentation
 
 ### Model and VFX (`src/render`)
@@ -541,7 +819,7 @@ Enemy and encounter numbers never move.
   - Blood Rage: 0, +60% and the cap (Red Mist +100%).
   - `flourishHit`'s amplified share is unchanged by rage.
   - Lifesteal:
-    - 8%, and ×3 when Cued;
+    - 6% (the def's share), and ×3 when Cued;
     - aggregated into one `healApplied` per 0.5 s with source = Brann;
     - no ledger or `supportReceived` credit;
     - cut by Wound and Bloodmoon;
