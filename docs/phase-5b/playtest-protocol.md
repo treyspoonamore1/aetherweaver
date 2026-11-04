@@ -15,14 +15,16 @@ page is what people have to confirm, and how to run and record it.
 | G4 | **Bloodlust reads.** After a Rally he refuses (below 40%), the player can say why he didn't come back, and name Reel or a Ward (Iron Will) as the answer. | **≥ 4 of 5** players, unprompted or after "what happened there?" |
 | G5 | **His downs' recaps.** On the Result after a Brann down, the player reads the recap line and can say what they would do differently. | **≥ 4 of 5** players |
 | G6 | **Movement II identity.** In a Crimson Spire fight (bone, crimson, the Bloodmoon), the player can point Brann out among the Legion at a glance, by his silhouette and brass trim. | **≥ 4 of 5** players; include at least one red-green colour-blind player if one is available, and record it |
+| G7 | **He steps out of others' blows (rebalance).** After a cleave swung at Kael (or a lance at Vexis) that Brann walks round, the player can say that he keeps out of blows aimed at the others and that the ones aimed at him are theirs to Ward. | **≥ 4 of 5** players, after "what did Brann do there?" |
 
-G1 and G2 are the design's two named gates (exit criterion 5). G3 to G6 are the human halves of
+G1 and G2 are the design's two named gates (exit criterion 5). G3 to G7 are the human halves of
 rules whose automated halves already pass (`tests/renderBrann.test.ts`, `tests/uiPhase5b*.test.ts`,
-`tests/meta/recapNoDome.test.ts`, `tests/colorVision.test.ts`).
+`tests/meta/recapNoDome.test.ts`, `tests/colorVision.test.ts`, and for G7, added with the
+rebalance, `tests/sim/brannSidestep.test.ts`).
 
 ## Who
 
-- **Five players for G2 to G6**, new to the game or within their first few hours, and new to
+- **Five players for G2 to G7**, new to the game or within their first few hours, and new to
   Brann. Not anyone who worked on Phase 5b.
 - **One or more cold readers for G1:** no docs, no code and no play; screenshots and the card text
   only, as in Phase 4h. A fresh agent session can stand in, as it did there, but record which.
@@ -31,7 +33,7 @@ rules whose automated halves already pass (`tests/renderBrann.test.ts`, `tests/u
 
 - **Build:** the playtest demo (`npm run build:demo`, see [docs/demo.md](../demo.md)) or a local
   `npm run dev`. Sound on: the war drum and the alert rule are part of what is tested.
-- **G2 to G6:** start **Veteran** in the demo. The veteran has Brann recruited, so Prep opens on
+- **G2 to G7:** start **Veteran** in the demo. The veteran has Brann recruited, so Prep opens on
   the picker with the default party chosen. Ask the player to take Brann (drop one starter). For a
   fresh-start player, use Settings → Progress → *Skip the unlocks* to bring him into the roster;
   note that the setting also opens every other system, which is more to read.
@@ -60,8 +62,10 @@ Read it as written; don't explain the mechanics before the questions.
    others?" Then, if needed: "Is there anything that works better on him?"
 4. **After a refused Rally (G4):** "What happened there?" Then: "What could you do about it?"
 5. **After a Brann down (G5):** "Read the line under his name. What would you do differently?"
-6. **Movement II (G6):** In a Spire fight, pause and ask: "Point to Brann."
-7. **Close:** "Was anything about Brann confusing, or did anything look like damage when it
+6. **After a cleave or lance aimed at Kael or Vexis that Brann stepped round (G7):** "What did
+   Brann do there?" Then: "And when one is aimed at him?"
+7. **Movement II (G6):** In a Spire fight, pause and ask: "Point to Brann."
+8. **Close:** "Was anything about Brann confusing, or did anything look like damage when it
    wasn't?"
 
 ## Scoring and recording
@@ -69,12 +73,12 @@ Read it as written; don't explain the mechanics before the questions.
 - **G1:** each surface 1 to 5. 5: every rule on it understood. 4: the main rule (healing halved,
   Wards and barriers aren't, he fights harder low) understood, a detail missed. 3: the main rule
   half-understood. 2 or less: misread.
-- **G2 to G6:** pass or fail per player, with their words quoted.
+- **G2 to G7:** pass or fail per player, with their words quoted.
 - Record each session in a table like this, one per gate, and keep the quotes:
 
-| Player | Start | Party | G2 | G3 | G4 | G5 | G6 | Notes and quotes |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| P1 | Veteran | Kael, Lyra, Brann | | | | | | |
+| Player | Start | Party | G2 | G3 | G4 | G5 | G6 | G7 | Notes and quotes |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| P1 | Veteran | Kael, Lyra, Brann | | | | | | | |
 
 | Reader | Prep (1-5) | Frame (1-5) | 'New ally' (1-5) | What tripped them up |
 | --- | --- | --- | --- | --- |
@@ -92,6 +96,8 @@ bands" in the design). Then read again with a fresh reader or player. In order o
 - **G4:** the Bloodlust chip and the refused-Rally hint; the 'refused' glyph on the Rally ack.
 - **G5:** `downAdvice`'s wording (`src/meta/run.ts`).
 - **G6:** the brass trim's size on the model (not its colour: `#a6a650` is held by the ΔE tests).
+- **G7:** his Needs row and Codex line ('Ward the blows aimed at him: he steps out of the rest').
+  His movement is the bands' business, like his numbers.
 
 Record the result here, under a dated heading, with what changed and the new scores.
 
