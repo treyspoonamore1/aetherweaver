@@ -1,6 +1,6 @@
 # The playtest demo
 
-*2026-10-30 · follows [Phase 4h](phase-4h.md); updated 2026-11-03 for [Phase 5a](phase-5a.md)*
+*2026-10-30 · follows [Phase 4h](phase-4h.md); updated 2026-11-03 for [Phase 5a](phase-5a.md) and 2026-11-04 for [Phase 5b](phase-5b.md)*
 
 A build of the game for playtesters: the Prelude run (Movement I), and since Phase 5a the Expedition, which climbs on past the Hollow Cantor into Movement II (the Crimson Spire and the Crimson Legion), with everything the Loom has opened by then. It's published as a private link (a claude.ai Artifact) that its owner can share. Nothing is collected from players.
 
@@ -12,6 +12,7 @@ The first screen asks how to start:
   - Rank 12, with the Astrolabe's points left to spend;
   - Starlight for the Atelier, and one variant (Purge) owned;
   - the Luminary mastered (its title earned, Chorale for sale) and the Martyr on her way;
+  - Brann, the Bloodsworn, recruited (Phase 5b), so Prep picks three of four heroes;
   - each hero at Bond rank 4 (their first talents);
   - two relics enshrined, with materials to craft.
   The stations' intros still play on first visit.
@@ -42,3 +43,40 @@ npm run build:demo        # VITE_DEMO=1, relative paths, no source maps → dist
 - **Play on a computer** with a keyboard and mouse. The Title, the Loom and the Atelier also take a gamepad; fights don't yet.
 - **Sound starts with your first click** (browsers require it).
 - **Nothing is collected.** There's no feedback form or telemetry in this build; tell its owner what you found.
+
+## Phase 5b: Brann and the roster
+
+*For testers.* Phase 5b adds a fourth hero, **Brann, the Bloodsworn**, and a roster: once he has
+joined, Prep asks you to choose three of four heroes. The published link above is the Phase 5a
+build until the demo is rebuilt and republished; a local `npm run build:demo` or `npm run dev`
+has Brann.
+
+**How to get him.**
+
+- **Veteran start:** he is already recruited. Prep opens with the picker, on Kael, Lyra and
+  Vexis; click a starter to drop them, then click Brann.
+- **Fresh start:** on an Expedition, Movement II has an event, *The Bloodsworn's Cell*. Free the
+  prisoner and win the elite fight, and he joins from your next run. If you never find the Cell,
+  fighting Vharun, won or lost, frees him too. Until then Prep is exactly as before: no picker.
+- **Or skip it:** Settings → Progress → *Skip the unlocks* puts him in the roster at once (with
+  every other system). Turning it off again sends a party with an unrecruited Brann back to the
+  default party.
+
+**What to look at.** His one rule: **your healing on him is halved, and your Wards and barriers
+aren't.** He hits harder the lower his life, and his axe heals him. Please tell us:
+
+- **Before his second fight,** could you say how healing him differs from the others? Did the
+  'New ally' card, Prep's Needs row or the hint make it clear?
+- **His frame:** the 40% and 15% lines, the ember band between them (where he fights best), the
+  rage % and Bloodlust chips. Did anything read as an alarm when it wasn't?
+- **Bloodletting:** above half life he spends some of his own life for three stronger swings. It
+  shows as a crimson drain, not a white hit. Did it ever look like he'd been hit?
+- **Bloodlust:** below 40% he won't come back for a Rally. Reel him; or, once he has his Iron
+  Will talent, Ward him and he obeys. Was it clear why he stayed?
+- **When he goes down,** the Result says what would have saved him. Did it help?
+- **Without Kael** (Lyra, Vexis and Brann) there is no dome: Brann is the front line, and Prep
+  says what each missing starter takes with them.
+- **In the Crimson Spire,** among the crimson Legion, could you find him at a glance (his
+  silhouette, the axe and the brass collar)?
+
+The full protocol for these questions is [docs/phase-5b/playtest-protocol.md](phase-5b/playtest-protocol.md).
