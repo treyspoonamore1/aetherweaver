@@ -349,7 +349,13 @@ describe('Brann’s bar', () => {
     brann.health!.incoming = brann.health!.hp + 10;
     h.frame([]);
     expect(barOf(h, brann.id).lethal).toBe(true);
+    // Critical with it (the review's finding): no ember raging fill under a lethal blow.
+    expect(barOf(h, brann.id).level).toBe(2);
+    expect(barOf(h, brann.id).raging).toBe(false);
+    brann.health!.incoming = 0;
+    h.frame([]);
     expect(barOf(h, brann.id).level).toBe(0);
+    expect(barOf(h, brann.id).raging).toBe(true);
   });
 
   it('the edge arrow warns as the bar does: his own critical, the shared one for the rest', () => {

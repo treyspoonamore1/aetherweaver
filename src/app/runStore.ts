@@ -41,6 +41,11 @@ export interface RunStore extends RunActions {
   followBonds(): void;
   /** Prep follows the profile's technique variants (docs/phase-4f.md). */
   followTechniques(): void;
+  /**
+   * A run in Prep follows the profile's roster (docs/phase-5b.md): a party with a hero the roster
+   * no longer has (picked while "Skip the unlocks" was on) falls back to the default party.
+   */
+  followParty(): void;
   /** At a Respite: the Bond scenes waiting for the party's heroes, one per hero. */
   scenesWaiting(): SceneDef[];
   /** A Respite's fourth choice: a waiting Bond scene, instead of resting. */
@@ -178,6 +183,8 @@ export const useRun = create<RunStore>()((set, get) => {
           useProfile.getState().runTechniques(),
         ),
       });
+      // …and the roster as it is now: Prep never shows a party it wouldn't embark.
+      get().followParty();
       // A run saved before Deeds (or before a reset) gets what its fights have earned.
       recordDeeds();
       // …and a recruit its fights made (docs/phase-5b.md), if the app closed before it was kept.
@@ -194,6 +201,13 @@ export const useRun = create<RunStore>()((set, get) => {
       apply((run) => Run.setBonds(run, profileBonds(run.party.map((h) => h.heroId)))),
     followTechniques: () =>
       apply((run) => Run.setTechniques(run, useProfile.getState().runTechniques())),
+    followParty: () =>
+      apply((run) => {
+        const roster = useProfile.getState().roster();
+        if (run.party.every((h) => roster.includes(h.heroId))) return run;
+        const next = Run.setParty(run, CONTENT.defaultParty, roster);
+        return next === run ? run : Run.setBonds(next, profileBonds(CONTENT.defaultParty));
+      }),
     scenesWaiting: () => {
       const run = get().run;
       if (!run || run.phase !== 'respite') return [];
@@ -417,6 +431,8 @@ useProfile.subscribe((state, prev) => {
 });
 useSettings.subscribe((state, prev) => {
   if (state.settings.unlockAll !== prev.settings.unlockAll) {
+    // The party first, so the Bonds below follow the heroes Prep will embark.
+    useRun.getState().followParty();
     useRun.getState().followAstrolabe(useProfile.getState().profile.astrolabe);
     useRun.getState().followReliquary();
     useRun.getState().followDissonance();

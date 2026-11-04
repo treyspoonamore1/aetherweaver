@@ -36,10 +36,12 @@ export function lifeLabels(
 
 /**
  * A hero's alarm level on their frame: the shared ramp, or their own bands (Brann, docs/phase-5b.md:
- * no hurt tier, critical below 15% or when falling fast).
+ * no hurt tier, critical below 15%, when falling fast or with a lethal hit coming).
  */
-export function frameLevel(h: Pick<HeroHud, 'hp' | 'maxHp' | 'defId' | 'blood'>): HealthLevel {
-  return healthLevel(h.hp, h.maxHp, h.defId, h.blood?.fast);
+export function frameLevel(
+  h: Pick<HeroHud, 'hp' | 'maxHp' | 'defId' | 'blood' | 'lethal'>,
+): HealthLevel {
+  return healthLevel(h.hp, h.maxHp, h.defId, h.blood ? h.blood.fast || h.lethal : undefined);
 }
 
 /** What the whole frame says: critical (under a quarter), an ailment to cleanse, out of reach. */

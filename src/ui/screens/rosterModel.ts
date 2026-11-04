@@ -6,6 +6,7 @@
  * the Harmony ribbon and 'would enable' hint on motif cards. Every list keeps content order.
  */
 import { CONTENT, encounterDef, heroDef, motifDef, type HeroDef } from '../../content';
+import { HEAL_CUT } from '../../content/legion';
 import type { EventChoice } from '../../content/schema';
 import type { HeroBloodStats, RunState } from '../../meta/types';
 import { fmt, pct } from '../kit/format';
@@ -167,6 +168,26 @@ export function passiveRow(def: HeroDef): { name: string; text: string } | null 
   };
 }
 
+/** A share of healing in words: "a quarter", "an eighth", else a percent. */
+function shareWords(x: number): string {
+  if (Math.abs(x - 0.25) < 1e-9) return 'a quarter';
+  if (Math.abs(x - 0.125) < 1e-9) return 'an eighth';
+  return `${Math.round(x * 100)}%`;
+}
+
+/**
+ * The Codex's line on how his cut stacks (docs/phase-5b.md, "Weaver healing"): with a Wound, or
+ * outside the Bloodmoon's pools, the cuts multiply. Both are Movement II's `HEAL_CUT`. Null for a
+ * hero without a Weaver-heal cut.
+ */
+export function healCutStackText(def: HeroDef): string | null {
+  const p = def.passive;
+  if (!p || p.weaverHealMult === 1) return null;
+  const one = p.weaverHealMult * (1 - HEAL_CUT);
+  const both = one * (1 - HEAL_CUT);
+  return `It stacks: with a Wound on him, or outside the Bloodmoon’s pools, your healing on him is ${shareWords(one)}; with both, ${shareWords(both)}. A Chime clears the Wound; a pool or a Ward is the answer to the rest.`;
+}
+
 /** A hero's Needs row: what keeping them alive asks of you. Null without one. */
 export function needsRow(def: HeroDef): string | null {
   return def.needs ?? null;
@@ -206,6 +227,16 @@ export function lockedHeroes(roster: readonly string[]): string[] {
 export function choiceRecruit(choice: Pick<EventChoice, 'effects'>): string | null {
   for (const e of choice.effects) if (e.kind === 'fight' && e.recruit) return e.recruit;
   return null;
+}
+
+/**
+ * The roster a recruiting choice's text reads against: the heroes the profile has really
+ * recruited (and the starters), never "Skip the unlocks"' whole list. Winning the Cell recruits
+ * him whatever that setting says, so the choice says so until he's truly free (docs/phase-5b.md).
+ */
+export function choiceRoster(recruited: readonly string[] | undefined): string[] {
+  const owned = new Set([...CONTENT.defaultParty, ...(recruited ?? [])]);
+  return CONTENT.heroes.filter((h) => owned.has(h.id)).map((h) => h.id);
 }
 
 /**

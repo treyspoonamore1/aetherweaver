@@ -26,11 +26,14 @@ import { DEFAULT_HUD, type FramesLayout } from '../../app/settings';
 import { frameSide, framesPlaceStyle, type FrameSide } from './framesLayout';
 import { frameLevel, frameState, lifeColor, lifeLabels, type HealthText } from './healthModel';
 import {
+  BLOODLET_COLOR,
+  BLOODLET_DRAIN_S,
   RAGING_COLOR,
   bloodChips,
   bloodTicks,
   callNamed,
   frameRaging,
+  lifeDrop,
   ragingBand,
   type BloodChip,
 } from './bloodLook';
@@ -1010,11 +1013,19 @@ function HpBar({
   // The trail: the same width as the life, but it lingers and drains after a hit (and snaps up
   // with a heal), so the hit just taken shows as white between them. Which way life last moved
   // is kept from the previous render (React's pattern for it: state set while rendering).
+  // Brann's Bloodletting (docs/phase-5b.md) is life he spent, not a hit: it drops with the life,
+  // no white trail, and shows as a crimson drain that fades (`lifeDrop`).
+  const spent = h.blood?.spent ?? 0;
   const [prev, setPrev] = useState(h.hp);
   const [falling, setFalling] = useState(false);
-  if (h.hp !== prev) {
+  const [seenSpent, setSeenSpent] = useState(spent);
+  const [drain, setDrain] = useState<{ top: number; at: number } | null>(null);
+  if (h.hp !== prev || spent !== seenSpent) {
+    const drop = lifeDrop(prev, h.hp, seenSpent, spent);
     setPrev(h.hp);
-    setFalling(h.hp < prev - 0.5);
+    setSeenSpent(spent);
+    setFalling(drop.hit);
+    if (drop.bled > 0) setDrain({ top: Math.min(h.maxHp, h.hp + drop.bled), at: spent });
   }
   return (
     <div className="mt-1.5">
@@ -1042,6 +1053,20 @@ function HpBar({
           className="absolute inset-y-0 left-0 transition-[width,background-color] duration-150 ease-linear"
           style={{ width: pctOf(h.hp), background: ember ? RAGING_COLOR : lifeColor(level) }}
         />
+        {drain && drain.top > h.hp && (
+          <div
+            key={drain.at}
+            className="pointer-events-none absolute inset-y-0"
+            style={{
+              left: pctOf(h.hp),
+              width: pctOf(drain.top - h.hp),
+              background: BLOODLET_COLOR,
+              animation: `fade-out ${BLOODLET_DRAIN_S}s ease-in forwards`,
+            }}
+            title="Bloodletting: life he spent, not a hit"
+            data-testid="hp-drain"
+          />
+        )}
         {h.shield > 0 && (
           <div
             className="absolute inset-y-0 transition-[left,width] duration-150 ease-linear"

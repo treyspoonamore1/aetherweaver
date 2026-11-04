@@ -336,7 +336,9 @@ export const useProfile = create<ProfileStore>()((set, get) => {
       if (sceneId in bond.seen) return;
       const seen = { ...bond.seen, [sceneId]: reply === 1 ? 1 : 0 };
       commit({ ...profile, bonds: { ...profile.bonds, [scene.hero]: { ...bond, seen } } });
-      get().awardBonds({ [scene.hero]: sceneXp(scene) });
+      // A scene pays the XP its choice and its Continue line show (`sceneXp`), and the Summary
+      // counts: the late recruit's catch-up is a fight's (docs/phase-5b.md), never a scene's.
+      get().awardBonds({ [scene.hero]: sceneXp(scene) }, false);
     },
     awardStarlight: (amount) => {
       const add = Math.max(0, Math.round(Number.isFinite(amount) ? amount : 0));

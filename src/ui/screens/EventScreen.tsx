@@ -1,9 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useProfile } from '../../app/profileStore';
 import { useRun } from '../../app/runStore';
-import { useSettings } from '../../app/settings';
 import { runEventDef, type EventChoice } from '../../content';
-import { EVERYTHING, heroRoster, type Allowance, type Unlock } from '../../meta/profile';
+import { EVERYTHING, type Allowance, type Unlock } from '../../meta/profile';
 import type { ChordLoadout, RunState } from '../../meta/types';
 import { ScreenFrame, ScreenHeader } from '../kit/Backdrop';
 import { Button } from '../kit/Button';
@@ -22,6 +21,7 @@ import {
   type ChoiceInfo,
 } from './interlude';
 import { MotifPicker } from './MotifPicker';
+import { choiceRoster } from './rosterModel';
 import { useAllowance, useFreshUnlocks } from './PrepScreen';
 import { Purse, RelicCard, RunStrip } from './RelicCard';
 import { RetuneView } from './RespiteScreen';
@@ -411,10 +411,10 @@ export function EventScreen() {
   const leave = useRun((s) => s.leaveEvent);
   const allowance = useAllowance();
   const fresh = useFreshUnlocks();
-  // Phase 5b: the roster (the store's, which follows the recruits and Skip the unlocks).
+  // Phase 5b: the heroes really recruited (not Skip the unlocks' list): a win at the Cell
+  // recruits its prisoner either way, so its choice says so until he's free.
   const recruited = useProfile((s) => s.profile.recruited);
-  const unlockAll = useSettings((s) => s.settings.unlockAll);
-  const roster = useMemo(() => heroRoster({ recruited }, unlockAll), [recruited, unlockAll]);
+  const roster = useMemo(() => choiceRoster(recruited), [recruited]);
   if (!run) return null;
   return (
     <EventView

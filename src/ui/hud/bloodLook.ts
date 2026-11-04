@@ -14,10 +14,33 @@ import type { HeroHud } from '../store';
 export const RAGING_COLOR = '#c2410c';
 /** His Bloodletting, a drain he chose (never a hit to heal): his own crimson. */
 export const BLOODLET_COLOR = '#b91c1c';
+/** How long the frame's Bloodletting drain shows, in seconds (as over his head: `DRAIN_HOLD`). */
+export const BLOODLET_DRAIN_S = 0.9;
 
-/** In the raging band (40% down to 15%), standing: his designed band, not a danger. */
-export function frameRaging(h: Pick<HeroHud, 'hp' | 'maxHp' | 'defId' | 'blood'>): boolean {
-  return !!h.blood && !h.blood.fast && raging(h.hp, h.maxHp, h.defId);
+/**
+ * How a frame reads a change of life (docs/phase-5b.md, "a drop the player didn't cause must not
+ * read as damage"): `bled`, the life Bloodletting spent since the last look (`blood.spent` grew),
+ * drawn as its own crimson drain; `hit`, whether the drop is more than that, so the white hit
+ * trail holds. Without `spent` (every default hero) a drop is a hit, as it always was.
+ */
+export function lifeDrop(
+  prevHp: number,
+  hp: number,
+  prevSpent: number,
+  spent: number,
+): { hit: boolean; bled: number } {
+  const bled = spent > prevSpent + 0.5 ? spent - prevSpent : 0;
+  return { hit: hp < prevHp - bled - 0.5, bled };
+}
+
+/**
+ * In the raging band (40% down to 15%), standing: his designed band, not a danger. Falling fast
+ * or with a lethal hit coming he is critical instead (`frameLevel`), as over his head.
+ */
+export function frameRaging(
+  h: Pick<HeroHud, 'hp' | 'maxHp' | 'defId' | 'blood' | 'lethal'>,
+): boolean {
+  return !!h.blood && !h.blood.fast && !h.lethal && raging(h.hp, h.maxHp, h.defId);
 }
 
 /** The raging band's span on the bar, as shares of max life (null without one). */
@@ -37,9 +60,13 @@ function talentValue(id: string, key: string): number | undefined {
   return CONTENT.talents.find((t) => t.id === id)?.values[key];
 }
 
+/** Blood and Silk's line (its motif text: below 30%), as over his head (`SILK_BELOW`). */
+const SILK_BELOW = 0.3;
+
 /**
  * The lines on his bar: Bloodlust's 40% and the critical 15% always; 30% with Berserker's Hymn
- * (where it turns on); 10% with Deathless (where it catches him). None for a hero without blood.
+ * (where it turns on) or Blood and Silk (where it pays), one line for both, as over his head; 10%
+ * with Deathless (where it catches him). None for a hero without blood.
  */
 export function bloodTicks(h: Pick<HeroHud, 'defId' | 'talents' | 'blood'>): BloodTick[] {
   if (!h.blood) return [];
@@ -52,12 +79,17 @@ export function bloodTicks(h: Pick<HeroHud, 'defId' | 'talents' | 'blood'>): Blo
       at: below,
       title: `${Math.round(below * 100)}%: Bloodlust — below it he won’t Rally, and Blood Rage runs hot`,
     });
-  if (h.talents.includes('berserkers_hymn')) {
-    const at = (talentValue('berserkers_hymn', 'below') ?? 30) / 100;
-    ticks.push({
-      at,
-      title: `${Math.round(at * 100)}%: Berserker’s Hymn — every hero hits harder`,
-    });
+  const hymn = h.talents.includes('berserkers_hymn')
+    ? (talentValue('berserkers_hymn', 'below') ?? 30) / 100
+    : 0;
+  const silk = h.blood.silk ? SILK_BELOW : 0;
+  if (hymn > 0 || silk > 0) {
+    const at = Math.max(hymn, silk);
+    const says = [
+      ...(hymn === at ? ['Berserker’s Hymn — every hero hits harder'] : []),
+      ...(silk === at ? ['Blood and Silk — Empower him for Resonance'] : []),
+    ];
+    ticks.push({ at, title: `${Math.round(at * 100)}%: ${says.join('; ')}` });
   }
   ticks.push({
     at: bands.critical,

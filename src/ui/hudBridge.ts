@@ -631,6 +631,8 @@ function bloodHud(state: WorldState, e: ReadonlyEntity): Pick<HeroHud, 'blood'> 
       tithe: e.health?.shields.some((s) => s.tithe === true) ?? false,
       fast: fallingFast(e),
       bled: b.bloodlet,
+      spent: b.spent,
+      ...(state.mods.bloodAndSilk > 0 ? { silk: true } : {}),
     },
   };
 }

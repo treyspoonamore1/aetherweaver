@@ -82,7 +82,10 @@ export class PartyBarsView {
       // His own alarm lines (healthLevels.ts): critical below 15% or falling fast. The default
       // heroes have none of their own, so theirs is the shared ramp as before.
       const defId = e.hero?.defId;
-      const level = blood ? healthLevel(h.hp, max, defId, fallingFast(e)) : healthLevel(h.hp, max);
+      // …and with a lethal hit coming, critical too (docs/phase-5b.md), as on his frame.
+      const level = blood
+        ? healthLevel(h.hp, max, defId, fallingFast(e) || lethal)
+        : healthLevel(h.hp, max);
       const own = e.hero ? heroDef(e.hero.defId).color : '#e2e8f0';
       const bar: AllyBarView = {
         hp,

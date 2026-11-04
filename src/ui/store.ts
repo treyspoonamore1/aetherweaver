@@ -129,7 +129,8 @@ export interface HeroHud {
    * Phase 5b, Brann's Blood Rage (docs/phase-5b.md): present only for a hero with `blood`. `rage`:
    * his damage bonus now (0.6 = +60%); `bloodlust`: he won't Rally; `deathless`: he can't die;
    * `oath`: Blood Oath's bank; `tithe`: a Blood Tithe Ward holds him; `fast`: falling fast;
-   * `bled`: Bloodletting's empowered swings left.
+   * `bled`: Bloodletting's empowered swings left; `spent`: the life Bloodletting spent this fight
+   * (the frame draws a rise in it as a drain, never as a hit).
    */
   blood?: {
     rage: number;
@@ -139,6 +140,9 @@ export interface HeroHud {
     tithe: boolean;
     fast: boolean;
     bled: number;
+    spent?: number;
+    /** Blood and Silk is in the run (its 30% line on his bar). */
+    silk?: boolean;
   };
   /**
    * Phase 3e, the Chronomancer: what Rewind would do to them right now, from the oldest sample

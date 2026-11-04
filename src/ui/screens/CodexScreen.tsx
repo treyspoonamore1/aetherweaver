@@ -24,7 +24,13 @@ import { Panel } from '../kit/Panel';
 import { useMood } from '../kit/sound';
 import { useUi } from '../store';
 import { HeroDisc } from './shared';
-import { lockedHeroText, lockedHeroes, needsRow, passiveRow } from './rosterModel';
+import {
+  healCutStackText,
+  lockedHeroText,
+  lockedHeroes,
+  needsRow,
+  passiveRow,
+} from './rosterModel';
 import { FORGE_PRICE, RELIC_OFFERS, RELIC_PRICE } from '../../meta/economy';
 import { eventFightRelics } from '../../meta/run';
 import { RELIC_RARITY, RelicGlyph, RelicRarityChip, Glyph } from '../kit/RelicGlyph';
@@ -432,6 +438,7 @@ function LockedHero({ heroId, compact = false }: { heroId: string; compact?: boo
 function HeroEntry({ hero: h }: { hero: HeroDef }) {
   // Phase 5b: a passive and what they need of you, only for a hero who has them (Brann).
   const passive = passiveRow(h);
+  const stack = healCutStackText(h);
   const needs = needsRow(h);
   return (
     <Panel tone="solid" className="p-5" style={{ borderTopColor: h.color, borderTopWidth: 3 }}>
@@ -480,6 +487,14 @@ function HeroEntry({ hero: h }: { hero: HeroDef }) {
           <div data-testid={`codex-passive-${h.id}`}>
             <dt className="font-semibold">Passive · {passive.name}</dt>
             <dd className="text-xs leading-relaxed text-muted">{passive.text}</dd>
+            {stack && (
+              <dd
+                className="mt-1 text-xs leading-relaxed text-muted"
+                data-testid={`codex-heal-stack-${h.id}`}
+              >
+                {stack}
+              </dd>
+            )}
           </div>
         )}
         {needs && (
