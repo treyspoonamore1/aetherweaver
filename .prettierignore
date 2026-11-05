@@ -14,3 +14,4 @@ tools/expedition-baseline.json
 tests/meta/draftSnapshot.json
 tests/bots/commandSnapshot.json
 tests/sim/rosterInvariance.keys.json
+.claude

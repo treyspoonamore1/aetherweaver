@@ -33,6 +33,7 @@ const NON_DETERMINISTIC_MATH = [
 
 export default defineConfig([
   globalIgnores([
+    '.claude/**',
     'dist/**',
     'dist-demo/**',
     'reference/**',
