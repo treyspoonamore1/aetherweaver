@@ -1,8 +1,9 @@
 /**
  * Movement I is bit-for-bit unchanged by Phase 5a (docs/phase-5a.md, "the Movement I
- * contract"), and every default-party run by Phase 5b (docs/phase-5b.md, "Engineering ground
- * rules"). All eight golden hashes are pinned here as literals, so they can't drift through
- * `npm run golden:update`; only new scenarios and `contentVersion` may change.
+ * contract"), every default-party run by Phase 5b (docs/phase-5b.md, "Engineering ground
+ * rules"), and Movements I and II and Brann's three fights by Phase 5c (docs/phase-5c.md,
+ * ground rule 1). All eleven golden hashes are pinned here as literals, so they can't drift
+ * through `npm run golden:update`; only new scenarios and `contentVersion` may change.
  */
 import { describe, expect, it } from 'vitest';
 import { CONTENT } from '../../src/content';
@@ -29,7 +30,14 @@ const M2_HASHES: Readonly<Record<string, string>> = {
   'skilled-vharun': '0d468d6046318cd6',
 };
 
-const PINNED: Readonly<Record<string, string>> = { ...M1_HASHES, ...M2_HASHES };
+/** Brann's three goldens (docs/phase-5c.md, W0a: pinned before any Movement III content lands). */
+const BRANN_HASHES: Readonly<Record<string, string>> = {
+  'skilled-brann-crimson-gate': '5831f3df358d5c5d',
+  'skilled-brann-bellwarden': '10e99af8f2dd8003',
+  'novice-brann-first-light': '9ba4ea40f94cd1aa',
+};
+
+const PINNED: Readonly<Record<string, string>> = { ...M1_HASHES, ...M2_HASHES, ...BRANN_HASHES };
 
 describe('Movement I is unchanged (docs/phase-5a.md)', () => {
   it('SIM_VERSION is still 22', () => {
@@ -37,8 +45,8 @@ describe('Movement I is unchanged (docs/phase-5a.md)', () => {
     expect(golden.simVersion).toBe(22);
   });
 
-  it('golden.json still holds the eight pinned hashes', () => {
-    expect(Object.keys(PINNED)).toHaveLength(8);
+  it('golden.json still holds the eleven pinned hashes', () => {
+    expect(Object.keys(PINNED)).toHaveLength(11);
     for (const [name, hash] of Object.entries(PINNED))
       expect((golden.scenarios as Record<string, string>)[name], name).toBe(hash);
   });
