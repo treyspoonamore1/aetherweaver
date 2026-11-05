@@ -3,12 +3,24 @@
  * (more damage, faster attacks). Strength falls off past the comfort range and the Thread
  * snaps past the snap range, locking out for a moment.
  */
+import { CONTENT } from '../../content';
+import { SEVER_EVERY } from '../../content/unstitched';
 import type { PartySlot } from '../commands';
-import { distSq, len } from '../core/dmath';
-import { addShield, heal, isActive, reviveHero, shieldOf, slotHero } from '../combat/health';
+import { distSq, len, segmentDistSq } from '../core/dmath';
+import {
+  addShield,
+  dealDamage,
+  DOT_TICK,
+  heal,
+  isActive,
+  reviveHero,
+  shieldOf,
+  slotHero,
+} from '../combat/health';
 import { relicFired } from '../combat/feedback';
 import { gainResonance } from '../combat/resonance';
 import type { ThreadCutCause } from '../events';
+import { threadSegment, type Segment } from '../rules3';
 import type { Entity, EntityId } from '../state';
 import { weaverOf, type World } from '../world';
 import { reject } from './techniques';
@@ -36,7 +48,13 @@ export function attachThread(world: World, slot: PartySlot): void {
   w.threadSlot = slot;
   w.threadTension = 0;
   world.events.push({ type: 'threadAttached', tick: world.tick, hero: hero.id, slot });
-  if (previous !== null && world.mods.relayHealPct > 0 && !hero.health.downed) {
+  // Under Unravel (docs/phase-5c.md) the Thread wounds: no Relay heal.
+  if (
+    previous !== null &&
+    world.mods.relayHealPct > 0 &&
+    !hero.health.downed &&
+    !unravelling(world)
+  ) {
     heal(world, hero, hero.health.maxHp * world.mods.relayHealPct, 'mend');
   }
   silverThimble(world, hero);
@@ -45,9 +63,10 @@ export function attachThread(world: World, slot: PartySlot): void {
 /**
  * An enemy cuts the Thread (docs/phase-5c.md, Q1): a new path beside the range snap, which is
  * untouched. It lets go of the hero, locks the Thread for `lock` × `mods.cutLockMult` seconds,
- * reports `threadSnapped { cause, lock, by }` and fires Taut Release; Guard Strand may turn a
- * Shears, Severing or Snip cut aside. Returns what happened: `cut`, `strand` (turned aside), or
- * `none` (there was no Thread). (Inert in W0b: W1 writes the body.)
+ * reports `threadSnapped { cause, lock, by }` and fires Taut Release; Knotted Cord gives its
+ * Resonance. Guard Strand turns a Shears, Severing or Snip cut aside once every `guardStrand`
+ * seconds (never the Unpick). Returns what happened: `cut`, `strand` (turned aside), or `none`
+ * (there was no Thread). The caller reports a cut telegraph's `cutResolved`.
  */
 export function cutThread(
   world: World,
@@ -55,11 +74,123 @@ export function cutThread(
   lock: number,
   by: EntityId | null,
 ): 'cut' | 'strand' | 'none' {
-  void world;
-  void cause;
-  void lock;
-  void by;
-  return 'none';
+  const w = world.entities.get(world.weaverId)?.weaver;
+  if (!w || w.threadSlot === null) return 'none';
+  const hero = slotHero(world, w.threadSlot);
+  if (!hero?.health || hero.health.dead) return 'none';
+  if (cause !== 'unpick' && guardStrandReady(world)) {
+    spendGuardStrand(world);
+    return 'strand';
+  }
+  const k = world.mods.cutLockMult;
+  const locked = k !== 1 ? lock * k : lock;
+  w.threadSlot = null;
+  w.threadTension = 0;
+  w.threadLock = Math.max(w.threadLock, locked);
+  world.events.push({
+    type: 'threadSnapped',
+    tick: world.tick,
+    target: hero.id,
+    cause,
+    lock: locked,
+    ...(by !== null ? { by } : {}),
+  });
+  // Taut Release reads 'When the Thread snaps': a cut is a snap.
+  if (world.mods.tautReleasePct > 0 && !hero.health.downed) {
+    addShield(world, hero, 'overshield', hero.health.maxHp * world.mods.tautReleasePct, 4, true);
+  }
+  // Knotted Cord: every cut rings for you.
+  if (world.mods.cutResonance > 0) {
+    gainResonance(world, world.mods.cutResonance, 'knotted cord');
+  }
+  return 'cut';
+}
+
+/** Guard Strand is held and its clock (`internal.guardStrandAt`, lazy) has run out. */
+export function guardStrandReady(world: World): boolean {
+  if (world.mods.guardStrand <= 0) return false;
+  const at = world.internal.guardStrandAt;
+  return at === undefined || world.time + 1e-9 >= at;
+}
+
+/** Guard Strand turned a bolt or a cut aside: its clock starts again. */
+export function spendGuardStrand(world: World): void {
+  world.internal.guardStrandAt = world.time + world.mods.guardStrand;
+}
+
+/** Each affix's cut (Severing's reach and lock), by affix id. */
+const AFFIX_CUTS: ReadonlyMap<string, { readonly radius: number; readonly lock: number }> = new Map(
+  CONTENT.affixes.flatMap((a) => (a.cut ? [[a.id, a.cut] as const] : [])),
+);
+
+/** The nearest point of the segment `s` to (x, z): where a turned-aside Severing is drawn. */
+function nearestOn(s: Segment, x: number, z: number): { x: number; z: number } {
+  const lx = s.bx - s.ax;
+  const lz = s.bz - s.az;
+  const l2 = lx * lx + lz * lz;
+  let u = l2 > 0 ? ((x - s.ax) * lx + (z - s.az) * lz) / l2 : 0;
+  u = u < 0 ? 0 : u > 1 ? 1 : u;
+  return { x: s.ax + lx * u, z: s.az + lz * u };
+}
+
+/**
+ * Severing (docs/phase-5c.md): a hit a Severing elite lands while the Thread passes within the
+ * affix's reach plus the elite's own radius of it cuts the Thread, at most once every
+ * `SEVER_EVERY` seconds per elite (`internal.m3.severAt`, lazy). Call it once the hit has landed:
+ * bolts here (systems/hits.ts), melee and telegraph hits from the enemy side. A cut Guard Strand
+ * turns aside is drawn as a `strandBlocked` where the Thread came closest.
+ */
+export function severingHit(world: World, source: Entity): void {
+  const c = source.enemy;
+  if (!c || c.affixes.length === 0) return;
+  let cut: { readonly radius: number; readonly lock: number } | undefined;
+  for (const id of c.affixes) cut ??= AFFIX_CUTS.get(id);
+  if (!cut || !isActive(source)) return;
+  const at = world.internal.m3?.severAt?.[source.id];
+  if (at !== undefined && world.time + 1e-9 < at) return;
+  const seg = threadSegment(world);
+  if (!seg) return;
+  const reach = cut.radius + source.radius;
+  const d2 = segmentDistSq(source.x, source.z, source.x, source.z, seg.ax, seg.az, seg.bx, seg.bz);
+  if (d2 > reach * reach) return;
+  const result = cutThread(world, 'severing', cut.lock, source.id);
+  if (result === 'none') return;
+  const m3 = (world.internal.m3 ??= {});
+  (m3.severAt ??= {})[source.id] = world.time + SEVER_EVERY;
+  if (result === 'strand') {
+    const p = nearestOn(seg, source.x, source.z);
+    world.events.push({ type: 'strandBlocked', tick: world.tick, source: source.id, ...p });
+  }
+}
+
+/** Unravel's reversed Mend is running: its window is open and Stasis isn't holding it. */
+function unravelling(world: World): boolean {
+  return world.field.unravel !== undefined && !world.field.stasis;
+}
+
+/**
+ * Unravel (docs/phase-5c.md, Q12): Mend deals what it would have healed to the threaded hero
+ * (`mendPerSec × mendMult × potency`), gathered in `field.unravel.acc` and landing every half
+ * second as a tick. Mend's bonuses, the Prism Loom's spill and Sanguine Covenant don't apply,
+ * and a downed hero's revive holds where it is.
+ */
+function unravelMend(world: World, hero: Entity, potency: number, dt: number): void {
+  const u = world.field.unravel!;
+  if (hero.health!.downed) return;
+  u.acc += world.content.thread.mendPerSec * world.mods.mendMult * dt * potency;
+  u.tickIn -= dt;
+  if (u.tickIn > 1e-9) return;
+  u.tickIn = u.tickIn + DOT_TICK > 1e-9 ? u.tickIn + DOT_TICK : DOT_TICK;
+  const amount = u.acc;
+  u.acc = 0;
+  dealDamage(world, hero, {
+    source: u.source,
+    sourceName: 'Unravel — your Mend',
+    amount,
+    telegraph: null,
+    kind: 'tick',
+    status: 'unravelled',
+  });
 }
 
 /** Silver Thimble: the hero the Thread moves to is shielded (rate-limited). */
@@ -215,6 +346,8 @@ export function updateThread(world: World, dt: number): void {
   const c = hero.hero!;
 
   if (w.threadMode === 'mend') {
+    // Unravel (docs/phase-5c.md): while it runs, Mend wounds instead. Empower and Bear don't.
+    if (unravelling(world)) return unravelMend(world, hero, potency, dt);
     if (h.downed) {
       if (h.revive === 0)
         world.events.push({ type: 'reviveStarted', tick: world.tick, hero: hero.id });

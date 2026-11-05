@@ -9,6 +9,7 @@ import {
   addStatus,
   cleanseAilments,
   dealDamage,
+  hasStatus,
   heal,
   isActive,
   ownShield,
@@ -25,7 +26,8 @@ import {
   recordSave,
   telegraphDamage,
 } from '../combat/telegraphs';
-import type { Entity, EntityId, TechniqueKey } from '../state';
+import { weaverSilenced } from '../rules3';
+import type { Entity, EntityId, StatusId, TechniqueKey } from '../state';
 import type { World } from '../world';
 import { weaverOf } from '../world';
 import { glideDistance, slotCooldown, slotCost, variantValue } from '../variants';
@@ -115,6 +117,8 @@ export function heroForSlot(
 export function castWard(world: World, slot: PartySlot | undefined): void {
   const weaver = weaverReady(world, 'ward');
   if (!weaver) return;
+  // A Null Priest's rune (docs/phase-5c.md): no Ward inside it.
+  if (weaverSilenced(world)) return reject(world, 'ward', 'silenced');
   const w = weaver.weaver!;
   const def = world.content.techniques.ward;
   const hero = heroForSlot(world, weaver, slot);
@@ -171,6 +175,7 @@ export function castWard(world: World, slot: PartySlot | undefined): void {
 export function castChime(world: World, point: Vec2 | undefined): void {
   const weaver = weaverReady(world, 'chime');
   if (!weaver) return;
+  if (weaverSilenced(world)) return reject(world, 'chime', 'silenced');
   const w = weaver.weaver!;
   const def = world.content.techniques.chime;
   const stasis = world.field.stasis;
@@ -178,7 +183,12 @@ export function castChime(world: World, point: Vec2 | undefined): void {
   if (!spend(world, weaver, 'chime', slotCost(world, 'chime', def.cost))) return;
   if (!stasis) {
     const base = slotCooldown(world, 'chime', def.cooldown);
-    const chimeCooldown = techCooldown(world, base * world.mods.chimeCooldownMult);
+    const cut = world.mods.chimeCooldownCut;
+    // Stillwater Bell (docs/phase-5c.md): seconds off, never below one.
+    const chimeCooldown =
+      cut > 0
+        ? Math.max(1, techCooldown(world, base * world.mods.chimeCooldownMult - cut))
+        : techCooldown(world, base * world.mods.chimeCooldownMult);
     w.cooldowns.chime = chimeCooldown;
     w.cooldownTotals.chime = chimeCooldown;
   }
@@ -243,6 +253,8 @@ export function updateChimes(world: World): void {
     world.chimes.splice(i, 1);
     let cleansedCount = 0;
     let clutch = false;
+    // Stillwater Bell (docs/phase-5c.md): freeing the possessed or the Stitched, or clearing Doom.
+    let stillwater = false;
     const r2 = chime.radius * chime.radius;
     for (const id of world.party) {
       const hero = world.entities.get(id);
@@ -252,7 +264,12 @@ export function updateChimes(world: World): void {
       const dirge = dirgeRemaining(hero);
       const lethalDirge = dirge !== Infinity && dirgeWouldKill(world, hero);
       const purged = variant === 'purge' ? ailmentsOf(world, hero) : [];
+      const bound = boundOf(hero);
       const removed = cleanseAilments(world, hero);
+      if (bound !== 0 && removed > 0) {
+        freedOf(world, hero, bound, 'chime');
+        if (world.mods.stillwaterBell > 0) stillwater = true;
+      }
       addStatus(world, hero, 'immune', def.immunity, world.weaverId);
       // The Hollow Bell rings softer.
       heal(world, hero, hero.health.maxHp * healPct * world.mods.chimeHealMult, 'chime');
@@ -290,6 +307,7 @@ export function updateChimes(world: World): void {
         }
       }
     }
+    if (stillwater) stillwaterRefund(world);
     const weaver = world.entities.get(world.weaverId);
     if (isActive(weaver) && distSq(weaver.x, weaver.z, chime.x, chime.z) <= r2) {
       heal(world, weaver, weaver.health.maxHp * def.healPct * world.mods.chimeHealMult, 'chime');
@@ -305,6 +323,44 @@ export function updateChimes(world: World): void {
       clutch,
     });
   }
+}
+
+/** Movement III's binding ailments a Chime frees a hero of, as bits (docs/phase-5c.md). */
+const BIND_POSSESSED = 1;
+const BIND_STITCHED = 2;
+const BIND_DOOM = 4;
+
+/** Which of them `hero` carries (0 outside Movement III: no such status exists there). */
+function boundOf(hero: Entity): number {
+  let bits = 0;
+  for (const s of hero.health!.statuses) {
+    if (s.id === 'possessed') bits |= BIND_POSSESSED;
+    else if (s.id === 'stitched') bits |= BIND_STITCHED;
+    else if (s.id === 'doom' || s.id === 'doomed') bits |= BIND_DOOM;
+  }
+  return bits;
+}
+
+/** A `freed` for each binding status the hero had and has no longer. */
+function freedOf(world: World, hero: Entity, bits: number, by: 'chime' | 'reel'): void {
+  const ids: StatusId[] = [];
+  if (bits & BIND_POSSESSED) ids.push('possessed');
+  if (bits & BIND_STITCHED) ids.push('stitched');
+  for (const status of ids)
+    if (!hasStatus(hero, status))
+      world.events.push({ type: 'freed', tick: world.tick, hero: hero.id, status, by });
+}
+
+/** Stillwater Bell: the Chime gives back its share of what it cost (Life under Eldritch Conduit). */
+function stillwaterRefund(world: World): void {
+  const weaver = world.entities.get(world.weaverId);
+  const w = weaver?.weaver;
+  if (!weaver || !w || !(world.mods.stillwaterRefund > 0)) return;
+  const def = world.content.techniques.chime;
+  const refund =
+    slotCost(world, 'chime', def.cost) * world.mods.techCostMult * world.mods.stillwaterRefund;
+  if (world.mods.techniquesCostLife) w.selfHealAcc += heal(world, weaver, refund, 'self', false);
+  else w.spirit = Math.min(w.maxSpirit - w.reservedSpirit, w.spirit + refund);
 }
 
 function dirgeDamage(world: World, hero: Entity): number {
@@ -323,6 +379,7 @@ function dirgeWouldKill(world: World, hero: Entity): boolean {
 export function castReel(world: World, slot: PartySlot | undefined): void {
   const weaver = weaverReady(world, 'reel');
   if (!weaver) return;
+  if (weaverSilenced(world)) return reject(world, 'reel', 'silenced');
   const w = weaver.weaver!;
   const def = world.content.techniques.reel;
   const hero = heroForSlot(world, weaver, slot);
@@ -394,8 +451,11 @@ export function castReel(world: World, slot: PartySlot | undefined): void {
   });
 }
 
-/** What a Reel frees a hero from: an Impaler's pin, a Leech's latch. */
-const REEL_FREES = ['pinned', 'latched'] as const;
+/**
+ * What a Reel frees a hero from: an Impaler's pin, a Leech's latch, the Seamstress's Stitch
+ * (docs/phase-5c.md: the Reeled hero only; the one sewn to them stays).
+ */
+const REEL_FREES = ['pinned', 'latched', 'stitched'] as const;
 
 /**
  * A Reel pulls the hero out of a pin or a latch: it's an answer (and rings like a Reel dodge).
@@ -403,7 +463,12 @@ const REEL_FREES = ['pinned', 'latched'] as const;
  */
 function freeHero(world: World, hero: Entity): void {
   let freed = false;
-  for (const id of REEL_FREES) if (removeStatus(world, hero, id, 'freed')) freed = true;
+  for (const id of REEL_FREES) {
+    if (!removeStatus(world, hero, id, 'freed')) continue;
+    freed = true;
+    if (id === 'stitched')
+      world.events.push({ type: 'freed', tick: world.tick, hero: hero.id, status: id, by: 'reel' });
+  }
   if (!freed) return;
   answered(world);
   gainResonance(world, world.content.resonance.gains.reelDodge, 'reel free');
@@ -779,6 +844,8 @@ export function cue(world: World, slot: PartySlot): void {
   if (!weaver) return;
   const hero = slotHero(world, slot);
   if (!isActive(hero) || !hero.hero) return reject(world, 'cue', 'target');
+  // A possessed hero (docs/phase-5c.md) can't take a Cue.
+  if (hasStatus(hero, 'possessed')) return reject(world, 'cue', 'target');
   const h = hero.hero;
   if (h.soloActive > 0 || h.solo < 100) return reject(world, 'cue', 'not-ready');
   // Silent Cues (Dissonance) raises it.
@@ -900,7 +967,12 @@ export function updateEchoWards(world: World): void {
  */
 function chorusPulse(world: World, cued: Entity): void {
   const def = world.content.chorus;
-  const auras = world.field.suppressed ? 0 : world.field.auras.length;
+  // A stolen verse (docs/phase-5c.md) sings for nothing: one aura fewer.
+  const auras = world.field.suppressed
+    ? 0
+    : world.field.stolen
+      ? world.field.auras.length - 1
+      : world.field.auras.length;
   if (auras < def.minAuras) return;
   let reached = 0;
   for (const id of world.party) {
