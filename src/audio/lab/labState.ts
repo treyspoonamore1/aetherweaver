@@ -153,6 +153,21 @@ export class FakeWorld {
   /** Phase 3e: Stasis is up (`field.stasis`), and the sim clock (`state.time`). */
   stasis = false;
   time = 0;
+  /**
+   * Phase 5c: the timed zones the field reports (`field.zones`), absent unless a lab scene lays
+   * one; in Stasis each one's `until` waits, as the sim's does.
+   */
+  zones:
+    | {
+        id: number;
+        kind: 'pull' | 'null';
+        owner: number;
+        x: number;
+        z: number;
+        r: number;
+        until: number;
+      }[]
+    | undefined = undefined;
   /** Phase 4: the Astrolabe the fake fight carries (`state.astrolabe`); see `setAstrolabe`. */
   astrolabe: AstrolabeState = NO_TREE;
   /** Phase 4d: the Dissonance in force (`state.dissonance`); see `setBlindScore`. */
@@ -212,6 +227,7 @@ export class FakeWorld {
           crescendo: self.sunrise,
           vow: self.vow,
           stasis: self.stasis,
+          ...(self.zones ? { zones: self.zones } : {}),
         } as unknown as WorldState['field'];
       },
       get calling() {
@@ -428,6 +444,7 @@ export class FakeWorld {
   advance(dt: number): void {
     this.time += dt;
     if (!this.stasis) return;
+    if (this.zones) for (const z of this.zones) z.until += dt;
     for (const t of this.telegraphs as FakeTelegraph[]) {
       t.start += dt;
       t.impact += dt;

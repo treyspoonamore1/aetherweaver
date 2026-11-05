@@ -332,6 +332,12 @@ export const UNSTITCHED_SOUND_GROUPS = {
 } as const;
 export type UnstitchedGroup = keyof typeof UNSTITCHED_SOUND_GROUPS;
 
+/**
+ * Phase 5c: how far (seconds) a zone's end may run past its drone's sustain before the drone is
+ * carried on to it (`followZones`: Stasis pushing the zone's end later).
+ */
+const ZONE_CARRY_SLACK = 0.3;
+
 /** Phase 5c: each Unstitched sound's rate gate (seconds) and voice cap. */
 export const UNSTITCHED_SOUND_LIMITS: Readonly<Record<UnstitchedGroup, readonly [number, number]>> =
   {
@@ -606,9 +612,14 @@ export class SfxEngine {
   /**
    * Phase 5c: the Void Maw's drones and the Null runes' hums by zone, the Spindles' drone by the
    * boss they plate, the Shears' telegraphs (they dash as they resolve), and a stolen verse and
-   * Unravel as their events told them (sim seconds), for the music's stems.
+   * Unravel as their events told them (sim seconds), for the music's stems. A zone's voice keeps
+   * its kind, pan and the audio time its sustain was scheduled to (`holds`): Stasis pushes the
+   * zone's end later, and `followZones` carries the voice on to it.
    */
-  private readonly zoneVoices = new Map<number, VoiceHandle>();
+  private readonly zoneVoices = new Map<
+    number,
+    { h: VoiceHandle; kind: 'pull' | 'null'; pan: number; holds: number }
+  >();
   private readonly spindleVoices = new Map<number, VoiceHandle>();
   private readonly shears = new Set<number>();
   private verse: { until: number } | null = null;
@@ -5451,11 +5462,27 @@ export class SfxEngine {
   private zoneStarted(ev: Extract<SimEvent, { type: 'zoneStarted' }>, state: WorldState): void {
     const dur = this.simLeft(state, ev.until, 0.4, 20);
     const pan = state.entities ? this.panFor(state, ev.x) : 0;
-    if (ev.kind === 'pull') {
+    if (ev.kind === 'pull')
       this.unstitched('inhale', (v, t) => whoosh(v, t, Math.min(1.6, dur), 0.07, 2400, 300, 0.9), {
         pan,
       });
-      const h = this.unstitched(
+    const h = this.zoneVoice(ev.kind, dur, pan, true);
+    if (h) this.zoneVoices.set(ev.zone, { h, kind: ev.kind, pan, holds: this.e.now + dur });
+  }
+
+  /**
+   * A zone's sustained voice, `dur` seconds long: the Maw's gated sub drone (ambience bus) or the
+   * rune's beating hum. `fresh` is the zone's first voice (the rune's glass ping); a carried-on
+   * voice (`followZones`) fades in slower, under the one it takes over from.
+   */
+  private zoneVoice(
+    kind: 'pull' | 'null',
+    dur: number,
+    pan: number,
+    fresh: boolean,
+  ): VoiceHandle | null {
+    if (kind === 'pull')
+      return this.unstitched(
         'maw',
         (v, t) => {
           const ctx = this.e.ctx;
@@ -5481,7 +5508,7 @@ export class SfxEngine {
               freq: f,
               start: t,
               dur,
-              attack: 0.25,
+              attack: fresh ? 0.25 : 0.4,
               release: 0.4,
               gain: g,
               shape: 'sustain',
@@ -5493,10 +5520,7 @@ export class SfxEngine {
         { pan: pan * 0.5 },
         'ambience',
       );
-      if (h) this.zoneVoices.set(ev.zone, h);
-      return;
-    }
-    const h = this.unstitched(
+    return this.unstitched(
       'rune',
       (v, t) => {
         for (const [f, d, g] of [
@@ -5509,23 +5533,47 @@ export class SfxEngine {
             detune: d,
             start: t,
             dur,
-            attack: 0.3,
+            attack: fresh ? 0.3 : 0.4,
             release: 0.35,
             gain: g,
             shape: 'sustain',
             filter: { type: 'lowpass', freq: 520, q: 0.7 },
           });
         }
-        glassPing(v, t, tone(11), 0.02, 0.8);
+        if (fresh) glassPing(v, t, tone(11), 0.02, 0.8);
       },
       { pan },
     );
-    if (h) this.zoneVoices.set(ev.zone, h);
+  }
+
+  /**
+   * A zone outlasting its voice: Stasis pushes `zone.until` later while the zone waits, so the
+   * drone or hum scheduled at the start would stop while the Maw still pulls. Each frame, a zone
+   * still in the field whose end (its own, plus what is left of a Stasis that will push it on)
+   * falls past its voice's sustain gets a new voice to that end, crossfaded over the old one.
+   * Nothing to do without a zone voice (never outside Movement III).
+   */
+  private followZones(state: WorldState): void {
+    if (this.zoneVoices.size === 0) return;
+    const zones = state.field?.zones;
+    if (!Array.isArray(zones)) return;
+    const now = this.e.now;
+    const frozen = state.field.stasis === true ? this.stasisLeft(state, 0) : 0;
+    for (const [id, held] of this.zoneVoices) {
+      const z = zones.find((x) => x.id === id);
+      if (!z) continue;
+      const left = this.simLeft(state, z.until + frozen, 0, 20);
+      if (now + left <= held.holds + ZONE_CARRY_SLACK) continue;
+      const h = this.zoneVoice(held.kind, Math.max(0.4, left), held.pan, false);
+      if (!h) continue;
+      held.h.kill(now, 0.4);
+      this.zoneVoices.set(id, { ...held, h, holds: now + Math.max(0.4, left) });
+    }
   }
 
   /** A zone ended (it ran out, or its owner fell): its drone or hum lets go. */
   private zoneEnded(zone: number): void {
-    this.zoneVoices.get(zone)?.kill(this.e.now, 0.25);
+    this.zoneVoices.get(zone)?.h.kill(this.e.now, 0.25);
     this.zoneVoices.delete(zone);
   }
 
@@ -5935,7 +5983,7 @@ export class SfxEngine {
   /** Every Movement III layer still sounding lets go (the fight ended, or combat stopped). */
   private stopUnstitched(fade: number): void {
     const now = this.e.now;
-    for (const h of this.zoneVoices.values()) h.kill(now, fade);
+    for (const { h } of this.zoneVoices.values()) h.kill(now, fade);
     this.zoneVoices.clear();
     for (const h of this.spindleVoices.values()) h.kill(now, fade);
     this.spindleVoices.clear();
@@ -6584,6 +6632,8 @@ export class SfxEngine {
     // Phase 3e: Stasis followed in the state as well as its events, its slowed clock, and the
     // Chronomancer's final-second tick.
     this.followStasis(state, now);
+    // Phase 5c: a zone Stasis held keeps its drone or hum to its end.
+    this.followZones(state);
     // Phase 4: Unbroken Chorus's songs holding under a Mute's dome.
     this.followUnbroken(state);
     this.finalTicks(state);

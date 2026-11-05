@@ -1391,12 +1391,14 @@ export class Feedback {
       b = bucket();
       this.dmg.set(e.target, b);
     }
-    // An Unravel tick starts its own number (its colour is set when the number spawns).
+    // An Unravel tick keeps a number of its own (its colour is set when the number spawns): a
+    // tick never joins another hit's number, and no other hit joins a tick's. Outside Movement
+    // III both sides are always false.
     const fresh =
       this.now - b.start > AGG ||
       b.handle < 0 ||
       !this.d.overlay.numberAlive(b.handle) ||
-      (unravelTick && !b.unravel);
+      unravelTick !== b.unravel;
     if (fresh) {
       b.amount = 0;
       b.amplified = 0;

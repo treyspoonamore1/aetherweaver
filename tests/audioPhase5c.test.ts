@@ -1019,6 +1019,49 @@ describe('the Unstitched’s sounds (Phase 5c)', () => {
     h.d.dispose();
   });
 
+  it('a zone Stasis holds keeps its drone or hum to its new end, and only then', () => {
+    for (const kind of ['pull', 'null'] as const) {
+      const h = harness();
+      h.d.setMood('combat');
+      type Held = { h: { endsAt: number }; holds: number };
+      const sfx = (h.d as unknown as { sfx: { zoneVoices: Map<number, Held> } }).sfx;
+      const zone = { id: 9, kind, owner: IDS.enemyBase, x: 2, z: 4, r: 8, until: h.world.time + 4 };
+      h.world.zones = [zone];
+      // A frame: the clocks move on, then the director follows the state.
+      const frame = () => {
+        h.advance(0.1);
+        h.d.update(h.world.state, 0.1);
+      };
+      fire(h, ev('zoneStarted', { ...zone, zone: zone.id }));
+      const first = sfx.zoneVoices.get(9)!.h;
+      // Its own clock: the voice it started with covers it, frame after frame.
+      for (let i = 0; i < 10; i++) frame();
+      expect(sfx.zoneVoices.get(9)!.h).toBe(first);
+      // A 3 s Stasis: the zone will end 3 s later than the voice was scheduled for, so the
+      // voice is carried on to that end at once (not when it has already gone quiet).
+      h.world.setStasis(true, 3);
+      frame();
+      const carried = sfx.zoneVoices.get(9)!.h;
+      expect(carried).not.toBe(first);
+      const zoneEnd = () => h.ctx.currentTime + (zone.until - h.world.time);
+      expect(carried.endsAt).toBeGreaterThanOrEqual(zoneEnd() + 3 - 0.05);
+      // Through the Stasis (the Weaver's Crescendo clock runs down as the zone's end is pushed
+      // on, so their sum holds) and after it, the carried voice is kept: one carry per Stasis,
+      // not one a frame.
+      for (let i = 1; i < 30; i++) {
+        h.world.setStasis(true, 3 - 0.1 * i);
+        frame();
+      }
+      h.world.setStasis(false);
+      for (let i = 0; i < 20; i++) frame();
+      expect(sfx.zoneVoices.get(9)!.h).toBe(carried);
+      expect(carried.endsAt).toBeGreaterThanOrEqual(zoneEnd());
+      fire(h, ev('zoneEnded', { zone: 9, kind }));
+      expect(sfx.zoneVoices.size).toBe(0);
+      h.d.dispose();
+    }
+  });
+
   it('a Spindle hit restarts the drone once it has run out, and not while it still sounds', () => {
     const h = harness();
     h.d.setMood('combat');

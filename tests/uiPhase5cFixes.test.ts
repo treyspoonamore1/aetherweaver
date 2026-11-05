@@ -2,7 +2,8 @@
  * Phase 5c, the W8 review fixes (docs/phase-5c/ui.md): the rune lock shares the Weaver bar's left
  * edge with the contribution readout instead of covering it; Prep's Route copy reads the run's
  * own length; the Reliquary's shelf shows which relics sleep; `rift.wraithCasting` is set from
- * the Wraith's cast and drives its hint; Retarget's glyph shows the hero keys.
+ * the Wraith's cast and drives its hint; Retarget's glyph shows the hero keys. Under Stasis,
+ * Unravel's reversed Mend waits (Mend heals), so no part of the HUD says that Mend wounds.
  */
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -14,11 +15,14 @@ import { EXPEDITION_MOVEMENTS } from '../src/meta/profile';
 import { createSim } from '../src/sim';
 import { evaluateHints } from '../src/ui/hud/hints';
 import { answerKeyLabel, bindingLabel } from '../src/ui/hud/labels';
+import { bossConditions } from '../src/ui/hud/riftLook';
+import { threadDialView } from '../src/ui/hud/threadMode';
 import { buildHudSnapshot } from '../src/ui/hudBridge';
 import { mockHud, riftHud, riftReliquary } from '../src/ui/lab/mock';
 import { wakesLabel } from '../src/ui/screens/reliquaryModel';
 import { expeditionLength, expeditionOnward, routeHint } from '../src/ui/screens/routeText';
 import type { ContributionHud, HudSnapshot } from '../src/ui/store';
+import { worldOf } from './sim/helpers';
 
 const noop = () => {};
 
@@ -224,5 +228,49 @@ describe('Retarget’s glyph shows the hero keys', () => {
     expect(
       renderToStaticMarkup(createElement(AnswerGlyph, { tag: 'reel', rewind: true })),
     ).toContain(bindingLabel('reel'));
+  });
+});
+
+describe('Unravel under Stasis: Mend heals, so the HUD never says it wounds', () => {
+  it('the Weaver, the boss bar, the hint and the Thread dial all drop Unravel while Stasis holds', () => {
+    const sim = createSim({ seed: 7, encounter: 'the_unweaver' });
+    for (let i = 0; i < 900 && sim.state.encounter.bossId === null; i++) sim.step([]);
+    sim.step([{ t: 'thread', slot: 0 }]);
+    const world = worldOf(sim);
+    const boss = world.encounter.bossId!;
+    world.field.unravel = { until: world.time + 4, source: boss, acc: 0, tickIn: 0.5 };
+    const read = () => {
+      const hud = buildHudSnapshot(sim.state, { seed: 7, hovered: null });
+      const fightingHud = { ...hud, encounter: { ...hud.encounter, status: 'fighting' as const } };
+      const target = hud.party[world.entities.get(world.weaverId)!.weaver!.threadSlot!] ?? null;
+      return {
+        hud,
+        hints: evaluateHints(fightingHud).map((h) => h.id),
+        dial: threadDialView(hud.weaver, target),
+        conditions: hud.boss ? bossConditions(hud.boss).map((c) => c.id) : [],
+      };
+    };
+    // Unravel up, no Stasis: Mend wounds, and everything says so.
+    const on = read();
+    expect(on.hud.weaver.threadMode).toBe('mend');
+    expect(on.hud.weaver.unravelLeft).toBeCloseTo(4, 5);
+    expect(on.hud.boss?.unravelLeft).toBeCloseTo(4, 5);
+    expect(on.hints).toContain('unravel');
+    expect(on.dial.unravelled).toBe(true);
+    expect(on.conditions).toContain('unravel');
+    // Stasis: the window waits and Mend heals: no key, no hint, no Unravelled dial, no condition.
+    world.field.stasis = true;
+    try {
+      const held = read();
+      expect(held.hud.weaver).not.toHaveProperty('unravelLeft');
+      expect(held.hud.boss).not.toHaveProperty('unravelLeft');
+      expect(held.hints).not.toContain('unravel');
+      expect(held.dial.unravelled).toBeUndefined();
+      expect(held.dial.says).not.toMatch(/wounds/);
+      expect(held.conditions).not.toContain('unravel');
+    } finally {
+      world.field.stasis = false;
+      delete world.field.unravel;
+    }
   });
 });
