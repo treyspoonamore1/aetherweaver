@@ -236,6 +236,57 @@ describe('the Void Maw: stationary, and its Inhale', () => {
     expect(maw.z).toBeCloseTo(-15, 6);
   });
 
+  /** The Weaver at (0, 14) with the party round her, and `defId` 30 m off at (0, -16). */
+  function farWorld(defId: string) {
+    const sim = sandbox();
+    const w = worldOf(sim);
+    place(weaverOf(w), 0, 14);
+    place(heroAt(w, 0), 0, 11);
+    place(heroAt(w, 1), -3, 16);
+    place(heroAt(w, 2), 3, 16);
+    const far = staged(w, defId, 0, -16);
+    return { sim, w, far };
+  }
+
+  it('heroes with nothing in sight seek the nearest stationary enemy, past the Weaver’s leash', () => {
+    const { sim, w, far } = farWorld('void_maw');
+    stepFor(sim, 1);
+    for (let s = 0; s < 3; s++) expect(heroAt(w, s).hero!.targetId).toBe(far.id);
+    // A stationary enemy never comes: the leash (11 m for Kael, 7.5 m for the ranged) gives way.
+    stepFor(sim, 60 * 8);
+    const weaver = weaverOf(w);
+    expect(Math.hypot(weaver.x, weaver.z - 14)).toBeLessThan(0.01);
+    const kael = heroAt(w, 0);
+    expect(Math.hypot(kael.x - far.x, kael.z - far.z)).toBeLessThan(4);
+    expect(Math.hypot(kael.x - weaver.x, kael.z - weaver.z)).toBeGreaterThan(20);
+    for (const s of [1, 2]) {
+      const h = heroAt(w, s);
+      const range = heroDef(h.hero!.defId).attack.range;
+      expect(Math.hypot(h.x - far.x, h.z - far.z)).toBeLessThan(range + far.radius + h.radius);
+    }
+    expect(far.health!.hp).toBeLessThan(far.health!.maxHp);
+  });
+
+  it('nothing in sight and nothing stationary (Movements I and II): no target, and the leash holds', () => {
+    const { sim, w, far } = farWorld('hollow_chorister');
+    // Held where it stands, so it never comes into sight (a mobile enemy comes on its own).
+    addStatus(w, far, 'stun', 1e6, null);
+    stepFor(sim, 60 * 3);
+    for (let s = 0; s < 3; s++) expect(heroAt(w, s).hero!.targetId).toBeNull();
+    const weaver = weaverOf(w);
+    for (let s = 0; s < 3; s++) {
+      const h = heroAt(w, s);
+      expect(Math.hypot(h.x - weaver.x, h.z - weaver.z)).toBeLessThan(11);
+    }
+  });
+
+  it('a Rally isn’t a seek: the heroes come to the Weaver, a stationary enemy or not', () => {
+    const { sim, w } = farWorld('void_maw');
+    stepFor(sim, 1, [{ t: 'directive', kind: 'rally' }]);
+    stepFor(sim, 30);
+    for (let s = 0; s < 3; s++) expect(heroAt(w, s).hero!.targetId).toBeNull();
+  });
+
   it('a 1.4 s tell, then a 4 s pull field that ends on time', () => {
     const sim = sandbox();
     const w = worldOf(sim);

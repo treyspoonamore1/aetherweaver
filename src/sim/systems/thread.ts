@@ -142,8 +142,12 @@ function nearestOn(s: Segment, x: number, z: number): { x: number; z: number } {
  * `SEVER_EVERY` seconds per elite (`internal.m3.severAt`, lazy). Call it once the hit has landed:
  * bolts here (systems/hits.ts), melee and telegraph hits from the enemy side. A cut Guard Strand
  * turns aside is drawn as a `strandBlocked` where the Thread came closest.
+ *
+ * `stranded`: the blow is a cut telegraph's (a Severing Shears dash) that Guard Strand has just
+ * turned aside. One blow, one Strand, one saved Thread: its Severing is turned aside with it (the
+ * Strand isn't spent twice, and its clock doesn't let the second cut through), and drawn once.
  */
-export function severingHit(world: World, source: Entity): void {
+export function severingHit(world: World, source: Entity, stranded = false): void {
   const c = source.enemy;
   if (!c || c.affixes.length === 0) return;
   let cut: { readonly radius: number; readonly lock: number } | undefined;
@@ -156,7 +160,7 @@ export function severingHit(world: World, source: Entity): void {
   const reach = cut.radius + source.radius;
   const d2 = segmentDistSq(source.x, source.z, source.x, source.z, seg.ax, seg.az, seg.bx, seg.bz);
   if (d2 > reach * reach) return;
-  const result = cutThread(world, 'severing', cut.lock, source.id);
+  const result = stranded ? 'strand' : cutThread(world, 'severing', cut.lock, source.id);
   if (result === 'none') return;
   const m3 = (world.internal.m3 ??= {});
   (m3.severAt ??= {})[source.id] = world.time + SEVER_EVERY;

@@ -738,7 +738,11 @@ export class SkilledBot implements Bot {
     if (this.on('mawHold')) this.mawHold(state, w, blood, now, out);
 
     // ── Focus interruptible casters / Mutes; rally a wandering tank. ──
-    if (now - this.lastFocus > 4) {
+    // Movement III: a Spindle fell under the Focus and another stands: on to it at once, rather
+    // than let the party drift back to the plated boss for the rest of the 4 s (false before it).
+    const nextSpindle =
+      state.focusTarget === null && this.on('focusSpindle') && spindlesUp(enemies).length > 0;
+    if (now - this.lastFocus > 4 || nextSpindle) {
       const caster =
         enemies.find((e) => e.enemy!.cast?.interruptible) ??
         // Movement III's targets (docs/phase-5c.md): undefined unless one is on the field.
@@ -938,7 +942,7 @@ export class SkilledBot implements Bot {
   ): ReadonlyEntity | undefined {
     const n = enemies.length;
     const steps: [keyof typeof M3_FOCUS_AT, () => ReadonlyEntity | null | undefined][] = [
-      ['focusSpindle', () => spindlesUp(enemies)[0]],
+      ['focusSpindle', () => nearestTo(spindlesUp(enemies), weaverOf(state))],
       ['focusVerse', () => stolenVerse(state)],
       // The champion only once it's worn down: burning the boss is quicker until then (and its
       // Mirror Ward is still interrupted at once, `focusMirrorWard`).
@@ -946,11 +950,17 @@ export class SkilledBot implements Bot {
       ['focusNull', () => enemies.find((e) => e.enemy!.defId === NULL_PRIEST)],
       ['focusSilencing', () => enemies.find(carriesSilence)],
       // A stationary enemy (a Void Maw, a Spindle) never comes to the party, and the heroes only
-      // look 18-20 m out: with nobody fighting, send them to the nearest one. Nobody fighting
-      // includes a ranged hero who targets it from her leash, out of range (`StallWatch`).
+      // look 18-20 m out: with nobody fighting and only stationary enemies left, send them to
+      // the nearest one. Nobody fighting includes a ranged hero who targets it from her leash,
+      // out of range (`StallWatch`). Not while a mobile pack is still on its way: idle at a
+      // fight's start, the party would march on the Maw and leave the pack to the Weaver
+      // (measured: maw_hollow lost 2 of 24 and took 0.7 more downs a fight).
       [
         'focusStationary',
-        () => (idleParty(state) || stalled ? nearestStationary(state, enemies) : null),
+        () =>
+          (idleParty(state) && enemies.every(stationary)) || stalled
+            ? nearestStationary(state, enemies)
+            : null,
       ],
     ];
     for (const [rule, find] of steps) {
@@ -1219,6 +1229,16 @@ function empowerable(
     party.find((h) => h.role !== 'tank' && ok(h)) ??
     null
   );
+}
+
+/** The one of `es` nearest `p` (the first on a tie); null when there is none. */
+function nearestTo(
+  es: readonly ReadonlyEntity[],
+  p: { x: number; z: number },
+): ReadonlyEntity | null {
+  let best: ReadonlyEntity | null = null;
+  for (const e of es) if (!best || dist(e, p) < dist(best, p)) best = e;
+  return best;
 }
 
 /** `e` while its life is below `below` of its max; else null. */

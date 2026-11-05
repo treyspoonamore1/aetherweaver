@@ -34,6 +34,7 @@ import {
   type SimEvent,
   type Status,
 } from '../src/sim';
+import { addStatus, killEnemy } from '../src/sim/combat/health';
 import { hero, hurt, sandbox, spawn, stepFor, worldOf } from './sim/helpers';
 
 const GUARDIAN = Run.CHORD_PRESETS.find((p) => p.id === 'guardian')!.chords.map((c) => ({
@@ -1590,6 +1591,34 @@ describe('the Skilled bot reads Movement III (staged)', () => {
     expect(out).toContainEqual({ t: 'directive', kind: 'focus', target: priest.id });
   });
 
+  it('Focuses the Spindle nearest her, and the next one as soon as the Focused one falls', () => {
+    // The Unweaver lays its Spindles on a 9 m ring: the far one is reached past the boss (and
+    // into its Shear), so the near ones go first, without 4 s back on the plated boss between.
+    const sim = rift({ thread: null });
+    const far = tough(sim, 'spindle', 0, -18);
+    const near = tough(sim, 'spindle', 6, -6);
+    const mid = tough(sim, 'spindle', -6, -10);
+    const bot = makeBot('skilled', 1);
+    const focusOn = (out: readonly Command[]) =>
+      out.find((c) => c.t === 'directive' && c.kind === 'focus');
+    let out = bot.decide(sim.state);
+    expect(focusOn(out)).toEqual({ t: 'directive', kind: 'focus', target: near.id });
+    sim.step(out);
+    sim.drainEvents();
+    expect(sim.state.focusTarget).toBe(near.id);
+    // A second on (inside the 4 s gap), the Focused Spindle falls: on to the next nearest at once.
+    for (let t = 1; t < 60; t++) {
+      sim.step([]);
+      sim.drainEvents();
+    }
+    const w = worldOf(sim);
+    killEnemy(w, w.entities.get(near.id)!, null);
+    expect(sim.state.focusTarget).toBeNull();
+    out = bot.decide(sim.state);
+    expect(focusOn(out)).toEqual({ t: 'directive', kind: 'focus', target: mid.id });
+    expect(far.health!.dead).toBe(false);
+  });
+
   it('Focuses a Mirror Ward’s caster at once, without waiting out the gap between Focuses', () => {
     const sim = rift({ thread: null });
     const a = tough(sim, 'hollow_chorister', 6, -12);
@@ -1783,16 +1812,31 @@ describe('the Novice bot in Movement III', () => {
 
   it('Focuses a Void Maw left standing out of the idle heroes’ sight, and only then', () => {
     // A Maw never comes to the party, and the heroes only look 18-20 m out: a Novice who never
-    // Focused it stalled maw_hollow until the time limit.
+    // Focused it stalled maw_hollow until the time limit. The sim's heroes now seek one themselves
+    // when nothing else is in sight (docs/phase-5c.md Q3), so the party is idle only when they
+    // can't: staged with every hero stunned (they keep no target), the Novice's own rule.
+    const stunned = (sim: Sandbox) => {
+      const w = worldOf(sim);
+      for (const id of w.party) addStatus(w, w.entities.get(id)!, 'stun', 1e6, null);
+      return sim;
+    };
     const far = rift({ thread: null });
     const maw = tough(far, 'void_maw', 0, -40);
     const focusMaw = (c: Command) => c.t === 'directive' && c.kind === 'focus';
-    expect(novice(far)).toContainEqual({ t: 'directive', kind: 'focus', target: maw.id });
+    expect(novice(stunned(far))).toContainEqual({ t: 'directive', kind: 'focus', target: maw.id });
+    // Left free, the heroes go for it themselves: never idle, so no draw and no Focus (the
+    // `idleParty` guard on its own: only stationary enemies stand).
+    const free = rift({ thread: null });
+    tough(free, 'void_maw', 0, -40);
+    expect(novice(free).some(focusMaw)).toBe(false);
+    expect(
+      free.state.party.every((id) => free.state.entities.get(id)!.hero!.targetId !== null),
+    ).toBe(true);
     // A mobile enemy beside it: the heroes have someone to fight first, so no draw and no Focus.
     const pack = rift({ thread: null });
     tough(pack, 'void_maw', 0, -40);
     tough(pack, 'shears', 0, -8);
-    expect(novice(pack).some(focusMaw)).toBe(false);
+    expect(novice(stunned(pack)).some(focusMaw)).toBe(false);
     // Only a Maw, but within the heroes' sight: they fight it, the party is not idle, so no Focus.
     const near = rift({ thread: null });
     tough(near, 'void_maw', 0, -10);

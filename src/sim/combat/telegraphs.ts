@@ -340,9 +340,10 @@ function resolve(world: World, t: Telegraph, pending: readonly Telegraph[] = [])
     // A cut (Movement III, docs/phase-5c.md Q1): after its victims, whoever it hit. Severing on
     // the same blow comes after the verdict, so a Thread this telegraph cut is never reported
     // 'held' because its owner's Severing got there first (with the Thread gone, it does nothing).
+    // One blow, one Strand: a dash Guard Strand turned aside takes its Severing with it.
     if (attack?.cut) {
-      resolveCut(world, t, attack);
-      if (severPending && onSever && owner) onSever(world, owner);
+      const verdict = resolveCut(world, t, attack);
+      if (severPending && onSever && owner) onSever(world, owner, verdict === 'strand');
     }
     // Its status comes off both heroes, unless another live link still binds one.
     releaseLink(world, t, 'detonated', pending);
@@ -367,7 +368,7 @@ const CUT_CAUSE: Readonly<Record<string, ThreadCutCause>> = {
  * at cast start either, else `held` (it snapped or was let go in the windup: not this cut's
  * doing). `strand`: Guard Strand turned it aside (`cutThread`).
  */
-function resolveCut(world: World, t: Telegraph, attack: AttackDef): void {
+function resolveCut(world: World, t: Telegraph, attack: AttackDef): CutResolved['result'] {
   const cut = attack.cut!;
   const cause = CUT_CAUSE[attack.id] ?? (cut.always ? 'unpick' : 'shears');
   let result: CutResolved['result'];
@@ -376,6 +377,7 @@ function resolveCut(world: World, t: Telegraph, attack: AttackDef): void {
     result = cutThread(world, cause, cut.lock, t.owner);
   else result = 'held';
   world.events.push({ type: 'cutResolved', tick: world.tick, telegraph: t.id, cause, result });
+  return result;
 }
 
 /** Drops bookkeeping for a telegraph that resolved or was removed. */
@@ -718,9 +720,13 @@ export function setOnCastComplete(fn: (world: World, owner: Entity, t: Telegraph
   onCastComplete = fn;
 }
 
-/** Installed by the enemy system: Severing's cut on a blow its elite lands (Movement III). */
-let onSever: ((world: World, owner: Entity) => void) | null = null;
-export function setOnSever(fn: (world: World, owner: Entity) => void): void {
+/**
+ * Installed by the enemy system: Severing's cut on a blow its elite lands (Movement III).
+ * `stranded`: the same blow's cut telegraph was just turned aside by Guard Strand.
+ */
+type SeverHook = (world: World, owner: Entity, stranded?: boolean) => void;
+let onSever: SeverHook | null = null;
+export function setOnSever(fn: SeverHook): void {
   onSever = fn;
 }
 

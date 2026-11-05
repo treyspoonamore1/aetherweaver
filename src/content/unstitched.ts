@@ -38,6 +38,8 @@ export const MIMIC_EMPOWER_TIME = 8;
 export const MIMIC_CHIME_HEAL = 0.1;
 /** Severing cuts at most once every this many seconds per elite. */
 export const SEVER_EVERY = 3;
+/** The Unweaver's Spindles stand on a ring this far from its centre (m). */
+export const SPINDLE_RING = 9;
 
 // ── The numbers the text names ───────────────────────────────────────────────────────
 
@@ -447,7 +449,7 @@ export const UNSTITCHED_ATTACKS: ContentInput['attacks'] = [
     status: { ...STITCHED },
     decreeLimit: DECREE_CASTS,
     decree:
-      'Stitch — two heroes are sewn to the floor. Chime breaks the stitch, or frees them both.',
+      'Stitch — two heroes are sewn to the floor. Chime the stitch as it winds up; once it holds, Reel one free. A Ward on one keeps that hero loose.',
   },
   {
     ...BASE,

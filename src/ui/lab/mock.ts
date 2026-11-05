@@ -3851,7 +3851,7 @@ export function riftHud(scenario: RiftScenario): HudSnapshot {
           enrageIn: 190,
           decree: {
             name: 'Stitch',
-            text: 'Stitch — two heroes are sewn to the floor. Chime breaks the stitch, or frees them both.',
+            text: 'Stitch — two heroes are sewn to the floor. Chime the stitch as it winds up; once it holds, Reel one free. A Ward on one keeps that hero loose.',
           },
           foreseen: null,
         },

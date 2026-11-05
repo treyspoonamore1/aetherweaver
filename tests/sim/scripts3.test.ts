@@ -332,6 +332,12 @@ describe('the Unweaver, phase 1: the Cut', () => {
     boss.enemy!.specialCooldowns[enemyIndex('unweaver_spindles')] = 0;
     const cast = nextTelegraph(sim, 'unweaver_spindles', 60 * 10);
     expect(cast.owner).toBe(boss.id);
+    // Laid on a 9 m ring around it (not the generic summon's 3 m beyond its body).
+    stepUntil(sim, () => w.internal.pendingSpawns.length === 3, 60 * 5);
+    for (const p of w.internal.pendingSpawns) {
+      expect(p.defId).toBe('spindle');
+      expect(Math.hypot(p.x - boss.x, p.z - boss.z)).toBeCloseTo(9, 1);
+    }
     stepUntil(sim, () => enemiesOf(w, 'spindle').length === 3, 60 * 5);
     expect(boss.enemy!.tethered).toBe(3);
     const events: SimEvent[] = [];

@@ -14,7 +14,7 @@
  * whichever module of the enemies ↔ bossScripts ↔ unstitchedBosses cycle loads first.
  */
 import { attackDef } from '../../content';
-import { stealVerseDecree } from '../../content/unstitched';
+import { SPINDLE_RING, stealVerseDecree } from '../../content/unstitched';
 import type { AttackDef } from '../../content/schema';
 import { SIM_DT } from '../constants';
 import { announceDecree } from '../combat/feedback';
@@ -38,6 +38,7 @@ const UNPICK_EVERY_ENRAGED = 15;
 // ── The Unweaver (docs/phase-5c.md, Boss) ────────────────────────────────────────────
 
 const SNIP = 'unweaver_snip';
+const SPINDLES = 'unweaver_spindles';
 const STEAL = 'unweaver_steal_verse';
 const UNRAVEL = 'unweaver_unravel';
 const WEAVE = 'unweaver_weave';
@@ -95,6 +96,7 @@ export function unweaverScript(): BossScript {
     scriptedNext: unweaverNext,
     onAddDeath: unweaverAddDeath,
     onDeath: unweaverDeath,
+    summonRing: (attackId) => (attackId === SPINDLES ? SPINDLE_RING : undefined),
     stasis: holdClocks,
     cleanup,
   };
