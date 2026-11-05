@@ -1,6 +1,6 @@
 {
   "simVersion": 22,
-  "contentVersion": "c-6960451ef5775748",
+  "contentVersion": "c-5c63d1f7f5775748",
   "scenarios": {
     "patrol": "2626acee5ce8d584",
     "crowd": "323bd3a88aea3f1b",
@@ -12,6 +12,10 @@
     "skilled-vharun": "0d468d6046318cd6",
     "skilled-brann-crimson-gate": "5831f3df358d5c5d",
     "skilled-brann-bellwarden": "10e99af8f2dd8003",
-    "novice-brann-first-light": "9ba4ea40f94cd1aa"
+    "novice-brann-first-light": "9ba4ea40f94cd1aa",
+    "skilled-unstitched-threshold": "f72dc5e1b03025cf",
+    "novice-seamstress": "c379707e6d0dab69",
+    "skilled-unweaver": "63e8f91b068c4bad",
+    "skilled-brann-mirror-hall": "34359b7e914cfd05"
   }
 }

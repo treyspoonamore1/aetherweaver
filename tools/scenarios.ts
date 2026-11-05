@@ -7,7 +7,7 @@ import { makeBot, type BotKind } from '../src/bots';
 import type { Command } from '../src/sim/commands';
 import type { WorldState } from '../src/sim/state';
 import type { SimConfig } from '../src/sim/world';
-import { ARRIVAL_KIT, kitConfig } from './kits';
+import { ARRIVAL3_KIT, ARRIVAL_KIT, kitConfig } from './kits';
 
 export type Driver = (tick: number, state: WorldState) => Command[];
 
@@ -194,6 +194,50 @@ export const SCENARIO_BRANN_FIRST_LIGHT = botScenario(
   },
 );
 
+// ── Movement III (docs/phase-5c.md, "Goldens"): appended after novice-brann-first-light, so the
+// eleven earlier hashes are untouched. Each plays its fight on ARRIVAL3_KIT at the Movement's
+// scale (the encounter's own Movement). ──
+
+/** The Frayed Threshold with the Skilled bot: the Shears' dashes, their cuts and re-threads. */
+export const SCENARIO_UNSTITCHED_THRESHOLD = botScenario(
+  'skilled-unstitched-threshold',
+  'skilled',
+  1717,
+  60 * 40,
+  {
+    encounter: 'frayed_threshold',
+    ...kitConfig(ARRIVAL3_KIT),
+  },
+);
+
+/** The Seamstress with a Novice: Needle Rain, Stitch, and phase 2's Unpick and its rain. */
+export const SCENARIO_SEAMSTRESS = botScenario('novice-seamstress', 'novice', 2828, 60 * 90, {
+  encounter: 'the_seamstress',
+  ...kitConfig(ARRIVAL3_KIT),
+});
+
+/**
+ * The Unweaver with the Skilled bot, all three phases: Snip, Spindles and Shear; Steal Verse and
+ * Unravel; Mirror Weave and the Hollow Champion.
+ */
+export const SCENARIO_UNWEAVER = botScenario('skilled-unweaver', 'skilled', 3939, 60 * 300, {
+  encounter: 'the_unweaver',
+  ...kitConfig(ARRIVAL3_KIT),
+});
+
+/** Party B (no tank) on the Mirror Hall: the Mimic's copies, possession and a Maw. */
+export const SCENARIO_BRANN_MIRROR_HALL = botScenario(
+  'skilled-brann-mirror-hall',
+  'skilled',
+  4141,
+  60 * 60,
+  {
+    encounter: 'mirror_hall',
+    party: ['lyra', 'vexis', 'brann'],
+    ...kitConfig(ARRIVAL3_KIT),
+  },
+);
+
 /**
  * The bench's hound pack (not a golden): the Matriarch's fight with a pack of hounds already
  * loose, so Pack Call stacks on top of them; the Movement II entity peak.
@@ -231,4 +275,8 @@ export const SCENARIOS: readonly Scenario[] = [
   SCENARIO_BRANN_CRIMSON_GATE,
   SCENARIO_BRANN_BELLWARDEN,
   SCENARIO_BRANN_FIRST_LIGHT,
+  SCENARIO_UNSTITCHED_THRESHOLD,
+  SCENARIO_SEAMSTRESS,
+  SCENARIO_UNWEAVER,
+  SCENARIO_BRANN_MIRROR_HALL,
 ];

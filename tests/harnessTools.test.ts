@@ -187,10 +187,18 @@ describe('whole runs (playRun)', () => {
 describe('whole runs through Movement III (playRun)', () => {
   /** Skilled seed 2000 wins its I-II Expedition (tools/expedition-baseline.ts's first run). */
   const SEED = 2000;
+  /**
+   * The harness's second run seed, whose Skilled I-III Expedition reaches the Unweaver (seed
+   * 2000's falls at `frayed_threshold` since its hand-off fix, docs/phase-5c.md).
+   */
+  const UNWEAVER_SEED = SEED + 104729;
 
   it('plays a I-III Expedition to the Unweaver, its minutes in 3 Movements, well inside MAX_PHASES', () => {
     let phases = 0;
-    const run = playRun(SEED, 'skilled', undefined, { movements: 3, onPhase: () => phases++ });
+    const run = playRun(UNWEAVER_SEED, 'skilled', undefined, {
+      movements: 3,
+      onPhase: () => phases++,
+    });
     expect(run.movementReached).toBe(3);
     expect(run.minutesByMovement.length).toBe(3);
     expect(run.minutesByMovement[2]!).toBeGreaterThan(0);

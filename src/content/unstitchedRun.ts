@@ -15,7 +15,7 @@ const RIFT = { line: '#5c5a86', accent: '#1f6f6a', fog: '#0a0a1c' } as const;
  * 3 × 50 seeds; the vanguard 3 × 30). And each boss's enrage.
  */
 const PAR = {
-  frayed_threshold: 45,
+  frayed_threshold: 50,
   maw_hollow: 70,
   wraith_vigil: 50,
   null_chapel: 50,
@@ -107,9 +107,9 @@ export const UNSTITCHED_ENCOUNTERS: ContentInput['encounters'] = [
     arena: 'rift_mouth',
     par: PAR.frayed_threshold,
     waves: [
-      wave(2, of('shears', 2), of('hollow_chorister', 5)),
-      wave(3, of('shears', 3), of('hollow_chorister', 6)),
-      wave(3, of('shears', 3), of('glass_lancer', 1), of('hollow_chorister', 6)),
+      wave(2, of('shears', 3), of('hollow_chorister', 5)),
+      wave(3.6, of('shears', 3), of('hollow_chorister', 6)),
+      wave(3.6, of('shears', 3), of('glass_lancer', 1), of('hollow_chorister', 6)),
     ],
     hints: ['shears'],
     flavor: 'The world frays at the lip of the Rift. Something in the dark is cutting the threads.',

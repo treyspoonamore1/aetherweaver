@@ -490,11 +490,11 @@ Interrupt reach (see *Doubt Wraith*): Lyra seeks casters herself; Kael and Brann
 
 - Every encounter has `movement: 3`, and its enemies are of Movement ≤ 3 (`schema.ts:1471`).
 - The filler is Movement I's `hollow_chorister` (chip damage, no extra verb, so bleed doesn't compete with Doom, Stitch and possession for the Chime), plus a few Legion enemies.
-- Pars are derived in W9 as the Skilled average × 1.15, to the nearest 5 s: frayed_threshold 45, maw_hollow 70, wraith_vigil 50, null_chapel 50, mirror_hall 50, frayed_court 70, unstitched_vanguard 55, the Seamstress 95, the Unweaver 220 (the starting values were 50 a skirmish, 90, 80, 105 and 270).
+- Pars are derived in W9 as the Skilled average × 1.15, to the nearest 5 s: frayed_threshold 50, maw_hollow 70, wraith_vigil 50, null_chapel 50, mirror_hall 50, frayed_court 70, unstitched_vanguard 55, the Seamstress 95, the Unweaver 220 (the starting values were 50 a skirmish, 90, 80, 105 and 270).
 
 | id | Kind | Arena | Waves (tuned: head counts are the exception lever) | Hints |
 |---|---|---|---|---|
-| `frayed_threshold` | skirmish (row 0) | rift_mouth | shears×2 + chorister×5 · shears×3 + chorister×6 · shears×3 + glass_lancer + chorister×6 | shears |
+| `frayed_threshold` | skirmish (row 0) | rift_mouth | shears×3 + chorister×5 · shears×3 + chorister×6 · shears×3 + glass_lancer + chorister×6 (waves 2 and 3 come 3.6 s after the last one thins out) | shears |
 | `maw_hollow` | skirmish (lesson) | torn_nave | void_maw + shears + chorister×6 · void_maw + glass_lancer + shears + chorister×4 · void_maw×2 + shears×3 + chorister×4 | maw |
 | `wraith_vigil` | skirmish (lesson) | rift_mouth | doubt_wraith + chorister×7 · doubt_wraith + bell_brute + chorister×4 · doubt_wraith×2 + shears×2 + chorister×4 | possess |
 | `null_chapel` | skirmish (lesson) | torn_nave | null_priest + shears + chorister×5 · null_priest + shears + chorister×5 · null_priest×2 + hemomancer + chorister×4 | null |
@@ -868,7 +868,7 @@ Levers, in order: the Shears windup (1.0-1.2), the Inhale pull speed (2.0-2.8), 
 
 ### Tuning, measured (W9)
 
-ARRIVAL3_KIT cells at 50 seeds a cell on each of the three seed sets (1000 / 500003 / 777001); whole Expeditions at 200 seeds a set (2000 / 900007 / 333003); pacing on 9001 / 77003. Every number below is from the shipped content, measured with the repo's tools (`brann-bands.ts --movement 3` and `--runs --movements 3`, `decrees.ts --boss`, `callings.ts --cells`, `pacing.ts --route expedition`). W9 ran in two rounds; the second fixed one more bot and re-tuned around it, and the tables are the second round's.
+ARRIVAL3_KIT cells at 50 seeds a cell on each of the three seed sets (1000 / 500003 / 777001); whole Expeditions at 200 seeds a set (2000 / 900007 / 333003); pacing on 9001 / 77003. Every number below is from the shipped content, measured with the repo's tools (`brann-bands.ts --movement 3` and `--runs --movements 3`, `decrees.ts --boss`, `callings.ts --cells`, `pacing.ts --route expedition`). W9 ran in two rounds; the second fixed one more bot and re-tuned around it, and the tables are the second round's. A last hand-off fix to `frayed_threshold` followed; its cell row, its party row, the whole Expeditions and the pacing are re-measured after it, and every other number is round 2's (no other content changed).
 
 **What changed** (authored numbers within ±20% of their pre-W9 value unless marked; wave head counts are the exception lever):
 
@@ -889,14 +889,14 @@ ARRIVAL3_KIT cells at 50 seeds a cell on each of the three seed sets (1000 / 500
 | | `spindle` life | 1,800 → 1,440 | the Spindle lever: a Novice fought the plated boss into the enrage |
 | | `SPINDLES_EVERY` | 40 → 48 s | the same |
 | | `SPINDLE_DR` (`spindle` `tether.dr`) | 0.8 → 0.75 (−6%) | party B's Novice won the Unweaver 18 / 8 / 18% (band ≥ 10%); now 16 / 20 / 12%. 0.7 gave 18-20% but lifted the Novice's whole-run won ÷ reached III past 50% |
-| `unstitchedRun.ts` waves | `frayed_threshold` | choristers 5/5/5 → 5/6/6 | Skilled ran 39-40 s (band 40-65) |
+| `unstitchedRun.ts` waves | `frayed_threshold` | round 1: choristers 5/5/5 → 5/6/6; hand-off: wave 1 Shears 2 → 3, and the delay before waves 2 and 3 3 → 3.6 s (+20%) | Skilled ran 39-40 s (band 40-65), and after round 2 still 39.93 s on set 1000. The longer breath alone gave 43.0-43.3 s but eased the Novice (74 / 60 / 68%), and her whole-run won ÷ reached III went to about 55% (band 20-50%). The third Shears in wave 1 keeps the length (43.0-43.8 s) and gives that back (below). One more chorister instead made it no harder; more Shears in waves 2 or 3, or a second glass_lancer, took the Novice under 55% |
 | | `maw_hollow` | +1 Shears in waves 1 and 2, wave 3 Shears 2 → 3; wave 2 choristers 5 → 4 | Idle: a lone Lyra out-ranges a Maw, so the adds must kill her; round 2: party C lost 10% at wave 2's arrival (the choristers reach the Weaver) |
 | | `wraith_vigil` | wave 1 choristers 6 → 7 | Skilled ran 37-39 s |
 | | `null_chapel` | +1 Shears in wave 1; wave 1 choristers 6 → 5 | Idle won 10-20%; round 2: party A lost 10% (choristers downed the Weaver at wave 2's arrival in every loss) |
 | | `mirror_hall` | +1 Shears in waves 1 and 2; wave 1 choristers 6 → 5 | Idle won 72-86%; Skilled ran 39 s; round 2: party A, as on `null_chapel` |
 | | `frayed_court` | wave 1 Shears +1, choristers 6 → 4; wave 2 Shears 2 → 3; wave 3 +2 Shears | the Novice won 88-92% (band 30-65%): the Shears are the cut she answers late |
-| | pars | 50 a skirmish, 90, 80, 105, 270 → 45, 70, 50, 50, 50, 70, 55, 95, 220 | the Skilled average × 1.15 |
-| `src/ui/screens/routeText.ts` | `ROUTE_MINUTES.expedition` | 30 → 40 | the measured Skilled I-III Expedition (40.8 / 39.4) |
+| | pars | 50 a skirmish, 90, 80, 105, 270 → 50, 70, 50, 50, 50, 70, 55, 95, 220 | the Skilled average × 1.15 (`frayed_threshold` 45 → 50 at the hand-off: 43.4 s × 1.15) |
+| `src/ui/screens/routeText.ts` | `ROUTE_MINUTES.expedition` | 30 → 40 | the measured Skilled I-III Expedition (40.9 / 39.1) |
 
 **Bot fixes** (each plainly broken for a Movement III mechanic):
 
@@ -923,16 +923,18 @@ Damage is the strong lever; life barely moves the runs but moves the cells (at 1
 | Bot | Won | Reached III | Won ÷ reached III |
 |---|---|---|---|
 | Idle | 0 / 0 / 0% | 0% | — |
-| Novice | 7 / 7 / 7% (6.5 / 7.0 / 6.5) | 15 / 12 / 15% | 43 / 61 / 43%, **pooled 40 / 83 = 48%** |
-| Skilled | 76 / 73 / 75% | 79 / 76 / 78% | 96 / 97 / 97% |
+| Novice | 6 / 8 / 7% (5.5 / 7.5 / 7.0) | 15 / 12 / 15% | 37 / 65 / 47% (11/30, 15/23, 14/30), **pooled 40 / 83 = 48%** |
+| Skilled | 73 / 68 / 73% | 79 / 76 / 78% | 92 / 90 / 94% |
 
-Where the Novice's reached-III runs end: `frayed_threshold` 17, the Unweaver 7, the Seamstress 7, `frayed_court` 5, `wraith_vigil` 5. Skilled's: `frayed_court` 7, the Seamstress 4, `frayed_threshold` 3.
+- Every whole-run band is met. Reached III is unchanged by Movement III, as it must be.
+- The hand-off fix moved these. Before it (round 2): Novice won ÷ reached III 43 / 61 / 43% (pooled 48%), Skilled won 76 / 73 / 75% and 96 / 97 / 97% of those that reached III. With the longer breath alone, the Novice's read 43 / 70 / 53% (about 55% pooled, over the band).
+- The Novice's set 900007 swings 61-78% between near-identical versions of `frayed_threshold`: 23-24 runs reach III there, so one run is 4 points.
 
 **Cells** (default party; win · mean length; three seed sets):
 
 | Cell | Idle | Novice | Skilled | Skilled length | Skilled share |
 |---|---|---|---|---|---|
-| `frayed_threshold` | 0 / 2 / 0% | 74 / 56 / 60% | 100 / 100 / 98% | 40 / 40 / 41 s | 45-46% |
+| `frayed_threshold` | 0 / 0 / 0% | 60 / 56 / 64% | 94 / 92 / 96% | 43.8 / 43.0 / 43.5 s | 44-45% |
 | `maw_hollow` | 4 / 10 / 10% | 82 / 92 / 78% | 100 / 100 / 100% | 61 / 61 / 60 s | 48-49% |
 | `wraith_vigil` | 0 / 0 / 0% | 58 / 74 / 60% | 98 / 92 / 100% | 41 / 42 / 42 s | 48-49% |
 | `null_chapel` | 0 / 2 / 0% | 94 / 96 / 96% | 100 / 98 / 100% | 44 / 45 / 44 s | 47-48% |
@@ -942,7 +944,12 @@ Where the Novice's reached-III runs end: `frayed_threshold` 17, the Unweaver 7, 
 | the Unweaver | 0% | 42 / 48 / 46% | 100 / 100 / 98% | 192 / 187 / 189 s | 49% |
 | `unstitched_vanguard` (no band; 30 seeds) | 0% | 90-97% | 93-100% | 46-55 s | 45-47% |
 
-Every default-party band is met on all three sets. `maw_hollow`'s and `mirror_hall`'s Idle sit at the 10% ceiling on two sets, and `frayed_threshold`'s Skilled length at its 40 s floor.
+Every default-party cell band is now met on all three sets. `maw_hollow`'s and `mirror_hall`'s Idle sit at the 10% ceiling on two sets.
+
+- Round 2 missed one band and reported it met: `frayed_threshold`'s Skilled length was 39.93 s on set 1000 (40.08 and 40.91 on the others), under its 40 s floor. Its report rounded that to 40.
+- The hand-off fix (*What changed*) closed it. That row is re-measured on all three sets, for every party; the other rows are round 2's, and no other cell's content changed.
+- Its price: the opening fight is harder. Default Novice 74 / 56 / 60% → 60 / 56 / 64%, Skilled 100 / 100 / 98% → 94 / 92 / 96%. Not banded, but worth a look in play: party A's Novice there falls from 54-60% to 42-48%, and party C's from 40-46% to 10-14%.
+- One test moved with it: `tests/harnessTools.test.ts`'s I-III run to the Unweaver now plays seed 106729, because Skilled seed 2000 falls at `frayed_threshold`. Its assertions are unchanged.
 
 **Decree gate** (Skilled, 50 seeds × 3 sets; every Decree seen ≥ 2 times in 50 of 50 fights on each set): Shear 99%, Snip 95-97%, Spindles 100%, Steal Verse 94-95%, Unravel 100%, Mirror Weave 98-99%; Stitch 98-99%, Unpicking 88-91%. The Novice: Shear 93%, Snip 22-23%, Spindles 95-96%, Steal Verse 2%, Unravel 78-79%, Mirror Weave 54-60%; Stitch 35-44%, Unpicking 70-74%. Idle: Stitch 0%.
 
@@ -950,7 +957,7 @@ Every default-party band is met on all three sets. `maw_hollow`'s and `mirror_ha
 
 | Cell | default | A | B | C |
 |---|---|---|---|---|
-| `frayed_threshold` | 100 / 100 / 98 | 98 / 96 / 98 | 100 / 100 / 100 | 98 / 100 / 100 |
+| `frayed_threshold` | 94 / 92 / 96 | 96 / 96 / 92 | 96 / 94 / 98 | 98 / 98 / 96 |
 | `maw_hollow` | 100 / 100 / 100 | 98 / 96 / 100 | 100 / 100 / 100 | 98 / 96 / 100 |
 | `wraith_vigil` | 98 / 92 / 100 | 100 / 100 / 98 | 98 / 98 / 98 | 98 / 98 / 98 |
 | `null_chapel` | 100 / 98 / 100 | 100 / 100 / 96 | 96 / 100 / 100 | 100 / 100 / 100 |
@@ -967,17 +974,54 @@ Every default-party band is met on all three sets. `maw_hollow`'s and `mirror_ha
 
 **Possession damage a fight** (30 seeds from 1000; Novice / Skilled): `wraith_vigil` default 67 / 4, A 96 / 6, B 68 / 3, C 138 / 27; `mirror_hall` default 62 / 3, A 22 / 7, B 6 / 0, C 27 / 11; `unstitched_vanguard` default 63 / 0, A 27 / 17, B 19 / 0, C 50 / 2.
 
-**Pacing** (`tools/pacing.ts --route expedition`, 16 players × 3 h): a Skilled I-III Expedition models at 17.3 + 12.4 + 11.1 = **40.8** min on seed base 9001 (Finale budget −0.8) and 16.9 + 12.0 + 10.5 = **39.4** min on 77003 (+0.6). (Round 1's report had the two sets swapped: its 41.0 was 9001's.) Weaver XP a combat minute, III / I: 1.11 / 1.11 (Skilled), 0.89 (Novice, 9001, 25.0 min an Expedition), inside ±15%. In those runs the Unweaver takes 261-263 s and the Seamstress 92 s (against 189 s and 81 s in the cells: the pacing players play the presets and Callings their Rank allows, not ARRIVAL3_KIT), and Movement III's map, rewards and shops take about 200 s.
+**Pacing** (`tools/pacing.ts --route expedition`, 16 players × 3 h):
 
-**Aether.** A Skilled Expedition that wins ends with 432-476 Aether unspent (the Novice's wins 263-326): Movement III's merchant and forge don't drain it. A per-Movement price multiplier (about ×1.5 in Movement III) is the proposal; it is left to the design owner.
+- Skilled, seed base 9001: 17.3 + 12.4 + 11.1 = **40.9** min (Finale budget −0.9; 40.8 before the hand-off fix).
+- Skilled, seed base 77003: 16.9 + 12.0 + 10.2 = **39.1** min (+0.9; 39.4 before). Round 1's report had the two sets swapped: its 41.0 was 9001's.
+- Weaver XP a combat minute, III / I: 1.11 / 1.10 (Skilled), 0.92 (Novice, 9001, 24.5 min an Expedition), inside ±15%.
+- In round 2's pacing runs the Unweaver took 261-263 s and the Seamstress 92 s (against 189 s and 81 s in the cells: the pacing players play the presets and Callings their Rank allows, not ARRIVAL3_KIT), and Movement III's map, rewards and shops about 200 s.
 
-**Sim bench:** the Unweaver phase-3 peak runs at p95 0.108 ms a tick (budget 1.5).
+**Aether** (round 2). A Skilled Expedition that wins ends with 432-476 Aether unspent (the Novice's wins 263-326): Movement III's merchant and forge don't drain it. A per-Movement price multiplier (about ×1.5 in Movement III) is the proposal; it is left to the design owner.
+
+**Sim bench:** the Unweaver phase-3 peak runs at p95 0.06-0.11 ms a tick (budget 1.5).
 
 **Missed or seed-sensitive:**
 
-- The Skilled I-III Expedition is 40.8 min on 9001 (band ≤ 40; 39.4 on 77003): seed-sensitive, 1 of 2. Movements I and II alone take 29.7 min on 9001, which leaves Movement III 10.3.
-- Movement III models at 11.1 min on 9001 (target 9-11; 10.5 on 77003): seed-sensitive, 1 of 2. The Unweaver is most of it (263 s in those runs); a shorter Unweaver would take the default party's cell under its 180 s floor (it reads 187-192 s).
+- The Skilled I-III Expedition is 40.9 min on 9001 (band ≤ 40; 39.1 on 77003): seed-sensitive, 1 of 2. Movements I and II alone take 29.7 min on 9001, which leaves Movement III 10.3.
+- Movement III models at 11.1 min on 9001 (target 9-11; 10.2 on 77003): seed-sensitive, 1 of 2. The Unweaver is most of it (263 s in those runs); a shorter Unweaver would take the default party's cell under its 180 s floor (it reads 187-192 s).
 - Not a band: party A's Skilled Unweaver at 320 s (Exit criterion 2's 180-280 s) and the Luminary's at 168-174 s (above).
+
+**Shipped behaviour that differs from the first design** (each is also noted where the design states it):
+
+- **Numbers.** The shipped scale is life ×1.85 (from 1.75) and XP ×1.4 (from 1.5). The authored numbers in *What changed* moved within ±20% (`frayed_threshold`'s wave delay too); wave head counts are the exception lever, and pars follow the measured Skilled average.
+- **Spindles.** They stand on a 9 m ring around the Unweaver, and their plating is 75%, not 80% (the BossBar reads '−75%').
+- **Shear** hits for 720 (756 scaled), not 900: the Mirror Weave double threat is 1,675 against Kael's 1,600, so a plain Ward still saves him.
+- **Steal Verse's Decree** is announced at phase 2's entry as well as with the cast. The verse itself is stolen about 1.1 times a fight.
+- **The Stitch Decree** no longer promises that a Chime frees both heroes: a Chime reaches 4 m and the pair can stand 40 m apart.
+- **One blow, one Strand** (answer 9). A Severing Shears dash that Guard Strand turns aside takes its own Severing with it.
+- **Stationary enemies.** A hero with nothing in sight seeks the nearest stationary enemy, and the Weaver's leash never holds a hero off one (Q3). The first design had the heroes never go to a Maw on their own, so Idle and the Novice timed out on `maw_hollow` and `mirror_hall`.
+- **Unravel's gathered Mend** starts again when the Thread moves, the mode changes or the threaded hero goes down. It never lands on another hero, or after the Weaver answered with Empower.
+- **The Unweaver's death** closes an open Unravel (`unravelled {active: false}`) and returns a stolen aura with reason `'boss'`, beside the designed `'killed'`, `'expired'` and `'phase'`. Render and audio treat it as the generic return, and the Decree gate counts only `'killed'`.
+- **Bots.** These are bot rules the design didn't list, each measured above:
+  - Skilled `needles` (`walksIntoLanding`);
+  - Skilled `focusSilencing`, with the Mute step leaving a Silencing elite to it;
+  - Skilled `CHAMPION_FOCUS_BELOW` 0.5;
+  - Skilled `focusStationary`, only once every standing enemy is stationary;
+  - the Novice's `stationaryFocus` 0.15 and `spindleFocus` 0.09.
+- **Prep** reads '~40 min' for the Expedition (`ROUTE_MINUTES.expedition`, from 30).
+
+**Hand-off** (Exit criterion 8; the Finale slice's guards):
+
+- **Goldens.** Four are appended after `novice-brann-first-light` (`tools/scenarios.ts`), and the eleven before them are byte-identical. SIM_VERSION is 22, and `contentVersion` is the only other change.
+  - `skilled-unstitched-threshold` f72dc5e1b03025cf (ARRIVAL3_KIT, 2,400 ticks);
+  - `novice-seamstress` c379707e6d0dab69 (ARRIVAL3_KIT, 5,400);
+  - `skilled-unweaver` 63e8f91b068c4bad (ARRIVAL3_KIT, 18,000; it wins at tick 12,329 and joins the replay round-trip in `tests/sim/determinism.test.ts`);
+  - `skilled-brann-mirror-hall` 34359b7e914cfd05 (party B, ARRIVAL3_KIT, 3,600).
+- **All 15 pinned** as literals in `tests/sim/m1Unchanged.test.ts`. `golden.json` must hold exactly those 15, in order.
+- **`tools/m3-baseline.json`** (`npx tsx tools/m1-baseline.ts --movement 3 --check`): Movement III's 8 map fights × 3 bots × 10 seeds on ARRIVAL3_KIT, 240 fights.
+- **`tools/expedition3-baseline.json`** (`npx tsx tools/expedition-baseline.ts --movements 3 --check`): 5 Novice and 5 Skilled I-III Expeditions. The I-II pin (`tools/expedition-baseline.json`) is unchanged.
+- **Tests.** `tests/meta/movement3Handoff.test.ts` re-plays the first seed of each Movement III fight and bot against the m3 baseline, and the first Novice and Skilled I-III Expedition against the expedition3 baseline. The tools' `--check` modes cover every row.
+- **The Movement III command snapshot** (`tests/bots/commandSnapshotM3.test.ts`): the Skilled and Novice command streams on all nine Movement III fights, 3 seeds each, 30 s, ARRIVAL3_KIT. `tests/bots/commandSnapshot.json` (Movements I and II) is unchanged.
 
 ## Determinism and invariance guards
 

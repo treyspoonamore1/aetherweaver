@@ -1,6 +1,6 @@
 # The playtest demo
 
-*2026-10-30 · follows [Phase 4h](phase-4h.md); updated 2026-11-03 for [Phase 5a](phase-5a.md) and 2026-11-04 for [Phase 5b](phase-5b.md)*
+*2026-10-30 · follows [Phase 4h](phase-4h.md); updated 2026-11-03 for [Phase 5a](phase-5a.md), 2026-11-04 for [Phase 5b](phase-5b.md), and 2026-11-05 for [Phase 5c](phase-5c.md)*
 
 A build of the game for playtesters: the Prelude run (Movement I), and since Phase 5a the Expedition, which climbs on past the Hollow Cantor into Movement II (the Crimson Spire and the Crimson Legion), with everything the Loom has opened by then. It's published as a private link (a claude.ai Artifact) that its owner can share. Nothing is collected from players.
 
@@ -81,3 +81,36 @@ aren't.** He hits harder the lower his life, and his axe heals him. Please tell 
   silhouette, the axe and the brass collar)?
 
 The full protocol for these questions is [docs/phase-5b/playtest-protocol.md](phase-5b/playtest-protocol.md).
+
+## Phase 5c: Movement III, the Unstitched
+
+*For testers.* The Expedition now goes on past Vharun into **the Abyssal Rift** ([docs/phase-5c.md](phase-5c.md)). Vharun becomes an interlude (a relic, an epic draft, half your life back), and the run ends at **the Unweaver**. Movement III attacks the Weaver's own tools: it cuts your Thread, silences your techniques, turns a hero against the party, copies your casts and steals a song.
+
+The published link above has Movement III only once it is rebuilt and republished from this branch (`npm run build:demo`, then *Publishing* above).
+
+**How to get there.**
+
+- **Prep:** the Expedition route now reads 'Movements I–III, to the Unweaver', about 40 minutes for a strong player.
+- **Veteran start:** choose the Expedition in Prep and play through, or use *Skip the unlocks* first.
+- The Prelude is unchanged.
+
+**What to look for.**
+
+- **Shears** (the opening fight): a dotted dash line with a scissors marker where it crosses your Thread. Was it clear that you can Thread a hero on your side of the line, or step across it? After a cut, did the 'CUT' callout and the lock ring tell you when you could re-thread?
+- **The Void Maw:** its swirl tightens before it inhales. Did you Rally in the tell? Did 'Swap puts you in the Maw' make sense?
+- **The Doubt Wraith:** a 4 s cast and a cracked-mask mark. If it lands, the hero gets an indigo rim and strikes an ally. Did you know to Chime them free, or Focus the Wraith first?
+- **The Null Priest:** a rune closes at your feet. Inside it Ward, Chime and Reel grey out, but **Glide never does**. Did you walk or Glide out without being told twice?
+- **The Mimic:** its cast bar shows the icon it will copy. Did you notice that casting something else cracks the mirror?
+- **The elite** (*The Frayed Court*): Severing, Silencing and Doom-touched, one per wave. Doom counts to five over a hero; did you Chime before five?
+- **The Seamstress:** Needle Rain, Stitch (two heroes sewn to the floor), and at half life the Unpick, which pulls your Thread loose.
+- **The Unweaver**, in three phases:
+  1. Snip (a cut across your Thread, 3 s lock), Spindles (Focus them: while one stands the boss takes 75% less damage) and Shear;
+  2. Steal Verse (one of your auras goes hollow until you kill the fleeing Stolen Verse) and Unravel (your Mend wounds for 5 s: switch to Empower);
+  3. Mirror Weave: a Hollow Champion the boss Wards as you Ward yours. Interrupt the Mirror Ward and Focus the champion.
+
+**Please tell us:**
+
+- Did each 'New foe' card, glyph and Decree say what to do before it cost you a hero?
+- When a hero went down, did the Result's line name what would have saved them?
+- Was any input ever blocked without a visible lock and a way out?
+- How long did the whole Expedition take you, and did Movement III feel too long after two Movements?

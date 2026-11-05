@@ -99,8 +99,9 @@ draft → map), the Rift's title card, the Frayed Threshold, the Unweaver and th
 `winRun` walks to the Unweaver. A Movement III smoke checks Prep's route copy, `warpMovement(3)`,
 the Rift's card and backdrop, and that Glide is never rune-locked in a Rift fight.
 
-## Left for W9
+## Done in W9
 
-- `ROUTE_MINUTES.expedition` (Prep's '~30 min') takes its measured value.
-- The overlay's `GlyphIcon` 'thread' entry (W0b's stub) and the render's own cut callout belong to
-  render.
+- `ROUTE_MINUTES.expedition` took its measured value: Prep reads '~40 min' (the Skilled I-III
+  Expedition models at about 40 minutes; docs/phase-5c.md, *Pacing*).
+- The overlay's `GlyphIcon` 'thread' entry ('Retarget') and the render's cut callout landed with
+  render (docs/phase-5c/vfx-audio.md).

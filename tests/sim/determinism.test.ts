@@ -9,6 +9,7 @@ import {
   SCENARIO_BRANN_CRIMSON_GATE,
   SCENARIO_FIRST_LIGHT,
   SCENARIO_PATROL,
+  SCENARIO_UNWEAVER,
   SCENARIO_VHARUN,
 } from '../../tools/scenarios';
 import golden from './golden.json';
@@ -49,11 +50,13 @@ describe('determinism (docs/plan/05 §4.9)', () => {
   });
 
   // Vharun (docs/phase-5a.md): pins, stacks, pools and scripted follow-ups survive the trip too.
+  // The Unweaver (docs/phase-5c.md): cuts, zones, the stolen verse, Unravel and the champion.
   for (const scenario of [
     SCENARIO_PATROL,
     SCENARIO_FIRST_LIGHT,
     SCENARIO_VHARUN,
     SCENARIO_BRANN_CRIMSON_GATE,
+    SCENARIO_UNWEAVER,
   ]) {
     it(`a recorded replay of "${scenario.name}" survives a JSON round-trip and re-simulates bit-exactly`, () => {
       const { replay, hash } = runScenario(scenario);
