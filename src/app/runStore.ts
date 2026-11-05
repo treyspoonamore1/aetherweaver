@@ -16,6 +16,7 @@ import { awardedBondXp, sceneWaiting, type RunBond } from '../meta/bonds';
 import { dissonancePoints, type DissonanceChoice } from '../meta/dissonance';
 import { CONTENT, type SceneDef } from '../content';
 import * as Run from '../meta/run';
+import { EXPEDITION_MOVEMENTS } from '../meta/profile';
 import { loadRun, saveRun } from '../meta/save';
 import type { CombatOutcome, RunActions, RunState } from '../meta/types';
 import type { SimConfig } from '../sim';
@@ -166,8 +167,15 @@ export const useRun = create<RunStore>()((set, get) => {
       return !!saved && saved.phase !== 'summary';
     },
     resume: () => {
-      const saved = loadRun(storage());
-      if (!saved) return false;
+      const loaded = loadRun(storage());
+      if (!loaded) return false;
+      // An Expedition still in Prep, saved when Expeditions were shorter (docs/phase-5c.md), is
+      // drawn again at the current length (Movement I comes out the same). A run past Prep keeps
+      // the map it was saved with, whatever content has added since.
+      const saved =
+        loaded.phase === 'prep' && loaded.movements > 1 && loaded.movements < EXPEDITION_MOVEMENTS
+          ? Run.setMovements(loaded, EXPEDITION_MOVEMENTS)
+          : loaded;
       // A fight can't be resumed mid-way: restart the pending encounter from its start.
       // A run still in Prep picks up the tree, the carry, the Dissonance and the Bonds as they
       // are now.
@@ -287,7 +295,8 @@ export const useRun = create<RunStore>()((set, get) => {
         profileDissonance(),
         profileBonds(party),
         profile.runTechniques(),
-        // Its route (docs/phase-5a.md): the Prelude, or an Expedition once they're open.
+        // Its route (docs/phase-5a.md): the Prelude, or an Expedition once they're open (every
+        // Movement in content, EXPEDITION_MOVEMENTS, docs/phase-5c.md).
         profile.routeMovements(mode),
       );
       if (party.join() !== CONTENT.defaultParty.join())

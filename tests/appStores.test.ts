@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useProfile } from '../src/app/profileStore';
 import { useRun } from '../src/app/runStore';
 import { DEFAULT_SETTINGS, useSettings } from '../src/app/settings';
-import { RANK_XP, movementOneEnemies, newProfile } from '../src/meta/profile';
+import { EXPEDITION_MOVEMENTS, RANK_XP, movementOneEnemies, newProfile } from '../src/meta/profile';
 import { storage } from '../src/app/storage';
 import * as Run from '../src/meta/run';
 import type { CombatOutcome, RunState } from '../src/meta/types';
@@ -116,30 +116,30 @@ describe('run and profile stores', () => {
     useRun.getState().newRun(22);
     expect(route()).toBe(1);
     useRun.getState().newRun(22, 'expedition');
-    expect(route()).toBe(2);
-    expect(useRun.getState().run!.map).toStrictEqual(Run.generateMap(22, 2));
+    expect(route()).toBe(EXPEDITION_MOVEMENTS);
+    expect(useRun.getState().run!.map).toStrictEqual(Run.generateMap(22, EXPEDITION_MOVEMENTS));
     // After a run, new runs follow the profile's route (Expeditions, unless Prep says not).
     useProfile.getState().recordRun(false);
     useRun.getState().newRun(23);
-    expect(route()).toBe(2);
+    expect(route()).toBe(EXPEDITION_MOVEMENTS);
     useRun.getState().setRunMode('prelude');
     expect(route()).toBe(1);
     expect(useProfile.getState().profile.runMode).toBe('prelude');
     useRun.getState().newRun(24);
     expect(route()).toBe(1);
     useRun.getState().setRunMode('expedition');
-    expect(route()).toBe(2);
+    expect(route()).toBe(EXPEDITION_MOVEMENTS);
     // Embarked, the route is frozen; the profile still remembers the choice.
     useRun.getState().embark();
     useRun.getState().setRunMode('prelude');
-    expect(route()).toBe(2);
+    expect(route()).toBe(EXPEDITION_MOVEMENTS);
     expect(useProfile.getState().profile.runMode).toBe('prelude');
   });
 
   it('an Expedition chosen under Skip the unlocks embarks as the Prelude once it’s off', () => {
     useSettings.getState().update((s) => ({ ...s, unlockAll: true }));
     useRun.getState().newRun(25, 'expedition');
-    expect(useRun.getState().run!.movements).toBe(2);
+    expect(useRun.getState().run!.movements).toBe(EXPEDITION_MOVEMENTS);
     useSettings.getState().update((s) => ({ ...s, unlockAll: false }));
     useRun.getState().embark();
     expect(useRun.getState().run!).toMatchObject({ phase: 'map', movements: 1 });
