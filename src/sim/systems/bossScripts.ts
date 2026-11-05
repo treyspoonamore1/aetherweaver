@@ -26,7 +26,10 @@ export interface BossScript {
   scriptedNext?(world: World, boss: Entity): ScriptedNext | null;
   /** An enemy other than the boss died (an add it summoned, or any other). */
   onAddDeath?(world: World, boss: Entity, add: Entity): void;
-  /** One tick of Stasis: every clock the script keeps waits `dt` (stasis.ts). */
+  /**
+   * One tick of Stasis: every clock the script keeps waits `dt` (stasis.ts, which already waits
+   * the field keys and Severing's `severAt`).
+   */
   stasis?(world: World, dt: number): void;
   /** The encounter ended: delete everything the script created (director.ts). */
   cleanup?(world: World): void;

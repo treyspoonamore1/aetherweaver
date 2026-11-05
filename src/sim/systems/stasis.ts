@@ -73,6 +73,15 @@ export function holdEnemyTime(world: World, dt: number): void {
   if (field.zones) for (const z of field.zones) z.until += dt;
   if (field.unravel) field.unravel.until += dt;
   if (field.stolen) field.stolen.until += dt;
+  // A Severing elite's cut cooldown runs in its own time, in any fight (elite fights have no
+  // boss script): a cooldown still running waits, so it can't cut again sooner in frozen time.
+  const severAt = internal.m3?.severAt;
+  if (severAt)
+    for (const id of Object.keys(severAt)) {
+      const key = Number(id);
+      const at = severAt[key]!;
+      if (at > world.time) severAt[key] = at + dt;
+    }
   encounterScript(world)?.stasis?.(world, dt);
   if (world.encounter.enrageAt !== null) world.encounter.enrageAt += dt;
 }

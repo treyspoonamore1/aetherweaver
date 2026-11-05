@@ -244,11 +244,13 @@ export interface Mods {
   cutResonance: number;
   /** Stillwater Bell: seconds off Chime's cooldown. */
   chimeCooldownCut: number;
+  /** Stillwater Bell: carried and awake (1), else 0. The share it refunds is `stillwaterRefund`. */
+  stillwaterBell: number;
   /**
    * Stillwater Bell: the share of its Spirit a Chime refunds when it frees a possessed or
-   * Stitched hero or clears Doom (0 = none).
+   * Stitched hero or clears Doom, already a fraction (0.5 = half; 0 = none). Apply it as is.
    */
-  stillwaterBell: number;
+  stillwaterRefund: number;
   /** Sacrificial Lamb: once a fight, a lethal hit on a hero goes to the healthiest other (0 = off). */
   sacrificialLamb: number;
 }
@@ -397,6 +399,7 @@ export const NO_MODS: Mods = {
   cutResonance: 0,
   chimeCooldownCut: 0,
   stillwaterBell: 0,
+  stillwaterRefund: 0,
   sacrificialLamb: 0,
 };
 
@@ -799,7 +802,8 @@ function applyRelic(m: Mods, id: string, v: Values, cleansed: boolean): void {
       break;
     case 'stillwater_bell':
       m.chimeCooldownCut += num(v, 'cut');
-      m.stillwaterBell = num(v, 'refund') / 100;
+      m.stillwaterBell = 1;
+      m.stillwaterRefund = num(v, 'refund') / 100;
       break;
     default:
       // Run-only relics (Star Chart) have no sim behaviour; tests check the rest are known.

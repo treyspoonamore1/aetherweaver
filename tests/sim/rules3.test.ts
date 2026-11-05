@@ -24,7 +24,7 @@ import {
   weaverSilenced,
 } from '../../src/sim/rules3';
 import type { Entity, Telegraph } from '../../src/sim/state';
-import { BOSS_SCRIPTS, bossScript } from '../../src/sim/systems/bossScripts';
+import { BOSS_SCRIPTS, bossScript, encounterScript } from '../../src/sim/systems/bossScripts';
 import { bossPhaseTable, phaseRules } from '../../src/sim/systems/bosses';
 import { holdEnemyTime } from '../../src/sim/systems/stasis';
 import { resolveConfig, type World } from '../../src/sim/world';
@@ -328,6 +328,7 @@ describe('the new mods, the registry and the lifecycle', () => {
       cutResonance: 0,
       chimeCooldownCut: 0,
       stillwaterBell: 0,
+      stillwaterRefund: 0,
       sacrificialLamb: 0,
     });
     const mods = (config: Parameters<typeof resolveConfig>[0]) =>
@@ -338,7 +339,9 @@ describe('the new mods, the registry and the lifecycle', () => {
     });
     expect(mods({ seed: 1, relics: ['stillwater_bell'] })).toMatchObject({
       chimeCooldownCut: 2,
-      stillwaterBell: 0.5,
+      // A flag (contract: `stillwaterBell 1`); the share is its own mod, already a fraction.
+      stillwaterBell: 1,
+      stillwaterRefund: 0.5,
     });
     expect(mods({ seed: 1, relics: ['sacrificial_lamb'] }).sacrificialLamb).toBe(1);
     expect(mods({ seed: 1, motifs: [{ id: 'guard_strand', level: 2 }] }).guardStrand).toBe(1);
@@ -386,6 +389,22 @@ describe('the new mods, the registry and the lifecycle', () => {
     expect(w.field.zones[0]!.until).toBe(10.5);
     expect(w.field.unravel.until).toBe(20.5);
     expect(w.field.stolen.until).toBe(30.5);
+  });
+
+  it('Stasis waits a Severing cooldown still running, in a fight with no boss script', () => {
+    const sim = createSim({ seed: 3, encounter: 'frayed_court', debug: true });
+    const w = worldOf(sim);
+    expect(encounterScript(w)).toBeUndefined();
+    holdEnemyTime(w, 0.5);
+    expect('m3' in w.internal).toBe(false);
+    stepFor(sim, 1);
+    const now = w.time;
+    // Elite 7 cut a moment ago and waits 3 s; elite 8 may cut already.
+    w.internal.m3 = { severAt: { 7: now + 2.5, 8: now - 1 } };
+    for (let i = 0; i < 60; i++) holdEnemyTime(w, 1 / 60);
+    expect(w.internal.m3.severAt![7]).toBeCloseTo(now + 3.5, 9);
+    expect(w.internal.m3.severAt![8]).toBe(now - 1);
+    expect(Object.keys(w.internal.m3)).toEqual(['severAt']);
   });
 
   it('the end of an encounter deletes every Movement III key', () => {

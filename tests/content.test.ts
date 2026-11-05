@@ -1,7 +1,9 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { CONTENT } from '../src/content';
 import { EffectBundleSchema } from '../src/content/effects';
 import { ContentSchema } from '../src/content/schema';
+import { stealVerseDecree } from '../src/content/unstitched';
 import { KNOWN_ALT_SOLOS, KNOWN_TALENTS } from '../src/sim/bonds';
 import { KNOWN_MOTIFS } from '../src/sim/mods';
 import { STATUS } from '../src/ui/hud/labels';
@@ -608,6 +610,28 @@ describe('Movement III: the Unstitched (docs/phase-5c.md)', () => {
   it('every status a Movement III payload applies has a look with its answer', () => {
     for (const id of ['doubt', 'possessed', 'doom', 'doomed', 'voided', 'stitch', 'stitched'])
       expect(STATUS[id as keyof typeof STATUS].answer, id).toBeTruthy();
+  });
+
+  it('the Steal Verse Decree names the stolen aura; the attack keeps the unnamed form', () => {
+    const steal = CONTENT.attacks.find((a) => a.id === 'unweaver_steal_verse')!;
+    expect(steal.decree).toBe(stealVerseDecree());
+    expect(steal.decree).toBe(
+      'Steal Verse — the Unweaver tears an aura from your song. Focus the Stolen Verse to take it back.',
+    );
+    expect(stealVerseDecree('Valor')).toBe(
+      'Steal Verse — the Unweaver tears Valor from your song. Focus the Stolen Verse to take it back.',
+    );
+  });
+
+  it('every number in the Unstitched defs is a named constant (only 0, 1 and the Movement inline)', () => {
+    const src = readFileSync(new URL('../src/content/unstitched.ts', import.meta.url), 'utf8');
+    // The defs: from the first exported list to the end (the constants and BODIES come first).
+    const defs = src.slice(src.indexOf('export const UNSTITCHED_ATTACKS'));
+    const inline = [...defs.matchAll(/\b(\w+): (-?\d+(?:\.\d+)?)\b/g)]
+      .filter(([, key, n]) => n !== '0' && !(key === 'movement' && n === '3'))
+      .filter(([, key, n]) => !(n === '1' && ['count', 'maxAlive', 'stacks'].includes(key!)))
+      .map(([m]) => m);
+    expect(inline).toEqual([]);
   });
 });
 

@@ -591,7 +591,10 @@ export interface SimInternal {
     nextMirrorAt?: number;
     /** The Hollow Champion while it stands. */
     champion?: EntityId;
-    /** Severing: sim time each elite may cut again. */
+    /**
+     * Severing: sim time each elite may cut again. Kept in any fight with a Severing elite (not
+     * only a boss's), so Stasis waits it in holdEnemyTime itself, not through a script.
+     */
     severAt?: Record<EntityId, number>;
   };
   /** Guard Strand (docs/phase-5c.md): sim time it can turn a bolt or a cut aside again. */

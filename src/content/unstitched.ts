@@ -4,8 +4,8 @@ import type { ContentInput } from './schema';
  * Movement III: the Unstitched (docs/phase-5c.md, docs/plan/03 §6-§7). Code life is the plan's
  * HP × 2.2, as in Movements I and II; damage is at plan value. The Movement's scale (life ×1.75,
  * damage ×1.05, `unstitchedRun.ts`) is applied by the sim, so it is not folded in here. Every
- * number the text names is a constant below, and every Codex, affix and decree line is built
- * from the numbers it describes.
+ * number is a named constant below (a 0 means 'none'), and every Codex, affix and decree line is
+ * built from the numbers it describes.
  */
 
 const BASE = {
@@ -65,11 +65,12 @@ const RUNE_TIME = 6;
 /** The Mimic's mirror cast. */
 const MIRROR_WINDUP = 2;
 const MIRROR_COOLDOWN = 12;
-/** Doom: a stack a hit, up to its ignition, on one timer. */
+/** Doom: a stack a hit, up to its ignition, on one timer of this many seconds. */
 const DOOM_AT = 5;
+const DOOM_TIME = 10;
 const DOOM = {
   id: 'doom',
-  duration: 10,
+  duration: DOOM_TIME,
   stacks: 1,
   maxStacks: DOOM_AT,
   burst: { at: DOOM_AT, attack: 'doom_burst' },
@@ -105,6 +106,163 @@ const SPINDLES = 3;
 const SPINDLE_DR = 0.8;
 const CHAMPION_CLEAVE = 700;
 
+// ── Cadences and shapes the text doesn't name ────────────────────────────────────────
+// Each attack's cooldown (`_EVERY`) and first use (`_FROM`, s into the fight), and the windups
+// and reaches not given above. A scripted attack's cooldown is its script's cadence.
+
+/** Reach that spans any arena (the widest Rift arena's radius is 22 m). */
+const ARENA_REACH = 40;
+/** How far the casters cast from. */
+const CAST_RANGE = 30;
+/** A Decree is announced on its attack's first this many casts (AttackDef.decreeLimit). */
+const DECREE_CASTS = 2;
+const SHEARS_EVERY = 8;
+const SHEARS_FROM = 3;
+const SHEARS_WIDTH = 1.2;
+const INHALE_FROM = 5;
+const DOUBT_EVERY = 15;
+const DOUBT_FROM = 6;
+const RUNE_EVERY = 12;
+const RUNE_FROM = 4;
+const MIRROR_FROM = 5;
+const MIRROR_RADIUS = 1.5;
+const NEEDLE_EVERY = 12;
+const NEEDLE_FROM = 5;
+const STITCH_WINDUP = 2.5;
+const STITCH_EVERY = 18;
+const STITCH_FROM = 8;
+const UNPICK_WINDUP = 2.5;
+const UNPICK_EVERY = 22;
+const SHEAR_WINDUP = 1.8;
+const SHEAR_EVERY = 14;
+const SHEAR_FROM = 6;
+const SHEAR_REACH = 4;
+const SHEAR_ARC = 110;
+const SNIP_WINDUP = 1.6;
+const SNIP_EVERY = 15;
+const SNIP_FROM = 8;
+const SNIP_WIDTH = 1.4;
+const SPINDLES_WINDUP = 1.5;
+const SPINDLES_EVERY = 40;
+const SPINDLES_FROM = 10;
+const STEAL_WINDUP = 3;
+const STEAL_EVERY = 40;
+const UNRAVEL_WINDUP = 2;
+const UNRAVEL_EVERY = 22;
+const WEAVE_WINDUP = 1.5;
+const WEAVE_EVERY = 30;
+const MIRROR_WARD_WINDUP = 2;
+const MIRROR_WARD_EVERY = 14;
+const CLEAVE_WINDUP = 1.6;
+const CLEAVE_EVERY = 11;
+const CLEAVE_FROM = 4;
+const CLEAVE_REACH = 3.4;
+const CLEAVE_ARC = 100;
+
+/**
+ * The Steal Verse Decree, naming the aura taken (`aura`: its display name, e.g. 'Valor'). The
+ * attack's own `decree` is the unnamed form; the Unweaver's script announces the named one as the
+ * verse is torn out, since only it knows which aura that is.
+ */
+export function stealVerseDecree(aura?: string): string {
+  return `Steal Verse — the Unweaver tears ${aura ?? 'an aura'} from your song. Focus the Stolen Verse to take it back.`;
+}
+
+/**
+ * Each body: code life, speed (m/s), radius and height (m), the range it keeps from its target
+ * (m, 0 = closes in) and its basic attack (damage, seconds between hits, reach in m).
+ */
+const BODIES = {
+  shears: {
+    hp: 990,
+    speed: 5.4,
+    radius: 0.45,
+    height: 1,
+    keep: 0,
+    basic: { kind: 'melee', damage: 40, interval: 1, range: 1.2 },
+  },
+  // Stationary: it never moves (the speed is never used).
+  void_maw: {
+    hp: 3080,
+    speed: 1,
+    radius: 1.2,
+    height: 1.2,
+    keep: 0,
+    basic: { kind: 'melee', damage: 70, interval: 1.6, range: 2.8 },
+  },
+  doubt_wraith: {
+    hp: 1100,
+    speed: 3.2,
+    radius: 0.5,
+    height: 2.4,
+    keep: 11,
+    basic: { kind: 'bolt', damage: 40, interval: 2, range: 13 },
+  },
+  null_priest: {
+    hp: 1540,
+    speed: 2.8,
+    radius: 0.5,
+    height: 2.2,
+    keep: 10,
+    basic: { kind: 'bolt', damage: 50, interval: 2.2, range: 12 },
+  },
+  mimic: {
+    hp: 1320,
+    speed: 3.2,
+    radius: 0.5,
+    height: 1.9,
+    keep: 10,
+    basic: { kind: 'bolt', damage: 35, interval: 1.6, range: 11 },
+  },
+  // Stationary: it never moves (the speed is never used).
+  spindle: {
+    hp: 1800,
+    speed: 1,
+    radius: 0.5,
+    height: 2,
+    keep: 0,
+    basic: { kind: 'bolt', damage: 25, interval: 2, range: 14 },
+  },
+  stolen_verse: {
+    hp: 3000,
+    speed: 4.4,
+    radius: 0.5,
+    height: 1.4,
+    keep: 16,
+    basic: { kind: 'bolt', damage: 20, interval: 2, range: 18 },
+  },
+  mirror_champion: {
+    hp: 12000,
+    speed: 3.2,
+    radius: 0.8,
+    height: 2.6,
+    keep: 0,
+    basic: { kind: 'melee', damage: 100, interval: 1.4, range: 2 },
+  },
+  the_seamstress: {
+    hp: 36000,
+    speed: 3,
+    radius: 1.3,
+    height: 3,
+    keep: 0,
+    basic: { kind: 'melee', damage: 80, interval: 1.5, range: 2.4 },
+  },
+  the_unweaver: {
+    hp: 78000,
+    speed: 2.4,
+    radius: 1.6,
+    height: 4.4,
+    keep: 0,
+    basic: { kind: 'melee', damage: 120, interval: 1.6, range: 2.8 },
+  },
+} as const;
+
+/** A body's life, speed and size, in the order an EnemyDef lists them. */
+function body(id: keyof typeof BODIES) {
+  const b = BODIES[id];
+  return { hp: b.hp, speed: b.speed, radius: b.radius, height: b.height };
+}
+
 /** Movement III specials. Scripted ones only start from a boss script, a payload or a follow-up. */
 export const UNSTITCHED_ATTACKS: ContentInput['attacks'] = [
   // ── The Unstitched ───────────────────────────────────────────────────────────────────
@@ -115,11 +273,11 @@ export const UNSTITCHED_ATTACKS: ContentInput['attacks'] = [
     kind: 'beam',
     effect: 'damage',
     windup: SHEARS_WINDUP,
-    cooldown: 8,
-    initialDelay: 3,
+    cooldown: SHEARS_EVERY,
+    initialDelay: SHEARS_FROM,
     damage: SHEARS_DAMAGE,
     length: SHEARS_LINE,
-    width: 1.2,
+    width: SHEARS_WIDTH,
     range: SHEARS_LINE,
     targeting: 'threadLine',
     answers: ['thread', 'focus', 'move'],
@@ -135,7 +293,7 @@ export const UNSTITCHED_ATTACKS: ContentInput['attacks'] = [
     effect: 'zone',
     windup: INHALE_WINDUP,
     cooldown: INHALE_EVERY,
-    initialDelay: 5,
+    initialDelay: INHALE_FROM,
     damage: 0,
     radius: INHALE_RADIUS,
     range: INHALE_RADIUS,
@@ -157,10 +315,10 @@ export const UNSTITCHED_ATTACKS: ContentInput['attacks'] = [
     kind: 'mark',
     effect: 'damage',
     windup: DOUBT_WINDUP,
-    cooldown: 15,
-    initialDelay: 6,
+    cooldown: DOUBT_EVERY,
+    initialDelay: DOUBT_FROM,
     damage: DOUBT_DAMAGE,
-    range: 30,
+    range: CAST_RANGE,
     targeting: 'randomNonTank',
     answers: ['focus', 'chime', 'ward'],
     interruptible: true,
@@ -174,11 +332,11 @@ export const UNSTITCHED_ATTACKS: ContentInput['attacks'] = [
     kind: 'burst',
     effect: 'zone',
     windup: RUNE_WINDUP,
-    cooldown: 12,
-    initialDelay: 4,
+    cooldown: RUNE_EVERY,
+    initialDelay: RUNE_FROM,
     damage: 0,
     radius: RUNE_RADIUS,
-    range: 30,
+    range: CAST_RANGE,
     targeting: 'self',
     answers: ['move'],
     centre: 'weaver',
@@ -192,9 +350,9 @@ export const UNSTITCHED_ATTACKS: ContentInput['attacks'] = [
     effect: 'mimic',
     windup: MIRROR_WINDUP,
     cooldown: MIRROR_COOLDOWN,
-    initialDelay: 5,
+    initialDelay: MIRROR_FROM,
     damage: 0,
-    radius: 1.5,
+    radius: MIRROR_RADIUS,
     range: MIMIC_ALLY_RANGE,
     targeting: 'allyEnemy',
     answers: ['focus'],
@@ -212,7 +370,7 @@ export const UNSTITCHED_ATTACKS: ContentInput['attacks'] = [
     initialDelay: 0,
     damage: 0,
     pctMaxHp: DOOM_PCT,
-    range: 40,
+    range: ARENA_REACH,
     targeting: 'current',
     answers: ['chime', 'ward', 'focus'],
     markStatus: 'doomed',
@@ -226,11 +384,11 @@ export const UNSTITCHED_ATTACKS: ContentInput['attacks'] = [
     kind: 'burst',
     effect: 'damage',
     windup: NEEDLE_FIRST,
-    cooldown: 12,
-    initialDelay: 5,
+    cooldown: NEEDLE_EVERY,
+    initialDelay: NEEDLE_FROM,
     damage: NEEDLE_DAMAGE,
     radius: NEEDLE_RADIUS,
-    range: 40,
+    range: ARENA_REACH,
     targeting: 'randomHero',
     answers: ['move', 'ward', 'reel'],
     centre: 'target',
@@ -243,11 +401,11 @@ export const UNSTITCHED_ATTACKS: ContentInput['attacks'] = [
     kind: 'burst',
     effect: 'damage',
     windup: NEEDLE_NEXT,
-    cooldown: 12,
+    cooldown: NEEDLE_EVERY,
     initialDelay: 0,
     damage: NEEDLE_DAMAGE,
     radius: NEEDLE_RADIUS,
-    range: 40,
+    range: ARENA_REACH,
     targeting: 'randomHero',
     answers: ['move', 'ward', 'reel'],
     centre: 'target',
@@ -261,11 +419,11 @@ export const UNSTITCHED_ATTACKS: ContentInput['attacks'] = [
     kind: 'burst',
     effect: 'damage',
     windup: NEEDLE_NEXT,
-    cooldown: 12,
+    cooldown: NEEDLE_EVERY,
     initialDelay: 0,
     damage: NEEDLE_DAMAGE,
     radius: NEEDLE_RADIUS,
-    range: 40,
+    range: ARENA_REACH,
     targeting: 'randomHero',
     answers: ['move', 'ward', 'reel'],
     centre: 'target',
@@ -277,17 +435,17 @@ export const UNSTITCHED_ATTACKS: ContentInput['attacks'] = [
     name: 'Stitch',
     kind: 'link',
     effect: 'damage',
-    windup: 2.5,
-    cooldown: 18,
-    initialDelay: 8,
+    windup: STITCH_WINDUP,
+    cooldown: STITCH_EVERY,
+    initialDelay: STITCH_FROM,
     damage: STITCH_DAMAGE,
     radius: STITCH_REACH,
-    range: 40,
+    range: ARENA_REACH,
     targeting: 'pair',
     answers: ['chime', 'ward', 'reel'],
     linkStatus: 'stitch',
     status: { ...STITCHED },
-    decreeLimit: 2,
+    decreeLimit: DECREE_CASTS,
     decree:
       'Stitch — two heroes are sewn to the floor. Chime breaks the stitch, or frees them both.',
   },
@@ -297,12 +455,12 @@ export const UNSTITCHED_ATTACKS: ContentInput['attacks'] = [
     name: 'Unpick',
     kind: 'raid',
     effect: 'damage',
-    windup: 2.5,
-    cooldown: 22,
+    windup: UNPICK_WINDUP,
+    cooldown: UNPICK_EVERY,
     initialDelay: 0,
     damage: 0,
     pctMaxHp: UNPICK_PCT,
-    range: 40,
+    range: ARENA_REACH,
     targeting: 'allHeroes',
     answers: ['ward', 'thread'],
     cut: { lock: UNPICK_LOCK, always: true },
@@ -317,11 +475,11 @@ export const UNSTITCHED_ATTACKS: ContentInput['attacks'] = [
     kind: 'burst',
     effect: 'damage',
     windup: NEEDLE_FIRST,
-    cooldown: 12,
+    cooldown: NEEDLE_EVERY,
     initialDelay: 0,
     damage: NEEDLE_DAMAGE,
     radius: NEEDLE_RADIUS,
-    range: 40,
+    range: ARENA_REACH,
     targeting: 'randomHero',
     answers: ['move', 'ward', 'reel'],
     centre: 'target',
@@ -335,16 +493,16 @@ export const UNSTITCHED_ATTACKS: ContentInput['attacks'] = [
     name: 'Shear',
     kind: 'cleave',
     effect: 'damage',
-    windup: 1.8,
-    cooldown: 14,
-    initialDelay: 6,
+    windup: SHEAR_WINDUP,
+    cooldown: SHEAR_EVERY,
+    initialDelay: SHEAR_FROM,
     damage: SHEAR_DAMAGE,
-    radius: 4,
-    angleDeg: 110,
-    range: 4,
+    radius: SHEAR_REACH,
+    angleDeg: SHEAR_ARC,
+    range: SHEAR_REACH,
     targeting: 'current',
     answers: ['ward', 'reel', 'dome'],
-    decreeLimit: 2,
+    decreeLimit: DECREE_CASTS,
     decree: 'Shear — the great shears close on the tank. Ward them, or raise Kael’s dome.',
     decreeNoDome: 'Shear — the great shears close on the tank. Ward them, and keep a Reel ready.',
   },
@@ -354,19 +512,19 @@ export const UNSTITCHED_ATTACKS: ContentInput['attacks'] = [
     name: 'Snip',
     kind: 'beam',
     effect: 'damage',
-    windup: 1.6,
-    cooldown: 15,
-    initialDelay: 8,
+    windup: SNIP_WINDUP,
+    cooldown: SNIP_EVERY,
+    initialDelay: SNIP_FROM,
     damage: SNIP_DAMAGE,
     length: SNIP_LINE,
-    width: 1.4,
-    range: 40,
+    width: SNIP_WIDTH,
+    range: ARENA_REACH,
     targeting: 'threadLine',
     answers: ['thread', 'move'],
     fullLength: true,
     cut: { lock: SNIP_LOCK },
     scripted: true,
-    decreeLimit: 2,
+    decreeLimit: DECREE_CASTS,
     decree: `Snip — the shears close across your Thread. Get on your hero’s side of the line, or lose it for ${SNIP_LOCK} s.`,
   },
   {
@@ -375,15 +533,15 @@ export const UNSTITCHED_ATTACKS: ContentInput['attacks'] = [
     name: 'Spindles',
     kind: 'burst',
     effect: 'summon',
-    windup: 1.5,
-    cooldown: 40,
-    initialDelay: 10,
+    windup: SPINDLES_WINDUP,
+    cooldown: SPINDLES_EVERY,
+    initialDelay: SPINDLES_FROM,
     damage: 0,
-    range: 40,
+    range: ARENA_REACH,
     targeting: 'self',
     answers: ['focus'],
     summon: { enemy: 'spindle', count: SPINDLES, maxAlive: SPINDLES },
-    decreeLimit: 2,
+    decreeLimit: DECREE_CASTS,
     decree: `Spindles — while one stands, the Unweaver takes ${pct(SPINDLE_DR)}% less damage. Focus them.`,
   },
   {
@@ -392,18 +550,18 @@ export const UNSTITCHED_ATTACKS: ContentInput['attacks'] = [
     name: 'Steal Verse',
     kind: 'burst',
     effect: 'script',
-    windup: 3,
-    cooldown: 40,
+    windup: STEAL_WINDUP,
+    cooldown: STEAL_EVERY,
     initialDelay: 0,
     damage: 0,
-    range: 40,
+    range: ARENA_REACH,
     targeting: 'self',
     answers: ['focus'],
     // The script spawns the Verse (and mutes the aura it carries) as the cast lands.
     summon: { enemy: 'stolen_verse', count: 1, maxAlive: 1 },
     scripted: true,
-    decree:
-      'Steal Verse — the Unweaver tears an aura from your song. Focus the Stolen Verse to take it back.',
+    // The generic text; the Unweaver's script announces the one naming the stolen aura.
+    decree: stealVerseDecree(),
   },
   {
     ...BASE,
@@ -411,11 +569,11 @@ export const UNSTITCHED_ATTACKS: ContentInput['attacks'] = [
     name: 'Unravel',
     kind: 'raid',
     effect: 'script',
-    windup: 2,
-    cooldown: 22,
+    windup: UNRAVEL_WINDUP,
+    cooldown: UNRAVEL_EVERY,
     initialDelay: 0,
     damage: 0,
-    range: 40,
+    range: ARENA_REACH,
     targeting: 'allHeroes',
     answers: ['empower'],
     scripted: true,
@@ -427,11 +585,11 @@ export const UNSTITCHED_ATTACKS: ContentInput['attacks'] = [
     name: 'Mirror Weave',
     kind: 'burst',
     effect: 'summon',
-    windup: 1.5,
-    cooldown: 30,
+    windup: WEAVE_WINDUP,
+    cooldown: WEAVE_EVERY,
     initialDelay: 0,
     damage: 0,
-    range: 40,
+    range: ARENA_REACH,
     targeting: 'self',
     answers: ['focus'],
     summon: { enemy: 'mirror_champion', count: 1, maxAlive: 1 },
@@ -443,11 +601,11 @@ export const UNSTITCHED_ATTACKS: ContentInput['attacks'] = [
     name: 'Mirror Ward',
     kind: 'burst',
     effect: 'script',
-    windup: 2,
-    cooldown: 14,
+    windup: MIRROR_WARD_WINDUP,
+    cooldown: MIRROR_WARD_EVERY,
     initialDelay: 0,
     damage: 0,
-    range: 40,
+    range: ARENA_REACH,
     targeting: 'self',
     answers: ['focus'],
     interruptible: true,
@@ -460,13 +618,13 @@ export const UNSTITCHED_ATTACKS: ContentInput['attacks'] = [
     name: 'Hollow Cleave',
     kind: 'cleave',
     effect: 'damage',
-    windup: 1.6,
-    cooldown: 11,
-    initialDelay: 4,
+    windup: CLEAVE_WINDUP,
+    cooldown: CLEAVE_EVERY,
+    initialDelay: CLEAVE_FROM,
     damage: CHAMPION_CLEAVE,
-    radius: 3.4,
-    angleDeg: 100,
-    range: 3.4,
+    radius: CLEAVE_REACH,
+    angleDeg: CLEAVE_ARC,
+    range: CLEAVE_REACH,
     targeting: 'current',
     answers: ['ward', 'reel', 'move'],
   },
@@ -481,14 +639,11 @@ export const UNSTITCHED_ENEMIES: ContentInput['enemies'] = [
     id: 'shears',
     name: 'Shears',
     role: 'swarm',
-    hp: 990,
-    speed: 5.4,
-    radius: 0.45,
-    height: 1,
+    ...body('shears'),
     color: VOID_CLOTH,
     accent: '#cfd2e0',
-    basic: { kind: 'melee', damage: 40, interval: 1, range: 1.2 },
-    preferredRange: 0,
+    basic: { ...BODIES.shears.basic },
+    preferredRange: BODIES.shears.keep,
     specials: ['shears_dash'],
     suppressRadius: 0,
     codex: `Living scissors. After a ${SHEARS_WINDUP} s crouch they dash ${SHEARS_LINE} m through the middle of your Thread, dealing ${SHEARS_DAMAGE} to anyone on the line, and cut it if the line still crosses it: no Thread for ${SHEARS_LOCK} s. Thread a hero on your side of the line, or step across it. Focus them.`,
@@ -499,15 +654,11 @@ export const UNSTITCHED_ENEMIES: ContentInput['enemies'] = [
     id: 'void_maw',
     name: 'Void Maw',
     role: 'brute',
-    hp: 3080,
-    // Stationary: it never moves (the speed is never used).
-    speed: 1,
-    radius: 1.2,
-    height: 1.2,
+    ...body('void_maw'),
     color: VOID_CLOTH,
     accent: '#3b2f8f',
-    basic: { kind: 'melee', damage: 70, interval: 1.6, range: 2.8 },
-    preferredRange: 0,
+    basic: { ...BODIES.void_maw.basic },
+    preferredRange: BODIES.void_maw.keep,
     specials: ['maw_inhale'],
     suppressRadius: 0,
     codex: `A mouth torn in the floor. Every ${INHALE_EVERY} s it Inhales: after a ${INHALE_WINDUP} s tell, everyone within ${INHALE_RADIUS} m is dragged toward it at ${INHALE_PULL} m/s for ${INHALE_TIME} s, taking ${VOIDED.dps} damage a second. Rally the party to you during the tell, or Reel a hero out.`,
@@ -519,14 +670,11 @@ export const UNSTITCHED_ENEMIES: ContentInput['enemies'] = [
     id: 'doubt_wraith',
     name: 'Doubt Wraith',
     role: 'caster',
-    hp: 1100,
-    speed: 3.2,
-    radius: 0.5,
-    height: 2.4,
+    ...body('doubt_wraith'),
     color: VOID_CLOTH,
     accent: '#6a5acd',
-    basic: { kind: 'bolt', damage: 40, interval: 2, range: 13 },
-    preferredRange: 11,
+    basic: { ...BODIES.doubt_wraith.basic },
+    preferredRange: BODIES.doubt_wraith.keep,
     specials: ['wraith_doubt'],
     suppressRadius: 0,
     codex: `A hollow hood that whispers. Its ${DOUBT_WINDUP} s Doubt possesses a hero for ${POSSESSED.duration} s: they turn on the nearest ally within reach. Focus the Wraith to interrupt it, Chime the marked hero to cancel it, or Ward them. Chime frees a possessed hero.`,
@@ -537,14 +685,11 @@ export const UNSTITCHED_ENEMIES: ContentInput['enemies'] = [
     id: 'null_priest',
     name: 'Null Priest',
     role: 'caster',
-    hp: 1540,
-    speed: 2.8,
-    radius: 0.5,
-    height: 2.2,
+    ...body('null_priest'),
     color: VOID_CLOTH,
     accent: '#d9c7a0',
-    basic: { kind: 'bolt', damage: 50, interval: 2.2, range: 12 },
-    preferredRange: 10,
+    basic: { ...BODIES.null_priest.basic },
+    preferredRange: BODIES.null_priest.keep,
     specials: ['null_rune'],
     suppressRadius: 0,
     codex: `It writes a rune at your feet. ${RUNE_WINDUP} s later it closes into a ${RUNE_RADIUS} m ring for ${RUNE_TIME} s, and inside it your Ward, Chime and Reel won’t answer. Glide always will: step or Glide out.`,
@@ -555,14 +700,11 @@ export const UNSTITCHED_ENEMIES: ContentInput['enemies'] = [
     id: 'mimic',
     name: 'Mimic',
     role: 'caster',
-    hp: 1320,
-    speed: 3.2,
-    radius: 0.5,
-    height: 1.9,
+    ...body('mimic'),
     color: VOID_CLOTH,
     accent: '#b8c4d6',
-    basic: { kind: 'bolt', damage: 35, interval: 1.6, range: 11 },
-    preferredRange: 10,
+    basic: { ...BODIES.mimic.basic },
+    preferredRange: BODIES.mimic.keep,
     specials: ['mimic_mirror'],
     suppressRadius: 0,
     codex: `A faceted mirror. Over a ${MIRROR_WINDUP} s cast it copies your Empower, or else your last Ward or Chime, onto the biggest enemy within ${MIMIC_ALLY_RANGE} m. Change what you cast before it ends and the mirror cracks. Focus it to interrupt.`,
@@ -574,15 +716,11 @@ export const UNSTITCHED_ENEMIES: ContentInput['enemies'] = [
     id: 'spindle',
     name: 'Spindle',
     role: 'support',
-    hp: 1800,
-    // Stationary: it never moves (the speed is never used).
-    speed: 1,
-    radius: 0.5,
-    height: 2,
+    ...body('spindle'),
     color: VOID_CLOTH,
     accent: '#e8e3c8',
-    basic: { kind: 'bolt', damage: 25, interval: 2, range: 14 },
-    preferredRange: 0,
+    basic: { ...BODIES.spindle.basic },
+    preferredRange: BODIES.spindle.keep,
     specials: [],
     suppressRadius: 0,
     codex: `A spindle of the Unweaver’s crown. While one stands, the Unweaver takes ${pct(SPINDLE_DR)}% less damage. Focus them.`,
@@ -595,14 +733,11 @@ export const UNSTITCHED_ENEMIES: ContentInput['enemies'] = [
     id: 'stolen_verse',
     name: 'Stolen Verse',
     role: 'caster',
-    hp: 3000,
-    speed: 4.4,
-    radius: 0.5,
-    height: 1.4,
+    ...body('stolen_verse'),
     color: VOID_CLOTH,
     accent: '#e8e3c8',
-    basic: { kind: 'bolt', damage: 20, interval: 2, range: 18 },
-    preferredRange: 16,
+    basic: { ...BODIES.stolen_verse.basic },
+    preferredRange: BODIES.stolen_verse.keep,
     specials: [],
     suppressRadius: 0,
     codex:
@@ -614,14 +749,11 @@ export const UNSTITCHED_ENEMIES: ContentInput['enemies'] = [
     id: 'mirror_champion',
     name: 'Hollow Champion',
     role: 'brute',
-    hp: 12000,
-    speed: 3.2,
-    radius: 0.8,
-    height: 2.6,
+    ...body('mirror_champion'),
     color: VOID_CLOTH,
     accent: '#b8c4d6',
-    basic: { kind: 'melee', damage: 100, interval: 1.4, range: 2 },
-    preferredRange: 0,
+    basic: { ...BODIES.mirror_champion.basic },
+    preferredRange: BODIES.mirror_champion.keep,
     specials: ['champion_cleave'],
     suppressRadius: 0,
     codex: `The Unweaver’s mirror of your tank, Threaded by it: it deals ${pct(EMBOLDENED_MULT - 1)}% more damage while the Unweaver lives, and its cleave hits for ${CHAMPION_CLEAVE}. Interrupt the Mirror Ward, and Focus the champion.`,
@@ -633,14 +765,11 @@ export const UNSTITCHED_ENEMIES: ContentInput['enemies'] = [
     id: 'the_seamstress',
     name: 'The Seamstress',
     role: 'miniboss',
-    hp: 36000,
-    speed: 3,
-    radius: 1.3,
-    height: 3,
+    ...body('the_seamstress'),
     color: VOID_CLOTH,
     accent: '#e8e3c8',
-    basic: { kind: 'melee', damage: 80, interval: 1.5, range: 2.4 },
-    preferredRange: 0,
+    basic: { ...BODIES.the_seamstress.basic },
+    preferredRange: BODIES.the_seamstress.keep,
     specials: [
       'seamstress_needles',
       'seamstress_needles_2',
@@ -658,14 +787,11 @@ export const UNSTITCHED_ENEMIES: ContentInput['enemies'] = [
     id: 'the_unweaver',
     name: 'The Unweaver',
     role: 'boss',
-    hp: 78000,
-    speed: 2.4,
-    radius: 1.6,
-    height: 4.4,
+    ...body('the_unweaver'),
     color: VOID_CLOTH,
     accent: '#cfd2e0',
-    basic: { kind: 'melee', damage: 120, interval: 1.6, range: 2.8 },
-    preferredRange: 0,
+    basic: { ...BODIES.the_unweaver.basic },
+    preferredRange: BODIES.the_unweaver.keep,
     specials: [
       'unweaver_shear',
       'unweaver_snip',
