@@ -993,6 +993,24 @@ describe('Doom and Unravel follow the sim, not render constants', () => {
         expect(h.overlay.numbers.at(-1)!.color).toBe(VISION_HEX.lethal);
         expect(h.overlay.numbers.at(-1)!.color).not.toBe(VISION_HEX.heal);
       }
+      // A hit that lands inside the aggregation window after a tick starts its own number in
+      // the party colour; it never joins the tick's lethal number (and a tick never joins it).
+      for (let i = 0; i < 30; i++) h.inject([]);
+      h.overlay.numbers.length = 0;
+      h.inject([tick(threaded, boss.id)]);
+      h.inject([tick(threaded, boss.id, 'hit')]);
+      h.inject([tick(threaded, boss.id), tick(threaded, boss.id, 'hit')]);
+      expect(h.overlay.numbers.map((x) => x.color)).toEqual([
+        VISION_HEX.lethal,
+        '#fb7185',
+        VISION_HEX.lethal,
+        '#fb7185',
+      ]);
+      // Two plain hits on the same hero still share one number.
+      for (let i = 0; i < 30; i++) h.inject([]);
+      h.overlay.numbers.length = 0;
+      h.inject([tick(threaded, boss.id, 'hit'), tick(threaded, wraith.id, 'hit')]);
+      expect(h.overlay.numbers).toHaveLength(1);
       // Under Stasis Mend heals: nothing is Unravel's.
       w.field.stasis = true;
       const before = h.feedback.firedM3.unravelTicks;

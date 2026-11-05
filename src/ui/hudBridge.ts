@@ -769,13 +769,24 @@ function stolenAuraOf(state: WorldState): string | null {
   return state.field.chords[st.chord]?.auras[st.aura] ?? null;
 }
 
+/**
+ * Seconds left of Unravel's reversed Mend, or undefined when Mend doesn't wound: no window, or
+ * Stasis is up (docs/phase-5c.md: under Stasis Mend heals as usual and the window's clock waits,
+ * so the HUD must not tell the player that Mend wounds). Absent outside Movement III.
+ */
+function unravelWounds(state: WorldState): number | undefined {
+  const unravel = state.field.unravel;
+  if (!unravel || state.field.stasis || unravel.until <= state.time) return undefined;
+  return unravel.until - state.time;
+}
+
 /** The Weaver's side: the rune lock, a cut Thread's cause, Unravel, a stolen aura. */
 function weaverRift(
   state: WorldState,
   cut: ThreadCutHeard | null | undefined,
 ): Pick<WeaverHud, 'runeLocked' | 'threadCut' | 'unravelLeft' | 'stolenAura'> {
   const w = state.entities.get(state.weaverId)?.weaver;
-  const unravel = state.field.unravel;
+  const unravelLeft = unravelWounds(state);
   const stolen = stolenAuraOf(state);
   const cutLive =
     !!cut &&
@@ -787,7 +798,7 @@ function weaverRift(
   return {
     ...(weaverSilenced(state) ? { runeLocked: true as const } : {}),
     ...(cutLive ? { threadCut: { cause: cut.cause } } : {}),
-    ...(unravel && unravel.until > state.time ? { unravelLeft: unravel.until - state.time } : {}),
+    ...(unravelLeft !== undefined ? { unravelLeft } : {}),
     ...(stolen ? { stolenAura: stolen } : {}),
   };
 }
@@ -808,8 +819,8 @@ function bossRift(
   if (tethered !== undefined && tethered > 0) out.spindles = tethered;
   const stolen = stolenAuraOf(state);
   if (stolen) out.stolen = { id: stolen, name: auraDef(stolen).name };
-  const unravel = state.field.unravel;
-  if (unravel && unravel.until > state.time) out.unravelLeft = unravel.until - state.time;
+  const unravelLeft = unravelWounds(state);
+  if (unravelLeft !== undefined) out.unravelLeft = unravelLeft;
   for (const e of state.entities.list()) {
     if (e.enemy?.defId !== CHAMPION_DEF || !e.health || e.health.dead) continue;
     out.champion = { hp: e.health.hp, maxHp: e.health.maxHp };
