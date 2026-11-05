@@ -7,13 +7,20 @@
 import { describe, expect, it } from 'vitest';
 import { attackDef, CONTENT, heroDef } from '../../src/content';
 import type { Command, Sim, SimConfig, SimEvent } from '../../src/sim';
-import { createSim } from '../../src/sim';
-import { addStatus, dealDamage, hasStatus } from '../../src/sim/combat/health';
+import { createSim, weaverSilenced } from '../../src/sim';
+import {
+  addStatus,
+  dealDamage,
+  hasStatus,
+  killEnemy,
+  removeStatus,
+} from '../../src/sim/combat/health';
 import { auraBit } from '../../src/sim/combat/auras';
 import type { Entity } from '../../src/sim/state';
 import { canCall, tendCall } from '../../src/sim/systems/calls';
 import { beginAttack } from '../../src/sim/systems/enemies';
 import { underMuteDome } from '../../src/sim/systems/field';
+import { startSolo } from '../../src/sim/systems/solos';
 import { updatePendingHits } from '../../src/sim/systems/hits';
 import { castReel, cue } from '../../src/sim/systems/techniques';
 import { hashWorld } from '../../src/sim/hashing';
@@ -393,6 +400,22 @@ describe('the Null rune silences the Weaver', () => {
     ok([{ t: 'glide', x: 1, z: 0 }], 'glided');
   });
 
+  it('a rune whose owner died under Stasis silences no one, and ends with it', () => {
+    const { sim, w } = runed();
+    const owner = w.entities.get(w.field.zones![0]!.owner)!;
+    w.field.stasis = true;
+    stepFor(sim, 5);
+    expect(weaverSilenced(w)).toBe(true);
+    // The heroes fight on under Stasis: the owner falls, its rune with it.
+    killEnemy(w, owner, null);
+    expect(weaverSilenced(w)).toBe(false);
+    const events = stepFor(sim, 1, [{ t: 'tech', id: 'ward', slot: 0 }]);
+    expect(refusals(events)).toEqual([]);
+    expect(ofType(events, 'techniqueCast')).toHaveLength(1);
+    expect(ofType(events, 'zoneEnded')).toEqual([expect.objectContaining({ zone: 99 })]);
+    expect('zones' in w.field).toBe(false);
+  });
+
   it('outside the rune every technique casts', () => {
     const { sim, w } = runed();
     w.field.zones![0]!.x += 20;
@@ -442,6 +465,26 @@ describe('a possessed hero', () => {
     // Another hero can.
     cue(w, 1);
     expect(ofType(sim.drainEvents(), 'cued')).toHaveLength(1);
+  });
+
+  it('loses the Solo pulses it misses: freed, they aren’t all fired at once', () => {
+    const sim = sandbox();
+    const w = worldOf(sim);
+    const lyra = heroAt(w, 1);
+    const foe = enemyOf(sim, 'hollow_chorister', lyra.x, lyra.z - 6);
+    addStatus(w, foe, 'stun', 1e6, null);
+    startSolo(w, lyra, false);
+    // Her arrows as they are loosed (they land a flight later).
+    const hits = (events: SimEvent[]) =>
+      ofType(events, 'attackFired').filter((d) => d.source === lyra.id && d.target === foe.id);
+    expect(hits(stepFor(sim, 3)).length).toBeGreaterThan(0);
+    addStatus(w, lyra, 'possessed', 5, null);
+    expect(hits(stepFor(sim, 60))).toEqual([]);
+    expect(lyra.hero!.soloActive).toBeGreaterThan(0.5);
+    removeStatus(w, lyra, 'possessed', 'freed');
+    // Gale Barrage fires 12 a second: at most one in a tick, as before she was possessed.
+    expect(hits(stepFor(sim, 1)).length).toBeLessThanOrEqual(1);
+    expect(hits(stepFor(sim, 12)).length).toBeGreaterThan(0);
   });
 
   it('drops their call', () => {

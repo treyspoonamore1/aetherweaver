@@ -83,15 +83,32 @@ export function cutWouldLand(
   return segmentDistSq(s.x, s.z, s.toX, s.toZ, seg.ax, seg.az, seg.bx, seg.bz) <= half * half;
 }
 
-/** The Weaver stands in a Null rune: her Ward, Chime and Reel (or Rewind) are refused. */
+/**
+ * The Weaver stands in a Null rune: her Ward, Chime and Reel (or Rewind) are refused. A rune
+ * whose Priest is dead silences no one, even before the zone is cleared (as under Stasis).
+ */
 export function weaverSilenced(world: WorldState): boolean {
   const zones = world.field.zones;
   if (!zones) return false;
   const weaver = world.entities.get(world.weaverId);
   if (!weaver) return false;
   for (const z of zones)
-    if (z.kind === 'null' && distSq(weaver.x, weaver.z, z.x, z.z) <= z.r * z.r) return true;
+    if (
+      z.kind === 'null' &&
+      distSq(weaver.x, weaver.z, z.x, z.z) <= z.r * z.r &&
+      zoneOwnerStands(world, z)
+    )
+      return true;
   return false;
+}
+
+/** A zone's owner is still there and alive (docs/phase-5c.md Q4: a zone ends when it dies). */
+export function zoneOwnerStands(
+  world: { entities: { get(id: EntityId): ReadonlyEntity | undefined } },
+  z: { owner: EntityId },
+): boolean {
+  const owner = world.entities.get(z.owner);
+  return !!owner?.health && !owner.health.dead;
 }
 
 /**

@@ -1471,7 +1471,7 @@ export function ringPoint(
 
 /**
  * An enemy dies: Volatile shatters 3 s later; then (Movement III) a tethered add's boss is
- * recounted and a new boss's script hears of an add's death, after the legacy branch.
+ * recounted and a new boss's script hears of its own death or an add's, after the legacy branch.
  */
 function onDeath(world: World, e: Entity): void {
   const c = e.enemy!;
@@ -1479,7 +1479,8 @@ function onDeath(world: World, e: Entity): void {
   if (c.affixes.includes('volatile')) volatileBurst(world, e);
   if (enemyDef(c.defId).tether) recountTethered(world);
   const bossId = world.encounter.bossId;
-  if (bossId !== null && bossId !== e.id) {
+  if (bossId === e.id) bossScript(c.defId)?.onDeath?.(world, e);
+  else if (bossId !== null) {
     const boss = world.entities.get(bossId);
     if (boss?.enemy) bossScript(boss.enemy.defId)?.onAddDeath?.(world, boss, e);
   }

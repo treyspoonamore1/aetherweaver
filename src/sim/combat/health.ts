@@ -32,6 +32,7 @@ import { recordSave } from './saves';
 import { hasTalent, soloValue, talentFired, talentHolder, talentValue } from '../bonds';
 import { variantGuard, variantValue } from '../variants';
 import { suppressRadiusOf, weaverSilenced } from '../rules3';
+import { markStatusOf } from './telegraphs';
 import {
   afterBloodDamage,
   deathlessActive,
@@ -1805,6 +1806,9 @@ export function interruptEnemy(world: World, e: Entity, by: EntityId | null): bo
       forgetReel(world, cast.telegraph);
       // A Blood Pact cut off mid-cast takes its ×1.2 with it (Movement II only).
       releaseLink(world, t!, 'expired');
+      // A mark goes with its cast, as a Paradox takes it (the Doubt Wraith's Doubt: no Movement
+      // I or II mark is interruptible).
+      if (t!.shape.kind === 'mark') clearMark(world, t!.shape.target, t!.attackId);
       world.events.push({
         type: 'telegraphResolved',
         tick: world.tick,
@@ -1824,6 +1828,28 @@ export function interruptEnemy(world: World, e: Entity, by: EntityId | null): bo
     name: cast.name,
   });
   return true;
+}
+
+/**
+ * Takes an interrupted mark's status off its target (`markStatusOf`, combat/telegraphs.ts),
+ * unless another mark still in flight on that hero puts the same status on it.
+ */
+function clearMark(world: World, target: EntityId, attackId: string): void {
+  const status = markOf(world, attackId);
+  const e = world.entities.get(target);
+  if (status === null || !e?.health || !hasStatus(e, status)) return;
+  for (const t of world.telegraphs)
+    if (
+      t.shape.kind === 'mark' &&
+      t.shape.target === target &&
+      markOf(world, t.attackId) === status
+    )
+      return;
+  removeStatus(world, e, status, 'expired');
+}
+
+function markOf(world: World, attackId: string): StatusId | null {
+  return markStatusOf(world.content.attacks.find((a) => a.id === attackId));
 }
 
 /** Drops Reel-dodge and Paradox bookkeeping for a telegraph that was removed. */

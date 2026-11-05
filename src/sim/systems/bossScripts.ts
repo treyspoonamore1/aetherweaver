@@ -33,6 +33,11 @@ export interface BossScript {
   /** An enemy other than the boss died (an add it summoned, or any other). */
   onAddDeath?(world: World, boss: Entity, add: Entity): void;
   /**
+   * The boss itself died (enemies.ts), before it is despawned: what it holds open ends with it,
+   * even where no fight's end follows (a sandbox, whose encounter never ends).
+   */
+  onDeath?(world: World, boss: Entity): void;
+  /**
    * One tick of Stasis: every clock the script keeps waits `dt` (stasis.ts, which already waits
    * the field keys and Severing's `severAt`).
    */

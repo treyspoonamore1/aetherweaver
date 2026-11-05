@@ -439,6 +439,30 @@ describe('the Doubt Wraith and possession', () => {
     expect(hasStatus(b.target, 'possessed')).toBe(false);
   });
 
+  it('an interrupt takes the Doubt mark off the hero with its cast', () => {
+    const { sim, w, wraith, target } = wraithOn();
+    stepFor(sim, 30);
+    expect(hasStatus(target, 'doubt')).toBe(true);
+    sim.drainEvents();
+    expect(interruptEnemy(w, wraith, null)).toBe(true);
+    expect(hasStatus(target, 'doubt')).toBe(false);
+    expect(ofType(sim.drainEvents(), 'statusRemoved')).toEqual([
+      expect.objectContaining({ target: target.id, status: 'doubt', reason: 'expired' }),
+    ]);
+  });
+
+  it('an interrupt leaves a Doubt another Wraith’s mark still holds', () => {
+    const { sim, w, wraith, target } = wraithOn();
+    const other = staged(w, 'doubt_wraith', target.x + 3, target.z - 8);
+    expect(begin(w, other, 'wraith_doubt')).toBe(true);
+    expect(lastTelegraph(w).target).toBe(target.id);
+    stepFor(sim, 10);
+    expect(interruptEnemy(w, wraith, null)).toBe(true);
+    expect(hasStatus(target, 'doubt')).toBe(true);
+    expect(interruptEnemy(w, other, null)).toBe(true);
+    expect(hasStatus(target, 'doubt')).toBe(false);
+  });
+
   it('a full Ward blocks it; Paradox cancels it', () => {
     const a = wraithOn();
     addShield(a.w, a.target, 'ward', 1e4, 30, true);

@@ -7,6 +7,7 @@
 import type { EntityId } from '../state';
 import type { World } from '../world';
 import { encounterScript } from './bossScripts';
+import { endZones } from './zones';
 
 /** Is `id` the Weaver or one of her heroes (whose clocks keep running)? */
 export function ofParty(world: World, id: EntityId | null): boolean {
@@ -69,7 +70,9 @@ export function holdEnemyTime(world: World, dt: number): void {
   // Movement III (docs/phase-5c.md): the zones, Unravel's window and a stolen verse wait too
   // (under Stasis, Unravel's reversed Mend is suspended: its window doesn't run out meanwhile),
   // and so does every clock a new boss's script keeps.
+  // A zone whose owner the heroes killed meanwhile ends now, as its owner's telegraphs did.
   const field = world.field;
+  if (field.zones) endZones(world, false);
   if (field.zones) for (const z of field.zones) z.until += dt;
   if (field.unravel) field.unravel.until += dt;
   if (field.stolen) field.stolen.until += dt;

@@ -642,6 +642,30 @@ describe('Stasis and the fight’s end', () => {
     expect(champ.enemy!.emboldenedUntil! - late.w.time).toBeCloseTo(boldLeft, 6);
   });
 
+  it('a sandbox Unweaver’s death closes Unravel and returns the verse (no fight’s end follows)', () => {
+    const { sim, w, boss } = bossFight(UNWEAVER, { z: -4, config: { chords: CHORDS } });
+    quiet(boss);
+    enter(sim, 0.6);
+    stepUntil(sim, () => !!w.field.stolen && !!w.field.unravel, 60 * 15);
+    const verse = w.field.stolen!.add;
+    sim.drainEvents();
+    killEnemy(w, boss, null);
+    const events = sim.drainEvents();
+    expect('unravel' in w.field).toBe(false);
+    expect('stolen' in w.field).toBe(false);
+    expect(ofType(events, 'unravelled')).toEqual([expect.objectContaining({ active: false })]);
+    expect(ofType(events, 'verseReturned')).toEqual([
+      expect.objectContaining({ aura: 'ostinato', reason: 'boss' }),
+    ]);
+    expect(w.entities.get(verse)?.health?.dead ?? true).toBe(true);
+    // The sandbox fights on: Mend on a standing hero no longer wounds it.
+    expect(w.encounter.status).toBe('fighting');
+    stepFor(sim, 1, [{ t: 'thread', slot: 0 }]);
+    const later = stepFor(sim, 60 * 3);
+    expect(ofType(later, 'damageTaken').filter((e) => e.source === boss.id)).toEqual([]);
+    expect('unravel' in w.field).toBe(false);
+  });
+
   it('the fight’s end leaves no Movement III key', () => {
     const sim = createSim({ seed: 4, encounter: UNWEAVER, debug: true, chords: CHORDS });
     const w = worldOf(sim);

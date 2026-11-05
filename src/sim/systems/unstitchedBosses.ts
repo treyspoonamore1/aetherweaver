@@ -94,6 +94,7 @@ export function unweaverScript(): BossScript {
     resolved: unweaverResolved,
     scriptedNext: unweaverNext,
     onAddDeath: unweaverAddDeath,
+    onDeath: unweaverDeath,
     stasis: holdClocks,
     cleanup,
   };
@@ -375,10 +376,19 @@ function stealVerse(world: World, boss: Entity): void {
 }
 
 /**
- * The stolen aura comes back: the Verse fell, it escaped (its time ran out: it goes), or phase 3
- * began (it goes too). In phase 2 the next theft is due a cooldown later.
+ * It fell: Unravel closes and the stolen verse comes back (the Verse goes) at once, so neither
+ * outlives it where no fight's end follows to clear them (a sandbox's encounter never ends).
  */
-function returnVerse(world: World, reason: 'killed' | 'expired' | 'phase'): void {
+function unweaverDeath(world: World): void {
+  closeUnravel(world);
+  returnVerse(world, 'boss');
+}
+
+/**
+ * The stolen aura comes back: the Verse fell, it escaped (its time ran out: it goes), phase 3
+ * began or the Unweaver fell (it goes too). In phase 2 the next theft is due a cooldown later.
+ */
+function returnVerse(world: World, reason: 'killed' | 'expired' | 'phase' | 'boss'): void {
   const stolen = world.field.stolen;
   if (!stolen) return;
   const aura = world.field.chords.find((c) => c.index === stolen.chord)?.auras[stolen.aura] ?? '';
@@ -386,7 +396,7 @@ function returnVerse(world: World, reason: 'killed' | 'expired' | 'phase'): void
   world.events.push({ type: 'verseReturned', tick: world.tick, aura, reason });
   const bossId = world.encounter.bossId;
   const boss = bossId === null ? undefined : world.entities.get(bossId);
-  if (reason !== 'phase' && boss?.enemy?.phase === 2)
+  if ((reason === 'killed' || reason === 'expired') && boss?.enemy?.phase === 2)
     ensureM3(world).nextStealAt = world.time + attackDef(STEAL).cooldown;
   if (reason === 'killed') return;
   const add = world.entities.get(stolen.add);
