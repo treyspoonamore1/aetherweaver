@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ReliquaryRelic } from '../../meta/reliquary';
 import type { ActiveBoon } from '../../meta/types';
+import { Icon } from '../kit/Icon';
 import { Glyph, RelicGlyph, relicColor } from '../kit/RelicGlyph';
 import { Ring } from '../kit/Ring';
 import { Tip } from '../kit/Tip';
@@ -139,18 +140,39 @@ function RelicTile({
   const cooling = r.kind === 'cooldown' && !r.ready;
   const spent = r.kind === 'once' && !r.ready;
   const lit = r.kind !== 'passive' && r.ready;
+  // A Movement-gated relic asleep in this fight (docs/phase-5c.md): dimmed, its effect not live.
+  const asleep = r.asleep;
   const glyph = (
     <RelicGlyph
       icon={r.icon}
       rarity={r.rarity}
       cleansed={r.cleansed}
       size={r.kind === 'cooldown' ? 24 : 28}
-      style={{ opacity: cooling || spent ? 0.45 : 1, filter: spent ? 'grayscale(1)' : undefined }}
+      style={{
+        opacity: cooling || spent || asleep ? 0.45 : 1,
+        filter: spent || asleep ? 'grayscale(1)' : undefined,
+      }}
     />
   );
+  const tip = attuned ? <CarriedRelicTip info={info} relic={attuned} /> : <RelicTip info={info} />;
   return (
     <Tip
-      tip={attuned ? <CarriedRelicTip info={info} relic={attuned} /> : <RelicTip info={info} />}
+      tip={
+        asleep ? (
+          <>
+            {tip}
+            <span
+              className="mt-1.5 flex items-start gap-1.5 border-t border-ink-600/70 pt-1.5 text-xs leading-snug text-indigo-200"
+              data-testid="relic-asleep"
+            >
+              <Icon name="moon" size={13} className="mt-px shrink-0" />
+              Asleep in this fight: its effect does nothing here. {asleep}.
+            </span>
+          </>
+        ) : (
+          tip
+        )
+      }
       align="start"
       width={attuned ? 'w-80' : 'w-72'}
       className="pointer-events-auto"
@@ -170,7 +192,15 @@ function RelicTile({
         aria-label={attuned ? `${r.label}: carried from the Reliquary, attuned` : r.label}
         data-relic={r.id}
         data-state={
-          flashing ? 'flash' : r.kind === 'passive' ? 'passive' : r.ready ? 'ready' : 'waiting'
+          asleep
+            ? 'asleep'
+            : flashing
+              ? 'flash'
+              : r.kind === 'passive'
+                ? 'passive'
+                : r.ready
+                  ? 'ready'
+                  : 'waiting'
         }
         data-carried={attuned ? 'attuned' : undefined}
       >

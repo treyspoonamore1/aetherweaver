@@ -309,7 +309,7 @@ describe('labels, badges and the boss bar', () => {
     expect(STATUS.possessed.answer).toBe(
       'Chime frees them; Focus the Wraith before its cast ends.',
     );
-    expect(STATUS.stitched.answer).toBe('Chime frees both.');
+    expect(STATUS.stitched.answer).toBe('A Chime frees each one it reaches.');
     expect(STATUS.voided.answer).toBe('Rally or Reel them out.');
     expect(STATUS.unravelled.answer).toBe('Your Mend wounds — Empower.');
     for (const icon of ['scissors', 'needle', 'spindle', 'mask', 'rune', 'mirror', 'maw'] as const)

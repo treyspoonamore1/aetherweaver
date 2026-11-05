@@ -12,7 +12,7 @@ import {
 } from '../../meta/profile';
 import { CHORD_PRESETS } from '../../meta/run';
 import { WITHOUT_YOU_MAX_SECONDS } from '../../sim';
-import type { AttackDef, EnemyDef, HeroDef } from '../../content';
+import type { EnemyDef, HeroDef } from '../../content';
 import { AnswerGlyph } from '../hud/AnswerGlyph';
 import { ROLE_LABEL, bindingLabel } from '../hud/labels';
 import { ScreenFrame, ScreenHeader } from '../kit/Backdrop';
@@ -74,6 +74,7 @@ import { bondsOpen } from './bondsModel';
 import { STARLIGHT_LOOK } from '../kit/loomLook';
 import { atelierUnlock } from './loomModel';
 import { movementLabel, sightedMovement } from './routeText';
+import { attackDamage } from './codexAttack';
 import { wakesLabel } from './reliquaryModel';
 
 const TABS = [
@@ -512,15 +513,6 @@ function HeroEntry({ hero: h }: { hero: HeroDef }) {
 const CALL = 'var(--color-call, #fde68a)';
 const CALL_ANSWER = { ward: 'Ward', empower: 'Empower', chime: 'Chime' } as const;
 const CALL_ICON = { ward: 'ward', empower: 'empower', chime: 'chime' } as const;
-
-function attackDamage(a: AttackDef): string {
-  if (a.effect === 'healAllies') return 'heals allies';
-  if (a.effect === 'summon')
-    return `summons ${a.summon?.count ?? ''} ${a.summon?.enemy.replace(/_/g, ' ') ?? ''}`;
-  if (a.effect === 'suppress') return 'silences auras';
-  if (a.pctMaxHp !== undefined) return `${Math.round(a.pctMaxHp * 100)}% of max life`;
-  return `${fmt(a.damage)} damage`;
-}
 
 /**
  * The enemies, by Movement (Phase 5a), in content order. One not sighted yet is a locked

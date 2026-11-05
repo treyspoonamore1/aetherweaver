@@ -314,7 +314,7 @@ function allHints(hud: HudSnapshot): Hint[] {
       text:
         (hud.hymnCircles ?? 0) > 0
           ? `Your auras are silenced — bring the party into a hymn circle with Rally {${bindingLabel('directiveRally')}}`
-          : `Your auras are silenced — mark the ${(hud.foes?.includes('mute') ?? true) ? 'Mute' : 'Silencing elite'} with {${bindingLabel('directiveFocus')}} so the party breaks its dome`,
+          : `Your auras are silenced — mark the ${silencerName(hud)} with {${bindingLabel('directiveFocus')}} so the party breaks its dome`,
     });
   }
   const reelTarget = party.find((h) => alive(h) && !h.inField && h.distance > w.fieldRadius + 3);
@@ -551,7 +551,10 @@ function brannHints(hud: HudSnapshot, keys: { Q: string; F: string }): Hint[] {
     if (hud.directive === 'rally' && h.blood!.bloodlust)
       out.push({
         id: 'brannRally',
-        text: `Bloodlust: ${h.name} won’t Rally below ${bloodlustPct(h.defId)}% — Ward ${Q} him${h.talents.includes('iron_will') ? ' (Iron Will brings him back)' : ''}${hud.weaver.rewind ? '' : ` or Reel ${F} him`}`,
+        // A Void Maw's Inhale (Movement III only) wants him out of the pull, not Warded.
+        text: hud.rift?.inhale
+          ? `Bloodlust: ${h.name} won’t Rally below ${bloodlustPct(h.defId)}% — ${mawRescue(hud, F, 'him')}`
+          : `Bloodlust: ${h.name} won’t Rally below ${bloodlustPct(h.defId)}% — Ward ${Q} him${h.talents.includes('iron_will') ? ' (Iron Will brings him back)' : ''}${hud.weaver.rewind ? '' : ` or Reel ${F} him`}`,
       });
     if (h.hp < h.maxHp * 0.5)
       out.push({
@@ -560,6 +563,32 @@ function brannHints(hud: HudSnapshot, keys: { Q: string; F: string }): Hint[] {
       });
   }
   return out;
+}
+
+/**
+ * What takes a hero out of a Void Maw's pull, or keeps it from dragging them in, by the Reel
+ * slot (docs/phase-5c.md, Void Maw): a plain Reel lands them by you; Anchor holds them where they
+ * stand (inside the pull it still hurts, so before it drags them); Rewind sends a dragged hero
+ * back; Swap would put you in the Maw, so a Hold (the party's, which he always obeys) keeps a
+ * hero outside it where they stand.
+ */
+function mawRescue(hud: HudSnapshot, F: string, who: 'one' | 'him'): string {
+  const them = who === 'one' ? 'them' : 'him';
+  if (hud.weaver.rewind)
+    return who === 'one' ? `Rewind ${F} one it drags in` : `Rewind ${F} him back once it drags him`;
+  const reel = variantIn(hud, 'reel');
+  if (reel === 'anchor') return `Anchor ${F} ${who} before it drags ${them} in`;
+  if (reel === 'swap')
+    return `Hold {${bindingLabel('directiveHold')}} so ${who === 'one' ? 'they stay' : 'he stays'} outside it`;
+  return `Reel ${F} ${who} out`;
+}
+
+/**
+ * Whom the 'silenced' hint marks: a Silencing elite (Movement III's affix) when one stands and no
+ * Mute does; the Mute otherwise, as it always read (a downed Weaver silences in every Movement).
+ */
+function silencerName(hud: HudSnapshot): string {
+  return hud.rift?.silencer && !hud.foes?.includes('mute') ? 'Silencing elite' : 'Mute';
 }
 
 /** Bloodlust's line, as a whole percent (content's `quirk.below`). */
@@ -600,14 +629,20 @@ function movementThreeHints(hud: HudSnapshot, keys: { Q: string; E: string; F: s
       id: 'cut',
       text: `Your Thread was cut — re-thread {1}–{3} the moment the lock ends (${secondsLabel(w.threadLock)})`,
     });
-  if (rift?.inhale)
+  if (rift?.inhale) {
+    // A bloodlusting Brann refuses the Rally (docs/phase-5c.md, Void Maw): name what he obeys.
+    const lust = up.find((h) => h.blood?.bloodlust);
+    const brann = lust
+      ? `. ${lust.name} won’t Rally below ${bloodlustPct(lust.defId)}% — ${mawRescue(hud, F, 'him')}`
+      : '';
     out.push({
       id: 'inhale',
       text:
-        variantIn(hud, 'reel') === 'swap'
-          ? `A Void Maw breathes in — Rally ${rally} the party to you: Swap puts you in the Maw`
-          : `A Void Maw breathes in — Rally ${rally} the party to you before the pull${w.rewind ? '' : `, or Reel ${F} one out`}`,
+        !w.rewind && variantIn(hud, 'reel') === 'swap'
+          ? `A Void Maw breathes in — Rally ${rally} the party to you: Swap puts you in the Maw${brann}`
+          : `A Void Maw breathes in — Rally ${rally} the party to you before the pull, or ${mawRescue(hud, F, 'one')}${brann}`,
     });
+  }
   // The Wraith's cast (`rift.wraithCasting`) names the hero its doubt mark is on; the hint goes the
   // moment the cast is interrupted, even while an orphaned mark lingers its last half second.
   let wraithNamed = false;
@@ -641,11 +676,16 @@ function movementThreeHints(hud: HudSnapshot, keys: { Q: string; E: string; F: s
           : `${h.name} carries Doom ${doomCount(doom)} — Chime ${E} before it ignites, or Ward ${Q} the blast`,
       });
   }
+  // A Stitch pairs two heroes up to its whole reach apart, and a Chime frees only those it
+  // reaches (radius 4): never promise one Chime frees both.
   const stitched = up.filter((h) => h.stitchedWith && h.stitchedWith.length > 0);
   if (stitched.length > 0)
     out.push({
       id: 'stitched',
-      text: `${stitched.map((h) => h.name).join(' and ')} ${stitched.length > 1 ? 'are' : 'is'} stitched to the floor — Chime ${E} near them frees both`,
+      text:
+        stitched.length > 1
+          ? `${stitched.map((h) => h.name).join(' and ')} are stitched to the floor — a Chime ${E} frees each one it reaches${w.rewind ? '' : `, a Reel ${F} the one it pulls`}`
+          : `${stitched[0]!.name} is stitched to the floor — Chime ${E} on them frees them${w.rewind ? '' : `, or Reel ${F} them free`}`,
     });
   if ((w.unravelLeft ?? 0) > 0 && w.threadMode === 'mend')
     out.push({

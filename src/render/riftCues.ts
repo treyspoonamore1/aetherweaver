@@ -239,7 +239,7 @@ export function doomPipOffset(i: number, out: { x: number; y: number }): void {
 /**
  * The answers a hero's Rift statuses want over the head (null: none), and its badge's label:
  * possessed: Chime (it frees them), Focus (the Wraith); Doom from four stacks: Chime or Ward;
- * stitched: Chime frees both (a Reel frees the one it pulls).
+ * stitched: Chime frees each one it reaches (a Reel frees the one it pulls).
  */
 export function riftAnswers(
   look: RiftStatusLook,

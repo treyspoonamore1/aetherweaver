@@ -38,9 +38,15 @@ export function movementNumeral(n: number): string {
   return NUMERALS[n - 1] ?? String(n);
 }
 
-/** "Movement II". */
-export function movementLabel(n: number): string {
-  return `Movement ${movementNumeral(n)}`;
+/**
+ * "Movement II", or the Movement's own `label` when its def has one (docs/phase-5c.md, the
+ * Finale hook: a Finale def reads 'The Finale', not 'Movement IV'). `movements`: content's.
+ */
+export function movementLabel(
+  n: number,
+  movements: readonly { readonly label?: string }[] = CONTENT.movements,
+): string {
+  return movements[n - 1]?.label ?? `Movement ${movementNumeral(n)}`;
 }
 
 /** Movement `n`'s content (Movement I for anything unknown). */

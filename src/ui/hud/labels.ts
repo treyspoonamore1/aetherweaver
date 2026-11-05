@@ -199,7 +199,7 @@ export const STATUS: Record<StatusId, StatusLook> = {
     label: 'Stitched',
     color: '#c4b5fd',
     help: 'Sewn to the floor beside another hero: they can’t move or dodge.',
-    answer: 'Chime frees both.',
+    answer: 'A Chime frees each one it reaches.',
   },
   unravelled: {
     icon: 'threadCut',

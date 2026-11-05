@@ -136,7 +136,7 @@ export function bossConditions(boss: BossHud): BossCondition[] {
       id: 'stitched',
       icon: 'needle',
       label: boss.stitched > 1 ? `Stitched ×${boss.stitched}` : 'Stitched',
-      text: 'rooted heroes · Chime frees both',
+      text: 'rooted heroes · Chime each one free',
       color: '#c4b5fd',
     });
   return out;

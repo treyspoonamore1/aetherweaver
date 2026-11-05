@@ -60,7 +60,7 @@ export function StitchChip({
     <span
       className="flex items-center gap-1 whitespace-nowrap rounded-md border px-1 text-xs font-bold leading-5"
       style={{ borderColor: '#c4b5fd', color: '#ddd6fe', background: 'rgb(46 16 101 / 0.4)' }}
-      title="Stitched together: Chime frees both"
+      title="Stitched together: a Chime frees each one it reaches"
       data-testid="stitched-with"
     >
       <Icon name="needle" size={12} />
