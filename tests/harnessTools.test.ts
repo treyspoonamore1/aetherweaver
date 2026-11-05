@@ -9,6 +9,8 @@ import {
 } from '../tools/harness-core';
 import { ExtraWatch } from '../tools/brann-bands';
 import { decreeFight } from '../tools/decrees';
+import { callingArg, techniquesArg, verbConfig, verbFight } from '../tools/verbs';
+import { SkilledBot } from '../src/bots/skilled';
 import { makeBot, type Bot } from '../src/bots';
 import { band, NAMED_PARTIES, parseArgs, partyArg, runBand } from '../tools/harness';
 import { ARRIVAL3_KIT, ARRIVAL_KIT, defaultKit, kitConfig } from '../tools/kits';
@@ -348,7 +350,9 @@ describe('the Decree gate (tools/decrees.ts)', () => {
     const cuts = f.unpicks!.filter((u) => u.lockEnd !== null);
     expect(cuts.length).toBeGreaterThan(0);
     for (const u of cuts) expect(u.lockEnd!).toBeGreaterThan(u.at);
-    const judged = f.unpicks!.filter((u) => !u.downed && (u.lockEnd === null || u.rethreaded));
+    const judged = f.unpicks!.filter(
+      (u) => !u.downed && (u.lockEnd === null || u.rethreaded || (u.open === true && f.won)),
+    );
     expect(f.answered.Unpicking).toBe(judged.length);
     expect(f.occurrences.Unpicking).toBe(f.unpicks!.length);
     // A Weaver who never threads again after the first cut fails the Unpicks that cut.
@@ -365,6 +369,72 @@ describe('the Decree gate (tools/decrees.ts)', () => {
     const g = decreeFight('the_seamstress', 1000, 'skilled', lazy);
     expect(g.unpicks!.some((u) => u.lockEnd !== null && !u.rethreaded)).toBe(true);
     expect(g.answered.Unpicking).toBeLessThan(g.occurrences.Unpicking!);
+  }, 60_000);
+
+  it('judges an Unpick the win leaves inside its lock on the fight, not as a missed re-thread', () => {
+    // Seed 72271 (1000 + 9 × 7919): an Unpick cuts at ~75.7 s and the Seamstress falls before
+    // its 1 s lock runs out, so no re-thread was possible. It once read as a failure (Skilled's
+    // Unpicking 93% over 30 seeds, where every Unpick it could judge was answered).
+    const f = decreeFight('the_seamstress', 72271, 'skilled');
+    expect(f.won).toBe(true);
+    const open = f.unpicks!.filter((u) => u.open);
+    expect(open.length).toBeGreaterThan(0);
+    for (const u of open) {
+      expect(u.lockEnd).not.toBeNull();
+      expect(u.rethreaded).toBe(false);
+    }
+    expect(f.answered.Unpicking).toBe(f.unpicks!.filter((u) => !u.downed).length);
+  }, 60_000);
+});
+
+describe('verb ablation (tools/verbs.ts)', () => {
+  it('sets fights up with a party, technique variants and a Calling, and only when asked', () => {
+    const plain = verbConfig('maw_hollow', 7, 3);
+    expect('party' in plain || 'techniques' in plain || 'calling' in plain).toBe(false);
+    const set = verbConfig('maw_hollow', 7, 3, {
+      party: NAMED_PARTIES.A!,
+      techniques: techniquesArg('swap,chorale'),
+      calling: callingArg('chronomancer', '1'),
+    });
+    expect(set.party).toEqual(['kael', 'vexis', 'brann']);
+    expect(set.techniques).toEqual({ reel: 'swap', ward: 'chorale' });
+    const chrono = CONTENT.callings.find((c) => c.id === 'chronomancer')!;
+    expect(set.calling).toEqual({
+      id: 'chronomancer',
+      path: chrono.tiers.map((t, i) => t.options[i === 0 ? 1 : 0]!.id),
+    });
+    expect(techniquesArg(undefined)).toBeUndefined();
+    expect(callingArg(undefined, '1')).toBeUndefined();
+    expect(() => techniquesArg('nope')).toThrow(/Unknown technique variant/);
+    expect(() => techniquesArg('swap,anchor')).toThrow(/Two variants for reel/);
+    expect(() => callingArg('nope', undefined)).toThrow();
+  });
+
+  it('meets the mawHold rule on a Brann party with Swap, never on the default setup', () => {
+    // mawHold fires only for a Bloodlusting Brann whom no plain Reel takes out of an Inhale:
+    // with the default party and techniques every row read 'no change (not met here)'.
+    const holds = (setup: Parameters<typeof verbConfig>[3]) => {
+      const seed = 111866;
+      const sim = createSim(verbConfig('maw_hollow', seed, 3, setup));
+      const bot = new SkilledBot(seed, { every: 4, attention: 1, callReaction: 0.4 });
+      let n = 0;
+      for (let t = 0; t < 9 * 60 * 60; t++) {
+        const out = bot.decide(sim.state);
+        n += out.filter((c) => c.t === 'directive' && c.kind === 'hold').length;
+        sim.step(out);
+        sim.drainEvents();
+        const s = sim.state.encounter.status;
+        if (s === 'victory' || s === 'defeat') break;
+      }
+      return n;
+    };
+    const brann = { party: NAMED_PARTIES.A!, techniques: techniquesArg('swap') };
+    expect(holds({})).toBe(0);
+    expect(holds(brann)).toBeGreaterThan(0);
+    // verbFight plays the same setup.
+    const on = verbFight('maw_hollow', 111866, new Set(), 3, brann);
+    const off = verbFight('maw_hollow', 111866, new Set(['mawHold']), 3, brann);
+    expect(off).not.toEqual(on);
   }, 60_000);
 });
 

@@ -1779,6 +1779,27 @@ describe('the Novice bot in Movement III', () => {
     expect(weaverSilenced(under.state)).toBe(false);
   });
 
+  it('Focuses a Void Maw left standing out of the idle heroes’ sight, and only then', () => {
+    // A Maw never comes to the party, and the heroes only look 18-20 m out: a Novice who never
+    // Focused it stalled maw_hollow until the time limit.
+    const far = rift({ thread: null });
+    const maw = tough(far, 'void_maw', 0, -40);
+    const focusMaw = (c: Command) => c.t === 'directive' && c.kind === 'focus';
+    expect(novice(far)).toContainEqual({ t: 'directive', kind: 'focus', target: maw.id });
+    // A mobile enemy beside it: the heroes have someone to fight first, so no draw and no Focus.
+    const pack = rift({ thread: null });
+    tough(pack, 'void_maw', 0, -40);
+    tough(pack, 'shears', 0, -8);
+    expect(novice(pack).some(focusMaw)).toBe(false);
+    // No stationary enemy at all: nothing.
+    expect(novice(rift({ thread: null })).some(focusMaw)).toBe(false);
+  });
+
+  it('a Novice clears maw_hollow (its Maws stood out of sight until the time limit)', () => {
+    const r = playEncounter({ seed: 1000, encounter: 'maw_hollow', ...KIT3 }, 'novice');
+    expect(r.outcome).not.toBe('timeout');
+  }, 60_000);
+
   it('Movement III encounter runs are deterministic', () => {
     const a = playEncounter({ seed: 77, encounter: 'wraith_vigil', ...KIT3 }, 'novice');
     const b = playEncounter({ seed: 77, encounter: 'wraith_vigil', ...KIT3 }, 'novice');

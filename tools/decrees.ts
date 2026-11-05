@@ -34,7 +34,9 @@
  * - **Stitch**: the link broken in its windup (no hero stitched by it), or every hero it
  *   stitched freed before the next Needle Rain begins.
  * - **Unpicking**: each Unpick with no hero down within 4 s of it landing, and, when it cut the
- *   Thread, re-threaded within 1.0 s of the lock's end.
+ *   Thread, re-threaded within 1.0 s of the lock's end. One the fight's end leaves inside that
+ *   re-thread window (its lock still running, say) can't be judged on it: like the Unweaver's
+ *   open items, it is answered on a win with no hero down since it landed.
  *
  * Idle never threads or casts (src/bots/index.ts), so the Thread's Decrees (Snip, Unravel and the
  * Unpick's re-thread) are N/A for it: accepted exceptions, as 5a's Twin Cleave was
@@ -101,6 +103,11 @@ export interface UnpickVerdict {
   lockEnd: number | null;
   rethreaded: boolean;
   downed: boolean;
+  /**
+   * The fight ended inside its re-thread window, not re-threaded yet: judged on the fight's
+   * outcome (answered on a win with no down) instead of on a re-thread it had no time for.
+   */
+  open?: true;
 }
 
 function zero(decrees: readonly string[]): Record<string, number> {
@@ -381,9 +388,10 @@ function seamstressFight(table: BossTable, seed: number, bot: BotKind, player?: 
   let snap: { tick: number; lockEnd: number } | null = null;
   const judge = (u: UnpickVerdict) => {
     log.push(u);
-    count(out, 'Unpicking', !u.downed && (idle || u.lockEnd === null || u.rethreaded));
+    const rethread = idle || u.lockEnd === null || u.rethreaded || (u.open === true && out.won);
+    count(out, 'Unpicking', !u.downed && rethread);
   };
-  play(
+  const sim = play(
     table,
     seed,
     bot,
@@ -454,7 +462,14 @@ function seamstressFight(table: BossTable, seed: number, bot: BotKind, player?: 
     },
     player,
   );
-  for (const u of unpicks) judge(u);
+  // The fight's end: an Unpick still inside its re-thread window (the win came before its lock
+  // ran out) is judged on the fight, as the Unweaver's open items are; the rest as they stand.
+  const end = sim.state.time;
+  for (const u of unpicks) {
+    if (u.lockEnd !== null && !u.rethreaded && end <= u.lockEnd + UNPICK_RETHREAD_WITHIN)
+      u.open = true;
+    judge(u);
+  }
   for (const s of stitches) count(out, 'Stitch', !s.failed);
   return out;
 }

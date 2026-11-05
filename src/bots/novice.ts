@@ -8,7 +8,9 @@
  * sees exactly the draws it always did. Movement III (docs/phase-5c.md): now and then she Chimes
  * a possessed or stitched hero or Doom at 4+, steps out of a Null rune once a cast fizzles in
  * it, Rallies in an Inhale's tell and Empowers through Unravel; each draws only while its
- * mechanic is up. Her heal-the-lowest reflex is what the Shears, Unravel and the Mimic punish.
+ * mechanic is up. With only stationary enemies left (a Void Maw out past the heroes' sight) and
+ * nobody fighting, she sooner or later sees them stand idle and Focuses the nearest one: a
+ * Maw never comes to the party, so without it the fight never ends. Her heal-the-lowest reflex is what the Shears, Unravel and the Mimic punish.
  */
 import { CONTENT } from '../content';
 import { Rng } from '../sim/core/rng';
@@ -46,6 +48,9 @@ import {
   isStitched,
   runeEscape,
   unravelUp,
+  stationary,
+  idleParty,
+  nearestStationary,
   type HeroView,
 } from './common';
 
@@ -61,6 +66,8 @@ const NOVICE_M3 = {
   inhaleRally: 0.3,
   /** Switch to Empower under Unravel. */
   unravelEmpower: 0.4,
+  /** Focus a stationary enemy (a Void Maw) left standing out of the idle heroes' sight. */
+  stationaryFocus: 0.15,
 } as const;
 
 export class NoviceBot implements Bot {
@@ -265,6 +272,20 @@ export class NoviceBot implements Bot {
       // Movement III: an Inhale's tell, and sometimes she calls them away from it.
       out.push({ t: 'directive', kind: 'rally' });
       this.rallyAllowed = state.tick + 180;
+    }
+
+    // Movement III: only stationary enemies left (a Void Maw never comes to the party) and no
+    // hero fighting: sooner or later she sends them to the nearest one. Draws only then.
+    if (
+      enemies.length > 0 &&
+      enemies.every(stationary) &&
+      !out.some((c) => c.t === 'directive') &&
+      idleParty(state) &&
+      this.rng.chance(NOVICE_M3.stationaryFocus)
+    ) {
+      const target = nearestStationary(state, enemies);
+      if (target && state.focusTarget !== target.id)
+        out.push({ t: 'directive', kind: 'focus', target: target.id });
     }
 
     // Cue whoever is ready, now and then; Crescendo when things look bad.
