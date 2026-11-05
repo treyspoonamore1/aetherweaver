@@ -318,7 +318,7 @@ describe('the Unweaver, phase 1: the Cut', () => {
     for (const g of gaps(lateSnips).slice(1)) near(g, 20);
   });
 
-  it('the Spindles: three on a ring; while one stands the boss takes ×0.2 from heroes', () => {
+  it('the Spindles: three on a ring; while one stands the boss takes ×0.25 from heroes', () => {
     const { sim, w, boss } = bossFight(UNWEAVER, { z: -4 });
     const kael = w.entities.get(w.party[0]!)!;
     const hit = (): number => {
@@ -346,14 +346,14 @@ describe('the Unweaver, phase 1: the Cut', () => {
       events.push(...sim.drainEvents());
       return d;
     };
-    expect(spindled() / bare).toBeCloseTo(0.2, 9);
+    expect(spindled() / bare).toBeCloseTo(0.25, 9);
     expect(ofType(events, 'spindled')).toHaveLength(1);
     // The boss is recounted as each falls; the plate holds until the last.
     const spindles = enemiesOf(w, 'spindle');
     killEnemy(w, spindles[0]!, kael);
     killEnemy(w, spindles[1]!, kael);
     expect(boss.enemy!.tethered).toBe(1);
-    expect(spindled() / bare).toBeCloseTo(0.2, 9);
+    expect(spindled() / bare).toBeCloseTo(0.25, 9);
     killEnemy(w, spindles[2]!, kael);
     expect('tethered' in boss.enemy!).toBe(false);
     expect(hit() / bare).toBeCloseTo(1, 9);

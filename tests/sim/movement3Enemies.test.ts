@@ -974,7 +974,7 @@ describe('the affixes and the damage gates', () => {
     expect(hit(plain)).toBeCloseTo(100, 6);
   });
 
-  it('Spindles: a tethered boss takes ×0.2 from heroes; the count goes at 0', () => {
+  it('Spindles: a tethered boss takes ×0.25 from heroes; the count goes at 0', () => {
     const sim = sandbox();
     const w = worldOf(sim);
     const boss = staged(w, 'the_unweaver', 0, -12);
@@ -985,7 +985,7 @@ describe('the affixes and the damage gates', () => {
     const kael = heroAt(w, 0);
     const before = boss.health!.hp;
     dealDamage(w, boss, { source: kael.id, sourceName: 'Kael', amount: 100 });
-    expect(before - boss.health!.hp).toBeCloseTo(100 * (1 - 0.8), 6);
+    expect(before - boss.health!.hp).toBeCloseTo(100 * (1 - 0.75), 6);
     killEnemy(w, s1, null);
     expect(boss.enemy!.tethered).toBe(1);
     killEnemy(w, s2, null);

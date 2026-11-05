@@ -20,7 +20,7 @@ export type Route = 'prelude' | 'expedition';
 
 /**
  * About how long a run of each route takes (Prep's Route toggle). The Expedition's is the Skilled
- * I-III Expedition as tools/pacing.ts models it (docs/phase-5c.md: 39.9 / 41.0 min).
+ * I-III Expedition as tools/pacing.ts models it (docs/phase-5c.md: 40.8 / 39.4 min).
  */
 export const ROUTE_MINUTES: Readonly<Record<Route, number>> = { prelude: 15, expedition: 40 };
 

@@ -20,6 +20,7 @@ import {
   STALL_FOR,
   StallWatch,
   threatsOn,
+  walksIntoLanding,
   type ReadonlyTelegraph,
 } from '../src/bots/common';
 import {
@@ -1749,6 +1750,79 @@ describe('the Skilled bot reads Movement III (staged)', () => {
     });
   });
 
+  it('holds rather than follow a hero into the Needle Rain about to land on them', () => {
+    /** A needle of the Seamstress's (or of `owner`) landing at (x, z) in `impact` s. */
+    const needle = (sim: Sandbox, owner: number, x: number, z: number, impact: number) => {
+      const w = worldOf(sim);
+      const t = {
+        id: 3003 + w.telegraphs.length,
+        owner,
+        target: null,
+        attackId: 'seamstress_needles',
+        name: 'Needle Rain',
+        kind: 'burst' as const,
+        shape: { kind: 'circle' as const, x, z, r: 2.6 },
+        start: w.time,
+        impact: w.time + impact,
+        perfectFrom: w.time + impact - 0.35,
+        damage: 360,
+        pctMaxHp: 0,
+        effect: 'damage' as const,
+        answers: ['move' as const, 'ward' as const, 'reel' as const],
+        severity: 'normal' as const,
+      };
+      w.telegraphs.push(t);
+      return t as ReadonlyTelegraph;
+    };
+    const staged = () => {
+      const sim = rift({ thread: null });
+      const seam = tough(sim, 'the_seamstress', 0, -19);
+      // Far behind her party, so she walks up to it.
+      Object.assign(worldOf(sim).entities.get(sim.state.weaverId)!, { x: 0, z: -10 });
+      return { sim, seam };
+    };
+    const moveOf = (out: readonly Command[]) => {
+      const m = out.find((c) => c.t === 'move');
+      return m?.t === 'move' ? m : null;
+    };
+    // Without a needle she walks toward the party (+z).
+    const { sim: calm } = staged();
+    const walk = moveOf(makeBot('skilled', 1).decide(calm.state))!;
+    expect(walk.z).toBeGreaterThan(0);
+    // A needle 4.5 m up her way (its edge 1.9 m off), landing in 1 s: she holds, unless the
+    // rule is off.
+    const { sim, seam } = staged();
+    const me = sim.state.entities.get(sim.state.weaverId)!;
+    const t = needle(sim, seam.id, me.x + walk.x * 4.5, me.z + walk.z * 4.5, 1);
+    expect(walksIntoLanding(sim.state, me, { x: 0, z: 0 })?.id).toBe(t.id);
+    expect(moveOf(makeBot('skilled', 1).decide(sim.state))).toEqual({ t: 'move', x: 0, z: 0 });
+    const off = new SkilledBot(1, {
+      every: 4,
+      attention: 1,
+      callReaction: 0.4,
+      skip: new Set(['needles']),
+    });
+    expect(moveOf(off.decide(sim.state))!.z).toBeGreaterThan(0);
+    // Not one to steer round: landing in 2 s, behind her, one she stands in, or a circle from an
+    // attacker before Movement III (a Chorister's, as it would be in Movements I and II).
+    const read = (x: number, z: number, impact: number, owner = seam.id) => {
+      const { sim: s } = staged();
+      needle(s, owner, x, z, impact);
+      const w = s.state.entities.get(s.state.weaverId)!;
+      return walksIntoLanding(s.state, w, { x: 0, z: 0 });
+    };
+    expect(read(0, -5.5, 1)?.id).toBeDefined();
+    expect(read(0, -5.5, 2)).toBeNull();
+    expect(read(0, -15, 1)).toBeNull();
+    expect(read(0, -10, 1)).toBeNull();
+    const { sim: old } = staged();
+    const chorister = tough(old, 'hollow_chorister', 8, -18);
+    needle(old, chorister.id, 0, -5.5, 1);
+    expect(
+      walksIntoLanding(old.state, old.state.entities.get(old.state.weaverId)!, { x: 0, z: 0 }),
+    ).toBeNull();
+  });
+
   it('Mends instead of Empowering while a Mimic copies Empower', () => {
     const sim = rift({ thread: 1 });
     const w = worldOf(sim);
@@ -2047,10 +2121,12 @@ describe('the Movement III bots: the tools review fixes', () => {
   });
 
   it('the Decree gate fails a Stolen Verse still standing when the party wipes', () => {
-    // A Skilled Weaver who walks off as a verse is stolen and does nothing more: at 1000 and
-    // 56433 the party wipes with a Stolen Verse up, which no 'verseReturned' ends. (The Novice
-    // no longer wipes with one up: since W9 she Focuses Spindles and outlasts the Shear.)
-    for (const seed of [1000, 56433]) {
+    // A Skilled Weaver who walks off as the Unweaver nears phase 2 (70% of its life) and does
+    // nothing more: at 1000 and 32676 a verse is stolen and the party wipes with it up, which no
+    // 'verseReturned' ends. (The Novice no longer wipes with one up: since W9 she Focuses
+    // Spindles and outlasts the Shear; and a party left only at the theft now outlives the
+    // verse's 30 s.)
+    for (const seed of [1000, 32676]) {
       const skilled = makeBot('skilled', seed);
       let gone = false;
       let up = false;
@@ -2058,7 +2134,9 @@ describe('the Movement III bots: the tools review fixes', () => {
         name: 'deserter',
         decide(state: WorldState): Command[] {
           up = state.field.stolen !== undefined;
-          if (!up && !gone) return skilled.decide(state);
+          const boss = state.entities.get(state.encounter.bossId ?? -1);
+          const near = boss?.health !== undefined && boss.health.hp <= 0.7 * boss.health.maxHp;
+          if (!near && !gone) return skilled.decide(state);
           if (gone) return [];
           gone = true;
           return [{ t: 'debug', op: { op: 'teleportWeaver', x: 0, z: 21 } }];

@@ -22,7 +22,7 @@ const PAR = {
   mirror_hall: 50,
   frayed_court: 70,
   unstitched_vanguard: 55,
-  the_seamstress: 120,
+  the_seamstress: 95,
   the_unweaver: 220,
 } as const;
 const SEAMSTRESS_ENRAGE = 300;
@@ -124,7 +124,7 @@ export const UNSTITCHED_ENCOUNTERS: ContentInput['encounters'] = [
     par: PAR.maw_hollow,
     waves: [
       wave(2, of('void_maw', 1), of('shears', 1), of('hollow_chorister', 6)),
-      wave(3, of('void_maw', 1), of('glass_lancer', 1), of('shears', 1), of('hollow_chorister', 5)),
+      wave(3, of('void_maw', 1), of('glass_lancer', 1), of('shears', 1), of('hollow_chorister', 4)),
       wave(3, of('void_maw', 2), of('shears', 3), of('hollow_chorister', 4)),
     ],
     hints: ['maw'],
@@ -155,7 +155,7 @@ export const UNSTITCHED_ENCOUNTERS: ContentInput['encounters'] = [
     arena: 'torn_nave',
     par: PAR.null_chapel,
     waves: [
-      wave(2, of('null_priest', 1), of('shears', 1), of('hollow_chorister', 6)),
+      wave(2, of('null_priest', 1), of('shears', 1), of('hollow_chorister', 5)),
       wave(3, of('null_priest', 1), of('shears', 1), of('hollow_chorister', 5)),
       wave(3, of('null_priest', 2), of('hemomancer', 1), of('hollow_chorister', 4)),
     ],
@@ -171,7 +171,7 @@ export const UNSTITCHED_ENCOUNTERS: ContentInput['encounters'] = [
     arena: 'mirror_loom',
     par: PAR.mirror_hall,
     waves: [
-      wave(2, of('mimic', 1), of('shears', 1), of('hollow_chorister', 6)),
+      wave(2, of('mimic', 1), of('shears', 1), of('hollow_chorister', 5)),
       wave(3, of('mimic', 1), of('doubt_wraith', 1), of('shears', 1), of('hollow_chorister', 4)),
       wave(3, of('mimic', 1), of('void_maw', 1), of('shears', 1), of('hollow_chorister', 3)),
     ],
@@ -277,7 +277,7 @@ export const UNSTITCHED: ContentInput['movements'][number] = {
   miniboss: 'the_seamstress',
   boss: 'the_unweaver',
   scale: { life: 1.85, damage: 1.05 },
-  rewards: { xp: 1.5, starlight: 1.5, aether: 1.5 },
+  rewards: { xp: 1.4, starlight: 1.5, aether: 1.5 },
 };
 
 /** What The Loose Thread's tying-off heals, and The Mirror Pool's prices. */

@@ -338,7 +338,7 @@ describe('labels, badges and the boss bar', () => {
     expect(bossConditions(riftHud('unweaver-snip').boss!)[0]).toMatchObject({
       id: 'spindles',
       label: 'Spindles ×2',
-      text: '−80% damage to the boss · Focus them',
+      text: '−75% damage to the boss · Focus them',
     });
   });
 });

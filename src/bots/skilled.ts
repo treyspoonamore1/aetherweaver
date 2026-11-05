@@ -84,6 +84,7 @@ import {
   inPullZone,
   isPossessed,
   isStitched,
+  walksIntoLanding,
   mimicCasting,
   outOf,
   possessesOnHit,
@@ -160,6 +161,8 @@ export const M3_RULES = [
   'focusStationary',
   /** Focus a Mirror Ward's caster at once, without waiting out the gap between Focuses. */
   'focusMirrorWard',
+  /** Hold rather than walk into a Needle Rain circle about to land on a hero beside her. */
+  'needles',
 ] as const;
 export type M3Rule = (typeof M3_RULES)[number];
 
@@ -277,7 +280,9 @@ export class SkilledBot implements Bot {
       if (step.glide && glide) out.push({ t: 'glide', x: step.x - w.x, z: step.z - w.z });
       this.intent.moveTo(out, w, step, 0.2);
     } else {
-      this.intent.moveTo(out, w, desired);
+      // Movement III: hold rather than follow a hero into the Needle Rain about to land on them.
+      const hold = this.on('needles') && walksIntoLanding(state, w, desired) !== null;
+      this.intent.moveTo(out, w, hold ? w : desired);
     }
     const target = centroid(enemies.length > 0 ? enemies : party.map((h) => h.e));
     this.intent.aim(out, target.x, target.z);

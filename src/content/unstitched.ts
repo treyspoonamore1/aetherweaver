@@ -2,7 +2,7 @@ import type { ContentInput } from './schema';
 
 /**
  * Movement III: the Unstitched (docs/phase-5c.md, docs/plan/03 §6-§7). Code life is the plan's
- * HP × 2.2, as in Movements I and II; damage is at plan value. The Movement's scale (life ×1.75,
+ * HP × 2.2, as in Movements I and II; damage is at plan value. The Movement’s scale (life ×1.85,
  * damage ×1.05, `unstitchedRun.ts`) is applied by the sim, so it is not folded in here. Every
  * number is a named constant below (a 0 means 'none'), and every Codex, affix and decree line is
  * built from the numbers it describes.
@@ -87,7 +87,7 @@ const SEVER = { radius: 2, lock: 1 } as const;
 /** Silencing: the Mute's own field, numbers unchanged (field.ts). */
 const SILENCE_RADIUS = 7;
 /** The Seamstress. */
-const NEEDLE_DAMAGE = 345;
+const NEEDLE_DAMAGE = 360;
 const NEEDLE_RADIUS = 2.6;
 const NEEDLE_FIRST = 1.4;
 const NEEDLE_NEXT = 0.7;
@@ -105,7 +105,7 @@ const SNIP_DAMAGE = 200;
 const SNIP_LOCK = 3;
 const SNIP_LINE = 30;
 const SPINDLES = 3;
-const SPINDLE_DR = 0.8;
+const SPINDLE_DR = 0.75;
 const CHAMPION_CLEAVE = 700;
 
 // ── Cadences and shapes the text doesn't name ────────────────────────────────────────
@@ -128,7 +128,7 @@ const RUNE_EVERY = 12;
 const RUNE_FROM = 4;
 const MIRROR_FROM = 5;
 const MIRROR_RADIUS = 1.5;
-const NEEDLE_EVERY = 11.25;
+const NEEDLE_EVERY = 10.5;
 const NEEDLE_FROM = 5;
 const STITCH_WINDUP = 2.5;
 const STITCH_EVERY = 18;
@@ -242,7 +242,7 @@ const BODIES = {
     basic: { kind: 'melee', damage: 100, interval: 1.4, range: 2 },
   },
   the_seamstress: {
-    hp: 43200,
+    hp: 32400,
     speed: 3,
     radius: 1.3,
     height: 3,

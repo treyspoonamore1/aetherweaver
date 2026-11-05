@@ -511,7 +511,7 @@ describe('Movement III: the Unstitched (docs/phase-5c.md)', () => {
       miniboss: 'the_seamstress',
       boss: 'the_unweaver',
       scale: { life: 1.85, damage: 1.05 },
-      rewards: { xp: 1.5, starlight: 1.5, aether: 1.5 },
+      rewards: { xp: 1.4, starlight: 1.5, aether: 1.5 },
     });
     expect(m.rows).toHaveLength(6);
     expect(m.fixed.map((f) => f.row)).toEqual([0, 3, 5]);
