@@ -15,6 +15,7 @@ import {
   type RelicDef,
 } from '../content';
 import { Rng } from '../sim/core/rng';
+import { relicAwake } from '../sim/rules3';
 import { dissonancePoints, shardsMult, tearsFor } from './dissonance';
 import type { RunState } from './types';
 
@@ -608,6 +609,21 @@ export function snapshotRelic(r: ReliquaryRelic): ReliquaryRelic {
     inscriptions: r.inscriptions.map((i) => ({ ...i })),
     dissonance: r.dissonance ? { ...r.dissonance } : null,
   };
+}
+
+/**
+ * Is a relic awake in a fight of Movement `movement` (docs/phase-5c.md)? A Movement-gated relic
+ * (a Rift relic, `movement: 3`) sleeps in earlier Movements' fights; ungated ones never sleep.
+ * For the Reliquary's 'Wakes in the Abyssal Rift' label only: enshrining and carrying don't
+ * change, and the sim's own gate (createWorld, `relicAwake`) decides what a fight resolves.
+ */
+export function awake(def: Pick<RelicDef, 'movement'>, movement: number): boolean {
+  return relicAwake(def, movement);
+}
+
+/** The Movement a gated relic wakes in (null: it is awake in every fight). */
+export function wakesIn(def: Pick<RelicDef, 'movement'>): number | null {
+  return def.movement !== undefined && def.movement > 1 ? def.movement : null;
 }
 
 /**

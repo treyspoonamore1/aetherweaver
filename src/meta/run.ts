@@ -286,7 +286,9 @@ const BIOME_PLACE: Readonly<Record<Biome, string>> = {
 /** What a run's final boss asks of it (the node's text, after the boss's name). */
 const FINAL_CALL: Readonly<Record<string, string>> = {
   hollow_cantor: 'End the silence.',
+  // Kept: a 2-Movement Expedition saved before Movement III still ends at Vharun.
   vharun: 'Break the Legion.',
+  the_unweaver: 'Stitch the world whole.',
 };
 
 function rngFor(seed: number, label: string): Rng {
@@ -515,7 +517,15 @@ function buildMovement(
  * linked to the next Movement's first stop. Only the last Movement's boss is final.
  */
 export function generateMap(seed: number, movements = 1): RunMap {
-  const defs = runMovements(movements);
+  return generateMapFrom(seed, runMovements(movements));
+}
+
+/**
+ * The map for an explicit list of Movements (docs/phase-5c.md, the Finale hook): `defs[i]` plays
+ * as Movement i + 1, with that Movement's RNG label and events. `generateMap` is this over the
+ * content's first Movements; a test can append a def content doesn't have yet.
+ */
+export function generateMapFrom(seed: number, defs: readonly MovementDef[]): RunMap {
   const rows: MapNode[][] = [];
   defs.forEach((def, i) => {
     rows.push(...buildMovement(seed, def, i + 1, rows.length, defs[i + 1] ?? null));
@@ -601,8 +611,9 @@ export function movementRewards(n: number): MovementDef['rewards'] {
 }
 
 /**
- * Prep: the run's route (docs/phase-5a.md), 1 Movement (the Prelude) or 2 (an Expedition). Its
- * map is drawn again for the seed; Movement I comes out the same. Frozen at embark.
+ * Prep: the run's route (docs/phase-5a.md), 1 Movement (the Prelude) or every Movement in
+ * content (an Expedition, docs/phase-5c.md). Its map is drawn again for the seed; Movement I
+ * comes out the same. Frozen at embark.
  */
 export function setMovements(run: RunState, movements: number): RunState {
   const n = runMovements(movements).length;
@@ -639,7 +650,7 @@ export function newRun(
   bonds: readonly RunBond[] = [],
   /** The Weaver's technique variants (docs/phase-4f.md). */
   techniques: Techniques = noVariants(),
-  /** Its route (docs/phase-5a.md): 1 Movement, the Prelude; 2, an Expedition. */
+  /** Its route (docs/phase-5a.md): 1 Movement, the Prelude; more, an Expedition (all of them). */
   movements = 1,
 ): RunState {
   const kept = carried.map(snapshotRelic);
@@ -1211,9 +1222,14 @@ function relicThenRewards(run: RunState, node: MapNode): RunState {
   // Elites, a mini-boss, a boss that isn't the end and an event's fight offer a relic first.
   const offer =
     node.kind === 'event'
-      ? makeRelicOffer(run, 'event', run.event?.relics ?? 0)
+      ? makeRelicOffer(run, 'event', run.event?.relics ?? 0, nodeOfferMovement(node))
       : node.reward.relics > 0
-        ? makeRelicOffer(run, bossLike(node) ? 'boss' : 'elite', node.reward.relics)
+        ? makeRelicOffer(
+            run,
+            bossLike(node) ? 'boss' : 'elite',
+            node.reward.relics,
+            nodeOfferMovement(node),
+          )
         : null;
   if (offer) {
     // Its copy names the fight that offers it.
@@ -1383,23 +1399,42 @@ function rollRarity(
 }
 
 /**
- * Is a Movement-gated relic or motif (docs/phase-5c.md) on offer yet: its Movement is no later
- * than the one the map shows. Inside the pools, before any roll, so Movements I and II draw from
- * exactly the pools they did. (W4 replaces this with the offer's own Movement.)
+ * The Movement a node's offers come from (docs/phase-5c.md): its own, plus one at a boss with a
+ * Movement after it, so Vharun's interlude may offer the Rift's relics and Guard Strand.
  */
-function offered(gate: number | undefined, run: RunState): boolean {
-  return gate === undefined || gate <= mapMovement(run);
+export function nodeOfferMovement(node: MapNode): number {
+  return node.movement + (node.kind === 'boss' && !isFinalNode(node) ? 1 : 0);
+}
+
+/** The Movement of the offers made where the party stands (Movement I before the first step). */
+export function offerMovement(run: RunState): number {
+  const here = run.path.length > 0 ? findNode(run, run.path[run.path.length - 1]!) : undefined;
+  return here ? nodeOfferMovement(here) : 1;
+}
+
+/**
+ * Is a Movement-gated relic or motif (docs/phase-5c.md) on offer: its Movement is no later than
+ * the offer's. Inside the pools, before any roll, so Movements I and II draw from exactly the
+ * pools they did.
+ */
+function offered(gate: number | undefined, movement: number): boolean {
+  return gate === undefined || gate <= movement;
 }
 
 /** Relics of a rarity the run doesn't carry and isn't already being offered. */
-function relicPool(run: RunState, rarity: RelicRarity, taken: readonly string[]): string[] {
+function relicPool(
+  run: RunState,
+  rarity: RelicRarity,
+  taken: readonly string[],
+  movement: number,
+): string[] {
   return CONTENT.relics
     .filter(
       (r) =>
         r.rarity === rarity &&
         !hasRelic(run, r.id) &&
         !taken.includes(r.id) &&
-        offered(r.movement, run),
+        offered(r.movement, movement),
     )
     .map((r) => r.id);
 }
@@ -1410,12 +1445,13 @@ function rollRelics(
   rng: Rng,
   count: number,
   odds: Partial<Record<RelicRarity, number>>,
+  movement: number,
 ): string[] {
   const picked: string[] = [];
   for (let i = 0; i < count; i++) {
-    const rarity = rollRarity(rng, odds, (r) => relicPool(run, r, picked).length > 0);
+    const rarity = rollRarity(rng, odds, (r) => relicPool(run, r, picked, movement).length > 0);
     if (!rarity) break;
-    const pool = relicPool(run, rarity, picked);
+    const pool = relicPool(run, rarity, picked, movement);
     picked.push(pool[rng.int(pool.length)]!);
   }
   return picked;
@@ -1425,10 +1461,11 @@ function makeRelicOffer(
   run: RunState,
   reason: RelicOffer['reason'],
   count: number,
+  movement: number,
 ): RelicOffer | null {
   if (count <= 0) return null;
   const rng = rngFor(run.seed, `relics:${run.path.length}:${run.encounters}:${reason}`);
-  const options = rollRelics(run, rng, count, RELIC_OFFERS[reason].odds);
+  const options = rollRelics(run, rng, count, RELIC_OFFERS[reason].odds, movement);
   return options.length > 0 ? { reason, options } : null;
 }
 
@@ -1437,6 +1474,7 @@ function makeRelicOffer(
 /** A merchant's stock for `node` (exported for the draft and shop snapshot, docs/phase-5b.md). */
 export function makeShop(run: RunState, node: MapNode): ShopItem[] {
   const rng = rngFor(run.seed, `shop:${node.id}`);
+  const movement = nodeOfferMovement(node);
   const item = (kind: ShopItem['kind'], id: string, price: number): ShopItem => ({
     kind,
     id,
@@ -1446,11 +1484,11 @@ export function makeShop(run: RunState, node: MapNode): ShopItem[] {
     price,
     sold: false,
   });
-  const items: ShopItem[] = rollRelics(run, rng, SHOP_RELICS, SHOP_RELIC_ODDS).map((id) =>
+  const items: ShopItem[] = rollRelics(run, rng, SHOP_RELICS, SHOP_RELIC_ODDS, movement).map((id) =>
     item('relic', id, RELIC_PRICE[relicDef(id).rarity]),
   );
   let pool = CONTENT.motifs
-    .map((def) => ({ def, option: eligible(run, def) }))
+    .map((def) => ({ def, option: eligible(run, def, movement) }))
     .filter((p) => p.option !== null);
   for (let i = 0; i < SHOP_MOTIFS && pool.length > 0; i++) {
     const roll = rng.float();
@@ -1659,9 +1697,10 @@ function applyEffect(
   switch (effect.kind) {
     case 'relic': {
       // Every relic of that rarity carried already: any other blessing, or its worth in Aether.
+      const movement = offerMovement(run);
       const [id] = [
-        ...rollRelics(run, rng, 1, { [effect.rarity]: 1 }),
-        ...rollRelics(run, rng, 1, { common: 1, rare: 1, legendary: 1 }),
+        ...rollRelics(run, rng, 1, { [effect.rarity]: 1 }, movement),
+        ...rollRelics(run, rng, 1, { common: 1, rare: 1, legendary: 1 }, movement),
       ];
       if (!id) {
         gains.aether += RELIC_PRICE[effect.rarity];
@@ -1721,11 +1760,11 @@ export function leaveEvent(run: RunState): RunState {
 
 const RARITY_RANK = { common: 0, rare: 1, epic: 2 } as const;
 
-function eligible(run: RunState, def: MotifDef): DraftOption | null {
+function eligible(run: RunState, def: MotifDef, movement: number): DraftOption | null {
   if (def.requires.aura && !run.chords.some((c) => c.auras.includes(def.requires.aura!)))
     return null;
   if (def.requires.hero && !run.party.some((h) => h.heroId === def.requires.hero)) return null;
-  if (!offered(def.requires.movement, run)) return null;
+  if (!offered(def.requires.movement, movement)) return null;
   const owned = run.motifs.find((m) => m.id === def.id);
   if (owned) {
     if (owned.level >= def.values.length) return null;
@@ -1745,8 +1784,9 @@ export function makeDraft(
   reroll = 0,
 ): DraftOffer {
   const rng = rngFor(run.seed, `draft:${run.path.length}:${run.encounters}:${reason}:${reroll}`);
+  const movement = offerMovement(run);
   let pool = CONTENT.motifs
-    .map((def) => ({ def, option: eligible(run, def) }))
+    .map((def) => ({ def, option: eligible(run, def, movement) }))
     .filter((p) => p.option !== null);
   if (reason === 'meditate') {
     const upgrades = pool.filter((p) => p.option!.upgrade);

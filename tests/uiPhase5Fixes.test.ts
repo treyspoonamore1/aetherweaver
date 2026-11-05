@@ -12,7 +12,14 @@ import { useRun } from '../src/app/runStore';
 import { useSettings } from '../src/app/settings';
 import { getAudio, type SynthDirector } from '../src/audio';
 import { CONTENT } from '../src/content';
-import { EVERYTHING, MAX_RANK, newProfile, RANK_XP, type Profile } from '../src/meta/profile';
+import {
+  EVERYTHING,
+  EXPEDITION_MOVEMENTS,
+  MAX_RANK,
+  newProfile,
+  RANK_XP,
+  type Profile,
+} from '../src/meta/profile';
 import * as Run from '../src/meta/run';
 import { loadRun, saveRun } from '../src/meta/save';
 import type { EncounterResult, RunState } from '../src/meta/types';
@@ -153,7 +160,7 @@ describe('Prep’s Route toggle', () => {
     expect(before.calling?.id).toBe(calling);
     route!.onChange('expedition');
     const after = useRun.getState().run!;
-    expect(after.movements).toBe(2);
+    expect(after.movements).toBe(EXPEDITION_MOVEMENTS);
     expect(after.seed).toBe(before.seed);
     expect(after.calling?.id).toBe(calling);
     expect(after.chords).toEqual(before.chords);
@@ -209,7 +216,7 @@ describe('end of the run: in an Expedition the Cantor is not the end', () => {
     const run = expedition(44);
     const cantor = cantorOf(run);
     expect(Run.isFinalNode(cantor)).toBe(false);
-    expect(finalEncounter(run)).toBe('vharun');
+    expect(finalEncounter(run)).toBe(CONTENT.movements.at(-1)!.boss);
     const won: RunState = {
       ...run,
       phase: 'result',

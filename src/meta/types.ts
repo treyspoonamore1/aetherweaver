@@ -1,5 +1,7 @@
 /**
- * CONTRACT v7 — the run layer (v7: Movements, docs/phase-5a.md) (docs/plan/02 §8, 03 §9, docs/phase-3b.md, docs/phase-3c.md). A run is plain, serialisable data;
+ * CONTRACT v8 — the run layer (v7: Movements, docs/phase-5a.md; v8: Movement III, an Expedition of
+ * every Movement in content and Movement-gated offers, docs/phase-5c.md) (docs/plan/02 §8, 03 §9,
+ * docs/phase-3b.md, docs/phase-3c.md). A run is plain, serialisable data;
  * every transition is a pure function of (state, action) so runs are seedable, testable and
  * resumable. The app wraps it in a store (app/runStore.ts); screens read and act through
  * that store only.
@@ -512,8 +514,10 @@ export interface RunState {
   /** The Bond scenes this run has played, by id (the Summary counts their Bond XP). */
   scenes: string[];
   /**
-   * How many Movements the run plays (docs/phase-5a.md): 1 for the Prelude, 2 for an
-   * Expedition. Saves from before load as 1.
+   * How many Movements the run plays (docs/phase-5a.md, docs/phase-5c.md): 1 for the Prelude,
+   * `CONTENT.movements.length` (EXPEDITION_MOVEMENTS) for an Expedition. Saves from before
+   * Movements load as 1. An Expedition saved with 2 keeps 2 (its map is saved whole, so Vharun
+   * stays final), unless it is still in Prep: resuming redraws it at the current length.
    */
   movements: number;
 }
