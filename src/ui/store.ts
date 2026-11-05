@@ -23,6 +23,7 @@ import type {
   TechniqueKey,
   ThreadMode,
 } from './types';
+import type { ThreadCutCause } from '../sim';
 import type { RelicHud } from './hud/relics';
 import type { CallingHud } from './hud/calling';
 import type { IconName } from './kit/iconPaths';
@@ -179,6 +180,14 @@ export interface HeroHud {
   healCut?: number;
   /** Execution is cast on them: below this share of their life when it lands, they die. */
   execute?: number;
+  // ── Movement III (docs/phase-5c.md). Absent: the frame draws as before. ──
+  /**
+   * Possessed: they strike the nearest ally in reach (`possessionVictim`), never the Weaver.
+   * `victim`/`victimSlot`: who that is now (null: nobody in reach).
+   */
+  possessed?: { victim: string | null; victimSlot: number | null };
+  /** Stitched: the slots of the heroes the same Stitch sewed them to. */
+  stitchedWith?: number[];
 }
 
 /** What the Chronomancer's Rewind would do to a hero now (`HeroHud.rewind`). */
@@ -372,6 +381,15 @@ export interface WeaverHud {
   threadTension: number;
   /** Seconds until the Thread can attach again after snapping. */
   threadLock: number;
+  // ── Movement III (docs/phase-5c.md). Absent outside it. ──
+  /** In a Null rune: Ward, Chime and Reel (Rewind) are refused; Glide never is. */
+  runeLocked?: true;
+  /** An enemy cut the Thread and its lock still runs: what cut it (the chip's "Cut", not "Snapped"). */
+  threadCut?: { cause: ThreadCutCause };
+  /** Unravel turns your Mend into harm: seconds left. */
+  unravelLeft?: number;
+  /** Steal Verse muted this aura (its id): it counts for nothing until it's back. */
+  stolenAura?: string;
   techniques: TechniqueHud[];
   /** Every active aura, Chord by Chord (flattened from `chords`). */
   auras: AuraHud[];
@@ -414,6 +432,34 @@ export interface BossHud {
   defId?: string;
   /** With `pips`: the blow being cast now (1-based). */
   pip?: number;
+  // ── Movement III (docs/phase-5c.md). Absent: the bar draws as before. ──
+  /** Spindles standing: the boss takes far less damage while one does. */
+  spindles?: number;
+  /** Steal Verse's muted aura, while the Stolen Verse lives. */
+  stolen?: { id: string; name: string };
+  /** Unravel: seconds left of the reversed Mend. */
+  unravelLeft?: number;
+  /** The Mirror Ward: being cast on the champion, or up on it (`upLeft` seconds left). */
+  mirrorWard?: { casting: boolean; upLeft: number };
+  /** The Hollow Champion while it stands. */
+  champion?: { hp: number; maxHp: number };
+  /** Heroes Stitched to the floor right now. */
+  stitched?: number;
+}
+
+/**
+ * Movement III's threats on the field for the hints (docs/phase-5c.md): each key only while its
+ * mechanic is live. The whole object is absent outside Movement III.
+ */
+export interface RiftHud {
+  /** A cut line (the Shears, the Snip) would cut the Thread where it is now: its name and seconds. */
+  cutComing?: { name: string; in: number };
+  /** A Void Maw's Inhale is in its tell. */
+  inhale?: true;
+  /** A Doubt Wraith is casting at someone. */
+  wraithCasting?: true;
+  /** A Mimic is casting a copy of this. */
+  mimicCopy?: 'empower' | 'ward' | 'chime';
 }
 
 export interface EncounterHud {
@@ -476,6 +522,8 @@ export interface HudSnapshot {
    * few seconds (the sim's `guardBlocked`; the Sentinel hint). Absent otherwise.
    */
   guardBlocked?: true;
+  /** Movement III's threats for the hints (absent outside Movement III). */
+  rift?: RiftHud;
 }
 
 export interface PerfStats {

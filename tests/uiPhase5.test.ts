@@ -8,7 +8,7 @@ import { useProfile } from '../src/app/profileStore';
 import { useRun } from '../src/app/runStore';
 import { useSettings } from '../src/app/settings';
 import { CONTENT } from '../src/content';
-import { newProfile } from '../src/meta/profile';
+import { EXPEDITION_MOVEMENTS, newProfile } from '../src/meta/profile';
 import * as Run from '../src/meta/run';
 import { createSim, type Telegraph } from '../src/sim';
 import { ANSWER_HINTS, evaluateHints } from '../src/ui/hud/hints';
@@ -268,7 +268,12 @@ describe('an Expedition’s copy', () => {
   it('Prep, Title, the Route toggle and the Summary name the route and the final boss', () => {
     const prep = withMovementTwo(Run.newRun(7));
     expect(prepEyebrow(prep)).toBe('The Expedition · Movements I–II');
-    expect(titleEyebrow(true)).toBe('Movements I–II · The Expedition');
+    // Derived from content (docs/phase-5c.md): an Expedition is every Movement, I–III now; a
+    // 2-Movement count still reads as it did.
+    expect(titleEyebrow(true)).toBe(
+      `Movements I–${EXPEDITION_MOVEMENTS === 3 ? 'III' : 'II'} · The Expedition`,
+    );
+    expect(titleEyebrow(true, 2)).toBe('Movements I–II · The Expedition');
     expect(routeOptions().map((o) => o.label)).toEqual([
       'Prelude · ~15 min',
       'Expedition · ~30 min',

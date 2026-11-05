@@ -62,7 +62,14 @@ import {
   togglePick,
 } from './rosterModel';
 import { KeyCap } from '../kit/KeyCap';
-import { prepEyebrow, routeHint, routeOf, routeOptions, type Route } from './routeText';
+import {
+  expeditionOnward,
+  prepEyebrow,
+  routeHint,
+  routeOf,
+  routeOptions,
+  type Route,
+} from './routeText';
 
 export interface PrepViewProps {
   run: RunState;
@@ -446,7 +453,7 @@ export function PrepView({
               <Panel tone="solid" className="p-4" data-testid="prep-route">
                 <h2 className="font-display text-base font-bold text-gold-300">Route</h2>
                 <p className="mb-3 text-xs text-muted">
-                  The Prelude is Movement I alone; an Expedition climbs on into Movement II.
+                  The Prelude is Movement I alone; an Expedition climbs on {expeditionOnward()}.
                 </p>
                 <Segmented
                   label="This run"

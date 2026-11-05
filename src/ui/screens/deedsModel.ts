@@ -44,9 +44,9 @@ const OWN_GLYPH: Readonly<Record<string, IconName>> = {
   // Movement II's badges (docs/phase-5a.md): the Spire's banner, the Matriarch's paw.
   crimson_crowned: 'banner',
   pack_leader: 'paw',
-  // Movement III's (docs/phase-5c.md): the Thread made whole, the Seamstress's needle (W8 refines).
+  // Movement III's (docs/phase-5c.md): the Thread made whole, the Seamstress's needle.
   whole_cloth: 'thread',
-  needle_sure: 'pin',
+  needle_sure: 'needle',
 };
 
 /** A counting Deed's glyph: the stat's own, as the Result and Summary draw it. */

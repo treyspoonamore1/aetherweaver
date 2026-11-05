@@ -4,6 +4,7 @@ import { liveBindings } from '../../input/bindings';
 import { keyLabel } from '../../input/keyLabel';
 import type { IconName } from '../kit/iconPaths';
 import { VARIANT_STATUS } from '../kit/variantLook';
+import { EMBOLDENED_PCT, doomMax } from './riftLook';
 import type { AnswerTag, StatusId, TechniqueKey } from '../types';
 
 const DIRECTIVES: ReadonlySet<Action> = new Set<Action>([
@@ -49,6 +50,9 @@ export interface StatusLook {
 export function statusTitle(look: StatusLook, blind = false): string {
   return `${look.label}: ${look.help}${look.answer && !blind ? ` ${look.answer}` : ''}`;
 }
+
+/** Doom's ignition count, from content (the Doom-touched affix's payload). */
+const DOOM_MAX = doomMax();
 
 export const STATUS: Record<StatusId, StatusLook> = {
   dirge: {
@@ -147,68 +151,68 @@ export const STATUS: Record<StatusId, StatusLook> = {
     color: '#fde68a',
     help: 'Its guard is down: every hit lands in full.',
   },
-  // Movement III (docs/phase-5c.md): stubs, each with its answer (W8 refines them).
+  // Movement III (docs/phase-5c.md): each with its glyph and the answer it wants.
   doubt: {
-    icon: 'eye',
+    icon: 'mask',
     label: 'Doubted',
     color: '#c4b5fd',
-    help: 'A Doubt Wraith is possessing them.',
-    answer: 'Chime cancels it; Focus the Wraith.',
+    help: 'A Doubt Wraith is reaching for their mind: when its cast ends, it possesses them.',
+    answer: 'Chime the mark to cancel it, or Focus the Wraith.',
   },
   possessed: {
-    icon: 'eye',
+    icon: 'mask',
     label: 'Possessed',
-    color: '#c4b5fd',
-    help: 'They strike their nearest ally.',
+    color: '#a5b4fc',
+    help: 'They can’t act, and strike their nearest ally (never you).',
     answer: 'Chime frees them; Focus the Wraith before its cast ends.',
   },
   doom: {
     icon: 'skull',
     label: 'Doom',
     color: '#c4b5fd',
-    help: 'Every hit adds a stack; at the last it ignites.',
-    answer: 'Chime before it ignites, or Ward the blast.',
+    help: `Every hit from a Doom-touched elite adds a stack; at ${DOOM_MAX} it ignites.`,
+    answer: 'Chime, or Ward the blast.',
   },
   doomed: {
     icon: 'skull',
-    label: 'Doomed',
+    label: 'Ignited',
     color: '#fda4af',
-    help: 'Ignited: a blast is coming.',
-    answer: 'Chime, or Ward it.',
+    help: 'Doom ignited: a blast for a share of their life is coming.',
+    answer: 'Chime, or Ward it. Killing the elite drops it.',
   },
   voided: {
-    icon: 'moon',
+    icon: 'maw',
     label: 'Voided',
     color: '#fdba74',
-    help: 'Dragged toward a Void Maw, and hurt every second.',
+    help: 'Dragged toward a Void Maw, and hurt every second inside its pull.',
     answer: 'Rally or Reel them out.',
   },
   stitch: {
-    icon: 'link',
+    icon: 'needle',
     label: 'Stitch',
     color: '#c4b5fd',
     help: 'Sewn to another hero: when it lands, both are rooted.',
-    answer: 'Chime breaks it.',
+    answer: 'Chime breaks the stitch.',
   },
   stitched: {
-    icon: 'pin',
+    icon: 'needle',
     label: 'Stitched',
     color: '#c4b5fd',
-    help: 'Sewn to the floor.',
-    answer: 'Chime frees both; a Reel frees one.',
+    help: 'Sewn to the floor beside another hero: they can’t move or dodge.',
+    answer: 'Chime frees both.',
   },
   unravelled: {
-    icon: 'thread',
+    icon: 'threadCut',
     label: 'Unravelled',
     color: '#fda4af',
-    help: 'Your Mend wounds them.',
-    answer: 'Switch to Empower.',
+    help: 'Your Mend wounds them while Unravel lasts.',
+    answer: 'Your Mend wounds — Empower.',
   },
   emboldened: {
-    icon: 'empower',
+    icon: 'mirror',
     label: 'Emboldened',
     color: '#cbd5e1',
-    help: 'It deals more damage.',
+    help: `A mirror’s copy of your Empower, or the Unweaver’s Thread: it deals ${EMBOLDENED_PCT}% more damage.`,
   },
 };
 
@@ -247,7 +251,7 @@ export const ANSWER: Record<AnswerTag, AnswerLook> = {
   dome: { icon: 'dome', label: 'Dome', action: null },
   mend: { icon: 'mend', label: 'Mend', action: null },
   // Movement III (docs/phase-5c.md): the Thread's own verbs (the hero keys; the Thread mode).
-  thread: { icon: 'thread', label: 'Retarget', action: null },
+  thread: { icon: 'threadCut', label: 'Retarget', action: null },
   empower: { icon: 'empower', label: 'Empower', action: 'threadMode' },
 };
 

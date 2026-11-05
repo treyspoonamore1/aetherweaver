@@ -22,7 +22,8 @@ import { rewindSentence } from './rewindText';
 import { DISCORD_LOOK } from '../kit/dissonanceLook';
 import { cueLine, cueTicks } from '../screens/dissonanceModel';
 import { VARIANT_LOOK } from '../kit/variantLook';
-import { slotState } from './techniqueState';
+import { RUNE_KEYS, slotSilenced, slotState } from './techniqueState';
+import { cutPlate, unravelPlate } from './riftLook';
 import { defaultName, techniqueTip, type TechniqueTipView } from '../screens/variantsModel';
 
 /** The Chronomancer's clockwork (Phase 3e): Stasis on the buttons, Rewind, Temporal Mastery. */
@@ -37,6 +38,8 @@ const GOLD = 'var(--color-gold-300)';
 const BEAM = 'var(--color-gold-300)';
 const FIELD = '#93c5fd';
 const AURAS = '#c4b5fd';
+/** The Null rune's bone (docs/phase-5c.md), on the rune lock. */
+const RUNE_BONE = '#e8e3c8';
 
 /**
  * Weaver bar (docs/plan/04 §5.2, bottom-centre): resources, techniques, Resonance, Thread.
@@ -134,6 +137,17 @@ export function WeaverBar({
               <Icon name="mute" size={13} /> Auras silenced
             </span>
           )}
+          {w.runeLocked && !w.downed && (
+            // Movement III: a Null rune at her feet refuses Ward, Chime and Reel; Glide gets out.
+            <span
+              className={`animate-pulse-soft absolute ${below ? '-bottom-3.5' : '-top-3.5'} left-4 flex items-center gap-1 rounded-md border bg-ink-900 px-2 py-0.5 text-xs font-bold`}
+              style={{ borderColor: RUNE_BONE, color: RUNE_BONE }}
+              data-testid="rune-lock"
+            >
+              <Icon name="rune" size={13} /> Rune: Glide out
+              <KeyCap label={bindingLabel('glide')} />
+            </span>
+          )}
           <div className="flex items-end gap-4">
             <div className="flex w-44 shrink-0 flex-col gap-2">
               <LifeBar weaver={w} callingId={hud.calling?.id} />
@@ -144,7 +158,8 @@ export function WeaverBar({
                 <TechniqueButton
                   key={t.key}
                   technique={t}
-                  silenced={w.downed}
+                  silenced={slotSilenced(t.key, w.downed, w.runeLocked)}
+                  runeLock={!w.downed && !!w.runeLocked && RUNE_KEYS.has(t.key)}
                   buzz={buzz[t.key]}
                   brings={t.key === 'glide' ? brings : null}
                   rewind={
@@ -395,6 +410,7 @@ const BUZZ: Keyframe[] = [
 function TechniqueButton({
   technique: t,
   silenced,
+  runeLock = false,
   buzz,
   brings = null,
   rewind = null,
@@ -406,6 +422,11 @@ function TechniqueButton({
   /** The bar sits in the top half of the screen: the tooltip opens below it. */
   tipBelow?: boolean;
   silenced: boolean;
+  /**
+   * Movement III: a Null rune refuses this technique while she stands in it (Ward, Chime and
+   * Reel; never Glide): the rune-lock overlay, and its words.
+   */
+  runeLock?: boolean;
   /** The latest rejection of this slot (a callout id): shake when it changes. */
   buzz?: number;
   /** Glide only: the technique Temporal Mastery would bring back with this Glide. */
@@ -428,11 +449,13 @@ function TechniqueButton({
   // Eldritch Conduit (Phase 4): paid in Life, in Life's colour and with its heart.
   const lifeCost = t.pool === 'life';
   const poolName = lifeCost ? 'Life' : 'Spirit';
-  const state = cooling
-    ? `${Math.ceil(t.remaining)} seconds`
-    : dim
-      ? `not enough ${poolName}`
-      : 'ready';
+  const state = runeLock
+    ? 'refused inside the Null rune: Glide out'
+    : cooling
+      ? `${Math.ceil(t.remaining)} seconds`
+      : dim
+        ? `not enough ${poolName}`
+        : 'ready';
   const box = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const el = box.current;
@@ -482,6 +505,7 @@ function TechniqueButton({
       data-variant={t.variant?.id}
       data-charges={charged ? t.charges : undefined}
       data-ready={ready || undefined}
+      data-rune-locked={runeLock || undefined}
       data-free={t.free || undefined}
       data-pool={t.cost > 0 ? t.pool : undefined}
     >
@@ -499,7 +523,19 @@ function TechniqueButton({
         className={`relative flex h-14 w-14 items-center justify-center rounded-xl border-2 transition-colors group-focus-visible/tech:ring-2 group-focus-visible/tech:ring-gold-200 ${frameClass} ${dim ? 'opacity-55' : ''}`}
         style={frameStyle}
       >
-        <Icon name={t.icon} size={26} className={cooling ? 'opacity-30' : ''} />
+        <Icon name={t.icon} size={26} className={cooling || runeLock ? 'opacity-30' : ''} />
+        {runeLock && (
+          // The rune lock: a bone rune over the slot, never the cooldown's sweep.
+          <span
+            className="absolute inset-0 flex items-center justify-center rounded-[10px]"
+            style={{ color: RUNE_BONE, background: 'rgb(5 8 20 / 0.55)' }}
+            aria-hidden
+            data-testid="technique-rune-lock"
+          >
+            <Icon name="rune" size={22} />
+            <Icon name="lock" size={12} className="absolute bottom-1 right-1" />
+          </span>
+        )}
         {refilling && (
           // A charge coming back (the Ward's, Skate's): the slot still works; a thin line fills.
           <span
@@ -913,9 +949,22 @@ function ThreadStatus({
       </span>
       <KeyCap label={switchKeyLabel()} />
       {canBear && <KeyCap label={bindingLabel('bear')} accent={bear} />}
+      {(w.unravelLeft ?? 0) > 0 && (
+        // Movement III: Unravel turns Mend into harm; Empower is the answer.
+        <span
+          className={`flex items-center gap-1 rounded-md border px-1 text-xs font-bold ${w.threadMode === 'mend' ? 'animate-pulse-soft border-lethal text-rose-200' : 'border-ink-500 text-muted'}`}
+          title="Unravel: your Mend wounds whoever you thread. Switch to Empower until it passes."
+          data-testid="thread-unravelled"
+        >
+          <Icon name="empower" size={12} />
+          {unravelPlate(w.unravelLeft ?? 0)}
+        </span>
+      )}
       {w.threadLock > 0 ? (
-        <span className="text-xs font-semibold text-lethal">
-          Snapped · {w.threadLock.toFixed(1)}s
+        <span className="text-xs font-semibold text-lethal" data-testid="thread-lock">
+          {w.threadCut
+            ? cutPlate(w.threadCut.cause, w.threadLock)
+            : `Snapped · ${w.threadLock.toFixed(1)}s`}
         </span>
       ) : targetName ? (
         <span
@@ -992,7 +1041,13 @@ function ChordGroup({
         {beam ? mult(c.focus) : 'Field'}
       </span>
       {c.auras.map((a) => (
-        <AuraChip key={a.id} aura={a} suppressed={w.fieldSuppressed} pool={w.pool} />
+        <AuraChip
+          key={a.id}
+          aura={a}
+          suppressed={w.fieldSuppressed}
+          pool={w.pool}
+          stolen={w.stolenAura === a.id}
+        />
       ))}
       {c.ornaments.map((o) => {
         if (o.id === 'pedal_point') {
@@ -1053,11 +1108,30 @@ function AuraChip({
   aura,
   suppressed,
   pool,
+  stolen = false,
 }: {
   aura: AuraHud;
   suppressed: boolean;
   pool: WeaverHud['pool'];
+  /** Movement III: Steal Verse muted it: hollow, with a pointer to Focus the Stolen Verse. */
+  stolen?: boolean;
 }) {
+  if (stolen)
+    return (
+      <span
+        className="flex items-center gap-1 whitespace-nowrap rounded-md border border-dashed px-1.5 py-0.5 text-xs font-medium"
+        style={{ color: aura.color, borderColor: aura.color, background: 'transparent' }}
+        title={`${aura.name} was stolen: it counts for nothing until you Focus the Stolen Verse (its ${pool === 'life' ? 'Life' : 'Spirit'} stays reserved)`}
+        data-testid="aura-stolen"
+      >
+        <Icon name="note" size={12} className="opacity-40" />
+        <span className="line-through decoration-1">{aura.name}</span>
+        <span className="flex items-center gap-0.5 text-gold-200">
+          <Icon name="focus" size={12} />
+          Focus
+        </span>
+      </span>
+    );
   return (
     <span
       className={`flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-0.5 text-xs font-medium ${suppressed ? 'opacity-45' : ''}`}

@@ -33,6 +33,7 @@ import {
   inscribable,
   releaseValue,
   tierValues,
+  wakesIn,
   type CraftAction,
   type CraftOdds,
   type CraftOutcome,
@@ -42,6 +43,7 @@ import {
 } from '../../meta/reliquary';
 import { enshrineEligible, enshrineOptions } from '../../meta/run';
 import { TEAR_TOO_GRADE } from './dissonanceModel';
+import { movementPlace } from './routeText';
 import type { OwnedRelic, RunState } from '../../meta/types';
 import { plural } from '../kit/format';
 import {
@@ -261,8 +263,24 @@ export interface RelicView {
    */
   depth: number;
   tierCap: number;
+  /**
+   * Phase 5c: a Movement-gated relic (a Rift relic) sleeps outside its Movement's fights: "Wakes
+   * in the Abyssal Rift". Null for every relic that is awake in every fight.
+   */
+  wakes: string | null;
   /** One sentence for screen readers. */
   label: string;
+}
+
+/**
+ * "Wakes in the Abyssal Rift" (docs/phase-5c.md): a carried or enshrined relic gated to a later
+ * Movement does nothing outside that Movement's fights (the meta's `wakesIn`). Null when it is
+ * awake in every fight.
+ */
+export function wakesLabel(id: string): string | null {
+  const n = wakesIn(relicDef(id));
+  if (n === null) return null;
+  return `Wakes in ${movementPlace(n)}`;
 }
 
 /** Plenty of everything: what a craft would say if the materials were no object. */
@@ -309,6 +327,7 @@ export function relicView(r: ReliquaryRelic): RelicView {
     release: releaseValue(r),
     depth: r.depth ?? 0,
     tierCap: band(r.depth ?? 0).tierCap,
+    wakes: wakesLabel(r.id),
   };
   return { ...view, label: relicLabel(view) };
 }
@@ -327,6 +346,7 @@ function relicLabel(v: Omit<RelicView, 'label'>): string {
     v.curse ? `Curse: ${v.curse.name}.` : '',
     `Instability ${v.instability}.`,
     v.depth > 0 ? `Depth ${v.depth}: it can reach T${v.tierCap}.` : '',
+    v.wakes ? `${v.wakes}.` : '',
   ];
   return parts.filter(Boolean).join(' ');
 }
@@ -1110,12 +1130,16 @@ function encounterNames(kind: 'miniboss' | 'boss'): string[] {
 }
 
 /**
- * The run's final boss: Movement I's for a Prelude, the last Movement's for an Expedition
- * ("the Hollow Cantor, or Vharun on an Expedition").
+ * The run's final boss: Movement I's for a Prelude, the last Movement's for an Expedition ("the
+ * Hollow Cantor, or the Unweaver on an Expedition"). Vharun is an interlude now (docs/phase-5c.md).
  */
 function finalBossName(): string {
-  const [prelude, ...later] = encounterNames('boss');
-  return later.length > 0 ? `${prelude}, or ${later.join(' or ')} on an Expedition,` : prelude!;
+  const movements = CONTENT.movements;
+  const name = (id: string) =>
+    midName((CONTENT.encounters.find((e) => e.id === id)?.name ?? id).split(',')[0]!);
+  const prelude = name(movements[0]!.boss);
+  if (movements.length < 2) return prelude;
+  return `${prelude}, or ${name(movements[movements.length - 1]!.boss)} on an Expedition,`;
 }
 
 /** Mid-sentence: "the Hollow Cantor". */

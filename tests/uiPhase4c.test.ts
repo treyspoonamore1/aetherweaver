@@ -797,8 +797,8 @@ describe('the Codex, the Ranks, the Title', () => {
     // boss's: the Cantor's in a Prelude, Vharun's on an Expedition.
     for (const e of CONTENT.encounters.filter((x) => x.kind === 'boss'))
       expect(how.shards).toContain(e.name.split(',')[0]!.replace(/^The /, 'the '));
-    // Every later Movement's boss, until W8 names only the last one (docs/phase-5c.md).
-    expect(how.tears).toContain('the Hollow Cantor, or Vharun or the Unweaver on an Expedition');
+    // The Expedition's final boss is the last Movement's (docs/phase-5c.md): Vharun is an interlude.
+    expect(how.tears).toContain('the Hollow Cantor, or the Unweaver on an Expedition');
     expect(how.tears).toContain(RULES.tearGrade);
     expect(materialsBadge(EMPTY_RELIQUARY)).toBeNull();
     expect(materialsBadge({ shards: 24, tears: 1 })).toBe('24 Tuning Shards, 1 Discord Tear');

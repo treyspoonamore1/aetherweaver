@@ -22,7 +22,7 @@ import {
   type WorldState,
 } from '../sim';
 import { makeBot, type Bot, type BotKind } from '../bots';
-import { buildHudSnapshot, decreeShownNow } from '../ui/hudBridge';
+import { buildHudSnapshot, decreeShownNow, heardCut, type ThreadCutHeard } from '../ui/hudBridge';
 import { callingLook } from '../ui/kit/callingLook';
 import { takeHudCommits } from '../ui/perfCounters';
 import { useUi } from '../ui/store';
@@ -130,6 +130,8 @@ export class GameRuntime {
   private hudTimer = 0;
   /** Sim time of the last `guardBlocked` event (Movement II: the Sentinel hint). */
   private guardBlockedAt: number | null = null;
+  /** The last enemy cut of the Thread (Movement III: the Thread chip names it). */
+  private threadCut: ThreadCutHeard | null = null;
   private perfTimer = 0;
   private paused = false;
   private hidden = false;
@@ -324,6 +326,7 @@ export class GameRuntime {
           hovered: this.input.hoveredHero,
           autonomy: this.sim.config.assists.autonomy,
           guardBlockedAt: this.guardBlockedAt,
+          threadCut: this.threadCut,
         }),
       );
       ui.pruneCallouts(now);
@@ -398,6 +401,13 @@ export class GameRuntime {
     const state = this.sim.state;
     // Movement II: the Sentinel hint follows its shield blocking a blow (the HUD bridge).
     if (events.some((e) => e.type === 'guardBlocked')) this.guardBlockedAt = state.time;
+    // Movement III: an enemy cut names its cause on the Thread chip, and the input aims an
+    // un-hovered Ward or Reel at the hero it was on for a moment (docs/phase-5c.md).
+    const cut = heardCut(events, state.time);
+    if (cut) {
+      this.threadCut = cut;
+      this.input.onThreadCut(cut);
+    }
     this.view.onEvents(events, state);
     getAudio().onEvents(events, state);
     this.callouts(events, state);

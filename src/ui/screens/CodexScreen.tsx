@@ -74,6 +74,7 @@ import { bondsOpen } from './bondsModel';
 import { STARLIGHT_LOOK } from '../kit/loomLook';
 import { atelierUnlock } from './loomModel';
 import { movementLabel, sightedMovement } from './routeText';
+import { wakesLabel } from './reliquaryModel';
 
 const TABS = [
   { id: 'heroes', label: 'Heroes' },
@@ -629,6 +630,13 @@ function EnemyEntry({ enemy: e }: { enemy: EnemyDef }) {
         {e.suppressRadius > 0 && (
           <Chip icon="mute">silences auras within {e.suppressRadius} m</Chip>
         )}
+        {/* Movement III (docs/phase-5c.md): a body that never moves, a Spindle's tether. */}
+        {e.stationary && <Chip icon="pin">never moves</Chip>}
+        {e.tether && (
+          <Chip icon="spindle">
+            the boss takes {Math.round(e.tether.dr * 100)}% less while it stands
+          </Chip>
+        )}
       </div>
       {attacks.length > 0 && (
         <ul className="mt-4 flex flex-col gap-3">
@@ -640,6 +648,13 @@ function EnemyEntry({ enemy: e }: { enemy: EnemyDef }) {
                   {a.kind} · {a.windup}s wind-up · {attackDamage(a)}
                 </span>
               </p>
+              {a.cut && (
+                <p className="mt-1 flex items-center gap-1 text-xs font-semibold text-indigo-200">
+                  <Icon name="threadCut" size={13} />
+                  {a.cut.always ? 'Cuts your Thread' : 'Cuts your Thread if its line crosses it'} ·
+                  locked {a.cut.lock} s
+                </p>
+              )}
               <p className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs text-muted">
                 Answer:
                 {a.answers.map((tag) => (
@@ -1407,6 +1422,7 @@ function Relics() {
                         <div className="mt-1 flex flex-wrap gap-1.5">
                           <RelicRarityChip rarity={info.rarity} />
                           {info.runOnly && <Chip>Between fights</Chip>}
+                          {wakesLabel(r.id) && <Chip icon="moon">{wakesLabel(r.id)}</Chip>}
                         </div>
                       </div>
                     </div>

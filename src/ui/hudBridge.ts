@@ -14,8 +14,10 @@ import {
   bloodlusting,
   bossPhaseTable,
   canPay,
+  cutWouldLand,
   deathlessActive,
   fallingFast,
+  possessionVictim,
   reservePool,
   resolveChord,
   rewindCanRevive,
@@ -23,9 +25,12 @@ import {
   techniqueCost,
   vowHoldsAt,
   weaverHealCut,
+  weaverSilenced,
   type EntityId,
   type ReadonlyEntity,
+  type SimEvent,
   type TechniqueKey,
+  type ThreadCutCause,
   type WorldState,
 } from '../sim';
 import { healReceivedMult } from '../sim/combat/health';
@@ -48,7 +53,16 @@ import { REWIND_NAME, crescendoName, rewindSeconds } from './screens/callingText
 import { soloView } from './screens/bondsModel';
 import { slotCost, variantHud } from './screens/variantsModel';
 import { techniqueIcon } from './kit/variantLook';
-import type { AuraHud, BossHud, ChordHud, HeroHud, HudSnapshot, TechniqueHud } from './store';
+import type {
+  AuraHud,
+  BossHud,
+  ChordHud,
+  HeroHud,
+  HudSnapshot,
+  RiftHud,
+  TechniqueHud,
+  WeaverHud,
+} from './store';
 
 const TECHNIQUE_KEYS: readonly TechniqueKey[] = ['ward', 'chime', 'reel', 'glide'];
 const BLEED_OUT = 12;
@@ -136,6 +150,8 @@ export function buildHudSnapshot(
     autonomy?: boolean;
     /** Sim time of the last `guardBlocked` event the runtime heard (Movement II). */
     guardBlockedAt?: number | null;
+    /** The last enemy cut of the Thread the runtime heard (Movement III, `heardCut`). */
+    threadCut?: ThreadCutHeard | null;
   },
 ): HudSnapshot {
   const weaverEntity = state.entities.get(state.weaverId);
@@ -292,6 +308,7 @@ export function buildHudSnapshot(
       hovered: opts.hovered === id,
       ...movementTwoMarks(state, e, h),
       ...bloodHud(state, e),
+      ...movementThreeMarks(state, e, h),
     });
   });
   const partyIds = party.map((p) => p.defId);
@@ -403,6 +420,7 @@ export function buildHudSnapshot(
       ...(blows ? blows : {}),
       ...(state.field.sanctuary ? { bloodmoon: true } : {}),
       ...(condemned ? { executeTarget: heroDef(condemned.defId).name } : {}),
+      ...bossRift(state, bossEntity, telegraph?.attackId),
     };
   }
 
@@ -493,6 +511,7 @@ export function buildHudSnapshot(
       threadSlot: w?.threadSlot ?? null,
       threadTension: w?.threadTension ?? 0,
       threadLock: w?.threadLock ?? 0,
+      ...weaverRift(state, opts.threadCut),
       techniques,
       auras: chords.flatMap((c) => c.auras),
       chords,
@@ -556,6 +575,7 @@ export function buildHudSnapshot(
     ...(guardBlockedRecently(state.time, opts.guardBlockedAt)
       ? { guardBlocked: true as const }
       : {}),
+    ...riftOf(state),
   };
 }
 
@@ -673,4 +693,159 @@ function bossForeseen(
     return hero ? [heroDef(hero.defId).name] : [];
   });
   return { name: f.name, in: f.in, target: names.length > 0 ? names.join(' & ') : null };
+}
+
+// ── Movement III (docs/phase-5c.md) ─────────────────────────────────────────────────────
+// Every key below is set only while its mechanic is on the field (an absent public key, a status
+// only Movement III content applies), so a Movement I or II snapshot is exactly as it was.
+
+/** An enemy cut of the Thread, as the runtime heard it (`threadSnapped` with a `cause`). */
+export interface ThreadCutHeard {
+  cause: ThreadCutCause;
+  /** Sim time of the cut. */
+  at: number;
+  /** The lock it left, in seconds. */
+  lock: number;
+  /** The hero the Thread was on. */
+  target: EntityId;
+}
+
+/** The last enemy cut in a batch of events (null: none; the range snap has no `cause`). */
+export function heardCut(events: readonly SimEvent[], time: number): ThreadCutHeard | null {
+  let out: ThreadCutHeard | null = null;
+  for (const e of events)
+    if (e.type === 'threadSnapped' && e.cause)
+      out = { cause: e.cause, at: time, lock: e.lock ?? 0, target: e.target };
+  return out;
+}
+
+/** The Hollow Champion's def, and the Unweaver's Mirror Ward (the boss bar's conditions). */
+const CHAMPION_DEF = 'mirror_champion';
+const MIRROR_WARD_ATTACK = 'unweaver_mirror_ward';
+
+/** A hero's possession (who they strike now) and their Stitch (whom it sewed them to). */
+function movementThreeMarks(
+  state: WorldState,
+  e: ReadonlyEntity,
+  h: NonNullable<ReadonlyEntity['health']>,
+): Pick<HeroHud, 'possessed' | 'stitchedWith'> {
+  let possessed: HeroHud['possessed'];
+  let stitchedWith: number[] | undefined;
+  for (const s of h.statuses) {
+    if (s.id === 'possessed' && !h.dead && !h.downed) {
+      const victim = possessionVictim(state, e);
+      const hero = victim === null ? undefined : state.entities.get(victim)?.hero;
+      const slot = victim === null ? -1 : state.party.indexOf(victim);
+      possessed = {
+        victim: hero ? heroDef(hero.defId).name : null,
+        victimSlot: slot >= 0 ? slot : null,
+      };
+    }
+    if (s.id === 'stitched' && !h.dead) {
+      const slots: number[] = [];
+      state.party.forEach((id, slot) => {
+        if (id === e.id) return;
+        const other = state.entities.get(id)?.health;
+        if (
+          other &&
+          !other.dead &&
+          other.statuses.some((o) => o.id === 'stitched' && o.source === s.source)
+        )
+          slots.push(slot);
+      });
+      stitchedWith = slots;
+    }
+  }
+  return {
+    ...(possessed ? { possessed } : {}),
+    ...(stitchedWith ? { stitchedWith } : {}),
+  };
+}
+
+/** The muted aura's id (Steal Verse's `field.stolen`), or null. */
+function stolenAuraOf(state: WorldState): string | null {
+  const st = state.field.stolen;
+  if (!st) return null;
+  return state.field.chords[st.chord]?.auras[st.aura] ?? null;
+}
+
+/** The Weaver's side: the rune lock, a cut Thread's cause, Unravel, a stolen aura. */
+function weaverRift(
+  state: WorldState,
+  cut: ThreadCutHeard | null | undefined,
+): Pick<WeaverHud, 'runeLocked' | 'threadCut' | 'unravelLeft' | 'stolenAura'> {
+  const w = state.entities.get(state.weaverId)?.weaver;
+  const unravel = state.field.unravel;
+  const stolen = stolenAuraOf(state);
+  const cutLive =
+    !!cut &&
+    !!w &&
+    w.threadLock > 0 &&
+    w.threadSlot === null &&
+    state.time >= cut.at &&
+    state.time - cut.at <= cut.lock + 0.1;
+  return {
+    ...(weaverSilenced(state) ? { runeLocked: true as const } : {}),
+    ...(cutLive ? { threadCut: { cause: cut.cause } } : {}),
+    ...(unravel && unravel.until > state.time ? { unravelLeft: unravel.until - state.time } : {}),
+    ...(stolen ? { stolenAura: stolen } : {}),
+  };
+}
+
+type BossRift = Pick<
+  BossHud,
+  'spindles' | 'stolen' | 'unravelLeft' | 'mirrorWard' | 'champion' | 'stitched'
+>;
+
+/** The boss bar's Movement III conditions (docs/phase-5c.md "BossBar"). */
+function bossRift(
+  state: WorldState,
+  boss: ReadonlyEntity,
+  castAttack: string | undefined,
+): BossRift {
+  const out: BossRift = {};
+  const tethered = boss.enemy?.tethered;
+  if (tethered !== undefined && tethered > 0) out.spindles = tethered;
+  const stolen = stolenAuraOf(state);
+  if (stolen) out.stolen = { id: stolen, name: auraDef(stolen).name };
+  const unravel = state.field.unravel;
+  if (unravel && unravel.until > state.time) out.unravelLeft = unravel.until - state.time;
+  for (const e of state.entities.list()) {
+    if (e.enemy?.defId !== CHAMPION_DEF || !e.health || e.health.dead) continue;
+    out.champion = { hp: e.health.hp, maxHp: e.health.maxHp };
+    const ward = e.health.shields.find((s) => s.kind === 'mirror' && s.amount > 0);
+    if (ward) out.mirrorWard = { casting: false, upLeft: Math.max(0, ward.expiresAt - state.time) };
+    break;
+  }
+  if (castAttack === MIRROR_WARD_ATTACK) out.mirrorWard = { casting: true, upLeft: 0 };
+  let stitched = 0;
+  for (const id of state.party)
+    if (state.entities.get(id)?.health?.statuses.some((s) => s.id === 'stitched')) stitched++;
+  if (stitched > 0) out.stitched = stitched;
+  return out;
+}
+
+const CUT_ATTACKS = new Set(CONTENT.attacks.filter((a) => a.cut && !a.cut.always).map((a) => a.id));
+const PULL_ATTACKS = new Set(
+  CONTENT.attacks.filter((a) => a.zone?.kind === 'pull').map((a) => a.id),
+);
+
+/** The hints' Movement III threats (`HudSnapshot.rift`); no key at all with none on the field. */
+function riftOf(state: WorldState): { rift?: RiftHud } {
+  const rift: RiftHud = {};
+  for (const t of state.telegraphs) {
+    if (CUT_ATTACKS.has(t.attackId) && cutWouldLand(state, t)) {
+      const left = Math.max(0, t.impact - state.time);
+      if (!rift.cutComing || left < rift.cutComing.in) rift.cutComing = { name: t.name, in: left };
+    }
+    if (PULL_ATTACKS.has(t.attackId)) rift.inhale = true;
+  }
+  for (const e of state.entities.list()) {
+    const copy = e.enemy?.mimic?.copy;
+    if (copy && e.health && !e.health.dead) {
+      rift.mimicCopy = copy;
+      break;
+    }
+  }
+  return Object.keys(rift).length > 0 ? { rift } : {};
 }

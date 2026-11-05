@@ -44,6 +44,11 @@ export const GLYPHS: Readonly<Record<string, string>> = {
   altar:
     'M4 20.5h16 M6 20.5v-7h12v7 M4.5 13.5h15 M8.5 13.5c0-2 1.6-3.2 3.5-3.2s3.5 1.2 3.5 3.2 M12 3.5c1.2 1.4 1.7 2.4 1.3 3.3a1.4 1.4 0 0 1-2.6 0c-.4-.9.1-1.9 1.3-3.3z',
   cell: 'M4.5 4.5h15v16h-15z M8.5 4.5v16 M12 4.5v16 M15.5 4.5v16 M4.5 9.5h15 M10.3 15.5a1.7 1.7 0 1 0 3.4 0 1.7 1.7 0 0 0-3.4 0z',
+  // Movement III's relics (Phase 5c): the Sacrificial Lamb, the Knotted Cord, the Stillwater Bell.
+  lamb: 'M7 11.5a4.5 3.5 0 0 0 9 0 4.5 3.5 0 0 0-9 0z M16 10.5c1.5-.4 2.8.2 3.5 1.5-.8 1.3-2 1.8-3.5 1.4 M8.5 14.5v4.5 M14.5 14.5v4.5 M7.5 9c.6-1.3 1.8-2 3-2 M12.5 3.5v2.5 M11 4.75h3',
+  cord: 'M3.5 9c3 0 4 6 8.5 6s5.5-6 8.5-6 M3.5 15c3 0 4-6 8.5-6s5.5 6 8.5 6 M10.5 12a1.5 1.5 0 1 0 3 0 1.5 1.5 0 0 0-3 0z',
+  stillbell:
+    'M12 3.5a1 1 0 0 1 1 1v.7A6 6 0 0 1 18 11v4l2 2.5H4L6 15v-4a6 6 0 0 1 5-5.8v-.7a1 1 0 0 1 1-1z M10 20a2 2 0 0 0 4 0 M8.5 12.5h7 M9.5 15h5',
 };
 
 /** A relic glyph's path data (a plain diamond for an unknown key). */

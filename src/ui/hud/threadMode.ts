@@ -6,6 +6,7 @@
 import { callingLook } from '../kit/callingLook';
 import type { HeroHud, WeaverHud } from '../store';
 import { bindingCode, bindingLabel } from './labels';
+import { CUT_CAUSE_NAME, cutPlate, unravelPlate } from './riftLook';
 
 export type ThreadModeId = WeaverHud['threadMode'];
 
@@ -42,8 +43,13 @@ export interface ThreadDialView {
   switchKey: string;
   /** Bear's key, on the Martyr's runs while it's bound (null: no Bear). */
   bearKey: string | null;
-  /** On the dial's plate: "Mend", "Empower", "Bear 30%", "Snapped". */
+  /**
+   * On the dial's plate: "Mend", "Empower", "Bear 30%", "Snapped"; Movement III's "Cut · 3.0 s
+   * (Snip)" after an enemy cut, and "Unravelled · 5 s" while Unravel turns Mend.
+   */
   plate: string;
+  /** Movement III: Unravel turns your Mend into harm and the Thread is in Mend (Empower answers). */
+  unravelled?: true;
   /** What the Thread is doing now and how to switch it, said in full (its accessible name). */
   says: string;
 }
@@ -82,14 +88,38 @@ export function threadDialView(w: WeaverHud, target: HeroHud | null): ThreadDial
     mode === 'bear'
       ? `${bearKey ?? 'Bear'} again goes back to ${back}`
       : `${switchKey} switches to ${other}`;
+  // Movement III (docs/phase-5c.md): an enemy's cut names what cut it; Unravel turns Mend.
+  const cut = state === 'snapped' ? w.threadCut : undefined;
+  const unravelled = state === 'live' && mode === 'mend' && (w.unravelLeft ?? 0) > 0;
   const says =
     state === 'down'
       ? `You're down: the Thread is slack until you re-form`
-      : state === 'snapped'
-        ? `The Thread snapped: it can attach again in ${w.threadLock.toFixed(1)} s`
-        : state === 'idle'
-          ? `${look.label}, on no one: press 1–3 or click a hero to thread them. ${how}.`
-          : `${doing}. ${how}.`;
-  const plate = state === 'snapped' ? 'Snapped' : mode === 'bear' ? `Bear ${share}%` : look.label;
-  return { mode, look, state, switchKey, bearKey, plate, says };
+      : cut
+        ? `${CUT_CAUSE_NAME[cut.cause]} cut the Thread: it can attach again in ${w.threadLock.toFixed(1)} s`
+        : state === 'snapped'
+          ? `The Thread snapped: it can attach again in ${w.threadLock.toFixed(1)} s`
+          : state === 'idle'
+            ? `${look.label}, on no one: press 1–3 or click a hero to thread them. ${how}.`
+            : unravelled
+              ? `Unravel: your Mend wounds ${target?.name ?? 'your threaded hero'}. ${switchKey} switches to Empower.`
+              : `${doing}. ${how}.`;
+  const plate = cut
+    ? cutPlate(cut.cause, w.threadLock)
+    : state === 'snapped'
+      ? 'Snapped'
+      : unravelled
+        ? unravelPlate(w.unravelLeft ?? 0)
+        : mode === 'bear'
+          ? `Bear ${share}%`
+          : look.label;
+  return {
+    mode,
+    look,
+    state,
+    switchKey,
+    bearKey,
+    plate,
+    says,
+    ...(unravelled ? { unravelled: true as const } : {}),
+  };
 }

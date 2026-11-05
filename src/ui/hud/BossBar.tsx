@@ -3,6 +3,7 @@ import { callingLook } from '../kit/callingLook';
 import { clock, fmt } from '../kit/format';
 import { Icon } from '../kit/Icon';
 import { EXECUTE_PCT, bossCastIcon, bossDecreeShown, phaseTicks } from './legionLook';
+import { bossConditions, type BossCondition } from './riftLook';
 import type { BossHud } from '../store';
 import { AnswerGlyph } from './AnswerGlyph';
 import { secondsLabel } from './chrono';
@@ -143,18 +144,9 @@ export function BossBar({
             <span className="text-muted">· below {EXECUTE_PCT}% when it lands dies</span>
           </p>
         )}
-        {boss.bloodmoon && (
-          <p
-            className="mt-1.5 flex items-center gap-1.5 rounded-lg px-3 py-1 text-xs font-semibold"
-            style={{ color: BLOODMOON, background: 'rgb(127 29 29 / 0.35)' }}
-            role="status"
-            data-testid="boss-bloodmoon"
-          >
-            <Icon name="moon" size={14} />
-            <span className="uppercase tracking-wider">Bloodmoon</span>
-            <span className="font-normal text-rose-100">healing −50% outside the pools</span>
-          </p>
-        )}
+        {bossConditions(boss).map((c) => (
+          <BossConditionLine key={c.id} condition={c} blind={blind} />
+        ))}
         {boss.foreseen && (
           <p
             className="mt-1.5 flex items-center gap-1.5 rounded-lg px-3 py-1 text-xs"
@@ -179,8 +171,47 @@ export function BossBar({
   );
 }
 
-/** Bloodmoon's badge: a crimson moon (never the lethal red alone: it has a glyph and words). */
-const BLOODMOON = '#fca5a5';
+/**
+ * A condition under the boss bar (Movement II's Bloodmoon, Movement III's Spindles, stolen song,
+ * Unravel, Mirror Ward, champion and Stitch): a glyph, a word and what it means (never colour
+ * alone). Under Blind Score the answer after the "·" stays hidden.
+ */
+function BossConditionLine({ condition: c, blind }: { condition: BossCondition; blind: boolean }) {
+  const text = blind ? c.text.split(' · ')[0]! : c.text;
+  return (
+    <p
+      className="mt-1.5 flex items-center gap-1.5 rounded-lg px-3 py-1 text-xs font-semibold"
+      style={{ color: c.color, background: CONDITION_BG[c.id] ?? 'rgb(30 27 75 / 0.45)' }}
+      role="status"
+      data-testid={`boss-${c.id}`}
+    >
+      <Icon name={c.icon} size={14} />
+      <span className="uppercase tracking-wider">{c.label}</span>
+      <span className="font-normal text-rose-100">{text}</span>
+      {c.bar !== undefined && (
+        <span
+          className="ml-auto h-1.5 w-20 overflow-hidden rounded-full bg-ink-700"
+          role="meter"
+          aria-label={`${c.label} health`}
+          aria-valuemin={0}
+          aria-valuemax={1}
+          aria-valuenow={Number(c.bar.toFixed(2))}
+          data-testid="boss-champion-bar"
+        >
+          <span
+            className="block h-full"
+            style={{ width: `${c.bar * 100}%`, background: c.color }}
+          />
+        </span>
+      )}
+    </p>
+  );
+}
+
+/** Each condition's ground: Bloodmoon's crimson as it was; the Rift's indigo. */
+const CONDITION_BG: Partial<Record<BossCondition['id'], string>> = {
+  bloodmoon: 'rgb(127 29 29 / 0.35)',
+};
 
 /** A multi-blow cast's pips: "1/2", the blow being cast filled. */
 function BlowPips({ pips, pip }: { pips: number; pip: number }) {

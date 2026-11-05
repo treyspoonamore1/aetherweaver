@@ -7,6 +7,7 @@ import { callingLook } from '../kit/callingLook';
 import { auraVerbs, splitContribution, type ContributionParts } from '../contribution';
 import { fmt, pct, plural } from '../kit/format';
 import { ANSWER } from '../hud/labels';
+import { doomMax } from '../hud/riftLook';
 import type { IconName } from '../kit/iconPaths';
 
 export const HIGHLIGHT_ICON: Record<EncounterResult['highlights'][number]['kind'], IconName> = {
@@ -81,7 +82,51 @@ export function deathAdviceLine(
   party: readonly string[],
   callingId?: string | null,
 ): string | null {
-  return downAdvice(d, party) ?? deathAnswerLine(d.answers, callingId);
+  return (
+    downAdvice(d, party) ?? riftDownLine(d, callingId) ?? deathAnswerLine(d.answers, callingId)
+  );
+}
+
+const NUMBER_WORDS = [
+  'zero',
+  'one',
+  'two',
+  'three',
+  'four',
+  'five',
+  'six',
+  'seven',
+  'eight',
+  'nine',
+];
+/** The source name the sim gives Unravel's ticks (docs/phase-5c.md Q12). */
+const UNRAVEL_SOURCE = 'Unravel — your Mend';
+const attackName = (id: string) => CONTENT.attacks.find((a) => a.id === id)?.name;
+
+/**
+ * Phase 5c: a Movement III down names its answer in words (docs/phase-5c.md "Recaps"): a blow from
+ * a possessed ally, Doom's burst, the Void Maw's pull, the Snip, and your own Mend unravelled. Keyed
+ * on the recap's killer as the sim names it (an attack's name, a status tick's `Voided (…)`, a
+ * possessed hero's `<Hero> (possessed)`), so every Movement I and II death gets null and keeps
+ * its line. Calling-aware: on a Chronomancer run Rewind takes Reel's place.
+ */
+export function riftDownLine(
+  d: Pick<DeathRecap, 'heroId' | 'killer' | 'answers'>,
+  callingId?: string | null,
+): string | null {
+  const name = CONTENT.heroes.find((h) => h.id === d.heroId)?.name ?? d.heroId;
+  const possessed = /^(.+) \(possessed\)$/.exec(d.killer);
+  if (possessed) return `${name}, struck by ${possessed[1]} (possessed): Chime frees them`;
+  if (d.killer === UNRAVEL_SOURCE || d.killer.startsWith('Unravelled'))
+    return 'Your Mend, unravelled: switch to Empower';
+  if (d.killer === attackName('doom_burst'))
+    return `Doom: Chime before ${NUMBER_WORDS[doomMax()] ?? doomMax()}, or Ward the burst`;
+  if (d.killer.startsWith('Voided'))
+    return rewindsFor(callingId)
+      ? 'Pulled into the Maw: Rally, or Rewind them back'
+      : 'Pulled into the Maw: Rally or Reel';
+  if (d.killer === attackName('unweaver_snip')) return 'Snip: Retarget off the line';
+  return null;
 }
 
 /**

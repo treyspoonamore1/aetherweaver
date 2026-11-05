@@ -114,7 +114,9 @@ function NewFoe({ c, blind }: { c: Callout; blind: boolean }) {
   // The fight's party (docs/phase-5b.md): no dome glyph without a hero who brings it.
   const partyKey = useUi((st) => st.hud?.party.map((h) => h.defId).join(' ') ?? '');
   const party = partyKey ? partyKey.split(' ') : undefined;
-  const s = defId ? sightingOf(defId, rewinds) : null;
+  // Movement III: a card names Paradox only when it is on the path.
+  const paradox = useUi((st) => !!st.hud?.calling?.tiers.some((t) => t?.id === 'paradox'));
+  const s = defId ? sightingOf(defId, rewinds, paradox) : null;
   return (
     <div
       className="w-72 rounded-xl border border-gold-500/60 bg-ink-950/88 px-4 py-3 shadow-xl shadow-black/60"

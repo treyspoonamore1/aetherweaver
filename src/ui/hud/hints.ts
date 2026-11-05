@@ -9,6 +9,7 @@ import { beamSong } from './songs';
 import { stasisCostMult } from './calling';
 import { secondsLabel } from './chrono';
 import { healBarelyTakes } from './legionLook';
+import { DOOM_EMPHASIS, doomCount, spindleCutPct } from './riftLook';
 
 /**
  * Contextual coach hints (docs/plan/04 §7). Derived from the HUD snapshot alone; each hint
@@ -101,6 +102,19 @@ export const ANSWER_HINTS: ReadonlySet<string> = new Set([
   'guard',
   'bloodmoon',
   'execution',
+  // Movement III (docs/phase-5c.md). The rune and the cut hints stay: they say why an input was
+  // refused and when the Thread comes back, not what a telegraph wants.
+  'cut-coming',
+  'inhale',
+  'possessed',
+  'wraith',
+  'doom',
+  'stitched',
+  'unravel',
+  'spindles',
+  'verse',
+  'mirror-ward',
+  'mimic',
 ]);
 
 /** All hints that apply right now, most important first. */
@@ -207,6 +221,7 @@ function allHints(hud: HudSnapshot): Hint[] {
     }
   }
   out.push(...movementTwoHints(hud, { Q, E, F }));
+  out.push(...movementThreeHints(hud, { Q, E, F }));
   for (const h of party.filter((p) => p.downed && !p.dead)) {
     out.push({
       id: 'downed',
@@ -299,7 +314,7 @@ function allHints(hud: HudSnapshot): Hint[] {
       text:
         (hud.hymnCircles ?? 0) > 0
           ? `Your auras are silenced — bring the party into a hymn circle with Rally {${bindingLabel('directiveRally')}}`
-          : `Your auras are silenced — mark the Mute with {${bindingLabel('directiveFocus')}} so the party breaks its dome`,
+          : `Your auras are silenced — mark the ${(hud.foes?.includes('mute') ?? true) ? 'Mute' : 'Silencing elite'} with {${bindingLabel('directiveFocus')}} so the party breaks its dome`,
     });
   }
   const reelTarget = party.find((h) => alive(h) && !h.inField && h.distance > w.fieldRadius + 3);
@@ -550,4 +565,111 @@ function brannHints(hud: HudSnapshot, keys: { Q: string; F: string }): Hint[] {
 /** Bloodlust's line, as a whole percent (content's `quirk.below`). */
 function bloodlustPct(defId: string): number {
   return Math.round((CONTENT.heroes.find((h) => h.id === defId)?.quirk.below ?? 0.4) * 100);
+}
+
+// ── Movement III (docs/phase-5c.md) ──────────────────────────────────────────────────
+
+/**
+ * The Unstitched's threats, each with the verb it teaches: Retarget off a cut line, re-thread
+ * after a cut, Rally out of an Inhale, Chime the possessed, Focus the Wraith, Glide out of a rune
+ * (a technique silence, not the Mute's aura one), Chime Doom, Empower through Unravel, Focus the
+ * Spindles, the Verse and the Mirror Ward, vary what a Mimic copies. Every one keys on a HUD key
+ * only Movement III sets, so a Movement I or II fight shows none.
+ */
+function movementThreeHints(hud: HudSnapshot, keys: { Q: string; E: string; F: string }): Hint[] {
+  const { Q, E, F } = keys;
+  const out: Hint[] = [];
+  const w = hud.weaver;
+  const up = hud.party.filter(alive);
+  const rift = hud.rift;
+  const boss = hud.boss;
+  const focus = `{${bindingLabel('directiveFocus')}}`;
+  const rally = `{${bindingLabel('directiveRally')}}`;
+  if (w.runeLocked && !w.downed)
+    out.push({
+      id: 'rune',
+      text: `You stand in a Null rune: Ward, Chime and ${w.rewind ? 'Rewind' : 'Reel'} are refused — Glide {${bindingLabel('glide')}} or walk out of it`,
+    });
+  if (rift?.cutComing && w.threadSlot !== null)
+    out.push({
+      id: 'cut-coming',
+      text: `${rift.cutComing.name} will cut your Thread — Thread a hero on your side of the line, or step across it`,
+    });
+  if (w.threadCut)
+    out.push({
+      id: 'cut',
+      text: `Your Thread was cut — re-thread {1}–{3} the moment the lock ends (${secondsLabel(w.threadLock)})`,
+    });
+  if (rift?.inhale)
+    out.push({
+      id: 'inhale',
+      text:
+        variantIn(hud, 'reel') === 'swap'
+          ? `A Void Maw breathes in — Rally ${rally} the party to you: Swap puts you in the Maw`
+          : `A Void Maw breathes in — Rally ${rally} the party to you before the pull${w.rewind ? '' : `, or Reel ${F} one out`}`,
+    });
+  for (const h of up) {
+    if (h.possessed)
+      out.push({
+        id: 'possessed',
+        text: `${h.name} is possessed${h.possessed.victim ? ` and strikes ${h.possessed.victim}` : ''} — Chime ${E} on them frees them`,
+      });
+    if (h.statuses.some((s) => s.id === 'doubt'))
+      out.push({
+        id: 'wraith',
+        text: `A Doubt Wraith reaches for ${h.name} — Focus it ${focus} to interrupt the cast, or Chime ${E} the mark`,
+      });
+  }
+  for (const h of up) {
+    const doom = stacksOf(h, 'doom');
+    const doomed = h.statuses.some((s) => s.id === 'doomed');
+    if (doomed || doom >= DOOM_EMPHASIS)
+      out.push({
+        id: 'doom',
+        text: doomed
+          ? `Doom ignites on ${h.name} — Chime ${E} it, or Ward ${Q} the blast`
+          : `${h.name} carries Doom ${doomCount(doom)} — Chime ${E} before it ignites, or Ward ${Q} the blast`,
+      });
+  }
+  const stitched = up.filter((h) => h.stitchedWith && h.stitchedWith.length > 0);
+  if (stitched.length > 0)
+    out.push({
+      id: 'stitched',
+      text: `${stitched.map((h) => h.name).join(' and ')} ${stitched.length > 1 ? 'are' : 'is'} stitched to the floor — Chime ${E} near them frees both`,
+    });
+  if ((w.unravelLeft ?? 0) > 0 && w.threadMode === 'mend')
+    out.push({
+      id: 'unravel',
+      text:
+        w.bearShare > 0 && bindingCode('bear')
+          ? `Unravel: your Mend wounds — press {RMB} for Empower, or Bear {${bindingLabel('bear')}}, until it passes`
+          : `Unravel: your Mend wounds — press {RMB} for Empower until it passes`,
+    });
+  if (boss?.spindles)
+    out.push({
+      id: 'spindles',
+      text: `Spindles shield the boss: −${spindleCutPct()}% damage while one stands — Focus them ${focus}`,
+    });
+  if (boss?.stolen)
+    out.push({
+      id: 'verse',
+      text: `${boss.stolen.name} was stolen — Focus the Stolen Verse ${focus} to take it back${hud.calling?.id === 'luminary' ? ': your Radiance counts one aura fewer until then' : ''}`,
+    });
+  if (boss?.mirrorWard?.casting)
+    out.push({
+      id: 'mirror-ward',
+      text: `The Unweaver Wards its champion — interrupt the Mirror Ward, and Focus the champion ${focus}`,
+    });
+  const copy = rift?.mimicCopy;
+  if (copy)
+    out.push({
+      id: 'mimic',
+      text:
+        copy === 'empower'
+          ? `A Mimic is copying your Empower — switch the Thread to Mend {RMB} to crack the mirror`
+          : copy === 'ward'
+            ? `A Mimic is copying your Ward — cast a Chime ${E} instead to crack the mirror, or Focus it ${focus}`
+            : `A Mimic is copying your Chime — cast a Ward ${Q} instead to crack the mirror, or Focus it ${focus}`,
+    });
+  return out;
 }
