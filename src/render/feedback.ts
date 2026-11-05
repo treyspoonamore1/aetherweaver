@@ -129,6 +129,8 @@ interface Bucket {
   crit: boolean;
   /** A heal number the sim cut (Movement II: Wound, Bloodmoon), decided when it is fresh. */
   cut: boolean;
+  /** Unravel's reversed-Mend ticks (Movement III), in the live lethal colour; set when fresh. */
+  unravel: boolean;
 }
 
 function bucket(): Bucket {
@@ -143,6 +145,7 @@ function bucket(): Bucket {
     absorbed: 0,
     crit: false,
     cut: false,
+    unravel: false,
   };
 }
 
@@ -1261,6 +1264,18 @@ export class Feedback {
     );
   }
 
+  /**
+   * Unravel's own tick (docs/phase-5c.md, Q12): a 'tick' from `field.unravel.source` on the
+   * threaded hero while Unravel runs (not under Stasis). False outside Movement III: no key.
+   */
+  private isUnravelTick(e: SimEventOf<'damageTaken'>, state: WorldState): boolean {
+    const u = state.field.unravel;
+    if (u === undefined || state.field.stasis) return false;
+    if (e.hit !== 'tick' || e.source !== u.source || e.amount + e.absorbed <= 0) return false;
+    const slot = state.entities.get(state.weaverId)?.weaver?.threadSlot;
+    return slot !== null && slot !== undefined && state.party[slot] === e.target;
+  }
+
   private damage(e: SimEventOf<'damageTaken'>, state: WorldState): void {
     const r = this.rec(e.target);
     const target = state.entities.get(e.target);
@@ -1365,17 +1380,23 @@ export class Feedback {
       this.d.rig.addTrauma(0.2);
     }
     if (isParty && frac > 0.18) this.d.rig.addTrauma(Math.min(0.3, frac * 0.5));
-    // Unravel (Movement III): the reversed Mend's ticks on the threaded hero show as damage, the
-    // party's lethal-pink number below (never heal teal).
-    if (state.field.unravel !== undefined && isParty && e.hit === 'tick' && e.amount > 0)
-      this.firedM3.unravelTicks++;
+    // Unravel (Movement III): the reversed Mend's ticks on the threaded hero show as damage, in
+    // the live lethal colour below (never heal teal). Only Unravel's own tick counts: its source,
+    // on the threaded hero (a possession tick or another DoT there is not it).
+    const unravelTick = isParty && this.isUnravelTick(e, state);
+    if (unravelTick) this.firedM3.unravelTicks++;
     if (!this.settings.damageNumbers) return;
     let b = this.dmg.get(e.target);
     if (!b) {
       b = bucket();
       this.dmg.set(e.target, b);
     }
-    const fresh = this.now - b.start > AGG || b.handle < 0 || !this.d.overlay.numberAlive(b.handle);
+    // An Unravel tick starts its own number (its colour is set when the number spawns).
+    const fresh =
+      this.now - b.start > AGG ||
+      b.handle < 0 ||
+      !this.d.overlay.numberAlive(b.handle) ||
+      (unravelTick && !b.unravel);
     if (fresh) {
       b.amount = 0;
       b.amplified = 0;
@@ -1385,6 +1406,7 @@ export class Feedback {
       b.absorbed = 0;
       b.crit = false;
       b.start = this.now;
+      b.unravel = unravelTick;
     }
     b.amount += e.amount;
     b.amplified += e.amplified;
@@ -1399,7 +1421,15 @@ export class Feedback {
       : 12 + 3.3 * Math.log10(1 + shown);
     const size = Math.min(40, sig * (b.crit ? 1.25 : 1));
     const colorHex =
-      b.amount <= 0 ? '#a5f3fc' : isParty ? '#fb7185' : b.crit ? '#fde68a' : '#fff7ed';
+      b.amount <= 0
+        ? '#a5f3fc'
+        : b.unravel
+          ? VISION_HEX.lethal
+          : isParty
+            ? '#fb7185'
+            : b.crit
+              ? '#fde68a'
+              : '#fff7ed';
     if (fresh) b.handle = this.d.overlay.spawnNumber(r.x, r.height + 0.35, r.z, colorHex, size);
     const text =
       b.amount > 0 ? `${Math.round(b.amount)}${b.crit ? '!' : ''}` : `(${Math.round(b.absorbed)})`;

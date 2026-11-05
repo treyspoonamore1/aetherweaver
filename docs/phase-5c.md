@@ -512,7 +512,7 @@ Every new enemy, attack and affix appears somewhere, as the coverage test requir
 - `loom_hollow`: r 20, open;
 - `the_unwoven`: r 22, open, for the Snip lines and the Verse's flight.
 
-Floor: indigo stone `#1a1830` to `#17152a` (darkened ×0.78, `arena.ts:76`). Lines `#5c5a86`, accent `#1f6f6a` (ambient only), fog `#0a0a1c`.
+Floor: indigo stone `#1a1830` to `#17152a` (darkened ×0.78, `arena.ts:76`). Lines `#5c5a86`, accent `#1f6f6a`, fog `#0a0a1c`. Render does not draw the accent in the Rift: the disc's rim ring takes the line colour, and the ambient fray is render's own `#176762` (see Presentation). The accent stays in content only for the theme's shape.
 
 ## Rewards
 
@@ -569,10 +569,10 @@ In `tests/sim/m1Unchanged.test.ts:104-117`, the forbidden-key lists gain every n
 - **Tables, not if-chains.** `arenaLook` and `arenaMood` (`crimsonCues.ts:86-141`) become biome tables with an 'abyss' row, so the Finale's 'celestial_crucible' is one more row. The Spire rows are snapshotted first.
 - **The abyss mood:**
   - sky `#1b1a3a`, hemi 0.5;
-  - a pale moon key `#cdd8f5` at about 1.5;
-  - a rim from the rift tears in a cold, desaturated blue-teal (`#3c6f8a`) at ≤ 0.45, from the far −z side only, so it agrees with the rim light at (-12,10,-16) (`stage.ts:62-64`);
+  - a pale, warm moon key `#e6e1cf` at about 1.5 (the first pick `#cdd8f5` measured ΔE 3.8 from shield under deuteranopia, so every hero it lit would have looked Warded);
+  - a rim from the rift tears in a cold, desaturated blue-teal (`#346782`, at 0.42) from the far −z side only, so it agrees with the rim light at (-12,10,-16) (`stage.ts:62-64`). The first pick `#3c6f8a` measured ΔE 18.4 from Mend under tritanopia;
   - fog `#0a0a1c`, near 34, far 80.
-- **Teal is Mend.** The naive fray teal `#2dd4bf` is ΔE 0.0 from Mend, and a teal rim would make every hero look Mended. Fray teal stays ambient and off the combat disc. A test asserts that no ABYSS_HEX entry is within 20 ΔE of Mend or shield on the disc.
+- **Teal is Mend.** The naive fray teal `#2dd4bf` is ΔE 0.0 from Mend, and a teal rim would make every hero look Mended. Fray teal stays ambient and off the combat disc, as a dark `#176762` in the motes only (the content accent `#1f6f6a` measured ΔE 18.1 from Mend under tritanopia). The disc's rim ring is the line colour, not the accent. A test asserts that no ABYSS_HEX entry is within 20 ΔE of Mend, heal or shield in any colour vision (`tests/colorVision.test.ts`); the measured values are in `docs/phase-5c/vfx-audio.md`.
 - **ArenaView** (`arena.ts:46-66`) switches on `look`. The new pieces swap one for one, so the mesh budget holds at 7/6 (`tests/renderMovement2.test.ts:489`):
   - `createRiftFloor`: stitched indigo cloth over stone, seams in the line colour, low contrast, no teal on the disc;
   - `createRiftRim`: floating slabs and torn hanging cloth;
@@ -622,14 +622,14 @@ By mechanic:
   - swipe or shot streaks toward the victim.
 
   Never enemy-bar red, never Focus gold.
-- **Doom:** pips counting to 5 on the bleed pip arc (`pipOffset`, `crimsonCues.ts:288-294`), lethal-tinted at 4, with Chime and Ward badges. The ignition is a mark.
+- **Doom:** pips counting to its ignition (content's `burst.at`, 5; render reads it, `riftCues.ts` `DOOM_AT`) on the bleed pip arc (`pipOffset`, `crimsonCues.ts:288-294`), lethal-tinted at 4, with Chime and Ward badges. The ignition is a mark.
 - **Stitch:** a cross-stitch beam for the link, then a sewn tether between the two `stitched` heroes that share a source.
 - **Mimic:**
   - a mirror shimmer to the beneficiary, and the copied icon over it;
   - SHELL mirrorWard for a copied Ward;
   - emboldened as a shimmer, never gold (04 §1 rule 4: gold means 'the Weaver did this');
   - 'MIRROR CRACKED' as a glass burst.
-- **Unravel:** a Thread core `#0f0b1a` (≥ 26.8 ΔE from Bear and every rule colour), live-lethal barbs, and beads flowing **forward** (Bear flows backward, `thread.ts:89-93`), plus a 'minus' state of SPRITE.mode. Its ticks show as lethal damage numbers, never heal teal.
+- **Unravel:** a Thread core `#0f0b1a` (≥ 26.8 ΔE from Bear and every rule colour), live-lethal barbs, and beads flowing **forward** (Bear flows backward, `thread.ts:89-93`), plus a 'minus' state of SPRITE.mode. Its ticks show as damage numbers in the live lethal colour (`VISION_HEX.lethal`, so it follows the colour-vision palettes), never heal teal. Render tells them apart by source: a `tick` from `field.unravel.source` on the threaded hero.
 - **Spindles:** tether beams to the boss, and a plating shell on it.
 - **A stolen aura:** a hollow halo slot, and an aura-coloured pour back on the kill.
 - **Champion:** a mirror Thread beam from the boss, and the Ward shell.

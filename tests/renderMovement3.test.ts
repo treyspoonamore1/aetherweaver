@@ -26,14 +26,17 @@ import { FxKit, PARTICLE_CAPS } from '../src/render/fx/kit';
 import { buildEnemy } from '../src/render/models/library';
 import { createModelMaterial } from '../src/render/models/material';
 import type { Overlay } from '../src/render/overlay';
+import { VISION_HEX, applyVision } from '../src/render/palette';
 import { PartyBarsView } from '../src/render/partyBars';
 import { MARTYR_HEX } from '../src/render/martyrCues';
 import {
   ABYSS_HEX,
+  DOOM_AT,
   DOOM_CHIME_AT,
   RIFT_HEX,
   crossing,
   cutLabel,
+  doomIgnitionAt,
   emptyRiftLook,
   hovers,
   riftAnswers,
@@ -446,7 +449,7 @@ describe('Possession, Doom and the Stitch on a hero', () => {
     expect(h.entities.drawnM3.doomHot).toBe(1);
     const badge = h.overlay.badges.find((b) => b.label.startsWith('Doom'))!;
     expect(badge.answers).toEqual(['chime', 'ward']);
-    expect(badge.label).toBe('Doom ×4/5');
+    expect(badge.label).toBe(`Doom ×4/${DOOM_AT}`);
   });
 
   it('stitched: a pair sharing a source is sewn together; a lone stitch is only rooted', () => {
@@ -872,6 +875,119 @@ describe('Colour', () => {
             deltaE(see(hex), see(o)),
             `${vision}: ${name} ${hex} vs ${other} ${o}`,
           ).toBeGreaterThanOrEqual(20);
+    }
+  });
+});
+
+describe('Doom and Unravel follow the sim, not render constants', () => {
+  it("Doom's ignition count is content's (burst.at), so a retune moves the pips and the label", () => {
+    const touched = CONTENT.affixes.find((f) => f.id === 'doom_touched')!;
+    expect(touched.onHit?.id).toBe('doom');
+    expect(DOOM_AT).toBe(touched.onHit!.burst!.at);
+    expect(doomIgnitionAt(CONTENT)).toBe(DOOM_AT);
+    // A retune to 4 or 6 stacks is read through.
+    const retuned = (at: number) => ({
+      attacks: CONTENT.attacks,
+      enemies: CONTENT.enemies,
+      affixes: CONTENT.affixes.map((f) =>
+        f.onHit?.id === 'doom'
+          ? { ...f, onHit: { ...f.onHit, maxStacks: at, burst: { ...f.onHit.burst!, at } } }
+          : f,
+      ),
+    });
+    expect(doomIgnitionAt(retuned(4))).toBe(4);
+    expect(doomIgnitionAt(retuned(6))).toBe(6);
+    // Doom on an enemy's basic hit, with only maxStacks, is found too.
+    const onEnemy = {
+      attacks: [],
+      affixes: [],
+      enemies: [
+        {
+          ...CONTENT.enemies[0]!,
+          basic: { ...CONTENT.enemies[0]!.basic, onHit: { ...touched.onHit!, burst: undefined } },
+        },
+      ],
+    };
+    expect(doomIgnitionAt(onEnemy)).toBe(touched.onHit!.maxStacks);
+  });
+
+  it('Doom draws DOOM_AT pip slots and caps the filled ones there', () => {
+    const sim = sandbox();
+    const h = harness(sim);
+    h.run(2);
+    giveStatus(hero(sim, 0), { id: 'doom', stacks: DOOM_AT + 3, remaining: 10, duration: 10 });
+    h.tick();
+    expect(h.entities.drawnM3.doomPips).toBe(DOOM_AT);
+    const badge = h.overlay.badges.find((b) => b.label.startsWith('Doom'))!;
+    expect(badge.label).toBe(`Doom ×${DOOM_AT + 3}/${DOOM_AT}`);
+  });
+
+  it("only Unravel's own tick on the threaded hero counts, in the live lethal colour", () => {
+    const sim = sandbox();
+    const h = harness(sim);
+    h.run(2, [
+      { t: 'thread', slot: 0 },
+      spawn('the_unweaver', 0, -12),
+      spawn('doubt_wraith', 4, -12),
+    ]);
+    h.run(10);
+    tough(sim);
+    const boss = newest(sim, 'the_unweaver');
+    const wraith = newest(sim, 'doubt_wraith');
+    const w = worldOf(sim);
+    expect(sim.state.entities.get(sim.state.weaverId)!.weaver!.threadSlot).toBe(0);
+    const threaded = hero(sim, 0).id;
+    const other = hero(sim, 1).id;
+    let n = 0;
+    const tick = (
+      target: number,
+      source: number | null,
+      hit: 'hit' | 'tick' = 'tick',
+    ): SimEvent => ({
+      type: 'damageTaken',
+      tick: sim.tick,
+      target,
+      source,
+      amount: 20 + n++,
+      absorbed: 0,
+      amplified: 0,
+      aura: 0,
+      radiance: 0,
+      eclipse: 0,
+      crit: false,
+      telegraph: null,
+      hit,
+    });
+    // No Unravel: nothing counts (Movement I and II never set the key).
+    h.inject([tick(threaded, boss.id)]);
+    expect(h.feedback.firedM3.unravelTicks).toBe(0);
+    w.field.unravel = { until: sim.state.time + 5, source: boss.id, acc: 0, tickIn: 0.5 };
+    try {
+      for (const vision of ['normal', 'deuteranopia'] as const) {
+        applyVision(vision);
+        // Past the numbers' aggregation window (0.4 s), so each one starts fresh.
+        for (let i = 0; i < 30; i++) h.inject([]);
+        h.overlay.numbers.length = 0;
+        const before = h.feedback.firedM3.unravelTicks;
+        // A possession tick (the Wraith's) and the boss's tick on another hero: not Unravel.
+        h.inject([tick(threaded, wraith.id), tick(other, boss.id), tick(threaded, boss.id, 'hit')]);
+        expect(h.feedback.firedM3.unravelTicks).toBe(before);
+        expect(h.overlay.numbers.some((x) => x.color === VISION_HEX.lethal)).toBe(false);
+        // Unravel's own tick: counted, and its own number in the live lethal colour.
+        h.inject([tick(threaded, boss.id)]);
+        expect(h.feedback.firedM3.unravelTicks).toBe(before + 1);
+        expect(h.overlay.numbers.at(-1)!.color).toBe(VISION_HEX.lethal);
+        expect(h.overlay.numbers.at(-1)!.color).not.toBe(VISION_HEX.heal);
+      }
+      // Under Stasis Mend heals: nothing is Unravel's.
+      w.field.stasis = true;
+      const before = h.feedback.firedM3.unravelTicks;
+      h.inject([tick(threaded, boss.id)]);
+      expect(h.feedback.firedM3.unravelTicks).toBe(before);
+      w.field.stasis = false;
+    } finally {
+      applyVision('normal');
+      delete w.field.unravel;
     }
   });
 });

@@ -1,3 +1,4 @@
+import type { Content, StatusPayload } from '../content';
 import { CONTENT, attackDef } from '../content';
 import { DOOM_CHIME_AT } from '../content/unstitched';
 import type { EntityId, ReadonlyEntity, WorldState } from '../sim';
@@ -93,8 +94,32 @@ export const RIFT_AFFIX_HEX = {
   doom_touched: '#5b21b6',
 } as const;
 
-/** Doom ignites at this many stacks (its pips count up to it). */
-export const DOOM_AT = 5;
+/**
+ * The stack count Doom ignites at, as content gives it: the first Doom payload's `burst.at`
+ * (its `maxStacks` if it has no burst), wherever it is applied (an attack's or zone's status, an
+ * enemy's basic hit, an affix's onHit: the payloads the content lint walks). 5 only if content
+ * has no Doom at all, when nothing draws it.
+ */
+export function doomIgnitionAt(content: Pick<Content, 'attacks' | 'enemies' | 'affixes'>): number {
+  const at = (p: StatusPayload | undefined): number | undefined =>
+    p?.id === 'doom' ? (p.burst?.at ?? p.maxStacks) : undefined;
+  for (const f of content.affixes) {
+    const n = at(f.onHit);
+    if (n !== undefined) return n;
+  }
+  for (const e of content.enemies) {
+    const n = at(e.basic.onHit);
+    if (n !== undefined) return n;
+  }
+  for (const a of content.attacks) {
+    const n = at(a.status) ?? at(a.zone?.status);
+    if (n !== undefined) return n;
+  }
+  return 5;
+}
+
+/** Doom ignites at this many stacks (its pips count up to it): read from content, never typed. */
+export const DOOM_AT = doomIgnitionAt(CONTENT);
 /** From this many stacks the pips turn lethal and Chime and Ward show (content's rule). */
 export { DOOM_CHIME_AT };
 

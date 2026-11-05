@@ -37,7 +37,7 @@ look is a new *style* inside one of them.
 | `telegraphs.ts` | Cut lines dotted, with the scissors where they cross the live Thread; the Unpick's ripple along the Thread; zone tells (the Inhale's tightening swirl, the rune closing); the Mimic's mirror cast and its copied glyph; the Stitch's cross-stitched link; falling needles; Doom's ignition mark; answer badges over heroes a Rift status holds. `drawnM3` counters. |
 | `thread.ts` | Unravel: a near-black core, lethal barbs, lethal beads rushing forward and a minus glyph (`unravelOverride` for the lab). A cut's frayed stub and its lock ring at her hand (`cut()`, `clearCut()`). `drawnM3` counters. |
 | `field.ts` | `field.zones`: the pull's swirl and its inward motes, the rune's bone ring of glyphs. A stolen aura's band drawn hollow and its slot a dashed ring. `zoneOverride` and `stolenOverride` (lab). `drawnM3` counters. |
-| `feedback.ts` | CUT / UNPICKED in the fray (the range snap keeps the grey SNAPPED); Guard Strand's silk spark; POSSESSED, the glass of a free; MIRROR CRACKED; MIRROR WARD; the verse torn out and poured back; UNRAVEL; zones laid; the Spindled `−80%`; cloth deaths; Unravel's ticks counted as damage numbers. `firedM3` counters. |
+| `feedback.ts` | CUT / UNPICKED in the fray (the range snap keeps the grey SNAPPED); Guard Strand's silk spark; POSSESSED, the glass of a free; MIRROR CRACKED; MIRROR WARD; the verse torn out and poured back; UNRAVEL; zones laid; the Spindled `−80%`; cloth deaths; Unravel's ticks as damage numbers in the live lethal colour, counted (`firedM3.unravelTicks`) only for a `tick` from `field.unravel.source` on the threaded hero. `firedM3` counters. |
 | `astrolabe.ts` | The dome-meets-field shimmer reads `suppressRadiusOf` (a Silencing elite's dome too). |
 | `fx/sprites.ts` | `SPRITE.scissors`, `doomPip`, `mask`, `rune`, `mirror`, `needle`; `SPRITE.mode`'s `MODE_MINUS` (Unravel). |
 | `fx/rings.ts` | `RING.rune` (a band with a ring of glyphs) and `RING.swirl` (spiral arms turning in or out). |
@@ -66,7 +66,9 @@ look is a new *style* inside one of them.
 - the rim `#3c6f8a` sat 18.4 from Mend under tritanopia: `#346782`, at 0.42;
 - the fray teal `#1f6f6a` sat 18.1 from Mend under tritanopia: `#176762`, and only in the motes
   near the rim;
-- the floor's rim ring takes the line colour, not the theme's ambient teal accent.
+- the floor's rim ring takes the line colour, not the theme's ambient teal accent, so content's
+  Rift `theme.accent` (`#1f6f6a`, `src/content/unstitchedRun.ts`) is drawn nowhere in the Rift
+  (render's pillars and mood take their own colours). Content keeps it; docs/phase-5c.md says so.
 
 Every `ABYSS_HEX` entry is ≥ 20 ΔE from Mend, heal and shield in every vision
 (`tests/colorVision.test.ts`). The floor is darkened ×0.78, no lighter than the Spire's, and
@@ -106,11 +108,11 @@ smoke where it stood, a dashed ring. Never a red mist, never porcelain shards.
 | Void Maw's Inhale | the tell: a swirl at its reach whose arms speed up as an inner ring tightens; the pull: a swirl turning inward, motes drawn in from its rim, drag streaks on everyone inside |
 | The Null rune | the tell: a ring of glyphs closing on her feet; the zone: a bone ring of glyphs turning slowly (never the Mute's dashed glass), a rune lock over her head while she stands in it |
 | Possession | an indigo rim (`#4b3fb8`) ranked above the Thread's, a cracked mask, a dashed indigo tether from the Wraith, a lash streaking to the ally it strikes every 0.5 s (`possessionVictim`); Chime and Focus over the head; POSSESSED; glass when freed. Never enemy-bar red, never Focus gold |
-| Doom | five pips on the bleed arc, filling as it stacks, lethal from four with Chime and Ward over the head; the ignition is a mark ringed in five lethal pips; a doomed hero glows lethal |
+| Doom | `DOOM_AT` pips (content's `burst.at`, five today: `doomIgnitionAt` reads it) on the bleed arc, filling as it stacks, lethal from four with Chime and Ward over the head; the ignition is a mark ringed in five lethal pips; a doomed hero glows lethal |
 | Stitch | a cross-stitched link in bone (never the threat dashes); then a bone cross-stitch tether between the pair stitched by the same source (`stitchedPairs`), a dashed ring at each one's feet, Chime and Reel over each |
 | Needle Rain | plain circles, a needle falling point-first onto each |
 | The Mimic | a mirror shimmer from it to its beneficiary (`mimicBeneficiary`), a mirror over them and **Mirror · Ward** (or Chime, Empower) with that glyph; a copied Ward is a `mirrorWard` shell in mirror silver `#c8c4b8`; Emboldened is a mirror shimmer (orbiting panes, a mirror tint through the rim), never gold; MIRROR CRACKED is a burst of glass |
-| Unravel | the Thread's core near-black (`#0f0b1a`) in a lethal halo, lethal barbs hooked along it, lethal beads rushing *forward* (Bear's flow runs back: never this), the glyph a minus; UNRAVEL; its ticks land as the party's damage numbers. Empower, Bear and Stasis show your own Thread |
+| Unravel | the Thread's core near-black (`#0f0b1a`) in a lethal halo, lethal barbs hooked along it, lethal beads rushing *forward* (Bear's flow runs back: never this), the glyph a minus; UNRAVEL; its ticks land as damage numbers in the live lethal colour (each colour-vision palette's own), never the fixed party rose and never heal teal. Empower, Bear and Stasis show your own Thread |
 | Spindles | a dashed bone tether from each to the boss, its plating (a `mirrorWard` shell in the Spindle's bone `#d9c7a0`) while `tethered > 0`; `−80%` when one of your hits is cut down |
 | Steal Verse | the aura torn out of her ring into the Verse; its band in the field drawn dark and its slot a dashed ring in its colour; the Verse in its colour; struck down, the aura pours back to her in notes and a ring |
 | The champion | a mirror Thread (a lance and a glow) from the Unweaver to it; MIRROR WARD and its shell |
