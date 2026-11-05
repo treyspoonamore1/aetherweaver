@@ -1,24 +1,32 @@
 import { describe, expect, it } from 'vitest';
 import { movementEncounters, playEncounter } from '../tools/harness-core';
-import { ARRIVAL_KIT, kitConfig } from '../tools/kits';
+import { ARRIVAL3_KIT, ARRIVAL_KIT, kitConfig } from '../tools/kits';
 import { M1_ENCOUNTERS } from '../tools/m1-baseline';
+import { BOSS_TABLES, decreeFight } from '../tools/decrees';
 import { CONTENT } from '../src/content';
 import * as Run from '../src/meta/run';
-import { makeBot, type BotKind } from '../src/bots';
+import { makeBot, SkilledBot, type BotKind } from '../src/bots';
+import { M3_RULES } from '../src/bots/skilled';
 import {
+  DOOM_CHIME_AT,
   damageOf,
   dist,
   dotIncoming,
   effectiveFraction,
   hasFollowUp,
+  inhaleTell,
   shieldOf,
   slotOf,
   threatsOn,
+  type ReadonlyTelegraph,
 } from '../src/bots/common';
 import {
   bloodlusting,
   createSim,
+  cutWouldLand,
+  weaverSilenced,
   type Command,
+  type ReadonlyEntity,
   type Sim,
   type SimConfig,
   type SimEvent,
@@ -1196,5 +1204,656 @@ describe('the Novice bot with Brann', () => {
           'novice',
         ),
       ).not.toThrow();
+  });
+});
+
+// ── Movement III (docs/phase-5c.md, "Bots and harness") ──────────────────────────────
+
+const KIT3 = kitConfig(ARRIVAL3_KIT);
+
+/**
+ * A sandbox laid out for Movement III's staging: the Weaver at the origin, Kael (slot 0) to her
+ * east, Lyra (slot 1) to her north and Vexis (slot 2) to her west, every hero at `hp` of their
+ * life, the Thread on `thread` (null: loose).
+ */
+function rift(
+  opts: { hp?: number; thread?: 0 | 1 | 2 | null; config?: Partial<SimConfig> } = {},
+): Sandbox {
+  const sim = sandbox({ chords: GUARDIAN, ...opts.config });
+  const w = worldOf(sim);
+  const weaverE = w.entities.get(w.weaverId)!;
+  Object.assign(weaverE, { x: 0, z: 0 });
+  const spots = [
+    { x: 6, z: 0 },
+    { x: 0, z: 6 },
+    { x: -6, z: 0 },
+  ];
+  w.party.forEach((id, i) => {
+    const h = w.entities.get(id)!;
+    Object.assign(h, spots[i]!);
+    h.health!.hp = h.health!.maxHp * (opts.hp ?? 1);
+  });
+  weaverE.weaver!.threadSlot = opts.thread ?? null;
+  return sim;
+}
+
+/** A line telegraph of `attackId` (a cut) staged from `from` to `to`, landing in `impact` s. */
+function cutLine(
+  sim: Sandbox,
+  from: { x: number; z: number },
+  to: { x: number; z: number },
+  impact: number,
+  attackId = 'unweaver_snip',
+): ReadonlyTelegraph {
+  const w = worldOf(sim);
+  const t = {
+    id: 3001,
+    owner: w.party[0]!,
+    target: null,
+    attackId,
+    name: 'Snip',
+    kind: 'beam' as const,
+    shape: { kind: 'line' as const, x: from.x, z: from.z, toX: to.x, toZ: to.z, width: 1.4 },
+    start: w.time,
+    impact: w.time + impact,
+    perfectFrom: w.time + impact - 0.35,
+    damage: 0,
+    pctMaxHp: 0,
+    effect: 'damage' as const,
+    answers: ['thread' as const, 'move' as const],
+    severity: 'normal' as const,
+  };
+  w.telegraphs.push(t);
+  return t;
+}
+
+/** A timed zone staged on the field (owned by Kael, so it stands). */
+function zone(sim: Sandbox, kind: 'pull' | 'null', x: number, z: number, r: number): void {
+  const w = worldOf(sim);
+  (w.field.zones ??= []).push({ id: 4001, kind, owner: w.party[0]!, x, z, r, until: 1e9 });
+}
+
+/**
+ * An enemy spawned at (x, z), past its spawn-in, too tough to die in a test. Four ticks go by,
+ * so the Skilled bot (every 4 ticks) decides on the next.
+ */
+function tough(sim: Sandbox, defId: string, x: number, z: number): ReadonlyEntity {
+  stepFor(sim, 4, [spawn(defId, x, z)]);
+  const all = worldOf(sim).entities.list();
+  const e = all.filter((x) => x.enemy?.defId === defId).at(-1)!;
+  e.health!.hp = e.health!.maxHp = 1e6;
+  e.enemy!.state = 'approach';
+  return e;
+}
+
+const chimesAt = (out: readonly Command[], e: ReadonlyEntity) =>
+  out.some(
+    (c) =>
+      c.t === 'tech' &&
+      c.id === 'chime' &&
+      c.point !== undefined &&
+      Math.hypot(c.point.x - e.x, c.point.z - e.z) < 0.5,
+  );
+
+describe('the Skilled bot reads Movement III (staged)', () => {
+  it('retargets before a cut line lands across the Thread, to a hero it misses', () => {
+    const sim = rift({ hp: 0.8, thread: 1 });
+    // Across the Weaver–Lyra segment, clear of Kael's and Vexis's.
+    const t = cutLine(sim, { x: -3, z: 3 }, { x: 3, z: 3 }, 0.45);
+    expect(cutWouldLand(sim.state, t)).toBe(true);
+    const out = makeBot('skilled', 1).decide(sim.state);
+    const thread = out.find((c) => c.t === 'thread');
+    expect(thread?.t === 'thread' ? thread.slot : null).not.toBe(1);
+    expect(thread?.t === 'thread' && thread.slot !== null).toBe(true);
+    if (thread?.t === 'thread' && thread.slot !== null)
+      expect(cutWouldLand(sim.state, t, thread.slot)).toBe(false);
+    // Further off than 0.5 s, it leaves the Thread where it is.
+    const early = rift({ hp: 0.8, thread: 1 });
+    cutLine(early, { x: -3, z: 3 }, { x: 3, z: 3 }, 1.2);
+    const calm = makeBot('skilled', 1).decide(early.state);
+    expect(calm.some((c) => c.t === 'thread')).toBe(false);
+  });
+
+  it('steps (and Glides, at the last moment) across the line when the Thread is locked', () => {
+    const sim = rift({ hp: 0.8, thread: 1 });
+    const w = worldOf(sim).entities.get(sim.state.weaverId)!.weaver!;
+    w.threadLock = 2;
+    cutLine(sim, { x: -3, z: 3 }, { x: 3, z: 3 }, 0.3);
+    const out = makeBot('skilled', 1).decide(sim.state);
+    // To Lyra's side (+z), by a Glide since it lands under 0.4 s.
+    const glide = out.find((c) => c.t === 'glide');
+    expect(glide?.t === 'glide' ? glide.z : 0).toBeGreaterThan(0);
+    const move = out.find((c) => c.t === 'move');
+    expect(move?.t === 'move' ? move.z : 0).toBeGreaterThan(0);
+  });
+
+  it('re-threads within its lock + 0.1 s after a cut', () => {
+    const sim = rift({ hp: 0.7, thread: null });
+    const w = worldOf(sim).entities.get(sim.state.weaverId)!.weaver!;
+    w.threadLock = 1;
+    const bot = makeBot('skilled', 1);
+    let at: number | null = null;
+    for (let t = 0; t < 120 && at === null; t++) {
+      const out = bot.decide(sim.state);
+      if (out.some((c) => c.t === 'thread')) at = sim.state.time;
+      sim.step(out);
+      sim.drainEvents();
+    }
+    expect(at).not.toBeNull();
+    expect(at!).toBeLessThanOrEqual(1 + 0.1);
+  });
+
+  it('keeps the Thread off a hero beside a Severing elite unless they are the only one hurt', () => {
+    const pick = (lyraHp: number) => {
+      const sim = rift({ hp: 1, thread: null });
+      const w = worldOf(sim);
+      const kael = w.entities.get(w.party[0]!)!;
+      kael.health!.hp = kael.health!.maxHp * 0.5;
+      w.entities.get(w.party[1]!)!.health!.hp = w.entities.get(w.party[1]!)!.health!.maxHp * lyraHp;
+      const elite = tough(sim, 'shears', 7.5, 0);
+      (elite as unknown as { enemy: { affixes: string[] } }).enemy.affixes = ['severing'];
+      Object.assign(kael, { x: 6, z: 0 });
+      Object.assign(w.entities.get(w.weaverId)!, { x: 0, z: 0 });
+      const out = makeBot('skilled', 1).decide(sim.state);
+      const t = out.find((c) => c.t === 'thread');
+      return t?.t === 'thread' ? t.slot : null;
+    };
+    // Lyra hurt too: the Thread goes to her, not to Kael beside the elite.
+    expect(pick(0.7)).toBe(1);
+    // Kael the only one hurt: him, all the same.
+    expect(pick(1)).toBe(0);
+  });
+
+  it('steps and Glides out of a Null rune, casting nothing it refuses', () => {
+    const sim = rift({ hp: 0.25, thread: 1 });
+    zone(sim, 'null', 0, 0, 5);
+    const bot = makeBot('skilled', 1);
+    const inside: Command[] = [];
+    let glided = false;
+    for (let t = 0; t < 180; t++) {
+      const out = bot.decide(sim.state);
+      if (weaverSilenced(sim.state)) inside.push(...out);
+      if (out.some((c) => c.t === 'glide')) glided = true;
+      sim.step(out);
+      sim.drainEvents();
+    }
+    expect(glided).toBe(true);
+    expect(weaverSilenced(sim.state)).toBe(false);
+    expect(inside.filter((c) => c.t === 'tech')).toEqual([]);
+  });
+
+  it('Rallies in an Inhale’s tell with 2+ heroes in it, from outside', () => {
+    const sim = rift({ thread: null });
+    const w = worldOf(sim);
+    Object.assign(w.entities.get(w.party[2]!)!, { x: 2, z: 7 });
+    w.telegraphs.push({
+      id: 3002,
+      owner: w.party[0]!,
+      target: null,
+      attackId: 'maw_inhale',
+      name: 'Inhale',
+      kind: 'burst',
+      shape: { kind: 'circle', x: 0, z: 10, r: 8 },
+      start: w.time,
+      impact: w.time + 1.4,
+      perfectFrom: w.time + 1.05,
+      damage: 0,
+      pctMaxHp: 0,
+      effect: 'zone',
+      answers: ['stack', 'reel', 'move'],
+      severity: 'normal',
+    });
+    expect(inhaleTell(sim.state)).toHaveLength(1);
+    const out = makeBot('skilled', 1).decide(sim.state);
+    expect(out).toContainEqual({ t: 'directive', kind: 'rally' });
+  });
+
+  it('Holds for a Bloodlusting Brann in an Inhale when no Reel takes him, and lets go after', () => {
+    /** Party A, Brann (slot 2, at -6, 0) Bloodlusting, an Inhale's tell over him alone. */
+    const staged = (config: Partial<SimConfig> = {}) => {
+      const sim = rift({ thread: null, config: { party: [...PARTY_A], ...config } });
+      const w = worldOf(sim);
+      const brann = w.entities.get(w.party[2]!)!;
+      brann.health!.hp = brann.health!.maxHp * 0.3;
+      expect(bloodlusting(CONTENT, brann)).toBe(true);
+      w.telegraphs.push({
+        id: 3003,
+        owner: w.party[0]!,
+        target: null,
+        attackId: 'maw_inhale',
+        name: 'Inhale',
+        kind: 'burst',
+        shape: { kind: 'circle', x: -10, z: 3, r: 8 },
+        start: w.time,
+        impact: w.time + 1.4,
+        perfectFrom: w.time + 1.05,
+        damage: 0,
+        pctMaxHp: 0,
+        effect: 'zone',
+        answers: ['stack', 'reel', 'move'],
+        severity: 'normal',
+      });
+      return sim;
+    };
+    const directives = (out: readonly Command[]) =>
+      out.filter((c) => c.t === 'directive').map((c) => (c.t === 'directive' ? c.kind : null));
+    // A plain Reel, ready and in reach, takes him out of the pull: no Hold.
+    expect(directives(makeBot('skilled', 1).decide(staged().state))).toEqual([]);
+    // With Swap (no answer to the Maw) the party Holds, and he obeys it, lusting.
+    const sim = staged({ techniques: { reel: 'swap' } });
+    const bot = makeBot('skilled', 1);
+    const out = bot.decide(sim.state);
+    expect(directives(out)).toEqual(['hold']);
+    // The rule can be left off (tools/verbs.ts).
+    const off = new SkilledBot(1, {
+      every: 4,
+      attention: 1,
+      callReaction: 0.4,
+      skip: new Set(['mawHold']),
+    });
+    expect(directives(off.decide(staged({ techniques: { reel: 'swap' } }).state))).toEqual([]);
+    stepFor(sim, 4, out);
+    expect(sim.state.directive).toBe('hold');
+    const w = worldOf(sim);
+    expect(w.entities.get(w.party[2]!)!.hero!.follow).toBe('hold');
+    // Still in the tell: the Hold stands.
+    expect(directives(bot.decide(sim.state))).toEqual([]);
+    // The Inhale gone (no tell, no pull): a Rally lets go of it.
+    w.telegraphs = w.telegraphs.filter((t) => t.id !== 3003);
+    stepFor(sim, 4);
+    expect(directives(bot.decide(sim.state))).toEqual(['rally']);
+  });
+
+  it('lets go of its Brann Hold while the Weaver is down', () => {
+    const sim = rift({
+      thread: null,
+      config: { party: [...PARTY_A], techniques: { reel: 'swap' } },
+    });
+    const w = worldOf(sim);
+    const brann = w.entities.get(w.party[2]!)!;
+    brann.health!.hp = brann.health!.maxHp * 0.3;
+    zone(sim, 'pull', -10, 3, 8);
+    const bot = makeBot('skilled', 1);
+    const out = bot.decide(sim.state);
+    expect(out).toContainEqual({ t: 'directive', kind: 'hold' });
+    stepFor(sim, 4, out);
+    w.entities.get(w.weaverId)!.health!.downed = true;
+    expect(bot.decide(sim.state)).toEqual([{ t: 'directive', kind: 'rally' }]);
+  });
+
+  it('Reels a hurt hero out of an Inhale’s pull, but never by Swap', () => {
+    const reels = (swap: boolean) => {
+      const sim = rift({ hp: 0.5, thread: null });
+      zone(sim, 'pull', 0, 10, 8);
+      if (swap) worldOf(sim).entities.get(sim.state.weaverId)!.weaver!.variants.reel = 'swap';
+      return makeBot('skilled', 1)
+        .decide(sim.state)
+        .filter((c) => c.t === 'tech' && c.id === 'reel');
+    };
+    expect(reels(false)).toContainEqual({ t: 'tech', id: 'reel', slot: 1 });
+    expect(reels(true)).toEqual([]);
+  });
+
+  it('as the Chronomancer, Rewinds a hero the Inhale dragged in', () => {
+    const sim = rift({ hp: 0.5, thread: null, config: { calling: { id: 'chronomancer' } } });
+    expect(sim.state.calling?.rewind).toBe(true);
+    zone(sim, 'pull', 0, 10, 8);
+    const lyra = worldOf(sim).entities.get(sim.state.party[1]!)!;
+    const h = lyra.hero!;
+    // Three seconds ago she stood well outside the pull, at today's life.
+    h.past[h.pastAt] = { hp: lyra.health!.hp, x: 0, z: -4, up: true };
+    const out = makeBot('skilled', 1).decide(sim.state);
+    expect(out).toContainEqual({ t: 'tech', id: 'reel', slot: 1 });
+  });
+
+  it('Chimes a possessed hero, and never Empowers one', () => {
+    const sim = rift({ thread: null });
+    const lyra = sim.state.entities.get(sim.state.party[1]!)!;
+    stage(sim, 1, { id: 'possessed', remaining: 5, duration: 5 });
+    const out = makeBot('skilled', 1).decide(sim.state);
+    expect(chimesAt(out, lyra)).toBe(true);
+    // A calm party: the Thread would Empower Lyra; possessed, it goes elsewhere.
+    expect(out.some((c) => c.t === 'thread' && c.slot === 1)).toBe(false);
+    expect(out.some((c) => c.t === 'thread' && c.slot === 2)).toBe(true);
+  });
+
+  it('Chimes in its order: a possession, then a Doubt mark, a Stitch, then Doom', () => {
+    const first = (statuses: [number, Partial<Status> & { id: Status['id'] }][]) => {
+      const sim = rift({ thread: null });
+      for (const [slot, s] of statuses) stage(sim, slot, s);
+      const out = makeBot('skilled', 1).decide(sim.state);
+      return [0, 1, 2].find((slot) => chimesAt(out, hero(sim, slot))) ?? null;
+    };
+    expect(first([[2, { id: 'doubt', remaining: 3 }]])).toBe(2);
+    expect(first([[0, { id: 'stitch', remaining: 2 }]])).toBe(0);
+    expect(first([[1, { id: 'stitched', remaining: 5 }]])).toBe(1);
+    expect(first([[2, { id: 'doomed', remaining: 1.4 }]])).toBe(2);
+    expect(
+      first([
+        [0, { id: 'doom', stacks: 4, remaining: 8 }],
+        [1, { id: 'stitched', remaining: 5 }],
+        [2, { id: 'possessed', remaining: 5 }],
+      ]),
+    ).toBe(2);
+    expect(
+      first([
+        [0, { id: 'doom', stacks: 4, remaining: 8 }],
+        [1, { id: 'doubt', remaining: 3 }],
+      ]),
+    ).toBe(1);
+  });
+
+  it('Chimes Doom at 4 stacks, and leaves 3 alone', () => {
+    const chimes = (stacks: number) => {
+      const sim = rift({ thread: null });
+      stage(sim, 0, { id: 'doom', stacks, remaining: 8 });
+      return play(sim, 60).filter((c) => c.t === 'tech' && c.id === 'chime');
+    };
+    expect(chimes(DOOM_CHIME_AT).length).toBeGreaterThan(0);
+    expect(chimes(DOOM_CHIME_AT - 1)).toEqual([]);
+  });
+
+  it('Empowers through Unravel within 0.25 s, and Mends again after', () => {
+    const sim = rift({ hp: 0.6, thread: 1 });
+    const w = worldOf(sim);
+    w.field.unravel = { until: 1e9, source: w.party[0]!, acc: 0, tickIn: 0.5 };
+    const bot = makeBot('skilled', 1);
+    const mode = () => sim.state.entities.get(sim.state.weaverId)!.weaver!.threadMode;
+    for (let t = 0; t < 16; t++) {
+      sim.step(bot.decide(sim.state));
+      sim.drainEvents();
+    }
+    expect(mode()).toBe('empower');
+    delete w.field.unravel;
+    for (let t = 0; t < 16; t++) {
+      sim.step(bot.decide(sim.state));
+      sim.drainEvents();
+    }
+    expect(mode()).toBe('mend');
+  });
+
+  it('Focuses a Spindle first, then the Stolen Verse, before a Null Priest', () => {
+    const sim = rift({ thread: null });
+    const priest = tough(sim, 'null_priest', 0, -14);
+    const spindle = tough(sim, 'spindle', 8, -14);
+    const verse = tough(sim, 'stolen_verse', -8, -14);
+    let out = makeBot('skilled', 1).decide(sim.state);
+    expect(out).toContainEqual({ t: 'directive', kind: 'focus', target: spindle.id });
+    worldOf(sim).field.stolen = { chord: 0, aura: 0, add: verse.id, until: 1e9 };
+    worldOf(sim).entities.get(spindle.id)!.health!.dead = true;
+    out = makeBot('skilled', 1).decide(sim.state);
+    expect(out).toContainEqual({ t: 'directive', kind: 'focus', target: verse.id });
+    delete worldOf(sim).field.stolen;
+    out = makeBot('skilled', 1).decide(sim.state);
+    expect(out).toContainEqual({ t: 'directive', kind: 'focus', target: priest.id });
+  });
+
+  it('Focuses a Mirror Ward’s caster at once, without waiting out the gap between Focuses', () => {
+    const sim = rift({ thread: null });
+    const a = tough(sim, 'hollow_chorister', 6, -12);
+    const b = tough(sim, 'hollow_chorister', -6, -12);
+    const castOn = (e: ReadonlyEntity, attackId: string) => {
+      worldOf(sim).entities.get(e.id)!.enemy!.cast = {
+        attackId,
+        name: attackId,
+        telegraph: null,
+        start: sim.state.time,
+        end: sim.state.time + 2,
+        interruptible: true,
+      };
+    };
+    const bot = makeBot('skilled', 1);
+    castOn(a, 'wraith_doubt');
+    let out = bot.decide(sim.state);
+    expect(out).toContainEqual({ t: 'directive', kind: 'focus', target: a.id });
+    sim.step(out);
+    sim.drainEvents();
+    // A second later (inside the 4 s gap) the other begins a Mirror Ward.
+    for (let t = 1; t < 60; t++) {
+      sim.step([]);
+      sim.drainEvents();
+    }
+    castOn(a, 'wraith_doubt');
+    castOn(b, 'unweaver_mirror_ward');
+    out = bot.decide(sim.state);
+    expect(out).toContainEqual({ t: 'directive', kind: 'focus', target: b.id });
+  });
+
+  it('Wards a possession’s mark in its Perfect window, and holds a Ward a Mimic would copy', () => {
+    const sim = rift({ thread: null });
+    const w = worldOf(sim);
+    const lyra = w.entities.get(w.party[1]!)!;
+    w.telegraphs.push({
+      id: 3003,
+      owner: w.party[0]!,
+      target: lyra.id,
+      attackId: 'wraith_doubt',
+      name: 'Doubt',
+      kind: 'mark',
+      shape: { kind: 'mark', target: lyra.id },
+      start: w.time,
+      impact: w.time + 0.2,
+      perfectFrom: w.time - 0.15,
+      damage: 63,
+      pctMaxHp: 0,
+      effect: 'damage',
+      answers: ['focus', 'chime', 'ward'],
+      severity: 'normal',
+    });
+    // No Chime to spare: the Ward is the answer left.
+    w.entities.get(w.weaverId)!.weaver!.cooldowns.chime = 5;
+    expect(makeBot('skilled', 1).decide(sim.state)).toContainEqual({
+      t: 'tech',
+      id: 'ward',
+      slot: 1,
+    });
+    // A Mimic copying her Ward: the non-lethal mark isn't worth one.
+    const mimic = tough(sim, 'mimic', 0, -12);
+    const m = w.entities.get(mimic.id)!.enemy!;
+    m.mimic = { copy: 'ward' };
+    m.cast = {
+      attackId: 'mimic_mirror',
+      name: 'Mirror',
+      telegraph: null,
+      start: w.time,
+      end: w.time + 2,
+      interruptible: true,
+    };
+    const held = makeBot('skilled', 1).decide(sim.state);
+    expect(held.some((c) => c.t === 'tech' && c.id === 'ward')).toBe(false);
+  });
+
+  it('cracks a Mimic’s Ward copy with a Chime when nothing else wants it', () => {
+    const sim = rift({ thread: null });
+    const w = worldOf(sim);
+    w.entities.get(w.weaverId)!.weaver!.lastTechnique = 'ward';
+    expect(
+      makeBot('skilled', 1)
+        .decide(sim.state)
+        .some((c) => c.t === 'tech' && c.id === 'chime'),
+    ).toBe(false);
+    const mimic = tough(sim, 'mimic', 0, -12);
+    const m = w.entities.get(mimic.id)!.enemy!;
+    m.mimic = { copy: 'ward' };
+    m.cast = {
+      attackId: 'mimic_mirror',
+      name: 'Mirror',
+      telegraph: null,
+      start: w.time,
+      end: w.time + 2,
+      interruptible: true,
+    };
+    const out = makeBot('skilled', 1).decide(sim.state);
+    expect(out.some((c) => c.t === 'tech' && c.id === 'chime')).toBe(true);
+  });
+
+  it('Focuses a Silencing elite, and sends an idle party to a Void Maw out of its sight', () => {
+    const sim = rift({ thread: null });
+    const elite = tough(sim, 'hollow_chorister', 0, -10);
+    worldOf(sim).entities.get(elite.id)!.enemy!.affixes = ['silencing'];
+    expect(makeBot('skilled', 1).decide(sim.state)).toContainEqual({
+      t: 'directive',
+      kind: 'focus',
+      target: elite.id,
+    });
+    const far = rift({ thread: null });
+    const maw = tough(far, 'void_maw', 0, -19);
+    for (const id of far.state.party) worldOf(far).entities.get(id)!.hero!.targetId = null;
+    expect(makeBot('skilled', 1).decide(far.state)).toContainEqual({
+      t: 'directive',
+      kind: 'focus',
+      target: maw.id,
+    });
+  });
+
+  it('Mends instead of Empowering while a Mimic copies Empower', () => {
+    const sim = rift({ thread: 1 });
+    const w = worldOf(sim);
+    w.entities.get(w.weaverId)!.weaver!.threadMode = 'empower';
+    const plain = makeBot('skilled', 1).decide(sim.state);
+    expect(plain.some((c) => c.t === 'mode')).toBe(false);
+    const mimic = tough(sim, 'mimic', 0, -12);
+    const m = w.entities.get(mimic.id)!.enemy!;
+    m.mimic = { copy: 'empower' };
+    m.cast = {
+      attackId: 'mimic_mirror',
+      name: 'Mirror',
+      telegraph: null,
+      start: w.time,
+      end: w.time + 2,
+      interruptible: true,
+    };
+    const out = makeBot('skilled', 4).decide(sim.state);
+    expect(out).toContainEqual({ t: 'mode' });
+  });
+});
+
+describe('the Novice bot in Movement III', () => {
+  /** The Novice's commands over 10 s of a staged sandbox. */
+  const novice = (sim: Sandbox, seed = 5): Command[] => {
+    const bot = makeBot('novice', seed);
+    const out: Command[] = [];
+    for (let t = 0; t < 600; t++) {
+      const c = bot.decide(sim.state);
+      out.push(...c);
+      sim.step(c);
+      sim.drainEvents();
+    }
+    return out;
+  };
+
+  it('Chimes a possessed hero and Doom at 4+ now and then, and draws for them only then', () => {
+    for (const s of [
+      { id: 'possessed' as const, remaining: 60, duration: 60 },
+      { id: 'doom' as const, stacks: 4, remaining: 60, duration: 60 },
+    ]) {
+      const sim = rift({ thread: null });
+      stage(sim, 1, s);
+      expect(
+        novice(sim).some((c) => c.t === 'tech' && c.id === 'chime'),
+        s.id,
+      ).toBe(true);
+    }
+    expect(novice(rift({ thread: null })).some((c) => c.t === 'tech' && c.id === 'chime')).toBe(
+      false,
+    );
+  });
+
+  it('Empowers through Unravel now and then, and never without it', () => {
+    const sim = rift({ hp: 0.6, thread: null });
+    worldOf(sim).field.unravel = { until: 1e9, source: sim.state.party[0]!, acc: 0, tickIn: 0.5 };
+    expect(novice(sim)).toContainEqual({ t: 'mode' });
+    expect(novice(rift({ hp: 0.6, thread: null }))).not.toContainEqual({ t: 'mode' });
+  });
+
+  it('draws for a Null rune only once a cast of hers fizzles in it', () => {
+    // A rune on the field that she never stands in: not one extra draw, so not one change.
+    const a = novice(rift({ hp: 0.4, thread: null }), 9);
+    const far = rift({ hp: 0.4, thread: null });
+    zone(far, 'null', 15, 15, 3);
+    expect(novice(far, 9)).toEqual(a);
+    // One at her feet: her Wards fizzle, and before long she steps out of it.
+    const under = rift({ hp: 0.4, thread: null });
+    zone(under, 'null', 0, 0, 5);
+    novice(under, 9);
+    expect(weaverSilenced(under.state)).toBe(false);
+  });
+
+  it('Movement III encounter runs are deterministic', () => {
+    const a = playEncounter({ seed: 77, encounter: 'wraith_vigil', ...KIT3 }, 'novice');
+    const b = playEncounter({ seed: 77, encounter: 'wraith_vigil', ...KIT3 }, 'novice');
+    expect(b).toEqual(a);
+  });
+});
+
+describe('Movement III smoke guards (ARRIVAL3_KIT)', () => {
+  it('in play: each Unweaver Decree is answered ≥ 80% over 12 seeds (tools/decrees.ts)', () => {
+    const table = BOSS_TABLES.the_unweaver!;
+    const answered: Record<string, number> = {};
+    const occurrences: Record<string, number> = {};
+    for (let i = 0; i < 12; i++) {
+      const f = decreeFight('the_unweaver', 1000 + i * 7919, 'skilled');
+      for (const d of table.decrees) {
+        answered[d] = (answered[d] ?? 0) + f.answered[d]!;
+        occurrences[d] = (occurrences[d] ?? 0) + f.occurrences[d]!;
+      }
+    }
+    for (const d of table.decrees) {
+      expect(occurrences[d], d).toBeGreaterThan(0);
+      expect(answered[d]! / occurrences[d]!, d).toBeGreaterThanOrEqual(0.8);
+    }
+  }, 120_000);
+
+  it('the Skilled bot clears the Frayed Threshold', () => {
+    for (const seed of [1000, 8919]) {
+      const run = playEncounter({ seed, encounter: 'frayed_threshold', ...KIT3 }, 'skilled');
+      expect(run.outcome, `seed ${seed}`).toBe('victory');
+      expect(run.share).toBeGreaterThan(0.3);
+    }
+  });
+
+  it('an idle Weaver loses the Seamstress and the Unweaver', () => {
+    for (const encounter of ['the_seamstress', 'the_unweaver'])
+      for (const seed of [1000, 8919]) {
+        const run = playEncounter({ seed, encounter, ...KIT3 }, 'idle');
+        expect(run.outcome, `${encounter} ${seed}`).not.toBe('victory');
+      }
+  });
+
+  it('lists Movement III’s fights from content', () => {
+    expect(movementEncounters(3)).toEqual([
+      'frayed_threshold',
+      'maw_hollow',
+      'wraith_vigil',
+      'null_chapel',
+      'mirror_hall',
+      'frayed_court',
+      'the_seamstress',
+      'the_unweaver',
+    ]);
+  });
+
+  it('names every Movement III rule the ablation can leave off', () => {
+    expect(new Set(M3_RULES).size).toBe(M3_RULES.length);
+    // Leaving every rule off changes nothing before Movement III.
+    const config = { seed: 1000, encounter: 'crimson_gate', ...KIT };
+    const plain = new SkilledBot(1000);
+    const skipping = new SkilledBot(1000, {
+      every: 4,
+      attention: 1,
+      callReaction: 0.4,
+      skip: new Set(M3_RULES),
+    });
+    const a = createSim(config);
+    const b = createSim(config);
+    for (let t = 0; t < 60 * 20; t++) {
+      const ca = plain.decide(a.state);
+      const cb = skipping.decide(b.state);
+      expect(cb).toEqual(ca);
+      a.step(ca);
+      b.step(cb);
+      a.drainEvents();
+      b.drainEvents();
+    }
   });
 });

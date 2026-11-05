@@ -7,6 +7,13 @@
  *   npx tsx tools/expedition-baseline.ts --check   # compares with tools/expedition-baseline.json
  *   npx tsx tools/expedition-baseline.ts --write   # rewrites it (only when runs are meant to change)
  *
+ * The default is the I-II pin (movements 2), kept for good. `--movements 3` (docs/phase-5c.md,
+ * "Hand-off") plays the same seeds through Movement III to the Unweaver, kept in
+ * tools/expedition3-baseline.json once the slice is tuned (its `--write` is the slice's last
+ * step), as the Finale slice's guard.
+ *
+ *   npx tsx tools/expedition-baseline.ts --movements 3 --check
+ *
  * Summaries are compared on the fields the baseline holds, so fields the harness gains later
  * (a Brann party's Harmony record) don't count as drift.
  */
@@ -34,22 +41,22 @@ export function expeditionSeed(i: number): number {
   return 2000 + i * 104729;
 }
 
-/** One baseline run, as the harness plays it. */
-export function expeditionRun(bot: BotKind, i: number): RunSummary {
+/** One baseline run, as the harness plays it: an Expedition through `movements` (2, I-II). */
+export function expeditionRun(bot: BotKind, i: number, movements = 2): RunSummary {
   return playRun(
     expeditionSeed(i),
     bot,
     EXPEDITION_CHORDS.map((c) => ({ auras: [...c.auras], ornaments: [...c.ornaments] })),
-    { relics: true, movements: 2 },
+    { relics: true, movements },
   );
 }
 
 /** Plays the table: every bot, `seeds` runs each, in that order. */
-export function expeditionBaseline(seeds = EXPEDITION_SEEDS): ExpeditionBaseline {
+export function expeditionBaseline(seeds = EXPEDITION_SEEDS, movements = 2): ExpeditionBaseline {
   const runs: RunSummary[] = [];
   for (const bot of EXPEDITION_BOTS)
-    for (let i = 0; i < seeds; i++) runs.push(expeditionRun(bot, i));
-  return { movements: 2, seeds, runs };
+    for (let i = 0; i < seeds; i++) runs.push(expeditionRun(bot, i, movements));
+  return { movements, seeds, runs };
 }
 
 /** `run` cut down to the keys `kept` has, in `kept`'s key order. */
@@ -58,16 +65,30 @@ export function projectRun(run: RunSummary, kept: RunSummary | undefined): RunSu
   return Object.fromEntries(keys.map((k) => [k, run[k]])) as unknown as RunSummary;
 }
 
-const path = fileURLToPath(new URL('./expedition-baseline.json', import.meta.url));
+/** The baseline's file: the I-II pin, or `expedition<N>-baseline.json` for a longer route. */
+function baselinePath(movements = 2): string {
+  const name =
+    movements === 2 ? 'expedition-baseline.json' : `expedition${movements}-baseline.json`;
+  return fileURLToPath(new URL(`./${name}`, import.meta.url));
+}
 
-/** The committed baseline. */
-export function keptExpeditionBaseline(): ExpeditionBaseline {
-  return JSON.parse(readFileSync(path, 'utf8')) as ExpeditionBaseline;
+/** The committed baseline (the I-II pin unless `movements` says otherwise). */
+export function keptExpeditionBaseline(movements = 2): ExpeditionBaseline {
+  return JSON.parse(readFileSync(baselinePath(movements), 'utf8')) as ExpeditionBaseline;
+}
+
+function movementsArg(): number {
+  const i = process.argv.indexOf('--movements');
+  const n = i >= 0 ? Number(process.argv[i + 1]) : 2;
+  if (!Number.isInteger(n) || n < 2) throw new Error(`An Expedition is 2 Movements or more: ${n}`);
+  return n;
 }
 
 function main(): void {
   const t0 = Date.now();
-  const fresh = expeditionBaseline();
+  const movements = movementsArg();
+  const path = baselinePath(movements);
+  const fresh = expeditionBaseline(EXPEDITION_SEEDS, movements);
   if (process.argv.includes('--write')) {
     writeFileSync(path, JSON.stringify(fresh, null, 1) + '\n');
     console.log(`Wrote ${path} (${fresh.runs.length} Expeditions, ${Date.now() - t0} ms).`);
@@ -77,7 +98,7 @@ function main(): void {
     console.error(`${path} is missing: run with --write first.`);
     process.exit(1);
   }
-  const kept = keptExpeditionBaseline();
+  const kept = keptExpeditionBaseline(movements);
   const projected: ExpeditionBaseline = {
     ...fresh,
     runs: fresh.runs.map((r, i) => projectRun(r, kept.runs[i])),

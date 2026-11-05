@@ -155,6 +155,19 @@ export function bossPhaseTable(defId: string): { at: number; name?: string }[] {
 }
 
 /**
+ * The Decree of `defId`'s phase index `phase` (counting from 0) with its answers, or null if it
+ * has none. Pure data, for a script that announces a phase's Decree again (docs/phase-5c.md).
+ */
+export function phaseDecree(
+  defId: string,
+  phase: number,
+): { name: string; text: string; answers: AnswerTag[] } | null {
+  const p = PHASES[defId]?.[phase];
+  if (!p?.decree) return null;
+  return { ...p.decree, answers: p.answers ? [...p.answers] : ['stack', 'move'] };
+}
+
+/**
  * The phase's rules for `defId` at phase index `phase` (null for bosses without any, and for
  * every Movement I boss). Pure data: safe to import from enemies.ts despite the module cycle.
  */
@@ -204,6 +217,9 @@ export function updateBosses(world: World): void {
 
   // The Sanctuary pools drift whatever Vharun is doing (Stasis freezes them: no update then).
   if (world.field.sanctuary) driftPools(world);
+  // A new boss's clocks that run whatever it is doing (docs/phase-5c.md): after every legacy
+  // branch above; the lookup misses for every legacy boss.
+  bossScript(c.defId)?.update?.(world, boss);
 
   if (world.time < state.phaseShiftUntil || c.cast) return;
 

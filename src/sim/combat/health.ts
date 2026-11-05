@@ -31,6 +31,7 @@ import { gainResonance } from './resonance';
 import { recordSave } from './saves';
 import { hasTalent, soloValue, talentFired, talentHolder, talentValue } from '../bonds';
 import { variantGuard, variantValue } from '../variants';
+import { suppressRadiusOf, weaverSilenced } from '../rules3';
 import {
   afterBloodDamage,
   deathlessActive,
@@ -98,9 +99,14 @@ export function getStatus(e: Entity, id: StatusId): Status | undefined {
   return undefined;
 }
 
-/** Can't act: stunned, staggered or asleep. */
+/** Can't act: stunned, staggered or asleep; or (Movement III) possessed. */
 export function isDisabled(e: Entity): boolean {
-  return hasStatus(e, 'stun') || hasStatus(e, 'stagger') || hasStatus(e, 'sleep');
+  return (
+    hasStatus(e, 'stun') ||
+    hasStatus(e, 'stagger') ||
+    hasStatus(e, 'sleep') ||
+    hasStatus(e, 'possessed')
+  );
 }
 
 export function totalShield(h: Health): number {
@@ -294,6 +300,12 @@ export const DOT_ANSWERS: Readonly<Partial<Record<StatusId, readonly AnswerTag[]
   bleed: ['chime'],
   pinned: ['reel'],
   latched: ['reel', 'chime'],
+  // Movement III (docs/phase-5c.md). `possessed`: a down at a possessed hero's hands.
+  doom: ['chime', 'ward'],
+  doomed: ['chime', 'ward'],
+  voided: ['stack', 'reel', 'move'],
+  unravelled: ['empower'],
+  possessed: ['chime', 'focus'],
 };
 
 /**
@@ -311,6 +323,10 @@ export function applyStatusPayload(
 ): boolean {
   // A pin roots a hero (docs/phase-5a.md: heroes only); the Weaver and enemies take the hit alone.
   if (payload.id === 'pinned' && !target.hero) return false;
+  // Movement III (docs/phase-5c.md): Doom (a payload with a `burst`) stacks on heroes only, so
+  // the Weaver is never Doomed; and only a hero can be possessed.
+  if (payload.burst && !target.hero) return false;
+  if (payload.id === 'possessed') return possess(world, target, payload, source);
   const stacking = payload.stacks !== undefined || payload.maxStacks !== undefined;
   const ticking = payload.dps !== undefined || payload.pctPerSec !== undefined;
   // Today's statuses (a Dirge's silence): exactly as before.
@@ -357,7 +373,62 @@ export function applyStatusPayload(
     duration,
     ...(stacking ? { stacks: status.stacks } : {}),
   });
+  // Doom (Movement III): at its `burst.at` stacks it clears and ignites its mark on the hero,
+  // owned by the source that stacked it. Nothing lands within this hit.
+  if (payload.burst && status.stacks >= payload.burst.at) ignite(world, target, payload, source);
   return true;
+}
+
+/**
+ * A full Doom ignites (docs/phase-5c.md Q7): the stacks clear and its burst attack starts as a
+ * mark on the hero (`startPayloadMark`, owned by the living source). While that hero still
+ * carries an earlier burst's mark the stacks hold at the cap instead: never a second burst.
+ */
+function ignite(
+  world: World,
+  target: Entity,
+  payload: StatusPayload,
+  source: EntityId | null,
+): void {
+  const owner = source === null ? undefined : world.entities.get(source);
+  const burst = payload.burst!.attack;
+  if (!startPayloadMark || !isActive(owner) || !owner.enemy) return;
+  if (!startPayloadMark(world, owner, target, burst, true)) return;
+  removeStatus(world, target, payload.id, 'detonated');
+  startPayloadMark(world, owner, target, burst, false);
+}
+
+/**
+ * Possession (docs/phase-5c.md Q6): a plain status on a hero (`addStatus`, so Chime's immunity
+ * blocks it), striking an ally on its own `tickIn` clock (statuses.ts). Heroes only.
+ */
+function possess(
+  world: World,
+  target: Entity,
+  payload: StatusPayload,
+  source: EntityId | null,
+): boolean {
+  if (!target.hero || !addStatus(world, target, payload.id, payload.duration, source)) return false;
+  const status = getStatus(target, payload.id)!;
+  status.tickIn ??= DOT_TICK;
+  world.events.push({ type: 'possessed', tick: world.tick, hero: target.id, source });
+  return true;
+}
+
+/**
+ * Starts a payload's burst mark (enemies.ts `startPayloadMark`), installed by the enemy system
+ * to avoid an import cycle. With `check`, it only says whether it could start one now.
+ */
+type PayloadMarkStarter = (
+  world: World,
+  owner: Entity,
+  target: Entity,
+  attack: string,
+  check: boolean,
+) => boolean;
+let startPayloadMark: PayloadMarkStarter | null = null;
+export function setStartPayloadMark(fn: PayloadMarkStarter): void {
+  startPayloadMark = fn;
 }
 
 /**
@@ -674,8 +745,10 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
       amount *= 1 + talentValue(world, 'hunters_mark', 'pct') / 100;
     if (target.enemy.markedUntil > world.time)
       amount *= 1 + soloValue(world, 'hawks_vigil', 'pct') / 100;
+    // Warden's Key: on the Mutes, and (Movement III) the Silencing elites that carry their field.
     let mult =
-      world.mods.partyDamageMult * (target.enemy.defId === 'mute' ? world.mods.muteDamageMult : 1);
+      world.mods.partyDamageMult *
+      (suppressRadiusOf(world, target) > 0 ? world.mods.muteDamageMult : 1);
     // The Astrolabe's Anthem and Shield Bearer: heroes in a field, or under a Ward, hit harder.
     if (world.mods.inFieldDamage > 0 && source.hero.inField) mult *= 1 + world.mods.inFieldDamage;
     if (world.mods.wardedDamage > 0 && source.health && shieldOf(source.health, 'ward'))
@@ -697,6 +770,9 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
   // A guard arc (docs/phase-5a.md P6): a hero's hit from in front of it mostly glances off; an
   // Empowered Piercing Shot breaks it. After `amountIn`, so every share is of what landed.
   if (source?.hero && target.enemy?.guard) amount *= guardMult(world, target, source, opts);
+  // Spindles (Movement III, docs/phase-5c.md Q11): a tethered boss takes less from heroes.
+  if (source?.hero && target.enemy?.tethered !== undefined && target.enemy.tethered > 0)
+    amount *= tetherMult(world, target, source);
   // Blood Pact (P5): a hero it links takes more of everything while it lasts.
   if (target.hero && hasStatus(target, 'pact')) amount *= PACT_MULT;
   // Scarred Hide (the Martyr): the Weaver takes less while she Bears someone.
@@ -762,7 +838,7 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
     for (let i = 0; i < h.shields.length && amount > 0;) {
       const s = h.shields[i]!;
       // Shatterproof Halo (the Astrolabe): a Ward takes the whole hit, and loses at most a share
-      // of its full barrier to it.
+      // of its full barrier to it. Never a Mimic's `mirror` copy of one (Movement III).
       const halo = s.kind === 'ward' && world.mods.wardHitCap > 0;
       const take = halo ? amount : Math.min(s.amount, amount);
       s.amount -= halo ? Math.min(s.amount, take, s.max * world.mods.wardHitCap) : take;
@@ -839,6 +915,15 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
       martyred = true;
       saved = true;
     } else if (unbreakable(world, target)) dealt = Math.max(0, h.hp - 1);
+    // Sacrificial Lamb (a Movement III relic): once a fight, the healthiest other hero takes it.
+    else if (
+      world.mods.sacrificialLamb > 0 &&
+      !world.internal.lambUsed &&
+      lamb(world, target, amount, opts)
+    ) {
+      dealt = 0;
+      saved = true;
+    }
   }
   if (target.weaver?.undying && dealt >= h.hp && dealt > 0) {
     dealt = Math.max(0, h.hp - 1);
@@ -1017,6 +1102,54 @@ function guardMult(world: World, target: Entity, source: Entity, opts: DamageOpt
     });
   }
   return def.frontMult;
+}
+
+/**
+ * A tethered boss's damage taken from heroes (docs/phase-5c.md Q11): × (1 − the Spindles' `dr`),
+ * the largest of its standing tethered adds', with a grey "Spindled" at most every half second.
+ */
+function tetherMult(world: World, target: Entity, source: Entity): number {
+  let dr = 0;
+  for (const m of world.entities.list()) {
+    if (!m.enemy || !m.health || m.health.dead) continue;
+    const tether = enemyDef(m.enemy.defId).tether;
+    if (tether && tether.dr > dr) dr = tether.dr;
+  }
+  if (dr <= 0) return 1;
+  const last = spindledAt.get(target);
+  if (last === undefined || world.time - last >= GUARD_BLOCKED_GAP) {
+    spindledAt.set(target, world.time);
+    world.events.push({ type: 'spindled', tick: world.tick, enemy: target.id, source: source.id });
+  }
+  return 1 - dr;
+}
+
+/**
+ * When each tethered boss last showed "Spindled": the floater's rate limit. It decides only an
+ * event, never state, so it lives beside the entity (unhashed) rather than on it.
+ */
+const spindledAt = new WeakMap<Entity, number>();
+
+/**
+ * Sacrificial Lamb (docs/phase-5c.md): the lethal hit goes to the healthiest other standing hero
+ * (the most life; ties to the lower slot), once a fight. False when there is no one to take it.
+ * Like Martyr's Veil, it passes on only what got through: `amount` is the hit after the target's
+ * own armour, guards and shields, which this very blow has already spent. Redirecting the raw
+ * hit would make it be paid twice (the target's Ward gone, and the whole blow on the other).
+ */
+function lamb(world: World, target: Entity, amount: number, opts: DamageOpts): boolean {
+  let other: (Entity & { health: Health }) | null = null;
+  for (const id of world.party) {
+    const e = world.entities.get(id);
+    if (!isActive(e) || e === target || !e.hero || e.health.invulnerable > 0) continue;
+    if (other === null || e.health.hp > other.health.hp) other = e;
+  }
+  if (!other) return false;
+  world.internal.lambUsed = true;
+  // (No `relicTriggered` yet: its sound and floater come with Movement III's audio and UI.)
+  recordSave(world, target, 'other', amount, opts.sourceName);
+  dealDamage(world, other, { ...opts, amount, oath: true });
+  return true;
 }
 
 /** The Weaver's Thread is on this hero. */
@@ -1352,7 +1485,8 @@ function downHero(
   world.ledger.downs++;
   const weaver = world.entities.get(world.weaverId)?.weaver;
   const ready: ('ward' | 'chime' | 'reel' | 'glide')[] = [];
-  if (weaver) {
+  // Inside a Null rune (Movement III) her Ward, Chime and Reel are refused: none was ready.
+  if (weaver && !weaverSilenced(world)) {
     // What she could have cast: the tree's costs and Life included, as `spend` would take them.
     const content = world.content;
     if (weaver.wardCharges > 0 && canPay(world, 'ward', content)) ready.push('ward');
@@ -1460,6 +1594,7 @@ function restlessRise(world: World, e: Entity): boolean {
   h.hp = Math.max(1, Math.round((h.maxHp * pct) / 100));
   h.statuses = [];
   enemy.cast = null;
+  if (enemy.mimic) delete enemy.mimic;
   enemy.state = 'spawning';
   enemy.stateTime = 0;
   dropTelegraphs(world, e);
@@ -1490,9 +1625,11 @@ export function releaseLink(
   pending: readonly Telegraph[] = [],
 ): void {
   if (t.shape.kind !== 'link') return;
-  const pact = t.linkStatus === 'pact';
-  if (!pact && reason === 'expired') return;
-  const status: StatusId = pact ? 'pact' : 'resound';
+  // Movement III's Stitch (docs/phase-5c.md Q8) comes off both heroes either way, as Resound does
+  // when it detonates.
+  const status: StatusId = t.linkStatus ?? 'resound';
+  const pact = status === 'pact';
+  if (status === 'resound' && reason === 'expired') return;
   for (const id of [t.shape.a, t.shape.b]) {
     const e = world.entities.get(id);
     if (!e || !hasStatus(e, status)) continue;
@@ -1657,6 +1794,8 @@ export function interruptEnemy(world: World, e: Entity, by: EntityId | null): bo
   if (!enemy?.cast || !enemy.cast.interruptible) return false;
   const cast = enemy.cast;
   enemy.cast = null;
+  // A Mimic's copy (Movement III) goes with its cast.
+  if (enemy.mimic) delete enemy.mimic;
   enemy.state = 'recover';
   enemy.stateTime = 0;
   if (cast.telegraph !== null) {

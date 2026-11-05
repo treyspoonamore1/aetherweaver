@@ -5,15 +5,17 @@
  *   npx tsx tools/relics.ts --seeds 20
  *   npx tsx tools/relics.ts --seeds 20 --bots novice --encounters bellwarden,hollow_cantor
  *   npx tsx tools/relics.ts --movement 2 --seeds 20   # Movement II's hard fights, arrival kit
+ *   npx tsx tools/relics.ts --movement 3 --seeds 20   # Movement III's, ARRIVAL3_KIT's motifs
  *
  * Movement II (docs/phase-5a.md) plays its elites, the Matriarch and Vharun with the arrival
- * kit's motifs (tools/kits.ts) but none of its relics, so each row is that relic alone.
+ * kit's motifs (tools/kits.ts) but none of its relics, so each row is that relic alone; Movement
+ * III (docs/phase-5c.md) its elite, the Seamstress and the Unweaver with ARRIVAL3_KIT's motifs.
  */
 import type { BotKind } from '../src/bots';
 import { CONTENT, movementDef } from '../src/content';
 import { DEFAULT_CHORDS } from '../src/meta/run';
 import { playEncounter } from './harness-core';
-import { ARRIVAL_KIT } from './kits';
+import { kitFor } from './kits';
 
 const argv = process.argv.slice(2);
 const get = (name: string) => {
@@ -29,8 +31,8 @@ function hardFights(n: number): string[] {
   return [...def.elites, def.miniboss, def.boss];
 }
 const encounters = (get('encounters') ?? hardFights(movement).join(',')).split(',');
-/** Movement II's party arrives with motifs (the arrival kit's); Movement I's cells are bare. */
-const motifs = movement >= 2 ? { motifs: ARRIVAL_KIT.motifs.map((m) => ({ ...m })) } : {};
+/** A later Movement's party arrives with motifs (its kit's); Movement I's cells are bare. */
+const motifs = movement >= 2 ? { motifs: kitFor(movement).motifs.map((m) => ({ ...m })) } : {};
 const relics = CONTENT.relics.filter((r) => !r.runOnly).map((r) => r.id);
 
 interface Cell {

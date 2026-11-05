@@ -39,6 +39,7 @@ import { updateStatuses } from './systems/statuses';
 import { updateChimes, updateEchoWards } from './systems/techniques';
 import { updateThread } from './systems/thread';
 import { updateWeaver } from './systems/weaver';
+import { updateZones } from './systems/zones';
 import { createWorld, type ResolvedSimConfig, type SimConfig, type World } from './world';
 
 export type {
@@ -95,6 +96,8 @@ function stepWorld(world: World, commands: readonly Command[]): void {
   if (!stasis) {
     updateEnemies(world, dt);
     updateBosses(world);
+    // Movement III's timed zones (docs/phase-5c.md Q4): absent elsewhere, so it returns at once.
+    updateZones(world, dt);
   }
   updateDummies(world, dt);
   updatePendingHits(world);

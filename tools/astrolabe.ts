@@ -9,6 +9,8 @@
  *   npx tsx tools/astrolabe.ts --threat 1.15                  trees against enemies with 15% more life
  *   npx tsx tools/astrolabe.ts --movement 2 --fights          Movement II's hard fights (arrival kit)
  *   npx tsx tools/astrolabe.ts --movement 2                   whole Expeditions
+ *   npx tsx tools/astrolabe.ts --movement 3 --fights          Movement III's hard fights (ARRIVAL3_KIT)
+ *   npx tsx tools/astrolabe.ts --movement 3                   whole I-III Expeditions
  *
  * Fights report the win rate and the Weaver's output (healing, shielding, negation and
  * amplification from the ledger), per fight and per second; runs report the win rate. With
@@ -20,7 +22,7 @@ import { allocate, astrolabeProblems } from '../src/meta/astrolabe';
 import { CHORD_PRESETS } from '../src/meta/run';
 import { createSim } from '../src/sim';
 import { playRun } from './harness-core';
-import { ARRIVAL_KIT } from './kits';
+import { kitFor } from './kits';
 
 const POINTS = 19;
 
@@ -121,7 +123,10 @@ export const TREES: Readonly<Record<string, readonly string[]>> = {
   ],
 };
 
-/** Each Movement's hard fights (Movement II's are played with the arrival kit's motifs and relics). */
+/**
+ * Each Movement's hard fights (Movement II's are played with the arrival kit's motifs and relics,
+ * Movement III's with ARRIVAL3_KIT's).
+ */
 const HARD_FIGHTS: Readonly<Record<number, readonly string[]>> = {
   1: [
     'tolling_halls',
@@ -132,6 +137,14 @@ const HARD_FIGHTS: Readonly<Record<number, readonly string[]>> = {
     'hollow_cantor',
   ],
   2: ['red_muster', 'leech_warren', 'shield_wall', 'blood_forge', 'gorehound_matriarch', 'vharun'],
+  3: [
+    'wraith_vigil',
+    'null_chapel',
+    'mirror_hall',
+    'frayed_court',
+    'the_seamstress',
+    'the_unweaver',
+  ],
 };
 const MAX_SECONDS = 9 * 60;
 
@@ -145,9 +158,10 @@ function main(): void {
   const movement = Number(get('movement') ?? 1);
   const fights = HARD_FIGHTS[movement];
   if (!fights) throw new Error(`No hard fights for Movement ${movement}`);
+  const arrival = kitFor(movement);
   const kit =
     movement >= 2
-      ? { motifs: ARRIVAL_KIT.motifs.map((m) => ({ ...m })), relics: [...ARRIVAL_KIT.relics] }
+      ? { motifs: arrival.motifs.map((m) => ({ ...m })), relics: [...arrival.relics] }
       : {};
   const loadout = CHORD_PRESETS.find((p) => p.id === (get('loadout') ?? 'guardian'));
   if (!loadout) throw new Error(`Unknown loadout (${CHORD_PRESETS.map((p) => p.id)})`);
@@ -167,7 +181,7 @@ function main(): void {
 
   if (argv.includes('--fights')) {
     console.log(
-      `astrolabe fights · loadout ${loadout.name}${movement >= 2 ? ` · Movement ${movement}, ${ARRIVAL_KIT.name}` : ''} · ${fights.length} fights × ${seeds} seeds`,
+      `astrolabe fights · loadout ${loadout.name}${movement >= 2 ? ` · Movement ${movement}, ${arrival.name}` : ''} · ${fights.length} fights × ${seeds} seeds`,
     );
     for (const bot of bots) {
       const fight = (astrolabe: readonly string[]) => {

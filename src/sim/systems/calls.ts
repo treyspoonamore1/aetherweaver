@@ -12,6 +12,7 @@ import { distSq } from '../core/dmath';
 import { pushMarker } from '../combat/feedback';
 import { hasStatus, isActive, isDisabled } from '../combat/health';
 import { gainResonance } from '../combat/resonance';
+import { weaverSilenced } from '../rules3';
 import type { CallAnswer, Entity } from '../state';
 import { weaverOf, type World } from '../world';
 import { hasTalent, talentValue } from '../bonds';
@@ -64,6 +65,9 @@ export function canCall(world: World, e: Entity, def: HeroDef): boolean {
   const regen = (w.maxSpirit - w.reservedSpirit) * world.content.weaver.spiritRegenPct;
   const spiritBy = (cost: number) => w.spirit + regen * world.mods.spiritRegenMult * t >= cost;
   const tech = world.content.techniques;
+  // Inside a Null Priest's rune (docs/phase-5c.md) she can't Ward or Chime: don't ask. (An Empower
+  // call already waits on the Thread's lock.)
+  if (def.call.answer !== 'empower' && weaverSilenced(world)) return false;
   switch (def.call.answer) {
     case 'ward':
       return (
@@ -173,7 +177,8 @@ export function tendCall(world: World, e: Entity, empowered: boolean): void {
     !isActive(e) ||
     isDisabled(e) ||
     hasStatus(e, 'silence') ||
-    world.encounter.status !== 'fighting'
+    world.encounter.status !== 'fighting' ||
+    hasStatus(e, 'possessed')
   ) {
     endCall(world, e, 'cancelled');
     return;

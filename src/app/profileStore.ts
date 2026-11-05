@@ -184,7 +184,8 @@ export interface ProfileStore {
   expeditionOpen(): boolean;
   /**
    * How many Movements a new run plays: `mode` if asked for and open; else the last route, but
-   * the first run, and every run before Expeditions open, is the Prelude.
+   * the first run, and every run before Expeditions open, is the Prelude (1). An Expedition is
+   * EXPEDITION_MOVEMENTS, every Movement in content (docs/phase-5c.md).
    */
   routeMovements(mode?: RunMode): number;
   /** Prep's Route toggle: the route the next runs start from (kept while Expeditions are open). */

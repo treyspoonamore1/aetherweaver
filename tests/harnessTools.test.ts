@@ -1,10 +1,21 @@
 import { describe, expect, it } from 'vitest';
-import { BrannWatch, playEncounter, playRun, VerbTally } from '../tools/harness-core';
+import {
+  BrannWatch,
+  MAX_PHASES,
+  playEncounter,
+  playRun,
+  VERB_TALLY3_KEYS,
+  VerbTally,
+} from '../tools/harness-core';
 import { ExtraWatch } from '../tools/brann-bands';
-import { band, NAMED_PARTIES, parseArgs, partyArg } from '../tools/harness';
-import { ARRIVAL_KIT, kitConfig } from '../tools/kits';
+import { decreeFight } from '../tools/decrees';
+import { makeBot, type Bot } from '../src/bots';
+import { band, NAMED_PARTIES, parseArgs, partyArg, runBand } from '../tools/harness';
+import { ARRIVAL3_KIT, ARRIVAL_KIT, defaultKit, kitConfig } from '../tools/kits';
 import { SCENARIO_HOUND_PACK } from '../tools/scenarios';
 import { CONTENT } from '../src/content';
+import * as Run from '../src/meta/run';
+import type { RunState } from '../src/meta/types';
 import { createSim, type SimEvent } from '../src/sim';
 import { sandbox, worldOf } from './sim/helpers';
 
@@ -166,6 +177,194 @@ describe('whole runs (playRun)', () => {
     expect(prelude.movementReached).toBe(1);
     expect(prelude.minutesByMovement.length).toBe(1);
     // Two whole runs: about 3 s alone, past vitest's 5 s default on a loaded machine.
+  }, 60_000);
+});
+
+// ── Movement III (docs/phase-5c.md, "Harness") ───────────────────────────────────────
+
+describe('whole runs through Movement III (playRun)', () => {
+  /** Skilled seed 2000 wins its I-II Expedition (tools/expedition-baseline.ts's first run). */
+  const SEED = 2000;
+
+  it('plays a I-III Expedition to the Unweaver, its minutes in 3 Movements, well inside MAX_PHASES', () => {
+    let phases = 0;
+    const run = playRun(SEED, 'skilled', undefined, { movements: 3, onPhase: () => phases++ });
+    expect(run.movementReached).toBe(3);
+    expect(run.minutesByMovement.length).toBe(3);
+    expect(run.minutesByMovement[2]!).toBeGreaterThan(0);
+    expect(run.lastEncounter).toBe('the_unweaver');
+    // About 85-95 phases for three Movements: the 240 cap has room to spare (docs/phase-5c.md).
+    expect(phases).toBeGreaterThan(60);
+    expect(phases).toBeLessThan(MAX_PHASES / 2);
+  }, 120_000);
+
+  it('reaches Movement III exactly where the I-II run won: the same results through Vharun', () => {
+    for (const bot of ['skilled', 'novice'] as const)
+      for (const seed of [SEED, SEED + 104729]) {
+        let two: RunState | null = null;
+        let three: RunState | null = null;
+        const r2 = playRun(seed, bot, undefined, { movements: 2, onEnd: (r) => (two = r) });
+        const r3 = playRun(seed, bot, undefined, { movements: 3, onEnd: (r) => (three = r) });
+        const a = (two as RunState | null)!.results;
+        const b = (three as RunState | null)!.results;
+        if (r2.outcome !== 'victory') {
+          // A lost I-II run is lost the same way on the longer route.
+          expect(r3.outcome, `${bot} ${seed}`).toBe('defeat');
+          expect(r3.lastEncounter, `${bot} ${seed}`).toBe(r2.lastEncounter);
+          expect(b, `${bot} ${seed}`).toEqual(a);
+          continue;
+        }
+        expect(r3.movementReached, `${bot} ${seed}`).toBe(3);
+        expect(b.slice(0, a.length - 1), `${bot} ${seed}`).toEqual(a.slice(0, -1));
+        // Vharun's own result: the same fight, only its reward and the run's end differ.
+        const strip = ({ xp, aether, starlight, wonRun, ...rest }: (typeof a)[number]) => {
+          void xp;
+          void aether;
+          void starlight;
+          void wonRun;
+          return rest;
+        };
+        expect(strip(b[a.length - 1]!), `${bot} ${seed}`).toEqual(strip(a.at(-1)!));
+        expect(a.at(-1)!.wonRun).toBe(true);
+        expect(b[a.length - 1]!.wonRun).toBe(false);
+      }
+  }, 240_000);
+
+  it('resumes a run recorded at its arrival in Movement III as a real arrival (opts.start)', () => {
+    let start: RunState | null = null;
+    const full = playRun(SEED, 'skilled', undefined, {
+      movements: 3,
+      onPhase: (_phase, run) => {
+        if (!start && Run.movementOf(run) === 3) start = run;
+      },
+    });
+    expect(start).not.toBeNull();
+    const resumed = playRun(SEED, 'skilled', undefined, { start: start! });
+    expect(resumed.outcome).toBe(full.outcome);
+    expect(resumed.lastEncounter).toBe(full.lastEncounter);
+    expect(resumed.fights).toBe(full.fights);
+    expect(resumed.minutesByMovement.length).toBe(3);
+    expect(resumed.minutesByMovement[2]!).toBeCloseTo(full.minutesByMovement[2]!, 9);
+  }, 120_000);
+});
+
+describe('the Movement III verbs (VerbTally3)', () => {
+  it('tallies only a Movement III fight, with its keys in order', () => {
+    const m2 = playEncounter(
+      { seed: 1000, encounter: 'crimson_gate', ...kitConfig(ARRIVAL_KIT) },
+      'skilled',
+    );
+    expect('m3' in m2).toBe(false);
+    const kit3 = kitConfig(ARRIVAL3_KIT);
+    const run = playEncounter({ seed: 1000, encounter: 'frayed_threshold', ...kit3 }, 'skilled');
+    expect(Object.keys(run.m3!)).toEqual([...VERB_TALLY3_KEYS]);
+    expect(Object.keys(run.m3!.threadCuts)).toEqual(['shears', 'severing', 'snip', 'unpick']);
+    expect(Object.keys(run.m3!.cutResults)).toEqual(['cut', 'held', 'strand', 'none']);
+    expect(Object.keys(run.m3!.mimicCopies)).toEqual(['empower', 'ward', 'chime']);
+    // The Shears dash on the opening: every dash gets its verdict.
+    const verdicts = Object.values(run.m3!.cutResults).reduce((s, n) => s + n, 0);
+    expect(verdicts).toBeGreaterThan(0);
+    expect(run.m3!.spindleUptime).toBeNull();
+  }, 60_000);
+
+  it('reads the Unweaver: Snip cuts, Spindles, a stolen verse', () => {
+    const run = playEncounter(
+      { seed: 1000, encounter: 'the_unweaver', ...kitConfig(ARRIVAL3_KIT) },
+      'skilled',
+    );
+    const m3 = run.m3!;
+    expect(m3.cutResults.cut + m3.cutResults.held + m3.cutResults.strand).toBeGreaterThan(0);
+    expect(m3.spindleUptime).not.toBeNull();
+    expect(m3.spindleUptime!).toBeGreaterThan(0);
+    expect(m3.spindleUptime!).toBeLessThan(1);
+  }, 60_000);
+
+  it('keeps a possessed hero’s blows on an ally out of the share and the party’s damage', () => {
+    const sim = sandbox();
+    const w = worldOf(sim);
+    const kael = w.entities.get(w.party[0]!)!;
+    const lyra = w.entities.get(w.party[1]!)!;
+    Object.assign(kael, { x: 0, z: 0 });
+    Object.assign(lyra, { x: 2, z: 0 });
+    kael.health!.statuses.push({
+      id: 'possessed',
+      remaining: 3,
+      duration: 3,
+      stacks: 1,
+      source: null,
+      tickIn: 0.5,
+    });
+    const before = lyra.health!.hp;
+    for (let t = 0; t < 120; t++) {
+      Object.assign(kael, { x: 0, z: 0 });
+      Object.assign(lyra, { x: 2, z: 0 });
+      sim.step([]);
+      sim.drainEvents();
+    }
+    // Lyra took Kael's blows; none of it is the party's damage, so the share can't count it.
+    expect(lyra.health!.hp).toBeLessThan(before);
+    expect(sim.state.ledger.partyDamage).toBe(0);
+  });
+});
+
+describe('the harness’s Movement III tables', () => {
+  it('plays Movement III’s cells on ARRIVAL3_KIT, and prints their bands', () => {
+    expect(defaultKit(1)).toBe('bare');
+    expect(defaultKit(2)).toBe('arrival');
+    expect(defaultKit(3)).toBe('arrival3');
+    expect(parseArgs(['--movement', '3']).kit).toBe(ARRIVAL3_KIT);
+    // ARRIVAL3_KIT is the arrival kit and more: 10 motifs, 6 relics.
+    expect(ARRIVAL3_KIT.motifs.slice(0, ARRIVAL_KIT.motifs.length)).toEqual(ARRIVAL_KIT.motifs);
+    expect(ARRIVAL3_KIT.motifs.length).toBe(10);
+    expect(ARRIVAL3_KIT.relics.length).toBe(6);
+    for (const m of ARRIVAL3_KIT.motifs)
+      expect(
+        CONTENT.motifs.some((d) => d.id === m.id),
+        m.id,
+      ).toBe(true);
+    for (const r of ARRIVAL3_KIT.relics)
+      expect(
+        CONTENT.relics.some((d) => d.id === r),
+        r,
+      ).toBe(true);
+    // Movement II's rows exactly as before; Movement III's its own.
+    expect(band('crimson_gate', 'skilled')).toBe('≥85% · share ≥35% · 35-60 s');
+    expect(band('vharun', 'novice')).toBe('35-65%');
+    expect(band('frayed_threshold', 'skilled')).toBe('≥85% · share ≥35% · 40-65 s');
+    expect(band('the_unweaver', 'skilled')).toBe('≥80% · share ≥30% · 180-280 s');
+    expect(band('the_seamstress', 'novice')).toBe('30-60%');
+    expect(band('the_unweaver', 'skilled', NAMED_PARTIES.B)).toContain('default − 15');
+    expect(band('the_unweaver', 'skilled', NAMED_PARTIES.A)).toContain('default − 5');
+    expect(runBand(2, 'skilled')).toBe('');
+    expect(runBand(3, 'skilled')).toContain('won ÷ reached III');
+  });
+});
+
+describe('the Decree gate (tools/decrees.ts)', () => {
+  it('judges the Unpick’s re-thread: its lock comes from the snap reported before its verdict', () => {
+    // resolveCut reports the Unpick's threadSnapped (with its lock) before its cutResolved: the
+    // gate once read the lock onto the previous Unpick, so every cut was judged 'no cut'.
+    const f = decreeFight('the_seamstress', 1000, 'skilled');
+    const cuts = f.unpicks!.filter((u) => u.lockEnd !== null);
+    expect(cuts.length).toBeGreaterThan(0);
+    for (const u of cuts) expect(u.lockEnd!).toBeGreaterThan(u.at);
+    const judged = f.unpicks!.filter((u) => !u.downed && (u.lockEnd === null || u.rethreaded));
+    expect(f.answered.Unpicking).toBe(judged.length);
+    expect(f.occurrences.Unpicking).toBe(f.unpicks!.length);
+    // A Weaver who never threads again after the first cut fails the Unpicks that cut.
+    const skilled = makeBot('skilled', 1000);
+    let cut = false;
+    const lazy: Bot = {
+      name: 'lazy',
+      decide(state) {
+        if ((state.entities.get(state.weaverId)?.weaver?.threadLock ?? 0) > 0) cut = true;
+        const out = skilled.decide(state);
+        return cut ? out.filter((c) => c.t !== 'thread') : out;
+      },
+    };
+    const g = decreeFight('the_seamstress', 1000, 'skilled', lazy);
+    expect(g.unpicks!.some((u) => u.lockEnd !== null && !u.rethreaded)).toBe(true);
+    expect(g.answered.Unpicking).toBeLessThan(g.occurrences.Unpicking!);
   }, 60_000);
 });
 

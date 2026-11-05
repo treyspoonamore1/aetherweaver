@@ -13,6 +13,10 @@
  *
  *   npx tsx tools/m1-baseline.ts --movement 2 --check
  *
+ * `--movement 3` (docs/phase-5c.md, "Hand-off") is Movement III's table on ARRIVAL3_KIT, kept
+ * in tools/m3-baseline.json once the slice is tuned (its `--write` is the slice's last step), as
+ * the Finale slice's guard.
+ *
  * Records are compared on the fields the baseline holds, so fields the harness gains later
  * (Movement II metrics) don't count as drift.
  */
@@ -21,7 +25,7 @@ import { fileURLToPath } from 'node:url';
 import type { BotKind } from '../src/bots';
 import { CHORD_PRESETS } from '../src/meta/run';
 import { movementEncounters, playEncounter, type EncounterRun } from './harness-core';
-import { ARRIVAL_KIT, kitConfig } from './kits';
+import { ARRIVAL3_KIT, ARRIVAL_KIT, kitConfig, type Kit } from './kits';
 
 /** The harness's default Movement I fights (tools/harness.ts), in its order. */
 export const M1_ENCOUNTERS = [
@@ -57,16 +61,38 @@ export function m1Baseline(): M1Baseline {
   return { loadout: M1_LOADOUT, seeds: M1_SEEDS, rows };
 }
 
-/** Movement II's table: its fights in content order, on the arrival kit (tools/kits.ts). */
-export function m2Baseline(): M1Baseline {
-  const kit = kitConfig(ARRIVAL_KIT);
+/** A Movement's table: its fights in content order, every bot, on `kit` (tools/kits.ts). */
+function movementBaseline(movement: number, kit: Kit): M1Baseline {
+  const config = kitConfig(kit);
   const rows: EncounterRun[] = [];
-  for (const encounter of movementEncounters(2))
+  for (const encounter of movementEncounters(movement))
     for (const bot of M1_BOTS)
       for (let i = 0; i < M1_SEEDS; i++)
-        rows.push(playEncounter({ seed: 1000 + i * 7919, encounter, ...kit }, bot));
-  return { loadout: `${ARRIVAL_KIT.preset} (${ARRIVAL_KIT.name})`, seeds: M1_SEEDS, rows };
+        rows.push(playEncounter({ seed: 1000 + i * 7919, encounter, ...config }, bot));
+  return { loadout: `${kit.preset} (${kit.name})`, seeds: M1_SEEDS, rows };
 }
+
+/** Movement II's table: its fights in content order, on the arrival kit (tools/kits.ts). */
+export function m2Baseline(): M1Baseline {
+  return movementBaseline(2, ARRIVAL_KIT);
+}
+
+/** Movement III's table (docs/phase-5c.md): its fights in content order, on ARRIVAL3_KIT. */
+export function m3Baseline(): M1Baseline {
+  return movementBaseline(3, ARRIVAL3_KIT);
+}
+
+const BASELINES: Readonly<Record<number, () => M1Baseline>> = {
+  1: m1Baseline,
+  2: m2Baseline,
+  3: m3Baseline,
+};
+
+const DRIFTED: Readonly<Record<number, string>> = {
+  1: 'M1 baseline drifted: Movement I is meant to be unchanged (docs/phase-5a.md).',
+  2: 'M2 baseline drifted: default-party Movement II is meant to be unchanged (docs/phase-5b.md).',
+  3: 'M3 baseline drifted: Movement III is meant to be unchanged since its hand-off (docs/phase-5c.md).',
+};
 
 /** `fresh` cut down to the keys `kept` has, record by record, in `kept`'s key order. */
 export function projectBaseline(fresh: M1Baseline, kept: M1Baseline): M1Baseline {
@@ -87,11 +113,12 @@ function movementArg(): number {
 
 function main(): void {
   const movement = movementArg();
-  if (movement !== 1 && movement !== 2) throw new Error(`No baseline for Movement ${movement}`);
-  const m = movement === 2 ? 'M2' : 'M1';
+  const baseline = BASELINES[movement];
+  if (!baseline) throw new Error(`No baseline for Movement ${movement}`);
+  const m = `M${movement}`;
   const path = fileURLToPath(new URL(`./m${movement}-baseline.json`, import.meta.url));
   const t0 = Date.now();
-  const fresh = movement === 2 ? m2Baseline() : m1Baseline();
+  const fresh = baseline();
   if (process.argv.includes('--write')) {
     writeFileSync(path, JSON.stringify(fresh, null, 1) + '\n');
     console.log(`Wrote ${path} (${fresh.rows.length} fights, ${Date.now() - t0} ms).`);
@@ -119,11 +146,7 @@ function main(): void {
       shown++;
     }
   }
-  console.error(
-    movement === 2
-      ? 'M2 baseline drifted: default-party Movement II is meant to be unchanged (docs/phase-5b.md).'
-      : 'M1 baseline drifted: Movement I is meant to be unchanged (docs/phase-5a.md).',
-  );
+  console.error(DRIFTED[movement]);
   process.exit(1);
 }
 

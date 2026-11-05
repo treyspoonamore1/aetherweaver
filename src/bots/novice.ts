@@ -5,11 +5,15 @@
  * went down), and Cues Solos when they happen to be ready. Movement II (docs/phase-5a.md): they
  * sometimes Chime a hero bleeding at 5+ stacks, Ward or (rarely) Reel a pinned hero, and Scatter
  * for a Blood Pact. Each of those draws only while its mechanic is on the field, so Movement I
- * sees exactly the draws it always did.
+ * sees exactly the draws it always did. Movement III (docs/phase-5c.md): now and then she Chimes
+ * a possessed or stitched hero or Doom at 4+, steps out of a Null rune once a cast fizzles in
+ * it, Rallies in an Inhale's tell and Empowers through Unravel; each draws only while its
+ * mechanic is up. Her heal-the-lowest reflex is what the Shears, Unravel and the Mimic punish.
  */
 import { CONTENT } from '../content';
 import { Rng } from '../sim/core/rng';
 import { rewindCanRevive } from '../sim/systems/rewind';
+import { weaverSilenced } from '../sim';
 import type { Command, ThreadMode, WorldState } from '../sim';
 import type { Bot } from './types';
 import {
@@ -35,8 +39,29 @@ import {
   isPact,
   isPinned,
   statusStacks,
+  DOOM_CHIME_AT,
+  doomStacks,
+  inhaleTell,
+  isPossessed,
+  isStitched,
+  runeEscape,
+  unravelUp,
   type HeroView,
 } from './common';
+
+/** Movement III's chances (docs/phase-5c.md, "Bots and harness"), drawn only with each up. */
+const NOVICE_M3 = {
+  /** Chime a possessed or stitched hero. */
+  free: 0.5,
+  /** Chime Doom at `DOOM_CHIME_AT`+ stacks (or its mark). */
+  doom: 0.5,
+  /** Step out of a Null rune after a cast fizzled in it. */
+  leaveRune: 0.3,
+  /** Rally in an Inhale's tell. */
+  inhaleRally: 0.3,
+  /** Switch to Empower under Unravel. */
+  unravelEmpower: 0.4,
+} as const;
 
 export class NoviceBot implements Bot {
   readonly name = 'novice';
@@ -44,6 +69,9 @@ export class NoviceBot implements Bot {
   private readonly rng: Rng;
   private nextDecision = 0;
   private rallyAllowed = 0;
+  /** Movement III: a technique of hers fizzled in a Null rune last decision; she's leaving it. */
+  private fizzled = false;
+  private leaving = false;
 
   constructor(seed: number) {
     this.rng = new Rng(seed ^ 0x0b1e);
@@ -64,6 +92,12 @@ export class NoviceBot implements Bot {
     const now = state.time;
 
     const enemies = enemiesOf(state);
+    // Movement III: a cast fizzled in a Null rune, and now and then she notices and steps out.
+    const silenced = weaverSilenced(state);
+    if (!silenced) this.fizzled = this.leaving = false;
+    else if (this.fizzled && !this.leaving && this.rng.chance(NOVICE_M3.leaveRune))
+      this.leaving = true;
+    const leave = this.leaving ? runeEscape(state, w) : null;
     // Stay with the party (roughly), step out of things that are obviously about to land.
     const c = centroid(noviceAnchor(party, all).map((h) => h.e));
     const danger = threatsOn(state, w).find((t) => t.impact - now < 0.6);
@@ -73,7 +107,8 @@ export class NoviceBot implements Bot {
         w.x - (danger.shape.kind === 'circle' ? danger.shape.x : c.x),
         w.z - (danger.shape.kind === 'circle' ? danger.shape.z : c.z),
       );
-    } else this.intent.moveTo(out, w, c, 2.5);
+    } else if (leave) this.intent.moveTo(out, w, leave, 0.2);
+    else this.intent.moveTo(out, w, c, 2.5);
     const ec = centroid(enemies.length > 0 ? enemies : party.map((h) => h.e));
     this.intent.aim(out, ec.x, ec.z);
 
@@ -121,6 +156,13 @@ export class NoviceBot implements Bot {
       if (wc.threadMode === 'bear' ? scary || this.rng.chance(0.6) : scary && this.rng.chance(0.4))
         want = 'bear';
     }
+    // Movement III: Unravel turns her Mend to wounds. Sometimes she notices, and Empowers.
+    if (
+      want === 'mend' &&
+      unravelUp(state) &&
+      (wc.threadMode === 'empower' || this.rng.chance(NOVICE_M3.unravelEmpower))
+    )
+      want = 'empower';
     out.push(...modeCommands(wc.threadMode, want));
     // The Chronomancer's Rewind (in Reel's slot): sometimes they remember it can stand a hero
     // who just went down back up (once a run).
@@ -166,15 +208,38 @@ export class NoviceBot implements Bot {
 
     // Chime a marked hero once they notice the mark.
     if (wc.cooldowns.chime <= 0 && affords(state, 'chime')) {
+      let chimed = false;
       const marked = party.find((h) => statusRemaining(h.e, 'dirge') < 2.6);
-      if (marked && this.rng.chance(0.75))
+      if (marked && this.rng.chance(0.75)) {
         out.push({ t: 'tech', id: 'chime', point: { x: marked.e.x, z: marked.e.z } });
-      else {
+        chimed = true;
+      } else {
         // The bleed counter glows at 5+: they notice it, often.
         const bleeding = party.find((h) => statusStacks(h.e, 'bleed') >= BLEED_CHIME_AT);
-        if (bleeding && dist(bleeding.e, w) < tech.chime.range && this.rng.chance(0.6))
+        if (bleeding && dist(bleeding.e, w) < tech.chime.range && this.rng.chance(0.6)) {
           out.push({ t: 'tech', id: 'chime', point: { x: bleeding.e.x, z: bleeding.e.z } });
+          chimed = true;
+        }
       }
+      // Movement III: a possessed or stitched hero, or Doom at 4+ (its count glows): now and then.
+      const reach = (h: HeroView) => dist(h.e, w) < tech.chime.range;
+      const freeing = chimed
+        ? undefined
+        : party.find((h) => reach(h) && (isPossessed(h.e) || isStitched(h.e)));
+      if (freeing && this.rng.chance(NOVICE_M3.free)) {
+        out.push({ t: 'tech', id: 'chime', point: { x: freeing.e.x, z: freeing.e.z } });
+        chimed = true;
+      }
+      const doomed =
+        chimed || freeing
+          ? undefined
+          : party.find(
+              (h) =>
+                reach(h) &&
+                (doomStacks(h.e) >= DOOM_CHIME_AT || statusRemaining(h.e, 'doomed') < Infinity),
+            );
+      if (doomed && this.rng.chance(NOVICE_M3.doom))
+        out.push({ t: 'tech', id: 'chime', point: { x: doomed.e.x, z: doomed.e.z } });
     }
 
     // A Blood Pact: sometimes they Scatter; once it's gone, they call everyone back.
@@ -192,6 +257,14 @@ export class NoviceBot implements Bot {
     ) {
       out.push({ t: 'directive', kind: 'rally' });
       this.rallyAllowed = state.tick + 180;
+    } else if (
+      state.tick >= this.rallyAllowed &&
+      inhaleTell(state).length > 0 &&
+      this.rng.chance(NOVICE_M3.inhaleRally)
+    ) {
+      // Movement III: an Inhale's tell, and sometimes she calls them away from it.
+      out.push({ t: 'directive', kind: 'rally' });
+      this.rallyAllowed = state.tick + 180;
     }
 
     // Cue whoever is ready, now and then; Crescendo when things look bad.
@@ -205,6 +278,8 @@ export class NoviceBot implements Bot {
         Math.max(1, party.length);
       if (avg < 0.5) out.push({ t: 'crescendo' });
     }
+    // A Ward, Chime or Reel cast inside a Null rune fizzles (Movement III): she may notice.
+    if (silenced && out.some((c) => c.t === 'tech')) this.fizzled = true;
     return out;
   }
 }

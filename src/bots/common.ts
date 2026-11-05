@@ -2,10 +2,11 @@ import { CONTENT, encounterDef } from '../content';
 import { contains, telegraphDamage } from '../sim/combat/telegraphs';
 import { quantize } from '../sim/core/dmath';
 import { rewindCanRevive } from '../sim/systems/rewind';
-import { bloodlusting, fallingFast } from '../sim';
+import { bloodlusting, fallingFast, segmentDistSq, suppressRadiusOf } from '../sim';
 import type {
   Command,
   DeepReadonly,
+  FieldZone,
   PartySlot,
   PastSample,
   EntityId,
@@ -454,4 +455,232 @@ export function mendNeed(h: HeroView, blood: BloodView | null): number {
   const f = effectiveFraction(h.e);
   if (!blood || blood.hero.slot !== h.slot) return f;
   return f >= blood.floor && !blood.fast && !blood.lethal ? 1 : f;
+}
+
+// ── Movement III (docs/phase-5c.md, "Bots and harness") ──────────────────────────────
+// Every reader below reads public state and content only, and answers null, false, 0 or an
+// empty list when its mechanic is absent, so no Movement I or II decision reads anything new.
+
+export { cutWouldLand, threadSegment } from '../sim';
+/** Doom's stacks at which the bots (and the hints) Chime: the content's rule of thumb. */
+export { DOOM_CHIME_AT } from '../content/unstitched';
+
+const ATTACK_DEFS = new Map(CONTENT.attacks.map((a) => [a.id, a]));
+const ENEMY_DEFS = new Map(CONTENT.enemies.map((e) => [e.id, e]));
+const AFFIX_DEFS = new Map(CONTENT.affixes.map((f) => [f.id, f]));
+
+/** A ground circle: a zone, a tell, a rune. */
+export interface Circle {
+  x: number;
+  z: number;
+  r: number;
+}
+
+/** A telegraph whose attack cuts the Thread (the Shears, the Snip, the Unpick). */
+export function isCut(t: ReadonlyTelegraph): boolean {
+  return ATTACK_DEFS.get(t.attackId)?.cut !== undefined;
+}
+
+/**
+ * `cutWouldLand` with room to spare: would this cut line reach the Thread on `slot` were it
+ * `margin` m wider? The Weaver and her hero keep moving until it lands, so a Thread that only
+ * just clears it now may not then. False for anything that isn't a cut line.
+ */
+export function cutThreatens(
+  state: WorldState,
+  t: ReadonlyTelegraph,
+  slot: PartySlot | null,
+  margin: number,
+): boolean {
+  const cut = ATTACK_DEFS.get(t.attackId)?.cut;
+  const s = t.shape;
+  if (!cut || slot === null || s.kind !== 'line') return false;
+  const w = state.entities.get(state.weaverId);
+  const id = state.party[slot];
+  const hero = id === undefined ? undefined : state.entities.get(id);
+  if (!w || !hero?.health || hero.health.dead) return false;
+  const half = s.width / 2 + margin;
+  return segmentDistSq(s.x, s.z, s.toX, s.toZ, w.x, w.z, hero.x, hero.z) <= half * half;
+}
+
+/** The cut telegraphs aimed along a line (every cut but the Unpick's), soonest first. */
+export function cutLines(state: WorldState): ReadonlyTelegraph[] {
+  return state.telegraphs
+    .filter((t) => t.shape.kind === 'line' && isCut(t) && !ATTACK_DEFS.get(t.attackId)!.cut!.always)
+    .sort((a, b) => a.impact - b.impact);
+}
+
+/** The timed zones on the field (the Inhale's pull, the Null rune), oldest first; or none. */
+export function hazardZones(state: WorldState): readonly DeepReadonly<FieldZone>[] {
+  return state.field.zones ?? [];
+}
+
+/** Is `p` inside a Null rune (a `null` zone)? */
+export function inNullZone(state: WorldState, p: { x: number; z: number }): boolean {
+  return hazardZones(state).some((z) => z.kind === 'null' && dist(z, p) <= z.r);
+}
+
+/** Is `p` inside an Inhale's pull (a `pull` zone)? */
+export function inPullZone(state: WorldState, p: { x: number; z: number }): boolean {
+  return hazardZones(state).some((z) => z.kind === 'pull' && dist(z, p) <= z.r);
+}
+
+/** The telegraphs that will lay a zone of this kind as they land (their tells), as circles. */
+function zoneTells(state: WorldState, kind: 'pull' | 'null'): (Circle & { impact: number })[] {
+  const out: (Circle & { impact: number })[] = [];
+  for (const t of state.telegraphs) {
+    if (t.shape.kind !== 'circle' || ATTACK_DEFS.get(t.attackId)?.zone?.kind !== kind) continue;
+    out.push({ x: t.shape.x, z: t.shape.z, r: t.shape.r, impact: t.impact });
+  }
+  return out;
+}
+
+/** The Void Maws' Inhales in their tell: where each pull will be, and when. Empty without one. */
+export function inhaleTell(state: WorldState): (Circle & { impact: number })[] {
+  return zoneTells(state, 'pull');
+}
+
+/** The Null runes closing (their tells), where each will form. Empty without one. */
+export function closingRunes(state: WorldState): (Circle & { impact: number })[] {
+  return zoneTells(state, 'null');
+}
+
+/** A point `margin` outside `c`, straight out from its centre through `p` (+x from dead centre). */
+export function outOf(
+  c: Circle,
+  p: { x: number; z: number },
+  margin: number,
+): { x: number; z: number } {
+  const dx = p.x - c.x;
+  const dz = p.z - c.z;
+  const d = Math.sqrt(dx * dx + dz * dz);
+  const ux = d > 1e-6 ? dx / d : 1;
+  const uz = d > 1e-6 ? dz / d : 0;
+  return { x: c.x + ux * (c.r + margin), z: c.z + uz * (c.r + margin) };
+}
+
+/**
+ * Where to step to leave the Null rune (laid, or closing) that `p` stands deepest in: straight
+ * out from its centre, `margin` past its edge. Null when it stands in none.
+ */
+export function runeEscape(
+  state: WorldState,
+  p: { x: number; z: number },
+  margin = 1,
+): { x: number; z: number } | null {
+  let worst: Circle | null = null;
+  let depth = 0;
+  const runes: Circle[] = [
+    ...hazardZones(state).filter((z) => z.kind === 'null'),
+    ...closingRunes(state),
+  ];
+  for (const c of runes) {
+    const d = c.r - dist(c, p);
+    if (d >= 0 && (worst === null || d > depth)) {
+      worst = c;
+      depth = d;
+    }
+  }
+  return worst ? outOf(worst, p, margin) : null;
+}
+
+/** Possessed by a Doubt Wraith: disabled, and striking an ally (a Chime frees them). */
+export function isPossessed(e: ReadonlyEntity): boolean {
+  return e.health?.statuses.some((x) => x.id === 'possessed') ?? false;
+}
+
+/** Sewn to the floor by the Seamstress's Stitch (a Chime frees; a Reel frees the one it pulls). */
+export function isStitched(e: ReadonlyEntity): boolean {
+  return e.health?.statuses.some((x) => x.id === 'stitched') ?? false;
+}
+
+/** Doom's stacks on `e` (Doom-touched); 0 without it. */
+export function doomStacks(e: ReadonlyEntity): number {
+  return statusStacks(e, 'doom');
+}
+
+/** A telegraph that leaves its hero possessed when it lands (the Doubt Wraith's mark). */
+export function possessesOnHit(t: ReadonlyTelegraph): boolean {
+  return ATTACK_DEFS.get(t.attackId)?.status?.id === 'possessed';
+}
+
+/** A mirror being cast (a Mimic, a Mimicking elite), with the copy its cast bar shows. */
+export interface MimicCast {
+  e: ReadonlyEntity;
+  copy: 'empower' | 'ward' | 'chime';
+  /** When its cast ends. */
+  end: number;
+}
+
+/** Every mirror being cast now. Empty without one. */
+export function mimicCasting(enemies: readonly ReadonlyEntity[]): MimicCast[] {
+  const out: MimicCast[] = [];
+  for (const e of enemies) {
+    const c = e.enemy!;
+    if (c.mimic && c.cast) out.push({ e, copy: c.mimic.copy, end: c.cast.end });
+  }
+  return out;
+}
+
+/** An enemy that never moves (its def is `stationary`: a Void Maw, a Spindle). */
+export function stationary(e: ReadonlyEntity): boolean {
+  return ENEMY_DEFS.get(e.enemy?.defId ?? '')?.stationary === true;
+}
+
+/** The standing Spindles (adds whose def is `tether`): the boss takes less while any stands. */
+export function spindlesUp(enemies: readonly ReadonlyEntity[]): ReadonlyEntity[] {
+  return enemies.filter((e) => ENEMY_DEFS.get(e.enemy!.defId)?.tether !== undefined);
+}
+
+/** The Stolen Verse running with an aura (`field.stolen`), while it stands; else null. */
+export function stolenVerse(state: WorldState): ReadonlyEntity | null {
+  const id = state.field.stolen?.add;
+  const e = id === undefined ? undefined : state.entities.get(id);
+  return e?.enemy && e.health && !e.health.dead && e.enemy.state !== 'spawning' ? e : null;
+}
+
+/** The enemy Mirror Weave weaves, and the boss's interruptible cast on it. */
+export const CHAMPION_DEF = 'mirror_champion';
+export const MIRROR_WARD_ATTACK = 'unweaver_mirror_ward';
+
+/** The Unweaver's Hollow Champion while it stands; else null. */
+export function champion(enemies: readonly ReadonlyEntity[]): ReadonlyEntity | null {
+  return enemies.find((e) => e.enemy!.defId === CHAMPION_DEF) ?? null;
+}
+
+/** The enemy casting a Mirror Ward now (interrupt it); else null. */
+export function mirrorWardCasting(enemies: readonly ReadonlyEntity[]): ReadonlyEntity | null {
+  return enemies.find((e) => e.enemy!.cast?.attackId === MIRROR_WARD_ATTACK) ?? null;
+}
+
+/** Unravel's window (`field.unravel`: Mend wounds) while it is open; else null. */
+export function unravelUp(state: WorldState): { until: number } | null {
+  const u = state.field.unravel;
+  return u ? { until: u.until } : null;
+}
+
+/**
+ * An enemy carrying a Mute's aura suppression: the Mute itself, or a Silencing elite. It
+ * replaces the bots' `defId === 'mute'`; in Movements I and II only the Mute qualifies.
+ */
+export function suppresses(state: WorldState, e: ReadonlyEntity): boolean {
+  return suppressRadiusOf(state, e) > 0;
+}
+
+/** An elite carrying a Mute's field by its affix (Silencing), not by its own def. */
+export function carriesSilence(e: ReadonlyEntity): boolean {
+  const affixes = e.enemy?.affixes;
+  if (!affixes) return false;
+  return affixes.some((id) => (AFFIX_DEFS.get(id)?.suppressRadius ?? 0) > 0);
+}
+
+/** The reach of a Severing elite's cut around the Thread (its affix's radius); else null. */
+export function severingReach(e: ReadonlyEntity): number | null {
+  const affixes = e.enemy?.affixes;
+  if (!affixes) return null;
+  for (const id of affixes) {
+    const cut = AFFIX_DEFS.get(id)?.cut;
+    if (cut) return cut.radius;
+  }
+  return null;
 }

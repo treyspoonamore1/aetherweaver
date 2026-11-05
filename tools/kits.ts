@@ -7,12 +7,17 @@
  * stand-in for that party, so the bands don't inherit the bots' drafting bias (whole Expeditions
  * remain the real gate). It is the Guardian preset, the Bellwarden scenario's motifs plus four
  * more at levels 1–2, two common relics, and full life (every fight starts at full life).
+ *
+ * Movement III's cells (docs/phase-5c.md, "Kit") play **ARRIVAL3_KIT**: the arrival kit plus what
+ * a party carries out of Movement II, as a floor of what Skilled winners hold at Vharun's
+ * interlude (10.2 motifs and 9.1 relics measured): 10 motifs and 6 relics. ARRIVAL_KIT is never
+ * edited (3 goldens, the commandSnapshot and the Movement II baseline stand on it).
  */
 import { CHORD_PRESETS } from '../src/meta/run';
 import type { ChordLoadout } from '../src/meta/types';
 import type { SimConfig } from '../src/sim';
 
-export type KitId = 'arrival' | 'bare';
+export type KitId = 'arrival' | 'arrival3' | 'bare';
 
 export interface Kit {
   id: KitId;
@@ -41,6 +46,30 @@ export const ARRIVAL_KIT: Kit = {
   relics: ['silver_thimble', 'tuning_fork'],
 };
 
+/**
+ * A party reaching the Abyssal Rift (docs/phase-5c.md, "Kit"): the arrival kit's 6 motifs and
+ * 2 relics, plus the motifs and relics Skilled winners most often carry out of Movement II.
+ */
+export const ARRIVAL3_KIT: Kit = {
+  id: 'arrival3',
+  name: 'arrival kit III',
+  preset: 'guardian',
+  motifs: [
+    ...ARRIVAL_KIT.motifs,
+    { id: 'da_capo', level: 1 },
+    { id: 'golden_filament', level: 1 },
+    { id: 'second_verse', level: 1 },
+    { id: 'standing_ovation', level: 1 },
+  ],
+  relics: [
+    ...ARRIVAL_KIT.relics,
+    'star_chart',
+    'hollow_bell',
+    'cantors_hymnal',
+    'choirmasters_baton',
+  ],
+};
+
 /** Nothing but the loadout: Movement I's isolated cells (docs/phase-1.md). */
 export const BARE_KIT: Kit = {
   id: 'bare',
@@ -50,11 +79,20 @@ export const BARE_KIT: Kit = {
   relics: [],
 };
 
-export const KITS: Readonly<Record<KitId, Kit>> = { arrival: ARRIVAL_KIT, bare: BARE_KIT };
+export const KITS: Readonly<Record<KitId, Kit>> = {
+  arrival: ARRIVAL_KIT,
+  arrival3: ARRIVAL3_KIT,
+  bare: BARE_KIT,
+};
 
-/** The kit a Movement's isolated cells play by default: bare in Movement I, else arrival. */
+/** The kit a Movement's isolated cells play by default: bare in I, arrival in II, arrival3 on. */
 export function defaultKit(movement: number): KitId {
-  return movement >= 2 ? 'arrival' : 'bare';
+  return movement >= 3 ? 'arrival3' : movement >= 2 ? 'arrival' : 'bare';
+}
+
+/** The kit a Movement's isolated cells play by default, itself (`defaultKit`). */
+export function kitFor(movement: number): Kit {
+  return KITS[defaultKit(movement)];
 }
 
 export function kitById(id: string): Kit {

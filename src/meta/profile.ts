@@ -85,8 +85,18 @@ export function heroRoster(profile: Pick<Profile, 'recruited'>, all: boolean): s
   return CONTENT.heroes.filter((h) => all || owned.has(h.id)).map((h) => h.id);
 }
 
-/** A run's route: the Prelude (Movement I alone) or an Expedition (Movement I, then II). */
+/**
+ * A run's route: the Prelude (Movement I alone) or an Expedition (every Movement in content, in
+ * order: I–III now, docs/phase-5c.md).
+ */
 export type RunMode = 'prelude' | 'expedition';
+
+/**
+ * How many Movements an Expedition plays (docs/phase-5c.md): every Movement in content. Appending
+ * a Movement (the Finale) lengthens it with no run-layer edit. Older Expedition saves keep the
+ * length they were made with; only a run still in Prep is redrawn (app/runStore.ts).
+ */
+export const EXPEDITION_MOVEMENTS = CONTENT.movements.length;
 
 /** Every Movement I enemy, in content order: what a profile has seen from the start. */
 export function movementOneEnemies(): string[] {
@@ -94,7 +104,8 @@ export function movementOneEnemies(): string[] {
 }
 
 /**
- * How many Movements a new run plays (docs/phase-5a.md): 2 for an Expedition, 1 for the Prelude.
+ * How many Movements a new run plays (docs/phase-5a.md, docs/phase-5c.md): EXPEDITION_MOVEMENTS
+ * for an Expedition, 1 for the Prelude.
  * Expeditions need their unlock (Rank 2, or Skip the unlocks). A route asked for (`mode`, Prep's
  * toggle) is taken when they're open; otherwise the profile's last route, except that the first
  * run is always the Prelude.
@@ -105,8 +116,8 @@ export function routeMovements(
   mode?: RunMode,
 ): number {
   if (!allowance.expedition) return 1;
-  if (mode !== undefined) return mode === 'expedition' ? 2 : 1;
-  return profile.runs > 0 && profile.runMode === 'expedition' ? 2 : 1;
+  if (mode !== undefined) return mode === 'expedition' ? EXPEDITION_MOVEMENTS : 1;
+  return profile.runs > 0 && profile.runMode === 'expedition' ? EXPEDITION_MOVEMENTS : 1;
 }
 
 /** Dissonance in the profile (docs/phase-4d.md). */
@@ -199,6 +210,22 @@ export interface Unlock {
   text: string;
 }
 
+const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'] as const;
+
+/**
+ * Where an Expedition climbs past Movement I, derived from content (docs/phase-5c.md): 'Movement
+ * II to Vharun, the Crimson Warden' with two Movements, 'Movements II–III to the Unweaver' with
+ * three. The last Movement's boss names the end.
+ */
+export function expeditionReach(movements = EXPEDITION_MOVEMENTS): string {
+  const n = Math.max(2, Math.min(CONTENT.movements.length, movements));
+  const last = CONTENT.movements[n - 1]!;
+  const name = CONTENT.encounters.find((e) => e.id === last.boss)?.name ?? last.name;
+  const boss = name.startsWith('The ') ? `the ${name.slice(4)}` : name;
+  const span = n === 2 ? 'Movement II' : `Movements II–${ROMAN[n - 1] ?? n}`;
+  return `${span} to ${boss}`;
+}
+
 function aura(rank: number, id: string, text: string): Unlock {
   const def = CONTENT.auras.find((a) => a.id === id)!;
   return { id: `aura.${id}`, rank, kind: 'aura', target: id, name: def.name, text };
@@ -237,7 +264,7 @@ export const UNLOCKS: readonly Unlock[] = [
     kind: 'expedition',
     target: 'expedition',
     name: 'Expeditions',
-    text: 'Beyond the Hollow Cantor, the Crimson Spire: an Expedition climbs on through Movement II to Vharun, the Crimson Warden. Choose the route in Prep; the Prelude stays open.',
+    text: `Beyond the Hollow Cantor, the Crimson Spire: an Expedition climbs on through ${expeditionReach()}. Choose the route in Prep; the Prelude stays open.`,
   },
   {
     id: 'ornamentSlot.1',

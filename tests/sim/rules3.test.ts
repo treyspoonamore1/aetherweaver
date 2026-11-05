@@ -347,8 +347,8 @@ describe('the new mods, the registry and the lifecycle', () => {
     expect(mods({ seed: 1, motifs: [{ id: 'guard_strand', level: 2 }] }).guardStrand).toBe(1);
   });
 
-  it('the registry is empty and misses every legacy boss', () => {
-    expect(Object.keys(BOSS_SCRIPTS)).toEqual([]);
+  it('the registry holds only the new bosses and misses every legacy boss', () => {
+    expect(Object.keys(BOSS_SCRIPTS).sort()).toEqual(['the_seamstress', 'the_unweaver']);
     for (const id of [
       'the_bellwarden',
       'the_hollow_cantor',

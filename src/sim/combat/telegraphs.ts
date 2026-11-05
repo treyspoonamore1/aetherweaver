@@ -4,7 +4,7 @@
  * answers pay off: Perfect Wards, warded hits, Reel dodges and counterfactual saves.
  */
 import type { AttackDef } from '../../content/schema';
-import type { TelegraphShape } from '../events';
+import type { CutResolved, TelegraphShape, ThreadCutCause } from '../events';
 import type {
   DeepReadonly,
   Entity,
@@ -43,6 +43,8 @@ import { gainResonance } from './resonance';
 import { hasTalent } from '../bonds';
 import { slotCost } from '../variants';
 import { riposteBash } from '../systems/heroes';
+import { cutThread } from '../systems/thread';
+import { cutWouldLand, threadSegment } from '../rules3';
 
 export interface TelegraphSpec {
   owner: Entity;
@@ -79,6 +81,10 @@ export function startTelegraph(world: World, spec: TelegraphSpec): Telegraph {
   // Movement II (docs/phase-5a.md P5, P7): set only when the attack has them.
   if (spec.attack.executeBelow !== undefined) t.executeBelow = spec.attack.executeBelow;
   if (spec.attack.kind === 'link' && spec.attack.linkStatus === 'pact') t.linkStatus = 'pact';
+  // Movement III's Stitch (docs/phase-5c.md Q8).
+  if (spec.attack.kind === 'link' && spec.attack.linkStatus === 'stitch') t.linkStatus = 'stitch';
+  // A cut's verdict remembers whether there was a Thread to cut when it began (Q1).
+  if (spec.attack.cut && threadSegment(world) !== null) t.threadAtCast = true;
   world.telegraphs.push(t);
   world.events.push({
     type: 'telegraphStarted',
@@ -132,7 +138,7 @@ export function telegraphDamage(t: DeepReadonly<Telegraph>, e: ReadonlyEntity): 
   return damage;
 }
 
-/** The status a link puts on the two heroes it binds: Resound, or a Blood Pact. */
+/** The status a link puts on the two heroes it binds: Resound, a Blood Pact, or a Stitch. */
 export function linkStatusOf(t: DeepReadonly<Telegraph>): StatusId {
   return t.linkStatus ?? 'resound';
 }
@@ -329,6 +335,8 @@ function resolve(world: World, t: Telegraph, pending: readonly Telegraph[] = [])
         t.executeBelow !== undefined && t.shape.kind === 'mark' ? t.shape.target : null;
       emitResolved(world, t, condemned, 'dodged', 0);
     }
+    // A cut (Movement III, docs/phase-5c.md Q1): after its victims, whoever it hit.
+    if (attack?.cut) resolveCut(world, t, attack);
     // Its status comes off both heroes, unless another live link still binds one.
     releaseLink(world, t, 'detonated', pending);
   }
@@ -336,6 +344,31 @@ function resolve(world: World, t: Telegraph, pending: readonly Telegraph[] = [])
   // The caster's script follows up: heals, summons, suppression, chained tolls.
   if (owner?.enemy && onCastComplete) onCastComplete(world, owner, t);
   world.events.push({ type: 'telegraphEnded', tick: world.tick, telegraph: t.id });
+}
+
+/** What each cut attack is called in `threadSnapped.cause` (the Severing affix's is its own). */
+const CUT_CAUSE: Readonly<Record<string, ThreadCutCause>> = {
+  shears_dash: 'shears',
+  unweaver_snip: 'snip',
+  seamstress_unpick: 'unpick',
+};
+
+/**
+ * A cut telegraph's verdict (docs/phase-5c.md Q1, the Execution verdict's pattern), one per
+ * telegraph: an `always` cut (the Unpick) cuts whatever it hit; a line cuts only if it crosses
+ * the Thread as it lands (`held` if not). With no Thread as it lands: `none` if there was none
+ * at cast start either, else `held` (it snapped or was let go in the windup: not this cut's
+ * doing). `strand`: Guard Strand turned it aside (`cutThread`).
+ */
+function resolveCut(world: World, t: Telegraph, attack: AttackDef): void {
+  const cut = attack.cut!;
+  const cause = CUT_CAUSE[attack.id] ?? (cut.always ? 'unpick' : 'shears');
+  let result: CutResolved['result'];
+  if (threadSegment(world) === null) result = t.threadAtCast ? 'held' : 'none';
+  else if (cut.always || cutWouldLand(world, t))
+    result = cutThread(world, cause, cut.lock, t.owner);
+  else result = 'held';
+  world.events.push({ type: 'cutResolved', tick: world.tick, telegraph: t.id, cause, result });
 }
 
 /** Drops bookkeeping for a telegraph that resolved or was removed. */
@@ -436,6 +469,14 @@ function hitEntity(
   // On-hit payloads (docs/phase-5a.md P3): the caster's affixes' (Vampiric's Wound). Nothing on
   // a Movement I hit.
   if (owner && result.dealt > 0 && !result.downed) applyOnHit(world, owner, e, result.dealt);
+  // Severing (Movement III): a blow it lands may cut the Thread (no affix has a cut before it).
+  if (
+    onSever &&
+    owner?.enemy &&
+    owner.enemy.affixes.length > 0 &&
+    result.dealt + result.absorbed > 0
+  )
+    onSever(world, owner);
   // Oathkeeper (Bonds): Kael took the hit, and what it carries.
   if (result.takenBy !== undefined && (result.takenDealt ?? 0) > 0) {
     const kael = world.entities.get(result.takenBy);
@@ -659,6 +700,12 @@ export function dirgeRemaining(e: Entity): number {
 let onCastComplete: ((world: World, owner: Entity, t: Telegraph) => void) | null = null;
 export function setOnCastComplete(fn: (world: World, owner: Entity, t: Telegraph) => void): void {
   onCastComplete = fn;
+}
+
+/** Installed by the enemy system: Severing's cut on a blow its elite lands (Movement III). */
+let onSever: ((world: World, owner: Entity) => void) | null = null;
+export function setOnSever(fn: (world: World, owner: Entity) => void): void {
+  onSever = fn;
 }
 
 export { recordSave };
