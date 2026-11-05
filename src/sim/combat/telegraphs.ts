@@ -298,6 +298,8 @@ function resolve(world: World, t: Telegraph, pending: readonly Telegraph[] = [])
   const owner = world.entities.get(t.owner);
   if (effect === 'damage') {
     let hitAnyone = false;
+    // A Severing owner's blow on a cut telegraph waits for the cut's own verdict (below).
+    let severPending = false;
     const victims = candidates(world, t, []);
     for (const e of victims) {
       // Paradox: a Rewind took them out of its reach.
@@ -327,7 +329,7 @@ function resolve(world: World, t: Telegraph, pending: readonly Telegraph[] = [])
         emitResolved(world, t, e.id, 'cancelled', 0);
         continue;
       }
-      hitEntity(world, t, e, attack ?? null, owner ?? null);
+      if (hitEntity(world, t, e, attack ?? null, owner ?? null)) severPending = true;
     }
     if (!hitAnyone) {
       // Execution's condemned hero already fell before it landed: it names them (`fallen`).
@@ -335,8 +337,13 @@ function resolve(world: World, t: Telegraph, pending: readonly Telegraph[] = [])
         t.executeBelow !== undefined && t.shape.kind === 'mark' ? t.shape.target : null;
       emitResolved(world, t, condemned, 'dodged', 0);
     }
-    // A cut (Movement III, docs/phase-5c.md Q1): after its victims, whoever it hit.
-    if (attack?.cut) resolveCut(world, t, attack);
+    // A cut (Movement III, docs/phase-5c.md Q1): after its victims, whoever it hit. Severing on
+    // the same blow comes after the verdict, so a Thread this telegraph cut is never reported
+    // 'held' because its owner's Severing got there first (with the Thread gone, it does nothing).
+    if (attack?.cut) {
+      resolveCut(world, t, attack);
+      if (severPending && onSever && owner) onSever(world, owner);
+    }
     // Its status comes off both heroes, unless another live link still binds one.
     releaseLink(world, t, 'detonated', pending);
   }
@@ -385,20 +392,24 @@ function spared(world: World, telegraph: number, hero: number): boolean {
   return list.length > 0 && list.some((r) => r.telegraph === telegraph && r.hero === hero);
 }
 
+/**
+ * One victim's hit. Returns true when a Severing check is owed but deferred: the blow landed, its
+ * owner carries affixes, and the attack is a cut, whose verdict must come first (`resolve`).
+ */
 function hitEntity(
   world: World,
   t: Telegraph,
   e: Entity,
   attack: AttackDef | null,
   owner: Entity | null,
-): void {
+): boolean {
   const h = e.health!;
   const damage = telegraphDamage(t, e);
   // A mark's status goes off with it, however it's answered.
   const mark = t.shape.kind === 'mark' ? markStatusOf(attack) : null;
   if (h.invulnerable > 0) {
     emitResolved(world, t, e.id, 'dodged', 0);
-    return;
+    return false;
   }
   const wouldDie = damage >= h.hp + ownShield(h);
 
@@ -411,7 +422,7 @@ function hitEntity(
   if (ward && (inWindow || metronome(world, e))) {
     perfect(world, t, e, ward, damage, owner, wouldDie, !!ward.stasis);
     if (mark !== null) removeStatus(world, e, mark, 'detonated');
-    return;
+    return false;
   }
   // Aegis Link (a Ward variant): linked in the window, the first hit is negated and you join the
   // link. Once a cast, as a Ward's barrier is spent by its Perfect.
@@ -436,7 +447,7 @@ function hitEntity(
         until: link.until,
       });
     }
-    return;
+    return false;
   }
 
   const result = dealDamage(world, e, {
@@ -470,19 +481,24 @@ function hitEntity(
   // a Movement I hit.
   if (owner && result.dealt > 0 && !result.downed) applyOnHit(world, owner, e, result.dealt);
   // Severing (Movement III): a blow it lands may cut the Thread (no affix has a cut before it).
+  // On a cut telegraph it waits for the telegraph's own verdict.
+  let severPending = false;
   if (
     onSever &&
     owner?.enemy &&
     owner.enemy.affixes.length > 0 &&
     result.dealt + result.absorbed > 0
-  )
-    onSever(world, owner);
+  ) {
+    if (attack?.cut) severPending = true;
+    else onSever(world, owner);
+  }
   // Oathkeeper (Bonds): Kael took the hit, and what it carries.
   if (result.takenBy !== undefined && (result.takenDealt ?? 0) > 0) {
     const kael = world.entities.get(result.takenBy);
     if (kael && attack?.status) applyStatusPayload(world, kael, attack.status, t.owner);
     if (kael && owner) applyOnHit(world, owner, kael, result.takenDealt ?? 0);
   }
+  return severPending;
 }
 
 function perfect(

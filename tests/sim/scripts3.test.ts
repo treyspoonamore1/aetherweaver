@@ -14,7 +14,7 @@ import type { Entity, Telegraph } from '../../src/sim/state';
 import { BOSS_SCRIPTS, bossScript, encounterScript } from '../../src/sim/systems/bossScripts';
 import { bossPhaseTable, phaseRules } from '../../src/sim/systems/bosses';
 import { enrageMult } from '../../src/sim/systems/enemies';
-import type { World } from '../../src/sim/world';
+import { weaverOf, type World } from '../../src/sim/world';
 import { ofType, sandbox, spawn, stepFor, stepUntil, worldOf } from './helpers';
 
 const SEAMSTRESS = 'the_seamstress';
@@ -265,10 +265,18 @@ describe('the Seamstress', () => {
       (ev) => ev.some((e) => e.type === 'cutResolved' && e.telegraph === unpick.id),
       60 * 4,
     );
-    expect(ofType(events, 'cutResolved').find((v) => v.telegraph === unpick.id)!.result).toBe(
-      'cut',
-    );
-    expect(ofType(events, 'threadSnapped').some((e) => e.cause === 'unpick')).toBe(true);
+    // The whole stream: one verdict, one snap by the Seamstress, and nobody hurt by it.
+    expect(ofType(events, 'cutResolved').filter((v) => v.telegraph === unpick.id)).toEqual([
+      expect.objectContaining({ cause: 'unpick', result: 'cut' }),
+    ]);
+    expect(ofType(events, 'threadSnapped')).toEqual([
+      expect.objectContaining({ target: w.party[0], cause: 'unpick', by: boss.id }),
+    ]);
+    const landed = ofType(events, 'telegraphResolved').filter((r) => r.telegraph === unpick.id);
+    expect(landed.length).toBeGreaterThan(0);
+    for (const r of landed) expect(r).toMatchObject({ outcome: 'dodged', damage: 0 });
+    expect(ofType(events, 'damageTaken').filter((d) => d.source === boss.id)).toEqual([]);
+    expect(weaverOf(w).weaver!.threadSlot).toBeNull();
   });
 });
 

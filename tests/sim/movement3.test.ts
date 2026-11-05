@@ -16,6 +16,7 @@ import { beginAttack } from '../../src/sim/systems/enemies';
 import { underMuteDome } from '../../src/sim/systems/field';
 import { updatePendingHits } from '../../src/sim/systems/hits';
 import { castReel, cue } from '../../src/sim/systems/techniques';
+import { hashWorld } from '../../src/sim/hashing';
 import { cutThread, severingHit } from '../../src/sim/systems/thread';
 import type { PendingHit, World } from '../../src/sim/world';
 import { ofType, sandbox, spawn, stepFor, worldOf } from './helpers';
@@ -579,6 +580,68 @@ describe('Unravel: your Mend wounds', () => {
   });
 });
 
+describe('Unravel: what Mend gathered stays with that stretch of Mend', () => {
+  function opened() {
+    const sim = sandbox();
+    stepFor(sim, 1, [{ t: 'debug', op: { op: 'spawnDummies', count: 1 } }]);
+    const w = worldOf(sim);
+    const source = [...w.entities.list()].find((e) => e.kind === 'dummy')!.id;
+    // Everyone beside the Weaver, so the Thread is never taut.
+    place(weaverEntity(w), 0, 0);
+    for (let s = 0; s < 3; s++) {
+      const h = heroAt(w, s);
+      place(h, s - 1, 1);
+      addStatus(w, h, 'stun', 1e6, null);
+      dealDamage(w, h, { source: null, sourceName: 'test', amount: 600, telegraph: null });
+    }
+    thread(sim, 0);
+    w.field.unravel = { until: w.time + 5, source, acc: 0, tickIn: 0.5 };
+    sim.drainEvents();
+    const ticks = (events: SimEvent[]) =>
+      ofType(events, 'damageTaken').filter((e) => e.source === source);
+    return { sim, w, ticks };
+  }
+
+  it('moving the Thread drops it: the new hero takes only their own Mend, half a second on', () => {
+    const { sim, w, ticks } = opened();
+    const kael = heroAt(w, 0);
+    const lyra = heroAt(w, 1);
+    // 0.4 s of Mend gathered on Kael, not yet landed.
+    expect(ticks(stepFor(sim, 24))).toEqual([]);
+    expect(w.field.unravel!.acc).toBeGreaterThan(0);
+    const kaelHp = kael.health!.hp;
+    const lyraHp = lyra.health!.hp;
+    const moved = stepFor(sim, 1, [{ t: 'thread', slot: 1 }]);
+    expect(ofType(moved, 'threadAttached')).toHaveLength(1);
+    // Not 0.1 s later with Kael's 0.4 s on top: a full half second of Lyra's own Mend.
+    const early = stepFor(sim, 28);
+    expect(ticks([...moved, ...early])).toEqual([]);
+    const later = stepFor(sim, 2);
+    expect(ticks(later)).toEqual([expect.objectContaining({ target: lyra.id })]);
+    const perSec = CONTENT.thread.mendPerSec * w.mods.mendMult;
+    expect(lyraHp - lyra.health!.hp).toBeCloseTo(perSec * 0.5, 6);
+    expect(kael.health!.hp).toBe(kaelHp);
+  });
+
+  it('answering with Empower drops it: going back to Mend starts a fresh half second', () => {
+    const { sim, w, ticks } = opened();
+    const kael = heroAt(w, 0);
+    expect(ticks(stepFor(sim, 24))).toEqual([]);
+    expect(ticks(stepFor(sim, 1, [{ t: 'mode' }]))).toEqual([]);
+    expect(weaverEntity(w).weaver!.threadMode).toBe('empower');
+    expect(w.field.unravel!.acc).toBe(0);
+    stepFor(sim, 30);
+    const hp = kael.health!.hp;
+    const back = stepFor(sim, 1, [{ t: 'mode' }]);
+    expect(weaverEntity(w).weaver!.threadMode).toBe('mend');
+    // The stale 0.4 s doesn't land as Mend resumes; the first tick is a whole half second later.
+    expect(ticks([...back, ...stepFor(sim, 28)])).toEqual([]);
+    expect(ticks(stepFor(sim, 2))).toEqual([expect.objectContaining({ target: kael.id })]);
+    const perSec = CONTENT.thread.mendPerSec * w.mods.mendMult;
+    expect(hp - kael.health!.hp).toBeCloseTo(perSec * 0.5, 6);
+  });
+});
+
 describe('Steal Verse: a stolen aura sings for nothing', () => {
   const FOUR = [
     { auras: ['ostinato', 'fermata'], ornaments: ['grace_note'] },
@@ -748,6 +811,22 @@ describe('the Rift relics sleep outside a Movement III fight', () => {
         return out;
       };
       expect(run(b)).toEqual(run(a));
+      // The fight's hash differs only by what was carried: the config's relics and motif, and
+      // the relic ids `world.relics` lists (each sleeping one never triggered).
+      const wa = worldOf(a);
+      const wb = worldOf(b);
+      expect(hashWorld(wb)).not.toBe(hashWorld(wa));
+      for (const id of RIFT_RELICS) expect(wb.relics.triggers[id]).toBe(0);
+      const carriedBy = wb as { config: World['config']; relics: World['relics'] };
+      const own = { config: wb.config, relics: wb.relics };
+      carriedBy.config = wa.config;
+      carriedBy.relics = wa.relics;
+      try {
+        expect(hashWorld(wb)).toBe(hashWorld(wa));
+      } finally {
+        carriedBy.config = own.config;
+        carriedBy.relics = own.relics;
+      }
     }
   });
 
@@ -861,6 +940,56 @@ describe('the cut verdict, end to end', () => {
     ]);
     expect(ofType(events, 'threadSnapped')).toEqual([]);
     expect(weaverEntity(w).weaver!.threadSlot).toBe(1);
+  });
+
+  /**
+   * A Severing Shears 1.5 m from the Thread, dashing along z = 5 through Kael at (-3, 5): the
+   * blow lands on Kael, so Severing is owed on the same resolution as the dash's own verdict.
+   */
+  function severingDash() {
+    const { sim, w, shears } = setup();
+    place(shears, 1.5, 5);
+    place(heroAt(w, 0), -3, 5);
+    shears.enemy!.affixes = ['severing'];
+    const kaelHp = heroAt(w, 0).health!.hp;
+    const { t, resolve } = dash(sim, w, shears);
+    return { sim, w, shears, t, resolve, kaelHp };
+  }
+
+  it('a Severing Shears whose dash cuts the Thread: the verdict is cut, not held', () => {
+    const { w, shears, t, resolve, kaelHp } = severingDash();
+    const events = resolve();
+    // The blow landed (so Severing was owed) …
+    expect(heroAt(w, 0).health!.hp).toBeLessThan(kaelHp);
+    // … but the dash's own verdict comes first: it cut, and Severing found nothing left to cut.
+    expect(ofType(events, 'cutResolved')).toEqual([
+      expect.objectContaining({ telegraph: t.id, cause: 'shears', result: 'cut' }),
+    ]);
+    expect(ofType(events, 'threadSnapped')).toEqual([
+      expect.objectContaining({ target: heroAt(w, 1).id, cause: 'shears', by: shears.id }),
+    ]);
+    // Its 3 s clock is spent only on a cut it made.
+    expect(w.internal.m3?.severAt?.[shears.id]).toBeUndefined();
+  });
+
+  it('a Severing Shears whose dash misses the Thread: held, then Severing cuts it', () => {
+    const { w, shears, t, resolve, kaelHp } = severingDash();
+    // The Thread pulled below the line (z = 5 ± 0.6), but still within Severing's reach.
+    place(heroAt(w, 1), 0, 3.6);
+    const events = resolve();
+    expect(heroAt(w, 0).health!.hp).toBeLessThan(kaelHp);
+    expect(ofType(events, 'cutResolved')).toEqual([
+      expect.objectContaining({ telegraph: t.id, cause: 'shears', result: 'held' }),
+    ]);
+    expect(ofType(events, 'threadSnapped')).toEqual([
+      expect.objectContaining({ target: heroAt(w, 1).id, cause: 'severing', by: shears.id }),
+    ]);
+    // The verdict is reported before the Severing cut that followed it.
+    const order = events
+      .filter((e) => e.type === 'cutResolved' || e.type === 'threadSnapped')
+      .map((e) => e.type);
+    expect(order).toEqual(['cutResolved', 'threadSnapped']);
+    expect(w.internal.m3!.severAt![shears.id]).toBeCloseTo(w.time + 3, 9);
   });
 
   it('a hero who goes down inside a Null rune had none of Ward, Chime or Reel ready', () => {
