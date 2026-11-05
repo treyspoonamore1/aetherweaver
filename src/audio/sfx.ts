@@ -1086,8 +1086,9 @@ export class SfxEngine {
         break;
       case 'spindled':
         this.spindled(ev.enemy, state);
-        // A hit on a plated boss: its drone is (still) sounding.
-        if (!this.spindleVoices.has(ev.enemy)) this.tethered(ev.enemy, 1, state);
+        // A hit on a plated boss: its drone is (still) sounding. tethered() restarts it only when
+        // none is held or the held one has run out (a drone lasts 60 s; a stale handle stays kept).
+        this.tethered(ev.enemy, 1, state);
         break;
       case 'tethered':
         this.tethered(ev.enemy, ev.count, state);

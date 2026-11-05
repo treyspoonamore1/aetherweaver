@@ -1018,6 +1018,27 @@ describe('the Unstitched’s sounds (Phase 5c)', () => {
     expect(voices['spindleVoices']!.size).toBe(0);
     h.d.dispose();
   });
+
+  it('a Spindle hit restarts the drone once it has run out, and not while it still sounds', () => {
+    const h = harness();
+    h.d.setMood('combat');
+    const sfx = (h.d as unknown as { sfx: { spindleVoices: Map<number, { endsAt: number }> } }).sfx;
+    fire(h, ev('tethered', { enemy: IDS.enemyBase, count: 2 }));
+    const first = sfx.spindleVoices.get(IDS.enemyBase)!;
+    expect(first).toBeDefined();
+    // Still sounding: a hit keeps the drone it has.
+    h.advance(1);
+    fire(h, ev('spindled', { enemy: IDS.enemyBase, source: IDS.kael }));
+    expect(sfx.spindleVoices.get(IDS.enemyBase)).toBe(first);
+    // Past the drone's end with no change in count: the handle is stale, and a hit restarts it.
+    h.ctx.currentTime = first.endsAt + 1;
+    h.advance(0.1);
+    fire(h, ev('spindled', { enemy: IDS.enemyBase, source: IDS.kael }));
+    const second = sfx.spindleVoices.get(IDS.enemyBase)!;
+    expect(second).not.toBe(first);
+    expect(second.endsAt).toBeGreaterThan(h.ctx.currentTime);
+    h.d.dispose();
+  });
 });
 
 // ── Rate limits ───────────────────────────────────────────────────────────────────────
