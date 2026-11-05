@@ -1791,6 +1791,10 @@ describe('the Novice bot in Movement III', () => {
     tough(pack, 'void_maw', 0, -40);
     tough(pack, 'shears', 0, -8);
     expect(novice(pack).some(focusMaw)).toBe(false);
+    // Only a Maw, but within the heroes' sight: they fight it, the party is not idle, so no Focus.
+    const near = rift({ thread: null });
+    tough(near, 'void_maw', 0, -10);
+    expect(novice(near).some(focusMaw)).toBe(false);
     // No stationary enemy at all: nothing.
     expect(novice(rift({ thread: null })).some(focusMaw)).toBe(false);
   });

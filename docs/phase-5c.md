@@ -760,6 +760,7 @@ By mechanic:
 - step out after a 'silenced' fizzle: 0.3;
 - Rally on an Inhale tell: 0.3;
 - switch to Empower under Unravel: 0.4;
+- Focus the nearest stationary enemy (a Void Maw) when only stationary enemies stand and no hero has a target: 0.15 (added in the W5 fixes: a Maw never comes to the party, so without it the Novice timed out on `maw_hollow`; W9 re-reads the Novice bands with it);
 - re-thread after a cut: already 0.7 (`novice.ts:96`).
 
 Its heal-the-lowest reflex is what the Shears, Unravel and the Mimic punish. No new draw happens on a Movement I or II path.
