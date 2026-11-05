@@ -683,6 +683,35 @@ describe('Stillwater Bell', () => {
       expect.objectContaining({ status: 'possessed', by: 'chime' }),
     ]);
   });
+
+  it('half of what the Chime really cost: a Chime cast in Stasis refunds half its Stasis price', () => {
+    const stasisMult = 0.6;
+    const spent = (possessed: boolean, relic: boolean) => {
+      const sim = rift(relic ? { relics: ['stillwater_bell'] } : {});
+      const w = worldOf(sim);
+      const kael = heroAt(w, 0);
+      if (possessed) addStatus(w, kael, 'possessed', 5, null);
+      const wv = weaverEntity(w).weaver!;
+      wv.spirit = CONTENT.techniques.chime.cost + 5;
+      w.mods.stasisCostMult = stasisMult;
+      // Cast in Stasis; Stasis ends while the Chime flies, so the refund can't read it at landing.
+      w.field.stasis = true;
+      const events = stepFor(sim, 1, [{ t: 'tech', id: 'chime', point: { x: kael.x, z: kael.z } }]);
+      expect(ofType(events, 'chimeLaunched')).toHaveLength(1);
+      if (relic)
+        expect(w.chimes[0]!.paid).toBeCloseTo(CONTENT.techniques.chime.cost * stasisMult, 9);
+      else expect('paid' in w.chimes[0]!).toBe(false);
+      w.field.stasis = false;
+      events.push(...stepFor(sim, 60));
+      expect(ofType(events, 'chimeLanded')).toHaveLength(1);
+      expect(hasStatus(kael, 'possessed')).toBe(false);
+      return wv.spirit;
+    };
+    const cost = CONTENT.techniques.chime.cost;
+    expect(spent(true, true) - spent(false, true)).toBeCloseTo(cost * stasisMult * 0.5, 6);
+    // Without the relic, freeing gives nothing back and the Chime carries no `paid`.
+    expect(spent(true, false)).toBeCloseTo(spent(false, false), 9);
+  });
 });
 
 describe('the Rift relics sleep outside a Movement III fight', () => {

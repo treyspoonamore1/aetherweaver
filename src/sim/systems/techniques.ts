@@ -62,12 +62,18 @@ export function weaverReady(world: World, technique: Rejectable): Entity | null 
   return e;
 }
 
-export function spend(world: World, weaver: Entity, technique: Rejectable, cost: number): boolean {
-  const w = weaver.weaver!;
+/** What a technique really costs now: the Astrolabe's Economy, then Stasis. */
+function paidCost(world: World, cost: number): number {
   // The Astrolabe's Economy.
   cost *= world.mods.techCostMult;
   // Stasis (the Chronomancer): techniques cost less while it lasts.
   if (world.field.stasis) cost *= world.mods.stasisCostMult;
+  return cost;
+}
+
+export function spend(world: World, weaver: Entity, technique: Rejectable, cost: number): boolean {
+  const w = weaver.weaver!;
+  cost = paidCost(world, cost);
   // Eldritch Conduit: paid in Life, never down to nothing (`techniqueCost` agrees).
   if (world.mods.techniquesCostLife) {
     const h = weaver.health!;
@@ -180,7 +186,11 @@ export function castChime(world: World, point: Vec2 | undefined): void {
   const def = world.content.techniques.chime;
   const stasis = world.field.stasis;
   if (w.cooldowns.chime > 0 && !stasis) return reject(world, 'chime', 'cooldown');
-  if (!spend(world, weaver, 'chime', slotCost(world, 'chime', def.cost))) return;
+  const cost = slotCost(world, 'chime', def.cost);
+  if (!spend(world, weaver, 'chime', cost)) return;
+  // Stillwater Bell refunds a share of what this Chime really cost (Stasis included), so the
+  // paid cost rides the Chime. Set only with the Rift relic, so no other fight sees the key.
+  const paid = world.mods.stillwaterRefund > 0 ? paidCost(world, cost) : undefined;
   if (!stasis) {
     const base = slotCooldown(world, 'chime', def.cooldown);
     const cut = world.mods.chimeCooldownCut;
@@ -212,6 +222,7 @@ export function castChime(world: World, point: Vec2 | undefined): void {
     launchedAt: world.time,
     landsAt: world.time + def.flight,
     radius: def.radius * world.mods.chimeRadiusMult,
+    ...(paid !== undefined ? { paid } : {}),
   };
   world.chimes.push(chime);
   world.events.push({
@@ -307,7 +318,7 @@ export function updateChimes(world: World): void {
         }
       }
     }
-    if (stillwater) stillwaterRefund(world);
+    if (stillwater) stillwaterRefund(world, chime.paid);
     const weaver = world.entities.get(world.weaverId);
     if (isActive(weaver) && distSq(weaver.x, weaver.z, chime.x, chime.z) <= r2) {
       heal(world, weaver, weaver.health.maxHp * def.healPct * world.mods.chimeHealMult, 'chime');
@@ -351,14 +362,15 @@ function freedOf(world: World, hero: Entity, bits: number, by: 'chime' | 'reel')
       world.events.push({ type: 'freed', tick: world.tick, hero: hero.id, status, by });
 }
 
-/** Stillwater Bell: the Chime gives back its share of what it cost (Life under Eldritch Conduit). */
-function stillwaterRefund(world: World): void {
+/**
+ * Stillwater Bell: the Chime gives back its share of what it was paid at its cast, Stasis's
+ * discount included (Life under Eldritch Conduit).
+ */
+function stillwaterRefund(world: World, paid: number | undefined): void {
   const weaver = world.entities.get(world.weaverId);
   const w = weaver?.weaver;
-  if (!weaver || !w || !(world.mods.stillwaterRefund > 0)) return;
-  const def = world.content.techniques.chime;
-  const refund =
-    slotCost(world, 'chime', def.cost) * world.mods.techCostMult * world.mods.stillwaterRefund;
+  if (!weaver || !w || !(world.mods.stillwaterRefund > 0) || paid === undefined) return;
+  const refund = paid * world.mods.stillwaterRefund;
   if (world.mods.techniquesCostLife) w.selfHealAcc += heal(world, weaver, refund, 'self', false);
   else w.spirit = Math.min(w.maxSpirit - w.reservedSpirit, w.spirit + refund);
 }
