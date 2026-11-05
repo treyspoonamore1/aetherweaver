@@ -5,8 +5,10 @@
  * ArenaView's floor, perimeter, pillars, rays and dust is provably neutral.
  *
  * For every Movement I and Movement II arena: its look, the exact `stage.setMood` arguments, how
- * many meshes it builds, and a fingerprint of their geometry, instance matrices, uniforms, shaders
- * and transforms. For every Movement I and II enemy, every hero and the Weaver: the model's
+ * many meshes it builds, a fingerprint of their geometry, instance matrices, uniforms, shaders
+ * and transforms, and a fingerprint of the floor painting (every 2D-context call and property
+ * write on each canvas the arena paints: the flagstones or iron plates, rings, spokes, rosette,
+ * channels and brass inlay). For every Movement I and II enemy, every hero and the Weaver: the model's
  * geometry fingerprint, plus the enemy's gait and death material.
  *
  * `GEN_SPIRE_SNAPSHOT=<file> npx vitest run tests/renderSpireSnapshot` writes the current table
@@ -49,17 +51,98 @@ interface ArenaShot {
   mood: Record<string, string | number>;
   meshes: number;
   hash: string;
+  /** One entry per canvas the arena creates, in creation order. */
+  paint: PaintShot[];
 }
 
-/** Builds an arena headless (a canvas stand-in: no 2D context, so the floor isn't painted). */
-function shootArena(id: string): ArenaShot {
+interface PaintShot {
+  width: number;
+  height: number;
+  /** How many 2D-context calls and property writes were recorded. */
+  ops: number;
+  hash: string;
+}
+
+/** A value as the recorder logs it: numbers to 4 places, gradients by their creation index. */
+function paintArg(v: unknown, gradients: object[]): string {
+  if (typeof v === 'number') return v.toFixed(4);
+  if (typeof v === 'object' && v !== null) {
+    const i = gradients.indexOf(v);
+    if (i >= 0) return `gradient${i}`;
+  }
+  return JSON.stringify(v);
+}
+
+/**
+ * A canvas stand-in whose 2D context records every method call (with its arguments) and every
+ * property write into a running hash. Gradients record their colour stops into the same log.
+ */
+function recordingCanvas(): { canvas: unknown; shot: () => PaintShot } {
+  let h = 2166136261;
+  let ops = 0;
+  const gradients: object[] = [];
+  const log = (entry: string) => {
+    ops++;
+    h = fnv(h, entry + ';');
+  };
+  const props: Record<string, unknown> = {};
+  const ctx = new Proxy(props, {
+    get(_t, key) {
+      if (typeof key !== 'string') return undefined;
+      if (key in props) return props[key];
+      return (...args: unknown[]) => {
+        log(`${key}(${args.map((a) => paintArg(a, gradients)).join(',')})`);
+        if (key === 'createRadialGradient' || key === 'createLinearGradient') {
+          const gi = gradients.length;
+          const grad = {
+            addColorStop: (o: number, c: string) =>
+              log(`gradient${gi}.stop(${paintArg(o, gradients)},${c})`),
+          };
+          gradients.push(grad);
+          return grad;
+        }
+        return undefined;
+      };
+    },
+    set(_t, key, value) {
+      if (typeof key !== 'string') return false;
+      log(`${key}=${paintArg(value, gradients)}`);
+      props[key] = value;
+      return true;
+    },
+  });
+  const canvas = {
+    width: 0,
+    height: 0,
+    getContext: (kind: string) => (kind === '2d' ? ctx : null),
+  };
+  return {
+    canvas,
+    shot: () => ({ width: canvas.width, height: canvas.height, ops, hash: h.toString(16) }),
+  };
+}
+
+/** Builds an arena headless, with recording canvases standing in for the painted floor. */
+function shootArena(
+  id: string,
+  override?: (def: ReturnType<typeof arenaDef>) => ReturnType<typeof arenaDef>,
+): ArenaShot {
   const g = globalThis as { document?: unknown };
   const had = g.document;
-  g.document = { createElement: () => ({ width: 0, height: 0, getContext: () => null }) };
+  const canvases: (() => PaintShot)[] = [];
+  g.document = {
+    createElement: (tag: string) => {
+      expect(tag).toBe('canvas');
+      const rec = recordingCanvas();
+      canvases.push(rec.shot);
+      return rec.canvas;
+    },
+  };
   try {
     const moods: Record<string, string | number>[] = [];
     const stage = { setMood: (m: Record<string, string | number>) => moods.push(m) } as never;
-    const view = new ArenaView(arenaDef(id), stage, createModelMaterial());
+    const def = override ? override(arenaDef(id)) : arenaDef(id);
+    const view = new ArenaView(def, stage, createModelMaterial());
     expect(moods, id).toHaveLength(1);
     let meshes = 0;
     let h = 2166136261;
@@ -90,7 +173,13 @@ function shootArena(id: string): ArenaShot {
         `${m.position.toArray()}${m.rotation.toArray()}${m.scale.toArray()}${m.renderOrder}${m.visible}`,
       );
     });
-    return { look: view.look, mood: moods[0]!, meshes, hash: h.toString(16) };
+    return {
+      look: view.look,
+      mood: moods[0]!,
+      meshes,
+      hash: h.toString(16),
+      paint: canvases.map((shot) => shot()),
+    };
   } finally {
     g.document = had;
   }
@@ -142,6 +231,7 @@ const ARENAS: Record<string, ArenaShot> = {
     },
     meshes: 6,
     hash: '1a3b172a',
+    paint: [{ width: 2048, height: 2048, ops: 2460, hash: '309a6fa' }],
   },
   reliquary_hall: {
     look: 'warm',
@@ -159,6 +249,7 @@ const ARENAS: Record<string, ArenaShot> = {
     },
     meshes: 7,
     hash: '3a943cdc',
+    paint: [{ width: 2048, height: 2048, ops: 1992, hash: '3fce4f2e' }],
   },
   nave: {
     look: 'warm',
@@ -176,6 +267,7 @@ const ARENAS: Record<string, ArenaShot> = {
     },
     meshes: 7,
     hash: 'e88cfe5',
+    paint: [{ width: 2048, height: 2048, ops: 2460, hash: 'ed34d90d' }],
   },
   cloister: {
     look: 'warm',
@@ -193,6 +285,7 @@ const ARENAS: Record<string, ArenaShot> = {
     },
     meshes: 7,
     hash: '194040f9',
+    paint: [{ width: 2048, height: 2048, ops: 1569, hash: 'b1efb074' }],
   },
   bell_tower: {
     look: 'warm',
@@ -210,6 +303,7 @@ const ARENAS: Record<string, ArenaShot> = {
     },
     meshes: 6,
     hash: '23bca540',
+    paint: [{ width: 2048, height: 2048, ops: 1569, hash: '26d14d7e' }],
   },
   cantor_sanctum: {
     look: 'warm',
@@ -227,6 +321,7 @@ const ARENAS: Record<string, ArenaShot> = {
     },
     meshes: 6,
     hash: 'd4adc6e0',
+    paint: [{ width: 2048, height: 2048, ops: 1992, hash: '45c31667' }],
   },
   spire_gate: {
     look: 'crimson',
@@ -244,6 +339,7 @@ const ARENAS: Record<string, ArenaShot> = {
     },
     meshes: 7,
     hash: '299845a',
+    paint: [{ width: 2048, height: 2048, ops: 3588, hash: '7c2c202c' }],
   },
   barracks: {
     look: 'crimson',
@@ -261,6 +357,7 @@ const ARENAS: Record<string, ArenaShot> = {
     },
     meshes: 7,
     hash: '1e99e05b',
+    paint: [{ width: 2048, height: 2048, ops: 3588, hash: 'f740aa3c' }],
   },
   blood_forge: {
     look: 'crimson',
@@ -278,6 +375,7 @@ const ARENAS: Record<string, ArenaShot> = {
     },
     meshes: 7,
     hash: '9e5c5f40',
+    paint: [{ width: 2048, height: 2048, ops: 3102, hash: '878612a0' }],
   },
   kennels: {
     look: 'crimson',
@@ -295,6 +393,7 @@ const ARENAS: Record<string, ArenaShot> = {
     },
     meshes: 6,
     hash: '4537fb12',
+    paint: [{ width: 2048, height: 2048, ops: 3588, hash: '757790cc' }],
   },
   wardens_throne: {
     look: 'crimson',
@@ -312,6 +411,7 @@ const ARENAS: Record<string, ArenaShot> = {
     },
     meshes: 6,
     hash: 'bb71f856',
+    paint: [{ width: 2048, height: 2048, ops: 4110, hash: '8213fa88' }],
   },
 };
 
@@ -428,6 +528,37 @@ describe('the Reliquary and the Crimson Spire are drawn as before (Phase 5c, W0a
       expect(arenaMood(def)).toEqual(want.mood);
       expect(shootArena(id)).toEqual(want);
     });
+
+  it('every arena paints exactly one 2048px floor canvas, and the painting is recorded', () => {
+    for (const [id, want] of Object.entries(ARENAS)) {
+      expect(want.paint, id).toHaveLength(1);
+      expect(want.paint[0]!.width, id).toBe(2048);
+      expect(want.paint[0]!.height, id).toBe(2048);
+      expect(want.paint[0]!.ops, id).toBeGreaterThan(1000);
+    }
+  });
+
+  it('the paint fingerprint catches a change to the floor painting alone', () => {
+    // The theme's line colour feeds only the canvas in the Reliquary (rings, spokes, rosette), so a
+    // change to it leaves the mesh fingerprint as it is and must still move the paint fingerprint.
+    for (const id of ['reliquary_hall', 'spire_gate']) {
+      const base = shootArena(id);
+      const relined = shootArena(id, (def) => ({
+        ...def,
+        theme: { ...def.theme, line: '#010203' },
+      }));
+      expect(relined.paint[0]!.ops, id).toBe(base.paint[0]!.ops);
+      expect(relined.paint[0]!.hash, id).not.toBe(base.paint[0]!.hash);
+      if (id === 'reliquary_hall') expect(relined.hash, id).toBe(base.hash);
+    }
+    // A floor colour change moves the gradient stops and so the painting too.
+    const base = shootArena('nave');
+    const refloored = shootArena('nave', (def) => ({
+      ...def,
+      theme: { ...def.theme, floor: '#123456' },
+    }));
+    expect(refloored.paint[0]!.hash).not.toBe(base.paint[0]!.hash);
+  });
 
   it('every Movement I and II enemy, every hero and the Weaver is modelled as before', () => {
     const enemies = CONTENT.enemies.filter(earlyEnemy).map((e) => `enemy:${e.id}`);
