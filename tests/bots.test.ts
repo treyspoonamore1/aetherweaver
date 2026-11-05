@@ -33,6 +33,7 @@ import {
   type SimConfig,
   type SimEvent,
   type Status,
+  type WorldState,
 } from '../src/sim';
 import { addStatus, killEnemy } from '../src/sim/combat/health';
 import { hero, hurt, sandbox, spawn, stepFor, worldOf } from './sim/helpers';
@@ -1727,6 +1728,17 @@ describe('the Skilled bot reads Movement III (staged)', () => {
       kind: 'focus',
       target: elite.id,
     });
+    // In a pack, not yet: the tank would march off and leave the Weaver to it (its crowd guard,
+    // `focusSilencing`, as `focusNull`'s); the Mute step leaves a Silencing elite to it.
+    const pack = rift({ thread: null });
+    const crowded = tough(pack, 'hollow_chorister', 0, -10);
+    worldOf(pack).entities.get(crowded.id)!.enemy!.affixes = ['silencing'];
+    for (let i = 0; i < 4; i++) tough(pack, 'hollow_chorister', -6 + 3 * i, -14);
+    expect(
+      makeBot('skilled', 1)
+        .decide(pack.state)
+        .some((c) => c.t === 'directive' && c.kind === 'focus'),
+    ).toBe(false);
     const far = rift({ thread: null });
     const maw = tough(far, 'void_maw', 0, -19);
     for (const id of far.state.party) worldOf(far).entities.get(id)!.hero!.targetId = null;
@@ -1843,6 +1855,24 @@ describe('the Novice bot in Movement III', () => {
     expect(novice(near).some(focusMaw)).toBe(false);
     // No stationary enemy at all: nothing.
     expect(novice(rift({ thread: null })).some(focusMaw)).toBe(false);
+  });
+
+  it('Focuses a Spindle now and then while one stands and none is Focused, and only then', () => {
+    // The heroes keep to the boss in front of them, so a Novice who never Focused a Spindle
+    // fought the plated Unweaver into its enrage every time.
+    const focus = (c: Command) => c.t === 'directive' && c.kind === 'focus';
+    const sim = rift({ thread: null });
+    const spindle = tough(sim, 'spindle', 0, -9);
+    expect(novice(sim)).toContainEqual({ t: 'directive', kind: 'focus', target: spindle.id });
+    // One already Focused: no draw, so nothing new.
+    const held = rift({ thread: null });
+    const kept = tough(held, 'spindle', 0, -9);
+    worldOf(held).focusTarget = kept.id;
+    expect(novice(held).some(focus)).toBe(false);
+    // No Spindle: no draw.
+    const plain = rift({ thread: null });
+    tough(plain, 'hollow_chorister', 0, -9);
+    expect(novice(plain).some(focus)).toBe(false);
   });
 
   it('a Novice clears maw_hollow (its Maws stood out of sight until the time limit)', () => {
@@ -2017,11 +2047,28 @@ describe('the Movement III bots: the tools review fixes', () => {
   });
 
   it('the Decree gate fails a Stolen Verse still standing when the party wipes', () => {
-    // Novice, 8919 and 32676: each wiped with a Stolen Verse up, which no 'verseReturned' ends.
-    for (const seed of [8919, 32676]) {
-      const f = decreeFight('the_unweaver', seed, 'novice');
+    // A Skilled Weaver who walks off as a verse is stolen and does nothing more: at 1000 and
+    // 56433 the party wipes with a Stolen Verse up, which no 'verseReturned' ends. (The Novice
+    // no longer wipes with one up: since W9 she Focuses Spindles and outlasts the Shear.)
+    for (const seed of [1000, 56433]) {
+      const skilled = makeBot('skilled', seed);
+      let gone = false;
+      let up = false;
+      const deserter = {
+        name: 'deserter',
+        decide(state: WorldState): Command[] {
+          up = state.field.stolen !== undefined;
+          if (!up && !gone) return skilled.decide(state);
+          if (gone) return [];
+          gone = true;
+          return [{ t: 'debug', op: { op: 'teleportWeaver', x: 0, z: 21 } }];
+        },
+      };
+      const f = decreeFight('the_unweaver', seed, 'skilled', deserter);
       expect(f.won, String(seed)).toBe(false);
-      expect(f.occurrences['Steal Verse'], String(seed)).toBe(f.seen['Steal Verse']);
+      expect(up, String(seed)).toBe(true);
+      // Heard once more than cast: Steal Verse's Decree is announced at phase 2's entry too.
+      expect(f.occurrences['Steal Verse'], String(seed)).toBe(f.seen['Steal Verse']! - 1);
       expect(f.answered['Steal Verse'], String(seed)).toBe(0);
     }
   }, 120_000);

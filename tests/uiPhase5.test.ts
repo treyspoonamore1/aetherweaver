@@ -276,7 +276,7 @@ describe('an Expedition’s copy', () => {
     expect(titleEyebrow(true, 2)).toBe('Movements I–II · The Expedition');
     expect(routeOptions().map((o) => o.label)).toEqual([
       'Prelude · ~15 min',
-      'Expedition · ~30 min',
+      'Expedition · ~40 min',
     ]);
     expect(summaryEyebrow(prep)).toBe('The Expedition · summary');
     expect(outcomeSub(expeditionSummaryRun('victory'))).toBe(

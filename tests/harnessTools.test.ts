@@ -356,7 +356,8 @@ describe('the Decree gate (tools/decrees.ts)', () => {
     expect(f.answered.Unpicking).toBe(judged.length);
     expect(f.occurrences.Unpicking).toBe(f.unpicks!.length);
     // A Weaver who never threads again after the first cut fails the Unpicks that cut.
-    const skilled = makeBot('skilled', 1000);
+    // (Seed 8919 since W9's tuning: at 1000 the lazy Weaver's cut Unpicks all came with a down.)
+    const skilled = makeBot('skilled', 8919);
     let cut = false;
     const lazy: Bot = {
       name: 'lazy',
@@ -366,16 +367,17 @@ describe('the Decree gate (tools/decrees.ts)', () => {
         return cut ? out.filter((c) => c.t !== 'thread') : out;
       },
     };
-    const g = decreeFight('the_seamstress', 1000, 'skilled', lazy);
+    const g = decreeFight('the_seamstress', 8919, 'skilled', lazy);
     expect(g.unpicks!.some((u) => u.lockEnd !== null && !u.rethreaded)).toBe(true);
     expect(g.answered.Unpicking).toBeLessThan(g.occurrences.Unpicking!);
   }, 60_000);
 
   it('judges an Unpick the win leaves inside its lock on the fight, not as a missed re-thread', () => {
-    // Seed 72271 (1000 + 9 × 7919): an Unpick cuts at ~75.7 s and the Seamstress falls before
-    // its 1 s lock runs out, so no re-thread was possible. It once read as a failure (Skilled's
-    // Unpicking 93% over 30 seeds, where every Unpick it could judge was answered).
-    const f = decreeFight('the_seamstress', 72271, 'skilled');
+    // Seed 16838 (1000 + 2 × 7919; 72271 before W9's tuning): an Unpick cuts and the Seamstress
+    // falls before its 1 s lock runs out, so no re-thread was possible. It once read as a
+    // failure (Skilled's Unpicking 93% over 30 seeds, where every Unpick it could judge was
+    // answered).
+    const f = decreeFight('the_seamstress', 16838, 'skilled');
     expect(f.won).toBe(true);
     const open = f.unpicks!.filter((u) => u.open);
     expect(open.length).toBeGreaterThan(0);
@@ -414,7 +416,7 @@ describe('verb ablation (tools/verbs.ts)', () => {
     // mawHold fires only for a Bloodlusting Brann whom no plain Reel takes out of an Inhale:
     // with the default party and techniques every row read 'no change (not met here)'.
     const holds = (setup: Parameters<typeof verbConfig>[3]) => {
-      const seed = 111866;
+      const seed = 1000;
       const sim = createSim(verbConfig('maw_hollow', seed, 3, setup));
       const bot = new SkilledBot(seed, { every: 4, attention: 1, callReaction: 0.4 });
       let n = 0;
@@ -432,8 +434,8 @@ describe('verb ablation (tools/verbs.ts)', () => {
     expect(holds({})).toBe(0);
     expect(holds(brann)).toBeGreaterThan(0);
     // verbFight plays the same setup.
-    const on = verbFight('maw_hollow', 111866, new Set(), 3, brann);
-    const off = verbFight('maw_hollow', 111866, new Set(['mawHold']), 3, brann);
+    const on = verbFight('maw_hollow', 1000, new Set(), 3, brann);
+    const off = verbFight('maw_hollow', 1000, new Set(['mawHold']), 3, brann);
     expect(off).not.toEqual(on);
   }, 60_000);
 });

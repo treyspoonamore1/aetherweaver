@@ -270,6 +270,19 @@ function unweaverEnter(world: World, boss: Entity, phase: number): void {
     // Steal Verse and Unravel begin; the Snip goes on.
     m3.nextStealAt = shiftEnd(world) + STEAL_FIRST;
     m3.nextUnravelAt = shiftEnd(world) + UNRAVEL_FIRST;
+    // Steal Verse's Decree at the phase's entry too, as Mirror Weave's is, so a quick phase still
+    // hears it twice (the cast names it again); not without an aura for it to take.
+    const target = stealTarget(world);
+    if (target) {
+      const steal = attackDef(STEAL);
+      announce(
+        world,
+        boss,
+        steal.name,
+        stealVerseDecree(auraName(world, target.id)),
+        steal.answers,
+      );
+    }
   } else if (phase === 3) {
     // Mirror Weave: Unravel stops and the stolen verse comes back at once...
     returnVerse(world, 'phase');

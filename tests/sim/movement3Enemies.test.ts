@@ -300,7 +300,7 @@ describe('the Void Maw: stationary, and its Inhale', () => {
     expect(started).toHaveLength(1);
     expect(started[0]).toMatchObject({ kind: 'pull', owner: maw.id, r: 8 });
     expect(started[0]!.until - w.time).toBeCloseTo(4, 6);
-    expect(w.field.zones![0]!.pullSpeed).toBe(2.4);
+    expect(w.field.zones![0]!.pullSpeed).toBe(2.8);
     const ended = stepUntil(sim, (ev) => ev.some((e) => e.type === 'zoneEnded'), 60 * 5);
     expect(Math.abs(w.time - started[0]!.until)).toBeLessThanOrEqual(TICK + 1e-9);
     expect(ofType(ended, 'zoneEnded')[0]).toMatchObject({ zone: t.id, kind: 'pull' });

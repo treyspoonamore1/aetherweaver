@@ -215,7 +215,7 @@ describe('the Seamstress', () => {
     for (const t of [first, second, third]) expect(t.shape.kind).toBe('circle');
   });
 
-  it('the Unpick: first at +5 s after the shift, every 22 s (15 s enraged), then its Needle Rain', () => {
+  it('the Unpick: first at +5 s after the shift, every 18 s (15 s enraged), then its Needle Rain', () => {
     const { sim, w, boss } = bossFight(SEAMSTRESS, { z: -4 });
     const entered = enter(sim, 0.45);
     quiet(boss);
@@ -224,7 +224,7 @@ describe('the Seamstress', () => {
     watch(sim, 50, starts, events);
     const unpicks = starts['seamstress_unpick']!;
     near(unpicks[0]!.start, entered + 2 + 5);
-    near(unpicks[1]!.start - unpicks[0]!.start, 22);
+    near(unpicks[1]!.start - unpicks[0]!.start, 18);
     // The raid takes 12% of everyone's life and cuts whatever the Thread does.
     expect(unpicks[0]!.pctMaxHp).toBeCloseTo(0.12, 9);
     expect(unpicks[0]!.shape.kind).toBe('raid');
@@ -450,6 +450,21 @@ describe('the Unweaver, phase 2: Steal Verse', () => {
     expect('stolen' in w.field).toBe(false);
     expect(w.entities.get(add)?.health?.dead ?? true).toBe(true);
     expect(w.internal.m3!.nextStealAt).toBeUndefined();
+  });
+
+  it('announces its Decree at the phase’s entry too (so a quick phase hears it twice), not without an aura', () => {
+    const heard = (config: Partial<SimConfig>) => {
+      const { sim, boss } = bossFight(UNWEAVER, { z: -4, config });
+      quiet(boss);
+      const events = stepFor(sim, 1, [setBossHp(0.6)]);
+      expect(ofType(events, 'phaseChanged')).toHaveLength(1);
+      return ofType(events, 'decree').filter((d) => d.name === 'Steal Verse');
+    };
+    const entry = heard({ chords: CHORDS });
+    expect(entry).toHaveLength(1);
+    expect(entry[0]!.text).toBe(stealVerseDecree('Ostinato'));
+    expect(entry[0]!.answers).toEqual(['focus']);
+    expect(heard({ auras: [] })).toHaveLength(0);
   });
 
   it('takes the beam song’s aura without a field song, and is skipped with no aura at all', () => {

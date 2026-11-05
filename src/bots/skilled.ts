@@ -172,7 +172,7 @@ const M3_FOCUS_AT = {
   focusVerse: Infinity,
   focusChampion: Infinity,
   focusNull: 4,
-  focusSilencing: Infinity,
+  focusSilencing: 4,
   focusStationary: Infinity,
 } as const;
 /** Answer a cut line this long before it lands (docs/phase-5c.md); Glide across under 0.4 s. */
@@ -747,8 +747,11 @@ export class SkilledBot implements Bot {
         enemies.find((e) => e.enemy!.cast?.interruptible) ??
         // Movement III's targets (docs/phase-5c.md): undefined unless one is on the field.
         this.m3FocusTarget(state, enemies, stalled) ??
-        // A Mute, or a Silencing elite carrying a Mute's field (only the Mute before Movement III).
-        enemies.find((e) => suppresses(state, e)) ??
+        // A Mute. A Silencing elite carries a Mute's field too, but it waits for its own
+        // crowd-guarded step above (`focusSilencing`): sent at once into a full pack, the tank
+        // left the Weaver to it (measured: frayed_court won 72-84%, 1.0-1.3 downs a fight;
+        // guarded, 98-100% and 0.1). No affix suppresses before Movement III, so it's the Mute.
+        enemies.find((e) => suppresses(state, e) && !carriesSilence(e)) ??
         // A Crimson Sentinel's guard: Focus sends the party round its flanks, once the pack
         // around it has thinned (focused on the wall, the party lets the hounds bleed it out).
         (enemies.length <= SENTINEL_FOCUS_AT ? enemies.find((e) => guardUp(state, e)) : undefined);
