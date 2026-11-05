@@ -47,6 +47,7 @@ export function attachThread(world: World, slot: PartySlot): void {
   }
   w.threadSlot = slot;
   w.threadTension = 0;
+  restartUnravel(world);
   world.events.push({ type: 'threadAttached', tick: world.tick, hero: hero.id, slot });
   // Under Unravel (docs/phase-5c.md) the Thread wounds: no Relay heal.
   if (
@@ -171,6 +172,18 @@ function unravelling(world: World): boolean {
 }
 
 /**
+ * Unravel's gathered Mend belongs to one stretch of Mend on one hero: when the Thread moves, the
+ * mode changes or the threaded hero goes down, what was gathered is dropped and the half-second
+ * clock starts again, so it never lands on another hero or after the Weaver answered.
+ */
+function restartUnravel(world: World): void {
+  const u = world.field.unravel;
+  if (!u) return;
+  u.acc = 0;
+  u.tickIn = DOT_TICK;
+}
+
+/**
  * Unravel (docs/phase-5c.md, Q12): Mend deals what it would have healed to the threaded hero
  * (`mendPerSec × mendMult × potency`), gathered in `field.unravel.acc` and landing every half
  * second as a tick. Mend's bonuses, the Prism Loom's spill and Sanguine Covenant don't apply,
@@ -178,7 +191,7 @@ function unravelling(world: World): boolean {
  */
 function unravelMend(world: World, hero: Entity, potency: number, dt: number): void {
   const u = world.field.unravel!;
-  if (hero.health!.downed) return;
+  if (hero.health!.downed) return restartUnravel(world);
   u.acc += world.content.thread.mendPerSec * world.mods.mendMult * dt * potency;
   u.tickIn -= dt;
   if (u.tickIn > 1e-9) return;
@@ -226,6 +239,7 @@ export function toggleThreadMode(world: World, mode?: 'bear'): void {
     }
   } else if (w.threadMode === 'bear') w.threadMode = w.lastMode;
   else w.threadMode = w.threadMode === 'mend' ? 'empower' : 'mend';
+  restartUnravel(world);
   world.events.push({ type: 'threadModeChanged', tick: world.tick, mode: w.threadMode });
 }
 
