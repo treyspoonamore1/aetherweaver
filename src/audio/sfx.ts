@@ -5562,7 +5562,13 @@ export class SfxEngine {
     for (const [id, held] of this.zoneVoices) {
       const z = zones.find((x) => x.id === id);
       if (!z) continue;
-      const left = this.simLeft(state, z.until + frozen, 0, 20);
+      // Unscaled sim seconds: a hit-stop (a Perfect Ward, a save, a hold) slows the clock for a
+      // few ticks only, so dividing the whole remainder by its time scale would overshoot the end.
+      const left = clamp(
+        z.until + frozen - (typeof state.time === 'number' ? state.time : 0),
+        0,
+        20,
+      );
       if (now + left <= held.holds + ZONE_CARRY_SLACK) continue;
       const h = this.zoneVoice(held.kind, Math.max(0.4, left), held.pan, false);
       if (!h) continue;
@@ -5992,15 +5998,19 @@ export class SfxEngine {
     this.unravel = null;
   }
 
-  /** A stolen verse or Unravel, as the state has it or (in the lab) as the events told it. */
+  /**
+   * A stolen verse or Unravel, as the state has it or (in the lab) as the events told it. Under
+   * Stasis Unravel does not hold (Mend heals), as the Thread and the HUD show it.
+   */
   private m3Inputs(state: WorldState): { stolen: boolean; unravel: boolean } {
-    const field = state.field as { stolen?: unknown; unravel?: unknown } | undefined;
+    const field = state.field as
+      { stolen?: unknown; unravel?: unknown; stasis?: unknown } | undefined;
     const time = typeof state.time === 'number' ? state.time : 0;
     if (this.verse && this.verse.until <= time) this.verse = null;
     if (this.unravel && this.unravel.until <= time) this.unravel = null;
     return {
       stolen: !!field?.stolen || this.verse !== null,
-      unravel: !!field?.unravel || this.unravel !== null,
+      unravel: field?.stasis !== true && (!!field?.unravel || this.unravel !== null),
     };
   }
 

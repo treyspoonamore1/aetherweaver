@@ -1062,6 +1062,60 @@ describe('the Unstitched’s sounds (Phase 5c)', () => {
     }
   });
 
+  it('Unravel does not reach the music under Stasis, as the Thread and the HUD show it', () => {
+    const h = harness();
+    h.d.setBiome('abyssal_rift');
+    h.d.setMood('combat');
+    const inputs = () => (h.d as unknown as { lastInputs: { unravel?: boolean } }).lastInputs;
+    fire(h, ev('unravelled', { active: true, until: 1e6 }));
+    h.d.update(h.world.state, 0.1);
+    expect(inputs().unravel).toBe(true);
+    h.world.setStasis(true, 3);
+    h.d.update(h.world.state, 0.1);
+    expect(inputs().unravel).toBe(false);
+    h.world.setStasis(false);
+    h.d.update(h.world.state, 0.1);
+    expect(inputs().unravel).toBe(true);
+    h.d.dispose();
+  });
+
+  it('a hit-stop under a zone does not carry its drone or hum', () => {
+    for (const kind of ['pull', 'null'] as const) {
+      const h = harness();
+      h.d.setMood('combat');
+      type Held = { h: { endsAt: number }; holds: number };
+      const sfx = (h.d as unknown as { sfx: { zoneVoices: Map<number, Held> } }).sfx;
+      const zone = {
+        id: 9,
+        kind,
+        owner: IDS.enemyBase,
+        x: 2,
+        z: 4,
+        r: 8,
+        until: h.world.time + 2.9,
+      };
+      h.world.zones = [zone];
+      fire(h, ev('zoneStarted', { ...zone, zone: zone.id }));
+      const first = sfx.zoneVoices.get(9)!.h;
+      // A second on (past the zone sound's rate gate), at full speed.
+      for (let i = 0; i < 10; i++) {
+        h.advance(0.1);
+        h.d.update(h.world.state, 0.1);
+      }
+      expect(sfx.zoneVoices.get(9)!.h).toBe(first);
+      // A Perfect Ward's hit-stop: six frames at a fifth of the speed.
+      const state = h.world.state as { timeScale: number };
+      state.timeScale = 0.2;
+      for (let i = 0; i < 6; i++) {
+        h.advance(1 / 60);
+        h.d.update(h.world.state, 1 / 60);
+      }
+      state.timeScale = 1;
+      expect(sfx.zoneVoices.get(9)!.h).toBe(first);
+      h.d.dispose();
+    }
+  });
+
   it('a Spindle hit restarts the drone once it has run out, and not while it still sounds', () => {
     const h = harness();
     h.d.setMood('combat');
