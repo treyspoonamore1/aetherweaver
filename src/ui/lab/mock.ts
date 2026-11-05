@@ -3792,6 +3792,7 @@ export function riftHud(scenario: RiftScenario): HudSnapshot {
         ],
         encounter: encounter('wraith_vigil'),
         foes: ['doubt_wraith', 'hollow_chorister'],
+        rift: { wraithCasting: true },
       };
     case 'rift-doom':
       return {

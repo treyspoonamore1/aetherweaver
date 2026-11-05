@@ -255,6 +255,17 @@ export const ANSWER: Record<AnswerTag, AnswerLook> = {
   empower: { icon: 'empower', label: 'Empower', action: 'threadMode' },
 };
 
+/**
+ * The key an answer's glyph shows (its action's binding), or null for an answer with no key of its
+ * own (Move, Dome, Mend). Movement III's Retarget (`thread`) is the hero keys: "1–3" as bound.
+ */
+export function answerKeyLabel(tag: AnswerTag): string | null {
+  const a = ANSWER[tag];
+  if (a.action) return bindingLabel(a.action);
+  if (tag === 'thread') return `${bindingLabel('focus1')}–${bindingLabel('focus3')}`;
+  return null;
+}
+
 export const FOLLOW_LABEL = { follow: 'Following', hold: 'Holding', scatter: 'Scattered' } as const;
 
 export const ROLE_LABEL = {

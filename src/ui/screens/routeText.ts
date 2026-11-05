@@ -198,6 +198,15 @@ export function expeditionOnward(movements = EXPEDITION_MOVEMENTS): string {
   return n === 2 ? 'into Movement II' : `through Movements II–${movementNumeral(n)}`;
 }
 
+/**
+ * How many Movements Prep's Route copy names: the run's own when it is an Expedition (a save keeps
+ * the length it was made with), else what an Expedition plays now (EXPEDITION_MOVEMENTS).
+ */
+export function expeditionLength(run: Partial<Pick<RunState, 'movements'>>): number {
+  const n = run.movements ?? 1;
+  return n >= 2 ? n : EXPEDITION_MOVEMENTS;
+}
+
 /** The Route toggle's options: "Prelude · ~15 min", "Expedition · ~30 min". */
 export function routeOptions(): { value: Route; label: string }[] {
   return [

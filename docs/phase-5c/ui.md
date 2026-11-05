@@ -12,13 +12,13 @@ draw as they did. The lab's 'Movement III' group (`src/ui/lab/UiLab.tsx`, mock d
 
 | Piece | What it shows | Where |
 | --- | --- | --- |
-| Answer glyphs | `thread` is **Retarget** (the Thread with a cut mark, `threadCut`; no single key: the hero keys), `empower` is **Empower** (its star, the Thread-mode key). | `hud/labels.ts` `ANSWER` |
+| Answer glyphs | `thread` is **Retarget** (the Thread with a cut mark, `threadCut`; its glyph shows the hero keys, '1–3' as bound, `answerKeyLabel`), `empower` is **Empower** (its star, the Thread-mode key). | `hud/labels.ts` `ANSWER` |
 | Statuses | Each with its glyph and answer: Doubted (mask), Possessed (mask; 'Chime frees them; Focus the Wraith before its cast ends'), Doom (skull, '×N/5'), Ignited (`doomed`), Voided (maw; 'Rally or Reel them out'), Stitch and Stitched (needle; 'Chime frees both'), Unravelled ('Your Mend wounds — Empower'), Emboldened (mirror, on enemies). | `hud/labels.ts` `STATUS` |
 | Icons | scissors, needle, spindle, mask, rune, mirror, maw, threadCut; the three Rift relic glyphs (lamb, cord, stillbell). | `kit/iconPaths.ts`, `kit/RelicGlyph.tsx` |
 | Doom badge | Counts against its ignition from the first stack ('×3/5'), glows with the Chime glyph from 4 (`DOOM_EMPHASIS = DOOM_CHIME_AT`). Bleed keeps its 5. | `hud/StatusBadge.tsx`, `hud/legionLook.ts` `stacksUrgent` |
 | Possession | An indigo frame border (never the enemy bar's red or Focus gold), a 'Possessed → Kael' strip with the Chime glyph (hidden under Blind Score). The victim is the sim's own `possessionVictim`: never the Weaver. | `hud/RiftMarks.tsx`, `hud/PartyFrames.tsx` |
 | Stitch | A needle-and-link chip naming the hero the same Stitch joined them to (paired by the status's source). | `hud/RiftMarks.tsx` |
-| Rune lock | Per key: `slotSilenced(key, downed, runeLocked)` greys Ward, Chime and Reel (Rewind) inside a Null rune under a bone rune-and-lock overlay; **Glide never greys**. A 'Rune: Glide out' badge with Glide's key sits on the bar's edge. The bridge reads the sim's `weaverSilenced`. | `hud/techniqueState.ts`, `hud/WeaverBar.tsx` |
+| Rune lock | Per key: `slotSilenced(key, downed, runeLocked)` greys Ward, Chime and Reel (Rewind) inside a Null rune under a bone rune-and-lock overlay; **Glide never greys**. A 'Rune: Glide out' badge with Glide's key sits on the bar's left edge, in one row beside the contribution readout (`WeaverEdgeBadges`), so it never covers it; the Mute's 'Auras silenced' keeps the right edge. The bridge reads the sim's `weaverSilenced`. | `hud/techniqueState.ts`, `hud/WeaverBar.tsx` |
 | Thread chip | After an **enemy** cut, 'Cut · 3.0 s (Snip)' instead of 'Snapped' (the range snap still reads 'Snapped'); while Unravel is open, 'Unravelled · 5 s' with the Empower glyph (alarmed in Mend, calm in Empower). The dial's plate says the same. | `hud/threadMode.ts`, `hud/WeaverBar.tsx` |
 | Stolen aura | Hollow and struck through, with a Focus pointer; its Spirit or Life stays reserved (the tooltip says so). | `hud/WeaverBar.tsx` `AuraChip` |
 | Boss conditions | The Bloodmoon line is now one of a list (`bossConditions`), each a glyph, a word and its meaning: Spindles ×N (−80%), a stolen song, Unravel, the Mirror Ward (casting / up), the Hollow Champion (a mini bar), Stitched heroes. Under Blind Score the answer after '·' is hidden. | `hud/riftLook.ts`, `hud/BossBar.tsx` |
@@ -35,7 +35,9 @@ Blind Score):
 - `cut` (not an answer hint) — re-thread the moment the lock ends.
 - `cut-coming` — a cut line will cross the Thread: Thread a hero on your side, or step across.
 - `inhale` — Rally in the tell ('Swap puts you in the Maw' with the Swap variant), or Reel one out.
-- `possessed`, `wraith` — Chime frees them; Focus the Wraith or Chime the mark.
+- `possessed`, `wraith` — Chime frees them; Focus the Wraith or Chime the mark. `wraith` follows
+  `rift.wraithCasting` (the bridge sets it while a `doubt` mark is in its windup) and names the
+  hero the mark is on; it goes the moment the cast is interrupted.
 - `doom` — at 4+ stacks or Ignited: Chime, or Ward the blast.
 - `stitched` — Chime frees both.
 - `unravel` — Empower (or Bear on a Martyr run) until it passes.
@@ -64,14 +66,15 @@ Guard Strand is never taught.
   and 'Descend'.
 - **Route copy.** Derived from `EXPEDITION_MOVEMENTS`: the Title's 'Movements I–III · The
   Expedition', the Route hint 'Movements I–III, to the Unweaver.', Prep's 'climbs on through
-  Movements II–III'. With two Movements every string reads as before, and every Prelude string is
+  Movements II–III'. Prep reads the run's own length (`expeditionLength`): a two-Movement
+  Expedition saved before Phase 5c reads as it did then. With two Movements every string reads as before, and every Prelude string is
   unchanged.
 - **Ends and spoils.** VICTORY 'The Unweaver falls, and the Rift knits shut.'; ENCOUNTER_ICON
   needle and scissors; SPOILS for Vharun ('The Warden's armoury … the Rift yawns below') and the
   Seamstress; the Discord Tear names only the last Movement's boss.
 - **Deeds.** Whole Cloth keeps the Thread; Needle-Sure takes the needle.
 - **Reliquary.** A Rift relic shows 'Wakes in the Abyssal Rift' on its card, in the carry slots,
-  in its label and in the Codex (`wakesLabel`, from the meta's `wakesIn`).
+  in its label and in the Codex, and its shelf tile carries the sleeper's moon (`WakesMark`) (`wakesLabel`, from the meta's `wakesIn`).
 - **Codex.** Enemy entries show 'never moves' (stationary), a Spindle's tether, and 'Cuts your
   Thread' on a cut attack.
 

@@ -63,6 +63,7 @@ import {
 } from './rosterModel';
 import { KeyCap } from '../kit/KeyCap';
 import {
+  expeditionLength,
   expeditionOnward,
   prepEyebrow,
   routeHint,
@@ -453,11 +454,12 @@ export function PrepView({
               <Panel tone="solid" className="p-4" data-testid="prep-route">
                 <h2 className="font-display text-base font-bold text-gold-300">Route</h2>
                 <p className="mb-3 text-xs text-muted">
-                  The Prelude is Movement I alone; an Expedition climbs on {expeditionOnward()}.
+                  The Prelude is Movement I alone; an Expedition climbs on{' '}
+                  {expeditionOnward(expeditionLength(run))}.
                 </p>
                 <Segmented
                   label="This run"
-                  hint={routeHint(routeOf(run))}
+                  hint={routeHint(routeOf(run), expeditionLength(run))}
                   value={routeOf(run)}
                   options={routeOptions()}
                   onChange={(v) => route.onChange(v)}

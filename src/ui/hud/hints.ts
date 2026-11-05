@@ -608,18 +608,28 @@ function movementThreeHints(hud: HudSnapshot, keys: { Q: string; E: string; F: s
           ? `A Void Maw breathes in — Rally ${rally} the party to you: Swap puts you in the Maw`
           : `A Void Maw breathes in — Rally ${rally} the party to you before the pull${w.rewind ? '' : `, or Reel ${F} one out`}`,
     });
+  // The Wraith's cast (`rift.wraithCasting`) names the hero its doubt mark is on; the hint goes the
+  // moment the cast is interrupted, even while an orphaned mark lingers its last half second.
+  let wraithNamed = false;
   for (const h of up) {
     if (h.possessed)
       out.push({
         id: 'possessed',
         text: `${h.name} is possessed${h.possessed.victim ? ` and strikes ${h.possessed.victim}` : ''} — Chime ${E} on them frees them`,
       });
-    if (h.statuses.some((s) => s.id === 'doubt'))
+    if (rift?.wraithCasting && !wraithNamed && h.statuses.some((s) => s.id === 'doubt')) {
+      wraithNamed = true;
       out.push({
         id: 'wraith',
         text: `A Doubt Wraith reaches for ${h.name} — Focus it ${focus} to interrupt the cast, or Chime ${E} the mark`,
       });
+    }
   }
+  if (rift?.wraithCasting && !wraithNamed)
+    out.push({
+      id: 'wraith',
+      text: `A Doubt Wraith is casting — Focus it ${focus} to interrupt the cast`,
+    });
   for (const h of up) {
     const doom = stacksOf(h, 'doom');
     const doomed = h.statuses.some((s) => s.id === 'doomed');

@@ -829,6 +829,10 @@ const CUT_ATTACKS = new Set(CONTENT.attacks.filter((a) => a.cut && !a.cut.always
 const PULL_ATTACKS = new Set(
   CONTENT.attacks.filter((a) => a.zone?.kind === 'pull').map((a) => a.id),
 );
+/** The Doubt Wraith's possession cast (a mark that puts `doubt` on its hero). */
+const DOUBT_ATTACKS = new Set(
+  CONTENT.attacks.filter((a) => a.markStatus === 'doubt').map((a) => a.id),
+);
 
 /** The hints' Movement III threats (`HudSnapshot.rift`); no key at all with none on the field. */
 function riftOf(state: WorldState): { rift?: RiftHud } {
@@ -839,6 +843,7 @@ function riftOf(state: WorldState): { rift?: RiftHud } {
       if (!rift.cutComing || left < rift.cutComing.in) rift.cutComing = { name: t.name, in: left };
     }
     if (PULL_ATTACKS.has(t.attackId)) rift.inhale = true;
+    if (DOUBT_ATTACKS.has(t.attackId)) rift.wraithCasting = true;
   }
   for (const e of state.entities.list()) {
     const copy = e.enemy?.mimic?.copy;

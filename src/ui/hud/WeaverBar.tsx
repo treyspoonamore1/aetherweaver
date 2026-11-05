@@ -129,23 +129,16 @@ export function WeaverBar({
           data-stasis={w.stasis || undefined}
         >
           {/* The edge badges keep to the side away from the screen's edge. */}
-          <ContributionReadout c={hud.contribution} below={below} />
+          <WeaverEdgeBadges
+            contribution={hud.contribution}
+            runeLocked={!!w.runeLocked && !w.downed}
+            below={below}
+          />
           {w.fieldSuppressed && (
             <span
               className={`animate-pulse-soft absolute ${below ? '-bottom-3.5' : '-top-3.5'} right-4 flex items-center gap-1 rounded-md border border-lethal bg-ink-900 px-2 py-0.5 text-xs font-bold text-rose-200`}
             >
               <Icon name="mute" size={13} /> Auras silenced
-            </span>
-          )}
-          {w.runeLocked && !w.downed && (
-            // Movement III: a Null rune at her feet refuses Ward, Chime and Reel; Glide gets out.
-            <span
-              className={`animate-pulse-soft absolute ${below ? '-bottom-3.5' : '-top-3.5'} left-4 flex items-center gap-1 rounded-md border bg-ink-900 px-2 py-0.5 text-xs font-bold`}
-              style={{ borderColor: RUNE_BONE, color: RUNE_BONE }}
-              data-testid="rune-lock"
-            >
-              <Icon name="rune" size={13} /> Rune: Glide out
-              <KeyCap label={bindingLabel('glide')} />
             </span>
           )}
           <div className="flex items-end gap-4">
@@ -847,17 +840,52 @@ function ResonanceArc({ weaver: w, callingId }: { weaver: WeaverHud; callingId?:
 }
 
 /**
+ * The Weaver bar's left edge badges, in one row so none covers another: the contribution readout
+ * and, in Movement III, the Null rune's lock (a Null Priest's rune at her feet refuses Ward, Chime
+ * and Reel; Glide gets out). The row sits on the bar's top edge, or its bottom edge when the bar
+ * is at the top of the screen. The Mute's "Auras silenced" keeps the right edge.
+ */
+export function WeaverEdgeBadges({
+  contribution,
+  runeLocked,
+  below = false,
+}: {
+  contribution: ContributionHud;
+  runeLocked: boolean;
+  below?: boolean;
+}) {
+  return (
+    <div
+      className={`absolute ${below ? '-bottom-3' : '-top-3'} left-4 flex items-center gap-2`}
+      data-testid="weaver-edge-left"
+    >
+      <ContributionReadout c={contribution} />
+      {runeLocked && (
+        <span
+          className="animate-pulse-soft flex items-center gap-1 rounded-md border bg-ink-900 px-2 py-0.5 text-xs font-bold"
+          style={{ borderColor: RUNE_BONE, color: RUNE_BONE }}
+          data-testid="rune-lock"
+        >
+          <Icon name="rune" size={13} /> Rune: Glide out
+          <KeyCap label={bindingLabel('glide')} />
+        </span>
+      )}
+    </div>
+  );
+}
+
+/**
  * This fight so far: what the auras did against what the Thread did (the sim's ledger), as
  * two compact numbers and a split line. Sits on the Weaver bar's top edge (its bottom edge when
  * the bar is at the top of the screen); hidden until either has done something.
  */
-function ContributionReadout({ c, below = false }: { c: ContributionHud; below?: boolean }) {
+function ContributionReadout({ c }: { c: ContributionHud }) {
   const s = splitContribution(c);
   if (s.auras + s.thread < 1) return null;
   const both = s.auras + s.thread;
   return (
     <span
-      className={`absolute ${below ? '-bottom-3' : '-top-3'} left-4 flex items-center gap-1.5 rounded-md border border-ink-600 bg-ink-900 px-2 py-0.5 text-xs`}
+      className="flex items-center gap-1.5 rounded-md border border-ink-600 bg-ink-900 px-2 py-0.5 text-xs"
       role="img"
       aria-label={`This fight: auras ${compact(s.auras)}, Thread ${compact(s.thread)}`}
       title={`This fight: your auras healed ${compact(c.auras.healing)}, shielded ${compact(c.auras.shielded)} and added ${compact(c.auras.amplified)} damage; your Thread healed ${compact(c.thread.healing)} and added ${compact(c.thread.amplified)}.`}
