@@ -2,12 +2,21 @@ import * as THREE from 'three';
 import { CONTENT, enemyDef, heroDef } from '../content';
 import {
   bloodlusting,
+  threadSegment,
   type EntityId,
   type SimEvent,
   type SimEventOf,
   type WorldState,
 } from '../sim';
 import type { CallView } from './calls';
+import {
+  ABYSS_HEX,
+  RIFT_HEX,
+  SPINDLED_LABEL,
+  STOLEN_VERSE_ID,
+  crossing,
+  cutLabel,
+} from './riftCues';
 import type { CameraRig } from './camera';
 import type { EntityLayer, EntityRec } from './entities';
 import { FERMATA_COLOR, type FermataView } from './fermata';
@@ -163,6 +172,17 @@ const IRON_SMOKE = color(SPIRE_HEX.smoke);
 const EMBER = color(CRIMSON_HEX.ember);
 const BLOODMOON_SKY = color(SPIRE_HEX.bloodmoon);
 const GUARD = color(CRIMSON_HEX.guard);
+/** Movement III's colours (riftCues.ts). */
+const BONE = color(ABYSS_HEX.bone);
+const FRAY_MOTE = color(ABYSS_HEX.fray);
+const CLOTH_SMOKE = color(ABYSS_HEX.smoke);
+const FRAY = color(RIFT_HEX.fray);
+const STRAND = color(RIFT_HEX.strand);
+const POSSESS = color(RIFT_HEX.possess);
+const STITCH = color(RIFT_HEX.stitch);
+const MIRROR = color(RIFT_HEX.mirror);
+const SWIRL = color(RIFT_HEX.swirl);
+const RUNE = color(RIFT_HEX.rune);
 /** A guard's 'Blocked' floater shows at most this often per enemy (s, render clock). */
 const BLOCKED_EVERY = 0.6;
 
@@ -253,6 +273,31 @@ export class Feedback {
     refused: 0,
     refusedCleared: 0,
   };
+  /**
+   * Movement III (docs/phase-5c/vfx-audio.md), what has been played so far (tests, the lab):
+   * enemy cuts (and Unpicks) with their fray callout, Guard Strand's sparks (a cut turned aside, a
+   * bolt destroyed), possessions and frees, mirrors cracked, Mirror Wards, verses stolen and
+   * poured back, Unravel opening, zones laid, Spindled hits, cloth deaths, and Unravel's ticks
+   * shown as damage (never heal teal).
+   */
+  readonly firedM3 = {
+    cuts: 0,
+    unpicked: 0,
+    strands: 0,
+    possessed: 0,
+    freed: 0,
+    cracked: 0,
+    mirrorWards: 0,
+    steals: 0,
+    pours: 0,
+    unravels: 0,
+    zones: 0,
+    spindled: 0,
+    clothDeaths: 0,
+    unravelTicks: 0,
+  };
+  /** Where the last Stolen Verse fell (its pour starts there). */
+  private readonly verseAt = { x: 0, z: 0, known: false };
   /** Brann's refused-Rally glyph: until when it shows (render time), per hero. */
   private readonly refusedUntil = new Map<EntityId, number>();
   /** The same glyph struck across his Rally acknowledgement at his feet: until when, per hero. */
@@ -583,6 +628,13 @@ export class Feedback {
           this.d.thread.snap(this.d.kit);
           this.d.rig.addTrauma(0.2);
           const r = this.rec(ev.target);
+          if (ev.cause !== undefined) {
+            // An enemy cut it (Movement III): CUT (or UNPICKED) in the fray, not the range snap's
+            // grey SNAPPED, and the stub frays at her hand until the lock lifts.
+            this.cutThread(ev.cause, ev.lock ?? 0, r);
+            break;
+          }
+          this.d.thread.clearCut();
           if (r)
             this.d.overlay.callout(
               r.x,
@@ -870,6 +922,40 @@ export class Feedback {
           break;
         case 'phaseChanged':
           this.phase(ev);
+          break;
+        // ── Movement III (docs/phase-5c.md): none of these is sent before it. ──
+        case 'cutResolved':
+          if (ev.result === 'strand') this.strandCut(ev, state);
+          break;
+        case 'strandBlocked':
+          this.strandSpark(ev.x, ev.z);
+          break;
+        case 'possessed':
+          this.possessed(ev.hero);
+          break;
+        case 'freed':
+          this.freed(ev.hero, ev.status);
+          break;
+        case 'mirrorCracked':
+          this.mirrorCracked(ev.enemy);
+          break;
+        case 'mirrorWard':
+          this.mirrorWard(ev.enemy);
+          break;
+        case 'verseStolen':
+          this.verseStolen(ev.aura, ev.add, state);
+          break;
+        case 'verseReturned':
+          this.verseReturned(ev.aura, ev.reason, state);
+          break;
+        case 'unravelled':
+          if (ev.active) this.unravelOpened(state);
+          break;
+        case 'zoneStarted':
+          this.zoneLaid(ev.kind, ev.x, ev.z, ev.r);
+          break;
+        case 'spindled':
+          this.spindledHit(ev.enemy);
           break;
         case 'spawnWarning': {
           const t = this.alloc(K.Portal, Math.max(0.3, ev.delay) + 0.35);
@@ -1279,6 +1365,10 @@ export class Feedback {
       this.d.rig.addTrauma(0.2);
     }
     if (isParty && frac > 0.18) this.d.rig.addTrauma(Math.min(0.3, frac * 0.5));
+    // Unravel (Movement III): the reversed Mend's ticks on the threaded hero show as damage, the
+    // party's lethal-pink number below (never heal teal).
+    if (state.field.unravel !== undefined && isParty && e.hit === 'tick' && e.amount > 0)
+      this.firedM3.unravelTicks++;
     if (!this.settings.damageNumbers) return;
     let b = this.dmg.get(e.target);
     if (!b) {
@@ -2384,13 +2474,16 @@ export class Feedback {
     let height = 1.5;
     let boss = false;
     let iron = false;
+    let cloth = false;
     try {
       const def = enemyDef(e.defId);
       accent = color(def.accent);
       size = def.radius;
       height = def.height;
       boss = def.role === 'boss' || def.role === 'miniboss';
-      iron = materialOf(def) === 'iron';
+      const material = materialOf(def);
+      iron = material === 'iron';
+      cloth = material === 'cloth';
     } catch {
       // unknown def
     }
@@ -2398,6 +2491,15 @@ export class Feedback {
     const z = r?.z ?? e.z;
     if (iron) {
       this.ironDeath(x, z, size, height, accent, boss);
+      return;
+    }
+    if (cloth) {
+      if (e.defId === STOLEN_VERSE_ID) {
+        this.verseAt.x = x;
+        this.verseAt.z = z;
+        this.verseAt.known = true;
+      }
+      this.clothDeath(x, z, size, height, accent, boss);
       return;
     }
     this.d.kit.particles.burst(
@@ -2540,6 +2642,383 @@ export class Feedback {
         );
       this.d.overlay.flash(0.35, 0.3);
     }
+  }
+
+  // ── Movement III (docs/phase-5c/vfx-audio.md) ───────────────────────────────────────────
+
+  /**
+   * A cloth body's death (`material: 'cloth'`): it unravels. Strands whip off it (long spark
+   * streaks in its accent and bone), loose fray motes drift down, indigo smoke rises where it
+   * stood. Never a red mist, never porcelain shards.
+   */
+  private clothDeath(
+    x: number,
+    z: number,
+    size: number,
+    height: number,
+    accent: THREE.Color,
+    boss: boolean,
+  ): void {
+    this.firedM3.clothDeaths++;
+    const kit = this.d.kit;
+    kit.particles.burst(
+      x,
+      height * 0.55,
+      z,
+      14 + size * 12,
+      4.5,
+      2.5,
+      0.7,
+      0.12,
+      BONE,
+      1,
+      PARTICLE.spark,
+      1.6,
+      1,
+      size,
+    );
+    kit.particles.burst(
+      x,
+      height * 0.5,
+      z,
+      10 + size * 8,
+      3.5,
+      3,
+      0.8,
+      0.11,
+      accent,
+      1,
+      PARTICLE.spark,
+      2,
+      1,
+      size,
+    );
+    kit.particles.burst(
+      x,
+      height * 0.6,
+      z,
+      12 + size * 10,
+      1.2,
+      1.4,
+      1.6,
+      0.09,
+      FRAY_MOTE,
+      0.9,
+      PARTICLE.dot,
+      1.2,
+      0.6,
+      size * 1.4,
+    );
+    const puffs = Math.round((5 + size * 6) * kit.smoke.density);
+    for (let i = 0; i < puffs; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const rr = size * Math.random();
+      kit.smoke.emit(
+        x + Math.cos(a) * rr,
+        0.3 + Math.random() * height * 0.5,
+        z + Math.sin(a) * rr,
+        Math.cos(a) * 0.3,
+        0.45 + Math.random() * 0.4,
+        Math.sin(a) * 0.3,
+        1.5,
+        0.5 + size * 0.3,
+        CLOTH_SMOKE,
+        0.55,
+        PARTICLE.smoke,
+        1.2,
+        0,
+        0.8,
+      );
+    }
+    this.ring(x, z, size, size * 3, 0.45, accent, 0.1, RING.dashed, 0.8);
+    this.sprite(x, height * 0.55, z, size * 1.4, size * 2.6, 0.2, BONE, SPRITE.glow, 0.6);
+    if (boss) {
+      this.d.rig.addTrauma(0.6);
+      this.d.rig.panToward(x, z, 0.5, 1.4);
+      for (let i = 0; i < 3; i++)
+        this.ring(
+          x,
+          z,
+          size,
+          10 + i * 5,
+          0.8 + i * 0.3,
+          i === 0 ? BONE : accent,
+          0.3,
+          RING.plain,
+          1,
+        );
+      this.d.overlay.flash(0.35, 0.3);
+    }
+  }
+
+  /** An enemy cut the Thread: the fray callout (CUT, or UNPICKED for the Unpick) and the stub. */
+  private cutThread(cause: string, lock: number, r: EntityRec | undefined): void {
+    this.d.thread.cut(cause, lock);
+    this.firedM3.cuts++;
+    if (cause === 'unpick') this.firedM3.unpicked++;
+    if (!r) return;
+    this.d.overlay.callout(
+      r.x,
+      r.height + 1.1,
+      r.z,
+      cutLabel(cause),
+      RIFT_HEX.fray,
+      cause === 'unpick' ? 18 : 17,
+      1.1,
+      rgba(RIFT_HEX.fray, 0.85),
+    );
+    this.d.kit.particles.burst(
+      r.x,
+      r.height * 0.6,
+      r.z,
+      10,
+      3,
+      2,
+      0.5,
+      0.1,
+      FRAY,
+      1,
+      PARTICLE.spark,
+      2.5,
+      2,
+    );
+  }
+
+  /** Guard Strand turned a cut aside (`cutResolved 'strand'`): a silk spark at the crossing. */
+  private strandCut(e: SimEventOf<'cutResolved'>, state: WorldState): void {
+    const g = this.d.telegraphs.geometry(e.telegraph);
+    const seg = threadSegment(state);
+    let x = seg ? (seg.ax + seg.bx) / 2 : (g?.cx ?? 0);
+    let z = seg ? (seg.az + seg.bz) / 2 : (g?.cz ?? 0);
+    if (seg && g && g.shape === 'line') {
+      const c = Math.cos(g.rot) * g.a;
+      const s = Math.sin(g.rot) * g.a;
+      const out = { x, z };
+      if (crossing(g.cx - c, g.cz - s, g.cx + c, g.cz + s, seg.ax, seg.az, seg.bx, seg.bz, out)) {
+        x = out.x;
+        z = out.z;
+      }
+    }
+    this.strandSpark(x, z);
+  }
+
+  /** A silk spark: Guard Strand turned a cut aside, or destroyed a bolt crossing the Thread. */
+  private strandSpark(x: number, z: number): void {
+    this.firedM3.strands++;
+    this.d.kit.particles.burst(x, 1, z, 16, 4, 2.5, 0.45, 0.1, STRAND, 1, PARTICLE.spark, 3, 2);
+    this.ring(x, z, 0.2, 1.4, 0.3, STRAND, 0.1, RING.plain, 1, 1);
+    this.sprite(x, 1, z, 0.3, 0.9, 0.22, STRAND, SPRITE.star, 1);
+  }
+
+  /** A hero was possessed: POSSESSED in indigo over them, a ring closing on them. */
+  private possessed(hero: EntityId): void {
+    this.firedM3.possessed++;
+    const r = this.rec(hero);
+    if (!r) return;
+    this.ring(
+      r.x,
+      r.z,
+      r.radius * 3,
+      r.radius * 1.2,
+      0.45,
+      POSSESS,
+      0.14,
+      RING.plain,
+      1,
+      0.05,
+      hero,
+    );
+    this.d.overlay.callout(
+      r.x,
+      r.height + 1.2,
+      r.z,
+      'POSSESSED',
+      RIFT_HEX.possess,
+      16,
+      1,
+      rgba(RIFT_HEX.possess, 0.8),
+    );
+  }
+
+  /** Freed of possession or a stitch (a Chime, a Reel): it breaks like glass off them. */
+  private freed(hero: EntityId, status: string): void {
+    if (status !== 'possessed' && status !== 'stitched') return;
+    this.firedM3.freed++;
+    const r = this.rec(hero);
+    if (!r) return;
+    const c = status === 'possessed' ? POSSESS : STITCH;
+    this.d.kit.particles.burst(
+      r.x,
+      r.height * 0.6,
+      r.z,
+      14,
+      3.5,
+      2.5,
+      0.5,
+      0.12,
+      c,
+      1,
+      PARTICLE.shard,
+      3,
+      5,
+      r.radius,
+    );
+    this.ring(r.x, r.z, r.radius, r.radius * 3, 0.35, C.white, 0.1, RING.plain, 0.9);
+  }
+
+  /** The Mimic's copy no longer matched what you cast: the mirror cracks, a glass burst. */
+  private mirrorCracked(enemy: EntityId): void {
+    this.firedM3.cracked++;
+    const r = this.rec(enemy);
+    if (!r) return;
+    const y = r.height * 0.6 + r.y;
+    this.d.kit.particles.burst(
+      r.x,
+      y,
+      r.z,
+      22,
+      4.5,
+      3,
+      0.6,
+      0.13,
+      MIRROR,
+      1,
+      PARTICLE.shard,
+      2.5,
+      6,
+      r.radius,
+    );
+    this.sprite(r.x, y, r.z, 0.4, 1.2, 0.3, MIRROR, SPRITE.mirror, 1, enemy);
+    this.d.overlay.callout(
+      r.x,
+      r.height + 1.2,
+      r.z,
+      'MIRROR CRACKED',
+      RIFT_HEX.mirror,
+      16,
+      1,
+      rgba(RIFT_HEX.mirror, 0.75),
+    );
+  }
+
+  /** The Unweaver's Mirror Ward landed on its champion: a mirrored flash (its shell persists). */
+  private mirrorWard(enemy: EntityId): void {
+    this.firedM3.mirrorWards++;
+    const r = this.rec(enemy);
+    if (!r) return;
+    this.ring(
+      r.x,
+      r.z,
+      r.radius * 2.6,
+      r.radius * 1.4,
+      0.4,
+      MIRROR,
+      0.16,
+      RING.plain,
+      1,
+      0.05,
+      enemy,
+    );
+    this.d.overlay.callout(
+      r.x,
+      r.height + 1.2,
+      r.z,
+      'MIRROR WARD',
+      RIFT_HEX.mirror,
+      15,
+      0.9,
+      rgba(RIFT_HEX.mirror, 0.7),
+    );
+  }
+
+  /** Steal Verse: the aura is torn out of the Weaver's song and flies to the Stolen Verse. */
+  private verseStolen(aura: string, add: EntityId, state: WorldState): void {
+    this.firedM3.steals++;
+    const w = this.rec(state.weaverId);
+    const a = this.rec(add);
+    if (!w) return;
+    const c = auraColor(aura);
+    this.ring(w.x, w.z, 2.4, 0.4, 0.5, c, 0.14, RING.dashed, 1, 0.05, state.weaverId);
+    if (a) this.beam(w.x, 1, w.z, a.x, a.height * 0.6, a.z, 0.5, 0.6, c, BEAM.lance, 0.9);
+  }
+
+  /**
+   * The aura comes back: killed, it pours from where the Verse fell into the Weaver (a stream
+   * in its colour and a ring on her); on its own or at phase 3, it settles back where she stands.
+   */
+  private verseReturned(aura: string, reason: string, state: WorldState): void {
+    this.firedM3.pours++;
+    const w = this.rec(state.weaverId);
+    if (!w) return;
+    const c = auraColor(aura);
+    if (reason === 'killed' && this.verseAt.known) {
+      const { x, z } = this.verseAt;
+      this.beam(x, 1, z, w.x, 1.1, w.z, 0.7, 0.8, c, BEAM.lance, 1);
+      const dx = w.x - x;
+      const dz = w.z - z;
+      const d = Math.hypot(dx, dz) || 1;
+      for (let i = 0; i < 18; i++) {
+        const t = i / 18;
+        this.d.kit.particles.emit(
+          x + dx * t * 0.3,
+          1,
+          z + dz * t * 0.3,
+          (dx / d) * 6,
+          0.6,
+          (dz / d) * 6,
+          0.6,
+          0.13,
+          c,
+          1,
+          PARTICLE.note,
+          0.6,
+          0,
+        );
+      }
+    }
+    this.verseAt.known = false;
+    this.ring(w.x, w.z, 0.4, 2.6, 0.6, c, 0.16, RING.plain, 1, 0.05, state.weaverId);
+  }
+
+  /** Unravel opens: UNRAVEL in lethal at the Weaver (the Thread itself turns, thread.ts). */
+  private unravelOpened(state: WorldState): void {
+    this.firedM3.unravels++;
+    const w = this.rec(state.weaverId);
+    if (!w) return;
+    this.d.overlay.callout(
+      w.x,
+      w.height + 1.3,
+      w.z,
+      'UNRAVEL',
+      VISION_HEX.lethal,
+      17,
+      1.1,
+      rgba(VISION_HEX.lethal, 0.8),
+    );
+  }
+
+  /** A zone is laid: a pull's swirl gulps in, a rune's ring flashes down. */
+  private zoneLaid(kind: 'pull' | 'null', x: number, z: number, r: number): void {
+    this.firedM3.zones++;
+    if (kind === 'pull') this.ring(x, z, r * 1.2, r * 0.3, 0.5, SWIRL, 0.18, RING.plain, 1);
+    else this.ring(x, z, r * 1.5, r, 0.35, RUNE, 0.14, RING.plain, 1);
+  }
+
+  /** A hit on the Unweaver cut down by its Spindles (the sim rate-limits it): '−80%'. */
+  private spindledHit(enemy: EntityId): void {
+    this.firedM3.spindled++;
+    const r = this.rec(enemy);
+    if (!r) return;
+    this.d.overlay.callout(
+      r.x,
+      r.height + 0.6,
+      r.z,
+      SPINDLED_LABEL,
+      RIFT_HEX.spindle,
+      13,
+      0.6,
+      rgba(RIFT_HEX.spindle, 0.7),
+    );
   }
 
   private phase(e: SimEventOf<'phaseChanged'>): void {

@@ -12,7 +12,14 @@ import {
 } from '../src/app/colorVision';
 import * as THREE from 'three';
 import { CONTENT } from '../src/content';
-import { BRANN_HEX, CRIMSON_HEX, SPIRE_HEX, signalHex } from '../src/render/crimsonCues';
+import {
+  ABYSS_MOOD,
+  BRANN_HEX,
+  CRIMSON_HEX,
+  SPIRE_HEX,
+  signalHex,
+} from '../src/render/crimsonCues';
+import { ABYSS_HEX, RIFT_AFFIX_HEX, RIFT_HEX } from '../src/render/riftCues';
 import { cueHex } from '../src/render/bondsCues';
 import { MARTYR_HEX } from '../src/render/martyrCues';
 import { BRASS_TRIM, buildHero } from '../src/render/models/library';
@@ -316,6 +323,133 @@ describe('the heroes’ colours (docs/phase-5b.md, Colour)', () => {
         }
         expect(low, vision).toEqual([]);
       });
+    }
+  });
+});
+
+describe('Movement III colours (docs/phase-5c.md, Presentation)', () => {
+  /** The roles a new semantic colour must never be mistaken for (and the Martyr's Bear). */
+  const AGAINST = ['lethal', 'threat', 'mend', 'empower'] as const;
+
+  for (const vision of COLOR_VISIONS) {
+    it(`keeps every Rift colour ≥ 20 ΔE from lethal, threat, Bear, Mend and Empower with ${vision}`, () => {
+      const palette = VISION_PALETTES[vision];
+      const see = (hex: string) => simulateVision(hex, vision);
+      for (const [name, hex] of Object.entries(RIFT_HEX)) {
+        for (const role of AGAINST) {
+          const d = deltaE(see(hex), see(palette[role]));
+          expect(d, `${vision}: ${name} ${hex} vs ${role} ${palette[role]}`).toBeGreaterThanOrEqual(
+            20,
+          );
+        }
+        const bear = deltaE(see(hex), see(MARTYR_HEX.blood));
+        expect(bear, `${vision}: ${name} ${hex} vs Bear`).toBeGreaterThanOrEqual(20);
+      }
+    });
+
+    /**
+     * Teal is Mend: the naive fray teal #2dd4bf is ΔE 0.0 from it, and a pale blue moon sits on the
+     * shield (#cdd8f5 measured 3.8 under deuteranopia). No ambient Rift colour may come near either:
+     * the rim light tints every hero, the moon lights the disc.
+     */
+    it(`keeps every ambient Abyss colour ≥ 20 ΔE from Mend and shield with ${vision}`, () => {
+      const palette = VISION_PALETTES[vision];
+      const see = (hex: string) => simulateVision(hex, vision);
+      for (const [name, hex] of Object.entries(ABYSS_HEX))
+        for (const role of ['mend', 'heal', 'shield'] as const) {
+          const d = deltaE(see(hex), see(palette[role]));
+          expect(d, `${vision}: ${name} ${hex} vs ${role} ${palette[role]}`).toBeGreaterThanOrEqual(
+            20,
+          );
+        }
+    });
+  }
+
+  it('the mood reads the same sky, moon and rim as the ambient set, the rim held at ≤ 0.45', () => {
+    expect(ABYSS_MOOD.sky).toBe(ABYSS_HEX.sky);
+    expect(ABYSS_MOOD.moon).toBe(ABYSS_HEX.moon);
+    expect(ABYSS_MOOD.rim).toBe(ABYSS_HEX.rim);
+    expect(ABYSS_MOOD.rimIntensity).toBeLessThanOrEqual(0.45);
+  });
+
+  /**
+   * The four Rift affixes (an elite's rim and crown gem) must not read as an ailment, a threat, a
+   * heal or the Bear. Recorded lowest ΔE, 2026-11-05: Severing #f8fafc 35.9 (ailment,
+   * deuteranopia), Silencing #2563eb 23.0 (ailment, tritanopia), Mimicking #e0e7ff 27.7 (Mend,
+   * protanopia), Doom-touched #5b21b6 20.6 (ailment, tritanopia). Severing and Mimicking sit close
+   * to each other, as do Silencing and Doom-touched: their crown gems' shapes tell them apart.
+   */
+  describe('the Rift affix colours', () => {
+    const AFFIX_AGAINST = ['ailment', 'lethal', 'threat', 'mend', 'heal', 'empower'] as const;
+
+    it('are content’s own', () => {
+      for (const [id, hex] of Object.entries(RIFT_AFFIX_HEX))
+        expect(CONTENT.affixes.find((a) => a.id === id)?.color, id).toBe(hex);
+    });
+
+    for (const vision of COLOR_VISIONS) {
+      it(`are ≥ 20 ΔE from ailment violet, lethal, threat, Bear, Mend/heal and Empower with ${vision}`, () => {
+        const palette = VISION_PALETTES[vision];
+        const see = (hex: string) => simulateVision(hex, vision);
+        for (const [id, hex] of Object.entries(RIFT_AFFIX_HEX)) {
+          for (const role of AFFIX_AGAINST) {
+            const d = deltaE(see(hex), see(palette[role]));
+            expect(d, `${vision}: ${id} ${hex} vs ${role} ${palette[role]}`).toBeGreaterThanOrEqual(
+              20,
+            );
+          }
+          const bear = deltaE(see(hex), see(MARTYR_HEX.blood));
+          expect(bear, `${vision}: ${id} ${hex} vs Bear`).toBeGreaterThanOrEqual(20);
+        }
+      });
+    }
+  });
+
+  /**
+   * The Movement III environment (a copy of the Movement II measure above): every hero's colour,
+   * and Brann's ink, against every Unstitched body and accent and the Abyss's ambient colours.
+   * Where Brann sits under 15 ΔE his model must carry his brass trim; no hero's body may sit on a
+   * Rift colour in normal vision.
+   */
+  it('measures the heroes against the Movement III environment; Brann under 15 needs his trim', () => {
+    const unstitched = CONTENT.enemies.filter((e) => e.movement === 3);
+    expect(unstitched.length).toBeGreaterThan(0);
+    const against: [string, string][] = [];
+    for (const e of unstitched)
+      against.push([`${e.id} body`, e.color], [`${e.id} accent`, e.accent]);
+    for (const [name, hex] of Object.entries(ABYSS_HEX)) against.push([`abyss ${name}`, hex]);
+    const brann = CONTENT.heroes.find((h) => h.id === 'brann')!.color;
+    let brannLowest = Infinity;
+    const lowestNormal: Record<string, number> = {};
+    for (const vision of COLOR_VISIONS) {
+      const see = (hex: string) => simulateVision(hex, vision);
+      for (const h of CONTENT.heroes) {
+        const own = h.id === 'brann' ? [brann, BRANN_HEX.ink] : [h.color];
+        for (const [, hex] of against)
+          for (const c of own) {
+            const d = deltaE(see(c), see(hex));
+            if (h.id === 'brann') brannLowest = Math.min(brannLowest, d);
+            if (vision === 'normal') lowestNormal[h.id] = Math.min(lowestNormal[h.id] ?? 99, d);
+          }
+      }
+    }
+    for (const [id, d] of Object.entries(lowestNormal)) expect(d, id).toBeGreaterThan(10);
+    if (brannLowest < 15) {
+      const g = buildHero(CONTENT.heroes.find((h) => h.id === 'brann')!);
+      const c = g.getAttribute('color');
+      const trim = new THREE.Color(BRASS_TRIM);
+      let parts = 0;
+      for (let i = 0; i < c.count; i++)
+        if (
+          Math.abs(c.getX(i) - trim.r) < 1e-4 &&
+          Math.abs(c.getY(i) - trim.g) < 1e-4 &&
+          Math.abs(c.getZ(i) - trim.b) < 1e-4
+        )
+          parts++;
+      expect(
+        parts,
+        `lowest ΔE ${brannLowest.toFixed(1)}: the model needs its brass trim`,
+      ).toBeGreaterThan(0);
     }
   });
 });

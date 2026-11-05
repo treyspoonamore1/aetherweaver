@@ -1,4 +1,4 @@
-import type { ArenaDef, EnemyDef } from '../content';
+import type { ArenaDef, Biome, EnemyDef } from '../content';
 import { CONTENT, attackDef, enemyDef, partyHasDome } from '../content';
 import type { EntityId, ReadonlyEntity, WorldState } from '../sim';
 import { weaverHealCut } from '../sim';
@@ -51,6 +51,17 @@ export const SPIRE_HEX = {
   banner: '#5a1a20',
 } as const;
 
+/**
+ * The Abyssal Rift's mood (Movement III, docs/phase-5c.md): ABYSS_HEX's sky, moon and rim
+ * (riftCues.ts; a test ties the two), and the rim's strength, kept ≤ 0.45.
+ */
+export const ABYSS_MOOD = {
+  sky: '#1b1a3a',
+  moon: '#e6e1cf',
+  rim: '#346782',
+  rimIntensity: 0.42,
+} as const;
+
 /** The over-head pips a stacking status shows (bleed caps at 8). */
 export const MAX_PIPS = 8;
 /** From this many bleed stacks the pips glow and the Chime glyph shows (docs/phase-5a.md). */
@@ -82,65 +93,101 @@ export interface ArenaMood {
   fogFar: number;
 }
 
-/** How an arena's air is dressed: Reliquary god rays and dust, or Spire torch cards and embers. */
-export type ArenaLook = 'warm' | 'cool' | 'crimson';
+/**
+ * How an arena's air is dressed: Reliquary god rays and dust, Spire torch cards and embers, or
+ * the Abyssal Rift's tears and frays (Movement III, docs/phase-5c.md).
+ */
+export type ArenaLook = 'warm' | 'cool' | 'crimson' | 'abyss';
 
 /**
- * Which look an arena gets: its biome first (the Crimson Spire), else as Movement I always did
- * (`warm` unless it is the sandbox). A Movement I arena has no `biome`, so it is unchanged.
+ * The look each biome dresses its arenas in (docs/phase-5c.md: tables, not if-chains, so the
+ * Finale's 'celestial_crucible' is one more row). The Reliquary has no row: it keeps Movement I's
+ * own rule, below.
+ */
+const BIOME_LOOK: Partial<Record<Biome, ArenaLook>> = {
+  crimson_spire: 'crimson',
+  abyssal_rift: 'abyss',
+};
+
+/**
+ * Which look an arena gets: its biome's row first (the Crimson Spire, the Abyssal Rift), else as
+ * Movement I always did (`warm` unless it is the sandbox). A Movement I arena has no `biome`, so
+ * it is unchanged.
  */
 export function arenaLook(def: Pick<ArenaDef, 'id' | 'biome'>): ArenaLook {
-  if (def.biome === 'crimson_spire') return 'crimson';
+  const row = def.biome === undefined ? undefined : BIOME_LOOK[def.biome];
+  if (row) return row;
   return def.id !== 'sandbox' ? 'warm' : 'cool';
 }
 
+/** A mood row: the light; the floor and fog come from the arena's theme (and the rim, if null). */
+type MoodRow = Omit<ArenaMood, 'ground' | 'fog' | 'rim'> & { rim: string | null };
+
 /**
- * The per-biome mood table (replaces `warm = def.id !== 'sandbox'`). The warm and cool rows are
- * Movement I's exact arguments (tests/renderMovement2.test.ts snapshots them).
+ * The per-look mood table (replaces `warm = def.id !== 'sandbox'`). The warm and cool rows are
+ * Movement I's exact arguments and the crimson row Movement II's (tests/renderSpireSnapshot.test.ts
+ * pins all three). The abyss: an indigo sky, a pale moon key, a cold blue-teal rim from the rift
+ * tears on the far side only (≤ 0.45, so a hero's edge never reads as Mended), nearer fog.
  */
+const MOODS: Record<ArenaLook, MoodRow> = {
+  crimson: {
+    sky: SPIRE_HEX.sky,
+    hemi: 0.55,
+    key: SPIRE_HEX.torch,
+    keyIntensity: 1.6,
+    rim: SPIRE_HEX.rim,
+    rimIntensity: 0.6,
+    fogNear: 38,
+    fogFar: 84,
+  },
+  warm: {
+    sky: '#ffe7c2',
+    hemi: 0.6,
+    key: '#ffd9a0',
+    keyIntensity: 1.85,
+    rim: null,
+    rimIntensity: 0.55,
+    fogNear: 46,
+    fogFar: 96,
+  },
+  cool: {
+    sky: '#c9d6ff',
+    hemi: 0.65,
+    key: '#fff1dc',
+    keyIntensity: 1.9,
+    rim: '#8fb0ff',
+    rimIntensity: 0.55,
+    fogNear: 46,
+    fogFar: 96,
+  },
+  abyss: {
+    sky: ABYSS_MOOD.sky,
+    hemi: 0.5,
+    key: ABYSS_MOOD.moon,
+    keyIntensity: 1.5,
+    rim: ABYSS_MOOD.rim,
+    rimIntensity: ABYSS_MOOD.rimIntensity,
+    fogNear: 34,
+    fogFar: 80,
+  },
+};
+
+/** The light mood an arena is lit in: its look's row, with its theme's floor and fog. */
 export function arenaMood(def: Pick<ArenaDef, 'id' | 'biome' | 'theme'>): ArenaMood {
   const theme = def.theme;
-  switch (arenaLook(def)) {
-    case 'crimson':
-      return {
-        sky: SPIRE_HEX.sky,
-        ground: theme.floor,
-        hemi: 0.55,
-        key: SPIRE_HEX.torch,
-        keyIntensity: 1.6,
-        rim: SPIRE_HEX.rim,
-        rimIntensity: 0.6,
-        fog: theme.fog,
-        fogNear: 38,
-        fogFar: 84,
-      };
-    case 'warm':
-      return {
-        sky: '#ffe7c2',
-        ground: theme.floor,
-        hemi: 0.6,
-        key: '#ffd9a0',
-        keyIntensity: 1.85,
-        rim: theme.accent,
-        rimIntensity: 0.55,
-        fog: theme.fog,
-        fogNear: 46,
-        fogFar: 96,
-      };
-    case 'cool':
-      return {
-        sky: '#c9d6ff',
-        ground: theme.floor,
-        hemi: 0.65,
-        key: '#fff1dc',
-        keyIntensity: 1.9,
-        rim: '#8fb0ff',
-        rimIntensity: 0.55,
-        fog: theme.fog,
-        fogNear: 46,
-        fogFar: 96,
-      };
-  }
+  const row = MOODS[arenaLook(def)];
+  return {
+    sky: row.sky,
+    ground: theme.floor,
+    hemi: row.hemi,
+    key: row.key,
+    keyIntensity: row.keyIntensity,
+    rim: row.rim ?? theme.accent,
+    rimIntensity: row.rimIntensity,
+    fog: theme.fog,
+    fogNear: row.fogNear,
+    fogFar: row.fogFar,
+  };
 }
 
 // ── Enemy looks ──────────────────────────────────────────────────────────────────────────
@@ -152,9 +199,12 @@ export function isQuadruped(defId: string): boolean {
   return QUADRUPEDS.has(defId);
 }
 
-/** An enemy def's death material (`material`, absent = porcelain: Movement I's shards). */
-export function materialOf(def: Pick<EnemyDef, 'material'>): 'porcelain' | 'iron' {
-  return def.material === 'iron' ? 'iron' : 'porcelain';
+/**
+ * An enemy def's death material (`material`; absent = porcelain, Movement I's shards; iron, the
+ * Legion's; cloth, the Unstitched's unravelling strands).
+ */
+export function materialOf(def: Pick<EnemyDef, 'material'>): 'porcelain' | 'iron' | 'cloth' {
+  return def.material === 'iron' ? 'iron' : def.material === 'cloth' ? 'cloth' : 'porcelain';
 }
 
 /** How an attack moves its caster when it lands (`move`), or null. Unknown ids: null. */

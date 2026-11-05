@@ -5,6 +5,11 @@ export const BEAM = {
   glow: 0,
   dashed: 1,
   lance: 2,
+  /**
+   * Movement III (docs/phase-5c.md): a cross-stitch, a row of small X's along the beam scrolling
+   * at `scroll` (the Seamstress's Stitch link, the sewn tether between a stitched pair).
+   */
+  stitch: 3,
 } as const;
 
 const vertex = /* glsl */ `
@@ -61,6 +66,15 @@ void main() {
     float len = max(vWindow.w, 0.1);
     float dash = step(0.5, fract(u * len * 1.2 - uTime * vWindow.z));
     a = (across * 0.35 + core * dash) * w;
+  } else if (style == 3) {
+    // Cross-stitches: an X every stitch length, the two strokes meeting in the beam's middle.
+    float len = max(vWindow.w, 0.1);
+    float k = fract(u * len * 1.6 - uTime * vWindow.z) * 2.0 - 1.0;
+    float x1 = abs(k - v);
+    float x2 = abs(k + v);
+    float st = max(1.0 - smoothstep(0.12, 0.3, x1), 1.0 - smoothstep(0.12, 0.3, x2));
+    st *= 1.0 - smoothstep(0.75, 1.0, abs(v));
+    a = (st * 1.1 + across * 0.2) * w;
   } else {
     float shimmer = 0.8 + 0.2 * sin(u * 60.0 - uTime * 30.0);
     a = (across * 0.7 + core * 1.4 * shimmer) * w;

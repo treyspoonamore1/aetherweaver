@@ -250,6 +250,8 @@ export function buildEnemy(def: EnemyDef): THREE.BufferGeometry {
 
   // The Crimson Legion (Movement II): their own bodies by id, never a porcelain role's.
   if (buildLegion(def, b)) return b.build();
+  // The Unstitched (Movement III): void cloth with bone seams, by id, before any role's.
+  if (buildUnstitched(def, b)) return b.build();
 
   if (def.id === 'the_bellwarden') {
     // A giant walking bell with a cracked, molten waist.
@@ -878,5 +880,435 @@ export function buildSpirePillar(
     );
   }
   b.box(0.1, 1.2, 0.05, inlay, { p: [0, 1.35, -0.92], glow: 0.25 });
+  return b.build();
+}
+
+// ── The Unstitched (Movement III, docs/phase-5c.md, Models) ────────────────────────────────
+
+/** The bone of the Unstitched's seams and stitches. */
+const BONE = '#e8e3c8';
+/** A hollow: the inside of a hood, a mouth. */
+const VOID = '#07060d';
+
+/** A bone seam across a body: a thin strip at (x, y, z), turned `rz`, with stitches across it. */
+function seam(b: ModelBuilder, x: number, y: number, z: number, len: number, rz = 0): void {
+  b.box(len, 0.035, 0.035, BONE, { p: [x, y, z], r: [0, 0, rz], glow: 0.12 });
+  const n = Math.max(2, Math.round(len / 0.18));
+  for (let i = 0; i < n; i++) {
+    const t = (i + 0.5) / n - 0.5;
+    b.box(0.03, 0.12, 0.03, BONE, {
+      p: [x + Math.cos(rz) * t * len, y + Math.sin(rz) * t * len, z],
+      r: [0, 0, rz + 0.5],
+    });
+  }
+}
+
+/**
+ * The Unstitched's silhouettes, by def id (false: not one of theirs). Void-cloth bodies with
+ * bone seams and an accent each (content), from ModelBuilder primitives only; each distinct from
+ * every role's fallback and from every other (tests/renderMovement3.test.ts). Forward is −z.
+ */
+function buildUnstitched(def: EnemyDef, b: ModelBuilder): boolean {
+  const body = def.color;
+  const acc = def.accent;
+  const r = def.radius;
+  const h = def.height;
+  const dark = shade(body, -0.35);
+  switch (def.id) {
+    case 'shears': {
+      // Low and quick: a hunched cloth body behind two crossed blades.
+      b.sphere(r * 0.95, body, { p: [0, h * 0.42, 0.1], s: [0.9, 0.7, 1.3] }, 8, 6);
+      seam(b, 0, h * 0.62, 0.1, r * 1.2, 0);
+      for (const side of [1, -1]) {
+        b.box(0.07, 0.05, h * 1.3, acc, {
+          p: [side * r * 0.3, h * 0.5, -r * 1.1],
+          r: [0, side * 0.42, 0],
+          glow: 0.35,
+        });
+        b.cone(0.05, 0.28, acc, {
+          p: [-side * r * 0.25, h * 0.5, -r * 1.1 - h * 0.62],
+          r: [-Math.PI / 2, 0, 0],
+          glow: 0.5,
+        });
+      }
+      b.torus(0.09, 0.03, BONE, { p: [0, h * 0.5, -r * 1.1], r: [Math.PI / 2, 0, 0], glow: 0.3 });
+      b.box(r * 0.5, 0.05, 0.03, acc, { p: [0, h * 0.62, -r * 0.95], glow: 1 });
+      for (const side of [1, -1])
+        b.cyl(
+          0.05,
+          0.04,
+          h * 0.45,
+          dark,
+          { p: [side * r * 0.5, h * 0.2, 0.2], r: [0, 0, side * 0.4] },
+          5,
+        );
+      return true;
+    }
+    case 'void_maw': {
+      // A mouth in the floor: a wide torus lip, a dark throat, a ring of teeth leaning in.
+      b.cyl(r * 1.05, r * 1.2, 0.18, dark, { p: [0, 0.09, 0] }, 14);
+      b.torus(r * 0.9, r * 0.24, body, { p: [0, 0.3, 0], r: [Math.PI / 2, 0, 0] }, Math.PI * 2, 20);
+      b.cyl(r * 0.72, r * 0.5, 0.12, VOID, { p: [0, 0.22, 0] }, 14);
+      b.torus(
+        r * 0.62,
+        0.05,
+        acc,
+        { p: [0, 0.36, 0], r: [Math.PI / 2, 0, 0], glow: 1 },
+        Math.PI * 2,
+        20,
+      );
+      const teeth = 12;
+      for (let i = 0; i < teeth; i++) {
+        const a = (i / teeth) * Math.PI * 2;
+        b.cone(
+          0.09,
+          0.42,
+          BONE,
+          {
+            p: [Math.cos(a) * r * 0.68, 0.42, Math.sin(a) * r * 0.68],
+            // Pointing in toward the throat and down.
+            r: [Math.sin(a) * 1.9, 0, -Math.cos(a) * 1.9],
+            glow: 0.1,
+          },
+          4,
+        );
+      }
+      // Seams round the lip.
+      for (let i = 0; i < 6; i++) {
+        const a = (i / 6) * Math.PI * 2 + 0.3;
+        b.box(0.04, 0.3, 0.04, BONE, {
+          p: [Math.cos(a) * r * 1.12, 0.32, Math.sin(a) * r * 1.12],
+          r: [0, -a, 0.4],
+        });
+      }
+      return true;
+    }
+    case 'doubt_wraith': {
+      // A tall, legless cloak drifting above the floor, a hollow hood with a cold glow in it.
+      b.lathe(
+        [
+          [r * 1.0, h * 0.06],
+          [r * 0.92, h * 0.2],
+          [r * 0.66, h * 0.55],
+          [r * 0.48, h * 0.72],
+          [r * 0.42, h * 0.84],
+          [r * 0.2, h * 0.95],
+          [0, h * 0.97],
+        ],
+        body,
+        {},
+        9,
+      );
+      // The ragged hem.
+      for (let i = 0; i < 7; i++) {
+        const a = (i / 7) * Math.PI * 2;
+        b.cone(
+          r * 0.2,
+          h * 0.14,
+          body,
+          {
+            p: [Math.cos(a) * r * 0.85, h * 0.03, Math.sin(a) * r * 0.85],
+            r: [Math.PI, 0, 0],
+          },
+          4,
+        );
+      }
+      b.sphere(r * 0.34, VOID, { p: [0, h * 0.82, -r * 0.18], s: [1, 1.1, 0.8] }, 8, 6);
+      b.sphere(r * 0.16, acc, { p: [0, h * 0.82, -r * 0.3], glow: 1 }, 6, 4);
+      seam(b, 0, h * 0.45, -r * 0.66, r * 0.8, 0.2);
+      seam(b, 0, h * 0.62, -r * 0.5, r * 0.6, -0.15);
+      // Long sleeves reaching forward.
+      for (const side of [1, -1])
+        b.cone(
+          r * 0.2,
+          h * 0.36,
+          body,
+          {
+            p: [side * r * 0.62, h * 0.55, -r * 0.4],
+            r: [-1.1, 0, side * 0.35],
+          },
+          6,
+        );
+      return true;
+    }
+    case 'null_priest': {
+      // Robed and hooded, a rune-ring halo turning over its head.
+      b.lathe(
+        [
+          [r * 1.0, 0],
+          [r * 0.92, h * 0.1],
+          [r * 0.62, h * 0.55],
+          [r * 0.52, h * 0.7],
+          [0, h * 0.72],
+        ],
+        body,
+        {},
+        10,
+      );
+      b.box(r * 0.42, h * 0.6, 0.05, acc, {
+        p: [0, h * 0.34, -r * 0.82],
+        r: [-0.18, 0, 0],
+        glow: 0.25,
+      });
+      b.cone(r * 0.5, h * 0.28, dark, { p: [0, h * 0.84, 0.04] }, 8);
+      b.sphere(r * 0.28, VOID, { p: [0, h * 0.78, -r * 0.18] }, 6, 4);
+      b.torus(
+        r * 0.62,
+        0.04,
+        acc,
+        { p: [0, h * 1.02, 0], r: [Math.PI / 2, 0, 0], glow: 1 },
+        Math.PI * 2,
+        18,
+      );
+      for (let i = 0; i < 6; i++) {
+        const a = (i / 6) * Math.PI * 2;
+        b.box(0.08, 0.14, 0.03, acc, {
+          p: [Math.cos(a) * r * 0.62, h * 1.02, Math.sin(a) * r * 0.62],
+          r: [0, -a, 0],
+          glow: 1,
+        });
+      }
+      // A closed book held before it.
+      b.box(r * 0.6, 0.1, r * 0.42, BONE, { p: [0, h * 0.5, -r * 1.0], r: [0.5, 0, 0] });
+      seam(b, 0, h * 0.25, -r * 0.88, r * 0.9, 0);
+      return true;
+    }
+    case 'mimic': {
+      // A faceted mirror: a tall octahedron floating, smaller facets turning round it.
+      b.octa(r * 0.95, acc, { p: [0, h * 0.55, 0], s: [0.8, 1.35, 0.8], glow: 0.35 });
+      b.octa(r * 0.55, shade(acc, 0.2), {
+        p: [0, h * 0.55, 0],
+        s: [0.9, 1.4, 0.9],
+        r: [0, 0.4, 0],
+        glow: 0.6,
+      });
+      for (let i = 0; i < 4; i++) {
+        const a = (i / 4) * Math.PI * 2 + 0.4;
+        b.octa(r * 0.22, acc, {
+          p: [Math.cos(a) * r * 1.4, h * (0.4 + (i % 2) * 0.3), Math.sin(a) * r * 1.4],
+          glow: 0.4,
+        });
+      }
+      b.cone(r * 0.5, h * 0.18, body, { p: [0, h * 0.09, 0], r: [Math.PI, 0, 0] }, 6);
+      seam(b, 0, h * 0.18, 0, r * 0.8, 0);
+      return true;
+    }
+    case 'spindle': {
+      // A tall lathe spindle, wrapped in bone thread round its waist.
+      b.lathe(
+        [
+          [r * 0.2, 0],
+          [r * 0.55, h * 0.12],
+          [r * 0.85, h * 0.4],
+          [r * 0.7, h * 0.62],
+          [r * 0.2, h * 0.85],
+          [r * 0.08, h * 1.0],
+        ],
+        body,
+        {},
+        10,
+      );
+      for (let i = 0; i < 5; i++) {
+        b.torus(r * (0.72 + 0.1 * Math.sin(i)), 0.035, BONE, {
+          p: [0, h * (0.3 + i * 0.07), 0],
+          r: [Math.PI / 2, 0, 0],
+          glow: 0.2,
+        });
+      }
+      b.cone(r * 0.12, h * 0.16, acc, { p: [0, h * 1.06, 0], glow: 1 }, 6);
+      return true;
+    }
+    case 'stolen_verse': {
+      // A small orb of song (its rim tint is the stolen aura's colour, per instance).
+      b.sphere(r * 0.62, '#f2eee4', { p: [0, h * 0.6, 0], glow: 0.9 }, 10, 8);
+      b.torus(r * 0.85, 0.03, BONE, { p: [0, h * 0.6, 0], r: [1.1, 0, 0.3], glow: 0.6 });
+      b.torus(r * 0.85, 0.03, BONE, { p: [0, h * 0.6, 0], r: [-0.6, 0.8, 0], glow: 0.6 });
+      b.cone(r * 0.2, h * 0.3, body, { p: [0, h * 0.2, 0], r: [Math.PI, 0, 0] }, 5);
+      return true;
+    }
+    case 'mirror_champion': {
+      // The Hollow Champion: a hollow knight of cloth, mirror trim, a long blade.
+      b.lathe(
+        [
+          [r * 0.85, 0],
+          [r * 0.8, h * 0.1],
+          [r * 0.62, h * 0.42],
+          [r * 0.72, h * 0.62],
+          [r * 0.45, h * 0.76],
+          [0, h * 0.78],
+        ],
+        body,
+        {},
+        9,
+      );
+      for (const side of [1, -1])
+        b.box(r * 0.62, r * 0.18, r * 0.6, acc, {
+          p: [side * r * 0.66, h * 0.7, 0],
+          r: [0, 0, side * -0.25],
+          glow: 0.45,
+        });
+      b.cyl(r * 0.28, r * 0.32, h * 0.14, dark, { p: [0, h * 0.85, 0] }, 7);
+      b.box(r * 0.3, 0.05, 0.04, acc, { p: [0, h * 0.86, -r * 0.3], glow: 1 });
+      b.box(0.1, h * 0.7, 0.24, acc, {
+        p: [r * 0.9, h * 0.45, -r * 0.55],
+        r: [0.3, 0, 0],
+        glow: 0.5,
+      });
+      b.box(r * 0.6, 0.06, 0.08, BONE, { p: [r * 0.9, h * 0.2, -r * 0.4], r: [0.3, 0, 0] });
+      seam(b, 0, h * 0.45, -r * 0.62, r * 0.9, 0.1);
+      seam(b, 0, h * 0.3, -r * 0.7, r * 0.9, -0.1);
+      return true;
+    }
+    case 'the_seamstress': {
+      // A many-armed tailor: a narrow robed body, six arms ending in needle cones, a spool on her back.
+      b.lathe(
+        [
+          [r * 0.9, 0],
+          [r * 0.8, h * 0.12],
+          [r * 0.42, h * 0.5],
+          [r * 0.36, h * 0.72],
+          [0, h * 0.74],
+        ],
+        body,
+        {},
+        10,
+      );
+      b.sphere(r * 0.28, dark, { p: [0, h * 0.82, 0] }, 8, 6);
+      b.box(r * 0.3, 0.05, 0.03, acc, { p: [0, h * 0.84, -r * 0.26], glow: 1 });
+      for (let i = 0; i < 6; i++) {
+        const side = i % 2 === 0 ? 1 : -1;
+        const row = Math.floor(i / 2);
+        const y = h * (0.66 - row * 0.1);
+        const ax = side * r * 0.7;
+        b.cyl(
+          0.05,
+          0.04,
+          r * 1.1,
+          dark,
+          {
+            p: [ax, y, -r * 0.3],
+            r: [-0.6 - row * 0.25, 0, side * (1.1 - row * 0.2)],
+          },
+          5,
+        );
+        b.cone(
+          0.05,
+          r * 0.7,
+          BONE,
+          {
+            p: [side * r * 1.25, y - row * 0.08, -r * (0.75 + row * 0.15)],
+            r: [-Math.PI / 2 + row * 0.3, 0, 0],
+            glow: 0.25,
+          },
+          4,
+        );
+      }
+      // The spool: a drum of thread between two flanges.
+      b.cyl(
+        r * 0.36,
+        r * 0.36,
+        r * 0.6,
+        acc,
+        { p: [0, h * 0.6, r * 0.62], r: [0, 0, Math.PI / 2] },
+        12,
+      );
+      for (const sx of [1, -1])
+        b.cyl(
+          r * 0.5,
+          r * 0.5,
+          0.06,
+          dark,
+          { p: [sx * r * 0.33, h * 0.6, r * 0.62], r: [0, 0, Math.PI / 2] },
+          12,
+        );
+      seam(b, 0, h * 0.3, -r * 0.7, r * 1.0, 0);
+      return true;
+    }
+    case 'the_unweaver': {
+      // Tall and hooded, a giant pair of shears before it, a crown of spindles.
+      b.lathe(
+        [
+          [r * 0.95, 0],
+          [r * 0.85, h * 0.1],
+          [r * 0.55, h * 0.48],
+          [r * 0.5, h * 0.7],
+          [r * 0.42, h * 0.82],
+          [r * 0.18, h * 0.93],
+          [0, h * 0.95],
+        ],
+        body,
+        {},
+        11,
+      );
+      b.sphere(r * 0.3, VOID, { p: [0, h * 0.82, -r * 0.18], s: [1, 1.15, 0.8] }, 8, 6);
+      for (const sx of [1, -1])
+        b.box(r * 0.08, 0.04, 0.03, acc, { p: [sx * r * 0.1, h * 0.83, -r * 0.42], glow: 1 });
+      // The crown: spindles round the hood.
+      for (let i = 0; i < 7; i++) {
+        const a = (i / 7) * Math.PI * 2;
+        b.lathe(
+          [
+            [0.02, 0],
+            [0.08, 0.15],
+            [0.04, 0.42],
+            [0.01, 0.55],
+          ],
+          BONE,
+          {
+            p: [Math.cos(a) * r * 0.32, h * 0.92, Math.sin(a) * r * 0.32],
+            r: [Math.sin(a) * 0.3, 0, -Math.cos(a) * 0.3],
+            glow: 0.3,
+          },
+          5,
+        );
+      }
+      // The shears: two great blades crossed before it, a ring pivot.
+      for (const side of [1, -1]) {
+        b.box(0.14, 0.06, h * 0.75, acc, {
+          p: [side * r * 0.2, h * 0.45, -r * 1.05],
+          r: [0.25, side * 0.35, 0],
+          glow: 0.35,
+        });
+        b.torus(0.2, 0.05, dark, {
+          p: [side * r * 0.42, h * 0.38, -r * 0.7],
+          r: [Math.PI / 2, 0, 0],
+        });
+      }
+      b.torus(0.14, 0.05, BONE, { p: [0, h * 0.45, -r * 1.1], r: [Math.PI / 2, 0, 0], glow: 0.3 });
+      seam(b, 0, h * 0.35, -r * 0.62, r * 1.0, 0.1);
+      seam(b, 0, h * 0.55, -r * 0.5, r * 0.8, -0.1);
+      return true;
+    }
+    default:
+      return false;
+  }
+}
+
+/**
+ * An Abyssal Rift pillar (unit radius, height ~3.6, scaled like `buildPillar`): a broken slab,
+ * its halves offset across the break and stitched back together with bone thread, a strip of
+ * void cloth wound round its foot.
+ */
+export function buildRiftPillar(stone: string, bone: string, cloth: string): THREE.BufferGeometry {
+  const b = new ModelBuilder();
+  b.box(1.9, 0.3, 1.6, shade(stone, -0.15), { p: [0, 0.15, 0], r: [0, 0.2, 0] });
+  b.box(1.4, 1.7, 1.1, stone, { p: [0, 1.15, 0], r: [0, 0.2, 0.03] });
+  b.box(1.35, 1.6, 1.05, shade(stone, 0.06), { p: [0.12, 2.85, 0.05], r: [0.04, 0.32, -0.08] });
+  // The stitches across the break, front and side.
+  for (let i = 0; i < 4; i++) {
+    b.box(0.06, 0.45, 0.06, bone, {
+      p: [-0.45 + i * 0.3, 2.02, -0.58],
+      r: [0, 0.2, 0.35],
+      glow: 0.2,
+    });
+  }
+  for (let i = 0; i < 3; i++) {
+    b.box(0.06, 0.45, 0.06, bone, {
+      p: [0.72, 2.02, -0.3 + i * 0.3],
+      r: [0.35, 0.2, 0],
+      glow: 0.2,
+    });
+  }
+  b.box(1.46, 0.35, 1.16, cloth, { p: [0, 0.55, 0], r: [0, 0.2, 0] });
   return b.build();
 }

@@ -30,6 +30,12 @@ export const SHELL = {
    * spent (0 fresh, 1 gone): the veil thins as it runs out.
    */
   veil: 10,
+  /**
+   * Movement III (docs/phase-5c.md): a Ward copied onto an enemy (the Mimic's, the Unweaver's
+   * Mirror Ward), and the Spindles' plating on the Unweaver. The Ward's hexes inside out: lit
+   * cells, a sheen that faces you, a sweeping glint. `crack` cracks it as it is spent.
+   */
+  mirrorWard: 11,
 } as const;
 
 const vertex = /* glsl */ `
@@ -186,6 +192,14 @@ void main() {
     float thin = 1.0 - 0.6 * clamp(vCrack, 0.0, 1.0);
     a = (fres * 0.4 + hem * 0.3 + lane * drop * 0.55 + 0.012) * thin;
     col = mix(col, vec3(1.0), clamp(hem * 0.35 + lane * drop * 0.45, 0.0, 1.0));
+  } else if (style == 11) {
+    // A mirrorWard (Movement III): the Ward's hexes turned inside out. The cells are lit, not the
+    // edges; the sheen faces you instead of the rim; a glint sweeps across it. Never pale cyan.
+    float hex = smoothstep(0.02, 0.14, hexEdge(uv * 2.2));
+    float face = 1.0 - fres;
+    float glint = exp(-pow((vLocal.x + vLocal.y * 0.6 - 1.6 * fract(uTime * 0.35 + vParams.w * 0.1) + 0.8) / 0.09, 2.0));
+    a = hex * (0.07 + 0.2 * face) + fres * 0.25 + glint * 0.55 + crack * 0.9 + 0.02;
+    col = mix(col, vec3(1.0), clamp(glint * 0.6, 0.0, 1.0));
   } else {
     a = fres * 1.2 + 0.25;
     col = mix(col, vec3(1.0), 0.5);

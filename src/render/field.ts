@@ -10,6 +10,7 @@ import { SHELL } from './fx/shells';
 import { SPRITE } from './fx/sprites';
 import { CALLING_HEX, ECLIPSE_DARK_HEX, callingLook, emptyLook } from './callingCues';
 import { C, approach, auraColor, clamp01, color } from './palette';
+import { RIFT_HEX } from './riftCues';
 import {
   POUR_TRAVEL,
   beamSong,
@@ -246,6 +247,19 @@ const LANTERN_GLASS = color('#ffe9bd');
 const LANTERN_LIGHT = color(CALLING_HEX.sun);
 /** An echo sharing a field song's circle is drawn this far outside it, so both stay legible. */
 const ECHO_NUDGE = 0.32;
+/** Movement III's colours (riftCues.ts). */
+const SWIRL = color(RIFT_HEX.swirl);
+const RUNE = color(RIFT_HEX.rune);
+/** A stolen aura's band is drawn this dark (its slot hollow until it is poured back). */
+const HOLLOW = 0.18;
+
+/** A timed zone as FieldView draws it (the sim's `field.zones`, or the lab's override). */
+export interface ZoneLook {
+  readonly kind: 'pull' | 'null';
+  readonly x: number;
+  readonly z: number;
+  readonly r: number;
+}
 
 /** Every Chord's field disc in one instanced draw call. */
 class FieldBatch extends InstancedFx {
@@ -405,6 +419,17 @@ export class FieldView {
   private poolAcc = 0;
   /** Movement II, drawn last frame (tests, the lab): Sanctuary pools. */
   readonly drawnM2 = { pools: 0 };
+  /**
+   * Lab-only overrides of Movement III's field keys (docs/phase-5c/vfx-audio.md): the timed zones
+   * (a Void Maw's pull, a Null Priest's rune) and a stolen aura (`field.stolen`'s chord and
+   * aura). Never set by the game runtime.
+   */
+  zoneOverride: ZoneLook[] | null = null;
+  stolenOverride: { chord: number; aura: number } | null = null;
+  private zoneAcc = 0;
+  private readonly hollow = new THREE.Color();
+  /** Movement III, drawn last frame (tests, the lab): pull swirls, rune rings, hollow slots. */
+  readonly drawnM3 = { pulls: 0, runes: 0, stolen: 0 };
   /** The Calling's look this frame (callingCues.ts). */
   readonly look = emptyLook();
   /** The Luminary, smoothed 0..1: its Sunrise, Eclipse in force, Sovereign Symphony. */
@@ -531,10 +556,15 @@ export class FieldView {
       this.fz[i] = planted ? c.z : wz;
       this.fr[i] = r * blazeK * (planted ? 1 - 0.25 * pop * pop * pop : 1);
     }
+    // Steal Verse (Movement III): the stolen aura's slot is drawn hollow until it comes back.
+    const stolen = this.stolenOverride ?? f.stolen ?? null;
+    this.drawnM3.stolen = 0;
     // Pass 2: draw. An echo on the same circle as a field song sits just outside it.
     for (let i = 0; i < n; i++) {
       const c = f.chords[i]!;
       const radius = this.fr[i]!;
+      if (stolen && stolen.chord === i && c.auras[stolen.aura])
+        this.hollowSlot(c, stolen.aura, i, radius, wx, wz, kit, time);
       if (radius <= 0) continue;
       const echo = fieldLook(c) === 'echo';
       let offset = 0;
@@ -549,8 +579,14 @@ export class FieldView {
         }
       }
       const na = c.auras.length;
-      const a0 = auraColor(c.auras[0]!);
-      const a1 = na > 1 ? auraColor(c.auras[1]!) : a0;
+      let a0 = auraColor(c.auras[0]!);
+      let a1 = na > 1 ? auraColor(c.auras[1]!) : a0;
+      if (stolen && stolen.chord === i && stolen.aura < 2) {
+        // Its band goes dark: the slot is there, its song is not.
+        const hollow = this.hollow.copy(stolen.aura === 0 ? a0 : a1).multiplyScalar(HOLLOW);
+        if (stolen.aura === 0) a0 = hollow;
+        if (stolen.aura === 1 || na === 1) a1 = hollow;
+      }
       const planted = c.anchor === 'planted';
       const pop = this.pops[i]!;
       // The outermost field around its centre carries the rim accents (Eclipse, the crown).
@@ -661,6 +697,91 @@ export class FieldView {
       );
     }
     this.sanctuary(state, kit, dt, time);
+    this.zones(state, kit, dt, time);
+  }
+
+  /**
+   * A stolen aura's hollow slot (Movement III, Steal Verse): a dashed ring in its colour just
+   * outside its field (round the Weaver's feet for a beam song with no field), drawn thin and
+   * dark-centred: the song's place is there, empty, until the Verse falls and pours it back.
+   */
+  private hollowSlot(
+    c: WorldState['field']['chords'][number],
+    aura: number,
+    i: number,
+    radius: number,
+    wx: number,
+    wz: number,
+    kit: FxKit,
+    time: number,
+  ): void {
+    const col = auraColor(c.auras[aura]!);
+    const x = radius > 0 ? this.fx[i]! : wx;
+    const z = radius > 0 ? this.fz[i]! : wz;
+    const r = radius > 0 ? radius + 0.45 : 1.6;
+    kit.rings.push(x, 0.04, z, r, 0.07, 0.12, RING.dashed, col, 0.55, 0, 7, 0, 18, -time * 0.25);
+    kit.shadows.push(x, 0.02, z, r, 0.22, 0.1, RING.plain, ECLIPSE_DARK, 0.5);
+    this.drawnM3.stolen++;
+  }
+
+  /**
+   * Movement III's timed zones (`field.zones`, or the lab's override). A Void Maw's pull: a swirl
+   * turning inward over its reach, motes drawn in from its rim. A Null Priest's rune: a bone ring
+   * of glyphs turning slowly round the Weaver's feet (never the Mute's dashed glass: the answer
+   * is to move, not to Focus).
+   */
+  private zones(state: WorldState, kit: FxKit, dt: number, time: number): void {
+    this.drawnM3.pulls = 0;
+    this.drawnM3.runes = 0;
+    const zones = this.zoneOverride ?? state.field.zones;
+    if (!zones || zones.length === 0) return;
+    for (const zn of zones) {
+      if (zn.kind === 'pull') {
+        kit.rings.push(zn.x, 0.03, zn.z, zn.r, 0.12, 0.3, RING.swirl, SWIRL, 0.85, 0, 7, 0.6, 2.8);
+        kit.rings.push(zn.x, 0.034, zn.z, zn.r * 0.35, 0.08, 0.25, RING.plain, SWIRL, 0.5);
+        this.zoneAcc += dt * 18 * kit.particles.density;
+        while (this.zoneAcc > 1) {
+          this.zoneAcc -= 1;
+          const a = Math.random() * Math.PI * 2;
+          const r = zn.r * (0.75 + Math.random() * 0.25);
+          kit.particles.emit(
+            zn.x + Math.cos(a) * r,
+            0.15 + Math.random() * 0.5,
+            zn.z + Math.sin(a) * r,
+            -Math.cos(a) * 3 + Math.sin(a) * 1.5,
+            0,
+            -Math.sin(a) * 3 - Math.cos(a) * 1.5,
+            0.9,
+            0.1,
+            SWIRL,
+            0.85,
+            PARTICLE.dot,
+            0.2,
+            0,
+          );
+        }
+        this.drawnM3.pulls++;
+      } else {
+        kit.rings.push(
+          zn.x,
+          0.035,
+          zn.z,
+          zn.r,
+          0.12,
+          0.2,
+          RING.rune,
+          RUNE,
+          0.9,
+          0,
+          7,
+          0.07,
+          12,
+          time * 0.3,
+        );
+        kit.rings.push(zn.x, 0.032, zn.z, zn.r * 0.62, 0.04, 0.1, RING.plain, RUNE, 0.35);
+        this.drawnM3.runes++;
+      }
+    }
   }
 
   /**

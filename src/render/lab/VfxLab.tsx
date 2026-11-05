@@ -20,11 +20,12 @@ import {
   type Status,
   type WorldState,
 } from '../../sim';
-import { dealDamage } from '../../sim/combat/health';
+import { addShield, dealDamage } from '../../sim/combat/health';
 import { beginAttack } from '../../sim/systems/enemies';
 import type { World } from '../../sim/world';
 import { CameraRig } from '../camera';
 import { CombatView } from '../combatView';
+import { arenaLook } from '../crimsonCues';
 import type { WeaverLook } from '../keepsakeCues';
 import { Stage, type QualityTier } from '../stage';
 import type { FrameInfo } from '../types';
@@ -168,6 +169,44 @@ interface LabApi {
   crimsonStats(): CrimsonStats;
   /** The lab's drifting Sanctuary pools (FieldView's override), on or off. */
   setSanctuary(on: boolean): void;
+  /** Phase 5c: Movement III's scenarios (docs/phase-5c/vfx-audio.md). */
+  unstitchedScenarios(): string[];
+  /** Restarts the real sim on that scenario's Abyssal Rift floor and stages it. */
+  unstitchedScenario(name: string): void;
+  /** What Movement III's visuals drew last frame and have played, and the lab stand-ins used. */
+  unstitchedStats(): UnstitchedStats;
+  /** The lab's timed zones (FieldView's override): a pull at the newest Maw, a rune at her feet. */
+  setZones(zones: { kind: 'pull' | 'null'; x: number; z: number; r: number }[] | null): void;
+  /** Unravel's look on the Thread (ThreadView's override; null: the sim's). */
+  setUnravel(on: boolean | null): void;
+  /** A stolen aura (FieldView's and EntityLayer's overrides; null: none). */
+  setStolen(stolen: { chord: number; aura: number } | null): void;
+}
+
+interface UnstitchedStats {
+  theme: string;
+  biome: string;
+  look: string;
+  /** Drawn last frame: possession, Doom pips, sewn pairs, cut lines and scissors, zones, the Thread… */
+  drawn: Record<string, number>;
+  /** Played so far: cuts, strands, possessions, frees, mirrors cracked, pours, cloth deaths… */
+  fired: Record<string, number>;
+  zones: { kind: string; x: number; z: number; r: number }[];
+  unravel: boolean;
+  stolen: { chord: number; aura: number } | null;
+  /** The lab stand-ins this scenario used (mechanics the sim didn't produce itself). */
+  standIns: string[];
+  heroes: { id: number; x: number; z: number; height: number; statuses: string[] }[];
+  enemies: {
+    id: number;
+    def: string;
+    x: number;
+    z: number;
+    height: number;
+    cast: string | null;
+    affixes: string[];
+  }[];
+  weaver: { x: number; z: number };
 }
 
 interface CrimsonStats {
@@ -391,6 +430,15 @@ const ENCOUNTERS = [
   'blood_forge',
   'gorehound_matriarch',
   'vharun',
+  // Phase 5c: Movement III.
+  'frayed_threshold',
+  'maw_hollow',
+  'wraith_vigil',
+  'null_chapel',
+  'mirror_hall',
+  'frayed_court',
+  'the_seamstress',
+  'the_unweaver',
 ];
 
 /**
@@ -2205,6 +2253,263 @@ const CRIMSON_SCENARIOS: Record<string, CrimsonScenario> = {
 };
 const CRIMSON_SCENARIO_NAMES = Object.keys(CRIMSON_SCENARIOS);
 
+/**
+ * Phase 5c: one scenario per Movement III visual (docs/phase-5c/vfx-audio.md). Each restarts the
+ * real sim on an Abyssal Rift floor and stages it with real spawns and commands. Where the sim
+ * does not yet produce an Unstitched mechanic (a cut, a zone, possession, Doom, a stitch, a
+ * mirror, Steal Verse, Unravel), a lab stand-in puts it in place a moment later, only if the sim
+ * hasn't: `unstitchedStats().standIns` names every one used. Zones, Unravel and a stolen aura are
+ * the views' own overrides (`setZones`, `setUnravel`, `setStolen`), never written into the sim.
+ */
+interface UnstitchedScenario {
+  /** The encounter (default: the sandbox) and the floor (default: the Rift's Mouth). */
+  encounter?: string;
+  theme?: string;
+  note: string;
+  stage(rt: LabRuntime): void;
+}
+
+const UNSTITCHED_SCENARIOS: Record<string, UnstitchedScenario> = {
+  'Gallery · the Unstitched': {
+    note: 'Every Unstitched body side by side on the Rift’s Mouth: Shears, the Void Maw, the Doubt Wraith, the Null Priest, the Mimic, a Spindle, the Stolen Verse, the Hollow Champion, the Seamstress and the Unweaver',
+    stage: (rt) => rt.later(0.1, () => rt.preset('gallery3')),
+  },
+  'Shears · the cut line': {
+    note: 'Shears dash through your Thread to Lyra: a dotted line, the scissors where it crosses the Thread; then CUT in the fray, the stub at her hand and its 1 s lock ring',
+    stage: (rt) => {
+      rt.later(0.1, () => rt.thread(LYRA));
+      rt.later(0.2, () => rt.spawn('shears', 6, -6));
+      rt.later(0.5, () => {
+        rt.toughen();
+        rt.castNow('shears', 'shears_dash', LYRA);
+      });
+      rt.later(1.6, () => rt.standInCut('shears', 1));
+    },
+  },
+  'Unweaver · Snip': {
+    theme: 'the_unwoven',
+    note: 'The Unweaver’s Snip: a long dotted line through your Thread, the scissors on it; CUT, and the lock ring counts 3 s down at her hand',
+    stage: (rt) => {
+      rt.later(0.1, () => rt.thread(KAEL));
+      rt.later(0.2, () => rt.spawn('the_unweaver', 0, -12));
+      rt.later(0.5, () => {
+        rt.toughen();
+        rt.castNow('the_unweaver', 'unweaver_snip', KAEL);
+      });
+      rt.later(2.2, () => rt.standInCut('snip', 3));
+    },
+  },
+  'Seamstress · Unpick': {
+    theme: 'loom_hollow',
+    note: 'The Unpick: the raid’s bar, a ripple of snaps running along your Thread; then UNPICKED (not the grey SNAPPED)',
+    stage: (rt) => {
+      rt.later(0.1, () => rt.thread(LYRA));
+      rt.later(0.2, () => rt.spawn('the_seamstress', 0, -10));
+      rt.later(0.5, () => {
+        rt.toughen();
+        rt.castNow('the_seamstress', 'seamstress_unpick', LYRA);
+      });
+      rt.later(3.1, () => rt.standInCut('unpick', 1));
+    },
+  },
+  'Guard Strand · turned aside': {
+    note: 'Guard Strand turns a cut aside: a silk spark where the Shears’ line crosses your Thread, and the Thread holds',
+    stage: (rt) => {
+      rt.later(0.1, () => rt.thread(LYRA));
+      rt.later(0.2, () => rt.spawn('shears', 6, -6));
+      rt.later(0.5, () => {
+        rt.toughen();
+        rt.castNow('shears', 'shears_dash', LYRA);
+      });
+      rt.later(1.6, () => rt.standInStrand());
+    },
+  },
+  'Void Maw · Inhale': {
+    theme: 'torn_nave',
+    note: 'The Void Maw breathes in: a swirl tightening through its 1.4 s tell, then turning inward for 4 s, motes drawn in, heroes inside streaking toward its mouth',
+    stage: (rt) => {
+      rt.later(0.2, () => rt.spawn('void_maw', 0, -5));
+      rt.later(0.5, () => {
+        rt.toughen();
+        rt.castNow('void_maw', 'maw_inhale', KAEL);
+      });
+      rt.later(1.95, () => rt.standInZone('pull', 'void_maw', 4));
+    },
+  },
+  'Doubt Wraith · possession': {
+    note: 'The Doubt Wraith’s 4 s cast marks Lyra; then she is possessed: an indigo rim over the Thread’s, a cracked mask, a dashed tether to the Wraith, a lash at the ally in reach, and Chime and Focus over her head',
+    stage: (rt) => {
+      rt.later(0.1, () => rt.thread(LYRA));
+      rt.later(0.2, () => rt.spawn('doubt_wraith', 4, -11));
+      rt.later(0.5, () => {
+        rt.toughen();
+        rt.castNow('doubt_wraith', 'wraith_doubt', LYRA);
+      });
+      rt.later(4.6, () => rt.standInPossess(LYRA));
+    },
+  },
+  'Null Priest · rune': {
+    theme: 'torn_nave',
+    note: 'The Null Priest writes a rune at your feet: a ring of glyphs closing in 1.5 s, then a bone rune ring for 6 s and a rune lock over you (Glide out; it never touches your auras)',
+    stage: (rt) => {
+      rt.later(0.2, () => rt.spawn('null_priest', -4, -11));
+      rt.later(0.5, () => {
+        rt.toughen();
+        rt.castNow('null_priest', 'null_rune', KAEL);
+      });
+      rt.later(2.1, () => rt.standInZone('null', null, 6));
+    },
+  },
+  'Mimic · mirror': {
+    theme: 'mirror_loom',
+    note: 'You Ward Kael, and a Mimic copies it onto the biggest enemy near it: a mirror shimmer, “Mirror · Ward” over it, then a mirrored Ward (the hexes inside out, never your pale cyan)',
+    stage: (rt) => {
+      rt.later(0.2, () => {
+        rt.spawn('mimic', -3, -10);
+        rt.spawn('void_maw', 2, -9);
+      });
+      rt.later(0.4, () => rt.queue({ t: 'tech', id: 'ward', slot: KAEL }));
+      rt.later(0.7, () => {
+        rt.toughen();
+        rt.castNow('mimic', 'mimic_mirror', KAEL);
+        rt.standInMimic('ward');
+      });
+      rt.later(2.8, () => rt.standInMirrorShield('void_maw'));
+    },
+  },
+  'Mimic · cracked': {
+    theme: 'mirror_loom',
+    note: 'The Mimic’s copy no longer matches what you cast: MIRROR CRACKED, a burst of glass, nothing lands',
+    stage: (rt) => {
+      rt.later(0.2, () => {
+        rt.spawn('mimic', -3, -10);
+        rt.spawn('void_maw', 2, -9);
+      });
+      rt.later(0.7, () => {
+        rt.toughen();
+        rt.castNow('mimic', 'mimic_mirror', KAEL);
+        rt.standInMimic('ward');
+      });
+      rt.later(2.8, () => rt.standInCrack());
+    },
+  },
+  'Doom-touched · pips': {
+    note: 'Doom on Kael: five pips on the bleed arc filling as it stacks, lethal from four with Chime and Ward over him; at five it ignites, a mark ringed in lethal pips',
+    stage: (rt) => {
+      rt.later(0.2, () => rt.spawn('shears', 0, -7, true));
+      rt.later(0.4, () => rt.standInAffix('shears', 'doom_touched'));
+      for (let i = 1; i <= 5; i++)
+        rt.later(0.6 + i * 0.6, () =>
+          rt.standInStatus(KAEL, { id: 'doom', stacks: i, remaining: 10, duration: 10 }, 'doom'),
+        );
+      rt.later(3.8, () => rt.castNow('shears', 'doom_burst', KAEL));
+    },
+  },
+  'Seamstress · Stitch': {
+    theme: 'loom_hollow',
+    note: 'The Seamstress’s Stitch: a cross-stitched link (not the threat dashes), then the pair sewn to the floor, a bone tether between them, Chime over each',
+    stage: (rt) => {
+      rt.later(0.2, () => rt.spawn('the_seamstress', 0, -12));
+      rt.later(0.5, () => {
+        rt.toughen();
+        rt.castNow('the_seamstress', 'seamstress_stitch', KAEL);
+      });
+      rt.later(3.2, () => rt.standInStitch(KAEL, LYRA));
+    },
+  },
+  'Seamstress · Needle Rain': {
+    theme: 'loom_hollow',
+    note: 'Needle Rain: three circles in turn, a needle falling point-first onto each',
+    stage: (rt) => {
+      rt.later(0.2, () => rt.spawn('the_seamstress', 0, -12));
+      rt.later(0.5, () => {
+        rt.toughen();
+        rt.castNow('the_seamstress', 'seamstress_needles', LYRA);
+      });
+      rt.later(1.9, () => rt.castNow('the_seamstress', 'seamstress_needles_2', VEXIS));
+      rt.later(2.6, () => rt.castNow('the_seamstress', 'seamstress_needles_3', KAEL));
+    },
+  },
+  'Unweaver · Spindles': {
+    theme: 'the_unwoven',
+    note: 'Three Spindles: a tether from each to the Unweaver, its plating while they stand, and −80% off your heroes’ hits',
+    stage: (rt) => {
+      rt.later(0.2, () => {
+        rt.spawn('the_unweaver', 0, -12);
+        rt.spawn('spindle', -7, -8);
+        rt.spawn('spindle', 7, -8);
+        rt.spawn('spindle', 0, -3);
+      });
+      rt.later(0.6, () => {
+        rt.toughen();
+        rt.standInTethered();
+      });
+    },
+  },
+  'Unweaver · Unravel': {
+    theme: 'the_unwoven',
+    note: 'Unravel: your Mend turns, a near-black Thread with lethal barbs, beads rushing forward, the glyph a minus; its ticks land as damage. Switch to Empower and it is your Thread again',
+    stage: (rt) => {
+      rt.later(0.1, () => rt.thread(KAEL));
+      rt.later(0.2, () => rt.spawn('the_unweaver', 0, -14));
+      rt.later(0.5, () => rt.toughen());
+      rt.later(1.0, () => rt.standInUnravel(true));
+      rt.later(4.0, () => rt.queue({ t: 'mode' }));
+    },
+  },
+  'Unweaver · Steal Verse': {
+    theme: 'the_unwoven',
+    note: 'Steal Verse: your first aura torn out (its band dark, its slot a hollow ring) into a fleeing orb in its colour; strike it down and the aura pours back to you',
+    stage: (rt) => {
+      rt.later(0.2, () => rt.spawn('stolen_verse', 4, -9));
+      rt.later(0.5, () => {
+        rt.toughen();
+        rt.standInSteal();
+      });
+      rt.later(3.5, () => rt.standInReturn());
+    },
+  },
+  'Unweaver · Mirror Weave': {
+    theme: 'the_unwoven',
+    note: 'The Hollow Champion: a mirror Thread from the Unweaver to it, Emboldened’s shimmer (never gold), then the Mirror Ward: its mirrored shell',
+    stage: (rt) => {
+      rt.later(0.2, () => {
+        rt.spawn('the_unweaver', 0, -14);
+        rt.spawn('mirror_champion', 2, -7);
+      });
+      rt.later(0.5, () => {
+        rt.toughen();
+        rt.standInEmbolden('mirror_champion');
+        rt.castNow('the_unweaver', 'unweaver_mirror_ward', KAEL);
+      });
+      rt.later(2.7, () => rt.standInMirrorShield('mirror_champion', true));
+    },
+  },
+  'Silencing · its dome': {
+    note: 'A Silencing elite carries the Mute’s cracked-glass dome, at its own 7 m; its crown wears a rune gem',
+    stage: (rt) => {
+      rt.later(0.2, () => rt.spawn('null_priest', 0, -8, true));
+      rt.later(0.4, () => {
+        rt.toughen();
+        rt.standInAffix('null_priest', 'silencing');
+      });
+    },
+  },
+  'Cloth deaths': {
+    note: 'Three Shears struck down: they unravel, strands whipping off them, fray motes and indigo smoke (never a red mist); a chorister beside them still breaks into porcelain',
+    stage: (rt) => {
+      rt.later(0.2, () => {
+        rt.spawn('shears', -3, -7);
+        rt.spawn('shears', 0, -8);
+        rt.spawn('shears', 3, -7);
+        rt.spawn('hollow_chorister', 6, -6);
+      });
+      rt.later(1.2, () => rt.strikeAll());
+    },
+  },
+};
+const UNSTITCHED_SCENARIO_NAMES = Object.keys(UNSTITCHED_SCENARIOS);
+
 class LabRuntime {
   sim: Sim;
   readonly stage: Stage;
@@ -2897,6 +3202,297 @@ class LabRuntime {
     };
   }
 
+  // ── Phase 5c: Movement III (docs/phase-5c/vfx-audio.md) ──────────────────────────────────
+
+  /** Restarts on that scenario's Rift floor (and encounter) and stages it. */
+  unstitchedScenario(name: string): void {
+    const s = UNSTITCHED_SCENARIOS[name];
+    if (!s) return;
+    clearBonds();
+    encounterOverride = s.encounter ?? 'sandbox';
+    callingCfg = null;
+    chordsOverride = GUARDIAN_CHORDS;
+    astrolabeCfg = [];
+    dissonanceCfg = [];
+    this.theme = s.theme ?? 'rift_mouth';
+    this.setZones(null);
+    this.setUnravel(null);
+    this.setStolen(null);
+    this.restart([]);
+    s.stage(this);
+  }
+
+  private standIn(name: string): void {
+    if (!this.standIns.includes(name)) this.standIns.push(name);
+  }
+
+  /** The views' timed zones (FieldView's override; null: the sim's). */
+  setZones(zones: { kind: 'pull' | 'null'; x: number; z: number; r: number }[] | null): void {
+    this.view.field.zoneOverride = zones ? zones.map((z) => ({ ...z })) : null;
+  }
+
+  /** Unravel's look on the Thread (ThreadView's override; null: the sim's). */
+  setUnravel(on: boolean | null): void {
+    this.view.thread.unravelOverride = on;
+  }
+
+  /** A stolen aura (FieldView's and EntityLayer's overrides; null: none). */
+  setStolen(stolen: { chord: number; aura: number } | null): void {
+    this.view.field.stolenOverride = stolen ? { ...stolen } : null;
+    const id = stolen ? this.sim.state.field.chords[stolen.chord]?.auras[stolen.aura] : undefined;
+    this.view.entities.stolenOverride = id ?? null;
+  }
+
+  /**
+   * Lab stand-in for an enemy cut (`cutThread`, W1): unless the sim already cut it, the Thread
+   * drops with its lock and `threadSnapped {cause, lock}` and the verdict go to the view.
+   */
+  standInCut(cause: 'shears' | 'severing' | 'snip' | 'unpick', lock: number): void {
+    const w = this.world().entities.get(this.sim.state.weaverId)?.weaver;
+    if (!w || w.threadSlot === null) return;
+    const target = this.sim.state.party[w.threadSlot];
+    if (target === undefined) return;
+    w.threadSlot = null;
+    w.threadTension = 0;
+    w.threadLock = lock;
+    const tick = this.sim.tick;
+    this.inject([
+      { type: 'threadSnapped', tick, target, cause, lock },
+      { type: 'cutResolved', tick, telegraph: -1, cause, result: 'cut' },
+    ]);
+    this.standIn(`cut:${cause}`);
+  }
+
+  /** Lab stand-in: Guard Strand turns the newest cut line aside (`cutResolved 'strand'`). */
+  standInStrand(): void {
+    const t = this.sim.state.telegraphs.find((x) => attackDef(x.attackId).cut);
+    this.inject([
+      {
+        type: 'cutResolved',
+        tick: this.sim.tick,
+        telegraph: t?.id ?? -1,
+        cause: 'shears',
+        result: 'strand',
+      },
+    ]);
+    this.standIn('strand');
+  }
+
+  /**
+   * Lab stand-in for a timed zone (`field.zones`, W2): a pull at the newest `ownerDef` or a rune
+   * at the Weaver's feet, for `seconds`, unless the sim laid one of that kind already.
+   */
+  standInZone(kind: 'pull' | 'null', ownerDef: string | null, seconds: number): void {
+    if (this.sim.state.field.zones?.some((z) => z.kind === kind)) return;
+    const owner = ownerDef ? this.newestOf(ownerDef) : null;
+    const at = owner ? { x: owner.x, z: owner.z } : this.weaverPos();
+    const r = kind === 'pull' ? 8 : 5;
+    this.setZones([{ kind, x: at.x, z: at.z, r }]);
+    this.inject([
+      {
+        type: 'zoneStarted',
+        tick: this.sim.tick,
+        zone: -1,
+        kind,
+        owner: owner?.id ?? -1,
+        x: at.x,
+        z: at.z,
+        r,
+        until: this.sim.state.time + seconds,
+      },
+    ]);
+    this.later(seconds, () => this.setZones(null));
+    this.standIn(`zone:${kind}`);
+  }
+
+  /** Lab stand-in for possession (W2): the hero in `slot` possessed by the newest Wraith. */
+  standInPossess(slot: number): void {
+    const wraith = this.newestOf('doubt_wraith');
+    const hero = this.heroAt(slot);
+    if (!hero) return;
+    this.standInStatus(
+      slot,
+      { id: 'possessed', remaining: 5, duration: 5, source: wraith?.id ?? null, tickIn: 0.5 },
+      'possessed',
+    );
+    this.inject([
+      { type: 'possessed', tick: this.sim.tick, hero: hero.id, source: wraith?.id ?? null },
+    ]);
+  }
+
+  /** Lab stand-in for the Mimic's cast (W2): what it copies, locked at cast start. */
+  standInMimic(copy: 'empower' | 'ward' | 'chime'): void {
+    const e = this.newestOf('mimic');
+    if (!e?.enemy || e.enemy.mimic) return;
+    e.enemy.mimic = { copy };
+    this.standIn('mimic');
+  }
+
+  /** Lab stand-in: a mirrored Ward on the newest `defId` (the Mimic's copy, the Mirror Ward). */
+  standInMirrorShield(defId: string, mirrorWard = false): void {
+    const e = this.newestOf(defId);
+    if (!e?.health) return;
+    const m = this.newestOf('mimic');
+    if (m?.enemy?.mimic) delete m.enemy.mimic;
+    if (e.health.shields.some((s) => s.kind === 'mirror')) return;
+    const amount = e.health.maxHp * 0.25;
+    addShield(this.world(), e, 'mirror', amount, 6, false);
+    if (mirrorWard) this.inject([{ type: 'mirrorWard', tick: this.sim.tick, enemy: e.id, amount }]);
+    this.standIn('mirrorShield');
+  }
+
+  /** Lab stand-in: the Mimic's copy no longer matches (MIRROR CRACKED), nothing lands. */
+  standInCrack(): void {
+    const e = this.newestOf('mimic');
+    if (!e?.enemy) return;
+    const copy = e.enemy.mimic?.copy ?? 'ward';
+    delete e.enemy.mimic;
+    this.inject([{ type: 'mirrorCracked', tick: this.sim.tick, enemy: e.id, copy }]);
+    this.standIn('cracked');
+  }
+
+  /** Lab stand-in: the newest `defId` becomes an elite with this Rift affix (read afresh). */
+  standInAffix(defId: string, affix: string): void {
+    const e = this.newestOf(defId);
+    if (!e?.enemy) return;
+    e.enemy.tier = 'elite';
+    e.enemy.affixes = [affix];
+    this.view.entities.forget(e.id);
+    this.standIn(`affix:${affix}`);
+  }
+
+  /** Lab stand-in: the heroes in `a` and `b` stitched by the newest Seamstress. */
+  standInStitch(a: number, b: number): void {
+    const s = this.newestOf('the_seamstress');
+    for (const slot of [a, b])
+      this.standInStatus(
+        slot,
+        { id: 'stitched', remaining: 6, duration: 6, source: s?.id ?? null },
+        'stitched',
+      );
+  }
+
+  /** Lab stand-in for the Spindles' tether count on the Unweaver (`enemy.tethered`, W2). */
+  standInTethered(): void {
+    const boss = this.newestOf('the_unweaver');
+    if (!boss?.enemy || boss.enemy.tethered !== undefined) return;
+    const n = this.world()
+      .entities.list()
+      .filter((e) => e.enemy?.defId === 'spindle' && !e.health?.dead).length;
+    if (n === 0) return;
+    boss.enemy.tethered = n;
+    this.inject([{ type: 'tethered', tick: this.sim.tick, enemy: boss.id, count: n }]);
+    this.standIn('tethered');
+  }
+
+  /** Lab stand-in: the newest `defId` Emboldened for a minute (the champion's Thread). */
+  standInEmbolden(defId: string): void {
+    const e = this.newestOf(defId);
+    if (!e?.enemy || e.enemy.emboldenedUntil !== undefined) return;
+    e.enemy.emboldenedUntil = this.sim.state.time + 60;
+    this.standIn('emboldened');
+  }
+
+  /** Lab stand-in for Unravel (W1, W3): the Thread turns for 5 s, unless the sim opened it. */
+  standInUnravel(on: boolean): void {
+    if (this.sim.state.field.unravel) return;
+    this.setUnravel(on);
+    this.inject([
+      { type: 'unravelled', tick: this.sim.tick, active: on, until: this.sim.state.time + 5 },
+    ]);
+    this.later(5, () => this.setUnravel(null));
+    this.standIn('unravel');
+  }
+
+  /** Lab stand-in for Steal Verse (W1, W3): the first aura of the field song is taken. */
+  standInSteal(): void {
+    const st = this.sim.state;
+    if (st.field.stolen) return;
+    let chord = st.field.chords.findIndex((c) => c.role === 'field' && c.auras.length > 0);
+    if (chord < 0) chord = st.field.chords.findIndex((c) => c.auras.length > 0);
+    const aura = st.field.chords[chord]?.auras[0];
+    const verse = this.newestOf('stolen_verse');
+    if (chord < 0 || !aura || !verse) return;
+    this.setStolen({ chord, aura: 0 });
+    this.inject([
+      { type: 'verseStolen', tick: this.sim.tick, aura, add: verse.id, until: st.time + 30 },
+    ]);
+    this.standIn('stolen');
+  }
+
+  /** Lab stand-in: the Stolen Verse struck down, and its aura poured back. */
+  standInReturn(): void {
+    const stolen = this.view.field.stolenOverride;
+    const aura = stolen ? this.sim.state.field.chords[stolen.chord]?.auras[stolen.aura] : undefined;
+    const verse = this.newestOf('stolen_verse');
+    if (verse?.health) {
+      const w = this.world();
+      dealDamage(w, verse, {
+        source: this.heroId(KAEL),
+        sourceName: 'lab',
+        amount: verse.health.hp + 1,
+        telegraph: null,
+      });
+    }
+    this.later(0.05, () => {
+      if (aura)
+        this.inject([{ type: 'verseReturned', tick: this.sim.tick, aura, reason: 'killed' }]);
+      this.setStolen(null);
+    });
+  }
+
+  unstitchedStats(): UnstitchedStats {
+    const v = this.view;
+    const st = this.sim.state;
+    const heroes: UnstitchedStats['heroes'] = [];
+    for (const id of st.party) {
+      const e = st.entities.get(id);
+      if (!e?.health) continue;
+      heroes.push({
+        id,
+        x: e.x,
+        z: e.z,
+        height: e.height,
+        statuses: e.health.statuses.map((s) => (s.stacks > 1 ? `${s.id}×${s.stacks}` : s.id)),
+      });
+    }
+    const enemies: UnstitchedStats['enemies'] = [];
+    for (const e of st.entities.list()) {
+      if (!e.enemy || !e.health || e.health.dead) continue;
+      enemies.push({
+        id: e.id,
+        def: e.enemy.defId,
+        x: e.x,
+        z: e.z,
+        height: e.height,
+        cast: e.enemy.cast?.attackId ?? null,
+        affixes: [...e.enemy.affixes],
+      });
+    }
+    const pre = (prefix: string, o: Record<string, number>) =>
+      Object.fromEntries(Object.entries(o).map(([k, n]) => [`${prefix}.${k}`, n]));
+    const zones = v.field.zoneOverride ?? st.field.zones ?? [];
+    return {
+      theme: this.theme,
+      biome: arenaDef(this.theme).biome ?? 'reliquary',
+      look: arenaLook(arenaDef(this.theme)),
+      drawn: {
+        ...pre('entities', v.entities.drawnM3),
+        ...pre('telegraphs', v.telegraphs.drawnM3),
+        ...pre('field', v.field.drawnM3),
+        ...pre('thread', v.thread.drawnM3),
+      },
+      fired: { ...v.feedback.firedM3 },
+      zones: zones.map((z) => ({ kind: z.kind, x: z.x, z: z.z, r: z.r })),
+      unravel: v.thread.unravelOverride ?? !!st.field.unravel,
+      stolen: v.field.stolenOverride ?? (st.field.stolen ? { ...st.field.stolen } : null),
+      standIns: [...this.standIns],
+      heroes,
+      enemies,
+      weaver: this.weaverPos(),
+    };
+  }
+
   /** Phase 4e: restarts with that scenario's Bonds (its encounter, party, Autonomy) and stages it. */
   bondScenario(name: string): void {
     const sc = BOND_SCENARIOS[name];
@@ -3514,6 +4110,21 @@ class LabRuntime {
           this.standInGuard();
         });
         break;
+      case 'gallery3':
+        // Phase 5c: the Unstitched, side by side (the Rift's floor reads best).
+        q({ t: 'debug', op: { op: 'killEnemies' } });
+        this.spawn('shears', -6, -5);
+        this.spawn('void_maw', -3, -6.5);
+        this.spawn('doubt_wraith', 0, -6);
+        this.spawn('null_priest', 3, -6.5);
+        this.spawn('mimic', 6, -5);
+        this.spawn('spindle', -7, -11);
+        this.spawn('stolen_verse', -4.5, -11);
+        this.spawn('mirror_champion', -1.5, -11.5);
+        this.spawn('the_seamstress', 3, -13);
+        this.spawn('the_unweaver', 8, -14);
+        this.later(0.3, () => this.toughen());
+        break;
       case 'busy': {
         q({ t: 'debug', op: { op: 'killEnemies' } });
         const ring: [string, number][] = [
@@ -4104,6 +4715,12 @@ export function VfxLab() {
       crimsonScenario: (name) => rt.crimsonScenario(name),
       crimsonStats: () => rt.crimsonStats(),
       setSanctuary: (on) => rt.setSanctuary(on),
+      unstitchedScenarios: () => UNSTITCHED_SCENARIO_NAMES,
+      unstitchedScenario: (name) => rt.unstitchedScenario(name),
+      unstitchedStats: () => rt.unstitchedStats(),
+      setZones: (zones) => rt.setZones(zones),
+      setUnravel: (on) => rt.setUnravel(on),
+      setStolen: (stolen) => rt.setStolen(stolen),
     };
     const timer = window.setInterval(() => {
       const i = rt.info();
@@ -4568,6 +5185,55 @@ export function VfxLab() {
             Sanctuary pools
           </Btn>
           <Btn onClick={() => rt()?.setSanctuary(false)}>No pools</Btn>
+        </Group>
+        <Group title="Phase 5c · Movement III">
+          <p className="w-full text-[10px] text-muted">
+            Each restarts the real sim on an Abyssal Rift floor and stages an Unstitched moment. Lab
+            stand-ins fill in what the sim doesn&apos;t produce yet (see unstitchedStats).
+          </p>
+          {UNSTITCHED_SCENARIO_NAMES.map((name) => (
+            <Btn
+              key={name}
+              onClick={() => {
+                rt()?.unstitchedScenario(name);
+                setTheme(UNSTITCHED_SCENARIOS[name]!.theme ?? 'rift_mouth');
+              }}
+              title={UNSTITCHED_SCENARIOS[name]!.note}
+            >
+              {name}
+            </Btn>
+          ))}
+          <Btn onClick={() => rt()?.preset('gallery3')} title="The Unstitched, side by side">
+            Unstitched gallery
+          </Btn>
+          <Btn
+            onClick={() => {
+              const w = rt()?.weaverPos();
+              if (w)
+                rt()?.setZones([
+                  { kind: 'pull', x: w.x - 5, z: w.z - 6, r: 8 },
+                  { kind: 'null', x: w.x, z: w.z, r: 5 },
+                ]);
+            }}
+            title="A Maw's pull and a rune at your feet (FieldView's override)"
+          >
+            Zones
+          </Btn>
+          <Btn onClick={() => rt()?.setZones(null)}>No zones</Btn>
+          <Btn
+            onClick={() => rt()?.setUnravel(true)}
+            title="Unravel's Thread (ThreadView's override)"
+          >
+            Unravel
+          </Btn>
+          <Btn onClick={() => rt()?.setUnravel(null)}>No Unravel</Btn>
+          <Btn
+            onClick={() => rt()?.setStolen({ chord: 1, aura: 0 })}
+            title="The field song's first aura stolen (hollow slot)"
+          >
+            Stolen aura
+          </Btn>
+          <Btn onClick={() => rt()?.setStolen(null)}>Aura back</Btn>
         </Group>
         <Group title="Phase 4g · Keepsakes">
           <p className="w-full text-[10px] text-muted">

@@ -1,6 +1,24 @@
 import * as THREE from 'three';
 import { enemyDef } from '../content';
 import type { AnswerTag, EntityId, SimEventOf, WorldState } from '../sim';
+import { mimicBeneficiary, threadSegment } from '../sim';
+import {
+  DOOM_AT,
+  RIFT_HEX,
+  copyLabel,
+  cutOf,
+  emptyRiftLook,
+  isDoomMark,
+  isNeedle,
+  isStitch,
+  riftAnswers,
+  riftLabel,
+  riftStatuses,
+  shearsCrossing,
+  zoneOf,
+} from './riftCues';
+import { RING } from './fx/rings';
+import { SPRITE } from './fx/sprites';
 import { CHRONO_HEX, timerLabel } from './chronoCues';
 import { BLIND_ANSWERS, BLIND_KEY } from './dissonanceCues';
 import {
@@ -20,7 +38,7 @@ import { BEAM } from './fx/beams';
 import type { FxKit } from './fx/kit';
 import { PARTICLE } from './fx/particles';
 import { TG } from './fx/telegraphBatch';
-import { BADGE_TONE, type Overlay } from './overlay';
+import { BADGE_TONE, type GlyphIcon, type Overlay } from './overlay';
 import { C, VISION_HEX, approach, clamp01, color } from './palette';
 
 type Effect = SimEventOf<'telegraphStarted'>['effect'];
@@ -57,6 +75,16 @@ interface TgRec {
   /** Movement II: a Blood Pact link; Execution's threshold (0: not an Execution). */
   pact: boolean;
   execute: number;
+  /**
+   * Movement III (docs/phase-5c.md): a cut line (dotted, the scissors where it crosses the
+   * Thread) or an always-cut raid (the Unpick's ripple along the Thread); a zone tell (the
+   * Inhale's swirl, the rune closing); a Stitch link; Needle Rain; Doom's ignition mark.
+   */
+  cut: boolean;
+  zone: 'pull' | 'null' | null;
+  stitch: boolean;
+  needle: boolean;
+  doom: boolean;
 }
 
 const FADE_IN = 0.12;
@@ -65,6 +93,13 @@ const END = 0.38;
 const FROST = color(CHRONO_HEX.silver);
 /** Blood Pact's link tint (Movement II). */
 const PACT = color(CRIMSON_HEX.pact);
+/** Movement III's colours (riftCues.ts). */
+const SWIRL = color(RIFT_HEX.swirl);
+const RUNE = color(RIFT_HEX.rune);
+const MIRROR = color(RIFT_HEX.mirror);
+const STITCH = color(RIFT_HEX.stitch);
+const FRAY = color(RIFT_HEX.fray);
+const NEEDLE = color(RIFT_HEX.stitch);
 
 /**
  * A telegraph's last drawn geometry (kept after it leaves the state): the Chronomancer's
@@ -122,6 +157,27 @@ export class TelegraphLayer {
    */
   readonly drawnM2 = { pacts: 0, tides: 0, executions: 0, statusBadges: 0 };
   private readonly m2Look = emptyStatusLook();
+  /**
+   * Movement III, drawn last frame (tests, the lab): dotted cut lines and the scissors where one
+   * crosses the Thread; the Unpick's ripple along it; the Inhale's swirl and the rune closing;
+   * the Mimic's mirror cast (its shimmer to the beneficiary and the copied glyph); Stitch links;
+   * falling needles; Doom's ignition marks; and the answer badges over heroes a Rift status
+   * holds (possessed, stitched, Doom at four or more).
+   */
+  readonly drawnM3 = {
+    cutLines: 0,
+    scissors: 0,
+    ripples: 0,
+    swirls: 0,
+    runes: 0,
+    mirrors: 0,
+    stitches: 0,
+    needles: 0,
+    doomMarks: 0,
+    statusBadges: 0,
+  };
+  private readonly m3Look = emptyRiftLook();
+  private readonly cross = { x: 0, z: 0 };
 
   constructor(private readonly entities: EntityLayer) {}
 
@@ -189,6 +245,11 @@ export class TelegraphLayer {
       impacted: false,
       pact: t.shape.kind === 'link' && isPact(t),
       execute: t.shape.kind === 'mark' ? executeBelowOf(t) : 0,
+      cut: cutOf(t.attackId) !== null,
+      zone: zoneOf(t.attackId),
+      stitch: t.shape.kind === 'link' && isStitch(t),
+      needle: isNeedle(t.attackId),
+      doom: t.shape.kind === 'mark' && isDoomMark(t.attackId),
     };
     this.effects.delete(t.id);
     this.recs.set(t.id, rec);
@@ -217,6 +278,8 @@ export class TelegraphLayer {
     this.drawnM2.tides = 0;
     this.drawnM2.executions = 0;
     this.drawnM2.statusBadges = 0;
+    const m3 = this.drawnM3;
+    for (const k of Object.keys(m3) as (keyof typeof m3)[]) m3[k] = 0;
     for (const t of state.telegraphs) this.syncOne(t, state, kit, overlay, dt, showGlyphs, time);
     if (this.preview) {
       for (const p of this.preview) {
@@ -248,10 +311,30 @@ export class TelegraphLayer {
    */
   private statusBadges(state: WorldState, overlay: Overlay): void {
     const look = this.m2Look;
+    const rift = this.m3Look;
     for (const id of state.party) {
       const e = state.entities.get(id);
       const h = e?.health;
       if (!e || !h || h.dead || h.downed || h.statuses.length === 0) continue;
+      // Movement III first (possessed: Chime frees them, Focus the Wraith; stitched: Chime; Doom
+      // at four or more: Chime or Ward). Nothing before Movement III has these statuses.
+      if (riftStatuses(e, rift)) {
+        const ra = riftAnswers(rift);
+        const r = ra ? this.entities.recs.get(id) : undefined;
+        if (ra && r) {
+          overlay.badge(
+            r.x,
+            r.height + STATUS_BADGE_LIFT + r.y,
+            r.z,
+            ra,
+            ra.join(','),
+            rift.possessed ? RIFT_HEX.possess : rift.stitched ? RIFT_HEX.stitch : VISION_HEX.lethal,
+            riftLabel(rift),
+          );
+          this.drawnM3.statusBadges++;
+          continue;
+        }
+      }
       if (!crimsonStatuses(e, look)) continue;
       const answers = statusAnswers(look);
       if (!answers) continue;
@@ -380,6 +463,14 @@ export class TelegraphLayer {
     }
 
     if (rec.effect !== 'damage') {
+      // Movement III: a zone's tell is its own shape (the Inhale's swirl, the rune closing).
+      if (rec.zone) {
+        this.zoneTell(rec, kit, overlay, prog, alpha, live, showGlyphs, answers, key, timer, tone);
+        return;
+      }
+      // The Mimic's mirror: a shimmer to whom it copies onto, the copied glyph over them.
+      if (rec.effect === 'mimic' && live)
+        this.mirrorCast(rec, state, kit, overlay, alpha, showGlyphs);
       // Enemy cast (heal / summon / suppress): a cast circle in the caster's accent.
       const owner = this.entities.recs.get(rec.owner);
       const x = owner ? owner.x : rec.cx;
@@ -481,6 +572,19 @@ export class TelegraphLayer {
           null,
           pw,
         );
+        if (rec.needle && live) {
+          // Needle Rain (Movement III): a needle falling point-first onto the circle.
+          kit.sprites.push(
+            rec.cx,
+            0.5 + 7 * (1 - prog) * (1 - prog),
+            rec.cz,
+            0.6,
+            SPRITE.needle,
+            NEEDLE,
+            alpha * (0.6 + 0.4 * prog),
+          );
+          this.drawnM3.needles++;
+        }
         if (live && showGlyphs)
           overlay.badge(
             rec.cx,
@@ -550,6 +654,8 @@ export class TelegraphLayer {
           null,
           pw,
         );
+        if (rec.cut && live && shape && shape.kind === 'line')
+          this.cutLine(rec, state, shape, kit, alpha, time);
         if (live && showGlyphs) {
           // On the near side of the lance, a third of the way along.
           const k = -rec.a * 0.33;
@@ -609,6 +715,25 @@ export class TelegraphLayer {
         this.drawMark(rec.cx, rec.cz, rec.a, rec.b, kit, prog, perfect, sev, flash, alpha, frost);
         // Execution (Movement II): its threshold on the badge; the ally bar shows the notch.
         if (rec.execute > 0 && live) this.drawnM2.executions++;
+        if (rec.doom && live) {
+          // Doom's ignition (Movement III): its five pips, all lit and lethal, circling the mark.
+          for (let i = 0; i < DOOM_AT; i++) {
+            const a = time * 2.4 + (i * Math.PI * 2) / DOOM_AT;
+            kit.spritesTop.push(
+              rec.cx + Math.cos(a) * 0.62,
+              rec.a + 0.75 + Math.sin(a) * 0.62,
+              rec.cz,
+              0.13,
+              SPRITE.doomPip,
+              C.lethal,
+              alpha,
+              0,
+              1,
+              1,
+            );
+          }
+          this.drawnM3.doomMarks++;
+        }
         if (live && showGlyphs) {
           const left = timer || remain.toFixed(1);
           overlay.badge(
@@ -632,10 +757,12 @@ export class TelegraphLayer {
           if (a && b) {
             rec.cx = (a.x + b.x) / 2;
             rec.cz = (a.z + b.z) / 2;
-            this.drawLink(a, b, shape.r, kit, prog, sev, alpha, time, rec.pact);
+            if (rec.stitch) this.drawStitch(a, b, kit, prog, sev, alpha);
+            else this.drawLink(a, b, shape.r, kit, prog, sev, alpha, time, rec.pact);
           }
         }
         if (rec.pact && live) this.drawnM2.pacts++;
+        if (rec.stitch && live) this.drawnM3.stitches++;
         if (live && showGlyphs)
           overlay.badge(
             rec.cx,
@@ -658,6 +785,7 @@ export class TelegraphLayer {
           if (!h || !e?.health || e.health.dead || e.health.downed) continue;
           this.drawMark(h.x, h.z, h.height, h.radius, kit, prog, perfect, sev, flash, alpha, frost);
         }
+        if (rec.cut && live) this.unpickRipple(state, kit, alpha, time);
         if (live) {
           overlay.raid(`${rec.name} · ${timer || remain.toFixed(1)}s`, prog);
           if (showGlyphs) {
@@ -670,6 +798,244 @@ export class TelegraphLayer {
       default:
         break;
     }
+  }
+
+  // ── Movement III (docs/phase-5c/vfx-audio.md) ───────────────────────────────────────────
+
+  /**
+   * A zone's tell. The Void Maw's Inhale: a swirl at its full reach whose arms turn faster and
+   * tighten as the tell runs out. The Null Priest's rune: a ring of glyphs closing in on the
+   * Weaver's feet to the rune's reach. Each with its badge (Rally, Reel, move; move).
+   */
+  private zoneTell(
+    rec: TgRec,
+    kit: FxKit,
+    overlay: Overlay,
+    prog: number,
+    alpha: number,
+    live: boolean,
+    showGlyphs: boolean,
+    answers: readonly GlyphIcon[],
+    key: string,
+    timer: string,
+    tone: number,
+  ): void {
+    const r = rec.a;
+    if (rec.zone === 'pull') {
+      kit.rings.push(
+        rec.cx,
+        0.04,
+        rec.cz,
+        r,
+        0.1,
+        0.25,
+        RING.swirl,
+        SWIRL,
+        alpha * (0.5 + 0.5 * prog),
+        0,
+        7,
+        0.25 + 0.55 * prog,
+        0.4 + 2.6 * prog,
+      );
+      // The tightening: an inner ring drawn in from the rim as the breath is drawn.
+      kit.rings.push(
+        rec.cx,
+        0.045,
+        rec.cz,
+        r * (1 - 0.65 * prog),
+        0.06,
+        0.2,
+        RING.plain,
+        SWIRL,
+        alpha * 0.8,
+      );
+      if (live) this.drawnM3.swirls++;
+    } else {
+      // The rune closes from half again its reach onto it.
+      const R = r * (1 + 0.6 * (1 - prog));
+      kit.rings.push(
+        rec.cx,
+        0.045,
+        rec.cz,
+        R,
+        0.1,
+        0.16,
+        RING.rune,
+        RUNE,
+        alpha,
+        0,
+        7,
+        0.06 * prog,
+        12,
+        prog * 1.2,
+      );
+      kit.rings.push(rec.cx, 0.04, rec.cz, r, 0.04, 0.08, RING.plain, RUNE, alpha * 0.45);
+      if (live) this.drawnM3.runes++;
+    }
+    if (live && showGlyphs && answers.length > 0)
+      overlay.badge(
+        rec.cx,
+        0.1,
+        rec.cz + r,
+        answers,
+        key,
+        rec.zone === 'pull' ? RIFT_HEX.swirl : RIFT_HEX.rune,
+        timer,
+        1,
+        tone,
+      );
+  }
+
+  /**
+   * The Mimic's mirror (live): a shimmer from the caster to whom the copy goes (the sim's own
+   * rule), a mirror over them, and the copied glyph (Ward, Chime or Empower) on its badge.
+   */
+  private mirrorCast(
+    rec: TgRec,
+    state: WorldState,
+    kit: FxKit,
+    overlay: Overlay,
+    alpha: number,
+    showGlyphs: boolean,
+  ): void {
+    const caster = state.entities.get(rec.owner);
+    const from = this.entities.recs.get(rec.owner);
+    if (!caster || !from) return;
+    const to = this.entities.recs.get(mimicBeneficiary(state, caster)) ?? from;
+    const copy = caster.enemy?.mimic?.copy;
+    const fy = from.height * 0.7 + from.y;
+    const ty = to.height * 0.6 + to.y;
+    if (to !== from) {
+      kit.beams.push(from.x, fy, from.z, to.x, ty, to.z, 0.18, BEAM.lance, MIRROR, alpha * 0.8);
+      kit.beams.push(from.x, fy, from.z, to.x, ty, to.z, 0.55, BEAM.glow, MIRROR, alpha * 0.3);
+    }
+    kit.sprites.push(to.x, to.height + 0.5 + to.y, to.z, 0.38, SPRITE.mirror, MIRROR, alpha * 0.9);
+    this.drawnM3.mirrors++;
+    if (copy && showGlyphs)
+      overlay.badge(
+        to.x,
+        to.height + STATUS_BADGE_LIFT + to.y,
+        to.z,
+        [copy],
+        `mirror:${copy}`,
+        RIFT_HEX.mirror,
+        `Mirror · ${copyLabel(copy)}`,
+      );
+  }
+
+  /**
+   * A cut line (the Shears, the Snip, Movement III): its centre drawn dotted, and the scissors
+   * where it crosses the live Thread (the sim's own segment), so you see where it will cut.
+   */
+  private cutLine(
+    rec: TgRec,
+    state: WorldState,
+    s: { readonly x: number; readonly z: number; readonly toX: number; readonly toZ: number },
+    kit: FxKit,
+    alpha: number,
+    time: number,
+  ): void {
+    this.tmpColor.copy(rec.sev > 0.5 ? C.lethal : C.threat).lerp(C.white, 0.35);
+    kit.beams.push(
+      s.x,
+      0.1,
+      s.z,
+      s.toX,
+      0.1,
+      s.toZ,
+      0.2,
+      BEAM.dashed,
+      this.tmpColor,
+      alpha,
+      1,
+      1,
+      2.2,
+    );
+    this.drawnM3.cutLines++;
+    if (!shearsCrossing(state, s, this.cross)) return;
+    const pulse = 0.75 + 0.25 * Math.sin(time * 14);
+    kit.spritesTop.push(
+      this.cross.x,
+      1.05,
+      this.cross.z,
+      0.42 * (0.9 + 0.1 * pulse),
+      SPRITE.scissors,
+      FRAY,
+      alpha * pulse,
+      Math.atan2(s.toZ - s.z, s.toX - s.x) * 0.2,
+    );
+    kit.rings.push(
+      this.cross.x,
+      0.05,
+      this.cross.z,
+      0.55,
+      0.08,
+      0.2,
+      RING.plain,
+      FRAY,
+      alpha * 0.8 * pulse,
+    );
+    this.drawnM3.scissors++;
+  }
+
+  /** The Stitch (Movement III): a cross-stitched link, never the threat dashes. */
+  private drawStitch(
+    a: EntityRec,
+    b: EntityRec,
+    kit: FxKit,
+    prog: number,
+    sev: number,
+    alpha: number,
+  ): void {
+    this.tmpColor.copy(STITCH).lerp(C.lethal, 0.35 * sev);
+    const ay = a.height * 0.6 + a.y;
+    const by = b.height * 0.6 + b.y;
+    kit.beams.push(
+      a.x,
+      ay,
+      a.z,
+      b.x,
+      by,
+      b.z,
+      0.36,
+      BEAM.stitch,
+      this.tmpColor,
+      alpha * (0.7 + 0.3 * prog),
+      1,
+      1,
+      0.8,
+    );
+    kit.beams.push(
+      a.x,
+      ay,
+      a.z,
+      b.x,
+      by,
+      b.z,
+      0.8,
+      BEAM.glow,
+      C.ailment,
+      alpha * 0.25 * (0.5 + prog),
+    );
+  }
+
+  /** The Unpick (Movement III): a ripple of snaps running along your Thread as the raid builds. */
+  private unpickRipple(state: WorldState, kit: FxKit, alpha: number, time: number): void {
+    const seg = threadSegment(state);
+    if (!seg) return;
+    for (let k = 0; k < 3; k++) {
+      const t = (time * 1.4 + k / 3) % 1;
+      kit.sprites.push(
+        seg.ax + (seg.bx - seg.ax) * t,
+        1.1,
+        seg.az + (seg.bz - seg.az) * t,
+        0.3,
+        SPRITE.ring,
+        FRAY,
+        alpha * Math.sin(Math.PI * t),
+      );
+    }
+    this.drawnM3.ripples++;
   }
 
   private drawMark(
