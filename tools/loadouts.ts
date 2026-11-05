@@ -5,10 +5,12 @@
  *
  *   npx tsx tools/loadouts.ts --seeds 20 --bots skilled,novice --runs 10 --md docs/phase-2/loadouts.md
  *   npx tsx tools/loadouts.ts --movement 2 --seeds 20    # Movement II's fights, on the arrival kit
+ *   npx tsx tools/loadouts.ts --movement 3 --seeds 20    # Movement III's, on ARRIVAL3_KIT
  *
- * Movement I's cells play bare; Movement II's play each preset with the arrival kit's motifs and
- * relics (tools/kits.ts), against Movement II's floors (docs/phase-5a.md, "Bands"). `--runs`
- * plays whole runs on the Movement's route (Movement II: Expeditions).
+ * Movement I's cells play bare; later Movements' play each preset with their kit's motifs and
+ * relics (tools/kits.ts: the arrival kit, ARRIVAL3_KIT), against their floors (docs/phase-5a.md
+ * and docs/phase-5c.md, "Bands"). `--runs` plays whole runs on the Movement's route (Movement
+ * II: I-II Expeditions; Movement III: I-III).
  */
 import { writeFileSync } from 'node:fs';
 import type { BotKind } from '../src/bots';
@@ -44,13 +46,23 @@ const SHORT: Record<string, string> = {
   blood_forge: 'Forge*',
   gorehound_matriarch: 'Matriarch**',
   vharun: 'Vharun**',
+  frayed_threshold: 'Threshold',
+  maw_hollow: 'Maw',
+  wraith_vigil: 'Vigil',
+  null_chapel: 'Chapel',
+  mirror_hall: 'Mirror',
+  frayed_court: 'Court*',
+  the_seamstress: 'Seamstress**',
+  the_unweaver: 'Unweaver**',
 };
 /**
  * Skilled-bot floors from the difficulty contract (docs/phase-1.md; Movement II's from
- * docs/phase-5a.md: skirmishes and elites 85%, the Matriarch 90%, Vharun 85%).
+ * docs/phase-5a.md: skirmishes and elites 85%, the Matriarch 90%, Vharun 85%; Movement III's from
+ * docs/phase-5c.md: the same, but the Unweaver 80%).
  */
 function floor(encounter: string): number {
   const def = encounterDef(encounter);
+  if ((def.movement ?? 1) >= 3 && def.kind === 'boss') return 0.8;
   if ((def.movement ?? 1) >= 2) return def.kind === 'miniboss' ? 0.9 : 0.85;
   if (encounter === 'first_light') return 1;
   if (encounter === 'muted_nave' || encounter === 'shattered_choir') return 0.9;

@@ -6,10 +6,12 @@ import type { ReliquaryRelic } from '../src/meta/reliquary';
 import * as Run from '../src/meta/run';
 import type { ChordLoadout, RunState } from '../src/meta/types';
 import { weaverShare } from '../src/meta/run';
+import { inhaleTell, inNullZone, inPullZone, isStitched } from '../src/bots/common';
 import {
   bloodRageBonus,
   chordReserve,
   createSim,
+  fightMovement,
   isWeaverVia,
   type EntityId,
   type Sim,
@@ -60,7 +62,273 @@ export interface EncounterRun {
   timeInSanctuary: number | null;
   /** Brann's fight (docs/phase-5b.md, "Bots and harness"); absent without him in the party. */
   brann?: BrannTally;
+  /** Movement III's verbs (docs/phase-5c.md, "Harness"); absent outside a Movement III fight. */
+  m3?: VerbTally3Result;
 }
+
+/** What cut the Thread (`threadSnapped.cause`), and a cut telegraph's verdict (`cutResolved`). */
+type CutCause = 'shears' | 'severing' | 'snip' | 'unpick';
+type CutResult = 'cut' | 'held' | 'strand' | 'none';
+
+/**
+ * How Movement III's verbs went in a fight (docs/phase-5c.md, "Harness"). Times are seconds;
+ * a mean is null when there was nothing to average.
+ */
+export interface VerbTally3Result {
+  /** Thread cuts by cause (`threadSnapped` with a cause). */
+  threadCuts: Record<CutCause, number>;
+  /** Every cut telegraph's verdict (`cutResolved.result`). */
+  cutResults: Record<CutResult, number>;
+  /** Mean seconds from an enemy cut to the Thread's next attach; null with no re-attach. */
+  reattachDelay: number | null;
+  /** Heroes possessed; freed by a Chime (or a Reel); Doubt casts interrupted; marks a Ward held. */
+  possessions: number;
+  possessFreed: number;
+  possessInterrupted: number;
+  wardBlockedPossess: number;
+  /** Seconds the Weaver stood in a Null rune, and her techniques it refused. */
+  runeTime: number;
+  silencedRejects: number;
+  /** Hero-seconds inside an Inhale's pull, and Rallies called during an Inhale's tell. */
+  mawTime: number;
+  inhaleRallies: number;
+  /** Doom ignitions (a doomed mark begun), and the stacks each Chime cleansed. */
+  doomIgnitions: number;
+  doomCleanses: number[];
+  /** Hero-seconds stitched. */
+  stitchTime: number;
+  /** Mirrors begun, by copy; mirrors cracked. */
+  mimicCopies: Record<'empower' | 'ward' | 'chime', number>;
+  mirrorsCracked: number;
+  /** The share of the fight a boss stood tethered to its Spindles; null without a tether. */
+  spindleUptime: number | null;
+  /** Damage Unravel's reversed Mend dealt the party. */
+  unravelHarm: number;
+  /** Stolen verses taken back by a kill (`verseReturned` 'killed'). */
+  versesRecovered: number;
+  /** Mirror Ward casts interrupted. */
+  mirrorWardsInterrupted: number;
+}
+
+const ATTACK_BY_ID = new Map(CONTENT.attacks.map((a) => [a.id, a]));
+/** The names of the casts that possess (the Doubt Wraith's), and the Mirror Ward's. */
+const POSSESS_CASTS: ReadonlySet<string> = new Set(
+  CONTENT.attacks.filter((a) => a.status?.id === 'possessed').map((a) => a.name),
+);
+const MIRROR_WARD_NAMES: ReadonlySet<string> = new Set(
+  CONTENT.attacks.filter((a) => a.id === 'unweaver_mirror_ward').map((a) => a.name),
+);
+
+/**
+ * Tallies Movement III's verbs from a fight's events and public state, tick by tick
+ * (docs/phase-5c.md, "Harness"). `VerbTally3.of` is null outside a Movement III fight, so no
+ * Movement I or II `EncounterRun` gains the key.
+ */
+export class VerbTally3 {
+  private readonly threadCuts: Record<CutCause, number> = {
+    shears: 0,
+    severing: 0,
+    snip: 0,
+    unpick: 0,
+  };
+  private readonly cutResults: Record<CutResult, number> = { cut: 0, held: 0, strand: 0, none: 0 };
+  private cutAt: number | null = null;
+  private readonly delays: number[] = [];
+  private possessions = 0;
+  private possessFreed = 0;
+  private possessInterrupted = 0;
+  private wardBlockedPossess = 0;
+  private readonly possessMarks = new Set<number>();
+  private runeTime = 0;
+  private silencedRejects = 0;
+  private mawTime = 0;
+  private inhaleRallies = 0;
+  private rallyTick = -1;
+  private doomIgnitions = 0;
+  private readonly doomCleanses: number[] = [];
+  private readonly doom = new Map<EntityId, number>();
+  private stitchTime = 0;
+  private readonly mimicCopies = { empower: 0, ward: 0, chime: 0 };
+  private mirrorsCracked = 0;
+  private tetheredTime = 0;
+  private bossTime = 0;
+  private tether = false;
+  private unravelHarm = 0;
+  private versesRecovered = 0;
+  private mirrorWardsInterrupted = 0;
+  private lastTime: number;
+
+  private constructor(sim: Sim) {
+    this.lastTime = sim.state.time;
+  }
+
+  /** A tally for a Movement III fight; null for any other. */
+  static of(sim: Sim): VerbTally3 | null {
+    return fightMovement(sim.state) >= 3 ? new VerbTally3(sim) : null;
+  }
+
+  tick(sim: Sim, events: readonly SimEvent[]): void {
+    const state = sim.state;
+    const party = state.party;
+    for (const e of events) {
+      switch (e.type) {
+        case 'threadSnapped':
+          if (e.cause !== undefined) {
+            this.threadCuts[e.cause]++;
+            this.cutAt = state.time;
+          }
+          break;
+        case 'threadAttached':
+          if (this.cutAt !== null) {
+            this.delays.push(state.time - this.cutAt);
+            this.cutAt = null;
+          }
+          break;
+        case 'cutResolved':
+          this.cutResults[e.result]++;
+          break;
+        case 'possessed':
+          this.possessions++;
+          break;
+        case 'freed':
+          if (e.status === 'possessed' && e.by !== 'expired') this.possessFreed++;
+          break;
+        case 'castInterrupted':
+          if (POSSESS_CASTS.has(e.name)) this.possessInterrupted++;
+          if (MIRROR_WARD_NAMES.has(e.name)) this.mirrorWardsInterrupted++;
+          break;
+        case 'telegraphStarted': {
+          const t = state.telegraphs.find((x) => x.id === e.telegraph);
+          const def = t ? ATTACK_BY_ID.get(t.attackId) : undefined;
+          if (def?.status?.id === 'possessed') this.possessMarks.add(e.telegraph);
+          if (def?.markStatus === 'doomed') this.doomIgnitions++;
+          if (def?.effect === 'mimic') {
+            const copy = state.entities.get(e.owner)?.enemy?.mimic?.copy;
+            if (copy) this.mimicCopies[copy]++;
+          }
+          break;
+        }
+        case 'telegraphResolved':
+          if (
+            this.possessMarks.has(e.telegraph) &&
+            (e.outcome === 'warded' || e.outcome === 'perfect')
+          )
+            this.wardBlockedPossess++;
+          break;
+        case 'techniqueRejected':
+          if (e.reason === 'silenced') this.silencedRejects++;
+          break;
+        case 'directiveAck':
+          // One ack a hero: count the Rally once, and only in an Inhale's tell.
+          if (
+            e.directive === 'rally' &&
+            e.tick !== this.rallyTick &&
+            inhaleTell(state).length > 0
+          ) {
+            this.rallyTick = e.tick;
+            this.inhaleRallies++;
+          }
+          break;
+        case 'statusApplied':
+          if (e.status === 'doom' && e.stacks !== undefined) this.doom.set(e.target, e.stacks);
+          break;
+        case 'statusRemoved':
+          if (e.status === 'doom') {
+            if (e.reason === 'cleansed') this.doomCleanses.push(this.doom.get(e.target) ?? 0);
+            this.doom.delete(e.target);
+          }
+          break;
+        case 'mirrorCracked':
+          this.mirrorsCracked++;
+          break;
+        case 'verseReturned':
+          if (e.reason === 'killed') this.versesRecovered++;
+          break;
+        case 'damageTaken':
+          // Unravel's ticks: the reversed Mend, on a hero, from its source, with no telegraph.
+          if (
+            state.field.unravel &&
+            e.hit === 'tick' &&
+            e.telegraph === null &&
+            e.source === state.field.unravel.source &&
+            party.includes(e.target)
+          )
+            this.unravelHarm += e.amount + e.absorbed;
+          break;
+        default:
+          break;
+      }
+    }
+    const dt = state.time - this.lastTime;
+    this.lastTime = state.time;
+    if (dt <= 0) return;
+    const w = state.entities.get(state.weaverId);
+    if (w && inNullZone(state, w)) this.runeTime += dt;
+    for (const id of party) {
+      const h = state.entities.get(id);
+      if (!h?.health || h.health.downed || h.health.dead) continue;
+      if (inPullZone(state, h)) this.mawTime += dt;
+      if (isStitched(h)) this.stitchTime += dt;
+    }
+    const bossId = state.encounter.bossId;
+    const boss = bossId === null ? undefined : state.entities.get(bossId);
+    if (boss?.enemy && boss.health && !boss.health.dead) {
+      this.bossTime += dt;
+      if (boss.enemy.tethered !== undefined) this.tether = true;
+      if ((boss.enemy.tethered ?? 0) > 0) this.tetheredTime += dt;
+    }
+  }
+
+  result(): VerbTally3Result {
+    return {
+      threadCuts: { ...this.threadCuts },
+      cutResults: { ...this.cutResults },
+      reattachDelay:
+        this.delays.length > 0 ? this.delays.reduce((a, b) => a + b, 0) / this.delays.length : null,
+      possessions: this.possessions,
+      possessFreed: this.possessFreed,
+      possessInterrupted: this.possessInterrupted,
+      wardBlockedPossess: this.wardBlockedPossess,
+      runeTime: this.runeTime,
+      silencedRejects: this.silencedRejects,
+      mawTime: this.mawTime,
+      inhaleRallies: this.inhaleRallies,
+      doomIgnitions: this.doomIgnitions,
+      doomCleanses: [...this.doomCleanses],
+      stitchTime: this.stitchTime,
+      mimicCopies: { ...this.mimicCopies },
+      mirrorsCracked: this.mirrorsCracked,
+      spindleUptime: this.tether && this.bossTime > 0 ? this.tetheredTime / this.bossTime : null,
+      unravelHarm: this.unravelHarm,
+      versesRecovered: this.versesRecovered,
+      mirrorWardsInterrupted: this.mirrorWardsInterrupted,
+    };
+  }
+}
+
+/** The keys of a `VerbTally3Result`, in order (the harness tests pin them). */
+export const VERB_TALLY3_KEYS: readonly (keyof VerbTally3Result)[] = [
+  'threadCuts',
+  'cutResults',
+  'reattachDelay',
+  'possessions',
+  'possessFreed',
+  'possessInterrupted',
+  'wardBlockedPossess',
+  'runeTime',
+  'silencedRejects',
+  'mawTime',
+  'inhaleRallies',
+  'doomIgnitions',
+  'doomCleanses',
+  'stitchTime',
+  'mimicCopies',
+  'mirrorsCracked',
+  'spindleUptime',
+  'unravelHarm',
+  'versesRecovered',
+  'mirrorWardsInterrupted',
+];
 
 /**
  * How a Blood Rage hero's fight went (docs/phase-5b.md, "Bands"): the share of his alive time
@@ -251,7 +519,8 @@ export class BrannWatch {
     for (const e of events) {
       switch (e.type) {
         case 'damageTaken': {
-          if (e.source !== this.id || !me?.health) break;
+          // A possessed Brann's blows on his allies (Movement III) aren't damage he dealt.
+          if (e.source !== this.id || !me?.health || state.party.includes(e.target)) break;
           // Read at the tick's end: his life as he swung, give or take one tick's lifesteal.
           const dealt = e.amount + e.absorbed;
           this.dealt += dealt;
@@ -354,6 +623,7 @@ export function playEncounter(
   let incoming = 0;
   const verbs = new VerbTally();
   const brann = BrannWatch.of(sim);
+  const m3 = VerbTally3.of(sim);
   for (let t = 0; t < maxTicks; t++) {
     sim.step(player.decide(sim.state));
     const events = sim.drainEvents();
@@ -363,6 +633,7 @@ export function playEncounter(
     }
     verbs.tick(sim, events);
     brann?.tick(sim, events);
+    m3?.tick(sim, events);
     watch?.(sim, events);
     const s = sim.state.encounter.status;
     if (s === 'victory' || s === 'defeat') break;
@@ -406,6 +677,7 @@ export function playEncounter(
     executions: verbs.executions,
     timeInSanctuary: verbs.timeInSanctuary,
     ...(brann ? { brann: brann.result(sim) } : {}),
+    ...(m3 ? { m3: m3.result() } : {}),
   };
 }
 
@@ -485,8 +757,12 @@ export function withParty(run: RunState, party: readonly string[]): RunState {
   return next;
 }
 
-/** The most phases a run may take; a run that needs more is stuck, and `playRun` throws. */
-const MAX_PHASES = 240;
+/**
+ * The most phases a run may take; a run that needs more is stuck, and `playRun` throws. A
+ * 2-Movement Expedition takes at most about 64, a 3-Movement one about 95 (docs/phase-5c.md;
+ * tests/harnessTools.test.ts asserts the measured maximum stays well inside it).
+ */
+export const MAX_PHASES = 240;
 
 /** The Movement a map node belongs to (1 for nodes from before Movements). */
 function movementOfNode(run: RunState, id: string): number {
@@ -618,7 +894,8 @@ export function playRun(
     onPhase?: (phase: RunState['phase'], run: RunState) => void;
     /**
      * The route (docs/phase-5a.md): 1, the Prelude (the default, so every calibrated report
-     * keeps its baseline); 2, an Expedition through the Crimson Legion.
+     * keeps its baseline); 2, an Expedition through the Crimson Legion; 3, on through the
+     * Abyssal Rift to the Unweaver (docs/phase-5c.md).
      */
     movements?: number;
     /**
@@ -626,27 +903,44 @@ export function playRun(
      * order); absent, the default party, so every calibrated report keeps its baseline.
      */
     party?: readonly string[];
+    /**
+     * A run already under way to play on from (docs/phase-5c.md): a recorded Vharun interlude,
+     * say, played as a real arrival in Movement III. Its route, party, Calling and loadout are
+     * its own (`movements`, `party`, `calling` and the creation options are not applied). The
+     * summary's fights and Aether count its recorded results too; its minutes count only the
+     * fights played from it.
+     */
+    start?: RunState;
   } = {},
 ): RunSummary {
   const relics = opts.relics ?? true;
   const movements = opts.movements ?? 1;
-  const created = Run.newRun(
-    seed,
-    undefined,
-    opts.astrolabe ?? [],
-    opts.carried ?? [],
-    opts.dissonance ?? [],
-    opts.bonds ?? [],
-    { ...noVariants(), ...opts.techniques },
-    movements,
-  );
-  const fresh = opts.party ? withParty(created, opts.party) : created;
-  // Blood and Silk's offers, for a party with a Blood Rage hero only.
-  const harmony = fresh.party.some((h) => CONTENT.heroes.find((d) => d.id === h.heroId)?.passive)
-    ? new HarmonyWatch()
-    : null;
-  let run = Run.embark(Run.setCalling(Run.setChords(fresh, chords), opts.calling ?? null));
-  if (opts.tiersOpen !== undefined && run.calling) run = Run.setCallingTiers(run, opts.tiersOpen);
+  let run: RunState;
+  let harmony: HarmonyWatch | null;
+  if (opts.start) {
+    run = opts.start;
+    harmony = run.party.some((h) => CONTENT.heroes.find((d) => d.id === h.heroId)?.passive)
+      ? new HarmonyWatch()
+      : null;
+  } else {
+    const created = Run.newRun(
+      seed,
+      undefined,
+      opts.astrolabe ?? [],
+      opts.carried ?? [],
+      opts.dissonance ?? [],
+      opts.bonds ?? [],
+      { ...noVariants(), ...opts.techniques },
+      movements,
+    );
+    const fresh = opts.party ? withParty(created, opts.party) : created;
+    // Blood and Silk's offers, for a party with a Blood Rage hero only.
+    harmony = fresh.party.some((h) => CONTENT.heroes.find((d) => d.id === h.heroId)?.passive)
+      ? new HarmonyWatch()
+      : null;
+    run = Run.embark(Run.setCalling(Run.setChords(fresh, chords), opts.calling ?? null));
+    if (opts.tiersOpen !== undefined && run.calling) run = Run.setCallingTiers(run, opts.tiersOpen);
+  }
   let seconds = 0;
   const byMovement: number[] = [0];
   let last = '';

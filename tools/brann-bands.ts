@@ -7,14 +7,18 @@
  *   npx tsx tools/brann-bands.ts --movement 2 --parties B --bots skilled --encounters vharun
  *   npx tsx tools/brann-bands.ts --runs --movements 2 --seeds 200        whole Expeditions
  *   npx tsx tools/brann-bands.ts --runs --movements 1 --seeds 200        whole Preludes
+ *   npx tsx tools/brann-bands.ts --movement 3 --seeds 50                 Movement III's cells
+ *   npx tsx tools/brann-bands.ts --runs --movements 3 --seeds 200        I-III Expeditions
  *
- * Cells play as tools/harness.ts plays them (Movement I bare, Movement II the arrival kit; fights
- * at seed base + i × 7919, runs at base + i × 104729). Beside the harness's BrannTally each fight
- * also records:
+ * Cells play as tools/harness.ts plays them (Movement I bare, Movement II the arrival kit,
+ * Movement III ARRIVAL3_KIT; fights at seed base + i × 7919, runs at base + i × 104729). Beside
+ * the harness's BrannTally each fight also records:
  *
  * - who the boss targets, as a share of the fight's time, by hero;
  * - Executions on Brann and their verdicts (spared or executed), and Twin Cleave's first blows on
  *   him and the ones of those that downed him (either blow);
+ * - Movement III (docs/phase-5c.md): the Thread cut while on Brann, Unravel's harm to him, and
+ *   whom the Unweaver's Hollow Champion targets;
  * - the Weaver's Mend time on each hero (the Thread on them in Mend mode), and the Weaver's
  *   healing, shields and Wards on each, for the inversion check.
  *
@@ -47,7 +51,18 @@ export interface Extra {
   weaverHeal: Record<string, number>;
   weaverShield: Record<string, number>;
   weaverWard: Record<string, number>;
+  // ── Movement III (docs/phase-5c.md): 0 or empty before it. ──
+  /** Enemy cuts of the Thread while it was on Brann (the Shears, Severing, the Snip, Unpick). */
+  cutsOnBrann: number;
+  /** Damage Unravel's reversed Mend dealt Brann. */
+  unravelOnBrann: number;
+  /** Seconds the Hollow Champion spent targeting each hero, of `championTime`. */
+  championTarget: Record<string, number>;
+  championTime: number;
 }
+
+/** The Unweaver's champion (Mirror Weave). */
+const CHAMPION = 'mirror_champion';
 
 const TWIN = 'vharun_twin_cleave';
 const TWIN_SECOND = 'vharun_twin_cleave_second';
@@ -66,10 +81,16 @@ export class ExtraWatch {
     weaverHeal: {},
     weaverShield: {},
     weaverWard: {},
+    cutsOnBrann: 0,
+    unravelOnBrann: 0,
+    championTarget: {},
+    championTime: 0,
   };
   private readonly attackOf = new Map<number, string>();
   private lastTime = -1;
   private wasDowned = false;
+  /** The Hollow Champion standing now (Movement III), learnt as it spawns. */
+  private champion: EntityId | null = null;
 
   private hero(sim: Sim, id: EntityId | null): string | null {
     if (id === null) return null;
@@ -111,6 +132,23 @@ export class ExtraWatch {
           add(x.weaverShield, this.hero(sim, e.target), e.amount);
           if (e.shield === 'ward') add(x.weaverWard, this.hero(sim, e.target), e.amount);
           break;
+        case 'threadSnapped':
+          if (e.cause !== undefined && this.hero(sim, e.target) === 'brann') x.cutsOnBrann++;
+          break;
+        case 'damageTaken':
+          // Unravel's ticks: the reversed Mend, from its source, with no telegraph.
+          if (
+            state.field.unravel &&
+            e.hit === 'tick' &&
+            e.telegraph === null &&
+            e.source === state.field.unravel.source &&
+            this.hero(sim, e.target) === 'brann'
+          )
+            x.unravelOnBrann += e.amount + e.absorbed;
+          break;
+        case 'entitySpawned':
+          if (state.entities.get(e.id)?.enemy?.defId === CHAMPION) this.champion = e.id;
+          break;
         default:
           break;
       }
@@ -131,6 +169,11 @@ export class ExtraWatch {
       x.bossTime += dt;
       add(x.bossTarget, this.hero(sim, boss.enemy.targetId), dt);
     }
+    const champ = this.champion === null ? undefined : state.entities.get(this.champion);
+    if (champ?.enemy && champ.health && !champ.health.dead) {
+      x.championTime += dt;
+      add(x.championTarget, this.hero(sim, champ.enemy.targetId), dt);
+    } else this.champion = null;
   };
 }
 
@@ -182,6 +225,21 @@ export function cellLine(c: Cell): string {
     if (exec > 0) parts.push(`exec spared ${spared}/${exec} ${pct(spared / exec)}`);
     if (twin > 0)
       parts.push(`twin survived ${twin - twinDown}/${twin} ${pct(1 - twinDown / twin)}`);
+    // Movement III: the Thread cut while on him, and Unravel's harm to him, a fight.
+    const cuts = rs.reduce((s, r) => s + r.extra.cutsOnBrann, 0);
+    const unravel = rs.reduce((s, r) => s + r.extra.unravelOnBrann, 0);
+    if (cuts > 0) parts.push(`cut on Brann ${(cuts / rs.length).toFixed(1)}`);
+    if (unravel > 0) parts.push(`Unravel on Brann ${Math.round(unravel / rs.length)}`);
+  }
+  const championTime = rs.reduce((s, r) => s + r.extra.championTime, 0);
+  if (championTime > 0) {
+    const t = sumBy(rs, (x) => x.championTarget);
+    parts.push(
+      `champion on ${Object.entries(t)
+        .sort((a, z) => z[1] - a[1])
+        .map(([k, v]) => `${k} ${pct(v / championTime)}`)
+        .join(' ')}`,
+    );
   }
   const bossTime = rs.reduce((s, r) => s + r.extra.bossTime, 0);
   if (bossTime > 0) {
@@ -309,6 +367,12 @@ function runsMain(): void {
         .map(([k, v]) => `${k} ${v}`)
         .join(', ');
       if (lostAt) line += ` · lost at ${lostAt}`;
+      // Movement III onward (docs/phase-5c.md): the win among runs that reached the last one.
+      if (movements >= 3) {
+        const last = results.filter((r) => r.movementReached >= movements);
+        const won = last.filter((r) => r.outcome === 'victory').length;
+        line += ` · reached ${movements} ${pct(last.length / results.length)}, won of those ${last.length ? pct(won / last.length) : '-'}`;
+      }
       console.log(line);
       rows.push({ party: name, bot, wins, results });
     }

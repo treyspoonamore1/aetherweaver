@@ -21,10 +21,20 @@
  * first blow and the Reel waits for the second; Blood and Silk parks an Empowering Thread on
  * him. Every such branch is behind his presence and draws nothing, so a default party's command
  * stream is unchanged (tests/bots/commandSnapshot.test.ts).
+ *
+ * Movement III (docs/phase-5c.md, "Bots and harness"): it retargets (or steps across) before a
+ * Shears dash or a Snip cuts the Thread, keeps the Thread off a hero beside a Severing elite,
+ * steps or Glides out of a Null rune (casting nothing the rune refuses), Rallies in an Inhale's
+ * tell and Reels (or Rewinds) a hero out of the pull, never by Swap; Chimes a possession, a
+ * Doubt mark, a Stitch and Doom at 4 in that order after a clutch Dirge; Wards a possession's
+ * mark; cracks a Mimic's copy; never Empowers a possessed hero; Empowers through Unravel; and
+ * Focuses Spindles, the Stolen Verse, the champion, a Null Priest and a Silencing elite after
+ * the interruptible caster. Each is gated on its mechanic and draws nothing, and each can be
+ * left off (`SkilledOptions.skip`, tools/verbs.ts).
  */
 import { CONTENT, partyHasDome } from '../content';
 import { Rng } from '../sim/core/rng';
-import { bloodRageBonus } from '../sim';
+import { bloodRageBonus, segmentDistSq, weaverSilenced } from '../sim';
 import type { Command, PartySlot, ReadonlyEntity, ThreadMode, WorldState } from '../sim';
 import type { Bot } from './types';
 import {
@@ -62,6 +72,31 @@ import {
   zoneFor,
   bloodOf,
   mendNeed,
+  DOOM_CHIME_AT,
+  champion,
+  closingRunes,
+  cutLines,
+  cutThreatens,
+  doomStacks,
+  hazardZones,
+  inhaleTell,
+  inPullZone,
+  isPossessed,
+  isStitched,
+  mimicCasting,
+  outOf,
+  possessesOnHit,
+  rewindSample,
+  runeEscape,
+  severingReach,
+  spindlesUp,
+  stolenVerse,
+  suppresses,
+  unravelUp,
+  carriesSilence,
+  stationary,
+  mirrorWardCasting,
+  type Circle,
   type BloodView,
   type HeroView,
   type ReadonlyTelegraph,
@@ -74,7 +109,81 @@ export interface SkilledOptions {
   attention: number;
   /** Seconds before answering a hero's call (human reaction). */
   callReaction: number;
+  /**
+   * Verb ablation (tools/verbs.ts, docs/phase-5c.md): Movement III rules to leave off. Absent,
+   * every rule plays, so the default options object is unchanged.
+   */
+  skip?: ReadonlySet<M3Rule>;
 }
+
+/**
+ * The Skilled bot's Movement III rules (docs/phase-5c.md, "Bots and harness"), each one a name
+ * `SkilledOptions.skip` can turn off. Every one is gated on its mechanic being on the field.
+ */
+export const M3_RULES = [
+  /** Retarget (or step across) before a Shears dash or a Snip cuts the Thread. */
+  'cut',
+  /** Keep the Thread off a hero beside a Severing elite. */
+  'severing',
+  /** Step (or Glide) out of a Null rune, and keep the field over the party from outside it. */
+  'rune',
+  /** Rally in an Inhale's tell, Reel (or Rewind) a hero out of the pull, stand outside it. */
+  'maw',
+  /** The Chime order: a possessed hero, a doubt mark, a Stitch, Doom at 4+ or a doomed mark. */
+  'chimePossessed',
+  'chimeDoubt',
+  'chimeStitch',
+  'chimeDoom',
+  /** Ward a possession's target in its Perfect window. */
+  'wardPossess',
+  /** While a Mimic copies a Ward, only lethal Wards (and a Chime cracks it). */
+  'mimicWard',
+  /** While a Mimic copies Empower, Mend instead. */
+  'mimicEmpower',
+  /** Never Empower a possessed hero. */
+  'noEmpowerPossessed',
+  /** Empower (or Bear) through Unravel. */
+  'unravel',
+  /** The Focus order after the interruptible caster. */
+  'focusSpindle',
+  'focusVerse',
+  'focusChampion',
+  'focusNull',
+  'focusSilencing',
+  /** With no hero fighting, send them to a stationary enemy out of their sight. */
+  'focusStationary',
+  /** Focus a Mirror Ward's caster at once, without waiting out the gap between Focuses. */
+  'focusMirrorWard',
+] as const;
+export type M3Rule = (typeof M3_RULES)[number];
+
+/**
+ * Focus Movement III's targets only once no more than this many enemies stand (the
+ * SENTINEL_FOCUS_AT pattern); Infinity, at once. A tuning lever, measured by tools/verbs.ts.
+ */
+const M3_FOCUS_AT = {
+  focusSpindle: Infinity,
+  focusVerse: Infinity,
+  focusChampion: Infinity,
+  focusNull: 4,
+  focusSilencing: Infinity,
+  focusStationary: Infinity,
+} as const;
+/** Answer a cut line this long before it lands (docs/phase-5c.md); Glide across under 0.4 s. */
+const CUT_AHEAD = 0.5;
+const CUT_GLIDE = 0.4;
+/** A Thread within this many metres of a cut line counts as crossing it (both ends move). */
+const CUT_MARGIN = 1;
+/** Severing: keep the Thread off a hero within this many metres of the elite's edge. */
+const SEVER_KEEP = 3;
+/** How far a step out of a rune or a pull goes past its edge. */
+const ZONE_MARGIN = 1;
+/** A rune that keeps the Weaver this far from the party: re-plant a Pedal Point under them. */
+const RUNE_PLANT_AT = 8;
+/** Focus the Hollow Champion once it is below this share of its life (a tuning lever). */
+const CHAMPION_FOCUS_BELOW = 0.5;
+/** The Null Priest: Focused once the pack has thinned. */
+const NULL_PRIEST = 'null_priest';
 
 /** Focus a guarded Sentinel once no more than this many enemies stand (the pack first). */
 const SENTINEL_FOCUS_AT = 3;
@@ -128,8 +237,14 @@ export class SkilledBot implements Bot {
     /** Brann is in the party, up or down. */
     const withBrann = blood !== null || all.some((h) => h.e.hero!.blood !== undefined);
 
+    // Movement III (docs/phase-5c.md): each is null, false or empty without its mechanic.
+    // Inside a Null rune the sim refuses Ward, Chime and Reel: none is cast (or counted) there.
+    const silenced = weaverSilenced(state);
+    const cut = this.on('cut') ? cutAnswer(state, party, w, now) : null;
+
     // ── Movement: cover the party with the field, stay out of danger, keep off melee. ──
     const desired = this.position(state, w, party, enemies);
+    const step = this.m3Step(state, w, cut, now, desired);
     const danger = threatsOn(state, w).find((t) => t.impact - now < 0.9);
     if (danger) {
       const escape = escapeFrom(danger, w, w.radius + 1.2);
@@ -141,6 +256,11 @@ export class SkilledBot implements Bot {
         }
         this.intent.moveTo(out, w, escape, 0.2);
       } else this.intent.moveTo(out, w, desired);
+    } else if (step) {
+      // Out of a rune or a pull, or across a cut line: Glide is never refused.
+      const glide = wc.variants.glide === 'skate' ? wc.glideCharges > 0 : wc.cooldowns.glide <= 0;
+      if (step.glide && glide) out.push({ t: 'glide', x: step.x - w.x, z: step.z - w.z });
+      this.intent.moveTo(out, w, step, 0.2);
     } else {
       this.intent.moveTo(out, w, desired);
     }
@@ -151,8 +271,10 @@ export class SkilledBot implements Bot {
     const planted = plantedChord(state);
     if (planted && wc.plantCooldown <= 0 && party.length > 0) {
       const spot = plantSpot(party);
+      // A Null rune keeps her 8+ m from the party: the field goes under them, wherever it drifted.
+      const forced = step?.rune === true && dist(spot, w) >= RUNE_PLANT_AT;
       if (
-        dist(spot, planted) > Math.max(1.5, planted.radius * 0.4) &&
+        dist(spot, planted) > (forced ? ZONE_MARGIN : Math.max(1.5, planted.radius * 0.4)) &&
         dist(spot, w) <= CONTENT.weaver.plantRange - 0.5
       )
         out.push(plantCommand(spot));
@@ -180,8 +302,13 @@ export class SkilledBot implements Bot {
       ) ||
         state.telegraphs.some((t) => t.impact - now < 2.5 && hasFollowUp(t)));
 
+    // A Mimic copying a Ward (Movement III): only a lethal hit is worth a Ward it would copy.
+    const mimics = mimicCasting(enemies);
+    const mimicWard = this.on('mimicWard') && mimics.some((m) => m.copy === 'ward');
+    const wardPossess = this.on('wardPossess');
+
     // ── Ward: Perfect timing on incoming hits; emergency shields otherwise. ──
-    if (wc.wardCharges > 0 && affords(state, 'ward')) {
+    if (!silenced && wc.wardCharges > 0 && affords(state, 'ward')) {
       const window = tech.ward.perfectWindow;
       // Brann (docs/phase-5b.md): his Perfect due within 1.5 s holds the last charge for him.
       const holdFor = blood ? brannPerfectDue(state, blood, w) : false;
@@ -193,8 +320,15 @@ export class SkilledBot implements Bot {
           if (left > window - 0.06 || left < 0.04) continue;
           const dmg = damageOf(t, h.e);
           const lethal = dmg >= h.e.health!.hp + shieldOf(h.e);
-          // An Execution is small but lethal below its line: Ward it whatever its size.
-          if (dmg < h.e.health!.maxHp * 0.15 && !(lethal && t.executeBelow !== undefined)) continue;
+          // An Execution is small but lethal below its line: Ward it whatever its size. So is a
+          // possession's mark (Movement III): a full Ward blocks it.
+          if (
+            dmg < h.e.health!.maxHp * 0.15 &&
+            !(lethal && t.executeBelow !== undefined) &&
+            !(wardPossess && possessesOnHit(t))
+          )
+            continue;
+          if (mimicWard && !lethal) continue;
           let score: number;
           if (!blood) score = dmg + (lethal ? 5000 : 0);
           else {
@@ -217,6 +351,7 @@ export class SkilledBot implements Bot {
       } else if (
         blood &&
         !best &&
+        !mimicWard &&
         brannWard(state, blood, w, perfectPending(state, party, blood, w, wc.wardCharges))
       ) {
         out.push({ t: 'tech', id: 'ward', slot: blood.hero.slot });
@@ -226,11 +361,12 @@ export class SkilledBot implements Bot {
         call!.answer === 'ward' &&
         !bigHitSoon &&
         dist(calling!.e, w) < tech.ward.range - 0.3 &&
+        !mimicWard &&
         this.notice()
       ) {
         out.push({ t: 'tech', id: 'ward', slot: calling!.slot });
         acted = true;
-      } else if (!acted) {
+      } else if (!acted && !mimicWard) {
         // Brann reads by his Mend need: low on purpose isn't an emergency.
         const need = (h: HeroView) => (blood ? mendNeed(h, blood) : effectiveFraction(h.e));
         const low = party.filter((h) => need(h) < 0.3 && dist(h.e, w) < tech.ward.range - 0.3);
@@ -244,8 +380,9 @@ export class SkilledBot implements Bot {
     }
 
     // ── Chime: cleanse marks late (clutch), or anyone silenced/stunned. ──
-    if (!acted && wc.cooldowns.chime <= 0 && affords(state, 'chime')) {
+    if (!acted && !silenced && wc.cooldowns.chime <= 0 && affords(state, 'chime')) {
       let pick: HeroView | null = null;
+      let clutch = false;
       for (const h of party) {
         const dirge = statusRemaining(h.e, 'dirge');
         const flight = tech.chime.flight + 0.1;
@@ -255,11 +392,14 @@ export class SkilledBot implements Bot {
           dirge > flight
         ) {
           pick = h;
+          clutch = true;
           break;
         }
         if (statusRemaining(h.e, 'silence') < Infinity || statusRemaining(h.e, 'stun') < Infinity)
           pick = h;
       }
+      // Movement III, after a clutch Dirge (docs/phase-5c.md, the Chime order): null without one.
+      if (!clutch) pick = this.chimeM3(party, w) ?? pick;
       // Movement II: the cluster with the most bleed, a latched hero, or a Wounded one who's low.
       pick ??= chimeCluster(party, w, tech.chime.range, tech.chime.radius);
       if (pick && dist(pick.e, w) < tech.chime.range && this.notice()) {
@@ -280,21 +420,41 @@ export class SkilledBot implements Bot {
       ) {
         out.push({ t: 'tech', id: 'chime', point: { x: calling!.e.x, z: calling!.e.z } });
         acted = true;
+      } else if (!pick && mimicWard && affords(state, 'chime', 15)) {
+        // A Mimic copying her Ward: a Chime now is her last technique, and the mirror cracks.
+        const near = party
+          .filter((h) => dist(h.e, w) < tech.chime.range)
+          .sort((a, b) => effectiveFraction(a.e) - effectiveFraction(b.e))[0];
+        if (near) {
+          out.push({ t: 'tech', id: 'chime', point: { x: near.e.x, z: near.e.z } });
+          acted = true;
+        }
       }
     }
 
     // ── Rewind (the Chronomancer, in Reel's slot): stand back up a hero who just went down, or
     // give back a big blow to one still in danger. ──
     if (state.calling?.rewind) {
-      if (!acted && wc.cooldowns.reel <= 0 && affords(state, 'reel')) {
-        const pick = rewindPick(state, all, w, tech.reel.range);
+      if (!acted && !silenced && wc.cooldowns.reel <= 0 && affords(state, 'reel')) {
+        // Movement III: else a hero an Inhale dragged in, back to where they stood (null without).
+        const pick =
+          rewindPick(state, all, w, tech.reel.range) ??
+          (this.on('maw') ? pulledIn(state, party, w, tech.reel.range) : null);
         if (pick && this.notice()) out.push({ t: 'tech', id: 'reel', slot: pick.slot });
       }
-    } else if (!acted && wc.cooldowns.reel <= 0 && affords(state, 'reel')) {
+    } else if (!acted && !silenced && wc.cooldowns.reel <= 0 && affords(state, 'reel')) {
       // ── Reel frees a pinned or latched hero (Movement II), ahead of the generic Reel. ──
       const freeing = reelToFree(party, w, tech.reel.range);
       if (freeing && this.notice()) {
         out.push({ t: 'tech', id: 'reel', slot: freeing.slot });
+        acted = true;
+      }
+      // Movement III: a hero out of an Inhale's pull, to the Weaver outside it (never by Swap,
+      // which would put her where they stood). Null with no pull on the field.
+      const outOfMaw =
+        !acted && this.on('maw') ? mawReel(state, party, w, tech.reel.range, blood) : null;
+      if (outOfMaw) {
+        out.push({ t: 'tech', id: 'reel', slot: outOfMaw.slot });
         acted = true;
       }
       // Brann: out of an Execution no Ward answers, or in from outside every Bloodmoon pool
@@ -319,6 +479,8 @@ export class SkilledBot implements Bot {
         // take it, behind the barrier it gives her.
         if (w.weaver!.variants.reel === 'swap' && dmg >= w.health!.hp * 0.7 + swapBarrier(h.e))
           continue;
+        // Nor into a Void Maw's pull (Movement III): Swap is no answer to it.
+        if (w.weaver!.variants.reel === 'swap' && this.on('maw') && inMaw(state, h.e)) continue;
         const warded = (h.e.health!.shields.find((s) => s.kind === 'ward')?.amount ?? 0) >= dmg;
         if (
           left < 0.75 &&
@@ -405,6 +567,20 @@ export class SkilledBot implements Bot {
         threadTo = lowest;
       } else threadTo = current;
     }
+    // ── Movement III (docs/phase-5c.md): each step leaves the pick alone without its mechanic. ──
+    // Severing: not the hero beside the elite, unless they're the only one hurt.
+    if (threadTo && !holding && !condemned && downed.length === 0 && this.on('severing'))
+      threadTo = awayFromSevering(enemies, party, threadTo);
+    // Never Empower a possessed hero: another, or Mend them.
+    if (threadTo && !mend && isPossessed(threadTo.e) && this.on('noEmpowerPossessed')) {
+      const other = empowerable(party, w, wc.threadRange);
+      if (other) threadTo = other;
+      else mend = true;
+    }
+    // A cut line about to land: onto a hero whose Thread it misses (the one it's on, if it
+    // misses that), never onto one whose Thread it would cut.
+    if (cut && (!threadTo || cutThreatens(state, cut.t, threadTo.slot, CUT_MARGIN)))
+      threadTo = cut.to ?? (cut.threatened ? threadTo : (cut.hero ?? threadTo));
     if (
       threadTo &&
       wc.threadLock <= 0 &&
@@ -427,6 +603,17 @@ export class SkilledBot implements Bot {
         if (through > he.hp * 0.6 && through * share < me.hp - me.maxHp * 0.3) want = 'bear';
       }
     }
+    // Movement III: Unravel turns Mend to wounds, so Empower through it (the Martyr's Bear too);
+    // under Stasis Mend heals as ever. Else a Mimic copying Empower: Mend, and it cracks.
+    const unravel = unravelUp(state) !== null && !state.field.stasis && this.on('unravel');
+    if (unravel && want === 'mend') want = share > 0 ? 'bear' : 'empower';
+    else if (
+      !unravel &&
+      want === 'empower' &&
+      this.on('mimicEmpower') &&
+      mimics.some((m) => m.copy === 'empower')
+    )
+      want = 'mend';
     out.push(...modeCommands(wc.threadMode, want));
 
     // ── Cues and the Crescendo. ──
@@ -509,18 +696,41 @@ export class SkilledBot implements Bot {
         out.push({ t: 'directive', kind: 'rally' });
         this.lastRally = now;
       }
+    } else if (!link && !ring && now - this.lastRally > gap(2) && this.on('maw')) {
+      // An Inhale in its tell (Movement III): from outside it, Rally the 2+ heroes in it to her.
+      // (A Bloodlusting Brann won't come: his Reel waits for him, and the Rally its 8 s.)
+      const tells = inhaleTell(state);
+      if (
+        tells.length > 0 &&
+        !inCircles(tells, w) &&
+        party.filter((h) => inCircles(tells, h.e)).length >= 2
+      ) {
+        out.push({ t: 'directive', kind: 'rally' });
+        this.lastRally = now;
+      }
     }
 
     // ── Focus interruptible casters / Mutes; rally a wandering tank. ──
     if (now - this.lastFocus > 4) {
       const caster =
         enemies.find((e) => e.enemy!.cast?.interruptible) ??
-        enemies.find((e) => e.enemy!.defId === 'mute') ??
+        // Movement III's targets (docs/phase-5c.md): undefined unless one is on the field.
+        this.m3FocusTarget(state, enemies) ??
+        // A Mute, or a Silencing elite carrying a Mute's field (only the Mute before Movement III).
+        enemies.find((e) => suppresses(state, e)) ??
         // A Crimson Sentinel's guard: Focus sends the party round its flanks, once the pack
         // around it has thinned (focused on the wall, the party lets the hounds bleed it out).
         (enemies.length <= SENTINEL_FOCUS_AT ? enemies.find((e) => guardUp(state, e)) : undefined);
       if (caster && state.focusTarget !== caster.id) {
         out.push({ t: 'directive', kind: 'focus', target: caster.id });
+        this.lastFocus = now;
+      }
+    } else if (this.on('focusMirrorWard')) {
+      // The Unweaver's Mirror Ward (Movement III) is 2 s: it can't wait out the 4 s between
+      // Focuses. Null with no Mirror Ward cast.
+      const boss = mirrorWardCasting(enemies);
+      if (boss && state.focusTarget !== boss.id) {
+        out.push({ t: 'directive', kind: 'focus', target: boss.id });
         this.lastFocus = now;
       }
     }
@@ -551,6 +761,116 @@ export class SkilledBot implements Bot {
     return this.opts.attention >= 1 || this.rng.chance(this.opts.attention);
   }
 
+  /** The circles the Weaver keeps out of (Movement III's runes and Inhales); empty before it. */
+  private avoided(state: WorldState): Circle[] {
+    const out: Circle[] = [];
+    const rune = this.on('rune');
+    const maw = this.on('maw');
+    for (const z of hazardZones(state))
+      if (z.kind === 'null' ? rune : maw) out.push({ x: z.x, z: z.z, r: z.r });
+    if (rune) out.push(...closingRunes(state));
+    if (maw) out.push(...inhaleTell(state));
+    return out;
+  }
+
+  /** A Movement III rule plays unless the ablation skips it (tools/verbs.ts). */
+  private on(rule: M3Rule): boolean {
+    return this.opts.skip?.has(rule) !== true;
+  }
+
+  /**
+   * Where the Weaver steps this decision for Movement III, if anywhere (docs/phase-5c.md): out of
+   * a Null rune (laid, or closing: Gliding out of a laid one at once, or a closing one at the
+   * last moment), out of an Inhale (laid, or in its tell), or across a cut line to her hero's
+   * side. Null without any of them.
+   */
+  private m3Step(
+    state: WorldState,
+    w: ReadonlyEntity,
+    cut: CutAnswer | null,
+    now: number,
+    desired: { x: number; z: number },
+  ): { x: number; z: number; glide: boolean; rune: boolean } | null {
+    if (this.on('rune')) {
+      const out = runeEscape(state, w, ZONE_MARGIN);
+      if (out) {
+        const closing = closingRunes(state).some((c) => dist(c, w) <= c.r && c.impact - now < 0.35);
+        return { ...out, glide: weaverSilenced(state) || closing, rune: true };
+      }
+    }
+    if (this.on('maw')) {
+      const pulls = hazardZones(state).filter((z) => z.kind === 'pull');
+      const pull = pulls.find((z) => dist(z, w) <= z.r);
+      if (pull) return { ...outOf(pull, w, ZONE_MARGIN), glide: true, rune: false };
+      const tell = inhaleTell(state).find((c) => dist(c, w) <= c.r);
+      if (tell)
+        return { ...outOf(tell, w, ZONE_MARGIN), glide: tell.impact - now < 0.35, rune: false };
+    }
+    if (cut?.step) return { ...cut.step, glide: cut.t.impact - now < CUT_GLIDE, rune: false };
+    // The Thread clears the line: she holds her ground rather than walk it across.
+    if (cut && !cut.threatened && cut.hero && crossesFrom(cut.t, desired, cut.hero.e))
+      return { x: w.x, z: w.z, glide: false, rune: false };
+    return null;
+  }
+
+  /**
+   * Movement III's Chime picks in order (docs/phase-5c.md): a possessed hero (frees them), a
+   * Doubt Wraith's mark (cancels its cast), a Stitch in its windup or a stitched hero, then a
+   * doomed mark or Doom at `DOOM_CHIME_AT`+. Within Chime range; null when none of them is up.
+   */
+  private chimeM3(party: readonly HeroView[], w: ReadonlyEntity): HeroView | null {
+    const chime = CONTENT.techniques.chime;
+    const flight = chime.flight + 0.1;
+    const near = party.filter((h) => dist(h.e, w) < chime.range);
+    /** A status the Chime lands in time to cleanse (its remaining time beats the flight). */
+    const live = (h: HeroView, id: string) => {
+      const left = statusRemaining(h.e, id);
+      return left !== Infinity && left > flight;
+    };
+    const steps: [M3Rule, (h: HeroView) => boolean][] = [
+      ['chimePossessed', (h) => isPossessed(h.e)],
+      ['chimeDoubt', (h) => live(h, 'doubt')],
+      ['chimeStitch', (h) => live(h, 'stitch') || isStitched(h.e)],
+      ['chimeDoom', (h) => live(h, 'doomed') || doomStacks(h.e) >= DOOM_CHIME_AT],
+    ];
+    for (const [rule, wants] of steps) {
+      if (!this.on(rule)) continue;
+      const pick = near.find(wants);
+      if (pick) return pick;
+    }
+    return null;
+  }
+
+  /**
+   * Movement III's Focus, after the interruptible caster (docs/phase-5c.md): a Spindle, the
+   * Stolen Verse, the Hollow Champion, a Null Priest, then a Silencing elite, each once the pack
+   * is down to its `M3_FOCUS_AT`. Undefined without any of them on the field.
+   */
+  private m3FocusTarget(
+    state: WorldState,
+    enemies: readonly ReadonlyEntity[],
+  ): ReadonlyEntity | undefined {
+    const n = enemies.length;
+    const steps: [keyof typeof M3_FOCUS_AT, () => ReadonlyEntity | null | undefined][] = [
+      ['focusSpindle', () => spindlesUp(enemies)[0]],
+      ['focusVerse', () => stolenVerse(state)],
+      // The champion only once it's worn down: burning the boss is quicker until then (and its
+      // Mirror Ward is still interrupted at once, `focusMirrorWard`).
+      ['focusChampion', () => worn(champion(enemies), CHAMPION_FOCUS_BELOW)],
+      ['focusNull', () => enemies.find((e) => e.enemy!.defId === NULL_PRIEST)],
+      ['focusSilencing', () => enemies.find(carriesSilence)],
+      // A stationary enemy (a Void Maw, a Spindle) never comes to the party, and the heroes only
+      // look 18-20 m out: with nobody fighting, send them to the nearest one.
+      ['focusStationary', () => (idleParty(state) ? nearestStationary(state, enemies) : null)],
+    ];
+    for (const [rule, find] of steps) {
+      if (!this.on(rule) || n > M3_FOCUS_AT[rule]) continue;
+      const e = find();
+      if (e) return e;
+    }
+    return undefined;
+  }
+
   /** Where the Weaver wants to stand: covering the party, a little behind the frontline. */
   private position(
     state: WorldState,
@@ -578,6 +898,13 @@ export class SkilledBot implements Bot {
       for (const h of zones) if (dist(h, c) < dist(best, c)) best = h;
       x = best.x;
       z = best.z;
+    }
+    // Movement III: never in a Null rune or an Inhale, laid or in its tell (none before it).
+    for (const c of this.avoided(state)) {
+      if (dist(c, { x, z }) > c.r + ZONE_MARGIN * 0.5) continue;
+      const p = outOf(c, { x, z }, ZONE_MARGIN);
+      x = p.x;
+      z = p.z;
     }
     // Keep away from enemies that are on the Weaver.
     for (const e of enemies) {
@@ -677,6 +1004,220 @@ function executionTarget(
   return null;
 }
 
+// ── Movement III (docs/phase-5c.md, "Bots and harness"): read only with its mechanic up ──
+
+/** How the bot answers a cut line about to land across the Thread. */
+interface CutAnswer {
+  t: ReadonlyTelegraph;
+  /** The most urgent hero whose Thread it would miss (the Thread is free to move), or null. */
+  to: HeroView | null;
+  /** Else where the Weaver steps: across the line, to her threaded hero's side. */
+  step: { x: number; z: number } | null;
+  /** The Thread, as it stands, is in the line's way (with `CUT_MARGIN` to spare). */
+  threatened: boolean;
+  /** Her threaded hero now (null with no Thread). */
+  hero: HeroView | null;
+}
+
+/**
+ * The soonest Shears dash or Snip, landing within `CUT_AHEAD` s. If it would cut the Thread as
+ * things stand: retarget to the most urgent hero in reach whose Thread it misses, or else step
+ * across the line to her hero's side. If it wouldn't, the Thread stays where it is and she
+ * doesn't walk across it. Null when no cut line is that close (always before Movement III).
+ */
+function cutAnswer(
+  state: WorldState,
+  party: readonly HeroView[],
+  w: ReadonlyEntity,
+  now: number,
+): CutAnswer | null {
+  const wc = w.weaver!;
+  const t = cutLines(state)[0];
+  if (!t || t.impact - now > CUT_AHEAD) return null;
+  const hero = party.find((h) => h.slot === wc.threadSlot) ?? null;
+  if (!cutThreatens(state, t, wc.threadSlot, CUT_MARGIN))
+    return { t, to: null, step: null, threatened: false, hero };
+  let to: HeroView | null = null;
+  if (wc.threadLock <= 0)
+    for (const h of party) {
+      if (h.slot === wc.threadSlot || dist(h.e, w) >= wc.threadRange - 0.5) continue;
+      if (cutThreatens(state, t, h.slot, CUT_MARGIN)) continue;
+      if (!to || effectiveFraction(h.e) < effectiveFraction(to.e)) to = h;
+    }
+  if (to) return { t, to, step: null, threatened: true, hero };
+  return { t, to: null, step: hero ? acrossLine(t, w, hero.e) : null, threatened: true, hero };
+}
+
+/**
+ * Would the Weaver standing at `p` put the Thread to `hero` across the cut line `t` (with
+ * `CUT_MARGIN` to spare)? Where she means to walk while a cut is about to land.
+ */
+function crossesFrom(
+  t: ReadonlyTelegraph,
+  p: { x: number; z: number },
+  hero: ReadonlyEntity,
+): boolean {
+  const s = t.shape;
+  if (s.kind !== 'line') return false;
+  const half = s.width / 2 + CUT_MARGIN;
+  return segmentDistSq(s.x, s.z, s.toX, s.toZ, p.x, p.z, hero.x, hero.z) <= half * half;
+}
+
+/** A point beside the line `t`, on `hero`'s side of it, level with the Weaver. */
+function acrossLine(
+  t: ReadonlyTelegraph,
+  w: ReadonlyEntity,
+  hero: ReadonlyEntity,
+): { x: number; z: number } | null {
+  const s = t.shape;
+  if (s.kind !== 'line') return null;
+  const lx = s.toX - s.x;
+  const lz = s.toZ - s.z;
+  const l = Math.sqrt(lx * lx + lz * lz) || 1;
+  const nx = -lz / l;
+  const nz = lx / l;
+  const side = (hero.x - s.x) * nx + (hero.z - s.z) * nz >= 0 ? 1 : -1;
+  const along = ((w.x - s.x) * lx + (w.z - s.z) * lz) / l;
+  const off = s.width / 2 + w.radius + CUT_MARGIN;
+  return {
+    x: s.x + (lx / l) * along + nx * side * off,
+    z: s.z + (lz / l) * along + nz * side * off,
+  };
+}
+
+/** A hero below this effective life is hurt, for Severing's "the only hurt hero". */
+const SEVER_HURT = 0.85;
+
+/**
+ * Severing: the Thread stays off a hero within `SEVER_KEEP` m of a Severing elite's edge,
+ * unless they are the only hurt hero; it goes to the most hurt of the others instead. `to`
+ * itself without a Severing elite on the field.
+ */
+function awayFromSevering(
+  enemies: readonly ReadonlyEntity[],
+  party: readonly HeroView[],
+  to: HeroView,
+): HeroView {
+  const severing = enemies.filter((e) => severingReach(e) !== null);
+  if (severing.length === 0) return to;
+  const near = (h: HeroView) => severing.some((e) => dist(e, h.e) <= SEVER_KEEP + e.radius);
+  if (!near(to)) return to;
+  const others = party
+    .filter((h) => h.slot !== to.slot && !near(h))
+    .sort((a, b) => effectiveFraction(a.e) - effectiveFraction(b.e));
+  const hurt = (h: HeroView) => effectiveFraction(h.e) < SEVER_HURT;
+  if (others.length === 0 || (hurt(to) && !others.some(hurt))) return to;
+  return others[0]!;
+}
+
+/** A hero to Empower who isn't possessed, in Thread reach: Lyra first, then a non-tank. */
+function empowerable(
+  party: readonly HeroView[],
+  w: ReadonlyEntity,
+  range: number,
+): HeroView | null {
+  const ok = (h: HeroView) => !isPossessed(h.e) && dist(h.e, w) < range - 0.5;
+  return (
+    party.find((h) => h.defId === 'lyra' && ok(h)) ??
+    party.find((h) => h.role !== 'tank' && ok(h)) ??
+    null
+  );
+}
+
+/** `e` while its life is below `below` of its max; else null. */
+function worn(e: ReadonlyEntity | null, below: number): ReadonlyEntity | null {
+  return e && e.health!.hp < e.health!.maxHp * below ? e : null;
+}
+
+/** No standing hero has a target: the party stands idle. */
+function idleParty(state: WorldState): boolean {
+  return state.party.every((id) => {
+    const h = state.entities.get(id);
+    return !h?.hero || !h.health || h.health.downed || h.health.dead || h.hero.targetId === null;
+  });
+}
+
+/** The stationary enemy (its def `stationary`) nearest the Weaver; null without one. */
+function nearestStationary(
+  state: WorldState,
+  enemies: readonly ReadonlyEntity[],
+): ReadonlyEntity | null {
+  const w = weaverOf(state);
+  let best: ReadonlyEntity | null = null;
+  for (const e of enemies) if (stationary(e) && (!best || dist(e, w) < dist(best, w))) best = e;
+  return best;
+}
+
+function inCircles(circles: readonly Circle[], p: { x: number; z: number }): boolean {
+  return circles.some((c) => dist(c, p) <= c.r);
+}
+
+/** Inside an Inhale's pull, or its tell (where the pull will be). */
+function inMaw(state: WorldState, p: { x: number; z: number }): boolean {
+  return inPullZone(state, p) || inCircles(inhaleTell(state), p);
+}
+
+/** Reel a hero out of an Inhale's pull only below this effective life (the melee stay put). */
+const MAW_REEL_BELOW = 0.75;
+
+/**
+ * A hero to Reel out of an Inhale's pull to the Weaver standing outside it: a Bloodlusting
+ * Brann (he won't answer a Rally) first, else the most hurt below `MAW_REEL_BELOW`. Never with
+ * Swap, which would put her where they stood. Null with no pull on the field.
+ */
+function mawReel(
+  state: WorldState,
+  party: readonly HeroView[],
+  w: ReadonlyEntity,
+  range: number,
+  blood: BloodView | null,
+): HeroView | null {
+  const pulls: Circle[] = hazardZones(state).filter((z) => z.kind === 'pull');
+  if (pulls.length === 0 || w.weaver!.variants.reel === 'swap' || inCircles(pulls, w)) return null;
+  const inside = party.filter(
+    (h) =>
+      !h.e.hero!.reel &&
+      h.e.hero!.action !== 'dodging' &&
+      statusRemaining(h.e, 'anchored') === Infinity &&
+      dist(h.e, w) <= range - 0.3 &&
+      inCircles(pulls, h.e),
+  );
+  if (blood?.lusting) {
+    const brann = inside.find((h) => h.slot === blood.hero.slot);
+    if (brann) return brann;
+  }
+  let best: HeroView | null = null;
+  for (const h of inside)
+    if (
+      effectiveFraction(h.e) < MAW_REEL_BELOW &&
+      (!best || effectiveFraction(h.e) < effectiveFraction(best.e))
+    )
+      best = h;
+  return best;
+}
+
+/**
+ * The Chronomancer's Rewind for an Inhale: a hero inside its pull who stood outside it when
+ * Rewind's reach began (they were dragged in), the most hurt first. Null with no pull.
+ */
+function pulledIn(
+  state: WorldState,
+  party: readonly HeroView[],
+  w: ReadonlyEntity,
+  range: number,
+): HeroView | null {
+  const pulls: Circle[] = hazardZones(state).filter((z) => z.kind === 'pull');
+  if (pulls.length === 0) return null;
+  let best: HeroView | null = null;
+  for (const h of party) {
+    const past = rewindSample(h.e);
+    if (!past || dist(h.e, w) > range - 0.3) continue;
+    if (!inCircles(pulls, h.e) || inCircles(pulls, past)) continue;
+    if (!best || effectiveFraction(h.e) < effectiveFraction(best.e)) best = h;
+  }
+  return best;
+}
+
 // ── Brann (docs/phase-5b.md, "Bots and harness"): read only with a Blood Rage hero up ─────
 
 /** Brann holds one of the Weaver's Wards. */
@@ -732,10 +1273,17 @@ function twinCleavePending(state: WorldState, blood: BloodView): boolean {
 /** How far ahead the bot keeps a Ward for a Perfect (docs/phase-5b.md, "Bots and harness"). */
 const PERFECT_AHEAD = 1.5;
 
-/** A hit the Perfect scorer Wards: 15% of the hero's life, or an Execution that would kill. */
+/**
+ * A hit the Perfect scorer Wards: 15% of the hero's life, an Execution that would kill, or
+ * (Movement III) a possession's mark, which a full Ward blocks.
+ */
 function wardWorthy(e: ReadonlyEntity, t: ReadonlyTelegraph, dmg: number): boolean {
   const h = e.health!;
-  return dmg >= h.maxHp * 0.15 || (t.executeBelow !== undefined && dmg >= h.hp + shieldOf(e));
+  return (
+    dmg >= h.maxHp * 0.15 ||
+    (t.executeBelow !== undefined && dmg >= h.hp + shieldOf(e)) ||
+    possessesOnHit(t)
+  );
 }
 
 /**
