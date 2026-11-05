@@ -611,6 +611,8 @@ export interface ChimeInFlight {
   launchedAt: number;
   landsAt: number;
   radius: number;
+  /** What the Chime cost at its cast; set only while Stillwater Bell is held (Movement III). */
+  paid?: number;
 }
 
 /** Where a Chord's field sits: around the Weaver, planted (Pedal Point), or on the Thread (Unison). */

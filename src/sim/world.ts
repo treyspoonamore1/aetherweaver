@@ -23,6 +23,7 @@ import { RngStreams } from './core/rng';
 import { SpatialHash } from './core/spatialHash';
 import type { SimEvent } from './events';
 import { resolveMods, type Mods } from './mods';
+import { relicAwake } from './rules3';
 import type {
   AstrolabeState,
   DissonanceState,
@@ -689,12 +690,43 @@ function glideCharges(resolved: ResolvedSimConfig, content: Content): number {
   return Math.max(1, Math.floor(def?.values.charges ?? 1));
 }
 
+/**
+ * What `resolveMods` sees (docs/phase-5c.md, Q16): a Movement-gated relic or motif (one from the
+ * Abyssal Rift on) sleeps in an earlier Movement's fight, so only those awake for the fight's
+ * encounter `movement` are passed. With none asleep it is `resolved` itself. `world.relics` and
+ * the hashed config keep everything carried.
+ */
+function awakeConfig(
+  resolved: ResolvedSimConfig,
+  movement: number,
+  content: Content,
+): ResolvedSimConfig {
+  const relicDef = (id: string) => content.relics.find((d) => d.id === id);
+  const motifDef = (id: string) => content.motifs.find((d) => d.id === id);
+  const relicUp = (id: string) => {
+    const def = relicDef(id);
+    return !def || relicAwake(def, movement);
+  };
+  const motifUp = (id: string) => {
+    const def = motifDef(id);
+    return !def || relicAwake(def, movement);
+  };
+  const relicsUp = resolved.relics.every((r) => relicUp(r.id));
+  const motifsUp = resolved.motifs.every((m) => motifUp(m.id));
+  if (relicsUp && motifsUp) return resolved;
+  return {
+    ...resolved,
+    relics: relicsUp ? resolved.relics : resolved.relics.filter((r) => relicUp(r.id)),
+    motifs: motifsUp ? resolved.motifs : resolved.motifs.filter((m) => motifUp(m.id)),
+  };
+}
+
 export function createWorld(config: SimConfig): World {
   const content = CONTENT;
   const resolved = resolveConfig(config, content);
   const encounterDefn = encounterDef(resolved.encounter);
   const arena = arenaDef(encounterDefn.arena);
-  const mods = resolveMods(resolved, content);
+  const mods = resolveMods(awakeConfig(resolved, encounterDefn.movement ?? 1, content), content);
   // Spindle of Fate: the beam song's echo plays at full strength (Unison's silence stays).
   const loadout = resolved.chords.map((c, i) => {
     const chord = resolveChord(c, i, content);

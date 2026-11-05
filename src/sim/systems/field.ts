@@ -7,7 +7,6 @@
  * inside their dome and silence the Weaver entirely if the Weaver stands in one; during the
  * Silent Verse only the hymn circles carry the song.
  */
-import { CONTENT, enemyDef } from '../../content';
 import type { Vec2 } from '../commands';
 import { distSq, len } from '../core/dmath';
 import {
@@ -27,6 +26,7 @@ import {
   shieldOf,
   NEVER,
 } from '../combat/health';
+import { suppressRadiusOf } from '../rules3';
 import type { ChordField, Entity, EntityId, WorldState } from '../state';
 import { weaverOf, type World } from '../world';
 import { reject } from './techniques';
@@ -36,28 +36,28 @@ const AURA_FLUSH_TICKS = 60;
 /** Mute domes this tick: x, z, r triples (reused, no per-tick allocation). */
 const domes: number[] = [];
 
+/**
+ * A living enemy's dome: a Mute's, or a Silencing elite's (docs/phase-5c.md), the same field
+ * with the same numbers. `suppressRadiusOf` reads the def first, so in Movements I and II it is
+ * exactly the Mute's `suppressRadius`.
+ */
 function collectDomes(world: World): void {
   domes.length = 0;
   for (const m of world.entities.list()) {
     if (!m.enemy || m.health?.dead) continue;
-    const r = enemyDef(m.enemy.defId).suppressRadius;
+    const r = suppressRadiusOf(world, m);
     if (r > 0) domes.push(m.x, m.z, r);
   }
 }
 
-/** Each Mute's dome radius, by enemy id (the views' lookup; the sim's own uses `enemyDef`). */
-const DOME_RADIUS: ReadonlyMap<string, number> = new Map(
-  CONTENT.enemies.filter((d) => d.suppressRadius > 0).map((d) => [d.id, d.suppressRadius]),
-);
-
 /**
- * Is (x, z) under a living Mute's dome? The same domes `inDome` uses, for the views: Unbroken
- * Chorus's sound plays as the Weaver walks under one and her songs hold.
+ * Is (x, z) under a living Mute's (or Silencing elite's) dome? The same domes `inDome` uses, for
+ * the views: Unbroken Chorus's sound plays as the Weaver walks under one and her songs hold.
  */
 export function underMuteDome(state: WorldState, x: number, z: number): boolean {
   for (const m of state.entities.list()) {
     if (!m.enemy || m.health?.dead) continue;
-    const r = DOME_RADIUS.get(m.enemy.defId) ?? 0;
+    const r = suppressRadiusOf(state, m);
     if (r > 0 && distSq(x, z, m.x, m.z) <= r * r) return true;
   }
   return false;
@@ -86,6 +86,13 @@ function inHymn(world: World, e: Entity): boolean {
 
 function chordMask(world: World, chord: ChordField): number {
   let mask = 0;
+  const stolen = world.field.stolen;
+  // Steal Verse (docs/phase-5c.md): the stolen aura sings for nobody while it's gone.
+  if (stolen && stolen.chord === chord.index) {
+    for (let j = 0; j < chord.auras.length; j++)
+      if (j !== stolen.aura) mask |= auraBit(world.content, chord.auras[j]!);
+    return mask;
+  }
   for (const id of chord.auras) mask |= auraBit(world.content, id);
   return mask;
 }
@@ -189,7 +196,11 @@ export function updateField(world: World, dt: number): void {
         ? Math.min(content.weaver.fieldRadiusCap, base * def.radiusMult * reach) * radiusMult
         : 0;
     if (chord.anchor === 'weaver') weaverRadius = Math.max(weaverRadius, chord.radius);
-    for (const id of chord.auras) {
+    // Steal Verse (docs/phase-5c.md): the stolen aura's index stays at 0 mult, 1 focus, 1 echo.
+    const stolen = f.stolen && f.stolen.chord === chord.index ? f.stolen.aura : -1;
+    for (let j = 0; j < chord.auras.length; j++) {
+      if (j === stolen) continue;
+      const id = chord.auras[j]!;
       const index = content.auras.findIndex((a) => a.id === id);
       if (index < 0) continue;
       // Lantern Bearer (the Luminary): a planted field sings stronger. On a planted beam song

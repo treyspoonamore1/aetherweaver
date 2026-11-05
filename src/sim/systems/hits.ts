@@ -1,6 +1,6 @@
 /** Hits in flight (arrows, bolts, meteors, Volley) land when their time comes. */
 import { enemyDef, heroDef } from '../../content';
-import { distSq } from '../core/dmath';
+import { distSq, segmentsCross } from '../core/dmath';
 import {
   addStatus,
   applyOnHit,
@@ -9,8 +9,10 @@ import {
   isActive,
   rising,
 } from '../combat/health';
+import { threadSegment } from '../rules3';
 import type { Entity } from '../state';
-import type { PendingHit, World } from '../world';
+import { weaverOf, type PendingHit, type World } from '../world';
+import { guardStrandReady, severingHit, spendGuardStrand } from './thread';
 
 const CHAIN_RADIUS = 4;
 const CHAIN_FALLOFF = 0.6;
@@ -34,6 +36,8 @@ function land(world: World, hit: PendingHit): void {
   const source = world.entities.get(hit.source);
   const sourceName = sourceNameOf(source);
   if (!isActive(target)) return;
+  // Guard Strand (docs/phase-5c.md): an enemy bolt crossing the Thread is destroyed.
+  if (world.mods.guardStrand > 0 && source?.enemy && strandBlocks(world, source, target)) return;
   const x = target.x;
   const z = target.z;
   strike(world, target, hit, 1, sourceName, source);
@@ -145,11 +149,56 @@ function strike(
   // enemy's bolt carries any; a Ward that takes it all blocks them.
   if (source?.enemy) {
     applyOnHit(world, source, e, result.dealt, hit.onHit);
+    // Severing (docs/phase-5c.md): a bolt it lands near the Thread cuts it. Only an elite with
+    // a cutting affix reads anything here.
+    if (source.enemy.affixes.length > 0 && result.dealt + result.absorbed > 0)
+      severingHit(world, source);
     // Oathkeeper (Bonds): Kael took the hit, and what it carries (as a telegraph's).
     const kael = result.takenBy === undefined ? undefined : world.entities.get(result.takenBy);
     if (kael) applyOnHit(world, source, kael, result.takenDealt ?? 0, hit.onHit);
   } else if (hit.onHit && result.dealt > 0 && isActive(e))
     applyStatusPayload(world, e, hit.onHit, hit.source);
+}
+
+/**
+ * Guard Strand (docs/phase-5c.md, Q15): the bolt's path, from its living source where it stands
+ * now to its target, crosses the Thread, and Guard Strand is ready. A bolt at the Weaver or the
+ * threaded hero only meets the Thread at its end, so it never counts. Spends the cooldown and
+ * reports `strandBlocked` at the crossing.
+ */
+function strandBlocks(world: World, source: Entity, target: Entity): boolean {
+  if (!isActive(source) || !guardStrandReady(world)) return false;
+  const seg = threadSegment(world);
+  if (!seg) return false;
+  const threaded = world.party[weaverOf(world).weaver!.threadSlot!];
+  if (target.id === world.weaverId || target.id === threaded) return false;
+  if (!segmentsCross(source.x, source.z, target.x, target.z, seg.ax, seg.az, seg.bx, seg.bz))
+    return false;
+  spendGuardStrand(world);
+  const at = crossing(source.x, source.z, target.x, target.z, seg.ax, seg.az, seg.bx, seg.bz);
+  world.events.push({ type: 'strandBlocked', tick: world.tick, source: source.id, ...at });
+  return true;
+}
+
+/** Where the segments p→q and a→b meet (they are known to); the midpoint of p→q if parallel. */
+function crossing(
+  px: number,
+  pz: number,
+  qx: number,
+  qz: number,
+  ax: number,
+  az: number,
+  bx: number,
+  bz: number,
+): { x: number; z: number } {
+  const rx = qx - px;
+  const rz = qz - pz;
+  const sx = bx - ax;
+  const sz = bz - az;
+  const den = rx * sz - rz * sx;
+  if (den === 0) return { x: (px + qx) / 2, z: (pz + qz) / 2 };
+  const t = ((ax - px) * sz - (az - pz) * sx) / den;
+  return { x: px + rx * t, z: pz + rz * t };
 }
 
 function sourceNameOf(e: Entity | undefined): string {

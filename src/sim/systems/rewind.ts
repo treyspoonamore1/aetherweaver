@@ -16,6 +16,7 @@ import {
   linkStatusOf,
   telegraphMarkStatus,
 } from '../combat/telegraphs';
+import { weaverSilenced } from '../rules3';
 import type { Entity, PastSample, WorldState } from '../state';
 import type { World } from '../world';
 import { heroForSlot, reject, spend, techCooldown, weaverReady } from './techniques';
@@ -62,6 +63,8 @@ export function rewindCanRevive(state: WorldState): boolean {
 export function castRewind(world: World, slot: PartySlot | undefined): void {
   const weaver = weaverReady(world, 'rewind');
   if (!weaver) return;
+  // A Null Priest's rune (docs/phase-5c.md) blocks Rewind as it does Reel.
+  if (weaverSilenced(world)) return reject(world, 'rewind', 'silenced');
   const w = weaver.weaver!;
   const def = world.content.techniques.reel;
   const hero = heroForSlot(world, weaver, slot);
@@ -169,7 +172,8 @@ function paradox(world: World, hero: Entity): number {
       cancelTelegraph(world, t.id, hero.id);
       answered(world);
       // Its mark goes with it. (A Blood Pact's went with the cancel, unless another Pact still
-      // binds the hero.)
+      // binds the hero.) A Stitch's (docs/phase-5c.md), like a Resound's, comes off both heroes
+      // it was sewing.
       const marked =
         s.kind === 'link'
           ? t.linkStatus === 'pact'
