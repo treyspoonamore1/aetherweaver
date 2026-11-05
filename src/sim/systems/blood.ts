@@ -15,6 +15,7 @@ import { hasStatus, heal, isActive, rising, type HealVia } from '../combat/healt
 import { hasTalent, soloValue, talentFired, talentHolder, talentValue } from '../bonds';
 import type { BloodState, Entity, ReadonlyEntity, WorldState } from '../state';
 import type { World } from '../world';
+import { isRooted } from '../rules3';
 
 /** Lifesteal is summed and announced (one `healApplied`) this often, in seconds. */
 export const STEAL_FLUSH = 0.5;
@@ -340,9 +341,9 @@ export const BERSERKER_UNTARGETED_DODGE = 0.2;
 /**
  * Sunder Leap's target (docs/phase-5b.md): an enemy `minRange`-`range` m away — your Focus
  * first, then an interruptible caster, then the nearest. None while he holds (a Hold, or
- * Fermata), while pinned or latched (rooted, or held by a Leech: a Reel frees him), while he
- * answers a Rally, or (not bloodlusting) past his leash from the Weaver. The Call opens on the
- * same rule and marks the same enemy (calls.ts `canCall`, `startCall`). Draws nothing.
+ * Fermata), while rooted (pinned or stitched) or latched (held by a Leech: a Reel frees him),
+ * while he answers a Rally, or (not bloodlusting) past his leash from the Weaver. The Call opens
+ * on the same rule and marks the same enemy (calls.ts `canCall`, `startCall`). Draws nothing.
  */
 export function leapTarget(
   world: World,
@@ -352,7 +353,7 @@ export function leapTarget(
   const hero = e.hero;
   // Held or Scattered, he stays where the Weaver put him: no leaping in.
   if (!hero || hero.follow === 'hold' || hero.follow === 'scatter' || hero.hold) return null;
-  if (hasStatus(e, 'pinned') || hasStatus(e, 'latched')) return null;
+  if (isRooted(e) || hasStatus(e, 'latched')) return null;
   const lust = bloodlusting(world.content, e);
   if (!lust && world.internal.rallyUntil > world.time) return null;
   const weaver = world.entities.get(world.weaverId);
