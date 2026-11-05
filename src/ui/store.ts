@@ -460,6 +460,8 @@ export interface RiftHud {
   wraithCasting?: true;
   /** A Mimic is casting a copy of this. */
   mimicCopy?: 'empower' | 'ward' | 'chime';
+  /** A Silencing elite (an enemy whose dome is its affix's, not its own) stands. */
+  silencer?: true;
 }
 
 export interface EncounterHud {

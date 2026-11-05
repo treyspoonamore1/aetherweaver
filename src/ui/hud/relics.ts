@@ -3,6 +3,8 @@
  * bridge calls it at 15 Hz and the tests call it with hand-made states.
  */
 import { relicDef, relicValues, type RelicRarity } from '../../content';
+import { relicAwake } from '../../sim';
+import { movementPlace } from '../screens/routeText';
 
 export interface RelicHud {
   id: string;
@@ -30,6 +32,11 @@ export interface RelicHud {
   pulse: number;
   /** One line for the aria label: "Cracked Metronome: ready", "Silver Thimble: 2.1 s". */
   label: string;
+  /**
+   * A Movement-gated relic asleep in this fight (docs/phase-5c.md): "Wakes in the Abyssal Rift".
+   * The sim keeps it in `relics.ids` but resolves none of its effect. Absent: awake.
+   */
+  asleep?: string;
 }
 
 /** What the bar needs from the sim: the relics and a couple of ledger counters. */
@@ -47,6 +54,8 @@ export interface RelicSource {
   };
   time: number;
   ledger: { perfects: number; downs: number };
+  /** The fight's Movement (the sim's `fightMovement`); absent: every relic reads awake. */
+  movement?: number;
 }
 
 const COOLDOWN: Record<string, 'metronomeAt' | 'thimbleAt'> = {
@@ -79,6 +88,21 @@ export function relicHuds(src: RelicSource): RelicHud[] {
       cleansed: src.relics.cleansed.includes(id),
       empowered,
     };
+    // A Rift relic carried into an earlier Movement's fight sleeps: no effect, so no live tile.
+    if (src.movement !== undefined && !relicAwake(def, src.movement)) {
+      const wakes = `Wakes in ${movementPlace(def.movement ?? 1)}`;
+      out.push({
+        ...base,
+        kind: 'passive',
+        ready: false,
+        remaining: 0,
+        total: 0,
+        pulse: 0,
+        label: `${def.name}: asleep in this fight. ${wakes}`,
+        asleep: wakes,
+      });
+      continue;
+    }
     const field = COOLDOWN[id];
     if (field) {
       const at = src.relics[field];

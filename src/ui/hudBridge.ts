@@ -20,6 +20,7 @@ import {
   possessionVictim,
   reservePool,
   resolveChord,
+  fightMovement,
   rewindCanRevive,
   songReserveOf,
   techniqueCost,
@@ -546,6 +547,7 @@ export function buildHudSnapshot(
       relics: state.relics,
       time: state.time,
       ledger: { perfects: l.perfects, downs: l.downs },
+      movement: fightMovement(state),
     }),
     calling: callingHud(
       calling,
@@ -845,6 +847,18 @@ const DOUBT_ATTACKS = new Set(
   CONTENT.attacks.filter((a) => a.markStatus === 'doubt').map((a) => a.id),
 );
 
+/** The affixes that carry a Mute's dome (Movement III's Silencing). */
+const SILENCING_AFFIXES = new Set(
+  CONTENT.affixes.filter((a) => (a.suppressRadius ?? 0) > 0).map((a) => a.id),
+);
+
+/** An elite whose dome is its affix's: no dome of its own (a Mute's), a Silencing affix. */
+function silencingElite(e: ReadonlyEntity): boolean {
+  const c = e.enemy!;
+  if (enemyDef(c.defId).suppressRadius > 0) return false;
+  return c.affixes.some((id) => SILENCING_AFFIXES.has(id));
+}
+
 /** The hints' Movement III threats (`HudSnapshot.rift`); no key at all with none on the field. */
 function riftOf(state: WorldState): { rift?: RiftHud } {
   const rift: RiftHud = {};
@@ -857,11 +871,10 @@ function riftOf(state: WorldState): { rift?: RiftHud } {
     if (DOUBT_ATTACKS.has(t.attackId)) rift.wraithCasting = true;
   }
   for (const e of state.entities.list()) {
-    const copy = e.enemy?.mimic?.copy;
-    if (copy && e.health && !e.health.dead) {
-      rift.mimicCopy = copy;
-      break;
-    }
+    if (!e.enemy || !e.health || e.health.dead) continue;
+    const copy = e.enemy.mimic?.copy;
+    if (copy && !rift.mimicCopy) rift.mimicCopy = copy;
+    if (!rift.silencer && silencingElite(e)) rift.silencer = true;
   }
   return Object.keys(rift).length > 0 ? { rift } : {};
 }

@@ -13,7 +13,7 @@ draw as they did. The lab's 'Movement III' group (`src/ui/lab/UiLab.tsx`, mock d
 | Piece | What it shows | Where |
 | --- | --- | --- |
 | Answer glyphs | `thread` is **Retarget** (the Thread with a cut mark, `threadCut`; its glyph shows the hero keys, '1–3' as bound, `answerKeyLabel`), `empower` is **Empower** (its star, the Thread-mode key). | `hud/labels.ts` `ANSWER` |
-| Statuses | Each with its glyph and answer: Doubted (mask), Possessed (mask; 'Chime frees them; Focus the Wraith before its cast ends'), Doom (skull, '×N/5'), Ignited (`doomed`), Voided (maw; 'Rally or Reel them out'), Stitch and Stitched (needle; 'Chime frees both'), Unravelled ('Your Mend wounds — Empower'), Emboldened (mirror, on enemies). | `hud/labels.ts` `STATUS` |
+| Statuses | Each with its glyph and answer: Doubted (mask), Possessed (mask; 'Chime frees them; Focus the Wraith before its cast ends'), Doom (skull, '×N/5'), Ignited (`doomed`), Voided (maw; 'Rally or Reel them out'), Stitch and Stitched (needle; 'A Chime frees each one it reaches': a Stitch pairs heroes up to 40 m apart, a Chime reaches 4 m), Unravelled ('Your Mend wounds — Empower'), Emboldened (mirror, on enemies). | `hud/labels.ts` `STATUS` |
 | Icons | scissors, needle, spindle, mask, rune, mirror, maw, threadCut; the three Rift relic glyphs (lamb, cord, stillbell). | `kit/iconPaths.ts`, `kit/RelicGlyph.tsx` |
 | Doom badge | Counts against its ignition from the first stack ('×3/5'), glows with the Chime glyph from 4 (`DOOM_EMPHASIS = DOOM_CHIME_AT`). Bleed keeps its 5. | `hud/StatusBadge.tsx`, `hud/legionLook.ts` `stacksUrgent` |
 | Possession | An indigo frame border (never the enemy bar's red or Focus gold), a 'Possessed → Kael' strip with the Chime glyph (hidden under Blind Score). The victim is the sim's own `possessionVictim`: never the Weaver. | `hud/RiftMarks.tsx`, `hud/PartyFrames.tsx` |
@@ -31,15 +31,16 @@ Blind Score):
 
 - `rune` (not an answer hint: it says why an input was refused) — Glide or walk out. This is a
   separate technique-silence hint; the Mute's aura `silenced` hint is untouched (it says 'the
-  Silencing elite' when no Mute is on the field).
+  Silencing elite' only while one stands, `rift.silencer`, and no Mute does; a downed Weaver's
+  silence in Movement I or II still reads 'the Mute').
 - `cut` (not an answer hint) — re-thread the moment the lock ends.
 - `cut-coming` — a cut line will cross the Thread: Thread a hero on your side, or step across.
-- `inhale` — Rally in the tell ('Swap puts you in the Maw' with the Swap variant), or Reel one out.
+- `inhale` — Rally in the tell ('Swap puts you in the Maw' with the Swap variant), or take one out by the Reel slot: Reel one out, Anchor one before the pull drags them in, Rewind one it drags in. A bloodlusting Brann refuses the Rally, so the hint (and `brannRally` during an Inhale) names his own answer the same way, or a Hold on a Swap run.
 - `possessed`, `wraith` — Chime frees them; Focus the Wraith or Chime the mark. `wraith` follows
   `rift.wraithCasting` (the bridge sets it while a `doubt` mark is in its windup) and names the
   hero the mark is on; it goes the moment the cast is interrupted.
 - `doom` — at 4+ stacks or Ignited: Chime, or Ward the blast.
-- `stitched` — Chime frees both.
+- `stitched` — a Chime frees each one it reaches (never 'both': the pair may stand far apart); a Reel frees the one it pulls.
 - `unravel` — Empower (or Bear on a Martyr run) until it passes.
 - `spindles`, `verse` (a Luminary hears that Radiance counts one aura fewer), `mirror-ward` — Focus.
 - `mimic` — cast the other technique (or Mend instead of Empower) to crack the mirror.
