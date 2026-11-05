@@ -23,6 +23,17 @@ export const RING = {
    * cracks it (a broken guard: the band breaks into shards and the fill drains).
    */
   guard: 9,
+  /**
+   * Movement III (docs/phase-5c.md): the Null Priest's rune. A solid band with a ring of glyphs
+   * just inside it (`param` of them, 10 by default), turning by `rotation`; `fillAlpha` fills the
+   * disc. Shape-distinct from the Mute's dashed glass ring.
+   */
+  rune: 10,
+  /**
+   * The Void Maw's swirl: spiral arms inside the radius. `param` > 0 turns them inward (the pull)
+   * that fast, < 0 outward; `fillAlpha` how strong the arms are; the rim is the band.
+   */
+  swirl: 11,
 } as const;
 
 const vertex = /* glsl */ `
@@ -121,6 +132,27 @@ void main() {
     float shards = mix(1.0, step(0.45, fract(t * 11.0 + 0.3 * sin(t * 40.0))), broken);
     float sector = d < r ? smoothstep(r * 0.35, r, d) * vArc.z * (1.0 - broken) : 0.0;
     alpha = ((core * ribs + glow * 0.7) * shards + sector) * arcMask;
+  } else if (style == 10) {
+    // Rune: the band, and a ring of glyphs inside it (a stroke with a crossbar and a hook).
+    float n = vArc.w > 0.5 ? vArc.w : 10.0;
+    float ta = atan(vLocal.y, vLocal.x) - vRot;
+    float cellA = (fract(ta / 6.2831853 * n + 0.5) - 0.5) * 6.2831853 / n;
+    float gr = r * 0.82;
+    vec2 q = vec2(cellA * d, d - gr);
+    float gs = max(r * 0.07, 0.12);
+    float stem = awAA(max(abs(q.x) - th * 0.35, abs(q.y) - gs));
+    float bar = awAA(max(abs(q.y - gs * 0.35) - th * 0.3, abs(q.x) - gs * 0.6));
+    float hook = awAA(max(abs(q.x - gs * 0.45) - th * 0.3, abs(q.y + gs * 0.5) - gs * 0.45));
+    float glyph = max(stem, max(bar, hook));
+    alpha = (core + glow) * arcMask + glyph * 0.9 * arcMask + fill;
+  } else if (style == 11) {
+    // Swirl: spiral arms turning in (param > 0) or out, brighter toward the middle, and a rim.
+    float inside = d < r ? 1.0 : 0.0;
+    float k = 3.0 * log(max(d, 0.05) / max(r, 0.1));
+    float arms = 0.5 + 0.5 * sin(ang * 4.0 + k * 2.2 + uTime * vArc.w * 3.0);
+    arms = smoothstep(0.55, 0.95, arms);
+    float depth = 1.0 - d / max(r, 0.1);
+    alpha = inside * arms * (0.3 + 0.7 * depth) * vArc.z + (core + glow) * arcMask;
   } else {
     // Reticle: four corner brackets that rotate.
     float seg = fract((a + uTime * 0.6) / 1.5707963);

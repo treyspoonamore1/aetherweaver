@@ -33,7 +33,25 @@ export const SPRITE = {
   wound: 11,
   /** Pinned: a steel stake driven point-down, its head a flat cap. */
   stake: 12,
+  /**
+   * Movement III (docs/phase-5c.md). Scissors, open: two blades crossing above two finger loops
+   * (where a cut line crosses the Thread; a cut Thread's stub).
+   */
+  scissors: 13,
+  /** A Doom pip: a hollow ring that fills (`param` 1) as the stack lands. */
+  doomPip: 14,
+  /** Possessed: a cracked mask (an oval face, two eye holes, a crack down it). */
+  mask: 15,
+  /** A rune lock: a circle with a rune stroke across it (the Weaver silenced in a rune). */
+  rune: 16,
+  /** A mirror: a tall diamond pane with a glint across it (the Mimic's copy, a crack). */
+  mirror: 17,
+  /** A needle, point-down, its eye at the top (Needle Rain falling). */
+  needle: 18,
 } as const;
+
+/** SPRITE.mode's `param` for Unravel's 'minus' (Mend reversed): a bar alone. */
+export const MODE_MINUS = 3;
 
 const vertex = /* glsl */ `
 attribute vec4 iPos;  // x y z rotation
@@ -119,6 +137,9 @@ void main() {
       float wx = mix(0.19, 0.38 * (1.0 - q.x / 0.82), m);
       float wy = mix(0.19, 0.38 * (1.0 - q.y / 0.82), m);
       e = min(max(q.y - wx, q.x - 0.82), max(q.x - wy, q.y - 0.82));
+    } else if (vSize.w > 2.5) {
+      // Unravel's minus: Mend's plus without its upright (Mend reversed).
+      e = max(abs(vUv.y) - 0.19, abs(vUv.x) - 0.82);
     } else {
       // A drop: a round body, its top drawn up to a point.
       float body = length(vUv - vec2(0.0, -0.22)) - 0.46;
@@ -154,6 +175,58 @@ void main() {
     float cap = max(abs(vUv.x) - 0.3, abs(vUv.y - 0.72) - 0.09);
     float e = min(shaft, cap);
     a = (1.0 - smoothstep(-0.04, 0.04, e)) + exp(-d * d * 4.0) * 0.12;
+    a *= 1.0 - smoothstep(0.95, 1.0, d);
+  } else if (style == 13) {
+    // Scissors: two blades (long thin ovals) crossing at a pivot, two finger loops below.
+    vec2 p1 = mat2(0.906, -0.423, 0.423, 0.906) * (vUv - vec2(0.0, 0.1));
+    vec2 p2 = mat2(0.906, 0.423, -0.423, 0.906) * (vUv - vec2(0.0, 0.1));
+    float b1 = length(vec2(p1.x / 0.11, (p1.y - 0.32) / 0.55)) - 1.0;
+    float b2 = length(vec2(p2.x / 0.11, (p2.y - 0.32) / 0.55)) - 1.0;
+    float l1 = abs(length(vUv - vec2(-0.3, -0.52)) - 0.2) - 0.05;
+    float l2 = abs(length(vUv - vec2(0.3, -0.52)) - 0.2) - 0.05;
+    float e = min(min(b1 * 0.12, b2 * 0.12), min(l1, l2));
+    float pivot = 1.0 - smoothstep(0.05, 0.09, length(vUv - vec2(0.0, 0.1)));
+    a = max(1.0 - smoothstep(-0.03, 0.03, e), pivot) + exp(-d * d * 3.5) * 0.15;
+    a *= 1.0 - smoothstep(0.95, 1.0, d);
+  } else if (style == 14) {
+    // A Doom pip: a ring, filled as param goes 0 → 1.
+    float ring = 1.0 - smoothstep(0.08, 0.14, abs(d - 0.62));
+    float fill = (1.0 - smoothstep(0.5, 0.58, d)) * clamp(vSize.w, 0.0, 1.0);
+    a = max(ring, fill) + exp(-d * d * 3.0) * 0.25 * vSize.w;
+    a *= 1.0 - smoothstep(0.95, 1.0, d);
+  } else if (style == 15) {
+    // A cracked mask: an oval face, two slanted eye holes, a zig-zag crack down one side.
+    float face = length(vec2(vUv.x / 0.62, (vUv.y + 0.02) / 0.82)) - 1.0;
+    vec2 q = vec2(abs(vUv.x), vUv.y);
+    float eye = length(vec2((q.x - 0.24) / 0.15, (q.y - 0.16 + (q.x - 0.24) * 0.4) / 0.08)) - 1.0;
+    float zig = vUv.x - 0.12 - 0.07 * sin(vUv.y * 16.0);
+    float crack = (1.0 - smoothstep(0.02, 0.05, abs(zig))) * step(-0.2, vUv.y);
+    float shape = (1.0 - smoothstep(-0.03, 0.03, face * 0.5)) * smoothstep(-0.05, 0.05, eye * 0.1);
+    a = shape * (1.0 - 0.85 * crack) + exp(-d * d * 3.0) * 0.15;
+    a *= 1.0 - smoothstep(0.95, 1.0, d);
+  } else if (style == 16) {
+    // A rune lock: a ring, and a rune (an upright, a crossbar, a hook) inside it.
+    float ring = 1.0 - smoothstep(0.06, 0.1, abs(d - 0.78));
+    float stem = max(abs(vUv.x) - 0.06, abs(vUv.y) - 0.45);
+    float bar = max(abs(vUv.y - 0.15) - 0.05, abs(vUv.x) - 0.3);
+    float hook = max(abs(vUv.x - 0.2) - 0.05, abs(vUv.y + 0.28) - 0.18);
+    float e = min(stem, min(bar, hook));
+    a = max(ring, 1.0 - smoothstep(-0.03, 0.03, e)) + exp(-d * d * 3.0) * 0.15;
+    a *= 1.0 - smoothstep(0.95, 1.0, d);
+  } else if (style == 17) {
+    // A mirror: a tall diamond pane, its edge bright, a glint across it.
+    float m = abs(vUv.x) / 0.55 + abs(vUv.y) / 0.9;
+    float pane = 1.0 - smoothstep(0.92, 1.0, m);
+    float edge = 1.0 - smoothstep(0.03, 0.09, abs(m - 0.9));
+    float glint = 1.0 - smoothstep(0.03, 0.07, abs(vUv.x * 0.8 + vUv.y - 0.15));
+    a = pane * 0.35 + edge * 0.9 + glint * pane * 0.8;
+    a *= 1.0 - smoothstep(0.95, 1.0, d);
+  } else if (style == 18) {
+    // A needle, point-down: a long thin shaft tapering to a point, an eye near its head.
+    float w = 0.07 * clamp((vUv.y + 0.95) / 0.6, 0.0, 1.0);
+    float shaft = max(abs(vUv.x) - w, abs(vUv.y) - 0.92);
+    float eye = length(vec2(vUv.x / 0.035, (vUv.y - 0.7) / 0.1)) - 1.0;
+    a = (1.0 - smoothstep(-0.02, 0.02, shaft)) * smoothstep(-0.2, 0.2, eye) + exp(-d * d * 4.0) * 0.12;
     a *= 1.0 - smoothstep(0.95, 1.0, d);
   } else {
     // Sigil: a rotating star in a ring (Cue / leitmotif).

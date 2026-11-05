@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import type { EntityId, ReadonlyEntity, SimEvent, WorldState } from '../sim';
+import { suppressRadiusOf } from '../sim';
 import { BEAM } from './fx/beams';
 import type { FxKit } from './fx/kit';
 import { PARTICLE } from './fx/particles';
@@ -860,7 +861,9 @@ export class AstrolabeView {
       const m = list[i]!;
       if (!m.enemy || m.health?.dead) continue;
       const mr = this.d.recs.get(m.id);
-      if (!mr || mr.suppressRadius <= 0) continue;
+      // Its dome: the def's (a Mute), else a Silencing affix's (Movement III), the sim's rule.
+      const R = mr ? suppressRadiusOf(state, m) : 0;
+      if (!mr || R <= 0) continue;
       // Her own field (the widest round her), then each planted one.
       let weaverDone = false;
       for (let c = 0; c < f.chords.length; c++) {
@@ -876,9 +879,8 @@ export class AstrolabeView {
           fz = wr ? wr.z : f.z;
           fr = f.radius;
         }
-        if (!domeMeets(mr.x, mr.z, mr.suppressRadius, fx, fz, fr, this.domeArc, this.fieldArc))
-          continue;
-        this.resistArc(mr.x, mr.z, mr.suppressRadius, this.domeArc, time, m.id, true);
+        if (!domeMeets(mr.x, mr.z, R, fx, fz, fr, this.domeArc, this.fieldArc)) continue;
+        this.resistArc(mr.x, mr.z, R, this.domeArc, time, m.id, true);
         this.resistArc(fx, fz, fr, this.fieldArc, time, m.id + 101, false);
         this.drawn.resist++;
       }

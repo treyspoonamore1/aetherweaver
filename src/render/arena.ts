@@ -3,9 +3,10 @@ import type { ArenaDef } from '../content';
 import type { ModelMaterial } from './models/material';
 import { ModelBatch } from './models/batch';
 import { ModelBuilder } from './models/builder';
-import { buildPillar, buildSpirePillar } from './models/library';
+import { buildPillar, buildRiftPillar, buildSpirePillar } from './models/library';
 import type { Stage } from './stage';
 import { CRIMSON_HEX, SPIRE_HEX, arenaLook, arenaMood, type ArenaLook } from './crimsonCues';
+import { ABYSS_HEX } from './riftCues';
 
 /**
  * Arena (docs/plan/04 §1): a low-contrast, low-detail combat floor in the theme's colours so
@@ -40,6 +41,8 @@ export class ArenaView {
   readonly look: ArenaLook;
   /** The Spire's braziers (x, y, z triples): where the torch cards burn. */
   private readonly torchSpots: number[] = [];
+  /** The Rift's tears (x, y, z, height quads), on the far side only: where the tear cards glow. */
+  private readonly tearSpots: number[] = [];
 
   constructor(
     readonly def: ArenaDef,
@@ -50,18 +53,41 @@ export class ArenaView {
     // The per-biome mood table (crimsonCues.ts): Movement I's arenas keep their exact mood.
     this.look = arenaLook(def);
     stage.setMood(arenaMood(def));
-    const crimson = this.look === 'crimson';
-    const warm = this.look === 'warm';
+    const look = this.look;
+    const warm = look === 'warm';
 
-    this.group.add(crimson ? this.createSpireFloor() : this.createFloor());
-    if (crimson) this.createRamparts(model);
-    else this.createPerimeter(model);
+    // Each biome swaps its pieces one for one (the mesh budget holds: 7 with pillars, 6 without).
+    switch (look) {
+      case 'crimson':
+        this.group.add(this.createSpireFloor());
+        this.createRamparts(model);
+        break;
+      case 'abyss':
+        this.group.add(this.createRiftFloor());
+        this.createRiftRim(model);
+        break;
+      default:
+        this.group.add(this.createFloor());
+        this.createPerimeter(model);
+    }
     this.createPillars(model);
     // The Crimson Spire: flickering torch cards in place of the god rays, rising embers in place
-    // of the dust (the same budget: one mesh each, hidden on low quality).
-    this.rays = crimson ? this.createTorches() : this.createGodRays(warm);
+    // of the dust. The Abyssal Rift: rift tears and drifting fray motes. The same budget: one
+    // mesh each, hidden on low quality.
+    switch (look) {
+      case 'crimson':
+        this.rays = this.createTorches();
+        this.dust = this.createEmbers();
+        break;
+      case 'abyss':
+        this.rays = this.createRiftTears();
+        this.dust = this.createFrays();
+        break;
+      default:
+        this.rays = this.createGodRays(warm);
+        this.dust = this.createDust(warm);
+    }
     this.group.add(this.rays);
-    this.dust = crimson ? this.createEmbers() : this.createDust(warm);
     this.group.add(this.dust);
   }
 
@@ -147,7 +173,12 @@ export class ArenaView {
   }
 
   /** The floor disc (the painted canvas), the apron receding into fog, the accent rim. */
-  private floorMeshes(group: THREE.Group, canvas: HTMLCanvasElement, floor: THREE.Color): void {
+  private floorMeshes(
+    group: THREE.Group,
+    canvas: HTMLCanvasElement,
+    floor: THREE.Color,
+    rimHex: string = this.def.theme.accent,
+  ): void {
     const radius = this.def.radius;
     const texture = new THREE.CanvasTexture(canvas);
     texture.colorSpace = THREE.SRGBColorSpace;
@@ -180,7 +211,7 @@ export class ArenaView {
     // Glowing rim in the accent colour.
     const rimGeo = new THREE.RingGeometry(radius - 0.1, radius + 0.06, 160);
     const rimMat = new THREE.MeshBasicMaterial({
-      color: this.def.theme.accent,
+      color: rimHex,
       transparent: true,
       opacity: 0.5,
       depthWrite: false,
@@ -254,6 +285,10 @@ export class ArenaView {
       // An obsidian spire column, brass-banded, with a crimson inlay (library.ts).
       const stone = new THREE.Color(theme.floor).lerp(new THREE.Color(SPIRE_HEX.obsidian), 0.4);
       base = buildSpirePillar(`#${stone.getHexString()}`, theme.line, SPIRE_HEX.banner);
+    } else if (this.look === 'abyss') {
+      // A broken slab stitched back together with bone thread (library.ts).
+      const stone = new THREE.Color(theme.floor).lerp(new THREE.Color(ABYSS_HEX.slab), 0.5);
+      base = buildRiftPillar(`#${stone.getHexString()}`, ABYSS_HEX.bone, ABYSS_HEX.cloth);
     } else {
       const stone = new THREE.Color(theme.floor).lerp(new THREE.Color('#e8dcc2'), 0.55);
       base = buildPillar(`#${stone.getHexString()}`, theme.accent);
@@ -755,6 +790,355 @@ void main() {
   float d = length(gl_PointCoord * 2.0 - 1.0);
   float a = (1.0 - smoothstep(0.1, 1.0, d)) * vA * 0.7;
   gl_FragColor = vec4(uColor, a);
+  #include <colorspace_fragment>
+}`,
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    });
+    const points = new THREE.Points(geo, mat);
+    points.frustumCulled = false;
+    points.renderOrder = 12;
+    this.disposables.push(geo, mat);
+    return points;
+  }
+
+  // ── The Abyssal Rift (Movement III, docs/phase-5c.md) ───────────────────────────────────
+
+  /**
+   * Stitched indigo cloth over stone: patchwork panels on concentric courses, each a hair lighter
+   * or darker, their seams in the theme's line colour with faint cross-stitches. As dark and as
+   * low in contrast as the other floors (the same ×0.78), with no teal anywhere on the disc: teal
+   * is Mend. The disc's rim is the line colour too, not the theme's ambient teal accent.
+   */
+  private createRiftFloor(): THREE.Group {
+    const def = this.def;
+    const radius = def.radius;
+    const group = new THREE.Group();
+    const size = 2048;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    const floor = new THREE.Color(def.theme.floor).multiplyScalar(0.78);
+    const floorHex = `#${floor.getHexString()}`;
+    const line = def.theme.line;
+    if (ctx) {
+      const c = size / 2;
+      const px = c / radius;
+      const lighter = `#${floor.clone().lerp(new THREE.Color('#ffffff'), 0.05).getHexString()}`;
+      const darker = `#${floor.clone().multiplyScalar(0.68).getHexString()}`;
+      const g = ctx.createRadialGradient(c, c, 0, c, c, c);
+      g.addColorStop(0, lighter);
+      g.addColorStop(0.7, floorHex);
+      g.addColorStop(1, darker);
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, size, size);
+      let seed = 13;
+      const rand = () => {
+        seed = (seed * 16807) % 2147483647;
+        return seed / 2147483647;
+      };
+      // Cloth panels: concentric courses of skewed patches, darker than the stone between them.
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(c, c, radius * px, 0, Math.PI * 2);
+      ctx.clip();
+      for (let r0 = 1.8; r0 < radius; r0 += 3.1) {
+        const r1 = Math.min(radius, r0 + 3.1);
+        const panels = Math.max(5, Math.round((Math.PI * 2 * r0) / 3.6));
+        const offset = rand() * Math.PI * 2;
+        for (let p = 0; p < panels; p++) {
+          const a0 = offset + (p / panels) * Math.PI * 2;
+          const a1 = offset + ((p + 1) / panels) * Math.PI * 2;
+          const shade = (rand() - 0.5) * 0.05;
+          ctx.fillStyle = shade > 0 ? `rgba(255,255,255,${shade})` : `rgba(0,0,0,${-shade * 1.6})`;
+          ctx.beginPath();
+          ctx.arc(c, c, r1 * px, a0, a1);
+          ctx.arc(c, c, r0 * px, a1, a0, true);
+          ctx.closePath();
+          ctx.fill();
+          // The seam between panels: a dashed stitch line in the line colour.
+          ctx.globalAlpha = 0.14;
+          ctx.strokeStyle = line;
+          ctx.lineWidth = 2;
+          ctx.setLineDash([10, 9]);
+          ctx.beginPath();
+          ctx.moveTo(c + Math.cos(a0) * r0 * px, c + Math.sin(a0) * r0 * px);
+          ctx.lineTo(c + Math.cos(a0) * r1 * px, c + Math.sin(a0) * r1 * px);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.globalAlpha = 1;
+        }
+        // The course's seam: a ring of cross-stitches.
+        ctx.globalAlpha = 0.12;
+        ctx.strokeStyle = line;
+        ctx.lineWidth = 2;
+        const stitches = Math.round((Math.PI * 2 * r1) / 0.9);
+        for (let k = 0; k < stitches; k++) {
+          const a = (k / stitches) * Math.PI * 2;
+          const x = c + Math.cos(a) * r1 * px;
+          const y = c + Math.sin(a) * r1 * px;
+          const s = 0.16 * px;
+          ctx.beginPath();
+          ctx.moveTo(x - s, y - s);
+          ctx.lineTo(x + s, y + s);
+          ctx.moveTo(x + s, y - s);
+          ctx.lineTo(x - s, y + s);
+          ctx.stroke();
+        }
+        ctx.globalAlpha = 1;
+      }
+      ctx.restore();
+      // A faint seam ring at the centre and near the rim, in the line colour.
+      ctx.strokeStyle = line;
+      ctx.lineWidth = 3;
+      ctx.globalAlpha = 0.14;
+      for (const r of [1.8, radius - 1.2]) {
+        ctx.beginPath();
+        ctx.arc(c, c, r * px, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+    }
+    this.floorMeshes(group, canvas, floor, line);
+    return group;
+  }
+
+  /**
+   * The Rift's edge: floating broken slabs and torn hanging cloth, bone-stitched, in one draw call.
+   * Tall pieces only on the far (−z) side; the rift tears hang there too, so their cold light
+   * agrees with the rim light at (-12, 10, -16).
+   */
+  private createRiftRim(model: ModelMaterial): void {
+    const theme = this.def.theme;
+    const slab = new THREE.Color(theme.floor).lerp(new THREE.Color(ABYSS_HEX.slab), 0.5);
+    const slabHex = `#${slab.clone().lerp(new THREE.Color('#5a5878'), 0.3).getHexString()}`;
+    const darkHex = `#${slab.getHexString()}`;
+    const cloth = ABYSS_HEX.cloth;
+    const bone = ABYSS_HEX.bone;
+    const b = new ModelBuilder();
+    const R = this.def.radius;
+    const count = 14;
+    for (let i = 0; i < count; i++) {
+      const a = (i / count) * Math.PI * 2 + 0.2;
+      const r = R + 3.4;
+      const x = Math.cos(a) * r;
+      const z = Math.sin(a) * r;
+      const near = z > -R * 0.15;
+      // A footing stone, and a slab floating over it (tilted, broken off).
+      b.box(1.6, 0.35, 1.4, darkHex, { p: [x, 0.17, z], r: [0, -a, 0.05] });
+      const lift = near ? 0.9 : 2.2 + ((i * 7) % 3) * 0.9;
+      const h = near ? 0.5 : 2.4 + ((i * 5) % 3) * 0.8;
+      b.box(1.4, h, 0.9, slabHex, {
+        p: [x, lift + h / 2, z],
+        r: [((i % 3) - 1) * 0.12, -a + 0.2, ((i * 3) % 5) * 0.04 - 0.08],
+      });
+      // Bone stitches across the slab's crack.
+      if (!near) {
+        for (let k = 0; k < 3; k++) {
+          b.box(0.5, 0.05, 0.05, bone, {
+            p: [x, lift + h * (0.3 + k * 0.2), z],
+            r: [0, -a, 0.6],
+            glow: 0.15,
+          });
+        }
+        // Torn cloth hanging from the slab, ragged at the hem.
+        if (i % 2 === 0) {
+          const fx = x - Math.cos(a) * 0.5;
+          const fz = z - Math.sin(a) * 0.5;
+          const ch = 1.6 + (i % 3) * 0.5;
+          b.box(0.9, ch, 0.04, cloth, {
+            p: [fx, lift - ch / 2 + 0.2, fz],
+            r: [0, -a + Math.PI / 2, 0.05],
+          });
+          for (let k = 0; k < 3; k++) {
+            b.box(0.18, 0.4, 0.04, cloth, {
+              p: [
+                fx + Math.sin(a) * (k - 1) * 0.3,
+                lift - ch - 0.05,
+                fz - Math.cos(a) * (k - 1) * 0.3,
+              ],
+              r: [0, -a + Math.PI / 2, (k - 1) * 0.3],
+            });
+          }
+        }
+        // A rift tear behind every other far slab.
+        if (i % 2 === 1) {
+          const tx = Math.cos(a) * (R + 6.5);
+          const tz = Math.sin(a) * (R + 6.5);
+          this.tearSpots.push(tx, 0.4, tz, 4.5 + ((i * 3) % 3) * 1.2);
+        }
+      }
+    }
+    // Stone shards and cloth scraps scattered just outside the rim.
+    for (let i = 0; i < 22; i++) {
+      const a = i * 2.39996;
+      const r = R + 1 + (i % 3) * 0.6;
+      if (i % 3 === 0) {
+        b.box(0.5, 0.03, 0.35, cloth, {
+          p: [Math.cos(a) * r, 0.02, Math.sin(a) * r],
+          r: [0, i * 1.3, 0],
+        });
+      } else {
+        b.ico(0.2 + (i % 4) * 0.1, darkHex, {
+          p: [Math.cos(a) * r, 0.1, Math.sin(a) * r],
+          r: [i, i * 2, 0],
+        });
+      }
+    }
+    this.addStatic(b.build(), model, false);
+  }
+
+  /**
+   * The rift tears: tall jagged slits of cold light hanging behind the far slabs, a hot pale core
+   * and a soft halo each, all in one additive mesh (no real lights). They take the god rays' place.
+   */
+  private createRiftTears(): THREE.Mesh {
+    const positions: number[] = [];
+    const uvs: number[] = [];
+    const seeds: number[] = [];
+    const index: number[] = [];
+    const spots = this.tearSpots;
+    for (let i = 0; i < spots.length / 4; i++) {
+      const x = spots[i * 4]!;
+      const y = spots[i * 4 + 1]!;
+      const z = spots[i * 4 + 2]!;
+      const h = spots[i * 4 + 3]!;
+      // The slit (narrow) and its halo (wide, seed + 100), facing the camera's way (+z).
+      for (const [kind, w] of [
+        [0, 0.9],
+        [1, 3.2],
+      ] as const) {
+        const base = positions.length / 3;
+        positions.push(x - w / 2, y, z, x + w / 2, y, z, x + w / 2, y + h, z, x - w / 2, y + h, z);
+        uvs.push(0, 0, 1, 0, 1, 1, 0, 1);
+        const sd = i + kind * 100;
+        seeds.push(sd, sd, sd, sd);
+        index.push(base, base + 1, base + 2, base, base + 2, base + 3);
+      }
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+    geo.setAttribute('aSeed', new THREE.Float32BufferAttribute(seeds, 1));
+    geo.setIndex(index);
+    const mat = new THREE.ShaderMaterial({
+      uniforms: {
+        ...this.rayUniforms,
+        uColor: { value: new THREE.Color(ABYSS_HEX.tear) },
+        uHot: { value: new THREE.Color(ABYSS_HEX.bone) },
+      },
+      vertexShader: /* glsl */ `
+attribute float aSeed;
+varying vec2 vUv;
+varying float vSeed;
+void main() {
+  vUv = uv;
+  vSeed = aSeed;
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+}`,
+      fragmentShader: /* glsl */ `
+uniform float uTime;
+uniform vec3 uColor;
+uniform vec3 uHot;
+varying vec2 vUv;
+varying float vSeed;
+void main() {
+  float seed = mod(vSeed, 100.0);
+  float breathe = 0.8 + 0.2 * sin(uTime * 0.9 + seed * 1.9);
+  vec2 p = vUv * 2.0 - 1.0;
+  float a;
+  vec3 col;
+  if (vSeed < 99.5) {
+    // A jagged slit: its width zig-zags down its length, pinched at both ends.
+    float zig = 0.08 * sin(vUv.y * 23.0 + seed * 3.1) + 0.05 * sin(vUv.y * 51.0 + seed);
+    float w = 0.42 * sin(vUv.y * 3.14159) + 0.02;
+    float d = abs(p.x - zig) / max(w, 0.02);
+    a = (1.0 - smoothstep(0.3, 1.0, d)) * breathe;
+    col = mix(uColor, uHot, clamp(1.0 - d * 1.6, 0.0, 1.0) * 0.7);
+  } else {
+    // The halo: a cold glow round the slit.
+    float d = length(vec2(p.x, p.y * 0.45));
+    a = exp(-d * d * 4.0) * 0.16 * breathe;
+    col = uColor;
+  }
+  gl_FragColor = vec4(col, a);
+  #include <colorspace_fragment>
+}`,
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      side: THREE.DoubleSide,
+    });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.renderOrder = 12;
+    mesh.frustumCulled = false;
+    this.disposables.push(geo, mat);
+    return mesh;
+  }
+
+  /**
+   * Fray motes: loose threads drifting sideways and slowly falling, kept toward the rim (the
+   * combat disc stays clear: their teal is ambient and never on it).
+   */
+  private createFrays(): THREE.Points {
+    const count = 280;
+    const R = this.def.radius + 4;
+    const positions = new Float32Array(count * 3);
+    const seeds = new Float32Array(count);
+    let s = 9;
+    const rand = () => {
+      s = (s * 16807) % 2147483647;
+      return s / 2147483647;
+    };
+    for (let i = 0; i < count; i++) {
+      const a = rand() * Math.PI * 2;
+      const r = (0.6 + 0.4 * Math.sqrt(rand())) * R;
+      positions[i * 3] = Math.cos(a) * r;
+      positions[i * 3 + 1] = rand() * 7;
+      positions[i * 3 + 2] = Math.sin(a) * r;
+      seeds[i] = rand() * 100;
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geo.setAttribute('aSeed', new THREE.BufferAttribute(seeds, 1));
+    const mat = new THREE.ShaderMaterial({
+      uniforms: {
+        ...this.dustUniforms,
+        uColor: { value: new THREE.Color(ABYSS_HEX.fray) },
+        uBone: { value: new THREE.Color(ABYSS_HEX.bone) },
+      },
+      vertexShader: /* glsl */ `
+uniform float uTime;
+uniform float uScale;
+attribute float aSeed;
+varying float vA;
+varying float vBone;
+void main() {
+  vec3 p = position;
+  float t = uTime * 0.12 + aSeed;
+  float fall = mod(p.y - uTime * (0.08 + fract(aSeed) * 0.12), 7.0);
+  p.y = 0.2 + fall;
+  p.x += sin(t * 1.1) * 1.2;
+  p.z += cos(t * 0.7) * 0.5;
+  vec4 mv = modelViewMatrix * vec4(p, 1.0);
+  gl_PointSize = clamp(0.07 * uScale / max(-mv.z, 0.1), 1.0, 5.0);
+  vA = 0.45 + 0.35 * sin(t * 4.0 + aSeed);
+  vBone = step(0.85, fract(aSeed * 7.31));
+  gl_Position = projectionMatrix * mv;
+}`,
+      fragmentShader: /* glsl */ `
+uniform vec3 uColor;
+uniform vec3 uBone;
+varying float vA;
+varying float vBone;
+void main() {
+  vec2 q = gl_PointCoord * 2.0 - 1.0;
+  // A short thread, not a dot: long across, thin up and down.
+  float d = length(vec2(q.x * 0.55, q.y * 2.2));
+  float a = (1.0 - smoothstep(0.2, 1.0, d)) * vA * 0.8;
+  gl_FragColor = vec4(mix(uColor * 1.6, uBone, vBone * 0.6), a);
   #include <colorspace_fragment>
 }`,
       transparent: true,

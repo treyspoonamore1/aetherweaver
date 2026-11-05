@@ -6,12 +6,13 @@ import type { EntityLayer } from './entities';
 import type { FxKit } from './fx/kit';
 import { PARTICLE } from './fx/particles';
 import { RING } from './fx/rings';
-import { SPRITE } from './fx/sprites';
+import { MODE_MINUS, SPRITE } from './fx/sprites';
 import { threadLookHex } from './keepsakeCues';
 import type { Overlay } from './overlay';
 import { BORNE_TRAVEL, MARTYR_HEX } from './martyrCues';
 import { C, approach, auraColor, color, currentVision, rgba } from './palette';
 import { POUR_TRAVEL, SONG_GLYPH, beamSong, focusLabel, focusLevel, isAllIn } from './songs';
+import { RIFT_HEX } from './riftCues';
 
 const N = 30;
 const PULSES = 6;
@@ -159,6 +160,22 @@ export class ThreadView {
    * plus … 1 Empower's star), how much of it is Bear's drop, and its size (it pops on a switch).
    */
   glyphDrawn: { morph: number; bear: number; size: number } | null = null;
+  /**
+   * Movement III (docs/phase-5c/vfx-audio.md). Unravel (`field.unravel`, not under Stasis): the
+   * Thread turns, smoothed 0..1 (`inv`): a near-black core, live-lethal barbs, beads flowing
+   * forward fast (Bear's flow runs back: never this), and the mode glyph a minus. `cutAt`,
+   * `cutLock`, `cutCause`: an enemy cut (`threadSnapped.cause`), for the frayed stub at her hand
+   * and its lock ring while `threadLock` holds. `unravelOverride`: the lab's (null: the sim's).
+   */
+  private inv = 0;
+  private cutAt = -10;
+  private cutLock = 0;
+  private cutCause = '';
+  unravelOverride: boolean | null = null;
+  private readonly fray = color(RIFT_HEX.fray);
+  private readonly unravelCore = color(RIFT_HEX.unravel);
+  /** What Movement III drew last frame (tests, the lab). */
+  readonly drawnM3 = { unravel: 0, barbs: 0, unravelBeads: 0, minus: 0, stubs: 0, lockRings: 0 };
 
   constructor(
     private readonly entities: Pick<EntityLayer, 'recs'>,
@@ -233,12 +250,28 @@ export class ThreadView {
       size,
       SPRITE.mode,
       this.glyphCol,
-      a * (1 - B),
+      a * (1 - B) * (1 - this.inv),
       turn,
       1,
       this.mix,
     );
     kit.spritesTop.push(tr.x, y, tr.z, size, SPRITE.mode, C.bear, a * B, 0, 1, 2);
+    if (this.inv > 0.02) {
+      // Unravel (Movement III): Mend's plus loses its upright, a lethal minus (Mend reversed).
+      kit.spritesTop.push(
+        tr.x,
+        y,
+        tr.z,
+        size,
+        SPRITE.mode,
+        C.lethal,
+        a * this.inv,
+        0,
+        1,
+        MODE_MINUS,
+      );
+      this.drawnM3.minus++;
+    }
     this.glyphDrawn = { morph: this.mix, bear: B, size };
   }
 
@@ -312,8 +345,30 @@ export class ThreadView {
     this.hasPath = false;
   }
 
+  /**
+   * An enemy cut the Thread (`threadSnapped` with a `cause`, Movement III): the stub frays at her
+   * hand and a ring counts the lock down there while `threadLock` holds.
+   */
+  cut(cause: string, lock: number): void {
+    this.cutAt = this.now;
+    this.cutLock = Math.max(0.1, lock);
+    this.cutCause = cause;
+  }
+
+  /** The range snap (no cause): no stub. */
+  clearCut(): void {
+    this.cutAt = -10;
+  }
+
+  /** The last enemy cut's cause ('' before any). */
+  get lastCut(): string {
+    return this.cutCause;
+  }
+
   sync(state: WorldState, kit: FxKit, dt: number, time: number): void {
     this.now = time;
+    const m3 = this.drawnM3;
+    for (const k of Object.keys(m3) as (keyof typeof m3)[]) m3[k] = 0;
     const weaver = state.entities.get(state.weaverId);
     const w = weaver?.weaver;
     const wr = this.entities.recs.get(state.weaverId);
@@ -326,6 +381,7 @@ export class ThreadView {
         this.startPour(state);
       }
     }
+    if (w && wr && !tr && this.cutAt > -10 && w.threadLock > 0) this.stub(kit, wr, w.threadLock);
     if (!w || !wr || !tr) {
       this.hasPath = false;
       this.glyphDrawn = null;
@@ -334,6 +390,9 @@ export class ThreadView {
     const toEmpower =
       w.threadMode === 'bear' ? w.lastMode === 'empower' : w.threadMode === 'empower';
     this.findSong(state, targetId);
+    // Unravel (Movement III): Mend wounds while it lasts, except under Stasis (Mend heals then).
+    const unravelled =
+      this.unravelOverride ?? (state.field.unravel !== undefined && !state.field.stasis);
     this.draw(
       kit,
       dt,
@@ -344,7 +403,40 @@ export class ThreadView {
       w.threadMode === 'bear',
       w.threadTension,
       state.field.suppressed,
+      unravelled && !toEmpower && w.threadMode !== 'bear',
     );
+  }
+
+  /**
+   * A cut Thread's stub (Movement III): a few frayed strands hanging from her hand, and a lock
+   * ring there counting the lock down (`threadLock` of the cut's lock).
+   */
+  private stub(kit: FxKit, wr: ThreadFrom, lock: number): void {
+    weaverHand(wr, this.hand);
+    const hx = this.hand.x;
+    const hy = this.hand.y;
+    const hz = this.hand.z;
+    for (let s = 0; s < 3; s++) {
+      kit.ribbons.beginStrip();
+      for (let i = 0; i <= 6; i++) {
+        const t = i / 6;
+        const sway = Math.sin(this.now * 3 + s * 2.1 + t * 4) * 0.06 * t;
+        kit.ribbons.point(
+          hx + (s - 1) * 0.05 * t + sway,
+          hy - t * (0.35 + s * 0.08),
+          hz + sway * 0.5,
+          0.02 * (1 - t * 0.6),
+          this.fray,
+          0.9 * (1 - t * 0.5),
+          t,
+        );
+      }
+      kit.ribbons.endStrip();
+    }
+    this.drawnM3.stubs++;
+    const left = Math.min(1, lock / this.cutLock);
+    kit.spritesTop.push(hx, hy + 0.32, hz, 0.24, SPRITE.timer, this.fray, 0.95, 0, 1, left);
+    this.drawnM3.lockRings++;
   }
 
   /**
@@ -362,12 +454,15 @@ export class ThreadView {
     bearing: boolean,
     tension: number,
     hushed = false,
+    unravelled = false,
   ): void {
     this.now = time;
     this.visible = Math.min(1, this.visible + dt * 6);
     this.mix = approach(this.mix, toEmpower ? 1 : 0, 10, dt);
     this.bear = approach(this.bear, bearing ? 1 : 0, 8, dt);
     if (this.bear < 0.002) this.bear = 0;
+    this.inv = approach(this.inv, unravelled ? 1 : 0, 9, dt);
+    if (this.inv < 0.002) this.inv = 0;
     const B = this.bear;
     this.col.copy(C.mend).lerp(C.empower, this.mix).lerp(C.bear, B);
     // Bear's core glows warm rose, not white, so the crimson holds.
@@ -380,9 +475,17 @@ export class ThreadView {
     const look = this.lookFilament !== null;
     this.halo.copy(this.lookGlow ?? this.col).lerp(C.bear, look ? B : 0);
     this.body.copy(this.lookFilament ?? this.col).lerp(C.bear, look ? B : 0);
-    // Mend and Empower flow out to the hero; Bear's flows back to the Weaver.
-    this.flowCore += dt * (-3 + 4.4 * B);
-    this.flowHalo += dt * (-1.4 + 2.2 * B);
+    const I = this.inv;
+    if (I > 0) {
+      // Unravel: a near-black core in a lethal halo (never Bear's crimson, never Mend's teal).
+      this.body.lerp(this.unravelCore, I);
+      this.halo.lerp(C.lethal, 0.7 * I);
+      this.core.lerp(C.lethal, I);
+    }
+    // Mend and Empower flow out to the hero; Bear's flows back to the Weaver; Unravel's rushes
+    // out, faster still (forward: it is your Mend, turned).
+    this.flowCore += dt * (-3 + 4.4 * B - 3 * I);
+    this.flowHalo += dt * (-1.4 + 2.2 * B - 1.6 * I);
 
     // Endpoints: the Weaver's weaving hand → the hero's chest.
     weaverHand(wr, this.hand);
@@ -477,6 +580,7 @@ export class ThreadView {
     }
     kit.ribbons.endStrip();
     if (B > 0.02) this.bearBraid(kit, dt, len, px, pz, baseW, vis);
+    if (I > 0.02) this.unravelBarbs(kit, len, px, pz, baseW, vis * I);
     // A look's beads: the mode's colour flowing out along it (Bear has its own braid and flow).
     if (look) this.beads(kit, dt, len, baseW, vis * (1 - B));
     else this.beadsDrawn = 0;
@@ -621,6 +725,54 @@ export class ThreadView {
       );
       this.beadsDrawn++;
     }
+  }
+
+  /**
+   * Unravel (Movement III): barbs in the live lethal along the black core, angled back like hooks
+   * against the flow, and lethal beads rushing forward from her hand to the hero.
+   */
+  private unravelBarbs(
+    kit: FxKit,
+    len: number,
+    px: number,
+    pz: number,
+    baseW: number,
+    alpha: number,
+  ): void {
+    const n = Math.max(4, Math.min(14, Math.round(len / 0.7)));
+    for (let k = 1; k < n; k++) {
+      const t = k / n;
+      const i = Math.min(N, Math.round(t * N));
+      const side = k % 2 === 0 ? 1 : -1;
+      const o = 0.06 + baseW;
+      kit.sprites.push(
+        this.pts[i * 3] + px * o * side,
+        this.pts[i * 3 + 1] + 0.03,
+        this.pts[i * 3 + 2] + pz * o * side,
+        0.09,
+        SPRITE.diamond,
+        C.lethal,
+        alpha * 0.95,
+        side * 0.6,
+        1.8,
+      );
+      this.drawnM3.barbs++;
+    }
+    for (let k = 0; k < 5; k++) {
+      const t = (((-this.flowCore * 0.18 + k / 5) % 1) + 1) % 1;
+      const i = Math.min(N, Math.round(t * N));
+      kit.sprites.push(
+        this.pts[i * 3],
+        this.pts[i * 3 + 1],
+        this.pts[i * 3 + 2],
+        0.16,
+        SPRITE.glow,
+        C.lethal,
+        alpha * Math.sin(Math.PI * t),
+      );
+      this.drawnM3.unravelBeads++;
+    }
+    this.drawnM3.unravel++;
   }
 
   /** Bear: an old-gold strand braided round the crimson core, and embers dripping from it. */

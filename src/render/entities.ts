@@ -3,11 +3,29 @@ import type { ColorVision } from '../app/colorVision';
 import { CONTENT, enemyDef, heroDef } from '../content';
 import {
   bloodRageBonus,
+  possessionVictim,
+  suppressRadiusOf,
+  weaverSilenced,
   type EntityId,
   type EntityKind,
   type ReadonlyEntity,
   type WorldState,
 } from '../sim';
+import {
+  CHAMPION_ID,
+  DOOM_AT,
+  DOOM_CHIME_AT,
+  RIFT_HEX,
+  STOLEN_VERSE_ID,
+  doomPipOffset,
+  emboldenedAt,
+  emptyRiftLook,
+  hovers,
+  inPull,
+  isTetherDef,
+  riftStatuses,
+  stitchedPairs,
+} from './riftCues';
 import { BEAM } from './fx/beams';
 import { RING } from './fx/rings';
 import { SHELL } from './fx/shells';
@@ -192,9 +210,29 @@ export interface EntityRec {
   travelDur: number;
   travelFromX: number;
   travelFromZ: number;
+  /**
+   * Movement III (docs/phase-5c/vfx-audio.md). `defId`: an enemy's def ('' otherwise). `hover`:
+   * a cloth body that drifts instead of walking (the Wraith, the Null Priest, the Unweaver…).
+   * `riftGems`: its Rift affixes' crown-gem shapes (SPRITE styles; empty for every other elite).
+   * `streakAt`: when a possessed hero last lashed out (render clock).
+   */
+  defId: string;
+  hover: boolean;
+  riftGems: number[];
+  riftGemColors: THREE.Color[];
+  streakAt: number;
+  dragAcc: number;
   lastHp: number;
   alive: boolean;
 }
+
+/** The crown gem each Rift affix wears (docs/phase-5c.md, Affixes): its shape says which. */
+const RIFT_GEM: Readonly<Record<string, number>> = {
+  severing: SPRITE.scissors,
+  silencing: SPRITE.rune,
+  mimicking: SPRITE.mirror,
+  doom_touched: SPRITE.doomPip,
+};
 
 /** Rewind's preview (the Chronomancer): where the threaded hero would go back to. */
 export interface RewindGhost {
@@ -259,6 +297,17 @@ const AILMENTS = new Set([
   'stitch',
   'stitched',
 ]);
+/** Movement III's colours (riftCues.ts). */
+const POSSESS = color(RIFT_HEX.possess);
+const STITCH = color(RIFT_HEX.stitch);
+const MIRROR = color(RIFT_HEX.mirror);
+const RUNE = color(RIFT_HEX.rune);
+const SPINDLE = color(RIFT_HEX.spindle);
+const SWIRL = color(RIFT_HEX.swirl);
+/** A possessed hero lashes out every this many seconds (the sim's tick, POSSESS_TICK). */
+const LASH_EVERY = 0.5;
+/** Doom's pips sit this far above the bleed pips' arc (both may show at once). */
+export const DOOM_PIP_LIFT = 0.26;
 const GUARD = color(CRIMSON_HEX.guard);
 const PIN = color(CRIMSON_HEX.pin);
 const STAKE = color(CRIMSON_HEX.stake);
@@ -420,6 +469,51 @@ export class EntityLayer {
    * Red Frenzy's spin and swipe ring (gold-edged when Cued), Bloodletting's pips on his axe.
    */
   readonly drawn5b = { rage: 0, spin: 0, frenzy: 0, frenzyGold: 0, bloodlet: 0 };
+  /**
+   * Movement III (docs/phase-5c/vfx-audio.md), what was drawn last frame (tests, the lab): cloth
+   * bodies drifting, a Maw's pulse; possession's rim, mask, tether and streaks; Doom's pips (and
+   * those at four or more), a doomed hero's glow; sewn pairs; drag streaks in a pull; the rune
+   * lock over a silenced Weaver; Emboldened shimmers, mirror shells, Spindle tethers, the
+   * Spindles' plating, the champion's mirror Thread; Rift crown gems; the Stolen Verse's tint.
+   */
+  readonly drawnM3 = {
+    hover: 0,
+    mawPulse: 0,
+    possessRims: 0,
+    masks: 0,
+    possessTethers: 0,
+    streaks: 0,
+    doomPips: 0,
+    doomHot: 0,
+    doomed: 0,
+    sewn: 0,
+    rooted: 0,
+    drag: 0,
+    runeLock: 0,
+    emboldened: 0,
+    mirrorShells: 0,
+    spindleTethers: 0,
+    plating: 0,
+    championBeams: 0,
+    gems: 0,
+    verseTint: 0,
+  };
+  /** A hero's Rift statuses this frame (reused); the stitched pairs (id pairs, reused). */
+  private readonly m3Look = emptyRiftLook();
+  private readonly pairs: EntityId[] = [];
+  /** The stolen aura's colour this frame (null: nothing stolen), the Stolen Verse's rim. */
+  private stolenColor: THREE.Color | null = null;
+  /** Lab-only: the stolen aura's id (the Stolen Verse's tint) while the sim has none. */
+  stolenOverride: string | null = null;
+  /**
+   * This frame's Rift scene (collected as the entities are drawn): the tethered boss (an enemy
+   * with `tethered` adds; it wears the plating), the standing tether adds (Spindles), the Hollow
+   * Champions, and the boss their mirror Thread runs from.
+   */
+  private hub: EntityRec | null = null;
+  private readonly tetherRecs: EntityRec[] = [];
+  private readonly championRecs: EntityRec[] = [];
+  private champHub: EntityRec | null = null;
   /** A hero's Legion statuses this frame (reused). */
   private readonly m2Look = emptyStatusLook();
   private readonly arc = { start: 0, len: 0 };
@@ -552,8 +646,11 @@ export class EntityLayer {
     return b;
   }
 
-  private createRec(e: ReadonlyEntity): EntityRec {
+  private createRec(e: ReadonlyEntity, state: WorldState): EntityRec {
     let batch: ModelBatch;
+    const riftGems: number[] = [];
+    const riftGemColors: THREE.Color[] = [];
+    let hover = false;
     let hex = '#f5d78e';
     let accentHex = '#f5d78e';
     let role: string = e.kind;
@@ -585,12 +682,20 @@ export class EntityLayer {
       accentHex = def.accent;
       role = def.role;
       tier = e.enemy.tier;
-      suppressRadius = def.suppressRadius;
+      // The def's dome, else a Silencing affix's (Movement III): the sim's own rule. For every
+      // Movement I and II def it is `def.suppressRadius`, as before.
+      suppressRadius = suppressRadiusOf(state, e);
       quad = isQuadruped(def.id);
+      hover = hovers(def.id);
       half = def.guard ? guardHalf(def.id) : 0;
       for (const affix of e.enemy.affixes) {
         const a = CONTENT.affixes.find((x) => x.id === affix);
         if (a) affixColors.push(color(a.color));
+        const gem = RIFT_GEM[affix];
+        if (gem !== undefined && a) {
+          riftGems.push(gem);
+          riftGemColors.push(color(a.color));
+        }
       }
       affixColor = affixColors[0] ?? null;
     } else {
@@ -662,11 +767,22 @@ export class EntityLayer {
       travelDur: 0,
       travelFromX: 0,
       travelFromZ: 0,
+      defId: e.enemy?.defId ?? '',
+      hover,
+      riftGems,
+      riftGemColors,
+      streakAt: -10,
+      dragAcc: 0,
       lastHp: e.health?.hp ?? 0,
       alive: true,
     };
     this.recs.set(e.id, rec);
     return rec;
+  }
+
+  /** Lab-only: forget an entity's record, so it is read afresh (its affixes) next frame. */
+  forget(id: EntityId): void {
+    this.recs.delete(id);
   }
 
   // ── Event hooks (called by the feedback layer) ─────────────────────────────────────
@@ -972,6 +1088,18 @@ export class EntityLayer {
     m2.stakes = 0;
     m2.guardArcs = 0;
     m2.guardBroken = 0;
+    const m3 = this.drawnM3;
+    for (const k of Object.keys(m3) as (keyof typeof m3)[]) m3[k] = 0;
+    this.hub = null;
+    this.champHub = null;
+    this.tetherRecs.length = 0;
+    this.championRecs.length = 0;
+    // Steal Verse (Movement III): the stolen aura's colour, for the Stolen Verse's rim.
+    const stolen = state.field.stolen;
+    const stolenId = stolen
+      ? state.field.chords[stolen.chord]?.auras[stolen.aura]
+      : (this.stolenOverride ?? undefined);
+    this.stolenColor = stolenId ? auraColor(stolenId) : null;
     const b5 = this.drawn5b;
     b5.rage = 0;
     b5.spin = 0;
@@ -996,7 +1124,7 @@ export class EntityLayer {
 
     for (const e of state.entities.list()) {
       let rec = this.recs.get(e.id);
-      if (!rec) rec = this.createRec(e);
+      if (!rec) rec = this.createRec(e, state);
       rec.seen = this.frameNo;
       this.updateRec(rec, e, state, frame, kit, dt, threadedId, threadColor);
     }
@@ -1008,6 +1136,7 @@ export class EntityLayer {
         this.recs.delete(id);
       }
     }
+    this.riftScene(state, kit);
     this.updateGhosts(kit, dt);
     this.rewindPreview(state, dt);
     this.drawDecoy(state);
@@ -1218,6 +1347,12 @@ export class EntityLayer {
       pitch = -0.05 * moving + Math.sin(rec.walk * Math.PI * 2) * 0.07 * moving;
       roll = 0;
       this.drawnM2.quadrupeds++;
+    } else if (rec.hover) {
+      // A cloth body drifting (Movement III): it floats and sways, never a stride.
+      bob = (0.1 + 0.05 * Math.sin(clock * 1.7 + rec.id)) * (rec.height / 2);
+      pitch = -0.06 * moving;
+      roll = Math.sin(clock * 1.1 + rec.id) * 0.035;
+      this.drawnM3.hover++;
     }
     let y = bob;
     let scaleY = 1;
@@ -1263,6 +1398,25 @@ export class EntityLayer {
           ox += Math.sin(clock * 37) * 0.025 * k * k;
           this.drawnM2.lean++;
         }
+      }
+    }
+    // The Void Maw (Movement III): its mouth swells through the Inhale's tell, then gulps while
+    // its pull holds.
+    if (rec.defId === 'void_maw' && !held) {
+      const zones = state.field.zones;
+      let pulling = false;
+      if (zones)
+        for (const zn of zones) if (zn.owner === e.id && zn.kind === 'pull') pulling = true;
+      if (cast?.attackId === 'maw_inhale') {
+        const k = clamp01((time - cast.start) / Math.max(0.01, cast.end - cast.start));
+        scale *= 1 + 0.14 * k;
+        scaleY *= 1 - 0.18 * k;
+        this.drawnM3.mawPulse++;
+      } else if (pulling) {
+        const g = 0.5 + 0.5 * Math.sin(clock * 7);
+        scale *= 1.1 + 0.05 * g;
+        scaleY *= 0.85 - 0.08 * g;
+        this.drawnM3.mawPulse++;
       }
     }
     if (travelK >= 0) {
@@ -1374,7 +1528,9 @@ export class EntityLayer {
     }
     rec.y = y;
 
-    // Rim tint priority: Fermata hold > Save gold > threaded > hovered > focus > auras > affix.
+    // Rim tint priority: Fermata hold > Save gold > possessed > threaded > hovered > focus >
+    // auras > affix. A possessed hero (Movement III) wears an indigo rim over the Thread's: they
+    // are to be saved (Chime), never Focused or Empowered.
     let tintStrength = 0;
     const isHero = e.kind === 'hero';
     const auraMask = e.hero?.auraMask ?? 0;
@@ -1384,6 +1540,10 @@ export class EntityLayer {
     } else if (rec.goldRim > 0) {
       this.tint.copy(C.gold);
       tintStrength = 0.5 + rec.goldRim * 2.2;
+    } else if (isHero && h && !h.dead && hasStatus(h.statuses, 'possessed')) {
+      this.tint.copy(POSSESS);
+      tintStrength = 0.85 + 0.3 * Math.sin(this.now * 5);
+      this.drawnM3.possessRims++;
     } else if (isHero && e.id === threadedId) {
       // The beam song's colours breathe through the Thread's rim while it pours in.
       this.tint.copy(threadColor);
@@ -1404,6 +1564,11 @@ export class EntityLayer {
     } else if (isHero && auraMask !== 0) {
       this.tint.copy(this.auraTint(auraMask));
       tintStrength = 0.3;
+    } else if (rec.defId === STOLEN_VERSE_ID && this.stolenColor) {
+      // The Stolen Verse (Movement III): an orb in the stolen aura's colour.
+      this.tint.copy(this.stolenColor);
+      tintStrength = 0.95 + 0.25 * Math.sin(clock * 4);
+      this.drawnM3.verseTint++;
     } else if (rec.affixColor) {
       this.affixTint(rec, clock);
       tintStrength = 0.45 + 0.2 * Math.sin(clock * 3 + rec.id);
@@ -1416,6 +1581,17 @@ export class EntityLayer {
       tintStrength = 0.18;
     } else {
       this.tint.copy(BLACK);
+    }
+    if (
+      isEnemy &&
+      e.enemy?.emboldenedUntil !== undefined &&
+      emboldenedAt(e, time) &&
+      e.id !== state.focusTarget &&
+      e.id !== frame.hoveredEnemy
+    ) {
+      // Emboldened (Movement III): a mirror shimmer through its rim (never gold).
+      this.tint.lerp(MIRROR, 0.55 + 0.3 * Math.sin(clock * 6 + rec.id));
+      tintStrength = Math.max(tintStrength, 0.6);
     }
     if (isEnemy && rec.frost > 0.01 && e.id !== state.focusTarget && e.id !== frame.hoveredEnemy) {
       // Held by Stasis: a cold, glassy silver-blue edge.
@@ -1531,6 +1707,29 @@ export class EntityLayer {
         }
         this.drawnDis.gems += n;
       }
+      // A Rift affix (Movement III) wears a shaped gem at the crown's peak: scissors (Severing),
+      // a rune (Silencing), a mirror (Mimicking), a Doom pip (Doom-touched). Two that sit close
+      // in colour are told apart by shape, as Shielded and Volatile are.
+      const gems = rec.riftGems;
+      if (gems.length > 0 && dissolve < 0.95) {
+        const s = Math.max(0.8, rec.radius * 1.2);
+        for (let i = 0; i < gems.length; i++) {
+          const k = gems.length === 1 ? 0 : i / (gems.length - 1) - 0.5;
+          kit.sprites.push(
+            x + ox + k * 0.5 * s,
+            y + rec.height + 0.62 * s + 0.04 * Math.sin(clock * 2 + i),
+            z + oz,
+            0.2 * s,
+            gems[i]!,
+            rec.riftGemColors[i]!,
+            0.95 * (1 - dissolve),
+            0,
+            1,
+            1,
+          );
+        }
+        this.drawnM3.gems += gems.length;
+      }
     }
 
     if (isHero) this.heroExtras(rec, e, state, frame, kit, dt, threadedId, threadColor);
@@ -1539,6 +1738,7 @@ export class EntityLayer {
     if (h) this.shields(rec, e, state, kit);
     if (h) this.ailments(rec, e, kit, dt);
     if (h && h.statuses.length > 0 && !h.dead) this.crimson(rec, e, kit, dt);
+    if (h && !h.dead) this.rift(rec, e, state, kit, dt);
     if (h) rec.lastHp = h.hp;
   }
 
@@ -2375,6 +2575,26 @@ export class EntityLayer {
             rec.id,
           );
           break;
+        case 'mirror':
+          // A Ward copied onto an enemy (Movement III): the Ward's hexes inside out, in mirror
+          // silver, never Ward's pale cyan: it is not yours.
+          kit.shells.push(
+            x,
+            hh * 0.5 + rec.y,
+            z,
+            r * 1.65 * sc,
+            hh * 0.64 * sc,
+            r * 1.65 * sc,
+            SHELL.mirrorWard,
+            MIRROR,
+            0.95 * fade,
+            crack,
+            pop,
+            false,
+            rec.id,
+          );
+          this.drawnM3.mirrorShells++;
+          break;
       }
     }
   }
@@ -2483,6 +2703,263 @@ export class EntityLayer {
       kit.rings.push(x, 0.035, z, rec.radius * 1.6, 0.1, 0.18, RING.plain, PIN, 0.9);
       kit.rings.push(x, 0.036, z, rec.radius * 2.0, 0.05, 0.08, RING.dashed, PIN, 0.6, 0, 7, 0, 8);
       this.drawnM2.stakes++;
+    }
+  }
+
+  /**
+   * Movement III on one entity (docs/phase-5c/vfx-audio.md). A possessed hero: a cracked mask
+   * over the head, a dashed indigo tether from its Wraith, a lash streaking toward the ally it
+   * strikes. Doom: five pips on the bleed arc filling as it stacks, lethal from four. Doomed: a
+   * lethal glow. Stitched: a cross-stitched ring at the feet (the pair's sewn tether is drawn
+   * once, in `riftScene`). In a pull: drag streaks toward its centre. The Weaver in a rune: a rune
+   * lock over her head. An enemy: Emboldened's mirror shimmer, the Spindles' plating, and it is
+   * collected for the scene (Spindles, champions). Every read is absent before Movement III.
+   */
+  private rift(rec: EntityRec, e: ReadonlyEntity, state: WorldState, kit: FxKit, dt: number): void {
+    const x = rec.x;
+    const z = rec.z;
+    const top = rec.height + rec.y;
+    const enemy = e.enemy;
+    if (enemy) {
+      if (isTetherDef(rec.defId)) this.tetherRecs.push(rec);
+      else if (rec.defId === CHAMPION_ID) this.championRecs.push(rec);
+      if (rec.role === 'boss') this.champHub = rec;
+      if (enemy.tethered !== undefined && enemy.tethered > 0) {
+        // The Spindles' plating: the boss takes far less while they stand.
+        this.hub = rec;
+        kit.shells.push(
+          x,
+          rec.height * 0.5 + rec.y,
+          z,
+          rec.radius * 1.5,
+          rec.height * 0.6,
+          rec.radius * 1.5,
+          SHELL.mirrorWard,
+          SPINDLE,
+          0.75,
+          0,
+          0,
+          false,
+          rec.id,
+        );
+        this.drawnM3.plating++;
+      }
+      if (enemy.emboldenedUntil !== undefined && emboldenedAt(e, state.time)) {
+        for (let i = 0; i < 3; i++) {
+          const a = this.now * 2.2 + (i * Math.PI * 2) / 3;
+          kit.sprites.push(
+            x + Math.cos(a) * rec.radius * 1.1,
+            rec.height * (0.4 + 0.25 * Math.sin(a * 1.3)) + rec.y,
+            z + Math.sin(a) * rec.radius * 1.1,
+            0.16,
+            SPRITE.mirror,
+            MIRROR,
+            0.75,
+          );
+        }
+        this.drawnM3.emboldened++;
+      }
+      return;
+    }
+    // A pull (the Void Maw's Inhale) drags whoever stands in it: streaks toward its centre.
+    const zones = state.field.zones;
+    if (zones) {
+      const zi = inPull(zones, x, z);
+      if (zi >= 0 && !e.health?.downed) {
+        const zn = zones[zi]!;
+        const dx = zn.x - x;
+        const dz = zn.z - z;
+        const d = Math.hypot(dx, dz) || 1;
+        rec.dragAcc += dt * 14 * kit.particles.density;
+        while (rec.dragAcc > 1) {
+          rec.dragAcc -= 1;
+          const side = (Math.random() - 0.5) * rec.radius * 1.6;
+          kit.particles.emit(
+            x - (dz / d) * side,
+            0.2 + Math.random() * rec.height * 0.7,
+            z + (dx / d) * side,
+            (dx / d) * 3.2,
+            0,
+            (dz / d) * 3.2,
+            0.35,
+            0.09,
+            SWIRL,
+            0.85,
+            PARTICLE.spark,
+            0.4,
+            0,
+          );
+        }
+        this.drawnM3.drag++;
+      }
+      if (e.kind === 'weaver' && weaverSilenced(state)) {
+        // Silenced in a rune: a rune lock over her head (Ward, Chime and Reel are refused).
+        kit.spritesTop.push(
+          x,
+          top + 0.75 + 0.05 * Math.sin(this.now * 3),
+          z,
+          0.3,
+          SPRITE.rune,
+          RUNE,
+          0.95,
+        );
+        this.drawnM3.runeLock++;
+      }
+    }
+    const h = e.health!;
+    if (h.statuses.length === 0) return;
+    const look = this.m3Look;
+    if (!riftStatuses(e, look)) return;
+    if (look.possessed) {
+      kit.sprites.push(
+        x + rec.radius + 0.2,
+        top + PIP_LIFT + 0.2 + Math.sin(this.now * 2.6) * 0.04,
+        z,
+        0.28,
+        SPRITE.mask,
+        POSSESS,
+        0.95,
+      );
+      this.drawnM3.masks++;
+      const src = look.possessedBy >= 0 ? this.recs.get(look.possessedBy) : undefined;
+      if (src && src.dying < 0) {
+        const ay = src.height * 0.6 + src.y;
+        const by = rec.height * 0.6 + rec.y;
+        kit.beams.push(src.x, ay, src.z, x, by, z, 0.12, BEAM.dashed, POSSESS, 0.9, 1, 1, -2.4);
+        kit.beams.push(src.x, ay, src.z, x, by, z, 0.4, BEAM.glow, POSSESS, 0.3);
+        this.drawnM3.possessTethers++;
+      }
+      // The lash toward the ally it strikes (the sim's own victim rule), every tick.
+      const victim = possessionVictim(state, e);
+      const vr = victim === null ? undefined : this.recs.get(victim);
+      if (vr) {
+        if (this.now - rec.streakAt >= LASH_EVERY) rec.streakAt = this.now;
+        const t = clamp01((this.now - rec.streakAt) / 0.25);
+        if (t < 1) {
+          this.tmpColor.copy(POSSESS).lerp(C.white, 0.35);
+          kit.beams.push(
+            x,
+            rec.height * 0.55 + rec.y,
+            z,
+            vr.x,
+            vr.height * 0.55 + vr.y,
+            vr.z,
+            0.22,
+            BEAM.lance,
+            this.tmpColor,
+            0.9 * (1 - t * 0.5),
+            t,
+            0.4,
+          );
+          this.drawnM3.streaks++;
+        }
+      }
+    }
+    if (look.doom > 0) {
+      const n = Math.min(look.doom, DOOM_AT);
+      const hot = look.doom >= DOOM_CHIME_AT;
+      const pulse = hot ? 0.7 + 0.3 * Math.sin(this.now * 9) : 0;
+      this.tmpColor.copy(hot ? C.lethal : C.ailment);
+      for (let i = 0; i < DOOM_AT; i++) {
+        doomPipOffset(i, this.pip);
+        kit.sprites.push(
+          x + this.pip.x,
+          top + PIP_LIFT + DOOM_PIP_LIFT + this.pip.y,
+          z,
+          hot ? 0.14 : 0.12,
+          SPRITE.doomPip,
+          this.tmpColor,
+          i < n ? 1 : 0.55,
+          0,
+          1,
+          i < n ? 1 : 0,
+        );
+      }
+      this.drawnM3.doomPips += n;
+      if (hot) {
+        kit.sprites.push(
+          x,
+          top + PIP_LIFT + DOOM_PIP_LIFT,
+          z,
+          0.6,
+          SPRITE.glow,
+          C.lethal,
+          0.3 * pulse,
+        );
+        this.drawnM3.doomHot++;
+      }
+    }
+    if (look.doomed) {
+      const pulse = 0.6 + 0.4 * Math.sin(this.now * 12);
+      kit.sprites.push(
+        x,
+        rec.height * 0.55 + rec.y,
+        z,
+        rec.radius * 2.6,
+        SPRITE.glow,
+        C.lethal,
+        0.3 * pulse,
+      );
+      this.drawnM3.doomed++;
+    }
+    if (look.stitched) {
+      kit.rings.push(
+        x,
+        0.036,
+        z,
+        rec.radius * 1.7,
+        0.09,
+        0.16,
+        RING.dashed,
+        STITCH,
+        0.85,
+        0,
+        7,
+        0,
+        10,
+      );
+      this.drawnM3.rooted++;
+    }
+  }
+
+  /**
+   * Movement III across entities, once a frame: the sewn tether between a stitched pair (the
+   * heroes stitched by the same source), the Spindles' tethers to the boss they shield, and the
+   * mirror Thread from the Unweaver to its Hollow Champion.
+   */
+  private riftScene(state: WorldState, kit: FxKit): void {
+    const n = stitchedPairs(state, this.pairs);
+    for (let i = 0; i < n; i++) {
+      const a = this.recs.get(this.pairs[i * 2]!);
+      const b = this.recs.get(this.pairs[i * 2 + 1]!);
+      if (!a || !b) continue;
+      const ay = a.height * 0.45 + a.y;
+      const by = b.height * 0.45 + b.y;
+      kit.beams.push(a.x, ay, a.z, b.x, by, b.z, 0.34, BEAM.stitch, STITCH, 0.95, 1, 1, 0.4);
+      kit.beams.push(a.x, ay, a.z, b.x, by, b.z, 0.7, BEAM.glow, STITCH, 0.22);
+      this.drawnM3.sewn++;
+    }
+    const hub = this.hub;
+    if (hub) {
+      for (const s of this.tetherRecs) {
+        if (s.dying >= 0) continue;
+        const sy = s.height * 0.85 + s.y;
+        const hy = hub.height * 0.6 + hub.y;
+        kit.beams.push(s.x, sy, s.z, hub.x, hy, hub.z, 0.14, BEAM.dashed, SPINDLE, 0.85, 1, 1, 1.6);
+        kit.beams.push(s.x, sy, s.z, hub.x, hy, hub.z, 0.45, BEAM.glow, SPINDLE, 0.25);
+        this.drawnM3.spindleTethers++;
+      }
+    }
+    const boss = this.champHub;
+    if (boss && boss.dying < 0) {
+      for (const c of this.championRecs) {
+        if (c.dying >= 0) continue;
+        const by = boss.height * 0.7 + boss.y;
+        const cy = c.height * 0.6 + c.y;
+        kit.beams.push(boss.x, by, boss.z, c.x, cy, c.z, 0.16, BEAM.lance, MIRROR, 0.75);
+        kit.beams.push(boss.x, by, boss.z, c.x, cy, c.z, 0.6, BEAM.glow, MIRROR, 0.3);
+        this.drawnM3.championBeams++;
+      }
     }
   }
 
