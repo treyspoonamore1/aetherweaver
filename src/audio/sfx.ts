@@ -72,6 +72,10 @@ export const RELIC_SOUND_GROUPS: Readonly<Record<string, string>> = {
   tuning_fork: 'relic:fork',
   glass_halo: 'relic:halo',
   cantors_hymnal: 'relic:hymnal',
+  // Phase 5c, the Rift's relics (they sleep outside Movement III, so they only sound there).
+  sacrificial_lamb: 'relic:lamb',
+  knotted_cord: 'relic:cord',
+  stillwater_bell: 'relic:stillbell',
 };
 
 /**
@@ -1673,6 +1677,48 @@ export class SfxEngine {
           choirChord(v, t, [50, 57, 62, 65].map(midiToHz), 0.6, 0.16, 0.1, 0.9);
           handbell(v, t, midiToHz(74), 0.05, 1.4, 0.5);
           handbell(v, t + 0.06, midiToHz(81), 0.035, 1.4, 0.5);
+        });
+        break;
+      }
+      case 'sacrificial_lamb': {
+        // Another takes the killing blow: a low bell under a soft choir fall, the blow muffled.
+        if (!e.gate(group, 1)) return;
+        this.play(
+          group,
+          1,
+          'sfx',
+          (v, t) => {
+            handbell(v, t, midiToHz(57), 0.07, 2.4, 0.4);
+            choirChord(v, t + 0.04, [62, 57, 53].map(midiToHz), 0.8, 0.09, 0.12, 1);
+            thump(v, t + 0.1, 60, 0.18, 0.3, 0.45);
+          },
+          { pan, big: true },
+        );
+        break;
+      }
+      case 'knotted_cord': {
+        // The cut is knotted short: two taut plucks a fourth apart, close together.
+        if (!e.gate(group, 0.5)) return;
+        const f = midiToHz(this.rootAbove(c, 62));
+        this.play(
+          group,
+          1,
+          'sfx',
+          (v, t) => {
+            pluck(v, t, f, 0.05, 0.4, 0.25);
+            pluck(v, t + 0.07, f * 1.335, 0.045, 0.5, 0.3);
+          },
+          { pan },
+        );
+        break;
+      }
+      case 'stillwater_bell': {
+        // The Chime's price comes back: one still bell on the chord's root, ringing level.
+        if (!e.gate(group, 0.5)) return;
+        const f = midiToHz(this.rootAbove(c, 74));
+        this.play(group, 1, 'sfx', (v, t) => {
+          handbell(v, t, f, 0.045, 2.6, 0.5);
+          glassNote(v, t + 0.04, f * 2, 0.015, 1.2, 1);
         });
         break;
       }

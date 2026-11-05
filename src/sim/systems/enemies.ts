@@ -39,7 +39,7 @@ import { newHealth } from '../world';
 import { enemyFx, hasAura } from '../combat/auras';
 import { approachVelocity, arrive } from './steering';
 import { bossScript } from './bossScripts';
-import { cutThread } from './thread';
+import { severingHit } from './thread';
 import {
   enemyDamageMult,
   mimicBeneficiary,
@@ -52,9 +52,7 @@ import {
   MIMIC_EMPOWER_TIME,
   MIMIC_WARD_PCT,
   MIMIC_WARD_TIME,
-  SEVER_EVERY,
 } from '../../content/unstitched';
-import { segmentDistSq } from '../core/dmath';
 
 /** Normal enemies may have at most this many telegraphs up at once (readability cap). */
 const READABILITY_CAP = 2;
@@ -195,30 +193,14 @@ export function ensureM3(world: World): NonNullable<World['internal']['m3']> {
 }
 
 /**
- * Severing (docs/phase-5c.md): a blow a Severing elite lands (melee, bolt or telegraph) while the
- * Thread passes within its affix's `cut.radius` plus its own radius cuts the Thread, at most once
- * every `SEVER_EVERY` s per elite (`m3.severAt`). With no Thread (or one out of reach) nothing
- * happens and nothing is spent.
+ * Severing (docs/phase-5c.md): a blow a Severing elite lands (melee or telegraph here, bolts in
+ * systems/hits.ts) may cut the Thread. One routine for every kind of hit, `severingHit` in
+ * systems/thread.ts: the reach (the affix's `cut.radius` plus the elite's own radius), the
+ * once-every-`SEVER_EVERY`-s clock in `m3.severAt` (spent only when there was a Thread to cut),
+ * and the `strandBlocked` a cut Guard Strand turns aside draws.
  */
 export function severOnHit(world: World, e: Entity): void {
-  const c = e.enemy;
-  if (!c || c.affixes.length === 0) return;
-  let cut: { radius: number; lock: number } | undefined;
-  for (const id of c.affixes) {
-    cut = world.content.affixes.find((a) => a.id === id)?.cut;
-    if (cut) break;
-  }
-  if (!cut) return;
-  const seg = threadSegment(world);
-  if (!seg) return;
-  const reach = cut.radius + e.radius;
-  if (segmentDistSq(e.x, e.z, e.x, e.z, seg.ax, seg.az, seg.bx, seg.bz) > reach * reach) return;
-  const m3 = ensureM3(world);
-  const severAt = (m3.severAt ??= {});
-  const at = severAt[e.id];
-  if (at !== undefined && world.time < at - 1e-9) return;
-  severAt[e.id] = world.time + SEVER_EVERY;
-  cutThread(world, 'severing', cut.lock, e.id);
+  severingHit(world, e);
 }
 
 /** A new guard faces the Weaver (or the arena's centre without one). */

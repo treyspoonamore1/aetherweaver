@@ -2,8 +2,8 @@
 
 Movement III (see [Phase 5c](../phase-5c.md)) takes the run down into the **Abyssal Rift**. This
 page covers how it looks: the Rift's arenas, the Unstitched bodies, and every cut, zone, status,
-mirror and boss cue. The audio half (the Abyss voicing, the Unweaver's stems, the Unstitched
-sounds) is W7's, under [Audio](#audio).
+mirror and boss cue. How it sounds (the Abyss voicing, the Unweaver's stems, the Unstitched
+sounds) is under [Audio](#audio).
 
 **What it reads.** Render reads only the contract's state and events (docs/phase-5c.md,
 contracts): `ArenaDef.biome`; `EnemyDef.material` and `tether`; `AttackDef.cut`, `zone`,
@@ -201,8 +201,9 @@ set; the four affix colours; every hero against the Movement III environment.
 
 ## Known gaps
 
-- Render reads the contract; until W1, W2 and W3 land, the sim doesn't produce cuts, zones,
-  possession, Doom, stitches, mirrors, Unravel or Steal Verse, and the lab stands in for them.
+- The lab still stands in for what a scenario's own fight hasn't produced yet
+  (`unstitchedStats().standIns` lists each); with the sim merged, the stand-ins should come back
+  empty for every scenario the sim plays out, which is a check for the browser lab.
 - The Mimic's copied glyph rides the cast's badge over its beneficiary; the cast bar's own icon
   is the HUD's (W8).
 - A Pedal Point stake inside a rune keeps singing (the rune never touches auras); its edge is not
@@ -210,4 +211,108 @@ set; the four affix colours; every hero against the Movement III environment.
 
 ## Audio
 
-W7's half (the Abyss voicing, the Unweaver's stems, the Unstitched sounds).
+**What it reads.** Audio reads the same contract as render: `ArenaDef.biome` (through the
+director's `setBiome`); the telegraph's `attackId`; the statuses `possessed`, `doom` (its
+`stacks`), `doomed` and `stitched` on `statusApplied`; `field.stolen` and `field.unravel` (the
+stems); `enemy.mimic.copy` at `telegraphStarted` (the Mimic's cast); and the events
+`threadSnapped.cause` / `lock`, `cutResolved` (`strand`), `strandBlocked`, `zoneStarted` /
+`zoneEnded`, `possessed`, `freed`, `mirrorCracked`, `verseStolen`, `verseReturned`,
+`unravelled`, `mirrorWard`, `spindled`, `tethered`, `techniqueRejected` (reason `silenced`) and
+`relicTriggered` for the three Rift relics. Nothing is in `src/sim`.
+
+**What it leaves alone.** The Sunlit Reliquary and the Crimson Spire sound exactly as before:
+`tests/audioSpireSnapshot.test.ts` (W0a) pins their every mood, every Movement I and II fight and
+every sound-board button, and `tests/audioPhase5c.test.ts` checks a sample of the same table and
+that no Movement I or II fight plays a Phase 5c sound. Fermata's `hold()` is untouched: the Grand
+Silence belongs to the Finale.
+
+### What changed
+
+| File | Phase 5c work |
+| --- | --- |
+| `theory.ts` | `PROGRESSION_ABYSS` (Dsus2–Em7–Bø7–Am7, twice), `PROGRESSION_ABYSS_BOSS` (the open tonic held, the half-diminished pulled at twice) and `MELODY_ABYSS`, all in D dorian at 88 BPM. |
+| `music.ts` | A per-biome voicing table (`BiomeVoicing`: progressions, pad cutoffs, pad, choir, a per-step pulse, melody and ambience, stem rules) replaces the Spire's getter and `progressionFor(mood, crimson)`. The Spire's row is its Phase 5a voicing, call for call; the Reliquary is the default and has no row. `VOICED_BIOMES` and `voicedBiome()`: a biome with no voicing (a later slice's) is voiced as the Reliquary. `ABYSS_CUT`; the Rift's pad, pulse, melody, choir and ambience; the Unweaver's stems and the Seamstress's pickup. `MusicInputs` gains optional `stolen` and `unravel`. |
+| `director.ts` | `setBiome` takes any `Biome` and voices it through `voicedBiome()`. |
+| `sfx.ts` | `UNSTITCHED_SOUND_GROUPS`, `UNSTITCHED_SOUND_LIMITS` and `UNSTITCHED_ATTACK_SOUNDS` (the Legion pattern); the cut by cause; Guard Strand's ping; the Rift's status voices; the zone drones; the 'silenced' refusal; the Mimic's copy and crack; the boss sounds; the cloth kill; the wind styles `taut` and `invert`; the three Rift relics in `RELIC_SOUND_GROUPS`. |
+| `types.ts` | Doc comments only. |
+| `lab/AudioLab.tsx`, `lab/soundBoard.ts`, `lab/offline.ts` | An Abyssal Rift biome row, a boss-phase selector with mini-boss, verse-stolen and Unravel toggles, `ABYSS_AUDITS` in the mood audit and `window.__audioLab.pitchAbyss()`, `renderMood` scenes, an `unstitched` sound group with a cloth kill per enemy, and a button per Rift relic. |
+| `tests/audioPhase5c.test.ts` (new) | Tests (below). |
+
+### The Abyss
+
+D dorian at 88 BPM, as everywhere, so a biome change lands on the next bar and nothing retunes.
+
+- **Progressions.** The map and the fights loop Dsus2–Em7–Bø7–Am7: open and suspended (no third
+  on the tonic), with the dorian's own half-diminished in the middle. The boss loop holds the
+  open tonic and pulls at the half-diminished twice, with no rest.
+- **Pad.** A glass harmonica, its cutoffs a touch brighter than the Spire's (`ABYSS_CUT`: map
+  1100 Hz, calm 1200, combat 1500, boss 900).
+- **Pulse.** Needle ticks tuned to the key, on D6 and A5, over a soft thud on D2 and A1 (the
+  Spire's tom pitches).
+- **Melody.** `MELODY_ABYSS` on a detuned plucked string, picking at the chord's open fifths and
+  seconds, with long gaps for the needle ticks.
+- **Choir.** A thin, high choir on the choir stem.
+- **Ambience.** A void-wind bed with distant tearing (a fixed sequence, so it is deterministic in
+  the offline renders), on the ambience bus and only in the Rift's moods.
+
+### The Unweaver's and the Seamstress's stems
+
+On `bossPhase` and `apex`, read from `field.stolen` / `field.unravel` or from their events (the
+lab, which has no `field.stolen`, drives them through the events):
+
+- **Steal Verse (phase 2).** The choir stem drops while a verse is stolen, and a change re-levels
+  on the next beat; it comes back with the verse (`verseReturned`), and never outlasts the
+  theft's `until`.
+- **Unravel (phase 2 or later).** The melody mirrors about D while the window is open. D dorian is
+  its own inversion about D (`mirrorIndex`), so every note stays in key.
+- **Mirror Weave (phase 3).** A mirror canon: each melody note is answered by its mirror.
+- **The Seamstress (phase 2).** A pickup of needles (D6, E6, F6) into each bar.
+
+### Sounds
+
+Every group is rate-gated and voice-capped (`UNSTITCHED_SOUND_LIMITS`); pitched sounds sit in D
+dorian.
+
+| Moment | Sound | Read from |
+| --- | --- | --- |
+| A cut | Shears and Severing: a shear's 'shhk' and the Thread's cut; the Snip: great shears and a cut chord; the Unpick: a ripple of snaps. The range snap keeps its own sound. | `threadSnapped.cause` (none: the range snap) |
+| Guard Strand | A silk ping. | `cutResolved` `strand`, `strandBlocked` |
+| The Shears' dash | A dash on its resolution. | `telegraphResolved` of `shears_dash` |
+| The Void Maw | An inhale whoosh on its tell and a gated sub drone kept per zone, stopped by `zoneEnded` or the fight's end. | `zoneStarted` / `zoneEnded` (by zone id) |
+| The Null rune | A hum for the zone; a refused technique inside it gets a muffled thud of its own, distinct from the cooldown buzz. | `zoneStarted`, `techniqueRejected` `silenced` (only a rune refuses with it) |
+| The Doubt Wraith | A whisper swell across its cast; the possession on the E–F and B–C half-steps; freed by glass (a Chime) or a thread's snap (a Reel). | `wraith_doubt`, `possessed`, `freed` |
+| The Mimic | Your own technique sound played back mirrored (Ward, Chime or Empower), then a shatter on a crack. | `enemy.mimic.copy` at `telegraphStarted`, `mirrorCracked` |
+| The Seamstress | A needle patter (Needle Rain and the Unpick's rain); the Stitch pulled tight. | `seamstress_needles*`, `seamstress_unpick_rain`, `stitched` |
+| Doom | A rising tick per stack, then the ignition of the mark. | `statusApplied` `doom` (`stacks`), `doomed` |
+| The Unweaver | The Spindles' drone (restarted by a hit once it has run out) and their plating; Steal Verse and the verse's return; Unravel's inversion; the mirror-glass Ward. | `tethered`, `spindled`, `verseStolen`, `verseReturned`, `unravelled`, `mirrorWard` |
+| A cloth kill | A tearing noise sweep by size (`kill:cloth:swarm`, `brute`, `miniboss`, `boss`). | `enemyKilled` of a `cloth` enemy |
+| Wind styles | `taut` for a telegraph whose first answer is `thread` (Retarget), `invert` for `empower`, each with its own Stasis resume; Blind Score still gives the swell. | `answers[0]` |
+| The Rift relics | Sacrificial Lamb: a low bell under a soft choir fall; Knotted Cord: two taut plucks a fourth apart; Stillwater Bell: one still bell on the chord's root. | `relicTriggered` (`sacrificial_lamb`, `knotted_cord`, `stillwater_bell`) |
+
+A `statusRemoved` 'freed' for a Movement III status (possessed, stitched, doom, doomed) no longer
+plays the Legion's chain-snap, because the `freed` event voices it; Movement I and II statuses
+are unchanged. Voided and doubt have no voice of their own: the Maw's drone and the Wraith's
+whisper cover them.
+
+### Tests
+
+`tests/audioPhase5c.test.ts`:
+
+- the Rift in content and in the voicing table, an unknown biome voiced as the Reliquary, D dorian
+  at 88 BPM, its progressions, and the stems 94–100% in key in every mood and each of the
+  Unweaver's phases;
+- the Rift sounds unlike the Reliquary and the Spire, and its ambience plays only in its moods;
+- Steal Verse's choir drop (from the event and from `field.stolen`), Unravel's mirror, the phase-3
+  canon, the Seamstress's pickup, and Fermata's `hold()` untouched;
+- the Reliquary and the Spire equal to the W0a snapshot;
+- every Unstitched group voiced within its cap and rate-limited, the lab's group, attack sounds
+  only on Unstitched attacks, pitched sounds in key, cloth kills, the cut by cause and the range
+  snap unchanged, the 'silenced' refusal distinct, the wind styles, the Mimic's copies, a zone's
+  drone stopping with its zone, and the Spindle drone's restart;
+- no Movement I or II fight plays a Phase 5c sound.
+
+`tests/audioPhase3b.test.ts` covers the three Rift relics with the other relic sounds (every relic
+the sim emits in `relicTriggered` has a group and a lab button).
+
+The Rift's levels can be audited in the browser with `window.__audioLab.pitchAbyss()` and the
+mood audit's 'abyss …' rows.

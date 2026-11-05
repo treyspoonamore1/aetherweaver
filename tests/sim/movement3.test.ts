@@ -5,13 +5,14 @@
  * the Rift relics sleeping outside a Movement III fight.
  */
 import { describe, expect, it } from 'vitest';
-import { CONTENT, heroDef } from '../../src/content';
+import { attackDef, CONTENT, heroDef } from '../../src/content';
 import type { Command, Sim, SimConfig, SimEvent } from '../../src/sim';
 import { createSim } from '../../src/sim';
 import { addStatus, dealDamage, hasStatus } from '../../src/sim/combat/health';
 import { auraBit } from '../../src/sim/combat/auras';
 import type { Entity } from '../../src/sim/state';
 import { canCall, tendCall } from '../../src/sim/systems/calls';
+import { beginAttack } from '../../src/sim/systems/enemies';
 import { underMuteDome } from '../../src/sim/systems/field';
 import { updatePendingHits } from '../../src/sim/systems/hits';
 import { castReel, cue } from '../../src/sim/systems/techniques';
@@ -185,6 +186,11 @@ describe('cutThread: an enemy cuts the Thread', () => {
     expect(wv.resonance - before).toBeCloseTo(10 * w.mods.resonanceMult, 9);
     const events = sim.drainEvents();
     expect(ofType(events, 'threadSnapped')[0]).toMatchObject({ cause: 'snip', lock: 1.5 });
+    // It acted, so the view hears it (its sound, W7).
+    expect(ofType(events, 'relicTriggered')).toEqual([
+      expect.objectContaining({ relic: 'knotted_cord', hero: heroAt(w, 0).id }),
+    ]);
+    expect(w.relics.triggers['knotted_cord']).toBe(1);
   });
 });
 
@@ -682,6 +688,11 @@ describe('Stillwater Bell', () => {
     expect(ofType(freed.events, 'freed')).toEqual([
       expect.objectContaining({ status: 'possessed', by: 'chime' }),
     ]);
+    // The refund is heard; a Chime that frees nobody refunds nothing and is silent.
+    expect(ofType(freed.events, 'relicTriggered')).toEqual([
+      expect.objectContaining({ relic: 'stillwater_bell', hero: null }),
+    ]);
+    expect(ofType(plain.events, 'relicTriggered')).toEqual([]);
   });
 
   it('half of what the Chime really cost: a Chime cast in Stasis refunds half its Stasis price', () => {
@@ -760,5 +771,114 @@ describe('the Rift relics sleep outside a Movement III fight', () => {
       stillwaterRefund: 0.5,
       guardStrand: CONTENT.motifs.find((m) => m.id === 'guard_strand')!.values[2],
     });
+  });
+});
+
+/**
+ * Integration (W1 × W2): the enemy side's cut verdict (telegraphs.ts) against the Weaver side's
+ * real cutThread, with nothing mocked, and the silence in a down's readyTechniques (health.ts).
+ */
+describe('the cut verdict, end to end', () => {
+  /** Weaver at (0, 0), Lyra threaded at (0, 10), everyone held still; a Shears at (6, 5). */
+  function setup() {
+    const sim = sandbox();
+    const w = worldOf(sim);
+    place(weaverEntity(w), 0, 0);
+    place(heroAt(w, 0), 8, 4);
+    place(heroAt(w, 1), 0, 10);
+    place(heroAt(w, 2), -8, 4);
+    for (let s = 0; s < 3; s++) {
+      addStatus(w, heroAt(w, s), 'stun', 1e6, null);
+      heroAt(w, s).health!.hp = heroAt(w, s).health!.maxHp = 1e6;
+    }
+    thread(sim, 1);
+    const shears = enemyOf(sim, 'shears', 6, 5);
+    shears.enemy!.attackCooldown = 1e6;
+    shears.enemy!.specialCooldowns = shears.enemy!.specialCooldowns.map(() => 1e6);
+    sim.drainEvents();
+    return { sim, w, shears };
+  }
+
+  function dash(sim: Sim, w: World, shears: Entity) {
+    expect(beginAttack(w, shears, attackDef('shears_dash'), null)).toBe(true);
+    const t = w.telegraphs.at(-1)!;
+    return { t, resolve: () => stepUntilEnded(sim, t.id) };
+  }
+
+  function stepUntilEnded(sim: Sim, id: number): SimEvent[] {
+    const out: SimEvent[] = [];
+    for (let i = 0; i < 60 * 5; i++) {
+      const ev = stepFor(sim, 1);
+      out.push(...ev);
+      if (ev.some((e) => e.type === 'telegraphEnded' && e.telegraph === id)) break;
+    }
+    return out;
+  }
+
+  it('a dash whose line crosses the Thread when it lands cuts it: one verdict, one snap', () => {
+    const { sim, w, shears } = setup();
+    const { t, resolve } = dash(sim, w, shears);
+    const events = resolve();
+    expect(ofType(events, 'cutResolved')).toEqual([
+      expect.objectContaining({ telegraph: t.id, cause: 'shears', result: 'cut' }),
+    ]);
+    expect(ofType(events, 'threadSnapped')).toEqual([
+      expect.objectContaining({ target: heroAt(w, 1).id, cause: 'shears', by: shears.id }),
+    ]);
+    expect(weaverEntity(w).weaver!.threadSlot).toBeNull();
+  });
+
+  it('a cut needs a crossing at resolution: a Thread moved off the line is held', () => {
+    const { sim, w, shears } = setup();
+    const { t, resolve } = dash(sim, w, shears);
+    // Both ends of the Thread below the line (z = 5) before it lands.
+    place(heroAt(w, 1), 0, 2);
+    const events = resolve();
+    expect(ofType(events, 'cutResolved')).toEqual([
+      expect.objectContaining({ telegraph: t.id, cause: 'shears', result: 'held' }),
+    ]);
+    expect(ofType(events, 'threadSnapped')).toEqual([]);
+    expect(weaverEntity(w).weaver!.threadSlot).toBe(1);
+  });
+
+  it('Guard Strand turns the dash aside: the verdict is strand and the Thread holds', () => {
+    // Guard Strand sleeps outside a Movement III fight.
+    const sim = rift({ motifs: [{ id: 'guard_strand', level: 1 }] });
+    const w = worldOf(sim);
+    expect(w.mods.guardStrand).toBeGreaterThan(0);
+    place(weaverEntity(w), 0, 0);
+    place(heroAt(w, 1), 0, 10);
+    for (let s = 0; s < 3; s++) addStatus(w, heroAt(w, s), 'stun', 1e6, null);
+    heroAt(w, 1).health!.hp = heroAt(w, 1).health!.maxHp = 1e6;
+    thread(sim, 1);
+    const shears = enemyOf(sim, 'shears', 6, 5);
+    shears.enemy!.attackCooldown = 1e6;
+    shears.enemy!.specialCooldowns = shears.enemy!.specialCooldowns.map(() => 1e6);
+    const { t, resolve } = dash(sim, w, shears);
+    const events = resolve();
+    expect(ofType(events, 'cutResolved')).toEqual([
+      expect.objectContaining({ telegraph: t.id, result: 'strand' }),
+    ]);
+    expect(ofType(events, 'threadSnapped')).toEqual([]);
+    expect(weaverEntity(w).weaver!.threadSlot).toBe(1);
+  });
+
+  it('a hero who goes down inside a Null rune had none of Ward, Chime or Reel ready', () => {
+    const readyAtDown = (runed: boolean) => {
+      const sim = sandbox();
+      const w = worldOf(sim);
+      const owner = enemyOf(sim);
+      const weaver = weaverEntity(w);
+      if (runed)
+        w.field.zones = [
+          { id: 99, kind: 'null', owner: owner.id, x: weaver.x, z: weaver.z, r: 5, until: 1e9 },
+        ];
+      const kael = heroAt(w, 0);
+      dealDamage(w, kael, { source: owner.id, sourceName: 'test', amount: 1e6, telegraph: null });
+      expect(kael.health!.downed).toBe(true);
+      return w.ledger.deaths.find((d) => d.hero === kael.id)!.readyTechniques;
+    };
+    expect(readyAtDown(false)).toEqual(expect.arrayContaining(['ward', 'chime', 'reel']));
+    expect(readyAtDown(true)).toEqual([]);
   });
 });

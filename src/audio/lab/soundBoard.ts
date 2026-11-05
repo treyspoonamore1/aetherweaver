@@ -1513,6 +1513,10 @@ export const SOUNDS: SoundButton[] = [
       ['tuning_fork', 'Tuning Fork (+ Perfect Ward)', 'kael', true],
       ['glass_halo', 'Glass Halo (+ Perfect Ward)', 'kael', true],
       ['cantors_hymnal', "Cantor's Hymnal (fight opens)", null, false],
+      // Phase 5c: the Rift's relics (awake only in Movement III fights).
+      ['sacrificial_lamb', 'Sacrificial Lamb (another takes the blow)', 'kael', false],
+      ['knotted_cord', 'Knotted Cord (a cut knotted short)', 'lyra', false],
+      ['stillwater_bell', 'Stillwater Bell (the Chime refunded)', null, false],
     ] as const
   ).map(([relic, label, hero, perfect]): SoundButton => ({
     id: `relic-${relic}`,

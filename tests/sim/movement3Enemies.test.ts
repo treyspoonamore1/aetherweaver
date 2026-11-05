@@ -825,6 +825,13 @@ describe('the Mimic and Mimicking', () => {
 
 describe('the affixes and the damage gates', () => {
   it('Severing cuts the Thread on a blow near it, at most once every 3 s per elite', () => {
+    // One routine for every hit (severingHit, systems/thread.ts), so the real cut is read here:
+    // the Severing affix's own cutThread call is inside the Weaver side's module.
+    const heard: ReturnType<World['events']['drain']> = [];
+    const severed = (w: World) => {
+      heard.push(...w.events.drain());
+      return ofType(heard, 'threadSnapped').filter((e) => e.cause === 'severing');
+    };
     const sim = sandbox();
     const w = worldOf(sim);
     freeze(w);
@@ -834,14 +841,25 @@ describe('the affixes and the damage gates', () => {
     const near = staged(w, 'shears', 1.5, 5, { elite: true, affixes: ['severing'] });
     const far = staged(w, 'shears', 9, 5, { elite: true, affixes: ['severing'] });
     severOnHit(w, far);
-    expect(cuts.calls).toEqual([]);
+    expect(severed(w)).toEqual([]);
+    expect(w.internal.m3?.severAt?.[far.id]).toBeUndefined();
     severOnHit(w, near);
-    severOnHit(w, near);
-    expect(cuts.calls).toEqual([['severing', 1, near.id]]);
+    expect(severed(w)).toEqual([
+      expect.objectContaining({ target: heroAt(w, 1).id, cause: 'severing', lock: 1, by: near.id }),
+    ]);
+    expect(weaverOf(w).weaver!.threadSlot).toBeNull();
     expect(w.internal.m3!.severAt![near.id]).toBeCloseTo(w.time + 3, 9);
-    stepFor(sim, 60 * 3 + 1);
+    // Re-threaded at once (the lock set aside), the clock still holds the next blow.
+    weaverOf(w).weaver!.threadLock = 0;
+    thread(w, 1);
     severOnHit(w, near);
-    expect(cuts.calls).toHaveLength(2);
+    expect(severed(w)).toHaveLength(1);
+    expect(weaverOf(w).weaver!.threadSlot).toBe(1);
+    stepFor(sim, 60 * 3 + 1);
+    thread(w, 1);
+    severOnHit(w, near);
+    expect(severed(w)).toHaveLength(2);
+    expect(weaverOf(w).weaver!.threadSlot).toBeNull();
     // Its melee blow goes through the same rule.
     const sim2 = sandbox();
     const w2 = worldOf(sim2);
@@ -855,8 +873,14 @@ describe('the affixes and the damage gates', () => {
     });
     elite.health!.hp = elite.health!.maxHp = 1e7;
     elite.enemy!.specialCooldowns = [1e6];
-    stepUntil(sim2, () => cuts.calls.length > 2, 600);
-    expect(cuts.calls[2]).toEqual(['severing', 1, elite.id]);
+    const events = stepUntil(
+      sim2,
+      (ev) => ev.some((e) => e.type === 'threadSnapped' && e.cause === 'severing'),
+      600,
+    );
+    expect(ofType(events, 'threadSnapped').find((e) => e.cause === 'severing')).toEqual(
+      expect.objectContaining({ cause: 'severing', lock: 1, by: elite.id }),
+    );
   });
 
   it('Silencing carries the Mute’s field, and Warden’s Key ×3 applies on it', () => {
@@ -927,6 +951,10 @@ describe('the affixes and the damage gates', () => {
     expect(lyra.health!.hp).toBe(50);
     expect(kael.health!.hp).toBeLessThan(kaelHp);
     expect(w.internal.lambUsed).toBe(true);
+    // The view hears it: the saved hero, and the one who took the blow.
+    expect(ofType(w.events.drain(), 'relicTriggered')).toEqual([
+      expect.objectContaining({ relic: 'sacrificial_lamb', hero: lyra.id, targets: [kael.id] }),
+    ]);
     void vexis;
     dealDamage(w, lyra, { source: null, sourceName: 'test', amount: 400, telegraph: null });
     expect(lyra.health!.downed).toBe(true);

@@ -199,15 +199,18 @@ describe('Phase 3b UI sounds', () => {
 describe('relic combat sounds', () => {
   it('covers every relic id the sim emits, and only known relics', () => {
     const emitted = simEmittedRelics();
-    // The sim sources really do emit the seven visible relics (guards the scan itself).
+    // The sim sources really do emit the ten visible relics (guards the scan itself).
     expect(emitted).toEqual(
       [
         'cantors_hymnal',
         'cracked_metronome',
         'glass_halo',
+        'knotted_cord',
         'lantern_of_the_lost',
         'martyrs_veil',
+        'sacrificial_lamb',
         'silver_thimble',
+        'stillwater_bell',
         'tuning_fork',
       ].sort(),
     );

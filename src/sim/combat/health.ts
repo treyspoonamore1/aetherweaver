@@ -1146,7 +1146,7 @@ function lamb(world: World, target: Entity, amount: number, opts: DamageOpts): b
   }
   if (!other) return false;
   world.internal.lambUsed = true;
-  // (No `relicTriggered` yet: its sound and floater come with Movement III's audio and UI.)
+  relicFired(world, 'sacrificial_lamb', target.id, [other.id]);
   recordSave(world, target, 'other', amount, opts.sourceName);
   dealDamage(world, other, { ...opts, amount, oath: true });
   return true;

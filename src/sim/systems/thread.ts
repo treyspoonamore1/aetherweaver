@@ -103,6 +103,8 @@ export function cutThread(
   if (world.mods.cutResonance > 0) {
     gainResonance(world, world.mods.cutResonance, 'knotted cord');
   }
+  // Knotted Cord (its lock and its Resonance) acted: the view hears it.
+  if (k !== 1 || world.mods.cutResonance > 0) relicFired(world, 'knotted_cord', hero.id);
   return 'cut';
 }
 

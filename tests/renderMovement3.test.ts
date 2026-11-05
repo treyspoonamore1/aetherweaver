@@ -617,9 +617,10 @@ describe('Zones, the Thread turned, a stolen aura', () => {
     h.run(2);
     const w = sim.state.entities.get(sim.state.weaverId)!;
     const k = hero(sim, 0);
+    // A zone ends when its owner dies (W2's updateZones), so these are owned by someone standing.
     const zones: NonNullable<ReturnType<typeof worldOf>['field']['zones']> = [
-      { id: 1, kind: 'pull', owner: -1, x: k.x, z: k.z, r: 8, until: 99, pullSpeed: 2.4 },
-      { id: 2, kind: 'null', owner: -1, x: w.x, z: w.z, r: 5, until: 99 },
+      { id: 1, kind: 'pull', owner: w.id, x: k.x, z: k.z, r: 8, until: 99, pullSpeed: 2.4 },
+      { id: 2, kind: 'null', owner: w.id, x: w.x, z: w.z, r: 5, until: 99 },
     ];
     // Staged as the sim keeps them (W2's `field.zones`), then removed.
     worldOf(sim).field.zones = zones;
@@ -735,7 +736,12 @@ describe('Mirrors, Spindles and the champion', () => {
     ]);
     tough(sim);
     h.tick();
-    // No `tethered` yet (the sim counts it): no tethers, no plating.
+    // The sim counts the Spindles onto its boss (W2's `tethered`): two tethers, the plating.
+    expect(newest(sim, 'the_unweaver').enemy!.tethered).toBe(2);
+    expect(h.entities.drawnM3.spindleTethers).toBe(2);
+    // Without the key (no tethered add standing) there are no tethers and no plating.
+    delete newest(sim, 'the_unweaver').enemy!.tethered;
+    h.tick();
     expect(h.entities.drawnM3.spindleTethers).toBe(0);
     expect(h.entities.drawnM3.plating).toBe(0);
     newest(sim, 'the_unweaver').enemy!.tethered = 2;
@@ -811,7 +817,15 @@ describe('The budget', () => {
       const weaver = sim.state.entities.get(sim.state.weaverId)!;
       w.field.zones = [
         { id: 1, kind: 'pull', owner: newest(sim, 'void_maw').id, x: 5, z: -5, r: 8, until: 999 },
-        { id: 2, kind: 'null', owner: -1, x: weaver.x, z: weaver.z, r: 5, until: 999 },
+        {
+          id: 2,
+          kind: 'null',
+          owner: newest(sim, 'null_priest').id,
+          x: weaver.x,
+          z: weaver.z,
+          r: 5,
+          until: 999,
+        },
       ];
       w.field.unravel = { until: 999, source: boss.id, acc: 0, tickIn: 0.5 };
       const chord = w.field.chords.findIndex((ch) => ch.auras.length > 0);

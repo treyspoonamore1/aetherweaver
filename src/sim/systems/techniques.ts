@@ -17,7 +17,7 @@ import {
   shieldOf,
   slotHero,
 } from '../combat/health';
-import { pushMarker, setTimeScale } from '../combat/feedback';
+import { pushMarker, relicFired, setTimeScale } from '../combat/feedback';
 import { gainResonance, spendResonance } from '../combat/resonance';
 import {
   answered,
@@ -373,6 +373,7 @@ function stillwaterRefund(world: World, paid: number | undefined): void {
   const refund = paid * world.mods.stillwaterRefund;
   if (world.mods.techniquesCostLife) w.selfHealAcc += heal(world, weaver, refund, 'self', false);
   else w.spirit = Math.min(w.maxSpirit - w.reservedSpirit, w.spirit + refund);
+  relicFired(world, 'stillwater_bell', null);
 }
 
 function dirgeDamage(world: World, hero: Entity): number {
