@@ -26,7 +26,8 @@
  * - **Snip**: its `cutResolved` verdict is `held` or `strand`; a `none` (no Thread as it began)
  *   isn't counted.
  * - **Spindles**: every Spindle dead within 25 s of the summons.
- * - **Steal Verse**: the verse taken back by a kill (`verseReturned` 'killed').
+ * - **Steal Verse**: the verse taken back by a kill (`verseReturned` 'killed'); one still
+ *   standing at the fight's end (the party wiped while it ran) is a failure.
  * - **Unravel**: its reversed Mend dealt each hero less than 5% of their max life.
  * - **Mirror Weave**: each Mirror Ward cast is interrupted, or the champion dies within 45 s.
  *
@@ -270,6 +271,8 @@ function unweaverFight(table: BossTable, seed: number, bot: BotKind, player?: Bo
   /** Mirror Ward casts still to judge: when each began, and whether it was interrupted. */
   let mirrors: { at: number; done: boolean }[] = [];
   const championFell: number[] = [];
+  /** A Stolen Verse stands (`field.stolen` seen), its 'verseReturned' still to come. */
+  let verseUp = false;
   const closeUnravel = (sim: Sim) => {
     if (!unravel) return;
     let ok = true;
@@ -313,6 +316,7 @@ function unweaverFight(table: BossTable, seed: number, bot: BotKind, player?: Bo
             break;
           case 'verseReturned':
             count(out, 'Steal Verse', e.reason === 'killed');
+            verseUp = false;
             break;
           case 'unravelled':
             if (e.active) unravel = new Map();
@@ -339,6 +343,8 @@ function unweaverFight(table: BossTable, seed: number, bot: BotKind, player?: Bo
             break;
         }
       }
+      // Read after the events: the tick the fight ends, the cleanup has already cleared it.
+      if (state.field.stolen) verseUp = true;
       // Spindles: judged SPINDLES_WITHIN s on (or as soon as none stands).
       spindles = spindles.filter((at) => {
         if (now < at) return true;
@@ -366,6 +372,9 @@ function unweaverFight(table: BossTable, seed: number, bot: BotKind, player?: Bo
   for (const _ of spindles) count(out, 'Spindles', out.won || !alive(sim, SPINDLE));
   for (const m of mirrors) if (!m.done) count(out, 'Mirror Weave', out.won);
   for (const id of shears) count(out, 'Shear', !failedShear.has(id));
+  // A Stolen Verse still standing as the fight ended (a wipe while it ran): the encounter's
+  // cleanup clears it with no 'verseReturned', so it is judged here, never taken back by a kill.
+  if (verseUp) count(out, 'Steal Verse', false);
   return out;
 }
 

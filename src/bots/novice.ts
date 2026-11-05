@@ -50,6 +50,7 @@ import {
   unravelUp,
   stationary,
   idleParty,
+  StallWatch,
   nearestStationary,
   type HeroView,
 } from './common';
@@ -79,6 +80,8 @@ export class NoviceBot implements Bot {
   /** Movement III: a technique of hers fizzled in a Null rune last decision; she's leaving it. */
   private fizzled = false;
   private leaving = false;
+  /** Movement III: times a party stalled on a stationary enemy out of reach. */
+  private readonly stall = new StallWatch();
 
   constructor(seed: number) {
     this.rng = new Rng(seed ^ 0x0b1e);
@@ -275,12 +278,14 @@ export class NoviceBot implements Bot {
     }
 
     // Movement III: only stationary enemies left (a Void Maw never comes to the party) and no
-    // hero fighting: sooner or later she sends them to the nearest one. Draws only then.
+    // hero fighting (none with a target, or a ranged hero stalled at her leash out of its range,
+    // `StallWatch`): sooner or later she sends them to the nearest one. Draws only then.
+    const stalled = this.stall.update(state, now);
     if (
       enemies.length > 0 &&
       enemies.every(stationary) &&
       !out.some((c) => c.t === 'directive') &&
-      idleParty(state) &&
+      (idleParty(state) || stalled) &&
       this.rng.chance(NOVICE_M3.stationaryFocus)
     ) {
       const target = nearestStationary(state, enemies);

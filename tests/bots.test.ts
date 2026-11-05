@@ -17,6 +17,8 @@ import {
   inhaleTell,
   shieldOf,
   slotOf,
+  STALL_FOR,
+  StallWatch,
   threatsOn,
   type ReadonlyTelegraph,
 } from '../src/bots/common';
@@ -1809,6 +1811,176 @@ describe('the Novice bot in Movement III', () => {
     const b = playEncounter({ seed: 77, encounter: 'wraith_vigil', ...KIT3 }, 'novice');
     expect(b).toEqual(a);
   });
+});
+
+describe('the Movement III bots: the tools review fixes', () => {
+  /**
+   * A party stalled on a Void Maw: Kael and Lyra with no target, Vexis (slot 2, 12 m reach)
+   * targeting the Maw `gap` m past her reach, standing still, as RANGED_LEASH holds her.
+   */
+  const stalledOnMaw = (gap: number) => {
+    const sim = rift({ thread: null });
+    const w = worldOf(sim);
+    const vexis = w.entities.get(w.party[2]!)!;
+    const maw = tough(sim, 'void_maw', vexis.x, vexis.z - (12 + 1.2 + vexis.radius + gap));
+    const pin = () => {
+      w.party.forEach((id, i) => {
+        const h = w.entities.get(id)!;
+        h.hero!.targetId = i === 2 ? maw.id : null;
+        h.hero!.action = 'idle';
+      });
+      Object.assign(vexis, { x: -6, z: 0, vx: 0, vz: 0 });
+    };
+    pin();
+    return { sim, w, vexis, maw, pin };
+  };
+
+  it('times a stall on a stationary target out of reach, and resets on progress', () => {
+    const { sim, w, vexis } = stalledOnMaw(3);
+    const watch = new StallWatch();
+    expect(watch.update(sim.state, 0)).toBe(false);
+    expect(watch.update(sim.state, STALL_FOR - 0.1)).toBe(false);
+    expect(watch.update(sim.state, STALL_FOR)).toBe(true);
+    // A metre and more nearer: she is getting somewhere, so the clock starts again.
+    vexis.z -= 1.5;
+    expect(watch.update(sim.state, STALL_FOR + 0.5)).toBe(false);
+    expect(watch.update(sim.state, 2 * STALL_FOR + 0.5)).toBe(true);
+    // Attacking (in reach, or a Hawk Eye shot), she is fighting: no stall.
+    vexis.hero!.action = 'attacking';
+    expect(watch.update(sim.state, 3 * STALL_FOR)).toBe(false);
+    vexis.hero!.action = 'idle';
+    // Another hero on a mobile enemy: the party is fighting.
+    const shears = tough(sim, 'shears', 30, 30);
+    w.entities.get(w.party[0]!)!.hero!.targetId = shears.id;
+    expect(watch.update(sim.state, 4 * STALL_FOR)).toBe(false);
+    expect(watch.update(sim.state, 6 * STALL_FOR)).toBe(false);
+    // Nobody targets anything: that is `idleParty`'s, not a stall.
+    for (const id of w.party) w.entities.get(id)!.hero!.targetId = null;
+    expect(watch.update(sim.state, 7 * STALL_FOR)).toBe(false);
+    expect(watch.update(sim.state, 9 * STALL_FOR)).toBe(false);
+  });
+
+  it('the Skilled and Novice bots Focus the Maw a leashed ranged hero targets out of range', () => {
+    for (const kind of ['skilled', 'novice'] as const) {
+      const { sim, maw, pin } = stalledOnMaw(3);
+      const bot = makeBot(kind, 5);
+      const focus: Command[] = [];
+      for (let t = 0; t < 60 * (STALL_FOR + 6); t++) {
+        pin();
+        const out = bot.decide(sim.state);
+        focus.push(...out.filter((c) => c.t === 'directive' && c.kind === 'focus'));
+        sim.step(out);
+        sim.drainEvents();
+      }
+      expect(focus, kind).toContainEqual({ t: 'directive', kind: 'focus', target: maw.id });
+    }
+  });
+
+  it('the Skilled bot clears maw_hollow where a leashed Vexis stalled on the last Maw', () => {
+    // Both timed out at the 540 s cap: Vexis targeted the Maw from her leash, out of range.
+    const setups = [
+      {
+        seed: 32676,
+        calling: {
+          id: 'luminary',
+          path: ['haloed', 'dawnward', 'third_voice', 'sovereign_symphony'],
+        },
+      },
+      {
+        seed: 119785,
+        calling: {
+          id: 'chronomancer',
+          path: ['quickened', 'echo_ward', 'temporal_mastery', 'paradox'],
+        },
+      },
+    ];
+    for (const s of setups) {
+      const r = playEncounter(
+        { seed: s.seed, encounter: 'maw_hollow', ...KIT3, calling: s.calling },
+        'skilled',
+      );
+      expect(r.outcome, String(s.seed)).not.toBe('timeout');
+    }
+  }, 60_000);
+
+  it('never Swaps onto a pinned hero inside a Void Maw’s pull or tell to free them', () => {
+    const reels = (opts: { swap: boolean; maw: 'pull' | 'tell' | null }) => {
+      const sim = rift({ thread: null, config: opts.swap ? { techniques: { reel: 'swap' } } : {} });
+      stage(sim, 1, { id: 'pinned', remaining: 3, duration: 3 });
+      if (opts.maw === 'pull') zone(sim, 'pull', 0, 10, 8);
+      if (opts.maw === 'tell') {
+        const w = worldOf(sim);
+        w.telegraphs.push({
+          id: 3004,
+          owner: w.party[0]!,
+          target: null,
+          attackId: 'maw_inhale',
+          name: 'Inhale',
+          kind: 'burst',
+          shape: { kind: 'circle', x: 0, z: 10, r: 8 },
+          start: w.time,
+          impact: w.time + 1.4,
+          perfectFrom: w.time + 1.05,
+          damage: 0,
+          pctMaxHp: 0,
+          effect: 'zone',
+          answers: ['stack', 'reel', 'move'],
+          severity: 'normal',
+        });
+      }
+      return makeBot('skilled', 1)
+        .decide(sim.state)
+        .filter((c) => c.t === 'tech' && c.id === 'reel');
+    };
+    const freeLyra = { t: 'tech', id: 'reel', slot: 1 };
+    // Pinned in the open, Swap frees her as ever; so does a plain Reel inside the pull.
+    expect(reels({ swap: true, maw: null })).toContainEqual(freeLyra);
+    expect(reels({ swap: false, maw: 'pull' })).toContainEqual(freeLyra);
+    // Swapped, the Weaver would stand where she stood, inside it.
+    expect(reels({ swap: true, maw: 'pull' })).toEqual([]);
+    expect(reels({ swap: true, maw: 'tell' })).toEqual([]);
+  });
+
+  it('keeps its Brann Hold through a Focus, and lets go of it with a Rally after', () => {
+    const sim = rift({
+      thread: null,
+      config: { party: [...PARTY_A], techniques: { reel: 'swap' } },
+    });
+    const w = worldOf(sim);
+    const brann = w.entities.get(w.party[2]!)!;
+    brann.health!.hp = brann.health!.maxHp * 0.3;
+    zone(sim, 'pull', -10, 3, 8);
+    const bot = makeBot('skilled', 1);
+    const out = bot.decide(sim.state);
+    expect(out).toContainEqual({ t: 'directive', kind: 'hold' });
+    stepFor(sim, 4, out);
+    // A Focus changes the directive but leaves every hero held.
+    const shears = tough(sim, 'shears', 30, 30);
+    stepFor(sim, 0);
+    sim.step([{ t: 'directive', kind: 'focus', target: shears.id }]);
+    sim.drainEvents();
+    stepFor(sim, 3);
+    expect(sim.state.directive).toBe('focus');
+    expect(w.entities.get(w.party[0]!)!.hero!.follow).toBe('hold');
+    const directives = (c: readonly Command[]) =>
+      c.filter((x) => x.t === 'directive').map((x) => (x.t === 'directive' ? x.kind : null));
+    // The pull still laid: the Hold stands (no Rally, no second Hold).
+    expect(directives(bot.decide(sim.state)).filter((k) => k !== 'focus')).toEqual([]);
+    // The pull gone: she lets go of it with a Rally, though the directive reads 'focus'.
+    w.field.zones = (w.field.zones ?? []).filter((z) => z.kind !== 'pull');
+    stepFor(sim, 4);
+    expect(directives(bot.decide(sim.state))).toContain('rally');
+  });
+
+  it('the Decree gate fails a Stolen Verse still standing when the party wipes', () => {
+    // Novice, 8919 and 32676: each wiped with a Stolen Verse up, which no 'verseReturned' ends.
+    for (const seed of [8919, 32676]) {
+      const f = decreeFight('the_unweaver', seed, 'novice');
+      expect(f.won, String(seed)).toBe(false);
+      expect(f.occurrences['Steal Verse'], String(seed)).toBe(f.seen['Steal Verse']);
+      expect(f.answered['Steal Verse'], String(seed)).toBe(0);
+    }
+  }, 120_000);
 });
 
 describe('Movement III smoke guards (ARRIVAL3_KIT)', () => {
