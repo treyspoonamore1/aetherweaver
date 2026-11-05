@@ -746,7 +746,7 @@ By mechanic:
 | Shears, Snip | When a `cut` line's impact is ≤ 0.5 s away and `cutWouldLand`: re-thread to the most urgent hero whose segment is clear, else step across, Gliding if the impact is under 0.4 s. Re-thread the moment `threadLock ≤ 0` (`:408-415`). |
 | Severing | Never thread a hero within 3 m of a Severing elite unless they are the only hurt hero. |
 | Null rune | `position()` treats zones as negative after the pool and hymn snap (`:575-581`) and steps out of a closing rune. While inside, Glide out before any technique, and never set `acted` on a cast the sim would refuse. Plant a Pedal Point when a rune forces the Weaver 8+ m from the party. |
-| Void Maw | In the tell: Rally when ≥ 2 heroes are inside and the Weaver is outside; Hold for a bloodlusting Brann. Reel the lowest hero inside (never with the Swap variant), or Rewind one who was pulled in. The Weaver never stands inside. |
+| Void Maw | In the tell: Rally when ≥ 2 heroes are inside and the Weaver is outside; Hold for a bloodlusting Brann. Reel the lowest hero inside (never with the Swap variant: nor does the pin and latch Reel Swap onto a hero inside a pull or tell), or Rewind one who was pulled in. The Weaver never stands inside. A Focus called while the Brann Hold stands leaves the heroes held, so the bot still lets go of it with a Rally. With no hero fighting (none has a target, or for `StallWatch` 3 s every one with a target is stalled out of reach of a stationary one, like a ranged hero at her leash), Focus the nearest stationary enemy. |
 | Chime order | clutch Dirge > possessed > doubt mark (cancels) > stitch link / stitched > doomed or Doom ≥ 4 > bleed 5+ cluster > the rest (`:247-284`). It is a tuning lever, and each rule is ablated in `tools/verbs.ts`. |
 | Ward | A `doomed` hero and a possession's target count as wardWorthy. While a Mimic casts a Ward copy, skip non-lethal Wards, or cast Chime if it is useful, to crack it. |
 | Mimic, Empower | While a Mimic casts an Empower copy and no Unravel is up, switch to Mend. Never Empower a possessed hero. |
@@ -760,7 +760,7 @@ By mechanic:
 - step out after a 'silenced' fizzle: 0.3;
 - Rally on an Inhale tell: 0.3;
 - switch to Empower under Unravel: 0.4;
-- Focus the nearest stationary enemy (a Void Maw) when only stationary enemies stand and no hero has a target: 0.15 (added in the W5 fixes: a Maw never comes to the party, so without it the Novice timed out on `maw_hollow`; W9 re-reads the Novice bands with it);
+- Focus the nearest stationary enemy (a Void Maw) when only stationary enemies stand and no hero has a target (or `StallWatch` finds every targeting hero stalled out of a stationary target's reach for 3 s): 0.15 (added in the W5 fixes: a Maw never comes to the party, so without it the Novice timed out on `maw_hollow`; W9 re-reads the Novice bands with it);
 - re-thread after a cut: already 0.7 (`novice.ts:96`).
 
 Its heal-the-lowest reflex is what the Shears, Unravel and the Mimic punish. No new draw happens on a Movement I or II path.
@@ -830,7 +830,7 @@ All 15 are pinned as literals at the end.
 - **Decree gate** (`tools/decrees.ts --boss`): every Decree is seen ≥ 2 times in a Skilled fight and answered ≥ 80%. 'Answered' means:
   - Snip: `cutResolved.result` is 'held' or 'strand' (counted only when it isn't 'none');
   - Spindles: all dead within 25 s;
-  - Steal Verse: the verse recovered by a kill;
+  - Steal Verse: the verse recovered by a kill (a verse still standing when the party wipes is a failure);
   - Unravel: reversed-Mend damage < 5% of the target's max life;
   - Mirror Ward: interrupted, or the champion dead within 45 s;
   - Stitch: the link broken in its windup, or freed before the next needle;

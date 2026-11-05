@@ -98,6 +98,7 @@ import {
   stationary,
   idleParty,
   nearestStationary,
+  StallWatch,
   mirrorWardCasting,
   type Circle,
   type BloodView,
@@ -215,6 +216,8 @@ export class SkilledBot implements Bot {
   /** The Hold this bot called for a Bloodlusting Brann in an Inhale (Movement III only). */
   private mawHeld = false;
   private mawHeldAt = 0;
+  /** Movement III: times a party stalled on a stationary enemy out of reach (`focusStationary`). */
+  private readonly stall = new StallWatch();
 
   constructor(
     seed: number,
@@ -241,6 +244,8 @@ export class SkilledBot implements Bot {
     const tech = CONTENT.techniques;
     const now = state.time;
     let acted = false;
+    // Movement III: a party stalled on a stationary enemy it can't reach (false before it).
+    const stalled = this.stall.update(state, now);
     // Brann (docs/phase-5b.md): every branch below that reads him is behind `blood`, which is
     // null for a party without a Blood Rage hero, so a default party plays exactly as before.
     const blood = bloodOf(state, party);
@@ -454,7 +459,13 @@ export class SkilledBot implements Bot {
       }
     } else if (!acted && !silenced && wc.cooldowns.reel <= 0 && affords(state, 'reel')) {
       // ── Reel frees a pinned or latched hero (Movement II), ahead of the generic Reel. ──
-      const freeing = reelToFree(party, w, tech.reel.range);
+      // Never a Swap onto a hero pinned inside a Void Maw's pull or tell (Movement III): it would
+      // put the Weaver where they stood, inside it (false with no Inhale on the field).
+      const swapIntoMaw =
+        w.weaver!.variants.reel === 'swap' && this.on('maw')
+          ? (h: HeroView) => inMaw(state, h.e)
+          : undefined;
+      const freeing = reelToFree(party, w, tech.reel.range, swapIntoMaw);
       if (freeing && this.notice()) {
         out.push({ t: 'tech', id: 'reel', slot: freeing.slot });
         acted = true;
@@ -731,7 +742,7 @@ export class SkilledBot implements Bot {
       const caster =
         enemies.find((e) => e.enemy!.cast?.interruptible) ??
         // Movement III's targets (docs/phase-5c.md): undefined unless one is on the field.
-        this.m3FocusTarget(state, enemies) ??
+        this.m3FocusTarget(state, enemies, stalled) ??
         // A Mute, or a Silencing elite carrying a Mute's field (only the Mute before Movement III).
         enemies.find((e) => suppresses(state, e)) ??
         // A Crimson Sentinel's guard: Focus sends the party round its flanks, once the pack
@@ -788,8 +799,9 @@ export class SkilledBot implements Bot {
    * would stay in that pack: measured over 24 seeds of maw_hollow with parties A and B, plain,
    * Swap and Chronomancer, the pack gate makes the rule neutral where without it party A lost
    * 2-5 more fights). The Hold is let go (a Rally, the only way back to follow) once no Inhale
-   * is in its tell or laid, after `MAW_HOLD_MAX` s at most, or as soon as the Weaver is down.
-   * Before Movement III, and without a Bloodlusting Brann, it returns at once and pushes nothing.
+   * is in its tell or laid, after `MAW_HOLD_MAX` s at most, or as soon as the Weaver is down,
+   * a Focus called meanwhile notwithstanding (it leaves the heroes held; only another Rally or a
+   * Scatter lets go of it for her). Before Movement III, and without a Bloodlusting Brann, it returns at once and pushes nothing.
    */
   private mawHold(
     state: WorldState,
@@ -803,7 +815,10 @@ export class SkilledBot implements Bot {
     const tells = inhaleTell(state);
     const pulls: Circle[] = hazardZones(state).filter((z) => z.kind === 'pull');
     if (this.mawHeld) {
-      if (state.directive !== 'hold') this.mawHeld = false;
+      // Another directive let go of it (a Rally or a Scatter sets every hero's follow). A Focus
+      // only changes `state.directive` and leaves them held: the Hold is still hers to let go.
+      const held = state.party.some((id) => state.entities.get(id)?.hero?.follow === 'hold');
+      if (!held) this.mawHeld = false;
       else if ((tells.length === 0 && pulls.length === 0) || now - this.mawHeldAt > MAW_HOLD_MAX)
         out.push(...this.letGoOfHold(now));
       return;
@@ -919,6 +934,7 @@ export class SkilledBot implements Bot {
   private m3FocusTarget(
     state: WorldState,
     enemies: readonly ReadonlyEntity[],
+    stalled: boolean,
   ): ReadonlyEntity | undefined {
     const n = enemies.length;
     const steps: [keyof typeof M3_FOCUS_AT, () => ReadonlyEntity | null | undefined][] = [
@@ -930,8 +946,12 @@ export class SkilledBot implements Bot {
       ['focusNull', () => enemies.find((e) => e.enemy!.defId === NULL_PRIEST)],
       ['focusSilencing', () => enemies.find(carriesSilence)],
       // A stationary enemy (a Void Maw, a Spindle) never comes to the party, and the heroes only
-      // look 18-20 m out: with nobody fighting, send them to the nearest one.
-      ['focusStationary', () => (idleParty(state) ? nearestStationary(state, enemies) : null)],
+      // look 18-20 m out: with nobody fighting, send them to the nearest one. Nobody fighting
+      // includes a ranged hero who targets it from her leash, out of range (`StallWatch`).
+      [
+        'focusStationary',
+        () => (idleParty(state) || stalled ? nearestStationary(state, enemies) : null),
+      ],
     ];
     for (const [rule, find] of steps) {
       if (!this.on(rule) || n > M3_FOCUS_AT[rule]) continue;
@@ -1039,13 +1059,20 @@ function chimeCluster(
 }
 
 /**
- * A pinned or latched hero to Reel free (docs/phase-5a.md P4), the most hurt first; null when
- * nobody is held (always in Movement I) or the hold is about to end on its own.
+ * A pinned or latched hero to Reel free (docs/phase-5a.md P4), the most hurt first, but none
+ * `exclude` names (a Swap into a Void Maw); null when nobody is held (always in Movement I) or
+ * the hold is about to end on its own.
  */
-function reelToFree(party: readonly HeroView[], w: ReadonlyEntity, range: number): HeroView | null {
+function reelToFree(
+  party: readonly HeroView[],
+  w: ReadonlyEntity,
+  range: number,
+  exclude?: (h: HeroView) => boolean,
+): HeroView | null {
   let best: HeroView | null = null;
   for (const h of party) {
     if (h.e.hero!.reel || h.e.hero!.action === 'dodging') continue;
+    if (exclude?.(h)) continue;
     if (dist(h.e, w) > range - 0.3) continue;
     const held =
       (isPinned(h.e) && statusRemaining(h.e, 'pinned') > 0.6) ||

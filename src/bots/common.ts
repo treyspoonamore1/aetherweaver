@@ -635,6 +635,64 @@ export function idleParty(state: WorldState): boolean {
   });
 }
 
+/** `StallWatch`: how long the party must be stalled, and how much nearer counts as progress. */
+export const STALL_FOR = 3;
+const STALL_PROGRESS = 1;
+
+/**
+ * A hero who has a stationary target (a Void Maw, a Spindle) but can't reach it: out of their
+ * basic attack's reach and neither attacking nor casting. A ranged hero held at her leash from
+ * the Weaver keeps the Maw as her target and never comes within range of it.
+ */
+function stalledOnStationary(state: WorldState, h: ReadonlyEntity): boolean {
+  const hero = h.hero!;
+  const target = hero.targetId === null ? undefined : state.entities.get(hero.targetId);
+  if (!target || !stationary(target)) return false;
+  if (hero.action === 'attacking' || hero.action === 'casting' || hero.action === 'channeling')
+    return false;
+  const range = CONTENT.heroes.find((d) => d.id === hero.defId)?.attack.range ?? 0;
+  return dist(h, target) > range + target.radius + h.radius;
+}
+
+/**
+ * The party is stalled on stationary enemies (docs/phase-5c.md, `focusStationary`): every
+ * standing hero is idle (no target) or stalled on a stationary target out of reach, and at least
+ * one is stalled (with none, `idleParty` already says so). It reports a stall only once it has
+ * lasted `STALL_FOR` s with no stalled hero coming `STALL_PROGRESS` m nearer their target (a
+ * melee hero walking up to a Maw is not stalled). Pure reading: no RNG, and false whenever no
+ * hero targets a stationary enemy, so it never answers outside Movement III.
+ */
+export class StallWatch {
+  private since: number | null = null;
+  private nearest = Infinity;
+
+  /** Call once per decision (it times the stall); true once it has lasted `STALL_FOR` s. */
+  update(state: WorldState, now: number): boolean {
+    let nearest = Infinity;
+    let stalled = false;
+    for (const id of state.party) {
+      const h = state.entities.get(id);
+      if (!h?.hero || !h.health || h.health.downed || h.health.dead) continue;
+      if (h.hero.targetId === null) continue;
+      if (!stalledOnStationary(state, h)) {
+        this.since = null;
+        return false;
+      }
+      stalled = true;
+      nearest = Math.min(nearest, dist(h, state.entities.get(h.hero.targetId)!));
+    }
+    if (!stalled) {
+      this.since = null;
+      return false;
+    }
+    if (this.since === null || nearest < this.nearest - STALL_PROGRESS) {
+      this.since = now;
+      this.nearest = nearest;
+    }
+    return now - this.since >= STALL_FOR;
+  }
+}
+
 /** The stationary enemy (its def `stationary`) nearest the Weaver; null without one. */
 export function nearestStationary(
   state: WorldState,
