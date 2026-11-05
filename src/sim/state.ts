@@ -594,6 +594,13 @@ export interface Telegraph {
   executeBelow?: number;
   /** A link's status, when it isn't 'resound' (Blood Pact's 'pact', the Seamstress's 'stitch'). */
   linkStatus?: 'pact' | 'stitch';
+  // ── Movement III (docs/phase-5c.md). Absent on every Movement I and II telegraph. ──
+  /**
+   * A cut attack (`AttackDef.cut`) begun while the Thread was up: its `cutResolved` verdict is
+   * 'held', not 'none', if the Thread is gone by the time it lands ('none' is 'no Thread at
+   * cast start', Q1).
+   */
+  threadAtCast?: true;
 }
 
 export interface Obstacle {

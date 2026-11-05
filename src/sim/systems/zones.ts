@@ -35,19 +35,20 @@ export function updateZones(world: World, dt: number): void {
 
 /**
  * A pull: everyone of the party inside it moves toward its centre (never past it), unless
- * anchored, rooted, in a Reel's flight, downed or Gliding. Physics is untouched: 'anchored'
- * resists the pull, not overlap.
+ * anchored, rooted, in a Reel's flight or Gliding (the downed aren't active, so it leaves them
+ * be). The exemptions are from the drag only: everyone standing inside has its status (`voided`
+ * is 'refreshed while inside'), an anchored or stitched hero too: the answer is to leave it.
+ * Physics is untouched: 'anchored' resists the pull, not overlap.
  */
 function pull(world: World, z: FieldZone, dt: number): void {
   const step = (z.pullSpeed ?? 0) * dt;
   for (const e of world.entities.list()) {
     if (!e.hero && !e.weaver) continue;
     if (!isActive(e) || !inside(z, e)) continue;
-    if (exempt(e)) continue;
     const dx = z.x - e.x;
     const dz = z.z - e.z;
     const d = Math.sqrt(dx * dx + dz * dz);
-    if (step > 0 && d > 1e-9) {
+    if (step > 0 && d > 1e-9 && !exempt(e)) {
       const k = (step < d ? step : d) / d;
       e.x += dx * k;
       e.z += dz * k;

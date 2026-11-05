@@ -5,7 +5,7 @@
  * cut), so the enemy side's calls are pinned whatever the Weaver side does with them.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { attackDef, CONTENT, enemyDef } from '../../src/content';
+import { attackDef, CONTENT, enemyDef, heroDef } from '../../src/content';
 import { createSim, isRooted, type Sim } from '../../src/sim';
 import {
   addShield,
@@ -173,6 +173,43 @@ describe('the Shears and the cut verdict', () => {
     expect(ofType(events, 'cutResolved')[0]!.result).toBe('none');
   });
 
+  it('a Thread that snaps in the windup reads held, not none (none: no Thread at cast start)', () => {
+    const { sim, w } = setup();
+    const shears = staged(w, 'shears', 6, 5);
+    begin(w, shears, 'shears_dash');
+    const t = lastTelegraph(w);
+    expect(t.threadAtCast).toBe(true);
+    // The Thread goes in the windup (a range snap, the Weaver down): nothing left to cut.
+    weaverOf(w).weaver!.threadSlot = null;
+    const events = untilResolved(sim, t.id);
+    expect(cuts.calls).toEqual([]);
+    expect(ofType(events, 'cutResolved')).toEqual([
+      expect.objectContaining({ telegraph: t.id, cause: 'shears', result: 'held' }),
+    ]);
+  });
+
+  it('a Thread attached in the windup is still cut if the line crosses it', () => {
+    const { sim, w } = setup();
+    weaverOf(w).weaver!.threadSlot = null;
+    const shears = staged(w, 'shears', 5, 3);
+    begin(w, shears, 'shears_dash');
+    const t = lastTelegraph(w);
+    expect('threadAtCast' in t).toBe(false);
+    if (t.shape.kind !== 'line') throw new Error('a line');
+    // Thread the hero across the line it has drawn (it runs from (5, 3) to the farthest hero).
+    const { x, z, toX, toZ } = t.shape;
+    const mx = (x + toX) / 2;
+    const mz = (z + toZ) / 2;
+    const nx = -(toZ - z);
+    const nz = toX - x;
+    const n = Math.hypot(nx, nz);
+    place(weaverOf(w), mx - (nx / n) * 3, mz - (nz / n) * 3);
+    place(heroAt(w, 1), mx + (nx / n) * 3, mz + (nz / n) * 3);
+    thread(w, 1);
+    const events = untilResolved(sim, t.id);
+    expect(ofType(events, 'cutResolved')[0]!.result).toBe('cut');
+  });
+
   it('Foresight predicts the threaded hero for a threadLine attack', () => {
     const { sim, w } = setup();
     (w.mods as { foresight: number }).foresight = 1;
@@ -284,6 +321,24 @@ describe('the Void Maw: stationary, and its Inhale', () => {
     expect(lyra.z).toBeCloseTo(4 - 1.2, 9);
   });
 
+  it('the exempt keep their ground, not their skin: voided still ticks on them inside', () => {
+    const { w } = pullWorld();
+    const [kael, lyra, vexis] = [heroAt(w, 0), heroAt(w, 1), heroAt(w, 2)];
+    addStatus(w, kael, 'anchored', 5, null);
+    addStatus(w, lyra, 'stitched', 5, null);
+    vexis.hero!.reel = { fromX: 0, fromZ: 0, toX: 0, toZ: 0, t: 0, duration: 1 } as never;
+    weaverOf(w).weaver!.glide = 0.2;
+    updateZones(w, 0.5);
+    for (const e of [kael, lyra, vexis, weaverOf(w)]) expect(hasStatus(e, 'voided')).toBe(true);
+    expect(kael.x).toBe(3);
+    expect(lyra.z).toBe(4);
+    // Out of its reach, nothing.
+    place(kael, 30, 0);
+    kael.health!.statuses = kael.health!.statuses.filter((s) => s.id !== 'voided');
+    updateZones(w, 0.5);
+    expect(hasStatus(kael, 'voided')).toBe(false);
+  });
+
   it('Stasis holds the pull and its clock; the zone dies with its owner', () => {
     const { sim, w, maw } = pullWorld();
     const kael = heroAt(w, 0);
@@ -316,6 +371,21 @@ describe('the Null Priest’s rune', () => {
     place(weaverOf(w), 20, 3);
     const events = untilResolved(sim, t.id);
     expect(ofType(events, 'zoneStarted')[0]).toMatchObject({ kind: 'null', x: 2, z: 3, r: 5 });
+  });
+
+  it('Foresight sees the rune coming for the Weaver', () => {
+    const sim = sandbox();
+    const w = worldOf(sim);
+    freeze(w);
+    (w.mods as { foresight: number }).foresight = 1;
+    place(weaverOf(w), 2, 3);
+    const priest = staged(w, 'null_priest', 0, -10);
+    priest.enemy!.specialCooldowns[0] = 0.5;
+    stepFor(sim, 1);
+    expect(priest.enemy!.foreseen).toMatchObject({
+      attackId: 'null_rune',
+      target: weaverOf(w).id,
+    });
   });
 
   it('isn’t begun with the Weaver down or absent', () => {
@@ -513,6 +583,23 @@ describe('Doom-touched', () => {
     for (let i = 0; i < 5; i++) applyOnHit(c.w, c.elite, kc, 10);
     killEnemy(c.w, c.elite, null);
     expect(c.w.telegraphs).toHaveLength(0);
+  });
+
+  it('Slow Dance lengthens the doomed mark and widens its Perfect window, as any telegraph', () => {
+    const { w, elite } = doomWorld();
+    const kael = heroAt(w, 0);
+    (w.mods as { slowDanceWindup: number }).slowDanceWindup = 0.5;
+    elite.enemy!.inField = true;
+    for (let i = 0; i < 5; i++) applyOnHit(w, elite, kael, 10);
+    const t = lastTelegraph(w);
+    expect(t.attackId).toBe('doom_burst');
+    expect(t.impact - t.start).toBeCloseTo(1.5 * 1.5, 9);
+    const window = w.content.techniques.ward.perfectWindow + w.mods.perfectWindowBonus;
+    expect(t.impact - t.perfectFrom).toBeCloseTo(
+      (window + w.config.assists.perfectWindowBonus) * 1.5,
+      9,
+    );
+    expect(kael.health!.statuses.find((s) => s.id === 'doomed')!.remaining).toBeCloseTo(2.25, 9);
   });
 
   it('never lands on the Weaver', () => {
@@ -843,6 +930,26 @@ describe('the affixes and the damage gates', () => {
     void vexis;
     dealDamage(w, lyra, { source: null, sourceName: 'test', amount: 400, telegraph: null });
     expect(lyra.health!.downed).toBe(true);
+  });
+
+  it('Sacrificial Lamb passes on only what got through the target’s own shields', () => {
+    const sim = sandbox();
+    const w = worldOf(sim);
+    (w.mods as { sacrificialLamb: number }).sacrificialLamb = 1;
+    const [kael, lyra] = [heroAt(w, 0), heroAt(w, 1)];
+    lyra.health!.hp = 200;
+    addShield(w, lyra, 'ward', 300, 30, true);
+    const kaelHp = kael.health!.hp;
+    const saves = w.ledger.saves.length;
+    dealDamage(w, lyra, { source: null, sourceName: 'test', amount: 1000, telegraph: null });
+    expect(lyra.health!.hp).toBe(200);
+    // The Ward spent itself on this blow; the Lamb takes the rest, not the whole of it again.
+    expect(lyra.health!.shields.some((s) => s.kind === 'ward')).toBe(false);
+    const through = 1000 * (1 - heroDef(lyra.hero!.defId).armor) - 300;
+    const save = w.ledger.saves[saves]!;
+    expect(save).toMatchObject({ hero: lyra.id, cause: 'other' });
+    expect(save.prevented).toBeCloseTo(through, 6);
+    expect(kaelHp - kael.health!.hp).toBeCloseTo(through * (1 - heroDef('kael').armor), 6);
   });
 });
 

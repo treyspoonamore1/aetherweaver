@@ -902,11 +902,16 @@ export function startPayloadMark(
       return false;
   if (check) return true;
   const attack = attackDef(attackId);
-  const windup =
+  let windup =
     attack.windup *
     c.windupMult *
     world.config.assists.telegraphLead *
     world.mods.dissonanceWindupMult;
+  // As `beginAttack` times every damaging telegraph: Lullaby and Slow Dance (read on the owner,
+  // whose mark it is) lengthen it, and widen its Perfect window in proportion.
+  const lullaby = attack.effect === 'damage' ? enemyFx(world, owner).enemyWindup : 0;
+  const dance = c.inField ? world.mods.slowDanceWindup : 0;
+  windup *= (1 + lullaby) * (1 + dance);
   startTelegraph(world, {
     owner,
     attack,
@@ -915,6 +920,7 @@ export function startPayloadMark(
     windup,
     damage: attack.damage * enemyDamageMult(world, c) * enrageMult(world, c.tier),
     pctMaxHp: attack.pctMaxHp ?? 0,
+    perfectWindowMult: (1 + lullaby) * (1 + dance),
   });
   const mark = markStatusOf(attack);
   if (mark !== null) addStatus(world, target, mark, windup, owner.id);
@@ -1172,6 +1178,9 @@ function inReach(e: Entity, attack: AttackDef, t: Entity): boolean {
 
 /** Who a rule-targeted attack would pick if it began now (Foresight's prediction). */
 function predictedTarget(world: World, e: Entity, attack: AttackDef): Entity | null {
+  // Movement III (docs/phase-5c.md Q2): a rune laid at the Weaver's feet (the Null Priest's,
+  // targeting 'self') is foreseen on her, as `canBegin` and `beginAttack` place it.
+  if (attack.centre === 'weaver') return weaverInReach(world, (t) => inReach(e, attack, t));
   if (attack.targeting === 'self' || attack.targeting === 'allHeroes') return null;
   if (attack.targeting === 'current') {
     const t = e.enemy!.targetId === null ? undefined : world.entities.get(e.enemy!.targetId);

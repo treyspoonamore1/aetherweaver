@@ -919,7 +919,7 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
     else if (
       world.mods.sacrificialLamb > 0 &&
       !world.internal.lambUsed &&
-      lamb(world, target, opts)
+      lamb(world, target, amount, opts)
     ) {
       dealt = 0;
       saved = true;
@@ -1133,8 +1133,11 @@ const spindledAt = new WeakMap<Entity, number>();
 /**
  * Sacrificial Lamb (docs/phase-5c.md): the lethal hit goes to the healthiest other standing hero
  * (the most life; ties to the lower slot), once a fight. False when there is no one to take it.
+ * Like Martyr's Veil, it passes on only what got through: `amount` is the hit after the target's
+ * own armour, guards and shields, which this very blow has already spent. Redirecting the raw
+ * hit would make it be paid twice (the target's Ward gone, and the whole blow on the other).
  */
-function lamb(world: World, target: Entity, opts: DamageOpts): boolean {
+function lamb(world: World, target: Entity, amount: number, opts: DamageOpts): boolean {
   let other: (Entity & { health: Health }) | null = null;
   for (const id of world.party) {
     const e = world.entities.get(id);
@@ -1144,8 +1147,8 @@ function lamb(world: World, target: Entity, opts: DamageOpts): boolean {
   if (!other) return false;
   world.internal.lambUsed = true;
   // (No `relicTriggered` yet: its sound and floater come with Movement III's audio and UI.)
-  recordSave(world, target, 'other', opts.amount, opts.sourceName);
-  dealDamage(world, other, { ...opts, oath: true });
+  recordSave(world, target, 'other', amount, opts.sourceName);
+  dealDamage(world, other, { ...opts, amount, oath: true });
   return true;
 }
 

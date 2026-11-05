@@ -83,6 +83,8 @@ export function startTelegraph(world: World, spec: TelegraphSpec): Telegraph {
   if (spec.attack.kind === 'link' && spec.attack.linkStatus === 'pact') t.linkStatus = 'pact';
   // Movement III's Stitch (docs/phase-5c.md Q8).
   if (spec.attack.kind === 'link' && spec.attack.linkStatus === 'stitch') t.linkStatus = 'stitch';
+  // A cut's verdict remembers whether there was a Thread to cut when it began (Q1).
+  if (spec.attack.cut && threadSegment(world) !== null) t.threadAtCast = true;
   world.telegraphs.push(t);
   world.events.push({
     type: 'telegraphStarted',
@@ -353,15 +355,16 @@ const CUT_CAUSE: Readonly<Record<string, ThreadCutCause>> = {
 
 /**
  * A cut telegraph's verdict (docs/phase-5c.md Q1, the Execution verdict's pattern), one per
- * telegraph: an `always` cut (the Unpick) cuts whatever it hit; a line cuts only if it still
- * crosses the Thread as it lands (`held` if not). `none`: there's no Thread to cut; `strand`:
- * Guard Strand turned it aside (`cutThread`).
+ * telegraph: an `always` cut (the Unpick) cuts whatever it hit; a line cuts only if it crosses
+ * the Thread as it lands (`held` if not). With no Thread as it lands: `none` if there was none
+ * at cast start either, else `held` (it snapped or was let go in the windup: not this cut's
+ * doing). `strand`: Guard Strand turned it aside (`cutThread`).
  */
 function resolveCut(world: World, t: Telegraph, attack: AttackDef): void {
   const cut = attack.cut!;
   const cause = CUT_CAUSE[attack.id] ?? (cut.always ? 'unpick' : 'shears');
   let result: CutResolved['result'];
-  if (threadSegment(world) === null) result = 'none';
+  if (threadSegment(world) === null) result = t.threadAtCast ? 'held' : 'none';
   else if (cut.always || cutWouldLand(world, t))
     result = cutThread(world, cause, cut.lock, t.owner);
   else result = 'held';
