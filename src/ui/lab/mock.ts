@@ -3598,3 +3598,350 @@ export function brannSummaryRun(): RunState {
 export function cellRun(party: readonly string[] = CONTENT.defaultParty): RunState {
   return withParty(eventRun('bloodsworn_cell'), party);
 }
+
+// ── Phase 5c: Movement III, the Unstitched ──────────────────────────────────────────
+
+/**
+ * The run's map with Movements II and III (global rows 17-22, `movement: 3`), as a 3-Movement
+ * Expedition's is: the Rift's fixed stops, its lesson row, its pools in teaching order and its
+ * events. Vharun is no longer final: he leads on as an interlude (an epic draft, three relics, 63
+ * Aether, heal half). A map that has Movement III already is kept as it is.
+ */
+export function withMovementThree(run: RunState): RunState {
+  const two = withMovementTwo(run);
+  if (two.map.rows.some((row) => row[0]?.movement === 3)) return { ...two, movements: 3 };
+  const def = CONTENT.movements[2]!;
+  const first = two.map.rows.length;
+  const pools: Record<number, string[]> = {
+    1: [...(def.lessons ?? [])],
+    2: [def.skirmishes[0]!, def.elites[0]!],
+  };
+  const events = CONTENT.events.filter((e) => e.movement === 3).map((e) => e.id);
+  const fixed = new Map(def.fixed.map((f) => [f.row, f.encounter]));
+  const rows: MapNode[][] = def.rows.map((kinds, i) => {
+    const row = first + i;
+    const pool = [...(pools[i] ?? [])];
+    return kinds.map((kind, col): MapNode => {
+      const fight =
+        kind === 'skirmish' || kind === 'elite' || kind === 'miniboss' || kind === 'boss';
+      const pooled = fixed.get(i) ?? (fight ? (pool.shift() ?? null) : null);
+      const next =
+        i + 1 < def.rows.length ? def.rows[i + 1]!.map((_, c) => `r${row + 1}c${c}`) : [];
+      return {
+        id: `r${row}c${col}`,
+        row,
+        x: kinds.length === 1 ? 0.5 : col / (kinds.length - 1),
+        kind,
+        encounterId: kind === 'miniboss' ? def.miniboss : kind === 'boss' ? def.boss : pooled,
+        eventId: kind === 'event' ? (events.shift() ?? null) : null,
+        next,
+        reward: {
+          draft: kind === 'miniboss' ? 'epic' : fight ? 'common' : null,
+          heal: kind === 'respite' ? 0.5 : 0,
+          aether: fight ? 38 : 0,
+          relics: kind === 'elite' ? 2 : kind === 'miniboss' ? 3 : 0,
+          threat: 1 + 0.03 * i,
+          text:
+            kind === 'boss'
+              ? 'The Unweaver. Stitch the world whole.'
+              : kind === 'miniboss'
+                ? 'The Seamstress. An epic motif and rare relics.'
+                : fight
+                  ? 'A fight: a motif and Aether.'
+                  : 'A stop on the descent.',
+        },
+        movement: 3,
+      };
+    });
+  });
+  const mapRows = two.map.rows.map((row) =>
+    row.map((n) =>
+      n.encounterId === 'vharun' && n.next.length === 0
+        ? {
+            ...n,
+            next: [`r${first}c0`],
+            reward: {
+              ...n.reward,
+              draft: 'epic' as const,
+              relics: 3,
+              aether: 63,
+              heal: 0.5,
+              text: 'Vharun, the Crimson Warden. Beyond it, the Abyssal Rift.',
+            },
+          }
+        : n,
+    ),
+  );
+  return { ...two, movements: 3, map: { rows: [...mapRows, ...rows] } };
+}
+
+/**
+ * A 3-Movement Expedition on its map: `arrive` just past Vharun (Movement III's first stop
+ * ahead, its card due); `descend` two stops into the Rift.
+ */
+export function riftRun(stage: 'arrive' | 'descend' = 'arrive', seed = 7): RunState {
+  const won = victoryRun(seed);
+  let run = withMovementThree({ ...won, phase: 'map', outcome: null, pending: null });
+  const cantor = cantorNode(run);
+  const path = run.path.includes(cantor.id) ? [...run.path] : [...run.path, cantor.id];
+  for (const row of run.map.rows.filter((r) => r[0]?.movement === 2)) path.push(row[0]!.id);
+  run = { ...run, path };
+  if (stage === 'descend') {
+    const vharun = run.map.rows.flat().find((n) => n.encounterId === 'vharun')!;
+    const r = vharun.row + 1;
+    run = { ...run, path: [...run.path, `r${r}c0`, `r${r + 1}c1`] };
+  }
+  return run;
+}
+
+/** A 3-Movement Expedition in Prep (its route chosen). */
+export function riftPrepRun(seed = 7): RunState {
+  return withMovementThree(Run.newRun(seed));
+}
+
+/**
+ * A 3-Movement Expedition's Summary: `victory` past the Unweaver; `defeat` fallen at the
+ * Seamstress (Movement III reached).
+ */
+export function riftSummaryRun(outcome: 'victory' | 'defeat'): RunState {
+  const run = riftRun('descend');
+  const rows = run.map.rows.filter((row) => row[0]?.movement === 3);
+  const through = outcome === 'victory' ? rows : rows.slice(0, 4);
+  const path = [...run.path];
+  for (const row of through) if (!row.some((n) => path.includes(n.id))) path.push(row[0]!.id);
+  return { ...run, path, phase: 'summary', outcome, pending: null };
+}
+
+/** The HUD in Movement III, each a mid-fight moment: the Unstitched's threats, the two bosses. */
+export type RiftScenario =
+  | 'rift-cut'
+  | 'rift-rune'
+  | 'rift-possessed'
+  | 'rift-doom'
+  | 'rift-sighting'
+  | 'seamstress'
+  | 'unweaver-snip'
+  | 'unweaver-unravel'
+  | 'unweaver-mirror';
+
+export function riftHud(scenario: RiftScenario): HudSnapshot {
+  const base = mockHud('calm');
+  const encounter = (id: string) => {
+    const def = CONTENT.encounters.find((e) => e.id === id)!;
+    return { ...base.encounter, id, name: def.name, kind: def.kind, par: def.par };
+  };
+  const unweaver = (phase: number, over: Partial<NonNullable<HudSnapshot['boss']>>) => ({
+    id: 9,
+    name: 'The Unweaver',
+    hp: phase === 1 ? 118000 : phase === 2 ? 70000 : 30000,
+    maxHp: 136500,
+    shield: 0,
+    phase,
+    phases: 3,
+    phaseAt: [0.66, 0.33],
+    defId: 'the_unweaver',
+    cast: null,
+    enrageIn: 300,
+    decree: null,
+    foreseen: null,
+    ...over,
+  });
+  switch (scenario) {
+    case 'rift-cut':
+      // The Shears' line crosses the Thread, and a cut one has just landed.
+      return {
+        ...base,
+        weaver: {
+          ...base.weaver,
+          threadSlot: null,
+          threadLock: 0.6,
+          threadCut: { cause: 'shears' },
+        },
+        party: [hero(0, 'kael', { hp: 1180 }), hero(1, 'lyra', { hp: 470 }), hero(2, 'vexis')],
+        encounter: encounter('frayed_threshold'),
+        foes: ['shears', 'hollow_chorister'],
+      };
+    case 'rift-rune':
+      // A Null rune at her feet: Ward, Chime and Reel locked; Glide lit.
+      return {
+        ...base,
+        weaver: { ...base.weaver, runeLocked: true },
+        party: [
+          hero(0, 'kael', { hp: 900, threaded: true }),
+          hero(1, 'lyra', { hp: 600 }),
+          hero(2, 'vexis', { hp: 500 }),
+        ],
+        encounter: encounter('null_chapel'),
+        foes: ['null_priest', 'hollow_chorister'],
+      };
+    case 'rift-possessed':
+    case 'rift-sighting':
+      return {
+        ...base,
+        party: [
+          hero(0, 'kael', { hp: 1240, threaded: true }),
+          hero(1, 'lyra', {
+            hp: 640,
+            statuses: [{ id: 'possessed', remaining: 3.6, duration: 5 }],
+            possessed: { victim: 'Kael', victimSlot: 0 },
+          }),
+          hero(2, 'vexis', {
+            hp: 560,
+            statuses: [{ id: 'doubt', remaining: 2.2, duration: 4 }],
+          }),
+        ],
+        encounter: encounter('wraith_vigil'),
+        foes: ['doubt_wraith', 'hollow_chorister'],
+        rift: { wraithCasting: true },
+      };
+    case 'rift-doom':
+      return {
+        ...base,
+        party: [
+          hero(0, 'kael', {
+            hp: 1300,
+            threaded: true,
+            statuses: [{ id: 'doom', remaining: 7.5, duration: 10, stacks: 4 }],
+          }),
+          hero(1, 'lyra', {
+            hp: 610,
+            statuses: [{ id: 'doomed', remaining: 1.1, duration: 1.5 }],
+            incoming: 328,
+          }),
+          hero(2, 'vexis', {
+            hp: 520,
+            statuses: [{ id: 'doom', remaining: 9, duration: 10 }],
+          }),
+        ],
+        encounter: encounter('frayed_court'),
+        foes: ['impaler', 'void_maw', 'hollow_chorister'],
+        rift: { inhale: true },
+      };
+    case 'seamstress':
+      return {
+        ...base,
+        party: [
+          hero(0, 'kael', {
+            hp: 1100,
+            statuses: [{ id: 'stitched', remaining: 4.2, duration: 6 }],
+            stitchedWith: [1],
+          }),
+          hero(1, 'lyra', {
+            hp: 540,
+            incoming: 315,
+            statuses: [{ id: 'stitched', remaining: 4.2, duration: 6 }],
+            stitchedWith: [0],
+          }),
+          hero(2, 'vexis', { hp: 600, threaded: true }),
+        ],
+        boss: {
+          id: 8,
+          name: 'The Seamstress',
+          hp: 41000,
+          maxHp: 63000,
+          shield: 0,
+          phase: 1,
+          phases: 2,
+          phaseAt: [0.5],
+          defId: 'the_seamstress',
+          cast: { name: 'Needle Rain', progress: 0.5, answers: ['move', 'ward', 'reel'] },
+          pips: 3,
+          pip: 2,
+          stitched: 2,
+          enrageIn: 190,
+          decree: {
+            name: 'Stitch',
+            text: 'Stitch — two heroes are sewn to the floor. Chime breaks the stitch, or frees them both.',
+          },
+          foreseen: null,
+        },
+        encounter: encounter('the_seamstress'),
+        foes: ['the_seamstress'],
+      };
+    case 'unweaver-snip':
+      return {
+        ...base,
+        party: [
+          hero(0, 'kael', { hp: 1400, threaded: true }),
+          hero(1, 'lyra', { hp: 700 }),
+          hero(2, 'vexis', { hp: 640 }),
+        ],
+        boss: unweaver(1, {
+          cast: { name: 'Snip', progress: 0.55, answers: ['thread', 'move'] },
+          spindles: 2,
+          decree: {
+            name: 'Snip',
+            text: 'Snip — the shears close across your Thread. Get on your hero’s side of the line, or lose it for 3 s.',
+          },
+        }),
+        encounter: encounter('the_unweaver'),
+        foes: ['the_unweaver', 'spindle'],
+        rift: { cutComing: { name: 'Snip', in: 0.7 } },
+      };
+    case 'unweaver-unravel': {
+      const stolen = base.weaver.auras[0]!;
+      return {
+        ...base,
+        weaver: { ...base.weaver, unravelLeft: 3.4, stolenAura: stolen.id, threadMode: 'mend' },
+        party: [
+          hero(0, 'kael', {
+            hp: 980,
+            threaded: true,
+            statuses: [{ id: 'unravelled', remaining: 3.4, duration: 5 }],
+          }),
+          hero(1, 'lyra', { hp: 650 }),
+          hero(2, 'vexis', { hp: 600 }),
+        ],
+        boss: unweaver(2, {
+          unravelLeft: 3.4,
+          stolen: { id: stolen.id, name: stolen.name },
+          decree: {
+            name: 'Unravel',
+            text: 'Unravel — your Thread turns: Mend wounds. Switch to Empower until it passes.',
+          },
+        }),
+        encounter: encounter('the_unweaver'),
+        foes: ['the_unweaver', 'stolen_verse'],
+      };
+    }
+    case 'unweaver-mirror':
+      return {
+        ...base,
+        party: [
+          hero(0, 'kael', { hp: 1350, threaded: true, incoming: 945 }),
+          hero(1, 'lyra', { hp: 690 }),
+          hero(2, 'vexis', { hp: 610 }),
+        ],
+        boss: unweaver(3, {
+          cast: { name: 'Mirror Ward', progress: 0.45, answers: ['focus'] },
+          champion: { hp: 15600, maxHp: 21000 },
+          mirrorWard: { casting: true, upLeft: 0 },
+          decree: {
+            name: 'Mirror Weave',
+            text: 'Mirror Weave — the Unweaver Wards its champion as you Ward yours. Interrupt the Mirror Ward, and Focus the champion.',
+          },
+        }),
+        encounter: encounter('the_unweaver'),
+        foes: ['the_unweaver', 'mirror_champion'],
+        rift: { mimicCopy: 'ward' },
+      };
+  }
+}
+
+/** The callouts over a Movement III moment (a first sighting's card among them). */
+export function riftCallouts(scenario: RiftScenario): Callout[] {
+  if (scenario !== 'rift-sighting') return [];
+  const far = performance.now() + 1e9;
+  return [{ id: 901, ...sightingCallout('doubt_wraith'), expiresAt: far }];
+}
+
+/** A Reliquary holding Rift relics: they sleep outside Movement III fights. */
+export function riftReliquary(): Reliquary {
+  const base = partwayReliquary();
+  return mockReliquary(
+    [...base.relics, mockRelic('r20', 'stillwater_bell'), mockRelic('r21', 'knotted_cord')],
+    ['r20', ...base.carry.slice(0, 1)],
+    base.shards,
+    base.tears,
+  );
+}

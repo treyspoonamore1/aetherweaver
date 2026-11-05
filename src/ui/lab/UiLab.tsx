@@ -147,7 +147,14 @@ import {
   expeditionSummaryRun,
   legionCallouts,
   legionHud,
+  riftCallouts,
+  riftHud,
+  riftPrepRun,
+  riftReliquary,
+  riftRun,
+  riftSummaryRun,
   type LegionScenario,
+  type RiftScenario,
 } from './mock';
 
 /** The lab's Weaver bar moved to the top middle, a little smaller (one object: EditStage keeps it). */
@@ -780,6 +787,28 @@ function LegionStage({ scenario }: { scenario: LegionScenario }) {
             : hud.encounter.kind === 'miniboss'
               ? 'Movement II · node 5 of 7'
               : 'Movement II · node 3 of 7'
+        }
+        forceCoach
+      />
+    </World>
+  );
+}
+
+/** Movement III's HUD (Phase 5c): the Unstitched's threats, a first sighting, the two bosses. */
+function RiftStage({ scenario }: { scenario: RiftScenario }) {
+  const hud = riftHud(scenario);
+  return (
+    <World>
+      <HudView
+        hud={hud}
+        callouts={riftCallouts(scenario)}
+        decree={hud.boss?.decree ?? null}
+        subtitle={
+          hud.encounter.kind === 'boss'
+            ? 'Movement III · node 6 of 6'
+            : hud.encounter.kind === 'miniboss'
+              ? 'Movement III · node 4 of 6'
+              : 'Movement III · node 2 of 6'
         }
         forceCoach
       />
@@ -4310,6 +4339,114 @@ const VIEWS: ViewDef[] = [
     label: 'Codex: Enemies by Movement',
     w: 1280,
     h: 2800,
+    render: () => <CodexView onBack={noop} initialTab="enemies" />,
+  },
+  // ── Phase 5c: Movement III, the Unstitched ──────────────────────────────────────────
+  ...(
+    [
+      ['rift-cut', 'HUD: the Shears cut the Thread (Cut · its cause)'],
+      ['rift-rune', 'HUD: in a Null rune (Ward, Chime, Reel locked; Glide lit)'],
+      ['rift-possessed', 'HUD: Lyra possessed (striking Kael), Vexis Doubted'],
+      ['rift-sighting', 'HUD: first sighting (the Doubt Wraith)'],
+      ['rift-doom', 'HUD: Doom ×4/5, Ignited, an Inhale'],
+      ['seamstress', 'HUD: the Seamstress, Needle Rain 2/3, a Stitched pair'],
+      ['unweaver-snip', 'HUD: the Unweaver, Snip, Spindles ×2'],
+      ['unweaver-unravel', 'HUD: the Unweaver, Unravel, a stolen aura'],
+      ['unweaver-mirror', 'HUD: the Unweaver, Mirror Ward, the Hollow Champion'],
+    ] as const
+  ).map(([scenario, label]): ViewDef => ({
+    id: `m3-hud-${scenario}`,
+    group: 'Movement III',
+    label,
+    w: 1280,
+    h: 720,
+    render: () => <RiftStage scenario={scenario} />,
+  })),
+  {
+    id: 'm3-map-arrive',
+    group: 'Movement III',
+    label: 'Map: arriving, the Movement III card (Vharun an interlude)',
+    w: 1280,
+    h: 860,
+    render: () => <MapView run={riftRun('arrive')} onChoose={noop} onAbandon={noop} card />,
+  },
+  {
+    id: 'm3-vharun-relics',
+    group: 'Movement III',
+    label: 'Vharun’s interlude: the Warden’s armoury (Rift relics)',
+    w: 1280,
+    h: 800,
+    render: () => (
+      <RelicOfferView
+        run={{
+          ...relicOfferRun('boss'),
+          relicOffer: {
+            reason: 'boss',
+            options: ['sacrificial_lamb', 'knotted_cord', 'stillwater_bell'],
+            sourceEncounter: 'vharun',
+          },
+        }}
+        onPick={noop}
+      />
+    ),
+  },
+  {
+    id: 'm3-map-descend',
+    group: 'Movement III',
+    label: 'Map: the Unravelling Descent, two stops in',
+    w: 1280,
+    h: 860,
+    render: () => (
+      <MapView run={riftRun('descend')} onChoose={noop} onAbandon={noop} card={false} />
+    ),
+  },
+  {
+    id: 'm3-prep',
+    group: 'Movement III',
+    label: 'Prep: the Route toggle (Movements I–III)',
+    w: 1280,
+    h: 1500,
+    render: () => (
+      <PrepView
+        run={riftPrepRun()}
+        onChords={noop}
+        onEmbark={noop}
+        onBack={noop}
+        rank={2}
+        route={{ onChange: noop }}
+      />
+    ),
+  },
+  {
+    id: 'm3-summary-win',
+    group: 'Movement III',
+    label: 'Summary: the Unweaver falls',
+    w: 1280,
+    h: 1800,
+    render: () => <SummaryView run={riftSummaryRun('victory')} onNewRun={noop} onLoom={noop} />,
+  },
+  {
+    id: 'm3-summary-loss',
+    group: 'Movement III',
+    label: 'Summary: fallen in Movement III',
+    w: 1280,
+    h: 1800,
+    render: () => <SummaryView run={riftSummaryRun('defeat')} onNewRun={noop} onLoom={noop} />,
+  },
+  {
+    id: 'm3-reliquary-sleeping',
+    group: 'Movement III',
+    label: 'Reliquary: a Rift relic carried, Wakes in the Abyssal Rift',
+    w: 1280,
+    h: 1100,
+    render: () => <ReliquaryLab initial={riftReliquary()} rank={20} selected="r20" />,
+  },
+  {
+    id: 'm3-codex-enemies',
+    group: 'Movement III',
+    label: 'Codex: Enemies, the Unstitched',
+    w: 1280,
+    h: 3400,
     render: () => <CodexView onBack={noop} initialTab="enemies" />,
   },
   // ── Phase 4g: the Loom, the Atelier and the front door ──────────────────────────────

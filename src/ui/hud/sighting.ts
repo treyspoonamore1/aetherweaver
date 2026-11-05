@@ -9,6 +9,7 @@ import { useProfile } from '../../app/profileStore';
 import { CONTENT, enemyDef } from '../../content';
 import type { AnswerTag } from '../types';
 import { useUi, type Callout } from '../store';
+import { EMBOLDENED_PCT, spindleCutPct } from './riftLook';
 
 /** How long a "New foe" card stays, in ms. */
 export const SIGHTING_TTL = 6500;
@@ -89,12 +90,91 @@ function legionLesson(
 }
 
 /**
+ * The Unstitched's lessons (docs/phase-5c.md), Calling-aware like the Legion's: on a Chronomancer
+ * run Reel's slot casts Rewind, so the cards say what Rewind does instead; Paradox is named only
+ * when it is on the path (`paradox`). Guard Strand is never taught here: it is a motif the run may
+ * not hold. Numbers from content.
+ */
+function riftLesson(
+  defId: string,
+  rewinds: boolean,
+  paradox: boolean,
+): { lesson: string; answers: AnswerTag[] } | null {
+  switch (defId) {
+    case 'shears':
+      return {
+        lesson:
+          'Shears cut your Thread. Thread a hero on your side of the line, or step across. Focus them.',
+        answers: ['thread', 'focus', 'move'],
+      };
+    case 'void_maw':
+      return rewinds
+        ? {
+            lesson:
+              'It breathes in and drags everyone near it into its mouth. Rally the party in the tell; Rewind takes back a hero you lost to the pull.',
+            answers: ['stack', 'move'],
+          }
+        : {
+            lesson:
+              'It breathes in and drags everyone near it into its mouth. Rally the party in the tell, or Reel one out; Glide yourself clear.',
+            answers: ['stack', 'reel', 'move'],
+          };
+    case 'doubt_wraith':
+      return {
+        lesson: `Its long cast possesses a hero, who strikes an ally. Focus it to interrupt; Chime the mark, or the possessed hero, to free them.${paradox ? ' Paradox undoes the mark.' : ''}`,
+        answers: ['focus', 'chime', 'ward'],
+      };
+    case 'null_priest':
+      return {
+        lesson: `It closes a rune at your feet: inside, Ward, Chime and ${rewinds ? 'Rewind' : 'Reel'} are refused. Glide or walk out; Glide always works.`,
+        answers: ['move'],
+      };
+    case 'mimic':
+      return {
+        lesson:
+          'It copies your Empower, or your last Ward or Chime, for its strongest ally. Cast something else before it ends to crack the mirror, or Focus it.',
+        answers: ['focus'],
+      };
+    case 'spindle':
+      return {
+        lesson: `While a Spindle stands, the Unweaver takes ${spindleCutPct()}% less damage. Focus them.`,
+        answers: ['focus'],
+      };
+    case 'stolen_verse':
+      return {
+        lesson: 'It flees with an aura it tore from your song. Focus it to take the aura back.',
+        answers: ['focus'],
+      };
+    case 'mirror_champion':
+      return {
+        lesson: `The Unweaver threads it (${EMBOLDENED_PCT}% harder) and Wards it. Interrupt the Mirror Ward, and Focus the champion.`,
+        answers: ['focus', 'ward'],
+      };
+    case 'the_seamstress':
+      return {
+        lesson:
+          'Needle Rain falls three times; Stitch roots two heroes; Unpick tears your Thread loose. Dodge or Ward the needles, Chime the Stitch, re-thread at once.',
+        answers: ['move', 'chime', 'thread'],
+      };
+    case 'the_unweaver':
+      return {
+        lesson:
+          'Snip cuts your Thread; Unravel turns your Mend; the Mirror Ward shields its champion. Retarget, Empower, Focus.',
+        answers: ['thread', 'empower', 'focus'],
+      };
+    default:
+      return null;
+  }
+}
+
+/**
  * A foe's card: its name, lesson and answers (any enemy: its Codex line and its attacks').
  * `rewinds`: a Chronomancer run (Rewind in Reel's slot), whose cards never teach Reel.
+ * `paradox`: Paradox is on the Chronomancer's path, so a card may name it (Movement III).
  */
-export function sightingOf(defId: string, rewinds = false): Sighting {
+export function sightingOf(defId: string, rewinds = false, paradox = false): Sighting {
   const def = enemyDef(defId);
-  const legion = legionLesson(defId, rewinds);
+  const legion = legionLesson(defId, rewinds) ?? riftLesson(defId, rewinds, paradox);
   if (legion) return { defId, name: def.name, ...legion };
   const answers = [
     ...new Set(
@@ -120,8 +200,12 @@ function isEnemy(id: string): boolean {
 }
 
 /** The callout for a foe's first sighting. */
-export function sightingCallout(defId: string, rewinds = false): Omit<Callout, 'id' | 'expiresAt'> {
-  const s = sightingOf(defId, rewinds);
+export function sightingCallout(
+  defId: string,
+  rewinds = false,
+  paradox = false,
+): Omit<Callout, 'id' | 'expiresAt'> {
+  const s = sightingOf(defId, rewinds, paradox);
   return { kind: 'sighting', text: s.name, detail: s.lesson, key: `${SIGHTING_KEY}${defId}` };
 }
 
@@ -146,11 +230,12 @@ export function noteSightings(
   foes: readonly string[] | undefined,
   now: number,
   rewinds = false,
+  paradox = false,
 ): string[] {
   const fresh = newSightings(foes, useProfile.getState().profile.seen);
   if (fresh.length === 0) return fresh;
   const ui = useUi.getState();
-  for (const id of fresh) ui.pushCallout(sightingCallout(id, rewinds), now, SIGHTING_TTL);
+  for (const id of fresh) ui.pushCallout(sightingCallout(id, rewinds, paradox), now, SIGHTING_TTL);
   recordSeen(fresh);
   return fresh;
 }
@@ -161,13 +246,15 @@ export function useFirstSightings(enabled = true): void {
   const fighting = useUi((s) => s.hud?.encounter.status === 'fighting');
   const sandbox = useUi((s) => s.hud?.encounter.kind === 'sandbox');
   const rewinds = useUi((s) => !!s.hud?.weaver.rewind);
+  // Movement III: a card names Paradox only when it is on the path.
+  const paradox = useUi((s) => !!s.hud?.calling?.tiers.some((t) => t?.id === 'paradox'));
   // Phase 5b: the party's def ids, as one string so the effect runs only when it changes.
   const party = useUi((s) => s.hud?.party.map((h) => h.defId).join(' ') ?? '');
   useEffect(() => {
     if (!enabled || !fighting || sandbox) return;
-    noteSightings(foes, performance.now(), rewinds);
+    noteSightings(foes, performance.now(), rewinds, paradox);
     noteAllies(party ? party.split(' ') : [], performance.now());
-  }, [enabled, foes, fighting, sandbox, rewinds, party]);
+  }, [enabled, foes, fighting, sandbox, rewinds, paradox, party]);
 }
 
 // ── A new ally (docs/phase-5b.md) ────────────────────────────────────────────────────

@@ -35,3 +35,21 @@ export function slotState(
     ready: !cooling && t.affordable && !silenced,
   };
 }
+
+/**
+ * The techniques a Null rune refuses (docs/phase-5c.md Q5): Ward, Chime and Reel (or Rewind, in
+ * Reel's slot). Glide is never refused, so it never greys.
+ */
+export const RUNE_KEYS: ReadonlySet<TechniqueHud['key']> = new Set(['ward', 'chime', 'reel']);
+
+/**
+ * Whether a Weaver bar slot is silenced now (`slotState`'s `silenced`): every slot while she is
+ * down; inside a Null rune (`runeLocked`), only Ward, Chime and Reel.
+ */
+export function slotSilenced(
+  key: TechniqueHud['key'],
+  downed: boolean,
+  runeLocked: boolean | undefined,
+): boolean {
+  return downed || (!!runeLocked && RUNE_KEYS.has(key));
+}

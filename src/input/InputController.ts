@@ -20,6 +20,12 @@ import {
 } from './wheel';
 import { getAudio, type UiSound } from '../audio';
 
+/**
+ * After an enemy cuts the Thread (docs/phase-5c.md), an un-hovered Ward or Reel goes to the hero
+ * it was on for this many sim seconds: otherwise a keyboard Ward right after a cut has no target.
+ */
+export const CUT_FALLBACK_SECONDS = 3;
+
 /** Inputs entering the sim are quantised so replays are compact and exact. */
 const MOVE_STEP = 1 / 1024;
 const AIM_STEP = 1 / 16;
@@ -84,6 +90,10 @@ export class InputController {
   private hoveredEnemyId: EntityId | null = null;
   private uiHoverSlot: PartySlot | null = null;
   private threadedSlot: PartySlot | null = null;
+  /** The last enemy cut: the hero the Thread was on, and until when (sim time) Ward aims there. */
+  private cut: { target: EntityId; until: number } | null = null;
+  /** That hero's slot while the fallback lasts (refreshed with the pointer). */
+  private cutSlot: PartySlot | null = null;
   private heroPos: { x: number; z: number }[] = [];
   private wheel = 0;
   private enabled = true;
@@ -179,6 +189,12 @@ export class InputController {
       this.hasGround && worldHover === null ? enemyAt(state, this.ground.x, this.ground.z) : null;
     const w = state.entities.get(state.weaverId)?.weaver;
     this.threadedSlot = w?.threadSlot ?? null;
+    this.cutSlot = null;
+    if (this.cut && state.time < this.cut.until) {
+      const slot = state.party.indexOf(this.cut.target);
+      const hero = state.entities.get(this.cut.target)?.health;
+      if (slot >= 0 && hero && !hero.dead) this.cutSlot = slot as PartySlot;
+    } else this.cut = null;
     this.heroPos.length = 0;
     for (const id of state.party) {
       const e = state.entities.get(id);
@@ -211,6 +227,22 @@ export class InputController {
 
   private smartSlot(): PartySlot | undefined {
     return this.hoveredSlot ?? this.threadedSlot ?? undefined;
+  }
+
+  /**
+   * Ward's and Reel's target: the smart-cast's, else, for a few seconds after an enemy cut the
+   * Thread, the hero it was on (`onThreadCut`). The sim is unchanged: the command names the slot.
+   */
+  private techSlot(): PartySlot | undefined {
+    return this.smartSlot() ?? this.cutSlot ?? undefined;
+  }
+
+  /**
+   * An enemy cut the Thread (`threadSnapped` with a `cause`; never the range snap): for
+   * CUT_FALLBACK_SECONDS an un-hovered Ward or Reel goes to `target`, the hero it was on.
+   */
+  onThreadCut(cut: { target: EntityId; at: number }): void {
+    this.cut = { target: cut.target, until: cut.at + CUT_FALLBACK_SECONDS };
   }
 
   private onKeyDown = (event: KeyboardEvent): void => {
@@ -247,10 +279,10 @@ export class InputController {
         this.pending.push({ t: 'mode', mode: 'bear' });
         break;
       case 'ward':
-        this.pending.push(withSlot({ t: 'tech', id: 'ward' }, this.smartSlot()));
+        this.pending.push(withSlot({ t: 'tech', id: 'ward' }, this.techSlot()));
         break;
       case 'reel':
-        this.pending.push(withSlot({ t: 'tech', id: 'reel' }, this.smartSlot()));
+        this.pending.push(withSlot({ t: 'tech', id: 'reel' }, this.techSlot()));
         break;
       case 'chime': {
         const hero = this.hoveredSlot === null ? null : this.heroPos[this.hoveredSlot];

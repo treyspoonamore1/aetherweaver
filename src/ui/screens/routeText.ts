@@ -1,9 +1,11 @@
 /**
- * The run's route in words (docs/phase-5a.md): the Prelude (Movement I alone, the first run) or
- * an Expedition (Movement I, then Movement II). Every Prelude string is the one it always was;
- * an Expedition's derive from its Movements (content `movements`) and the map.
+ * The run's route in words (docs/phase-5a.md, docs/phase-5c.md): the Prelude (Movement I alone,
+ * the first run) or an Expedition (every Movement in content: I–III, to the Unweaver). Every
+ * Prelude string is the one it always was; an Expedition's derive from its Movements (content
+ * `movements`, `EXPEDITION_MOVEMENTS`) and the map.
  */
-import { CONTENT, encounterDef, movementDef } from '../../content';
+import { CONTENT, encounterDef, movementDef, type Biome } from '../../content';
+import { EXPEDITION_MOVEMENTS } from '../../meta/profile';
 import {
   findNode,
   isFinalNode,
@@ -12,6 +14,7 @@ import {
 } from '../../meta/run';
 import type { MapNode, RunState } from '../../meta/types';
 import type { IconName } from '../kit/iconPaths';
+import type { BackdropTone } from '../kit/backdropTone';
 
 export type Route = 'prelude' | 'expedition';
 
@@ -100,6 +103,65 @@ export function movementCard(n: number): { title: string; text: string } {
   };
 }
 
+// ── Biomes on the map (docs/phase-5c.md) ─────────────────────────────────────────────
+
+/** Each biome's map backdrop (undefined: the default navy, the Reliquary's). */
+const BIOME_TONE: Readonly<Record<Biome, BackdropTone | undefined>> = {
+  reliquary: undefined,
+  crimson_spire: 'crimson',
+  abyssal_rift: 'abyss',
+};
+
+/** Each biome as a place, mid-sentence ("the Abyssal Rift"), as the meta's Vharun node says it. */
+const BIOME_PLACE: Readonly<Record<Biome, string>> = {
+  reliquary: 'the Reliquary',
+  crimson_spire: 'the Crimson Spire',
+  abyssal_rift: 'the Abyssal Rift',
+};
+
+/** Movement `n`'s biome as a place, mid-sentence: "the Abyssal Rift". */
+export function movementPlace(n: number): string {
+  return BIOME_PLACE[movementOrFirst(n).biome];
+}
+
+/** A Movement's biome's backdrop tone (the map's, its card's). */
+export function biomeTone(biome: Biome | undefined): BackdropTone | undefined {
+  return biome ? BIOME_TONE[biome] : undefined;
+}
+
+/** How a Movement's title card looks: its eyebrow's colour, its title's glow, its button. */
+export interface MovementCardLook {
+  /** The eyebrow's Tailwind text class. */
+  eyebrow: string;
+  /** The title's text shadow. */
+  glow: string;
+  /** The button's words: climb the Spire, descend into the Rift. */
+  button: string;
+}
+
+const CARD_LOOK: Readonly<Record<Biome, MovementCardLook>> = {
+  reliquary: {
+    eyebrow: 'text-gold-200/80',
+    glow: '0 0 36px rgb(245 184 61 / 0.45), 0 3px 0 rgb(0 0 0 / 0.55)',
+    button: 'Climb on',
+  },
+  crimson_spire: {
+    eyebrow: 'text-rose-200/80',
+    glow: '0 0 36px rgb(168 46 52 / 0.6), 0 3px 0 rgb(0 0 0 / 0.55)',
+    button: 'Climb on',
+  },
+  abyssal_rift: {
+    eyebrow: 'text-indigo-200/80',
+    glow: '0 0 36px rgb(76 70 170 / 0.65), 0 3px 0 rgb(0 0 0 / 0.55)',
+    button: 'Descend',
+  },
+};
+
+/** Movement `n`'s title card, styled by its biome. */
+export function movementCardLook(n: number): MovementCardLook {
+  return CARD_LOOK[movementOrFirst(n).biome] ?? CARD_LOOK.crimson_spire;
+}
+
 /** The combat HUD's line: "The Prelude · node 3 of 10", or "Movement II · node 2 of 7". */
 export function combatSubtitle(
   run: Pick<RunState, 'map' | 'path' | 'pending' | 'movements'>,
@@ -120,9 +182,29 @@ export function prepEyebrow(run: Partial<Pick<RunState, 'movements'>>): string {
   return `The Expedition · Movements I–${movementNumeral(n)}`;
 }
 
-/** The Title's eyebrow: the Prelude's, or the Expedition's once it's the route. */
-export function titleEyebrow(expedition: boolean): string {
-  return expedition ? 'Movements I–II · The Expedition' : 'Movement I · The Prelude';
+/** The Title's eyebrow: the Prelude's, or the Expedition's once it's the route (I–III now). */
+export function titleEyebrow(expedition: boolean, movements = EXPEDITION_MOVEMENTS): string {
+  return expedition
+    ? `Movements I–${movementNumeral(Math.max(2, movements))} · The Expedition`
+    : 'Movement I · The Prelude';
+}
+
+/**
+ * Prep's Route line: where an Expedition goes after the Prelude's Movement I. "into Movement II"
+ * with two Movements, "through Movements II–III" with three.
+ */
+export function expeditionOnward(movements = EXPEDITION_MOVEMENTS): string {
+  const n = Math.max(2, movements);
+  return n === 2 ? 'into Movement II' : `through Movements II–${movementNumeral(n)}`;
+}
+
+/**
+ * How many Movements Prep's Route copy names: the run's own when it is an Expedition (a save keeps
+ * the length it was made with), else what an Expedition plays now (EXPEDITION_MOVEMENTS).
+ */
+export function expeditionLength(run: Partial<Pick<RunState, 'movements'>>): number {
+  const n = run.movements ?? 1;
+  return n >= 2 ? n : EXPEDITION_MOVEMENTS;
 }
 
 /** The Route toggle's options: "Prelude · ~15 min", "Expedition · ~30 min". */
@@ -133,11 +215,18 @@ export function routeOptions(): { value: Route; label: string }[] {
   ];
 }
 
-/** The Route toggle's hint: what the chosen route plays. */
-export function routeHint(route: Route): string {
+/**
+ * The Route toggle's hint: what the chosen route plays. The Prelude's as it always was; an
+ * Expedition's names every Movement it plays, "Movements I–III, to the Unweaver." (with two, as it
+ * was: "Movement I, then Movement II (…), to …").
+ */
+export function routeHint(route: Route, movements = EXPEDITION_MOVEMENTS): string {
   if (route === 'prelude') return `Movement I alone, to ${encounterDef(movementDef(1).boss).name}.`;
-  const last = CONTENT.movements[CONTENT.movements.length - 1]!;
-  return `Movement I, then ${movementLabel(CONTENT.movements.length)} (${last.name}), to ${encounterDef(last.boss).name}.`;
+  const n = Math.max(2, Math.min(CONTENT.movements.length, movements));
+  const last = CONTENT.movements[n - 1]!;
+  const boss = encounterDef(last.boss).name;
+  if (n === 2) return `Movement I, then ${movementLabel(n)} (${last.name}), to ${boss}.`;
+  return `Movements I–${movementNumeral(n)}, to ${boss.replace(/^The /, 'the ')}.`;
 }
 
 /** "The Prelude ends here…" (the abandon dialogs; `straight`: the pause menu's wording). */
@@ -163,6 +252,7 @@ export function movementReached(run: MapRun): number {
 const VICTORY: Readonly<Record<string, string>> = {
   hollow_cantor: 'The Hollow Cantor falls and the Reliquary sings again.',
   vharun: 'Vharun falls, and the Spire’s banners burn.',
+  the_unweaver: 'The Unweaver falls, and the Rift knits shut.',
 };
 
 /** The Summary's line under its title: a win names the final boss; a defeat, the Movement reached. */
@@ -237,12 +327,15 @@ export function deedsInSight(
 // ── The map's Movement card and glyphs ──────────────────────────────────────────────
 
 /**
- * Stops whose encounter has a glyph of its own: the Gorehound Matriarch's paw, Vharun's crown.
- * Every other stop draws its kind's (null).
+ * Stops whose encounter has a glyph of its own: the Gorehound Matriarch's paw, Vharun's crown, the
+ * Seamstress's needle, the Unweaver's shears. Every other stop draws its kind's (null).
  */
 const ENCOUNTER_ICON: Readonly<Record<string, IconName>> = {
   gorehound_matriarch: 'paw',
   vharun: 'crown',
+  // Movement III (docs/phase-5c.md): the Seamstress's needle, the Unweaver's shears.
+  the_seamstress: 'needle',
+  the_unweaver: 'scissors',
 };
 
 export function encounterIcon(encounterId: string | null): IconName | null {

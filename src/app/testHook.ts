@@ -317,7 +317,8 @@ export function installRunHook(): void {
           .filter((id) => !state.relics.some((r) => r.id === id))
           .map((id) => ({ id, cleansed: false })),
       ];
-      // The run's final boss (an Expedition's Vharun, walking past the Cantor).
+      // The run's final boss (an Expedition's last Movement's: the Unweaver, walking past the
+      // Cantor and Vharun, both interludes now; docs/phase-5c.md).
       const next = warpTo({ ...state, relics }, isFinalNode);
       if (!next) return false;
       useRun.setState({ run: next });
@@ -396,12 +397,18 @@ function routeTo(state: RunState, matches: (node: MapNode) => boolean): string[]
   const from = state.path.length > 0 ? findNode(state, state.path[state.path.length - 1]!) : null;
   const starts = from ? from.next : rows[0]!.map((n) => n.id);
   const queue: string[][] = starts.map((id) => [id]);
+  // Each node is expanded once, by the first (shortest) route that reaches it: the same route as
+  // before, without walking every path of a 3-Movement map (Phase 5c).
+  const seen = new Set<string>();
   while (queue.length > 0) {
     const route = queue.shift()!;
-    const node = findNode(state, route[route.length - 1]!);
+    const id = route[route.length - 1]!;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    const node = findNode(state, id);
     if (!node) continue;
     if (matches(node)) return route;
-    for (const id of node.next) queue.push([...route, id]);
+    for (const next of node.next) if (!seen.has(next)) queue.push([...route, next]);
   }
   return null;
 }
@@ -428,7 +435,8 @@ function warpTo(
 
 /**
  * Test-only: walks the map's links to just before the first node that matches, and stays on the
- * map with it next (an Expedition's Movement II: the Cantor behind, the Crimson Gate ahead).
+ * map with it next (an Expedition's Movement II: the Cantor behind, the Crimson Gate ahead; its
+ * Movement III: Vharun behind, the Frayed Threshold ahead).
  */
 function walkTo(state: RunState, matches: (node: MapNode) => boolean): RunState | null {
   const route = routeTo(state, matches);

@@ -26,7 +26,9 @@ import {
   encounterIcon,
   mapHeader,
   markCardShown,
+  biomeTone,
   movementCard,
+  movementCardLook,
   movementRows,
   wantsMovementCard,
 } from './routeText';
@@ -150,7 +152,7 @@ export function MapView({
     }
   }
   return (
-    <ScreenFrame tone={def.biome === 'crimson_spire' ? 'crimson' : undefined}>
+    <ScreenFrame tone={biomeTone(def.biome)}>
       <div className="mx-auto max-w-[88rem] px-6 py-8" data-movement={movement}>
         <ScreenHeader
           eyebrow={header.eyebrow}
@@ -336,6 +338,8 @@ export function MapView({
 /** "Movement II · The Crimson Legion": the title card on first reaching a later Movement. */
 function MovementCard({ movement, onClose }: { movement: number; onClose(): void }) {
   const c = movementCard(movement);
+  // Each biome's card in its own light (docs/phase-5c.md): the Spire's crimson, the Rift's indigo.
+  const look = movementCardLook(movement);
   useEffect(() => {
     const t = setTimeout(onClose, 6000);
     return () => clearTimeout(t);
@@ -349,18 +353,18 @@ function MovementCard({ movement, onClose }: { movement: number; onClose(): void
       onClick={onClose}
     >
       <div className="anim-rise flex flex-col items-center px-6 text-center">
-        <p className="font-mono text-xs uppercase tracking-[0.4em] text-rose-200/80">
+        <p className={`font-mono text-xs uppercase tracking-[0.4em] ${look.eyebrow}`}>
           A new movement
         </p>
         <h2
           className="mt-3 font-display text-4xl font-bold tracking-wide text-gold-300 sm:text-6xl"
-          style={{ textShadow: '0 0 36px rgb(168 46 52 / 0.6), 0 3px 0 rgb(0 0 0 / 0.55)' }}
+          style={{ textShadow: look.glow }}
         >
           {c.title}
         </h2>
         <p className="mt-3 text-lg text-muted">{c.text}</p>
         <Button className="mt-8" variant="primary" data-autofocus onClick={onClose} sound="confirm">
-          Climb on <Icon name="arrow" size={16} />
+          {look.button} <Icon name="arrow" size={16} />
         </Button>
       </div>
     </div>

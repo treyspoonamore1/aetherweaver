@@ -1,4 +1,7 @@
 import type { ReactNode } from 'react';
+import type { BackdropTone } from './backdropTone';
+
+export type { BackdropTone };
 
 /** Deterministic star field (no Math.random in render: same stars every time). */
 const STARS = (() => {
@@ -16,8 +19,19 @@ const STARS = (() => {
   }));
 })();
 
+/**
+ * The Abyssal Rift's fray (docs/phase-5c.md): a few loose threads drifting across the cosmos, in
+ * bone, never Mend's teal. Fixed, so the backdrop draws the same every time.
+ */
+const FRAYS = [
+  'M -8 22 C 18 30, 34 12, 62 24 S 96 18, 112 30',
+  'M -6 64 C 22 58, 40 76, 70 66 S 98 72, 110 60',
+  'M 14 -6 C 22 18, 8 40, 26 62',
+  'M 84 104 C 78 82, 92 64, 80 40',
+];
+
 /** The shared "stained-glass cosmos" backdrop for every non-combat screen. */
-export function Backdrop({ tone = 'navy' }: { tone?: 'navy' | 'gold' | 'dusk' | 'crimson' }) {
+export function Backdrop({ tone = 'navy' }: { tone?: BackdropTone }) {
   const glow =
     tone === 'gold'
       ? 'rgb(245 184 61 / 0.13)'
@@ -26,7 +40,10 @@ export function Backdrop({ tone = 'navy' }: { tone?: 'navy' | 'gold' | 'dusk' | 
         : tone === 'crimson'
           ? // Phase 5a: the Crimson Spire's map (Movement II).
             'rgb(168 46 52 / 0.2)'
-          : 'rgb(61 76 125 / 0.28)';
+          : tone === 'abyss'
+            ? // Phase 5c: the Abyssal Rift's map (Movement III), an indigo glow.
+              'rgb(76 70 170 / 0.26)'
+            : 'rgb(61 76 125 / 0.28)';
   return (
     <div
       aria-hidden
@@ -61,6 +78,26 @@ export function Backdrop({ tone = 'navy' }: { tone?: 'navy' | 'gold' | 'dusk' | 
           />
         ))}
       </svg>
+      {tone === 'abyss' && (
+        <svg
+          className="absolute inset-0 h-full w-full opacity-[0.14]"
+          viewBox="0 0 100 100"
+          preserveAspectRatio="none"
+          data-testid="backdrop-fray"
+        >
+          {FRAYS.map((d) => (
+            <path
+              key={d}
+              d={d}
+              fill="none"
+              stroke="#e8e3c8"
+              strokeWidth={0.18}
+              strokeDasharray="6 2 1 2"
+              vectorEffect="non-scaling-stroke"
+            />
+          ))}
+        </svg>
+      )}
       {STARS.map((s, i) => (
         <span
           key={i}
@@ -86,7 +123,7 @@ export function ScreenFrame({
   className = '',
 }: {
   children: ReactNode;
-  tone?: 'navy' | 'gold' | 'dusk' | 'crimson';
+  tone?: BackdropTone;
   className?: string;
 }) {
   return (

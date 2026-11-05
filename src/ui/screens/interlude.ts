@@ -260,6 +260,19 @@ const SPOILS: Readonly<Record<string, BossSpoils>> = {
     gift: 'The Matriarch’s gift',
     giftBlurb: 'The pack is scattered. Take something epic.',
   },
+  // Movement III (docs/phase-5c.md): Vharun now leads on into the Rift; the Seamstress's spools.
+  vharun: {
+    fallen: 'Vharun falls',
+    hoard: 'The Warden’s armoury',
+    gift: 'The Warden’s gift',
+    giftBlurb: 'The Spire’s banners burn, and the Rift yawns below. Take something epic.',
+  },
+  the_seamstress: {
+    fallen: 'The Seamstress falls',
+    hoard: 'The Seamstress’s spools',
+    gift: 'The Seamstress’s gift',
+    giftBlurb: 'Her needles lie still, and the Thread holds. Take something epic.',
+  },
 };
 
 /**

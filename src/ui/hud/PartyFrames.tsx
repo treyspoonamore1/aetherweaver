@@ -10,6 +10,7 @@ import { Ring } from '../kit/Ring';
 import type { Callout, ChordHud, HeroHud, WeaverHud } from '../store';
 import type { CallAnswer, ThreadMode } from '../types';
 import { StatusBadge } from './StatusBadge';
+import { POSSESSED_COLOR, PossessedStrip, StitchChip } from './RiftMarks';
 import { healCutTitle } from './legionLook';
 import { ROLE_LABEL, bindingLabel } from './labels';
 import { beamSong, heroSongs, type HeroSongs } from './songs';
@@ -304,6 +305,7 @@ export function PartyFrames({
                 tipId={`frame-tip-${h.slot}`}
                 healthText={healthText}
                 callNamed={callNamed(h, party)}
+                partyNames={h.stitchedWith ? partyNames(party) : undefined}
               />
               <Bark hero={h} callouts={barks} side={side} />
               <FrameTip
@@ -319,6 +321,13 @@ export function PartyFrames({
       </div>
     </div>
   );
+}
+
+/** The party's names by slot (a Stitch's partner). */
+function partyNames(party: readonly HeroHud[]): (string | undefined)[] {
+  const out: (string | undefined)[] = [];
+  for (const h of party) out[h.slot] = h.name;
+  return out;
 }
 
 /** Where a frame's tooltip opens, by the frames' side (toward the middle of the screen). */
@@ -677,8 +686,11 @@ export function HeroFrame({
   tipId,
   healthText = 'missing',
   callNamed: named = false,
+  partyNames,
 }: {
   hero: HeroHud;
+  /** Movement III: the party's names by slot (a Stitch names the hero it joins). */
+  partyNames?: readonly (string | undefined)[];
   threadMode: ThreadMode;
   /** The Call prompt names the hero (`callNamed`, docs/phase-5b.md). */
   callNamed?: boolean;
@@ -716,15 +728,17 @@ export function HeroFrame({
     ? HOLD
     : state.critical
       ? 'var(--color-lethal)'
-      : h.call && !h.call.answered
-        ? CALL
-        : state.ailing
-          ? 'var(--color-ailment)'
-          : h.threaded
-            ? threadColor
-            : h.hovered
-              ? 'var(--color-gold-400)'
-              : undefined;
+      : h.possessed
+        ? POSSESSED_COLOR
+        : h.call && !h.call.answered
+          ? CALL
+          : state.ailing
+            ? 'var(--color-ailment)'
+            : h.threaded
+              ? threadColor
+              : h.hovered
+                ? 'var(--color-gold-400)'
+                : undefined;
   const glow = state.critical
     ? '0 0 0 1px var(--color-lethal), 0 0 18px color-mix(in srgb, var(--color-lethal) 45%, transparent)'
     : state.ailing && !h.held
@@ -798,6 +812,7 @@ export function HeroFrame({
               <HpBar hero={h} rewind={rewind} healthText={healthText} />
               {h.held && <HeldStrip hero={h} />}
               {h.call && <CallStrip hero={h} threadMode={threadMode} named={named} />}
+              {h.possessed && <PossessedStrip possessed={h.possessed} blind={blind} />}
               <div className="mt-1 flex min-h-5 flex-wrap items-center gap-1">
                 {(h.rewind || h.foreseen.length > 0 || h.lands) && (
                   <ChronoMarks hero={h} rewind={rewind} />
@@ -805,6 +820,9 @@ export function HeroFrame({
                 {(h.borne > 0 || h.vow) && <MartyrMarks hero={h} />}
                 {(h.afterglow || h.grace) && <AstrolabeMarks hero={h} />}
                 {h.blood && <BloodMarks chips={bloodChips(h)} />}
+                {h.stitchedWith && h.stitchedWith.length > 0 && (
+                  <StitchChip slots={h.stitchedWith} names={partyNames ?? []} />
+                )}
                 {h.statuses
                   .filter((s) => !(h.held && s.id === 'held'))
                   .map((s) => (

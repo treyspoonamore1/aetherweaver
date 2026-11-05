@@ -152,6 +152,23 @@ export const PATHS = {
   banner: 'M3.5 8h17l-2.2 3.5 2.2 3.5h-17l2.2-3.5z M8 11.5h8',
   /** Phase 5a: a paw print (the Gorehound Matriarch's map node). */
   paw: 'M12 12.5c-3 0-5.5 3-5.5 5.2 0 1.6 1.4 2.3 2.8 2.3 1.2 0 1.8-.6 2.7-.6s1.5.6 2.7.6c1.4 0 2.8-.7 2.8-2.3 0-2.2-2.5-5.2-5.5-5.2z M8.2 6.2a1.7 2.2 0 1 0 0 4.4 1.7 2.2 0 0 0 0-4.4z M15.8 6.2a1.7 2.2 0 1 0 0 4.4 1.7 2.2 0 0 0 0-4.4z M4.6 10a1.5 1.9 0 1 0 0 3.8 1.5 1.9 0 0 0 0-3.8z M19.4 10a1.5 1.9 0 1 0 0 3.8 1.5 1.9 0 0 0 0-3.8z',
+  /**
+   * Phase 5c, the Abyssal Rift: Retarget's glyph (the Thread with a cut mark across it), the
+   * Shears' and the Unweaver's scissors, the Seamstress's needle, a Spindle, the Doubt Wraith's
+   * mask, the Null Priest's rune, the Mimic's mirror and the Void Maw's mouth.
+   */
+  threadCut:
+    'M9.5 14.5l5-5 M8 11l-1.7 1.7a3.5 3.5 0 0 0 5 5L13 16 M16 13l1.7-1.7a3.5 3.5 0 0 0-5-5L11 8 M4 4l4 4 M16 16l4 4',
+  scissors:
+    'M6.5 4a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5z M6.5 15a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5z M8.6 8l11.4 8.5 M8.6 16L20 7.5',
+  needle: 'M19.5 3.5L6 17l-2.5 3.5L7 18l13.5-13.5z M17 4.6a1.6 1.6 0 1 1 2.4 2.3',
+  spindle:
+    'M12 2.5v19 M8 7.5h8 M6.5 11c0-1.4 2.5-2 5.5-2s5.5.6 5.5 2-2.5 2-5.5 2-5.5-.6-5.5-2z M7.5 14.5c0 1.6 2 2.5 4.5 2.5s4.5-.9 4.5-2.5 M10 20.5h4',
+  mask: 'M4 5.5c2.7 1.2 5.4 1.2 8 0 2.6 1.2 5.3 1.2 8 0v6c0 4.6-3.6 8.5-8 8.5s-8-3.9-8-8.5z M7.5 11.5c.9-.8 2.1-.8 3 0 M13.5 11.5c.9-.8 2.1-.8 3 0 M9.5 16c1.6-1 3.4-1 5 0',
+  rune: 'M12 3.5a8.5 8.5 0 1 0 0 17 8.5 8.5 0 0 0 0-17z M12 7v10 M8.5 9.5L12 12l3.5-2.5 M9 15l3-1.5 3 1.5',
+  mirror:
+    'M12 3l6.5 6L12 21 5.5 9z M5.5 9h13 M12 3l-2.2 6L12 21 M14.5 12.5l1.5-1.5 M13.5 15.5l2.5-2.5',
+  maw: 'M3.5 12a8.5 5.5 0 1 0 17 0 8.5 5.5 0 0 0-17 0z M6.5 10.5l1.5 2 1.5-2.5 1.5 2.5 1-2 1 2 1.5-2.5 1.5 2.5 1.5-2',
 } as const;
 
 export type IconName = keyof typeof PATHS;

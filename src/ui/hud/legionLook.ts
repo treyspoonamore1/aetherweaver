@@ -5,6 +5,7 @@
 import { CONTENT, partyHasDome } from '../../content';
 import type { IconName } from '../kit/iconPaths';
 import type { BossHud, HeroHud, StatusHud } from '../store';
+import { DOOM_EMPHASIS } from './riftLook';
 
 /**
  * Stacks from which a stacking status asks for its answer (Chime the bleeding at 5 stacks or
@@ -12,9 +13,16 @@ import type { BossHud, HeroHud, StatusHud } from '../store';
  */
 export const STACKS_EMPHASIS = 5;
 
-/** A stacking status's emphasis: its count is high enough that it wants its answer now. */
-export function stacksUrgent(status: Pick<StatusHud, 'stacks'>): boolean {
-  return (status.stacks ?? 0) >= STACKS_EMPHASIS;
+/**
+ * A stacking status's emphasis: its count is high enough that it wants its answer now. Doom
+ * (Movement III) wants it a stack before it ignites (`DOOM_EMPHASIS`); every other stacking
+ * status from STACKS_EMPHASIS, as before.
+ */
+export function stacksUrgent(
+  status: Pick<StatusHud, 'stacks'> & { id?: StatusHud['id'] },
+): boolean {
+  const at = status.id === 'doom' ? DOOM_EMPHASIS : STACKS_EMPHASIS;
+  return (status.stacks ?? 0) >= at;
 }
 
 /** "healing received halved" (×0.5), "quartered" (×0.25), else the share. */
@@ -33,6 +41,9 @@ export const EXECUTE_PCT = Math.round(
 const CAST_ICON: Readonly<Record<string, IconName>> = {
   gorehound_matriarch: 'paw',
   vharun_crimson_warden: 'crown',
+  // Movement III (docs/phase-5c.md): the Seamstress's needle, the Unweaver's shears.
+  the_seamstress: 'needle',
+  the_unweaver: 'scissors',
 };
 
 export function bossCastIcon(defId: string | undefined): IconName {

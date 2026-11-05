@@ -711,6 +711,11 @@ function CarrySlotRelic({
           >
             {role === 'attuned' ? 'Attuned: its effect and Inscriptions' : 'Lends its Inscriptions'}
           </span>
+          {v.wakes && (
+            <span className="block truncate text-xs text-indigo-200" data-testid="slot-wakes">
+              {v.wakes}
+            </span>
+          )}
         </span>
       </button>
       {index > 0 && (
@@ -739,6 +744,40 @@ function CarrySlotRelic({
       >
         <Icon name="close" size={15} />
       </Button>
+    </span>
+  );
+}
+
+/**
+ * Phase 5c: a Rift relic sleeps outside its Movement's fights (docs/phase-5c.md): "Wakes in the
+ * Abyssal Rift", with the moon of a sleeper, never a warning colour.
+ */
+function WakesChip({ text }: { text: string }) {
+  return (
+    <span
+      className="inline-flex items-center gap-1 rounded-md border border-indigo-300/50 bg-indigo-950/40 px-1.5 py-0.5 text-xs font-semibold text-indigo-200"
+      title={`${text}: carried into any other fight, its own effect sleeps`}
+      data-testid="relic-wakes"
+    >
+      <Icon name="moon" size={12} />
+      {text}
+    </span>
+  );
+}
+
+/**
+ * The shelf tile's sleeper (Phase 5c): the WakesChip's moon, small, ahead of the tile's chips, so
+ * the shelf shows which relics sleep before one is picked. Its words are on hover; screen readers
+ * hear them in the tile's own label.
+ */
+function WakesMark({ text }: { text: string }) {
+  return (
+    <span
+      className="mr-0.5 flex shrink-0 items-center text-indigo-200"
+      title={`${text}: carried into any other fight, its own effect sleeps`}
+      data-testid="tile-wakes"
+    >
+      <Icon name="moon" size={11} />
     </span>
   );
 }
@@ -779,6 +818,7 @@ function RelicTile({
           {v.name}
         </span>
         <span className="mt-0.5 flex items-center gap-0.5 overflow-hidden">
+          {v.wakes && <WakesMark text={v.wakes} />}
           {v.state ? (
             <StateChip look={v.state} small />
           ) : v.inscriptions.length > 0 ? (
@@ -960,6 +1000,7 @@ function RelicDetail({
               <DepthChip depth={v.depth} />
               {v.state && <StateChip look={v.state} />}
               {place && <CarriedChip index={place.index} role={place.role} />}
+              {v.wakes && <WakesChip text={v.wakes} />}
             </div>
           </div>
           <div className="flex shrink-0 flex-col items-end gap-1">
