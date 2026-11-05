@@ -96,6 +96,8 @@ import {
   unravelUp,
   carriesSilence,
   stationary,
+  idleParty,
+  nearestStationary,
   mirrorWardCasting,
   type Circle,
   type BloodView,
@@ -1195,25 +1197,6 @@ function empowerable(
 /** `e` while its life is below `below` of its max; else null. */
 function worn(e: ReadonlyEntity | null, below: number): ReadonlyEntity | null {
   return e && e.health!.hp < e.health!.maxHp * below ? e : null;
-}
-
-/** No standing hero has a target: the party stands idle. */
-function idleParty(state: WorldState): boolean {
-  return state.party.every((id) => {
-    const h = state.entities.get(id);
-    return !h?.hero || !h.health || h.health.downed || h.health.dead || h.hero.targetId === null;
-  });
-}
-
-/** The stationary enemy (its def `stationary`) nearest the Weaver; null without one. */
-function nearestStationary(
-  state: WorldState,
-  enemies: readonly ReadonlyEntity[],
-): ReadonlyEntity | null {
-  const w = weaverOf(state);
-  let best: ReadonlyEntity | null = null;
-  for (const e of enemies) if (stationary(e) && (!best || dist(e, w) < dist(best, w))) best = e;
-  return best;
 }
 
 function inCircles(circles: readonly Circle[], p: { x: number; z: number }): boolean {

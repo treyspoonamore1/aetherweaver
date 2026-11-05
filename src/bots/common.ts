@@ -627,6 +627,25 @@ export function stationary(e: ReadonlyEntity): boolean {
   return ENEMY_DEFS.get(e.enemy?.defId ?? '')?.stationary === true;
 }
 
+/** No standing hero has a target: the party stands idle. */
+export function idleParty(state: WorldState): boolean {
+  return state.party.every((id) => {
+    const h = state.entities.get(id);
+    return !h?.hero || !h.health || h.health.downed || h.health.dead || h.hero.targetId === null;
+  });
+}
+
+/** The stationary enemy (its def `stationary`) nearest the Weaver; null without one. */
+export function nearestStationary(
+  state: WorldState,
+  enemies: readonly ReadonlyEntity[],
+): ReadonlyEntity | null {
+  const w = weaverOf(state);
+  let best: ReadonlyEntity | null = null;
+  for (const e of enemies) if (stationary(e) && (!best || dist(e, w) < dist(best, w))) best = e;
+  return best;
+}
+
 /** The standing Spindles (adds whose def is `tether`): the boss takes less while any stands. */
 export function spindlesUp(enemies: readonly ReadonlyEntity[]): ReadonlyEntity[] {
   return enemies.filter((e) => ENEMY_DEFS.get(e.enemy!.defId)?.tether !== undefined);
