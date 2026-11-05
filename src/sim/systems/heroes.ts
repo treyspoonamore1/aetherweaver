@@ -32,6 +32,7 @@ import { nearestEnemy, soloSpec, startSolo, tickSoloClock, updateSolo } from './
 import { approachVelocity, arrive } from './steering';
 import { clampPointToArena, pushPointOutOfObstacles } from './physics';
 import { empowerBonus } from './thread';
+import { isRooted } from '../rules3';
 import {
   BERSERKER_LEASH,
   BERSERKER_SCATTER_GAP,
@@ -110,8 +111,9 @@ export function updateHeroes(world: World, dt: number): void {
       hero.soloHeld = 0;
       continue;
     }
-    // Pinned (Movement II): rooted, though they still attack and cast. Reel frees them.
-    const pinned = hasStatus(e, 'pinned');
+    // Pinned (Movement II) or stitched (Movement III): rooted, though they still attack and
+    // cast. Reel frees them (a Chime frees the stitched too).
+    const pinned = isRooted(e);
     if (pinned && hero.dodge) hero.dodge = null;
 
     if (!fighting) {
@@ -1227,7 +1229,11 @@ function executeAbility(
         const dx = cx - m.x;
         const dz = cz - m.z;
         const d = len(dx, dz);
-        if (m.enemy.tier === 'normal' || m.enemy.tier === 'elite') {
+        // A stationary enemy (Movement III's Void Maw, a Spindle) isn't pulled.
+        if (
+          (m.enemy.tier === 'normal' || m.enemy.tier === 'elite') &&
+          enemyDef(m.enemy.defId).stationary !== true
+        ) {
           // Event Horizon's farther reach pulls as much farther.
           const pull = Math.min(d * 0.7, 3 + extra);
           if (d > 1e-6) {
@@ -1378,8 +1384,9 @@ function noticeTelegraphs(world: World, e: Entity, def: HeroDef): void {
     // hero's chance, and so every roll a default party draws, is its `dodge` as before.
     const chance = def.dodge > 0 ? def.dodge : untargetedDodge(def, t);
     if (t.kind === 'mark' || t.kind === 'raid' || chance <= 0) continue;
-    // A pinned hero can't step out (no roll is drawn: pins exist only in Movement II).
-    if (hasStatus(e, 'pinned')) continue;
+    // A rooted hero can't step out (no roll is drawn: pins and stitches exist only in
+    // Movements II and III).
+    if (isRooted(e)) continue;
     if (!contains(world, t, e)) continue;
     // Wind Step (Bonds): every so often, Lyra steps out at once, whatever she's doing.
     if (hasTalent(e, 'wind_step') && world.time >= hero.talentReadyAt && !isDisabled(e)) {

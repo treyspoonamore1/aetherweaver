@@ -11,17 +11,29 @@ import {
   removeShield,
   removeStatus,
 } from '../combat/health';
+import { heroDef } from '../../content';
+import { POSSESS_DPS_SHARE } from '../../content/unstitched';
 import { distSq } from '../core/dmath';
+import { possessionVictim } from '../rules3';
 import type { Entity, Status, StatusId } from '../state';
 import type { World } from '../world';
 import { ofParty } from './stasis';
 
 /**
  * Statuses that end through their telegraph (it detonates or cancels them), not on their own
- * clock: a mark's (Dirge, Execution's Condemned) and a link's (Resound, Blood Pact).
+ * clock: a mark's (Dirge, Execution's Condemned; Movement III's Doubt and Doomed) and a link's
+ * (Resound, Blood Pact; the Seamstress's Stitch).
  */
 function boundToTelegraph(id: StatusId): boolean {
-  return id === 'dirge' || id === 'resound' || id === 'pact' || id === 'condemned';
+  return (
+    id === 'dirge' ||
+    id === 'resound' ||
+    id === 'pact' ||
+    id === 'condemned' ||
+    id === 'doubt' ||
+    id === 'doomed' ||
+    id === 'stitch'
+  );
 }
 
 /**
@@ -40,6 +52,10 @@ export function updateStatuses(world: World, dt: number): void {
   const w = world.entities.get(world.weaverId)?.weaver;
   const mendSlot = w && w.threadMode === 'mend' ? w.threadSlot : null;
   const stasis = world.field.stasis;
+  // Unravel (docs/phase-5c.md Q12): while Mend wounds, it can't hold a downed hero's bleed-out;
+  // the revive channel only holds its progress. Under Stasis the reversed Mend waits, and Mend
+  // holds them as ever. (Absent outside the Unweaver's phase 2.)
+  const unravelled = world.field.unravel !== undefined && !stasis;
   dueTicks.length = 0;
   for (const e of world.entities.list()) {
     const h = e.health;
@@ -82,7 +98,10 @@ export function updateStatuses(world: World, dt: number): void {
     }
     if (e.hero && h.downed) {
       const reviving = mendSlot !== null && world.party[mendSlot] === e.id;
-      if (!reviving) {
+      if (reviving && unravelled) {
+        h.bleedOut -= dt;
+        if (h.bleedOut <= 0) heroOut(world, e);
+      } else if (!reviving) {
         h.revive = Math.max(0, h.revive - 0.5 * dt);
         h.bleedOut -= dt;
         if (h.bleedOut <= 0) heroOut(world, e);
@@ -91,13 +110,52 @@ export function updateStatuses(world: World, dt: number): void {
   }
   if (dueTicks.length > 0) {
     for (const t of dueTicks) {
-      if (t.due) dotTick(world, t.target, t.status);
+      if (t.due) {
+        // A possessed hero (Movement III) strikes an ally on the possession's own clock.
+        if (t.status.id === 'possessed') possessionTick(world, t.target, t.status);
+        else dotTick(world, t.target, t.status);
+      }
       // Its last tick lands as it runs out.
-      if (t.expired && t.target.health?.statuses.includes(t.status))
+      if (t.expired && t.target.health?.statuses.includes(t.status)) {
         removeStatus(world, t.target, t.status.id, 'expired');
+        if (t.status.id === 'possessed')
+          world.events.push({
+            type: 'freed',
+            tick: world.tick,
+            hero: t.target.id,
+            status: 'possessed',
+            by: 'expired',
+          });
+      }
     }
     dueTicks.length = 0;
   }
+}
+
+/**
+ * A possessed hero's strike (docs/phase-5c.md Q6): every `DOT_TICK` s, `POSSESS_DPS_SHARE` of
+ * their own basic attack's damage a second, on the nearest other standing hero within reach
+ * (`possessionVictim`: never the Weaver). A hero's hit on a hero: the ledger, threat, Bonds and
+ * lifesteal all gate on an enemy target, so none of them see it. The recap answers Chime, Focus.
+ */
+function possessionTick(world: World, e: Entity, s: Status): void {
+  const h = e.health;
+  if (!h || h.dead || h.downed || !h.statuses.includes(s) || !e.hero) return;
+  if (world.encounter.status === 'victory' || world.encounter.status === 'defeat') return;
+  const victimId = possessionVictim(world, e);
+  const victim = victimId === null ? undefined : world.entities.get(victimId);
+  if (!isActive(victim)) return;
+  const def = heroDef(e.hero.defId);
+  const amount = POSSESS_DPS_SHARE * (def.attack.damage / def.attack.interval) * DOT_TICK;
+  if (amount <= 0) return;
+  dealDamage(world, victim, {
+    source: e.id,
+    sourceName: `${def.name} (possessed)`,
+    amount,
+    telegraph: null,
+    kind: 'tick',
+    status: 'possessed',
+  });
 }
 
 /**

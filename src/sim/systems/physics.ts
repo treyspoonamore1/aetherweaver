@@ -1,5 +1,7 @@
 import { TUNING } from '../constants';
 import { len } from '../core/dmath';
+import { isRooted } from '../rules3';
+import type { Entity } from '../state';
 import type { World } from '../world';
 
 export function integrate(world: World, dt: number): void {
@@ -39,7 +41,8 @@ export function resolveOverlaps(world: World): void {
       const dz = b.z - a.z;
       const d2 = dx * dx + dz * dz;
       if (d2 >= minDist * minDist) continue;
-      // A pinned hero (docs/phase-5a.md P4) doesn't budge: the other body takes it all.
+      // A rooted hero (docs/phase-5a.md P4; stitched, docs/phase-5c.md) doesn't budge: the other
+      // body takes it all.
       const massA = pinned(a) ? 0 : a.mass;
       const massB = pinned(b) ? 0 : b.mass;
       const totalMass = massA + massB;
@@ -59,10 +62,10 @@ export function resolveOverlaps(world: World): void {
   }
 }
 
-function pinned(e: { hero?: unknown; health?: { statuses: readonly { id: string }[] } }): boolean {
+/** A rooted hero (pinned, or Movement III's stitched): a hero only, as ever. */
+function pinned(e: Entity): boolean {
   if (!e.hero || !e.health) return false;
-  for (const s of e.health.statuses) if (s.id === 'pinned') return true;
-  return false;
+  return isRooted(e);
 }
 
 function solid(e: {

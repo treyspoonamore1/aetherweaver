@@ -18,17 +18,43 @@ import {
   isActive,
   isDisabled,
   NEVER,
+  removeStatus,
   setOnEnemyDeath,
+  setStartPayloadMark,
 } from '../combat/health';
 import { phaseRules, type PhaseRules } from './bosses';
 import { pickEnemyTarget, WEAVER_THREAT_INDEX } from '../combat/threat';
 import { announceDecree } from '../combat/feedback';
-import { countAimed, perfectWindow, setOnCastComplete, startTelegraph } from '../combat/telegraphs';
-import type { Entity, EnemyTier, Foreseen, Telegraph } from '../state';
+import {
+  countAimed,
+  markStatusOf,
+  perfectWindow,
+  setOnCastComplete,
+  setOnSever,
+  startTelegraph,
+} from '../combat/telegraphs';
+import type { Entity, EnemyTier, FieldZone, Foreseen, Telegraph } from '../state';
 import type { World } from '../world';
 import { newHealth } from '../world';
 import { enemyFx, hasAura } from '../combat/auras';
 import { approachVelocity, arrive } from './steering';
+import { bossScript } from './bossScripts';
+import { cutThread } from './thread';
+import {
+  enemyDamageMult,
+  mimicBeneficiary,
+  mimicCopyOf,
+  specialsOf,
+  threadSegment,
+} from '../rules3';
+import {
+  MIMIC_CHIME_HEAL,
+  MIMIC_EMPOWER_TIME,
+  MIMIC_WARD_PCT,
+  MIMIC_WARD_TIME,
+  SEVER_EVERY,
+} from '../../content/unstitched';
+import { segmentDistSq } from '../core/dmath';
 
 /** Normal enemies may have at most this many telegraphs up at once (readability cap). */
 const READABILITY_CAP = 2;
@@ -92,7 +118,13 @@ export function spawnEnemy(
     radius: tier === 'elite' ? Math.min(2.5, def.radius * 1.15) : def.radius,
     height: tier === 'elite' ? def.height * 1.15 : def.height,
     speed: def.speed * (hastened ? 1.3 : 1) * world.mods.enemySpeedMult,
-    mass: tier === 'boss' || tier === 'miniboss' ? 0.05 : def.role === 'brute' ? 0.5 : 1,
+    // A stationary enemy (Movement III) holds its ground as a boss does.
+    mass:
+      tier === 'boss' || tier === 'miniboss' || def.stationary === true
+        ? 0.05
+        : def.role === 'brute'
+          ? 0.5
+          : 1,
     team: 'enemy',
     health: newHealth(maxHp, maxHp),
     enemy: {
@@ -105,7 +137,8 @@ export function spawnEnemy(
       targetId: null,
       threat: [0, 0, 0, 0, 0],
       attackCooldown: def.basic.interval * 0.5,
-      specialCooldowns: def.specials.map((id) => attackDef(id).initialDelay),
+      // Its affixes' specials (Mimicking's mirror) after its own: `def.specials` itself without.
+      specialCooldowns: specialsOf(def, affixes).map((id) => attackDef(id).initialDelay),
       cast: null,
       phase: tier === 'boss' || tier === 'miniboss' ? 1 : 0,
       risen: false,
@@ -126,7 +159,66 @@ export function spawnEnemy(
   });
   if (affixes.includes('shielded')) addShield(world, e, 'discord', maxHp * 0.4, NEVER, false);
   world.events.push({ type: 'entitySpawned', tick: world.tick, id: e.id, kind: 'enemy' });
+  // A tethered add (Movement III's Spindles) plates its boss.
+  if (def.tether) recountTethered(world, e);
   return e;
+}
+
+/**
+ * A boss's tethered adds (docs/phase-5c.md Q11), touched only when an enemy whose def has
+ * `tether` arrives (`added`: counted at once, though it joins the entity list at the next flush)
+ * or dies (a recount of those standing), and deleted at 0, so no other fight has the key.
+ */
+function recountTethered(world: World, added?: Entity): void {
+  const bossId = world.encounter.bossId;
+  const boss = bossId === null ? undefined : world.entities.get(bossId);
+  const c = boss?.enemy;
+  if (!boss || !c) return;
+  let n = 0;
+  if (added) n = (c.tethered ?? 0) + 1;
+  else
+    for (const m of world.entities.list())
+      if (m.enemy && m.health && !m.health.dead && enemyDef(m.enemy.defId).tether) n++;
+  if ((c.tethered ?? 0) === n) return;
+  if (n > 0) c.tethered = n;
+  else delete c.tethered;
+  world.events.push({ type: 'tethered', tick: world.tick, enemy: boss.id, count: n });
+}
+
+/**
+ * Movement III's script state (docs/phase-5c.md), created on first use: only Movement III's
+ * mechanics (Severing, the new bosses' scripts) reach it, so Movements I and II never have it.
+ */
+export function ensureM3(world: World): NonNullable<World['internal']['m3']> {
+  if (!world.internal.m3) world.internal.m3 = {};
+  return world.internal.m3;
+}
+
+/**
+ * Severing (docs/phase-5c.md): a blow a Severing elite lands (melee, bolt or telegraph) while the
+ * Thread passes within its affix's `cut.radius` plus its own radius cuts the Thread, at most once
+ * every `SEVER_EVERY` s per elite (`m3.severAt`). With no Thread (or one out of reach) nothing
+ * happens and nothing is spent.
+ */
+export function severOnHit(world: World, e: Entity): void {
+  const c = e.enemy;
+  if (!c || c.affixes.length === 0) return;
+  let cut: { radius: number; lock: number } | undefined;
+  for (const id of c.affixes) {
+    cut = world.content.affixes.find((a) => a.id === id)?.cut;
+    if (cut) break;
+  }
+  if (!cut) return;
+  const seg = threadSegment(world);
+  if (!seg) return;
+  const reach = cut.radius + e.radius;
+  if (segmentDistSq(e.x, e.z, e.x, e.z, seg.ax, seg.az, seg.bx, seg.bz) > reach * reach) return;
+  const m3 = ensureM3(world);
+  const severAt = (m3.severAt ??= {});
+  const at = severAt[e.id];
+  if (at !== undefined && world.time < at - 1e-9) return;
+  severAt[e.id] = world.time + SEVER_EVERY;
+  cutThread(world, 'severing', cut.lock, e.id);
 }
 
 /** A new guard faces the Weaver (or the arena's centre without one). */
@@ -198,6 +290,9 @@ export function updateEnemies(world: World, dt: number): void {
       }
     } else c.lullabyTime = 0;
 
+    // Emboldened (Movement III) runs out: the key goes (Stasis holds it, in holdEnemyTime).
+    if (c.emboldenedUntil !== undefined && c.emboldenedUntil <= world.time) emboldenEnds(world, e);
+
     if (isDisabled(e)) {
       approachVelocity(e, 0, 0, ENEMY_ACCEL * 2, dt);
       continue;
@@ -232,7 +327,10 @@ export function updateEnemies(world: World, dt: number): void {
     const reach = def.basic.range + e.radius + target.radius;
     const d = len(target.x - e.x, target.z - e.z);
     const keep = def.preferredRange > 0 ? Math.max(def.preferredRange, reach * 0.6) : reach - 0.25;
-    if (d > keep) {
+    if (def.stationary) {
+      // Movement III's stationary enemies (the Void Maw, a Spindle): no approach, no chase-turn.
+      approachVelocity(e, 0, 0, ENEMY_ACCEL, dt);
+    } else if (d > keep) {
       const k = (d - keep) / d;
       arriveAt(e, e.x + (target.x - e.x) * k, e.z + (target.z - e.z) * k, speed, dt);
       setState(c, 'approach');
@@ -290,7 +388,7 @@ function basicAttack(world: World, e: Entity, def: EnemyDef, target: Entity): vo
   const c = e.enemy!;
   c.attackCooldown = def.basic.interval * (c.affixes.includes('hastened') ? 0.85 : 1);
   setState(c, 'attack');
-  const amount = def.basic.damage * c.damageMult * enrageMult(world, c.tier);
+  const amount = def.basic.damage * enemyDamageMult(world, c) * enrageMult(world, c.tier);
   face(e, target);
   if (def.basic.kind === 'melee') {
     world.events.push({
@@ -313,6 +411,8 @@ function basicAttack(world: World, e: Entity, def: EnemyDef, target: Entity): vo
       const kael = result.takenBy === undefined ? undefined : world.entities.get(result.takenBy);
       if (kael) applyOnHit(world, e, kael, result.takenDealt ?? 0, def.basic.onHit);
     }
+    // Severing (Movement III): a blow it lands may cut the Thread (no affix has a cut before it).
+    if (c.affixes.length > 0 && result.dealt + result.absorbed > 0) severOnHit(world, e);
     return;
   }
   const d = len(target.x - e.x, target.z - e.z);
@@ -384,9 +484,11 @@ function trySpecial(world: World, e: Entity, def: EnemyDef, target: Entity): boo
   // A follow-up is coming (Movement II): it owns the next cast.
   if (world.internal.m2?.followUp?.owner === e.id) return false;
   const rules = boss ? rulesOf(c) : null;
-  for (let i = 0; i < def.specials.length; i++) {
+  // Its affixes' specials too (Movement III's Mimicking): `def.specials` itself without.
+  const specials = specialsOf(def, c.affixes);
+  for (let i = 0; i < specials.length; i++) {
     if (c.specialCooldowns[i]! > 0) continue;
-    const id = def.specials[i]!;
+    const id = specials[i]!;
     if (SCRIPTED.has(id)) continue;
     const attack = attackDef(id);
     if (!pickable(attack, rules)) continue;
@@ -496,9 +598,17 @@ export function beginAttack(
   // A follow-up is never out of reach: it begins as the blow before it resolves.
   const inRange = (t: Entity) =>
     opts.followUp === true || distSq(t.x, t.z, e.x, e.z) <= sq(attack.range + e.radius + t.radius);
+  // Movement III (docs/phase-5c.md Q2, Q9): a Mimic has nothing to copy, or a rune at the feet of
+  // a Weaver who is absent, down or out of reach: it doesn't begin.
+  const copy = attack.effect === 'mimic' ? mimicCopyOf(world) : null;
+  if (attack.effect === 'mimic' && copy === null) return false;
+  const weaver = attack.centre === 'weaver' ? weaverInReach(world, inRange) : null;
+  if (attack.centre === 'weaver' && !weaver) return false;
 
   let target: Entity | null = null;
   let shape: TelegraphShape | null = null;
+  // A `threadLine` beam's aim point (through the Thread's midpoint), fixed as it begins.
+  let aim: { x: number; z: number } | null = null;
   switch (attack.targeting) {
     case 'current':
       target = current && inRange(current) ? current : null;
@@ -556,6 +666,17 @@ export function beginAttack(
     case 'allHeroes':
       target = current;
       break;
+    case 'threadLine': {
+      const line = threadLineAim(world, e, attack.range, opts.followUp === true, heroes, inRange);
+      if (line) {
+        target = line.target;
+        aim = line.aim;
+      }
+      break;
+    }
+    case 'allyEnemy':
+      target = world.entities.get(mimicBeneficiary(world, e)) ?? e;
+      break;
   }
   if (!target && attack.targeting !== 'self' && attack.targeting !== 'allHeroes' && !facingSweep)
     return false;
@@ -582,10 +703,15 @@ export function beginAttack(
       }
       case 'beam': {
         // The lance stops just past its target: a single-target threat, not a line wipe. A
-        // full-length one (an Impaler's charge) runs its whole length.
+        // full-length one (an Impaler's charge) runs its whole length. A `threadLine` one aims
+        // through its aim point (Movement III).
         const t = target!;
-        const dx = t.x - e.x;
-        const dz = t.z - e.z;
+        let dx = (aim ? aim.x : t.x) - e.x;
+        let dz = (aim ? aim.z : t.z) - e.z;
+        if (aim && len(dx, dz) < 1e-6) {
+          dx = e.fx;
+          dz = e.fz;
+        }
         const d = len(dx, dz) || 1;
         const reach = attack.fullLength
           ? attack.length
@@ -601,16 +727,19 @@ export function beginAttack(
         break;
       }
       case 'burst':
-        // Centred on its target (the Pounce's landing spot), or on the caster.
+        // Centred on its target (the Pounce's landing spot), at the Weaver's feet (a Null rune,
+        // Movement III), or on the caster.
         shape =
           attack.centre === 'target' && target
             ? { kind: 'circle', x: target.x, z: target.z, r: attack.radius }
-            : {
-                kind: 'circle',
-                x: e.x,
-                z: e.z,
-                r: attack.radius + (attack.effect === 'damage' ? e.radius : 0),
-              };
+            : weaver
+              ? { kind: 'circle', x: weaver.x, z: weaver.z, r: attack.radius }
+              : {
+                  kind: 'circle',
+                  x: e.x,
+                  z: e.z,
+                  r: attack.radius + (attack.effect === 'damage' ? e.radius : 0),
+                };
         break;
       case 'donut':
         shape = {
@@ -643,7 +772,7 @@ export function beginAttack(
   const lullaby = attack.effect === 'damage' ? enemyFx(world, e).enemyWindup : 0;
   const dance = c.inField ? world.mods.slowDanceWindup : 0;
   windup *= (1 + lullaby) * (1 + dance);
-  const scale = c.damageMult * enrageMult(world, c.tier);
+  const scale = enemyDamageMult(world, c) * enrageMult(world, c.tier);
   const t = startTelegraph(world, {
     owner: e,
     attack,
@@ -661,6 +790,8 @@ export function beginAttack(
   if (shape!.kind === 'link') {
     const link = attack.linkStatus ?? 'resound';
     if (link === 'pact') t.linkStatus = 'pact';
+    // Movement III's Stitch (docs/phase-5c.md Q8).
+    if (link === 'stitch') t.linkStatus = 'stitch';
     for (const id of [shape!.a, shape!.b]) {
       const hero = world.entities.get(id);
       if (hero) addStatus(world, hero, link, windup, e.id);
@@ -685,6 +816,8 @@ export function beginAttack(
     end: t.impact,
     interruptible: attack.interruptible,
   };
+  // A Mimic's copy is locked as it begins (Movement III, docs/phase-5c.md Q9).
+  if (copy !== null) c.mimic = { copy };
   c.state = attack.effect === 'healAllies' ? 'channel' : 'casting';
   c.stateTime = 0;
   c.foreseen = null;
@@ -700,6 +833,98 @@ export interface BeginOptions {
   reverse?: boolean;
   /** A follow-up (P7): it ignores reach, and a reversed cleave needs no target. */
   followUp?: boolean;
+}
+
+/**
+ * A `threadLine` beam's aim (docs/phase-5c.md Q2): through the Thread's midpoint when that is in
+ * reach (its target is the threaded hero), else at the farthest hero in reach (passive pressure
+ * with no Thread). Null with no one to aim at. Deterministic: no draw.
+ */
+function threadLineAim(
+  world: World,
+  e: Entity,
+  range: number,
+  followUp: boolean,
+  heroes: readonly Entity[],
+  inRange: (t: Entity) => boolean,
+): { target: Entity; aim: { x: number; z: number } | null } | null {
+  const seg = threadSegment(world);
+  if (seg) {
+    const slot = world.entities.get(world.weaverId)?.weaver?.threadSlot;
+    const id = slot === null || slot === undefined ? undefined : world.party[slot];
+    const hero = id === undefined ? undefined : world.entities.get(id);
+    const x = (seg.ax + seg.bx) / 2;
+    const z = (seg.az + seg.bz) / 2;
+    // A follow-up is never out of reach; otherwise the midpoint must be within the attack's.
+    if (hero && (followUp || distSq(x, z, e.x, e.z) <= sq(range + e.radius)))
+      return { target: hero, aim: { x, z } };
+  }
+  let best: Entity | null = null;
+  let bestD = -1;
+  for (const hero of heroes) {
+    const d = distSq(hero.x, hero.z, e.x, e.z);
+    if (d > bestD && inRange(hero)) {
+      bestD = d;
+      best = hero;
+    }
+  }
+  return best ? { target: best, aim: null } : null;
+}
+
+/**
+ * The Weaver, for an attack centred at her feet (docs/phase-5c.md Q2): standing, present (not
+ * `config.absent`) and in its reach; else null.
+ */
+function weaverInReach(world: World, inRange: (t: Entity) => boolean): Entity | null {
+  if (world.config.absent) return null;
+  const w = world.entities.get(world.weaverId);
+  return isActive(w) && inRange(w) ? w : null;
+}
+
+/**
+ * Starts a payload's burst mark (docs/phase-5c.md Q7, Doom's ignition): `attack` as a mark on
+ * `target`, owned by `owner`, through `startTelegraph`, with the attack's mark status added as
+ * `beginAttack` adds it. The owner doesn't cast it: it fights on, and its death drops the mark.
+ * Refused (false) while `target` still carries a live mark of the same attack: never a second
+ * burst. With `check`, it only says whether it would start.
+ */
+export function startPayloadMark(
+  world: World,
+  owner: Entity,
+  target: Entity,
+  attackId: string,
+  check = false,
+): boolean {
+  const c = owner.enemy;
+  if (!c || !isActive(owner) || !isActive(target)) return false;
+  for (const t of world.telegraphs)
+    if (t.attackId === attackId && t.shape.kind === 'mark' && t.shape.target === target.id)
+      return false;
+  if (check) return true;
+  const attack = attackDef(attackId);
+  let windup =
+    attack.windup *
+    c.windupMult *
+    world.config.assists.telegraphLead *
+    world.mods.dissonanceWindupMult;
+  // As `beginAttack` times every damaging telegraph: Lullaby and Slow Dance (read on the owner,
+  // whose mark it is) lengthen it, and widen its Perfect window in proportion.
+  const lullaby = attack.effect === 'damage' ? enemyFx(world, owner).enemyWindup : 0;
+  const dance = c.inField ? world.mods.slowDanceWindup : 0;
+  windup *= (1 + lullaby) * (1 + dance);
+  startTelegraph(world, {
+    owner,
+    attack,
+    target,
+    shape: { kind: 'mark', target: target.id },
+    windup,
+    damage: attack.damage * enemyDamageMult(world, c) * enrageMult(world, c.tier),
+    pctMaxHp: attack.pctMaxHp ?? 0,
+    perfectWindowMult: (1 + lullaby) * (1 + dance),
+  });
+  const mark = markStatusOf(attack);
+  if (mark !== null) addStatus(world, target, mark, windup, owner.id);
+  return true;
 }
 
 /**
@@ -798,6 +1023,9 @@ function scriptedNext(
       at: Math.max(tide ? m2.nextTideAt : m2.nextExecutionAt, boss.phaseShiftUntil),
     };
   }
+  // A new boss's script (docs/phase-5c.md Q14): after every legacy branch and `m2` read.
+  const next = bossScript(c.defId)?.scriptedNext?.(world, e);
+  if (next) return { attackId: next.attackId, at: Math.max(next.at, boss.phaseShiftUntil) };
   return null;
 }
 
@@ -825,8 +1053,10 @@ function foresee(world: World, e: Entity, def: EnemyDef): void {
   // A chained toll (or a follow-up) owns the boss's next cast.
   if (!script?.owns) {
     const rules = boss ? rulesOf(c) : null;
-    for (let i = 0; i < def.specials.length; i++) {
-      const id = def.specials[i]!;
+    // Its affixes' specials too, as `trySpecial` sees them.
+    const specials = specialsOf(def, c.affixes);
+    for (let i = 0; i < specials.length; i++) {
+      const id = specials[i]!;
       if (SCRIPTED.has(id)) continue;
       const attack = attackDef(id);
       if (!pickable(attack, rules) || !canBegin(world, e, attack)) continue;
@@ -918,6 +1148,9 @@ function canBegin(world: World, e: Entity, attack: AttackDef): boolean {
   const heroes = activeHeroes(world);
   if (heroes.length === 0) return false;
   const inRange = (t: Entity) => inReach(e, attack, t);
+  // Movement III (docs/phase-5c.md): nothing to copy, or no Weaver to rune, refuses the cast.
+  if (attack.effect === 'mimic' && mimicCopyOf(world) === null) return false;
+  if (attack.centre === 'weaver' && !weaverInReach(world, inRange)) return false;
   switch (attack.targeting) {
     case 'current': {
       const t = c.targetId === null ? undefined : world.entities.get(c.targetId);
@@ -932,6 +1165,8 @@ function canBegin(world: World, e: Entity, attack: AttackDef): boolean {
       return randomPool(heroes, attack, inRange).length > 0;
     case 'pair':
       return heroes.length >= 2;
+    case 'threadLine':
+      return threadLineAim(world, e, attack.range, false, heroes, inRange) !== null;
     default:
       return true;
   }
@@ -943,6 +1178,9 @@ function inReach(e: Entity, attack: AttackDef, t: Entity): boolean {
 
 /** Who a rule-targeted attack would pick if it began now (Foresight's prediction). */
 function predictedTarget(world: World, e: Entity, attack: AttackDef): Entity | null {
+  // Movement III (docs/phase-5c.md Q2): a rune laid at the Weaver's feet (the Null Priest's,
+  // targeting 'self') is foreseen on her, as `canBegin` and `beginAttack` place it.
+  if (attack.centre === 'weaver') return weaverInReach(world, (t) => inReach(e, attack, t));
   if (attack.targeting === 'self' || attack.targeting === 'allHeroes') return null;
   if (attack.targeting === 'current') {
     const t = e.enemy!.targetId === null ? undefined : world.entities.get(e.enemy!.targetId);
@@ -950,6 +1188,14 @@ function predictedTarget(world: World, e: Entity, attack: AttackDef): Entity | n
   }
   if (attack.targeting === 'lowestHp')
     return lowestHp(activeHeroes(world), (t) => inReach(e, attack, t));
+  // Movement III (docs/phase-5c.md Q2): the threaded hero (else the farthest), or a beneficiary.
+  if (attack.targeting === 'threadLine')
+    return (
+      threadLineAim(world, e, attack.range, false, activeHeroes(world), (t) =>
+        inReach(e, attack, t),
+      )?.target ?? null
+    );
+  if (attack.targeting === 'allyEnemy') return world.entities.get(mimicBeneficiary(world, e)) ?? e;
   let best: Entity | null = null;
   let score = 0;
   for (const hero of activeHeroes(world)) {
@@ -1043,6 +1289,103 @@ function completeCast(world: World, owner: Entity, t: Telegraph): void {
     };
   }
   // healAllies pulses during the channel.
+  // Movement III (docs/phase-5c.md): a timed zone (Q4), a Mimic's copy (Q9), and a new boss's
+  // script after every legacy branch above (Q14). No Movement I or II attack has these effects.
+  if (attack.effect === 'zone' && attack.zone) layZone(world, owner, t, attack.zone);
+  if (attack.effect === 'mimic') resolveMimic(world, owner, t);
+  if (attack.effect === 'script' && owner.enemy)
+    bossScript(owner.enemy.defId)?.resolved?.(world, owner, t);
+}
+
+/**
+ * Lays a timed zone (docs/phase-5c.md Q4) on the lazy public `field.zones`: at the caster, or at
+ * the telegraph's centre (`target`: the rune drawn at the Weaver's feet). `updateZones` runs it.
+ */
+function layZone(
+  world: World,
+  owner: Entity,
+  t: Telegraph,
+  zone: NonNullable<AttackDef['zone']>,
+): void {
+  const s = t.shape;
+  const atTarget = zone.at === 'target' && s.kind === 'circle';
+  const x = atTarget ? s.x : owner.x;
+  const z = atTarget ? s.z : owner.z;
+  const until = world.time + zone.duration;
+  const laid: FieldZone = {
+    id: t.id,
+    kind: zone.kind,
+    owner: owner.id,
+    x,
+    z,
+    r: zone.radius,
+    until,
+  };
+  if (zone.pullSpeed !== undefined) laid.pullSpeed = zone.pullSpeed;
+  if (zone.status) {
+    const { id, duration, dps } = zone.status;
+    laid.status = dps !== undefined ? { id, duration, dps } : { id, duration };
+  }
+  (world.field.zones ??= []).push(laid);
+  world.events.push({
+    type: 'zoneStarted',
+    tick: world.tick,
+    zone: t.id,
+    kind: zone.kind,
+    owner: owner.id,
+    x,
+    z,
+    r: zone.radius,
+    until,
+  });
+}
+
+/**
+ * A Mimic's mirror lands (docs/phase-5c.md Q9). If what the Weaver would be copied for now isn't
+ * what it locked at the start, the mirror cracks and nothing lands. Otherwise its beneficiary
+ * (the telegraph's target, else the caster) gets the copy: a Ward's `mirror` shield, Empower's
+ * Emboldened, or a Chime's heal and cleanse.
+ */
+function resolveMimic(world: World, owner: Entity, t: Telegraph): void {
+  const c = owner.enemy;
+  const copy = c?.mimic?.copy;
+  if (c?.mimic) delete c.mimic;
+  if (!c || copy === undefined || !isActive(owner)) return;
+  if (mimicCopyOf(world) !== copy) {
+    world.events.push({ type: 'mirrorCracked', tick: world.tick, enemy: owner.id, copy });
+    return;
+  }
+  const found = t.target === null ? undefined : world.entities.get(t.target);
+  const b = isActive(found) && found.enemy ? found : owner;
+  const h = b.health!;
+  if (copy === 'ward')
+    addShield(world, b, 'mirror', h.maxHp * MIMIC_WARD_PCT, MIMIC_WARD_TIME, false);
+  else if (copy === 'empower') {
+    b.enemy!.emboldenedUntil = world.time + MIMIC_EMPOWER_TIME;
+    addStatus(world, b, 'emboldened', MIMIC_EMPOWER_TIME, owner.id);
+  } else {
+    const healed = Math.min(h.maxHp - h.hp, h.maxHp * MIMIC_CHIME_HEAL);
+    if (healed > 0) {
+      h.hp += healed;
+      world.events.push({
+        type: 'healApplied',
+        tick: world.tick,
+        target: b.id,
+        source: owner.id,
+        amount: healed,
+        overheal: 0,
+        via: 'other',
+      });
+    }
+    for (const id of ['stun', 'sleep', 'silence'] as const)
+      if (hasStatus(b, id)) removeStatus(world, b, id, 'cleansed');
+  }
+}
+
+/** Emboldened ran out (Movement III): its key and its display status go. */
+function emboldenEnds(world: World, e: Entity): void {
+  delete e.enemy!.emboldenedUntil;
+  if (hasStatus(e, 'emboldened')) removeStatus(world, e, 'emboldened', 'expired');
 }
 
 /** A boss (or miniboss) in its phase shift. */
@@ -1144,11 +1487,24 @@ export function ringPoint(
   }
 }
 
-/** Volatile: shatters 3 s after death. */
+/**
+ * An enemy dies: Volatile shatters 3 s later; then (Movement III) a tethered add's boss is
+ * recounted and a new boss's script hears of an add's death, after the legacy branch.
+ */
 function onDeath(world: World, e: Entity): void {
   const c = e.enemy!;
   c.foreseen = null;
-  if (!c.affixes.includes('volatile')) return;
+  if (c.affixes.includes('volatile')) volatileBurst(world, e);
+  if (enemyDef(c.defId).tether) recountTethered(world);
+  const bossId = world.encounter.bossId;
+  if (bossId !== null && bossId !== e.id) {
+    const boss = world.entities.get(bossId);
+    if (boss?.enemy) bossScript(boss.enemy.defId)?.onAddDeath?.(world, boss, e);
+  }
+}
+
+/** Volatile: shatters 3 s after death. */
+function volatileBurst(world: World, e: Entity): void {
   const t: Telegraph = {
     id: world.internal.nextTelegraphId++,
     owner: e.id,
@@ -1190,3 +1546,5 @@ function onDeath(world: World, e: Entity): void {
 
 setOnEnemyDeath(onDeath);
 setOnCastComplete(completeCast);
+setStartPayloadMark(startPayloadMark);
+setOnSever(severOnHit);
