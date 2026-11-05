@@ -8,6 +8,7 @@ import { distSq } from '../core/dmath';
 import {
   addShield,
   dealDamage,
+  hasStatus,
   interruptEnemy,
   isActive,
   rising,
@@ -123,6 +124,9 @@ export function tickSoloClock(world: World, hero: Entity, dt: number): void {
   const h = hero.hero!;
   if (h.soloActive <= 0) return;
   h.soloActive = Math.max(0, h.soloActive - dt);
+  // Possessed (Movement III): its pulses are lost, not saved up for the moment it is freed. The
+  // next pulse waits as long as the possession holds; a stun's catch-up is left as it ever was.
+  if (hasStatus(hero, 'possessed')) h.soloPulseAt += dt;
   if (h.soloActive <= 0) finishSolo(world, hero);
 }
 

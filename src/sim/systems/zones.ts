@@ -5,7 +5,7 @@
  */
 import { applyStatusPayload, getStatus, hasStatus, isActive } from '../combat/health';
 import { distSq } from '../core/dmath';
-import { isRooted } from '../rules3';
+import { isRooted, zoneOwnerStands } from '../rules3';
 import type { Entity, FieldZone } from '../state';
 import type { World } from '../world';
 
@@ -15,22 +15,30 @@ import type { World } from '../world';
  * entity-list order, and refreshes its status on them. The list goes when it empties.
  */
 export function updateZones(world: World, dt: number): void {
-  const zones = world.field.zones;
+  const zones = endZones(world, true);
   if (!zones) return;
+  for (const z of zones) if (z.kind === 'pull') pull(world, z, dt);
+}
+
+/**
+ * The zones that end now: each whose owner died, and (`timeUp`) each whose `until` came. Under
+ * Stasis (stasis.ts) only the owner's death ends one: its clock waits, but a rune whose Priest
+ * the heroes killed meanwhile goes with it, as its owner's telegraphs do. Returns what is left
+ * (undefined once the list empties, and then the list goes).
+ */
+export function endZones(world: World, timeUp: boolean): FieldZone[] | undefined {
+  const zones = world.field.zones;
+  if (!zones) return undefined;
   for (let i = 0; i < zones.length;) {
     const z = zones[i]!;
-    const owner = world.entities.get(z.owner);
-    const ownerGone = !owner?.health || owner.health.dead;
-    if (z.until <= world.time + 1e-9 || ownerGone) {
+    if ((timeUp && z.until <= world.time + 1e-9) || !zoneOwnerStands(world, z)) {
       zones.splice(i, 1);
       world.events.push({ type: 'zoneEnded', tick: world.tick, zone: z.id, kind: z.kind });
     } else i++;
   }
-  if (zones.length === 0) {
-    delete world.field.zones;
-    return;
-  }
-  for (const z of zones) if (z.kind === 'pull') pull(world, z, dt);
+  if (zones.length > 0) return zones;
+  delete world.field.zones;
+  return undefined;
 }
 
 /**

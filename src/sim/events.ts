@@ -780,8 +780,8 @@ export interface VerseStolen extends At {
 export interface VerseReturned extends At {
   type: 'verseReturned';
   aura: string;
-  /** The Verse fell, its time ran out, or phase 3 began. */
-  reason: 'killed' | 'expired' | 'phase';
+  /** The Verse fell, its time ran out, phase 3 began, or the Unweaver itself fell. */
+  reason: 'killed' | 'expired' | 'phase' | 'boss';
 }
 /** Unravel opened (`field.unravel`) or closed. */
 export interface UnravelledEvent extends At {
