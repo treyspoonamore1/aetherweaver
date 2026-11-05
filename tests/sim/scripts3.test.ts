@@ -215,7 +215,7 @@ describe('the Seamstress', () => {
     for (const t of [first, second, third]) expect(t.shape.kind).toBe('circle');
   });
 
-  it('the Unpick: first at +5 s after the shift, every 22 s (15 s enraged), then its Needle Rain', () => {
+  it('the Unpick: first at +5 s after the shift, every 18 s (15 s enraged), then its Needle Rain', () => {
     const { sim, w, boss } = bossFight(SEAMSTRESS, { z: -4 });
     const entered = enter(sim, 0.45);
     quiet(boss);
@@ -224,7 +224,7 @@ describe('the Seamstress', () => {
     watch(sim, 50, starts, events);
     const unpicks = starts['seamstress_unpick']!;
     near(unpicks[0]!.start, entered + 2 + 5);
-    near(unpicks[1]!.start - unpicks[0]!.start, 22);
+    near(unpicks[1]!.start - unpicks[0]!.start, 18);
     // The raid takes 12% of everyone's life and cuts whatever the Thread does.
     expect(unpicks[0]!.pctMaxHp).toBeCloseTo(0.12, 9);
     expect(unpicks[0]!.shape.kind).toBe('raid');
@@ -318,7 +318,7 @@ describe('the Unweaver, phase 1: the Cut', () => {
     for (const g of gaps(lateSnips).slice(1)) near(g, 20);
   });
 
-  it('the Spindles: three on a ring; while one stands the boss takes ×0.2 from heroes', () => {
+  it('the Spindles: three on a ring; while one stands the boss takes ×0.25 from heroes', () => {
     const { sim, w, boss } = bossFight(UNWEAVER, { z: -4 });
     const kael = w.entities.get(w.party[0]!)!;
     const hit = (): number => {
@@ -332,6 +332,12 @@ describe('the Unweaver, phase 1: the Cut', () => {
     boss.enemy!.specialCooldowns[enemyIndex('unweaver_spindles')] = 0;
     const cast = nextTelegraph(sim, 'unweaver_spindles', 60 * 10);
     expect(cast.owner).toBe(boss.id);
+    // Laid on a 9 m ring around it (not the generic summon's 3 m beyond its body).
+    stepUntil(sim, () => w.internal.pendingSpawns.length === 3, 60 * 5);
+    for (const p of w.internal.pendingSpawns) {
+      expect(p.defId).toBe('spindle');
+      expect(Math.hypot(p.x - boss.x, p.z - boss.z)).toBeCloseTo(9, 1);
+    }
     stepUntil(sim, () => enemiesOf(w, 'spindle').length === 3, 60 * 5);
     expect(boss.enemy!.tethered).toBe(3);
     const events: SimEvent[] = [];
@@ -340,14 +346,14 @@ describe('the Unweaver, phase 1: the Cut', () => {
       events.push(...sim.drainEvents());
       return d;
     };
-    expect(spindled() / bare).toBeCloseTo(0.2, 9);
+    expect(spindled() / bare).toBeCloseTo(0.25, 9);
     expect(ofType(events, 'spindled')).toHaveLength(1);
     // The boss is recounted as each falls; the plate holds until the last.
     const spindles = enemiesOf(w, 'spindle');
     killEnemy(w, spindles[0]!, kael);
     killEnemy(w, spindles[1]!, kael);
     expect(boss.enemy!.tethered).toBe(1);
-    expect(spindled() / bare).toBeCloseTo(0.2, 9);
+    expect(spindled() / bare).toBeCloseTo(0.25, 9);
     killEnemy(w, spindles[2]!, kael);
     expect('tethered' in boss.enemy!).toBe(false);
     expect(hit() / bare).toBeCloseTo(1, 9);
@@ -444,6 +450,21 @@ describe('the Unweaver, phase 2: Steal Verse', () => {
     expect('stolen' in w.field).toBe(false);
     expect(w.entities.get(add)?.health?.dead ?? true).toBe(true);
     expect(w.internal.m3!.nextStealAt).toBeUndefined();
+  });
+
+  it('announces its Decree at the phase’s entry too (so a quick phase hears it twice), not without an aura', () => {
+    const heard = (config: Partial<SimConfig>) => {
+      const { sim, boss } = bossFight(UNWEAVER, { z: -4, config });
+      quiet(boss);
+      const events = stepFor(sim, 1, [setBossHp(0.6)]);
+      expect(ofType(events, 'phaseChanged')).toHaveLength(1);
+      return ofType(events, 'decree').filter((d) => d.name === 'Steal Verse');
+    };
+    const entry = heard({ chords: CHORDS });
+    expect(entry).toHaveLength(1);
+    expect(entry[0]!.text).toBe(stealVerseDecree('Ostinato'));
+    expect(entry[0]!.answers).toEqual(['focus']);
+    expect(heard({ auras: [] })).toHaveLength(0);
   });
 
   it('takes the beam song’s aura without a field song, and is skipped with no aura at all', () => {

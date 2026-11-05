@@ -3,7 +3,8 @@
  * contract"), every default-party run by Phase 5b (docs/phase-5b.md, "Engineering ground
  * rules"), and Movements I and II and Brann's three fights by Phase 5c (docs/phase-5c.md,
  * ground rule 1). All eleven golden hashes are pinned here as literals, so they can't drift
- * through `npm run golden:update`; only new scenarios and `contentVersion` may change.
+ * through `npm run golden:update`; only new scenarios and `contentVersion` may change. Movement
+ * III's four goldens are pinned beside them at the slice's hand-off, for the Finale slice.
  */
 import { describe, expect, it } from 'vitest';
 import { CONTENT } from '../../src/content';
@@ -39,6 +40,17 @@ const BRANN_HASHES: Readonly<Record<string, string>> = {
 
 const PINNED: Readonly<Record<string, string>> = { ...M1_HASHES, ...M2_HASHES, ...BRANN_HASHES };
 
+/** Movement III's four goldens (docs/phase-5c.md, "Hand-off": pinned for the Finale slice). */
+const M3_HASHES: Readonly<Record<string, string>> = {
+  'skilled-unstitched-threshold': 'f72dc5e1b03025cf',
+  'novice-seamstress': 'c379707e6d0dab69',
+  'skilled-unweaver': '63e8f91b068c4bad',
+  'skilled-brann-mirror-hall': '34359b7e914cfd05',
+};
+
+/** All fifteen goldens, in golden.json's order. */
+const ALL_PINNED: Readonly<Record<string, string>> = { ...PINNED, ...M3_HASHES };
+
 describe('Movement I is unchanged (docs/phase-5a.md)', () => {
   it('SIM_VERSION is still 22', () => {
     expect(SIM_VERSION).toBe(22);
@@ -51,7 +63,13 @@ describe('Movement I is unchanged (docs/phase-5a.md)', () => {
       expect((golden.scenarios as Record<string, string>)[name], name).toBe(hash);
   });
 
-  for (const [name, hash] of Object.entries(PINNED))
+  it('golden.json holds exactly the fifteen pinned hashes, in order (docs/phase-5c.md)', () => {
+    expect(Object.keys(ALL_PINNED)).toHaveLength(15);
+    expect(golden.scenarios).toStrictEqual(ALL_PINNED);
+    expect(Object.keys(golden.scenarios)).toEqual(Object.keys(ALL_PINNED));
+  });
+
+  for (const [name, hash] of Object.entries(ALL_PINNED))
     it(`scenario "${name}" reproduces its pinned hash`, () => {
       const scenario = SCENARIOS.find((s) => s.name === name);
       expect(scenario, name).toBeDefined();

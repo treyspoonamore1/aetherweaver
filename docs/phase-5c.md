@@ -86,6 +86,7 @@ These still take the recommended default until you say otherwise:
 6. Guard Strand and three Movement III relics (Sacrificial Lamb, Knotted Cord, Stillwater Bell) are added, gated inside the pools.
 7. Pacing: accept a Skilled I-III Expedition of about 38-40 modelled minutes for now; shorten Movement I for Expeditions in the Finale slice.
 8. A possessed hero strikes other heroes only, never the Weaver.
+9. **One blow, one Strand** (taken 2026-11-05, the recommended default). When Guard Strand turns a Severing Shears dash aside, the same blow's Severing is turned aside with it: one Strand saves one Thread, and the Strand isn't spent twice. `resolve()` (`src/sim/combat/telegraphs.ts`) passes the dash's `'strand'` verdict to the deferred Severing check, which then cuts nothing, starts that elite's 3 s Severing clock as any turned-aside Severing does, and draws one `strandBlocked` where the Thread came closest. Before, the deferred Severing found the Strand on its cooldown and cut the Thread anyway.
 
 ## Decisions taken
 
@@ -94,12 +95,12 @@ These still take the recommended default until you say otherwise:
 | What 'threads' means | There is **one Thread**: the segment from the Weaver to `world.party[w.threadSlot]` (`src/sim/state.ts:136-150`). Every 'snaps your threads' mechanic acts on that segment, and no text ever says 'threads'. | Building Twin Spindle first would rewrite every Thread reader (dial, render, Bear, Prism, bots) for one Epic motif. |
 | Who plays Movement III | **An Expedition is every Movement in content.** `EXPEDITION_MOVEMENTS = CONTENT.movements.length` replaces the literal 2 in `routeMovements` (`src/meta/profile.ts:108-109`). Its callers are `runStore.ts:291, 306` and `profileStore.ts:384`. Every tool and baseline passes `movements` explicitly (`expedition-baseline.ts:43, 52`, `brann-bands.ts:263`, `harness-core.ts:632`, `harnessTools.test.ts:161, 296`), so none of them moves. There is no new unlock and no PROFILE_VERSION bump. | A third route option (I-II) adds a toggle state, copy and baselines. Question 5 above. |
 | Map size | **6 stops** (02 §8), with **one elite stop** that teaches all three combat affixes. | A 7-stop Movement III (like Movement II) adds about 1.5 modelled minutes and pushes the Expedition past 40 before the Finale. |
-| Scaling | Enemy side only, as in 5a. **Start at life ×1.75, damage ×1.05**, then sweep life 1.5-2.1 and damage 0.95-1.15 on whole I-III Expeditions. **Rewards start at ×1.5.** | The plan's hero-relative start is 3.0/2.0 = 1.5 for life and 2.2/2.4 ≈ 0.92 for damage (03 line 165; §6 line 236). Movement II shipped about 16% more life than its plan start (1.29 → 1.5). |
+| Scaling | Enemy side only, as in 5a. Started at life ×1.75, damage ×1.05, then swept life 1.5-2.1 and damage 0.95-1.15 on whole I-III Expeditions: **shipped at life ×1.85, damage ×1.05** (W9, *Tuning, measured*). **Rewards start at ×1.5**; XP shipped at ×1.4 (W9: the XP per combat minute band). | The plan's hero-relative start is 3.0/2.0 = 1.5 for life and 2.2/2.4 ≈ 0.92 for damage (03 line 165; §6 line 236). Movement II shipped about 16% more life than its plan start (1.29 → 1.5). |
 | Vocabulary | **Two** AnswerTags: `thread` ('Retarget') and `empower` ('Empower'). The Mimic's 'vary your techniques' is taught by its cast-bar icon, the 'mirror cracked' payoff and a hint, with the Focus glyph. | One overloaded 'thread' tag for both retargeting and Empower would teach two verbs with one glyph. A 'vary' or 'feint' tag isn't an action key. |
 | Shears windup | **1.0 s** (0.85 s Hastened, `enemies.ts:106`), not 0.9. | 0.9 s to read a path and press a hero key is at the edge of reaction time. A miss is cheap, so the tell can be generous. |
 | Possession | A P5 mark (markStatus `doubt`) whose attack deals **60 damage** and carries the status payload `possessed 5 s`. It lands through the existing payload rule `attack.status && dealt > 0` (`telegraphs.ts:433-434`). A full Ward blocks it, a Perfect negates it, and Paradox (if picked) cancels it. The possessed hero is **disabled**: no moves, abilities, Solos, calls or Cue. Every 0.5 s it strikes the nearest other hero **within max(5 m, its own attack range)**, for half its own basic DPS. A possessed Lyra (range 14) or Vexis (12) still shoots an ally across the formation (`src/content/heroes.ts:17, 105, 193, 289`). It **never hits the Weaver**, deals no lifesteal, and gets no Empower or aura bonus. | Real ally-targeting hero AI touches `chooseTarget`, `tryAbilities` (which assumes `target.enemy`), Solos, calls, lifesteal and Bonds. A flat 5 m reach would leave a spread-out ranged hero harmless, so the lesson wouldn't read. |
 | Stitch | A **link** (`linkStatus 'stitch'`) that deals 60 and carries the status payload `stitched 6 s`. A stitched hero is **rooted**: `isRooted` checks pinned, then stitched. The pair is drawn sewn. The link radius is 40 m, so spreading out never answers it. **A Chime breaks the link in its windup**, through the existing link test (`telegraphs.ts:191-199`). After it lands, a Chime (radius 4) frees both heroes, and any Reel frees the one it pulls. A Ward on one hero blocks that hero's root. | The bible's 'move as one' would need a two-body movement constraint in `heroes.ts` and `physics.ts`. An `effect:'script'` link would skip `contains`, `releaseLink` and `telegraphResolved` (`telegraphs.ts:291-337`), so a Chimed Stitch would still root both heroes, with nothing for the recap to name. |
-| Void Maw | **It breathes.** Every 11 s it *Inhales*: a 1.4 s tell, then a 4 s pull field of r 8 (2.4 m/s, 30/s DoT). Between breaths it is a stationary target. | A constant field has no tell and no window. Melee heroes would stand in it for good, and the healer would have nothing to read. |
+| Void Maw | **It breathes.** Every 11 s it *Inhales*: a 1.4 s tell, then a 4 s pull field of r 8 (2.8 m/s, 36/s DoT; tuned from 2.4 and 30). Between breaths it is a stationary target. | A constant field has no tell and no window. Melee heroes would stand in it for good, and the healer would have nothing to read. |
 | Null Priest | It plants a **rune at the Weaver's feet**: a 1.5 s circle, then a 6 s zone of r 5. Inside it, Ward, Chime and Reel/Rewind are refused with the existing reason `'silenced'` (`techniques.ts:42`, `events.ts:237`, `runtime.ts:105`). Glide, plant, the Thread, Directives, Cue and Crescendo still work. **It does not touch auras.** | A zone carried on the Priest would rarely reach a Weaver standing 6-10 m back, so it would teach nothing. Blocking Cue and Crescendo would take away the Vow, Stasis and Sunrise as answers. |
 | Doom | Doom stacks on **heroes only**. At 5 stacks it clears and **ignites**: a new `startPayloadMark` (built on `startTelegraph`, like `beginAttack` at `enemies.ts:637`) puts a 1.5 s `doom_burst` mark on the hero (40% of max HP), owned by the living elite. The mark has its own status, **`doomed`**, which is an ailment and bound to its telegraph. Chime cancels it, a Ward absorbs it, a Perfect negates it, Paradox (if picked) cancels it, and **killing the elite drops it** (`dropTelegraphs`, `health.ts:1513-1531`). | Re-using `doom` as the mark status would let later hits re-stack and re-ignite during the mark, and the detonation would wipe the stacks (`telegraphs.ts:365-380`). Volatile isn't the pattern: its burst is hand-built in `onDeath` *after* death (`enemies.ts:1137-1180`), and `dropTelegraphs` spares it by id (`health.ts:1516`). |
 | Needle Rain | A **three-needle follow-up chain** (P7). Each needle is a `centre:'target'` circle on a random hero, with cast pips 1/3 to 3/3. | A new 'volley' primitive drawing every circle at once is a new primitive, and it works against READABILITY_CAP=2 (`enemies.ts:34`). |
@@ -182,7 +183,7 @@ Expedition: Prep ─▶ Movement I (10) ─▶ Cantor (interlude) ─▶ Movemen
 - fixed rows 0, 3 and 5;
 - lessons `['maw_hollow','wraith_vigil','null_chapel']`;
 - opening `frayed_threshold`, skirmishes `['mirror_hall']`, elites `['frayed_court']`, miniboss `the_seamstress`, boss `the_unweaver`;
-- `scale {life: 1.75, damage: 1.05}` and `rewards {xp: 1.5, starlight: 1.5, aether: 1.5}` (starting values).
+- `scale {life: 1.85, damage: 1.05}` (tuned from the 1.75 start) and `rewards {xp: 1.4, starlight: 1.5, aether: 1.5}` (XP tuned from 1.5).
 
 It is registered as `movements: [...MOVEMENTS, CRIMSON_LEGION, UNSTITCHED]` (`src/content/index.ts:98`). The lint ties index 2 to `movement: 3` (`schema.ts:1476-1484`).
 
@@ -237,7 +238,7 @@ StatusIdSchema (`schema.ts:34-61`) and the StatusId union (`state.ts:67-87`) cha
 | `possessed` | heroes | yes | 5 s; disabled; strikes an ally (Q6); ticks through `Status.tickIn` | chime, focus |
 | `doom` | **heroes only** | yes | Stacks to 5 on one 10 s timer, then ignites (Q7). | chime, ward |
 | `doomed` | heroes | yes | The ignition mark's status for 1.5 s, bound to its telegraph. | chime, ward |
-| `voided` | heroes, Weaver | no | Inside an Inhale: 30/s × damage scale, refreshed while inside. The Weaver's answer is to move or Glide. | stack, reel, move |
+| `voided` | heroes, Weaver | no | Inside an Inhale: 36/s × damage scale, refreshed while inside. The Weaver's answer is to move or Glide. | stack, reel, move |
 | `stitch` | heroes | yes | The Seamstress's link during its windup; bound to its telegraph. | — |
 | `stitched` | heroes | yes | 6 s rooted. Chime frees, and a Reel frees the hero it pulls. | — |
 | `unravelled` | heroes | no | Display and recap: taking Unravel's reversed Mend. | empower |
@@ -257,7 +258,7 @@ Each Q generalises one existing system and has a Movement I/II safety column. Th
 |---|---|---|---|---|---|
 | Q1 | **Thread geometry and cuts.** Pure `threadSegment(world)` returns `{ax,az,bx,bz} \| null`. `segmentsCross` and `segmentDistSq` go in `core/dmath.ts` (the arithmetic of `contains('line')`, `telegraphs.ts:179-188`). `cutThread(world, cause, lock, by)` is a new function beside the range snap: it sets threadSlot null, tension 0 and `threadLock = lock × mods.cutLockMult` (default 1), grants `mods.cutResonance` (default 0), emits `threadSnapped {target, cause, lock, by}` and fires Taut Release. `AttackDef.cut?: {lock, always?}`: in `resolve()`, after the victim loop and independent of victims, a line telegraph cuts if its rectangle crosses the current segment, and `always` (Unpick) cuts unconditionally. Every cut telegraph emits one `cutResolved {telegraph, cause, result: 'cut' \| 'held' \| 'strand' \| 'none'}`, where 'none' means there was no Thread at cast start (the Execution-verdict pattern, `telegraphs.ts:593-628`). | range snap, threadLock, Taut Release, Execution verdict | thread.ts, dmath.ts, rules3.ts, telegraphs.ts | Shears, Severing, Snip, Unpick | range snap untouched; `cut` absent, so no read |
 | Q2 | **Targeting and centre.** Targeting `'threadLine'` is a beam aimed through the Thread's midpoint at cast start, then fixed; with no Thread, it aims at the farthest hero. Targeting `'allyEnemy'` is the living enemy (not the caster) with the highest max HP within 12 m, ties by id, else the caster. `centre: 'weaver'` is a circle at the Weaver's feet, not begun when the Weaver is absent (`config.absent`) or down. All three are added to `beginAttack`, `canBegin` (`enemies.ts:903`), `predictedTarget` (`:935`) and Foresight (`:823`). | P7 `centre:'target'` | enemies.ts, schema.ts | Shears, Snip, Null rune, Mimic | unused enum values |
-| Q3 | **Stationary enemies.** `EnemyDef.stationary?: true`: no approach and no chase-turn, the boss mass value (`enemies.ts:85`), and skipped by Gravity Well (`heroes.ts:1205-1240`). It still bites and casts. | — | enemies.ts, heroes.ts | Void Maw, Spindle | key absent |
+| Q3 | **Stationary enemies.** `EnemyDef.stationary?: true`: no approach and no chase-turn, the boss mass value (`enemies.ts:85`), and skipped by Gravity Well (`heroes.ts:1205-1240`). It still bites and casts. It never comes to the party, so the heroes go to it: a hero with no target in sight (and no Rally under way) seeks the nearest living stationary enemy (`seekStationary`), and the Weaver's leash never holds a hero off a stationary target (it would only stall them out of reach, as it did Idle and the Novice on `maw_hollow` and `mirror_hall`). Positions and content only: no RNG, no new state. | — | enemies.ts, heroes.ts | Void Maw, Spindle | key absent: the seek finds nothing, and no target is stationary |
 | Q4 | **Timed zones.** `AttackDef.zone?: {kind:'pull'\|'null', radius, duration, at:'caster'\|'target', pullSpeed?, status?}`; effect `'zone'` resolves to its zone and nothing else. `completeCast` pushes `{id, kind, owner, x, z, r, until, pullSpeed?, status?}` onto a lazy public `field.zones`, following the lazy sanctuary-pool pattern (`state.ts:657-664`). The new `updateZones(world, dt)` runs right after `updateBosses`, inside the not-in-Stasis branch (`api.ts:95-98`). **A pull** moves each hero and the Weaver inside it toward the centre by `pullSpeed × dt`, in entity-list order, and refreshes `status`. It skips anyone `anchored`, rooted (`isRooted`), mid-Reel (`h.reel`), downed or Gliding. A zone ends at `until` or when its owner dies. Stasis adds dt to `until`, and `endEncounter` deletes the list. Physics is untouched: 'anchored' means immune to the pull, not to overlap. | Bloodmoon pools, P2 DoT, Anchor, Rally, Reel flight | zones.ts (new), api.ts, enemies.ts | Void Maw Inhale, Null rune | `field.zones` absent, so the call returns at once |
 | Q5 | **Weaver silence.** Pure `weaverSilenced(world)`: the Weaver is inside a `null` zone. `castWard`, `castChime`, `castReel` and `castRewind` (`rewind.ts:63`) reject with `'silenced'`. Glide, plant, the Thread (attach and mode), Directives, Cue and Crescendo are exempt. `canCall` (`calls.ts:37-79`) refuses **Ward and Chime** calls while she is silenced, so Every Call is not charged. Calls answer only ward, chime or empower (`calls.ts:66-77`); the Empower call already waits on `threadLock`, so after a cut it is refused by the existing check. `downHero`'s readyTechniques (`health.ts:1357-1363`) leaves out the silenced techniques. | reject plumbing | techniques.ts, rewind.ts, calls.ts, health.ts | Null Priest | one absent-key read |
 | Q6 | **Possession.** A possessed hero is disabled the way a stunned one is: `isDisabled` gains an appended `possessed` check, which covers moves, abilities, Solos and calls (`heroes.ts:104`, `calls.ts:48, 174`). `cue` (`techniques.ts:777`) refuses a possessed hero with `'target'`, and `tendCall` cancels. In `updateStatuses`, the `possessed` status ticks through its own `tickIn` every 0.5 s and deals 0.5 × (`attack.damage / attack.interval` of its def) to `possessionVictim(world, h)`. The victim is the nearest other living hero within max(5, `def.attack.range`) m, ties by slot, **never the Weaver**. The hit goes through `dealDamage(kind:'tick', status:'possessed', source:h, sourceName:'<Hero> (possessed)')`. The ledger, threat and Bonds already gate on `target.enemy` (`health.ts:670, 894`), so possessed hits stay off them. Bear and the Vow apply. Lifesteal never fires, because no hero attack resolves. | P5 mark, attack status payload, Chime cancels an ailment mark, P3 `dealt > 0`, the stun disable | statuses.ts, health.ts, techniques.ts, calls.ts, rules3.ts | Doubt Wraith | the status is never applied in M1/M2; the appended check is false |
@@ -269,7 +270,7 @@ Each Q generalises one existing system and has a Movement I/II safety column. Th
 | Q12 | **Unravel.** Lazy public `field.unravel?: {until, source, acc, tickIn}`. In the Mend branch (`thread.ts:196-227`), **while `field.unravel` and not `field.stasis`**, Mend on a standing threaded hero deals `mendPerSec × mendMult × potency` as damage. It accumulates in `acc` and ticks every 0.5 s (`kind:'tick', status:'unravelled', sourceName:'Unravel — your Mend'`). The revive channel holds its progress. The bleed-out freeze is off while unravelled (`statuses.ts:41, 84-90`). The Prism spill, the Relay heal and Sanguine Covenant are skipped. Empower and Bear are untouched, because they are the answers. Under Stasis, Mend heals as usual and `until` is advanced. | the Mend branch, DOT_TICK | thread.ts, statuses.ts | Unweaver phase 2 | key absent |
 | Q13 | **Steal Verse mute.** Lazy public `field.stolen?: {chord, aura, add, until}`. `updateField` skips that aura's index when it fills auraMult, auraFocus and auraEcho, and `chordMask` drops its bit (`field.ts:89-93, 171-205`). `chorusPulse` counts `field.auras.length − 1` while it is set (`techniques.ts:903`). Content, `field.chords`, `field.auras`, Sovereign (`world.ts:762-764`), and the Spirit and Life reservation are unchanged. Restore deletes the key. | the Mute suppression path | field.ts, techniques.ts | Unweaver phase 2 | key absent |
 | Q14 | **Boss-script registry.** `BOSS_SCRIPTS[defId] = {tick?, enter?(phase), resolved?(t), scriptedNext?, onAddDeath?(e), stasis?(dt), cleanup?}` in `src/sim/systems/bossScripts.ts`. It is consulted only after the legacy branches and `m2` reads, in `updateBosses` (after `bosses.ts:183`), `enterPhase` (after `:325`), `completeCast` (effect 'script'), `scriptedNext`, `onDeath`, `holdEnemyTime` and `endEncounter`. The lazy `internal.m3` is created by `ensureM3`. | PHASES data, the m2 pattern | bossScripts.ts (new), one-line call sites | Seamstress, Unweaver, the Finale next | the lookup misses for old ids |
-| Q15 | **Guard Strand** (mod `guardStrand`, in seconds; 0 = off). In `land()` (`hits.ts:32`), an enemy bolt is destroyed (`strandBlocked`) if its segment crosses the Thread. The segment runs from its living source's *current* position to its target, so no PendingHit field is added. In `cutThread`, a Shears, Severing or Snip cut is refused under the same cooldown (`cutResolved.result 'strand'`). Unpick is never refused. Its clock is the lazy `internal.guardStrandAt`. | pending hits | hits.ts, thread.ts, mods.ts | the motif | mod 0 → no read |
+| Q15 | **Guard Strand** (mod `guardStrand`, in seconds; 0 = off). In `land()` (`hits.ts:32`), an enemy bolt is destroyed (`strandBlocked`) if its segment crosses the Thread. The segment runs from its living source's *current* position to its target, so no PendingHit field is added. In `cutThread`, a Shears, Severing or Snip cut is refused under the same cooldown (`cutResolved.result 'strand'`). One blow is one cut: a Severing Shears dash turned aside takes its own Severing with it (answer 9). Unpick is never refused. Its clock is the lazy `internal.guardStrandAt`. | pending hits | hits.ts, thread.ts, mods.ts | the motif | mod 0 → no read |
 | Q16 | **Movement-gated pools and sleeping relics.** `MotifDef.requires.movement?` and `RelicDef.movement?` are filtered inside `eligible()` and `relicPool` by an `offerMovement` parameter, so `rollRarity`'s predicate (`run.ts:1399`) and `makeShop` see the filtered pools. In the sim, `createWorld` hands `resolveMods` only the relics and motifs whose Movement is ≤ the fight's encounter `movement` (a content read). `world.relics` and the hashed config are unchanged. | hero-gated motifs | run.ts, world.ts | Guard Strand, 3 relics | the filter removes exactly the appended ids; no M1/M2 config contains them |
 
 **Script state.**
@@ -280,17 +281,17 @@ Each Q generalises one existing system and has a Movement I/II safety column. Th
 
 ## The Unstitched
 
-Code life is the plan's HP × 2.2 (the 5a calibration, `legion.ts:4-7`). 'Eff.' is after the starting scale (life ×1.75, damage ×1.05) and before Threat. Every enemy has `movement: 3` and `material: 'cloth'`, and its Codex line is built from named constants (`src/content/unstitched.ts`).
+Code life is the plan's HP × 2.2 (the 5a calibration, `legion.ts:4-7`). 'Eff.' is after the shipped scale (life ×1.85, damage ×1.05) and before Threat. The numbers are W9's tuned ones (*Tuning, measured* lists each change). Every enemy has `movement: 3` and `material: 'cloth'`, and its Codex line is built from named constants (`src/content/unstitched.ts`).
 
 Reference heroes, unscaled: Kael 1,600 HP, Lyra 820, Vexis 740, Brann 1,250, the Weaver 360. Hero speeds are 7.2-7.8 m/s (`src/content/heroes.ts:13, 101, 189, 281`), and the Weaver's is 6.5 (`src/content/weaver.ts:8`). A Ward is 30% of max HP + 120 (`weaver.ts:38-48`): 600 on Kael.
 
 | Enemy | Role | HP code / eff. | Speed | Basic | Special | Telegraph | Answers |
 |---|---|---|---|---|---|---|---|
-| **Shears** `shears` | swarm | 990 / 1,733 | 5.4 | melee 40 per 1.0 s, r 1.2 | `shears_dash`: beam, `threadLine`, `fullLength`, `move:'charge'`, length 14, width 1.2, windup **1.0**, damage 120 (126), `cut {lock: 1}`; cd 8, init 3 | a **dotted** line (BEAM.dashed, `render/entities.ts:2461`) plus a scissors marker where it crosses your Thread | `thread`, `focus`, `move` |
-| **Void Maw** `void_maw` | brute, `stationary` | 3,080 / 5,390 | — | melee 'Devour' 70 (74) per 1.6 s, r 2.8 | `maw_inhale`: burst self r 8, damage 0, effect `'zone'`, windup **1.4**, zone `{pull, r 8, 4 s, pullSpeed 2.4, status voided {duration 0.6, dps 30}}`; cd 11, init 5 | the swirl tightens through the windup, then turns inward for 4 s | `stack` (Rally), `reel`, `move` |
-| **Doubt Wraith** `doubt_wraith` | caster, preferredRange 11 | 1,100 / 1,925 | 3.2 | bolt 40 per 2.0 s, r 13 | `wraith_doubt`: mark, `randomNonTank`, windup **4.0**, `interruptible`, damage 60 (63), `markStatus:'doubt'`, status possessed 5 s; cd 15, init 6 | a cast bar on the Wraith plus a cracked-mask mark over the hero | `focus`, `chime`, `ward` |
-| **Null Priest** `null_priest` | caster, preferredRange 10 | 1,540 / 2,695 | 2.8 | bolt 50 per 2.2 s, r 12 | `null_rune`: burst `centre:'weaver'`, r 5, windup **1.5**, damage 0, effect `'zone'`, zone `{null, r 5, 6 s, at: target}`; cd 12, init 4 | a closing rune circle at the Weaver's feet, then a rune ring for 6 s | `move` (Glide out) |
-| **Mimic** `mimic` | caster, preferredRange 10 | 1,320 / 2,310 | 3.2 | bolt 35 per 1.6 s, r 11 | `mimic_mirror`: burst self r 1.5, effect `'mimic'`, `allyEnemy`, windup **2.0**, `interruptible`; cd 12, init 5 | a cast bar showing **the icon it will copy**, and a mirror shimmer to its beneficiary | `focus` (hint: vary your techniques to crack it) |
+| **Shears** `shears` | swarm | 990 / 1,832 | 5.4 | melee 40 per 1.0 s, r 1.2 | `shears_dash`: beam, `threadLine`, `fullLength`, `move:'charge'`, length 14, width 1.2, windup **1.0**, damage 120 (126), `cut {lock: 1}`; cd 8, init 3 | a **dotted** line (BEAM.dashed, `render/entities.ts:2461`) plus a scissors marker where it crosses your Thread | `thread`, `focus`, `move` |
+| **Void Maw** `void_maw` | brute, `stationary` | 2,600 / 4,810 | — | melee 'Devour' 84 (88) per 1.6 s, r 2.8 | `maw_inhale`: burst self r 8, damage 0, effect `'zone'`, windup **1.4**, zone `{pull, r 8, 4 s, pullSpeed 2.8, status voided {duration 0.6, dps 36}}`; cd 11, init 5 | the swirl tightens through the windup, then turns inward for 4 s | `stack` (Rally), `reel`, `move` |
+| **Doubt Wraith** `doubt_wraith` | caster, preferredRange 11 | 1,100 / 2,035 | 3.2 | bolt 40 per 2.0 s, r 13 | `wraith_doubt`: mark, `randomNonTank`, windup **4.0**, `interruptible`, damage 60 (63), `markStatus:'doubt'`, status possessed 5 s; cd 18, init 6 | a cast bar on the Wraith plus a cracked-mask mark over the hero | `focus`, `chime`, `ward` |
+| **Null Priest** `null_priest` | caster, preferredRange 10 | 1,540 / 2,849 | 2.8 | bolt 50 per 2.2 s, r 12 | `null_rune`: burst `centre:'weaver'`, r 5, windup **1.5**, damage 0, effect `'zone'`, zone `{null, r 5, 6 s, at: target}`; cd 12, init 4 | a closing rune circle at the Weaver's feet, then a rune ring for 6 s | `move` (Glide out) |
+| **Mimic** `mimic` | caster, preferredRange 10 | 1,320 / 2,442 | 3.2 | bolt 35 per 1.6 s, r 11 | `mimic_mirror`: burst self r 1.5, effect `'mimic'`, `allyEnemy`, windup **2.0**, `interruptible`; cd 12, init 5 | a cast bar showing **the icon it will copy**, and a mirror shimmer to its beneficiary | `focus` (hint: vary your techniques to crack it) |
 
 **Shears.**
 
@@ -302,13 +303,13 @@ Reference heroes, unscaled: Kael 1,600 HP, Lyra 820, Vexis 740, Brann 1,250, the
 
 **Void Maw.**
 
-- During the 1.4 s tell, Rally (3 s, `commands.ts:91`) walks the party to you at 7.2-7.8 m/s against the 2.4 m/s pull.
+- During the 1.4 s tell, Rally (3 s, `commands.ts:91`) walks the party to you at 7.2-7.8 m/s against the 2.8 m/s pull.
 - A plain Reel lands a hero 2 m in front of you (`techniques.ts:356-358`): stand outside, then Reel.
 - Anchor (a Reel variant, `techniques.ts:707`) makes the hero immune to the pull.
 - A gliding Weaver is not pulled.
 - **Swap** (`techniques.ts:341, 653`) puts *you* where the hero stood, inside the pull. Its hint and the Skilled bot treat Swap as a non-answer here: Rally instead.
 - **Rewind** returns a hero to where they stood 3 s ago (`rewind.ts:99-102`). That undoes up to 7.2 m of drag for a hero who was pulled in, but does nothing for a melee hero who stood at the Maw all along. The Chronomancer card says so.
-- A bloodlusting Brann below 40% ignores Rally (docs/phase-5b.md), so his hint names Reel and Anchor.
+- A bloodlusting Brann below 40% ignores Rally (docs/phase-5b.md), so his hint names what the Reel slot does for him (`mawRescue`, `src/ui/hud/hints.ts`): a plain Reel ('Reel him out'), Anchor ('Anchor him before it drags him in'), the Chronomancer's Rewind ('Rewind him back once it drags him'), or, with Swap, a Hold ('Hold so he stays outside it'), which he always obeys. The Skilled bot's `mawHold` plays that Hold.
 - Devour's chip damage on melee heroes is the reason to kill the Maw.
 
 **Doubt Wraith.**
@@ -359,29 +360,29 @@ All have `movement: 3` and are appended after Vampiric. `KNOWN_AFFIXES` (`enemie
 
 A many-armed tailor with needle-cone fingers and a spool on her back.
 
-- HP 36,000 code (63,000 eff.); speed 3.0; radius 1.3; height 3.0; melee 80 (84) per 1.5 s, range 2.4.
-- Arena `loom_hollow` (r 20, open); enrage 300 s; par derived (start 105).
+- HP 32,400 code (59,940 eff.); speed 3.0; radius 1.3; height 3.0; melee 80 (84) per 1.5 s, range 2.4.
+- Arena `loom_hollow` (r 20, open); enrage 300 s; par 95 (W9: the Skilled average × 1.15).
 - Phases at 1.0 and **0.5**.
 
 | Attack | Shape and numbers | Tell | Answers |
 |---|---|---|---|
-| **Needle Rain** `seamstress_needles` → `_2` → `_3` | burst `centre:'target'`, `randomHero`, r 2.6, damage 300 (315) each. Windups 1.4, then 0.7 and 0.7 (`followUp {delay 0}`, scripted, each re-aimed at its own start); cd 12, init 5 | three circles in sequence, with needle-fall sprites; cast pips 1/3-3/3 (`blowsOf`, `hudBridge.ts:70-76`) | `move`, `ward`, `reel` |
+| **Needle Rain** `seamstress_needles` → `_2` → `_3` | burst `centre:'target'`, `randomHero`, r 2.6, damage 360 (378) each. Windups 1.4, then 0.7 and 0.7 (`followUp {delay 0}`, scripted, each re-aimed at its own start); cd 10.5, init 5 | three circles in sequence, with needle-fall sprites; cast pips 1/3-3/3 (`blowsOf`, `hudBridge.ts:70-76`) | `move`, `ward`, `reel` |
 | **Stitch** `seamstress_stitch` | link `pair`, r 40, `linkStatus:'stitch'`, windup 2.5, damage 60 (63), effect `'damage'`, status `stitched 6 s`; cd 18, init 8; `decreeLimit 2` | a cross-stitch link (not the threat dashes), then a sewn tether between the stitched pair (paired by status source) | `chime`, `ward`, `reel` |
-| **Unpick** `seamstress_unpick` (phase 2, scripted) | raid, windup 2.5, `pctMaxHp 0.12`, `cut {lock 1, always}`, `followUp` Needle Rain after 1.0 s. Every 22 s (15 s enraged), first at +5 s after entry (`m3.nextUnpickAt`) | the raid cast bar, and a ripple running along your Thread | `ward`, `thread` |
+| **Unpick** `seamstress_unpick` (phase 2, scripted) | raid, windup 2.5, `pctMaxHp 0.12`, `cut {lock 1, always}`, `followUp` Needle Rain after 1.0 s. Every 18 s (15 s enraged), first at +5 s after entry (`m3.nextUnpickAt`) | the raid cast bar, and a ripple running along your Thread | `ward`, `thread` |
 
-- **Stitch Decree:** 'Stitch — two heroes are sewn to the floor. Chime breaks the stitch, or frees them both.'
+- **Stitch Decree:** 'Stitch — two heroes are sewn to the floor. Chime the stitch as it winds up; once it holds, Reel one free. A Ward on one keeps that hero loose.' (It no longer promises that a Chime frees both: the pair can stand up to 40 m apart and a Chime reaches 4 m.)
 - **Phase 2 at 50%, Decree 'Unpicking':** 'The Seamstress pulls your Thread loose. Ward the blow, then re-thread at once.' Answers `['ward','thread']`, `cooldownMult 0.85`.
-- **Double threat:** Needle Rain on a stitched pair, who can't dodge (2 × 315). The rooted check also covers the dodge step-out (`heroes.ts:1381-1382`) and Brann's leap (`blood.ts:355`). Chime them before the rain, or Ward the needle. In phase 2, the Unpick leaves you threadless as the rain falls.
+- **Double threat:** Needle Rain on a stitched pair, who can't dodge (2 × 378). The rooted check also covers the dodge step-out (`heroes.ts:1381-1382`) and Brann's leap (`blood.ts:355`). Chime them before the rain, or Ward the needle. In phase 2, the Unpick leaves you threadless as the rain falls.
 - **The Seamstress's script** holds only the Unpick cadence and its follow-up. Stitch and Needle Rain are data.
 
 ## Boss — the Unweaver (`the_unweaver`)
 
 Tall and hooded, with a giant pair of shears and a crown of spindles.
 
-- HP 78,000 code (136,500 eff., about ×1.15 more at the last row); speed 2.4; radius 1.6; height 4.4; melee 120 (126) per 1.6 s, range 2.8.
+- HP 78,000 code (144,300 eff., about ×1.15 more at the last row); speed 2.4; radius 1.6; height 4.4; melee 120 (126) per 1.6 s, range 2.8.
 - Arena `the_unwoven` (r 22, open).
 - Enrage **450 s**: inside the harness's 9 minutes (`tools/harness-core.ts:92`) and the 'without you' 600 s cap (`counterfactual.ts:29`). Enrage multiplier ×2.5 (`enemies.ts:350-352`).
-- Par derived (start 270).
+- Par 220 (W9: the Skilled average × 1.15).
 - Phases at 1.0, **0.66** and **0.33**, each with the 2 s phase shift (`bosses.ts:313-338`).
 - Bosses are immune to stun (`health.ts:262-264`), so its casts are interrupted only by Kael's Shield Bash (on his target), Lyra's Piercing Shot and Brann's Sunder Leap.
 
@@ -389,12 +390,12 @@ Tall and hooded, with a giant pair of shears and a crown of spindles.
 
 | Attack | Numbers | Answers |
 |---|---|---|
-| **Shear** `unweaver_shear` | cleave `current`, r 4.0, 110°, windup 1.8, damage 900 (945); cd 14, init 6; `decreeNoDome` | `ward`, `reel`, `dome` |
+| **Shear** `unweaver_shear` | cleave `current`, r 4.0, 110°, windup 1.8, damage 720 (756); cd 14, init 6; `decreeNoDome` | `ward`, `reel`, `dome` |
 | **Snip** `unweaver_snip` (scripted) | beam `threadLine` from the boss, length 30, width 1.4, windup **1.6**, damage 200 (210) to anyone on it, `cut {lock: 3}`. Every 15 s (10 s enraged), first at +8 s. Decree on its first two casts. Verdict through `cutResolved`. | `thread`, `move` |
-| **Spindles** `unweaver_spindles` | burst self, summons 3 `spindle` on a 9 m ring, `maxAlive 3`, windup 1.5; cd 40, init 10; `decreeLimit 2` | `focus` |
+| **Spindles** `unweaver_spindles` | burst self, summons 3 `spindle` on a 9 m ring, `maxAlive 3`, windup 1.5; cd 48, init 10; `decreeLimit 2` | `focus` |
 
 - **Snip Decree:** 'Snip — the shears close across your Thread. Get on your hero's side of the line, or lose it for 3 s.'
-- **Spindles Decree:** 'Spindles — while one stands, the Unweaver takes 80% less damage. Focus them.' The BossBar shows 'Spindles ×N · −80%'.
+- **Spindles Decree:** 'Spindles — while one stands, the Unweaver takes 75% less damage. Focus them.' The BossBar shows 'Spindles ×N · −75%' (W9: from 80%).
 - **Double threat:** a Snip just before a Shear. You Ward the tank without a Thread, and the input fallback keeps an un-hovered Ward aimed at the last threaded hero.
 
 ### Phase 2 (66-33%): Steal Verse and Unravel
@@ -404,6 +405,7 @@ Tall and hooded, with a giant pair of shears and a crown of spindles.
 **Steal Verse** `unweaver_steal_verse` (scripted, effect `'script'`, windup 3).
 
 - It is cast at +3 s after entry, then 40 s after each return.
+- Its Decree is announced at the phase's entry as well as with each cast (the Mirror Weave pattern), naming the aura it will take, so a quick phase 2 still hears it twice (W9: Skilled heard it twice in only 14 of 50 fights before). It isn't announced without an aura to take.
 - It mutes the first aura of your field song (the beam song's if there is no field song) and spawns a fleeing **Stolen Verse**. If the loadout has no aura, the cast is skipped.
 - Killing the Verse pours the aura back. If the Verse lives 30 s, the aura slips back on its own. Phase 3 returns it at once.
 - While it is stolen, the aura counts for nothing in the field, the aura mask or the chorus pulse. Its Spirit or Life stays reserved, and Sovereign holds.
@@ -427,7 +429,7 @@ Unravel stops, the stolen verse returns, and the Snip continues every 20 s.
 - **The champion.** At entry, the Unweaver weaves the **Hollow Champion** and summons it. A mirror-coloured enemy Thread runs from the boss to it. While the boss lives, the champion is `emboldened` (×1.25 damage through `enemyDamageMult`) and heals 1% of its max HP a second. If it dies, it is re-woven 30 s later (`m3.nextChampionAt`).
 - **Mirror Ward** `unweaver_mirror_ward`: an **interruptible** 2.0 s cast on the champion, every 14 s (9 s enraged). It gives the champion a `mirror` shield of 30% of its max HP for 5 s.
 - **Decree:** 'Mirror Weave — the Unweaver Wards its champion as you Ward yours. Interrupt the Mirror Ward, and Focus the champion.' Answers `['focus']`.
-- **Double threat:** two tank-busters can land on the tank within 2 s: the Shear at 945 and the emboldened champion's cleave at 700 × 1.05 × 1.25 ≈ 919. Together that is 1,864, against Kael's 1,600. A plain Ward (600 on Kael) leaves 1,264, so he survives at full life; with the boss row's ×1.15 Threat, 2,144 becomes 1,544, which he barely survives. A Perfect Ward, a Reel or Kael's dome answers one blow outright. With no answer, he dies. The champion's cleave is the first lever if W9 finds this too tight. The Mirror Ward cast asks for Focus at the same time.
+- **Double threat:** two tank-busters can land on the tank within 2 s: the Shear at 756 and the emboldened champion's cleave at 700 × 1.05 × 1.25 ≈ 919. Together that is 1,675, against Kael's 1,600. A plain Ward (600 on Kael) leaves 1,075, so he survives at full life; with the boss row's ×1.15 Threat, 1,926 becomes 1,326. A Perfect Ward, a Reel or Kael's dome answers one blow outright. With no answer, he dies. W9 left the champion's cleave at 700 and took the Shear down to 720 (from 900): the Novice, who Wards it late, lost Kael to it about six times a fight. The Mirror Ward cast asks for Focus at the same time.
 
 ### Adds
 
@@ -435,9 +437,9 @@ All have `movement: 3` and `material: 'cloth'`.
 
 | Add | HP code / eff. | Body | Notes |
 |---|---|---|---|
-| `spindle` | 1,800 / 3,150 | support, `stationary`, bolt 25 per 2.0 s, r 14 | `tether {dr: 0.8}`; a tether beam to the boss |
-| `stolen_verse` | 3,000 / 5,250 | caster, preferredRange 16 (kites), speed 4.4, bolt 20 per 2.0 s | an orb in the stolen aura's colour; its death restores the aura (`onAddDeath`) |
-| `mirror_champion` | 12,000 / 21,000 | brute, speed 3.2, melee 100 per 1.4 s | `champion_cleave`: cleave `current`, r 3.4, 100°, windup 1.6, damage 700 (735; 919 emboldened), cd 11; answers ward, reel, move |
+| `spindle` | 1,440 / 2,664 | support, `stationary`, bolt 25 per 2.0 s, r 14 | `tether {dr: 0.75}` (W9: from 0.8); a tether beam to the boss |
+| `stolen_verse` | 3,000 / 5,550 | caster, preferredRange 16 (kites), speed 4.4, bolt 20 per 2.0 s | an orb in the stolen aura's colour; its death restores the aura (`onAddDeath`) |
+| `mirror_champion` | 12,000 / 22,200 | brute, speed 3.2, melee 100 per 1.4 s | `champion_cleave`: cleave `current`, r 3.4, 100°, windup 1.6, damage 700 (735; 919 emboldened), cd 11; answers ward, reel, move |
 
 **Script hooks.**
 
@@ -480,7 +482,7 @@ Interrupt reach (see *Doubt Wraith*): Lyra seeks casters herself; Kael and Brann
 | Party | Wraith and Mimic interrupters | Mirror Ward interrupters (boss, stun-immune) | Dome (Shear) | Ranged Thread vs Severing | Notes |
 |---|---|---|---|---|---|
 | default (Kael, Lyra, Vexis) | Lyra, Kael (Focus), Vexis (stun) | Lyra, Kael | Kael | Lyra, Vexis | reference |
-| A (Kael, Vexis, Brann) | Kael (Focus), Brann, Vexis (stun) | Kael, Brann | Kael | Vexis | a bloodlusting Brann ignores Rally, so his Maw answer is Reel, Anchor or Rewind |
+| A (Kael, Vexis, Brann) | Kael (Focus), Brann, Vexis (stun) | Kael, Brann | Kael | Vexis | a bloodlusting Brann ignores Rally, so his Maw answer is the Reel slot (Reel, Anchor or Rewind), or a Hold with Swap |
 | B (Lyra, Vexis, Brann) | Lyra, Brann, Vexis (stun) | Lyra, Brann | none: `decreeNoDome` 'No Kael: Ward the hero he cleaves, keep a Reel for the second blow' (the docs/phase-5b.md:78 pattern) | Lyra, Vexis | no tank: the boss bands are ≥ default − 15 |
 | C (Kael, Lyra, Brann) | all three | all three | Kael | Lyra | |
 
@@ -488,16 +490,16 @@ Interrupt reach (see *Doubt Wraith*): Lyra seeks casters herself; Kael and Brann
 
 - Every encounter has `movement: 3`, and its enemies are of Movement ≤ 3 (`schema.ts:1471`).
 - The filler is Movement I's `hollow_chorister` (chip damage, no extra verb, so bleed doesn't compete with Doom, Stitch and possession for the Chime), plus a few Legion enemies.
-- Pars are derived in W9 as the Skilled average × 1.15, to the nearest 5 s.
+- Pars are derived in W9 as the Skilled average × 1.15, to the nearest 5 s: frayed_threshold 50, maw_hollow 70, wraith_vigil 50, null_chapel 50, mirror_hall 50, frayed_court 70, unstitched_vanguard 55, the Seamstress 95, the Unweaver 220 (the starting values were 50 a skirmish, 90, 80, 105 and 270).
 
-| id | Kind | Arena | Waves (first draft) | Hints |
+| id | Kind | Arena | Waves (tuned: head counts are the exception lever) | Hints |
 |---|---|---|---|---|
-| `frayed_threshold` | skirmish (row 0) | rift_mouth | shears×2 + chorister×5 · shears×3 + chorister×5 · shears×3 + glass_lancer + chorister×5 | shears |
-| `maw_hollow` | skirmish (lesson) | torn_nave | void_maw + chorister×6 · void_maw + glass_lancer + chorister×5 · void_maw×2 + shears×2 + chorister×4 | maw |
-| `wraith_vigil` | skirmish (lesson) | rift_mouth | doubt_wraith + chorister×6 · doubt_wraith + bell_brute + chorister×4 · doubt_wraith×2 + shears×2 + chorister×4 | possess |
-| `null_chapel` | skirmish (lesson) | torn_nave | null_priest + chorister×6 · null_priest + shears + chorister×5 · null_priest×2 + hemomancer + chorister×4 | null |
-| `mirror_hall` | skirmish | mirror_loom | mimic + chorister×6 · mimic + doubt_wraith + chorister×4 · mimic + void_maw + shears + chorister×3 | mimic |
-| `frayed_court` | elite (the only map elite) | mirror_loom | shears★severing + chorister×6 · null_priest★silencing + shears×2 + chorister×4 · impaler★doom_touched + void_maw + chorister×4 | thread, focus, doom |
+| `frayed_threshold` | skirmish (row 0) | rift_mouth | shears×3 + chorister×5 · shears×3 + chorister×6 · shears×3 + glass_lancer + chorister×6 (waves 2 and 3 come 3.6 s after the last one thins out) | shears |
+| `maw_hollow` | skirmish (lesson) | torn_nave | void_maw + shears + chorister×6 · void_maw + glass_lancer + shears + chorister×4 · void_maw×2 + shears×3 + chorister×4 | maw |
+| `wraith_vigil` | skirmish (lesson) | rift_mouth | doubt_wraith + chorister×7 · doubt_wraith + bell_brute + chorister×4 · doubt_wraith×2 + shears×2 + chorister×4 | possess |
+| `null_chapel` | skirmish (lesson) | torn_nave | null_priest + shears + chorister×5 · null_priest + shears + chorister×5 · null_priest×2 + hemomancer + chorister×4 | null |
+| `mirror_hall` | skirmish | mirror_loom | mimic + shears + chorister×5 · mimic + doubt_wraith + shears + chorister×4 · mimic + void_maw + shears + chorister×3 | mimic |
+| `frayed_court` | elite (the only map elite) | mirror_loom | shears★severing + shears + chorister×4 · null_priest★silencing + shears×3 + chorister×4 · impaler★doom_touched + void_maw + shears×2 + chorister×4 | thread, focus, doom |
 | `unstitched_vanguard` | elite (event-only) | rift_mouth | shears★mimicking + chorister×6 · doubt_wraith★doom_touched + void_maw + chorister×4 · null_priest★severing + mimic + chorister×5 | mirror, doom |
 | `the_seamstress` | miniboss | loom_hollow | the Seamstress (enrage 300) | stitch, needles |
 | `the_unweaver` | boss | the_unwoven | the Unweaver (enrage 450) | decree |
@@ -684,7 +686,7 @@ By mechanic:
   - The Thread chip (`threadMode.ts:60-90`) reads 'Cut · 3.0 s (Snip)' vs 'Snapped', and 'Unravelled · 5 s' with the Empower glyph.
   - A stolen aura shows hollow, with a Focus pointer.
 - **BossBar:**
-  - The hard-coded Bloodmoon line (`BossBar.tsx:145-172`) becomes a list of boss conditions built from optional BossHud keys (`store.ts:404-416`), each with a glyph and words: `spindles?` ('Spindles ×N · −80%'), `stolen? {id,name}`, `unravelLeft?`, `mirrorWard? {casting, upLeft}`, `champion? {hp,maxHp}` (a mini bar) and `stitched?`.
+  - The hard-coded Bloodmoon line (`BossBar.tsx:145-172`) becomes a list of boss conditions built from optional BossHud keys (`store.ts:404-416`), each with a glyph and words: `spindles?` ('Spindles ×N · −75%'), `stolen? {id,name}`, `unravelLeft?`, `mirrorWard? {casting, upLeft}`, `champion? {hp,maxHp}` (a mini bar) and `stitched?`.
   - CAST_ICON gains needle and shears (`legionLook.ts:31-38`).
   - No Movement III attack carries `executeBelow`, so EXECUTE_PCT (`legionLook.ts:28-30`) stays right.
 - **Hints** (`hints.ts`):
@@ -734,6 +736,7 @@ By mechanic:
 - `mimicCasting` (with its copy);
 - `spindlesUp`, `stolenVerse`, `champion` and `mirrorWardCasting`;
 - `unravelUp`;
+- `walksIntoLanding` (W9): a Movement III attacker's burst circle about to land on the Weaver's way;
 - `suppresses(e)`, which replaces `defId === 'mute'` (`skilled.ts:519`). In Movements I and II only the Mute qualifies, so `find()` order is preserved;
 - `DOOM_CHIME_AT = 4`, beside BLEED_CHIME_AT (`:169`).
 
@@ -751,7 +754,8 @@ By mechanic:
 | Ward | A `doomed` hero and a possession's target count as wardWorthy. While a Mimic casts a Ward copy, skip non-lethal Wards, or cast Chime if it is useful, to crack it. |
 | Mimic, Empower | While a Mimic casts an Empower copy and no Unravel is up, switch to Mend. Never Empower a possessed hero. |
 | Unravel | Switch to Empower within 0.25 s of the window opening (Bear for a Martyr), and back after. |
-| Focus | The existing chain is kept exactly: `cast?.interruptible` (which already covers the Wraith, the Mimic and the Mirror Ward) → Mute → crowd-guarded Sentinel. One new call, `m3FocusTarget(state, enemies)`, sits right after the interruptible step. It returns undefined unless a Movement III target is on the field, and otherwise picks Spindle > Stolen Verse > champion > Null Priest > `suppresses`. Each step has a `SENTINEL_FOCUS_AT`-style crowd guard (`:80`), measured by ablation before it ships. The commandSnapshot proves the chain is unchanged. |
+| Needle Rain | Hold rather than walk into a needle circle about to land (within 1.5 s) on the stretch she can cover before it does (`walksIntoLanding`, rule `needles`; only a Movement III attacker's burst circle is read). W9 bot fix: she keeps to her party, so she followed a hero into the needle meant for them and was downed by Needle Rain 1.4-1.5 times a Seamstress fight, which was every Skilled loss there (68-77 downs in 50 fights a set; 1-2 with the rule). Her dodge reads only circles she already stands in, and the needle lands 0.7 s after the one before. |
+| Focus | The existing chain is kept exactly: `cast?.interruptible` (which already covers the Wraith, the Mimic and the Mirror Ward) → Mute → crowd-guarded Sentinel. One new call, `m3FocusTarget(state, enemies)`, sits right after the interruptible step. It returns undefined unless a Movement III target is on the field, and otherwise picks Spindle > Stolen Verse > champion > Null Priest > `suppresses`. Each step has a `SENTINEL_FOCUS_AT`-style crowd guard (`:80`), measured by ablation before it ships. The commandSnapshot proves the chain is unchanged. **Spindles** (on their 9 m ring): the one nearest the Weaver first (the far one is reached past the boss, into its Shear), and the next one at once when the Focused one falls, without waiting out the 4 s between Focuses. **The champion** only below `CHAMPION_FOCUS_BELOW` 0.5 of its life (ablated: Focusing it at once cost the default party 4 points and 34 s, party A 68 s and 1 down a fight). **A Silencing elite** waits for its own crowd-guarded step (`focusSilencing`, 4 standing, as `focusNull`), and the old Mute step leaves it to that step (W9 bot fix: the Mute step took it at once, so on `frayed_court`'s wave 2 the tank marched off into a 13-strong pack and the choristers downed the Weaver; Skilled won 72-84% with 1.0-1.3 downs a fight, and 98-100% with 0.1 once it waited; no affix suppresses before Movement III, so the Mute step is unchanged there). **`focusStationary`** only once every standing enemy is stationary (or `StallWatch` fires): at a fight's start the party is idle while the pack is still on its way, and the old guard marched it onto the Maw (ablated: −8 wins on `maw_hollow` for the default party, −17 for party A). Since the sim's heroes seek a stationary enemy themselves (Q3), it is a dormant safety net. |
 
 **Novice.** It draws only while the mechanic is present:
 
@@ -760,7 +764,8 @@ By mechanic:
 - step out after a 'silenced' fizzle: 0.3;
 - Rally on an Inhale tell: 0.3;
 - switch to Empower under Unravel: 0.4;
-- Focus the nearest stationary enemy (a Void Maw) when only stationary enemies stand and no hero has a target (or `StallWatch` finds every targeting hero stalled out of a stationary target's reach for 3 s): 0.15 (added in the W5 fixes: a Maw never comes to the party, so without it the Novice timed out on `maw_hollow`; W9 re-reads the Novice bands with it);
+- Focus the nearest stationary enemy (a Void Maw) when only stationary enemies stand and no hero has a target (or `StallWatch` finds every targeting hero stalled out of a stationary target's reach for 3 s): `NOVICE_M3.stationaryFocus` 0.15 (`src/bots/novice.ts`; added in the W5 fixes: a Maw never comes to the party, so without it the Novice timed out on `maw_hollow`). Since the sim's heroes seek a stationary enemy themselves (Q3), it rarely finds a party with nothing to fight; W9 re-reads the Novice bands with both;
+- Focus the nearest Spindle while one stands and none is Focused: `NOVICE_M3.spindleFocus` 0.09 (W9 bot fix: the heroes keep to the boss in front of them, so without it the Novice never killed a Spindle, fought the plated boss into the enrage and lost every Unweaver fight on every seed, here and on main);
 - re-thread after a cut: already 0.7 (`novice.ts:96`).
 
 Its heal-the-lowest reflex is what the Shears, Unravel and the Mimic punish. No new draw happens on a Movement I or II path.
@@ -861,6 +866,163 @@ Levers, in order: the Shears windup (1.0-1.2), the Inhale pull speed (2.0-2.8), 
 - **Expedition target:** a Skilled I-III Expedition at **≤ 40 modelled minutes** (stretch ≤ 38). That leaves the Finale almost no room inside the roadmap's 30-40 (06:121), as docs/phase-5a.md:702 foresaw.
 - `pacing.ts` prints the Finale budget (40 − I − II − III). The shortening decision is question 7 above. This slice doesn't shorten Movement I, because that breaks expedition-baseline and 'Movement I is the Prelude's map'.
 
+### Tuning, measured (W9)
+
+ARRIVAL3_KIT cells at 50 seeds a cell on each of the three seed sets (1000 / 500003 / 777001); whole Expeditions at 200 seeds a set (2000 / 900007 / 333003); pacing on 9001 / 77003. Every number below is from the shipped content, measured with the repo's tools (`brann-bands.ts --movement 3` and `--runs --movements 3`, `decrees.ts --boss`, `callings.ts --cells`, `pacing.ts --route expedition`). W9 ran in two rounds; the second fixed one more bot and re-tuned around it, and the tables are the second round's. A last hand-off fix to `frayed_threshold` followed; its cell row, its party row, the whole Expeditions and the pacing are re-measured after it, and every other number is round 2's (no other content changed).
+
+**What changed** (authored numbers within ±20% of their pre-W9 value unless marked; wave head counts are the exception lever):
+
+| Where | Number | Old → new | Why |
+|---|---|---|---|
+| `unstitchedRun.ts` UNSTITCHED | `scale.life` | 1.75 → **1.85** | the sweep (below); lengthens the skirmishes off the 40 s floor |
+| | `rewards.xp` | 1.5 → **1.4** | XP per combat minute III / I read 1.16-1.17 once the Skilled Weaver stopped losing at the Seamstress (band ±15%); now 1.11 |
+| `unstitched.ts` | `INHALE_PULL` | 2.4 → 2.8 m/s | lever 2 (2.0-2.8): Idle won `maw_hollow` 38-52% once the heroes sought the Maw |
+| | `VOIDED.dps` | 30 → 36 | the same |
+| | `void_maw` Devour | 70 → 84 | the same |
+| | `void_maw` life | 3,080 → 2,600 (−16%) | Skilled ran 65 s and the Novice 50-60% on `maw_hollow` at life ×1.85 |
+| | `DOUBT_EVERY` | 15 → 18 s | the Novice on `wraith_vigil` (≥ 55%) with its added chorister |
+| | `NEEDLE_DAMAGE` | 300 → 360 (+20%) | the Novice won the Seamstress 94-96% (band 30-60%); round 2 took it to the top once Skilled stopped walking into needles |
+| | `NEEDLE_EVERY` | 12 → 10.5 s (−12.5%) | the same |
+| | `UNPICK_EVERY` | 22 → 18 s | the same (more of phase 2's Unpick and its rain) |
+| | `the_seamstress` life | 36,000 → 32,400 (−10%) | round 1 raised it to 43,200; with the needles fix the Seamstress no longer needs the length, and pacing does (Skilled 104 → 81 s, inside 70-120) |
+| | `SHEAR_DAMAGE` | 900 → 720 | the Novice lost Kael to the Shear about six times a fight |
+| | `spindle` life | 1,800 → 1,440 | the Spindle lever: a Novice fought the plated boss into the enrage |
+| | `SPINDLES_EVERY` | 40 → 48 s | the same |
+| | `SPINDLE_DR` (`spindle` `tether.dr`) | 0.8 → 0.75 (−6%) | party B's Novice won the Unweaver 18 / 8 / 18% (band ≥ 10%); now 16 / 20 / 12%. 0.7 gave 18-20% but lifted the Novice's whole-run won ÷ reached III past 50% |
+| `unstitchedRun.ts` waves | `frayed_threshold` | round 1: choristers 5/5/5 → 5/6/6; hand-off: wave 1 Shears 2 → 3, and the delay before waves 2 and 3 3 → 3.6 s (+20%) | Skilled ran 39-40 s (band 40-65), and after round 2 still 39.93 s on set 1000. The longer breath alone gave 43.0-43.3 s but eased the Novice (74 / 60 / 68%), and her whole-run won ÷ reached III went to about 55% (band 20-50%). The third Shears in wave 1 keeps the length (43.0-43.8 s) and gives that back (below). One more chorister instead made it no harder; more Shears in waves 2 or 3, or a second glass_lancer, took the Novice under 55% |
+| | `maw_hollow` | +1 Shears in waves 1 and 2, wave 3 Shears 2 → 3; wave 2 choristers 5 → 4 | Idle: a lone Lyra out-ranges a Maw, so the adds must kill her; round 2: party C lost 10% at wave 2's arrival (the choristers reach the Weaver) |
+| | `wraith_vigil` | wave 1 choristers 6 → 7 | Skilled ran 37-39 s |
+| | `null_chapel` | +1 Shears in wave 1; wave 1 choristers 6 → 5 | Idle won 10-20%; round 2: party A lost 10% (choristers downed the Weaver at wave 2's arrival in every loss) |
+| | `mirror_hall` | +1 Shears in waves 1 and 2; wave 1 choristers 6 → 5 | Idle won 72-86%; Skilled ran 39 s; round 2: party A, as on `null_chapel` |
+| | `frayed_court` | wave 1 Shears +1, choristers 6 → 4; wave 2 Shears 2 → 3; wave 3 +2 Shears | the Novice won 88-92% (band 30-65%): the Shears are the cut she answers late |
+| | pars | 50 a skirmish, 90, 80, 105, 270 → 50, 70, 50, 50, 50, 70, 55, 95, 220 | the Skilled average × 1.15 (`frayed_threshold` 45 → 50 at the hand-off: 43.4 s × 1.15) |
+| `src/ui/screens/routeText.ts` | `ROUTE_MINUTES.expedition` | 30 → 40 | the measured Skilled I-III Expedition (40.9 / 39.1) |
+
+**Bot fixes** (each plainly broken for a Movement III mechanic):
+
+- **Skilled, Needle Rain** (round 2). The Weaver keeps to her party, and her dodge reads only circles she already stands in, so she walked into the needle dropped on the hero beside her and was downed by Needle Rain 1.4-1.5 times a Seamstress fight (68-77 Weaver downs in 50 fights a set); every Skilled loss there had one. New rule `needles` (`walksIntoLanding`, `src/bots/common.ts`): she holds rather than walk into a Movement III attacker's burst circle landing within 1.5 s on the stretch she can cover before it lands. Weaver downs 1-2 in 50 fights; Skilled at the Seamstress 92 / 90 / 86% → 96 / 98 / 94% on the old numbers. It reads only Movement III attackers, so Movements I and II are unchanged (the baselines are byte-equal).
+- **Skilled, Silencing.** The old Mute step (`suppresses`) Focused a Silencing elite at once, past the crowd-guarded Movement III step: on `frayed_court`'s wave 2 the tank marched into a 13-strong pack and the choristers downed the Weaver (every Skilled loss had a Weaver down). Now the Mute step leaves a Silencing elite to `focusSilencing`, guarded at 4 standing like `focusNull`. Measured on the old content: 72-84% won with 1.0-1.3 downs a fight → 98-100% with 0.1. Before Movement III no affix suppresses, so the Mute step is unchanged there.
+- **Novice, Spindles.** The Novice never Focused anything, and the heroes keep to the boss in front of them, so she never killed a Spindle and lost every Unweaver fight to its enrage (0%, here and on main). New draw: `NOVICE_M3.spindleFocus` 0.09 while a Spindle stands and none is Focused.
+- **Script, Steal Verse.** Its Decree is now announced at phase 2's entry as well as with the cast (Mirror Weave's pattern): Skilled heard it twice in only 14 of 50 fights. Note for the design owner: the Decree gate counts `decree` events, so 'seen ≥ 2' is met through that entry announcement; the verse itself is stolen only 1.1 times a fight (54-58 casts in 50 Skilled fights).
+- **Tried and dropped** (round 2): leaving a Null rune on the side facing the party's spot, not straight out from its centre. It lifted party A on `null_chapel` but cost party C 6-10 points on `frayed_court`, so the rune rule stays as it was; the wave head counts above closed party A's gap instead.
+
+**The scale sweep** (round 1; whole I-III Expeditions, default party, 200 seeds × 3 sets; Skilled won · won ÷ reached III; Novice won · won ÷ reached III pooled):
+
+| life × damage | Skilled won | Skilled won ÷ reached III | Novice won | Novice won ÷ reached III (pooled) |
+|---|---|---|---|---|
+| 1.75 × 1.05 | 67-70% | 88-90% | 5-8% | 47% (39/83) |
+| **1.85 × 1.05** | **67-68%** | **86-88%** | **7-8%** | **54% (45/83)** |
+| 1.95 × 1.05 | 63-70% | 83-89% | 5-8% | 43% (36/83) |
+| 1.85 × 0.95 | 75-76% | 96-99% | 11-13% | 82% (68/83) |
+| 1.85 × 1.15 | 59-65% | 78-83% | 3-5% | 28% (23/83) |
+
+Damage is the strong lever; life barely moves the runs but moves the cells (at 1.95 the Novice Unweaver falls to 10-18% and `maw_hollow` to 44-62%). 1.85 × 1.05 was the one point that met every cell band, and it is kept. In round 2, damage ×1.10 brought the Novice's won ÷ reached III to 33% (27/83) but would push her skirmish cells (56-60% on `frayed_threshold` and `wraith_vigil`) under their 55% floor, so the round used the Spindle plating instead (above).
+
+**Whole I-III Expeditions** (shipped; `brann-bands.ts --runs --movements 3`, default party, 200 seeds; sets 2000 / 900007 / 333003):
+
+| Bot | Won | Reached III | Won ÷ reached III |
+|---|---|---|---|
+| Idle | 0 / 0 / 0% | 0% | — |
+| Novice | 6 / 8 / 7% (5.5 / 7.5 / 7.0) | 15 / 12 / 15% | 37 / 65 / 47% (11/30, 15/23, 14/30), **pooled 40 / 83 = 48%** |
+| Skilled | 73 / 68 / 73% | 79 / 76 / 78% | 92 / 90 / 94% |
+
+- Every whole-run band is met. Reached III is unchanged by Movement III, as it must be.
+- The hand-off fix moved these. Before it (round 2): Novice won ÷ reached III 43 / 61 / 43% (pooled 48%), Skilled won 76 / 73 / 75% and 96 / 97 / 97% of those that reached III. With the longer breath alone, the Novice's read 43 / 70 / 53% (about 55% pooled, over the band).
+- The Novice's set 900007 swings 61-78% between near-identical versions of `frayed_threshold`: 23-24 runs reach III there, so one run is 4 points.
+
+**Cells** (default party; win · mean length; three seed sets):
+
+| Cell | Idle | Novice | Skilled | Skilled length | Skilled share |
+|---|---|---|---|---|---|
+| `frayed_threshold` | 0 / 0 / 0% | 60 / 56 / 64% | 94 / 92 / 96% | 43.8 / 43.0 / 43.5 s | 44-45% |
+| `maw_hollow` | 4 / 10 / 10% | 82 / 92 / 78% | 100 / 100 / 100% | 61 / 61 / 60 s | 48-49% |
+| `wraith_vigil` | 0 / 0 / 0% | 58 / 74 / 60% | 98 / 92 / 100% | 41 / 42 / 42 s | 48-49% |
+| `null_chapel` | 0 / 2 / 0% | 94 / 96 / 96% | 100 / 98 / 100% | 44 / 45 / 44 s | 47-48% |
+| `mirror_hall` | 4 / 6 / 10% | 98 / 98 / 100% | 100 / 100 / 100% | 43 / 44 / 44 s | 47% |
+| `frayed_court` | 0% | 48 / 62 / 44% | 92 / 94 / 94% | 59 / 58 / 61 s | 41-42% |
+| the Seamstress | 0% | 50 / 50 / 48% | 96 / 94 / 98% | 81 / 83 / 80 s | 50% |
+| the Unweaver | 0% | 42 / 48 / 46% | 100 / 100 / 98% | 192 / 187 / 189 s | 49% |
+| `unstitched_vanguard` (no band; 30 seeds) | 0% | 90-97% | 93-100% | 46-55 s | 45-47% |
+
+Every default-party cell band is now met on all three sets. `maw_hollow`'s and `mirror_hall`'s Idle sit at the 10% ceiling on two sets.
+
+- Round 2 missed one band and reported it met: `frayed_threshold`'s Skilled length was 39.93 s on set 1000 (40.08 and 40.91 on the others), under its 40 s floor. Its report rounded that to 40.
+- The hand-off fix (*What changed*) closed it. That row is re-measured on all three sets, for every party; the other rows are round 2's, and no other cell's content changed.
+- Its price: the opening fight is harder. Default Novice 74 / 56 / 60% → 60 / 56 / 64%, Skilled 100 / 100 / 98% → 94 / 92 / 96%. Not banded, but worth a look in play: party A's Novice there falls from 54-60% to 42-48%, and party C's from 40-46% to 10-14%.
+- One test moved with it: `tests/harnessTools.test.ts`'s I-III run to the Unweaver now plays seed 106729, because Skilled seed 2000 falls at `frayed_threshold`. Its assertions are unchanged.
+
+**Decree gate** (Skilled, 50 seeds × 3 sets; every Decree seen ≥ 2 times in 50 of 50 fights on each set): Shear 99%, Snip 95-97%, Spindles 100%, Steal Verse 94-95%, Unravel 100%, Mirror Weave 98-99%; Stitch 98-99%, Unpicking 88-91%. The Novice: Shear 93%, Snip 22-23%, Spindles 95-96%, Steal Verse 2%, Unravel 78-79%, Mirror Weave 54-60%; Stitch 35-44%, Unpicking 70-74%. Idle: Stitch 0%.
+
+**Parties** (Skilled, three sets; band: A and C ≥ default − 5 in every cell; B at the bosses ≥ default − 15, Novice ≥ 10%, Idle 0%):
+
+| Cell | default | A | B | C |
+|---|---|---|---|---|
+| `frayed_threshold` | 94 / 92 / 96 | 96 / 96 / 92 | 96 / 94 / 98 | 98 / 98 / 96 |
+| `maw_hollow` | 100 / 100 / 100 | 98 / 96 / 100 | 100 / 100 / 100 | 98 / 96 / 100 |
+| `wraith_vigil` | 98 / 92 / 100 | 100 / 100 / 98 | 98 / 98 / 98 | 98 / 98 / 98 |
+| `null_chapel` | 100 / 98 / 100 | 100 / 100 / 96 | 96 / 100 / 100 | 100 / 100 / 100 |
+| `mirror_hall` | 100 / 100 / 100 | 100 / 96 / 96 | 100 / 98 / 100 | 100 / 100 / 100 |
+| `frayed_court` | 92 / 94 / 94 | 96 / 96 / 94 | 92 / 94 / 98 | 90 / 96 / 96 |
+| the Seamstress | 96 / 94 / 98 | 100 / 100 / 100 | 100 / 100 / 100 | 100 / 100 / 100 |
+| the Unweaver | 100 / 100 / 98 | 100 / 98 / 100 (320-321 s) | 98 / 98 / 100 | 100 / 100 / 100 (209-213 s) |
+
+- Every party band is met on all three sets. Shares: A 35-49% (`frayed_court` 35 / 36 / 35%, at the floor), B 37-47%, C 40-55%.
+- Party B: Novice at the Seamstress 44 / 32 / 36%, at the Unweaver 16 / 20 / 12%; Idle 0% at both. Not banded: B's Idle wins some skirmishes (`mirror_hall` 16-20%, `null_chapel` 10-16%, `maw_hollow` 10-14%).
+- Party A's Unweaver takes 320-321 s (default 187-192 s), past the 180-280 s Exit criterion 2 gives a Skilled Unweaver fight, and A's Novice wins it 0% (503-509 s, past the 450 s enrage). Its phase 1 runs 142 s against the default party's 81 s, with Spindles up 61 s a fight against 23: Kael and Brann are melee and must walk the 9 m ring, and Vexis alone carries the ranged damage. The Spindle plating barely moves it (0.8, 0.7 and 0.64 all give 320-324 s), and boss life can't fall without the default party dropping under 180 s.
+
+**Callings at the Unweaver** (Skilled, 3 × 50 seeds; band ≥ 75% each): none 98-100%, Luminary 98-100% (168-174 s), Martyr 98-100%, Chronomancer with Paradox 100%, with Eternal Moment 100%.
+
+**Possession damage a fight** (30 seeds from 1000; Novice / Skilled): `wraith_vigil` default 67 / 4, A 96 / 6, B 68 / 3, C 138 / 27; `mirror_hall` default 62 / 3, A 22 / 7, B 6 / 0, C 27 / 11; `unstitched_vanguard` default 63 / 0, A 27 / 17, B 19 / 0, C 50 / 2.
+
+**Pacing** (`tools/pacing.ts --route expedition`, 16 players × 3 h):
+
+- Skilled, seed base 9001: 17.3 + 12.4 + 11.1 = **40.9** min (Finale budget −0.9; 40.8 before the hand-off fix).
+- Skilled, seed base 77003: 16.9 + 12.0 + 10.2 = **39.1** min (+0.9; 39.4 before). Round 1's report had the two sets swapped: its 41.0 was 9001's.
+- Weaver XP a combat minute, III / I: 1.11 / 1.10 (Skilled), 0.92 (Novice, 9001, 24.5 min an Expedition), inside ±15%.
+- In round 2's pacing runs the Unweaver took 261-263 s and the Seamstress 92 s (against 189 s and 81 s in the cells: the pacing players play the presets and Callings their Rank allows, not ARRIVAL3_KIT), and Movement III's map, rewards and shops about 200 s.
+
+**Aether** (round 2). A Skilled Expedition that wins ends with 432-476 Aether unspent (the Novice's wins 263-326): Movement III's merchant and forge don't drain it. A per-Movement price multiplier (about ×1.5 in Movement III) is the proposal; it is left to the design owner.
+
+**Sim bench:** the Unweaver phase-3 peak runs at p95 0.06-0.11 ms a tick (budget 1.5).
+
+**Missed or seed-sensitive:**
+
+- The Skilled I-III Expedition is 40.9 min on 9001 (band ≤ 40; 39.1 on 77003): seed-sensitive, 1 of 2. Movements I and II alone take 29.7 min on 9001, which leaves Movement III 10.3.
+- Movement III models at 11.1 min on 9001 (target 9-11; 10.2 on 77003): seed-sensitive, 1 of 2. The Unweaver is most of it (263 s in those runs); a shorter Unweaver would take the default party's cell under its 180 s floor (it reads 187-192 s).
+- Not a band: party A's Skilled Unweaver at 320 s (Exit criterion 2's 180-280 s) and the Luminary's at 168-174 s (above).
+
+**Shipped behaviour that differs from the first design** (each is also noted where the design states it):
+
+- **Numbers.** The shipped scale is life ×1.85 (from 1.75) and XP ×1.4 (from 1.5). The authored numbers in *What changed* moved within ±20% (`frayed_threshold`'s wave delay too); wave head counts are the exception lever, and pars follow the measured Skilled average.
+- **Spindles.** They stand on a 9 m ring around the Unweaver, and their plating is 75%, not 80% (the BossBar reads '−75%').
+- **Shear** hits for 720 (756 scaled), not 900: the Mirror Weave double threat is 1,675 against Kael's 1,600, so a plain Ward still saves him.
+- **Steal Verse's Decree** is announced at phase 2's entry as well as with the cast. The verse itself is stolen about 1.1 times a fight.
+- **The Stitch Decree** no longer promises that a Chime frees both heroes: a Chime reaches 4 m and the pair can stand 40 m apart.
+- **One blow, one Strand** (answer 9). A Severing Shears dash that Guard Strand turns aside takes its own Severing with it.
+- **Stationary enemies.** A hero with nothing in sight seeks the nearest stationary enemy, and the Weaver's leash never holds a hero off one (Q3). The first design had the heroes never go to a Maw on their own, so Idle and the Novice timed out on `maw_hollow` and `mirror_hall`.
+- **Unravel's gathered Mend** starts again when the Thread moves, the mode changes or the threaded hero goes down. It never lands on another hero, or after the Weaver answered with Empower.
+- **The Unweaver's death** closes an open Unravel (`unravelled {active: false}`) and returns a stolen aura with reason `'boss'`, beside the designed `'killed'`, `'expired'` and `'phase'`. Render and audio treat it as the generic return, and the Decree gate counts only `'killed'`.
+- **Bots.** These are bot rules the design didn't list, each measured above:
+  - Skilled `needles` (`walksIntoLanding`);
+  - Skilled `focusSilencing`, with the Mute step leaving a Silencing elite to it;
+  - Skilled `CHAMPION_FOCUS_BELOW` 0.5;
+  - Skilled `focusStationary`, only once every standing enemy is stationary;
+  - the Novice's `stationaryFocus` 0.15 and `spindleFocus` 0.09.
+- **Prep** reads '~40 min' for the Expedition (`ROUTE_MINUTES.expedition`, from 30).
+
+**Hand-off** (Exit criterion 8; the Finale slice's guards):
+
+- **Goldens.** Four are appended after `novice-brann-first-light` (`tools/scenarios.ts`), and the eleven before them are byte-identical. SIM_VERSION is 22, and `contentVersion` is the only other change.
+  - `skilled-unstitched-threshold` f72dc5e1b03025cf (ARRIVAL3_KIT, 2,400 ticks);
+  - `novice-seamstress` c379707e6d0dab69 (ARRIVAL3_KIT, 5,400);
+  - `skilled-unweaver` 63e8f91b068c4bad (ARRIVAL3_KIT, 18,000; it wins at tick 12,329 and joins the replay round-trip in `tests/sim/determinism.test.ts`);
+  - `skilled-brann-mirror-hall` 34359b7e914cfd05 (party B, ARRIVAL3_KIT, 3,600).
+- **All 15 pinned** as literals in `tests/sim/m1Unchanged.test.ts`. `golden.json` must hold exactly those 15, in order.
+- **`tools/m3-baseline.json`** (`npx tsx tools/m1-baseline.ts --movement 3 --check`): Movement III's 8 map fights × 3 bots × 10 seeds on ARRIVAL3_KIT, 240 fights.
+- **`tools/expedition3-baseline.json`** (`npx tsx tools/expedition-baseline.ts --movements 3 --check`): 5 Novice and 5 Skilled I-III Expeditions. The I-II pin (`tools/expedition-baseline.json`) is unchanged.
+- **Tests.** `tests/meta/movement3Handoff.test.ts` re-plays the first seed of each Movement III fight and bot against the m3 baseline, and the first Novice and Skilled I-III Expedition against the expedition3 baseline. The tools' `--check` modes cover every row.
+- **The Movement III command snapshot** (`tests/bots/commandSnapshotM3.test.ts`): the Skilled and Novice command streams on all nine Movement III fights, 3 seeds each, 30 s, ARRIVAL3_KIT. `tests/bots/commandSnapshot.json` (Movements I and II) is unchanged.
+
 ## Determinism and invariance guards
 
 - **Goldens.** The 11 goldens stay byte-identical and 4 are appended; SIM_VERSION stays 22. The update-golden dry run may show only the new names and `contentVersion`.
@@ -901,7 +1063,7 @@ Levers, in order: the Shears windup (1.0-1.2), the Inhale pull speed (2.0-2.8), 
 
 - The Shears cut only when the line crosses.
 - The Inhale:
-  - a 1.4 s tell, then a 4 s pull at 2.4 m/s;
+  - a 1.4 s tell, then a 4 s pull at 2.8 m/s;
   - it skips anchored, rooted, mid-Reel and gliding entities;
   - Stasis freezes it, and the zone dies with its owner.
 - The Wraith and possession:
@@ -930,7 +1092,7 @@ Levers, in order: the Shears windup (1.0-1.2), the Inhale pull speed (2.0-2.8), 
 
 - the exact `bossPhaseTable` for both bosses;
 - needle impacts 0.7 s apart ±1 tick; the Unpick cadence and its follow-up;
-- the Snip cadence and verdicts; the Spindle ×0.2 and its recount;
+- the Snip cadence and verdicts; the Spindle ×0.25 and its recount;
 - Steal Verse: the return on the kill, the 30 s escape and phase 3; the Unravel window;
 - the champion re-woven after 30 s, and emboldened damage 919 ±1;
 - the Mirror Ward interrupted and landed;

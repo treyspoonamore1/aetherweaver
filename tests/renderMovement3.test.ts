@@ -757,7 +757,7 @@ describe('Mirrors, Spindles and the champion', () => {
         source: sim.state.party[0]!,
       },
     ]);
-    expect(h.overlay.callouts.at(-1)!.text).toBe('−80%');
+    expect(h.overlay.callouts.at(-1)!.text).toBe('−75%');
   });
 
   it('a Silencing elite carries the Mute’s dome at its own radius (suppressRadiusOf), with its rune gem', () => {

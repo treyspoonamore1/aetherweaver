@@ -2,7 +2,7 @@ import type { ContentInput } from './schema';
 
 /**
  * Movement III: the Unstitched (docs/phase-5c.md, docs/plan/03 §6-§7). Code life is the plan's
- * HP × 2.2, as in Movements I and II; damage is at plan value. The Movement's scale (life ×1.75,
+ * HP × 2.2, as in Movements I and II; damage is at plan value. The Movement’s scale (life ×1.85,
  * damage ×1.05, `unstitchedRun.ts`) is applied by the sim, so it is not folded in here. Every
  * number is a named constant below (a 0 means 'none'), and every Codex, affix and decree line is
  * built from the numbers it describes.
@@ -38,6 +38,8 @@ export const MIMIC_EMPOWER_TIME = 8;
 export const MIMIC_CHIME_HEAL = 0.1;
 /** Severing cuts at most once every this many seconds per elite. */
 export const SEVER_EVERY = 3;
+/** The Unweaver's Spindles stand on a ring this far from its centre (m). */
+export const SPINDLE_RING = 9;
 
 // ── The numbers the text names ───────────────────────────────────────────────────────
 
@@ -50,10 +52,10 @@ const SHEARS_LOCK = 1;
 const INHALE_WINDUP = 1.4;
 const INHALE_RADIUS = 8;
 const INHALE_TIME = 4;
-const INHALE_PULL = 2.4;
+const INHALE_PULL = 2.8;
 const INHALE_EVERY = 11;
 /** Inside the pull: refreshed while inside, damage a second. */
-const VOIDED = { id: 'voided', duration: 0.6, dps: 30 } as const;
+const VOIDED = { id: 'voided', duration: 0.6, dps: 36 } as const;
 /** The Doubt Wraith's cast, and the possession it leaves. */
 const DOUBT_WINDUP = 4;
 const DOUBT_DAMAGE = 60;
@@ -85,7 +87,7 @@ const SEVER = { radius: 2, lock: 1 } as const;
 /** Silencing: the Mute's own field, numbers unchanged (field.ts). */
 const SILENCE_RADIUS = 7;
 /** The Seamstress. */
-const NEEDLE_DAMAGE = 300;
+const NEEDLE_DAMAGE = 360;
 const NEEDLE_RADIUS = 2.6;
 const NEEDLE_FIRST = 1.4;
 const NEEDLE_NEXT = 0.7;
@@ -98,12 +100,12 @@ const UNPICK_PCT = 0.12;
 const UNPICK_LOCK = 1;
 const UNPICK_RAIN_AFTER = 1;
 /** The Unweaver. */
-const SHEAR_DAMAGE = 900;
+const SHEAR_DAMAGE = 720;
 const SNIP_DAMAGE = 200;
 const SNIP_LOCK = 3;
 const SNIP_LINE = 30;
 const SPINDLES = 3;
-const SPINDLE_DR = 0.8;
+const SPINDLE_DR = 0.75;
 const CHAMPION_CLEAVE = 700;
 
 // ── Cadences and shapes the text doesn't name ────────────────────────────────────────
@@ -120,19 +122,19 @@ const SHEARS_EVERY = 8;
 const SHEARS_FROM = 3;
 const SHEARS_WIDTH = 1.2;
 const INHALE_FROM = 5;
-const DOUBT_EVERY = 15;
+const DOUBT_EVERY = 18;
 const DOUBT_FROM = 6;
 const RUNE_EVERY = 12;
 const RUNE_FROM = 4;
 const MIRROR_FROM = 5;
 const MIRROR_RADIUS = 1.5;
-const NEEDLE_EVERY = 12;
+const NEEDLE_EVERY = 10.5;
 const NEEDLE_FROM = 5;
 const STITCH_WINDUP = 2.5;
 const STITCH_EVERY = 18;
 const STITCH_FROM = 8;
 const UNPICK_WINDUP = 2.5;
-const UNPICK_EVERY = 22;
+const UNPICK_EVERY = 18;
 const SHEAR_WINDUP = 1.8;
 const SHEAR_EVERY = 14;
 const SHEAR_FROM = 6;
@@ -143,7 +145,7 @@ const SNIP_EVERY = 15;
 const SNIP_FROM = 8;
 const SNIP_WIDTH = 1.4;
 const SPINDLES_WINDUP = 1.5;
-const SPINDLES_EVERY = 40;
+const SPINDLES_EVERY = 48;
 const SPINDLES_FROM = 10;
 const STEAL_WINDUP = 3;
 const STEAL_EVERY = 40;
@@ -183,12 +185,12 @@ const BODIES = {
   },
   // Stationary: it never moves (the speed is never used).
   void_maw: {
-    hp: 3080,
+    hp: 2600,
     speed: 1,
     radius: 1.2,
     height: 1.2,
     keep: 0,
-    basic: { kind: 'melee', damage: 70, interval: 1.6, range: 2.8 },
+    basic: { kind: 'melee', damage: 84, interval: 1.6, range: 2.8 },
   },
   doubt_wraith: {
     hp: 1100,
@@ -216,7 +218,7 @@ const BODIES = {
   },
   // Stationary: it never moves (the speed is never used).
   spindle: {
-    hp: 1800,
+    hp: 1440,
     speed: 1,
     radius: 0.5,
     height: 2,
@@ -240,7 +242,7 @@ const BODIES = {
     basic: { kind: 'melee', damage: 100, interval: 1.4, range: 2 },
   },
   the_seamstress: {
-    hp: 36000,
+    hp: 32400,
     speed: 3,
     radius: 1.3,
     height: 3,
@@ -447,7 +449,7 @@ export const UNSTITCHED_ATTACKS: ContentInput['attacks'] = [
     status: { ...STITCHED },
     decreeLimit: DECREE_CASTS,
     decree:
-      'Stitch — two heroes are sewn to the floor. Chime breaks the stitch, or frees them both.',
+      'Stitch — two heroes are sewn to the floor. Chime the stitch as it winds up; once it holds, Reel one free. A Ward on one keeps that hero loose.',
   },
   {
     ...BASE,

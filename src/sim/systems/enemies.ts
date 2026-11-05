@@ -199,8 +199,8 @@ export function ensureM3(world: World): NonNullable<World['internal']['m3']> {
  * once-every-`SEVER_EVERY`-s clock in `m3.severAt` (spent only when there was a Thread to cut),
  * and the `strandBlocked` a cut Guard Strand turns aside draws.
  */
-export function severOnHit(world: World, e: Entity): void {
-  severingHit(world, e);
+export function severOnHit(world: World, e: Entity, stranded = false): void {
+  severingHit(world, e, stranded);
 }
 
 /** A new guard faces the Weaver (or the arena's centre without one). */
@@ -1239,7 +1239,9 @@ function completeCast(world: World, owner: Entity, t: Telegraph): void {
     const n = summonCount(world, owner, attack);
     for (let i = 0; i < n; i++) {
       const p = world.scratch.slot;
-      ringPoint(world, owner.x, owner.z, 3 + owner.radius, i, n, p);
+      // A new boss's script may lay them further out (the Unweaver's Spindles, Movement III).
+      const ring = owner.enemy && bossScript(owner.enemy.defId)?.summonRing?.(attack.id);
+      ringPoint(world, owner.x, owner.z, ring ?? 3 + owner.radius, i, n, p);
       world.internal.pendingSpawns.push({
         at: world.time + 0.6,
         defId: attack.summon.enemy,

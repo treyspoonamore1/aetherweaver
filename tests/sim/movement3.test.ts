@@ -1015,6 +1015,30 @@ describe('the cut verdict, end to end', () => {
     expect(w.internal.m3?.severAt?.[shears.id]).toBeUndefined();
   });
 
+  it('a Severing Shears dash Guard Strand turns aside takes its Severing with it: one Strand, one saved Thread', () => {
+    const { w, shears, t, resolve, kaelHp } = severingDash();
+    // Guard Strand held (staged: the sandbox isn't a Rift fight, where it would sleep).
+    w.mods.guardStrand = 1.5;
+    const events = resolve();
+    // The blow landed, so Severing was owed on the same resolution …
+    expect(heroAt(w, 0).health!.hp).toBeLessThan(kaelHp);
+    // … but the Strand that turned the dash aside turns the blow's Severing aside too.
+    expect(ofType(events, 'cutResolved')).toEqual([
+      expect.objectContaining({ telegraph: t.id, cause: 'shears', result: 'strand' }),
+    ]);
+    expect(ofType(events, 'threadSnapped')).toEqual([]);
+    expect(weaverEntity(w).weaver!.threadSlot).toBe(1);
+    // Drawn once, where the Thread came closest to the elite, and spent once.
+    expect(ofType(events, 'strandBlocked')).toEqual([
+      expect.objectContaining({ source: shears.id }),
+    ]);
+    const strandAt = w.internal.guardStrandAt!;
+    expect(strandAt).toBeGreaterThan(w.time);
+    expect(strandAt).toBeLessThanOrEqual(w.time + 1.5);
+    // Its Severing clock runs as for any Severing a Strand turned aside (stamped the same tick).
+    expect(w.internal.m3!.severAt![shears.id]).toBeCloseTo(strandAt - 1.5 + 3, 9);
+  });
+
   it('a Severing Shears whose dash misses the Thread: held, then Severing cuts it', () => {
     const { w, shears, t, resolve, kaelHp } = severingDash();
     // The Thread pulled below the line (z = 5 ± 0.6), but still within Severing's reach.

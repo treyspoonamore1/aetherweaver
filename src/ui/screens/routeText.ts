@@ -18,8 +18,11 @@ import type { BackdropTone } from '../kit/backdropTone';
 
 export type Route = 'prelude' | 'expedition';
 
-/** About how long a run of each route takes (Prep's Route toggle). */
-export const ROUTE_MINUTES: Readonly<Record<Route, number>> = { prelude: 15, expedition: 30 };
+/**
+ * About how long a run of each route takes (Prep's Route toggle). The Expedition's is the Skilled
+ * I-III Expedition as tools/pacing.ts models it (docs/phase-5c.md: 40.8 / 39.4 min).
+ */
+export const ROUTE_MINUTES: Readonly<Record<Route, number>> = { prelude: 15, expedition: 40 };
 
 /** The run's route: more than one Movement is an Expedition (saves from before load as 1). */
 export function routeOf(run: Partial<Pick<RunState, 'movements'>>): Route {
@@ -213,7 +216,7 @@ export function expeditionLength(run: Partial<Pick<RunState, 'movements'>>): num
   return n >= 2 ? n : EXPEDITION_MOVEMENTS;
 }
 
-/** The Route toggle's options: "Prelude · ~15 min", "Expedition · ~30 min". */
+/** The Route toggle's options: "Prelude · ~15 min", "Expedition · ~40 min". */
 export function routeOptions(): { value: Route; label: string }[] {
   return [
     { value: 'prelude', label: `Prelude · ~${ROUTE_MINUTES.prelude} min` },

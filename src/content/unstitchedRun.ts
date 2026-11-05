@@ -4,14 +4,27 @@ import type { ContentInput, DeedDef } from './schema';
  * Movement III's run content (docs/phase-5c.md): the Abyssal Rift's arenas, its encounters, its
  * Movement (a six-stop teaching ladder, its pools, scale and rewards), its two events and its
  * two badge Deeds. Everything here carries `movement: 3`, so earlier Movements' pools never see
- * it. Pars are starting values: W9 derives them (the Skilled average × 1.15, to 5 s).
+ * it. Pars are W9's: the Skilled average × 1.15, to 5 s.
  */
 
 /** Indigo stone, lines in the seam colour, an ambient fray-teal accent and a void fog. */
 const RIFT = { line: '#5c5a86', accent: '#1f6f6a', fog: '#0a0a1c' } as const;
 
-/** Starting pars (s) by kind of fight, and each boss's enrage. */
-const PAR = { skirmish: 50, elite: 90, vanguard: 80, seamstress: 105, unweaver: 270 } as const;
+/**
+ * Pars (s): the Skilled average on ARRIVAL3_KIT × 1.15, to the nearest 5 s (W9, measured over
+ * 3 × 50 seeds; the vanguard 3 × 30). And each boss's enrage.
+ */
+const PAR = {
+  frayed_threshold: 50,
+  maw_hollow: 70,
+  wraith_vigil: 50,
+  null_chapel: 50,
+  mirror_hall: 50,
+  frayed_court: 70,
+  unstitched_vanguard: 55,
+  the_seamstress: 95,
+  the_unweaver: 220,
+} as const;
 const SEAMSTRESS_ENRAGE = 300;
 const UNWEAVER_ENRAGE = 450;
 
@@ -92,11 +105,11 @@ export const UNSTITCHED_ENCOUNTERS: ContentInput['encounters'] = [
     name: 'The Frayed Threshold',
     kind: 'skirmish',
     arena: 'rift_mouth',
-    par: PAR.skirmish,
+    par: PAR.frayed_threshold,
     waves: [
-      wave(2, of('shears', 2), of('hollow_chorister', 5)),
-      wave(3, of('shears', 3), of('hollow_chorister', 5)),
-      wave(3, of('shears', 3), of('glass_lancer', 1), of('hollow_chorister', 5)),
+      wave(2, of('shears', 3), of('hollow_chorister', 5)),
+      wave(3.6, of('shears', 3), of('hollow_chorister', 6)),
+      wave(3.6, of('shears', 3), of('glass_lancer', 1), of('hollow_chorister', 6)),
     ],
     hints: ['shears'],
     flavor: 'The world frays at the lip of the Rift. Something in the dark is cutting the threads.',
@@ -108,11 +121,11 @@ export const UNSTITCHED_ENCOUNTERS: ContentInput['encounters'] = [
     name: 'The Maw Hollow',
     kind: 'skirmish',
     arena: 'torn_nave',
-    par: PAR.skirmish,
+    par: PAR.maw_hollow,
     waves: [
-      wave(2, of('void_maw', 1), of('hollow_chorister', 6)),
-      wave(3, of('void_maw', 1), of('glass_lancer', 1), of('hollow_chorister', 5)),
-      wave(3, of('void_maw', 2), of('shears', 2), of('hollow_chorister', 4)),
+      wave(2, of('void_maw', 1), of('shears', 1), of('hollow_chorister', 6)),
+      wave(3, of('void_maw', 1), of('glass_lancer', 1), of('shears', 1), of('hollow_chorister', 4)),
+      wave(3, of('void_maw', 2), of('shears', 3), of('hollow_chorister', 4)),
     ],
     hints: ['maw'],
     flavor: 'The floor breathes here. When it breathes in, everything goes with it.',
@@ -124,9 +137,9 @@ export const UNSTITCHED_ENCOUNTERS: ContentInput['encounters'] = [
     name: 'The Wraith Vigil',
     kind: 'skirmish',
     arena: 'rift_mouth',
-    par: PAR.skirmish,
+    par: PAR.wraith_vigil,
     waves: [
-      wave(2, of('doubt_wraith', 1), of('hollow_chorister', 6)),
+      wave(2, of('doubt_wraith', 1), of('hollow_chorister', 7)),
       wave(3, of('doubt_wraith', 1), of('bell_brute', 1), of('hollow_chorister', 4)),
       wave(3, of('doubt_wraith', 2), of('shears', 2), of('hollow_chorister', 4)),
     ],
@@ -140,9 +153,9 @@ export const UNSTITCHED_ENCOUNTERS: ContentInput['encounters'] = [
     name: 'The Null Chapel',
     kind: 'skirmish',
     arena: 'torn_nave',
-    par: PAR.skirmish,
+    par: PAR.null_chapel,
     waves: [
-      wave(2, of('null_priest', 1), of('hollow_chorister', 6)),
+      wave(2, of('null_priest', 1), of('shears', 1), of('hollow_chorister', 5)),
       wave(3, of('null_priest', 1), of('shears', 1), of('hollow_chorister', 5)),
       wave(3, of('null_priest', 2), of('hemomancer', 1), of('hollow_chorister', 4)),
     ],
@@ -156,10 +169,10 @@ export const UNSTITCHED_ENCOUNTERS: ContentInput['encounters'] = [
     name: 'The Mirror Hall',
     kind: 'skirmish',
     arena: 'mirror_loom',
-    par: PAR.skirmish,
+    par: PAR.mirror_hall,
     waves: [
-      wave(2, of('mimic', 1), of('hollow_chorister', 6)),
-      wave(3, of('mimic', 1), of('doubt_wraith', 1), of('hollow_chorister', 4)),
+      wave(2, of('mimic', 1), of('shears', 1), of('hollow_chorister', 5)),
+      wave(3, of('mimic', 1), of('doubt_wraith', 1), of('shears', 1), of('hollow_chorister', 4)),
       wave(3, of('mimic', 1), of('void_maw', 1), of('shears', 1), of('hollow_chorister', 3)),
     ],
     hints: ['mimic'],
@@ -172,11 +185,17 @@ export const UNSTITCHED_ENCOUNTERS: ContentInput['encounters'] = [
     name: 'The Frayed Court',
     kind: 'elite',
     arena: 'mirror_loom',
-    par: PAR.elite,
+    par: PAR.frayed_court,
     waves: [
-      wave(2, elite('shears', 'severing'), of('hollow_chorister', 6)),
-      wave(3, elite('null_priest', 'silencing'), of('shears', 2), of('hollow_chorister', 4)),
-      wave(3, elite('impaler', 'doom_touched'), of('void_maw', 1), of('hollow_chorister', 4)),
+      wave(2, elite('shears', 'severing'), of('shears', 1), of('hollow_chorister', 4)),
+      wave(3, elite('null_priest', 'silencing'), of('shears', 3), of('hollow_chorister', 4)),
+      wave(
+        3,
+        elite('impaler', 'doom_touched'),
+        of('void_maw', 1),
+        of('shears', 2),
+        of('hollow_chorister', 4),
+      ),
     ],
     hints: ['thread', 'focus', 'doom'],
     flavor: 'The Rift keeps a court of its finest unmakers. Each one takes something different.',
@@ -188,7 +207,7 @@ export const UNSTITCHED_ENCOUNTERS: ContentInput['encounters'] = [
     name: 'The Unstitched Vanguard',
     kind: 'elite',
     arena: 'rift_mouth',
-    par: PAR.vanguard,
+    par: PAR.unstitched_vanguard,
     waves: [
       wave(2, elite('shears', 'mimicking'), of('hollow_chorister', 6)),
       wave(3, elite('doubt_wraith', 'doom_touched'), of('void_maw', 1), of('hollow_chorister', 4)),
@@ -203,7 +222,7 @@ export const UNSTITCHED_ENCOUNTERS: ContentInput['encounters'] = [
     name: 'The Seamstress',
     kind: 'miniboss',
     arena: 'loom_hollow',
-    par: PAR.seamstress,
+    par: PAR.the_seamstress,
     waves: [wave(2, of('the_seamstress', 1))],
     boss: 'the_seamstress',
     enrage: SEAMSTRESS_ENRAGE,
@@ -217,7 +236,7 @@ export const UNSTITCHED_ENCOUNTERS: ContentInput['encounters'] = [
     name: 'The Unweaver',
     kind: 'boss',
     arena: 'the_unwoven',
-    par: PAR.unweaver,
+    par: PAR.the_unweaver,
     waves: [wave(3, of('the_unweaver', 1))],
     boss: 'the_unweaver',
     enrage: UNWEAVER_ENRAGE,
@@ -257,8 +276,8 @@ export const UNSTITCHED: ContentInput['movements'][number] = {
   elites: ['frayed_court'],
   miniboss: 'the_seamstress',
   boss: 'the_unweaver',
-  scale: { life: 1.75, damage: 1.05 },
-  rewards: { xp: 1.5, starlight: 1.5, aether: 1.5 },
+  scale: { life: 1.85, damage: 1.05 },
+  rewards: { xp: 1.4, starlight: 1.5, aether: 1.5 },
 };
 
 /** What The Loose Thread's tying-off heals, and The Mirror Pool's prices. */

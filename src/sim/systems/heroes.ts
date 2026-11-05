@@ -330,6 +330,8 @@ function combatMove(
   const tank = def.role === 'tank';
   const glory = tank && hero.quirk > 0;
   const reach = def.attack.range + target.radius + e.radius - 0.35;
+  // A stationary enemy (Movement III) never comes: the Weaver's leash would only keep them off it.
+  const free = stationaryTarget(target);
   if (hero.follow === 'hold') {
     desired.x = hero.holdX;
     desired.z = hero.holdZ;
@@ -337,12 +339,12 @@ function combatMove(
       chase(e, target, reach);
   } else if (tank) {
     chase(e, target, reach);
-    if (!glory) leash(weaver, TANK_LEASH);
+    if (!glory && !free) leash(weaver, TANK_LEASH);
   } else if (berserker) {
     // The berserker chases to reach: no kite, no flank, never gives ground. Under Scatter he
     // still keeps clear of the other heroes, bloodlusting or not (docs/phase-5b.md).
     chase(e, target, reach);
-    if (!lust) leash(weaver, BERSERKER_LEASH);
+    if (!lust && !free) leash(weaver, BERSERKER_LEASH);
     const scatter = hero.follow === 'scatter';
     if (scatter) {
       keepApart(world, e, BERSERKER_SCATTER_GAP);
@@ -380,7 +382,7 @@ function combatMove(
       desired.z -= (target.z - desired.z) * k;
     }
     kite(world, e);
-    leash(weaver, RANGED_LEASH);
+    if (!free) leash(weaver, RANGED_LEASH);
   }
   arrive(e, desired.x, desired.z, TUNING.heroAccel, 1.2, dt);
 }
@@ -640,10 +642,42 @@ function updateReel(world: World, e: Entity, dt: number): void {
 // ── Targeting ─────────────────────────────────────────────────────────────────────────
 
 function chooseTarget(world: World, weaver: Entity, e: Entity, def: HeroDef): Entity | null {
-  const hero = e.hero!;
   const berserker = def.role === 'berserker';
   if (world.internal.rallyUntil > world.time && !(berserker && bloodlusting(world.content, e)))
-    return nearestEnemy(world, e, attackRange(world, e, def.attack.range), hero.targetId);
+    return nearestEnemy(world, e, attackRange(world, e, def.attack.range), e.hero!.targetId);
+  // Nothing in sight: a stationary enemy (Movement III) never comes to the party, so seek it.
+  return targetInSight(world, weaver, e, def) ?? seekStationary(world, e);
+}
+
+/**
+ * Movement III (docs/phase-5c.md, Q3): a hero with no target in sight seeks the nearest living
+ * stationary enemy (a Void Maw, a Spindle), which never comes to the party. It reads positions
+ * and content only (no RNG, no state), and before Movement III no def is `stationary`, so it
+ * finds nothing and the hero keeps no target, as before.
+ */
+function seekStationary(world: World, e: Entity): Entity | null {
+  let best: Entity | null = null;
+  let bestD = Infinity;
+  for (const m of world.entities.list()) {
+    if (!m.enemy || !isActive(m) || m.enemy.state === 'spawning' || rising(m)) continue;
+    if (enemyDef(m.enemy.defId).stationary !== true) continue;
+    const d = distSq(m.x, m.z, e.x, e.z);
+    if (d < bestD) {
+      best = m;
+      bestD = d;
+    }
+  }
+  return best;
+}
+
+/** A stationary enemy (Movement III's Void Maw, a Spindle): the leash only keeps a hero off it. */
+function stationaryTarget(target: Entity): boolean {
+  return enemyDef(target.enemy!.defId).stationary === true;
+}
+
+function targetInSight(world: World, weaver: Entity, e: Entity, def: HeroDef): Entity | null {
+  const hero = e.hero!;
+  const berserker = def.role === 'berserker';
   const focus = world.focusTarget === null ? undefined : world.entities.get(world.focusTarget);
   if (focus?.enemy && isActive(focus) && !rising(focus)) return focus;
 

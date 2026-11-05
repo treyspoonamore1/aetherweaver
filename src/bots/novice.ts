@@ -10,7 +10,9 @@
  * it, Rallies in an Inhale's tell and Empowers through Unravel; each draws only while its
  * mechanic is up. With only stationary enemies left (a Void Maw out past the heroes' sight) and
  * nobody fighting, she sooner or later sees them stand idle and Focuses the nearest one: a
- * Maw never comes to the party, so without it the fight never ends. Her heal-the-lowest reflex is what the Shears, Unravel and the Mimic punish.
+ * Maw never comes to the party, so without it the fight never ends. While one of the Unweaver's
+ * Spindles stands she now and then Focuses the nearest (its Decree says to; the heroes keep to the
+ * boss). Her heal-the-lowest reflex is what the Shears, Unravel and the Mimic punish.
  */
 import { CONTENT } from '../content';
 import { Rng } from '../sim/core/rng';
@@ -52,6 +54,7 @@ import {
   idleParty,
   StallWatch,
   nearestStationary,
+  spindlesUp,
   type HeroView,
 } from './common';
 
@@ -69,6 +72,8 @@ const NOVICE_M3 = {
   unravelEmpower: 0.4,
   /** Focus a stationary enemy (a Void Maw) left standing out of the idle heroes' sight. */
   stationaryFocus: 0.15,
+  /** Focus a Spindle while one stands and none is Focused (the Unweaver's Decree: 'Focus them'). */
+  spindleFocus: 0.09,
 } as const;
 
 export class NoviceBot implements Bot {
@@ -291,6 +296,20 @@ export class NoviceBot implements Bot {
       const target = nearestStationary(state, enemies);
       if (target && state.focusTarget !== target.id)
         out.push({ t: 'directive', kind: 'focus', target: target.id });
+    }
+
+    // Movement III: the Unweaver's Spindles plate it, and its Decree and the boss bar say Focus
+    // them. The heroes keep to the boss in front of them, so now and then she sends them to the
+    // nearest Spindle. Draws only while one stands and none is Focused.
+    const spindles = spindlesUp(enemies);
+    if (
+      spindles.length > 0 &&
+      !out.some((c) => c.t === 'directive') &&
+      !spindles.some((e) => e.id === state.focusTarget) &&
+      this.rng.chance(NOVICE_M3.spindleFocus)
+    ) {
+      const target = nearestStationary(state, spindles);
+      if (target) out.push({ t: 'directive', kind: 'focus', target: target.id });
     }
 
     // Cue whoever is ready, now and then; Crescendo when things look bad.

@@ -594,6 +594,48 @@ export function isStitched(e: ReadonlyEntity): boolean {
   return e.health?.statuses.some((x) => x.id === 'stitched') ?? false;
 }
 
+/** How soon a Needle Rain circle must land for `walksIntoLanding` to steer round it (s). */
+const LANDING_LOOKAHEAD = 1.5;
+/** The room she keeps from its edge (m). */
+const LANDING_MARGIN = 0.4;
+
+/**
+ * A circle a Movement III attacker drops on a hero (Needle Rain) that lands within
+ * `LANDING_LOOKAHEAD` s on the stretch from `w` toward `goal` she can walk before it lands. The
+ * Weaver keeps to her party, so without it she follows a hero into the needle meant for them.
+ * A circle she already stands in is left to the dodge. Null without one: always before
+ * Movement III, whose attackers alone are read.
+ */
+export function walksIntoLanding(
+  state: WorldState,
+  w: ReadonlyEntity,
+  goal: { x: number; z: number },
+): ReadonlyTelegraph | null {
+  const dx = goal.x - w.x;
+  const dz = goal.z - w.z;
+  const d = Math.sqrt(dx * dx + dz * dz);
+  if (d < 1e-6) return null;
+  const ux = dx / d;
+  const uz = dz / d;
+  for (const t of state.telegraphs) {
+    const s = t.shape;
+    if (t.kind !== 'burst' || s.kind !== 'circle' || !damaging(t)) continue;
+    const left = t.impact - state.time;
+    if (left < 0 || left > LANDING_LOOKAHEAD) continue;
+    const owner = state.entities.get(t.owner)?.enemy?.defId;
+    if ((ENEMY_DEFS.get(owner ?? '')?.movement ?? 1) < 3) continue;
+    if (contains(state, t, w)) continue;
+    const reach = Math.min(d, CONTENT.weaver.moveSpeed * left + LANDING_MARGIN);
+    let u = (s.x - w.x) * ux + (s.z - w.z) * uz;
+    u = u < 0 ? 0 : u > reach ? reach : u;
+    const px = w.x + ux * u - s.x;
+    const pz = w.z + uz * u - s.z;
+    const r = s.r + w.radius + LANDING_MARGIN;
+    if (px * px + pz * pz <= r * r) return t;
+  }
+  return null;
+}
+
 /** Doom's stacks on `e` (Doom-touched); 0 without it. */
 export function doomStacks(e: ReadonlyEntity): number {
   return statusStacks(e, 'doom');

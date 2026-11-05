@@ -37,6 +37,8 @@ export interface BossScript {
    * even where no fight's end follows (a sandbox, whose encounter never ends).
    */
   onDeath?(world: World, boss: Entity): void;
+  /** The radius of the ring its `summon` attack lays its adds on (absent: 3 m beyond its body). */
+  summonRing?(attackId: string): number | undefined;
   /**
    * One tick of Stasis: every clock the script keeps waits `dt` (stasis.ts, which already waits
    * the field keys and Severing's `severAt`).

@@ -20,6 +20,7 @@ import {
   STALL_FOR,
   StallWatch,
   threatsOn,
+  walksIntoLanding,
   type ReadonlyTelegraph,
 } from '../src/bots/common';
 import {
@@ -33,7 +34,9 @@ import {
   type SimConfig,
   type SimEvent,
   type Status,
+  type WorldState,
 } from '../src/sim';
+import { addStatus, killEnemy } from '../src/sim/combat/health';
 import { hero, hurt, sandbox, spawn, stepFor, worldOf } from './sim/helpers';
 
 const GUARDIAN = Run.CHORD_PRESETS.find((p) => p.id === 'guardian')!.chords.map((c) => ({
@@ -1590,6 +1593,34 @@ describe('the Skilled bot reads Movement III (staged)', () => {
     expect(out).toContainEqual({ t: 'directive', kind: 'focus', target: priest.id });
   });
 
+  it('Focuses the Spindle nearest her, and the next one as soon as the Focused one falls', () => {
+    // The Unweaver lays its Spindles on a 9 m ring: the far one is reached past the boss (and
+    // into its Shear), so the near ones go first, without 4 s back on the plated boss between.
+    const sim = rift({ thread: null });
+    const far = tough(sim, 'spindle', 0, -18);
+    const near = tough(sim, 'spindle', 6, -6);
+    const mid = tough(sim, 'spindle', -6, -10);
+    const bot = makeBot('skilled', 1);
+    const focusOn = (out: readonly Command[]) =>
+      out.find((c) => c.t === 'directive' && c.kind === 'focus');
+    let out = bot.decide(sim.state);
+    expect(focusOn(out)).toEqual({ t: 'directive', kind: 'focus', target: near.id });
+    sim.step(out);
+    sim.drainEvents();
+    expect(sim.state.focusTarget).toBe(near.id);
+    // A second on (inside the 4 s gap), the Focused Spindle falls: on to the next nearest at once.
+    for (let t = 1; t < 60; t++) {
+      sim.step([]);
+      sim.drainEvents();
+    }
+    const w = worldOf(sim);
+    killEnemy(w, w.entities.get(near.id)!, null);
+    expect(sim.state.focusTarget).toBeNull();
+    out = bot.decide(sim.state);
+    expect(focusOn(out)).toEqual({ t: 'directive', kind: 'focus', target: mid.id });
+    expect(far.health!.dead).toBe(false);
+  });
+
   it('Focuses a Mirror Ward’s caster at once, without waiting out the gap between Focuses', () => {
     const sim = rift({ thread: null });
     const a = tough(sim, 'hollow_chorister', 6, -12);
@@ -1698,6 +1729,17 @@ describe('the Skilled bot reads Movement III (staged)', () => {
       kind: 'focus',
       target: elite.id,
     });
+    // In a pack, not yet: the tank would march off and leave the Weaver to it (its crowd guard,
+    // `focusSilencing`, as `focusNull`'s); the Mute step leaves a Silencing elite to it.
+    const pack = rift({ thread: null });
+    const crowded = tough(pack, 'hollow_chorister', 0, -10);
+    worldOf(pack).entities.get(crowded.id)!.enemy!.affixes = ['silencing'];
+    for (let i = 0; i < 4; i++) tough(pack, 'hollow_chorister', -6 + 3 * i, -14);
+    expect(
+      makeBot('skilled', 1)
+        .decide(pack.state)
+        .some((c) => c.t === 'directive' && c.kind === 'focus'),
+    ).toBe(false);
     const far = rift({ thread: null });
     const maw = tough(far, 'void_maw', 0, -19);
     for (const id of far.state.party) worldOf(far).entities.get(id)!.hero!.targetId = null;
@@ -1706,6 +1748,79 @@ describe('the Skilled bot reads Movement III (staged)', () => {
       kind: 'focus',
       target: maw.id,
     });
+  });
+
+  it('holds rather than follow a hero into the Needle Rain about to land on them', () => {
+    /** A needle of the Seamstress's (or of `owner`) landing at (x, z) in `impact` s. */
+    const needle = (sim: Sandbox, owner: number, x: number, z: number, impact: number) => {
+      const w = worldOf(sim);
+      const t = {
+        id: 3003 + w.telegraphs.length,
+        owner,
+        target: null,
+        attackId: 'seamstress_needles',
+        name: 'Needle Rain',
+        kind: 'burst' as const,
+        shape: { kind: 'circle' as const, x, z, r: 2.6 },
+        start: w.time,
+        impact: w.time + impact,
+        perfectFrom: w.time + impact - 0.35,
+        damage: 360,
+        pctMaxHp: 0,
+        effect: 'damage' as const,
+        answers: ['move' as const, 'ward' as const, 'reel' as const],
+        severity: 'normal' as const,
+      };
+      w.telegraphs.push(t);
+      return t as ReadonlyTelegraph;
+    };
+    const staged = () => {
+      const sim = rift({ thread: null });
+      const seam = tough(sim, 'the_seamstress', 0, -19);
+      // Far behind her party, so she walks up to it.
+      Object.assign(worldOf(sim).entities.get(sim.state.weaverId)!, { x: 0, z: -10 });
+      return { sim, seam };
+    };
+    const moveOf = (out: readonly Command[]) => {
+      const m = out.find((c) => c.t === 'move');
+      return m?.t === 'move' ? m : null;
+    };
+    // Without a needle she walks toward the party (+z).
+    const { sim: calm } = staged();
+    const walk = moveOf(makeBot('skilled', 1).decide(calm.state))!;
+    expect(walk.z).toBeGreaterThan(0);
+    // A needle 4.5 m up her way (its edge 1.9 m off), landing in 1 s: she holds, unless the
+    // rule is off.
+    const { sim, seam } = staged();
+    const me = sim.state.entities.get(sim.state.weaverId)!;
+    const t = needle(sim, seam.id, me.x + walk.x * 4.5, me.z + walk.z * 4.5, 1);
+    expect(walksIntoLanding(sim.state, me, { x: 0, z: 0 })?.id).toBe(t.id);
+    expect(moveOf(makeBot('skilled', 1).decide(sim.state))).toEqual({ t: 'move', x: 0, z: 0 });
+    const off = new SkilledBot(1, {
+      every: 4,
+      attention: 1,
+      callReaction: 0.4,
+      skip: new Set(['needles']),
+    });
+    expect(moveOf(off.decide(sim.state))!.z).toBeGreaterThan(0);
+    // Not one to steer round: landing in 2 s, behind her, one she stands in, or a circle from an
+    // attacker before Movement III (a Chorister's, as it would be in Movements I and II).
+    const read = (x: number, z: number, impact: number, owner = seam.id) => {
+      const { sim: s } = staged();
+      needle(s, owner, x, z, impact);
+      const w = s.state.entities.get(s.state.weaverId)!;
+      return walksIntoLanding(s.state, w, { x: 0, z: 0 });
+    };
+    expect(read(0, -5.5, 1)?.id).toBeDefined();
+    expect(read(0, -5.5, 2)).toBeNull();
+    expect(read(0, -15, 1)).toBeNull();
+    expect(read(0, -10, 1)).toBeNull();
+    const { sim: old } = staged();
+    const chorister = tough(old, 'hollow_chorister', 8, -18);
+    needle(old, chorister.id, 0, -5.5, 1);
+    expect(
+      walksIntoLanding(old.state, old.state.entities.get(old.state.weaverId)!, { x: 0, z: 0 }),
+    ).toBeNull();
   });
 
   it('Mends instead of Empowering while a Mimic copies Empower', () => {
@@ -1783,22 +1898,55 @@ describe('the Novice bot in Movement III', () => {
 
   it('Focuses a Void Maw left standing out of the idle heroes’ sight, and only then', () => {
     // A Maw never comes to the party, and the heroes only look 18-20 m out: a Novice who never
-    // Focused it stalled maw_hollow until the time limit.
+    // Focused it stalled maw_hollow until the time limit. The sim's heroes now seek one themselves
+    // when nothing else is in sight (docs/phase-5c.md Q3), so the party is idle only when they
+    // can't: staged with every hero stunned (they keep no target), the Novice's own rule.
+    const stunned = (sim: Sandbox) => {
+      const w = worldOf(sim);
+      for (const id of w.party) addStatus(w, w.entities.get(id)!, 'stun', 1e6, null);
+      return sim;
+    };
     const far = rift({ thread: null });
     const maw = tough(far, 'void_maw', 0, -40);
     const focusMaw = (c: Command) => c.t === 'directive' && c.kind === 'focus';
-    expect(novice(far)).toContainEqual({ t: 'directive', kind: 'focus', target: maw.id });
+    expect(novice(stunned(far))).toContainEqual({ t: 'directive', kind: 'focus', target: maw.id });
+    // Left free, the heroes go for it themselves: never idle, so no draw and no Focus (the
+    // `idleParty` guard on its own: only stationary enemies stand).
+    const free = rift({ thread: null });
+    tough(free, 'void_maw', 0, -40);
+    expect(novice(free).some(focusMaw)).toBe(false);
+    expect(
+      free.state.party.every((id) => free.state.entities.get(id)!.hero!.targetId !== null),
+    ).toBe(true);
     // A mobile enemy beside it: the heroes have someone to fight first, so no draw and no Focus.
     const pack = rift({ thread: null });
     tough(pack, 'void_maw', 0, -40);
     tough(pack, 'shears', 0, -8);
-    expect(novice(pack).some(focusMaw)).toBe(false);
+    expect(novice(stunned(pack)).some(focusMaw)).toBe(false);
     // Only a Maw, but within the heroes' sight: they fight it, the party is not idle, so no Focus.
     const near = rift({ thread: null });
     tough(near, 'void_maw', 0, -10);
     expect(novice(near).some(focusMaw)).toBe(false);
     // No stationary enemy at all: nothing.
     expect(novice(rift({ thread: null })).some(focusMaw)).toBe(false);
+  });
+
+  it('Focuses a Spindle now and then while one stands and none is Focused, and only then', () => {
+    // The heroes keep to the boss in front of them, so a Novice who never Focused a Spindle
+    // fought the plated Unweaver into its enrage every time.
+    const focus = (c: Command) => c.t === 'directive' && c.kind === 'focus';
+    const sim = rift({ thread: null });
+    const spindle = tough(sim, 'spindle', 0, -9);
+    expect(novice(sim)).toContainEqual({ t: 'directive', kind: 'focus', target: spindle.id });
+    // One already Focused: no draw, so nothing new.
+    const held = rift({ thread: null });
+    const kept = tough(held, 'spindle', 0, -9);
+    worldOf(held).focusTarget = kept.id;
+    expect(novice(held).some(focus)).toBe(false);
+    // No Spindle: no draw.
+    const plain = rift({ thread: null });
+    tough(plain, 'hollow_chorister', 0, -9);
+    expect(novice(plain).some(focus)).toBe(false);
   });
 
   it('a Novice clears maw_hollow (its Maws stood out of sight until the time limit)', () => {
@@ -1973,11 +2121,32 @@ describe('the Movement III bots: the tools review fixes', () => {
   });
 
   it('the Decree gate fails a Stolen Verse still standing when the party wipes', () => {
-    // Novice, 8919 and 32676: each wiped with a Stolen Verse up, which no 'verseReturned' ends.
-    for (const seed of [8919, 32676]) {
-      const f = decreeFight('the_unweaver', seed, 'novice');
+    // A Skilled Weaver who walks off as the Unweaver nears phase 2 (70% of its life) and does
+    // nothing more: at 1000 and 32676 a verse is stolen and the party wipes with it up, which no
+    // 'verseReturned' ends. (The Novice no longer wipes with one up: since W9 she Focuses
+    // Spindles and outlasts the Shear; and a party left only at the theft now outlives the
+    // verse's 30 s.)
+    for (const seed of [1000, 32676]) {
+      const skilled = makeBot('skilled', seed);
+      let gone = false;
+      let up = false;
+      const deserter = {
+        name: 'deserter',
+        decide(state: WorldState): Command[] {
+          up = state.field.stolen !== undefined;
+          const boss = state.entities.get(state.encounter.bossId ?? -1);
+          const near = boss?.health !== undefined && boss.health.hp <= 0.7 * boss.health.maxHp;
+          if (!near && !gone) return skilled.decide(state);
+          if (gone) return [];
+          gone = true;
+          return [{ t: 'debug', op: { op: 'teleportWeaver', x: 0, z: 21 } }];
+        },
+      };
+      const f = decreeFight('the_unweaver', seed, 'skilled', deserter);
       expect(f.won, String(seed)).toBe(false);
-      expect(f.occurrences['Steal Verse'], String(seed)).toBe(f.seen['Steal Verse']);
+      expect(up, String(seed)).toBe(true);
+      // Heard once more than cast: Steal Verse's Decree is announced at phase 2's entry too.
+      expect(f.occurrences['Steal Verse'], String(seed)).toBe(f.seen['Steal Verse']! - 1);
       expect(f.answered['Steal Verse'], String(seed)).toBe(0);
     }
   }, 120_000);
