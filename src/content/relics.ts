@@ -41,7 +41,7 @@ export const RELICS: ContentInput['relics'] = [
     id: 'wardens_key',
     name: 'Warden’s Key',
     rarity: 'common',
-    text: 'Your heroes deal {mult}× damage to Mutes.',
+    text: 'Your heroes deal {mult}× damage to Mutes and Silencing elites.',
     flavor: 'It opens the domes of glass from the inside.',
     values: { mult: 3 },
     icon: 'key',
@@ -159,6 +159,38 @@ export const RELICS: ContentInput['relics'] = [
     values: { heal: 10, pct: 50 },
     icon: 'halo',
     empowered: { values: { heal: 15 } },
+  },
+  // ── Movement III (docs/phase-5c.md): offered from the Abyssal Rift on; carried into an
+  // earlier fight, they sleep. ──
+  {
+    id: 'sacrificial_lamb',
+    name: 'Sacrificial Lamb',
+    rarity: 'rare',
+    text: 'Once per fight, a hit that would down a hero is turned onto the healthiest other hero.',
+    flavor: 'The flock is spared, every time but once.',
+    values: {},
+    icon: 'lamb',
+    movement: 3,
+  },
+  {
+    id: 'knotted_cord',
+    name: 'Knotted Cord',
+    rarity: 'rare',
+    text: 'Enemy cuts lock your Thread for {pct}% less time, and each cut gives you {resonance} Resonance.',
+    flavor: 'Every knot is a place it was cut, and held.',
+    values: { pct: 50, resonance: 10 },
+    icon: 'cord',
+    movement: 3,
+  },
+  {
+    id: 'stillwater_bell',
+    name: 'Stillwater Bell',
+    rarity: 'legendary',
+    text: 'Chime recovers {cut} s sooner. A Chime that frees a possessed or Stitched hero, or clears Doom, gives back {refund}% of its Spirit.',
+    flavor: 'Rung under water, it sounds only in the dark.',
+    values: { cut: 2, refund: 50 },
+    icon: 'stillbell',
+    movement: 3,
   },
 ];
 

@@ -235,6 +235,22 @@ export interface Mods {
   bloodTitheRefund: number;
   /** Blood and Silk: Resonance a second while Empowering Brann below 30%. */
   bloodAndSilk: number;
+  // ── Movement III (docs/phase-5c.md). Additive at 0, multiplicative at 1: neutral by default. ──
+  /** Guard Strand: seconds between bolts destroyed or cuts turned aside on the Thread (0 = off). */
+  guardStrand: number;
+  /** Knotted Cord: an enemy cut's Thread lock (the range snap's is untouched). */
+  cutLockMult: number;
+  /** Knotted Cord: Resonance each enemy cut gives. */
+  cutResonance: number;
+  /** Stillwater Bell: seconds off Chime's cooldown. */
+  chimeCooldownCut: number;
+  /**
+   * Stillwater Bell: the share of its Spirit a Chime refunds when it frees a possessed or
+   * Stitched hero or clears Doom (0 = none).
+   */
+  stillwaterBell: number;
+  /** Sacrificial Lamb: once a fight, a lethal hit on a hero goes to the healthiest other (0 = off). */
+  sacrificialLamb: number;
 }
 
 export const NO_MODS: Mods = {
@@ -376,6 +392,12 @@ export const NO_MODS: Mods = {
   bloodTithe: 0,
   bloodTitheRefund: 0,
   bloodAndSilk: 0,
+  guardStrand: 0,
+  cutLockMult: 1,
+  cutResonance: 0,
+  chimeCooldownCut: 0,
+  stillwaterBell: 0,
+  sacrificialLamb: 0,
 };
 
 /** Blood Tithe's fixed refund: Spirit a Tithe Ward gives back when it breaks (docs/phase-5b.md). */
@@ -477,6 +499,10 @@ export function resolveMods(config: ResolvedSimConfig, content: Content): Mods {
         break;
       case 'blood_and_silk':
         m.bloodAndSilk = v;
+        break;
+      // Movement III's (docs/phase-5c.md): numbers only; W1 gives them behaviour.
+      case 'guard_strand':
+        m.guardStrand = v;
         break;
       default:
         // A motif without sim behaviour is a content bug; tests check every motif is known.
@@ -763,6 +789,18 @@ function applyRelic(m: Mods, id: string, v: Values, cleansed: boolean): void {
       m.perfectHealPct = num(v, 'heal') / 100;
       if (!cleansed) m.wardBarrierMult *= 1 - num(v, 'pct') / 100;
       break;
+    // Movement III's (docs/phase-5c.md): numbers only; W1 and W2 give them behaviour.
+    case 'sacrificial_lamb':
+      m.sacrificialLamb = 1;
+      break;
+    case 'knotted_cord':
+      m.cutLockMult *= 1 - num(v, 'pct') / 100;
+      m.cutResonance += num(v, 'resonance');
+      break;
+    case 'stillwater_bell':
+      m.chimeCooldownCut += num(v, 'cut');
+      m.stillwaterBell = num(v, 'refund') / 100;
+      break;
     default:
       // Run-only relics (Star Chart) have no sim behaviour; tests check the rest are known.
       break;
@@ -802,6 +840,10 @@ export const KNOWN_RELICS: readonly string[] = [
   'spindle_of_fate',
   'heavy_score',
   'glass_halo',
+  // Movement III's (docs/phase-5c.md).
+  'sacrificial_lamb',
+  'knotted_cord',
+  'stillwater_bell',
 ];
 
 export const KNOWN_BOONS: readonly string[] = ['last_note', 'frayed_spirit', 'mended_loom'];
@@ -838,4 +880,6 @@ export const KNOWN_MOTIFS: readonly string[] = [
   // Brann's (docs/phase-5b.md): resolved in W1.
   'blood_tithe',
   'blood_and_silk',
+  // Movement III's (docs/phase-5c.md).
+  'guard_strand',
 ];

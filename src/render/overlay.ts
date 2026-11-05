@@ -32,6 +32,8 @@ const ICONS: Record<GlyphIcon, string> = {
   dome: '<path d="M3 18.5a9 9 0 0 1 18 0Z"/><path d="M7 18.5a5 5 0 0 1 10 0"/>',
   mend: '<path d="M12 4.5v15M4.5 12h15"/>',
   empower: '<path d="M5 13.5 12 6.5l7 7"/><path d="M5 19 12 12l7 7"/>',
+  // Retarget (docs/phase-5c.md): the Thread, with a cut mark across it (W6 refines).
+  thread: '<path d="M3.5 17.5C7 9 10 15 12 12s5-6 8.5-5.5"/><path d="M9 6.5l6 11"/>',
   unknown:
     '<path d="M8.6 8.4a3.5 3.5 0 1 1 5.2 3.1c-1.1.6-1.8 1.4-1.8 2.6v.7"/><circle cx="12" cy="18.9" r="1.25" fill="currentColor" stroke="none"/>',
 };
@@ -47,6 +49,7 @@ const ICON_COLORS: Record<GlyphIcon, string> = {
   dome: '#fde9b8',
   mend: '#99f6e4',
   empower: '#fde68a',
+  thread: '#e2e8f0',
   unknown: DISSONANCE_HEX.blind,
 };
 
@@ -61,6 +64,7 @@ const LABELS: Record<GlyphIcon, string> = {
   dome: 'Dome',
   mend: 'Mend',
   empower: 'Empower',
+  thread: 'Retarget',
   unknown: 'Blind',
 };
 

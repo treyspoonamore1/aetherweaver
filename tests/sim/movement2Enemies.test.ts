@@ -97,7 +97,17 @@ function attacksBegun(sim: Sim, ticks: number, owner?: number): string[] {
 describe('affixes', () => {
   it('every affix in content has sim behaviour, and the sim knows no others', () => {
     for (const a of CONTENT.affixes) expect(KNOWN_AFFIXES, a.id).toContain(a.id);
-    expect([...KNOWN_AFFIXES].sort()).toEqual(['hastened', 'shielded', 'vampiric', 'volatile']);
+    // Movement III's four (docs/phase-5c.md) joined the list in W0b.
+    expect([...KNOWN_AFFIXES].sort()).toEqual([
+      'doom_touched',
+      'hastened',
+      'mimicking',
+      'severing',
+      'shielded',
+      'silencing',
+      'vampiric',
+      'volatile',
+    ]);
   });
 
   it('the Movement I Elite Vanguard pool is the exact array; Movement II adds Vampiric', () => {

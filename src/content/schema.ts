@@ -21,6 +21,11 @@ export const AnswerTagSchema = z.enum([
   'dome',
   /** Lift the hero's life above a threshold (Execution, docs/phase-5a.md). */
   'mend',
+  // Movement III (docs/phase-5c.md): the Thread's own two verbs.
+  /** Retarget: move the Thread off the line, or onto a hero on your side of it. */
+  'thread',
+  /** Switch the Thread to Empower (Unravel). */
+  'empower',
 ]);
 export const TelegraphKindSchema = z.enum([
   'cleave',
@@ -58,6 +63,25 @@ export const StatusIdSchema = z.enum([
   'condemned',
   /** An enemy's guard is broken (display only; the state is `guard.brokenUntil`). */
   'guardBroken',
+  // Movement III (docs/phase-5c.md)
+  /** The Doubt Wraith's mark during its cast (an ailment): Chime cancels it. */
+  'doubt',
+  /** Possessed (an ailment): disabled, and strikes an ally. Chime frees them. */
+  'possessed',
+  /** Doom (an ailment, heroes only): stacks to its `burst.at`, then ignites. */
+  'doom',
+  /** Doom's ignition mark (an ailment), bound to its telegraph. */
+  'doomed',
+  /** Inside a Void Maw's Inhale: damage over time (not an ailment). */
+  'voided',
+  /** The Seamstress's Stitch link during its windup (an ailment). */
+  'stitch',
+  /** Stitched (an ailment): rooted. Chime frees, and a Reel frees the hero it pulls. */
+  'stitched',
+  /** Display and recap: taking Unravel's reversed Mend. */
+  'unravelled',
+  /** Display (enemies): the Mimic's Empower copy, or the Unweaver's Thread. */
+  'emboldened',
 ]);
 
 /**
@@ -76,6 +100,11 @@ export const StatusPayloadSchema = z
     dps: z.number().nonnegative().optional(),
     pctPerSec: Pct.optional(),
     drain: z.literal(true).optional(),
+    /**
+     * Movement III (docs/phase-5c.md, Doom): at `at` stacks the status clears and ignites
+     * `attack`, a mark, on the hero (heroes only). Absent on every earlier payload.
+     */
+    burst: z.object({ at: z.number().int().positive(), attack: IdSchema }).strict().optional(),
   })
   .strict();
 export type StatusPayload = z.infer<typeof StatusPayloadSchema>;
@@ -426,14 +455,23 @@ export const TargetingSchema = z.enum([
   'allHeroes',
   /** The hero with the lowest hp/maxHp; ties broken by slot (Execution). */
   'lowestHp',
+  // Movement III (docs/phase-5c.md)
+  /** A beam aimed through the Thread's midpoint at cast start (no Thread: the farthest hero). */
+  'threadLine',
+  /** The living enemy, not the caster, with the most max HP within reach (else the caster). */
+  'allyEnemy',
 ]);
 
 export const AttackDefSchema = z.object({
   id: IdSchema,
   name: z.string(),
   kind: TelegraphKindSchema,
-  /** What it does when it resolves. `script`: nothing; a boss script owns it (docs/phase-5a.md). */
-  effect: z.enum(['damage', 'healAllies', 'summon', 'suppress', 'script']),
+  /**
+   * What it does when it resolves. `script`: nothing; a boss script owns it (docs/phase-5a.md).
+   * Movement III (docs/phase-5c.md): `zone` lays its `zone` and nothing else; `mimic` copies the
+   * Weaver's technique onto its beneficiary.
+   */
+  effect: z.enum(['damage', 'healAllies', 'summon', 'suppress', 'script', 'zone', 'mimic']),
   windup: Seconds,
   cooldown: Seconds,
   /** Seconds before the first use after the enemy engages. */
@@ -479,11 +517,14 @@ export const AttackDefSchema = z.object({
   /** The status a `mark` applies (absent: 'dirge'; null: none, and no chimed-away check). */
   markStatus: StatusIdSchema.nullable().optional(),
   /** The status a `link` applies (absent: 'resound'). */
-  linkStatus: z.enum(['resound', 'pact']).optional(),
+  linkStatus: z.enum(['resound', 'pact', 'stitch']).optional(),
   /** The caster moves with the attack: to a beam's end (charge) or a burst's centre (leap). */
   move: z.enum(['charge', 'leap']).optional(),
-  /** A burst centred on its target rather than the caster. */
-  centre: z.literal('target').optional(),
+  /**
+   * A burst centred on its target rather than the caster; `weaver` (Movement III): at the
+   * Weaver's feet, and not begun while she is absent or down.
+   */
+  centre: z.enum(['target', 'weaver']).optional(),
   /** A beam runs its full length, not capped just past its target. */
   fullLength: z.literal(true).optional(),
   /** Another attack that begins as this one resolves (`reverse`: aimed 180° from facing). */
@@ -499,6 +540,31 @@ export const AttackDefSchema = z.object({
   scripted: z.literal(true).optional(),
   /** A target below this fraction of its max HP when it resolves is executed (hp + 1 damage). */
   executeBelow: Pct.optional(),
+  // ── Movement III (docs/phase-5c.md). All optional: absent reproduces Movements I and II. ──
+  /**
+   * It cuts the Thread for `lock` seconds: a line whose rectangle crosses the Thread when it
+   * resolves, or (`always`) unconditionally.
+   */
+  cut: z
+    .object({ lock: Seconds, always: z.literal(true).optional() })
+    .strict()
+    .optional(),
+  /**
+   * A timed zone it lays when it resolves (effect `zone`): `pull` drags heroes and the Weaver
+   * toward its centre at `pullSpeed` m/s and refreshes `status` on them; `null` refuses the
+   * Weaver's Ward, Chime and Reel inside it. Centred on the caster or on the attack's target.
+   */
+  zone: z
+    .object({
+      kind: z.enum(['pull', 'null']),
+      radius: z.number().positive(),
+      duration: Seconds,
+      at: z.enum(['caster', 'target']),
+      pullSpeed: z.number().positive().optional(),
+      status: StatusPayloadSchema.optional(),
+    })
+    .strict()
+    .optional(),
 });
 export type AttackDef = z.infer<typeof AttackDefSchema>;
 
@@ -554,9 +620,14 @@ export const EnemyDefSchema = z.object({
     .strict()
     .optional(),
   /** What it's made of (death debris and kill sounds); absent: porcelain. */
-  material: z.enum(['porcelain', 'iron']).optional(),
+  material: z.enum(['porcelain', 'iron', 'cloth']).optional(),
   /** The Movement it belongs to (absent: 1). */
   movement: z.number().int().positive().optional(),
+  // ── Movement III (docs/phase-5c.md). All optional: absent reproduces Movements I and II. ──
+  /** It never moves (no approach, no chase-turn), and nothing pulls it; it still bites and casts. */
+  stationary: z.literal(true).optional(),
+  /** While one stands, the boss that summoned it takes `dr` less damage from heroes. */
+  tether: z.object({ dr: Pct }).strict().optional(),
 });
 export type EnemyDef = z.infer<typeof EnemyDefSchema>;
 
@@ -571,6 +642,13 @@ export const AffixDefSchema = z.object({
   onHit: StatusPayloadSchema.optional(),
   /** How the affix is answered (the HUD glyph and the death recap). */
   answers: z.array(AnswerTagSchema).min(1).optional(),
+  // ── Movement III (docs/phase-5c.md). All optional. ──
+  /** Severing: a hit it lands while the Thread passes within `radius` m cuts it for `lock` s. */
+  cut: z.object({ radius: z.number().positive(), lock: Seconds }).strict().optional(),
+  /** Silencing: it carries a Mute's aura suppression field of this radius. */
+  suppressRadius: z.number().positive().optional(),
+  /** Mimicking: attacks it also casts, each on that attack's own cooldown. */
+  specials: z.array(IdSchema).min(1).optional(),
 });
 export type AffixDef = z.infer<typeof AffixDefSchema>;
 
@@ -652,6 +730,8 @@ export const MotifDefSchema = z
         hero: IdSchema.optional(),
         /** A Harmony (docs/phase-5b.md): offered only while every listed motif is owned. */
         motifs: z.array(IdSchema).min(1).optional(),
+        /** Offered only from this Movement on (docs/phase-5c.md); it sleeps in earlier fights. */
+        movement: z.number().int().positive().optional(),
       })
       .default({}),
     tags: z.array(z.string()).default([]),
@@ -691,6 +771,11 @@ export const RelicDefSchema = z
      * `values` key by key. Without them, it can't be Empowered.
      */
     empowered: z.object({ values: ValuesSchema }).strict().optional(),
+    /**
+     * Offered only from this Movement on (docs/phase-5c.md); carried into an earlier fight, it
+     * sleeps (absent: 1).
+     */
+    movement: z.number().int().positive().optional(),
   })
   .strict();
 export type RelicDef = z.infer<typeof RelicDefSchema>;
@@ -1271,6 +1356,10 @@ export type SceneDef = z.infer<typeof SceneDefSchema>;
 
 // ── Arenas and encounters ─────────────────────────────────────────────────────────────
 
+/** A Movement's look and sound: one list for arenas and Movements, so the two can't drift. */
+export const BiomeSchema = z.enum(['reliquary', 'crimson_spire', 'abyssal_rift']);
+export type Biome = z.infer<typeof BiomeSchema>;
+
 export const ArenaDefSchema = z.object({
   id: IdSchema,
   name: z.string(),
@@ -1283,7 +1372,7 @@ export const ArenaDefSchema = z.object({
     fog: ColorSchema,
   }),
   /** Its look and sound (docs/phase-5a.md); absent: the Sunlit Reliquary's. */
-  biome: z.enum(['reliquary', 'crimson_spire']).optional(),
+  biome: BiomeSchema.optional(),
 });
 export type ArenaDef = z.infer<typeof ArenaDefSchema>;
 
@@ -1323,9 +1412,6 @@ export type EncounterDef = z.infer<typeof EncounterDefSchema>;
 
 // ── Movements (docs/phase-5a.md) ─────────────────────────────────────────────────────
 
-export const BiomeSchema = z.enum(['reliquary', 'crimson_spire']);
-export type Biome = z.infer<typeof BiomeSchema>;
-
 /** A map stop's kind (meta/types.ts `NodeKind` is this). */
 export const NodeKindSchema = z.enum([
   'skirmish',
@@ -1350,6 +1436,8 @@ export const MovementDefSchema = z
     name: z.string(),
     /** The map screen's title. */
     mapTitle: z.string(),
+    /** How the route names it (docs/phase-5c.md, the Finale hook); absent: 'Movement N'. */
+    label: z.string().optional(),
     biome: BiomeSchema,
     rows: z.array(z.array(NodeKindSchema).min(1)).min(1),
     /** Rows (within the Movement) that always play one encounter. */
@@ -1392,18 +1480,42 @@ export const AILMENT_IDS: readonly StatusId[] = [
   'bleed',
   'latched',
   'wound',
+  // Movement III (docs/phase-5c.md)
+  'doubt',
+  'possessed',
+  'doom',
+  'doomed',
+  'stitch',
+  'stitched',
 ];
 export type StatusId = z.infer<typeof StatusIdSchema>;
 
+/**
+ * What each targeting picks, every one listed (docs/phase-5c.md), so a new targeting can't slip
+ * past the lint unclassified: a hero, a pair of heroes, the caster or the whole party, the
+ * Thread's line, or an enemy.
+ */
+const TARGETING_PICKS: Readonly<
+  Record<z.infer<typeof TargetingSchema>, 'hero' | 'pair' | 'area' | 'thread' | 'enemy'>
+> = {
+  current: 'hero',
+  farthest: 'hero',
+  squishiest: 'hero',
+  randomHero: 'hero',
+  randomNonTank: 'hero',
+  lowestHp: 'hero',
+  pair: 'pair',
+  self: 'area',
+  allHeroes: 'area',
+  threadLine: 'thread',
+  allyEnemy: 'enemy',
+};
 /** Targetings that pick a hero (a mark or an execution needs one). */
-const HERO_TARGETING: ReadonlySet<z.infer<typeof TargetingSchema>> = new Set([
-  'current',
-  'farthest',
-  'squishiest',
-  'randomHero',
-  'randomNonTank',
-  'lowestHp',
-]);
+const HERO_TARGETING: ReadonlySet<z.infer<typeof TargetingSchema>> = new Set(
+  (Object.keys(TARGETING_PICKS) as z.infer<typeof TargetingSchema>[]).filter(
+    (t) => TARGETING_PICKS[t] === 'hero',
+  ),
+);
 
 interface LintSets {
   attacks: Set<string>;
@@ -1417,6 +1529,128 @@ interface ContentShape {
   affixes: AffixDef[];
   encounters: EncounterDef[];
   movements: MovementDef[];
+  // Movement III's lint (docs/phase-5c.md) reads these too.
+  arenas: ArenaDef[];
+  motifs: MotifDef[];
+  relics: RelicDef[];
+  weaver: { moveSpeed: number };
+}
+
+/**
+ * Movement III's lint (docs/phase-5c.md, "Content lint"): cuts, possession, Stitch, zones,
+ * Doom's burst, tethers, stationary enemies, affix specials and the Movement gates.
+ */
+function lintMovement3(c: ContentShape, ctx: z.RefinementCtx, sets: LintSets): void {
+  const issue = (message: string) => ctx.addIssue({ code: 'custom', message });
+  const ailments = new Set<string>(AILMENT_IDS);
+  const attackById = new Map(c.attacks.map((a) => [a.id, a]));
+  const arenaRadius = new Map(c.arenas.map((a) => [a.id, a.radius]));
+  /** The arenas an attack is fought in: every encounter with an enemy (or affix) that casts it. */
+  const arenasOf = (id: string): string[] => {
+    const casters = new Set(c.enemies.filter((e) => e.specials.includes(id)).map((e) => e.id));
+    const affixes = new Set(c.affixes.filter((f) => f.specials?.includes(id)).map((f) => f.id));
+    return c.encounters
+      .filter(
+        (e) =>
+          (e.boss !== undefined && casters.has(e.boss)) ||
+          e.waves.some((w) =>
+            w.spawns.some((s) => casters.has(s.enemy) || s.affixes.some((f) => affixes.has(f))),
+          ),
+      )
+      .map((e) => e.arena);
+  };
+  for (const a of c.attacks) {
+    const where = `attack "${a.id}"`;
+    if (a.cut) {
+      if (!a.answers.includes('thread')) issue(`${where}: a cut lists thread`);
+      if (a.kind === 'beam' && a.targeting !== 'threadLine')
+        issue(`${where}: a cut beam uses threadLine`);
+    }
+    if (a.kind === 'mark' && a.status?.id === 'possessed') {
+      if (!a.interruptible) issue(`${where}: a possession is interruptible`);
+      const mark = a.markStatus === undefined ? 'dirge' : a.markStatus;
+      if (mark === null || !ailments.has(mark))
+        issue(`${where}: a possession's mark is an ailment`);
+      if (!a.answers.includes('chime') || !a.answers.includes('focus'))
+        issue(`${where}: a possession lists chime and focus`);
+    }
+    if (a.kind === 'link' && a.linkStatus === 'stitch') {
+      if (!a.answers.includes('chime')) issue(`${where}: a stitch lists chime`);
+      for (const arena of arenasOf(a.id)) {
+        const r = arenaRadius.get(arena);
+        if (r !== undefined && a.radius < 2 * r)
+          issue(`${where}: a stitch reaches across arena "${arena}" (radius ≥ its diameter)`);
+      }
+    }
+    if ((a.effect === 'zone') !== (a.zone !== undefined))
+      issue(`${where}: a zone attack has its zone, and only it does`);
+    if (a.zone?.kind === 'pull') {
+      if (!a.answers.includes('stack') && !a.answers.includes('reel'))
+        issue(`${where}: a pull lists stack or reel`);
+      if (a.zone.pullSpeed === undefined || !(a.zone.pullSpeed < c.weaver.moveSpeed))
+        issue(`${where}: a pull is slower than the Weaver`);
+    }
+    if (a.zone?.kind === 'null') {
+      if (a.centre !== 'weaver') issue(`${where}: a null zone is centred on the Weaver`);
+      if (!a.answers.includes('move')) issue(`${where}: a null zone lists move`);
+    }
+  }
+  // Doom's burst: every payload that carries one, wherever it is applied.
+  const payloads = [
+    ...c.attacks.flatMap((a) => [
+      ...(a.status ? [{ p: a.status, where: `attack "${a.id}"` }] : []),
+      ...(a.zone?.status ? [{ p: a.zone.status, where: `attack "${a.id}" zone` }] : []),
+    ]),
+    ...c.enemies.flatMap((e) =>
+      e.basic.onHit ? [{ p: e.basic.onHit, where: `enemy "${e.id}"` }] : [],
+    ),
+    ...c.affixes.flatMap((f) => (f.onHit ? [{ p: f.onHit, where: `affix "${f.id}"` }] : [])),
+  ];
+  for (const { p, where } of payloads) {
+    if (!p.burst) continue;
+    const burst = attackById.get(p.burst.attack);
+    if (!burst) {
+      issue(`${where} references unknown "${p.burst.attack}"`);
+      continue;
+    }
+    const at = `${where}: its burst "${burst.id}"`;
+    if (burst.kind !== 'mark') issue(`${at} is a mark`);
+    if (!burst.answers.includes('ward') || !burst.answers.includes('chime'))
+      issue(`${at} lists ward and chime`);
+    const mark = burst.markStatus === undefined ? 'dirge' : burst.markStatus;
+    if (mark === null || !ailments.has(mark) || mark === p.id)
+      issue(`${at} has an ailment mark status of its own`);
+    if (c.enemies.some((e) => e.specials.includes(burst.id)))
+      issue(`${at} is in no enemy's specials`);
+  }
+  const bossRoles = new Set(['boss', 'miniboss']);
+  for (const e of c.enemies) {
+    const where = `enemy "${e.id}"`;
+    if (
+      e.tether &&
+      !c.enemies.some(
+        (b) =>
+          bossRoles.has(b.role) &&
+          b.specials.some((id) => attackById.get(id)?.summon?.enemy === e.id),
+      )
+    )
+      issue(`${where}: a tether is summoned by a boss attack`);
+    if (e.stationary && e.specials.some((id) => attackById.get(id)?.move !== undefined))
+      issue(`${where}: a stationary enemy has no move attack`);
+  }
+  for (const f of c.affixes) {
+    const where = `affix "${f.id}"`;
+    for (const id of f.specials ?? [])
+      if (!sets.attacks.has(id)) issue(`${where} references unknown "${id}"`);
+    if (f.cut && !f.answers?.includes('thread')) issue(`${where}: a cut lists thread`);
+  }
+  const movements = c.movements.length;
+  for (const m of c.motifs)
+    if (m.requires.movement !== undefined && m.requires.movement > movements)
+      issue(`motif "${m.id}": Movement ${m.requires.movement} is past the last`);
+  for (const r of c.relics)
+    if (r.movement !== undefined && r.movement > movements)
+      issue(`relic "${r.id}": Movement ${r.movement} is past the last`);
 }
 
 function lintMovements(c: ContentShape, ctx: z.RefinementCtx, sets: LintSets): void {
@@ -2077,6 +2311,7 @@ export const ContentSchema = z
         if (d.points !== 0) issue(`${where}: a heroCeiling Deed gives no point`);
       }
     lintMovements(c, ctx, { attacks, enemies, encounters });
+    lintMovement3(c, ctx, { attacks, enemies, encounters });
   });
 export type Content = z.infer<typeof ContentSchema>;
 export type ContentInput = z.input<typeof ContentSchema>;

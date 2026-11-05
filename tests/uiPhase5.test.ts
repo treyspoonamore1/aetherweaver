@@ -408,8 +408,14 @@ describe('the Codex and the Loom by sightings', () => {
     const seen = newProfile().seen;
     expect(sightedMovement(seen)).toBe(1);
     expect(deedsInSight(seen)).toEqual(MOVEMENT_ONE_DEEDS);
-    // A hero's Deed waits for the roster too (docs/phase-5b.md).
+    // A hero's Deed waits for the roster too (docs/phase-5b.md), and Movement III's for the
+    // Rift (docs/phase-5c.md).
+    const movementOf = (id: string | undefined) =>
+      CONTENT.encounters.find((e) => e.id === id)?.movement ?? 1;
     expect(deedsInSight([...seen, 'sanguine_hound'])).toEqual(
+      CONTENT.deeds.filter((d) => d.hero === undefined && movementOf(d.encounter) <= 2),
+    );
+    expect(deedsInSight([...seen, 'sanguine_hound', 'shears'])).toEqual(
       CONTENT.deeds.filter((d) => d.hero === undefined),
     );
     expect(sightedMovement()).toBe(CONTENT.movements.length);

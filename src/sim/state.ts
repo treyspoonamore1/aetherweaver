@@ -36,7 +36,8 @@ export type TechniqueKey = 'ward' | 'chime' | 'reel' | 'glide';
 
 // ── Health, shields, statuses ─────────────────────────────────────────────────────────
 
-export type ShieldKind = 'ward' | 'dome' | 'barrier' | 'overshield' | 'discord';
+/** `mirror` (docs/phase-5c.md): a Mimic's or the Unweaver's copy of a Ward, on an enemy. */
+export type ShieldKind = 'ward' | 'dome' | 'barrier' | 'overshield' | 'discord' | 'mirror';
 
 export interface Shield {
   kind: ShieldKind;
@@ -86,7 +87,17 @@ export type StatusId =
   | 'wound' // healing received ×0.5 (an ailment)
   | 'pact' // Blood Pact: damage taken ×1.2 while linked (not an ailment): Scatter
   | 'condemned' // Execution's mark (display and recap)
-  | 'guardBroken'; // an enemy's guard is broken (display; the state is `guard.brokenUntil`)
+  | 'guardBroken' // an enemy's guard is broken (display; the state is `guard.brokenUntil`)
+  // Movement III (docs/phase-5c.md): the same set as content's StatusIdSchema.
+  | 'doubt' // the Doubt Wraith's mark during its cast (an ailment): Chime cancels it
+  | 'possessed' // disabled, strikes an ally (an ailment): Chime frees; ticks through `tickIn`
+  | 'doom' // stacks on heroes to its burst, then ignites (an ailment)
+  | 'doomed' // Doom's ignition mark (an ailment), bound to its telegraph
+  | 'voided' // inside a Void Maw's Inhale: damage over time (not an ailment)
+  | 'stitch' // the Seamstress's Stitch link during its windup (an ailment)
+  | 'stitched' // rooted (an ailment): Chime frees, a Reel frees the hero it pulls
+  | 'unravelled' // display and recap: taking Unravel's reversed Mend
+  | 'emboldened'; // display (enemies): a Mimic's Empower copy, or the Unweaver's Thread
 
 export interface Status {
   id: StatusId;
@@ -478,6 +489,13 @@ export interface EnemyComponent {
    * until it first blocks one.
    */
   guard?: { fx: number; fz: number; brokenUntil: number; blockedAt?: number };
+  // ── Movement III (docs/phase-5c.md). Public, set lazily, absent outside Movement III. ──
+  /** A boss's standing tethered adds (Spindles); recounted only for `tether` defs, deleted at 0. */
+  tethered?: number;
+  /** A Mimic's cast: what it copies, locked at cast start; deleted when the cast ends. */
+  mimic?: { copy: 'empower' | 'ward' | 'chime' };
+  /** Emboldened until this sim time (the Mimic's Empower copy, the Unweaver's Thread). */
+  emboldenedUntil?: number;
 }
 
 /** An enemy attack seen a second before it begins (Foresight, docs/phase-3e.md). */
@@ -565,7 +583,7 @@ export interface Telegraph {
    * What it does when it resolves: only 'damage' telegraphs are threats to the party. 'script':
    * nothing; a boss script owns it (docs/phase-5a.md).
    */
-  effect: 'damage' | 'healAllies' | 'summon' | 'suppress' | 'script';
+  effect: 'damage' | 'healAllies' | 'summon' | 'suppress' | 'script' | 'zone' | 'mimic';
   answers: AnswerTag[];
   /** Live: 'lethal' if some hero inside would not survive it as things stand. */
   severity: 'normal' | 'lethal';
@@ -574,8 +592,8 @@ export interface Telegraph {
   // ── Movement II (docs/phase-5a.md). Absent on every Movement I telegraph. ──
   /** Execution: a target below this fraction of its max HP when it resolves takes hp + 1. */
   executeBelow?: number;
-  /** A link's status, when it isn't 'resound' (Blood Pact's 'pact'). */
-  linkStatus?: 'pact';
+  /** A link's status, when it isn't 'resound' (Blood Pact's 'pact', the Seamstress's 'stitch'). */
+  linkStatus?: 'pact' | 'stitch';
 }
 
 export interface Obstacle {
@@ -662,6 +680,30 @@ export interface FieldState {
     healMult: number;
     reformAt: number;
   };
+  // ── Movement III (docs/phase-5c.md). Public, created lazily, deleted at the encounter's end. ──
+  /** Timed zones (the Void Maw's Inhale, the Null Priest's rune), in the order they were laid. */
+  zones?: FieldZone[];
+  /** Unravel: Mend wounds the threaded hero until `until` (ticks every 0.5 s from `acc`). */
+  unravel?: { until: number; source: EntityId; acc: number; tickIn: number };
+  /** Steal Verse: the aura at `field.chords[chord].auras[aura]` is muted until `until`. */
+  stolen?: { chord: number; aura: number; add: EntityId; until: number };
+}
+
+/** A timed zone (docs/phase-5c.md Q4): `pull` drags toward its centre; `null` silences the Weaver. */
+export interface FieldZone {
+  /** The telegraph that laid it. */
+  id: number;
+  kind: 'pull' | 'null';
+  /** It ends when this enemy dies. */
+  owner: EntityId;
+  x: number;
+  z: number;
+  r: number;
+  until: number;
+  /** A pull's speed (m/s). */
+  pullSpeed?: number;
+  /** What it refreshes on those inside (the Inhale's `voided`). */
+  status?: { id: StatusId; duration: number; dps?: number };
 }
 
 export type EncounterKind = 'sandbox' | 'skirmish' | 'elite' | 'miniboss' | 'boss';

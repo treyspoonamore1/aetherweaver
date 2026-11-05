@@ -24,6 +24,14 @@ import {
   LEGION_EVENTS,
 } from './legionRun';
 import { RUN_EVENTS } from './runEvents';
+import { UNSTITCHED_AFFIXES, UNSTITCHED_ATTACKS, UNSTITCHED_ENEMIES } from './unstitched';
+import {
+  UNSTITCHED,
+  UNSTITCHED_ARENAS,
+  UNSTITCHED_DEEDS,
+  UNSTITCHED_ENCOUNTERS,
+  UNSTITCHED_EVENTS,
+} from './unstitchedRun';
 import { CALLS, CHORUS, CRESCENDO, RESONANCE, TECHNIQUES, THREAD, WEAVER } from './weaver';
 import {
   ContentSchema,
@@ -70,16 +78,16 @@ export const CONTENT: Content = ContentSchema.parse({
   defaultParty: ['kael', 'lyra', 'vexis'],
   auras: AURAS,
   ornaments: ORNAMENTS,
-  attacks: [...ATTACKS, ...LEGION_ATTACKS],
-  enemies: [...ENEMIES, ...LEGION_ENEMIES],
-  affixes: [...AFFIXES, ...LEGION_AFFIXES],
+  attacks: [...ATTACKS, ...LEGION_ATTACKS, ...UNSTITCHED_ATTACKS],
+  enemies: [...ENEMIES, ...LEGION_ENEMIES, ...UNSTITCHED_ENEMIES],
+  affixes: [...AFFIXES, ...LEGION_AFFIXES, ...UNSTITCHED_AFFIXES],
   motifs: MOTIFS,
   relics: RELICS,
   boons: BOONS,
-  events: [...RUN_EVENTS, ...LEGION_EVENTS],
+  events: [...RUN_EVENTS, ...LEGION_EVENTS, ...UNSTITCHED_EVENTS],
   callings: CALLINGS,
   astrolabe: ASTROLABE,
-  deeds: [...DEEDS, ...LEGION_DEEDS],
+  deeds: [...DEEDS, ...LEGION_DEEDS, ...UNSTITCHED_DEEDS],
   inscriptions: INSCRIPTIONS,
   curses: CURSES,
   reliquary: RELIQUARY,
@@ -93,9 +101,9 @@ export const CONTENT: Content = ContentSchema.parse({
   cosmetics: COSMETICS,
   mastery: MASTERY,
   scenes: SCENES,
-  arenas: [...ARENAS, ...LEGION_ARENAS],
-  encounters: [...ENCOUNTERS, ...LEGION_ENCOUNTERS],
-  movements: [...MOVEMENTS, CRIMSON_LEGION],
+  arenas: [...ARENAS, ...LEGION_ARENAS, ...UNSTITCHED_ARENAS],
+  encounters: [...ENCOUNTERS, ...LEGION_ENCOUNTERS, ...UNSTITCHED_ENCOUNTERS],
+  movements: [...MOVEMENTS, CRIMSON_LEGION, UNSTITCHED],
   barks: {
     rally: ['On you!', 'Regrouping!', 'Right behind you.'],
     hold: ['Holding here.', 'Standing firm.', 'We wait for your word.'],

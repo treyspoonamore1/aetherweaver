@@ -12,6 +12,7 @@ import { cancelTelegraph } from '../combat/telegraphs';
 import type { AnswerTag } from '../events';
 import type { Entity } from '../state';
 import type { World } from '../world';
+import { bossScript } from './bossScripts';
 import { beginAttack, beginSilentVerse, ensureM2, fireFollowUp } from './enemies';
 
 const PHASE_SHIFT = 2;
@@ -106,6 +107,33 @@ const PHASES: Record<string, PhaseDef[]> = {
     { at: 0.66, decree: null, name: 'Bloodmoon' },
     // The judgement: the Bloodmoon holds; Pact and Impale stop; Tide and Execution are scripted.
     { at: 0.33, decree: null, name: 'Judgement', specials: ['vharun_twin_cleave'] },
+  ],
+  // ── Movement III (docs/phase-5c.md): data rows; their scripts are in BOSS_SCRIPTS (W3). ──
+  the_seamstress: [
+    { at: 1, decree: null },
+    {
+      at: 0.5,
+      decree: {
+        name: 'Unpicking',
+        text: 'The Seamstress pulls your Thread loose. Ward the blow, then re-thread at once.',
+      },
+      answers: ['ward', 'thread'],
+      cooldownMult: 0.85,
+    },
+  ],
+  the_unweaver: [
+    { at: 1, decree: null },
+    // Steal Verse and Unravel: their decrees are the attacks' own. The Spindles stop.
+    { at: 0.66, decree: null, name: 'Steal Verse', specials: ['unweaver_shear'] },
+    {
+      at: 0.33,
+      decree: {
+        name: 'Mirror Weave',
+        text: 'Mirror Weave — the Unweaver Wards its champion as you Ward yours. Interrupt the Mirror Ward, and Focus the champion.',
+      },
+      answers: ['focus'],
+      specials: ['unweaver_shear'],
+    },
   ],
 };
 
@@ -210,6 +238,9 @@ export function updateBosses(world: World): void {
   }
 
   if (c.defId === VHARUN) vharunScript(world, boss);
+
+  // A new boss's script (docs/phase-5c.md): after every legacy branch and `m2` read above.
+  bossScript(c.defId)?.tick?.(world, boss);
 }
 
 /**
@@ -376,6 +407,8 @@ function enterPhase(world: World, boss: Entity, phase: number, def: PhaseDef): v
       });
     }
   }
+  // A new boss's script (docs/phase-5c.md): after the legacy branches and the `m2` reset.
+  bossScript(c.defId)?.enter?.(world, boss, phase);
 }
 
 /** One hymn circle fades and reappears elsewhere. */

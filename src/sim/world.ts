@@ -577,6 +577,27 @@ export interface SimInternal {
     /** Decrees announced so far this fight, by attack id (AttackDef.decreeLimit). */
     decrees?: Record<string, number>;
   };
+  /**
+   * Movement III boss scripts (docs/phase-5c.md): their cadences and state, holding only the
+   * keys a script uses. Created lazily (`ensureM3`) and deleted at the encounter's end; absent in
+   * every Movement I and II fight. Its follow-ups and decree counts live in `m2`.
+   */
+  m3?: {
+    nextSnipAt?: number;
+    nextUnravelAt?: number;
+    nextStealAt?: number;
+    nextUnpickAt?: number;
+    nextChampionAt?: number;
+    nextMirrorAt?: number;
+    /** The Hollow Champion while it stands. */
+    champion?: EntityId;
+    /** Severing: sim time each elite may cut again. */
+    severAt?: Record<EntityId, number>;
+  };
+  /** Guard Strand (docs/phase-5c.md): sim time it can turn a bolt or a cut aside again. */
+  guardStrandAt?: number;
+  /** Sacrificial Lamb: spent this fight. */
+  lambUsed?: true;
 }
 
 /** The sim's mutable world. Exposed to the outside only as the read-only WorldState. */

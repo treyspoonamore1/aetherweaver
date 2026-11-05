@@ -40,9 +40,19 @@ const ENEMY_ACCEL = 18;
 /**
  * Every affix the sim gives behaviour to (the content test checks each content affix is here):
  * Shielded's Discord barrier, Volatile's death burst, Hastened's speed, and Vampiric's Wound,
- * applied on hit from its content `onHit` (docs/phase-5a.md).
+ * applied on hit from its content `onHit` (docs/phase-5a.md); Movement III's Severing,
+ * Silencing, Mimicking and Doom-touched (docs/phase-5c.md).
  */
-export const KNOWN_AFFIXES: readonly string[] = ['shielded', 'volatile', 'hastened', 'vampiric'];
+export const KNOWN_AFFIXES: readonly string[] = [
+  'shielded',
+  'volatile',
+  'hastened',
+  'vampiric',
+  'severing',
+  'silencing',
+  'mimicking',
+  'doom_touched',
+];
 
 export interface SpawnOptions {
   elite?: boolean;

@@ -144,17 +144,22 @@ describe('Brann, the Bloodsworn (docs/phase-5b.md)', () => {
       ['brann_collar', 2],
       ['brann_war_song', 7],
     ]);
-    expect(CONTENT.motifs.slice(-2).map((m) => [m.id, m.rarity, m.values])).toEqual([
+    // His two, by id: Movement III's Guard Strand is appended after them (docs/phase-5c.md).
+    const brannMotifs = CONTENT.motifs.filter((m) => m.requires.hero === 'brann');
+    expect(brannMotifs.map((m) => [m.id, m.rarity, m.values])).toEqual([
       ['blood_tithe', 'rare', [50, 60, 70]],
       ['blood_and_silk', 'epic', [3]],
     ]);
-    expect(CONTENT.motifs.at(-1)!.requires).toEqual({
+    const harmony = CONTENT.motifs.find((m) => m.id === 'blood_and_silk')!;
+    expect(harmony.requires).toEqual({
       hero: 'brann',
       motifs: ['blood_tithe', 'taut_release'],
     });
-    expect(CONTENT.motifs.at(-1)!.tags).toContain('harmony');
-    expect(KNOWN_MOTIFS.slice(-2)).toEqual(['blood_tithe', 'blood_and_silk']);
-    expect(CONTENT.deeds.at(-1)).toMatchObject({
+    expect(harmony.tags).toContain('harmony');
+    const at = KNOWN_MOTIFS.indexOf('blood_tithe');
+    expect(KNOWN_MOTIFS.slice(at, at + 2)).toEqual(['blood_tithe', 'blood_and_silk']);
+    expect(KNOWN_MOTIFS.at(-1)).toBe('guard_strand');
+    expect(CONTENT.deeds.find((d) => d.id === 'in_the_red')).toMatchObject({
       id: 'in_the_red',
       points: 0,
       test: 'heroCeiling',
@@ -170,7 +175,9 @@ describe('Brann, the Bloodsworn (docs/phase-5b.md)', () => {
     expect(cell.choices[0]!.recruitedText).toBeDefined();
     expect(cell.choices[0]!.partyText).toBeDefined();
     const noDome = CONTENT.attacks.filter((a) => a.decreeNoDome !== undefined);
-    expect(noDome.map((a) => a.id).sort()).toEqual(['cantor_requiem', 'vharun_twin_cleave'].sort());
+    expect(noDome.map((a) => a.id).sort()).toEqual(
+      ['cantor_requiem', 'unweaver_shear', 'vharun_twin_cleave'].sort(),
+    );
     for (const a of noDome) {
       expect(a.decreeNoDome, a.id).not.toMatch(/dome|Kael/);
       expect(a.decree, a.id).toMatch(/dome/);
@@ -427,12 +434,14 @@ describe('Movement II: the Crimson Legion (docs/phase-5a.md)', () => {
       'unsung_choir',
       'broken_loom',
     ]);
-    expect(later(CONTENT.events).map((e) => e.id)).toEqual(['tithe_altar', 'bloodsworn_cell']);
-    expect(later(CONTENT.affixes).map((a) => a.id)).toEqual(['vampiric']);
+    const second = <T extends { movement?: number }>(list: readonly T[]) =>
+      list.filter((x) => x.movement === 2);
+    expect(second(CONTENT.events).map((e) => e.id)).toEqual(['tithe_altar', 'bloodsworn_cell']);
+    expect(second(CONTENT.affixes).map((a) => a.id)).toEqual(['vampiric']);
   });
 
   it('every Legion enemy is iron, of Movement II, and in a Movement II fight', () => {
-    const legion = later(CONTENT.enemies);
+    const legion = CONTENT.enemies.filter((e) => e.movement === 2);
     expect(legion.map((e) => e.id)).toEqual([
       'sanguine_hound',
       'hemomancer',
@@ -443,9 +452,9 @@ describe('Movement II: the Crimson Legion (docs/phase-5a.md)', () => {
       'vharun_crimson_warden',
     ]);
     const fought = new Set(
-      later(CONTENT.encounters).flatMap((e) =>
-        e.waves.flatMap((w) => w.spawns.map((s) => s.enemy)),
-      ),
+      CONTENT.encounters
+        .filter((e) => e.movement === 2)
+        .flatMap((e) => e.waves.flatMap((w) => w.spawns.map((s) => s.enemy))),
     );
     for (const e of legion) {
       expect(e.material, e.id).toBe('iron');
@@ -480,6 +489,269 @@ describe('Movement II: the Crimson Legion (docs/phase-5a.md)', () => {
     const sentinel = CONTENT.enemies.find((e) => e.id === 'crimson_sentinel')!;
     expect(sentinel.codex).toContain(`${sentinel.guard!.arcDeg}°`);
     for (const e of later(CONTENT.enemies)) expect(e.codex, e.id).not.toMatch(/[{}]|undefined/);
+  });
+});
+
+describe('Movement III: the Unstitched (docs/phase-5c.md)', () => {
+  const third = <T extends { movement?: number }>(list: readonly T[]) =>
+    list.filter((x) => x.movement === 3);
+
+  it('is Movement III: its six-stop ladder, one elite, pools, scale and rewards', () => {
+    const m = CONTENT.movements[2]!;
+    expect(CONTENT.movements).toHaveLength(3);
+    expect(m).toMatchObject({
+      id: 'unstitched',
+      biome: 'abyssal_rift',
+      opening: 'frayed_threshold',
+      lessons: ['maw_hollow', 'wraith_vigil', 'null_chapel'],
+      skirmishes: ['mirror_hall'],
+      elites: ['frayed_court'],
+      miniboss: 'the_seamstress',
+      boss: 'the_unweaver',
+      scale: { life: 1.75, damage: 1.05 },
+      rewards: { xp: 1.5, starlight: 1.5, aether: 1.5 },
+    });
+    expect(m.rows).toHaveLength(6);
+    expect(m.fixed.map((f) => f.row)).toEqual([0, 3, 5]);
+    expect('label' in m).toBe(false);
+  });
+
+  it('is appended after the Legion: its enemies, affixes, fights, events and Deeds', () => {
+    expect(third(CONTENT.enemies).map((e) => e.id)).toEqual([
+      'shears',
+      'void_maw',
+      'doubt_wraith',
+      'null_priest',
+      'mimic',
+      'spindle',
+      'stolen_verse',
+      'mirror_champion',
+      'the_seamstress',
+      'the_unweaver',
+    ]);
+    expect(third(CONTENT.affixes).map((a) => a.id)).toEqual([
+      'severing',
+      'silencing',
+      'mimicking',
+      'doom_touched',
+    ]);
+    expect(third(CONTENT.events).map((e) => e.id)).toEqual(['loose_thread', 'mirror_pool']);
+    for (const list of [
+      CONTENT.enemies,
+      CONTENT.affixes,
+      CONTENT.encounters,
+      CONTENT.events,
+    ] as readonly (readonly { movement?: number }[])[]) {
+      const at = list.findIndex((x) => x.movement === 3);
+      expect(list.slice(at).every((x) => x.movement === 3)).toBe(true);
+    }
+    expect(CONTENT.deeds.slice(-2).map((d) => d.id)).toEqual(['whole_cloth', 'needle_sure']);
+    expect(CONTENT.motifs.at(-1)).toMatchObject({
+      id: 'guard_strand',
+      category: 'silk',
+      rarity: 'rare',
+      values: [1.5, 1, 0.6],
+      requires: { movement: 3 },
+    });
+    expect(CONTENT.relics.slice(-3).map((r) => [r.id, r.rarity, r.movement])).toEqual([
+      ['sacrificial_lamb', 'rare', 3],
+      ['knotted_cord', 'rare', 3],
+      ['stillwater_bell', 'legendary', 3],
+    ]);
+  });
+
+  it('every Unstitched enemy is cloth, of Movement III, and fought or summoned there', () => {
+    const fought = new Set(
+      third(CONTENT.encounters).flatMap((e) =>
+        e.waves.flatMap((w) => w.spawns.map((s) => s.enemy)),
+      ),
+    );
+    for (const a of CONTENT.attacks) if (a.summon) fought.add(a.summon.enemy);
+    for (const e of third(CONTENT.enemies)) {
+      expect(e.material, e.id).toBe('cloth');
+      expect(fought, e.id).toContain(e.id);
+      expect(e.codex, e.id).not.toMatch(/[{}]|undefined|NaN/);
+    }
+    for (const e of third(CONTENT.encounters)) expect(e.par, e.id).toBeGreaterThan(0);
+    for (const a of CONTENT.arenas.filter((x) => x.biome === 'abyssal_rift'))
+      expect(
+        third(CONTENT.encounters).some((e) => e.arena === a.id),
+        a.id,
+      ).toBe(true);
+  });
+
+  it('the elite stop teaches all three combat affixes, one a wave', () => {
+    const court = CONTENT.encounters.find((e) => e.id === 'frayed_court')!;
+    expect(court.waves.map((w) => w.spawns.flatMap((s) => s.affixes))).toEqual([
+      ['severing'],
+      ['silencing'],
+      ['doom_touched'],
+    ]);
+  });
+
+  it('its lines are built from their numbers; Warden’s Key names Silencing elites', () => {
+    const doom = CONTENT.affixes.find((a) => a.id === 'doom_touched')!;
+    expect(doom.description).toContain(`At ${doom.onHit!.burst!.at} stacks`);
+    expect(doom.description).toContain('40% of their life');
+    const maw = CONTENT.enemies.find((e) => e.id === 'void_maw')!;
+    const inhale = CONTENT.attacks.find((a) => a.id === 'maw_inhale')!;
+    expect(maw.codex).toContain(`${inhale.zone!.pullSpeed} m/s`);
+    expect(maw.codex).toContain(`Every ${inhale.cooldown} s`);
+    const snip = CONTENT.attacks.find((a) => a.id === 'unweaver_snip')!;
+    expect(snip.decree).toContain(`${snip.cut!.lock} s`);
+    const key = CONTENT.relics.find((r) => r.id === 'wardens_key')!;
+    expect(key.text).toBe('Your heroes deal {mult}× damage to Mutes and Silencing elites.');
+    expect(key.values).toEqual({ mult: 3 });
+    expect(key.empowered).toEqual({ values: { mult: 4 } });
+  });
+
+  it('every status a Movement III payload applies has a look with its answer', () => {
+    for (const id of ['doubt', 'possessed', 'doom', 'doomed', 'voided', 'stitch', 'stitched'])
+      expect(STATUS[id as keyof typeof STATUS].answer, id).toBeTruthy();
+  });
+});
+
+describe('content lint: Movement III (docs/phase-5c.md)', () => {
+  const rejects = (edit: (c: typeof CONTENT) => void, message: RegExp) => {
+    const c = structuredClone(CONTENT);
+    edit(c);
+    const parsed = ContentSchema.safeParse(c);
+    expect(parsed.success).toBe(false);
+    expect(parsed.error!.issues.map((i) => i.message).join('\n')).toMatch(message);
+  };
+  const attack = (c: typeof CONTENT, id: string) => c.attacks.find((a) => a.id === id)!;
+  const enemy = (c: typeof CONTENT, id: string) => c.enemies.find((e) => e.id === id)!;
+  const affix = (c: typeof CONTENT, id: string) => c.affixes.find((a) => a.id === id)!;
+
+  it('a cut lists thread, and a cut beam rides the Thread', () => {
+    rejects(
+      (c) => void (attack(c, 'shears_dash').answers = ['focus', 'move']),
+      /"shears_dash": a cut lists thread/,
+    );
+    rejects(
+      (c) => void (attack(c, 'shears_dash').targeting = 'farthest'),
+      /a cut beam uses threadLine/,
+    );
+    rejects(
+      (c) => void (affix(c, 'severing').answers = ['focus']),
+      /affix "severing": a cut lists thread/,
+    );
+  });
+
+  it('a possession is interruptible, marks with an ailment, and lists chime and focus', () => {
+    rejects(
+      (c) => void (attack(c, 'wraith_doubt').interruptible = false),
+      /a possession is interruptible/,
+    );
+    rejects((c) => {
+      const a = attack(c, 'wraith_doubt');
+      a.markStatus = 'condemned';
+      a.answers = ['focus', 'ward'];
+    }, /a possession's mark is an ailment/);
+    rejects(
+      (c) => void (attack(c, 'wraith_doubt').answers = ['chime', 'ward']),
+      /a possession lists chime and focus/,
+    );
+  });
+
+  it('a stitch lists chime and reaches across its arena', () => {
+    rejects(
+      (c) => void (attack(c, 'seamstress_stitch').answers = ['ward', 'reel']),
+      /a stitch lists chime/,
+    );
+    rejects(
+      (c) => void (attack(c, 'seamstress_stitch').radius = 30),
+      /reaches across arena "loom_hollow"/,
+    );
+  });
+
+  it('a zone attack has its zone; a pull lists stack or reel and is slower than the Weaver', () => {
+    rejects(
+      (c) => void delete attack(c, 'maw_inhale').zone,
+      /"maw_inhale": a zone attack has its zone/,
+    );
+    rejects((c) => void (attack(c, 'maw_inhale').answers = ['move']), /a pull lists stack or reel/);
+    rejects(
+      (c) => void (attack(c, 'maw_inhale').zone!.pullSpeed = c.weaver.moveSpeed),
+      /a pull is slower than the Weaver/,
+    );
+  });
+
+  it('a null zone sits at the Weaver’s feet and lists move', () => {
+    rejects(
+      (c) => void delete attack(c, 'null_rune').centre,
+      /a null zone is centred on the Weaver/,
+    );
+    rejects((c) => void (attack(c, 'null_rune').answers = ['focus']), /a null zone lists move/);
+  });
+
+  it('a burst names a mark of its own that Ward and Chime answer, in no enemy’s specials', () => {
+    rejects(
+      (c) => void (affix(c, 'doom_touched').onHit!.burst!.attack = 'nothing_here'),
+      /references unknown "nothing_here"/,
+    );
+    rejects((c) => {
+      const a = attack(c, 'doom_burst');
+      a.kind = 'burst';
+      a.targeting = 'self';
+    }, /its burst "doom_burst" is a mark/);
+    rejects(
+      (c) => void (attack(c, 'doom_burst').answers = ['ward', 'focus']),
+      /lists ward and chime/,
+    );
+    rejects(
+      (c) => void (attack(c, 'doom_burst').markStatus = 'doom'),
+      /has an ailment mark status of its own/,
+    );
+    rejects((c) => void enemy(c, 'mimic').specials.push('doom_burst'), /is in no enemy's specials/);
+  });
+
+  it('a tether is summoned by a boss; a stationary enemy never moves to attack', () => {
+    rejects(
+      (c) => void (attack(c, 'unweaver_spindles').summon!.enemy = 'shears'),
+      /"spindle": a tether is summoned by a boss attack/,
+    );
+    rejects(
+      (c) => void enemy(c, 'void_maw').specials.push('shears_dash'),
+      /"void_maw": a stationary enemy has no move attack/,
+    );
+  });
+
+  it('affix specials resolve; Movement gates are real Movements', () => {
+    rejects(
+      (c) => void (affix(c, 'mimicking').specials = ['nothing_here']),
+      /affix "mimicking" references unknown "nothing_here"/,
+    );
+    rejects(
+      (c) => void (c.motifs.find((m) => m.id === 'guard_strand')!.requires.movement = 4),
+      /motif "guard_strand": Movement 4 is past the last/,
+    );
+    rejects(
+      (c) => void (c.relics.find((r) => r.id === 'knotted_cord')!.movement = 4),
+      /relic "knotted_cord": Movement 4 is past the last/,
+    );
+  });
+
+  it('the new targetings pick no hero; biomes and materials are one closed list each', () => {
+    rejects((c) => void (attack(c, 'wraith_doubt').targeting = 'threadLine'), /picks a hero/);
+    rejects((c) => void (attack(c, 'doom_burst').targeting = 'allyEnemy'), /picks a hero/);
+    rejects(
+      (c) => void ((c.arenas[0] as { biome?: string }).biome = 'nowhere'),
+      /Invalid (enum value|option)/,
+    );
+    rejects(
+      (c) => void ((enemy(c, 'shears') as { material?: string }).material = 'paper'),
+      /Invalid (enum value|option)/,
+    );
+  });
+
+  it('zone, mimic and script effects may deal no damage; a damage attack may not', () => {
+    for (const id of ['maw_inhale', 'null_rune', 'mimic_mirror', 'unweaver_unravel'])
+      expect(CONTENT.attacks.find((a) => a.id === id)!.damage, id).toBe(0);
+    rejects(
+      (c) => void (attack(c, 'mimic_mirror').effect = 'damage'),
+      /damaging attack "mimic_mirror" has no damage/,
+    );
   });
 });
 

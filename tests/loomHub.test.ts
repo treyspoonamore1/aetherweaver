@@ -193,9 +193,11 @@ describe('the Loom’s stations', () => {
         .map((h) => `${heroDef(h).name} ${h === 'kael' ? 2 : 1}`)
         .join(' · '),
     );
-    // Out of the Deeds in sight (docs/phase-5a.md): Movement II's two wait until it's met.
+    // Out of the Deeds in sight (docs/phase-5a.md): Movement II's two (and Movement III's two,
+    // docs/phase-5c.md) wait until it's met.
+    const later = ['crimson_crowned', 'pack_leader', 'whole_cloth', 'needle_sure'];
     expect(station(views, 'deeds').badge).toBe(
-      `3 of ${CONTENT.deeds.filter((d) => !['crimson_crowned', 'pack_leader'].includes(d.id) && !d.hero).length} earned`,
+      `3 of ${CONTENT.deeds.filter((d) => !later.includes(d.id) && !d.hero).length} earned`,
     );
     expect(station(views, 'dissonance').badge).toBe('Best won: 14');
     const n = shop.filter(

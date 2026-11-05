@@ -282,4 +282,15 @@ export const MOTIFS: ContentInput['motifs'] = [
     requires: { hero: 'brann', motifs: ['blood_tithe', 'taut_release'] },
     tags: ['harmony', 'thread', 'resonance'],
   },
+  // ── Movement III (docs/phase-5c.md), appended last: offered from the Abyssal Rift on. ──
+  {
+    id: 'guard_strand',
+    name: 'Guard Strand',
+    category: 'silk',
+    rarity: 'rare',
+    values: [1.5, 1, 0.6],
+    text: 'Enemy bolts that cross your Thread are destroyed, and a Shears, Severing or Snip cut is turned aside, once every {v} s.',
+    requires: { movement: 3 },
+    tags: ['thread'],
+  },
 ];

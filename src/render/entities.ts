@@ -251,6 +251,13 @@ const AILMENTS = new Set([
   'bleed',
   'latched',
   'wound',
+  // Movement III (docs/phase-5c.md): and these six.
+  'doubt',
+  'possessed',
+  'doom',
+  'doomed',
+  'stitch',
+  'stitched',
 ]);
 const GUARD = color(CRIMSON_HEX.guard);
 const PIN = color(CRIMSON_HEX.pin);

@@ -101,3 +101,84 @@ export function rotateToward(
   out.x = nx / m;
   out.z = nz / m;
 }
+
+/** Which side of the line a→b the point c lies on: > 0 left, < 0 right, 0 on it. */
+function orient(ax: number, az: number, bx: number, bz: number, cx: number, cz: number): number {
+  return (bx - ax) * (cz - az) - (bz - az) * (cx - ax);
+}
+
+/** c lies within the bounding box of a→b (used once c is known to be on the line). */
+function within(ax: number, az: number, bx: number, bz: number, cx: number, cz: number): boolean {
+  return (
+    cx >= (ax < bx ? ax : bx) &&
+    cx <= (ax < bx ? bx : ax) &&
+    cz >= (az < bz ? az : bz) &&
+    cz <= (az < bz ? bz : az)
+  );
+}
+
+/**
+ * Do the segments a→b and c→d meet (docs/phase-5c.md: a Shears line across the Thread)? Touching
+ * at an endpoint counts, and so does a collinear overlap. Only + − × and comparisons.
+ */
+export function segmentsCross(
+  ax: number,
+  az: number,
+  bx: number,
+  bz: number,
+  cx: number,
+  cz: number,
+  dx: number,
+  dz: number,
+): boolean {
+  const o1 = orient(ax, az, bx, bz, cx, cz);
+  const o2 = orient(ax, az, bx, bz, dx, dz);
+  const o3 = orient(cx, cz, dx, dz, ax, az);
+  const o4 = orient(cx, cz, dx, dz, bx, bz);
+  if (((o1 > 0 && o2 < 0) || (o1 < 0 && o2 > 0)) && ((o3 > 0 && o4 < 0) || (o3 < 0 && o4 > 0)))
+    return true;
+  return (
+    (o1 === 0 && within(ax, az, bx, bz, cx, cz)) ||
+    (o2 === 0 && within(ax, az, bx, bz, dx, dz)) ||
+    (o3 === 0 && within(cx, cz, dx, dz, ax, az)) ||
+    (o4 === 0 && within(cx, cz, dx, dz, bx, bz))
+  );
+}
+
+/** The squared distance from the point p to the segment a→b (the arithmetic of a line's test). */
+function pointSegmentDistSq(
+  px: number,
+  pz: number,
+  ax: number,
+  az: number,
+  bx: number,
+  bz: number,
+): number {
+  const lx = bx - ax;
+  const lz = bz - az;
+  const l2 = lx * lx + lz * lz;
+  let u = l2 > 0 ? ((px - ax) * lx + (pz - az) * lz) / l2 : 0;
+  u = u < 0 ? 0 : u > 1 ? 1 : u;
+  return distSq(px, pz, ax + lx * u, az + lz * u);
+}
+
+/** The squared distance between the segments a→b and c→d: 0 when they meet. */
+export function segmentDistSq(
+  ax: number,
+  az: number,
+  bx: number,
+  bz: number,
+  cx: number,
+  cz: number,
+  dx: number,
+  dz: number,
+): number {
+  if (segmentsCross(ax, az, bx, bz, cx, cz, dx, dz)) return 0;
+  const d1 = pointSegmentDistSq(ax, az, cx, cz, dx, dz);
+  const d2 = pointSegmentDistSq(bx, bz, cx, cz, dx, dz);
+  const d3 = pointSegmentDistSq(cx, cz, ax, az, bx, bz);
+  const d4 = pointSegmentDistSq(dx, dz, ax, az, bx, bz);
+  const m1 = d1 < d2 ? d1 : d2;
+  const m2 = d3 < d4 ? d3 : d4;
+  return m1 < m2 ? m1 : m2;
+}

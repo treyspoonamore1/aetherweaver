@@ -175,8 +175,8 @@ beforeEach(() => {
 });
 
 describe('the Deeds', () => {
-  it('twenty-three, ten of them giving a point, each text filled from its data', () => {
-    expect(CONTENT.deeds).toHaveLength(23);
+  it('twenty-five, ten of them giving a point, each text filled from its data', () => {
+    expect(CONTENT.deeds).toHaveLength(25);
     expect(CONTENT.deeds.filter((d) => d.points === 1)).toHaveLength(DEED_POINTS_MAX);
     for (const d of CONTENT.deeds) expect(deedText(d), d.id).not.toMatch(/[{}]/);
     expect(deedText(deed('unrung'))).toBe('Beat the Bellwarden with no hero going down.');
@@ -187,6 +187,9 @@ describe('the Deeds', () => {
       ['crimson_crowned', 0],
       ['pack_leader', 0],
       ['in_the_red', 0],
+      // Movement III's two (docs/phase-5c.md), after them.
+      ['whole_cloth', 0],
+      ['needle_sure', 0],
     ]);
     expect(deedText(deed('in_the_red'))).toBe(
       'Beat Vharun, the Crimson Warden, with Brann, never letting him above 40% life once he first falls to it.',
@@ -195,12 +198,15 @@ describe('the Deeds', () => {
       'Beat Vharun, the Crimson Warden, with no hero going down.',
     );
     expect(deedText(deed('pack_leader'))).toBe('Beat the Gorehound Matriarch with an S.');
+    expect(deedText(deed('whole_cloth'))).toBe('Beat the Unweaver, with no hero going down.');
+    expect(deedText(deed('needle_sure'))).toBe('Beat the Seamstress with an S.');
   });
 
   it('a hero’s Deed is in sight only with a roster that has the hero (docs/phase-5b.md)', () => {
     const all = CONTENT.enemies.map((e) => e.id);
     const plain = deedsInSight(all).map((d) => d.id);
-    expect(plain).toHaveLength(22);
+    // Every Deed but Brann's (Movement III's two badges count: docs/phase-5c.md).
+    expect(plain).toHaveLength(24);
     expect(plain).not.toContain('in_the_red');
     expect(deedsInSight(all, ['kael', 'lyra', 'vexis']).map((d) => d.id)).toEqual(plain);
     expect(deedsInSight(all, ['kael', 'lyra', 'vexis', 'brann']).map((d) => d.id)).toEqual(

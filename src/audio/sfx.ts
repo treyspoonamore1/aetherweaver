@@ -5002,6 +5002,9 @@ export class SfxEngine {
     if (state?.dissonance?.blindScore) return 'swell';
     // Phase 5a: 'lift them above the line' (Execution) is a heal's swell, not a Ward's brass.
     if (answers.includes('mend')) return 'swell';
+    // Phase 5c (W7 refines): an attack first answered by the Thread's own verbs, Retarget or
+    // Empower, is a swell too.
+    if (answers[0] === 'thread' || answers[0] === 'empower') return 'swell';
     return answers.includes('chime')
       ? 'glass'
       : answers.includes('ward') || answers.includes('dome')

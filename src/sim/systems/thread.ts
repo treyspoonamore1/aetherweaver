@@ -8,7 +8,8 @@ import { distSq, len } from '../core/dmath';
 import { addShield, heal, isActive, reviveHero, shieldOf, slotHero } from '../combat/health';
 import { relicFired } from '../combat/feedback';
 import { gainResonance } from '../combat/resonance';
-import type { Entity } from '../state';
+import type { ThreadCutCause } from '../events';
+import type { Entity, EntityId } from '../state';
 import { weaverOf, type World } from '../world';
 import { reject } from './techniques';
 
@@ -39,6 +40,26 @@ export function attachThread(world: World, slot: PartySlot): void {
     heal(world, hero, hero.health.maxHp * world.mods.relayHealPct, 'mend');
   }
   silverThimble(world, hero);
+}
+
+/**
+ * An enemy cuts the Thread (docs/phase-5c.md, Q1): a new path beside the range snap, which is
+ * untouched. It lets go of the hero, locks the Thread for `lock` × `mods.cutLockMult` seconds,
+ * reports `threadSnapped { cause, lock, by }` and fires Taut Release; Guard Strand may turn a
+ * Shears, Severing or Snip cut aside. Returns what happened: `cut`, `strand` (turned aside), or
+ * `none` (there was no Thread). (Inert in W0b: W1 writes the body.)
+ */
+export function cutThread(
+  world: World,
+  cause: ThreadCutCause,
+  lock: number,
+  by: EntityId | null,
+): 'cut' | 'strand' | 'none' {
+  void world;
+  void cause;
+  void lock;
+  void by;
+  return 'none';
 }
 
 /** Silver Thimble: the hero the Thread moves to is shielded (rate-limited). */

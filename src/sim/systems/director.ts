@@ -11,6 +11,7 @@ import type { Entity } from '../state';
 import type { World } from '../world';
 import { bossPhases } from './bosses';
 import { onPackArrived } from './heroes';
+import { encounterScript } from './bossScripts';
 import { spawnEnemy } from './enemies';
 
 const WARNING = 1.2;
@@ -273,6 +274,13 @@ function endEncounter(world: World, outcome: 'victory' | 'defeat'): void {
   // Movement II boss script state ends with the fight (absent in Movement I: no-ops).
   delete world.field.sanctuary;
   delete world.internal.m2;
+  // ...and Movement III's (docs/phase-5c.md): its zones, Unravel, a stolen verse and the scripts'
+  // state, then whatever a new boss's script made (absent in Movements I and II: no-ops).
+  delete world.field.zones;
+  delete world.field.unravel;
+  delete world.field.stolen;
+  delete world.internal.m3;
+  encounterScript(world)?.cleanup?.(world);
   world.events.push({ type: 'encounterEnded', tick: world.tick, outcome });
   if (outcome === 'defeat') setTimeScale(world, 0.3, 90, 'defeat');
 }

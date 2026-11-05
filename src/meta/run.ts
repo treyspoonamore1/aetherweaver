@@ -280,6 +280,7 @@ const INTERLUDE_HEAL = 0.5;
 const BIOME_PLACE: Readonly<Record<Biome, string>> = {
   reliquary: 'the Reliquary',
   crimson_spire: 'the Crimson Spire',
+  abyssal_rift: 'the Abyssal Rift',
 };
 
 /** What a run's final boss asks of it (the node's text, after the boss's name). */
@@ -1381,10 +1382,25 @@ function rollRarity(
   return entries[entries.length - 1]![0];
 }
 
+/**
+ * Is a Movement-gated relic or motif (docs/phase-5c.md) on offer yet: its Movement is no later
+ * than the one the map shows. Inside the pools, before any roll, so Movements I and II draw from
+ * exactly the pools they did. (W4 replaces this with the offer's own Movement.)
+ */
+function offered(gate: number | undefined, run: RunState): boolean {
+  return gate === undefined || gate <= mapMovement(run);
+}
+
 /** Relics of a rarity the run doesn't carry and isn't already being offered. */
 function relicPool(run: RunState, rarity: RelicRarity, taken: readonly string[]): string[] {
   return CONTENT.relics
-    .filter((r) => r.rarity === rarity && !hasRelic(run, r.id) && !taken.includes(r.id))
+    .filter(
+      (r) =>
+        r.rarity === rarity &&
+        !hasRelic(run, r.id) &&
+        !taken.includes(r.id) &&
+        offered(r.movement, run),
+    )
     .map((r) => r.id);
 }
 
@@ -1709,6 +1725,7 @@ function eligible(run: RunState, def: MotifDef): DraftOption | null {
   if (def.requires.aura && !run.chords.some((c) => c.auras.includes(def.requires.aura!)))
     return null;
   if (def.requires.hero && !run.party.some((h) => h.heroId === def.requires.hero)) return null;
+  if (!offered(def.requires.movement, run)) return null;
   const owned = run.motifs.find((m) => m.id === def.id);
   if (owned) {
     if (owned.level >= def.values.length) return null;

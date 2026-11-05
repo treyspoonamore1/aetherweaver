@@ -147,6 +147,69 @@ export const STATUS: Record<StatusId, StatusLook> = {
     color: '#fde68a',
     help: 'Its guard is down: every hit lands in full.',
   },
+  // Movement III (docs/phase-5c.md): stubs, each with its answer (W8 refines them).
+  doubt: {
+    icon: 'eye',
+    label: 'Doubted',
+    color: '#c4b5fd',
+    help: 'A Doubt Wraith is possessing them.',
+    answer: 'Chime cancels it; Focus the Wraith.',
+  },
+  possessed: {
+    icon: 'eye',
+    label: 'Possessed',
+    color: '#c4b5fd',
+    help: 'They strike their nearest ally.',
+    answer: 'Chime frees them; Focus the Wraith before its cast ends.',
+  },
+  doom: {
+    icon: 'skull',
+    label: 'Doom',
+    color: '#c4b5fd',
+    help: 'Every hit adds a stack; at the last it ignites.',
+    answer: 'Chime before it ignites, or Ward the blast.',
+  },
+  doomed: {
+    icon: 'skull',
+    label: 'Doomed',
+    color: '#fda4af',
+    help: 'Ignited: a blast is coming.',
+    answer: 'Chime, or Ward it.',
+  },
+  voided: {
+    icon: 'moon',
+    label: 'Voided',
+    color: '#fdba74',
+    help: 'Dragged toward a Void Maw, and hurt every second.',
+    answer: 'Rally or Reel them out.',
+  },
+  stitch: {
+    icon: 'link',
+    label: 'Stitch',
+    color: '#c4b5fd',
+    help: 'Sewn to another hero: when it lands, both are rooted.',
+    answer: 'Chime breaks it.',
+  },
+  stitched: {
+    icon: 'pin',
+    label: 'Stitched',
+    color: '#c4b5fd',
+    help: 'Sewn to the floor.',
+    answer: 'Chime frees both; a Reel frees one.',
+  },
+  unravelled: {
+    icon: 'thread',
+    label: 'Unravelled',
+    color: '#fda4af',
+    help: 'Your Mend wounds them.',
+    answer: 'Switch to Empower.',
+  },
+  emboldened: {
+    icon: 'empower',
+    label: 'Emboldened',
+    color: '#cbd5e1',
+    help: 'It deals more damage.',
+  },
 };
 
 /**
@@ -183,6 +246,9 @@ export const ANSWER: Record<AnswerTag, AnswerLook> = {
   move: { icon: 'move', label: 'Move', action: null },
   dome: { icon: 'dome', label: 'Dome', action: null },
   mend: { icon: 'mend', label: 'Mend', action: null },
+  // Movement III (docs/phase-5c.md): the Thread's own verbs (the hero keys; the Thread mode).
+  thread: { icon: 'thread', label: 'Retarget', action: null },
+  empower: { icon: 'empower', label: 'Empower', action: 'threadMode' },
 };
 
 export const FOLLOW_LABEL = { follow: 'Following', hold: 'Holding', scatter: 'Scattered' } as const;

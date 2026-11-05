@@ -6,6 +6,7 @@
  */
 import type { EntityId } from '../state';
 import type { World } from '../world';
+import { encounterScript } from './bossScripts';
 
 /** Is `id` the Weaver or one of her heroes (whose clocks keep running)? */
 export function ofParty(world: World, id: EntityId | null): boolean {
@@ -33,6 +34,9 @@ export function holdEnemyTime(world: World, dt: number): void {
       // A broken guard stays broken as long as it would have (Movement II's guarded enemies).
       if (c.guard && c.guard.brokenUntil > world.time) c.guard.brokenUntil += dt;
       if (c.foreseen) c.foreseen.at += dt;
+      // Movement III (docs/phase-5c.md): an Emboldened enemy stays so as long as it would have.
+      if (c.emboldenedUntil !== undefined && c.emboldenedUntil > world.time)
+        c.emboldenedUntil += dt;
       if (e.health) for (const s of e.health.shields) s.expiresAt += dt;
     } else if (e.health) {
       // Perfect timing is in the enemies' time: a Ward's moment waits with them, so a Ward cast
@@ -62,5 +66,13 @@ export function holdEnemyTime(world: World, dt: number): void {
     m2.nextExecutionAt += dt;
   }
   if (world.field.sanctuary) world.field.sanctuary.reformAt += dt;
+  // Movement III (docs/phase-5c.md): the zones, Unravel's window and a stolen verse wait too
+  // (under Stasis, Unravel's reversed Mend is suspended: its window doesn't run out meanwhile),
+  // and so does every clock a new boss's script keeps.
+  const field = world.field;
+  if (field.zones) for (const z of field.zones) z.until += dt;
+  if (field.unravel) field.unravel.until += dt;
+  if (field.stolen) field.stolen.until += dt;
+  encounterScript(world)?.stasis?.(world, dt);
   if (world.encounter.enrageAt !== null) world.encounter.enrageAt += dt;
 }

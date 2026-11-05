@@ -29,7 +29,11 @@ export type AnswerTag =
   | 'move'
   | 'dome'
   /** Lift the hero above a threshold (Execution, docs/phase-5a.md). */
-  | 'mend';
+  | 'mend'
+  /** Retarget: move the Thread off the line, or onto a hero on your side (docs/phase-5c.md). */
+  | 'thread'
+  /** Switch the Thread to Empower (Unravel). */
+  | 'empower';
 
 export type TelegraphShape =
   | { kind: 'circle'; x: number; z: number; r: number }
@@ -192,7 +196,7 @@ export interface TelegraphStarted extends At {
   pctMaxHp: number;
   answers: AnswerTag[];
   /** What the attack does when it resolves. */
-  effect: 'damage' | 'healAllies' | 'summon' | 'suppress' | 'script';
+  effect: 'damage' | 'healAllies' | 'summon' | 'suppress' | 'script' | 'zone' | 'mimic';
 }
 /** One per affected hero (or one with `target: null` if nobody was in it). */
 export interface TelegraphResolved extends At {
@@ -312,6 +316,13 @@ export interface ThreadTaut extends At {
 export interface ThreadSnapped extends At {
   type: 'threadSnapped';
   target: EntityId;
+  // ── An enemy cut (docs/phase-5c.md). Absent on the range snap and the Weaver-down snap. ──
+  /** What cut it: the Shears, a Severing elite, the Snip or the Unpick. */
+  cause?: ThreadCutCause;
+  /** Seconds the Thread is locked for. */
+  lock?: number;
+  /** The enemy that cut it. */
+  by?: EntityId;
 }
 export interface ReviveStarted extends At {
   type: 'reviveStarted';
@@ -699,6 +710,104 @@ export interface LifeSpent extends At {
   amount: number;
 }
 
+// ── Movement III (docs/phase-5c.md) ─────────────────────────────────────────────────
+
+/** What cut the Thread: the Shears, a Severing elite, the Snip or the Unpick. */
+export type ThreadCutCause = 'shears' | 'severing' | 'snip' | 'unpick';
+
+/**
+ * A cut telegraph's verdict, one per telegraph, after its victims: `cut`, the Thread was cut;
+ * `held`, it missed the Thread; `strand`, Guard Strand turned it aside; `none`, there was no
+ * Thread when it began.
+ */
+export interface CutResolved extends At {
+  type: 'cutResolved';
+  telegraph: number;
+  cause: ThreadCutCause;
+  result: 'cut' | 'held' | 'strand' | 'none';
+}
+/** A timed zone was laid (`field.zones`). */
+export interface ZoneStarted extends At {
+  type: 'zoneStarted';
+  zone: number;
+  kind: 'pull' | 'null';
+  owner: EntityId;
+  x: number;
+  z: number;
+  r: number;
+  until: number;
+}
+/** A timed zone ended: it ran out, or its owner died. */
+export interface ZoneEnded extends At {
+  type: 'zoneEnded';
+  zone: number;
+  kind: 'pull' | 'null';
+}
+/** A hero was possessed (the Doubt Wraith), or freed of it. */
+export interface PossessedEvent extends At {
+  type: 'possessed';
+  hero: EntityId;
+  source: EntityId | null;
+}
+export interface FreedEvent extends At {
+  type: 'freed';
+  hero: EntityId;
+  /** Of what. */
+  status: StatusId;
+  /** How: a Chime, a Reel, or it ran out. */
+  by: 'chime' | 'reel' | 'expired';
+}
+/** Guard Strand destroyed an enemy bolt crossing the Thread. */
+export interface StrandBlocked extends At {
+  type: 'strandBlocked';
+  source: EntityId | null;
+  x: number;
+  z: number;
+}
+/** A Mimic's copy no longer matched what the Weaver casts: nothing lands. */
+export interface MirrorCracked extends At {
+  type: 'mirrorCracked';
+  enemy: EntityId;
+  copy: 'empower' | 'ward' | 'chime';
+}
+/** Steal Verse muted an aura (`field.stolen`), and gave it back. */
+export interface VerseStolen extends At {
+  type: 'verseStolen';
+  aura: string;
+  add: EntityId;
+  until: number;
+}
+export interface VerseReturned extends At {
+  type: 'verseReturned';
+  aura: string;
+  /** The Verse fell, its time ran out, or phase 3 began. */
+  reason: 'killed' | 'expired' | 'phase';
+}
+/** Unravel opened (`field.unravel`) or closed. */
+export interface UnravelledEvent extends At {
+  type: 'unravelled';
+  active: boolean;
+  until: number;
+}
+/** The Unweaver's Mirror Ward landed on its champion. */
+export interface MirrorWardEvent extends At {
+  type: 'mirrorWard';
+  enemy: EntityId;
+  amount: number;
+}
+/** A hero's hit on a tethered boss was cut down by its Spindles (rate-limited). */
+export interface Spindled extends At {
+  type: 'spindled';
+  enemy: EntityId;
+  source: EntityId;
+}
+/** A boss's tethered adds changed (`enemy.tethered`). */
+export interface Tethered extends At {
+  type: 'tethered';
+  enemy: EntityId;
+  count: number;
+}
+
 export type SimEvent =
   | EntitySpawned
   | EntityDespawned
@@ -779,7 +888,20 @@ export type SimEvent =
   | GuardBrokenEvent
   | BloodlustEvent
   | TitheRefund
-  | LifeSpent;
+  | LifeSpent
+  | CutResolved
+  | ZoneStarted
+  | ZoneEnded
+  | PossessedEvent
+  | FreedEvent
+  | StrandBlocked
+  | MirrorCracked
+  | VerseStolen
+  | VerseReturned
+  | UnravelledEvent
+  | MirrorWardEvent
+  | Spindled
+  | Tethered;
 
 export type SimEventType = SimEvent['type'];
 export type SimEventOf<T extends SimEventType> = Extract<SimEvent, { type: T }>;

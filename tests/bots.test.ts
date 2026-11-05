@@ -261,7 +261,12 @@ describe('the Skilled bot reads Movement II (staged)', () => {
   });
 
   it('reads only Twin Cleave as a blow with a second on its heels, not the Crimson Tide', () => {
+    // Among Movements I and II (Movement III's chains are W5's, docs/phase-5c.md).
+    const early = new Set(
+      CONTENT.enemies.filter((e) => (e.movement ?? 1) <= 2).flatMap((e) => e.specials),
+    );
     const followed = CONTENT.attacks
+      .filter((a) => early.has(a.id))
       .filter((a) => hasFollowUp({ attackId: a.id } as Parameters<typeof hasFollowUp>[0]))
       .map((a) => a.id);
     expect(followed).toEqual(['vharun_twin_cleave']);

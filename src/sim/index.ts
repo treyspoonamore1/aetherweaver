@@ -45,6 +45,24 @@ export {
   isAilment,
 } from './combat/health';
 export { bossPhaseTable } from './systems/bosses';
+// Movement III's shared rules (docs/phase-5c.md): the sim, bots, render and UI read the same ones.
+export {
+  cutWouldLand,
+  enemyDamageMult,
+  fightMovement,
+  isRooted,
+  mimicBeneficiary,
+  mimicCopyOf,
+  possessionVictim,
+  relicAwake,
+  specialsOf,
+  suppressRadiusOf,
+  threadSegment,
+  weaverSilenced,
+  type MimicCopy,
+  type Segment,
+} from './rules3';
+export { segmentDistSq, segmentsCross } from './core/dmath';
 export { rewindCanRevive } from './systems/rewind';
 export { underMuteDome } from './systems/field';
 export {

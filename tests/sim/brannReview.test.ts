@@ -53,7 +53,11 @@ describe('Brann obeys Scatter', () => {
     expect(brann.hero!.follow).toBe('scatter');
     for (const id of ['kael', 'lyra']) expect(gap(of(id), brann), id).toBeGreaterThan(6);
     // The widest pair link in the content is narrower than the gap he keeps.
-    const links = CONTENT.attacks.filter((a) => a.targeting === 'pair');
+    // Every link Scatter answers (the Seamstress's Stitch reaches across the arena on purpose:
+    // Chime answers it, docs/phase-5c.md).
+    const links = CONTENT.attacks.filter(
+      (a) => a.targeting === 'pair' && a.answers.includes('scatter'),
+    );
     expect(links.length).toBeGreaterThan(0);
     for (const a of links) expect(a.radius ?? 0, a.id).toBeLessThan(BERSERKER_SCATTER_GAP);
   });

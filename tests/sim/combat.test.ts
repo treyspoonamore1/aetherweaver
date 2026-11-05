@@ -323,6 +323,13 @@ describe('motifs', () => {
 describe('content coverage', () => {
   it('every special is used by some enemy, and every enemy appears somewhere', () => {
     const used = new Set(CONTENT.enemies.flatMap((e) => e.specials));
+    // A payload's burst (Doom's ignition, docs/phase-5c.md) is started by the payload alone.
+    const payloads = [
+      ...CONTENT.attacks.flatMap((a) => [a.status, a.zone?.status]),
+      ...CONTENT.enemies.map((e) => e.basic.onHit),
+      ...CONTENT.affixes.map((f) => f.onHit),
+    ];
+    for (const p of payloads) if (p?.burst) used.add(p.burst.attack);
     for (const a of CONTENT.attacks) expect(used, a.id).toContain(a.id);
     const appearing = new Set<string>();
     for (const enc of CONTENT.encounters)
