@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { movementEncounters, playEncounter } from '../tools/harness-core';
 import { ARRIVAL3_KIT, ARRIVAL_KIT, kitConfig } from '../tools/kits';
 import { M1_ENCOUNTERS } from '../tools/m1-baseline';
+import { BOSS_TABLES, decreeFight } from '../tools/decrees';
 import { CONTENT } from '../src/content';
 import * as Run from '../src/meta/run';
 import { makeBot, SkilledBot, type BotKind } from '../src/bots';
@@ -1407,6 +1408,79 @@ describe('the Skilled bot reads Movement III (staged)', () => {
     expect(out).toContainEqual({ t: 'directive', kind: 'rally' });
   });
 
+  it('Holds for a Bloodlusting Brann in an Inhale when no Reel takes him, and lets go after', () => {
+    /** Party A, Brann (slot 2, at -6, 0) Bloodlusting, an Inhale's tell over him alone. */
+    const staged = (config: Partial<SimConfig> = {}) => {
+      const sim = rift({ thread: null, config: { party: [...PARTY_A], ...config } });
+      const w = worldOf(sim);
+      const brann = w.entities.get(w.party[2]!)!;
+      brann.health!.hp = brann.health!.maxHp * 0.3;
+      expect(bloodlusting(CONTENT, brann)).toBe(true);
+      w.telegraphs.push({
+        id: 3003,
+        owner: w.party[0]!,
+        target: null,
+        attackId: 'maw_inhale',
+        name: 'Inhale',
+        kind: 'burst',
+        shape: { kind: 'circle', x: -10, z: 3, r: 8 },
+        start: w.time,
+        impact: w.time + 1.4,
+        perfectFrom: w.time + 1.05,
+        damage: 0,
+        pctMaxHp: 0,
+        effect: 'zone',
+        answers: ['stack', 'reel', 'move'],
+        severity: 'normal',
+      });
+      return sim;
+    };
+    const directives = (out: readonly Command[]) =>
+      out.filter((c) => c.t === 'directive').map((c) => (c.t === 'directive' ? c.kind : null));
+    // A plain Reel, ready and in reach, takes him out of the pull: no Hold.
+    expect(directives(makeBot('skilled', 1).decide(staged().state))).toEqual([]);
+    // With Swap (no answer to the Maw) the party Holds, and he obeys it, lusting.
+    const sim = staged({ techniques: { reel: 'swap' } });
+    const bot = makeBot('skilled', 1);
+    const out = bot.decide(sim.state);
+    expect(directives(out)).toEqual(['hold']);
+    // The rule can be left off (tools/verbs.ts).
+    const off = new SkilledBot(1, {
+      every: 4,
+      attention: 1,
+      callReaction: 0.4,
+      skip: new Set(['mawHold']),
+    });
+    expect(directives(off.decide(staged({ techniques: { reel: 'swap' } }).state))).toEqual([]);
+    stepFor(sim, 4, out);
+    expect(sim.state.directive).toBe('hold');
+    const w = worldOf(sim);
+    expect(w.entities.get(w.party[2]!)!.hero!.follow).toBe('hold');
+    // Still in the tell: the Hold stands.
+    expect(directives(bot.decide(sim.state))).toEqual([]);
+    // The Inhale gone (no tell, no pull): a Rally lets go of it.
+    w.telegraphs = w.telegraphs.filter((t) => t.id !== 3003);
+    stepFor(sim, 4);
+    expect(directives(bot.decide(sim.state))).toEqual(['rally']);
+  });
+
+  it('lets go of its Brann Hold while the Weaver is down', () => {
+    const sim = rift({
+      thread: null,
+      config: { party: [...PARTY_A], techniques: { reel: 'swap' } },
+    });
+    const w = worldOf(sim);
+    const brann = w.entities.get(w.party[2]!)!;
+    brann.health!.hp = brann.health!.maxHp * 0.3;
+    zone(sim, 'pull', -10, 3, 8);
+    const bot = makeBot('skilled', 1);
+    const out = bot.decide(sim.state);
+    expect(out).toContainEqual({ t: 'directive', kind: 'hold' });
+    stepFor(sim, 4, out);
+    w.entities.get(w.weaverId)!.health!.downed = true;
+    expect(bot.decide(sim.state)).toEqual([{ t: 'directive', kind: 'rally' }]);
+  });
+
   it('Reels a hurt hero out of an Inhale’s pull, but never by Swap', () => {
     const reels = (swap: boolean) => {
       const sim = rift({ hp: 0.5, thread: null });
@@ -1713,6 +1787,23 @@ describe('the Novice bot in Movement III', () => {
 });
 
 describe('Movement III smoke guards (ARRIVAL3_KIT)', () => {
+  it('in play: each Unweaver Decree is answered ≥ 80% over 12 seeds (tools/decrees.ts)', () => {
+    const table = BOSS_TABLES.the_unweaver!;
+    const answered: Record<string, number> = {};
+    const occurrences: Record<string, number> = {};
+    for (let i = 0; i < 12; i++) {
+      const f = decreeFight('the_unweaver', 1000 + i * 7919, 'skilled');
+      for (const d of table.decrees) {
+        answered[d] = (answered[d] ?? 0) + f.answered[d]!;
+        occurrences[d] = (occurrences[d] ?? 0) + f.occurrences[d]!;
+      }
+    }
+    for (const d of table.decrees) {
+      expect(occurrences[d], d).toBeGreaterThan(0);
+      expect(answered[d]! / occurrences[d]!, d).toBeGreaterThanOrEqual(0.8);
+    }
+  }, 120_000);
+
   it('the Skilled bot clears the Frayed Threshold', () => {
     for (const seed of [1000, 8919]) {
       const run = playEncounter({ seed, encounter: 'frayed_threshold', ...KIT3 }, 'skilled');

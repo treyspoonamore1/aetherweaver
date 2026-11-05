@@ -25,7 +25,8 @@
  * Movement III (docs/phase-5c.md, "Bots and harness"): it retargets (or steps across) before a
  * Shears dash or a Snip cuts the Thread, keeps the Thread off a hero beside a Severing elite,
  * steps or Glides out of a Null rune (casting nothing the rune refuses), Rallies in an Inhale's
- * tell and Reels (or Rewinds) a hero out of the pull, never by Swap; Chimes a possession, a
+ * tell and Reels (or Rewinds) a hero out of the pull, never by Swap, and Holds for a Bloodlusting
+ * Brann no Reel will take out of it; Chimes a possession, a
  * Doubt mark, a Stitch and Doom at 4 in that order after a clutch Dirge; Wards a possession's
  * mark; cracks a Mimic's copy; never Empowers a possessed hero; Empowers through Unravel; and
  * Focuses Spindles, the Stolen Verse, the champion, a Null Priest and a Silencing elite after
@@ -129,6 +130,8 @@ export const M3_RULES = [
   'rune',
   /** Rally in an Inhale's tell, Reel (or Rewind) a hero out of the pull, stand outside it. */
   'maw',
+  /** Hold for a Bloodlusting Brann in an Inhale (he won't Rally) when no Reel can take him. */
+  'mawHold',
   /** The Chime order: a possessed hero, a doubt mark, a Stitch, Doom at 4+ or a doomed mark. */
   'chimePossessed',
   'chimeDoubt',
@@ -207,6 +210,9 @@ export class SkilledBot implements Bot {
   private lastRally = -100;
   private lastFocus = -100;
   private kaelAwaySince: number | null = null;
+  /** The Hold this bot called for a Bloodlusting Brann in an Inhale (Movement III only). */
+  private mawHeld = false;
+  private mawHeldAt = 0;
 
   constructor(
     seed: number,
@@ -223,7 +229,9 @@ export class SkilledBot implements Bot {
     const w = weaverOf(state);
     const wc = w.weaver!;
     if (state.encounter.status !== 'fighting' && state.encounter.status !== 'intro') return out;
-    if (w.health!.downed) return out;
+    // A Hold this bot called for Brann in an Inhale is let go even while she is down: left in
+    // place, it would pin the party for the rest of the fight (false before Movement III).
+    if (w.health!.downed) return this.mawHeld ? this.letGoOfHold(state.time) : out;
 
     const party = partyOf(state);
     const all = partyOf(state, true);
@@ -452,7 +460,9 @@ export class SkilledBot implements Bot {
       // Movement III: a hero out of an Inhale's pull, to the Weaver outside it (never by Swap,
       // which would put her where they stood). Null with no pull on the field.
       const outOfMaw =
-        !acted && this.on('maw') ? mawReel(state, party, w, tech.reel.range, blood) : null;
+        !acted && this.on('maw')
+          ? mawReel(state, party, w, tech.reel.range, blood, this.mawHeld)
+          : null;
       if (outOfMaw) {
         out.push({ t: 'tech', id: 'reel', slot: outOfMaw.slot });
         acted = true;
@@ -698,7 +708,8 @@ export class SkilledBot implements Bot {
       }
     } else if (!link && !ring && now - this.lastRally > gap(2) && this.on('maw')) {
       // An Inhale in its tell (Movement III): from outside it, Rally the 2+ heroes in it to her.
-      // (A Bloodlusting Brann won't come: his Reel waits for him, and the Rally its 8 s.)
+      // (A Bloodlusting Brann won't come: his Reel waits for him, or the Hold (`mawHold`) when
+      // no Reel will take him, and the Rally its 8 s.)
       const tells = inhaleTell(state);
       if (
         tells.length > 0 &&
@@ -709,6 +720,9 @@ export class SkilledBot implements Bot {
         this.lastRally = now;
       }
     }
+
+    // Movement III: Hold for a Bloodlusting Brann in an Inhale, and let go of it after.
+    if (this.on('mawHold')) this.mawHold(state, w, blood, now, out);
 
     // ── Focus interruptible casters / Mutes; rally a wandering tank. ──
     if (now - this.lastFocus > 4) {
@@ -759,6 +773,60 @@ export class SkilledBot implements Bot {
 
   private notice(): boolean {
     return this.opts.attention >= 1 || this.rng.chance(this.opts.attention);
+  }
+
+  /**
+   * Void Maw (docs/phase-5c.md, Skilled table): 'Hold for a bloodlusting Brann'. Bloodlusting,
+   * Brann refuses the Rally but obeys Hold (docs/phase-5b.md), and a held hero walks back to
+   * where he was told to stand against the pull's 2.4 m/s. So when he stands in an Inhale (in
+   * its tell or laid) and no Reel will take him out of it (Swap, the Chronomancer's Rewind, the
+   * Reel not ready by the pull, out of reach, or the Weaver silenced), the party Holds, unless a
+   * Rally is under way for the others, the Weaver stands in it herself, he is already within
+   * `MAW_HOLD_FROM` of its centre, or a mobile enemy is within `MAW_HOLD_PACK` of him (held, he
+   * would stay in that pack: measured over 24 seeds of maw_hollow with parties A and B, plain,
+   * Swap and Chronomancer, the pack gate makes the rule neutral where without it party A lost
+   * 2-5 more fights). The Hold is let go (a Rally, the only way back to follow) once no Inhale
+   * is in its tell or laid, after `MAW_HOLD_MAX` s at most, or as soon as the Weaver is down.
+   * Before Movement III, and without a Bloodlusting Brann, it returns at once and pushes nothing.
+   */
+  private mawHold(
+    state: WorldState,
+    w: ReadonlyEntity,
+    blood: BloodView | null,
+    now: number,
+    out: Command[],
+  ): void {
+    if (!this.mawHeld && !blood?.lusting) return;
+    if (out.some((c) => c.t === 'directive')) return;
+    const tells = inhaleTell(state);
+    const pulls: Circle[] = hazardZones(state).filter((z) => z.kind === 'pull');
+    if (this.mawHeld) {
+      if (state.directive !== 'hold') this.mawHeld = false;
+      else if ((tells.length === 0 && pulls.length === 0) || now - this.mawHeldAt > MAW_HOLD_MAX)
+        out.push(...this.letGoOfHold(now));
+      return;
+    }
+    const circles: Circle[] = [...tells, ...pulls];
+    if (circles.length === 0 || state.directive === 'hold' || now - this.lastRally < 3) return;
+    // From inside it, the Weaver's own way out comes first (she never stands in it).
+    if (inCircles(circles, w)) return;
+    const brann = blood!.hero;
+    if (brann.e.hero!.reel) return;
+    // Only where the drag would take him somewhere: not already at the Maw's mouth.
+    if (!circles.some((c) => dist(c, brann.e) <= c.r && dist(c, brann.e) > MAW_HOLD_FROM)) return;
+    if (mawReelReady(state, w, brann, tells, pulls, now)) return;
+    // Nor with a pack on him: held, he'd stay in it (measured: the drag out of it is no worse).
+    if (enemiesOf(state).some((e) => !stationary(e) && dist(e, brann.e) < MAW_HOLD_PACK)) return;
+    out.push({ t: 'directive', kind: 'hold' });
+    this.mawHeld = true;
+    this.mawHeldAt = now;
+  }
+
+  /** Lets go of the Hold `mawHold` called: a Rally, the only way back to follow. */
+  private letGoOfHold(now: number): Command[] {
+    this.mawHeld = false;
+    this.lastRally = now;
+    return [{ t: 'directive', kind: 'rally' }];
   }
 
   /** The circles the Weaver keeps out of (Movement III's runes and Inhales); empty before it. */
@@ -1157,13 +1225,23 @@ function inMaw(state: WorldState, p: { x: number; z: number }): boolean {
   return inPullZone(state, p) || inCircles(inhaleTell(state), p);
 }
 
+/**
+ * `mawHold`: Hold only for a Brann further than this from the Inhale's centre (nearer, the drag
+ * has nowhere to take him), and never for longer than the tell and the pull (1.4 + 4 s).
+ */
+const MAW_HOLD_FROM = 4;
+const MAW_HOLD_MAX = 6;
+/** `mawHold`: no Hold with a mobile enemy this near Brann (a tuning lever, tools/verbs.ts). */
+const MAW_HOLD_PACK = 4;
+
 /** Reel a hero out of an Inhale's pull only below this effective life (the melee stay put). */
 const MAW_REEL_BELOW = 0.75;
 
 /**
  * A hero to Reel out of an Inhale's pull to the Weaver standing outside it: a Bloodlusting
  * Brann (he won't answer a Rally) first, else the most hurt below `MAW_REEL_BELOW`. Never with
- * Swap, which would put her where they stood. Null with no pull on the field.
+ * Swap, which would put her where they stood, nor a Brann held for it (`brannHeld`). Null
+ * with no pull on the field.
  */
 function mawReel(
   state: WorldState,
@@ -1171,6 +1249,7 @@ function mawReel(
   w: ReadonlyEntity,
   range: number,
   blood: BloodView | null,
+  brannHeld = false,
 ): HeroView | null {
   const pulls: Circle[] = hazardZones(state).filter((z) => z.kind === 'pull');
   if (pulls.length === 0 || w.weaver!.variants.reel === 'swap' || inCircles(pulls, w)) return null;
@@ -1180,7 +1259,9 @@ function mawReel(
       h.e.hero!.action !== 'dodging' &&
       statusRemaining(h.e, 'anchored') === Infinity &&
       dist(h.e, w) <= range - 0.3 &&
-      inCircles(pulls, h.e),
+      inCircles(pulls, h.e) &&
+      // A Brann held for this Inhale (`mawHold`) stays: Reeled, he'd walk back to his spot.
+      !(brannHeld && h.slot === blood?.hero.slot),
   );
   if (blood?.lusting) {
     const brann = inside.find((h) => h.slot === blood.hero.slot);
@@ -1194,6 +1275,28 @@ function mawReel(
     )
       best = h;
   return best;
+}
+
+/**
+ * A plain Reel (not Swap, not the Chronomancer's Rewind) will take `h` out of an Inhale: the
+ * Weaver stands outside it, unsilenced, with `h` in reach, and the Reel is ready by the time
+ * the pull is laid (at once, if it is laid already).
+ */
+function mawReelReady(
+  state: WorldState,
+  w: ReadonlyEntity,
+  h: HeroView,
+  tells: readonly (Circle & { impact: number })[],
+  pulls: readonly Circle[],
+  now: number,
+): boolean {
+  const wc = w.weaver!;
+  if (wc.variants.reel === 'swap' || state.calling?.rewind) return false;
+  if (weaverSilenced(state) || !affords(state, 'reel')) return false;
+  if (inCircles(tells, w) || inCircles(pulls, w)) return false;
+  if (dist(h.e, w) > CONTENT.techniques.reel.range - 0.3) return false;
+  const by = pulls.length > 0 ? 0 : Math.max(0, Math.min(...tells.map((t) => t.impact)) - now);
+  return wc.cooldowns.reel <= by + 0.25;
 }
 
 /**

@@ -42,7 +42,7 @@
  *
  * Seen counts the Decree callouts (the 'decree' events), as the player does. Seeds as the harness.
  */
-import type { BotKind } from '../src/bots';
+import type { Bot, BotKind } from '../src/bots';
 import { makeBot } from '../src/bots';
 import { createSim, type Sim, type SimEvent } from '../src/sim';
 import { ARRIVAL3_KIT, ARRIVAL_KIT, kitConfig, type Kit } from './kits';
@@ -88,6 +88,19 @@ export interface Fight {
   /** Under the Bloodmoon: hero ticks standing, and inside a pool. */
   standing: number;
   sheltered: number;
+  /**
+   * The Seamstress only: each Unpick as judged (when it landed, its lock's end or null when it
+   * cut nothing, and the verdicts), for checks of the gate itself.
+   */
+  unpicks?: UnpickVerdict[];
+}
+
+/** One Unpick as the Seamstress's gate judged it. */
+export interface UnpickVerdict {
+  at: number;
+  lockEnd: number | null;
+  rethreaded: boolean;
+  downed: boolean;
 }
 
 function zero(decrees: readonly string[]): Record<string, number> {
@@ -112,9 +125,9 @@ function play(
   bot: BotKind,
   out: Fight,
   tick: (sim: Sim, events: readonly SimEvent[]) => void,
+  player: Bot = makeBot(bot, seed),
 ): Sim {
   const sim = createSim({ seed, encounter: table.encounter, ...kitConfig(table.kit) });
-  const player = makeBot(bot, seed);
   for (let t = 0; t < MAX_TICKS; t++) {
     sim.step(player.decide(sim.state));
     const events = sim.drainEvents();
@@ -137,7 +150,7 @@ function count(out: Fight, decree: string, answered: boolean): void {
 
 // ── Vharun (docs/phase-5a.md) ────────────────────────────────────────────────────────
 
-function vharunFight(table: BossTable, seed: number, bot: BotKind): Fight {
+function vharunFight(table: BossTable, seed: number, bot: BotKind, player?: Bot): Fight {
   const out = newFight(table);
   /** Telegraph id → its name; the pair (first blow's id) it belongs to. */
   const names = new Map<number, string>();
@@ -157,57 +170,64 @@ function vharunFight(table: BossTable, seed: number, bot: BotKind): Fight {
     out.sheltered += spell.sheltered;
     spell = null;
   };
-  play(table, seed, bot, out, (sim, events) => {
-    const state = sim.state;
-    for (const e of events) {
-      switch (e.type) {
-        case 'decree':
-          if (e.name === 'Bloodmoon') {
-            closeSpell();
-            spell = { standing: 0, sheltered: 0, fell: false };
+  play(
+    table,
+    seed,
+    bot,
+    out,
+    (sim, events) => {
+      const state = sim.state;
+      for (const e of events) {
+        switch (e.type) {
+          case 'decree':
+            if (e.name === 'Bloodmoon') {
+              closeSpell();
+              spell = { standing: 0, sheltered: 0, fell: false };
+            }
+            break;
+          case 'telegraphStarted': {
+            names.set(e.telegraph, e.name);
+            if (e.name !== 'Twin Cleave' && e.name !== 'Crimson Tide') break;
+            const pair = open.get(e.name);
+            if (pair && pair.blows === 1) {
+              pair.blows = 2;
+              pairOf.set(e.telegraph, pair.id);
+              open.delete(e.name);
+            } else {
+              open.set(e.name, { id: e.telegraph, blows: 1 });
+              pairOf.set(e.telegraph, e.telegraph);
+              pairs.push({ id: e.telegraph, name: e.name });
+            }
+            break;
           }
-          break;
-        case 'telegraphStarted': {
-          names.set(e.telegraph, e.name);
-          if (e.name !== 'Twin Cleave' && e.name !== 'Crimson Tide') break;
-          const pair = open.get(e.name);
-          if (pair && pair.blows === 1) {
-            pair.blows = 2;
-            pairOf.set(e.telegraph, pair.id);
-            open.delete(e.name);
-          } else {
-            open.set(e.name, { id: e.telegraph, blows: 1 });
-            pairOf.set(e.telegraph, e.telegraph);
-            pairs.push({ id: e.telegraph, name: e.name });
+          case 'telegraphResolved':
+            if (e.execution !== undefined) count(out, 'Execution', e.execution === 'spared');
+            break;
+          case 'damageTaken':
+            if (state.party.includes(e.target)) lastHurt.set(e.target, e.telegraph);
+            break;
+          case 'allyDowned': {
+            const by = lastHurt.get(e.hero);
+            const pair = by == null ? undefined : pairOf.get(by);
+            if (pair !== undefined) failed.add(pair);
+            else if (spell && (by == null || names.get(by) !== 'Execution')) spell.fell = true;
+            break;
           }
-          break;
+          default:
+            break;
         }
-        case 'telegraphResolved':
-          if (e.execution !== undefined) count(out, 'Execution', e.execution === 'spared');
-          break;
-        case 'damageTaken':
-          if (state.party.includes(e.target)) lastHurt.set(e.target, e.telegraph);
-          break;
-        case 'allyDowned': {
-          const by = lastHurt.get(e.hero);
-          const pair = by == null ? undefined : pairOf.get(by);
-          if (pair !== undefined) failed.add(pair);
-          else if (spell && (by == null || names.get(by) !== 'Execution')) spell.fell = true;
-          break;
+      }
+      const pools = state.field.sanctuary?.pools;
+      if (spell && pools)
+        for (const id of state.party) {
+          const h = state.entities.get(id);
+          if (!h?.health || h.health.downed || h.health.dead) continue;
+          spell.standing++;
+          if (pools.some((p) => Math.hypot(h.x - p.x, h.z - p.z) <= p.r)) spell.sheltered++;
         }
-        default:
-          break;
-      }
-    }
-    const pools = state.field.sanctuary?.pools;
-    if (spell && pools)
-      for (const id of state.party) {
-        const h = state.entities.get(id);
-        if (!h?.health || h.health.downed || h.health.dead) continue;
-        spell.standing++;
-        if (pools.some((p) => Math.hypot(h.x - p.x, h.z - p.z) <= p.r)) spell.sheltered++;
-      }
-  });
+    },
+    player,
+  );
   closeSpell();
   for (const p of pairs) count(out, p.name, !failed.has(p.id));
   return out;
@@ -230,7 +250,7 @@ function alive(sim: Sim, defId: string): boolean {
     .some((e) => e.enemy?.defId === defId && e.health !== undefined && !e.health.dead);
 }
 
-function unweaverFight(table: BossTable, seed: number, bot: BotKind): Fight {
+function unweaverFight(table: BossTable, seed: number, bot: BotKind, player?: Bot): Fight {
   const out = newFight(table);
   const idle = bot === 'idle';
   const lastHurt = new Map<number, number | null>();
@@ -253,80 +273,87 @@ function unweaverFight(table: BossTable, seed: number, bot: BotKind): Fight {
     if (!idle) count(out, 'Unravel', ok);
     unravel = null;
   };
-  const sim = play(table, seed, bot, out, (sim, events) => {
-    const state = sim.state;
-    const now = state.time;
-    for (const e of events) {
-      switch (e.type) {
-        case 'telegraphStarted':
-          if (e.name === 'Shear') shears.add(e.telegraph);
-          if (e.name === 'Spindles') spindles.push(e.impact);
-          if (e.name === 'Mirror Ward') mirrors.push({ at: now, done: false });
-          break;
-        case 'castInterrupted':
-          if (e.name === 'Mirror Ward') {
-            const open = mirrors.find((m) => !m.done);
-            if (open) {
-              open.done = true;
-              count(out, 'Mirror Weave', true);
+  const sim = play(
+    table,
+    seed,
+    bot,
+    out,
+    (sim, events) => {
+      const state = sim.state;
+      const now = state.time;
+      for (const e of events) {
+        switch (e.type) {
+          case 'telegraphStarted':
+            if (e.name === 'Shear') shears.add(e.telegraph);
+            if (e.name === 'Spindles') spindles.push(e.impact);
+            if (e.name === 'Mirror Ward') mirrors.push({ at: now, done: false });
+            break;
+          case 'castInterrupted':
+            if (e.name === 'Mirror Ward') {
+              const open = mirrors.find((m) => !m.done);
+              if (open) {
+                open.done = true;
+                count(out, 'Mirror Weave', true);
+              }
             }
+            break;
+          case 'enemyKilled':
+            if (e.defId === CHAMPION) championFell.push(now);
+            break;
+          case 'cutResolved':
+            if (e.cause === 'snip' && e.result !== 'none' && !idle)
+              count(out, 'Snip', e.result === 'held' || e.result === 'strand');
+            break;
+          case 'verseReturned':
+            count(out, 'Steal Verse', e.reason === 'killed');
+            break;
+          case 'unravelled':
+            if (e.active) unravel = new Map();
+            else closeUnravel(sim);
+            break;
+          case 'damageTaken':
+            if (!state.party.includes(e.target)) break;
+            lastHurt.set(e.target, e.telegraph);
+            // Unravel's ticks: the reversed Mend, from its source, with no telegraph.
+            if (
+              unravel &&
+              e.hit === 'tick' &&
+              e.telegraph === null &&
+              e.source === state.field.unravel?.source
+            )
+              unravel.set(e.target, (unravel.get(e.target) ?? 0) + e.amount + e.absorbed);
+            break;
+          case 'allyDowned': {
+            const by = lastHurt.get(e.hero);
+            if (by != null && shears.has(by)) failedShear.add(by);
+            break;
           }
-          break;
-        case 'enemyKilled':
-          if (e.defId === CHAMPION) championFell.push(now);
-          break;
-        case 'cutResolved':
-          if (e.cause === 'snip' && e.result !== 'none' && !idle)
-            count(out, 'Snip', e.result === 'held' || e.result === 'strand');
-          break;
-        case 'verseReturned':
-          count(out, 'Steal Verse', e.reason === 'killed');
-          break;
-        case 'unravelled':
-          if (e.active) unravel = new Map();
-          else closeUnravel(sim);
-          break;
-        case 'damageTaken':
-          if (!state.party.includes(e.target)) break;
-          lastHurt.set(e.target, e.telegraph);
-          // Unravel's ticks: the reversed Mend, from its source, with no telegraph.
-          if (
-            unravel &&
-            e.hit === 'tick' &&
-            e.telegraph === null &&
-            e.source === state.field.unravel?.source
-          )
-            unravel.set(e.target, (unravel.get(e.target) ?? 0) + e.amount + e.absorbed);
-          break;
-        case 'allyDowned': {
-          const by = lastHurt.get(e.hero);
-          if (by != null && shears.has(by)) failedShear.add(by);
-          break;
+          default:
+            break;
         }
-        default:
-          break;
       }
-    }
-    // Spindles: judged SPINDLES_WITHIN s on (or as soon as none stands).
-    spindles = spindles.filter((at) => {
-      if (now < at) return true;
-      const up = alive(sim, SPINDLE);
-      if (up && now < at + SPINDLES_WITHIN) return true;
-      count(out, 'Spindles', !up);
-      return false;
-    });
-    // Mirror Ward casts not interrupted: answered if the champion fell within its window.
-    mirrors = mirrors.filter((m) => {
-      if (m.done) return false;
-      if (championFell.some((t) => t >= m.at && t <= m.at + CHAMPION_WITHIN)) {
-        count(out, 'Mirror Weave', true);
+      // Spindles: judged SPINDLES_WITHIN s on (or as soon as none stands).
+      spindles = spindles.filter((at) => {
+        if (now < at) return true;
+        const up = alive(sim, SPINDLE);
+        if (up && now < at + SPINDLES_WITHIN) return true;
+        count(out, 'Spindles', !up);
         return false;
-      }
-      if (now <= m.at + CHAMPION_WITHIN) return true;
-      count(out, 'Mirror Weave', false);
-      return false;
-    });
-  });
+      });
+      // Mirror Ward casts not interrupted: answered if the champion fell within its window.
+      mirrors = mirrors.filter((m) => {
+        if (m.done) return false;
+        if (championFell.some((t) => t >= m.at && t <= m.at + CHAMPION_WITHIN)) {
+          count(out, 'Mirror Weave', true);
+          return false;
+        }
+        if (now <= m.at + CHAMPION_WITHIN) return true;
+        count(out, 'Mirror Weave', false);
+        return false;
+      });
+    },
+    player,
+  );
   // The fight's end: whatever is still open is judged as it stands (a win kills every add).
   closeUnravel(sim);
   for (const _ of spindles) count(out, 'Spindles', out.won || !alive(sim, SPINDLE));
@@ -341,86 +368,114 @@ function unweaverFight(table: BossTable, seed: number, bot: BotKind): Fight {
 const UNPICK_DOWNS_WITHIN = 4;
 const UNPICK_RETHREAD_WITHIN = 1;
 
-function seamstressFight(table: BossTable, seed: number, bot: BotKind): Fight {
+function seamstressFight(table: BossTable, seed: number, bot: BotKind, player?: Bot): Fight {
   const out = newFight(table);
   const idle = bot === 'idle';
   /** Each Stitch: its telegraph, its windup's end, the heroes it stitched, and whether it failed. */
   const stitches: { id: number; impact: number; heroes: Set<number>; failed: boolean }[] = [];
   /** Each Unpick still to judge: when it landed, its lock's end (null: no cut), its verdicts. */
-  let unpicks: { at: number; lockEnd: number | null; rethreaded: boolean; downed: boolean }[] = [];
-  const judge = (u: (typeof unpicks)[number]) =>
+  let unpicks: UnpickVerdict[] = [];
+  const log: UnpickVerdict[] = [];
+  out.unpicks = log;
+  /** This tick's Unpick snap (tick, lock's end), waiting for its `cutResolved`. */
+  let snap: { tick: number; lockEnd: number } | null = null;
+  const judge = (u: UnpickVerdict) => {
+    log.push(u);
     count(out, 'Unpicking', !u.downed && (idle || u.lockEnd === null || u.rethreaded));
-  play(table, seed, bot, out, (sim, events) => {
-    const state = sim.state;
-    const now = state.time;
-    for (const e of events) {
-      switch (e.type) {
-        case 'telegraphStarted':
-          if (e.name === 'Stitch')
-            stitches.push({ id: e.telegraph, impact: e.impact, heroes: new Set(), failed: false });
-          if (e.name === 'Needle Rain')
-            // A needle begins while a hero this Stitch rooted is still rooted: it failed.
-            for (const s of stitches)
-              if (s.heroes.size > 0) {
-                const rooted = [...s.heroes].some((id) =>
-                  state.entities.get(id)?.health?.statuses.some((x) => x.id === 'stitched'),
-                );
-                if (rooted) s.failed = true;
-              }
-          break;
-        case 'statusApplied':
-          if (e.status === 'stitched') {
-            const s = [...stitches].reverse().find((x) => now <= x.impact + 0.2);
-            s?.heroes.add(e.target);
-          }
-          break;
-        case 'cutResolved':
-          if (e.cause === 'unpick')
-            unpicks.push({ at: now, lockEnd: null, rethreaded: false, downed: false });
-          break;
-        case 'threadSnapped':
-          if (e.cause === 'unpick' && unpicks.length > 0)
-            unpicks[unpicks.length - 1]!.lockEnd = now + (e.lock ?? 0);
-          break;
-        case 'threadAttached':
-          for (const u of unpicks)
-            if (u.lockEnd !== null && !u.rethreaded && now <= u.lockEnd + UNPICK_RETHREAD_WITHIN)
-              u.rethreaded = true;
-          break;
-        case 'allyDowned':
-          for (const u of unpicks) if (now <= u.at + UNPICK_DOWNS_WITHIN) u.downed = true;
-          break;
-        default:
-          break;
+  };
+  play(
+    table,
+    seed,
+    bot,
+    out,
+    (sim, events) => {
+      const state = sim.state;
+      const now = state.time;
+      for (const e of events) {
+        switch (e.type) {
+          case 'telegraphStarted':
+            if (e.name === 'Stitch')
+              stitches.push({
+                id: e.telegraph,
+                impact: e.impact,
+                heroes: new Set(),
+                failed: false,
+              });
+            if (e.name === 'Needle Rain')
+              // A needle begins while a hero this Stitch rooted is still rooted: it failed.
+              for (const s of stitches)
+                if (s.heroes.size > 0) {
+                  const rooted = [...s.heroes].some((id) =>
+                    state.entities.get(id)?.health?.statuses.some((x) => x.id === 'stitched'),
+                  );
+                  if (rooted) s.failed = true;
+                }
+            break;
+          case 'statusApplied':
+            if (e.status === 'stitched') {
+              const s = [...stitches].reverse().find((x) => now <= x.impact + 0.2);
+              s?.heroes.add(e.target);
+            }
+            break;
+          case 'threadSnapped':
+            // The sim reports the Unpick's snap before its `cutResolved` (resolveCut calls
+            // cutThread first): hold the lock here for the verdict that follows this tick.
+            if (e.cause === 'unpick') snap = { tick: e.tick, lockEnd: now + (e.lock ?? 0) };
+            break;
+          case 'cutResolved':
+            if (e.cause === 'unpick') {
+              const lockEnd =
+                e.result === 'cut' && snap !== null && snap.tick === e.tick ? snap.lockEnd : null;
+              unpicks.push({ at: now, lockEnd, rethreaded: false, downed: false });
+              snap = null;
+            }
+            break;
+          case 'threadAttached':
+            for (const u of unpicks)
+              if (u.lockEnd !== null && !u.rethreaded && now <= u.lockEnd + UNPICK_RETHREAD_WITHIN)
+                u.rethreaded = true;
+            break;
+          case 'allyDowned':
+            for (const u of unpicks) if (now <= u.at + UNPICK_DOWNS_WITHIN) u.downed = true;
+            break;
+          default:
+            break;
+        }
       }
-    }
-    unpicks = unpicks.filter((u) => {
-      const until = Math.max(
-        u.at + UNPICK_DOWNS_WITHIN,
-        u.lockEnd === null ? 0 : u.lockEnd + UNPICK_RETHREAD_WITHIN,
-      );
-      if (now <= until) return true;
-      judge(u);
-      return false;
-    });
-  });
+      unpicks = unpicks.filter((u) => {
+        const until = Math.max(
+          u.at + UNPICK_DOWNS_WITHIN,
+          u.lockEnd === null ? 0 : u.lockEnd + UNPICK_RETHREAD_WITHIN,
+        );
+        if (now <= until) return true;
+        judge(u);
+        return false;
+      });
+    },
+    player,
+  );
   for (const u of unpicks) judge(u);
   for (const s of stitches) count(out, 'Stitch', !s.failed);
   return out;
 }
 
-const FIGHTS: Readonly<Record<string, (table: BossTable, seed: number, bot: BotKind) => Fight>> = {
+const FIGHTS: Readonly<
+  Record<string, (table: BossTable, seed: number, bot: BotKind, player?: Bot) => Fight>
+> = {
   vharun: vharunFight,
   the_seamstress: seamstressFight,
   the_unweaver: unweaverFight,
 };
 
-/** Plays one fight against `boss`'s table (vharun, the_seamstress or the_unweaver). */
-export function decreeFight(boss: string, seed: number, bot: BotKind): Fight {
+/**
+ * Plays one fight against `boss`'s table (vharun, the_seamstress or the_unweaver). `player`
+ * stands in for `bot`'s own player (a test's wrapped bot); `bot` still names its rules.
+ */
+export function decreeFight(boss: string, seed: number, bot: BotKind, player?: Bot): Fight {
   const table = BOSS_TABLES[boss];
   const fight = FIGHTS[boss];
   if (!table || !fight) throw new Error(`No Decree table for "${boss}" (${Object.keys(FIGHTS)})`);
-  return fight(table, seed, bot);
+  return fight(table, seed, bot, player);
 }
 
 function main(): void {

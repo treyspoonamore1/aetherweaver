@@ -8,6 +8,8 @@ import {
   VerbTally,
 } from '../tools/harness-core';
 import { ExtraWatch } from '../tools/brann-bands';
+import { decreeFight } from '../tools/decrees';
+import { makeBot, type Bot } from '../src/bots';
 import { band, NAMED_PARTIES, parseArgs, partyArg, runBand } from '../tools/harness';
 import { ARRIVAL3_KIT, ARRIVAL_KIT, defaultKit, kitConfig } from '../tools/kits';
 import { SCENARIO_HOUND_PACK } from '../tools/scenarios';
@@ -336,6 +338,34 @@ describe('the harness’s Movement III tables', () => {
     expect(runBand(2, 'skilled')).toBe('');
     expect(runBand(3, 'skilled')).toContain('won ÷ reached III');
   });
+});
+
+describe('the Decree gate (tools/decrees.ts)', () => {
+  it('judges the Unpick’s re-thread: its lock comes from the snap reported before its verdict', () => {
+    // resolveCut reports the Unpick's threadSnapped (with its lock) before its cutResolved: the
+    // gate once read the lock onto the previous Unpick, so every cut was judged 'no cut'.
+    const f = decreeFight('the_seamstress', 1000, 'skilled');
+    const cuts = f.unpicks!.filter((u) => u.lockEnd !== null);
+    expect(cuts.length).toBeGreaterThan(0);
+    for (const u of cuts) expect(u.lockEnd!).toBeGreaterThan(u.at);
+    const judged = f.unpicks!.filter((u) => !u.downed && (u.lockEnd === null || u.rethreaded));
+    expect(f.answered.Unpicking).toBe(judged.length);
+    expect(f.occurrences.Unpicking).toBe(f.unpicks!.length);
+    // A Weaver who never threads again after the first cut fails the Unpicks that cut.
+    const skilled = makeBot('skilled', 1000);
+    let cut = false;
+    const lazy: Bot = {
+      name: 'lazy',
+      decide(state) {
+        if ((state.entities.get(state.weaverId)?.weaver?.threadLock ?? 0) > 0) cut = true;
+        const out = skilled.decide(state);
+        return cut ? out.filter((c) => c.t !== 'thread') : out;
+      },
+    };
+    const g = decreeFight('the_seamstress', 1000, 'skilled', lazy);
+    expect(g.unpicks!.some((u) => u.lockEnd !== null && !u.rethreaded)).toBe(true);
+    expect(g.answered.Unpicking).toBeLessThan(g.occurrences.Unpicking!);
+  }, 60_000);
 });
 
 // ── The roster (docs/phase-5b.md, "Bots and harness") ────────────────────────────────
