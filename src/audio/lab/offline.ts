@@ -7,7 +7,7 @@ import type { Biome } from '../../content';
 import { SynthDirector } from '../director';
 import type { AudioMood, Volumes } from '../types';
 import { Fight } from './fight';
-import { FakeWorld } from './labState';
+import { FakeWorld, IDS, ev } from './labState';
 import type { SoundButton } from './soundBoard';
 
 const SAMPLE_RATE = 44100;
@@ -118,9 +118,30 @@ export async function auditSound(
 }
 
 /**
+ * Phase 5c: a boss mood's Movement III state for a render. `miniboss`: the boss is a mini-boss
+ * (the Seamstress), not a final boss; `stolen`: the Unweaver holds a stolen verse; `unravel`:
+ * Unravel is up. Each is fired as its event, as the sim's would be.
+ */
+export interface MoodScene {
+  miniboss?: boolean;
+  stolen?: boolean;
+  unravel?: boolean;
+}
+
+/** Phase 5c: a scene's Movement III events (a stolen verse, Unravel), held for `seconds`. */
+export function sceneEvents(scene: MoodScene, w: FakeWorld, seconds: number) {
+  const until = w.time + seconds;
+  return [
+    ...(scene.stolen ? [ev('verseStolen', { aura: 'lab', add: IDS.enemyBase + 1, until })] : []),
+    ...(scene.unravel ? [ev('unravelled', { active: true, until })] : []),
+  ];
+}
+
+/**
  * Renders a mood (music only) for a few seconds with the given inputs. Phase 5a: in a biome (the
  * Sunlit Reliquary by default), and for a boss mood at a boss phase (a final boss's, so the
- * Crimson Spire's Vharun stems play).
+ * Crimson Spire's Vharun stems play). Phase 5c: and a scene (the Seamstress, the Unweaver's
+ * stolen verse or Unravel).
  */
 export async function renderMood(
   mood: AudioMood,
@@ -129,13 +150,17 @@ export async function renderMood(
   volumes = DEFAULT_VOLUMES,
   biome: Biome = 'reliquary',
   bossPhase = 0,
+  scene: MoodScene = {},
 ): Promise<AudioBuffer> {
   const { ctx, d } = offlineDirector(seconds, volumes);
   const w = new FakeWorld();
   w.setResonance(resonance);
-  if (bossPhase > 0) w.setEnemies(1, 'boss', 'boss', bossPhase);
+  const role = scene.miniboss ? 'miniboss' : 'boss';
+  if (bossPhase > 0) w.setEnemies(1, role, role, bossPhase);
   else w.setEnemies(resonance >= 50 ? 12 : 0);
   if (biome !== 'reliquary') d.setBiome(biome);
+  const m3 = sceneEvents(scene, w, seconds + 1);
+  if (m3.length) d.onEvents(m3, w.state);
   d.setMood(mood);
   const step = 0.05;
   for (let t = step; t < seconds - 0.5; t += step) {
@@ -155,8 +180,9 @@ export async function auditMood(
   volumes = DEFAULT_VOLUMES,
   biome: Biome = 'reliquary',
   bossPhase = 0,
+  scene: MoodScene = {},
 ): Promise<LevelReport> {
-  return measure(await renderMood(mood, resonance, seconds, volumes, biome, bossPhase), 2);
+  return measure(await renderMood(mood, resonance, seconds, volumes, biome, bossPhase, scene), 2);
 }
 
 export interface PitchReport {

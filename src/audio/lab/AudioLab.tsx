@@ -8,7 +8,7 @@ import type { Biome } from '../../content';
 import { getAudio, type SynthDirector } from '../index';
 import type { AudioDebugStats, AudioMood, Volumes } from '../types';
 import { Fight } from './fight';
-import { BRANN_LAB_PARTY, FakeWorld, HERO_IDS, type HeroKey } from './labState';
+import { BRANN_LAB_PARTY, FakeWorld, HERO_IDS, IDS, ev, type HeroKey } from './labState';
 import {
   auditMood,
   auditSound,
@@ -18,6 +18,7 @@ import {
   renderSound,
   type FightRender,
   type LevelReport,
+  type MoodScene,
   type PitchReport,
 } from './offline';
 import { SOUNDS, fireSound, type SoundButton } from './soundBoard';
@@ -33,10 +34,14 @@ const MOODS: AudioMood[] = [
   'victory',
   'defeat',
 ];
-/** Phase 5a: the biomes the music and ambience voice, and Vharun's phases (0: no boss). */
+/**
+ * Phase 5a: the biomes the music and ambience voice, and Vharun's phases (0: no boss). Phase 5c:
+ * the Abyssal Rift (the Seamstress's and the Unweaver's phases).
+ */
 const BIOMES: { id: Biome; label: string }[] = [
   { id: 'reliquary', label: 'Sunlit Reliquary' },
   { id: 'crimson_spire', label: 'Crimson Spire' },
+  { id: 'abyssal_rift', label: 'Abyssal Rift' },
 ];
 const WARDEN_PHASES = [0, 1, 2, 3] as const;
 /** Phase 5a: the Crimson Spire's moods for the audits (a boss at each of Vharun's phases). */
@@ -47,6 +52,21 @@ const CRIMSON_AUDITS: [AudioMood, number][] = [
   ['boss', 1],
   ['boss', 2],
   ['boss', 3],
+];
+/**
+ * Phase 5c: the Abyssal Rift's moods for the audits: the Unweaver at each phase, with a verse
+ * stolen and with Unravel up in phase 2, and the Seamstress's second phase (its pickup).
+ */
+const ABYSS_AUDITS: { mood: AudioMood; phase: number; scene: MoodScene; label: string }[] = [
+  { mood: 'map', phase: 0, scene: {}, label: 'map' },
+  { mood: 'calm', phase: 0, scene: {}, label: 'calm' },
+  { mood: 'combat', phase: 0, scene: {}, label: 'combat' },
+  { mood: 'boss', phase: 1, scene: {}, label: 'Unweaver p1' },
+  { mood: 'boss', phase: 2, scene: {}, label: 'Unweaver p2' },
+  { mood: 'boss', phase: 2, scene: { stolen: true }, label: 'Unweaver p2 · verse stolen' },
+  { mood: 'boss', phase: 2, scene: { unravel: true }, label: 'Unweaver p2 · Unravel' },
+  { mood: 'boss', phase: 3, scene: {}, label: 'Unweaver p3 · mirror canon' },
+  { mood: 'boss', phase: 2, scene: { miniboss: true }, label: 'Seamstress p2 · pickup' },
 ];
 
 const GROUPS: {
@@ -89,6 +109,11 @@ const GROUPS: {
     title:
       'Phase 5b · Brann (his leitmotif and Call, Red Comet, his kit, his war drum and alert; he joins the lab party)',
   },
+  {
+    id: 'unstitched',
+    title:
+      'Phase 5c · The Unstitched (cuts, the Maw, the Wraith, the rune, the Mimic, the Seamstress, Doom, the Unweaver, cloth kills)',
+  },
   { id: 'world', title: 'World, enemies and telegraphs' },
   { id: 'ui', title: 'UI' },
 ];
@@ -111,6 +136,8 @@ declare global {
       /** Phase 5a: the biome the music voices, and the Crimson Spire's moods' pitch reports. */
       setBiome(biome: Biome): void;
       pitchCrimson(): Promise<Record<string, PitchReport>>;
+      /** Phase 5c: the Abyssal Rift's moods' pitch reports (ABYSS_AUDITS). */
+      pitchAbyss(): Promise<Record<string, PitchReport>>;
       world: FakeWorld;
     };
   }
@@ -179,6 +206,10 @@ export function AudioLab() {
   const [mood, setMoodState] = useState<AudioMood>('calm');
   const [biome, setBiomeState] = useState<Biome>(() => director.getBiome());
   const [wardenPhase, setWardenPhase] = useState(0);
+  // Phase 5c: the boss is a mini-boss (the Seamstress); the Unweaver's stolen verse and Unravel.
+  const [bossMini, setBossMini] = useState(false);
+  const [stolen, setStolen] = useState(false);
+  const [unravel, setUnravel] = useState(false);
   const [resonance, setResonance] = useState(0);
   const [enemies, setEnemies] = useState(0);
   const [tension, setTension] = useState(0);
@@ -301,9 +332,33 @@ export function AudioLab() {
   }, [world, resonance]);
   // Phase 5a: a final boss at a phase (Vharun's stems) stands in for the enemy count.
   useEffect(() => {
-    if (wardenPhase > 0) world.setEnemies(1, 'boss', 'boss', wardenPhase);
+    const role = bossMini ? 'miniboss' : 'boss';
+    if (wardenPhase > 0) world.setEnemies(1, role, role, wardenPhase);
     else world.setEnemies(enemies);
-  }, [world, enemies, wardenPhase]);
+  }, [world, enemies, wardenPhase, bossMini]);
+  // Phase 5c: a verse stolen, and Unravel, as the sim's events would tell them (on a change only,
+  // so opening the lab plays neither the verse's return nor Unravel closing).
+  const m3Was = useRef({ stolen: false, unravel: false });
+  useEffect(() => {
+    if (m3Was.current.stolen === stolen) return;
+    m3Was.current.stolen = stolen;
+    director.onEvents(
+      [
+        stolen
+          ? ev('verseStolen', { aura: 'lab', add: IDS.enemyBase + 1, until: world.time + 1e6 })
+          : ev('verseReturned', { aura: 'lab', reason: 'killed' }),
+      ],
+      world.state,
+    );
+  }, [director, world, stolen]);
+  useEffect(() => {
+    if (m3Was.current.unravel === unravel) return;
+    m3Was.current.unravel = unravel;
+    director.onEvents(
+      [ev('unravelled', { active: unravel, until: world.time + (unravel ? 1e6 : 0) })],
+      world.state,
+    );
+  }, [director, world, unravel]);
   useEffect(() => world.setTension(tension), [world, tension]);
   useEffect(() => world.setChords(planted, unison), [world, planted, unison]);
   useEffect(() => world.setCrescendo(crescendo), [world, crescendo]);
@@ -384,6 +439,14 @@ export function AudioLab() {
           );
         return out;
       },
+      pitchAbyss: async () => {
+        const out: Record<string, PitchReport> = {};
+        for (const a of ABYSS_AUDITS)
+          out[`abyss:${a.label}`] = pitchReport(
+            await renderMood(a.mood, 100, 16, undefined, 'abyssal_rift', a.phase, a.scene),
+          );
+        return out;
+      },
     };
     return () => {
       delete window.__audioLab;
@@ -413,6 +476,17 @@ export function AudioLab() {
         volumes,
         'crimson_spire',
         m === 'boss' ? p : 0,
+      );
+    // Phase 5c: the Abyssal Rift's moods, the Unweaver's phases and the Seamstress's pickup.
+    for (const a of ABYSS_AUDITS)
+      out[`abyss ${a.label} · res 100`] = await auditMood(
+        a.mood,
+        100,
+        16,
+        volumes,
+        'abyssal_rift',
+        a.phase,
+        a.scene,
       );
     setMoodAudit(out);
     setBusy('');
@@ -473,8 +547,11 @@ export function AudioLab() {
                 {b.label}
               </Btn>
             ))}
-            <label className="flex items-center gap-1" title="A final boss at this phase">
-              Vharun phase{' '}
+            <label
+              className="flex items-center gap-1"
+              title="A boss at this phase (Vharun's in the Spire, the Unweaver's in the Rift)"
+            >
+              Boss phase{' '}
               <select
                 value={wardenPhase}
                 data-testid="warden-phase"
@@ -486,6 +563,42 @@ export function AudioLab() {
                   </option>
                 ))}
               </select>
+            </label>
+            <label
+              className="flex items-center gap-1"
+              title="The boss is a mini-boss (the Seamstress)"
+            >
+              <input
+                type="checkbox"
+                checked={bossMini}
+                data-testid="boss-mini"
+                onChange={(e) => setBossMini(e.target.checked)}
+              />{' '}
+              mini-boss
+            </label>
+            <label
+              className="flex items-center gap-1"
+              title="The Unweaver holds a stolen verse (the Rift's choir drops)"
+            >
+              <input
+                type="checkbox"
+                checked={stolen}
+                data-testid="verse-stolen"
+                onChange={(e) => setStolen(e.target.checked)}
+              />{' '}
+              verse stolen
+            </label>
+            <label
+              className="flex items-center gap-1"
+              title="Unravel is up (the Rift's melody mirrors about D)"
+            >
+              <input
+                type="checkbox"
+                checked={unravel}
+                data-testid="unravel"
+                onChange={(e) => setUnravel(e.target.checked)}
+              />{' '}
+              Unravel
             </label>
           </div>
           <Slider

@@ -5,6 +5,7 @@
  */
 import { healthBands } from '../app/healthLevels';
 import { CONTENT, enemyDef, type AstrolabeNode } from '../content';
+import { DOOM_CHIME_AT } from '../content/unstitched';
 import {
   fallingFast,
   techniqueCost,
@@ -285,6 +286,109 @@ export const LEGION_ATTACK_SOUNDS: Readonly<Record<string, 'howl' | 'roll' | 'ti
 /** Phase 5a: from this many bleed stacks the Chime is due, and the bleed tick says so. */
 export const BLEED_CHIME_AT = 5;
 
+/**
+ * Phase 5c, the Unstitched (docs/phase-5c.md, "Audio"): the voice group of each Movement III sound.
+ * `cut`, `snip` and `unpick`: the Thread cut by its cause (a Shears or Severing cut, the Snip, the
+ * Unpick), in place of the range snap; `strand`: Guard Strand turning a cut or a bolt aside.
+ * `shears`: the Shears' dash. `inhale` and `maw`: the Void Maw's pull (a whoosh, then a gated sub
+ * drone for as long as it pulls). `whisper`: the Doubt Wraith's cast; `possessed` and `freed`: a
+ * possession landing and a hero freed of it (or of a Stitch). `rune`: the Null Priest's rune
+ * humming; `silenced`: a technique refused inside it. `mirror` and `crack`: the Mimic casting your
+ * own technique back mirrored, and the mirror cracking. `needles`, `stitched`: the Seamstress's
+ * Needle Rain and Stitch. `doom` and `doomed`: a Doom stack and its ignition. `spindle` and
+ * `spindled`: the Unweaver's Spindles droning, and a hit they cut down. `steal`, `restore`: a verse
+ * stolen and given back; `unravel`: Unravel turning Mend over; `mirrorWard`: the Mirror Ward. None
+ * of these can sound in a Movement I or II fight.
+ */
+export const UNSTITCHED_SOUND_GROUPS = {
+  cut: 'unstitched:cut',
+  snip: 'unstitched:snip',
+  unpick: 'unstitched:unpick',
+  strand: 'unstitched:strand',
+  shears: 'unstitched:shears',
+  inhale: 'unstitched:inhale',
+  maw: 'unstitched:maw',
+  whisper: 'unstitched:whisper',
+  possessed: 'unstitched:possessed',
+  freed: 'unstitched:freed',
+  rune: 'unstitched:rune',
+  silenced: 'unstitched:silenced',
+  mirror: 'unstitched:mirror',
+  crack: 'unstitched:crack',
+  needles: 'unstitched:needles',
+  stitched: 'unstitched:stitched',
+  doom: 'unstitched:doom',
+  doomed: 'unstitched:doomed',
+  spindle: 'unstitched:spindle',
+  spindled: 'unstitched:spindled',
+  steal: 'unstitched:steal',
+  restore: 'unstitched:return',
+  unravel: 'unstitched:unravel',
+  mirrorWard: 'unstitched:mirrorWard',
+} as const;
+export type UnstitchedGroup = keyof typeof UNSTITCHED_SOUND_GROUPS;
+
+/** Phase 5c: each Unstitched sound's rate gate (seconds) and voice cap. */
+export const UNSTITCHED_SOUND_LIMITS: Readonly<Record<UnstitchedGroup, readonly [number, number]>> =
+  {
+    cut: [0.25, 1],
+    snip: [0.4, 1],
+    unpick: [0.4, 1],
+    strand: [0.15, 2],
+    shears: [0.15, 2],
+    inhale: [0.5, 2],
+    maw: [0.5, 2],
+    whisper: [0.4, 2],
+    possessed: [0.4, 2],
+    freed: [0.15, 2],
+    rune: [0.5, 2],
+    silenced: [0.22, 1],
+    mirror: [0.4, 2],
+    crack: [0.3, 2],
+    needles: [0.2, 2],
+    stitched: [0.3, 1],
+    doom: [0.15, 2],
+    doomed: [0.3, 2],
+    spindle: [0.5, 1],
+    spindled: [0.3, 1],
+    steal: [1, 1],
+    restore: [1, 1],
+    unravel: [0.5, 1],
+    mirrorWard: [0.5, 1],
+  };
+
+/** Phase 5c: the Unstitched attacks with a sound of their own (by content id). */
+export const UNSTITCHED_ATTACK_SOUNDS: Readonly<
+  Record<string, 'shears' | 'whisper' | 'mirror' | 'needles'>
+> = {
+  shears_dash: 'shears',
+  wraith_doubt: 'whisper',
+  mimic_mirror: 'mirror',
+  seamstress_needles: 'needles',
+  seamstress_needles_2: 'needles',
+  seamstress_needles_3: 'needles',
+  seamstress_unpick_rain: 'needles',
+};
+
+/** Phase 5c: the Movement III statuses with a voice on `statusApplied`. */
+const UNSTITCHED_STATUSES: ReadonlySet<string> = new Set([
+  'possessed',
+  'doom',
+  'doomed',
+  'stitched',
+]);
+/**
+ * Phase 5c: the Movement III statuses a hero is freed of with a `freed` event of its own, so a
+ * `statusRemoved` 'freed' for one of them leaves the Legion's chain-snap unsounded.
+ */
+const UNSTITCHED_FREED: ReadonlySet<string> = new Set(['possessed', 'stitched', 'doom', 'doomed']);
+/** Phase 5c: the content names of the Unstitched attacks with their own sound (a lab's has no id). */
+const UNSTITCHED_ATTACK_NAMES: ReadonlyMap<string, string> = new Map(
+  CONTENT.attacks
+    .filter((a) => UNSTITCHED_ATTACK_SOUNDS[a.id] !== undefined)
+    .map((a) => [a.id, a.name] as const),
+);
+
 /** Phase 5a: an enemy's material (iron for the Legion; porcelain, the default, otherwise). */
 const materialOf = (defId: string): string | undefined => {
   try {
@@ -495,6 +599,16 @@ export class SfxEngine {
   private readonly tides = new Set<number>();
   private readonly frozenHowls = new Map<number, number>();
   private ironTurn = 0;
+  /**
+   * Phase 5c: the Void Maw's drones and the Null runes' hums by zone, the Spindles' drone by the
+   * boss they plate, the Shears' telegraphs (they dash as they resolve), and a stolen verse and
+   * Unravel as their events told them (sim seconds), for the music's stems.
+   */
+  private readonly zoneVoices = new Map<number, VoiceHandle>();
+  private readonly spindleVoices = new Map<number, VoiceHandle>();
+  private readonly shears = new Set<number>();
+  private verse: { until: number } | null = null;
+  private unravel: { until: number } | null = null;
 
   constructor(
     private readonly e: Engine,
@@ -661,10 +775,13 @@ export class SfxEngine {
         if (ev.status === 'absolved') this.absolveGuard(ev.target, state);
         // Phase 5a: the Movement II statuses.
         else if (LEGION_STATUSES.has(ev.status)) this.legionStatus(ev, state);
+        // Phase 5c: the Movement III statuses.
+        else if (UNSTITCHED_STATUSES.has(ev.status)) this.unstitchedStatus(ev, state);
         break;
       case 'statusRemoved':
-        // Phase 5a: a Reel freed a hero from a pin or a latch.
-        if (ev.reason === 'freed') this.freed(ev.target, state);
+        // Phase 5a: a Reel freed a hero from a pin or a latch. (Phase 5c: a Movement III status
+        // has its own `freed` event, voiced there.)
+        if (ev.reason === 'freed' && !UNSTITCHED_FREED.has(ev.status)) this.freed(ev.target, state);
         break;
       case 'guardBlocked':
         this.guardBlocked(ev.enemy, state);
@@ -756,7 +873,9 @@ export class SfxEngine {
         }
         break;
       case 'threadSnapped':
-        this.snap();
+        // Phase 5c: an enemy's cut (its cause) is a cut, not the range snap's twang.
+        if (ev.cause !== undefined) this.cut(ev.cause, ev.lock ?? 1, state, ev.target);
+        else this.snap();
         break;
       case 'cued':
         this.cue(ev.hero, state);
@@ -810,6 +929,8 @@ export class SfxEngine {
         break;
       case 'techniqueRejected':
         if (ev.technique === 'glide' && ev.reason === 'locked') this.glideLocked();
+        // Phase 5c: refused inside a Null rune, muffled (only a rune refuses with 'silenced').
+        else if (ev.reason === 'silenced') this.silenced();
         else if (ev.technique === 'rewind') this.rewindRefused(ev.reason);
         else this.rejected(ev.reason);
         break;
@@ -854,6 +975,8 @@ export class SfxEngine {
         // Phase 3e: a fight won (or lost) while time stood still. The victory's own music takes
         // the moment, so Stasis lets go quietly rather than muffle it.
         if (this.stasis) this.stasisRelease(0.6);
+        // Phase 5c: the Maw's drones, the runes' hums and the Spindles' drone end with the fight.
+        this.stopUnstitched(0.5);
         break;
       case 'rewound':
         this.rewound(ev, state);
@@ -915,11 +1038,59 @@ export class SfxEngine {
         }
         if (this.tides.delete(ev.telegraph) && ev.outcome !== 'cancelled') this.tide();
         this.frozenHowls.delete(ev.telegraph);
+        // Phase 5c: the Shears dash as their attack lands (once each).
+        if (this.shears.delete(ev.telegraph) && ev.outcome !== 'cancelled') {
+          const x = ev.target === null ? undefined : state.entities?.get(ev.target)?.x;
+          this.shearsDash(x, state);
+        }
         break;
       case 'telegraphEnded':
         this.executions.delete(ev.telegraph);
         this.tides.delete(ev.telegraph);
         this.frozenHowls.delete(ev.telegraph);
+        this.shears.delete(ev.telegraph);
+        break;
+      // ── Phase 5c: the Unstitched (none of these is emitted in Movements I and II) ──
+      case 'cutResolved':
+        if (ev.result === 'strand') this.strandPing(0);
+        break;
+      case 'strandBlocked':
+        this.strandPing(state.entities ? this.panFor(state, ev.x) : 0);
+        break;
+      case 'zoneStarted':
+        this.zoneStarted(ev, state);
+        break;
+      case 'zoneEnded':
+        this.zoneEnded(ev.zone);
+        break;
+      case 'possessed':
+        this.possession(ev.hero, state);
+        break;
+      case 'freed':
+        this.unstitchedFreed(ev, state);
+        break;
+      case 'mirrorCracked':
+        this.crack(ev.enemy, state);
+        break;
+      case 'verseStolen':
+        this.verseStolen(ev.until);
+        break;
+      case 'verseReturned':
+        this.verseReturned();
+        break;
+      case 'unravelled':
+        this.unravelled(ev.active, ev.until);
+        break;
+      case 'mirrorWard':
+        this.mirrorWard(ev.enemy, state);
+        break;
+      case 'spindled':
+        this.spindled(ev.enemy, state);
+        // A hit on a plated boss: its drone is (still) sounding.
+        if (!this.spindleVoices.has(ev.enemy)) this.tethered(ev.enemy, 1, state);
+        break;
+      case 'tethered':
+        this.tethered(ev.enemy, ev.count, state);
         break;
       case 'fieldPlanted':
         this.fieldPlanted(this.panFor(state, ev.x));
@@ -1929,6 +2100,12 @@ export class SfxEngine {
     // Phase 5a: the Legion is iron, not porcelain.
     if (materialOf(defId) === 'iron') {
       this.ironKill(role, pan);
+      return;
+    }
+    // Phase 5c: the Unstitched are cloth: they tear.
+    if (materialOf(defId) === 'cloth') {
+      this.clothKill(role, pan);
+      if (this.spindleVoices.has(enemy)) this.tethered(enemy, 0, state);
       return;
     }
     const glassTone = () =>
@@ -4590,6 +4767,29 @@ export class SfxEngine {
     }
   }
 
+  /** Phase 5c: the Movement III statuses' own voices. */
+  private unstitchedStatus(
+    ev: Extract<SimEvent, { type: 'statusApplied' }>,
+    state: WorldState,
+  ): void {
+    switch (ev.status) {
+      case 'possessed':
+        this.possession(ev.target, state);
+        break;
+      case 'doom':
+        this.doomTick(ev.stacks ?? 1, state.entities ? this.heroPan(state, ev.target) : 0);
+        break;
+      case 'doomed':
+        this.doomIgnite(ev.target, state);
+        break;
+      case 'stitched':
+        this.stitchedOn(ev.target, state);
+        break;
+      default:
+        break;
+    }
+  }
+
   /**
    * A bleed stack lands: a wet pluck that climbs a step of the key with every stack (E5 for one,
    * up to E6 at eight). From five stacks on, the Chime's moment, a glass glint rings over it.
@@ -4987,6 +5187,728 @@ export class SfxEngine {
     }
   }
 
+  /**
+   * Phase 5c: a cloth (Unstitched) enemy dies: it tears. A sweep of noise rising through a narrow
+   * band, the fibres giving way after it; a bigger tear for a bigger body, and the Seamstress and
+   * the Unweaver come apart with a low thud and a long rip under a falling glass chord.
+   */
+  private clothKill(role: string, pan: number): void {
+    const big = role === 'boss' || role === 'miniboss';
+    const swarm = !big && (role === 'swarm' || role === 'support');
+    const key = big ? `kill:cloth:${role}` : swarm ? 'kill:cloth:swarm' : 'kill:cloth:brute';
+    if (swarm && !this.e.gate(key, 0.035)) return;
+    if (big)
+      this.e.duck('music', { depth: role === 'boss' ? 0.55 : 0.75, hold: 0.5, release: 1.2 });
+    const len = big ? 0.9 : swarm ? 0.16 : 0.3;
+    const notes = chordNotesInRange(this.chord(), 74, 93);
+    this.play(
+      key,
+      big ? 2 : swarm ? 4 : 3,
+      'sfx',
+      (v, t) => {
+        v.noise({
+          start: t,
+          dur: len,
+          attack: len * 0.25,
+          release: len * 0.4,
+          gain: big ? 0.14 : swarm ? 0.08 : 0.1,
+          shape: 'sustain',
+          filter: { type: 'bandpass', freq: 500, freqTo: big ? 4200 : 3200, q: 1.6 },
+        });
+        for (let i = 0; i < (big ? 6 : 3); i++)
+          v.noise({
+            start: t + len * (0.35 + i * 0.12),
+            dur: 0.012,
+            gain: 0.03,
+            filter: { type: 'highpass', freq: 4500 },
+          });
+        if (!swarm) glassNote(v, t + len * 0.5, midiToHz(notes[1] ?? 81), 0.02, 0.6, 0.6);
+        if (big) {
+          thump(v, t, tone(-14), 0.3, 0.5, 0.45);
+          [3, 2, 1, 0].forEach((i, k) => {
+            const m = notes[Math.min(i, notes.length - 1)] ?? 81;
+            glassNote(v, t + 0.15 + k * 0.11, midiToHz(m), 0.03, 1.2, 0.7);
+          });
+          whoosh(v, t + 0.2, 1.4, 0.05, 3000, 300, 0.8);
+        }
+      },
+      { pan, big },
+    );
+  }
+
+  // ── Phase 5c: the Unstitched ─────────────────────────────────────────────────────
+  /** One Unstitched sound through its own gate and voice cap (UNSTITCHED_SOUND_LIMITS). */
+  private unstitched(
+    group: UnstitchedGroup,
+    build: (v: Voice, t: number) => void,
+    opts: PlayOpts = {},
+    bus: BusName = 'sfx',
+  ): VoiceHandle | null {
+    const [gate, cap] = UNSTITCHED_SOUND_LIMITS[group];
+    const key = UNSTITCHED_SOUND_GROUPS[group];
+    if (!this.e.gate(key, gate)) return null;
+    return this.play(key, cap, bus, build, opts);
+  }
+
+  /** Seconds of sim time from now until `until`, at the state's time scale (at least `min`). */
+  private simLeft(state: WorldState, until: number, min = 0.2, max = 30): number {
+    const left = until - (typeof state.time === 'number' ? state.time : 0);
+    const scale = typeof state.timeScale === 'number' && state.timeScale > 0 ? state.timeScale : 1;
+    return clamp(left / scale, min, max);
+  }
+
+  /** A pair of shears closing: two bright clicks a hair apart, a steel glint between them. */
+  private scissors(v: Voice, t: number, g: number): void {
+    for (const [at, f] of [
+      [0, 5200],
+      [0.045, 6800],
+    ] as const) {
+      v.noise({ start: t + at, dur: 0.018, gain: g, filter: { type: 'bandpass', freq: f, q: 3 } });
+    }
+    v.osc({
+      type: 'sine',
+      freq: tone(21),
+      start: t + 0.02,
+      dur: 0.12,
+      attack: 0.002,
+      release: 0.06,
+      gain: g * 0.18,
+    });
+  }
+
+  /**
+   * An enemy cut the Thread (docs/phase-5c.md), in place of the range snap's twang: the shears
+   * closing on it and a fray, its length the lock. The Shears and a Severing elite cut cleanly;
+   * the Snip is the Unweaver's great shears, with a chord on the Thread cut short and a thud; the
+   * Unpick is a ripple of small snaps.
+   */
+  private cut(cause: string, lock: number, state: WorldState, target: number): void {
+    const pan = state.entities ? this.heroPan(state, target) * 0.6 : 0;
+    const fray = clamp(lock, 0.5, 3);
+    const tail = (v: Voice, t: number, g: number) =>
+      v.noise({
+        start: t,
+        dur: 0.05 + 0.08 * fray,
+        attack: 0.004,
+        release: 0.1 * fray,
+        gain: g,
+        filter: { type: 'bandpass', freq: 3400, freqTo: 900, q: 2.4 },
+      });
+    if (cause === 'unpick') {
+      this.unstitched(
+        'unpick',
+        (v, t) => {
+          // Stitch after stitch picked out, quickening and falling.
+          for (let i = 0; i < 6; i++) {
+            const at = t + i * (0.07 - i * 0.006);
+            v.noise({
+              start: at,
+              dur: 0.014,
+              gain: 0.07 - i * 0.006,
+              filter: { type: 'bandpass', freq: 4200 - i * 300, q: 3 },
+            });
+            pluck(v, at, tone(16 - i), 0.025, 0.08, 0.9);
+          }
+          tail(v, t + 0.35, 0.03);
+        },
+        { pan },
+      );
+      return;
+    }
+    if (cause === 'snip') {
+      this.e.duck('music', { depth: 0.75, hold: 0.25, release: 0.6 });
+      const notes = chordNotesInRange(this.chord(), 62, 81).slice(0, 4);
+      this.unstitched(
+        'snip',
+        (v, t) => {
+          this.scissors(v, t, 0.13);
+          // The Thread's chord, struck and cut off.
+          notes.forEach((m, i) =>
+            v.osc({
+              type: 'triangle',
+              freq: midiToHz(m),
+              start: t + 0.05 + i * 0.012,
+              dur: 0.09,
+              attack: 0.003,
+              release: 0.02,
+              gain: 0.04,
+            }),
+          );
+          thump(v, t + 0.05, tone(-14), 0.18, 0.22, 0.5);
+          tail(v, t + 0.08, 0.06);
+        },
+        { pan, big: true },
+      );
+      return;
+    }
+    // The Shears, or a Severing elite: a clean cut.
+    const g = cause === 'severing' ? 0.08 : 0.11;
+    this.unstitched(
+      'cut',
+      (v, t) => {
+        this.scissors(v, t, g);
+        v.osc({
+          type: 'triangle',
+          freq: tone(14),
+          start: t + 0.045,
+          dur: 0.07,
+          attack: 0.002,
+          release: 0.03,
+          gain: g * 0.4,
+        });
+        tail(v, t + 0.06, g * 0.45);
+      },
+      { pan },
+    );
+  }
+
+  /** Guard Strand turned a cut or a bolt aside: a bright ping off a taut strand. */
+  private strandPing(pan: number): void {
+    this.unstitched(
+      'strand',
+      (v, t) => {
+        glassPing(v, t, tone(18), 0.05, 0.5);
+        glassPing(v, t + 0.04, tone(21), 0.03, 0.4);
+        v.noise({ start: t, dur: 0.012, gain: 0.04, filter: { type: 'highpass', freq: 6000 } });
+      },
+      { pan },
+    );
+  }
+
+  /** The Shears' dash: a 'shhk', air and steel together. */
+  private shearsDash(x: number | undefined, state: WorldState): void {
+    const pan = x === undefined ? 0 : this.panFor(state, x);
+    this.unstitched(
+      'shears',
+      (v, t) => {
+        v.noise({
+          start: t,
+          dur: 0.14,
+          attack: 0.03,
+          release: 0.06,
+          gain: 0.08,
+          shape: 'sustain',
+          filter: { type: 'bandpass', freq: 2200, freqTo: 6400, q: 1.6 },
+        });
+        this.scissors(v, t + 0.12, 0.07);
+      },
+      { pan },
+    );
+  }
+
+  /**
+   * A timed zone was laid. The Void Maw's pull: an inward whoosh and a gated sub drone on D for as
+   * long as it pulls, on the ambience bus. The Null Priest's rune: a low hum (A2 under D3, beating
+   * slowly) for as long as it lasts. Each is kept by its zone, and stops with it.
+   */
+  private zoneStarted(ev: Extract<SimEvent, { type: 'zoneStarted' }>, state: WorldState): void {
+    const dur = this.simLeft(state, ev.until, 0.4, 20);
+    const pan = state.entities ? this.panFor(state, ev.x) : 0;
+    if (ev.kind === 'pull') {
+      this.unstitched('inhale', (v, t) => whoosh(v, t, Math.min(1.6, dur), 0.07, 2400, 300, 0.9), {
+        pan,
+      });
+      const h = this.unstitched(
+        'maw',
+        (v, t) => {
+          const ctx = this.e.ctx;
+          const gate = ctx.createGain();
+          gate.gain.value = 0.55;
+          const lfo = ctx.createOscillator();
+          lfo.type = 'square';
+          lfo.frequency.value = 5.5;
+          const depth = ctx.createGain();
+          depth.gain.value = 0.45;
+          lfo.connect(depth).connect(gate.gain);
+          gate.connect(v.out);
+          v.nodes.push(gate, depth);
+          lfo.start(t);
+          lfo.stop(t + dur + 0.5);
+          v.sources.push(lfo);
+          for (const [f, g] of [
+            [tone(-14), 0.12],
+            [tone(-21), 0.08],
+          ] as const) {
+            v.osc({
+              type: 'sine',
+              freq: f,
+              start: t,
+              dur,
+              attack: 0.25,
+              release: 0.4,
+              gain: g,
+              shape: 'sustain',
+              dest: gate,
+            });
+          }
+          v.extend(t + dur + 0.5);
+        },
+        { pan: pan * 0.5 },
+        'ambience',
+      );
+      if (h) this.zoneVoices.set(ev.zone, h);
+      return;
+    }
+    const h = this.unstitched(
+      'rune',
+      (v, t) => {
+        for (const [f, d, g] of [
+          [tone(-10), -4, 0.05],
+          [tone(-7), 4, 0.04],
+        ] as const) {
+          v.osc({
+            type: 'triangle',
+            freq: f,
+            detune: d,
+            start: t,
+            dur,
+            attack: 0.3,
+            release: 0.35,
+            gain: g,
+            shape: 'sustain',
+            filter: { type: 'lowpass', freq: 520, q: 0.7 },
+          });
+        }
+        glassPing(v, t, tone(11), 0.02, 0.8);
+      },
+      { pan },
+    );
+    if (h) this.zoneVoices.set(ev.zone, h);
+  }
+
+  /** A zone ended (it ran out, or its owner fell): its drone or hum lets go. */
+  private zoneEnded(zone: number): void {
+    this.zoneVoices.get(zone)?.kill(this.e.now, 0.25);
+    this.zoneVoices.delete(zone);
+  }
+
+  /** The Doubt Wraith's cast: a whisper, two breathy formants swelling over its whole cast. */
+  private whisper(dur: number, pan: number): VoiceHandle | null {
+    return this.unstitched(
+      'whisper',
+      (v, t) => {
+        for (const [f, to, g] of [
+          [900, 1400, 0.05],
+          [2300, 3100, 0.03],
+        ] as const) {
+          v.noise({
+            pink: true,
+            start: t,
+            dur,
+            attack: dur * 0.85,
+            release: 0.25,
+            gain: g,
+            shape: 'sustain',
+            filter: { type: 'bandpass', freq: f, freqTo: to, q: 5 },
+          });
+        }
+      },
+      { pan },
+    );
+  }
+
+  /**
+   * A possession lands: a whisper's breath, then the key's two half-steps, E rising to F over B
+   * rising to C, a little too close together. Unease, still in D dorian.
+   */
+  private possession(hero: number, state: WorldState): void {
+    const pan = state.entities ? this.heroPan(state, hero) : 0;
+    this.unstitched(
+      'possessed',
+      (v, t) => {
+        v.noise({
+          pink: true,
+          start: t,
+          dur: 0.25,
+          attack: 0.12,
+          release: 0.2,
+          gain: 0.04,
+          shape: 'sustain',
+          filter: { type: 'bandpass', freq: 1400, q: 4 },
+        });
+        for (const [from, to, g] of [
+          [1, 2, 0.05],
+          [-2, -1, 0.04],
+        ] as const) {
+          for (const [at, idx] of [
+            [0.05, from],
+            [0.2, to],
+          ] as const) {
+            v.osc({
+              type: 'triangle',
+              freq: tone(idx),
+              start: t + at,
+              dur: 0.22,
+              attack: 0.03,
+              release: 0.15,
+              gain: g,
+              shape: 'sustain',
+              filter: { type: 'lowpass', freq: 1600, q: 0.7 },
+            });
+          }
+        }
+      },
+      { pan },
+    );
+  }
+
+  /** A hero freed (of a possession or a Stitch): glass for a Chime, a thread's snap for a Reel. */
+  private unstitchedFreed(ev: Extract<SimEvent, { type: 'freed' }>, state: WorldState): void {
+    if (ev.by === 'expired') return;
+    const pan = state.entities ? this.heroPan(state, ev.hero) : 0;
+    this.unstitched(
+      'freed',
+      (v, t) => {
+        if (ev.by === 'chime') {
+          glassNote(v, t, tone(14), 0.035, 0.8, 0.8);
+          glassNote(v, t + 0.06, tone(18), 0.025, 0.7, 0.8);
+        } else {
+          v.noise({ start: t, dur: 0.03, gain: 0.07, filter: { type: 'highpass', freq: 3600 } });
+          pluck(v, t, tone(11), 0.05, 0.25, 0.8);
+        }
+      },
+      { pan },
+    );
+  }
+
+  /** The Weaver's own technique sound, as the Mimic casts it back: mirrored, backwards, rising. */
+  private mirrorCast(copy: string | undefined, dur: number, pan: number): VoiceHandle | null {
+    const swell = clamp(dur, 0.4, 2.2);
+    return this.unstitched(
+      'mirror',
+      (v, t) => {
+        const end = t + swell;
+        if (copy === 'chime') {
+          // The Chime's handbell, played backwards and mirrored about D (A5 becomes G3).
+          reverseBell(v, end, tone(-4), 0.05, swell * 0.9);
+          reverseBell(v, end, tone(-7), 0.03, swell * 0.6);
+        } else if (copy === 'empower') {
+          // Empower's bright pluck, turned upside down: the figure falls instead of rising.
+          [4, 2, 0, -3].forEach((idx, i) =>
+            pluck(v, t + (swell * i) / 4, tone(idx), 0.045, 0.35, 0.5),
+          );
+        } else {
+          // The Ward's glass, backwards and an octave under itself.
+          reverseGlass(v, end, tone(-3), 0.05, swell * 0.9);
+          reverseGlass(v, end, tone(0), 0.03, swell * 0.7);
+        }
+        v.noise({
+          start: t,
+          dur: swell,
+          attack: swell * 0.9,
+          release: 0.05,
+          gain: 0.015,
+          shape: 'sustain',
+          filter: { type: 'bandpass', freq: 5200, q: 2 },
+        });
+      },
+      { pan },
+    );
+  }
+
+  /** The mirror cracked: a glass shatter, its shards falling through the key. */
+  private crack(enemy: number, state: WorldState): void {
+    const x = state.entities?.get(enemy)?.x;
+    const notes = chordNotesInRange(this.chord(), 79, 100);
+    this.unstitched(
+      'crack',
+      (v, t) => {
+        v.noise({ start: t, dur: 0.2, gain: 0.11, filter: { type: 'highpass', freq: 4200 } });
+        v.noise({
+          start: t + 0.02,
+          dur: 0.4,
+          gain: 0.04,
+          filter: { type: 'bandpass', freq: 7000, freqTo: 2500, q: 1.2 },
+        });
+        for (let i = 0; i < 4; i++) {
+          const m = notes[Math.max(0, notes.length - 1 - i)] ?? 88;
+          glassNote(v, t + 0.02 + i * 0.045, midiToHz(m), 0.03 - i * 0.004, 0.5, 0.9);
+        }
+      },
+      { pan: x === undefined ? 0 : this.panFor(state, x), big: true },
+    );
+  }
+
+  /** Needle Rain: a patter of small glass ticks, falling. */
+  private needles(pan: number): void {
+    this.unstitched(
+      'needles',
+      (v, t) => {
+        for (let i = 0; i < 5; i++)
+          clockTick(v, t + i * 0.05 + (i % 2) * 0.012, tone(19 - i), 0.03 - i * 0.003, 0.05);
+      },
+      { pan },
+    );
+  }
+
+  /** A Stitch pulled tight: a zip of thread and a plucked note drawn up to the D. */
+  private stitchedOn(hero: number, state: WorldState): void {
+    const pan = state.entities ? this.heroPan(state, hero) : 0;
+    this.unstitched(
+      'stitched',
+      (v, t) => {
+        // The thread drawn through: a rising rasp, and its note drawn up a fifth to the A.
+        v.noise({
+          start: t,
+          dur: 0.18,
+          attack: 0.01,
+          release: 0.07,
+          gain: 0.06,
+          shape: 'sustain',
+          filter: { type: 'bandpass', freq: 500, freqTo: 3800, q: 3 },
+        });
+        v.osc({
+          type: 'triangle',
+          freq: tone(0),
+          freqTo: tone(4),
+          glide: 0.18,
+          start: t,
+          dur: 0.18,
+          attack: 0.01,
+          release: 0.07,
+          gain: 0.015,
+          shape: 'sustain',
+        });
+        pluck(v, t + 0.15, tone(4), 0.05, 0.3, 0.6);
+        pluck(v, t + 0.2, tone(7), 0.06, 0.45, 0.6);
+      },
+      { pan },
+    );
+  }
+
+  /**
+   * A Doom stack: a tick that climbs a step of the key with each stack (D5 for one, up to A5 at
+   * five). From the Chime's count (DOOM_CHIME_AT) a glass glint rings over it.
+   */
+  private doomTick(stacks: number, pan: number): void {
+    const n = clamp(Math.round(stacks), 1, 5);
+    this.unstitched(
+      'doom',
+      (v, t) => {
+        clockTick(v, t, tone(6 + n), 0.05 + 0.008 * n, 0.08);
+        if (n >= DOOM_CHIME_AT) glassNote(v, t + 0.03, tone(13 + n), 0.02, 0.5, 0.8);
+      },
+      { pan },
+    );
+  }
+
+  /** Doom ignites: a fuse catching (a rising hiss), a low thud and a bell on A, darkly. */
+  private doomIgnite(hero: number, state: WorldState): void {
+    const pan = state.entities ? this.heroPan(state, hero) : 0;
+    this.unstitched(
+      'doomed',
+      (v, t) => {
+        v.noise({
+          start: t,
+          dur: 0.35,
+          attack: 0.3,
+          release: 0.05,
+          gain: 0.05,
+          shape: 'sustain',
+          filter: { type: 'bandpass', freq: 1200, freqTo: 5200, q: 1.4 },
+        });
+        thump(v, t + 0.32, tone(-14), 0.16, 0.3, 0.5);
+        brassBell(v, t + 0.32, tone(-3), 0.05, 1.2, 0.3);
+      },
+      { pan },
+    );
+  }
+
+  /**
+   * The Unweaver's Spindles: a low drone of two bowed strings (D2 and A2) for as long as any
+   * Spindle holds him, kept by the boss it plates. Stops when the last one falls (or he does).
+   */
+  private tethered(enemy: number, count: number, state: WorldState): void {
+    if (count <= 0) {
+      this.spindleVoices.get(enemy)?.kill(this.e.now, 0.4);
+      this.spindleVoices.delete(enemy);
+      return;
+    }
+    const held = this.spindleVoices.get(enemy);
+    if (held && held.endsAt > this.e.now + 1) return;
+    const x = state.entities?.get(enemy)?.x;
+    const h = this.unstitched(
+      'spindle',
+      (v, t) => {
+        bowed(v, t, tone(-14), 60, 0.05, 1.2, 0.8);
+        bowed(v, t, tone(-10), 60, 0.035, 1.6, 0.8);
+      },
+      { pan: x === undefined ? 0 : this.panFor(state, x) * 0.5 },
+    );
+    if (h) this.spindleVoices.set(enemy, h);
+  }
+
+  /** A hit the Spindles cut down: a dull, padded thud (gated: a volley is one). */
+  private spindled(enemy: number, state: WorldState): void {
+    const x = state.entities?.get(enemy)?.x;
+    this.unstitched(
+      'spindled',
+      (v, t) => {
+        thump(v, t, tone(-10), 0.1, 0.12, 0.6);
+        v.noise({ start: t, dur: 0.05, gain: 0.05, filter: { type: 'lowpass', freq: 500 } });
+      },
+      { pan: x === undefined ? 0 : this.panFor(state, x) },
+    );
+  }
+
+  /** Steal Verse: the aura sucked out of the song (glass drawn backwards into nothing). */
+  private verseStolen(until: number): void {
+    this.verse = { until };
+    this.unstitched('steal', (v, t) => {
+      reverseGlass(v, t + 0.7, tone(11), 0.05, 0.7);
+      reverseGlass(v, t + 0.7, tone(7), 0.035, 0.55);
+      whoosh(v, t, 0.75, 0.05, 3200, 400, 1.2);
+      thump(v, t + 0.7, tone(-7), 0.1, 0.18, 0.5);
+    });
+    this.music.jump();
+  }
+
+  /** The verse comes back: its glass poured back in, rising through the chord. */
+  private verseReturned(): void {
+    this.verse = null;
+    const notes = chordNotesInRange(this.chord(), 74, 93);
+    this.unstitched('restore', (v, t) => {
+      for (let i = 0; i < 4; i++) {
+        const m = notes[Math.min(i, notes.length - 1)] ?? 81;
+        glassNote(v, t + i * 0.07, midiToHz(m), 0.03, 0.9, 0.8);
+      }
+      whoosh(v, t, 0.5, 0.025, 600, 3600, 1);
+    });
+    this.music.jump();
+  }
+
+  /** Unravel opens (Mend turned over: a backwards bell falling), or closes (set right again). */
+  private unravelled(active: boolean, until: number): void {
+    this.unravel = active ? { until } : null;
+    this.unstitched('unravel', (v, t) => {
+      if (active) {
+        reverseBell(v, t + 0.6, tone(7), 0.05, 0.6);
+        reverseBell(v, t + 0.6, tone(-7), 0.04, 0.45);
+        v.osc({
+          type: 'triangle',
+          freq: tone(7),
+          freqTo: tone(0),
+          glide: 0.5,
+          start: t + 0.6,
+          dur: 0.5,
+          attack: 0.01,
+          release: 0.2,
+          gain: 0.04,
+        });
+      } else {
+        pluck(v, t, tone(0), 0.05, 0.4, 0.6);
+        pluck(v, t + 0.08, tone(4), 0.05, 0.5, 0.6);
+      }
+    });
+  }
+
+  /** The Mirror Ward on the champion: the Ward's glass, inverted (falling, an octave down). */
+  private mirrorWard(enemy: number, state: WorldState): void {
+    const x = state.entities?.get(enemy)?.x;
+    const c = this.chord();
+    const notes = chordNotesInRange(c, 62, 81);
+    this.unstitched(
+      'mirrorWard',
+      (v, t) => {
+        [...notes]
+          .reverse()
+          .slice(0, 3)
+          .forEach((m, i) => glassNote(v, t + i * 0.05, midiToHz(m), 0.035, 0.9, 0.5));
+        reverseGlass(v, t + 0.4, midiToHz(this.rootAbove(c, 50)), 0.03, 0.4);
+        v.noise({
+          start: t,
+          dur: 0.08,
+          gain: 0.03,
+          filter: { type: 'bandpass', freq: 3000, q: 2 },
+        });
+      },
+      { pan: x === undefined ? 0 : this.panFor(state, x) },
+    );
+  }
+
+  /**
+   * A technique refused inside a Null rune: muffled, as if through cloth. A dull D under a hand,
+   * nothing like the cooldown's buzz.
+   */
+  private silenced(): void {
+    this.unstitched('silenced', (v, t) => {
+      thump(v, t, tone(-7), 0.12, 0.14, 0.7);
+      v.osc({
+        type: 'triangle',
+        freq: tone(0),
+        start: t,
+        dur: 0.12,
+        attack: 0.01,
+        release: 0.08,
+        gain: 0.05,
+        filter: { type: 'lowpass', freq: 380, q: 0.5 },
+      });
+      v.noise({ start: t, dur: 0.06, gain: 0.03, filter: { type: 'lowpass', freq: 600 } });
+    });
+  }
+
+  /** Which Unstitched sound a telegraph's attack has (its state's attack id, else its name). */
+  private unstitchedAttack(
+    ev: TelegraphStarted,
+    state: WorldState,
+  ): 'shears' | 'whisper' | 'mirror' | 'needles' | null {
+    const id = state.telegraphs?.find((t) => t.id === ev.telegraph)?.attackId;
+    if (id !== undefined) return UNSTITCHED_ATTACK_SOUNDS[id] ?? null;
+    for (const [attack, sound] of Object.entries(UNSTITCHED_ATTACK_SOUNDS))
+      if (UNSTITCHED_ATTACK_NAMES.get(attack) === ev.name) return sound;
+    return null;
+  }
+
+  /**
+   * An Unstitched attack's own sound as its telegraph starts. The Wraith's whisper and the
+   * Mimic's mirrored cast are their windups (cut off with their cast); Needle Rain patters over
+   * its windup; the Shears dash when theirs resolves. True when it replaces the windup.
+   */
+  private unstitchedTelegraph(
+    sound: 'shears' | 'whisper' | 'mirror' | 'needles',
+    ev: TelegraphStarted,
+    state: WorldState,
+  ): boolean {
+    const { pan } = this.placeOf(this.shapeX(ev.shape, state), state);
+    const dur = clamp(ev.impact - ev.start, 0.4, 4.5);
+    if (sound === 'shears') {
+      this.shears.add(ev.telegraph);
+      return false;
+    }
+    if (sound === 'needles') {
+      this.needles(pan);
+      return false;
+    }
+    const copy = sound === 'mirror' ? state.entities?.get(ev.owner)?.enemy?.mimic?.copy : undefined;
+    const h = sound === 'whisper' ? this.whisper(dur, pan) : this.mirrorCast(copy, dur, pan);
+    if (h) this.trackWindup(ev.telegraph, h);
+    return true;
+  }
+
+  /** Every Movement III layer still sounding lets go (the fight ended, or combat stopped). */
+  private stopUnstitched(fade: number): void {
+    const now = this.e.now;
+    for (const h of this.zoneVoices.values()) h.kill(now, fade);
+    this.zoneVoices.clear();
+    for (const h of this.spindleVoices.values()) h.kill(now, fade);
+    this.spindleVoices.clear();
+    this.shears.clear();
+    this.verse = null;
+    this.unravel = null;
+  }
+
+  /** A stolen verse or Unravel, as the state has it or (in the lab) as the events told it. */
+  private m3Inputs(state: WorldState): { stolen: boolean; unravel: boolean } {
+    const field = state.field as { stolen?: unknown; unravel?: unknown } | undefined;
+    const time = typeof state.time === 'number' ? state.time : 0;
+    if (this.verse && this.verse.until <= time) this.verse = null;
+    if (this.unravel && this.unravel.until <= time) this.unravel = null;
+    return {
+      stolen: !!field?.stolen || this.verse !== null,
+      unravel: !!field?.unravel || this.unravel !== null,
+    };
+  }
+
   // ── Telegraph windups ────────────────────────────────────────────────────────────
   /**
    * How an attack winds up: glass for marks and Chime answers, brass for Ward, else a swell.
@@ -4997,14 +5919,15 @@ export class SfxEngine {
     kind: string,
     answers: readonly string[],
     state?: WorldState,
-  ): 'glass' | 'brass' | 'swell' {
+  ): 'glass' | 'brass' | 'swell' | 'taut' | 'invert' {
     if (kind === 'mark') return 'glass';
     if (state?.dissonance?.blindScore) return 'swell';
     // Phase 5a: 'lift them above the line' (Execution) is a heal's swell, not a Ward's brass.
     if (answers.includes('mend')) return 'swell';
-    // Phase 5c (W7 refines): an attack first answered by the Thread's own verbs, Retarget or
-    // Empower, is a swell too.
-    if (answers[0] === 'thread' || answers[0] === 'empower') return 'swell';
+    // Phase 5c: an attack first answered by the Thread's own verbs has a windup of its own: a
+    // Retarget's is the Thread drawn taut, an Empower's (Unravel) a swell turned over.
+    if (answers[0] === 'thread') return 'taut';
+    if (answers[0] === 'empower') return 'invert';
     return answers.includes('chime')
       ? 'glass'
       : answers.includes('ward') || answers.includes('dome')
@@ -5043,6 +5966,9 @@ export class SfxEngine {
     const legion = this.legionAttack(ev, state);
     if (legion === 'tide') this.tides.add(ev.telegraph);
     else if (legion === 'roll') this.executions.set(ev.telegraph, ev.target);
+    // Phase 5c: the Unstitched attacks with sounds of their own (none in Movements I and II).
+    const m3 = legion === null ? this.unstitchedAttack(ev, state) : null;
+    if (m3 === 'shears') this.shears.add(ev.telegraph);
     // Phase 3e: during Stasis nothing on the enemies' side moves, so a windup started now would
     // swell to an impact that keeps moving away. It waits, and plays when time resumes (and a
     // Pack Call's howl with it: the Matriarch is as still as the rest).
@@ -5058,6 +5984,7 @@ export class SfxEngine {
       if (roll) this.trackWindup(ev.telegraph, roll);
       return;
     }
+    if (m3 !== null && this.unstitchedTelegraph(m3, ev, state)) return;
     const style = this.windStyle(ev.kind, ev.answers, state);
     if (!this.e.gate('wind', 0.08)) return;
     const { pan, near } = this.placeOf(this.shapeX(ev.shape, state), state);
@@ -5070,6 +5997,8 @@ export class SfxEngine {
       (v, t) => {
         if (style === 'brass') this.brassWindup(v, t, dur, c, 0.1 * near);
         else if (style === 'glass') this.glassWindup(v, t, dur, c, 0.08 * near);
+        else if (style === 'taut') this.tautWindup(v, t, dur, 0, c, 0.08 * near);
+        else if (style === 'invert') this.invertWindup(v, t, dur, 0, c, 0.085 * near);
         else this.swellWindup(v, t, dur, c, 0.085 * near);
       },
       { pan },
@@ -5163,6 +6092,8 @@ export class SfxEngine {
       (v, t) => {
         if (style === 'brass') this.brassResume(v, t, total, p, c, 0.1 * near);
         else if (style === 'glass') this.glassResume(v, t, total, p, c, 0.08 * near);
+        else if (style === 'taut') this.tautWindup(v, t, total, p, c, 0.08 * near);
+        else if (style === 'invert') this.invertWindup(v, t, total, p, c, 0.085 * near);
         else this.swellResume(v, t, total, p, c, 0.085 * near);
       },
       { pan },
@@ -5289,6 +6220,71 @@ export class SfxEngine {
       shape: 'sustain',
       filter: { type: 'bandpass', freq: 500 * (2400 / 500) ** k, freqTo: 2400, q: 1.2 },
     });
+  }
+
+  /**
+   * Phase 5c: a windup answered by Retarget (the `thread` glyph): the Thread drawn taut. A string's
+   * note bowed up the chord, tightening (its band narrowing), with the fibres creaking over it.
+   * `p` > 0 takes it up again at that share of its `total` (after Stasis).
+   */
+  private tautWindup(v: Voice, t: number, total: number, p: number, c: Chord, g: number): void {
+    const notes = chordNotesInRange(c, 57, 81);
+    const f0 = midiToHz(notes[0] ?? 57);
+    const f1 = midiToHz(notes[Math.min(4, notes.length - 1)] ?? 74);
+    const rem = total * (1 - p);
+    const k = (total * p) / (total + 0.2);
+    const attack = p > 0 ? 0.04 : total * 0.85;
+    if (p > 0) this.resumeLevel(v, t, p / 0.85, total * (0.85 - p));
+    v.osc({
+      type: 'sawtooth',
+      freq: f0 * (f1 / f0) ** p,
+      freqTo: f1,
+      glide: rem,
+      start: t,
+      dur: rem,
+      attack,
+      release: 0.12,
+      gain: g * 0.7,
+      shape: 'sustain',
+      filter: { type: 'bandpass', freq: 600 * (2600 / 600) ** k, freqTo: 2600, q: 4 },
+    });
+    v.noise({
+      start: t,
+      dur: rem,
+      attack,
+      release: 0.12,
+      gain: g * 0.35,
+      shape: 'sustain',
+      filter: { type: 'bandpass', freq: 3000 * (6000 / 3000) ** k, freqTo: 6000, q: 6 },
+    });
+  }
+
+  /**
+   * Phase 5c: a windup answered by Empower (Unravel): a swell turned over. It falls instead of
+   * rising, a chord tone drawn down to the one under it, a backwards bell arriving at the impact.
+   */
+  private invertWindup(v: Voice, t: number, total: number, p: number, c: Chord, g: number): void {
+    const notes = chordNotesInRange(c, 60, 81);
+    const f0 = midiToHz(notes[Math.min(3, notes.length - 1)] ?? 74);
+    const f1 = midiToHz(notes[0] ?? 62);
+    const rem = total * (1 - p);
+    const k = (total * p) / (total + 0.25);
+    const attack = p > 0 ? 0.04 : total * 0.85;
+    if (p > 0) this.resumeLevel(v, t, p / 0.85, total * (0.85 - p));
+    v.osc({
+      type: 'triangle',
+      freq: f0 * (f1 / f0) ** p,
+      freqTo: f1,
+      glide: rem,
+      start: t,
+      dur: rem,
+      attack,
+      release: 0.25,
+      gain: g,
+      shape: 'sustain',
+      filter: { type: 'lowpass', freq: 2400 * (700 / 2400) ** k, freqTo: 700, q: 0.8 },
+    });
+    reverseBell(v, t + rem, f1 * 2, g * 0.5, Math.min(rem, 0.8));
   }
 
   private brassWindup(v: Voice, t: number, dur: number, c: Chord, g: number): void {
@@ -5484,6 +6480,8 @@ export class SfxEngine {
     downed: number;
     bossPhase: number;
     apex: boolean;
+    stolen: boolean;
+    unravel: boolean;
   } {
     const e = this.e;
     const now = e.now;
@@ -5613,6 +6611,8 @@ export class SfxEngine {
       downed,
       bossPhase,
       apex,
+      // Phase 5c: the Unweaver's stolen verse and Unravel (the Abyssal Rift's stems).
+      ...this.m3Inputs(state),
     };
   }
 
@@ -6052,6 +7052,8 @@ export class SfxEngine {
     this.executions.clear();
     this.tides.clear();
     this.frozenHowls.clear();
+    // Phase 5c: the Maw's drones, the runes' hums, the Spindles' drone, the stolen verse.
+    this.stopUnstitched(0.2);
     // Phase 5b: Red Frenzy stops whirling; Brann's alert and Blood and Silk start afresh.
     for (const id of [...this.frenzy.keys()]) this.frenzyEnd(id, 0.2);
     this.bloodClear.clear();

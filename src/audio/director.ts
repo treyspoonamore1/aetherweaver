@@ -4,7 +4,7 @@
  * AudioContext is unavailable (Node, Vitest, headless) and never throws.
  */
 import { BUS_NAMES, Engine } from './engine';
-import { MusicEngine } from './music';
+import { MusicEngine, voicedBiome } from './music';
 import { SfxEngine } from './sfx';
 import { CALLING_UI_SOUNDS, playUiSound } from './ui';
 import type {
@@ -29,7 +29,8 @@ const runCalling = (): string | null => useRun.getState().run?.calling?.id ?? nu
 /**
  * Phase 5a (docs/phase-5a.md): the biome the Map voices for a run, its Movement's (the Movement
  * the next stop belongs to, `mapMovement`): the Sunlit Reliquary for a Prelude and Movement I,
- * the Crimson Spire once an Expedition climbs Movement II. Null without a run (nothing to follow).
+ * the Crimson Spire once an Expedition climbs Movement II, the Abyssal Rift once it goes down into
+ * Movement III (Phase 5c). Null without a run (nothing to follow).
  */
 export function mapBiome(run: RunState | null | undefined): Biome | null {
   if (!run) return null;
@@ -101,6 +102,8 @@ export class SynthDirector implements AudioDirector {
     downed: 0,
     bossPhase: 0,
     apex: false,
+    stolen: false,
+    unravel: false,
   };
   private readonly callingOf: (() => string | null) | null;
   private readonly mapBiomeOf: (() => Biome | null) | null;
@@ -288,10 +291,13 @@ export class SynthDirector implements AudioDirector {
    * Phase 5a (docs/phase-5a.md): the biome the map and the fight are voiced in. The runtime
    * gives the arena's, the Map the Movement's. The Sunlit Reliquary until called; the title,
    * the Loom and the victory and defeat stingers sound the same in every biome.
+   *
+   * Phase 5c: the Abyssal Rift (Movement III) has its own voicing. A biome this build has no
+   * voicing for (a later slice's) falls back to the Sunlit Reliquary.
    */
   setBiome(biome: Biome): void {
-    this.biome = biome;
-    this.music?.setBiome(biome);
+    this.biome = voicedBiome(biome);
+    this.music?.setBiome(this.biome);
   }
 
   /** Phase 5a: the biome last asked for (the lab, tests). */
@@ -348,6 +354,8 @@ export class SynthDirector implements AudioDirector {
         downed: 0,
         bossPhase: 0,
         apex: false,
+        stolen: false,
+        unravel: false,
       });
     }
     this.lastInputs = {
@@ -357,6 +365,8 @@ export class SynthDirector implements AudioDirector {
       downed: 0,
       bossPhase: 0,
       apex: false,
+      stolen: false,
+      unravel: false,
     };
   }
 

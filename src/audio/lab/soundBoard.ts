@@ -25,6 +25,11 @@ export interface SoundButton {
     | 'crimson'
     /** Phase 5b: Brann (his voice, his drum and alert, his kit; Brann joins the lab party). */
     | 'brann'
+    /**
+     * Phase 5c: the Unstitched (cuts, the Maw, the Wraith, the rune, the Mimic, the Seamstress,
+     * Doom, the Unweaver, the Retarget and Empower windups, cloth kills).
+     */
+    | 'unstitched'
     | 'world'
     | 'ui';
   /** Fires the sound. Receives the director and a world to read/mutate. */
@@ -920,6 +925,92 @@ const brannCall = (): SimEvent =>
     flourish: 'Red Comet',
     until: 2.8,
     line: 'Ward me — I’m going in!',
+  });
+
+// ── Phase 5c helpers: the Unstitched ────────────────────────────────────────────────
+
+/** The Unstitched's cloth enemies, from the content (their kill buttons). */
+const CLOTH_ENEMIES = CONTENT.enemies.filter((e) => e.material === 'cloth');
+
+/**
+ * An Unstitched attack's telegraph in the world (so its sound finds its attack id) and its
+ * `telegraphStarted`, from the content's own numbers. `owner`: its caster (the Mimic reads its
+ * copy from its caster).
+ */
+function riftTele(
+  w: FakeWorld,
+  id: number,
+  attackId: string,
+  target: HeroKey | null,
+  owner: number = IDS.enemyBase,
+): SimEvent {
+  const a = CONTENT.attacks.find((x) => x.id === attackId);
+  const windup = a?.windup ?? 1.5;
+  const t = w.addTelegraph(id, windup, {
+    kind: (a?.kind ?? 'burst') as FakeTelegraph['kind'],
+    answers: (a?.answers ?? ['move']) as FakeTelegraph['answers'],
+    target: target === null ? null : IDS[target],
+    attackId,
+    name: a?.name ?? 'Lab',
+  });
+  t.owner = owner;
+  return ev('telegraphStarted', {
+    telegraph: id,
+    owner,
+    target: t.target,
+    name: t.name,
+    kind: t.kind,
+    shape: t.shape,
+    start: t.start,
+    impact: t.impact,
+    perfectFrom: t.perfectFrom,
+    damage: t.damage,
+    pctMaxHp: 0,
+    answers: t.answers,
+    effect: 'damage',
+  });
+}
+
+/** The Thread cut by an enemy (`threadSnapped` with its cause), off Kael. */
+const cutOff = (cause: 'shears' | 'severing' | 'snip' | 'unpick', lock: number): SimEvent =>
+  ev('threadSnapped', { target: IDS.kael, cause, lock, by: IDS.enemyBase });
+
+/** A Lab telegraph answered first by Retarget or Empower (its windup's style). */
+const verbTele = (answers: ('thread' | 'empower' | 'move' | 'focus')[], windup = 1.4): SimEvent =>
+  ev('telegraphStarted', {
+    telegraph: 1,
+    owner: IDS.enemyBase,
+    target: IDS.kael,
+    name: 'Lab',
+    kind: 'beam',
+    shape: { kind: 'circle', x: 3, z: 4, r: 3 },
+    start: 0,
+    impact: windup,
+    perfectFrom: windup - 0.35,
+    damage: 300,
+    pctMaxHp: 0,
+    answers,
+    effect: 'damage',
+  });
+
+/** A Mimic in the world with its copy, as the sim's `enemy.mimic` holds it. Returns its id. */
+function mimicWith(w: FakeWorld, copy: 'ward' | 'chime' | 'empower'): number {
+  const id = w.addEnemy('mimic', 5);
+  const e = w.entities.get(id);
+  if (e?.enemy) Object.assign(e.enemy, { mimic: { copy } });
+  return id;
+}
+
+/** A timed zone (`zoneStarted`) of `kind`, `seconds` long, at x. */
+const zoneOn = (w: FakeWorld, zone: number, kind: 'pull' | 'null', seconds: number, x = 3) =>
+  ev('zoneStarted', {
+    zone,
+    kind,
+    owner: IDS.enemyBase,
+    x,
+    z: 4,
+    r: kind === 'pull' ? 8 : 5,
+    until: w.time + seconds,
   });
 
 export const SOUNDS: SoundButton[] = [
@@ -2743,6 +2834,253 @@ export const SOUNDS: SoundButton[] = [
           z: 5,
         }),
       );
+    },
+  })),
+  // ── Phase 5c: the Unstitched ───────────────────────────────────────────────────
+  ...(
+    [
+      ['shears', 1, 'Shears cut the Thread (a clean cut, a short fray)'],
+      ['severing', 1, 'A Severing elite cuts the Thread (lighter)'],
+      ['snip', 3, 'Snip (the great shears, the Thread’s chord cut short, a thud)'],
+      ['unpick', 1, 'Unpick (a ripple of snaps)'],
+    ] as const
+  ).map(([cause, lock, label]): SoundButton => ({
+    id: `unstitched-cut-${cause}`,
+    label,
+    group: 'unstitched',
+    length: 2,
+    fire: (d, w) => fire(d, w, cutOff(cause, lock)),
+  })),
+  {
+    id: 'unstitched-strand',
+    label: 'Guard Strand turns a cut aside (a ping off a taut strand)',
+    group: 'unstitched',
+    length: 1.5,
+    fire: (d, w) =>
+      fire(d, w, ev('cutResolved', { telegraph: 1, cause: 'shears', result: 'strand' })),
+  },
+  {
+    id: 'unstitched-strand-bolt',
+    label: 'Guard Strand destroys a bolt crossing the Thread',
+    group: 'unstitched',
+    length: 1.5,
+    fire: (d, w) => fire(d, w, ev('strandBlocked', { source: IDS.enemyBase, x: 2, z: 1 })),
+  },
+  {
+    id: 'unstitched-shears',
+    label: 'Shearing Dash (the Retarget windup, then the shhk as it lands)',
+    group: 'unstitched',
+    length: 3,
+    fire: (d, w) => fire(d, w, riftTele(w, 50, 'shears_dash', 'kael')),
+    then: [
+      {
+        delay: 1,
+        fire: (d, w) => {
+          w.removeTelegraph(50);
+          fire(d, w, resolved(50, 'kael', 'hit'), cutOff('shears', 1));
+        },
+      },
+    ],
+  },
+  {
+    id: 'unstitched-maw',
+    label: 'Void Maw: Inhale (the tell, then the whoosh and the gated sub drone for 4 s)',
+    group: 'unstitched',
+    length: 7,
+    fire: (d, w) => fire(d, w, riftTele(w, 51, 'maw_inhale', null)),
+    then: [
+      {
+        delay: 1.4,
+        fire: (d, w) => {
+          w.removeTelegraph(51);
+          fire(d, w, resolved(51, null, 'dodged'), zoneOn(w, 1, 'pull', 4));
+        },
+      },
+      { delay: 5.4, fire: (d, w) => fire(d, w, ev('zoneEnded', { zone: 1, kind: 'pull' })) },
+    ],
+  },
+  {
+    id: 'unstitched-wraith',
+    label: 'Doubt Wraith: Doubt (a whisper across the 4 s cast, then the possession on E–F, B–C)',
+    group: 'unstitched',
+    length: 6,
+    fire: (d, w) =>
+      fire(d, w, statusOn('lyra', 'doubt', 4), riftTele(w, 52, 'wraith_doubt', 'lyra')),
+    then: [
+      {
+        delay: 4,
+        fire: (d, w) => {
+          w.removeTelegraph(52);
+          fire(
+            d,
+            w,
+            resolved(52, 'lyra', 'hit'),
+            statusOn('lyra', 'possessed', 5),
+            ev('possessed', { hero: IDS.lyra, source: IDS.enemyBase }),
+          );
+        },
+      },
+    ],
+  },
+  ...(['chime', 'reel'] as const).map((by): SoundButton => ({
+    id: `unstitched-freed-${by}`,
+    label:
+      by === 'chime'
+        ? 'Freed of a possession by a Chime (glass)'
+        : 'Freed of a Stitch by a Reel (a thread’s snap)',
+    group: 'unstitched',
+    length: 1.5,
+    fire: (d, w) =>
+      fire(
+        d,
+        w,
+        ev('freed', {
+          hero: IDS.lyra,
+          status: by === 'chime' ? 'possessed' : 'stitched',
+          by,
+        }),
+      ),
+  })),
+  {
+    id: 'unstitched-rune',
+    label: 'Null rune (its hum for 6 s; a Ward refused inside it, muffled)',
+    group: 'unstitched',
+    length: 7,
+    fire: (d, w) => fire(d, w, zoneOn(w, 2, 'null', 6, 0)),
+    then: [
+      {
+        delay: 1.5,
+        fire: (d, w) =>
+          fire(d, w, ev('techniqueRejected', { technique: 'ward', reason: 'silenced' })),
+      },
+      { delay: 6, fire: (d, w) => fire(d, w, ev('zoneEnded', { zone: 2, kind: 'null' })) },
+    ],
+  },
+  {
+    id: 'unstitched-silenced',
+    label: 'A technique refused in a rune (muffled; not the cooldown buzz)',
+    group: 'unstitched',
+    length: 1,
+    fire: (d, w) => fire(d, w, ev('techniqueRejected', { technique: 'chime', reason: 'silenced' })),
+  },
+  ...(['ward', 'chime', 'empower'] as const).map((copy): SoundButton => ({
+    id: `unstitched-mimic-${copy}`,
+    label: `Mimic: Mirror, copying your ${copy === 'empower' ? 'Empower' : copy === 'ward' ? 'Ward' : 'Chime'} (your sound, mirrored)`,
+    group: 'unstitched',
+    length: 3,
+    fire: (d, w) => fire(d, w, riftTele(w, 53, 'mimic_mirror', null, mimicWith(w, copy))),
+    then: [{ delay: 2, fire: (_d, w) => w.removeTelegraph(53) }],
+  })),
+  {
+    id: 'unstitched-crack',
+    label: 'The mirror cracks (a glass shatter)',
+    group: 'unstitched',
+    length: 2,
+    fire: (d, w) => fire(d, w, ev('mirrorCracked', { enemy: mimicWith(w, 'ward'), copy: 'ward' })),
+  },
+  {
+    id: 'unstitched-needles',
+    label: 'Needle Rain (a patter of needles over its windup)',
+    group: 'unstitched',
+    length: 2.5,
+    fire: (d, w) => fire(d, w, riftTele(w, 54, 'seamstress_needles', 'vexis')),
+    then: [{ delay: 1.4, fire: (_d, w) => w.removeTelegraph(54) }],
+  },
+  {
+    id: 'unstitched-stitched',
+    label: 'Stitch pulled tight on two heroes (one sound)',
+    group: 'unstitched',
+    length: 1.5,
+    fire: (d, w) => fire(d, w, statusOn('kael', 'stitched', 6), statusOn('lyra', 'stitched', 6)),
+  },
+  ...[1, 3, 4, 5].map((n): SoundButton => ({
+    id: `unstitched-doom-${n}`,
+    label: `Doom ×${n} (a tick a step up per stack${n >= 4 ? '; the Chime glint' : ''})`,
+    group: 'unstitched',
+    length: 1.5,
+    fire: (d, w) => fire(d, w, statusOn('kael', 'doom', 10, n)),
+  })),
+  {
+    id: 'unstitched-doomed',
+    label: 'Doom ignites (the fuse, a thud, a dark bell)',
+    group: 'unstitched',
+    length: 2.5,
+    fire: (d, w) => fire(d, w, statusOn('kael', 'doomed', 1.5)),
+  },
+  {
+    id: 'unstitched-spindles',
+    label: 'Spindles: the drone while they hold, a hit cut down, then the last one falls',
+    group: 'unstitched',
+    length: 5,
+    fire: (d, w) => fire(d, w, ev('tethered', { enemy: IDS.enemyBase, count: 3 })),
+    then: [
+      {
+        delay: 1.5,
+        fire: (d, w) => fire(d, w, ev('spindled', { enemy: IDS.enemyBase, source: IDS.kael })),
+      },
+      {
+        delay: 3.5,
+        fire: (d, w) => fire(d, w, ev('tethered', { enemy: IDS.enemyBase, count: 0 })),
+      },
+    ],
+  },
+  {
+    id: 'unstitched-steal',
+    label: 'Steal Verse (the aura drawn out of the song), then given back',
+    group: 'unstitched',
+    length: 4,
+    fire: (d, w) =>
+      fire(d, w, ev('verseStolen', { aura: 'lab', add: IDS.enemyBase + 1, until: w.time + 30 })),
+    then: [
+      {
+        delay: 2,
+        fire: (d, w) => fire(d, w, ev('verseReturned', { aura: 'lab', reason: 'killed' })),
+      },
+    ],
+  },
+  {
+    id: 'unstitched-unravel',
+    label: 'Unravel opens (Mend turned over), then closes',
+    group: 'unstitched',
+    length: 3.5,
+    fire: (d, w) => fire(d, w, ev('unravelled', { active: true, until: w.time + 5 })),
+    then: [
+      {
+        delay: 2,
+        fire: (d, w) => fire(d, w, ev('unravelled', { active: false, until: w.time })),
+      },
+    ],
+  },
+  {
+    id: 'unstitched-mirror-ward',
+    label: 'Mirror Ward on the champion (the Ward’s glass, inverted)',
+    group: 'unstitched',
+    length: 2,
+    fire: (d, w) => fire(d, w, ev('mirrorWard', { enemy: IDS.enemyBase, amount: 600 })),
+  },
+  {
+    id: 'unstitched-windup-thread',
+    label: 'Windup answered by Retarget (the Thread drawn taut)',
+    group: 'unstitched',
+    length: 2,
+    fire: (d, w) => fire(d, w, verbTele(['thread', 'move'])),
+  },
+  {
+    id: 'unstitched-windup-empower',
+    label: 'Windup answered by Empower (a swell turned over)',
+    group: 'unstitched',
+    length: 2,
+    fire: (d, w) => fire(d, w, verbTele(['empower'], 1.6)),
+  },
+  ...CLOTH_ENEMIES.map((e): SoundButton => ({
+    id: `kill-cloth-${e.id}`,
+    label: `Kill ${e.name} (cloth: it tears)`,
+    group: 'unstitched',
+    length: e.role === 'boss' || e.role === 'miniboss' ? 4 : 2,
+    fire: (d, w) => {
+      const x = e.role === 'swarm' ? -6 : 6;
+      const id = w.addEnemy(e.id, x);
+      fire(d, w, ev('enemyKilled', { enemy: id, defId: e.id, killer: null, x, z: 5 }));
     },
   })),
   // ── UI ─────────────────────────────────────────────────────────────────────────
