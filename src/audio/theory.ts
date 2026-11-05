@@ -384,3 +384,55 @@ export const MELODY_CRIMSON_BOSS: readonly (readonly Slot[])[] = [
   [1, _, _, 1, 3, _, 5, _],
   [4, _, 2, _, -3, _, _, _],
 ];
+
+// ── Phase 5c: the Abyssal Rift (docs/phase-5c.md, "Audio") ──────────────────────────
+
+/**
+ * The Abyssal Rift: Dsus2–Em7–Bø7–Am7, twice. Open and suspended (no third on the tonic), the
+ * dorian's own half-diminished in the middle: the world coming unstitched, still D dorian at 88.
+ */
+export const PROGRESSION_ABYSS: readonly Chord[] = [
+  CHORDS.Dsus2,
+  CHORDS.Em7,
+  CHORDS.Bm7b5,
+  CHORDS.Am7,
+  CHORDS.Dsus2,
+  CHORDS.Em7,
+  CHORDS.Bm7b5,
+  CHORDS.Am7,
+];
+/** The Rift's boss loop: the open tonic held, the half-diminished pulled at twice, no rest. */
+export const PROGRESSION_ABYSS_BOSS: readonly Chord[] = [
+  CHORDS.Dsus2,
+  CHORDS.Dsus2,
+  CHORDS.Bm7b5,
+  CHORDS.Em7,
+  CHORDS.Dsus2,
+  CHORDS.Bm7b5,
+  CHORDS.Am7,
+  CHORDS.Em7,
+];
+
+/**
+ * The Rift's melody over PROGRESSION_ABYSS (scale indices, D4 = 0): a detuned plucked string,
+ * picking at the chord's open fifths and its seconds, with long gaps for the needle ticks.
+ */
+export const MELODY_ABYSS: readonly (readonly Slot[])[] = [
+  [4, _, _, 1, 0, _, _, _],
+  [1, _, 4, _, _, 3, 1, _],
+  [5, _, _, 2, 4, _, _, _],
+  [4, _, 2, _, 0, _, -3, _],
+  [7, _, _, 4, 1, _, _, _],
+  [1, _, 4, _, 6, _, 4, _],
+  [5, _, 9, _, 7, _, 5, _],
+  [4, _, _, _, 0, _, _, _],
+];
+
+/**
+ * A melody note mirrored about D (Phase 5c, the Unweaver): D dorian is its own inversion about
+ * D ({0,2,3,5,7,9,10} maps onto itself), so scale index `i` mirrors to `-i` and stays in key:
+ * `scaleMidi(mirrorIndex(i)) === 2 * KEY_ROOT_MIDI - scaleMidi(i)`.
+ */
+export function mirrorIndex(index: number): number {
+  return -Math.round(index);
+}

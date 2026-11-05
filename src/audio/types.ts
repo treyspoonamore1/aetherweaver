@@ -241,6 +241,8 @@ export interface AudioDirector {
   /**
    * Additive (docs/phase-5a.md): the biome the music and ambience voice (the arena's in a fight,
    * the Movement's on the map). Absent on stand-ins; the Sunlit Reliquary until called.
+   * Phase 5c (docs/phase-5c.md): every biome in content, the Abyssal Rift included, has its
+   * voicing; a biome the director has no voicing for (a later slice's) is voiced as the Reliquary.
    */
   setBiome?(biome: Biome): void;
   /** Stops combat layers (leaving combat); music keeps playing per mood. */
