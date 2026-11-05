@@ -6,6 +6,7 @@
  */
 import type { Entity, Telegraph } from '../state';
 import type { World } from '../world';
+import { seamstressScript, unweaverScript } from './unstitchedBosses';
 
 /** A scheduled scripted attack, for Foresight (`Foreseen`, with `special: -1`). */
 export interface ScriptedNext {
@@ -16,6 +17,11 @@ export interface ScriptedNext {
 
 /** What a boss's script may do. Every hook is optional. */
 export interface BossScript {
+  /**
+   * Every tick the boss stands, whatever it is doing (before the phase-shift and cast gates,
+   * bosses.ts): the clocks that must run out on time, however long a cast takes.
+   */
+  update?(world: World, boss: Entity): void;
   /** Every tick the boss stands and isn't casting, after the follow-ups (bosses.ts). */
   tick?(world: World, boss: Entity): void;
   /** The boss entered `phase` (1-based), after the legacy phase handling. */
@@ -35,8 +41,11 @@ export interface BossScript {
   cleanup?(world: World): void;
 }
 
-/** The registry: empty until Movement III's bosses register (W3). */
-export const BOSS_SCRIPTS: Readonly<Record<string, BossScript>> = {};
+/** The registry: Movement III's Seamstress and Unweaver (unstitchedBosses.ts); the Finale's next. */
+export const BOSS_SCRIPTS: Readonly<Record<string, BossScript>> = {
+  the_seamstress: seamstressScript(),
+  the_unweaver: unweaverScript(),
+};
 
 /** A boss's script by its enemy def id (undefined for every legacy boss). */
 export function bossScript(defId: string): BossScript | undefined {
@@ -46,10 +55,14 @@ export function bossScript(defId: string): BossScript | undefined {
 }
 
 /**
- * The script of the fight's boss, by the encounter's content (the boss may already be dead, as
- * at the end of a won fight). Undefined for every legacy encounter.
+ * The script of the fight's boss: the standing boss's (a staged sandbox fight has one too), else
+ * the encounter's content's (the boss may already be gone, as at the end of a won fight).
+ * Undefined for every legacy encounter.
  */
 export function encounterScript(world: World): BossScript | undefined {
+  const id = world.encounter.bossId;
+  const standing = id === null ? undefined : world.entities.get(id)?.enemy;
+  if (standing) return bossScript(standing.defId);
   const boss = world.content.encounters.find((e) => e.id === world.encounter.id)?.boss;
   return boss === undefined ? undefined : bossScript(boss);
 }
