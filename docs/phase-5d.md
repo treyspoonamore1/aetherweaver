@@ -152,7 +152,7 @@ Questions 4, 5, 6 and 8 take their recommended defaults until you say otherwise.
 | Threat on the road | Each road row names the full Movement's row whose Threat it takes. Movement I `threat [0,3,5,7,8,9]` keeps the Bellwarden at 1.225 and the Cantor at 1.3. Movement II `[0,1,2,4,5,6]` keeps the Matriarch at 1.113 and Vharun at 1.188 (`threatFor`, `economy.ts:17-21`). Each fight is the same content and numbers. | Row-in-Movement Threat makes the Bellwarden 1.075 and the Cantor 1.15: easier fights the Prelude never plays. |
 | Calling tiers | The Movement I road carries `callingRows: [0,2,3,5]`: First Light, the all-fight row 2, the Bellwarden, and the Cantor interlude (tier IV; `continueFromResult` already orders calling → relic → draft, `run.ts:1165-1176`). `callingTierDue` reads the run's road. `CALLING_ROWS [0,3,5,7]` stays for the Prelude. `tierWhen(i, run?)` keeps today's output when `run` is omitted, so `tests/uiPhase3c.test.ts:228-299` is unchanged. | Global rows on a 6-row Movement I land tiers on the Bellwarden, the Cantor and Movement II's lesson row. |
 | The Finale def | Boss-only: `name 'The Finale'`, `mapTitle 'The Celestial Crucible'` (both required, `schema.ts:1436-1438`), `label 'The Finale'`, `rows [['boss']]`, `fixed [{row 0, encounter the_silent_conductor}]`, `boss the_silent_conductor`, biome `celestial_crucible`, scale `{life 1.85, damage 1.05}` (Movement III's; swept in W9), rewards `{xp 1.5, starlight 1.5, aether 1.5}`. | A merchant/forge stop spends carried Aether, but costs about 50 s a reaching run (question 5). |
-| Enemy Solos | **A boss Cue cast, then a script-begun Solo on the add.** `conductor_cue` (effect `'script'`, 1.2 s, on the boss's bar, naming the soloist and its Solo) resolves through the boss's `resolved` hook, which calls `beginAttack(world, soloist, solo)`. Each Solo is `scripted` and `interruptible`, has **range 40** (the arena is r 22, so `inRange` always holds, `enemies.ts:581-582`), and sits in the voice's `specials`, so the picker skips it and the coverage test counts it. **The target is named when the Solo begins** (its telegraph, ≥ 2.5 s), not at the Cue: `beginAttack` re-picks it (`enemies.ts:594-626`), and Lament's `randomNonTank` draws `rng.ai` then, a Finale-only draw. | Naming the target on the Cue bar would need a `promised` target for every targeting kind; `current` and `farthest` can change in 1.2 s. An add-owned `effect:'script'` route means changing `completeCast` and `scriptedNext` (`enemies.ts:984, 1280-1281`). |
+| Enemy Solos | **A boss Cue cast, then a script-begun Solo on the add.** `conductor_cue` (effect `'script'`, 1.2 s, on the boss's bar, naming the soloist and its Solo) resolves through the boss's `resolved` hook, which calls `beginAttack(world, soloist, solo)`. Each Solo is `scripted` and `interruptible`, has **range 44**, the arena's diameter (the arena is r 22; `inRange` adds both radii, `enemies.ts:581-582`, so it holds wall to wall, which 40 would not for a voice and a hero on opposite walls), and sits in the voice's `specials`, so the picker skips it and the coverage test counts it. **The target is named when the Solo begins** (its telegraph, ≥ 2.5 s), not at the Cue: `beginAttack` re-picks it (`enemies.ts:594-626`), and Lament's `randomNonTank` draws `rng.ai` then, a Finale-only draw. | Naming the target on the Cue bar would need a `promised` target for every targeting kind; `current` and `farthest` can change in 1.2 s. An add-owned `effect:'script'` route means changing `completeCast` and `scriptedNext` (`enemies.ts:984, 1280-1281`). |
 | A Solo that can't begin | `beginAttack` returns false only with no hero standing or the voice with no current target. Then: no Solo, `field.finale.cue` is deleted, the soloist's `cuedAt` isn't updated, and the next Cue is due in 2 s (the next idle voice). | Silently dropping it leaves a Cue bar that promised a Solo. |
 | Cast collisions | The script Cues only an **idle** voice: no cast, not spawning, not disabled. `beginAttack` overwrites `c.cast` without cancelling the old telegraph (`enemies.ts:793`). If no voice is idle, the Cue waits; if none stands, it becomes a Raise. | Stacking a Solo on a live cast orphans a telegraph. |
 | Elite adds | **Raise pushes `pendingSpawns` entries with `elite: true` at `now + 1.0`** on a **6 m** ring (`ringPoint`, `enemies.ts:1454-1476`) and a `spawnWarning {delay: 1.0}` for each, so every voice has a 1.0 s ground warning after the 1.5 s Raise cast. | Calling `spawnEnemy` directly skips the warning. `summon` is hard-coded `elite:false` (`enemies.ts:1250`). A 9 m ring cost party A 130 s at the Unweaver (5c). |
@@ -347,7 +347,7 @@ Tall and robed in a Weaver's ribbons gone ash-grey, it carries a baton and a sti
 | `silence_cadence` | Final Cadence | burst `centre:'target'` r 2.5, `lowestHp` | 2.5 s | even cycles, 0.5 s after Measure's impact | reel, ward | pctMaxHp 1.15, lethal from full; the Reel-save note |
 | `silence_half_cadence` | Half Cadence | burst `centre:'target'` r 2.5, `lowestHp` | 2.5 s | odd cycles, same slot | ward, reel | pctMaxHp 0.6; a Perfect or a plain Ward |
 
-All silence attacks have range 40 and carry `discord: 0`: the verdict runs (so recaps and tests can name answers) but feeds nothing. Every Measure and Cadence is a ground circle fixed where its target stood, so a Reel pulls a frozen hero out.
+All silence attacks have range 44 (the arena's diameter) and carry `discord: 0`: the verdict runs (so recaps and tests can name answers) but feeds nothing. Every Measure and Cadence is a ground circle fixed where its target stood, so a Reel pulls a frozen hero out.
 
 **Decrees** (in the Conductor's voice):
 
@@ -462,7 +462,7 @@ Four faceted glass choristers echo Movement I's porcelain choir. Each voice mirr
 
 - **Body:** base life 2,000; with elite ×2.2 and ×1.85, about 8,140.
 - **Basic attack:** Alto and Soprano are ranged, 60 every 1.8 s at range 10. Bass and Tenor are melee, 90.
-- **Every Solo** is `scripted`, `interruptible`, range 40, and listed in its def's `specials`, with `discord: 20` and a **2.5 s** windup.
+- **Every Solo** is `scripted`, `interruptible`, range 44 (the arena's diameter), and listed in its def's `specials`, with `discord: 20` and a **2.5 s** windup.
 - Elites can be stunned (`health.ts:291-292`). The native interrupters are **Kael's Shield Bash** (`heroes.ts:1127-1133`), **Lyra's Piercing Shot**, which seeks a caster on its own (`heroes.ts:976-983`), and **Brann's Sunder Leap** (`heroes.ts:1350-1356`). **Vexis has no native stun** (Gravity Well and Starbolt stun 0, `content/heroes.ts:207, 218`): she stuns only through an answered call or her Cued Starfall. Focus points any of them at the soloist.
 
 | Voice | Mirrors (leitmotif) | Solo | Shape | Damage (code → as an elite) | Verb (glyphs) | Rehearses |
@@ -528,7 +528,7 @@ The Grand Silence doesn't depend on the party: only the Weaver acts, and the att
     - `threat.length === rows.length`;
     - `callingRows` only for movements[0], one per Calling tier, each an all-fight row or that Movement's boss.
   - `discord` and `discordQuorum` only on movement-4 attacks; an attack answering `crescendo` is a raid.
-  - Every scripted Solo and silence attack has range ≥ the arena's diameter.
+  - Every scripted Solo and silence attack has range ≥ the arena's diameter (44 for r 22). It is a content test (`tests/content.test.ts`, 'every scripted Finale attack spans the Crucible'), not a `lintMovements` rule.
   - BiomeSchema gains `celestial_crucible`; Material gains `glass`.
   - `tests/sim/m1Unchanged.test.ts`'s forbidden-key lists gain `discord`, `discordQuorum`, `road` and `finale` for Movement I-III defs, and `'label' in m` stays false for movements 0-2.
 
@@ -537,7 +537,7 @@ The Grand Silence doesn't depend on the party: only the Weaver acts, and the att
 - **Relics** (appended to `RELICS`, `movement: 4`, added to KNOWN_RELICS at `mods.ts:832-850`, **each with its own `applyRelic` case** at `mods.ts:744-812`):
   - They sleep outside Finale fights (`relicAwake`, `world.ts:700-719`) and are filtered inside the pools (`offered`, `run.ts:1420-1441`), so they are offered only at the Unweaver interlude.
   - That interlude draws 3 from rare and legendary. Today only 11 such relics exist, and a Skilled winner holds 11-15 of the 16 non-cursed ones, so without these the offer runs short.
-  - **Tacet Mark** `tacet_mark` (rare): 'Your Perfect window is {window} s longer.' `{window: 0.1}` → `m.perfectWindowBonus += num(v,'window')`.
+  - **Tacet Mark** `tacet_mark` (rare): 'Your Perfect Wards are {seconds} s more forgiving.' `{seconds: 0.1}` → `m.perfectWindowBonus += num(v,'seconds')` (the Steady Hands wording; `tests/architecture.test.ts` bans the bare identifier `window`, the browser global, in sim and content source).
   - **Quick Rosin** `quick_rosin` (rare): 'Reel (and Rewind) recover {cut} s sooner.' `{cut: 3}` → `m.reelCooldownCut += num(v,'cut')` (Rewind subtracts it too, `rewind.ts:83`). It speeds the Reel-save note; no relic cuts Reel today.
   - **The First Score** `first_score` (legendary): 'Your Ward holds {charges} more charge.' `{charges: 1}` → `m.wardCharges += num(v,'charges')`.
 - **Deeds** (0-point badges; the ladder stays at exactly 10, `schema.ts:1981`; the count goes 25 → 27, `tests/meta/deeds.test.ts:179, 209`), both using the existing `fight` test (`meta/deeds.ts:52-57`):
@@ -1003,7 +1003,7 @@ Each point of the design review was checked against the code. Accepted points ch
 - **Phase-3 specials [] stop the burn** (accepted): the script begins the burn's attacks.
 - **Life ratio left out Threat** (accepted): 0.67.
 - **Fixed timings ignore multipliers and the follow-up tick** (accepted): timings stated at defaults, ±1 tick; the program schedules from impacts; the cap scales.
-- **The Cue can't promise its target** (accepted): target named at begin; Solos range 40; failure path specified.
+- **The Cue can't promise its target** (accepted): target named at begin; Solos range 44 (the diameter); failure path specified.
 - **`isKnown`, Novice Reels, CAST_ICON lines, name/mapTitle** (accepted): corrected.
 - **Shatter Aria vs Scatter** (partly accepted): the circle is fixed where its target stood when it began (`enemies.ts:713-716`), so the target can walk out; but Scatter alone doesn't answer the target, so `discordQuorum 2`.
 - **Fortissimo may never come in a clean fight** (accepted): floor 70, +1.0/s.

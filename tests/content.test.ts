@@ -1138,7 +1138,7 @@ describe('the Finale: the Silent Conductor (docs/phase-5d.md)', () => {
     expect(pulses.slice(1).every((a) => a.decree === undefined)).toBe(true);
   });
 
-  it('the Grand Silence’s program: aimed, range 40, no Discord, the Cadences alternate', () => {
+  it('the Grand Silence’s program: aimed, range 44, no Discord, the Cadences alternate', () => {
     const want: Record<string, object> = {
       [ids.REST]: { kind: 'mark', windup: 3.5, pctMaxHp: 0.5, targeting: 'randomNonTank' },
       [ids.MEASURE]: { kind: 'burst', windup: 2, pctMaxHp: 0.7, radius: 2.5, targeting: 'current' },
@@ -1147,7 +1147,7 @@ describe('the Finale: the Silent Conductor (docs/phase-5d.md)', () => {
     };
     for (const id of SILENCE) {
       const a = attack(id);
-      expect(a, id).toMatchObject({ ...want[id], range: 40, discord: 0, scripted: true });
+      expect(a, id).toMatchObject({ ...want[id], range: 44, discord: 0, scripted: true });
       if (a.kind === 'burst') expect(a.centre, id).toBe('target');
     }
     // The Rest is a Dirge (the clutch note): its mark status is the default.
@@ -1176,7 +1176,7 @@ describe('the Finale: the Silent Conductor (docs/phase-5d.md)', () => {
     for (const id of SOLOS) {
       expect(attack(id), id).toMatchObject({
         windup: 2.5,
-        range: 40,
+        range: 44,
         interruptible: true,
         scripted: true,
         discord: 20,
@@ -1210,7 +1210,24 @@ describe('the Finale: the Silent Conductor (docs/phase-5d.md)', () => {
     expect(fed.sort()).toEqual([ids.DOWNBEAT, ids.SFORZANDO, ...SILENCE, ...SOLOS].sort());
     for (const id of fed) expect(finale, id).toContain(id);
     // Every scripted Solo and silence attack reaches across the Crucible from anywhere in it.
-    for (const id of [...SILENCE, ...SOLOS]) expect(attack(id).range, id).toBe(40);
+    for (const id of [...SILENCE, ...SOLOS]) expect(attack(id).range, id).toBe(44);
+  });
+
+  it('every scripted Finale attack spans the Crucible: range ≥ its diameter, and inRange holds wall to wall', () => {
+    const arena = CONTENT.arenas.find((a) => a.id === ids.CRUCIBLE_ARENA)!;
+    const finale = new Set(fourth(CONTENT.enemies).flatMap((e) => e.specials));
+    const scripted = CONTENT.attacks.filter((a) => a.scripted === true && finale.has(a.id));
+    expect(scripted.map((a) => a.id)).toEqual(expect.arrayContaining([...SILENCE, ...SOLOS]));
+    // The smallest bodies: each caster that owns a scripted attack, and the smallest hero.
+    const heroR = Math.min(...CONTENT.heroes.map((h) => h.radius));
+    for (const a of scripted) {
+      expect(a.range, a.id).toBeGreaterThanOrEqual(2 * arena.radius);
+      for (const e of fourth(CONTENT.enemies).filter((d) => d.specials.includes(a.id))) {
+        // clampToArena keeps each centre at most (arena radius - its own) from the middle.
+        const apart = 2 * arena.radius - e.radius - heroR;
+        expect(apart, `${e.id} ${a.id}`).toBeLessThanOrEqual(a.range + e.radius + heroR);
+      }
+    }
   });
 
   it('the phase Decrees use the plan’s words', () => {
@@ -1278,7 +1295,7 @@ describe('the Finale: the Silent Conductor (docs/phase-5d.md)', () => {
     const inline = [...defs.matchAll(/\b(\w+): (-?\d+(?:\.\d+)?)\b/g)]
       .filter(([, , n]) => n !== '0')
       .map(([m]) => m);
-    // The arena's radius is its own data, as every arena's is.
-    expect(inline).toEqual(['radius: 22']);
+    // The arena's radius is named too: the scripted attacks' reach is its diameter.
+    expect(inline).toEqual([]);
   });
 });

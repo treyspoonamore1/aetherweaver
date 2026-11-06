@@ -117,8 +117,14 @@ const ARIA_QUORUM = 2;
 // Each attack's cooldown (`_EVERY`) and first use (`_FROM`, s into the fight). A scripted
 // attack's cooldown is its script's cadence (0: none, it is cast on a condition).
 
-/** Reach that spans the Crucible (its radius is 22 m): every scripted attack begins. */
-const ARENA_REACH = 40;
+/** The Crucible's radius (m). */
+const CRUCIBLE_RADIUS = 22;
+/**
+ * Reach that spans the Crucible: its diameter, so every scripted attack begins wherever its
+ * caster and target stand. Wall to wall they are 44 - r1 - r2 apart and `inRange` reaches
+ * range + r1 + r2, so 40 falls short whenever the two radii sum under 2 m (a voice and a hero).
+ */
+const ARENA_REACH = 2 * CRUCIBLE_RADIUS;
 /** A Decree is announced on its attack's first this many casts (AttackDef.decreeLimit). */
 const DECREE_CASTS = 2;
 const DOWNBEAT_EVERY = 9;
@@ -630,7 +636,7 @@ export const CRUCIBLE_ARENAS: ContentInput['arenas'] = [
   {
     id: CRUCIBLE_ARENA,
     name: 'The Celestial Crucible',
-    radius: 22,
+    radius: CRUCIBLE_RADIUS,
     obstacles: [],
     theme: { floor: '#16141f', line: '#5a5470', accent: '#3a3350', fog: '#0b0a14' },
     biome: 'celestial_crucible',
