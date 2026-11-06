@@ -15,6 +15,8 @@ export const BUS_NAMES: readonly BusName[] = ['music', 'sfx', 'ui', 'ambience'];
 
 /** Static mix trims: headroom so the sum of everything stays under the limiter's threshold. */
 const BUS_TRIM: Record<BusName, number> = { music: 1.2, sfx: 1.0, ui: 1.0, ambience: 0.8 };
+/** A bus's static mix trim (Phase 5d: a sound moved to another bus keeps its level). */
+export const busTrim = (bus: BusName): number => BUS_TRIM[bus];
 const REVERB_SEND: Record<BusName, number> = { music: 0.22, sfx: 0.26, ui: 0.1, ambience: 0.2 };
 
 export interface BusNodes {

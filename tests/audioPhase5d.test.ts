@@ -48,7 +48,7 @@ import {
   scaleMidi,
   silenceNoteMidi,
 } from '../src/audio/theory';
-import type { Voice } from '../src/audio/engine';
+import { busTrim, type Voice } from '../src/audio/engine';
 import {
   ALTO,
   BASS,
@@ -722,7 +722,7 @@ describe('the Grand Silence (Phase 5d)', () => {
     h.d.dispose();
   });
 
-  it('the heartbeat (and the low-life alert) stay on, at -6 dB on the sfx bus', () => {
+  it('the heartbeat (and the low-life alert) stay on, 6 dB under their usual level, on the sfx bus', () => {
     const h = inSilence();
     const spy = vi.spyOn(
       SfxEngine.prototype as unknown as { heardInSilence: (...a: unknown[]) => unknown },
@@ -735,10 +735,20 @@ describe('the Grand Silence (Phase 5d)', () => {
       const heart = spy.mock.calls.findIndex((c) => c[0] === 'heart:kael');
       const out = spy.mock.results[heart]?.value as { bus: string; opts: { gain?: number } };
       expect(out.bus).toBe('sfx');
-      expect(out.opts.gain).toBeCloseTo(SILENCE_QUIET, 6);
+      // Its level as heard: the voice's gain times its bus's trim, against the heartbeat's own
+      // (gain 1 on the ambience bus): -6 dB, not the -4.1 dB the sfx bus's louder trim would give.
+      const usual = (spy.mock.calls[heart]?.[2] as { gain?: number }).gain ?? 1;
+      const heard = (out.opts.gain ?? 1) * busTrim(out.bus as 'sfx');
+      expect(spy.mock.calls[heart]?.[1]).toBe('ambience');
+      expect(20 * Math.log10(heard / (usual * busTrim('ambience')))).toBeCloseTo(-6, 6);
+      expect(out.opts.gain).toBeCloseTo(SILENCE_QUIET * 0.8, 6);
       expect(20 * Math.log10(SILENCE_QUIET)).toBeCloseTo(-6, 6);
+      // The alert was on the sfx bus all along: just 6 dB down.
       const alert = spy.mock.calls.findIndex((c) => c[0] === 'lowLife');
-      expect((spy.mock.results[alert]?.value as { bus: string }).bus).toBe('sfx');
+      const al = spy.mock.results[alert]?.value as { bus: string; opts: { gain?: number } };
+      expect(al.bus).toBe('sfx');
+      const alertUsual = (spy.mock.calls[alert]?.[2] as { gain?: number }).gain ?? 1;
+      expect(al.opts.gain ?? 1).toBeCloseTo(alertUsual * SILENCE_QUIET, 6);
     } finally {
       spy.mockRestore();
     }
@@ -1050,21 +1060,78 @@ describe('the Finale’s sounds (Phase 5d)', () => {
     expect(boss.sources.length).toBeGreaterThan(voice.sources.length);
   });
 
-  it('Discord’s swell follows field.finale.discord in phase 2 only (its +1/s rate)', () => {
-    const h = conductor(2);
-    const field = h.world.state.field as unknown as Record<string, unknown>;
-    let finale: { discord?: { value: number; rate: number } } = {
-      discord: { value: 40, rate: 0.5 },
+  it('Discord’s swell follows field.finale.discord in the boss’s phase 2 only, whatever its rate', () => {
+    const rises = (phase: number, rate: number) => {
+      const h = conductor(phase);
+      const field = h.world.state.field as unknown as Record<string, unknown>;
+      const finale = { discord: { value: 80, rate } };
+      Object.defineProperty(h.world.state, 'field', {
+        get: () => ({ ...field, finale }),
+        configurable: true,
+      });
+      const played = heardBy(() => run(h, 5));
+      h.d.dispose();
+      return played.filter(([k, p]) => k === FINALE_SOUND_GROUPS.rise && p).length;
     };
-    Object.defineProperty(h.world.state, 'field', {
-      get: () => ({ ...field, finale }),
-      configurable: true,
+    // Phase 2 at the default +1/s and anywhere in the tuning sweep (0.8-1.2/s).
+    for (const rate of [0.8, 0.9, 1, 1.2]) expect(rises(2, rate), `phase 2 at ${rate}/s`).toBe(2);
+    // Phase 1, even pushed past 1/s (a Dissonance or assist multiplier), never swells; nor phase 3.
+    for (const rate of [0.5, 1, 1.5]) expect(rises(1, rate), `phase 1 at ${rate}/s`).toBe(0);
+    expect(rises(3, 1)).toBe(0);
+    // Paused (rate 0: the shift, Fortissimo, Stasis), it doesn't rise either.
+    expect(rises(2, 0)).toBe(0);
+  });
+
+  it('a Fortissimo pulse begun in Stasis resumes as its tutti, and is cut as it lands', () => {
+    const h = harness();
+    h.d.setBiome('celestial_crucible');
+    h.world.setStasis(true, 3);
+    fire(h, ev('crescendoStart', { calling: 'Stasis', duration: 3 }));
+    h.advance(0.3);
+    const t = h.world.addTelegraph(42, 1.5, {
+      kind: 'raid',
+      answers: ['dome', 'ward'],
+      target: null,
+      attackId: FORTISSIMO[1],
+      name: 'Fortissimo Silence',
     });
-    const p1 = heardBy(() => run(h, 5));
-    expect(p1.some(([k]) => k === FINALE_SOUND_GROUPS.rise)).toBe(false);
-    finale = { discord: { value: 80, rate: 1 } };
-    const p2 = heardBy(() => run(h, 5));
-    expect(p2.filter(([k, p]) => k === FINALE_SOUND_GROUPS.rise && p).length).toBeGreaterThan(0);
+    const begun = heardBy(() =>
+      fire(
+        h,
+        ev('telegraphStarted', {
+          telegraph: t.id,
+          owner: t.owner,
+          target: t.target,
+          name: t.name,
+          kind: t.kind,
+          shape: t.shape,
+          start: t.start,
+          impact: t.impact,
+          perfectFrom: t.perfectFrom,
+          damage: t.damage,
+          pctMaxHp: 0,
+          answers: t.answers,
+          effect: 'damage',
+        }),
+      ),
+    );
+    // Nothing winds up while time stands still.
+    expect(begun.filter(([, p]) => p)).toEqual([]);
+    for (let i = 0; i < 20; i++) h.advance(0.1);
+    h.world.setStasis(false);
+    const resumed = heardBy(() => fire(h, ev('crescendoEnd', {})));
+    const keys = resumed.filter(([, p]) => p).map(([k]) => k);
+    expect(keys).toContain(FINALE_SOUND_GROUPS.tutti);
+    expect(keys.some((k) => k.startsWith('wind:'))).toBe(false);
+    for (let i = 0; i < 15; i++) h.advance(0.1);
+    h.world.removeTelegraph(42);
+    const lands = heardBy(() =>
+      fire(
+        h,
+        ev('telegraphResolved', { telegraph: 42, outcome: 'hit', target: null, damage: 600 }),
+      ),
+    );
+    expect(lands).toContainEqual([FINALE_SOUND_GROUPS.cut, true]);
     h.d.dispose();
   });
 });

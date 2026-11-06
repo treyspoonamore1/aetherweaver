@@ -32,7 +32,7 @@ import {
   type TelegraphStarted,
   type WorldState,
 } from '../sim';
-import { BUS_NAMES, Voice, type BusName, type Engine, type VoiceHandle } from './engine';
+import { BUS_NAMES, busTrim, Voice, type BusName, type Engine, type VoiceHandle } from './engine';
 import { leitmotifCanon, motifNote, type MusicEngine } from './music';
 import {
   anvil,
@@ -6215,7 +6215,7 @@ export class SfxEngine {
   /**
    * The Grand Silence's allow-list (SILENCE_HEARD): the bus and options a sound plays on while it
    * holds, or null when it is silenced. The heartbeat and the low-life alert move off the held
-   * ambience bus to the sfx bus at -6 dB.
+   * ambience bus to the sfx bus, 6 dB under their usual level (the trims' ratio kept).
    */
   private heardInSilence(
     key: string,
@@ -6223,8 +6223,12 @@ export class SfxEngine {
     opts: PlayOpts,
   ): { bus: BusName; opts: PlayOpts } | null {
     if (SILENCE_HEARD.has(key) || this.silencePass) return { bus, opts };
-    if (isLowLifeSound(key))
-      return { bus: 'sfx', opts: { ...opts, gain: (opts.gain ?? 1) * SILENCE_QUIET } };
+    // The heartbeat's own bus (ambience, trim 0.8) is held silent: on the sfx bus (trim 1.0) it
+    // keeps its level by the ratio of the two trims, then drops 6 dB.
+    if (isLowLifeSound(key)) {
+      const gain = (opts.gain ?? 1) * SILENCE_QUIET * (busTrim(bus) / busTrim('sfx'));
+      return { bus: 'sfx', opts: { ...opts, gain } };
+    }
     return null;
   }
 
@@ -6274,10 +6278,11 @@ export class SfxEngine {
 
   /**
    * The Finale as the state has it: the Grand Silence (`field.finale.silence`) and Discord's swell
-   * in the Mirror Choir (its passive rate, +1/s, is phase 2's). Without `field.finale` (the lab),
-   * the silence its events told. Returns at once in every other fight.
+   * in the Mirror Choir (the boss's phase 2, whatever its tuned rate, while it still rises).
+   * Without `field.finale` (the lab), the silence its events told. Returns at once in every other
+   * fight.
    */
-  private followFinale(state: WorldState): void {
+  private followFinale(state: WorldState, bossPhase: number): void {
     const fin = (state.field as { finale?: FinaleView } | undefined)?.finale;
     if (fin === undefined && this.silence === null && this.silenceEv === null) return;
     const time = typeof state.time === 'number' ? state.time : 0;
@@ -6288,7 +6293,8 @@ export class SfxEngine {
     if (fightOver(state)) notes = null;
     this.setSilence(notes);
     const d = fin?.discord;
-    if (d && d.rate >= 1 && notes === null && !fightOver(state)) this.discordRise(d.value);
+    if (d && bossPhase === 2 && d.rate > 0 && notes === null && !fightOver(state))
+      this.discordRise(d.value);
   }
 
   /** Every Finale layer lets go (combat stopped). */
@@ -6398,12 +6404,33 @@ export class SfxEngine {
       this.finale('baton', (v, t) => this.batonStroke(v, t, 0.06), { pan });
       return false;
     }
-    this.tuttis.add(ev.telegraph);
     const dur = clamp(ev.impact - ev.start, 0.5, 4);
     const c = this.chord();
     const h = this.finale('tutti', (v, t) => this.tutti(v, t, dur, c), { big: true });
     if (h) this.trackWindup(ev.telegraph, h);
     return true;
+  }
+
+  /**
+   * A Fortissimo pulse's tutti as time resumes (Stasis): it rises again over what is left of the
+   * pulse, from the level it had reached, to be cut as it lands.
+   */
+  private resumeTutti(tg: Telegraphed, state: WorldState): void {
+    const total = clamp(tg.impact - tg.start, 0.5, 4);
+    const rem = tg.impact - state.time;
+    if (!(rem > 0.08)) return;
+    const p = clamp(1 - rem / total, 0, 1);
+    const dur = Math.min(rem, 4);
+    const c = this.chord();
+    const h = this.finale(
+      'tutti',
+      (v, t) => {
+        this.resumeLevel(v, t, p, dur);
+        this.tutti(v, t, dur, c);
+      },
+      { big: true },
+    );
+    if (h) this.trackWindup(tg.id, h);
   }
 
   /** The baton: a dry click on the stand and its swish. */
@@ -6683,6 +6710,8 @@ export class SfxEngine {
     if (m3 === 'shears') this.shears.add(ev.telegraph);
     // Phase 5d: the Finale's attacks with sounds of their own (none before the Finale).
     const m4 = legion === null && m3 === null ? this.finaleAttack(ev, state) : null;
+    // A Fortissimo pulse is a tutti even if it begins in Stasis (it resumes as one, and is cut).
+    if (m4 === 'tutti') this.tuttis.add(ev.telegraph);
     // Phase 3e: during Stasis nothing on the enemies' side moves, so a windup started now would
     // swell to an impact that keeps moving away. It waits, and plays when time resumes (and a
     // Pack Call's howl with it: the Matriarch is as still as the rest).
@@ -6781,6 +6810,11 @@ export class SfxEngine {
   }
 
   private resumeWindup(tg: Telegraphed, state: WorldState): void {
+    // Phase 5d: a Fortissimo pulse winds up again as its tutti (never set before the Finale).
+    if (this.tuttis.has(tg.id)) {
+      this.resumeTutti(tg, state);
+      return;
+    }
     // Phase 5a: Execution's windup is its drum roll, for its whole cast: it carries on from
     // where it stopped (however late in the cast Stasis came).
     if (this.executions.has(tg.id)) {
@@ -7323,7 +7357,7 @@ export class SfxEngine {
     this.followSilk(state, now);
     // Phase 5d: the Grand Silence and Discord's swell, as the state has them (or as their events
     // told them, in the lab). Never set outside the Finale.
-    this.followFinale(state);
+    this.followFinale(state, bossPhase);
     return {
       intensity: this.intensity,
       resonance: weaver?.resonance ?? 0,
