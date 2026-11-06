@@ -460,7 +460,10 @@ function choirCap(boss: Entity): number {
  * The voices the next Raise would bring: missing ones in the phase's order, under the cap. Phase
  * 2's entry Raise brings the Tenor and the Soprano whatever the cap (the doc's "a Raise is cast at
  * once and brings the Tenor and Soprano"): with the Alto and the Bass still standing, the choir
- * is briefly four, and later Raises wait until it is under three.
+ * is briefly four, and later Raises wait until it is under three. The cap governs the every-20 s
+ * Raises ("while under the cap"); the entry Raise is what lets the Tenor and Soprano be Cued first
+ * in phase 2 (the Decree gate's per-voice count and "the whole choir sings"), and in the usual
+ * Skilled fight the Alto and the Bass both stand at 60%.
  */
 function raiseVoices(world: World, boss: Entity): string[] {
   const present = voicesPresent(world);

@@ -26,7 +26,13 @@ import {
   TENOR,
 } from '../../src/content/crucibleIds';
 import { createSim, type Command, type Sim, type SimConfig, type SimEvent } from '../../src/sim';
-import { addStatus, dealDamage, hasStatus, killEnemy } from '../../src/sim/combat/health';
+import {
+  addStatus,
+  dealDamage,
+  hasStatus,
+  interruptEnemy,
+  killEnemy,
+} from '../../src/sim/combat/health';
 import { startTelegraph } from '../../src/sim/combat/telegraphs';
 import type { Entity, Telegraph } from '../../src/sim/state';
 import { BOSS_SCRIPTS, bossScript, encounterScript } from '../../src/sim/systems/bossScripts';
@@ -263,6 +269,27 @@ describe('the Mirror Choir’s Raise', () => {
     const again = next(sim, RAISE, 60 * 25);
     stepUntil(sim, () => !w.telegraphs.some((t) => t.id === again.id), 300);
     expect(w.internal.pendingSpawns.map((p) => p.defId)).toEqual([ALTO]);
+  });
+
+  it('is a boss cast no one can interrupt', () => {
+    const { sim, w, boss } = choir();
+    cross(sim, 0.55);
+    const raise = w.telegraphs.find((t) => t.attackId === RAISE)!;
+    expect(raise).toBeDefined();
+    expect(interruptEnemy(w, boss, null)).toBe(false);
+    expect(w.telegraphs.some((t) => t.id === raise.id)).toBe(true);
+  });
+
+  it('a phase-3 crossing before it lands drops the owed voices', () => {
+    const { sim, w } = choir();
+    cross(sim, 0.55);
+    expect(w.internal.m4!.choirRaise).toBe(true);
+    cross(sim, 0.2);
+    expect(w.internal.m4?.choirRaise).toBeUndefined();
+    expect(w.telegraphs.some((t) => t.attackId === RAISE)).toBe(false);
+    stepFor(sim, 60 * 3);
+    expect(voices(w)).toEqual([]);
+    expect(w.internal.pendingSpawns.filter((p) => [TENOR, SOPRANO].includes(p.defId))).toEqual([]);
   });
 
   it('with one Overture voice fallen, it still brings both: the choir is three', () => {
