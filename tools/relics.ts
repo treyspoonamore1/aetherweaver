@@ -6,10 +6,13 @@
  *   npx tsx tools/relics.ts --seeds 20 --bots novice --encounters bellwarden,hollow_cantor
  *   npx tsx tools/relics.ts --movement 2 --seeds 20   # Movement II's hard fights, arrival kit
  *   npx tsx tools/relics.ts --movement 3 --seeds 20   # Movement III's, ARRIVAL3_KIT's motifs
+ *   npx tsx tools/relics.ts --movement 4 --seeds 20   # the Silent Conductor, ARRIVAL4_KIT's motifs
  *
  * Movement II (docs/phase-5a.md) plays its elites, the Matriarch and Vharun with the arrival
  * kit's motifs (tools/kits.ts) but none of its relics, so each row is that relic alone; Movement
  * III (docs/phase-5c.md) its elite, the Seamstress and the Unweaver with ARRIVAL3_KIT's motifs.
+ * The Finale (docs/phase-5d.md) is boss-only, so its one hard fight is the Silent Conductor, with
+ * ARRIVAL4_KIT's motifs; its three relics (`movement: 4`) sleep in every earlier fight's rows.
  */
 import type { BotKind } from '../src/bots';
 import { CONTENT, isFieldMovement, movementDef } from '../src/content';

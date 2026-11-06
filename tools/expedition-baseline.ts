@@ -14,6 +14,14 @@
  *
  *   npx tsx tools/expedition-baseline.ts --movements 3 --check
  *
+ * `--movements 4` (docs/phase-5d.md, "Hand-off") plays the same seeds on the Finale route (its
+ * shorter road through Movements I-III, then the Silent Conductor), kept in
+ * tools/expedition4-baseline.json once the slice is tuned (W9's `--write`), as the next slice's
+ * guard. The I-II and I-III pins never see the Finale's road: `routeDefs(2|3)` is the Movements
+ * as shipped, so both stay byte-equal.
+ *
+ *   npx tsx tools/expedition-baseline.ts --movements 4 --check
+ *
  * Summaries are compared on the fields the baseline holds, so fields the harness gains later
  * (a Brann party's Harmony record) don't count as drift.
  */

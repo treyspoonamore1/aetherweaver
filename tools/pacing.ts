@@ -15,10 +15,17 @@
  * The route (docs/phase-5a.md): by default every run is a Prelude, the calibrated baseline of
  * docs/phase-4h.md. `--route expedition` plays as the game does: the first run is the Prelude,
  * and from Rank 2 (when Expeditions open) every run is an Expedition through every Movement in
- * content (`EXPEDITION_MOVEMENTS`: I-III and the Finale, to the Silent Conductor,
- * docs/phase-5d.md; `--movements 3` plays the old I-III route, `--movements 2` the I-II); it then
- * splits each run's minutes by Movement and prints the Finale's budget: the 40 modelled minutes
- * the roadmap allows an Expedition, less what I-N take.
+ * content (`EXPEDITION_MOVEMENTS`: the Finale route, I-III and the Finale on their shorter road,
+ * docs/phase-5d.md; `--movements 3` plays the old I-III route to the Unweaver, `--movements 2`
+ * I-II). It then splits each run's minutes by Movement and prints the Phase 5 exit's clock
+ * (docs/phase-5d.md, "Pacing", question 2): the losses-included average Expedition against the
+ * 30-40 band (stretch 38), the winning-run median beside it (soft ≤ 45), and the share that won
+ * the Movement before the last (won III, guarded within 5 points of the full road).
+ *
+ * The Finale's own time is the played fight's (not a modelled 210 s): its modelled minutes per run
+ * that reached it, and the fight's seconds by the run's Calling and party (`--party`: A, B, C or
+ * 3 hero ids, as the harness takes it; the default party without it), since `bankCrescendo`'s
+ * cost differs by both.
  */
 import { CONTENT } from '../src/content';
 import type { BotKind } from '../src/bots';
@@ -26,10 +33,12 @@ import { astrolabePoints } from '../src/meta/astrolabe';
 import { deedPoints, deedsEarned } from '../src/meta/deeds';
 import { masteryLevel, starlightForDeeds, tiersOpen } from '../src/meta/loom';
 import { EXPEDITION_MOVEMENTS, rankOf, RUN_WIN_XP } from '../src/meta/profile';
+import { isFieldMovement, movementDef } from '../src/content';
 import { CHORD_PRESETS, movementOf, movementRewards } from '../src/meta/run';
 import type { RunState } from '../src/meta/types';
 import { buildTree, TREES } from './astrolabe';
-import { playRun } from './harness-core';
+import { partyArg } from './harness';
+import { movementName, playRun } from './harness-core';
 
 /**
  * Seconds a player spends on each phase of a run besides its fights, and before each run (Prep
@@ -49,8 +58,15 @@ const AROUND: Partial<Record<RunState['phase'], number>> = {
 };
 const BEFORE_RUN = 90;
 const AFTER_RUN = 45;
-/** The roadmap's ceiling for a whole Expedition, in modelled minutes (docs/plan/06, 30-40). */
-const EXPEDITION_BUDGET = 40;
+/**
+ * The roadmap's band for a whole Expedition, in modelled minutes (docs/plan/06, 30-40), its
+ * stretch, and the winning-run median's soft ceiling (docs/phase-5d.md, question 2).
+ */
+const EXPEDITION_BAND = [30, 40] as const;
+const EXPEDITION_STRETCH = 38;
+const WINNING_MEDIAN_SOFT = 45;
+/** The Finale's modelled minutes per run that reaches it (docs/phase-5d.md, "Pacing"). */
+const FINALE_BAND = [3.5, 5] as const;
 
 const ROMAN = ['I', 'II', 'III', 'IV', 'V'];
 
@@ -73,6 +89,7 @@ function main(): void {
   /** An Expedition's Movements: every one in content, unless `--movements` says otherwise. */
   const route = Number(get('movements') ?? EXPEDITION_MOVEMENTS);
   const seedBase = Number(get('seed-base') ?? 9001);
+  const party = partyArg(get('party'));
   /** Rank 2 opens Expeditions (docs/phase-5a.md); the first run is always the Prelude. */
   const EXPEDITION_RANK = 2;
   const calling = CONTENT.callings.reduce((a, b) => (b.unlockRank < a.unlockRank ? b : a));
@@ -109,6 +126,10 @@ function main(): void {
   // Weaver XP by Movement, without the run's win bonus (it belongs to the run, wherever it ends).
   const xpByMovement = Array.from({ length: route }, () => 0);
   const combatByMovement = Array.from({ length: route }, () => 0);
+  // Each Expedition's modelled minutes, and whether it won; the last Movement's played seconds by
+  // the run's Calling (docs/phase-5d.md: the Finale's time is the played fight's).
+  const expeditionMinutes: { minutes: number; won: boolean }[] = [];
+  const lastFight: Record<string, number[]> = {};
 
   for (let p = 0; p < players; p++) {
     let xp = 0;
@@ -148,6 +169,7 @@ function main(): void {
         },
         onEnd: (run) => (finished = run),
         movements,
+        ...(party ? { party } : {}),
       });
       const run = finished as RunState | null;
       if (!run) throw new Error('the run never ended');
@@ -175,6 +197,14 @@ function main(): void {
       allMinutes += summary.minutes + around / 60;
       if (movements >= 2) {
         expeditions++;
+        expeditionMinutes.push({
+          minutes: summary.minutes + around / 60,
+          won: summary.outcome === 'victory',
+        });
+        if (summary.movementReached >= route) {
+          const key = callingId ?? 'none';
+          (lastFight[key] ??= []).push((summary.minutesByMovement[route - 1] ?? 0) * 60);
+        }
         for (let k = 0; k < route; k++) if (summary.movementReached >= k + 1) reachedBy[k]!++;
         if (summary.outcome === 'victory') expeditionWins++;
         for (let k = 0; k < route; k++)
@@ -213,30 +243,53 @@ function main(): void {
   console.log(
     `pacing · ${bot} · ${players} players · ${hours} h each · ${allRuns} runs · wins ${((100 * allWins) / allRuns).toFixed(0)}% · ${(allMinutes / allRuns).toFixed(1)} min and ${(allXp / allRuns).toFixed(0)} XP a run`,
   );
-  const names = ROMAN.slice(0, route);
+  // Movements by name: numerals, or a def's label (docs/phase-5d.md: 'The Finale').
+  const names = Array.from({ length: route }, (_, k) => movementName(k + 1));
+  const finale = !isFieldMovement(movementDef(route));
   if (expeditions > 0) {
     const pctOf = (n: number) => `${((100 * n) / expeditions).toFixed(0)}%`;
     const reach = names
       .slice(1)
-      .map((name, k) => `reach ${name} ${pctOf(reachedBy[k + 1]!)}`)
+      .map((_name, k) => `reach ${movementName(k + 2, true)} ${pctOf(reachedBy[k + 1]!)}`)
       .join(' · ');
+    // 'Movements I–III and the Finale' on the Finale route; 'Movements I–III' before it.
+    const fields = finale ? names.slice(0, -1) : names;
+    const span = `Movements ${fields[0]}–${fields.at(-1)}${finale ? ` and ${movementName(route, true)}` : ''}`;
     console.log(
-      `  Expeditions (from Rank ${EXPEDITION_RANK}, Movements ${names[0]}–${names.at(-1)}): ${expeditions} runs · ${reach} · won ${pctOf(expeditionWins)} · ${minutesByMovement.map((m) => (m / expeditions).toFixed(1)).join(' + ')} min a run (Movement ${names.join(' + ')})`,
+      `  Expeditions (from Rank ${EXPEDITION_RANK}, ${span}): ${expeditions} runs · ${reach} · won ${pctOf(expeditionWins)} · ${minutesByMovement.map((m) => (m / expeditions).toFixed(1)).join(' + ')} min a run (${names.join(' + ')})`,
     );
-    // The roadmap's 40 minutes, less what the Movements in content take: the Finale's room
-    // (docs/phase-5c.md, "Pacing"). Each Movement's minutes are over every Expedition (those
-    // that never reach it count 0), so this is the room a typical run leaves.
-    const total = minutesByMovement.reduce((s, m) => s + m, 0) / expeditions;
+    // The Phase 5 exit's clock (docs/phase-5d.md, question 2): the losses-included average
+    // Expedition (every one, lost runs included) against the band, the winning-run median beside
+    // it, and the share that won the Movement before the last (won III on the Finale route).
+    const average = expeditionMinutes.reduce((s, r) => s + r.minutes, 0) / expeditions;
+    const winning = expeditionMinutes.filter((r) => r.won).map((r) => r.minutes);
+    const inBand = average >= EXPEDITION_BAND[0] && average <= EXPEDITION_BAND[1];
+    const before = route >= 2 ? ` · won ${names[route - 2]} ${pctOf(reachedBy[route - 1]!)}` : '';
     console.log(
-      `  Finale budget: ${EXPEDITION_BUDGET} − ${total.toFixed(1)} = ${(EXPEDITION_BUDGET - total).toFixed(1)} modelled min (Movements ${names.join(' + ')} a run)`,
+      `  Expedition: average ${average.toFixed(1)} min (band ${EXPEDITION_BAND.join('-')}, stretch ${EXPEDITION_STRETCH}: ${inBand ? (average <= EXPEDITION_STRETCH ? 'met, stretch met' : 'met') : 'missed'}) · winning-run median ${winning.length ? median(winning).toFixed(1) : '-'} (${winning.length} won; soft ≤${WINNING_MEDIAN_SOFT})${before}`,
     );
+    if (finale && reachedBy[route - 1]! > 0) {
+      // The Finale, played: its modelled minutes per run that reached it, and the fight itself
+      // by the run's Calling, in the run's party.
+      const reaching = reachedBy[route - 1]!;
+      const perRun = minutesByMovement[route - 1]! / reaching;
+      const byCalling = Object.entries(lastFight)
+        .map(
+          ([k, xs]) =>
+            `${k} ${(xs.reduce((a, b) => a + b, 0) / xs.length).toFixed(0)} s (${xs.length})`,
+        )
+        .join(' · ');
+      console.log(
+        `  ${names[route - 1]}: ${perRun.toFixed(1)} modelled min per run that reached it (band ${FINALE_BAND.join('-')}) · the fight, party ${party ? party.join(',') : 'default'}: ${byCalling}`,
+      );
+    }
     const perMin = (mins: number[]) => xpByMovement.map((x, k) => x / Math.max(1e-9, mins[k]!));
     const line = (mins: number[]) => {
       const rates = perMin(mins);
       const first = rates[0]!;
       const ratios = rates
         .slice(1)
-        .map((r, k) => `${names[k + 1]}/I ${(r / first).toFixed(2)}`)
+        .map((r, k) => `${ROMAN[k + 1]}/I ${(r / first).toFixed(2)}`)
         .join(', ');
       return `${rates.map((r) => r.toFixed(1)).join(' / ')} (${ratios})`;
     };

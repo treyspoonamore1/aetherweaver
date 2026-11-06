@@ -6,15 +6,24 @@
  *   npx tsx tools/loadouts.ts --seeds 20 --bots skilled,novice --runs 10 --md docs/phase-2/loadouts.md
  *   npx tsx tools/loadouts.ts --movement 2 --seeds 20    # Movement II's fights, on the arrival kit
  *   npx tsx tools/loadouts.ts --movement 3 --seeds 20    # Movement III's, on ARRIVAL3_KIT
+ *   npx tsx tools/loadouts.ts --movement 4 --seeds 50 --runs 30 --bots skilled   # five viable builds
  *
  * Movement I's cells play bare; later Movements' play each preset with their kit's motifs and
- * relics (tools/kits.ts: the arrival kit, ARRIVAL3_KIT), against their floors (docs/phase-5a.md
- * and docs/phase-5c.md, "Bands"). `--runs` plays whole runs on the Movement's route (Movement
- * II: I-II Expeditions; Movement III: I-III).
+ * relics (tools/kits.ts: the arrival kit, ARRIVAL3_KIT, ARRIVAL4_KIT), against their floors
+ * (docs/phase-5a.md, docs/phase-5c.md and docs/phase-5d.md, "Bands"). `--runs` plays whole runs
+ * on the Movement's route (Movement II: I-II Expeditions; Movement III: I-III; the Finale: the
+ * Finale route).
+ *
+ * The Finale's viable-build report (docs/phase-5d.md, "Five viable builds"; 06:123): per-cell
+ * floors can't be met on Movement II-III fights that this slice can't retune, so a preset is
+ * viable on whole runs plus the Conductor's cell: its Finale-route Expeditions won ≥ 50% and its
+ * Conductor cell ≥ 80% (Skilled). The band is at least 5 of the 6 presets. It is printed for the
+ * Skilled bot with `--movement 4 --runs N`.
  */
 import { writeFileSync } from 'node:fs';
 import type { BotKind } from '../src/bots';
 import { encounterDef } from '../src/content';
+import { CONDUCTOR, FINALE_MOVEMENT } from '../src/content/crucibleIds';
 import { CHORD_PRESETS } from '../src/meta/run';
 import { movementEncounters, playEncounter, playRun } from './harness-core';
 import { defaultKit, kitById, kitConfig } from './kits';
@@ -54,14 +63,17 @@ const SHORT: Record<string, string> = {
   frayed_court: 'Court*',
   the_seamstress: 'Seamstress**',
   the_unweaver: 'Unweaver**',
+  the_silent_conductor: 'Conductor**',
 };
 /**
  * Skilled-bot floors from the difficulty contract (docs/phase-1.md; Movement II's from
  * docs/phase-5a.md: skirmishes and elites 85%, the Matriarch 90%, Vharun 85%; Movement III's from
- * docs/phase-5c.md: the same, but the Unweaver 80%).
+ * docs/phase-5c.md: the same, but the Unweaver 80%; the Finale's from docs/phase-5d.md: the
+ * Silent Conductor 80%).
  */
 function floor(encounter: string): number {
   const def = encounterDef(encounter);
+  if ((def.movement ?? 1) >= FINALE_MOVEMENT) return 0.8;
   if ((def.movement ?? 1) >= 3 && def.kind === 'boss') return 0.8;
   if ((def.movement ?? 1) >= 2) return def.kind === 'miniboss' ? 0.9 : 0.85;
   if (encounter === 'first_light') return 1;
@@ -76,6 +88,11 @@ const bots = (arg('bots') ?? 'skilled,novice').split(',') as BotKind[];
 const only = arg('loadouts')?.split(',');
 const presets = CHORD_PRESETS.filter((p) => !only || only.includes(p.id));
 const pct = (v: number) => `${Math.round(v * 100)}%`;
+
+/** The Finale's viable build: whole runs won at least this often, and the Conductor's cell. */
+const VIABLE_RUNS = 0.5;
+const VIABLE_CELL = 0.8;
+const VIABLE_BAND = 5;
 
 const lines: string[] = [];
 const out = (line = '') => {
@@ -98,6 +115,8 @@ for (const bot of bots) {
   );
   out(`|---|${ENCOUNTERS.map(() => '---').join('|')}|---|---|${runsN ? '---|' : ''}`);
   const table: Record<string, number[]> = {};
+  /** Whole-run win rates by preset (with `--runs`), for the viable-build report. */
+  const runRates: Record<string, number> = {};
   for (const p of presets) {
     const rates: number[] = [];
     let share = 0;
@@ -131,6 +150,7 @@ for (const bot of bots) {
         )
           wins++;
       runCell = ` ${pct(wins / runsN)} |`;
+      runRates[p.id] = wins / runsN;
     }
     const flags =
       bot === 'skilled'
@@ -151,6 +171,18 @@ for (const bot of bots) {
     });
     if (dominates && presets.length > 1)
       out(`\n⚠ **${a.name}** dominates every other loadout for ${bot}.`);
+  }
+  // The Finale's five viable builds (docs/phase-5d.md): whole Finale-route runs and the
+  // Conductor's cell, Skilled.
+  const cell = ENCOUNTERS.indexOf(CONDUCTOR);
+  if (bot === 'skilled' && movement >= FINALE_MOVEMENT && runsN > 0 && cell >= 0) {
+    const viable = presets.filter(
+      (p) => runRates[p.id]! >= VIABLE_RUNS && table[p.id]![cell]! >= VIABLE_CELL,
+    );
+    out();
+    out(
+      `Viable builds (whole Finale-route Expedition ≥${pct(VIABLE_RUNS)} and the Conductor ≥${pct(VIABLE_CELL)}): ${viable.length} of ${presets.length} (band ≥${VIABLE_BAND} of 6)${viable.length ? ` · ${viable.map((p) => p.name).join(', ')}` : ''}`,
+    );
   }
 }
 out();

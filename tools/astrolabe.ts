@@ -11,6 +11,8 @@
  *   npx tsx tools/astrolabe.ts --movement 2                   whole Expeditions
  *   npx tsx tools/astrolabe.ts --movement 3 --fights          Movement III's hard fights (ARRIVAL3_KIT)
  *   npx tsx tools/astrolabe.ts --movement 3                   whole I-III Expeditions
+ *   npx tsx tools/astrolabe.ts --movement 4 --fights          the Silent Conductor (ARRIVAL4_KIT)
+ *   npx tsx tools/astrolabe.ts --movement 4                   whole Finale-route Expeditions
  *
  * Fights report the win rate and the Weaver's output (healing, shielding, negation and
  * amplification from the ledger), per fight and per second; runs report the win rate. With
@@ -18,6 +20,7 @@
  * as often at 1.15 as no tree does at 1.
  */
 import { makeBot, type BotKind } from '../src/bots';
+import { CONDUCTOR, FINALE_MOVEMENT } from '../src/content/crucibleIds';
 import { allocate, astrolabeProblems } from '../src/meta/astrolabe';
 import { CHORD_PRESETS } from '../src/meta/run';
 import { createSim } from '../src/sim';
@@ -125,7 +128,8 @@ export const TREES: Readonly<Record<string, readonly string[]>> = {
 
 /**
  * Each Movement's hard fights (Movement II's are played with the arrival kit's motifs and relics,
- * Movement III's with ARRIVAL3_KIT's).
+ * Movement III's with ARRIVAL3_KIT's). The Finale (docs/phase-5d.md) is boss-only: its one hard
+ * fight is the Silent Conductor, on ARRIVAL4_KIT's.
  */
 const HARD_FIGHTS: Readonly<Record<number, readonly string[]>> = {
   1: [
@@ -145,6 +149,7 @@ const HARD_FIGHTS: Readonly<Record<number, readonly string[]>> = {
     'the_seamstress',
     'the_unweaver',
   ],
+  [FINALE_MOVEMENT]: [CONDUCTOR],
 };
 const MAX_SECONDS = 9 * 60;
 

@@ -10,14 +10,17 @@
  *   npx tsx tools/harness.ts --run --movements 2          # whole Expeditions (docs/phase-5a.md)
  *   npx tsx tools/harness.ts --movement 3 --seeds 50      # Movement III's fights, arrival3 kit
  *   npx tsx tools/harness.ts --run --movements 3          # I-III, with won ÷ reached III
+ *   npx tsx tools/harness.ts --movement 4 --seeds 50      # the Silent Conductor, arrival4 kit
+ *   npx tsx tools/harness.ts --run --movements 4          # the Finale route (docs/phase-5d.md)
  *   npx tsx tools/harness.ts --movement 2 --seed-base 500003   # another seed set (a check)
  *   npx tsx tools/harness.ts --party kael,vexis,brann --verbose    # a roster party (docs/phase-5b.md)
  *   npx tsx tools/harness.ts --party B --compare                    # party B, beside the default party
  *
  * The fight list comes from content by Movement (`--movement`, default 1: Movement I's nine
- * fights). Movement I's cells play bare (the loadout alone), Movement II's the arrival kit and
- * Movement III's ARRIVAL3_KIT (tools/kits.ts); `--kit` overrides it. Each Movement's bands are
- * printed beside its rows; `--verbose` adds Movement II's verbs and, in Movement III, its own.
+ * fights). Movement I's cells play bare (the loadout alone), Movement II's the arrival kit,
+ * Movement III's ARRIVAL3_KIT and the Finale's ARRIVAL4_KIT (tools/kits.ts); `--kit` overrides
+ * it. Each Movement's bands are printed beside its rows; `--verbose` adds Movement II's verbs
+ * and, in Movement III and the Finale, their own.
  *
  * `--party` plays a roster party (docs/phase-5b.md): 3 hero ids, or A (Kael, Vexis, Brann),
  * B (Lyra, Vexis, Brann) or C (Kael, Lyra, Brann). Without it the config has no `party` key, so
@@ -28,7 +31,13 @@ import type { BotKind } from '../src/bots';
 import { CONTENT, encounterDef } from '../src/content';
 import { CHORD_PRESETS } from '../src/meta/run';
 import type { ChordLoadout } from '../src/meta/types';
-import { movementEncounters, playEncounter, playRun, type EncounterRun } from './harness-core';
+import {
+  movementEncounters,
+  movementName,
+  playEncounter,
+  playRun,
+  type EncounterRun,
+} from './harness-core';
 import { defaultKit, kitById, kitConfig, presetChords, type Kit } from './kits';
 
 interface Args {
@@ -125,10 +134,6 @@ function pct(n: number): string {
   return `${Math.round(n * 100)}%`;
 }
 
-function roman(n: number): string {
-  return ['0', 'I', 'II', 'III', 'IV', 'V'][n] ?? String(n);
-}
-
 /** `--calling luminary` and `--path 0101` (the option to take at each tier). */
 const callingArg = ((): string | undefined => {
   const i = process.argv.indexOf('--calling');
@@ -172,11 +177,12 @@ function runs(args: Args): void {
       );
       movementLine = ` · ${reached.join(' · ')} · combat min by Movement ${split.join(' / ')}`;
       // Movement III onward (docs/phase-5c.md): the win among the runs that reached the last
-      // Movement, since reaching it is fixed by the Movements before.
+      // Movement, since reaching it is fixed by the Movements before. The Finale route
+      // (docs/phase-5d.md) names it by its label: 'won ÷ reached the Finale'.
       if (args.movements >= 3) {
         const last = results.filter((r) => r.movementReached >= args.movements);
         const won = last.filter((r) => r.outcome === 'victory').length;
-        movementLine += ` · won ÷ reached ${roman(args.movements)} ${last.length ? pct(won / last.length) : '-'} (${won}/${last.length})`;
+        movementLine += ` · won ÷ reached ${movementName(args.movements, true)} ${last.length ? pct(won / last.length) : '-'} (${won}/${last.length})`;
         const target = runBand(args.movements, bot);
         if (target) movementLine += ` · band ${target}`;
       }
@@ -218,8 +224,9 @@ export function band(
 
 /**
  * Each Movement's cell bands by encounter kind (Movement I's are the docs/phase-1.md contract,
- * printed by no row): Movement II's (docs/phase-5a.md, "Bands") and Movement III's
- * (docs/phase-5c.md, "Bands", on ARRIVAL3_KIT).
+ * printed by no row): Movement II's (docs/phase-5a.md, "Bands"), Movement III's
+ * (docs/phase-5c.md, "Bands", on ARRIVAL3_KIT) and the Finale's, its one boss
+ * (docs/phase-5d.md, "Bands", on ARRIVAL4_KIT).
  */
 const MOVEMENT_BANDS: Readonly<Record<number, Record<string, Record<BotKind, string>>>> = {
   2: {
@@ -234,11 +241,24 @@ const MOVEMENT_BANDS: Readonly<Record<number, Record<string, Record<BotKind, str
     miniboss: { idle: '0%', novice: '30-60%', skilled: '≥90% · share ≥35% · 70-120 s' },
     boss: { idle: '0%', novice: '25-55%', skilled: '≥80% · share ≥30% · 180-280 s' },
   },
+  4: {
+    boss: { idle: '0%', novice: '15-40%', skilled: '≥80% · share ≥30% · 170-230 s' },
+  },
 };
 
-/** Whole-run bands for an Expedition through `movements` (docs/phase-5c.md); '' for none. */
+/**
+ * Whole-run bands for an Expedition through `movements` (docs/phase-5c.md; the Finale route's,
+ * docs/phase-5d.md); '' for none.
+ */
 export function runBand(movements: number, bot: BotKind): string {
   if (movements < 3) return '';
+  if (movements >= 4)
+    return {
+      idle: 'won 0%',
+      novice: 'won 1-6% · won ÷ reached the Finale 15-40% (pooled)',
+      skilled:
+        'won ≥55% · reached the Finale ≥65% · won ÷ reached the Finale ≥80% · won III within 5 points of the full road',
+    }[bot];
   return {
     idle: 'won 0%',
     novice: 'won 3-10% · won ÷ reached III 20-50% (pooled)',
@@ -255,6 +275,16 @@ function brannBand(movement: number, kind: string, bot: BotKind, party: readonly
   const noTank = !party.includes('kael');
   const big = kind === 'miniboss' || kind === 'boss';
   const own = '· Brann below 40% ≥40% of his time, ≤0.3 downs, lifesteal 20-45% of his healing';
+  if (movement >= 4) {
+    // The Finale (docs/phase-5d.md, "Bands"): parties A and C within 5 of the default party and
+    // no longer than 280 s; party B, with no dome, within 15 (its Crescendo cancel is forced).
+    if (noTank) return { idle: '0%', novice: '≥10%', skilled: '≥ default − 15 · share ≥30%' }[bot];
+    return {
+      idle: '0%',
+      novice: 'its default-party band',
+      skilled: '≥ default − 5 · share ≥30% · ≤280 s',
+    }[bot];
+  }
   if (movement >= 3) {
     // Movement III (docs/phase-5c.md, "Bands"): parties A and C within 5 of the default party;
     // party B, with no tank, within 15 at the bosses.
@@ -334,6 +364,53 @@ export function m3Line(runs: readonly EncounterRun[]): string | null {
     `Unravel harm ${Math.round(Number(avg((t) => t.unravelHarm)))}`,
     `verses back ${avg((t) => t.versesRecovered)}`,
     `Mirror Wards interrupted ${avg((t) => t.mirrorWardsInterrupted)}`,
+  ].join(' · ');
+}
+
+/**
+ * The Finale's verbs line (`--verbose`, docs/phase-5d.md "Harness"), averaged a fight; null when
+ * no fight carried the tally (any fight before the Finale).
+ */
+export function finaleLine(runs: readonly EncounterRun[]): string | null {
+  const tallies = runs.map((r) => r.finale).filter((t): t is NonNullable<typeof t> => !!t);
+  if (tallies.length === 0) return null;
+  const n = tallies.length;
+  const sum = (f: (t: (typeof tallies)[number]) => number) => tallies.reduce((s, t) => s + f(t), 0);
+  const avg = (f: (t: (typeof tallies)[number]) => number, digits = 1) =>
+    (sum(f) / n).toFixed(digits);
+  const records = (f: (t: (typeof tallies)[number]) => Record<string, number>) => {
+    const out: Record<string, number> = {};
+    for (const t of tallies) for (const [k, v] of Object.entries(f(t))) out[k] = (out[k] ?? 0) + v;
+    return out;
+  };
+  const listed = (r: Record<string, number>, per = n) =>
+    Object.entries(r)
+      .filter(([, v]) => v > 0)
+      .map(([k, v]) => `${k} ${(v / per).toFixed(1)}`)
+      .join(' ') || '-';
+  const begun = sum((t) => Object.values(t.solosBegun).reduce((a, b) => a + b, 0));
+  const answered = sum((t) => Object.values(t.cuesAnswered).reduce((a, b) => a + b, 0));
+  const cancelled = sum((t) => Object.values(t.cancelled).reduce((a, b) => a + b, 0));
+  const silences = tallies.filter((t) => t.reignited || t.silenceBroken || t.silenceTime > 0);
+  const toReignite = tallies.flatMap((t) => (t.timeToReignite === null ? [] : [t.timeToReignite]));
+  const median = (xs: number[]) => {
+    const s = [...xs].sort((a, b) => a - b);
+    return s.length ? s[Math.floor((s.length - 1) / 2)]! : NaN;
+  };
+  return [
+    `   Discord fed boss ${avg((t) => t.discordFed.boss, 0)} Solo ${avg((t) => t.discordFed.solo, 0)}`,
+    `Fortissimo Silence ${avg((t) => t.fortissimoCast)} (cancelled ${(cancelled / n).toFixed(1)}: ${listed(records((t) => t.cancelled))}; survived ${avg((t) => t.survived)}; downs ${avg((t) => t.fortissimoDowns)})`,
+    `Cues ${avg((t) => t.cues)} (failed ${avg((t) => t.cuesFailed)}, interrupted ${avg((t) => t.cuesInterrupted)})`,
+    `Solos ${(begun / n).toFixed(1)} (${listed(records((t) => t.solosBegun))}; answered ${begun ? pct(answered / begun) : '-'}: ${listed(records((t) => t.cuesAnswered))})`,
+    // The silence's numbers over the fights that reached it (reignited and Coda: of those).
+    `Grand Silence in ${silences.length}/${n}${
+      silences.length
+        ? `: ${(silences.reduce((s, t) => s + t.silenceTime, 0) / silences.length).toFixed(1)} s, notes ${listed(
+            records((t) => t.notes),
+            silences.length,
+          )}, reignited ${pct(silences.filter((t) => t.reignited).length / silences.length)} (median ${toReignite.length ? `${median(toReignite).toFixed(1)} s` : '-'}), Coda ${pct(silences.filter((t) => t.silenceBroken).length / silences.length)}, revived ${(silences.reduce((s, t) => s + t.revived, 0) / silences.length).toFixed(1)}, stilled harm ${Math.round(silences.reduce((s, t) => s + t.damageWhileStilled, 0) / silences.length)}`
+        : ''
+    }`,
   ].join(' · ');
 }
 
@@ -419,8 +496,11 @@ function main(): void {
             `   pins freed ${avg(runs.map((r) => r.pinsFreed)).toFixed(1)} · bleed cleanses ${(cleanses.length / runs.length).toFixed(1)} at ${avg(cleanses).toFixed(1)} stacks · pact blasts ${avg(runs.map((r) => r.pactBlasts)).toFixed(1)} · guard blocked ${guard.length ? pct(avg(guard.map((r) => r.guardBlockedPct!))) : '-'} · executions ${runs.reduce((s, r) => s + r.executions, 0)}/${casts} · in Sanctuary ${pools.length ? pct(avg(pools.map((r) => r.timeInSanctuary!))) : '-'}`,
           );
         }
-        const m3 = m3Line(runs);
+        // Movement III's line in its own fights (the Finale's rows carry `m3` too, all zero).
+        const m3 = (encounterDef(encounter).movement ?? 1) <= 3 ? m3Line(runs) : null;
         if (m3) console.log(m3);
+        const finale = finaleLine(runs);
+        if (finale) console.log(finale);
         const line = brannLine(runs);
         if (line) console.log(line);
       }

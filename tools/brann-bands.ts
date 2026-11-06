@@ -9,9 +9,12 @@
  *   npx tsx tools/brann-bands.ts --runs --movements 1 --seeds 200        whole Preludes
  *   npx tsx tools/brann-bands.ts --movement 3 --seeds 50                 Movement III's cells
  *   npx tsx tools/brann-bands.ts --runs --movements 3 --seeds 200        I-III Expeditions
+ *   npx tsx tools/brann-bands.ts --movement 4 --seeds 50                 the Silent Conductor
+ *   npx tsx tools/brann-bands.ts --runs --movements 4 --seeds 200        the Finale route
  *
  * Cells play as tools/harness.ts plays them (Movement I bare, Movement II the arrival kit,
- * Movement III ARRIVAL3_KIT; fights at seed base + i × 7919, runs at base + i × 104729). Beside
+ * Movement III ARRIVAL3_KIT, the Finale ARRIVAL4_KIT; fights at seed base + i × 7919, runs at
+ * base + i × 104729). Beside
  * the harness's BrannTally each fight also records:
  *
  * - who the boss targets, as a share of the fight's time, by hero;
@@ -19,6 +22,9 @@
  *   him and the ones of those that downed him (either blow);
  * - Movement III (docs/phase-5c.md): the Thread cut while on Brann, Unravel's harm to him, and
  *   whom the Unweaver's Hollow Champion targets;
+ * - the Finale (docs/phase-5d.md): the life Fortissimo Silence took from Brann, his seconds
+ *   stilled in the Grand Silence, and the Solos aimed at him and those that landed (cost him
+ *   life);
  * - the Weaver's Mend time on each hero (the Thread on them in Mend mode), and the Weaver's
  *   healing, shields and Wards on each, for the inversion check.
  *
@@ -27,9 +33,16 @@
  */
 import { writeFileSync } from 'node:fs';
 import type { BotKind } from '../src/bots';
+import { FORTISSIMO, SOLOS } from '../src/content/crucibleIds';
 import { isWeaverVia, type EntityId, type Sim, type SimEvent } from '../src/sim';
 import { NAMED_PARTIES, parseArgs } from './harness';
-import { movementEncounters, playEncounter, playRun, type EncounterRun } from './harness-core';
+import {
+  movementEncounters,
+  movementName,
+  playEncounter,
+  playRun,
+  type EncounterRun,
+} from './harness-core';
 import { kitConfig } from './kits';
 
 const argv = process.argv.slice(2);
@@ -59,6 +72,14 @@ export interface Extra {
   /** Seconds the Hollow Champion spent targeting each hero, of `championTime`. */
   championTarget: Record<string, number>;
   championTime: number;
+  // ── The Finale (docs/phase-5d.md): 0 before it. ──
+  /** Life Fortissimo Silence's pulses took from Brann. */
+  fortissimoOnBrann: number;
+  /** Seconds Brann stood stilled in the Grand Silence. */
+  stilledBrann: number;
+  /** The mirror-choir's Solos aimed at Brann, and those that landed on him (cost him life). */
+  solosAtBrann: number;
+  solosOnBrann: number;
 }
 
 /** The Unweaver's champion (Mirror Weave). */
@@ -67,6 +88,9 @@ const CHAMPION = 'mirror_champion';
 const TWIN = 'vharun_twin_cleave';
 const TWIN_SECOND = 'vharun_twin_cleave_second';
 const EXECUTION = 'vharun_execution';
+/** The Finale's: Fortissimo Silence's pulses, and the voices' Solos. */
+const PULSES: ReadonlySet<string> = new Set(FORTISSIMO);
+const SOLO_IDS: ReadonlySet<string> = new Set(Object.values(SOLOS));
 
 /** Reads a fight's extra numbers off its events and state (`playEncounter`'s `watch`). */
 export class ExtraWatch {
@@ -85,6 +109,10 @@ export class ExtraWatch {
     unravelOnBrann: 0,
     championTarget: {},
     championTime: 0,
+    fortissimoOnBrann: 0,
+    stilledBrann: 0,
+    solosAtBrann: 0,
+    solosOnBrann: 0,
   };
   private readonly attackOf = new Map<number, string>();
   private lastTime = -1;
@@ -111,11 +139,15 @@ export class ExtraWatch {
         case 'telegraphStarted': {
           const t = state.telegraphs.find((tt) => tt.id === e.telegraph);
           if (t) this.attackOf.set(t.id, t.attackId);
+          if (t && SOLO_IDS.has(t.attackId) && this.hero(sim, e.target) === 'brann')
+            x.solosAtBrann++;
           break;
         }
         case 'telegraphResolved': {
           const attack = this.attackOf.get(e.telegraph);
           if (this.hero(sim, e.target) !== 'brann') break;
+          if (attack !== undefined && SOLO_IDS.has(attack) && e.outcome === 'hit' && e.damage > 0)
+            x.solosOnBrann++;
           if (attack === EXECUTION && e.execution !== 'fallen') {
             x.execOnBrann++;
             if (e.execution === 'spared') x.execSpared++;
@@ -136,6 +168,12 @@ export class ExtraWatch {
           if (e.cause !== undefined && this.hero(sim, e.target) === 'brann') x.cutsOnBrann++;
           break;
         case 'damageTaken':
+          if (
+            e.telegraph !== null &&
+            PULSES.has(this.attackOf.get(e.telegraph) ?? '') &&
+            this.hero(sim, e.target) === 'brann'
+          )
+            x.fortissimoOnBrann += e.amount;
           // Unravel's ticks: the reversed Mend, from its source, with no telegraph.
           if (
             state.field.unravel &&
@@ -160,6 +198,8 @@ export class ExtraWatch {
     const dt = this.lastTime < 0 ? 0 : state.time - this.lastTime;
     this.lastTime = state.time;
     if (dt <= 0) return;
+    // (A staged state may carry no statuses.)
+    if (brann?.health?.statuses?.some((st) => st.id === 'stilled')) x.stilledBrann += dt;
     const w = state.entities.get(state.weaverId)?.weaver;
     if (w && w.threadSlot !== null && w.threadMode === 'mend')
       add(x.mendTime, this.hero(sim, state.party[w.threadSlot] ?? null), dt);
@@ -230,6 +270,17 @@ export function cellLine(c: Cell): string {
     const unravel = rs.reduce((s, r) => s + r.extra.unravelOnBrann, 0);
     if (cuts > 0) parts.push(`cut on Brann ${(cuts / rs.length).toFixed(1)}`);
     if (unravel > 0) parts.push(`Unravel on Brann ${Math.round(unravel / rs.length)}`);
+    // The Finale, a fight: Fortissimo Silence's toll on him, his stilled seconds, Solos on him.
+    const loud = rs.reduce((s, r) => s + r.extra.fortissimoOnBrann, 0);
+    const still = rs.reduce((s, r) => s + r.extra.stilledBrann, 0);
+    const at = rs.reduce((s, r) => s + r.extra.solosAtBrann, 0);
+    const on = rs.reduce((s, r) => s + r.extra.solosOnBrann, 0);
+    if (loud > 0) parts.push(`Fortissimo on Brann ${Math.round(loud / rs.length)}`);
+    if (still > 0) parts.push(`stilled ${(still / rs.length).toFixed(1)} s`);
+    if (at > 0)
+      parts.push(
+        `Solos at Brann ${(at / rs.length).toFixed(1)}, landed ${(on / rs.length).toFixed(1)}`,
+      );
   }
   const championTime = rs.reduce((s, r) => s + r.extra.championTime, 0);
   if (championTime > 0) {
@@ -367,11 +418,13 @@ function runsMain(): void {
         .map(([k, v]) => `${k} ${v}`)
         .join(', ');
       if (lostAt) line += ` · lost at ${lostAt}`;
-      // Movement III onward (docs/phase-5c.md): the win among runs that reached the last one.
+      // Movement III onward (docs/phase-5c.md): the win among runs that reached the last one
+      // (the Finale route's by its label, docs/phase-5d.md).
       if (movements >= 3) {
         const last = results.filter((r) => r.movementReached >= movements);
         const won = last.filter((r) => r.outcome === 'victory').length;
-        line += ` · reached ${movements} ${pct(last.length / results.length)}, won of those ${last.length ? pct(won / last.length) : '-'}`;
+        const name = movements >= 4 ? movementName(movements, true) : String(movements);
+        line += ` · reached ${name} ${pct(last.length / results.length)}, won of those ${last.length ? pct(won / last.length) : '-'}`;
       }
       console.log(line);
       rows.push({ party: name, bot, wins, results });

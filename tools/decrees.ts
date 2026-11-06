@@ -2,13 +2,14 @@
  * The Decree gate (docs/phase-5a.md, "Bands"; docs/phase-5c.md, "Bands"): plays a boss on its
  * Movement's kit and reports, for each of its Decrees, how often a bot sees it per fight and how
  * often it answers it. One table per boss: Vharun (the default, on the arrival kit), the
- * Seamstress and the Unweaver (on ARRIVAL3_KIT).
+ * Seamstress and the Unweaver (on ARRIVAL3_KIT), and the Silent Conductor (on ARRIVAL4_KIT).
  *
  *   npx tsx tools/decrees.ts --seeds 50
  *   npx tsx tools/decrees.ts --seeds 50 --bots idle,skilled
  *   npx tsx tools/decrees.ts --seeds 50 --seed-base 500003   # another seed set (a check)
  *   npx tsx tools/decrees.ts --boss the_unweaver --seeds 50
  *   npx tsx tools/decrees.ts --boss the_seamstress --seeds 50
+ *   npx tsx tools/decrees.ts --boss the_silent_conductor --seeds 50
  *
  * What counts as answered, one occurrence at a time.
  *
@@ -39,16 +40,31 @@
  *   re-thread window (its lock still running, say) can't be judged on it: like the Unweaver's
  *   open items, it is answered on a win with no hero down since it landed.
  *
+ * The Silent Conductor (docs/phase-5d.md, "Bands": its gate counts **real casts**, the 5c Steal
+ * Verse lesson; the Finale tally, `FinaleWatch`, judges each one):
+ * - **Lament**, **Basso Ostinato**, **Cadenza**, **Shatter Aria**: each Solo its voice begins is an
+ *   occurrence, answered when it was interrupted, its soloist killed, the choir shattered under
+ *   it, or it landed and didn't fail (fed no Discord). Each voice's casts a fight are gated too:
+ *   Lament and Basso begun at least twice in ≥ 80% of fights, Cadenza and Shatter Aria at least
+ *   once in ≥ 85%, and at least 7 Solos a fight on average.
+ * - **Fortissimo Silence**: cancelled by a Crescendo, or played out with no hero down from its
+ *   first pulse to 4 s after its last; cast in ≥ 90% of fights.
+ * - **Grand Silence**: the heroes reignited by eight notes (not the Coda's cap); one still
+ *   running as the fight ended (a wipe in it) failed.
+ *
  * Idle never threads or casts (src/bots/index.ts), so the Thread's Decrees (Snip, Unravel and the
  * Unpick's re-thread) are N/A for it: accepted exceptions, as 5a's Twin Cleave was
- * (docs/phase-5c.md, "Accepted Idle exceptions").
+ * (docs/phase-5c.md, "Accepted Idle exceptions"). Every one of the Conductor's is N/A for it:
+ * it answers no Solo, cancels no Fortissimo Silence and plays no note (docs/phase-5d.md).
  *
  * Seen counts the Decree callouts (the 'decree' events), as the player does. Seeds as the harness.
  */
 import type { Bot, BotKind } from '../src/bots';
+import { ALTO, BASS, SOPRANO, TENOR } from '../src/content/crucibleIds';
 import { makeBot } from '../src/bots';
 import { createSim, type Sim, type SimEvent } from '../src/sim';
-import { ARRIVAL3_KIT, ARRIVAL_KIT, kitConfig, type Kit } from './kits';
+import { FinaleWatch } from './harness-core';
+import { ARRIVAL3_KIT, ARRIVAL4_KIT, ARRIVAL_KIT, kitConfig, type Kit } from './kits';
 
 const MAX_TICKS = 9 * 60 * 60;
 
@@ -59,7 +75,21 @@ export interface BossTable {
   decrees: readonly string[];
   /** Decrees N/A for the Idle bot (it never threads or casts). */
   idleNa: readonly string[];
+  /**
+   * Gates on real casts (the Conductor's, docs/phase-5d.md): a Decree's casts a fight, at least
+   * `atLeast` of them in at least `share` of fights.
+   */
+  casts?: Readonly<Record<string, { atLeast: number; share: number }>>;
 }
+
+/** The mirror-choir's Solos by Decree name, voice by voice (Alto, Bass, Tenor, Soprano). */
+const SOLO_DECREES: Readonly<Record<string, string>> = {
+  [ALTO]: 'Lament',
+  [BASS]: 'Basso Ostinato',
+  [TENOR]: 'Cadenza',
+  [SOPRANO]: 'Shatter Aria',
+};
+const CONDUCTOR_SOLOS = [ALTO, BASS, TENOR, SOPRANO].map((v) => SOLO_DECREES[v]!);
 
 export const BOSS_TABLES: Readonly<Record<string, BossTable>> = {
   vharun: {
@@ -80,7 +110,23 @@ export const BOSS_TABLES: Readonly<Record<string, BossTable>> = {
     decrees: ['Shear', 'Snip', 'Spindles', 'Steal Verse', 'Unravel', 'Mirror Weave'],
     idleNa: ['Snip', 'Unravel'],
   },
+  the_silent_conductor: {
+    encounter: 'the_silent_conductor',
+    kit: ARRIVAL4_KIT,
+    decrees: [...CONDUCTOR_SOLOS, 'Fortissimo Silence', 'Grand Silence'],
+    idleNa: [...CONDUCTOR_SOLOS, 'Fortissimo Silence', 'Grand Silence'],
+    casts: {
+      Lament: { atLeast: 2, share: 0.8 },
+      'Basso Ostinato': { atLeast: 2, share: 0.8 },
+      Cadenza: { atLeast: 1, share: 0.85 },
+      'Shatter Aria': { atLeast: 1, share: 0.85 },
+      'Fortissimo Silence': { atLeast: 1, share: 0.9 },
+    },
+  },
 };
+
+/** The Conductor's gate: at least this many Solos begun a fight, on average. */
+export const SOLOS_A_FIGHT = 7;
 
 /** How one fight went, Decree by Decree. */
 export interface Fight {
@@ -91,6 +137,8 @@ export interface Fight {
   /** Under the Bloodmoon: hero ticks standing, and inside a pool. */
   standing: number;
   sheltered: number;
+  /** Real casts by Decree, for a table with cast gates (the Conductor's). */
+  casts?: Record<string, number>;
   /**
    * The Seamstress only: each Unpick as judged (when it landed, its lock's end or null when it
    * cut nothing, and the verdicts), for checks of the gate itself.
@@ -483,16 +531,66 @@ function seamstressFight(table: BossTable, seed: number, bot: BotKind, player?: 
   return out;
 }
 
+// ── The Silent Conductor (docs/phase-5d.md) ──────────────────────────────────────────
+
+function conductorFight(table: BossTable, seed: number, bot: BotKind, player?: Bot): Fight {
+  const out = newFight(table);
+  out.casts = zero(table.decrees);
+  let watch: FinaleWatch | null = null;
+  /** The Grand Silence: begun, and how it ended (null: still running). */
+  let silence: 'running' | 'reignited' | 'broken' | null = null;
+  play(
+    table,
+    seed,
+    bot,
+    out,
+    (sim, events) => {
+      watch ??= FinaleWatch.of(sim);
+      watch?.tick(sim, events);
+      for (const e of events) {
+        if (e.type === 'silenceBegan') {
+          silence = 'running';
+          out.casts!['Grand Silence']!++;
+        } else if (e.type === 'reignited') silence = 'reignited';
+        else if (e.type === 'silenceBroken') silence = 'broken';
+      }
+    },
+    player,
+  );
+  if (!watch) return out;
+  const w = watch as FinaleWatch;
+  // Each voice's Solos, as the tally judged them; any still winding up as the fight ended are
+  // judged on the fight (a win felled every voice).
+  for (const solo of w.solos) {
+    const decree = SOLO_DECREES[solo.voice]!;
+    count(out, decree, solo.answer !== 'failed');
+  }
+  const tally = w.result();
+  for (const [voice, n] of Object.entries(tally.solosBegun)) {
+    const decree = SOLO_DECREES[voice]!;
+    out.casts![decree] = n;
+    for (let i = w.solos.filter((s) => s.voice === voice).length; i < n; i++)
+      count(out, decree, out.won);
+  }
+  out.casts!['Fortissimo Silence'] = tally.fortissimoCast;
+  for (const f of w.fortissimos) count(out, 'Fortissimo Silence', f.cancelled || f.downs === 0);
+  const s = silence as 'running' | 'reignited' | 'broken' | null;
+  if (s !== null) count(out, 'Grand Silence', s === 'reignited');
+  return out;
+}
+
 const FIGHTS: Readonly<
   Record<string, (table: BossTable, seed: number, bot: BotKind, player?: Bot) => Fight>
 > = {
   vharun: vharunFight,
   the_seamstress: seamstressFight,
   the_unweaver: unweaverFight,
+  the_silent_conductor: conductorFight,
 };
 
 /**
- * Plays one fight against `boss`'s table (vharun, the_seamstress or the_unweaver). `player`
+ * Plays one fight against `boss`'s table (vharun, the_seamstress, the_unweaver or
+ * the_silent_conductor). `player`
  * stands in for `bot`'s own player (a test's wrapped bot); `bot` still names its rules.
  */
 export function decreeFight(boss: string, seed: number, bot: BotKind, player?: Bot): Fight {
@@ -516,8 +614,10 @@ function main(): void {
   const table = BOSS_TABLES[boss];
   if (!table) throw new Error(`No Decree table for "${boss}" (${Object.keys(BOSS_TABLES)})`);
   console.log(`decree gate · ${table.encounter} · ${seeds} seeds · ${table.kit.name}`);
+  // The decree column fits the table's longest name ('Fortissimo Silence'); 14 before the Finale.
+  const width = Math.max(14, ...table.decrees.map((d) => d.length));
   console.log(
-    'bot      won   decree         seen/fight (min)  answered          fights seeing it ≥2',
+    `bot      won   ${'decree'.padEnd(width)} seen/fight (min)  answered          fights seeing it ≥2`,
   );
   for (const bot of bots) {
     const fights = Array.from({ length: seeds }, (_, i) =>
@@ -540,11 +640,25 @@ function main(): void {
         [
           bot.padEnd(8),
           `${Math.round(won * 100)}%`.padStart(4),
-          ` ${d.padEnd(14)}`,
+          ` ${d.padEnd(width)}`,
           `${mean.toFixed(1)} (${Math.min(...seen)})`.padStart(17),
           `  ${rate.padStart(4)} of ${String(occurrences).padEnd(5)}`,
           `       ${twice}/${fights.length}`,
         ].join(' '),
+      );
+    }
+    // Real casts (the Conductor's): a fight's casts of each, against its gate.
+    if (table.casts) {
+      for (const [d, gate] of Object.entries(table.casts)) {
+        const casts = fights.map((f) => f.casts?.[d] ?? 0);
+        const enough = casts.filter((n) => n >= gate.atLeast).length;
+        console.log(
+          `${bot.padEnd(8)}       ${d.padEnd(18)} cast ${(casts.reduce((a, b) => a + b, 0) / fights.length).toFixed(1)} a fight · ≥${gate.atLeast} in ${enough}/${fights.length} (${Math.round((100 * enough) / fights.length)}%, band ≥${Math.round(gate.share * 100)}%)`,
+        );
+      }
+      const solos = fights.map((f) => CONDUCTOR_SOLOS.reduce((s, d) => s + (f.casts?.[d] ?? 0), 0));
+      console.log(
+        `${bot.padEnd(8)}       Solos begun ${(solos.reduce((a, b) => a + b, 0) / fights.length).toFixed(1)} a fight (band ≥${SOLOS_A_FIGHT})`,
       );
     }
     const standing = fights.reduce((s, f) => s + f.standing, 0);

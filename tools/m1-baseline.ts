@@ -17,6 +17,11 @@
  * in tools/m3-baseline.json once the slice is tuned (its `--write` is the slice's last step), as
  * the Finale slice's guard.
  *
+ * `--movement 4` (docs/phase-5d.md, "Hand-off") is the Finale's table: the Silent Conductor on
+ * ARRIVAL4_KIT, kept in tools/m4-baseline.json once the slice is tuned (its `--write` is the
+ * slice's last step, W9), as the next slice's guard. Until it is written, its `--check` reports
+ * the file missing; Movements I-III's checks never read it.
+ *
  * Records are compared on the fields the baseline holds, so fields the harness gains later
  * (Movement II metrics) don't count as drift.
  */
@@ -25,7 +30,7 @@ import { fileURLToPath } from 'node:url';
 import type { BotKind } from '../src/bots';
 import { CHORD_PRESETS } from '../src/meta/run';
 import { movementEncounters, playEncounter, type EncounterRun } from './harness-core';
-import { ARRIVAL3_KIT, ARRIVAL_KIT, kitConfig, type Kit } from './kits';
+import { ARRIVAL3_KIT, ARRIVAL4_KIT, ARRIVAL_KIT, kitConfig, type Kit } from './kits';
 
 /** The harness's default Movement I fights (tools/harness.ts), in its order. */
 export const M1_ENCOUNTERS = [
@@ -82,16 +87,23 @@ export function m3Baseline(): M1Baseline {
   return movementBaseline(3, ARRIVAL3_KIT);
 }
 
+/** The Finale's table (docs/phase-5d.md): its one fight, the Silent Conductor, on ARRIVAL4_KIT. */
+export function m4Baseline(): M1Baseline {
+  return movementBaseline(4, ARRIVAL4_KIT);
+}
+
 const BASELINES: Readonly<Record<number, () => M1Baseline>> = {
   1: m1Baseline,
   2: m2Baseline,
   3: m3Baseline,
+  4: m4Baseline,
 };
 
 const DRIFTED: Readonly<Record<number, string>> = {
   1: 'M1 baseline drifted: Movement I is meant to be unchanged (docs/phase-5a.md).',
   2: 'M2 baseline drifted: default-party Movement II is meant to be unchanged (docs/phase-5b.md).',
   3: 'M3 baseline drifted: Movement III is meant to be unchanged since its hand-off (docs/phase-5c.md).',
+  4: 'M4 baseline drifted: the Finale is meant to be unchanged since its hand-off (docs/phase-5d.md).',
 };
 
 /** `fresh` cut down to the keys `kept` has, record by record, in `kept`'s key order. */

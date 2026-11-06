@@ -1,9 +1,12 @@
 /**
- * Deeds report (docs/phase-4b.md): how often a whole Prelude run earns each Deed, per bot, and
- * after how many runs of a "career" (the seeds in order) each is first earned.
+ * Deeds report (docs/phase-4b.md): how often a whole run earns each Deed, per bot, and after how
+ * many runs of a "career" (the seeds in order) each is first earned. Prelude runs by default;
+ * `--movements N` plays Expeditions through N Movements (docs/phase-5d.md: 4, the Finale route,
+ * where the Finale's badge Deeds, The Song Goes On and Not One Silent, can be earned).
  *
  *   npx tsx tools/deeds.ts --seeds 200                     both bots, Guardian, no Calling
  *   npx tsx tools/deeds.ts --bots skilled --calling martyr --seeds 100
+ *   npx tsx tools/deeds.ts --bots skilled --movements 4 --seeds 100
  */
 import type { BotKind } from '../src/bots';
 import { CONTENT } from '../src/content';
@@ -25,8 +28,10 @@ function main(): void {
   const bots = (get('bots') ?? 'novice,skilled').split(',') as BotKind[];
   const calling = get('calling');
   const tree = (get('tree') ?? '').split(',').filter(Boolean);
+  const movements = Number(get('movements') ?? 1);
   console.log(
     `deeds · loadout ${loadout.name} · ${calling ?? 'no Calling'} · ${seeds} runs a bot` +
+      (movements >= 2 ? ` · Expeditions (${movements} Movements)` : '') +
       (tree.length ? ` · tree ${tree.length} nodes` : ''),
   );
   for (const bot of bots) {
@@ -42,6 +47,8 @@ function main(): void {
           : {}),
         astrolabe: tree,
         onEnd: (r) => (run = r),
+        // The key only on an Expedition, so a Prelude report plays as before.
+        ...(movements >= 2 ? { movements } : {}),
       });
       if (summary.outcome === 'victory') wins++;
       for (const id of run ? deedsEarned(run, []) : []) {

@@ -12,6 +12,9 @@
  * a party carries out of Movement II, as a floor of what Skilled winners hold at Vharun's
  * interlude (10.2 motifs and 9.1 relics measured): 10 motifs and 6 relics. ARRIVAL_KIT is never
  * edited (3 goldens, the commandSnapshot and the Movement II baseline stand on it).
+ *
+ * The Finale's cell (docs/phase-5d.md) plays **ARRIVAL4_KIT**, measured the same way at the
+ * Unweaver's interlude on the Finale route.
  */
 import { CHORD_PRESETS } from '../src/meta/run';
 import type { ChordLoadout } from '../src/meta/types';
@@ -71,16 +74,26 @@ export const ARRIVAL3_KIT: Kit = {
 };
 
 /**
- * A party reaching the Celestial Crucible (docs/phase-5d.md): W5 measures what Skilled winners
- * carry out of the Unweaver's interlude. Until then, ARRIVAL3_KIT's motifs and relics, and no
- * Movement's cells play it by default.
+ * A party reaching the Celestial Crucible (docs/phase-5d.md, "Harness"): ARRIVAL3_KIT plus a
+ * floor of what Skilled runs carry out of the Unweaver's interlude on the Finale route. Measured
+ * with `playRun` (the harness's default loadout, relics on) at the first phase in the Finale,
+ * over 200 Skilled seeds (2000 and 900007 + i × 104729; 129 reached it): 12.1 motifs and 10.8
+ * relics held. So 12 motifs (ARRIVAL3's 10 and the two most held it lacks: Quickened Verse 71,
+ * Long Weave 70) and 8 relics (its 6 and Martyr's Veil 99, the Cracked Metronome 95), a floor
+ * as ARRIVAL3's 6 of 9.1 was. No Finale relic: 71 of 129 held one, split three ways (The First
+ * Score 29, Tacet Mark 21, Quick Rosin 21). ARRIVAL3_KIT is never edited (4 goldens,
+ * commandSnapshotM3 and the Movement III baseline).
  */
 export const ARRIVAL4_KIT: Kit = {
   id: 'arrival4',
   name: 'arrival kit IV',
   preset: 'guardian',
-  motifs: [...ARRIVAL3_KIT.motifs],
-  relics: [...ARRIVAL3_KIT.relics],
+  motifs: [
+    ...ARRIVAL3_KIT.motifs,
+    { id: 'quickened_verse', level: 1 },
+    { id: 'long_weave', level: 1 },
+  ],
+  relics: [...ARRIVAL3_KIT.relics, 'martyrs_veil', 'cracked_metronome'],
 };
 
 /** Nothing but the loadout: Movement I's isolated cells (docs/phase-1.md). */
@@ -99,9 +112,18 @@ export const KITS: Readonly<Record<KitId, Kit>> = {
   bare: BARE_KIT,
 };
 
-/** The kit a Movement's isolated cells play by default: bare in I, arrival in II, arrival3 on. */
+/**
+ * The kit a Movement's isolated cells play by default: bare in I, arrival in II, arrival3 in III,
+ * and arrival4 in the Finale (docs/phase-5d.md) and on.
+ */
 export function defaultKit(movement: number): KitId {
-  return movement >= 3 ? 'arrival3' : movement >= 2 ? 'arrival' : 'bare';
+  return movement >= 4
+    ? 'arrival4'
+    : movement >= 3
+      ? 'arrival3'
+      : movement >= 2
+        ? 'arrival'
+        : 'bare';
 }
 
 /** The kit a Movement's isolated cells play by default, itself (`defaultKit`). */
