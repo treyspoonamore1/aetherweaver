@@ -228,9 +228,12 @@ describe('Movement I is unchanged (docs/phase-5a.md)', () => {
       expect(CONTENT.arenas.find((a) => a.id === e.arena)!.biome, e.id).not.toBe(
         'celestial_crucible',
       );
-    // The three field Movements: no road, no finale flag, no label; still exactly three.
-    expect(CONTENT.movements).toHaveLength(3);
-    for (const m of CONTENT.movements)
+    // The three field Movements: no road, no finale flag, no label; still exactly three, and
+    // the Finale (registered by W3) after them.
+    const field = CONTENT.movements.slice(0, 3);
+    expect(CONTENT.movements).toHaveLength(4);
+    expect(CONTENT.movements.slice(3).map((m) => 'finale' in m)).toEqual([true]);
+    for (const m of field)
       for (const k of ['road', 'finale', 'label']) expect(k in m, `${m.id}.${k}`).toBe(false);
   });
 });

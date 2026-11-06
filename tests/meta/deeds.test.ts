@@ -99,10 +99,13 @@ function meetsAndMisses(d: DeedDef): [RunState, RunState] {
         { encounterId: d.encounter!, grade: d.grade ?? 'B' },
         { downs: downs ?? 0 },
       );
+      // With no downs or grade to miss (The Song Goes On: beat it at all), losing it misses.
       const no =
         downs !== undefined
           ? { ...yes, stats: { ...yes.stats, downs: downs + 1 } }
-          : { ...yes, grade: 'A' as const };
+          : d.grade !== undefined
+            ? { ...yes, grade: 'A' as const }
+            : { ...yes, outcome: 'defeat' as const };
       return [runOf([yes]), runOf([no])];
     }
     case 'callAll':
@@ -175,8 +178,8 @@ beforeEach(() => {
 });
 
 describe('the Deeds', () => {
-  it('twenty-five, ten of them giving a point, each text filled from its data', () => {
-    expect(CONTENT.deeds).toHaveLength(25);
+  it('twenty-seven, ten of them giving a point, each text filled from its data', () => {
+    expect(CONTENT.deeds).toHaveLength(27);
     expect(CONTENT.deeds.filter((d) => d.points === 1)).toHaveLength(DEED_POINTS_MAX);
     for (const d of CONTENT.deeds) expect(deedText(d), d.id).not.toMatch(/[{}]/);
     expect(deedText(deed('unrung'))).toBe('Beat the Bellwarden with no hero going down.');
@@ -190,6 +193,9 @@ describe('the Deeds', () => {
       // Movement III's two (docs/phase-5c.md), after them.
       ['whole_cloth', 0],
       ['needle_sure', 0],
+      // The Finale's two (docs/phase-5d.md), last.
+      ['song_goes_on', 0],
+      ['not_one_silent', 0],
     ]);
     expect(deedText(deed('in_the_red'))).toBe(
       'Beat Vharun, the Crimson Warden, with Brann, never letting him above 40% life once he first falls to it.',
@@ -200,13 +206,18 @@ describe('the Deeds', () => {
     expect(deedText(deed('pack_leader'))).toBe('Beat the Gorehound Matriarch with an S.');
     expect(deedText(deed('whole_cloth'))).toBe('Beat the Unweaver, with no hero going down.');
     expect(deedText(deed('needle_sure'))).toBe('Beat the Seamstress with an S.');
+    expect(deedText(deed('song_goes_on'))).toBe('Beat the Silent Conductor.');
+    expect(deedText(deed('not_one_silent'))).toBe(
+      'Beat the Silent Conductor with no hero going down.',
+    );
   });
 
   it('a hero’s Deed is in sight only with a roster that has the hero (docs/phase-5b.md)', () => {
     const all = CONTENT.enemies.map((e) => e.id);
     const plain = deedsInSight(all).map((d) => d.id);
-    // Every Deed but Brann's (Movement III's two badges count: docs/phase-5c.md).
-    expect(plain).toHaveLength(24);
+    // Every Deed but Brann's (Movement III's and the Finale's badges count: docs/phase-5c.md,
+    // docs/phase-5d.md).
+    expect(plain).toHaveLength(26);
     expect(plain).not.toContain('in_the_red');
     expect(deedsInSight(all, ['kael', 'lyra', 'vexis']).map((d) => d.id)).toEqual(plain);
     expect(deedsInSight(all, ['kael', 'lyra', 'vexis', 'brann']).map((d) => d.id)).toEqual(

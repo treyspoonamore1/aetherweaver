@@ -23,7 +23,9 @@ import {
   type EventEffect,
   type FinaleMovementDef,
   type MotifDef,
+  type MovementDef,
   type RelicRarity,
+  type RoadVariant,
 } from '../content/schema';
 import { Rng, hashString } from '../sim/core/rng';
 import {
@@ -38,7 +40,7 @@ import { empowered, relicPassives, snapshotRelic, type ReliquaryRelic } from './
 import { bondXpForFight, bondsConfig, type RunBond } from './bonds';
 import { noVariants, variantsConfig, type Techniques } from './variants';
 import { starlightForFight } from './loom';
-import { endsRun, isFinalNode } from './runEnd';
+import { endsRun, finaleCleared, isFinalNode } from './runEnd';
 import {
   canonicalChords,
   chordProblems,
@@ -275,12 +277,14 @@ function allowedFor(run: RunState, chords: readonly ChordLoadout[], allowance: A
 export const CALLING_ROWS: readonly number[] = [0, 3, 5, 7];
 
 /**
- * The rows the run's Calling tiers fall on (docs/phase-5d.md): CALLING_ROWS, unless the run's
- * route plays Movement I's road with rows of its own (W3 reads the road; until the Finale is
- * registered every route keeps CALLING_ROWS).
+ * The rows the run's Calling tiers fall on (docs/phase-5d.md): CALLING_ROWS (the Prelude's, and
+ * any route that plays Movement I whole), unless the run's route plays Movement I's road, whose
+ * own rows they are: on the Finale route, First Light, the all-fight row 2, the Bellwarden and
+ * the Cantor's interlude.
  */
-export function callingRows(_run: Pick<RunState, 'movements'>): readonly number[] {
-  return CALLING_ROWS;
+export function callingRows(run: Pick<RunState, 'movements'>): readonly number[] {
+  const first = routeDefs(run.movements)[0];
+  return (first && roadOf(first)?.callingRows) ?? CALLING_ROWS;
 }
 
 const REROLLS = 1;
@@ -306,7 +310,9 @@ const FINAL_CALL: Readonly<Record<string, string>> = {
   hollow_cantor: 'End the silence.',
   // Kept: a 2-Movement Expedition saved before Movement III still ends at Vharun.
   vharun: 'Break the Legion.',
+  // Kept: an Expedition saved on the I-III route still ends at the Unweaver.
   the_unweaver: 'Stitch the world whole.',
+  the_silent_conductor: 'Answer the silence.',
 };
 
 function rngFor(seed: number, label: string): Rng {
@@ -444,14 +450,41 @@ function rewardKind(
 /** The node kinds that hold an encounter. */
 const FIGHT_KINDS: ReadonlySet<NodeKind> = new Set(['skirmish', 'elite', 'miniboss', 'boss']);
 
+/** The road each Movement plays on the Finale's route, by the road's own def (`routeDefs`). */
+const ROADS = new WeakMap<AnyMovementDef, RoadVariant>();
+/** `routeDefs(n)` for a route that ends in the finale, drawn once (content is fixed). */
+const FINALE_ROUTES = new Map<number, readonly AnyMovementDef[]>();
+
 /**
  * The Movements a run of `n` plays, in order (Movement I at least): `CONTENT.movements.slice(0,
- * n)`, unless the n-th def is the finale, whose route plays its shorter road (docs/phase-5d.md;
- * W3 overlays the road, which no route can reach until the Finale is registered).
+ * n)`, unless the n-th def is the finale (docs/phase-5d.md). That route plays the finale's
+ * shorter `road`: each field Movement it names keeps its pools, lessons, scale and rewards, but
+ * takes the road's rows and fixed stops, and `roadOf` gives the road's Threat rows, Calling rows
+ * and shuffle. So `generateMap(seed, n)` for a route that doesn't end in the finale (the Prelude,
+ * I-II, I-III) is exactly what it always was.
  */
 export function routeDefs(n: number): AnyMovementDef[] {
   const count = Math.max(1, Math.min(CONTENT.movements.length, Math.floor(n) || 1));
-  return CONTENT.movements.slice(0, count);
+  const defs = CONTENT.movements.slice(0, count);
+  const last = defs[count - 1]!;
+  if (isFieldMovement(last)) return defs;
+  let route = FINALE_ROUTES.get(count);
+  if (!route) {
+    route = defs.map((def) => {
+      const road = last.road.find((r) => r.movement === def.id);
+      if (!road || !isFieldMovement(def)) return def;
+      const on: MovementDef = { ...def, rows: road.rows, fixed: road.fixed };
+      ROADS.set(on, road);
+      return on;
+    });
+    FINALE_ROUTES.set(count, route);
+  }
+  return [...route];
+}
+
+/** The finale's road a def of `routeDefs` plays (none: the Movement's own map). */
+export function roadOf(def: AnyMovementDef): RoadVariant | undefined {
+  return ROADS.get(def);
 }
 
 /**
@@ -472,9 +505,13 @@ function buildMovement(
 ): MapNode[][] {
   if (!isFieldMovement(def)) return buildFinale(def, movement, firstRow);
   const rng = rngFor(seed, movement === 1 ? 'map' : `map:m${movement}`);
+  // The finale's road (docs/phase-5d.md): its rows take the full Movement's Threat, and a
+  // ladder's pools may be shuffled on it (only on the Finale route).
+  const road = roadOf(def);
   const taught = def.lessons ?? [];
   const ladder = taught.length > 0;
-  const order = (pool: readonly string[]) => (ladder ? [...pool] : shuffle(rng, [...pool]));
+  const order = (pool: readonly string[]) =>
+    ladder && !road?.shuffle ? [...pool] : shuffle(rng, [...pool]);
   const skirmishes = order(def.skirmishes);
   const elites = order(def.elites);
   // Every event at most once a run, until they run out: the Movement's own, in content order.
@@ -532,7 +569,14 @@ function buildMovement(
         encounterId,
         eventId,
         next: [],
-        reward: rewardFor(kind, encounterId, eventId, { row, movement: def, next }),
+        reward: rewardFor(
+          kind,
+          encounterId,
+          eventId,
+          road
+            ? { row, threatRow: road.threat[row], movement: def, next }
+            : { row, movement: def, next },
+        ),
         movement,
       };
     });
@@ -565,9 +609,11 @@ function buildFinale(def: FinaleMovementDef, movement: number, firstRow: number)
 }
 
 /**
- * Generates a run's map for a seed (docs/phase-5a.md): Movement I (the Prelude's map, exactly),
- * then each later Movement's rows, generated up front and numbered on, the boss before each
- * linked to the next Movement's first stop. Only the last Movement's boss is final.
+ * Generates a run's map for a seed (docs/phase-5a.md): the Movements of `routeDefs(movements)`,
+ * Movement I first (the Prelude's map exactly, on every route but the Finale's, which plays its
+ * shorter road, docs/phase-5d.md), then each later Movement's rows, generated up front and
+ * numbered on, the boss before each linked to the next Movement's first stop. Only the last
+ * Movement's boss is final.
  */
 export function generateMap(seed: number, movements = 1): RunMap {
   return generateMapFrom(seed, routeDefs(movements));
@@ -611,7 +657,7 @@ function nearest(nodes: MapNode[], x: number): MapNode {
 
 // ── Movements (docs/phase-5a.md) ─────────────────────────────────────────────────────
 
-export { endsRun, isFinalNode };
+export { endsRun, finaleCleared, isFinalNode };
 
 /** The Movement the party stands in (1 before the first step). */
 export function movementOf(run: RunState): number {
@@ -665,8 +711,10 @@ export function movementRewards(n: number): AnyMovementDef['rewards'] {
 
 /**
  * Prep: the run's route (docs/phase-5a.md), 1 Movement (the Prelude) or every Movement in
- * content (an Expedition, docs/phase-5c.md). Its map is drawn again for the seed; Movement I
- * comes out the same. Frozen at embark.
+ * content (an Expedition, docs/phase-5c.md). Its map is drawn again for the seed: the same
+ * Movement I between the Prelude and the I-II and I-III routes, but the Finale's route plays
+ * its shorter road (docs/phase-5d.md), so its whole map differs. Nothing is lost: the path is
+ * still empty in Prep. Frozen at embark.
  */
 export function setMovements(run: RunState, movements: number): RunState {
   const n = routeDefs(movements).length;

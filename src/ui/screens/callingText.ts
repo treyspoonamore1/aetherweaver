@@ -4,7 +4,7 @@
  * the map's own terms), the path so far, the map's milestone fights, the Result's Calling line,
  * what the Martyr's low-Life options mean for the run's songs, and the Chronomancer's Rewind in
  * Reel's slot. Every number comes from content (`callingText`, `optionText`) or the run
- * (`CALLING_ROWS`).
+ * (`callingRows`: CALLING_ROWS, or the Finale route's road, docs/phase-5d.md).
  */
 import {
   CONTENT,
@@ -17,7 +17,7 @@ import {
   type CallingOption,
 } from '../../content';
 import { tiersOpen } from '../../meta/loom';
-import { CALLING_ROWS, callingTierDue, generateMap } from '../../meta/run';
+import { CALLING_ROWS, callingRows, callingTierDue, generateMap } from '../../meta/run';
 import type {
   ChordLoadout,
   EncounterStats,
@@ -241,12 +241,36 @@ export function numeral(tier: number): string {
   return NUMERALS[tier] ?? String(tier + 1);
 }
 
-/** A map to read the milestone rows from when no run is at hand (Prep's preview, the Codex). */
-let referenceMap: RunMap | null = null;
-function mapOf(map?: RunMap): RunMap {
-  if (map) return map;
-  referenceMap ??= generateMap(1);
-  return referenceMap;
+/**
+ * Where the milestone rows are read: a run's map (its route is the Movements it holds), a route
+ * alone (`{ movements }`: its reference map, seed 1), or neither (the Prelude's, as Prep's
+ * preview and the Codex have always read them).
+ */
+export type TierPlace = RunMap | Partial<Pick<RunState, 'map' | 'movements'>>;
+
+/** Reference maps, by route, to read the milestone rows from when no run is at hand. */
+const referenceMaps = new Map<number, RunMap>();
+function referenceMap(movements: number): RunMap {
+  let map = referenceMaps.get(movements);
+  if (!map) {
+    map = generateMap(1, movements);
+    referenceMaps.set(movements, map);
+  }
+  return map;
+}
+
+/** The milestone rows and the map they fall on, for `at` (`TierPlace`). */
+function tierPlace(at?: TierPlace): { rows: readonly number[]; map: RunMap } {
+  if (at && 'rows' in at) {
+    // A map's route: as many Movements as it holds (a saved I-III map keeps CALLING_ROWS).
+    const movements = Math.max(1, ...at.rows.map((r) => r[0]?.movement ?? 1));
+    return { rows: callingRows({ movements }), map: at };
+  }
+  if (at?.map || at?.movements !== undefined) {
+    const movements = at.movements ?? 1;
+    return { rows: callingRows({ movements }), map: at.map ?? referenceMap(movements) };
+  }
+  return { rows: CALLING_ROWS, map: referenceMap(1) };
 }
 
 /** "First Light" → "First Light"; "The Bellwarden" → "the Bellwarden" (mid-sentence). */
@@ -256,13 +280,16 @@ function inSentence(name: string): string {
 
 /**
  * When a tier is picked, in the map's terms: "after First Light", "after your fight at step
- * 4", "after the Bellwarden". A row whose fights are all one encounter is named by it; the
- * others by their step (the map's header counts steps from 1).
+ * 4", "after the Bellwarden" (on the Finale route's road: "after the Hollow Cantor" for tier IV,
+ * docs/phase-5d.md). A row whose fights are all one encounter is named by it; the others by
+ * their step (the map's header counts steps from 1). `at`: the run's map or route (absent: the
+ * Prelude's, as it always read).
  */
-export function tierWhen(tier: number, map?: RunMap): string {
-  const row = CALLING_ROWS[tier];
+export function tierWhen(tier: number, at?: TierPlace): string {
+  const place = tierPlace(at);
+  const row = place.rows[tier];
   if (row === undefined) return 'later in the run';
-  const rows = mapOf(map).rows;
+  const rows = place.map.rows;
   const nodes = rows[row] ?? [];
   const fights = nodes.filter((n) => n.encounterId && n.kind !== 'event');
   const encounters = [...new Set(fights.map((n) => n.encounterId!))];
@@ -273,7 +300,7 @@ export function tierWhen(tier: number, map?: RunMap): string {
 
 /**
  * A row's step as the map's header counts it: from 1, within its Movement (docs/phase-5a.md; the
- * Calling's tiers all fall in Movement I, whose steps are its rows).
+ * Calling's tiers all fall in Movement I, on every route, whose steps are its rows).
  */
 function stepInMovement(rows: RunMap['rows'], row: number): number {
   const movement = rows[row]?.[0]?.movement ?? 1;
@@ -285,7 +312,7 @@ function stepInMovement(rows: RunMap['rows'], row: number): number {
  * Every tier's moment in one phrase: "after First Light, your fights at steps 4 and 6, and
  * the Bellwarden" (consecutive step fights merged).
  */
-export function tierWhenList(tiers: number, map?: RunMap): string {
+export function tierWhenList(tiers: number, map?: TierPlace): string {
   const items: string[] = [];
   let steps: string[] = [];
   const flush = () => {
@@ -312,7 +339,7 @@ export function tierWhenList(tiers: number, map?: RunMap): string {
 }
 
 /** The same, capitalised for a label on its own ("After First Light"). */
-export function tierWhenLabel(tier: number, map?: RunMap): string {
+export function tierWhenLabel(tier: number, map?: TierPlace): string {
   const s = tierWhen(tier, map);
   return s.charAt(0).toUpperCase() + s.slice(1);
 }

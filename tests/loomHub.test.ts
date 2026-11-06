@@ -110,7 +110,7 @@ describe('the Loom’s stations', () => {
     // The first Deed is winning a run, as the line says.
     expect(CONTENT.deeds[0]!.test).toBe('win');
     expect(station(views, 'dissonance').line).toBe(
-      `Optional difficulty, for the endgame. Opens with a win at Weaver Rank ${RULES.openRank} or above.`,
+      `Optional difficulty, for the endgame. Opens with your first Finale clear, at Weaver Rank ${RULES.openRank} or above.`,
     );
     // Dark stations have nothing waiting.
     for (const v of views.filter((x) => !x.open)) expect(v.badge).toBeNull();
@@ -138,11 +138,12 @@ describe('the Loom’s stations', () => {
     expect(open(at(1, { bonds: { lyra: bond(second) } }), 'bonds')).toBe(true);
     // The Hall: a first Deed.
     expect(open(at(1, { deeds: [CONTENT.deeds[0]!.id] }), 'deeds')).toBe(true);
-    // Dissonance: its win, as the store records it; at its Rank it says the next win opens it.
+    // Dissonance: its Finale clear, as the store records it (docs/phase-5d.md); at its Rank it
+    // says the first Finale clear opens it.
     const ready = at(RULES.openRank);
     expect(open(ready, 'dissonance')).toBe(false);
     expect(station(stationViews(ready, false), 'dissonance').line).toBe(
-      'Optional difficulty, for the endgame. Opens with your next win.',
+      'Optional difficulty, for the endgame. Opens with your first Finale clear.',
     );
     const won = { ...ready, dissonance: { open: true, levels: [], best: {} } };
     expect(open(won, 'dissonance')).toBe(true);
@@ -194,8 +195,15 @@ describe('the Loom’s stations', () => {
         .join(' · '),
     );
     // Out of the Deeds in sight (docs/phase-5a.md): Movement II's two (and Movement III's two,
-    // docs/phase-5c.md) wait until it's met.
-    const later = ['crimson_crowned', 'pack_leader', 'whole_cloth', 'needle_sure'];
+    // docs/phase-5c.md, and the Finale's, docs/phase-5d.md) wait until it's met.
+    const later = [
+      'crimson_crowned',
+      'pack_leader',
+      'whole_cloth',
+      'needle_sure',
+      'song_goes_on',
+      'not_one_silent',
+    ];
     expect(station(views, 'deeds').badge).toBe(
       `3 of ${CONTENT.deeds.filter((d) => !later.includes(d.id) && !d.hero).length} earned`,
     );

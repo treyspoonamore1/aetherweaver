@@ -417,8 +417,8 @@ export function closedLines(rank: number): { lead: string; skip: string } {
   const openRank = RULES().openRank;
   return {
     lead: opensAt(rank)
-      ? `It opens with your first win at Rank ${openRank} or above: you’re Rank ${rank}, so your next win does it.`
-      : `It opens with your first win at Rank ${openRank} or above (you’re Rank ${rank}).`,
+      ? `It opens with your first Finale clear at Rank ${openRank} or above: you’re Rank ${rank}, so your next Finale clear does it.`
+      : `It opens with your first Finale clear at Rank ${openRank} or above (you’re Rank ${rank}).`,
     skip: 'Settings → Skip the unlocks opens it now.',
   };
 }
@@ -467,7 +467,7 @@ export interface RunDissonanceView {
   rewards: RewardView;
   /** What a relic it found remembers. */
   depth: DepthView;
-  /** It opened Dissonance (its first win at the Rank). */
+  /** It opened Dissonance (its first Finale clear at the Rank, docs/phase-5d.md). */
   opened: boolean;
   /** It set a new best for its Calling (or for none). */
   best: boolean;

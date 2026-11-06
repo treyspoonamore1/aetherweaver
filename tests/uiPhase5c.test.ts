@@ -240,12 +240,20 @@ describe('the route copy, derived from content', () => {
     expect(prepEyebrow({ movements: 1 })).toBe('The Prelude · Movement I');
   });
 
-  it('the Expedition names Movements I–III, to the Unweaver; two Movements read as they did', () => {
+  it('the Expedition names Movements I–III and the Finale; I-III and two Movements read as they did', () => {
     expect(EXPEDITION_MOVEMENTS).toBe(CONTENT.movements.length);
-    expect(EXPEDITION_MOVEMENTS).toBe(3);
-    expect(titleEyebrow(true)).toBe('Movements I–III · The Expedition');
-    expect(routeHint('expedition')).toBe('Movements I–III, to the Unweaver.');
-    expect(expeditionOnward()).toBe('through Movements II–III');
+    // The Finale's route (docs/phase-5d.md): the label, not 'Movement IV'.
+    expect(EXPEDITION_MOVEMENTS).toBe(4);
+    expect(titleEyebrow(true)).toBe('Movements I–III and the Finale · The Expedition');
+    expect(routeHint('expedition')).toBe(
+      'Movements I–III and the Finale, to the Silent Conductor.',
+    );
+    expect(expeditionOnward()).toBe('through Movements II–III and the Finale');
+    expect(prepEyebrow({ movements: 4 })).toBe('The Expedition · Movements I–III and the Finale');
+    // An I-III Expedition (a save in flight) as it was.
+    expect(titleEyebrow(true, 3)).toBe('Movements I–III · The Expedition');
+    expect(routeHint('expedition', 3)).toBe('Movements I–III, to the Unweaver.');
+    expect(expeditionOnward(3)).toBe('through Movements II–III');
     expect(prepEyebrow({ movements: 3 })).toBe('The Expedition · Movements I–III');
     // A 2-Movement Expedition (an old save) as it was.
     expect(titleEyebrow(true, 2)).toBe('Movements I–II · The Expedition');
@@ -284,8 +292,10 @@ describe('the route copy, derived from content', () => {
     expect(bossSpoils('vharun').hoard).toBe('The Warden’s armoury');
     expect(bossSpoils('vharun').giftBlurb).toMatch(/the Rift yawns below/);
     expect(bossSpoils('the_seamstress').fallen).toBe('The Seamstress falls');
-    // The Tear is the last Movement's boss's.
-    expect(materialsHow().tears).toContain('the Hollow Cantor, or the Unweaver on an Expedition');
+    // The Tear is the last Movement's boss's: the Finale's now (docs/phase-5d.md).
+    expect(materialsHow().tears).toContain(
+      'the Hollow Cantor, or the Silent Conductor on an Expedition',
+    );
   });
 });
 

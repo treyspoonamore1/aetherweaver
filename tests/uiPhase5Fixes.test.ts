@@ -101,8 +101,11 @@ describe('the heal-cut hatch follows the sim (inPool)', () => {
 describe('the Deeds count: the Loom and the Codex agree', () => {
   const open: DeedsOpen = { allowance: EVERYTHING, astrolabe: true };
   const legion = ['crimson_crowned', 'pack_leader'];
-  /** Movement III's badges wait for the Rift (docs/phase-5c.md). */
-  const rift = ['whole_cloth', 'needle_sure'];
+  /**
+   * Movement III's badges wait for the Rift (docs/phase-5c.md), and the Finale's for the
+   * Crucible (docs/phase-5d.md).
+   */
+  const rift = ['whole_cloth', 'needle_sure', 'song_goes_on', 'not_one_silent'];
   /** Every Deed but a hero's, which waits for the roster (docs/phase-5b.md). */
   const ALL = CONTENT.deeds.filter((d) => !d.hero).length;
   /** …and, with the Legion seen but not the Rift, every one but Movement III's too. */

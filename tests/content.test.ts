@@ -515,7 +515,8 @@ describe('Movement III: the Unstitched (docs/phase-5c.md)', () => {
 
   it('is Movement III: its six-stop ladder, one elite, pools, scale and rewards', () => {
     const m = CONTENT.movements[2]!;
-    expect(CONTENT.movements).toHaveLength(3);
+    // Movement III, then the Finale (docs/phase-5d.md, registered by W3).
+    expect(CONTENT.movements).toHaveLength(4);
     expect(m).toMatchObject({
       id: 'unstitched',
       biome: 'abyssal_rift',
@@ -565,7 +566,8 @@ describe('Movement III: the Unstitched (docs/phase-5c.md)', () => {
       const four = list.findIndex((x) => x.movement === 4);
       if (four >= 0) expect(list.slice(four).every((x) => x.movement === 4)).toBe(true);
     }
-    expect(CONTENT.deeds.slice(-2).map((d) => d.id)).toEqual(['whole_cloth', 'needle_sure']);
+    // Then the Finale's two (docs/phase-5d.md).
+    expect(CONTENT.deeds.slice(-4, -2).map((d) => d.id)).toEqual(['whole_cloth', 'needle_sure']);
     expect(CONTENT.motifs.at(-1)).toMatchObject({
       id: 'guard_strand',
       category: 'silk',
@@ -765,8 +767,9 @@ describe('content lint: Movement III (docs/phase-5c.md)', () => {
       /affix "mimicking" references unknown "nothing_here"/,
     );
     rejects(
-      (c) => void (c.motifs.find((m) => m.id === 'guard_strand')!.requires.movement = 4),
-      /motif "guard_strand": Movement 4 is past the last/,
+      // Four Movements with the Finale (docs/phase-5d.md): 5 is past the last.
+      (c) => void (c.motifs.find((m) => m.id === 'guard_strand')!.requires.movement = 5),
+      /motif "guard_strand": Movement 5 is past the last/,
     );
     rejects(
       // Movement 4's fights exist (the Finale, docs/phase-5d.md), so its relics may wait for it.
@@ -883,7 +886,12 @@ describe('content lint: the Finale (docs/phase-5d.md)', () => {
         },
       ],
     };
-    c.movements.push(finale);
+    // In the real Finale's place (the last Movement; W3 registers it).
+    c.movements.splice(
+      c.movements.findIndex((m) => !isFieldMovement(m)),
+      1,
+      finale,
+    );
     return finale;
   };
   const issues = (edit: (c: Mutable) => void): string => {
@@ -896,12 +904,13 @@ describe('content lint: the Finale (docs/phase-5d.md)', () => {
     expect(issues(edit)).toMatch(message);
   const attack = (c: Mutable, id: string) => c.attacks.find((a) => a.id === id)!;
 
-  it('registers nothing yet: no Finale def among the Movements', () => {
-    expect(CONTENT.movements.every((m) => isFieldMovement(m))).toBe(true);
+  it('registers the Finale last: three field Movements, then FINALE', () => {
+    expect(CONTENT.movements.map((m) => isFieldMovement(m))).toEqual([true, true, true, false]);
     expect(CONTENT.movements.map((m) => m.id)).toEqual([
       'hollow_choir',
       'crimson_legion',
       'unstitched',
+      ids.FINALE_ID,
     ]);
   });
 
@@ -1005,13 +1014,6 @@ describe('the Finale: the Silent Conductor (docs/phase-5d.md)', () => {
   const enemy = (id: string) => CONTENT.enemies.find((e) => e.id === id)!;
   const SILENCE = [ids.REST, ids.MEASURE, ids.FINAL_CADENCE, ids.HALF_CADENCE];
   const SOLOS = [ids.LAMENT, ids.BASSO_OSTINATO, ids.CADENZA, ids.SHATTER_ARIA];
-  /** CONTENT with the Finale registered as W3 will: FINALE last, its Deeds after Movement III's. */
-  const registered = () => {
-    const c = structuredClone(CONTENT);
-    c.movements.push(structuredClone(FINALE));
-    c.deeds.push(...structuredClone(FINALE_DEEDS));
-    return c;
-  };
 
   it('is appended after the Unstitched: the choir, the Conductor, its arena and its fight', () => {
     expect(fourth(CONTENT.enemies).map((e) => e.id)).toEqual([
@@ -1246,7 +1248,7 @@ describe('the Finale: the Silent Conductor (docs/phase-5d.md)', () => {
     expect(CONTENT.relics.slice(-3)).toEqual(fourth(CONTENT.relics));
   });
 
-  it('FINALE: a boss-only def with the plan’s road, exported but not yet registered', () => {
+  it('FINALE: a boss-only def with the plan’s road, registered last', () => {
     expect(FINALE).toMatchObject({
       id: ids.FINALE_ID,
       name: 'The Finale',
@@ -1267,12 +1269,13 @@ describe('the Finale: the Silent Conductor (docs/phase-5d.md)', () => {
     expect(FINALE.road[0]!.callingRows).toEqual([0, 2, 3, 5]);
     expect('shuffle' in FINALE.road[0]!).toBe(false);
     expect(FINALE.road[1]!.shuffle).toBe(true);
-    expect(CONTENT.movements.some((m) => m.id === FINALE.id)).toBe(false);
+    expect(CONTENT.movements.at(-1)).toStrictEqual(FINALE);
   });
 
-  it('registered as W3 will, FINALE and its Deeds lint clean', () => {
-    const parsed = ContentSchema.safeParse(registered());
+  it('registered, FINALE and its Deeds lint clean, the Deeds after Movement III’s', () => {
+    const parsed = ContentSchema.safeParse(structuredClone(CONTENT));
     expect(parsed.success ? '' : parsed.error.issues.map((i) => i.message).join('\n')).toBe('');
+    expect(CONTENT.deeds.slice(-FINALE_DEEDS.length)).toStrictEqual(FINALE_DEEDS);
   });
 
   it('two badge Deeds, no point, both on the Conductor’s fight', () => {
@@ -1286,7 +1289,7 @@ describe('the Finale: the Silent Conductor (docs/phase-5d.md)', () => {
     ]);
     // Not 'finale' (the Cantor's Bright Finale) nor 'The Last Note' (a boon).
     for (const d of FINALE_DEEDS) expect(d.id).not.toMatch(/finale|last_note/);
-    expect(CONTENT.deeds.some((d) => FINALE_DEEDS.some((f) => f.id === d.id))).toBe(false);
+    expect(CONTENT.deeds.filter((d) => FINALE_DEEDS.some((f) => f.id === d.id))).toHaveLength(2);
   });
 
   it('every number in the Finale defs is a named constant (only 0 inline)', () => {
