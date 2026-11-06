@@ -241,6 +241,11 @@ export class Engine {
     g.linearRampToValueAtTime(level, t + seconds);
   }
 
+  /** Phase 5d: the depth a bus is held at (`holdBus`), undefined when it isn't held. */
+  heldAt(bus: BusName): number | undefined {
+    return this.holds.size === 0 ? undefined : this.holds.get(bus);
+  }
+
   /** Phase 5d: lets a held bus come back up (a no-op when it isn't held). */
   releaseBus(bus: BusName, seconds = 0.6): void {
     if (!this.holds.delete(bus)) return;

@@ -5,6 +5,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSettings } from '../../app/settings';
 import type { Biome } from '../../content';
+import type { SimEvent } from '../../sim';
 import { getAudio, type SynthDirector } from '../index';
 import type { AudioDebugStats, AudioMood, Volumes } from '../types';
 import { Fight } from './fight';
@@ -36,12 +37,14 @@ const MOODS: AudioMood[] = [
 ];
 /**
  * Phase 5a: the biomes the music and ambience voice, and Vharun's phases (0: no boss). Phase 5c:
- * the Abyssal Rift (the Seamstress's and the Unweaver's phases).
+ * the Abyssal Rift (the Seamstress's and the Unweaver's phases). Phase 5d: the Celestial Crucible
+ * (the Silent Conductor's phases, and the Grand Silence's notes).
  */
 const BIOMES: { id: Biome; label: string }[] = [
   { id: 'reliquary', label: 'Sunlit Reliquary' },
   { id: 'crimson_spire', label: 'Crimson Spire' },
   { id: 'abyssal_rift', label: 'Abyssal Rift' },
+  { id: 'celestial_crucible', label: 'Celestial Crucible' },
 ];
 const WARDEN_PHASES = [0, 1, 2, 3] as const;
 /** Phase 5a: the Crimson Spire's moods for the audits (a boss at each of Vharun's phases). */
@@ -68,6 +71,21 @@ const ABYSS_AUDITS: { mood: AudioMood; phase: number; scene: MoodScene; label: s
   { mood: 'boss', phase: 3, scene: {}, label: 'Unweaver p3 · mirror canon' },
   { mood: 'boss', phase: 2, scene: { miniboss: true }, label: 'Seamstress p2 · pickup' },
 ];
+
+/**
+ * Phase 5d: the Celestial Crucible's moods for the audits: the Silent Conductor at each phase (its
+ * Overture, its Mirror Choir, and the last burn after the Grand Silence).
+ */
+const CRUCIBLE_AUDITS: { mood: AudioMood; phase: number; label: string }[] = [
+  { mood: 'map', phase: 0, label: 'map' },
+  { mood: 'calm', phase: 0, label: 'calm' },
+  { mood: 'combat', phase: 0, label: 'combat' },
+  { mood: 'boss', phase: 1, label: 'Conductor p1 · Overture' },
+  { mood: 'boss', phase: 2, label: 'Conductor p2 · Mirror Choir' },
+  { mood: 'boss', phase: 3, label: 'Conductor p3 · the last burn' },
+];
+/** Phase 5d: what made each of the lab's Grand Silence notes, in turn. */
+const LAB_NOTE_SOURCES = ['perfect', 'clutch', 'reel', 'rewind'] as const;
 
 const GROUPS: {
   id: SoundButton['group'];
@@ -114,6 +132,11 @@ const GROUPS: {
     title:
       'Phase 5c · The Unstitched (cuts, the Maw, the Wraith, the rune, the Mimic, the Seamstress, Doom, the Unweaver, cloth kills)',
   },
+  {
+    id: 'finale',
+    title:
+      'Phase 5d · The Finale (Discord, Fortissimo Silence, the Cues, the Grand Silence and its eight notes, the Reignite, the Coda, glass kills, the stinger)',
+  },
   { id: 'world', title: 'World, enemies and telegraphs' },
   { id: 'ui', title: 'UI' },
 ];
@@ -138,6 +161,10 @@ declare global {
       pitchCrimson(): Promise<Record<string, PitchReport>>;
       /** Phase 5c: the Abyssal Rift's moods' pitch reports (ABYSS_AUDITS). */
       pitchAbyss(): Promise<Record<string, PitchReport>>;
+      /** Phase 5d: the Celestial Crucible's moods' pitch reports (CRUCIBLE_AUDITS). */
+      pitchCrucible(): Promise<Record<string, PitchReport>>;
+      /** Phase 5d: the Grand Silence's notes (-1: no silence), as its events would tell them. */
+      setSilenceNotes(notes: number): void;
       world: FakeWorld;
     };
   }
@@ -210,6 +237,8 @@ export function AudioLab() {
   const [bossMini, setBossMini] = useState(false);
   const [stolen, setStolen] = useState(false);
   const [unravel, setUnravel] = useState(false);
+  // Phase 5d: the Grand Silence's notes (-1: no silence).
+  const [silenceNotes, setSilenceNotes] = useState(-1);
   const [resonance, setResonance] = useState(0);
   const [enemies, setEnemies] = useState(0);
   const [tension, setTension] = useState(0);
@@ -359,6 +388,32 @@ export function AudioLab() {
       world.state,
     );
   }, [director, world, unravel]);
+  // Phase 5d: the Grand Silence, as the sim's events would tell it: it begins (again, when the
+  // notes go back down), each new note sounds, and taking it off is the Coda.
+  const silenceWas = useRef(-1);
+  useEffect(() => {
+    const was = silenceWas.current;
+    if (was === silenceNotes) return;
+    silenceWas.current = silenceNotes;
+    const boss = IDS.enemyBase;
+    const events: SimEvent[] = [];
+    if (silenceNotes < 0) {
+      events.push(ev('silenceBroken', { boss, notes: Math.max(0, was) }));
+    } else {
+      let from = was;
+      if (was < 0 || silenceNotes < was) {
+        events.push(ev('silenceBegan', { boss, until: world.time + 1e6 }));
+        from = 0;
+      }
+      for (let n = from + 1; n <= silenceNotes; n++) {
+        const source = LAB_NOTE_SOURCES[(n - 1) % LAB_NOTE_SOURCES.length] ?? 'perfect';
+        events.push(
+          ev('silenceNote', { n, of: 8, source, hero: source === 'rewind' ? null : IDS.kael }),
+        );
+      }
+    }
+    director.onEvents(events, world.state);
+  }, [director, world, silenceNotes]);
   useEffect(() => world.setTension(tension), [world, tension]);
   useEffect(() => world.setChords(planted, unison), [world, planted, unison]);
   useEffect(() => world.setCrescendo(crescendo), [world, crescendo]);
@@ -447,6 +502,15 @@ export function AudioLab() {
           );
         return out;
       },
+      pitchCrucible: async () => {
+        const out: Record<string, PitchReport> = {};
+        for (const a of CRUCIBLE_AUDITS)
+          out[`crucible:${a.label}`] = pitchReport(
+            await renderMood(a.mood, 100, 16, undefined, 'celestial_crucible', a.phase),
+          );
+        return out;
+      },
+      setSilenceNotes,
     };
     return () => {
       delete window.__audioLab;
@@ -487,6 +551,16 @@ export function AudioLab() {
         'abyssal_rift',
         a.phase,
         a.scene,
+      );
+    // Phase 5d: the Celestial Crucible's moods, the Silent Conductor's phases.
+    for (const a of CRUCIBLE_AUDITS)
+      out[`crucible ${a.label} · res 100`] = await auditMood(
+        a.mood,
+        100,
+        16,
+        volumes,
+        'celestial_crucible',
+        a.phase,
       );
     setMoodAudit(out);
     setBusy('');
@@ -601,6 +675,15 @@ export function AudioLab() {
               Unravel
             </label>
           </div>
+          <Slider
+            label="Silence notes (-1 off)"
+            value={silenceNotes}
+            min={-1}
+            max={8}
+            step={1}
+            onChange={setSilenceNotes}
+            testId="silence-notes"
+          />
           <Slider
             label="Resonance"
             value={resonance}

@@ -357,6 +357,8 @@ export class SynthDirector implements AudioDirector {
         stolen: false,
         unravel: false,
       });
+      // Phase 5d: the Grand Silence ends with combat (the SFX engine let its holds go).
+      delete this.music.inputs.silence;
     }
     this.lastInputs = {
       intensity: 0,
@@ -399,6 +401,16 @@ export class SynthDirector implements AudioDirector {
   /** Stinger/jump hooks used by the lab's buttons. */
   musicEngine(): MusicEngine | null {
     return this.music;
+  }
+
+  /** Phase 5d: the SFX engine, for the lab's Finale buttons (Discord's swell, glass deaths). */
+  sfxEngine(): SfxEngine | null {
+    return this.sfx;
+  }
+
+  /** Phase 5d: the mixer, for tests of the Grand Silence's held buses. */
+  mixer(): Engine | null {
+    return this.engine;
   }
 
   /** Seconds per beat (88 BPM). */

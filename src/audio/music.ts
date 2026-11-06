@@ -16,15 +16,23 @@
  * Rift voices a glass-harmonica pad, a needle-tick pulse on D and A, a detuned plucked string and
  * a void-wind bed with distant tearing, and the Unweaver's phases: its choir drops while a verse is
  * stolen, its melody mirrors about D during Unravel, and phase 3 is a mirror canon.
+ *
+ * Phase 5d (docs/phase-5d.md, "Audio") voices the Celestial Crucible: a celesta-organ pad, a baton
+ * tick for a pulse, a prismatic glass melody (the Silent Conductor's is the Weaver's phrase
+ * mirrored), the full choir, and a high bowed-glass shimmer. Its stem rule is the Grand Silence:
+ * while `inputs.silence` holds, every stem is zeroed and the Weaver's notes reopen them, two notes
+ * a stem. The run's last victory has a stinger of its own, `finale`.
  */
 import type { Biome } from '../content';
 import type { AudioMood } from './types';
 import { Voice, type Engine } from './engine';
 import {
   anvil,
+  bowed,
   choirChord,
   cymbalSwell,
   fluteNote,
+  glassPing,
   handbell,
   horn,
   pluck,
@@ -44,6 +52,11 @@ import {
   MELODY_ABYSS,
   PROGRESSION_ABYSS,
   PROGRESSION_ABYSS_BOSS,
+  PROGRESSION_CRUCIBLE,
+  PROGRESSION_CRUCIBLE_BOSS,
+  MELODY_CRUCIBLE,
+  LEITMOTIFS,
+  conductorIndex,
   PROGRESSION_BRIGHT,
   PROGRESSION_CRIMSON,
   PROGRESSION_CRIMSON_BOSS,
@@ -57,6 +70,7 @@ import {
   mirrorIndex,
   scaleMidi,
   type Chord,
+  type MotifVoice,
 } from './theory';
 
 export type StemName = 'pad' | 'pulse' | 'melody' | 'choir';
@@ -113,14 +127,22 @@ export interface MusicSnapshot {
   activeBiome: Biome;
   tier: number;
   levels: Record<StemName, number>;
+  /**
+   * Phase 5d: the Grand Silence while it holds (its notes), for the render's sky (`FrameInfo.music`).
+   * Absent otherwise.
+   */
+  silence?: { on: boolean; notes: number };
 }
 
 interface Targets extends Record<StemName, number> {
   top: boolean;
 }
 
-/** Phase 5d: `finale`, the Finale's victory (W7 voices it; until then it plays as a phase). */
-type StingerKind = 'victory' | 'defeat' | 'phase' | 'finale';
+/**
+ * Phase 5d: `finale`, the run's last victory (the Silent Conductor's fall): every party hero's
+ * leitmotif in canon, resolving on D.
+ */
+export type StingerKind = 'victory' | 'defeat' | 'phase' | 'finale';
 
 const LOOKAHEAD = 0.4;
 
@@ -158,6 +180,83 @@ const NEEDLE_A = midiToHz(81);
 const THUD_D = midiToHz(38);
 const THUD_A = midiToHz(33);
 
+/** Phase 5d: the Celestial Crucible's pad cutoffs (Hz): the brightest place in the game. */
+export const CRUCIBLE_CUT: Readonly<Partial<Record<AudioMood, number>>> = {
+  map: 1600,
+  calm: 1700,
+  combat: 2000,
+  boss: 1300,
+};
+/** Phase 5d: the baton's glint on A6 and the bowed-glass shimmer on D6 and A6. */
+const BATON_GLINT = midiToHz(93);
+const SHIMMER = [midiToHz(86), midiToHz(93)] as const;
+/** Phase 5d: a party with no hero given (the lab): the Finale stinger's canon. */
+const FINALE_PARTY_DEFAULT: readonly string[] = ['kael', 'lyra', 'vexis'];
+
+/**
+ * Phase 5d: the Grand Silence's stems after `notes` notes (docs/phase-5d.md): all four silent, then
+ * two notes a stem, half on the first and full on the second: 1-2 the pad, 3-4 the pulse, 5-6 the
+ * melody, 7-8 the choir (and the top layer with the eighth).
+ */
+export function silenceStems(notes: number): Record<StemName, number> & { top: boolean } {
+  const n = Math.max(0, Math.min(8, Math.round(notes)));
+  const open = (first: number) => (n >= first + 1 ? 1 : n >= first ? 0.5 : 0);
+  return { pad: 0.9 * open(1), pulse: open(3), melody: open(5), choir: open(7), top: n >= 8 };
+}
+
+/**
+ * Phase 5d: one note of a hero's phrase in the hero's voice (the leitmotif's instrument), for the
+ * Finale's canons. The same recipes as the SFX engine's leitmotif.
+ */
+export function motifNote(
+  v: Voice,
+  voice: MotifVoice,
+  at: number,
+  hz: number,
+  dur: number,
+  g: number,
+): void {
+  if (voice === 'horn') horn(v, at, hz, dur, g);
+  else if (voice === 'pluckFlute') {
+    pluck(v, at, hz, g * 0.8, dur, 0.85);
+    fluteNote(v, at, hz, g * 0.5, dur);
+  } else if (voice === 'bowedLow') {
+    bowed(v, at, hz, dur + 0.25, g * 1.1, 0.03, 0.45);
+    thump(v, at, hz, g * 0.9, 0.2, 0.7);
+    pluck(v, at, hz * 2, g * 0.25, 0.28, 0.4);
+  } else {
+    glassNote(v, at, hz, g * 0.7, dur + 0.6, 0.85);
+    pluck(v, at, hz * 2, g * 0.18, 0.3, 0.9);
+  }
+}
+
+/**
+ * Phase 5d: the party's leitmotifs in canon from `t`, each hero `gap` seconds after the last, and
+ * the time the last of them ends. Only heroes with a leitmotif of their own play (never
+ * `leitmotifFor`'s fallback).
+ */
+export function leitmotifCanon(
+  v: Voice,
+  t: number,
+  party: readonly string[],
+  gap: number,
+  level: number,
+): number {
+  let end = t;
+  let i = 0;
+  for (const id of party) {
+    const m = LEITMOTIFS[id];
+    if (!m) continue;
+    const start = t + i * gap;
+    for (const n of m.notes) {
+      motifNote(v, m.voice, start + n.at, midiToHz(scaleMidi(n.idx)), n.dur, 0.16 * n.vel * level);
+      end = Math.max(end, start + n.at + n.dur);
+    }
+    i++;
+  }
+  return end;
+}
+
 /**
  * Phase 5c (docs/phase-5c.md): how a biome voices the moods a biome voices (the map and the
  * fight). The Sunlit Reliquary has none: it is the music as it always was. A biome missing from
@@ -179,7 +278,13 @@ interface BiomeVoicing {
 }
 
 /** Phase 5c: the biomes this build voices (the Reliquary's is the default voicing). */
-export const VOICED_BIOMES: readonly Biome[] = ['reliquary', 'crimson_spire', 'abyssal_rift'];
+export const VOICED_BIOMES: readonly Biome[] = [
+  'reliquary',
+  'crimson_spire',
+  'abyssal_rift',
+  // Phase 5d: the Finale's.
+  'celestial_crucible',
+];
 
 /**
  * Phase 5c: the biome a request is voiced in. A biome this build has no voicing for (a later
@@ -251,6 +356,15 @@ export class MusicEngine {
   private tear = 0x5a3d;
   /** Phase 5c: whether a stolen verse was last heard (a change re-levels the stems on a beat). */
   private stolenHeard = false;
+  /**
+   * Phase 5d: the Grand Silence's notes as last heard (-1: no silence). A change (its start, a
+   * note, its end) re-levels the stems on the next beat.
+   */
+  private silenceHeard = -1;
+  /** Phase 5d: the party whose leitmotifs the next victory plays as the Finale's (null: none). */
+  private finaleParty: readonly string[] | null = null;
+  /** Phase 5d: the Crucible's shimmer turns between its two notes. */
+  private shimmerTurn = 0;
 
   /**
    * Phase 5c: the per-biome voicing table (docs/phase-5c.md). The Crimson Spire's entry is its
@@ -290,6 +404,25 @@ export class MusicEngine {
       // The Unweaver's Steal Verse: the choir stem drops while a verse is stolen.
       targets: (tg) => {
         if (this.inputs.stolen) tg.choir = 0;
+      },
+    },
+    celestial_crucible: {
+      progression: (mood) => (mood === 'boss' ? PROGRESSION_CRUCIBLE_BOSS : PROGRESSION_CRUCIBLE),
+      cut: CRUCIBLE_CUT,
+      step: (bar, inBar, t) => {
+        this.batonPulse(inBar, t);
+        this.prismMelody(bar, inBar, t);
+        this.crucibleAmbience(bar, inBar, t);
+      },
+      pad: (t, tEnd) => this.celestaOrgan(t, tEnd),
+      choir: (v, t, tEnd) => this.fullChoir(v, t, tEnd),
+      targets: (tg) => {
+        // The Mirror Choir (the Conductor's phase 2 on): the whole choir sings.
+        if (this.activeMood === 'boss' && this.wardenPhase() >= 2 && tg.choir < 0.7) tg.choir = 0.7;
+        // The Grand Silence: every stem zeroed, then reopened by the Weaver's notes. The rule lives
+        // here, so a Fermata's or Stasis's releaseHold (refreshTargets) can't reopen a stem.
+        const s = this.inputs.silence;
+        if (s?.on) Object.assign(tg, silenceStems(s.notes));
       },
     },
   };
@@ -420,6 +553,14 @@ export class MusicEngine {
     this.urgent = true;
   }
 
+  /**
+   * Phase 5d: the next victory is the run's last (the Silent Conductor's fall): it plays the
+   * `finale` stinger, the party's leitmotifs in canon resolving on D, in place of the victory's.
+   */
+  finale(party: readonly string[]): void {
+    this.finaleParty = party.filter((id) => LEITMOTIFS[id] !== undefined);
+  }
+
   /** Quantised stinger: phase changes land on the next downbeat. */
   stingerOnBar(kind: StingerKind): void {
     if (!this.pendingBar.includes(kind)) this.pendingBar.push(kind);
@@ -460,6 +601,7 @@ export class MusicEngine {
         melody: this.targets.melody,
         choir: this.targets.choir,
       },
+      ...(this.inputs.silence?.on ? { silence: { ...this.inputs.silence } } : {}),
     };
   }
 
@@ -472,6 +614,16 @@ export class MusicEngine {
     if (!!this.inputs.stolen !== this.stolenHeard) {
       this.stolenHeard = !!this.inputs.stolen;
       this.urgent = true;
+    }
+    // Phase 5d: the Grand Silence's start, each of its notes and its end re-level the stems on the
+    // next beat. Never set outside the Finale.
+    const silence = this.inputs.silence;
+    if (silence !== undefined || this.silenceHeard !== -1) {
+      const heard = silence?.on ? silence.notes : -1;
+      if (heard !== this.silenceHeard) {
+        this.silenceHeard = heard;
+        this.urgent = true;
+      }
     }
     if (!this.started) {
       this.started = true;
@@ -1274,8 +1426,222 @@ export class MusicEngine {
     v.commit();
   }
 
+  // ── Phase 5d: the Celestial Crucible ─────────────────────────────────────────────
+  /**
+   * The celesta-organ pad: an organ's drawbars (the chord's root an octave up as a pure sine, its
+   * tones as soft triangles with their octaves) and a celesta struck on the chord as the bar opens.
+   */
+  private celestaOrgan(t: number, tEnd: number): void {
+    const v = new Voice(this.e, 'music', { dest: this.stemIn.pad });
+    const dur = Math.max(0.8, tEnd - t);
+    const shift = this.activeMood === 'boss' ? -12 : 0;
+    v.osc({
+      type: 'sine',
+      freq: midiToHz(this.chord.root + 12),
+      start: t,
+      dur,
+      attack: 0.35,
+      release: 0.9,
+      gain: 0.09,
+      shape: 'sustain',
+    });
+    const tones = chordNotesInRange(this.chord, 55 + shift, 72 + shift).slice(0, 3);
+    for (const m of tones) {
+      v.osc({
+        type: 'triangle',
+        freq: midiToHz(m),
+        start: t,
+        dur,
+        attack: 0.4,
+        release: 0.9,
+        gain: 0.045,
+        shape: 'sustain',
+      });
+      v.osc({
+        type: 'sine',
+        freq: midiToHz(m + 12),
+        start: t,
+        dur,
+        attack: 0.5,
+        release: 0.9,
+        gain: 0.018,
+        shape: 'sustain',
+      });
+    }
+    // The celesta: the chord's upper tones, struck softly and let ring.
+    chordNotesInRange(this.chord, 74, 88)
+      .slice(0, 3)
+      .forEach((m, i) => handbell(v, t + i * 0.06, midiToHz(m), 0.022, 1.4, 0.9));
+    v.extend(t + dur + 1);
+    v.commit();
+  }
+
+  /** The full choir: the chord from its bass to the top of the sopranos, D6 over it at the top. */
+  private fullChoir(v: Voice, t: number, tEnd: number): void {
+    const notes = chordNotesInRange(this.chord, 50, 79);
+    const step = Math.max(1, Math.floor(notes.length / 5));
+    const picks = notes.filter((_, i) => i % step === 0).slice(0, 5);
+    const freqs = picks.map(midiToHz);
+    if (this.targets.top) freqs.push(midiToHz(86));
+    choirChord(v, t, freqs, Math.max(0.8, tEnd - t), this.targets.top ? 0.2 : 0.16, 0.7, 1.2);
+  }
+
+  /** A baton's tick on the stand: a dry click, a glint on A6, and on the downbeat a low D. */
+  private baton(t: number, g: number, accent = false): void {
+    const v = new Voice(this.e, 'music', { dest: this.stemIn.pulse });
+    v.noise({ start: t, dur: 0.012, gain: g, filter: { type: 'bandpass', freq: 3200, q: 3 } });
+    v.osc({
+      type: 'sine',
+      freq: BATON_GLINT,
+      start: t,
+      dur: 0.03,
+      attack: 0.001,
+      release: 0.04,
+      gain: g * 0.35,
+    });
+    if (accent) thump(v, t, THUD_D, g * 4, 0.22, 0.7);
+    v.commit();
+  }
+
+  /**
+   * The baton-tick pulse: the conductor beating time. On the map one tick a beat, far off; in a
+   * fight every beat with a bass on the chord's root, and the off-beats once it is busy; the
+   * Conductor beats every eighth, and its Mirror Choir (phase 2 on) adds the octave on the last beat.
+   */
+  private batonPulse(inBar: number, t: number): void {
+    const level = this.targets.pulse;
+    if (level < 0.02 || this.holdUntil > t) return;
+    const mood = this.activeMood;
+    const tier = this.tier;
+    const root = this.chord.root;
+    const bass = (midi: number, g: number, dur: number) => {
+      const v = new Voice(this.e, 'music', { dest: this.stemIn.pulse });
+      v.osc({
+        type: 'triangle',
+        freq: midiToHz(midi),
+        start: t,
+        dur,
+        attack: 0.01,
+        release: 0.1,
+        gain: g,
+        filter: { type: 'lowpass', freq: 700, freqTo: 260, q: 0.6 },
+      });
+      v.osc({
+        type: 'sine',
+        freq: midiToHz(midi),
+        start: t,
+        dur: dur * 1.1,
+        attack: 0.01,
+        release: 0.1,
+        gain: g * 0.8,
+      });
+      v.commit();
+    };
+    if (mood === 'map' || mood === 'calm') {
+      if (inBar % 2 === 0) this.baton(t, inBar === 0 ? 0.03 : 0.018);
+      return;
+    }
+    if (mood === 'boss') {
+      this.baton(t, inBar % 2 === 0 ? 0.04 : 0.022, inBar === 0);
+      if (inBar === 0 || inBar === 4) bass(root, inBar === 0 ? 0.15 : 0.11, BEAT * 0.9);
+      if (inBar === 6 && this.wardenPhase() >= 2) bass(root + 12, 0.08, STEP * 0.9);
+      return;
+    }
+    // combat
+    if (inBar % 2 === 0) this.baton(t, inBar === 0 ? 0.04 : 0.028, inBar === 0);
+    else if (tier >= 2) this.baton(t, 0.016);
+    if (inBar === 0) bass(root, 0.15, BEAT * 1.4);
+    else if (inBar === 4 && tier >= 2) bass(root, 0.11, BEAT * 0.9);
+    else if (tier >= 3 && (inBar === 6 || inBar === 7)) bass(root + 12, 0.07, STEP * 0.9);
+  }
+
+  /**
+   * The prismatic glass melody (sparse on the map). The Silent Conductor's is the Weaver's phrase
+   * (the Reliquary's melody) mirrored about D: her song, sung back inverted.
+   */
+  private prismMelody(bar: number, inBar: number, t: number): void {
+    const level = this.targets.melody;
+    if (level < 0.02 || this.holdUntil > t) return;
+    const mood = this.activeMood;
+    const boss = mood === 'boss';
+    const raw = (boss ? MELODY_BRIGHT : MELODY_CRUCIBLE)[bar % 8]?.[inBar] ?? null;
+    if (raw === null || raw === undefined) return;
+    const sparse = mood === 'map' || (mood === 'calm' && this.tier < 2);
+    if (sparse && inBar !== 0 && inBar !== 4) return;
+    const idx = boss ? conductorIndex(raw) : raw;
+    const hz = midiToHz(scaleMidi(idx));
+    const v = new Voice(this.e, 'music', { dest: this.stemIn.melody });
+    glassNote(v, t, hz, sparse ? 0.04 : 0.05, sparse ? 1.6 : 1.1, 0.8);
+    // The prism: the same note split into its octave, a hair later.
+    glassPing(v, t + 0.03, hz * 2, sparse ? 0.008 : 0.012, 0.5);
+    if (this.targets.top) glassPing(v, t, midiToHz(scaleMidi(idx + 7)), 0.016, 0.6);
+    v.commit();
+  }
+
+  /**
+   * The Crucible's ambience bed, on the ambience bus: a high bowed-glass shimmer, D6 and A6 in
+   * turn, swelling over two bars. The Grand Silence stops it.
+   */
+  private crucibleAmbience(bar: number, inBar: number, t: number): void {
+    if (bar % 2 !== 0 || inBar !== 0 || this.inputs.silence?.on) return;
+    const v = new Voice(this.e, 'ambience');
+    const hz = SHIMMER[this.shimmerTurn++ % 2] as number;
+    for (const [detune, g] of [
+      [-4, 0.006],
+      [5, 0.004],
+    ] as const) {
+      v.osc({
+        type: 'sine',
+        freq: hz,
+        detune,
+        start: t,
+        dur: BAR * 1.6,
+        attack: BAR * 0.7,
+        release: BAR * 0.7,
+        gain: g,
+        shape: 'sustain',
+      });
+    }
+    // The bow on the glass's rim: a breath of noise high up.
+    v.noise({
+      pink: true,
+      start: t,
+      dur: BAR * 1.4,
+      attack: BAR * 0.6,
+      release: BAR * 0.6,
+      gain: 0.004,
+      shape: 'sustain',
+      filter: { type: 'bandpass', freq: hz * 2, q: 6 },
+    });
+    v.commit();
+  }
+
+  /**
+   * Phase 5d: the run's last victory: every party hero's leitmotif in canon a beat apart, then the
+   * whole song resolving on D (an open D chord in the choir, D bells, a low horn D).
+   */
+  private finaleStinger(t: number): void {
+    const v = new Voice(this.e, 'music', { gain: 1 });
+    const party = this.finaleParty ?? FINALE_PARTY_DEFAULT;
+    this.finaleParty = null;
+    const end = leitmotifCanon(v, t, party, BEAT, 1);
+    const home = end + 0.15;
+    choirChord(v, home, [50, 57, 62, 69, 74].map(midiToHz), 4.2, 0.22, 0.4, 1.8);
+    handbell(v, home, midiToHz(74), 0.12, 2.8, 0.7);
+    handbell(v, home + 0.06, midiToHz(86), 0.06, 2.2, 0.8);
+    horn(v, home, midiToHz(38), 2.4, 0.1);
+    cymbalSwell(v, home - 0.6, 0.6, 2.4, 0.03);
+    v.extend(home + 6);
+    v.commit();
+  }
+
   // ── Stingers ─────────────────────────────────────────────────────────────────────
   private playStinger(kind: StingerKind, t: number): void {
+    // Phase 5d: the run's last victory (the Silent Conductor's fall) is the Finale's own.
+    if (kind === 'finale' || (kind === 'victory' && this.finaleParty !== null)) {
+      this.finaleStinger(t);
+      return;
+    }
     const e = this.e;
     const v = new Voice(e, 'music', { gain: 1 });
     if (kind === 'victory') {

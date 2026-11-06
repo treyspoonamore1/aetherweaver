@@ -7,6 +7,18 @@ import { healthBands } from '../app/healthLevels';
 import { CONTENT, enemyDef, type AstrolabeNode } from '../content';
 import { DOOM_CHIME_AT } from '../content/unstitched';
 import {
+  CHOIR,
+  CONDUCTOR,
+  DOWNBEAT,
+  FORTISSIMO,
+  SFORZANDO,
+  SOLOS,
+  ALTO,
+  BASS,
+  TENOR,
+  SOPRANO,
+} from '../content/crucibleIds';
+import {
   fallingFast,
   techniqueCost,
   treeNodes,
@@ -20,8 +32,8 @@ import {
   type TelegraphStarted,
   type WorldState,
 } from '../sim';
-import { Voice, type BusName, type Engine, type VoiceHandle } from './engine';
-import type { MusicEngine } from './music';
+import { BUS_NAMES, Voice, type BusName, type Engine, type VoiceHandle } from './engine';
+import { leitmotifCanon, motifNote, type MusicEngine } from './music';
 import {
   anvil,
   bowed,
@@ -52,8 +64,11 @@ import {
   leitmotifFor,
   mendPitch,
   midiToHz,
+  mirrorIndex,
   quantizeToScale,
   scaleMidi,
+  silenceNoteMidi,
+  LEITMOTIFS,
   type Chord,
   type MotifVoice,
 } from './theory';
@@ -399,6 +414,112 @@ const UNSTITCHED_ATTACK_NAMES: ReadonlyMap<string, string> = new Map(
     .map((a) => [a.id, a.name] as const),
 );
 
+/**
+ * Phase 5d, the Finale (docs/phase-5d.md, "Audio"): the voice group of each of its sounds.
+ * `discord`: a telegraph left unanswered feeds the Conductor's Discord (a half-step tick, E-F).
+ * `rise`: Discord's swell in the Mirror Choir (phase 2), a slow pad note rising under the stems.
+ * `tutti` and `cut`: each pulse of Fortissimo Silence, a rising tutti that cuts to nothing as it
+ * lands; `resolve`: a Crescendo cancelling it, resolved into the song. `baton`: the Conductor's
+ * Downbeat and Sforzando, a baton's stroke over their windups. `cue`: a voice Cued, its mirrored
+ * leitmotif in glass. `silence`: the music stops; `note`: the Weaver's eight notes; `reignite`: the
+ * party's leitmotifs in canon; `coda`: the cap, the Conductor tiring of waiting. `glass`: a glass
+ * voice's death. None of these can sound outside the Silent Conductor's fight.
+ */
+export const FINALE_SOUND_GROUPS = {
+  discord: 'finale:discord',
+  rise: 'finale:rise',
+  tutti: 'finale:tutti',
+  cut: 'finale:cut',
+  resolve: 'finale:resolve',
+  baton: 'finale:baton',
+  cue: 'finale:cue',
+  silence: 'finale:silence',
+  // The notes and the Reignite are the silence's big moments: never dropped for a busy mix.
+  note: 'bigSilenceNote',
+  reignite: 'bigReignite',
+  coda: 'finale:coda',
+  glass: 'kill:glass',
+} as const;
+export type FinaleGroup = keyof typeof FINALE_SOUND_GROUPS;
+
+/** Phase 5d: each Finale sound's rate gate (seconds) and voice cap. */
+export const FINALE_SOUND_LIMITS: Readonly<Record<FinaleGroup, readonly [number, number]>> = {
+  discord: [0.12, 2],
+  rise: [4, 1],
+  tutti: [0.3, 3],
+  cut: [0.3, 1],
+  resolve: [1, 1],
+  baton: [0.2, 2],
+  cue: [0.6, 2],
+  silence: [1, 1],
+  note: [0, 3],
+  reignite: [2, 1],
+  coda: [2, 1],
+  glass: [0.06, 3],
+};
+
+/** Phase 5d: the Finale's attacks with a sound of their own (by content id). */
+export const FINALE_ATTACK_SOUNDS: Readonly<Record<string, 'tutti' | 'baton'>> = {
+  [FORTISSIMO[0]]: 'tutti',
+  [FORTISSIMO[1]]: 'tutti',
+  [FORTISSIMO[2]]: 'tutti',
+  [DOWNBEAT]: 'baton',
+  [SFORZANDO]: 'baton',
+};
+/** Phase 5d: Fortissimo Silence is always written in full (a lab's telegraph has no attack id). */
+const FORTISSIMO_NAME = 'Fortissimo Silence';
+/** Phase 5d: the content names of the Finale's attacks with their own sound. */
+const FINALE_ATTACK_NAMES: ReadonlyMap<string, string> = new Map(
+  CONTENT.attacks
+    .filter((a) => FINALE_ATTACK_SOUNDS[a.id] !== undefined)
+    .map((a) => [a.id, a.name] as const),
+);
+
+/**
+ * Phase 5d: whose leitmotif each glass voice sings back, mirrored (docs/phase-5d.md, "The
+ * mirror-choir"): the Alto Lyra's, the Bass Brann's, the Tenor Kael's, the Soprano Vexis's.
+ */
+export const VOICE_MIRRORS: Readonly<Record<string, string>> = {
+  [ALTO]: 'lyra',
+  [BASS]: 'brann',
+  [TENOR]: 'kael',
+  [SOPRANO]: 'vexis',
+};
+/** Phase 5d: each Solo's voice (a Cue names the Solo). */
+const SOLO_VOICE: ReadonlyMap<string, string> = new Map(
+  Object.entries(SOLOS).map(([voice, solo]) => [solo, voice] as const),
+);
+/** Phase 5d: the mirror-choir is glass, whatever the content says (its kills shatter). */
+const GLASS_VOICES: ReadonlySet<string> = new Set(CHOIR);
+
+/**
+ * Phase 5d: what the Grand Silence lets through (docs/phase-5d.md): the Perfect Ward, the eight
+ * notes, the party's leitmotifs as they reignite, the music stopping, and a refused technique's
+ * feedback. A clutch Chime and a Reel-save are let through one by one (`silencePass`); the
+ * heartbeat and the low-life alert, an accessibility aid, are heard at -6 dB (SILENCE_QUIET).
+ * Everything else (enemies, ambience, Mend, the Ward's cast, the Thread) is silent.
+ */
+export const SILENCE_HEARD: ReadonlySet<string> = new Set([
+  'bigPerfect',
+  'reject',
+  'rejectLife',
+  'rejectLocked',
+  'rejectRewind',
+  FINALE_SOUND_GROUPS.silence,
+  FINALE_SOUND_GROUPS.note,
+  FINALE_SOUND_GROUPS.reignite,
+]);
+/** Phase 5d: the heartbeat in the Grand Silence, -6 dB (linear). */
+export const SILENCE_QUIET = 10 ** (-6 / 20);
+/** Phase 5d: the low-life sounds (the heartbeats, Brann's drum, the alert) the silence keeps. */
+const isLowLifeSound = (key: string) => key.startsWith('heart:') || key === 'lowLife';
+
+/** Phase 5d: the Finale's public state as audio reads it (`field.finale`, docs/phase-5d.md Q5). */
+interface FinaleView {
+  discord?: { value: number; rate: number };
+  silence?: { notes: number };
+}
+
 /** Phase 5a: an enemy's material (iron for the Legion; porcelain, the default, otherwise). */
 const materialOf = (defId: string): string | undefined => {
   try {
@@ -624,6 +745,21 @@ export class SfxEngine {
   private readonly shears = new Set<number>();
   private verse: { until: number } | null = null;
   private unravel: { until: number } | null = null;
+  /**
+   * Phase 5d: the Grand Silence as the mix hears it (null: no silence; never set outside the
+   * Finale): the notes played. While it holds, `play()` lets only SILENCE_HEARD through, the
+   * ambience (and, until the first note, the music) bus is held silent, and the music's stems
+   * follow the notes. `silenceEv`: the silence as its events told it (the lab, where the state has
+   * no `field.finale`), with its cap (sim seconds).
+   */
+  private silence: { on: true; notes: number } | null = null;
+  private silenceEv: { notes: number; until: number } | null = null;
+  /** Phase 5d: the sound being played now is a note the silence lets through (a clutch, a Reel-save). */
+  private silencePass = false;
+  /** Phase 5d: the Silent Conductor fell this fight (its victory is the run's last: `finale`). */
+  private conductorFell = false;
+  /** Phase 5d: Fortissimo Silence's pulses still winding up (their tutti), by telegraph id. */
+  private readonly tuttis = new Set<number>();
 
   constructor(
     private readonly e: Engine,
@@ -644,6 +780,13 @@ export class SfxEngine {
     opts: PlayOpts = {},
   ): VoiceHandle | null {
     const e = this.e;
+    // Phase 5d: the Grand Silence lets only its allow-list through (never set outside the Finale).
+    if (this.silence?.on) {
+      const heard = this.heardInSilence(key, bus, opts);
+      if (heard === null) return null;
+      bus = heard.bus;
+      opts = heard.opts;
+    }
     if (!e.admit(key, max)) return null;
     const v = new Voice(e, bus, opts);
     build(v, e.now + 0.005);
@@ -813,14 +956,20 @@ export class SfxEngine {
         else if (ev.visual === 'cleave') this.frenzyHit(ev, state);
         break;
       case 'save':
-        this.save(ev.cause, ev.target, state);
+        // Phase 5d: in the Grand Silence only a Reel-save is heard (a note).
+        if (this.silence?.on)
+          this.passIf(ev.cause === 'reel', () => this.save(ev.cause, ev.target, state));
+        else this.save(ev.cause, ev.target, state);
         break;
       case 'chimeLaunched':
         // Phase 4f: a Purge or Absolve Chime's launch is its own cast sound.
         if (!this.batchVariant.has('chime')) this.chimeLaunched(this.panFor(state, ev.fromX));
         break;
       case 'chimeLanded':
-        this.chimeLanded(ev.clutch, this.panFor(state, ev.x));
+        // Phase 5d: in the Grand Silence only a clutch Chime is heard (a note).
+        if (this.silence?.on)
+          this.passIf(ev.clutch, () => this.chimeLanded(ev.clutch, this.panFor(state, ev.x)));
+        else this.chimeLanded(ev.clutch, this.panFor(state, ev.x));
         break;
       case 'cleansed':
         if (ev.removed > 0 && this.e.gate('cleansed', 0.1)) {
@@ -962,6 +1111,8 @@ export class SfxEngine {
         this.music.stingerOnBar('phase');
         break;
       case 'enemyKilled':
+        // Phase 5d: the Silent Conductor's fall makes the victory the run's last.
+        if (ev.defId === CONDUCTOR) this.conductorFell = true;
         this.kill(ev.defId, ev.enemy, ev.x, state);
         break;
       case 'enemyRose':
@@ -992,6 +1143,9 @@ export class SfxEngine {
         if (this.stasis) this.stasisRelease(0.6);
         // Phase 5c: the Maw's drones, the runes' hums and the Spindles' drone end with the fight.
         this.stopUnstitched(0.5);
+        // Phase 5d: the Grand Silence ends with the fight; the Conductor's fall is the Finale's.
+        if (this.silence !== null || this.silenceEv !== null) this.endSilence();
+        if (this.conductorFell) this.finaleEnded(ev.outcome, state);
         break;
       case 'rewound':
         this.rewound(ev, state);
@@ -1053,6 +1207,8 @@ export class SfxEngine {
         }
         if (this.tides.delete(ev.telegraph) && ev.outcome !== 'cancelled') this.tide();
         this.frozenHowls.delete(ev.telegraph);
+        // Phase 5d: a pulse of Fortissimo Silence lands: the tutti cuts to nothing.
+        if (this.tuttis.delete(ev.telegraph) && ev.outcome !== 'cancelled') this.fortissimoCut();
         // Phase 5c: the Shears dash as their attack lands (once each).
         if (this.shears.delete(ev.telegraph) && ev.outcome !== 'cancelled') {
           const x = ev.target === null ? undefined : state.entities?.get(ev.target)?.x;
@@ -1060,6 +1216,7 @@ export class SfxEngine {
         }
         break;
       case 'telegraphEnded':
+        this.tuttis.delete(ev.telegraph);
         this.executions.delete(ev.telegraph);
         this.tides.delete(ev.telegraph);
         this.frozenHowls.delete(ev.telegraph);
@@ -1113,6 +1270,28 @@ export class SfxEngine {
         break;
       case 'chorusPulse':
         this.chorusPulse(ev.auras);
+        break;
+      // ── Phase 5d: the Finale (none of these is emitted outside the Silent Conductor's fight) ──
+      case 'discordRose':
+        this.discordTick(ev.boss, state);
+        break;
+      case 'fortissimoCancelled':
+        this.fortissimoCancelled(ev.by);
+        break;
+      case 'enemyCued':
+        this.enemyCue(ev.soloist, ev.solo, state);
+        break;
+      case 'silenceBegan':
+        this.silenceBegan(ev.until);
+        break;
+      case 'silenceNote':
+        this.silenceNote(ev.n, ev.source, ev.hero, state);
+        break;
+      case 'reignited':
+        this.reignited(state);
+        break;
+      case 'silenceBroken':
+        this.coda();
         break;
       case 'fermataHold':
         this.fermataHold(ev.hero, ev.until, state);
@@ -2164,6 +2343,11 @@ export class SfxEngine {
     if (materialOf(defId) === 'cloth') {
       this.clothKill(role, pan);
       if (this.spindleVoices.has(enemy)) this.tethered(enemy, 0, state);
+      return;
+    }
+    // Phase 5d: the mirror-choir is glass: it shatters into rising notes, sized by the enemy.
+    if (GLASS_VOICES.has(defId) || materialOf(defId) === 'glass') {
+      this.glassKill(this.glassSize(enemy, defId, role, state), pan);
       return;
     }
     const glassTone = () =>
@@ -6014,6 +6198,429 @@ export class SfxEngine {
     };
   }
 
+  // ── Phase 5d: the Finale ─────────────────────────────────────────────────────────
+  /** One Finale sound through its own gate and voice cap (FINALE_SOUND_LIMITS). */
+  private finale(
+    group: FinaleGroup,
+    build: (v: Voice, t: number) => void,
+    opts: PlayOpts = {},
+    bus: BusName = 'sfx',
+  ): VoiceHandle | null {
+    const [gate, cap] = FINALE_SOUND_LIMITS[group];
+    const key = FINALE_SOUND_GROUPS[group];
+    if (gate > 0 && !this.e.gate(key, gate)) return null;
+    return this.play(key, cap, bus, build, opts);
+  }
+
+  /**
+   * The Grand Silence's allow-list (SILENCE_HEARD): the bus and options a sound plays on while it
+   * holds, or null when it is silenced. The heartbeat and the low-life alert move off the held
+   * ambience bus to the sfx bus at -6 dB.
+   */
+  private heardInSilence(
+    key: string,
+    bus: BusName,
+    opts: PlayOpts,
+  ): { bus: BusName; opts: PlayOpts } | null {
+    if (SILENCE_HEARD.has(key) || this.silencePass) return { bus, opts };
+    if (isLowLifeSound(key))
+      return { bus: 'sfx', opts: { ...opts, gain: (opts.gain ?? 1) * SILENCE_QUIET } };
+    return null;
+  }
+
+  /** Plays `fn`'s sounds through the Grand Silence if `ok` (a clutch Chime, a Reel-save). */
+  private passIf(ok: boolean, fn: () => void): void {
+    this.silencePass = ok;
+    try {
+      fn();
+    } finally {
+      this.silencePass = false;
+    }
+  }
+
+  /**
+   * The Grand Silence as the mix hears it: `notes` played (null: none). Starting, it holds the
+   * ambience bus (the bed, the Thread, the heartbeats' own bus) and the music bus silent, and every
+   * windup still sounding lets go; the first note lets the music bus back up (the stems follow the
+   * notes, music.ts `silenceStems`). Ending, every hold lets go.
+   */
+  private setSilence(notes: number | null): void {
+    const e = this.e;
+    if (notes === null) {
+      if (this.silence === null) return;
+      this.silence = null;
+      delete this.music.inputs.silence;
+      e.releaseBus('ambience', 1.2);
+      e.releaseBus('music', 0.6);
+      return;
+    }
+    if (this.silence === null) {
+      this.silence = { on: true, notes };
+      e.holdBus('ambience', 0, 0.25);
+      if (notes === 0) e.holdBus('music', 0, 0.25);
+      const now = e.now;
+      for (const h of this.windups.values()) h.kill(now, 0.2);
+      this.windups.clear();
+    } else this.silence.notes = notes;
+    if (notes > 0) e.releaseBus('music', 0.3);
+    this.music.inputs.silence = { on: true, notes };
+  }
+
+  /** The Grand Silence ends (the fight is over, or combat stopped): nothing waits for it. */
+  private endSilence(): void {
+    this.silenceEv = null;
+    this.setSilence(null);
+  }
+
+  /**
+   * The Finale as the state has it: the Grand Silence (`field.finale.silence`) and Discord's swell
+   * in the Mirror Choir (its passive rate, +1/s, is phase 2's). Without `field.finale` (the lab),
+   * the silence its events told. Returns at once in every other fight.
+   */
+  private followFinale(state: WorldState): void {
+    const fin = (state.field as { finale?: FinaleView } | undefined)?.finale;
+    if (fin === undefined && this.silence === null && this.silenceEv === null) return;
+    const time = typeof state.time === 'number' ? state.time : 0;
+    if (this.silenceEv && this.silenceEv.until <= time) this.silenceEv = null;
+    let notes: number | null = null;
+    if (fin !== undefined) notes = fin.silence ? fin.silence.notes : null;
+    else if (this.silenceEv) notes = this.silenceEv.notes;
+    if (fightOver(state)) notes = null;
+    this.setSilence(notes);
+    const d = fin?.discord;
+    if (d && d.rate >= 1 && notes === null && !fightOver(state)) this.discordRise(d.value);
+  }
+
+  /** Every Finale layer lets go (combat stopped). */
+  private stopFinale(): void {
+    this.endSilence();
+    // Every held bus (a no-op for one that isn't).
+    for (const bus of BUS_NAMES) this.e.releaseBus(bus, 0.3);
+    this.tuttis.clear();
+    this.conductorFell = false;
+    this.silencePass = false;
+  }
+
+  /** The heroes in the party, by def id, in slot order (only those with a leitmotif of their own). */
+  private partyMotifs(state: WorldState): string[] {
+    const out: string[] = [];
+    for (const id of state.party ?? []) {
+      const defId = state.entities.get(id)?.hero?.defId;
+      if (defId && LEITMOTIFS[defId] && !out.includes(defId)) out.push(defId);
+    }
+    return out;
+  }
+
+  /** The Silent Conductor's fight ended: won, the victory that follows is the Finale's. */
+  private finaleEnded(outcome: 'victory' | 'defeat', state: WorldState): void {
+    this.conductorFell = false;
+    if (outcome === 'victory') this.music.finale(this.partyMotifs(state));
+  }
+
+  /** An unanswered telegraph fed Discord: a soft half-step tick, E5 then F5, from the Conductor. */
+  private discordTick(boss: number, state: WorldState): void {
+    const x = state.entities?.get(boss)?.x;
+    const pan = x === undefined ? 0 : this.panFor(state, x);
+    this.finale(
+      'discord',
+      (v, t) => {
+        glassPing(v, t, tone(8), 0.035, 0.25);
+        glassPing(v, t + 0.11, tone(9), 0.045, 0.45);
+        v.noise({
+          start: t,
+          dur: 0.008,
+          gain: 0.02,
+          filter: { type: 'bandpass', freq: 3200, q: 3 },
+        });
+      },
+      { pan },
+    );
+  }
+
+  /**
+   * Discord swelling in the Mirror Choir (phase 2): a slow pad note under the stems, rising by a
+   * step of the key over its four seconds, from D3 at the floor (70) to D4 at the top (100).
+   * Public for the lab.
+   */
+  discordRise(value: number): void {
+    const step = Math.round(clamp((value - 70) / 30, 0, 1) * 7) - 7;
+    const from = tone(step);
+    const to = tone(step + 1);
+    this.finale(
+      'rise',
+      (v, t) => {
+        for (const [type, g] of [
+          ['triangle', 0.03],
+          ['sine', 0.04],
+        ] as const) {
+          v.osc({
+            type,
+            freq: from,
+            freqTo: to,
+            glide: 4,
+            start: t,
+            dur: 3.6,
+            attack: 1.8,
+            release: 1.2,
+            gain: g,
+            shape: 'sustain',
+            filter: { type: 'lowpass', freq: 900, q: 0.5 },
+          });
+        }
+      },
+      {},
+      'music',
+    );
+  }
+
+  /** Which Finale sound a telegraph's attack has (its state's attack id, else its name). */
+  private finaleAttack(ev: TelegraphStarted, state: WorldState): 'tutti' | 'baton' | null {
+    const id = state.telegraphs?.find((t) => t.id === ev.telegraph)?.attackId;
+    if (id !== undefined) return FINALE_ATTACK_SOUNDS[id] ?? null;
+    if (ev.name === FORTISSIMO_NAME) return 'tutti';
+    for (const [attack, sound] of Object.entries(FINALE_ATTACK_SOUNDS))
+      if (FINALE_ATTACK_NAMES.get(attack) === ev.name) return sound;
+    return null;
+  }
+
+  /**
+   * A Finale attack's sound as its telegraph starts. Each pulse of Fortissimo Silence is a tutti
+   * rising over its windup (in place of the windup), cut off as it lands; the Conductor's Downbeat
+   * and Sforzando are a baton's stroke over their own windups. True when it replaces the windup.
+   */
+  private finaleTelegraph(
+    sound: 'tutti' | 'baton',
+    ev: TelegraphStarted,
+    state: WorldState,
+  ): boolean {
+    const { pan } = this.placeOf(this.shapeX(ev.shape, state), state);
+    if (sound === 'baton') {
+      this.finale('baton', (v, t) => this.batonStroke(v, t, 0.06), { pan });
+      return false;
+    }
+    this.tuttis.add(ev.telegraph);
+    const dur = clamp(ev.impact - ev.start, 0.5, 4);
+    const c = this.chord();
+    const h = this.finale('tutti', (v, t) => this.tutti(v, t, dur, c), { big: true });
+    if (h) this.trackWindup(ev.telegraph, h);
+    return true;
+  }
+
+  /** The baton: a dry click on the stand and its swish. */
+  private batonStroke(v: Voice, t: number, g: number): void {
+    whoosh(v, t, 0.16, g * 0.5, 1800, 5200, 2);
+    v.noise({
+      start: t + 0.08,
+      dur: 0.012,
+      gain: g,
+      filter: { type: 'bandpass', freq: 3200, q: 3 },
+    });
+    glassPing(v, t + 0.08, tone(18), g * 0.3, 0.25);
+  }
+
+  /**
+   * Fortissimo Silence's tutti: the whole orchestra swelling on the chord over `dur` (brass, the
+   * choir, a cymbal), every voice stopped dead at the impact.
+   */
+  private tutti(v: Voice, t: number, dur: number, c: Chord): void {
+    const notes = chordNotesInRange(c, 45, 74).slice(0, 5);
+    for (const m of notes) {
+      v.osc({
+        type: 'sawtooth',
+        freq: midiToHz(m),
+        detune: m % 2 === 0 ? -6 : 6,
+        start: t,
+        dur,
+        attack: dur,
+        release: 0.015,
+        gain: 0.035,
+        shape: 'sustain',
+        attackCurve: 'exp',
+        filter: { type: 'lowpass', freq: 500, freqTo: 4200, q: 0.7 },
+      });
+    }
+    v.noise({
+      start: t,
+      dur,
+      attack: dur,
+      release: 0.015,
+      gain: 0.03,
+      shape: 'sustain',
+      attackCurve: 'exp',
+      filter: { type: 'bandpass', freq: 5200, freqTo: 9000, q: 1.4 },
+    });
+  }
+
+  /** A pulse lands: the tutti is cut to nothing, and the music drops away under it for a moment. */
+  private fortissimoCut(): void {
+    const e = this.e;
+    e.duck('music', { depth: 0.08, hold: 0.35, release: 0.9 });
+    e.duck('ambience', { depth: 0.1, hold: 0.35, release: 0.9 });
+    this.finale('cut', (v, t) => {
+      thump(v, t, 62, 0.22, 0.25, 0.5);
+      v.noise({ start: t, dur: 0.03, gain: 0.05, filter: { type: 'lowpass', freq: 400 } });
+    });
+  }
+
+  /**
+   * Fortissimo Silence is cancelled. By a Crescendo, its tutti resolves into the song (an open D
+   * in bells and the choir); by the phase or the Conductor's fall, it just stops.
+   */
+  private fortissimoCancelled(by: 'crescendo' | 'phase' | 'boss'): void {
+    for (const id of this.tuttis) this.cutWindup(id);
+    this.tuttis.clear();
+    if (by !== 'crescendo') return;
+    this.finale(
+      'resolve',
+      (v, t) => {
+        [62, 69, 76, 81].forEach((m, i) => handbell(v, t + i * 0.05, midiToHz(m), 0.08, 2.2, 0.8));
+        choirChord(v, t + 0.04, [50, 57, 62, 69].map(midiToHz), 2.4, 0.2, 0.2, 1.6);
+      },
+      { big: true },
+    );
+  }
+
+  /**
+   * The Conductor Cues a voice: the voice's mirrored leitmotif (its hero's, inverted about the
+   * phrase's own centre, so it stays in its register; D dorian inverts onto itself, so it stays in
+   * key and minor), sung by glass after a baton's stroke.
+   */
+  private enemyCue(soloist: number, solo: string, state: WorldState): void {
+    const voice = SOLO_VOICE.get(solo) ?? state.entities?.get(soloist)?.enemy?.defId;
+    const hero = voice === undefined ? undefined : VOICE_MIRRORS[voice];
+    const m = hero === undefined ? undefined : LEITMOTIFS[hero];
+    if (!m) return;
+    const x = state.entities?.get(soloist)?.x;
+    const pan = x === undefined ? 0 : this.panFor(state, x);
+    const centre = Math.round(m.notes.reduce((a, n) => a + n.idx, 0) / m.notes.length);
+    this.finale(
+      'cue',
+      (v, t) => {
+        this.batonStroke(v, t, 0.05);
+        for (const n of m.notes) {
+          const idx = mirrorIndex(n.idx) + 2 * centre;
+          motifNote(v, 'glassBell', t + 0.2 + n.at, tone(idx), n.dur, 0.13 * n.vel);
+        }
+      },
+      { pan },
+    );
+  }
+
+  /** The Grand Silence begins: the music stops, with a baton's cut-off and a last ring dying. */
+  private silenceBegan(until: number): void {
+    this.silenceEv = { notes: 0, until };
+    this.setSilence(0);
+    this.finale('silence', (v, t) => {
+      this.batonStroke(v, t, 0.07);
+      glassNote(v, t + 0.08, tone(7), 0.05, 2.6, 0.5);
+    });
+  }
+
+  /**
+   * A note of the Grand Silence: note n plays degree n of D dorian from D4 (silenceNoteMidi), in
+   * the timbre of what made it (the Ward's glass, the Chime's bell, the Reel's whoosh and pluck,
+   * Rewind's reversed bell). The eighth, D5, resolves over D4 and A4.
+   */
+  private silenceNote(
+    n: number,
+    source: 'perfect' | 'clutch' | 'reel' | 'rewind',
+    hero: number | null,
+    state: WorldState,
+  ): void {
+    if (this.silenceEv) this.silenceEv.notes = Math.max(this.silenceEv.notes, n);
+    else this.silenceEv = { notes: n, until: Infinity };
+    this.setSilence(this.silenceEv.notes);
+    const x = hero === null ? undefined : state.entities?.get(hero)?.x;
+    const pan = x === undefined ? 0 : this.panFor(state, x) * 0.6;
+    const hz = midiToHz(silenceNoteMidi(n));
+    this.finale(
+      'note',
+      (v, t) => {
+        if (source === 'perfect') {
+          glassNote(v, t, hz, 0.17, 2.4, 0.9);
+          glassPing(v, t + 0.02, hz * 2, 0.035, 1.2);
+        } else if (source === 'clutch') {
+          handbell(v, t, hz, 0.17, 2.4, 0.8);
+        } else if (source === 'reel') {
+          whoosh(v, t, 0.3, 0.035, 700, 3600, 1.2);
+          pluck(v, t + 0.12, hz, 0.18, 1.1, 0.85);
+        } else {
+          reverseBell(v, t + 0.45, hz, 0.16, 0.45);
+          glassPing(v, t + 0.45, hz, 0.05, 1.4);
+        }
+        if (n >= 8) {
+          // The song resolves: D5 over D4 and A4, and the choir under them.
+          glassNote(v, t, midiToHz(62), 0.06, 3, 0.6);
+          glassNote(v, t + 0.04, midiToHz(69), 0.05, 3, 0.6);
+          choirChord(v, t + 0.05, [62, 69, 74].map(midiToHz), 2.6, 0.16, 0.3, 1.6);
+        }
+      },
+      { pan, big: true },
+    );
+  }
+
+  /** Eight notes: the song returns, and each party hero's leitmotif plays as they unfreeze. */
+  private reignited(state: WorldState): void {
+    this.endSilence();
+    this.music.jump();
+    const party = this.partyMotifs(state);
+    this.finale(
+      'reignite',
+      (v, t) => {
+        const end = leitmotifCanon(v, t, party, 0.3, 0.8);
+        v.extend(end + 1.5);
+      },
+      { big: true },
+    );
+  }
+
+  /**
+   * The cap ran out (the Coda): the Conductor tires of waiting. The music comes back without the
+   * song: a bare low fifth in the horns under the dorian's tritone (B and F) in glass.
+   */
+  private coda(): void {
+    this.endSilence();
+    this.music.jump();
+    this.finale('coda', (v, t) => {
+      horn(v, t, midiToHz(38), 2.2, 0.09);
+      horn(v, t + 0.04, midiToHz(45), 2.2, 0.06);
+      glassNote(v, t + 0.3, tone(5), 0.04, 2, 0.5);
+      glassNote(v, t + 0.55, tone(9), 0.035, 2, 0.5);
+    });
+  }
+
+  /** How big a glass death is: 3 for a boss, 2 for an elite or a mini-boss, else 1. */
+  private glassSize(enemy: number, defId: string, role: string, state: WorldState): 1 | 2 | 3 {
+    const tier = state.entities?.get(enemy)?.enemy?.tier as string | undefined;
+    if (tier === 'boss' || role === 'boss') return 3;
+    if (tier === 'elite' || tier === 'miniboss' || GLASS_VOICES.has(defId)) return 2;
+    return 1;
+  }
+
+  /**
+   * A glass voice's death: it bursts into prism shards that rise as notes (D dorian, upwards), more
+   * of them and higher the bigger it was. Public for the lab.
+   */
+  glassKill(size: 1 | 2 | 3, pan = 0): void {
+    this.finale(
+      'glass',
+      (v, t) => {
+        v.noise({
+          start: t,
+          dur: 0.08 + 0.06 * size,
+          gain: 0.05 + 0.03 * size,
+          filter: { type: 'highpass', freq: 4800 - 700 * size },
+        });
+        if (size >= 2) thump(v, t, 110, 0.06 * size, 0.18, 0.5);
+        const count = 2 + 2 * size;
+        for (let i = 0; i < count; i++)
+          glassPing(v, t + 0.04 + i * 0.065, tone(7 + i * (size >= 3 ? 2 : 1)), 0.035, 0.7);
+        if (size >= 3) glassNote(v, t + 0.04 + count * 0.065, tone(14), 0.06, 2.4, 0.8);
+      },
+      { pan, big: size >= 3 },
+    );
+  }
+
   // ── Telegraph windups ────────────────────────────────────────────────────────────
   /**
    * How an attack winds up: glass for marks and Chime answers, brass for Ward, else a swell.
@@ -6074,6 +6681,8 @@ export class SfxEngine {
     // Phase 5c: the Unstitched attacks with sounds of their own (none in Movements I and II).
     const m3 = legion === null ? this.unstitchedAttack(ev, state) : null;
     if (m3 === 'shears') this.shears.add(ev.telegraph);
+    // Phase 5d: the Finale's attacks with sounds of their own (none before the Finale).
+    const m4 = legion === null && m3 === null ? this.finaleAttack(ev, state) : null;
     // Phase 3e: during Stasis nothing on the enemies' side moves, so a windup started now would
     // swell to an impact that keeps moving away. It waits, and plays when time resumes (and a
     // Pack Call's howl with it: the Matriarch is as still as the rest).
@@ -6090,6 +6699,7 @@ export class SfxEngine {
       return;
     }
     if (m3 !== null && this.unstitchedTelegraph(m3, ev, state)) return;
+    if (m4 !== null && this.finaleTelegraph(m4, ev, state)) return;
     const style = this.windStyle(ev.kind, ev.answers, state);
     if (!this.e.gate('wind', 0.08)) return;
     const { pan, near } = this.placeOf(this.shapeX(ev.shape, state), state);
@@ -6587,6 +7197,7 @@ export class SfxEngine {
     apex: boolean;
     stolen: boolean;
     unravel: boolean;
+    silence?: { on: boolean; notes: number };
   } {
     const e = this.e;
     const now = e.now;
@@ -6710,6 +7321,9 @@ export class SfxEngine {
     }
     // Phase 5b: Blood and Silk's tick while it makes Resonance.
     this.followSilk(state, now);
+    // Phase 5d: the Grand Silence and Discord's swell, as the state has them (or as their events
+    // told them, in the lab). Never set outside the Finale.
+    this.followFinale(state);
     return {
       intensity: this.intensity,
       resonance: weaver?.resonance ?? 0,
@@ -6720,6 +7334,8 @@ export class SfxEngine {
       apex,
       // Phase 5c: the Unweaver's stolen verse and Unravel (the Abyssal Rift's stems).
       ...this.m3Inputs(state),
+      // Phase 5d: the Grand Silence (the Crucible's stems), only while it holds.
+      ...(this.silence ? { silence: { on: true, notes: this.silence.notes } } : {}),
     };
   }
 
@@ -7166,6 +7782,8 @@ export class SfxEngine {
     this.bloodClear.clear();
     this.silkAt = -1;
     this.music.releaseHold();
+    // Phase 5d: the Grand Silence lets go (every held bus), and the Conductor's fight is over.
+    this.stopFinale();
     if (this.drone) this.drone.gain.gain.setTargetAtTime(0, this.e.now, 0.1);
     if (this.harmony)
       for (const g of this.harmony.gains) g.gain.setTargetAtTime(0, this.e.now, 0.1);
