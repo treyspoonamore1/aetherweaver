@@ -10,8 +10,8 @@ import type { ContentInput, FinaleMovementDef } from './schema';
 /**
  * The Finale's run content (docs/phase-5d.md): the Silent Conductor's encounter, and the
  * boss-only FINALE def with the route's shorter road. FINALE is exported here and appended to
- * `CONTENT.movements` by W3 (with `routeDefs`), never here, so Movements I-III and
- * EXPEDITION_MOVEMENTS are untouched until the road exists.
+ * `CONTENT.movements` in content/index.ts; `routeDefs` (meta/run.ts) plays its road only on the
+ * route that ends in it, so the Prelude and the I-II and I-III routes keep their maps.
  */
 
 /**
