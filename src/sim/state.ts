@@ -97,7 +97,9 @@ export type StatusId =
   | 'stitch' // the Seamstress's Stitch link during its windup (an ailment)
   | 'stitched' // rooted (an ailment): Chime frees, a Reel frees the hero it pulls
   | 'unravelled' // display and recap: taking Unravel's reversed Mend
-  | 'emboldened'; // display (enemies): a Mimic's Empower copy, or the Unweaver's Thread
+  | 'emboldened' // display (enemies): a Mimic's Empower copy, or the Unweaver's Thread
+  // The Finale (docs/phase-5d.md): the same set as content's StatusIdSchema.
+  | 'stilled'; // the Grand Silence's freeze (not an ailment): only the Conductor applies it
 
 export interface Status {
   id: StatusId;
@@ -696,6 +698,27 @@ export interface FieldState {
   unravel?: { until: number; source: EntityId; acc: number; tickIn: number };
   /** Steal Verse: the aura at `field.chords[chord].auras[aura]` is muted until `until`. */
   stolen?: { chord: number; aura: number; add: EntityId; until: number };
+  // ── The Finale (docs/phase-5d.md). Public, created lazily, deleted at the encounter's end. ──
+  /** The Silent Conductor's fight, as bots, HUD, render and audio read it. */
+  finale?: FinaleField;
+}
+
+/** What made a Grand Silence note (docs/phase-5d.md). */
+export type NoteSource = 'perfect' | 'clutch' | 'reel' | 'rewind';
+
+/**
+ * The Finale's public state (docs/phase-5d.md Q5). Every key is set lazily and removed with
+ * `delete`; the whole object is deleted at the encounter's end.
+ */
+export interface FinaleField {
+  /** The Conductor's Discord (phases 1-2 only): 0-100, and its passive rise per second. */
+  discord?: { value: number; rate: number };
+  /** Fortissimo Silence is being played: the pulse winding up (1-3) and its impact time. */
+  fortissimo?: { pulse: 1 | 2 | 3; impact: number };
+  /** A Cue: the voice it named and its Solo; `target` once the Solo has begun. */
+  cue?: { boss: EntityId; soloist: EntityId; solo: string; target?: EntityId; until: number };
+  /** The Grand Silence: the notes played so far, of 8, and its cap. */
+  silence?: { notes: number; of: 8; since: number; until: number; sources: NoteSource[] };
 }
 
 /** A timed zone (docs/phase-5c.md Q4): `pull` drags toward its centre; `null` silences the Weaver. */

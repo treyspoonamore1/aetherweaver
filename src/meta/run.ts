@@ -16,7 +16,15 @@ import {
   relicDef,
   runEventDef,
 } from '../content';
-import type { Biome, EventEffect, MotifDef, MovementDef, RelicRarity } from '../content/schema';
+import {
+  isFieldMovement,
+  type AnyMovementDef,
+  type Biome,
+  type EventEffect,
+  type FinaleMovementDef,
+  type MotifDef,
+  type RelicRarity,
+} from '../content/schema';
 import { Rng, hashString } from '../sim/core/rng';
 import {
   dissonancePoints,
@@ -266,6 +274,15 @@ function allowedFor(run: RunState, chords: readonly ChordLoadout[], allowance: A
  */
 export const CALLING_ROWS: readonly number[] = [0, 3, 5, 7];
 
+/**
+ * The rows the run's Calling tiers fall on (docs/phase-5d.md): CALLING_ROWS, unless the run's
+ * route plays Movement I's road with rows of its own (W3 reads the road; until the Finale is
+ * registered every route keeps CALLING_ROWS).
+ */
+export function callingRows(_run: Partial<Pick<RunState, 'movements'>>): readonly number[] {
+  return CALLING_ROWS;
+}
+
 const REROLLS = 1;
 const SKIP_HEAL = 0.1;
 const SHRINE_HEAL = 0.15;
@@ -281,6 +298,7 @@ const BIOME_PLACE: Readonly<Record<Biome, string>> = {
   reliquary: 'the Reliquary',
   crimson_spire: 'the Crimson Spire',
   abyssal_rift: 'the Abyssal Rift',
+  celestial_crucible: 'the Celestial Crucible',
 };
 
 /** What a run's final boss asks of it (the node's text, after the boss's name). */
@@ -307,9 +325,14 @@ function shuffle<T>(rng: Rng, items: T[]): T[] {
 interface NodePlace {
   /** Row within its Movement (Threat restarts in each one). */
   row: number;
-  movement: MovementDef;
+  /**
+   * The row of the full Movement whose Threat it takes, on the Finale route's shorter road
+   * (docs/phase-5d.md); absent: `row`.
+   */
+  threatRow?: number;
+  movement: AnyMovementDef;
   /** The Movement after this one in the run (null: this is the run's last). */
-  next: MovementDef | null;
+  next: AnyMovementDef | null;
 }
 
 function rewardFor(
@@ -324,7 +347,7 @@ function rewardFor(
     kind === 'event'
       ? eventId !== null && eventHasFight(eventId)
       : kind !== 'shrine' && kind !== 'respite' && kind !== 'merchant' && kind !== 'forge';
-  return { ...reward, threat: fights ? threatFor(place.row) : 1 };
+  return { ...reward, threat: fights ? threatFor(place.threatRow ?? place.row) : 1 };
 }
 
 /** Relics offered after winning the event's fight (0 if it has none). */
@@ -421,10 +444,14 @@ function rewardKind(
 /** The node kinds that hold an encounter. */
 const FIGHT_KINDS: ReadonlySet<NodeKind> = new Set(['skirmish', 'elite', 'miniboss', 'boss']);
 
-/** The Movements a run of `movements` plays, in order (Movement I at least). */
-function runMovements(movements: number): MovementDef[] {
-  const n = Math.max(1, Math.min(CONTENT.movements.length, Math.floor(movements) || 1));
-  return CONTENT.movements.slice(0, n);
+/**
+ * The Movements a run of `n` plays, in order (Movement I at least): `CONTENT.movements.slice(0,
+ * n)`, unless the n-th def is the finale, whose route plays its shorter road (docs/phase-5d.md;
+ * W3 overlays the road, which no route can reach until the Finale is registered).
+ */
+export function routeDefs(n: number): AnyMovementDef[] {
+  const count = Math.max(1, Math.min(CONTENT.movements.length, Math.floor(n) || 1));
+  return CONTENT.movements.slice(0, count);
 }
 
 /**
@@ -438,11 +465,12 @@ function runMovements(movements: number): MovementDef[] {
  */
 function buildMovement(
   seed: number,
-  def: MovementDef,
+  def: AnyMovementDef,
   movement: number,
   firstRow: number,
-  next: MovementDef | null,
+  next: AnyMovementDef | null,
 ): MapNode[][] {
+  if (!isFieldMovement(def)) return buildFinale(def, movement, firstRow);
   const rng = rngFor(seed, movement === 1 ? 'map' : `map:m${movement}`);
   const taught = def.lessons ?? [];
   const ladder = taught.length > 0;
@@ -512,12 +540,37 @@ function buildMovement(
 }
 
 /**
+ * The Finale's one row (docs/phase-5d.md): its fixed boss, the run's last stop. No pools, so it
+ * draws nothing.
+ */
+function buildFinale(def: FinaleMovementDef, movement: number, firstRow: number): MapNode[][] {
+  const fixedAt = new Map(def.fixed.map((f) => [f.row, f.encounter]));
+  return def.rows.map((kinds, row) =>
+    kinds.map((kind, col) => {
+      const encounterId = FIGHT_KINDS.has(kind) ? (fixedAt.get(row) ?? def.boss) : null;
+      const n = kinds.length;
+      return {
+        id: `r${firstRow + row}c${col}`,
+        row: firstRow + row,
+        x: n === 1 ? 0.5 : 0.15 + (0.7 * col) / (n - 1),
+        kind,
+        encounterId,
+        eventId: null,
+        next: [],
+        reward: rewardFor(kind, encounterId, null, { row, movement: def, next: null }),
+        movement,
+      };
+    }),
+  );
+}
+
+/**
  * Generates a run's map for a seed (docs/phase-5a.md): Movement I (the Prelude's map, exactly),
  * then each later Movement's rows, generated up front and numbered on, the boss before each
  * linked to the next Movement's first stop. Only the last Movement's boss is final.
  */
 export function generateMap(seed: number, movements = 1): RunMap {
-  return generateMapFrom(seed, runMovements(movements));
+  return generateMapFrom(seed, routeDefs(movements));
 }
 
 /**
@@ -525,7 +578,7 @@ export function generateMap(seed: number, movements = 1): RunMap {
  * as Movement i + 1, with that Movement's RNG label and events. `generateMap` is this over the
  * content's first Movements; a test can append a def content doesn't have yet.
  */
-export function generateMapFrom(seed: number, defs: readonly MovementDef[]): RunMap {
+export function generateMapFrom(seed: number, defs: readonly AnyMovementDef[]): RunMap {
   const rows: MapNode[][] = [];
   defs.forEach((def, i) => {
     rows.push(...buildMovement(seed, def, i + 1, rows.length, defs[i + 1] ?? null));
@@ -606,7 +659,7 @@ export function rowsOfMovement(map: RunMap, n: number): MapNode[][] {
 }
 
 /** What Movement `n`'s fights pay, against Movement I's: XP, Starlight and Aether. */
-export function movementRewards(n: number): MovementDef['rewards'] {
+export function movementRewards(n: number): AnyMovementDef['rewards'] {
   return (CONTENT.movements[n - 1] ?? CONTENT.movements[0]!).rewards;
 }
 
@@ -616,7 +669,7 @@ export function movementRewards(n: number): MovementDef['rewards'] {
  * comes out the same. Frozen at embark.
  */
 export function setMovements(run: RunState, movements: number): RunState {
-  const n = runMovements(movements).length;
+  const n = routeDefs(movements).length;
   if (run.phase !== 'prep' || run.movements === n) return run;
   return { ...run, movements: n, map: generateMap(run.seed, n) };
 }
@@ -654,7 +707,7 @@ export function newRun(
   movements = 1,
 ): RunState {
   const kept = carried.map(snapshotRelic);
-  const route = runMovements(movements).length;
+  const route = routeDefs(movements).length;
   const run: RunState = {
     version: RUN_SAVE_VERSION,
     seed: seed >>> 0,
@@ -1180,11 +1233,11 @@ export function continueFromResult(run: RunState): RunState {
  * marks these fights). Event fights never bring one.
  */
 export function callingTierDue(
-  run: Pick<RunState, 'calling'>,
+  run: Pick<RunState, 'calling'> & Partial<Pick<RunState, 'movements'>>,
   node: Pick<MapNode, 'row' | 'kind' | 'encounterId'>,
 ): CallingOffer | null {
   if (!run.calling || node.kind === 'event' || !node.encounterId) return null;
-  const tier = CALLING_ROWS.indexOf(node.row);
+  const tier = callingRows(run).indexOf(node.row);
   const def = callingDef(run.calling.id);
   // Mastery (docs/phase-4g.md): only the tiers it has opened.
   const open = Math.min(def.tiers.length, run.calling.tiersOpen ?? def.tiers.length);

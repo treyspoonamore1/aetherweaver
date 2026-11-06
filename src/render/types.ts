@@ -50,6 +50,23 @@ export interface FrameInfo {
    * null or absent: her own). Applied when it changes, like the colour vision.
    */
   look?: Readonly<WeaverLook>;
+  /**
+   * Additive (Phase 5d, docs/phase-5d.md): the music's clock and stem levels, from the audio
+   * director, so the Crucible's sky turns on the beat. Absent (tests, audio locked or off):
+   * render derives a beat from sim time and the silence from `field.finale`.
+   */
+  music?: {
+    /** 0..1 progress through the current beat. */
+    beatPhase: number;
+    /** 0..3 */
+    beatInBar: number;
+    /** Bars since the music clock started. */
+    bar: number;
+    /** The four stems' levels (pad, pulse, melody, choir), 0..1. */
+    levels: [number, number, number, number];
+    /** The Grand Silence: whether it holds, and the notes played. */
+    silence?: { on: boolean; notes: number };
+  };
 }
 
 export interface WorldView {

@@ -478,7 +478,9 @@ const hzOf = (midi: number) => 440 * 2 ** ((midi - 69) / 12);
 describe('the Abyssal Rift’s voicing (Phase 5c)', () => {
   it('is in content and in the voicing table; an unknown biome falls back to the Reliquary', () => {
     expect(BiomeSchema.options).toContain('abyssal_rift');
-    for (const b of BiomeSchema.options) expect(VOICED_BIOMES, b).toContain(b);
+    // The Finale's Celestial Crucible (docs/phase-5d.md) is voiced by its own slice (W7).
+    for (const b of BiomeSchema.options)
+      if (b !== 'celestial_crucible') expect(VOICED_BIOMES, b).toContain(b);
     expect(voicedBiome('abyssal_rift')).toBe('abyssal_rift');
     expect(voicedBiome('celestial_crucible')).toBe('reliquary');
     expect(voicedBiome(undefined)).toBe('reliquary');

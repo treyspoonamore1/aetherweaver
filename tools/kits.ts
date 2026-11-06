@@ -17,7 +17,7 @@ import { CHORD_PRESETS } from '../src/meta/run';
 import type { ChordLoadout } from '../src/meta/types';
 import type { SimConfig } from '../src/sim';
 
-export type KitId = 'arrival' | 'arrival3' | 'bare';
+export type KitId = 'arrival' | 'arrival3' | 'arrival4' | 'bare';
 
 export interface Kit {
   id: KitId;
@@ -70,6 +70,19 @@ export const ARRIVAL3_KIT: Kit = {
   ],
 };
 
+/**
+ * A party reaching the Celestial Crucible (docs/phase-5d.md): W5 measures what Skilled winners
+ * carry out of the Unweaver's interlude. Until then, ARRIVAL3_KIT's motifs and relics, and no
+ * Movement's cells play it by default.
+ */
+export const ARRIVAL4_KIT: Kit = {
+  id: 'arrival4',
+  name: 'arrival kit IV',
+  preset: 'guardian',
+  motifs: [...ARRIVAL3_KIT.motifs],
+  relics: [...ARRIVAL3_KIT.relics],
+};
+
 /** Nothing but the loadout: Movement I's isolated cells (docs/phase-1.md). */
 export const BARE_KIT: Kit = {
   id: 'bare',
@@ -82,6 +95,7 @@ export const BARE_KIT: Kit = {
 export const KITS: Readonly<Record<KitId, Kit>> = {
   arrival: ARRIVAL_KIT,
   arrival3: ARRIVAL3_KIT,
+  arrival4: ARRIVAL4_KIT,
   bare: BARE_KIT,
 };
 

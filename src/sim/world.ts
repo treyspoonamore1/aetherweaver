@@ -598,6 +598,30 @@ export interface SimInternal {
      */
     severAt?: Record<EntityId, number>;
   };
+  /**
+   * The Finale's script (docs/phase-5d.md Q5): the Conductor's clocks and its ledger snapshots,
+   * holding only the keys it uses. Created lazily (`ensureM4`) and deleted at the encounter's
+   * end; absent in every Movement I-III fight. Its follow-ups and decree counts live in `m2`.
+   */
+  m4?: {
+    nextCueAt?: number;
+    nextRaiseAt?: number;
+    nextRestAt?: number;
+    nextMeasureAt?: number;
+    nextCadenceAt?: number;
+    /** The Grand Silence's program cycle (even: the Final Cadence; odd: the Half Cadence). */
+    cycle?: number;
+    nextDownbeatAt?: number;
+    nextSforzandoAt?: number;
+    /** When each voice was last Cued. */
+    cuedAt?: Record<EntityId, number>;
+    /** The silence telegraph ids the script began and that are still live. */
+    live?: number[];
+    /** The ledger at the silence's start (and as notes are counted). */
+    seen?: { perfects: number; clutch: number; saves: number; rewound: number; markers: number };
+    /** A Fortissimo Silence cut off by phase 2's shift, to be cast again after it. */
+    queued?: true;
+  };
   /** Guard Strand (docs/phase-5c.md): sim time it can turn a bolt or a cut aside again. */
   guardStrandAt?: number;
   /** Sacrificial Lamb: spent this fight. */

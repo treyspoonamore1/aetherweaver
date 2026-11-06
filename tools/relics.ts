@@ -12,7 +12,7 @@
  * III (docs/phase-5c.md) its elite, the Seamstress and the Unweaver with ARRIVAL3_KIT's motifs.
  */
 import type { BotKind } from '../src/bots';
-import { CONTENT, movementDef } from '../src/content';
+import { CONTENT, isFieldMovement, movementDef } from '../src/content';
 import { DEFAULT_CHORDS } from '../src/meta/run';
 import { playEncounter } from './harness-core';
 import { kitFor } from './kits';
@@ -28,6 +28,8 @@ const movement = Number(get('movement') ?? 1);
 /** A Movement's hard fights: its elites, its mini-boss and its boss. */
 function hardFights(n: number): string[] {
   const def = movementDef(n);
+  // The Finale (docs/phase-5d.md) has no pools: its one hard fight is its boss.
+  if (!isFieldMovement(def)) return [def.boss];
   return [...def.elites, def.miniboss, def.boss];
 }
 const encounters = (get('encounters') ?? hardFights(movement).join(',')).split(',');

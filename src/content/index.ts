@@ -32,6 +32,8 @@ import {
   UNSTITCHED_ENCOUNTERS,
   UNSTITCHED_EVENTS,
 } from './unstitchedRun';
+import { CRUCIBLE_ARENAS, CRUCIBLE_ATTACKS, CRUCIBLE_ENEMIES } from './crucible';
+import { CRUCIBLE_ENCOUNTERS } from './crucibleRun';
 import { CALLS, CHORUS, CRESCENDO, RESONANCE, TECHNIQUES, THREAD, WEAVER } from './weaver';
 import {
   ContentSchema,
@@ -53,7 +55,7 @@ import {
   type HeroDef,
   type InscriptionDef,
   type MotifDef,
-  type MovementDef,
+  type AnyMovementDef,
   type OrnamentDef,
   type RelicDef,
   type RunEventDef,
@@ -78,8 +80,8 @@ export const CONTENT: Content = ContentSchema.parse({
   defaultParty: ['kael', 'lyra', 'vexis'],
   auras: AURAS,
   ornaments: ORNAMENTS,
-  attacks: [...ATTACKS, ...LEGION_ATTACKS, ...UNSTITCHED_ATTACKS],
-  enemies: [...ENEMIES, ...LEGION_ENEMIES, ...UNSTITCHED_ENEMIES],
+  attacks: [...ATTACKS, ...LEGION_ATTACKS, ...UNSTITCHED_ATTACKS, ...CRUCIBLE_ATTACKS],
+  enemies: [...ENEMIES, ...LEGION_ENEMIES, ...UNSTITCHED_ENEMIES, ...CRUCIBLE_ENEMIES],
   affixes: [...AFFIXES, ...LEGION_AFFIXES, ...UNSTITCHED_AFFIXES],
   motifs: MOTIFS,
   relics: RELICS,
@@ -101,8 +103,13 @@ export const CONTENT: Content = ContentSchema.parse({
   cosmetics: COSMETICS,
   mastery: MASTERY,
   scenes: SCENES,
-  arenas: [...ARENAS, ...LEGION_ARENAS, ...UNSTITCHED_ARENAS],
-  encounters: [...ENCOUNTERS, ...LEGION_ENCOUNTERS, ...UNSTITCHED_ENCOUNTERS],
+  arenas: [...ARENAS, ...LEGION_ARENAS, ...UNSTITCHED_ARENAS, ...CRUCIBLE_ARENAS],
+  encounters: [
+    ...ENCOUNTERS,
+    ...LEGION_ENCOUNTERS,
+    ...UNSTITCHED_ENCOUNTERS,
+    ...CRUCIBLE_ENCOUNTERS,
+  ],
   movements: [...MOVEMENTS, CRIMSON_LEGION, UNSTITCHED],
   barks: {
     rally: ['On you!', 'Regrouping!', 'Right behind you.'],
@@ -153,7 +160,7 @@ const movementById = index('movement', CONTENT.movements);
  * A Movement (docs/phase-5a.md) by content id, or by its 1-based number (1: Movement I, the
  * Prelude's map).
  */
-export function movementDef(id: string | number): MovementDef {
+export function movementDef(id: string | number): AnyMovementDef {
   if (typeof id === 'string') return movementById(id);
   const def = CONTENT.movements[id - 1];
   if (!def) throw new Error(`Unknown movement ${id}`);
@@ -350,6 +357,9 @@ export type {
   InscriptionDef,
   MotifDef,
   MovementDef,
+  AnyMovementDef,
+  FinaleMovementDef,
+  RoadVariant,
   OrnamentDef,
   PassiveEffect,
   RelicDef,
@@ -364,4 +374,10 @@ export type {
   MasteryRules,
   StarlightRules,
 } from './schema';
-export { AILMENT_IDS, DISSONANCE_EFFECTS, INSCRIPTION_CATEGORIES, PASSIVE_EFFECTS } from './schema';
+export {
+  AILMENT_IDS,
+  DISSONANCE_EFFECTS,
+  INSCRIPTION_CATEGORIES,
+  PASSIVE_EFFECTS,
+  isFieldMovement,
+} from './schema';

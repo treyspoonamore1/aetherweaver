@@ -107,6 +107,11 @@ export class Engine {
   private disposed = false;
   /** Phase 3e: the cutoff the music's lowpass is held at (Stasis), 0 when it is free. */
   private musicHeldAt = 0;
+  /**
+   * Phase 5d: buses held ducked (the Grand Silence), by bus: the depth they are held at. Empty
+   * unless `holdBus` is called, and then `duck` never ramps a held bus back above its hold.
+   */
+  private readonly holds = new Map<BusName, number>();
 
   readonly stats: EngineStats = {
     active: { music: 0, sfx: 0, ui: 0, ambience: 0 },
@@ -216,7 +221,35 @@ export class Engine {
     // Never duck shallower than a duck already in progress.
     g.linearRampToValueAtTime(Math.min(current, spec.depth), t + 0.03);
     g.setValueAtTime(Math.min(current, spec.depth), t + 0.03 + spec.hold);
-    g.linearRampToValueAtTime(1, t + 0.03 + spec.hold + spec.release);
+    // Phase 5d: a held bus comes back only to its hold (no hold: exactly as before).
+    const held = this.holds.size === 0 ? undefined : this.holds.get(bus);
+    g.linearRampToValueAtTime(held ?? 1, t + 0.03 + spec.hold + spec.release);
+  }
+
+  /**
+   * Phase 5d (the Grand Silence): holds a ducked bus at `depth` (0..1) until `releaseBus`. Never
+   * called outside the Finale, so every other mix is untouched.
+   */
+  holdBus(bus: BusName, depth: number, seconds = 0.4): void {
+    const g = this.bus[bus].duck?.gain;
+    if (!g) return;
+    const level = Math.max(0, Math.min(1, depth));
+    this.holds.set(bus, level);
+    const t = this.now;
+    g.cancelScheduledValues(t);
+    g.setValueAtTime(Math.min(1, g.value), t);
+    g.linearRampToValueAtTime(level, t + seconds);
+  }
+
+  /** Phase 5d: lets a held bus come back up (a no-op when it isn't held). */
+  releaseBus(bus: BusName, seconds = 0.6): void {
+    if (!this.holds.delete(bus)) return;
+    const g = this.bus[bus].duck?.gain;
+    if (!g) return;
+    const t = this.now;
+    g.cancelScheduledValues(t);
+    g.setValueAtTime(Math.min(1, g.value), t);
+    g.linearRampToValueAtTime(1, t + seconds);
   }
 
   /** Scales a bus's reverb send (1 = the static mix). Used to "freeze" the music in a Fermata. */

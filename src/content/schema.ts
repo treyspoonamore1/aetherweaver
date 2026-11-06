@@ -4,6 +4,7 @@
  * Player-facing numbers in text are generated from these values (docs/plan/02 §12 rule 7).
  */
 import { z } from 'zod';
+import { FINALE_MOVEMENT } from './crucibleIds';
 
 export const IdSchema = z.string().regex(/^[a-z][a-z0-9_]*$/, 'ids are lower snake_case');
 export const ColorSchema = z.string().regex(/^#[0-9a-fA-F]{6}$/, 'colours are #rrggbb');
@@ -26,6 +27,9 @@ export const AnswerTagSchema = z.enum([
   'thread',
   /** Switch the Thread to Empower (Unravel). */
   'empower',
+  // The Finale (docs/phase-5d.md)
+  /** Cancel it with the Weaver's Crescendo, whatever her Calling (Fortissimo Silence). */
+  'crescendo',
 ]);
 export const TelegraphKindSchema = z.enum([
   'cleave',
@@ -82,6 +86,9 @@ export const StatusIdSchema = z.enum([
   'unravelled',
   /** Display (enemies): the Mimic's Empower copy, or the Unweaver's Thread. */
   'emboldened',
+  // The Finale (docs/phase-5d.md)
+  /** The Grand Silence's freeze (not an ailment: Chime and immunity can't touch it). */
+  'stilled',
 ]);
 
 /**
@@ -565,6 +572,14 @@ export const AttackDefSchema = z.object({
     })
     .strict()
     .optional(),
+  // ── The Finale (docs/phase-5d.md). All optional: absent reproduces Movements I-III. ──
+  /**
+   * The Conductor's Discord this telegraph adds when it fails (a victim took damage nobody
+   * answered). Its presence runs the verdict; a lint keeps it on Finale attacks.
+   */
+  discord: z.number().nonnegative().optional(),
+  /** How many failed victims fail the telegraph (absent: 1). Only with `discord`. */
+  discordQuorum: z.number().int().min(1).optional(),
 });
 export type AttackDef = z.infer<typeof AttackDefSchema>;
 
@@ -620,7 +635,7 @@ export const EnemyDefSchema = z.object({
     .strict()
     .optional(),
   /** What it's made of (death debris and kill sounds); absent: porcelain. */
-  material: z.enum(['porcelain', 'iron', 'cloth']).optional(),
+  material: z.enum(['porcelain', 'iron', 'cloth', 'glass']).optional(),
   /** The Movement it belongs to (absent: 1). */
   movement: z.number().int().positive().optional(),
   // ── Movement III (docs/phase-5c.md). All optional: absent reproduces Movements I and II. ──
@@ -1357,7 +1372,12 @@ export type SceneDef = z.infer<typeof SceneDefSchema>;
 // ── Arenas and encounters ─────────────────────────────────────────────────────────────
 
 /** A Movement's look and sound: one list for arenas and Movements, so the two can't drift. */
-export const BiomeSchema = z.enum(['reliquary', 'crimson_spire', 'abyssal_rift']);
+export const BiomeSchema = z.enum([
+  'reliquary',
+  'crimson_spire',
+  'abyssal_rift',
+  'celestial_crucible',
+]);
 export type Biome = z.infer<typeof BiomeSchema>;
 
 export const ArenaDefSchema = z.object({
@@ -1464,6 +1484,66 @@ export const MovementDefSchema = z
   .strict();
 export type MovementDef = z.infer<typeof MovementDefSchema>;
 
+/**
+ * The Finale's shorter road (docs/phase-5d.md): one earlier field Movement as the route that ends
+ * in the Finale plays it. Only `routeDefs(n)` (meta/run.ts) reads it, and only when the n-th
+ * def is the finale, so Movements I-III's own maps never change.
+ */
+export const RoadVariantSchema = z
+  .object({
+    /** The id of an earlier field Movement. */
+    movement: IdSchema,
+    rows: z.array(z.array(NodeKindSchema).min(1)).min(1),
+    fixed: z.array(z.object({ row: z.number().int().nonnegative(), encounter: IdSchema }).strict()),
+    /** Per road row, the row of the full Movement whose Threat it takes. */
+    threat: z.array(z.number().int().nonnegative()),
+    /** The rows its Calling tiers fall on (movements[0]'s road only; absent: CALLING_ROWS). */
+    callingRows: z.array(z.number().int().nonnegative()).optional(),
+    /** Shuffle the ladder's skirmish and elite pools on this road. */
+    shuffle: z.literal(true).optional(),
+  })
+  .strict();
+export type RoadVariant = z.infer<typeof RoadVariantSchema>;
+
+/**
+ * The Finale (docs/phase-5d.md): a boss-only last Movement with no pools, carrying the route's
+ * shorter `road`. A separate schema, so MovementDef stays exactly as it was and every pool
+ * reader narrows with `isFieldMovement`.
+ */
+export const FinaleMovementDefSchema = z
+  .object({
+    id: IdSchema,
+    name: z.string(),
+    mapTitle: z.string(),
+    label: z.string(),
+    biome: BiomeSchema,
+    /** One row, its boss (lint: `[['boss']]`). */
+    rows: z.array(z.array(NodeKindSchema).min(1)).min(1),
+    /** Row 0, the boss's encounter (lint). */
+    fixed: z.array(z.object({ row: z.number().int().nonnegative(), encounter: IdSchema }).strict()),
+    boss: IdSchema,
+    scale: z.object({ life: z.number().positive(), damage: z.number().positive() }).strict(),
+    rewards: z
+      .object({
+        xp: z.number().positive(),
+        starlight: z.number().positive(),
+        aether: z.number().positive(),
+      })
+      .strict(),
+    finale: z.literal(true),
+    road: z.array(RoadVariantSchema),
+  })
+  .strict();
+export type FinaleMovementDef = z.infer<typeof FinaleMovementDefSchema>;
+
+/** Any Movement of an Expedition: a field Movement with pools, or the boss-only Finale. */
+export type AnyMovementDef = MovementDef | FinaleMovementDef;
+
+/** A field Movement (pools, a ladder, a mini-boss), not the Finale. */
+export function isFieldMovement(d: AnyMovementDef): d is MovementDef {
+  return !('finale' in d);
+}
+
 // ── Movement II lint (docs/phase-5a.md, "Content lint") ───────────────────────────────
 
 /**
@@ -1528,7 +1608,9 @@ interface ContentShape {
   enemies: EnemyDef[];
   affixes: AffixDef[];
   encounters: EncounterDef[];
-  movements: MovementDef[];
+  movements: AnyMovementDef[];
+  // The Finale's lint (docs/phase-5d.md) reads the Calling tiers.
+  callings: { tiers: readonly unknown[] }[];
   // Movement III's lint (docs/phase-5c.md) reads these too.
   arenas: ArenaDef[];
   motifs: MotifDef[];
@@ -1707,6 +1789,8 @@ function lintMovements(c: ContentShape, ctx: z.RefinementCtx, sets: LintSets): v
   }
   const kindOf = new Map(c.encounters.map((e) => [e.id, e.kind]));
   c.movements.forEach((m, i) => {
+    // The Finale has no pools; lintFinale checks it.
+    if (!isFieldMovement(m)) return;
     const where = `movement "${m.id}"`;
     const encounter = (id: string, kinds: readonly string[], what: string) => {
       need(sets.encounters, id, where);
@@ -1754,6 +1838,106 @@ function lintMovements(c: ContentShape, ctx: z.RefinementCtx, sets: LintSets): v
     issue(`movement "${c.movements[0].id}": Movement I plays at scale {1, 1}`);
 }
 
+/** The kinds of stop that are a fight (a Calling tier row is all fights, docs/phase-4.md). */
+const FIGHT_KINDS: ReadonlySet<string> = new Set(['skirmish', 'elite', 'miniboss', 'boss']);
+
+/**
+ * The Finale's lint (docs/phase-5d.md, "Content lint additions"). Discord sits only on the
+ * Finale's attacks, and `discordQuorum` only beside it; an attack the Crescendo answers is a raid.
+ * A finale def is the last def, one row with its boss fixed on row 0, and every road variant
+ * names an earlier field Movement and passes Movement-I-style lint: its opening on row 0, its
+ * boss last, a Threat row per road row, and Calling rows (movements[0] only) one per tier, each
+ * an all-fight row.
+ */
+function lintFinale(c: ContentShape, ctx: z.RefinementCtx, sets: LintSets): void {
+  const issue = (message: string) => ctx.addIssue({ code: 'custom', message });
+  const need = (set: Set<string>, id: string, where: string) => {
+    if (!set.has(id)) issue(`${where} references unknown "${id}"`);
+  };
+  for (const a of c.attacks) {
+    const where = `attack "${a.id}"`;
+    if (a.discordQuorum !== undefined && a.discord === undefined)
+      issue(`${where}: a discordQuorum needs discord`);
+    if (a.discord !== undefined) {
+      const listers = c.enemies.filter((e) => e.specials.includes(a.id));
+      if (listers.length === 0 || listers.some((e) => (e.movement ?? 1) !== FINALE_MOVEMENT))
+        issue(`${where}: discord belongs to Movement ${FINALE_MOVEMENT}'s attacks`);
+    }
+    if (a.answers.includes('crescendo') && a.kind !== 'raid')
+      issue(`${where}: an attack the Crescendo answers is a raid`);
+  }
+  const kindOf = new Map(c.encounters.map((e) => [e.id, e.kind]));
+  const movementOf = new Map(c.encounters.map((e) => [e.id, e.movement ?? 1]));
+  const tiers = Math.max(0, ...c.callings.map((k) => k.tiers.length));
+  c.movements.forEach((m, i) => {
+    if (isFieldMovement(m)) return;
+    const where = `movement "${m.id}"`;
+    if (i !== c.movements.length - 1) issue(`${where}: a finale is the last Movement`);
+    if (m.rows.length !== 1 || m.rows[0]!.length !== 1 || m.rows[0]![0] !== 'boss')
+      issue(`${where}: a finale is one row, its boss`);
+    need(sets.encounters, m.boss, where);
+    if (kindOf.has(m.boss) && kindOf.get(m.boss) !== 'boss')
+      issue(`${where}: boss "${m.boss}" is a ${kindOf.get(m.boss)}`);
+    if (kindOf.has(m.boss) && movementOf.get(m.boss) !== i + 1)
+      issue(`${where}: "${m.boss}" belongs to Movement ${movementOf.get(m.boss)}`);
+    if (m.fixed.length !== 1 || m.fixed[0]!.row !== 0 || m.fixed[0]!.encounter !== m.boss)
+      issue(`${where}: a finale fixes its boss on row 0`);
+    const roads = new Set<string>();
+    for (const r of m.road) {
+      const at = `${where}: road "${r.movement}"`;
+      if (roads.has(r.movement)) issue(`${at} is given twice`);
+      roads.add(r.movement);
+      const j = c.movements.findIndex((d) => d.id === r.movement);
+      const def = c.movements[j];
+      if (!def || j >= i || !isFieldMovement(def)) {
+        issue(`${at} names no earlier field Movement`);
+        continue;
+      }
+      // Fixed rows: in range, one stop each, of their encounter's kind and Movement.
+      const fixedRows = new Map<number, string>();
+      for (const f of r.fixed) {
+        if (fixedRows.has(f.row)) issue(`${at}: row ${f.row} is fixed twice`);
+        fixedRows.set(f.row, f.encounter);
+        need(sets.encounters, f.encounter, at);
+        const row = r.rows[f.row];
+        if (!row) {
+          issue(`${at}: fixed row ${f.row} is past its last row`);
+          continue;
+        }
+        if (row.length !== 1) issue(`${at}: fixed row ${f.row} has one stop`);
+        const kind = kindOf.get(f.encounter);
+        if (kind !== undefined && kind !== row[0])
+          issue(`${at}: fixed row ${f.row}'s "${f.encounter}" is a ${kind}`);
+        if (kind !== undefined && movementOf.get(f.encounter) !== j + 1)
+          issue(`${at}: "${f.encounter}" belongs to Movement ${movementOf.get(f.encounter)}`);
+      }
+      if (fixedRows.get(0) !== def.opening) issue(`${at}: row 0 is fixed to its opening`);
+      const last = r.rows[r.rows.length - 1]!;
+      if (last.length !== 1 || last[0] !== 'boss') issue(`${at}: its last row is its boss`);
+      if (!r.rows.some((row) => row.includes('miniboss'))) issue(`${at}: no row for its miniboss`);
+      if (def.lessons) {
+        const n = def.lessons.length;
+        if (!r.rows.some((row) => row.length === n && row.every((k) => k === 'skirmish')))
+          issue(`${at}: no row of ${n} skirmishes for its lessons`);
+      }
+      if (r.threat.length !== r.rows.length)
+        issue(`${at}: a threat row for each of its ${r.rows.length} rows`);
+      for (const t of r.threat)
+        if (t >= def.rows.length) issue(`${at}: threat row ${t} is past the Movement's last`);
+      if (r.callingRows !== undefined) {
+        if (j !== 0) issue(`${at}: only Movement I's road carries callingRows`);
+        if (r.callingRows.length !== tiers)
+          issue(`${at}: callingRows has one row per Calling tier (${tiers})`);
+        for (const row of r.callingRows) {
+          const kinds = r.rows[row];
+          if (!kinds || !kinds.every((k) => FIGHT_KINDS.has(k)))
+            issue(`${at}: calling row ${row} is not a row of fights`);
+        }
+      }
+    }
+  });
+}
+
 // ── Root ──────────────────────────────────────────────────────────────────────────────
 
 export const ContentSchema = z
@@ -1796,7 +1980,7 @@ export const ContentSchema = z
     arenas: z.array(ArenaDefSchema).min(1),
     encounters: z.array(EncounterDefSchema).min(1),
     /** The Movements of an Expedition, in order (docs/phase-5a.md); the first is the Prelude. */
-    movements: z.array(MovementDefSchema).min(1),
+    movements: z.array(z.union([MovementDefSchema, FinaleMovementDefSchema])).min(1),
     /** Directive acknowledgement lines. */
     barks: z.object({
       rally: z.array(z.string().min(1)).min(1),
@@ -2311,6 +2495,7 @@ export const ContentSchema = z
         if (d.points !== 0) issue(`${where}: a heroCeiling Deed gives no point`);
       }
     lintMovements(c, ctx, { attacks, enemies, encounters });
+    lintFinale(c, ctx, { attacks, enemies, encounters });
     lintMovement3(c, ctx, { attacks, enemies, encounters });
   });
 export type Content = z.infer<typeof ContentSchema>;

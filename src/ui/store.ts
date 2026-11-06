@@ -23,7 +23,7 @@ import type {
   TechniqueKey,
   ThreadMode,
 } from './types';
-import type { ThreadCutCause } from '../sim';
+import type { NoteSource, ThreadCutCause } from '../sim';
 import type { RelicHud } from './hud/relics';
 import type { CallingHud } from './hud/calling';
 import type { IconName } from './kit/iconPaths';
@@ -188,6 +188,9 @@ export interface HeroHud {
   possessed?: { victim: string | null; victimSlot: number | null };
   /** Stitched: the slots of the heroes the same Stitch sewed them to. */
   stitchedWith?: number[];
+  // ── The Finale (docs/phase-5d.md). Absent: the frame draws as before. ──
+  /** Stilled by the Grand Silence: it waits for the Weaver's song. */
+  stilled?: true;
 }
 
 /** What the Chronomancer's Rewind would do to a hero now (`HeroHud.rewind`). */
@@ -445,6 +448,15 @@ export interface BossHud {
   champion?: { hp: number; maxHp: number };
   /** Heroes Stitched to the floor right now. */
   stitched?: number;
+  // ── The Finale (docs/phase-5d.md). Absent: the bar draws as before. ──
+  /** The Conductor's Discord (phases 1-2): its value of `max`, and its passive rise per second. */
+  discord?: { value: number; max: number; rate: number };
+  /** Fortissimo Silence is being played: the pulse winding up, of 3. */
+  fortissimo?: { pulse: number; of: 3 };
+  /** The Grand Silence: notes played of 8, what made them, and seconds left before the Coda. */
+  silence?: { notes: number; of: 8; sources: NoteSource[]; left: number };
+  /** A Cue: the voice it named and its Solo (names); the Solo's target once it begins. */
+  cue?: { soloist: string; solo: string; target?: string };
 }
 
 /**
@@ -557,7 +569,9 @@ export type CalloutKind =
   | 'response'
   | 'hold'
   /** Movement II: a foe met for the first time (`key` is `sighting:<defId>`). */
-  | 'sighting';
+  | 'sighting'
+  /** The Finale (docs/phase-5d.md): a Grand Silence note. */
+  | 'note';
 
 export interface Callout {
   id: number;

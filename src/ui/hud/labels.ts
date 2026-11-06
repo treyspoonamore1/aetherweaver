@@ -214,6 +214,14 @@ export const STATUS: Record<StatusId, StatusLook> = {
     color: '#cbd5e1',
     help: `A mirror’s copy of your Empower, or the Unweaver’s Thread: it deals ${EMBOLDENED_PCT}% more damage.`,
   },
+  // The Finale (docs/phase-5d.md): the Grand Silence's freeze. Not an ailment, so no Chime.
+  stilled: {
+    icon: 'mute',
+    label: 'Stilled',
+    color: '#cbd5e1',
+    help: 'Waits for your song: it can’t move, attack or take a Cue.',
+    answer: 'Play Perfect Wards, Clutch Chimes and Reel-saves.',
+  },
 };
 
 /**
@@ -253,6 +261,8 @@ export const ANSWER: Record<AnswerTag, AnswerLook> = {
   // Movement III (docs/phase-5c.md): the Thread's own verbs (the hero keys; the Thread mode).
   thread: { icon: 'threadCut', label: 'Retarget', action: null },
   empower: { icon: 'empower', label: 'Empower', action: 'threadMode' },
+  // The Finale (docs/phase-5d.md): Fortissimo Silence, cancelled by any Calling's Crescendo.
+  crescendo: { icon: 'sun', label: 'Crescendo', action: 'crescendo' },
 };
 
 /**

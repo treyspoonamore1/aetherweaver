@@ -11,6 +11,7 @@ import {
   encounterDef,
   heroDef,
   inscriptionDef,
+  isFieldMovement,
   type InscriptionCategory,
 } from '../../content';
 import {
@@ -3072,7 +3073,8 @@ export function mockVariantsHud(
  */
 export function withMovementTwo(run: RunState): RunState {
   if (run.map.rows.some((row) => row[0]?.movement === 2)) return { ...run, movements: 2 };
-  const def = CONTENT.movements[1]!;
+  const def = CONTENT.movements[1];
+  if (!def || !isFieldMovement(def)) return run;
   const first = run.map.rows.length;
   const pools: Record<number, string[]> = {
     1: [...(def.lessons ?? [])],
@@ -3610,7 +3612,8 @@ export function cellRun(party: readonly string[] = CONTENT.defaultParty): RunSta
 export function withMovementThree(run: RunState): RunState {
   const two = withMovementTwo(run);
   if (two.map.rows.some((row) => row[0]?.movement === 3)) return { ...two, movements: 3 };
-  const def = CONTENT.movements[2]!;
+  const def = CONTENT.movements[2];
+  if (!def || !isFieldMovement(def)) return two;
   const first = two.map.rows.length;
   const pools: Record<number, string[]> = {
     1: [...(def.lessons ?? [])],

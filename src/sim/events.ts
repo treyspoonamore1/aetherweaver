@@ -10,6 +10,7 @@ import type {
   CallAnswer,
   EntityId,
   EntityKind,
+  NoteSource,
   SaveCause,
   ShieldKind,
   StatusId,
@@ -33,7 +34,9 @@ export type AnswerTag =
   /** Retarget: move the Thread off the line, or onto a hero on your side (docs/phase-5c.md). */
   | 'thread'
   /** Switch the Thread to Empower (Unravel). */
-  | 'empower';
+  | 'empower'
+  /** Cancel it with the Crescendo, whatever the Calling (Fortissimo Silence, docs/phase-5d.md). */
+  | 'crescendo';
 
 export type TelegraphShape =
   | { kind: 'circle'; x: number; z: number; r: number }
@@ -808,6 +811,58 @@ export interface Tethered extends At {
   count: number;
 }
 
+// ── The Finale (docs/phase-5d.md) ───────────────────────────────────────────────────
+
+/** A failed Finale telegraph fed the Conductor's Discord (`field.finale.discord`). */
+export interface DiscordRose extends At {
+  type: 'discordRose';
+  boss: EntityId;
+  telegraph: number;
+  /** What it added, and Discord after it. */
+  amount: number;
+  value: number;
+}
+/** Fortissimo Silence was cancelled: by a Crescendo, a phase shift, or the boss's fall. */
+export interface FortissimoCancelled extends At {
+  type: 'fortissimoCancelled';
+  boss: EntityId;
+  by: 'crescendo' | 'phase' | 'boss';
+}
+/** The Conductor Cued a voice of its choir (`field.finale.cue`). */
+export interface EnemyCued extends At {
+  type: 'enemyCued';
+  boss: EntityId;
+  soloist: EntityId;
+  /** The Solo's attack id. */
+  solo: string;
+}
+/** The Grand Silence began: the heroes are stilled until the notes or the cap. */
+export interface SilenceBegan extends At {
+  type: 'silenceBegan';
+  boss: EntityId;
+  until: number;
+}
+/** A note of the Grand Silence: the `n`th of `of`, and what made it (hero null for a Rewind). */
+export interface SilenceNote extends At {
+  type: 'silenceNote';
+  n: number;
+  of: number;
+  source: NoteSource;
+  hero: EntityId | null;
+}
+/** Eight notes: the heroes reignite, and the downed stand back up. */
+export interface Reignited extends At {
+  type: 'reignited';
+  boss: EntityId;
+  revived: EntityId[];
+}
+/** The cap ran out: the Coda. */
+export interface SilenceBroken extends At {
+  type: 'silenceBroken';
+  boss: EntityId;
+  notes: number;
+}
+
 export type SimEvent =
   | EntitySpawned
   | EntityDespawned
@@ -901,7 +956,14 @@ export type SimEvent =
   | UnravelledEvent
   | MirrorWardEvent
   | Spindled
-  | Tethered;
+  | Tethered
+  | DiscordRose
+  | FortissimoCancelled
+  | EnemyCued
+  | SilenceBegan
+  | SilenceNote
+  | Reignited
+  | SilenceBroken;
 
 export type SimEventType = SimEvent['type'];
 export type SimEventOf<T extends SimEventType> = Extract<SimEvent, { type: T }>;

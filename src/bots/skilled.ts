@@ -115,10 +115,11 @@ export interface SkilledOptions {
   /** Seconds before answering a hero's call (human reaction). */
   callReaction: number;
   /**
-   * Verb ablation (tools/verbs.ts, docs/phase-5c.md): Movement III rules to leave off. Absent,
-   * every rule plays, so the default options object is unchanged.
+   * Verb ablation (tools/verbs.ts, docs/phase-5c.md): Movement III rules (and the Finale's,
+   * docs/phase-5d.md) to leave off. Absent, every rule plays, so the default options object is
+   * unchanged.
    */
-  skip?: ReadonlySet<M3Rule>;
+  skip?: ReadonlySet<M3Rule | FinaleRule>;
 }
 
 /**
@@ -165,6 +166,30 @@ export const M3_RULES = [
   'needles',
 ] as const;
 export type M3Rule = (typeof M3_RULES)[number];
+
+/**
+ * The Skilled bot's Finale rules (docs/phase-5d.md, "Bots and harness"), each one a name
+ * `SkilledOptions.skip` can turn off. W4 plays them; each is gated on its mechanic.
+ */
+export const FINALE_RULES = [
+  /** Focus (or interrupt) the Cued soloist. */
+  'cueFocus',
+  /** Bank Resonance for the Crescendo as Discord climbs. */
+  'bankCrescendo',
+  /** Cancel Fortissimo Silence with the Crescendo. */
+  'crescendoCancel',
+  /** Without a Crescendo: dome, Ward, Bear, Rally and Mend through Fortissimo Silence. */
+  'fortissimoGuard',
+  /** The Grand Silence's notes: a Perfect Ward a cycle, a Clutch Chime, a Reel-save. */
+  'silenceWard',
+  'silenceChime',
+  'silenceReel',
+  /** Keep the Thread on the hero the silence's next blow is aimed at. */
+  'silenceThread',
+  /** Cue the reignited Solos (after Reignite or the Coda). */
+  'reigniteCue',
+] as const;
+export type FinaleRule = (typeof FINALE_RULES)[number];
 
 /**
  * Focus Movement III's targets only once no more than this many enemies stand (the

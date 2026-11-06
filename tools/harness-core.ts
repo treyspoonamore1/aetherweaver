@@ -1,6 +1,13 @@
 /** Plays one encounter with a bot, headlessly. Shared by the harness CLI and tests. */
 import { buildOutcome } from '../src/app/outcome';
-import { CONTENT, callingOption, enemyDef, movementDef, runEventDef } from '../src/content';
+import {
+  CONTENT,
+  callingOption,
+  enemyDef,
+  isFieldMovement,
+  movementDef,
+  runEventDef,
+} from '../src/content';
 import { makeBot, type BotKind } from '../src/bots';
 import type { ReliquaryRelic } from '../src/meta/reliquary';
 import * as Run from '../src/meta/run';
@@ -64,7 +71,68 @@ export interface EncounterRun {
   brann?: BrannTally;
   /** Movement III's verbs (docs/phase-5c.md, "Harness"); absent outside a Movement III fight. */
   m3?: VerbTally3Result;
+  /** The Finale's verbs (docs/phase-5d.md, "Harness"); absent outside the Conductor's fight. */
+  finale?: FinaleTally;
 }
+
+/** What made a Grand Silence note (the sim's `NoteSource`). */
+type NoteFrom = 'perfect' | 'clutch' | 'reel' | 'rewind';
+/** The mirror-choir's voices, by enemy def id (crucibleIds.ts). */
+type Voice = 'mirror_alto' | 'mirror_bass' | 'mirror_tenor' | 'mirror_soprano';
+
+/**
+ * How the Finale's verbs went in the Conductor's fight (docs/phase-5d.md, "Harness"). W5 tallies
+ * it; times are seconds and a mean is null when there was nothing to average.
+ */
+export interface FinaleTally {
+  /** Discord fed by failed telegraphs: the boss's own, and the Solos'. */
+  discordFed: { boss: number; solo: number };
+  /** Fortissimo Silences begun; cancelled (by the Weaver's Calling); survived; downs within 4 s. */
+  fortissimoCast: number;
+  cancelled: Record<string, number>;
+  survived: number;
+  fortissimoDowns: number;
+  /** Cues; Cues whose Solo couldn't begin; Solos interrupted; Solos answered (by answer). */
+  cues: number;
+  cuesFailed: number;
+  cuesInterrupted: number;
+  cuesAnswered: Record<string, number>;
+  /** Solos begun, by voice. */
+  solosBegun: Record<Voice, number>;
+  /** Seconds in the Grand Silence; its notes by source. */
+  silenceTime: number;
+  notes: Record<NoteFrom, number>;
+  /** How it ended: eight notes (Reignite) or the cap (the Coda). */
+  reignited: boolean;
+  silenceBroken: boolean;
+  /** Heroes Reignite stood back up. */
+  revived: number;
+  /** Seconds from the silence's start to Reignite (null without one). */
+  timeToReignite: number | null;
+  /** Damage the party took while stilled. */
+  damageWhileStilled: number;
+}
+
+/** The keys of a `FinaleTally`, in order (the harness tests pin them). */
+export const VERB_TALLY4_KEYS: readonly (keyof FinaleTally)[] = [
+  'discordFed',
+  'fortissimoCast',
+  'cancelled',
+  'survived',
+  'fortissimoDowns',
+  'cues',
+  'cuesFailed',
+  'cuesInterrupted',
+  'cuesAnswered',
+  'solosBegun',
+  'silenceTime',
+  'notes',
+  'reignited',
+  'silenceBroken',
+  'revived',
+  'timeToReignite',
+  'damageWhileStilled',
+];
 
 /** What cut the Thread (`threadSnapped.cause`), and a cut telegraph's verdict (`cutResolved`). */
 type CutCause = 'shears' | 'severing' | 'snip' | 'unpick';
@@ -366,6 +434,8 @@ const MAX_SECONDS = 9 * 60;
  */
 export function movementEncounters(movement: number): string[] {
   const def = movementDef(movement);
+  // The Finale (docs/phase-5d.md) has no pools: its one fight is its boss.
+  if (!isFieldMovement(def)) return [def.boss];
   const all = [
     def.opening,
     ...(def.lessons ?? []),

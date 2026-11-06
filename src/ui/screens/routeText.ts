@@ -119,6 +119,7 @@ const BIOME_TONE: Readonly<Record<Biome, BackdropTone | undefined>> = {
   reliquary: undefined,
   crimson_spire: 'crimson',
   abyssal_rift: 'abyss',
+  celestial_crucible: 'crucible',
 };
 
 /** Each biome as a place, mid-sentence ("the Abyssal Rift"), as the meta's Vharun node says it. */
@@ -126,6 +127,7 @@ const BIOME_PLACE: Readonly<Record<Biome, string>> = {
   reliquary: 'the Reliquary',
   crimson_spire: 'the Crimson Spire',
   abyssal_rift: 'the Abyssal Rift',
+  celestial_crucible: 'the Celestial Crucible',
 };
 
 /** Movement `n`'s biome as a place, mid-sentence: "the Abyssal Rift". */
@@ -163,6 +165,12 @@ const CARD_LOOK: Readonly<Record<Biome, MovementCardLook>> = {
     eyebrow: 'text-indigo-200/80',
     glow: '0 0 36px rgb(76 70 170 / 0.65), 0 3px 0 rgb(0 0 0 / 0.55)',
     button: 'Descend',
+  },
+  // The Finale (docs/phase-5d.md): a placeholder W8 styles.
+  celestial_crucible: {
+    eyebrow: 'text-slate-100/80',
+    glow: '0 0 36px rgb(226 232 255 / 0.5), 0 3px 0 rgb(0 0 0 / 0.55)',
+    button: 'Ascend',
   },
 };
 

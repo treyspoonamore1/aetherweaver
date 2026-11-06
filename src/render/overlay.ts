@@ -36,6 +36,9 @@ const ICONS: Record<GlyphIcon, string> = {
   // (`threadCut` in ui/kit/iconPaths.ts), so the badge over a hero and the HUD's answer agree.
   thread:
     '<path d="M9.5 14.5l5-5 M8 11l-1.7 1.7a3.5 3.5 0 0 0 5 5L13 16 M16 13l1.7-1.7a3.5 3.5 0 0 0-5-5L11 8 M4 4l4 4 M16 16l4 4"/>',
+  // The Finale (docs/phase-5d.md): the Crescendo key's sunburst (`sun` in ui/kit/iconPaths.ts).
+  crescendo:
+    '<path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z M12 2.5v2.5 M12 19v2.5 M2.5 12H5 M19 12h2.5 M5.3 5.3l1.8 1.8 M16.9 16.9l1.8 1.8 M18.7 5.3l-1.8 1.8 M7.1 16.9l-1.8 1.8"/>',
   unknown:
     '<path d="M8.6 8.4a3.5 3.5 0 1 1 5.2 3.1c-1.1.6-1.8 1.4-1.8 2.6v.7"/><circle cx="12" cy="18.9" r="1.25" fill="currentColor" stroke="none"/>',
 };
@@ -52,6 +55,7 @@ const ICON_COLORS: Record<GlyphIcon, string> = {
   mend: '#99f6e4',
   empower: '#fde68a',
   thread: '#e2e8f0',
+  crescendo: '#ffe9a8',
   unknown: DISSONANCE_HEX.blind,
 };
 
@@ -67,6 +71,7 @@ const LABELS: Record<GlyphIcon, string> = {
   mend: 'Mend',
   empower: 'Empower',
   thread: 'Retarget',
+  crescendo: 'Crescendo',
   unknown: 'Blind',
 };
 

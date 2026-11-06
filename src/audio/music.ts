@@ -87,6 +87,11 @@ export interface MusicInputs {
   stolen?: boolean;
   /** Phase 5c: Unravel is up (`field.unravel`): the Rift's melody mirrors about D. Read only there. */
   unravel?: boolean;
+  /**
+   * Phase 5d: the Grand Silence (`field.finale.silence`): `on` while it holds, and the notes the
+   * Weaver has played (0-8). Absent: no silence, and the mix is as before.
+   */
+  silence?: { on: boolean; notes: number };
 }
 
 export interface MusicSnapshot {
@@ -114,7 +119,8 @@ interface Targets extends Record<StemName, number> {
   top: boolean;
 }
 
-type StingerKind = 'victory' | 'defeat' | 'phase';
+/** Phase 5d: `finale`, the Finale's victory (W7 voices it; until then it plays as a phase). */
+type StingerKind = 'victory' | 'defeat' | 'phase' | 'finale';
 
 const LOOKAHEAD = 0.4;
 

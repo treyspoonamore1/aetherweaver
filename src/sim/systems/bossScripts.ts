@@ -46,6 +46,17 @@ export interface BossScript {
   stasis?(world: World, dt: number): void;
   /** The encounter ended: delete everything the script created (director.ts). */
   cleanup?(world: World): void;
+  /**
+   * The Finale (docs/phase-5d.md Q1): a telegraph whose attack has `discord` resolved, and
+   * whether it failed (failed victims reached its `discordQuorum`). `boss` is the standing boss
+   * (null once it has fallen). Called through the installer in telegraphs.ts.
+   */
+  telegraphVerdict?(world: World, boss: Entity | null, t: Telegraph, failed: boolean): void;
+  /**
+   * The Finale (Q4): the Weaver's Crescendo (any Calling's) just began, called once, right after
+   * its flags are set (techniques.ts), so Stasis reaches it synchronously.
+   */
+  crescendo?(world: World): void;
 }
 
 /** The registry: Movement III's Seamstress and Unweaver (unstitchedBosses.ts); the Finale's next. */

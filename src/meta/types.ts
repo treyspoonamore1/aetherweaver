@@ -515,7 +515,8 @@ export interface RunState {
   scenes: string[];
   /**
    * How many Movements the run plays (docs/phase-5a.md, docs/phase-5c.md): 1 for the Prelude,
-   * `CONTENT.movements.length` (EXPEDITION_MOVEMENTS) for an Expedition. Saves from before
+   * `CONTENT.movements.length` (EXPEDITION_MOVEMENTS) for an Expedition (whose route, once it
+   * ends in the Finale, plays the Finale's shorter road: `routeDefs`, docs/phase-5d.md). Saves from before
    * Movements load as 1. An Expedition saved with 2 keeps 2 (its map is saved whole, so Vharun
    * stays final), unless it is still in Prep: resuming redraws it at the current length.
    */

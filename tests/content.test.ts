@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { CONTENT } from '../src/content';
 import { EffectBundleSchema } from '../src/content/effects';
-import { ContentSchema } from '../src/content/schema';
+import { ContentSchema, isFieldMovement, type FinaleMovementDef } from '../src/content/schema';
 import { stealVerseDecree } from '../src/content/unstitched';
 import { KNOWN_ALT_SOLOS, KNOWN_TALENTS } from '../src/sim/bonds';
 import { KNOWN_MOTIFS } from '../src/sim/mods';
@@ -347,7 +347,10 @@ describe('content lint: Movements (docs/phase-5a.md)', () => {
 
   it("every Movement's pools, mini-boss and boss resolve", () => {
     rejects((c) => void (c.movements[0]!.boss = 'nowhere'), /references unknown "nowhere"/);
-    rejects((c) => void (c.movements[0]!.elites = ['tolling_halls']), /is a skirmish/);
+    rejects((c) => {
+      const m = c.movements[0]!;
+      if (isFieldMovement(m)) m.elites = ['tolling_halls'];
+    }, /is a skirmish/);
     rejects((c) => void (c.movements[0]!.scale = { life: 2, damage: 1 }), /scale \{1, 1\}/);
   });
 
@@ -804,5 +807,166 @@ describe('effect vocabulary', () => {
       EffectBundleSchema.safeParse({ stats: [{ stat: 'threadPotency', bucket: 'mega', value: 1 }] })
         .success,
     ).toBe(false);
+  });
+});
+
+describe('content lint: the Finale (docs/phase-5d.md)', () => {
+  type Mutable = typeof CONTENT;
+  /** A synthetic Finale, appended: a Movement-4 copy of the Unweaver's fight, and the plan's road. */
+  const withFinale = (c: Mutable): FinaleMovementDef => {
+    const unweaver = c.encounters.find((e) => e.id === 'the_unweaver')!;
+    c.encounters.push({ ...structuredClone(unweaver), id: 'test_conductor', movement: 4 });
+    const finale: FinaleMovementDef = {
+      id: 'test_finale',
+      name: 'The Finale',
+      mapTitle: 'The Celestial Crucible',
+      label: 'The Finale',
+      biome: 'celestial_crucible',
+      rows: [['boss']],
+      fixed: [{ row: 0, encounter: 'test_conductor' }],
+      boss: 'test_conductor',
+      scale: { life: 1.85, damage: 1.05 },
+      rewards: { xp: 1.5, starlight: 1.5, aether: 1.5 },
+      finale: true,
+      road: [
+        {
+          movement: 'hollow_choir',
+          rows: [
+            ['skirmish'],
+            ['skirmish', 'skirmish', 'event'],
+            ['elite', 'skirmish', 'skirmish'],
+            ['miniboss'],
+            ['respite', 'merchant', 'forge'],
+            ['boss'],
+          ],
+          fixed: [
+            { row: 0, encounter: 'first_light' },
+            { row: 3, encounter: 'bellwarden' },
+            { row: 5, encounter: 'hollow_cantor' },
+          ],
+          threat: [0, 3, 5, 7, 8, 9],
+          callingRows: [0, 2, 3, 5],
+        },
+        {
+          movement: 'crimson_legion',
+          rows: [
+            ['skirmish'],
+            ['skirmish', 'skirmish'],
+            ['skirmish', 'elite', 'event'],
+            ['miniboss'],
+            ['respite', 'merchant', 'forge'],
+            ['boss'],
+          ],
+          fixed: [
+            { row: 0, encounter: 'crimson_gate' },
+            { row: 3, encounter: 'gorehound_matriarch' },
+            { row: 5, encounter: 'vharun' },
+          ],
+          threat: [0, 1, 2, 4, 5, 6],
+          shuffle: true,
+        },
+      ],
+    };
+    c.movements.push(finale);
+    return finale;
+  };
+  const issues = (edit: (c: Mutable) => void): string => {
+    const c = structuredClone(CONTENT);
+    edit(c);
+    const parsed = ContentSchema.safeParse(c);
+    return parsed.success ? '' : parsed.error.issues.map((i) => i.message).join('\n');
+  };
+  const rejects = (edit: (c: Mutable) => void, message: RegExp) =>
+    expect(issues(edit)).toMatch(message);
+  const attack = (c: Mutable, id: string) => c.attacks.find((a) => a.id === id)!;
+
+  it('registers nothing yet: no Finale def among the Movements', () => {
+    expect(CONTENT.movements.every((m) => isFieldMovement(m))).toBe(true);
+    expect(CONTENT.movements.map((m) => m.id)).toEqual([
+      'hollow_choir',
+      'crimson_legion',
+      'unstitched',
+    ]);
+  });
+
+  it('a boss-only finale with the plan’s road passes; a field Movement refuses its keys', () => {
+    expect(issues((c) => void withFinale(c))).toBe('');
+    // A field Movement can't carry a road or the finale flag (the strict union refuses both).
+    expect(issues((c) => void ((c.movements[0] as { road?: unknown }).road = []))).not.toBe('');
+    expect(issues((c) => void ((c.movements[1] as { finale?: unknown }).finale = true))).not.toBe(
+      '',
+    );
+  });
+
+  it('discord sits only on the Finale’s attacks, discordQuorum only beside it', () => {
+    rejects(
+      (c) => void (attack(c, 'unweaver_spindles').discord = 8),
+      /"unweaver_spindles": discord belongs to Movement 4's attacks/,
+    );
+    rejects((c) => {
+      const a = c.attacks.find((x) => x.kind === 'cleave')!;
+      a.discord = 8;
+      a.discordQuorum = 2;
+    }, /discord belongs to Movement 4's attacks/);
+    rejects(
+      (c) => void (c.attacks.find((x) => x.kind === 'cleave')!.discordQuorum = 2),
+      /a discordQuorum needs discord/,
+    );
+    rejects(
+      (c) => void attack(c, 'unweaver_spindles').answers.push('crescendo'),
+      /an attack the Crescendo answers is a raid/,
+    );
+  });
+
+  it('the finale is last, one row, its boss fixed on row 0', () => {
+    rejects((c) => {
+      const f = withFinale(c);
+      c.movements.splice(c.movements.indexOf(f), 1);
+      c.movements.splice(1, 0, f);
+    }, /"test_finale": a finale is the last Movement/);
+    rejects((c) => void (withFinale(c).rows = [['skirmish'], ['boss']]), /one row, its boss/);
+    rejects(
+      (c) => void (withFinale(c).fixed = [{ row: 0, encounter: 'the_unweaver' }]),
+      /fixes its boss on row 0/,
+    );
+  });
+
+  it('every road variant names an earlier field Movement and passes its lint', () => {
+    rejects(
+      (c) => void (withFinale(c).road[0]!.movement = 'nowhere'),
+      /road "nowhere" names no earlier field Movement/,
+    );
+    rejects(
+      (c) => void (withFinale(c).road[0]!.threat = [0, 3, 5]),
+      /road "hollow_choir": a threat row for each of its 6 rows/,
+    );
+    rejects(
+      (c) => void (withFinale(c).road[0]!.threat[5] = 10),
+      /threat row 10 is past the Movement's last/,
+    );
+    rejects(
+      (c) => void (withFinale(c).road[0]!.callingRows = [0, 2, 3]),
+      /callingRows has one row per Calling tier \(4\)/,
+    );
+    rejects(
+      (c) => void (withFinale(c).road[0]!.callingRows = [0, 1, 3, 5]),
+      /calling row 1 is not a row of fights/,
+    );
+    rejects(
+      (c) => void (withFinale(c).road[1]!.callingRows = [0, 2, 3, 5]),
+      /only Movement I's road carries callingRows/,
+    );
+    rejects(
+      (c) => void (withFinale(c).road[0]!.fixed[0]!.encounter = 'tolling_halls'),
+      /row 0 is fixed to its opening/,
+    );
+    rejects(
+      (c) => void (withFinale(c).road[1]!.rows[1] = ['skirmish', 'event']),
+      /no row of 2 skirmishes for its lessons/,
+    );
+    rejects(
+      (c) => void withFinale(c).road[1]!.rows.push(['respite']),
+      /road "crimson_legion": its last row is its boss/,
+    );
   });
 });

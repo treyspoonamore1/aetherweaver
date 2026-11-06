@@ -695,6 +695,12 @@ export interface DamageResult {
   martyred: boolean;
   /** This hit's Save is already logged (Martyr's Veil, the Martyr's Bear or Vow). */
   saved: boolean;
+  /**
+   * The Finale (docs/phase-5d.md Q2): what Bear, Shared Wounds or the Vow sent to the Weaver
+   * from this hit. Set only when above 0 and while `world.internal.m4` exists, so no legacy
+   * result ever carries the key.
+   */
+  borne?: number;
 }
 
 const NO_DAMAGE: DamageResult = {

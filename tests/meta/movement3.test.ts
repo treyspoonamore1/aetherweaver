@@ -6,7 +6,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { useRun } from '../../src/app/runStore';
 import { storage } from '../../src/app/storage';
-import { CONTENT, encounterDef, runEventDef, type MovementDef } from '../../src/content';
+import { CONTENT, encounterDef, runEventDef, type AnyMovementDef } from '../../src/content';
 import { deedHolds } from '../../src/meta/deeds';
 import { tearsFor } from '../../src/meta/dissonance';
 import { INTERLUDE_AETHER, RELIC_OFFERS, threatFor } from '../../src/meta/economy';
@@ -455,7 +455,7 @@ describe('the Finale hook: generateMapFrom', () => {
 
   it('a synthetic 4th Movement makes the Unweaver an interlude', () => {
     const m3 = CONTENT.movements[2]!;
-    const finale: MovementDef = { ...m3, id: 'synthetic_finale', name: 'A Synthetic Finale' };
+    const finale: AnyMovementDef = { ...m3, id: 'synthetic_finale', name: 'A Synthetic Finale' };
     for (const seed of SEEDS.slice(0, 10)) {
       const map = Run.generateMapFrom(seed, [...CONTENT.movements, finale]);
       const three = Run.generateMap(seed, 3);

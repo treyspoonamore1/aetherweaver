@@ -97,7 +97,7 @@ export interface ArenaMood {
  * How an arena's air is dressed: Reliquary god rays and dust, Spire torch cards and embers, or
  * the Abyssal Rift's tears and frays (Movement III, docs/phase-5c.md).
  */
-export type ArenaLook = 'warm' | 'cool' | 'crimson' | 'abyss';
+export type ArenaLook = 'warm' | 'cool' | 'crimson' | 'abyss' | 'crucible';
 
 /**
  * The look each biome dresses its arenas in (docs/phase-5c.md: tables, not if-chains, so the
@@ -169,6 +169,19 @@ const MOODS: Record<ArenaLook, MoodRow> = {
     rimIntensity: ABYSS_MOOD.rimIntensity,
     fogNear: 34,
     fogFar: 80,
+  },
+  // The Celestial Crucible (docs/phase-5d.md): a placeholder W6 tunes. A deep night-navy sky, a
+  // warm-white key no brighter than the Reliquary's, a pale prismatic rim (≤ 0.45). No biome
+  // dresses in it until BIOME_LOOK gains its row.
+  crucible: {
+    sky: '#1b2142',
+    hemi: 0.5,
+    key: '#fbeedd',
+    keyIntensity: 1.7,
+    rim: '#c9d3f5',
+    rimIntensity: 0.4,
+    fogNear: 40,
+    fogFar: 90,
   },
 };
 
