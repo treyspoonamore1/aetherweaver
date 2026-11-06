@@ -60,6 +60,8 @@ interface PhaseDef {
   cooldownMult?: number;
   /** The only specials the generic picker may use in the phase. */
   specials?: string[];
+  /** The Finale: the decree's text when the Weaver's Reel slot casts Rewind (the Chronomancer). */
+  rewindText?: string;
   /** Summon counts by attack id in the phase (e.g. Pack Call's 4 hounds in Blood Frenzy). */
   summonCount?: Record<string, number>;
 }
@@ -153,6 +155,7 @@ const PHASES: Record<string, PhaseDef[]> = {
     {
       at: 0.25,
       decree: { name: 'Grand Silence', text: CONDUCTOR_DECREES.grandSilence },
+      rewindText: CONDUCTOR_DECREES.grandSilenceRewind,
       answers: ['ward', 'chime', 'reel'],
       specials: [],
     },
@@ -400,7 +403,11 @@ function enterPhase(world: World, boss: Entity, phase: number, def: PhaseDef): v
       tick: world.tick,
       boss: boss.id,
       name: def.decree.name,
-      text: def.decree.text,
+      // The Grand Silence in a Chronomancer's own words (docs/phase-5d.md Q8).
+      text:
+        def.rewindText !== undefined && world.mods.rewindSeconds > 0
+          ? def.rewindText
+          : def.decree.text,
       // A Movement II phase names its own answers (Blood Frenzy's Chime and Focus).
       answers: def.answers ? [...def.answers] : ['stack', 'move'],
     });

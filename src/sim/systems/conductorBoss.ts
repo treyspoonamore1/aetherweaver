@@ -56,6 +56,8 @@ import {
   SFORZANDO,
   SILENCE_CAP,
   SOLOS,
+  SOPRANO,
+  TENOR,
 } from '../../content/crucibleIds';
 import type { AttackDef } from '../../content/schema';
 import { SIM_DT } from '../constants';
@@ -87,6 +89,10 @@ type M4 = NonNullable<World['internal']['m4']>;
 const RAISE_MAX = 2;
 /** The voices the Overture Raises, in order; the Mirror Choir Raises the whole `CHOIR`. */
 const OVERTURE_VOICES = [ALTO, BASS] as const;
+/** The voices the Mirror Choir's entry Raise brings, whatever the cap (docs/phase-5d.md). */
+const MIRROR_VOICES = [TENOR, SOPRANO] as const;
+/** A Rewind makes at most one note this often (s; docs/phase-5d.md Q8). */
+const REWIND_NOTE_EVERY = 18;
 /** Every voice of the mirror-choir. */
 const VOICES: ReadonlySet<string> = new Set(CHOIR);
 /** Every Solo a voice sings. */
@@ -96,6 +102,13 @@ const PROGRAM: ReadonlySet<string> = new Set([REST, MEASURE, FINAL_CADENCE, HALF
 const FORTISSIMO_IDS: ReadonlySet<string> = new Set(FORTISSIMO);
 /** The silence keeps the boss untouchable and its melee held at least this far ahead (s). */
 const SILENCE_HOLD = 0.5;
+/** Reignite's barks, one per party hero as they unfreeze (docs/phase-5d.md, "Eight notes"). */
+const REIGNITE_BARKS: Readonly<Record<string, string>> = {
+  kael: 'Still needed.',
+  lyra: 'You had my back.',
+  vexis: 'It… resolves.',
+  brann: 'A pain I can sing to.',
+};
 /** Reignite's beat of slow motion (the Crescendo's). */
 const REIGNITE_SCALE = 0.5;
 const REIGNITE_TICKS = 12;
@@ -118,6 +131,7 @@ const CLOCKS = [
   'nextCadenceAt',
   'nextDownbeatAt',
   'nextSforzandoAt',
+  'nextRewindNoteAt',
 ] as const;
 
 // ── The registry's entry ─────────────────────────────────────────────────────────────
@@ -442,9 +456,18 @@ function choirCap(boss: Entity): number {
   return boss.enemy!.phase >= 2 ? CHOIR_CAP.choir : CHOIR_CAP.overture;
 }
 
-/** The voices the next Raise would bring: missing ones in the phase's order, under the cap. */
+/**
+ * The voices the next Raise would bring: missing ones in the phase's order, under the cap. Phase
+ * 2's entry Raise brings the Tenor and the Soprano whatever the cap (the doc's "a Raise is cast at
+ * once and brings the Tenor and Soprano"): with the Alto and the Bass still standing, the choir
+ * is briefly four, and later Raises wait until it is under three.
+ */
 function raiseVoices(world: World, boss: Entity): string[] {
   const present = voicesPresent(world);
+  if (world.internal.m4?.choirRaise) {
+    const mirror = MIRROR_VOICES.filter((id) => !present.has(id));
+    if (mirror.length > 0) return mirror;
+  }
   let n = voicesStanding(world).length;
   for (const p of world.internal.pendingSpawns) if (VOICES.has(p.defId)) n++;
   const room = Math.min(RAISE_MAX, choirCap(boss) - n);
@@ -468,6 +491,7 @@ function beginRaise(world: World, boss: Entity, m4: M4): boolean {
  */
 function raise(world: World, boss: Entity): void {
   const voices = raiseVoices(world, boss);
+  delete world.internal.m4?.choirRaise;
   const p = { x: 0, z: 0 };
   voices.forEach((defId, i) => {
     ringPoint(world, boss.x, boss.z, CHOIR_RING, i, voices.length, p);
@@ -613,9 +637,11 @@ function conductorEnter(world: World, boss: Entity, phase: number): void {
       if (f.discord) f.discord.value = DISCORD_MAX;
     }
     m4.nextCueAt = Math.min(m4.nextCueAt ?? Infinity, shiftEnd(world) + CUE_RETRY);
-    // The Raise is cast now, through the shift (the next is due a cooldown on); with the choir
-    // full it waits for room on its own clock.
-    beginRaise(world, boss, m4);
+    // The Raise is cast now, through the shift (the next is due a cooldown on), and brings the
+    // Tenor and the Soprano whatever the cap. If it can't begin now, it is due as the shift ends.
+    m4.choirRaise = true;
+    if (!beginRaise(world, boss, m4))
+      m4.nextRaiseAt = Math.min(m4.nextRaiseAt ?? Infinity, shiftEnd(world));
   } else if (phase === 3) {
     if (f.fortissimo || m4.queued) {
       cancelFortissimo(world, boss);
@@ -627,6 +653,7 @@ function conductorEnter(world: World, boss: Entity, phase: number): void {
     delete m4.queued;
     delete m4.nextCueAt;
     delete m4.nextRaiseAt;
+    delete m4.choirRaise;
     delete m4.cuedAt;
     shatterChoir(world);
     beginGrandSilence(world, boss);
@@ -820,7 +847,7 @@ function measureTarget(world: World, boss: Entity): Entity | null {
 /**
  * The notes since the last count, from the ledger: each new Perfect, each new clutch Chime, each
  * new Reel-save, and a Rewind that restored life or cancelled a tracked silence telegraph (at
- * most one a Rewind). Each fills every stilled hero's Solo a share; the eighth Reignites. No
+ * most one a Rewind, and one per `REWIND_NOTE_EVERY` s). Each fills every stilled hero's Solo a share; the eighth Reignites. No
  * Weaver (`config.absent`), no notes.
  */
 function countNotes(world: World, boss: Entity, f: FinaleField, m4: M4): void {
@@ -852,9 +879,17 @@ function countNotes(world: World, boss: Entity, f: FinaleField, m4: M4): void {
       });
     for (const save of l.saves.slice(seen.saves))
       if (save.cause === 'reel') notes.push({ source: 'reel', hero: save.hero });
+    // A Rewind that undid a blow, at most one per `REWIND_NOTE_EVERY` s (Temporal Mastery and
+    // Quick Rosin can bring Rewind back sooner).
     const rewinds = marks.filter((m) => m.kind === 'rewind').length;
-    if (rewinds > 0 && (l.calling.rewound > seen.rewound + 1e-9 || cancelled > 0))
+    if (
+      rewinds > 0 &&
+      (l.calling.rewound > seen.rewound + 1e-9 || cancelled > 0) &&
+      (m4.nextRewindNoteAt === undefined || due(world, m4.nextRewindNoteAt))
+    ) {
       notes.push({ source: 'rewind', hero: null });
+      m4.nextRewindNoteAt = world.time + REWIND_NOTE_EVERY;
+    }
   }
   snapshot(world, m4);
   for (const note of notes) {
@@ -910,6 +945,13 @@ function reignite(world: World, boss: Entity, f: FinaleField, m4: M4): void {
   }
   delete f.silence;
   world.events.push({ type: 'reignited', tick: world.tick, boss: boss.id, revived });
+  // Each standing hero speaks as they unfreeze: a fixed line, no draw.
+  for (const e of partyHeroes(world)) {
+    const line = REIGNITE_BARKS[e.hero!.defId];
+    if (!isActive(e) || line === undefined) continue;
+    e.hero!.lastBarkAt = world.time;
+    world.events.push({ type: 'bark', tick: world.tick, speaker: e.id, line });
+  }
   setTimeScale(world, REIGNITE_SCALE, REIGNITE_TICKS, 'crescendo');
   beginBurn(world, m4);
 }
@@ -953,6 +995,7 @@ function endProgram(world: World, boss: Entity, m4: M4): void {
   delete m4.nextCadenceAt;
   delete m4.cycle;
   delete m4.seen;
+  delete m4.nextRewindNoteAt;
   boss.health!.invulnerable = 0;
 }
 

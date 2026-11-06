@@ -171,6 +171,19 @@ describe('the registry and the phase table', () => {
     expect(decree.text).toBe(CONDUCTOR_DECREES.grandSilence);
     expect(decree.answers).toEqual(['ward', 'chime', 'reel']);
   });
+
+  it('a Chronomancer hears the Grand Silence in her own words at its entry, and again', () => {
+    const { sim } = conductor({ calling: { id: 'chronomancer', path: [] } });
+    cross(sim, 0.55);
+    const three = cross(sim, 0.2);
+    const entry = ofType(three, 'decree').filter((d) => d.name === 'Grand Silence');
+    expect(entry.map((d) => d.text)).toEqual([CONDUCTOR_DECREES.grandSilenceRewind]);
+    expect(entry[0]!.answers).toEqual(['ward', 'chime', 'reel']);
+    const after = stepUntil(sim, (ev) => ev.some((e) => e.type === 'silenceBegan'), 60 * 5);
+    next(sim, MEASURE, 60 * 10, after);
+    const again = ofType(after, 'decree').filter((d) => d.name === 'Grand Silence');
+    expect(again.map((d) => d.text)).toEqual([CONDUCTOR_DECREES.grandSilenceRewind]);
+  });
 });
 
 describe('the Raise', () => {
@@ -203,6 +216,62 @@ describe('the Raise', () => {
     // The Overture's cap is 2: no Raise while both stand.
     const later = watch(sim, 25);
     expect(later[RAISE]).toBeUndefined();
+  });
+});
+
+describe('the Mirror Choir’s Raise', () => {
+  /** The Overture's Alto and Bass standing (and the heroes through Fortissimo Silence). */
+  function choir() {
+    const c = conductor({}, { untouchable: true });
+    quiet(c.boss);
+    next(c.sim, RAISE);
+    stepUntil(c.sim, () => voices(c.w).length === 2, 60 * 5);
+    stepFor(c.sim, 30);
+    for (const v of voices(c.w)) v.health!.hp = v.health!.maxHp = 1e7;
+    return c;
+  }
+
+  it('is cast at once and brings the Tenor and the Soprano, though the Alto and Bass stand', () => {
+    const { sim, w } = choir();
+    expect(voices(w).map((e) => e.enemy!.defId)).toEqual([ALTO, BASS]);
+    const events = cross(sim, 0.55);
+    expect(w.internal.m4!.choirRaise).toBe(true);
+    const raise = w.telegraphs.find((t) => t.attackId === RAISE)!;
+    expect(raise).toBeDefined();
+    events.push(
+      ...stepUntil(
+        sim,
+        (ev) => ev.some((e) => e.type === 'telegraphEnded' && e.telegraph === raise.id),
+        300,
+      ),
+    );
+    expect(w.internal.pendingSpawns.map((p) => p.defId)).toEqual([TENOR, SOPRANO]);
+    expect(w.internal.m4!.choirRaise).toBeUndefined();
+    stepFor(sim, 61);
+    for (const v of voices(w)) v.health!.hp = v.health!.maxHp = 1e7;
+    expect(
+      voices(w)
+        .map((e) => e.enemy!.defId)
+        .sort(),
+    ).toEqual([ALTO, BASS, SOPRANO, TENOR]);
+    // Four is over the cap of 3: no Raise while three or more stand.
+    expect(watch(sim, 22)[RAISE]).toBeUndefined();
+    killEnemy(w, voices(w, ALTO)[0]!, null);
+    expect(watch(sim, 22)[RAISE]).toBeUndefined();
+    // Under the cap, the next Raise brings the missing voice.
+    killEnemy(w, voices(w, BASS)[0]!, null);
+    const again = next(sim, RAISE, 60 * 25);
+    stepUntil(sim, () => !w.telegraphs.some((t) => t.id === again.id), 300);
+    expect(w.internal.pendingSpawns.map((p) => p.defId)).toEqual([ALTO]);
+  });
+
+  it('with one Overture voice fallen, it still brings both: the choir is three', () => {
+    const { sim, w } = choir();
+    killEnemy(w, voices(w, ALTO)[0]!, null);
+    cross(sim, 0.55);
+    const raise = w.telegraphs.find((t) => t.attackId === RAISE)!;
+    stepUntil(sim, () => !w.telegraphs.some((t) => t.id === raise.id), 300);
+    expect(w.internal.pendingSpawns.map((p) => p.defId)).toEqual([TENOR, SOPRANO]);
   });
 });
 
@@ -571,6 +640,30 @@ describe('the Grand Silence', () => {
     expect(m4.seen!.saves).toBe(l.saves.length);
   });
 
+  it('a Rewind makes at most one note per 18 s (Temporal Mastery and Quick Rosin can’t beat it)', () => {
+    const { sim, w } = conductor({}, { untouchable: true });
+    silence(sim);
+    const l = w.ledger;
+    const rewind = () => {
+      l.markers.push({ time: 0, kind: 'rewind', slot: 0 });
+      l.calling.rewound += 50;
+      return ofType(stepFor(sim, 1), 'silenceNote').map((n) => n.source);
+    };
+    const first = w.time;
+    expect(rewind()).toEqual(['rewind']);
+    near(w.internal.m4!.nextRewindNoteAt!, first + 18, 1);
+    // Glide, then Rewind again inside 10 s: it restores life, but no second note.
+    stepFor(sim, 60 * 9);
+    expect(rewind()).toEqual([]);
+    stepUntil(sim, () => w.time >= first + 17.5, 60 * 10);
+    expect(rewind()).toEqual([]);
+    // Once 18 s have passed, a Rewind that undoes a blow is a note again; other notes never wait.
+    stepUntil(sim, () => w.time >= first + 18, 60 * 2);
+    l.perfects++;
+    expect(rewind()).toEqual(['perfect', 'rewind']);
+    expect(w.field.finale!.silence!.notes).toBe(3);
+  });
+
   it('a real Perfect Ward on the Measure and a real clutch Chime on the Rest are notes', () => {
     const { sim, w } = conductor();
     silence(sim);
@@ -636,6 +729,18 @@ describe('the Grand Silence', () => {
     expect(ofType(events, 'silenceNote')).toHaveLength(8);
     const re = ofType(events, 'reignited');
     expect(re).toEqual([expect.objectContaining({ boss: boss.id, revived: [lyra.id] })]);
+    // Each party hero barks as they unfreeze, a fixed line, after Reignite (the downed Lyra too,
+    // stood up: her revive's own bark comes before it).
+    const lines: Record<string, string> = {
+      kael: 'Still needed.',
+      lyra: 'You had my back.',
+      vexis: 'It… resolves.',
+      brann: 'A pain I can sing to.',
+    };
+    const after = events.slice(events.findIndex((e) => e.type === 'reignited'));
+    expect(ofType(after, 'bark').map((b) => [b.speaker, b.line])).toEqual(
+      w.party.map((id) => [id, lines[w.entities.get(id)!.hero!.defId]]),
+    );
     expect(lyra.health!.downed).toBe(false);
     expect(lyra.health!.hp).toBe(Math.round(lyra.health!.maxHp * 0.3));
     for (const id of w.party) {

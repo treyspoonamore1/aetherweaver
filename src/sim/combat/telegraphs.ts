@@ -404,7 +404,7 @@ function spared(world: World, telegraph: number, hero: number): boolean {
  * One victim's hit. Returns true when a Severing check is owed but deferred: the blow landed, its
  * owner carries affixes, and the attack is a cut, whose verdict must come first (`resolve`).
  * `verdict` (the Finale's, docs/phase-5d.md Q1) is given only for an attack with `discord`: a
- * hero who took damage nobody answered is counted in `failed`. Nothing else reads it.
+ * victim (a hero or the Weaver) who took damage nobody answered is counted in `failed`.
  */
 function hitEntity(
   world: World,
@@ -469,7 +469,7 @@ function hitEntity(
     kind: t.shape.kind === 'mark' ? 'detonation' : 'hit',
   });
   if (mark !== null) removeStatus(world, e, mark, 'detonated');
-  if (verdict && e.hero && failedVictim(world, e, result)) verdict.failed++;
+  if (verdict && (e.hero || e.weaver) && failedVictim(world, e, result)) verdict.failed++;
 
   let outcome: 'hit' | 'warded' | 'absorbed' = 'hit';
   if (result.dealt <= 0 && result.absorbed > 0)
@@ -514,11 +514,13 @@ function hitEntity(
 }
 
 /**
- * The Finale's victim table (docs/phase-5d.md, "The verdict, victim by victim"): a hero fails
- * when damage landed (`dealt > 0`) and nothing answered it: no Weaver shield took part (a partial
- * Ward, the dome), the Martyr bore none of it (`borne`), no save caught it (the Lamb, the Vow's
- * floor), Oathkeeper or the sphere didn't take it (`takenBy`), Fermata isn't holding them, and they
- * aren't in a live Aegis Link. Fermata's guard alone answers nothing: an aura isn't an answer.
+ * The Finale's victim table (docs/phase-5d.md, "The verdict, victim by victim"): a victim (a hero,
+ * or the Weaver caught in a ground shape) fails when damage landed (`dealt > 0`) and nothing
+ * answered it: no Weaver shield or Ward barrier took part (a partial Ward, the dome, her Swap
+ * barrier), the Martyr bore none of it (`borne`), no save caught it (the Lamb, the Vow's floor),
+ * Oathkeeper or the sphere didn't take it (`takenBy`), Fermata isn't holding them, and they aren't
+ * in a live Aegis Link (the Weaver once a Perfect brought her in). Fermata's guard alone answers
+ * nothing: an aura isn't an answer.
  */
 function failedVictim(
   world: World,
@@ -526,16 +528,19 @@ function failedVictim(
   result: {
     dealt: number;
     absorbedByWeaver: number;
+    absorbedByWard: number;
     borne?: number;
     saved: boolean;
     takenBy?: EntityId;
   },
 ): boolean {
   if (result.dealt <= 0) return false;
-  if (result.absorbedByWeaver > 0 || (result.borne ?? 0) > 0 || result.saved) return false;
+  if (result.absorbedByWeaver > 0 || result.absorbedByWard > 0) return false;
+  if ((result.borne ?? 0) > 0 || result.saved) return false;
   if (result.takenBy !== undefined || e.hero?.hold) return false;
   const link = world.internal.link;
-  return !(link && link.until > world.time && (link.a === e.id || link.b === e.id));
+  if (!link || link.until <= world.time) return true;
+  return !(link.a === e.id || link.b === e.id || (link.weaver && e.id === world.weaverId));
 }
 
 function perfect(

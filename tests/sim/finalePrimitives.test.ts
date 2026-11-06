@@ -308,6 +308,48 @@ describe('the verdict, victim by victim', () => {
     expect(fed(land(paradox.sim, t4), t4)).toBe(0);
   });
 
+  it('the Weaver caught in a circle is a victim too; her Swap barrier or a Link answers it', () => {
+    /** A Bass circle at the Weaver's feet, far from every hero. */
+    const circle = (s: ReturnType<typeof stage>) => {
+      const weaver = s.w.entities.get(s.w.weaverId)!;
+      weaver.x = 12;
+      weaver.z = 12;
+      for (const id of s.w.party) {
+        const e = s.w.entities.get(id)!;
+        expect(Math.hypot(e.x - weaver.x, e.z - weaver.z)).toBeGreaterThan(3);
+      }
+      return {
+        weaver,
+        t: strike(s.w, s.boss, BASSO_OSTINATO, { on: weaver, shape: 'circle', damage: 60 }),
+      };
+    };
+    const bare = stage();
+    const b = circle(bare);
+    const e1 = land(bare.sim, b.t);
+    expect(ofType(e1, 'damageTaken').find((d) => d.target === b.weaver.id)!.amount).toBe(60);
+    expect(fed(e1, b.t)).toBe(attackDef(BASSO_OSTINATO).discord);
+
+    // Swap's barrier is a plain Ward, not the Weaver's support: it still answers.
+    const swap = stage();
+    const s = circle(swap);
+    addShield(swap.w, s.weaver, 'ward', 20, 5, false);
+    const e2 = land(swap.sim, s.t);
+    expect(ofType(e2, 'damageTaken').find((d) => d.target === s.weaver.id)!.amount).toBe(40);
+    expect(fed(e2, s.t)).toBe(0);
+
+    // An Aegis Link a Perfect brought her into shares it.
+    const link = stage();
+    const l = circle(link);
+    link.w.internal.link = {
+      a: at(link.w, LYRA).id,
+      b: at(link.w, VEXIS).id,
+      weaver: true,
+      appliedAt: link.w.time - 5,
+      until: NEVER,
+    };
+    expect(fed(land(link.sim, l.t), l.t)).toBe(0);
+  });
+
   it('an interrupt or a kill cancels it: no verdict at all', () => {
     for (const end of ['interrupt', 'kill'] as const) {
       const { sim, w } = stage();
