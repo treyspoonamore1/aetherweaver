@@ -101,11 +101,30 @@ import {
   nearestStationary,
   StallWatch,
   mirrorWardCasting,
+  FINALE_BANK_AT,
+  cueOf,
+  discordOf,
+  finaleBurn,
+  fortissimoLive,
+  isFortissimo,
+  isSilenceBlow,
+  isStilled,
+  silenceOf,
   type Circle,
   type BloodView,
+  type CueView,
+  type DiscordView,
   type HeroView,
   type ReadonlyTelegraph,
 } from './common';
+import {
+  BASSO_OSTINATO,
+  CADENZA,
+  FINAL_CADENCE,
+  HALF_CADENCE,
+  LAMENT,
+  MEASURE,
+} from '../content/crucibleIds';
 
 export interface SkilledOptions {
   /** Ticks between decisions (reaction granularity). */
@@ -219,6 +238,34 @@ const CHAMPION_FOCUS_BELOW = 0.5;
 /** The Null Priest: Focused once the pack has thinned. */
 const NULL_PRIEST = 'null_priest';
 
+// ── The Finale's levers (docs/phase-5d.md, "Bots and harness"; measured by tools/verbs.ts) ──
+/** `cueFocus`'s crowd guard: Focus the soloist only while no more than this many enemies stand. */
+const CUE_FOCUS_AT = 4;
+/** `crescendoCancel`: the Crescendo this long after Fortissimo Silence's first pulse begins. */
+const CANCEL_AFTER = 0.3;
+/** `fortissimoGuard`: the dome is Cued once the first pulse is this near (s). */
+const FORTISSIMO_DOME_AT = 1.5;
+/**
+ * `bankCrescendo`: what Resonance a Skilled Weaver earns a second in the Conductor's fight, a
+ * planning estimate. Discord that will reach 100 before a Cue's segment comes back at this rate
+ * holds the Cues (as does Discord at `FINALE_BANK_AT`).
+ */
+const FINALE_RESONANCE_RATE = 2;
+/** `silenceReel`: the Reel goes this many seconds before the Final Cadence lands. */
+const SILENCE_REEL_FROM = 0.4;
+const SILENCE_REEL_TO = 0.6;
+/** `silenceReel`: a Swap only while the Weaver keeps more than this share of her life. */
+const SWAP_ABOVE = 0.25;
+/** `silenceReel`, the Chronomancer: Rewind a hero who lost this share of their life in its reach. */
+const REWIND_UNDO_AT = 0.3;
+/** `silenceReel`, with Paradox: Rewind the Final Cadence's target once it lands within this. */
+const PARADOX_WITHIN = 1;
+/** The Measure's and the Cadence's windups at default assists (docs/phase-5d.md), and the gap
+ * from the Measure's impact to the Cadence's begin: the next Final Cadence is foreseen by them. */
+const MEASURE_WINDUP = CONTENT.attacks.find((a) => a.id === MEASURE)?.windup ?? 2;
+const CADENCE_WINDUP = CONTENT.attacks.find((a) => a.id === FINAL_CADENCE)?.windup ?? 2.5;
+const CADENCE_AFTER = 0.5;
+
 /** Focus a guarded Sentinel once no more than this many enemies stand (the pack first). */
 const SENTINEL_FOCUS_AT = 3;
 
@@ -246,6 +293,11 @@ export class SkilledBot implements Bot {
   private mawHeldAt = 0;
   /** Movement III: times a party stalled on a stationary enemy out of reach (`focusStationary`). */
   private readonly stall = new StallWatch();
+  /**
+   * The Finale: the last Cadence of the Grand Silence seen (by telegraph id), so the next one is
+   * known to be the other (Final, Half, Final…). Null outside the silence.
+   */
+  private lastCadence: { id: number; final: boolean } | null = null;
 
   constructor(
     seed: number,
@@ -284,6 +336,18 @@ export class SkilledBot implements Bot {
     // Inside a Null rune the sim refuses Ward, Chime and Reel: none is cast (or counted) there.
     const silenced = weaverSilenced(state);
     const cut = this.on('cut') ? cutAnswer(state, party, w, now) : null;
+
+    // The Finale (docs/phase-5d.md): each is null or false outside the Silent Conductor's fight.
+    const discord = discordOf(state);
+    const fortissimo = fortissimoLive(state);
+    const silence = silenceOf(state);
+    const cue = cueOf(state);
+    const burn = finaleBurn(state);
+    const crescendoReady = wc.resonance >= CONTENT.resonance.crescendoCost && wc.crescendo <= 0;
+    /** Fortissimo Silence with no Crescendo to cancel it: dome, Ward, Bear, Rally and Mend. */
+    const guardFortissimo = fortissimo !== null && !crescendoReady && this.on('fortissimoGuard');
+    if (silence) this.seeCadence(state);
+    else this.lastCadence = null;
 
     // ── Movement: cover the party with the field, stay out of danger, keep off melee. ──
     const desired = this.position(state, w, party, enemies);
@@ -353,7 +417,15 @@ export class SkilledBot implements Bot {
     const wardPossess = this.on('wardPossess');
 
     // ── Ward: Perfect timing on incoming hits; emergency shields otherwise. ──
-    if (!silenced && wc.wardCharges > 0 && affords(state, 'ward')) {
+    const wardReady = !silenced && wc.wardCharges > 0 && affords(state, 'ward');
+    if (wardReady && silence && this.on('silenceWard')) {
+      // The Grand Silence (docs/phase-5d.md): the one Ward a cycle, planned and Perfect (a note).
+      const pick = this.silenceWard(state, party, w, now);
+      if (pick && this.notice()) {
+        out.push({ t: 'tech', id: 'ward', slot: pick.slot });
+        acted = true;
+      }
+    } else if (wardReady) {
       const window = tech.ward.perfectWindow;
       // Brann (docs/phase-5b.md): his Perfect due within 1.5 s holds the last charge for him.
       const holdFor = blood ? brannPerfectDue(state, blood, w) : false;
@@ -365,6 +437,14 @@ export class SkilledBot implements Bot {
           if (left > window - 0.06 || left < 0.04) continue;
           const dmg = damageOf(t, h.e);
           const lethal = dmg >= h.e.health!.hp + shieldOf(h.e);
+          // Fortissimo Silence with no Crescendo (the Finale): the lowest of the party first,
+          // whatever the pulse's size; a Ward that already answers it isn't replaced.
+          if (guardFortissimo && isFortissimo(t)) {
+            if (wardCovers(h.e, t, dmg, lethal)) continue;
+            const score = (lethal ? 2e6 : 0) + (1 - effectiveFraction(h.e)) * 1e4;
+            if (!best || score > best.score) best = { slot: h.slot, score };
+            continue;
+          }
           // An Execution is small but lethal below its line: Ward it whatever its size. So is a
           // possession's mark (Movement III): a full Ward blocks it.
           if (
@@ -425,7 +505,17 @@ export class SkilledBot implements Bot {
     }
 
     // ── Chime: cleanse marks late (clutch), or anyone silenced/stunned. ──
-    if (!acted && !silenced && wc.cooldowns.chime <= 0 && affords(state, 'chime')) {
+    if (silence && this.on('silenceChime')) {
+      // The Grand Silence (docs/phase-5d.md): only the clutch on a Rest's Dirge (a note), and
+      // first, whatever else this decision did; never an early Chime the next Rest would miss.
+      if (!silenced && wc.cooldowns.chime <= 0 && affords(state, 'chime')) {
+        const pick = party.find((h) => clutchDue(h.e) && dist(h.e, w) < tech.chime.range);
+        if (pick && this.notice()) {
+          out.push({ t: 'tech', id: 'chime', point: { x: pick.e.x, z: pick.e.z } });
+          acted = true;
+        }
+      }
+    } else if (!acted && !silenced && wc.cooldowns.chime <= 0 && affords(state, 'chime')) {
       let pick: HeroView | null = null;
       let clutch = false;
       for (const h of party) {
@@ -482,7 +572,12 @@ export class SkilledBot implements Bot {
     if (state.calling?.rewind) {
       if (!acted && !silenced && wc.cooldowns.reel <= 0 && affords(state, 'reel')) {
         // Movement III: else a hero an Inhale dragged in, back to where they stood (null without).
+        // The Grand Silence first (docs/phase-5d.md): undo a blow, or with Paradox cancel the
+        // Final Cadence (her Reel-save note). Null outside it.
         const pick =
+          (silence && this.on('silenceReel')
+            ? silenceRewind(state, party, w, tech.reel.range)
+            : null) ??
           rewindPick(state, all, w, tech.reel.range) ??
           (this.on('maw') ? pulledIn(state, party, w, tech.reel.range) : null);
         if (pick && this.notice()) out.push({ t: 'tech', id: 'reel', slot: pick.slot });
@@ -518,8 +613,18 @@ export class SkilledBot implements Bot {
       }
       // With no dome, the Reel waits for Twin Cleave's second blow on Brann.
       const reserve = !!blood && !acted && twinCleaveOn(state, blood);
+      // The Grand Silence (docs/phase-5d.md): the Reel is kept for the Final Cadence's save (a
+      // note), never spent on a lesser blow the plain loop below would answer.
+      const silenceLoop = silence !== null && this.on('silenceReel');
+      if (silenceLoop && !acted && !reserve) {
+        const pick = silenceReelPick(state, party, w, tech.reel.range, now);
+        if (pick && this.notice()) {
+          out.push({ t: 'tech', id: 'reel', slot: pick.slot });
+          acted = true;
+        }
+      }
       // ── Reel: pull a hero out of a big hit they won't escape (beams, rings). ──
-      for (const h of acted || reserve ? [] : party) {
+      for (const h of acted || reserve || silenceLoop ? [] : party) {
         if (h.e.hero!.action === 'dodging' || h.e.hero!.reel) continue;
         if (dist(h.e, w) > tech.reel.range - 0.3) continue;
         const t = threatsOn(state, h.e).find(
@@ -620,6 +725,24 @@ export class SkilledBot implements Bot {
         threadTo = lowest;
       } else threadTo = current;
     }
+    // ── The Finale (docs/phase-5d.md): while the heroes are stilled, and through Fortissimo
+    // Silence with no Crescendo, Mend (never Empower) whoever needs it most: the hero the next
+    // blow is aimed at reads lowest. A hold, an Execution and a revive keep the Thread. ──
+    if (
+      ((silence && this.on('silenceThread')) || guardFortissimo) &&
+      !holding &&
+      !condemned &&
+      downed.length === 0 &&
+      party.length > 0
+    ) {
+      const need = (h: HeroView) => (blood ? mendNeed(h, blood) : effectiveFraction(h.e));
+      const lowest = [...party].sort((a, b) => need(a) - need(b))[0]!;
+      const current = party.find((h) => h.slot === wc.threadSlot);
+      // The same hysteresis as the plain Thread, so it doesn't swing between two hurt heroes.
+      threadTo =
+        current && need(current) < need(lowest) + 0.12 && need(current) <= 0.92 ? current : lowest;
+      mend = true;
+    }
     // ── Movement III (docs/phase-5c.md): each step leaves the pick alone without its mechanic. ──
     // Severing: not the hero beside the elite, unless they're the only one hurt.
     if (threadTo && !holding && !condemned && downed.length === 0 && this.on('severing'))
@@ -653,7 +776,10 @@ export class SkilledBot implements Bot {
         const he = bearFor.e.health!;
         const me = w.health!;
         const through = Math.max(0, damageOf(t, bearFor.e) - shieldOf(bearFor.e));
-        if (through > he.hp * 0.6 && through * share < me.hp - me.maxHp * 0.3) want = 'bear';
+        // Fortissimo Silence with no Crescendo (the Finale): Bear every pulse on the lowest.
+        const pulse = guardFortissimo && isFortissimo(t) && through > 0;
+        if ((through > he.hp * 0.6 || pulse) && through * share < me.hp - me.maxHp * 0.3)
+          want = 'bear';
       }
     }
     // Movement III: Unravel turns Mend to wounds, so Empower through it (the Martyr's Bear too);
@@ -673,10 +799,27 @@ export class SkilledBot implements Bot {
     const segment = state.dissonance.cueCost;
     const raid = state.telegraphs.find((t) => t.kind === 'raid');
     const bossFight = state.encounter.bossId !== null;
-    if (wc.resonance >= segment) {
+    const crescendoCost = CONTENT.resonance.crescendoCost;
+    // The Finale (docs/phase-5d.md): Discord will meet Fortissimo Silence before Resonance spent
+    // now could come back, so hold the Cues and the Crescendo for its cancel. False without it.
+    const bank =
+      discord !== null &&
+      fortissimo === null &&
+      this.on('bankCrescendo') &&
+      banking(discord, wc.resonance, segment, crescendoCost);
+    if (wc.resonance >= segment && burn && this.on('reigniteCue')) {
+      // The last burn (after Reignite or the Coda): every ready Solo, damage Solos first.
+      const ready = party.filter(
+        (h) => h.e.hero!.solo >= 100 && h.e.hero!.soloActive <= 0 && !isStilled(h.e),
+      );
+      const pick = ready.find((h) => !GUARDING.has(h.e.hero!.soloId)) ?? ready[0];
+      if (pick) out.push({ t: 'cue', slot: pick.slot });
+    } else if (wc.resonance >= segment) {
       for (const h of party) {
         const c = h.e.hero!;
         if (c.solo < 100 || c.soloActive > 0) continue;
+        // Stilled by the Grand Silence: a Cue is refused (never so outside the Finale).
+        if (isStilled(h.e)) continue;
         let go: boolean;
         // A Solo that guards the party waits for a raid or a big hit; one that deals damage, a pack.
         if (blood && c.soloId === RED_FRENZY && h.slot === blood.hero.slot) {
@@ -698,13 +841,27 @@ export class SkilledBot implements Bot {
           go = enemies.length >= 4 || bossFight;
           if (bossFight && raid) go = false;
         }
-        // Save one segment for the Requiem dome in boss phase 3.
+        // The Finale: banking, no damage Cue, and a dome only if a full song remains after it;
+        // Fortissimo Silence with no Crescendo, the dome before its first pulse.
+        if (bank)
+          go = GUARDING.has(c.soloId) && go && wc.resonance - segment >= crescendoCost - 1e-9;
+        if (
+          guardFortissimo &&
+          fortissimo !== null &&
+          GUARDING.has(c.soloId) &&
+          fortissimo.pulse === 1 &&
+          fortissimo.impact - now < FORTISSIMO_DOME_AT
+        )
+          go = true;
+        // Save one segment for the Requiem dome in boss phase 3 (in the Finale's phases 1-2 it
+        // yields to `bankCrescendo`, which keeps a whole song instead).
         if (
           go &&
           !GUARDING.has(c.soloId) &&
           bossFight &&
           wc.resonance < segment * 2 &&
-          this.guardReady(party)
+          this.guardReady(party) &&
+          !(discord !== null && this.on('bankCrescendo'))
         )
           go = false;
         if (go) {
@@ -713,7 +870,16 @@ export class SkilledBot implements Bot {
         }
       }
     }
-    if (wc.resonance >= CONTENT.resonance.crescendoCost && wc.crescendo <= 0) {
+    if (crescendoReady && fortissimo && this.on('crescendoCancel')) {
+      // Fortissimo Silence (the Finale): any Calling's Crescendo cancels it, a breath after the
+      // first pulse begins (or at once, on a later pulse).
+      if (
+        fortissimo.pulse > 1 ||
+        fortissimo.start === null ||
+        now >= fortissimo.start + CANCEL_AFTER
+      )
+        out.push({ t: 'crescendo' });
+    } else if (wc.resonance >= CONTENT.resonance.crescendoCost && wc.crescendo <= 0 && !bank) {
       // Brann sits low on purpose: he's left out of the party's average.
       const counted =
         blood && party.length > 1 ? party.filter((h) => h.slot !== blood.hero.slot) : party;
@@ -764,6 +930,18 @@ export class SkilledBot implements Bot {
       }
     }
 
+    // Fortissimo Silence with no Crescendo (the Finale): Rally the party into her reach, so her
+    // Ward finds whoever is lowest in each pulse's window.
+    if (
+      guardFortissimo &&
+      !out.some((c) => c.t === 'directive') &&
+      now - this.lastRally > gap(2) &&
+      party.some((h) => dist(h.e, w) > tech.ward.range - 0.3)
+    ) {
+      out.push({ t: 'directive', kind: 'rally' });
+      this.lastRally = now;
+    }
+
     // Movement III: Hold for a Bloodlusting Brann in an Inhale, and let go of it after.
     if (this.on('mawHold')) this.mawHold(state, w, blood, now, out);
 
@@ -775,6 +953,8 @@ export class SkilledBot implements Bot {
     if (now - this.lastFocus > 4 || nextSpindle) {
       const caster =
         enemies.find((e) => e.enemy!.cast?.interruptible) ??
+        // The Finale's Cued soloist (docs/phase-5d.md): undefined without a live Cue.
+        this.cueFocusTarget(state, enemies, w, cue) ??
         // Movement III's targets (docs/phase-5c.md): undefined unless one is on the field.
         this.m3FocusTarget(state, enemies, stalled) ??
         // A Mute. A Silencing elite carries a Mute's field too, but it waits for its own
@@ -789,12 +969,15 @@ export class SkilledBot implements Bot {
         out.push({ t: 'directive', kind: 'focus', target: caster.id });
         this.lastFocus = now;
       }
-    } else if (this.on('focusMirrorWard')) {
+    } else {
       // The Unweaver's Mirror Ward (Movement III) is 2 s: it can't wait out the 4 s between
-      // Focuses. Null with no Mirror Ward cast.
-      const boss = mirrorWardCasting(enemies);
-      if (boss && state.focusTarget !== boss.id) {
-        out.push({ t: 'directive', kind: 'focus', target: boss.id });
+      // Focuses. Null with no Mirror Ward cast. Nor can a Cued soloist in the Finale (its Cue and
+      // Solo take 3.7 s): undefined without a live Cue.
+      const pick =
+        (this.on('focusMirrorWard') ? mirrorWardCasting(enemies) : null) ??
+        this.cueFocusTarget(state, enemies, w, cue);
+      if (pick && state.focusTarget !== pick.id) {
+        out.push({ t: 'directive', kind: 'focus', target: pick.id });
         this.lastFocus = now;
       }
     }
@@ -895,9 +1078,107 @@ export class SkilledBot implements Bot {
     return out;
   }
 
-  /** A Movement III rule plays unless the ablation skips it (tools/verbs.ts). */
-  private on(rule: M3Rule): boolean {
+  /** A Movement III (or Finale) rule plays unless the ablation skips it (tools/verbs.ts). */
+  private on(rule: M3Rule | FinaleRule): boolean {
     return this.opts.skip?.has(rule) !== true;
+  }
+
+  // ── The Finale (docs/phase-5d.md, "Bots and harness"): read only with its mechanic up ──
+
+  /** Notes the Grand Silence's latest Cadence, so the next one is known to be the other. */
+  private seeCadence(state: WorldState): void {
+    for (const t of state.telegraphs) {
+      if (t.attackId !== FINAL_CADENCE && t.attackId !== HALF_CADENCE) continue;
+      if (this.lastCadence && t.id <= this.lastCadence.id) continue;
+      this.lastCadence = { id: t.id, final: t.attackId === FINAL_CADENCE };
+    }
+  }
+
+  /**
+   * `silenceWard`: the Grand Silence's one Ward a cycle, in its Perfect window (a note). It goes
+   * on the Final Cadence when the Reel won't take it, else on the Measure; never on a Rest (the
+   * Chime's clutch); on the Half Cadence when a charge is left for it. The 15% filter and the
+   * big-hit reserve don't apply to the program's blows. With two charges nothing is kept back.
+   */
+  private silenceWard(
+    state: WorldState,
+    party: readonly HeroView[],
+    w: ReadonlyEntity,
+    now: number,
+  ): HeroView | null {
+    const wc = w.weaver!;
+    const range = CONTENT.techniques.ward.range - 0.3;
+    let best: { h: HeroView; score: number } | null = null;
+    for (const h of party) {
+      if (dist(h.e, w) > range) continue;
+      for (const t of threatsOn(state, h.e)) {
+        const left = t.impact - now;
+        // Its own Perfect window (the Chronomancer's wider one included).
+        if (now < t.perfectFrom + 0.06 || left < 0.04) continue;
+        const dmg = damageOf(t, h.e);
+        const lethal = dmg >= h.e.health!.hp + shieldOf(h.e);
+        if (wardCovers(h.e, t, dmg, lethal)) continue;
+        if (!isSilenceBlow(t)) {
+          // Anything else still live: the usual filter.
+          if (!lethal && dmg < h.e.health!.maxHp * 0.15) continue;
+        } else if (t.kind === 'mark') continue;
+        else if (t.attackId === FINAL_CADENCE && this.reelTakes(state, w, t.impact)) continue;
+        else if (t.attackId === MEASURE && wc.wardCharges < 2 && this.cadenceWantsWard(state, w, t))
+          continue;
+        const score = dmg + (lethal ? 5000 : 0);
+        if (!best || score > best.score) best = { h, score };
+      }
+    }
+    return best?.h ?? null;
+  }
+
+  /**
+   * The Ward is kept off this Measure: the cycle's Cadence will be the Final (the program
+   * alternates, opening on one) and the Reel won't be ready to take it.
+   */
+  private cadenceWantsWard(
+    state: WorldState,
+    w: ReadonlyEntity,
+    measure: ReadonlyTelegraph,
+  ): boolean {
+    if (this.lastCadence !== null && this.lastCadence.final) return false;
+    // Every windup multiplier stretches the program in proportion (docs/phase-5d.md).
+    const k = (measure.impact - measure.start) / MEASURE_WINDUP;
+    const impact = measure.impact + (CADENCE_AFTER + CADENCE_WINDUP) * k;
+    return !this.reelTakes(state, w, impact);
+  }
+
+  /**
+   * `silenceReel` will take a Final Cadence landing at `impact`: a Reel (never Anchor; Swap only
+   * above 25% of her life) or, with Paradox, the Chronomancer's Rewind, ready by its moment.
+   */
+  private reelTakes(state: WorldState, w: ReadonlyEntity, impact: number): boolean {
+    if (!this.on('silenceReel') || weaverSilenced(state)) return false;
+    const wc = w.weaver!;
+    const rewind = !!state.calling?.rewind;
+    if (rewind) {
+      if (!state.mods.paradox) return false;
+    } else if (wc.variants.reel === 'anchor') return false;
+    else if (wc.variants.reel === 'swap' && w.health!.hp <= w.health!.maxHp * SWAP_ABOVE)
+      return false;
+    const by = impact - state.time - (rewind ? 0.15 : SILENCE_REEL_FROM);
+    return wc.cooldowns.reel <= by && affords(state, 'reel');
+  }
+
+  /**
+   * `cueFocus`: the Cued soloist, while a Cue (or its Solo) is live, no technique that answers
+   * its Solo will be ready, and no more than `CUE_FOCUS_AT` enemies stand. Undefined otherwise.
+   */
+  private cueFocusTarget(
+    state: WorldState,
+    enemies: readonly ReadonlyEntity[],
+    w: ReadonlyEntity,
+    cue: CueView | null,
+  ): ReadonlyEntity | undefined {
+    if (!cue || !this.on('cueFocus') || enemies.length > CUE_FOCUS_AT) return undefined;
+    const e = enemies.find((x) => x.id === cue.soloist);
+    if (!e || soloAnswerReady(state, w, cue)) return undefined;
+    return e;
   }
 
   /**
@@ -1634,4 +1915,123 @@ function brannThread(
   if (!current || need(lowest) < need(current) - 0.12 || need(current) > 0.92)
     return { to: lowest, mend: true };
   return { to: current, mend: true };
+}
+
+// ── The Finale (docs/phase-5d.md, "Bots and harness"): read only with its mechanic up ─────
+
+/** A Dirge on `e` the Chime would cleanse inside its clutch window (its last second). */
+function clutchDue(e: ReadonlyEntity): boolean {
+  const chime = CONTENT.techniques.chime;
+  const dirge = statusRemaining(e, 'dirge');
+  const flight = chime.flight + 0.1;
+  return dirge !== Infinity && dirge < chime.clutchWindow + flight - 0.05 && dirge > flight;
+}
+
+/**
+ * `bankCrescendo`: Discord at `FINALE_BANK_AT`, or due at 100 before the segment a Cue would
+ * spend could come back at `FINALE_RESONANCE_RATE` with the song still to fill.
+ */
+function banking(d: DiscordView, resonance: number, segment: number, cost: number): boolean {
+  if (d.value >= FINALE_BANK_AT) return true;
+  const short = cost - Math.max(0, resonance - segment);
+  return d.eta <= short / FINALE_RESONANCE_RATE;
+}
+
+/**
+ * `cueFocus`: a technique that answers the Cued Solo will be ready before it lands: a Chime for
+ * Lament (its clutch), a Ward for Basso Ostinato, a Reel (or Rewind; never Anchor) for the
+ * Cadenza. Shatter Aria has none (Scatter, or the Focus).
+ */
+function soloAnswerReady(state: WorldState, w: ReadonlyEntity, cue: CueView): boolean {
+  if (weaverSilenced(state)) return false;
+  const wc = w.weaver!;
+  const left = cue.impact - state.time;
+  if (cue.solo === LAMENT)
+    return (
+      wc.cooldowns.chime <= left - CONTENT.techniques.chime.clutchWindow - 0.2 &&
+      affords(state, 'chime')
+    );
+  if (cue.solo === BASSO_OSTINATO)
+    return (wc.wardCharges > 0 || wc.cooldowns.ward <= left - 0.4) && affords(state, 'ward');
+  if (cue.solo === CADENZA)
+    return (
+      wc.variants.reel !== 'anchor' && wc.cooldowns.reel <= left - 0.7 && affords(state, 'reel')
+    );
+  return false;
+}
+
+/**
+ * `silenceReel`: the hero to Reel out of a Grand Silence blow 0.4-0.6 s before it lands, unless
+ * a Ward holds for it: the Final Cadence's target (its save is the note), else one a lesser blow
+ * would kill. Never with Anchor; a Swap only while the Weaver keeps 25% of her life. A mark (the
+ * Rest) follows the hero, so isn't Reeled from. Null with none.
+ */
+function silenceReelPick(
+  state: WorldState,
+  party: readonly HeroView[],
+  w: ReadonlyEntity,
+  range: number,
+  now: number,
+): HeroView | null {
+  const wc = w.weaver!;
+  if (wc.variants.reel === 'anchor') return null;
+  if (wc.variants.reel === 'swap' && w.health!.hp <= w.health!.maxHp * SWAP_ABOVE) return null;
+  let best: { h: HeroView; score: number } | null = null;
+  for (const h of party) {
+    if (h.e.hero!.reel || dist(h.e, w) > range - 0.3) continue;
+    for (const t of threatsOn(state, h.e)) {
+      if (!isSilenceBlow(t) || t.kind === 'mark') continue;
+      const left = t.impact - now;
+      if (left < SILENCE_REEL_FROM || left > SILENCE_REEL_TO) continue;
+      if (h.e.health!.shields.some((s) => s.kind === 'ward' && s.expiresAt >= t.impact)) continue;
+      const dmg = damageOf(t, h.e);
+      const final = t.attackId === FINAL_CADENCE;
+      if (!final && dmg < h.e.health!.hp + shieldOf(h.e)) continue;
+      const score = (final ? 1e6 : 0) + dmg;
+      if (!best || score > best.score) best = { h, score };
+    }
+  }
+  return best?.h ?? null;
+}
+
+/**
+ * The Chronomancer's Rewind in the Grand Silence, her Reel-save note (docs/phase-5d.md, question
+ * 8): with Paradox, the hero a live Final Cadence is aimed at, within `PARADOX_WITHIN` s of its
+ * landing (it is cancelled); else the hero a blow took `REWIND_UNDO_AT`+ of their life from
+ * within Rewind's reach (it comes back), the most first. A frozen hero can't be stepped out of a
+ * shape (they haven't moved). Null with neither.
+ */
+function silenceRewind(
+  state: WorldState,
+  party: readonly HeroView[],
+  w: ReadonlyEntity,
+  range: number,
+): HeroView | null {
+  const now = state.time;
+  const near = party.filter((h) => dist(h.e, w) <= range - 0.3);
+  if (state.mods.paradox) {
+    for (const h of near) {
+      const aimed = state.telegraphs.some(
+        (t) =>
+          t.attackId === FINAL_CADENCE &&
+          t.target === h.e.id &&
+          t.impact - now <= PARADOX_WITHIN &&
+          t.impact - now > 0.05,
+      );
+      if (aimed) return h;
+    }
+  }
+  let best: HeroView | null = null;
+  let back = 0;
+  for (const h of near) {
+    const past = rewindSample(h.e);
+    if (!past) continue;
+    const hp = h.e.health!;
+    const b = (past.hp - hp.hp) / hp.maxHp;
+    if (b >= REWIND_UNDO_AT && b > back) {
+      best = h;
+      back = b;
+    }
+  }
+  return best;
 }
