@@ -96,7 +96,18 @@ Each Movement so far has attacked something: Movement I the party's health, Move
 - The 1.0 content fill: about 58 motifs, 22 relics and 6 events. It can't enter Movement I and II pools without re-baselining them, so it needs its own slice.
 - An Aether sink (question 5).
 
-## Questions for you (each has a recommended default; the build proceeds on the default)
+## Your answers (2026-11-06)
+
+Questions 1, 2, 3 and 7 were answered as recommended:
+
+1. **The Grand Silence does not act on auras.** It is presentation plus the hero freeze; every aura keeps working.
+2. **The exit clock is the losses-included average** (≤ 40 minutes, stretch 38), with the winning-run median reported beside it (soft ≤ 45) and the 'won Movement III' guard.
+3. **Dissonance opens on the first Finale clear**, at Rank 15 or above. Profiles already open stay open.
+7. **Discord rises with failures and a slow passive swell**, as below.
+
+Questions 4, 5, 6 and 8 take their recommended defaults until you say otherwise.
+
+## Questions (each has a recommended default; the build proceeds on the default)
 
 1. **Does the Grand Silence act on auras?**
    - **Default: no.** 'The music stops' is presentation (stems, the SFX gate, light, the sky orrery, the HUD) plus the hero freeze. Fermata's guard and hold, Sostenuto, Lullaby and Ostinato keep working, and `field.ts` is untouched.
