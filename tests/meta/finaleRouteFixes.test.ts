@@ -12,7 +12,12 @@ import { EVERYTHING, EXPEDITION_MOVEMENTS, UNLOCKS } from '../../src/meta/profil
 import * as Run from '../../src/meta/run';
 import type { RunState } from '../../src/meta/types';
 import type { Allowance } from '../../src/meta/profile';
-import { tierWhen, tierWhenList } from '../../src/ui/screens/callingText';
+import {
+  pathSteps,
+  tierWhen,
+  tierWhenList,
+  type TierPlace,
+} from '../../src/ui/screens/callingText';
 import { dissonanceUnlockLine } from '../../src/ui/screens/dissonanceModel';
 import { movementCard } from '../../src/ui/screens/routeText';
 
@@ -31,6 +36,7 @@ type PickerProps = {
   fresh: ReadonlySet<string>;
   onChoose(id: string | null): void;
   at?: { movements?: number };
+  openPath?: string | null;
 };
 type MapProps = { run: RunState; onChoose(id: string): void; card?: boolean };
 type CodexProps = { open: boolean; rank: number };
@@ -88,6 +94,67 @@ describe('Prep’s Calling copy follows the road', () => {
     );
     for (const at of [undefined, { movements: 1 }, { movements: undefined }, { movements: 3 }])
       expect(await picker(at)).toContain(`${tiers} picks, one of two each, ${PRELUDE_TIERS}.`);
+  });
+});
+
+describe('Prep’s Calling path dialog follows the road (review fix)', () => {
+  const FINALE_WHEN = [
+    'after First Light',
+    'after your fight at step 3',
+    'after the Bellwarden',
+    'after the Hollow Cantor',
+  ];
+  const PRELUDE_WHEN = [
+    'after First Light',
+    'after your fight at step 4',
+    'after your fight at step 6',
+    'after the Bellwarden',
+  ];
+  const blank = (id: string) => ({ id, path: [null, null, null, null] });
+
+  it('pathSteps takes the route as it takes a map', () => {
+    for (const def of CONTENT.callings) {
+      const when = (map?: TierPlace) => pathSteps(blank(def.id), { map }).map((s) => s.when);
+      expect(when({ movements: EXPEDITION_MOVEMENTS })).toEqual(FINALE_WHEN);
+      expect(when(Run.generateMap(5, EXPEDITION_MOVEMENTS))).toEqual(FINALE_WHEN);
+      for (const at of [undefined, { movements: 1 }, { movements: 3 }])
+        expect(when(at)).toEqual(PRELUDE_WHEN);
+    }
+  });
+
+  const dialog = async (at?: { movements?: number }) =>
+    text(
+      renderToStaticMarkup(
+        createElement(
+          await component<PickerProps>('../../src/ui/screens/CallingPicker', 'CallingPicker'),
+          {
+            chosen: null,
+            allowance: EVERYTHING,
+            fresh: new Set<string>(),
+            onChoose: () => {},
+            openPath: CONTENT.callings[0]!.id,
+            ...(at ? { at } : {}),
+          },
+        ),
+      ),
+    );
+  const label = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+  it('the dialog beside the Finale route’s cards gives the same tiers as the cards', async () => {
+    const html = await dialog({ movements: EXPEDITION_MOVEMENTS });
+    expect(html).toContain(`picks, one of two each, ${FINALE_TIERS}.`);
+    for (const [i, w] of FINALE_WHEN.entries())
+      expect(html).toContain(`Tier ${['I', 'II', 'III', 'IV'][i]} ${label(w)}`);
+    expect(html).not.toContain('After your fight at step 4');
+    expect(html).not.toContain('After your fight at step 6');
+  });
+
+  it('the Prelude’s and I-III’s dialog keeps its tiers', async () => {
+    for (const at of [undefined, { movements: 1 }, { movements: 3 }]) {
+      const html = await dialog(at);
+      for (const [i, w] of PRELUDE_WHEN.entries())
+        expect(html).toContain(`Tier ${['I', 'II', 'III', 'IV'][i]} ${label(w)}`);
+    }
   });
 });
 

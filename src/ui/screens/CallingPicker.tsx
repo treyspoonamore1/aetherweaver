@@ -132,6 +132,7 @@ export function CallingPicker({
             }}
             onClose={() => setViewing(null)}
             tiersOpen={mastery?.tiersOpen(shown.id)}
+            at={at}
           />
         </div>
       )}
@@ -313,6 +314,7 @@ function CallingPathDialog({
   onChoose,
   onClose,
   tiersOpen,
+  at,
 }: {
   def: CallingDef;
   open: boolean;
@@ -321,6 +323,8 @@ function CallingPathDialog({
   onClose(): void;
   /** Phase 4g: the tiers a run would offer now (the rest locked by mastery); omitted: all. */
   tiersOpen?: number;
+  /** Phase 5d: the run's route, for when its picks come; omitted: the Prelude's. */
+  at?: TierPlace;
 }) {
   const look = callingLook(def.id);
   const rank = unlockRank('calling', def.id);
@@ -343,7 +347,7 @@ function CallingPathDialog({
           {tiersLine(def.id, tiersOpen, { prep: true })} Playing the {def.name} earns its mastery.
         </p>
       )}
-      <CallingPathPreview def={def} tiersOpen={tiersOpen} />
+      <CallingPathPreview def={def} tiersOpen={tiersOpen} map={at} />
       <div className="mt-5 flex flex-wrap items-center justify-end gap-2">
         {!open && (
           <span className="mr-auto flex items-center gap-1.5 text-sm text-muted">

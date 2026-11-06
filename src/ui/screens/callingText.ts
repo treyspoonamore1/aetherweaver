@@ -380,7 +380,7 @@ export function tierMastery(callingId: string, tier: number): number {
  */
 export function pathSteps(
   calling: RunCalling,
-  opts: { offerTier?: number | null; map?: RunMap; tiersOpen?: number } = {},
+  opts: { offerTier?: number | null; map?: TierPlace; tiersOpen?: number } = {},
 ): PathStep[] {
   const def = callingDef(calling.id);
   const open = opts.tiersOpen ?? calling.tiersOpen ?? def.tiers.length;
