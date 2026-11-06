@@ -87,14 +87,15 @@ export function heroRoster(profile: Pick<Profile, 'recruited'>, all: boolean): s
 
 /**
  * A run's route: the Prelude (Movement I alone) or an Expedition (every Movement in content, in
- * order: I–III now, docs/phase-5c.md).
+ * order: Movements I–III and the Finale now, docs/phase-5d.md).
  */
 export type RunMode = 'prelude' | 'expedition';
 
 /**
- * How many Movements an Expedition plays (docs/phase-5c.md): every Movement in content. Appending
- * a Movement (the Finale) lengthens it with no run-layer edit. Older Expedition saves keep the
- * length they were made with; only a run still in Prep is redrawn (app/runStore.ts).
+ * How many Movements an Expedition plays (docs/phase-5c.md): every Movement in content, the
+ * Finale last (4, docs/phase-5d.md; its route plays the Finale's shorter road through Movements
+ * I and II, `routeDefs`). Older Expedition saves keep the length they were made with; only a run
+ * still in Prep is redrawn (app/runStore.ts).
  */
 export const EXPEDITION_MOVEMENTS = CONTENT.movements.length;
 
@@ -212,18 +213,55 @@ export interface Unlock {
 
 const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'] as const;
 
+/** "The Finale" → "the Finale" (mid-sentence); other names as they are. */
+export function inSentence(name: string): string {
+  return name.startsWith('The ') ? `the ${name.slice(4)}` : name;
+}
+
 /**
- * Where an Expedition climbs past Movement I, derived from content (docs/phase-5c.md): 'Movement
- * II to Vharun, the Crimson Warden' with two Movements, 'Movements II–III to the Unweaver' with
- * three. The last Movement's boss names the end.
+ * Content's Movements `from` to `to`, in words (docs/phase-5d.md): numbered ones as a span
+ * ('Movement II', 'Movements I–III'), a Movement with a `label` by it, mid-sentence ('Movements
+ * I–III and the Finale').
+ */
+export function movementSpan(from: number, to: number): string {
+  const items: string[] = [];
+  let numbered: number[] = [];
+  const numeral = (n: number) => ROMAN[n - 1] ?? String(n);
+  const flush = () => {
+    if (numbered.length === 1) items.push(`Movement ${numeral(numbered[0]!)}`);
+    else if (numbered.length > 1)
+      items.push(`Movements ${numeral(numbered[0]!)}–${numeral(numbered.at(-1)!)}`);
+    numbered = [];
+  };
+  for (let n = from; n <= to; n++) {
+    const label = CONTENT.movements[n - 1]?.label;
+    if (label) {
+      flush();
+      items.push(inSentence(label));
+    } else numbered.push(n);
+  }
+  flush();
+  return items.join(' and ');
+}
+
+/** The boss that ends a route of `n` Movements, mid-sentence: "the Unweaver". */
+export function routeBoss(n: number): string {
+  const last = CONTENT.movements[Math.max(1, Math.min(CONTENT.movements.length, n)) - 1]!;
+  return inSentence(CONTENT.encounters.find((e) => e.id === last.boss)?.name ?? last.name);
+}
+
+/**
+ * Where an Expedition climbs past Movement I, derived from content (docs/phase-5c.md,
+ * docs/phase-5d.md): 'Movement II to Vharun, the Crimson Warden' with two Movements, 'Movements
+ * II–III to the Unweaver' with three, 'Movements II–III and the Finale, to the Silent Conductor'
+ * with the Finale. The last Movement's boss names the end.
  */
 export function expeditionReach(movements = EXPEDITION_MOVEMENTS): string {
   const n = Math.max(2, Math.min(CONTENT.movements.length, movements));
-  const last = CONTENT.movements[n - 1]!;
-  const name = CONTENT.encounters.find((e) => e.id === last.boss)?.name ?? last.name;
-  const boss = name.startsWith('The ') ? `the ${name.slice(4)}` : name;
-  const span = n === 2 ? 'Movement II' : `Movements II–${ROMAN[n - 1] ?? n}`;
-  return `${span} to ${boss}`;
+  const span = movementSpan(2, n);
+  return CONTENT.movements[n - 1]!.label
+    ? `${span}, to ${routeBoss(n)}`
+    : `${span} to ${routeBoss(n)}`;
 }
 
 function aura(rank: number, id: string, text: string): Unlock {
@@ -329,7 +367,7 @@ export const UNLOCKS: readonly Unlock[] = [
     kind: 'dissonance',
     target: 'dissonance',
     name: 'Dissonance',
-    text: 'The endgame: opt-in levels that make the fight harder and pay more, and relics won deeper craft further. Win a run at this Rank or above to open it.',
+    text: `The endgame: opt-in levels that make the fight harder and pay more, and relics won deeper craft further. Opens with your first Finale clear, at Weaver Rank ${CONTENT.dissonanceRules.openRank} or above.`,
   },
 ];
 

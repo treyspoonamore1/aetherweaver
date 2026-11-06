@@ -118,6 +118,8 @@ describe('run and profile stores', () => {
     useRun.getState().newRun(22, 'expedition');
     expect(route()).toBe(EXPEDITION_MOVEMENTS);
     expect(useRun.getState().run!.map).toStrictEqual(Run.generateMap(22, EXPEDITION_MOVEMENTS));
+    // The Finale's route (docs/phase-5d.md): the shorter road, 6 + 6 + 6 + 1 rows.
+    expect(useRun.getState().run!.map.rows).toHaveLength(19);
     // After a run, new runs follow the profile's route (Expeditions, unless Prep says not).
     useProfile.getState().recordRun(false);
     useRun.getState().newRun(23);

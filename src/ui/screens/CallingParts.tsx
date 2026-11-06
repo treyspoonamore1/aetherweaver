@@ -22,6 +22,7 @@ import {
   pathTipLines,
   reviveSpentLine,
   tierWhenLabel,
+  type TierPlace,
 } from './callingText';
 
 /**
@@ -221,7 +222,8 @@ export function CallingPathPreview({
 }: {
   def: CallingDef;
   path?: readonly (string | null)[];
-  map?: RunMap;
+  /** The run's map, or its route (`{ movements }`, Phase 5d) when there is no map yet. */
+  map?: TierPlace;
   columns?: 2 | 4;
   tiersOpen?: number;
 }) {

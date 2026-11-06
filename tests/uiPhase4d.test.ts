@@ -112,9 +112,15 @@ const profile = () => useProfile.getState().profile;
 /** Ends the run in place, its boss won (or lost) with this grade, these relics found. */
 function endRun(won: boolean, grade = 'B', found: OwnedRelic[] = []): void {
   const r = run();
+  // The boss is the Finale's: its clear is what opens Dissonance (docs/phase-5d.md).
   const fights = [
     { kind: 'skirmish', outcome: 'victory', grade: 'B' },
-    { kind: 'boss', outcome: won ? 'victory' : 'defeat', grade },
+    {
+      encounterId: CONTENT.movements.at(-1)!.boss,
+      kind: 'boss',
+      outcome: won ? 'victory' : 'defeat',
+      grade,
+    },
   ] as EncounterResult[];
   useRun.setState({
     run: {
@@ -349,13 +355,14 @@ describe('Prep: the panel’s numbers are the meta’s', () => {
 });
 
 describe('open and closed', () => {
-  it('closed until a win at its Rank, or Skip the unlocks; closed, Prep says how it opens', () => {
+  it('closed until a Finale clear at its Rank, or Skip the unlocks; closed, Prep says how', () => {
     expect(useProfile.getState().dissonanceOpen()).toBe(false);
     const below = closedLines(RULES.openRank - 3);
     expect(below.lead).toContain(`Rank ${RULES.openRank}`);
     expect(below.lead).toContain(`Rank ${RULES.openRank - 3}`);
     expect(below.skip).toContain('Skip the unlocks');
-    expect(closedLines(RULES.openRank + 1).lead).toMatch(/next win/);
+    expect(below.lead).toContain('first Finale clear');
+    expect(closedLines(RULES.openRank + 1).lead).toMatch(/next Finale clear/);
     // Closed, the run in Prep plays none of the choice; Skip the unlocks opens it.
     useProfile.getState().setDissonance([L(CONTENT.dissonance[0]!.id)]);
     useRun.getState().newRun(44);
@@ -432,7 +439,7 @@ describe('the Summary', () => {
     expect(runDissonanceView(run()).opened).toBe(false);
   });
 
-  it('the win at its Rank that opens it has its card, with what Dissonance pays', () => {
+  it('the Finale clear at its Rank that opens it has its card, with what Dissonance pays', () => {
     useProfile.getState().award(RANK_XP[RULES.openRank - 1]!);
     useRun.getState().newRun(47);
     useRun.getState().embark();

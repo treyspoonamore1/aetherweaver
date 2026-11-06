@@ -15,9 +15,10 @@
  * The route (docs/phase-5a.md): by default every run is a Prelude, the calibrated baseline of
  * docs/phase-4h.md. `--route expedition` plays as the game does: the first run is the Prelude,
  * and from Rank 2 (when Expeditions open) every run is an Expedition through every Movement in
- * content (`EXPEDITION_MOVEMENTS`: I-III to the Unweaver, docs/phase-5c.md; `--movements 2` plays
- * the old I-II route); it then splits each run's minutes by Movement and prints the Finale's
- * budget: the 40 modelled minutes the roadmap allows an Expedition, less what I-N take.
+ * content (`EXPEDITION_MOVEMENTS`: I-III and the Finale, to the Silent Conductor,
+ * docs/phase-5d.md; `--movements 3` plays the old I-III route, `--movements 2` the I-II); it then
+ * splits each run's minutes by Movement and prints the Finale's budget: the 40 modelled minutes
+ * the roadmap allows an Expedition, less what I-N take.
  */
 import { CONTENT } from '../src/content';
 import type { BotKind } from '../src/bots';

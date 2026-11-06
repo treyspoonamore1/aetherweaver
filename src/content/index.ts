@@ -6,7 +6,7 @@ import { MOTIFS } from './motifs';
 import { AURAS } from './auras';
 import { ORNAMENTS } from './ornaments';
 import { ASTROLABE } from './astrolabe';
-import { DEEDS } from './deeds';
+import { DEEDS, FINALE_DEEDS } from './deeds';
 import { CALLINGS } from './callings';
 import { BOONS, RELICS } from './relics';
 import { CURSES, INSCRIPTIONS, RELIQUARY } from './reliquary';
@@ -33,7 +33,7 @@ import {
   UNSTITCHED_EVENTS,
 } from './unstitchedRun';
 import { CRUCIBLE_ARENAS, CRUCIBLE_ATTACKS, CRUCIBLE_ENEMIES } from './crucible';
-import { CRUCIBLE_ENCOUNTERS } from './crucibleRun';
+import { CRUCIBLE_ENCOUNTERS, FINALE } from './crucibleRun';
 import { CALLS, CHORUS, CRESCENDO, RESONANCE, TECHNIQUES, THREAD, WEAVER } from './weaver';
 import {
   ContentSchema,
@@ -89,7 +89,7 @@ export const CONTENT: Content = ContentSchema.parse({
   events: [...RUN_EVENTS, ...LEGION_EVENTS, ...UNSTITCHED_EVENTS],
   callings: CALLINGS,
   astrolabe: ASTROLABE,
-  deeds: [...DEEDS, ...LEGION_DEEDS, ...UNSTITCHED_DEEDS],
+  deeds: [...DEEDS, ...LEGION_DEEDS, ...UNSTITCHED_DEEDS, ...FINALE_DEEDS],
   inscriptions: INSCRIPTIONS,
   curses: CURSES,
   reliquary: RELIQUARY,
@@ -110,7 +110,7 @@ export const CONTENT: Content = ContentSchema.parse({
     ...UNSTITCHED_ENCOUNTERS,
     ...CRUCIBLE_ENCOUNTERS,
   ],
-  movements: [...MOVEMENTS, CRIMSON_LEGION, UNSTITCHED],
+  movements: [...MOVEMENTS, CRIMSON_LEGION, UNSTITCHED, FINALE],
   barks: {
     rally: ['On you!', 'Regrouping!', 'Right behind you.'],
     hold: ['Holding here.', 'Standing firm.', 'We wait for your word.'],

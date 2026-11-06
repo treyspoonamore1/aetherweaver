@@ -170,8 +170,9 @@ export const useRun = create<RunStore>()((set, get) => {
       const loaded = loadRun(storage());
       if (!loaded) return false;
       // An Expedition still in Prep, saved when Expeditions were shorter (docs/phase-5c.md), is
-      // drawn again at the current length (Movement I comes out the same). A run past Prep keeps
-      // the map it was saved with, whatever content has added since.
+      // drawn again at the current length: an I-III save becomes the Finale's route, whose
+      // shorter road redraws the whole map (docs/phase-5d.md); its path is empty, so nothing is
+      // lost. A run past Prep keeps the map it was saved with, whatever content has added since.
       const saved =
         loaded.phase === 'prep' && loaded.movements > 1 && loaded.movements < EXPEDITION_MOVEMENTS
           ? Run.setMovements(loaded, EXPEDITION_MOVEMENTS)

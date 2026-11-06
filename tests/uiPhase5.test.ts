@@ -268,11 +268,10 @@ describe('an Expedition’s copy', () => {
   it('Prep, Title, the Route toggle and the Summary name the route and the final boss', () => {
     const prep = withMovementTwo(Run.newRun(7));
     expect(prepEyebrow(prep)).toBe('The Expedition · Movements I–II');
-    // Derived from content (docs/phase-5c.md): an Expedition is every Movement, I–III now; a
-    // 2-Movement count still reads as it did.
-    expect(titleEyebrow(true)).toBe(
-      `Movements I–${EXPEDITION_MOVEMENTS === 3 ? 'III' : 'II'} · The Expedition`,
-    );
+    // Derived from content (docs/phase-5c.md, docs/phase-5d.md): an Expedition is every
+    // Movement, the Finale by its label; a 2-Movement count still reads as it did.
+    expect(EXPEDITION_MOVEMENTS).toBe(4);
+    expect(titleEyebrow(true)).toBe('Movements I–III and the Finale · The Expedition');
     expect(titleEyebrow(true, 2)).toBe('Movements I–II · The Expedition');
     expect(routeOptions().map((o) => o.label)).toEqual([
       'Prelude · ~15 min',
@@ -421,6 +420,10 @@ describe('the Codex and the Loom by sightings', () => {
       CONTENT.deeds.filter((d) => d.hero === undefined && movementOf(d.encounter) <= 2),
     );
     expect(deedsInSight([...seen, 'sanguine_hound', 'shears'])).toEqual(
+      CONTENT.deeds.filter((d) => d.hero === undefined && movementOf(d.encounter) <= 3),
+    );
+    // …and the Finale's for the Crucible (docs/phase-5d.md).
+    expect(deedsInSight([...seen, 'sanguine_hound', 'shears', 'the_silent_conductor'])).toEqual(
       CONTENT.deeds.filter((d) => d.hero === undefined),
     );
     expect(sightedMovement()).toBe(CONTENT.movements.length);
