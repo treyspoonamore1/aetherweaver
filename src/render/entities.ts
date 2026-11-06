@@ -1325,13 +1325,15 @@ export class EntityLayer {
 
     // Fermata hold: a freeze-frame. The pose stops mid-motion until the hold resolves.
     // The Finale's Grand Silence: a stilled hero takes the same freeze-frame, without its tremor
-    // or Fermata's lavender rim (read only in a Finale fight).
+    // or Fermata's lavender rim unless Fermata holds them too (read only in a Finale fight).
     const stilled =
       this.finaleLive &&
       e.kind === 'hero' &&
       !!h &&
       (hasStatus(h.statuses, 'stilled') || !!this.stilledOverride?.has(e.id));
-    const held = !!e.hero?.hold || (!!h && hasStatus(h.statuses, 'held')) || stilled;
+    // Fermata's own hold keeps working in the silence: its tremor and lavender rim win.
+    const fermata = !!e.hero?.hold || (!!h && hasStatus(h.statuses, 'held'));
+    const held = fermata || stilled;
     // Stasis (the Chronomancer): every enemy stands still mid-motion; its own clock waits.
     const isEnemy = e.kind === 'enemy';
     const frozen = isEnemy && this.stasisOn;
@@ -1523,9 +1525,9 @@ export class EntityLayer {
     }
     if (held) {
       desat = Math.max(desat, 0.72);
-      // A tiny tremor: holding on by a thread (a stilled hero is simply still).
+      // A tiny tremor: holding on by a thread (a hero only stilled is simply still).
       if (stilled) this.drawnFinale.stilled++;
-      else ox += Math.sin(this.now * 41) * 0.015;
+      if (fermata) ox += Math.sin(this.now * 41) * 0.015;
     }
     // Glide: lean hard into the dash.
     if (e.weaver && e.weaver.glide > 0) pitch -= 0.35;
@@ -1553,7 +1555,7 @@ export class EntityLayer {
     let tintStrength = 0;
     const isHero = e.kind === 'hero';
     const auraMask = e.hero?.auraMask ?? 0;
-    if (held && !stilled) {
+    if (fermata) {
       this.tint.copy(FERMATA);
       tintStrength = 1.1 + 0.35 * Math.sin(this.now * 7);
     } else if (rec.goldRim > 0) {

@@ -56,8 +56,11 @@ export const FINALE_HEX = {
 
 /**
  * Ambient Celestial Crucible colours that reach the combat disc (the light, the floor, the glass
- * of the choir's deaths, the silence's grey). Not semantic. None comes within 20 ΔE of Mend, heal
- * or Ward's shield in any vision (tests/colorVision.test.ts): the key and rim light every hero.
+ * of the choir's deaths, the silence's grey and its stave). Not semantic. None comes within 20 ΔE
+ * of Mend, heal or Ward's shield in any vision: the key and rim light every hero. Every one that
+ * draws a mark on the disc (a ring, line, glyph or floor piece) also stays ≥ 20 ΔE from every
+ * semantic colour, Resonance and gold included, in every vision; the three that cannot are
+ * `CRUCIBLE_UNMARKED` and never draw one (tests/colorVision.test.ts, tests/renderFinale.test.ts).
  */
 export const CRUCIBLE_HEX = {
   /** The mood's own (crimsonCues.ts CRUCIBLE_MOOD, which the mood table reads). */
@@ -72,11 +75,27 @@ export const CRUCIBLE_HEX = {
   /** Smoky glass: a chorister's shards, a pillar's crystal. */
   glass: '#d4c8bc',
   /**
-   * The Grand Silence's grey: the light lerps toward it, a stilled hero's stave and the Coda's
-   * wave. Desaturation, never a semantic hue (ash sits 2.8 ΔE from ailment under deuteranopia).
+   * The Grand Silence's ash: the light lerps toward it, and the orrery's dark rings (off the disc).
+   * Desaturation, never a mark: ash sits 2.8 ΔE from ailment (and 3.2 from the discord pink) under
+   * deuteranopia, so nothing on the disc is drawn in it.
    */
   silence: '#9aa0aa',
+  /**
+   * The silence's marks on the disc, in the floor's own slate (a shade off its inlay): a stilled
+   * hero's stave, the Conductor's stilled halo, the silence's and the Coda's waves. Lowest 21.4 ΔE
+   * from every semantic colour in every vision (ailment, protanopia); a pale or mid ash can't clear
+   * ailment, Bear, the call white and Fermata at once.
+   */
+  stave: '#605078',
 } as const;
+
+/**
+ * The CRUCIBLE_HEX colours that sit within 20 ΔE of a semantic colour, and so never draw a mark
+ * (ring, line, beam, glyph or floater) on the disc: the key light (5.3 from Fermata, tritanopia;
+ * a light, not a mark), the silence's ash (the light term and the off-disc orrery only) and the
+ * choir's glass (a body material and its death debris, as porcelain's white shards are).
+ */
+export const CRUCIBLE_UNMARKED = ['key', 'silence', 'glass'] as const;
 
 /**
  * The Crucible's white-gold and prism: the sky orrery, the choir stalls and organ pipes, the
@@ -170,9 +189,6 @@ export function silenceDepth(finale: FinaleView | null): number {
   return 1 - 0.85 * (Math.min(s.notes, NOTES_NEEDED) / NOTES_NEEDED);
 }
 
-/** Fortissimo's windups by pulse (3.0 / 1.5 / 1.5 s at default assists): the pips' fill. */
-const PULSE_WINDUP = [3, 1.5, 1.5] as const;
-
 // ── The sky orrery ───────────────────────────────────────────────────────────────────────
 
 /**
@@ -242,12 +258,15 @@ export function emptySky(): CrucibleSky {
  * The orrery's inputs: the music's beat and stem levels when the runtime gives them
  * (`FrameInfo.music`), else a beat from sim time and the levels from `field.finale`, so the sky
  * reads with the sound off. The Grand Silence darkens every ring and relights one per note.
+ * `full` (0..1, CrucibleCues.orreryFull): Reignite holds every ring at full, then lets it go back
+ * to the stems.
  */
 export function crucibleSky(
   finale: FinaleView | null,
   music: FrameInfo['music'],
   time: number,
   out: CrucibleSky,
+  full = 0,
 ): CrucibleSky {
   const silence = finale?.silence;
   if (music) {
@@ -266,6 +285,10 @@ export function crucibleSky(
     out.notes = silence ? silence.notes : -1;
   }
   if (out.notes >= 0) out.notes = Math.min(NOTES_NEEDED, Math.max(0, out.notes));
+  if (full > 0) {
+    const k = clamp01(full);
+    for (let i = 0; i < 4; i++) out.stems[i] = out.stems[i]! + (1 - out.stems[i]!) * k;
+  }
   return out;
 }
 
@@ -327,7 +350,7 @@ const BRASS = color(FINALE_HEX.discord);
 const BATON = color(FINALE_HEX.baton);
 const SIGIL = color(FINALE_HEX.cue);
 const GLASS = color(CRUCIBLE_HEX.glass);
-const GREY = color(CRUCIBLE_HEX.silence);
+const STAVE = color(CRUCIBLE_HEX.stave);
 
 /** A note in flight from a hero to the orrery. */
 interface Mote {
@@ -350,6 +373,9 @@ interface Riser {
 
 const MOTE_LIFE = 1.3;
 const RISE_LIFE = 1.2;
+/** Reignite: the orrery holds at full this long (render s), then eases back to the stems. */
+const FULL_HOLD = 4;
+const FULL_FADE = 2;
 
 /**
  * Every Finale-only effect (docs/phase-5d.md, VFX), drawn over Feedback's FX kit: the Cue's baton
@@ -377,13 +403,15 @@ export class CrucibleCues {
     vignette: 0,
   };
   /**
-   * What has been played so far (tests, the lab): Cues, Discord streaks, Fortissimo pulses begun,
-   * Crescendo shatters (and other cancels), silences, notes, Reignites, heroes revived in one,
-   * Codas, glass deaths.
+   * What has been played so far (tests, the lab): Cues, Discord streaks (and their beams),
+   * Fortissimo pulses begun, Crescendo shatters (and other cancels), silences, notes, Reignites,
+   * heroes revived in one, Codas, glass deaths.
    */
   readonly firedFinale = {
     cues: 0,
     discordStreaks: 0,
+    /** Brass beams drawn, one per failed victim (never from an answered one). */
+    discordBeams: 0,
     fortissimoPulses: 0,
     shatters: 0,
     cancelled: 0,
@@ -403,6 +431,15 @@ export class CrucibleCues {
   override: FinaleField | null = null;
   private vignette = 0;
   private lastPulse = 0;
+  /**
+   * The pulse winding up's whole windup (sim s), taken when it is first seen: every windup
+   * multiplier (telegraphLead, Short Fuse, Lullaby, Slow Dance) is already in its impact time.
+   */
+  private pulseWindup = 0;
+  /** The winding pip's fill last frame, 0..1 (tests, the lab). */
+  pulseFill = 0;
+  /** Render seconds since Reignite (−1: none): the orrery's hold at full. */
+  private fullAge = -1;
   private dirty = false;
   /** Something was drawn last frame (one more sync clears the counters). */
   private drew = false;
@@ -411,6 +448,13 @@ export class CrucibleCues {
   private readonly risers: Riser[] = [];
   /** This batch's hits by telegraph (Discord's streak runs from each hero it hit). */
   private readonly hits = new Map<number, EntityId[]>();
+  /**
+   * Heroes whose blow this batch was answered though it landed (docs/phase-5d.md's victim table,
+   * as far as events show it): a Bear or the Vow carried it, a save caught it, or a shield took
+   * part of it. Read only when `discordRose` carries no `failed` list.
+   */
+  private readonly answeredHeroes = new Set<EntityId>();
+  private readonly shielded = new Set<string>();
   private readonly at = { x: 0, y: 0, z: 0 };
   private readonly tint = new THREE.Color();
 
@@ -429,15 +473,38 @@ export class CrucibleCues {
       this.silence > 0 ||
       this.vignette > 0 ||
       this.motes.length > 0 ||
-      this.risers.length > 0
+      this.risers.length > 0 ||
+      this.fullAge >= 0
     );
+  }
+
+  /**
+   * How far Reignite holds the sky orrery at full, 0..1 (crucibleSky's `full`): 1 for its first
+   * seconds, then easing back to the stems' levels.
+   */
+  get orreryFull(): number {
+    if (this.fullAge < 0) return 0;
+    if (this.fullAge <= FULL_HOLD) return 1;
+    return clamp01(1 - (this.fullAge - FULL_HOLD) / FULL_FADE);
   }
 
   /** A batch of events with a Finale event in it, or during a Finale fight. */
   handle(events: readonly SimEvent[], state: WorldState): void {
     this.hits.clear();
+    this.answeredHeroes.clear();
+    this.shielded.clear();
     for (const ev of events) {
       switch (ev.type) {
+        case 'borne':
+          this.answeredHeroes.add(ev.hero);
+          break;
+        case 'save':
+          this.answeredHeroes.add(ev.target);
+          break;
+        case 'damageTaken':
+          if (ev.absorbed > 0 && ev.telegraph !== null)
+            this.shielded.add(`${ev.telegraph}:${ev.target}`);
+          break;
         case 'telegraphResolved':
           if (ev.outcome === 'hit' && ev.target !== null && ev.damage > 0) {
             const list = this.hits.get(ev.telegraph);
@@ -462,6 +529,7 @@ export class CrucibleCues {
           break;
         case 'reignited':
           this.reignited(ev, state);
+          this.fullAge = 0;
           break;
         case 'silenceBroken':
           this.coda(ev);
@@ -476,7 +544,21 @@ export class CrucibleCues {
     return id === null ? undefined : this.d.recs.get(id);
   }
 
-  /** Discord fed: a brass streak from each hero it hit to the Conductor, and '+N' over it. */
+  /**
+   * The heroes a failed telegraph's streaks run from: its failed victims as the verdict counted
+   * them (`failed`), else every hero it hit this batch whose blow nothing answered. Never a victim
+   * the verdict counts as answered (a partial Ward, Bear, a save): 'nothing when answered'.
+   */
+  failedVictims(e: SimEventOf<'discordRose'>): readonly EntityId[] {
+    if (e.failed) return e.failed;
+    const hit = this.hits.get(e.telegraph);
+    if (!hit) return [];
+    return hit.filter(
+      (id) => !this.answeredHeroes.has(id) && !this.shielded.has(`${e.telegraph}:${id}`),
+    );
+  }
+
+  /** Discord fed: a brass streak from each unanswered hero to the Conductor, and '+N' over it. */
   private discordRose(e: SimEventOf<'discordRose'>): void {
     this.firedFinale.discordStreaks++;
     this.dirty = true;
@@ -484,7 +566,8 @@ export class CrucibleCues {
     if (!boss) return;
     const sink = this.d.sink;
     const by = boss.height * 0.7 + boss.y;
-    for (const id of this.hits.get(e.telegraph) ?? []) {
+    for (const id of this.failedVictims(e)) {
+      this.firedFinale.discordBeams++;
       const r = this.rec(id);
       if (!r) continue;
       sink.beam(
@@ -562,7 +645,7 @@ export class CrucibleCues {
     this.firedFinale.silences++;
     this.dirty = true;
     const boss = this.rec(e.boss);
-    if (boss) this.d.sink.ring(boss.x, boss.z, 1, 26, 1.6, GREY, 0.5, RING.stave, 0.9);
+    if (boss) this.d.sink.ring(boss.x, boss.z, 1, 26, 1.6, STAVE, 0.5, RING.stave, 0.9);
   }
 
   /** A note: a gold note mote rises from the hero to its ring in the sky; a stave pulse on the hero. */
@@ -617,7 +700,7 @@ export class CrucibleCues {
     this.firedFinale.codas++;
     this.dirty = true;
     const boss = this.rec(e.boss);
-    if (boss) this.d.sink.ring(boss.x, boss.z, 26, 1, 1.2, GREY, 0.4, RING.stave, 0.8);
+    if (boss) this.d.sink.ring(boss.x, boss.z, 26, 1, 1.2, STAVE, 0.4, RING.stave, 0.8);
   }
 
   /**
@@ -691,7 +774,7 @@ export class CrucibleCues {
       this.d.rig.addTrauma(0.6);
       this.d.rig.panToward(x, z, 0.5, 1.4);
       for (let i = 0; i < 3; i++)
-        sink.ring(x, z, size, 10 + i * 5, 0.8 + i * 0.3, i === 0 ? GLASS : accent, 0.3, RING.stave);
+        sink.ring(x, z, size, 10 + i * 5, 0.8 + i * 0.3, accent, 0.3, RING.stave);
       this.d.overlay.flash(0.35, 0.3);
     }
   }
@@ -722,6 +805,10 @@ export class CrucibleCues {
     } else this.lastPulse = 0;
     this.drawMotes(dt);
     this.drawRisers(dt);
+    if (this.fullAge >= 0) {
+      this.fullAge += dt;
+      if (this.fullAge > FULL_HOLD + FULL_FADE) this.fullAge = -1;
+    }
     this.drew = false;
     for (const k of Object.keys(drawn) as (keyof typeof drawn)[])
       if (drawn[k] > 0) this.drew = true;
@@ -772,13 +859,17 @@ export class CrucibleCues {
       this.lastPulse = 0;
       return;
     }
+    const left = Math.max(0, f.impact - state.time);
     if (f.pulse !== this.lastPulse) {
       this.lastPulse = f.pulse;
+      this.pulseWindup = left;
       this.firedFinale.fortissimoPulses++;
       this.d.overlay.danger();
     }
-    const windup = PULSE_WINDUP[f.pulse - 1] ?? 1.5;
-    const k = clamp01(1 - (f.impact - state.time) / windup);
+    // The windup as the sim set it (every multiplier in it); a held windup (Stasis) only holds.
+    if (left > this.pulseWindup) this.pulseWindup = left;
+    const k = this.pulseWindup > 0 ? clamp01(1 - left / this.pulseWindup) : 1;
+    this.pulseFill = k;
     const kit = this.d.kit;
     // Three pips over the Conductor: the pulses played full, the one winding up filling.
     const boss = this.rec(conductorOf(state, finale));
@@ -831,7 +922,7 @@ export class CrucibleCues {
       if (!e || !isStilled(e)) continue;
       const r = this.rec(id);
       if (!r) continue;
-      kit.rings.push(r.x, 0.04, r.z, r.radius + 0.35, 0.3, 0.1, RING.stave, GREY, 0.6);
+      kit.rings.push(r.x, 0.04, r.z, r.radius + 0.35, 0.3, 0.1, RING.stave, STAVE, 0.6);
       this.drawnFinale.stilledStaves++;
     }
     // The Conductor's stilled halo on the floor: its stave closes as the notes come.
@@ -848,7 +939,7 @@ export class CrucibleCues {
           0.5,
           0.2,
           RING.stave,
-          GREY,
+          STAVE,
           0.55,
           -Math.PI / 2,
           len,
@@ -925,5 +1016,6 @@ export class CrucibleCues {
     this.vignette = 0;
     this.motes.length = 0;
     this.risers.length = 0;
+    this.fullAge = -1;
   }
 }

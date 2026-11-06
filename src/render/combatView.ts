@@ -200,10 +200,17 @@ export class CombatView implements WorldView {
 
     this.ctx.stage.renderer.getDrawingBufferSize(this.bufferSize);
     const pointScale = this.bufferSize.y / (2 * Math.tan((camera.fov * Math.PI) / 360));
-    // The Celestial Crucible's sky orrery (the Finale): the music's beat and stems, or the sim's.
+    // The Celestial Crucible's sky orrery (the Finale): the music's beat and stems, or the sim's,
+    // held at full a while after Reignite.
     const sky =
       this.arena.look === 'crucible'
-        ? crucibleSky(this.feedback.crucible.finale(state), frame.music, state.time, this.sky)
+        ? crucibleSky(
+            this.feedback.crucible.finale(state),
+            frame.music,
+            state.time,
+            this.sky,
+            this.feedback.crucible.orreryFull,
+          )
         : undefined;
     this.arena.update(frame.time, pointScale, this.quality, sky);
     this.kit.end(fxDt, this.overlay.width, this.overlay.height, this.bufferSize.y, camera.fov);

@@ -36,6 +36,7 @@ import {
   CRUCIBLE_ARENA_STAND_IN,
   CRUCIBLE_HEX,
   CRUCIBLE_SKY_HEX,
+  CRUCIBLE_UNMARKED,
   FINALE_HEX,
   ORRERY,
   crucibleArenaDef,
@@ -721,6 +722,204 @@ describe('The Grand Silence', () => {
     // The Coda: a grey wave, no gold.
     h.inject([{ type: 'silenceBroken', tick: sim.tick, boss: boss.id, notes: 3 } as SimEvent]);
     expect(h.feedback.firedFinale.codas).toBe(1);
+  });
+});
+
+describe('Review fixes (the answered victim, the slow windup, the marks, Fermata, the orrery at full)', () => {
+  /** A Discord-fed blow on three heroes: the telegraph's resolutions and its discordRose. */
+  const shatter = (sim: Sim, boss: Entity, telegraph: number, failed?: number[]) => {
+    const ev: SimEvent[] = [];
+    for (const target of sim.state.party)
+      ev.push({
+        type: 'telegraphResolved',
+        tick: sim.tick,
+        telegraph,
+        target,
+        outcome: 'hit',
+        damage: 250,
+      } as SimEvent);
+    ev.push({
+      type: 'discordRose',
+      tick: sim.tick,
+      boss: boss.id,
+      telegraph,
+      amount: 20,
+      value: 60,
+      ...(failed ? { failed } : {}),
+    } as SimEvent);
+    return ev;
+  };
+
+  it('Discord: no streak from a victim the verdict counts as answered, inside a failed telegraph', () => {
+    const { sim, h, boss } = finaleScene();
+    stage(sim, { discord: { value: 40, rate: 0.5 } });
+    const [a, b, c] = sim.state.party as [number, number, number];
+    // The sim names the failed victims: only they streak.
+    h.inject(shatter(sim, boss, 5001, [b, c]));
+    expect(h.feedback.firedFinale.discordStreaks).toBe(1);
+    expect(h.feedback.firedFinale.discordBeams).toBe(2);
+    expect(h.feedback.crucible.failedVictims({ failed: [b, c] } as never)).toEqual([b, c]);
+    // Without the list, render reads the batch: a partial Ward (shield absorbed part of it), a
+    // Bear-borne blow and a save are answered; the clean hit alone streaks.
+    const ev = shatter(sim, boss, 5002);
+    ev.unshift(
+      {
+        type: 'damageTaken',
+        tick: sim.tick,
+        target: a,
+        source: boss.id,
+        amount: 120,
+        absorbed: 130,
+        amplified: 0,
+        aura: 0,
+        radiance: 0,
+        eclipse: 0,
+        crit: false,
+        telegraph: 5002,
+        hit: 'hit',
+      } as SimEvent,
+      { type: 'borne', tick: sim.tick, hero: b, amount: 90, via: 'bear' } as SimEvent,
+    );
+    h.inject(ev);
+    expect(h.feedback.firedFinale.discordStreaks).toBe(2);
+    expect(h.feedback.firedFinale.discordBeams).toBe(3);
+    const saved = shatter(sim, boss, 5003);
+    saved.splice(saved.length - 1, 0, {
+      type: 'save',
+      tick: sim.tick,
+      target: c,
+      cause: 'fermata',
+      counterfactualDamage: 400,
+      attack: 'Shatter Aria',
+    } as SimEvent);
+    h.inject(saved);
+    // a and b were clean this time; c was saved.
+    expect(h.feedback.firedFinale.discordBeams).toBe(5);
+  });
+
+  it('Fortissimo: the winding pip fills over the whole windup, however long the assists make it', () => {
+    const { sim, h } = finaleScene();
+    // telegraphLead 1.5: pulse 1 lands 4.5 s after it starts.
+    const f = stage(sim, { fortissimo: { pulse: 1, impact: sim.state.time + 4.5 } });
+    h.run(90);
+    expect(h.feedback.crucible.pulseFill).toBeGreaterThan(0.3);
+    expect(h.feedback.crucible.pulseFill).toBeLessThan(0.37);
+    h.run(90);
+    expect(h.feedback.crucible.pulseFill).toBeCloseTo(2 / 3, 1);
+    // Short Fuse: a 1.2 s pulse 2 is full at its own impact, half way at half of it.
+    f.fortissimo = { pulse: 2, impact: sim.state.time + 1.2 };
+    h.run(36);
+    expect(h.feedback.crucible.pulseFill).toBeCloseTo(0.5, 1);
+    // A held windup (Stasis pushes the impact on) holds the pip; it never runs backwards.
+    const held = h.feedback.crucible.pulseFill;
+    for (let i = 0; i < 30; i++) {
+      f.fortissimo.impact += 1 / 60;
+      h.tick();
+    }
+    expect(h.feedback.crucible.pulseFill).toBeCloseTo(held, 2);
+  });
+
+  it('the silence marks the disc in slate, never in the ash, the key light or the glass', () => {
+    const { sim, h, boss } = finaleScene();
+    const banned = new Set(CRUCIBLE_UNMARKED.map((k) => new THREE.Color(CRUCIBLE_HEX[k]).getHex()));
+    const stave = new THREE.Color(CRUCIBLE_HEX.stave).getHex();
+    const seen: number[] = [];
+    const spy = (o: { push: (...a: never[]) => void }) => {
+      const push = o.push.bind(o);
+      o.push = (...args: never[]) => {
+        for (const v of args as unknown[]) if (v instanceof THREE.Color) seen.push(v.getHex());
+        push(...args);
+      };
+    };
+    spy(h.kit.rings as never);
+    spy(h.kit.beams as never);
+    stage(sim, {
+      silence: { notes: 2, of: 8, since: sim.state.time, until: sim.state.time + 50, sources: [] },
+    });
+    for (let s = 0; s < sim.state.party.length; s++) giveStatus(hero(sim, s), { id: 'stilled' });
+    h.inject([{ type: 'silenceBegan', tick: sim.tick, boss: boss.id, until: 50 } as SimEvent]);
+    h.run(30);
+    expect(h.feedback.drawnFinale.stilledStaves).toBe(sim.state.party.length);
+    expect(h.feedback.drawnFinale.halo).toBe(1);
+    delete worldOf(sim).field.finale!.silence;
+    h.inject([{ type: 'silenceBroken', tick: sim.tick, boss: boss.id, notes: 2 } as SimEvent]);
+    h.run(10);
+    asGlass('the_hollow_cantor', () =>
+      h.inject([
+        {
+          type: 'enemyKilled',
+          tick: sim.tick,
+          enemy: boss.id,
+          defId: 'the_hollow_cantor',
+          x: boss.x,
+          z: boss.z,
+        } as SimEvent,
+      ]),
+    );
+    h.run(10);
+    expect(h.feedback.firedFinale.glassDeaths).toBe(1);
+    expect(seen).toContain(stave);
+    for (const hex of seen) expect(banned.has(hex), `#${hex.toString(16)}`).toBe(false);
+  });
+
+  it('a stilled hero Fermata holds keeps Fermata’s lavender rim and tremor', () => {
+    const { sim, h } = finaleScene();
+    stage(sim, {
+      silence: { notes: 0, of: 8, since: sim.state.time, until: sim.state.time + 50, sources: [] },
+    });
+    for (let s = 0; s < sim.state.party.length; s++) giveStatus(hero(sim, s), { id: 'stilled' });
+    giveStatus(hero(sim, 0), { id: 'held' });
+    const fermata = new THREE.Color('#e2d6f8').getHex();
+    const rims = new Map<number, number[]>();
+    for (const id of sim.state.party.slice(0, 2)) {
+      const rec = h.entities.recs.get(id)!;
+      const push = rec.batch.push.bind(rec.batch);
+      rec.batch.push = (...args: Parameters<typeof push>) => {
+        rims.set(id, [args[5].getHex(), args[6], args[0].elements[12]!]);
+        push(...args);
+      };
+    }
+    const xs: number[] = [];
+    for (let i = 0; i < 6; i++) {
+      h.run(1);
+      xs.push(rims.get(sim.state.party[0]!)![2]!);
+    }
+    expect(h.entities.drawnFinale.stilled).toBe(sim.state.party.length);
+    // Held and stilled: Fermata's rim, its tremor.
+    expect(rims.get(sim.state.party[0]!)![0]).toBe(fermata);
+    expect(rims.get(sim.state.party[0]!)![1]).toBeGreaterThan(0.7);
+    expect(Math.max(...xs) - Math.min(...xs)).toBeGreaterThan(0.001);
+    // Stilled alone: no Fermata rim.
+    expect(rims.get(sim.state.party[1]!)![0]).not.toBe(fermata);
+  });
+
+  it('Reignite holds the orrery at full, then gives it back to the stems', () => {
+    const { sim, h, boss } = finaleScene();
+    const f = stage(sim, {
+      silence: { notes: 8, of: 8, since: sim.state.time, until: sim.state.time + 50, sources: [] },
+    });
+    h.run(2);
+    expect(h.feedback.crucible.orreryFull).toBe(0);
+    delete f.silence;
+    h.inject([{ type: 'reignited', tick: sim.tick, boss: boss.id, revived: [] } as SimEvent]);
+    expect(h.feedback.crucible.orreryFull).toBe(1);
+    const sky = emptySky();
+    // No music, phase 3 (no Discord): the stems alone would leave every ring under full.
+    crucibleSky(f, undefined, sim.state.time, sky);
+    expect(Math.min(...sky.stems)).toBeLessThan(0.9);
+    crucibleSky(f, undefined, sim.state.time, sky, h.feedback.crucible.orreryFull);
+    expect(sky.notes).toBe(-1);
+    expect(sky.stems).toEqual([1, 1, 1, 1]);
+    const a = buildArena(CRUCIBLE_ARENA_STAND_IN);
+    a.view.update(1, 600, 'high', sky);
+    expect([...a.view.sky.stems]).toEqual([1, 1, 1, 1]);
+    // Still full through the canon, then back to the music's levels.
+    h.run(180);
+    expect(h.feedback.crucible.orreryFull).toBe(1);
+    h.run(300);
+    expect(h.feedback.crucible.orreryFull).toBe(0);
+    crucibleSky(f, undefined, sim.state.time, sky, h.feedback.crucible.orreryFull);
+    expect(Math.min(...sky.stems)).toBeLessThan(0.9);
   });
 });
 

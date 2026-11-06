@@ -3718,7 +3718,15 @@ class LabRuntime {
         outcome: 'hit',
         damage: 300,
       },
-      { type: 'discordRose', tick, boss: boss.id, telegraph, amount, value },
+      {
+        type: 'discordRose',
+        tick,
+        boss: boss.id,
+        telegraph,
+        amount,
+        value,
+        failed: [this.heroId(slot)],
+      },
     ]);
   }
 

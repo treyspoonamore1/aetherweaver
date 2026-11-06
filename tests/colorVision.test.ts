@@ -21,7 +21,12 @@ import {
   signalHex,
 } from '../src/render/crimsonCues';
 import { ABYSS_HEX, RIFT_AFFIX_HEX, RIFT_HEX } from '../src/render/riftCues';
-import { CRUCIBLE_HEX, CRUCIBLE_SKY_HEX, FINALE_HEX } from '../src/render/crucibleCues';
+import {
+  CRUCIBLE_HEX,
+  CRUCIBLE_SKY_HEX,
+  CRUCIBLE_UNMARKED,
+  FINALE_HEX,
+} from '../src/render/crucibleCues';
 import { cueHex } from '../src/render/bondsCues';
 import { MARTYR_HEX } from '../src/render/martyrCues';
 import { BRASS_TRIM, buildHero } from '../src/render/models/library';
@@ -499,7 +504,36 @@ describe('The Finale colours (docs/phase-5d.md, Colour)', () => {
           );
         }
     });
+
+    it(`keeps every Crucible colour that draws a mark on the disc ≥ 20 ΔE from every semantic colour with ${vision}`, () => {
+      // 'CRUCIBLE_HEX kept off them': every live role and every fixed semantic colour, Resonance
+      // and gold included. Only CRUCIBLE_UNMARKED (a light, the silence's ash, the glass bodies)
+      // is spared, and tests/renderFinale.test.ts checks none of those draws a ring or a beam.
+      const palette = VISION_PALETTES[vision];
+      const see = (hex: string) => simulateVision(hex, vision);
+      const against: [string, string][] = [
+        ...ROLES.map((r): [string, string] => [r, palette[r]]),
+        ...Object.entries(FIXED),
+      ];
+      const spared = new Set<string>(CRUCIBLE_UNMARKED);
+      for (const [name, hex] of Object.entries(CRUCIBLE_HEX)) {
+        if (spared.has(name)) continue;
+        for (const [other, o] of against) {
+          const d = deltaE(see(hex), see(o));
+          expect(d, `${vision}: ${name} ${hex} vs ${other} ${o}`).toBeGreaterThanOrEqual(20);
+        }
+      }
+    });
   }
+
+  it('spares only the key light, the ash and the glass, and the silence marks the disc in slate, not ash', () => {
+    expect([...CRUCIBLE_UNMARKED].sort()).toEqual(['glass', 'key', 'silence']);
+    expect(CRUCIBLE_HEX.stave).not.toBe(CRUCIBLE_HEX.silence);
+    // The reason ash is spared, recorded: under deuteranopia it is the ailment colour.
+    const ash = simulateVision(CRUCIBLE_HEX.silence, 'deuteranopia');
+    const ailment = simulateVision(VISION_PALETTES.deuteranopia.ailment, 'deuteranopia');
+    expect(deltaE(ash, ailment)).toBeLessThan(5);
+  });
 
   it('the sky white-gold and prism sit on the Weaver and the shield: they are kept off the disc', () => {
     // Recorded so the rule stays visible: these are ambient and never semantic, and
