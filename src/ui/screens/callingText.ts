@@ -498,7 +498,7 @@ export function withOption(run: RunState, tier: number, optionId: string): RunSt
  * open (the run's `callingTierDue`): event fights never bring one.
  */
 export function callingTierAt(
-  run: Pick<RunState, 'calling'>,
+  run: Pick<RunState, 'calling' | 'movements'>,
   node: Pick<MapNode, 'row' | 'kind' | 'encounterId'>,
 ): number | null {
   return callingTierDue(run, node)?.tier ?? null;
@@ -506,7 +506,7 @@ export function callingTierAt(
 
 /** The map tooltip's line for a milestone fight. */
 export function milestoneLine(
-  run: Pick<RunState, 'calling'>,
+  run: Pick<RunState, 'calling' | 'movements'>,
   node: Pick<MapNode, 'row' | 'kind' | 'encounterId'>,
 ): { title: string; text: string } | null {
   const tier = callingTierAt(run, node);

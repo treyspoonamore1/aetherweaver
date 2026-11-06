@@ -121,6 +121,24 @@ describe('Calling mastery', () => {
       })?.tier,
     ).toBe(1);
   });
+
+  it('the Calling rows read the run’s road: a caller must hand over its movements', () => {
+    // docs/phase-5d.md contract 6: `callingRows` and `callingTierDue` require `movements`
+    // (a Finale route plays Movement I's road with rows of its own), so tsc flags any caller
+    // that drops it. The `@ts-expect-error`s fail the typecheck if the field turns optional.
+    const node = {
+      row: Run.CALLING_ROWS[0]!,
+      kind: 'skirmish' as const,
+      encounterId: 'first_light',
+    };
+    const calling = { id: 'luminary', path: [null, null, null, null] };
+    expect(Run.callingRows({ movements: 3 })).toEqual(Run.CALLING_ROWS);
+    expect(Run.callingTierDue({ calling, movements: 3 }, node)?.tier).toBe(0);
+    // @ts-expect-error movements is required
+    expect(Run.callingRows({})).toEqual(Run.CALLING_ROWS);
+    // @ts-expect-error movements is required
+    expect(Run.callingTierDue({ calling }, node)?.tier).toBe(0);
+  });
 });
 
 describe('the Atelier', () => {

@@ -279,7 +279,7 @@ export const CALLING_ROWS: readonly number[] = [0, 3, 5, 7];
  * route plays Movement I's road with rows of its own (W3 reads the road; until the Finale is
  * registered every route keeps CALLING_ROWS).
  */
-export function callingRows(_run: Partial<Pick<RunState, 'movements'>>): readonly number[] {
+export function callingRows(_run: Pick<RunState, 'movements'>): readonly number[] {
   return CALLING_ROWS;
 }
 
@@ -1233,7 +1233,7 @@ export function continueFromResult(run: RunState): RunState {
  * marks these fights). Event fights never bring one.
  */
 export function callingTierDue(
-  run: Pick<RunState, 'calling'> & Partial<Pick<RunState, 'movements'>>,
+  run: Pick<RunState, 'calling' | 'movements'>,
   node: Pick<MapNode, 'row' | 'kind' | 'encounterId'>,
 ): CallingOffer | null {
   if (!run.calling || node.kind === 'event' || !node.encounterId) return null;

@@ -912,6 +912,17 @@ describe('content lint: the Finale (docs/phase-5d.md)', () => {
       (c) => void (c.attacks.find((x) => x.kind === 'cleave')!.discordQuorum = 2),
       /a discordQuorum needs discord/,
     );
+    // An affix's specials reach any elite that wears it, Movements I-III's included: even with
+    // only Movement-4 enemies listing the attack, an affix listing it too is refused.
+    const finaleOnly = (c: Mutable) => {
+      attack(c, 'unweaver_spindles').discord = 8;
+      for (const e of c.enemies) if (e.specials.includes('unweaver_spindles')) e.movement = 4;
+    };
+    expect(issues(finaleOnly)).not.toMatch(/discord belongs to Movement 4's attacks/);
+    rejects((c) => {
+      finaleOnly(c);
+      c.affixes.find((f) => f.id === 'mimicking')!.specials!.push('unweaver_spindles');
+    }, /"unweaver_spindles": discord belongs to Movement 4's attacks/);
     rejects(
       (c) => void attack(c, 'unweaver_spindles').answers.push('crescendo'),
       /an attack the Crescendo answers is a raid/,

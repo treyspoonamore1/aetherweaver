@@ -1859,8 +1859,15 @@ function lintFinale(c: ContentShape, ctx: z.RefinementCtx, sets: LintSets): void
     if (a.discordQuorum !== undefined && a.discord === undefined)
       issue(`${where}: a discordQuorum needs discord`);
     if (a.discord !== undefined) {
+      // Every caster is a Movement-4 enemy. An affix's specials reach any elite that wears it
+      // (Mimicking's mirror), Movements I-III's included, so no affix may list one.
       const listers = c.enemies.filter((e) => e.specials.includes(a.id));
-      if (listers.length === 0 || listers.some((e) => (e.movement ?? 1) !== FINALE_MOVEMENT))
+      const affixed = c.affixes.some((f) => f.specials?.includes(a.id));
+      if (
+        affixed ||
+        listers.length === 0 ||
+        listers.some((e) => (e.movement ?? 1) !== FINALE_MOVEMENT)
+      )
         issue(`${where}: discord belongs to Movement ${FINALE_MOVEMENT}'s attacks`);
     }
     if (a.answers.includes('crescendo') && a.kind !== 'raid')
