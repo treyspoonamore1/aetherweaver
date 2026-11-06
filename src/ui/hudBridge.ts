@@ -1,5 +1,6 @@
 import {
   CONTENT,
+  attackDef,
   auraDef,
   callingDef,
   encounterDef,
@@ -35,6 +36,7 @@ import {
   type WorldState,
 } from '../sim';
 import { healReceivedMult } from '../sim/combat/health';
+import { DISCORD_MAX, NOTES_NEEDED } from '../content/crucibleIds';
 import type { Entity } from '../sim/state';
 import type { World } from '../sim/world';
 import { dissonancePoints, parMult } from '../meta/dissonance';
@@ -310,6 +312,7 @@ export function buildHudSnapshot(
       ...movementTwoMarks(state, e, h),
       ...bloodHud(state, e),
       ...movementThreeMarks(state, e, h),
+      ...finaleMarks(h),
     });
   });
   const partyIds = party.map((p) => p.defId);
@@ -422,6 +425,7 @@ export function buildHudSnapshot(
       ...(state.field.sanctuary ? { bloodmoon: true } : {}),
       ...(condemned ? { executeTarget: heroDef(condemned.defId).name } : {}),
       ...bossRift(state, bossEntity, telegraph?.attackId),
+      ...bossFinale(state),
     };
   }
 
@@ -877,4 +881,51 @@ function riftOf(state: WorldState): { rift?: RiftHud } {
     if (!rift.silencer && silencingElite(e)) rift.silencer = true;
   }
   return Object.keys(rift).length > 0 ? { rift } : {};
+}
+
+// ── The Finale (docs/phase-5d.md) ───────────────────────────────────────────────────────
+// Every key below is filled only from `field.finale` (absent outside a Finale fight) or the
+// `stilled` status (only the Conductor applies it), so any other snapshot is exactly as it was.
+
+type BossFinale = Pick<BossHud, 'discord' | 'fortissimo' | 'silence' | 'cue'>;
+
+/** The boss bar's Finale keys: Discord and its rate, Fortissimo's pulse, the silence, the Cue. */
+function bossFinale(state: WorldState): BossFinale {
+  const f = state.field.finale;
+  if (!f) return {};
+  const out: BossFinale = {};
+  if (f.discord) out.discord = { value: f.discord.value, max: DISCORD_MAX, rate: f.discord.rate };
+  if (f.fortissimo) out.fortissimo = { pulse: f.fortissimo.pulse, of: 3 };
+  if (f.silence)
+    out.silence = {
+      notes: f.silence.notes,
+      of: NOTES_NEEDED,
+      sources: [...f.silence.sources],
+      left: Math.max(0, f.silence.until - state.time),
+    };
+  if (f.cue) {
+    const voice = state.entities.get(f.cue.soloist)?.enemy;
+    const target = f.cue.target === undefined ? undefined : state.entities.get(f.cue.target)?.hero;
+    out.cue = {
+      soloist: voice ? enemyDef(voice.defId).name : 'A voice',
+      solo: soloName(f.cue.solo),
+      ...(target ? { target: heroDef(target.defId).name } : {}),
+    };
+  }
+  return out;
+}
+
+/** A Solo's name from its attack id (the id itself if content has no such attack). */
+function soloName(id: string): string {
+  try {
+    return attackDef(id).name;
+  } catch {
+    return id;
+  }
+}
+
+/** Stilled by the Grand Silence: the frame waits for the Weaver's song. */
+function finaleMarks(h: NonNullable<ReadonlyEntity['health']>): Pick<HeroHud, 'stilled'> {
+  if (h.dead) return {};
+  return h.statuses.some((s) => s.id === 'stilled') ? { stilled: true } : {};
 }

@@ -317,8 +317,9 @@ export function installRunHook(): void {
           .filter((id) => !state.relics.some((r) => r.id === id))
           .map((id) => ({ id, cleansed: false })),
       ];
-      // The run's final boss (an Expedition's last Movement's: the Unweaver, walking past the
-      // Cantor and Vharun, both interludes now; docs/phase-5c.md).
+      // The run's final boss: an Expedition's last Movement's. On the Finale route that is the
+      // Silent Conductor, walking past the Cantor, Vharun and the Unweaver, all interludes now
+      // (docs/phase-5d.md); an in-flight I-III save still ends at the Unweaver.
       const next = warpTo({ ...state, relics }, isFinalNode);
       if (!next) return false;
       useRun.setState({ run: next });

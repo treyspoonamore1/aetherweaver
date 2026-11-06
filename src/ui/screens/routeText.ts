@@ -187,10 +187,10 @@ const CARD_LOOK: Readonly<Record<Biome, MovementCardLook>> = {
     glow: '0 0 36px rgb(76 70 170 / 0.65), 0 3px 0 rgb(0 0 0 / 0.55)',
     button: 'Descend',
   },
-  // The Finale (docs/phase-5d.md): a placeholder W8 styles.
+  // The Finale (docs/phase-5d.md): white-gold, the rings in the sky; you climb out of the Rift.
   celestial_crucible: {
-    eyebrow: 'text-slate-100/80',
-    glow: '0 0 36px rgb(226 232 255 / 0.5), 0 3px 0 rgb(0 0 0 / 0.55)',
+    eyebrow: 'text-amber-50/85',
+    glow: '0 0 40px rgb(255 246 224 / 0.55), 0 0 12px rgb(245 215 142 / 0.4), 0 3px 0 rgb(0 0 0 / 0.6)',
     button: 'Ascend',
   },
 };
@@ -299,6 +299,8 @@ const VICTORY: Readonly<Record<string, string>> = {
   hollow_cantor: 'The Hollow Cantor falls and the Reliquary sings again.',
   vharun: 'Vharun falls, and the Spire’s banners burn.',
   the_unweaver: 'The Unweaver falls, and the Rift knits shut.',
+  // The Finale (docs/phase-5d.md): the run's last victory line.
+  the_silent_conductor: 'The Silent Conductor lowers its baton, and the song goes on.',
 };
 
 /** The Summary's line under its title: a win names the final boss; a defeat, the Movement reached. */
@@ -379,7 +381,8 @@ export function deedsInSight(
 
 /**
  * Stops whose encounter has a glyph of its own: the Gorehound Matriarch's paw, Vharun's crown, the
- * Seamstress's needle, the Unweaver's shears. Every other stop draws its kind's (null).
+ * Seamstress's needle, the Unweaver's shears, the Silent Conductor's baton. Every other stop draws
+ * its kind's (null).
  */
 const ENCOUNTER_ICON: Readonly<Record<string, IconName>> = {
   gorehound_matriarch: 'paw',
@@ -387,6 +390,8 @@ const ENCOUNTER_ICON: Readonly<Record<string, IconName>> = {
   // Movement III (docs/phase-5c.md): the Seamstress's needle, the Unweaver's shears.
   the_seamstress: 'needle',
   the_unweaver: 'scissors',
+  // The Finale (docs/phase-5d.md).
+  the_silent_conductor: 'baton',
 };
 
 export function encounterIcon(encounterId: string | null): IconName | null {

@@ -192,6 +192,9 @@ export function HudView({
   const blind = hud.dissonance?.blindScore ?? false;
   const clockText = `${hud.seconds.toFixed(1)} s · tick ${hud.tick} · seed ${hud.seed}${hud.directive ? ` · ${hud.directive}` : ''}`;
   const stasis = hud.weaver.stasis;
+  // The Finale (docs/phase-5d.md): the Grand Silence holds (absent in every other fight).
+  const silence = hud.boss?.silence;
+  const reel = hud.weaver.techniques.find((t) => t.key === 'reel')?.variant?.id ?? null;
   return (
     <div className="pointer-events-none absolute inset-0" data-testid="hud">
       {stasis && (
@@ -204,6 +207,21 @@ export function HudView({
           }}
           aria-hidden
           data-testid="stasis-tint"
+        />
+      )}
+      {silence && (
+        // The Grand Silence: the colour drains from the edges of the screen, steady (no flash), so
+        // it reads with the sound off and Flashes at 0.
+        <div
+          className="absolute inset-0"
+          style={{
+            background:
+              'radial-gradient(ellipse 78% 72% at 50% 46%, transparent 52%, rgb(148 163 184 / 0.16) 82%, rgb(100 116 139 / 0.34) 100%)',
+            boxShadow: 'inset 0 0 0 2px rgb(203 213 225 / 0.18)',
+          }}
+          aria-hidden
+          data-testid="silence-tint"
+          data-notes={silence.notes}
         />
       )}
       {/* Above the party frames and their barks: the relics', keystones' and Dissonance's tooltips
@@ -237,6 +255,7 @@ export function HudView({
           decreeBanner={callouts.some((c) => c.kind === 'decree')}
           rewind={hud.weaver.rewind !== null}
           blind={blind}
+          reel={reel}
         />
       )}
       <Callouts
@@ -257,6 +276,7 @@ export function HudView({
         tipOpen={frameTip}
         layout={framesLayout}
         healthText={healthText}
+        silence={silence}
       />
       <WeaverBar
         hud={hud}

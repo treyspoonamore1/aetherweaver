@@ -9,6 +9,22 @@ import { AnswerGlyph } from './AnswerGlyph';
 import { secondsLabel } from './chrono';
 import { BLIND_LOOK } from '../kit/dissonanceLook';
 import { blindDecree, blindLine, levelName } from '../screens/dissonanceModel';
+import { SILENCE_CAP } from '../../content/crucibleIds';
+import {
+  CUE_ANSWER,
+  DISCORD_HEX,
+  DISCORD_INK,
+  NOTE_LOOK,
+  SILENCE_INK,
+  codaText,
+  cueText,
+  discordSegments,
+  discordText,
+  fortissimoInText,
+  silenceAsk,
+  silencePips,
+  silenceText,
+} from './finaleLook';
 
 /** The Chronomancer's silver, for Foresight's line (Phase 3e). */
 const CHRONO = callingLook('chronomancer');
@@ -24,8 +40,11 @@ export function BossBar({
   decreeBanner = false,
   rewind = false,
   blind = false,
+  reel = null,
 }: {
   boss: BossHud;
+  /** The Finale (docs/phase-5d.md): the variant Reel's slot plays, for the silence stave's words. */
+  reel?: string | null;
   /** The latest decree, worded as it was announced (the store's `lastDecree`). */
   decree: { name: string; text: string } | null;
   /** The big decree banner is on screen: the quiet line below the bar waits. */
@@ -103,11 +122,17 @@ export function BossBar({
             <span className="text-pink-300">Discord shield {fmt(boss.shield)}</span>
           )}
         </div>
+        {/* The Finale (docs/phase-5d.md): the Conductor's Discord, then the Grand Silence's stave. */}
+        {boss.discord && <DiscordStave discord={boss.discord} blind={blind} />}
+        {boss.silence && (
+          <SilenceStave silence={boss.silence} blind={blind} rewinds={rewind} reel={reel} />
+        )}
         {boss.cast && (
           <div className="mt-1.5 rounded-lg bg-ink-950/60 px-3 py-1.5">
             <div className="flex items-center justify-between gap-3">
               <span className="flex items-center gap-1.5 text-sm font-bold uppercase tracking-wider text-threat">
-                <Icon name={bossCastIcon(boss.defId)} size={14} /> {boss.cast.name}
+                <Icon name={bossCastIcon(boss.defId, !!boss.fortissimo)} size={14} />{' '}
+                {boss.cast.name}
                 {boss.pips !== undefined && boss.pips > 1 && (
                   <BlowPips pips={boss.pips} pip={boss.pip ?? 1} />
                 )}
@@ -144,6 +169,7 @@ export function BossBar({
             <span className="text-muted">· below {EXECUTE_PCT}% when it lands dies</span>
           </p>
         )}
+        {boss.cue && <CueLine cue={boss.cue} blind={blind} />}
         {bossConditions(boss).map((c) => (
           <BossConditionLine key={c.id} condition={c} blind={blind} />
         ))}
@@ -261,6 +287,155 @@ function DecreeLine({ decree, blind }: { decree: { name: string; text: string };
     >
       <span className="mr-1.5 font-display text-sm font-bold text-violet-100">Decree</span>
       <span className="line-clamp-2">{text || decree.name}</span>
+    </p>
+  );
+}
+
+// ── The Finale (docs/phase-5d.md) ───────────────────────────────────────────────────────
+
+/**
+ * The Conductor's Discord as a stave meter under the HP bar: four segments of 25 (as the Weaver's
+ * Resonance fills), the number, a bronze baton, the rise per second and when Fortissimo Silence
+ * comes at that rate. Never colour alone: the glyph, the segments and the words say it.
+ */
+function DiscordStave({
+  discord,
+  blind,
+}: {
+  discord: NonNullable<BossHud['discord']>;
+  blind: boolean;
+}) {
+  const segments = discordSegments(discord);
+  const eta = fortissimoInText(discord);
+  return (
+    <div
+      className="mt-1.5 rounded-lg px-3 py-1"
+      style={{ background: 'rgb(122 86 70 / 0.18)', color: DISCORD_INK }}
+      data-testid="boss-discord"
+    >
+      <p className="flex items-center gap-1.5 text-xs font-semibold" role="status">
+        <Icon name="baton" size={14} style={{ color: DISCORD_INK }} />
+        <span>{discordText(discord, blind)}</span>
+        {discord.rate > 0 && (
+          <span className="ml-auto whitespace-nowrap font-mono" title="Discord’s rise per second">
+            ▲ +{discord.rate.toFixed(1)}/s
+          </span>
+        )}
+      </p>
+      <div
+        className="mt-1 flex gap-1"
+        role="meter"
+        aria-label="Conductor’s Discord"
+        aria-valuemin={0}
+        aria-valuemax={discord.max}
+        aria-valuenow={Math.floor(discord.value)}
+        data-testid="boss-discord-meter"
+      >
+        {segments.map((fill, i) => (
+          <span
+            key={i}
+            className="relative h-2 flex-1 overflow-hidden rounded-sm border"
+            style={{ borderColor: DISCORD_HEX, background: 'rgb(5 8 20 / 0.6)' }}
+            data-fill={Number(fill.toFixed(2))}
+          >
+            <span
+              className="absolute inset-y-0 left-0"
+              style={{ width: `${fill * 100}%`, background: DISCORD_HEX }}
+            />
+          </span>
+        ))}
+      </div>
+      {eta && (
+        <p className="mt-0.5 text-right font-mono text-xs" data-testid="boss-fortissimo-in">
+          {eta}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/**
+ * The Grand Silence's stave, in Discord's place: eight pips, each filled with its note's source
+ * glyph (Ward, Chime, Reel, Rewind), and the countdown to the Coda. It reads with the sound off.
+ */
+function SilenceStave({
+  silence,
+  blind,
+  rewinds,
+  reel,
+}: {
+  silence: NonNullable<BossHud['silence']>;
+  blind: boolean;
+  rewinds: boolean;
+  reel: string | null;
+}) {
+  const pips = silencePips(silence);
+  // The cap stretches with the windup assists; the bar is measured against at least its default.
+  const frac = Math.max(0, Math.min(1, silence.left / Math.max(SILENCE_CAP, silence.left)));
+  return (
+    <div
+      className="mt-1.5 rounded-lg border px-3 py-1.5"
+      style={{
+        borderColor: 'rgb(203 213 225 / 0.35)',
+        background: 'rgb(30 33 45 / 0.6)',
+        color: SILENCE_INK,
+      }}
+      data-testid="boss-silence"
+    >
+      <p className="flex items-center gap-1.5 text-xs font-semibold" role="status">
+        <Icon name="mute" size={14} />
+        <span className="uppercase tracking-wider">{silenceText(silence)}</span>
+        <span className="ml-auto font-mono">{codaText(silence.left)}</span>
+      </p>
+      <ol
+        className="relative mt-1 flex items-center justify-between gap-1"
+        aria-label={`${silence.notes} of ${silence.of} notes played`}
+        data-testid="boss-silence-stave"
+      >
+        <span className="absolute inset-x-0 top-1/2 h-px bg-slate-400/40" aria-hidden />
+        {pips.map((source, i) => {
+          const look = source ? NOTE_LOOK[source] : null;
+          return (
+            <li
+              key={i}
+              className="relative flex h-5 w-5 items-center justify-center rounded-full border"
+              style={{
+                borderColor: look ? look.color : 'rgb(203 213 225 / 0.45)',
+                background: look ? 'rgb(245 215 142 / 0.16)' : 'rgb(5 8 20 / 0.85)',
+                color: look?.color,
+              }}
+              aria-label={look ? `note ${i + 1}: ${look.label}` : `note ${i + 1}: not yet`}
+              data-note={source ?? ''}
+            >
+              {look && <Icon name={look.icon} size={12} />}
+            </li>
+          );
+        })}
+      </ol>
+      <div className="mt-1 h-1 overflow-hidden rounded-full bg-ink-700" aria-hidden>
+        <div className="h-full bg-slate-300/70" style={{ width: `${frac * 100}%` }} />
+      </div>
+      {!blind && (
+        <p className="mt-0.5 text-xs text-slate-300" data-testid="boss-silence-ask">
+          {silenceAsk({ rewinds, reel })}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/** The Cue: the soloist and its Solo (the target once it begins), and how to answer it. */
+function CueLine({ cue, blind }: { cue: NonNullable<BossHud['cue']>; blind: boolean }) {
+  return (
+    <p
+      className="mt-1.5 flex items-center gap-1.5 rounded-lg px-3 py-1 text-xs font-semibold"
+      style={{ color: DISCORD_INK, background: 'rgb(122 86 70 / 0.22)' }}
+      role="status"
+      data-testid="boss-cue"
+    >
+      <Icon name="baton" size={14} />
+      <span className="font-display text-sm font-bold">{cueText(cue)}</span>
+      {!blind && <span className="font-normal text-rose-100">· {CUE_ANSWER}</span>}
     </p>
   );
 }

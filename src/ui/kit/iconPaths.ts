@@ -169,6 +169,9 @@ export const PATHS = {
   mirror:
     'M12 3l6.5 6L12 21 5.5 9z M5.5 9h13 M12 3l-2.2 6L12 21 M14.5 12.5l1.5-1.5 M13.5 15.5l2.5-2.5',
   maw: 'M3.5 12a8.5 5.5 0 1 0 17 0 8.5 5.5 0 0 0-17 0z M6.5 10.5l1.5 2 1.5-2.5 1.5 2.5 1-2 1 2 1.5-2.5 1.5 2.5 1.5-2',
+  // The Finale (docs/phase-5d.md): the Silent Conductor's baton, with the stroke of its beat.
+  baton:
+    'M7.5 16.5L19.5 4.5 M5 19a1.8 1.8 0 1 0 2.5-2.5A1.8 1.8 0 0 0 5 19z M13.5 4c1.8.4 3.2 1.6 3.8 3.4 M16.5 10.5c1.2.5 2 1.4 2.4 2.6',
 } as const;
 
 export type IconName = keyof typeof PATHS;

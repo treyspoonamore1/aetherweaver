@@ -7,6 +7,9 @@ import { keyLabel } from '../input/keyLabel';
 import type { CombatOutcome } from '../meta/types';
 import { CameraRig } from '../render/camera';
 import { createWorldView, type WorldView } from '../render';
+import type { FrameInfo } from '../render/types';
+import type { MusicSnapshot } from '../audio/music';
+import { captionCallout, defeatLine, finaleCallouts, finaleCaption } from '../ui/hud/finaleLook';
 import { Stage, type QualityTier } from '../render/stage';
 import {
   FixedStepper,
@@ -146,6 +149,11 @@ export class GameRuntime {
   private readonly withoutYou: WithoutYouJob | null;
   private readonly listeners = new Set<RuntimeListener>();
 
+  /**
+   * The Finale (docs/phase-5d.md): the fight is in the Celestial Crucible, so the frame carries the
+   * music's clock for its sky. False for every other arena, whose frames are as they were.
+   */
+  private readonly crucible: boolean;
   private perfFrames = 0;
   private perfFrameMs: number[] = [];
   private perfSimMs = 0;
@@ -187,6 +195,7 @@ export class GameRuntime {
     const kind = this.sim.state.encounter.kind;
     // Phase 5a: the arena's biome voices the fight (the Sunlit Reliquary when it names none).
     getAudio().setBiome?.(arena.biome ?? 'reliquary');
+    this.crucible = arena.biome === 'celestial_crucible';
     getAudio().setMood(
       kind === 'boss' || kind === 'miniboss' ? 'boss' : kind === 'sandbox' ? 'calm' : 'combat',
     );
@@ -307,6 +316,8 @@ export class GameRuntime {
       },
       // Phase 4g: what the Weaver wears (her robe, her Thread's look), from the profile.
       look: useProfile.getState().profile.look,
+      // The Finale: the music's clock and stems for the Crucible's sky (absent elsewhere).
+      ...(this.crucible ? this.finaleMusic(state) : {}),
     });
     this.stage.render();
     // Continuous layers (heartbeats, thread whine) pause with the game.
@@ -339,6 +350,29 @@ export class GameRuntime {
     this.perfTimer += elapsed;
     if (this.perfTimer >= PERF_INTERVAL_MS) this.publishPerf(state.entities.count);
   };
+
+  /**
+   * `FrameInfo.music` in the Crucible (docs/phase-5d.md): the director's beat, bar and stem levels
+   * (`SynthDirector.musicState()`), and the Grand Silence from public state. Nothing while the
+   * audio is locked or off: render then derives a beat from sim time.
+   */
+  private finaleMusic(state: WorldState): Pick<FrameInfo, 'music'> {
+    const audio = getAudio() as ReturnType<typeof getAudio> & {
+      musicState?: () => MusicSnapshot | null;
+    };
+    const snap = audio.musicState?.() ?? null;
+    if (!snap) return {};
+    const silence = state.field.finale?.silence;
+    return {
+      music: {
+        beatPhase: snap.beatPhase,
+        beatInBar: snap.beatInBar,
+        bar: snap.bar,
+        levels: [snap.levels.pad, snap.levels.pulse, snap.levels.melody, snap.levels.choir],
+        ...(silence ? { silence: { on: true, notes: silence.notes } } : {}),
+      },
+    };
+  }
 
   private checkEnd(state: WorldState, now: number): void {
     const status = state.encounter.status;
@@ -731,7 +765,8 @@ export class GameRuntime {
           ui.pushCallout(
             {
               kind: 'system',
-              text: event.outcome === 'victory' ? 'Victory' : 'The song falls silent…',
+              // The Finale: the Conductor's silence holds (docs/phase-5d.md).
+              text: event.outcome === 'victory' ? 'Victory' : defeatLine(state.encounter.id),
               color: event.outcome === 'victory' ? '#f5d78e' : '#fca5a5',
             },
             now,
@@ -739,6 +774,17 @@ export class GameRuntime {
           );
           break;
         default:
+          // The Finale (docs/phase-5d.md): its events' callouts, and captions for its key sounds.
+          // No other fight raises one of these events, so nothing else is pushed.
+          for (const c of finaleCallouts(event, (id) => this.heroName(state, id)?.name ?? null))
+            ui.pushCallout(c.callout, now, c.ttl);
+          if (useSettings.getState().settings.captions) {
+            const caption = finaleCaption(event);
+            if (caption) {
+              const c = captionCallout(caption);
+              ui.pushCallout(c.callout, now, c.ttl);
+            }
+          }
           break;
       }
     }

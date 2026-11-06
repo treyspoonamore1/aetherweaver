@@ -10,6 +10,7 @@ import { stasisCostMult } from './calling';
 import { secondsLabel } from './chrono';
 import { healBarelyTakes } from './legionLook';
 import { DOOM_EMPHASIS, doomCount, spindleCutPct } from './riftLook';
+import { FORTISSIMO_NAME, noteSources } from './finaleLook';
 
 /**
  * Contextual coach hints (docs/plan/04 §7). Derived from the HUD snapshot alone; each hint
@@ -115,6 +116,10 @@ export const ANSWER_HINTS: ReadonlySet<string> = new Set([
   'verse',
   'mirror-ward',
   'mimic',
+  // The Finale (docs/phase-5d.md): each names the answer its beat wants.
+  'discord',
+  'fortissimo',
+  'silence',
 ]);
 
 /** All hints that apply right now, most important first. */
@@ -222,6 +227,7 @@ function allHints(hud: HudSnapshot): Hint[] {
   }
   out.push(...movementTwoHints(hud, { Q, E, F }));
   out.push(...movementThreeHints(hud, { Q, E, F }));
+  out.push(...finaleHints(hud));
   for (const h of party.filter((p) => p.downed && !p.dead)) {
     out.push({
       id: 'downed',
@@ -720,6 +726,40 @@ function movementThreeHints(hud: HudSnapshot, keys: { Q: string; E: string; F: s
           : copy === 'ward'
             ? `A Mimic is copying your Ward — cast a Chime ${E} instead to crack the mirror, or Focus it ${focus}`
             : `A Mimic is copying your Chime — cast a Ward ${Q} instead to crack the mirror, or Focus it ${focus}`,
+    });
+  return out;
+}
+
+/**
+ * The Finale's three lessons (docs/phase-5d.md "Hints"): a Cued Solo feeds the Conductor's
+ * Discord; Fortissimo Silence is cancelled by the Crescendo; the Grand Silence hears only the
+ * Weaver's notes (Calling- and variant-aware). Each keys on a BossHud key only the Finale sets.
+ */
+function finaleHints(hud: HudSnapshot): Hint[] {
+  const boss = hud.boss;
+  if (!boss || (!boss.discord && !boss.cue && !boss.fortissimo && !boss.silence)) return [];
+  const out: Hint[] = [];
+  const w = hud.weaver;
+  const crescendo = `{${bindingLabel('crescendo')}}`;
+  if (boss.silence) {
+    const reel = variantIn(hud, 'reel');
+    out.push({
+      id: 'silence',
+      text: `The Grand Silence: only your ${noteSources({ rewinds: !!w.rewind, reel })} are heard. Eight notes bring your heroes back — even the fallen`,
+    });
+  }
+  if (boss.fortissimo || (boss.discord && boss.discord.value >= boss.discord.max * 0.75))
+    out.push({
+      id: 'fortissimo',
+      text:
+        boss.fortissimo && w.resonance >= w.crescendoCost
+          ? `${FORTISSIMO_NAME} — your Crescendo ${crescendo} cancels it: press it now`
+          : `${FORTISSIMO_NAME}: hold ${w.crescendoCost} Resonance — your Crescendo ${crescendo} cancels it`,
+    });
+  if (boss.cue)
+    out.push({
+      id: 'discord',
+      text: `Every Solo you let through feeds the Conductor’s Discord: answer it, or interrupt the soloist (Focus {${bindingLabel('directiveFocus')}})`,
     });
   return out;
 }

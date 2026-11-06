@@ -8,6 +8,23 @@ import { auraVerbs, splitContribution, type ContributionParts } from '../contrib
 import { fmt, pct, plural } from '../kit/format';
 import { ANSWER } from '../hud/labels';
 import { doomMax } from '../hud/riftLook';
+import {
+  ALTO,
+  BASS,
+  BASSO_OSTINATO,
+  CADENZA,
+  DOWNBEAT,
+  FINAL_CADENCE,
+  FORTISSIMO,
+  HALF_CADENCE,
+  LAMENT,
+  MEASURE,
+  REST,
+  SFORZANDO,
+  SHATTER_ARIA,
+  SOPRANO,
+  TENOR,
+} from '../../content/crucibleIds';
 import type { IconName } from '../kit/iconPaths';
 
 export const HIGHLIGHT_ICON: Record<EncounterResult['highlights'][number]['kind'], IconName> = {
@@ -83,7 +100,10 @@ export function deathAdviceLine(
   callingId?: string | null,
 ): string | null {
   return (
-    downAdvice(d, party) ?? riftDownLine(d, callingId) ?? deathAnswerLine(d.answers, callingId)
+    downAdvice(d, party) ??
+    riftDownLine(d, callingId) ??
+    finaleDownLine(d, callingId) ??
+    deathAnswerLine(d.answers, callingId)
   );
 }
 
@@ -126,6 +146,44 @@ export function riftDownLine(
       ? 'Pulled into the Maw: Rally, or Rewind them back'
       : 'Pulled into the Maw: Rally or Reel';
   if (d.killer === attackName('unweaver_snip')) return 'Snip: Retarget off the line';
+  return null;
+}
+
+/**
+ * The Finale (docs/phase-5d.md "Recaps"): every down in the Silent Conductor's fight names its
+ * answer in words, keyed on the killer as the sim names it (an attack's name, a voice's name for
+ * its basic blow). The Finale's names are its own, so every Movement I-III death gets null and
+ * keeps its line. Calling-aware: on a Chronomancer run Rewind takes Reel's place.
+ */
+export function finaleDownLine(
+  d: Pick<DeathRecap, 'killer'>,
+  callingId?: string | null,
+): string | null {
+  const rewinds = rewindsFor(callingId);
+  const out = rewinds ? 'Rewind them back out' : 'Reel them out';
+  const k = d.killer;
+  if (k === attackName(LAMENT)) return 'Lament: Chime it away, or interrupt the Alto';
+  if (k === attackName(BASSO_OSTINATO))
+    return 'Basso Ostinato: Ward on the beat, or interrupt the Bass';
+  if (k === attackName(CADENZA)) return `Cadenza: ${out} or step aside`;
+  if (k === attackName(SHATTER_ARIA))
+    return 'Shatter Aria: Scatter so it catches one, and Ward the one it’s on';
+  if (k === attackName(DOWNBEAT)) return 'Downbeat: Ward or dome the tank';
+  if (k === attackName(SFORZANDO))
+    return `Sforzando: step out of the line, or ${rewinds ? 'Rewind them' : 'Reel them out'}`;
+  if (FORTISSIMO.some((id) => k === attackName(id)))
+    return 'Fortissimo Silence: Crescendo before Discord fills, or dome, Ward and heal';
+  if (k === attackName(REST)) return 'Rest: Chime it away in its last second, or Ward it';
+  if (
+    k === attackName(MEASURE) ||
+    k === attackName(FINAL_CADENCE) ||
+    k === attackName(HALF_CADENCE)
+  )
+    return `Only you can answer in the silence: Ward on the beat, or ${rewinds ? 'Rewind the blow' : 'Reel them out'}`;
+  if (
+    [ALTO, BASS, TENOR, SOPRANO].some((id) => k === CONTENT.enemies.find((e) => e.id === id)?.name)
+  )
+    return 'The mirror-choir: Focus the voice, or Ward its blows';
   return null;
 }
 

@@ -43,7 +43,13 @@ export function Backdrop({ tone = 'navy' }: { tone?: BackdropTone }) {
           : tone === 'abyss'
             ? // Phase 5c: the Abyssal Rift's map (Movement III), an indigo glow.
               'rgb(76 70 170 / 0.26)'
-            : 'rgb(61 76 125 / 0.28)';
+            : tone === 'crucible'
+              ? // Phase 5d: the Celestial Crucible (the Finale), a white-gold sky. Kept low enough
+                // that the screens' text keeps WCAG AA on it.
+                'rgb(255 246 224 / 0.16)'
+              : 'rgb(61 76 125 / 0.28)';
+  // The Finale: the four rings are the music drawn in the sky, brighter and breathing.
+  const crucible = tone === 'crucible';
   return (
     <div
       aria-hidden
@@ -53,17 +59,25 @@ export function Backdrop({ tone = 'navy' }: { tone?: BackdropTone }) {
       }}
     >
       <svg
-        className="absolute left-1/2 top-1/2 h-[140vmax] w-[140vmax] -translate-x-1/2 -translate-y-1/2 anim-spin-slow opacity-[0.16]"
+        className={`absolute left-1/2 top-1/2 h-[140vmax] w-[140vmax] -translate-x-1/2 -translate-y-1/2 anim-spin-slow ${crucible ? 'opacity-[0.3]' : 'opacity-[0.16]'}`}
         viewBox="-100 -100 200 200"
+        {...(crucible ? { 'data-testid': 'backdrop-rings' } : {})}
       >
         {[96, 78, 60, 42].map((r, i) => (
           <circle
             key={r}
             r={r}
             fill="none"
-            stroke="var(--color-gold-400)"
-            strokeWidth={0.25}
+            stroke={crucible ? '#fff6e0' : 'var(--color-gold-400)'}
+            strokeWidth={crucible ? 0.4 : 0.25}
             strokeDasharray={i % 2 ? '2 3' : '10 4 1 4'}
+            {...(crucible
+              ? {
+                  style: {
+                    animation: `glow-breathe ${3.2 + i * 0.6}s ease-in-out ${i * 0.4}s infinite`,
+                  },
+                }
+              : {})}
           />
         ))}
         {Array.from({ length: 12 }, (_, i) => (

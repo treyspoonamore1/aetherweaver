@@ -273,6 +273,13 @@ const SPOILS: Readonly<Record<string, BossSpoils>> = {
     gift: 'The Seamstress’s gift',
     giftBlurb: 'Her needles lie still, and the Thread holds. Take something epic.',
   },
+  // The Finale (docs/phase-5d.md): the Unweaver leads on to the Celestial Crucible.
+  the_unweaver: {
+    fallen: 'The Unweaver falls',
+    hoard: 'The Unweaver’s loom',
+    gift: 'The Unweaver’s gift',
+    giftBlurb: 'The Rift knits shut, and the sky above rings white-gold. Take something epic.',
+  },
 };
 
 /**

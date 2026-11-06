@@ -110,6 +110,12 @@ export function SettingsPanel({
           onChange={(v) => update((d) => ({ ...d, damageNumbers: v }))}
         />
         <Toggle
+          label="Captions"
+          hint="Key sounds in words: when the music stops, each note you play, Discord rising."
+          checked={settings.captions}
+          onChange={(v) => update((d) => ({ ...d, captions: v }))}
+        />
+        <Toggle
           label="Coach hints"
           hint="Short tips during the first fights; each shows at most three times."
           checked={settings.hints}
