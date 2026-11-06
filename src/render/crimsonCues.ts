@@ -62,6 +62,22 @@ export const ABYSS_MOOD = {
   rimIntensity: 0.42,
 } as const;
 
+/**
+ * The Celestial Crucible's mood (the Finale, docs/phase-5d.md): CRUCIBLE_HEX's sky, key and rim
+ * (crucibleCues.ts; a test ties the two). A deep night-navy sky; a starlight key no brighter than
+ * the Reliquary's 1.85 and never the Weaver's white-gold (a bone that keeps ≥ 20 ΔE from Ward's
+ * shield and Mend in every vision); a cobalt rim from the orrery's side, ≤ 0.45, never the pale
+ * lilac first proposed (#c9d3f5 is 5.9 ΔE from shield and 2.1 from Fermata's hold: every hero's
+ * edge would read Warded or held).
+ */
+export const CRUCIBLE_MOOD = {
+  sky: '#1b2142',
+  key: '#e2dccc',
+  keyIntensity: 1.7,
+  rim: '#4a5aa8',
+  rimIntensity: 0.42,
+} as const;
+
 /** The over-head pips a stacking status shows (bleed caps at 8). */
 export const MAX_PIPS = 8;
 /** From this many bleed stacks the pips glow and the Chime glyph shows (docs/phase-5a.md). */
@@ -107,6 +123,7 @@ export type ArenaLook = 'warm' | 'cool' | 'crimson' | 'abyss' | 'crucible';
 const BIOME_LOOK: Partial<Record<Biome, ArenaLook>> = {
   crimson_spire: 'crimson',
   abyssal_rift: 'abyss',
+  celestial_crucible: 'crucible',
 };
 
 /**
@@ -170,16 +187,15 @@ const MOODS: Record<ArenaLook, MoodRow> = {
     fogNear: 34,
     fogFar: 80,
   },
-  // The Celestial Crucible (docs/phase-5d.md): a placeholder W6 tunes. A deep night-navy sky, a
-  // warm-white key no brighter than the Reliquary's, a pale prismatic rim (≤ 0.45). No biome
-  // dresses in it until BIOME_LOOK gains its row.
+  // The Celestial Crucible (docs/phase-5d.md): CRUCIBLE_MOOD. The white-gold lives on the
+  // perimeter and in the sky orrery only, never in the light.
   crucible: {
-    sky: '#1b2142',
+    sky: CRUCIBLE_MOOD.sky,
     hemi: 0.5,
-    key: '#fbeedd',
-    keyIntensity: 1.7,
-    rim: '#c9d3f5',
-    rimIntensity: 0.4,
+    key: CRUCIBLE_MOOD.key,
+    keyIntensity: CRUCIBLE_MOOD.keyIntensity,
+    rim: CRUCIBLE_MOOD.rim,
+    rimIntensity: CRUCIBLE_MOOD.rimIntensity,
     fogNear: 40,
     fogFar: 90,
   },
@@ -214,10 +230,14 @@ export function isQuadruped(defId: string): boolean {
 
 /**
  * An enemy def's death material (`material`; absent = porcelain, Movement I's shards; iron, the
- * Legion's; cloth, the Unstitched's unravelling strands).
+ * Legion's; cloth, the Unstitched's unravelling strands; glass, the Finale's mirror-choir and
+ * Conductor, bursting into prism shards that rise as notes).
  */
-export function materialOf(def: Pick<EnemyDef, 'material'>): 'porcelain' | 'iron' | 'cloth' {
-  return def.material === 'iron' ? 'iron' : def.material === 'cloth' ? 'cloth' : 'porcelain';
+export function materialOf(
+  def: Pick<EnemyDef, 'material'>,
+): 'porcelain' | 'iron' | 'cloth' | 'glass' {
+  const m = def.material;
+  return m === 'iron' ? 'iron' : m === 'cloth' ? 'cloth' : m === 'glass' ? 'glass' : 'porcelain';
 }
 
 /** How an attack moves its caster when it lands (`move`), or null. Unknown ids: null. */

@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import type { EnemyDef, HeroDef } from '../../content';
 import { OWN_PALETTE, type WeaverPalette } from '../keepsakeCues';
 import { ModelBuilder } from './builder';
+import { ALTO, BASS, CONDUCTOR, SOPRANO, TENOR } from '../../content/crucibleIds';
 
 /**
  * Procedural low-poly silhouettes (primitives only, no assets). Readability rule 2
@@ -252,6 +253,8 @@ export function buildEnemy(def: EnemyDef): THREE.BufferGeometry {
   if (buildLegion(def, b)) return b.build();
   // The Unstitched (Movement III): void cloth with bone seams, by id, before any role's.
   if (buildUnstitched(def, b)) return b.build();
+  // The Finale: the Silent Conductor and its faceted glass choir, by id, before any role's.
+  if (buildCrucible(def, b)) return b.build();
 
   if (def.id === 'the_bellwarden') {
     // A giant walking bell with a cracked, molten waist.
@@ -1310,5 +1313,205 @@ export function buildRiftPillar(stone: string, bone: string, cloth: string): THR
     });
   }
   b.box(1.46, 0.35, 1.16, cloth, { p: [0, 0.55, 0], r: [0, 0.2, 0] });
+  return b.build();
+}
+
+// ── The Finale (docs/phase-5d.md) ────────────────────────────────────────────────────────
+
+/** The Conductor's ribbons: the Weaver's, gone ash grey (never her gold). */
+const ASH = '#9aa0aa';
+/** Faceted glass: a pale smoky pane over each chorister's own body colour. */
+const GLASS_EDGE = '#d4c8bc';
+
+/** A faceted glass body: a six-sided lathe (its flat faces read as cut glass). */
+function facets(b: ModelBuilder, profile: [number, number][], hex: string): void {
+  b.lathe(profile, hex, {}, 6);
+}
+
+/**
+ * The Silent Conductor and its mirror-choir, by def id (false: not one of theirs). Primitives
+ * only. The Conductor: tall and robed, a baton raised, a halo of five stave lines, the Weaver's
+ * ribbons in ash grey. The four voices: faceted glass choristers (Movement I's porcelain choir,
+ * cut into facets), each with a stripe in its own accent and one mark of the hero it mirrors.
+ * Each distinct from every role's fallback and from every other (tests/renderFinale.test.ts).
+ */
+function buildCrucible(def: EnemyDef, b: ModelBuilder): boolean {
+  const body = def.color;
+  const acc = def.accent;
+  const h = def.height;
+  const r = def.radius;
+  const dark = shade(body, -0.3);
+  const band = (rr: number, y: number, th: number): void => {
+    b.torus(rr, th, acc, { p: [0, y, 0], r: [Math.PI / 2, 0, 0], glow: 0.9 }, Math.PI * 2, 6);
+  };
+  const mouth = (y: number, z: number, rr: number): void => {
+    b.torus(rr, 0.03, acc, { p: [0, y, z], glow: 1 }, Math.PI * 2, 8);
+  };
+  switch (def.id) {
+    case CONDUCTOR: {
+      // The robe: a tall narrow bell, flaring at the hem.
+      b.lathe(
+        [
+          [r * 0.95, 0],
+          [r * 0.86, h * 0.06],
+          [r * 0.56, h * 0.42],
+          [r * 0.36, h * 0.7],
+          [r * 0.3, h * 0.78],
+          [0, h * 0.8],
+        ],
+        body,
+        {},
+        12,
+      );
+      // A high collar and the hooded head, a thin slit of light for eyes.
+      b.cyl(r * 0.24, r * 0.34, h * 0.08, dark, { p: [0, h * 0.8, 0] }, 10);
+      b.sphere(r * 0.22, shade(body, 0.12), { p: [0, h * 0.89, 0], s: [0.9, 1.15, 0.9] }, 10, 8);
+      b.box(r * 0.22, 0.04, 0.04, acc, { p: [0, h * 0.9, -r * 0.2], glow: 0.8 });
+      // The Weaver's ribbons, gone ash: strips wound down the robe and trailing behind.
+      for (let i = 0; i < 4; i++) {
+        const a = (i / 4) * Math.PI * 2 + 0.4;
+        b.torus(
+          r * (0.62 - i * 0.06),
+          0.035,
+          ASH,
+          { p: [0, h * (0.28 + i * 0.1), 0], r: [Math.PI / 2 + 0.25, a, 0] },
+          Math.PI * 1.3,
+          18,
+        );
+      }
+      for (const side of [1, -1])
+        b.box(0.12, h * 0.55, 0.03, ASH, {
+          p: [side * r * 0.32, h * 0.42, r * 0.55],
+          r: [0.28, 0, side * 0.1],
+        });
+      // The arms: the left hangs, the right raised with the baton.
+      b.cyl(0.11, 0.08, h * 0.26, dark, { p: [-r * 0.5, h * 0.6, -0.1], r: [0, 0, -0.35] }, 6);
+      b.cyl(0.11, 0.08, h * 0.24, dark, { p: [r * 0.55, h * 0.74, -0.25], r: [0.5, 0, 0.85] }, 6);
+      b.cyl(0.025, 0.04, h * 0.28, ASH, { p: [r * 0.95, h * 0.9, -0.6], r: [0.75, 0, 0.55] }, 5);
+      b.octa(0.07, acc, { p: [r * 1.12, h * 1.0, -0.78], glow: 1 });
+      // The stilled halo: five stave lines behind the head.
+      for (let i = 0; i < 5; i++)
+        b.torus(
+          r * (0.48 + i * 0.07),
+          0.018,
+          i === 2 ? acc : ASH,
+          { p: [0, h * 0.93, r * 0.28], glow: i === 2 ? 0.7 : 0.25 },
+          Math.PI * 2,
+          28,
+        );
+      return true;
+    }
+    case ALTO: {
+      // Lyra's mirror: a slim faceted chorister, a glass bow-arc held at its side.
+      facets(
+        b,
+        [
+          [r * 0.85, 0],
+          [r * 0.7, h * 0.3],
+          [r * 0.42, h * 0.7],
+          [0, h * 0.78],
+        ],
+        body,
+      );
+      b.octa(r * 0.42, GLASS_EDGE, { p: [0, h * 0.86, 0], s: [0.8, 1.1, 0.8] });
+      band(r * 0.5, h * 0.45, 0.04);
+      b.torus(
+        h * 0.32,
+        0.035,
+        GLASS_EDGE,
+        { p: [r * 0.6, h * 0.55, -r * 0.4], r: [0, 0.4, 0], glow: 0.3 },
+        Math.PI * 0.9,
+        10,
+      );
+      mouth(h * 0.84, -r * 0.34, r * 0.16);
+      return true;
+    }
+    case BASS: {
+      // Brann's mirror: broad and low, faceted shoulder plates.
+      facets(
+        b,
+        [
+          [r * 1.0, 0],
+          [r * 1.05, h * 0.35],
+          [r * 0.8, h * 0.68],
+          [0, h * 0.74],
+        ],
+        body,
+      );
+      for (const side of [1, -1])
+        b.octa(r * 0.42, GLASS_EDGE, { p: [side * r * 0.85, h * 0.66, 0], s: [1.2, 0.7, 1] });
+      b.ico(r * 0.38, GLASS_EDGE, { p: [0, h * 0.82, 0] });
+      band(r * 0.82, h * 0.3, 0.05);
+      mouth(h * 0.8, -r * 0.34, r * 0.2);
+      return true;
+    }
+    case TENOR: {
+      // Kael's mirror: tall, a faceted glass shield-pane on its left arm.
+      facets(
+        b,
+        [
+          [r * 0.8, 0],
+          [r * 0.74, h * 0.4],
+          [r * 0.5, h * 0.74],
+          [0, h * 0.8],
+        ],
+        body,
+      );
+      b.octa(r * 0.36, GLASS_EDGE, { p: [0, h * 0.88, 0], s: [0.85, 1.2, 0.85] });
+      b.box(r * 0.9, h * 0.42, 0.08, GLASS_EDGE, {
+        p: [-r * 0.78, h * 0.48, -r * 0.3],
+        r: [0, 0.5, 0],
+        glow: 0.2,
+      });
+      b.box(0.06, h * 0.36, 0.1, acc, {
+        p: [-r * 0.78, h * 0.48, -r * 0.36],
+        r: [0, 0.5, 0],
+        glow: 0.9,
+      });
+      band(r * 0.62, h * 0.4, 0.045);
+      mouth(h * 0.86, -r * 0.3, r * 0.15);
+      return true;
+    }
+    case SOPRANO: {
+      // Vexis's mirror: slender, a faceted star turning over its raised hand.
+      facets(
+        b,
+        [
+          [r * 0.7, 0],
+          [r * 0.55, h * 0.45],
+          [r * 0.34, h * 0.76],
+          [0, h * 0.82],
+        ],
+        body,
+      );
+      b.octa(r * 0.32, GLASS_EDGE, { p: [0, h * 0.9, 0], s: [0.8, 1.2, 0.8] });
+      b.cyl(0.05, 0.04, h * 0.34, dark, { p: [r * 0.5, h * 0.72, -0.1], r: [0, 0, 0.5] }, 5);
+      b.octa(r * 0.28, acc, { p: [r * 0.9, h * 1.0, -0.15], glow: 1 });
+      b.octa(r * 0.18, GLASS_EDGE, { p: [r * 0.9, h * 1.0, -0.15], r: [0.6, 0.6, 0], glow: 0.4 });
+      band(r * 0.45, h * 0.5, 0.04);
+      mouth(h * 0.88, -r * 0.28, r * 0.14);
+      return true;
+    }
+    default:
+      return false;
+  }
+}
+
+/**
+ * A Celestial Crucible pillar (unit radius, height ~3.6, scaled like `buildPillar`): an obsidian
+ * glass column, six-faceted, banded with inlay in the floor's line colour, a smoky glass crystal
+ * on top. No gold: a pillar stands on the combat disc, where white-gold never goes.
+ */
+export function buildCruciblePillar(
+  stone: string,
+  line: string,
+  glass: string,
+): THREE.BufferGeometry {
+  const b = new ModelBuilder();
+  b.cyl(1.0, 1.1, 0.35, shade(stone, -0.2), { p: [0, 0.17, 0] }, 6);
+  b.cyl(0.7, 0.8, 2.9, stone, { p: [0, 1.8, 0] }, 6);
+  for (const y of [0.6, 1.8, 3.0])
+    b.torus(0.78, 0.04, line, { p: [0, y, 0], r: [Math.PI / 2, 0, 0], glow: 0.15 }, Math.PI * 2, 6);
+  b.octa(0.55, glass, { p: [0, 3.65, 0], s: [0.8, 1.4, 0.8], glow: 0.2 });
   return b.build();
 }

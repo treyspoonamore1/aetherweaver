@@ -10,6 +10,7 @@ import { healthLevel } from '../app/healthLevels';
 import { signalHex } from './crimsonCues';
 import { CallingView } from './calling';
 import { ChronoView } from './chrono';
+import { crucibleSky, emptySky } from './crucibleCues';
 import { DissonanceView } from './dissonance';
 import { EntityLayer } from './entities';
 import { FermataView } from './fermata';
@@ -63,6 +64,8 @@ export class CombatView implements WorldView {
   private readonly bufferSize = new THREE.Vector2();
   private readonly heroHex = new Map<number, string>();
   private disposed = false;
+  /** The Crucible's sky orrery inputs (reused; read only on its floor). */
+  private readonly sky = emptySky();
 
   constructor(
     private readonly ctx: RenderContext,
@@ -197,7 +200,12 @@ export class CombatView implements WorldView {
 
     this.ctx.stage.renderer.getDrawingBufferSize(this.bufferSize);
     const pointScale = this.bufferSize.y / (2 * Math.tan((camera.fov * Math.PI) / 360));
-    this.arena.update(frame.time, pointScale, this.quality);
+    // The Celestial Crucible's sky orrery (the Finale): the music's beat and stems, or the sim's.
+    const sky =
+      this.arena.look === 'crucible'
+        ? crucibleSky(this.feedback.crucible.finale(state), frame.music, state.time, this.sky)
+        : undefined;
+    this.arena.update(frame.time, pointScale, this.quality, sky);
     this.kit.end(fxDt, this.overlay.width, this.overlay.height, this.bufferSize.y, camera.fov);
     this.overlay.setSlowmo(state.timeScale < 0.98 ? Math.min(0.8, (1 - state.timeScale) * 1.1) : 0);
     this.overlay.update(realDt);

@@ -1,7 +1,18 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import * as THREE from 'three';
 import { COLOR_VISIONS, type ColorVision } from '../../app/colorVision';
-import { CONTENT, arenaDef, attackDef, enemyDef, heroDef } from '../../content';
+import { CONTENT, arenaDef, attackDef, enemyDef, heroDef, type ArenaDef } from '../../content';
+import {
+  ALTO,
+  BASS,
+  BASSO_OSTINATO,
+  CONDUCTOR,
+  CRUCIBLE_ARENA,
+  DISCORD_MAX,
+  NOTES_NEEDED,
+  SOPRANO,
+  TENOR,
+} from '../../content/crucibleIds';
 import { CHORD_PRESETS } from '../../meta/run';
 import {
   FixedStepper,
@@ -17,6 +28,8 @@ import {
   type SimConfig,
   type SimEvent,
   type Entity,
+  type FinaleField,
+  type NoteSource,
   type Status,
   type WorldState,
 } from '../../sim';
@@ -26,6 +39,7 @@ import type { World } from '../../sim/world';
 import { CameraRig } from '../camera';
 import { CombatView } from '../combatView';
 import { arenaLook } from '../crimsonCues';
+import { crucibleArenaDef, isStilled } from '../crucibleCues';
 import type { WeaverLook } from '../keepsakeCues';
 import { Stage, type QualityTier } from '../stage';
 import type { FrameInfo } from '../types';
@@ -181,6 +195,34 @@ interface LabApi {
   setUnravel(on: boolean | null): void;
   /** A stolen aura (FieldView's and EntityLayer's overrides; null: none). */
   setStolen(stolen: { chord: number; aura: number } | null): void;
+  /** Phase 5d: the Finale's scenarios (docs/phase-5d.md, Labs). */
+  finaleScenarios(): string[];
+  /** Restarts the real sim on the Celestial Crucible and stages that scenario. */
+  finaleScenario(name: string): void;
+  /** What the Finale's visuals drew last frame and have played, and the lab stand-ins used. */
+  finaleStats(): FinaleStats;
+  /** The Finale state the views draw (CrucibleCues' override, never the sim's; null: the sim's). */
+  setFinale(finale: FinaleField | null): void;
+  /** Every party hero shown stilled (EntityLayer's override), or none. */
+  setStilled(on: boolean): void;
+}
+
+interface FinaleStats {
+  theme: string;
+  biome: string;
+  look: string;
+  /** Drawn last frame: stilled heroes, baton lines and sigils, Fortissimo's pips and rims, motes… */
+  drawn: Record<string, number>;
+  /** Played so far: Cues, Discord streaks, pulses, shatters, notes, Reignites, Codas, glass deaths. */
+  fired: Record<string, number>;
+  /** The Finale state drawn (the override, else the sim's). */
+  finale: FinaleField | null;
+  /** The Grand Silence's light term, 0..1. */
+  silence: number;
+  /** The lab stand-ins this scenario used (Finale defs content doesn't have yet, glass deaths). */
+  standIns: string[];
+  heroes: { id: number; stilled: boolean; downed: boolean }[];
+  enemies: { id: number; def: string; x: number; z: number }[];
 }
 
 interface UnstitchedStats {
@@ -462,7 +504,11 @@ const LOADOUTS: Record<string, ChordConfig[]> = {
   'Field song only': [{ auras: [] }, { auras: ['sostenuto', 'fortissimo'] }],
 };
 const LOADOUT_NAMES = Object.keys(LOADOUTS);
-const THEMES = CONTENT.arenas.map((a) => a.id);
+const THEMES = [
+  ...CONTENT.arenas.map((a) => a.id),
+  // Phase 5d: the Celestial Crucible's stand-in until content registers it.
+  ...(CONTENT.arenas.some((a) => a.id === CRUCIBLE_ARENA) ? [] : [CRUCIBLE_ARENA]),
+];
 
 /** The relics the lab sim carries (kept across loadout / encounter changes). */
 let carried: string[] = [];
@@ -2510,6 +2556,141 @@ const UNSTITCHED_SCENARIOS: Record<string, UnstitchedScenario> = {
 };
 const UNSTITCHED_SCENARIO_NAMES = Object.keys(UNSTITCHED_SCENARIOS);
 
+/**
+ * Phase 5d: one scenario per Finale visual (docs/phase-5d.md, Labs). Each restarts the real sim on
+ * the Celestial Crucible (content's arena, or the design's stand-in until content registers it) and
+ * stages its moment. The Finale state (`field.finale`) and the stilled heroes are the views' own
+ * overrides (`setFinale`, `setStilled`), never written into the sim; the Conductor and its choir
+ * are content's once they exist, else Movement I stand-ins; `finaleStats().standIns` names every
+ * one used.
+ */
+interface FinaleScenario {
+  note: string;
+  stage(rt: LabRuntime): void;
+}
+
+/** The Grand Silence as the sim keeps it, `notes` of 8, with these sources. */
+function labSilence(rt: LabRuntime, notes: number, sources: NoteSource[] = []): FinaleField {
+  const now = rt.sim.state.time;
+  return { silence: { notes, of: 8, since: now, until: now + 50, sources: [...sources] } };
+}
+
+const NOTE_ORDER: readonly NoteSource[] = ['perfect', 'clutch', 'reel', 'perfect', 'rewind'];
+
+const FINALE_SCENARIOS: Record<string, FinaleScenario> = {
+  'Gallery · the Crucible': {
+    note: 'The Silent Conductor and its four glass voices side by side on the Crucible: the Alto (Lyra’s mirror), the Bass (Brann’s), the Tenor (Kael’s), the Soprano (Vexis’s); the sky orrery beyond the far rim',
+    stage: (rt) => rt.later(0.1, () => rt.preset('gallery4')),
+  },
+  'Cue · a Solo': {
+    note: 'The Conductor Cues the Bass: a brass baton line from its baton to the soloist, the baton sigil over the voice, its ring snapping in',
+    stage: (rt) => {
+      rt.later(0.1, () => {
+        rt.spawnFinale(CONDUCTOR, 0, -12);
+        rt.spawnFinale(BASS, 5, -7);
+      });
+      rt.later(0.4, () => {
+        rt.toughen();
+        rt.labCue(BASS, BASSO_OSTINATO);
+      });
+    },
+  },
+  'Discord fed': {
+    note: 'Three unanswered blows: a brass streak from each hero hit to the Conductor and its +N; an answered one draws nothing',
+    stage: (rt) => {
+      rt.later(0.1, () => rt.spawnFinale(CONDUCTOR, 0, -12));
+      rt.later(0.4, () => {
+        rt.toughen();
+        rt.setFinale({ discord: { value: 52, rate: 0.5 } });
+      });
+      for (let i = 0; i < 3; i++) rt.later(0.8 + i * 1.1, () => rt.labDiscord(i % 3, 8 + i * 6));
+    },
+  },
+  'Fortissimo Silence': {
+    note: 'Discord at 100: three raid pulses (3.0 / 1.5 / 1.5 s), the pips over the Conductor filling 1/3 → 3/3, a rising rim on every hero that cuts to nothing on each impact',
+    stage: (rt) => {
+      rt.later(0.1, () => rt.spawnFinale(CONDUCTOR, 0, -12));
+      rt.later(0.4, () => {
+        rt.toughen();
+        rt.labFortissimo(1, 3);
+      });
+      rt.later(3.4, () => rt.labFortissimo(2, 1.5));
+      rt.later(4.9, () => rt.labFortissimo(3, 1.5));
+      rt.later(6.4, () => rt.setFinale({ discord: { value: 0, rate: 0.5 } }));
+    },
+  },
+  'Fortissimo · Crescendo cancel': {
+    note: 'A Crescendo mid-windup cancels Fortissimo Silence: its ring shatters outward in white staves, the pips gone',
+    stage: (rt) => {
+      rt.later(0.1, () => rt.spawnFinale(CONDUCTOR, 0, -12));
+      rt.later(0.4, () => {
+        rt.toughen();
+        rt.labFortissimo(1, 3);
+      });
+      rt.later(1.8, () => rt.labCancel('crescendo'));
+    },
+  },
+  'Grand Silence · 0 → 8 notes': {
+    note: 'The music stops: the light drains grey, the vignette holds, every hero stilled (no tremor), the orrery dark. Each note: a gold mote from its hero to its ring, which relights; at eight, Reignite',
+    stage: (rt) => {
+      rt.later(0.1, () => rt.spawnFinale(CONDUCTOR, 0, -12));
+      rt.later(0.4, () => {
+        rt.toughen();
+        rt.labSilenceBegins();
+      });
+      for (let n = 1; n <= NOTES_NEEDED; n++)
+        rt.later(1.5 + n * 1.3, () => rt.labNote(n, NOTE_ORDER[(n - 1) % NOTE_ORDER.length]!));
+      rt.later(2.2 + NOTES_NEEDED * 1.3, () => rt.labReignite([]));
+    },
+  },
+  'Reignite · a fallen hero rises': {
+    note: 'The eighth note: every hero’s rim flares gold, and a fallen hero stands back up in a column of the Weaver’s gold',
+    stage: (rt) => {
+      rt.later(0.1, () => rt.spawnFinale(CONDUCTOR, 0, -12));
+      rt.later(0.4, () => {
+        rt.toughen();
+        rt.labSilenceBegins(7);
+      });
+      rt.later(1.6, () => rt.labNote(8, 'perfect'));
+      rt.later(2.2, () => rt.labReignite([rt.heroId(LYRA)]));
+    },
+  },
+  'The Coda': {
+    note: 'The cap runs out with three notes: a grey wave, the heroes wake without the song (no gold, the fallen stay down)',
+    stage: (rt) => {
+      rt.later(0.1, () => rt.spawnFinale(CONDUCTOR, 0, -12));
+      rt.later(0.4, () => {
+        rt.toughen();
+        rt.labSilenceBegins(3);
+      });
+      rt.later(2.5, () => rt.labCoda(3));
+    },
+  },
+  'Glass deaths': {
+    note: 'The four voices struck down: prism shards burst and rise as notes, a stave ring in each one’s accent (never porcelain, iron or cloth)',
+    stage: (rt) => {
+      rt.later(0.1, () => {
+        rt.spawnFinale(ALTO, -5, -7);
+        rt.spawnFinale(BASS, -2, -9);
+        rt.spawnFinale(TENOR, 2, -9);
+        rt.spawnFinale(SOPRANO, 5, -7);
+      });
+      rt.later(1.0, () => rt.labGlassDeaths());
+    },
+  },
+};
+const FINALE_SCENARIO_NAMES = Object.keys(FINALE_SCENARIOS);
+
+/** The lab's floors: content's, and the Crucible's stand-in until content registers it. */
+function labArena(id: string): ArenaDef {
+  return id === CRUCIBLE_ARENA ? crucibleArenaDef() : arenaDef(id);
+}
+
+/** A floor the keepsake lineup can stand on (content's own). */
+function contentTheme(id: string): string {
+  return CONTENT.arenas.some((a) => a.id === id) ? id : 'nave';
+}
+
 class LabRuntime {
   sim: Sim;
   readonly stage: Stage;
@@ -3118,7 +3299,7 @@ class LabRuntime {
       this.view.field.sanctuaryOverride = null;
       return;
     }
-    const R = arenaDef(this.theme).radius;
+    const R = labArena(this.theme).radius;
     this.pools = [
       { x: -0.4 * R, z: 0, r: 3.6, vx: 0.64, vz: 0.64 },
       { x: 0.4 * R, z: 0, r: 3.6, vx: -0.64, vz: -0.64 },
@@ -3186,7 +3367,7 @@ class LabRuntime {
     }
     return {
       theme: this.theme,
-      biome: arenaDef(this.theme).biome ?? 'reliquary',
+      biome: labArena(this.theme).biome ?? 'reliquary',
       drawn: {
         ...v.entities.drawnM2,
         ...v.telegraphs.drawnM2,
@@ -3441,6 +3622,224 @@ class LabRuntime {
     });
   }
 
+  // ── Phase 5d: the Finale (docs/phase-5d.md) ──────────────────────────────────────────────
+
+  /** Restarts on the Celestial Crucible and stages that scenario. */
+  finaleScenario(name: string): void {
+    const s = FINALE_SCENARIOS[name];
+    if (!s) return;
+    clearBonds();
+    encounterOverride = 'sandbox';
+    callingCfg = null;
+    chordsOverride = GUARDIAN_CHORDS;
+    astrolabeCfg = [];
+    dissonanceCfg = [];
+    this.theme = CRUCIBLE_ARENA;
+    this.restart([]);
+    this.setFinale(null);
+    this.setStilled(false);
+    s.stage(this);
+  }
+
+  /** The Finale state the views draw (CrucibleCues' override; null: the sim's). */
+  setFinale(finale: FinaleField | null): void {
+    this.view.feedback.crucible.override = finale;
+  }
+
+  /** Every party hero shown stilled (EntityLayer's override), or none. */
+  setStilled(on: boolean): void {
+    this.view.entities.stilledOverride = on ? new Set(this.sim.state.party) : null;
+  }
+
+  /** The Finale def `id` if content has it, else its Movement I stand-in (recorded). */
+  private finaleDefId(id: string): string {
+    if (CONTENT.enemies.some((e) => e.id === id)) return id;
+    const stand = id === CONDUCTOR ? 'the_hollow_cantor' : 'hollow_chorister';
+    this.standIn(`${id} → ${stand}`);
+    return stand;
+  }
+
+  /** Spawns the Conductor or a voice (or its stand-in) at an offset from the Weaver. */
+  spawnFinale(id: string, dx: number, dz: number): void {
+    const def = this.finaleDefId(id);
+    this.spawn(def, dx, dz, id !== CONDUCTOR);
+    this.finaleIds.set(id, def);
+  }
+
+  /** The spawned Conductor's or voice's entity (null: none standing). */
+  private finaleEntity(id: string): ReadonlyEntity | null {
+    const def = this.finaleIds.get(id) ?? id;
+    let found: ReadonlyEntity | null = null;
+    for (const e of this.sim.state.entities.list())
+      if (e.enemy?.defId === def && !e.health?.dead) found = e;
+    return found;
+  }
+
+  private readonly finaleIds = new Map<string, string>();
+
+  private finaleNow(): FinaleField {
+    return this.view.feedback.crucible.override ?? {};
+  }
+
+  /** The Conductor Cues `voice` to sing `solo`: the cue held for 3.7 s (1.2 s Cue + 2.5 s Solo). */
+  labCue(voice: string, solo: string): void {
+    const boss = this.finaleEntity(CONDUCTOR);
+    const soloist = this.finaleEntity(voice);
+    if (!boss || !soloist) return;
+    this.setFinale({
+      ...this.finaleNow(),
+      cue: { boss: boss.id, soloist: soloist.id, solo, until: this.sim.state.time + 3.7 },
+    });
+    this.inject([
+      { type: 'enemyCued', tick: this.sim.tick, boss: boss.id, soloist: soloist.id, solo },
+    ]);
+    this.later(3.7, () => {
+      const f = { ...this.finaleNow() };
+      delete f.cue;
+      this.setFinale(f);
+    });
+  }
+
+  /** An unanswered blow on the hero in `slot` feeds Discord by `amount`. */
+  labDiscord(slot: number, amount: number): void {
+    const boss = this.finaleEntity(CONDUCTOR);
+    if (!boss) return;
+    const f = this.finaleNow();
+    const value = Math.min(DISCORD_MAX, (f.discord?.value ?? 0) + amount);
+    this.setFinale({ ...f, discord: { value, rate: f.discord?.rate ?? 0.5 } });
+    const tick = this.sim.tick;
+    const telegraph = 900000 + tick;
+    this.inject([
+      {
+        type: 'telegraphResolved',
+        tick,
+        telegraph,
+        target: this.heroId(slot),
+        outcome: 'hit',
+        damage: 300,
+      },
+      { type: 'discordRose', tick, boss: boss.id, telegraph, amount, value },
+    ]);
+  }
+
+  /** Fortissimo Silence's `pulse` winding up, landing in `windup` seconds. */
+  labFortissimo(pulse: 1 | 2 | 3, windup: number): void {
+    this.setFinale({
+      ...this.finaleNow(),
+      discord: { value: DISCORD_MAX, rate: 1 },
+      fortissimo: { pulse, impact: this.sim.state.time + windup },
+    });
+  }
+
+  /** Fortissimo cancelled (a Crescendo shatters it). */
+  labCancel(by: 'crescendo' | 'phase' | 'boss'): void {
+    const boss = this.finaleEntity(CONDUCTOR);
+    this.setFinale({ discord: { value: 0, rate: 0.5 } });
+    if (boss)
+      this.inject([{ type: 'fortissimoCancelled', tick: this.sim.tick, boss: boss.id, by }]);
+  }
+
+  /** The Grand Silence begins (with `notes` already played): the heroes stilled. */
+  labSilenceBegins(notes = 0): void {
+    const boss = this.finaleEntity(CONDUCTOR);
+    const f = labSilence(this, notes, NOTE_ORDER.slice(0, notes));
+    this.setFinale(f);
+    this.setStilled(true);
+    if (boss)
+      this.inject([
+        { type: 'silenceBegan', tick: this.sim.tick, boss: boss.id, until: f.silence!.until },
+      ]);
+  }
+
+  /** Note `n` of 8, made by `source` (a Rewind's note has no hero). */
+  labNote(n: number, source: NoteSource): void {
+    const f = this.finaleNow();
+    if (f.silence) {
+      f.silence.notes = n;
+      f.silence.sources.push(source);
+    }
+    const slot = (n - 1) % this.sim.state.party.length;
+    this.inject([
+      {
+        type: 'silenceNote',
+        tick: this.sim.tick,
+        n,
+        of: NOTES_NEEDED,
+        source,
+        hero: source === 'rewind' ? null : this.heroId(slot),
+      },
+    ]);
+  }
+
+  /** Eight notes: Reignite (the silence ends, the heroes wake, `revived` rise). */
+  labReignite(revived: EntityId[]): void {
+    const boss = this.finaleEntity(CONDUCTOR);
+    this.setFinale({});
+    this.setStilled(false);
+    if (boss) this.inject([{ type: 'reignited', tick: this.sim.tick, boss: boss.id, revived }]);
+  }
+
+  /** The cap runs out with `notes` played: the Coda. */
+  labCoda(notes: number): void {
+    const boss = this.finaleEntity(CONDUCTOR);
+    this.setFinale({});
+    this.setStilled(false);
+    if (boss) this.inject([{ type: 'silenceBroken', tick: this.sim.tick, boss: boss.id, notes }]);
+  }
+
+  /** The choir struck down: content's glass voices die through the sim; stand-ins as glass. */
+  labGlassDeaths(): void {
+    const voices = [ALTO, BASS, TENOR, SOPRANO];
+    if (voices.every((v) => CONTENT.enemies.some((e) => e.id === v))) {
+      this.strikeAll();
+      return;
+    }
+    this.standIn('glass death');
+    const crucible = this.view.feedback.crucible;
+    const tint = new THREE.Color('#e8e0c8');
+    for (const e of this.sim.state.entities.list()) {
+      if (!e.enemy || e.health?.dead) continue;
+      crucible.glassDeath(e.x, e.z, e.radius, e.height, tint, false);
+      this.view.entities.markDying(e.id);
+    }
+    this.queue({ t: 'debug', op: { op: 'killEnemies' } });
+  }
+
+  finaleStats(): FinaleStats {
+    const v = this.view;
+    const st = this.sim.state;
+    const crucible = v.feedback.crucible;
+    const finale = crucible.finale(st);
+    const def = labArena(this.theme);
+    const pre = (prefix: string, o: Readonly<Record<string, number>>) =>
+      Object.fromEntries(Object.entries(o).map(([k, n]) => [`${prefix}.${k}`, n]));
+    return {
+      theme: this.theme,
+      biome: def.biome ?? 'reliquary',
+      look: arenaLook(def),
+      drawn: {
+        ...pre('entities', v.entities.drawnFinale),
+        ...pre('crucible', crucible.drawnFinale),
+      },
+      fired: { ...crucible.firedFinale },
+      finale: finale ? (JSON.parse(JSON.stringify(finale)) as FinaleField) : null,
+      silence: crucible.silence,
+      standIns: [...this.standIns],
+      heroes: st.party.map((id) => {
+        const e = st.entities.get(id);
+        return {
+          id,
+          stilled: !!e && (isStilled(e) || !!v.entities.stilledOverride?.has(id)),
+          downed: !!e?.health?.downed,
+        };
+      }),
+      enemies: st.entities
+        .list()
+        .filter((e) => e.enemy && !e.health?.dead)
+        .map((e) => ({ id: e.id, def: e.enemy!.defId, x: e.x, z: e.z })),
+    };
+  }
+
   unstitchedStats(): UnstitchedStats {
     const v = this.view;
     const st = this.sim.state;
@@ -3474,8 +3873,8 @@ class LabRuntime {
     const zones = v.field.zoneOverride ?? st.field.zones ?? [];
     return {
       theme: this.theme,
-      biome: arenaDef(this.theme).biome ?? 'reliquary',
-      look: arenaLook(arenaDef(this.theme)),
+      biome: labArena(this.theme).biome ?? 'reliquary',
+      look: arenaLook(labArena(this.theme)),
       drawn: {
         ...pre('entities', v.entities.drawnM3),
         ...pre('telegraphs', v.telegraphs.drawnM3),
@@ -3820,7 +4219,7 @@ class LabRuntime {
         stage: this.stage,
         rig: this.rig,
         overlay: this.overlay,
-        arena: arenaDef(this.theme),
+        arena: labArena(this.theme),
         quality: this.stage.qualityTier,
       },
       this.sim.state,
@@ -3833,7 +4232,7 @@ class LabRuntime {
     this.theme = theme;
     if (this.keepsakes) {
       // The lineup on the new floor (the fight comes back on it when the lineup closes).
-      this.keepsakes.setTheme(theme);
+      this.keepsakes.setTheme(contentTheme(theme));
       return;
     }
     this.view.dispose();
@@ -3862,7 +4261,7 @@ class LabRuntime {
       this.stage,
       this.overlay.parentElement ?? this.overlay,
       page,
-      this.theme,
+      contentTheme(this.theme),
     );
     this.overlay.style.display = 'none';
   }
@@ -4123,6 +4522,16 @@ class LabRuntime {
         this.spawn('mirror_champion', -1.5, -11.5);
         this.spawn('the_seamstress', 3, -13);
         this.spawn('the_unweaver', 8, -14);
+        this.later(0.3, () => this.toughen());
+        break;
+      case 'gallery4':
+        // Phase 5d: the Conductor and its glass choir, side by side (or their stand-ins).
+        q({ t: 'debug', op: { op: 'killEnemies' } });
+        this.spawnFinale(ALTO, -6, -6);
+        this.spawnFinale(BASS, -3, -7.5);
+        this.spawnFinale(TENOR, 3, -7.5);
+        this.spawnFinale(SOPRANO, 6, -6);
+        this.spawnFinale(CONDUCTOR, 0, -12);
         this.later(0.3, () => this.toughen());
         break;
       case 'busy': {
@@ -4721,6 +5130,11 @@ export function VfxLab() {
       setZones: (zones) => rt.setZones(zones),
       setUnravel: (on) => rt.setUnravel(on),
       setStolen: (stolen) => rt.setStolen(stolen),
+      finaleScenarios: () => FINALE_SCENARIO_NAMES,
+      finaleScenario: (name) => rt.finaleScenario(name),
+      finaleStats: () => rt.finaleStats(),
+      setFinale: (finale) => rt.setFinale(finale),
+      setStilled: (on) => rt.setStilled(on),
     };
     const timer = window.setInterval(() => {
       const i = rt.info();
@@ -5234,6 +5648,44 @@ export function VfxLab() {
             Stolen aura
           </Btn>
           <Btn onClick={() => rt()?.setStolen(null)}>Aura back</Btn>
+        </Group>
+        <Group title="Phase 5d · Finale">
+          <p className="w-full text-[10px] text-muted">
+            Each restarts the real sim on the Celestial Crucible and stages a Finale moment. The
+            Finale state and the stilled heroes are the views&apos; overrides; stand-ins fill in
+            what content and the sim don&apos;t have yet (see finaleStats).
+          </p>
+          {FINALE_SCENARIO_NAMES.map((name) => (
+            <Btn
+              key={name}
+              onClick={() => {
+                rt()?.finaleScenario(name);
+                setTheme(CRUCIBLE_ARENA);
+              }}
+              title={FINALE_SCENARIOS[name]!.note}
+            >
+              {name}
+            </Btn>
+          ))}
+          <Btn onClick={() => rt()?.preset('gallery4')} title="The Conductor and its choir">
+            Crucible gallery
+          </Btn>
+          <Btn
+            onClick={() => {
+              rt()?.labSilenceBegins(0);
+            }}
+            title="The Grand Silence held (the views' override): grey light, vignette, stilled heroes"
+          >
+            Silence
+          </Btn>
+          <Btn
+            onClick={() => {
+              rt()?.setFinale(null);
+              rt()?.setStilled(false);
+            }}
+          >
+            No Finale
+          </Btn>
         </Group>
         <Group title="Phase 4g · Keepsakes">
           <p className="w-full text-[10px] text-muted">
