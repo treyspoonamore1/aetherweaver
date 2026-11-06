@@ -924,20 +924,57 @@ export function isCadence(t: ReadonlyTelegraph): boolean {
   return t.attackId === FINAL_CADENCE || t.attackId === HALF_CADENCE;
 }
 
-/**
- * The last burn: the Silent Conductor in its last phase with the Grand Silence over (after
- * Reignite or the Coda), not still being cast and no hero stilled. False outside its fight.
- */
-export function finaleBurn(state: WorldState): boolean {
+/** The Silent Conductor while it stands (the fight's boss), or null: outside its fight. */
+function conductorOf(state: WorldState): ReadonlyEntity | null {
   const id = state.encounter.bossId;
-  if (id === null) return false;
+  if (id === null) return null;
   const boss = state.entities.get(id);
-  const c = boss?.enemy;
-  if (!c || c.defId !== CONDUCTOR || boss.health?.dead) return false;
-  if (c.phase < 3 || state.field.finale?.silence || c.cast?.attackId === GRAND_SILENCE)
-    return false;
-  return !state.party.some((p) => {
+  if (!boss?.enemy || boss.enemy.defId !== CONDUCTOR || boss.health?.dead) return null;
+  return boss;
+}
+
+/** Some hero of the party is stilled by the Grand Silence. */
+function anyStilled(state: WorldState): boolean {
+  return state.party.some((p) => {
     const h = state.entities.get(p);
     return h !== undefined && isStilled(h);
   });
+}
+
+/**
+ * The last burn: the Silent Conductor in its last phase with the Grand Silence over (after
+ * Reignite or the Coda), not still being cast and no hero stilled. `silenceSeen` is whether this
+ * fight's Grand Silence has been seen to hold (`SilenceWatch`): phase 3 alone is not enough, as
+ * the phase shift (and any gap before the cast) comes before the silence, and a Solo Cued there
+ * would be frozen. False outside its fight.
+ */
+export function finaleBurn(state: WorldState, silenceSeen: boolean): boolean {
+  if (!silenceSeen) return false;
+  const c = conductorOf(state)?.enemy;
+  if (!c) return false;
+  if (c.phase < 3 || state.field.finale?.silence || c.cast?.attackId === GRAND_SILENCE)
+    return false;
+  return !anyStilled(state);
+}
+
+/**
+ * A bot's memory of the Grand Silence (docs/phase-5d.md): whether this fight's silence has been
+ * seen to hold (the silence itself, or a stilled hero) since the Conductor was last seen before
+ * its last phase. A new fight (or no Conductor) forgets it. Read-only and without RNG: outside
+ * the Finale it stays false and changes nothing.
+ */
+export class SilenceWatch {
+  private seen = false;
+
+  /** Looks at this tick's state; call it every tick the bot is asked (cheap, no draws). */
+  observe(state: WorldState): void {
+    const c = conductorOf(state)?.enemy;
+    if (!c || c.phase < 3) this.seen = false;
+    else if (state.field.finale?.silence || anyStilled(state)) this.seen = true;
+  }
+
+  /** The last burn, by `finaleBurn`, once the silence has been seen. */
+  burn(state: WorldState): boolean {
+    return finaleBurn(state, this.seen);
+  }
 }

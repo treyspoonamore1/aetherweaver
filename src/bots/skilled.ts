@@ -104,7 +104,7 @@ import {
   FINALE_BANK_AT,
   cueOf,
   discordOf,
-  finaleBurn,
+  SilenceWatch,
   fortissimoLive,
   isFortissimo,
   isSilenceBlow,
@@ -193,6 +193,11 @@ export type M3Rule = (typeof M3_RULES)[number];
 export const FINALE_RULES = [
   /** Focus (or interrupt) the Cued soloist. */
   'cueFocus',
+  /**
+   * `cueFocus`'s crowd guard: hold the Focus while more than `CUE_FOCUS_AT` enemies stand. Left
+   * off, `cueFocus` Focuses the soloist at any crowd (the guard's own ablation).
+   */
+  'cueFocusCrowd',
   /** Bank Resonance for the Crescendo as Discord climbs. */
   'bankCrescendo',
   /** Cancel Fortissimo Silence with the Crescendo. */
@@ -256,6 +261,14 @@ const SILENCE_REEL_FROM = 0.4;
 const SILENCE_REEL_TO = 0.6;
 /** `silenceReel`: a Swap only while the Weaver keeps more than this share of her life. */
 const SWAP_ABOVE = 0.25;
+/**
+ * `silenceReel`: nor a Swap that would take this share of her life or more (behind the barrier
+ * and her shields): the plain Reel loop's survival guard. A Martyr's Swap out of a Final Cadence
+ * can cost up to 458 of her 720 (docs/phase-5d.md), and a downed Weaver makes no more notes.
+ */
+const SWAP_TAKES_BELOW = 0.7;
+/** The Final Cadence's share of the life of whoever stands in it (docs/phase-5d.md: 115%). */
+const CADENCE_DEF = CONTENT.attacks.find((a) => a.id === FINAL_CADENCE);
 /** `silenceReel`, the Chronomancer: Rewind a hero who lost this share of their life in its reach. */
 const REWIND_UNDO_AT = 0.3;
 /** `silenceReel`, with Paradox: Rewind the Final Cadence's target once it lands within this. */
@@ -298,6 +311,8 @@ export class SkilledBot implements Bot {
    * known to be the other (Final, Half, Final…). Null outside the silence.
    */
   private lastCadence: { id: number; final: boolean } | null = null;
+  /** The Finale: whether this fight's Grand Silence has been seen (the last burn waits on it). */
+  private readonly silenceWatch = new SilenceWatch();
 
   constructor(
     seed: number,
@@ -310,6 +325,8 @@ export class SkilledBot implements Bot {
 
   decide(state: WorldState): Command[] {
     const out: Command[] = [];
+    // The Finale: watched every tick, so a silence between decisions is still seen (no draws).
+    this.silenceWatch.observe(state);
     if (state.tick % this.opts.every !== 0) return out;
     const w = weaverOf(state);
     const wc = w.weaver!;
@@ -342,7 +359,7 @@ export class SkilledBot implements Bot {
     const fortissimo = fortissimoLive(state);
     const silence = silenceOf(state);
     const cue = cueOf(state);
-    const burn = finaleBurn(state);
+    const burn = this.silenceWatch.burn(state);
     const crescendoReady = wc.resonance >= CONTENT.resonance.crescendoCost && wc.crescendo <= 0;
     /** Fortissimo Silence with no Crescendo to cancel it: dome, Ward, Bear, Rally and Mend. */
     const guardFortissimo = fortissimo !== null && !crescendoReady && this.on('fortissimoGuard');
@@ -1122,7 +1139,11 @@ export class SkilledBot implements Bot {
           // Anything else still live: the usual filter.
           if (!lethal && dmg < h.e.health!.maxHp * 0.15) continue;
         } else if (t.kind === 'mark') continue;
-        else if (t.attackId === FINAL_CADENCE && this.reelTakes(state, w, t.impact)) continue;
+        else if (
+          t.attackId === FINAL_CADENCE &&
+          this.reelTakes(state, w, t.impact, { t, hero: h.e })
+        )
+          continue;
         else if (t.attackId === MEASURE && wc.wardCharges < 2 && this.cadenceWantsWard(state, w, t))
           continue;
         const score = dmg + (lethal ? 5000 : 0);
@@ -1150,24 +1171,41 @@ export class SkilledBot implements Bot {
 
   /**
    * `silenceReel` will take a Final Cadence landing at `impact`: a Reel (never Anchor; Swap only
-   * above 25% of her life) or, with Paradox, the Chronomancer's Rewind, ready by its moment.
+   * above 25% of her life, and only one she survives) or, with Paradox, the Chronomancer's
+   * Rewind, ready by its moment. With the Cadence `on` its hero, Swap's cost is that blow's;
+   * before it begins, the cost is foreseen behind the smallest barrier of the standing party.
    */
-  private reelTakes(state: WorldState, w: ReadonlyEntity, impact: number): boolean {
+  private reelTakes(
+    state: WorldState,
+    w: ReadonlyEntity,
+    impact: number,
+    on?: { t: ReadonlyTelegraph; hero: ReadonlyEntity },
+  ): boolean {
     if (!this.on('silenceReel') || weaverSilenced(state)) return false;
     const wc = w.weaver!;
     const rewind = !!state.calling?.rewind;
     if (rewind) {
       if (!state.mods.paradox) return false;
     } else if (wc.variants.reel === 'anchor') return false;
-    else if (wc.variants.reel === 'swap' && w.health!.hp <= w.health!.maxHp * SWAP_ABOVE)
-      return false;
+    else if (wc.variants.reel === 'swap') {
+      if (w.health!.hp <= w.health!.maxHp * SWAP_ABOVE) return false;
+      if (on) {
+        if (!swapSurvives(w, on.hero, damageOf(on.t, w))) return false;
+      } else {
+        const toWeaver =
+          (CADENCE_DEF?.damage ?? 0) + (CADENCE_DEF?.pctMaxHp ?? 1.15) * w.health!.maxHp;
+        const party = partyOf(state);
+        if (party.length === 0 || party.some((h) => !swapSurvives(w, h.e, toWeaver))) return false;
+      }
+    }
     const by = impact - state.time - (rewind ? 0.15 : SILENCE_REEL_FROM);
     return wc.cooldowns.reel <= by && affords(state, 'reel');
   }
 
   /**
    * `cueFocus`: the Cued soloist, while a Cue (or its Solo) is live, no technique that answers
-   * its Solo will be ready, and no more than `CUE_FOCUS_AT` enemies stand. Undefined otherwise.
+   * its Solo will be ready, and no more than `CUE_FOCUS_AT` enemies stand (`cueFocusCrowd`, its
+   * crowd guard, ablatable on its own). Undefined otherwise.
    */
   private cueFocusTarget(
     state: WorldState,
@@ -1175,7 +1213,8 @@ export class SkilledBot implements Bot {
     w: ReadonlyEntity,
     cue: CueView | null,
   ): ReadonlyEntity | undefined {
-    if (!cue || !this.on('cueFocus') || enemies.length > CUE_FOCUS_AT) return undefined;
+    if (!cue || !this.on('cueFocus')) return undefined;
+    if (this.on('cueFocusCrowd') && enemies.length > CUE_FOCUS_AT) return undefined;
     const e = enemies.find((x) => x.id === cue.soloist);
     if (!e || soloAnswerReady(state, w, cue)) return undefined;
     return e;
@@ -1346,6 +1385,14 @@ export class SkilledBot implements Bot {
 function swapBarrier(hero: ReadonlyEntity): number {
   const pct = CONTENT.techniqueVariants.find((v) => v.id === 'swap')?.values.pct ?? 0;
   return hero.health!.maxHp * (pct / 100);
+}
+
+/**
+ * The Grand Silence's Swap guard: Swapping in for `hero`, the Weaver takes `toWeaver` (the blow
+ * as it lands on her) less the barrier and her shields, and that leaves her well clear.
+ */
+function swapSurvives(w: ReadonlyEntity, hero: ReadonlyEntity, toWeaver: number): boolean {
+  return toWeaver - swapBarrier(hero) - shieldOf(w) < w.health!.hp * SWAP_TAKES_BELOW;
 }
 
 /**
@@ -1987,6 +2034,8 @@ function silenceReelPick(
       const dmg = damageOf(t, h.e);
       const final = t.attackId === FINAL_CADENCE;
       if (!final && dmg < h.e.health!.hp + shieldOf(h.e)) continue;
+      // Swap: only a blow she lives through (the plain Reel loop's guard).
+      if (wc.variants.reel === 'swap' && !swapSurvives(w, h.e, damageOf(t, w))) continue;
       const score = (final ? 1e6 : 0) + dmg;
       if (!best || score > best.score) best = { h, score };
     }

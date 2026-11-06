@@ -56,7 +56,7 @@ import {
   nearestStationary,
   spindlesUp,
   cueOf,
-  finaleBurn,
+  SilenceWatch,
   fortissimoLive,
   isCadence,
   isStilled,
@@ -116,6 +116,8 @@ export class NoviceBot implements Bot {
   private leaving = false;
   /** Movement III: times a party stalled on a stationary enemy out of reach. */
   private readonly stall = new StallWatch();
+  /** The Finale: whether this fight's Grand Silence has been seen (the last burn waits on it). */
+  private readonly silenceWatch = new SilenceWatch();
 
   constructor(seed: number) {
     this.rng = new Rng(seed ^ 0x0b1e);
@@ -123,6 +125,8 @@ export class NoviceBot implements Bot {
 
   decide(state: WorldState): Command[] {
     const out: Command[] = [];
+    // The Finale: watched every tick, so a silence between decisions is still seen (no draws).
+    this.silenceWatch.observe(state);
     if (state.tick < this.nextDecision) return out;
     // Reaction time: 250–450 ms between decisions.
     this.nextDecision = state.tick + 15 + this.rng.int(12);
@@ -450,7 +454,7 @@ export class NoviceBot implements Bot {
         out.push({ t: 'tech', id: 'reel', slot: cadenced.slot });
     }
     // The last burn: the reignited Solos are hers to Cue.
-    if (finaleBurn(state) && wc.resonance >= state.dissonance.cueCost && !has('cue')) {
+    if (this.silenceWatch.burn(state) && wc.resonance >= state.dissonance.cueCost && !has('cue')) {
       const ready = party.find((h) => h.e.hero!.solo >= 100 && h.e.hero!.soloActive <= 0);
       if (ready && this.rng.chance(NOVICE_M4.reigniteCue)) out.push({ t: 'cue', slot: ready.slot });
     }

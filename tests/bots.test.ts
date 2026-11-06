@@ -17,6 +17,7 @@ import {
   fortissimoLive,
   isStilled,
   silenceOf,
+  SilenceWatch,
   damageOf,
   dist,
   dotIncoming,
@@ -2337,6 +2338,24 @@ function silenceOn(sim: Sandbox): void {
   w.party.forEach((_, slot) => stage(sim, slot, { id: 'stilled', remaining: 1e6, duration: 1e6 }));
 }
 
+/** The Grand Silence over (Reignite or the Coda): no silence, nobody stilled. */
+function silenceOff(sim: Sandbox): void {
+  delete finaleOf(sim).silence;
+  for (const id of worldOf(sim).party) {
+    const h = worldOf(sim).entities.get(id)!.health!;
+    h.statuses = h.statuses.filter((x) => x.id !== 'stilled');
+  }
+}
+
+/** The Silent Conductor staged as the boss, in `phase`. */
+function conductorOn(sim: Sandbox, phase = 3): Entity {
+  const boss = worldOf(sim).entities.get(tough(sim, 'hollow_chorister', 0, -10).id)!;
+  boss.enemy!.defId = CONDUCTOR;
+  boss.enemy!.phase = phase;
+  worldOf(sim).encounter.bossId = boss.id;
+  return boss;
+}
+
 /** A Calling's setup by its tools/callings.ts label ('none', 'chronomancer + Paradox', …). */
 function callingConfig(label: string): Partial<SimConfig> {
   const setup = callingSetups().find((s) => s.label === label);
@@ -2374,7 +2393,7 @@ describe('the Finale readers (docs/phase-5d.md)', () => {
       null,
       null,
     ]);
-    expect(finaleBurn(s)).toBe(false);
+    expect(finaleBurn(s, true)).toBe(false);
     expect(s.party.some((id) => isStilled(s.entities.get(id)!))).toBe(false);
     expect(FINALE_BANK_AT).toBe(60);
 
@@ -2423,11 +2442,13 @@ describe('the Finale readers (docs/phase-5d.md)', () => {
     worldOf(sim).encounter.bossId = boss.id;
     boss.enemy!.phase = 3;
     // Any other boss in its third phase: no burn.
-    expect(finaleBurn(sim.state)).toBe(false);
+    expect(finaleBurn(sim.state, true)).toBe(false);
     boss.enemy!.defId = CONDUCTOR;
-    expect(finaleBurn(sim.state)).toBe(true);
+    expect(finaleBurn(sim.state, true)).toBe(true);
+    // The silence not yet seen this fight (the phase shift before it): no burn.
+    expect(finaleBurn(sim.state, false)).toBe(false);
     boss.enemy!.phase = 2;
-    expect(finaleBurn(sim.state)).toBe(false);
+    expect(finaleBurn(sim.state, true)).toBe(false);
     boss.enemy!.phase = 3;
     // The Grand Silence being cast, then holding: not yet.
     boss.enemy!.cast = {
@@ -2438,10 +2459,52 @@ describe('the Finale readers (docs/phase-5d.md)', () => {
       end: sim.state.time + 2,
       interruptible: false,
     };
-    expect(finaleBurn(sim.state)).toBe(false);
+    expect(finaleBurn(sim.state, true)).toBe(false);
     boss.enemy!.cast = null;
     silenceOn(sim);
-    expect(finaleBurn(sim.state)).toBe(false);
+    expect(finaleBurn(sim.state, true)).toBe(false);
+  });
+
+  it('waits on a seen silence: not in the phase shift before it, and forgets it with a new fight', () => {
+    const sim = rift();
+    const boss = conductorOn(sim, 1);
+    const watch = new SilenceWatch();
+    const look = () => {
+      watch.observe(sim.state);
+      return watch.burn(sim.state);
+    };
+    expect(look()).toBe(false);
+    // Phase 3 entered: the shift (no cast, no silence, nobody stilled) is not the burn.
+    boss.enemy!.phase = 3;
+    expect(look()).toBe(false);
+    expect(look()).toBe(false);
+    // The silence holds, then breaks: now the burn.
+    silenceOn(sim);
+    expect(look()).toBe(false);
+    silenceOff(sim);
+    expect(look()).toBe(true);
+    // A stilled hero alone counts as having seen it, too.
+    const other = new SilenceWatch();
+    worldOf(sim).party.forEach((_, slot) =>
+      stage(sim, slot, { id: 'stilled', remaining: 1e6, duration: 1e6 }),
+    );
+    other.observe(sim.state);
+    silenceOff(sim);
+    other.observe(sim.state);
+    expect(other.burn(sim.state)).toBe(true);
+    // The next fight's Conductor (seen before its last phase) wipes the memory.
+    boss.enemy!.phase = 1;
+    expect(look()).toBe(false);
+    boss.enemy!.phase = 3;
+    expect(look()).toBe(false);
+    // Nor does any other fight leave it set.
+    silenceOn(sim);
+    look();
+    silenceOff(sim);
+    worldOf(sim).encounter.bossId = null;
+    expect(look()).toBe(false);
+    worldOf(sim).encounter.bossId = boss.id;
+    expect(look()).toBe(false);
   });
 });
 
@@ -2563,7 +2626,7 @@ describe('the Skilled bot reads the Finale (staged)', () => {
   it('Focuses the Cued soloist when no technique answers its Solo, within its crowd guard', () => {
     const decide = (
       solo: string,
-      opts: { crowd?: number; wardless?: boolean; skip?: boolean } = {},
+      opts: { crowd?: number; wardless?: boolean; skip?: true | 'cueFocusCrowd' } = {},
     ) => {
       const sim = rift({ thread: null });
       const voice = tough(sim, 'hollow_chorister', 0, -8);
@@ -2577,7 +2640,7 @@ describe('the Skilled bot reads the Finale (staged)', () => {
             every: 4,
             attention: 1,
             callReaction: 0.4,
-            skip: new Set(['cueFocus']),
+            skip: new Set([opts.skip === true ? 'cueFocus' : opts.skip]),
           })
         : makeBot('skilled', 1);
       return { out: bot.decide(sim.state), voice };
@@ -2593,6 +2656,10 @@ describe('the Skilled bot reads the Finale (staged)', () => {
     expect(focused(decide(SHATTER_ARIA, { crowd: 4 }))).toBe(false);
     // Left off by the ablation.
     expect(focused(decide(SHATTER_ARIA, { skip: true }))).toBe(false);
+    // The crowd guard ablated on its own: the Focus goes at any crowd, and only that changes.
+    expect(focused(decide(SHATTER_ARIA, { crowd: 4, skip: 'cueFocusCrowd' }))).toBe(true);
+    expect(focused(decide(SHATTER_ARIA, { skip: 'cueFocusCrowd' }))).toBe(true);
+    expect(focused(decide(BASSO_OSTINATO, { crowd: 4, skip: 'cueFocusCrowd' }))).toBe(false);
   });
 });
 
@@ -2707,6 +2774,70 @@ describe('the Skilled bot in the Grand Silence (staged)', () => {
     // Swap at 20% of her life: never; the Ward instead.
     expect(techOn(variant('swap', 0.2, FINAL_CADENCE, 0.5), 'reel', 1)).toBe(false);
     expect(techOn(variant('swap', 0.2, FINAL_CADENCE, 0.2), 'ward', 1)).toBe(true);
+  });
+
+  it('never Swaps out of a Final Cadence she would not live through (a Martyr’s life)', () => {
+    /** A Swap Weaver with a Martyr's 720 life at `hp`; the Final Cadence on Lyra (barrier 410). */
+    const martyr = (hp: number, setup: (s: Sandbox) => void) =>
+      silent((s) => {
+        const we = weaverE(s);
+        we.weaver!.variants.reel = 'swap';
+        we.health!.maxHp = 720;
+        we.health!.hp = hp;
+        setup(s);
+      });
+    // At 400 of 720 (above the 25% gate): 828 - 410 = 418 would take her down to near nothing.
+    expect(
+      techOn(
+        martyr(400, (s) => blowOn(s, FINAL_CADENCE, 1, 0.5, 1.15)),
+        'reel',
+        1,
+      ),
+    ).toBe(false);
+    // So the Ward takes it in its Perfect window instead.
+    expect(
+      techOn(
+        martyr(400, (s) => blowOn(s, FINAL_CADENCE, 1, 0.2, 1.15)),
+        'ward',
+        1,
+      ),
+    ).toBe(true);
+    // And the cycle's Ward is kept off the Measure for it (the Swap won't take the Cadence).
+    expect(
+      techOn(
+        martyr(400, (s) => blowOn(s, MEASURE, 1, 0.2, 0.7, 2)),
+        'ward',
+        1,
+      ),
+    ).toBe(false);
+    // At her full 720 she lives through it (302 left): the Swap goes, and the Measure is Warded.
+    expect(
+      techOn(
+        martyr(720, (s) => blowOn(s, FINAL_CADENCE, 1, 0.5, 1.15)),
+        'reel',
+        1,
+      ),
+    ).toBe(true);
+    expect(
+      techOn(
+        martyr(720, (s) => blowOn(s, MEASURE, 1, 0.2, 0.7, 2)),
+        'ward',
+        1,
+      ),
+    ).toBe(true);
+    // The default Weaver's 360 behind Lyra's 410: nothing to take, the Swap goes at 30%.
+    expect(
+      techOn(
+        silent((s) => {
+          const we = weaverE(s);
+          we.weaver!.variants.reel = 'swap';
+          we.health!.hp = we.health!.maxHp * 0.3;
+          blowOn(s, FINAL_CADENCE, 1, 0.5, 1.15);
+        }),
+        'reel',
+        1,
+      ),
+    ).toBe(true);
   });
 
   it('Reels the Final Cadence’s target 0.4-0.6 s before it lands, and keeps the Reel off lesser blows', () => {
@@ -2847,21 +2978,29 @@ describe('the Skilled bot in the Grand Silence (staged)', () => {
   });
 
   it('Cues every ready Solo in the last burn, damage Solos first, and none while stilled', () => {
-    const burn = (silence: boolean) => {
+    const burn = (when: 'over' | 'holding' | 'shift') => {
       const sim = rift({ thread: null });
-      const boss = worldOf(sim).entities.get(tough(sim, 'hollow_chorister', 0, -10).id)!;
-      boss.enemy!.defId = CONDUCTOR;
-      boss.enemy!.phase = 3;
-      worldOf(sim).encounter.bossId = boss.id;
+      conductorOn(sim);
       weaverE(sim).weaver!.resonance = 40;
       heroE(sim, 0).hero!.solo = 100;
       heroE(sim, 1).hero!.solo = 100;
-      if (silence) silenceOn(sim);
-      return makeBot('skilled', 1).decide(sim.state);
+      const bot = makeBot('skilled', 1);
+      const w = worldOf(sim);
+      if (when !== 'shift') {
+        // The silence seen on a tick between decisions (it is watched every tick).
+        w.tick = 4 * Math.ceil(w.tick / 4) + 1;
+        silenceOn(sim);
+        bot.decide(sim.state);
+        if (when === 'over') silenceOff(sim);
+      }
+      w.tick = 4 * Math.ceil((w.tick + 1) / 4);
+      return bot.decide(sim.state);
     };
     // Lyra's Gale Barrage before Kael's dome (the Requiem reserve would have held both).
-    expect(burn(false)).toContainEqual({ t: 'cue', slot: 1 });
-    expect(burn(true).some((c) => c.t === 'cue')).toBe(false);
+    expect(burn('over')).toContainEqual({ t: 'cue', slot: 1 });
+    expect(burn('holding').some((c) => c.t === 'cue')).toBe(false);
+    // Phase 3 entered, the silence not yet begun (the phase shift): no Solo is Cued to freeze.
+    expect(burn('shift').some((c) => c.t === 'cue')).toBe(false);
   });
 
   it('names every Finale rule; leaving them all off changes nothing before the Finale', () => {
@@ -2987,29 +3126,40 @@ describe('the Novice bot in the Finale (NOVICE_M4, staged)', () => {
     ).toBe(false);
   });
 
-  it('Cues more in the last burn', () => {
-    const cueRate = (burn: boolean) => {
+  it('Cues more in the last burn, and only once the silence was seen', () => {
+    const cueRate = (when: 'none' | 'burn' | 'shift') => {
       let n = 0;
       for (let seed = 1; seed <= 40; seed++) {
         const sim = rift({ thread: null });
         const boss = worldOf(sim).entities.get(tough(sim, 'hollow_chorister', 0, -10).id)!;
-        if (burn) {
+        if (when !== 'none') {
           boss.enemy!.defId = CONDUCTOR;
           boss.enemy!.phase = 3;
         }
         worldOf(sim).encounter.bossId = boss.id;
         weaverE(sim).weaver!.resonance = 50;
         heroE(sim, 1).hero!.solo = 100;
-        if (
-          makeBot('novice', seed)
-            .decide(sim.state)
-            .some((c) => c.t === 'cue')
-        )
-          n++;
+        const bot = makeBot('novice', seed);
+        const w = worldOf(sim);
+        const decide = () => bot.decide(sim.state).some((c) => c.t === 'cue');
+        if (when === 'burn') {
+          // A first decision (as in 'none'), then the silence seen between her decisions (it is
+          // watched every tick, with no draw) and over by the next.
+          const first = decide();
+          w.tick += 1;
+          silenceOn(sim);
+          bot.decide(sim.state);
+          silenceOff(sim);
+          w.tick += 30;
+          if (first || decide()) n++;
+        } else if (decide()) n++;
       }
       return n / 40;
     };
-    expect(cueRate(true)).toBeGreaterThan(cueRate(false) + 0.15);
+    const none = cueRate('none');
+    expect(cueRate('burn')).toBeGreaterThan(none + 0.15);
+    // Phase 3's shift before the silence: as without the burn.
+    expect(cueRate('shift')).toBe(none);
   });
 });
 
