@@ -4,6 +4,7 @@
  */
 import { attackDef } from '../../content';
 import { HEAL_CUT } from '../../content/legion';
+import { CONDUCTOR_DECREES } from '../../content/crucible';
 import { SIM_DT } from '../constants';
 import { dcos, dsin, len, TWO_PI } from '../core/dmath';
 import { isActive } from '../combat/health';
@@ -133,6 +134,27 @@ const PHASES: Record<string, PhaseDef[]> = {
       },
       answers: ['focus'],
       specials: ['unweaver_shear'],
+    },
+  ],
+  // ── The Finale (docs/phase-5d.md): its script is in BOSS_SCRIPTS (conductorBoss.ts). The
+  // Overture's Decree is the script's at the fight's start (no phase is entered then); in the
+  // Grand Silence the picker has no specials: the script begins the last burn's attacks. ──
+  the_silent_conductor: [
+    {
+      at: 1,
+      decree: { name: 'Overture', text: CONDUCTOR_DECREES.overture },
+      answers: ['focus', 'ward', 'chime', 'reel'],
+    },
+    {
+      at: 0.6,
+      decree: { name: 'Mirror Choir', text: CONDUCTOR_DECREES.mirrorChoir },
+      answers: ['focus', 'crescendo'],
+    },
+    {
+      at: 0.25,
+      decree: { name: 'Grand Silence', text: CONDUCTOR_DECREES.grandSilence },
+      answers: ['ward', 'chime', 'reel'],
+      specials: [],
     },
   ],
 };

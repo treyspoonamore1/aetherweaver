@@ -300,6 +300,8 @@ function resolve(world: World, t: Telegraph, pending: readonly Telegraph[] = [])
     let hitAnyone = false;
     // A Severing owner's blow on a cut telegraph waits for the cut's own verdict (below).
     let severPending = false;
+    // The Finale (docs/phase-5d.md Q1): one verdict for a telegraph whose attack has `discord`.
+    const verdict = attack?.discord !== undefined ? { failed: 0 } : undefined;
     const victims = candidates(world, t, []);
     for (const e of victims) {
       // Paradox: a Rewind took them out of its reach.
@@ -329,7 +331,7 @@ function resolve(world: World, t: Telegraph, pending: readonly Telegraph[] = [])
         emitResolved(world, t, e.id, 'cancelled', 0);
         continue;
       }
-      if (hitEntity(world, t, e, attack ?? null, owner ?? null)) severPending = true;
+      if (hitEntity(world, t, e, attack ?? null, owner ?? null, verdict)) severPending = true;
     }
     if (!hitAnyone) {
       // Execution's condemned hero already fell before it landed: it names them (`fallen`).
@@ -347,6 +349,10 @@ function resolve(world: World, t: Telegraph, pending: readonly Telegraph[] = [])
     }
     // Its status comes off both heroes, unless another live link still binds one.
     releaseLink(world, t, 'detonated', pending);
+    // The Finale's verdict (Q1): failed when enough victims took damage nobody answered. Only an
+    // attack with `discord` builds one; a lint keeps it off every Movement I-III attack.
+    if (verdict && onTelegraphVerdict)
+      onTelegraphVerdict(world, t, verdict.failed >= (attack!.discordQuorum ?? 1));
   }
   forgetTelegraph(world, t.id);
   // The caster's script follows up: heals, summons, suppression, chained tolls.
@@ -397,6 +403,8 @@ function spared(world: World, telegraph: number, hero: number): boolean {
 /**
  * One victim's hit. Returns true when a Severing check is owed but deferred: the blow landed, its
  * owner carries affixes, and the attack is a cut, whose verdict must come first (`resolve`).
+ * `verdict` (the Finale's, docs/phase-5d.md Q1) is given only for an attack with `discord`: a
+ * hero who took damage nobody answered is counted in `failed`. Nothing else reads it.
  */
 function hitEntity(
   world: World,
@@ -404,6 +412,7 @@ function hitEntity(
   e: Entity,
   attack: AttackDef | null,
   owner: Entity | null,
+  verdict?: { failed: number },
 ): boolean {
   const h = e.health!;
   const damage = telegraphDamage(t, e);
@@ -460,6 +469,7 @@ function hitEntity(
     kind: t.shape.kind === 'mark' ? 'detonation' : 'hit',
   });
   if (mark !== null) removeStatus(world, e, mark, 'detonated');
+  if (verdict && e.hero && failedVictim(world, e, result)) verdict.failed++;
 
   let outcome: 'hit' | 'warded' | 'absorbed' = 'hit';
   if (result.dealt <= 0 && result.absorbed > 0)
@@ -501,6 +511,31 @@ function hitEntity(
     if (kael && owner) applyOnHit(world, owner, kael, result.takenDealt ?? 0);
   }
   return severPending;
+}
+
+/**
+ * The Finale's victim table (docs/phase-5d.md, "The verdict, victim by victim"): a hero fails
+ * when damage landed (`dealt > 0`) and nothing answered it: no Weaver shield took part (a partial
+ * Ward, the dome), the Martyr bore none of it (`borne`), no save caught it (the Lamb, the Vow's
+ * floor), Oathkeeper or the sphere didn't take it (`takenBy`), Fermata isn't holding them, and they
+ * aren't in a live Aegis Link. Fermata's guard alone answers nothing: an aura isn't an answer.
+ */
+function failedVictim(
+  world: World,
+  e: Entity,
+  result: {
+    dealt: number;
+    absorbedByWeaver: number;
+    borne?: number;
+    saved: boolean;
+    takenBy?: EntityId;
+  },
+): boolean {
+  if (result.dealt <= 0) return false;
+  if (result.absorbedByWeaver > 0 || (result.borne ?? 0) > 0 || result.saved) return false;
+  if (result.takenBy !== undefined || e.hero?.hold) return false;
+  const link = world.internal.link;
+  return !(link && link.until > world.time && (link.a === e.id || link.b === e.id));
 }
 
 function perfect(
@@ -718,6 +753,16 @@ export function dirgeRemaining(e: Entity): number {
 let onCastComplete: ((world: World, owner: Entity, t: Telegraph) => void) | null = null;
 export function setOnCastComplete(fn: (world: World, owner: Entity, t: Telegraph) => void): void {
   onCastComplete = fn;
+}
+
+/**
+ * Installed by the enemy system (docs/phase-5d.md Q1): a Finale telegraph's verdict, forwarded to
+ * the fight's boss script. Called only for an attack with `discord`, so never in Movements I-III.
+ */
+type VerdictHook = (world: World, t: Telegraph, failed: boolean) => void;
+let onTelegraphVerdict: VerdictHook | null = null;
+export function setOnTelegraphVerdict(fn: VerdictHook): void {
+  onTelegraphVerdict = fn;
 }
 
 /**

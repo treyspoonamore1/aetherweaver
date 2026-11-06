@@ -348,7 +348,11 @@ describe('the new mods, the registry and the lifecycle', () => {
   });
 
   it('the registry holds only the new bosses and misses every legacy boss', () => {
-    expect(Object.keys(BOSS_SCRIPTS).sort()).toEqual(['the_seamstress', 'the_unweaver']);
+    expect(Object.keys(BOSS_SCRIPTS).sort()).toEqual([
+      'the_seamstress',
+      'the_silent_conductor',
+      'the_unweaver',
+    ]);
     for (const id of [
       'the_bellwarden',
       'the_hollow_cantor',
