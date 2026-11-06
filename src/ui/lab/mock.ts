@@ -4064,6 +4064,7 @@ export function finaleHud(scenario: FinaleScenario): HudSnapshot {
     of: 8,
     sources: MOCK_NOTES.slice(0, notes),
     left: 50 - notes * 4,
+    cap: 50,
   });
   const discord = (value: number) => ({ value, max: 100, rate: value >= 70 ? 1 : 0.5 });
   switch (scenario) {

@@ -46,6 +46,7 @@ import {
   fortissimoInText,
   noteCallout,
   noteSources,
+  silenceLeftFrac,
   silencePips,
 } from '../src/ui/hud/finaleLook';
 import { bossCastIcon } from '../src/ui/hud/legionLook';
@@ -160,6 +161,7 @@ describe('the HUD bridge: Finale keys only in the Finale', () => {
       of: 8,
       sources: ['perfect', 'clutch', 'reel'],
       left: 40,
+      cap: 40,
     });
     expect(hud.boss?.cue).toEqual({
       soloist: 'The Silent Conductor',
@@ -222,6 +224,35 @@ describe('the Discord meter and the silence stave', () => {
       null,
       null,
     ]);
+  });
+
+  it('the Coda bar drains against the real cap, stretched by the windup assists', () => {
+    // telegraphLead 1.5: the cap is 75 s. Five seconds in, the bar must already have drained.
+    expect(silenceLeftFrac({ left: 70, cap: 75 })).toBeCloseTo(70 / 75, 10);
+    expect(silenceLeftFrac({ left: 75, cap: 75 })).toBe(1);
+    expect(silenceLeftFrac({ left: 25, cap: 50 })).toBe(0.5);
+    expect(silenceLeftFrac({ left: 0, cap: 75 })).toBe(0);
+    // A missing or zero cap falls back to the default cap, never a divide by zero.
+    expect(silenceLeftFrac({ left: 25, cap: 0 })).toBe(0.5);
+    // The bridge carries the cap the sim fixed at entry (until - since), not a guess from `left`.
+    const sim = createSim({ seed: 7, encounter: CONDUCTOR });
+    for (let i = 0; i < 900 && sim.state.encounter.bossId === null; i++) sim.step([]);
+    const world = worldOf(sim);
+    world.field.finale = {
+      silence: { notes: 0, of: 8, since: world.time - 5, until: world.time + 70, sources: [] },
+    };
+    const hud = buildHudSnapshot(sim.state, { seed: 7, hovered: null });
+    expect(hud.boss?.silence?.left).toBeCloseTo(70, 6);
+    expect(hud.boss?.silence?.cap).toBeCloseTo(75, 6);
+    const html = renderToStaticMarkup(
+      createElement(BossBar, { boss: hud.boss!, decree: null, blind: true }),
+    );
+    expect(html).toContain('The Coda in 70 s');
+    // The stave's drain bar (the boss's life bar, still full, is the other width:100%).
+    const stave = html.slice(html.indexOf('data-testid="boss-silence"'));
+    expect(stave).not.toContain('width:100%');
+    expect(stave).toMatch(/width:93\.33\d*%/);
+    delete world.field.finale;
   });
 
   it('Blind Score hides only the answers, never the meter, the stave or the Cue', () => {

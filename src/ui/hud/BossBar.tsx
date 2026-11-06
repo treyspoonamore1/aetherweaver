@@ -9,7 +9,6 @@ import { AnswerGlyph } from './AnswerGlyph';
 import { secondsLabel } from './chrono';
 import { BLIND_LOOK } from '../kit/dissonanceLook';
 import { blindDecree, blindLine, levelName } from '../screens/dissonanceModel';
-import { SILENCE_CAP } from '../../content/crucibleIds';
 import {
   CUE_ANSWER,
   DISCORD_HEX,
@@ -22,6 +21,7 @@ import {
   discordText,
   fortissimoInText,
   silenceAsk,
+  silenceLeftFrac,
   silencePips,
   silenceText,
 } from './finaleLook';
@@ -370,8 +370,8 @@ function SilenceStave({
   reel: string | null;
 }) {
   const pips = silencePips(silence);
-  // The cap stretches with the windup assists; the bar is measured against at least its default.
-  const frac = Math.max(0, Math.min(1, silence.left / Math.max(SILENCE_CAP, silence.left)));
+  // The cap stretches with the windup assists; the bar is measured against the real one.
+  const frac = silenceLeftFrac(silence);
   return (
     <div
       className="mt-1.5 rounded-lg border px-3 py-1.5"

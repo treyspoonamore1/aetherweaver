@@ -458,8 +458,11 @@ export interface BossHud {
   discord?: { value: number; max: number; rate: number };
   /** Fortissimo Silence is being played: the pulse winding up, of 3. */
   fortissimo?: { pulse: number; of: 3 };
-  /** The Grand Silence: notes played of 8, what made them, and seconds left before the Coda. */
-  silence?: { notes: number; of: 8; sources: NoteSource[]; left: number };
+  /**
+   * The Grand Silence: notes played of 8, what made them, seconds left before the Coda, and the
+   * cap (seconds), fixed when the silence began (50 s x telegraphLead x the Dissonance windup).
+   */
+  silence?: { notes: number; of: 8; sources: NoteSource[]; left: number; cap: number };
   /** A Cue: the voice it named and its Solo (names); the Solo's target once it begins. */
   cue?: { soloist: string; solo: string; target?: string };
 }

@@ -905,6 +905,7 @@ function bossFinale(state: WorldState): BossFinale {
       of: NOTES_NEEDED,
       sources: [...f.silence.sources],
       left: Math.max(0, f.silence.until - state.time),
+      cap: Math.max(0, f.silence.until - f.silence.since),
     };
   if (f.cue) {
     const voice = state.entities.get(f.cue.soloist)?.enemy;

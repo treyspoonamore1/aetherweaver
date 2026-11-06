@@ -9,6 +9,7 @@ import {
   DISCORD_MAX,
   FORTISSIMO,
   NOTES_NEEDED,
+  SILENCE_CAP,
 } from '../../content/crucibleIds';
 import type { NoteSource, SimEvent } from '../../sim';
 import type { IconName } from '../kit/iconPaths';
@@ -104,6 +105,15 @@ export function silencePips(
 /** The stave's words: "Grand Silence · 3/8 notes". */
 export function silenceText(s: Pick<NonNullable<BossHud['silence']>, 'notes' | 'of'>): string {
   return `Grand Silence · ${s.notes}/${s.of} notes`;
+}
+
+/**
+ * How much of the silence is left, 1 → 0, measured against its real cap (fixed at silence entry,
+ * stretched by the windup assists), so the bar drains from the first second of a stretched cap.
+ */
+export function silenceLeftFrac(s: Pick<NonNullable<BossHud['silence']>, 'left' | 'cap'>): number {
+  const cap = s.cap > 0 ? s.cap : SILENCE_CAP;
+  return Math.max(0, Math.min(1, s.left / cap));
 }
 
 /** The countdown to the Coda: "The Coda in 32 s". */
