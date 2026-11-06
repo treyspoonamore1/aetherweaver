@@ -795,6 +795,22 @@ describe('Review fixes (the answered victim, the slow windup, the marks, Fermata
     h.inject(saved);
     // a and b were clean this time; c was saved.
     expect(h.feedback.firedFinale.discordBeams).toBe(5);
+    // A live Aegis Link (a Ward variant shared it) answers its members; once it lapses, it doesn't.
+    const linked = shatter(sim, boss, 5004);
+    linked.unshift({
+      type: 'linked',
+      tick: sim.tick,
+      a,
+      b,
+      weaver: false,
+      until: sim.state.time + 5,
+    } as SimEvent);
+    h.inject(linked);
+    // c alone streaks.
+    expect(h.feedback.firedFinale.discordBeams).toBe(6);
+    h.run(6 * 60);
+    h.inject(shatter(sim, boss, 5005));
+    expect(h.feedback.firedFinale.discordBeams).toBe(9);
   });
 
   it('Fortissimo: the winding pip fills over the whole windup, however long the assists make it', () => {

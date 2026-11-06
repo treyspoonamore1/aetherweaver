@@ -455,6 +455,13 @@ export class CrucibleCues {
    */
   private readonly answeredHeroes = new Set<EntityId>();
   private readonly shielded = new Set<string>();
+  /**
+   * The live Aegis Link as its 'linked' events last showed it (one at a time, as in the sim): a
+   * blow on a member while it holds is answered (a Ward variant shared it).
+   */
+  private readonly link = { a: -1 as EntityId, b: -1 as EntityId, until: -1 };
+  /** Sim time of the batch being handled. */
+  private batchTime = 0;
   private readonly at = { x: 0, y: 0, z: 0 };
   private readonly tint = new THREE.Color();
 
@@ -493,8 +500,14 @@ export class CrucibleCues {
     this.hits.clear();
     this.answeredHeroes.clear();
     this.shielded.clear();
+    this.batchTime = state.time;
     for (const ev of events) {
       switch (ev.type) {
+        case 'linked':
+          this.link.a = ev.a;
+          this.link.b = ev.b;
+          this.link.until = ev.until;
+          break;
         case 'borne':
           this.answeredHeroes.add(ev.hero);
           break;
@@ -547,15 +560,25 @@ export class CrucibleCues {
   /**
    * The heroes a failed telegraph's streaks run from: its failed victims as the verdict counted
    * them (`failed`), else every hero it hit this batch whose blow nothing answered. Never a victim
-   * the verdict counts as answered (a partial Ward, Bear, a save): 'nothing when answered'.
+   * the verdict counts as answered (a partial Ward, Bear, a save, a live Aegis Link): 'nothing
+   * when answered'. The inference is conservative: any shield's absorb reads as answered.
    */
   failedVictims(e: SimEventOf<'discordRose'>): readonly EntityId[] {
     if (e.failed) return e.failed;
     const hit = this.hits.get(e.telegraph);
     if (!hit) return [];
     return hit.filter(
-      (id) => !this.answeredHeroes.has(id) && !this.shielded.has(`${e.telegraph}:${id}`),
+      (id) =>
+        !this.answeredHeroes.has(id) &&
+        !this.shielded.has(`${e.telegraph}:${id}`) &&
+        !this.linked(id),
     );
+  }
+
+  /** In the live Aegis Link at this batch's time. */
+  private linked(id: EntityId): boolean {
+    const L = this.link;
+    return L.until > this.batchTime && (id === L.a || id === L.b);
   }
 
   /** Discord fed: a brass streak from each unanswered hero to the Conductor, and '+N' over it. */
@@ -1017,5 +1040,6 @@ export class CrucibleCues {
     this.motes.length = 0;
     this.risers.length = 0;
     this.fullAge = -1;
+    this.link.until = -1;
   }
 }
