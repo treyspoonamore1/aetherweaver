@@ -29,6 +29,7 @@ import {
   biomeTone,
   movementCard,
   movementCardLook,
+  movementLore,
   movementRows,
   wantsMovementCard,
 } from './routeText';
@@ -349,6 +350,8 @@ function MovementCard({
   onClose(): void;
 }) {
   const c = movementCard(movement, movements);
+  // The Finale's card opens with its narrative line (docs/phase-5d.md); earlier cards have none.
+  const lore = movementLore(movement);
   // Each biome's card in its own light (docs/phase-5c.md): the Spire's crimson, the Rift's indigo.
   const look = movementCardLook(movement);
   useEffect(() => {
@@ -373,6 +376,11 @@ function MovementCard({
         >
           {c.title}
         </h2>
+        {lore && (
+          <p className="mt-4 max-w-xl text-lg italic text-text" data-testid="movement-lore">
+            {lore}
+          </p>
+        )}
         <p className="mt-3 text-lg text-muted">{c.text}</p>
         <Button className="mt-8" variant="primary" data-autofocus onClick={onClose} sound="confirm">
           {look.button} <Icon name="arrow" size={16} />

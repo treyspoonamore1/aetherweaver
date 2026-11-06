@@ -25,7 +25,14 @@ import {
   type WorldState,
 } from '../sim';
 import { makeBot, type Bot, type BotKind } from '../bots';
-import { buildHudSnapshot, decreeShownNow, heardCut, type ThreadCutHeard } from '../ui/hudBridge';
+import {
+  buildHudSnapshot,
+  decreeShownNow,
+  heardCut,
+  heardReignite,
+  type ReigniteHeard,
+  type ThreadCutHeard,
+} from '../ui/hudBridge';
 import { callingLook } from '../ui/kit/callingLook';
 import { takeHudCommits } from '../ui/perfCounters';
 import { useUi } from '../ui/store';
@@ -135,6 +142,8 @@ export class GameRuntime {
   private guardBlockedAt: number | null = null;
   /** The last enemy cut of the Thread (Movement III: the Thread chip names it). */
   private threadCut: ThreadCutHeard | null = null;
+  /** The last Reignite (the Finale: the frames relit gold for a moment). */
+  private reignited: ReigniteHeard | null = null;
   private perfTimer = 0;
   private paused = false;
   private hidden = false;
@@ -338,6 +347,7 @@ export class GameRuntime {
           autonomy: this.sim.config.assists.autonomy,
           guardBlockedAt: this.guardBlockedAt,
           threadCut: this.threadCut,
+          reignited: this.reignited,
         }),
       );
       ui.pruneCallouts(now);
@@ -442,6 +452,9 @@ export class GameRuntime {
       this.threadCut = cut;
       this.input.onThreadCut(cut);
     }
+    // The Finale: Reignite relights the frames gold for a moment (no other fight raises it).
+    const reignite = heardReignite(events, state.time);
+    if (reignite) this.reignited = reignite;
     this.view.onEvents(events, state);
     getAudio().onEvents(events, state);
     this.callouts(events, state);

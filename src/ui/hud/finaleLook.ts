@@ -150,6 +150,11 @@ export const CUE_ANSWER = 'interrupt the soloist, or answer its Solo';
 export const STILLED_LINE = 'Stilled · waits for your song';
 /** A downed hero's line while the silence holds: the eighth note stands them back up. */
 export const DOWNED_SONG_LINE = 'The song will bring them back';
+/** A frame just after Reignite: relit gold; `risen` for a hero the song stood back up. */
+export const REIGNITE_LINE: Readonly<Record<'relit' | 'risen', string>> = {
+  relit: 'Relit · the song returns',
+  risen: 'Risen · the song brought them back',
+};
 
 /** A stilled frame's accessible line: what holds them, and how long until the Coda. */
 export function stilledAria(name: string, notes: number, of: number, left: number | null): string {

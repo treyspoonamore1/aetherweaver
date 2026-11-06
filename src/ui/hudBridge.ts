@@ -155,6 +155,8 @@ export function buildHudSnapshot(
     guardBlockedAt?: number | null;
     /** The last enemy cut of the Thread the runtime heard (Movement III, `heardCut`). */
     threadCut?: ThreadCutHeard | null;
+    /** The Finale: the last Reignite the runtime heard (`heardReignite`). */
+    reignited?: ReigniteHeard | null;
   },
 ): HudSnapshot {
   const weaverEntity = state.entities.get(state.weaverId);
@@ -313,6 +315,7 @@ export function buildHudSnapshot(
       ...bloodHud(state, e),
       ...movementThreeMarks(state, e, h),
       ...finaleMarks(h),
+      ...reigniteMark(state.time, id, h, opts.reignited),
     });
   });
   const partyIds = party.map((p) => p.defId);
@@ -922,6 +925,36 @@ function soloName(id: string): string {
   } catch {
     return id;
   }
+}
+
+/** A Reignite, as the runtime heard it (`reignited`): when, and whom it stood back up. */
+export interface ReigniteHeard {
+  /** Sim time of the eighth note. */
+  at: number;
+  revived: EntityId[];
+}
+
+/** How long the frames stay relit gold after Reignite (sim seconds). */
+export const REIGNITE_GLOW_S = 2.5;
+
+/** The last Reignite in a batch of events (null: none; the Coda is `silenceBroken`, not this). */
+export function heardReignite(events: readonly SimEvent[], time: number): ReigniteHeard | null {
+  let out: ReigniteHeard | null = null;
+  for (const e of events) if (e.type === 'reignited') out = { at: time, revived: [...e.revived] };
+  return out;
+}
+
+/** Relit gold for a moment after Reignite; `risen` for a hero it stood back up. */
+function reigniteMark(
+  time: number,
+  id: EntityId,
+  h: NonNullable<ReadonlyEntity['health']>,
+  heard: ReigniteHeard | null | undefined,
+): Pick<HeroHud, 'reignite'> {
+  if (!heard || h.dead || h.downed) return {};
+  const since = time - heard.at;
+  if (since < 0 || since > REIGNITE_GLOW_S) return {};
+  return { reignite: heard.revived.includes(id) ? 'risen' : 'relit' };
 }
 
 /** Stilled by the Grand Silence: the frame waits for the Weaver's song. */

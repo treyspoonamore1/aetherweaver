@@ -49,13 +49,14 @@ import {
   silencePips,
 } from '../src/ui/hud/finaleLook';
 import { bossCastIcon } from '../src/ui/hud/legionLook';
-import { sightingFoes, sightingOf } from '../src/ui/hud/sighting';
-import { buildHudSnapshot } from '../src/ui/hudBridge';
+import { settleHeldVoices, sightingFoes, sightingOf } from '../src/ui/hud/sighting';
+import { REIGNITE_GLOW_S, buildHudSnapshot, heardReignite } from '../src/ui/hudBridge';
 import {
   finaleHud,
   finaleMockCallouts,
   finaleRun,
   finaleSummaryRun,
+  mockRankUps,
   riftSummaryRun,
   type FinaleScenario,
 } from '../src/ui/lab/mock';
@@ -66,6 +67,7 @@ import {
   encounterIcon,
   movementCard,
   movementCardLook,
+  movementLore,
   outcomeSub,
   routeHint,
   titleEyebrow,
@@ -83,12 +85,14 @@ async function tsx<T>(path: string): Promise<T> {
 type Props = Record<string, unknown>;
 const { BossBar } = await tsx<{ BossBar: FunctionComponent<Props> }>('../src/ui/hud/BossBar');
 const { HudView } = await tsx<{ HudView: FunctionComponent<Props> }>('../src/ui/hud/Hud');
-const { EPILOGUE_SKIP_KEYS, EpilogueView, epilogueLines, epilogueMs } = await tsx<{
-  EPILOGUE_SKIP_KEYS: ReadonlySet<string>;
-  EpilogueView: FunctionComponent<Props>;
-  epilogueLines(party: readonly string[]): { speaker: string | null; text: string }[];
-  epilogueMs(lines: number): number;
-}>('../src/ui/screens/EpilogueView');
+const { EPILOGUE_SKIP_KEYS, EpilogueView, epilogueLines, epilogueMs, epilogueTakesKey } =
+  await tsx<{
+    EPILOGUE_SKIP_KEYS: ReadonlySet<string>;
+    epilogueTakesKey(e: Record<string, unknown>): boolean;
+    EpilogueView: FunctionComponent<Props>;
+    epilogueLines(party: readonly string[]): { speaker: string | null; text: string }[];
+    epilogueMs(lines: number): number;
+  }>('../src/ui/screens/EpilogueView');
 const { SummaryView, firstClearLines } = await tsx<{
   SummaryView: FunctionComponent<Props & { run: RunState }>;
   firstClearLines(open: boolean): { title: string; lines: string[] };
@@ -386,7 +390,8 @@ describe('hints, recaps and callouts', () => {
       FINAL_CADENCE,
       HALF_CADENCE,
     ].map((id) => CONTENT.attacks.find((a) => a.id === id)!.name);
-    for (const voice of [ALTO, BASS, TENOR, SOPRANO])
+    // The voices' basic blows, and the Conductor's own melee (no telegraph answers it).
+    for (const voice of [ALTO, BASS, TENOR, SOPRANO, CONDUCTOR])
       killers.push(CONTENT.enemies.find((e) => e.id === voice)!.name);
     for (const killer of killers) {
       const line = finaleDownLine({ killer });
@@ -549,5 +554,146 @@ describe('captions setting', () => {
     delete saved.captions;
     expect(migrateSettings(saved)?.captions).toBe(false);
     expect(migrateSettings({ ...saved, captions: true })?.captions).toBe(true);
+  });
+});
+
+// ── Review fixes (the verification of W8) ───────────────────────────────────────────────
+
+describe('review fixes', () => {
+  it('the Conductor’s own melee names an answer in the recap, Calling-aware', () => {
+    const killer = CONTENT.enemies.find((e) => e.id === CONDUCTOR)!.name;
+    expect(killer).toBe('The Silent Conductor');
+    const line = finaleDownLine({ killer });
+    expect(line).toMatch(/^The Conductor’s baton: keep the tank Warded and Mended, or Reel/);
+    expect(
+      deathAdviceLine({ heroId: 'kael', killer, answers: [] }, ['kael', 'lyra', 'vexis']),
+    ).toBe(line);
+    expect(finaleDownLine({ killer }, 'chronomancer')).toMatch(/Rewind the blow$/);
+  });
+
+  it('the epilogue waits behind a Rank-up card, and leaves a dialog’s keys alone', () => {
+    const press = (over: Record<string, unknown> = {}) => ({
+      key: 'Enter',
+      repeat: false,
+      ctrlKey: false,
+      metaKey: false,
+      altKey: false,
+      defaultPrevented: false,
+      target: null,
+      ...over,
+    });
+    expect(epilogueTakesKey(press())).toBe(true);
+    expect(epilogueTakesKey(press({ key: 'Escape' }))).toBe(true);
+    expect(epilogueTakesKey(press({ key: 'a' }))).toBe(false);
+    expect(epilogueTakesKey(press({ defaultPrevented: true }))).toBe(false);
+    // The Rank-up card's autofocused dismiss button: Enter, Space and Escape are the card's.
+    const inDialog = { closest: (sel: string) => (sel.includes('dialog') ? {} : null) };
+    for (const key of ['Enter', ' ', 'Escape'])
+      expect(epilogueTakesKey(press({ key, target: inDialog })), key).toBe(false);
+    expect(epilogueTakesKey(press({ target: { closest: () => null } }))).toBe(true);
+    const summary = (rankUps: boolean) =>
+      renderToStaticMarkup(
+        createElement(SummaryView, {
+          run: finaleSummaryRun('victory'),
+          onNewRun: () => {},
+          onLoom: () => {},
+          epilogueStill: true,
+          ...(rankUps ? { rankUps: mockRankUps([5]), onDismissRankUps: () => {} } : {}),
+        }),
+      );
+    const covered = summary(true);
+    expect(covered).toContain('data-testid="epilogue"');
+    expect(covered).toMatch(/data-testid="epilogue"[^>]*data-paused="true"/);
+    expect(covered).toContain('role="dialog"');
+    expect(summary(false)).not.toContain('data-paused');
+  });
+
+  it('a voice killed before its Cue is still recorded as seen (the Codex unlocks it)', () => {
+    const tenor = CONTENT.enemies.find((e) => e.id === TENOR)!.name;
+    // The Tenor joins, uncued: its card waits, nothing recorded yet.
+    let step = settleHeldVoices([], [CONDUCTOR, TENOR, ALTO], null);
+    expect(step).toEqual({ held: [TENOR, ALTO], record: [] });
+    // The Alto is Cued: its card shows (sightingFoes), it is no longer held.
+    step = settleHeldVoices(step.held, [CONDUCTOR, TENOR, ALTO], 'Mirror Alto');
+    expect(step).toEqual({ held: [TENOR], record: [] });
+    expect(sightingFoes([CONDUCTOR, TENOR, ALTO], 'Mirror Alto')).toEqual([CONDUCTOR, ALTO]);
+    // The Tenor is burst down before the Conductor ever Cues it: recorded without a card.
+    step = settleHeldVoices(step.held, [CONDUCTOR, ALTO], null);
+    expect(step).toEqual({ held: [ALTO], record: [TENOR] });
+    // A voice Cued as it leaves gets its card instead (it is in the foes this time).
+    expect(settleHeldVoices([TENOR], [TENOR], tenor)).toEqual({ held: [], record: [] });
+    // The fight ends (or the choir shatters at the silence) with voices still waiting.
+    expect(settleHeldVoices([ALTO, BASS], undefined, null)).toEqual({
+      held: [],
+      record: [ALTO, BASS],
+    });
+    // Every other fight holds nothing back, so nothing is recorded this way.
+    expect(settleHeldVoices([], ['vharun', 'mirror_champion'], null)).toEqual({
+      held: [],
+      record: [],
+    });
+  });
+
+  it('Reignite relights the frames gold for a moment, the revived ones rising', () => {
+    const at = 0;
+    const ev = (e: Record<string, unknown>) => ({ time: at, ...e }) as unknown as SimEvent;
+    expect(heardReignite([ev({ type: 'silenceBroken', boss: 9, notes: 5 })], 10)).toBeNull();
+    const sim = createSim({ seed: 7, encounter: CONDUCTOR });
+    for (let i = 0; i < 120; i++) sim.step([]);
+    const world = worldOf(sim);
+    const lyra = world.party[1]!;
+    const heard = heardReignite([ev({ type: 'reignited', boss: 9, revived: [lyra] })], world.time);
+    expect(heard).toEqual({ at: world.time, revived: [lyra] });
+    const hud = buildHudSnapshot(sim.state, { seed: 7, hovered: null, reignited: heard });
+    expect(hud.party.map((h) => h.reignite)).toEqual(['relit', 'risen', 'relit']);
+    // Without one heard, or once its moment has passed, the frames are as before.
+    for (const h of buildHudSnapshot(sim.state, { seed: 7, hovered: null }).party)
+      expect(h).not.toHaveProperty('reignite');
+    const late = { ...heard!, at: world.time - REIGNITE_GLOW_S - 0.1 };
+    for (const h of buildHudSnapshot(sim.state, { seed: 7, hovered: null, reignited: late }).party)
+      expect(h).not.toHaveProperty('reignite');
+    // On screen, with no sound and Flashes at 0: relit gold, and the risen frame says so.
+    const lab = finaleHud('silence-8');
+    const html = renderToStaticMarkup(
+      createElement(HudView, {
+        hud: lab,
+        callouts: finaleMockCallouts('silence-8'),
+        decree: null,
+        keyHints: false,
+        coach: false,
+      }),
+    );
+    expect(html.match(/data-testid="reignite-strip"/g)).toHaveLength(3);
+    expect(html).toContain('Relit · the song returns');
+    expect(html).toContain('Risen · the song brought them back');
+    expect(html.match(/data-reignite="risen"/g)?.length).toBeGreaterThanOrEqual(1);
+    // Earlier fights' frames never carry it.
+    const rift = snapshot('the_unweaver', 300);
+    for (const h of rift.party) expect(h).not.toHaveProperty('reignite');
+  });
+
+  it('the Directive wheel greys every spoke with “Frozen” in the silence, and only then', async () => {
+    const { DirectiveWheelView, FROZEN_HINT } = await tsx<{
+      DirectiveWheelView: FunctionComponent<Props>;
+      FROZEN_HINT: string;
+    }>('../src/ui/hud/DirectiveWheel');
+    const wheel = { x: 200, y: 200, dx: 0, dy: -60, via: 'key', focusTarget: 4, spoke: 'focus' };
+    const frozen = renderToStaticMarkup(createElement(DirectiveWheelView, { wheel, frozen: true }));
+    expect(frozen).toContain('data-frozen="true"');
+    expect(frozen.match(new RegExp(FROZEN_HINT, 'g'))).toHaveLength(4);
+    expect(frozen.match(/aria-disabled="true"/g)).toHaveLength(4);
+    const open = renderToStaticMarkup(createElement(DirectiveWheelView, { wheel }));
+    expect(open).not.toContain('data-frozen');
+    expect(open).not.toContain(FROZEN_HINT);
+    expect(open.match(/aria-disabled="true"/g)).toBeNull();
+  });
+
+  it('the Crucible’s Movement card opens with its line; earlier cards have none', () => {
+    expect(movementLore(4)).toBe(
+      'Above the Rift the sky rings like a struck bell. Someone is conducting it.',
+    );
+    for (const n of [1, 2, 3]) expect(movementLore(n), String(n)).toBeNull();
+    // The stops line is as W3 pinned it.
+    expect(movementCard(4).text).toBe('The Celestial Crucible: 1 stop to the Silent Conductor.');
   });
 });

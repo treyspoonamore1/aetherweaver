@@ -4,7 +4,7 @@
  * and the profile records it (`profile.seen`, which also unlocks its Codex entry). Every Movement
  * I enemy is seen from the start, so the Prelude never shows one.
  */
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useProfile } from '../../app/profileStore';
 import { CONTENT, enemyDef } from '../../content';
 import type { AnswerTag } from '../types';
@@ -297,6 +297,34 @@ export function sightingFoes(
   );
 }
 
+/**
+ * The Finale's held-back voices, settled: a voice whose card waits for its Cue but leaves the
+ * fight first (burst down before it is Cued, or shattered at the Grand Silence) or is still
+ * waiting when the fight ends is recorded as seen without a card, so the Codex unlocks every voice
+ * the party fought. `held`: the voices held back last time; `foes`: the fight's live foes (undefined
+ * once the fight is over). Returns the voices held back now, and the ones to record silently.
+ */
+export function settleHeldVoices(
+  held: readonly string[],
+  foes: readonly string[] | undefined,
+  cued: string | null | undefined,
+): { held: string[]; record: string[] } {
+  const live = foes ?? [];
+  const now = live.filter(
+    (id, i) =>
+      (CHOIR as readonly string[]).includes(id) &&
+      live.indexOf(id) === i &&
+      enemyDef(id).name !== cued,
+  );
+  return { held: now, record: held.filter((id) => !live.includes(id)) };
+}
+
+/** Records held-back voices that never got their card (see `settleHeldVoices`). */
+function recordHeld(ids: readonly string[]): void {
+  if (ids.length === 0) return;
+  recordSeen(newSightings(ids, useProfile.getState().profile.seen));
+}
+
 /** The callout for a foe's first sighting. */
 export function sightingCallout(
   defId: string,
@@ -356,8 +384,21 @@ export function useFirstSightings(enabled = true): void {
     (s) => s.hud?.weaver.techniques.find((t) => t.key === 'reel')?.variant?.id ?? null,
   );
   const cued = useUi((s) => s.hud?.boss?.cue?.soloist ?? null);
+  // The voices whose card is waiting for a Cue: recorded without one if they go first.
+  const held = useRef<string[]>([]);
+  useEffect(
+    () => () => {
+      recordHeld(held.current);
+      held.current = [];
+    },
+    [],
+  );
   useEffect(() => {
-    if (!enabled || !fighting || sandbox) return;
+    if (!enabled || sandbox) return;
+    const settled = settleHeldVoices(held.current, fighting ? foes : undefined, cued);
+    held.current = settled.held;
+    recordHeld(settled.record);
+    if (!fighting) return;
     noteSightings(sightingFoes(foes, cued), performance.now(), rewinds, paradox, reel);
     noteAllies(party ? party.split(' ') : [], performance.now());
   }, [enabled, foes, fighting, sandbox, rewinds, paradox, party, reel, cued]);

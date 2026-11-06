@@ -12,6 +12,7 @@ import {
   ALTO,
   BASS,
   BASSO_OSTINATO,
+  CONDUCTOR,
   CADENZA,
   DOWNBEAT,
   FINAL_CADENCE,
@@ -151,8 +152,8 @@ export function riftDownLine(
 
 /**
  * The Finale (docs/phase-5d.md "Recaps"): every down in the Silent Conductor's fight names its
- * answer in words, keyed on the killer as the sim names it (an attack's name, a voice's name for
- * its basic blow). The Finale's names are its own, so every Movement I-III death gets null and
+ * answer in words, keyed on the killer as the sim names it (an attack's name, a voice's or the
+ * Conductor's name for its basic blow). The Finale's names are its own, so every Movement I-III death gets null and
  * keeps its line. Calling-aware: on a Chronomancer run Rewind takes Reel's place.
  */
 export function finaleDownLine(
@@ -184,6 +185,10 @@ export function finaleDownLine(
     [ALTO, BASS, TENOR, SOPRANO].some((id) => k === CONTENT.enemies.find((e) => e.id === id)?.name)
   )
     return 'The mirror-choir: Focus the voice, or Ward its blows';
+  // The Conductor's own baton (its basic melee): no telegraph answers it, so the recap names the
+  // steady answer.
+  if (k === CONTENT.enemies.find((e) => e.id === CONDUCTOR)?.name)
+    return `The Conductor’s baton: keep the tank Warded and Mended, or ${rewinds ? 'Rewind the blow' : 'Reel them out of reach'}`;
   return null;
 }
 

@@ -248,6 +248,9 @@ export function SummaryView({
     setEpilogue(false);
   }, [seed]);
   const firstClear = finale && run.deeds.includes(SONG_GOES_ON);
+  // A Rank-up or Bond card over the Summary: the epilogue waits for it (it is shown once).
+  const modalOpen =
+    (rankUps.length > 0 && !!onDismissRankUps) || (!!bondCard && bondCard.notices.length > 0);
   // A win names the final boss; an Expedition's defeat, the Movement it reached (Phase 5a).
   const sub = outcomeSub(run) ?? outcome.sub;
   const heroIds = run.party.map((p) => p.heroId);
@@ -295,7 +298,12 @@ export function SummaryView({
     <ScreenFrame tone={finale ? 'crucible' : run.outcome === 'victory' ? 'gold' : 'dusk'}>
       <div className="mx-auto max-w-6xl px-6 pb-28 pt-8">
         {finale && epilogue && (
-          <EpilogueView party={heroIds} onDone={closeEpilogue} still={epilogueStill} />
+          <EpilogueView
+            party={heroIds}
+            onDone={closeEpilogue}
+            still={epilogueStill}
+            paused={modalOpen}
+          />
         )}
         <header className="anim-rise flex flex-wrap items-center justify-between gap-6">
           <div>

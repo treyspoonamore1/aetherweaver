@@ -133,6 +133,20 @@ export function movementCard(n: number, movements?: number): { title: string; te
   };
 }
 
+/**
+ * A Movement card's narrative line, above its stops (null: none, every Movement before the
+ * Finale, whose cards keep their words). The Crucible's: docs/phase-5d.md "Narrative beat and
+ * ending".
+ */
+const MOVEMENT_LORE: Readonly<Partial<Record<Biome, string>>> = {
+  celestial_crucible: 'Above the Rift the sky rings like a struck bell. Someone is conducting it.',
+};
+
+/** Movement `n`'s narrative line on its card, or null. */
+export function movementLore(n: number): string | null {
+  return MOVEMENT_LORE[movementOrFirst(n).biome] ?? null;
+}
+
 // ── Biomes on the map (docs/phase-5c.md) ─────────────────────────────────────────────
 
 /** Each biome's map backdrop (undefined: the default navy, the Reliquary's). */

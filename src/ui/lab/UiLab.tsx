@@ -4480,7 +4480,7 @@ const VIEWS: ViewDef[] = [
       ['fortissimo', 'HUD: Fortissimo Silence, pulse 1 of 3'],
       ['silence-0', 'HUD: the Grand Silence, 0/8 notes, every hero stilled'],
       ['silence-4', 'HUD: the Grand Silence, 4/8 notes (a Clutch Chime)'],
-      ['silence-8', 'HUD: Note 8/8, the song returns'],
+      ['silence-8', 'HUD: Note 8/8, the song returns (frames relit gold, Lyra risen)'],
       ['stilled-downed', 'HUD: stilled frames and a downed one (the song will bring them back)'],
     ] as const
   ).map(([scenario, label]): ViewDef => ({

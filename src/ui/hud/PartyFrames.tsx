@@ -8,7 +8,14 @@ import { Icon } from '../kit/Icon';
 import { KeyCap } from '../kit/KeyCap';
 import { Ring } from '../kit/Ring';
 import type { BossHud, Callout, ChordHud, HeroHud, WeaverHud } from '../store';
-import { DOWNED_SONG_LINE, NOTE_GOLD, SILENCE_INK, STILLED_LINE, stilledAria } from './finaleLook';
+import {
+  DOWNED_SONG_LINE,
+  NOTE_GOLD,
+  REIGNITE_LINE,
+  SILENCE_INK,
+  STILLED_LINE,
+  stilledAria,
+} from './finaleLook';
 import type { CallAnswer, ThreadMode } from '../types';
 import { StatusBadge } from './StatusBadge';
 import { POSSESSED_COLOR, PossessedStrip, StitchChip } from './RiftMarks';
@@ -597,6 +604,26 @@ function StilledStrip({ hero: h, silence }: { hero: HeroHud; silence?: BossHud['
   );
 }
 
+/**
+ * Reignite on a frame (docs/phase-5d.md "Accessibility with audio off": frames relit gold, revived
+ * frames rising): a gold line for a moment after the eighth note. Steady, never a flash.
+ */
+function ReigniteStrip({ hero: h }: { hero: HeroHud }) {
+  const kind = h.reignite!;
+  return (
+    <div
+      className={`mt-1.5 flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-bold ${kind === 'risen' ? 'anim-rise' : ''}`}
+      style={{ borderColor: NOTE_GOLD, color: NOTE_GOLD, background: 'rgb(245 215 142 / 0.14)' }}
+      role="status"
+      data-testid="reignite-strip"
+      data-reignite={kind}
+    >
+      <Icon name="note" size={15} />
+      {REIGNITE_LINE[kind]}
+    </div>
+  );
+}
+
 /** Fermata hold: 1 life, seconds to heal them. */
 function HeldStrip({ hero: h }: { hero: HeroHud }) {
   const held = h.held!;
@@ -776,6 +803,8 @@ export function HeroFrame({
   // What the whole frame says (docs/health-ui.md): critical glows red, an ailment Chime would
   // cleanse glows violet, out of the Weaver's reach it fades, as WoW's raid frames do.
   const state = frameState(h, blind);
+  // The Finale: relit gold for a moment after Reignite (the alerts above still win).
+  const relit = !!h.reignite && !down && !out;
   const border = h.held
     ? HOLD
     : state.critical
@@ -786,16 +815,20 @@ export function HeroFrame({
           ? CALL
           : state.ailing
             ? 'var(--color-ailment)'
-            : h.threaded
-              ? threadColor
-              : h.hovered
-                ? 'var(--color-gold-400)'
-                : undefined;
+            : relit
+              ? NOTE_GOLD
+              : h.threaded
+                ? threadColor
+                : h.hovered
+                  ? 'var(--color-gold-400)'
+                  : undefined;
   const glow = state.critical
     ? '0 0 0 1px var(--color-lethal), 0 0 18px color-mix(in srgb, var(--color-lethal) 45%, transparent)'
     : state.ailing && !h.held
       ? '0 0 0 1px var(--color-ailment), 0 0 14px color-mix(in srgb, var(--color-ailment) 38%, transparent)'
-      : undefined;
+      : relit
+        ? `0 0 0 1px ${NOTE_GOLD}, 0 0 16px rgb(245 215 142 / 0.4)`
+        : undefined;
   return (
     <button
       type="button"
@@ -822,6 +855,7 @@ export function HeroFrame({
       data-ailing={state.ailing || undefined}
       data-far={state.far || undefined}
       data-stilled={h.stilled || undefined}
+      data-reignite={relit ? h.reignite : undefined}
     >
       <div className="flex items-start gap-2.5">
         <span className={grey}>
@@ -864,6 +898,7 @@ export function HeroFrame({
             <>
               <HpBar hero={h} rewind={rewind} healthText={healthText} />
               {h.stilled && <StilledStrip hero={h} silence={silence} />}
+              {relit && !h.stilled && <ReigniteStrip hero={h} />}
               {h.held && <HeldStrip hero={h} />}
               {h.call && <CallStrip hero={h} threadMode={threadMode} named={named} />}
               {h.possessed && <PossessedStrip possessed={h.possessed} blind={blind} />}

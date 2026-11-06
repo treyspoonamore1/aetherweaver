@@ -293,7 +293,14 @@ export function HudView({
           techniques={hud.weaver.techniques.map((t) => t.name)}
         />
       )}
-      {wheel && <DirectiveWheelView wheel={wheel} focusName={wheel.focusName} fixed={false} />}
+      {wheel && (
+        <DirectiveWheelView
+          wheel={wheel}
+          focusName={wheel.focusName}
+          fixed={false}
+          frozen={!!silence}
+        />
+      )}
     </div>
   );
 }

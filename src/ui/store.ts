@@ -191,6 +191,11 @@ export interface HeroHud {
   // ── The Finale (docs/phase-5d.md). Absent: the frame draws as before. ──
   /** Stilled by the Grand Silence: it waits for the Weaver's song. */
   stilled?: true;
+  /**
+   * Just after Reignite (the eighth note): the frame relit gold for a moment; `risen` for a hero
+   * the song stood back up. Absent at the Coda and in every other fight.
+   */
+  reignite?: 'relit' | 'risen';
 }
 
 /** What the Chronomancer's Rewind would do to a hero now (`HeroHud.rewind`). */

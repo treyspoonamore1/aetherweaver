@@ -4140,7 +4140,7 @@ export function finaleHud(scenario: FinaleScenario): HudSnapshot {
     case 'silence-4':
     case 'silence-8': {
       const notes = scenario === 'silence-0' ? 0 : scenario === 'silence-4' ? 4 : 8;
-      // At eight the song returns: the heroes wake, every Solo full, and the stave is gone.
+      // At eight the song returns: the heroes wake relit gold, every Solo full, the stave gone.
       const frozen = notes < 8;
       const solo = notes * 12.5;
       return {
@@ -4153,9 +4153,10 @@ export function finaleHud(scenario: FinaleScenario): HudSnapshot {
                 { ...stilled, solo },
               ]
             : [
-                { solo: 100, soloReady: true },
-                { solo: 100, soloReady: true },
-                { solo: 100, soloReady: true },
+                // Relit gold for a moment; Lyra was down, and the song stood her back up.
+                { solo: 100, soloReady: true, reignite: 'relit' },
+                { solo: 100, soloReady: true, reignite: 'risen', hp: 192 },
+                { solo: 100, soloReady: true, reignite: 'relit' },
               ],
         ),
         boss: conductor(3, {
