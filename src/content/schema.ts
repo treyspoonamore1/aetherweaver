@@ -484,8 +484,11 @@ export const AttackDefSchema = z.object({
   /** Seconds before the first use after the enemy engages. */
   initialDelay: Seconds,
   damage: z.number().nonnegative(),
-  /** Alternative to `damage`: fraction of the target's max HP. */
-  pctMaxHp: Pct.optional(),
+  /**
+   * Alternative to `damage`: fraction of the target's max HP. Above 1 only for a blow lethal from
+   * full life (the Finale's Final Cadence, docs/phase-5d.md).
+   */
+  pctMaxHp: z.number().nonnegative().optional(),
   radius: z.number().nonnegative(),
   angleDeg: z.number().min(0).max(360),
   length: z.number().nonnegative(),
@@ -1730,8 +1733,11 @@ function lintMovement3(c: ContentShape, ctx: z.RefinementCtx, sets: LintSets): v
   for (const m of c.motifs)
     if (m.requires.movement !== undefined && m.requires.movement > movements)
       issue(`motif "${m.id}": Movement ${m.requires.movement} is past the last`);
+  // A relic may wait for the Finale's Movement once its fights exist, before its def is
+  // registered (docs/phase-5d.md: the Finale lands its content before the route).
+  const fought = Math.max(movements, ...c.encounters.map((e) => e.movement ?? 1));
   for (const r of c.relics)
-    if (r.movement !== undefined && r.movement > movements)
+    if (r.movement !== undefined && r.movement > fought)
       issue(`relic "${r.id}": Movement ${r.movement} is past the last`);
 }
 

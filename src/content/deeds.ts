@@ -3,8 +3,10 @@
  * from approachable to mastery (listed easiest first); the other ten are badges. Each names its
  * rule (`test`, judged by meta/deeds.ts from what the run records) and its numbers; the text is
  * built from them. Movement II adds two more badges (content/legionRun.ts, docs/phase-5a.md), and
- * Movement III two more (content/unstitchedRun.ts, docs/phase-5c.md).
+ * Movement III two more (content/unstitchedRun.ts, docs/phase-5c.md), and the Finale two more
+ * (`FINALE_DEEDS` below, docs/phase-5d.md).
  */
+import { CONDUCTOR_ENCOUNTER, NOT_ONE_SILENT, SONG_GOES_ON } from './crucibleIds';
 import type { DeedDef } from './schema';
 
 export const DEEDS: DeedDef[] = [
@@ -185,5 +187,32 @@ export const DEEDS: DeedDef[] = [
     test: 'saveWays',
     values: { n: 4 },
     text: 'Save heroes {n} different ways in one run.',
+  },
+];
+
+/**
+ * The Finale's two badges (docs/phase-5d.md; no Astrolabe point: the ladder keeps its ten).
+ * The Song Goes On is the profile's record of the first Finale clear. They are appended to
+ * `CONTENT.deeds` after Movement III's with FINALE itself (W3), not here, so the Deed counts and
+ * order move in the same merge as the route.
+ */
+export const FINALE_DEEDS: DeedDef[] = [
+  {
+    id: SONG_GOES_ON,
+    name: 'The Song Goes On',
+    points: 0,
+    test: 'fight',
+    encounter: CONDUCTOR_ENCOUNTER,
+    values: {},
+    text: 'Beat {encounter}.',
+  },
+  {
+    id: NOT_ONE_SILENT,
+    name: 'Not One Silent',
+    points: 0,
+    test: 'fight',
+    encounter: CONDUCTOR_ENCOUNTER,
+    values: { downs: 0 },
+    text: 'Beat {encounter} with no hero going down.',
   },
 ];

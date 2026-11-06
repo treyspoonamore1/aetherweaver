@@ -192,6 +192,39 @@ export const RELICS: ContentInput['relics'] = [
     icon: 'stillbell',
     movement: 3,
   },
+  // ── The Finale (docs/phase-5d.md): offered only at the Unweaver's interlude, for the one
+  // fight after it; carried into an earlier fight, they sleep. Each adds to its key, so it
+  // stacks on the motif that sets it (Steady Hands, Fisher's Knot, Twin Aegis). ──
+  {
+    id: 'tacet_mark',
+    name: 'Tacet Mark',
+    rarity: 'rare',
+    text: 'Your Perfect Wards are {seconds} s more forgiving.',
+    flavor: 'Tacet: the bars where you play nothing, and must count every one.',
+    values: { seconds: 0.1 },
+    icon: 'tacet',
+    movement: 4,
+  },
+  {
+    id: 'quick_rosin',
+    name: 'Quick Rosin',
+    rarity: 'rare',
+    text: 'Reel (and Rewind) recover {cut} s sooner.',
+    flavor: 'A bow that bites the string at once, and lets it go as fast.',
+    values: { cut: 3 },
+    icon: 'rosin',
+    movement: 4,
+  },
+  {
+    id: 'first_score',
+    name: 'The First Score',
+    rarity: 'legendary',
+    text: 'Your Ward holds {charges} more charge.',
+    flavor: 'The first Weaver’s own hand, in a margin nobody read.',
+    values: { charges: 1 },
+    icon: 'firstscore',
+    movement: 4,
+  },
 ];
 
 /** Boons and banes: what events leave behind, for a few fights or the rest of the run. */

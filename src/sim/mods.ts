@@ -805,6 +805,17 @@ function applyRelic(m: Mods, id: string, v: Values, cleansed: boolean): void {
       m.stillwaterBell = 1;
       m.stillwaterRefund = num(v, 'refund') / 100;
       break;
+    // The Finale's (docs/phase-5d.md): each adds to a key a motif sets, so it stacks after it
+    // (relics resolve after motifs). Asleep outside the Finale (`awakeConfig`, world.ts).
+    case 'tacet_mark':
+      m.perfectWindowBonus += num(v, 'seconds');
+      break;
+    case 'quick_rosin':
+      m.reelCooldownCut += num(v, 'cut');
+      break;
+    case 'first_score':
+      m.wardCharges += num(v, 'charges');
+      break;
     default:
       // Run-only relics (Star Chart) have no sim behaviour; tests check the rest are known.
       break;
@@ -848,6 +859,10 @@ export const KNOWN_RELICS: readonly string[] = [
   'sacrificial_lamb',
   'knotted_cord',
   'stillwater_bell',
+  // The Finale's (docs/phase-5d.md).
+  'tacet_mark',
+  'quick_rosin',
+  'first_score',
 ];
 
 export const KNOWN_BOONS: readonly string[] = ['last_note', 'frayed_spirit', 'mended_loom'];
