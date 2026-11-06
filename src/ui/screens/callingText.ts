@@ -261,16 +261,18 @@ function referenceMap(movements: number): RunMap {
 
 /** The milestone rows and the map they fall on, for `at` (`TierPlace`). */
 function tierPlace(at?: TierPlace): { rows: readonly number[]; map: RunMap } {
-  if (at && 'rows' in at) {
-    // A map's route: as many Movements as it holds (a saved I-III map keeps CALLING_ROWS).
-    const movements = Math.max(1, ...at.rows.map((r) => r[0]?.movement ?? 1));
-    return { rows: callingRows({ movements }), map: at };
-  }
+  if (at && 'rows' in at) return { rows: callingRows({ movements: mapRoute(at) }), map: at };
   if (at?.map || at?.movements !== undefined) {
-    const movements = at.movements ?? 1;
+    // A map without its route reads the route off the map, as a bare map does.
+    const movements = at.movements ?? (at.map ? mapRoute(at.map) : 1);
     return { rows: callingRows({ movements }), map: at.map ?? referenceMap(movements) };
   }
   return { rows: CALLING_ROWS, map: referenceMap(1) };
+}
+
+/** A map's route: as many Movements as it holds (a saved I-III map keeps CALLING_ROWS). */
+function mapRoute(map: RunMap): number {
+  return Math.max(1, ...map.rows.map((r) => r[0]?.movement ?? 1));
 }
 
 /** "First Light" → "First Light"; "The Bellwarden" → "the Bellwarden" (mid-sentence). */

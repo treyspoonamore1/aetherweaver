@@ -9,7 +9,7 @@ import { playUi } from '../kit/sound';
 import { callingText } from '../../content';
 import { LockTag, NewTag } from './ChordBuilder';
 import { CallingPassive, CallingPathPreview, CallingTitle, CrescendoLine } from './CallingParts';
-import { allCallings, numeral, tierWhenList } from './callingText';
+import { allCallings, numeral, tierWhenList, type TierPlace } from './callingText';
 import { masteryLevel } from '../../meta/loom';
 import { MasteryStrip } from './MasteryParts';
 import { tiersLine, type PickerMastery } from './masteryModel';
@@ -37,6 +37,7 @@ export function CallingPicker({
   onChoose,
   openPath = null,
   mastery = null,
+  at,
 }: {
   chosen: string | null;
   allowance: Allowance;
@@ -47,6 +48,11 @@ export function CallingPicker({
   openPath?: string | null;
   /** Phase 4g: Calling mastery; omitted (the UI lab's older views): every tier open. */
   mastery?: PickerMastery | null;
+  /**
+   * Phase 5d: the run's route (`{ movements }`), whose road moves the tiers (the Finale route's:
+   * docs/phase-5d.md); omitted: the Prelude's, as before.
+   */
+  at?: TierPlace;
 }) {
   const [viewing, setViewing] = useState<string | null>(openPath);
   const callings = allCallings();
@@ -73,7 +79,7 @@ export function CallingPicker({
           {schedule !== null && (
             <>
               {' '}
-              It grows as you win: {schedule} picks, one of two each, {tierWhenList(schedule)}.
+              It grows as you win: {schedule} picks, one of two each, {tierWhenList(schedule, at)}.
             </>
           )}
           {mastery && <> Playing a Calling earns mastery, which opens its path.</>}
@@ -99,6 +105,7 @@ export function CallingPicker({
             onView={() => setViewing(def.id)}
             tiersOpen={mastery?.tiersOpen(def.id)}
             level={mastery ? masteryLevel(mastery.xp[def.id] ?? 0) : undefined}
+            at={at}
           />
         ))}
       </div>
@@ -166,6 +173,7 @@ function CallingCard({
   onView,
   tiersOpen,
   level,
+  at,
 }: {
   def: CallingDef;
   selected: boolean;
@@ -179,6 +187,8 @@ function CallingCard({
   tiersOpen?: number;
   /** Phase 4g: its mastery level; omitted: not shown. */
   level?: number;
+  /** Phase 5d: the run's route, for when its picks come; omitted: the Prelude's. */
+  at?: TierPlace;
 }) {
   const look = callingLook(def.id);
   const rank = unlockRank('calling', def.id);
@@ -250,7 +260,8 @@ function CallingCard({
       </button>
       {schedule && (
         <span className="block text-xs leading-relaxed text-muted">
-          {def.tiers.length} picks along the way, one of two each: {tierWhenList(def.tiers.length)}.
+          {def.tiers.length} picks along the way, one of two each:{' '}
+          {tierWhenList(def.tiers.length, at)}.
         </span>
       )}
       <span className="mt-auto flex items-center justify-between gap-2 border-t border-ink-600/60 pt-2">

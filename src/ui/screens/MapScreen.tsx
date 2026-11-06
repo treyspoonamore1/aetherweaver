@@ -330,14 +330,25 @@ export function MapView({
           </div>
         </Modal>
       )}
-      {showCard && <MovementCard movement={movement} onClose={closeCard} />}
+      {showCard && (
+        <MovementCard movement={movement} movements={run.movements} onClose={closeCard} />
+      )}
     </ScreenFrame>
   );
 }
 
 /** "Movement II · The Crimson Legion": the title card on first reaching a later Movement. */
-function MovementCard({ movement, onClose }: { movement: number; onClose(): void }) {
-  const c = movementCard(movement);
+function MovementCard({
+  movement,
+  movements,
+  onClose,
+}: {
+  movement: number;
+  /** The run's route, whose road may shorten the Movement (the Finale route's: docs/phase-5d.md). */
+  movements?: number;
+  onClose(): void;
+}) {
+  const c = movementCard(movement, movements);
   // Each biome's card in its own light (docs/phase-5c.md): the Spire's crimson, the Rift's indigo.
   const look = movementCardLook(movement);
   useEffect(() => {

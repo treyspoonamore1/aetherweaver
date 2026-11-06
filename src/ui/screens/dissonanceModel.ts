@@ -450,12 +450,13 @@ export function openedLines(): string[] {
 
 /**
  * The rank-up card's line under Dissonance's unlock (null for any other unlock): the unlock's
- * own text says a win at its Rank opens it; this says what comes then.
+ * own text says the first Finale clear at its Rank opens it (docs/phase-5d.md); this says what
+ * comes then.
  */
 export function dissonanceUnlockLine(u: { kind: string }): string | null {
   if (u.kind !== 'dissonance') return null;
   const r = RULES();
-  return `Once your win at Rank ${r.openRank} or above opens it, choose its levels in Prep: each point pays +${r.xpPerPoint}% Weaver XP and +${r.shardsPerPoint}% Tuning Shards. Settings → Skip the unlocks opens it now.`;
+  return `Once your Finale clear at Rank ${r.openRank} or above opens it, choose its levels in Prep: each point pays +${r.xpPerPoint}% Weaver XP and +${r.shardsPerPoint}% Tuning Shards. Settings → Skip the unlocks opens it now.`;
 }
 
 // ── A run's Dissonance ────────────────────────────────────────────────────────────────

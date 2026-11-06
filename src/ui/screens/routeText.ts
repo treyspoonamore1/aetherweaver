@@ -116,16 +116,20 @@ export function mapHeader(run: MapRun & Partial<Pick<RunState, 'movements'>>): {
 
 /**
  * The one-time card on first reaching a Movement past the first: "Movement II · The Crimson
- * Legion", and its stops ("1 stop" for the Finale). `movements`: the run's route, whose road may
- * shorten the Movement (docs/phase-5d.md); absent, the Movement as content has it.
+ * Legion", and its stops ("1 stop to the Silent Conductor" for the Finale). `movements`: the
+ * run's route, whose road may shorten the Movement (docs/phase-5d.md); absent, the Movement as
+ * content has it. A labelled Movement (the Finale) names its boss mid-sentence, as the doc
+ * writes it; the numbered Movements' cards keep their words ("to The Unweaver", pinned by
+ * tests/meta/expedition3Pin.test.ts).
  */
 export function movementCard(n: number, movements?: number): { title: string; text: string } {
   const def = movementOrFirst(n);
   const played = movements !== undefined ? routeDefs(movements)[n - 1] : undefined;
   const rows = (played ?? def).rows.length;
+  const boss = encounterDef(def.boss).name;
   return {
     title: movementTitle(n),
-    text: `${def.mapTitle}: ${rows} ${rows === 1 ? 'stop' : 'stops'} to ${encounterDef(def.boss).name}.`,
+    text: `${def.mapTitle}: ${rows} ${rows === 1 ? 'stop' : 'stops'} to ${def.label ? inSentence(boss) : boss}.`,
   };
 }
 

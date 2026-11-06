@@ -534,7 +534,7 @@ describe('the route’s copy, derived from the labels and the road', () => {
   it('the Finale’s card: one stop, named by its label and map; a road Movement’s own count', () => {
     expect(movementCard(4)).toEqual({
       title: 'The Finale · The Celestial Crucible',
-      text: 'The Celestial Crucible: 1 stop to The Silent Conductor.',
+      text: 'The Celestial Crucible: 1 stop to the Silent Conductor.',
     });
     expect(movementCard(2).text).toBe('The Crimson Ascent: 7 stops to Vharun, the Crimson Warden.');
     expect(movementCard(2, 4).text).toBe(
