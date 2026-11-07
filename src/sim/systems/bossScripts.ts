@@ -52,7 +52,8 @@ export interface BossScript {
    * The Finale (docs/phase-5d.md Q1): a telegraph whose attack has `discord` resolved, and
    * whether it failed (failed victims reached its `discordQuorum`). `boss` is the standing boss
    * (null once it has fallen). `victims`: the ones counted as failed, in hit order (the
-   * `discordRose` event carries them for render). Called through the installer in telegraphs.ts.
+   * `discordRose` event carries them for render). `struck`: the heroes who lost life to it,
+   * answered or not. Called through the installer in telegraphs.ts.
    */
   telegraphVerdict?(
     world: World,
@@ -60,6 +61,7 @@ export interface BossScript {
     t: Telegraph,
     failed: boolean,
     victims?: readonly EntityId[],
+    struck?: readonly EntityId[],
   ): void;
   /**
    * The Finale (Q4): the Weaver's Crescendo (any Calling's) just began, called once, right after

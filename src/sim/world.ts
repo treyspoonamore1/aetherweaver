@@ -625,6 +625,8 @@ export interface SimInternal {
     choirRaise?: true;
     /** Sim time a Rewind can make a note again (Q8: at most one per 18 s). */
     nextRewindNoteAt?: number;
+    /** The heroes a silence blow took life from since the silence began (a Rewind's note). */
+    struck?: EntityId[];
   };
   /** Guard Strand (docs/phase-5c.md): sim time it can turn a bolt or a cut aside again. */
   guardStrandAt?: number;

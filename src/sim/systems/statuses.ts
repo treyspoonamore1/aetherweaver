@@ -98,12 +98,14 @@ export function updateStatuses(world: World, dt: number): void {
     }
     if (e.hero && h.downed) {
       const reviving = mendSlot !== null && world.party[mendSlot] === e.id;
+      // The Grand Silence (docs/phase-5d.md) holds the downed: Reignite stands them back up.
+      const bleeds = !world.field.finale?.silence;
       if (reviving && unravelled) {
-        h.bleedOut -= dt;
+        if (bleeds) h.bleedOut -= dt;
         if (h.bleedOut <= 0) heroOut(world, e);
       } else if (!reviving) {
         h.revive = Math.max(0, h.revive - 0.5 * dt);
-        h.bleedOut -= dt;
+        if (bleeds) h.bleedOut -= dt;
         if (h.bleedOut <= 0) heroOut(world, e);
       }
     }

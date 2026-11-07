@@ -55,6 +55,7 @@ import {
   MIMIC_WARD_PCT,
   MIMIC_WARD_TIME,
 } from '../../content/unstitched';
+import { FINALE_MIN_WINDUP } from '../../content/crucible';
 
 /** Normal enemies may have at most this many telegraphs up at once (readability cap). */
 const READABILITY_CAP = 2;
@@ -765,6 +766,8 @@ export function beginAttack(
   const lullaby = attack.effect === 'damage' ? enemyFx(world, e).enemyWindup : 0;
   const dance = c.inField ? world.mods.slowDanceWindup : 0;
   windup *= (1 + lullaby) * (1 + dance);
+  // The Finale (docs/phase-5d.md, Principle 3): never under its floor (absent elsewhere).
+  if (world.field.finale && windup < FINALE_MIN_WINDUP) windup = FINALE_MIN_WINDUP;
   const scale = enemyDamageMult(world, c) * enrageMult(world, c.tier);
   const t = startTelegraph(world, {
     owner: e,
@@ -1550,12 +1553,14 @@ function telegraphVerdict(
   t: Telegraph,
   failed: boolean,
   victims: readonly EntityId[],
+  struck: readonly EntityId[],
 ): void {
   const script = encounterScript(world);
   if (!script?.telegraphVerdict) return;
   const id = world.encounter.bossId;
   const boss = id === null ? undefined : world.entities.get(id);
-  script.telegraphVerdict(world, boss?.enemy && isActive(boss) ? boss : null, t, failed, victims);
+  const standing = boss?.enemy && isActive(boss) ? boss : null;
+  script.telegraphVerdict(world, standing, t, failed, victims, struck);
 }
 
 function crescendoBegan(world: World): void {

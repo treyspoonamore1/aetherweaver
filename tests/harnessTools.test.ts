@@ -784,9 +784,14 @@ describe('the Finale verbs (FinaleWatch)', () => {
   }, 60_000);
 
   it('reads the Grand Silence: its time, notes and end', () => {
+    // The Skilled bot can answer every silence blow (no harm while stilled); the Novice can't.
+    for (const kind of ['skilled', 'novice'] as const) silenceRead(kind);
+  }, 60_000);
+
+  function silenceRead(kind: 'skilled' | 'novice'): void {
     const seed = 9595;
     const sim = createSim({ seed, encounter: CONDUCTOR, debug: true, ...kit4 });
-    const player = makeBot('skilled', seed);
+    const player = makeBot(kind, seed);
     const watch = FinaleWatch.of(sim)!;
     expect(watch).not.toBeNull();
     let notes = 0;
@@ -811,8 +816,9 @@ describe('the Finale verbs (FinaleWatch)', () => {
     expect(f.reignited && f.silenceBroken).toBe(false);
     if (f.reignited) expect(f.timeToReignite).not.toBeNull();
     else expect(f.timeToReignite).toBeNull();
-    expect(f.damageWhileStilled).toBeGreaterThan(0);
-  }, 60_000);
+    if (kind === 'novice') expect(f.damageWhileStilled).toBeGreaterThan(0);
+    else expect(f.damageWhileStilled).toBeGreaterThanOrEqual(0);
+  }
 
   it('judges each Solo: fed Discord, interrupted, full-meter damage, a Perfect', () => {
     const real = createSim({ seed: 1, encounter: CONDUCTOR, ...kit4 });
