@@ -296,6 +296,12 @@ export class Overlay {
   /** Time stopping and resuming: a cool flash (never Sunrise's warm one). */
   private readonly coolFlashEl: HTMLDivElement;
   private stasisShown = '';
+  /**
+   * The Grand Silence (the Finale, docs/phase-5d.md): a desaturated, edge-darkened frame while
+   * the music is stopped. Made on its first use, so no other fight's overlay gains an element.
+   */
+  private silenceEl: HTMLDivElement | null = null;
+  private silenceShown = '';
   private coolFlashT = 0;
   private coolFlashDur = 0.2;
   private coolFlashStrength = 0;
@@ -1064,6 +1070,27 @@ export class Overlay {
     if (o === this.stasisShown) return;
     this.stasisShown = o;
     this.stasisEl.style.opacity = o;
+  }
+
+  /**
+   * The Grand Silence holds (0..1, from no note yet down to the last): a grey, still frame round
+   * the screen, the colour drained toward its edges. A steady state, never a flash (it shows at
+   * Flashes 0), written only when it changes; its element is made on the first silence.
+   */
+  setSilence(v: number): void {
+    const o = (v <= 0.005 ? 0 : Math.min(1, v) * 0.9).toFixed(2);
+    if (o === this.silenceShown) return;
+    this.silenceShown = o;
+    if (!this.silenceEl) {
+      if (o === '0.00') return;
+      this.silenceEl = div(
+        this.root,
+        'position:absolute;inset:0;opacity:0;background:radial-gradient(ellipse at center, rgba(0,0,0,0) 52%, rgba(40,42,48,0.32) 78%, rgba(12,12,16,0.62) 100%);backdrop-filter:saturate(0.45);-webkit-backdrop-filter:saturate(0.45);box-shadow:inset 0 0 0 1.5px rgba(154,160,170,0.35), inset 0 0 90px rgba(10,10,14,0.55);',
+      );
+      // Under the raid banner and the flashes, as the Stasis frame is.
+      this.root.insertBefore(this.silenceEl, this.stasisEl);
+    }
+    this.silenceEl.style.opacity = o;
   }
 
   danger(): void {

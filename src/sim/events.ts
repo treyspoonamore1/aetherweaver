@@ -821,6 +821,11 @@ export interface DiscordRose extends At {
   /** What it added, and Discord after it. */
   amount: number;
   value: number;
+  /**
+   * The victims the verdict counted as failed (render's brass streaks run from these only, never
+   * from an answered victim of the same telegraph). Optional: without it render infers them.
+   */
+  failed?: EntityId[];
 }
 /** Fortissimo Silence was cancelled: by a Crescendo, a phase shift, or the boss's fall. */
 export interface FortissimoCancelled extends At {

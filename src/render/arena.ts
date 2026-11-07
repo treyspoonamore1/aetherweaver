@@ -3,10 +3,23 @@ import type { ArenaDef } from '../content';
 import type { ModelMaterial } from './models/material';
 import { ModelBatch } from './models/batch';
 import { ModelBuilder } from './models/builder';
-import { buildPillar, buildRiftPillar, buildSpirePillar } from './models/library';
+import {
+  buildCruciblePillar,
+  buildPillar,
+  buildRiftPillar,
+  buildSpirePillar,
+} from './models/library';
 import type { Stage } from './stage';
 import { CRIMSON_HEX, SPIRE_HEX, arenaLook, arenaMood, type ArenaLook } from './crimsonCues';
 import { ABYSS_HEX } from './riftCues';
+import {
+  CRUCIBLE_HEX,
+  CRUCIBLE_SKY_HEX,
+  ORRERY,
+  orreryCentre,
+  orreryRadius,
+  type CrucibleSky,
+} from './crucibleCues';
 
 /**
  * Arena (docs/plan/04 §1): a low-contrast, low-detail combat floor in the theme's colours so
@@ -34,6 +47,15 @@ export class ArenaView {
   private readonly disposables: { dispose(): void }[] = [];
   private readonly rayUniforms = { uTime: { value: 0 } };
   private readonly dustUniforms = { uTime: { value: 0 }, uScale: { value: 600 } };
+  /**
+   * The Celestial Crucible's sky orrery (the Finale): the four stems' levels, the Grand Silence's
+   * notes (−1: no silence) and the beat. Only the crucible's rays read them.
+   */
+  private readonly skyUniforms = {
+    uStems: { value: [1, 1, 1, 1] },
+    uNotes: { value: -1 },
+    uBeat: { value: 0 },
+  };
   private readonly batches: ModelBatch[] = [];
   private readonly dust: THREE.Points;
   private readonly rays: THREE.Mesh;
@@ -66,14 +88,18 @@ export class ArenaView {
         this.group.add(this.createRiftFloor());
         this.createRiftRim(model);
         break;
+      case 'crucible':
+        this.group.add(this.createCrucibleFloor());
+        this.createCrucibleRim(model);
+        break;
       default:
         this.group.add(this.createFloor());
         this.createPerimeter(model);
     }
     this.createPillars(model);
     // The Crimson Spire: flickering torch cards in place of the god rays, rising embers in place
-    // of the dust. The Abyssal Rift: rift tears and drifting fray motes. The same budget: one
-    // mesh each, hidden on low quality.
+    // of the dust. The Abyssal Rift: rift tears and drifting fray motes. The Celestial Crucible:
+    // the sky orrery and prism motes. The same budget: one mesh each, hidden on low quality.
     switch (look) {
       case 'crimson':
         this.rays = this.createTorches();
@@ -82,6 +108,10 @@ export class ArenaView {
       case 'abyss':
         this.rays = this.createRiftTears();
         this.dust = this.createFrays();
+        break;
+      case 'crucible':
+        this.rays = this.createSkyOrrery();
+        this.dust = this.createPrismMotes();
         break;
       default:
         this.rays = this.createGodRays(warm);
@@ -289,6 +319,10 @@ export class ArenaView {
       // A broken slab stitched back together with bone thread (library.ts).
       const stone = new THREE.Color(theme.floor).lerp(new THREE.Color(ABYSS_HEX.slab), 0.5);
       base = buildRiftPillar(`#${stone.getHexString()}`, ABYSS_HEX.bone, ABYSS_HEX.cloth);
+    } else if (this.look === 'crucible') {
+      // An obsidian glass column, banded in the line colour, a smoky crystal on top (no gold).
+      const stone = new THREE.Color(theme.floor).lerp(new THREE.Color('#3a3550'), 0.5);
+      base = buildCruciblePillar(`#${stone.getHexString()}`, theme.line, CRUCIBLE_HEX.glass);
     } else {
       const stone = new THREE.Color(theme.floor).lerp(new THREE.Color('#e8dcc2'), 0.55);
       base = buildPillar(`#${stone.getHexString()}`, theme.accent);
@@ -1152,12 +1186,374 @@ void main() {
     return points;
   }
 
-  update(time: number, pointScale: number, quality: 'low' | 'medium' | 'high'): void {
+  // ── The Celestial Crucible (the Finale, docs/phase-5d.md) ────────────────────────────────
+
+  /**
+   * The Crucible's floor: obsidian glass in faceted courses, a hair lighter or darker, with a
+   * gold-leaf inlay drawn in the theme's line colour (never gold on the disc: gold means the
+   * Weaver) and a faint five-line stave ring round the centre. As dark and as low in contrast as
+   * the other floors (the same ×0.78); the disc's rim is the line colour too.
+   */
+  private createCrucibleFloor(): THREE.Group {
+    const def = this.def;
+    const radius = def.radius;
+    const group = new THREE.Group();
+    const size = 2048;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    const floor = new THREE.Color(def.theme.floor).multiplyScalar(0.78);
+    const floorHex = `#${floor.getHexString()}`;
+    const line = def.theme.line;
+    if (ctx) {
+      const c = size / 2;
+      const px = c / radius;
+      const lighter = `#${floor.clone().lerp(new THREE.Color('#ffffff'), 0.05).getHexString()}`;
+      const darker = `#${floor.clone().multiplyScalar(0.7).getHexString()}`;
+      const g = ctx.createRadialGradient(c, c, 0, c, c, c);
+      g.addColorStop(0, lighter);
+      g.addColorStop(0.7, floorHex);
+      g.addColorStop(1, darker);
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, size, size);
+      let seed = 17;
+      const rand = () => {
+        seed = (seed * 16807) % 2147483647;
+        return seed / 2147483647;
+      };
+      // Faceted courses: each a ring of glass panes cut on the slant, a glint along one edge.
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(c, c, radius * px, 0, Math.PI * 2);
+      ctx.clip();
+      for (let r0 = 2.2; r0 < radius; r0 += 2.8) {
+        const r1 = Math.min(radius, r0 + 2.8);
+        const panes = Math.max(6, Math.round((Math.PI * 2 * r0) / 3.2));
+        const offset = rand() * Math.PI * 2;
+        for (let p = 0; p < panes; p++) {
+          const a0 = offset + (p / panes) * Math.PI * 2;
+          const a1 = offset + ((p + 1) / panes) * Math.PI * 2;
+          const skew = (a1 - a0) * 0.35;
+          const shade = (rand() - 0.5) * 0.05;
+          ctx.fillStyle = shade > 0 ? `rgba(255,255,255,${shade})` : `rgba(0,0,0,${-shade * 1.5})`;
+          ctx.beginPath();
+          ctx.moveTo(c + Math.cos(a0) * r0 * px, c + Math.sin(a0) * r0 * px);
+          ctx.lineTo(c + Math.cos(a0 + skew) * r1 * px, c + Math.sin(a0 + skew) * r1 * px);
+          ctx.lineTo(c + Math.cos(a1 + skew) * r1 * px, c + Math.sin(a1 + skew) * r1 * px);
+          ctx.lineTo(c + Math.cos(a1) * r0 * px, c + Math.sin(a1) * r0 * px);
+          ctx.closePath();
+          ctx.fill();
+          ctx.strokeStyle = 'rgba(0,0,0,0.2)';
+          ctx.lineWidth = 2;
+          ctx.stroke();
+          // A glint on the pane's leading edge.
+          ctx.globalAlpha = 0.05;
+          ctx.strokeStyle = '#ffffff';
+          ctx.beginPath();
+          ctx.moveTo(c + Math.cos(a0) * r0 * px, c + Math.sin(a0) * r0 * px);
+          ctx.lineTo(c + Math.cos(a0 + skew) * r1 * px, c + Math.sin(a0 + skew) * r1 * px);
+          ctx.stroke();
+          ctx.globalAlpha = 1;
+        }
+      }
+      ctx.restore();
+      // The inlay: rings and twelve spokes in the line colour, as faint as the Reliquary's.
+      ctx.strokeStyle = line;
+      ctx.lineWidth = 3;
+      ctx.globalAlpha = 0.15;
+      for (const r of [2.2, radius * 0.5, radius - 1.2]) {
+        ctx.beginPath();
+        ctx.arc(c, c, r * px, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 0.07;
+      for (let i = 0; i < 12; i++) {
+        const a = (i / 12) * Math.PI * 2;
+        ctx.beginPath();
+        ctx.moveTo(c + Math.cos(a) * 2.2 * px, c + Math.sin(a) * 2.2 * px);
+        ctx.lineTo(c + Math.cos(a) * (radius - 1.2) * px, c + Math.sin(a) * (radius - 1.2) * px);
+        ctx.stroke();
+      }
+      // A stave round the centre: five thin lines (the score the Conductor reads from).
+      ctx.globalAlpha = 0.11;
+      ctx.lineWidth = 2;
+      for (let k = 0; k < 5; k++) {
+        ctx.beginPath();
+        ctx.arc(c, c, (radius * 0.28 + k * 0.32) * px, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+    }
+    this.floorMeshes(group, canvas, floor, line);
+    return group;
+  }
+
+  /**
+   * The Crucible's edge: white-gold choir stalls, organ pipes and prism shards, tall only on the
+   * far (−z) side, in one draw call. Every piece stands outside the disc (white-gold and the prism
+   * lilac never reach the combat floor: tests/renderFinale.test.ts).
+   */
+  private createCrucibleRim(model: ModelMaterial): void {
+    const theme = this.def.theme;
+    const foot = new THREE.Color(theme.floor).lerp(new THREE.Color(CRUCIBLE_HEX.obsidian), 0.5);
+    const footHex = `#${foot.getHexString()}`;
+    const stall = CRUCIBLE_SKY_HEX.stall;
+    const pipe = CRUCIBLE_SKY_HEX.pipe;
+    const prism = CRUCIBLE_SKY_HEX.prism;
+    const b = new ModelBuilder();
+    const R = this.def.radius;
+    const count = 18;
+    for (let i = 0; i < count; i++) {
+      const a = (i / count) * Math.PI * 2 + 0.15;
+      const r = R + 3.2;
+      const x = Math.cos(a) * r;
+      const z = Math.sin(a) * r;
+      const near = z > -R * 0.15;
+      // An obsidian footing, and a choir stall on it: a low bench and a back (taller far off).
+      b.box(1.8, 0.3, 1.2, footHex, { p: [x, 0.15, z], r: [0, -a + Math.PI / 2, 0] });
+      const back = near ? 0.35 : 1.2 + ((i * 5) % 3) * 0.3;
+      b.box(1.6, 0.3, 0.6, stall, { p: [x, 0.45, z], r: [0, -a + Math.PI / 2, 0], glow: 0.1 });
+      const bx = Math.cos(a) * (r + 0.4);
+      const bz = Math.sin(a) * (r + 0.4);
+      b.box(1.6, back, 0.12, stall, {
+        p: [bx, 0.6 + back / 2, bz],
+        r: [0, -a + Math.PI / 2, 0],
+        glow: 0.12,
+      });
+      if (near) continue;
+      // Organ pipes behind every far stall: a rank of five, the middle tallest.
+      const px = Math.cos(a) * (r + 1.5);
+      const pz = Math.sin(a) * (r + 1.5);
+      for (let k = 0; k < 5; k++) {
+        const t = k - 2;
+        const h = 3.2 + (2 - Math.abs(t)) * 1.1 + ((i * 3) % 2) * 0.8;
+        const ox = Math.sin(a) * t * 0.36;
+        const oz = -Math.cos(a) * t * 0.36;
+        b.cyl(0.14, 0.15, h, pipe, { p: [px + ox, h / 2, pz + oz], glow: 0.08 }, 6);
+        b.cone(0.15, 0.22, pipe, { p: [px + ox, h * 0.18, pz + oz], r: [Math.PI, 0, 0] }, 6);
+      }
+      // A prism shard leaning out of every other far stall.
+      if (i % 2 === 0)
+        b.octa(0.45, prism, {
+          p: [Math.cos(a) * (r + 2.6), 2.2 + (i % 3) * 0.6, Math.sin(a) * (r + 2.6)],
+          s: [0.5, 1.6, 0.5],
+          r: [0.25, a, 0.3],
+          glow: 0.35,
+        });
+    }
+    // Glass fragments scattered just outside the rim.
+    for (let i = 0; i < 20; i++) {
+      const a = i * 2.39996;
+      const r = R + 1 + (i % 3) * 0.6;
+      b.octa(0.18 + (i % 4) * 0.07, i % 4 === 0 ? CRUCIBLE_HEX.glass : footHex, {
+        p: [Math.cos(a) * r, 0.1, Math.sin(a) * r],
+        r: [i, i * 2, 0],
+      });
+    }
+    this.addStatic(b.build(), model, false);
+  }
+
+  /**
+   * The sky orrery (docs/phase-5d.md): eight concentric rings of white-gold standing beyond the
+   * far rim and leaning over it (the camera never sees the sky), one additive mesh, one quad per
+   * ring. Each ring is a stem's (two each: pad, pulse, melody, choir) and burns with its level;
+   * ticks along it turn on the beat. In the Grand Silence every ring goes dark and each note
+   * relights one, from the innermost. Uniforms `uStems[4]`, `uNotes` (−1: no silence), `uBeat`.
+   */
+  private createSkyOrrery(): THREE.Mesh {
+    const centre = { x: 0, y: 0, z: 0 };
+    orreryCentre(this.def.radius, centre);
+    const positions: number[] = [];
+    const uvs: number[] = [];
+    const rings: number[] = [];
+    const index: number[] = [];
+    // The plane's axes: x across, and up-and-toward the arena.
+    const vy = Math.sin(ORRERY.tilt);
+    const vz = Math.cos(ORRERY.tilt);
+    for (let i = 0; i < ORRERY.rings; i++) {
+      const r = orreryRadius(i) + 0.4;
+      const base = positions.length / 3;
+      for (const [u, v] of [
+        [-1, -1],
+        [1, -1],
+        [1, 1],
+        [-1, 1],
+      ] as const) {
+        positions.push(centre.x + u * r, centre.y + v * r * vy, centre.z + v * r * vz);
+        uvs.push(u * r, v * r);
+        rings.push(i);
+      }
+      index.push(base, base + 1, base + 2, base, base + 2, base + 3);
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+    geo.setAttribute('aRing', new THREE.Float32BufferAttribute(rings, 1));
+    geo.setIndex(index);
+    const mat = new THREE.ShaderMaterial({
+      uniforms: {
+        ...this.rayUniforms,
+        ...this.skyUniforms,
+        uColor: { value: new THREE.Color(CRUCIBLE_SKY_HEX.orrery) },
+        uDim: { value: new THREE.Color(CRUCIBLE_HEX.silence) },
+        uInner: { value: ORRERY.inner },
+        uStep: { value: ORRERY.step },
+      },
+      vertexShader: /* glsl */ `
+attribute float aRing;
+varying vec2 vUv;
+varying float vRing;
+void main() {
+  vUv = uv;
+  vRing = aRing;
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+}`,
+      fragmentShader: /* glsl */ `
+uniform float uTime;
+uniform float uStems[4];
+uniform float uNotes;
+uniform float uBeat;
+uniform float uInner;
+uniform float uStep;
+uniform vec3 uColor;
+uniform vec3 uDim;
+varying vec2 vUv;
+varying float vRing;
+void main() {
+  float i = floor(vRing + 0.5);
+  float r = uInner + uStep * i;
+  float d = length(vUv);
+  float band = abs(d - r);
+  float core = 1.0 - smoothstep(0.03, 0.07, band);
+  float halo = exp(-band * band * 18.0) * 0.35;
+  // Ticks along the ring, turning (each ring its own way and speed) and kicked on the beat.
+  float dir = mod(i, 2.0) < 0.5 ? 1.0 : -1.0;
+  float ang = atan(vUv.y, vUv.x) + dir * (uTime * (0.05 + 0.015 * i) + 0.12 * uBeat);
+  float ticks = step(0.82, fract(ang / 6.2831853 * (12.0 + 4.0 * i))) * (1.0 - smoothstep(0.0, 0.32, band));
+  int stem = int(i * 0.5);
+  float level = stem == 0 ? uStems[0] : stem == 1 ? uStems[1] : stem == 2 ? uStems[2] : uStems[3];
+  float lit = uNotes < -0.5 ? 0.3 + 0.7 * level : (i < uNotes - 0.5 ? 1.0 : 0.0);
+  float beat = 0.82 + 0.18 * pow(1.0 - uBeat, 3.0);
+  float a = (core * 0.85 + halo + ticks * 0.5) * mix(0.07, 1.0, lit) * beat;
+  vec3 col = mix(uDim, uColor, lit);
+  if (a < 0.003) discard;
+  gl_FragColor = vec4(col, a * 0.8);
+  #include <colorspace_fragment>
+}`,
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      side: THREE.DoubleSide,
+    });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.renderOrder = 12;
+    mesh.frustumCulled = false;
+    this.disposables.push(geo, mat);
+    return mesh;
+  }
+
+  /**
+   * Prism motes: slow glints of white-gold and lilac drifting up round the rim and fading, kept
+   * off the combat disc (their colours are ambient and never on it).
+   */
+  private createPrismMotes(): THREE.Points {
+    const count = 240;
+    const R = this.def.radius;
+    const positions = new Float32Array(count * 3);
+    const seeds = new Float32Array(count);
+    let s = 23;
+    const rand = () => {
+      s = (s * 16807) % 2147483647;
+      return s / 2147483647;
+    };
+    for (let i = 0; i < count; i++) {
+      const a = rand() * Math.PI * 2;
+      const r = R + 1.5 + rand() * 7;
+      positions[i * 3] = Math.cos(a) * r;
+      positions[i * 3 + 1] = rand() * 8;
+      positions[i * 3 + 2] = Math.sin(a) * r;
+      seeds[i] = rand() * 100;
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geo.setAttribute('aSeed', new THREE.BufferAttribute(seeds, 1));
+    const mat = new THREE.ShaderMaterial({
+      uniforms: {
+        ...this.dustUniforms,
+        uGold: { value: new THREE.Color(CRUCIBLE_SKY_HEX.orrery) },
+        uPrism: { value: new THREE.Color(CRUCIBLE_SKY_HEX.prism) },
+      },
+      vertexShader: /* glsl */ `
+uniform float uTime;
+uniform float uScale;
+attribute float aSeed;
+varying float vA;
+varying float vPrism;
+void main() {
+  vec3 p = position;
+  float t = uTime * 0.1 + aSeed;
+  p.y = 0.3 + mod(p.y + uTime * (0.12 + fract(aSeed) * 0.1), 8.0);
+  p.x += sin(t * 0.9) * 0.5;
+  p.z += cos(t * 0.6) * 0.5;
+  vec4 mv = modelViewMatrix * vec4(p, 1.0);
+  gl_PointSize = clamp(0.08 * uScale / max(-mv.z, 0.1), 1.0, 5.0);
+  vA = (0.35 + 0.45 * pow(0.5 + 0.5 * sin(t * 5.0 + aSeed * 3.0), 4.0)) * (1.0 - smoothstep(6.0, 8.3, p.y));
+  vPrism = step(0.6, fract(aSeed * 3.17));
+  gl_Position = projectionMatrix * mv;
+}`,
+      fragmentShader: /* glsl */ `
+uniform vec3 uGold;
+uniform vec3 uPrism;
+varying float vA;
+varying float vPrism;
+void main() {
+  vec2 q = gl_PointCoord * 2.0 - 1.0;
+  // A four-point glint: a soft core and two thin crossed rays.
+  float d = length(q);
+  float rays = max(exp(-abs(q.x) * 9.0) * (1.0 - abs(q.y)), exp(-abs(q.y) * 9.0) * (1.0 - abs(q.x)));
+  float a = (exp(-d * d * 6.0) + rays * 0.6) * vA;
+  gl_FragColor = vec4(mix(uGold, uPrism, vPrism), a);
+  #include <colorspace_fragment>
+}`,
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    });
+    const points = new THREE.Points(geo, mat);
+    points.frustumCulled = false;
+    points.renderOrder = 12;
+    this.disposables.push(geo, mat);
+    return points;
+  }
+
+  /**
+   * `sky`: the Celestial Crucible's orrery inputs (crucibleSky); absent everywhere else, and for
+   * every other look it is ignored.
+   */
+  update(
+    time: number,
+    pointScale: number,
+    quality: 'low' | 'medium' | 'high',
+    sky?: Readonly<CrucibleSky>,
+  ): void {
     this.rayUniforms.uTime.value = time;
     this.dustUniforms.uTime.value = time;
     this.dustUniforms.uScale.value = pointScale;
     this.dust.visible = quality !== 'low';
     this.rays.visible = quality !== 'low';
+    if (sky && this.look === 'crucible') {
+      const u = this.skyUniforms;
+      for (let i = 0; i < 4; i++) u.uStems.value[i] = sky.stems[i]!;
+      u.uNotes.value = sky.notes;
+      u.uBeat.value = sky.beat;
+    }
+  }
+
+  /** The orrery's uniforms as last set (tests, the lab). */
+  get sky(): { stems: readonly number[]; notes: number; beat: number } {
+    const u = this.skyUniforms;
+    return { stems: u.uStems.value, notes: u.uNotes.value, beat: u.uBeat.value };
   }
 
   dispose(): void {

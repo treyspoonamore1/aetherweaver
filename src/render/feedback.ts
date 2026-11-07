@@ -29,6 +29,7 @@ import { SHELL } from './fx/shells';
 import { SPRITE } from './fx/sprites';
 import type { Overlay } from './overlay';
 import { CHRONO_HEX } from './chronoCues';
+import { CRUCIBLE_HEX, CrucibleCues } from './crucibleCues';
 import {
   BRANN_HEX,
   CRIMSON_HEX,
@@ -186,6 +187,8 @@ const STITCH = color(RIFT_HEX.stitch);
 const MIRROR = color(RIFT_HEX.mirror);
 const SWIRL = color(RIFT_HEX.swirl);
 const RUNE = color(RIFT_HEX.rune);
+/** The Finale's Grand Silence: the light drains toward this grey (crucibleCues.ts). */
+const SILENCE_GREY = color(CRUCIBLE_HEX.silence);
 /** A guard's 'Blocked' floater shows at most this often per enemy (s, render clock). */
 const BLOCKED_EVERY = 0.6;
 
@@ -307,6 +310,14 @@ export class Feedback {
   private readonly refusedAckUntil = new Map<EntityId, number>();
   /** What the refused glyphs drew last frame (tests, the lab): over his head, and on the ack. */
   readonly drawn5b = { refused: 0, refusedAck: 0 };
+  /**
+   * The Finale (docs/phase-5d.md): every Finale-only effect (crucibleCues.ts). It is called only
+   * while a Finale key or event is present, so it draws and plays nothing in Movements I-III.
+   */
+  readonly crucible: CrucibleCues;
+  /** The key light's own colour (the Grand Silence greys it; restored as the notes come). */
+  private readonly baseKeyColor = new THREE.Color();
+  private keyGreyed = false;
 
   constructor(private readonly d: FeedbackDeps) {
     for (let i = 0; i < POOL; i++) {
@@ -350,6 +361,25 @@ export class Feedback {
     this.baseKey = lights.key.intensity;
     this.baseHemi = lights.hemi.intensity;
     this.baseHemiColor.copy(lights.hemi.color);
+    this.baseKeyColor.copy(lights.key.color);
+    this.crucible = new CrucibleCues({
+      kit: d.kit,
+      recs: d.entities.recs,
+      entities: d.entities,
+      overlay: d.overlay,
+      rig: d.rig,
+      sink: this,
+    });
+  }
+
+  /** The Finale's draws last frame (crucibleCues.ts; zero in every Movement I-III fight). */
+  get drawnFinale(): Readonly<CrucibleCues['drawnFinale']> {
+    return this.crucible.drawnFinale;
+  }
+
+  /** The Finale's effects played so far (crucibleCues.ts; zero in every Movement I-III fight). */
+  get firedFinale(): Readonly<CrucibleCues['firedFinale']> {
+    return this.crucible.firedFinale;
   }
 
   private alloc(kind: K, life: number): Transient {
@@ -494,6 +524,7 @@ export class Feedback {
   // ── Events ─────────────────────────────────────────────────────────────────────────
 
   handle(events: readonly SimEvent[], state: WorldState): void {
+    let finale = false;
     for (const ev of events) {
       switch (ev.type) {
         case 'attackFired':
@@ -960,6 +991,16 @@ export class Feedback {
         case 'spindled':
           this.spindledHit(ev.enemy);
           break;
+        // ── The Finale (docs/phase-5d.md): none of these is sent before it. ──
+        case 'discordRose':
+        case 'fortissimoCancelled':
+        case 'enemyCued':
+        case 'silenceBegan':
+        case 'silenceNote':
+        case 'reignited':
+        case 'silenceBroken':
+          finale = true;
+          break;
         case 'spawnWarning': {
           const t = this.alloc(K.Portal, Math.max(0.3, ev.delay) + 0.35);
           t.x = ev.x;
@@ -996,6 +1037,8 @@ export class Feedback {
           break;
       }
     }
+    if (finale || state.field.finale !== undefined || this.crucible.override !== null)
+      this.crucible.handle(events, state);
   }
 
   private attack(e: SimEventOf<'attackFired'>, state: WorldState): void {
@@ -2507,6 +2550,7 @@ export class Feedback {
     let boss = false;
     let iron = false;
     let cloth = false;
+    let glass = false;
     try {
       const def = enemyDef(e.defId);
       accent = color(def.accent);
@@ -2516,6 +2560,7 @@ export class Feedback {
       const material = materialOf(def);
       iron = material === 'iron';
       cloth = material === 'cloth';
+      glass = material === 'glass';
     } catch {
       // unknown def
     }
@@ -2532,6 +2577,11 @@ export class Feedback {
         this.verseAt.known = true;
       }
       this.clothDeath(x, z, size, height, accent, boss);
+      return;
+    }
+    if (glass) {
+      // The Finale's choir and Conductor: prism shards rising as notes (crucibleCues.ts).
+      this.crucible.glassDeath(x, z, size, height, accent, boss);
       return;
     }
     this.d.kit.particles.burst(
@@ -3791,6 +3841,10 @@ export class Feedback {
       }
     }
 
+    // The Finale (crucibleCues.ts): the Cue, Fortissimo, the Grand Silence, its notes.
+    if (state.field.finale !== undefined || this.crucible.override !== null || this.crucible.live)
+      this.crucible.sync(state, frame, dt);
+
     for (const t of this.pool) {
       if (!t.active) continue;
       t.age += dt;
@@ -3828,7 +3882,17 @@ export class Feedback {
     this.bloodmoon = approachTo(this.bloodmoon, this.d.field.pools(state) ? 1 : 0, 1.2, dt);
     if (this.bloodmoon < 0.002) this.bloodmoon = 0;
     const blood = this.bloodmoon;
-    if (this.lightShift > 0 || warm > 0 || cool > 0 || blood > 0 || this.lightLive) {
+    // The Finale's Grand Silence (crucibleCues.ts): 0 in every other fight.
+    const silence = this.crucible.silence;
+    if (
+      this.lightShift > 0 ||
+      warm > 0 ||
+      cool > 0 ||
+      blood > 0 ||
+      silence > 0 ||
+      this.lightLive ||
+      this.keyGreyed
+    ) {
       this.lightShift = Math.max(0, this.lightShift - dt * 0.7);
       const lights = this.d.stage.lights;
       const k = Math.sin(this.lightShift * Math.PI * 0.5);
@@ -3841,7 +3905,18 @@ export class Feedback {
         lights.hemi.color.lerp(BLOODMOON_SKY, 0.55 * blood);
         lights.hemi.intensity *= 1 - 0.15 * blood;
       }
-      this.lightLive = this.lightShift > 0 || warm > 0 || cool > 0 || blood > 0;
+      // The music stops: the light drains toward grey and dims, a step back per note.
+      if (silence > 0) {
+        lights.hemi.color.lerp(SILENCE_GREY, 0.6 * silence);
+        lights.hemi.intensity *= 1 - 0.3 * silence;
+        lights.key.intensity *= 1 - 0.35 * silence;
+        lights.key.color.copy(this.baseKeyColor).lerp(SILENCE_GREY, 0.5 * silence);
+        this.keyGreyed = true;
+      } else if (this.keyGreyed) {
+        lights.key.color.copy(this.baseKeyColor);
+        this.keyGreyed = false;
+      }
+      this.lightLive = this.lightShift > 0 || warm > 0 || cool > 0 || blood > 0 || silence > 0;
     }
   }
 
@@ -4223,6 +4298,8 @@ export class Feedback {
     lights.key.intensity = this.baseKey;
     lights.hemi.intensity = this.baseHemi;
     lights.hemi.color.copy(this.baseHemiColor);
+    if (this.keyGreyed) lights.key.color.copy(this.baseKeyColor);
+    this.crucible.dispose();
     this.dmg.clear();
     this.heal.clear();
     this.auraHeal.clear();

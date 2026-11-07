@@ -34,6 +34,12 @@ export const RING = {
    * that fast, < 0 outward; `fillAlpha` how strong the arms are; the rim is the band.
    */
   swirl: 11,
+  /**
+   * The Finale (docs/phase-5d.md): a stave, five thin lines bent into a ring, spread across the
+   * band's thickness (a Grand Silence note on a hero; the Conductor's stilled halo). The lit arc
+   * is `arcStart` / `arcLen`; `fillAlpha` fills the disc faintly.
+   */
+  stave: 12,
 } as const;
 
 const vertex = /* glsl */ `
@@ -153,6 +159,15 @@ void main() {
     arms = smoothstep(0.55, 0.95, arms);
     float depth = 1.0 - d / max(r, 0.1);
     alpha = inside * arms * (0.3 + 0.7 * depth) * vArc.z + (core + glow) * arcMask;
+  } else if (style == 12) {
+    // A stave: five thin lines across the band (the outer and inner at its edges), a soft glow.
+    float lines = 0.0;
+    for (int i = 0; i < 5; i++) {
+      float rr = r + (float(i) - 2.0) * th * 0.25;
+      lines = max(lines, awAA(abs(d - rr) - max(th * 0.035, 0.012)));
+    }
+    float halo = soft > 0.0 ? exp(-max(abs(d - r) - th * 0.5, 0.0) / soft) * 0.3 : 0.0;
+    alpha = (lines + halo) * arcMask + fill;
   } else {
     // Reticle: four corner brackets that rotate.
     float seg = fract((a + uTime * 0.6) / 1.5707963);

@@ -498,6 +498,15 @@ export class EntityLayer {
     gems: 0,
     verseTint: 0,
   };
+  /**
+   * The Finale (docs/phase-5d.md), what was drawn last frame (tests, the lab): heroes stilled by
+   * the Grand Silence, drawn through Fermata's freeze-frame (desaturated, no tremor).
+   */
+  readonly drawnFinale = { stilled: 0 };
+  /** Lab only: heroes shown stilled while the sim has none (never written into the sim). */
+  stilledOverride: ReadonlySet<EntityId> | null = null;
+  /** A Finale fight this frame (`field.finale`, or the lab's override): stilled is read only then. */
+  private finaleLive = false;
   /** A hero's Rift statuses this frame (reused); the stitched pairs (id pairs, reused). */
   private readonly m3Look = emptyRiftLook();
   private readonly pairs: EntityId[] = [];
@@ -1090,6 +1099,8 @@ export class EntityLayer {
     m2.guardBroken = 0;
     const m3 = this.drawnM3;
     for (const k of Object.keys(m3) as (keyof typeof m3)[]) m3[k] = 0;
+    this.drawnFinale.stilled = 0;
+    this.finaleLive = state.field.finale !== undefined || this.stilledOverride !== null;
     this.hub = null;
     this.champHub = null;
     this.tetherRecs.length = 0;
@@ -1313,7 +1324,16 @@ export class EntityLayer {
     const time = state.time;
 
     // Fermata hold: a freeze-frame. The pose stops mid-motion until the hold resolves.
-    const held = !!e.hero?.hold || (!!h && hasStatus(h.statuses, 'held'));
+    // The Finale's Grand Silence: a stilled hero takes the same freeze-frame, without its tremor
+    // or Fermata's lavender rim unless Fermata holds them too (read only in a Finale fight).
+    const stilled =
+      this.finaleLive &&
+      e.kind === 'hero' &&
+      !!h &&
+      (hasStatus(h.statuses, 'stilled') || !!this.stilledOverride?.has(e.id));
+    // Fermata's own hold keeps working in the silence: its tremor and lavender rim win.
+    const fermata = !!e.hero?.hold || (!!h && hasStatus(h.statuses, 'held'));
+    const held = fermata || stilled;
     // Stasis (the Chronomancer): every enemy stands still mid-motion; its own clock waits.
     const isEnemy = e.kind === 'enemy';
     const frozen = isEnemy && this.stasisOn;
@@ -1505,8 +1525,9 @@ export class EntityLayer {
     }
     if (held) {
       desat = Math.max(desat, 0.72);
-      // A tiny tremor: holding on by a thread.
-      ox += Math.sin(this.now * 41) * 0.015;
+      // A tiny tremor: holding on by a thread (a hero only stilled is simply still).
+      if (stilled) this.drawnFinale.stilled++;
+      if (fermata) ox += Math.sin(this.now * 41) * 0.015;
     }
     // Glide: lean hard into the dash.
     if (e.weaver && e.weaver.glide > 0) pitch -= 0.35;
@@ -1534,7 +1555,7 @@ export class EntityLayer {
     let tintStrength = 0;
     const isHero = e.kind === 'hero';
     const auraMask = e.hero?.auraMask ?? 0;
-    if (held) {
+    if (fermata) {
       this.tint.copy(FERMATA);
       tintStrength = 1.1 + 0.35 * Math.sin(this.now * 7);
     } else if (rec.goldRim > 0) {

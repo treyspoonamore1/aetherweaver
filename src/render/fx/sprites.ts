@@ -48,6 +48,13 @@ export const SPRITE = {
   mirror: 17,
   /** A needle, point-down, its eye at the top (Needle Rain falling). */
   needle: 18,
+  /**
+   * The Finale (docs/phase-5d.md). A note: a slanted oval head, a stem and a flag (a Grand Silence
+   * note rising from a hero to the sky; a glass death's notes). `param` ≥ 0.5 drops the flag (♩).
+   */
+  note: 19,
+  /** The Conductor's baton across a thin ring: the Cue's sigil over a soloist (never gold). */
+  baton: 20,
 } as const;
 
 /** SPRITE.mode's `param` for Unravel's 'minus' (Mend reversed): a bar alone. */
@@ -77,6 +84,12 @@ uniform float uTime;
 varying vec2 vUv;
 varying vec4 vSize;
 varying vec4 vColor;
+float segD(vec2 p, vec2 a, vec2 b) {
+  vec2 pa = p - a;
+  vec2 ba = b - a;
+  float h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
+  return length(pa - ba * h);
+}
 void main() {
   int style = int(vSize.z + 0.5);
   float d = length(vUv);
@@ -227,6 +240,25 @@ void main() {
     float shaft = max(abs(vUv.x) - w, abs(vUv.y) - 0.92);
     float eye = length(vec2(vUv.x / 0.035, (vUv.y - 0.7) / 0.1)) - 1.0;
     a = (1.0 - smoothstep(-0.02, 0.02, shaft)) * smoothstep(-0.2, 0.2, eye) + exp(-d * d * 4.0) * 0.12;
+    a *= 1.0 - smoothstep(0.95, 1.0, d);
+  } else if (style == 19) {
+    // A note: a slanted oval head low left, a stem up its right side, a flag off the stem's top.
+    vec2 h = vUv - vec2(-0.2, -0.5);
+    vec2 hr = mat2(0.94, 0.34, -0.34, 0.94) * h;
+    float head = length(vec2(hr.x / 0.3, hr.y / 0.2)) - 1.0;
+    float stem = segD(vUv, vec2(0.08, -0.45), vec2(0.08, 0.78)) - 0.055;
+    float flag = vSize.w < 0.5 ? segD(vUv, vec2(0.08, 0.78), vec2(0.42, 0.32)) - 0.06 : 1.0;
+    float e = min(min(head * 0.2, stem), flag);
+    a = (1.0 - smoothstep(-0.03, 0.03, e)) + exp(-d * d * 3.0) * 0.22;
+    a *= 1.0 - smoothstep(0.95, 1.0, d);
+  } else if (style == 20) {
+    // The baton: a thin rod across a ring, a grip ball at its foot, its tip glinting.
+    float ring = 1.0 - smoothstep(0.03, 0.07, abs(d - 0.84));
+    float rod = segD(vUv, vec2(-0.5, -0.5), vec2(0.62, 0.62)) - 0.035;
+    float grip = length(vUv - vec2(-0.52, -0.52)) - 0.13;
+    float e = min(rod, grip);
+    float tip = exp(-dot(vUv - vec2(0.62, 0.62), vUv - vec2(0.62, 0.62)) * 40.0);
+    a = max(ring * 0.75, 1.0 - smoothstep(-0.03, 0.03, e)) + tip * 0.8 + exp(-d * d * 3.0) * 0.12;
     a *= 1.0 - smoothstep(0.95, 1.0, d);
   } else {
     // Sigil: a rotating star in a ring (Cue / leitmotif).

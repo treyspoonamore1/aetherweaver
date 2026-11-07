@@ -15,11 +15,18 @@ import { CONTENT } from '../src/content';
 import {
   ABYSS_MOOD,
   BRANN_HEX,
+  CRUCIBLE_MOOD,
   CRIMSON_HEX,
   SPIRE_HEX,
   signalHex,
 } from '../src/render/crimsonCues';
 import { ABYSS_HEX, RIFT_AFFIX_HEX, RIFT_HEX } from '../src/render/riftCues';
+import {
+  CRUCIBLE_HEX,
+  CRUCIBLE_SKY_HEX,
+  CRUCIBLE_UNMARKED,
+  FINALE_HEX,
+} from '../src/render/crucibleCues';
 import { cueHex } from '../src/render/bondsCues';
 import { MARTYR_HEX } from '../src/render/martyrCues';
 import { BRASS_TRIM, buildHero } from '../src/render/models/library';
@@ -451,5 +458,101 @@ describe('Movement III colours (docs/phase-5c.md, Presentation)', () => {
         `lowest ΔE ${brannLowest.toFixed(1)}: the model needs its brass trim`,
       ).toBeGreaterThan(0);
     }
+  });
+});
+
+describe('The Finale colours (docs/phase-5d.md, Colour)', () => {
+  /**
+   * Every live role, and the fixed semantic colours a Finale colour must never be read as: the
+   * Weaver's gold, goldHot and Resonance (04 §1 rule 4), her own colour, the dome, the Shielded
+   * affix's discord pink, the Martyr's Bear and Fermata's hold.
+   */
+  const FIXED: Record<string, string> = {
+    gold: PALETTE.gold,
+    goldHot: PALETTE.goldHot,
+    resonance: PALETTE.resonance,
+    weaver: PALETTE.weaver,
+    dome: PALETTE.dome,
+    discord: PALETTE.discord,
+    bear: MARTYR_HEX.blood,
+    fermata: '#e2d6f8',
+  };
+
+  for (const vision of COLOR_VISIONS) {
+    it(`keeps the Conductor's brass ≥ 20 ΔE from every semantic colour, Resonance and gold included, with ${vision}`, () => {
+      const palette = VISION_PALETTES[vision];
+      const see = (hex: string) => simulateVision(hex, vision);
+      const against: [string, string][] = [
+        ...ROLES.map((r): [string, string] => [r, palette[r]]),
+        ...Object.entries(FIXED),
+      ];
+      for (const [name, hex] of Object.entries(FINALE_HEX))
+        for (const [other, o] of against) {
+          const d = deltaE(see(hex), see(o));
+          expect(d, `${vision}: ${name} ${hex} vs ${other} ${o}`).toBeGreaterThanOrEqual(20);
+        }
+    });
+
+    it(`keeps every Crucible colour that reaches the disc ≥ 20 ΔE from Mend, heal and shield with ${vision}`, () => {
+      const palette = VISION_PALETTES[vision];
+      const see = (hex: string) => simulateVision(hex, vision);
+      for (const [name, hex] of Object.entries(CRUCIBLE_HEX))
+        for (const role of ['mend', 'heal', 'shield'] as const) {
+          const d = deltaE(see(hex), see(palette[role]));
+          expect(d, `${vision}: ${name} ${hex} vs ${role} ${palette[role]}`).toBeGreaterThanOrEqual(
+            20,
+          );
+        }
+    });
+
+    it(`keeps every Crucible colour that draws a mark on the disc ≥ 20 ΔE from every semantic colour with ${vision}`, () => {
+      // 'CRUCIBLE_HEX kept off them': every live role and every fixed semantic colour, Resonance
+      // and gold included. Only CRUCIBLE_UNMARKED (a light, the silence's ash, the glass bodies)
+      // is spared, and tests/renderFinale.test.ts checks none of those draws a ring or a beam.
+      const palette = VISION_PALETTES[vision];
+      const see = (hex: string) => simulateVision(hex, vision);
+      const against: [string, string][] = [
+        ...ROLES.map((r): [string, string] => [r, palette[r]]),
+        ...Object.entries(FIXED),
+      ];
+      const spared = new Set<string>(CRUCIBLE_UNMARKED);
+      for (const [name, hex] of Object.entries(CRUCIBLE_HEX)) {
+        if (spared.has(name)) continue;
+        for (const [other, o] of against) {
+          const d = deltaE(see(hex), see(o));
+          expect(d, `${vision}: ${name} ${hex} vs ${other} ${o}`).toBeGreaterThanOrEqual(20);
+        }
+      }
+    });
+  }
+
+  it('spares only the key light, the ash and the glass, and the silence marks the disc in slate, not ash', () => {
+    expect([...CRUCIBLE_UNMARKED].sort()).toEqual(['glass', 'key', 'silence']);
+    expect(CRUCIBLE_HEX.stave).not.toBe(CRUCIBLE_HEX.silence);
+    // The reason ash is spared, recorded: under deuteranopia it is the ailment colour.
+    const ash = simulateVision(CRUCIBLE_HEX.silence, 'deuteranopia');
+    const ailment = simulateVision(VISION_PALETTES.deuteranopia.ailment, 'deuteranopia');
+    expect(deltaE(ash, ailment)).toBeLessThan(5);
+  });
+
+  it('the sky white-gold and prism sit on the Weaver and the shield: they are kept off the disc', () => {
+    // Recorded so the rule stays visible: these are ambient and never semantic, and
+    // tests/renderFinale.test.ts checks every piece wearing them stands outside the disc.
+    const near = (hex: string, other: (v: (typeof COLOR_VISIONS)[number]) => string) =>
+      Math.min(
+        ...COLOR_VISIONS.map((v) => deltaE(simulateVision(hex, v), simulateVision(other(v), v))),
+      );
+    expect(near(CRUCIBLE_SKY_HEX.orrery, () => PALETTE.resonance)).toBeLessThan(20);
+    expect(near(CRUCIBLE_SKY_HEX.prism, (v) => VISION_PALETTES[v].heal)).toBeLessThan(20);
+    for (const hex of Object.values(CRUCIBLE_SKY_HEX))
+      expect(Object.values(CRUCIBLE_HEX) as string[]).not.toContain(hex);
+  });
+
+  it('the mood reads the same sky, key and rim as the ambient set, the rim held at ≤ 0.45', () => {
+    expect(CRUCIBLE_MOOD.sky).toBe(CRUCIBLE_HEX.sky);
+    expect(CRUCIBLE_MOOD.key).toBe(CRUCIBLE_HEX.key);
+    expect(CRUCIBLE_MOOD.rim).toBe(CRUCIBLE_HEX.rim);
+    expect(CRUCIBLE_MOOD.rimIntensity).toBeLessThanOrEqual(0.45);
+    expect(CRUCIBLE_MOOD.keyIntensity).toBeLessThanOrEqual(1.85);
   });
 });
