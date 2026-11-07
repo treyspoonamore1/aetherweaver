@@ -360,7 +360,7 @@ function rewardFor(
 
 /**
  * A skirmish on a row the Finale route's road pays more for (docs/phase-5d.md, "Bands"): its
- * motif is of the road's rarity and it offers a relic. Only road rows carry a `bonus`, so the
+ * motif is of the road's rarity, and it offers a relic when the road names how many. Only road rows carry a `bonus`, so the
  * Prelude's and the I-II and I-III routes' rewards are what they always were.
  */
 function roadReward(
@@ -373,8 +373,8 @@ function roadReward(
   return {
     ...reward,
     draft: bonus.draft,
-    relics: bonus.relics,
-    text: `A fight on the shorter road: Aether, a relic and ${bonus.draft === 'epic' ? 'an epic' : 'a rare'} motif.`,
+    relics: bonus.relics ?? reward.relics,
+    text: `A fight on the shorter road: Aether, ${bonus.relics ? 'a relic and ' : ''}${bonus.draft === 'epic' ? 'an epic' : 'a rare'} motif.`,
   };
 }
 

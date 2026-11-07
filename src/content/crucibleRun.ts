@@ -83,11 +83,12 @@ export const FINALE: FinaleMovementDef = {
       threat: [0, 3, 7, 8, 9],
       callingRows: [0, 1, 2, 4],
       // Five fewer rows means fewer drafts and relics before the Bellwarden and the Cantor
-      // ('won III' within 5 points of the full road, docs/phase-5d.md "Bands"): First Light and
-      // row 1's skirmishes pay a rare motif and a relic offer each.
+      // ('won III' within 5 points of the full road, docs/phase-5d.md "Bands"): First Light pays
+      // a rare motif and a relic offer, row 1's skirmishes an epic motif (no relic screen: the
+      // pacing clock).
       rewards: [
         { row: 0, draft: 'rare', relics: ROAD_RELICS },
-        { row: 1, draft: 'rare', relics: ROAD_RELICS },
+        { row: 1, draft: 'epic' },
       ],
     },
     {

@@ -1508,7 +1508,8 @@ export const RoadVariantSchema = z
     /**
      * The road's own rewards (docs/phase-5d.md, "Bands": the lever when the shorter road leaves
      * fewer drafts and relics before each boss): each skirmish on a listed row offers a motif of
-     * this rarity and a relic from this many. Nothing else pays more; absent: the Movement's own.
+     * this rarity and, with `relics`, a relic from this many (without it, a skirmish's own: none,
+     * and no relic screen). Nothing else pays more; absent: the Movement's own.
      */
     rewards: z
       .array(
@@ -1516,7 +1517,7 @@ export const RoadVariantSchema = z
           .object({
             row: z.number().int().nonnegative(),
             draft: z.enum(['rare', 'epic']),
-            relics: z.number().int().positive(),
+            relics: z.number().int().positive().optional(),
           })
           .strict(),
       )

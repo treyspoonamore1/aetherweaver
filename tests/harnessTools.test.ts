@@ -693,7 +693,7 @@ describe('the Finale route (playRun --movements 4)', () => {
     expect(run.minutesByMovement.length).toBe(4);
     expect(run.minutesByMovement[3]!).toBeGreaterThan(0);
     expect(run.lastEncounter).toBe(CONDUCTOR);
-    // Its shorter road (6 + 6 + 6 + 1 rows) takes fewer phases than the 3-Movement route.
+    // Its shorter road (5 + 6 + 6 + 1 rows) takes fewer phases than the 3-Movement route.
     expect(phases).toBeGreaterThan(50);
     expect(phases).toBeLessThan(MAX_PHASES / 2);
   }, 120_000);

@@ -256,10 +256,10 @@ describe('the Finale route’s map', () => {
 });
 
 describe('the road’s own rewards (docs/phase-5d.md, "Bands")', () => {
-  it('First Light and Movement I’s row 1 skirmishes pay a rare motif and a relic offer; nothing else moves', () => {
+  it('First Light pays a rare motif and a relic offer, row 1’s skirmishes an epic motif; nothing else moves', () => {
     expect(ROAD_I.rewards).toEqual([
       { row: 0, draft: 'rare', relics: RELIC_OFFERS.elite.count },
-      { row: 1, draft: 'rare', relics: RELIC_OFFERS.elite.count },
+      { row: 1, draft: 'epic' },
     ]);
     expect(ROAD_II.rewards).toBeUndefined();
     for (const seed of SEEDS) {
@@ -267,11 +267,15 @@ describe('the road’s own rewards (docs/phase-5d.md, "Bands")', () => {
       const full = Run.generateMap(seed, 3).rows.flat();
       Run.rowsOfMovement(map, 1).forEach((row, r) => {
         for (const n of row) {
-          if (r <= 1 && n.kind === 'skirmish') {
+          if (r === 0 && n.kind === 'skirmish') {
             expect(n.reward, n.id).toMatchObject({ draft: 'rare', relics: 2 });
             expect(n.reward.text).toBe(
               'A fight on the shorter road: Aether, a relic and a rare motif.',
             );
+          } else if (r === 1 && n.kind === 'skirmish') {
+            // No relic offer: a skirmish's own (none), so no relic screen either.
+            expect(n.reward, n.id).toMatchObject({ draft: 'epic', relics: 0 });
+            expect(n.reward.text).toBe('A fight on the shorter road: Aether, an epic motif.');
           } else if (n.kind === 'skirmish') expect(n.reward.relics, n.id).toBe(0);
         }
       });

@@ -145,7 +145,7 @@ const CUE_WINDUP = 1.2;
 export const FINALE_MIN_WINDUP = 1;
 const CUE_FROM = 8;
 const RAISE_WINDUP = 1.5;
-const RAISE_EVERY = 30;
+const RAISE_EVERY = 25;
 const RAISE_FROM = 3;
 const GRAND_SILENCE_WINDUP = 2;
 /** One Rest → Measure → Cadence cycle at default assists; each Cadence comes every other. */
