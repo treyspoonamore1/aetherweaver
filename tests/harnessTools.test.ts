@@ -1025,8 +1025,11 @@ describe('the Finale verbs (FinaleWatch)', () => {
         }
       },
     );
-    // Seed 1001's fight (a win) has Cues cleared by both; none of them counts as failed, and
-    // only the Cues that landed on a voice that couldn't sing do.
+    // Seed 1001's fight (a win) has Cues cleared by both: one by a phase shift, one by its
+    // soloist's death. None of them counts as failed, and only the Cues that landed on a voice
+    // that couldn't sing do. (It was seed 1002 before the Finale was tuned; the tuned 1002 still
+    // passes, but only a death clears one of its Cues, so it no longer shows the phase-shift
+    // excuse. 1001 shows both.)
     expect(run.outcome).toBe('victory');
     expect(excused).toBeGreaterThan(0);
     expect(unsung).toBeGreaterThan(0);

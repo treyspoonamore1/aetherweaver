@@ -4,7 +4,8 @@
  * rules"), and Movements I and II and Brann's three fights by Phase 5c (docs/phase-5c.md,
  * ground rule 1). All eleven golden hashes are pinned here as literals, so they can't drift
  * through `npm run golden:update`; only new scenarios and `contentVersion` may change. Movement
- * III's four goldens are pinned beside them at the slice's hand-off, for the Finale slice.
+ * III's four goldens are pinned beside them at the slice's hand-off, for the Finale slice, and
+ * the Finale's four (docs/phase-5d.md) at its hand-off, for the next.
  */
 import { describe, expect, it } from 'vitest';
 import { CONTENT } from '../../src/content';
@@ -48,8 +49,19 @@ const M3_HASHES: Readonly<Record<string, string>> = {
   'skilled-brann-mirror-hall': '34359b7e914cfd05',
 };
 
-/** All fifteen goldens, in golden.json's order. */
-const ALL_PINNED: Readonly<Record<string, string>> = { ...PINNED, ...M3_HASHES };
+/** The Finale's four goldens (docs/phase-5d.md, "Hand-off": pinned for the next slice). */
+const M4_HASHES: Readonly<Record<string, string>> = {
+  'skilled-conductor': '6bdc7685bdb401fb',
+  'novice-grand-silence': '53e97197ec54183f',
+  'skilled-brann-conductor': '2aa1d517c92d14a3',
+  'skilled-chrono-silence': '7841a66073bbaeee',
+};
+
+/** The fifteen goldens the Finale slice found, in golden.json's order. */
+const FIFTEEN: Readonly<Record<string, string>> = { ...PINNED, ...M3_HASHES };
+
+/** All nineteen goldens, in golden.json's order. */
+const ALL_PINNED: Readonly<Record<string, string>> = { ...FIFTEEN, ...M4_HASHES };
 
 describe('Movement I is unchanged (docs/phase-5a.md)', () => {
   it('SIM_VERSION is still 22', () => {
@@ -63,8 +75,15 @@ describe('Movement I is unchanged (docs/phase-5a.md)', () => {
       expect((golden.scenarios as Record<string, string>)[name], name).toBe(hash);
   });
 
-  it('golden.json holds exactly the fifteen pinned hashes, in order (docs/phase-5c.md)', () => {
-    expect(Object.keys(ALL_PINNED)).toHaveLength(15);
+  it('golden.json still holds the fifteen hashes the Finale slice found, first and in order', () => {
+    expect(Object.keys(FIFTEEN)).toHaveLength(15);
+    expect(Object.keys(golden.scenarios).slice(0, 15)).toEqual(Object.keys(FIFTEEN));
+    for (const [name, hash] of Object.entries(FIFTEEN))
+      expect((golden.scenarios as Record<string, string>)[name], name).toBe(hash);
+  });
+
+  it('golden.json holds exactly the nineteen pinned hashes, in order (docs/phase-5d.md)', () => {
+    expect(Object.keys(ALL_PINNED)).toHaveLength(19);
     expect(golden.scenarios).toStrictEqual(ALL_PINNED);
     expect(Object.keys(golden.scenarios)).toEqual(Object.keys(ALL_PINNED));
   });

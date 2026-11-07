@@ -13,8 +13,11 @@ tools/m2-baseline.json
 tools/expedition-baseline.json
 tools/m3-baseline.json
 tools/expedition3-baseline.json
+tools/m4-baseline.json
+tools/expedition4-baseline.json
 tests/meta/draftSnapshot.json
 tests/bots/commandSnapshot.json
 tests/bots/commandSnapshotM3.json
+tests/bots/commandSnapshotFinale.json
 tests/sim/rosterInvariance.keys.json
 .claude

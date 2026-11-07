@@ -49,6 +49,7 @@ import {
   movementRows,
   outcomeSub,
   prepEyebrow,
+  ROUTE_MINUTES,
   routeOptions,
   sightedMovement,
   summaryEyebrow,
@@ -273,6 +274,9 @@ describe('an Expedition’s copy', () => {
     expect(EXPEDITION_MOVEMENTS).toBe(4);
     expect(titleEyebrow(true)).toBe('Movements I–III and the Finale · The Expedition');
     expect(titleEyebrow(true, 2)).toBe('Movements I–II · The Expedition');
+    // ROUTE_MINUTES.expedition: the Finale route's measured average, 39.6 / 39.4 min, rounded
+    // (docs/phase-5d.md, "Pacing").
+    expect(ROUTE_MINUTES).toEqual({ prelude: 15, expedition: 40 });
     expect(routeOptions().map((o) => o.label)).toEqual([
       'Prelude · ~15 min',
       'Expedition · ~40 min',

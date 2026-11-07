@@ -7,6 +7,7 @@ import { runScenario } from '../../tools/runScenario';
 import {
   SCENARIOS,
   SCENARIO_BRANN_CRIMSON_GATE,
+  SCENARIO_CONDUCTOR,
   SCENARIO_FIRST_LIGHT,
   SCENARIO_PATROL,
   SCENARIO_UNWEAVER,
@@ -51,12 +52,15 @@ describe('determinism (docs/plan/05 §4.9)', () => {
 
   // Vharun (docs/phase-5a.md): pins, stacks, pools and scripted follow-ups survive the trip too.
   // The Unweaver (docs/phase-5c.md): cuts, zones, the stolen verse, Unravel and the champion.
+  // The Conductor (docs/phase-5d.md): Cues, Solos, Discord, Fortissimo Silence, the Grand
+  // Silence's notes, Reignite and the burn.
   for (const scenario of [
     SCENARIO_PATROL,
     SCENARIO_FIRST_LIGHT,
     SCENARIO_VHARUN,
     SCENARIO_BRANN_CRIMSON_GATE,
     SCENARIO_UNWEAVER,
+    SCENARIO_CONDUCTOR,
   ]) {
     it(`a recorded replay of "${scenario.name}" survives a JSON round-trip and re-simulates bit-exactly`, () => {
       const { replay, hash } = runScenario(scenario);

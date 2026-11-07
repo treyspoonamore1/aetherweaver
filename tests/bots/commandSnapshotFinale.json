@@ -1,0 +1,44 @@
+{
+ "skilled:the_silent_conductor:1000": {
+  "commands": "701f837c29ad21d1",
+  "count": 515,
+  "final": "5da5c58114291eb9"
+ },
+ "skilled:the_silent_conductor:8919": {
+  "commands": "abe2f1ecf7938096",
+  "count": 565,
+  "final": "723a9b4633eb021d"
+ },
+ "skilled:the_silent_conductor:16838": {
+  "commands": "a8e99bed0e7ff0d9",
+  "count": 552,
+  "final": "0e0362500e52e54c"
+ },
+ "skilled:the_silent_conductor:silence:1000": {
+  "commands": "d4e0fed1518e3f00",
+  "count": 212,
+  "final": "42ad21f55b3205fd",
+  "notes": 7
+ },
+ "novice:the_silent_conductor:1000": {
+  "commands": "54201c448f357ef4",
+  "count": 53,
+  "final": "68c1911cb606200f"
+ },
+ "novice:the_silent_conductor:8919": {
+  "commands": "eeb2b0d84d73f2f9",
+  "count": 85,
+  "final": "97c2bc6c15e2e406"
+ },
+ "novice:the_silent_conductor:16838": {
+  "commands": "de73ebd392181e99",
+  "count": 68,
+  "final": "580c088d916a3a46"
+ },
+ "novice:the_silent_conductor:silence:1000": {
+  "commands": "ef6d9a2e27a5ff11",
+  "count": 27,
+  "final": "7326feee5078af65",
+  "notes": 4
+ }
+}

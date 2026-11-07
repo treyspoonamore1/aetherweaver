@@ -1,7 +1,13 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { CONTENT, deedText } from '../src/content';
-import { CONDUCTOR_DECREES, soloDecree } from '../src/content/crucible';
+import {
+  CONDUCTOR_DECREES,
+  CUE_EVERY,
+  DISCORD_RATE,
+  SILENCE_STEPS,
+  soloDecree,
+} from '../src/content/crucible';
 import * as ids from '../src/content/crucibleIds';
 import { FINALE } from '../src/content/crucibleRun';
 import { FINALE_DEEDS } from '../src/content/deeds';
@@ -1096,6 +1102,19 @@ describe('the Finale: the Silent Conductor (docs/phase-5d.md)', () => {
       hints: ['decree', 'discord', 'silence'],
       movement: 4,
     });
+  });
+
+  it('the script’s tuned clocks, pinned as literals (docs/phase-5d.md, "Tuning")', () => {
+    // tests/sim/finaleScript.test.ts reads these through their constants, so a silent change
+    // would pass there: the shipped values are pinned here.
+    expect(DISCORD_RATE).toEqual({ overture: 0.3, choir: 1 });
+    expect(CUE_EVERY).toEqual({ overture: 12, choir: 11, enraged: 7 });
+    expect(SILENCE_STEPS).toEqual({ measureLead: 0.5, cadenceLag: 0.5, nextCycle: 2 });
+    expect(attack(ids.RAISE).cooldown).toBe(25);
+    expect([ids.REST, ids.MEASURE].map((id) => attack(id).cooldown)).toEqual([10, 10]);
+    expect([ids.FINAL_CADENCE, ids.HALF_CADENCE].map((id) => attack(id).cooldown)).toEqual([
+      20, 20,
+    ]);
   });
 
   it('the Conductor: its body, its melee and every scripted attack among its specials', () => {

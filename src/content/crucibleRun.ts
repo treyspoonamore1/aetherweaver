@@ -15,8 +15,8 @@ import type { ContentInput, FinaleMovementDef } from './schema';
  */
 
 /**
- * Par (s): the Skilled average on ARRIVAL4_KIT (174 s over the three cell seed sets) × 1.15, to
- * 5 s (docs/phase-5d.md, "Tuning"). And the boss's enrage (×2.5 at it; inside the harness's
+ * Par (s): the Skilled average on ARRIVAL4_KIT (about 175 s: 174 / 175 / 176 on the three cell
+ * seed sets) × 1.15, to 5 s (docs/phase-5d.md, "Tuning"). And the boss's enrage (×2.5 at it; inside the harness's
  * 540 s and the counterfactual's 600 s).
  */
 const PAR = 200;

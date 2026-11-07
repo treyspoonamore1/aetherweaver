@@ -266,7 +266,7 @@ function main(): void {
     const inBand = average >= EXPEDITION_BAND[0] && average <= EXPEDITION_BAND[1];
     const before = route >= 2 ? ` · won ${names[route - 2]} ${pctOf(reachedBy[route - 1]!)}` : '';
     console.log(
-      `  Expedition: average ${average.toFixed(1)} min (band ${EXPEDITION_BAND.join('-')}, stretch ${EXPEDITION_STRETCH}: ${inBand ? (average <= EXPEDITION_STRETCH ? 'met, stretch met' : 'met') : 'missed'}) · winning-run median ${winning.length ? median(winning).toFixed(1) : '-'} (${winning.length} won; soft ≤${WINNING_MEDIAN_SOFT})${before}`,
+      `  Expedition: average ${average.toFixed(1)} min (band ${EXPEDITION_BAND.join('-')}, stretch ${EXPEDITION_STRETCH}: ${inBand ? (average <= EXPEDITION_STRETCH ? 'band met, stretch met' : 'band met, stretch not met') : 'missed'}) · winning-run median ${winning.length ? median(winning).toFixed(1) : '-'} (${winning.length} won; soft ≤${WINNING_MEDIAN_SOFT})${before}`,
     );
     if (finale && reachedBy[route - 1]! > 0) {
       // The Finale, played: its modelled minutes per run that reached it, and the fight itself

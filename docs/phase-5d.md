@@ -320,7 +320,7 @@ Tall and robed in a Weaver's ribbons gone ash-grey, it carries a baton and a sti
 - **The fight:**
   - encounter `the_silent_conductor`: boss, movement 4, arena `the_crucible`;
   - enrage **420 s** (×2.5; inside the harness's 540 s at `tools/harness-core.ts:360`, decrees.ts's 9 minutes and the counterfactual's 600 s at `counterfactual.ts:29`);
-  - par 200: the Skilled mean (174 s over the three cell sets, 50 seeds each) × 1.15, to 5 s (tuned from 225);
+  - par 200: the Skilled mean (about 175 s: 174 / 175 / 176 on the three cell sets, 50 seeds each) × 1.15, to 5 s (tuned from 225);
   - hints `['decree','discord','silence']`.
 - **Opening grace:** nothing lethal in the first 4 s. The first Raise is at +3 s, the first Cue at +8 s.
 - Bosses ignore stun and sleep (`health.ts:268-272`). The Cue can't be interrupted, but every Solo can.
@@ -860,7 +860,7 @@ Measured on main's Finale (65b6290) plus this step's bot-tool changes, before an
 - **Doc mismatch fixed here:** Principle 3 and the Fortissimo, silence-program and Audio rows said every windup multiplier lengthens. Short Fuse shortens, and `FINALE_MIN_WINDUP` (1.0 s) is the floor.
 - **The Decree smoke guard** (`tests/bots.test.ts`, 'each Conductor Decree is answered ≥ 80% over 12 seeds') runs again: `TUNED_SILENCE` is gone. Over its 12 seeds the Skilled bot reignites by notes in **6 of 6** silences it reaches (100%; 12 of 12 over 24 seeds). Every Solo and Fortissimo Silence clears 80%; the lowest is Cadenza at 87%.
 - **Directives in the silence:** the sim's `applyDirective` still takes one (only the input layer freezes the wheel). Neither bot sends one while the silence holds, and a new test pins that, so bot measurements play the silence by the player's rules. A sim-side refusal stays a design choice, not made here.
-- **Left for the hand-off, not defects:**
+- **Left for the hand-off, not defects** (all done in *Hand-off* below):
   - the four Finale goldens, `m4-baseline` / `expedition4-baseline`, `commandSnapshotFinale` and `finaleHandoff` (they pin tuned numbers);
   - `ROUTE_MINUTES.expedition` (from the measured pacing);
   - `docs/phase-5d/{vfx-audio.md, ui.md}`.
@@ -1051,17 +1051,17 @@ The Skilled bot plays the silence flawlessly, in every party and Calling:
 
 Play doesn't set that time; the program's schedule does. A Perfect, a clutch or a Reel-save can only come when a Measure, a Rest or a Final Cadence lands, and those land on a fixed 10 s cycle from impacts. Damage numbers can't move it, since a flawless player takes none. The only listed lever that would widen it is the cycle, and the cycle is already at the edge that keeps it above the band's 24 s.
 
-So the silence is a solved script for a perfect player, and it meets the band by about 1 s. Its spread is in imperfect play: the Novice reignites by notes in 20-27 of 50 a set, at about 43 s.
+So the silence is a solved script for a perfect player, and it meets the band by about 1 s. Its spread is in imperfect play: the default party's Novice reignites by notes in 20-27 of 50 a set (20-32 over all four parties), at about 43 s.
 
 ### The Silent Conductor (cells, 50 seeds × 3 sets)
 
 | Bot · party · Calling | won (1000 / 500003 / 777001) | length s, per set (won, mean) | share | downs | Solos (answered) | Fortissimo a fight (cancelled) | silence reached → reignited | to 8 notes |
 |---|---|---|---|---|---|---|---|---|
 | Idle · default | 0 / 0 / 0% | 29 / 29 / 29 (-) | 20% | 3.00 | 2.1 (12%) | 0.00 (0%) | 0/150 → 0 | - |
-| Novice · default | 30 / 26 / 18% | 164 / 148 / 138 (240) | 42% | 4.26 | 9.6 (86%) | 1.23 (1%) | 37/150 → 19 | 43.0 s |
+| Novice · default | 30 / 26 / 18% | 164 / 148 / 138 (243) | 42% | 4.26 | 9.6 (86%) | 1.23 (1%) | 37/150 → 19 | 43.0 s |
 | Novice · A | 12 / 8 / 12% | 146 / 139 / 135 (273) | 40% | 5.05 | 9.3 (82%) | 1.32 (2%) | 16/150 → 7 | 42.7 s |
-| Novice · B | 12 / 14 / 12% | 106 / 120 / 106 (189) | 37% | 4.73 | 7.5 (84%) | 0.97 (0%) | 19/150 → 8 | 43.7 s |
-| Novice · C | 6 / 10 / 8% | 131 / 136 / 146 (263) | 43% | 4.53 | 9.8 (83%) | 1.27 (2%) | 12/150 → 7 | 41.3 s |
+| Novice · B | 12 / 14 / 12% | 106 / 120 / 106 (190) | 37% | 4.73 | 7.5 (84%) | 0.97 (0%) | 19/150 → 8 | 43.7 s |
+| Novice · C | 6 / 10 / 8% | 131 / 136 / 146 (265) | 43% | 4.53 | 9.8 (83%) | 1.27 (2%) | 12/150 → 7 | 41.3 s |
 | Skilled · default | 96 / 96 / 98% | 174 / 175 / 176 (177) | 50% | 0.26 | 9.1 (99%) | 1.02 (97%) | 145/150 → 145 | 25.0 s |
 | Skilled · A | 100 / 96 / 98% | 210 / 212 / 210 (213) | 47% | 0.41 | 11.2 (97%) | 1.09 (94%) | 147/150 → 147 | 25.0 s |
 | Skilled · B | 96 / 100 / 94% | 147 / 150 / 149 (151) | 47% | 0.57 | 7.4 (98%) | 1.01 (97%) | 145/150 → 145 | 25.0 s |
@@ -1196,14 +1196,86 @@ Within budget (p95 ≤ 1.5 ms a tick):
 - Pacing: the average ≤ 40 (39.6 / 39.4), XP IV/I, and the Finale at 3.5-5 minutes a reaching run.
 - Five viable builds (5 of 6), and sim-bench.
 
-**Met, but at the edge:**
-- The Novice's won ÷ reached the Finale is 39%, against a 40% ceiling. It rests on 23 runs (2/7, 4/8, 3/8), so its noise is about ±10 points.
-- Skilled reach-the-Finale on 333003 is 67%, against a 65% floor.
-- The pacing average beats 40 by under a minute, inside the model's noise.
+**Met, but at the edge** (exact numbers; each is a pass, none has room):
+- **Novice won ÷ reached the Finale:** 9/23 = 39.1% pooled, against a 40% ceiling. It rests on 23 reaching runs (2/7, 4/8, 3/8), about ±10 points of noise. One more Novice win would make it 10/23 = 43.5%, a miss.
+- **Skilled reached the Finale on 333003:** 134/200 = 67.0%, against a 65% floor (2000: 75.0%; 900007: 69.0%).
+- **The pacing average:** 39.6 (9001) and 39.4 (77003), against 40. Met by 0.4 and 0.6 minutes, inside the model's ±1 minute of noise.
+- **Skilled to 8 notes:** 25.03 s against the band's 24 s floor, with no spread at all (min = max on all 150 seeds of every Skilled party and Calling; the Chronomancer on 0001 25.09 s). See *Why the Skilled Grand Silence has no spread*.
+- **Skilled length:** 174 / 175 / 176 s against a 170 s floor.
+- **Five viable builds:** exactly 5 of 6, the band's floor. All In's whole runs are 50 / 53 / 53% against a 50% floor (15 / 16 / 16 of 30). The Anchor misses on 333003 at 47% (14 of 30).
 
-**Missed:** none. The stretch (38) is not met.
+**Missed:** none of the bands.
+- **Not met, and not a band:** the pacing stretch. The average is 39.6 / 39.4 against the stretch's 38, so the stretch misses by 1.6 / 1.4 minutes on both bases.
+- `tools/pacing.ts` now prints 'band met, stretch not met' in that case ('band met, stretch met' when both are). Before the hand-off it printed only 'met' for the band, which read as if the stretch were met too.
 
-**Reported only:** the Novice reignites by notes in 20-32 of the 50 silences she is put into in each set (the design modelled about 5%), and she wins every one of them. In whole runs, party A's Novice wins 0%. The 1-6% band is set for the default party.
+**Reported only:**
+- The Novice reignites by notes in 20-32 of the 50 silences she is put into in each set: 283 of 600 (47%) over the four parties and three sets (the default party alone: 72 of 150, 48%). The design modelled about 5%. A hero stands at the end of every one, and she wins every one.
+- In whole runs, party A's Novice wins 0 of 600, and parties B and C 0-1 of 200 a set. The 1-6% band is set for the default party.
+- The Novice's Cadenza ≥ 1 (84 / 66 / 66%) and Shatter Aria ≥ 1 (72 / 58 / 52%) sit under the Skilled cast gate. The gate is Skilled-only, so that is information, not a miss.
+
+## Hand-off (m4/tune, 2026-11-07)
+
+The slice's last step. Nothing here moves a Finale number: the goldens, baselines and snapshots pin the tuned content as it is above.
+
+### What it adds
+
+- **Four goldens**, appended after `skilled-brann-mirror-hall` (`tools/scenarios.ts`), so the fifteen before them are byte-identical. Each plays the Silent Conductor on ARRIVAL4_KIT:
+
+  | Golden | Bot · party · Calling | Seed · ticks | What it covers | Hash |
+  |---|---|---|---|---|
+  | `skilled-conductor` | Skilled · default · none | 4343 · 13,200 | the whole fight: Reignite at tick 11,285, the win at 12,285 (204.8 s) | `6bdc7685bdb401fb` |
+  | `novice-grand-silence` | Novice · default · none | 5454 · 4,800 | `setBossHp` 26%: 6 notes, then the Coda at tick 3,413 and the burn | `53e97197ec54183f` |
+  | `skilled-brann-conductor` | Skilled · B (no dome) · none | 6565 · 9,000 | the whole fight with no tank: Reignite at 7,462, the win at 8,328 | `2aa1d517c92d14a3` |
+  | `skilled-chrono-silence` | Skilled · default · Chronomancer + Paradox | 7676 · 3,000 | `setBossHp` 26%: 8 notes (one a Rewind), Reignite at 1,891, the win at 2,521 | `7841a66073bbaeee` |
+
+  - All nineteen are pinned as literals in `tests/sim/m1Unchanged.test.ts` ('exactly the nineteen, in order'; a second test checks that the fifteen the slice found still come first, unchanged).
+  - `skilled-conductor` joins the replay round-trip (`tests/sim/determinism.test.ts`).
+  - `golden.json`: `simVersion` 22, `contentVersion` `c-9223466cf5775748` (only it moved, in the tuning commits). `npx tsx tools/update-golden.ts` reports 'Goldens are up to date.'
+- **`tools/m4-baseline.json`** (`npx tsx tools/m1-baseline.ts --movement 4 --check`): the Silent Conductor on ARRIVAL4_KIT, idle / novice / skilled × 10 seeds (30 fights). Idle wins 0, the Novice 2, the Skilled bot 10.
+- **`tools/expedition4-baseline.json`** (`npx tsx tools/expedition-baseline.ts --movements 4 --check`): 5 Novice and 5 Skilled Finale-route Expeditions. 1 Novice and 4 Skilled runs win, each ending at the Conductor.
+- **`tests/meta/finaleHandoff.test.ts`:** both baselines' shape, and their first seed of every bot played out equal (the `movement3Handoff` pattern).
+- **`tests/bots/commandSnapshotFinale.test.ts`** (`commandSnapshotFinale.json`): the Skilled and Novice command streams on the Conductor, 3 seeds × 30 s, plus one stream per bot into the Grand Silence through `setBossHp` 26% (the Skilled bot hears 7 notes in it, the Novice 4). Regenerate only with `WRITE_COMMAND_SNAPSHOT_FINALE=1`.
+- **The absence sample** (`tests/sim/movement3Enemies.test.ts`): First Light, the Hollow Cantor, the Crimson Gate, the Frayed Threshold and the Unweaver, with the Skilled bot, sampled every second: no `field.finale`, no `internal.m4`, no `stilled`.
+- **Literal pins** (`tests/content.test.ts`, 'the script's tuned clocks'): `DISCORD_RATE` {0.3, 1}, `CUE_EVERY` {12, 11, 7}, `SILENCE_STEPS` {0.5, 0.5, 2}, the Raise's 25 s, the Rest and Measure's 10 s and the Cadences' 20 s. `finaleScript.test.ts` reads these through their constants, so a silent change would otherwise pass.
+- **`ROUTE_MINUTES.expedition`** stays 40: the measured average, 39.6 / 39.4, rounded. `tests/uiPhase5.test.ts` pins it beside the '~40 min' label.
+- **Small fixes from the last re-measure:**
+  - `tools/pacing.ts`: 'band met, stretch not met' (above).
+  - `tests/harnessTools.test.ts`: the Cue-excuse regression moved from seed 1002 to 1001 in tuning. The test now says why: the tuned 1002 has only a death-cleared Cue (1 excused, by a kill), and 1001 has both kinds (a phase shift and a death).
+  - Text: `PAR`'s comment and this doc now say the Skilled mean is about 175 s (174 / 175 / 176 a set). The Novice's won lengths are 243 / 273 / 190 / 265 s by party.
+- **`docs/phase-5d/vfx-audio.md`** and **`docs/phase-5d/ui.md`**, and a Phase 5d section in `docs/demo.md`.
+
+### Exit criteria
+
+| # | Criterion | Status |
+|---|---|---|
+| 1 | Every guard holds; SIM_VERSION 22 | met: the 15 old goldens, m1-baseline 1 / 2 / 3, expedition-baseline 2 / 3, and the snapshot and pin tests are byte-equal |
+| 2 | Bands on all three sets | met; six only at the edge, listed above with exact numbers |
+| 3 | Pacing | met: average 39.6 / 39.4 (≤ 40), winning median 43.2 / 43.7 (≤ 45), won III −0.7 points, the Finale 3.8 / 3.9 min, XP IV/I 1.04 / 1.06, `ROUTE_MINUTES` set. The stretch (38) is **not** met |
+| 4 | Readability | the windup floor (`FINALE_MIN_WINDUP` 1.0 s), the recaps, the muted HUD snapshot and the ΔE tests pass. **The cold read (≥ 4/5) is not done**: it needs testers (`docs/demo.md`) |
+| 5 | Every Calling and party answers every beat | met by the staged bot tests (`tests/bots.test.ts`) and the cells |
+| 6 | Five viable builds | met, exactly 5 of 6 |
+| 7 | Build health | lint, tsc and vitest green; sim-bench within budget; no new FX batch. **e2e not run**: this machine has no Playwright browser |
+| 8 | Saves | covered by `tests/meta/finaleRoute.test.ts` and the migration tests |
+| 9 | Hand-off and docs | met (above) |
+
+### Shipped against the design
+
+Each place the shipped Finale differs from the design text above it, with its reason. The design sections were left as written where they state the authored value; the tuned value is given beside it.
+
+- **Seven numbers past ±20%, or off the Levers list**, waiting for sign-off (*For sign-off* above): Conductor life 60,000 → 40,000; Downbeat 820 → 600; Sforzando 560 → 320; Alto and Soprano bolts 60 → 45; voice life 2,000 → 1,200 (Bass 1,800); `DISCORD_BOSS` 8 → 5; `RAISE_EVERY` 20 → 25 s.
+- **The Grand Silence begins at 30%**, not 25% (the threshold lever's top).
+- **Fortissimo Silence is 120% of max life**, not 150% (the pulse lever's bottom, 0.4).
+- **The silence cycle is 10 s**, not 9 (the cycle lever's top), so the Final Cadences are 20 s apart.
+- **The Skilled silence is a solved script.** 4 Perfects, 3 clutches and 1 Reel-save at 25.03 s on every seed, with no harm taken. The design modelled 29.6 s with some harm.
+- **The Novice's silence is easy.** She reignites by notes in 47% (modelled ≈ 5%) and never wipes in it (modelled 38%). Her losses come in phases 1-2.
+- **The fight's shape.** The silence (26 s) and the burn (17 s) are shorter than the target's 30 and 30; phases 1 and 2 carry the length.
+- **The road is s5 + Movement II's 6 rows**, not the planned 6 + 6. Movement I's road (First Light; skirmish / elite / skirmish; the Bellwarden; respite / merchant / forge; the Cantor) drops Movement I's only event row on this route.
+- **The road pays its own rewards** (a new, optional `RoadVariant.rewards`): First Light a rare draft and a 2-relic offer; row 1's skirmishes an epic draft and no relic offer.
+- **The choir can be four voices** for a while: the entry Raise brings the Tenor and Soprano whatever the cap of 3.
+- **`par` 200**, not 225; **`rewards.xp` 1.35**, not 1.5.
+- **Directives in the silence:** only the input layer freezes the wheel. The sim's `applyDirective` still takes one, and neither bot sends one.
+- **Not changed, as designed:** auras keep working in the Grand Silence (question 1); Discord is failures plus a passive swell (question 7); Dissonance opens on the first Finale clear at Rank ≥ 15 (question 3).
+- **Known presentation gaps** (*Tune prep*): a Dissonance gate opened mid-run by an XP award shows on the Rank-15 card only; Fortissimo pulses split to an Aegis-linked Weaver; `Telegraph.sole` circles are drawn at the full 2.5 m.
 
 ## Determinism and invariance guards
 
@@ -1352,12 +1424,14 @@ Within budget (p95 ≤ 1.5 ms a tick):
 - Fortissimo Silence without a Crescendo usually costs a down or two. That is by design, and the hint says so.
 - A Grand Silence threshold crossed during Fortissimo Silence drops it: the silence replaces it.
 - The Grand Silence leaves auras running (question 1).
-- The Novice reignites by notes in about 46% of the silences she is put into (measured, `setBossHp 0.31`; modelled ≈ 5%), and a hero stands at the end of every one; her path through the silence is easy, and her losses come in phases 1 and 2 (see *Tuning*).
+- The Novice reignites by notes in 47% of the silences she is put into (283 of 600, measured with `setBossHp 0.31`; modelled ≈ 5%), and a hero stands at the end of every one; her path through the silence is easy, and her losses come in phases 1 and 2 (see *Tuning*).
 - The Cue bar names the soloist and Solo; the target is named 1.2 s later, when the Solo begins.
 - The Finale is boss-only, with no events and no shop. Aether piles up (question 5).
 - The Finale relics live for one fight a run.
 - Today's per-cell preset misses in Movements II-III can't be tuned in this slice.
 - The losses-included average measures 39.6 / 39.4 minutes, inside the band by under a minute (the model's noise), and the winning-run median 43.2 / 43.7; the stretch (38) is not met (question 2; see *Tuning*).
+- `e2e/smoke.spec.ts` (the Finale route, the epilogue and 'The song goes on') was not run in the tuning or hand-off steps: this machine has no Playwright browser.
+- The readability cold read (≥ 4/5 naming the three note sources with audio muted) needs testers; its questions are in `docs/demo.md`.
 - The content counts stay below 1.0 (motifs 30/~90, Harmonies 1/12, relics 21/~40 → 24, events 10/~16, auras 6/10, ornaments 4/10). This slice closes bosses at 4/4.
 - The Atlas of Echoes, weekly seeds, Tyrant, Mimicry, Counterpoint, Seren, Oro and the Conductor Calling come later.
 

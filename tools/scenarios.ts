@@ -7,7 +7,8 @@ import { makeBot, type BotKind } from '../src/bots';
 import type { Command } from '../src/sim/commands';
 import type { WorldState } from '../src/sim/state';
 import type { SimConfig } from '../src/sim/world';
-import { ARRIVAL3_KIT, ARRIVAL_KIT, kitConfig } from './kits';
+import { CONDUCTOR } from '../src/content/crucibleIds';
+import { ARRIVAL3_KIT, ARRIVAL4_KIT, ARRIVAL_KIT, kitConfig } from './kits';
 
 export type Driver = (tick: number, state: WorldState) => Command[];
 
@@ -238,6 +239,93 @@ export const SCENARIO_BRANN_MIRROR_HALL = botScenario(
   },
 );
 
+// ── The Finale (docs/phase-5d.md, "Determinism and invariance guards"): appended after
+// skilled-brann-mirror-hall, so the fifteen earlier hashes are untouched. Each plays the Silent
+// Conductor on ARRIVAL4_KIT at the Finale's scale. ──
+
+/** The Paradox path: the Chronomancer's first option on every tier but Paradox's. */
+const CHRONO_PARADOX = {
+  id: 'chronomancer',
+  path: ['quickened', 'echo_ward', 'temporal_mastery', 'paradox'],
+} as const;
+
+/**
+ * A bot on the Conductor, its boss set to `pct` of its life on the first tick it stands, so the
+ * fight crosses into the Grand Silence at once. `debug`: `setBossHp` is a debug op, which the
+ * sim drops without it (the command is recorded, so the replay carries it).
+ */
+function silenceScenario(
+  name: string,
+  bot: BotKind,
+  seed: number,
+  ticks: number,
+  config: Omit<SimConfig, 'seed'>,
+  pct = 0.26,
+): Scenario {
+  return {
+    name,
+    seed,
+    ticks,
+    config: { ...config, debug: true },
+    driver: () => {
+      const player = makeBot(bot, seed);
+      let phased = false;
+      return (_tick, state) => {
+        const out = player.decide(state);
+        if (!phased && state.encounter.bossId !== null) {
+          out.push({ t: 'debug', op: { op: 'setBossHp', pct } });
+          phased = true;
+        }
+        return out;
+      };
+    },
+  };
+}
+
+/**
+ * The Silent Conductor with the Skilled bot, from its start to its fall: the Overture's Cues and
+ * Solos, the Mirror Choir and Fortissimo Silence, the Grand Silence's eight notes and the burn.
+ */
+export const SCENARIO_CONDUCTOR = botScenario('skilled-conductor', 'skilled', 4343, 60 * 220, {
+  encounter: CONDUCTOR,
+  ...kitConfig(ARRIVAL4_KIT),
+});
+
+/** A Novice in the Grand Silence (`setBossHp` to 26%): untimed notes, the Coda or Reignite. */
+export const SCENARIO_NOVICE_SILENCE = silenceScenario(
+  'novice-grand-silence',
+  'novice',
+  5454,
+  4800,
+  { encounter: CONDUCTOR, ...kitConfig(ARRIVAL4_KIT) },
+);
+
+/** Party B (no tank, no dome) on the Conductor: Fortissimo Silence answered by the Crescendo. */
+export const SCENARIO_BRANN_CONDUCTOR = botScenario(
+  'skilled-brann-conductor',
+  'skilled',
+  6565,
+  60 * 150,
+  {
+    encounter: CONDUCTOR,
+    party: ['lyra', 'vexis', 'brann'],
+    ...kitConfig(ARRIVAL4_KIT),
+  },
+);
+
+/** The Chronomancer with Paradox in the Grand Silence: Perfects, clutches and a Rewind note. */
+export const SCENARIO_CHRONO_SILENCE = silenceScenario(
+  'skilled-chrono-silence',
+  'skilled',
+  7676,
+  60 * 50,
+  {
+    encounter: CONDUCTOR,
+    calling: { id: CHRONO_PARADOX.id, path: [...CHRONO_PARADOX.path] },
+    ...kitConfig(ARRIVAL4_KIT),
+  },
+);
+
 /**
  * The bench's hound pack (not a golden): the Matriarch's fight with a pack of hounds already
  * loose, so Pack Call stacks on top of them; the Movement II entity peak.
@@ -279,4 +367,8 @@ export const SCENARIOS: readonly Scenario[] = [
   SCENARIO_SEAMSTRESS,
   SCENARIO_UNWEAVER,
   SCENARIO_BRANN_MIRROR_HALL,
+  SCENARIO_CONDUCTOR,
+  SCENARIO_NOVICE_SILENCE,
+  SCENARIO_BRANN_CONDUCTOR,
+  SCENARIO_CHRONO_SILENCE,
 ];
