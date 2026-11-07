@@ -15,6 +15,8 @@ export const BUS_NAMES: readonly BusName[] = ['music', 'sfx', 'ui', 'ambience'];
 
 /** Static mix trims: headroom so the sum of everything stays under the limiter's threshold. */
 const BUS_TRIM: Record<BusName, number> = { music: 1.2, sfx: 1.0, ui: 1.0, ambience: 0.8 };
+/** A bus's static mix trim (Phase 5d: a sound moved to another bus keeps its level). */
+export const busTrim = (bus: BusName): number => BUS_TRIM[bus];
 const REVERB_SEND: Record<BusName, number> = { music: 0.22, sfx: 0.26, ui: 0.1, ambience: 0.2 };
 
 export interface BusNodes {
@@ -239,6 +241,11 @@ export class Engine {
     g.cancelScheduledValues(t);
     g.setValueAtTime(Math.min(1, g.value), t);
     g.linearRampToValueAtTime(level, t + seconds);
+  }
+
+  /** Phase 5d: the depth a bus is held at (`holdBus`), undefined when it isn't held. */
+  heldAt(bus: BusName): number | undefined {
+    return this.holds.size === 0 ? undefined : this.holds.get(bus);
   }
 
   /** Phase 5d: lets a held bus come back up (a no-op when it isn't held). */

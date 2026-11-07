@@ -68,6 +68,13 @@ export const CHORDS = {
   Dm: chord('Dm', 38, [0, 3, 7]),
   C: chord('C', 36, [0, 4, 7]),
   Bm7b5: chord('Bø7', 47, [0, 3, 6, 10]),
+  // Phase 5d, the Celestial Crucible: the plan's Dadd9 – Gmaj7/D – Em9 – A7sus4 kept in D dorian.
+  // Its F♯ (Dadd9's third, Gmaj7's seventh, Em9's ninth) is outside the key, so the tonic is open
+  // (D A E: no third), the G chord a G6 over its D, and the E chord an Em7 with the 11th (A).
+  D5add9: chord('D5add9', 38, [0, 7, 14]),
+  G6overD: chord('G6/D', 38, [0, 5, 9, 14]),
+  Em7add11: chord('Em7add11', 40, [0, 3, 7, 10, 17]),
+  A7sus4: chord('A7sus4', 45, [0, 5, 7, 10]),
 } as const;
 
 /** Bright 8-bar loop for title / map / calm / combat. */
@@ -435,4 +442,73 @@ export const MELODY_ABYSS: readonly (readonly Slot[])[] = [
  */
 export function mirrorIndex(index: number): number {
   return -Math.round(index);
+}
+
+// ── Phase 5d: the Celestial Crucible and the Grand Silence (docs/phase-5d.md, "Audio") ──────
+
+/**
+ * The Celestial Crucible: D5add9 – G6/D – Em7add11 – A7sus4, twice. The plan's bright
+ * Dadd9 – Gmaj7/D – Em9 – A7sus4 with every note in D dorian (see CHORDS): open, ringing and
+ * unresolved on the A7sus4, the sky waiting for the next bar.
+ */
+export const PROGRESSION_CRUCIBLE: readonly Chord[] = [
+  CHORDS.D5add9,
+  CHORDS.G6overD,
+  CHORDS.Em7add11,
+  CHORDS.A7sus4,
+  CHORDS.D5add9,
+  CHORDS.G6overD,
+  CHORDS.Em7add11,
+  CHORDS.A7sus4,
+];
+/**
+ * The Silent Conductor's loop: the open tonic answered by the suspended dominant, the dorian's
+ * half-diminished once (the mirror-choir's shadow), home by Em7add11 – A7sus4.
+ */
+export const PROGRESSION_CRUCIBLE_BOSS: readonly Chord[] = [
+  CHORDS.D5add9,
+  CHORDS.A7sus4,
+  CHORDS.G6overD,
+  CHORDS.Em7add11,
+  CHORDS.D5add9,
+  CHORDS.Bm7b5,
+  CHORDS.Em7add11,
+  CHORDS.A7sus4,
+];
+
+/**
+ * The Crucible's melody over PROGRESSION_CRUCIBLE (scale indices, D4 = 0), in prismatic glass, high
+ * (A4 to D6): wide leaps between the chords' open fifths and ninths, like light through a prism.
+ */
+export const MELODY_CRUCIBLE: readonly (readonly Slot[])[] = [
+  [7, _, 11, _, 8, _, _, 4],
+  [7, _, 9, _, 11, _, 8, _],
+  [8, _, 6, _, 4, _, 8, _],
+  [11, _, _, 10, 8, _, 7, _],
+  [4, _, 8, _, 11, _, 14, _],
+  [12, _, 11, _, 9, _, 7, _],
+  [6, _, 8, _, 10, _, 8, _],
+  [7, _, _, _, 4, _, _, _],
+];
+
+/**
+ * The Weaver's phrase the Conductor sings back (its motif): the Reliquary's melody, which is hers,
+ * mirrored about D (`mirrorIndex`) and lifted two octaves so it sits in the glass's register. D
+ * dorian is its own inversion, so every note stays in key.
+ */
+export function conductorIndex(slot: number): number {
+  return mirrorIndex(slot) + 14;
+}
+
+/**
+ * The Grand Silence's rebuild phrase (docs/phase-5d.md): note n (1-8) plays degree n of D dorian
+ * from D4, pitched to the key and never to the chord (the chord clock runs on in the silence), so
+ * the eighth resolves on D5: D4 E4 F4 G4 A4 B4 C5 D5.
+ */
+export const SILENCE_PHRASE: readonly number[] = [0, 1, 2, 3, 4, 5, 6, 7];
+
+/** The MIDI note of the Grand Silence's n-th note (1-8; clamped). */
+export function silenceNoteMidi(n: number): number {
+  const i = Math.max(1, Math.min(SILENCE_PHRASE.length, Math.round(n))) - 1;
+  return scaleMidi(SILENCE_PHRASE[i] ?? 0);
 }

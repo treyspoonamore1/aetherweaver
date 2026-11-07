@@ -478,11 +478,10 @@ const hzOf = (midi: number) => 440 * 2 ** ((midi - 69) / 12);
 describe('the Abyssal Rift’s voicing (Phase 5c)', () => {
   it('is in content and in the voicing table; an unknown biome falls back to the Reliquary', () => {
     expect(BiomeSchema.options).toContain('abyssal_rift');
-    // The Finale's Celestial Crucible (docs/phase-5d.md) is voiced by its own slice (W7).
-    for (const b of BiomeSchema.options)
-      if (b !== 'celestial_crucible') expect(VOICED_BIOMES, b).toContain(b);
+    // Phase 5d voices the Finale's Celestial Crucible too (tests/audioPhase5d.test.ts).
+    for (const b of BiomeSchema.options) expect(VOICED_BIOMES, b).toContain(b);
     expect(voicedBiome('abyssal_rift')).toBe('abyssal_rift');
-    expect(voicedBiome('celestial_crucible')).toBe('reliquary');
+    expect(voicedBiome('nowhere')).toBe('reliquary');
     expect(voicedBiome(undefined)).toBe('reliquary');
     // Through the director: a later slice's biome is voiced, and sounds, as the Reliquary.
     const score = (biome: string) =>
@@ -501,8 +500,8 @@ describe('the Abyssal Rift’s voicing (Phase 5c)', () => {
         h.d.dispose();
         return out;
       });
-    expect(score('celestial_crucible')).toBe(score('reliquary'));
-    expect(score('celestial_crucible').startsWith('reliquary:reliquary:')).toBe(true);
+    expect(score('nowhere')).toBe(score('reliquary'));
+    expect(score('nowhere').startsWith('reliquary:reliquary:')).toBe(true);
   });
 
   it('stays in D dorian at 88 BPM and takes the biome up on the next bar', () => {

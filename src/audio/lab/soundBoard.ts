@@ -1,5 +1,17 @@
 /** Every sound the lab can trigger, grouped. Shared by the buttons and the offline audit. */
 import { CONTENT } from '../../content';
+import {
+  ALTO,
+  BASS,
+  BASSO_OSTINATO,
+  CADENZA,
+  DOWNBEAT,
+  FORTISSIMO,
+  LAMENT,
+  SHATTER_ARIA,
+  SOPRANO,
+  TENOR,
+} from '../../content/crucibleIds';
 import type { SimEvent } from '../../sim';
 import type { SynthDirector } from '../director';
 import type { UiSound, UiSoundDetail } from '../types';
@@ -30,6 +42,11 @@ export interface SoundButton {
      * Doom, the Unweaver, the Retarget and Empower windups, cloth kills).
      */
     | 'unstitched'
+    /**
+     * Phase 5d: the Finale (Discord, Fortissimo Silence, the Cues, the Grand Silence and its
+     * notes, the Reignite and the Coda, glass kills, the Finale's stinger).
+     */
+    | 'finale'
     | 'world'
     | 'ui';
   /** Fires the sound. Receives the director and a world to read/mutate. */
@@ -1012,6 +1029,63 @@ const zoneOn = (w: FakeWorld, zone: number, kind: 'pull' | 'null', seconds: numb
     r: kind === 'pull' ? 8 : 5,
     until: w.time + seconds,
   });
+
+// ── Phase 5d helpers: the Finale ───────────────────────────────────────────────────
+
+/** What made a Grand Silence note, in the order the lab's phrase turns through them. */
+const NOTE_SOURCES = ['perfect', 'clutch', 'reel', 'rewind'] as const;
+type LabNoteSource = (typeof NOTE_SOURCES)[number];
+
+/** The Grand Silence begins (its cap far off: the lab ends it). */
+const silenceBegins = (w: FakeWorld): SimEvent =>
+  ev('silenceBegan', { boss: IDS.enemyBase, until: w.time + 1e6 });
+
+/** The n-th note of the Grand Silence, made by `source` on Kael (a Rewind's names no hero). */
+const silenceNote = (n: number, source: LabNoteSource): SimEvent =>
+  ev('silenceNote', { n, of: 8, source, hero: source === 'rewind' ? null : IDS.kael });
+
+/** A follow-up that lets the Grand Silence go (combat stopped), so a button leaves no hold. */
+const releaseSilence = (delay: number) => ({ delay, fire: (d: SynthDirector) => d.stopCombat() });
+
+/** A Finale attack's telegraph in the world (its sound finds its attack id) and its start. */
+function finaleTele(w: FakeWorld, id: number, attackId: string, windup: number): SimEvent {
+  const t = w.addTelegraph(id, windup, {
+    kind: 'raid',
+    answers: ['dome', 'ward'],
+    target: null,
+    attackId,
+    name: attackId.startsWith('fortissimo') ? 'Fortissimo Silence' : 'Downbeat',
+  });
+  return ev('telegraphStarted', {
+    telegraph: id,
+    owner: IDS.enemyBase,
+    target: t.target,
+    name: t.name,
+    kind: t.kind,
+    shape: t.shape,
+    start: t.start,
+    impact: t.impact,
+    perfectFrom: t.perfectFrom,
+    damage: t.damage,
+    pctMaxHp: 0,
+    answers: t.answers,
+    effect: 'damage',
+  });
+}
+
+/** A Finale telegraph lands. */
+const finaleLands = (w: FakeWorld, id: number): SimEvent => {
+  w.removeTelegraph(id);
+  return ev('telegraphResolved', { telegraph: id, outcome: 'hit', target: null, damage: 600 });
+};
+
+/** The mirror-choir's voices, with the Solo each is Cued for (docs/phase-5d.md). */
+const CUED_VOICES: readonly { voice: string; solo: string; name: string }[] = [
+  { voice: ALTO, solo: LAMENT, name: 'the Alto (Lament: Lyra’s motif, mirrored)' },
+  { voice: BASS, solo: BASSO_OSTINATO, name: 'the Bass (Basso Ostinato: Brann’s, mirrored)' },
+  { voice: TENOR, solo: CADENZA, name: 'the Tenor (Cadenza: Kael’s, mirrored)' },
+  { voice: SOPRANO, solo: SHATTER_ARIA, name: 'the Soprano (Shatter Aria: Vexis’s, mirrored)' },
+];
 
 export const SOUNDS: SoundButton[] = [
   // ── Support ────────────────────────────────────────────────────────────────────
@@ -3087,6 +3161,196 @@ export const SOUNDS: SoundButton[] = [
       fire(d, w, ev('enemyKilled', { enemy: id, defId: e.id, killer: null, x, z: 5 }));
     },
   })),
+  // ── Phase 5d: the Finale (the Silent Conductor, its mirror-choir, the Grand Silence) ──
+  {
+    id: 'finale-discord',
+    label: 'Discord fed: a telegraph left unanswered (a soft half-step tick, E–F)',
+    group: 'finale',
+    length: 1.5,
+    fire: (d, w) =>
+      fire(d, w, ev('discordRose', { boss: IDS.enemyBase, telegraph: 1, amount: 20, value: 60 })),
+  },
+  {
+    id: 'finale-rise',
+    label: 'Discord swelling in the Mirror Choir (a pad note rising under the stems)',
+    group: 'finale',
+    length: 5,
+    fire: (d) => d.sfxEngine()?.discordRise(85),
+  },
+  {
+    id: 'finale-fortissimo',
+    label: 'Fortissimo Silence: one pulse (a rising tutti, cut to nothing as it lands)',
+    group: 'finale',
+    length: 3,
+    fire: (d, w) => fire(d, w, finaleTele(w, 41, FORTISSIMO[0], 1.5)),
+    then: [{ delay: 1.5, fire: (d, w) => fire(d, w, finaleLands(w, 41)) }],
+  },
+  {
+    id: 'finale-fortissimo-chain',
+    label: 'Fortissimo Silence: its three pulses',
+    group: 'finale',
+    length: 6,
+    fire: (d, w) => fire(d, w, finaleTele(w, 41, FORTISSIMO[0], 1.5)),
+    then: [
+      {
+        delay: 1.5,
+        fire: (d, w) => fire(d, w, finaleLands(w, 41), finaleTele(w, 42, FORTISSIMO[1], 1.5)),
+      },
+      {
+        delay: 3,
+        fire: (d, w) => fire(d, w, finaleLands(w, 42), finaleTele(w, 43, FORTISSIMO[2], 1.5)),
+      },
+      { delay: 4.5, fire: (d, w) => fire(d, w, finaleLands(w, 43)) },
+    ],
+  },
+  {
+    id: 'finale-fortissimo-cancel',
+    label: 'Fortissimo Silence cancelled by your Crescendo (the tutti resolves into the song)',
+    group: 'finale',
+    length: 3.5,
+    fire: (d, w) => fire(d, w, finaleTele(w, 41, FORTISSIMO[0], 1.5)),
+    then: [
+      {
+        delay: 0.8,
+        fire: (d, w) => {
+          w.removeTelegraph(41);
+          fire(
+            d,
+            w,
+            ev('fortissimoCancelled', { boss: IDS.enemyBase, by: 'crescendo' }),
+            ev('telegraphResolved', {
+              telegraph: 41,
+              outcome: 'cancelled',
+              target: null,
+              damage: 0,
+            }),
+          );
+        },
+      },
+    ],
+  },
+  {
+    id: 'finale-baton',
+    label: 'The Conductor’s Downbeat (a baton’s stroke over its windup)',
+    group: 'finale',
+    length: 2,
+    fire: (d, w) => fire(d, w, finaleTele(w, 44, DOWNBEAT, 1.4)),
+  },
+  ...CUED_VOICES.map((c): SoundButton => ({
+    id: `finale-cue-${c.voice}`,
+    label: `The Conductor Cues ${c.name}`,
+    group: 'finale',
+    length: 3,
+    fire: (d, w) =>
+      fire(
+        d,
+        w,
+        ev('enemyCued', { boss: IDS.enemyBase, soloist: IDS.enemyBase + 1, solo: c.solo }),
+      ),
+  })),
+  {
+    id: 'finale-silence',
+    label: 'The Grand Silence begins (the music stops: a baton’s cut-off)',
+    group: 'finale',
+    length: 3,
+    fire: (d, w) => fire(d, w, silenceBegins(w)),
+    then: [releaseSilence(2.8)],
+  },
+  ...NOTE_SOURCES.map((source): SoundButton => ({
+    id: `finale-note-${source}`,
+    label: `A note in the silence: the third (F4), made by ${
+      source === 'perfect'
+        ? 'a Perfect Ward (glass)'
+        : source === 'clutch'
+          ? 'a clutch Chime (a bell)'
+          : source === 'reel'
+            ? 'a Reel-save (a whoosh and a pluck)'
+            : 'a Rewind that undid a blow (a reversed bell)'
+    }`,
+    group: 'finale',
+    length: 3,
+    fire: (d, w) => fire(d, w, silenceBegins(w), silenceNote(3, source)),
+    then: [releaseSilence(2.8)],
+  })),
+  {
+    id: 'finale-phrase',
+    label: 'The eight notes: D4 up to D5, the song rebuilt stem by stem, then the Reignite',
+    group: 'finale',
+    length: 9,
+    fire: (d, w) => fire(d, w, silenceBegins(w)),
+    then: [
+      ...[1, 2, 3, 4, 5, 6, 7, 8].map((n) => ({
+        delay: 0.2 + (n - 1) * 0.7,
+        fire: (d: SynthDirector, w: FakeWorld) =>
+          fire(d, w, silenceNote(n, NOTE_SOURCES[(n - 1) % 4] as LabNoteSource)),
+      })),
+      {
+        delay: 5.6,
+        fire: (d, w) => fire(d, w, ev('reignited', { boss: IDS.enemyBase, revived: [] })),
+      },
+    ],
+  },
+  {
+    id: 'finale-silence-duck',
+    label: 'A Perfect Ward in the silence (heard; its duck can’t reopen the music)',
+    group: 'finale',
+    length: 3,
+    fire: (d, w) =>
+      fire(
+        d,
+        w,
+        silenceBegins(w),
+        ev('perfectWard', { target: IDS.kael, telegraph: 1, negated: 400 }),
+      ),
+    then: [releaseSilence(2.8)],
+  },
+  {
+    id: 'finale-reignite',
+    label: 'Reignite: each party hero’s leitmotif in canon as they unfreeze',
+    group: 'finale',
+    length: 4,
+    fire: (d, w) => fire(d, w, ev('reignited', { boss: IDS.enemyBase, revived: [] })),
+  },
+  {
+    id: 'finale-coda',
+    label: 'The Coda: the cap runs out (the music comes back without the song)',
+    group: 'finale',
+    length: 4,
+    fire: (d, w) => fire(d, w, silenceBegins(w), silenceNote(1, 'perfect')),
+    then: [
+      {
+        delay: 1,
+        fire: (d, w) => fire(d, w, ev('silenceBroken', { boss: IDS.enemyBase, notes: 1 })),
+      },
+    ],
+  },
+  ...CUED_VOICES.map((c): SoundButton => ({
+    id: `kill-glass-${c.voice}`,
+    label: `Kill ${c.name.split(' (')[0]} (glass: it shatters into rising notes)`,
+    group: 'finale',
+    length: 2,
+    fire: (d, w) => {
+      const id = w.addEnemy('caster', 6);
+      const e = w.entities.get(id);
+      if (e?.enemy) Object.assign(e.enemy, { tier: 'elite', defId: c.voice });
+      fire(d, w, ev('enemyKilled', { enemy: id, defId: c.voice, killer: null, x: 6, z: 5 }));
+    },
+  })),
+  {
+    id: 'kill-glass-boss',
+    label: 'A glass boss’s death (the biggest shatter)',
+    group: 'finale',
+    length: 3,
+    fire: (d) => d.sfxEngine()?.glassKill(3),
+  },
+  {
+    id: 'finale-stinger',
+    label:
+      'The Finale’s stinger: the run’s last victory (every party leitmotif in canon, home on D)',
+    group: 'finale',
+    length: 9,
+    fire: (d) => d.musicEngine()?.stingerOnBar('finale'),
+  },
   // ── UI ─────────────────────────────────────────────────────────────────────────
   ...(
     [
