@@ -110,7 +110,7 @@ describe('the Loom’s stations', () => {
     // The first Deed is winning a run, as the line says.
     expect(CONTENT.deeds[0]!.test).toBe('win');
     expect(station(views, 'dissonance').line).toBe(
-      `Optional difficulty, for the endgame. Opens with your first Finale clear, at Weaver Rank ${RULES.openRank} or above.`,
+      `Optional difficulty, for the endgame. Opens at Weaver Rank ${RULES.openRank} once you have cleared the Finale.`,
     );
     // Dark stations have nothing waiting.
     for (const v of views.filter((x) => !x.open)) expect(v.badge).toBeNull();

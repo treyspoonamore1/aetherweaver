@@ -418,7 +418,7 @@ export function closedLines(rank: number): { lead: string; skip: string } {
   return {
     lead: opensAt(rank)
       ? `It opens with your first Finale clear at Rank ${openRank} or above: you’re Rank ${rank}, so your next Finale clear does it.`
-      : `It opens with your first Finale clear at Rank ${openRank} or above (you’re Rank ${rank}).`,
+      : `It opens at Rank ${openRank} once you have cleared the Finale (you’re Rank ${rank}).`,
     skip: 'Settings → Skip the unlocks opens it now.',
   };
 }

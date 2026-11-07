@@ -4,6 +4,7 @@
  * records the best won totals and opens it.
  */
 import { CONTENT, type DissonanceEffect } from '../content';
+import { SONG_GOES_ON } from '../content/crucibleIds';
 import { endsRun, finaleCleared } from './runEnd';
 import type { RunState } from './types';
 
@@ -84,6 +85,15 @@ export function opensAt(rank: number): boolean {
  */
 export function opensWith(run: Pick<RunState, 'results'>, rank: number): boolean {
   return finaleCleared(run) && opensAt(rank);
+}
+
+/**
+ * Does the profile's lasting record of a Finale clear (the `song_goes_on` Deed, docs/phase-5d.md)
+ * open Dissonance at this Rank? A first clear below the Rank opens it on reaching the Rank, as
+ * the first-clear card promises ('Dissonance opens at Weaver Rank 15').
+ */
+export function opensFrom(deeds: readonly string[], rank: number): boolean {
+  return deeds.includes(SONG_GOES_ON) && opensAt(rank);
 }
 
 /**

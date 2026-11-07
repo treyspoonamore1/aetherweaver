@@ -3062,6 +3062,70 @@ describe('the Skilled bot in the Grand Silence (staged)', () => {
     expect(burn('shift').some((c) => c.t === 'cue')).toBe(false);
   });
 
+  it('lands the clutch Chime inside the clutch window: a Rest in play is cleansed as a clutch', () => {
+    const chime = CONTENT.techniques.chime;
+    // The Chime lands its flight after it goes: with 1.25 s of Dirge left it would be no clutch.
+    expect(
+      silent((s) => blowOn(s, REST, 1, chime.clutchWindow + chime.flight, 0.5, 3.5)).some(
+        (c) => c.t === 'tech' && c.id === 'chime',
+      ),
+    ).toBe(false);
+    for (const seed of [1, 2, 3, 4]) {
+      const sim = finaleRift(undefined);
+      silenceOn(sim);
+      blowOn(sim, REST, 1, 2, 0.5, 3.5);
+      const bot = makeBot('skilled', seed);
+      const events: SimEvent[] = [];
+      for (let t = 0; t < 60 * 2.2; t++) {
+        sim.step(bot.decide(sim.state));
+        events.push(...sim.drainEvents());
+      }
+      const cleansed = events.filter((e) => e.type === 'cleansed');
+      expect(cleansed.length, `seed ${seed}`).toBe(1);
+      expect(cleansed[0], `seed ${seed}`).toMatchObject({ clutch: true });
+      expect(sim.state.ledger.clutchCleanses, `seed ${seed}`).toBe(1);
+    }
+  });
+
+  it('Reels the Final Cadence’s own target, not the bigger life beside them, and lands them clear', () => {
+    // Kael stands in Lyra's Final Cadence too: the blow is aimed at her, so she is the Reel's.
+    const shared = silent((s) => {
+      Object.assign(heroE(s, 0), { x: 1, z: 6 });
+      blowOn(s, FINAL_CADENCE, 1, 0.5, 1.15);
+    });
+    expect(techOn(shared, 'reel', 1)).toBe(true);
+    expect(techOn(shared, 'reel', 0)).toBe(false);
+    // The Weaver 2.5 m from Lyra, aimed past her: a plain Reel would land her back inside it.
+    // The bot aims the Reel clear first, and Lyra lands outside it: a Reel-save (a note).
+    for (const seed of [1, 2]) {
+      const sim = finaleRift(undefined);
+      silenceOn(sim);
+      tough(sim, 'hollow_chorister', 0, 12);
+      Object.assign(weaverE(sim), { x: 0, z: 3.5 });
+      Object.assign(heroE(sim, 1), { x: 0, z: 6 });
+      const lyra = heroE(sim, 1);
+      lyra.health!.hp = lyra.health!.maxHp;
+      const t = blowOn(sim, FINAL_CADENCE, 1, 0.7, 1.15);
+      const bot = makeBot('skilled', seed);
+      let reeled: Command[] | null = null;
+      for (let i = 0; i < 60 && worldOf(sim).telegraphs.includes(t); i++) {
+        const out = bot.decide(sim.state);
+        if (!reeled && techOn(out, 'reel', 1)) reeled = out;
+        sim.step(out);
+        sim.drainEvents();
+      }
+      expect(reeled, `seed ${seed}`).not.toBeNull();
+      const aim = reeled!.filter((c) => c.t === 'aim').at(-1);
+      expect(aim, `seed ${seed}`).toBeDefined();
+      expect(Math.hypot(lyra.x - 0, lyra.z - 6), `seed ${seed}`).toBeGreaterThan(2.5 + lyra.radius);
+      expect(lyra.health!.hp, `seed ${seed}`).toBe(lyra.health!.maxHp);
+      expect(
+        sim.state.ledger.saves.some((x) => x.cause === 'reel' && x.hero === lyra.id),
+        `seed ${seed}`,
+      ).toBe(true);
+    }
+  });
+
   it('names every Finale rule; leaving them all off changes nothing before the Finale', () => {
     expect(new Set(FINALE_RULES).size).toBe(FINALE_RULES.length);
     for (const [encounter, kit] of [

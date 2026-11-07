@@ -35,8 +35,9 @@
  */
 import { CONTENT, partyHasDome } from '../content';
 import { Rng } from '../sim/core/rng';
-import { contains } from '../sim/combat/telegraphs';
 import { bloodRageBonus, segmentDistSq, weaverSilenced } from '../sim';
+import { contains } from '../sim/combat/telegraphs';
+import { dcos, dsin } from '../sim/core/dmath';
 import type { Command, PartySlot, ReadonlyEntity, ThreadMode, WorldState } from '../sim';
 import type { Bot } from './types';
 import {
@@ -45,6 +46,7 @@ import {
   caller,
   centroid,
   damageOf,
+  damaging,
   modeCommands,
   threadingTo,
   dist,
@@ -2026,10 +2028,17 @@ function soloAnswerReady(state: WorldState, w: ReadonlyEntity, cue: CueView): bo
   return false;
 }
 
+/** `reelOutAim`: bearings tried either side of her aim, this many a half turn. */
+const REEL_AIM_STEPS = 8;
+
 /**
- * Where a Reel of `hero` out of `t` must aim: `aim` when it lands them outside the shape (a plain
- * Reel lands them `landing` m from the Weaver toward her aim; a Swap, where she stands), else a
- * point straight away from the shape's centre if that does; null when no Reel takes them out.
+ * Where a Reel of `hero` out of `t` must aim: `aim` when it already takes them out, else the
+ * nearest bearing to it, of 16 around her, that does; null when none does. A Swap lands them
+ * where she stands, so only outside `t`. A plain Reel lands them `reel.landing` m from the
+ * Weaver toward her aim (along her heading under 0.1 m), and takes them out when that point is
+ * inside the arena and outside `t` and every other ground blow still to land (marks and raid
+ * blows follow the hero, so aren't read). A turned aim is set 4 m out, so the aim's 1/16 m step
+ * barely turns the bearing.
  */
 function reelOutAim(
   state: WorldState,
@@ -2038,26 +2047,49 @@ function reelOutAim(
   t: ReadonlyTelegraph,
   aim: { x: number; z: number },
 ): { x: number; z: number } | null {
-  const outside = (x: number, z: number) => !contains(state, t, { ...hero, x, z });
-  if (w.weaver!.variants.reel === 'swap') return outside(w.x, w.z) ? aim : null;
+  const wc = w.weaver!;
+  if (wc.variants.reel === 'swap')
+    return contains(state, t, { ...hero, x: w.x, z: w.z }) ? null : aim;
   const landing = CONTENT.techniques.reel.landing;
-  const lands = (to: { x: number; z: number }) => {
-    const dx = to.x - w.x;
-    const dz = to.z - w.z;
-    const d = Math.sqrt(dx * dx + dz * dz);
-    // Under 0.1 m the sim lands them along her heading: unknown here, so not trusted.
-    return d >= 0.1 && outside(w.x + (dx / d) * landing, w.z + (dz / d) * landing);
+  let ax = aim.x - w.x;
+  let az = aim.z - w.z;
+  const am = Math.sqrt(ax * ax + az * az);
+  if (am < 0.1) {
+    ax = wc.headingX;
+    az = wc.headingZ;
+  } else {
+    ax /= am;
+    az /= am;
+  }
+  const blows = state.telegraphs.filter(
+    (b) =>
+      b === t ||
+      (damaging(b) &&
+        b.impact > state.time &&
+        (b.shape.kind === 'circle' ||
+          b.shape.kind === 'donut' ||
+          b.shape.kind === 'cone' ||
+          b.shape.kind === 'line')),
+  );
+  const clear = (dx: number, dz: number): boolean => {
+    const x = w.x + dx * landing;
+    const z = w.z + dz * landing;
+    if (Math.sqrt(x * x + z * z) > state.arenaRadius - hero.radius) return false;
+    const at = { ...hero, x, z };
+    return !blows.some((b) => contains(state, b, at));
   };
-  if (lands(aim)) return aim;
-  const s = t.shape;
-  const cx = s.kind === 'circle' || s.kind === 'donut' || s.kind === 'cone' ? s.x : hero.x;
-  const cz = s.kind === 'circle' || s.kind === 'donut' || s.kind === 'cone' ? s.z : hero.z;
-  const dx = w.x - cx;
-  const dz = w.z - cz;
-  const d = Math.sqrt(dx * dx + dz * dz);
-  if (d < 0.1) return null;
-  const away = { x: w.x + (dx / d) * 5, z: w.z + (dz / d) * 5 };
-  return lands(away) ? away : null;
+  if (clear(ax, az)) return aim;
+  for (let k = 1; k <= REEL_AIM_STEPS; k++) {
+    for (const side of k === REEL_AIM_STEPS ? [1] : [1, -1]) {
+      const a = (side * k * Math.PI) / REEL_AIM_STEPS;
+      const c = dcos(a);
+      const s = dsin(a);
+      const dx = ax * c - az * s;
+      const dz = ax * s + az * c;
+      if (clear(dx, dz)) return { x: w.x + dx * 4, z: w.z + dz * 4 };
+    }
+  }
+  return null;
 }
 
 /**
@@ -2093,7 +2125,9 @@ function silenceReelPick(
       if (wc.variants.reel === 'swap' && !swapSurvives(w, h.e, damageOf(t, w))) continue;
       const to = reelOutAim(state, w, h.e, t, aim);
       if (!to) continue;
-      const score = (final ? 1e6 : 0) + dmg;
+      // The Final Cadence's own target first (the lowest life, the one it is aimed at), then
+      // anyone else standing in it, then a lesser blow that would kill: the most first.
+      const score = (final ? (t.target === h.e.id ? 2e6 : 1e6) : 0) + dmg;
       if (!best || score > best.score) best = { h, score, aim: to };
     }
   }

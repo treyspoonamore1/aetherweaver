@@ -361,7 +361,9 @@ describe('open and closed', () => {
     expect(below.lead).toContain(`Rank ${RULES.openRank}`);
     expect(below.lead).toContain(`Rank ${RULES.openRank - 3}`);
     expect(below.skip).toContain('Skip the unlocks');
-    expect(below.lead).toContain('first Finale clear');
+    // A Finale cleared below the Rank opens it on reaching the Rank: no 'first clear' to come.
+    expect(below.lead).toContain('once you have cleared the Finale');
+    expect(below.lead).not.toContain('first Finale clear');
     expect(closedLines(RULES.openRank + 1).lead).toMatch(/next Finale clear/);
     // Closed, the run in Prep plays none of the choice; Skip the unlocks opens it.
     useProfile.getState().setDissonance([L(CONTENT.dissonance[0]!.id)]);
