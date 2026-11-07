@@ -22,7 +22,9 @@ export type Route = 'prelude' | 'expedition';
 
 /**
  * About how long a run of each route takes (Prep's Route toggle). The Expedition's is the Skilled
- * I-III Expedition as tools/pacing.ts models it (docs/phase-5c.md: 40.8 / 39.4 min).
+ * Finale-route Expedition as tools/pacing.ts models it, losses included (docs/phase-5d.md,
+ * "Pacing": 39.6 / 39.4 min on bases 9001 / 77003, rounded; the winning-run median is 43.2 /
+ * 43.7). It was the I-III Expedition's 40.8 / 39.4 min (docs/phase-5c.md).
  */
 export const ROUTE_MINUTES: Readonly<Record<Route, number>> = { prelude: 15, expedition: 40 };
 

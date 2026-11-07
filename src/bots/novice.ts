@@ -87,7 +87,7 @@ const NOVICE_M3 = {
  * The Finale's chances (docs/phase-5d.md, "Bots and harness"), each drawn only while its
  * mechanic is up, after every other draw and before the Cue's.
  */
-const NOVICE_M4 = {
+export const NOVICE_M4 = {
   /** Crescendo during Fortissimo Silence, with a full song (about 3 decisions a second). */
   fortissimoCrescendo: 0.35,
   /** Focus the Conductor's Cued soloist. */
@@ -101,6 +101,20 @@ const NOVICE_M4 = {
   /** Cue a ready Solo in the last burn (after Reignite or the Coda). */
   reigniteCue: 0.5,
 } as const;
+/** A Finale draw `NoviceOptions.skip` can leave off (tools/verbs.ts `--bot novice`). */
+export type NoviceM4Rule = keyof typeof NOVICE_M4;
+/** The Novice's Finale rules, in `NOVICE_M4`'s order: the ablation's rows. */
+export const NOVICE_M4_RULES = Object.keys(NOVICE_M4) as NoviceM4Rule[];
+
+/** The Novice's options (all optional; absent, she plays as she always has). */
+export interface NoviceOptions {
+  /**
+   * Verb ablation (tools/verbs.ts `--bot novice`, docs/phase-5d.md "Tuning order" 2): Finale
+   * draws to leave off. A rule left off isn't drawn at all, so the draws after it shift.
+   */
+  skip?: ReadonlySet<NoviceM4Rule>;
+}
+
 /** `silenceChime`: a Rest's Dirge with this little left; `silenceReel`: a Cadence's. */
 const REST_CHIME_AT = 1.2;
 const CADENCE_REEL_AT = 0.8;
@@ -119,8 +133,16 @@ export class NoviceBot implements Bot {
   /** The Finale: whether this fight's Grand Silence has been seen (the last burn waits on it). */
   private readonly silenceWatch = new SilenceWatch();
 
-  constructor(seed: number) {
+  constructor(
+    seed: number,
+    private readonly opts: NoviceOptions = {},
+  ) {
     this.rng = new Rng(seed ^ 0x0b1e);
+  }
+
+  /** A Finale draw is played (not left off by the ablation). */
+  private on(rule: NoviceM4Rule): boolean {
+    return this.opts.skip?.has(rule) !== true;
   }
 
   decide(state: WorldState): Command[] {
@@ -389,6 +411,7 @@ export class NoviceBot implements Bot {
       out.some((c) => c.t === t && (id === undefined || (c.t === 'tech' && c.id === id)));
     // Fortissimo Silence: with a full song, now and then she sees the Crescendo cancels it.
     if (
+      this.on('fortissimoCrescendo') &&
       fortissimoLive(state) &&
       wc.resonance >= CONTENT.resonance.crescendoCost &&
       wc.crescendo <= 0 &&
@@ -400,6 +423,7 @@ export class NoviceBot implements Bot {
     const cue = cueOf(state);
     const soloist = cue ? state.entities.get(cue.soloist) : undefined;
     if (
+      this.on('cueFocus') &&
       cue &&
       soloist?.health &&
       !soloist.health.dead &&
@@ -415,6 +439,7 @@ export class NoviceBot implements Bot {
         (h) => statusRemaining(h.e, 'dirge') <= REST_CHIME_AT && reach(h, tech.chime.range),
       );
       if (
+        this.on('silenceChime') &&
         rest &&
         wc.cooldowns.chime <= 0 &&
         affords(state, 'chime') &&
@@ -429,6 +454,7 @@ export class NoviceBot implements Bot {
           threatsOn(state, h.e).some((t) => t.attackId === MEASURE || isCadence(t)),
       );
       if (
+        this.on('silenceWard') &&
         struck &&
         wc.wardCharges > 0 &&
         affords(state, 'ward') &&
@@ -444,6 +470,7 @@ export class NoviceBot implements Bot {
           threatsOn(state, h.e).some((t) => isCadence(t) && t.impact - now <= CADENCE_REEL_AT),
       );
       if (
+        this.on('silenceReel') &&
         cadenced &&
         !state.calling?.rewind &&
         wc.cooldowns.reel <= 0 &&
@@ -454,7 +481,12 @@ export class NoviceBot implements Bot {
         out.push({ t: 'tech', id: 'reel', slot: cadenced.slot });
     }
     // The last burn: the reignited Solos are hers to Cue.
-    if (this.silenceWatch.burn(state) && wc.resonance >= state.dissonance.cueCost && !has('cue')) {
+    if (
+      this.on('reigniteCue') &&
+      this.silenceWatch.burn(state) &&
+      wc.resonance >= state.dissonance.cueCost &&
+      !has('cue')
+    ) {
       const ready = party.find((h) => h.e.hero!.solo >= 100 && h.e.hero!.soloActive <= 0);
       if (ready && this.rng.chance(NOVICE_M4.reigniteCue)) out.push({ t: 'cue', slot: ready.slot });
     }

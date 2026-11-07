@@ -5,6 +5,7 @@
  * cut), so the enemy side's calls are pinned whatever the Weaver side does with them.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { makeBot } from '../../src/bots';
 import { attackDef, CONTENT, enemyDef, heroDef } from '../../src/content';
 import { createSim, isRooted, type Sim } from '../../src/sim';
 import {
@@ -1072,6 +1073,35 @@ describe('Movements I and II', () => {
           if (!c) continue;
           expect('tethered' in c || 'mimic' in c || 'emboldenedUntil' in c, encounter).toBe(false);
         }
+        if (w.encounter.status !== 'fighting' && i > 600) break;
+      }
+    }
+  }, 60_000);
+});
+
+describe('Movements I-III and the Finale (docs/phase-5d.md, "Absence")', () => {
+  it('never show a Finale key or the stilled status (sampled every second, Skilled bot)', () => {
+    for (const encounter of [
+      'first_light',
+      'hollow_cantor',
+      'crimson_gate',
+      'frayed_threshold',
+      'the_unweaver',
+    ]) {
+      const sim = createSim({ seed: 5, encounter });
+      const w = worldOf(sim);
+      const bot = makeBot('skilled', 5);
+      for (let i = 0; i < 60 * 45; i++) {
+        sim.step(bot.decide(sim.state));
+        sim.drainEvents();
+        if (i % 60 !== 0) continue;
+        expect('finale' in w.field, encounter).toBe(false);
+        expect(w.internal.m4, encounter).toBeUndefined();
+        for (const e of w.entities.list())
+          expect(
+            e.health?.statuses.some((s) => s.id === 'stilled'),
+            encounter,
+          ).not.toBe(true);
         if (w.encounter.status !== 'fighting' && i > 600) break;
       }
     }

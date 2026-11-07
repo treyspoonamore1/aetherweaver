@@ -15,13 +15,16 @@ import type { ContentInput, FinaleMovementDef } from './schema';
  */
 
 /**
- * Par (s): a starting value; W9 sets it to the Skilled average × 1.15, to 5 s. And the boss's
- * enrage (×2.5 at it; inside the harness's 540 s and the counterfactual's 600 s).
+ * Par (s): the Skilled average on ARRIVAL4_KIT (about 175 s: 174 / 175 / 176 on the three cell
+ * seed sets) × 1.15, to 5 s (docs/phase-5d.md, "Tuning"). And the boss's enrage (×2.5 at it; inside the harness's
+ * 540 s and the counterfactual's 600 s).
  */
-const PAR = 225;
+const PAR = 200;
 const ENRAGE = 420;
 /** The Conductor walks out this long into the fight. */
 const ENTRANCE = 3;
+/** Relics a road reward row's skirmish offers (an elite's offer, `RELIC_OFFERS.elite`). */
+const ROAD_RELICS = 2;
 
 /** The Silent Conductor's encounter. */
 export const CRUCIBLE_ENCOUNTERS: ContentInput['encounters'] = [
@@ -57,28 +60,36 @@ export const FINALE: FinaleMovementDef = {
   fixed: [{ row: 0, encounter: CONDUCTOR_ENCOUNTER }],
   boss: CONDUCTOR_ENCOUNTER,
   scale: { life: 1.85, damage: 1.05 },
-  rewards: { xp: 1.5, starlight: 1.5, aether: 1.5 },
+  rewards: { xp: 1.35, starlight: 1.5, aether: 1.5 },
   finale: true,
   road: [
     {
-      // Movement I, 's6e': First Light; sk/sk/event; elite/sk/sk; the Bellwarden;
-      // respite/merchant/forge; the Cantor (an interlude). Calling tiers on 0, 2, 3 and 5.
+      // Movement I, 's5' (tuned from 's6e', docs/phase-5d.md "Tuning"): First Light; sk/elite/sk;
+      // the Bellwarden; respite/merchant/forge; the Cantor (an interlude). Calling tiers on 0, 1,
+      // 2 and 4.
       movement: 'hollow_choir',
       rows: [
         ['skirmish'],
-        ['skirmish', 'skirmish', 'event'],
-        ['elite', 'skirmish', 'skirmish'],
+        ['skirmish', 'elite', 'skirmish'],
         ['miniboss'],
         ['respite', 'merchant', 'forge'],
         ['boss'],
       ],
       fixed: [
         { row: 0, encounter: 'first_light' },
-        { row: 3, encounter: 'bellwarden' },
-        { row: 5, encounter: 'hollow_cantor' },
+        { row: 2, encounter: 'bellwarden' },
+        { row: 4, encounter: 'hollow_cantor' },
       ],
-      threat: [0, 3, 5, 7, 8, 9],
-      callingRows: [0, 2, 3, 5],
+      threat: [0, 3, 7, 8, 9],
+      callingRows: [0, 1, 2, 4],
+      // Five fewer rows means fewer drafts and relics before the Bellwarden and the Cantor
+      // ('won III' within 5 points of the full road, docs/phase-5d.md "Bands"): First Light pays
+      // a rare motif and a relic offer, row 1's skirmishes an epic motif (no relic screen: the
+      // pacing clock).
+      rewards: [
+        { row: 0, draft: 'rare', relics: ROAD_RELICS },
+        { row: 1, draft: 'epic' },
+      ],
     },
     {
       // Movement II without its row 3: the lessons and Brann's event row stay; the ladder's

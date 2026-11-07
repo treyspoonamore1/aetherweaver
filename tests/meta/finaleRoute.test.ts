@@ -39,8 +39,8 @@ const SEEDS = Array.from({ length: 40 }, (_, i) => i + 1);
 const FINALE = CONTENT.movements[3] as FinaleMovementDef;
 const ROAD_I = FINALE.road.find((r) => r.movement === 'hollow_choir')!;
 const ROAD_II = FINALE.road.find((r) => r.movement === 'crimson_legion')!;
-/** The Finale route's rows: 6 + 6 + 6 + 1. */
-const ROWS = 19;
+/** The Finale route's rows: 5 + 6 + 6 + 1. */
+const ROWS = 18;
 const FINALE_RELICS = CONTENT.relics.filter((r) => r.movement === FINALE_MOVEMENT).map((r) => r.id);
 
 /** An Expedition in Prep on the route of `movements` (the Finale's by default). */
@@ -145,7 +145,7 @@ describe('FINALE is registered as the Expedition’s last Movement', () => {
 });
 
 describe('the Finale route’s map', () => {
-  it('19 rows, unique ids, every node reachable, only the Conductor final', () => {
+  it('18 rows, unique ids, every node reachable, only the Conductor final', () => {
     for (const seed of SEEDS) {
       const map = Run.generateMap(seed, 4);
       expect(map.rows).toHaveLength(ROWS);
@@ -156,27 +156,27 @@ describe('the Finale route’s map', () => {
         for (const n of row) {
           expect(n.row).toBe(r);
           expect(n.id).toMatch(new RegExp(`^r${r}c\\d$`));
-          expect(n.movement).toBe(r < 6 ? 1 : r < 12 ? 2 : r < 18 ? 3 : 4);
+          expect(n.movement).toBe(r < 5 ? 1 : r < 11 ? 2 : r < 17 ? 3 : 4);
           if (r < ROWS - 1) expect(n.next.length).toBeGreaterThan(0);
         }
       });
       const finals = map.rows.flat().filter((n) => Run.isFinalNode(n));
       expect(finals.map((n) => [n.row, n.kind, n.encounterId])).toEqual([
-        [18, 'boss', CONDUCTOR_ENCOUNTER],
+        [17, 'boss', CONDUCTOR_ENCOUNTER],
       ]);
-      expect(map.rows[18]![0]!.reward.text).toBe('The Silent Conductor. Answer the silence.');
+      expect(map.rows[17]![0]!.reward.text).toBe('The Silent Conductor. Answer the silence.');
     }
   });
 
-  it('Movement I’s road: First Light; sk/sk/event; elite/sk/sk; the Bellwarden; rest/shop/forge; the Cantor', () => {
+  it('Movement I’s road (s5): First Light; sk/elite/sk; the Bellwarden; rest/shop/forge; the Cantor', () => {
     for (const seed of SEEDS) {
       const m1 = Run.rowsOfMovement(Run.generateMap(seed, 4), 1);
       expect(m1.map((row) => row.map((n) => n.kind).sort())).toEqual(
         ROAD_I.rows.map((r) => [...r].sort()),
       );
       expect(m1[0]!.map((n) => n.encounterId)).toEqual(['first_light']);
-      expect(m1[3]!.map((n) => [n.kind, n.encounterId])).toEqual([['miniboss', 'bellwarden']]);
-      expect(m1[5]!.map((n) => [n.kind, n.encounterId])).toEqual([['boss', 'hollow_cantor']]);
+      expect(m1[2]!.map((n) => [n.kind, n.encounterId])).toEqual([['miniboss', 'bellwarden']]);
+      expect(m1[4]!.map((n) => [n.kind, n.encounterId])).toEqual([['boss', 'hollow_cantor']]);
       for (const n of m1.flat())
         if (n.eventId)
           expect(CONTENT.events.find((e) => e.id === n.eventId)!.movement ?? 1).toBe(1);
@@ -250,14 +250,67 @@ describe('the Finale route’s map', () => {
       Run.rowsOfMovement(map, 3).forEach((row, r) => {
         for (const n of row) if (n.encounterId) expect(n.reward.threat).toBe(threatFor(r));
       });
-      expect(map.rows[18]![0]!.reward.threat).toBe(1);
+      expect(map.rows[17]![0]!.reward.threat).toBe(1);
     }
   });
 });
 
+describe('the road’s own rewards (docs/phase-5d.md, "Bands")', () => {
+  it('First Light pays a rare motif and a relic offer, row 1’s skirmishes an epic motif; nothing else moves', () => {
+    expect(ROAD_I.rewards).toEqual([
+      { row: 0, draft: 'rare', relics: RELIC_OFFERS.elite.count },
+      { row: 1, draft: 'epic' },
+    ]);
+    expect(ROAD_II.rewards).toBeUndefined();
+    for (const seed of SEEDS) {
+      const map = Run.generateMap(seed, 4);
+      const full = Run.generateMap(seed, 3).rows.flat();
+      Run.rowsOfMovement(map, 1).forEach((row, r) => {
+        for (const n of row) {
+          if (r === 0 && n.kind === 'skirmish') {
+            expect(n.reward, n.id).toMatchObject({ draft: 'rare', relics: 2 });
+            expect(n.reward.text).toBe(
+              'A fight on the shorter road: Aether, a relic and a rare motif.',
+            );
+          } else if (r === 1 && n.kind === 'skirmish') {
+            // No relic offer: a skirmish's own (none), so no relic screen either.
+            expect(n.reward, n.id).toMatchObject({ draft: 'epic', relics: 0 });
+            expect(n.reward.text).toBe('A fight on the shorter road: Aether, an epic motif.');
+          } else if (n.kind === 'skirmish') expect(n.reward.relics, n.id).toBe(0);
+        }
+      });
+      // The fight is the same: its Aether, heal and Threat are First Light's on the full map.
+      const light = map.rows[0]![0]!.reward;
+      const {
+        draft: _d,
+        relics: _r,
+        text: _t,
+        ...rest
+      } = full.find(byEncounter('first_light'))!.reward;
+      expect(light).toMatchObject(rest);
+    }
+    // The Prelude and the I-III route keep their own rewards.
+    for (const n of Run.generateMap(1, 1).rows[0]!) expect(n.reward.relics).toBe(0);
+  });
+
+  it('a road skirmish’s win offers its relic, then its rare draft', () => {
+    let run = Run.embark(expedition(7));
+    run = Run.chooseNode(run, Run.reachable(run)[0]!.id);
+    expect(run.phase).toBe('combat');
+    run = Run.continueFromResult(Run.finishCombat(run, outcome(run)));
+    expect(run.phase).toBe('relic');
+    expect(run.relicOffer).toMatchObject({ reason: 'elite', sourceEncounter: 'first_light' });
+    expect(run.relicOffer!.options).toHaveLength(RELIC_OFFERS.elite.count);
+    run = Run.pickRelic(run, null);
+    expect(run.phase).toBe('draft');
+    const rarity = (id: string) => CONTENT.motifs.find((m) => m.id === id)!.rarity;
+    for (const o of run.draft!.options) expect(rarity(o.motifId), o.motifId).not.toBe('common');
+  });
+});
+
 describe('Calling tiers on the road', () => {
-  it('callingRows: [0, 2, 3, 5] on the Finale route, CALLING_ROWS on every other', () => {
-    expect(Run.callingRows({ movements: 4 })).toEqual([0, 2, 3, 5]);
+  it('callingRows: [0, 1, 2, 4] on the Finale route, CALLING_ROWS on every other', () => {
+    expect(Run.callingRows({ movements: 4 })).toEqual([0, 1, 2, 4]);
     for (const movements of [1, 2, 3])
       expect(Run.callingRows({ movements })).toBe(Run.CALLING_ROWS);
     expect(Run.CALLING_ROWS).toEqual([0, 3, 5, 7]);
@@ -270,14 +323,14 @@ describe('Calling tiers on the road', () => {
         for (const n of map.rows[row]!) expect(n.encounterId, `${seed} r${row}`).not.toBeNull();
       expect([0, 1, 2, 3].map((t) => tierWhen(t, map))).toEqual([
         'after First Light',
-        'after your fight at step 3',
+        'after your fight at step 2',
         'after the Bellwarden',
         'after the Hollow Cantor',
       ]);
     }
     expect(tierWhen(3, { movements: 4 })).toBe('after the Hollow Cantor');
     expect(tierWhenList(4, { movements: 4 })).toBe(
-      'after First Light, your fight at step 3, the Bellwarden, and the Hollow Cantor',
+      'after First Light, your fight at step 2, the Bellwarden, and the Hollow Cantor',
     );
     // Without a run, the Prelude's rows, as ever; an I-III map keeps them too.
     expect(tierWhen(3)).toBe('after the Bellwarden');
@@ -288,9 +341,9 @@ describe('Calling tiers on the road', () => {
     const run = Run.embark(Run.setCalling(expedition(11), 'luminary'));
     for (const node of run.map.rows.flat()) {
       const due = Run.callingTierDue(run, node);
-      const want = [0, 2, 3, 5].includes(node.row) && !!node.encounterId && node.kind !== 'event';
+      const want = [0, 1, 2, 4].includes(node.row) && !!node.encounterId && node.kind !== 'event';
       expect(due !== null, node.id).toBe(want);
-      if (due) expect(due.tier).toBe([0, 2, 3, 5].indexOf(node.row));
+      if (due) expect(due.tier).toBe([0, 1, 2, 4].indexOf(node.row));
     }
     let cantor = at(run, byEncounter('hollow_cantor'));
     cantor = Run.continueFromResult(Run.finishCombat(cantor, outcome(cantor)));
@@ -311,10 +364,10 @@ describe('the Unweaver’s interlude and the Conductor’s end', () => {
   it('the Unweaver goes on: heal 0.5, 75 Aether, 3 relics from Movement 4’s pools', () => {
     for (const seed of SEEDS.slice(0, 10)) {
       const map = Run.generateMap(seed, 4);
-      const unweaver = map.rows[17]![0]!;
+      const unweaver = map.rows[16]![0]!;
       expect(unweaver.encounterId).toBe('the_unweaver');
       expect(Run.isFinalNode(unweaver)).toBe(false);
-      expect(unweaver.next).toEqual(['r18c0']);
+      expect(unweaver.next).toEqual(['r17c0']);
       expect(unweaver.reward).toMatchObject({
         draft: 'epic',
         heal: 0.5,
@@ -545,9 +598,9 @@ describe('the route’s copy, derived from the labels and the road', () => {
 
   it('the map and the Summary: the Finale mid-sentence', () => {
     const run = Run.embark(expedition(8));
-    const conductor = run.map.rows[18]![0]!;
-    const unweaver = run.map.rows[17]![0]!;
-    const path = [...run.map.rows.slice(0, 18).map((row) => row[0]!.id)];
+    const conductor = run.map.rows[17]![0]!;
+    const unweaver = run.map.rows[16]![0]!;
+    const path = [...run.map.rows.slice(0, 17).map((row) => row[0]!.id)];
     const there = { ...run, path };
     expect(path.at(-1)).toBe(unweaver.id);
     expect(mapHeader(there).eyebrow).toBe('The Finale · The Celestial Crucible · step 1 of 1');

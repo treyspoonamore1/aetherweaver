@@ -336,6 +336,8 @@ interface NodePlace {
    * (docs/phase-5d.md); absent: `row`.
    */
   threatRow?: number;
+  /** The road's own reward for its row (docs/phase-5d.md, "Bands"); absent: the Movement's. */
+  bonus?: NonNullable<RoadVariant['rewards']>[number];
   movement: AnyMovementDef;
   /** The Movement after this one in the run (null: this is the run's last). */
   next: AnyMovementDef | null;
@@ -347,13 +349,33 @@ function rewardFor(
   eventId: string | null,
   place: NodePlace,
 ): MapNode['reward'] {
-  const reward = rewardKind(kind, encounterId, eventId, place);
+  const reward = roadReward(kind, rewardKind(kind, encounterId, eventId, place), place);
   // Fights (and an event that holds one) say how dangerous their row is.
   const fights =
     kind === 'event'
       ? eventId !== null && eventHasFight(eventId)
       : kind !== 'shrine' && kind !== 'respite' && kind !== 'merchant' && kind !== 'forge';
   return { ...reward, threat: fights ? threatFor(place.threatRow ?? place.row) : 1 };
+}
+
+/**
+ * A skirmish on a row the Finale route's road pays more for (docs/phase-5d.md, "Bands"): its
+ * motif is of the road's rarity, and it offers a relic when the road names how many. Only road rows carry a `bonus`, so the
+ * Prelude's and the I-II and I-III routes' rewards are what they always were.
+ */
+function roadReward(
+  kind: NodeKind,
+  reward: Omit<MapNode['reward'], 'threat'>,
+  place: NodePlace,
+): Omit<MapNode['reward'], 'threat'> {
+  const bonus = place.bonus;
+  if (!bonus || kind !== 'skirmish') return reward;
+  return {
+    ...reward,
+    draft: bonus.draft,
+    relics: bonus.relics ?? reward.relics,
+    text: `A fight on the shorter road: Aether, ${bonus.relics ? 'a relic and ' : ''}${bonus.draft === 'epic' ? 'an epic' : 'a rare'} motif.`,
+  };
 }
 
 /** Relics offered after winning the event's fight (0 if it has none). */
@@ -573,14 +595,23 @@ function buildMovement(
           kind,
           encounterId,
           eventId,
-          road
-            ? { row, threatRow: road.threat[row], movement: def, next }
-            : { row, movement: def, next },
+          road ? roadPlace(road, row, def, next) : { row, movement: def, next },
         ),
         movement,
       };
     });
   });
+}
+
+/** A road row's place: the full Movement's Threat row, and the road's own reward if it pays one. */
+function roadPlace(
+  road: RoadVariant,
+  row: number,
+  movement: AnyMovementDef,
+  next: AnyMovementDef | null,
+): NodePlace {
+  const bonus = road.rewards?.find((b) => b.row === row);
+  return { row, threatRow: road.threat[row], ...(bonus ? { bonus } : {}), movement, next };
 }
 
 /**

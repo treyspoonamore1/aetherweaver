@@ -37,6 +37,7 @@ import {
 } from '../tools/m1-baseline';
 import { CHOIR_VOICES, SCENARIO_CONDUCTOR_PEAK, SCENARIO_GRAND_SILENCE } from '../tools/sim-bench';
 import { callingArg, rulesFor, techniquesArg, verbConfig, verbFight } from '../tools/verbs';
+import { NOVICE_M4_RULES } from '../src/bots/novice';
 import { FINALE_RULES, M3_RULES, SkilledBot } from '../src/bots/skilled';
 import { makeBot, type Bot } from '../src/bots';
 import { band, NAMED_PARTIES, parseArgs, partyArg, runBand } from '../tools/harness';
@@ -692,7 +693,7 @@ describe('the Finale route (playRun --movements 4)', () => {
     expect(run.minutesByMovement.length).toBe(4);
     expect(run.minutesByMovement[3]!).toBeGreaterThan(0);
     expect(run.lastEncounter).toBe(CONDUCTOR);
-    // Its shorter road (6 + 6 + 6 + 1 rows) takes fewer phases than the 3-Movement route.
+    // Its shorter road (5 + 6 + 6 + 1 rows) takes fewer phases than the 3-Movement route.
     expect(phases).toBeGreaterThan(50);
     expect(phases).toBeLessThan(MAX_PHASES / 2);
   }, 120_000);
@@ -777,6 +778,8 @@ describe('the harness’s Finale tables', () => {
     expect(callingBand(4)).toContain('the Silent Conductor');
     expect(rulesFor(3)).toBe(M3_RULES);
     expect(rulesFor(4)).toBe(FINALE_RULES);
+    expect(rulesFor(4, 'novice')).toBe(NOVICE_M4_RULES);
+    expect(rulesFor(3, 'novice')).toEqual([]);
     expect(BOSS_TABLES.the_silent_conductor!.kit).toBe(ARRIVAL4_KIT);
   });
 });
@@ -997,12 +1000,12 @@ describe('the Finale verbs (FinaleWatch)', () => {
     expect(play([{ type: 'encounterEnded', tick: 60, outcome: 'defeat' }])).toBe(1);
   });
 
-  it('a real fight fails no Cue its soloist’s death or a phase shift cleared (Skilled, 1002)', () => {
+  it('a real fight fails no Cue its soloist’s death or a phase shift cleared (Skilled, 1001)', () => {
     let cue: number | null = null;
     let excused = 0;
     let unsung = 0;
     const run = playEncounter(
-      { seed: 1002, encounter: CONDUCTOR, ...kit4 },
+      { seed: 1001, encounter: CONDUCTOR, ...kit4 },
       'skilled',
       (sim, events) => {
         for (const e of events) {
@@ -1022,8 +1025,11 @@ describe('the Finale verbs (FinaleWatch)', () => {
         }
       },
     );
-    // Seed 1002's fight (a win) has Cues cleared by both; none of them counts as failed, and
-    // only the Cues that landed on a voice that couldn't sing do.
+    // Seed 1001's fight (a win) has Cues cleared by both: one by a phase shift, one by its
+    // soloist's death. None of them counts as failed, and only the Cues that landed on a voice
+    // that couldn't sing do. (It was seed 1002 before the Finale was tuned; the tuned 1002 still
+    // passes, but only a death clears one of its Cues, so it no longer shows the phase-shift
+    // excuse. 1001 shows both.)
     expect(run.outcome).toBe('victory');
     expect(excused).toBeGreaterThan(0);
     expect(unsung).toBeGreaterThan(0);

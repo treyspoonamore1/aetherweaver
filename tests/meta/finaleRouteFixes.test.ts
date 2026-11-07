@@ -22,7 +22,7 @@ import { dissonanceUnlockLine } from '../../src/ui/screens/dissonanceModel';
 import { movementCard } from '../../src/ui/screens/routeText';
 
 const FINALE_TIERS =
-  'after First Light, your fight at step 3, the Bellwarden, and the Hollow Cantor';
+  'after First Light, your fight at step 2, the Bellwarden, and the Hollow Cantor';
 const PRELUDE_TIERS = 'after First Light, your fights at steps 4 and 6, and the Bellwarden';
 
 /** A .tsx module's export, at run time (the node test build has no JSX to import statically). */
@@ -100,7 +100,7 @@ describe('Prep’s Calling copy follows the road', () => {
 describe('Prep’s Calling path dialog follows the road (review fix)', () => {
   const FINALE_WHEN = [
     'after First Light',
-    'after your fight at step 3',
+    'after your fight at step 2',
     'after the Bellwarden',
     'after the Hollow Cantor',
   ];

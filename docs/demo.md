@@ -114,3 +114,54 @@ The published link above has Movement III since version 1793913565-ae7a (2026-11
 - When a hero went down, did the Result's line name what would have saved them?
 - Was any input ever blocked without a visible lock and a way out?
 - How long did the whole Expedition take you, and did Movement III feel too long after two Movements?
+
+## Phase 5d: the Finale, the Silent Conductor
+
+*For testers.* The Expedition now climbs out of the Rift into **the Celestial Crucible**, where the Silent Conductor waits with its mirror-choir ([docs/phase-5d.md](phase-5d.md)). The Unweaver becomes an interlude (half your life back, 75 Aether, a relic and an epic draft), and the run ends at the Conductor. To keep the whole run near 40 minutes, the Finale route takes a shorter road through Movements I-III.
+
+The published link does not have the Finale yet: it lands with the next demo build.
+
+**How to get there.**
+
+- **Prep:** the Expedition route reads 'Movements I–III and the Finale, to the Silent Conductor.', about 40 minutes for a strong player (39.6 / 39.4 minutes measured on the Skilled bot, losses included).
+- **The road:** Movement I is 5 stops (First Light; a skirmish or elite row; the Bellwarden; a respite, merchant or forge; the Cantor). Movement II is 6. Movement III is unchanged. The Prelude is unchanged.
+- **Veteran start:** choose the Expedition in Prep and play through, or use *Skip the unlocks* first.
+
+**What to look for in the Finale.**
+
+- **Phase 1, the Overture:** the Conductor Cues a Solo onto a glass voice. Its cast bar names the soloist and the Solo, and a brass baton line points at it. Did you know to interrupt the soloist, or to answer its Solo?
+  - Lament (the Alto): a mark. Chime it away.
+  - Basso Ostinato (the Bass): a circle. Ward on the beat.
+  - Cadenza (the Tenor): a line, more than a hero's life. Reel them out or step aside.
+  - Shatter Aria (the Soprano): a wide circle. Scatter so it catches one.
+- **Discord:** the brass stave under the boss bar. Every Solo you let through adds 25. A brass streak runs from the hero it hit to the Conductor. It also rises on its own, faster in phase 2. Did you see the 'Fortissimo Silence in ~N s' countdown?
+- **Fortissimo Silence** (Discord at 100): three raid pulses of 40% of every hero's life. Your Crescendo cancels it, whatever your Calling. Did you hold the Resonance for it? Without one, the dome, Wards and heals carry the party through.
+- **Phase 2, the Mirror Choir:** the Tenor and Soprano join at once, so the choir can be four for a while. Cues come faster.
+- **Phase 3, the Grand Silence** (at 30% life): the music stops, the light greys and your heroes freeze. Only you can act.
+  - Only three things are heard, and each is a **note**: a Perfect Ward, a Clutch Chime, and a Reel that saves a hero (a Chronomancer's Rewind counts too).
+  - Eight notes bring the song back. Every hero wakes with a full Solo, and the fallen stand up again.
+  - If you can't make eight, the Coda wakes them after about 50 s, but the fallen stay down.
+  - The stave in the boss bar fills one pip per note, with the note's glyph.
+- **The last burn:** Cue your heroes' Solos and finish it.
+
+**The epilogue.**
+
+- After the win, five short lines play at the top of the Summary (about 17 s): the Conductor, your first hero, and the Weaver. You can skip it with the Skip button, Escape, Enter or Space.
+- It shows once per victory.
+- The Summary then reads 'The song goes on', with a first-clear card. Dissonance opens on your first Finale clear at Weaver Rank 15 or above.
+
+**Playing with the sound off.** The Grand Silence is built around sound, so please try it muted too (and with Flashes at 0, if you can).
+
+- The music stopping: the grey light, the vignette, the silence tint, dark sky rings, frozen frames, and the stave in place of the meter.
+- A note: the 'Note 3/8 · Perfect Ward' callout, its pip and glyph on the stave, a gold mote rising to a ring in the sky.
+- The song returning: frames relit gold, the fallen rising, 'Note 8/8 · The song returns!'.
+- Settings has a **Captions** switch (off by default) that also writes the key sounds as words.
+
+**Please tell us:**
+
+- In phase 1, did the Cue tell you who would sing, and what to do about it, before the Solo landed?
+- Did you understand what fills Discord, and that your Crescendo stops Fortissimo Silence?
+- In the Grand Silence, could you name the three things that count as notes? (With the sound off, too?)
+- Did you ever press something in the silence and wonder why nothing happened?
+- Was the epilogue the right length, and did you find the way to skip it?
+- How long did the whole Expedition take you? Did the Finale feel like an ending?
