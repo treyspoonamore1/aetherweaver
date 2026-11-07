@@ -30,7 +30,9 @@ import {
   decreeShownNow,
   heardCut,
   heardReignite,
+  heardSilence,
   type ReigniteHeard,
+  type SilenceHeard,
   type ThreadCutHeard,
 } from '../ui/hudBridge';
 import { callingLook } from '../ui/kit/callingLook';
@@ -144,6 +146,8 @@ export class GameRuntime {
   private threadCut: ThreadCutHeard | null = null;
   /** The last Reignite (the Finale: the frames relit gold for a moment). */
   private reignited: ReigniteHeard | null = null;
+  /** The Finale: the Grand Silence's cap, fixed as it began (Stasis can't stretch the Coda bar). */
+  private silenceHeard: SilenceHeard | null = null;
   private perfTimer = 0;
   private paused = false;
   private hidden = false;
@@ -348,6 +352,7 @@ export class GameRuntime {
           guardBlockedAt: this.guardBlockedAt,
           threadCut: this.threadCut,
           reignited: this.reignited,
+          silenceHeard: this.silenceHeard,
         }),
       );
       ui.pruneCallouts(now);
@@ -455,6 +460,8 @@ export class GameRuntime {
     // The Finale: Reignite relights the frames gold for a moment (no other fight raises it).
     const reignite = heardReignite(events, state.time);
     if (reignite) this.reignited = reignite;
+    const silence = heardSilence(events, state);
+    if (silence) this.silenceHeard = silence;
     this.view.onEvents(events, state);
     getAudio().onEvents(events, state);
     this.callouts(events, state);

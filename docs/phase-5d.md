@@ -611,8 +611,8 @@ Each candidate was checked against heal, shield, amp, lethal, threat, ailment, B
 | tarnished bronze `#7a5646` | 7.4 (Bear, deuteranopia; the ≥ 32.4 was against an older Bear) | not used |
 | `#8a6a5a` | 12.6 | not used |
 | stave `#605078` (`CRUCIBLE_HEX.stave`) | ≥ 21.4 (ailment, protanopia) | the silence stave ring |
-| cobalt rim `#4a5aa8` | ≥ 23.6 | the Crucible's mood rim (the W0b placeholder `#c9d3f5` sat 5.9 from shield) |
-| starlight-bone key `#e2dccc` | 13.3 (call, tritanopia) | the Crucible's key light: a scene light, not a mark (`CRUCIBLE_UNMARKED`), never white-gold |
+| cobalt rim `#4a5aa8` | ≥ 23.6 (ailment, tritanopia) | the Crucible's mood rim (the W0b placeholder `#c9d3f5` sat 2.1 from Fermata, protanopia, and 5.9 from shield, deuteranopia) |
+| starlight-bone key `#e2dccc` | 5.3 (Fermata, tritanopia; 7.3 from goldHot, 13.3 from the nearest live role, call) | the Crucible's key light: a scene light, not a mark (`CRUCIBLE_UNMARKED`, so it never draws a ring or a beam), never white-gold |
 | ash `#9aa0aa` | 2.8 (ailment, deuteranopia) | never a semantic hue: the silence is desaturation, not a colour |
 | sky lilac / white-gold | 0.7 (shield, protanopia) / 4.2 (Resonance) | ambient, off the combat disc only |
 
@@ -628,7 +628,7 @@ Each candidate was checked against heal, shield, amp, lethal, threat, ailment, B
   - ambience: high bowed-glass shimmer.
   - The Conductor's motif is the Weaver's phrase inverted (`mirrorIndex`). Each Cue plays the voice's mirrored leitmotif in minor.
 - **Discord fed:** a soft half-step tick (E–F). The phase-2 rise is a slow rising pad note under the stems.
-- **Fortissimo Silence:** a 3 s rising tutti that cuts to nothing on each pulse. A Crescendo cancel resolves it into the Crescendo's swell.
+- **Fortissimo Silence:** a rising tutti over each pulse's whole windup (3 s for the first at default assists; every windup multiplier lengthens it, `TUTTI_MAX` 16 s is only a guard) that cuts to nothing as the pulse lands. A Crescendo cancel resolves it into the Crescendo's swell.
 - **The Grand Silence set piece** (04 §4.1):
   - `MusicInputs.silence?: {on, notes}` comes from public state (the `m3Inputs` pattern, `sfx.ts:6005-6014`).
   - The crucible `targets` hook (`music.ts:591`) zeroes all four stems while `on`, then reopens them two notes per stem: 1-2 pad, 3-4 pulse, 5-6 melody, 7-8 choir. A change in notes forces an urgent re-level on the next beat (the `stolenHeard` pattern, `:466-470`).

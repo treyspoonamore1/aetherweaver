@@ -51,7 +51,12 @@ import {
 } from '../src/ui/hud/finaleLook';
 import { bossCastIcon } from '../src/ui/hud/legionLook';
 import { settleHeldVoices, sightingFoes, sightingOf } from '../src/ui/hud/sighting';
-import { REIGNITE_GLOW_S, buildHudSnapshot, heardReignite } from '../src/ui/hudBridge';
+import {
+  REIGNITE_GLOW_S,
+  buildHudSnapshot,
+  heardReignite,
+  heardSilence,
+} from '../src/ui/hudBridge';
 import {
   finaleHud,
   finaleMockCallouts,
@@ -252,6 +257,40 @@ describe('the Discord meter and the silence stave', () => {
     const stave = html.slice(html.indexOf('data-testid="boss-silence"'));
     expect(stave).not.toContain('width:100%');
     expect(stave).toMatch(/width:93\.33\d*%/);
+    delete world.field.finale;
+  });
+
+  it('Stasis inside the silence holds the Coda bar: the cap stays the one fixed at entry', () => {
+    const sim = createSim({ seed: 7, encounter: CONDUCTOR });
+    for (let i = 0; i < 900 && sim.state.encounter.bossId === null; i++) sim.step([]);
+    const world = worldOf(sim);
+    const now = world.time;
+    // The silence began 14 s ago with the default 50 s cap; 10 s ran, then a 4 s Stasis pushed
+    // `until` 4 s on and left `since` (conductorBoss.ts's Stasis hook): 40 s are still left.
+    const since = now - 14;
+    world.field.finale = {
+      silence: { notes: 2, of: 8, since, until: now + 40, sources: ['perfect', 'clutch'] },
+    };
+    const began = {
+      type: 'silenceBegan',
+      tick: world.tick,
+      boss: world.encounter.bossId!,
+      until: since + 50,
+    } as SimEvent;
+    const heard = heardSilence([began], sim.state);
+    expect(heard).toEqual({ since, cap: 50 });
+    expect(heardSilence([], sim.state)).toBeNull();
+    const hud = buildHudSnapshot(sim.state, { seed: 7, hovered: null, silenceHeard: heard });
+    expect(hud.boss?.silence?.left).toBeCloseTo(40, 6);
+    expect(hud.boss?.silence?.cap).toBeCloseTo(50, 6);
+    expect(silenceLeftFrac(hud.boss!.silence!)).toBeCloseTo(0.8, 6);
+    // A cap heard for another silence (an earlier `since`) is not this one's.
+    const stale = buildHudSnapshot(sim.state, {
+      seed: 7,
+      hovered: null,
+      silenceHeard: { since: since - 100, cap: 30 },
+    });
+    expect(stale.boss?.silence?.cap).toBeCloseTo(54, 6);
     delete world.field.finale;
   });
 
