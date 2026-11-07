@@ -1028,6 +1028,19 @@ describe('content lint: the Finale (docs/phase-5d.md)', () => {
       (c) => void delete withFinale(c).road[0]!.callingRows,
       /road "hollow_choir": Movement I's road carries callingRows/,
     );
+    // The road's own rewards: one entry a row, on a row with a skirmish to pay them.
+    rejects(
+      (c) => void (withFinale(c).road[0]!.rewards = [{ row: 3, draft: 'rare', relics: 2 }]),
+      /road "hollow_choir": reward row 3 has no skirmish to pay it/,
+    );
+    rejects(
+      (c) =>
+        void (withFinale(c).road[0]!.rewards = [
+          { row: 1, draft: 'rare', relics: 2 },
+          { row: 1, draft: 'epic', relics: 1 },
+        ]),
+      /road "hollow_choir": reward row 1 is given twice/,
+    );
     rejects(
       (c) => void (withFinale(c).road[0]!.fixed[0]!.encounter = 'tolling_halls'),
       /row 0 is fixed to its opening/,
@@ -1079,7 +1092,7 @@ describe('the Finale: the Silent Conductor (docs/phase-5d.md)', () => {
       arena: ids.CRUCIBLE_ARENA,
       boss: ids.CONDUCTOR,
       enrage: 420,
-      par: 225,
+      par: 200,
       hints: ['decree', 'discord', 'silence'],
       movement: 4,
     });
@@ -1088,7 +1101,7 @@ describe('the Finale: the Silent Conductor (docs/phase-5d.md)', () => {
   it('the Conductor: its body, its melee and every scripted attack among its specials', () => {
     expect(enemy(ids.CONDUCTOR)).toMatchObject({
       role: 'boss',
-      hp: 60000,
+      hp: 40000,
       speed: 2.2,
       radius: 1.5,
       height: 4.8,
@@ -1111,23 +1124,23 @@ describe('the Finale: the Silent Conductor (docs/phase-5d.md)', () => {
       kind: 'cleave',
       windup: 1.6,
       cooldown: 9,
-      damage: 820,
+      damage: 600,
       radius: 4,
       angleDeg: 90,
       targeting: 'current',
       answers: ['ward', 'dome'],
-      discord: 8,
+      discord: 5,
     });
     expect(attack(ids.SFORZANDO)).toMatchObject({
       kind: 'beam',
       windup: 1.8,
       cooldown: 12,
-      damage: 560,
+      damage: 320,
       length: 22,
       width: 1.4,
       targeting: 'farthest',
       answers: ['move', 'reel'],
-      discord: 8,
+      discord: 5,
     });
     // Nothing lethal in the first 4 s: the first Raise at +3 s, the first Cue at +8 s.
     for (const id of [ids.DOWNBEAT, ids.SFORZANDO])
@@ -1160,7 +1173,7 @@ describe('the Finale: the Silent Conductor (docs/phase-5d.md)', () => {
         name: 'Fortissimo Silence',
         kind: 'raid',
         targeting: 'allHeroes',
-        pctMaxHp: 0.5,
+        pctMaxHp: 0.4,
         damage: 0,
         answers: ['crescendo', 'dome', 'ward'],
         scripted: true,
@@ -1168,10 +1181,10 @@ describe('the Finale: the Silent Conductor (docs/phase-5d.md)', () => {
     }
     // 'Fortissimo Silence' in full, never 'Fortissimo' alone (an aura's name).
     expect(pulses[0]!.decree).toBe(
-      'Fortissimo Silence — every hero loses 150% of their life over 3 s. Crescendo to cancel it, or dome, Ward and heal.',
+      'Fortissimo Silence — every hero loses 120% of their life over 3 s. Crescendo to cancel it, or dome, Ward and heal.',
     );
     expect(pulses[0]!.decreeNoDome).toBe(
-      'Fortissimo Silence — 150% of every hero’s life over 3 s. No dome: keep 100 Resonance and cancel it with your Crescendo; Ward the one you can’t lose.',
+      'Fortissimo Silence — 120% of every hero’s life over 3 s. No dome: keep 100 Resonance and cancel it with your Crescendo; Ward the one you can’t lose.',
     );
     expect(pulses.slice(1).every((a) => a.decree === undefined)).toBe(true);
   });
@@ -1202,10 +1215,10 @@ describe('the Finale: the Silent Conductor (docs/phase-5d.md)', () => {
       return [e.hp, e.basic.kind, e.basic.damage, e.basic.range];
     };
     expect([ids.ALTO, ids.BASS, ids.TENOR, ids.SOPRANO].map(body)).toEqual([
-      [2000, 'bolt', 60, 10],
-      [2000, 'melee', 90, 2],
-      [2000, 'melee', 90, 2],
-      [2000, 'bolt', 60, 10],
+      [1200, 'bolt', 45, 10],
+      [1800, 'melee', 90, 2],
+      [1200, 'melee', 90, 2],
+      [1200, 'bolt', 45, 10],
     ]);
     for (const [voice, solo] of Object.entries(ids.SOLOS)) {
       expect(enemy(voice).specials, voice).toEqual([solo]);
@@ -1217,7 +1230,7 @@ describe('the Finale: the Silent Conductor (docs/phase-5d.md)', () => {
         range: 44,
         interruptible: true,
         scripted: true,
-        discord: 20,
+        discord: 25,
         decreeLimit: 2,
       });
       expect(attack(id).answers, id).toContain('focus');
@@ -1295,14 +1308,14 @@ describe('the Finale: the Silent Conductor (docs/phase-5d.md)', () => {
       fixed: [{ row: 0, encounter: ids.CONDUCTOR_ENCOUNTER }],
       boss: ids.CONDUCTOR_ENCOUNTER,
       scale: { life: 1.85, damage: 1.05 },
-      rewards: { xp: 1.5, starlight: 1.5, aether: 1.5 },
+      rewards: { xp: 1.35, starlight: 1.5, aether: 1.5 },
       finale: true,
     });
     expect(FINALE.road.map((r) => [r.movement, r.rows.length, r.threat])).toEqual([
-      ['hollow_choir', 6, [0, 3, 5, 7, 8, 9]],
+      ['hollow_choir', 5, [0, 3, 7, 8, 9]],
       ['crimson_legion', 6, [0, 1, 2, 4, 5, 6]],
     ]);
-    expect(FINALE.road[0]!.callingRows).toEqual([0, 2, 3, 5]);
+    expect(FINALE.road[0]!.callingRows).toEqual([0, 1, 2, 4]);
     expect('shuffle' in FINALE.road[0]!).toBe(false);
     expect(FINALE.road[1]!.shuffle).toBe(true);
     expect(CONTENT.movements.at(-1)).toStrictEqual(FINALE);

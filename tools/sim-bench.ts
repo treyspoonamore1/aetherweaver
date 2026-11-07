@@ -58,14 +58,31 @@ export const SCENARIO_UNWEAVER_PEAK: Scenario = {
   },
 };
 
-/** The Skilled bot on the Conductor, its boss set to `pct` of its life as it first stands. */
-function conductorDriver(seed: number, pct: number): Scenario['driver'] {
+/**
+ * The Skilled bot on the Conductor, its boss set to `pct` of its life as it first stands, or once
+ * `voices` of its choir stand (arrived, not still spawning).
+ */
+function conductorDriver(seed: number, pct: number, voices = 0): Scenario['driver'] {
   return () => {
     const player = makeBot('skilled', seed);
     let phased = false;
+    const standing = (state: Parameters<ReturnType<Scenario['driver']>>[1]) =>
+      state.entities
+        .list()
+        .filter(
+          (e) =>
+            e.enemy &&
+            CHOIR_VOICES.has(e.enemy.defId) &&
+            e.enemy.state !== 'spawning' &&
+            !e.health?.dead,
+        ).length;
     return (_tick, state) => {
       const out = player.decide(state);
-      if (!phased && state.encounter.bossId !== null) {
+      if (
+        !phased &&
+        state.encounter.bossId !== null &&
+        (voices === 0 || standing(state) >= voices)
+      ) {
         out.push({ t: 'debug', op: { op: 'setBossHp', pct } });
         phased = true;
       }
@@ -75,17 +92,18 @@ function conductorDriver(seed: number, pct: number): Scenario['driver'] {
 }
 
 /**
- * The Silent Conductor's peak (docs/phase-5d.md, "Tools"; bench-only, not a golden): straight
- * into phase 2 (the Mirror Choir), so its entry Raise brings the Tenor and the Soprano and the
- * next a third voice, Cues come every 11 s, and Discord climbs from its floor of 70 to Fortissimo
- * Silence's three raid pulses inside the 90 s: the choir, a Solo and Fortissimo at once.
+ * The Silent Conductor's peak (docs/phase-5d.md, "Tools"; bench-only, not a golden): into phase 2
+ * (the Mirror Choir) as soon as the Overture's Alto and Bass stand, so its entry Raise brings the
+ * Tenor and the Soprano beside them (the choir is four), Cues come every 11 s, and Discord climbs
+ * from its floor of 70 to Fortissimo Silence's three raid pulses inside the 90 s: the choir, a
+ * Solo and Fortissimo at once.
  */
 export const SCENARIO_CONDUCTOR_PEAK: Scenario = {
   name: 'conductor-peak',
   seed: 9494,
   ticks: 60 * 90,
   config: { encounter: CONDUCTOR, debug: true, ...kitConfig(ARRIVAL4_KIT) },
-  driver: conductorDriver(9494, 0.55),
+  driver: conductorDriver(9494, 0.59, 2),
 };
 
 /**

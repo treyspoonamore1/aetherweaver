@@ -1000,12 +1000,12 @@ describe('the Finale verbs (FinaleWatch)', () => {
     expect(play([{ type: 'encounterEnded', tick: 60, outcome: 'defeat' }])).toBe(1);
   });
 
-  it('a real fight fails no Cue its soloist’s death or a phase shift cleared (Skilled, 1002)', () => {
+  it('a real fight fails no Cue its soloist’s death or a phase shift cleared (Skilled, 1001)', () => {
     let cue: number | null = null;
     let excused = 0;
     let unsung = 0;
     const run = playEncounter(
-      { seed: 1002, encounter: CONDUCTOR, ...kit4 },
+      { seed: 1001, encounter: CONDUCTOR, ...kit4 },
       'skilled',
       (sim, events) => {
         for (const e of events) {
@@ -1025,7 +1025,7 @@ describe('the Finale verbs (FinaleWatch)', () => {
         }
       },
     );
-    // Seed 1002's fight (a win) has Cues cleared by both; none of them counts as failed, and
+    // Seed 1001's fight (a win) has Cues cleared by both; none of them counts as failed, and
     // only the Cues that landed on a voice that couldn't sing do.
     expect(run.outcome).toBe('victory');
     expect(excused).toBeGreaterThan(0);

@@ -153,7 +153,7 @@ const PHASES: Record<string, PhaseDef[]> = {
       answers: ['focus', 'crescendo'],
     },
     {
-      at: 0.25,
+      at: 0.3,
       decree: { name: 'Grand Silence', text: CONDUCTOR_DECREES.grandSilence },
       rewindText: CONDUCTOR_DECREES.grandSilenceRewind,
       answers: ['ward', 'chime', 'reel'],

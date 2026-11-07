@@ -53,13 +53,13 @@ export const RAISE_WARNING = 1;
 /** How many voices may stand at once: in the Overture, then in the Mirror Choir. */
 export const CHOIR_CAP = { overture: 2, choir: 3 } as const;
 /** The Cue's cadence (s): in the Overture, in the Mirror Choir, and enraged. */
-export const CUE_EVERY = { overture: 14, choir: 11, enraged: 7 } as const;
+export const CUE_EVERY = { overture: 12, choir: 11, enraged: 7 } as const;
 /** A Cue whose Solo can't begin is tried again this long after (s). */
 export const CUE_RETRY = 2;
 /** At most this many damaging telegraphs live before a Cue waits (and in the silence). */
 export const LIVE_CAP = 2;
 /** Discord's passive rise (a second) in the Overture and in the Mirror Choir. */
-export const DISCORD_RATE = { overture: 0.5, choir: 1 } as const;
+export const DISCORD_RATE = { overture: 0.3, choir: 1 } as const;
 /** The last burn's scripted Downbeat and Sforzando cadences (s), after Reignite or the Coda. */
 export const BURN_EVERY = { downbeat: 9, sforzando: 12 } as const;
 /**
@@ -67,7 +67,7 @@ export const BURN_EVERY = { downbeat: 9, sforzando: 12 } as const;
  * the Rest lands, the Cadence this long after the Measure lands, the next cycle this long after
  * the Cadence lands.
  */
-export const SILENCE_STEPS = { measureLead: 0.5, cadenceLag: 0.5, nextCycle: 1 } as const;
+export const SILENCE_STEPS = { measureLead: 0.5, cadenceLag: 0.5, nextCycle: 2 } as const;
 /** Each note fills this much of every stilled hero's Solo (eight fill it). */
 export const SOLO_PER_NOTE = 100 / NOTES_NEEDED;
 
@@ -75,19 +75,19 @@ export const SOLO_PER_NOTE = 100 / NOTES_NEEDED;
 
 /** The Conductor's Downbeat: a cleave on the tank. */
 const DOWNBEAT_WINDUP = 1.6;
-const DOWNBEAT_DAMAGE = 820;
+const DOWNBEAT_DAMAGE = 600;
 const DOWNBEAT_REACH = 4;
 const DOWNBEAT_ARC = 90;
 /** Sforzando: a beam at the farthest hero. */
 const SFORZANDO_WINDUP = 1.8;
-const SFORZANDO_DAMAGE = 560;
+const SFORZANDO_DAMAGE = 320;
 const SFORZANDO_LINE = 22;
 const SFORZANDO_WIDTH = 1.4;
 /** Discord a failed Conductor attack adds, and a failed Solo. */
-const DISCORD_BOSS = 8;
-const DISCORD_SOLO = 20;
+const DISCORD_BOSS = 5;
+const DISCORD_SOLO = 25;
 /** Fortissimo Silence: three raid pulses of this share of each hero's life. */
-const FORTISSIMO_PCT = 0.5;
+const FORTISSIMO_PCT = 0.4;
 const FORTISSIMO_FIRST = 3;
 const FORTISSIMO_NEXT = 1.5;
 /** The Grand Silence's program. */
@@ -145,12 +145,12 @@ const CUE_WINDUP = 1.2;
 export const FINALE_MIN_WINDUP = 1;
 const CUE_FROM = 8;
 const RAISE_WINDUP = 1.5;
-const RAISE_EVERY = 20;
+const RAISE_EVERY = 30;
 const RAISE_FROM = 3;
 const GRAND_SILENCE_WINDUP = 2;
 /** One Rest → Measure → Cadence cycle at default assists; each Cadence comes every other. */
-const SILENCE_CYCLE = 9;
-const CADENCE_EVERY = 18;
+const SILENCE_CYCLE = 10;
+const CADENCE_EVERY = 20;
 
 // ── Decrees, in the Conductor's voice ────────────────────────────────────────────────
 
@@ -196,7 +196,7 @@ export function soloDecree(solo: string, hero?: string): string {
  */
 const BODIES = {
   the_silent_conductor: {
-    hp: 60000,
+    hp: 40000,
     speed: 2.2,
     radius: 1.5,
     height: 4.8,
@@ -204,15 +204,15 @@ const BODIES = {
     basic: { kind: 'melee', damage: 110, interval: 1.6, range: 3 },
   },
   mirror_alto: {
-    hp: 2000,
+    hp: 1200,
     speed: 3.2,
     radius: 0.55,
     height: 2.2,
     keep: 9,
-    basic: { kind: 'bolt', damage: 60, interval: 1.8, range: 10 },
+    basic: { kind: 'bolt', damage: 45, interval: 1.8, range: 10 },
   },
   mirror_bass: {
-    hp: 2000,
+    hp: 1800,
     speed: 3.2,
     radius: 0.65,
     height: 2.4,
@@ -220,7 +220,7 @@ const BODIES = {
     basic: { kind: 'melee', damage: 90, interval: 1.8, range: 2 },
   },
   mirror_tenor: {
-    hp: 2000,
+    hp: 1200,
     speed: 3.2,
     radius: 0.6,
     height: 2.3,
@@ -228,12 +228,12 @@ const BODIES = {
     basic: { kind: 'melee', damage: 90, interval: 1.8, range: 2 },
   },
   mirror_soprano: {
-    hp: 2000,
+    hp: 1200,
     speed: 3.2,
     radius: 0.5,
     height: 2.1,
     keep: 9,
-    basic: { kind: 'bolt', damage: 60, interval: 1.8, range: 10 },
+    basic: { kind: 'bolt', damage: 45, interval: 1.8, range: 10 },
   },
 } as const;
 

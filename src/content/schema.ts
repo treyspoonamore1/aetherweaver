@@ -1505,6 +1505,22 @@ export const RoadVariantSchema = z
     callingRows: z.array(z.number().int().nonnegative()).optional(),
     /** Shuffle the ladder's skirmish and elite pools on this road. */
     shuffle: z.literal(true).optional(),
+    /**
+     * The road's own rewards (docs/phase-5d.md, "Bands": the lever when the shorter road leaves
+     * fewer drafts and relics before each boss): each skirmish on a listed row offers a motif of
+     * this rarity and a relic from this many. Nothing else pays more; absent: the Movement's own.
+     */
+    rewards: z
+      .array(
+        z
+          .object({
+            row: z.number().int().nonnegative(),
+            draft: z.enum(['rare', 'epic']),
+            relics: z.number().int().positive(),
+          })
+          .strict(),
+      )
+      .optional(),
   })
   .strict();
 export type RoadVariant = z.infer<typeof RoadVariantSchema>;
@@ -1968,6 +1984,14 @@ function lintFinale(c: ContentShape, ctx: z.RefinementCtx, sets: LintSets): void
           if (!kinds || !kinds.every((k) => FIGHT_KINDS.has(k)))
             issue(`${at}: calling row ${row} is not a row of fights`);
         }
+      }
+      // The road's own rewards: one entry a row, each on a row with a skirmish to pay them.
+      const paid = new Set<number>();
+      for (const b of r.rewards ?? []) {
+        if (paid.has(b.row)) issue(`${at}: reward row ${b.row} is given twice`);
+        paid.add(b.row);
+        if (!r.rows[b.row]?.includes('skirmish'))
+          issue(`${at}: reward row ${b.row} has no skirmish to pay it`);
       }
     }
   });

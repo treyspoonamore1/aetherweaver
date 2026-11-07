@@ -9,6 +9,9 @@ import { attackDef } from '../../src/content';
 import {
   CHOIR_RING,
   CONDUCTOR_DECREES,
+  CUE_EVERY,
+  DISCORD_RATE,
+  SILENCE_STEPS,
   SOLO_PER_NOTE,
   VOICE_PCT_MULT,
 } from '../../src/content/crucible';
@@ -165,7 +168,7 @@ describe('the registry and the phase table', () => {
     expect(bossPhaseTable(CONDUCTOR)).toEqual([
       { at: 1, name: 'Overture' },
       { at: 0.6, name: 'Mirror Choir' },
-      { at: 0.25, name: 'Grand Silence' },
+      { at: 0.3, name: 'Grand Silence' },
     ]);
     expect(phaseRules(CONDUCTOR, 2)).toEqual({ answers: ['ward', 'chime', 'reel'], specials: [] });
   });
@@ -173,7 +176,9 @@ describe('the registry and the phase table', () => {
   it('setBossHp drives the phases and their Decrees', () => {
     const { sim, w, boss, events } = conductor();
     expect(ofType(events, 'decree').map((d) => d.text)).toContain(CONDUCTOR_DECREES.overture);
-    expect(w.field.finale).toEqual({ discord: { value: expect.any(Number), rate: 0.5 } });
+    expect(w.field.finale).toEqual({
+      discord: { value: expect.any(Number), rate: DISCORD_RATE.overture },
+    });
     expect(w.field.finale!.discord!.value).toBeLessThan(0.05);
     const two = cross(sim, 0.55);
     expect(boss.enemy!.phase).toBe(2);
@@ -360,13 +365,13 @@ describe('the Cue', () => {
     const named = ofType(events, 'decree').find((d) => d.name === 'Lament')!;
     const hero = w.entities.get(solo.target!)!;
     expect(named.text).toContain(hero.hero!.defId === 'lyra' ? 'Lyra' : 'Vexis');
-    // It ends with its Solo; the next Cue (14 s on) goes to the Bass, never Cued yet.
+    // It ends with its Solo; the next Cue (12 s on) goes to the Bass, never Cued yet.
     stepUntil(sim, () => !w.telegraphs.some((t) => t.id === solo.id), 300);
     stepFor(sim, 2);
     expect(w.field.finale!.cue).toBeUndefined();
     const second: SimEvent[] = [];
     const cue2 = next(sim, CUE, 60 * 20, second);
-    near(cue2.start - cue.start, 14, 2);
+    near(cue2.start - cue.start, CUE_EVERY.overture, 2);
     expect(ofType(second, 'enemyCued')[0]!.soloist).toBe(voices(w, BASS)[0]!.id);
   });
 
@@ -505,15 +510,15 @@ describe('the Cue', () => {
 });
 
 describe('Discord', () => {
-  it('swells 0.5/s in the Overture; failures add their amount; at phase 2 a floor of 70 and 1/s', () => {
+  it('swells 0.3/s in the Overture; failures add their amount; at phase 2 a floor of 70 and 1/s', () => {
     const { sim, w, boss } = conductor();
     quiet(boss);
     const d = w.field.finale!.discord!;
     const v0 = d.value;
     const t0 = w.time;
     stepFor(sim, 120);
-    expect(d.value - v0).toBeCloseTo((w.time - t0) * 0.5, 6);
-    // A failed boss attack: +8.
+    expect(d.value - v0).toBeCloseTo((w.time - t0) * DISCORD_RATE.overture, 6);
+    // A failed boss attack: +5.
     const t = startTelegraph(w, {
       owner: boss,
       attack: attackDef(DOWNBEAT),
@@ -728,8 +733,8 @@ describe('the Grand Silence', () => {
       (a, b) => a.start - b.start,
     );
     near(cadences[0]!.start, measures[0]!.impact + 0.5);
-    near(rests[1]!.start, cadences[0]!.impact + 1);
-    near(rests[1]!.start - rests[0]!.start, 9, 2);
+    near(rests[1]!.start, cadences[0]!.impact + SILENCE_STEPS.nextCycle);
+    near(rests[1]!.start - rests[0]!.start, 10, 2);
     expect(cadences.map((t) => t.attackId).slice(0, 3)).toEqual([
       FINAL_CADENCE,
       HALF_CADENCE,

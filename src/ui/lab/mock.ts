@@ -4131,7 +4131,7 @@ export function finaleHud(scenario: FinaleScenario): HudSnapshot {
           pip: 1,
           decree: {
             name: 'Fortissimo Silence',
-            text: 'Fortissimo Silence — every hero loses 150% of their life over 3 s. Crescendo to cancel it, or dome, Ward and heal.',
+            text: 'Fortissimo Silence — every hero loses 120% of their life over 3 s. Crescendo to cancel it, or dome, Ward and heal.',
           },
         }),
         encounter,
