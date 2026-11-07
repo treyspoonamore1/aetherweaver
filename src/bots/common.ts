@@ -1,4 +1,14 @@
 import { CONTENT, encounterDef } from '../content';
+import {
+  CONDUCTOR,
+  DISCORD_MAX,
+  FINAL_CADENCE,
+  FORTISSIMO,
+  GRAND_SILENCE,
+  HALF_CADENCE,
+  MEASURE,
+  REST,
+} from '../content/crucibleIds';
 import { contains, telegraphDamage } from '../sim/combat/telegraphs';
 import { quantize } from '../sim/core/dmath';
 import { rewindCanRevive } from '../sim/systems/rewind';
@@ -802,4 +812,169 @@ export function severingReach(e: ReadonlyEntity): number | null {
     if (cut) return cut.radius;
   }
   return null;
+}
+
+// ── The Finale (docs/phase-5d.md, "Bots and harness") ────────────────────────────────
+// Every reader below reads public state and content only (`field.finale`, the `stilled` status,
+// the Conductor's telegraphs), and answers null, false or an empty list outside the Silent
+// Conductor's fight, so no Movement I-III decision reads anything new.
+
+/** Discord at which the Skilled bot banks its Crescendo for Fortissimo Silence, whatever its rise. */
+export const FINALE_BANK_AT = 60;
+
+/** The Grand Silence's program: the blows the notes are made on. */
+const SILENCE_PROGRAM: ReadonlySet<string> = new Set([REST, MEASURE, FINAL_CADENCE, HALF_CADENCE]);
+const FORTISSIMO_IDS: ReadonlySet<string> = new Set(FORTISSIMO);
+
+/** The Conductor's Discord: its value (0-100), its rise a second, and the seconds until 100. */
+export interface DiscordView {
+  value: number;
+  rate: number;
+  /** Seconds until it reaches 100 at its present rise: 0 at 100, Infinity with no rise. */
+  eta: number;
+}
+
+/** The Conductor's Discord while it stands (phases 1-2); null without it. */
+export function discordOf(state: WorldState): DiscordView | null {
+  const d = state.field.finale?.discord;
+  if (!d) return null;
+  const left = DISCORD_MAX - d.value;
+  return {
+    value: d.value,
+    rate: d.rate,
+    eta: left <= 0 ? 0 : d.rate > 0 ? left / d.rate : Infinity,
+  };
+}
+
+/** Fortissimo Silence being played: the pulse winding up and when it lands. */
+export interface FortissimoView {
+  pulse: 1 | 2 | 3;
+  impact: number;
+  /** When that pulse began winding up (its telegraph's start); null without the telegraph. */
+  start: number | null;
+}
+
+/** Fortissimo Silence while it is played; null without it (and always outside the Finale). */
+export function fortissimoLive(state: WorldState): FortissimoView | null {
+  const f = state.field.finale?.fortissimo;
+  if (!f) return null;
+  const id = FORTISSIMO[f.pulse - 1];
+  const t = state.telegraphs.find((x) => x.attackId === id);
+  return { pulse: f.pulse, impact: f.impact, start: t ? t.start : null };
+}
+
+/** A telegraph of Fortissimo Silence (any of its three pulses). */
+export function isFortissimo(t: ReadonlyTelegraph): boolean {
+  return FORTISSIMO_IDS.has(t.attackId);
+}
+
+/** A Cue of the Conductor's: its soloist and Solo, and the Solo's target once it has begun. */
+export interface CueView {
+  boss: EntityId;
+  soloist: EntityId;
+  /** The Solo's attack id (`SOLOS[voice]`). */
+  solo: string;
+  /** The hero the Solo is aimed at, once it has begun; null before. */
+  target: EntityId | null;
+  /** The Solo has begun: its telegraph is live. */
+  singing: boolean;
+  /** When the Solo lands: its telegraph's impact once begun, else the Cue's end + its windup. */
+  impact: number;
+}
+
+/** A Solo's windup when its def isn't there to say (docs/phase-5d.md: every Solo is 2.5 s). */
+const SOLO_WINDUP = 2.5;
+
+/** The Conductor's live Cue (its cast, then the Solo it begins); null without one. */
+export function cueOf(state: WorldState): CueView | null {
+  const c = state.field.finale?.cue;
+  if (!c) return null;
+  const t = state.telegraphs.find((x) => x.owner === c.soloist && x.attackId === c.solo);
+  const windup = ATTACK_DEFS.get(c.solo)?.windup ?? SOLO_WINDUP;
+  return {
+    boss: c.boss,
+    soloist: c.soloist,
+    solo: c.solo,
+    target: c.target ?? t?.target ?? null,
+    singing: t !== undefined,
+    impact: t ? t.impact : c.until + windup,
+  };
+}
+
+/** The Grand Silence as it holds: the notes so far, of 8, and its cap. */
+export type SilenceView = NonNullable<NonNullable<WorldState['field']['finale']>['silence']>;
+
+/** The Grand Silence while it holds; null without it. */
+export function silenceOf(state: WorldState): SilenceView | null {
+  return state.field.finale?.silence ?? null;
+}
+
+/** Stilled by the Grand Silence (only the Conductor applies it). */
+export function isStilled(e: ReadonlyEntity): boolean {
+  return e.health?.statuses.some((x) => x.id === 'stilled') ?? false;
+}
+
+/** A blow of the Grand Silence's program (the Rest, the Measure, either Cadence). */
+export function isSilenceBlow(t: ReadonlyTelegraph): boolean {
+  return SILENCE_PROGRAM.has(t.attackId);
+}
+
+/** A Cadence of the Grand Silence (the Final or the Half). */
+export function isCadence(t: ReadonlyTelegraph): boolean {
+  return t.attackId === FINAL_CADENCE || t.attackId === HALF_CADENCE;
+}
+
+/** The Silent Conductor while it stands (the fight's boss), or null: outside its fight. */
+function conductorOf(state: WorldState): ReadonlyEntity | null {
+  const id = state.encounter.bossId;
+  if (id === null) return null;
+  const boss = state.entities.get(id);
+  if (!boss?.enemy || boss.enemy.defId !== CONDUCTOR || boss.health?.dead) return null;
+  return boss;
+}
+
+/** Some hero of the party is stilled by the Grand Silence. */
+function anyStilled(state: WorldState): boolean {
+  return state.party.some((p) => {
+    const h = state.entities.get(p);
+    return h !== undefined && isStilled(h);
+  });
+}
+
+/**
+ * The last burn: the Silent Conductor in its last phase with the Grand Silence over (after
+ * Reignite or the Coda), not still being cast and no hero stilled. `silenceSeen` is whether this
+ * fight's Grand Silence has been seen to hold (`SilenceWatch`): phase 3 alone is not enough, as
+ * the phase shift (and any gap before the cast) comes before the silence, and a Solo Cued there
+ * would be frozen. False outside its fight.
+ */
+export function finaleBurn(state: WorldState, silenceSeen: boolean): boolean {
+  if (!silenceSeen) return false;
+  const c = conductorOf(state)?.enemy;
+  if (!c) return false;
+  if (c.phase < 3 || state.field.finale?.silence || c.cast?.attackId === GRAND_SILENCE)
+    return false;
+  return !anyStilled(state);
+}
+
+/**
+ * A bot's memory of the Grand Silence (docs/phase-5d.md): whether this fight's silence has been
+ * seen to hold (the silence itself, or a stilled hero) since the Conductor was last seen before
+ * its last phase. A new fight (or no Conductor) forgets it. Read-only and without RNG: outside
+ * the Finale it stays false and changes nothing.
+ */
+export class SilenceWatch {
+  private seen = false;
+
+  /** Looks at this tick's state; call it every tick the bot is asked (cheap, no draws). */
+  observe(state: WorldState): void {
+    const c = conductorOf(state)?.enemy;
+    if (!c || c.phase < 3) this.seen = false;
+    else if (state.field.finale?.silence || anyStilled(state)) this.seen = true;
+  }
+
+  /** The last burn, by `finaleBurn`, once the silence has been seen. */
+  burn(state: WorldState): boolean {
+    return finaleBurn(state, this.seen);
+  }
 }

@@ -18,7 +18,7 @@ import { CONTENT } from '../content';
 import { Rng } from '../sim/core/rng';
 import { rewindCanRevive } from '../sim/systems/rewind';
 import { weaverSilenced } from '../sim';
-import type { Command, ThreadMode, WorldState } from '../sim';
+import type { Command, ReadonlyEntity, ThreadMode, WorldState } from '../sim';
 import type { Bot } from './types';
 import {
   BLEED_CHIME_AT,
@@ -55,8 +55,15 @@ import {
   StallWatch,
   nearestStationary,
   spindlesUp,
+  cueOf,
+  SilenceWatch,
+  fortissimoLive,
+  isCadence,
+  isStilled,
+  silenceOf,
   type HeroView,
 } from './common';
+import { MEASURE } from '../content/crucibleIds';
 
 /** Movement III's chances (docs/phase-5c.md, "Bots and harness"), drawn only with each up. */
 const NOVICE_M3 = {
@@ -76,6 +83,28 @@ const NOVICE_M3 = {
   spindleFocus: 0.09,
 } as const;
 
+/**
+ * The Finale's chances (docs/phase-5d.md, "Bots and harness"), each drawn only while its
+ * mechanic is up, after every other draw and before the Cue's.
+ */
+const NOVICE_M4 = {
+  /** Crescendo during Fortissimo Silence, with a full song (about 3 decisions a second). */
+  fortissimoCrescendo: 0.35,
+  /** Focus the Conductor's Cued soloist. */
+  cueFocus: 0.1,
+  /** Chime a Rest's Dirge in its last 1.2 s (in the silence it replaces her early Dirge reflex). */
+  silenceChime: 0.45,
+  /** Ward the target of a Measure or a Cadence (untimed: a Perfect is luck). */
+  silenceWard: 0.5,
+  /** Reel the target of a Cadence in its last 0.8 s. */
+  silenceReel: 0.25,
+  /** Cue a ready Solo in the last burn (after Reignite or the Coda). */
+  reigniteCue: 0.5,
+} as const;
+/** `silenceChime`: a Rest's Dirge with this little left; `silenceReel`: a Cadence's. */
+const REST_CHIME_AT = 1.2;
+const CADENCE_REEL_AT = 0.8;
+
 export class NoviceBot implements Bot {
   readonly name = 'novice';
   private readonly intent = new Intent();
@@ -87,6 +116,8 @@ export class NoviceBot implements Bot {
   private leaving = false;
   /** Movement III: times a party stalled on a stationary enemy out of reach. */
   private readonly stall = new StallWatch();
+  /** The Finale: whether this fight's Grand Silence has been seen (the last burn waits on it). */
+  private readonly silenceWatch = new SilenceWatch();
 
   constructor(seed: number) {
     this.rng = new Rng(seed ^ 0x0b1e);
@@ -94,6 +125,8 @@ export class NoviceBot implements Bot {
 
   decide(state: WorldState): Command[] {
     const out: Command[] = [];
+    // The Finale: watched every tick, so a silence between decisions is still seen (no draws).
+    this.silenceWatch.observe(state);
     if (state.tick < this.nextDecision) return out;
     // Reaction time: 250–450 ms between decisions.
     this.nextDecision = state.tick + 15 + this.rng.int(12);
@@ -107,6 +140,8 @@ export class NoviceBot implements Bot {
     const now = state.time;
 
     const enemies = enemiesOf(state);
+    // The Finale's Grand Silence (docs/phase-5d.md): null outside it.
+    const silence = silenceOf(state);
     // Movement III: a cast fizzled in a Null rune, and now and then she notices and steps out.
     const silenced = weaverSilenced(state);
     if (!silenced) this.fizzled = this.leaving = false;
@@ -224,7 +259,8 @@ export class NoviceBot implements Bot {
     // Chime a marked hero once they notice the mark.
     if (wc.cooldowns.chime <= 0 && affords(state, 'chime')) {
       let chimed = false;
-      const marked = party.find((h) => statusRemaining(h.e, 'dirge') < 2.6);
+      // In the Grand Silence her `silenceChime` (below) replaces this early reflex: no draw here.
+      const marked = silence ? undefined : party.find((h) => statusRemaining(h.e, 'dirge') < 2.6);
       if (marked && this.rng.chance(0.75)) {
         out.push({ t: 'tech', id: 'chime', point: { x: marked.e.x, z: marked.e.z } });
         chimed = true;
@@ -312,9 +348,15 @@ export class NoviceBot implements Bot {
       if (target) out.push({ t: 'directive', kind: 'focus', target: target.id });
     }
 
-    // Cue whoever is ready, now and then; Crescendo when things look bad.
+    // The Finale (docs/phase-5d.md): each draws only while its mechanic is up.
+    this.finale(state, party, w, silence, out);
+
+    // Cue whoever is ready, now and then; Crescendo when things look bad. (A hero stilled by
+    // the Grand Silence can't take a Cue: never so outside the Finale.)
     if (wc.resonance >= state.dissonance.cueCost && this.rng.chance(0.3)) {
-      const ready = party.find((h) => h.e.hero!.solo >= 100 && h.e.hero!.soloActive <= 0);
+      const ready = party.find(
+        (h) => h.e.hero!.solo >= 100 && h.e.hero!.soloActive <= 0 && !isStilled(h.e),
+      );
       if (ready) out.push({ t: 'cue', slot: ready.slot });
     }
     if (wc.resonance >= CONTENT.resonance.crescendoCost) {
@@ -326,6 +368,96 @@ export class NoviceBot implements Bot {
     // A Ward, Chime or Reel cast inside a Null rune fizzles (Movement III): she may notice.
     if (silenced && out.some((c) => c.t === 'tech')) this.fizzled = true;
     return out;
+  }
+
+  /**
+   * The Finale's draws (`NOVICE_M4`, docs/phase-5d.md): a Crescendo in Fortissimo Silence, a Focus
+   * on the Cued soloist, the Grand Silence's Chime, Ward and Reel, and the last burn's Cues. Each
+   * draws only while its mechanic is up, so outside the Silent Conductor's fight nothing is drawn.
+   */
+  private finale(
+    state: WorldState,
+    party: readonly HeroView[],
+    w: ReadonlyEntity,
+    silence: ReturnType<typeof silenceOf>,
+    out: Command[],
+  ): void {
+    const wc = w.weaver!;
+    const tech = CONTENT.techniques;
+    const now = state.time;
+    const has = (t: Command['t'], id?: string) =>
+      out.some((c) => c.t === t && (id === undefined || (c.t === 'tech' && c.id === id)));
+    // Fortissimo Silence: with a full song, now and then she sees the Crescendo cancels it.
+    if (
+      fortissimoLive(state) &&
+      wc.resonance >= CONTENT.resonance.crescendoCost &&
+      wc.crescendo <= 0 &&
+      !has('crescendo') &&
+      this.rng.chance(NOVICE_M4.fortissimoCrescendo)
+    )
+      out.push({ t: 'crescendo' });
+    // A Cue: now and then she Focuses the voice the baton points at.
+    const cue = cueOf(state);
+    const soloist = cue ? state.entities.get(cue.soloist) : undefined;
+    if (
+      cue &&
+      soloist?.health &&
+      !soloist.health.dead &&
+      state.focusTarget !== cue.soloist &&
+      !has('directive') &&
+      this.rng.chance(NOVICE_M4.cueFocus)
+    )
+      out.push({ t: 'directive', kind: 'focus', target: cue.soloist });
+    if (silence) {
+      const reach = (h: HeroView, range: number) => dist(h.e, w) < range;
+      // A Rest's Dirge in its last 1.2 s: sometimes the Chime lands in its clutch.
+      const rest = party.find(
+        (h) => statusRemaining(h.e, 'dirge') <= REST_CHIME_AT && reach(h, tech.chime.range),
+      );
+      if (
+        rest &&
+        wc.cooldowns.chime <= 0 &&
+        affords(state, 'chime') &&
+        !has('tech', 'chime') &&
+        this.rng.chance(NOVICE_M4.silenceChime)
+      )
+        out.push({ t: 'tech', id: 'chime', point: { x: rest.e.x, z: rest.e.z } });
+      // A Measure or a Cadence on a hero: she Wards them, when she happens to (no timing).
+      const struck = party.find(
+        (h) =>
+          reach(h, tech.ward.range) &&
+          threatsOn(state, h.e).some((t) => t.attackId === MEASURE || isCadence(t)),
+      );
+      if (
+        struck &&
+        wc.wardCharges > 0 &&
+        affords(state, 'ward') &&
+        !has('tech', 'ward') &&
+        this.rng.chance(NOVICE_M4.silenceWard)
+      )
+        out.push({ t: 'tech', id: 'ward', slot: struck.slot });
+      // A Cadence about to land: now and then she Reels its hero out (not in Rewind's slot).
+      const cadenced = party.find(
+        (h) =>
+          !h.e.hero!.reel &&
+          reach(h, tech.reel.range - 0.3) &&
+          threatsOn(state, h.e).some((t) => isCadence(t) && t.impact - now <= CADENCE_REEL_AT),
+      );
+      if (
+        cadenced &&
+        !state.calling?.rewind &&
+        wc.cooldowns.reel <= 0 &&
+        affords(state, 'reel') &&
+        !has('tech', 'reel') &&
+        this.rng.chance(NOVICE_M4.silenceReel)
+      )
+        out.push({ t: 'tech', id: 'reel', slot: cadenced.slot });
+    }
+    // The last burn: the reignited Solos are hers to Cue.
+    if (this.silenceWatch.burn(state) && wc.resonance >= state.dissonance.cueCost && !has('cue')) {
+      const ready = party.find((h) => h.e.hero!.solo >= 100 && h.e.hero!.soloActive <= 0);
+      if (ready && this.rng.chance(NOVICE_M4.reigniteCue)) out.push({ t: 'cue', slot: ready.slot });
+    }
   }
 }
 

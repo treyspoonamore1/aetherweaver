@@ -1,14 +1,23 @@
 import { describe, expect, it } from 'vitest';
 import { movementEncounters, playEncounter } from '../tools/harness-core';
-import { ARRIVAL3_KIT, ARRIVAL_KIT, kitConfig } from '../tools/kits';
+import { ARRIVAL3_KIT, ARRIVAL4_KIT, ARRIVAL_KIT, kitConfig } from '../tools/kits';
+import { callingSetups } from '../tools/callings';
 import { M1_ENCOUNTERS } from '../tools/m1-baseline';
 import { BOSS_TABLES, decreeFight } from '../tools/decrees';
 import { CONTENT } from '../src/content';
 import * as Run from '../src/meta/run';
 import { makeBot, SkilledBot, type BotKind } from '../src/bots';
-import { M3_RULES } from '../src/bots/skilled';
+import { FINALE_RULES, M3_RULES } from '../src/bots/skilled';
 import {
   DOOM_CHIME_AT,
+  FINALE_BANK_AT,
+  cueOf,
+  discordOf,
+  finaleBurn,
+  fortissimoLive,
+  isStilled,
+  silenceOf,
+  SilenceWatch,
   damageOf,
   dist,
   dotIncoming,
@@ -29,14 +38,28 @@ import {
   cutWouldLand,
   weaverSilenced,
   type Command,
+  type Entity,
   type ReadonlyEntity,
   type Sim,
   type SimConfig,
   type SimEvent,
   type Status,
+  type Telegraph,
   type WorldState,
 } from '../src/sim';
+import type { World } from '../src/sim/world';
 import { addStatus, killEnemy } from '../src/sim/combat/health';
+import {
+  BASSO_OSTINATO,
+  CONDUCTOR,
+  FINAL_CADENCE,
+  FORTISSIMO,
+  GRAND_SILENCE,
+  HALF_CADENCE,
+  MEASURE,
+  REST,
+  SHATTER_ARIA,
+} from '../src/content/crucibleIds';
 import { hero, hurt, sandbox, spawn, stepFor, worldOf } from './sim/helpers';
 
 const GUARDIAN = Run.CHORD_PRESETS.find((p) => p.id === 'guardian')!.chords.map((c) => ({
@@ -2222,4 +2245,962 @@ describe('Movement III smoke guards (ARRIVAL3_KIT)', () => {
       b.drainEvents();
     }
   });
+});
+
+// ── The Finale (docs/phase-5d.md, "Bots and harness") ───────────────────────────────────
+// Staged in a sandbox: the Conductor's public state (`field.finale`), its telegraphs and the
+// `stilled` status, set by hand. W1 and W2 bring the fight itself; until then the in-play
+// guards below skip.
+
+/** The Finale's public state on a staged sandbox, created as the script would. */
+function finaleOf(sim: Sandbox): NonNullable<World['field']['finale']> {
+  return (worldOf(sim).field.finale ??= {});
+}
+
+function weaverE(sim: Sandbox): Entity {
+  const w = worldOf(sim);
+  return w.entities.get(w.weaverId)!;
+}
+
+function heroE(sim: Sandbox, slot: number): Entity {
+  const w = worldOf(sim);
+  return w.entities.get(w.party[slot]!)!;
+}
+
+let blowId = 6000;
+
+/**
+ * A Finale telegraph staged on the hero in `slot`: a ground circle where they stand (the Measure,
+ * a Cadence) or a mark (the Rest, with its Dirge), landing in `left` s for `pct` of their life.
+ */
+function blowOn(
+  sim: Sandbox,
+  attackId: string,
+  slot: number,
+  left: number,
+  pct: number,
+  windup = 2.5,
+): Telegraph {
+  const w = worldOf(sim);
+  const h = heroE(sim, slot);
+  const mark = attackId === REST;
+  const t: Telegraph = {
+    id: blowId++,
+    owner: w.party[0]!,
+    target: h.id,
+    attackId,
+    name: attackId,
+    kind: mark ? 'mark' : 'burst',
+    shape: mark ? { kind: 'mark', target: h.id } : { kind: 'circle', x: h.x, z: h.z, r: 2.5 },
+    start: w.time - (windup - left),
+    impact: w.time + left,
+    perfectFrom: w.time + left - 0.35,
+    damage: 0,
+    pctMaxHp: pct,
+    effect: 'damage',
+    answers: ['ward', 'reel'],
+    severity: 'normal',
+  };
+  w.telegraphs.push(t);
+  if (mark) stage(sim, slot, { id: 'dirge', remaining: left, duration: windup });
+  return t;
+}
+
+/** Fortissimo Silence's `pulse` staged: begun `ago` s back, landing in `left` s. */
+function fortissimoOn(sim: Sandbox, pulse: 1 | 2 | 3, ago: number, left: number): Telegraph {
+  const w = worldOf(sim);
+  const t: Telegraph = {
+    id: blowId++,
+    owner: w.party[0]!,
+    target: null,
+    attackId: FORTISSIMO[pulse - 1]!,
+    name: 'Fortissimo Silence',
+    kind: 'raid',
+    shape: { kind: 'raid' },
+    start: w.time - ago,
+    impact: w.time + left,
+    perfectFrom: w.time + left - 0.35,
+    damage: 0,
+    pctMaxHp: 0.5,
+    effect: 'damage',
+    answers: ['crescendo', 'dome', 'ward'],
+    severity: 'normal',
+  };
+  w.telegraphs.push(t);
+  finaleOf(sim).fortissimo = { pulse, impact: t.impact };
+  return t;
+}
+
+/** The Grand Silence staged: every standing hero stilled, no notes yet. */
+function silenceOn(sim: Sandbox): void {
+  const w = worldOf(sim);
+  finaleOf(sim).silence = { notes: 0, of: 8, since: w.time, until: w.time + 50, sources: [] };
+  w.party.forEach((_, slot) => stage(sim, slot, { id: 'stilled', remaining: 1e6, duration: 1e6 }));
+}
+
+/** The Grand Silence over (Reignite or the Coda): no silence, nobody stilled. */
+function silenceOff(sim: Sandbox): void {
+  delete finaleOf(sim).silence;
+  for (const id of worldOf(sim).party) {
+    const h = worldOf(sim).entities.get(id)!.health!;
+    h.statuses = h.statuses.filter((x) => x.id !== 'stilled');
+  }
+}
+
+/** The Silent Conductor staged as the boss, in `phase`. */
+function conductorOn(sim: Sandbox, phase = 3): Entity {
+  const boss = worldOf(sim).entities.get(tough(sim, 'hollow_chorister', 0, -10).id)!;
+  boss.enemy!.defId = CONDUCTOR;
+  boss.enemy!.phase = phase;
+  worldOf(sim).encounter.bossId = boss.id;
+  return boss;
+}
+
+/** A Calling's setup by its tools/callings.ts label ('none', 'chronomancer + Paradox', …). */
+function callingConfig(label: string): Partial<SimConfig> {
+  const setup = callingSetups().find((s) => s.label === label);
+  if (!setup) throw new Error(`no Calling setup "${label}"`);
+  return setup.calling ? { calling: setup.calling } : {};
+}
+
+const CALLING_LABELS = callingSetups().map((s) => s.label);
+const FINALE_PARTIES: Record<string, readonly string[] | undefined> = {
+  default: undefined,
+  ...PARTIES,
+};
+
+/** A staged rift sandbox with this party (undefined: the default) and Calling. */
+function finaleRift(party: readonly string[] | undefined, label = 'none', hp = 1): Sandbox {
+  return rift({
+    hp,
+    thread: null,
+    config: { ...(party ? { party: [...party] } : {}), ...callingConfig(label) },
+  });
+}
+
+const has = (out: readonly Command[], c: Command) =>
+  out.some((x) => JSON.stringify(x) === JSON.stringify(c));
+const techOn = (out: readonly Command[], id: 'ward' | 'reel', slot: number) =>
+  has(out, { t: 'tech', id, slot } as Command);
+
+describe('the Finale readers (docs/phase-5d.md)', () => {
+  it('answer null or false outside the Finale, and read the staged state', () => {
+    const sim = rift();
+    const s = sim.state;
+    expect([discordOf(s), fortissimoLive(s), cueOf(s), silenceOf(s)]).toEqual([
+      null,
+      null,
+      null,
+      null,
+    ]);
+    expect(finaleBurn(s, true)).toBe(false);
+    expect(s.party.some((id) => isStilled(s.entities.get(id)!))).toBe(false);
+    expect(FINALE_BANK_AT).toBe(60);
+
+    finaleOf(sim).discord = { value: 70, rate: 1 };
+    expect(discordOf(s)).toEqual({ value: 70, rate: 1, eta: 30 });
+    finaleOf(sim).discord = { value: 100, rate: 1 };
+    expect(discordOf(s)!.eta).toBe(0);
+    finaleOf(sim).discord = { value: 50, rate: 0 };
+    expect(discordOf(s)!.eta).toBe(Infinity);
+
+    const t = fortissimoOn(sim, 2, 0.5, 1);
+    expect(fortissimoLive(s)).toEqual({ pulse: 2, impact: t.impact, start: t.start });
+
+    const voice = tough(sim, 'hollow_chorister', 0, -8);
+    const w = worldOf(sim);
+    finaleOf(sim).cue = {
+      boss: voice.id,
+      soloist: voice.id,
+      solo: SHATTER_ARIA,
+      until: w.time + 1,
+    };
+    // Before the Solo begins: its windup (2.5 s at default assists) after the Cue's end.
+    expect(cueOf(s)).toEqual({
+      boss: voice.id,
+      soloist: voice.id,
+      solo: SHATTER_ARIA,
+      target: null,
+      singing: false,
+      impact: w.time + 1 + 2.5,
+    });
+
+    silenceOn(sim);
+    expect(silenceOf(s)).toEqual({
+      notes: 0,
+      of: 8,
+      since: w.time,
+      until: w.time + 50,
+      sources: [],
+    });
+    expect(isStilled(hero(sim, 1))).toBe(true);
+  });
+
+  it('reads the last burn only for the Conductor in its last phase, the silence over', () => {
+    const sim = rift();
+    const boss = worldOf(sim).entities.get(tough(sim, 'hollow_chorister', 0, -10).id)!;
+    worldOf(sim).encounter.bossId = boss.id;
+    boss.enemy!.phase = 3;
+    // Any other boss in its third phase: no burn.
+    expect(finaleBurn(sim.state, true)).toBe(false);
+    boss.enemy!.defId = CONDUCTOR;
+    expect(finaleBurn(sim.state, true)).toBe(true);
+    // The silence not yet seen this fight (the phase shift before it): no burn.
+    expect(finaleBurn(sim.state, false)).toBe(false);
+    boss.enemy!.phase = 2;
+    expect(finaleBurn(sim.state, true)).toBe(false);
+    boss.enemy!.phase = 3;
+    // The Grand Silence being cast, then holding: not yet.
+    boss.enemy!.cast = {
+      attackId: GRAND_SILENCE,
+      name: 'Grand Silence',
+      telegraph: null,
+      start: sim.state.time,
+      end: sim.state.time + 2,
+      interruptible: false,
+    };
+    expect(finaleBurn(sim.state, true)).toBe(false);
+    boss.enemy!.cast = null;
+    silenceOn(sim);
+    expect(finaleBurn(sim.state, true)).toBe(false);
+  });
+
+  it('waits on a seen silence: not in the phase shift before it, and forgets it with a new fight', () => {
+    const sim = rift();
+    const boss = conductorOn(sim, 1);
+    const watch = new SilenceWatch();
+    const look = () => {
+      watch.observe(sim.state);
+      return watch.burn(sim.state);
+    };
+    expect(look()).toBe(false);
+    // Phase 3 entered: the shift (no cast, no silence, nobody stilled) is not the burn.
+    boss.enemy!.phase = 3;
+    expect(look()).toBe(false);
+    expect(look()).toBe(false);
+    // The silence holds, then breaks: now the burn.
+    silenceOn(sim);
+    expect(look()).toBe(false);
+    silenceOff(sim);
+    expect(look()).toBe(true);
+    // A stilled hero alone counts as having seen it, too.
+    const other = new SilenceWatch();
+    worldOf(sim).party.forEach((_, slot) =>
+      stage(sim, slot, { id: 'stilled', remaining: 1e6, duration: 1e6 }),
+    );
+    other.observe(sim.state);
+    silenceOff(sim);
+    other.observe(sim.state);
+    expect(other.burn(sim.state)).toBe(true);
+    // The next fight's Conductor (seen before its last phase) wipes the memory.
+    boss.enemy!.phase = 1;
+    expect(look()).toBe(false);
+    boss.enemy!.phase = 3;
+    expect(look()).toBe(false);
+    // Nor does any other fight leave it set.
+    silenceOn(sim);
+    look();
+    silenceOff(sim);
+    worldOf(sim).encounter.bossId = null;
+    expect(look()).toBe(false);
+    worldOf(sim).encounter.bossId = boss.id;
+    expect(look()).toBe(false);
+  });
+});
+
+describe('the Skilled bot reads the Finale (staged)', () => {
+  it('cancels Fortissimo Silence with the Crescendo 0.3 s after its first pulse, for every Calling and party', () => {
+    for (const [name, party] of Object.entries(FINALE_PARTIES))
+      for (const label of CALLING_LABELS) {
+        const at = (ago: number) => {
+          const sim = finaleRift(party, label);
+          weaverE(sim).weaver!.resonance = 100;
+          fortissimoOn(sim, 1, ago, 3 - ago);
+          return makeBot('skilled', 1).decide(sim.state);
+        };
+        const why = `${name} / ${label}`;
+        expect(has(at(0.1), { t: 'crescendo' }), why).toBe(false);
+        expect(has(at(0.35), { t: 'crescendo' }), why).toBe(true);
+      }
+    // A later pulse (one already landed): at once.
+    const sim = finaleRift(undefined);
+    weaverE(sim).weaver!.resonance = 100;
+    fortissimoOn(sim, 2, 0, 1.5);
+    expect(has(makeBot('skilled', 1).decide(sim.state), { t: 'crescendo' })).toBe(true);
+  });
+
+  it('banks the Crescendo as Discord climbs: no damage Cue, no early Crescendo', () => {
+    const decide = (discord: { value: number; rate: number } | null, resonance = 100) => {
+      const sim = rift({ hp: 0.5, thread: null });
+      const boss = tough(sim, 'hollow_chorister', 0, -10);
+      worldOf(sim).encounter.bossId = boss.id;
+      weaverE(sim).weaver!.resonance = resonance;
+      heroE(sim, 1).hero!.solo = 100;
+      if (discord) finaleOf(sim).discord = discord;
+      return makeBot('skilled', 1).decide(sim.state);
+    };
+    const cues = (out: Command[]) => out.some((c) => c.t === 'cue');
+    const crescendo = (out: Command[]) => has(out, { t: 'crescendo' });
+    // Without Discord: the low party gets its Crescendo and Lyra her Cue, as ever.
+    expect(cues(decide(null))).toBe(true);
+    expect(crescendo(decide(null))).toBe(true);
+    // Discord at 60+: both held for Fortissimo Silence.
+    expect(cues(decide({ value: 65, rate: 1 }))).toBe(false);
+    expect(crescendo(decide({ value: 65, rate: 1 }))).toBe(false);
+    // Low but fast: due at 100 (11.7 s) before a spent segment comes back (12.5 s), held.
+    expect(cues(decide({ value: 30, rate: 6 }))).toBe(false);
+    // Slower (14 s): not yet.
+    expect(cues(decide({ value: 30, rate: 5 }))).toBe(true);
+    expect(crescendo(decide({ value: 30, rate: 5 }))).toBe(true);
+  });
+
+  it('lets the Requiem-dome reserve yield to its own banking while Discord stands', () => {
+    const decide = (discord: boolean) => {
+      const sim = rift({ thread: null });
+      const boss = tough(sim, 'hollow_chorister', 0, -10);
+      worldOf(sim).encounter.bossId = boss.id;
+      weaverE(sim).weaver!.resonance = 40;
+      heroE(sim, 0).hero!.solo = 90;
+      heroE(sim, 1).hero!.solo = 100;
+      if (discord) finaleOf(sim).discord = { value: 10, rate: 0.5 };
+      return makeBot('skilled', 1).decide(sim.state);
+    };
+    expect(decide(false).some((c) => c.t === 'cue')).toBe(false);
+    expect(decide(true)).toContainEqual({ t: 'cue', slot: 1 });
+  });
+
+  it('without a Crescendo, guards Fortissimo Silence: the dome, the lowest Warded, Mend, a Rally', () => {
+    // The dome before the first pulse.
+    const dome = finaleRift(undefined);
+    weaverE(dome).weaver!.resonance = 50;
+    heroE(dome, 0).hero!.solo = 100;
+    fortissimoOn(dome, 1, 2, 1);
+    expect(makeBot('skilled', 1).decide(dome.state)).toContainEqual({ t: 'cue', slot: 0 });
+
+    // In each pulse's Perfect window, the lowest hero's Ward, over a bigger hit on a healthier one.
+    for (const [name, party] of Object.entries(FINALE_PARTIES))
+      for (const low of [0, 1, 2]) {
+        const sim = finaleRift(party);
+        weaverE(sim).weaver!.resonance = 50;
+        heroE(sim, low).health!.hp = heroE(sim, low).health!.maxHp * 0.6;
+        fortissimoOn(sim, 1, 2.8, 0.2);
+        const out = makeBot('skilled', 1).decide(sim.state);
+        expect(techOn(out, 'ward', low), `${name}: slot ${low}`).toBe(true);
+      }
+
+    // A healthy party isn't Empowered through it: the Thread Mends.
+    const calm = finaleRift(undefined);
+    const plain = makeBot('skilled', 1).decide(calm.state);
+    expect(plain).toContainEqual({ t: 'mode' });
+    weaverE(calm).weaver!.resonance = 50;
+    fortissimoOn(calm, 1, 1, 2);
+    expect(makeBot('skilled', 1).decide(calm.state)).not.toContainEqual({ t: 'mode' });
+
+    // A hero out of her Ward's reach: a Rally (with a Crescendo to cancel it, none).
+    const rally = (resonance: number) => {
+      const sim = finaleRift(undefined);
+      Object.assign(heroE(sim, 2), { x: -20, z: 0 });
+      weaverE(sim).weaver!.resonance = resonance;
+      fortissimoOn(sim, 1, 1, 2);
+      return makeBot('skilled', 1).decide(sim.state);
+    };
+    expect(rally(50)).toContainEqual({ t: 'directive', kind: 'rally' });
+    expect(rally(100)).not.toContainEqual({ t: 'directive', kind: 'rally' });
+  });
+
+  it('as the Martyr with no Vow ready, Bears each pulse on the lowest', () => {
+    const decide = (pulse: boolean) => {
+      const sim = rift({ thread: 1, config: callingConfig('martyr') });
+      expect(sim.state.calling?.bearShare ?? 0).toBeGreaterThan(0);
+      heroE(sim, 1).health!.hp = heroE(sim, 1).health!.maxHp * 0.9;
+      weaverE(sim).weaver!.resonance = 50;
+      if (pulse) fortissimoOn(sim, 1, 2.5, 0.5);
+      else blowOn(sim, 'test_blow', 1, 0.5, 0.5);
+      return makeBot('skilled', 1).decide(sim.state);
+    };
+    // A hit of half her life at 90% isn't worth a Bear; a Fortissimo pulse is.
+    expect(decide(false)).not.toContainEqual({ t: 'mode', mode: 'bear' });
+    expect(decide(true)).toContainEqual({ t: 'mode', mode: 'bear' });
+  });
+
+  it('Focuses the Cued soloist when no technique answers its Solo, within its crowd guard', () => {
+    const decide = (
+      solo: string,
+      opts: { crowd?: number; wardless?: boolean; skip?: true | 'cueFocusCrowd' } = {},
+    ) => {
+      const sim = rift({ thread: null });
+      const voice = tough(sim, 'hollow_chorister', 0, -8);
+      for (let i = 0; i < (opts.crowd ?? 0); i++) tough(sim, 'hollow_chorister', 4 + i, -10);
+      if (opts.wardless) weaverE(sim).weaver!.wardCharges = 0;
+      if (opts.wardless) weaverE(sim).weaver!.cooldowns.ward = 7;
+      const w = worldOf(sim);
+      finaleOf(sim).cue = { boss: voice.id, soloist: voice.id, solo, until: w.time + 1 };
+      const bot = opts.skip
+        ? new SkilledBot(1, {
+            every: 4,
+            attention: 1,
+            callReaction: 0.4,
+            skip: new Set([opts.skip === true ? 'cueFocus' : opts.skip]),
+          })
+        : makeBot('skilled', 1);
+      return { out: bot.decide(sim.state), voice };
+    };
+    const focused = ({ out, voice }: ReturnType<typeof decide>) =>
+      has(out, { t: 'directive', kind: 'focus', target: voice.id });
+    // Shatter Aria has no technique answer: Focus.
+    expect(focused(decide(SHATTER_ARIA))).toBe(true);
+    // Basso Ostinato with a Ward in hand: the Ward answers it; with none, Focus.
+    expect(focused(decide(BASSO_OSTINATO))).toBe(false);
+    expect(focused(decide(BASSO_OSTINATO, { wardless: true }))).toBe(true);
+    // A crowd of five: the guard holds it.
+    expect(focused(decide(SHATTER_ARIA, { crowd: 4 }))).toBe(false);
+    // Left off by the ablation.
+    expect(focused(decide(SHATTER_ARIA, { skip: true }))).toBe(false);
+    // The crowd guard ablated on its own: the Focus goes at any crowd, and only that changes.
+    expect(focused(decide(SHATTER_ARIA, { crowd: 4, skip: 'cueFocusCrowd' }))).toBe(true);
+    expect(focused(decide(SHATTER_ARIA, { skip: 'cueFocusCrowd' }))).toBe(true);
+    expect(focused(decide(BASSO_OSTINATO, { crowd: 4, skip: 'cueFocusCrowd' }))).toBe(false);
+  });
+});
+
+describe('the Skilled bot in the Grand Silence (staged)', () => {
+  /** A stilled party, the Weaver ready, and `setup` staging the blow and the Calling's kit. */
+  const silent = (
+    setup: (sim: Sandbox) => void,
+    opts: { label?: string; party?: readonly string[]; hp?: number; seed?: number } = {},
+  ) => {
+    const sim = finaleRift(opts.party, opts.label ?? 'none', opts.hp ?? 1);
+    silenceOn(sim);
+    setup(sim);
+    return makeBot('skilled', opts.seed ?? 1).decide(sim.state);
+  };
+  const reelCooling = (sim: Sandbox) => {
+    weaverE(sim).weaver!.cooldowns.reel = 14;
+  };
+
+  it('plans the one Ward a cycle: the Measure while the Reel will take the Final Cadence', () => {
+    // The Reel ready for the Final Cadence: the Ward goes on the Measure, in its Perfect window.
+    expect(
+      techOn(
+        silent((s) => blowOn(s, MEASURE, 1, 0.2, 0.7, 2)),
+        'ward',
+        1,
+      ),
+    ).toBe(true);
+    // Not before the window.
+    expect(
+      techOn(
+        silent((s) => blowOn(s, MEASURE, 1, 0.6, 0.7, 2)),
+        'ward',
+        1,
+      ),
+    ).toBe(false);
+    // The Reel won't be back: the Ward is kept for the Final Cadence, and goes on it.
+    expect(
+      techOn(
+        silent((s) => {
+          reelCooling(s);
+          blowOn(s, MEASURE, 1, 0.2, 0.7, 2);
+        }),
+        'ward',
+        1,
+      ),
+    ).toBe(false);
+    expect(
+      techOn(
+        silent((s) => {
+          reelCooling(s);
+          blowOn(s, FINAL_CADENCE, 1, 0.2, 1.15);
+        }),
+        'ward',
+        1,
+      ),
+    ).toBe(true);
+    // The Reel ready: the Final Cadence is the Reel's (at 0.4-0.6 s, before the Ward's window).
+    const reeled = silent((s) => blowOn(s, FINAL_CADENCE, 1, 0.5, 1.15));
+    expect(techOn(reeled, 'reel', 1)).toBe(true);
+    expect(techOn(reeled, 'ward', 1)).toBe(false);
+    // Past the Reel's moment with the hero still in it: the Ward, the last answer left.
+    expect(
+      techOn(
+        silent((s) => blowOn(s, FINAL_CADENCE, 1, 0.2, 1.15)),
+        'ward',
+        1,
+      ),
+    ).toBe(true);
+    // The Half Cadence: a Ward if one is in hand. The Rest: never (the Chime's clutch).
+    expect(
+      techOn(
+        silent((s) => blowOn(s, HALF_CADENCE, 1, 0.2, 0.6)),
+        'ward',
+        1,
+      ),
+    ).toBe(true);
+    expect(
+      silent((s) => blowOn(s, REST, 1, 0.2, 0.5, 3.5)).some(
+        (c) => c.t === 'tech' && c.id === 'ward',
+      ),
+    ).toBe(false);
+  });
+
+  it('knows a Half Cadence follows a Final one, and Wards that cycle’s Measure', () => {
+    const sim = finaleRift(undefined);
+    silenceOn(sim);
+    reelCooling(sim);
+    const bot = makeBot('skilled', 1);
+    // A Final Cadence seen far off (nothing to do yet), then gone.
+    const final = blowOn(sim, FINAL_CADENCE, 2, 2.4, 1.15);
+    bot.decide(sim.state);
+    const w = worldOf(sim);
+    w.telegraphs.splice(w.telegraphs.indexOf(final), 1);
+    // The next cycle's Measure: its Cadence is the Half, so the Ward needn't wait.
+    blowOn(sim, MEASURE, 1, 0.2, 0.7, 2);
+    expect(techOn(bot.decide(sim.state), 'ward', 1)).toBe(true);
+  });
+
+  it('per Reel variant: Anchor never takes the Final Cadence; Swap only above 25% life', () => {
+    const variant = (reel: 'anchor' | 'swap', weaverHp: number, blow: string, left: number) =>
+      silent((s) => {
+        const we = weaverE(s);
+        we.weaver!.variants.reel = reel;
+        we.health!.hp = we.health!.maxHp * weaverHp;
+        blowOn(s, blow, 1, left, 1.15);
+      });
+    // Anchor: the Ward takes the Final Cadence, and no Reel goes.
+    expect(techOn(variant('anchor', 1, FINAL_CADENCE, 0.2), 'ward', 1)).toBe(true);
+    expect(techOn(variant('anchor', 1, FINAL_CADENCE, 0.5), 'reel', 1)).toBe(false);
+    // Swap with her life: the Reel's (a Swap) at 0.4-0.6 s.
+    expect(techOn(variant('swap', 0.6, FINAL_CADENCE, 0.5), 'reel', 1)).toBe(true);
+    // Swap at 20% of her life: never; the Ward instead.
+    expect(techOn(variant('swap', 0.2, FINAL_CADENCE, 0.5), 'reel', 1)).toBe(false);
+    expect(techOn(variant('swap', 0.2, FINAL_CADENCE, 0.2), 'ward', 1)).toBe(true);
+  });
+
+  it('never Swaps out of a Final Cadence she would not live through (a Martyr’s life)', () => {
+    /** A Swap Weaver with a Martyr's 720 life at `hp`; the Final Cadence on Lyra (barrier 410). */
+    const martyr = (hp: number, setup: (s: Sandbox) => void) =>
+      silent((s) => {
+        const we = weaverE(s);
+        we.weaver!.variants.reel = 'swap';
+        we.health!.maxHp = 720;
+        we.health!.hp = hp;
+        setup(s);
+      });
+    // At 400 of 720 (above the 25% gate): 828 - 410 = 418 would take her down to near nothing.
+    expect(
+      techOn(
+        martyr(400, (s) => blowOn(s, FINAL_CADENCE, 1, 0.5, 1.15)),
+        'reel',
+        1,
+      ),
+    ).toBe(false);
+    // So the Ward takes it in its Perfect window instead.
+    expect(
+      techOn(
+        martyr(400, (s) => blowOn(s, FINAL_CADENCE, 1, 0.2, 1.15)),
+        'ward',
+        1,
+      ),
+    ).toBe(true);
+    // And the cycle's Ward is kept off the Measure for it (the Swap won't take the Cadence).
+    expect(
+      techOn(
+        martyr(400, (s) => blowOn(s, MEASURE, 1, 0.2, 0.7, 2)),
+        'ward',
+        1,
+      ),
+    ).toBe(false);
+    // At her full 720 she lives through it (302 left): the Swap goes, and the Measure is Warded.
+    expect(
+      techOn(
+        martyr(720, (s) => blowOn(s, FINAL_CADENCE, 1, 0.5, 1.15)),
+        'reel',
+        1,
+      ),
+    ).toBe(true);
+    expect(
+      techOn(
+        martyr(720, (s) => blowOn(s, MEASURE, 1, 0.2, 0.7, 2)),
+        'ward',
+        1,
+      ),
+    ).toBe(true);
+    // The default Weaver's 360 behind Lyra's 410: nothing to take, the Swap goes at 30%.
+    expect(
+      techOn(
+        silent((s) => {
+          const we = weaverE(s);
+          we.weaver!.variants.reel = 'swap';
+          we.health!.hp = we.health!.maxHp * 0.3;
+          blowOn(s, FINAL_CADENCE, 1, 0.5, 1.15);
+        }),
+        'reel',
+        1,
+      ),
+    ).toBe(true);
+  });
+
+  it('Reels the Final Cadence’s target 0.4-0.6 s before it lands, and keeps the Reel off lesser blows', () => {
+    expect(
+      techOn(
+        silent((s) => blowOn(s, FINAL_CADENCE, 1, 0.5, 1.15)),
+        'reel',
+        1,
+      ),
+    ).toBe(true);
+    expect(
+      techOn(
+        silent((s) => blowOn(s, FINAL_CADENCE, 1, 0.9, 1.15)),
+        'reel',
+        1,
+      ),
+    ).toBe(false);
+    // A Measure Lyra lives through: the plain Reel loop would pull her out (ablated, it does).
+    const measure = (skip: boolean) => {
+      const sim = finaleRift(undefined);
+      silenceOn(sim);
+      blowOn(sim, MEASURE, 1, 0.5, 0.7, 2);
+      const bot = skip
+        ? new SkilledBot(1, {
+            every: 4,
+            attention: 1,
+            callReaction: 0.4,
+            skip: new Set(['silenceReel']),
+          })
+        : makeBot('skilled', 1);
+      return bot.decide(sim.state);
+    };
+    expect(techOn(measure(false), 'reel', 1)).toBe(false);
+    expect(techOn(measure(true), 'reel', 1)).toBe(true);
+    // One that would kill her: Reeled out (a save, so a note).
+    expect(
+      techOn(
+        silent((s) => blowOn(s, MEASURE, 1, 0.5, 0.7, 2), { hp: 0.6 }),
+        'reel',
+        1,
+      ),
+    ).toBe(true);
+  });
+
+  it('as the Chronomancer: with Paradox, Rewinds the Final Cadence’s target; else undoes a blow', () => {
+    for (const [name, party] of Object.entries(FINALE_PARTIES)) {
+      const label = 'chronomancer + Paradox';
+      const paradox = silent((s) => blowOn(s, FINAL_CADENCE, 1, 0.8, 1.15), { label, party });
+      expect(techOn(paradox, 'reel', 1), name).toBe(true);
+      // And the Ward is left for the Measure: the Rewind takes the Final Cadence.
+      expect(
+        techOn(
+          silent((s) => blowOn(s, FINAL_CADENCE, 1, 0.2, 1.15), { label, party }),
+          'ward',
+          1,
+        ),
+        name,
+      ).toBe(false);
+    }
+    const without = CALLING_LABELS.find(
+      (l) => l.startsWith('chronomancer +') && !l.endsWith('Paradox'),
+    )!;
+    // No Paradox: a frozen hero can't be Rewound out of it, so the Ward takes it.
+    expect(
+      techOn(
+        silent((s) => blowOn(s, FINAL_CADENCE, 1, 0.8, 1.15), { label: without }),
+        'reel',
+        1,
+      ),
+    ).toBe(false);
+    expect(
+      techOn(
+        silent((s) => blowOn(s, FINAL_CADENCE, 1, 0.2, 1.15), { label: without }),
+        'ward',
+        1,
+      ),
+    ).toBe(true);
+    // A blow took 40% of her life within Rewind's reach: Rewind gives it back (her note).
+    const undo = silent(
+      (s) => {
+        const lyra = heroE(s, 1);
+        const h = lyra.hero!;
+        h.past[h.pastAt] = { hp: lyra.health!.maxHp * 0.95, x: lyra.x, z: lyra.z, up: true };
+        lyra.health!.hp = lyra.health!.maxHp * 0.55;
+      },
+      { label: without },
+    );
+    expect(techOn(undo, 'reel', 1)).toBe(true);
+  });
+
+  it('Chimes a Rest only in its clutch, first, and never early on anything else', () => {
+    const chimed = (out: Command[], slot: number, sim?: Sandbox) =>
+      out.some(
+        (c) =>
+          c.t === 'tech' &&
+          c.id === 'chime' &&
+          (!sim ||
+            (c.point &&
+              Math.hypot(c.point.x - heroE(sim, slot).x, c.point.z - heroE(sim, slot).z) < 0.5)),
+      );
+    expect(
+      chimed(
+        silent((s) => blowOn(s, REST, 1, 1.0, 0.5, 3.5)),
+        1,
+      ),
+    ).toBe(true);
+    expect(
+      chimed(
+        silent((s) => blowOn(s, REST, 1, 2.0, 0.5, 3.5)),
+        1,
+      ),
+    ).toBe(false);
+    // A stunned hero would be Chimed in any other fight; in the silence the Chime waits.
+    const stunned = (silence: boolean) => {
+      const sim = finaleRift(undefined);
+      if (silence) silenceOn(sim);
+      stage(sim, 2, { id: 'stun', remaining: 3, duration: 3 });
+      return makeBot('skilled', 1).decide(sim.state);
+    };
+    expect(chimed(stunned(false), 2)).toBe(true);
+    expect(chimed(stunned(true), 2)).toBe(false);
+    // The clutch goes even when the Ward acted this decision.
+    const both = silent((s) => {
+      blowOn(s, REST, 2, 1.0, 0.5, 3.5);
+      blowOn(s, MEASURE, 1, 0.2, 0.7, 2);
+    });
+    expect(techOn(both, 'ward', 1)).toBe(true);
+    expect(chimed(both, 2)).toBe(true);
+  });
+
+  it('Mends, never Empowers, while the heroes are stilled', () => {
+    expect(makeBot('skilled', 1).decide(finaleRift(undefined).state)).toContainEqual({ t: 'mode' });
+    for (const party of Object.values(FINALE_PARTIES)) {
+      const out = silent(() => {}, { party });
+      expect(out).not.toContainEqual({ t: 'mode' });
+      expect(out.some((c) => c.t === 'thread')).toBe(true);
+    }
+  });
+
+  it('Cues every ready Solo in the last burn, damage Solos first, and none while stilled', () => {
+    const burn = (when: 'over' | 'holding' | 'shift') => {
+      const sim = rift({ thread: null });
+      conductorOn(sim);
+      weaverE(sim).weaver!.resonance = 40;
+      heroE(sim, 0).hero!.solo = 100;
+      heroE(sim, 1).hero!.solo = 100;
+      const bot = makeBot('skilled', 1);
+      const w = worldOf(sim);
+      if (when !== 'shift') {
+        // The silence seen on a tick between decisions (it is watched every tick).
+        w.tick = 4 * Math.ceil(w.tick / 4) + 1;
+        silenceOn(sim);
+        bot.decide(sim.state);
+        if (when === 'over') silenceOff(sim);
+      }
+      w.tick = 4 * Math.ceil((w.tick + 1) / 4);
+      return bot.decide(sim.state);
+    };
+    // Lyra's Gale Barrage before Kael's dome (the Requiem reserve would have held both).
+    expect(burn('over')).toContainEqual({ t: 'cue', slot: 1 });
+    expect(burn('holding').some((c) => c.t === 'cue')).toBe(false);
+    // Phase 3 entered, the silence not yet begun (the phase shift): no Solo is Cued to freeze.
+    expect(burn('shift').some((c) => c.t === 'cue')).toBe(false);
+  });
+
+  it('names every Finale rule; leaving them all off changes nothing before the Finale', () => {
+    expect(new Set(FINALE_RULES).size).toBe(FINALE_RULES.length);
+    for (const [encounter, kit] of [
+      ['crimson_gate', KIT],
+      ['the_unweaver', KIT3],
+    ] as const) {
+      const config = { seed: 1000, encounter, ...kit };
+      const plain = new SkilledBot(1000);
+      const skipping = new SkilledBot(1000, {
+        every: 4,
+        attention: 1,
+        callReaction: 0.4,
+        skip: new Set(FINALE_RULES),
+      });
+      const a = createSim(config);
+      const b = createSim(config);
+      for (let t = 0; t < 60 * 20; t++) {
+        const ca = plain.decide(a.state);
+        const cb = skipping.decide(b.state);
+        expect(cb).toEqual(ca);
+        a.step(ca);
+        b.step(cb);
+        a.drainEvents();
+        b.drainEvents();
+      }
+    }
+  });
+});
+
+describe('the Novice bot in the Finale (NOVICE_M4, staged)', () => {
+  /**
+   * The Novice's commands over 10 s of a staged sandbox; `pin` re-stages what must stay as it is
+   * (a telegraph's time left, a Dirge's) before each decision, so nothing staged ever lands.
+   */
+  const novice = (sim: Sandbox, pin: () => void = () => {}, seed = 5): Command[] => {
+    const bot = makeBot('novice', seed);
+    const out: Command[] = [];
+    for (let t = 0; t < 600; t++) {
+      pin();
+      const c = bot.decide(sim.state);
+      out.push(...c);
+      sim.step(c);
+      sim.drainEvents();
+    }
+    return out;
+  };
+  /** A blow kept `left` s from landing on the hero in `slot` every tick. */
+  const pinned = (sim: Sandbox, attackId: string, slot: number, left: number, pct: number) => {
+    const t = blowOn(sim, attackId, slot, left, pct);
+    return () => {
+      const now = worldOf(sim).time;
+      t.impact = now + left;
+      t.perfectFrom = t.impact - 0.35;
+      t.start = now - 1;
+      const dirge = heroE(sim, slot).health!.statuses.find((x) => x.id === 'dirge');
+      if (dirge) dirge.remaining = left;
+    };
+  };
+
+  it('draws nothing without a mechanic up', () => {
+    const plain = novice(rift({ hp: 0.6, thread: null }));
+    // An empty Finale state, and Discord alone (no draw of hers reads it): the same stream.
+    const empty = rift({ hp: 0.6, thread: null });
+    finaleOf(empty);
+    expect(novice(empty)).toEqual(plain);
+    const discord = rift({ hp: 0.6, thread: null });
+    finaleOf(discord).discord = { value: 50, rate: 0.5 };
+    expect(novice(discord)).toEqual(plain);
+  });
+
+  it('Crescendos in Fortissimo Silence with a full song, and Focuses a Cued soloist, now and then', () => {
+    const fort = rift({ thread: null });
+    weaverE(fort).weaver!.resonance = 100;
+    finaleOf(fort).fortissimo = { pulse: 1, impact: 1e9 };
+    expect(novice(fort)).toContainEqual({ t: 'crescendo' });
+    const calm = rift({ thread: null });
+    weaverE(calm).weaver!.resonance = 100;
+    expect(novice(calm)).not.toContainEqual({ t: 'crescendo' });
+
+    const cued = rift({ thread: null });
+    const voice = tough(cued, 'hollow_chorister', 0, -12);
+    finaleOf(cued).cue = { boss: voice.id, soloist: voice.id, solo: SHATTER_ARIA, until: 1e9 };
+    expect(novice(cued)).toContainEqual({ t: 'directive', kind: 'focus', target: voice.id });
+    const uncued = rift({ thread: null });
+    tough(uncued, 'hollow_chorister', 0, -12);
+    expect(novice(uncued).some((c) => c.t === 'directive' && c.kind === 'focus')).toBe(false);
+  });
+
+  it('in the Grand Silence: Chimes a Rest late, Wards a Measure, Reels a Cadence, now and then', () => {
+    const rest = rift({ thread: null });
+    silenceOn(rest);
+    const restOut = novice(rest, pinned(rest, REST, 1, 1.0, 0.5));
+    expect(restOut.some((c) => c.t === 'tech' && c.id === 'chime')).toBe(true);
+    // A Rest with time to spare: no early reflex in the silence.
+    const early = rift({ thread: null });
+    silenceOn(early);
+    const earlyOut = novice(early, pinned(early, REST, 1, 2.0, 0.5));
+    expect(earlyOut.some((c) => c.t === 'tech' && c.id === 'chime')).toBe(false);
+
+    const measure = rift({ thread: null });
+    silenceOn(measure);
+    expect(novice(measure, pinned(measure, MEASURE, 1, 1.5, 0.7))).toContainEqual({
+      t: 'tech',
+      id: 'ward',
+      slot: 1,
+    });
+
+    const cadence = rift({ thread: null });
+    silenceOn(cadence);
+    expect(novice(cadence, pinned(cadence, FINAL_CADENCE, 1, 0.6, 1.15))).toContainEqual({
+      t: 'tech',
+      id: 'reel',
+      slot: 1,
+    });
+    // Without the silence she never Reels a hero out of a blow.
+    const plain = rift({ thread: null });
+    expect(
+      novice(plain, pinned(plain, FINAL_CADENCE, 1, 0.6, 1.15)).some(
+        (c) => c.t === 'tech' && c.id === 'reel',
+      ),
+    ).toBe(false);
+  });
+
+  it('Cues more in the last burn, and only once the silence was seen', () => {
+    const cueRate = (when: 'none' | 'burn' | 'shift') => {
+      let n = 0;
+      for (let seed = 1; seed <= 40; seed++) {
+        const sim = rift({ thread: null });
+        const boss = worldOf(sim).entities.get(tough(sim, 'hollow_chorister', 0, -10).id)!;
+        if (when !== 'none') {
+          boss.enemy!.defId = CONDUCTOR;
+          boss.enemy!.phase = 3;
+        }
+        worldOf(sim).encounter.bossId = boss.id;
+        weaverE(sim).weaver!.resonance = 50;
+        heroE(sim, 1).hero!.solo = 100;
+        const bot = makeBot('novice', seed);
+        const w = worldOf(sim);
+        const decide = () => bot.decide(sim.state).some((c) => c.t === 'cue');
+        if (when === 'burn') {
+          // A first decision (as in 'none'), then the silence seen between her decisions (it is
+          // watched every tick, with no draw) and over by the next.
+          const first = decide();
+          w.tick += 1;
+          silenceOn(sim);
+          bot.decide(sim.state);
+          silenceOff(sim);
+          w.tick += 30;
+          if (first || decide()) n++;
+        } else if (decide()) n++;
+      }
+      return n / 40;
+    };
+    const none = cueRate('none');
+    expect(cueRate('burn')).toBeGreaterThan(none + 0.15);
+    // Phase 3's shift before the silence: as without the burn.
+    expect(cueRate('shift')).toBe(none);
+  });
+});
+
+// In play: once the Silent Conductor's content (W2), its script (W1) and the Finale def (W3) land.
+const CONDUCTOR_UP = CONTENT.encounters.some((e) => e.id === CONDUCTOR);
+const KIT4 = kitConfig(ARRIVAL4_KIT);
+
+describe('Finale smoke guards (ARRIVAL4_KIT)', () => {
+  it.skipIf(!CONDUCTOR_UP)(
+    'an idle Weaver loses the Silent Conductor',
+    () => {
+      for (const seed of [1000, 8919]) {
+        const run = playEncounter({ seed, encounter: CONDUCTOR, ...KIT4 }, 'idle');
+        expect(run.outcome, String(seed)).not.toBe('victory');
+      }
+    },
+    120_000,
+  );
+
+  it.skipIf(CONTENT.movements.length < 4)('lists the Finale’s one fight', () => {
+    expect(movementEncounters(4)).toEqual([CONDUCTOR]);
+  });
+
+  it.skipIf(!CONDUCTOR_UP || !BOSS_TABLES[CONDUCTOR])(
+    'in play: each Conductor Decree is answered ≥ 80% over 12 seeds (tools/decrees.ts)',
+    () => {
+      const table = BOSS_TABLES[CONDUCTOR]!;
+      const answered: Record<string, number> = {};
+      const occurrences: Record<string, number> = {};
+      for (let i = 0; i < 12; i++) {
+        const f = decreeFight(CONDUCTOR, 1000 + i * 7919, 'skilled');
+        for (const d of table.decrees) {
+          answered[d] = (answered[d] ?? 0) + f.answered[d]!;
+          occurrences[d] = (occurrences[d] ?? 0) + f.occurrences[d]!;
+        }
+      }
+      for (const d of table.decrees) {
+        expect(occurrences[d], d).toBeGreaterThan(0);
+        expect(answered[d]! / occurrences[d]!, d).toBeGreaterThanOrEqual(0.8);
+      }
+    },
+    300_000,
+  );
 });
