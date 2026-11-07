@@ -35,7 +35,7 @@ import {
   startTelegraph,
 } from '../combat/telegraphs';
 import { setOnCrescendo } from './techniques';
-import type { Entity, EnemyTier, FieldZone, Foreseen, Telegraph } from '../state';
+import type { Entity, EntityId, EnemyTier, FieldZone, Foreseen, Telegraph } from '../state';
 import type { World } from '../world';
 import { newHealth } from '../world';
 import { enemyFx, hasAura } from '../combat/auras';
@@ -1545,12 +1545,17 @@ function volatileBurst(world: World, e: Entity): void {
  * legacy encounter's script (none, the Seamstress's, the Unweaver's) has neither, so each returns
  * before it writes anything.
  */
-function telegraphVerdict(world: World, t: Telegraph, failed: boolean): void {
+function telegraphVerdict(
+  world: World,
+  t: Telegraph,
+  failed: boolean,
+  victims: readonly EntityId[],
+): void {
   const script = encounterScript(world);
   if (!script?.telegraphVerdict) return;
   const id = world.encounter.bossId;
   const boss = id === null ? undefined : world.entities.get(id);
-  script.telegraphVerdict(world, boss?.enemy && isActive(boss) ? boss : null, t, failed);
+  script.telegraphVerdict(world, boss?.enemy && isActive(boss) ? boss : null, t, failed, victims);
 }
 
 function crescendoBegan(world: World): void {

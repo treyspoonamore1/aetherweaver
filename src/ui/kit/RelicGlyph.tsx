@@ -49,6 +49,13 @@ export const GLYPHS: Readonly<Record<string, string>> = {
   cord: 'M3.5 9c3 0 4 6 8.5 6s5.5-6 8.5-6 M3.5 15c3 0 4-6 8.5-6s5.5 6 8.5 6 M10.5 12a1.5 1.5 0 1 0 3 0 1.5 1.5 0 0 0-3 0z',
   stillbell:
     'M12 3.5a1 1 0 0 1 1 1v.7A6 6 0 0 1 18 11v4l2 2.5H4L6 15v-4a6 6 0 0 1 5-5.8v-.7a1 1 0 0 1 1-1z M10 20a2 2 0 0 0 4 0 M8.5 12.5h7 M9.5 15h5',
+  // The Finale's relics (Phase 5d): Tacet Mark's rest under a fermata, Quick Rosin's bow over
+  // its cake, the First Score's quill over a staff.
+  tacet: 'M3.5 11h17 M3.5 15h17 M3.5 19h17 M9.5 11h5v2.6h-5z M7 7.5a5 3.5 0 0 1 10 0 M12 6.2h.01',
+  rosin:
+    'M4.5 11.5l15-8 M5.5 13.5l15-8 M4.5 11.5l1 2 M19.5 3.5l1 2 M5 15.5h10a1.5 1.5 0 0 1 1.5 1.5v1.5A1.5 1.5 0 0 1 15 20H5a1.5 1.5 0 0 1-1.5-1.5V17A1.5 1.5 0 0 1 5 15.5z',
+  firstscore:
+    'M3.5 13.5h10 M3.5 16.5h10 M3.5 19.5h10 M7.2 16.5a1.3 1.3 0 1 0 2.6 0 1.3 1.3 0 0 0-2.6 0z M20.5 3.5c-4.5.6-8 4-9.5 9.5 M20.5 3.5c-.4 3.6-3 6.6-7 8 M13.5 9.5l2 2',
 };
 
 /** A relic glyph's path data (a plain diamond for an unknown key). */

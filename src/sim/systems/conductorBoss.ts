@@ -698,7 +698,13 @@ function conductorResolved(world: World, boss: Entity, t: Telegraph): void {
  * A Finale telegraph resolved. A silence attack leaves the tracked list; a Solo ends its Cue; and
  * a failed one feeds Discord its `discord` (phases 1-2, never past 100 or during Fortissimo).
  */
-function conductorVerdict(world: World, boss: Entity | null, t: Telegraph, failed: boolean): void {
+function conductorVerdict(
+  world: World,
+  boss: Entity | null,
+  t: Telegraph,
+  failed: boolean,
+  victims: readonly EntityId[] = [],
+): void {
   const m4 = world.internal.m4;
   if (m4?.live) {
     const i = m4.live.indexOf(t.id);
@@ -719,6 +725,7 @@ function conductorVerdict(world: World, boss: Entity | null, t: Telegraph, faile
     telegraph: t.id,
     amount,
     value: d.value,
+    failed: [...victims],
   });
 }
 

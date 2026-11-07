@@ -18,12 +18,15 @@ import type { BossHud, Callout } from '../store';
 // ── Colours (each paired with a glyph and words, never colour alone) ──────────────────
 
 /**
- * The Conductor's Discord: tarnished bronze (ΔE ≥ 32 from every semantic colour in every vision,
- * docs/phase-5d.md "Colour"), never the Shielded affix's discord pink.
+ * The Conductor's Discord: tarnished brass, the same #a89060 as render's FINALE_HEX (the Discord
+ * streak, the baton line and the Cue sigil, src/render/crucibleCues.ts), so the meter, the world
+ * and the baton read as one colour. The design's bronze #7a5646 measured only 7.4 ΔE from Bear
+ * under deuteranopia; brass is ≥ 23.3 from every semantic colour in every vision. Never the
+ * Shielded affix's discord pink.
  */
-export const DISCORD_HEX = '#7a5646';
-/** The same bronze, lightened for words on the dark HUD (text contrast). */
-export const DISCORD_INK = '#e3c4b2';
+export const DISCORD_HEX = '#a89060';
+/** The same brass, lightened for words on the dark HUD (text contrast). */
+export const DISCORD_INK = '#e6d9b0';
 /** The silence is desaturation, not a hue: the stave's ground and the stilled frames' ink. */
 export const SILENCE_INK = '#cbd5e1';
 /** A note is the Weaver's doing: her gold. */

@@ -236,7 +236,7 @@ test('a Prelude run: Prep → Map → an autoplayed fight → Result → Draft �
   expect(errors).toEqual([]);
 });
 
-test('Phase 5a/5c: an Expedition — past the Cantor and Vharun into Movement III, the Unweaver, the Summary', async ({
+test('Phase 5a/5c/5d: an Expedition — past the Cantor, Vharun and the Unweaver to the Finale, the Silent Conductor, the epilogue, the Summary', async ({
   page,
 }) => {
   test.setTimeout(300_000);
@@ -258,8 +258,8 @@ test('Phase 5a/5c: an Expedition — past the Cantor and Vharun into Movement II
   expect(await movement()).toEqual({ movements: 1, here: 1, map: 1 });
   await page.evaluate(() => window.__AWRUN__!.newRun(4242, 'expedition'));
   await expect.poll(phase).toBe('prep');
-  // Phase 5c: an Expedition is every Movement in content (I–III).
-  expect(await movement()).toEqual({ movements: 3, here: 1, map: 1 });
+  // Phase 5d: an Expedition is every Movement in content (I–III and the Finale).
+  expect(await movement()).toEqual({ movements: 4, here: 1, map: 1 });
   await expectDefaultPrep(page, true);
   await page
     .getByRole('button', { name: /Embark/i })
@@ -270,7 +270,7 @@ test('Phase 5a/5c: an Expedition — past the Cantor and Vharun into Movement II
 
   // To Movement II's doorstep: the Cantor behind, the Crimson Gate next.
   expect(await page.evaluate(() => window.__AWRUN__!.warpMovement(2))).toBe('map');
-  expect(await movement()).toEqual({ movements: 3, here: 1, map: 2 });
+  expect(await movement()).toEqual({ movements: 4, here: 1, map: 2 });
   expect(await page.evaluate(() => window.__AWRUN__!.choose())).toBe('skirmish');
   await expect.poll(phase).toBe('combat');
   await page.waitForFunction(() => window.__AW__ !== undefined);
@@ -284,7 +284,7 @@ test('Phase 5a/5c: an Expedition — past the Cantor and Vharun into Movement II
   await expect.poll(phase).toBe('draft');
   await page.evaluate(() => window.__AWRUN__!.pick(0));
   await expect.poll(phase).toBe('map');
-  expect(await movement()).toEqual({ movements: 3, here: 2, map: 2 });
+  expect(await movement()).toEqual({ movements: 4, here: 2, map: 2 });
 
   // Vharun, the Crimson Warden: an interlude now (docs/phase-5c.md), relic → draft → map.
   expect(await page.evaluate(() => window.__AWRUN__!.warp('boss'))).toBe('combat');
@@ -299,7 +299,7 @@ test('Phase 5a/5c: an Expedition — past the Cantor and Vharun into Movement II
   await expect.poll(phase).toBe('draft');
   await page.evaluate(() => window.__AWRUN__!.pick(0));
   await expect.poll(phase).toBe('map');
-  expect(await movement()).toEqual({ movements: 3, here: 2, map: 3 });
+  expect(await movement()).toEqual({ movements: 4, here: 2, map: 3 });
   // The Abyssal Rift's map: its one-time title card, then its header.
   const card = page.getByTestId('movement-card');
   await expect(card).toBeVisible();
@@ -323,25 +323,60 @@ test('Phase 5a/5c: an Expedition — past the Cantor and Vharun into Movement II
   await expect.poll(phase).toBe('draft');
   await page.evaluate(() => window.__AWRUN__!.pick(0));
   await expect.poll(phase).toBe('map');
-  expect(await movement()).toEqual({ movements: 3, here: 3, map: 3 });
+  expect(await movement()).toEqual({ movements: 4, here: 3, map: 3 });
 
-  // On to the Unweaver: the run's last stop.
+  // The Unweaver: an interlude on the Finale route (docs/phase-5d.md), relic → draft → map.
   expect(await page.evaluate(() => window.__AWRUN__!.warp('boss'))).toBe('combat');
   await page.waitForFunction(() => window.__AW__ !== undefined);
   await expect.poll(() => page.evaluate(() => window.__AW__!.encounter().id)).toBe('the_unweaver');
   expect(await page.evaluate(() => window.__AWRUN__!.winFight())).toBe(true);
   await expect.poll(phase).toBe('result');
+  expect(await page.evaluate(() => window.__AWRUN__!.outcome())).toBeNull();
+  await page.evaluate(() => window.__AWRUN__!.continue());
+  await expect.poll(phase).toBe('relic');
+  await page.evaluate(() => window.__AWRUN__!.pickRelic(0));
+  await expect.poll(phase).toBe('draft');
+  await page.evaluate(() => window.__AWRUN__!.pick(0));
+  await expect.poll(phase).toBe('map');
+  expect(await movement()).toEqual({ movements: 4, here: 3, map: 4 });
+  // The Finale's map: its one-time title card, then its one stop.
+  const finaleCard = page.getByTestId('movement-card');
+  await expect(finaleCard).toBeVisible();
+  await expect(finaleCard).toContainText('The Finale · The Celestial Crucible');
+  await finaleCard.getByRole('button', { name: /Ascend/ }).click();
+  await expect(finaleCard).toHaveCount(0);
+  await expect(page.locator('[data-movement="4"]')).toBeVisible();
+  await expect(page.getByText(/The Finale · The Celestial Crucible · step 1 of 1/)).toBeVisible();
+
+  // The Silent Conductor: the run's last stop.
+  expect(await page.evaluate(() => window.__AWRUN__!.choose())).toBe('boss');
+  await expect.poll(phase, { timeout: 30_000 }).toBe('combat');
+  await page.waitForFunction(() => window.__AW__ !== undefined);
+  await expect
+    .poll(() => page.evaluate(() => window.__AW__!.encounter().id))
+    .toBe('the_silent_conductor');
+  expect(await page.evaluate(() => window.__AWRUN__!.winFight())).toBe(true);
+  await expect.poll(phase).toBe('result');
   await page.evaluate(() => window.__AWRUN__!.continue());
   await expect.poll(phase).toBe('summary');
   expect(await page.evaluate(() => window.__AWRUN__!.outcome())).toBe('victory');
-  expect(await page.evaluate(() => window.__AWRUN__!.results())).toBe(4);
+  expect(await page.evaluate(() => window.__AWRUN__!.results())).toBe(5);
   if ((await page.getByTestId('rank-up').count()) > 0)
     await page.getByRole('button', { name: /Onward/ }).click();
-  await expect(page.getByText('The Unweaver falls, and the Rift knits shut.')).toBeVisible();
+  // The epilogue (≤ 20 s, skippable), then the Summary: the song goes on.
+  const epilogue = page.getByTestId('epilogue');
+  await expect(epilogue).toBeVisible();
+  await expect(page.getByTestId('epilogue-line').first()).toBeVisible();
+  await page.getByTestId('epilogue-skip').click();
+  await expect(epilogue).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'The song goes on' })).toBeVisible();
+  await expect(
+    page.getByText('The Silent Conductor lowers its baton, and the song goes on.'),
+  ).toBeVisible();
   await expect(page.getByTestId('summary-songs')).toBeVisible();
 
-  // A second Expedition, won through the hook: winRun walks past the Cantor and Vharun to the
-  // Unweaver.
+  // A second Expedition, won through the hook: winRun walks past the Cantor, Vharun and the
+  // Unweaver to the Silent Conductor.
   await page.evaluate(() => window.__AWRUN__!.newRun(4243, 'expedition'));
   await expect.poll(phase).toBe('prep');
   await page
@@ -351,7 +386,7 @@ test('Phase 5a/5c: an Expedition — past the Cantor and Vharun into Movement II
   await expect.poll(phase).toBe('map');
   expect(await page.evaluate(() => window.__AWRUN__!.winRun())).toBe(true);
   await expect.poll(phase).toBe('summary');
-  expect(await movement()).toMatchObject({ movements: 3, here: 3 });
+  expect(await movement()).toMatchObject({ movements: 4, here: 4 });
   expect(errors).toEqual([]);
 });
 
@@ -372,9 +407,11 @@ test('Phase 5c: Movement III — the Rift’s map, a Rift fight’s HUD, and Gli
   await expect(page.getByRole('switch', { name: /Skip the unlocks/ })).toBeChecked();
   await page.evaluate(() => window.__AWRUN__!.newRun(5151, 'expedition'));
   await expect.poll(phase).toBe('prep');
-  // Prep names the whole route: Movements I–III, to the Unweaver.
-  await expect(page.getByTestId('prep-route')).toContainText('Movements II–III');
-  await expect(page.getByTestId('prep-route')).toContainText('Movements I–III, to the Unweaver.');
+  // Prep names the whole route: Movements I–III and the Finale, to the Silent Conductor.
+  await expect(page.getByTestId('prep-route')).toContainText('Movements II–III and the Finale');
+  await expect(page.getByTestId('prep-route')).toContainText(
+    'Movements I–III and the Finale, to the Silent Conductor.',
+  );
   await page
     .getByRole('button', { name: /Embark/i })
     .first()
@@ -384,7 +421,7 @@ test('Phase 5c: Movement III — the Rift’s map, a Rift fight’s HUD, and Gli
   // Straight to Movement III's doorstep: the Rift's map (header, its frayed backdrop). The title
   // card shows on arriving from a fight (the first test); the warp keeps the map mounted.
   expect(await page.evaluate(() => window.__AWRUN__!.warpMovement(3))).toBe('map');
-  expect(await movement()).toEqual({ movements: 3, here: 2, map: 3 });
+  expect(await movement()).toEqual({ movements: 4, here: 2, map: 3 });
   await expect(page.locator('[data-movement="3"]')).toBeVisible();
   await expect(page.getByText(/Movement III · The Unstitched · step 1 of 6/)).toBeVisible();
   await expect(page.getByTestId('backdrop-fray')).toHaveCount(1);

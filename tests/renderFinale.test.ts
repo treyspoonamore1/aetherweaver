@@ -61,6 +61,8 @@ import type { Stage } from '../src/render/stage';
 import { TelegraphLayer } from '../src/render/telegraphs';
 import { ThreadView } from '../src/render/thread';
 import type { FrameInfo } from '../src/render/types';
+import { makeBot } from '../src/bots';
+import { ARRIVAL4_KIT, kitConfig } from '../tools/kits';
 import { sandbox, spawn, worldOf } from './sim/helpers';
 
 const SETTINGS: FrameInfo['settings'] = {
@@ -1069,4 +1071,38 @@ describe('The budget', () => {
       delete worldOf(sim).field.finale;
     });
   }
+});
+
+describe('Integration: a real Conductor fight lights the Finale counters', () => {
+  it('the Skilled bot against the Silent Conductor: Cues, Discord from the verdict’s failed victims, Fortissimo, the silence, its notes and its end', () => {
+    // Seed 5 with the Movement IV kit reaches the Grand Silence and Reignites (tools/decrees.ts).
+    const seed = 5;
+    const sim = createSim({ seed, encounter: CONDUCTOR, ...kitConfig(ARRIVAL4_KIT) });
+    const h = harness(sim);
+    const bot = makeBot('skilled', seed);
+    let roses = 0;
+    let named = 0;
+    for (let i = 0; i < 60 * 420; i++) {
+      const { events } = h.tick(bot.decide(sim.state));
+      for (const e of events) {
+        if (e.type !== 'discordRose') continue;
+        roses++;
+        // The verdict names its failed victims, so render's streaks run from them alone.
+        expect(e.failed, `rose ${roses}`).toBeDefined();
+        expect(e.failed!.length).toBeGreaterThan(0);
+        named += e.failed!.length;
+      }
+      const s = sim.state.encounter.status;
+      if (s === 'victory' || s === 'defeat') break;
+    }
+    const f = h.feedback.firedFinale;
+    expect(f.cues).toBeGreaterThan(0);
+    expect(roses).toBeGreaterThan(0);
+    expect(f.discordStreaks).toBe(roses);
+    expect(f.discordBeams).toBe(named);
+    expect(f.fortissimoPulses).toBeGreaterThan(0);
+    expect(f.silences).toBe(1);
+    expect(f.notes).toBeGreaterThan(0);
+    expect(f.reignites + f.codas).toBe(1);
+  }, 120_000);
 });

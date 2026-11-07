@@ -157,7 +157,7 @@ Questions 4, 5, 6 and 8 take their recommended defaults until you say otherwise.
 | Cast collisions | The script Cues only an **idle** voice: no cast, not spawning, not disabled. `beginAttack` overwrites `c.cast` without cancelling the old telegraph (`enemies.ts:793`). If no voice is idle, the Cue waits; if none stands, it becomes a Raise. | Stacking a Solo on a live cast orphans a telegraph. |
 | Elite adds | **Raise pushes `pendingSpawns` entries with `elite: true` at `now + 1.0`** on a **6 m** ring (`ringPoint`, `enemies.ts:1454-1476`) and a `spawnWarning {delay: 1.0}` for each, so every voice has a 1.0 s ground warning after the 1.5 s Raise cast. | Calling `spawnEnemy` directly skips the warning. `summon` is hard-coded `elite:false` (`enemies.ts:1250`). A 9 m ring cost party A 130 s at the Unweaver (5c). |
 | The mirror-choir | **Four glass voices that mirror the heroes' leitmotifs.** Each Solo teaches one verb: Alto → Lament → **Chime**; Bass → Basso Ostinato → **Ward**; Tenor → Cadenza → **Reel**; Soprano → Shatter Aria → **Scatter**. | Echoes of the three beaten bosses (Dirge, Execution, Snip) need special Discord rules for Execution and cut verdicts, and don't rehearse the Reel-save. |
-| Phase 2's escalation | **Tempo, not a damage buff:** choir cap 3, Tenor and Soprano raised at once, Cues every 11 s, Discord floor 70 and +1.0/s. | Threading the soloist with `emboldenedUntil` scales only flat `attack.damage` (`rules3.ts:196-200`); `pctMaxHp` passes unscaled apart from the elite ×1.1 (`enemies.ts:765`), and damage is fixed when `beginAttack` runs. It would buff two Solos of four, and only if set before begin. |
+| Phase 2's escalation | **Tempo, not a damage buff:** the entry Raise brings the Tenor and Soprano at once whatever the cap (the choir can briefly be 4), then the cap is 3 for later Raises, Cues every 11 s, Discord floor 70 and +1.0/s. | Threading the soloist with `emboldenedUntil` scales only flat `attack.damage` (`rules3.ts:196-200`); `pctMaxHp` passes unscaled apart from the elite ×1.1 (`enemies.ts:765`), and damage is fixed when `beginAttack` runs. It would buff two Solos of four, and only if set before begin. |
 | What 'answered' means | **One verdict per Finale telegraph** (an attack with `discord`). A victim **fails** when its own result has `dealt > 0`, `absorbedByWeaver === 0`, no `borne`, no `saved`, no `takenBy`, and it is not in a live Aegis Link. The telegraph fails when failed victims ≥ the attack's `discordQuorum` (default 1). Everything else is answered (table below). | Per-victim Discord punishes raids threefold. Ledger diffs can't tell a dodge from a failure. Perfects-only is too harsh for a healer. |
 | Shatter Aria and Scatter | Aria is a ground circle r 4.5 fixed where its target stood when it began (`enemies.ts:713-716`), with **`discordQuorum: 2`**: it feeds Discord only if it catches two or more unanswered heroes. Scatter keeps the others out; the one it's on can walk out, be Reeled out, or take it under a Ward. | Quorum 1: the target is usually inside, so Scatter alone never answers it. |
 | Discord numbers | 0-100. A failed boss attack +8; a failed Solo +20. A passive rise of +0.5/s in phase 1. **At phase 2's entry it rises to at least 70, then +1.0/s**, so a clean phase 2 reaches 100 within 30 s (the Skilled phase 2 targets 50-60 s). It pauses during the 2 s shift, during Fortissimo and in Stasis, resets to 0 after each Fortissimo, and is gone in phase 3. | Floor 50 and +0.8/s reach 100 after 62.5 s, longer than the phase: Fortissimo would rarely be cast in a clean fight (question 7). |
@@ -174,7 +174,7 @@ Questions 4, 5, 6 and 8 take their recommended defaults until you say otherwise.
 | Reignite | Each note fills **12.5** of every stilled hero's Solo. The eighth note takes `stilled` off, leaves every standing Solo at 100 (`soloReady`; the `chargeSolos` pattern, `commands.ts:150-157`), and **stands every downed hero back up at 30%** (`reviveHero(world, hero, THREAD.reviveHpPct)`, `health.ts:1566`; `weaver.ts:33`). The burn's Solos are the Weaver's to Cue: with autonomy off (the default, `settings.ts:115`, `world.ts:342`) an uncued Solo waits (`heroes.ts:253-264`); the notes' Resonance (Perfect 20, save 25, clutch 15, `weaver.ts:66-70`) pays for the Cues. | A hero damage multiplier touches the hero damage path in every fight. 'Uncued Solos fire on their own' is true only with autonomy on. |
 | Fail-forward: the Coda | At the cap (50 s × telegraphLead × the Dissonance windup multiplier, fixed at silence entry), the *Coda*: `stilled` comes off and the burn begins, but **Solos keep only what the notes gave and nobody is stood back up**. No extra attack. With no Weaver (`config.absent`) or a downed one, no notes come, and the Final Cadence downs a frozen hero every 18 s, so the party falls before the cap or limps into the Coda; the enrage ends it either way. A frozen party alone never triggers defeat (`director.ts:207-223`); downed heroes do. | No cap: the Novice can't finish (she reignites by notes in about 5% of silences, `silence.mjs`). A Coda Fortissimo hits an already hurt party and turns the Novice's Coda into a wipe. The penalty that remains (lost Solos, no revive, 50 s of blows) keeps the notes worth playing for. |
 | The choir at the silence | Entering phase 3 interrupts any singing voice (`interruptEnemy`), then shatters the choir with `killEnemy(world, add, null)`: no credit, 'the choir falls silent'. | Stilling the adds would wake them into the burn and pull Focus off the boss. |
-| Names | The plan's words stay. **Discord** is drawn as a stave meter in tarnished bronze `#7a5646` (ΔE ≥ 32.4 from every semantic colour in every vision, `de5e.ts`), never the Shielded affix's discord pink (bosses take no affixes). It is labelled 'the Conductor's Discord'. **'Fortissimo Silence' is always written in full**, never 'Fortissimo' (an aura, `content/auras.ts:34`). Deed ids and names avoid 'finale' (`bright_finale` is the Cantor's) and 'The Last Note' (an existing boon, `content/relics.ts:200-201`). 'Resonance' always means the Weaver's. | 'The Conductor's Resonance' (03:316) collides with the Weaver's meter, events and stems. |
+| Names | The plan's words stay. **Discord** is drawn as a stave meter in tarnished brass `#a89060` (ΔE ≥ 23.3 from every semantic colour in every vision; see *Colour*), never the Shielded affix's discord pink (bosses take no affixes). It is labelled 'the Conductor's Discord'. **'Fortissimo Silence' is always written in full**, never 'Fortissimo' (an aura, `content/auras.ts:34`). Deed ids and names avoid 'finale' (`bright_finale` is the Cantor's) and 'The Last Note' (an existing boon, `content/relics.ts:200-201`). 'Resonance' always means the Weaver's. | 'The Conductor's Resonance' (03:316) collides with the Weaver's meter, events and stems. |
 | The first Finale clear | `finaleCleared(run)`: some result that `endsRun` whose encounter is the finale def's boss. The lasting record is the badge Deed **`song_goes_on`** ('The Song Goes On') in `profile.deeds`, with no profile field. It drives the Dissonance gate (question 3) and later the Atlas. | An additive `profile.finales?` counter. It is not needed until Echo pacing wants a count. |
 | Finale relics | Three relics with **their own `applyRelic` cases** (`mods.ts:744-812`), each adding to an existing mod key: Tacet Mark `perfectWindowBonus += 0.1`; **Quick Rosin** `reelCooldownCut += 3` (Rewind reads it too, `rewind.ts:83`); The First Score `wardCharges += 1`. Relics apply after motifs (`mods.ts:411, 520`), so `+=` stacks on Steady Hands, Fisher's Knot and Twin Aegis, which assign. | 'KNOWN_RELICS append only' gives no effect: KNOWN_RELICS is only the tested list (`mods.ts:832-850`). 5c's hook line ('movement: 4 and nothing more', `phase-5c.md:1192`) was wrong for the same reason. A Chime-cut relic would repeat Stillwater Bell (`relics.ts:186-194`, `mods.ts:803-806`). |
 | Heartbeat in the silence | The low-life heartbeat (`hud.lowHealthSound`) stays on the allow-list at −6 dB. It is an accessibility aid, and in the silence you hear the heroes' hearts. | Muting it removes a warning players rely on. |
@@ -372,7 +372,7 @@ Phase banners also carry a line: phase 2 'Hear how they strain.', phase 3 'Hush.
 ### Phase 2 — Mirror Choir (60-25%)
 
 - Discord rises to **at least 70**, then +1.0/s: a clean phase 2 meets Fortissimo Silence within about 30-33 s (the in-flight Solo resolves first).
-- The choir cap becomes 3. A Raise is cast at once and brings the **Tenor** and **Soprano**, then any missing voice every 20 s in order Tenor, Soprano, Alto, Bass.
+- A Raise is cast at once and brings the **Tenor** and **Soprano** whatever the cap (the choir can be 4 for a while). The choir cap becomes 3 for later Raises: any missing voice every 20 s while under it, in order Tenor, Soprano, Alto, Bass.
 - The Cue comes every 11 s; never-Cued voices first, so the Tenor and Soprano sing early.
 - A Fortissimo Silence cut off by the threshold shift is cast again after it.
 - Skilled target: about 50-60 s, one Fortissimo (two with failures), about 4 Cues.
@@ -583,10 +583,10 @@ The Grand Silence doesn't depend on the party: only the Weaver acts, and the att
 - **Counters:** `drawnFinale` and `firedFinale` stay zero in every Movement I-III fight (the `drawnM3` test pattern, `tests/renderMovement3.test.ts:286-299`).
 - **`riftCues.ts` is not edited.** Everything Finale-only lives in `crucibleCues.ts`, called from the frame after the Rift's cues and gated on `finaleOf(state)`.
 - **The Cue:**
-  - a tarnished-bronze baton line (BEAM `dashed`) from the Conductor to the soloist, drawn from `field.finale.cue`;
+  - a tarnished-brass baton line (BEAM `dashed`) from the Conductor to the soloist, drawn from `field.finale.cue`;
   - SPRITE.baton over the soloist;
   - the Solo's cast progress and interruptible flag on its over-head bar (`entities.ts:2342-2384`).
-- **Discord fed:** a bronze streak from the hit hero to the Conductor, and a '+20' floater. Nothing when answered.
+- **Discord fed:** a brass streak from each failed victim (`discordRose.failed`) to the Conductor, and a '+20' floater. Nothing when answered.
 - **Fortissimo Silence:**
   - the existing raid path (`overlay.raid`, `telegraphs.ts:780-795`) with pulse pips 1/3-3/3, plus `overlay.danger`;
   - a rising white rim that cuts to nothing on each pulse;
@@ -607,8 +607,12 @@ Each candidate was checked against heal, shield, amp, lethal, threat, ailment, B
 
 | Candidate | Min ΔE, any vision | Use |
 |---|---|---|
-| tarnished bronze `#7a5646` | ≥ 32.4 (`de5e.ts`) | **the Discord meter, baton line, Cue sigil** |
-| tarnished brass `#8a6a5a` | ≥ 26.6 (`de5d.ts`) | fallback |
+| tarnished brass `#a89060` | ≥ 23.3 (Bear, deuteranopia; 24.0 from Empower/amp) | **the Discord meter, baton line, Cue sigil** (`FINALE_HEX`, `DISCORD_HEX`) |
+| tarnished bronze `#7a5646` | 7.4 (Bear, deuteranopia; the ≥ 32.4 was against an older Bear) | not used |
+| `#8a6a5a` | 12.6 | not used |
+| stave `#605078` (`CRUCIBLE_HEX.stave`) | ≥ 21.4 (ailment, protanopia) | the silence stave ring |
+| cobalt rim `#4a5aa8` | ≥ 23.6 | the Crucible's mood rim (the W0b placeholder `#c9d3f5` sat 5.9 from shield) |
+| starlight-bone key `#e2dccc` | 13.3 (call, tritanopia) | the Crucible's key light: a scene light, not a mark (`CRUCIBLE_UNMARKED`), never white-gold |
 | ash `#9aa0aa` | 2.8 (ailment, deuteranopia) | never a semantic hue: the silence is desaturation, not a colour |
 | sky lilac / white-gold | 0.7 (shield, protanopia) / 4.2 (Resonance) | ambient, off the combat disc only |
 
@@ -619,7 +623,7 @@ Each candidate was checked against heal, shield, amp, lethal, threat, ailment, B
 ### Audio (`src/audio`; D dorian, 88 BPM, `theory.ts:7-17`)
 
 - **Crucible BiomeVoicing row** (`music.ts:157-285`; VOICED_BIOMES `:176`):
-  - progression Dadd9 – Gmaj7/D – Em9 – A7sus4;
+  - progression D5add9 – G6/D – Em7add11 – A7sus4 (kept inside D dorian: the first draft's Dadd9 – Gmaj7/D – Em9 held an F♯);
   - pad: celesta-organ; pulse: a baton tick; melody: prismatic glass; choir: the full choir;
   - ambience: high bowed-glass shimmer.
   - The Conductor's motif is the Weaver's phrase inverted (`mirrorIndex`). Each Cue plays the voice's mirrored leitmotif in minor.
@@ -644,7 +648,7 @@ Each candidate was checked against heal, shield, amp, lethal, threat, ailment, B
   - HeroHud gains `stilled?: true`. CalloutKind gains `'note'`.
   - All of these are filled only from `field.finale` (`hudBridge.ts:810-864`).
 - **BossBar** (`BossBar.tsx`, new `finaleLook.ts`):
-  - a **Discord stave meter** under the HP bar: segmented 0-100 with ticks at 25/50/75, the number, a bronze baton glyph, and the words 'Conductor's Discord 72/100 · Crescendo cancels Fortissimo Silence'. Blind Score hides only the half after '·' (`BossBar.tsx:206-212`). It is never colour alone;
+  - a **Discord stave meter** under the HP bar: segmented 0-100 with ticks at 25/50/75, the number, a brass baton glyph, and the words 'Conductor's Discord 72/100 · Crescendo cancels Fortissimo Silence'. Blind Score hides only the half after '·' (`BossBar.tsx:206-212`). It is never colour alone;
   - a rise arrow and 'Fortissimo Silence in ~14 s' from the current rate;
   - in phase 3 it becomes the **silence stave**: 8 pips, each filled with its note's source glyph (Ward, Chime, Reel, Rewind), plus the countdown bar to the Coda;
   - CAST_ICON (`legionLook.ts:41-50`) gains baton and Fortissimo.
@@ -685,7 +689,7 @@ Each candidate was checked against heal, shield, amp, lethal, threat, ailment, B
 | a note sounds | numbered callout, stave pip with its source glyph, relit sky ring, rising mote, a frame Solo segment |
 | which actions count | sighting card and hint; the existing Perfect rim and clutch glow |
 | Reignite | frames relit gold, revived frames rising, gold flare, 'The song returns' callout |
-| Discord rises | the numbered meter with its rate arrow, bronze streak, '+20' floater |
+| Discord rises | the numbered meter with its rate arrow, brass streak, '+20' floater |
 | Fortissimo Silence comes | raid banner with pips, meter at 100, countdown |
 | a Cue | boss cast bar naming soloist and Solo, baton line, soloist cast bar naming the target |
 

@@ -5,7 +5,7 @@
  * misses for their ids. Movement III's bosses register here (docs/phase-5c.md), and so does the
  * Finale's Silent Conductor (docs/phase-5d.md), whose script alone uses the two Finale hooks.
  */
-import type { Entity, Telegraph } from '../state';
+import type { Entity, EntityId, Telegraph } from '../state';
 import type { World } from '../world';
 import { conductorScript } from './conductorBoss';
 import { seamstressScript, unweaverScript } from './unstitchedBosses';
@@ -51,9 +51,16 @@ export interface BossScript {
   /**
    * The Finale (docs/phase-5d.md Q1): a telegraph whose attack has `discord` resolved, and
    * whether it failed (failed victims reached its `discordQuorum`). `boss` is the standing boss
-   * (null once it has fallen). Called through the installer in telegraphs.ts.
+   * (null once it has fallen). `victims`: the ones counted as failed, in hit order (the
+   * `discordRose` event carries them for render). Called through the installer in telegraphs.ts.
    */
-  telegraphVerdict?(world: World, boss: Entity | null, t: Telegraph, failed: boolean): void;
+  telegraphVerdict?(
+    world: World,
+    boss: Entity | null,
+    t: Telegraph,
+    failed: boolean,
+    victims?: readonly EntityId[],
+  ): void;
   /**
    * The Finale (Q4): the Weaver's Crescendo (any Calling's) just began, called once, right after
    * its flags are set (techniques.ts), so Stasis reaches it synchronously.

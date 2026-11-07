@@ -268,6 +268,11 @@ describe('Movements I and II draw as before, and none of Movement III', () => {
   it('the look and mood tables keep every Reliquary and Spire row (renderSpireSnapshot pins them)', () => {
     for (const a of CONTENT.arenas) {
       if (a.biome === 'abyssal_rift') continue;
+      // The Finale's Crucible has its own look (tests/renderFinale.test.ts pins it).
+      if (a.biome === 'celestial_crucible') {
+        expect(arenaLook(a), a.id).toBe('crucible');
+        continue;
+      }
       const look = arenaLook(a);
       expect(look, a.id).not.toBe('abyss');
       expect(look, a.id).toBe(
