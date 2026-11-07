@@ -754,7 +754,7 @@ The Coda keeps her band reachable. **Idle** stays `[]` (`src/bots/index.ts:7-12`
 - `EncounterRun.finale?: FinaleTally` with `VERB_TALLY4_KEYS`, absent elsewhere. It records:
   - discordFed (boss / Solo);
   - fortissimoCast, cancelled (by Calling), survived, and downs within 4 s;
-  - cues, cuesFailed, cuesInterrupted, cuesAnswered (by answer), solosBegun by voice;
+  - cues, cuesFailed (the Cue landed on a voice that couldn't sing, or a loss ended it; not a Cue the boss's own phase shift, its soloist's death or a win cleared), cuesInterrupted, cuesAnswered (by answer), solosBegun by voice;
   - silenceTime, notes by source, reignited / silenceBroken, revived, timeToReignite, damageWhileStilled.
 - `VerbTally3` stays `fightMovement >= 3`, so Finale rows also carry `m3`. No baseline is affected.
 - `movementEncounters(m)` (`:367-377`) narrows with `isFieldMovement` (a finale def lists only its boss). MAX_SECONDS 540 and MAX_PHASES 240 are re-checked against the Finale route.

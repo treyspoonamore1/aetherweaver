@@ -104,7 +104,11 @@ export interface FinaleTally {
   cancelled: Record<string, number>;
   survived: number;
   fortissimoDowns: number;
-  /** Cues; Cues whose Solo couldn't begin; Solos interrupted; Solos answered (by answer). */
+  /**
+   * Cues; Cues whose Solo couldn't begin (the Cue landed on a voice stunned, busy or with no one
+   * to aim at, or a loss ended it: not the boss's own phase shift, the soloist's death or a win);
+   * Solos interrupted; Solos answered (by answer).
+   */
   cues: number;
   cuesFailed: number;
   cuesInterrupted: number;
@@ -203,8 +207,11 @@ interface OpenSolo {
  *   on the downs from its first pulse to `FORTISSIMO_DOWNS_WITHIN` s after its last: survived
  *   with none. A cancel by a phase shift (it is cast again) or the boss's fall isn't judged;
  *   one the fight ended inside is judged on the downs it had (`result`).
- * - **Cues**: each `enemyCued`. A Cue whose Solo never began (its state went first) failed; one
- *   still waiting as the fight ended failed on a loss, and isn't judged on a win.
+ * - **Cues**: each `enemyCued`. A Cue whose Solo never began (its state went first) failed: the
+ *   Cue landed on a voice that couldn't sing (stunned, busy, or with no one to aim at). Its
+ *   state cleared by the boss's own phase shift (phase 2 cancels the Cue's cast; phase 3
+ *   shatters the choir) or by the soloist's death (an answer, as 'killed' is for a Solo) isn't
+ *   judged; one still waiting as the fight ended failed on a loss, and isn't judged on a win.
  * - **Solos**: each begun, by voice, and how each was met (`SOLO_ANSWERS`). A Solo failed when a
  *   `discordRose` named it. One cut off by an interrupt is 'shattered' only on the tick the
  *   Conductor entered phase 3 (the choir shatters); any other interrupt, a hero's stun (an
@@ -250,6 +257,8 @@ export class FinaleWatch {
   private readonly open = new Map<number, OpenSolo>();
   /** The Cue waiting on its Solo: its soloist. */
   private cue: EntityId | null = null;
+  /** The waiting Cue was overtaken by a phase shift or its soloist's death: not judged. */
+  private cueExcused = false;
   /** The Fortissimo Silence playing: when it began, when its last pulse landed, its downs. */
   private fortissimo: { at: number; last: number | null; downs: number } | null = null;
   private silenceSince: number | null = null;
@@ -337,12 +346,14 @@ export class FinaleWatch {
         case 'enemyCued':
           this.cues++;
           this.cue = e.soloist;
+          this.cueExcused = false;
           break;
         case 'castInterrupted':
           interrupted.set(e.enemy, e.by);
           break;
         case 'enemyKilled':
           killed.set(e.enemy, e.killer);
+          if (this.cue === e.enemy) this.cueExcused = true;
           break;
         case 'damageTaken':
           if (e.telegraph !== null && e.amount > 0 && e.absorbed <= 0) {
@@ -360,8 +371,11 @@ export class FinaleWatch {
           if (this.fortissimo) this.fortissimo.downs++;
           break;
         case 'phaseChanged':
-          if (e.phase === 3 && state.entities.get(e.boss)?.enemy?.defId === CONDUCTOR)
-            shattered = true;
+          if (state.entities.get(e.boss)?.enemy?.defId === CONDUCTOR) {
+            if (e.phase === 3) shattered = true;
+            // The shift cancels the Cue's cast (phase 2) or shatters the choir (phase 3).
+            if (this.cue !== null) this.cueExcused = true;
+          }
           break;
         case 'encounterEnded':
           ended = e.outcome;
@@ -395,11 +409,13 @@ export class FinaleWatch {
         ended,
       });
     }
-    // A Cue whose state went before its Solo began: it failed (the fight's end clears the
-    // state too: a loss fails it, a win doesn't).
+    // A Cue whose state went before its Solo began: it failed, unless a phase shift or its
+    // soloist's death cleared it (the fight's end clears the state too: a loss fails it, a win
+    // doesn't).
     if (this.cue !== null && state.field.finale?.cue?.soloist !== this.cue) {
-      if (ended !== 'victory') this.cuesFailed++;
+      if (ended !== 'victory' && !this.cueExcused) this.cuesFailed++;
       this.cue = null;
+      this.cueExcused = false;
     }
     // A Fortissimo Silence played out: judged once its window closes.
     const f = this.fortissimo;
