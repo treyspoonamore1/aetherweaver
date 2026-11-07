@@ -413,7 +413,7 @@ export class TelegraphLayer {
           break;
       }
       this.draw(rec, state, kit, overlay, time, showGlyphs, s);
-      this.markThreats(rec, state, s);
+      this.markThreats(rec, state, s, t.sole);
     }
   }
 
@@ -1212,9 +1212,15 @@ export class TelegraphLayer {
     rec: TgRec,
     state: WorldState,
     shape: WorldState['telegraphs'][number]['shape'],
+    /** The Finale's Grand Silence: the one hero the shape can strike. */
+    sole?: EntityId,
   ): void {
     if (rec.effect !== 'damage') return;
     const level = 0.5 + rec.sev * 0.5;
+    if (sole !== undefined) {
+      this.addThreat(sole, level);
+      return;
+    }
     switch (shape.kind) {
       case 'mark':
         this.addThreat(shape.target, level);

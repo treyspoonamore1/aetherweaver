@@ -670,6 +670,11 @@ function conductorEnter(world: World, boss: Entity, phase: number): void {
     delete m4.nextRaiseAt;
     delete m4.choirRaise;
     delete m4.cuedAt;
+    // A Raise or a Cue whose cast ended this tick hasn't landed yet (its telegraph resolves after
+    // the boss's tick): it is cancelled, or its voices would stand in the silence.
+    for (const t of [...world.telegraphs])
+      if (t.owner === boss.id && (t.attackId === RAISE || t.attackId === CUE))
+        cancelTelegraph(world, t.id);
     shatterChoir(world);
     beginGrandSilence(world, boss);
   }
@@ -699,16 +704,21 @@ function conductorResolved(world: World, boss: Entity, t: Telegraph): void {
   const f = world.field.finale;
   const m4 = world.internal.m4;
   if (!f || !m4) return;
-  if (t.attackId === RAISE) raise(world, boss);
-  else if (t.attackId === CUE) beginSolo(world, f, m4);
-  else if (t.attackId === GRAND_SILENCE && !f.silence) beginSilence(world, boss, f, m4);
+  // The choir is gone from phase 3 on: no Raise or Cue lands in the Grand Silence or the burn.
+  const choir = boss.enemy!.phase <= 2;
+  if (t.attackId === RAISE) {
+    if (choir) raise(world, boss);
+  } else if (t.attackId === CUE) {
+    if (choir) beginSolo(world, f, m4);
+  } else if (t.attackId === GRAND_SILENCE && !f.silence) beginSilence(world, boss, f, m4);
 }
 
 // ── The verdict and the Crescendo (the Finale's hooks) ──────────────────────────────
 
 /**
- * A Finale telegraph resolved. A silence attack leaves the tracked list; a Solo ends its Cue; and
- * a failed one feeds Discord its `discord` (phases 1-2, never past 100 or during Fortissimo).
+ * A Finale telegraph resolved. A silence attack leaves the tracked list (the heroes it took life
+ * from are remembered, for a Rewind's note); a Solo ends its Cue; and a failed one feeds Discord
+ * its `discord` (phases 1-2, never past 100 or during Fortissimo).
  */
 function conductorVerdict(
   world: World,
@@ -716,11 +726,15 @@ function conductorVerdict(
   t: Telegraph,
   failed: boolean,
   victims: readonly EntityId[] = [],
+  struck: readonly EntityId[] = [],
 ): void {
   const m4 = world.internal.m4;
   if (m4?.live) {
     const i = m4.live.indexOf(t.id);
-    if (i >= 0) m4.live.splice(i, 1);
+    if (i >= 0) {
+      m4.live.splice(i, 1);
+      if (m4.struck) for (const id of struck) if (!m4.struck.includes(id)) m4.struck.push(id);
+    }
   }
   const f = world.field.finale;
   if (!f) return;
@@ -743,13 +757,15 @@ function conductorVerdict(
 
 /**
  * The Weaver's Crescendo (any Calling's: Sunrise, the Vow, Stasis) cancels Fortissimo Silence,
- * live or cast again after a shift: its pulses, the boss's cast and the follow-up go, and Discord
- * is 0. Synchronous, so Stasis (which stops the boss systems) cancels it too.
+ * live, cast again after a shift, or due (Discord full, waiting for a Cue or Solo to resolve): its
+ * pulses, the boss's cast and the follow-up go, and Discord is 0. Synchronous, so Stasis (which
+ * stops the boss systems, and outlasts no Solo it holds) cancels it too.
  */
 function conductorCrescendo(world: World): void {
   const f = world.field.finale;
   const m4 = world.internal.m4;
-  if (!f || !m4 || (!f.fortissimo && !m4.queued)) return;
+  const pending = !!f?.discord && f.discord.value >= DISCORD_MAX - 1e-9;
+  if (!f || !m4 || (!f.fortissimo && !m4.queued && !pending)) return;
   const boss = standingBoss(world);
   cancelFortissimo(world, boss);
   delete f.fortissimo;
@@ -772,6 +788,7 @@ function beginSilence(world: World, boss: Entity, f: FinaleField, m4: M4): void 
   holdBoss(boss);
   f.silence = { notes: 0, of: NOTES_NEEDED, since: world.time, until, sources: [] };
   snapshot(world, m4);
+  m4.struck = [];
   m4.nextRestAt = world.time;
   world.events.push({ type: 'silenceBegan', tick: world.tick, boss: boss.id, until });
 }
@@ -851,6 +868,9 @@ function beginProgram(
   if (!beginAttack(world, boss, attackDef(attackId), current, promised)) return undefined;
   const t = castTelegraph(world, boss);
   if (t) (m4.live ??= []).push(t.id);
+  // A circle at a stilled hero's feet strikes that hero alone: the party is frozen in formation,
+  // and one Ward and one Reel answer one victim (the Rest's mark has one already).
+  if (t && t.shape.kind === 'circle' && t.target !== null) t.sole = t.target;
   return t;
 }
 
@@ -902,11 +922,17 @@ function countNotes(world: World, boss: Entity, f: FinaleField, m4: M4): void {
     for (const save of l.saves.slice(seen.saves))
       if (save.cause === 'reel') notes.push({ source: 'reel', hero: save.hero });
     // A Rewind that undid a blow, at most one per `REWIND_NOTE_EVERY` s (Temporal Mastery and
-    // Quick Rosin can bring Rewind back sooner).
-    const rewinds = marks.filter((m) => m.kind === 'rewind').length;
+    // Quick Rosin can bring Rewind back sooner): life back on a hero a silence blow struck (life
+    // lost before the silence, in Rewind's reach just after its entry, is no note), or a tracked
+    // silence telegraph cancelled (Paradox).
+    const rewinds = marks.filter((m) => m.kind === 'rewind');
+    const undid = rewinds.some((m) => {
+      const hero = slotHero(m.slot);
+      return hero !== null && (m4.struck ?? []).includes(hero);
+    });
     if (
-      rewinds > 0 &&
-      (l.calling.rewound > seen.rewound + 1e-9 || cancelled > 0) &&
+      rewinds.length > 0 &&
+      ((l.calling.rewound > seen.rewound + 1e-9 && undid) || cancelled > 0) &&
       (m4.nextRewindNoteAt === undefined || due(world, m4.nextRewindNoteAt))
     ) {
       notes.push({ source: 'rewind', hero: null });
@@ -1017,6 +1043,7 @@ function endProgram(world: World, boss: Entity, m4: M4): void {
   delete m4.nextCadenceAt;
   delete m4.cycle;
   delete m4.seen;
+  delete m4.struck;
   delete m4.nextRewindNoteAt;
   boss.health!.invulnerable = 0;
 }

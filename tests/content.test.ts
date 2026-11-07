@@ -1015,6 +1015,19 @@ describe('content lint: the Finale (docs/phase-5d.md)', () => {
       (c) => void (withFinale(c).road[1]!.callingRows = [0, 2, 3, 5]),
       /only Movement I's road carries callingRows/,
     );
+    // One tier a row, in order; and Movement I's road can't leave them to the Prelude's rows.
+    rejects(
+      (c) => void (withFinale(c).road[0]!.callingRows = [0, 2, 2, 5]),
+      /callingRows rise, one row per tier \(2 after 2\)/,
+    );
+    rejects(
+      (c) => void (withFinale(c).road[0]!.callingRows = [5, 0, 2, 3]),
+      /callingRows rise, one row per tier \(0 after 5\)/,
+    );
+    rejects(
+      (c) => void delete withFinale(c).road[0]!.callingRows,
+      /road "hollow_choir": Movement I's road carries callingRows/,
+    );
     rejects(
       (c) => void (withFinale(c).road[0]!.fixed[0]!.encounter = 'tolling_halls'),
       /row 0 is fixed to its opening/,

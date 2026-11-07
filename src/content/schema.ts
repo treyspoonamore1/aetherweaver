@@ -1948,10 +1948,21 @@ function lintFinale(c: ContentShape, ctx: z.RefinementCtx, sets: LintSets): void
         issue(`${at}: a threat row for each of its ${r.rows.length} rows`);
       for (const t of r.threat)
         if (t >= def.rows.length) issue(`${at}: threat row ${t} is past the Movement's last`);
+      // Movement I's road must carry its Calling rows: without them the Prelude's [0,3,5,7]
+      // would put a tier past the shorter road, on the next Movement's rows.
+      if (r.callingRows === undefined && j === 0)
+        issue(`${at}: Movement I's road carries callingRows`);
       if (r.callingRows !== undefined) {
         if (j !== 0) issue(`${at}: only Movement I's road carries callingRows`);
         if (r.callingRows.length !== tiers)
           issue(`${at}: callingRows has one row per Calling tier (${tiers})`);
+        // One tier a row, in order: a repeated row hides a tier, an unordered one swaps them.
+        r.callingRows.forEach((row, k) => {
+          if (k > 0 && row <= r.callingRows![k - 1]!)
+            issue(
+              `${at}: callingRows rise, one row per tier (${row} after ${r.callingRows![k - 1]})`,
+            );
+        });
         for (const row of r.callingRows) {
           const kinds = r.rows[row];
           if (!kinds || !kinds.every((k) => FIGHT_KINDS.has(k)))

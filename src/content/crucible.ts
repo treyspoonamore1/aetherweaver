@@ -138,6 +138,11 @@ const DOWNBEAT_FROM = 5;
 const SFORZANDO_EVERY = 12;
 const SFORZANDO_FROM = 9;
 const CUE_WINDUP = 1.2;
+/**
+ * Principle 3: every Finale telegraph lasts at least this long (s), whatever shortens it. Short
+ * Fuse's Dissonance windup multiplier (×0.8 at rank 2) would otherwise take the Cue to 0.96 s.
+ */
+export const FINALE_MIN_WINDUP = 1;
 const CUE_FROM = 8;
 const RAISE_WINDUP = 1.5;
 const RAISE_EVERY = 20;

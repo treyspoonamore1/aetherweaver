@@ -35,6 +35,7 @@
  */
 import { CONTENT, partyHasDome } from '../content';
 import { Rng } from '../sim/core/rng';
+import { contains } from '../sim/combat/telegraphs';
 import { bloodRageBonus, segmentDistSq, weaverSilenced } from '../sim';
 import type { Command, PartySlot, ReadonlyEntity, ThreadMode, WorldState } from '../sim';
 import type { Bot } from './types';
@@ -634,9 +635,11 @@ export class SkilledBot implements Bot {
       // note), never spent on a lesser blow the plain loop below would answer.
       const silenceLoop = silence !== null && this.on('silenceReel');
       if (silenceLoop && !acted && !reserve) {
-        const pick = silenceReelPick(state, party, w, tech.reel.range, now);
+        const pick = silenceReelPick(state, party, w, tech.reel.range, now, target);
         if (pick && this.notice()) {
-          out.push({ t: 'tech', id: 'reel', slot: pick.slot });
+          // Turned away from the blow first when the usual aim would land them back inside it.
+          if (pick.aim) this.intent.aim(out, pick.aim.x, pick.aim.z);
+          out.push({ t: 'tech', id: 'reel', slot: pick.h.slot });
           acted = true;
         }
       }
@@ -824,14 +827,17 @@ export class SkilledBot implements Bot {
       fortissimo === null &&
       this.on('bankCrescendo') &&
       banking(discord, wc.resonance, segment, crescendoCost);
-    if (wc.resonance >= segment && burn && this.on('reigniteCue')) {
+    // Fortissimo Silence with the Crescendo to cancel it: no Cue spends the Resonance it needs
+    // (commands run in order, so a Cue sent beside it would leave it short).
+    const cancelling = crescendoReady && fortissimo !== null && this.on('crescendoCancel');
+    if (!cancelling && wc.resonance >= segment && burn && this.on('reigniteCue')) {
       // The last burn (after Reignite or the Coda): every ready Solo, damage Solos first.
       const ready = party.filter(
         (h) => h.e.hero!.solo >= 100 && h.e.hero!.soloActive <= 0 && !isStilled(h.e),
       );
       const pick = ready.find((h) => !GUARDING.has(h.e.hero!.soloId)) ?? ready[0];
       if (pick) out.push({ t: 'cue', slot: pick.slot });
-    } else if (wc.resonance >= segment) {
+    } else if (!cancelling && wc.resonance >= segment) {
       for (const h of party) {
         const c = h.e.hero!;
         if (c.solo < 100 || c.soloActive > 0) continue;
@@ -887,7 +893,7 @@ export class SkilledBot implements Bot {
         }
       }
     }
-    if (crescendoReady && fortissimo && this.on('crescendoCancel')) {
+    if (cancelling && fortissimo) {
       // Fortissimo Silence (the Finale): any Calling's Crescendo cancels it, a breath after the
       // first pulse begins (or at once, on a later pulse).
       if (
@@ -1198,6 +1204,9 @@ export class SkilledBot implements Bot {
         if (party.length === 0 || party.some((h) => !swapSurvives(w, h.e, toWeaver))) return false;
       }
     }
+    // A plain Reel or a Swap that can't land them outside the blow doesn't take it.
+    if (!rewind && on && !reelOutAim(state, w, on.hero, on.t, { x: wc.aimX, z: wc.aimZ }))
+      return false;
     const by = impact - state.time - (rewind ? 0.15 : SILENCE_REEL_FROM);
     return wc.cooldowns.reel <= by && affords(state, 'reel');
   }
@@ -1966,12 +1975,22 @@ function brannThread(
 
 // ── The Finale (docs/phase-5d.md, "Bots and harness"): read only with its mechanic up ─────
 
-/** A Dirge on `e` the Chime would cleanse inside its clutch window (its last second). */
+/** How far inside the clutch window the silence's Chime aims to land (s). */
+const CLUTCH_MARGIN = 0.1;
+
+/**
+ * A Dirge on `e` the Chime would cleanse inside its clutch window (its last second): cast once
+ * the Chime's flight would land it at least `CLUTCH_MARGIN` s inside the window, since the
+ * silence's fixed cycle meets the 4-tick decision grid at the same phase every Rest.
+ */
 function clutchDue(e: ReadonlyEntity): boolean {
   const chime = CONTENT.techniques.chime;
   const dirge = statusRemaining(e, 'dirge');
-  const flight = chime.flight + 0.1;
-  return dirge !== Infinity && dirge < chime.clutchWindow + flight - 0.05 && dirge > flight;
+  return (
+    dirge !== Infinity &&
+    dirge < chime.clutchWindow + chime.flight - CLUTCH_MARGIN &&
+    dirge > chime.flight + 0.1
+  );
 }
 
 /**
@@ -2008,10 +2027,45 @@ function soloAnswerReady(state: WorldState, w: ReadonlyEntity, cue: CueView): bo
 }
 
 /**
+ * Where a Reel of `hero` out of `t` must aim: `aim` when it lands them outside the shape (a plain
+ * Reel lands them `landing` m from the Weaver toward her aim; a Swap, where she stands), else a
+ * point straight away from the shape's centre if that does; null when no Reel takes them out.
+ */
+function reelOutAim(
+  state: WorldState,
+  w: ReadonlyEntity,
+  hero: ReadonlyEntity,
+  t: ReadonlyTelegraph,
+  aim: { x: number; z: number },
+): { x: number; z: number } | null {
+  const outside = (x: number, z: number) => !contains(state, t, { ...hero, x, z });
+  if (w.weaver!.variants.reel === 'swap') return outside(w.x, w.z) ? aim : null;
+  const landing = CONTENT.techniques.reel.landing;
+  const lands = (to: { x: number; z: number }) => {
+    const dx = to.x - w.x;
+    const dz = to.z - w.z;
+    const d = Math.sqrt(dx * dx + dz * dz);
+    // Under 0.1 m the sim lands them along her heading: unknown here, so not trusted.
+    return d >= 0.1 && outside(w.x + (dx / d) * landing, w.z + (dz / d) * landing);
+  };
+  if (lands(aim)) return aim;
+  const s = t.shape;
+  const cx = s.kind === 'circle' || s.kind === 'donut' || s.kind === 'cone' ? s.x : hero.x;
+  const cz = s.kind === 'circle' || s.kind === 'donut' || s.kind === 'cone' ? s.z : hero.z;
+  const dx = w.x - cx;
+  const dz = w.z - cz;
+  const d = Math.sqrt(dx * dx + dz * dz);
+  if (d < 0.1) return null;
+  const away = { x: w.x + (dx / d) * 5, z: w.z + (dz / d) * 5 };
+  return lands(away) ? away : null;
+}
+
+/**
  * `silenceReel`: the hero to Reel out of a Grand Silence blow 0.4-0.6 s before it lands, unless
  * a Ward holds for it: the Final Cadence's target (its save is the note), else one a lesser blow
  * would kill. Never with Anchor; a Swap only while the Weaver keeps 25% of her life. A mark (the
- * Rest) follows the hero, so isn't Reeled from. Null with none.
+ * Rest) follows the hero, so isn't Reeled from. Never one the Reel would land back inside the
+ * blow: with `aim` (this decision's) it would, the Reel is aimed away first. Null with none.
  */
 function silenceReelPick(
   state: WorldState,
@@ -2019,11 +2073,12 @@ function silenceReelPick(
   w: ReadonlyEntity,
   range: number,
   now: number,
-): HeroView | null {
+  aim: { x: number; z: number },
+): { h: HeroView; aim: { x: number; z: number } | null } | null {
   const wc = w.weaver!;
   if (wc.variants.reel === 'anchor') return null;
   if (wc.variants.reel === 'swap' && w.health!.hp <= w.health!.maxHp * SWAP_ABOVE) return null;
-  let best: { h: HeroView; score: number } | null = null;
+  let best: { h: HeroView; score: number; aim: { x: number; z: number } } | null = null;
   for (const h of party) {
     if (h.e.hero!.reel || dist(h.e, w) > range - 0.3) continue;
     for (const t of threatsOn(state, h.e)) {
@@ -2036,11 +2091,14 @@ function silenceReelPick(
       if (!final && dmg < h.e.health!.hp + shieldOf(h.e)) continue;
       // Swap: only a blow she lives through (the plain Reel loop's guard).
       if (wc.variants.reel === 'swap' && !swapSurvives(w, h.e, damageOf(t, w))) continue;
+      const to = reelOutAim(state, w, h.e, t, aim);
+      if (!to) continue;
       const score = (final ? 1e6 : 0) + dmg;
-      if (!best || score > best.score) best = { h, score };
+      if (!best || score > best.score) best = { h, score, aim: to };
     }
   }
-  return best?.h ?? null;
+  if (!best) return null;
+  return { h: best.h, aim: best.aim === aim ? null : best.aim };
 }
 
 /**

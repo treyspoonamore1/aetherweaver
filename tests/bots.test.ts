@@ -43,6 +43,7 @@ import {
   type Sim,
   type SimConfig,
   type SimEvent,
+  type SimEventOf,
   type Status,
   type Telegraph,
   type WorldState,
@@ -2529,6 +2530,24 @@ describe('the Skilled bot reads the Finale (staged)', () => {
     expect(has(makeBot('skilled', 1).decide(sim.state), { t: 'crescendo' })).toBe(true);
   });
 
+  it('sends no Cue beside the Fortissimo cancel: the Crescendo needs every segment', () => {
+    for (const [name, party] of Object.entries(FINALE_PARTIES)) {
+      const sim = finaleRift(party, 'none', 0.4);
+      const w = worldOf(sim);
+      w.encounter.bossId = tough(sim, 'hollow_chorister', 0, -10).id;
+      weaverE(sim).weaver!.resonance = 100;
+      w.party.forEach((_, slot) => (heroE(sim, slot).hero!.solo = 100));
+      // Between pulses: the next pulse's telegraph not begun yet, so no raid holds a damage Cue.
+      finaleOf(sim).fortissimo = { pulse: 2, impact: w.time + 1.5 };
+      const out = makeBot('skilled', 1).decide(sim.state);
+      expect(has(out, { t: 'crescendo' }), name).toBe(true);
+      expect(
+        out.some((c) => c.t === 'cue'),
+        name,
+      ).toBe(false);
+    }
+  });
+
   it('banks the Crescendo as Discord climbs: no damage Cue, no early Crescendo', () => {
     const decide = (discord: { value: number; rate: number } | null, resonance = 100) => {
       const sim = rift({ hp: 0.5, thread: null });
@@ -2966,6 +2985,46 @@ describe('the Skilled bot in the Grand Silence (staged)', () => {
     });
     expect(techOn(both, 'ward', 1)).toBe(true);
     expect(chimed(both, 2)).toBe(true);
+  });
+
+  it('aims a silence Reel away from the blow when its usual aim would land the hero back in it', () => {
+    const sim = finaleRift(undefined);
+    silenceOn(sim);
+    const lyra = heroE(sim, 1);
+    // Her aim (the party's centre, 0,2) lands Lyra at (1.8, 6.6): inside her own circle.
+    Object.assign(weaverE(sim), { x: 2.5, z: 8.5 });
+    blowOn(sim, FINAL_CADENCE, 1, 0.5, 1.15);
+    const out = makeBot('skilled', 1).decide(sim.state);
+    expect(techOn(out, 'reel', 1)).toBe(true);
+    const aim = out.findLast((c) => c.t === 'aim');
+    expect(out.indexOf(aim!)).toBeLessThan(out.findIndex((c) => c.t === 'tech' && c.id === 'reel'));
+    sim.step(out);
+    for (let i = 0; i < 30; i++) sim.step([]);
+    expect(lyra.hero!.reel).toBeNull();
+    expect(Math.hypot(lyra.x - 0, lyra.z - 6)).toBeGreaterThan(2.5 + lyra.radius);
+  });
+
+  it('lands its silence Chime inside the clutch window: the Rests make clutch notes', () => {
+    const sim = sandbox({});
+    stepFor(sim, 1, [spawn(CONDUCTOR, 0, -8)]);
+    const w = worldOf(sim);
+    const boss = w.entities.list().find((e) => e.enemy?.defId === CONDUCTOR)!;
+    boss.health!.hp = boss.health!.maxHp = 1e7;
+    for (const id of w.party) {
+      const h = w.entities.get(id)!.health!;
+      h.hp = h.maxHp = 1e6;
+    }
+    stepFor(sim, 60, [{ t: 'debug', op: { op: 'setBossHp', pct: 0.2 } }]);
+    const bot = makeBot('skilled', 1);
+    const cleansed: SimEventOf<'cleansed'>[] = [];
+    for (let i = 0; i < 60 * 40; i++) {
+      sim.step(bot.decide(sim.state));
+      for (const e of sim.drainEvents())
+        if (e.type === 'cleansed' && w.field.finale?.silence) cleansed.push(e);
+    }
+    // Every Rest's Chime in the silence a clutch (never one landing just outside the window).
+    expect(cleansed.length).toBeGreaterThanOrEqual(3);
+    expect(cleansed.every((c) => c.clutch)).toBe(true);
   });
 
   it('Mends, never Empowers, while the heroes are stilled', () => {

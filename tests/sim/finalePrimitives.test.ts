@@ -258,6 +258,31 @@ describe('the verdict, victim by victim', () => {
     expect(fed(e3, t3)).toBe(SOLO);
   });
 
+  it('an aura’s barrier answers nothing: an Ostinato barrier took part, the hit still fails', () => {
+    const { sim, w, boss } = stage(fieldSong(['ostinato']));
+    const lyra = at(w, LYRA);
+    stepUntil(sim, () => lyra.health!.shields.some((x) => x.kind === 'barrier'), 60 * 10);
+    const barrier = lyra.health!.shields.find((x) => x.kind === 'barrier')!;
+    expect(barrier).toMatchObject({ fromWeaver: true, fromAura: true });
+    const before = barrier.amount;
+    const t = strike(w, boss, LAMENT, { on: lyra });
+    const events = land(sim, t);
+    const hit = ofType(events, 'damageTaken').find((d) => d.telegraph === t.id)!;
+    expect(hit.amount).toBeGreaterThan(0);
+    expect(lyra.health!.shields.find((x) => x.kind === 'barrier')?.amount ?? 0).toBeLessThan(
+      before,
+    );
+    expect(fed(events, t)).toBe(SOLO);
+    // In a legacy fight the result never carries the key.
+    const legacy = sandbox(fieldSong(['ostinato']));
+    const lw = worldOf(legacy);
+    const ly = at(lw, LYRA);
+    stepUntil(legacy, () => ly.health!.shields.some((x) => x.kind === 'barrier'), 60 * 10);
+    const r = dealDamage(lw, ly, { source: null, sourceName: 't', amount: 50, telegraph: null });
+    expect(r.absorbedByWeaver).toBeGreaterThan(0);
+    expect('absorbedByAura' in r).toBe(false);
+  });
+
   it('what the Martyr bears answers it (`borne`)', () => {
     const { sim, w, boss } = stage({ calling: { id: 'martyr', path: [] } });
     stepFor(sim, 2, [{ t: 'thread', slot: LYRA }]);

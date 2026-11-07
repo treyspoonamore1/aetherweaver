@@ -299,6 +299,28 @@ describe('the Mirror Choir’s Raise', () => {
     expect(w.internal.pendingSpawns.filter((p) => [TENOR, SOPRANO].includes(p.defId))).toEqual([]);
   });
 
+  it('a phase-3 crossing on the tick the Raise lands (or just before or after) brings no voice', () => {
+    // The Raise's cast ends in updateEnemies, the crossing comes in updateBosses, and its
+    // telegraph resolves after both: on that tick the old Raise must not bring its voices.
+    for (const ticksBefore of [2, 1, 0]) {
+      const { sim, w, boss } = choir();
+      cross(sim, 0.55);
+      const raise = w.telegraphs.find((t) => t.owner === boss.id && t.attackId === RAISE)!;
+      expect(raise, `${ticksBefore}`).toBeDefined();
+      // Up to the step `ticksBefore` ticks before the one that lands it (0: that very step).
+      while (w.time + (ticksBefore + 1) * TICK < raise.impact - 1e-9) stepFor(sim, 1);
+      cross(sim, 0.2);
+      expect(boss.enemy!.phase).toBe(3);
+      const owed = () => w.internal.pendingSpawns.filter((p) => [TENOR, SOPRANO].includes(p.defId));
+      expect(owed(), `${ticksBefore}`).toEqual([]);
+      stepUntil(sim, () => w.field.finale!.silence !== undefined, 60 * 5);
+      stepFor(sim, 60 * 3);
+      expect(w.field.finale!.silence, `${ticksBefore}`).toBeDefined();
+      expect(voices(w), `${ticksBefore}`).toEqual([]);
+      expect(owed(), `${ticksBefore}`).toEqual([]);
+    }
+  });
+
   it('with one Overture voice fallen, it still brings both: the choir is three', () => {
     const { sim, w } = choir();
     killEnemy(w, voices(w, ALTO)[0]!, null);
@@ -617,6 +639,42 @@ describe('Fortissimo Silence', () => {
     expect(w.internal.m4!.queued).toBeUndefined();
     expect(watch(sim, 8)[FORTISSIMO[0]]).toBeUndefined();
   });
+
+  it('any Calling’s Crescendo cancels one due behind a Solo: Stasis outlasts no Solo it holds', () => {
+    const resonance: Command = { t: 'debug', op: { op: 'setResonance', value: 100 } };
+    for (const calling of [undefined, { id: 'chronomancer' as const, path: [] }]) {
+      const name = calling?.id ?? 'none';
+      const { sim, w, boss } = conductor(calling ? { calling } : {}, { untouchable: true });
+      quiet(boss);
+      w.internal.m4!.nextRaiseAt = NEVER;
+      const cue = next(sim, CUE, 60 * 20);
+      stepUntil(sim, () => !w.telegraphs.some((t) => t.id === cue.id), 120);
+      // Its Solo sings; Discord fills, so Fortissimo Silence waits for the Solo to resolve.
+      expect(w.field.finale!.cue, name).toBeDefined();
+      w.field.finale!.discord!.value = 100;
+      stepFor(sim, 1, [resonance]);
+      const events = stepFor(sim, 1, [{ t: 'crescendo' }]);
+      expect(ofType(events, 'fortissimoCancelled'), name).toEqual([
+        expect.objectContaining({ by: 'crescendo' }),
+      ]);
+      expect(w.field.finale!.discord!.value, name).toBeLessThan(1);
+      expect(watch(sim, 10)[FORTISSIMO[0]], name).toBeUndefined();
+    }
+  });
+
+  it('Short Fuse never takes a Finale telegraph under 1.0 s (the Cue’s 1.2 s × 0.8)', () => {
+    const { sim, w, boss } = conductor(
+      { dissonance: [{ id: 'short_fuse', rank: 2 }] },
+      { untouchable: true },
+    );
+    expect(w.mods.dissonanceWindupMult).toBeCloseTo(0.8, 9);
+    quiet(boss);
+    const raise = next(sim, RAISE, 60 * 10);
+    near(raise.impact - raise.start, 1.5 * 0.8);
+    const cue = next(sim, CUE, 60 * 20);
+    near(cue.impact - cue.start, 1);
+    expect(cue.impact - cue.start).toBeGreaterThanOrEqual(1 - 1e-9);
+  });
 });
 
 describe('the Grand Silence', () => {
@@ -750,7 +808,8 @@ describe('the Grand Silence', () => {
       sources: ['perfect', 'clutch', 'reel'],
     });
     for (const id of w.party) expect(w.entities.get(id)!.hero!.solo).toBe(3 * SOLO_PER_NOTE);
-    // A Rewind that restored life: one note, no hero.
+    // A Rewind that restored life to a hero a silence blow struck: one note, no hero.
+    m4.struck!.push(w.party[0]!);
     l.markers.push({ time: 0, kind: 'rewind', slot: 0 });
     l.calling.rewound += 50;
     expect(ofType(stepFor(sim, 1), 'silenceNote').map((n) => [n.source, n.hero])).toEqual([
@@ -766,6 +825,7 @@ describe('the Grand Silence', () => {
     const { sim, w } = conductor({}, { untouchable: true });
     silence(sim);
     const l = w.ledger;
+    w.internal.m4!.struck!.push(w.party[0]!);
     const rewind = () => {
       l.markers.push({ time: 0, kind: 'rewind', slot: 0 });
       l.calling.rewound += 50;
@@ -812,12 +872,12 @@ describe('the Grand Silence', () => {
   it('a Chronomancer’s Rewind is a note: restoring life, or (Paradox) cancelling a silence blow', () => {
     const restore = conductor({ calling: { id: 'chronomancer', path: [] } });
     silence(restore.sim);
-    // Past the toughening, so the life Rewind gives back is the life the blow took.
-    stepFor(restore.sim, 60 * 4);
-    const lyra = at(restore.w, LYRA);
-    dealDamage(restore.w, lyra, { source: null, sourceName: 't', amount: 5000, telegraph: null });
-    stepFor(restore.sim, 30);
-    const e1 = stepFor(restore.sim, 2, [{ t: 'tech', id: 'reel', slot: LYRA }]);
+    // The Measure lands on its hero; Rewound half a second on, the life it took comes back.
+    const measure = next(restore.sim, MEASURE, 600);
+    const struck = restore.w.entities.get(measure.target!)!;
+    stepUntil(restore.sim, () => restore.w.time >= measure.impact + 0.5, 600);
+    expect(struck.health!.hp).toBeLessThan(struck.health!.maxHp);
+    const e1 = stepFor(restore.sim, 2, [{ t: 'tech', id: 'reel', slot: struck.hero!.slot as 0 }]);
     expect(ofType(e1, 'rewound')).toHaveLength(1);
     expect(ofType(e1, 'silenceNote').map((n) => [n.source, n.hero])).toEqual([['rewind', null]]);
 
@@ -836,6 +896,21 @@ describe('the Grand Silence', () => {
     expect(ofType(e2, 'paradox')).toHaveLength(1);
     expect(paradox.w.telegraphs.some((t) => t.id === rest.id)).toBe(false);
     expect(ofType(e2, 'silenceNote').map((n) => n.source)).toEqual(['rewind']);
+  });
+
+  it('a Rewind just after the silence’s entry, of life lost before it, is no note', () => {
+    const { sim, w } = conductor({ calling: { id: 'chronomancer', path: [] } });
+    stepFor(sim, 60 * 4);
+    cross(sim, 0.2);
+    // Struck while the Grand Silence is still being cast, then Rewound once it has landed.
+    stepFor(sim, 30);
+    expect(w.field.finale!.silence).toBeUndefined();
+    const lyra = at(w, LYRA);
+    dealDamage(w, lyra, { source: null, sourceName: 't', amount: 5000, telegraph: null });
+    stepUntil(sim, (ev) => ev.some((e) => e.type === 'silenceBegan'), 60 * 5);
+    const events = stepFor(sim, 2, [{ t: 'tech', id: 'reel', slot: LYRA }]);
+    expect(ofType(events, 'rewound')[0]!.restored).toBeGreaterThan(4000);
+    expect(ofType(events, 'silenceNote')).toHaveLength(0);
   });
 
   it('eight notes Reignite: stilled off, Solos full, the downed stand at 30%, the burn begins', () => {
@@ -884,6 +959,86 @@ describe('the Grand Silence', () => {
     const starts = watch(sim, 14);
     expect(starts[DOWNBEAT]![0]!.start).toBeGreaterThanOrEqual(t0 + 9 - 1e-6);
     expect(starts[SFORZANDO]![0]!.start).toBeGreaterThanOrEqual(t0 + 12 - 1e-6);
+  });
+
+  it('holds the downed from bleeding out, so the eighth note stands up even the long-fallen', () => {
+    const { sim, w, boss } = conductor();
+    quiet(boss);
+    silence(sim);
+    const lyra = at(w, LYRA);
+    dealDamage(w, lyra, { source: null, sourceName: 't', amount: 2e6, telegraph: null });
+    expect(lyra.health!.downed).toBe(true);
+    const left = lyra.health!.bleedOut;
+    // Longer than any bleed-out (12 s), with no Mend on her.
+    const events = stepFor(sim, 60 * 20);
+    expect(ofType(events, 'allyOut')).toEqual([]);
+    expect(lyra.health!.dead).toBe(false);
+    expect(lyra.health!.bleedOut).toBe(left);
+    w.ledger.perfects += 8;
+    const re = ofType(stepFor(sim, 1), 'reignited');
+    expect(re[0]!.revived).toContain(lyra.id);
+    expect(lyra.health!.downed).toBe(false);
+  });
+
+  it('the Measure and the Cadences strike only the stilled hero they are aimed at', () => {
+    const { sim, w, boss } = conductor();
+    quiet(boss);
+    silence(sim);
+    for (const attackId of [MEASURE, FINAL_CADENCE]) {
+      const t = next(sim, attackId, 60 * 12);
+      expect(t.shape.kind).toBe('circle');
+      const target = w.entities.get(t.target!)!;
+      expect(t.sole).toBe(target.id);
+      // Every other hero frozen right beside it, inside its circle.
+      const others = w.party.map((id) => w.entities.get(id)!).filter((e) => e !== target);
+      others.forEach((e, i) => Object.assign(e, { x: target.x + 0.6 * (i + 1), z: target.z }));
+      const events = stepUntil(
+        sim,
+        (ev) => ev.some((e) => e.type === 'telegraphEnded' && e.telegraph === t.id),
+        60 * 5,
+      );
+      const hit = ofType(events, 'damageTaken').filter((d) => d.telegraph === t.id);
+      expect(
+        hit.map((d) => d.target),
+        attackId,
+      ).toEqual([target.id]);
+    }
+  });
+
+  it('in the silence an Aegis Link the Weaver joined passes her no share', () => {
+    const shareOn = (inSilence: boolean) => {
+      const { sim, w, boss } = conductor();
+      quiet(boss);
+      if (inSilence) silence(sim);
+      const lyra = at(w, LYRA);
+      const vexis = at(w, 2);
+      const weaver = w.entities.get(w.weaverId)!;
+      weaver.health!.invulnerable = 0;
+      w.internal.link = {
+        a: lyra.id,
+        b: vexis.id,
+        weaver: true,
+        appliedAt: w.time,
+        until: w.time + 5,
+      };
+      const before = { weaver: weaver.health!.hp, vexis: vexis.health!.hp };
+      // A blow from the boss (a share is split only from an enemy's hit).
+      dealDamage(w, lyra, {
+        source: boss.id,
+        sourceName: 'Conductor',
+        amount: 300,
+        telegraph: null,
+      });
+      return {
+        weaver: before.weaver - weaver.health!.hp,
+        vexis: before.vexis - vexis.health!.hp,
+      };
+    };
+    const silent = shareOn(true);
+    expect(silent.weaver).toBe(0);
+    expect(silent.vexis).toBeGreaterThan(0);
+    // Outside the silence she takes her share, as ever.
+    expect(shareOn(false).weaver).toBeGreaterThan(0);
   });
 
   it('the Coda at the cap: stilled off, the notes’ share kept, no one revived', () => {

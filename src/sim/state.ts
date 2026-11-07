@@ -603,6 +603,12 @@ export interface Telegraph {
    * cast start', Q1).
    */
   threadAtCast?: true;
+  // ── The Finale (docs/phase-5d.md). Absent on every Movement I-III telegraph. ──
+  /**
+   * The one entity this shape can strike (the Grand Silence's Measure and Cadences, each aimed
+   * at its stilled hero): a neighbour frozen inside the circle isn't caught.
+   */
+  sole?: EntityId;
 }
 
 export interface Obstacle {

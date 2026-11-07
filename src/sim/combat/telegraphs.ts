@@ -167,6 +167,7 @@ export function contains(
   e: ReadonlyEntity,
 ): boolean {
   const s = t.shape;
+  if (t.sole !== undefined && e.id !== t.sole) return false;
   switch (s.kind) {
     case 'circle':
       return distSq(e.x, e.z, s.x, s.z) <= sq(s.r + e.radius);
@@ -301,7 +302,8 @@ function resolve(world: World, t: Telegraph, pending: readonly Telegraph[] = [])
     // A Severing owner's blow on a cut telegraph waits for the cut's own verdict (below).
     let severPending = false;
     // The Finale (docs/phase-5d.md Q1): one verdict for a telegraph whose attack has `discord`.
-    const verdict: Verdict | undefined = attack?.discord !== undefined ? { failed: [] } : undefined;
+    const verdict: Verdict | undefined =
+      attack?.discord !== undefined ? { failed: [], struck: [] } : undefined;
     const victims = candidates(world, t, []);
     for (const e of victims) {
       // Paradox: a Rewind took them out of its reach.
@@ -357,6 +359,7 @@ function resolve(world: World, t: Telegraph, pending: readonly Telegraph[] = [])
         t,
         verdict.failed.length >= (attack!.discordQuorum ?? 1),
         verdict.failed,
+        verdict.struck,
       );
   }
   forgetTelegraph(world, t.id);
@@ -475,6 +478,7 @@ function hitEntity(
   });
   if (mark !== null) removeStatus(world, e, mark, 'detonated');
   if (verdict && (e.hero || e.weaver) && failedVictim(world, e, result)) verdict.failed.push(e.id);
+  if (verdict && e.hero && result.dealt > 0) verdict.struck.push(e.id);
 
   let outcome: 'hit' | 'warded' | 'absorbed' = 'hit';
   if (result.dealt <= 0 && result.absorbed > 0)
@@ -522,7 +526,7 @@ function hitEntity(
  * The Finale's victim table (docs/phase-5d.md, "The verdict, victim by victim"): a victim (a hero,
  * or the Weaver caught in a ground shape) fails when damage landed (`dealt > 0`) and nothing
  * answered it: no Weaver shield or Ward barrier took part (a partial Ward, the dome, her Swap
- * barrier), the Martyr bore none of it (`borne`), no save caught it (the Lamb, the Vow's floor),
+ * barrier; never an aura's barrier, Ostinato's or the chorus pulse's), the Martyr bore none of it (`borne`), no save caught it (the Lamb, the Vow's floor),
  * Oathkeeper or the sphere didn't take it (`takenBy`), Fermata isn't holding them, and they aren't
  * in a live Aegis Link (the Weaver once a Perfect brought her in). Fermata's guard alone answers
  * nothing: an aura isn't an answer.
@@ -534,13 +538,15 @@ function failedVictim(
     dealt: number;
     absorbedByWeaver: number;
     absorbedByWard: number;
+    absorbedByAura?: number;
     borne?: number;
     saved: boolean;
     takenBy?: EntityId;
   },
 ): boolean {
   if (result.dealt <= 0) return false;
-  if (result.absorbedByWeaver > 0 || result.absorbedByWard > 0) return false;
+  const byWeaver = result.absorbedByWeaver - (result.absorbedByAura ?? 0);
+  if (byWeaver > 1e-9 || result.absorbedByWard > 0) return false;
   if ((result.borne ?? 0) > 0 || result.saved) return false;
   if (result.takenBy !== undefined || e.hero?.hold) return false;
   const link = world.internal.link;
@@ -774,10 +780,15 @@ type VerdictHook = (
   t: Telegraph,
   failed: boolean,
   victims: readonly EntityId[],
+  struck: readonly EntityId[],
 ) => void;
-/** One Finale telegraph's verdict: the victims who took damage nobody answered, in hit order. */
+/**
+ * One Finale telegraph's verdict: the victims who took damage nobody answered, in hit order, and
+ * the heroes who lost life to it, answered or not (a Rewind's note reads them).
+ */
 interface Verdict {
   failed: EntityId[];
+  struck: EntityId[];
 }
 let onTelegraphVerdict: VerdictHook | null = null;
 export function setOnTelegraphVerdict(fn: VerdictHook): void {

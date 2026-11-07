@@ -705,6 +705,12 @@ export interface DamageResult {
    * result ever carries the key.
    */
   borne?: number;
+  /**
+   * The Finale's verdict: of `absorbedByWeaver`, how much an aura's barrier took (Ostinato, the
+   * chorus pulse), which answers nothing. Set only when above 0 and while `world.internal.m4`
+   * exists, as `borne` is.
+   */
+  absorbedByAura?: number;
 }
 
 const NO_DAMAGE: DamageResult = {
@@ -1080,6 +1086,7 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
   // The Finale (docs/phase-5d.md Q2): what the Martyr took off this hit, for the Discord verdict.
   // Only while the Conductor's script state exists, so no other fight's result has the key.
   if (world.internal.m4 && borne + vowExcess > 0) result.borne = borne + vowExcess;
+  if (world.internal.m4 && absorbedByAura > 0) result.absorbedByAura = absorbedByAura;
   return result;
 }
 
@@ -1224,12 +1231,15 @@ function oath(world: World, target: Entity, opts: DamageOpts): DamageResult | nu
 /**
  * Aegis Link (a Ward variant): a hit on a linked member is lightened, then split evenly among the
  * members still standing, the Weaver among them once a Perfect brought her in. The others take
- * their shares here; the target's share goes on. Shares are never split again.
+ * their shares here; the target's share goes on. Shares are never split again. In the Finale's
+ * Grand Silence the Weaver takes no share: its blows are shares of a stilled hero's own life
+ * (a third of a Final Cadence on Kael is more than her whole life), and she plays every note.
  */
 function linkShare(world: World, target: Entity, opts: DamageOpts): DamageOpts | null {
   const link = world.internal.link;
   if (!link || link.until <= world.time) return null;
-  const ids = link.weaver ? [link.a, link.b, world.weaverId] : [link.a, link.b];
+  const weaver = link.weaver && !world.field.finale?.silence;
+  const ids = weaver ? [link.a, link.b, world.weaverId] : [link.a, link.b];
   if (!ids.includes(target.id)) return null;
   // Who takes a share: the target, and the other members standing who can be hurt (untouchable
   // or held at 1 life, they can't, as for Oathkeeper). A Link cast alone has its hero once.
