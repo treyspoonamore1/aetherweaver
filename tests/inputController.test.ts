@@ -15,7 +15,7 @@ function pointer(type: string, clientX: number, clientY: number, button = 0): Ev
 }
 
 /** A world with one enemy (id 42) at the origin and no party: enough for hover picking. */
-function enemyWorld(): WorldState {
+function enemyWorld(field: Record<string, unknown> = {}): WorldState {
   const enemy = {
     id: 42,
     kind: 'enemy',
@@ -28,6 +28,7 @@ function enemyWorld(): WorldState {
   return {
     party: [],
     weaverId: 1,
+    field,
     entities: { get: () => undefined, list: () => [enemy] },
   } as unknown as WorldState;
 }
@@ -294,6 +295,39 @@ describe('InputController', () => {
       input.setEnabled(true);
       win.dispatchEvent(key('keyup', 'KeyC'));
       expect(input.collect()).toEqual([]);
+    });
+
+    it('the Grand Silence freezes every Directive: the wheel, a click and the hotkeys send none', () => {
+      // The Finale's silence stands (only the Conductor's fight has one).
+      const silent = () => enemyWorld({ finale: { silence: { notes: 2, since: 0, until: 50 } } });
+      make(true);
+      useWheel.setState({ picked: null });
+      input.updatePointer(silent());
+      // Every spoke is disabled: moving onto one picks nothing, and releasing sends nothing.
+      win.dispatchEvent(key('keydown', 'KeyC'));
+      win.dispatchEvent(pointer('pointermove', 470, 310));
+      expect(useWheel.getState().wheel?.spoke).toBeNull();
+      win.dispatchEvent(key('keyup', 'KeyC'));
+      win.dispatchEvent(key('keydown', 'KeyC'));
+      win.dispatchEvent(pointer('pointermove', 395, 220));
+      win.dispatchEvent(key('keyup', 'KeyC'));
+      // A quick middle-click on the (invulnerable) boss doesn't Focus it either.
+      canvas.dispatchEvent(pointer('pointerdown', 400, 300, 1));
+      win.dispatchEvent(pointer('pointerup', 400, 300, 1));
+      // Nor do the direct hotkeys.
+      for (const code of ['KeyG', 'KeyZ', 'KeyX']) {
+        win.dispatchEvent(key('keydown', code));
+        win.dispatchEvent(key('keyup', code));
+      }
+      expect(input.collect().filter((c) => c.t !== 'aim')).toEqual([]);
+      expect(sounds).not.toContain('wheelPick');
+      expect(useWheel.getState().picked).toBeNull();
+      // Once the song returns, Directives are the player's again.
+      input.updatePointer(enemyWorld());
+      win.dispatchEvent(key('keydown', 'KeyZ'));
+      expect(input.collect().filter((c) => c.t !== 'aim')).toEqual([
+        { t: 'directive', kind: 'rally' },
+      ]);
     });
 
     it('follows a rebound wheel key', () => {

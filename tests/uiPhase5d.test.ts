@@ -600,7 +600,7 @@ describe('the route, the map and the ending', () => {
     expect(html).toContain('The song goes on');
     expect(html).toContain('data-testid="epilogue"');
     expect(html).toContain('The Song Goes On — your first Finale clear');
-    expect(html).toContain('Dissonance opens at Weaver Rank 15');
+    expect(html).toContain('Dissonance opens with a Finale clear at Weaver Rank 15 or above');
     expect(html).toContain('Coming later: the Atlas of Echoes and True Dissonance');
     expect(firstClearLines(true).lines[0]).toBe('Dissonance is open');
     const rift = renderToStaticMarkup(

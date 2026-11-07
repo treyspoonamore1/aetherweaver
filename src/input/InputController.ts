@@ -13,6 +13,7 @@ import { enemyAt, heroAt } from './smartCast';
 import {
   WHEEL_DEAD_ZONE,
   WHEEL_REVEAL_MS,
+  WHEEL_SPOKES,
   useWheel,
   wheelChoice,
   wheelSpoke,
@@ -97,6 +98,11 @@ export class InputController {
   private heroPos: { x: number; z: number }[] = [];
   private wheel = 0;
   private enabled = true;
+  /**
+   * The Finale's Grand Silence stands (docs/phase-5d.md: "Directives grey with 'frozen'"): the
+   * wheel shows every spoke frozen, so no Directive is sent, by the wheel or its hotkeys.
+   */
+  private frozen = false;
   private wheelState: WheelState | null = null;
   private readonly sound: (sound: UiSound) => void;
   private readonly unsubscribe: () => void;
@@ -187,6 +193,8 @@ export class InputController {
     this.hoveredSlot = slot >= 0 ? (slot as PartySlot) : null;
     this.hoveredEnemyId =
       this.hasGround && worldHover === null ? enemyAt(state, this.ground.x, this.ground.z) : null;
+    // Only the Conductor's fight has a silence; everywhere else this stays false.
+    this.frozen = !!state.field.finale?.silence;
     const w = state.entities.get(state.weaverId)?.weaver;
     this.threadedSlot = w?.threadSlot ?? null;
     this.cutSlot = null;
@@ -326,17 +334,17 @@ export class InputController {
         this.openWheel('key', event.code);
         break;
       case 'directiveFocus':
-        if (this.hoveredEnemyId !== null)
+        if (this.hoveredEnemyId !== null && !this.frozen)
           this.pending.push({ t: 'directive', kind: 'focus', target: this.hoveredEnemyId });
         break;
       case 'directiveRally':
-        this.pending.push({ t: 'directive', kind: 'rally' });
+        if (!this.frozen) this.pending.push({ t: 'directive', kind: 'rally' });
         break;
       case 'directiveHold':
-        this.pending.push({ t: 'directive', kind: 'hold' });
+        if (!this.frozen) this.pending.push({ t: 'directive', kind: 'hold' });
         break;
       case 'directiveScatter':
-        this.pending.push({ t: 'directive', kind: 'scatter' });
+        if (!this.frozen) this.pending.push({ t: 'directive', kind: 'scatter' });
         break;
       default:
         break;
@@ -452,6 +460,7 @@ export class InputController {
   }
 
   private disabledSpokes(st: WheelState): ReadonlySet<WheelSpoke> {
+    if (this.frozen) return ALL_SPOKES;
     return st.focusTarget === null ? NO_FOCUS : NONE;
   }
 
@@ -493,7 +502,7 @@ export class InputController {
     this.closeWheel();
     if (!this.enabled) return;
     if (!st.visible) {
-      if (st.via === 'mouse' && st.focusTarget !== null)
+      if (st.via === 'mouse' && st.focusTarget !== null && !this.frozen)
         this.pending.push({ t: 'directive', kind: 'focus', target: st.focusTarget });
       return;
     }
@@ -536,6 +545,7 @@ export class InputController {
 
 const NONE: ReadonlySet<WheelSpoke> = new Set();
 const NO_FOCUS: ReadonlySet<WheelSpoke> = new Set<WheelSpoke>(['focus']);
+const ALL_SPOKES: ReadonlySet<WheelSpoke> = new Set<WheelSpoke>(WHEEL_SPOKES.map((s) => s.id));
 
 /** Live bindings, falling back to the defaults if settings can't be read. */
 function safeLiveBindings(): Bindings {

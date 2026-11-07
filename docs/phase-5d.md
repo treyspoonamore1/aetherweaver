@@ -554,7 +554,7 @@ The Grand Silence doesn't depend on the party: only the Weaver acts, and the att
 | True Dissonance, a fourth phase (03:481) | LATER_LEVELS placeholder (`dissonanceModel.ts:43-47`, `tests/uiPhase4d.test.ts:401`) | unchanged by default (question 4); the seam is in *Known gaps* |
 | Badges and Deeds | 25 Deeds | +2 badges |
 
-**The Summary's first-clear card:** 'The Song Goes On — your first Finale clear', then 'Dissonance is open' (or '… opens at Weaver Rank 15'), and 'Coming later: the Atlas of Echoes and True Dissonance'. It never claims anything unbuilt is open.
+**The Summary's first-clear card:** 'The Song Goes On — your first Finale clear', then 'Dissonance is open' (or '… opens with a Finale clear at Weaver Rank 15 or above'), and 'Coming later: the Atlas of Echoes and True Dissonance'. It never claims anything unbuilt is open.
 
 ## Presentation
 

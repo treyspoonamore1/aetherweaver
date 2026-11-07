@@ -12,7 +12,7 @@ import { movementRewards } from '../../meta/run';
 import type { EncounterResult, RunState } from '../../meta/types';
 import { fmt } from '../kit/format';
 import { endsRun } from './rankText';
-import { movementLabel } from './routeText';
+import { movementInSentence } from './routeText';
 
 const S = () => CONTENT.starlight;
 
@@ -70,7 +70,7 @@ export function fightStarlight(
   const movement = r.movement ?? 1;
   const mult = movementRewards(movement).starlight;
   const raised = Math.round(pay * mult) - pay;
-  if (raised > 0) parts.push(`${raised} for ${movementLabel(movement)} · ×${mult}`);
+  if (raised > 0) parts.push(`${raised} for ${movementInSentence(movement)} · ×${mult}`);
   const d = dissonanceLine(dissonance);
   return {
     amount,

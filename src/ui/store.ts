@@ -661,11 +661,19 @@ export interface UiState {
 
 let nextCalloutId = 1;
 
-/** The newest 5 callouts, and every live first-sighting card besides (in order). */
-function capCallouts(all: Callout[]): Callout[] {
-  if (!all.some((c) => c.kind === 'sighting')) return all.slice(-5);
-  const kept = new Set(all.filter((c) => c.kind !== 'sighting').slice(-5));
-  return all.filter((c) => c.kind === 'sighting' || kept.has(c));
+/**
+ * The newest 5 callouts, and every live first-sighting card besides (in order). The Finale's
+ * newest note sits outside the cap too: it has its own banner, and Reignite's barks and revives
+ * land in the same frame as "Note 8/8 · The song returns!" (docs/phase-5d.md), so they must not
+ * evict it. No other fight pushes a note, so its cap is as before.
+ */
+export function capCallouts(all: Callout[]): Callout[] {
+  let note: Callout | undefined;
+  for (const c of all) if (c.kind === 'note') note = c;
+  const pinned = (c: Callout) => c.kind === 'sighting' || c === note;
+  if (!all.some(pinned)) return all.slice(-5);
+  const kept = new Set(all.filter((c) => !pinned(c)).slice(-5));
+  return all.filter((c) => pinned(c) || kept.has(c));
 }
 
 export const useUi = create<UiState>()((set, get) => ({

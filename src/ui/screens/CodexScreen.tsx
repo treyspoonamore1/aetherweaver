@@ -74,7 +74,7 @@ import { TechniquesCodexPage } from './TechniquesCodex';
 import { bondsOpen } from './bondsModel';
 import { STARLIGHT_LOOK } from '../kit/loomLook';
 import { atelierUnlock } from './loomModel';
-import { movementLabel, sightedMovement } from './routeText';
+import { movementInSentence, movementLabel, sightedMovement } from './routeText';
 import { attackDamage } from './codexAttack';
 import { wakesLabel } from './reliquaryModel';
 
@@ -608,7 +608,7 @@ function LockedEnemy({ enemy: e }: { enemy: EnemyDef }) {
         <Icon name={boss ? 'eye' : 'skull'} size={44} />
       </div>
       <p className="mt-3 text-sm text-muted">
-        Met in {movementLabel(e.movement ?? 1)}. Its entry opens once you face it.
+        Met in {movementInSentence(e.movement ?? 1)}. Its entry opens once you face it.
       </p>
     </Panel>
   );
@@ -1470,7 +1470,7 @@ function Events({ seen }: { seen?: readonly string[] }) {
         </p>
       </Panel>
       {groups.map(({ movement, items }) => (
-        <section key={movement} aria-label={`Events of ${movementLabel(movement)}`}>
+        <section key={movement} aria-label={`Events of ${movementInSentence(movement)}`}>
           {groups.length > 1 && <MovementHeading movement={movement} />}
           {movement > reach ? (
             <Panel
@@ -1481,8 +1481,8 @@ function Events({ seen }: { seen?: readonly string[] }) {
             >
               <p className="flex items-center gap-2 text-sm text-muted">
                 <Icon name="lock" size={14} /> {items.length}{' '}
-                {items.length === 1 ? 'event waits' : 'events wait'} in {movementLabel(movement)}:
-                they open once you reach it.
+                {items.length === 1 ? 'event waits' : 'events wait'} in{' '}
+                {movementInSentence(movement)}: they open once you reach it.
               </p>
             </Panel>
           ) : (

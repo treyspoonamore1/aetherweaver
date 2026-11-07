@@ -942,6 +942,36 @@ describe('Review fixes (the answered victim, the slow windup, the marks, Fermata
     for (const hex of seen) expect(banned.has(hex), `#${hex.toString(16)}`).toBe(false);
   });
 
+  it('the Conductor’s own glass death rings the disc in slate, never in its ash accent', () => {
+    const { sim, h, boss } = finaleScene();
+    const def = CONTENT.enemies.find((e) => e.id === CONDUCTOR)!;
+    // Its accent is the silence's ash, which may not mark the disc.
+    expect(def.accent.toLowerCase()).toBe(CRUCIBLE_HEX.silence);
+    const banned = new Set(CRUCIBLE_UNMARKED.map((k) => new THREE.Color(CRUCIBLE_HEX[k]).getHex()));
+    const rings: number[] = [];
+    const push = h.kit.rings.push.bind(h.kit.rings);
+    h.kit.rings.push = ((...args: unknown[]) => {
+      for (const v of args) if (v instanceof THREE.Color) rings.push(v.getHex());
+      return (push as (...a: unknown[]) => void)(...args);
+    }) as typeof h.kit.rings.push;
+    h.inject([
+      {
+        type: 'enemyKilled',
+        tick: sim.tick,
+        enemy: boss.id,
+        defId: CONDUCTOR,
+        x: boss.x,
+        z: boss.z,
+      } as SimEvent,
+    ]);
+    h.run(2);
+    expect(h.feedback.firedFinale.glassDeaths).toBe(1);
+    // Its stave ring and the boss's three: all four in the slate.
+    const stave = new THREE.Color(CRUCIBLE_HEX.stave).getHex();
+    expect(rings.filter((x) => x === stave).length).toBeGreaterThanOrEqual(4);
+    for (const hex of rings) expect(banned.has(hex), `#${hex.toString(16)}`).toBe(false);
+  });
+
   it('a stilled hero Fermata holds keeps Fermata’s lavender rim and tremor', () => {
     const { sim, h } = finaleScene();
     stage(sim, {
