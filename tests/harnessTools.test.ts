@@ -1,12 +1,15 @@
+import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
   BrannWatch,
+  FINALE_SEED_SETS,
   FinaleWatch,
   MAX_PHASES,
   movementEncounters,
   movementName,
+  onEverySet,
   playEncounter,
   playRun,
   SOLO_ANSWERS,
@@ -959,6 +962,148 @@ describe('the Finale verbs (FinaleWatch)', () => {
     expect(cut.tally.fortissimoCast).toBe(1);
     expect(cut.judged).toEqual([]);
   });
+
+  /**
+   * A mock fight: the Conductor (entity 9) and a Lament (telegraph 8) on the Alto (21), cut off
+   * on the next tick by `cutBy` (that tick's events, with the telegraph gone).
+   */
+  const cutSolo = (cutBy: unknown[], cued = false) => {
+    const watch = FinaleWatch.of(createSim({ seed: 1, encounter: CONDUCTOR, ...kit4 }))!;
+    const conductor = { enemy: { defId: CONDUCTOR } };
+    const alto = { enemy: { defId: ALTO } };
+    const state = {
+      time: 0,
+      party: [] as number[],
+      telegraphs: [{ id: 8, attackId: LAMENT }] as { id: number; attackId: string }[],
+      field: { finale: { discord: { value: 50, rate: 0.5 } } } as {
+        finale?: { discord?: unknown; cue?: unknown };
+      },
+      entities: { get: (id: number) => (id === 9 ? conductor : id === 21 ? alto : undefined) },
+    };
+    const sim = { state } as unknown as Sim;
+    watch.tick(sim, [
+      { type: 'telegraphStarted', tick: 0, telegraph: 8, owner: 21, target: null },
+    ] as SimEvent[]);
+    if (cued) {
+      // A second Cue, on the Bass (20), still waiting for its Solo.
+      state.field.finale!.cue = { boss: 9, soloist: 20, solo: BASSO_OSTINATO, until: 9 };
+      watch.tick(sim, [
+        { type: 'enemyCued', tick: 1, boss: 9, soloist: 20, solo: BASSO_OSTINATO },
+      ] as SimEvent[]);
+    }
+    state.time = 2;
+    state.telegraphs = [];
+    if (cutBy.some((e) => (e as SimEvent).type === 'encounterEnded')) delete state.field.finale;
+    watch.tick(sim, [
+      {
+        type: 'telegraphResolved',
+        tick: 2,
+        telegraph: 8,
+        target: null,
+        outcome: 'cancelled',
+        damage: 0,
+      },
+      ...cutBy,
+    ] as SimEvent[]);
+    return { verdicts: watch.solos.map((v) => v.answer), tally: watch.result() };
+  };
+  const nullInterrupt = { type: 'castInterrupted', tick: 2, enemy: 21, by: null, name: 'Lament' };
+
+  it('judges a Solo interrupted by a hero’s stun (by nobody) as interrupted, not shattered', () => {
+    const stunned = cutSolo([nullInterrupt]);
+    expect(stunned.verdicts).toEqual(['interrupted']);
+    expect(stunned.tally.cuesInterrupted).toBe(1);
+    expect(stunned.tally.cuesAnswered.interrupted).toBe(1);
+    expect(stunned.tally.cuesAnswered.shattered).toBe(0);
+    // The choir shatters only as the Conductor enters phase 3, that same tick.
+    const shattered = cutSolo([
+      { type: 'phaseChanged', tick: 2, boss: 9, phase: 3 },
+      nullInterrupt,
+      { type: 'enemyKilled', tick: 2, enemy: 21, killer: null },
+    ]);
+    expect(shattered.verdicts).toEqual(['shattered']);
+    expect(shattered.tally.cuesInterrupted).toBe(0);
+    expect(shattered.tally.cuesAnswered.shattered).toBe(1);
+    // Phase 2's entry shatters nothing.
+    expect(
+      cutSolo([{ type: 'phaseChanged', tick: 2, boss: 9, phase: 2 }, nullInterrupt]).verdicts,
+    ).toEqual(['interrupted']);
+  });
+
+  it('fails a Solo the fight’s end cancels on a loss, and leaves it open on a win', () => {
+    const lost = cutSolo([{ type: 'encounterEnded', tick: 2, outcome: 'defeat' }], true);
+    expect(lost.verdicts).toEqual(['failed']);
+    expect(Object.values(lost.tally.cuesAnswered).reduce((a, b) => a + b, 0)).toBe(0);
+    // The Cue still waiting failed with it.
+    expect(lost.tally.cuesFailed).toBe(1);
+    const won = cutSolo([{ type: 'encounterEnded', tick: 2, outcome: 'victory' }], true);
+    expect(won.verdicts).toEqual([]);
+    expect(won.tally.cuesAnswered.cancelled).toBe(0);
+    expect(won.tally.cuesFailed).toBe(0);
+    // A cancel mid-fight (a Paradox Rewind's) is still 'cancelled'.
+    expect(cutSolo([]).verdicts).toEqual(['cancelled']);
+  });
+
+  it('a real loss leaves no Solo judged cancelled by the fight’s end (Idle, seed 8919)', () => {
+    const run = playEncounter({ seed: 8919, encounter: CONDUCTOR, ...kit4 }, 'idle');
+    expect(run.outcome).toBe('defeat');
+    const f = run.finale!;
+    expect(f.cuesAnswered.cancelled).toBe(0);
+    expect(f.cuesAnswered.shattered).toBe(0);
+  }, 60_000);
+});
+
+describe('the Finale’s seed sets (tools/loadouts.ts --sets)', () => {
+  it('names the doc’s three sets, and keeps what passed on every one', () => {
+    expect(FINALE_SEED_SETS).toEqual([
+      { cells: 1000, runs: 2000 },
+      { cells: 500003, runs: 900007 },
+      { cells: 777001, runs: 333003 },
+    ]);
+    expect(
+      onEverySet([
+        ['a', 'b', 'c'],
+        ['c', 'a'],
+        ['a', 'c', 'd'],
+      ]),
+    ).toEqual(['a', 'c']);
+    expect(onEverySet([['a'], []])).toEqual([]);
+    expect(onEverySet<string>([])).toEqual([]);
+  });
+
+  it('plays each set from its own seeds, cells and runs', () => {
+    const root = fileURLToPath(new URL('..', import.meta.url));
+    const run = (args: string[]) =>
+      execFileSync(
+        'npx',
+        [
+          'tsx',
+          'tools/loadouts.ts',
+          '--movement',
+          '4',
+          '--seeds',
+          '1',
+          '--bots',
+          'skilled',
+          '--loadouts',
+          Run.CHORD_PRESETS[0]!.id,
+          ...args,
+        ],
+        { cwd: root, encoding: 'utf8' },
+      );
+    const sets = run(['--sets']);
+    expect(sets.match(/^## Set \d of 3: .*$/gm)).toEqual([
+      '## Set 1 of 3: cells from 1000, runs from 2000',
+      '## Set 2 of 3: cells from 500003, runs from 900007',
+      '## Set 3 of 3: cells from 777001, runs from 333003',
+    ]);
+    expect(sets.match(/^### skilled$/gm)).toHaveLength(3);
+    // One set by hand: the second set's table is the same cell as `--seed-base 500003`.
+    const second = run(['--seed-base', '500003']);
+    const row = (text: string) =>
+      text.split('\n').filter((l) => l.startsWith(`| ${Run.CHORD_PRESETS[0]!.name}`));
+    expect(row(sets)[1]).toBe(row(second)[0]);
+  }, 120_000);
 });
 
 describe('the Finale’s Decree gate (tools/decrees.ts)', () => {

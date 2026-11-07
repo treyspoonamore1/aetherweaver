@@ -559,8 +559,9 @@ function conductorFight(table: BossTable, seed: number, bot: BotKind, player?: B
   );
   if (!watch) return out;
   const w = watch as FinaleWatch;
-  // Each voice's Solos, as the tally judged them; any still winding up as the fight ended are
-  // judged on the fight (a win felled every voice).
+  // Each voice's Solos, as the tally judged them; any still winding up as a win ended the fight
+  // (the tally leaves those open; a loss fails them) are judged on the fight: a win felled every
+  // voice.
   for (const solo of w.solos) {
     const decree = SOLO_DECREES[solo.voice]!;
     count(out, decree, solo.answer !== 'failed');

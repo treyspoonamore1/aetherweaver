@@ -30,6 +30,7 @@ import type { RunBond } from '../src/meta/bonds';
 import {
   ALTO,
   BASS,
+  CONDUCTOR,
   DISCORD_MAX,
   FINALE_MOVEMENT,
   FORTISSIMO,
@@ -202,9 +203,14 @@ interface OpenSolo {
  *   on the downs from its first pulse to `FORTISSIMO_DOWNS_WITHIN` s after its last: survived
  *   with none. A cancel by a phase shift (it is cast again) or the boss's fall isn't judged;
  *   one the fight ended inside is judged on the downs it had (`result`).
- * - **Cues**: each `enemyCued`. A Cue whose Solo never began (its state went first) failed.
+ * - **Cues**: each `enemyCued`. A Cue whose Solo never began (its state went first) failed; one
+ *   still waiting as the fight ended failed on a loss, and isn't judged on a win.
  * - **Solos**: each begun, by voice, and how each was met (`SOLO_ANSWERS`). A Solo failed when a
- *   `discordRose` named it. The sim's verdict feeds Discord only below 100, so a Solo landing on
+ *   `discordRose` named it. One cut off by an interrupt is 'shattered' only on the tick the
+ *   Conductor entered phase 3 (the choir shatters); any other interrupt, a hero's stun (an
+ *   interrupt by nobody) included, is 'interrupted'. One still winding up as the fight ended (the
+ *   end cancels every telegraph) failed on a loss, and is left unjudged on a win (the Decree
+ *   gate judges it on the fight). The sim's verdict feeds Discord only below 100, so a Solo landing on
  *   a full meter is judged from its damage instead: failed when at least its quorum of victims
  *   lost life with nothing absorbed (close to the verdict; a Bear, save or Oathkeeper isn't seen).
  * - **The Grand Silence**: its seconds, its notes by source, how it ended (Reignite or the Coda),
@@ -274,6 +280,9 @@ export class FinaleWatch {
     const interrupted = new Map<EntityId, EntityId | null>();
     const killed = new Map<EntityId, EntityId | null>();
     const bled = new Map<number, Set<EntityId>>();
+    /** The choir shattered this tick (the Conductor entered phase 3); the fight's end, if it ended. */
+    let shattered = false;
+    let ended: 'victory' | 'defeat' | null = null;
     for (const e of events) {
       switch (e.type) {
         case 'telegraphStarted': {
@@ -350,6 +359,13 @@ export class FinaleWatch {
         case 'allyDowned':
           if (this.fortissimo) this.fortissimo.downs++;
           break;
+        case 'phaseChanged':
+          if (e.phase === 3 && state.entities.get(e.boss)?.enemy?.defId === CONDUCTOR)
+            shattered = true;
+          break;
+        case 'encounterEnded':
+          ended = e.outcome;
+          break;
         case 'silenceBegan':
           this.silenceSince = now;
           break;
@@ -374,11 +390,15 @@ export class FinaleWatch {
     for (const [id, solo] of this.open) {
       if (state.telegraphs.some((t) => t.id === id)) continue;
       this.open.delete(id);
-      this.judge(id, solo, resolved.get(id) ?? [], rose.has(id), interrupted, killed, bled);
+      this.judge(id, solo, resolved.get(id) ?? [], rose.has(id), interrupted, killed, bled, {
+        shattered,
+        ended,
+      });
     }
-    // A Cue whose state went before its Solo began: it failed.
+    // A Cue whose state went before its Solo began: it failed (the fight's end clears the
+    // state too: a loss fails it, a win doesn't).
     if (this.cue !== null && state.field.finale?.cue?.soloist !== this.cue) {
-      this.cuesFailed++;
+      if (ended !== 'victory') this.cuesFailed++;
       this.cue = null;
     }
     // A Fortissimo Silence played out: judged once its window closes.
@@ -410,15 +430,21 @@ export class FinaleWatch {
     interrupted: ReadonlyMap<EntityId, EntityId | null>,
     killed: ReadonlyMap<EntityId, EntityId | null>,
     bled: ReadonlyMap<number, ReadonlySet<EntityId>>,
+    tick: { shattered: boolean; ended: 'victory' | 'defeat' | null },
   ): void {
     let answer: SoloAnswer | 'failed';
     const landed = outcomes.some((o) => o.outcome !== 'cancelled' || o.target !== null);
     if (!landed) {
-      // Cut off before it landed: by a hero's interrupt, the choir's shattering (an interrupt
-      // by nobody), the soloist's death, or a cancel (a Paradox Rewind's).
+      // Cut off before it landed: by an interrupt (the choir's shattering when the Conductor
+      // entered phase 3 this tick; a hero's otherwise, a stun's by nobody included), the
+      // soloist's death, the fight's end (failed on a loss; left open on a win, for the Decree
+      // gate to judge on the fight), or a cancel (a Paradox Rewind's).
       if (interrupted.has(solo.owner))
-        answer = interrupted.get(solo.owner) === null ? 'shattered' : 'interrupted';
+        answer =
+          interrupted.get(solo.owner) === null && tick.shattered ? 'shattered' : 'interrupted';
       else if (killed.has(solo.owner)) answer = 'killed';
+      else if (tick.ended === 'victory') return;
+      else if (tick.ended === 'defeat') answer = 'failed';
       else answer = 'cancelled';
     } else if (fed || this.failedUnfed(solo.attack, bled.get(id))) answer = 'failed';
     else {
@@ -792,6 +818,22 @@ export function movementName(n: number, inSentence = false): string {
   const label = n >= 1 && n <= CONTENT.movements.length ? movementDef(n).label : undefined;
   if (label === undefined) return ROMAN[n] ?? String(n);
   return inSentence ? label.replace(/^The /, 'the ') : label;
+}
+
+/**
+ * The Finale's three seed sets (docs/phase-5d.md, "Bands"): a set's cells play `cells` + i × 7919,
+ * its whole runs `runs` + i × 104729. A band is 'Met' only on all three.
+ */
+export const FINALE_SEED_SETS: readonly { readonly cells: number; readonly runs: number }[] = [
+  { cells: 1000, runs: 2000 },
+  { cells: 500003, runs: 900007 },
+  { cells: 777001, runs: 333003 },
+];
+
+/** What passed on every set (each set's list, in its order): the first set's, kept in order. */
+export function onEverySet<T>(sets: readonly (readonly T[])[]): T[] {
+  if (sets.length === 0) return [];
+  return sets[0]!.filter((x) => sets.every((s) => s.includes(x)));
 }
 
 /**
