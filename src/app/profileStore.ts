@@ -37,6 +37,7 @@ import {
   bestKey,
   dissonancePoints,
   fitLevels,
+  opensFrom,
   opensWith,
   type DissonanceChoice,
 } from '../meta/dissonance';
@@ -135,15 +136,15 @@ export interface ProfileStore {
   /** A run ended: what it pays the Reliquary. */
   payReliquary(materials: { shards: number; tears: number }): void;
   /**
-   * Dissonance (docs/phase-4d.md) is open: the first Finale clear at its Rank or above opened it
+   * Dissonance (docs/phase-4d.md) is open: a Finale clear and its Rank opened it, in either order
    * (docs/phase-5d.md; earlier wins at that Rank opened it before), or Skip the unlocks.
    */
   dissonanceOpen(): boolean;
   /** The levels the next runs play at (fitted to the content). */
   setDissonance(levels: readonly DissonanceChoice[]): void;
   /**
-   * A run ended: a Finale clear opens Dissonance at its Rank (docs/phase-5d.md), and any win may
-   * set a new best for its Calling.
+   * A run ended: a Finale clear opens Dissonance at its Rank (docs/phase-5d.md), this run's or
+   * one the profile records, and any win may set a new best for its Calling.
    */
   recordDissonance(run: RunState): { opened: boolean; best: boolean };
   /** Bonds (docs/phase-4e.md): every talent and Solo can be chosen (Skip the unlocks). */
@@ -240,7 +241,12 @@ export const useProfile = create<ProfileStore>()((set, get) => {
         rank,
         unlocks: unlocks.filter((u) => u.rank === rank),
       }));
-      commit(profile, { rankUps: [...get().rankUps, ...rankUps] });
+      // A Finale cleared below Dissonance's Rank (docs/phase-5d.md): reaching the Rank opens it.
+      const d = profile.dissonance;
+      const opens = !d.open && opensFrom(profile.deeds, rankOf(profile.xp));
+      commit(opens ? { ...profile, dissonance: { ...d, open: true } } : profile, {
+        rankUps: [...get().rankUps, ...rankUps],
+      });
     },
     dismissRankUps: () => set({ rankUps: [] }),
     astrolabePoints: () => {
@@ -514,10 +520,15 @@ export const useProfile = create<ProfileStore>()((set, get) => {
     },
     recordDissonance: (run) => {
       const profile = get().profile;
-      if (run.outcome !== 'victory') return { opened: false, best: false };
       const d = profile.dissonance;
-      // The first Finale clear at Rank 15+ opens it (docs/phase-5d.md); open stays open.
-      const opened = !d.open && opensWith(run, rankOf(profile.xp));
+      const rank = rankOf(profile.xp);
+      // A Finale clear at Rank 15+ opens it (docs/phase-5d.md): this run's, or one the profile
+      // already records (its `song_goes_on` Deed) once the Rank is reached. Open stays open.
+      const opened = !d.open && (opensWith(run, rank) || opensFrom(profile.deeds, rank));
+      if (run.outcome !== 'victory') {
+        if (opened) commit({ ...profile, dissonance: { ...d, open: true } });
+        return { opened, best: false };
+      }
       const points = dissonancePoints(run.dissonance);
       const key = bestKey(run);
       const best = points > 0 && points > (d.best[key] ?? 0);

@@ -93,7 +93,8 @@ export function DissonanceCodexPage({
           </p>
           <p className="mt-2 text-sm leading-relaxed text-text">
             <b>Opening.</b> Your first Finale clear at Weaver Rank {rules.openRank} or above opens
-            it, with a card at the run’s Summary. Settings → Skip the unlocks opens it too.
+            it, with a card at the run’s Summary; a Finale cleared sooner opens it on reaching that
+            Rank. Settings → Skip the unlocks opens it too.
           </p>
           <p className="mt-2 text-sm leading-relaxed text-text">
             <b>Relics remember.</b> A relic enshrined from a run keeps that run’s points as its{' '}

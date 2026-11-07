@@ -36,6 +36,8 @@
 import { CONTENT, partyHasDome } from '../content';
 import { Rng } from '../sim/core/rng';
 import { bloodRageBonus, segmentDistSq, weaverSilenced } from '../sim';
+import { contains } from '../sim/combat/telegraphs';
+import { dcos, dsin } from '../sim/core/dmath';
 import type { Command, PartySlot, ReadonlyEntity, ThreadMode, WorldState } from '../sim';
 import type { Bot } from './types';
 import {
@@ -44,6 +46,7 @@ import {
   caller,
   centroid,
   damageOf,
+  damaging,
   modeCommands,
   threadingTo,
   dist,
@@ -636,6 +639,9 @@ export class SkilledBot implements Bot {
       if (silenceLoop && !acted && !reserve) {
         const pick = silenceReelPick(state, party, w, tech.reel.range, now);
         if (pick && this.notice()) {
+          // A plain Reel lands in front of her, toward her aim: aimed clear of the blow first.
+          const aim = wc.variants.reel === 'swap' ? null : reelAim(state, w, pick.e);
+          if (aim) this.intent.aim(out, aim.x, aim.z);
           out.push({ t: 'tech', id: 'reel', slot: pick.slot });
           acted = true;
         }
@@ -1966,12 +1972,20 @@ function brannThread(
 
 // ── The Finale (docs/phase-5d.md, "Bots and harness"): read only with its mechanic up ─────
 
-/** A Dirge on `e` the Chime would cleanse inside its clutch window (its last second). */
-function clutchDue(e: ReadonlyEntity): boolean {
+/**
+ * A Dirge on `e` the Chime would cleanse inside its clutch window (its last second). The Chime
+ * lands `chime.flight` after it goes, so it goes with under `clutchWindow + flight` left (0.05 s
+ * to spare: a cleanse with 1.04 s left is no clutch); and with more than the flight and 0.1 s of
+ * margin left, or the Dirge lands first.
+ */
+export function clutchDue(e: ReadonlyEntity): boolean {
   const chime = CONTENT.techniques.chime;
   const dirge = statusRemaining(e, 'dirge');
-  const flight = chime.flight + 0.1;
-  return dirge !== Infinity && dirge < chime.clutchWindow + flight - 0.05 && dirge > flight;
+  return (
+    dirge !== Infinity &&
+    dirge < chime.clutchWindow + chime.flight - 0.05 &&
+    dirge > chime.flight + 0.1
+  );
 }
 
 /**
@@ -2036,11 +2050,70 @@ function silenceReelPick(
       if (!final && dmg < h.e.health!.hp + shieldOf(h.e)) continue;
       // Swap: only a blow she lives through (the plain Reel loop's guard).
       if (wc.variants.reel === 'swap' && !swapSurvives(w, h.e, damageOf(t, w))) continue;
-      const score = (final ? 1e6 : 0) + dmg;
+      // The Final Cadence's own target first (the lowest life, the one it is aimed at), then
+      // anyone else standing in it, then a lesser blow that would kill: the most first.
+      const score = (final ? (t.target === h.e.id ? 2e6 : 1e6) : 0) + dmg;
       if (!best || score > best.score) best = { h, score };
     }
   }
   return best?.h ?? null;
+}
+
+/** `reelAim`: bearings tried either side of her aim, this many a half turn. */
+const REEL_AIM_STEPS = 8;
+
+/**
+ * `silenceReel`: where to aim a plain Reel (it lands `reel.landing` m in front of the Weaver,
+ * toward her aim) so that `h` lands inside the arena and outside every ground blow still to land:
+ * the nearest bearing to her aim that does, of 16 around her. Null when her aim already does, or
+ * when no bearing does (she keeps it). Marks and raid blows follow the hero, so aren't read.
+ */
+export function reelAim(
+  state: WorldState,
+  w: ReadonlyEntity,
+  h: ReadonlyEntity,
+): { x: number; z: number } | null {
+  const wc = w.weaver!;
+  const landing = CONTENT.techniques.reel.landing;
+  let ax = wc.aimX - w.x;
+  let az = wc.aimZ - w.z;
+  const am = Math.sqrt(ax * ax + az * az);
+  if (am < 0.1) {
+    ax = wc.headingX;
+    az = wc.headingZ;
+  } else {
+    ax /= am;
+    az /= am;
+  }
+  const blows = state.telegraphs.filter(
+    (t) =>
+      damaging(t) &&
+      t.impact > state.time &&
+      (t.shape.kind === 'circle' ||
+        t.shape.kind === 'donut' ||
+        t.shape.kind === 'cone' ||
+        t.shape.kind === 'line'),
+  );
+  const clear = (dx: number, dz: number): boolean => {
+    const x = w.x + dx * landing;
+    const z = w.z + dz * landing;
+    if (Math.sqrt(x * x + z * z) > state.arenaRadius - h.radius) return false;
+    const at = { ...h, x, z };
+    return !blows.some((t) => contains(state, t, at));
+  };
+  if (clear(ax, az)) return null;
+  for (let k = 1; k <= REEL_AIM_STEPS; k++) {
+    for (const side of k === REEL_AIM_STEPS ? [1] : [1, -1]) {
+      const a = (side * k * Math.PI) / REEL_AIM_STEPS;
+      const c = dcos(a);
+      const s = dsin(a);
+      const dx = ax * c - az * s;
+      const dz = ax * s + az * c;
+      // Aimed 4 m out, so the aim's 1/16 m step barely turns the bearing.
+      if (clear(dx, dz)) return { x: w.x + dx * 4, z: w.z + dz * 4 };
+    }
+  }
+  return null;
 }
 
 /**

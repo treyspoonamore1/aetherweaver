@@ -1277,6 +1277,23 @@ function rowInMovement(run: RunState, id: string): number {
 }
 
 /**
+ * The Threat row a node's fight plays (`THREAT_PER_ROW` calibration): its row in its Movement,
+ * or on the Finale route's shorter road the full Movement's row it takes Threat from
+ * (`road.threat`, docs/phase-5d.md), as the run's own `rewardFor` reads it.
+ */
+export function threatRowOf(run: RunState, id: string): number {
+  const row = rowInMovement(run, id);
+  const def = Run.routeDefs(run.movements)[(Run.findNode(run, id)!.movement ?? 1) - 1];
+  const road = def ? Run.roadOf(def) : undefined;
+  return road?.threat[row] ?? row;
+}
+
+/** `THREAT_PER_ROW` calibration: the Threat a node's fight plays at `perRow` a row. */
+export function calibratedThreat(run: RunState, id: string, perRow: number): number {
+  return 1 + perRow * Math.max(0, threatRowOf(run, id) - 1);
+}
+
+/**
  * The harness's shopping list (docs/phase-3b.md): relics first, the dearest it can afford,
  * then motifs; healing when the party is hurt. Deterministic, not clever.
  */
@@ -1458,10 +1475,8 @@ export function playRun(
         const config = Run.combatConfig(run)!;
         // Calibration: THREAT_PER_ROW=0.05 overrides the run's Threat curve.
         const perRow = process.env.THREAT_PER_ROW;
-        if (perRow !== undefined) {
-          const row = rowInMovement(run, run.pending!);
-          config.threat = 1 + Number(perRow) * Math.max(0, row - 1);
-        }
+        if (perRow !== undefined)
+          config.threat = calibratedThreat(run, run.pending!, Number(perRow));
         if (opts.threatMult) config.threat = (config.threat ?? 1) * opts.threatMult;
         const sim = createSim(config);
         const player = makeBot(bot, config.seed);

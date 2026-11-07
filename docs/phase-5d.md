@@ -264,9 +264,9 @@ Expedition:     Prep ─▶ I road (6) ─▶ Cantor (interlude, Calling tier IV
 - `ROUTE_MINUTES.expedition` (`routeText.ts:25`) takes W9's measured figure.
 - `finalBossName` (`reliquaryModel.ts:1136-1142`) follows with no edit.
 - **Dissonance gate** (question 3):
-  - `recordDissonance` (`profileStore.ts:509-527`) opens Dissonance only when `finaleCleared(run)` and Rank ≥ 15.
+  - `recordDissonance` (`profileStore.ts:509-527`) opens Dissonance when `finaleCleared(run)` and Rank ≥ 15, or when the profile already holds `song_goes_on` at Rank ≥ 15 (any run end). `award` opens it on reaching Rank 15 with `song_goes_on` held (`opensFrom`), so a first clear below Rank 15 opens it at Rank 15, as the first-clear card says.
   - Open profiles stay open. `best` per Calling still records any won run.
-  - Copy at `profile.ts:327-334`, `loomModel.ts:234-239` and `content/dissonance.ts:120-122` reads 'Opens with your first Finale clear, at Weaver Rank 15 or above.'
+  - Copy at `profile.ts:327-334`, `loomModel.ts:234-239` and `dissonanceModel.ts` `closedLines` reads 'Opens at Weaver Rank 15 once you have cleared the Finale.' below Rank 15, and 'Opens with your first Finale clear.' at Rank 15+ (closed there means no clear yet).
 
 ## Vocabulary
 

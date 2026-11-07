@@ -20,6 +20,7 @@ import {
   xpMult,
 } from '../src/meta/dissonance';
 import { PROFILE_VERSION, RANK_XP, newProfile } from '../src/meta/profile';
+import { SONG_GOES_ON } from '../src/content/crucibleIds';
 import {
   band,
   craftBlocked,
@@ -168,12 +169,7 @@ describe('points and rewards', () => {
 
 describe('opening, the choice and the records', () => {
   it('the first Finale clear at its Rank opens it; one below, a loss or a Prelude win doesn’t', () => {
-    useProfile.getState().award(RANK_XP[RULES.openRank - 2]!);
-    useRun.getState().newRun(31);
-    useRun.getState().embark();
-    endRun(true);
-    expect(useProfile.getState().dissonanceOpen()).toBe(false);
-    useProfile.getState().award(RANK_XP[RULES.openRank - 1]! - RANK_XP[RULES.openRank - 2]!);
+    useProfile.getState().award(RANK_XP[RULES.openRank - 1]!);
     useRun.getState().newRun(32);
     useRun.getState().embark();
     endRun(false);
@@ -187,6 +183,39 @@ describe('opening, the choice and the records', () => {
     useRun.getState().newRun(33);
     useRun.getState().embark();
     endRun(true);
+    expect(run().dissonanceEnd).toEqual({ opened: true, best: false });
+    expect(useProfile.getState().dissonanceOpen()).toBe(true);
+  });
+
+  it('a first Finale clear below its Rank opens it on reaching the Rank, as its card promises', () => {
+    useProfile.getState().award(RANK_XP[RULES.openRank - 4]!);
+    useRun.getState().newRun(41);
+    useRun.getState().embark();
+    // The boss fight records the Deed (the staged results carry no ledger, so it is set here).
+    const p = useProfile.getState().profile;
+    useProfile.setState({ profile: { ...p, deeds: [...p.deeds, SONG_GOES_ON] } });
+    endRun(true);
+    // Cleared at Rank 12: the Deed records it, and it is shut (the card: 'opens at Weaver Rank 15').
+    expect(useProfile.getState().profile.deeds).toContain(SONG_GOES_ON);
+    expect(run().dissonanceEnd).toEqual({ opened: false, best: false });
+    expect(useProfile.getState().dissonanceOpen()).toBe(false);
+    // One Rank short: still shut.
+    useProfile.getState().award(RANK_XP[RULES.openRank - 2]! - RANK_XP[RULES.openRank - 4]!);
+    expect(useProfile.getState().dissonanceOpen()).toBe(false);
+    // Reaching Rank 15 by any fight's XP opens it, with no second Finale clear.
+    useProfile.getState().award(RANK_XP[RULES.openRank - 1]! - RANK_XP[RULES.openRank - 2]!);
+    expect(useProfile.getState().dissonanceOpen()).toBe(true);
+  });
+
+  it('a profile already holding the clear at its Rank opens at any run end, a loss included', () => {
+    useProfile.getState().award(RANK_XP[RULES.openRank - 1]!);
+    // A Finale clear recorded with the gate shut (an older build's profile).
+    const p = useProfile.getState().profile;
+    useProfile.setState({ profile: { ...p, deeds: [...p.deeds, SONG_GOES_ON] } });
+    expect(useProfile.getState().dissonanceOpen()).toBe(false);
+    useRun.getState().newRun(42);
+    useRun.getState().embark();
+    endRun(false);
     expect(run().dissonanceEnd).toEqual({ opened: true, best: false });
     expect(useProfile.getState().dissonanceOpen()).toBe(true);
   });

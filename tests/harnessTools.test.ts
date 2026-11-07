@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
   BrannWatch,
+  calibratedThreat,
   FINALE_SEED_SETS,
   FinaleWatch,
   MAX_PHASES,
@@ -60,6 +61,7 @@ import {
   TENOR,
 } from '../src/content/crucibleIds';
 import * as Run from '../src/meta/run';
+import { THREAT_PER_ROW } from '../src/meta/economy';
 import type { RunState } from '../src/meta/types';
 import { createSim, type Sim, type SimEvent } from '../src/sim';
 import { sandbox, worldOf } from './sim/helpers';
@@ -705,6 +707,31 @@ describe('the Finale route (playRun --movements 4)', () => {
       expect(projectRun(fresh, kept.runs[i]), `I-${movements}`).toEqual(kept.runs[i]);
     }
   }, 120_000);
+});
+
+describe('THREAT_PER_ROW calibration (playRun)', () => {
+  it('reads the Threat row each fight plays: the Finale road’s, not its row on the road', () => {
+    for (const movements of [1, 2, 3, 4]) {
+      for (const seed of [1, 2000]) {
+        const run = Run.newRun(seed, undefined, [], [], [], [], undefined, movements);
+        let fights = 0;
+        for (const node of run.map.rows.flat()) {
+          if (node.reward.threat === 1 && !node.encounterId) continue;
+          fights++;
+          // At the game's own rate the calibration plays the game's own curve, row for row.
+          expect(
+            Math.round(calibratedThreat(run, node.id, THREAT_PER_ROW) * 1000) / 1000,
+            `${movements} Movements, seed ${seed}, ${node.id}`,
+          ).toBe(node.reward.threat);
+        }
+        expect(fights).toBeGreaterThan(0);
+      }
+    }
+    // The Finale road's Bellwarden (road row 3) plays Movement I's row 7: ×1.30 at 0.05, not ×1.10.
+    const run = Run.newRun(1, undefined, [], [], [], [], undefined, 4);
+    const bell = run.map.rows.flat().find((n) => n.movement === 1 && n.kind === 'miniboss')!;
+    expect(calibratedThreat(run, bell.id, 0.05)).toBeCloseTo(1.3, 9);
+  });
 });
 
 describe('the harness’s Finale tables', () => {

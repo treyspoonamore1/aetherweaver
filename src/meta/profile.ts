@@ -367,7 +367,7 @@ export const UNLOCKS: readonly Unlock[] = [
     kind: 'dissonance',
     target: 'dissonance',
     name: 'Dissonance',
-    text: `The endgame: opt-in levels that make the fight harder and pay more, and relics won deeper craft further. Opens with your first Finale clear, at Weaver Rank ${CONTENT.dissonanceRules.openRank} or above.`,
+    text: `The endgame: opt-in levels that make the fight harder and pay more, and relics won deeper craft further. Opens at Weaver Rank ${CONTENT.dissonanceRules.openRank} once you have cleared the Finale.`,
   },
 ];
 

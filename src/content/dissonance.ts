@@ -118,7 +118,7 @@ export const DISSONANCE: ContentInput['dissonance'] = [
 
 /** When it opens and what its points pay. */
 export const DISSONANCE_RULES: ContentInput['dissonanceRules'] = {
-  // The first Finale clear at this Rank or above opens it (docs/phase-5d.md).
+  // A Finale clear and this Rank open it, in either order (docs/phase-5d.md).
   openRank: 15,
   // Per point: % more Weaver XP and Tuning Shards.
   xpPerPoint: 3,
