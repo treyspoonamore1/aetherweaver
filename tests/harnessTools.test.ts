@@ -926,6 +926,77 @@ describe('the Finale verbs (FinaleWatch)', () => {
     expect(watch.result().cuesFailed).toBe(1);
   });
 
+  it('does not fail a Cue cleared by a phase shift or its soloist’s death', () => {
+    /** A Cue on the Bass (20), then `clearBy` on the tick its state goes (or the tick before). */
+    const play = (clearBy: unknown[], before = false) => {
+      const watch = FinaleWatch.of(createSim({ seed: 1, encounter: CONDUCTOR, ...kit4 }))!;
+      const conductor = { enemy: { defId: CONDUCTOR } };
+      const state = {
+        time: 0,
+        party: [] as number[],
+        telegraphs: [] as unknown[],
+        field: { finale: { cue: { boss: 9, soloist: 20, solo: BASSO_OSTINATO, until: 1 } } } as {
+          finale: { cue?: unknown };
+        },
+        entities: { get: (id: number) => (id === 9 ? conductor : undefined) },
+      };
+      const sim = { state } as unknown as Sim;
+      watch.tick(sim, [
+        { type: 'enemyCued', tick: 0, boss: 9, soloist: 20, solo: BASSO_OSTINATO } as SimEvent,
+      ]);
+      state.time = 1;
+      if (before) watch.tick(sim, clearBy as SimEvent[]);
+      delete state.field.finale.cue;
+      state.time = 2;
+      watch.tick(sim, before ? [] : (clearBy as SimEvent[]));
+      return watch.result().cuesFailed;
+    };
+    // Phase 3 shatters the choir: the waiting Cue goes with it, like a singing Solo.
+    expect(play([{ type: 'phaseChanged', tick: 60, boss: 9, phase: 3 }])).toBe(0);
+    // Phase 2 cancels the Cue's cast; its state goes a tick later.
+    expect(play([{ type: 'phaseChanged', tick: 60, boss: 9, phase: 2 }], true)).toBe(0);
+    // The party killed the soloist before its Solo began.
+    expect(play([{ type: 'enemyKilled', tick: 60, enemy: 20, killer: 1 }])).toBe(0);
+    // Another voice's death, or another boss's shift, excuses nothing.
+    expect(play([{ type: 'enemyKilled', tick: 60, enemy: 21, killer: 1 }])).toBe(1);
+    expect(play([{ type: 'phaseChanged', tick: 60, boss: 7, phase: 2 }])).toBe(1);
+    // A loss still fails it.
+    expect(play([{ type: 'encounterEnded', tick: 60, outcome: 'defeat' }])).toBe(1);
+  });
+
+  it('a real fight fails no Cue its soloist’s death or a phase shift cleared (Skilled, 1002)', () => {
+    let cue: number | null = null;
+    let excused = 0;
+    let unsung = 0;
+    const run = playEncounter(
+      { seed: 1002, encounter: CONDUCTOR, ...kit4 },
+      'skilled',
+      (sim, events) => {
+        for (const e of events) {
+          if (e.type === 'enemyCued') cue = e.soloist;
+          if (e.type === 'telegraphStarted' && e.owner === cue) cue = null;
+          if (
+            cue !== null &&
+            (e.type === 'phaseChanged' || (e.type === 'enemyKilled' && e.enemy === cue))
+          ) {
+            excused++;
+            cue = null;
+          }
+        }
+        if (cue !== null && sim.state.field.finale?.cue?.soloist !== cue) {
+          if (sim.state.encounter.status !== 'victory') unsung++;
+          cue = null;
+        }
+      },
+    );
+    // Seed 1002's fight (a win) has Cues cleared by both; none of them counts as failed, and
+    // only the Cues that landed on a voice that couldn't sing do.
+    expect(run.outcome).toBe('victory');
+    expect(excused).toBeGreaterThan(0);
+    expect(unsung).toBeGreaterThan(0);
+    expect(run.finale!.cuesFailed).toBe(unsung);
+  }, 120_000);
+
   it('judges a Fortissimo Silence the fight ended inside on its downs', () => {
     const play = (downs: number) => {
       const watch = FinaleWatch.of(createSim({ seed: 1, encounter: CONDUCTOR, ...kit4 }))!;
