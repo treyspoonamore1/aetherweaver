@@ -59,6 +59,47 @@ function Banner({ c }: { c: Callout }) {
   );
 }
 
+/**
+ * A note of the Grand Silence (docs/phase-5d.md): "Note 3/8 · Perfect Ward", numbered, with its
+ * source's glyph and eight pips, so it reads with the sound off and Flashes at 0.
+ */
+function NoteBanner({ c }: { c: Callout }) {
+  const ttl = useLifetime(c.expiresAt);
+  const color = c.color ?? '#f5d78e';
+  const m = /^Note (\d+)\/(\d+)/.exec(c.text);
+  const n = m ? Number(m[1]) : 0;
+  const of = m ? Number(m[2]) : 8;
+  return (
+    <div
+      className="flex flex-col items-center rounded-xl border bg-ink-950/80 px-5 py-2 text-center shadow-xl shadow-black/60"
+      style={{
+        ...fadeStyle(ttl, 'banner-in 0.35s cubic-bezier(0.2,0.9,0.3,1.2) both'),
+        borderColor: `${color}99`,
+      }}
+      role="status"
+      data-testid="note-callout"
+      data-note={n}
+    >
+      <p
+        className="flex items-center gap-2 font-display text-2xl font-bold tracking-wide"
+        style={{ color, textShadow: `0 0 18px ${color}, 0 2px 0 rgb(0 0 0 / 0.6)` }}
+      >
+        {c.icon && <Icon name={c.icon} size={24} />}
+        {c.text}
+      </p>
+      <span className="mt-1 flex items-center gap-1" aria-hidden>
+        {Array.from({ length: of }, (_, i) => (
+          <span
+            key={i}
+            className="h-2 w-2 rounded-full border"
+            style={{ borderColor: color, background: i < n ? color : 'transparent' }}
+          />
+        ))}
+      </span>
+    </div>
+  );
+}
+
 /** Fermata caught a lethal hit: urgent, but a sentence, not a shout. */
 function HoldBanner({ c }: { c: Callout }) {
   const ttl = useLifetime(c.expiresAt);
@@ -116,7 +157,11 @@ function NewFoe({ c, blind }: { c: Callout; blind: boolean }) {
   const party = partyKey ? partyKey.split(' ') : undefined;
   // Movement III: a card names Paradox only when it is on the path.
   const paradox = useUi((st) => !!st.hud?.calling?.tiers.some((t) => t?.id === 'paradox'));
-  const s = defId ? sightingOf(defId, rewinds, paradox) : null;
+  // The Finale: the Conductor's card names what Reel's variant makes of the silence.
+  const reel = useUi(
+    (st) => st.hud?.weaver.techniques.find((t) => t.key === 'reel')?.variant?.id ?? null,
+  );
+  const s = defId ? sightingOf(defId, rewinds, paradox, reel) : null;
   return (
     <div
       className="w-72 rounded-xl border border-gold-500/60 bg-ink-950/88 px-4 py-3 shadow-xl shadow-black/60"
@@ -220,6 +265,8 @@ export function Callouts({
 }) {
   const big = callouts.filter((c) => BIG.has(c.kind));
   const holds = callouts.filter((c) => c.kind === 'hold');
+  // The Finale: the Grand Silence's notes (no other fight pushes one).
+  const notes = callouts.filter((c) => c.kind === 'note');
   const decrees = callouts.filter((c) => c.kind === 'decree');
   const waves = callouts.filter((c) => c.kind === 'wave' && !/of 1$/.test(c.text));
   const foes = callouts.filter((c) => c.kind === 'sighting');
@@ -239,6 +286,9 @@ export function Callouts({
         ))}
         {big.slice(holds.length > 0 ? -1 : -2).map((c) => (
           <Banner key={c.id} c={c} />
+        ))}
+        {notes.slice(-1).map((c) => (
+          <NoteBanner key={c.id} c={c} />
         ))}
       </div>
       <div className="absolute left-1/2 top-[11.25rem] flex -translate-x-1/2 flex-col items-center gap-2">

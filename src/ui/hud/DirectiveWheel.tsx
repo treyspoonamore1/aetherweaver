@@ -12,6 +12,10 @@ import { Icon, type IconName } from '../kit/Icon';
 import { KeyCap } from '../kit/KeyCap';
 import { bindingCode } from './labels';
 import { keyLabel } from '../../input/keyLabel';
+import { useUi } from '../store';
+
+/** The Finale's Grand Silence: the heroes are stilled, so every spoke greys with this line. */
+export const FROZEN_HINT = 'Frozen · the silence holds';
 
 const LOOK: Record<WheelSpoke, { icon: IconName; hint: string; action: Action }> = {
   focus: { icon: 'focus', hint: 'The party targets it', action: 'directiveFocus' },
@@ -29,8 +33,14 @@ export function DirectiveWheelView({
   wheel,
   focusName,
   fixed = true,
+  frozen = false,
 }: {
   wheel: WheelView;
+  /**
+   * The Finale (docs/phase-5d.md "The silence on screen"): while the Grand Silence holds, the
+   * stilled heroes hear no Directive, so every spoke greys and reads 'Frozen'. Absent: as before.
+   */
+  frozen?: boolean;
   /** Name of the enemy Focus would mark (null: none under the cursor). */
   focusName?: string | null;
   /** Position with viewport coordinates (the game) or relative to the parent (the lab). */
@@ -54,6 +64,7 @@ export function DirectiveWheelView({
       role="menu"
       aria-label="Directive wheel"
       data-testid="directive-wheel"
+      data-frozen={frozen || undefined}
     >
       <div
         className="anim-fade absolute rounded-full border border-gold-500/40 bg-ink-950/55 shadow-2xl shadow-black/60 backdrop-blur-[1px]"
@@ -93,8 +104,8 @@ export function DirectiveWheelView({
       )}
       {WHEEL_SPOKES.map((s) => {
         const look = LOOK[s.id];
-        const disabled = s.id === 'focus' && wheel.focusTarget === null;
-        const on = wheel.spoke === s.id;
+        const disabled = frozen || (s.id === 'focus' && wheel.focusTarget === null);
+        const on = !frozen && wheel.spoke === s.id;
         const rad = ((s.angle - 90) * Math.PI) / 180;
         const cx = size / 2 + Math.cos(rad) * WHEEL_RADIUS;
         const cy = size / 2 + Math.sin(rad) * WHEEL_RADIUS;
@@ -120,13 +131,15 @@ export function DirectiveWheelView({
               {code && <KeyCap label={keyLabel(code)} accent={on} />}
             </span>
             <span className={`text-xs leading-tight ${on ? 'text-ink-900' : 'text-muted'}`}>
-              {s.id === 'focus'
-                ? disabled
-                  ? 'No enemy targeted'
-                  : focusName
-                    ? `Mark ${focusName}`
-                    : look.hint
-                : look.hint}
+              {frozen
+                ? FROZEN_HINT
+                : s.id === 'focus'
+                  ? disabled
+                    ? 'No enemy targeted'
+                    : focusName
+                      ? `Mark ${focusName}`
+                      : look.hint
+                  : look.hint}
             </span>
           </div>
         );
@@ -138,10 +151,13 @@ export function DirectiveWheelView({
 /** Connected: draws the wheel while the InputController has it open. */
 export function DirectiveWheel({ focusName }: { focusName?: (id: number) => string | null }) {
   const wheel = useWheel((s) => s.wheel);
+  // The Finale: the Grand Silence freezes the heroes (only the Conductor's fight sets it).
+  const frozen = useUi((s) => !!s.hud?.boss?.silence);
   if (!wheel) return null;
   return (
     <DirectiveWheelView
       wheel={wheel}
+      frozen={frozen}
       focusName={wheel.focusTarget === null ? null : (focusName?.(wheel.focusTarget) ?? null)}
     />
   );

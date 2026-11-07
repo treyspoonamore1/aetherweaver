@@ -149,6 +149,11 @@ import {
   legionHud,
   riftCallouts,
   riftHud,
+  finaleHud,
+  finaleMockCallouts,
+  finaleRun,
+  finaleSummaryRun,
+  type FinaleScenario,
   riftPrepRun,
   riftReliquary,
   riftRun,
@@ -810,6 +815,22 @@ function RiftStage({ scenario }: { scenario: RiftScenario }) {
               ? 'Movement III · node 4 of 6'
               : 'Movement III · node 2 of 6'
         }
+        forceCoach
+      />
+    </World>
+  );
+}
+
+/** The Finale's HUD (Phase 5d): Discord, a Cue, Fortissimo Silence, the Grand Silence. */
+function FinaleStage({ scenario }: { scenario: FinaleScenario }) {
+  const hud = finaleHud(scenario);
+  return (
+    <World>
+      <HudView
+        hud={hud}
+        callouts={finaleMockCallouts(scenario)}
+        decree={hud.boss?.decree ?? null}
+        subtitle="The Finale · node 1 of 1"
         forceCoach
       />
     </World>
@@ -4447,6 +4468,75 @@ const VIEWS: ViewDef[] = [
     label: 'Codex: Enemies, the Unstitched',
     w: 1280,
     h: 3400,
+    render: () => <CodexView onBack={noop} initialTab="enemies" />,
+  },
+  // ── Phase 5d: the Finale, the Silent Conductor ──────────────────────────────────────
+  ...(
+    [
+      ['discord-25', 'HUD: the Overture, Discord 25/100'],
+      ['discord-75', 'HUD: the Mirror Choir, Discord 75/100 and rising'],
+      ['discord-100', 'HUD: Discord 100/100, Fortissimo Silence now'],
+      ['cue', 'HUD: a Cue, Bass: Basso Ostinato on Lyra (a voice’s first sighting)'],
+      ['fortissimo', 'HUD: Fortissimo Silence, pulse 1 of 3'],
+      ['silence-0', 'HUD: the Grand Silence, 0/8 notes, every hero stilled'],
+      ['silence-4', 'HUD: the Grand Silence, 4/8 notes (a Clutch Chime)'],
+      ['silence-8', 'HUD: Note 8/8, the song returns (frames relit gold, Lyra risen)'],
+      ['stilled-downed', 'HUD: stilled frames and a downed one (the song will bring them back)'],
+    ] as const
+  ).map(([scenario, label]): ViewDef => ({
+    id: `m4-hud-${scenario}`,
+    group: 'Finale',
+    label,
+    w: 1280,
+    h: 720,
+    render: () => <FinaleStage scenario={scenario} />,
+  })),
+  {
+    id: 'm4-map-arrive',
+    group: 'Finale',
+    label: 'Map: the Finale’s card, past the Unweaver (an interlude) on the shorter road',
+    w: 1280,
+    h: 860,
+    render: () => <MapView run={finaleRun('arrive')} onChoose={noop} onAbandon={noop} card />,
+  },
+  {
+    id: 'm4-map-road',
+    group: 'Finale',
+    label: 'Map: the Finale route’s Movement I road (6 rows)',
+    w: 1280,
+    h: 860,
+    render: () => <MapView run={finaleRun('road')} onChoose={noop} onAbandon={noop} card={false} />,
+  },
+  {
+    id: 'm4-summary-win',
+    group: 'Finale',
+    label: 'Summary: the song goes on (the epilogue, the first-clear card)',
+    w: 1280,
+    h: 2000,
+    render: () => (
+      <SummaryView
+        run={finaleSummaryRun('victory')}
+        onNewRun={noop}
+        onLoom={noop}
+        dissonanceOpen={false}
+        epilogueStill
+      />
+    ),
+  },
+  {
+    id: 'm4-summary-loss',
+    group: 'Finale',
+    label: 'Summary: lost in the Finale',
+    w: 1280,
+    h: 1800,
+    render: () => <SummaryView run={finaleSummaryRun('defeat')} onNewRun={noop} onLoom={noop} />,
+  },
+  {
+    id: 'm4-codex-enemies',
+    group: 'Finale',
+    label: 'Codex: Enemies, the Finale (the Conductor and its mirror-choir)',
+    w: 1280,
+    h: 3800,
     render: () => <CodexView onBack={noop} initialTab="enemies" />,
   },
   // ── Phase 4g: the Loom, the Atelier and the front door ──────────────────────────────

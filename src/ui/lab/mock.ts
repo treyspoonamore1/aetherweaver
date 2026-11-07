@@ -61,6 +61,9 @@ import {
 } from '../../sim';
 import { buildHudSnapshot } from '../hudBridge';
 import { allyCallout, sightingCallout } from '../hud/sighting';
+import { noteCallout } from '../hud/finaleLook';
+import { ALTO, BASS, CONDUCTOR, SONG_GOES_ON, SOPRANO, TENOR } from '../../content/crucibleIds';
+import type { NoteSource } from '../../sim';
 import { shownAnswers, shownDecreeOf } from '../hud/legionLook';
 import { foreseenAll, rewindPreview } from '../hud/chrono';
 import { callingLook } from '../kit/callingLook';
@@ -3947,4 +3950,253 @@ export function riftReliquary(): Reliquary {
     base.shards,
     base.tears,
   );
+}
+
+// ── Phase 5d: the Finale, the Silent Conductor ──────────────────────────────────────
+
+/**
+ * A Finale-route Expedition (docs/phase-5d.md: Movements I-III on the shorter road, then the
+ * Finale) played `fights` fights in, every one won. Its map is the route's own (`routeDefs(4)`):
+ * the Cantor, Vharun and the Unweaver are interludes, and the Silent Conductor ends the run.
+ */
+export function finalePlayedRun(fights: number, seed = 7): RunState {
+  let run = Run.embark(Run.setMovements(Run.newRun(seed), CONTENT.movements.length));
+  let played = 0;
+  while (played < fights && run.phase === 'map') {
+    const options = Run.reachable(run);
+    const next = options.find((n) => n.encounterId) ?? options[0];
+    if (!next) break;
+    run = Run.chooseNode(run, next.id);
+    if (run.phase === 'combat') {
+      run = Run.finishCombat(run, fakeOutcome(run, true));
+      played++;
+      run = Run.continueFromResult(run);
+    }
+    run = settle(run);
+  }
+  return run;
+}
+
+/**
+ * The Finale route on its map: `arrive` just past the Unweaver (the Finale's one stop ahead, its
+ * card due); `road` at the start, Movement I's shorter road ahead.
+ */
+export function finaleRun(stage: 'arrive' | 'road' = 'arrive', seed = 7): RunState {
+  let run = finalePlayedRun(0, seed);
+  if (stage === 'road') return run;
+  for (let fights = 1; fights < 40; fights++) {
+    const next = finalePlayedRun(fights, seed);
+    if (next.phase !== 'map') break;
+    run = next;
+    if (Run.reachable(run).some((n) => n.movement === 4)) break;
+  }
+  return run;
+}
+
+/**
+ * The Finale route's Summary: `victory` past the Silent Conductor (the first clear: its Deed is in
+ * the run's new Deeds); `defeat` fallen in the Finale.
+ */
+export function finaleSummaryRun(outcome: 'victory' | 'defeat'): RunState {
+  const won = finalePlayedRun(99);
+  if (outcome === 'victory') return { ...won, deeds: [...won.deeds, SONG_GOES_ON] };
+  return { ...won, results: won.results.slice(0, -1), outcome: 'defeat', deeds: [] };
+}
+
+/** The HUD in the Silent Conductor's fight, each a moment of it. */
+export type FinaleScenario =
+  | 'discord-25'
+  | 'discord-75'
+  | 'discord-100'
+  | 'cue'
+  | 'fortissimo'
+  | 'silence-0'
+  | 'silence-4'
+  | 'silence-8'
+  | 'stilled-downed';
+
+/** The notes' sources in a mocked Grand Silence, in the order they were played. */
+const MOCK_NOTES: readonly NoteSource[] = [
+  'perfect',
+  'clutch',
+  'reel',
+  'perfect',
+  'clutch',
+  'perfect',
+  'reel',
+  'perfect',
+];
+
+export function finaleHud(scenario: FinaleScenario): HudSnapshot {
+  const base = mockHud('calm');
+  const def = CONTENT.encounters.find((e) => e.id === CONDUCTOR)!;
+  const encounter = { ...base.encounter, id: def.id, name: def.name, kind: def.kind, par: def.par };
+  const conductor = (
+    phase: number,
+    over: Partial<NonNullable<HudSnapshot['boss']>>,
+  ): NonNullable<HudSnapshot['boss']> => ({
+    id: 9,
+    name: 'The Silent Conductor',
+    hp: phase === 1 ? 92000 : phase === 2 ? 52000 : 24000,
+    maxHp: 111000,
+    shield: 0,
+    phase,
+    phases: 3,
+    phaseAt: [0.6, 0.25],
+    defId: CONDUCTOR,
+    cast: null,
+    enrageIn: 300,
+    decree: null,
+    foreseen: null,
+    ...over,
+  });
+  const party = (over: Partial<HeroHud>[] = []) => [
+    hero(0, 'kael', { hp: 1300, threaded: true, ...over[0] }),
+    hero(1, 'lyra', { hp: 640, ...over[1] }),
+    hero(2, 'vexis', { hp: 580, ...over[2] }),
+  ];
+  const stilled: Partial<HeroHud> = {
+    stilled: true,
+    statuses: [{ id: 'stilled', remaining: 0, duration: 0 }],
+  };
+  const silence = (notes: number): NonNullable<NonNullable<HudSnapshot['boss']>['silence']> => ({
+    notes,
+    of: 8,
+    sources: MOCK_NOTES.slice(0, notes),
+    left: 50 - notes * 4,
+    cap: 50,
+  });
+  const discord = (value: number) => ({ value, max: 100, rate: value >= 70 ? 1 : 0.5 });
+  switch (scenario) {
+    case 'discord-25':
+      return {
+        ...base,
+        party: party(),
+        boss: conductor(1, {
+          discord: discord(25),
+          decree: {
+            name: 'Overture',
+            text: 'The Overture — the Conductor Cues its choir. Interrupt the soloist, or answer its Solo. Every blow you leave unanswered feeds its Discord.',
+          },
+        }),
+        encounter,
+        foes: [CONDUCTOR, ALTO, BASS],
+      };
+    case 'discord-75':
+      return {
+        ...base,
+        party: party([{}, { incoming: 520 }]),
+        boss: conductor(2, {
+          discord: discord(75),
+          cast: { name: 'Downbeat', progress: 0.4, answers: ['ward', 'dome'] },
+        }),
+        encounter,
+        foes: [CONDUCTOR, TENOR, SOPRANO, ALTO],
+      };
+    case 'discord-100':
+      return {
+        ...base,
+        weaver: { ...base.weaver, resonance: 100 },
+        party: party(),
+        boss: conductor(2, { discord: discord(100) }),
+        encounter,
+        foes: [CONDUCTOR, TENOR, SOPRANO],
+      };
+    case 'cue':
+      return {
+        ...base,
+        party: party([{}, { incoming: 610 }]),
+        boss: conductor(1, {
+          discord: discord(41),
+          cast: { name: 'Cue', progress: 0.65, answers: ['focus'] },
+          cue: { soloist: 'Mirror Bass', solo: 'Basso Ostinato', target: 'Lyra' },
+        }),
+        encounter,
+        foes: [CONDUCTOR, ALTO, BASS],
+      };
+    case 'fortissimo':
+      return {
+        ...base,
+        weaver: { ...base.weaver, resonance: 100 },
+        party: party([{ incoming: 820 }, { incoming: 410 }, { incoming: 370 }]),
+        boss: conductor(2, {
+          discord: discord(100),
+          fortissimo: { pulse: 1, of: 3 },
+          cast: {
+            name: 'Fortissimo Silence',
+            progress: 0.35,
+            answers: ['crescendo', 'dome', 'ward'],
+          },
+          pips: 3,
+          pip: 1,
+          decree: {
+            name: 'Fortissimo Silence',
+            text: 'Fortissimo Silence — every hero loses 150% of their life over 3 s. Crescendo to cancel it, or dome, Ward and heal.',
+          },
+        }),
+        encounter,
+        foes: [CONDUCTOR, TENOR, SOPRANO],
+      };
+    case 'silence-0':
+    case 'silence-4':
+    case 'silence-8': {
+      const notes = scenario === 'silence-0' ? 0 : scenario === 'silence-4' ? 4 : 8;
+      // At eight the song returns: the heroes wake relit gold, every Solo full, the stave gone.
+      const frozen = notes < 8;
+      const solo = notes * 12.5;
+      return {
+        ...base,
+        party: party(
+          frozen
+            ? [
+                { ...stilled, solo },
+                { ...stilled, solo, incoming: 450 },
+                { ...stilled, solo },
+              ]
+            : [
+                // Relit gold for a moment; Lyra was down, and the song stood her back up.
+                { solo: 100, soloReady: true, reignite: 'relit' },
+                { solo: 100, soloReady: true, reignite: 'risen', hp: 192 },
+                { solo: 100, soloReady: true, reignite: 'relit' },
+              ],
+        ),
+        boss: conductor(3, {
+          ...(frozen ? { silence: silence(notes) } : {}),
+          cast: frozen ? { name: 'Measure', progress: 0.5, answers: ['ward'] } : null,
+          decree: {
+            name: 'Grand Silence',
+            text: 'Grand Silence — the music stops and your heroes freeze. Only your Perfect Wards, Clutch Chimes and Reel-saves are heard. Eight notes rebuild the song.',
+          },
+        }),
+        encounter,
+        foes: [CONDUCTOR],
+      };
+    }
+    case 'stilled-downed':
+      return {
+        ...base,
+        party: party([
+          { ...stilled, solo: 37.5 },
+          { hp: 0, downed: true, bleedOut: 9, revive: 0.2 },
+          { ...stilled, solo: 37.5, incoming: 690 },
+        ]),
+        boss: conductor(3, {
+          silence: silence(3),
+          cast: { name: 'Final Cadence', progress: 0.6, answers: ['reel', 'ward'] },
+        }),
+        encounter,
+        foes: [CONDUCTOR],
+      };
+  }
+}
+
+/** The callouts over a Finale moment: a note, the song's return, a voice's first Cue. */
+export function finaleMockCallouts(scenario: FinaleScenario): Callout[] {
+  const far = performance.now() + 1e9;
+  if (scenario === 'silence-4')
+    return [{ id: 951, ...noteCallout(4, 8, 'clutch').callout, expiresAt: far }];
+  if (scenario === 'silence-8')
+    return [{ id: 952, ...noteCallout(8, 8, 'perfect').callout, expiresAt: far }];
+  if (scenario === 'cue') return [{ id: 953, ...sightingCallout(BASS), expiresAt: far }];
+  return [];
 }

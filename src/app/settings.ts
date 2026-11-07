@@ -99,6 +99,12 @@ export const SettingsSchema = z.object({
   /** Skip the unlocks: every song, aura and ornament from the first run (meta/profile.ts). */
   unlockAll: z.boolean(),
   hud: HudSchema,
+  /**
+   * Captions for key sounds (docs/phase-5d.md): 'The music stops', 'Note 3 of 8 · Perfect Ward',
+   * 'Discord rises', 'The song returns'. Added after v4 first shipped: settings saved before it
+   * take the default, so no version bump. Every caption has a visual twin with it off.
+   */
+  captions: z.boolean().default(false),
 });
 export type Settings = z.infer<typeof SettingsSchema>;
 
@@ -115,6 +121,7 @@ export const DEFAULT_SETTINGS: Settings = {
   assists: { perfectWindowBonus: 0, telegraphLead: 1, autonomy: false },
   unlockAll: false,
   hud: DEFAULT_HUD,
+  captions: false,
 };
 
 /** Settings as Phase 4 saved them (no HUD settings yet). */

@@ -4,12 +4,22 @@
  * and the profile records it (`profile.seen`, which also unlocks its Codex entry). Every Movement
  * I enemy is seen from the start, so the Prelude never shows one.
  */
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useProfile } from '../../app/profileStore';
 import { CONTENT, enemyDef } from '../../content';
 import type { AnswerTag } from '../types';
 import { useUi, type Callout } from '../store';
 import { EMBOLDENED_PCT, spindleCutPct } from './riftLook';
+import {
+  ALTO,
+  BASS,
+  CHOIR,
+  CONDUCTOR,
+  DISCORD_MAX,
+  SOPRANO,
+  TENOR,
+} from '../../content/crucibleIds';
+import { FORTISSIMO_NAME, noteSources } from './finaleLook';
 
 /** How long a "New foe" card stays, in ms. */
 export const SIGHTING_TTL = 6500;
@@ -168,13 +178,85 @@ function riftLesson(
 }
 
 /**
+ * The Finale's lessons (docs/phase-5d.md): each mirror-choir voice's Solo and the verb it
+ * rehearses, and the Conductor's Grand Silence. Calling- and variant-aware: on a Chronomancer run
+ * Reel's slot casts Rewind (a Rewind that undoes a blow is her note; Paradox, when held, cancels
+ * an aimed Solo), an Anchor Weaver makes no Reel-saves (her notes are Perfects and Clutches), and
+ * a Swap Weaver takes the blow on herself. `reel`: the variant Reel's slot plays (null: Reel).
+ */
+function crucibleLesson(
+  defId: string,
+  rewinds: boolean,
+  paradox: boolean,
+  reel: string | null,
+): { lesson: string; answers: AnswerTag[] } | null {
+  const undo = rewinds && paradox ? ' Paradox cancels it.' : '';
+  switch (defId) {
+    case ALTO:
+      return {
+        lesson: `Cued, its Lament marks a hero. Chime it away (in its last second, a Clutch), Ward it, or interrupt the Alto.${undo}`,
+        answers: ['chime', 'ward', 'focus'],
+      };
+    case BASS:
+      return {
+        lesson: `Cued, its Basso Ostinato rings a circle on its target. Ward on the beat (a Perfect), or interrupt the Bass.${rewinds ? ' Rewind steps them back out.' : ''}`,
+        answers: ['ward', 'dome', 'focus'],
+      };
+    case TENOR:
+      return rewinds
+        ? {
+            lesson: `Cued, its Cadenza cuts a line to the farthest hero: more than their life. Rewind them back out of it, step aside, or interrupt the Tenor.${undo}`,
+            answers: ['move', 'focus'],
+          }
+        : reel === 'anchor'
+          ? {
+              lesson:
+                'Cued, its Cadenza cuts a line to the farthest hero: more than their life. Step aside, Ward them, or interrupt the Tenor; Anchor holds them, it can’t pull them out.',
+              answers: ['move', 'ward', 'focus'],
+            }
+          : {
+              lesson: `Cued, its Cadenza cuts a line to the farthest hero: more than their life. ${reel === 'swap' ? 'Swap takes the blow on you; step aside,' : 'Reel them out, step aside,'} or interrupt the Tenor.`,
+              answers: ['reel', 'move', 'focus'],
+            };
+    case SOPRANO:
+      return {
+        lesson:
+          'Cued, its Shatter Aria shatters a circle around a hero. Scatter so it catches one, Ward the one it’s on, or interrupt the Soprano.',
+        answers: ['scatter', 'move', 'ward', 'focus'],
+      };
+    case CONDUCTOR:
+      return {
+        lesson: `It Cues its mirror-choir; every blow you leave unanswered feeds its Discord, and at ${DISCORD_MAX} it plays ${FORTISSIMO_NAME}: your Crescendo cancels it. At the last it stops the music: only your ${noteSources({ rewinds, reel })} are heard, and eight notes wake your heroes.`,
+        answers: [
+          'focus',
+          'crescendo',
+          'ward',
+          'chime',
+          ...(rewinds || reel === 'anchor' ? [] : ['reel' as const]),
+        ],
+      };
+    default:
+      return null;
+  }
+}
+
+/**
  * A foe's card: its name, lesson and answers (any enemy: its Codex line and its attacks').
  * `rewinds`: a Chronomancer run (Rewind in Reel's slot), whose cards never teach Reel.
  * `paradox`: Paradox is on the Chronomancer's path, so a card may name it (Movement III).
+ * `reel`: the Finale's cards name what Reel's variant does (Anchor, Swap; null: Reel itself).
  */
-export function sightingOf(defId: string, rewinds = false, paradox = false): Sighting {
+export function sightingOf(
+  defId: string,
+  rewinds = false,
+  paradox = false,
+  reel: string | null = null,
+): Sighting {
   const def = enemyDef(defId);
-  const legion = legionLesson(defId, rewinds) ?? riftLesson(defId, rewinds, paradox);
+  const legion =
+    legionLesson(defId, rewinds) ??
+    riftLesson(defId, rewinds, paradox) ??
+    crucibleLesson(defId, rewinds, paradox, reel);
   if (legion) return { defId, name: def.name, ...legion };
   const answers = [
     ...new Set(
@@ -199,13 +281,58 @@ function isEnemy(id: string): boolean {
   return CONTENT.enemies.some((e) => e.id === id);
 }
 
+/**
+ * The Finale (docs/phase-5d.md): a mirror-choir voice's card waits for its first Cue, when its
+ * Solo is the lesson; every other foe shows as it appears. `cued`: the voice the Conductor is
+ * Cueing now (its name, the boss bar's), or null.
+ */
+export function sightingFoes(
+  foes: readonly string[] | undefined,
+  cued: string | null | undefined,
+): string[] | undefined {
+  if (!foes) return foes;
+  if (!foes.some((id) => (CHOIR as readonly string[]).includes(id))) return [...foes];
+  return foes.filter(
+    (id) => !(CHOIR as readonly string[]).includes(id) || enemyDef(id).name === cued,
+  );
+}
+
+/**
+ * The Finale's held-back voices, settled: a voice whose card waits for its Cue but leaves the
+ * fight first (burst down before it is Cued, or shattered at the Grand Silence) or is still
+ * waiting when the fight ends is recorded as seen without a card, so the Codex unlocks every voice
+ * the party fought. `held`: the voices held back last time; `foes`: the fight's live foes (undefined
+ * once the fight is over). Returns the voices held back now, and the ones to record silently.
+ */
+export function settleHeldVoices(
+  held: readonly string[],
+  foes: readonly string[] | undefined,
+  cued: string | null | undefined,
+): { held: string[]; record: string[] } {
+  const live = foes ?? [];
+  const now = live.filter(
+    (id, i) =>
+      (CHOIR as readonly string[]).includes(id) &&
+      live.indexOf(id) === i &&
+      enemyDef(id).name !== cued,
+  );
+  return { held: now, record: held.filter((id) => !live.includes(id)) };
+}
+
+/** Records held-back voices that never got their card (see `settleHeldVoices`). */
+function recordHeld(ids: readonly string[]): void {
+  if (ids.length === 0) return;
+  recordSeen(newSightings(ids, useProfile.getState().profile.seen));
+}
+
 /** The callout for a foe's first sighting. */
 export function sightingCallout(
   defId: string,
   rewinds = false,
   paradox = false,
+  reel: string | null = null,
 ): Omit<Callout, 'id' | 'expiresAt'> {
-  const s = sightingOf(defId, rewinds, paradox);
+  const s = sightingOf(defId, rewinds, paradox, reel);
   return { kind: 'sighting', text: s.name, detail: s.lesson, key: `${SIGHTING_KEY}${defId}` };
 }
 
@@ -231,11 +358,13 @@ export function noteSightings(
   now: number,
   rewinds = false,
   paradox = false,
+  reel: string | null = null,
 ): string[] {
   const fresh = newSightings(foes, useProfile.getState().profile.seen);
   if (fresh.length === 0) return fresh;
   const ui = useUi.getState();
-  for (const id of fresh) ui.pushCallout(sightingCallout(id, rewinds, paradox), now, SIGHTING_TTL);
+  for (const id of fresh)
+    ui.pushCallout(sightingCallout(id, rewinds, paradox, reel), now, SIGHTING_TTL);
   recordSeen(fresh);
   return fresh;
 }
@@ -250,11 +379,29 @@ export function useFirstSightings(enabled = true): void {
   const paradox = useUi((s) => !!s.hud?.calling?.tiers.some((t) => t?.id === 'paradox'));
   // Phase 5b: the party's def ids, as one string so the effect runs only when it changes.
   const party = useUi((s) => s.hud?.party.map((h) => h.defId).join(' ') ?? '');
+  // The Finale: Reel's variant for the Conductor's card, and the voice being Cued (its card waits).
+  const reel = useUi(
+    (s) => s.hud?.weaver.techniques.find((t) => t.key === 'reel')?.variant?.id ?? null,
+  );
+  const cued = useUi((s) => s.hud?.boss?.cue?.soloist ?? null);
+  // The voices whose card is waiting for a Cue: recorded without one if they go first.
+  const held = useRef<string[]>([]);
+  useEffect(
+    () => () => {
+      recordHeld(held.current);
+      held.current = [];
+    },
+    [],
+  );
   useEffect(() => {
-    if (!enabled || !fighting || sandbox) return;
-    noteSightings(foes, performance.now(), rewinds, paradox);
+    if (!enabled || sandbox) return;
+    const settled = settleHeldVoices(held.current, fighting ? foes : undefined, cued);
+    held.current = settled.held;
+    recordHeld(settled.record);
+    if (!fighting) return;
+    noteSightings(sightingFoes(foes, cued), performance.now(), rewinds, paradox, reel);
     noteAllies(party ? party.split(' ') : [], performance.now());
-  }, [enabled, foes, fighting, sandbox, rewinds, paradox, party]);
+  }, [enabled, foes, fighting, sandbox, rewinds, paradox, party, reel, cued]);
 }
 
 // ── A new ally (docs/phase-5b.md) ────────────────────────────────────────────────────

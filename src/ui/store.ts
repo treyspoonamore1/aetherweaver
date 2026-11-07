@@ -191,6 +191,11 @@ export interface HeroHud {
   // ── The Finale (docs/phase-5d.md). Absent: the frame draws as before. ──
   /** Stilled by the Grand Silence: it waits for the Weaver's song. */
   stilled?: true;
+  /**
+   * Just after Reignite (the eighth note): the frame relit gold for a moment; `risen` for a hero
+   * the song stood back up. Absent at the Coda and in every other fight.
+   */
+  reignite?: 'relit' | 'risen';
 }
 
 /** What the Chronomancer's Rewind would do to a hero now (`HeroHud.rewind`). */
@@ -453,8 +458,11 @@ export interface BossHud {
   discord?: { value: number; max: number; rate: number };
   /** Fortissimo Silence is being played: the pulse winding up, of 3. */
   fortissimo?: { pulse: number; of: 3 };
-  /** The Grand Silence: notes played of 8, what made them, and seconds left before the Coda. */
-  silence?: { notes: number; of: 8; sources: NoteSource[]; left: number };
+  /**
+   * The Grand Silence: notes played of 8, what made them, seconds left before the Coda, and the
+   * cap (seconds), fixed when the silence began (50 s x telegraphLead x the Dissonance windup).
+   */
+  silence?: { notes: number; of: 8; sources: NoteSource[]; left: number; cap: number };
   /** A Cue: the voice it named and its Solo (names); the Solo's target once it begins. */
   cue?: { soloist: string; solo: string; target?: string };
 }

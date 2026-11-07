@@ -182,9 +182,9 @@ export interface RunHook {
   seedReliquary(seed: ReliquarySeed): void;
   /**
    * Phase 4c, test-only: from the map, wins the run through the run store, as if its final boss
-   * fell (a walk to the final node, then `winFight()`; an Expedition's last boss, the Unweaver
-   * since Phase 5c, past the Cantor and Vharun), with `found` among its relics: its end pays the
-   * Reliquary and its Summary can enshrine. Returns false if it couldn't.
+   * fell (a walk to the final node, then `winFight()`; an Expedition's last boss, the Silent
+   * Conductor since Phase 5d, past the Cantor, Vharun and the Unweaver), with `found` among its
+   * relics: its end pays the Reliquary and its Summary can enshrine. Returns false if it couldn't.
    */
   winRun(found?: string[]): boolean;
   /**

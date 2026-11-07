@@ -7,7 +7,15 @@ import { fmt } from '../kit/format';
 import { Icon } from '../kit/Icon';
 import { KeyCap } from '../kit/KeyCap';
 import { Ring } from '../kit/Ring';
-import type { Callout, ChordHud, HeroHud, WeaverHud } from '../store';
+import type { BossHud, Callout, ChordHud, HeroHud, WeaverHud } from '../store';
+import {
+  DOWNED_SONG_LINE,
+  NOTE_GOLD,
+  REIGNITE_LINE,
+  SILENCE_INK,
+  STILLED_LINE,
+  stilledAria,
+} from './finaleLook';
 import type { CallAnswer, ThreadMode } from '../types';
 import { StatusBadge } from './StatusBadge';
 import { POSSESSED_COLOR, PossessedStrip, StitchChip } from './RiftMarks';
@@ -243,8 +251,14 @@ export function PartyFrames({
   tipOpen = null,
   layout = DEFAULT_HUD.frames,
   healthText = DEFAULT_HUD.healthText,
+  silence,
 }: {
   party: HeroHud[];
+  /**
+   * The Finale (docs/phase-5d.md): the Grand Silence while it holds (the boss bar's), for the
+   * stilled frames' notes and countdown and the downed frames' promise. Absent: as before.
+   */
+  silence?: BossHud['silence'];
   threadMode: ThreadMode;
   barks: Callout[];
   /** The Weaver's songs: who the beam pours into, who hears its echo. */
@@ -306,6 +320,7 @@ export function PartyFrames({
                 healthText={healthText}
                 callNamed={callNamed(h, party)}
                 partyNames={h.stitchedWith ? partyNames(party) : undefined}
+                silence={silence}
               />
               <Bark hero={h} callouts={barks} side={side} />
               <FrameTip
@@ -548,6 +563,67 @@ function CallStrip({
   );
 }
 
+/**
+ * The Grand Silence on a frame (docs/phase-5d.md): greyed, 'Stilled · waits for your song', a
+ * segment per note played (gold, the Weaver's doing), and the Coda's countdown for screen readers
+ * (the HeldStrip pattern). Steady, never a flash: it reads with the sound off and Flashes at 0.
+ */
+function StilledStrip({ hero: h, silence }: { hero: HeroHud; silence?: BossHud['silence'] }) {
+  const notes = silence?.notes ?? 0;
+  const of = silence?.of ?? 8;
+  return (
+    <div
+      className="mt-1.5 flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-bold"
+      style={{
+        borderColor: SILENCE_INK,
+        color: SILENCE_INK,
+        background: 'rgb(148 163 184 / 0.14)',
+      }}
+      role="status"
+      aria-label={stilledAria(h.name, notes, of, silence ? silence.left : null)}
+      data-testid="stilled-strip"
+    >
+      <Icon name="mute" size={15} />
+      {STILLED_LINE}
+      <span className="ml-auto flex items-center gap-0.5" aria-hidden>
+        {Array.from({ length: of }, (_, i) => (
+          <span
+            key={i}
+            className="h-2 w-1.5 rounded-sm border"
+            style={{
+              borderColor: i < notes ? NOTE_GOLD : 'rgb(203 213 225 / 0.45)',
+              background: i < notes ? NOTE_GOLD : 'transparent',
+            }}
+          />
+        ))}
+      </span>
+      {silence && (
+        <span className="w-7 text-right font-mono">{Math.max(0, Math.ceil(silence.left))}</span>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Reignite on a frame (docs/phase-5d.md "Accessibility with audio off": frames relit gold, revived
+ * frames rising): a gold line for a moment after the eighth note. Steady, never a flash.
+ */
+function ReigniteStrip({ hero: h }: { hero: HeroHud }) {
+  const kind = h.reignite!;
+  return (
+    <div
+      className={`mt-1.5 flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-bold ${kind === 'risen' ? 'anim-rise' : ''}`}
+      style={{ borderColor: NOTE_GOLD, color: NOTE_GOLD, background: 'rgb(245 215 142 / 0.14)' }}
+      role="status"
+      data-testid="reignite-strip"
+      data-reignite={kind}
+    >
+      <Icon name="note" size={15} />
+      {REIGNITE_LINE[kind]}
+    </div>
+  );
+}
+
 /** Fermata hold: 1 life, seconds to heal them. */
 function HeldStrip({ hero: h }: { hero: HeroHud }) {
   const held = h.held!;
@@ -687,8 +763,11 @@ export function HeroFrame({
   healthText = 'missing',
   callNamed: named = false,
   partyNames,
+  silence,
 }: {
   hero: HeroHud;
+  /** The Finale: the Grand Silence while it holds (its notes, the Coda's countdown). */
+  silence?: BossHud['silence'];
   /** Movement III: the party's names by slot (a Stitch names the hero it joins). */
   partyNames?: readonly (string | undefined)[];
   threadMode: ThreadMode;
@@ -724,6 +803,8 @@ export function HeroFrame({
   // What the whole frame says (docs/health-ui.md): critical glows red, an ailment Chime would
   // cleanse glows violet, out of the Weaver's reach it fades, as WoW's raid frames do.
   const state = frameState(h, blind);
+  // The Finale: relit gold for a moment after Reignite (the alerts above still win).
+  const relit = !!h.reignite && !down && !out;
   const border = h.held
     ? HOLD
     : state.critical
@@ -734,16 +815,20 @@ export function HeroFrame({
           ? CALL
           : state.ailing
             ? 'var(--color-ailment)'
-            : h.threaded
-              ? threadColor
-              : h.hovered
-                ? 'var(--color-gold-400)'
-                : undefined;
+            : relit
+              ? NOTE_GOLD
+              : h.threaded
+                ? threadColor
+                : h.hovered
+                  ? 'var(--color-gold-400)'
+                  : undefined;
   const glow = state.critical
     ? '0 0 0 1px var(--color-lethal), 0 0 18px color-mix(in srgb, var(--color-lethal) 45%, transparent)'
     : state.ailing && !h.held
       ? '0 0 0 1px var(--color-ailment), 0 0 14px color-mix(in srgb, var(--color-ailment) 38%, transparent)'
-      : undefined;
+      : relit
+        ? `0 0 0 1px ${NOTE_GOLD}, 0 0 16px rgb(245 215 142 / 0.4)`
+        : undefined;
   return (
     <button
       type="button"
@@ -761,7 +846,7 @@ export function HeroFrame({
       onBlur={() => getRuntime()?.setUiHover(null)}
       className={`block w-full rounded-xl border bg-ink-900/88 px-3 py-2 text-left shadow-lg shadow-black/40 backdrop-blur-sm transition-colors hover:bg-ink-800/90 ${
         (h.lethal || h.held) && !down && !out ? 'animate-pulse-lethal' : ''
-      } ${(down && !rewindUp) || out ? 'saturate-0' : ''} ${out ? 'opacity-60' : state.far ? 'opacity-[0.62]' : ''}`}
+      } ${(down && !rewindUp) || out ? 'saturate-0' : ''}${h.stilled && !down && !out ? ' saturate-[0.35]' : ''} ${out ? 'opacity-60' : state.far ? 'opacity-[0.62]' : ''}`}
       style={{
         borderColor: border ?? (h.lethal && !down ? 'var(--color-lethal)' : 'var(--color-ink-600)'),
         boxShadow: glow,
@@ -769,6 +854,8 @@ export function HeroFrame({
       data-critical={state.critical || undefined}
       data-ailing={state.ailing || undefined}
       data-far={state.far || undefined}
+      data-stilled={h.stilled || undefined}
+      data-reignite={relit ? h.reignite : undefined}
     >
       <div className="flex items-start gap-2.5">
         <span className={grey}>
@@ -806,10 +893,12 @@ export function HeroFrame({
               <Icon name="skull" size={14} /> Out for this fight
             </p>
           ) : down ? (
-            <DownedBlock hero={h} rewind={rewind} />
+            <DownedBlock hero={h} rewind={rewind} silence={silence} />
           ) : (
             <>
               <HpBar hero={h} rewind={rewind} healthText={healthText} />
+              {h.stilled && <StilledStrip hero={h} silence={silence} />}
+              {relit && !h.stilled && <ReigniteStrip hero={h} />}
               {h.held && <HeldStrip hero={h} />}
               {h.call && <CallStrip hero={h} threadMode={threadMode} named={named} />}
               {h.possessed && <PossessedStrip possessed={h.possessed} blind={blind} />}
@@ -1282,11 +1371,34 @@ function RewindRevive({ hero: h, rewind }: { hero: HeroHud; rewind: RewindReady 
   );
 }
 
-function DownedBlock({ hero: h, rewind = null }: { hero: HeroHud; rewind?: RewindReady }) {
+function DownedBlock({
+  hero: h,
+  rewind = null,
+  silence,
+}: {
+  hero: HeroHud;
+  rewind?: RewindReady;
+  /** The Finale: while the Grand Silence holds, the eighth note stands them back up. */
+  silence?: BossHud['silence'];
+}) {
   // While Rewind can stand them up the frame keeps its colour for that line: grey the rest.
   const grey = rewind?.ready && h.rewind?.kind === 'revive' ? 'saturate-0' : '';
   return (
     <div className="mt-1">
+      {silence && (
+        <p
+          className="mb-1 flex items-center gap-1.5 text-xs font-semibold"
+          style={{ color: NOTE_GOLD }}
+          role="status"
+          data-testid="downed-song"
+        >
+          <Icon name="note" size={14} />
+          {DOWNED_SONG_LINE}
+          <span className="ml-auto font-mono">
+            {silence.notes}/{silence.of}
+          </span>
+        </p>
+      )}
       <p
         className={`flex items-center gap-1.5 text-xs font-bold tracking-wide text-lethal ${grey}`}
       >

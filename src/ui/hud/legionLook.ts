@@ -44,9 +44,19 @@ const CAST_ICON: Readonly<Record<string, IconName>> = {
   // Movement III (docs/phase-5c.md): the Seamstress's needle, the Unweaver's shears.
   the_seamstress: 'needle',
   the_unweaver: 'scissors',
+  // The Finale (docs/phase-5d.md): the Silent Conductor's baton.
+  the_silent_conductor: 'baton',
 };
 
-export function bossCastIcon(defId: string | undefined): IconName {
+/**
+ * Fortissimo Silence's own cast glyph (docs/phase-5d.md): the music cut off, over the Conductor's
+ * baton while its three pulses are played.
+ */
+export const FORTISSIMO_CAST_ICON: IconName = 'mute';
+
+/** A boss's cast glyph; `fortissimo`: Fortissimo Silence is being played (the Finale only). */
+export function bossCastIcon(defId: string | undefined, fortissimo = false): IconName {
+  if (fortissimo) return FORTISSIMO_CAST_ICON;
   return (defId && CAST_ICON[defId]) || 'bell';
 }
 

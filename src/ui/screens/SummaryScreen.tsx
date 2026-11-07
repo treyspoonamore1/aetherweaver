@@ -17,7 +17,11 @@ import { PathPip, callingLook } from '../kit/CallingGlyph';
 import { CallingTitle } from './CallingParts';
 import { callingNothingText, callingParts, pathSteps, techniqueName } from './callingText';
 import { bindingLabel } from '../hud/labels';
-import type { ReactNode } from 'react';
+import { useCallback, useState, type ReactNode } from 'react';
+import { CONTENT } from '../../content';
+import { SONG_GOES_ON } from '../../content/crucibleIds';
+import { finaleCleared } from '../../meta/runEnd';
+import { EpilogueView, epilogueDue, markEpilogueSeen } from './EpilogueView';
 import { ScreenFrame } from '../kit/Backdrop';
 import { Button } from '../kit/Button';
 import { CATEGORY, Chip } from '../kit/Chip';
@@ -86,6 +90,16 @@ const OUTCOME = {
   },
 } as const;
 
+/**
+ * The Finale's victory (docs/phase-5d.md "Summary"): the song goes on. Its line under the title is
+ * the VICTORY one (`outcomeSub`).
+ */
+const FINALE_OUTCOME = {
+  title: 'The song goes on',
+  sub: 'The Silent Conductor lowers its baton, and the song goes on.',
+  color: '#fff1cf',
+} as const;
+
 const HIGHLIGHT_ORDER: Highlight['kind'][] = [
   'save',
   'fermata',
@@ -108,6 +122,44 @@ const HIGHLIGHT_ICON: Record<Highlight['kind'], IconName> = {
   response: 'call',
   fermata: 'fermata',
 };
+
+/**
+ * The first Finale clear (docs/phase-5d.md "Rewards and the first Finale clear"): the Deed that
+ * records it, what it opened (Dissonance, at Weaver Rank 15 or above), and what comes later. It
+ * never claims anything unbuilt is open.
+ */
+export function firstClearLines(open: boolean): { title: string; lines: string[] } {
+  const rank = CONTENT.dissonanceRules.openRank;
+  return {
+    title: 'The Song Goes On — your first Finale clear',
+    lines: [
+      open ? 'Dissonance is open' : `Dissonance opens at Weaver Rank ${rank}`,
+      'Coming later: the Atlas of Echoes and True Dissonance',
+    ],
+  };
+}
+
+function FirstClearCard({ open }: { open: boolean }) {
+  const card = firstClearLines(open);
+  return (
+    <Panel
+      tone="gold"
+      className="anim-rise mt-6 flex items-start gap-4 p-5"
+      data-testid="first-clear"
+      data-open={open}
+    >
+      <Icon name="baton" size={28} className="mt-0.5 shrink-0 text-amber-50" />
+      <div>
+        <p className="font-display text-xl font-bold text-gold-100">{card.title}</p>
+        <ul className="mt-1 flex flex-col gap-0.5 text-sm text-text">
+          {card.lines.map((l) => (
+            <li key={l}>{l}</li>
+          ))}
+        </ul>
+      </div>
+    </Panel>
+  );
+}
 
 /** Top moments across the whole run, most valuable kinds first. */
 export function runHighlights(results: EncounterResult[]): (Highlight & { fight: string })[] {
@@ -156,6 +208,13 @@ export interface SummaryViewProps {
    * Omitted: no Starlight panel, and the Calling's panel shows no mastery.
    */
   loom?: { starlight: number; rank: number; all?: boolean; mastery?: number } | null;
+  /**
+   * The Finale (docs/phase-5d.md): whether Dissonance is open on the profile, for the first-clear
+   * card. Omitted: what this run's end did (`dissonanceEnd.opened`).
+   */
+  dissonanceOpen?: boolean;
+  /** UI lab: the epilogue shown with every line, and no timers (omitted: once per victory). */
+  epilogueStill?: boolean;
 }
 
 /** The run summary, "proof of support" (docs/plan/04 §6.1). */
@@ -174,10 +233,24 @@ export function SummaryView({
   bonds,
   bondCard = null,
   loom = null,
+  dissonanceOpen,
+  epilogueStill = false,
 }: SummaryViewProps) {
   useMood('map');
   const totals = runTotals(run);
-  const outcome = OUTCOME[run.outcome ?? 'abandoned'];
+  // The Finale: a won run that cleared it ends with the song going on, and its epilogue.
+  const finale = run.outcome === 'victory' && finaleCleared(run);
+  const outcome = finale ? FINALE_OUTCOME : OUTCOME[run.outcome ?? 'abandoned'];
+  const [epilogue, setEpilogue] = useState(() => epilogueStill || epilogueDue(run));
+  const seed = run.seed;
+  const closeEpilogue = useCallback(() => {
+    markEpilogueSeen(seed);
+    setEpilogue(false);
+  }, [seed]);
+  const firstClear = finale && run.deeds.includes(SONG_GOES_ON);
+  // A Rank-up or Bond card over the Summary: the epilogue waits for it (it is shown once).
+  const modalOpen =
+    (rankUps.length > 0 && !!onDismissRankUps) || (!!bondCard && bondCard.notices.length > 0);
   // A win names the final boss; an Expedition's defeat, the Movement it reached (Phase 5a).
   const sub = outcomeSub(run) ?? outcome.sub;
   const heroIds = run.party.map((p) => p.heroId);
@@ -222,8 +295,16 @@ export function SummaryView({
   );
 
   return (
-    <ScreenFrame tone={run.outcome === 'victory' ? 'gold' : 'dusk'}>
+    <ScreenFrame tone={finale ? 'crucible' : run.outcome === 'victory' ? 'gold' : 'dusk'}>
       <div className="mx-auto max-w-6xl px-6 pb-28 pt-8">
+        {finale && epilogue && (
+          <EpilogueView
+            party={heroIds}
+            onDone={closeEpilogue}
+            still={epilogueStill}
+            paused={modalOpen}
+          />
+        )}
         <header className="anim-rise flex flex-wrap items-center justify-between gap-6">
           <div>
             <p className="font-mono text-xs uppercase tracking-[0.3em] text-muted">
@@ -261,6 +342,10 @@ export function SummaryView({
             </p>
           </div>
         </header>
+
+        {firstClear && (
+          <FirstClearCard open={dissonanceOpen ?? run.dissonanceEnd?.opened ?? false} />
+        )}
 
         {profileXp !== undefined && <RunRankPanel run={run} profileXp={profileXp} />}
 
@@ -955,6 +1040,8 @@ export function SummaryScreen() {
   // Phase 4g: the Starlight and the Calling's mastery the run paid into the profile.
   const starlight = useProfile((s) => s.profile.starlight);
   const mastery = useProfile((s) => s.profile.mastery);
+  // The Finale's first-clear card says whether Dissonance is open now.
+  const dissonanceOpen = useProfile((s) => s.profile.dissonance.open);
   const { rankUps, firstTime, dismiss, deedPoints } = useRankUps();
   const bondCard = useBondCard();
   if (!run) return null;
@@ -975,6 +1062,7 @@ export function SummaryScreen() {
       deedPoints={deedPoints}
       bonds={bondCard.bonds}
       bondCard={bondCard}
+      dissonanceOpen={dissonanceOpen}
       loom={{
         starlight,
         rank: rankOf(xp),

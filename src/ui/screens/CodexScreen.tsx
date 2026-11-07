@@ -39,7 +39,8 @@ import { EventGlyph } from './EventScreen';
 import { boonDuration, boonInfo, choiceInfo, relicInfo } from './interlude';
 import { BoonTip, RelicBody, boonStyle } from './RelicCard';
 import { CALLING_ROWS, newRun } from '../../meta/run';
-import { EVERYTHING, heroRoster, type Allowance } from '../../meta/profile';
+import { EVERYTHING, EXPEDITION_MOVEMENTS, heroRoster, type Allowance } from '../../meta/profile';
+import { ENEMY_LORE } from '../hud/finaleLook';
 import { callingLook } from '../kit/CallingGlyph';
 import { AxisLegend, CallingPassive, CallingPathPreview, CallingTitle } from './CallingParts';
 import { callingOpen } from './CallingPicker';
@@ -330,6 +331,9 @@ export function useCodexDissonance(): CodexDissonance {
  * Rank.
  */
 function Callings({ allowance }: { allowance: Allowance }) {
+  // The Expedition's road brings the tiers at its own rows (its first Movement is shorter).
+  const road = tierWhenList(CALLING_ROWS.length, { movements: EXPEDITION_MOVEMENTS });
+  const expeditionTiers = road === tierWhenList(CALLING_ROWS.length) ? null : road;
   return (
     <div className="flex flex-col gap-6">
       <Panel tone="gold" className="p-5">
@@ -337,12 +341,19 @@ function Callings({ allowance }: { allowance: Allowance }) {
           A <b className="text-gold-200">Calling</b> is the Weaver’s class for a run, chosen in
           Prep. It brings a passive and its own Crescendo, and a <b>path</b>: {CALLING_ROWS.length}{' '}
           tiers of two options each, picked during the run {tierWhenList(CALLING_ROWS.length)} (the
-          first fight you win at that step), before the fight’s relic and motif. Each pick lasts the
-          rest of the run. The map marks the fights that bring one. Runs without a Calling play as
-          before. The auras themselves never change: a Calling adds to your songs’ reach, strength
-          or slots, or (the Martyr) changes what they reserve: your Life instead of your Spirit.
-          Some bring a key of their own: the Martyr’s Bear ({bindingLabel('bear')}), and the
-          Chronomancer’s Rewind, which takes Reel’s ({bindingLabel('reel')}).
+          first fight you win at that step), before the fight’s relic and motif.
+          {expeditionTiers && (
+            // The Finale's shorter road (docs/phase-5d.md) moves them on an Expedition.
+            <span data-testid="codex-calling-road">
+              {' '}
+              On an Expedition’s shorter road, {expeditionTiers}.
+            </span>
+          )}{' '}
+          Each pick lasts the rest of the run. The map marks the fights that bring one. Runs without
+          a Calling play as before. The auras themselves never change: a Calling adds to your songs’
+          reach, strength or slots, or (the Martyr) changes what they reserve: your Life instead of
+          your Spirit. Some bring a key of their own: the Martyr’s Bear ({bindingLabel('bear')}),
+          and the Chronomancer’s Rewind, which takes Reel’s ({bindingLabel('reel')}).
         </p>
       </Panel>
       {CONTENT.callings.map((def) => {
@@ -564,7 +575,12 @@ function MovementHeading({ movement }: { movement: number }) {
   return (
     <h2 className="mb-3 flex items-baseline gap-2 font-display text-lg font-bold text-gold-300">
       {movementLabel(movement)}
-      {def && <span className="text-sm font-normal text-muted">· {def.name}</span>}
+      {/* A labelled Movement (the Finale) is named by its place, not its name twice. */}
+      {def && (
+        <span className="text-sm font-normal text-muted">
+          · {def.label === movementLabel(movement) ? def.mapTitle : def.name}
+        </span>
+      )}
     </h2>
   );
 }
@@ -614,6 +630,11 @@ function EnemyEntry({ enemy: e }: { enemy: EnemyDef }) {
         </Chip>
       </div>
       <p className="mt-2 text-sm leading-relaxed text-text">{e.codex}</p>
+      {ENEMY_LORE[e.id] && (
+        <p className="mt-1.5 text-sm italic leading-relaxed text-muted" data-testid="codex-lore">
+          {ENEMY_LORE[e.id]}
+        </p>
+      )}
       <div className="mt-3 flex flex-wrap gap-1.5">
         <Chip icon="heart">{fmt(e.hp)} life</Chip>
         <Chip>

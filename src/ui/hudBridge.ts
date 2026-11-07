@@ -1,5 +1,6 @@
 import {
   CONTENT,
+  attackDef,
   auraDef,
   callingDef,
   encounterDef,
@@ -35,6 +36,7 @@ import {
   type WorldState,
 } from '../sim';
 import { healReceivedMult } from '../sim/combat/health';
+import { DISCORD_MAX, NOTES_NEEDED } from '../content/crucibleIds';
 import type { Entity } from '../sim/state';
 import type { World } from '../sim/world';
 import { dissonancePoints, parMult } from '../meta/dissonance';
@@ -153,6 +155,8 @@ export function buildHudSnapshot(
     guardBlockedAt?: number | null;
     /** The last enemy cut of the Thread the runtime heard (Movement III, `heardCut`). */
     threadCut?: ThreadCutHeard | null;
+    /** The Finale: the last Reignite the runtime heard (`heardReignite`). */
+    reignited?: ReigniteHeard | null;
   },
 ): HudSnapshot {
   const weaverEntity = state.entities.get(state.weaverId);
@@ -310,6 +314,8 @@ export function buildHudSnapshot(
       ...movementTwoMarks(state, e, h),
       ...bloodHud(state, e),
       ...movementThreeMarks(state, e, h),
+      ...finaleMarks(h),
+      ...reigniteMark(state.time, id, h, opts.reignited),
     });
   });
   const partyIds = party.map((p) => p.defId);
@@ -422,6 +428,7 @@ export function buildHudSnapshot(
       ...(state.field.sanctuary ? { bloodmoon: true } : {}),
       ...(condemned ? { executeTarget: heroDef(condemned.defId).name } : {}),
       ...bossRift(state, bossEntity, telegraph?.attackId),
+      ...bossFinale(state),
     };
   }
 
@@ -877,4 +884,82 @@ function riftOf(state: WorldState): { rift?: RiftHud } {
     if (!rift.silencer && silencingElite(e)) rift.silencer = true;
   }
   return Object.keys(rift).length > 0 ? { rift } : {};
+}
+
+// ── The Finale (docs/phase-5d.md) ───────────────────────────────────────────────────────
+// Every key below is filled only from `field.finale` (absent outside a Finale fight) or the
+// `stilled` status (only the Conductor applies it), so any other snapshot is exactly as it was.
+
+type BossFinale = Pick<BossHud, 'discord' | 'fortissimo' | 'silence' | 'cue'>;
+
+/** The boss bar's Finale keys: Discord and its rate, Fortissimo's pulse, the silence, the Cue. */
+function bossFinale(state: WorldState): BossFinale {
+  const f = state.field.finale;
+  if (!f) return {};
+  const out: BossFinale = {};
+  if (f.discord) out.discord = { value: f.discord.value, max: DISCORD_MAX, rate: f.discord.rate };
+  if (f.fortissimo) out.fortissimo = { pulse: f.fortissimo.pulse, of: 3 };
+  if (f.silence)
+    out.silence = {
+      notes: f.silence.notes,
+      of: NOTES_NEEDED,
+      sources: [...f.silence.sources],
+      left: Math.max(0, f.silence.until - state.time),
+      cap: Math.max(0, f.silence.until - f.silence.since),
+    };
+  if (f.cue) {
+    const voice = state.entities.get(f.cue.soloist)?.enemy;
+    const target = f.cue.target === undefined ? undefined : state.entities.get(f.cue.target)?.hero;
+    out.cue = {
+      soloist: voice ? enemyDef(voice.defId).name : 'A voice',
+      solo: soloName(f.cue.solo),
+      ...(target ? { target: heroDef(target.defId).name } : {}),
+    };
+  }
+  return out;
+}
+
+/** A Solo's name from its attack id (the id itself if content has no such attack). */
+function soloName(id: string): string {
+  try {
+    return attackDef(id).name;
+  } catch {
+    return id;
+  }
+}
+
+/** A Reignite, as the runtime heard it (`reignited`): when, and whom it stood back up. */
+export interface ReigniteHeard {
+  /** Sim time of the eighth note. */
+  at: number;
+  revived: EntityId[];
+}
+
+/** How long the frames stay relit gold after Reignite (sim seconds). */
+export const REIGNITE_GLOW_S = 2.5;
+
+/** The last Reignite in a batch of events (null: none; the Coda is `silenceBroken`, not this). */
+export function heardReignite(events: readonly SimEvent[], time: number): ReigniteHeard | null {
+  let out: ReigniteHeard | null = null;
+  for (const e of events) if (e.type === 'reignited') out = { at: time, revived: [...e.revived] };
+  return out;
+}
+
+/** Relit gold for a moment after Reignite; `risen` for a hero it stood back up. */
+function reigniteMark(
+  time: number,
+  id: EntityId,
+  h: NonNullable<ReadonlyEntity['health']>,
+  heard: ReigniteHeard | null | undefined,
+): Pick<HeroHud, 'reignite'> {
+  if (!heard || h.dead || h.downed) return {};
+  const since = time - heard.at;
+  if (since < 0 || since > REIGNITE_GLOW_S) return {};
+  return { reignite: heard.revived.includes(id) ? 'risen' : 'relit' };
+}
+
+/** Stilled by the Grand Silence: the frame waits for the Weaver's song. */
+function finaleMarks(h: NonNullable<ReadonlyEntity['health']>): Pick<HeroHud, 'stilled'> {
+  if (h.dead) return {};
+  return h.statuses.some((s) => s.id === 'stilled') ? { stilled: true } : {};
 }
