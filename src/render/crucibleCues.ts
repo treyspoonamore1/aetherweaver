@@ -351,6 +351,16 @@ const BATON = color(FINALE_HEX.baton);
 const SIGIL = color(FINALE_HEX.cue);
 const GLASS = color(CRUCIBLE_HEX.glass);
 const STAVE = color(CRUCIBLE_HEX.stave);
+/** The CRUCIBLE_UNMARKED colours as hex, so a mark never takes one (an accent may be one). */
+const UNMARKED = new Set(CRUCIBLE_UNMARKED.map((k) => color(CRUCIBLE_HEX[k]).getHex()));
+
+/**
+ * A body's accent as a mark on the disc: the accent itself, unless it is one that may not mark it
+ * (the Silent Conductor's accent is the silence's ash), which marks in the silence's slate.
+ */
+function markOf(accent: THREE.Color): THREE.Color {
+  return UNMARKED.has(accent.getHex()) ? STAVE : accent;
+}
 
 /** A note in flight from a hero to the orrery. */
 interface Mote {
@@ -751,7 +761,7 @@ export class CrucibleCues {
 
   /**
    * A glass body's death (`material: 'glass'`): prism shards burst out, and rise as notes; its
-   * accent's ring. Never porcelain's white shards, never the Weaver's gold.
+   * accent's ring (slate for an accent that may not mark the disc). Never porcelain's white shards, never the Weaver's gold.
    */
   glassDeath(
     x: number,
@@ -814,13 +824,15 @@ export class CrucibleCues {
       size,
     );
     const sink = this.d.sink;
-    sink.ring(x, z, size, size * 3.2, 0.45, accent, 0.12, RING.stave, 0.9);
+    // Its rings lie on the disc: never in an unmarked colour (CRUCIBLE_UNMARKED).
+    const mark = markOf(accent);
+    sink.ring(x, z, size, size * 3.2, 0.45, mark, 0.12, RING.stave, 0.9);
     sink.sprite(x, height * 0.55, z, size * 1.4, size * 2.8, 0.2, GLASS, SPRITE.glow, 0.7);
     if (boss) {
       this.d.rig.addTrauma(0.6);
       this.d.rig.panToward(x, z, 0.5, 1.4);
       for (let i = 0; i < 3; i++)
-        sink.ring(x, z, size, 10 + i * 5, 0.8 + i * 0.3, accent, 0.3, RING.stave);
+        sink.ring(x, z, size, 10 + i * 5, 0.8 + i * 0.3, mark, 0.3, RING.stave);
       this.d.overlay.flash(0.35, 0.3);
     }
   }

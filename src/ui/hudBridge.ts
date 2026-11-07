@@ -257,7 +257,9 @@ export function buildHudSnapshot(
       revive: h.revive,
       dead: h.dead,
       solo: hero.solo,
-      soloReady: hero.solo >= 100 && hero.soloActive <= 0,
+      // A stilled hero cannot be Cued (the sim refuses it), so its Solo is not "ready" until the
+      // song returns, though the notes fill it (docs/phase-5d.md: relit gold on Reignite).
+      soloReady: hero.solo >= 100 && hero.soloActive <= 0 && !isStilled(h),
       soloActive: hero.soloActive > 0,
       soloAuto: opts.autonomy === true && hero.targetId !== null,
       soloId: soloDef.id,
@@ -990,6 +992,10 @@ function reigniteMark(
 
 /** Stilled by the Grand Silence: the frame waits for the Weaver's song. */
 function finaleMarks(h: NonNullable<ReadonlyEntity['health']>): Pick<HeroHud, 'stilled'> {
-  if (h.dead) return {};
-  return h.statuses.some((s) => s.id === 'stilled') ? { stilled: true } : {};
+  return isStilled(h) ? { stilled: true } : {};
+}
+
+/** The Grand Silence holds this hero (only the Conductor applies `stilled`). */
+function isStilled(h: NonNullable<ReadonlyEntity['health']>): boolean {
+  return !h.dead && h.statuses.some((s) => s.id === 'stilled');
 }

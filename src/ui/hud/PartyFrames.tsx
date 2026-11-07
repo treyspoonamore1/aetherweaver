@@ -1024,7 +1024,8 @@ function InFieldPip({ inField, out }: { inField: boolean; out: boolean }) {
  * Bond rank on its corner, once Bonds are open.
  */
 function Portrait({ hero: h, bondRank = null }: { hero: HeroHud; bondRank?: number | null }) {
-  const ready = h.soloReady && !h.dead && !h.downed;
+  // A stilled hero cannot be Cued until the song returns.
+  const ready = h.soloReady && !h.dead && !h.downed && !h.stilled;
   return (
     <div className="relative flex shrink-0 flex-col items-center gap-0.5">
       {bondRank !== null && (

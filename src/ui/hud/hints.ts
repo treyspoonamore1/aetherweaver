@@ -425,8 +425,10 @@ function allHints(hud: HudSnapshot): Hint[] {
         : 'Bear has no key — bind one in Settings → Controls to take part of a big hit on your threaded hero',
     });
   }
+  // Not in the Grand Silence: the stilled party deals nothing and the Conductor cannot be hurt.
   if (
     w.threadMode === 'mend' &&
+    !hud.boss?.silence &&
     hud.encounter.elapsed > 20 &&
     hud.encounter.enemies > 0 &&
     party.filter(alive).length > 0 &&

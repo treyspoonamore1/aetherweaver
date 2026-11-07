@@ -54,6 +54,11 @@ export function movementLabel(
   return movements[n - 1]?.label ?? `Movement ${movementNumeral(n)}`;
 }
 
+/** Movement `n`'s label mid-sentence: "for the Finale", "Met in Movement II" (docs/phase-5d.md). */
+export function movementInSentence(n: number): string {
+  return inSentence(movementLabel(n));
+}
+
 /** Movement `n`'s content (Movement I for anything unknown). */
 function movementOrFirst(n: number) {
   return CONTENT.movements[n - 1] ? movementDef(n) : movementDef(1);

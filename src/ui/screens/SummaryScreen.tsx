@@ -58,6 +58,7 @@ import type { Bond } from '../../meta/bonds';
 import { BondRankUpCard, RunBondsPanel, useBondCard, type BondCardProps } from './BondsParts';
 import { bondXpRows, runBondXp } from './bondsModel';
 import { rankOf } from '../../meta/profile';
+import { opensAt } from '../../meta/dissonance';
 import { masteryLevel } from '../../meta/loom';
 import { MasteryGainRow } from './MasteryParts';
 import { RunStarlightPanel } from './StarlightParts';
@@ -126,21 +127,27 @@ const HIGHLIGHT_ICON: Record<Highlight['kind'], IconName> = {
 /**
  * The first Finale clear (docs/phase-5d.md "Rewards and the first Finale clear"): the Deed that
  * records it, what it opened (Dissonance, at Weaver Rank 15 or above), and what comes later. It
- * never claims anything unbuilt is open.
+ * never claims anything unbuilt is open. Closed, it says what opens it: a Finale clear made at
+ * that Rank (reaching the Rank alone does not), and with the player's `rank` already there, that
+ * the next clear does it (as Prep's closed panel, `closedLines`, says).
  */
-export function firstClearLines(open: boolean): { title: string; lines: string[] } {
-  const rank = CONTENT.dissonanceRules.openRank;
+export function firstClearLines(open: boolean, rank?: number): { title: string; lines: string[] } {
+  const openRank = CONTENT.dissonanceRules.openRank;
+  const closed =
+    rank !== undefined && opensAt(rank)
+      ? `Dissonance opens with a Finale clear at Weaver Rank ${openRank} or above: you’re Rank ${rank}, so your next one does it`
+      : `Dissonance opens with a Finale clear at Weaver Rank ${openRank} or above`;
   return {
     title: 'The Song Goes On — your first Finale clear',
     lines: [
-      open ? 'Dissonance is open' : `Dissonance opens at Weaver Rank ${rank}`,
+      open ? 'Dissonance is open' : closed,
       'Coming later: the Atlas of Echoes and True Dissonance',
     ],
   };
 }
 
-function FirstClearCard({ open }: { open: boolean }) {
-  const card = firstClearLines(open);
+function FirstClearCard({ open, rank }: { open: boolean; rank?: number }) {
+  const card = firstClearLines(open, rank);
   return (
     <Panel
       tone="gold"
@@ -209,8 +216,8 @@ export interface SummaryViewProps {
    */
   loom?: { starlight: number; rank: number; all?: boolean; mastery?: number } | null;
   /**
-   * The Finale (docs/phase-5d.md): whether Dissonance is open on the profile, for the first-clear
-   * card. Omitted: what this run's end did (`dissonanceEnd.opened`).
+   * The Finale (docs/phase-5d.md): whether Dissonance is open (the profile's flag, or Skip the
+   * unlocks), for the first-clear card. Omitted: what this run's end did (`dissonanceEnd.opened`).
    */
   dissonanceOpen?: boolean;
   /** UI lab: the epilogue shown with every line, and no timers (omitted: once per victory). */
@@ -344,7 +351,10 @@ export function SummaryView({
         </header>
 
         {firstClear && (
-          <FirstClearCard open={dissonanceOpen ?? run.dissonanceEnd?.opened ?? false} />
+          <FirstClearCard
+            open={dissonanceOpen ?? run.dissonanceEnd?.opened ?? false}
+            rank={loom?.rank}
+          />
         )}
 
         {profileXp !== undefined && <RunRankPanel run={run} profileXp={profileXp} />}
@@ -1040,8 +1050,9 @@ export function SummaryScreen() {
   // Phase 4g: the Starlight and the Calling's mastery the run paid into the profile.
   const starlight = useProfile((s) => s.profile.starlight);
   const mastery = useProfile((s) => s.profile.mastery);
-  // The Finale's first-clear card says whether Dissonance is open now.
-  const dissonanceOpen = useProfile((s) => s.profile.dissonance.open);
+  // The Finale's first-clear card says whether Dissonance is open now: the store's own answer,
+  // Skip the unlocks included (it re-runs with `settings`, which this screen follows).
+  const dissonanceOpen = useProfile((s) => s.dissonanceOpen());
   const { rankUps, firstTime, dismiss, deedPoints } = useRankUps();
   const bondCard = useBondCard();
   if (!run) return null;
