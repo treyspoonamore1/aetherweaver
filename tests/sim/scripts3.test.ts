@@ -135,7 +135,12 @@ describe('the phase tables', () => {
   });
 
   it('register only the new bosses; every legacy boss misses the registry', () => {
-    expect(Object.keys(BOSS_SCRIPTS).sort()).toEqual([SEAMSTRESS, UNWEAVER]);
+    // ...and the Finale's Silent Conductor (docs/phase-5d.md, tests/sim/finaleScript.test.ts).
+    expect(Object.keys(BOSS_SCRIPTS).sort()).toEqual([
+      SEAMSTRESS,
+      'the_silent_conductor',
+      UNWEAVER,
+    ]);
     for (const id of [
       'the_bellwarden',
       'the_hollow_cantor',

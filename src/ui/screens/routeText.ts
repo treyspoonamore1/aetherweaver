@@ -1,15 +1,17 @@
 /**
- * The run's route in words (docs/phase-5a.md, docs/phase-5c.md): the Prelude (Movement I alone,
- * the first run) or an Expedition (every Movement in content: I–III, to the Unweaver). Every
- * Prelude string is the one it always was; an Expedition's derive from its Movements (content
- * `movements`, `EXPEDITION_MOVEMENTS`) and the map.
+ * The run's route in words (docs/phase-5a.md, docs/phase-5c.md, docs/phase-5d.md): the Prelude
+ * (Movement I alone, the first run) or an Expedition (every Movement in content: Movements I–III
+ * and the Finale, to the Silent Conductor). Every Prelude string is the one it always was; an
+ * Expedition's derive from its Movements (content `movements` and their labels,
+ * `EXPEDITION_MOVEMENTS`, the route's `routeDefs`) and the map.
  */
 import { CONTENT, encounterDef, movementDef, type Biome } from '../../content';
-import { EXPEDITION_MOVEMENTS } from '../../meta/profile';
+import { EXPEDITION_MOVEMENTS, inSentence, movementSpan, routeBoss } from '../../meta/profile';
 import {
   findNode,
   isFinalNode,
   mapMovement as metaMapMovement,
+  routeDefs,
   rowsOfMovement,
 } from '../../meta/run';
 import type { MapNode, RunState } from '../../meta/types';
@@ -57,6 +59,16 @@ function movementOrFirst(n: number) {
   return CONTENT.movements[n - 1] ? movementDef(n) : movementDef(1);
 }
 
+/**
+ * "Movement II · The Crimson Legion"; a labelled Movement named as its label ("The Finale · The
+ * Celestial Crucible": its map's title, not its name twice).
+ */
+function movementTitle(n: number): string {
+  const def = movementOrFirst(n);
+  const label = movementLabel(n);
+  return `${label} · ${label === def.name ? def.mapTitle : def.name}`;
+}
+
 type MapRun = Pick<RunState, 'map' | 'path'>;
 
 /**
@@ -96,19 +108,28 @@ export function mapHeader(run: MapRun & Partial<Pick<RunState, 'movements'>>): {
       movement: m,
     };
   return {
-    eyebrow: `${movementLabel(m)} · ${def.name} · step ${step} of ${of}`,
+    eyebrow: `${movementTitle(m)} · step ${step} of ${of}`,
     title: def.mapTitle,
     movement: m,
   };
 }
 
-/** The one-time card on first reaching a Movement past the first: "Movement II · The Crimson Legion". */
-export function movementCard(n: number): { title: string; text: string } {
+/**
+ * The one-time card on first reaching a Movement past the first: "Movement II · The Crimson
+ * Legion", and its stops ("1 stop to the Silent Conductor" for the Finale). `movements`: the
+ * run's route, whose road may shorten the Movement (docs/phase-5d.md); absent, the Movement as
+ * content has it. A labelled Movement (the Finale) names its boss mid-sentence, as the doc
+ * writes it; the numbered Movements' cards keep their words ("to The Unweaver", pinned by
+ * tests/meta/expedition3Pin.test.ts).
+ */
+export function movementCard(n: number, movements?: number): { title: string; text: string } {
   const def = movementOrFirst(n);
-  const rows = def.rows.length;
+  const played = movements !== undefined ? routeDefs(movements)[n - 1] : undefined;
+  const rows = (played ?? def).rows.length;
+  const boss = encounterDef(def.boss).name;
   return {
-    title: `${movementLabel(n)} · ${def.name}`,
-    text: `${def.mapTitle}: ${rows} stops to ${encounterDef(def.boss).name}.`,
+    title: movementTitle(n),
+    text: `${def.mapTitle}: ${rows} ${rows === 1 ? 'stop' : 'stops'} to ${def.label ? inSentence(boss) : boss}.`,
   };
 }
 
@@ -192,27 +213,34 @@ export function combatSubtitle(
   return `${movementLabel(m)} · node ${Math.min(Math.max(done.length, 1), of)} of ${of}`;
 }
 
-/** Prep's eyebrow: "The Prelude · Movement I" / "The Expedition · Movements I–II". */
+/**
+ * Prep's eyebrow: "The Prelude · Movement I" / "The Expedition · Movements I–II" / "The Expedition
+ * · Movements I–III and the Finale".
+ */
 export function prepEyebrow(run: Partial<Pick<RunState, 'movements'>>): string {
   const n = run.movements ?? 1;
   if (n < 2) return 'The Prelude · Movement I';
-  return `The Expedition · Movements I–${movementNumeral(n)}`;
+  return `The Expedition · ${movementSpan(1, n)}`;
 }
 
-/** The Title's eyebrow: the Prelude's, or the Expedition's once it's the route (I–III now). */
+/**
+ * The Title's eyebrow: the Prelude's, or the Expedition's once it's the route ("Movements I–III
+ * and the Finale · The Expedition" now).
+ */
 export function titleEyebrow(expedition: boolean, movements = EXPEDITION_MOVEMENTS): string {
   return expedition
-    ? `Movements I–${movementNumeral(Math.max(2, movements))} · The Expedition`
+    ? `${movementSpan(1, Math.max(2, movements))} · The Expedition`
     : 'Movement I · The Prelude';
 }
 
 /**
  * Prep's Route line: where an Expedition goes after the Prelude's Movement I. "into Movement II"
- * with two Movements, "through Movements II–III" with three.
+ * with two Movements, "through Movements II–III" with three, "through Movements II–III and the
+ * Finale" with the Finale.
  */
 export function expeditionOnward(movements = EXPEDITION_MOVEMENTS): string {
   const n = Math.max(2, movements);
-  return n === 2 ? 'into Movement II' : `through Movements II–${movementNumeral(n)}`;
+  return n === 2 ? 'into Movement II' : `through ${movementSpan(2, n)}`;
 }
 
 /**
@@ -234,8 +262,9 @@ export function routeOptions(): { value: Route; label: string }[] {
 
 /**
  * The Route toggle's hint: what the chosen route plays. The Prelude's as it always was; an
- * Expedition's names every Movement it plays, "Movements I–III, to the Unweaver." (with two, as it
- * was: "Movement I, then Movement II (…), to …").
+ * Expedition's names every Movement it plays, "Movements I–III and the Finale, to the Silent
+ * Conductor." ("Movements I–III, to the Unweaver." with three; with two, as it was: "Movement I,
+ * then Movement II (…), to …").
  */
 export function routeHint(route: Route, movements = EXPEDITION_MOVEMENTS): string {
   if (route === 'prelude') return `Movement I alone, to ${encounterDef(movementDef(1).boss).name}.`;
@@ -243,7 +272,7 @@ export function routeHint(route: Route, movements = EXPEDITION_MOVEMENTS): strin
   const last = CONTENT.movements[n - 1]!;
   const boss = encounterDef(last.boss).name;
   if (n === 2) return `Movement I, then ${movementLabel(n)} (${last.name}), to ${boss}.`;
-  return `Movements I–${movementNumeral(n)}, to ${boss.replace(/^The /, 'the ')}.`;
+  return `${movementSpan(1, n)}, to ${routeBoss(n)}.`;
 }
 
 /** "The Prelude ends here…" (the abandon dialogs; `straight`: the pause menu's wording). */
@@ -282,7 +311,12 @@ export function outcomeSub(
   }
   if (run.outcome === 'defeat' && routeOf(run) === 'expedition') {
     const m = movementReached(run);
-    return `The party is lost in ${movementLabel(m)}, ${movementOrFirst(m).name.replace(/^The /, 'the ')}, but every note you wove is on record.`;
+    const def = movementOrFirst(m);
+    // A labelled Movement mid-sentence: "lost in the Finale, in the Celestial Crucible".
+    const where = def.label
+      ? `${inSentence(def.label)}, in ${movementPlace(m)}`
+      : `${movementLabel(m)}, ${inSentence(def.name)}`;
+    return `The party is lost in ${where}, but every note you wove is on record.`;
   }
   return null;
 }

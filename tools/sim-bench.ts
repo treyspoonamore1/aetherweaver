@@ -5,7 +5,8 @@
  */
 import { performance } from 'node:perf_hooks';
 import { makeBot } from '../src/bots';
-import { ARRIVAL3_KIT, kitConfig } from './kits';
+import { CHOIR, CONDUCTOR } from '../src/content/crucibleIds';
+import { ARRIVAL3_KIT, ARRIVAL4_KIT, kitConfig } from './kits';
 import { runScenario } from './runScenario';
 import {
   SCENARIO_CANTOR,
@@ -57,6 +58,52 @@ export const SCENARIO_UNWEAVER_PEAK: Scenario = {
   },
 };
 
+/** The Skilled bot on the Conductor, its boss set to `pct` of its life as it first stands. */
+function conductorDriver(seed: number, pct: number): Scenario['driver'] {
+  return () => {
+    const player = makeBot('skilled', seed);
+    let phased = false;
+    return (_tick, state) => {
+      const out = player.decide(state);
+      if (!phased && state.encounter.bossId !== null) {
+        out.push({ t: 'debug', op: { op: 'setBossHp', pct } });
+        phased = true;
+      }
+      return out;
+    };
+  };
+}
+
+/**
+ * The Silent Conductor's peak (docs/phase-5d.md, "Tools"; bench-only, not a golden): straight
+ * into phase 2 (the Mirror Choir), so its entry Raise brings the Tenor and the Soprano and the
+ * next a third voice, Cues come every 11 s, and Discord climbs from its floor of 70 to Fortissimo
+ * Silence's three raid pulses inside the 90 s: the choir, a Solo and Fortissimo at once.
+ */
+export const SCENARIO_CONDUCTOR_PEAK: Scenario = {
+  name: 'conductor-peak',
+  seed: 9494,
+  ticks: 60 * 90,
+  config: { encounter: CONDUCTOR, debug: true, ...kitConfig(ARRIVAL4_KIT) },
+  driver: conductorDriver(9494, 0.55),
+};
+
+/**
+ * The Grand Silence (docs/phase-5d.md; bench-only): straight into phase 3, so the choir shatters,
+ * the heroes are stilled, the program's Rest, Measure and Cadence run on their cycle with the
+ * notes counted each tick, then Reignite or the Coda and the last burn.
+ */
+export const SCENARIO_GRAND_SILENCE: Scenario = {
+  name: 'grand-silence',
+  seed: 9595,
+  ticks: 60 * 75,
+  config: { encounter: CONDUCTOR, debug: true, ...kitConfig(ARRIVAL4_KIT) },
+  driver: conductorDriver(9595, 0.26),
+};
+
+/** The mirror-choir's voices (the conductor-peak's check). */
+export const CHOIR_VOICES: ReadonlySet<string> = new Set(CHOIR);
+
 function bench(scenario: Scenario): void {
   // Warm up the JIT, then measure.
   runScenario({ ...scenario, ticks: Math.min(600, scenario.ticks) }, () => performance.now());
@@ -79,13 +126,16 @@ function bench(scenario: Scenario): void {
 
 if (process.argv[1]?.endsWith('sim-bench.ts')) {
   // The hound pack (docs/phase-5a.md): the Matriarch, Pack Call and a loose pack, Movement II's
-  // peak; the Unweaver's phase 3 with adds, Movement III's (docs/phase-5c.md).
+  // peak; the Unweaver's phase 3 with adds, Movement III's (docs/phase-5c.md); the Conductor's
+  // Mirror Choir with Fortissimo Silence, and its Grand Silence, the Finale's (docs/phase-5d.md).
   for (const scenario of [
     SCENARIO_CROWD,
     SCENARIO_FIRST_LIGHT,
     SCENARIO_CANTOR,
     SCENARIO_HOUND_PACK,
     SCENARIO_UNWEAVER_PEAK,
+    SCENARIO_CONDUCTOR_PEAK,
+    SCENARIO_GRAND_SILENCE,
   ])
     bench(scenario);
   if (check && over) process.exit(1);

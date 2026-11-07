@@ -31,14 +31,16 @@ import {
   perfectWindow,
   setOnCastComplete,
   setOnSever,
+  setOnTelegraphVerdict,
   startTelegraph,
 } from '../combat/telegraphs';
+import { setOnCrescendo } from './techniques';
 import type { Entity, EnemyTier, FieldZone, Foreseen, Telegraph } from '../state';
 import type { World } from '../world';
 import { newHealth } from '../world';
 import { enemyFx, hasAura } from '../combat/auras';
 import { approachVelocity, arrive } from './steering';
-import { bossScript } from './bossScripts';
+import { bossScript, encounterScript } from './bossScripts';
 import { severingHit } from './thread';
 import {
   enemyDamageMult,
@@ -190,6 +192,15 @@ function recountTethered(world: World, added?: Entity): void {
 export function ensureM3(world: World): NonNullable<World['internal']['m3']> {
   if (!world.internal.m3) world.internal.m3 = {};
   return world.internal.m3;
+}
+
+/**
+ * The Finale's script state (docs/phase-5d.md Q5), created on first use: only the Silent
+ * Conductor's script reaches it, so Movements I-III never have it.
+ */
+export function ensureM4(world: World): NonNullable<World['internal']['m4']> {
+  if (!world.internal.m4) world.internal.m4 = {};
+  return world.internal.m4;
 }
 
 /**
@@ -1529,7 +1540,28 @@ function volatileBurst(world: World, e: Entity): void {
   });
 }
 
+/**
+ * The Finale's two hooks (docs/phase-5d.md Q1, Q4), forwarded to the fight's boss script. Every
+ * legacy encounter's script (none, the Seamstress's, the Unweaver's) has neither, so each returns
+ * before it writes anything.
+ */
+function telegraphVerdict(world: World, t: Telegraph, failed: boolean): void {
+  const script = encounterScript(world);
+  if (!script?.telegraphVerdict) return;
+  const id = world.encounter.bossId;
+  const boss = id === null ? undefined : world.entities.get(id);
+  script.telegraphVerdict(world, boss?.enemy && isActive(boss) ? boss : null, t, failed);
+}
+
+function crescendoBegan(world: World): void {
+  const script = encounterScript(world);
+  if (!script?.crescendo) return;
+  script.crescendo(world);
+}
+
 setOnEnemyDeath(onDeath);
 setOnCastComplete(completeCast);
+setOnTelegraphVerdict(telegraphVerdict);
+setOnCrescendo(crescendoBegan);
 setStartPayloadMark(startPayloadMark);
 setOnSever(severOnHit);

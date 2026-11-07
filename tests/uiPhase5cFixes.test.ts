@@ -107,8 +107,12 @@ describe('Prep’s Route copy follows the run’s own length', () => {
   it('an Expedition names its own Movements; the Prelude names what an Expedition plays now', () => {
     expect(expeditionLength({ movements: 2 })).toBe(2);
     expect(expeditionLength({ movements: 3 })).toBe(3);
+    expect(expeditionLength({ movements: 4 })).toBe(4);
+    // The Prelude names the Expedition as it plays now: the Finale's route (docs/phase-5d.md).
     expect(expeditionLength({ movements: 1 })).toBe(EXPEDITION_MOVEMENTS);
     expect(expeditionLength({})).toBe(EXPEDITION_MOVEMENTS);
+    expect(EXPEDITION_MOVEMENTS).toBe(4);
+    expect(expeditionOnward(expeditionLength({}))).toBe('through Movements II–III and the Finale');
     // A two-Movement Expedition (saved before Phase 5c) reads as it did then.
     expect(expeditionOnward(expeditionLength({ movements: 2 }))).toBe('into Movement II');
     expect(routeHint('expedition', expeditionLength({ movements: 2 }))).toMatch(

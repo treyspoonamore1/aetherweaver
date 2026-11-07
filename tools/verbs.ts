@@ -9,10 +9,16 @@
  *   npx tsx tools/verbs.ts --movement 3 --seed-base 500003     # another seed set (a check)
  *   npx tsx tools/verbs.ts --party A --techniques swap --encounters maw_hollow --rules mawHold
  *   npx tsx tools/verbs.ts --party B --calling chronomancer --path 1 --rules mawHold,maw
+ *   npx tsx tools/verbs.ts --movement 4 --seeds 20                   # the Finale's rules
+ *   npx tsx tools/verbs.ts --movement 4 --party B --rules crescendoCancel,fortissimoGuard
  *
  * Each row is a rule left off: its win rate, mean length and downs a fight, against every rule
  * on (the first row); a rule worth keeping costs wins, time or downs when it is off. Fights play
- * on the Movement's kit (ARRIVAL3_KIT), at seed base + i × 7919, as the harness does.
+ * on the Movement's kit (ARRIVAL3_KIT; the Finale's ARRIVAL4_KIT), at seed base + i × 7919, as
+ * the harness does.
+ *
+ * The rule set follows `--movement` (docs/phase-5d.md, "Tuning order" 2): Movement III's
+ * `M3_RULES`, or from the Finale on its `FINALE_RULES`. `--rules` may name a rule of either.
  *
  * Some rules are met only off the default setup: `mawHold` needs a Bloodlusting Brann whom no
  * plain Reel takes out of an Inhale (Swap, the Chronomancer's Rewind). `--party` (A, B, C or 3
@@ -20,7 +26,14 @@
  * `swap,chorale`) and `--calling` (a Calling id, with `--path`'s option index at each tier, 0
  * by default) set the fights up for them. Without them the config has no such key, as before.
  */
-import { M3_RULES, SkilledBot, type M3Rule } from '../src/bots/skilled';
+import {
+  FINALE_RULES,
+  M3_RULES,
+  SkilledBot,
+  type FinaleRule,
+  type M3Rule,
+} from '../src/bots/skilled';
+import { FINALE_MOVEMENT } from '../src/content/crucibleIds';
 import { CONTENT, callingDef } from '../src/content';
 import { weaverShare } from '../src/meta/run';
 import { createSim, type SimConfig } from '../src/sim';
@@ -29,6 +42,17 @@ import { movementEncounters } from './harness-core';
 import { kitConfig, kitFor } from './kits';
 
 const MAX_TICKS = 9 * 60 * 60;
+
+/** A rule `SkilledOptions.skip` can turn off: Movement III's or the Finale's. */
+export type VerbRule = M3Rule | FinaleRule;
+
+/** The rules a Movement's ablation plays by default: the Finale's from it on, else Movement III's. */
+export function rulesFor(movement: number): readonly VerbRule[] {
+  return movement >= FINALE_MOVEMENT ? FINALE_RULES : M3_RULES;
+}
+
+/** Every rule `--rules` may name. */
+const ALL_RULES: readonly string[] = [...M3_RULES, ...FINALE_RULES];
 
 /** One fight's numbers. */
 export interface VerbFight {
@@ -100,7 +124,7 @@ export function callingArg(
 export function verbFight(
   encounter: string,
   seed: number,
-  skip: ReadonlySet<M3Rule>,
+  skip: ReadonlySet<VerbRule>,
   movement = 3,
   setup: VerbSetup = {},
 ): VerbFight {
@@ -136,9 +160,9 @@ function main(): void {
   const seeds = Number(get('seeds') ?? 20);
   const base = Number(get('seed-base') ?? 1000);
   const encounters = (get('encounters') ?? movementEncounters(movement).join(',')).split(',');
-  const rules = (get('rules')?.split(',') ?? [...M3_RULES]) as M3Rule[];
-  const unknown = rules.filter((r) => !(M3_RULES as readonly string[]).includes(r));
-  if (unknown.length > 0) throw new Error(`Unknown rule "${unknown}" (${M3_RULES})`);
+  const rules = (get('rules')?.split(',') ?? [...rulesFor(movement)]) as VerbRule[];
+  const unknown = rules.filter((r) => !ALL_RULES.includes(r));
+  if (unknown.length > 0) throw new Error(`Unknown rule "${unknown}" (${ALL_RULES})`);
   const party = partyArg(get('party'));
   const techniques = techniquesArg(get('techniques'));
   const calling = callingArg(get('calling'), get('path'));
@@ -162,7 +186,7 @@ function main(): void {
     `verb ablation · Movement ${movement} · ${kitFor(movement).name} · ${seeds} seeds · ${encounters.length} fights · ${rules.length} rules${setupLabel}`,
   );
   for (const encounter of encounters) {
-    const play = (skip: ReadonlySet<M3Rule>) =>
+    const play = (skip: ReadonlySet<VerbRule>) =>
       Array.from({ length: seeds }, (_, i) =>
         verbFight(encounter, base + i * 7919, skip, movement, setup),
       );

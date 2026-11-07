@@ -47,6 +47,9 @@ const OWN_GLYPH: Readonly<Record<string, IconName>> = {
   // Movement III's (docs/phase-5c.md): the Thread made whole, the Seamstress's needle.
   whole_cloth: 'thread',
   needle_sure: 'needle',
+  // The Finale's (docs/phase-5d.md; registered with FINALE): the song, and no voice stilled.
+  song_goes_on: 'chorale',
+  not_one_silent: 'mute',
 };
 
 /** A counting Deed's glyph: the stat's own, as the Result and Summary draw it. */

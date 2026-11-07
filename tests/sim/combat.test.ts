@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { CONTENT } from '../../src/content';
+import { CHOIR, CONDUCTOR, FINALE_MOVEMENT } from '../../src/content/crucibleIds';
 import { addShield, dealDamage } from '../../src/sim/combat/health';
 import { KNOWN_MOTIFS, NO_MODS, resolveMods } from '../../src/sim/mods';
 import { resolveConfig } from '../../src/sim/world';
@@ -335,7 +336,28 @@ describe('content coverage', () => {
     for (const enc of CONTENT.encounters)
       for (const w of enc.waves) for (const s of w.spawns) appearing.add(s.enemy);
     for (const a of CONTENT.attacks) if (a.summon) appearing.add(a.summon.enemy);
+    // The mirror-choir is Raised by the Conductor's script (pendingSpawns, docs/phase-5d.md).
+    for (const id of CHOIR) appearing.add(id);
     for (const e of CONTENT.enemies) expect(appearing, e.id).toContain(e.id);
+  });
+
+  it('counts every Finale attack: each is the Conductor’s or a voice’s (docs/phase-5d.md)', () => {
+    const finale = CONTENT.enemies.filter((e) => e.movement === FINALE_MOVEMENT);
+    expect(finale.map((e) => e.id).sort()).toEqual([...CHOIR, CONDUCTOR].sort());
+    const listed = new Set(finale.flatMap((e) => e.specials));
+    // 2 picker attacks, Cue, Raise, 3 Fortissimo pulses, the Grand Silence, its 4-attack
+    // program, and the 4 Solos.
+    expect(listed.size).toBe(16);
+    for (const id of listed)
+      expect(
+        CONTENT.attacks.some((a) => a.id === id),
+        id,
+      ).toBe(true);
+    // No Movement I-III enemy lists one, and no affix does.
+    for (const e of CONTENT.enemies.filter((x) => (x.movement ?? 1) < FINALE_MOVEMENT))
+      for (const id of e.specials) expect(listed.has(id), `${e.id}: ${id}`).toBe(false);
+    for (const f of CONTENT.affixes)
+      for (const id of f.specials ?? []) expect(listed.has(id), `${f.id}: ${id}`).toBe(false);
   });
 });
 

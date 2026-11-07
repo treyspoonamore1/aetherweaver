@@ -186,12 +186,54 @@ describe('Movement I is unchanged (docs/phase-5a.md)', () => {
       if (m.id === 'guard_strand') continue;
       expect('movement' in m.requires, `${m.id}.requires.movement`).toBe(false);
     }
-    const rift = new Set(['sacrificial_lamb', 'knotted_cord', 'stillwater_bell']);
-    for (const r of CONTENT.relics.filter((x) => !rift.has(x.id)))
-      expect('movement' in r, `${r.id}.movement`).toBe(false);
+    // The Rift's three, and the Finale's three (docs/phase-5d.md): the only gated relics.
+    const gated = new Map([
+      ['sacrificial_lamb', 3],
+      ['knotted_cord', 3],
+      ['stillwater_bell', 3],
+      ['tacet_mark', 4],
+      ['quick_rosin', 4],
+      ['first_score', 4],
+    ]);
+    for (const r of CONTENT.relics)
+      if (gated.has(r.id)) expect(r.movement, r.id).toBe(gated.get(r.id));
+      else expect('movement' in r, `${r.id}.movement`).toBe(false);
     for (const m of CONTENT.movements.slice(0, 2)) expect('label' in m, m.id).toBe(false);
     const early2 = new Set(CONTENT.encounters.filter((e) => early(e.movement)).map((e) => e.arena));
     for (const a of CONTENT.arenas.filter((x) => early2.has(x.id)))
       expect(a.biome, a.id).not.toBe('abyssal_rift');
+  });
+
+  it('Movements I-III content gains no Finale key (docs/phase-5d.md)', () => {
+    const early = (m: number | undefined) => (m ?? 1) <= 3;
+    const enemies = CONTENT.enemies.filter((e) => early(e.movement));
+    expect(enemies.length).toBeGreaterThan(0);
+    for (const e of enemies) expect(e.material, e.id).not.toBe('glass');
+    // Every attack an earlier enemy or any affix can cast: no Discord, no Crescendo answer.
+    const specials = new Set([
+      ...enemies.flatMap((e) => e.specials),
+      ...CONTENT.affixes.flatMap((f) => f.specials ?? []),
+    ]);
+    for (const p of CONTENT.attacks.flatMap((a) => [a.status, a.zone?.status]))
+      if (p?.burst) specials.add(p.burst.attack);
+    for (const a of CONTENT.attacks.filter((x) => specials.has(x.id))) {
+      for (const k of ['discord', 'discordQuorum']) expect(k in a, `${a.id}.${k}`).toBe(false);
+      expect(a.answers, a.id).not.toContain('crescendo');
+      expect(a.markStatus, a.id).not.toBe('stilled');
+      expect(a.status?.id, a.id).not.toBe('stilled');
+      // Only the Final Cadence is lethal from full; nothing earlier passes 100%.
+      expect(a.pctMaxHp ?? 0, a.id).toBeLessThanOrEqual(1);
+    }
+    for (const e of CONTENT.encounters.filter((x) => early(x.movement)))
+      expect(CONTENT.arenas.find((a) => a.id === e.arena)!.biome, e.id).not.toBe(
+        'celestial_crucible',
+      );
+    // The three field Movements: no road, no finale flag, no label; still exactly three, and
+    // the Finale (registered by W3) after them.
+    const field = CONTENT.movements.slice(0, 3);
+    expect(CONTENT.movements).toHaveLength(4);
+    expect(CONTENT.movements.slice(3).map((m) => 'finale' in m)).toEqual([true]);
+    for (const m of field)
+      for (const k of ['road', 'finale', 'label']) expect(k in m, `${m.id}.${k}`).toBe(false);
   });
 });

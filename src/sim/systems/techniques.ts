@@ -859,6 +859,8 @@ export function cue(world: World, slot: PartySlot): void {
   if (!isActive(hero) || !hero.hero) return reject(world, 'cue', 'target');
   // A possessed hero (docs/phase-5c.md) can't take a Cue.
   if (hasStatus(hero, 'possessed')) return reject(world, 'cue', 'target');
+  // Nor a hero the Grand Silence stilled (the Finale, docs/phase-5d.md Q3).
+  if (hasStatus(hero, 'stilled')) return reject(world, 'cue', 'target');
   const h = hero.hero;
   if (h.soloActive > 0 || h.solo < 100) return reject(world, 'cue', 'not-ready');
   // Silent Cues (Dissonance) raises it.
@@ -924,7 +926,19 @@ export function crescendo(world: World): void {
     calling: ((vow || stasis) && calling?.crescendoName) || def.name,
     duration: w.crescendo,
   });
+  // The Finale (docs/phase-5d.md Q4): the fight's script hears it now, its flags set, so a
+  // Stasis (which stops the boss systems) still cancels Fortissimo Silence. A no-op elsewhere.
+  if (onCrescendo) onCrescendo(world);
   setTimeScale(world, 0.5, 12, 'crescendo');
+}
+
+/**
+ * Installed by the enemy system (docs/phase-5d.md Q4), a setter so techniques.ts imports no boss
+ * script: every Crescendo, once, forwarded to the fight's boss script (returns at once without).
+ */
+let onCrescendo: ((world: World) => void) | null = null;
+export function setOnCrescendo(fn: (world: World) => void): void {
+  onCrescendo = fn;
 }
 
 /**

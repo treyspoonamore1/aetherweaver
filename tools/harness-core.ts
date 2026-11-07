@@ -21,11 +21,23 @@ import {
   fightMovement,
   isWeaverVia,
   type EntityId,
+  type NoteSource,
   type Sim,
   type SimConfig,
   type SimEvent,
 } from '../src/sim';
 import type { RunBond } from '../src/meta/bonds';
+import {
+  ALTO,
+  BASS,
+  CONDUCTOR,
+  DISCORD_MAX,
+  FINALE_MOVEMENT,
+  FORTISSIMO,
+  SOLOS,
+  SOPRANO,
+  TENOR,
+} from '../src/content/crucibleIds';
 import { noVariants, type Techniques } from '../src/meta/variants';
 
 export interface EncounterRun {
@@ -76,9 +88,9 @@ export interface EncounterRun {
 }
 
 /** What made a Grand Silence note (the sim's `NoteSource`). */
-type NoteFrom = 'perfect' | 'clutch' | 'reel' | 'rewind';
+type NoteFrom = NoteSource;
 /** The mirror-choir's voices, by enemy def id (crucibleIds.ts). */
-type Voice = 'mirror_alto' | 'mirror_bass' | 'mirror_tenor' | 'mirror_soprano';
+type Voice = typeof ALTO | typeof BASS | typeof TENOR | typeof SOPRANO;
 
 /**
  * How the Finale's verbs went in the Conductor's fight (docs/phase-5d.md, "Harness"). W5 tallies
@@ -133,6 +145,371 @@ export const VERB_TALLY4_KEYS: readonly (keyof FinaleTally)[] = [
   'timeToReignite',
   'damageWhileStilled',
 ];
+
+/** Every voice of the mirror-choir, in the order a tally lists them. */
+const VOICES: readonly Voice[] = [ALTO, BASS, TENOR, SOPRANO];
+/** The Solos, and the voice that sings each. */
+const SOLO_VOICE: ReadonlyMap<string, Voice> = new Map(
+  VOICES.map((v) => [SOLOS[v]!, v] as [string, Voice]),
+);
+/** Fortissimo Silence's three pulses. */
+const PULSES: readonly string[] = FORTISSIMO;
+/** A Fortissimo Silence is judged on the downs from its first pulse to this long after its last. */
+export const FORTISSIMO_DOWNS_WITHIN = 4;
+
+/**
+ * How a Solo was met (`FinaleTally.cuesAnswered`'s keys), in the order they are judged: cut off
+ * (by an interrupt, the soloist's death, the Grand Silence shattering the choir, or a cancel such
+ * as a Paradox Rewind's), or landed and not failed, by the best answer any victim gave it.
+ */
+export const SOLO_ANSWERS = [
+  'interrupted',
+  'killed',
+  'shattered',
+  'cancelled',
+  'perfect',
+  'chimed',
+  'dodged',
+  'ward',
+  'clear',
+  'other',
+] as const;
+export type SoloAnswer = (typeof SOLO_ANSWERS)[number];
+
+/** One Solo as the tally judged it (`FinaleWatch.solos`, the Decree gate's per-voice read). */
+export interface SoloVerdict {
+  voice: Voice;
+  /** When it began (sim time), and how it was met; `failed` when it fed (or would feed) Discord. */
+  at: number;
+  answer: SoloAnswer | 'failed';
+}
+
+/** A Solo still winding up: its voice, attack, and when it began. */
+interface OpenSolo {
+  owner: EntityId;
+  voice: Voice;
+  attack: string;
+  at: number;
+}
+
+/**
+ * Tallies the Finale's verbs (`FinaleTally`) from the Conductor's fight, tick by tick, off its
+ * events and public state (`field.finale`); `FinaleWatch.of` is null outside a Finale fight, so no
+ * Movement I-III `EncounterRun` gains the key. It only reads.
+ *
+ * - **Discord fed**: every `discordRose`, by the attack it named: a Solo's, or the boss's own.
+ * - **Fortissimo Silence**: each first pulse begun is a cast. A Crescendo's cancel is counted by
+ *   the Weaver's Calling ('none' without one). One played out (its third pulse landed) is judged
+ *   on the downs from its first pulse to `FORTISSIMO_DOWNS_WITHIN` s after its last: survived
+ *   with none. A cancel by a phase shift (it is cast again) or the boss's fall isn't judged;
+ *   one the fight ended inside is judged on the downs it had (`result`).
+ * - **Cues**: each `enemyCued`. A Cue whose Solo never began (its state went first) failed; one
+ *   still waiting as the fight ended failed on a loss, and isn't judged on a win.
+ * - **Solos**: each begun, by voice, and how each was met (`SOLO_ANSWERS`). A Solo failed when a
+ *   `discordRose` named it. One cut off by an interrupt is 'shattered' only on the tick the
+ *   Conductor entered phase 3 (the choir shatters); any other interrupt, a hero's stun (an
+ *   interrupt by nobody) included, is 'interrupted'. One still winding up as the fight ended (the
+ *   end cancels every telegraph) failed on a loss, and is left unjudged on a win (the Decree
+ *   gate judges it on the fight). The sim's verdict feeds Discord only below 100, so a Solo landing on
+ *   a full meter is judged from its damage instead: failed when at least its quorum of victims
+ *   lost life with nothing absorbed (close to the verdict; a Bear, save or Oathkeeper isn't seen).
+ * - **The Grand Silence**: its seconds, its notes by source, how it ended (Reignite or the Coda),
+ *   the heroes Reignite stood up, the time to Reignite, and the life stilled heroes lost.
+ */
+export class FinaleWatch {
+  private readonly discordFed = { boss: 0, solo: 0 };
+  private fortissimoCast = 0;
+  private readonly cancelled: Record<string, number> = {};
+  private survived = 0;
+  private fortissimoDowns = 0;
+  private cues = 0;
+  private cuesFailed = 0;
+  private cuesInterrupted = 0;
+  private readonly cuesAnswered = Object.fromEntries(SOLO_ANSWERS.map((a) => [a, 0])) as Record<
+    SoloAnswer,
+    number
+  >;
+  private readonly solosBegun = Object.fromEntries(VOICES.map((v) => [v, 0])) as Record<
+    Voice,
+    number
+  >;
+  private silenceTime = 0;
+  private readonly notes: Record<NoteFrom, number> = { perfect: 0, clutch: 0, reel: 0, rewind: 0 };
+  private reignited = false;
+  private silenceBroken = false;
+  private revived = 0;
+  private timeToReignite: number | null = null;
+  private damageWhileStilled = 0;
+  /** Every Solo judged, in order (the Decree gate reads it). */
+  readonly solos: SoloVerdict[] = [];
+  /** Each Fortissimo Silence judged: 'cancelled' by a Crescendo, or played out (with its downs). */
+  readonly fortissimos: { at: number; cancelled: boolean; downs: number }[] = [];
+
+  /** Attack id of every telegraph seen begin. */
+  private readonly attackOf = new Map<number, string>();
+  private readonly open = new Map<number, OpenSolo>();
+  /** The Cue waiting on its Solo: its soloist. */
+  private cue: EntityId | null = null;
+  /** The Fortissimo Silence playing: when it began, when its last pulse landed, its downs. */
+  private fortissimo: { at: number; last: number | null; downs: number } | null = null;
+  private silenceSince: number | null = null;
+  /** Discord as the last tick ended (undefined without the meter). */
+  private lastDiscord: number | undefined;
+  /** Heroes stilled as the last tick ended. */
+  private stilled = new Set<EntityId>();
+  private lastTime: number;
+  private readonly calling: string;
+
+  private constructor(sim: Sim) {
+    this.lastTime = sim.state.time;
+    this.calling = sim.config.calling?.id ?? 'none';
+  }
+
+  /** A tally for the Finale's fight; null for any other. */
+  static of(sim: Sim): FinaleWatch | null {
+    return fightMovement(sim.state) >= FINALE_MOVEMENT ? new FinaleWatch(sim) : null;
+  }
+
+  tick(sim: Sim, events: readonly SimEvent[]): void {
+    const state = sim.state;
+    const now = state.time;
+    const party = state.party;
+    // This tick's resolutions, Discord feeds, interrupts and kills, and life lost, by telegraph.
+    const resolved = new Map<number, { target: EntityId | null; outcome: string }[]>();
+    const rose = new Set<number>();
+    const interrupted = new Map<EntityId, EntityId | null>();
+    const killed = new Map<EntityId, EntityId | null>();
+    const bled = new Map<number, Set<EntityId>>();
+    /** The choir shattered this tick (the Conductor entered phase 3); the fight's end, if it ended. */
+    let shattered = false;
+    let ended: 'victory' | 'defeat' | null = null;
+    for (const e of events) {
+      switch (e.type) {
+        case 'telegraphStarted': {
+          const attack = state.telegraphs.find((t) => t.id === e.telegraph)?.attackId;
+          if (attack === undefined) break;
+          this.attackOf.set(e.telegraph, attack);
+          const voice = SOLO_VOICE.get(attack);
+          if (voice !== undefined) {
+            this.solosBegun[voice]++;
+            this.open.set(e.telegraph, { owner: e.owner, voice, attack, at: now });
+            if (this.cue === e.owner) this.cue = null;
+          }
+          if (attack === PULSES[0]) {
+            this.fortissimoCast++;
+            this.fortissimo = { at: now, last: null, downs: 0 };
+          }
+          break;
+        }
+        case 'telegraphResolved': {
+          const list = resolved.get(e.telegraph) ?? [];
+          list.push({ target: e.target, outcome: e.outcome });
+          resolved.set(e.telegraph, list);
+          if (
+            this.fortissimo &&
+            e.outcome !== 'cancelled' &&
+            this.attackOf.get(e.telegraph) === PULSES[2]
+          )
+            this.fortissimo.last = now;
+          break;
+        }
+        case 'discordRose': {
+          rose.add(e.telegraph);
+          const solo = SOLO_VOICE.has(this.attackOf.get(e.telegraph) ?? '');
+          this.discordFed[solo ? 'solo' : 'boss'] += e.amount;
+          break;
+        }
+        case 'fortissimoCancelled':
+          if (e.by === 'crescendo') {
+            this.cancelled[this.calling] = (this.cancelled[this.calling] ?? 0) + 1;
+            if (this.fortissimo) {
+              this.fortissimoDowns += this.fortissimo.downs;
+              this.fortissimos.push({
+                at: this.fortissimo.at,
+                cancelled: true,
+                downs: this.fortissimo.downs,
+              });
+            } else this.fortissimos.push({ at: now, cancelled: true, downs: 0 });
+          }
+          // A shift's cancel is cast again; the boss's fall ends it: neither is judged.
+          this.fortissimo = null;
+          break;
+        case 'enemyCued':
+          this.cues++;
+          this.cue = e.soloist;
+          break;
+        case 'castInterrupted':
+          interrupted.set(e.enemy, e.by);
+          break;
+        case 'enemyKilled':
+          killed.set(e.enemy, e.killer);
+          break;
+        case 'damageTaken':
+          if (e.telegraph !== null && e.amount > 0 && e.absorbed <= 0) {
+            const set = bled.get(e.telegraph) ?? new Set<EntityId>();
+            set.add(e.target);
+            bled.set(e.telegraph, set);
+          }
+          if (
+            party.includes(e.target) &&
+            (this.stilled.has(e.target) || isStilled(state, e.target))
+          )
+            this.damageWhileStilled += e.amount;
+          break;
+        case 'allyDowned':
+          if (this.fortissimo) this.fortissimo.downs++;
+          break;
+        case 'phaseChanged':
+          if (e.phase === 3 && state.entities.get(e.boss)?.enemy?.defId === CONDUCTOR)
+            shattered = true;
+          break;
+        case 'encounterEnded':
+          ended = e.outcome;
+          break;
+        case 'silenceBegan':
+          this.silenceSince = now;
+          break;
+        case 'silenceNote':
+          this.notes[e.source]++;
+          break;
+        case 'reignited':
+          this.reignited = true;
+          this.revived += e.revived.length;
+          if (this.silenceSince !== null) this.timeToReignite = now - this.silenceSince;
+          this.silenceSince = null;
+          break;
+        case 'silenceBroken':
+          this.silenceBroken = true;
+          this.silenceSince = null;
+          break;
+        default:
+          break;
+      }
+    }
+    // Solos whose telegraphs are gone: judge each.
+    for (const [id, solo] of this.open) {
+      if (state.telegraphs.some((t) => t.id === id)) continue;
+      this.open.delete(id);
+      this.judge(id, solo, resolved.get(id) ?? [], rose.has(id), interrupted, killed, bled, {
+        shattered,
+        ended,
+      });
+    }
+    // A Cue whose state went before its Solo began: it failed (the fight's end clears the
+    // state too: a loss fails it, a win doesn't).
+    if (this.cue !== null && state.field.finale?.cue?.soloist !== this.cue) {
+      if (ended !== 'victory') this.cuesFailed++;
+      this.cue = null;
+    }
+    // A Fortissimo Silence played out: judged once its window closes.
+    const f = this.fortissimo;
+    if (f && f.last !== null && now >= f.last + FORTISSIMO_DOWNS_WITHIN - 1e-9)
+      this.closeFortissimo();
+    this.lastDiscord = state.field.finale?.discord?.value;
+    const stilled = new Set<EntityId>();
+    for (const id of party) if (isStilled(state, id)) stilled.add(id);
+    this.stilled = stilled;
+    const dt = now - this.lastTime;
+    this.lastTime = now;
+    if (dt > 0 && state.field.finale?.silence) this.silenceTime += dt;
+  }
+
+  private closeFortissimo(): void {
+    const f = this.fortissimo!;
+    this.fortissimoDowns += f.downs;
+    if (f.downs === 0) this.survived++;
+    this.fortissimos.push({ at: f.at, cancelled: false, downs: f.downs });
+    this.fortissimo = null;
+  }
+
+  private judge(
+    id: number,
+    solo: OpenSolo,
+    outcomes: readonly { target: EntityId | null; outcome: string }[],
+    fed: boolean,
+    interrupted: ReadonlyMap<EntityId, EntityId | null>,
+    killed: ReadonlyMap<EntityId, EntityId | null>,
+    bled: ReadonlyMap<number, ReadonlySet<EntityId>>,
+    tick: { shattered: boolean; ended: 'victory' | 'defeat' | null },
+  ): void {
+    let answer: SoloAnswer | 'failed';
+    const landed = outcomes.some((o) => o.outcome !== 'cancelled' || o.target !== null);
+    if (!landed) {
+      // Cut off before it landed: by an interrupt (the choir's shattering when the Conductor
+      // entered phase 3 this tick; a hero's otherwise, a stun's by nobody included), the
+      // soloist's death, the fight's end (failed on a loss; left open on a win, for the Decree
+      // gate to judge on the fight), or a cancel (a Paradox Rewind's).
+      if (interrupted.has(solo.owner))
+        answer =
+          interrupted.get(solo.owner) === null && tick.shattered ? 'shattered' : 'interrupted';
+      else if (killed.has(solo.owner)) answer = 'killed';
+      else if (tick.ended === 'victory') return;
+      else if (tick.ended === 'defeat') answer = 'failed';
+      else answer = 'cancelled';
+    } else if (fed || this.failedUnfed(solo.attack, bled.get(id))) answer = 'failed';
+    else {
+      // Landed and not failed: the best answer a victim gave it (none caught: 'clear').
+      const hit = outcomes.filter((o) => o.target !== null).map((o) => o.outcome);
+      answer =
+        hit.length === 0
+          ? 'clear'
+          : hit.includes('perfect')
+            ? 'perfect'
+            : hit.includes('cancelled')
+              ? 'chimed'
+              : hit.includes('dodged')
+                ? 'dodged'
+                : hit.includes('warded') || hit.includes('absorbed')
+                  ? 'ward'
+                  : 'other';
+    }
+    if (answer === 'interrupted') this.cuesInterrupted++;
+    if (answer !== 'failed') this.cuesAnswered[answer]++;
+    this.solos.push({ voice: solo.voice, at: solo.at, answer });
+  }
+
+  /**
+   * A Solo that fed no Discord, judged from its damage when the meter couldn't take it (full, or
+   * gone): failed when at least its quorum of victims lost life with nothing absorbed.
+   */
+  private failedUnfed(attack: string, bled: ReadonlySet<EntityId> | undefined): boolean {
+    const open = this.lastDiscord !== undefined && this.lastDiscord < DISCORD_MAX - 1e-9;
+    if (open) return false;
+    return (bled?.size ?? 0) >= (ATTACK_BY_ID.get(attack)?.discordQuorum ?? 1);
+  }
+
+  result(): FinaleTally {
+    // A Fortissimo Silence still open as the fight ended: judged as it stands once its last
+    // pulse landed, or once a hero fell under it (a wipe before pulse 3, which no cancel can
+    // now answer); one cut short with no one down isn't judged.
+    const open = this.fortissimo;
+    if (open && (open.last !== null || open.downs > 0)) this.closeFortissimo();
+    return {
+      discordFed: { ...this.discordFed },
+      fortissimoCast: this.fortissimoCast,
+      cancelled: { ...this.cancelled },
+      survived: this.survived,
+      fortissimoDowns: this.fortissimoDowns,
+      cues: this.cues,
+      cuesFailed: this.cuesFailed,
+      cuesInterrupted: this.cuesInterrupted,
+      cuesAnswered: { ...this.cuesAnswered },
+      solosBegun: { ...this.solosBegun },
+      silenceTime: this.silenceTime,
+      notes: { ...this.notes },
+      reignited: this.reignited,
+      silenceBroken: this.silenceBroken,
+      revived: this.revived,
+      timeToReignite: this.timeToReignite,
+      damageWhileStilled: this.damageWhileStilled,
+    };
+  }
+}
+
+/** Is party hero `id` stilled now (the Grand Silence's freeze)? */
+function isStilled(state: Sim['state'], id: EntityId): boolean {
+  return state.entities.get(id)?.health?.statuses.some((s) => s.id === 'stilled') ?? false;
+}
 
 /** What cut the Thread (`threadSnapped.cause`), and a cut telegraph's verdict (`cutResolved`). */
 type CutCause = 'shears' | 'severing' | 'snip' | 'unpick';
@@ -425,7 +802,39 @@ export interface BrannTally {
   rallies: number;
 }
 
+/**
+ * The longest fight the harness plays (s). The Silent Conductor enrages at 420 s
+ * (docs/phase-5d.md), and an absent Weaver's fight ends by 450 s, so it ends inside it.
+ */
 const MAX_SECONDS = 9 * 60;
+
+const ROMAN = ['0', 'I', 'II', 'III', 'IV', 'V'];
+
+/**
+ * How a report names Movement `n`: its numeral ('III'), or its def's own label for one that has
+ * it (docs/phase-5d.md: 'The Finale'). `inSentence` lowercases a label's leading 'The'.
+ */
+export function movementName(n: number, inSentence = false): string {
+  const label = n >= 1 && n <= CONTENT.movements.length ? movementDef(n).label : undefined;
+  if (label === undefined) return ROMAN[n] ?? String(n);
+  return inSentence ? label.replace(/^The /, 'the ') : label;
+}
+
+/**
+ * The Finale's three seed sets (docs/phase-5d.md, "Bands"): a set's cells play `cells` + i × 7919,
+ * its whole runs `runs` + i × 104729. A band is 'Met' only on all three.
+ */
+export const FINALE_SEED_SETS: readonly { readonly cells: number; readonly runs: number }[] = [
+  { cells: 1000, runs: 2000 },
+  { cells: 500003, runs: 900007 },
+  { cells: 777001, runs: 333003 },
+];
+
+/** What passed on every set (each set's list, in its order): the first set's, kept in order. */
+export function onEverySet<T>(sets: readonly (readonly T[])[]): T[] {
+  if (sets.length === 0) return [];
+  return sets[0]!.filter((x) => sets.every((s) => s.includes(x)));
+}
 
 /**
  * The fights a Movement's isolated cells play, read from content in its order: the opening, the
@@ -694,6 +1103,7 @@ export function playEncounter(
   const verbs = new VerbTally();
   const brann = BrannWatch.of(sim);
   const m3 = VerbTally3.of(sim);
+  const finale = FinaleWatch.of(sim);
   for (let t = 0; t < maxTicks; t++) {
     sim.step(player.decide(sim.state));
     const events = sim.drainEvents();
@@ -704,6 +1114,7 @@ export function playEncounter(
     verbs.tick(sim, events);
     brann?.tick(sim, events);
     m3?.tick(sim, events);
+    finale?.tick(sim, events);
     watch?.(sim, events);
     const s = sim.state.encounter.status;
     if (s === 'victory' || s === 'defeat') break;
@@ -748,6 +1159,7 @@ export function playEncounter(
     timeInSanctuary: verbs.timeInSanctuary,
     ...(brann ? { brann: brann.result(sim) } : {}),
     ...(m3 ? { m3: m3.result() } : {}),
+    ...(finale ? { finale: finale.result() } : {}),
   };
 }
 
@@ -829,7 +1241,8 @@ export function withParty(run: RunState, party: readonly string[]): RunState {
 
 /**
  * The most phases a run may take; a run that needs more is stuck, and `playRun` throws. A
- * 2-Movement Expedition takes at most about 64, a 3-Movement one about 95 (docs/phase-5c.md;
+ * 2-Movement Expedition takes at most about 64, a 3-Movement one about 95 (docs/phase-5c.md),
+ * and the Finale route, on its shorter road, at most 79 (docs/phase-5d.md: 200 Skilled seeds;
  * tests/harnessTools.test.ts asserts the measured maximum stays well inside it).
  */
 export const MAX_PHASES = 240;
@@ -965,7 +1378,8 @@ export function playRun(
     /**
      * The route (docs/phase-5a.md): 1, the Prelude (the default, so every calibrated report
      * keeps its baseline); 2, an Expedition through the Crimson Legion; 3, on through the
-     * Abyssal Rift to the Unweaver (docs/phase-5c.md).
+     * Abyssal Rift to the Unweaver (docs/phase-5c.md); 4, the Finale route: Movements I-III on
+     * their shorter road, the Unweaver an interlude, then the Silent Conductor (docs/phase-5d.md).
      */
     movements?: number;
     /**

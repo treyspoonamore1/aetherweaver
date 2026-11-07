@@ -621,6 +621,10 @@ export interface SimInternal {
     seen?: { perfects: number; clutch: number; saves: number; rewound: number; markers: number };
     /** A Fortissimo Silence cut off by phase 2's shift, to be cast again after it. */
     queued?: true;
+    /** Phase 2's entry Raise is still to land: it brings the Tenor and the Soprano. */
+    choirRaise?: true;
+    /** Sim time a Rewind can make a note again (Q8: at most one per 18 s). */
+    nextRewindNoteAt?: number;
   };
   /** Guard Strand (docs/phase-5c.md): sim time it can turn a bolt or a cut aside again. */
   guardStrandAt?: number;

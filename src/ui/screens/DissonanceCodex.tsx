@@ -52,7 +52,7 @@ export function DissonanceCodexPage({
           <h2 className="flex items-center gap-2 font-display text-2xl font-bold text-gold-200">
             <Icon name={DISCORD_LOOK.icon} size={26} /> Dissonance
           </h2>
-          <Chip icon="lock">A win at Rank {rules.openRank}</Chip>
+          <Chip icon="lock">A Finale clear at Rank {rules.openRank}</Chip>
         </div>
         <p className="mt-3 max-w-3xl text-sm leading-relaxed text-text">{unlock?.text}</p>
         <p className="mt-3 flex items-start gap-1.5 text-sm text-muted">
@@ -92,8 +92,8 @@ export function DissonanceCodexPage({
             choice, and embarking keeps it for the whole run: changing it later is for the next.
           </p>
           <p className="mt-2 text-sm leading-relaxed text-text">
-            <b>Opening.</b> Your first win at Weaver Rank {rules.openRank} or above opens it, with a
-            card at the run’s Summary. Settings → Skip the unlocks opens it too.
+            <b>Opening.</b> Your first Finale clear at Weaver Rank {rules.openRank} or above opens
+            it, with a card at the run’s Summary. Settings → Skip the unlocks opens it too.
           </p>
           <p className="mt-2 text-sm leading-relaxed text-text">
             <b>Relics remember.</b> A relic enshrined from a run keeps that run’s points as its{' '}

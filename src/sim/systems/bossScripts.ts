@@ -2,10 +2,12 @@
  * The boss-script registry (docs/phase-5c.md, Q14): scripts for **new** bosses only, keyed by
  * enemy def id. Every call site consults it after the legacy `c.defId ===` branches and every
  * `m2` read, so the Bellwarden, the Cantor, the Matriarch and Vharun never reach it: the lookup
- * misses for their ids. Movement III's bosses register here (W3); the Finale's will too.
+ * misses for their ids. Movement III's bosses register here (docs/phase-5c.md), and so does the
+ * Finale's Silent Conductor (docs/phase-5d.md), whose script alone uses the two Finale hooks.
  */
 import type { Entity, Telegraph } from '../state';
 import type { World } from '../world';
+import { conductorScript } from './conductorBoss';
 import { seamstressScript, unweaverScript } from './unstitchedBosses';
 
 /** A scheduled scripted attack, for Foresight (`Foreseen`, with `special: -1`). */
@@ -59,10 +61,14 @@ export interface BossScript {
   crescendo?(world: World): void;
 }
 
-/** The registry: Movement III's Seamstress and Unweaver (unstitchedBosses.ts); the Finale's next. */
+/**
+ * The registry: Movement III's Seamstress and Unweaver (unstitchedBosses.ts), and the Finale's
+ * Silent Conductor (conductorBoss.ts).
+ */
 export const BOSS_SCRIPTS: Readonly<Record<string, BossScript>> = {
   the_seamstress: seamstressScript(),
   the_unweaver: unweaverScript(),
+  the_silent_conductor: conductorScript(),
 };
 
 /** A boss's script by its enemy def id (undefined for every legacy boss). */

@@ -1,6 +1,6 @@
 /**
  * Phase 4d: Dissonance in runs, the profile and the Reliquary (docs/phase-4d.md). Points and
- * rewards; opening at the first win at its Rank; Prep follows the profile's choice and embark
+ * rewards; opening at the first Finale clear at its Rank (docs/phase-5d.md); Prep follows the profile's choice and embark
  * freezes it; bests per Calling; Unforgiving and Discordant Pact; a relic's depth and its band;
  * old saves.
  */
@@ -50,12 +50,15 @@ const skipUnlocks = (on: boolean) =>
 const run = () => useRun.getState().run!;
 const profile = () => useProfile.getState().profile;
 
-/** Ends the run in place, its boss won with this grade (or lost). */
-function endRun(won: boolean, grade = 'B'): void {
+/** The Finale's boss (docs/phase-5d.md): beating it is what opens Dissonance. */
+const CONDUCTOR = CONTENT.movements.at(-1)!.boss;
+
+/** Ends the run in place, its boss (the Finale's by default) won with this grade (or lost). */
+function endRun(won: boolean, grade = 'B', boss = CONDUCTOR): void {
   const r = run();
   const fights = [
     { kind: 'skirmish', outcome: 'victory', grade: 'B' },
-    { kind: 'boss', outcome: won ? 'victory' : 'defeat', grade },
+    { encounterId: boss, kind: 'boss', outcome: won ? 'victory' : 'defeat', grade },
   ] as EncounterResult[];
   useRun.setState({
     run: { ...r, phase: 'result', pending: null, outcome: won ? null : 'defeat', results: fights },
@@ -164,7 +167,7 @@ describe('points and rewards', () => {
 });
 
 describe('opening, the choice and the records', () => {
-  it('the first win at its Rank opens it; a win below, or a loss, doesn’t', () => {
+  it('the first Finale clear at its Rank opens it; one below, a loss or a Prelude win doesn’t', () => {
     useProfile.getState().award(RANK_XP[RULES.openRank - 2]!);
     useRun.getState().newRun(31);
     useRun.getState().embark();
@@ -174,6 +177,12 @@ describe('opening, the choice and the records', () => {
     useRun.getState().newRun(32);
     useRun.getState().embark();
     endRun(false);
+    expect(useProfile.getState().dissonanceOpen()).toBe(false);
+    // A Prelude won at its Rank no longer opens it (docs/phase-5d.md, question 3).
+    useRun.getState().newRun(38);
+    useRun.getState().embark();
+    endRun(true, 'B', 'hollow_cantor');
+    expect(run().dissonanceEnd).toEqual({ opened: false, best: false });
     expect(useProfile.getState().dissonanceOpen()).toBe(false);
     useRun.getState().newRun(33);
     useRun.getState().embark();
@@ -227,17 +236,22 @@ describe('opening, the choice and the records', () => {
 });
 
 describe('a run replaced before its Summary', () => {
-  /** The boss beaten, the run at its Result: then a new run before its Summary. */
+  /** The Finale's boss beaten, the run at its Result: then a new run before its Summary. */
   const beatBossThenLeave = (seed: number) => {
     const r = run();
-    const boss = { kind: 'boss', outcome: 'victory', grade: 'B' } as EncounterResult;
+    const boss = {
+      encounterId: CONDUCTOR,
+      kind: 'boss',
+      outcome: 'victory',
+      grade: 'B',
+    } as EncounterResult;
     useRun.setState({
       run: { ...r, phase: 'result', pending: null, lastResult: boss, results: [boss] },
     });
     useRun.getState().newRun(seed);
   };
 
-  it('a win still opens Dissonance at its Rank, and records its best', () => {
+  it('a Finale clear still opens Dissonance at its Rank, and records its best', () => {
     useProfile.getState().award(RANK_XP[RULES.openRank - 1]!);
     useRun.getState().newRun(50);
     useRun.getState().embark();

@@ -234,8 +234,8 @@ export function darkLine(
     case 'dissonance':
       return `Optional difficulty, for the endgame. ${
         opensAt(rank)
-          ? 'Opens with your next win.'
-          : `Opens with a win at Weaver Rank ${CONTENT.dissonanceRules.openRank} or above.`
+          ? 'Opens with your first Finale clear.'
+          : `Opens with your first Finale clear, at Weaver Rank ${CONTENT.dissonanceRules.openRank} or above.`
       }`;
     default:
       return '';

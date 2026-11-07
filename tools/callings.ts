@@ -13,11 +13,22 @@
  * Chronomancer is measured both ways. The band is the Skilled bot ≥ 75% at the Unweaver for each.
  *
  *   npx tsx tools/callings.ts --cells --movement 3 --encounters the_unweaver --seeds 50
+ *
+ * `--movement 4` (docs/phase-5d.md, "Bands: Callings at the Conductor") plays the Silent
+ * Conductor on ARRIVAL4_KIT: Skilled ≥ 75% each, and no longer than the no-Calling cell + 40 s
+ * (each row prints its length against it), so `bankCrescendo`'s cost shows per Calling.
+ *
+ *   npx tsx tools/callings.ts --cells --movement 4 --seeds 50
+ *   npx tsx tools/callings.ts --cells --movement 4 --party B --seeds 50
+ *
+ * `--party` (A, B, C or 3 hero ids, as the harness takes it) plays a roster party's cells.
  */
 import type { BotKind } from '../src/bots';
 import { CONTENT, callingDef } from '../src/content';
 import { CHORD_PRESETS } from '../src/meta/run';
 import type { SimConfig } from '../src/sim';
+import { FINALE_MOVEMENT } from '../src/content/crucibleIds';
+import { partyArg } from './harness';
 import { movementEncounters, playEncounter, playRun } from './harness-core';
 import { kitConfig, kitFor } from './kits';
 
@@ -60,6 +71,13 @@ export function callingSetups(): CallingSetup[] {
   return out;
 }
 
+/** The cells' band, by Movement: the Unweaver's (docs/phase-5c.md), the Conductor's (5d). */
+export function callingBand(movement: number): string {
+  return movement >= FINALE_MOVEMENT
+    ? 'Skilled ≥75% at the Silent Conductor, each, ≤ none + 40 s'
+    : 'Skilled ≥75% at the Unweaver, each';
+}
+
 function cells(): void {
   const movement = Number(get('movement') ?? 3);
   const kit = kitFor(movement);
@@ -67,11 +85,14 @@ function cells(): void {
   const seeds = Number(get('seeds') ?? 50);
   const base = Number(get('seed-base') ?? 1000);
   const bots = (get('bots') ?? 'skilled').split(',') as BotKind[];
+  const party = partyArg(get('party'));
   console.log(
-    `calling cells · Movement ${movement} · ${kit.name} · ${encounters.length} fights × ${seeds} seeds · band: Skilled ≥75% at the Unweaver, each`,
+    `calling cells · Movement ${movement} · ${kit.name} · ${encounters.length} fights × ${seeds} seeds${party ? ` · party ${party.join(',')}` : ''} · band: ${callingBand(movement)}`,
   );
   for (const encounter of encounters)
-    for (const bot of bots)
+    for (const bot of bots) {
+      /** The no-Calling cell's mean length, for the Finale's "≤ none + 40 s". */
+      let none: number | null = null;
       for (const setup of callingSetups()) {
         const runs = Array.from({ length: seeds }, (_, i) =>
           playEncounter(
@@ -80,15 +101,23 @@ function cells(): void {
               encounter,
               ...kitConfig(kit),
               ...(setup.calling ? { calling: setup.calling } : {}),
+              ...(party ? { party } : {}),
             },
             bot,
           ),
         );
         const won = runs.filter((r) => r.outcome === 'victory').length / runs.length;
+        const length = mean(runs.map((r) => r.duration));
+        if (setup.calling === null) none = length;
+        const longer =
+          movement >= FINALE_MOVEMENT && setup.calling !== null && none !== null
+            ? ` (${length - none >= 0 ? '+' : ''}${(length - none).toFixed(0)} s on none)`
+            : '';
         console.log(
-          `${encounter.padEnd(18)} ${bot.padEnd(8)} ${setup.label.padEnd(30)} win ${pct(won).padStart(4)} · share ${pct(mean(runs.map((r) => r.share)))} · ${mean(runs.map((r) => r.duration)).toFixed(0)} s · downs ${mean(runs.map((r) => r.downs)).toFixed(1)}`,
+          `${encounter.padEnd(18)} ${bot.padEnd(8)} ${setup.label.padEnd(30)} win ${pct(won).padStart(4)} · share ${pct(mean(runs.map((r) => r.share)))} · ${length.toFixed(0)} s${longer} · downs ${mean(runs.map((r) => r.downs)).toFixed(1)}`,
         );
       }
+    }
 }
 
 function runs(): void {

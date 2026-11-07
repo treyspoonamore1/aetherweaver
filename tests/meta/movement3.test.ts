@@ -46,8 +46,11 @@ function memoryStore(): KeyValueStore & { data: Map<string, string> } {
   };
 }
 
-/** An Expedition in Prep, as long as `movements` (every Movement in content by default). */
-function expedition(seed: number, movements = EXPEDITION_MOVEMENTS): RunState {
+/**
+ * An Expedition in Prep, as long as `movements`: I-III by default, the route this file is about
+ * (an in-flight I-III save keeps it; the Finale's route is tests/meta/finaleRoute.test.ts).
+ */
+function expedition(seed: number, movements = 3): RunState {
   return Run.newRun(seed, undefined, [], [], [], [], undefined, movements);
 }
 
@@ -109,12 +112,14 @@ function reachableIds(map: RunMap): Set<string> {
 describe('the Expedition is every Movement in content', () => {
   it('EXPEDITION_MOVEMENTS is the content’s length, and the unlock text follows it', () => {
     expect(EXPEDITION_MOVEMENTS).toBe(CONTENT.movements.length);
-    expect(EXPEDITION_MOVEMENTS).toBe(3);
-    expect(expeditionReach()).toBe('Movements II–III to the Unweaver');
+    // The Finale is the fourth (docs/phase-5d.md).
+    expect(EXPEDITION_MOVEMENTS).toBe(4);
+    expect(expeditionReach()).toBe('Movements II–III and the Finale, to the Silent Conductor');
+    expect(expeditionReach(3)).toBe('Movements II–III to the Unweaver');
     expect(expeditionReach(2)).toBe('Movement II to Vharun, the Crimson Warden');
     const unlock = UNLOCKS.find((u) => u.id === 'expedition')!;
     expect(unlock.text).toBe(
-      'Beyond the Hollow Cantor, the Crimson Spire: an Expedition climbs on through Movements II–III to the Unweaver. Choose the route in Prep; the Prelude stays open.',
+      'Beyond the Hollow Cantor, the Crimson Spire: an Expedition climbs on through Movements II–III and the Finale, to the Silent Conductor. Choose the route in Prep; the Prelude stays open.',
     );
   });
 });
@@ -428,7 +433,13 @@ describe('saves from shorter Expeditions', () => {
       expect(run.phase).toBe('prep');
       expect(run.movements).toBe(EXPEDITION_MOVEMENTS);
       expect(run.map).toStrictEqual(Run.generateMap(71, EXPEDITION_MOVEMENTS));
-      for (let r = 0; r < M1_ROWS; r++) expect(run.map.rows[r]).toStrictEqual(prep.map.rows[r]);
+      // The whole Expedition is the Finale's route: its shorter road redraws Movement I too
+      // (docs/phase-5d.md); nothing is lost, as the path is still empty. The I-III route keeps
+      // the 2-Movement map's Movement I.
+      expect(run.path).toEqual([]);
+      expect(run.map.rows.length).toBeLessThan(Run.generateMap(71, 3).rows.length);
+      for (let r = 0; r < M1_ROWS; r++)
+        expect(Run.generateMap(71, 3).rows[r]).toStrictEqual(prep.map.rows[r]);
     });
 
     it('a Prelude in Prep, and a 2-Movement run past Prep, are left as they were', () => {
@@ -457,7 +468,7 @@ describe('the Finale hook: generateMapFrom', () => {
     const m3 = CONTENT.movements[2]!;
     const finale: AnyMovementDef = { ...m3, id: 'synthetic_finale', name: 'A Synthetic Finale' };
     for (const seed of SEEDS.slice(0, 10)) {
-      const map = Run.generateMapFrom(seed, [...CONTENT.movements, finale]);
+      const map = Run.generateMapFrom(seed, [...CONTENT.movements.slice(0, 3), finale]);
       const three = Run.generateMap(seed, 3);
       expect(map.rows).toHaveLength(23 + m3.rows.length);
       expect(reachableIds(map).size).toBe(map.rows.flat().length);

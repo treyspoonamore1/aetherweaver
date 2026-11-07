@@ -142,10 +142,12 @@ describe('a sleeping Rift relic reads asleep on the relic bar', () => {
 
 describe('a MovementDef’s label names its Movement (the Finale hook)', () => {
   it('absent: Movement N; present: the label, wherever the route says it', () => {
-    expect(CONTENT.movements.every((m) => m.label === undefined)).toBe(true);
+    // Movements I-III have none; the Finale (docs/phase-5d.md) reads by its own.
+    expect(CONTENT.movements.slice(0, 3).every((m) => m.label === undefined)).toBe(true);
     expect(movementLabel(3)).toBe('Movement III');
-    expect(movementLabel(4)).toBe('Movement IV');
-    const defs = [...CONTENT.movements, { label: 'The Finale' }];
+    expect(movementLabel(4)).toBe('The Finale');
+    expect(movementLabel(5)).toBe('Movement V');
+    const defs = [...CONTENT.movements.slice(0, 3), { label: 'The Finale' }];
     expect(movementLabel(4, defs)).toBe('The Finale');
     expect(movementLabel(2, defs)).toBe('Movement II');
     expect(movementCard(3).title).toBe('Movement III · The Unstitched');

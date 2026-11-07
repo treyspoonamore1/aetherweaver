@@ -5,7 +5,7 @@
 import { encounterDef, enemyDef, type EncounterDef } from '../../content';
 import { len } from '../core/dmath';
 import { Rng, hashString } from '../core/rng';
-import { isActive, killEnemy, releaseHold } from '../combat/health';
+import { hasStatus, isActive, killEnemy, releaseHold, removeStatus } from '../combat/health';
 import { setTimeScale } from '../combat/feedback';
 import type { Entity } from '../state';
 import type { World } from '../world';
@@ -280,6 +280,14 @@ function endEncounter(world: World, outcome: 'victory' | 'defeat'): void {
   delete world.field.unravel;
   delete world.field.stolen;
   delete world.internal.m3;
+  // ...and the Finale's (docs/phase-5d.md Q5): its public state, its clocks and the Grand
+  // Silence's freeze (absent in Movements I-III: no-ops).
+  delete world.field.finale;
+  delete world.internal.m4;
+  for (const id of world.party) {
+    const e = world.entities.get(id);
+    if (e && hasStatus(e, 'stilled')) removeStatus(world, e, 'stilled', 'expired');
+  }
   encounterScript(world)?.cleanup?.(world);
   world.events.push({ type: 'encounterEnded', tick: world.tick, outcome });
   if (outcome === 'defeat') setTimeScale(world, 0.3, 90, 'defeat');

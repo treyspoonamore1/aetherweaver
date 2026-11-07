@@ -100,13 +100,17 @@ export function getStatus(e: Entity, id: StatusId): Status | undefined {
   return undefined;
 }
 
-/** Can't act: stunned, staggered or asleep; or (Movement III) possessed. */
+/**
+ * Can't act: stunned, staggered or asleep; or (Movement III) possessed; or (the Finale) stilled by
+ * the Grand Silence, which only the Silent Conductor applies.
+ */
 export function isDisabled(e: Entity): boolean {
   return (
     hasStatus(e, 'stun') ||
     hasStatus(e, 'stagger') ||
     hasStatus(e, 'sleep') ||
-    hasStatus(e, 'possessed')
+    hasStatus(e, 'possessed') ||
+    hasStatus(e, 'stilled')
   );
 }
 
@@ -1062,7 +1066,7 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
     else if (!restlessRise(world, target)) killEnemy(world, target, source ?? null);
   } else if (opts.kind !== 'tick' && source?.enemy && hasTalent(target, 'arcane_ward'))
     arcaneWard(world, target, source);
-  return {
+  const result: DamageResult = {
     dealt,
     absorbed,
     absorbedByWeaver,
@@ -1073,6 +1077,10 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
     martyred,
     saved,
   };
+  // The Finale (docs/phase-5d.md Q2): what the Martyr took off this hit, for the Discord verdict.
+  // Only while the Conductor's script state exists, so no other fight's result has the key.
+  if (world.internal.m4 && borne + vowExcess > 0) result.borne = borne + vowExcess;
+  return result;
 }
 
 /**

@@ -37,7 +37,7 @@ import {
   bestKey,
   dissonancePoints,
   fitLevels,
-  opensAt,
+  opensWith,
   type DissonanceChoice,
 } from '../meta/dissonance';
 import { canonicalParty, chordsToRemember } from '../meta/run';
@@ -134,11 +134,17 @@ export interface ProfileStore {
   setCarry(uids: readonly string[]): void;
   /** A run ended: what it pays the Reliquary. */
   payReliquary(materials: { shards: number; tears: number }): void;
-  /** Dissonance (docs/phase-4d.md) is open: won at its Rank or above, or Skip the unlocks. */
+  /**
+   * Dissonance (docs/phase-4d.md) is open: the first Finale clear at its Rank or above opened it
+   * (docs/phase-5d.md; earlier wins at that Rank opened it before), or Skip the unlocks.
+   */
   dissonanceOpen(): boolean;
   /** The levels the next runs play at (fitted to the content). */
   setDissonance(levels: readonly DissonanceChoice[]): void;
-  /** A run ended: a win opens Dissonance at its Rank, and may set a new best. */
+  /**
+   * A run ended: a Finale clear opens Dissonance at its Rank (docs/phase-5d.md), and any win may
+   * set a new best for its Calling.
+   */
   recordDissonance(run: RunState): { opened: boolean; best: boolean };
   /** Bonds (docs/phase-4e.md): every talent and Solo can be chosen (Skip the unlocks). */
   bondsAll(): boolean;
@@ -185,7 +191,7 @@ export interface ProfileStore {
   /**
    * How many Movements a new run plays: `mode` if asked for and open; else the last route, but
    * the first run, and every run before Expeditions open, is the Prelude (1). An Expedition is
-   * EXPEDITION_MOVEMENTS, every Movement in content (docs/phase-5c.md).
+   * EXPEDITION_MOVEMENTS, every Movement in content, the Finale last (docs/phase-5d.md).
    */
   routeMovements(mode?: RunMode): number;
   /** Prep's Route toggle: the route the next runs start from (kept while Expeditions are open). */
@@ -510,7 +516,8 @@ export const useProfile = create<ProfileStore>()((set, get) => {
       const profile = get().profile;
       if (run.outcome !== 'victory') return { opened: false, best: false };
       const d = profile.dissonance;
-      const opened = !d.open && opensAt(rankOf(profile.xp));
+      // The first Finale clear at Rank 15+ opens it (docs/phase-5d.md); open stays open.
+      const opened = !d.open && opensWith(run, rankOf(profile.xp));
       const points = dissonancePoints(run.dissonance);
       const key = bestKey(run);
       const best = points > 0 && points > (d.best[key] ?? 0);

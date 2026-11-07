@@ -1,6 +1,10 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { CONTENT } from '../src/content';
+import { CONTENT, deedText } from '../src/content';
+import { CONDUCTOR_DECREES, soloDecree } from '../src/content/crucible';
+import * as ids from '../src/content/crucibleIds';
+import { FINALE } from '../src/content/crucibleRun';
+import { FINALE_DEEDS } from '../src/content/deeds';
 import { EffectBundleSchema } from '../src/content/effects';
 import { ContentSchema, isFieldMovement, type FinaleMovementDef } from '../src/content/schema';
 import { stealVerseDecree } from '../src/content/unstitched';
@@ -177,11 +181,19 @@ describe('Brann, the Bloodsworn (docs/phase-5b.md)', () => {
     expect(cell.choices[0]!.recruitedText).toBeDefined();
     expect(cell.choices[0]!.partyText).toBeDefined();
     const noDome = CONTENT.attacks.filter((a) => a.decreeNoDome !== undefined);
+    // …and the Finale's Downbeat and Fortissimo Silence (docs/phase-5d.md).
     expect(noDome.map((a) => a.id).sort()).toEqual(
-      ['cantor_requiem', 'unweaver_shear', 'vharun_twin_cleave'].sort(),
+      [
+        'cantor_requiem',
+        'unweaver_shear',
+        'vharun_twin_cleave',
+        'conductor_downbeat',
+        'fortissimo_silence',
+      ].sort(),
     );
     for (const a of noDome) {
-      expect(a.decreeNoDome, a.id).not.toMatch(/dome|Kael/);
+      // Fortissimo Silence's no-dome form names the dome's absence ('No dome: …'), never Kael's.
+      expect(a.decreeNoDome, a.id).not.toMatch(/(?<!No )dome|Kael/);
       expect(a.decree, a.id).toMatch(/dome/);
     }
   });
@@ -503,7 +515,8 @@ describe('Movement III: the Unstitched (docs/phase-5c.md)', () => {
 
   it('is Movement III: its six-stop ladder, one elite, pools, scale and rewards', () => {
     const m = CONTENT.movements[2]!;
-    expect(CONTENT.movements).toHaveLength(3);
+    // Movement III, then the Finale (docs/phase-5d.md, registered by W3).
+    expect(CONTENT.movements).toHaveLength(4);
     expect(m).toMatchObject({
       id: 'unstitched',
       biome: 'abyssal_rift',
@@ -547,10 +560,14 @@ describe('Movement III: the Unstitched (docs/phase-5c.md)', () => {
       CONTENT.encounters,
       CONTENT.events,
     ] as readonly (readonly { movement?: number }[])[]) {
+      // Only the Finale's (Movement 4, docs/phase-5d.md) come after them.
       const at = list.findIndex((x) => x.movement === 3);
-      expect(list.slice(at).every((x) => x.movement === 3)).toBe(true);
+      expect(list.slice(at).every((x) => x.movement === 3 || x.movement === 4)).toBe(true);
+      const four = list.findIndex((x) => x.movement === 4);
+      if (four >= 0) expect(list.slice(four).every((x) => x.movement === 4)).toBe(true);
     }
-    expect(CONTENT.deeds.slice(-2).map((d) => d.id)).toEqual(['whole_cloth', 'needle_sure']);
+    // Then the Finale's two (docs/phase-5d.md).
+    expect(CONTENT.deeds.slice(-4, -2).map((d) => d.id)).toEqual(['whole_cloth', 'needle_sure']);
     expect(CONTENT.motifs.at(-1)).toMatchObject({
       id: 'guard_strand',
       category: 'silk',
@@ -558,7 +575,7 @@ describe('Movement III: the Unstitched (docs/phase-5c.md)', () => {
       values: [1.5, 1, 0.6],
       requires: { movement: 3 },
     });
-    expect(CONTENT.relics.slice(-3).map((r) => [r.id, r.rarity, r.movement])).toEqual([
+    expect(third(CONTENT.relics).map((r) => [r.id, r.rarity, r.movement])).toEqual([
       ['sacrificial_lamb', 'rare', 3],
       ['knotted_cord', 'rare', 3],
       ['stillwater_bell', 'legendary', 3],
@@ -750,12 +767,14 @@ describe('content lint: Movement III (docs/phase-5c.md)', () => {
       /affix "mimicking" references unknown "nothing_here"/,
     );
     rejects(
-      (c) => void (c.motifs.find((m) => m.id === 'guard_strand')!.requires.movement = 4),
-      /motif "guard_strand": Movement 4 is past the last/,
+      // Four Movements with the Finale (docs/phase-5d.md): 5 is past the last.
+      (c) => void (c.motifs.find((m) => m.id === 'guard_strand')!.requires.movement = 5),
+      /motif "guard_strand": Movement 5 is past the last/,
     );
     rejects(
-      (c) => void (c.relics.find((r) => r.id === 'knotted_cord')!.movement = 4),
-      /relic "knotted_cord": Movement 4 is past the last/,
+      // Movement 4's fights exist (the Finale, docs/phase-5d.md), so its relics may wait for it.
+      (c) => void (c.relics.find((r) => r.id === 'knotted_cord')!.movement = 5),
+      /relic "knotted_cord": Movement 5 is past the last/,
     );
   });
 
@@ -867,7 +886,12 @@ describe('content lint: the Finale (docs/phase-5d.md)', () => {
         },
       ],
     };
-    c.movements.push(finale);
+    // In the real Finale's place (the last Movement; W3 registers it).
+    c.movements.splice(
+      c.movements.findIndex((m) => !isFieldMovement(m)),
+      1,
+      finale,
+    );
     return finale;
   };
   const issues = (edit: (c: Mutable) => void): string => {
@@ -880,12 +904,13 @@ describe('content lint: the Finale (docs/phase-5d.md)', () => {
     expect(issues(edit)).toMatch(message);
   const attack = (c: Mutable, id: string) => c.attacks.find((a) => a.id === id)!;
 
-  it('registers nothing yet: no Finale def among the Movements', () => {
-    expect(CONTENT.movements.every((m) => isFieldMovement(m))).toBe(true);
+  it('registers the Finale last: three field Movements, then FINALE', () => {
+    expect(CONTENT.movements.map((m) => isFieldMovement(m))).toEqual([true, true, true, false]);
     expect(CONTENT.movements.map((m) => m.id)).toEqual([
       'hollow_choir',
       'crimson_legion',
       'unstitched',
+      ids.FINALE_ID,
     ]);
   });
 
@@ -979,5 +1004,301 @@ describe('content lint: the Finale (docs/phase-5d.md)', () => {
       (c) => void withFinale(c).road[1]!.rows.push(['respite']),
       /road "crimson_legion": its last row is its boss/,
     );
+  });
+});
+
+describe('the Finale: the Silent Conductor (docs/phase-5d.md)', () => {
+  const fourth = <T extends { movement?: number }>(list: readonly T[]) =>
+    list.filter((x) => x.movement === 4);
+  const attack = (id: string) => CONTENT.attacks.find((a) => a.id === id)!;
+  const enemy = (id: string) => CONTENT.enemies.find((e) => e.id === id)!;
+  const SILENCE = [ids.REST, ids.MEASURE, ids.FINAL_CADENCE, ids.HALF_CADENCE];
+  const SOLOS = [ids.LAMENT, ids.BASSO_OSTINATO, ids.CADENZA, ids.SHATTER_ARIA];
+
+  it('is appended after the Unstitched: the choir, the Conductor, its arena and its fight', () => {
+    expect(fourth(CONTENT.enemies).map((e) => e.id)).toEqual([
+      ids.ALTO,
+      ids.BASS,
+      ids.TENOR,
+      ids.SOPRANO,
+      ids.CONDUCTOR,
+    ]);
+    expect(fourth(CONTENT.encounters).map((e) => e.id)).toEqual([ids.CONDUCTOR_ENCOUNTER]);
+    expect(CONTENT.arenas.filter((a) => a.biome === 'celestial_crucible')).toEqual([
+      {
+        id: ids.CRUCIBLE_ARENA,
+        name: 'The Celestial Crucible',
+        radius: 22,
+        obstacles: [],
+        theme: { floor: '#16141f', line: '#5a5470', accent: '#3a3350', fog: '#0b0a14' },
+        biome: 'celestial_crucible',
+      },
+    ]);
+    for (const e of fourth(CONTENT.enemies)) {
+      expect(e.material, e.id).toBe('glass');
+      expect(e.codex, e.id).not.toMatch(/[{}]|undefined|NaN/);
+    }
+    expect(CONTENT.encounters.find((e) => e.id === ids.CONDUCTOR_ENCOUNTER)).toMatchObject({
+      kind: 'boss',
+      arena: ids.CRUCIBLE_ARENA,
+      boss: ids.CONDUCTOR,
+      enrage: 420,
+      par: 225,
+      hints: ['decree', 'discord', 'silence'],
+      movement: 4,
+    });
+  });
+
+  it('the Conductor: its body, its melee and every scripted attack among its specials', () => {
+    expect(enemy(ids.CONDUCTOR)).toMatchObject({
+      role: 'boss',
+      hp: 60000,
+      speed: 2.2,
+      radius: 1.5,
+      height: 4.8,
+      preferredRange: 0,
+      basic: { kind: 'melee', damage: 110, interval: 1.6, range: 3 },
+    });
+    expect(enemy(ids.CONDUCTOR).specials).toEqual([
+      ids.DOWNBEAT,
+      ids.SFORZANDO,
+      ids.CUE,
+      ids.RAISE,
+      ...ids.FORTISSIMO,
+      ids.GRAND_SILENCE,
+      ...SILENCE,
+    ]);
+    // Only Downbeat and Sforzando are on the generic picker; the rest are the script's.
+    const picked = enemy(ids.CONDUCTOR).specials.filter((id) => !attack(id).scripted);
+    expect(picked).toEqual([ids.DOWNBEAT, ids.SFORZANDO]);
+    expect(attack(ids.DOWNBEAT)).toMatchObject({
+      kind: 'cleave',
+      windup: 1.6,
+      cooldown: 9,
+      damage: 820,
+      radius: 4,
+      angleDeg: 90,
+      targeting: 'current',
+      answers: ['ward', 'dome'],
+      discord: 8,
+    });
+    expect(attack(ids.SFORZANDO)).toMatchObject({
+      kind: 'beam',
+      windup: 1.8,
+      cooldown: 12,
+      damage: 560,
+      length: 22,
+      width: 1.4,
+      targeting: 'farthest',
+      answers: ['move', 'reel'],
+      discord: 8,
+    });
+    // Nothing lethal in the first 4 s: the first Raise at +3 s, the first Cue at +8 s.
+    for (const id of [ids.DOWNBEAT, ids.SFORZANDO])
+      expect(attack(id).initialDelay, id).toBeGreaterThanOrEqual(4);
+    expect([attack(ids.RAISE).initialDelay, attack(ids.CUE).initialDelay]).toEqual([3, 8]);
+  });
+
+  it('the Cue and the Raise are scripted casts; Fortissimo Silence is a three-pulse raid chain', () => {
+    for (const [id, windup] of [
+      [ids.CUE, 1.2],
+      [ids.RAISE, 1.5],
+      [ids.GRAND_SILENCE, 2],
+    ] as const) {
+      expect(attack(id), id).toMatchObject({
+        kind: 'burst',
+        effect: 'script',
+        damage: 0,
+        windup,
+        targeting: 'self',
+        interruptible: false,
+        scripted: true,
+      });
+      expect('discord' in attack(id), id).toBe(false);
+    }
+    const pulses = ids.FORTISSIMO.map(attack);
+    expect(pulses.map((a) => a.windup)).toEqual([3, 1.5, 1.5]);
+    expect(pulses.map((a) => a.followUp?.attack)).toEqual([...ids.FORTISSIMO.slice(1), undefined]);
+    for (const a of pulses) {
+      expect(a, a.id).toMatchObject({
+        name: 'Fortissimo Silence',
+        kind: 'raid',
+        targeting: 'allHeroes',
+        pctMaxHp: 0.5,
+        damage: 0,
+        answers: ['crescendo', 'dome', 'ward'],
+        scripted: true,
+      });
+    }
+    // 'Fortissimo Silence' in full, never 'Fortissimo' alone (an aura's name).
+    expect(pulses[0]!.decree).toBe(
+      'Fortissimo Silence — every hero loses 150% of their life over 3 s. Crescendo to cancel it, or dome, Ward and heal.',
+    );
+    expect(pulses[0]!.decreeNoDome).toBe(
+      'Fortissimo Silence — 150% of every hero’s life over 3 s. No dome: keep 100 Resonance and cancel it with your Crescendo; Ward the one you can’t lose.',
+    );
+    expect(pulses.slice(1).every((a) => a.decree === undefined)).toBe(true);
+  });
+
+  it('the Grand Silence’s program: aimed, range 44, no Discord, the Cadences alternate', () => {
+    const want: Record<string, object> = {
+      [ids.REST]: { kind: 'mark', windup: 3.5, pctMaxHp: 0.5, targeting: 'randomNonTank' },
+      [ids.MEASURE]: { kind: 'burst', windup: 2, pctMaxHp: 0.7, radius: 2.5, targeting: 'current' },
+      [ids.FINAL_CADENCE]: { windup: 2.5, pctMaxHp: 1.15, radius: 2.5, targeting: 'lowestHp' },
+      [ids.HALF_CADENCE]: { windup: 2.5, pctMaxHp: 0.6, radius: 2.5, targeting: 'lowestHp' },
+    };
+    for (const id of SILENCE) {
+      const a = attack(id);
+      expect(a, id).toMatchObject({ ...want[id], range: 44, discord: 0, scripted: true });
+      if (a.kind === 'burst') expect(a.centre, id).toBe('target');
+    }
+    // The Rest is a Dirge (the clutch note): its mark status is the default.
+    expect('markStatus' in attack(ids.REST)).toBe(false);
+    expect(attack(ids.REST).answers).toEqual(['chime', 'ward']);
+    expect(attack(ids.MEASURE).answers).toEqual(['ward']);
+    expect(attack(ids.FINAL_CADENCE).answers).toEqual(['reel', 'ward']);
+    expect(attack(ids.HALF_CADENCE).answers).toEqual(['ward', 'reel']);
+  });
+
+  it('the mirror-choir: four glass voices, each with one scripted, interruptible Solo', () => {
+    const body = (id: string) => {
+      const e = enemy(id);
+      return [e.hp, e.basic.kind, e.basic.damage, e.basic.range];
+    };
+    expect([ids.ALTO, ids.BASS, ids.TENOR, ids.SOPRANO].map(body)).toEqual([
+      [2000, 'bolt', 60, 10],
+      [2000, 'melee', 90, 2],
+      [2000, 'melee', 90, 2],
+      [2000, 'bolt', 60, 10],
+    ]);
+    for (const [voice, solo] of Object.entries(ids.SOLOS)) {
+      expect(enemy(voice).specials, voice).toEqual([solo]);
+      expect(enemy(voice).movement, voice).toBe(4);
+    }
+    for (const id of SOLOS) {
+      expect(attack(id), id).toMatchObject({
+        windup: 2.5,
+        range: 44,
+        interruptible: true,
+        scripted: true,
+        discord: 20,
+        decreeLimit: 2,
+      });
+      expect(attack(id).answers, id).toContain('focus');
+      // The attack keeps the unnamed form; the script names the hero as the Solo begins.
+      expect(attack(id).decree, id).toBe(soloDecree(id));
+    }
+    expect(attack(ids.LAMENT)).toMatchObject({ kind: 'mark', pctMaxHp: 0.5 });
+    expect(attack(ids.BASSO_OSTINATO)).toMatchObject({ damage: 1000, radius: 2.5 });
+    expect(attack(ids.CADENZA)).toMatchObject({
+      kind: 'beam',
+      pctMaxHp: 1,
+      length: 24,
+      width: 1.6,
+    });
+    expect(attack(ids.SHATTER_ARIA)).toMatchObject({ damage: 480, radius: 4.5, discordQuorum: 2 });
+    expect(attack(ids.SHATTER_ARIA).answers).toEqual(['scatter', 'move', 'ward', 'focus']);
+    expect(SOLOS.filter((id) => attack(id).discordQuorum !== undefined)).toEqual([
+      ids.SHATTER_ARIA,
+    ]);
+    expect(soloDecree(ids.CADENZA, 'Lyra')).toBe(
+      'Cadenza — the Tenor’s Solo cuts a line to Lyra: more than their life. Reel them out, step aside, or interrupt it.',
+    );
+  });
+
+  it('discord sits on exactly the Finale’s telegraphs; every Finale attack is in a Finale def', () => {
+    const finale = new Set(fourth(CONTENT.enemies).flatMap((e) => e.specials));
+    const fed = CONTENT.attacks.filter((a) => a.discord !== undefined).map((a) => a.id);
+    expect(fed.sort()).toEqual([ids.DOWNBEAT, ids.SFORZANDO, ...SILENCE, ...SOLOS].sort());
+    for (const id of fed) expect(finale, id).toContain(id);
+    // Every scripted Solo and silence attack reaches across the Crucible from anywhere in it.
+    for (const id of [...SILENCE, ...SOLOS]) expect(attack(id).range, id).toBe(44);
+  });
+
+  it('every scripted Finale attack spans the Crucible: range ≥ its diameter, and inRange holds wall to wall', () => {
+    const arena = CONTENT.arenas.find((a) => a.id === ids.CRUCIBLE_ARENA)!;
+    const finale = new Set(fourth(CONTENT.enemies).flatMap((e) => e.specials));
+    const scripted = CONTENT.attacks.filter((a) => a.scripted === true && finale.has(a.id));
+    expect(scripted.map((a) => a.id)).toEqual(expect.arrayContaining([...SILENCE, ...SOLOS]));
+    // The smallest bodies: each caster that owns a scripted attack, and the smallest hero.
+    const heroR = Math.min(...CONTENT.heroes.map((h) => h.radius));
+    for (const a of scripted) {
+      expect(a.range, a.id).toBeGreaterThanOrEqual(2 * arena.radius);
+      for (const e of fourth(CONTENT.enemies).filter((d) => d.specials.includes(a.id))) {
+        // clampToArena keeps each centre at most (arena radius - its own) from the middle.
+        const apart = 2 * arena.radius - e.radius - heroR;
+        expect(apart, `${e.id} ${a.id}`).toBeLessThanOrEqual(a.range + e.radius + heroR);
+      }
+    }
+  });
+
+  it('the phase Decrees use the plan’s words', () => {
+    expect(CONDUCTOR_DECREES.grandSilence).toContain('Eight notes rebuild the song.');
+    expect(CONDUCTOR_DECREES.grandSilenceRewind).toContain('Rewinds that undo a blow');
+    for (const text of Object.values(CONDUCTOR_DECREES))
+      expect(text).not.toMatch(/Fortissimo(?! Silence)/);
+  });
+
+  it('three Movement-4 relics, offered only from the Finale on', () => {
+    expect(fourth(CONTENT.relics).map((r) => [r.id, r.rarity, r.values])).toEqual([
+      [ids.TACET_MARK, 'rare', { seconds: 0.1 }],
+      [ids.QUICK_ROSIN, 'rare', { cut: 3 }],
+      [ids.FIRST_SCORE, 'legendary', { charges: 1 }],
+    ]);
+    expect(CONTENT.relics.slice(-3)).toEqual(fourth(CONTENT.relics));
+  });
+
+  it('FINALE: a boss-only def with the plan’s road, registered last', () => {
+    expect(FINALE).toMatchObject({
+      id: ids.FINALE_ID,
+      name: 'The Finale',
+      mapTitle: 'The Celestial Crucible',
+      label: 'The Finale',
+      biome: 'celestial_crucible',
+      rows: [['boss']],
+      fixed: [{ row: 0, encounter: ids.CONDUCTOR_ENCOUNTER }],
+      boss: ids.CONDUCTOR_ENCOUNTER,
+      scale: { life: 1.85, damage: 1.05 },
+      rewards: { xp: 1.5, starlight: 1.5, aether: 1.5 },
+      finale: true,
+    });
+    expect(FINALE.road.map((r) => [r.movement, r.rows.length, r.threat])).toEqual([
+      ['hollow_choir', 6, [0, 3, 5, 7, 8, 9]],
+      ['crimson_legion', 6, [0, 1, 2, 4, 5, 6]],
+    ]);
+    expect(FINALE.road[0]!.callingRows).toEqual([0, 2, 3, 5]);
+    expect('shuffle' in FINALE.road[0]!).toBe(false);
+    expect(FINALE.road[1]!.shuffle).toBe(true);
+    expect(CONTENT.movements.at(-1)).toStrictEqual(FINALE);
+  });
+
+  it('registered, FINALE and its Deeds lint clean, the Deeds after Movement III’s', () => {
+    const parsed = ContentSchema.safeParse(structuredClone(CONTENT));
+    expect(parsed.success ? '' : parsed.error.issues.map((i) => i.message).join('\n')).toBe('');
+    expect(CONTENT.deeds.slice(-FINALE_DEEDS.length)).toStrictEqual(FINALE_DEEDS);
+  });
+
+  it('two badge Deeds, no point, both on the Conductor’s fight', () => {
+    expect(FINALE_DEEDS.map((d) => [d.id, d.name, d.points, d.test])).toEqual([
+      [ids.SONG_GOES_ON, 'The Song Goes On', 0, 'fight'],
+      [ids.NOT_ONE_SILENT, 'Not One Silent', 0, 'fight'],
+    ]);
+    expect(FINALE_DEEDS.map(deedText)).toEqual([
+      'Beat the Silent Conductor.',
+      'Beat the Silent Conductor with no hero going down.',
+    ]);
+    // Not 'finale' (the Cantor's Bright Finale) nor 'The Last Note' (a boon).
+    for (const d of FINALE_DEEDS) expect(d.id).not.toMatch(/finale|last_note/);
+    expect(CONTENT.deeds.filter((d) => FINALE_DEEDS.some((f) => f.id === d.id))).toHaveLength(2);
+  });
+
+  it('every number in the Finale defs is a named constant (only 0 inline)', () => {
+    const src = readFileSync(new URL('../src/content/crucible.ts', import.meta.url), 'utf8');
+    const defs = src.slice(src.indexOf('export const CRUCIBLE_ATTACKS'));
+    const inline = [...defs.matchAll(/\b(\w+): (-?\d+(?:\.\d+)?)\b/g)]
+      .filter(([, , n]) => n !== '0')
+      .map(([m]) => m);
+    // The arena's radius is named too: the scripted attacks' reach is its diameter.
+    expect(inline).toEqual([]);
   });
 });

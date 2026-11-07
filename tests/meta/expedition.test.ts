@@ -480,7 +480,9 @@ describe('saves and the profile', () => {
     expect(routeMovements(veteran, rank1, 'expedition')).toBe(1);
     expect(routeMovements(fresh, rank2)).toBe(1);
     expect(routeMovements(fresh, EVERYTHING)).toBe(1);
-    // An Expedition is every Movement in content (docs/phase-5c.md).
+    // An Expedition is every Movement in content (docs/phase-5c.md): the Finale's route now
+    // (docs/phase-5d.md).
+    expect(EXPEDITION_MOVEMENTS).toBe(4);
     expect(routeMovements(fresh, rank2, 'expedition')).toBe(EXPEDITION_MOVEMENTS);
     expect(routeMovements(veteran, rank2)).toBe(EXPEDITION_MOVEMENTS);
     expect(EXPEDITION_MOVEMENTS).toBe(CONTENT.movements.length);

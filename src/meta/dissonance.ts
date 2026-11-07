@@ -4,7 +4,7 @@
  * records the best won totals and opens it.
  */
 import { CONTENT, type DissonanceEffect } from '../content';
-import { endsRun } from './runEnd';
+import { endsRun, finaleCleared } from './runEnd';
 import type { RunState } from './types';
 
 /** A level in force and its rank (1 to its content `ranks`). */
@@ -72,9 +72,18 @@ export function parMult(levels: readonly DissonanceChoice[], kind: string): numb
   return mult;
 }
 
-/** The first win at this Rank or above opens Dissonance. */
+/** Is this Rank high enough for Dissonance to open (`opensWith`)? */
 export function opensAt(rank: number): boolean {
   return rank >= RULES().openRank;
+}
+
+/**
+ * Does this run open Dissonance (docs/phase-5d.md, question 3)? The first Finale clear does, at
+ * this Rank or above; a Prelude win, or an Expedition won before the Finale, does not. A profile
+ * already open stays open (the store never closes it).
+ */
+export function opensWith(run: Pick<RunState, 'results'>, rank: number): boolean {
+  return finaleCleared(run) && opensAt(rank);
 }
 
 /**

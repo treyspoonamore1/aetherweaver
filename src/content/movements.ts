@@ -1,9 +1,12 @@
 import type { ContentInput } from './schema';
 
 /**
- * The Movements of an Expedition (docs/phase-5a.md). Movement I is the Prelude's map exactly:
- * its rows, pools and fixed fights mirror meta/run.ts (`ROWS`, `SKIRMISHES`, `ELITES` and
- * `generateMap`'s First Light, Bellwarden and Hollow Cantor), at scale {1, 1}.
+ * The Movements of an Expedition (docs/phase-5a.md). Movement I is the Prelude's map exactly
+ * (its rows, pools and fixed fights: First Light, the Bellwarden and the Hollow Cantor, at scale
+ * {1, 1}), and the I-II and I-III routes play it whole. The route that ends in the Finale plays
+ * a shorter road through it instead (`FINALE.road`, src/content/crucibleRun.ts; `routeDefs`,
+ * meta/run.ts; docs/phase-5d.md): the same pools and fights, six rows, each at the Threat of
+ * the full Movement's row it stands for.
  */
 export const MOVEMENTS: ContentInput['movements'] = [
   {
