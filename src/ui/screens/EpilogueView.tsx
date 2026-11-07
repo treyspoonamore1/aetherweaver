@@ -3,11 +3,12 @@
  * panel at the top of the Summary after a Finale victory, once per run. Five lines rise in about
  * 3 s apart (SceneView's line layout); with less motion asked for, they all show at once. Always
  * skippable (the button, Enter, Escape or Space), and it closes on its own when the last line has
- * had its moment. No new run phase: it sits inside the Summary. While a modal card covers the
- * Summary (a Rank-up, a Bond rank) it waits: no line rises, nothing closes it, and its keys are
- * the card's, so the epilogue is never used up unseen.
+ * had its moment. No new run phase: it sits inside the Summary. It comes first: the Summary's
+ * modal cards (a Rank-up, a Bond rank) wait until it has ended or been skipped, so nothing covers
+ * it or its Skip, and a skip key still held when it closes holds them a moment longer
+ * (`useSkipKeysHeld`), so the key's auto-repeat never dismisses a card unseen.
  */
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { CONTENT, heroDef } from '../../content';
 import type { RunState } from '../../meta/types';
 import { finaleCleared } from '../../meta/runEnd';
@@ -67,9 +68,9 @@ export function epilogueLines(party: readonly string[]): EpilogueLine[] {
 export const EPILOGUE_SKIP_KEYS: ReadonlySet<string> = new Set(['Escape', 'Enter', ' ']);
 
 /**
- * Is this key press the epilogue's to take? Not while it waits behind a card, not a press a card
- * already handled, and not one whose target sits inside a dialog (the Rank-up card's autofocused
- * dismiss button: Enter, Space and Escape there are the card's).
+ * Is this key press the epilogue's to take? Not a repeat, not a press something else already
+ * handled, and not one whose target sits inside a dialog (one the player opened over the Summary,
+ * such as the Reliquary's release: Enter, Space and Escape there are the dialog's).
  */
 export function epilogueTakesKey(
   e: Pick<
@@ -124,21 +125,52 @@ export interface EpilogueViewProps {
   onDone(): void;
   /** UI lab and tests: every line shown, and no timers. */
   still?: boolean;
-  /**
-   * A modal card covers the Summary: the epilogue waits (its first line only, no timers, no keys)
-   * and begins when the card is dismissed.
-   */
-  paused?: boolean;
+}
+
+/**
+ * The skip keys held down while `listen` (the epilogue is up): `held()` asks whether one still is
+ * (asked as the epilogue closes), and `onReleased` runs when the last one comes up (or the window
+ * loses focus). A capture listener on the window, so a press is counted before the epilogue's own
+ * handler closes it. The Summary holds its cards on it: a held Enter's auto-repeat would
+ * otherwise press the card's autofocused Onward.
+ */
+export function useSkipKeysHeld(listen: boolean, onReleased: () => void): () => boolean {
+  const down = useRef(new Set<string>());
+  useEffect(() => {
+    if (!listen) return;
+    const keys = down.current;
+    const onDown = (e: KeyboardEvent) => {
+      if (EPILOGUE_SKIP_KEYS.has(e.key)) keys.add(e.key);
+    };
+    const release = () => {
+      if (keys.size === 0) return;
+      keys.clear();
+      onReleased();
+    };
+    const onUp = (e: KeyboardEvent) => {
+      if (!keys.delete(e.key)) return;
+      if (keys.size === 0) onReleased();
+    };
+    window.addEventListener('keydown', onDown, true);
+    window.addEventListener('keyup', onUp, true);
+    window.addEventListener('blur', release);
+    return () => {
+      window.removeEventListener('keydown', onDown, true);
+      window.removeEventListener('keyup', onUp, true);
+      window.removeEventListener('blur', release);
+    };
+  }, [listen, onReleased]);
+  return useCallback(() => down.current.size > 0, []);
 }
 
 /** The epilogue panel. */
-export function EpilogueView({ party, onDone, still = false, paused = false }: EpilogueViewProps) {
+export function EpilogueView({ party, onDone, still = false }: EpilogueViewProps) {
   const reduced = useReducedMotion();
   const lines = epilogueLines(party);
   const all = still || reduced;
   const [shown, setShown] = useState(all ? lines.length : 1);
   useEffect(() => {
-    if (still || paused) return;
+    if (still) return;
     // Less motion: every line at once, and the same moment to read them before it closes.
     if (reduced) {
       const t = window.setTimeout(onDone, epilogueMs(lines.length));
@@ -149,9 +181,9 @@ export function EpilogueView({ party, onDone, still = false, paused = false }: E
         ? window.setTimeout(() => setShown((n) => n + 1), EPILOGUE_LINE_MS)
         : window.setTimeout(onDone, EPILOGUE_LINE_MS + EPILOGUE_HOLD_MS);
     return () => window.clearTimeout(t);
-  }, [shown, still, paused, reduced, lines.length, onDone]);
+  }, [shown, still, reduced, lines.length, onDone]);
   useEffect(() => {
-    if (still || paused) return;
+    if (still) return;
     const onKey = (e: KeyboardEvent) => {
       if (!epilogueTakesKey(e)) return;
       e.preventDefault();
@@ -159,7 +191,7 @@ export function EpilogueView({ party, onDone, still = false, paused = false }: E
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [still, paused, onDone]);
+  }, [still, onDone]);
   return (
     <Panel
       tone="solid"
@@ -169,7 +201,6 @@ export function EpilogueView({ party, onDone, still = false, paused = false }: E
       data-testid="epilogue"
       data-lines={lines.length}
       data-ms={epilogueMs(lines.length)}
-      data-paused={paused ? 'true' : undefined}
       style={{ boxShadow: '0 0 0 1px rgb(255 246 224 / 0.25), 0 0 40px rgb(255 246 224 / 0.08)' }}
     >
       <div className="flex items-start justify-between gap-4">

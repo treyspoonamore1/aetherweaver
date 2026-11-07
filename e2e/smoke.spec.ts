@@ -361,14 +361,25 @@ test('Phase 5a/5c/5d: an Expedition — past the Cantor, Vharun and the Unweaver
   await expect.poll(phase).toBe('summary');
   expect(await page.evaluate(() => window.__AWRUN__!.outcome())).toBe('victory');
   expect(await page.evaluate(() => window.__AWRUN__!.results())).toBe(5);
-  if ((await page.getByTestId('rank-up').count()) > 0)
-    await page.getByRole('button', { name: /Onward/ }).click();
-  // The epilogue (≤ 20 s, skippable), then the Summary: the song goes on.
+  // The epilogue (≤ 20 s, skippable) comes first: the Rank-up and Bond cards wait for it, so
+  // nothing covers it or its Skip.
   const epilogue = page.getByTestId('epilogue');
+  const rankUp = page.getByTestId('rank-up');
+  const bondCard = page.getByTestId('bond-rank-up');
   await expect(epilogue).toBeVisible();
   await expect(page.getByTestId('epilogue-line').first()).toBeVisible();
+  await expect(rankUp).toHaveCount(0);
+  await expect(bondCard).toHaveCount(0);
   await page.getByTestId('epilogue-skip').click();
   await expect(epilogue).toHaveCount(0);
+  // Then the cards, as before: the Weaver's Rank-up, then the run's first Bond rank (its intro).
+  if ((await rankUp.count()) > 0) await rankUp.getByRole('button', { name: /Onward/ }).click();
+  await expect(rankUp).toHaveCount(0);
+  await expect(bondCard).toBeVisible();
+  await expect(bondCard).toHaveAttribute('data-first', 'true');
+  await bondCard.getByRole('button', { name: /Onward/ }).click();
+  await expect(bondCard).toHaveCount(0);
+  // The Summary: the song goes on.
   await expect(page.getByRole('heading', { name: 'The song goes on' })).toBeVisible();
   await expect(
     page.getByText('The Silent Conductor lowers its baton, and the song goes on.'),
@@ -387,6 +398,22 @@ test('Phase 5a/5c/5d: an Expedition — past the Cantor, Vharun and the Unweaver
   expect(await page.evaluate(() => window.__AWRUN__!.winRun())).toBe(true);
   await expect.poll(phase).toBe('summary');
   expect(await movement()).toMatchObject({ movements: 4, here: 4 });
+  // Its own epilogue (a new victory), skipped from the keyboard: Enter is the epilogue's alone.
+  // Neither the Summary's autofocused New run nor a card hears it, and while it is held the cards
+  // wait (its auto-repeat would press their Onward).
+  const cards = page.locator('[data-testid="rank-up"], [data-testid="bond-rank-up"]');
+  await expect(epilogue).toBeVisible();
+  await expect(cards).toHaveCount(0);
+  // Past the arrival guard (a press as the screen arrives is swallowed).
+  await page.waitForTimeout(700);
+  await page.keyboard.down('Enter');
+  await expect(epilogue).toHaveCount(0);
+  await expect(cards).toHaveCount(0);
+  await page.keyboard.up('Enter');
+  // Let go: the run's card follows, and the Enter that skipped the epilogue never dismissed it.
+  await expect(cards).toHaveCount(1);
+  await expect(cards).toBeVisible();
+  await expect.poll(phase).toBe('summary');
   expect(errors).toEqual([]);
 });
 
@@ -1757,6 +1784,11 @@ test('Phase 5b: the roster — a veteran recruits Brann, picks him in Prep, figh
     /^Under 40%: \d+% of the fight · Lifesteal [\d,]+ · Your healing on him: halved$/,
   );
   await page.evaluate(() => window.__AWRUN__!.continue());
+  // A veteran's run is the Finale route (every Movement): First Light, on its shorter Movement I
+  // road, pays a relic offer and then a rare motif (docs/phase-5d.md, "Bands").
+  expect(await page.evaluate(() => window.__AWRUN__!.movement())).toMatchObject({ movements: 4 });
+  await expect.poll(phase).toBe('relic');
+  await page.evaluate(() => window.__AWRUN__!.pickRelic(0));
   await expect.poll(phase).toBe('draft');
   await page.evaluate(() => window.__AWRUN__!.pick(0));
   await expect.poll(phase).toBe('map');

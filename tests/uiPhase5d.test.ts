@@ -6,9 +6,10 @@
  * sighting cards follow the Calling and Reel's variant; every Finale down names its answer; the
  * route copy, the epilogue (under 20 s, skippable) and the first-clear card; captions.
  */
+import { readFileSync } from 'node:fs';
 import { createElement, type FunctionComponent } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { CONTENT } from '../src/content';
 import {
   ALTO,
@@ -62,6 +63,7 @@ import {
   finaleMockCallouts,
   finaleRun,
   finaleSummaryRun,
+  mockBonds,
   mockRankUps,
   riftSummaryRun,
   type FinaleScenario,
@@ -91,17 +93,30 @@ async function tsx<T>(path: string): Promise<T> {
 type Props = Record<string, unknown>;
 const { BossBar } = await tsx<{ BossBar: FunctionComponent<Props> }>('../src/ui/hud/BossBar');
 const { HudView } = await tsx<{ HudView: FunctionComponent<Props> }>('../src/ui/hud/Hud');
-const { EPILOGUE_SKIP_KEYS, EpilogueView, epilogueLines, epilogueMs, epilogueTakesKey } =
-  await tsx<{
-    EPILOGUE_SKIP_KEYS: ReadonlySet<string>;
-    epilogueTakesKey(e: Record<string, unknown>): boolean;
-    EpilogueView: FunctionComponent<Props>;
-    epilogueLines(party: readonly string[]): { speaker: string | null; text: string }[];
-    epilogueMs(lines: number): number;
-  }>('../src/ui/screens/EpilogueView');
-const { SummaryView, firstClearLines } = await tsx<{
+const {
+  EPILOGUE_SKIP_KEYS,
+  EpilogueView,
+  epilogueLines,
+  epilogueMs,
+  epilogueTakesKey,
+  markEpilogueSeen,
+} = await tsx<{
+  EPILOGUE_SKIP_KEYS: ReadonlySet<string>;
+  markEpilogueSeen(seed: number): void;
+  epilogueTakesKey(e: Record<string, unknown>): boolean;
+  EpilogueView: FunctionComponent<Props>;
+  epilogueLines(party: readonly string[]): { speaker: string | null; text: string }[];
+  epilogueMs(lines: number): number;
+}>('../src/ui/screens/EpilogueView');
+const { SummaryView, firstClearLines, summaryCard } = await tsx<{
   SummaryView: FunctionComponent<Props & { run: RunState }>;
   firstClearLines(open: boolean): { title: string; lines: string[] };
+  summaryCard(o: {
+    waiting: boolean;
+    rankUps: number;
+    rankCard: boolean;
+    bondNotices: number;
+  }): 'rank' | 'bond' | null;
 }>('../src/ui/screens/SummaryScreen');
 
 const BOSS_KEYS = ['discord', 'fortissimo', 'silence', 'cue'] as const;
@@ -641,7 +656,7 @@ describe('review fixes', () => {
     expect(finaleDownLine({ killer }, 'chronomancer')).toMatch(/Rewind the blow$/);
   });
 
-  it('the epilogue waits behind a Rank-up card, and leaves a dialog’s keys alone', () => {
+  it('the epilogue leaves a dialog’s keys alone', () => {
     const press = (over: Record<string, unknown> = {}) => ({
       key: 'Enter',
       repeat: false,
@@ -655,27 +670,85 @@ describe('review fixes', () => {
     expect(epilogueTakesKey(press())).toBe(true);
     expect(epilogueTakesKey(press({ key: 'Escape' }))).toBe(true);
     expect(epilogueTakesKey(press({ key: 'a' }))).toBe(false);
+    expect(epilogueTakesKey(press({ repeat: true }))).toBe(false);
     expect(epilogueTakesKey(press({ defaultPrevented: true }))).toBe(false);
-    // The Rank-up card's autofocused dismiss button: Enter, Space and Escape are the card's.
+    // A dialog the player opened over the Summary: Enter, Space and Escape are the dialog's.
     const inDialog = { closest: (sel: string) => (sel.includes('dialog') ? {} : null) };
     for (const key of ['Enter', ' ', 'Escape'])
       expect(epilogueTakesKey(press({ key, target: inDialog })), key).toBe(false);
     expect(epilogueTakesKey(press({ target: { closest: () => null } }))).toBe(true);
-    const summary = (rankUps: boolean) =>
+  });
+
+  it('no Summary card covers the epilogue: the Rank-up and Bond cards wait until it ends', () => {
+    // The order: nothing while the epilogue is up (or a skip key is still held as it closes),
+    // then the Weaver's Rank-up card, then the Bond card.
+    const o = { waiting: false, rankUps: 1, rankCard: true, bondNotices: 1 };
+    expect(summaryCard({ ...o, waiting: true })).toBeNull();
+    expect(summaryCard({ ...o, waiting: true, rankUps: 0 })).toBeNull();
+    expect(summaryCard(o)).toBe('rank');
+    expect(summaryCard({ ...o, rankUps: 0 })).toBe('bond');
+    expect(summaryCard({ ...o, rankCard: false })).toBeNull();
+    expect(summaryCard({ ...o, rankUps: 0, bondNotices: 0 })).toBeNull();
+
+    const run = finaleSummaryRun('victory');
+    const bonds = mockBonds(2);
+    const bondCard = {
+      notices: [{ heroId: run.party[0]!.heroId, rank: 2 }],
+      bonds,
+      first: true,
+      unlockAll: false,
+      onDismiss: () => {},
+    };
+    const summary = (rankUps: boolean, epilogueStill: boolean) =>
       renderToStaticMarkup(
         createElement(SummaryView, {
-          run: finaleSummaryRun('victory'),
+          run,
           onNewRun: () => {},
           onLoom: () => {},
-          epilogueStill: true,
+          bonds,
+          bondCard,
+          epilogueStill,
           ...(rankUps ? { rankUps: mockRankUps([5]), onDismissRankUps: () => {} } : {}),
         }),
       );
-    const covered = summary(true);
-    expect(covered).toContain('data-testid="epilogue"');
-    expect(covered).toMatch(/data-testid="epilogue"[^>]*data-paused="true"/);
-    expect(covered).toContain('role="dialog"');
-    expect(summary(false)).not.toContain('data-paused');
+    // The epilogue is up (a Finale victory): no card, no dialog, and its Skip is uncovered.
+    for (const rankUps of [true, false]) {
+      const html = summary(rankUps, true);
+      expect(html).toContain('data-testid="epilogue-skip"');
+      expect(html).not.toContain('data-testid="rank-up"');
+      expect(html).not.toContain('data-testid="bond-rank-up"');
+      expect(html).not.toContain('role="dialog"');
+    }
+    // Once it has ended or been skipped (closing marks the run's seed seen, so a Summary shown
+    // again has no epilogue): the cards, the Rank-up first, then the Bond card.
+    const store = new Map<string, string>();
+    vi.stubGlobal('localStorage', {
+      getItem: (k: string) => store.get(k) ?? null,
+      setItem: (k: string, v: string) => void store.set(k, v),
+      removeItem: (k: string) => void store.delete(k),
+    });
+    try {
+      expect(summary(false, false)).toContain('data-testid="epilogue"');
+      markEpilogueSeen(run.seed);
+      const ranked = summary(true, false);
+      expect(ranked).not.toContain('data-testid="epilogue"');
+      expect(ranked).toContain('data-testid="rank-up"');
+      expect(ranked).not.toContain('data-testid="bond-rank-up"');
+      const bonded = summary(false, false);
+      expect(bonded).not.toContain('data-testid="epilogue"');
+      expect(bonded).toContain('data-testid="bond-rank-up"');
+    } finally {
+      vi.unstubAllGlobals();
+    }
+    // The Summary decides which card shows from the epilogue's state, and holds them for a skip
+    // key still held as it closed (the node test build renders no effects, so this reads the
+    // source).
+    const src = readFileSync(
+      new URL('../src/ui/screens/SummaryScreen.tsx', import.meta.url),
+      'utf8',
+    );
+    expect(src).toMatch(/waiting: epilogueOn \|\| keyHeld,/);
+    expect(src).toMatch(/setKeyHeld\(skipKeyDown\(\)\);\s*setEpilogue\(false\);/);
   });
 
   it('a voice killed before its Cue is still recorded as seen (the Codex unlocks it)', () => {

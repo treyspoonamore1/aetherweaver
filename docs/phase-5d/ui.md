@@ -81,8 +81,10 @@ Each has its own id, so no existing hint's count moves. All three are hidden by 
 
 - **Epilogue** (`screens/EpilogueView.tsx`): five lines, 3 s each, then a 2 s hold, 17 s in all
   (under 02's 20 s). It sits as a panel at the top of the Summary, with no new RunPhase.
-  - Skippable: a Skip button, Escape, Enter or Space. A key a dialog owns (the Rank-up card's
-    button) is left to the dialog, and the epilogue waits behind that card.
+  - Skippable: a Skip button, Escape, Enter or Space. A key a dialog owns is left to the dialog.
+  - It comes first: the Summary's Rank-up and Bond cards wait until it has ended or been skipped
+    (`summaryCard`), so nothing covers it or its Skip, and they wait too while a skip key held as
+    it closed is still down (its auto-repeat would press their Onward).
   - Shown once per victory (the run's seed in `localStorage`); reduced motion shows the lines still.
   - The third line is the party's first hero's (Kael, Lyra, Vexis or Brann).
 - **Summary:** OUTCOME 'The song goes on', the VICTORY line 'The Silent Conductor lowers its

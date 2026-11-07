@@ -21,7 +21,7 @@ import { useCallback, useState, type ReactNode } from 'react';
 import { CONTENT } from '../../content';
 import { SONG_GOES_ON } from '../../content/crucibleIds';
 import { finaleCleared } from '../../meta/runEnd';
-import { EpilogueView, epilogueDue, markEpilogueSeen } from './EpilogueView';
+import { EpilogueView, epilogueDue, markEpilogueSeen, useSkipKeysHeld } from './EpilogueView';
 import { ScreenFrame } from '../kit/Backdrop';
 import { Button } from '../kit/Button';
 import { CATEGORY, Chip } from '../kit/Chip';
@@ -168,6 +168,22 @@ function FirstClearCard({ open, rank }: { open: boolean; rank?: number }) {
   );
 }
 
+/**
+ * The modal card over the Summary, if any: none while `waiting` (the epilogue is up: nothing
+ * covers it or its Skip), then the Weaver's Rank-up card, then the Bond rank-up card. A Bond card
+ * still waits for pending rank-ups the screen has no card for.
+ */
+export function summaryCard(o: {
+  waiting: boolean;
+  rankUps: number;
+  rankCard: boolean;
+  bondNotices: number;
+}): 'rank' | 'bond' | null {
+  if (o.waiting) return null;
+  if (o.rankUps > 0) return o.rankCard ? 'rank' : null;
+  return o.bondNotices > 0 ? 'bond' : null;
+}
+
 /** Top moments across the whole run, most valuable kinds first. */
 export function runHighlights(results: EncounterResult[]): (Highlight & { fight: string })[] {
   const all = results.flatMap((r) => r.highlights.map((h) => ({ ...h, fight: r.name })));
@@ -249,15 +265,25 @@ export function SummaryView({
   const finale = run.outcome === 'victory' && finaleCleared(run);
   const outcome = finale ? FINALE_OUTCOME : OUTCOME[run.outcome ?? 'abandoned'];
   const [epilogue, setEpilogue] = useState(() => epilogueStill || epilogueDue(run));
+  const epilogueOn = finale && epilogue;
+  // The epilogue comes first: the Rank-up and Bond cards wait until it has ended or been skipped
+  // (and until a skip key held as it closed is let go: its auto-repeat would press Onward).
+  const [keyHeld, setKeyHeld] = useState(false);
+  const keyReleased = useCallback(() => setKeyHeld(false), []);
+  const skipKeyDown = useSkipKeysHeld(epilogueOn || keyHeld, keyReleased);
   const seed = run.seed;
   const closeEpilogue = useCallback(() => {
     markEpilogueSeen(seed);
+    setKeyHeld(skipKeyDown());
     setEpilogue(false);
-  }, [seed]);
+  }, [seed, skipKeyDown]);
+  const card = summaryCard({
+    waiting: epilogueOn || keyHeld,
+    rankUps: rankUps.length,
+    rankCard: !!onDismissRankUps,
+    bondNotices: bondCard?.notices.length ?? 0,
+  });
   const firstClear = finale && run.deeds.includes(SONG_GOES_ON);
-  // A Rank-up or Bond card over the Summary: the epilogue waits for it (it is shown once).
-  const modalOpen =
-    (rankUps.length > 0 && !!onDismissRankUps) || (!!bondCard && bondCard.notices.length > 0);
   // A win names the final boss; an Expedition's defeat, the Movement it reached (Phase 5a).
   const sub = outcomeSub(run) ?? outcome.sub;
   const heroIds = run.party.map((p) => p.heroId);
@@ -304,13 +330,8 @@ export function SummaryView({
   return (
     <ScreenFrame tone={finale ? 'crucible' : run.outcome === 'victory' ? 'gold' : 'dusk'}>
       <div className="mx-auto max-w-6xl px-6 pb-28 pt-8">
-        {finale && epilogue && (
-          <EpilogueView
-            party={heroIds}
-            onDone={closeEpilogue}
-            still={epilogueStill}
-            paused={modalOpen}
-          />
+        {epilogueOn && (
+          <EpilogueView party={heroIds} onDone={closeEpilogue} still={epilogueStill} />
         )}
         <header className="anim-rise flex flex-wrap items-center justify-between gap-6">
           <div>
@@ -374,7 +395,10 @@ export function SummaryView({
 
         <RunDeedsPanel ids={run.deeds} className="mt-6" />
 
-        <RunDissonancePanel run={run} quiet={rankUps.length > 0 && !!onDismissRankUps} />
+        <RunDissonancePanel
+          run={run}
+          quiet={epilogueOn || keyHeld || (rankUps.length > 0 && !!onDismissRankUps)}
+        />
 
         {reliquary && run.reliquary && (
           <EnshrinePanel run={run} {...reliquary} initialArrived={enshrined} />
@@ -802,7 +826,7 @@ export function SummaryView({
           New run <Icon name="arrow" size={18} />
         </Button>
       </div>
-      {rankUps.length > 0 && onDismissRankUps && (
+      {card === 'rank' && onDismissRankUps && (
         <RankUpCard
           rankUps={rankUps}
           onDismiss={onDismissRankUps}
@@ -810,9 +834,7 @@ export function SummaryView({
           deedPoints={deedPoints}
         />
       )}
-      {rankUps.length === 0 && bondCard && bondCard.notices.length > 0 && (
-        <BondRankUpCard {...bondCard} />
-      )}
+      {card === 'bond' && bondCard && <BondRankUpCard {...bondCard} />}
     </ScreenFrame>
   );
 }
