@@ -6,10 +6,16 @@
  */
 import { describe, expect, it } from 'vitest';
 import { attackDef } from '../../src/content';
-import { CHOIR_RING, CONDUCTOR_DECREES, SOLO_PER_NOTE } from '../../src/content/crucible';
+import {
+  CHOIR_RING,
+  CONDUCTOR_DECREES,
+  SOLO_PER_NOTE,
+  VOICE_PCT_MULT,
+} from '../../src/content/crucible';
 import {
   ALTO,
   BASS,
+  CADENZA,
   CONDUCTOR,
   CUE,
   DOWNBEAT,
@@ -22,6 +28,7 @@ import {
   RAISE,
   REST,
   SFORZANDO,
+  SOLOS,
   SOPRANO,
   TENOR,
 } from '../../src/content/crucibleIds';
@@ -365,6 +372,65 @@ describe('the Cue', () => {
     expect(starts[RAISE]).toHaveLength(1);
   });
 
+  it('a Cue turned Raise is cast once: the voices on their way wait for it to land', () => {
+    const { sim, w, boss } = conductor();
+    quiet(boss);
+    const m4 = w.internal.m4!;
+    m4.nextRaiseAt = NEVER;
+    m4.nextCueAt = w.time + 0.5;
+    expect(voices(w)).toEqual([]);
+    const sink: SimEvent[] = [];
+    const starts = watch(sim, 5, sink);
+    expect(starts[RAISE]).toHaveLength(1);
+    expect(ofType(sink, 'spawnWarning')).toHaveLength(2);
+    expect(
+      voices(w)
+        .map((e) => e.enemy!.defId)
+        .sort(),
+    ).toEqual([ALTO, BASS]);
+    // The same with the choir felled after each Raise lands: one Raise per due Cue, never two.
+    for (const v of voices(w)) killEnemy(w, v, null);
+    m4.nextCueAt = w.time + 0.5;
+    const again = watch(sim, 5);
+    expect(again[RAISE]).toHaveLength(1);
+  });
+
+  it('in the Mirror Choir, a Cue turned Raise brings its voices once, not again 1.5 s on', () => {
+    const { sim, w, boss } = conductor({}, { untouchable: true });
+    quiet(boss);
+    const m4 = w.internal.m4!;
+    m4.nextRaiseAt = NEVER;
+    cross(sim, 0.55);
+    // The entry Raise lands; then the whole choir falls, and the Cue is due with no one standing.
+    stepUntil(sim, () => !w.telegraphs.some((t) => t.attackId === RAISE), 600);
+    stepFor(sim, 70);
+    w.internal.pendingSpawns.length = 0;
+    for (const v of voices(w)) killEnemy(w, v, null);
+    w.field.finale!.discord!.value = 0;
+    m4.nextRaiseAt = NEVER;
+    m4.nextCueAt = w.time + 0.5;
+    const sink: SimEvent[] = [];
+    const starts = watch(sim, 6, sink);
+    expect(starts[RAISE]).toHaveLength(1);
+    expect(ofType(sink, 'spawnWarning')).toHaveLength(2);
+  });
+
+  it('a Solo’s share of life lands as its voice’s Codex tells it (an elite’s ×1.1)', () => {
+    const { sim, w, boss } = conductor();
+    quiet(boss);
+    next(sim, CUE, 60 * 20);
+    const alto = voices(w, ALTO)[0]!;
+    expect(alto.enemy!.tier).toBe('elite');
+    const solo = next(sim, LAMENT, 120);
+    expect(solo.pctMaxHp).toBeCloseTo(attackDef(LAMENT).pctMaxHp! * VOICE_PCT_MULT, 9);
+    const codex = w.content.enemies.find((e) => e.id === ALTO)!.codex!;
+    expect(codex).toContain(`takes ${Math.round(solo.pctMaxHp * 100)}% of their life`);
+    expect(codex).toContain('55%');
+    const tenor = w.content.enemies.find((e) => e.id === TENOR)!.codex!;
+    expect(tenor).toContain(`${Math.round(attackDef(CADENZA).pctMaxHp! * VOICE_PCT_MULT * 100)}%`);
+    expect(tenor).toContain('110% of their life');
+  });
+
   it('a Solo that can’t begin drops the Cue, and the next is tried 2 s on', () => {
     const { sim, w, boss } = conductor();
     quiet(boss);
@@ -485,6 +551,35 @@ describe('Fortissimo Silence', () => {
     near(first.impact - first.start, 4.5);
     near(second.impact - first.start, 6.75, 1);
     near(third.impact - first.start, 9, 2);
+  });
+
+  it('waits for a Cue in flight: its Solo begins and resolves first, never beside it', () => {
+    const { sim, w, boss } = conductor({}, { untouchable: true });
+    quiet(boss);
+    const m4 = w.internal.m4!;
+    m4.nextRaiseAt = NEVER;
+    const cue = next(sim, CUE, 60 * 20);
+    // Discord fills during the Cue's cast, before its Solo begins.
+    w.field.finale!.discord!.value = 99.8;
+    const solos = new Set(Object.values(SOLOS));
+    let overlap = 0;
+    let soloSeen = false;
+    const fortissimo = stepUntil(
+      sim,
+      () => {
+        const live = w.telegraphs.map((t) => t.attackId);
+        const solo = live.some((id) => solos.has(id));
+        soloSeen ||= solo;
+        if (solo && live.includes(FORTISSIMO[0])) overlap++;
+        return live.includes(FORTISSIMO[0]);
+      },
+      60 * 10,
+    );
+    expect(ofType(fortissimo, 'telegraphStarted').some((t) => t.owner === boss.id)).toBe(true);
+    expect(soloSeen).toBe(true);
+    expect(overlap).toBe(0);
+    const first = w.telegraphs.find((t) => t.attackId === FORTISSIMO[0])!;
+    expect(first.start).toBeGreaterThan(cue.impact + 1e-6);
   });
 
   it('a phase-2 crossing re-queues it, cast again after the shift with a full telegraph', () => {

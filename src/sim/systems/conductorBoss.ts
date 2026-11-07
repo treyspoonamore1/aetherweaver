@@ -399,11 +399,13 @@ function conductorTick(world: World, boss: Entity): void {
 
 /**
  * Fortissimo Silence at 100 Discord (or cast again after a phase shift cut it off), once no Solo
- * is live. One that would begin while a Crescendo runs is cancelled by it at once.
+ * is live and no Cue is in flight: a Cue whose cast ended this tick lands (and begins its Solo)
+ * after the script's tick, so it waits for that Solo too. One that would begin while a Crescendo
+ * runs is cancelled by it at once.
  */
 function beginFortissimo(world: World, boss: Entity, f: FinaleField, m4: M4): boolean {
   const full = !!f.discord && f.discord.value >= DISCORD_MAX - 1e-9;
-  if ((!full && !m4.queued) || f.fortissimo || soloLive(world)) return false;
+  if ((!full && !m4.queued) || f.fortissimo || f.cue || soloLive(world)) return false;
   if (crescendoRunning(world)) {
     delete m4.queued;
     if (f.discord) f.discord.value = 0;
@@ -479,13 +481,23 @@ function raiseVoices(world: World, boss: Entity): string[] {
   return order.filter((id) => !present.has(id)).slice(0, room);
 }
 
-/** Begins a Raise if it would bring anyone; the next is due a cooldown on. */
+/**
+ * Begins a Raise if it would bring anyone; the next is due a cooldown on. Never while one is in
+ * flight: a Raise whose cast ended but whose telegraph hasn't resolved yet (the script's tick runs
+ * before `resolveTelegraphs` on its landing tick) has voices on their way that aren't in
+ * `pendingSpawns` yet, so a Cue turned Raise would otherwise be cast twice.
+ */
 function beginRaise(world: World, boss: Entity, m4: M4): boolean {
-  if (raiseVoices(world, boss).length === 0) return false;
+  if (raiseInFlight(world, boss) || raiseVoices(world, boss).length === 0) return false;
   const raise = attackDef(RAISE);
   if (!beginAttack(world, boss, raise, null)) return false;
   m4.nextRaiseAt = world.time + raise.cooldown;
   return true;
+}
+
+/** The boss's Raise is unresolved: its telegraph still live (its cast is `c.cast` until then). */
+function raiseInFlight(world: World, boss: Entity): boolean {
+  return world.telegraphs.some((t) => t.owner === boss.id && t.attackId === RAISE);
 }
 
 /**

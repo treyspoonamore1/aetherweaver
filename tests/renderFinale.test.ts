@@ -1075,8 +1075,9 @@ describe('The budget', () => {
 
 describe('Integration: a real Conductor fight lights the Finale counters', () => {
   it('the Skilled bot against the Silent Conductor: Cues, Discord from the verdict’s failed victims, Fortissimo, the silence, its notes and its end', () => {
-    // Seed 5 with the Movement IV kit reaches the Grand Silence and Reignites (tools/decrees.ts).
-    const seed = 5;
+    // Seed 3 with the Movement IV kit reaches the Grand Silence and Reignites (tools/decrees.ts).
+    // (Seed 5 did until the Cue-turned-Raise stopped being cast twice; it now falls in phase 2.)
+    const seed = 3;
     const sim = createSim({ seed, encounter: CONDUCTOR, ...kitConfig(ARRIVAL4_KIT) });
     const h = harness(sim);
     const bot = makeBot('skilled', seed);

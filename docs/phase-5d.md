@@ -69,7 +69,7 @@ Each Movement so far has attacked something: Movement I the party's health, Move
    SIM_VERSION stays **22**. Only `contentVersion` moves. No aura definition, number, list or reservation changes.
 7. **One public key.**
    - Bots, HUD, render and audio read one lazy, hashed `field.finale`, deleted at the encounter's end.
-   - Script clocks live in a lazy `internal.m4`.
+   - Script clocks live in a lazy `internal.m4` (`world.ts`): the clocks `nextCueAt`, `nextRaiseAt`, `nextRestAt`, `nextMeasureAt`, `nextCadenceAt`, `nextDownbeatAt`, `nextSforzandoAt` and `nextRewindNoteAt` (Q8's one Rewind note per 18 s), plus `cycle`, `cuedAt`, `live`, `seen`, `queued` and `choirRaise` (phase 2's entry Raise still to land). Every key is optional and set lazily.
    - Every Finale id is a constant in `src/content/crucibleIds.ts`, so workstreams never guess a string.
 
 ## Scope
@@ -365,7 +365,7 @@ Phase banners also carry a line: phase 2 'Hear how they strain.', phase 3 'Hush.
 - Every 14 s it Cues a soloist. The Cue lasts 1.2 s, then the Solo winds up for 2.5 s and names its target. From the Cue's start to the Solo's impact, a baton line joins the Conductor and the soloist.
 - Downbeat and Sforzando run on the picker. Discord rises +0.5/s, plus failures.
 - **The Cue gate:** no Cue while Fortissimo is up, while the boss is casting, or while 2 or more damaging telegraphs are live.
-- **Soloist choice:** an idle standing voice never Cued first, else the one Cued longest ago, ties broken by entity id. If none is idle, the Cue waits. If none stands, it becomes a Raise.
+- **Soloist choice:** an idle standing voice never Cued first, else the one Cued longest ago, ties broken by entity id. If none is idle, the Cue waits. If none stands, it becomes a Raise, cast once: no Raise begins while another is in flight (its voices are on their way), so the Cue then waits for them.
 - **Double threat:** a Downbeat on the tank while a Solo sings (two telegraphs, inside the cap). Ward the tank, and interrupt or answer the Solo.
 - Skilled target: about 60-70 s, about 4 Cues (2 each for Alto and Bass).
 
@@ -380,7 +380,7 @@ Phase banners also carry a line: phase 2 'Hear how they strain.', phase 3 'Hush.
 ### Discord and Fortissimo Silence (phases 1-2)
 
 - Each failed Finale telegraph adds its `discord` and pushes `discordRose {boss, telegraph, amount, value}`.
-- At 100, once no Solo is live (an in-flight Solo resolves first, at most 2.5 s), the Conductor begins Fortissimo Silence.
+- At 100, once no Cue or Solo is live (an in-flight Solo resolves first, at most 2.5 s; a Cue still being cast lands and its Solo resolves first, at most 1.2 + 2.5 s), the Conductor begins Fortissimo Silence. It never begins on the tick a Cue lands, beside that Cue's Solo.
 - A Crescendo cancels it (`fortissimoCancelled {by:'crescendo'}`). If it isn't cancelled, three pulses land, and Discord resets to 0 after the third.
 
 Survival at full life without a Crescendo (150% = Kael 2,400, Lyra 1,230, Vexis 1,110, Brann 1,875; `heroes.ts:11, 99, 187, 279`; Ward = 30% + 120 for 3 s, cooldown 7, `weaver.ts:40-46`; Mend 90/s on one hero, `weaver.ts:26`):
@@ -477,7 +477,7 @@ Four faceted glass choristers echo Movement I's porcelain choir. Each voice mirr
   - 'Basso Ostinato — the Bass's Solo on {hero}. Ward on the beat, or interrupt it.'
   - 'Cadenza — the Tenor's Solo cuts a line to {hero}: more than their life. Reel them out, step aside, or interrupt it.'
   - 'Shatter Aria — the Soprano's Solo shatters a crowd around {hero}. Scatter so it catches one, or interrupt it.'
-- Each voice's codex line names its Solo and answer.
+- Each voice's codex line names its Solo and answer. A share of life is told as it lands on the elite voice (the right-hand number above: the Lament's 55%, the Cadenza's 110%), so the Codex, the Decree ('more than their life') and this table agree.
 - First-sighting cards come from `crucibleLesson`, shown at the voice's first Cue.
 
 ## Every beat, its verb and its answer

@@ -486,7 +486,8 @@ export const AttackDefSchema = z.object({
   damage: z.number().nonnegative(),
   /**
    * Alternative to `damage`: fraction of the target's max HP. Above 1 only for a blow lethal from
-   * full life (the Finale's Final Cadence, docs/phase-5d.md).
+   * full life (the Finale's Final Cadence, docs/phase-5d.md); the content lint keeps that on
+   * Movement 4's attacks.
    */
   pctMaxHp: z.number().nonnegative().optional(),
   radius: z.number().nonnegative(),
@@ -1733,11 +1734,9 @@ function lintMovement3(c: ContentShape, ctx: z.RefinementCtx, sets: LintSets): v
   for (const m of c.motifs)
     if (m.requires.movement !== undefined && m.requires.movement > movements)
       issue(`motif "${m.id}": Movement ${m.requires.movement} is past the last`);
-  // A relic may wait for the Finale's Movement once its fights exist, before its def is
-  // registered (docs/phase-5d.md: the Finale lands its content before the route).
-  const fought = Math.max(movements, ...c.encounters.map((e) => e.movement ?? 1));
+  // A relic waits for a registered Movement (FINALE is registered: Movement 4 is the last).
   for (const r of c.relics)
-    if (r.movement !== undefined && r.movement > fought)
+    if (r.movement !== undefined && r.movement > movements)
       issue(`relic "${r.id}": Movement ${r.movement} is past the last`);
 }
 
@@ -1875,6 +1874,18 @@ function lintFinale(c: ContentShape, ctx: z.RefinementCtx, sets: LintSets): void
         listers.some((e) => (e.movement ?? 1) !== FINALE_MOVEMENT)
       )
         issue(`${where}: discord belongs to Movement ${FINALE_MOVEMENT}'s attacks`);
+    }
+    // A blow lethal from full life (pctMaxHp above 1, the Final Cadence) is the Finale's alone,
+    // as `discord` is: the schema lets the fraction past 1, so this keeps it off Movements I-III.
+    if (a.pctMaxHp !== undefined && a.pctMaxHp > 1) {
+      const listers = c.enemies.filter((e) => e.specials.includes(a.id));
+      const affixed = c.affixes.some((f) => f.specials?.includes(a.id));
+      if (
+        affixed ||
+        listers.length === 0 ||
+        listers.some((e) => (e.movement ?? 1) !== FINALE_MOVEMENT)
+      )
+        issue(`${where}: a pctMaxHp above 1 belongs to Movement ${FINALE_MOVEMENT}'s attacks`);
     }
     if (a.answers.includes('crescendo') && a.kind !== 'raid')
       issue(`${where}: an attack the Crescendo answers is a raid`);

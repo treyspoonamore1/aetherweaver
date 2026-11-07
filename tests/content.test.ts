@@ -772,9 +772,15 @@ describe('content lint: Movement III (docs/phase-5c.md)', () => {
       /motif "guard_strand": Movement 5 is past the last/,
     );
     rejects(
-      // Movement 4's fights exist (the Finale, docs/phase-5d.md), so its relics may wait for it.
+      // Four Movements with the Finale: a relic may wait for Movement 4, never 5.
       (c) => void (c.relics.find((r) => r.id === 'knotted_cord')!.movement = 5),
       /relic "knotted_cord": Movement 5 is past the last/,
+    );
+    // A relic waits for a registered Movement, not for fights alone: without FINALE, the
+    // Finale's relics are past the last though its encounters stand.
+    rejects(
+      (c) => void c.movements.splice(c.movements.length - 1, 1),
+      /relic "tacet_mark": Movement 4 is past the last/,
     );
   });
 
@@ -920,6 +926,23 @@ describe('content lint: the Finale (docs/phase-5d.md)', () => {
     expect(issues((c) => void ((c.movements[0] as { road?: unknown }).road = []))).not.toBe('');
     expect(issues((c) => void ((c.movements[1] as { finale?: unknown }).finale = true))).not.toBe(
       '',
+    );
+  });
+
+  it('a pctMaxHp above 1 sits only on the Finale’s attacks (the Final Cadence)', () => {
+    expect(CONTENT.attacks.find((a) => a.id === ids.FINAL_CADENCE)!.pctMaxHp).toBeGreaterThan(1);
+    expect(issues(() => {})).toBe('');
+    rejects(
+      (c) => void (attack(c, 'unweaver_spindles').pctMaxHp = 1.15),
+      /"unweaver_spindles": a pctMaxHp above 1 belongs to Movement 4's attacks/,
+    );
+    // Exactly 1 stays legal anywhere (a Movement I-III share of life never passed it).
+    expect(issues((c) => void (attack(c, 'unweaver_spindles').pctMaxHp = 1))).not.toMatch(
+      /pctMaxHp above 1/,
+    );
+    rejects(
+      (c) => void c.affixes.find((f) => f.id === 'mimicking')!.specials!.push(ids.FINAL_CADENCE),
+      new RegExp(`"${ids.FINAL_CADENCE}": a pctMaxHp above 1 belongs to Movement 4's attacks`),
     );
   });
 

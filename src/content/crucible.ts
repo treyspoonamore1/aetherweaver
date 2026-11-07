@@ -108,6 +108,12 @@ const BASSO_RADIUS = 2.5;
 const CADENZA_PCT = 1;
 const CADENZA_LINE = 24;
 const CADENZA_WIDTH = 1.6;
+/**
+ * An elite's share of life is ×1.1 (the sim's `beginAttack`, enemies.ts), and every voice is
+ * Raised an elite, so a Solo's share is told as it lands (the doc's voice table: 55% and 110%).
+ * Exported for the test that pins it to the sim's telegraph.
+ */
+export const VOICE_PCT_MULT = 1.1;
 const ARIA_DAMAGE = 480;
 const ARIA_RADIUS = 4.5;
 /** Shatter Aria feeds Discord only when it catches this many unanswered heroes. */
@@ -552,7 +558,7 @@ export const CRUCIBLE_ENEMIES: ContentInput['enemies'] = [
     preferredRange: BODIES.mirror_alto.keep,
     specials: [LAMENT],
     suppressRadius: 0,
-    codex: `A glass chorister singing Lyra’s line back, inverted. Cued, its Lament marks a hero for ${SOLO_WINDUP} s, then takes ${pct(LAMENT_PCT)}% of their life. Chime the mark away (in its last second, a Clutch), Ward it, or interrupt the Alto.`,
+    codex: `A glass chorister singing Lyra’s line back, inverted. Cued, its Lament marks a hero for ${SOLO_WINDUP} s, then takes ${pct(LAMENT_PCT * VOICE_PCT_MULT)}% of their life. Chime the mark away (in its last second, a Clutch), Ward it, or interrupt the Alto.`,
     material: 'glass',
     movement: FINALE_MOVEMENT,
   },
@@ -582,7 +588,7 @@ export const CRUCIBLE_ENEMIES: ContentInput['enemies'] = [
     preferredRange: BODIES.mirror_tenor.keep,
     specials: [CADENZA],
     suppressRadius: 0,
-    codex: `A glass chorister singing Kael’s line back, inverted. Cued, its Cadenza cuts a ${CADENZA_LINE} m line to the farthest hero for ${pct(CADENZA_PCT)}% of their life. Reel them out, step aside, or interrupt the Tenor.`,
+    codex: `A glass chorister singing Kael’s line back, inverted. Cued, its Cadenza cuts a ${CADENZA_LINE} m line to the farthest hero for ${pct(CADENZA_PCT * VOICE_PCT_MULT)}% of their life. Reel them out, step aside, or interrupt the Tenor.`,
     material: 'glass',
     movement: FINALE_MOVEMENT,
   },
