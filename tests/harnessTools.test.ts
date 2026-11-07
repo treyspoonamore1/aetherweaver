@@ -37,6 +37,7 @@ import {
 } from '../tools/m1-baseline';
 import { CHOIR_VOICES, SCENARIO_CONDUCTOR_PEAK, SCENARIO_GRAND_SILENCE } from '../tools/sim-bench';
 import { callingArg, rulesFor, techniquesArg, verbConfig, verbFight } from '../tools/verbs';
+import { NOVICE_M4_RULES } from '../src/bots/novice';
 import { FINALE_RULES, M3_RULES, SkilledBot } from '../src/bots/skilled';
 import { makeBot, type Bot } from '../src/bots';
 import { band, NAMED_PARTIES, parseArgs, partyArg, runBand } from '../tools/harness';
@@ -777,6 +778,8 @@ describe('the harness’s Finale tables', () => {
     expect(callingBand(4)).toContain('the Silent Conductor');
     expect(rulesFor(3)).toBe(M3_RULES);
     expect(rulesFor(4)).toBe(FINALE_RULES);
+    expect(rulesFor(4, 'novice')).toBe(NOVICE_M4_RULES);
+    expect(rulesFor(3, 'novice')).toEqual([]);
     expect(BOSS_TABLES.the_silent_conductor!.kit).toBe(ARRIVAL4_KIT);
   });
 });

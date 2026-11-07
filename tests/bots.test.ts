@@ -8,6 +8,7 @@ import { CONTENT } from '../src/content';
 import * as Run from '../src/meta/run';
 import { makeBot, SkilledBot, type BotKind } from '../src/bots';
 import { FINALE_RULES, M3_RULES } from '../src/bots/skilled';
+import { NOVICE_M4, NOVICE_M4_RULES, NoviceBot, type NoviceM4Rule } from '../src/bots/novice';
 import {
   DOOM_CHIME_AT,
   FINALE_BANK_AT,
@@ -3306,12 +3307,11 @@ describe('Finale smoke guards (ARRIVAL4_KIT)', () => {
     expect(movementEncounters(4)).toEqual([CONDUCTOR]);
   });
 
-  // Integration (m4/integration): on, this fails only on the Grand Silence (3 of 7 reignited,
-  // 43%, over its 12 seeds); every Solo and Fortissimo clears 80%. Answering the silence is the
-  // tuning step's (W9: the notes, the program's cadence and the bots' silence rules), so the
-  // guard waits for it. Turn it back on (drop TUNED_SILENCE) once W9 lands.
-  const TUNED_SILENCE = false;
-  it.skipIf(!CONDUCTOR_UP || !BOSS_TABLES[CONDUCTOR] || !TUNED_SILENCE)(
+  // On again since the tune prep (m4/tune): with the review's silence fixes (the Skilled bot's
+  // clutch Chime and Reel-save) every Grand Silence it reaches over these 12 seeds reignites by
+  // its notes (6 of 6), and every Solo and Fortissimo Silence clears 80% (the lowest, Cadenza,
+  // 87%). It was gated (TUNED_SILENCE) at integration, when 3 of 7 reignited.
+  it.skipIf(!CONDUCTOR_UP || !BOSS_TABLES[CONDUCTOR])(
     'in play: each Conductor Decree is answered ≥ 80% over 12 seeds (tools/decrees.ts)',
     () => {
       const table = BOSS_TABLES[CONDUCTOR]!;
@@ -3330,5 +3330,99 @@ describe('Finale smoke guards (ARRIVAL4_KIT)', () => {
       }
     },
     300_000,
+  );
+
+  // The Grand Silence, played into through setBossHp (26%): no bot sends a Directive while it
+  // holds. The player's wheel is frozen then (src/input/InputController.ts), and the sim itself
+  // still takes one (applyDirective has no silence guard), so a bot that sent one would play the
+  // silence by a rule the player can't: its measured silence would not be the player's.
+  it.skipIf(!CONDUCTOR_UP)(
+    'no bot sends a Directive while the Grand Silence holds',
+    () => {
+      for (const bot of ['skilled', 'novice'] as BotKind[]) {
+        let silenced = 0;
+        for (const seed of [1000, 8919, 16838]) {
+          const sent: string[] = [];
+          fight(
+            CONDUCTOR,
+            seed,
+            (sim, _events, commands) => {
+              if (!sim.state.field.finale?.silence) return;
+              silenced++;
+              for (const c of commands) if (c.t === 'directive') sent.push(c.kind);
+            },
+            { bossHp: 0.26, bot, seconds: 120 },
+          );
+          expect(sent, `${bot} ${seed}`).toEqual([]);
+        }
+        // The silence was played (held over a second a fight on average).
+        expect(silenced, bot).toBeGreaterThan(3 * 60);
+      }
+    },
+    120_000,
+  );
+});
+
+describe('the Novice’s Finale draws can be left off (tools/verbs.ts --bot novice)', () => {
+  it('NOVICE_M4_RULES names every NOVICE_M4 draw, in order', () => {
+    expect(NOVICE_M4_RULES).toEqual(Object.keys(NOVICE_M4));
+    expect(NOVICE_M4_RULES).toEqual([
+      'fortissimoCrescendo',
+      'cueFocus',
+      'silenceChime',
+      'silenceWard',
+      'silenceReel',
+      'reigniteCue',
+    ]);
+  });
+
+  it('an empty or Finale-only skip leaves a Movement I fight’s commands unchanged', () => {
+    const stream = (skip?: ReadonlySet<NoviceM4Rule>) => {
+      const sim = createSim({ seed: 4242, encounter: 'first_light' });
+      const bot = new NoviceBot(4242, skip ? { skip } : {});
+      const out: string[] = [];
+      for (let t = 0; t < 40 * 60; t++) {
+        const commands = bot.decide(sim.state);
+        if (commands.length) out.push(`${t}:${JSON.stringify(commands)}`);
+        sim.step(commands);
+        sim.drainEvents();
+      }
+      return out;
+    };
+    const base = stream();
+    expect(base.length).toBeGreaterThan(0);
+    expect(stream(new Set())).toEqual(base);
+    expect(stream(new Set(NOVICE_M4_RULES))).toEqual(base);
+  });
+
+  it.skipIf(!CONDUCTOR_UP)(
+    'left off, silenceChime casts no Chime in the Grand Silence',
+    () => {
+      const chimesIn = (skip?: ReadonlySet<NoviceM4Rule>) => {
+        let chimes = 0;
+        for (const seed of [1000, 8919]) {
+          const sim = createSim({ seed, encounter: CONDUCTOR, debug: true, ...KIT4 });
+          const bot = new NoviceBot(seed, skip ? { skip } : {});
+          let set = false;
+          for (let t = 0; t < 120 * 60; t++) {
+            const commands = bot.decide(sim.state);
+            if (!set && sim.state.encounter.bossId !== null) {
+              commands.push({ t: 'debug', op: { op: 'setBossHp', pct: 0.26 } });
+              set = true;
+            }
+            if (sim.state.field.finale?.silence)
+              chimes += commands.filter((c) => c.t === 'tech' && c.id === 'chime').length;
+            sim.step(commands);
+            sim.drainEvents();
+            const s = sim.state.encounter.status;
+            if (s === 'victory' || s === 'defeat') break;
+          }
+        }
+        return chimes;
+      };
+      expect(chimesIn()).toBeGreaterThan(0);
+      expect(chimesIn(new Set(['silenceChime']))).toBe(0);
+    },
+    120_000,
   );
 });

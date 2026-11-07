@@ -42,6 +42,7 @@ Each Movement so far has attacked something: Movement I the party's health, Move
    - At 100 it plays its own Crescendo, Fortissimo Silence, and yours silences it. The duel reads at a glance: your Resonance against its Discord.
 3. **Readable, fair and finite.**
    - Every telegraph lasts at least 1.0 s and shows its answer glyph. Every spawn has a ≥ 1.0 s ground warning.
+   - The floor is enforced: in the Finale a windup that would come out under `FINALE_MIN_WINDUP` (1.0 s, `src/content/crucible.ts`) is held at it (`beginAttack`, `enemies.ts`, behind `world.field.finale`). Only Short Fuse's Dissonance windup multiplier (×0.9 a rank, ×0.8 at rank 2) shortens a windup, and without the floor it would take the 1.2 s Cue to 0.96 s.
    - At most two damaging telegraphs are live at once. The script enforces this itself, because READABILITY_CAP only governs the generic picker (`src/sim/systems/enemies.ts:58, 476`).
    - Every down names its answer in the recap.
    - No beat can stall: the Grand Silence ends within its cap (50 s at default assists) whatever happens.
@@ -161,7 +162,7 @@ Questions 4, 5, 6 and 8 take their recommended defaults until you say otherwise.
 | What 'answered' means | **One verdict per Finale telegraph** (an attack with `discord`). A victim **fails** when its own result has `dealt > 0`, `absorbedByWeaver === 0`, no `borne`, no `saved`, no `takenBy`, and it is not in a live Aegis Link. The telegraph fails when failed victims ≥ the attack's `discordQuorum` (default 1). Everything else is answered (table below). | Per-victim Discord punishes raids threefold. Ledger diffs can't tell a dodge from a failure. Perfects-only is too harsh for a healer. |
 | Shatter Aria and Scatter | Aria is a ground circle r 4.5 fixed where its target stood when it began (`enemies.ts:713-716`), with **`discordQuorum: 2`**: it feeds Discord only if it catches two or more unanswered heroes. Scatter keeps the others out; the one it's on can walk out, be Reeled out, or take it under a Ward. | Quorum 1: the target is usually inside, so Scatter alone never answers it. |
 | Discord numbers | 0-100. A failed boss attack +8; a failed Solo +20. A passive rise of +0.5/s in phase 1. **At phase 2's entry it rises to at least 70, then +1.0/s**, so a clean phase 2 reaches 100 within 30 s (the Skilled phase 2 targets 50-60 s). It pauses during the 2 s shift, during Fortissimo and in Stasis, resets to 0 after each Fortissimo, and is gone in phase 3. | Floor 50 and +0.8/s reach 100 after 62.5 s, longer than the phase: Fortissimo would rarely be cast in a clean fight (question 7). |
-| Fortissimo Silence | A **P7 chain of three raid pulses** of 50% max life each. Base windups 3.0, 1.5 and 1.5 s: at default assists, Dissonance 0 and no Lullaby or Slow Dance, impacts land at 3.0, ≈4.5 and ≈6.0 s (±1 tick: each follow-up is queued when the pulse before resolves, `enemies.ts:1266-1273`, and begins on a later boss tick, `bosses.ts:227-230`). Every windup multiplier (telegraphLead, the Dissonance windup, Lullaby, Slow Dance, `enemies.ts:741-753`) lengthens it. Each pulse can be Perfect-Warded. Raids never hit the Weaver (`telegraphs.ts:225-239`). `pctMaxHp` isn't multiplied by the Movement scale or the enrage (`enemies.ts:757-766`), so it is 50% of each hero's own max life in every party (a Shaken hero's max life is ×0.9, `world.ts:977`; the fraction is the same). | One 150% hit: a plain Ward and the dome can't touch it. A DoT: no Perfect on ticks (`health.ts:723-731`), and Stasis pauses ticks. |
+| Fortissimo Silence | A **P7 chain of three raid pulses** of 50% max life each. Base windups 3.0, 1.5 and 1.5 s: at default assists, Dissonance 0 and no Lullaby or Slow Dance, impacts land at 3.0, ≈4.5 and ≈6.0 s (±1 tick: each follow-up is queued when the pulse before resolves, `enemies.ts:1266-1273`, and begins on a later boss tick, `bosses.ts:227-230`). Every windup multiplier scales it (`enemies.ts:741-753`): telegraphLead, Lullaby and Slow Dance lengthen it, and Short Fuse's Dissonance windup multiplier shortens it (×0.9 a rank), never under `FINALE_MIN_WINDUP` 1.0 s (Principle 3). Each pulse can be Perfect-Warded. Raids never hit the Weaver (`telegraphs.ts:225-239`). `pctMaxHp` isn't multiplied by the Movement scale or the enrage (`enemies.ts:757-766`), so it is 50% of each hero's own max life in every party (a Shaken hero's max life is ×0.9, `world.ts:977`; the fraction is the same). | One 150% hit: a plain Ward and the dome can't touch it. A DoT: no Perfect on ticks (`health.ts:723-731`), and Stasis pauses ticks. |
 | Crescendo cancels | **Any Calling's Crescendo** (Sunrise, the Vow, Stasis) cancels a live Fortissimo, or one that would begin while a Crescendo runs. It goes through one installer hook, `setOnCrescendo`, called in `crescendo()` (`techniques.ts:888-928`) right after the flags and `crescendoStart`, so Stasis cancels synchronously. That matters because `updateBosses` doesn't run under Stasis (`api.ts:96-100`). The script then `cancelTelegraph`s the pulses (`telegraphs.ts:689-711`), clears the boss's cast and `m2.followUp`, and sets Discord to 0. | A `ledger.crescendos` diff in `update()` misses Stasis. If Stasis only paused Fortissimo, the Chronomancer would have no cancel. |
 | A threshold crossed during Fortissimo | `enterPhase` cancels the boss's cast as today (`bosses.ts:366-368`). The script's `enter(2)` **re-queues** it (`m4.queued`, Discord = 100), and it is cast again after the shift with a full telegraph. Crossing into phase 3 drops it: the Grand Silence replaces Discord. | A `PhaseDef.waitFor` gate or an HP clamp in `dealDamage` is a new read on a shared path. A free cancel by burst teaches the wrong lesson. |
 | The freeze | A new **non-ailment** status `stilled`, appended to `isDisabled` (`health.ts:104-111`; 5c rule 7) and kept out of AILMENT_IDS (`schema.ts:1472-1490`), so Chime and `immune` can't touch it. `cue()` refuses a stilled hero, as it does a possessed one (`techniques.ts:861`). Reel still pulls one (`castReel` has no disable check; the Reel's flight makes them untouchable, `techniques.ts:446`), which makes the Reel-save possible. | An ailment: a Chime would free them. Fermata's `held` would hijack the Skilled `holding` branch (`skilled.ts:303-310`). |
@@ -170,7 +171,7 @@ Questions 4, 5, 6 and 8 take their recommended defaults until you say otherwise.
 | The last burn's attacks | **The script begins Downbeat and Sforzando itself after Reignite or the Coda** (`m4.nextDownbeatAt` 9 s, `m4.nextSforzandoAt` 12 s, through the same cast gate). The PHASES row keeps `specials: []` in phase 3, so the generic picker never casts into the silence. | Phase-3 specials on the picker would fire Downbeats at frozen heroes; a fourth PHASES row needs an HP threshold the burn doesn't have. |
 | Notes | **Script ledger diffs, no new hooks.** At silence entry m4 snapshots `ledger.perfects`, `ledger.clutchCleanses`, `ledger.saves.length`, `ledger.calling.rewound` and the `rewind` markers (`ledger.markers`, pushed by `castRewind`, `rewind.ts:133`). A note is: a new Perfect; a new clutch (per hero, as the ledger counts); a new save with cause **`reel`**; or a new Rewind marker whose cast restored life (`rewound` rose) or cancelled a tracked silence telegraph (question 8). The script counts in `update()` and `stasis()`. | Hooks in `perfect()`, `updateChimes` and `recordSave` touch three hot paths. Counting every save cause lets Bear, the Vow and the Lamb score passively. Paradox spares can't be notes (above). |
 | Clutch in the silence | The silence's mark **is a Dirge**: markStatus defaults to Dirge (`enemies.ts:767-768`). So the existing clutch test (`telegraphs.ts:713-716`) works unchanged. | Generalising clutch to every mark changes Movement II-III Chimes. |
-| The silence program | Rest → Measure → Cadence, scheduled **from impacts**: Measure begins 0.5 s before Rest's impact, Cadence 0.5 s after Measure's, the next cycle 1.0 s after Cadence's. At default assists the cycle is 9.0 s with at most two live telegraphs, and any windup multiplier stretches the cycle in proportion while the cap still holds. **The Cadence alternates**: the **Final Cadence** (115%, lethal from full) on even cycles, the **Half Cadence** (60%) on odd ones, so a lethal blow comes every 18 s, matching Reel's 14 s cooldown. | Fixed offsets break under telegraphLead, Lullaby and Dissonance. A lethal Cadence every cycle wipes the Novice in 77% of silences (`silence.mjs`). |
+| The silence program | Rest → Measure → Cadence, scheduled **from impacts**: Measure begins 0.5 s before Rest's impact, Cadence 0.5 s after Measure's, the next cycle 1.0 s after Cadence's. At default assists the cycle is 9.0 s with at most two live telegraphs, and any windup multiplier scales the cycle in proportion (telegraphLead and Lullaby stretch it, Short Fuse shortens it) while the cap still holds. **The Cadence alternates**: the **Final Cadence** (115%, lethal from full) on even cycles, the **Half Cadence** (60%) on odd ones, so a lethal blow comes every 18 s, matching Reel's 14 s cooldown. | Fixed offsets break under telegraphLead, Lullaby and Dissonance. A lethal Cadence every cycle wipes the Novice in 77% of silences (`silence.mjs`). |
 | Reignite | Each note fills **12.5** of every stilled hero's Solo. The eighth note takes `stilled` off, leaves every standing Solo at 100 (`soloReady`; the `chargeSolos` pattern, `commands.ts:150-157`), and **stands every downed hero back up at 30%** (`reviveHero(world, hero, THREAD.reviveHpPct)`, `health.ts:1566`; `weaver.ts:33`). The burn's Solos are the Weaver's to Cue: with autonomy off (the default, `settings.ts:115`, `world.ts:342`) an uncued Solo waits (`heroes.ts:253-264`); the notes' Resonance (Perfect 20, save 25, clutch 15, `weaver.ts:66-70`) pays for the Cues. | A hero damage multiplier touches the hero damage path in every fight. 'Uncued Solos fire on their own' is true only with autonomy on. |
 | Fail-forward: the Coda | At the cap (50 s × telegraphLead × the Dissonance windup multiplier, fixed at silence entry), the *Coda*: `stilled` comes off and the burn begins, but **Solos keep only what the notes gave and nobody is stood back up**. No extra attack. With no Weaver (`config.absent`) or a downed one, no notes come, and the Final Cadence downs a frozen hero every 18 s, so the party falls before the cap or limps into the Coda; the enrage ends it either way. A frozen party alone never triggers defeat (`director.ts:207-223`); downed heroes do. | No cap: the Novice can't finish (she reignites by notes in about 5% of silences, `silence.mjs`). A Coda Fortissimo hits an already hurt party and turns the Novice's Coda into a wipe. The penalty that remains (lost Solos, no revive, 50 s of blows) keeps the notes worth playing for. |
 | The choir at the silence | Entering phase 3 interrupts any singing voice (`interruptEnemy`), then shatters the choir with `killEnemy(world, add, null)`: no credit, 'the choir falls silent'. | Stilling the adds would wake them into the burn and pull Focus off the boss. |
@@ -628,7 +629,7 @@ Each candidate was checked against heal, shield, amp, lethal, threat, ailment, B
   - ambience: high bowed-glass shimmer.
   - The Conductor's motif is the Weaver's phrase inverted (`mirrorIndex`). Each Cue plays the voice's mirrored leitmotif in minor.
 - **Discord fed:** a soft half-step tick (E–F). The phase-2 rise is a slow rising pad note under the stems.
-- **Fortissimo Silence:** a rising tutti over each pulse's whole windup (3 s for the first at default assists; every windup multiplier lengthens it, `TUTTI_MAX` 16 s is only a guard) that cuts to nothing as the pulse lands. A Crescendo cancel resolves it into the Crescendo's swell.
+- **Fortissimo Silence:** a rising tutti over each pulse's whole windup (3 s for the first at default assists; every windup multiplier scales it, Short Fuse down to the 1.0 s floor; `TUTTI_MAX` 16 s is only a guard) that cuts to nothing as the pulse lands. A Crescendo cancel resolves it into the Crescendo's swell.
 - **The Grand Silence set piece** (04 §4.1):
   - `MusicInputs.silence?: {on, notes}` comes from public state (the `m3Inputs` pattern, `sfx.ts:6005-6014`).
   - The crucible `targets` hook (`music.ts:591`) zeroes all four stems while `on`, then reopens them two notes per stem: 1-2 pad, 3-4 pulse, 5-6 melody, 7-8 choir. A change in notes forces an urgent re-level on the next beat (the `stolenHeard` pattern, `:466-470`).
@@ -763,7 +764,7 @@ The Coda keeps her band reachable. **Idle** stays `[]` (`src/bots/index.ts:7-12`
   - `harness.ts`: `MOVEMENT_BANDS[4]`; `runBand(4)` 'won ÷ reached the Finale'; `finaleLine`; brannBand rows for movement 4.
   - `m1-baseline.ts`: `BASELINES[4]` / `DRIFTED[4]`.
   - `decrees.ts`: `BOSS_TABLES.the_silent_conductor`.
-  - `verbs.ts`: FINALE_RULES, with the rule set following `--movement`.
+  - `verbs.ts`: FINALE_RULES, with the rule set following `--movement`; `--bot novice` ablates NOVICE_M4 (`NoviceOptions.skip`, absent by default).
   - `callings.ts --cells --movement 4`; the band label names the Conductor.
   - `brann-bands.ts`: `--movement 4`, `--runs --movements 4`; ExtraWatch gains Fortissimo damage, stilled time and Solos landed on Brann.
   - `pacing.ts`: 'Expedition: average X (band 30-40, stretch 38) · winning-run median Y · won III Z%' replaces the 'Finale budget' line (`:217-231`); labels replace ROMAN; IV/I XP per combat minute; the Finale's time comes from the played fight, per Calling and party.
@@ -837,6 +838,145 @@ Scratch model `pace5d.ts` uses `tools/pacing.ts`'s player model (Skilled, about 
   - `ROUTE_MINUTES.expedition` set from the measured average.
 - **If 9001 lands over 40:** the Conductor's life (the burn), the silence cap 50 → 45 s, then the s5 road.
 - **Presentation stays off the critical path.** The epilogue is skippable and sits inside the Summary's `AFTER_RUN` 45 s.
+
+## Tune prep: the ablation round and where the Finale stands (m4/tune, 2026-11-07)
+
+Measured on main's Finale (65b6290) plus this step's bot-tool changes, before any Finale number is tuned. Every cell plays the Silent Conductor on ARRIVAL4_KIT, 24 seeds from base 1000 (seed `1000 + i × 7919`), unless it says otherwise. 24 seeds give about ±10 points of noise on a win rate, so a row only counts as a finding when the mechanism behind it shows up too.
+
+### Carry-over items
+
+- **Already fixed on main**, each with a test, and checked again here:
+  - the Cue-turned-Raise cast twice (`raiseInFlight`);
+  - Fortissimo Silence beginning on a Cue's landing tick (`beginFortissimo` waits on `f.cue`);
+  - range 44 on every scripted Finale attack (the content test 'every scripted Finale attack spans the Crucible');
+  - Calling rows that must rise (the road lint);
+  - the voices' Codex shares (55% and 110%, as elites);
+  - the harness's `cuesFailed` (01c701c);
+  - render's Discord streaks (`discordRose.failed`, and the linked Weaver);
+  - the tutti's `TUTTI_MAX`;
+  - the Coda bar's cap (taken from `silenceBegan`, so Stasis can't shrink it);
+  - the choir-cap and `internal.m4` key wording in this doc;
+  - the colour table and the Audio progression.
+- **Doc mismatch fixed here:** Principle 3 and the Fortissimo, silence-program and Audio rows said every windup multiplier lengthens. Short Fuse shortens, and `FINALE_MIN_WINDUP` (1.0 s) is the floor.
+- **The Decree smoke guard** (`tests/bots.test.ts`, 'each Conductor Decree is answered ≥ 80% over 12 seeds') runs again: `TUNED_SILENCE` is gone. Over its 12 seeds the Skilled bot reignites by notes in **6 of 6** silences it reaches (100%; 12 of 12 over 24 seeds). Every Solo and Fortissimo Silence clears 80%; the lowest is Cadenza at 87%.
+- **Directives in the silence:** the sim's `applyDirective` still takes one (only the input layer freezes the wheel). Neither bot sends one while the silence holds, and a new test pins that, so bot measurements play the silence by the player's rules. A sim-side refusal stays a design choice, not made here.
+- **Left for the hand-off, not defects:**
+  - the four Finale goldens, `m4-baseline` / `expedition4-baseline`, `commandSnapshotFinale` and `finaleHandoff` (they pin tuned numbers);
+  - `ROUTE_MINUTES.expedition` (from the measured pacing);
+  - `docs/phase-5d/{vfx-audio.md, ui.md}`.
+- **Not run here:** `e2e/smoke.spec.ts` (this machine has no Playwright browser).
+- **Left as they are:**
+  - A Dissonance gate opened mid-run by an XP award shows on the Rank-15 card, not in the Summary's Dissonance panel. The first-clear card reads the store, so it is right.
+  - Fortissimo pulses split to a Weaver in an Aegis Link, as every raid does (unchanged outside the silence).
+  - `Telegraph.sole` circles drawn at 2.5 m.
+
+### `tools/verbs.ts` ablation, Skilled `FINALE_RULES` (win points / length / downs a fight, with the rule off against every rule on)
+
+| Rule left off | default | A | B | C | Luminary | Martyr | Chrono | Chrono+Paradox |
+|---|---|---|---|---|---|---|---|---|
+| every rule on (win · length · downs) | 50% · 265 s · 2.96 | 63% · 303 s · 5.04 | 63% · 229 s · 6.25 | 29% · 363 s · 6.46 | 50% · 252 s · 3.33 | 54% · 297 s · 3.21 | 96% · 302 s · 0.83 | 100% · 293 s · 0.79 |
+| −`cueFocus` | -25 / -29 s / +1.12 | +0 / +25 s / +1.38 | -21 / -33 s / +1.42 | +13 / -36 s / -0.88 | +4 / +13 s / +0.54 | +13 / -21 s / -0.58 | -4 / -14 s / +0.33 | -17 / -22 s / +0.63 |
+| −`cueFocusCrowd` | -4 / +5 s / +0.21 | +13 / +17 s / -0.42 | +8 / +14 s / -0.29 | +13 / +26 s / +0.71 | -4 / -15 s / +0.04 | -4 / -22 s / +0.13 | +0 / +2 s / +0.21 | +0 / +9 s / +0.04 |
+| −`bankCrescendo` | -17 / -53 s / -0.04 | -4 / -33 s / +0.75 | -4 / -23 s / -0.63 | +8 / -40 s / +1.08 | -4 / -59 s / -0.33 | -12 / -46 s / -0.25 | -4 / -33 s / +0.13 | -8 / -21 s / +0.50 |
+| −`crescendoCancel` | -21 / -22 s / +0.96 | +8 / +27 s / +1.54 | -21 / -30 s / -0.21 | +4 / +2 s / +0.33 | +0 / +10 s / +0.13 | -17 / +8 s / +0.50 | -8 / -10 s / +0.33 | -4 / +10 s / -0.04 |
+| −`fortissimoGuard` | +0 / -0 s / -0.04 | -4 / +2 s / +0.04 | -4 / -7 s / +0.00 | +4 / +1 s / -0.21 | +0 / -0 s / +0.00 | +8 / +13 s / -0.25 | +0 / -1 s / +0.00 | +0 / -0 s / -0.04 |
+| −`silenceWard` | +0 / +4 s / +0.21 | +0 / +5 s / +0.13 | +0 / +5 s / +0.00 | +0 / +3 s / +0.00 | +0 / +6 s / +0.42 | +0 / +5 s / +0.04 | +0 / +5 s / +0.54 | +0 / +6 s / +0.17 |
+| −`silenceChime` | +0 / +8 s / +0.08 | +0 / +11 s / +0.33 | +0 / +8 s / +0.08 | +0 / +5 s / +0.13 | +0 / +7 s / +0.04 | +0 / +8 s / +0.13 | +0 / +13 s / +0.13 | +0 / +13 s / +0.00 |
+| −`silenceReel` | +0 / +3 s / +0.00 | +0 / +4 s / +0.08 | +0 / +4 s / +0.08 | +0 / +2 s / +0.00 | +0 / +3 s / +0.00 | +0 / +3 s / -0.04 | +0 / +1 s / +0.00 | +0 / +4 s / +0.04 |
+| −`silenceThread` | +0 / +0 s / +0.00 | +0 / +0 s / +0.00 | +0 / -0 s / +0.00 | +0 / +0 s / +0.00 | +0 / +0 s / +0.00 | +0 / +0 s / +0.00 | +0 / -0 s / +0.00 | +0 / +0 s / +0.00 |
+| −`reigniteCue` | +0 / +0 s / +0.00 | +0 / +2 s / +0.08 | +0 / +0 s / +0.00 | +0 / +1 s / +0.08 | +0 / +0 s / +0.00 | +0 / +0 s / +0.00 | +0 / -0 s / +0.00 | +0 / +0 s / -0.04 |
+
+Chrono is the Chronomancer on path `0001` (Eternal Moment), Chrono+Paradox on `0000`; Luminary and Martyr play their first path.
+
+The rows that moved by more than the noise were played again at 50 seeds on bases 500003 and 777001:
+
+| Rule left off (50 seeds) | default | A | B | C | Martyr |
+|---|---|---|---|---|---|
+| −`cueFocusCrowd` | +2 / +2 | +6 / +0 | -2 / +6 | +2 / +2 | — |
+| −`crescendoCancel` | +16 / -6 | +0 / -8 | -16 / +8 | +8 / +12 | +6 / -4 |
+| −`fortissimoGuard` | +2 / -6 | -2 / +2 | +0 / +0 | +10 / +6 | -2 / -4 |
+| −`cueFocus` | — | — | — | — | +0 / +10 |
+
+(Win points on 500003 / 777001.) Only one row keeps its sign across all three sets: party C is better without `crescendoCancel` (+4, +8, +12). No mechanism was found for it, so it is a lead for the tuning step, not a fix.
+
+**No `FINALE_RULES` rule is plainly broken. Nothing in the Skilled bot changes.** By rule:
+
+- **The silence rules are flawless, not mistimed.** In 24 `setBossHp 0.26` silences the default Skilled bot casts 96 Wards, 72 Chimes and 24 Reels, and each one is a note (96 Perfects, 72 clutches, 24 Reel-saves). No hero takes a silence blow. It is the same in every party and Calling: Chronomancer Rewinds are notes, and an Anchor Weaver makes 4 Perfects and 4 clutches.
+  - `silenceThread` is never needed: nobody is hurt.
+  - `reigniteCue` changes nothing because the plain Cue loop already Cues every ready Solo in the burn (96 Cues against 72, with the same burn length of 22.7 s).
+- **`crescendoCancel` loses no Resonance.** No Resonance is spent at Discord ≥ 60 outside Fortissimo Silence (`bankCrescendo` holds every Cue and Crescendo).
+  - Of 60 Fortissimo Silences in the default cell, 41 begin at 100 Resonance, 13 short of it and 6 with the Weaver down; 52 are cancelled.
+  - Each one played out was one where the Crescendo couldn't go: Resonance short, or the Weaver downed (one at 100 Resonance, downed just before pulse 1).
+  - Left off, the generic raid trigger still cancels about 0.2 s later. What the rule adds is holding the Cues that would spend the song.
+- **No Reel pulls a hero back into a circle.** Of 328 Reels over 24 default fights, 41 targets were hit within 2.5 s by a telegraph not aimed at them, all but 8 by the Sforzando's 22 m line. The Reel lands them outside the line; the hero then walks back into it on its own.
+- **`cueFocusCrowd` stays.** The 24-seed rows (+13 for A and C) don't hold at 50 seeds (−2 to +6).
+
+### The Novice's `NOVICE_M4` (`tools/verbs.ts --bot novice`, new: `NoviceOptions.skip`)
+
+| Rule left off | default | A | B | C |
+|---|---|---|---|---|
+| every rule on (win · length · downs) | 0% · 94 s · 4.79 | 0% · 84 s · 5.42 | 0% · 103 s · 6.33 | 0% · 105 s · 5.46 |
+| −`fortissimoCrescendo` | +0 / +0 s / -0.04 | +0 / -6 s / -0.42 | not met | +0 / -2 s / +0.00 |
+| −`cueFocus` | +13 / +17 s / -0.21 | +0 / +2 s / -1.04 | +0 / -16 s / -1.46 | +0 / -22 s / -1.08 |
+| −`silenceChime`, `silenceWard`, `silenceReel`, `reigniteCue` | not met | not met | not met | not met |
+
+- The Novice never reaches the silence: she loses in phase 1, at about 75% boss life. Of her 115 downs over 24 fights, 50 come from a phase-1 Fortissimo Silence (she feeds Discord 100 by about 88 s and has no song to cancel it), 26 from the Downbeat and 11 from Basso Ostinato.
+- `cueFocus` costs her about one more down a fight in every party. That held at 50 seeds: +0.5 and +1.2 downs, and 0-2 win points. Each decision with a Cue live, she has a 10% chance to send the party to the soloist, however late. That is a lever (0.10), not a broken rule.
+- Her silence draws, measured through `setBossHp 0.26`, are in the table below.
+
+### Current Finale measurements (24 seeds)
+
+**The Silent Conductor**, played from its start:
+
+| Bot · party · Calling | won | length (won) | downs | share | boss life at a loss | Solos (answered) | Fortissimo (cancelled) | silence reached | reignited | to 8 notes | notes P / C / R / Rw |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| Idle · default | 0% | 35 s | 3.00 | 18% | 93% | 2.1 (33%) | 0 | 0/24 | — | — | — |
+| Novice · default | 0% | 94 s | 4.79 | 41% | 75% | 5.5 (86%) | 0.9 (5%) | 0/24 | — | — | — |
+| Novice · A | 0% | 84 s | 5.42 | 39% | 81% | 5.0 (74%) | 1.0 (9%) | 0/24 | — | — | — |
+| Novice · B | 0% | 103 s | 6.33 | 35% | 68% | 6.5 (85%) | 1.1 (0%) | 0/24 | — | — | — |
+| Novice · C | 0% | 105 s | 5.46 | 43% | 78% | 6.6 (87%) | 1.1 (8%) | 0/24 | — | — | — |
+| Skilled · default | 50% | 265 s (339) | 2.96 | 50% | 55% | 16.6 (96%) | 2.5 (87%) | 12/24 | 12/12 | 26.0 s | 3.6 / 3.0 / 1.4 / 0 |
+| Skilled · A | 62% | 303 s (376) | 5.04 | 47% | 59% | 18.7 (91%) | 2.9 (87%) | 15/24 | 15/15 | 23.0 s | 3.7 / 3.0 / 1.3 / 0 |
+| Skilled · B | 62% | 229 s (281) | 6.25 | 46% | 52% | 14.2 (94%) | 1.9 (87%) | 15/24 | 15/15 | 23.0 s | 3.9 / 2.9 / 1.3 / 0 |
+| Skilled · C | 29% | 363 s (460) | 6.46 | 52% | 44% | 24.9 (93%) | 3.9 (72%) | 8/24 | 8/8 | 23.0 s | 3.8 / 3.0 / 1.2 / 0 |
+| Skilled · Luminary | 50% | 252 s (282) | 3.33 | 53% | 45% | 15.8 (96%) | 2.0 (81%) | 12/24 | 12/12 | 23.0 s | 3.8 / 3.2 / 1.1 / 0 |
+| Skilled · Martyr | 54% | 297 s (350) | 3.21 | 49% | 51% | 19.3 (96%) | 2.5 (93%) | 14/24 | 13/14 | 23.0 s | 3.9 / 2.9 / 1.0 / 0 |
+| Skilled · Chronomancer | 96% | 302 s (310) | 0.83 | 52% | 72% | 17.0 (97%) | 2.2 (98%) | 23/24 | 23/23 | 26.0 s | 3.8 / 2.9 / 0 / 1.3 |
+| Skilled · Chronomancer + Paradox | 100% | 293 s (293) | 0.79 | 51% | — | 16.9 (98%) | 2.0 (94%) | 24/24 | 24/24 | 23.0 s | 4.1 / 2.9 / 0 / 1.0 |
+| Skilled · Anchor | 58% | 298 s (369) | 2.54 | 51% | 49% | 18.5 (96%) | 2.8 (78%) | 14/24 | 14/14 | 29.7 s | 4.1 / 3.9 / 0 / 0 |
+
+(Notes: Perfect / clutch / Reel-save / Rewind, a silence. The Martyr's one silence not reignited ended in a wipe.)
+
+**The Decree gate** (`tools/decrees.ts --boss the_silent_conductor --seeds 24`):
+
+| | Lament | Basso Ostinato | Cadenza | Shatter Aria | Fortissimo Silence | Grand Silence (reignited) |
+|---|---|---|---|---|---|---|
+| Skilled, answered | 98% of 144 | 96% of 111 | 90% of 61 | 96% of 82 | 88% of 59 | 100% of 12 |
+| Skilled, cast gate | ≥2 in 100% | ≥2 in 96% | ≥1 in 83% (band 85) | ≥1 in 88% | ≥1 in 96% | — |
+| Novice, answered | 100% of 71 | 69% of 59 | 1 cast | 1 cast | 5% of 22 | none reached |
+
+Idle is N/A, as the band allows. Skilled begins 16.6 Solos a fight (band ≥ 7) and the Novice 5.5.
+
+**The Grand Silence**, played into by `setBossHp 0.26`:
+
+| Bot · party · Calling | reignited by notes | Coda | median to 8 notes | notes P / C / R / Rw | won the fight |
+|---|---|---|---|---|---|
+| Idle | 0/24 | 24/24 | — | 0 | 0% |
+| Novice · default / A / B / C | 19 / 20 / 22 / 23 of 24 | 5 / 4 / 2 / 1 | 44.0 s | about 2.6 / 4.2 / 1.0 / 0 | 100% / 100% / 96% / 100% |
+| Skilled · default, A, B, C, Luminary, Martyr | 24/24 each | 0 | 23.0 s | 4.0 / 3.0 / 1.0 / 0 | 100% |
+| Skilled · Chronomancer, with or without Paradox | 24/24 | 0 | 23.0 s | 4.0 / 3.0 / 0 / 1.0 | 100% |
+| Skilled · Anchor | 24/24 | 0 | 29.6 s | 4.0 / 4.0 / 0 / 0 | 100% |
+
+### What the tuning step starts from
+
+- **Skilled at the Conductor:**
+  - Skilled wins 50% (band ≥ 80%), and its winning fights run 280-460 s (band 170-230).
+  - Losses come in phase 2, at about 55% boss life. Downs there are mostly the Downbeat (19), Fortissimo Silence (16), the Sforzando (8) and the Cadenza (7).
+  - The Weaver herself is downed 32 times in 24 fights, mostly by the Alto's and Soprano's bolts (range 10) and the Downbeat. A downed Weaver can't cancel Fortissimo Silence or Ward, so this is the first lever to look at. It falls under choir and Conductor content, not the Weaver's numbers.
+  - `bankCrescendo` costs 20-60 s a fight in every party and Calling. Its levers are `FINALE_BANK_AT` 60 and `FINALE_RESONANCE_RATE` 2: with phase 2's floor of 70, it holds every damage Cue through phase 2.
+- **The Grand Silence is far too forgiving.** Skilled plays it flawlessly in 23-30 s with no harm. The Novice reignites by notes in 79-96% of the silences she is put into, against the modelled 5% and a band that only asks a hero to stand. The silence levers (cycle, cap, Final and Half Cadence) are the place to start.
+- **The Novice** loses every fight in phase 1 (band 15-40%), to a phase-1 Fortissimo Silence fed by her failures. The levers are Discord's +8/+20, the phase-1 rate and the pulse.
+- **Party C** (Kael, Lyra, Brann) is the weakest: 29%, 363 s, and 72% of its Fortissimo Silences cancelled.
 
 ## Determinism and invariance guards
 
