@@ -815,6 +815,68 @@ describe('Review fixes (the answered victim, the slow windup, the marks, Fermata
     expect(h.feedback.firedFinale.discordBeams).toBe(9);
   });
 
+  it('Discord fallback: a Fermata-held victim and the Weaver a Perfect brought into the Link are answered', () => {
+    const { sim, h, boss } = finaleScene();
+    stage(sim, { discord: { value: 40, rate: 0.5 } });
+    const [a, b, c] = sim.state.party as [number, number, number];
+    const w = sim.state.weaverId;
+    // A lethal blow on a: Fermata holds them (its Save comes only at release), so the hit still
+    // reads 'hit' with damage > 0. W1's failedVictim counts it as answered; b and c streak.
+    const fermata = shatter(sim, boss, 6001);
+    fermata.unshift({
+      type: 'fermataHold',
+      tick: sim.tick,
+      hero: a,
+      until: sim.state.time + 3,
+      attack: 'Shatter Aria',
+      damage: 400,
+    } as SimEvent);
+    h.inject(fermata);
+    expect(h.feedback.firedFinale.discordBeams).toBe(2);
+    // Still held next batch: still answered.
+    h.inject(shatter(sim, boss, 6002));
+    expect(h.feedback.firedFinale.discordBeams).toBe(4);
+    // Released: a clean hit on a streaks again.
+    h.inject([{ type: 'fermataReleased', tick: sim.tick, hero: a, saved: true } as SimEvent]);
+    h.inject(shatter(sim, boss, 6003));
+    expect(h.feedback.firedFinale.discordBeams).toBe(7);
+    // An Aegis Link a Perfect joined (weaver: true): the Weaver's blow is answered, c's is not.
+    const weaverHit = (telegraph: number, weaver: boolean): SimEvent[] => [
+      {
+        type: 'linked',
+        tick: sim.tick,
+        a,
+        b,
+        weaver,
+        until: sim.state.time + 5,
+      } as SimEvent,
+      ...[w, c].map(
+        (target) =>
+          ({
+            type: 'telegraphResolved',
+            tick: sim.tick,
+            telegraph,
+            target,
+            outcome: 'hit',
+            damage: 250,
+          }) as SimEvent,
+      ),
+      {
+        type: 'discordRose',
+        tick: sim.tick,
+        boss: boss.id,
+        telegraph,
+        amount: 20,
+        value: 60,
+      } as SimEvent,
+    ];
+    h.inject(weaverHit(6004, true));
+    expect(h.feedback.firedFinale.discordBeams).toBe(8);
+    // Without the Perfect the Weaver is not in the Link: both streak.
+    h.inject(weaverHit(6005, false));
+    expect(h.feedback.firedFinale.discordBeams).toBe(10);
+  });
+
   it('Fortissimo: the winding pip fills over the whole windup, however long the assists make it', () => {
     const { sim, h } = finaleScene();
     // telegraphLead 1.5: pulse 1 lands 4.5 s after it starts.

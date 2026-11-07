@@ -157,6 +157,8 @@ export function buildHudSnapshot(
     threadCut?: ThreadCutHeard | null;
     /** The Finale: the last Reignite the runtime heard (`heardReignite`). */
     reignited?: ReigniteHeard | null;
+    /** The Finale: the Grand Silence's cap as the runtime heard it begin (`heardSilence`). */
+    silenceHeard?: SilenceHeard | null;
   },
 ): HudSnapshot {
   const weaverEntity = state.entities.get(state.weaverId);
@@ -428,7 +430,7 @@ export function buildHudSnapshot(
       ...(state.field.sanctuary ? { bloodmoon: true } : {}),
       ...(condemned ? { executeTarget: heroDef(condemned.defId).name } : {}),
       ...bossRift(state, bossEntity, telegraph?.attackId),
-      ...bossFinale(state),
+      ...bossFinale(state, opts.silenceHeard),
     };
   }
 
@@ -892,8 +894,13 @@ function riftOf(state: WorldState): { rift?: RiftHud } {
 
 type BossFinale = Pick<BossHud, 'discord' | 'fortissimo' | 'silence' | 'cue'>;
 
-/** The boss bar's Finale keys: Discord and its rate, Fortissimo's pulse, the silence, the Cue. */
-function bossFinale(state: WorldState): BossFinale {
+/**
+ * The boss bar's Finale keys: Discord and its rate, Fortissimo's pulse, the silence, the Cue.
+ * The silence's cap is the one fixed at entry (`heard`, from its `silenceBegan`): Stasis pushes
+ * `until` on and leaves `since`, so `until - since` grows with every Stasis cast in it and would
+ * drain the Coda bar while time stands still. Without what the runtime heard, `until - since`.
+ */
+function bossFinale(state: WorldState, heard?: SilenceHeard | null): BossFinale {
   const f = state.field.finale;
   if (!f) return {};
   const out: BossFinale = {};
@@ -905,7 +912,10 @@ function bossFinale(state: WorldState): BossFinale {
       of: NOTES_NEEDED,
       sources: [...f.silence.sources],
       left: Math.max(0, f.silence.until - state.time),
-      cap: Math.max(0, f.silence.until - f.silence.since),
+      cap:
+        heard && heard.since === f.silence.since
+          ? heard.cap
+          : Math.max(0, f.silence.until - f.silence.since),
     };
   if (f.cue) {
     const voice = state.entities.get(f.cue.soloist)?.enemy;
@@ -926,6 +936,26 @@ function soloName(id: string): string {
   } catch {
     return id;
   }
+}
+
+/**
+ * The Grand Silence as the runtime heard it begin: its `since` (which silence) and its cap, fixed
+ * at entry (`silenceBegan.until - since`; 50 s stretched by the windup assists). Stasis later
+ * pushes `until` on, so the cap can't be read back from the field.
+ */
+export interface SilenceHeard {
+  since: number;
+  cap: number;
+}
+
+/** The Grand Silence beginning in a batch of events (null: it didn't). */
+export function heardSilence(events: readonly SimEvent[], state: WorldState): SilenceHeard | null {
+  const s = state.field.finale?.silence;
+  if (!s) return null;
+  let out: SilenceHeard | null = null;
+  for (const e of events)
+    if (e.type === 'silenceBegan') out = { since: s.since, cap: Math.max(0, e.until - s.since) };
+  return out;
 }
 
 /** A Reignite, as the runtime heard it (`reignited`): when, and whom it stood back up. */

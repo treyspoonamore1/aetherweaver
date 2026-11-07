@@ -442,6 +442,13 @@ export const FINALE_SOUND_GROUPS = {
 } as const;
 export type FinaleGroup = keyof typeof FINALE_SOUND_GROUPS;
 
+/**
+ * Phase 5d: the longest tutti (seconds). Only a guard: every windup multiplier (telegraphLead up
+ * to 2, the Dissonance windup, Lullaby, Slow Dance) lengthens a Fortissimo pulse, and its tutti
+ * rises over the whole windup so it is cut as the pulse lands, never before.
+ */
+export const TUTTI_MAX = 16;
+
 /** Phase 5d: each Finale sound's rate gate (seconds) and voice cap. */
 export const FINALE_SOUND_LIMITS: Readonly<Record<FinaleGroup, readonly [number, number]>> = {
   discord: [0.12, 2],
@@ -6404,7 +6411,9 @@ export class SfxEngine {
       this.finale('baton', (v, t) => this.batonStroke(v, t, 0.06), { pan });
       return false;
     }
-    const dur = clamp(ev.impact - ev.start, 0.5, 4);
+    // The whole windup, however long the assists make it (telegraphLead 2 alone doubles pulse 1's
+    // 3.0 s): the tutti must still be sounding as the pulse lands, where it is cut.
+    const dur = clamp(ev.impact - ev.start, 0.5, TUTTI_MAX);
     const c = this.chord();
     const h = this.finale('tutti', (v, t) => this.tutti(v, t, dur, c), { big: true });
     if (h) this.trackWindup(ev.telegraph, h);
@@ -6416,11 +6425,11 @@ export class SfxEngine {
    * pulse, from the level it had reached, to be cut as it lands.
    */
   private resumeTutti(tg: Telegraphed, state: WorldState): void {
-    const total = clamp(tg.impact - tg.start, 0.5, 4);
+    const total = clamp(tg.impact - tg.start, 0.5, TUTTI_MAX);
     const rem = tg.impact - state.time;
     if (!(rem > 0.08)) return;
     const p = clamp(1 - rem / total, 0, 1);
-    const dur = Math.min(rem, 4);
+    const dur = Math.min(rem, TUTTI_MAX);
     const c = this.chord();
     const h = this.finale(
       'tutti',

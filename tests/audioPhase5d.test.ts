@@ -33,6 +33,7 @@ import {
   SILENCE_HEARD,
   SILENCE_QUIET,
   SfxEngine,
+  TUTTI_MAX,
   VOICE_MIRRORS,
 } from '../src/audio/sfx';
 import {
@@ -1080,6 +1081,98 @@ describe('the Finale’s sounds (Phase 5d)', () => {
     expect(rises(3, 1)).toBe(0);
     // Paused (rate 0: the shift, Fortissimo, Stasis), it doesn't rise either.
     expect(rises(2, 0)).toBe(0);
+  });
+
+  it('the tutti rises over the whole windup, however long the assists make it', () => {
+    // telegraphLead 2 doubles pulse 1's 3.0 s; a Dissonance windup or Lullaby lengthens it more.
+    for (const windup of [3, 6, 9]) {
+      const h = harness();
+      h.d.setBiome('celestial_crucible');
+      const t = h.world.addTelegraph(42, windup, {
+        kind: 'raid',
+        answers: ['dome', 'ward'],
+        target: null,
+        attackId: FORTISSIMO[0],
+        name: 'Fortissimo Silence',
+      });
+      const from = h.ctx.sources.length;
+      const at = h.ctx.currentTime;
+      const played = heardBy(() =>
+        fire(
+          h,
+          ev('telegraphStarted', {
+            telegraph: t.id,
+            owner: t.owner,
+            target: t.target,
+            name: t.name,
+            kind: t.kind,
+            shape: t.shape,
+            start: t.start,
+            impact: t.impact,
+            perfectFrom: t.perfectFrom,
+            damage: t.damage,
+            pctMaxHp: 0,
+            answers: t.answers,
+            effect: 'damage',
+          }),
+        ),
+      );
+      expect(played, `${windup} s`).toContainEqual([FINALE_SOUND_GROUPS.tutti, true]);
+      const tutti = h.ctx.sources.slice(from);
+      expect(tutti.length, `${windup} s`).toBeGreaterThan(0);
+      // Every voice is still sounding as the pulse lands, and stops right there.
+      for (const s of tutti) {
+        expect(stopOf(s) - at, `${windup} s`).toBeGreaterThanOrEqual(windup - 0.05);
+        expect(stopOf(s) - at, `${windup} s`).toBeLessThan(windup + 0.5);
+      }
+      h.d.dispose();
+    }
+    expect(TUTTI_MAX).toBeGreaterThanOrEqual(3 * 2 * 1.5);
+    // Begun in Stasis with 6 s of windup: it resumes over all of what is left, not 4 s of it.
+    const h = harness();
+    h.d.setBiome('celestial_crucible');
+    h.world.setStasis(true, 3);
+    fire(h, ev('crescendoStart', { calling: 'Stasis', duration: 3 }));
+    h.advance(0.3);
+    const t = h.world.addTelegraph(43, 6, {
+      kind: 'raid',
+      answers: ['dome', 'ward'],
+      target: null,
+      attackId: FORTISSIMO[0],
+      name: 'Fortissimo Silence',
+    });
+    fire(
+      h,
+      ev('telegraphStarted', {
+        telegraph: t.id,
+        owner: t.owner,
+        target: t.target,
+        name: t.name,
+        kind: t.kind,
+        shape: t.shape,
+        start: t.start,
+        impact: t.impact,
+        perfectFrom: t.perfectFrom,
+        damage: t.damage,
+        pctMaxHp: 0,
+        answers: t.answers,
+        effect: 'damage',
+      }),
+    );
+    for (let i = 0; i < 10; i++) h.advance(0.1);
+    h.world.setStasis(false);
+    const from = h.ctx.sources.length;
+    const at = h.ctx.currentTime;
+    const rem = t.impact - h.world.state.time;
+    expect(rem).toBeGreaterThan(5);
+    const resumed = heardBy(() => fire(h, ev('crescendoEnd', {})));
+    expect(resumed).toContainEqual([FINALE_SOUND_GROUPS.tutti, true]);
+    // The tutti's voices (Stasis's own release sounds alongside them, shorter) last until it lands.
+    const tutti = h.ctx.sources
+      .slice(from)
+      .filter((s) => stopOf(s) - at >= rem - 0.05 && stopOf(s) - at < rem + 0.5);
+    expect(tutti.length).toBeGreaterThanOrEqual(5);
+    h.d.dispose();
   });
 
   it('a Fortissimo pulse begun in Stasis resumes as its tutti, and is cut as it lands', () => {

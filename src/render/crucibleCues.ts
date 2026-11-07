@@ -459,9 +459,16 @@ export class CrucibleCues {
    * The live Aegis Link as its 'linked' events last showed it (one at a time, as in the sim): a
    * blow on a member while it holds is answered (a Ward variant shared it).
    */
-  private readonly link = { a: -1 as EntityId, b: -1 as EntityId, until: -1 };
+  private readonly link = { a: -1 as EntityId, b: -1 as EntityId, weaver: false, until: -1 };
+  /**
+   * Heroes Fermata holds, until when ('fermataHold' to 'fermataReleased'): a blow on a held hero
+   * is answered (W1's failedVictim reads `hero.hold`). Fermata's own Save comes only at release.
+   */
+  private readonly held = new Map<EntityId, number>();
   /** Sim time of the batch being handled. */
   private batchTime = 0;
+  /** The Weaver of the batch being handled (an Aegis Link a Perfect joined answers her too). */
+  private weaverId: EntityId = -1;
   private readonly at = { x: 0, y: 0, z: 0 };
   private readonly tint = new THREE.Color();
 
@@ -501,12 +508,20 @@ export class CrucibleCues {
     this.answeredHeroes.clear();
     this.shielded.clear();
     this.batchTime = state.time;
+    this.weaverId = state.weaverId;
     for (const ev of events) {
       switch (ev.type) {
         case 'linked':
           this.link.a = ev.a;
           this.link.b = ev.b;
+          this.link.weaver = ev.weaver;
           this.link.until = ev.until;
+          break;
+        case 'fermataHold':
+          this.held.set(ev.hero, ev.until);
+          break;
+        case 'fermataReleased':
+          this.held.delete(ev.hero);
           break;
         case 'borne':
           this.answeredHeroes.add(ev.hero);
@@ -560,8 +575,8 @@ export class CrucibleCues {
   /**
    * The heroes a failed telegraph's streaks run from: its failed victims as the verdict counted
    * them (`failed`), else every hero it hit this batch whose blow nothing answered. Never a victim
-   * the verdict counts as answered (a partial Ward, Bear, a save, a live Aegis Link): 'nothing
-   * when answered'. The inference is conservative: any shield's absorb reads as answered.
+   * the verdict counts as answered (a partial Ward, Bear, a save, a Fermata hold, a live Aegis
+   * Link, the Weaver once a Perfect brought her into it): 'nothing when answered'. The inference is conservative: any shield's absorb reads as answered.
    */
   failedVictims(e: SimEventOf<'discordRose'>): readonly EntityId[] {
     if (e.failed) return e.failed;
@@ -571,14 +586,22 @@ export class CrucibleCues {
       (id) =>
         !this.answeredHeroes.has(id) &&
         !this.shielded.has(`${e.telegraph}:${id}`) &&
+        !this.isHeld(id) &&
         !this.linked(id),
     );
   }
 
-  /** In the live Aegis Link at this batch's time. */
+  /** Fermata holds them at this batch's time. */
+  private isHeld(id: EntityId): boolean {
+    const until = this.held.get(id);
+    return until !== undefined && until > this.batchTime;
+  }
+
+  /** In the live Aegis Link at this batch's time (the Weaver too once a Perfect joined her). */
   private linked(id: EntityId): boolean {
     const L = this.link;
-    return L.until > this.batchTime && (id === L.a || id === L.b);
+    if (L.until <= this.batchTime) return false;
+    return id === L.a || id === L.b || (L.weaver && id === this.weaverId);
   }
 
   /** Discord fed: a brass streak from each unanswered hero to the Conductor, and '+N' over it. */
@@ -1041,5 +1064,7 @@ export class CrucibleCues {
     this.risers.length = 0;
     this.fullAge = -1;
     this.link.until = -1;
+    this.link.weaver = false;
+    this.held.clear();
   }
 }
