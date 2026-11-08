@@ -28,6 +28,7 @@ import { FermataView } from '../src/render/fermata';
 import { Feedback } from '../src/render/feedback';
 import { FieldView } from '../src/render/field';
 import { FxKit } from '../src/render/fx/kit';
+import { PARTICLE } from '../src/render/fx/particles';
 import { GROVE_HEX, SUMMON_BATCH, SUMMON_NUMBER_SHARE } from '../src/render/groveCues';
 import { GroveDiscView } from '../src/render/groveDisc';
 import { ORO_SEED, buildAncient, buildHero, buildSapling } from '../src/render/models/library';
@@ -35,6 +36,7 @@ import { createModelMaterial } from '../src/render/models/material';
 import type { AllyBarView, Overlay, SummonBarView } from '../src/render/overlay';
 import { applyVision } from '../src/render/palette';
 import { PartyBarsView } from '../src/render/partyBars';
+import { REGEN_MASK } from '../src/render/songs';
 import type { Stage } from '../src/render/stage';
 import { TelegraphLayer } from '../src/render/telegraphs';
 import { ThreadView } from '../src/render/thread';
@@ -172,7 +174,20 @@ function harness(sim: Sim) {
       scan(kit.beams.array('iColor'), kit.beams.size)
     );
   };
-  return { kit, entities, bars, feedback, thread, disc, root, overlay: fake, run, frame, drewIn };
+  return {
+    kit,
+    entities,
+    bars,
+    feedback,
+    thread,
+    disc,
+    root,
+    rig,
+    overlay: fake,
+    run,
+    frame,
+    drewIn,
+  };
 }
 
 function setup(party: string[] = WITH_ORO) {
@@ -227,10 +242,14 @@ function sprout(sim: Sim, oro: Entity, opts: { inField?: boolean[]; mask?: numbe
   return out;
 }
 
-function ancient(sim: Sim, oro: Entity, cued: boolean) {
+/**
+ * The Ancient as W2's `raiseAncient` spawns it: burrowed through its 1 s ground warning
+ * (`burrowUntil`, its rise), standing `life` s after it rises (`extra`: World Tree's 4 s more).
+ */
+function ancient(sim: Sim, oro: Entity, cued: boolean, extra = 0) {
   const w = worldOf(sim);
   const grove = oro.hero!.grove!;
-  const time = w.time;
+  const rise = w.time + 1;
   const e = w.entities.spawn('summon', {
     x: 0,
     z: -8,
@@ -242,7 +261,8 @@ function ancient(sim: Sim, oro: Entity, cued: boolean) {
       owner: oro.id,
       kind: 'ancient',
       index: 0,
-      until: time + heroDef('oro').summons!.ancient.life,
+      burrowUntil: rise,
+      until: rise + heroDef('oro').summons!.ancient.life + extra,
       targetId: null,
       attackCooldown: 0,
       tauntAt: 0,
@@ -378,15 +398,17 @@ describe('his summons, drawn', () => {
     expect(bars.find((x) => x.id === b!.id)!.dormant).toBe(true);
   });
 
-  it('the Ancient: its ground warning as it rises, its taunt ring; vines on what it roots', () => {
+  it('the Ancient: its ground warning before it rises, its taunt ring; vines on what it roots', () => {
     const { sim, w, of, h } = setup();
     h.run(1, [spawn('hollow_chorister', 1, -8)]);
     h.run(40);
     sprout(sim, of(ORO));
     ancient(sim, of(ORO), false);
     h.frame([]);
+    // Burrowed through its warning: the closing ring, no taunt ring yet, no burrow trail.
     expect(h.entities.drawn5e.warnings).toBe(1);
-    expect(h.entities.drawn5e.tauntRings).toBe(1);
+    expect(h.entities.drawn5e.tauntRings).toBe(0);
+    expect(h.entities.drawn5e.burrows).toBe(0);
     const foe = [...w.entities.list()].find((e) => e.enemy && !e.health!.dead)!;
     foe.enemy!.rootImmuneUntil = w.time + 5.5;
     foe.health!.statuses.push({
@@ -399,12 +421,38 @@ describe('his summons, drawn', () => {
     h.frame([{ type: 'rooted', tick: sim.state.tick, target: foe.id, seconds: 1.5 }]);
     expect(h.entities.drawn5e.vines).toBe(1);
     expect(h.feedback.grove.fired5e.rooted).toBe(1);
-    // A second later the warning is gone; the taunt ring stands while it does.
+    // A second later it has risen: the warning is gone; the taunt ring stands while it does.
     for (let i = 0; i < 70; i++) {
       sim.step([]);
       h.frame(sim.drainEvents());
     }
     expect(h.entities.drawn5e.warnings).toBe(0);
+    expect(h.entities.drawn5e.tauntRings).toBe(1);
+  });
+
+  it('times the warning from its rise, never its stand: World Tree’s 4 s more move nothing', () => {
+    const { sim, w, of, h } = setup();
+    h.run(30);
+    sprout(sim, of(ORO));
+    const a = ancient(sim, of(ORO), false, 4);
+    const rise = a.summon!.burrowUntil!;
+    // The warning shows from its first frame, while it is still below.
+    h.frame([]);
+    expect(h.entities.drawn5e.warnings).toBe(1);
+    expect(h.entities.drawn5e.tauntRings).toBe(0);
+    const below = h.entities.recs.get(a.id)!.y;
+    expect(below).toBeLessThan(0);
+    // Through its whole stand, after it rises, no warning shows again (the old clock, `until`
+    // less the base 8 s, put one 4 s into a World Tree stand).
+    let late = 0;
+    while (w.time < a.summon!.until! - 0.1) {
+      sim.step([]);
+      h.frame(sim.drainEvents());
+      if (w.time > rise) late += h.entities.drawn5e.warnings;
+    }
+    expect(late).toBe(0);
+    expect(h.entities.drawn5e.tauntRings).toBe(1);
+    expect(h.entities.recs.get(a.id)!.y).toBeGreaterThan(below);
   });
 
   it('the Cued Ancient’s disc is its own lazy decal, never one of the field’s slots', () => {
@@ -462,6 +510,77 @@ describe('his healing, his numbers, his bars', () => {
       },
     ]);
     expect(pulse).toHaveBeenCalledTimes(1);
+  });
+
+  it('only Rootbond on a summon is motes: a song’s regen reads as on a hero, Regrowth as a heal', () => {
+    const { sim, of, h } = setup();
+    h.run(2);
+    const [a] = sprout(sim, of(ORO), { mask: REGEN_MASK });
+    h.frame([]);
+    const pulse = vi.spyOn(h.thread, 'pulse');
+    const emit = vi.spyOn(h.kit.particles, 'emit');
+    const heal = (via: 'aura' | 'solo' | 'mend', amount: number): SimEvent => ({
+      type: 'healApplied',
+      tick: sim.state.tick,
+      target: a!.id,
+      source: via === 'solo' ? null : sim.state.weaverId,
+      amount,
+      overheal: 0,
+      via,
+    });
+    const n0 = h.overlay.numbers;
+    // Q1: Sostenuto's regen on a covered Sapling (1.5% of 380 a second), with Oro not Threaded.
+    h.frame([heal('aura', 5.7)]);
+    // Its notes rise in the regen song's colour (the Sapling's own mask), as on a hero.
+    const song = h.entities.auraColors(REGEN_MASK)[0]!;
+    const notes = emit.mock.calls.filter((c) => c[10] === PARTICLE.note);
+    expect(notes.length).toBeGreaterThan(0);
+    expect(notes.every((c) => (c[8] as THREE.Color).equals(song))).toBe(true);
+    h.frame([]);
+    expect(h.feedback.grove.fired5e.rootbond).toBe(0);
+    expect(h.feedback.grove.drawn5e.motes).toBe(0);
+    // Regrowth (a small share) and Homecoming (its whole life): no motes, no Thread pulse; only
+    // Homecoming's is important enough for a number. The regen tick gets none.
+    h.frame([heal('solo', 60)]);
+    expect(h.overlay.numbers).toBe(n0);
+    h.frame([heal('solo', 380)]);
+    expect(h.overlay.numbers).toBe(n0 + 1);
+    expect(h.feedback.grove.fired5e.rootbond).toBe(0);
+    // Rootbond as the sim flushes it (via 'mend' on the summon): motes, never the Thread's pulse.
+    h.frame([heal('mend', 12)]);
+    h.frame([]);
+    expect(h.feedback.grove.fired5e.rootbond).toBe(1);
+    expect(h.feedback.grove.drawn5e.motes).toBeGreaterThan(0);
+    expect(pulse).not.toHaveBeenCalled();
+  });
+
+  it('a hard blow on a Sapling never shakes the camera; on a hero it still does', () => {
+    const { sim, of, h } = setup();
+    h.run(2);
+    const [a] = sprout(sim, of(ORO));
+    h.frame([]);
+    const trauma = vi.spyOn(h.rig, 'addTrauma');
+    const hit = (target: number, amount: number): SimEvent => ({
+      type: 'damageTaken',
+      tick: sim.state.tick,
+      target,
+      source: null,
+      amount,
+      absorbed: 0,
+      amplified: 0,
+      aura: 0,
+      radiance: 0,
+      eclipse: 0,
+      crit: false,
+      telegraph: null,
+      hit: 'hit',
+    });
+    // 200 is over half a Sapling's 380: a hero's hurt would shake it.
+    h.frame([hit(a!.id, 200), hit(a!.id, 150)]);
+    expect(trauma).not.toHaveBeenCalled();
+    const hero = of(0);
+    h.frame([hit(hero.id, hero.health!.maxHp * 0.4)]);
+    expect(trauma).toHaveBeenCalledTimes(1);
   });
 
   it('a Sapling’s numbers are important-only: a quarter of its life, or the felling blow', () => {

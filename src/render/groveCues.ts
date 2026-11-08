@@ -43,7 +43,10 @@ export const SUMMON_BATCH = {
   ancient: { key: 'summon:ancient', capacity: 2 },
 } as const;
 
-/** The Ancient's ground warning: it rises over this long (s) from its first frame. */
+/**
+ * The Ancient's ground warning (s): the sim spawns it burrowed and it rises at `burrowUntil`
+ * (W2's `ANCIENT_WARNING`), so the warning runs over the last this-long before that rise.
+ */
 export const ANCIENT_RISE = 1.0;
 /** A summon's floating number shows only for a hit of at least this share of its life. */
 export const SUMMON_NUMBER_SHARE = 0.25;
@@ -77,10 +80,27 @@ export function summonCoverage(e: ReadonlyEntity): { mask: number; inField: bool
   return { mask: s?.auraMask ?? 0, inField: !!s?.inField };
 }
 
-/** Burrowing after a Rally (untargetable, re-planting): the trail shows. */
+/**
+ * Burrowed (untargetable): a Sapling re-planting after a Rally, or the Ancient through its ground
+ * warning (W2 spawns it burrowed until it rises). Only a Sapling's draws the burrow trail.
+ */
 export function burrowing(state: Pick<WorldState, 'time'>, e: ReadonlyEntity): boolean {
   const u = e.summon?.burrowUntil;
   return u !== undefined && u > state.time;
+}
+
+/**
+ * The Ancient's ground warning before it rises: its progress 0 → 1 over the last
+ * `ANCIENT_RISE` s before `burrowUntil` (its rise time), or -1 (risen, a Sapling, or no
+ * summon). Timed from the explicit rise, never from `until` less a life, so World Tree's
+ * longer stand moves nothing.
+ */
+export function ancientRising(state: Pick<WorldState, 'time'>, e: ReadonlyEntity): number {
+  const s = e.summon;
+  if (s?.kind !== 'ancient' || s.burrowUntil === undefined) return -1;
+  const left = s.burrowUntil - state.time;
+  if (!(left > 0)) return -1;
+  return clamp01(1 - left / ANCIENT_RISE);
 }
 
 /** Held while Oro is down or the Grand Silence holds: drawn grey and still. */

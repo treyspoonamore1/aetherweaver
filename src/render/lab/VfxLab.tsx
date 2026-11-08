@@ -3381,7 +3381,9 @@ class LabRuntime {
         owner: oro.id,
         kind: 'ancient',
         index: 0,
-        until: time + 8,
+        // As W2 raises it: burrowed through its 1 s ground warning, then 8 s standing.
+        burrowUntil: time + 1,
+        until: time + 1 + 8,
         targetId: null,
         attackCooldown: 0,
         tauntAt: 0,

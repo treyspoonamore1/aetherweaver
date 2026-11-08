@@ -643,6 +643,15 @@ describe('Seren and Oro (docs/phase-5e.md, Colour)', () => {
    * Vharun's accent, deuteranopia); ≥ 10 from every hero, the gold, lethal, threat, Bear, shield
    * and heal in every vision (lowest 11.1, amp under protanopia: a glow on his staff, never a
    * chip or a channel).
+   *
+   * Why not Brann's full brass rules (≥ 20 from every hero, gold, amp, lethal, threat and Bear in
+   * every vision): no seed light can meet them. An exhaustive search, 2026-11-08 (every colour on
+   * an 8-step RGB grid, with the accent ≥ 20 and environment ≥ 15 rows above), finds 32 colours
+   * that pass, all near-black reds (#300800 … #480800) or deep violets (#5000a8 … #6000b0): none
+   * is a glow. Among colours light enough to glow (luma ≥ 0.55) the best floor is 15.9 ΔE
+   * (#70b800, amp under protanopia), at the cost of the environment row (15.8). ORO_SEED keeps
+   * #a0f870 and this weaker floor (a recorded deviation, docs/phase-5e.md Colour: Oro). The
+   * design's 11.1 "lowest" for the moss leaves out the Abyss's own colours; with them it is 9.4.
    */
   it('measures Oro against Movements II and III; under 15 his model carries ORO_SEED', () => {
     const env: [string, string][] = [];

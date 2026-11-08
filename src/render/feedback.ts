@@ -31,7 +31,7 @@ import type { Overlay } from './overlay';
 import { CHRONO_HEX } from './chronoCues';
 import { CRUCIBLE_HEX, CrucibleCues } from './crucibleCues';
 import { SerenFx } from './serenCues';
-import { GroveFx, SUMMON_NUMBER_SHARE } from './groveCues';
+import { GROVE_BARK, GroveFx, SUMMON_NUMBER_SHARE } from './groveCues';
 import {
   BRANN_HEX,
   CRIMSON_HEX,
@@ -1364,6 +1364,10 @@ export class Feedback {
     const total = e.amount + e.absorbed;
     const frac = total / maxHp;
     const isParty = target.team === 'party';
+    // Oro's summons are team 'party' but never get a hero's hurt treatment (the threat sparks,
+    // the camera's trauma): two Saplings tanking a pack would keep the camera shaking. Their
+    // feedback is important-only; bark chips fly instead. False in every party without Oro.
+    const hurt = isParty && !target.summon;
     if (e.amount > 0) this.d.entities.hit(e.target, Math.min(1, (isParty ? 0.5 : 0.3) + frac * 5));
     const y = r.height * 0.6 + r.y;
     if (e.amount > 0) {
@@ -1377,7 +1381,7 @@ export class Feedback {
         2.5,
         0.35,
         0.11,
-        isParty ? C.threat : SHARD,
+        hurt ? C.threat : target.summon ? GROVE_BARK : SHARD,
         1,
         PARTICLE.spark,
         4,
@@ -1459,7 +1463,7 @@ export class Feedback {
       );
       this.d.rig.addTrauma(0.2);
     }
-    if (isParty && frac > 0.18) this.d.rig.addTrauma(Math.min(0.3, frac * 0.5));
+    if (hurt && frac > 0.18) this.d.rig.addTrauma(Math.min(0.3, frac * 0.5));
     // Unravel (Movement III): the reversed Mend's ticks on the threaded hero show as damage, in
     // the live lethal colour below (never heal teal). Only Unravel's own tick counts: its source,
     // on the threaded hero (a possession tick or another DoT there is not it).
@@ -1541,12 +1545,17 @@ export class Feedback {
   private healed(e: SimEventOf<'healApplied'>, state: WorldState): void {
     const r = this.rec(e.target);
     const target = state.entities.get(e.target);
-    // Oro's grove (docs/phase-5e.md): a heal on a summon (Rootbond) is motes along his root
-    // tether, never the Thread's Mend pulse nor a Weaver heal burst; a grove heal on a hero is
-    // drawn as the songs' own.
+    // Oro's grove (docs/phase-5e.md): only Rootbond's heal on a summon (the Mend on Oro spilling
+    // to his grove: via 'grove', or 'mend' as the sim flushes it) is motes along his root tether,
+    // never the Thread's Mend pulse. A song's regen on a covered summon (Q1, via 'aura') reads
+    // as on a hero; Regrowth's or Homecoming's (via 'solo') is a plain heal. A grove heal on a
+    // hero is drawn as the songs' own.
     if (target?.summon) {
-      if (e.amount > 0) this.grove.rootbond(e, state);
-      return;
+      if (e.amount <= 0) return;
+      if (e.via === 'grove' || e.via === 'mend') {
+        this.grove.rootbond(e, state);
+        return;
+      }
     }
     if (!r || !target || e.amount <= 0) return;
     if (e.via === 'grove') {
@@ -1567,7 +1576,7 @@ export class Feedback {
       this.selfHealed(e, r, target, state);
       return;
     }
-    if (e.via === 'mend') this.d.thread.pulse();
+    if (e.via === 'mend' && !target.summon) this.d.thread.pulse();
     const maxHp = target.health?.maxHp ?? 1;
     const n = Math.min(8, 1 + Math.round((e.amount / maxHp) * 20));
     for (let i = 0; i < n * this.d.kit.particles.density; i++) {
@@ -1605,6 +1614,8 @@ export class Feedback {
       );
     }
     if (!this.settings.damageNumbers || target.team !== 'party') return;
+    // A summon's numbers are important-only (a quarter of its life at once: Homecoming's).
+    if (target.summon && e.amount < maxHp * SUMMON_NUMBER_SHARE) return;
     let b = this.heal.get(e.target);
     if (!b) {
       b = bucket();
@@ -1647,7 +1658,8 @@ export class Feedback {
     state: WorldState,
   ): void {
     const maxHp = target.health?.maxHp ?? 1;
-    const mask = (target.hero?.auraMask ?? 0) & REGEN_MASK;
+    // A covered summon (Q1) carries its own mask (W2b's `summon.auraMask`).
+    const mask = (target.hero?.auraMask ?? target.summon?.auraMask ?? 0) & REGEN_MASK;
     const cols = this.d.entities.auraColors(mask);
     const n = Math.min(4, 1 + Math.round((e.amount / maxHp) * 25));
     for (let i = 0; i < n * this.d.kit.particles.density; i++) {
@@ -1669,7 +1681,9 @@ export class Feedback {
         -0.2,
       );
     }
-    if (!this.settings.damageNumbers || target.team !== 'party') return;
+    // A summon's regen ticks are never important: its notes, no number (two Saplings and the
+    // Ancient would flood them).
+    if (!this.settings.damageNumbers || target.team !== 'party' || target.summon) return;
     let b = this.auraHeal.get(e.target);
     if (!b) {
       b = bucket();

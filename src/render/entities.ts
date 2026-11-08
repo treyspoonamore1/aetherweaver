@@ -65,7 +65,6 @@ import {
   weaverReach,
 } from './serenCues';
 import {
-  ANCIENT_RISE,
   GROVE_BARK,
   GROVE_HEX,
   GROVE_MOSS,
@@ -73,6 +72,7 @@ import {
   GROVE_SEED,
   GROVE_VINE,
   SUMMON_BATCH,
+  ancientRising,
   ancientTauntRadius,
   burrowing,
   dormant,
@@ -1651,7 +1651,12 @@ export class EntityLayer {
     }
     // Oro's summons: a burrowing Sapling sinks into the ground; a dormant one stands grey.
     if (e.summon) {
-      if (burrowing(state, e)) {
+      const rise = ancientRising(state, e);
+      if (rise >= 0) {
+        // The Ancient through its ground warning: still below, coming up as the ring closes.
+        y -= rec.height * (1 - rise);
+        dissolve = Math.max(dissolve, 0.9 - 0.5 * rise);
+      } else if (burrowing(state, e)) {
         y -= 0.35;
         dissolve = Math.max(dissolve, 0.55);
       }
@@ -2370,7 +2375,7 @@ export class EntityLayer {
       );
       d5.greyRims++;
     }
-    if (burrowing(state, e)) {
+    if (s.kind === 'sapling' && burrowing(state, e)) {
       // The burrow trail: earth churned up from where it sank toward where it re-plants.
       rec.smokeAcc += dt * 16 * kit.particles.density;
       while (rec.smokeAcc > 1) {
@@ -2413,10 +2418,10 @@ export class EntityLayer {
     }
     if (s.kind === 'ancient') {
       const owner = ownerOf(state, e);
-      // Its first second: the ground warning, a ring of seed light closing in as it rises.
-      const age = s.until !== undefined ? state.time - (s.until - this.ancientLife(owner)) : 99;
-      if (age >= 0 && age < ANCIENT_RISE) {
-        const k = age / ANCIENT_RISE;
+      // The ground warning before it rises: a ring of seed light closing in on its rise time
+      // (`burrowUntil`, the sim's explicit rise), whatever its stand's length (World Tree).
+      const k = ancientRising(state, e);
+      if (k >= 0) {
         kit.rings.push(
           x,
           0.035,
@@ -2426,27 +2431,29 @@ export class EntityLayer {
           0.22,
           RING.plain,
           GROVE_SEED,
-          0.9 * (1 - k),
+          0.55 + 0.4 * k,
         );
         d5.warnings++;
+      } else {
+        // Risen: its taunt ring stands while it does.
+        kit.rings.push(
+          x,
+          0.03,
+          z,
+          ancientTauntRadius(owner),
+          0.07,
+          0.14,
+          RING.dashed,
+          GROVE_MOSS,
+          0.5,
+          0,
+          7,
+          0.03,
+          28,
+          this.now * 0.3,
+        );
+        d5.tauntRings++;
       }
-      kit.rings.push(
-        x,
-        0.03,
-        z,
-        ancientTauntRadius(owner),
-        0.07,
-        0.14,
-        RING.dashed,
-        GROVE_MOSS,
-        0.5,
-        0,
-        7,
-        0.03,
-        28,
-        this.now * 0.3,
-      );
-      d5.tauntRings++;
     } else if (tending(state, ownerOf(state, e))) {
       // Tended (+50%): a slow sparkle of seed light over it.
       const a = this.now * 2 + rec.id;
@@ -2460,12 +2467,6 @@ export class EntityLayer {
         0.8,
       );
     }
-  }
-
-  /** The Ancient's life (content; 8 s), for its rise's clock. */
-  private ancientLife(owner: ReadonlyEntity | undefined): number {
-    const id = owner?.hero?.defId;
-    return (id ? heroDef(id).summons?.ancient.life : undefined) ?? 8;
   }
 
   /**
