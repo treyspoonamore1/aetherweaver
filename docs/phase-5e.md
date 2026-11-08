@@ -1237,18 +1237,14 @@ W0b landed every interface in *contracts*. All 19 goldens are byte-identical (on
 
 **Files W0b touched that later workstreams own** (only these lines; the owners rebase and own the rest): W4 `src/render/entities.ts` (Blood Rage cap via `bloodRageOf`) and `src/render/lab/VfxLab.tsx` (`bloodOf`); W6 `src/ui/hud/sighting.ts` (`allyOf`), `src/ui/hud/legionLook.ts` (`healBarelyTakes`), `src/ui/screens/rosterModel.ts` (`passiveRow`, `healCutStackText`, `bloodLine`), `src/ui/hud/labels.ts` (`STATUS.rooted`), `src/ui/screens/deedsModel.ts` (`heroTally`); W8 `tools/harness-core.ts` (HarmonyWatch on `bloodRageOf`); W3 `src/content/legionRun.ts`, `src/content/unstitchedRun.ts`, `src/meta/run.ts`, `src/meta/deeds.ts`. `hudBridge.ts` needed no edit (its `weaverHealCut` call is narrowed inside `blood.ts`). Test files edited for types or the new choice: `tests/sim/brann*.test.ts` (`bloodRageOf(BRANN)!`), `tests/meta/deeds.test.ts` (a throwing `heroTally` case), `tests/meta/run.test.ts` (the last *unranked* choice).
 
-**Expected reds after W0b** (the full vitest run; never weakened):
+**Expected reds after W0b: none.** Main stays green, so W0b's landing commit closed the eight roster-size reds itself (the tests now expect six heroes; `harnessTools.test.ts` tests an unknown id instead of `seren`), plus the Rank gate:
 
-| Test | Why | Owner |
-|---|---|---|
-| `tests/harnessTools.test.ts:526` | `seren` is a known hero now | W8 |
-| `tests/meta/roster.test.ts:105` and `:265` | the roster lists six heroes | W3 |
-| `tests/uiPhase4e.test.ts:549` and `:570` | Skip the unlocks shows six | W6 |
-| `tests/uiPhase5b.test.ts:467` | three locked silhouettes, not one | W6 |
-| `tests/uiPhase5bFixes.test.ts:248` and `:373` | Seren and Oro locked in the Codex; four hero-bound motifs | W6 |
-| e2e unlockAll picker counts (not run in W0b) | six heroes | W6 |
+- `eventChoiceProblem(run, id, allowance?)` refuses a Rank-gated choice (`Opens at Rank N.`) unless `allowance.recruits` holds its recruit; with no allowance it refuses, the same convention as `recruitsOf`. `chooseEvent` passes its allowance through (the store's real allowance; `EVERYTHING` by default).
+- The EventScreen hides Rank-gated choices until W6's filter replaces the line in `EventScreen.tsx`, so no profile sees them on main meanwhile.
+- `src/ui/lab/mock.ts` and `loomRunMock.ts` pick the last *unranked* choice again.
+- `tests/sim/rosterContracts.test.ts` pins the gate (below Rank, no allowance, at Rank, `EVERYTHING`).
 
-The plan's other named reds (`deeds.test.ts:182-201`, `demo.test.ts`, `appStores.test.ts:279`, `renderBonds.test.ts`, `audio.test.ts`, `audioPhase5d.test.ts:914-920`) are green after W0b; they turn red with the owners' own additions (ROSTER_DEEDS, cue and sound rows, LEITMOTIFS), and stay theirs to close. `src/ui/lab/mock.ts` and `loomRunMock.ts` pick an event's last choice, now a Rank-gated recruit: W6.
+The e2e unlockAll picker counts (six heroes) remain W6's. The plan's other named reds (`deeds.test.ts:182-201`, `demo.test.ts`, `appStores.test.ts:279`, `renderBonds.test.ts`, `audio.test.ts`, `audioPhase5d.test.ts:914-920`) turn red only with the owners' own additions (ROSTER_DEEDS, cue and sound rows, LEITMOTIFS), and stay theirs to close.
 
 ## Exit criteria
 

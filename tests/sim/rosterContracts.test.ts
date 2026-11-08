@@ -764,3 +764,35 @@ describe('a Rank-gated recruiting fight takes its row’s Threat (docs/phase-5e.
     });
   }
 });
+
+describe('the Rank-gated recruit choices are gated (docs/phase-5e.md)', () => {
+  const at = (eventId: string): RunState => ({
+    ...Run.newRun(1),
+    phase: 'event',
+    aether: 999,
+    event: {
+      nodeId: 'n',
+      eventId,
+      choice: null,
+      won: null,
+      outcome: null,
+    } as RunState['event'],
+  });
+
+  it('refuses debt and follow below their Rank and without an allowance', () => {
+    for (const [ev, id, hero, rank] of [
+      ['tithe_altar', 'debt', 'seren', 8],
+      ['loose_thread', 'follow', 'oro', 12],
+    ] as const) {
+      const run = at(ev);
+      expect(Run.eventChoiceProblem(run, id)).toBe(`Opens at Rank ${rank}.`);
+      expect(Run.eventChoiceProblem(run, id, allowanceFor(rank - 1))).toBe(
+        `Opens at Rank ${rank}.`,
+      );
+      expect(allowanceFor(rank).recruits.has(hero)).toBe(true);
+      expect(Run.eventChoiceProblem(run, id, allowanceFor(rank))).toBeNull();
+      expect(Run.eventChoiceProblem(run, id, EVERYTHING)).toBeNull();
+      expect(Run.chooseEvent(run, id, {}, allowanceFor(rank - 1))).toBe(run);
+    }
+  });
+});

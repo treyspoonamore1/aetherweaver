@@ -1785,11 +1785,25 @@ export function leaveForge(run: RunState): RunState {
 
 // ── Events ────────────────────────────────────────────────────────────────────────────
 
-/** Why an event choice can't be made right now (null: it can). */
-export function eventChoiceProblem(run: RunState, choiceId: string): string | null {
+/**
+ * Why an event choice can't be made right now (null: it can). A Rank-gated choice
+ * (docs/phase-5e.md) needs its recruit in `allowance.recruits`; with no allowance it is
+ * refused, the same convention as `recruitsOf`.
+ */
+export function eventChoiceProblem(
+  run: RunState,
+  choiceId: string,
+  allowance?: Pick<Allowance, 'recruits'>,
+): string | null {
   if (!run.event) return 'No event.';
   const ch = runEventDef(run.event.eventId).choices.find((c) => c.id === choiceId);
   if (!ch) return 'No such choice.';
+  if (ch.rank !== undefined) {
+    const hero = [...ch.effects, ...ch.fail].flatMap((e) =>
+      e.kind === 'fight' && e.recruit !== undefined ? [e.recruit] : [],
+    )[0];
+    if (!allowance || !hero || !allowance.recruits.has(hero)) return `Opens at Rank ${ch.rank}.`;
+  }
   if (run.aether < ch.cost) return `Needs ${ch.cost} Aether.`;
   if (ch.motif === 'any' && run.motifs.length === 0) return 'Needs a motif.';
   if (ch.motif === 'upgradable' && !run.motifs.some((m) => upgradable(run, m.id)))
@@ -1805,7 +1819,7 @@ export function chooseEvent(
 ): RunState {
   const event = run.event;
   if (run.phase !== 'event' || !event || event.choice !== null) return run;
-  if (eventChoiceProblem(run, choiceId) !== null) return run;
+  if (eventChoiceProblem(run, choiceId, allowance) !== null) return run;
   const ch = runEventDef(event.eventId).choices.find((c) => c.id === choiceId)!;
   const motifId = opts.motifId;
   if (ch.motif !== 'none') {

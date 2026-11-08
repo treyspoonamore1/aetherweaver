@@ -87,7 +87,13 @@ export function EventView({
     else if (relicsGained > 0) playUi('relicReveal');
   }, [chosen, won, relicsGained]);
   const def = event ? runEventDef(event.eventId) : null;
-  const choices = def && run ? def.choices.map((c) => choiceInfo(run, def.id, c, roster)) : [];
+  const choices =
+    def && run
+      ? def.choices
+          // Rank-gated recruit choices stay hidden until the Phase 5e EventScreen filter.
+          .filter((c) => c.rank === undefined)
+          .map((c) => choiceInfo(run, def.id, c, roster))
+      : [];
   const pick = (c: ChoiceInfo) => {
     if (c.problem) {
       playUi(c.problem.startsWith('Needs') && c.cost > 0 ? 'cantAfford' : 'error');

@@ -245,7 +245,8 @@ describe('every Codex a screen opens has the profile’s roster', () => {
     const html = renderToStaticMarkup(
       createElement(CodexView, { onBack: () => {}, initialTab: 'heroes', roster }),
     );
-    expect(html).not.toContain('codex-hero-locked');
+    // Brann is open; only the Rank-gated recruits (Seren, Oro) are still silhouettes.
+    expect(html.match(/data-testid="codex-hero-locked"/g)?.length).toBe(2);
     expect(html).toContain('Bloodsworn');
   });
 });
@@ -368,7 +369,9 @@ describe('the Codex’s Motifs page: a silhouette per motif that waits for a her
         roster: CONTENT.defaultParty,
       }),
     );
-    const bound = CONTENT.motifs.filter((m) => m.requires.hero === 'brann');
+    const outside = (h: string | undefined) => h !== undefined && !CONTENT.defaultParty.includes(h);
+    const bound = CONTENT.motifs.filter((m) => outside(m.requires.hero));
+    const brannBound = bound.filter((m) => m.requires.hero === 'brann');
     expect(bound.length).toBeGreaterThan(0);
     expect(html.match(/data-testid="codex-motif-locked"/g)?.length).toBe(bound.length);
     expect(html).toContain('A motif not yet heard');
@@ -382,7 +385,9 @@ describe('the Codex’s Motifs page: a silhouette per motif that waits for a her
         roster: heroRoster({ recruited: ['brann'] }, false),
       }),
     );
-    expect(open).not.toContain('codex-motif-locked');
-    for (const m of bound) expect(open).toContain(m.name);
+    expect(open.match(/data-testid="codex-motif-locked"/g)?.length ?? 0).toBe(
+      bound.length - brannBound.length,
+    );
+    for (const m of brannBound) expect(open).toContain(m.name);
   });
 });

@@ -464,8 +464,11 @@ describe('the Codex', () => {
       'Free him from the Legion’s cell in Movement II, or face Vharun.',
     );
     expect(lockedHeroText('kael')).toBeNull();
-    expect(lockedHeroes(CONTENT.defaultParty)).toEqual(['brann']);
-    expect(lockedHeroes(ALL)).toEqual([]);
+    expect(lockedHeroes(CONTENT.defaultParty)).toEqual(['brann', 'seren', 'oro']);
+    // Every hero recruited: no silhouette (Brann alone still leaves Seren and Oro locked).
+    const everyone = CONTENT.heroes.map((h) => h.id);
+    expect(lockedHeroes(ALL)).toEqual(['seren', 'oro']);
+    expect(lockedHeroes(everyone)).toEqual([]);
     const CodexView = await component<{
       onBack(): void;
       initialTab: string;
@@ -484,13 +487,13 @@ describe('the Codex', () => {
       expect(locked).toContain('or face Vharun');
       expect(locked).not.toContain('Bloodsworn');
       const open = renderToStaticMarkup(
-        createElement(CodexView, { onBack: () => {}, initialTab: tab, roster: ALL }),
+        createElement(CodexView, { onBack: () => {}, initialTab: tab, roster: everyone }),
       );
       expect(open).not.toContain('codex-hero-locked');
       expect(open).toContain('Brann');
     }
     const heroes = renderToStaticMarkup(
-      createElement(CodexView, { onBack: () => {}, initialTab: 'heroes', roster: ALL }),
+      createElement(CodexView, { onBack: () => {}, initialTab: 'heroes', roster: everyone }),
     );
     expect(heroes).toContain('data-testid="codex-passive-brann"');
     expect(heroes).toContain('data-testid="codex-needs-brann"');

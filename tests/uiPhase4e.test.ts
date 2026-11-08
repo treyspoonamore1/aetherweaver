@@ -546,7 +546,7 @@ describe('the roster gates every Bonds display (docs/phase-5b.md)', () => {
       'brann',
     ]);
     // Appended: the starters keep their places (the keyboard path Kael → Lyra → Vexis holds).
-    expect(rosterHeroes({}, true)).toEqual(['kael', 'lyra', 'vexis', 'brann']);
+    expect(rosterHeroes({}, true)).toEqual(['kael', 'lyra', 'vexis', 'brann', 'seren', 'oro']);
     const bonds = { brann: withXp(at(3)) };
     expect(bondsOpen(bonds, false)).toBe(false);
     expect(bondsOpen(bonds, false, rosterHeroes({ recruited: ['brann'] }, false))).toBe(true);
@@ -567,7 +567,14 @@ describe('the roster gates every Bonds display (docs/phase-5b.md)', () => {
     expect(all.slice(0, 3)).toEqual(HEROES);
     // His rank shows on the HUD with the roster's heroes; Bonds open from his rank-up alone.
     const bonds = { brann: withXp(at(4)) };
-    expect(bondRanks(bonds, all)).toEqual({ kael: 1, lyra: 1, vexis: 1, brann: 4 });
+    expect(bondRanks(bonds, all)).toEqual({
+      kael: 1,
+      lyra: 1,
+      vexis: 1,
+      brann: 4,
+      seren: 1,
+      oro: 1,
+    });
     expect(bondsOpen(bonds, false, all)).toBe(true);
     // A recruited profile's rank rows say "A scene each" over all four.
     expect(

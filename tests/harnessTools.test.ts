@@ -523,7 +523,7 @@ describe('the harness and a roster party', () => {
     expect(partyArg('brann,vexis,kael')).toEqual(['kael', 'vexis', 'brann']);
     expect(() => partyArg('kael,vexis')).toThrow();
     expect(() => partyArg('kael,kael,brann')).toThrow();
-    expect(() => partyArg('kael,vexis,seren')).toThrow();
+    expect(() => partyArg('kael,vexis,ghost')).toThrow();
     // The config gains a party only when one is asked for.
     expect(parseArgs([]).party).toBeNull();
     expect(parseArgs(['--party', 'kael,lyra,brann']).party).toEqual(['kael', 'lyra', 'brann']);

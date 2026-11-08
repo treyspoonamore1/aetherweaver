@@ -49,7 +49,10 @@ function settle(run: RunState): RunState {
     else if (run.phase === 'forge') run = Run.leaveForge(run);
     else if (run.phase === 'event') {
       const last = run.event?.eventId
-        ? CONTENT.events.find((e) => e.id === run.event!.eventId)?.choices.at(-1)
+        ? CONTENT.events
+            .find((e) => e.id === run.event!.eventId)
+            ?.choices.filter((c) => c.rank === undefined)
+            .at(-1)
         : undefined;
       if (run.event?.choice === null && last) run = Run.chooseEvent(run, last.id);
       run = Run.leaveEvent(run);

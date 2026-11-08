@@ -102,7 +102,7 @@ describe('the roster', () => {
     expect(heroRoster(newProfile(), false)).toEqual(DEFAULT);
     expect(heroRoster({ recruited: ['brann'] }, false)).toEqual([...DEFAULT, 'brann']);
     expect(heroRoster({}, true)).toEqual(ALL);
-    expect(ALL).toEqual([...DEFAULT, 'brann']);
+    expect(ALL).toEqual([...DEFAULT, 'brann', 'seren', 'oro']);
     expect(CONTENT.defaultParty).toEqual(DEFAULT);
     // The store's roster follows the profile and the setting.
     expect(useProfile.getState().roster()).toEqual(DEFAULT);
@@ -262,7 +262,7 @@ describe('the profile keeps the recruits', () => {
     expect(useProfile.getState().recruitNotices).toEqual(['brann']);
     useProfile.getState().clearRecruitNotices();
     expect(useProfile.getState().recruitNotices).toEqual([]);
-    expect(useProfile.getState().roster()).toEqual(ALL);
+    expect(useProfile.getState().roster()).toEqual([...DEFAULT, 'brann']);
   });
 
   it('lastParty is absent for the default party', () => {
