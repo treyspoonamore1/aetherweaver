@@ -12,7 +12,9 @@
  * - While Oro is down, or the Grand Silence holds, they are dormant (held and untargetable); they
  *   wake 2 s after he rises, at once at Reignite. The Ancient leaves.
  * - The Ancient (Wildgrowth) stands burrowed through its 1 s ground warning, rises (roots the
- *   lesser foes round it), re-taunts them every second, slams, and leaves at `until`.
+ *   lesser foes round it), re-taunts them every second, slams, and leaves at `until`. Uncued it
+ *   leaves as Wildgrowth ends (`finishSolo`, grove.ts `groveSoloEnd`); Cued it stands its own
+ *   `life` from rising (Q2's 8 s). World Tree keeps either 4 s longer.
  */
 import { heroDef } from '../../content';
 import type { HeroDef } from '../../content/schema';
@@ -86,14 +88,16 @@ export function saplingRespawn(world: World, owner: Entity): number {
   return Math.max(1, def.sapling.respawn - sooner);
 }
 
-/** The Ancient's standing time after it rises (World Tree: longer). */
+/** World Tree: the Ancient stands this much longer (s; 0 without the talent). */
+export function ancientLinger(world: World, owner: Entity): number {
+  return hasTalent(owner, 'world_tree') ? talentValue(world, 'world_tree', 'seconds') : 0;
+}
+
+/** The Cued Ancient's standing time after it rises (Q2's 8 s; World Tree: longer). */
 export function ancientLife(world: World, owner: Entity): number {
   const def = summonsDef(owner);
   if (!def) return 0;
-  return (
-    def.ancient.life +
-    (hasTalent(owner, 'world_tree') ? talentValue(world, 'world_tree', 'seconds') : 0)
-  );
+  return def.ancient.life + ancientLinger(world, owner);
 }
 
 /** `ledger.grove`, created on first use (only in an Oro party). */
@@ -790,8 +794,19 @@ export function ancientSpot(world: World, oro: Entity, out: { x: number; z: numb
   return out;
 }
 
-/** Wildgrowth: the Ancient's ground warning, then it rises (`ANCIENT_WARNING` s on). */
-export function raiseAncient(world: World, oro: Entity, grove: GroveState): Entity | null {
+/**
+ * Wildgrowth: the Ancient's ground warning, then it rises (`ANCIENT_WARNING` s on). Cued, it
+ * stands `ancientLife` from rising. Uncued, its `until` is the Solo's end (`solo`, the Solo's
+ * length from now; Wildgrowth's own by default) plus World Tree's linger: `groveSoloEnd` makes
+ * it leave there exactly, whenever the Solo really ends.
+ */
+export function raiseAncient(
+  world: World,
+  oro: Entity,
+  grove: GroveState,
+  cued = false,
+  solo = heroDef(oro.hero!.defId).solo.duration,
+): Entity | null {
   if (!summonsDef(oro)) return null;
   if (grove.ancient !== null) {
     const old = world.entities.get(grove.ancient);
@@ -802,7 +817,7 @@ export function raiseAncient(world: World, oro: Entity, grove: GroveState): Enti
   const rise = world.time + ANCIENT_WARNING;
   const a = spawnSummon(world, oro, 'ancient', 0, p.x, p.z, {
     burrowUntil: rise,
-    until: rise + ancientLife(world, oro),
+    until: cued ? rise + ancientLife(world, oro) : world.time + solo + ancientLinger(world, oro),
   });
   grove.ancient = a.id;
   grove.ancients++;

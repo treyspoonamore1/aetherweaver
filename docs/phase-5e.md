@@ -275,7 +275,7 @@ The build proceeds on every default except Q1-Q3, which gate W2b; until they are
 | The counter | **Deferred one tick** through `duel.parryOn` (the `riposteOn` pattern, `health.ts:871-881` → `heroes.ts:99-103`). It is answered **after** `isDisabled` (`health.ts:107-115`, which includes `stilled`), so a stunned, stilled or possessed Seren still parries but doesn’t counter.<br>3 × her attack (180 base) goes through `heroDamage`, so auras, Empower and crit apply. It strikes the attacker if within her reach + 1 m, otherwise it is lost. Threat goes on her slot. | No re-entrant `dealDamage` inside an enemy’s swing. It also closes, for her, the hole Riposte Bash has of firing while stilled (docs/phase-5d.md:169). |
 | Credit for Ward-caused damage | Negated damage goes to `ledger.negated`, `ledger.shielded` and her `supportReceived`. A lazy `ledger.duel` records the parries, and the counter and kill-shot damage as ‘your Wards dealt’. Those numbers carry the Weaver’s gold chip and are **not** added to amplified totals, so nothing is double counted. | ‘Gold means the Weaver did this’ (04 §1). It makes ‘Wards into damage’ show in proof of support. |
 | Kill shot | **Any Perfect Ward on a telegraph aimed at her** marks a kill shot on its owner. The hook in `perfect()` beside `riposteBash` (`telegraphs.ts:600-601`) only sets `duel.killShotOn = owner`; every existing Perfect effect still happens (stagger, +20 Resonance, refund, Riposte Bloom, relics, a Grand Silence note).<br>The shot itself is taken **next tick**, after `isDisabled`. It is **lost** if she is disabled or stilled, while `field.finale?.silence` holds, or if the owner is gone.<br>• If the owner is within 9 m of her and the landing is within 13 m of the Weaver, she leaps to it (her own landing rule in `duel.ts`, modelled on `leapLanding`, `heroes.ts:1384-1395`).<br>• Otherwise a thrown silver lance strikes it at range.<br>Damage follows Q5. It goes through `dealDamage`, so invulnerability, `rising`, `phaseShiftUntil` (`health.ts:733-738`), guard arcs, tethers and Pacts apply: a kill shot into a Sentinel’s front glances. It counts as a parry for En Garde. | The leap reads as a duel move but never takes her out of reach, and ‘only the Weaver acts’ holds in the Grand Silence. The thrown lance keeps a sniper’s Perfect worth something. |
-| Showboat target | **The strongest enemy within 12 m of the Weaver**, rechecked **every tick** in the duelist arm of `chooseTarget`. She picks when she has no live quarry, or when a higher-tier enemy enters the 12 m, after a 0.8 s bark. No `onPackArrived` hook, since it returns at wave ≤ 1 (`heroes.ts:1564`) and would skip wave 1 and every boss fight.<br>• Rank by tier (boss > miniboss > elite > normal), then max life, then id.<br>• Skip `stationary` enemies (Void Maw, Spindles) unless Focused.<br>• Prefer enemies **not targeting Kael** when Kael is in the party; if Kael’s target is the only choice, she duels it **from the flank** (`flank()`, `heroes.ts:525`).<br>Focus overrides. The pick is sticky for 8 s or until the target dies. A **Rally or Reel ends it and suspends it for 4 s; she always obeys.** | It fixes 5b’s cause 1 by design: she never queues in Kael’s cone. Skipping stationary enemies keeps her out of the Maw’s Inhale. Obeying Rally keeps her distinct from Brann. |
+| Showboat target | **The strongest enemy within 12 m of the Weaver**, rechecked **every tick** in the duelist arm of `chooseTarget`. She picks when she has no live quarry, or when a higher-tier enemy enters the 12 m, after a 0.8 s bark. No `onPackArrived` hook, since it returns at wave ≤ 1 (`heroes.ts:1564`) and would skip wave 1 and every boss fight.<br>• Rank by tier (boss > miniboss > elite > normal), then max life, then id.<br>• Skip `stationary` enemies (Void Maw, Spindles) unless Focused.<br>• Prefer enemies **not targeting Kael** when Kael is in the party; if Kael’s target is the only choice, she duels it **from the flank** (`flank()`, `heroes.ts:525`).<br>Focus overrides. The pick is sticky for 8 s or until the target dies. A **Rally or Reel ends it and suspends it for 4 s; she always obeys.** The Reel here is the pull (and the Chronomancer’s Rewind): Anchor and Swap pull nothing, so they leave her duel standing and Rally is their answer (*By Calling*). | It fixes 5b’s cause 1 by design: she never queues in Kael’s cone. Skipping stationary enemies keeps her out of the Maw’s Inhale. Obeying Rally keeps her distinct from Brann. |
 | The leash | Every destination is clamped to **13 m from the Weaver**. Out of a duel her leash is 9 m. Lunge and Thousand Cuts never take her past the clamp. | Ward, Chime, Reel and the Thread reach 14 m. |
 | Overextended | While duelling, with **3 or more enemies targeting her**, or below 40% life outside every field. This raises a frame chip, a glyph and a hint, and she won’t leave on her own.<br>Answers: Reel, Rally, Cue Thousand Cuts (invulnerable), Stasis, a dome; for the Chronomancer, Rally or an *early* Rewind. | One readable rule shared by HUD, bots and recaps (`overextended()` is a pure rule). Rewind returns her to where she was 3 s ago (`callings.ts:189`), so it extracts her only if used as the pack closes. |
 | Seren’s movement branch | **Her own branch** in `combatMove`. Nothing in the berserker code changes: `const berserker`, `lust`, the leash, the Hold chase, the `berserker &&` guard at `heroes.ts:326` and the `sidestepOthers` call at `:350` stay as they are.<br>• In the Rally arm, a **separate** line `if (def.role === 'duelist' && formationSidestep(...)) return;` sits beside Brann’s.<br>• A new `else if (def.role === 'duelist') duelMove(...)` arm sits before the `flank` arm. It calls `sidestepOthers` itself, so she steps out of every telegraph aimed at **another** hero. | Brann’s path is untouched, as the W0a A/B/C snapshots prove. |
@@ -474,7 +474,7 @@ The Call is her lesson: the Ward you answer with arrives with her, armed to parr
 | attack | melee 26 per 1.1 s, range 2.0 | slam 70 per 1.5 s, hits all within 3 m |
 | hold | 3.5 m taunt pulse every 5 s for 2.5 s, refreshed on its target by each hit; normal and elite, non-heavy | re-taunts normal and elite, non-heavy enemies within 7 m every 1 s |
 | root | none | 1.5 s on rising, within 7 m, normal and elite, non-heavy |
-| lifetime | until felled; re-sprouts beside Oro 12 s later | 8 s (12 s under Q2’s fallback) |
+| lifetime | until felled; re-sprouts beside Oro 12 s later | uncued: until Wildgrowth ends (`finishSolo`; the Solo’s 8 s include the 1 s warning); Cued: 8 s from rising (Q2; 12 s under Q2’s fallback); World Tree: 4 s more either way |
 | tended (Gentle, no Focus) | +50% damage | n/a |
 | place | the Weaver’s front spots (5 m ahead, ±2.5 m) at fight start; re-planted there by a Rally | the Focus target if within 10 m of Oro; else the centroid of enemies within 10 m of him targeting the party; else 3 m in front of him. Clamped to 12 m from the Weaver, after a 1.0 s ground warning |
 
@@ -520,12 +520,12 @@ The Call is her lesson: the Ward you answer with arrives with her, armed to parr
 `chargeTime 28, duration 8, radius 7, pulse 1, power 1.5 (root s), cuedPower 6 (Q2 disc radius)`
 
 - Charge: while he **or a Sapling** is engaged; it fires uncued on autonomy under the same rule.
-- Uncued: the Ancient rises, roots, taunts and slams, and leaves in `finishSolo`.
-- Cued: Q2 (the default) or its fallback.
+- Uncued: the Ancient rises, roots, taunts and slams, and leaves in `finishSolo` (`groveSoloEnd`; World Tree keeps it 4 s more, then it roots again as it goes).
+- Cued: Q2 (the default) or its fallback. The Cued Ancient keeps its own clock, 8 s from rising (Q2’s ‘for its 8 s’), so its disc outlasts the Solo by the warning.
 
 ### Quirk: Gentle (`gentle`, `retreat 4`)
 
-- With no Focus, he steps 3 m away from any enemy within 4 m (his own rule; ranged `kite` is unchanged).
+- With no Focus, he steps 3 m away from any enemy within 4 m (his own rule; ranged `kite` is unchanged). A Rally or Hold overrides it: he obeys both, as every hero does.
 - Bark ‘quirk’ when he refuses melee, throttled to once per 10 s: ‘I won’t. Not unless you ask.’ / ‘Let the roots hold them.’
 - A new optional `focus` bark plays when you Focus: ‘If I must.’ / ‘Forgive me.’
 - A closed-leaf glyph shows while he tends.
@@ -581,7 +581,7 @@ The Call is her lesson: the Ward you answer with arrives with her, armed to parr
 | Death | `summonFell` before `killEnemy` | `target.summon` is false |
 | Damage out | `partyDamage` on Oro’s slot, no threat, no Bond; guard arcs and tethers apply; hero amplifiers don’t | `source.summon` is false |
 | Healing | `heal()`, generic; Weaver credit and healing threat via team `party`; adds to Oro’s `supportReceived` | |
-| ⚑ Aura reception | Q1 | the loop runs only with summons |
+| ⚑ Aura reception | Q1: Saplings hear your songs; the Ancient only while its Cued disc stands (it stands in it), never uncued; a held summon (dormant or burrowed) hears none | the loop runs only with summons |
 | ⚑ Ancient disc as your field | Q2 | `field.ancient` is absent |
 | ⚑ Verdant Choir | Q3 | `mods.verdantChoir` is 0; the motif is hero-gated |
 | Rootbond | Mend spill | `hero.grove` is absent |
@@ -1410,6 +1410,11 @@ The workstreams merged in order W8 (with W7, W1 and W2), W2b, W6 (with W3), W4, 
 - **Goldens.** The three Oro goldens (skilled-oro-bellwarden, skilled-oro-conductor, novice-grove-mirror-hall) were re-recorded once W2b (Q1-Q3) landed, with their `ROSTER_HASHES` literals; the nineteen and the three Seren goldens are unchanged.
 - **Render tests.** `tests/renderOro.test.ts` stages its own summons, so it first takes away the ones the sim now plants (`clearGrove`).
 - Seren’s chip line: the overextended chip reads Rally for the Chronomancer and for the Anchor and Swap Reel variants.
+- **Sim fixes after integration (m5/fix-sim).**
+  - Unflinching’s 1.5 s is added where the Ward is made (`addShield` → `unflinchWard`), so a Ward that lands on a stunned, staggered or Reeled Seren keeps it, and a Ward cast in Stasis gains it once (it used to gain it on every frozen tick).
+  - A Gentle Oro obeys Hold as he obeys a Rally: no retreat from his hold spot.
+  - An uncued Wildgrowth’s Ancient leaves in `finishSolo` (World Tree: 4 s later); a Cued one keeps Q2’s 8 s from rising.
+  - Verified already fixed: Duellist’s Honour returns a Ward charge (the Temporal Mastery way), a Reel or Rewind loses a pending counter or kill shot, and Anchor and Swap don’t end her duel.
 
 ## Exit criteria
 

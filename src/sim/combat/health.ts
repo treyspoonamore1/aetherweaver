@@ -32,7 +32,7 @@ import { recordSave } from './saves';
 import { hasTalent, soloValue, talentFired, talentHolder, talentValue } from '../bonds';
 import { variantGuard, variantValue } from '../variants';
 import { suppressRadiusOf, weaverSilenced } from '../rules3';
-import { duelDownRecord, parryArmed, parryIntercept } from '../systems/duel';
+import { duelDownRecord, parryArmed, parryIntercept, unflinchWard } from '../systems/duel';
 import {
   groveDownRecord,
   rootable,
@@ -215,6 +215,8 @@ export function addShield(
     fromWeaver,
     fromAura,
   };
+  // Seren's Unflinching (docs/phase-5e.md): her Wards last longer, from the moment they're made.
+  if (kind === 'ward' && fromWeaver && target.hero?.duel) unflinchWard(world, target, shield);
   const index = h.shields.findIndex((s) => s.kind === kind);
   if (index >= 0) h.shields[index] = shield;
   else h.shields.push(shield);

@@ -361,6 +361,39 @@ describe('her talents (Bonds)', () => {
     expect(plain.s.seren.health!.statuses.some((x) => x.id === 'stagger')).toBe(true);
   });
 
+  it('Unflinching: a Ward that lands on her staggered, stunned or Reeled lasts 1.5 s longer too', () => {
+    const life = (talents: string[], how: 'stagger' | 'stun' | 'reel' | 'free') => {
+      const s = setup(['lyra', 'vexis', 'seren'], { bonds: { talents, solos: [] } });
+      const weaver = s.w.entities.get(s.w.weaverId)!;
+      place(s.seren, weaver.x + 9, weaver.z);
+      if (how === 'stagger' || how === 'stun') addStatus(s.w, s.seren, how, 1, null);
+      if (how === 'reel') {
+        s.sim.step([{ t: 'tech', id: 'reel', slot: s.slot }]);
+        expect(s.seren.hero!.reel, how).toBeTruthy();
+      }
+      s.sim.step([{ t: 'tech', id: 'ward', slot: s.slot }]);
+      s.sim.step();
+      const ward = s.seren.health!.shields.find((x) => x.kind === 'ward')!;
+      return ward.expiresAt - ward.appliedAt;
+    };
+    for (const how of ['free', 'stagger', 'stun', 'reel'] as const)
+      expect(life(['unflinching'], how) - life([], how), how).toBeCloseTo(1.5, 6);
+  });
+
+  it('Unflinching: a Ward cast in Stasis gains its 1.5 s once, not on every frozen tick', () => {
+    const expires = (talents: string[]) => {
+      const s = setup(['lyra', 'vexis', 'seren'], { bonds: { talents, solos: [] } });
+      s.w.field.stasis = true;
+      s.sim.step([{ t: 'tech', id: 'ward', slot: s.slot }]);
+      const ward = s.seren.health!.shields.find((x) => x.kind === 'ward')!;
+      const at = ward.expiresAt;
+      stepFor(s.sim, 60);
+      expect(ward.expiresAt).toBe(at);
+      return at;
+    };
+    expect(expires(['unflinching']) - expires([])).toBeCloseTo(1.5, 6);
+  });
+
   it('Duellist’s Honour: a kill shot readies your Ward again', () => {
     const s = setup(['lyra', 'vexis', 'seren'], {
       bonds: { talents: ['duellists_honour'], solos: [] },
