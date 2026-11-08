@@ -274,12 +274,14 @@ export function updateField(world: World, dt: number): void {
 }
 
 /**
- * Q1: each standing summon's coverage, by the unchanged `coverage()` (Mute and Silencing domes,
+ * Q1: each standing Sapling's coverage, by the unchanged `coverage()` (Mute and Silencing domes,
  * the hymn, suppression and Steal Verse all apply), at `auraTotals(mask, false)`: field songs at
  * their strength, the beam song as its echo (a summon is never the threaded hero). Its regen and
- * barrier land through `applyAuraLife`; its swings read `summonFx`. A dormant or burrowed summon
- * (held, untargetable) hears nothing. None of the hero 'in your field' effects (Dawnward, the
- * chorus pulse, Fermata, Haloed, Anthem, Radiance, Shared Wounds) reach it: those read heroes.
+ * barrier land through `applyAuraLife`; its swings read `summonFx`. The answers reach only the
+ * Saplings (Q1) and the Cued Ancient while its disc stands (Q2, 'wreathed in all your auras'):
+ * an uncued Ancient hears nothing, as does a dormant or burrowed summon (held, untargetable).
+ * None of the hero 'in your field' effects (Dawnward, the chorus pulse, Fermata, Haloed, Anthem,
+ * Radiance, Shared Wounds) reach a summon: those read heroes.
  */
 function coverSummons(
   world: World,
@@ -292,8 +294,9 @@ function coverSummons(
     const s = world.entities.get(id);
     const c = s?.summon;
     if (!s || !c || !s.health || s.health.dead) continue;
+    const hears = c.kind === 'sapling' || world.field.ancient?.id === id;
     const held = c.dormant === true || (c.burrowUntil !== undefined && world.time < c.burrowUntil);
-    const mask = held ? 0 : coverage(world, s, 'party');
+    const mask = !hears || held ? 0 : coverage(world, s, 'party');
     if (mask !== 0) c.auraMask = mask;
     else delete c.auraMask;
     if (mask !== 0 && inRadius) c.inField = true;

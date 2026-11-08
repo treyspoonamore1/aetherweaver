@@ -295,9 +295,9 @@ export function spawnGrove(world: World): void {
 
 /**
  * api.ts, after `updateField`: the grove's field bookkeeping. Q1-Q3 (answered yes): the field
- * writes each summon's `auraMask` and `inField` (auras.ts `summonFx` reads the mask), a Cued
- * Ancient's `field.ancient` (written in summons.ts) counts as your field in `coverage()` and
- * `inAnyField()`, and Verdant Choir's pulse is `verdantChoir`, here.
+ * writes each Sapling's (and the Cued Ancient's) `auraMask` and `inField` (auras.ts `summonFx`
+ * reads the mask), a Cued Ancient's `field.ancient` (written in summons.ts) counts as your
+ * field in `coverage()` and `inAnyField()`, and Verdant Choir's pulse is `verdantChoir`, here.
  */
 export function groveAfterField(world: World, dt: number): void {
   if (!world.internal.summons) return;

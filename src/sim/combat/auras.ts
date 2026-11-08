@@ -165,7 +165,8 @@ export function heroFx(world: World, e: Entity): Readonly<AuraTotals> {
 /**
  * Q1 (docs/phase-5e.md): what one of Oro's summons hears. `summon.auraMask` is written only by
  * the field's summon loop, in Oro parties; a summon is never the threaded hero, so the beam song
- * reaches it as its echo. It feeds a Sapling's damage, flat damage and attack speed.
+ * reaches it as its echo. Only Saplings and the Cued Ancient (while its disc stands, Q2) hear;
+ * an uncued Ancient's mask stays absent. It feeds their damage, flat damage and attack speed.
  */
 export function summonFx(world: World, e: Entity): Readonly<AuraTotals> {
   return auraTotals(world, e.summon?.auraMask ?? 0, false);

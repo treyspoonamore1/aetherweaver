@@ -423,6 +423,60 @@ describe('Q2: the Cued Ancient’s disc counts as your field', () => {
     updateField(w, 0);
     expect(kael.hero!.inField).toBe(false);
   });
+
+  it('an uncued Ancient hears nothing, even in your field; Cued, it hears every song', () => {
+    const SONGS = {
+      chords: [
+        { auras: ['fortissimo'], ornaments: [] },
+        { auras: ['sostenuto', 'ostinato'], ornaments: [] },
+      ],
+    };
+    const { sim, w, oro, weaver } = grove(SONGS);
+    freeze(w, [0, 1]);
+    place(oro, weaver.x + 3, weaver.z);
+    startSolo(w, oro, false);
+    stepFor(sim, 61);
+    const id = (w.internal.summons ?? []).find(
+      (sid) => w.entities.get(sid)?.summon?.kind === 'ancient',
+    );
+    expect(id).toBeDefined();
+    const ancient = w.entities.get(id!)!;
+    expect(w.field.ancient).toBeUndefined();
+    // Standing in your own field, where a Sapling hears every song.
+    place(ancient, weaver.x + 2, weaver.z);
+    const [s] = saplings(w, oro);
+    place(s!, weaver.x + 2, weaver.z + 1);
+    ancient.health!.hp = ancient.health!.maxHp - 500;
+    const hp = ancient.health!.hp;
+    updateField(w, 1 / 60);
+    expect(s!.summon!.auraMask).toBeGreaterThan(0);
+    const c = ancient.summon!;
+    expect('auraMask' in c).toBe(false);
+    expect('inField' in c).toBe(false);
+    expect(shieldOf(ancient.health!, 'barrier')).toBeUndefined();
+    expect(ancient.health!.hp).toBe(hp);
+    const fx = summonFx(w, ancient);
+    expect(fx.damage).toBe(0);
+    expect(fx.attackSpeed).toBe(0);
+    expect(fx.regenPctPerSec).toBe(0);
+    // Its disc standing (the Cue), the same Ancient on the same spot is wreathed in your songs.
+    w.field.ancient = { id: ancient.id, x: ancient.x, z: ancient.z, r: 6 };
+    updateField(w, 1 / 60);
+    expect(c.auraMask).toBe(s!.summon!.auraMask);
+    expect(c.inField).toBe(true);
+    expect(shieldOf(ancient.health!, 'barrier')?.amount).toBeCloseTo(
+      ancient.health!.maxHp * 0.12,
+      9,
+    );
+    expect(ancient.health!.hp).toBeGreaterThan(hp);
+    expect(summonFx(w, ancient).damage).toBeGreaterThan(0);
+    // The disc gone, the uncued rule holds again: mask, field and barrier all go.
+    delete w.field.ancient;
+    updateField(w, 0);
+    expect('auraMask' in c).toBe(false);
+    expect('inField' in c).toBe(false);
+    expect(shieldOf(ancient.health!, 'barrier')).toBeUndefined();
+  });
 });
 
 describe('Q3: Verdant Choir reads Sostenuto’s regen', () => {
