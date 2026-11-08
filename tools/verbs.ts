@@ -23,6 +23,14 @@
  * `--bot novice` plays the Novice instead (`NoviceOptions.skip`) and ablates her Finale draws,
  * `NOVICE_M4_RULES`; she has no Movement III rules to leave off.
  *
+ * Seren's and Oro's rules (docs/phase-5e.md, "Lever order" 3: hero-only bot rules, after an
+ * ablation): with `--party` holding either hero the default list is the Skilled bot's
+ * `ROSTER_RULES` (or, with `--bot novice`, her `NOVICE_ROSTER` draws), whatever the Movement;
+ * `--rules` may still name any rule.
+ *
+ *   npx tsx tools/verbs.ts --movement 2 --party SA --encounters vharun     # Seren's rules
+ *   npx tsx tools/verbs.ts --movement 1 --party OB --bot novice            # the Novice's draws
+ *
  * Some rules are met only off the default setup: `mawHold` needs a Bloodlusting Brann whom no
  * plain Reel takes out of an Inhale (Swap, the Chronomancer's Rewind). `--party` (A, B, C or 3
  * hero ids, as the harness takes it), `--techniques` (variant ids, e.g. `swap` or
@@ -32,11 +40,19 @@
 import {
   FINALE_RULES,
   M3_RULES,
+  ROSTER_RULES,
   SkilledBot,
   type FinaleRule,
   type M3Rule,
+  type RosterRule,
 } from '../src/bots/skilled';
-import { NOVICE_M4_RULES, NoviceBot, type NoviceM4Rule } from '../src/bots/novice';
+import {
+  NOVICE_M4_RULES,
+  NOVICE_ROSTER_RULES,
+  NoviceBot,
+  type NoviceM4Rule,
+  type NoviceRosterRule,
+} from '../src/bots/novice';
 import type { Bot } from '../src/bots/types';
 import { FINALE_MOVEMENT } from '../src/content/crucibleIds';
 import { CONTENT, callingDef } from '../src/content';
@@ -49,22 +65,34 @@ import { kitConfig, kitFor } from './kits';
 const MAX_TICKS = 9 * 60 * 60;
 
 /**
- * A rule a bot's `skip` can turn off: the Skilled bot's Movement III or Finale rules, or the
- * Novice's Finale draws.
+ * A rule a bot's `skip` can turn off: the Skilled bot's Movement III, Finale or roster rules, or
+ * the Novice's Finale and roster draws.
  */
-export type VerbRule = M3Rule | FinaleRule | NoviceM4Rule;
+export type VerbRule = M3Rule | FinaleRule | RosterRule | NoviceM4Rule | NoviceRosterRule;
 /** The bot an ablation plays (`--bot`): the Skilled bot by default. */
 export type VerbBot = 'skilled' | 'novice';
 
-/** The rules a Movement's ablation plays by default: the Finale's from it on, else Movement III's. */
-export function rulesFor(movement: number, bot: VerbBot = 'skilled'): readonly VerbRule[] {
+/**
+ * The rules a Movement's ablation plays by default: the Finale's from it on, else Movement III's;
+ * with Seren or Oro in `party`, their own rules (docs/phase-5e.md: `ROSTER_RULES`, or the
+ * Novice's `NOVICE_ROSTER`).
+ */
+export function rulesFor(
+  movement: number,
+  bot: VerbBot = 'skilled',
+  party: readonly string[] | null = null,
+): readonly VerbRule[] {
+  if (party && (party.includes('seren') || party.includes('oro')))
+    return bot === 'novice' ? NOVICE_ROSTER_RULES : ROSTER_RULES;
   if (bot === 'novice') return movement >= FINALE_MOVEMENT ? NOVICE_M4_RULES : [];
   return movement >= FINALE_MOVEMENT ? FINALE_RULES : M3_RULES;
 }
 
 /** Every rule `--rules` may name, by bot. */
 function allRules(bot: VerbBot): readonly string[] {
-  return bot === 'novice' ? NOVICE_M4_RULES : [...M3_RULES, ...FINALE_RULES];
+  return bot === 'novice'
+    ? [...NOVICE_M4_RULES, ...NOVICE_ROSTER_RULES]
+    : [...M3_RULES, ...FINALE_RULES, ...ROSTER_RULES];
 }
 
 /** One fight's numbers. */
@@ -136,12 +164,15 @@ export function callingArg(
 /** The ablation's player: the Skilled bot (the harness's options) or the Novice, `skip` left off. */
 function verbBot(seed: number, skip: ReadonlySet<VerbRule>, bot: VerbBot): Bot {
   if (bot === 'novice')
-    return new NoviceBot(seed, skip.size > 0 ? { skip: skip as ReadonlySet<NoviceM4Rule> } : {});
+    return new NoviceBot(
+      seed,
+      skip.size > 0 ? { skip: skip as ReadonlySet<NoviceM4Rule | NoviceRosterRule> } : {},
+    );
   return new SkilledBot(seed, {
     every: 4,
     attention: 1,
     callReaction: 0.4,
-    ...(skip.size > 0 ? { skip: skip as ReadonlySet<M3Rule | FinaleRule> } : {}),
+    ...(skip.size > 0 ? { skip: skip as ReadonlySet<M3Rule | FinaleRule | RosterRule> } : {}),
   });
 }
 
@@ -184,11 +215,11 @@ function main(): void {
   const botKind = (get('bot') ?? 'skilled') as VerbBot;
   if (botKind !== 'skilled' && botKind !== 'novice')
     throw new Error(`--bot is skilled or novice, not "${botKind}"`);
-  const rules = (get('rules')?.split(',') ?? [...rulesFor(movement, botKind)]) as VerbRule[];
+  const party = partyArg(get('party'));
+  const rules = (get('rules')?.split(',') ?? [...rulesFor(movement, botKind, party)]) as VerbRule[];
   const known = allRules(botKind);
   const unknown = rules.filter((r) => !known.includes(r));
   if (unknown.length > 0) throw new Error(`Unknown rule "${unknown}" (${known})`);
-  const party = partyArg(get('party'));
   const techniques = techniquesArg(get('techniques'));
   const calling = callingArg(get('calling'), get('path'));
   const setup: VerbSetup = {

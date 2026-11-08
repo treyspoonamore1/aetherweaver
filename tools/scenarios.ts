@@ -326,6 +326,106 @@ export const SCENARIO_CHRONO_SILENCE = silenceScenario(
   },
 );
 
+// ── Seren and Oro (docs/phase-5e.md, "Harness and tools": goldens): appended after
+// skilled-chrono-silence, so the nineteen earlier hashes are untouched. Each plays its fight on
+// its Movement's kit at the encounter's own scale. ──
+
+/** Party SA (Kael, Vexis, Seren) on the Crimson Gate: hound packs swinging at her, parries. */
+export const SCENARIO_SEREN_CRIMSON_GATE = botScenario(
+  'skilled-seren-crimson-gate',
+  'skilled',
+  8787,
+  60 * 40,
+  {
+    encounter: 'crimson_gate',
+    party: ['kael', 'vexis', 'seren'],
+    ...kitConfig(ARRIVAL_KIT),
+  },
+);
+
+/** Party SC (Kael, Lyra, Seren) on First Light with a Novice: untimed Wards on her, Showboat. */
+export const SCENARIO_SEREN_FIRST_LIGHT = botScenario(
+  'novice-seren-first-light',
+  'novice',
+  9898,
+  60 * 30,
+  {
+    encounter: 'first_light',
+    party: ['kael', 'lyra', 'seren'],
+  },
+);
+
+/**
+ * Party OB (Lyra, Vexis, Oro: no Kael, Q8) on the Bellwarden: the rings and Rallies re-planting
+ * the Saplings, Verdant Choir, and three of Oro's talents on the skilled-bellwarden auras.
+ */
+export const SCENARIO_ORO_BELLWARDEN = botScenario(
+  'skilled-oro-bellwarden',
+  'skilled',
+  1919,
+  60 * 60,
+  {
+    encounter: 'bellwarden',
+    party: ['lyra', 'vexis', 'oro'],
+    auras: ['sostenuto', 'ostinato'],
+    motifs: [
+      { id: 'deep_roots', level: 2 },
+      { id: 'twin_aegis', level: 1 },
+      { id: 'verdant_choir', level: 1 },
+    ],
+    bonds: { talents: ['taproot', 'grove_chorus', 'seedling_swarm'], solos: [] },
+  },
+);
+
+/**
+ * Party R (Kael, Brann, Seren: the Red Line, 02:266) on Vharun: Blood and Silk and En Garde on
+ * Ostinato and Fermata, with Riposte Chain and Bladesong.
+ */
+export const SCENARIO_RED_LINE_VHARUN = botScenario(
+  'skilled-red-line-vharun',
+  'skilled',
+  2121,
+  60 * 180,
+  {
+    encounter: 'vharun',
+    party: ['kael', 'brann', 'seren'],
+    ...kitConfig(ARRIVAL_KIT),
+    chords: [{ auras: ['ostinato', 'fermata'], ornaments: [] }],
+    motifs: [
+      ...kitConfig(ARRIVAL_KIT).motifs!,
+      { id: 'blood_and_silk', level: 1 },
+      { id: 'en_garde', level: 1 },
+    ],
+    bonds: { talents: ['riposte_chain', 'bladesong'], solos: [] },
+  },
+);
+
+/** Party OA (Kael, Vexis, Oro) on the Conductor: the Cued Ancient, and the grove in the silence. */
+export const SCENARIO_ORO_CONDUCTOR = botScenario(
+  'skilled-oro-conductor',
+  'skilled',
+  3232,
+  60 * 150,
+  {
+    encounter: CONDUCTOR,
+    party: ['kael', 'vexis', 'oro'],
+    ...kitConfig(ARRIVAL4_KIT),
+  },
+);
+
+/** Party SO (Kael, Seren, Oro) on the Mirror Hall with a Novice: the Mimic, possession, a Maw. */
+export const SCENARIO_GROVE_MIRROR_HALL = botScenario(
+  'novice-grove-mirror-hall',
+  'novice',
+  4545,
+  60 * 60,
+  {
+    encounter: 'mirror_hall',
+    party: ['kael', 'seren', 'oro'],
+    ...kitConfig(ARRIVAL3_KIT),
+  },
+);
+
 /**
  * The bench's hound pack (not a golden): the Matriarch's fight with a pack of hounds already
  * loose, so Pack Call stacks on top of them; the Movement II entity peak.
@@ -371,4 +471,10 @@ export const SCENARIOS: readonly Scenario[] = [
   SCENARIO_NOVICE_SILENCE,
   SCENARIO_BRANN_CONDUCTOR,
   SCENARIO_CHRONO_SILENCE,
+  SCENARIO_SEREN_CRIMSON_GATE,
+  SCENARIO_SEREN_FIRST_LIGHT,
+  SCENARIO_ORO_BELLWARDEN,
+  SCENARIO_RED_LINE_VHARUN,
+  SCENARIO_ORO_CONDUCTOR,
+  SCENARIO_GROVE_MIRROR_HALL,
 ];

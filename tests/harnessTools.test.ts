@@ -11,14 +11,28 @@ import {
   movementEncounters,
   movementName,
   onEverySet,
+  ORO_TALLY_KEYS,
   playEncounter,
   playRun,
+  SEREN_TALLY_KEYS,
   SOLO_ANSWERS,
   VERB_TALLY3_KEYS,
   VERB_TALLY4_KEYS,
   VerbTally,
 } from '../tools/harness-core';
 import { ExtraWatch } from '../tools/brann-bands';
+import { heroParty } from '../tools/bonds';
+import {
+  bondLine,
+  downTable,
+  firstLookGap,
+  HERO_PARTIES,
+  partiesArg,
+  partyLabel,
+  ROSTER_EXTRA_KEYS,
+  rosterParties,
+  RosterWatch,
+} from '../tools/roster-bands';
 import { callingBand } from '../tools/callings';
 import { BOSS_TABLES, decreeFight } from '../tools/decrees';
 import {
@@ -37,10 +51,19 @@ import {
 } from '../tools/m1-baseline';
 import { CHOIR_VOICES, SCENARIO_CONDUCTOR_PEAK, SCENARIO_GRAND_SILENCE } from '../tools/sim-bench';
 import { callingArg, rulesFor, techniquesArg, verbConfig, verbFight } from '../tools/verbs';
-import { NOVICE_M4_RULES } from '../src/bots/novice';
-import { FINALE_RULES, M3_RULES, SkilledBot } from '../src/bots/skilled';
+import { NOVICE_M4_RULES, NOVICE_ROSTER_RULES } from '../src/bots/novice';
+import { FINALE_RULES, M3_RULES, ROSTER_RULES, SkilledBot } from '../src/bots/skilled';
 import { makeBot, type Bot } from '../src/bots';
-import { band, NAMED_PARTIES, parseArgs, partyArg, runBand } from '../tools/harness';
+import {
+  band,
+  NAMED_PARTIES,
+  oroLine,
+  parseArgs,
+  partyArg,
+  rosterTier,
+  runBand,
+  serenLine,
+} from '../tools/harness';
 import {
   ARRIVAL3_KIT,
   ARRIVAL4_KIT,
@@ -1283,4 +1306,320 @@ describe('the Movement baselines (tools/m1-baseline.ts --check)', () => {
         JSON.stringify(want, null, 1),
       );
     }, 300_000);
+});
+
+// ── Seren and Oro (docs/phase-5e.md, "Harness and tools") ────────────────────────────────
+
+const SEREN_KEYS = [
+  'parries',
+  'perfectParries',
+  'killShots',
+  'killShotsLost',
+  'executed',
+  'counterDamage',
+  'damage',
+  'wardsOn',
+  'wardsParried',
+  'dodgesCancelled',
+  'overextendedTime',
+  'overextendedAnswered',
+  'beyondReachTime',
+  'quarryPickShare',
+  'reelsOn',
+  'ralliesOn',
+  'lungeInterrupts',
+  'downs',
+  'feintTauntTime',
+  'cutsStrikes',
+  'cutsExtensions',
+  'enGarde',
+  'overextensions',
+  'aliveTime',
+  'killShotDamage',
+];
+
+const ORO_KEYS = [
+  'saplingAliveTime',
+  'saplingInFieldTime',
+  'saplingsLost',
+  'regrowths',
+  'rootbondHeal',
+  'saplingDamage',
+  'tendingTime',
+  'focusTime',
+  'ancientTauntTime',
+  'ancientAuraTime',
+  'verdantHeal',
+  'threadCuts',
+  'downs',
+  'aliveTime',
+  'bothStandingTime',
+  'ancients',
+];
+
+describe('the harness and Seren and Oro (docs/phase-5e.md)', () => {
+  it('reads the new party codes, in content order', () => {
+    expect(partyArg('SA')).toEqual(['kael', 'vexis', 'seren']);
+    expect(partyArg('sb')).toEqual(['lyra', 'vexis', 'seren']);
+    expect(partyArg('SC')).toEqual(['kael', 'lyra', 'seren']);
+    expect(partyArg('OA')).toEqual(['kael', 'vexis', 'oro']);
+    expect(partyArg('OB')).toEqual(['lyra', 'vexis', 'oro']);
+    expect(partyArg('oc')).toEqual(['kael', 'lyra', 'oro']);
+    expect(partyArg('R')).toEqual(['kael', 'brann', 'seren']);
+    expect(partyArg('SO')).toEqual(['kael', 'seren', 'oro']);
+    expect(partyArg('X')).toEqual(['brann', 'seren', 'oro']);
+    expect(partyArg('W')).toEqual(['vexis', 'seren', 'oro']);
+    // A party of ids, the new heroes among them (the old expected red: 'kael,vexis,seren' threw).
+    expect(partyArg('seren,vexis,kael')).toEqual(['kael', 'vexis', 'seren']);
+    expect(partyArg('oro,lyra,brann')).toEqual(['lyra', 'brann', 'oro']);
+    expect(() => partyArg('seren,oro')).toThrow(/SA, SB/);
+    // The codes are the doc's, and every party is 3 known heroes in content order.
+    expect(Object.keys(NAMED_PARTIES)).toEqual([
+      'A',
+      'B',
+      'C',
+      'SA',
+      'SB',
+      'SC',
+      'OA',
+      'OB',
+      'OC',
+      'R',
+      'SO',
+      'X',
+      'W',
+    ]);
+    for (const party of Object.values(NAMED_PARTIES))
+      expect(partyArg(party.join(','))).toEqual(party);
+  });
+
+  it('bands each Seren and Oro party by its row, and leaves the default and Brann bands', () => {
+    // The default party and Brann's parties print exactly what they did.
+    expect(band('first_light', 'skilled')).toBe('');
+    expect(band('vharun', 'skilled', NAMED_PARTIES.B)).toContain('Twin Cleave on Brann');
+    expect(rosterTier(NAMED_PARTIES.A!)).toBeNull();
+    expect(runBand(4, 'skilled')).toBe(runBand(4, 'skilled', null));
+    expect(runBand(4, 'skilled', NAMED_PARTIES.C)).toBe(runBand(4, 'skilled'));
+    // The tiers.
+    for (const code of ['SA', 'SC', 'OA', 'OC'])
+      expect(rosterTier(NAMED_PARTIES[code]!)).toBe('kael');
+    expect(rosterTier(NAMED_PARTIES.SB!)).toBe('sb');
+    expect(rosterTier(NAMED_PARTIES.OB!)).toBe('ob');
+    for (const code of ['R', 'SO', 'X', 'W'])
+      expect(rosterTier(NAMED_PARTIES[code]!)).toBe('reduced');
+    expect(rosterTier(['lyra', 'brann', 'seren'])).toBe('sweep');
+    // The cells: bosses, and the skirmish row.
+    expect(band('vharun', 'skilled', NAMED_PARTIES.SA)).toContain('≥ default − 5');
+    expect(band('vharun', 'skilled', NAMED_PARTIES.SB)).toContain('≥ default − 15');
+    expect(band('crimson_gate', 'skilled', NAMED_PARTIES.SB)).toContain('≥ default − 5');
+    expect(band('vharun', 'skilled', NAMED_PARTIES.OB)).toContain(
+      '≥ default − 25 (provisional, Q8)',
+    );
+    expect(band('crimson_gate', 'skilled', NAMED_PARTIES.OB)).toContain('≥ default − 10');
+    expect(band('vharun', 'skilled', NAMED_PARTIES.R)).toContain('printed vs default − 15');
+    expect(band('vharun', 'idle', NAMED_PARTIES.OA)).toBe('0%');
+    expect(band('vharun', 'novice', NAMED_PARTIES.SB)).toBe('≥10%');
+    expect(band('the_silent_conductor', 'skilled', NAMED_PARTIES.SC)).toContain('170-280 s');
+    expect(band('vharun', 'skilled', NAMED_PARTIES.SA)).toContain('Seren:');
+    expect(band('vharun', 'skilled', NAMED_PARTIES.OA)).toContain('Oro:');
+    expect(band('vharun', 'skilled', ['lyra', 'brann', 'seren'])).toBe('unbanded (smoke)');
+    // Whole runs.
+    expect(runBand(4, 'skilled', NAMED_PARTIES.SA)).toBe('won ≥ default − 5 and ≥55%');
+    expect(runBand(4, 'skilled', NAMED_PARTIES.OB)).toContain('default − 20 (provisional');
+    expect(runBand(1, 'skilled', NAMED_PARTIES.OB)).toBe('≥ default − 10');
+    expect(runBand(4, 'novice', NAMED_PARTIES.SA)).toBe('');
+  });
+
+  it('tallies Seren and Oro only when each is in the party, with their keys in order', () => {
+    expect([...SEREN_TALLY_KEYS]).toEqual(SEREN_KEYS);
+    expect([...ORO_TALLY_KEYS]).toEqual(ORO_KEYS);
+    const config = { seed: 1000, encounter: 'crimson_gate', ...kitConfig(ARRIVAL_KIT) };
+    const plain = playEncounter(config, 'skilled');
+    expect('seren' in plain).toBe(false);
+    expect('oro' in plain).toBe(false);
+    const brann = playEncounter({ ...config, party: ['kael', 'vexis', 'brann'] }, 'skilled');
+    expect('seren' in brann || 'oro' in brann).toBe(false);
+    const run = playEncounter({ ...config, party: ['kael', 'seren', 'oro'] }, 'skilled');
+    expect(Object.keys(run.seren!)).toEqual(SEREN_KEYS);
+    expect(Object.keys(run.oro!)).toEqual(ORO_KEYS);
+    const s = run.seren!;
+    // Hounds swing at her: Wards on her parry, and her counters are part of what she dealt.
+    expect(s.wardsOn).toBeGreaterThan(0);
+    expect(s.parries).toBeGreaterThan(0);
+    expect(s.wardsParried).toBeLessThanOrEqual(s.wardsOn);
+    expect(s.counterDamage).toBeGreaterThan(0);
+    expect(s.counterDamage + s.killShotDamage).toBeLessThanOrEqual(s.damage);
+    expect(s.quarryPickShare).toBeGreaterThan(0);
+    expect(s.quarryPickShare).toBeLessThanOrEqual(1);
+    expect(s.beyondReachTime).toBeLessThanOrEqual(s.aliveTime);
+    expect(s.overextendedAnswered).toBeLessThanOrEqual(s.overextensions);
+    const o = run.oro!;
+    expect(o.saplingAliveTime).toBeGreaterThan(0);
+    expect(o.saplingInFieldTime).toBeLessThanOrEqual(o.saplingAliveTime + 1e-6);
+    expect(o.saplingDamage).toBeGreaterThan(0);
+    expect(o.tendingTime + o.focusTime).toBeCloseTo(o.aliveTime, 6);
+    expect(o.bothStandingTime).toBeLessThanOrEqual(run.duration + 1);
+    // A Seren-only party carries no Oro key.
+    const sa = playEncounter({ ...config, party: ['kael', 'vexis', 'seren'] }, 'skilled');
+    expect('oro' in sa).toBe(false);
+    expect(Object.keys(sa.seren!)).toEqual(SEREN_KEYS);
+  });
+
+  it('prints the Seren and Oro lines only for their parties', () => {
+    const config = { seed: 1000, encounter: 'crimson_gate', ...kitConfig(ARRIVAL_KIT) };
+    const plain = [playEncounter(config, 'skilled')];
+    expect(serenLine(plain)).toBeNull();
+    expect(oroLine(plain)).toBeNull();
+    const so = [playEncounter({ ...config, party: ['kael', 'seren', 'oro'] }, 'skilled')];
+    expect(serenLine(so)).toContain('Seren: parries');
+    expect(oroLine(so)).toContain('Oro: Saplings in your field');
+  });
+
+  it('ablates the roster rules with a Seren or Oro party, and only then', () => {
+    expect(rulesFor(3)).toEqual(M3_RULES);
+    expect(rulesFor(4, 'skilled', NAMED_PARTIES.A)).toEqual(FINALE_RULES);
+    expect(rulesFor(2, 'skilled', NAMED_PARTIES.SA)).toEqual(ROSTER_RULES);
+    expect(rulesFor(4, 'skilled', NAMED_PARTIES.OB)).toEqual(ROSTER_RULES);
+    expect(rulesFor(1, 'novice', NAMED_PARTIES.OB)).toEqual(NOVICE_ROSTER_RULES);
+    expect(rulesFor(4, 'novice')).toEqual(NOVICE_M4_RULES);
+    // A rule left off plays: the fight still runs, on the same seed.
+    const fight = verbFight('crimson_gate', 1000, new Set(['oroFocus']), 2, {
+      party: NAMED_PARTIES.OA,
+    });
+    expect(fight.duration).toBeGreaterThan(0);
+  });
+
+  it('plays a Decree table with a roster party (`--party`), and the default without', () => {
+    const seen: string[][] = [];
+    const recorder = (bot: Bot): Bot => ({
+      name: bot.name,
+      decide: (state) => {
+        if (seen.length === 0)
+          seen.push(state.party.map((id) => state.entities.get(id)!.hero!.defId));
+        return bot.decide(state);
+      },
+    });
+    decreeFight('vharun', 1000, 'idle', recorder(makeBot('idle', 1000)), NAMED_PARTIES.SB);
+    expect(seen[0]).toEqual(['lyra', 'vexis', 'seren']);
+    seen.length = 0;
+    decreeFight('vharun', 1000, 'idle', recorder(makeBot('idle', 1000)));
+    expect(seen[0]).toEqual(CONTENT.defaultParty);
+  });
+});
+
+describe('the roster Bands tool (tools/roster-bands.ts)', () => {
+  it('a watch on a fight only reads: the fight plays the same with or without one', () => {
+    const config = {
+      seed: 1000,
+      encounter: 'crimson_gate',
+      party: ['kael', 'seren', 'oro'],
+      ...kitConfig(ARRIVAL_KIT),
+    };
+    const plain = playEncounter(config, 'skilled');
+    const watch = new RosterWatch('seren');
+    const watched = playEncounter(config, 'skilled', watch.watch);
+    expect(watched).toStrictEqual(plain);
+    expect(Object.keys(watch.x)).toEqual(ROSTER_EXTRA_KEYS);
+    // The Weaver's support reads by hero, and on the Saplings by kind.
+    const who = [...config.party, 'sapling', 'ancient'];
+    expect(Object.keys(watch.x.weaverHeal).every((h) => who.includes(h))).toBe(true);
+    expect(watch.x.weaverWard.seren ?? 0).toBeGreaterThan(0);
+  });
+
+  it('instruments every down: the blow, how it was aimed, and the hero’s own fields', () => {
+    // Party W (Vexis, Seren, Oro) with a Novice at Vharun: each down is recorded.
+    const config = {
+      seed: 1000,
+      encounter: 'vharun',
+      party: ['vexis', 'seren', 'oro'],
+      ...kitConfig(ARRIVAL_KIT),
+    };
+    const watch = new RosterWatch('seren');
+    const run = playEncounter(config, 'novice', watch.watch);
+    expect(run.downs).toBeGreaterThan(0);
+    expect(watch.x.downs).toHaveLength(run.downs);
+    for (const d of watch.x.downs) {
+      expect(config.party).toContain(d.hero);
+      expect(['self', 'other', 'none', 'basic', 'tick', 'unknown']).toContain(d.aimed);
+      expect(d.distance).toBeGreaterThanOrEqual(0);
+      expect(d.parryArmed !== undefined).toBe(d.hero === 'seren');
+      // The sim's own recap fields ride along only for their hero (and only once it writes them).
+      if (d.duel) expect(d.hero).toBe('seren');
+      if (d.grove) expect(d.hero).toBe('oro');
+    }
+    const cell = { party: 'W', encounter: 'vharun', bot: 'novice' as const, runs: [] as never[] };
+    expect(downTable([{ ...cell, runs: [{ ...run, extra: watch.x }] }]).length).toBeGreaterThan(0);
+    // The boss never targets a summon.
+    expect(watch.x.bossTarget.sapling ?? 0).toBe(0);
+    expect(watch.x.bossTarget.ancient ?? 0).toBe(0);
+  });
+
+  it('names every party with Seren or Oro, and reads --parties', () => {
+    const all = rosterParties();
+    expect(all).toHaveLength(16);
+    expect(new Set(all.map(([label]) => label)).size).toBe(16);
+    for (const [, p] of all) expect(p.includes('seren') || p.includes('oro')).toBe(true);
+    // The banded parties first.
+    expect(
+      all
+        .slice(0, 10)
+        .map(([l]) => l)
+        .sort(),
+    ).toEqual(['OA', 'OB', 'OC', 'R', 'SA', 'SB', 'SC', 'SO', 'W', 'X'].sort());
+    expect(partyLabel(['lyra', 'brann', 'seren'])).toBe('LBS');
+    expect(partiesArg('default,OB,LBS,kael+lyra+oro', 'seren')).toEqual([
+      ['default', null],
+      ['OB', ['lyra', 'vexis', 'oro']],
+      ['LBS', ['lyra', 'brann', 'seren']],
+      ['OC', ['kael', 'lyra', 'oro']],
+    ]);
+    expect(partiesArg(undefined, 'brann').map(([l]) => l)).toEqual(['default', 'A', 'B', 'C']);
+    expect(partiesArg(undefined, 'oro').map(([l]) => l)).toEqual([...HERO_PARTIES.oro!]);
+    expect(() => partiesArg('kael+ghost+oro', 'oro')).toThrow();
+    expect(firstLookGap(NAMED_PARTIES.OB!)).toBe(25);
+    expect(firstLookGap(NAMED_PARTIES.SB!)).toBe(15);
+  });
+
+  it('measures a recruit’s Bond XP against the starters’ average (CONTENT.defaultParty)', () => {
+    const run = (bondXp: Record<string, number>) =>
+      ({ fights: 1, bondXp }) as unknown as Parameters<typeof bondLine>[0][number];
+    // Party R (Kael, Brann, Seren): the starters' average is Kael's alone, never Brann's.
+    const r = bondLine([run({ kael: 40, brann: 20, seren: 30 })]);
+    expect(r).toContain("seren 75% of the starters' average");
+    expect(r).toContain("brann 50% of the starters' average");
+    // Party X has no starter: nothing to compare.
+    expect(bondLine([run({ brann: 20, seren: 30, oro: 10 })])).not.toContain('starters');
+    // tools/bonds.ts measures each recruit's Bonds in party A's shape: SA and OA.
+    expect(heroParty('kael')).toBeUndefined();
+    expect(heroParty('brann')).toEqual(NAMED_PARTIES.A);
+    expect(heroParty('seren')).toEqual(NAMED_PARTIES.SA);
+    expect(heroParty('oro')).toEqual(NAMED_PARTIES.OA);
+  });
+
+  it('a smoke run of the tool plays a first look’s cell and its runs, and prints them', () => {
+    const out = execFileSync(
+      'npx',
+      [
+        'tsx',
+        'tools/roster-bands.ts',
+        '--first-look',
+        '--movement',
+        '4',
+        '--parties',
+        'default,OB',
+        '--bots',
+        'skilled',
+        '--seeds',
+        '1',
+        '--run-seeds',
+        '1',
+      ],
+      { cwd: fileURLToPath(new URL('..', import.meta.url)), encoding: 'utf8' },
+    );
+    expect(out).toContain('first look');
+    expect(out).toMatch(/OB +the_silent_conductor +skilled/);
+    expect(out).toContain('downs OB skilled:');
+    expect(out).toContain('whole Expeditions (4 Movements)');
+    expect(out).toMatch(/OB +skilled win/);
+  }, 120_000);
 });
