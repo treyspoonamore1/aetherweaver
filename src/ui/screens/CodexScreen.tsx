@@ -522,12 +522,15 @@ function HeroEntry({ hero: h }: { hero: HeroDef }) {
         </div>
         {passive && (
           <div data-testid={`codex-passive-${h.id}`}>
-            <dt className="flex items-center gap-1.5 font-semibold">
-              {h.passive && h.passive.id !== 'bloodRage' && (
+            {h.passive && h.passive.id !== 'bloodRage' ? (
+              <dt className="flex items-center gap-1.5 font-semibold">
                 <Icon name={passiveIcon(h)} size={14} className="text-muted" />
-              )}
-              Passive · {passive.name}
-            </dt>
+                Passive · {passive.name}
+              </dt>
+            ) : (
+              // Brann's entry (and any passive without a glyph) is byte-equal to before Phase 5e.
+              <dt className="font-semibold">Passive · {passive.name}</dt>
+            )}
             <dd className="text-xs leading-relaxed text-muted">{passive.text}</dd>
             {stack && (
               <dd

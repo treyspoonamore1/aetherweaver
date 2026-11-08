@@ -52,6 +52,7 @@ import {
   DUEL_VIOLET,
   duelChips,
   duelOutline,
+  overextendedRallyHome,
   type DuelChip,
 } from './duelLook';
 import {
@@ -274,7 +275,8 @@ export function PartyFrames({
   party: HeroHud[];
   /**
    * Phase 5e: the Reel slot's variant (`anchor`, `swap`; null: the plain Reel). With the Anchor
-   * (no pull) or the Chronomancer's Rewind, Seren's overextension answer is Rally.
+   * (no pull), the Swap (no pull home) or the Chronomancer's Rewind, Seren's overextension answer
+   * is Rally (`overextendedRallyHome`).
    */
   reelVariant?: string | null;
   /**
@@ -344,7 +346,7 @@ export function PartyFrames({
                 callNamed={callNamed(h, party)}
                 partyNames={h.stitchedWith ? partyNames(party) : undefined}
                 silence={silence}
-                rallyHome={rewind !== null || reelVariant === 'anchor'}
+                rallyHome={overextendedRallyHome(rewind, reelVariant)}
               />
               <Bark hero={h} callouts={barks} side={side} />
               <FrameTip

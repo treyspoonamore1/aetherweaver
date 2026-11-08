@@ -20,12 +20,19 @@ import { heroRoster, UNLOCKS } from '../src/meta/profile';
 import type { DeathRecap } from '../src/meta/types';
 import { createSim } from '../src/sim';
 import { buildHudSnapshot } from '../src/ui/hudBridge';
-import { DUEL_VIOLET, duelChips, duelOutline, outOfReach } from '../src/ui/hud/duelLook';
+import {
+  DUEL_VIOLET,
+  duelChips,
+  duelOutline,
+  outOfReach,
+  overextendedRallyHome,
+} from '../src/ui/hud/duelLook';
 import { ancientChip, saplingRows, saplingsOutside, tendingTitle } from '../src/ui/hud/groveLook';
 import { frameState } from '../src/ui/hud/healthModel';
 import { bindingLabel } from '../src/ui/hud/labels';
 import { evaluateHints } from '../src/ui/hud/hints';
-import { shownDecree } from '../src/ui/hud/legionLook';
+import { MIRROR_CHOIR_OTHERS, shownDecree } from '../src/ui/hud/legionLook';
+import { CONDUCTOR_DECREES } from '../src/content/crucible';
 import { SILENCE_INK } from '../src/ui/hud/finaleLook';
 import { allyOf } from '../src/ui/hud/sighting';
 import {
@@ -179,6 +186,43 @@ describe('Seren’s frame: chips, the outline, never silver', () => {
       'Seren',
     );
     expect(anchor).toContain('Overextended · Rally');
+  });
+
+  it('under the Swap the over chip says Rally too: Swap puts you in her duel, never her home', async () => {
+    // Review fix: the Swap variant fell to the Reel chip ('Reel her home') while the hint said
+    // 'Swap puts you in her duel; Rally brings her home'.
+    expect(overextendedRallyHome(null, null)).toBe(false);
+    expect(overextendedRallyHome(null, 'anchor')).toBe(true);
+    expect(overextendedRallyHome(null, 'swap')).toBe(true);
+    expect(overextendedRallyHome({ ready: true }, null)).toBe(true);
+    const html = await framesHtml(serenHud('seren-over'), { reelVariant: 'swap' });
+    const frame = frameOf(html, 'Seren');
+    expect(frame).toContain('Overextended · Rally');
+    expect(frame).not.toContain('Overextended · Reel');
+    expect(frame).not.toContain('Reel her home');
+    const C = bindingLabel('directiveRally');
+    const chip = duelChips(seren('seren-over'), {
+      reel: 'F',
+      rally: C,
+      rallyHome: overextendedRallyHome(null, 'swap'),
+    })[0]!;
+    expect(chip).toMatchObject({ id: 'over', label: 'Overextended · Rally', key: C });
+    // The chip and the hint agree: both send the Swap player to Rally.
+    const hud = serenHud('seren-over');
+    const swapHud: HudSnapshot = {
+      ...hud,
+      encounter: { ...hud.encounter, status: 'fighting', elapsed: 12, enemies: 4 },
+      weaver: {
+        ...hud.weaver,
+        rewind: null,
+        techniques: hud.weaver.techniques.map((t) =>
+          t.key === 'reel' ? { ...t, variant: { id: 'swap', name: 'Swap', text: '' } } : t,
+        ),
+      },
+    };
+    const hints = evaluateHints(swapHud).map((h) => h.id);
+    expect(hints).toContain('serenSwap');
+    expect(hints).not.toContain('serenOver');
   });
 
   it('the boss bar marks a blow she will parry', async () => {
@@ -565,6 +609,62 @@ describe('the epilogue and the Rank-ups', () => {
       ['not_a_leaf_lost', 'leaf'],
     ]);
     expect(deedText(tally[0]!)).toMatch(/Seren/);
+  });
+});
+
+describe('review fixes: the Mirror Choir decree, and Brann’s Codex entry', () => {
+  const look = (...ids: string[]) => ids.map((defId) => ({ defId }));
+
+  it('the Mirror Choir decree says your other heroes still sing, for a Seren or Oro party only', () => {
+    const text = CONDUCTOR_DECREES.mirrorChoir;
+    expect(shownDecree(text, look('kael', 'seren', 'oro'))).toBe(MIRROR_CHOIR_OTHERS);
+    expect(shownDecree(text, look('lyra', 'vexis', 'oro'))).toBe(MIRROR_CHOIR_OTHERS);
+    expect(shownDecree(text, look('kael', 'brann', 'seren'))).toBe(MIRROR_CHOIR_OTHERS);
+    expect(MIRROR_CHOIR_OTHERS).toContain('your other heroes still sing');
+    expect(MIRROR_CHOIR_OTHERS).not.toContain('every voice of your party');
+    // Every party of the first four reads the sim's text, unchanged.
+    for (const p of [
+      look('kael', 'lyra', 'vexis'),
+      look('kael', 'lyra', 'brann'),
+      look('brann', 'vexis'),
+    ])
+      expect(shownDecree(text, p)).toBe(text);
+    // The other Conductor decrees are untouched whoever is in the party.
+    for (const other of [CONDUCTOR_DECREES.overture, CONDUCTOR_DECREES.grandSilence])
+      expect(shownDecree(other, look('kael', 'seren', 'oro'))).toBe(other);
+  });
+
+  it('the HUD bridge words a Seren party’s Mirror Choir decree that way too', async () => {
+    const { decreeShownNow } = await import('../src/ui/hudBridge');
+    const sim = createSim({ seed: 7, encounter: 'first_light', party: ['kael', 'seren', 'oro'] });
+    expect(decreeShownNow(sim.state, CONDUCTOR_DECREES.mirrorChoir)).toBe(MIRROR_CHOIR_OTHERS);
+    const plain = createSim({ seed: 7, encounter: 'first_light' });
+    expect(decreeShownNow(plain.state, CONDUCTOR_DECREES.mirrorChoir)).toBe(
+      CONDUCTOR_DECREES.mirrorChoir,
+    );
+  });
+
+  it('the Codex heroes page for the first four is byte-equal to W3’s, but for the narrowed locked lines', async () => {
+    // Review fix: the Passive <dt> gained flex classes for every hero, Brann included. Recorded at
+    // cf8c56e (W3's head) with the old locked lines stripped; here the new ones are stripped.
+    const CodexView = await component<Record<string, unknown>>(
+      '../src/ui/screens/CodexScreen',
+      'CodexView',
+    );
+    const html = renderToStaticMarkup(
+      createElement(CodexView, {
+        onBack: () => {},
+        initialTab: 'heroes',
+        roster: ['kael', 'lyra', 'vexis', 'brann'],
+      }),
+    );
+    expect(html).toContain('<dt class="font-semibold">Passive · Blood Rage</dt>');
+    let stripped = html;
+    for (const id of ['seren', 'oro'])
+      stripped = stripped.replace(heroDef(id).recruit!.lockedText!, '');
+    expect(createHash('sha256').update(stripped).digest('hex')).toBe(
+      'b9f17d814045a040d1d1861fab7b40bca854a29cb20cb1c9d2287727a6c6421c',
+    );
   });
 });
 

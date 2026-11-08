@@ -1808,7 +1808,7 @@ test('Phase 5b: the roster — a veteran recruits Brann, picks him in Prep, figh
   expect(errors).toEqual([]);
 });
 
-test('Phase 5e: the roster of six — a veteran recruits Seren and Oro, picks Kael, Seren and Oro, fights beside them; their frames and their Result and Summary lines', async ({
+test('Phase 5e: the roster of six — a veteran recruits Brann, Seren and Oro, picks Kael, Seren and Oro, fights beside them; their frames and their Result and Summary lines', async ({
   page,
 }) => {
   // A whole First Light, autoplayed, under SwiftShader.
@@ -1824,12 +1824,13 @@ test('Phase 5e: the roster of six — a veteran recruits Seren and Oro, picks Ka
   await expectDefaultPrep(page, false);
   await expect(page.getByTestId('prep-passive-seren')).toHaveCount(0);
 
-  // Recruited (the hook stands in for the Tithe Altar and the Loose Thread): five heroes, laid out
-  // three across (3 × 2), the picker open on the default party.
-  expect(await page.evaluate(() => window.__AWRUN__!.recruit(['seren', 'oro']))).toEqual([
+  // Recruited (the hook stands in for Brann's cell, the Tithe Altar and the Loose Thread): all six
+  // heroes, laid out three across in two rows (3 × 2), the picker open on the default party.
+  expect(await page.evaluate(() => window.__AWRUN__!.recruit(['brann', 'seren', 'oro']))).toEqual([
     'kael',
     'lyra',
     'vexis',
+    'brann',
     'seren',
     'oro',
   ]);
@@ -1837,7 +1838,15 @@ test('Phase 5e: the roster of six — a veteran recruits Seren and Oro, picks Ka
     'data-columns',
     '3',
   );
-  await expect(page.locator('[data-testid^="prep-pick-"]')).toHaveCount(5);
+  const cards = page.locator('[data-testid^="prep-pick-"]');
+  await expect(cards).toHaveCount(6);
+  // Two rows of three: the first three cards share a top, the last three another, below.
+  const tops = await cards.evaluateAll((els) =>
+    els.map((el) => Math.round(el.getBoundingClientRect().top)),
+  );
+  expect(new Set(tops.slice(0, 3)).size, `card tops ${tops.join(',')}`).toBe(1);
+  expect(new Set(tops.slice(3)).size, `card tops ${tops.join(',')}`).toBe(1);
+  expect(tops[3]!).toBeGreaterThan(tops[0]!);
   await page.getByTestId('prep-pick-lyra').click();
   await page.getByTestId('prep-pick-vexis').click();
   await page.getByTestId('prep-pick-seren').click();

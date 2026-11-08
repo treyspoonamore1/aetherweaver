@@ -44,9 +44,21 @@ export function outOfReach(h: Pick<HeroHud, 'duel' | 'distance' | 'dead' | 'down
 }
 
 /**
+ * Whether Seren's overextension answer is Rally rather than the Reel key: for the Chronomancer
+ * (`rewind` set), whose Rewind is no sure extraction; the Anchor, which doesn't pull; and the
+ * Swap, which puts the Weaver in her duel instead of bringing her home (docs/phase-5e.md, 'By
+ * Calling'). Only the plain Reel (and any other pulling variant) answers it with the Reel key.
+ */
+export function overextendedRallyHome(rewind: unknown, reelVariant: string | null): boolean {
+  return (
+    (rewind !== null && rewind !== undefined) || reelVariant === 'anchor' || reelVariant === 'swap'
+  );
+}
+
+/**
  * Her frame's chips, most urgent first. `keys`: the Reel and Rally key labels as bound, and
- * `rally`: the overextension answer is Rally (the Chronomancer, whose Rewind is no sure
- * extraction, or the Anchor, which doesn't pull). Empty for a hero without `duel`, or down.
+ * `rallyHome`: the overextension answer is Rally (`overextendedRallyHome`: the Chronomancer,
+ * the Anchor or the Swap). Empty for a hero without `duel`, or down.
  */
 export function duelChips(
   h: Pick<HeroHud, 'name' | 'duel' | 'distance' | 'dead' | 'downed'>,
