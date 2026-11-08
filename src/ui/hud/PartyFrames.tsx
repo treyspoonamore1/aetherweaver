@@ -1106,7 +1106,7 @@ function SaplingBar({ row: r }: { row: SaplingRow }) {
         borderColor: r.inField
           ? `color-mix(in srgb, ${GROVE_MOSS} 70%, transparent)`
           : 'var(--color-ink-600)',
-        ...(!r.inField && !r.felled ? { borderStyle: 'dashed' } : {}),
+        ...(!r.inField && !r.felled && !r.held ? { borderStyle: 'dashed' } : {}),
       }}
       role="img"
       aria-label={r.title}
@@ -1115,9 +1115,12 @@ function SaplingBar({ row: r }: { row: SaplingRow }) {
       data-felled={r.felled || undefined}
       data-infield={r.inField || undefined}
       data-burrowing={r.burrowing || undefined}
+      data-held={r.held || undefined}
     >
       <span
-        style={{ color: r.inField ? SAPLING_LIFE : 'var(--color-threat)' }}
+        style={{
+          color: r.inField ? SAPLING_LIFE : r.held ? 'var(--color-ink-500)' : 'var(--color-threat)',
+        }}
         className="shrink-0"
       >
         <Icon name="leaf" size={10} solid={r.inField} />
@@ -1131,6 +1134,13 @@ function SaplingBar({ row: r }: { row: SaplingRow }) {
       {r.felled ? (
         <span className="shrink-0 font-mono text-[0.625rem] leading-none text-muted">
           {r.respawnIn !== null ? `${Math.ceil(r.respawnIn)}s` : '—'}
+        </span>
+      ) : r.held ? (
+        <span
+          className="shrink-0 text-[0.625rem] font-bold leading-none text-muted"
+          data-testid="sapling-held"
+        >
+          held
         </span>
       ) : r.inField ? (
         r.auras.length > 0 && (

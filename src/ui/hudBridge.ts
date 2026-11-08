@@ -741,6 +741,19 @@ function replanting(state: WorldState, s: ReadonlyEntity): boolean {
   return c.plantX !== s.x || c.plantZ !== s.z;
 }
 
+/**
+ * A Sapling held where it stands: dormant (Oro down, or the Grand Silence), or through its wake
+ * after he rises (`burrowUntil` ahead, at its plant spot; render's groveCues `stillHeld`). The
+ * field gives a held summon no auras and clears its `inField`, so it is never "in your songs",
+ * and a Rally skips it while dormant, so it is never "outside" either.
+ */
+function held(state: WorldState, s: ReadonlyEntity): boolean {
+  const c = s.summon;
+  if (!c) return false;
+  if (c.dormant) return true;
+  return c.burrowUntil !== undefined && c.burrowUntil > state.time && !replanting(state, s);
+}
+
 function groveHud(state: WorldState, e: ReadonlyEntity): Pick<HeroHud, 'grove'> {
   const g = e.hero?.grove;
   if (!g) return {};
@@ -766,12 +779,14 @@ function groveHud(state: WorldState, e: ReadonlyEntity): Pick<HeroHud, 'grove'> 
       continue;
     }
     const auras = s.summon.auraMask ? auraIds(CONTENT, s.summon.auraMask) : [];
+    const still = held(state, s);
     saplings.push({
       id: s.id,
       hpPct: sh.maxHp > 0 ? Math.max(0, sh.hp) / sh.maxHp : 0,
-      inField: s.summon.inField ?? saplingInField(state, s),
+      inField: still ? false : (s.summon.inField ?? saplingInField(state, s)),
       ...(auras.length > 0 ? { auras } : {}),
       ...(replanting(state, s) ? { burrowing: true } : {}),
+      ...(still ? { held: true } : {}),
     });
   }
   const ancient = g.ancient === null ? undefined : state.entities.get(g.ancient);

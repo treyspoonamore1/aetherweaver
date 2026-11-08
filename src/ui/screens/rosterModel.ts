@@ -370,7 +370,7 @@ export function heroTermList(): HeroTerm[] {
     {
       term: 'Ancient',
       text: ancient
-        ? `Oro’s Solo: a ${fmt(ancient.maxHp)}-life tree that rises for ${ancient.life} s, roots and taunts the lesser enemies within ${ancient.tauntRadius} m and slams them. Cued, its disc counts as your field.`
+        ? `Oro’s Solo: a ${fmt(ancient.maxHp)}-life tree that rises for the rest of ${oro.solo.name}’s ${oro.solo.duration} s (Cued, it stands ${ancient.life} s from rising), roots and taunts the lesser enemies within ${ancient.tauntRadius} m and slams them. Cued, its disc counts as your field.`
         : 'Oro’s Solo: a tree that rises for a few seconds.',
       heroes: ['oro'],
     },
@@ -411,7 +411,7 @@ export function summonsEntry(def: HeroDef): string[] {
   if (!s) return [];
   return [
     `Saplings (${s.sapling.count}): ${fmt(s.sapling.maxHp)} life, ${pct(s.sapling.armor)} armour. Planted ${s.sapling.front.forward} m ahead of you; a Rally re-plants them there. Each swings for ${s.sapling.attack.damage}, taunts the small things within ${s.sapling.taunt.radius} m, and re-sprouts ${s.sapling.respawn} s after it is felled. While Oro tends, they hit ${pct(s.sapling.tendedBonus)} harder.`,
-    `The Ancient (Wildgrowth): ${fmt(s.ancient.maxHp)} life for ${s.ancient.life} s. It roots and taunts the lesser enemies within ${s.ancient.tauntRadius} m, and slams everything within ${s.ancient.attack.radius} m for ${s.ancient.attack.damage}.`,
+    `The Ancient (${def.solo.name}): ${fmt(s.ancient.maxHp)} life, after a ground warning, for the rest of ${def.solo.name}’s ${def.solo.duration} s (Cued, ${s.ancient.life} s from rising). It roots and taunts the lesser enemies within ${s.ancient.tauntRadius} m, and slams everything within ${s.ancient.attack.radius} m for ${s.ancient.attack.damage}.`,
     'Bosses, minibosses and the biggest foes ignore both, and no telegraph, raid, splash or status ever touches them.',
   ];
 }

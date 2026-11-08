@@ -34,6 +34,8 @@ export interface SaplingRow {
   inField: boolean;
   auras: string[];
   burrowing: boolean;
+  /** Held where it stands (Oro down, or his wake): it hears no songs, and isn't "outside". */
+  held: boolean;
   /** The tooltip and accessible sentence. */
   title: string;
 }
@@ -48,30 +50,36 @@ export function saplingRows(h: Pick<HeroHud, 'name' | 'grove'>): SaplingRow[] {
     const respawnIn = felled && s.respawnIn !== undefined ? s.respawnIn : null;
     const auras = s.auras ?? [];
     const burrowing = !felled && s.burrowing === true;
+    const held = !felled && !burrowing && s.held === true;
     const title = felled
       ? `${name} was felled${respawnIn !== null ? `: it re-sprouts in ${Math.ceil(respawnIn)} s` : ''}`
       : burrowing
         ? `${name} is burrowing: it re-plants ahead of you`
-        : s.inField
-          ? `${name} stands in your songs (${Math.round(s.hpPct * 100)}% life)`
-          : `${name} is outside your songs (${Math.round(s.hpPct * 100)}% life): walk back, or Rally to re-plant it`;
+        : held
+          ? `${name} is held where it stands (${Math.round(s.hpPct * 100)}% life): it hears no songs until it wakes`
+          : s.inField
+            ? `${name} stands in your songs (${Math.round(s.hpPct * 100)}% life)`
+            : `${name} is outside your songs (${Math.round(s.hpPct * 100)}% life): walk back, or Rally to re-plant it`;
     return {
       index,
       name,
       life: felled ? 0 : Math.max(0, Math.min(1, s.hpPct)),
       felled,
       respawnIn,
-      inField: !felled && s.inField,
+      inField: !felled && !held && s.inField,
       auras,
       burrowing,
+      held,
       title,
     };
   });
 }
 
-/** Saplings standing outside your songs right now (not felled, not burrowing). */
+/** Saplings standing outside your songs right now (not felled, burrowing or held). */
 export function saplingsOutside(h: Pick<HeroHud, 'grove'>): number {
-  return (h.grove?.saplings ?? []).filter((s) => s.hpPct >= 0 && !s.inField && !s.burrowing).length;
+  return (h.grove?.saplings ?? []).filter(
+    (s) => s.hpPct >= 0 && !s.inField && !s.burrowing && !s.held,
+  ).length;
 }
 
 /** The Ancient's chip: its seconds left, and 'your field' when Cued (Q2). Null with none. */

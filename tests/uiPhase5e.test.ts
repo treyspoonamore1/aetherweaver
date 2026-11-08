@@ -361,6 +361,50 @@ describe('the HUD bridge builds duel and grove from the sim, only for their hero
     expect(rows().find((r) => r.id === ids[0])!.burrowing).toBe(true);
   });
 
+  it('his held grove is neither in your songs nor outside them: Oro down, then his wake', () => {
+    // The field gives a held Sapling no auras and no regen, and a Rally skips a dormant one, so
+    // its row reads held: not 'stands in your songs', and not 'outside: Rally to re-plant'.
+    for (const auras of [['sostenuto'], []]) {
+      const sim = createSim({
+        seed: 3,
+        encounter: 'first_light',
+        party: ['kael', 'seren', 'oro'],
+        auras,
+      });
+      const w = worldOf(sim);
+      for (let i = 0; i < 60; i++) sim.step([]);
+      const oro = w.entities.get(w.party[2]!)!;
+      const ids = oro.hero!.grove!.saplings;
+      const hero = () => buildHudSnapshot(sim.state, { seed: 3, hovered: null }).party[2]!;
+      const standing = () => hero().grove!.saplings.filter((r) => r.hpPct >= 0);
+      expect(standing().length).toBe(2);
+      expect(standing().every((r) => r.held === undefined)).toBe(true);
+      const check = () => {
+        for (const id of ids) expect(w.entities.get(id)!.summon!.inField).toBeUndefined();
+        expect(standing().every((r) => r.held === true && r.inField === false)).toBe(true);
+        expect(saplingsOutside(hero())).toBe(0);
+        for (const r of saplingRows(hero()).filter((x) => !x.felled)) {
+          expect(r).toMatchObject({ held: true, inField: false, burrowing: false });
+          expect(r.title).toContain('is held where it stands');
+          expect(r.title).not.toContain('stands in your songs');
+          expect(r.title).not.toContain('Rally');
+        }
+      };
+      oro.health!.downed = true;
+      oro.health!.bleedOut = 60;
+      for (let i = 0; i < 30; i++) sim.step([]);
+      check();
+      oro.health!.downed = false;
+      oro.health!.bleedOut = 0;
+      for (let i = 0; i < 30; i++) sim.step([]);
+      expect(w.entities.get(ids[0]!)!.summon!.dormant).toBeUndefined();
+      check();
+      // Awake (the 2 s wake over): the rows read the field again, and no key is left behind.
+      for (let i = 0; i < 120; i++) sim.step([]);
+      expect(standing().every((r) => r.held === undefined)).toBe(true);
+    }
+  });
+
   it('the default party has neither key', () => {
     const sim = createSim({ seed: 3, encounter: 'first_light' });
     const hud = buildHudSnapshot(sim.state, { seed: 3, hovered: null });
@@ -422,6 +466,19 @@ describe('the per-hero copy', () => {
     expect(summonsRow(heroDef('seren'))).toBeNull();
     expect(summonsEntry(heroDef('oro'))).toHaveLength(3);
     expect(summonsEntry(heroDef('kael'))).toEqual([]);
+  });
+
+  it('the Ancient’s stand: uncued it leaves with Wildgrowth, so only the Cued tree stands its 8 s', () => {
+    // Uncued it rises after its 1 s ground warning and leaves as the 8 s Solo ends (7 s up);
+    // only the Cued Ancient stands `life` (8 s) from rising. Neither line says it stands 8 s.
+    const line = summonsEntry(heroDef('oro'))[1]!;
+    expect(line).toContain('for the rest of Wildgrowth’s 8 s (Cued, 8 s from rising)');
+    expect(line).not.toContain('life for 8 s');
+    const term = heroTerms(['oro']).find((t) => t.term === 'Ancient')!.text;
+    expect(term).toContain(
+      'rises for the rest of Wildgrowth’s 8 s (Cued, it stands 8 s from rising)',
+    );
+    expect(term).not.toContain('rises for 8 s');
   });
 
   it('the New ally cards', () => {

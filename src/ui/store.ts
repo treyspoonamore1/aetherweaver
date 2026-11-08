@@ -184,6 +184,11 @@ export interface HeroHud {
       respawnIn?: number;
       /** Burrowing after a Rally (re-planting ahead of you). */
       burrowing?: boolean;
+      /**
+       * Held where it stands: dormant (Oro down, or the Grand Silence) or through its wake after
+       * he rises. It hears no songs then (`inField` false), and a Rally does not move it.
+       */
+      held?: boolean;
     }[];
     ancient: number;
     /** The standing Ancient was Cued: its disc counts as your field (Q2). */
