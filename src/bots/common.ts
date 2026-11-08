@@ -19,6 +19,7 @@ import {
   overextended,
   parryArmed,
   parryable,
+  replantInField,
   saplingInField,
   segmentDistSq,
   summonsOf,
@@ -583,6 +584,24 @@ export interface GroveView {
   lowest: number;
   /** Gentle: no Focus stands, so he tends rather than fights. */
   tending: boolean;
+}
+
+/**
+ * A Rally would bring at least one of `saplings` (his, outside your field) home: its re-plant
+ * spot at the Weaver's front stands inside your field now (`replantInField`). False when no
+ * re-plant can land in it, as through the Silent Verse, where her front spots lie outside the
+ * hymn circle she stands in; so a Rally isn't spent every few seconds for nothing. Draws nothing.
+ */
+export function rallyBringsHome(
+  state: WorldState,
+  grove: GroveView,
+  saplings: readonly ReadonlyEntity[],
+): boolean {
+  const ids = grove.oro.e.hero!.grove!.saplings;
+  return saplings.some((s) => {
+    const i = ids.indexOf(s.id);
+    return i >= 0 && replantInField(state, grove.oro.e, i);
+  });
 }
 
 /** A summon held (dormant, Oro down or the Grand Silence) or burrowing (a Rally's re-plant). */

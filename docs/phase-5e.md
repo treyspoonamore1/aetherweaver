@@ -941,8 +941,8 @@ They sit beside M3_RULES and FINALE_RULES (`skilled.ts:140-219`), each behind `t
 | `serenNoSwap` | Never Swap into her duel. |
 | `serenCue` | Thousand Cuts at ≥ 4 enemies or when she is overextended. |
 | `oroFocus` | When he is tending and the fight has 1-3 enemies, Focus Kael’s target or the boss, with a crowd guard like SENTINEL_FOCUS_AT (`:285`). Ablated first. |
-| `oroRally` | A Sapling outside every field for > 2 s, throttled by `gap()` (`:921-924`) so a bloodlusting Brann’s 8 s holds. |
-| `oroThread` | Mend-Thread Oro when the Saplings are hurt and the party is calm. |
+| `oroRally` | A Sapling outside every field for > 2 s, throttled by `gap()` (`:921-924`) so a bloodlusting Brann’s 8 s holds; only when its re-plant spot at the Weaver's front would stand in the field (`replantInField`), so not through the Silent Verse, where the front spots lie outside her hymn circle. |
+| `oroThread` | Mend-Thread Oro when the Saplings are hurt and the party is calm; never under Unravel (Mend wounds and Rootbond is skipped), Stasis aside. |
 | `groveCover` | Weights the Saplings into `position()`’s centroid at 1:2 (`:1339-1392`). |
 | `oroCue` | Wildgrowth on a pack of ≥ 3, or Cued when the Saplings are out of the field. |
 | `discordBreaker` | Empower the hardest hitter against discord shields in Seren or Oro parties **with no Lyra in the roster**. It tests `state.party`, not the alive set (`:726-729`), so the default party is unchanged when Lyra is down. |
@@ -954,7 +954,7 @@ Thread rules are **post-pick modifiers** (`:746-783`), never a fork beside `else
 - `NOVICE_ROSTER` draws, each taken only with that hero present and appended immediately before the Cue draw (`novice.ts:378-382`), ablatable through `skip`:
   - `serenWard` 0.3 (engaged and unwarded);
   - `oroFocus` 0.15 (tending, enemies near);
-  - `saplingRally` 0.2 (a Sapling outside).
+  - `saplingRally` 0.2 (a Sapling outside, and a re-plant spot in the field: `replantInField`).
 - `noviceAnchor` (`:497-509`) also excludes `role === 'duelist'`, and never sees summons.
 
 ### Harness and tools

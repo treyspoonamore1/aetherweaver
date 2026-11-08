@@ -285,6 +285,25 @@ function wholeGroveInField(world: World, grove: GroveState): boolean {
   return true;
 }
 
+/** `replantInField`'s scratch point. */
+const probe = { x: 0, z: 0 };
+
+/**
+ * The bots' Rally probe (docs/phase-5e.md, `oroRally`): would a Rally (summons.ts `replant`)
+ * re-plant Sapling `index` of `owner`'s grove inside your field, as things stand now? A Rally
+ * re-plants each Sapling at the Weaver's front spot (`frontSpot`), so this tests that spot with
+ * `saplingInField`: during the Silent Verse, say, the spots 5 m ahead of her land outside a
+ * 3.6 m hymn circle she stands in, and the Rally brings nothing home. Pure: it reads public
+ * state and writes only a scratch point. False without the grove or that Sapling.
+ */
+export function replantInField(world: WorldState, owner: ReadonlyEntity, index: number): boolean {
+  const grove = owner.hero?.grove;
+  const def = summonsDef(owner as Entity);
+  if (!grove || !def || index < 0 || index >= grove.saplings.length) return false;
+  const p = frontSpot(world as World, owner as Entity, index, grove.saplings.length, probe);
+  return saplingInField(world, { x: p.x, z: p.z, radius: def.sapling.radius });
+}
+
 /** world.ts, after the party loop: Oro's Saplings sprout at the Weaver's front spots. */
 export function spawnGrove(world: World): void {
   for (const id of world.party) {

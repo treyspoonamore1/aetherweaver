@@ -89,6 +89,7 @@ export {
   groveCallReady,
   isSummon,
   newGrove,
+  replantInField,
   saplingInField,
   summonsOf,
 } from './systems/grove';
