@@ -7,15 +7,25 @@
  */
 import { describe, expect, it } from 'vitest';
 import { makeBot } from '../../src/bots';
-import { heroDef } from '../../src/content';
+import { attackDef, heroDef } from '../../src/content';
+import { CONDUCTOR, SHATTER_ARIA } from '../../src/content/crucibleIds';
 import { createSim, type Sim, type SimConfig } from '../../src/sim';
-import { addStatus, applyStatusPayload, dealDamage, heal } from '../../src/sim/combat/health';
+import {
+  addStatus,
+  applyStatusPayload,
+  dealDamage,
+  heal,
+  killEnemy,
+} from '../../src/sim/combat/health';
+import { startTelegraph } from '../../src/sim/combat/telegraphs';
 import { WEAVER_THREAT_INDEX } from '../../src/sim/combat/threat';
+import { AUTONOMY } from '../../src/sim/constants';
 import type { Entity } from '../../src/sim/state';
-import { spawnEnemy } from '../../src/sim/systems/enemies';
+import { ensureM4, spawnEnemy } from '../../src/sim/systems/enemies';
 import {
   gentle,
   groveAbility,
+  groveExecute,
   groveCallReady,
   groveChooseTarget,
   groveRetreat,
@@ -32,7 +42,7 @@ import { startSolo } from '../../src/sim/systems/solos';
 import type { World } from '../../src/sim/world';
 import { SCENARIO_GROVE_PEAK } from '../../tools/sim-bench';
 import { runScenario } from '../../tools/runScenario';
-import { ofType, sandbox, stepFor, worldOf } from './helpers';
+import { ofType, sandbox, spawn, stepFor, stepUntil, worldOf } from './helpers';
 
 const PARTY = ['kael', 'vexis', 'oro'];
 
@@ -679,5 +689,175 @@ describe('summons by construction (docs/phase-5e.md, "The summon model")', () =>
     stepFor(sim, 2);
     expect(summonsOf(w).length).toBeGreaterThan(0);
     expect(w.encounter.status).toBe('defeat');
+  });
+});
+
+describe('review fixes (docs/phase-5e.md)', () => {
+  it('a stun starts his Cue window over: uncued only a full window after it ends', () => {
+    const { sim, w, oro } = grove({ assists: { autonomy: true } });
+    freeze(w, [0, 1]);
+    const [s] = saplings(w, oro);
+    const foe = enemy(w, 'hollow_chorister', s!.x + 1.2, s!.z);
+    foe.health!.hp = foe.health!.maxHp = 1e7;
+    addStatus(w, foe, 'stun', 1e6, null);
+    stepFor(sim, 30);
+    expect(oro.hero!.targetId).toBeNull();
+    oro.hero!.solo = 100;
+    stepFor(sim, 42);
+    expect(oro.hero!.grove!.held).toBeGreaterThan(0.6);
+    expect(oro.hero!.soloActive).toBe(0);
+    expect(addStatus(w, oro, 'stun', 2, null)).toBe(true);
+    const stunned = stepFor(sim, 120);
+    expect(ofType(stunned, 'soloStarted').filter((e) => e.hero === oro.id)).toHaveLength(0);
+    // The stun is over: the window starts from nothing, so 0.3 s on (where the old count would
+    // have fired), nothing; a full second on, it fires uncued.
+    const soon = stepFor(sim, 50);
+    expect(ofType(soon, 'soloStarted').filter((e) => e.hero === oro.id)).toHaveLength(0);
+    expect(oro.hero!.grove!.held ?? 0).toBeLessThan(AUTONOMY.cueGrace);
+    const later = stepFor(sim, 30);
+    const started = ofType(later, 'soloStarted').filter((e) => e.hero === oro.id);
+    expect(started).toHaveLength(1);
+    expect(started[0]!.cued).toBe(false);
+  });
+
+  it('a Cued Ancient and its disc end with the fight; a felled Sapling waits for a fight', () => {
+    const sim = createSim({ seed: 3, encounter: 'first_light', party: PARTY });
+    const w = worldOf(sim);
+    stepFor(sim, 60 * 4);
+    expect(w.encounter.status).toBe('fighting');
+    const oro = w.entities.get(w.party[2]!)!;
+    const grove = oro.hero!.grove!;
+    startSolo(w, oro, true);
+    stepFor(sim, 75);
+    const ancient = grove.ancient!;
+    expect(ancient).not.toBeNull();
+    expect(w.field.ancient?.id).toBe(ancient);
+    const [s] = saplings(w, oro);
+    dealDamage(w, s!, { source: null, sourceName: 'test', amount: 1e5 });
+    expect(grove.respawnAt[0]).toBeGreaterThan(0);
+    // Victory now: no waves left, every enemy gone.
+    w.internal.director.nextWave = 1e6;
+    w.internal.pendingSpawns.length = 0;
+    for (const e of w.entities.list())
+      if (e.enemy && e.health && !e.health.dead) killEnemy(w, e, null);
+    const end = stepUntil(sim, (ev) => ev.some((e) => e.type === 'encounterEnded'), 120);
+    expect(w.encounter.status).toBe('victory');
+    expect(w.field.ancient).toBeUndefined();
+    expect(grove.ancient).toBeNull();
+    // The Ancient left before the fight's end was told, with no World Tree root.
+    const ended = end.findIndex((e) => e.type === 'encounterEnded');
+    const left = end.findIndex((e) => e.type === 'summonFell' && e.summon === ancient);
+    expect(left).toBeGreaterThanOrEqual(0);
+    expect(left).toBeLessThan(ended);
+    // 12 s on: no re-sprout, no summon events, no disc.
+    const after = stepFor(sim, 60 * 13);
+    expect(w.field.ancient).toBeUndefined();
+    expect(ofType(after, 'summonSpawned')).toHaveLength(0);
+    expect(ofType(after, 'entitySpawned')).toHaveLength(0);
+    expect(grove.respawnAt[0]).toBeGreaterThan(0);
+  });
+
+  it('“No — not Moss!” on its own 8 s clock: another bark just now never swallows it', () => {
+    const swarm = grove({ bonds: { talents: ['seedling_swarm'], solos: [] } });
+    const { sim, w, oro } = swarm;
+    freeze(w, [0, 1]);
+    const [a, b, c] = saplings(w, oro);
+    const lines = heroDef('oro').barks.saplingFelled!;
+    const fell = (e: Entity) => {
+      sim.drainEvents();
+      dealDamage(w, e, { source: null, sourceName: 'test', amount: 1e5 });
+      return ofType(sim.drainEvents(), 'bark').filter((x) => x.speaker === oro.id);
+    };
+    stepFor(sim, 10);
+    // He has just barked something else.
+    oro.hero!.lastBarkAt = w.time;
+    const first = fell(a!);
+    expect(first.map((x) => x.line)).toEqual([lines[0 % lines.length]]);
+    // Within 8 s of it: not again.
+    stepFor(sim, 60 * 3);
+    expect(fell(b!)).toHaveLength(0);
+    stepFor(sim, 60 * 5 + 5);
+    oro.hero!.lastBarkAt = w.time;
+    expect(fell(c!).map((x) => x.line)).toEqual([lines[2 % lines.length]]);
+  });
+
+  it('Bramble roots and pricks only lesser foes; at a lone boss Focus he never casts it', () => {
+    const { w, oro } = grove();
+    const def = heroDef('oro');
+    const bramble = def.abilities[1];
+    const weaver = w.entities.get(w.weaverId)!;
+    const boss = enemy(w, 'the_bellwarden', oro.x + 3, oro.z);
+    boss.health!.hp = boss.health!.maxHp = 1e7;
+    w.focusTarget = boss.id;
+    expect(gentle(w, oro)).toBe(false);
+    expect(groveAbility(w, oro, def, bramble, boss)).toBeNull();
+    // A chorister beside it: the patch would hold it, so he casts at the Focus.
+    const add = enemy(w, 'hollow_chorister', boss.x + boss.radius + 0.6, boss.z);
+    add.health!.hp = add.health!.maxHp = 1e6;
+    const use = groveAbility(w, oro, def, bramble, boss)!;
+    expect(use.target.id).toBe(boss.id);
+    const events: { x: number; z: number; r: number }[] = [];
+    groveExecute(w, oro, def, 1, boss, use.x, use.z, null, (x, z, r) => events.push({ x, z, r }));
+    expect(events).toHaveLength(1);
+    expect(boss.health!.hp).toBe(1e7);
+    expect(add.health!.hp).toBeLessThan(1e6);
+    expect(add.health!.statuses.some((st) => st.id === 'rooted')).toBe(true);
+    // Gentle: a boss within 4 m of him is no Bramble target.
+    w.focusTarget = null;
+    add.health!.dead = true;
+    place(boss, weaver.x, weaver.z);
+    place(oro, weaver.x + 3, weaver.z);
+    expect(gentle(w, oro)).toBe(true);
+    expect(groveAbility(w, oro, def, bramble, oro)).toBeNull();
+  });
+
+  it('the Discord quorum ignores summons: two Saplings in a quorum-2 Aria beside one hero', () => {
+    const run = (withVexis: boolean) => {
+      const { sim, w, oro } = grove();
+      stepFor(sim, 1, [spawn(CONDUCTOR, 0, -19)]);
+      const boss = w.entities.list().find((e) => e.enemy?.defId === CONDUCTOR)!;
+      boss.health!.hp = boss.health!.maxHp = 1e7;
+      boss.speed = 0;
+      stepUntil(sim, () => w.field.finale !== undefined, 60 * 10);
+      boss.enemy!.specialCooldowns.fill(1e9);
+      boss.enemy!.attackCooldown = 1e9;
+      const m4 = ensureM4(w);
+      m4.nextCueAt = 1e9;
+      m4.nextRaiseAt = 1e9;
+      w.field.finale!.discord = { value: 0, rate: 0 };
+      freeze(w, [0, 1, 2]);
+      const [kael, vexis] = [0, 1].map((i) => w.entities.get(w.party[i]!)!);
+      const [s1, s2] = saplings(w, oro);
+      place(s1!, -8, 6);
+      place(s2!, -7, 6);
+      place(kael!, -7.5, 6.6);
+      if (withVexis) place(vexis!, -7.5, 5.4);
+      else place(vexis!, 8, 6);
+      place(oro, 8, 8);
+      place(w.entities.get(w.weaverId)!, 8, 4);
+      const t = startTelegraph(w, {
+        owner: boss,
+        attack: attackDef(SHATTER_ARIA),
+        target: null,
+        shape: { kind: 'circle', x: -7.5, z: 6, r: 2 },
+        windup: 1,
+        damage: 300,
+        pctMaxHp: 0,
+      });
+      const events = stepUntil(
+        sim,
+        (ev) => ev.some((e) => e.type === 'telegraphEnded' && e.telegraph === t.id),
+        60 * 5,
+      );
+      const hit = ofType(events, 'damageTaken').filter((d) => d.telegraph === t.id);
+      expect(hit.some((d) => d.target === s1!.id || d.target === s2!.id)).toBe(false);
+      return ofType(events, 'discordRose')
+        .filter((e) => e.telegraph === t.id)
+        .reduce((n, e) => n + e.amount, 0);
+    };
+    // One hero and two Saplings in it: one failed victim, under the quorum of 2.
+    expect(run(false)).toBe(0);
+    // Two heroes: the quorum is met.
+    expect(run(true)).toBe(attackDef(SHATTER_ARIA).discord);
   });
 });

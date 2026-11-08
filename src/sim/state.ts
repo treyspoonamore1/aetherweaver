@@ -408,6 +408,11 @@ export interface GroveState {
    * Cue window, as `soloHeld` is the others'). Set lazily, deleted when the window closes.
    */
   held?: number;
+  /**
+   * The sim time of his last 'No — not Moss!' (`saplingFelled`) bark: its own 8 s clock, so the
+   * shared bark cooldown never swallows it. Set lazily at the first.
+   */
+  felledBarkAt?: number;
 }
 
 /** A summon entity's own state (docs/phase-5e.md, "The summon model"): Saplings, the Ancient. */

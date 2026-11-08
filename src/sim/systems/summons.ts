@@ -321,12 +321,35 @@ export function ancientLeaves(world: World, owner: Entity, a: Entity, withered: 
   remove(world, a);
 }
 
-/** 'No — not Moss!': the Sapling's name by its index, at most once every 8 s (no draw). */
+/**
+ * The fight ends (director.ts `endEncounter`, Oro parties only): the Ancient goes with it (no
+ * World Tree root) and its Cued disc with it, so no `field.ancient` outlives the fight. A felled
+ * Sapling's re-sprout waits for a fight (`tendGrove`).
+ */
+export function groveEncounterEnd(world: World): void {
+  for (const pid of world.party) {
+    const oro = world.entities.get(pid);
+    const grove = oro?.hero?.grove;
+    if (!oro || !grove || grove.ancient === null) continue;
+    const a = world.entities.get(grove.ancient);
+    if (a?.summon && a.health && !a.health.dead) ancientLeaves(world, oro, a, true);
+    else grove.ancient = null;
+  }
+  delete world.field.ancient;
+}
+
+/**
+ * 'No — not Moss!': the Sapling's name by its index (no draw), at most once every 8 s on its own
+ * clock (`grove.felledBarkAt`), whatever else he has just barked. It still sets `lastBarkAt`, so
+ * his everyday barks wait their usual cooldown after it.
+ */
 function felledBark(world: World, owner: Entity, index: number): void {
   const hero = owner.hero!;
+  const grove = hero.grove;
   const lines = heroDef(hero.defId).barks.saplingFelled;
-  if (!lines || lines.length === 0 || !isActive(owner)) return;
-  if (world.time - hero.lastBarkAt < FELLED_BARK) return;
+  if (!grove || !lines || lines.length === 0 || !isActive(owner)) return;
+  if (grove.felledBarkAt !== undefined && world.time - grove.felledBarkAt < FELLED_BARK) return;
+  grove.felledBarkAt = world.time;
   hero.lastBarkAt = world.time;
   world.events.push({
     type: 'bark',
@@ -650,7 +673,7 @@ function tendGrove(world: World, oro: Entity, grove: GroveState): void {
       if (down) c.burrowUntil = world.time + WAKE;
     } else if (c.dormant) delete c.dormant;
   }
-  if (asleep) return;
+  if (asleep || world.encounter.status !== 'fighting') return;
   for (let i = 0; i < grove.respawnAt.length; i++) {
     const at = grove.respawnAt[i]!;
     if (at > 0 && world.time >= at) sproutBeside(world, oro, grove, i);

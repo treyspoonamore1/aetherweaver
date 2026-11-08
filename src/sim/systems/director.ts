@@ -13,6 +13,7 @@ import { bossPhases } from './bosses';
 import { onPackArrived } from './heroes';
 import { encounterScript } from './bossScripts';
 import { spawnEnemy } from './enemies';
+import { groveEncounterEnd } from './summons';
 
 const WARNING = 1.2;
 
@@ -288,6 +289,8 @@ function endEncounter(world: World, outcome: 'victory' | 'defeat'): void {
     const e = world.entities.get(id);
     if (e && hasStatus(e, 'stilled')) removeStatus(world, e, 'stilled', 'expired');
   }
+  // Oro's (docs/phase-5e.md): the Ancient and its Cued disc end with the fight (no summons: no-op).
+  if (world.internal.summons) groveEncounterEnd(world);
   encounterScript(world)?.cleanup?.(world);
   world.events.push({ type: 'encounterEnded', tick: world.tick, outcome });
   if (outcome === 'defeat') setTimeScale(world, 0.3, 90, 'defeat');

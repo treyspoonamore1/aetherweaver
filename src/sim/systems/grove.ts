@@ -314,6 +314,10 @@ export function verdantChoir(world: World, _dt: number): void {
 export function groveTick(world: World, e: Entity, def: HeroDef, _dt: number): void {
   const hero = e.hero!;
   const grove = hero.grove!;
+  // A gap starts the Cue window over (heroes.ts:171-172): `groveHeld` leaves `soloHeld` equal to
+  // `grove.held`, so a stun, stagger, sleep, possession, Reel or down (whose branches zero
+  // `soloHeld` and skip `groveHeld`) shows here as a mismatch.
+  if (grove.held !== undefined && hero.soloHeld !== grove.held) delete grove.held;
   if (world.encounter.status !== 'fighting') return;
   if (!hero.engaged && saplingFighting(world, grove)) hero.engaged = true;
   if (!gentle(world, e)) {
@@ -501,8 +505,9 @@ export function groveMove(
  * `tryAbilities` (and Gentle's own tick): Regrowth's or Bramble's target and point now, or null.
  * - Regrowth: always allowed; when a Sapling is felled (beside him), or the most hurt standing
  *   one is below 60% of its life and within the ability's range.
- * - Bramble: at the Focus within range; Gentle, only on the enemy nearest him within 4 m of him,
- *   else the nearest within 4 m of a Sapling (in range of him, either way).
+ * - Bramble: at the Focus within range, when its patch there would hold a lesser foe (a boss
+ *   alone it can neither root nor prick); Gentle, only on the lesser foe nearest him within 4 m
+ *   of him, else the nearest within 4 m of a Sapling (in range of him, either way).
  */
 export function groveAbility(
   world: World,
@@ -526,16 +531,28 @@ export function groveAbility(
     distSq(m.x, m.z, e.x, e.z) <= (ability.range + m.radius) * (ability.range + m.radius);
   if (!gentle(world, e)) {
     const focus = focusOf(world);
-    return focus && inRange(focus) ? { target: focus, x: focus.x, z: focus.z } : null;
+    if (!focus || !inRange(focus) || !patchHolds(world, focus.x, focus.z, ability.radius))
+      return null;
+    return { target: focus, x: focus.x, z: focus.z };
   }
-  const pick = nearFoe(world, e, inRange);
+  const ok = (m: Entity) => lesserFoe(world, m) && inRange(m);
+  const pick = nearFoe(world, e, ok);
   if (pick) return { target: pick, x: pick.x, z: pick.z };
   for (const s of saplingsOf(world, grove)) {
     if (s.summon!.dormant) continue;
-    const near = nearFoe(world, s, inRange);
+    const near = nearFoe(world, s, ok);
     if (near) return { target: near, x: near.x, z: near.z };
   }
   return null;
+}
+
+/** Would a bramble patch of `radius` m at (x, z) catch a lesser foe (one it roots and pricks)? */
+function patchHolds(world: World, x: number, z: number, radius: number): boolean {
+  for (const m of world.entities.list()) {
+    if (!m.enemy || !isActive(m) || rising(m) || !lesserFoe(world, m)) continue;
+    if (distSq(m.x, m.z, x, z) <= (radius + m.radius) * (radius + m.radius)) return true;
+  }
+  return false;
 }
 
 /** The enemy nearest `to` within `BRAMBLE_NEAR` m of its body that passes `ok`, or null. */
@@ -579,7 +596,8 @@ function mostHurt(world: World, grove: GroveState): Entity | null {
  * and 20 Solo charge).
  * - Regrowth re-sprouts the first felled Sapling beside him at 60% life, else heals the most hurt
  *   one for 40% of its life (via 'solo': no Weaver credit).
- * - Bramble roots the lesser foes in its patch (`root` s) and pricks every enemy in it.
+ * - Bramble roots the lesser foes in its patch (`root` s; normal and elite, non-heavy) and pricks
+ *   them, the root-immune among them too. Bosses, minibosses and heavy foes it leaves alone.
  */
 export function groveExecute(
   world: World,
@@ -621,11 +639,11 @@ export function groveExecute(
   emit(x, z, radius);
   let hit: ReturnType<typeof heroDamage> | null = null;
   for (const m of world.entities.list()) {
-    if (!m.enemy || !isActive(m) || rising(m)) continue;
+    if (!m.enemy || !isActive(m) || rising(m) || !lesserFoe(world, m)) continue;
     if (distSq(m.x, m.z, x, z) > (radius + m.radius) * (radius + m.radius)) continue;
     if (ability.root !== undefined) rootEnemy(world, m, ability.root, e.id);
     if (ability.damage <= 0) continue;
-    // One roll a patch: every enemy in it takes the same prick.
+    // One roll a patch: every lesser foe in it takes the same prick.
     hit ??= heroDamage(world, e, ability.damage, 0);
     dealDamage(world, m, {
       source: e.id,
