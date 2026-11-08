@@ -20,6 +20,7 @@ import type {
   Status,
   StatusId,
   Telegraph,
+  TelegraphKind,
   WorldState,
 } from '../state';
 import { canPay } from '../astrolabe';
@@ -781,6 +782,8 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
   }
 
   const source = opts.source === null ? undefined : world.entities.get(opts.source);
+  // The target's own share of a linked blow (`linkShare`), as against a share sent to it.
+  let ownShare = false;
   // Bonds (docs/phase-4e.md): an enemy's hit on a hero may be swallowed by Vexis's sphere; on a
   // hero or the Weaver, taken over by Kael's Oathkeeper.
   if ((target.hero || target.weaver) && opts.kind !== 'tick' && (source?.enemy || opts.telegraph)) {
@@ -789,14 +792,21 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
       (opts.oath ? null : oath(world, target, opts));
     if (taken) return taken;
     // Aegis Link (a Ward variant, docs/phase-4f.md): a linked member takes only their share.
-    if (!opts.oath) opts = linkShare(world, target, opts) ?? opts;
+    if (!opts.oath) {
+      const shared = linkShare(world, target, opts);
+      if (shared) {
+        opts = shared;
+        ownShare = true;
+      }
+    }
   }
   // Seren's parry (docs/phase-5e.md): after the Sphere, Oathkeeper and the Link, before guards,
-  // armour, Fermata and shields; never for a redirected share.
+  // armour, Fermata and shields; never for a redirected share (her own share of a blow aimed at
+  // her under a Link is not one).
   // Her down recap reads whether a Ward was on her as the blow came (before it absorbs).
   let warded = false;
-  if (target.hero?.duel && !opts.oath) {
-    const parried = parryIntercept(world, target, source, opts);
+  if (target.hero?.duel && (!opts.oath || ownShare)) {
+    const parried = parryIntercept(world, target, source, opts, ownShare);
     if (parried) return parried;
     warded = parryArmed(target);
   }
@@ -1131,8 +1141,14 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
         target,
         opts.sourceName,
         opts.status,
-        telegraphAnswers(world, opts.telegraph),
-        { source, melee: opts.melee === true, tick: opts.kind === 'tick', warded },
+        telegraphAnswers(world, opts.telegraph, !!(target.hero.duel || target.hero.grove)),
+        {
+          source,
+          melee: opts.melee === true,
+          tick: opts.kind === 'tick',
+          warded,
+          ...(opts.telegraph ? { kind: opts.telegraph.kind } : {}),
+        },
       );
     else if (target.weaver) downWeaver(world, target);
     // A summon is felled, never killed: `killEnemy` assumes an enemy (docs/phase-5e.md).
@@ -1518,16 +1534,18 @@ export function bleedOutTime(): number {
 /**
  * The answers a killing telegraph wanted, for the death recap (docs/phase-5a.md exit criterion
  * 4: Execution's Mend or Ward, a Blood Pact's Scatter). Movement II only: a Movement I death
- * record stays exactly as it was.
+ * record stays exactly as it was, except Seren's and Oro's (`named`: docs/phase-5e.md, every
+ * one of their downs names its answer; no other hero's record has them).
  */
 function telegraphAnswers(
   world: World,
   t: Telegraph | null | undefined,
+  named = false,
 ): readonly AnswerTag[] | undefined {
   if (!t || t.answers.length === 0) return undefined;
   const movement2 =
     world.config.movement !== undefined || t.executeBelow !== undefined || t.linkStatus === 'pact';
-  return movement2 ? t.answers : undefined;
+  return movement2 || named ? t.answers : undefined;
 }
 
 /** The killing blow, as Seren's and Oro's down recaps read it (docs/phase-5e.md). */
@@ -1538,6 +1556,8 @@ interface DownBlow {
   tick: boolean;
   /** A Ward was on Seren as it came (read only for her). */
   warded: boolean;
+  /** The killing telegraph's kind; absent for a plain hit (a swing or a bolt). */
+  kind?: TelegraphKind;
 }
 
 /**

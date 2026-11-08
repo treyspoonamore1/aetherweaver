@@ -638,14 +638,16 @@ describe('down recaps name the answer (downAdvice)', () => {
     expect(Run.downAdvice(seren({}), P)).toBeNull();
   });
 
-  it('Oro: the Severing cut first, then melee, then Saplings felled outside your songs', () => {
+  it('Oro: the Severing cut first, then melee; Saplings felled outside your songs come last', () => {
     expect(Run.downAdvice(oro({ threadCut: true, melee: true, feltOutside: 2 }), P)).toBe(
       'A Severing foe cut your Thread, and Rootbond with it: Ward or kill it first.',
     );
     expect(Run.downAdvice(oro({ melee: true, feltOutside: 2 }), P)).toBe(
       'Rally: his Saplings re-plant ahead of you and screen him.',
     );
-    expect(Run.downAdvice(oro({ feltOutside: 1 }), P)).toBe('Keep his Saplings inside your songs.');
+    // The felled Saplings wait for the blow's own answer (`downFallback`, after it).
+    expect(Run.downAdvice(oro({ feltOutside: 1 }), P)).toBeNull();
+    expect(Run.downFallback(oro({ feltOutside: 1 }))).toBe('Keep his Saplings inside your songs.');
     expect(Run.downAdvice(oro({}), P)).toBeNull();
   });
 

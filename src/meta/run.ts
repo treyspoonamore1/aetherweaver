@@ -2361,9 +2361,10 @@ export function downAdvice(
 
 /**
  * What Seren's down asks of the Weaver (docs/phase-5e.md, "Down recaps"), in priority order:
- * overextended in the pack (for the Chronomancer, Rally or an early Rewind: Rewind is no sure
- * extraction from a duel), then a blow from far (a beam: no parry answers it), then a parryable
- * blow that landed with no Ward on her. Null otherwise: the recap's generic answers stand.
+ * overextended and downed by the pack (for the Chronomancer, Rally or an early Rewind: Rewind is
+ * no sure extraction from a duel), then a bolt or beam from far (no parry answers it), then a
+ * parryable blow that landed with no Ward on her. Null otherwise: the blow's own answer comes
+ * next, then `downFallback`.
  */
 function duelAdvice(d: NonNullable<DeathRecap['duel']>, calling: string | null): string | null {
   if (d.overextended)
@@ -2377,15 +2378,32 @@ function duelAdvice(d: NonNullable<DeathRecap['duel']>, calling: string | null):
 
 /**
  * What Oro's down asks of the Weaver (docs/phase-5e.md), in priority order: a Severing foe cut
- * the Thread while he was Threaded (and Rootbond with it), then caught in melee (Rally re-plants
- * his Saplings ahead of you, between him and the pack), then Saplings felled outside your songs
- * this fight. Null otherwise.
+ * the Thread while he was Threaded (and Rootbond with it), then caught in melee by a lesser foe
+ * (Rally re-plants his Saplings ahead of you, between him and the pack). Null otherwise: the
+ * blow's own answer comes next, then `downFallback` (Saplings felled outside your songs).
  */
 function groveAdvice(d: NonNullable<DeathRecap['grove']>): string | null {
   if (d.threadCut)
     return 'A Severing foe cut your Thread, and Rootbond with it: Ward or kill it first.';
   if (d.melee) return 'Rally: his Saplings re-plant ahead of you and screen him.';
-  if (d.feltOutside > 0) return 'Keep his Saplings inside your songs.';
+  return null;
+}
+
+/** Oro's down with Saplings felled outside your songs this fight (`downFallback`). */
+export const GROVE_FELT_OUTSIDE = 'Keep his Saplings inside your songs.';
+
+/**
+ * The last line for a Seren or Oro down that nothing else answers (docs/phase-5e.md exit
+ * criterion 4: every one of their downs names an answer): after `downAdvice`, the Rift's and
+ * the Finale's lines and the blow's own answers. Oro: Saplings felled outside your songs this
+ * fight, else his steady answer; Seren: hers. Null for every other hero.
+ */
+export function downFallback(d: Partial<Pick<DeathRecap, 'duel' | 'grove'>>): string | null {
+  if (d.duel) return 'Ward her as the blow lands, and Mend her between duels.';
+  if (d.grove)
+    return d.grove.feltOutside > 0
+      ? GROVE_FELT_OUTSIDE
+      : 'Ward or Mend him: his Saplings screen him only from lesser foes.';
   return null;
 }
 
