@@ -12,7 +12,18 @@ import {
 import { contains, telegraphDamage } from '../sim/combat/telegraphs';
 import { quantize } from '../sim/core/dmath';
 import { rewindCanRevive } from '../sim/systems/rewind';
-import { bloodlusting, fallingFast, segmentDistSq, suppressRadiusOf } from '../sim';
+import {
+  bloodlusting,
+  fallingFast,
+  gentle,
+  overextended,
+  parryArmed,
+  parryable,
+  saplingInField,
+  segmentDistSq,
+  summonsOf,
+  suppressRadiusOf,
+} from '../sim';
 import type {
   Command,
   DeepReadonly,
@@ -465,6 +476,152 @@ export function mendNeed(h: HeroView, blood: BloodView | null): number {
   const f = effectiveFraction(h.e);
   if (!blood || blood.hero.slot !== h.slot) return f;
   return f >= blood.floor && !blood.fast && !blood.lethal ? 1 : f;
+}
+
+// ── Seren and Oro (docs/phase-5e.md, "Bots and harness") ─────────────────────────────
+// Each reader answers null or empty without its hero, through the sim's own pure rules
+// (`parryArmed`, `parryable`, `overextended`, `gentle`, `saplingInField`), and draws nothing,
+// so no other party's decision reads anything new.
+
+export { summonsOf } from '../sim';
+
+/** How near (beyond its reach) an enemy on Seren counts as about to swing at her (m). */
+const SWING_SLACK = 1;
+
+/** A parryable blow on its way to a hero: a basic melee swing at her, or a cone aimed at her. */
+export interface NextSwing {
+  /** The enemy swinging. */
+  source: ReadonlyEntity;
+  /** The sim time it lands (a swing: once its attack cooldown runs out). */
+  at: number;
+  /** The cone's telegraph; null for a basic melee swing. */
+  telegraph: ReadonlyTelegraph | null;
+}
+
+/**
+ * Every parryable blow on its way to `e`, soonest first (then by source id): a cone telegraph of
+ * `PARRY_REACH` m or less whose target is her (docs/phase-5e.md, "Parry: what is melee"), and
+ * each basic melee swing of an enemy on her within its reach (+`SWING_SLACK`), due when its
+ * attack cooldown runs out. A stunned, sleeping, staggered or casting enemy swings at nobody.
+ */
+export function parryableBlows(state: WorldState, e: ReadonlyEntity): NextSwing[] {
+  const out: NextSwing[] = [];
+  for (const t of state.telegraphs) {
+    if (t.target !== e.id || t.kind !== 'cleave' || !damaging(t)) continue;
+    if (!parryable(ATTACK_DEFS.get(t.attackId))) continue;
+    const source = state.entities.get(t.owner);
+    if (source?.enemy) out.push({ source, at: t.impact, telegraph: t });
+  }
+  for (const m of state.entities.list()) {
+    const c = m.enemy;
+    if (!c || c.targetId !== e.id || c.cast || !m.health || m.health.dead) continue;
+    if (c.state === 'spawning') continue;
+    const def = ENEMY_DEFS.get(c.defId);
+    if (!def || def.basic.kind !== 'melee') continue;
+    if (m.health.statuses.some((s) => HELD.has(s.id))) continue;
+    const reach = def.basic.range + m.radius + e.radius + SWING_SLACK;
+    if (dist(m, e) > reach) continue;
+    out.push({ source: m, at: state.time + Math.max(0, c.attackCooldown), telegraph: null });
+  }
+  return out.sort((a, b) => a.at - b.at || a.source.id - b.source.id);
+}
+
+/** Statuses that stop an enemy swinging. */
+const HELD: ReadonlySet<string> = new Set(['stun', 'stagger', 'sleep']);
+
+/** The next parryable blow on its way to `e` (`parryableBlows`' soonest), or null. */
+export function nextSwing(state: WorldState, e: ReadonlyEntity): NextSwing | null {
+  return parryableBlows(state, e)[0] ?? null;
+}
+
+/** What the bots read of Seren, the Riposte (docs/phase-5e.md, "Readers"). */
+export interface DuelView {
+  seren: HeroView;
+  /** En garde: a Weaver Ward (or Blade Waltz) is on her, so her next parryable blow is parried. */
+  armed: boolean;
+  /** Her Showboat duel's target while it stands; null without one. */
+  quarry: ReadonlyEntity | null;
+  /** The next parryable blow on its way to her; null without one. */
+  nextSwing: NextSwing | null;
+  /** Surrounded (3+ enemies on her) or low outside every field, while duelling. */
+  overextended: boolean;
+}
+
+/** The party's standing duellist (Seren), read for the bots; null without her. */
+export function duelOf(state: WorldState, party: readonly HeroView[]): DuelView | null {
+  const seren = party.find((h) => h.e.hero!.duel !== undefined);
+  if (!seren) return null;
+  const duel = seren.e.hero!.duel!;
+  const q = duel.quarry === null ? undefined : state.entities.get(duel.quarry);
+  const quarry = q?.enemy && q.health && !q.health.dead ? q : null;
+  return {
+    seren,
+    armed: parryArmed(seren.e),
+    quarry,
+    nextSwing: nextSwing(state, seren.e),
+    overextended: overextended(state, seren.e),
+  };
+}
+
+/** A Sapling below this share of its life is hurt (the Thread on Oro Mends it at half). */
+export const SAPLING_HURT = 0.7;
+
+/** What the bots read of Oro, the Grovekeeper (docs/phase-5e.md, "Readers"). */
+export interface GroveView {
+  oro: HeroView;
+  /** His standing Saplings, in entity order. */
+  saplings: ReadonlyEntity[];
+  /** The Ancient while it stands; else null. */
+  ancient: ReadonlyEntity | null;
+  /** The share of his awake, planted Saplings standing in your field (1 with none). */
+  inFieldShare: number;
+  /** His awake, planted Saplings standing outside your field. */
+  outside: ReadonlyEntity[];
+  /** Some Sapling is below `SAPLING_HURT` of its life. */
+  hurt: boolean;
+  /** The lowest life share among his Saplings (1 with none). */
+  lowest: number;
+  /** Gentle: no Focus stands, so he tends rather than fights. */
+  tending: boolean;
+}
+
+/** A summon held (dormant, Oro down or the Grand Silence) or burrowing (a Rally's re-plant). */
+function settling(state: WorldState, s: ReadonlyEntity): boolean {
+  const c = s.summon!;
+  return c.dormant === true || (c.burrowUntil !== undefined && c.burrowUntil > state.time);
+}
+
+/** The party's standing summoner (Oro), read for the bots; null without him. */
+export function groveOf(state: WorldState, party: readonly HeroView[]): GroveView | null {
+  const oro = party.find((h) => h.e.hero!.grove !== undefined);
+  if (!oro) return null;
+  const mine = summonsOf(state, oro.e.id);
+  const saplings = mine.filter((s) => s.summon!.kind === 'sapling');
+  const ancient = mine.find((s) => s.summon!.kind === 'ancient') ?? null;
+  const outside: ReadonlyEntity[] = [];
+  let planted = 0;
+  let lowest = 1;
+  for (const s of saplings) {
+    lowest = Math.min(lowest, s.health!.hp / s.health!.maxHp);
+    if (settling(state, s)) continue;
+    planted++;
+    if (!saplingInField(state, s)) outside.push(s);
+  }
+  return {
+    oro,
+    saplings,
+    ancient,
+    inFieldShare: planted === 0 ? 1 : (planted - outside.length) / planted,
+    outside,
+    hurt: lowest < SAPLING_HURT,
+    lowest,
+    tending: gentle(state, oro.e),
+  };
+}
+
+/** A hero who joined the roster (not one of the content's default party: Brann, Seren, Oro). */
+export function isRecruit(defId: string): boolean {
+  return !CONTENT.defaultParty.includes(defId);
 }
 
 // ── Movement III (docs/phase-5c.md, "Bots and harness") ──────────────────────────────
