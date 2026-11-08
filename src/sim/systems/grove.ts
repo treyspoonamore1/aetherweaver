@@ -312,8 +312,8 @@ const probe = { x: 0, z: 0 };
  * The bots' Rally probe (docs/phase-5e.md, `oroRally`): would a Rally (summons.ts `replant`)
  * re-plant Sapling `index` of `owner`'s grove inside your field, as things stand now? A Rally
  * re-plants each Sapling at the Weaver's front spot (`frontSpot`), so this tests that spot with
- * `saplingInField`: during the Silent Verse, say, the spots 5 m ahead of her land outside a
- * 3.6 m hymn circle she stands in, and the Rally brings nothing home. Pure: it reads public
+ * `saplingInField`: where her songs can't reach the spots 5 m ahead of her, say, the Rally
+ * brings nothing home (through the Silent Verse `frontSpot` draws them into her hymn circle). Pure: it reads public
  * state and writes only a scratch point. False without the grove or that Sapling.
  */
 export function replantInField(world: WorldState, owner: ReadonlyEntity, index: number): boolean {

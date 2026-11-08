@@ -1165,8 +1165,8 @@ export class SkilledBot implements Bot {
     // has no pull), a Rally does: she always answers one (`serenReel`). With Anchor, the Anchor
     // goes on her beside it, to buy the 3 s she needs to obey it (docs/phase-5e.md, the Anchor
     // row). A Sapling left outside every field for 2 s is Rallied back in, re-planted ahead of
-    // the Weaver (`oroRally`), unless no re-plant spot would land in a field (`rallyBringsHome`:
-    // through the Silent Verse her front spots lie outside the hymn circle she stands in).
+    // the Weaver (`oroRally`), unless no re-plant spot would land in a field (`rallyBringsHome`;
+    // through the Silent Verse they are drawn into the hymn circle she stands in: `frontSpot`).
     if (!link && !ring && !out.some((c) => c.t === 'directive')) {
       const anchorVariant = wc.variants.reel === 'anchor';
       const serenRally =

@@ -941,7 +941,7 @@ They sit beside M3_RULES and FINALE_RULES (`skilled.ts:140-219`), each behind `t
 | `serenNoSwap` | Never Swap into her duel. |
 | `serenCue` | Thousand Cuts at ≥ 4 enemies or when she is overextended. |
 | `oroFocus` | When he is tending and the fight has 1-3 enemies, Focus Kael’s target or the boss, with a crowd guard like SENTINEL_FOCUS_AT (`:285`). Ablated first. |
-| `oroRally` | A Sapling outside every field for > 2 s, throttled by `gap()` (`:921-924`) so a bloodlusting Brann’s 8 s holds; only when its re-plant spot at the Weaver's front would stand in the field (`replantInField`), so not through the Silent Verse, where the front spots lie outside her hymn circle. |
+| `oroRally` | A Sapling outside every field for > 2 s, throttled by `gap()` (`:921-924`) so a bloodlusting Brann’s 8 s holds; only when its re-plant spot at the Weaver's front would stand in the field (`replantInField`; through the Silent Verse `frontSpot` draws the spots into her hymn circle, so the Rally is made). |
 | `oroThread` | Mend-Thread Oro when the Saplings are hurt and the party is calm; never under Unravel (Mend wounds and Rootbond is skipped), Stasis aside. |
 | `groveCover` | Weights the Saplings into `position()`’s centroid at 1:2 (`:1339-1392`). |
 | `oroCue` | Wildgrowth on a pack of ≥ 3, or Cued when the Saplings are out of the field. |

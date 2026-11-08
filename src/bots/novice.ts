@@ -471,7 +471,7 @@ export class NoviceBot implements Bot {
       !state.field.suppressed &&
       !has('directive') &&
       state.tick >= this.rallyAllowed &&
-      // No Rally where no re-plant lands in a field (the Silent Verse's hymn circles).
+      // No Rally where no re-plant lands in a field (`rallyBringsHome`).
       rallyBringsHome(state, grove, grove.outside) &&
       this.rng.chance(NOVICE_ROSTER.saplingRally)
     ) {

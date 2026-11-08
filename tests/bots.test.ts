@@ -3886,19 +3886,23 @@ describe('the Skilled bot with Oro (staged)', () => {
     expect(rallyTimes(true, ['oroRally'])).toEqual([]);
   });
 
-  it('oroRally: no Rally where no re-plant lands in a field (the Silent Verse’s hymn circles)', () => {
-    // The finding: through the Hollow Cantor's Silent Verse the field sings only inside 3.6 m
-    // hymn circles, and a Rally re-plants 5 m ahead of the Weaver, so a Rally every 5 s brought
-    // nothing home and pulled the party into formation for 3 s of every 5.
-    const rallyTimes = (r: number, skip: RosterRule[] = []) => {
+  it('oroRally: no Rally where no re-plant lands in a field', () => {
+    // The finding: a Rally re-plants ahead of the Weaver, so where no front spot stands in a
+    // field (here every song shrunk to 2 m) a Rally every 5 s brought nothing home and pulled
+    // the party into formation for 3 s of every 5. Through the Silent Verse the front spots are
+    // drawn into the hymn circle she stands in (summons.ts `frontSpot`), so a Rally is made.
+    const rallyTimes = (shrink: boolean, skip: RosterRule[] = []) => {
       const { sim, w, saplings } = grove();
       const weaver = w.entities.get(w.weaverId)!;
       const bot = skilled(['groveCover', ...skip]);
       const at: number[] = [];
       for (let t = 0; t < 60 * 9; t++) {
         for (const s of saplings) if (!s.health!.dead) plantAt(s, 16, 0);
-        // One hymn circle on the Weaver, as the Silent Verse lays them.
-        w.field.hymnCircles = [{ x: weaver.x, z: weaver.z, r }];
+        if (shrink)
+          for (const c of w.field.chords)
+            if (c.radius > 0) c.radius = 2;
+            // Otherwise one 3.6 m hymn circle on the Weaver, as the Silent Verse lays them.
+            else w.field.hymnCircles = [{ x: weaver.x, z: weaver.z, r: 3.6 }];
         const out = bot.decide(sim.state);
         if (rallies(out)) at.push(t);
         sim.step(out);
@@ -3906,11 +3910,11 @@ describe('the Skilled bot with Oro (staged)', () => {
       }
       return at;
     };
-    // A 3.6 m circle: the front spots lie outside it, so no Rally (before the fix: 1 every 5 s).
-    expect(rallyTimes(3.6)).toEqual([]);
-    // A circle wide enough to hold the front spots: the Rally brings them home, so it is made.
-    expect(rallyTimes(9).length).toBeGreaterThan(0);
-    expect(rallyTimes(9, ['oroRally'])).toEqual([]);
+    // No front spot in a field: no Rally (before the fix: 1 every 5 s).
+    expect(rallyTimes(true)).toEqual([]);
+    // The Silent Verse: the Rally brings them home inside her circle, so it is made.
+    expect(rallyTimes(false).length).toBeGreaterThan(0);
+    expect(rallyTimes(false, ['oroRally'])).toEqual([]);
   });
 
   it('replantInField: tests the Rally’s re-plant spots against the field, and is false without Oro', () => {
@@ -3918,11 +3922,16 @@ describe('the Skilled bot with Oro (staged)', () => {
     const weaver = w.entities.get(w.weaverId)!;
     const all = () => saplings.map((_, i) => replantInField(w, oro, i));
     expect(all().every(Boolean)).toBe(true);
+    // The Silent Verse: the front spots are drawn into her 3.6 m circle (`frontSpot`).
     w.field.hymnCircles = [{ x: weaver.x, z: weaver.z, r: 3.6 }];
-    expect(all().some(Boolean)).toBe(false);
-    w.field.hymnCircles = [{ x: weaver.x, z: weaver.z, r: 9 }];
     expect(all().every(Boolean)).toBe(true);
     w.field.hymnCircles = [];
+    // Every song shrunk to 2 m: the spots 5 m ahead of her stand outside it.
+    const radii = w.field.chords.map((c) => c.radius);
+    for (const c of w.field.chords) if (c.radius > 0) c.radius = 2;
+    expect(all().some(Boolean)).toBe(false);
+    w.field.chords.forEach((c, i) => (c.radius = radii[i]!));
+    expect(all().every(Boolean)).toBe(true);
     expect(replantInField(w, oro, saplings.length)).toBe(false);
     const kael = w.entities.get(w.party[0]!)!;
     expect(replantInField(w, kael, 0)).toBe(false);
@@ -4086,8 +4095,8 @@ describe('the Novice bot with Seren and Oro (NOVICE_ROSTER, staged)', () => {
     expect(rallies(run(0, true))).toBe(true);
   });
 
-  it('saplingRally: no Rally where no re-plant lands in a field (the Silent Verse’s hymn circles)', () => {
-    const run = (r: number) => {
+  it('saplingRally: no Rally where no re-plant lands in a field', () => {
+    const run = (shrink: boolean) => {
       const sim = sandbox({ chords: GUARDIAN, party: ORO_PARTY });
       stepFor(sim, 4);
       const w = worldOf(sim);
@@ -4102,13 +4111,18 @@ describe('the Novice bot with Seren and Oro (NOVICE_ROSTER, staged)', () => {
             s.summon!.plantX = 16;
             s.summon!.plantZ = 0;
           }
-        w.field.hymnCircles = [{ x: weaver.x, z: weaver.z, r }];
+        // Every song shrunk to 2 m, or the Silent Verse's 3.6 m circle on the Weaver (its front
+        // spots are drawn into it: `frontSpot`).
+        if (shrink)
+          for (const c of w.field.chords)
+            if (c.radius > 0) c.radius = 2;
+            else w.field.hymnCircles = [{ x: weaver.x, z: weaver.z, r: 3.6 }];
       };
       return novice(sim, pin);
     };
-    // Before the fix: about 11 Rallies a minute through the Silent Verse, none bringing them home.
-    expect(rallies(run(3.6))).toBe(false);
-    expect(rallies(run(9))).toBe(true);
+    // Before the fix: about 11 Rallies a minute where none brought them home.
+    expect(rallies(run(true))).toBe(false);
+    expect(rallies(run(false))).toBe(true);
   });
 
   it('noviceAnchor: stays with the others, not with a duelling Seren', () => {
