@@ -3663,6 +3663,29 @@ describe('the Skilled bot with Seren (staged)', () => {
     }
   });
 
+  it('serenReel’s Rally waits while any lethal telegraph is live, as its Reel does', () => {
+    for (const config of [
+      { calling: { id: 'chronomancer' } },
+      { techniques: { reel: 'swap' } },
+    ] as Partial<SimConfig>[]) {
+      const stage = (lethal: boolean) => {
+        const { sim, w, seren } = serenStage(config);
+        const hounds = onSeren(w, seren, 3, 5);
+        seren.hero!.duel!.quarry = hounds[0]!.id;
+        seren.health!.hp = seren.health!.maxHp * 0.4;
+        w.entities.get(w.weaverId)!.weaver!.wardCharges = 0;
+        if (lethal) {
+          // Far off on the Weaver, so no other Rally rule reads it.
+          bigHit(sim, w.weaverId, 1, 3, 814);
+          w.telegraphs.at(-1)!.severity = 'lethal';
+        }
+        return skilled().decide(sim.state);
+      };
+      expect(rallies(stage(false)), JSON.stringify(config)).toBe(true);
+      expect(rallies(stage(true)), JSON.stringify(config)).toBe(false);
+    }
+  });
+
   it('serenNoSwap: never Swaps into her duel to free her; out of a duel, it does', () => {
     const free = (duelling: boolean, skip: RosterRule[] = []) => {
       const { sim, w, seren, slot } = serenStage({ techniques: { reel: 'swap' } });
@@ -3732,6 +3755,48 @@ describe('the Skilled bot with Seren (staged)', () => {
     // With Lyra in the roster, Lyra breaks it, as she always has.
     const lyra = thread(['kael', 'lyra', 'seren']);
     expect(lyra.to).toBe(slotOf(lyra.sim.state, 'lyra'));
+  });
+
+  it('discordBreaker is a post-pick modifier: it composes with brannThread, and its ablation measures it', () => {
+    const thread = (party: string[], skip: RosterRule[] = []) => {
+      const sim = createSim({ seed: 7, encounter: 'crimson_gate', debug: true, ...KIT, party });
+      const w = worldOf(sim);
+      const m = foe(w, 'sanguine_hound', 0, -12, { hp: 1e6 });
+      m.health!.shields.push({
+        kind: 'discord',
+        amount: 500,
+        max: 500,
+        appliedAt: 0,
+        expiresAt: 1e9,
+        fromWeaver: false,
+        fromAura: false,
+      });
+      // Someone besides Brann and Seren a little hurt: above 60%, below the 85% where the plain
+      // rule Empowers.
+      const hurt = w.party
+        .map((id) => w.entities.get(id)!)
+        .find((e) => e.hero!.defId !== 'brann' && e.hero!.defId !== 'seren')!;
+      hurt.health!.hp = hurt.health!.maxHp * 0.7;
+      const out = skilled(skip).decide(sim.state);
+      const to = [...out].reverse().find((c) => c.t === 'thread');
+      return { to: to?.t === 'thread' ? to.slot : null, out, sim, hurt: hurt.hero!.slot };
+    };
+    // Party X (Brann, Seren, Oro): Seren, the hardest hitter, is Empowered to break it.
+    const x = thread(['brann', 'seren', 'oro']);
+    expect(x.to).toBe(slotOf(x.sim.state, 'seren'));
+    expect(mendsOn(x.sim, x.out, x.to!)).toBe(false);
+    // Off, nothing breaks it in X: brannThread's own breaker leaves a recruit roster to the rule.
+    const xOff = thread(['brann', 'seren', 'oro'], ['discordBreaker']);
+    expect(xOff.to).not.toBe(slotOf(xOff.sim.state, 'seren'));
+    expect(mendsOn(xOff.sim, xOff.out, xOff.hurt)).toBe(true);
+    // Party R (Kael, Brann, Seren) composes the same way.
+    const r = thread(['kael', 'brann', 'seren']);
+    expect(r.to).toBe(slotOf(r.sim.state, 'seren'));
+    // A Brann party without Seren or Oro keeps brannThread's breaker, the rule on or off.
+    const plain = thread(['kael', 'vexis', 'brann']);
+    const plainOff = thread(['kael', 'vexis', 'brann'], ['discordBreaker']);
+    expect(plain.to).not.toBe(plain.hurt);
+    expect(plainOff.out).toEqual(plain.out);
   });
 });
 

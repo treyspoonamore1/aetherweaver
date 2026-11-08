@@ -822,6 +822,12 @@ export class SkilledBot implements Bot {
     const breakers =
       laterMovement(state) &&
       enemies.some((e) => guardUp(state, e) || e.health!.shields.some((s) => s.kind === 'discord'));
+    // `discordBreaker` (docs/phase-5e.md) is a post-pick modifier: each pick below says whether
+    // it left a breaker's window open (everyone above 60% and calm, no Empower call answered,
+    // no Blood and Silk parking), and the rule acts after the pick, so it composes with
+    // brannThread. False without Seren or Oro, or with Lyra in the roster.
+    const recruitBreaker = breakers && discordBreaking(state);
+    let breakWindow = false;
     if (holding) {
       threadTo = holding;
     } else if (condemned) {
@@ -837,16 +843,29 @@ export class SkilledBot implements Bot {
         : undefined;
       if (winding) threadTo = winding;
     } else if (blood) {
-      const pick = brannThread(state, party, blood, wc.threadSlot, breakers, calling, answerNow);
+      const pick = brannThread(
+        state,
+        party,
+        blood,
+        wc.threadSlot,
+        breakers,
+        calling,
+        answerNow,
+        recruitBreaker,
+      );
       threadTo = pick.to;
       mend = pick.mend;
+      breakWindow = pick.breakWindow;
     } else if (party.length > 0) {
       const sorted = [...party].sort((a, b) => effectiveFraction(a.e) - effectiveFraction(b.e));
       const lowest = sorted[0]!;
       const current =
         wc.threadSlot === null ? null : (party.find((h) => h.slot === wc.threadSlot) ?? null);
       const calm = party.every((h) => h.e.health!.incoming < h.e.health!.hp * 0.3);
-      if (answerNow && call!.answer === 'empower' && effectiveFraction(lowest.e) > 0.5 && calm) {
+      const answering =
+        answerNow && call!.answer === 'empower' && effectiveFraction(lowest.e) > 0.5 && calm;
+      breakWindow = !answering && effectiveFraction(lowest.e) > 0.6 && calm;
+      if (answering) {
         // Lyra asks for Empower: give it to her while nobody is in trouble.
         mend = false;
         threadTo = calling;
@@ -858,17 +877,6 @@ export class SkilledBot implements Bot {
       ) {
         mend = false;
         threadTo = party.find((h) => h.defId === 'lyra')!;
-      } else if (
-        breakers &&
-        effectiveFraction(lowest.e) > 0.6 &&
-        calm &&
-        this.on('discordBreaker') &&
-        discordBreaking(state)
-      ) {
-        // Seren or Oro with no Lyra in the roster (docs/phase-5e.md, `discordBreaker`): the
-        // hardest hitter breaks a discord shield (false for every roster with Lyra in it).
-        mend = false;
-        threadTo = hardestHitter(state, party) ?? lowest;
       } else if (effectiveFraction(lowest.e) > 0.85 && calm) {
         const tank = party.find((h) => h.role === 'tank');
         if (beam && defensiveSong(beam) && tank && tank.e.health!.incoming > 0) {
@@ -888,6 +896,15 @@ export class SkilledBot implements Bot {
       ) {
         threadTo = lowest;
       } else threadTo = current;
+    }
+    // ── Seren or Oro with no Lyra in the roster (docs/phase-5e.md, `discordBreaker`): in a
+    // breaker's window, the hardest hitter is Empowered to break a discord shield. ──
+    if (recruitBreaker && breakWindow && this.on('discordBreaker')) {
+      const top = hardestHitter(state, party);
+      if (top) {
+        threadTo = top;
+        mend = false;
+      }
     }
     // ── The Finale (docs/phase-5d.md): while the heroes are stilled, and through Fortissimo
     // Silence with no Crescendo, Mend (never Empower) whoever needs it most: the hero the next
@@ -2176,8 +2193,9 @@ function brannThread(
   breakers: boolean,
   calling: HeroView | null,
   answerNow: boolean,
-): { to: HeroView | null; mend: boolean } {
-  if (party.length === 0) return { to: null, mend: true };
+  recruitBreaker = false,
+): { to: HeroView | null; mend: boolean; breakWindow: boolean } {
+  if (party.length === 0) return { to: null, mend: true, breakWindow: false };
   const brann = blood.hero;
   // Being Mended up to his floor, he's lifted a little past it before the Thread moves on, so
   // it doesn't swing between him and the rest as hits come and go.
@@ -2202,12 +2220,16 @@ function brannThread(
     !blood.lethal &&
     party.every((h) => h.slot === brann.slot || h.e.health!.hp >= h.e.health!.maxHp * 0.5)
   )
-    return { to: brann, mend: false };
+    return { to: brann, mend: false, breakWindow: false };
   if (answerNow && call?.answer === 'empower' && need(lowest) > 0.5 && calm)
-    return { to: calling, mend: false };
+    return { to: calling, mend: false, breakWindow: false };
+  const breakWindow = need(lowest) > 0.6 && calm;
   const lyra = party.find((h) => h.defId === 'lyra');
-  if (breakers && need(lowest) > 0.6 && calm) {
-    if (lyra) return { to: lyra, mend: false };
+  // With Seren or Oro and no Lyra in the roster (`recruitBreaker`), a discord shield is the
+  // post-pick `discordBreaker`'s to break, so its ablation measures it; false for every other
+  // Brann party, which keeps the built-in breaker below.
+  if (breakers && breakWindow && !recruitBreaker) {
+    if (lyra) return { to: lyra, mend: false, breakWindow };
     // No Lyra: a discord shield breaks under any Empowered hero; a guard wants Focus and flank.
     const discord = state.entities
       .list()
@@ -2215,19 +2237,19 @@ function brannThread(
     const strikers = party.filter((h) => h.role !== 'tank');
     if (discord && strikers.length > 0) {
       const top = strikers.reduce((a, b) => (damageRate(b) > damageRate(a) ? b : a));
-      return { to: top, mend: false };
+      return { to: top, mend: false, breakWindow };
     }
   }
   if (need(lowest) > 0.85 && calm) {
     const tank = party.find((h) => h.role === 'tank');
     const beam = beamSong(state);
     if (beam && defensiveSong(beam) && tank && tank.e.health!.incoming > 0)
-      return { to: tank, mend: false };
-    return { to: lyra ?? party.find((h) => h.role !== 'tank') ?? lowest, mend: false };
+      return { to: tank, mend: false, breakWindow };
+    return { to: lyra ?? party.find((h) => h.role !== 'tank') ?? lowest, mend: false, breakWindow };
   }
   if (!current || need(lowest) < need(current) - 0.12 || need(current) > 0.92)
-    return { to: lowest, mend: true };
-  return { to: current, mend: true };
+    return { to: lowest, mend: true, breakWindow };
+  return { to: current, mend: true, breakWindow };
 }
 
 // ── Seren and Oro (docs/phase-5e.md, "Skilled ROSTER_RULES"): read only with their hero up ──
@@ -2305,8 +2327,10 @@ function perfectElsewhere(
 
 /**
  * `serenReel`: Seren is overextended and below `SEREN_REEL_BELOW` of her life, not already on
- * her way (a Reel, a dodge, Thousand Cuts' invulnerable blinks). For a Reel (`reel`) she must be
- * in its reach, and no lethal telegraph may be live: the plain Reel loop keeps it for that.
+ * her way (a Reel, a dodge, Thousand Cuts' invulnerable blinks), and no lethal telegraph is live
+ * (the plain Reel loop keeps the Reel for that, and a Rally would pull the party into formation
+ * under it). For a Reel (`reel`) she must also be in its reach; a Rally (the Chronomancer, Swap)
+ * reaches her anywhere.
  */
 function serenReelDue(state: WorldState, duel: DuelView, w: ReadonlyEntity, reel = true): boolean {
   const e = duel.seren.e;
@@ -2314,9 +2338,8 @@ function serenReelDue(state: WorldState, duel: DuelView, w: ReadonlyEntity, reel
   if (!duel.overextended || hero.reel || hero.action === 'dodging') return false;
   if (hero.soloId === THOUSAND_CUTS && hero.soloActive > 0) return false;
   if (effectiveFraction(e) >= SEREN_REEL_BELOW) return false;
-  if (!reel) return true;
-  if (dist(e, w) > CONTENT.techniques.reel.range - 0.3) return false;
-  return !state.telegraphs.some((t) => t.severity === 'lethal');
+  if (state.telegraphs.some((t) => t.severity === 'lethal')) return false;
+  return !reel || dist(e, w) <= CONTENT.techniques.reel.range - 0.3;
 }
 
 /**
