@@ -11,6 +11,7 @@ import { plantField } from './field';
 import { castChime, castGlide, castReel, castWard, crescendo, cue } from './techniques';
 import { castRewind } from './rewind';
 import { attachThread, toggleThreadMode } from './thread';
+import { groveRally } from './grove';
 
 /** Applies one tick's (already normalised) commands, in order. */
 export function applyCommands(world: World, commands: readonly Command[]): void {
@@ -94,6 +95,8 @@ function applyDirective(world: World, kind: DirectiveKind, target: number | unde
       if (!e?.hero) continue;
       e.hero.follow = follow;
       if (kind === 'rally') e.hero.quirk = 0;
+      // Oro (docs/phase-5e.md): a Rally re-plants his Saplings at your front spots.
+      if (kind === 'rally' && e.hero.grove) groveRally(world, e);
       if (follow === 'hold') {
         e.hero.holdX = e.x;
         e.hero.holdZ = e.z;

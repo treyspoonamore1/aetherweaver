@@ -7,6 +7,7 @@ import { AURAS } from './auras';
 import { ORNAMENTS } from './ornaments';
 import { ASTROLABE } from './astrolabe';
 import { DEEDS, FINALE_DEEDS } from './deeds';
+import { ROSTER_DEEDS } from './rosterDeeds';
 import { CALLINGS } from './callings';
 import { BOONS, RELICS } from './relics';
 import { CURSES, INSCRIPTIONS, RELIQUARY } from './reliquary';
@@ -56,6 +57,7 @@ import {
   type InscriptionDef,
   type MotifDef,
   type AnyMovementDef,
+  type BloodRagePassive,
   type OrnamentDef,
   type RelicDef,
   type RunEventDef,
@@ -89,7 +91,8 @@ export const CONTENT: Content = ContentSchema.parse({
   events: [...RUN_EVENTS, ...LEGION_EVENTS, ...UNSTITCHED_EVENTS],
   callings: CALLINGS,
   astrolabe: ASTROLABE,
-  deeds: [...DEEDS, ...LEGION_DEEDS, ...UNSTITCHED_DEEDS, ...FINALE_DEEDS],
+  // Seren's and Oro's (docs/phase-5e.md) come last, so the first 27 keep their order.
+  deeds: [...DEEDS, ...LEGION_DEEDS, ...UNSTITCHED_DEEDS, ...FINALE_DEEDS, ...ROSTER_DEEDS],
   inscriptions: INSCRIPTIONS,
   curses: CURSES,
   reliquary: RELIQUARY,
@@ -311,6 +314,43 @@ export function partyHasDome(heroIds: readonly string[]): boolean {
   return heroIds.some((id) => CONTENT.heroes.find((h) => h.id === id)?.solo.id === 'aegisWall');
 }
 
+/** The abilities that taunt a boss off the party (Kael's Challenge; docs/phase-5e.md). */
+const BOSS_TAUNTS: ReadonlySet<string> = new Set(['challenge']);
+/** The abilities that interrupt a cast (Shield Bash, Piercing Shot, Sunder Leap, Lunge). */
+const INTERRUPTS: ReadonlySet<string> = new Set([
+  'shieldBash',
+  'piercingShot',
+  'sunderLeap',
+  'lunge',
+]);
+
+/**
+ * Does any of these heroes bring a taunt that holds a boss (docs/phase-5e.md, Prep's party
+ * notes)? Feint and the Saplings' taunts never bind a boss, so they don't count. Unknown ids
+ * count as none.
+ */
+export function partyTaunts(heroIds: readonly string[]): boolean {
+  return heroIds.some((id) =>
+    CONTENT.heroes.find((h) => h.id === id)?.abilities.some((a) => BOSS_TAUNTS.has(a.id)),
+  );
+}
+
+/** Does any of these heroes bring an interrupt (docs/phase-5e.md)? Unknown ids count as none. */
+export function partyInterrupts(heroIds: readonly string[]): boolean {
+  return heroIds.some((id) =>
+    CONTENT.heroes.find((h) => h.id === id)?.abilities.some((a) => INTERRUPTS.has(a.id)),
+  );
+}
+
+/**
+ * A hero's Blood Rage, or null (docs/phase-5e.md): the one reader of `def.passive` for every
+ * Blood Rage rule, since a passive is now Blood Rage, Parry or Rootbond. For every hero before
+ * Phase 5e it is non-null exactly when `def.passive` was set.
+ */
+export function bloodRageOf(def: Pick<HeroDef, 'passive'>): BloodRagePassive | null {
+  return def.passive?.id === 'bloodRage' ? def.passive : null;
+}
+
 /** A Calling's passive and its Crescendo line, filled in. */
 export function callingText(def: CallingDef): { passive: string; crescendo: string } {
   return {
@@ -358,6 +398,11 @@ export type {
   MotifDef,
   MovementDef,
   AnyMovementDef,
+  BloodRagePassive,
+  HeroPassive,
+  HeroSummons,
+  ParryPassive,
+  RootbondPassive,
   FinaleMovementDef,
   RoadVariant,
   OrnamentDef,
@@ -377,6 +422,7 @@ export type {
 export {
   AILMENT_IDS,
   DISSONANCE_EFFECTS,
+  HERO_TALLY_STATS,
   INSCRIPTION_CATEGORIES,
   PASSIVE_EFFECTS,
   isFieldMovement,

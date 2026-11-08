@@ -62,9 +62,12 @@ export function resolveOverlaps(world: World): void {
   }
 }
 
-/** A rooted hero (pinned, or Movement III's stitched): a hero only, as ever. */
+/**
+ * A rooted hero (pinned, or Movement III's stitched), as ever; and Oro's planted summons
+ * (docs/phase-5e.md), which never move.
+ */
 function pinned(e: Entity): boolean {
-  if (!e.hero || !e.health) return false;
+  if (!e.hero || !e.health) return e.summon !== undefined;
   return isRooted(e);
 }
 

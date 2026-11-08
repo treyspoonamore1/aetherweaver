@@ -74,3 +74,21 @@ export {
   newBlood,
   weaverHealCut,
 } from './systems/blood';
+// Seren's and Oro's shared rules (docs/phase-5e.md): the sim, bots, render and UI read the same.
+export {
+  duelTarget,
+  heavy,
+  lungeTarget,
+  newDuel,
+  overextended,
+  parryArmed,
+  parryable,
+} from './systems/duel';
+export {
+  gentle,
+  groveCallReady,
+  isSummon,
+  newGrove,
+  saplingInField,
+  summonsOf,
+} from './systems/grove';

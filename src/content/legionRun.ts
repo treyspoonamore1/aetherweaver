@@ -456,6 +456,17 @@ export const LEGION_EVENTS: ContentInput['events'] = [
         text: 'Nothing happens.',
         outcome: 'You leave the altar to its offerings.',
       },
+      // Seren (docs/phase-5e.md): appended, Rank-gated, and the only altar choice that fights.
+      {
+        id: 'debt',
+        label: 'Pay a stranger’s debt',
+        text: 'A duellist in silver kneels at the altar, paying a tithe that isn’t hers. An elite fight. Win, choose one of 3 relics, and she joins your heroes for your next runs.',
+        effects: [{ kind: 'fight', encounter: 'legion_vanguard', relics: 3, recruit: 'seren' }],
+        outcome: 'The altar’s guards close in. The duellist rises and draws beside you.',
+        recruitedText: 'An elite fight. Win, and choose one of 3 relics.',
+        partyText: 'Seren pays the altar a coin. Old habit.',
+        rank: 8,
+      },
     ],
   },
   {

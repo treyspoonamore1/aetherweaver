@@ -24,6 +24,7 @@ import { threadSegment, type Segment } from '../rules3';
 import type { Entity, EntityId } from '../state';
 import { weaverOf, type World } from '../world';
 import { reject } from './techniques';
+import { rootbond } from './grove';
 
 const MEND_FLUSH = 0.5;
 /** Blood and Silk counts while Brann is below this share of his life (docs/phase-5b.md). */
@@ -386,6 +387,8 @@ export function updateThread(world: World, dt: number): void {
     }
     const perSec = def.mendPerSec * world.mods.mendMult * dt;
     mendHero(world, hero, perSec * potency * mendBonus(world, hero));
+    // Rootbond (Oro, docs/phase-5e.md): your Mend on him Mends his summons too (grove.ts).
+    if (c.grove) rootbond(world, hero, perSec * potency);
     if (world.mods.prismRadius > 0) {
       // The Prism Loom: Mend spills onto heroes standing close to the threaded one.
       for (const id of world.party) {

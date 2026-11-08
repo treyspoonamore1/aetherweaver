@@ -23,6 +23,7 @@ import { checkEncounterEnd, updateDirector } from './systems/director';
 import { updateDummies } from './systems/dummies';
 import { updateEnemies } from './systems/enemies';
 import { updateField } from './systems/field';
+import { groveAfterField } from './systems/grove';
 import { updateHeroes } from './systems/heroes';
 import { updatePendingHits } from './systems/hits';
 import { updateLedger } from './systems/ledger';
@@ -34,6 +35,7 @@ import {
   updateFacing,
 } from './systems/physics';
 import { recordPast } from './systems/rewind';
+import { updateSummons } from './systems/summons';
 import { holdEnemyTime } from './systems/stasis';
 import { updateStatuses } from './systems/statuses';
 import { updateChimes, updateEchoWards } from './systems/techniques';
@@ -91,7 +93,11 @@ function stepWorld(world: World, commands: readonly Command[]): void {
   updateChimes(world);
   updateEchoWards(world);
   updateField(world, dt);
+  // Oro's grove (docs/phase-5e.md): returns at once without summons.
+  groveAfterField(world, dt);
   updateHeroes(world, dt);
+  // Oro's summons are the party's side: they act in Stasis too. Returns at once without them.
+  updateSummons(world, dt);
   updateStars(world);
   if (!stasis) {
     updateEnemies(world, dt);

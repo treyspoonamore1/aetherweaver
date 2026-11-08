@@ -1216,6 +1216,39 @@ Thread rules are **post-pick modifiers** (`:746-783`), never a fork beside `else
 | W8 | harness, goldens and the first look | W1, W2, W7 |
 | W9 | tuning, integration, review, docs, demo | all |
 
+### W0b hand-over (contracts landed)
+
+W0b landed every interface in *contracts*. All 19 goldens are byte-identical (only `contentVersion` moved), SIM_VERSION is 22, and `m1-baseline --check` (movements 1-4) and `expedition-baseline --check` (movements 2-4) are byte-equal.
+
+**What is real and what is a stub.**
+- *Real, pure and shared* (exported from `src/sim/index.ts`): `duel.ts` `parryable`, `parryArmed`, `heavy`, `duelTarget`, `lungeTarget`, `overextended`, `newDuel`, plus `duelMelee`, `duelStands`, `clampDuel`, `markKillShot`; `grove.ts` `isSummon`, `summonsOf`, `saplingInField`, `gentle`, `groveCallReady`, `newGrove`, plus `rootable`, `enemyRooted`, `lesserFoe`, `summonArmor`, `untauntedTarget`, `summonSupport`.
+- *Real, generic and inert* (ground rule 4): `DamageOpts.melee` at the enemy basic swing and, for a duel victim, in `hitEntity`; the `rooted` movement guards (`enemies.ts` approach and `moveWithAttack`) and `addStatus`'s root rule; `summonFell` before `killEnemy`; the `trySpecial` re-aim; the splash and chain skips; the Severing skip; the status refusal (`addStatus` and `applyStatusPayload`); `ofParty`; the guard and tether gates; `pinned()`; summon armour; summon support to the owner (healing and shielding); `noThreat`.
+- *Stubs* (no-ops for W1 in `duel.ts`, W2 in `grove.ts` and `summons.ts`): `parryIntercept`, `duelResolved`, `duelTick`, `duelLost` (downed or disabled: the counter and kill shot are lost), `duelChooseTarget`, `duelTargetInSight`, `duelMove`, `duelAbility`, `duelExecute`, `duelSoloStart`, `duelSolo`, `duelSoloEnd`, `duelSoloClock`, `duelCastProgress`; `spawnGrove`, `groveAfterField`, `groveTick`, `groveCharge`, `groveHeld`, `groveFireUncued`, `groveChooseTarget`, `groveTargetInSight`, `groveRetreat` (the no-target arm), `groveMove`, `groveAbility`, `groveExecute`, `groveSoloStart`, `groveSolo`, `groveSoloEnd`, `rootbond`, `groveRally`, `summonCredit`, `updateSummons`. A target arm returns `undefined` to keep the shared rule; a move arm returns false to keep the ranged branch (the interim rule).
+- Thousand Cuts suppresses the basic attack through a `cutting` line beside `frenzy` in `updateHeroes`.
+
+**Deviations from *contracts*, with reasons.**
+- The event choices `debt` (tithe_altar) and `follow` (loose_thread) landed in W0b, not W3: the hero lint ('event has no fight that recruits them', and the new rank rule) needs them the moment Seren and Oro are in CONTENT. Because they exist, W0b also made three meta reads Rank-aware, all additive in `src/meta/run.ts`: `recruitsOf(run, allowance?)` (no allowance: unranked recruits only, which keeps `recruitsOfPins` and every caller as before), and `eventHasFight` / `eventFightRelics` skip ranked choices (without that the map's event-node threat and the expedition2/3 pins moved). `eventChoiceProblem`'s allowance, the EventScreen filter and the rest of the gate stay W3's.
+- `heroTally`'s stat is the Deed field `tally` (`HERO_TALLY_STATS`: parries, killShots, saplingsLost) with `values.atLeast` / `values.atMost`; the existing `stat` stays the `runCount` enum so `deedHolds` keeps its types. `deedHolds` and `deedGlyph` have placeholder `heroTally` cases (false, 'swords') for W3 and W6.
+- `heavy(world, e)` reads false on bosses and minibosses (they are excluded by tier); `lesserFoe` is the summons' hold test.
+- `STATUS.rooted` (labels.ts) has a placeholder look for W6, needed for the `Record<StatusId, …>` type.
+- The sim's `DeathRecord` gains the same optional `duel?` / `grove?` shapes as `DeathRecap`.
+- `ledger.duel` is `{parries, killShots, wardsDealt}`, `ledger.grove` `{saplingsLost, summonDamage, rootbondHeal}`.
+
+**Files W0b touched that later workstreams own** (only these lines; the owners rebase and own the rest): W4 `src/render/entities.ts` (Blood Rage cap via `bloodRageOf`) and `src/render/lab/VfxLab.tsx` (`bloodOf`); W6 `src/ui/hud/sighting.ts` (`allyOf`), `src/ui/hud/legionLook.ts` (`healBarelyTakes`), `src/ui/screens/rosterModel.ts` (`passiveRow`, `healCutStackText`, `bloodLine`), `src/ui/hud/labels.ts` (`STATUS.rooted`), `src/ui/screens/deedsModel.ts` (`heroTally`); W8 `tools/harness-core.ts` (HarmonyWatch on `bloodRageOf`); W3 `src/content/legionRun.ts`, `src/content/unstitchedRun.ts`, `src/meta/run.ts`, `src/meta/deeds.ts`. `hudBridge.ts` needed no edit (its `weaverHealCut` call is narrowed inside `blood.ts`). Test files edited for types or the new choice: `tests/sim/brann*.test.ts` (`bloodRageOf(BRANN)!`), `tests/meta/deeds.test.ts` (a throwing `heroTally` case), `tests/meta/run.test.ts` (the last *unranked* choice).
+
+**Expected reds after W0b** (the full vitest run; never weakened):
+
+| Test | Why | Owner |
+|---|---|---|
+| `tests/harnessTools.test.ts:526` | `seren` is a known hero now | W8 |
+| `tests/meta/roster.test.ts:105` and `:265` | the roster lists six heroes | W3 |
+| `tests/uiPhase4e.test.ts:549` and `:570` | Skip the unlocks shows six | W6 |
+| `tests/uiPhase5b.test.ts:467` | three locked silhouettes, not one | W6 |
+| `tests/uiPhase5bFixes.test.ts:248` and `:373` | Seren and Oro locked in the Codex; four hero-bound motifs | W6 |
+| e2e unlockAll picker counts (not run in W0b) | six heroes | W6 |
+
+The plan's other named reds (`deeds.test.ts:182-201`, `demo.test.ts`, `appStores.test.ts:279`, `renderBonds.test.ts`, `audio.test.ts`, `audioPhase5d.test.ts:914-920`) are green after W0b; they turn red with the owners' own additions (ROSTER_DEEDS, cue and sound rows, LEITMOTIFS), and stay theirs to close. `src/ui/lab/mock.ts` and `loomRunMock.ts` pick an event's last choice, now a Rank-gated recruit: W6.
+
 ## Exit criteria
 
 1. Every pin above is byte-identical, and vitest and e2e are green with no allow-list left.

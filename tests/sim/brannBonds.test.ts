@@ -5,7 +5,7 @@
  * Deed's `peakAfterLow`, and the down record's `blood`.
  */
 import { describe, expect, it } from 'vitest';
-import { CONTENT, altSoloDef, heroDef, talentDef } from '../../src/content';
+import { CONTENT, altSoloDef, bloodRageOf, heroDef, talentDef } from '../../src/content';
 import { BLOOD_TITHE_REFUND } from '../../src/sim/mods';
 import type { SimConfig } from '../../src/sim';
 import { addShield, dealDamage, heal, removeShield, shieldOf } from '../../src/sim/combat/health';
@@ -439,7 +439,7 @@ describe('the down record’s blood', () => {
     blow(w, of('brann'), 1e5);
     blow(w, of('kael'), 1e5);
     const [b, k] = w.ledger.deaths;
-    expect(b!.blood).toEqual({ refusedRally: false, healCut: BRANN.passive!.weaverHealMult });
+    expect(b!.blood).toEqual({ refusedRally: false, healCut: bloodRageOf(BRANN)!.weaverHealMult });
     expect('blood' in k!).toBe(false);
   });
 

@@ -70,7 +70,11 @@ export type AttackVisual =
   | 'heal-beam'
   /** Movement II (docs/phase-5a.md): the caster charged down its beam, or leapt to its circle. */
   | 'charge'
-  | 'leap';
+  | 'leap'
+  /** Seren (docs/phase-5e.md): her Lunge, her Feint, and a Thousand Cuts blink. */
+  | 'lunge'
+  | 'feint'
+  | 'blink';
 
 interface At {
   tick: number;
@@ -139,7 +143,18 @@ export interface HealApplied extends At {
    * Chronomancer's Rewind gave back. `lifesteal`: what Brann's axe drank (docs/phase-5b.md),
    * summed every 0.5 s, with `source` = Brann; never the Weaver's.
    */
-  via: 'mend' | 'chime' | 'aura' | 'revive' | 'solo' | 'self' | 'rewind' | 'other' | 'lifesteal';
+  via:
+    | 'mend'
+    | 'chime'
+    | 'aura'
+    | 'revive'
+    | 'solo'
+    | 'self'
+    | 'rewind'
+    | 'other'
+    | 'lifesteal'
+    /** Oro's grove (docs/phase-5e.md): healing on or from his summons, credited to the Weaver. */
+    | 'grove';
 }
 export interface ShieldApplied extends At {
   type: 'shieldApplied';
@@ -693,6 +708,69 @@ export interface DecreeAnnounced extends At {
   answers: AnswerTag[];
 }
 
+// ── Seren and Oro (docs/phase-5e.md). Emitted only with that hero in the party. ──────────
+
+/** Seren parried a melee blow aimed at her: `negated` is the blow she turned aside. */
+export interface ParriedEvent extends At {
+  type: 'parried';
+  hero: EntityId;
+  attacker: EntityId;
+  negated: number;
+}
+/** Her counter to a parry landed on `target` (the Weaver's gold: your Ward dealt it). */
+export interface ParryCountered extends At {
+  type: 'parryCountered';
+  hero: EntityId;
+  target: EntityId;
+  amount: number;
+}
+/** A Perfect Ward on her became a kill shot: executed, or `amount` dealt; `lost` if it couldn't be taken. */
+export interface KillShotEvent extends At {
+  type: 'killShot';
+  hero: EntityId;
+  target: EntityId;
+  executed: boolean;
+  amount: number;
+  lost?: 'disabled' | 'silence' | 'gone';
+}
+/** Showboat: she chose a duel (the duel tether). */
+export interface DuelChosen extends At {
+  type: 'duelChosen';
+  hero: EntityId;
+  target: EntityId;
+}
+/** She is overextended (3+ enemies on her, or low outside your field), or no longer. */
+export interface OverextendedEvent extends At {
+  type: 'overextended';
+  hero: EntityId;
+  on: boolean;
+}
+/** One of Oro's summons sprouted (or rose: the Ancient). */
+export interface SummonSpawned extends At {
+  type: 'summonSpawned';
+  owner: EntityId;
+  summon: EntityId;
+  kind: 'sapling' | 'ancient';
+}
+/** One of Oro's summons was felled (or withered: the Ancient). */
+export interface SummonFell extends At {
+  type: 'summonFell';
+  owner: EntityId;
+  summon: EntityId;
+  kind: 'sapling' | 'ancient';
+}
+/** Gentle: Oro refused to raise a hand without a Focus. */
+export interface GentleRefused extends At {
+  type: 'gentleRefused';
+  hero: EntityId;
+}
+/** An enemy is rooted (Oro's Bramble, the Ancient) for `seconds`. */
+export interface RootedEvent extends At {
+  type: 'rooted';
+  target: EntityId;
+  seconds: number;
+}
+
 /** Brann's Bloodlust (docs/phase-5b.md): he refused a Rally below his line. */
 export interface BloodlustEvent extends At {
   type: 'bloodlust';
@@ -968,7 +1046,16 @@ export type SimEvent =
   | SilenceBegan
   | SilenceNote
   | Reignited
-  | SilenceBroken;
+  | SilenceBroken
+  | ParriedEvent
+  | ParryCountered
+  | KillShotEvent
+  | DuelChosen
+  | OverextendedEvent
+  | SummonSpawned
+  | SummonFell
+  | GentleRefused
+  | RootedEvent;
 
 export type SimEventType = SimEvent['type'];
 export type SimEventOf<T extends SimEventType> = Extract<SimEvent, { type: T }>;

@@ -283,6 +283,31 @@ export interface DeathRecap {
    * records saved before it was kept).
    */
   blood?: { refusedRally: boolean; healCut: number; bloodmoon?: true };
+  /** Phase 5e: Seren's down (the sim's `DeathRecord.duel`); absent for every other hero. */
+  duel?: DuelDownRecap;
+  /** Phase 5e: Oro's down (the sim's `DeathRecord.grove`); absent for every other hero. */
+  grove?: GroveDownRecap;
+}
+
+/**
+ * Seren's down (docs/phase-5e.md, "Down recaps"): a Ward was on her (`warded`), the blow was
+ * parryable, she was overextended, and it came from far (a beam).
+ */
+export interface DuelDownRecap {
+  warded: boolean;
+  parryable: boolean;
+  overextended: boolean;
+  far: boolean;
+}
+
+/**
+ * Oro's down (docs/phase-5e.md): caught in melee, Saplings felled outside your field this fight,
+ * and the Thread cut by a Severing foe while he was Threaded.
+ */
+export interface GroveDownRecap {
+  melee: boolean;
+  feltOutside: number;
+  threadCut: boolean;
 }
 
 export interface EncounterStats {
@@ -364,6 +389,10 @@ export interface EncounterResult {
     amplified: number;
     /** Brann's fight (docs/phase-5b.md): set only for a hero with Blood Rage. */
     blood?: HeroBloodStats;
+    /** Seren's fight (docs/phase-5e.md): set only for a hero with Parry. */
+    duel?: HeroDuelStats;
+    /** Oro's fight (docs/phase-5e.md): set only for a hero with Rootbond. */
+    grove?: HeroGroveStats;
   }[];
   /** The same fight replayed with the Weaver absent (null if it couldn't be computed). */
   withoutYou: WithoutYou | null;
@@ -396,6 +425,28 @@ export interface HeroBloodStats {
   spent: number;
 }
 
+/**
+ * Seren's fight (docs/phase-5e.md), from the sim's `DuelState`: parries, kill shots, the
+ * counters' and kill shots' damage ("your Wards dealt"), and seconds overextended.
+ */
+export interface HeroDuelStats {
+  parries: number;
+  killShots: number;
+  counterDamage: number;
+  overextendedTime: number;
+}
+
+/**
+ * Oro's fight (docs/phase-5e.md), from the sim's `GroveState`: Saplings felled, the share of
+ * their alive time inside your songs (0..1), Rootbond's healing, and Ancients raised.
+ */
+export interface HeroGroveStats {
+  saplingsLost: number;
+  inFieldShare: number;
+  rootbondHeal: number;
+  ancients: number;
+}
+
 export interface CombatOutcome {
   encounterId: string;
   outcome: 'victory' | 'defeat';
@@ -415,6 +466,10 @@ export interface CombatOutcome {
     supported?: number;
     /** Brann's fight (docs/phase-5b.md): set only for a hero with Blood Rage. */
     blood?: HeroBloodStats;
+    /** Seren's fight (docs/phase-5e.md): set only for a hero with Parry. */
+    duel?: HeroDuelStats;
+    /** Oro's fight (docs/phase-5e.md): set only for a hero with Rootbond. */
+    grove?: HeroGroveStats;
   }[];
   /** The "without you" re-run of this fight, if it finished in time. */
   withoutYou: WithoutYou | null;

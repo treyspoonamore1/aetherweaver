@@ -56,6 +56,7 @@ import {
   MIMIC_WARD_TIME,
 } from '../../content/unstitched';
 import { FINALE_MIN_WINDUP } from '../../content/crucible';
+import { enemyRooted, untauntedTarget } from './grove';
 
 /** Normal enemies may have at most this many telegraphs up at once (readability cap). */
 const READABILITY_CAP = 2;
@@ -324,6 +325,10 @@ export function updateEnemies(world: World, dt: number): void {
     if (def.stationary) {
       // Movement III's stationary enemies (the Void Maw, a Spindle): no approach, no chase-turn.
       approachVelocity(e, 0, 0, ENEMY_ACCEL, dt);
+    } else if (enemyRooted(e)) {
+      // Oro's root (docs/phase-5e.md): no approach or chase; it still turns, strikes and casts.
+      approachVelocity(e, 0, 0, ENEMY_ACCEL, dt);
+      face(e, target);
     } else if (d > keep) {
       const k = (d - keep) / d;
       arriveAt(e, e.x + (target.x - e.x) * k, e.z + (target.z - e.z) * k, speed, dt);
@@ -397,7 +402,13 @@ function basicAttack(world: World, e: Entity, def: EnemyDef, target: Entity): vo
       toZ: target.z,
       travel: 0,
     });
-    const result = dealDamage(world, target, { source: e.id, sourceName: def.name, amount });
+    // `melee`: Seren parries a basic melee swing at her (docs/phase-5e.md); nothing else reads it.
+    const result = dealDamage(world, target, {
+      source: e.id,
+      sourceName: def.name,
+      amount,
+      melee: true,
+    });
     // On-hit payloads (P3): the def's and its affix's; applyOnHit needs the hit to have landed.
     if (def.basic.onHit || affixOnHit(world, c.affixes)) {
       applyOnHit(world, e, target, result.dealt, def.basic.onHit);
@@ -406,7 +417,9 @@ function basicAttack(world: World, e: Entity, def: EnemyDef, target: Entity): vo
       if (kael) applyOnHit(world, e, kael, result.takenDealt ?? 0, def.basic.onHit);
     }
     // Severing (Movement III): a blow it lands may cut the Thread (no affix has a cut before it).
-    if (c.affixes.length > 0 && result.dealt + result.absorbed > 0) severOnHit(world, e);
+    // A blow on one of Oro's summons never Severs (docs/phase-5e.md).
+    if (c.affixes.length > 0 && result.dealt + result.absorbed > 0 && !target.summon)
+      severOnHit(world, e);
     return;
   }
   const d = len(target.x - e.x, target.z - e.z);
@@ -469,6 +482,13 @@ const SCRIPTED = new Set(['cantor_silent_verse', 'cantor_requiem']);
 
 function trySpecial(world: World, e: Entity, def: EnemyDef, target: Entity): boolean {
   const c = e.enemy!;
+  // A taunt holding it on one of Oro's summons never aims a special there: it re-aims at whom
+  // it would pick without the taunt (docs/phase-5e.md, "Telegraphs on summons").
+  if (target.summon) {
+    const other = untauntedTarget(world, e);
+    if (!other) return false;
+    target = other;
+  }
   // Silenced (by Purge, docs/phase-4f.md): no specials, though it still moves and strikes.
   if (hasStatus(e, 'silence')) return false;
   const boss = c.tier === 'boss' || c.tier === 'miniboss';
@@ -1417,6 +1437,8 @@ function summonCount(world: World, owner: Entity, attack: AttackDef): number {
  * draws the streak or the arc from the `attackFired` visual.
  */
 function moveWithAttack(world: World, e: Entity, move: 'charge' | 'leap', t: Telegraph): void {
+  // Oro's root (docs/phase-5e.md): rooted, it neither charges nor leaps; the blow still lands.
+  if (enemyRooted(e)) return;
   const s = t.shape;
   let x: number;
   let z: number;

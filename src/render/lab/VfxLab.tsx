@@ -1,7 +1,15 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import * as THREE from 'three';
 import { COLOR_VISIONS, type ColorVision } from '../../app/colorVision';
-import { CONTENT, arenaDef, attackDef, enemyDef, heroDef, type ArenaDef } from '../../content';
+import {
+  CONTENT,
+  arenaDef,
+  attackDef,
+  bloodRageOf,
+  enemyDef,
+  heroDef,
+  type ArenaDef,
+} from '../../content';
 import {
   ALTO,
   BASS,
@@ -3042,7 +3050,7 @@ class LabRuntime {
     const e = this.heroAt(slot);
     if (!e?.hero) return null;
     if (!e.hero.blood) {
-      if (!heroDef(e.hero.defId).passive) return null;
+      if (!bloodRageOf(heroDef(e.hero.defId))) return null;
       e.hero.blood = newBlood();
       if (!this.standIns.includes('blood')) this.standIns.push('blood');
     }

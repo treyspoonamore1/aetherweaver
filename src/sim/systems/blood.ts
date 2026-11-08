@@ -10,6 +10,7 @@
  * hero with `blood`, which only a Blood Rage def's hero has.
  */
 import type { Content } from '../../content/schema';
+import { bloodRageOf } from '../../content';
 import { bark } from '../combat/feedback';
 import { hasStatus, heal, isActive, rising, type HealVia } from '../combat/health';
 import { hasTalent, soloValue, talentFired, talentHolder, talentValue } from '../bonds';
@@ -74,7 +75,9 @@ function has(e: ReadonlyEntity, talent: string): boolean {
  * hero swings nothing, so no HUD chip or bot reads a rage he can't use).
  */
 export function bloodRageBonus(content: HeroesAndTalents, e: ReadonlyEntity): number {
-  const passive = defOf(content, e)?.passive;
+  // Blood Rage only (docs/phase-5e.md): Seren's Parry and Oro's Rootbond give no bonus.
+  const def = defOf(content, e);
+  const passive = def ? bloodRageOf(def) : null;
   const h = e.health;
   if (!passive || !h || h.downed || h.dead || h.maxHp <= 0) return 0;
   const cap = has(e, 'red_mist')
@@ -108,7 +111,9 @@ function ironWillHolds(e: ReadonlyEntity): boolean {
  * Weaver's vias on a Blood Rage hero (lifted by Blood Oath); 1 otherwise.
  */
 export function weaverHealCut(content: Heroes, e: ReadonlyEntity, via: HealVia): number {
-  const passive = defOf(content, e)?.passive;
+  // Blood Rage only (docs/phase-5e.md): no other passive cuts your healing.
+  const def = defOf(content, e);
+  const passive = def ? bloodRageOf(def) : null;
   if (!passive || !isWeaverVia(via) || has(e, 'blood_oath')) return 1;
   return passive.weaverHealMult;
 }
@@ -162,13 +167,14 @@ export function onBloodHit(world: World, source: Entity, _target: Entity, dealt:
   const b = source.hero?.blood;
   if (!b || !(dealt > 0)) return;
   const def = defOf(world.content, source);
-  if (!def?.passive) return;
+  const passive = def ? bloodRageOf(def) : null;
+  if (!def || !passive) return;
   const hero = source.hero!;
   if (hero.soloId === 'blood_brother' && hero.soloActive > 0) {
     bloodBrother(world, source, dealt);
     return;
   }
-  let amount = dealt * def.passive.lifesteal;
+  let amount = dealt * passive.lifesteal;
   if (hero.soloId === 'redFrenzy' && hero.soloActive > 0 && hero.soloCued)
     amount *= def.solo.cuedPower;
   const got = heal(world, source, amount, 'lifesteal', false);

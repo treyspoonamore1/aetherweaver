@@ -2,6 +2,7 @@
 import { buildOutcome } from '../src/app/outcome';
 import {
   CONTENT,
+  bloodRageOf,
   callingOption,
   enemyDef,
   isFieldMovement,
@@ -1436,7 +1437,9 @@ export function playRun(
   let harmony: HarmonyWatch | null;
   if (opts.start) {
     run = opts.start;
-    harmony = run.party.some((h) => CONTENT.heroes.find((d) => d.id === h.heroId)?.passive)
+    harmony = run.party.some((h) =>
+      bloodRageOf(CONTENT.heroes.find((d) => d.id === h.heroId) ?? {}),
+    )
       ? new HarmonyWatch()
       : null;
   } else {
@@ -1452,7 +1455,9 @@ export function playRun(
     );
     const fresh = opts.party ? withParty(created, opts.party) : created;
     // Blood and Silk's offers, for a party with a Blood Rage hero only.
-    harmony = fresh.party.some((h) => CONTENT.heroes.find((d) => d.id === h.heroId)?.passive)
+    harmony = fresh.party.some((h) =>
+      bloodRageOf(CONTENT.heroes.find((d) => d.id === h.heroId) ?? {}),
+    )
       ? new HarmonyWatch()
       : null;
     run = Run.embark(Run.setCalling(Run.setChords(fresh, chords), opts.calling ?? null));

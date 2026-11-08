@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import type { ColorVision } from '../app/colorVision';
-import { CONTENT, enemyDef, heroDef } from '../content';
+import { CONTENT, bloodRageOf, enemyDef, heroDef } from '../content';
 import {
   bloodRageBonus,
   possessionVictim,
@@ -2034,7 +2034,7 @@ export class EntityLayer {
     const z = rec.z;
     const y = rec.y;
     const def = CONTENT.heroes.find((d) => d.id === hero.defId);
-    const cap = Math.max(1e-3, def?.passive?.maxBonus ?? 1);
+    const cap = Math.max(1e-3, (def && bloodRageOf(def)?.maxBonus) ?? 1);
     const rage = clamp01(bloodRageBonus(CONTENT, e) / cap);
     if (rage > 0.02) {
       const flick = 0.85 + 0.15 * Math.sin(this.now * 11 + rec.id);

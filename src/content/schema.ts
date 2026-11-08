@@ -89,6 +89,9 @@ export const StatusIdSchema = z.enum([
   // The Finale (docs/phase-5d.md)
   /** The Grand Silence's freeze (not an ailment: Chime and immunity can't touch it). */
   'stilled',
+  // Phase 5e (docs/phase-5e.md)
+  /** Oro's root (enemies only, not an ailment): no approach, chase, charge or leap. */
+  'rooted',
 ]);
 
 /**
@@ -281,6 +284,11 @@ export const HeroAbilityKindSchema = z.enum([
   // Brann (docs/phase-5b.md).
   'sunderLeap',
   'bloodletting',
+  // Seren and Oro (docs/phase-5e.md).
+  'lunge',
+  'feint',
+  'regrowth',
+  'bramble',
 ]);
 
 export const HeroAbilitySchema = z.object({
@@ -304,9 +312,28 @@ export const HeroAbilitySchema = z.object({
   hits: z.number().int().positive().optional(),
   /** Bloodletting: the extra damage on each empowered swing. */
   hitBonus: Pct.optional(),
+  // ── Seren's and Oro's abilities (docs/phase-5e.md). Absent on every other ability. ──
+  /** Feint: seconds of its hard taunt. */
+  taunt: Seconds.optional(),
+  /** Feint: metres of its sure sidestep. */
+  step: z.number().positive().optional(),
+  /** Regrowth: the share of life a re-sprouted Sapling comes back with. */
+  regrow: Pct.optional(),
+  /** Regrowth: the share of life it heals the more hurt Sapling for, with both standing. */
+  healPct: Pct.optional(),
+  /** Bramble: seconds of root on the enemies inside it. */
+  root: Seconds.optional(),
 });
 
-export const SoloKindSchema = z.enum(['aegisWall', 'galeBarrage', 'starfall', 'redFrenzy']);
+export const SoloKindSchema = z.enum([
+  'aegisWall',
+  'galeBarrage',
+  'starfall',
+  'redFrenzy',
+  // Seren and Oro (docs/phase-5e.md). Their alternate Solos are KNOWN_ALT_SOLOS, never here.
+  'thousandCuts',
+  'wildgrowth',
+]);
 
 export const HeroSoloSchema = z.object({
   id: SoloKindSchema,
@@ -324,14 +351,33 @@ export const HeroSoloSchema = z.object({
   radius: z.number().positive().optional(),
   /** Seconds between pulses. */
   pulse: Seconds.optional(),
+  // ── Thousand Cuts (docs/phase-5e.md). Absent on every other Solo. ──
+  /** Each blink reaches an enemy within this many metres of her start point. */
+  reach: z.number().positive().optional(),
+  /** Cued: the most seconds kills can add. */
+  extendCap: Seconds.optional(),
 });
 
 export const HeroQuirkSchema = z.object({
-  id: z.enum(['gloryHound', 'greedyShot', 'spellbound', 'bloodlust']),
+  id: z.enum([
+    'gloryHound',
+    'greedyShot',
+    'spellbound',
+    'bloodlust',
+    // Seren and Oro (docs/phase-5e.md).
+    'showboat',
+    'gentle',
+  ]),
   name: z.string(),
   description: z.string(),
   /** Bloodlust: the share of max HP below which it holds (docs/phase-5b.md). */
   below: Pct.optional(),
+  /** Showboat (docs/phase-5e.md): she duels the strongest enemy within this many metres of you. */
+  leash: z.number().positive().optional(),
+  /** Showboat: seconds a duel's pick is sticky. */
+  seconds: Seconds.optional(),
+  /** Gentle: with no Focus, he steps away from any enemy within this many metres. */
+  retreat: z.number().positive().optional(),
 });
 
 export const CallAnswerSchema = z.enum(['ward', 'empower', 'chime']);
@@ -377,7 +423,114 @@ export const HeroBarksSchema = z.object({
   revived: z.array(z.string()).min(1),
   /** Said once when the hero refuses a Rally (Brann's Bloodlust, docs/phase-5b.md). */
   defiant: z.array(z.string()).min(1).optional(),
+  // ── Seren and Oro (docs/phase-5e.md). Absent on every other hero. ──
+  /** Seren: said on a parry. */
+  parried: z.array(z.string()).min(1).optional(),
+  /** Oro: said when you Focus (Gentle). */
+  focus: z.array(z.string()).min(1).optional(),
+  /** Oro: said when a Sapling is felled, at most once per 8 s. */
+  saplingFelled: z.array(z.string()).min(1).optional(),
 });
+
+/** Blood Rage (Brann, docs/phase-5b.md). */
+export const BloodRagePassiveSchema = z
+  .object({
+    id: z.literal('bloodRage'),
+    perMissing: z.number().positive(),
+    maxBonus: z.number().min(0).max(2),
+    lifesteal: Pct,
+    weaverHealMult: Pct,
+  })
+  .strict();
+export type BloodRagePassive = z.infer<typeof BloodRagePassiveSchema>;
+
+/** Parry (Seren, docs/phase-5e.md). */
+export const ParryPassiveSchema = z
+  .object({
+    id: z.literal('parry'),
+    /** The counter, as a multiple of her attack. */
+    counterPct: z.number().positive(),
+    /** The counter strikes an attacker within her reach + this many metres. */
+    reach: z.number().nonnegative(),
+    /** A kill shot leaps at a target within this many metres (else a thrown lance). */
+    killShotRange: z.number().positive(),
+    /** A kill shot that doesn't execute deals this multiple of her attack. */
+    killShotMult: z.number().positive(),
+    /** An elite at or below this share of life is executed by a kill shot. */
+    eliteExecuteBelow: Pct,
+  })
+  .strict();
+export type ParryPassive = z.infer<typeof ParryPassiveSchema>;
+
+/** Rootbond (Oro, docs/phase-5e.md). */
+export const RootbondPassiveSchema = z
+  .object({
+    id: z.literal('rootbond'),
+    /** Your Thread's Mend on Oro also Mends each living summon at this share. */
+    mendShare: Pct,
+  })
+  .strict();
+export type RootbondPassive = z.infer<typeof RootbondPassiveSchema>;
+
+export const HeroPassiveSchema = z.discriminatedUnion('id', [
+  BloodRagePassiveSchema,
+  ParryPassiveSchema,
+  RootbondPassiveSchema,
+]);
+export type HeroPassive = z.infer<typeof HeroPassiveSchema>;
+
+/** Oro's summons (docs/phase-5e.md): his Saplings and the Ancient. */
+export const HeroSummonsSchema = z
+  .object({
+    sapling: z
+      .object({
+        count: z.number().int().positive(),
+        maxHp: z.number().int().positive(),
+        armor: Pct,
+        radius: z.number().positive().max(1.5),
+        attack: z
+          .object({
+            damage: z.number().positive(),
+            interval: Seconds,
+            range: z.number().positive(),
+          })
+          .strict(),
+        /** A taunt pulse on enemies within `radius` m, every `every` s, for `seconds` s. */
+        taunt: z
+          .object({ radius: z.number().positive(), every: Seconds, seconds: Seconds })
+          .strict(),
+        /** Seconds before a felled Sapling re-sprouts beside Oro. */
+        respawn: Seconds,
+        /** Tended (Gentle, no Focus): the extra damage share. */
+        tendedBonus: z.number().nonnegative(),
+        /** Its planting spots: `forward` m ahead of the Weaver, ±`spread` m. */
+        front: z.object({ forward: z.number(), spread: z.number().nonnegative() }).strict(),
+      })
+      .strict(),
+    ancient: z
+      .object({
+        maxHp: z.number().int().positive(),
+        armor: Pct,
+        radius: z.number().positive(),
+        height: z.number().positive(),
+        /** A slam on every enemy within `radius` m. */
+        attack: z
+          .object({
+            damage: z.number().positive(),
+            interval: Seconds,
+            radius: z.number().positive(),
+          })
+          .strict(),
+        /** Seconds it stands. */
+        life: Seconds,
+        tauntRadius: z.number().positive(),
+        rootRadius: z.number().positive(),
+        rootSeconds: Seconds,
+      })
+      .strict(),
+  })
+  .strict();
+export type HeroSummons = z.infer<typeof HeroSummonsSchema>;
 
 export const HeroDefSchema = z.object({
   id: IdSchema,
@@ -426,26 +579,31 @@ export const HeroDefSchema = z.object({
   codex: z.string(),
   // ── The roster (docs/phase-5b.md). All optional: absent on every starter. ──
   /**
-   * Blood Rage: +`perMissing` × missing life damage, up to `maxBonus`; heals `lifesteal` of what
-   * it deals; Weaver healing on the hero ×`weaverHealMult`.
+   * The hero's passive, by id (docs/phase-5e.md): Blood Rage (+`perMissing` × missing life
+   * damage, up to `maxBonus`; heals `lifesteal` of what it deals; Weaver healing on the hero
+   * ×`weaverHealMult`), Parry or Rootbond. Read Blood Rage through `bloodRageOf(def)`.
    */
-  passive: z
-    .object({
-      id: z.literal('bloodRage'),
-      perMissing: z.number().positive(),
-      maxBonus: z.number().min(0).max(2),
-      lifesteal: Pct,
-      weaverHealMult: Pct,
-    })
-    .strict()
-    .optional(),
+  passive: HeroPassiveSchema.optional(),
+  /** Oro's summons (docs/phase-5e.md). Absent on every other hero. */
+  summons: HeroSummonsSchema.optional(),
   /** What the hero needs from the Weaver, in one line (Prep and the Codex). */
   needs: z.string().optional(),
   /**
    * How a hero outside the default party joins the roster: winning `event`'s fight, or fighting
-   * the `fallback` encounter (an encounter id), won or lost.
+   * the `fallback` encounter (an encounter id), won or lost. From docs/phase-5e.md: `rank`, the
+   * Weaver Rank from which both routes recruit (absent: always); `lockedText`, the Codex's
+   * locked line; `fallbackText`, the Result's line for a fallback recruit.
    */
-  recruit: z.object({ event: IdSchema, fallback: IdSchema.optional() }).strict().optional(),
+  recruit: z
+    .object({
+      event: IdSchema,
+      fallback: IdSchema.optional(),
+      rank: z.number().int().positive().optional(),
+      lockedText: z.string().min(1).optional(),
+      fallbackText: z.string().min(1).optional(),
+    })
+    .strict()
+    .optional(),
 });
 export type HeroDef = z.infer<typeof HeroDefSchema>;
 
@@ -865,6 +1023,11 @@ export const EventChoiceSchema = z
     recruitedText: z.string().optional(),
     /** …and once that hero is in the party (it wins over `recruitedText`). */
     partyText: z.string().optional(),
+    /**
+     * A Rank-gated recruiting choice (docs/phase-5e.md): hidden, and refused, below the Rank its
+     * recruit's `recruit.rank` names. It always comes after every unranked choice.
+     */
+    rank: z.number().int().positive().optional(),
   })
   .strict();
 export type EventChoice = z.infer<typeof EventChoiceSchema>;
@@ -980,7 +1143,14 @@ export const DEED_TESTS = [
   'saveWays',
   /** Beat the encounter with the hero, never above `pct`% life once they first fell to it. */
   'heroCeiling',
+  /**
+   * Beat the encounter with the hero, with one of their fight tallies (`tally`) at least
+   * `values.atLeast` or at most `values.atMost` (docs/phase-5e.md).
+   */
+  'heroTally',
 ] as const;
+/** The hero fight tallies a `heroTally` Deed may test (docs/phase-5e.md). */
+export const HERO_TALLY_STATS = ['parries', 'killShots', 'saplingsLost'] as const;
 /** The fight stats a `runCount` Deed may total over a run. */
 export const DEED_STATS = [
   'responses',
@@ -1006,8 +1176,10 @@ export const DeedDefSchema = z
     grade: z.enum(['S', 'A', 'B', 'C']).optional(),
     /** `calling`: the Calling to win as. */
     calling: IdSchema.optional(),
-    /** `heroCeiling`: the hero it is about (docs/phase-5b.md). */
+    /** `heroCeiling`, `heroTally`: the hero it is about (docs/phase-5b.md). */
     hero: IdSchema.optional(),
+    /** `heroTally`: the hero's fight tally it tests (docs/phase-5e.md). */
+    tally: z.enum(HERO_TALLY_STATS).optional(),
     /** Its numbers: `n` (how many) and, for a fight, `downs` (at most). */
     values: ValuesSchema,
     /** {n}, {downs} from `values`; {encounter}, {calling}, {grade}, {hero} by name. */
@@ -2240,12 +2412,14 @@ export const ContentSchema = z
         flawless: [],
         saveWays: ['n'],
         heroCeiling: ['hero', 'encounter', 'pct'],
+        heroTally: ['hero', 'encounter', 'tally'],
       };
       for (const field of needs[d.test]) {
         const has =
           field === 'n' || field === 'pct'
             ? d.values[field] !== undefined
-            : d[field as 'stat' | 'encounter' | 'grade' | 'calling' | 'hero'] !== undefined;
+            : d[field as 'stat' | 'encounter' | 'grade' | 'calling' | 'hero' | 'tally'] !==
+              undefined;
         if (!has) ctx.addIssue({ code: 'custom', message: `${where} (${d.test}) needs ${field}` });
       }
       if (d.encounter && !encounterIds.has(d.encounter))
@@ -2479,6 +2653,15 @@ export const ContentSchema = z
           issue(`${where}: event "${h.recruit.event}" has no fight that recruits them`);
         if (h.recruit.fallback !== undefined)
           need(encounters, h.recruit.fallback, `${where} recruit fallback`);
+        // docs/phase-5e.md: the Codex's locked line and the Result's fallback line are content.
+        if (h.recruit.lockedText === undefined || h.recruit.fallbackText === undefined)
+          issue(`${where}: a recruit needs lockedText and fallbackText`);
+        // A Rank-gated recruit's choice carries the same Rank.
+        for (const r of fightRecruits)
+          if (r.hero === h.id && r.ch.rank !== h.recruit.rank)
+            issue(
+              `${where}: event "${r.ev.id}" choice "${r.ch.id}" needs rank ${h.recruit.rank ?? 'none'}`,
+            );
       }
       // Each kit's own fields, for its kinds.
       for (const ab of h.abilities) {
@@ -2501,14 +2684,71 @@ export const ContentSchema = z
         issue(`${where} quirk "bloodlust" needs below`);
       if (h.passive) {
         if (!h.needs) issue(`${where} has a passive: it needs a Needs line`);
-        if (!/heal/i.test(h.codex)) issue(`${where} has a passive: its Codex names healing`);
+        // Blood Rage cuts your healing, so its Codex says so (docs/phase-5e.md: bloodRage only).
+        if (h.passive.id === 'bloodRage' && !/heal/i.test(h.codex))
+          issue(`${where} has a passive: its Codex names healing`);
       }
+      // Seren's and Oro's kits (docs/phase-5e.md).
+      for (const ab of h.abilities) {
+        const at = `${where} ability "${ab.id}"`;
+        if (ab.id === 'feint' && (ab.taunt === undefined || ab.step === undefined))
+          issue(`${at} needs taunt and step`);
+        if (ab.id === 'regrowth' && (ab.regrow === undefined || ab.healPct === undefined))
+          issue(`${at} needs regrow and healPct`);
+        if (ab.id === 'bramble' && ab.root === undefined) issue(`${at} needs root`);
+        if ((ab.id === 'regrowth' || ab.id === 'bramble') && h.summons === undefined)
+          issue(`${at} needs summons`);
+      }
+      if (
+        h.solo.id === 'thousandCuts' &&
+        (h.solo.pulse === undefined || h.solo.reach === undefined || h.solo.extendCap === undefined)
+      )
+        issue(`${where} solo "thousandCuts" needs pulse, reach and extendCap`);
+      if (h.solo.id === 'wildgrowth' && (h.solo.radius === undefined || h.solo.pulse === undefined))
+        issue(`${where} solo "wildgrowth" needs radius and pulse`);
+      if (h.solo.id === 'wildgrowth' && h.summons === undefined)
+        issue(`${where} solo "wildgrowth" needs summons`);
+      if (
+        h.quirk.id === 'showboat' &&
+        (h.quirk.leash === undefined || h.quirk.seconds === undefined)
+      )
+        issue(`${where} quirk "showboat" needs leash and seconds`);
+      if (h.quirk.id === 'gentle' && h.quirk.retreat === undefined)
+        issue(`${where} quirk "gentle" needs retreat`);
+      if ((h.role === 'duelist') !== (h.passive?.id === 'parry'))
+        issue(`${where}: a duelist, and only a duelist, parries`);
+      if ((h.role === 'summoner') !== (h.summons !== undefined))
+        issue(`${where}: a summoner, and only a summoner, has summons`);
+      if ((h.passive?.id === 'rootbond') !== (h.summons !== undefined))
+        issue(`${where}: Rootbond goes with summons`);
     }
     for (const r of fightRecruits) {
       const where = `event "${r.ev.id}" choice "${r.ch.id}"`;
       need(heroes, r.hero, `${where} recruit`);
       if (starters.has(r.hero)) issue(`${where} recruits "${r.hero}", a starter`);
+      // docs/phase-5e.md: `recruitsOf` matches event plus encounter, so a recruiting fight's
+      // encounter is fought by no other choice of its event.
+      for (const e of [...r.ch.effects, ...r.ch.fail])
+        if (e.kind === 'fight' && e.recruit === r.hero)
+          for (const other of r.ev.choices)
+            if (
+              other !== r.ch &&
+              [...other.effects, ...other.fail].some(
+                (o) => o.kind === 'fight' && o.encounter === e.encounter,
+              )
+            )
+              issue(`${where}: choice "${other.id}" also fights "${e.encounter}"`);
     }
+    // Rank-gated choices (docs/phase-5e.md): each recruits, and comes after every unranked one.
+    for (const ev of c.events)
+      ev.choices.forEach((ch, i) => {
+        if (ch.rank === undefined) return;
+        const where = `event "${ev.id}" choice "${ch.id}"`;
+        if (!fightRecruits.some((r) => r.ev === ev && r.ch === ch))
+          issue(`${where}: a ranked choice recruits`);
+        if (ev.choices.slice(i + 1).some((later) => later.rank === undefined))
+          issue(`${where}: a ranked choice comes after every unranked one`);
+      });
     for (const ev of c.events)
       for (const ch of ev.choices)
         if (
@@ -2549,10 +2789,16 @@ export const ContentSchema = z
       )
         issue(`attack "${a.id}": decreeNoDome is for attacks the dome answers`);
     for (const d of c.deeds)
-      if (d.test === 'heroCeiling') {
+      if (d.test === 'heroCeiling' || d.test === 'heroTally') {
         const where = `deed "${d.id}"`;
         if (d.hero !== undefined) need(heroes, d.hero, where);
-        if (d.points !== 0) issue(`${where}: a heroCeiling Deed gives no point`);
+        if (d.points !== 0) issue(`${where}: a ${d.test} Deed gives no point`);
+        if (
+          d.test === 'heroTally' &&
+          d.values.atLeast === undefined &&
+          d.values.atMost === undefined
+        )
+          issue(`${where}: a heroTally Deed needs atLeast or atMost`);
       }
     lintMovements(c, ctx, { attacks, enemies, encounters });
     lintFinale(c, ctx, { attacks, enemies, encounters });

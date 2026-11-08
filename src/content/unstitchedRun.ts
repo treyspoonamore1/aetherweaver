@@ -314,6 +314,18 @@ export const UNSTITCHED_EVENTS: ContentInput['events'] = [
         text: 'Nothing happens.',
         outcome: 'The thread sways behind you, humming to itself.',
       },
+      // Oro (docs/phase-5e.md): appended, Rank-gated; it fights the Frayed Court, which no other
+      // choice here fights (`pull` fights the Unstitched Vanguard).
+      {
+        id: 'follow',
+        label: 'Follow the thread',
+        text: 'Something on the other end is holding it: an old man in moss, bound in the thread, and a court of things that won’t let go. An elite fight. Win, choose one of 3 relics, and he joins your heroes for your next runs.',
+        effects: [{ kind: 'fight', encounter: 'frayed_court', relics: 3, recruit: 'oro' }],
+        outcome: 'You follow it hand over hand into the dark, and the court rises to meet you.',
+        recruitedText: 'An elite fight. Win, and choose one of 3 relics.',
+        partyText: 'Oro winds the thread around his finger. Still warm.',
+        rank: 12,
+      },
     ],
   },
   {

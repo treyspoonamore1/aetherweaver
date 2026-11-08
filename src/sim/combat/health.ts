@@ -32,6 +32,9 @@ import { recordSave } from './saves';
 import { hasTalent, soloValue, talentFired, talentHolder, talentValue } from '../bonds';
 import { variantGuard, variantValue } from '../variants';
 import { suppressRadiusOf, weaverSilenced } from '../rules3';
+import { parryIntercept } from '../systems/duel';
+import { rootable, summonArmor, summonCredit, summonSupport } from '../systems/grove';
+import { summonFell } from '../systems/summons';
 import { markStatusOf } from './telegraphs';
 import {
   afterBloodDamage,
@@ -269,6 +272,10 @@ export function addStatus(
 ): boolean {
   const h = target.health;
   if (!h || h.dead || rising(target)) return false;
+  // Oro's summons (docs/phase-5e.md) take no statuses: nothing could answer one on them.
+  if (target.summon) return false;
+  // Oro's root holds only normal and elite, non-heavy enemies, and not while root-immune.
+  if (id === 'rooted' && !rootable(world, target)) return false;
   if (target.team === 'party' && isAilment(id) && hasStatus(target, 'immune')) return false;
   if (target.enemy && (target.enemy.tier === 'boss' || target.enemy.tier === 'miniboss')) {
     // Bosses shrug off hard control; Perfect Ward stagger still lands, briefly.
@@ -328,6 +335,8 @@ export function applyStatusPayload(
 ): boolean {
   // A pin roots a hero (docs/phase-5a.md: heroes only); the Weaver and enemies take the hit alone.
   if (payload.id === 'pinned' && !target.hero) return false;
+  // Oro's summons take no statuses (docs/phase-5e.md): no bleed, no Wound.
+  if (target.summon) return false;
   // Movement III (docs/phase-5c.md): Doom (a payload with a `burst`) stacks on heroes only, so
   // the Weaver is never Doomed; and only a hero can be possessed.
   if (payload.burst && !target.hero) return false;
@@ -556,7 +565,17 @@ export function cleanseAilments(world: World, target: Entity): number {
  * supportReceived, healing threat or Fermata save; 0 while he is held.
  */
 export type HealVia =
-  'mend' | 'chime' | 'aura' | 'revive' | 'solo' | 'self' | 'rewind' | 'other' | 'lifesteal';
+  | 'mend'
+  | 'chime'
+  | 'aura'
+  | 'revive'
+  | 'solo'
+  | 'self'
+  | 'rewind'
+  | 'other'
+  | 'lifesteal'
+  /** Oro's grove (docs/phase-5e.md): healing on or from his summons, credited to the Weaver. */
+  | 'grove';
 
 /**
  * Heals `target`. Weaver healing (everything except hero Solos) counts in the ledger and
@@ -623,6 +642,8 @@ export function heal(
     world.ledger.overheal += overheal / own;
     // Bonds: what you did for this hero.
     if (target.hero) target.hero.supportReceived += yours;
+    // A summon's healing is its owner's support (docs/phase-5e.md).
+    else if (target.summon) summonSupport(world, target, yours);
     if (via === 'aura') world.ledger.auras.healing += yours;
     else if (via === 'mend') world.ledger.thread.healing += yours;
     if (effective > 0) addHealingThreat(world, effective);
@@ -677,6 +698,13 @@ export interface DamageOpts {
    * wanted (`DOT_ANSWERS`) first among the techniques that were ready.
    */
   status?: StatusId;
+  /**
+   * Phase 5e (docs/phase-5e.md): an enemy's basic melee swing (`enemies.ts`), or a parryable
+   * cone aimed at a duel victim (`hitEntity`). Only Seren's parry reads it.
+   */
+  melee?: true;
+  /** A hit that makes no threat (a summon's, credited to its owner). */
+  noThreat?: true;
 }
 
 export interface DamageResult {
@@ -711,6 +739,11 @@ export interface DamageResult {
    * exists, as `borne` is.
    */
   absorbedByAura?: number;
+  /**
+   * Seren's parry (docs/phase-5e.md): the blow she turned aside whole. Set only by the parry,
+   * with `dealt` 0 and `absorbed` 0, so Severing never fires and no other result has the key.
+   */
+  parried?: number;
 }
 
 const NO_DAMAGE: DamageResult = {
@@ -749,6 +782,12 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
     // Aegis Link (a Ward variant, docs/phase-4f.md): a linked member takes only their share.
     if (!opts.oath) opts = linkShare(world, target, opts) ?? opts;
   }
+  // Seren's parry (docs/phase-5e.md): after the Sphere, Oathkeeper and the Link, before guards,
+  // armour, Fermata and shields; never for a redirected share.
+  if (target.hero?.duel && !opts.oath) {
+    const parried = parryIntercept(world, target, source, opts);
+    if (parried) return parried;
+  }
   let amount = opts.amount;
   // Relics on hero hits (Heavy Score, Warden's Key): the extra is the Weaver's share.
   let amplifiedIn = opts.amplified ?? 0;
@@ -786,9 +825,14 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
   const amountIn = amount;
   // A guard arc (docs/phase-5a.md P6): a hero's hit from in front of it mostly glances off; an
   // Empowered Piercing Shot breaks it. After `amountIn`, so every share is of what landed.
-  if (source?.hero && target.enemy?.guard) amount *= guardMult(world, target, source, opts);
+  if ((source?.hero || source?.summon) && target.enemy?.guard)
+    amount *= guardMult(world, target, source, opts);
   // Spindles (Movement III, docs/phase-5c.md Q11): a tethered boss takes less from heroes.
-  if (source?.hero && target.enemy?.tethered !== undefined && target.enemy.tethered > 0)
+  if (
+    (source?.hero || source?.summon) &&
+    target.enemy?.tethered !== undefined &&
+    target.enemy.tethered > 0
+  )
     amount *= tetherMult(world, target, source);
   // Blood Pact (P5): a hero it links takes more of everything while it lasts.
   if (target.hero && hasStatus(target, 'pact')) amount *= PACT_MULT;
@@ -802,6 +846,9 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
   // damage-over-time ticks (a Chime or a Reel ends them).
   if (target.hero && !opts.telegraph && opts.kind !== 'tick')
     amount *= 1 - heroDef(target.hero.defId).armor;
+  // Oro's summons (docs/phase-5e.md): their own armour, on ordinary hits only.
+  else if (target.summon && !opts.telegraph && opts.kind !== 'tick')
+    amount *= 1 - summonArmor(world, target);
   // Absolve and Anchor (technique variants): credited, as the guards below are, with the life
   // they kept.
   let spared = 0;
@@ -1004,6 +1051,8 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
   }
   if (target.hero)
     target.hero.supportReceived += absorbedByWeaver + world.ledger.shielded - shieldedBefore;
+  else if (target.summon)
+    summonSupport(world, target, absorbedByWeaver + world.ledger.shielded - shieldedBefore);
 
   const total = dealt + absorbed;
   const amplifiedShare = amplifiedIn > 0 && amountIn > 0 ? (amplifiedIn * total) / amountIn : 0;
@@ -1019,7 +1068,8 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
     world.ledger.auras.amplified += auraShare;
     world.ledger.thread.amplified += empowerShare;
     world.ledger.calling.amplified += callingShare;
-    addThreat(target, source.hero.slot, total * heroDef(source.hero.defId).threatMult);
+    if (!opts.noThreat)
+      addThreat(target, source.hero.slot, total * heroDef(source.hero.defId).threatMult);
     if (target.enemy.tier === 'normal' && world.mods.hammerfallChance > 0) {
       if (
         hasAura(world, source.hero.auraMask, 'fortissimo') &&
@@ -1034,6 +1084,9 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
       gainResonance(world, talentValue(world, 'hawk_eye', 'resonance'), 'hawk_eye');
     // Blood Rage (docs/phase-5b.md): Brann's axe drinks from what it cuts.
     if (source.hero.blood) onBloodHit(world, source, target, total);
+  } else if (source?.summon && target.enemy) {
+    // Oro's summons (docs/phase-5e.md): on his slot, with no threat.
+    summonCredit(world, source, target, total, amplifiedShare, auraShare, opts);
   }
   if (target.hero && dealt > 0) {
     const recent = target.hero.recentDamage;
@@ -1069,6 +1122,8 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
         telegraphAnswers(world, opts.telegraph),
       );
     else if (target.weaver) downWeaver(world, target);
+    // A summon is felled, never killed: `killEnemy` assumes an enemy (docs/phase-5e.md).
+    else if (target.summon) summonFell(world, target, source ?? null);
     else if (!restlessRise(world, target)) killEnemy(world, target, source ?? null);
   } else if (opts.kind !== 'tick' && source?.enemy && hasTalent(target, 'arcane_ward'))
     arcaneWard(world, target, source);

@@ -216,6 +216,104 @@ export const TALENTS: ContentInput['talents'] = [
     values: { below: 30, pct: 15 },
     text: 'While Brann is below {below}% life, every hero deals {pct}% more damage.',
   },
+  // ── Seren (docs/phase-5e.md), appended after Brann. ──
+  {
+    id: 'riposte_chain',
+    hero: 'seren',
+    tier: 1,
+    name: 'Riposte Chain',
+    values: { parries: 2 },
+    text: 'A Ward on Seren parries {parries} blows before it breaks.',
+  },
+  {
+    id: 'cold_focus',
+    hero: 'seren',
+    tier: 1,
+    name: 'Cold Focus',
+    values: {},
+    text: 'Seren Showboats only onto your Focus or an enemy inside your field.',
+  },
+  {
+    id: 'bladesong',
+    hero: 'seren',
+    tier: 2,
+    name: 'Bladesong',
+    values: { radius: 3, pct: 50 },
+    text: 'Each counter also cuts every enemy within {radius} m of Seren for {pct}% of it.',
+  },
+  {
+    id: 'unflinching',
+    hero: 'seren',
+    tier: 2,
+    name: 'Unflinching',
+    values: { seconds: 1.5 },
+    text: 'While Warded, Seren can’t be staggered, and your Wards on her last {seconds} s longer.',
+  },
+  {
+    id: 'thousandfold',
+    hero: 'seren',
+    tier: 3,
+    name: 'Thousandfold',
+    values: { cuts: 12, seconds: 6 },
+    text: 'Thousand Cuts strikes {cuts} times, over {seconds} s.',
+  },
+  {
+    id: 'duellists_honour',
+    hero: 'seren',
+    tier: 3,
+    name: 'Duellist’s Honour',
+    values: {},
+    text: 'A kill shot readies your Ward again.',
+  },
+  // ── Oro (docs/phase-5e.md), appended last. Taproot is the plan's Deep Roots (Q7). ──
+  {
+    id: 'taproot',
+    hero: 'oro',
+    tier: 1,
+    name: 'Taproot',
+    values: { pct: 40, seconds: 4 },
+    text: 'Oro’s Saplings have {pct}% more life and re-sprout {seconds} s sooner.',
+  },
+  {
+    id: 'thorned_bark',
+    hero: 'oro',
+    tier: 1,
+    name: 'Thorned Bark',
+    values: { pct: 30 },
+    text: 'Enemies that strike a Sapling take {pct}% of the blow back.',
+  },
+  {
+    id: 'grove_chorus',
+    hero: 'oro',
+    tier: 2,
+    name: 'Grove Chorus',
+    values: { pct: 50 },
+    text: 'While both Saplings stand in your field, Oro’s Solo charges {pct}% faster.',
+  },
+  {
+    id: 'old_growth',
+    hero: 'oro',
+    tier: 2,
+    name: 'Old Growth',
+    values: { seconds: 20, pct: 50 },
+    text: 'A Sapling that has stood {seconds} s grows old: {pct}% more life and damage.',
+  },
+  {
+    id: 'world_tree',
+    hero: 'oro',
+    tier: 3,
+    name: 'World Tree',
+    values: { seconds: 4 },
+    text: 'The Ancient stands {seconds} s longer, and roots again as it falls.',
+  },
+  {
+    id: 'seedling_swarm',
+    hero: 'oro',
+    tier: 3,
+    name: 'Seedling Swarm',
+    values: { count: 3, pct: 25 },
+    text: 'Oro keeps {count} Saplings, each with {pct}% less life.',
+  },
 ];
 
 export const ALT_SOLOS: ContentInput['altSolos'] = [
@@ -256,6 +354,25 @@ export const ALT_SOLOS: ContentInput['altSolos'] = [
     values: { seconds: 6, pct: 16, cuedPct: 8 },
     text: 'For {seconds} s, Brann’s axe feeds the hero you Thread: {pct}% of his damage heals them instead of him.',
     cuedText: 'Cued: it heals every hero in your field, {cuedPct}% each.',
+  },
+  // ── Seren and Oro (docs/phase-5e.md): ids in KNOWN_ALT_SOLOS, never in SoloKind. ──
+  {
+    id: 'blade_waltz',
+    hero: 'seren',
+    name: 'Blade Waltz',
+    chargeTime: 25,
+    values: { seconds: 5, pct: 150, cuedPct: 300 },
+    text: 'For {seconds} s, every melee blow aimed at Seren is parried, Ward or not, and countered at {pct}%. For once she needs no Ward.',
+    cuedText: 'Cued: she counters at {cuedPct}%.',
+  },
+  {
+    id: 'homecoming',
+    hero: 'oro',
+    name: 'Homecoming',
+    chargeTime: 28,
+    values: { seconds: 4, barrier: 30, radius: 6, cuedBarrier: 15 },
+    text: 'Every Sapling re-sprouts at full life at your front spots with a {barrier}% barrier, and all of them taunt for {seconds} s.',
+    cuedText: 'Cued: heroes within {radius} m of you also gain a {cuedBarrier}% barrier.',
   },
 ];
 
@@ -532,6 +649,133 @@ export const SCENES: ContentInput['scenes'] = [
         text: 'Teach me the words.',
         response:
           'He laughs, rough and surprised. “There are nine hundred of them.” He starts at the first one anyway, slowly, so you can follow.',
+      },
+    ],
+  },
+  // ── Seren (docs/phase-5e.md). ──
+  {
+    id: 'seren_ledger',
+    hero: 'seren',
+    rank: 2,
+    title: 'The Ledger',
+    lines: [
+      {
+        speaker: 'narration',
+        text: 'Seren sits apart from the fire with a small black book open on her knee, a pen held over a column of names.',
+      },
+      {
+        speaker: 'hero',
+        text: 'One for every bout. I cross a name out when the debt’s a little smaller.',
+      },
+      {
+        speaker: 'hero',
+        text: 'The page never seems to get shorter. I keep writing new ones at the bottom.',
+      },
+    ],
+    replies: [
+      {
+        text: 'Whose names are they?',
+        response:
+          'She closes the book on her pen. “The ones I fought for. Not the ones I fought.” She doesn’t open it again tonight.',
+      },
+      {
+        text: 'Write mine in, then.',
+        response:
+          'She looks at you a long moment, then turns to the last page and writes something small. She won’t show you what.',
+      },
+    ],
+  },
+  {
+    id: 'seren_paid',
+    hero: 'seren',
+    rank: 7,
+    title: 'Paid in Full',
+    lines: [
+      {
+        speaker: 'narration',
+        text: 'Seren hums the same bar of music she always hums while she fences, and for once she finishes it.',
+      },
+      {
+        speaker: 'hero',
+        text: 'It was my teacher’s debt. He killed the wrong man in a fair fight, and the Legion sent him the bill.',
+      },
+      {
+        speaker: 'hero',
+        text: 'He died before he could pay it. I picked it up. Nobody asked me to.',
+      },
+    ],
+    replies: [
+      {
+        text: 'Then it’s yours to put down.',
+        response:
+          '“Maybe.” She lays the rapier across her knees and doesn’t reach for the whetstone. “Not tonight. But maybe.”',
+      },
+      {
+        text: 'He’d be proud of you.',
+        response:
+          'She laughs, short and surprised. “He’d tell me my guard was low.” She raises it anyway, just slightly, out of habit.',
+      },
+    ],
+  },
+  // ── Oro (docs/phase-5e.md). ──
+  {
+    id: 'oro_names',
+    hero: 'oro',
+    rank: 2,
+    title: 'Names',
+    lines: [
+      {
+        speaker: 'narration',
+        text: 'Oro kneels by the two Saplings he planted at the edge of the firelight, smoothing the earth around their roots.',
+      },
+      { speaker: 'hero', text: 'This one is Moss. She leans toward the warm side. Always has.' },
+      {
+        speaker: 'hero',
+        text: 'And this is Fern. He’s shy. He’ll grow straight once he trusts you.',
+      },
+    ],
+    replies: [
+      {
+        text: 'Hello, Moss. Hello, Fern.',
+        response:
+          'Oro beams as if you had greeted his children. One of the Saplings, surely by chance, rustles in the windless dark.',
+      },
+      {
+        text: 'Do you name every one?',
+        response:
+          '“Every one. Something that holds the line for you should be called by its name when it falls.”',
+      },
+    ],
+  },
+  {
+    id: 'oro_last_grove',
+    hero: 'oro',
+    rank: 7,
+    title: 'The Last Grove',
+    lines: [
+      {
+        speaker: 'narration',
+        text: 'Oro turns a bright thread over in his fingers: the one he was holding when you found him in the Rift.',
+      },
+      {
+        speaker: 'hero',
+        text: 'The Rift unpicked my grove root by root. I held on to the last one. This is it.',
+      },
+      {
+        speaker: 'hero',
+        text: 'Every Sapling I plant grows from it. As long as I don’t let go, the grove isn’t gone.',
+      },
+    ],
+    replies: [
+      {
+        text: 'Then we’ll make sure you never have to.',
+        response:
+          'He winds the thread around his wrist and ties it. “Then I’ll keep planting,” he says, “wherever you go.”',
+      },
+      {
+        text: 'Plant one here, by the fire.',
+        response:
+          'He hesitates, then presses a seed into the warm earth. By morning there is a green shoot no taller than a finger.',
       },
     ],
   },

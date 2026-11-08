@@ -169,6 +169,9 @@ function meetsAndMisses(d: DeedDef): [RunState, RunState] {
       const won = (peak: number) => fight({ encounterId: d.encounter!, heroes: [hero(peak)] });
       return [runOf([won(pct)]), runOf([won(pct + 0.01), won(-1)])];
     }
+    // docs/phase-5e.md: no heroTally Deed exists until W3 fills ROSTER_DEEDS (and this case).
+    case 'heroTally':
+      throw new Error(`${d.id}: heroTally Deeds land in W3`);
   }
 }
 

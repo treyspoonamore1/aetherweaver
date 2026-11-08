@@ -235,6 +235,11 @@ export interface Mods {
   bloodTitheRefund: number;
   /** Blood and Silk: Resonance a second while Empowering Brann below 30%. */
   bloodAndSilk: number;
+  // ── Seren's and Oro's motifs (docs/phase-5e.md): 0 by default, read only in their parties. ──
+  /** En Garde: Resonance for each of Seren's parries (a kill shot counts). */
+  enGarde: number;
+  /** Verdant Choir: the share of Sostenuto's regen each Sapling pulses (0.3 = 30%). */
+  verdantChoir: number;
   // ── Movement III (docs/phase-5c.md). Additive at 0, multiplicative at 1: neutral by default. ──
   /** Guard Strand: seconds between bolts destroyed or cuts turned aside on the Thread (0 = off). */
   guardStrand: number;
@@ -394,6 +399,8 @@ export const NO_MODS: Mods = {
   bloodTithe: 0,
   bloodTitheRefund: 0,
   bloodAndSilk: 0,
+  enGarde: 0,
+  verdantChoir: 0,
   guardStrand: 0,
   cutLockMult: 1,
   cutResonance: 0,
@@ -506,6 +513,13 @@ export function resolveMods(config: ResolvedSimConfig, content: Content): Mods {
       // Movement III's (docs/phase-5c.md): numbers only; W1 gives them behaviour.
       case 'guard_strand':
         m.guardStrand = v;
+        break;
+      // Seren's and Oro's (docs/phase-5e.md): numbers only; duel.ts and grove.ts read them.
+      case 'en_garde':
+        m.enGarde = v;
+        break;
+      case 'verdant_choir':
+        m.verdantChoir = pct;
         break;
       default:
         // A motif without sim behaviour is a content bug; tests check every motif is known.
@@ -901,4 +915,7 @@ export const KNOWN_MOTIFS: readonly string[] = [
   'blood_and_silk',
   // Movement III's (docs/phase-5c.md).
   'guard_strand',
+  // Seren's and Oro's (docs/phase-5e.md).
+  'en_garde',
+  'verdant_choir',
 ];

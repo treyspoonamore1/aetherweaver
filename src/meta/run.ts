@@ -378,17 +378,21 @@ function roadReward(
   };
 }
 
-/** Relics offered after winning the event's fight (0 if it has none). */
+/**
+ * Relics offered after winning the event's fight (0 if it has none). A Rank-gated recruiting
+ * choice (docs/phase-5e.md) never counts here, so the map reads exactly as before it.
+ */
 export function eventFightRelics(eventId: string): number {
   for (const c of runEventDef(eventId).choices)
-    for (const e of [...c.effects, ...c.fail]) if (e.kind === 'fight') return e.relics;
+    if (c.rank === undefined)
+      for (const e of [...c.effects, ...c.fail]) if (e.kind === 'fight') return e.relics;
   return 0;
 }
 
-/** Does any of the event's choices lead to a fight? */
+/** Does any of the event's (unranked) choices lead to a fight? */
 export function eventHasFight(eventId: string): boolean {
-  return runEventDef(eventId).choices.some((c) =>
-    [...c.effects, ...c.fail].some((e) => e.kind === 'fight'),
+  return runEventDef(eventId).choices.some(
+    (c) => c.rank === undefined && [...c.effects, ...c.fail].some((e) => e.kind === 'fight'),
   );
 }
 
@@ -897,9 +901,18 @@ export function setParty(
  * - a won fight at an event node whose event has a fight for that encounter that recruits;
  * - any fight, won or lost, against a hero's `recruit.fallback` encounter (Vharun).
  */
-export function recruitsOf(run: Pick<RunState, 'results' | 'map'>): string[] {
+export function recruitsOf(
+  run: Pick<RunState, 'results' | 'map'>,
+  allowance?: Pick<Allowance, 'recruits'>,
+): string[] {
   const found = new Set<string>();
-  const fallbacks = CONTENT.heroes.filter((h) => h.recruit?.fallback !== undefined);
+  // Rank-gated recruits (docs/phase-5e.md): only those the allowance holds; none without one, so
+  // every caller that passes no allowance gets the lists it always did.
+  const open = (id: string) =>
+    allowance
+      ? allowance.recruits.has(id)
+      : CONTENT.heroes.find((h) => h.id === id)?.recruit?.rank === undefined;
+  const fallbacks = CONTENT.heroes.filter((h) => h.recruit?.fallback !== undefined && open(h.id));
   for (const r of run.results) {
     for (const h of fallbacks) if (h.recruit!.fallback === r.encounterId) found.add(h.id);
     if (r.outcome !== 'victory') continue;
@@ -908,7 +921,12 @@ export function recruitsOf(run: Pick<RunState, 'results' | 'map'>): string[] {
     const event = CONTENT.events.find((e) => e.id === node.eventId);
     for (const ch of event?.choices ?? [])
       for (const e of [...ch.effects, ...ch.fail])
-        if (e.kind === 'fight' && e.recruit !== undefined && e.encounter === r.encounterId)
+        if (
+          e.kind === 'fight' &&
+          e.recruit !== undefined &&
+          e.encounter === r.encounterId &&
+          open(e.recruit)
+        )
           found.add(e.recruit);
   }
   return allHeroIds().filter((id) => found.has(id));

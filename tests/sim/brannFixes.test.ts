@@ -7,7 +7,7 @@
  * pillar by the wall pushes it outward.
  */
 import { describe, expect, it } from 'vitest';
-import { heroDef, talentDef } from '../../src/content';
+import { bloodRageOf, heroDef, talentDef } from '../../src/content';
 import type { SimConfig } from '../../src/sim';
 import {
   addShield,
@@ -168,7 +168,7 @@ describe('Scar Tissue with Overflowing Grace', () => {
   it('a top-up below the cap grows it by the scarred overheal', () => {
     const { w, brann } = graceSetup();
     // Your Mend on him is halved (no Blood Oath: it shares Scar Tissue's tier).
-    const cut = BRANN.passive!.weaverHealMult;
+    const cut = bloodRageOf(BRANN)!.weaverHealMult;
     heal(w, brann, 40 / cut, 'mend');
     expect(shieldOf(brann.health!, 'overshield')!.amount).toBeCloseTo(40 * scar, 6);
     heal(w, brann, 20 / cut, 'mend');

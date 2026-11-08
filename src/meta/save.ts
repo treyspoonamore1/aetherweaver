@@ -249,6 +249,16 @@ const ResultSchema = z.object({
       blood: z
         .object({ refusedRally: z.boolean(), healCut: Num, bloodmoon: z.literal(true).optional() })
         .optional(),
+      // Phase 5e: Seren's and Oro's downs (absent for every other hero).
+      duel: z
+        .object({
+          warded: z.boolean(),
+          parryable: z.boolean(),
+          overextended: z.boolean(),
+          far: z.boolean(),
+        })
+        .optional(),
+      grove: z.object({ melee: z.boolean(), feltOutside: Num, threadCut: z.boolean() }).optional(),
     }),
   ),
   timeline: z.array(z.object({ time: Num, hp: z.array(Num) })),
@@ -271,6 +281,13 @@ const ResultSchema = z.object({
           peakAfterLow: Num,
           spent: Num,
         })
+        .optional(),
+      // Seren and Oro (docs/phase-5e.md): only their own result has each.
+      duel: z
+        .object({ parries: Num, killShots: Num, counterDamage: Num, overextendedTime: Num })
+        .optional(),
+      grove: z
+        .object({ saplingsLost: Num, inFieldShare: Num, rootbondHeal: Num, ancients: Num })
         .optional(),
     }),
   ),

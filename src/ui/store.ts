@@ -146,6 +146,28 @@ export interface HeroHud {
     silk?: boolean;
   };
   /**
+   * Phase 5e, Seren (docs/phase-5e.md): present only for a hero with `duel`. `armed`: en garde (a
+   * Ward of yours, or Blade Waltz); `quarry`: her duel's target; `overextended`: surrounded, or
+   * low outside your field; `killShot`: a kill shot is due; `parries` this fight.
+   */
+  duel?: {
+    armed: boolean;
+    quarry: number | null;
+    overextended: boolean;
+    killShot: boolean;
+    parries: number;
+  };
+  /**
+   * Phase 5e, Oro (docs/phase-5e.md): present only for a hero with `grove`. `tending`: Gentle, no
+   * Focus; `saplings`: each Sapling's life share (−1: felled) and whether it stands in your
+   * songs; `ancient`: the Ancient's seconds left (0: none).
+   */
+  grove?: {
+    tending: boolean;
+    saplings: { id: number; hpPct: number; inField: boolean }[];
+    ancient: number;
+  };
+  /**
    * Phase 3e, the Chronomancer: what Rewind would do to them right now, from the oldest sample
    * of their past (`past[pastAt]`). Null without the Chronomancer, or when they're out.
    */

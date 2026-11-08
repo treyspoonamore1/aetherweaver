@@ -11,6 +11,8 @@ import { endZones } from './zones';
 
 /** Is `id` the Weaver or one of her heroes (whose clocks keep running)? */
 export function ofParty(world: World, id: EntityId | null): boolean {
+  // Oro's summons (docs/phase-5e.md) are the party's side: their clocks keep running too.
+  if (id !== null && world.internal.summons?.includes(id)) return true;
   return id !== null && (id === world.weaverId || world.party.includes(id));
 }
 

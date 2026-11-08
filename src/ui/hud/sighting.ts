@@ -6,7 +6,7 @@
  */
 import { useEffect, useRef } from 'react';
 import { useProfile } from '../../app/profileStore';
-import { CONTENT, enemyDef } from '../../content';
+import { CONTENT, bloodRageOf, enemyDef } from '../../content';
 import type { AnswerTag } from '../types';
 import { useUi, type Callout } from '../store';
 import { EMBOLDENED_PCT, spindleCutPct } from './riftLook';
@@ -425,7 +425,7 @@ export function allyOf(heroId: string): Ally | null {
   const def = CONTENT.heroes.find((h) => h.id === heroId);
   if (!def || CONTENT.defaultParty.includes(def.id)) return null;
   const lines: string[] = [];
-  const passive = def.passive;
+  const passive = bloodRageOf(def);
   if (passive && passive.weaverHealMult < 1)
     lines.push(
       `Your healing on him is ${passive.weaverHealMult === 0.5 ? 'halved' : `cut to ${Math.round(passive.weaverHealMult * 100)}%`}: his axe heals him, and he hits harder the lower he falls.`,

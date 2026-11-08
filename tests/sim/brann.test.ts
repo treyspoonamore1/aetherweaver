@@ -4,7 +4,7 @@
  * and its Call, Red Frenzy, Bloodlust, and the rules that keep him off `rng.ai`.
  */
 import { describe, expect, it } from 'vitest';
-import { heroDef } from '../../src/content';
+import { bloodRageOf, heroDef } from '../../src/content';
 import { HEAL_CUT } from '../../src/content/legion';
 import { fallingFast, type SimConfig } from '../../src/sim';
 import {
@@ -119,7 +119,7 @@ describe('Blood Rage: lifesteal', () => {
     const [enemy] = foes(sim, [['bell_brute', 0, -12]]);
     brann.health!.hp = 500;
     strike(w, brann, enemy!, 1000);
-    expect(brann.health!.hp).toBeCloseTo(500 + 1000 * BRANN.passive!.lifesteal, 6);
+    expect(brann.health!.hp).toBeCloseTo(500 + 1000 * bloodRageOf(BRANN)!.lifesteal, 6);
     expect(brann.hero!.blood!.lifesteal).toBeCloseTo(48, 6);
     brann.health!.hp = 500;
     startSolo(w, brann, true);
@@ -143,7 +143,7 @@ describe('Blood Rage: lifesteal', () => {
     expect(events).toHaveLength(1);
     expect(events[0]!.source).toBe(brann.id);
     expect(events[0]!.target).toBe(brann.id);
-    expect(events[0]!.amount).toBeCloseTo(3 * 500 * BRANN.passive!.lifesteal, 6);
+    expect(events[0]!.amount).toBeCloseTo(3 * 500 * bloodRageOf(BRANN)!.lifesteal, 6);
     expect(w.ledger.healing).toBe(ledger);
     expect(brann.hero!.supportReceived).toBe(support);
   });
@@ -154,13 +154,16 @@ describe('Blood Rage: lifesteal', () => {
     brann.health!.hp = 400;
     addStatus(w, brann, 'wound', 30, null);
     strike(w, brann, enemy!, 1000);
-    expect(brann.health!.hp).toBeCloseTo(400 + 1000 * BRANN.passive!.lifesteal * (1 - HEAL_CUT), 6);
+    expect(brann.health!.hp).toBeCloseTo(
+      400 + 1000 * bloodRageOf(BRANN)!.lifesteal * (1 - HEAL_CUT),
+      6,
+    );
     w.field.sanctuary = { pools: [], healMult: 0.5, reformAt: 1e9 };
     expect(healReceivedMult(w, brann)).toBeCloseTo((1 - HEAL_CUT) * 0.5, 9);
     brann.health!.hp = 400;
     strike(w, brann, enemy!, 1000);
     expect(brann.health!.hp).toBeCloseTo(
-      400 + 1000 * BRANN.passive!.lifesteal * (1 - HEAL_CUT) * 0.5,
+      400 + 1000 * bloodRageOf(BRANN)!.lifesteal * (1 - HEAL_CUT) * 0.5,
       6,
     );
 
@@ -177,7 +180,7 @@ describe('Blood Rage: lifesteal', () => {
 
 describe('Blood Rage: the Weaver’s healing on him is halved', () => {
   it('by via: Mend, Chime, aura, Rewind and other; Revive, Solos and shields are exempt', () => {
-    const cut = BRANN.passive!.weaverHealMult;
+    const cut = bloodRageOf(BRANN)!.weaverHealMult;
     const halved: HealVia[] = ['mend', 'chime', 'aura', 'rewind', 'other'];
     const whole: HealVia[] = ['revive', 'solo', 'self'];
     for (const via of [...halved, ...whole]) {

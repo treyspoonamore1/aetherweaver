@@ -2,7 +2,7 @@
  * Movement II's HUD looks as plain data (docs/phase-5a.md): stack emphasis, the healing cut's
  * words, the boss bar's phase ticks and cast glyphs. Testable without React.
  */
-import { CONTENT, partyHasDome } from '../../content';
+import { CONTENT, bloodRageOf, partyHasDome } from '../../content';
 import type { IconName } from '../kit/iconPaths';
 import type { BossHud, HeroHud, StatusHud } from '../store';
 import { DOOM_EMPHASIS } from './riftLook';
@@ -89,7 +89,8 @@ export type PartyLook = readonly (Pick<HeroHud, 'defId' | 'execute'> &
 export function healBarelyTakes(h: PartyLook[number] | undefined): boolean {
   if (!h) return false;
   const def = CONTENT.heroes.find((d) => d.id === h.defId);
-  return !!def?.passive && def.passive.weaverHealMult < 1 && (h.healCut ?? 1) < 1;
+  const rage = def ? bloodRageOf(def) : null;
+  return !!rage && rage.weaverHealMult < 1 && (h.healCut ?? 1) < 1;
 }
 
 /**

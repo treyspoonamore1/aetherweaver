@@ -1,4 +1,4 @@
-import { CONTENT, arenaDef, encounterDef, heroDef } from '../content';
+import { CONTENT, arenaDef, bloodRageOf, encounterDef, heroDef } from '../content';
 import {
   PASSIVE_EFFECTS,
   type Content,
@@ -43,6 +43,8 @@ import type {
 import { relicFired } from './combat/feedback';
 import { formationSlot } from './systems/formation';
 import { newBlood } from './systems/blood';
+import { newDuel } from './systems/duel';
+import { newGrove, spawnGrove } from './systems/grove';
 
 /** A party member as configured by the run (or a test). */
 export interface PartyMemberConfig {
@@ -632,6 +634,11 @@ export interface SimInternal {
   guardStrandAt?: number;
   /** Sacrificial Lamb: spent this fight. */
   lambUsed?: true;
+  /**
+   * Oro's summons (docs/phase-5e.md), in spawn order. Created only when the first summon
+   * spawns (after the party loop, only in Oro parties); absent in every other fight.
+   */
+  summons?: EntityId[];
 }
 
 /** The sim's mutable world. Exposed to the outside only as the read-only WorldState. */
@@ -1077,7 +1084,10 @@ export function createWorld(config: SimConfig): World {
         pastAt: 0,
         afterglowUntil: 0,
         // Blood Rage (docs/phase-5b.md): only a hero whose def has `passive` carries it.
-        ...(def.passive ? { blood: newBlood() } : {}),
+        ...(bloodRageOf(def) ? { blood: newBlood() } : {}),
+        // Seren and Oro (docs/phase-5e.md): only their passive's hero carries its state.
+        ...(def.passive?.id === 'parry' ? { duel: newDuel() } : {}),
+        ...(def.passive?.id === 'rootbond' ? { grove: newGrove() } : {}),
       },
     });
     if (member.shaken) {
@@ -1093,6 +1103,8 @@ export function createWorld(config: SimConfig): World {
     world.events.push({ type: 'entitySpawned', tick: 0, id: hero.id, kind: 'hero' });
     if (mods.startSolos) world.events.push({ type: 'soloReady', tick: 0, hero: hero.id });
   });
+  // Oro's Saplings (docs/phase-5e.md): after the party, so every other party's ids are as ever.
+  spawnGrove(world);
   if (carried('cantors_hymnal')) relicFired(world, 'cantors_hymnal', null);
 
   world.entities.flush();

@@ -20,8 +20,16 @@ import { STATUS } from '../src/ui/hud/labels';
 
 describe('content', () => {
   it('validates and has the starter party', () => {
-    // Brann is appended (docs/phase-5b.md); the default party is still the three starters.
-    expect(CONTENT.heroes.map((h) => h.id)).toEqual(['kael', 'lyra', 'vexis', 'brann']);
+    // Brann is appended (docs/phase-5b.md), then Seren and Oro (docs/phase-5e.md); the default
+    // party is still the three starters.
+    expect(CONTENT.heroes.map((h) => h.id)).toEqual([
+      'kael',
+      'lyra',
+      'vexis',
+      'brann',
+      'seren',
+      'oro',
+    ]);
     expect(CONTENT.defaultParty).toEqual(['kael', 'lyra', 'vexis']);
   });
 
@@ -143,15 +151,16 @@ describe('Brann, the Bloodsworn (docs/phase-5b.md)', () => {
       ['deathless', 3],
       ['berserkers_hymn', 3],
     ]);
-    expect(CONTENT.talents.slice(-6)).toEqual(bonds);
-    expect(KNOWN_TALENTS.slice(-6)).toEqual(bonds.map((t) => t.id));
-    expect(CONTENT.altSolos.at(-1)).toMatchObject({
+    // Seren's and Oro's twelve come after his (docs/phase-5e.md).
+    expect(CONTENT.talents.slice(-18, -12)).toEqual(bonds);
+    expect(KNOWN_TALENTS.slice(-18, -12)).toEqual(bonds.map((t) => t.id));
+    expect(CONTENT.altSolos.at(-3)).toMatchObject({
       id: 'blood_brother',
       hero: 'brann',
       chargeTime: 25,
       values: { seconds: 6, pct: 16, cuedPct: 8 },
     });
-    expect(KNOWN_ALT_SOLOS.at(-1)).toBe('blood_brother');
+    expect(KNOWN_ALT_SOLOS.at(-3)).toBe('blood_brother');
     expect(CONTENT.scenes.filter((x) => x.hero === 'brann').map((x) => [x.id, x.rank])).toEqual([
       ['brann_collar', 2],
       ['brann_war_song', 7],
@@ -170,7 +179,8 @@ describe('Brann, the Bloodsworn (docs/phase-5b.md)', () => {
     expect(harmony.tags).toContain('harmony');
     const at = KNOWN_MOTIFS.indexOf('blood_tithe');
     expect(KNOWN_MOTIFS.slice(at, at + 2)).toEqual(['blood_tithe', 'blood_and_silk']);
-    expect(KNOWN_MOTIFS.at(-1)).toBe('guard_strand');
+    // Guard Strand, then Seren's and Oro's Bond motifs (docs/phase-5e.md), last.
+    expect(KNOWN_MOTIFS.slice(-3)).toEqual(['guard_strand', 'en_garde', 'verdant_choir']);
     expect(CONTENT.deeds.find((d) => d.id === 'in_the_red')).toMatchObject({
       id: 'in_the_red',
       points: 0,
@@ -574,7 +584,8 @@ describe('Movement III: the Unstitched (docs/phase-5c.md)', () => {
     }
     // Then the Finale's two (docs/phase-5d.md).
     expect(CONTENT.deeds.slice(-4, -2).map((d) => d.id)).toEqual(['whole_cloth', 'needle_sure']);
-    expect(CONTENT.motifs.at(-1)).toMatchObject({
+    // Seren's and Oro's Bond motifs follow it (docs/phase-5e.md).
+    expect(CONTENT.motifs.at(-3)).toMatchObject({
       id: 'guard_strand',
       category: 'silk',
       rarity: 'rare',

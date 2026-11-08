@@ -90,6 +90,9 @@ export function deedGlyph(deed: DeedDef): IconName {
     // A hero's Deed (In the Red, docs/phase-5b.md): Blood Rage's flame.
     case 'heroCeiling':
       return 'flame';
+    // A hero's tally Deed (docs/phase-5e.md); W6 gives each its own glyph.
+    case 'heroTally':
+      return 'swords';
   }
 }
 

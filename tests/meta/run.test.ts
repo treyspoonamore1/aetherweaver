@@ -168,7 +168,13 @@ describe('a run', () => {
       else if (run.phase === 'forge') run = Run.leaveForge(run);
       else if (run.phase === 'event')
         run = Run.leaveEvent(
-          Run.chooseEvent(run, runEventDef(run.event!.eventId).choices.at(-1)!.id),
+          Run.chooseEvent(
+            run,
+            // The last unranked choice: a Rank-gated recruit (docs/phase-5e.md) is appended after it.
+            runEventDef(run.event!.eventId)
+              .choices.filter((c) => c.rank === undefined)
+              .at(-1)!.id,
+          ),
         );
       else throw new Error(`unexpected phase ${run.phase}`);
     }

@@ -95,6 +95,9 @@ export function deedHolds(run: RunState, deed: DeedDef): boolean {
       return won(run) && run.results.every((r) => r.stats.downs === 0);
     case 'heroCeiling':
       return run.results.some((r) => ceilingHolds(r, deed));
+    // docs/phase-5e.md: no heroTally Deed exists until W3 fills ROSTER_DEEDS and this rule.
+    case 'heroTally':
+      return false;
   }
 }
 

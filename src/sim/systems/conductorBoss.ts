@@ -108,6 +108,9 @@ const REIGNITE_BARKS: Readonly<Record<string, string>> = {
   lyra: 'You had my back.',
   vexis: 'It… resolves.',
   brann: 'A pain I can sing to.',
+  // Seren and Oro (docs/phase-5e.md): appended.
+  seren: 'Again!',
+  oro: 'Grow!',
 };
 /** Reignite's beat of slow motion (the Crescendo's). */
 const REIGNITE_SCALE = 0.5;

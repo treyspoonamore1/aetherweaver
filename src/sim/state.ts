@@ -26,7 +26,8 @@ export type DeepReadonly<T> = T extends (infer R)[]
 /** Entity handle: slot index in the low 16 bits, generation above, so stale handles are detectable. */
 export type EntityId = number;
 
-export type EntityKind = 'weaver' | 'hero' | 'enemy' | 'dummy';
+/** `summon`: Oro's Saplings and the Ancient (docs/phase-5e.md), team `party`, never in `party`. */
+export type EntityKind = 'weaver' | 'hero' | 'enemy' | 'dummy' | 'summon';
 export type Team = 'party' | 'enemy' | 'neutral';
 /** Mend, Empower, or (the Martyr's) Bear: the Weaver takes part of the hero's wounds. */
 export type ThreadMode = 'mend' | 'empower' | 'bear';
@@ -66,6 +67,8 @@ export interface Shield {
    * the Weaver. Absent elsewhere.
    */
   plain?: true;
+  /** A Ward on Seren that has parried once (Riposte Chain, docs/phase-5e.md). Absent elsewhere. */
+  parried?: true;
 }
 
 export type StatusId =
@@ -99,7 +102,9 @@ export type StatusId =
   | 'unravelled' // display and recap: taking Unravel's reversed Mend
   | 'emboldened' // display (enemies): a Mimic's Empower copy, or the Unweaver's Thread
   // The Finale (docs/phase-5d.md): the same set as content's StatusIdSchema.
-  | 'stilled'; // the Grand Silence's freeze (not an ailment): only the Conductor applies it
+  | 'stilled' // the Grand Silence's freeze (not an ailment): only the Conductor applies it
+  // Phase 5e (docs/phase-5e.md): the same set as content's StatusIdSchema.
+  | 'rooted'; // Oro's root (enemies only, not an ailment): no approach, chase, charge or leap
 
 export interface Status {
   id: StatusId;
@@ -349,6 +354,83 @@ export interface HeroComponent {
   afterglowUntil: number;
   /** Blood Rage (docs/phase-5b.md): set at spawn only for a hero whose def has `passive`. */
   blood?: BloodState;
+  /** Parry (Seren, docs/phase-5e.md): set at spawn only for a hero whose passive is `parry`. */
+  duel?: DuelState;
+  /** Rootbond (Oro, docs/phase-5e.md): set at spawn only for a hero whose passive is `rootbond`. */
+  grove?: GroveState;
+}
+
+/**
+ * Seren's duel (docs/phase-5e.md, "Passive: Parry"). Present only on her: no other hero carries
+ * it, so every other party's state and hashes are untouched.
+ */
+export interface DuelState {
+  /** A parry this tick: the attacker her counter answers next tick (null: none). */
+  parryOn: EntityId | null;
+  /** A Perfect Ward on a blow aimed at her: the owner her kill shot takes next tick. */
+  killShotOn: EntityId | null;
+  /** Her Showboat duel's target (null: none), and the sim time the pick stops being sticky. */
+  quarry: EntityId | null;
+  quarryUntil: number;
+  /** A Rally or Reel suspends Showboat until this sim time. */
+  showboatQuietUntil: number;
+  /** Thousand Cuts: when it ends (a Cued one's kills extend it), where it began, who it struck. */
+  cutsEnd?: number;
+  cutsFromX?: number;
+  cutsFromZ?: number;
+  cutsVisited?: EntityId[];
+  /** This fight: parries, kill shots, the counters' damage, and seconds overextended. */
+  parries: number;
+  killShots: number;
+  counterDamage: number;
+  overextendedTime: number;
+}
+
+/**
+ * Oro's grove (docs/phase-5e.md, "Passive: Rootbond"). Present only on him.
+ */
+export interface GroveState {
+  /** His Saplings, by index (a felled one's id stays until it re-sprouts as a new entity). */
+  saplings: EntityId[];
+  /** Per Sapling index: the sim time a felled one re-sprouts (0: standing). */
+  respawnAt: number[];
+  /** The Ancient while it stands. */
+  ancient: EntityId | null;
+  /** This fight: Saplings felled, Rootbond's healing, and Sapling-seconds in your field, alive. */
+  lost: number;
+  rootbondHeal: number;
+  inFieldTime: number;
+  aliveTime: number;
+}
+
+/** A summon entity's own state (docs/phase-5e.md, "The summon model"): Saplings, the Ancient. */
+export interface SummonComponent {
+  /** The hero whose summon it is (Oro). */
+  owner: EntityId;
+  kind: 'sapling' | 'ancient';
+  /** Its index in the owner's grove (the Ancient: 0). */
+  index: number;
+  /** The Ancient leaves at this sim time. */
+  until?: number;
+  targetId: EntityId | null;
+  attackCooldown: number;
+  /** Sim time of its next taunt pulse. */
+  tauntAt: number;
+  /** Where it is planted. */
+  plantX: number;
+  plantZ: number;
+  /** A Rally re-plant: burrowed (untargetable) until this sim time. */
+  burrowUntil?: number;
+  /** Held while Oro is down or the Grand Silence holds. */
+  dormant?: true;
+  /** Q1 (W2b): the auras it receives, and whether it stands in your field. */
+  auraMask?: number;
+  inField?: boolean;
+  /** Healing accumulated for aggregated floating numbers (Rootbond, the auras). */
+  mendHealAcc: number;
+  auraHealAcc: number;
+  /** Old Growth: sim time it grew old. */
+  oldAt?: number;
 }
 
 /**
@@ -498,6 +580,9 @@ export interface EnemyComponent {
   mimic?: { copy: 'empower' | 'ward' | 'chime' };
   /** Emboldened until this sim time (the Mimic's Empower copy, the Unweaver's Thread). */
   emboldenedUntil?: number;
+  // ── Phase 5e (docs/phase-5e.md). Set lazily, only once Oro's root has held it. ──
+  /** It can't be rooted again until this sim time. */
+  rootImmuneUntil?: number;
 }
 
 /** An enemy attack seen a second before it begins (Foresight, docs/phase-3e.md). */
@@ -548,6 +633,8 @@ export interface Entity {
   hero?: HeroComponent;
   enemy?: EnemyComponent;
   wander?: WanderComponent;
+  /** A summon's own state (kind `summon` only, docs/phase-5e.md). */
+  summon?: SummonComponent;
 }
 
 export type ReadonlyEntity = DeepReadonly<Entity>;
@@ -707,6 +794,12 @@ export interface FieldState {
   // ── The Finale (docs/phase-5d.md). Public, created lazily, deleted at the encounter's end. ──
   /** The Silent Conductor's fight, as bots, HUD, render and audio read it. */
   finale?: FinaleField;
+  // ── Phase 5e (docs/phase-5e.md). Public, created lazily, deleted when it leaves. ──
+  /**
+   * A Cued Ancient's disc (Q2): written only by grove.ts and read only by the aura code (W2b).
+   * Absent in every party without Oro.
+   */
+  ancient?: { id: EntityId; x: number; z: number; r: number };
 }
 
 /** What made a Grand Silence note (docs/phase-5d.md). */
@@ -812,6 +905,10 @@ export interface DeathRecord {
    * outside every pool, so the recap can tell it from a Wound's. Set only for a hero with `blood`.
    */
   blood?: { refusedRally: boolean; healCut: number; bloodmoon?: true };
+  /** Seren's down (docs/phase-5e.md): absent for every other hero. */
+  duel?: { warded: boolean; parryable: boolean; overextended: boolean; far: boolean };
+  /** Oro's down (docs/phase-5e.md): absent for every other hero. */
+  grove?: { melee: boolean; feltOutside: number; threadCut: boolean };
 }
 
 export type LedgerMarkerKind =
@@ -883,6 +980,26 @@ export interface Ledger {
   /** Party HP (0..1 by slot) sampled every half second. */
   timeline: { time: number; hp: number[] }[];
   markers: { time: number; kind: LedgerMarkerKind; slot: number | null }[];
+  // ── Phase 5e (docs/phase-5e.md). Created lazily, only in Seren and Oro parties. ──
+  /** Seren: parries, kill shots, and the damage your Wards dealt through her (gold, not amplified). */
+  duel?: LedgerDuel;
+  /** Oro: Saplings felled, their damage, and Rootbond's healing. */
+  grove?: LedgerGrove;
+}
+
+/** `ledger.duel` (docs/phase-5e.md). */
+export interface LedgerDuel {
+  parries: number;
+  killShots: number;
+  /** Counter and kill-shot damage: "your Wards dealt". */
+  wardsDealt: number;
+}
+
+/** `ledger.grove` (docs/phase-5e.md). */
+export interface LedgerGrove {
+  saplingsLost: number;
+  summonDamage: number;
+  rootbondHeal: number;
 }
 
 /**

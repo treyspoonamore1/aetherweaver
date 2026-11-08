@@ -44,6 +44,8 @@ function land(world: World, hit: PendingHit): void {
   if (hit.splashRadius > 0 && hit.splash > 0) {
     for (const e of world.entities.list()) {
       if (e.id === target.id || e.team !== target.team || !isActive(e)) continue;
+      // Splash never strikes Oro's summons (docs/phase-5e.md: Saplings soak blows, not shapes).
+      if (e.summon) continue;
       if (distSq(e.x, e.z, x, z) > (hit.splashRadius + e.radius) * (hit.splashRadius + e.radius))
         continue;
       strike(world, e, hit, hit.splash, sourceName, source);
@@ -60,6 +62,8 @@ function land(world: World, hit: PendingHit): void {
       let best = CHAIN_RADIUS * CHAIN_RADIUS;
       for (const e of world.entities.list()) {
         if (struck.has(e.id) || e.team !== target.team || !isActive(e)) continue;
+        // Nor does a chain (docs/phase-5e.md).
+        if (e.summon) continue;
         const d = distSq(e.x, e.z, from.x, from.z);
         if (d < best) {
           best = d;

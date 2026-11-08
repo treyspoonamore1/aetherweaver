@@ -34,12 +34,29 @@ export const KNOWN_TALENTS: readonly string[] = [
   'scar_tissue',
   'deathless',
   'berserkers_hymn',
+  // Seren (docs/phase-5e.md): their hooks live in sim/systems/duel.ts.
+  'riposte_chain',
+  'cold_focus',
+  'bladesong',
+  'unflinching',
+  'thousandfold',
+  'duellists_honour',
+  // Oro (docs/phase-5e.md): their hooks live in sim/systems/grove.ts and summons.ts.
+  'taproot',
+  'thorned_bark',
+  'grove_chorus',
+  'old_growth',
+  'world_tree',
+  'seedling_swarm',
 ];
 export const KNOWN_ALT_SOLOS: readonly string[] = [
   'oathkeeper',
   'hawks_vigil',
   'celestial_sphere',
   'blood_brother',
+  // Seren and Oro (docs/phase-5e.md): alternate Solos, never SoloKind.
+  'blade_waltz',
+  'homecoming',
 ];
 
 /** The hero a talent belongs to. */

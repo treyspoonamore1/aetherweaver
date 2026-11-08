@@ -43,6 +43,7 @@ import { gainResonance } from './resonance';
 import { hasTalent } from '../bonds';
 import { slotCost } from '../variants';
 import { riposteBash } from '../systems/heroes';
+import { duelMelee, duelResolved, markKillShot } from '../systems/duel';
 import { cutThread } from '../systems/thread';
 import { cutWouldLand, threadSegment } from '../rules3';
 
@@ -475,7 +476,10 @@ function hitEntity(
     amount: damage,
     telegraph: t,
     kind: t.shape.kind === 'mark' ? 'detonation' : 'hit',
+    // Seren's parry (docs/phase-5e.md): the melee test, computed only for a duel victim.
+    ...(e.hero?.duel && duelMelee(t, attack, e) ? { melee: true as const } : {}),
   });
+  if (result.parried) duelResolved(world, t, e, result, wouldDie);
   if (mark !== null) removeStatus(world, e, mark, 'detonated');
   if (verdict && (e.hero || e.weaver) && failedVictim(world, e, result)) verdict.failed.push(e.id);
   if (verdict && e.hero && result.dealt > 0) verdict.struck.push(e.id);
@@ -599,6 +603,8 @@ function perfect(
     addStatus(world, owner, 'stagger', tech.staggerTime * world.mods.staggerMult, world.weaverId);
   // Riposte Bash (Bonds): Kael answers a Perfect Ward on him with his Shield Bash.
   if (owner && hasTalent(e, 'riposte_bash')) riposteBash(world, e, owner, damage);
+  // Seren (docs/phase-5e.md): a Perfect Ward on a blow aimed at her is a kill shot, next tick.
+  if (owner && e.hero?.duel) markKillShot(world, e, owner, t);
   world.events.push({
     type: 'perfectWard',
     tick: world.tick,

@@ -197,7 +197,9 @@ export type UnlockKind =
   | 'carrySlot'
   | 'dissonance'
   /** Expeditions: Movement II after the Prelude (docs/phase-5a.md). */
-  | 'expedition';
+  | 'expedition'
+  /** A Rank-gated recruit (docs/phase-5e.md): `recruit.seren`, `recruit.oro`; target the hero id. */
+  | 'recruit';
 
 export interface Unlock {
   /** Stable id: "song.field", "aura.ostinato", "ornament.unison", "ornamentSlot.2". */
@@ -390,8 +392,20 @@ export interface Allowance {
   callings: ReadonlySet<string>;
   /** Expeditions can be chosen in Prep (docs/phase-5a.md). */
   expedition: boolean;
+  /**
+   * The heroes whose recruit Rank is met (docs/phase-5e.md): an unranked recruit (Brann) always,
+   * a ranked one (Seren, Oro) from its `recruit.rank`.
+   */
+  recruits: ReadonlySet<string>;
   /** Everything is open (Skip the unlocks). */
   all: boolean;
+}
+
+/** The recruitable heroes whose `recruit.rank` is met at `rank` (every one with no rank). */
+function recruitsAt(rank: number): Set<string> {
+  return new Set(
+    CONTENT.heroes.filter((h) => h.recruit && (h.recruit.rank ?? 0) <= rank).map((h) => h.id),
+  );
 }
 
 export const EVERYTHING: Allowance = {
@@ -401,6 +415,7 @@ export const EVERYTHING: Allowance = {
   ornamentSlots: CONTENT.weaver.ornamentSlots,
   callings: new Set(CONTENT.callings.map((c) => c.id)),
   expedition: true,
+  recruits: recruitsAt(Infinity),
   all: true,
 };
 
@@ -424,6 +439,7 @@ export function allowanceFor(rank: number): Allowance {
     ornamentSlots: Math.max(0, ...of('ornamentSlot').map(Number)),
     callings: new Set(of('calling')),
     expedition: of('expedition').length > 0,
+    recruits: recruitsAt(rank),
     all: false,
   };
 }

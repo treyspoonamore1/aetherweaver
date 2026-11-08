@@ -34,6 +34,29 @@ import { clampPointToArena, pushPointOutOfObstacles } from './physics';
 import { empowerBonus } from './thread';
 import { isRooted } from '../rules3';
 import {
+  clampDuel,
+  duelAbility,
+  duelChooseTarget,
+  duelExecute,
+  duelLost,
+  duelMove,
+  duelStands,
+  duelTargetInSight,
+  duelTick,
+} from './duel';
+import {
+  groveAbility,
+  groveCharge,
+  groveChooseTarget,
+  groveExecute,
+  groveFireUncued,
+  groveHeld,
+  groveMove,
+  groveRetreat,
+  groveTargetInSight,
+  groveTick,
+} from './grove';
+import {
   BERSERKER_LEASH,
   BERSERKER_SCATTER_GAP,
   BERSERKER_UNTARGETED_DODGE,
@@ -83,6 +106,8 @@ export function updateHeroes(world: World, dt: number): void {
       e.vz = 0;
       hero.action = 'downed';
       hero.soloHeld = 0;
+      // Seren (docs/phase-5e.md): a pending counter or kill shot is lost.
+      if (hero.duel) duelLost(world, e);
       continue;
     }
 
@@ -109,8 +134,13 @@ export function updateHeroes(world: World, dt: number): void {
       approachVelocity(e, 0, 0, TUNING.heroAccel, dt);
       hero.action = 'idle';
       hero.soloHeld = 0;
+      // Seren (docs/phase-5e.md): stunned, stilled or possessed, she loses a counter or kill shot.
+      if (hero.duel) duelLost(world, e);
       continue;
     }
+    // Seren and Oro (docs/phase-5e.md): their own clocks, after `isDisabled` (duel.ts, grove.ts).
+    if (hero.duel) duelTick(world, e, def, dt);
+    if (hero.grove) groveTick(world, e, def, dt);
     // Pinned (Movement II) or stitched (Movement III): rooted, though they still attack and
     // cast. Reel frees them (a Chime frees the stitched too).
     const pinned = isRooted(e);
@@ -135,10 +165,14 @@ export function updateHeroes(world: World, dt: number): void {
       );
       if (hero.solo >= 100) world.events.push({ type: 'soloReady', tick: world.tick, hero: e.id });
     }
+    // Oro (docs/phase-5e.md): his Solo charges while a Sapling fights, though he doesn't.
+    if (hero.grove) groveCharge(world, e, dt);
     // How long a full Solo has waited with someone to fight (hero autonomy's Cue window): the
     // window starts over after any gap (between waves, downed, stunned, Reeled).
     if (hero.soloActive <= 0 && hero.solo >= 100 && hero.targetId !== null) hero.soloHeld += dt;
     else hero.soloHeld = 0;
+    // …and its Cue window runs while a Sapling fights.
+    if (hero.grove) groveHeld(world, e, dt);
     if (hero.soloActive <= 0 && hero.solo >= 100 && shouldFireUncued(world, e))
       startSolo(world, e, false);
 
@@ -210,7 +244,9 @@ export function updateHeroes(world: World, dt: number): void {
         sqr(attackRange(world, e, def.attack.range) + target.radius + e.radius);
     // Red Frenzy (docs/phase-5b.md): he spins instead of swinging his axe.
     const frenzy = hero.soloId === 'redFrenzy' && hero.soloActive > 0;
-    if (target && inRange && hero.attackCooldown <= 0 && !frenzy)
+    // Thousand Cuts (docs/phase-5e.md): she blinks instead of thrusting.
+    const cutting = hero.soloId === 'thousandCuts' && hero.soloActive > 0;
+    if (target && inRange && hero.attackCooldown <= 0 && !frenzy && !cutting)
       basicAttack(world, e, def, target);
 
     if (pinned) root(e, dt);
@@ -259,6 +295,8 @@ function shouldFireUncued(world: World, e: Entity): boolean {
   // Hero autonomy: Kael raises his wall at once when hurt or a big hit is coming at him...
   if (solo === 'aegisWall' && (h.hp < h.maxHp * 0.5 || h.incoming > h.hp * 0.5)) return true;
   // ...and every hero fires once the Cue window (Kael: his hold) has passed in a fight.
+  // Oro (docs/phase-5e.md): target-less, he fires while a Sapling fights.
+  if (e.hero!.grove && e.hero!.targetId === null) return groveFireUncued(world, e);
   if (e.hero!.targetId === null) return false;
   return e.hero!.soloHeld >= (solo === 'aegisWall' ? AUTONOMY.kaelHold : AUTONOMY.cueGrace);
 }
@@ -324,6 +362,13 @@ function combatMove(
   if ((world.internal.rallyUntil > world.time && !lust) || !target) {
     // Answering a Rally (or with no one to fight), Brann still walks round a blow aimed elsewhere.
     if (berserker && formationSidestep(world, weaver, e, def, dt)) return;
+    // So does Seren (docs/phase-5e.md), on her own line.
+    if (def.role === 'duelist' && formationSidestep(world, weaver, e, def, dt)) return;
+    // Oro (docs/phase-5e.md): Gentle, he steps away from the fighting.
+    if (def.role === 'summoner' && groveRetreat(world, weaver, e, def, desired)) {
+      arrive(e, desired.x, desired.z, TUNING.heroAccel, 1.2, dt);
+      return;
+    }
     formationMove(weaver, e, def, dt);
     return;
   }
@@ -357,6 +402,14 @@ function combatMove(
       keepApart(world, e, BERSERKER_SCATTER_GAP);
       clampToArena(world, desired);
     }
+  } else if (def.role === 'duelist' && duelMove(world, weaver, e, def, target, desired)) {
+    // Seren (docs/phase-5e.md): her own branch. She steps out of blows aimed at the others, and
+    // every destination stays within reach of the Weaver.
+    sidestepOthers(world, e);
+    clampDuel(world, e, desired);
+  } else if (def.role === 'summoner' && groveMove(world, weaver, e, def, target, desired)) {
+    // Oro (docs/phase-5e.md): his own branch wrote `desired`.
+    clampToArena(world, desired);
   } else if (flank(world, e, def, target)) {
     // Focus on a guarded enemy: out of its arc, whatever the Weaver's leash says.
     clampToArena(world, desired);
@@ -642,6 +695,15 @@ function updateReel(world: World, e: Entity, dt: number): void {
 // ── Targeting ─────────────────────────────────────────────────────────────────────────
 
 function chooseTarget(world: World, weaver: Entity, e: Entity, def: HeroDef): Entity | null {
+  // Seren and Oro (docs/phase-5e.md): their own picks first; undefined keeps the shared rule.
+  if (def.role === 'duelist') {
+    const pick = duelChooseTarget(world, weaver, e, def);
+    if (pick !== undefined) return pick;
+  }
+  if (def.role === 'summoner') {
+    const pick = groveChooseTarget(world, weaver, e, def);
+    if (pick !== undefined) return pick;
+  }
   const berserker = def.role === 'berserker';
   if (world.internal.rallyUntil > world.time && !(berserker && bloodlusting(world.content, e)))
     return nearestEnemy(world, e, attackRange(world, e, def.attack.range), e.hero!.targetId);
@@ -685,6 +747,14 @@ function targetInSight(world: World, weaver: Entity, e: Entity, def: HeroDef): E
   // A target standing up again (Restless Dead) is left until it has.
   const current = found && rising(found) ? undefined : found;
   if (berserker) return berserkerTarget(world, e, def, current);
+  if (def.role === 'duelist') {
+    const pick = duelTargetInSight(world, weaver, e, def, current);
+    if (pick !== undefined) return pick;
+  }
+  if (def.role === 'summoner') {
+    const pick = groveTargetInSight(world, weaver, e, def, current);
+    if (pick !== undefined) return pick;
+  }
   if (def.role === 'tank') {
     if (hero.quirk > 0 && current?.enemy && isActive(current)) return current;
     // Peel: whatever is hitting a squishy (or the Weaver) near the party.
@@ -1007,6 +1077,20 @@ function tryAbilities(world: World, e: Entity, def: HeroDef, target: Entity): bo
         const h = e.health!;
         if (hero.blood && h.hp > h.maxHp * BLOODLET_ABOVE && inReach(target))
           return beginAbility(world, e, def, index, target, e.x, e.z);
+        break;
+      }
+      // Seren (docs/phase-5e.md): duel.ts decides.
+      case 'lunge':
+      case 'feint': {
+        const t = duelAbility(world, e, def, ability, target);
+        if (t) return beginAbility(world, e, def, index, t, t.x, t.z);
+        break;
+      }
+      // Oro (docs/phase-5e.md): grove.ts decides.
+      case 'regrowth':
+      case 'bramble': {
+        const use = groveAbility(world, e, def, ability, target);
+        if (use) return beginAbility(world, e, def, index, use.target, use.x, use.z);
         break;
       }
     }
@@ -1372,6 +1456,15 @@ function executeAbility(
       bark(world, e, 'quirk');
       return;
     }
+    // Seren's and Oro's (docs/phase-5e.md): their files act.
+    case 'lunge':
+    case 'feint':
+      duelExecute(world, e, def, index, target, x, z, f, emit);
+      return;
+    case 'regrowth':
+    case 'bramble':
+      groveExecute(world, e, def, index, target, x, z, f, emit);
+      return;
   }
 }
 
@@ -1422,6 +1515,8 @@ function noticeTelegraphs(world: World, e: Entity, def: HeroDef): void {
     // Movements II and III).
     if (isRooted(e)) continue;
     if (!contains(world, t, e)) continue;
+    // Seren (docs/phase-5e.md): Warded, she stands her ground against a parryable blow at her.
+    if (hero.duel && duelStands(world, e, t)) continue;
     // Wind Step (Bonds): every so often, Lyra steps out at once, whatever she's doing.
     if (hasTalent(e, 'wind_step') && world.time >= hero.talentReadyAt && !isDisabled(e)) {
       const out = escapePoint(world, t, e);

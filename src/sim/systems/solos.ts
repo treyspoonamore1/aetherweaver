@@ -19,6 +19,8 @@ import type { Entity } from '../state';
 import type { World } from '../world';
 import { hasTalent, ricochet, soloValue, talentFired, talentHolder, talentValue } from '../bonds';
 import { inAnyField } from './field';
+import { duelCastProgress, duelSolo, duelSoloClock, duelSoloEnd, duelSoloStart } from './duel';
+import { groveSolo, groveSoloEnd, groveSoloStart } from './grove';
 import { attackRange, heroDamage } from './heroDamage';
 
 /** The Solo a hero brings this fight: their own, or the alternate their Bond opened. */
@@ -67,6 +69,9 @@ export function startSolo(world: World, hero: Entity, cued: boolean): void {
   // The alternate Solos (Bonds): Hawk's Vigil answers attacks from now on; Celestial Sphere
   // wraps its heroes at once; Oathkeeper acts in the damage path while it lasts.
   if (spec.id === 'hawks_vigil') h.vigilSeen = world.internal.nextTelegraphId - 1;
+  // Seren's and Oro's (docs/phase-5e.md): their Solos and alternate Solos live in their files.
+  if (h.duel) duelSoloStart(world, hero, cued, duration);
+  if (h.grove) groveSoloStart(world, hero, cued, duration);
   if (spec.id === 'celestial_sphere') celestialSphere(world, hero, cued, duration);
   if (spec.id === 'aegisWall') {
     if (cued) {
@@ -102,10 +107,14 @@ export function updateSolo(world: World, hero: Entity, dt: number): boolean {
   const id = h.soloId;
   h.soloActive = Math.max(0, h.soloActive - dt);
   h.castProgress = 1 - h.soloActive / Math.max(0.01, soloLength(world, hero, h.soloCued));
+  // A Cued Thousand Cuts' kills extend it (`duel.cutsEnd`), so its bar reads that length.
+  if (h.duel?.cutsEnd !== undefined) h.castProgress = duelCastProgress(world, hero, h.castProgress);
   if (id === 'galeBarrage') galeBarrage(world, hero, def);
   else if (id === 'starfall') starfall(world, hero, def);
   else if (id === 'hawks_vigil') hawksVigil(world, hero, def);
   else if (id === 'redFrenzy') redFrenzy(world, hero, def);
+  else if (h.duel) duelSolo(world, hero, def);
+  else if (h.grove) groveSolo(world, hero, def);
   if (h.soloActive <= 0) {
     finishSolo(world, hero);
     return false;
@@ -123,6 +132,8 @@ export function updateSolo(world: World, hero: Entity, dt: number): boolean {
 export function tickSoloClock(world: World, hero: Entity, dt: number): void {
   const h = hero.hero!;
   if (h.soloActive <= 0) return;
+  // Seren (docs/phase-5e.md): a stun ends Thousand Cuts at once.
+  if (h.duel) duelSoloClock(world, hero);
   h.soloActive = Math.max(0, h.soloActive - dt);
   // Possessed (Movement III): its pulses are lost, not saved up for the moment it is freed. The
   // next pulse waits as long as the possession holds; a stun's catch-up is left as it ever was.
@@ -137,6 +148,9 @@ function finishSolo(world: World, hero: Entity): void {
   world.events.push({ type: 'soloEnded', tick: world.tick, hero: hero.id });
   // Supernova (Bonds): Starfall ends in a nova where it last struck.
   if (h.soloId === 'starfall' && hasTalent(hero, 'supernova')) supernova(world, hero);
+  // Seren's return, the Ancient's leaving (docs/phase-5e.md).
+  if (h.duel) duelSoloEnd(world, hero);
+  if (h.grove) groveSoloEnd(world, hero);
   if (h.soloId === 'aegisWall' && world.mods.bulwarksEchoPct > 0) {
     for (const id of world.party) {
       const ally = world.entities.get(id);

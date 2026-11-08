@@ -5,7 +5,7 @@
  * roster and party, the Result's recruit line, Brann's line on the Result and the Summary, and
  * the Harmony ribbon and 'would enable' hint on motif cards. Every list keeps content order.
  */
-import { CONTENT, encounterDef, heroDef, motifDef, type HeroDef } from '../../content';
+import { CONTENT, bloodRageOf, encounterDef, heroDef, motifDef, type HeroDef } from '../../content';
 import { HEAL_CUT } from '../../content/legion';
 import type { EventChoice } from '../../content/schema';
 import type { HeroBloodStats, RunState } from '../../meta/types';
@@ -158,7 +158,7 @@ const PASSIVE_NAME: Readonly<Record<string, string>> = { bloodRage: 'Blood Rage'
  * def's numbers. Null for a hero without one, so the starters' cards are as they were.
  */
 export function passiveRow(def: HeroDef): { name: string; text: string } | null {
-  const p = def.passive;
+  const p = bloodRageOf(def);
   if (!p) return null;
   const halved =
     p.weaverHealMult === 0.5 ? 'halved' : `cut to ${Math.round(p.weaverHealMult * 100)}%`;
@@ -181,7 +181,7 @@ function shareWords(x: number): string {
  * hero without a Weaver-heal cut.
  */
 export function healCutStackText(def: HeroDef): string | null {
-  const p = def.passive;
+  const p = bloodRageOf(def);
   if (!p || p.weaverHealMult === 1) return null;
   const one = p.weaverHealMult * (1 - HEAL_CUT);
   const both = one * (1 - HEAL_CUT);
@@ -306,7 +306,7 @@ export function bloodLine(heroId: string, b: HeroBloodStats, oath = false, run =
   const def = heroDef(heroId);
   const below = Math.round((def.quirk.below ?? 0.4) * 100);
   const share = b.aliveTime > 0 ? b.lowTime / b.aliveTime : 0;
-  const mult = def.passive?.weaverHealMult ?? 1;
+  const mult = bloodRageOf(def)?.weaverHealMult ?? 1;
   const cut = oath ? 'full (Blood Oath)' : mult === 0.5 ? 'halved' : pct(mult);
   return `Under ${below}%: ${pct(share)} of the ${run ? 'run' : 'fight'} · Lifesteal ${fmt(b.lifesteal)} · Your healing on him: ${cut}`;
 }

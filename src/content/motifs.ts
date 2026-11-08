@@ -293,4 +293,25 @@ export const MOTIFS: ContentInput['motifs'] = [
     requires: { movement: 3 },
     tags: ['thread'],
   },
+  // ── Seren's and Oro's Bond motifs (docs/phase-5e.md), appended last and hero-gated. ──
+  {
+    id: 'en_garde',
+    name: 'En Garde',
+    category: 'bond',
+    rarity: 'rare',
+    values: [8, 10, 12],
+    text: 'Each parry Seren makes grants {v} Resonance. Her kill shots count as parries.',
+    requires: { hero: 'seren' },
+    tags: ['ward', 'resonance'],
+  },
+  {
+    id: 'verdant_choir',
+    name: 'Verdant Choir',
+    category: 'bond',
+    rarity: 'rare',
+    values: [30, 40, 50],
+    text: 'Oro’s Saplings each sing your Sostenuto at {v}% to everyone within 4 m of them, while they stand in your songs.',
+    requires: { hero: 'oro' },
+    tags: ['aura', 'heal'],
+  },
 ];

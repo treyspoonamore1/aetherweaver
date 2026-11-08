@@ -40,7 +40,24 @@ interface KeySnapshot {
 const TICKS = 600;
 const path = fileURLToPath(new URL('./rosterInvariance.keys.json', import.meta.url));
 
-/** The key paths named `blood` or `tithe` anywhere under `value`. */
+/**
+ * Keys no default-party fight may carry: Brann's (`blood`, `tithe`, docs/phase-5b.md) and Seren's
+ * and Oro's (docs/phase-5e.md: `duel`, `grove`, `summon`, `summons`, `parried`,
+ * `rootImmuneUntil`, `ancient`).
+ */
+const FORBIDDEN = new Set([
+  'blood',
+  'tithe',
+  'duel',
+  'grove',
+  'summon',
+  'summons',
+  'parried',
+  'rootImmuneUntil',
+  'ancient',
+]);
+
+/** The key paths named in FORBIDDEN anywhere under `value`. */
 function forbiddenKeys(value: unknown, at: string, out: string[], seen: Set<unknown>): void {
   if (value === null || typeof value !== 'object' || seen.has(value)) return;
   seen.add(value);
@@ -49,7 +66,7 @@ function forbiddenKeys(value: unknown, at: string, out: string[], seen: Set<unkn
     return;
   }
   for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
-    if (k === 'blood' || k === 'tithe') out.push(`${at}.${k}`);
+    if (FORBIDDEN.has(k)) out.push(`${at}.${k}`);
     if (typeof v !== 'function') forbiddenKeys(v, `${at}.${k}`, out, seen);
   }
 }
@@ -122,7 +139,7 @@ describe('the default party is invariant under the roster (docs/phase-5b.md)', (
     }
   });
 
-  it('no blood or tithe key exists, and the hero and shield key sets match the snapshot', () => {
+  it('no forbidden roster key exists, and the hero and shield key sets match the snapshot', () => {
     const { snapshot, forbidden } = bellwardenKeys();
     expect(forbidden).toEqual([]);
     expect(snapshot.heroes.map((h) => h.defId)).toEqual(['kael', 'lyra', 'vexis']);
@@ -137,6 +154,11 @@ describe('the default party is invariant under the roster (docs/phase-5b.md)', (
     expect(NO_MODS.bloodTithe).toBe(0);
     expect(NO_MODS.bloodTitheRefund).toBe(0);
     expect(NO_MODS.bloodAndSilk).toBe(0);
+  });
+
+  it("NO_MODS holds Seren's and Oro's motif numbers at 0 (docs/phase-5e.md)", () => {
+    expect(NO_MODS.enGarde).toBe(0);
+    expect(NO_MODS.verdantChoir).toBe(0);
   });
 
   it('two Expedition baseline runs still play out equal (a smoke of the tool)', () => {
