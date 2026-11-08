@@ -59,6 +59,7 @@ import {
   createSim,
   cutWouldLand,
   overextended,
+  replantInField,
   weaverSilenced,
   type Command,
   type Entity,
@@ -3885,6 +3886,68 @@ describe('the Skilled bot with Oro (staged)', () => {
     expect(rallyTimes(true, ['oroRally'])).toEqual([]);
   });
 
+  it('oroRally: no Rally where no re-plant lands in a field (the Silent Verse’s hymn circles)', () => {
+    // The finding: through the Hollow Cantor's Silent Verse the field sings only inside 3.6 m
+    // hymn circles, and a Rally re-plants 5 m ahead of the Weaver, so a Rally every 5 s brought
+    // nothing home and pulled the party into formation for 3 s of every 5.
+    const rallyTimes = (r: number, skip: RosterRule[] = []) => {
+      const { sim, w, saplings } = grove();
+      const weaver = w.entities.get(w.weaverId)!;
+      const bot = skilled(['groveCover', ...skip]);
+      const at: number[] = [];
+      for (let t = 0; t < 60 * 9; t++) {
+        for (const s of saplings) if (!s.health!.dead) plantAt(s, 16, 0);
+        // One hymn circle on the Weaver, as the Silent Verse lays them.
+        w.field.hymnCircles = [{ x: weaver.x, z: weaver.z, r }];
+        const out = bot.decide(sim.state);
+        if (rallies(out)) at.push(t);
+        sim.step(out);
+        sim.drainEvents();
+      }
+      return at;
+    };
+    // A 3.6 m circle: the front spots lie outside it, so no Rally (before the fix: 1 every 5 s).
+    expect(rallyTimes(3.6)).toEqual([]);
+    // A circle wide enough to hold the front spots: the Rally brings them home, so it is made.
+    expect(rallyTimes(9).length).toBeGreaterThan(0);
+    expect(rallyTimes(9, ['oroRally'])).toEqual([]);
+  });
+
+  it('replantInField: tests the Rally’s re-plant spots against the field, and is false without Oro', () => {
+    const { w, oro, saplings } = grove();
+    const weaver = w.entities.get(w.weaverId)!;
+    const all = () => saplings.map((_, i) => replantInField(w, oro, i));
+    expect(all().every(Boolean)).toBe(true);
+    w.field.hymnCircles = [{ x: weaver.x, z: weaver.z, r: 3.6 }];
+    expect(all().some(Boolean)).toBe(false);
+    w.field.hymnCircles = [{ x: weaver.x, z: weaver.z, r: 9 }];
+    expect(all().every(Boolean)).toBe(true);
+    w.field.hymnCircles = [];
+    expect(replantInField(w, oro, saplings.length)).toBe(false);
+    const kael = w.entities.get(w.party[0]!)!;
+    expect(replantInField(w, kael, 0)).toBe(false);
+  });
+
+  it('oroThread: leaves the Thread alone under Unravel (Mend wounds and Rootbond is skipped)', () => {
+    const thread = (stasis: boolean, skip: RosterRule[] = []) => {
+      const { sim, w, saplings, slot } = grove();
+      for (const s of saplings) s.health!.hp = s.health!.maxHp * 0.5;
+      w.field.unravel = { until: 1e9, source: w.party[0]!, acc: 0, tickIn: 0.5 };
+      w.field.stasis = stasis;
+      const out = skilled(skip).decide(sim.state);
+      return { out, toOro: out.some((c) => c.t === 'thread' && c.slot === slot), sim, slot };
+    };
+    // Unravel running: the rule changes nothing (before the fix it moved the Thread onto Oro,
+    // where the Unravel rule turned Mend to Empower on a tending Oro).
+    const on = thread(false);
+    expect(on.toOro).toBe(false);
+    expect(on.out).toEqual(thread(false, ['oroThread']).out);
+    // Stasis holds Unravel: Mend heals as ever, so the rule Mends Oro again.
+    const held = thread(true);
+    expect(mendsOn(held.sim, held.out, held.slot)).toBe(true);
+    expect(mendsOn(held.sim, thread(true, ['oroThread']).out, held.slot)).toBe(false);
+  });
+
   it('oroThread: Mends Oro when his Saplings are hurt and the party is calm', () => {
     const thread = (frac: number, skip: RosterRule[] = []) => {
       const { sim, saplings, slot } = grove();
@@ -4021,6 +4084,31 @@ describe('the Novice bot with Seren and Oro (NOVICE_ROSTER, staged)', () => {
     expect(focusing.some((c) => c.t === 'directive' && c.kind === 'focus')).toBe(true);
     expect(rallies(focusing)).toBe(false);
     expect(rallies(run(0, true))).toBe(true);
+  });
+
+  it('saplingRally: no Rally where no re-plant lands in a field (the Silent Verse’s hymn circles)', () => {
+    const run = (r: number) => {
+      const sim = sandbox({ chords: GUARDIAN, party: ORO_PARTY });
+      stepFor(sim, 4);
+      const w = worldOf(sim);
+      const weaver = w.entities.get(w.weaverId)!;
+      const oro = w.entities.get(w.party[2]!)!;
+      const saplings = oro.hero!.grove!.saplings.map((id) => w.entities.get(id)!);
+      const pin = () => {
+        w.focusTarget = null;
+        for (const s of saplings)
+          if (!s.health!.dead) {
+            placeAt(s, 16, 0);
+            s.summon!.plantX = 16;
+            s.summon!.plantZ = 0;
+          }
+        w.field.hymnCircles = [{ x: weaver.x, z: weaver.z, r }];
+      };
+      return novice(sim, pin);
+    };
+    // Before the fix: about 11 Rallies a minute through the Silent Verse, none bringing them home.
+    expect(rallies(run(3.6))).toBe(false);
+    expect(rallies(run(9))).toBe(true);
   });
 
   it('noviceAnchor: stays with the others, not with a duelling Seren', () => {

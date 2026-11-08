@@ -133,6 +133,7 @@ import {
   type BloodView,
   type DuelView,
   type GroveView,
+  rallyBringsHome,
   type CueView,
   type DiscordView,
   type HeroView,
@@ -937,6 +938,9 @@ export class SkilledBot implements Bot {
       downed.length === 0 &&
       !silence &&
       !guardFortissimo &&
+      // Unravel turns Mend to wounds and skips Rootbond (thread.ts), and the Thread moved onto
+      // Oro would only be turned to Empower or Bear on a hero who strikes nothing tending.
+      !(unravelUp(state) !== null && !state.field.stasis) &&
       groveWantsMend(
         grove,
         party,
@@ -1161,7 +1165,8 @@ export class SkilledBot implements Bot {
     // has no pull), a Rally does: she always answers one (`serenReel`). With Anchor, the Anchor
     // goes on her beside it, to buy the 3 s she needs to obey it (docs/phase-5e.md, the Anchor
     // row). A Sapling left outside every field for 2 s is Rallied back in, re-planted ahead of
-    // the Weaver (`oroRally`).
+    // the Weaver (`oroRally`), unless no re-plant spot would land in a field (`rallyBringsHome`:
+    // through the Silent Verse her front spots lie outside the hymn circle she stands in).
     if (!link && !ring && !out.some((c) => c.t === 'directive')) {
       const anchorVariant = wc.variants.reel === 'anchor';
       const serenRally =
@@ -1176,7 +1181,7 @@ export class SkilledBot implements Bot {
           this.on('oroRally') &&
           now - this.lastRally > gap(ORO_RALLY_GAP) &&
           !state.field.suppressed &&
-          this.saplingLeftOut(grove, now));
+          rallyBringsHome(state, grove, this.saplingsLeftOut(grove, now)));
       if (rallyFor) {
         out.push({ t: 'directive', kind: 'rally' });
         this.lastRally = now;
@@ -1288,9 +1293,9 @@ export class SkilledBot implements Bot {
     for (const id of outside) if (!this.saplingOutSince.has(id)) this.saplingOutSince.set(id, now);
   }
 
-  /** A Sapling has stood outside every field for more than `SAPLING_OUT_FOR` s. */
-  private saplingLeftOut(grove: GroveView, now: number): boolean {
-    return grove.outside.some(
+  /** The Saplings that have stood outside every field for more than `SAPLING_OUT_FOR` s. */
+  private saplingsLeftOut(grove: GroveView, now: number): ReadonlyEntity[] {
+    return grove.outside.filter(
       (s) => now - (this.saplingOutSince.get(s.id) ?? now) > SAPLING_OUT_FOR,
     );
   }
