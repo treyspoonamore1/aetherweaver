@@ -2,8 +2,9 @@ import { healthBands, healthLevel, raging } from '../app/healthLevels';
 import { CONTENT, heroDef } from '../content';
 import { fallingFast, vowHoldsAt, type EntityId, type WorldState } from '../sim';
 import type { EntityLayer } from './entities';
-import type { AllyBarView } from './overlay';
+import type { AllyBarView, SummonBarView } from './overlay';
 import { DRAIN_HOLD, bloodNotches, executeBelowOf, signalHex } from './crimsonCues';
+import { burrowing, dormant, ownerOf, summonCoverage, tending } from './groveCues';
 
 /** A hit's white trail holds this long (s), then drains at this share of max life a second. */
 export const TRAIL_HOLD = 0.4;
@@ -27,7 +28,12 @@ export type AllyBarsMode = 'always' | 'hurt' | 'off';
 
 export interface AllyBarsSink {
   allyBar(x: number, y: number, z: number, bar: AllyBarView): void;
+  /** Oro's summons' bars (docs/phase-5e.md): a separate pool, never one of the heroes' four. */
+  summonBar?(x: number, y: number, z: number, bar: SummonBarView): void;
 }
+
+/** A summon's bar sits this far over its head (m): lower and smaller than a hero's. */
+export const SUMMON_BAR_LIFT = 0.28;
 
 /**
  * The bars over the heroes (docs/health-ui.md): what a healer reads first, where the fight is.
@@ -43,8 +49,12 @@ export class PartyBarsView {
   private readonly drains = new Map<EntityId, { seen: number; top: number; until: number }>();
   /** The bars drawn last frame (tests, the lab). */
   readonly drawn: (AllyBarView & { id: EntityId })[] = [];
+  /** The summon bars drawn last frame (tests, the lab; empty in every party without Oro). */
+  readonly drawnSummons: (SummonBarView & { id: EntityId })[] = [];
 
-  constructor(private readonly entities: Pick<EntityLayer, 'recs'>) {}
+  constructor(
+    private readonly entities: Pick<EntityLayer, 'recs'> & Partial<Pick<EntityLayer, 'summonIds'>>,
+  ) {}
 
   sync(
     state: WorldState,
@@ -118,6 +128,46 @@ export class PartyBarsView {
       this.drawn.push({ ...bar, id });
       overlay?.allyBar(rec.x, rec.height + BAR_LIFT + rec.y, rec.z, bar);
     });
+    if (this.drawnSummons.length > 0) this.drawnSummons.length = 0;
+    const summons = this.entities.summonIds;
+    if (summons && summons.length > 0 && mode !== 'off')
+      this.summonBars(state, overlay, summons, mode);
+  }
+
+  /**
+   * Oro's summons (docs/phase-5e.md): compact keyless bars with a leaf tag, from the entity
+   * layer's list of the summons it drew this frame (never `state.party`). Shown while hurt, or
+   * always under 'always'; never with bars off.
+   */
+  private summonBars(
+    state: WorldState,
+    overlay: AllyBarsSink | null,
+    ids: readonly EntityId[],
+    mode: AllyBarsMode,
+  ): void {
+    for (const id of ids) {
+      const e = state.entities.get(id);
+      const h = e?.health;
+      const rec = this.entities.recs.get(id);
+      if (!e?.summon || !h || h.dead || !rec) continue;
+      const max = Math.max(1, h.maxHp);
+      let shield = 0;
+      for (const s of h.shields) shield += s.amount;
+      if (mode === 'hurt' && h.hp >= max * 0.999 && shield <= 0) continue;
+      const owner = ownerOf(state, e);
+      const bar: SummonBarView = {
+        hp: clamp01(h.hp / max),
+        shield: clamp01(shield / max),
+        inField: summonCoverage(e).inField,
+        dormant: dormant(e),
+        burrowing: burrowing(state, e),
+        tended: e.summon.kind === 'sapling' && tending(state, owner),
+        ancient: e.summon.kind === 'ancient',
+        leafHex: owner?.hero ? heroDef(owner.hero.defId).color : '#487858',
+      };
+      this.drawnSummons.push({ ...bar, id });
+      overlay?.summonBar?.(rec.x, rec.height + SUMMON_BAR_LIFT + rec.y, rec.z, bar);
+    }
   }
 
   /**

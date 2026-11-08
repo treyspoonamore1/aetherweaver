@@ -41,7 +41,46 @@ import {
   type WeaverLook,
 } from './keepsakeCues';
 import { ModelBatch } from './models/batch';
-import { buildCrown, buildEnemy, buildHero, buildWeaver, recolorModel } from './models/library';
+import {
+  buildAncient,
+  buildCrown,
+  buildEnemy,
+  buildHero,
+  buildSapling,
+  buildWeaver,
+  recolorModel,
+} from './models/library';
+import {
+  SEREN_FLASH,
+  SEREN_VIOLET,
+  cutting,
+  duelHero,
+  enGarde,
+  heavyPip,
+  overextendedLook,
+  parryGlyph,
+  quarryOf,
+  reachArcShows,
+  rosterHeavyShown,
+  weaverReach,
+} from './serenCues';
+import {
+  ANCIENT_RISE,
+  GROVE_BARK,
+  GROVE_HEX,
+  GROVE_MOSS,
+  GROVE_OUT,
+  GROVE_SEED,
+  GROVE_VINE,
+  SUMMON_BATCH,
+  ancientTauntRadius,
+  burrowing,
+  dormant,
+  ownerOf,
+  rootedLook,
+  summonCoverage,
+  tending,
+} from './groveCues';
 import type { ModelMaterial } from './models/material';
 import { shineLevel, shineOf } from './callingCues';
 import { ASTRO_HEX, astroLook, atLifeCap, emptyAstroLook, graceMarked } from './astrolabeCues';
@@ -259,6 +298,8 @@ interface Ghost {
   /**
    * The Chronomancer's: 1 an afterimage left along Rewind's streak (silver), 2 a downed hero's
    * fall played backwards, rising and running from (x, z) to (x2, z2) as Rewind stands them up.
+   * 3: Seren's afterimage (Thousand Cuts' blinks, Feint's step), violet; `side` 2: gold-edged
+   * (a Cued Thousand Cuts).
    */
   chrono: number;
   x2: number;
@@ -470,6 +511,41 @@ export class EntityLayer {
    */
   readonly drawn5b = { rage: 0, spin: 0, frenzy: 0, frenzyGold: 0, bloodlet: 0 };
   /**
+   * Seren and Oro (docs/phase-5e.md), what was drawn last frame (tests, the lab). Seren: her
+   * notched ring, the en-garde blades, the duel tether and crown, the overextended notch pulse,
+   * the reach arc, Thousand Cuts' hidden model and afterimages, the crossed-blades glyph on a
+   * blow she can parry, the heavy pip. Oro: summons drawn (Saplings, the Ancient), their aura
+   * rims (lit and greyed), root tethers, burrow trails, dormant summons, the Ancient's warning
+   * and taunt ring, vines on rooted enemies, the tending leaf.
+   */
+  readonly drawn5e = {
+    notched: 0,
+    enGarde: 0,
+    tethers: 0,
+    crowns: 0,
+    overextended: 0,
+    reachArcs: 0,
+    hidden: 0,
+    afterimages: 0,
+    parryGlyphs: 0,
+    heavyPips: 0,
+    saplings: 0,
+    ancients: 0,
+    summonRims: 0,
+    greyRims: 0,
+    rootTethers: 0,
+    burrows: 0,
+    dormant: 0,
+    warnings: 0,
+    tauntRings: 0,
+    vines: 0,
+    tending: 0,
+  };
+  /** The summons drawn last frame, in entity order (the summon bars read it). */
+  readonly summonIds: EntityId[] = [];
+  /** Seren or Oro is in the party this frame (the heavy pip may show). */
+  private rosterHeavy = false;
+  /**
    * Movement III (docs/phase-5c/vfx-audio.md), what was drawn last frame (tests, the lab): cloth
    * bodies drifting, a Maw's pulse; possession's rim, mask, tether and streaks; Doom's pips (and
    * those at four or more), a doomed hero's glow; sewn pairs; drag streaks in a pull; the rune
@@ -628,6 +704,7 @@ export class EntityLayer {
 
   private castsShadow(key: string): boolean {
     if (key === 'weaver' || key.startsWith('hero:')) return true;
+    if (key === SUMMON_BATCH.ancient.key) return true;
     if (key.startsWith('enemy:')) {
       const def = enemyDef(key.slice(6));
       return (
@@ -707,6 +784,19 @@ export class EntityLayer {
         }
       }
       affixColor = affixColors[0] ?? null;
+    } else if (e.summon) {
+      // Oro's summons (docs/phase-5e.md): two lazy batches, made by the first summon drawn.
+      const owner = state.entities.get(e.summon.owner);
+      const moss = owner?.hero ? heroDef(owner.hero.defId).color : GROVE_HEX.moss;
+      const spec = e.summon.kind === 'ancient' ? SUMMON_BATCH.ancient : SUMMON_BATCH.sapling;
+      batch = this.batchFor(
+        spec.key,
+        () => (e.summon!.kind === 'ancient' ? buildAncient(moss) : buildSapling(moss)),
+        spec.capacity,
+      );
+      hex = moss;
+      accentHex = moss;
+      role = e.summon.kind;
     } else {
       // Debug dummies share the chorister silhouette in a neutral grey.
       batch = this.batchFor(
@@ -1117,6 +1207,11 @@ export class EntityLayer {
     b5.frenzy = 0;
     b5.frenzyGold = 0;
     b5.bloodlet = 0;
+    // Seren and Oro (docs/phase-5e.md): counters, and whether either is here at all.
+    const d5 = this.drawn5e;
+    for (const k of Object.keys(d5) as (keyof typeof d5)[]) d5[k] = 0;
+    this.summonIds.length = 0;
+    this.rosterHeavy = rosterHeavyShown(state);
     // The Chronomancer's Stasis: the enemies' clock stops and the stillness spreads from her.
     const look = chronoLook(state, this.chrono);
     if (look.stasis && !this.stasisOn) {
@@ -1148,6 +1243,8 @@ export class EntityLayer {
       }
     }
     this.riftScene(state, kit);
+    // Seren (docs/phase-5e.md): the crossed blades on every blow she can parry, aimed at her.
+    if (this.rosterHeavy) this.parryGlyphs(state, kit);
     this.updateGhosts(kit, dt);
     this.rewindPreview(state, dt);
     this.drawDecoy(state);
@@ -1547,6 +1644,22 @@ export class EntityLayer {
       const swell = 0.03 + 0.03 * Math.min(1, this.beamLevel) + (this.beamAllIn ? 0.02 : 0);
       scale *= 1 + swell * rec.beam * (1 + 0.15 * Math.sin(this.now * 5));
     }
+    // Seren's Thousand Cuts (docs/phase-5e.md): she vanishes; her afterimages are the ghosts'.
+    if (e.hero?.duel && cutting(e)) {
+      dissolve = 1;
+      this.drawn5e.hidden++;
+    }
+    // Oro's summons: a burrowing Sapling sinks into the ground; a dormant one stands grey.
+    if (e.summon) {
+      if (burrowing(state, e)) {
+        y -= 0.35;
+        dissolve = Math.max(dissolve, 0.55);
+      }
+      if (dormant(e)) {
+        desat = Math.max(desat, 0.75);
+        this.drawn5e.dormant++;
+      }
+    }
     rec.y = y;
 
     // Rim tint priority: Fermata hold > Save gold > possessed > threaded > hovered > focus >
@@ -1584,6 +1697,10 @@ export class EntityLayer {
       tintStrength = 0.5;
     } else if (isHero && auraMask !== 0) {
       this.tint.copy(this.auraTint(auraMask));
+      tintStrength = 0.3;
+    } else if (e.summon && (e.summon.auraMask ?? 0) !== 0 && e.summon.inField) {
+      // A Sapling in your songs takes their tint, as a hero does (Q1).
+      this.tint.copy(this.auraTint(e.summon.auraMask!));
       tintStrength = 0.3;
     } else if (rec.defId === STOLEN_VERSE_ID && this.stolenColor) {
       // The Stolen Verse (Movement III): an orb in the stolen aura's colour.
@@ -1756,6 +1873,7 @@ export class EntityLayer {
     if (isHero) this.heroExtras(rec, e, state, frame, kit, dt, threadedId, threadColor);
     else if (e.kind === 'enemy') this.enemyExtras(rec, e, state, frame, kit, clock);
     else if (e.kind === 'weaver') this.weaverExtras(rec, e, kit, dt);
+    else if (e.summon) this.summonExtras(rec, e, state, kit, dt);
     if (h) this.shields(rec, e, state, kit);
     if (h) this.ailments(rec, e, kit, dt);
     if (h && h.statuses.length > 0 && !h.dead) this.crimson(rec, e, kit, dt);
@@ -1817,97 +1935,8 @@ export class EntityLayer {
     // Per-aura rim lights: the ring under the hero splits into one lit arc per aura on them.
     // Phase 3: how they hear it shows in the arc. Field song: solid (Phase 2). The beam song
     // poured in: a thick, glowing arc with a second arc outside. Its echo: thin and dashed.
-    if (hero.auraMask !== 0 && !h.downed) {
-      const list = this.auraColors(hero.auraMask);
-      const n = list.length;
-      const gap = n > 1 ? 0.32 : 0;
-      const seg = (Math.PI * 2) / n;
-      const spin = this.now * 0.6;
-      const auras = CONTENT.auras.length;
-      for (let b = 0, j = 0; b < auras && j < n; b++) {
-        const bit = 1 << b;
-        if ((hero.auraMask & bit) === 0) continue;
-        const c = list[j]!;
-        const start = spin + j * seg + gap * 0.5;
-        j++;
-        const hear = auraHearing(bit, this.beamMask, hero.beamFocus, this.beamFullEcho);
-        if (hear === 'fullEcho') {
-          // The echo at full strength (Spindle of Fate): a field song's weight, still dashed.
-          kit.rings.push(
-            x,
-            0.032,
-            z,
-            rec.radius * 1.78,
-            0.11,
-            0.16,
-            RING.dashed,
-            c,
-            0.95,
-            start,
-            seg - gap,
-            0,
-            12,
-          );
-        } else if (hear === 'echo') {
-          kit.rings.push(
-            x,
-            0.032,
-            z,
-            rec.radius * 1.78,
-            0.06,
-            0.06,
-            RING.dashed,
-            c,
-            0.6,
-            start,
-            seg - gap,
-            0,
-            22,
-          );
-        } else if (hear === 'focus') {
-          kit.rings.push(
-            x,
-            0.032,
-            z,
-            rec.radius * 1.78,
-            0.17,
-            0.28,
-            RING.plain,
-            c,
-            1,
-            start,
-            seg - gap,
-          );
-          kit.rings.push(
-            x,
-            0.033,
-            z,
-            rec.radius * 2.08,
-            0.045,
-            0.1,
-            RING.plain,
-            c,
-            0.75,
-            start + 0.08,
-            seg - gap - 0.16,
-          );
-        } else {
-          kit.rings.push(
-            x,
-            0.032,
-            z,
-            rec.radius * 1.78,
-            0.11,
-            0.16,
-            RING.plain,
-            c,
-            0.95,
-            start,
-            seg - gap,
-          );
-        }
-      }
-    }
+    if (hero.auraMask !== 0 && !h.downed)
+      this.auraRims(kit, x, z, rec.radius, hero.auraMask, hero.beamFocus);
 
     if (h.downed) {
       if (rec.bleedMax < h.bleedOut) rec.bleedMax = h.bleedOut;
@@ -1993,6 +2022,9 @@ export class EntityLayer {
     }
     // Brann's Blood Rage, Red Frenzy and Bloodletting (absent `blood`: every default hero).
     if (hero.blood && !h.downed) this.blood(rec, e, kit, dt);
+    // Seren's duel and Oro's grove (absent `duel` / `grove`: every other hero, docs/phase-5e.md).
+    if (hero.duel) this.duel(rec, e, state, kit);
+    if (hero.grove) this.grove(rec, e, state, kit);
     // Active Solo: hero-coloured (gold when Cued) column of light (Brann's in his brass).
     if (hero.soloActive > 0) {
       const c = hero.soloCued ? C.amp : own;
@@ -2019,6 +2051,494 @@ export class EntityLayer {
     }
     // Their life over their heads is the overlay's (partyBars.ts, docs/health-ui.md).
     void state;
+  }
+
+  /**
+   * The per-aura rim arcs (docs/phase-3/vfx.md), for a hero or a summon (docs/phase-5e.md, Q1):
+   * one lit arc per aura in `mask` round its feet, how it hears each shown in the arc. Shared, so
+   * a covered Sapling reads exactly as a hero does.
+   */
+  private auraRims(
+    kit: FxKit,
+    x: number,
+    z: number,
+    radius: number,
+    mask: number,
+    beamFocus: boolean,
+  ): void {
+    const list = this.auraColors(mask);
+    const n = list.length;
+    const gap = n > 1 ? 0.32 : 0;
+    const seg = (Math.PI * 2) / n;
+    const spin = this.now * 0.6;
+    const auras = CONTENT.auras.length;
+    for (let b = 0, j = 0; b < auras && j < n; b++) {
+      const bit = 1 << b;
+      if ((mask & bit) === 0) continue;
+      const c = list[j]!;
+      const start = spin + j * seg + gap * 0.5;
+      j++;
+      const hear = auraHearing(bit, this.beamMask, beamFocus, this.beamFullEcho);
+      if (hear === 'fullEcho') {
+        // The echo at full strength (Spindle of Fate): a field song's weight, still dashed.
+        kit.rings.push(
+          x,
+          0.032,
+          z,
+          radius * 1.78,
+          0.11,
+          0.16,
+          RING.dashed,
+          c,
+          0.95,
+          start,
+          seg - gap,
+          0,
+          12,
+        );
+      } else if (hear === 'echo') {
+        kit.rings.push(
+          x,
+          0.032,
+          z,
+          radius * 1.78,
+          0.06,
+          0.06,
+          RING.dashed,
+          c,
+          0.6,
+          start,
+          seg - gap,
+          0,
+          22,
+        );
+      } else if (hear === 'focus') {
+        kit.rings.push(x, 0.032, z, radius * 1.78, 0.17, 0.28, RING.plain, c, 1, start, seg - gap);
+        kit.rings.push(
+          x,
+          0.033,
+          z,
+          radius * 2.08,
+          0.045,
+          0.1,
+          RING.plain,
+          c,
+          0.75,
+          start + 0.08,
+          seg - gap - 0.16,
+        );
+      } else {
+        kit.rings.push(
+          x,
+          0.032,
+          z,
+          radius * 1.78,
+          0.11,
+          0.16,
+          RING.plain,
+          c,
+          0.95,
+          start,
+          seg - gap,
+        );
+      }
+    }
+  }
+
+  // ── Seren and Oro (docs/phase-5e.md, Presentation) ────────────────────────────────────
+
+  /**
+   * Seren: her ring notched in four (her violet), the crossed blades over her while she stands
+   * en garde, the dashed duel tether to her quarry and the duel crown over it, the red notch
+   * pulse while overextended, and the faint 14 m reach arc round the Weaver while she is more
+   * than 10 m from her.
+   */
+  private duel(rec: EntityRec, e: ReadonlyEntity, state: WorldState, kit: FxKit): void {
+    const h = e.health!;
+    if (h.dead || h.downed) return;
+    const x = rec.x;
+    const z = rec.z;
+    const d5 = this.drawn5e;
+    // The notches: four short arcs just outside her ring.
+    for (let i = 0; i < 4; i++)
+      kit.rings.push(
+        x,
+        0.031,
+        z,
+        rec.radius * 1.62,
+        0.07,
+        0.1,
+        RING.plain,
+        SEREN_VIOLET,
+        0.6,
+        i * (Math.PI / 2) + Math.PI / 4 - 0.14,
+        0.28,
+      );
+    d5.notched++;
+    if (enGarde(e)) {
+      // En garde: two blades crossed over her head (a shape, never the Ward's cyan or silver).
+      const y = rec.y + rec.height + 0.5 + 0.05 * Math.sin(this.now * 3);
+      kit.spritesTop.push(x, y, z, 0.42, SPRITE.needle, SEREN_FLASH, 0.95, 0.75);
+      kit.spritesTop.push(x, y, z, 0.42, SPRITE.needle, SEREN_FLASH, 0.95, -0.75);
+      kit.sprites.push(x, y, z, 0.6, SPRITE.glow, SEREN_VIOLET, 0.35);
+      d5.enGarde++;
+    }
+    const q = quarryOf(state, e);
+    const qr = q ? this.recs.get(q.id) : undefined;
+    if (q && qr) {
+      const ay = rec.y + rec.height * 0.55;
+      kit.beams.push(
+        x,
+        ay,
+        z,
+        qr.x,
+        qr.height * 0.55,
+        qr.z,
+        0.08,
+        BEAM.dashed,
+        SEREN_VIOLET,
+        0.75,
+        1,
+        1,
+        -1.4,
+      );
+      d5.tethers++;
+      // The duel crown: three violet points turning over its head.
+      const cy = qr.height + 0.55 + (qr.tier === 'elite' ? 0.35 : 0);
+      for (let i = 0; i < 3; i++) {
+        const a = this.now * 1.4 + (i * Math.PI * 2) / 3;
+        kit.spritesTop.push(
+          qr.x + Math.cos(a) * 0.32,
+          cy,
+          qr.z + Math.sin(a) * 0.32,
+          0.16,
+          SPRITE.diamond,
+          SEREN_VIOLET,
+          0.95,
+        );
+      }
+      d5.crowns++;
+    }
+    if (overextendedLook(state, e)) {
+      // Overextended: a red notch pulse at her feet (Reel or Rally her).
+      const p = 0.5 + 0.5 * Math.sin(this.now * 8);
+      for (let i = 0; i < 4; i++)
+        kit.rings.push(
+          x,
+          0.034,
+          z,
+          rec.radius * (1.9 + 0.25 * p),
+          0.1,
+          0.18,
+          RING.plain,
+          C.lethal,
+          0.55 + 0.4 * p,
+          i * (Math.PI / 2) + Math.PI / 4 - 0.2,
+          0.4,
+        );
+      d5.overextended++;
+    }
+    if (reachArcShows(state, e)) {
+      // The Weaver's reach for her: a faint arc of it round the Weaver, on her side.
+      const w = this.recs.get(this.weaverId);
+      if (w) {
+        const ang = Math.atan2(z - w.z, x - w.x);
+        kit.rings.push(
+          w.x,
+          0.03,
+          w.z,
+          weaverReach(),
+          0.06,
+          0.12,
+          RING.dashed,
+          SEREN_VIOLET,
+          0.35,
+          ang - 0.5,
+          1,
+          0,
+          14,
+        );
+        d5.reachArcs++;
+      }
+    }
+  }
+
+  /**
+   * Oro: a dashed moss root tether to each of his summons (Rootbond's motes run along it,
+   * groveCues.ts), and the closed leaf over him while he tends (Gentle).
+   */
+  private grove(rec: EntityRec, e: ReadonlyEntity, state: WorldState, kit: FxKit): void {
+    const h = e.health!;
+    if (h.dead) return;
+    const grove = e.hero!.grove!;
+    const d5 = this.drawn5e;
+    const ids = grove.ancient === null ? grove.saplings : [...grove.saplings, grove.ancient];
+    for (const id of ids) {
+      const s = state.entities.get(id);
+      const sr = this.recs.get(id);
+      if (!s?.summon || !sr || s.health?.dead) continue;
+      kit.beams.push(
+        rec.x,
+        0.12,
+        rec.z,
+        sr.x,
+        0.12,
+        sr.z,
+        0.06,
+        BEAM.dashed,
+        GROVE_MOSS,
+        h.downed ? 0.25 : 0.55,
+        1,
+        1,
+        0.6,
+      );
+      d5.rootTethers++;
+    }
+    if (tending(state, e)) {
+      const y = rec.y + rec.height + 0.45 + 0.04 * Math.sin(this.now * 2);
+      kit.spritesTop.push(rec.x, y, rec.z, 0.26, SPRITE.drop, GROVE_MOSS, 0.95, 0, 1, 0);
+      kit.sprites.push(rec.x, y, rec.z, 0.4, SPRITE.glow, GROVE_SEED, 0.25);
+      d5.tending++;
+    }
+  }
+
+  /**
+   * One of Oro's summons: its ring in his moss, its aura rims as a hero's (Q1: lit while it
+   * stands in your field, the same arcs greyed outside it), the burrow trail after a Rally, the
+   * Ancient's ground warning as it rises and its taunt ring while it stands, and the tended
+   * sparkle while Oro tends.
+   */
+  private summonExtras(
+    rec: EntityRec,
+    e: ReadonlyEntity,
+    state: WorldState,
+    kit: FxKit,
+    dt: number,
+  ): void {
+    const h = e.health;
+    const s = e.summon!;
+    if (!h || h.dead) return;
+    const d5 = this.drawn5e;
+    this.summonIds.push(e.id);
+    const x = rec.x;
+    const z = rec.z;
+    if (s.kind === 'ancient') d5.ancients++;
+    else d5.saplings++;
+    kit.rings.push(x, 0.03, z, rec.radius * 1.45, 0.06, 0.1, RING.plain, GROVE_MOSS, 0.4);
+    const cov = summonCoverage(e);
+    if (cov.mask !== 0) {
+      if (cov.inField) {
+        this.auraRims(kit, x, z, rec.radius, cov.mask, false);
+        d5.summonRims++;
+      } else {
+        // Outside your field: the same arcs, greyed.
+        const n = this.auraColors(cov.mask).length;
+        const seg = (Math.PI * 2) / n;
+        const gap = n > 1 ? 0.32 : 0;
+        for (let j = 0; j < n; j++)
+          kit.rings.push(
+            x,
+            0.032,
+            z,
+            rec.radius * 1.78,
+            0.08,
+            0.12,
+            RING.plain,
+            GROVE_OUT,
+            0.6,
+            j * seg + gap * 0.5,
+            seg - gap,
+          );
+        d5.greyRims++;
+      }
+    } else if (!cov.inField) {
+      // Out of your songs entirely: a grey broken rim (the leaf mark is on its bar).
+      kit.rings.push(
+        x,
+        0.032,
+        z,
+        rec.radius * 1.78,
+        0.06,
+        0.1,
+        RING.dashed,
+        GROVE_OUT,
+        0.55,
+        0,
+        7,
+        0,
+        8,
+      );
+      d5.greyRims++;
+    }
+    if (burrowing(state, e)) {
+      // The burrow trail: earth churned up from where it sank toward where it re-plants.
+      rec.smokeAcc += dt * 16 * kit.particles.density;
+      while (rec.smokeAcc > 1) {
+        rec.smokeAcc -= 1;
+        const k = Math.random();
+        kit.smoke.emit(
+          x + (s.plantX - x) * k,
+          0.1,
+          z + (s.plantZ - z) * k,
+          0,
+          0.3,
+          0,
+          0.7,
+          0.35,
+          GROVE_BARK,
+          0.45,
+          PARTICLE.smoke,
+          1.2,
+          0,
+          0.5,
+        );
+      }
+      kit.rings.push(
+        s.plantX,
+        0.03,
+        s.plantZ,
+        rec.radius * 1.4,
+        0.06,
+        0.14,
+        RING.dashed,
+        GROVE_MOSS,
+        0.7,
+        0,
+        7,
+        0,
+        6,
+        this.now,
+      );
+      d5.burrows++;
+    }
+    if (s.kind === 'ancient') {
+      const owner = ownerOf(state, e);
+      // Its first second: the ground warning, a ring of seed light closing in as it rises.
+      const age = s.until !== undefined ? state.time - (s.until - this.ancientLife(owner)) : 99;
+      if (age >= 0 && age < ANCIENT_RISE) {
+        const k = age / ANCIENT_RISE;
+        kit.rings.push(
+          x,
+          0.035,
+          z,
+          rec.radius * (3.4 - 2 * k),
+          0.12,
+          0.22,
+          RING.plain,
+          GROVE_SEED,
+          0.9 * (1 - k),
+        );
+        d5.warnings++;
+      }
+      kit.rings.push(
+        x,
+        0.03,
+        z,
+        ancientTauntRadius(owner),
+        0.07,
+        0.14,
+        RING.dashed,
+        GROVE_MOSS,
+        0.5,
+        0,
+        7,
+        0.03,
+        28,
+        this.now * 0.3,
+      );
+      d5.tauntRings++;
+    } else if (tending(state, ownerOf(state, e))) {
+      // Tended (+50%): a slow sparkle of seed light over it.
+      const a = this.now * 2 + rec.id;
+      kit.sprites.push(
+        x + Math.cos(a) * 0.3,
+        rec.height + 0.15,
+        z + Math.sin(a) * 0.3,
+        0.12,
+        SPRITE.diamond,
+        GROVE_SEED,
+        0.8,
+      );
+    }
+  }
+
+  /** The Ancient's life (content; 8 s), for its rise's clock. */
+  private ancientLife(owner: ReadonlyEntity | undefined): number {
+    const id = owner?.hero?.defId;
+    return (id ? heroDef(id).summons?.ancient.life : undefined) ?? 8;
+  }
+
+  /**
+   * Seren: crossed blades over her for every blow she can parry aimed at her (a parryable cone
+   * whose target is her). Only while she is in the party.
+   */
+  private parryGlyphs(state: WorldState, kit: FxKit): void {
+    if (!duelHero(state)) return;
+    for (const t of state.telegraphs) {
+      if (!parryGlyph(state, t)) continue;
+      const r = this.recs.get(t.target!);
+      if (!r) continue;
+      const y = r.y + r.height + 0.95;
+      kit.spritesTop.push(r.x, y, r.z, 0.34, SPRITE.needle, SEREN_VIOLET, 0.95, 0.75);
+      kit.spritesTop.push(r.x, y, r.z, 0.34, SPRITE.needle, SEREN_VIOLET, 0.95, -0.75);
+      this.drawn5e.parryGlyphs++;
+    }
+  }
+
+  /** Oro's root on an enemy: vines up its legs (the stake's look, in his moss) and a ring. */
+  private vines(rec: EntityRec, kit: FxKit): void {
+    for (let i = 0; i < 3; i++) {
+      const a = (i * Math.PI * 2) / 3 + rec.id;
+      kit.sprites.push(
+        rec.x + Math.cos(a) * rec.radius * 0.6,
+        rec.height * 0.25 + rec.y,
+        rec.z + Math.sin(a) * rec.radius * 0.6,
+        0.42,
+        SPRITE.stake,
+        GROVE_VINE,
+        0.9,
+        Math.PI,
+      );
+    }
+    kit.rings.push(
+      rec.x,
+      0.035,
+      rec.z,
+      rec.radius * 1.5,
+      0.1,
+      0.18,
+      RING.dashed,
+      GROVE_VINE,
+      0.85,
+      0,
+      7,
+      0,
+      9,
+    );
+    this.drawn5e.vines++;
+  }
+
+  /**
+   * Seren's afterimage where she was (Thousand Cuts' blinks, Feint's step): her own model, a
+   * violet ghost fading (gold-edged in a Cued Thousand Cuts).
+   */
+  afterimage(id: EntityId, x: number, z: number, cued: boolean): void {
+    const r = this.recs.get(id);
+    if (!r || r.kind !== 'hero') return;
+    const g = this.freeGhost();
+    if (!g) return;
+    g.active = true;
+    g.save = false;
+    g.chrono = 3;
+    g.batch = r.batch;
+    g.hero = id;
+    g.x = x;
+    g.z = z;
+    g.yaw = r.yaw;
+    g.age = 0;
+    g.life = 0.4;
+    g.side = cued ? 2 : 1;
+    g.radius = r.radius;
   }
 
   /**
@@ -2404,7 +2924,15 @@ export class EntityLayer {
         rec.risen > 0 ? ASH : ENEMY_BAR,
         flags,
       );
+      // Seren and Oro (docs/phase-5e.md): the heavy pip at the bar's left on a heavy foe (the
+      // Hollow Champion): never executed by a kill shot, never held by a summon.
+      if (this.rosterHeavy && heavyPip(state, e, true)) {
+        kit.spritesTop.push(x, top + 0.2, z, 0.2, SPRITE.seal, C.white, 0.9);
+        this.drawn5e.heavyPips++;
+      }
     }
+    // Oro's root (docs/phase-5e.md): its immunity key exists only once a root has landed.
+    if (enemy.rootImmuneUntil !== undefined && !h?.dead && rootedLook(e)) this.vines(rec, kit);
   }
 
   private weaverExtras(rec: EntityRec, e: ReadonlyEntity, kit: FxKit, dt: number): void {
@@ -3078,6 +3606,14 @@ export class EntityLayer {
       }
       if (g.chrono === 2) {
         this.updateUnfall(g, t, kit);
+        continue;
+      }
+      if (g.chrono === 3) {
+        // Seren's afterimage: violet, gold-edged when Cued, dissolving where she was.
+        const m = this.compose(g.x, 0, g.z, g.yaw, -0.2, 0, 1);
+        const edge = g.side === 2 ? C.amp : SEREN_VIOLET;
+        g.batch.push(m, 0.6 * (1 - t), 0.2 + t * 0.8, 0.6, 0.6, edge, 1.3);
+        this.drawn5e.afterimages++;
         continue;
       }
       this.e.set(-0.35, g.yaw, 0, 'YXZ');

@@ -181,6 +181,43 @@ export interface AllyBarView {
 /** Brann's ticks drawn on one bar at most (40, 30, 10). */
 const MAX_TICKS = 3;
 
+/**
+ * One of Oro's summons' bars over it (docs/phase-5e.md): compact, keyless, with a leaf tag in
+ * his moss. Its life, its shield, whether it stands in your field (outside: the leaf greys and an
+ * out-of-field mark shows), dormant (Oro down, the silence), burrowing (re-planting).
+ */
+export interface SummonBarView {
+  hp: number;
+  shield: number;
+  /** It stands in your field (Q1: it takes your songs). */
+  inField: boolean;
+  dormant: boolean;
+  burrowing: boolean;
+  /** Oro tends (Gentle): its Saplings fight harder. */
+  tended: boolean;
+  /** The Ancient: a wider bar. */
+  ancient: boolean;
+  /** The leaf tag's colour (Oro's moss). */
+  leafHex: string;
+}
+
+/** The summon bars' pool: made on the first summon bar (Saplings, the Ancient; three with Seedling Swarm). */
+const SUMMON_BARS = 6;
+const SUMMON_BAR_W = 38;
+const SUMMON_BAR_H = 5;
+const SUMMON_OUT = '#6b7280';
+
+interface SummonBarItem {
+  el: HTMLDivElement;
+  leaf: HTMLSpanElement;
+  track: HTMLDivElement;
+  fill: HTMLDivElement;
+  shield: HTMLDivElement;
+  out: HTMLSpanElement;
+  shown: string;
+  used: boolean;
+}
+
 interface AllyBarItem {
   el: HTMLDivElement;
   key: HTMLSpanElement;
@@ -255,6 +292,8 @@ interface ArrowItem {
   color: string;
   danger: boolean;
   used: boolean;
+  /** Seren beyond your reach (docs/phase-5e.md): a dashed ring round the arrow, made on first use. */
+  beyond?: HTMLDivElement;
 }
 
 function div(parent: HTMLElement, css: string): HTMLDivElement {
@@ -275,6 +314,9 @@ export class Overlay {
   private readonly badges: BadgeItem[] = [];
   private readonly allyBars: AllyBarItem[] = [];
   private allyCursor = 0;
+  /** Oro's summons' bars (docs/phase-5e.md): a separate pool, made on the first one shown. */
+  private summonBars: SummonBarItem[] | null = null;
+  private summonCursor = 0;
   private readonly arrows: ArrowItem[] = [];
   private readonly bubbles: BubbleItem[] = [];
   private bubbleCursor = 0;
@@ -753,6 +795,7 @@ export class Overlay {
 
   beginFrame(): void {
     this.allyCursor = 0;
+    this.summonCursor = 0;
     this.badgeCursor = 0;
     this.bubbleCursor = 0;
     this.arrowCursor = 0;
@@ -828,6 +871,78 @@ export class Overlay {
     // The track's middle over the point (the key tag hangs to its left).
     const shift = (ALLY_KEY + ALLY_GAP) / 2;
     b.el.style.transform = `translate3d(${(p.x - shift).toFixed(1)}px,${p.y.toFixed(1)}px,0) translate(-50%,-50%)`;
+  }
+
+  /**
+   * A summon's bar over it (docs/phase-5e.md): compact and keyless, a leaf tag in Oro's moss (grey,
+   * with an out-of-field mark, while it stands outside your field). Its own pool, made the first
+   * time: the heroes' four bars are untouched.
+   */
+  summonBar(x: number, y: number, z: number, bar: SummonBarView): void {
+    const pool = this.summonBars ?? this.makeSummonBars();
+    const b = pool[this.summonCursor];
+    if (!b) return;
+    const p = this.project(x, y, z, this.p);
+    if (p.behind) return;
+    this.summonCursor++;
+    b.used = true;
+    const pc = (v: number) => `${(Math.min(1, Math.max(0, v)) * 100).toFixed(1)}%`;
+    const shown = [
+      pc(bar.hp),
+      pc(bar.shield),
+      bar.inField,
+      bar.dormant,
+      bar.burrowing,
+      bar.tended,
+      bar.ancient,
+      bar.leafHex,
+    ].join('|');
+    if (b.shown !== shown) {
+      b.shown = shown;
+      b.fill.style.width = pc(bar.hp);
+      b.fill.style.background = bar.dormant ? '#94a3b8' : LIFE_OK;
+      b.shield.style.left = pc(bar.hp);
+      b.shield.style.width = pc(Math.min(bar.shield, 1 - bar.hp));
+      b.track.style.width = `${bar.ancient ? SUMMON_BAR_W * 1.6 : SUMMON_BAR_W}px`;
+      b.leaf.style.background = bar.inField ? bar.leafHex : SUMMON_OUT;
+      b.leaf.style.boxShadow = bar.tended
+        ? `0 0 0 1px rgba(0,0,0,0.75),0 0 6px ${bar.leafHex}`
+        : '0 0 0 1px rgba(0,0,0,0.75)';
+      b.out.style.display = bar.inField ? 'none' : 'inline';
+      b.el.style.opacity = bar.burrowing ? '0.45' : bar.dormant ? '0.6' : '1';
+    }
+    if (b.el.style.display !== 'flex') b.el.style.display = 'flex';
+    b.el.style.transform = `translate3d(${p.x.toFixed(1)}px,${p.y.toFixed(1)}px,0) translate(-50%,-50%)`;
+  }
+
+  private makeSummonBars(): SummonBarItem[] {
+    const pool: SummonBarItem[] = [];
+    for (let i = 0; i < SUMMON_BARS; i++) {
+      const el = div(
+        this.root,
+        'position:absolute;left:0;top:0;display:none;align-items:center;gap:2px;will-change:transform;',
+      );
+      el.dataset.testid = 'sapling-bar';
+      // The leaf tag: a leaf shape (two rounded corners), no key.
+      const leaf = document.createElement('span');
+      leaf.style.cssText =
+        'width:8px;height:8px;border-radius:0 70% 0 70%;box-shadow:0 0 0 1px rgba(0,0,0,0.75);';
+      el.appendChild(leaf);
+      const track = div(
+        el,
+        `position:relative;width:${SUMMON_BAR_W}px;height:${SUMMON_BAR_H}px;border-radius:2px;background:rgba(11,15,30,0.9);overflow:hidden;box-shadow:0 0 0 1px rgba(0,0,0,0.8);`,
+      );
+      const fill = div(track, 'position:absolute;left:0;top:0;bottom:0;');
+      const shield = div(track, 'position:absolute;top:0;height:2px;background:#a5f3fc;');
+      // Out of your field: a small struck mark after the bar (shape, not colour alone).
+      const out = document.createElement('span');
+      out.textContent = '\u2298';
+      out.style.cssText = `display:none;font:700 9px/1 Inter,sans-serif;color:${SUMMON_OUT};text-shadow:0 1px 0 rgba(0,0,0,0.9);`;
+      el.appendChild(out);
+      pool.push({ el, leaf, track, fill, shield, out, shown: '', used: false });
+    }
+    this.summonBars = pool;
+    return pool;
   }
 
   /** Brann's ticks, raging band and Bloodletting drain on his bar (hidden on anyone else's). */
@@ -972,8 +1087,18 @@ export class Overlay {
 
   // ── Off-screen arrows (immediate mode) ─────────────────────────────────────────────
 
-  /** Shows an edge arrow if (x, z) is off-screen. Returns true if one was drawn. */
-  edgeArrow(x: number, y: number, z: number, color: string, danger: number): boolean {
+  /**
+   * Shows an edge arrow if (x, z) is off-screen. Returns true if one was drawn. `beyond`: the
+   * hero is beyond your reach (Seren, docs/phase-5e.md): a dashed ring round it.
+   */
+  edgeArrow(
+    x: number,
+    y: number,
+    z: number,
+    color: string,
+    danger: number,
+    beyond = false,
+  ): boolean {
     const p = this.project(x, y, z, this.p);
     if (p.onScreen) return false;
     const a = this.arrows[this.arrowCursor];
@@ -1011,6 +1136,16 @@ export class Overlay {
         : `0 0 8px ${color}88`;
       a.head.style.borderLeftColor = ringColor;
       a.dot.style.background = color;
+    }
+    if (beyond && !a.beyond)
+      a.beyond = div(
+        a.el,
+        'position:absolute;inset:-5px;border-radius:50%;border:2px dashed;display:none;',
+      );
+    if (a.beyond) {
+      const show = beyond ? 'block' : 'none';
+      if (a.beyond.style.display !== show) a.beyond.style.display = show;
+      if (beyond) a.beyond.style.borderColor = color;
     }
     return true;
   }
@@ -1151,6 +1286,14 @@ export class Overlay {
         b.el.style.display = 'none';
       }
     }
+    if (this.summonBars)
+      for (let i = this.summonCursor; i < this.summonBars.length; i++) {
+        const b = this.summonBars[i]!;
+        if (b.used) {
+          b.used = false;
+          b.el.style.display = 'none';
+        }
+      }
     for (let i = this.badgeCursor; i < this.badges.length; i++) {
       const b = this.badges[i]!;
       if (b.used) {

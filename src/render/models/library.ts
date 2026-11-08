@@ -21,6 +21,20 @@ const GOLD = '#e8b54a';
 const GOLD_GLOW = '#ffd27a';
 /** Brann's brass trim (his collar and axe edge, docs/phase-5b.md): BRANN_HEX.brass. */
 export const BRASS_TRIM = '#a6a650';
+/**
+ * Seren's steel (docs/phase-5e.md, Colour: Seren): her coat and her rapier's blade, the plan's
+ * silver. Model parts only, never a flat UI or 2D colour: it is the Grand Silence's stilled ink
+ * (SILENCE_INK) by design, and no silver clears the shipped inks (tests/colorVision.test.ts).
+ */
+export const SEREN_STEEL = '#cbd5e1';
+/**
+ * Oro's seed glow (docs/phase-5e.md, Colour: Oro): the trim part on his staff and branch crown
+ * that carries him where his moss sits close to the Spire's and the Rift's colours (Brann's
+ * rule; measured in tests/colorVision.test.ts).
+ */
+export const ORO_SEED = '#a0f870';
+/** Oro's bark (his robe, the Saplings' stumps, the Ancient's body). */
+const BARK = '#5b4330';
 
 /**
  * The Weaver in `palette` (keepsakeCues.ts: her robe and her Thread look's hands). Her own is the
@@ -232,12 +246,152 @@ export function buildHero(def: HeroDef): THREE.BufferGeometry {
       });
       break;
     }
+    case 'duelist': {
+      // Seren (docs/phase-5e.md): slim and tall, a fitted steel coat with a split tail, a violet
+      // sash, a long rapier held forward (its tip ahead of every hero's), the off-hand raised.
+      const k = h / 1.95;
+      const skin = '#e9cdb4';
+      const boot = '#2a2633';
+      // Long legs in dark breeches and boots, a fencer's stance (the lead foot forward).
+      b.cyl(0.075, 0.065, 0.86 * k, boot, { p: [0.11, 0.43 * k, -0.08] }, 6);
+      b.cyl(0.075, 0.065, 0.86 * k, boot, { p: [-0.11, 0.43 * k, 0.1] }, 6);
+      // The fitted coat: a narrow torso, the tail split in two behind her.
+      b.cyl(0.17, 0.21, 0.66 * k, SEREN_STEEL, { p: [0, 1.2 * k, 0] }, 8);
+      b.box(0.13, 0.5 * k, 0.04, SEREN_STEEL, { p: [0.08, 0.72 * k, 0.2], r: [-0.22, 0, 0.08] });
+      b.box(0.13, 0.5 * k, 0.04, SEREN_STEEL, { p: [-0.08, 0.72 * k, 0.2], r: [-0.22, 0, -0.08] });
+      // Her violet sash, tied at the left hip, its end hanging.
+      b.torus(
+        0.2,
+        0.035,
+        col,
+        { p: [0, 0.92 * k, 0], r: [Math.PI / 2, 0, 0], glow: 0.2 },
+        Math.PI * 2,
+        12,
+      );
+      b.box(0.06, 0.32 * k, 0.03, col, { p: [-0.2, 0.76 * k, -0.04], r: [0, 0, 0.18] });
+      // High collar, head, hair tied back.
+      b.cyl(0.1, 0.12, 0.12 * k, SEREN_STEEL, { p: [0, 1.58 * k, 0] }, 8);
+      b.sphere(0.14, skin, { p: [0, 1.74 * k, 0] });
+      b.sphere(0.12, '#1d1626', { p: [0, 1.8 * k, 0.05], s: [1, 0.8, 1.05] });
+      b.cone(0.05, 0.26, '#1d1626', { p: [0, 1.72 * k, 0.2], r: [-2.4, 0, 0] }, 5);
+      // The sword arm, extended forward and low; the off-hand raised behind her, open.
+      b.cyl(0.05, 0.045, 0.56, SEREN_STEEL, { p: [0.18, 1.28 * k, -0.24], r: [1.2, 0, 0] }, 6);
+      b.cyl(0.05, 0.045, 0.5, SEREN_STEEL, { p: [-0.24, 1.5 * k, 0.12], r: [-0.4, 0, 0.6] }, 6);
+      b.sphere(0.05, skin, { p: [-0.38, 1.7 * k, 0.2] });
+      // The rapier: a cupped guard, a long steel blade far forward, a violet edge along it.
+      b.sphere(0.075, col, { p: [0.18, 1.18 * k, -0.5], s: [1, 1, 0.55], glow: 0.25 });
+      b.box(0.022, 0.022, 1.3, SEREN_STEEL, { p: [0.18, 1.14 * k, -1.16], r: [-0.06, 0, 0] });
+      b.box(0.008, 0.03, 1.22, col, {
+        p: [0.18, 1.162 * k, -1.18],
+        r: [-0.06, 0, 0],
+        glow: 0.55,
+      });
+      break;
+    }
+    case 'summoner': {
+      // Oro (docs/phase-5e.md): short and broad, a bark robe under a moss mantle, a crown of
+      // branches, a staff with a seed glowing at its head (ORO_SEED, his trim).
+      const k = h / 1.7;
+      const skin = '#a07a5c';
+      // The bark robe: wide at the hem, his feet hidden under it.
+      b.lathe(
+        [
+          [0.5, 0],
+          [0.48, 0.18 * k],
+          [0.38, 0.75 * k],
+          [0.3, 1.05 * k],
+          [0, 1.1 * k],
+        ],
+        BARK,
+        {},
+        9,
+      );
+      // The moss mantle over his broad shoulders, hanging in a ragged hem.
+      b.cyl(0.36, 0.52, 0.42 * k, col, { p: [0, 1.0 * k, 0], s: [1, 1, 0.82] }, 9);
+      b.sphere(0.2, col, { p: [0.36, 1.12 * k, 0], s: [1, 0.7, 1] });
+      b.sphere(0.2, col, { p: [-0.36, 1.12 * k, 0], s: [1, 0.7, 1] });
+      // Head and a full beard, the branch crown with its seed buds.
+      b.sphere(0.17, skin, { p: [0, 1.34 * k, 0] });
+      b.cone(0.15, 0.26, '#d8d0b8', { p: [0, 1.2 * k, -0.08], r: [Math.PI, 0, 0] }, 6);
+      for (const a of [-0.9, -0.3, 0.3, 0.9]) {
+        b.cyl(
+          0.018,
+          0.026,
+          0.3,
+          BARK,
+          { p: [Math.sin(a) * 0.14, 1.56 * k, Math.cos(a) * 0.04], r: [0, 0, -a * 0.6] },
+          4,
+        );
+        b.octa(0.035, ORO_SEED, {
+          p: [Math.sin(a) * 0.24, 1.7 * k, Math.cos(a) * 0.04],
+          glow: 0.6,
+        });
+      }
+      // The staff in his right hand, gnarled, the seed glowing at its head in a leaf cup.
+      b.cyl(0.03, 0.04, 1.6 * k, BARK, { p: [0.48, 0.8 * k, -0.18], r: [0.06, 0, -0.04] }, 5);
+      b.cone(0.12, 0.16, col, { p: [0.5, 1.62 * k, -0.22], r: [Math.PI, 0, 0] }, 6);
+      b.ico(0.1, ORO_SEED, { p: [0.5, 1.7 * k, -0.22], glow: 1 });
+      break;
+    }
     default: {
       b.cyl(0.22, 0.3, h * 0.65, col, { p: [0, h * 0.33, 0] }, 7);
       b.sphere(0.17, light, { p: [0, h * 0.78, 0] });
       b.octa(0.1, light, { p: [0.3, h * 0.55, -0.25], glow: 1 });
     }
   }
+  return b.build();
+}
+
+/**
+ * Oro's Sapling (docs/phase-5e.md): a knee-high stump with two leaf ears and a sprout, in his
+ * bark and moss, its seed bud ORO_SEED. Local forward is -z, feet at y = 0.
+ */
+export function buildSapling(moss = '#487858'): THREE.BufferGeometry {
+  const b = new ModelBuilder();
+  // The stump, wide at its roots, a ring of roots splayed at its foot.
+  b.cyl(0.22, 0.3, 0.42, BARK, { p: [0, 0.21, 0] }, 7);
+  for (let i = 0; i < 4; i++) {
+    const a = (i / 4) * Math.PI * 2 + 0.4;
+    b.box(0.08, 0.06, 0.26, shade(BARK, -0.2), {
+      p: [Math.sin(a) * 0.28, 0.03, Math.cos(a) * 0.28],
+      r: [0, a, 0],
+    });
+  }
+  // The cut top, paler, and two eyes in the bark facing forward.
+  b.cyl(0.21, 0.21, 0.03, '#a88a64', { p: [0, 0.43, 0] }, 7);
+  b.sphere(0.035, '#1a140e', { p: [0.08, 0.32, -0.24] });
+  b.sphere(0.035, '#1a140e', { p: [-0.08, 0.32, -0.24] });
+  // Leaf ears either side, and a sprout with its seed bud.
+  b.sphere(0.16, moss, { p: [0.26, 0.5, 0], s: [1, 0.3, 0.55], r: [0, 0, -0.6] });
+  b.sphere(0.16, moss, { p: [-0.26, 0.5, 0], s: [1, 0.3, 0.55], r: [0, 0, 0.6] });
+  b.cyl(0.02, 0.025, 0.2, moss, { p: [0, 0.54, 0] }, 4);
+  b.octa(0.05, ORO_SEED, { p: [0, 0.66, 0], glow: 0.8 });
+  return b.build();
+}
+
+/**
+ * The Ancient (docs/phase-5e.md, Wildgrowth): a 2.6 m tree-golem, a trunk body on root legs,
+ * branch arms, a mossy crown and seed-glow eyes.
+ */
+export function buildAncient(moss = '#487858'): THREE.BufferGeometry {
+  const b = new ModelBuilder();
+  const dark = shade(BARK, -0.25);
+  // Root legs, splayed.
+  b.cyl(0.18, 0.28, 0.9, dark, { p: [0.36, 0.45, 0], r: [0, 0, 0.12] }, 6);
+  b.cyl(0.18, 0.28, 0.9, dark, { p: [-0.36, 0.45, 0], r: [0, 0, -0.12] }, 6);
+  // The trunk: broad, bowed forward.
+  b.cyl(0.52, 0.62, 1.2, BARK, { p: [0, 1.4, 0], r: [-0.08, 0, 0] }, 8);
+  // Branch arms, heavy, reaching down and forward.
+  b.cyl(0.12, 0.2, 1.1, BARK, { p: [0.72, 1.4, -0.12], r: [0.4, 0, 0.5] }, 6);
+  b.cyl(0.12, 0.2, 1.1, BARK, { p: [-0.72, 1.4, -0.12], r: [0.4, 0, -0.5] }, 6);
+  b.sphere(0.2, dark, { p: [0.98, 0.95, -0.34] });
+  b.sphere(0.2, dark, { p: [-0.98, 0.95, -0.34] });
+  // The mossy crown, and the seed-glow eyes under its brow.
+  b.ico(0.62, moss, { p: [0, 2.22, 0.04], s: [1.2, 0.75, 1.1] }, 1);
+  b.sphere(0.32, shade(moss, 0.18), { p: [0.4, 2.4, 0.1] });
+  b.sphere(0.3, shade(moss, -0.15), { p: [-0.38, 2.36, -0.06] });
+  b.sphere(0.07, ORO_SEED, { p: [0.17, 1.82, -0.5], glow: 1 });
+  b.sphere(0.07, ORO_SEED, { p: [-0.17, 1.82, -0.5], glow: 1 });
   return b.build();
 }
 

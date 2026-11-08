@@ -194,6 +194,24 @@ const hit = (sim: Sim, target: Entity, amount: number, source: Entity | null) =>
 const heroHexOf = (slot: number) => heroDef(['kael', 'lyra', 'vexis'][slot]!).color;
 /** The default party and Brann after them (a cue's hero by its slot). */
 const ALL_FOUR = ['kael', 'lyra', 'vexis', 'brann'];
+/** Every hero (docs/phase-5e.md): the default three, then Brann, Seren and Oro. */
+const ALL_SIX = ['kael', 'lyra', 'vexis', 'brann', 'seren', 'oro'];
+/** A cue's party: the default three, and its hero fourth when it isn't one of them. */
+const cueParty = (hero: string) =>
+  ALL_FOUR.slice(0, 3).includes(hero) ? undefined : [...ALL_FOUR.slice(0, 3), hero];
+/**
+ * Seren's and Oro's cues the sim doesn't announce yet (docs/phase-5e.md: W1 and W2 fill
+ * `duel.ts` and `grove.ts`): the cue list may run ahead of the sim by these, and only these.
+ */
+const PENDING_5E = new Set([
+  'riposte_chain',
+  'bladesong',
+  'unflinching',
+  'duellists_honour',
+  'thorned_bark',
+  'old_growth',
+  'world_tree',
+]);
 const tough = (sim: Sim) => {
   for (const e of worldOf(sim).entities.list())
     if (e.enemy && e.health) e.health.hp = e.health.maxHp = 1e6;
@@ -219,10 +237,19 @@ function simTalents(): string[] {
 
 describe('Bonds cues', () => {
   it('a cue for every talent the sim announces, each its hero’s', () => {
-    expect([...BOND_CUES].sort()).toEqual(simTalents());
+    // Every talent the sim announces has its cue; a cue the sim doesn't announce yet is one of
+    // Seren's and Oro's (their sim lands in W1 and W2).
+    const sim = simTalents();
+    expect([...BOND_CUES].filter((id) => !PENDING_5E.has(id) || sim.includes(id)).sort()).toEqual(
+      sim,
+    );
+    for (const id of PENDING_5E) {
+      expect(BOND_CUES as readonly string[], id).toContain(id);
+      expect(['seren', 'oro'], id).toContain(cueHero(id));
+    }
     for (const id of BOND_CUES) {
       expect(bondCue(id)).toBe(id);
-      expect(['kael', 'lyra', 'vexis', 'brann'], id).toContain(cueHero(id));
+      expect(ALL_SIX, id).toContain(cueHero(id));
       expect(CUE_LIFE[id], id).toBeGreaterThanOrEqual(0);
     }
     // Talents with nothing visible to announce (their effect is a number) have no cue.
@@ -629,7 +656,10 @@ describe('every moment, and the rules they keep', () => {
   /** Each cue's `talentFired`, built as the sim builds it, from a real sandbox's heroes. */
   const synthetic = (id: BondCue, sim: Sim): SimEvent => {
     const st = sim.state;
-    const hero = st.party[ALL_FOUR.indexOf(cueHero(id)!)]!;
+    const own = cueHero(id)!;
+    // A starter's slot; any other cue's hero is fourth (cueParty).
+    const slot = ALL_FOUR.slice(0, 3).indexOf(own);
+    const hero = st.party[slot >= 0 ? slot : 3]!;
     const he = st.entities.get(hero)!;
     const foe = [...st.entities.list()].find((e) => e.enemy)!;
     const target =
@@ -654,9 +684,11 @@ describe('every moment, and the rules they keep', () => {
   it('each is drawn in its hero’s colour, at Flashes 0 too', () => {
     for (const flashes of [1, 0]) {
       for (const id of BOND_CUES) {
-        // Brann's cues need Brann: a fourth hero after the default three (their slots as ever).
+        // Brann's, Seren's and Oro's cues need their hero: a fourth after the default three
+        // (their slots as ever).
         const brann = cueHero(id) === 'brann';
-        const { sim, h } = setup(brann ? { ...bonds([]), party: ALL_FOUR } : bonds([]));
+        const party = cueParty(cueHero(id)!);
+        const { sim, h } = setup(party ? { ...bonds([]), party } : bonds([]));
         enemies(h, ['bell_brute', 0, -8]);
         h.view.handle([synthetic(id, sim)], sim.state);
         h.tick([], flashes);

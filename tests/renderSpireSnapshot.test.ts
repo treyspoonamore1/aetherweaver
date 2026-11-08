@@ -504,6 +504,13 @@ const MODELS: Record<string, ModelShot> = {
   'hero:brann': {
     hash: '2a832b7c',
   },
+  // Phase 5e (docs/phase-5e.md): appended; every model above is unchanged.
+  'hero:seren': {
+    hash: 'd480e0e5',
+  },
+  'hero:oro': {
+    hash: 'b45b6fe6',
+  },
   weaver: {
     hash: 'e3840c18',
   },
