@@ -499,7 +499,7 @@ The Call is her lesson: the Ward you answer with arrives with her, armed to parr
   - while the Thread is cut (Snip, or a Severing cut);
   - through the Prism spill;
   - onto a felled Sapling (it never revives).
-- `GroveState`: `{saplings: EntityId[], respawnAt: number[], ancient: EntityId | null, lost, rootbondHeal, inFieldTime, aliveTime}`.
+- `GroveState`: `{saplings: EntityId[], respawnAt: number[], ancient: EntityId | null, lost, ancients, rootbondHeal, inFieldTime, aliveTime}`. `ancients` counts the Ancients raised this fight (W2 increments it where the Ancient spawns); `outcome.ts` reads it for `HeroGroveStats.ancients`.
 
 ### Abilities, Call and Flourish
 
@@ -1190,14 +1190,12 @@ Thread rules are **post-pick modifiers** (`:746-783`), never a fork beside `else
   - uiPhase5e (Seren’s frame never silver; the epilogue’s RECRUIT_LINES; the EventScreen 2 × 2);
   - the colour rows;
   - the e2e smoke.
-- **Expected reds with owners** (named in W0b, never weakened):
-  - `tests/content.test.ts:24` (W0b);
-  - `uiPhase5b.test.ts:113`, `uiPhase4e.test.ts:549`, `appStores.test.ts:279` (W6);
-  - `demo.test.ts:35-39`, `meta/roster.test.ts:101-112`, `meta/deeds.test.ts:182-201` (the count and the `slice(20)` order: two appended last) (W3);
-  - `renderBonds.test.ts:196, 225` (W4);
-  - `audio.test.ts:157-166, 468-469`, `audioPhase5d.test.ts:914-920` (W5);
+- **Expected reds with owners** (committed by W0b as the final allow-list, never weakened; the table under *Expected reds after W0b* is the same list with reasons):
+  - `meta/roster.test.ts:105, 265` (W3);
+  - `uiPhase4e.test.ts:549, 570`, `uiPhase5b.test.ts:467`, `uiPhase5bFixes.test.ts:248, 373` (W6);
   - `harnessTools.test.ts:526` (W8);
   - the e2e unlockAll picker counts (W6).
+  - Reds the owners' own additions bring and close themselves (green after W0b): `appStores.test.ts:279` (W6); `demo.test.ts:35-39`, `meta/deeds.test.ts:182-201` (the count and the `slice(20)` order: two appended last) (W3); `renderBonds.test.ts:196, 225` (W4); `audio.test.ts:157-166, 468-469`, `audioPhase5d.test.ts:914-920` (W5).
 
 ## Workstreams
 
@@ -1228,6 +1226,9 @@ W0b landed every interface in *contracts*. All 19 goldens are byte-identical (on
 
 **Deviations from *contracts*, with reasons.**
 - The event choices `debt` (tithe_altar) and `follow` (loose_thread) landed in W0b, not W3: the hero lint ('event has no fight that recruits them', and the new rank rule) needs them the moment Seren and Oro are in CONTENT. Because they exist, W0b also made three meta reads Rank-aware, all additive in `src/meta/run.ts`: `recruitsOf(run, allowance?)` (no allowance: unranked recruits only, which keeps `recruitsOfPins` and every caller as before), and `eventHasFight` / `eventFightRelics` skip ranked choices (without that the map's event-node threat and the expedition2/3 pins moved). `eventChoiceProblem`'s allowance, the EventScreen filter and the rest of the gate stay W3's.
+- Because `eventHasFight` skips ranked choices, a tithe_altar node's map Threat stays ×1 (the altar's other choices fight nothing). So `combatConfig` gives a fight launched from a Rank-gated choice its row's Threat through the new `rowThreat(run, node)` (the row in its Movement, or the road's `threat` row on the Finale route: what `rewardFor` gives any fight on that row). The map, `pull` and every existing fight are unchanged. `ResultScreen`'s Threat line still reads `node.reward.threat` (×1 at the altar): W6 reads `rowThreat` there for a ranked choice, and W3 may show it in the EventScreen.
+- `saplingInField` counts only a chord whose song still sings something for the party, with a stolen verse left out (the private `chordMask` & `partyAuraMask`, as `coverage()` decides `hero.inField`). A Lullaby-only song or a song whose only party aura is stolen is no field for a Sapling. `duelTarget` treats an enemy swinging at Kael as his even while Kael has no target of his own.
+- `GroveState.ancients` (not in the contract's list) counts the Ancients raised this fight, for `HeroGroveStats.ancients`; W2 increments it where the Ancient spawns.
 - `heroTally`'s stat is the Deed field `tally` (`HERO_TALLY_STATS`: parries, killShots, saplingsLost) with `values.atLeast` / `values.atMost`; the existing `stat` stays the `runCount` enum so `deedHolds` keeps its types. `deedHolds` and `deedGlyph` have placeholder `heroTally` cases (false, 'swords') for W3 and W6.
 - `heavy(world, e)` reads false on bosses and minibosses (they are excluded by tier); `lesserFoe` is the summons' hold test.
 - `STATUS.rooted` (labels.ts) has a placeholder look for W6, needed for the `Record<StatusId, …>` type.

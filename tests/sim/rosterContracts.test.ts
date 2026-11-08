@@ -53,6 +53,9 @@ import { ofParty } from '../../src/sim/systems/stasis';
 import { summonFell, updateSummons } from '../../src/sim/systems/summons';
 import { newHealth, type World } from '../../src/sim/world';
 import { allowanceFor, EVERYTHING } from '../../src/meta/profile';
+import { threatFor } from '../../src/meta/economy';
+import * as Run from '../../src/meta/run';
+import type { MapNode, RunState } from '../../src/meta/types';
 import { sandbox, stepFor, worldOf } from './helpers';
 
 const OLD = ['kael', 'lyra', 'vexis', 'brann'] as const;
@@ -131,7 +134,8 @@ describe('the passive union (docs/phase-5e.md, contracts item 1)', () => {
     expect('duel' in kael!.hero! || 'grove' in kael!.hero! || 'blood' in kael!.hero!).toBe(false);
     expect(seren!.hero!.duel).toMatchObject({ parryOn: null, killShotOn: null, parries: 0 });
     expect('blood' in seren!.hero! || 'grove' in seren!.hero!).toBe(false);
-    expect(oro!.hero!.grove).toMatchObject({ saplings: [], ancient: null, lost: 0 });
+    // `ancients` counts the Ancients raised (HeroGroveStats.ancients reads it at the end).
+    expect(oro!.hero!.grove).toMatchObject({ saplings: [], ancient: null, lost: 0, ancients: 0 });
     expect('blood' in oro!.hero! || 'duel' in oro!.hero!).toBe(false);
   });
 });
@@ -400,6 +404,34 @@ describe('the pure rules (docs/phase-5e.md, contracts item 5)', () => {
     expect(duelTarget(w, heroAt(w, 1))).toBeNull();
   });
 
+  it('duelTarget: an enemy swinging at Kael is his even while Kael has no target (a Rally)', () => {
+    const sim = sandbox({ party: ['kael', 'lyra', 'seren'] });
+    const w = worldOf(sim);
+    freeze(w);
+    const kael = heroAt(w, 0);
+    const seren = heroAt(w, 2);
+    place(w.entities.get(w.weaverId)!, 0, 0);
+    const a = spawnEnemy(w, 'hollow_chorister', 4, 0, { instant: true });
+    const b = spawnEnemy(w, 'hollow_chorister', -4, 0, { instant: true, elite: true });
+    w.entities.flush();
+    kael.hero!.targetId = null;
+    b.enemy!.targetId = kael.id;
+    expect(duelTarget(w, seren)?.id).toBe(a.id);
+    // His is the only choice: she takes it.
+    a.health!.dead = true;
+    expect(duelTarget(w, seren)?.id).toBe(b.id);
+    // Without Kael in the party, nothing is anyone's: the strongest wins.
+    const solo = sandbox({ party: ['lyra', 'vexis', 'seren'] });
+    const v = worldOf(solo);
+    freeze(v);
+    place(v.entities.get(v.weaverId)!, 0, 0);
+    spawnEnemy(v, 'hollow_chorister', 4, 0, { instant: true });
+    const e = spawnEnemy(v, 'hollow_chorister', -4, 0, { instant: true, elite: true });
+    v.entities.flush();
+    e.enemy!.targetId = heroAt(v, 0).id;
+    expect(duelTarget(v, heroAt(v, 2))?.id).toBe(e.id);
+  });
+
   it('parryArmed, overextended and lungeTarget are false or null for every other hero', () => {
     const sim = sandbox({ party: ['kael', 'lyra', 'seren'] });
     const w = worldOf(sim);
@@ -459,6 +491,42 @@ describe('the pure rules (docs/phase-5e.md, contracts item 5)', () => {
     // The Weaver downed: every field is suppressed.
     weaver.health!.downed = true;
     check('suppressed');
+  });
+
+  it('saplingInField: a song with nothing for the party, or whose verse is stolen, is no field', () => {
+    const probeAll = (w: World, label: string, expected?: boolean) => {
+      const weaver = w.entities.get(w.weaverId)!;
+      const probe = heroAt(w, 0);
+      for (const [x, z] of [
+        [1, 0],
+        [3, 2],
+        [0, 9],
+      ] as const) {
+        place(probe, weaver.x + x, weaver.z + z);
+        updateField(w, 0);
+        expect(saplingInField(w, probe), `${label} at ${x},${z}`).toBe(probe.hero!.inField);
+        if (expected !== undefined && x === 1) expect(probe.hero!.inField, label).toBe(expected);
+      }
+    };
+    // A Lullaby-only song: its chord has a radius, but sings only for enemies.
+    const lull = worldOf(sandbox({ auras: ['lullaby'] }));
+    expect(lull.field.chords.some((c) => c.radius > 0 || c.auras.length > 0)).toBe(true);
+    updateField(lull, 0);
+    expect(lull.field.chords.some((c) => c.radius > 0)).toBe(true);
+    probeAll(lull, 'lullaby only', false);
+    // Sostenuto, then its verse stolen: the field is gone for the party while it is.
+    const w = worldOf(sandbox({ auras: ['sostenuto'] }));
+    probeAll(w, 'sostenuto', true);
+    const chord = w.field.chords.find((c) => c.auras.includes('sostenuto'))!;
+    w.field.stolen = {
+      chord: chord.index,
+      aura: chord.auras.indexOf('sostenuto'),
+      add: w.weaverId,
+      until: 1e9,
+    };
+    probeAll(w, 'stolen', false);
+    delete w.field.stolen;
+    probeAll(w, 'returned', true);
   });
 });
 
@@ -649,4 +717,50 @@ describe('Seren and Oro parties build and play (the interim ranged branch)', () 
   it('the content stays valid with the enemies it names', () => {
     expect(enemyDef('mirror_champion').hp).toBeGreaterThanOrEqual(HEAVY_LIFE);
   });
+});
+
+describe('a Rank-gated recruiting fight takes its row’s Threat (docs/phase-5e.md)', () => {
+  /** The party arriving at `target` from a node of the row before. */
+  const at = (run: RunState, target: MapNode): RunState => {
+    const before = run.map.rows[target.row - 1]?.find((n) => n.next.includes(target.id));
+    const placed: RunState = {
+      ...run,
+      phase: 'map',
+      path: before ? [before.id] : [],
+      pending: null,
+    };
+    return Run.chooseNode(placed, target.id);
+  };
+  for (const movements of [2, 3, 4]) {
+    it(`movements ${movements}: debt and follow at their rows, pull and the map as before`, () => {
+      let seen = 0;
+      for (let seed = 1; seed <= 40 && seen < 6; seed++) {
+        const base = Run.embark(Run.newRun(seed, undefined, [], [], [], [], undefined, movements));
+        for (const node of base.map.rows.flat()) {
+          if (node.eventId !== 'tithe_altar' && node.eventId !== 'loose_thread') continue;
+          const ranked = node.eventId === 'tithe_altar' ? 'debt' : 'follow';
+          // The row's Threat, as any fight on that row reads it on the map.
+          const row = base.map.rows[node.row]!;
+          const fight = row.find((n) => n.encounterId !== null);
+          const expected = Run.rowThreat(base, node);
+          if (fight) expect(expected, `${seed} ${node.id}`).toBe(fight.reward.threat);
+          expect(expected).toBeGreaterThan(1);
+          // The map is untouched: the altar still reads ×1, the thread its row (pull fights).
+          expect(node.reward.threat).toBe(node.eventId === 'tithe_altar' ? 1 : expected);
+          const there = at({ ...base, aether: 999 }, node);
+          expect(there.phase).toBe('event');
+          const recruit = Run.chooseEvent(there, ranked);
+          expect(recruit.phase).toBe('combat');
+          expect(Run.combatConfig(recruit)!.threat, `${seed} ${node.id} ${ranked}`).toBe(expected);
+          if (node.eventId === 'loose_thread') {
+            const pull = Run.chooseEvent(there, 'pull');
+            expect(Run.combatConfig(pull)!.threat).toBe(node.reward.threat);
+          }
+          seen++;
+        }
+      }
+      expect(seen).toBeGreaterThan(0);
+      expect(threatFor(1)).toBe(1);
+    });
+  }
 });

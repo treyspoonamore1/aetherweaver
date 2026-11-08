@@ -398,6 +398,8 @@ export interface GroveState {
   ancient: EntityId | null;
   /** This fight: Saplings felled, Rootbond's healing, and Sapling-seconds in your field, alive. */
   lost: number;
+  /** This fight: Ancients raised (W2 counts each where it spawns; the result's `ancients`). */
+  ancients: number;
   rootbondHeal: number;
   inFieldTime: number;
   aliveTime: number;

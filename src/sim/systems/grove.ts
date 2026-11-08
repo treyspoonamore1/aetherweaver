@@ -10,12 +10,13 @@
  */
 import { enemyDef, heroDef } from '../../content';
 import type { HeroDef } from '../../content/schema';
+import { auraBit, partyAuraMask } from '../combat/auras';
 import { pickEnemyTarget } from '../combat/threat';
 import type { DamageOpts } from '../combat/health';
 import type { Entity, EntityId, GroveState, ReadonlyEntity, WorldState } from '../state';
 import type { World } from '../world';
 import { heavy } from './duel';
-import { inAnyField, underMuteDome } from './field';
+import { underMuteDome } from './field';
 
 type Ability = HeroDef['abilities'][number];
 type Flourish = HeroDef['call']['flourish'];
@@ -32,6 +33,7 @@ export function newGrove(): GroveState {
     respawnAt: [],
     ancient: null,
     lost: 0,
+    ancients: 0,
     rootbondHeal: 0,
     inFieldTime: 0,
     aliveTime: 0,
@@ -61,9 +63,11 @@ export function summonsOf(world: WorldState, owner: EntityId | null = null): Rea
 
 /**
  * A summon (or any body) stands inside your field (docs/phase-5e.md Q1), composed from public
- * state exactly as the private `inDome`/`inHymn` tests inside `coverage()`: your field isn't
- * suppressed (the Weaver downed or in a dome), no Mute or Silencing dome covers it (unless
- * Unbroken Chorus holds), it is inside a hymn circle whenever any exist, and inside a field.
+ * state exactly as `coverage()` decides a hero's `inField`: your field isn't suppressed (the
+ * Weaver downed or in a dome), no Mute or Silencing dome covers it (unless Unbroken Chorus
+ * holds), it is inside a hymn circle whenever any exist, and it stands inside the radius of a
+ * song that still sings something for the party (a Lullaby-only song, or one whose only party
+ * aura Steal Verse took, is no field for it).
  */
 export function saplingInField(
   world: WorldState,
@@ -80,7 +84,21 @@ export function saplingInField(
     }
     if (!inside) return false;
   }
-  return inAnyField(world as World, s.x, s.z, s.radius);
+  const content = (world as World).content;
+  const party = partyAuraMask(content);
+  const stolen = f.stolen;
+  for (const c of f.chords) {
+    if (c.radius <= 0) continue;
+    // `chordMask` in field.ts: the stolen verse sings for nobody while it's gone.
+    let song = 0;
+    for (let j = 0; j < c.auras.length; j++)
+      if (!stolen || stolen.chord !== c.index || j !== stolen.aura)
+        song |= auraBit(content, c.auras[j]!);
+    if ((song & party) === 0) continue;
+    const r = c.radius + s.radius;
+    if ((s.x - c.x) ** 2 + (s.z - c.z) ** 2 <= r * r) return true;
+  }
+  return false;
 }
 
 /** Gentle (docs/phase-5e.md): Oro with no living Focus target is tending, and won't attack. */

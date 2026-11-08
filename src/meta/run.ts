@@ -1242,10 +1242,35 @@ export function combatConfig(run: RunState, assists?: SimConfig['assists']): Sim
     // Bonds (docs/phase-4e.md): its heroes' talents and Solos.
     bonds: bondsConfig(run.bonds),
     techniques: variantsConfig(run.techniques),
-    // The node's own Threat: maps saved before Threat existed keep ×1.
-    threat: node.reward.threat,
+    // The node's own Threat: maps saved before Threat existed keep ×1. A Rank-gated recruiting
+    // fight (docs/phase-5e.md) takes its row's, as any other fight there does.
+    threat: rankedEventFight(run) ? rowThreat(run, node) : node.reward.threat,
     ...(assists ? { assists } : {}),
   };
+}
+
+/**
+ * The pending event fight came from a Rank-gated choice (docs/phase-5e.md)? Those choices never
+ * count in `eventHasFight`, so the map's Threat for their node is ×1 when the event has no other
+ * fight (tithe_altar); `combatConfig` gives that fight its row's Threat instead.
+ */
+function rankedEventFight(run: RunState): boolean {
+  const ev = run.event;
+  if (!ev || ev.choice === null) return false;
+  const ch = runEventDef(ev.eventId).choices.find((c) => c.id === ev.choice);
+  return ch?.rank !== undefined;
+}
+
+/**
+ * The Threat any fight on `node`'s row takes: what `rewardFor` gives a fighting node there (the
+ * row within its Movement, or the full Movement's row on the Finale route's road).
+ */
+export function rowThreat(run: Pick<RunState, 'map' | 'movements'>, node: MapNode): number {
+  const first = run.map.rows.findIndex((r) => r.some((n) => (n.movement ?? 1) === node.movement));
+  const row = node.row - Math.max(0, first);
+  const def = routeDefs(run.movements)[node.movement - 1];
+  const road = def ? roadOf(def) : undefined;
+  return threatFor(road?.threat[row] ?? row);
 }
 
 export function finishCombat(run: RunState, outcome: CombatOutcome): RunState {

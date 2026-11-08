@@ -136,7 +136,10 @@ export function duelTarget(world: WorldState, e: ReadonlyEntity): ReadonlyEntity
     if (dx * dx + dz * dz > reach * reach) continue;
     if (enemyDef(m.enemy!.defId).stationary === true) continue;
     if (cold && !m.enemy!.inField) continue;
-    const onKael = kaelTarget !== null && (m.id === kaelTarget || m.enemy!.targetId === kaelId);
+    // Kael's: his own target, or an enemy swinging at him (even while he has no target).
+    const onKael =
+      kaelId !== null &&
+      ((kaelTarget !== null && m.id === kaelTarget) || m.enemy!.targetId === kaelId);
     if (best === null || better(m, onKael, best, bestKael)) {
       best = m;
       bestKael = onKael;
