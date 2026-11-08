@@ -243,22 +243,18 @@ function talentAct(d: SynthDirector, w: FakeWorld, talent: string): void {
     // Phase 5e: Seren's and Oro's (each joins the lab party for theirs).
     case 'riposte_chain':
     case 'bladesong':
-    case 'blade_waltz':
-    case 'cold_focus': {
+    case 'blade_waltz': {
       withHero(w, 'seren');
       const s = heroAt(w, 'seren');
       fire(d, w, talentEv(talent, 'seren', s.x + 1, s.z + 1.5, foe));
       break;
     }
-    case 'unflinching':
-    case 'thousandfold':
     case 'duellists_honour': {
       withHero(w, 'seren');
       const s = heroAt(w, 'seren');
       fire(d, w, talentEv(talent, 'seren', s.x, s.z, null));
       break;
     }
-    case 'taproot':
     case 'thorned_bark':
     case 'old_growth':
     case 'homecoming': {
@@ -266,9 +262,7 @@ function talentAct(d: SynthDirector, w: FakeWorld, talent: string): void {
       fire(d, w, talentEv(talent, 'oro', 2.5, 5, talent === 'thorned_bark' ? foe : IDS.sapling));
       break;
     }
-    case 'grove_chorus':
-    case 'world_tree':
-    case 'seedling_swarm': {
+    case 'world_tree': {
       withHero(w, 'oro');
       const o = heroAt(w, 'oro');
       fire(d, w, talentEv(talent, 'oro', o.x, o.z + 4, null));
@@ -315,25 +309,20 @@ const TALENTS_FIRED = [
 ] as const;
 
 /**
- * Phase 5e: Seren's and Oro's talents and alternate Solos as the sim announces them. Kept apart
+ * Phase 5e: Seren's and Oro's talents and alternate Solos as the sim announces them (the ones that
+ * fire at a moment; see TALENT_SOUND_GROUPS). Kept apart
  * from `TALENTS_FIRED` so 'talent-every' (pinned by the Spire and Rift snapshots) is unchanged.
  */
 const TALENTS_FIRED_5E = [
   // Seren's, on her struck string and steel.
   ['riposte_chain', 'Riposte Chain: her Ward parries twice (two strikes, C6 then F6)'],
-  ['cold_focus', 'Cold Focus: she takes your Focus for her duel (a cool A5 over F5)'],
   ['bladesong', 'Bladesong: her counter cuts all round her (F5 A5 C6, a swirl)'],
-  ['unflinching', 'Unflinching: Warded, she doesn’t stagger (a firm F4, a knock)'],
-  ['thousandfold', 'Thousandfold: twelve cuts, not eight (a flurry, F5 to F6)'],
   ['duellists_honour', 'Duellist’s Honour: a kill shot readies your Ward (C6, the Ward’s D6)'],
   ['blade_waltz', 'Blade Waltz: a blow turned aside, Ward or not (a light clash; frequent)'],
   // Phase 5e: Oro's, on hollow wood.
-  ['taproot', 'Taproot: a Sapling roots deep (a low G2 knock, the root’s pluck)'],
   ['thorned_bark', 'Thorned Bark: the bark bites back (a scratch, a dry G3; frequent)'],
-  ['grove_chorus', 'Grove Chorus: both Saplings in your field (G3 B3 D4 together)'],
   ['old_growth', 'Old Growth: a Sapling grows old (a deeper knock, a creak, D3)'],
   ['world_tree', 'World Tree: the Ancient roots again as it falls (a great G1, D2 and G2)'],
-  ['seedling_swarm', 'Seedling Swarm: a third Sapling (D4 G4 B4, small knocks)'],
   ['homecoming', 'Homecoming: every Sapling home at your front (G3 and D4, a G5)'],
 ] as const;
 

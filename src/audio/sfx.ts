@@ -127,21 +127,23 @@ export const TALENT_SOUND_GROUPS: Readonly<Record<string, string>> = {
   deathless: 'talent:deathless',
   berserkers_hymn: 'talent:hymn',
   // Phase 5e, Seren (docs/phase-5e.md): her struck string and steel on F, C and A; never Kael's
-  // `talent:riposte` (Riposte Bash is his, and Riposte Chain is not a Riposte Bash).
+  // `talent:riposte` (Riposte Bash is his, and Riposte Chain is not a Riposte Bash). As with
+  // Brann's Red Mist and Scar Tissue (docs/phase-5b.md), only the talents that fire at a moment are
+  // here; the ones that only change a number or a rule have no `talentFired` and no sound: Cold
+  // Focus, Unflinching and Thousandfold; Oro's Taproot, Grove Chorus and Seedling Swarm. The moment
+  // each listed one fires (W1/W2 call `talentFired(world, hero, '<id>', ...)` there):
+  // riposte_chain, a Ward that parries and holds for its second; bladesong, each counter that cuts
+  // round her; duellists_honour, the kill shot that readies your Ward; blade_waltz, each blow it
+  // parries; thorned_bark, each blow it bites back; old_growth, a Sapling growing old; world_tree,
+  // the Ancient rooting again as it falls; homecoming, each Sapling it brings home.
   riposte_chain: 'talent:riposteChain',
-  cold_focus: 'talent:coldFocus',
   bladesong: 'talent:bladesong',
-  unflinching: 'talent:unflinching',
-  thousandfold: 'talent:thousandfold',
   duellists_honour: 'talent:honour',
   blade_waltz: 'talent:bladeWaltz',
   // Phase 5e, Oro: hollow wood, a dark pluck and the breath of leaves, on G and its D.
-  taproot: 'talent:taproot',
   thorned_bark: 'talent:thornedBark',
-  grove_chorus: 'talent:groveChorus',
   old_growth: 'talent:oldGrowth',
   world_tree: 'talent:worldTree',
-  seedling_swarm: 'talent:seedlingSwarm',
   homecoming: 'talent:homecoming',
 };
 
@@ -166,20 +168,14 @@ export const TALENT_SOUND_LIMITS: Readonly<Record<string, readonly [number, numb
   deathless: [1, 1],
   berserkers_hymn: [1, 1],
   riposte_chain: [0.25, 2],
-  cold_focus: [1, 1],
   bladesong: [0.15, 2],
-  unflinching: [0.5, 1],
-  thousandfold: [0.6, 1],
   duellists_honour: [0.5, 1],
   // Blade Waltz parries every melee blow at her for 5 s: light and tightly gated.
   blade_waltz: [0.12, 3],
-  taproot: [0.5, 2],
   // Thorned Bark answers every blow on a Sapling: light and tightly gated.
   thorned_bark: [0.12, 3],
-  grove_chorus: [1, 1],
   old_growth: [0.5, 2],
   world_tree: [1, 1],
-  seedling_swarm: [1, 1],
   homecoming: [0.5, 2],
 };
 
@@ -3207,29 +3203,6 @@ export class SfxEngine {
           { pan: at(heroX) },
         );
         break;
-      case 'cold_focus':
-        // She takes your Focus for her duel: a cool, still A5 drawn on the string, F5 under it.
-        this.play(
-          group,
-          cap,
-          'sfx',
-          (v, t) => {
-            pluck(v, t, tone(9), 0.04, 0.4, 0.4);
-            v.osc({
-              type: 'triangle',
-              freq: tone(11),
-              start: t + 0.05,
-              dur: 0.45,
-              attack: 0.12,
-              release: 0.2,
-              gain: 0.03,
-              shape: 'sustain',
-              filter: { type: 'lowpass', freq: 2400, q: 0.7 },
-            });
-          },
-          { pan: at(ev.x) },
-        );
-        break;
       case 'bladesong':
         // Her counter sings round her: a ring of three quick cuts (F5 A5 C6) on a swirl of air.
         this.play(
@@ -3241,35 +3214,6 @@ export class SfxEngine {
             [9, 11, 13].forEach((idx, i) =>
               bladeStringNote(v, t + i * 0.05, tone(idx), 0.18, 0.05),
             );
-          },
-          { pan: at(heroX) },
-        );
-        break;
-      case 'unflinching':
-        // Warded, she doesn't stagger: a firm F4 struck and held, a knock on F2 under it.
-        this.play(
-          group,
-          cap,
-          'sfx',
-          (v, t) => {
-            bladeStringNote(v, t, tone(2), 0.6, 0.08);
-            thump(v, t, tone(-12), 0.12, 0.2, 0.8);
-            pluck(v, t + 0.08, tone(6), 0.04, 0.5, 0.5);
-          },
-          { pan: at(heroX) },
-        );
-        break;
-      case 'thousandfold':
-        // Twelve cuts, not eight: a flurry of steel up the scale, F5 to F6.
-        this.play(
-          group,
-          cap,
-          'sfx',
-          (v, t) => {
-            [9, 10, 11, 12, 13, 14, 16].forEach((idx, i) =>
-              pluck(v, t + i * 0.035, tone(idx), 0.035, 0.12, 1),
-            );
-            whoosh(v, t, 0.25, 0.03, 1800, 6000, 2.5);
           },
           { pan: at(heroX) },
         );
@@ -3308,19 +3252,6 @@ export class SfxEngine {
         );
         break;
       // ── Phase 5e: Oro's (hollow wood, a dark pluck and leaves, on G and D) ──
-      case 'taproot':
-        // A Sapling roots deep and comes back sooner: a low G2 knock and the root's slow pluck.
-        this.play(
-          group,
-          cap,
-          'sfx',
-          (v, t) => {
-            hollowWoodNote(v, t, tone(-11), 0.4, 0.09);
-            pluck(v, t + 0.12, tone(-7), 0.04, 0.6, 0.1);
-          },
-          { pan: at(ev.x) },
-        );
-        break;
       case 'thorned_bark':
         // The bark bites back: a short scratch and a dry G3 tock (frequent: two sources).
         this.play(
@@ -3337,19 +3268,6 @@ export class SfxEngine {
             pluck(v, t, tone(-4), 0.04, 0.08, 0.3);
           },
           { pan: at(ev.x) },
-        );
-        break;
-      case 'grove_chorus':
-        // Both Saplings in your field: the grove sings with you, G3 B3 D4 knocked together.
-        this.play(
-          group,
-          cap,
-          'sfx',
-          (v, t) => {
-            [-4, -2, 0].forEach((idx, i) => hollowWoodNote(v, t + i * 0.03, tone(idx), 0.5, 0.05));
-            whoosh(v, t, 0.5, 0.012, 800, 2400, 1);
-          },
-          { pan: at(heroX) },
         );
         break;
       case 'old_growth':
@@ -3387,19 +3305,6 @@ export class SfxEngine {
         );
         break;
       }
-      case 'seedling_swarm':
-        // A third Sapling: three small knocks up the chord (D4 G4 B4), a breath of leaves.
-        this.play(
-          group,
-          cap,
-          'sfx',
-          (v, t) => {
-            [0, 3, 5].forEach((idx, i) => hollowWoodNote(v, t + i * 0.09, tone(idx), 0.18, 0.05));
-            whoosh(v, t + 0.1, 0.3, 0.01, 1000, 2800, 1);
-          },
-          { pan: at(heroX) },
-        );
-        break;
       case 'homecoming':
         // Every Sapling home at your front: a warm G3 and D4 knocked, a shimmer of leaves.
         this.play(

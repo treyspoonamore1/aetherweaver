@@ -223,14 +223,24 @@ describe('the roster’s tables: Oro appended last (Phase 5e)', () => {
     expect(Object.keys(LEITMOTIFS).slice(-2)).toEqual(['seren', 'oro']);
     expect(Object.keys(CALL_PHRASES).slice(-2)).toEqual(['seren', 'oro']);
   });
-  it('his talents and Homecoming have sound groups, after Seren’s', () => {
+  it('his talents that fire at a moment and Homecoming have sound groups, after Seren’s', () => {
     const talents = Object.keys(TALENT_SOUND_GROUPS);
-    const his = [
+    const all = [
       ...CONTENT.talents.filter((t) => t.hero === 'oro').map((t) => t.id),
       ...CONTENT.altSolos.filter((t) => t.hero === 'oro').map((t) => t.id),
     ];
+    // Taproot, Grove Chorus and Seedling Swarm only change numbers (as Brann's Red Mist): the sim
+    // announces no `talentFired` for them, so they have no sound.
+    const numbers = ['taproot', 'grove_chorus', 'seedling_swarm'];
+    const his = all.filter((id) => !numbers.includes(id));
+    expect(his).toEqual(['thorned_bark', 'old_growth', 'world_tree', 'homecoming']);
+    expect(all.filter((id) => numbers.includes(id))).toEqual(numbers);
     expect(talents.slice(-his.length)).toEqual(his);
     for (const id of his) expect(TALENT_SOUND_LIMITS[id], id).toBeDefined();
+    for (const id of numbers) {
+      expect(TALENT_SOUND_GROUPS[id], id).toBeUndefined();
+      expect(TALENT_SOUND_LIMITS[id], id).toBeUndefined();
+    }
     expect(ALT_SOLO_SOUND_GROUPS['homecoming']).toBe('altSolo:homecoming');
   });
 });
@@ -619,8 +629,11 @@ describe('audio lab: Oro is opt-in, his Saplings with him', () => {
     for (const t of [
       ...CONTENT.talents.filter((x) => x.hero === 'oro'),
       ...CONTENT.altSolos.filter((x) => x.hero === 'oro'),
-    ])
-      expect(ids).toContain(`talent-${t.id}`);
+    ]) {
+      // A number-only talent has no sound, so no button.
+      const sounds = TALENT_SOUND_GROUPS[t.id] !== undefined;
+      expect(ids.includes(`talent-${t.id}`), t.id).toBe(sounds);
+    }
     for (const cued of ['', '-cued']) expect(ids).toContain(`altsolo-homecoming${cued}`);
     for (const b of ['rank', 'talent', 'solo', 'scene', 'reply'])
       expect(ids).toContain(`bond-${b}-oro`);

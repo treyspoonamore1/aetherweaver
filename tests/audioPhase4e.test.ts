@@ -6,7 +6,7 @@
  * intended notes, all in D dorian, within its gate and cap; the frequent ones stay light; the lab
  * has a button for each.
  */
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { getAudio } from '../src/audio';
@@ -235,6 +235,14 @@ function simTalents(): string[] {
 }
 
 const TALENTS = Object.keys(TALENT_SOUND_GROUPS);
+/**
+ * Phase 5e: the sim test each new hero's sim lands with (W1's and W2's, docs/phase-5e.md). Until
+ * it exists the hero's talent hooks are W0b's stubs, so their sounds wait for the announcement.
+ */
+const AWAITING_SIM_5E: Partial<Record<string, string>> = {
+  seren: 'sim/serenParry.test.ts',
+  oro: 'sim/grove.test.ts',
+};
 /** Whose each is (content). */
 const heroOf = (id: string) =>
   CONTENT.talents.find((t) => t.id === id)?.hero ?? CONTENT.altSolos.find((s) => s.id === id)?.hero;
@@ -276,7 +284,18 @@ describe('Bonds in the fight: a sound for every talent the sim announces', () =>
     // Phase 5b (docs/phase-5b.md, "Expected reds"): Brann's four (iron_will, blood_oath,
     // deathless, berserkers_hymn) have their sounds here before the sim announces them (W1);
     // this goes green when the two merge (W7).
-    expect([...TALENTS].sort()).toEqual(found);
+    // Phase 5e: every id the sim announces has a sound, always.
+    expect(found.filter((id) => !TALENTS.includes(id))).toEqual([]);
+    // And every sound is announced, except a Phase 5e hero's while that hero's sim has not landed
+    // (docs/phase-5e.md has no expected red here): W1 (Seren) and W2 (Oro) land with their own
+    // sim tests, and from then on each of their ids must be announced like everyone's.
+    const unannounced = TALENTS.filter((id) => !found.includes(id)).sort();
+    const awaiting = unannounced.filter((id) => {
+      const hero = heroOf(id);
+      const sim = hero === undefined ? undefined : AWAITING_SIM_5E[hero];
+      return sim !== undefined && !existsSync(join(__dirname, sim));
+    });
+    expect(unannounced).toEqual(awaiting);
     for (const id of TALENTS) {
       expect(heroOf(id), id).toBeDefined();
       expect(TALENT_SOUND_LIMITS[id], id).toBeDefined();

@@ -342,6 +342,21 @@ const BEFORE = {
   voices: '74a7d7f9',
 };
 
+/**
+ * Phase 5e: Seren's and Oro's talents that only change a number or a rule. Like Brann's Red Mist and
+ * Scar Tissue (docs/phase-5b.md) they fire at no moment, so the sim announces no `talentFired` for
+ * them and they have no sound; every other talent and alternate Solo of theirs has one.
+ */
+const NUMBER_ONLY_5E = [
+  'cold_focus',
+  'unflinching',
+  'thousandfold',
+  'taproot',
+  'grove_chorus',
+  'seedling_swarm',
+];
+const SEREN_MOMENTS = ['riposte_chain', 'bladesong', 'duellists_honour', 'blade_waltz'];
+
 /** A lab world with Seren in it (a fourth hero, as her buttons have her). */
 const serenWorld = () => new FakeWorld({ party: SEREN_LAB_PARTY });
 
@@ -435,11 +450,13 @@ describe('the roster’s tables keep their order: Seren and Oro appended (Phase 
       'deathless',
       'berserkers_hymn',
     ]);
-    // Every Seren and Oro talent and alternate Solo, in the content's order (hers, then his).
-    const ours = (hero: string) => [
-      ...CONTENT.talents.filter((t) => t.hero === hero).map((t) => t.id),
-      ...CONTENT.altSolos.filter((t) => t.hero === hero).map((t) => t.id),
-    ];
+    // Every Seren and Oro talent and alternate Solo that fires at a moment, in the content's order
+    // (hers, then his); the ones that only change a number have no row (as Brann's Red Mist).
+    const ours = (hero: string) =>
+      [
+        ...CONTENT.talents.filter((t) => t.hero === hero).map((t) => t.id),
+        ...CONTENT.altSolos.filter((t) => t.hero === hero).map((t) => t.id),
+      ].filter((id) => !NUMBER_ONLY_5E.includes(id));
     expect(talents.slice(firstNew)).toEqual([...ours('seren'), ...ours('oro')]);
     for (const id of talents) expect(TALENT_SOUND_LIMITS[id], id).toBeDefined();
     expect(Object.keys(TALENT_SOUND_LIMITS)).toEqual(talents);
@@ -459,6 +476,46 @@ describe('the roster’s tables keep their order: Seren and Oro appended (Phase 
       expect(g, g).not.toBe(riposte);
     const groups = Object.values(TALENT_SOUND_GROUPS);
     expect(new Set(groups).size).toBe(groups.length);
+  });
+  it('her talents split into the moments that sound and the numbers that don’t', () => {
+    const hers = [
+      ...CONTENT.talents.filter((t) => t.hero === 'seren').map((t) => t.id),
+      ...CONTENT.altSolos.filter((t) => t.hero === 'seren').map((t) => t.id),
+    ];
+    expect(hers.filter((id) => !NUMBER_ONLY_5E.includes(id))).toEqual(SEREN_MOMENTS);
+    expect(hers.filter((id) => NUMBER_ONLY_5E.includes(id))).toEqual([
+      'cold_focus',
+      'unflinching',
+      'thousandfold',
+    ]);
+    const buttons = SOUNDS.map((b) => b.id);
+    for (const id of SEREN_MOMENTS) {
+      expect(TALENT_SOUND_GROUPS[id], id).toBeDefined();
+      expect(buttons, id).toContain(`talent-${id}`);
+    }
+    for (const id of NUMBER_ONLY_5E) {
+      expect(TALENT_SOUND_GROUPS[id], id).toBeUndefined();
+      expect(TALENT_SOUND_LIMITS[id], id).toBeUndefined();
+      expect(buttons, id).not.toContain(`talent-${id}`);
+    }
+  });
+  it('a `talentFired` for a number-only talent plays nothing', () => {
+    for (const id of NUMBER_ONLY_5E) {
+      const h = lab(serenWorld());
+      h.world.setEnemies(3);
+      const hero = id === 'cold_focus' || id === 'unflinching' || id === 'thousandfold';
+      const r = h.fire(
+        ev('talentFired', {
+          hero: hero ? IDS.seren : IDS.oro,
+          talent: id,
+          x: 0,
+          z: 0,
+          target: null,
+        }),
+      );
+      expect(r.added, id).toBe(0);
+      h.d.dispose();
+    }
   });
   it('the mirror-choir still mirrors the four it always did', async () => {
     const { VOICE_MIRRORS } = await import('../src/audio/sfx');
@@ -779,6 +836,7 @@ describe('audio lab: Seren is opt-in', () => {
       ...CONTENT.talents.filter((x) => x.hero === 'seren'),
       ...CONTENT.altSolos.filter((x) => x.hero === 'seren'),
     ]) {
+      if (NUMBER_ONLY_5E.includes(t.id)) continue;
       expect(ids).toContain(`talent-${t.id}`);
       expect(TALENT_SOUND_LIMITS[t.id], t.id).toBeDefined();
     }
