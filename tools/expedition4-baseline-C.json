@@ -1,0 +1,427 @@
+{
+ "movements": 4,
+ "seeds": 5,
+ "runs": [
+  {
+   "seed": 2000,
+   "bot": "novice",
+   "outcome": "defeat",
+   "lastEncounter": "hollow_cantor",
+   "fights": 4,
+   "minutes": 5.126402777777724,
+   "motifs": [
+    "taut_release:1",
+    "twin_aegis:1",
+    "da_capo:1"
+   ],
+   "relics": [
+    "wardens_key",
+    "martyrs_veil"
+   ],
+   "path": [],
+   "aetherEarned": 127,
+   "aetherLeft": 127,
+   "bondXp": {
+    "kael": 149,
+    "lyra": 110,
+    "brann": 102
+   },
+   "movementReached": 1,
+   "minutesByMovement": [
+    5.126402777777724
+   ],
+   "harmony": {
+    "silkOffered": 0,
+    "silkOfferedEligible": 0,
+    "prereqsOwned": false
+   }
+  },
+  {
+   "seed": 106729,
+   "bot": "novice",
+   "outcome": "defeat",
+   "lastEncounter": "legion_vanguard",
+   "fights": 7,
+   "minutes": 8.179152777778732,
+   "motifs": [
+    "golden_filament:2",
+    "twin_aegis:1",
+    "da_capo:1",
+    "standing_ovation:1",
+    "steady_hands:1"
+   ],
+   "relics": [
+    "choirmasters_baton",
+    "hollow_bell",
+    "cantors_hymnal"
+   ],
+   "path": [],
+   "aetherEarned": 219,
+   "aetherLeft": 219,
+   "bondXp": {
+    "kael": 250,
+    "lyra": 209,
+    "brann": 187
+   },
+   "movementReached": 2,
+   "minutesByMovement": [
+    6.3212083333343285,
+    1.857944444444403
+   ],
+   "harmony": {
+    "silkOffered": 0,
+    "silkOfferedEligible": 0,
+    "prereqsOwned": false
+   }
+  },
+  {
+   "seed": 211458,
+   "bot": "novice",
+   "outcome": "defeat",
+   "lastEncounter": "hollow_cantor",
+   "fights": 4,
+   "minutes": 6.63997222222324,
+   "motifs": [
+    "steady_hands:2",
+    "twin_aegis:1",
+    "da_capo:1"
+   ],
+   "relics": [
+    "prism_loom",
+    "spindle_of_fate"
+   ],
+   "path": [],
+   "aetherEarned": 117,
+   "aetherLeft": 87,
+   "bondXp": {
+    "kael": 158,
+    "lyra": 104,
+    "brann": 100
+   },
+   "movementReached": 1,
+   "minutesByMovement": [
+    6.63997222222324
+   ],
+   "harmony": {
+    "silkOffered": 0,
+    "silkOfferedEligible": 0,
+    "prereqsOwned": false
+   }
+  },
+  {
+   "seed": 316187,
+   "bot": "novice",
+   "outcome": "defeat",
+   "lastEncounter": "frayed_threshold",
+   "fights": 10,
+   "minutes": 18.657180555557844,
+   "motifs": [
+    "da_capo:1",
+    "twin_aegis:1",
+    "bulwarks_echo:1",
+    "relay_weave:1",
+    "warm_hum:1",
+    "quickened_verse:1",
+    "deep_roots:1",
+    "fishers_knot:1",
+    "guard_strand:1"
+   ],
+   "relics": [
+    "hollow_bell",
+    "martyrs_veil",
+    "cantors_hymnal",
+    "choirmasters_baton",
+    "sacrificial_lamb"
+   ],
+   "path": [],
+   "aetherEarned": 359,
+   "aetherLeft": 359,
+   "bondXp": {
+    "kael": 390,
+    "lyra": 322,
+    "brann": 311
+   },
+   "movementReached": 3,
+   "minutesByMovement": [
+    7.487222222223637,
+    9.938694444445368,
+    1.2312638888888394
+   ],
+   "harmony": {
+    "silkOffered": 0,
+    "silkOfferedEligible": 0,
+    "prereqsOwned": false
+   }
+  },
+  {
+   "seed": 420916,
+   "bot": "novice",
+   "outcome": "defeat",
+   "lastEncounter": "crimson_gate",
+   "fights": 5,
+   "minutes": 7.719111111112261,
+   "motifs": [
+    "steady_hands:1",
+    "twin_aegis:1",
+    "da_capo:1",
+    "deep_breath:1"
+   ],
+   "relics": [
+    "tuning_fork",
+    "cracked_metronome",
+    "prism_loom"
+   ],
+   "path": [],
+   "aetherEarned": 168,
+   "aetherLeft": 168,
+   "bondXp": {
+    "kael": 193,
+    "lyra": 152,
+    "brann": 150
+   },
+   "movementReached": 2,
+   "minutesByMovement": [
+    6.957444444445616,
+    0.7616666666666448
+   ],
+   "harmony": {
+    "silkOffered": 0,
+    "silkOfferedEligible": 0,
+    "prereqsOwned": false
+   }
+  },
+  {
+   "seed": 2000,
+   "bot": "skilled",
+   "outcome": "victory",
+   "lastEncounter": "the_silent_conductor",
+   "fights": 15,
+   "minutes": 24.05504166667016,
+   "motifs": [
+    "taut_release:1",
+    "twin_aegis:1",
+    "da_capo:1",
+    "second_verse:2",
+    "warm_hum:1",
+    "deep_roots:1",
+    "long_weave:1",
+    "clear_tone:1",
+    "wind_at_her_back:2",
+    "deep_breath:3",
+    "quickened_verse:1",
+    "bulwarks_echo:1",
+    "canon:1"
+   ],
+   "relics": [
+    "wardens_key",
+    "martyrs_veil",
+    "cantors_hymnal",
+    "star_chart",
+    "choirmasters_baton",
+    "hollow_bell",
+    "lantern_of_the_lost",
+    "cracked_metronome",
+    "knotted_cord",
+    "sacrificial_lamb",
+    "spindle_of_fate",
+    "silver_thimble",
+    "featherweight_robes",
+    "prism_loom"
+   ],
+   "path": [],
+   "aetherEarned": 874,
+   "aetherLeft": 254,
+   "bondXp": {
+    "kael": 520,
+    "lyra": 811,
+    "brann": 419
+   },
+   "movementReached": 4,
+   "minutesByMovement": [
+    5.419722222222707,
+    7.407069444445456,
+    7.979180555556769,
+    3.249069444445225
+   ],
+   "harmony": {
+    "silkOffered": 0,
+    "silkOfferedEligible": 0,
+    "prereqsOwned": false
+   }
+  },
+  {
+   "seed": 106729,
+   "bot": "skilled",
+   "outcome": "defeat",
+   "lastEncounter": "hollow_cantor",
+   "fights": 4,
+   "minutes": 4.185083333333178,
+   "motifs": [
+    "golden_filament:1",
+    "twin_aegis:1",
+    "da_capo:1"
+   ],
+   "relics": [
+    "choirmasters_baton",
+    "hollow_bell"
+   ],
+   "path": [],
+   "aetherEarned": 127,
+   "aetherLeft": 127,
+   "bondXp": {
+    "kael": 105,
+    "lyra": 169,
+    "brann": 89
+   },
+   "movementReached": 1,
+   "minutesByMovement": [
+    4.185083333333178
+   ],
+   "harmony": {
+    "silkOffered": 0,
+    "silkOfferedEligible": 0,
+    "prereqsOwned": false
+   }
+  },
+  {
+   "seed": 211458,
+   "bot": "skilled",
+   "outcome": "defeat",
+   "lastEncounter": "hollow_cantor",
+   "fights": 4,
+   "minutes": 4.642166666666632,
+   "motifs": [
+    "steady_hands:2",
+    "twin_aegis:1",
+    "da_capo:1"
+   ],
+   "relics": [
+    "prism_loom",
+    "spindle_of_fate"
+   ],
+   "path": [],
+   "aetherEarned": 127,
+   "aetherLeft": 97,
+   "bondXp": {
+    "kael": 115,
+    "lyra": 159,
+    "brann": 89
+   },
+   "movementReached": 1,
+   "minutesByMovement": [
+    4.642166666666632
+   ],
+   "harmony": {
+    "silkOffered": 0,
+    "silkOfferedEligible": 0,
+    "prereqsOwned": false
+   }
+  },
+  {
+   "seed": 316187,
+   "bot": "skilled",
+   "outcome": "victory",
+   "lastEncounter": "the_silent_conductor",
+   "fights": 15,
+   "minutes": 23.28670833333625,
+   "motifs": [
+    "da_capo:1",
+    "twin_aegis:1",
+    "bulwarks_echo:1",
+    "relay_weave:2",
+    "warm_hum:2",
+    "quickened_verse:2",
+    "deep_roots:1",
+    "fishers_knot:1",
+    "guard_strand:1",
+    "golden_filament:2",
+    "riposte_bloom:1"
+   ],
+   "relics": [
+    "hollow_bell",
+    "martyrs_veil",
+    "cantors_hymnal",
+    "choirmasters_baton",
+    "sacrificial_lamb",
+    "stillwater_bell",
+    "knotted_cord",
+    "silver_thimble",
+    "heavy_score",
+    "glass_halo",
+    "tacet_mark"
+   ],
+   "path": [],
+   "aetherEarned": 864,
+   "aetherLeft": 644,
+   "bondXp": {
+    "kael": 498,
+    "lyra": 837,
+    "brann": 414
+   },
+   "movementReached": 4,
+   "minutesByMovement": [
+    5.2832361111115045,
+    7.506291666667664,
+    7.33536111111193,
+    3.1618194444451504
+   ],
+   "harmony": {
+    "silkOffered": 0,
+    "silkOfferedEligible": 0,
+    "prereqsOwned": false
+   }
+  },
+  {
+   "seed": 420916,
+   "bot": "skilled",
+   "outcome": "victory",
+   "lastEncounter": "the_silent_conductor",
+   "fights": 15,
+   "minutes": 25.566736111114572,
+   "motifs": [
+    "steady_hands:2",
+    "twin_aegis:1",
+    "da_capo:1",
+    "deep_breath:1",
+    "long_weave:1",
+    "lingering_aegis:2",
+    "quickened_verse:1",
+    "blood_tithe:1",
+    "second_verse:1",
+    "clear_tone:1",
+    "bulwarks_echo:1",
+    "fishers_knot:1"
+   ],
+   "relics": [
+    "tuning_fork",
+    "cracked_metronome",
+    "prism_loom",
+    "cantors_hymnal",
+    "stillwater_bell",
+    "hollow_bell",
+    "martyrs_veil",
+    "spindle_of_fate"
+   ],
+   "path": [],
+   "aetherEarned": 861,
+   "aetherLeft": 831,
+   "bondXp": {
+    "kael": 513,
+    "lyra": 811,
+    "brann": 425
+   },
+   "movementReached": 4,
+   "minutesByMovement": [
+    5.1470277777781765,
+    7.549111111112219,
+    8.985013888889565,
+    3.8855833333346146
+   ],
+   "harmony": {
+    "silkOffered": 0,
+    "silkOfferedEligible": 0,
+    "prereqsOwned": false
+   }
+  }
+ ]
+}

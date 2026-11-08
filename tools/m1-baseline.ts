@@ -22,6 +22,14 @@
  * slice's last step, W9), as the next slice's guard. Until it is written, its `--check` reports
  * the file missing; Movements I-III's checks never read it.
  *
+ * `--party A|B|C` (docs/phase-5e.md, W0a "Characterisation first") plays the same table, any
+ * Movement 1-4, with a Brann party (tools/harness.ts NAMED_PARTIES: A Kael, Vexis, Brann; B Lyra,
+ * Vexis, Brann; C Kael, Lyra, Brann) and keeps it in tools/m<N>-baseline-<P>.json, so Seren's and
+ * Oro's branches are proved to leave Brann's tuned parties byte-equal too. Without `--party`
+ * nothing changes: the config has no `party` key and the default files are read.
+ *
+ *   npx tsx tools/m1-baseline.ts --movement 3 --party B --check
+ *
  * Records are compared on the fields the baseline holds, so fields the harness gains later
  * (Movement II metrics) don't count as drift.
  */
@@ -29,6 +37,7 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import type { BotKind } from '../src/bots';
 import { CHORD_PRESETS } from '../src/meta/run';
+import { NAMED_PARTIES } from './harness';
 import { movementEncounters, playEncounter, type EncounterRun } from './harness-core';
 import { ARRIVAL3_KIT, ARRIVAL4_KIT, ARRIVAL_KIT, kitConfig, type Kit } from './kits';
 
@@ -54,45 +63,58 @@ export interface M1Baseline {
   rows: EncounterRun[];
 }
 
+/** The Brann parties a `--party` baseline plays (docs/phase-5e.md, W0a). */
+export const BASELINE_PARTIES = ['A', 'B', 'C'] as const;
+export type BaselineParty = (typeof BASELINE_PARTIES)[number];
+
+/** The config's party key: none for the default party, so its config is as it always was. */
+function partyKey(party?: BaselineParty): { party?: string[] } {
+  return party ? { party: [...NAMED_PARTIES[party]!] } : {};
+}
+
 /** Plays the table exactly as `tools/harness.ts` does (same seeds, same order). */
-export function m1Baseline(): M1Baseline {
+export function m1Baseline(party?: BaselineParty): M1Baseline {
   const preset = CHORD_PRESETS.find((p) => p.id === M1_LOADOUT)!;
   const chords = preset.chords.map((c) => ({ ...c }));
   const rows: EncounterRun[] = [];
   for (const encounter of M1_ENCOUNTERS)
     for (const bot of M1_BOTS)
       for (let i = 0; i < M1_SEEDS; i++)
-        rows.push(playEncounter({ seed: 1000 + i * 7919, encounter, chords }, bot));
+        rows.push(
+          playEncounter({ seed: 1000 + i * 7919, encounter, chords, ...partyKey(party) }, bot),
+        );
   return { loadout: M1_LOADOUT, seeds: M1_SEEDS, rows };
 }
 
 /** A Movement's table: its fights in content order, every bot, on `kit` (tools/kits.ts). */
-function movementBaseline(movement: number, kit: Kit): M1Baseline {
+function movementBaseline(movement: number, kit: Kit, party?: BaselineParty): M1Baseline {
   const config = kitConfig(kit);
   const rows: EncounterRun[] = [];
   for (const encounter of movementEncounters(movement))
     for (const bot of M1_BOTS)
       for (let i = 0; i < M1_SEEDS; i++)
-        rows.push(playEncounter({ seed: 1000 + i * 7919, encounter, ...config }, bot));
+        rows.push(
+          playEncounter({ seed: 1000 + i * 7919, encounter, ...config, ...partyKey(party) }, bot),
+        );
   return { loadout: `${kit.preset} (${kit.name})`, seeds: M1_SEEDS, rows };
 }
 
 /** Movement II's table: its fights in content order, on the arrival kit (tools/kits.ts). */
-export function m2Baseline(): M1Baseline {
-  return movementBaseline(2, ARRIVAL_KIT);
+export function m2Baseline(party?: BaselineParty): M1Baseline {
+  return movementBaseline(2, ARRIVAL_KIT, party);
 }
 
 /** Movement III's table (docs/phase-5c.md): its fights in content order, on ARRIVAL3_KIT. */
-export function m3Baseline(): M1Baseline {
-  return movementBaseline(3, ARRIVAL3_KIT);
+export function m3Baseline(party?: BaselineParty): M1Baseline {
+  return movementBaseline(3, ARRIVAL3_KIT, party);
 }
 
 /** The Finale's table (docs/phase-5d.md): its one fight, the Silent Conductor, on ARRIVAL4_KIT. */
-export function m4Baseline(): M1Baseline {
-  return movementBaseline(4, ARRIVAL4_KIT);
+export function m4Baseline(party?: BaselineParty): M1Baseline {
+  return movementBaseline(4, ARRIVAL4_KIT, party);
 }
 
-const BASELINES: Readonly<Record<number, () => M1Baseline>> = {
+const BASELINES: Readonly<Record<number, (party?: BaselineParty) => M1Baseline>> = {
   1: m1Baseline,
   2: m2Baseline,
   3: m3Baseline,
@@ -123,14 +145,31 @@ function movementArg(): number {
   return i >= 0 ? Number(process.argv[i + 1]) : 1;
 }
 
+/** `--party`'s value: A, B or C (a Brann party), or undefined for the default party. */
+export function baselinePartyArg(argv: readonly string[]): BaselineParty | undefined {
+  const i = argv.indexOf('--party');
+  if (i < 0) return undefined;
+  const value = argv[i + 1]?.toUpperCase();
+  if (!BASELINE_PARTIES.includes(value as BaselineParty))
+    throw new Error(`A baseline party is A, B or C: "${argv[i + 1]}"`);
+  return value as BaselineParty;
+}
+
+/** The baseline's file: m<N>-baseline.json, or m<N>-baseline-<P>.json for a Brann party. */
+export function m1BaselinePath(movement: number, party?: BaselineParty): string {
+  const name = `m${movement}-baseline${party ? `-${party}` : ''}.json`;
+  return fileURLToPath(new URL(`./${name}`, import.meta.url));
+}
+
 function main(): void {
   const movement = movementArg();
+  const party = baselinePartyArg(process.argv);
   const baseline = BASELINES[movement];
   if (!baseline) throw new Error(`No baseline for Movement ${movement}`);
-  const m = `M${movement}`;
-  const path = fileURLToPath(new URL(`./m${movement}-baseline.json`, import.meta.url));
+  const m = `M${movement}${party ? ` party ${party}` : ''}`;
+  const path = m1BaselinePath(movement, party);
   const t0 = Date.now();
-  const fresh = baseline();
+  const fresh = baseline(party);
   if (process.argv.includes('--write')) {
     writeFileSync(path, JSON.stringify(fresh, null, 1) + '\n');
     console.log(`Wrote ${path} (${fresh.rows.length} fights, ${Date.now() - t0} ms).`);
@@ -158,7 +197,11 @@ function main(): void {
       shown++;
     }
   }
-  console.error(DRIFTED[movement]);
+  console.error(
+    party
+      ? `${m} baseline drifted: Brann's party ${party} is meant to be unchanged (docs/phase-5e.md).`
+      : DRIFTED[movement],
+  );
   process.exit(1);
 }
 

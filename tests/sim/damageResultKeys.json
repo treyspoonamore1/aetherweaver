@@ -1,0 +1,68 @@
+{
+ "byScenario": {
+  "patrol": {},
+  "crowd": {},
+  "skilled-first-light": {
+   "dealt,absorbed,absorbedByWeaver,absorbedByWard,absorbedByDome,blocked,downed,martyred,saved": 129
+  },
+  "skilled-bellwarden": {
+   "dealt,absorbed,absorbedByWeaver,absorbedByWard,absorbedByDome,blocked,downed,martyred,saved": 270
+  },
+  "novice-cantor": {
+   "dealt,absorbed,absorbedByWeaver,absorbedByWard,absorbedByDome,blocked,downed,martyred,saved": 362
+  },
+  "skilled-crimson-gate": {
+   "dealt,absorbed,absorbedByWeaver,absorbedByWard,absorbedByDome,blocked,downed,martyred,saved": 292
+  },
+  "novice-matriarch": {
+   "dealt,absorbed,absorbedByWeaver,absorbedByWard,absorbedByDome,blocked,downed,martyred,saved": 767
+  },
+  "skilled-vharun": {
+   "dealt,absorbed,absorbedByWeaver,absorbedByWard,absorbedByDome,blocked,downed,martyred,saved": 805
+  },
+  "skilled-brann-crimson-gate": {
+   "dealt,absorbed,absorbedByWeaver,absorbedByWard,absorbedByDome,blocked,downed,martyred,saved": 357
+  },
+  "skilled-brann-bellwarden": {
+   "dealt,absorbed,absorbedByWeaver,absorbedByWard,absorbedByDome,blocked,downed,martyred,saved": 264
+  },
+  "novice-brann-first-light": {
+   "dealt,absorbed,absorbedByWeaver,absorbedByWard,absorbedByDome,blocked,downed,martyred,saved": 128
+  },
+  "skilled-unstitched-threshold": {
+   "dealt,absorbed,absorbedByWeaver,absorbedByWard,absorbedByDome,blocked,downed,martyred,saved": 244
+  },
+  "novice-seamstress": {
+   "dealt,absorbed,absorbedByWeaver,absorbedByWard,absorbedByDome,blocked,downed,martyred,saved": 518
+  },
+  "skilled-unweaver": {
+   "dealt,absorbed,absorbedByWeaver,absorbedByWard,absorbedByDome,blocked,downed,martyred,saved": 1126
+  },
+  "skilled-brann-mirror-hall": {
+   "dealt,absorbed,absorbedByWeaver,absorbedByWard,absorbedByDome,blocked,downed,martyred,saved": 196
+  },
+  "skilled-conductor": {
+   "dealt,absorbed,absorbedByWeaver,absorbedByWard,absorbedByDome,blocked,downed,martyred,saved": 1145
+  },
+  "novice-grand-silence": {
+   "dealt,absorbed,absorbedByWeaver,absorbedByWard,absorbedByDome,blocked,downed,martyred,saved": 160
+  },
+  "skilled-brann-conductor": {
+   "dealt,absorbed,absorbedByWeaver,absorbedByWard,absorbedByDome,blocked,downed,martyred,saved": 735
+  },
+  "skilled-chrono-silence": {
+   "dealt,absorbed,absorbedByWeaver,absorbedByWard,absorbedByDome,blocked,downed,martyred,saved": 106
+  }
+ },
+ "keys": [
+  "absorbed",
+  "absorbedByDome",
+  "absorbedByWard",
+  "absorbedByWeaver",
+  "blocked",
+  "dealt",
+  "downed",
+  "martyred",
+  "saved"
+ ]
+}

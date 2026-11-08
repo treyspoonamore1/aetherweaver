@@ -20,4 +20,14 @@ tests/bots/commandSnapshot.json
 tests/bots/commandSnapshotM3.json
 tests/bots/commandSnapshotFinale.json
 tests/sim/rosterInvariance.keys.json
+tests/bots/commandSnapshotRoster.json
+tests/sim/summonInert.json
+tests/sim/telegraphKeys.json
+tests/sim/damageResultKeys.json
+tests/sim/passiveReaders.json
+tools/m1-baseline-[ABC].json
+tools/m2-baseline-[ABC].json
+tools/m3-baseline-[ABC].json
+tools/m4-baseline-[ABC].json
+tools/expedition4-baseline-[ABC].json
 .claude
