@@ -519,6 +519,93 @@ describe('Seren’s moments', () => {
     expect(last()).toBeNull();
   });
 
+  it('the gold chip is the counter’s own blow: matched by tick, and Blade Waltz read at the event', () => {
+    const { sim, of, h } = setup();
+    const seren = of(SEREN);
+    h.run(1, [spawn('hollow_chorister', seren.x, seren.z - 2)]);
+    h.run(30);
+    dueled(seren);
+    const foe = enemiesOf(sim)[0]!;
+    const T = sim.state.tick;
+    const hit = (tick: number, amount: number, amplified = 0): SimEvent => ({
+      type: 'damageTaken',
+      tick,
+      target: foe.id,
+      source: seren.id,
+      amount,
+      absorbed: 0,
+      amplified,
+      aura: 0,
+      radiance: 0,
+      eclipse: 0,
+      crit: false,
+      telegraph: null,
+      hit: 'hit',
+    });
+    const countered = (tick: number, amount: number): SimEvent => ({
+      type: 'parryCountered',
+      tick,
+      hero: seren.id,
+      target: foe.id,
+      amount,
+    });
+    const last = () => h.overlay.chips[h.overlay.chips.length - 1];
+    const rest = () => {
+      for (let i = 0; i < 60; i++) h.frame([]);
+    };
+    // A frame of two ticks: her plain swing the tick before joins the number, never the chip.
+    h.frame([hit(T - 1, 60), hit(T, 180, 30), countered(T, 180)]);
+    expect(last()).toBe('+180');
+    rest();
+    // Her swing in the counter's own tick, before its blow or after its event: still only +180.
+    h.frame([hit(T, 60), hit(T, 180, 30), countered(T, 180)]);
+    expect(last()).toBe('+180');
+    rest();
+    h.frame([hit(T, 180, 30), countered(T, 180), hit(T, 60)]);
+    expect(last()).toBe('+180');
+    rest();
+    // A kill shot the same: only its own blow.
+    h.frame([
+      hit(T - 1, 60),
+      hit(T, 400),
+      {
+        type: 'killShot',
+        tick: T,
+        hero: seren.id,
+        target: foe.id,
+        executed: false,
+        amount: 400,
+      },
+    ]);
+    expect(last()).toBe('+400');
+    rest();
+    // Blade Waltz ended later in the batch: the counter was the waltz's, so no chip.
+    seren.hero!.soloId = 'blade_waltz';
+    seren.hero!.soloActive = 0;
+    h.frame([
+      hit(T - 1, 120),
+      countered(T - 1, 120),
+      { type: 'soloEnded', tick: T, hero: seren.id },
+    ]);
+    expect(last()).toBeNull();
+    rest();
+    // Blade Waltz began after the counter in the batch: the counter was your Ward's.
+    seren.hero!.soloActive = 3;
+    h.frame([
+      hit(T - 1, 120),
+      countered(T - 1, 120),
+      {
+        type: 'soloStarted',
+        tick: T,
+        hero: seren.id,
+        solo: 'blade_waltz',
+        cued: false,
+        duration: 3,
+      },
+    ]);
+    expect(last()).toBe('+120');
+  });
+
   it('a kill shot: EXECUTED or KILL SHOT, a short hit-stop; a lost one draws nothing', () => {
     const { sim, of, h } = setup();
     const seren = of(SEREN);

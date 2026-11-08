@@ -55,29 +55,72 @@ export function weaverReach(): number {
 }
 
 /**
- * A blow that is your Ward's work (docs/phase-5e.md, 'Credit for Ward-caused damage'): Seren's
- * counter to a parry (`parryCountered`) or her kill shot (`killShot`, taken) on the hit's target,
- * in the same batch of events. Its number wears the Weaver's gold chip for the whole hit; the
- * sim keeps it out of `amplified` so no total counts it twice, which is why render reads it from
- * these events. Blade Waltz's counters are hers (the sim's `wardsDealt` leaves them out), so
- * they wear none. Never true without her: no other hero sends these events.
+ * The blows that are your Ward's work (docs/phase-5e.md, 'Credit for Ward-caused damage'):
+ * Seren's counter to a parry (`parryCountered`) or her kill shot (`killShot`, taken). Its number
+ * wears the Weaver's gold chip for the whole hit; the sim keeps it out of `amplified` so no total
+ * counts it twice, which is why render reads it from these events. Blade Waltz's counters are
+ * hers (the sim's `wardsDealt` leaves them out), so they wear none. Never any without her: no
+ * other hero sends these events.
+ *
+ * A batch can hold several ticks (a frame under 60 fps, a hitch), and she can swing or Lunge at
+ * the same foe in the counter's own tick, so each event is matched to its own blow: the counter
+ * deals its hit (then any Bladesong cuts, on other foes) and then announces it, so its blow is
+ * the last `damageTaken` from her to that target in the same tick before the event, and no more
+ * than the event's `amount` (which adds the cuts). Whether Blade Waltz was dancing is
+ * read at the event, from the batch's own `soloStarted` / `soloEnded`, not from the state the
+ * batch ends in.
  */
+export function wardBlows(
+  events: readonly SimEvent[],
+  state: Pick<WorldState, 'entities'>,
+): Set<SimEventOf<'damageTaken'>> {
+  const out = new Set<SimEventOf<'damageTaken'>>();
+  for (let i = 0; i < events.length; i++) {
+    const ev = events[i]!;
+    if (ev.type === 'parryCountered') {
+      if (waltzAt(events, i, ev.hero, state)) continue;
+    } else if (ev.type !== 'killShot' || ev.lost) continue;
+    if (!(ev.amount > 0)) continue;
+    for (let j = i - 1; j >= 0; j--) {
+      const d = events[j]!;
+      if (d.tick !== ev.tick) break;
+      if (d.type !== 'damageTaken' || d.source !== ev.hero || d.target !== ev.target) continue;
+      if (d.amount + d.absorbed <= ev.amount + 1e-6 * Math.max(1, ev.amount)) out.add(d);
+      break;
+    }
+  }
+  return out;
+}
+
+/** Blade Waltz was dancing at `events[at]`: the batch's own Solo events, else the end state. */
+function waltzAt(
+  events: readonly SimEvent[],
+  at: number,
+  hero: EntityId,
+  state: Pick<WorldState, 'entities'>,
+): boolean {
+  const h = state.entities.get(hero)?.hero;
+  if (h?.soloId !== 'blade_waltz') return false;
+  for (let j = at - 1; j >= 0; j--) {
+    const d = events[j]!;
+    if (d.type === 'soloStarted' && d.hero === hero) return d.solo === 'blade_waltz';
+    if (d.type === 'soloEnded' && d.hero === hero) return false;
+  }
+  for (let j = at + 1; j < events.length; j++) {
+    const d = events[j]!;
+    if (d.type === 'soloStarted' && d.hero === hero) return false;
+    if (d.type === 'soloEnded' && d.hero === hero) return true;
+  }
+  return h.soloActive > 0;
+}
+
+/** One blow's Ward credit (`wardBlows`, for a single `damageTaken`). */
 export function wardBlow(
   events: readonly SimEvent[],
   e: SimEventOf<'damageTaken'>,
   state: Pick<WorldState, 'entities'>,
 ): boolean {
-  if (e.source === null) return false;
-  let found = false;
-  for (const ev of events) {
-    if (ev.type === 'parryCountered' && ev.hero === e.source && ev.target === e.target) {
-      const h = state.entities.get(ev.hero)?.hero;
-      if (!(h?.soloId === 'blade_waltz' && h.soloActive > 0)) found = true;
-    } else if (ev.type === 'killShot' && !ev.lost && ev.hero === e.source && ev.target === e.target)
-      found = true;
-    if (found) return true;
-  }
-  return false;
+  return e.source !== null && wardBlows(events, state).has(e);
 }
 
 /** The first hero in the party with a duel (Seren), or undefined (every other party). */

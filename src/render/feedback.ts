@@ -30,7 +30,7 @@ import { SPRITE } from './fx/sprites';
 import type { Overlay } from './overlay';
 import { CHRONO_HEX } from './chronoCues';
 import { CRUCIBLE_HEX, CrucibleCues } from './crucibleCues';
-import { SerenFx, wardBlow } from './serenCues';
+import { SerenFx, wardBlows } from './serenCues';
 import { GROVE_BARK, GroveFx, SUMMON_NUMBER_SHARE } from './groveCues';
 import {
   BRANN_HEX,
@@ -549,10 +549,10 @@ export class Feedback {
   handle(events: readonly SimEvent[], state: WorldState): void {
     let finale = false;
     // Seren's Ward blows (her counter, her kill shot) are looked for only when the batch has one.
-    let ward = false;
+    let ward: ReadonlySet<SimEvent> | null = null;
     for (const ev of events)
       if (ev.type === 'parryCountered' || ev.type === 'killShot') {
-        ward = true;
+        ward = wardBlows(events, state);
         break;
       }
     for (const ev of events) {
@@ -561,7 +561,7 @@ export class Feedback {
           this.attack(ev, state);
           break;
         case 'damageTaken':
-          this.damage(ev, state, ward && wardBlow(events, ev, state));
+          this.damage(ev, state, ward !== null && ward.has(ev));
           break;
         case 'healApplied':
           // Rewind's restored life is part of its moment (ChronoView draws its number).
