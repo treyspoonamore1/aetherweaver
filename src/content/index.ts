@@ -2,6 +2,7 @@ import { ARENAS } from './arenas';
 import { ENCOUNTERS } from './encounters';
 import { AFFIXES, ATTACKS, ENEMIES } from './enemies';
 import { HEROES } from './heroes';
+export { SAPLING_NAMES } from './heroes';
 import { MOTIFS } from './motifs';
 import { AURAS } from './auras';
 import { ORNAMENTS } from './ornaments';

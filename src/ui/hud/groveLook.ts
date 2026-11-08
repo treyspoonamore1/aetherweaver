@@ -5,7 +5,7 @@
  * mark when Cued), and the Gentle glyph on his portrait. Everything keys on `HeroHud.grove`
  * (present only for a hero with Rootbond), so every other frame is exactly as it was.
  */
-import { heroDef } from '../../content';
+import { SAPLING_NAMES, heroDef } from '../../content';
 import type { HeroHud } from '../store';
 
 /** Oro's moss (his def's colour): the leaf glyphs and the Sapling bars' edge. */
@@ -15,8 +15,8 @@ export const SAPLING_LIFE = '#86b896';
 /** The grove's text: his moss lightened, so it reads on the dark frame. */
 export const GROVE_INK = '#b7d8c0';
 
-/** The names he gives his Saplings, by index (his `saplingFelled` barks name the first two). */
-export const SAPLING_NAMES: readonly string[] = ['Moss', 'Fern', 'Sorrel'];
+/** The names he gives his Saplings, by index: content's one list, his barks' too. */
+export { SAPLING_NAMES };
 
 /** "Moss" (the Sapling at this index), or "Sapling 4" past the names. */
 export function saplingName(index: number): string {

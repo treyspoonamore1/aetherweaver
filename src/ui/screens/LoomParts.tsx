@@ -637,18 +637,20 @@ export function StationBadge({
   if (!view.badge) return null;
   if (view.id === 'bonds') {
     // Each hero by name, in their colour, with their Bond rank: "Kael 2 · Lyra 2 · Vexis 2".
+    // Phase 5e: a roster of four to six wraps inside its station (each hero whole on a line)
+    // rather than running past it on one.
     const ranks = Object.entries(
       bondRanks(bonds, heroes ?? rosterHeroes({ recruited }, unlockAll)),
     );
     return (
       <span
-        className="flex items-center gap-1 whitespace-nowrap rounded-md border bg-ink-900/80 px-2 py-0.5 text-xs font-semibold"
+        className="flex max-w-full flex-wrap items-center justify-center gap-x-1 rounded-md border bg-ink-900/80 px-2 py-0.5 text-xs font-semibold"
         style={{ borderColor: `color-mix(in srgb, ${BOND_LOOK.color} 40%, transparent)` }}
         data-testid="station-badge"
         aria-hidden
       >
         {ranks.map(([heroId, r], i) => (
-          <span key={heroId} className="flex items-center gap-1">
+          <span key={heroId} className="flex items-center gap-1 whitespace-nowrap">
             {i > 0 && <span className="text-muted">·</span>}
             <span style={{ color: heroInk(heroId) }}>{heroDef(heroId).name}</span>
             <span className="font-mono text-text">{r}</span>

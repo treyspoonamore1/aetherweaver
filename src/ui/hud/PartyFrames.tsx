@@ -1035,7 +1035,7 @@ function DuelMarks({ chips }: { chips: readonly DuelChip[] }) {
       {chips.map((c) => (
         <span
           key={c.id}
-          className={`flex items-center gap-1 whitespace-nowrap rounded-md border px-1 text-xs font-bold leading-5 ${c.alarm ? 'anim-glow' : ''}`}
+          className={`flex max-w-full items-center gap-1 whitespace-nowrap rounded-md border px-1 text-xs font-bold leading-5 ${c.alarm ? 'anim-glow' : ''}`}
           style={{
             color: DUEL_INK,
             borderColor: `color-mix(in srgb, ${DUEL_VIOLET} ${c.alarm ? 85 : 60}%, transparent)`,
@@ -1046,8 +1046,10 @@ function DuelMarks({ chips }: { chips: readonly DuelChip[] }) {
           title={c.title}
           data-testid={`duel-${c.id}`}
         >
-          <Icon name={DUEL_ICON[c.id]} size={12} />
-          {c.label}
+          <Icon name={DUEL_ICON[c.id]} size={12} className="shrink-0" />
+          {/* A long quarry ("Duelling Vharun, the Crimson Warden") ends in an ellipsis inside the
+              frame's column; the full name is in the title. */}
+          <span className="min-w-0 truncate">{c.label}</span>
           {c.key && <KeyCap label={c.key} />}
         </span>
       ))}

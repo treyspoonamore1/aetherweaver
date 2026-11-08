@@ -179,8 +179,8 @@ export function ancientDisc(
   return a ? { x: a.x, z: a.z, r: a.r } : null;
 }
 
-/** A Sapling's name, by its index (the saplingFelled bark's list: Moss, Fern, …). */
-export const SAPLING_NAMES = ['Moss', 'Fern', 'Bramble'] as const;
+/** A Sapling's name, by its index: content's one list (Moss, Fern, Sorrel), his barks' too. */
+export { SAPLING_NAMES } from '../content';
 
 /** Oro's content, for render (his summons block). */
 export function groveSummons():

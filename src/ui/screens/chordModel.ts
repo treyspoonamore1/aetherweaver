@@ -495,11 +495,20 @@ export function roleNote(id: string, index: number): string | null {
 /**
  * Unlocks the player has reached but not been introduced to yet (Prep marks them "New").
  * With Skip the unlocks on, only what the Rank itself reached counts: the rest isn't news.
+ * Phase 5e: a recruit unlock whose hero is already in `recruited` is no news either (Prep's
+ * `hero.<id>` line says she joined; her how-to-earn text would only contradict it).
  */
-export function freshUnlocks(xp: number, introduced: readonly string[]): Unlock[] {
+export function freshUnlocks(
+  xp: number,
+  introduced: readonly string[],
+  recruited: readonly string[] = [],
+): Unlock[] {
   const rank = rankOf(xp);
   const seen = new Set(introduced);
-  return UNLOCKS.filter((u) => u.rank <= rank && !seen.has(u.id));
+  return UNLOCKS.filter(
+    (u) =>
+      u.rank <= rank && !seen.has(u.id) && !(u.kind === 'recruit' && recruited.includes(u.target)),
+  );
 }
 
 /** The unlock id behind a slot or an item, to look it up in the "New" set. */

@@ -395,11 +395,29 @@ function recruitUnlock(heroId: string, text: string): Unlock {
   };
 }
 
-/** Unlocks reached between two XP totals (for the rank-up card). */
+/**
+ * Unlocks reached between two XP totals (for the rank-up card), in Rank order: a stable sort, so
+ * one Rank's unlocks keep their schedule order (the recruits, appended last, still read at their
+ * own Rank).
+ */
 export function unlocksBetween(xpBefore: number, xpAfter: number): Unlock[] {
   const from = rankOf(xpBefore);
   const to = rankOf(xpAfter);
-  return UNLOCKS.filter((u) => u.rank > from && u.rank <= to);
+  return UNLOCKS.filter((u) => u.rank > from && u.rank <= to).sort((a, b) => a.rank - b.rank);
+}
+
+/**
+ * A recruit unlock (docs/phase-5e.md) as the profile now reads it: once its hero is in
+ * `recruited` (recruited in the very fight that reached the Rank, or earlier under Skip the
+ * unlocks), it says she has joined rather than how to earn her. Every other unlock as it is.
+ */
+export function unlockAsRecruited(u: Unlock, recruited: readonly string[] | undefined): Unlock {
+  if (u.kind !== 'recruit' || !recruited?.includes(u.target)) return u;
+  const def = CONTENT.heroes.find((h) => h.id === u.target)!;
+  return {
+    ...u,
+    text: `${def.name} has joined your heroes. Choose your three under Your party in Prep.`,
+  };
 }
 
 /** What a profile allows in Prep and at Retune. */

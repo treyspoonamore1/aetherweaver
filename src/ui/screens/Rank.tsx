@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useProfile, type RankUp } from '../../app/profileStore';
 import { useSettings } from '../../app/settings';
 import * as Deeds from '../../meta/deeds';
@@ -32,6 +32,7 @@ import {
   xpGain,
   xpHeadline,
   type RankProfile,
+  recruitedRankUps,
 } from './rankText';
 
 export { unlockIcon };
@@ -538,7 +539,10 @@ export const RANK_UP_HINT = 'rank-up';
  * the profile's Deeds give (the card's Astrolabe totals count them).
  */
 export function useRankUps() {
-  const rankUps = useProfile((s) => s.rankUps);
+  const pending = useProfile((s) => s.rankUps);
+  // Phase 5e: a recruit the fight (or Skip the unlocks) already brought in reads as joined.
+  const recruited = useProfile((s) => s.profile.recruited);
+  const rankUps = useMemo(() => recruitedRankUps(pending, recruited), [pending, recruited]);
   const deeds = useProfile((s) => s.profile.deeds);
   const hints = useSettings((s) => s.settings.hints);
   const firstTime = hints && rankUps.length > 0 && hintCount(RANK_UP_HINT) === 0;

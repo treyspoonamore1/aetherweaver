@@ -41,7 +41,7 @@ import type { RelicRarity } from '../../content';
 import { EventGlyph } from './EventScreen';
 import { boonDuration, boonInfo, choiceInfo, relicInfo } from './interlude';
 import { BoonTip, RelicBody, boonStyle } from './RelicCard';
-import { CALLING_ROWS, newRun } from '../../meta/run';
+import { CALLING_ROWS, eventChoiceShown, newRun } from '../../meta/run';
 import { EVERYTHING, EXPEDITION_MOVEMENTS, heroRoster, type Allowance } from '../../meta/profile';
 import { ENEMY_LORE } from '../hud/finaleLook';
 import { callingLook } from '../kit/CallingGlyph';
@@ -270,7 +270,7 @@ export function CodexView({
           {tab === 'calls' && <Calls roster={heroes} />}
           {tab === 'motifs' && <Motifs roster={heroes} />}
           {tab === 'relics' && <Relics />}
-          {tab === 'events' && <Events seen={seen} />}
+          {tab === 'events' && <Events seen={seen} allowance={allowance} />}
         </div>
       </div>
     </ScreenFrame>
@@ -1500,7 +1500,7 @@ function Relics() {
 /** A run to read choice tags from (no event live: nothing is greyed out). */
 const CODEX_RUN = newRun(1);
 
-function Events({ seen }: { seen?: readonly string[] }) {
+function Events({ seen, allowance }: { seen?: readonly string[]; allowance: Allowance }) {
   // A later Movement's events open once its enemies are met (Phase 5a).
   const reach = sightedMovement(seen);
   const groups = byMovement(CONTENT.events);
@@ -1542,24 +1542,28 @@ function Events({ seen }: { seen?: readonly string[] }) {
                   </div>
                   <p className="mt-3 text-sm leading-relaxed text-text">{ev.text}</p>
                   <ul className="mt-3 flex flex-col gap-2.5 border-t border-ink-600/60 pt-3">
-                    {ev.choices.map((c) => {
-                      const info = choiceInfo(CODEX_RUN, ev.id, c);
-                      return (
-                        <li key={c.id} className="text-sm">
-                          <p className="font-semibold text-gold-200">{c.label}</p>
-                          <p className="leading-relaxed text-muted">{c.text}</p>
-                          {info.tags.length > 0 && (
-                            <div className="mt-1 flex flex-wrap gap-1.5">
-                              {info.tags.map((t) => (
-                                <Chip key={t.text} icon={t.icon}>
-                                  {t.text}
-                                </Chip>
-                              ))}
-                            </div>
-                          )}
-                        </li>
-                      );
-                    })}
+                    {/* Phase 5e: a Rank-gated recruiting choice reads here only once the event
+                        screen offers it (hidden below its Rank, never shown locked). */}
+                    {ev.choices
+                      .filter((c) => eventChoiceShown(c, allowance))
+                      .map((c) => {
+                        const info = choiceInfo(CODEX_RUN, ev.id, c);
+                        return (
+                          <li key={c.id} className="text-sm">
+                            <p className="font-semibold text-gold-200">{c.label}</p>
+                            <p className="leading-relaxed text-muted">{c.text}</p>
+                            {info.tags.length > 0 && (
+                              <div className="mt-1 flex flex-wrap gap-1.5">
+                                {info.tags.map((t) => (
+                                  <Chip key={t.text} icon={t.icon}>
+                                    {t.text}
+                                  </Chip>
+                                ))}
+                              </div>
+                            )}
+                          </li>
+                        );
+                      })}
                   </ul>
                 </Panel>
               ))}

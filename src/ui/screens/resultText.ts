@@ -100,10 +100,13 @@ export function deathAdviceLine(
     Partial<Pick<DeathRecap, 'duel' | 'grove'>>,
   party: readonly string[],
   callingId?: string | null,
+  /** The run's Reel variant (`run.techniques.reel`): Anchor and Swap answer Seren with Rally. */
+  reelVariant?: string | null,
 ): string | null {
   return (
-    // Phase 5e: Seren's and Oro's downs name their own answers (Calling-aware for Seren's Rally).
-    downAdvice(d, party, callingId) ??
+    // Phase 5e: Seren's and Oro's downs name their own answers (Calling- and Reel-aware for
+    // Seren's Rally).
+    downAdvice(d, party, callingId, reelVariant) ??
     riftDownLine(d, callingId) ??
     finaleDownLine(d, callingId) ??
     deathAnswerLine(d.answers, callingId)
@@ -203,13 +206,15 @@ export function runDownAdvice(
   results: readonly Pick<EncounterResult, 'deaths' | 'heroes'>[],
   heroId: string,
   callingId?: string | null,
+  /** The run's Reel variant (`run.techniques.reel`): Anchor and Swap answer Seren with Rally. */
+  reelVariant?: string | null,
 ): { text: string; count: number }[] {
   const out: { text: string; count: number }[] = [];
   for (const r of results) {
     const party = r.heroes.map((h) => h.heroId);
     for (const d of r.deaths) {
       if (d.heroId !== heroId) continue;
-      const text = downAdvice(d, party, callingId);
+      const text = downAdvice(d, party, callingId, reelVariant);
       if (!text) continue;
       const seen = out.find((a) => a.text === text);
       if (seen) seen.count++;
