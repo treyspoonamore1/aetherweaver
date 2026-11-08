@@ -1761,6 +1761,15 @@ function rosterScenarios(): Record<string, BondScenario> {
         rt.later(2.5, () => rt.burrowAll(ORO));
       },
     },
+    'Oro · Verdant Choir': {
+      talents: [],
+      party: WITH_ORO,
+      motifs: [{ id: 'verdant_choir', level: 1 }],
+      note: 'With Verdant Choir, each Sapling standing in your field sings Sostenuto’s regen round it: a 4 m ring of leaves in Sostenuto’s green (its shape, not its colour, tells it from Sostenuto’s plain rims); the Sapling outside your field is silent',
+      stage: (rt) => {
+        rt.later(0.3, () => rt.sprout(ORO, true));
+      },
+    },
     'Oro · Wildgrowth cued': {
       talents: [],
       party: WITH_ORO,
@@ -3306,7 +3315,7 @@ class LabRuntime {
     this.inject(events);
   }
 
-  /** Lab stand-in: Rootbond Mends each Sapling (a `healApplied` via 'grove' on it). */
+  /** Lab stand-in: Rootbond Mends each Sapling (a `healApplied` via 'mend' on it, as grove.ts sends). */
   rootbondOn(slot: number): void {
     const oro = this.heroAt(slot);
     const grove = oro?.hero?.grove;
@@ -3325,7 +3334,7 @@ class LabRuntime {
         source: oro.id,
         amount: Math.max(1, gain),
         overheal: 0,
-        via: 'grove',
+        via: 'mend',
       });
     }
     this.inject(events);

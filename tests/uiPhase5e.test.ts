@@ -69,6 +69,7 @@ import {
 } from '../src/ui/screens/rosterModel';
 import { useUi, type HeroHud, type HudSnapshot } from '../src/ui/store';
 import { brannUiPin } from './uiPhase5eBrannPin';
+import { worldOf } from './sim/helpers';
 
 const EPILOGUE = '../src/ui/screens/EpilogueView';
 const { epilogueLines, epilogueSpeaker } = (await import(/* @vite-ignore */ EPILOGUE)) as {
@@ -156,6 +157,23 @@ describe('Seren’s frame: chips, the outline, never silver', () => {
     const kael = { ...h, defId: 'kael', duel: undefined } as HeroHud;
     expect(frameState(kael).far).toBe(true);
     expect(duelOutline(kael)).toBeNull();
+  });
+
+  it('downed out of reach, she fades as any hero does (the chip and outline are gone)', async () => {
+    const h = { ...seren('seren-reach'), downed: true } as HeroHud;
+    expect(outOfReach(h)).toBe(false);
+    expect(duelOutline(h)).toBeNull();
+    expect(duelChips(h, KEYS).map((c) => c.id)).not.toContain('reach');
+    expect(frameState(h).far).toBe(true);
+    const hud = serenHud('seren-reach');
+    const downed: HudSnapshot = {
+      ...hud,
+      party: hud.party.map((p) => (p.defId === 'seren' ? { ...p, downed: true } : p)),
+    };
+    const frame = frameOf(await framesHtml(downed), 'Seren');
+    expect(frame).toContain('data-far');
+    // Downed within reach: no fade.
+    expect(frameState({ ...h, distance: 3 }).far).toBe(false);
   });
 
   it('every frame state draws in her violet: never the silver of the Grand Silence', async () => {
@@ -316,6 +334,31 @@ describe('the HUD bridge builds duel and grove from the sim, only for their hero
     expect(o!.duel).toBeUndefined();
     expect(o!.grove!.saplings).toHaveLength(heroDef('oro').summons!.sapling.count);
     expect(typeof o!.grove!.tending).toBe('boolean');
+  });
+
+  it('his held grove never reads as burrowing: Oro down, then his wake; a Rally’s re-plant does', () => {
+    const sim = createSim({ seed: 3, encounter: 'first_light', party: ['kael', 'seren', 'oro'] });
+    const w = worldOf(sim);
+    for (let i = 0; i < 30; i++) sim.step([]);
+    const oro = w.entities.get(w.party[2]!)!;
+    const rows = () =>
+      buildHudSnapshot(sim.state, { seed: 3, hovered: null }).party[2]!.grove!.saplings;
+    expect(rows().filter((r) => r.hpPct >= 0).length).toBeGreaterThan(0);
+    oro.health!.downed = true;
+    oro.health!.bleedOut = 60;
+    for (let i = 0; i < 30; i++) sim.step([]);
+    const ids = oro.hero!.grove!.saplings;
+    expect(w.entities.get(ids[0]!)!.summon!.burrowUntil!).toBeGreaterThan(w.time);
+    expect(rows().some((r) => r.burrowing)).toBe(false);
+    oro.health!.downed = false;
+    oro.health!.bleedOut = 0;
+    for (let i = 0; i < 30; i++) sim.step([]);
+    expect(w.entities.get(ids[0]!)!.summon!.dormant).toBeUndefined();
+    expect(rows().some((r) => r.burrowing)).toBe(false);
+    const c = w.entities.get(ids[0]!)!.summon!;
+    c.plantX += 3;
+    c.burrowUntil = w.time + 0.8;
+    expect(rows().find((r) => r.id === ids[0])!.burrowing).toBe(true);
   });
 
   it('the default party has neither key', () => {

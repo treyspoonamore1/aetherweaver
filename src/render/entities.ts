@@ -75,7 +75,10 @@ import {
   ancientRising,
   ancientTauntRadius,
   burrowing,
-  dormant,
+  choirSings,
+  CHOIR_RADIUS,
+  GROVE_CHOIR,
+  stillHeld,
   ownerOf,
   rootedLook,
   summonCoverage,
@@ -515,8 +518,9 @@ export class EntityLayer {
    * notched ring, the en-garde blades, the duel tether and crown, the overextended notch pulse,
    * the reach arc, Thousand Cuts' hidden model and afterimages, the crossed-blades glyph on a
    * blow she can parry, the heavy pip. Oro: summons drawn (Saplings, the Ancient), their aura
-   * rims (lit and greyed), root tethers, burrow trails, dormant summons, the Ancient's warning
-   * and taunt ring, vines on rooted enemies, the tending leaf.
+   * rims (lit and greyed), root tethers, burrow trails, dormant summons (and waking ones, held
+   * grey and still), the Ancient's warning and taunt ring, vines on rooted enemies, the tending
+   * leaf.
    */
   readonly drawn5e = {
     notched: 0,
@@ -535,6 +539,8 @@ export class EntityLayer {
     greyRims: 0,
     rootTethers: 0,
     burrows: 0,
+    /** Verdant Choir's leaf rings (one per Sapling singing it). */
+    choirRings: 0,
     dormant: 0,
     warnings: 0,
     tauntRings: 0,
@@ -1660,7 +1666,7 @@ export class EntityLayer {
         y -= 0.35;
         dissolve = Math.max(dissolve, 0.55);
       }
-      if (dormant(e)) {
+      if (stillHeld(state, e)) {
         desat = Math.max(desat, 0.75);
         this.drawn5e.dormant++;
       }
@@ -2374,6 +2380,26 @@ export class EntityLayer {
         8,
       );
       d5.greyRims++;
+    }
+    if (choirSings(state, e)) {
+      // Verdant Choir (Q3): the reach of its pulse, a ring of leaves in Sostenuto's green.
+      kit.rings.push(
+        x,
+        0.035,
+        z,
+        CHOIR_RADIUS,
+        0.16,
+        0.12,
+        RING.leaf,
+        GROVE_CHOIR,
+        0.5 + 0.08 * Math.sin(this.now * 2.2 + e.id),
+        0,
+        7,
+        0,
+        14,
+        e.id * 0.7,
+      );
+      d5.choirRings++;
     }
     if (s.kind === 'sapling' && burrowing(state, e)) {
       // The burrow trail: earth churned up from where it sank toward where it re-plants.

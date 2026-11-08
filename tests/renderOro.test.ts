@@ -29,7 +29,14 @@ import { Feedback } from '../src/render/feedback';
 import { FieldView } from '../src/render/field';
 import { FxKit } from '../src/render/fx/kit';
 import { PARTICLE } from '../src/render/fx/particles';
-import { GROVE_HEX, SUMMON_BATCH, SUMMON_NUMBER_SHARE } from '../src/render/groveCues';
+import {
+  CHOIR_HEX,
+  CHOIR_RADIUS,
+  GROVE_HEX,
+  SUMMON_BATCH,
+  SUMMON_NUMBER_SHARE,
+} from '../src/render/groveCues';
+import { RING } from '../src/render/fx/rings';
 import { GroveDiscView } from '../src/render/groveDisc';
 import { ORO_SEED, buildAncient, buildHero, buildSapling } from '../src/render/models/library';
 import { createModelMaterial } from '../src/render/models/material';
@@ -432,6 +439,113 @@ describe('his summons, drawn', () => {
     expect(bars.find((x) => x.id === b!.id)!.dormant).toBe(true);
   });
 
+  it('real sim: while Oro is down, and through his wake, his Saplings stand grey and still', () => {
+    // The sim's own grove (no clearGrove): while he is down `tendGrove` pushes each dormant
+    // Sapling's `burrowUntil` ahead every tick, which is the grove waiting, never a re-plant.
+    const sim = sandbox({ party: WITH_ORO });
+    const w = worldOf(sim);
+    const h = harness(sim);
+    const oro = w.entities.get(w.party[ORO]!)!;
+    h.run(30);
+    const ids = [...oro.hero!.grove!.saplings];
+    expect(ids.length).toBeGreaterThan(0);
+    const bars = () => h.bars.drawnSummons.filter((b) => ids.includes(b.id));
+    const look = (ticks: number) => {
+      let burrows = 0;
+      let still = 0;
+      for (let i = 0; i < ticks; i++) {
+        h.run(1);
+        burrows += h.entities.drawn5e.burrows;
+        still += h.entities.drawn5e.dormant;
+        for (const b of bars()) {
+          expect(b.burrowing).toBe(false);
+          expect(b.dormant).toBe(true);
+        }
+        for (const id of ids)
+          expect(h.entities.recs.get(id)!.y, 'not sunk into the ground').toBeGreaterThan(-0.1);
+      }
+      return { burrows, still };
+    };
+    oro.health!.downed = true;
+    oro.health!.bleedOut = 60;
+    const down = look(30);
+    expect(down.burrows).toBe(0);
+    expect(down.still).toBe(30 * ids.length);
+    // He rises: they wake 2 s on (summons.ts WAKE), held where they stand until then.
+    oro.health!.downed = false;
+    oro.health!.bleedOut = 0;
+    const wake = look(30);
+    expect(w.entities.get(ids[0]!)!.summon!.burrowUntil!).toBeGreaterThan(w.time);
+    expect(wake.burrows).toBe(0);
+    expect(wake.still).toBe(30 * ids.length);
+    // A Rally in the wake moves the plant spot: from then on it burrows.
+    const s = w.entities.get(ids[0]!)!.summon!;
+    s.plantX += 3;
+    s.burrowUntil = w.time + 0.8;
+    h.frame([]);
+    expect(h.entities.drawn5e.burrows).toBe(1);
+    expect(h.bars.drawnSummons.find((b) => b.id === ids[0])!.burrowing).toBe(true);
+  });
+
+  it('Verdant Choir: a ring of leaves in Sostenuto’s green round each Sapling singing it', () => {
+    const { sim, w, of, h } = setup();
+    h.run(2);
+    const [a, b] = sprout(sim, of(ORO), { inField: [true, false] });
+    const leaves = () => {
+      const ring = h.kit.rings.array('iRing');
+      const out: number[] = [];
+      for (let i = 0; i < h.kit.rings.size; i++)
+        if (ring[i * 4 + 3] === RING.leaf) out.push(ring[i * 4]!);
+      return out;
+    };
+    // Without the motif: nothing, whatever stands in your field.
+    h.frame([]);
+    expect(h.entities.drawn5e.choirRings).toBe(0);
+    expect(leaves()).toEqual([]);
+    (w.mods as { verdantChoir: number }).verdantChoir = 0.3;
+    h.frame([]);
+    // Only the Sapling in your field sings (the sim's rule): one ring, its reach, leaf-shaped.
+    expect(h.entities.drawn5e.choirRings).toBe(1);
+    expect(leaves()).toEqual([CHOIR_RADIUS]);
+    expect(h.drewIn(CHOIR_HEX)).toBe(true);
+    expect(CHOIR_HEX).toBe(CONTENT.auras.find((x) => x.id === 'sostenuto')!.color);
+    b!.summon!.inField = true;
+    h.frame([]);
+    expect(h.entities.drawn5e.choirRings).toBe(2);
+    // Held (the field clears `inField`), felled: silent.
+    delete a!.summon!.inField;
+    b!.health!.dead = true;
+    h.frame([]);
+    expect(h.entities.drawn5e.choirRings).toBe(0);
+  });
+
+  it('Verdant Choir rings in the real sim: the field’s own coverage, only with the motif', () => {
+    const sim = sandbox({
+      party: WITH_ORO,
+      auras: ['sostenuto'],
+      motifs: [{ id: 'verdant_choir', level: 1 }],
+    });
+    const h = harness(sim);
+    expect(sim.state.mods.verdantChoir).toBeGreaterThan(0);
+    let rings = 0;
+    for (let i = 0; i < 60; i++) {
+      h.run(1);
+      rings = Math.max(rings, h.entities.drawn5e.choirRings);
+    }
+    const singing = [...sim.state.entities.list()].filter(
+      (e) => e.summon?.kind === 'sapling' && e.summon.inField === true,
+    ).length;
+    expect(h.entities.drawn5e.choirRings).toBe(singing);
+    expect(rings).toBeGreaterThan(0);
+    // The same fight without it draws none.
+    const plain = sandbox({ party: WITH_ORO, auras: ['sostenuto'] });
+    const p = harness(plain);
+    for (let i = 0; i < 60; i++) {
+      p.run(1);
+      expect(p.entities.drawn5e.choirRings).toBe(0);
+    }
+  });
+
   it('the Ancient: its ground warning before it rises, its taunt ring; vines on what it roots', () => {
     const { sim, w, of, h } = setup();
     h.run(1, [spawn('hollow_chorister', 1, -8)]);
@@ -515,6 +629,7 @@ describe('his healing, his numbers, his bars', () => {
     h.run(2);
     const [a] = sprout(sim, of(ORO));
     const pulse = vi.spyOn(h.thread, 'pulse');
+    // As grove.ts `rootbond` sends it: via 'mend' on the summon.
     h.frame([
       {
         type: 'healApplied',
@@ -523,7 +638,7 @@ describe('his healing, his numbers, his bars', () => {
         source: of(ORO).id,
         amount: 20,
         overheal: 0,
-        via: 'grove',
+        via: 'mend',
       },
     ]);
     h.frame([]);

@@ -730,6 +730,17 @@ function duelHud(state: WorldState, e: ReadonlyEntity): Pick<HeroHud, 'duel'> {
  * it stands in your songs and the auras it hears, and the Ancient's seconds. No key without
  * `grove`.
  */
+/**
+ * A Sapling burrowing on a Rally's re-plant: held (`burrowUntil` ahead) and moving to a new plant
+ * spot. Never while dormant (Oro down: the sim pushes its hold ahead every tick) or through the
+ * wake after he rises, where it is held where it stands (render's groveCues `burrowing`).
+ */
+function replanting(state: WorldState, s: ReadonlyEntity): boolean {
+  const c = s.summon;
+  if (!c || c.dormant || c.burrowUntil === undefined || !(c.burrowUntil > state.time)) return false;
+  return c.plantX !== s.x || c.plantZ !== s.z;
+}
+
 function groveHud(state: WorldState, e: ReadonlyEntity): Pick<HeroHud, 'grove'> {
   const g = e.hero?.grove;
   if (!g) return {};
@@ -760,9 +771,7 @@ function groveHud(state: WorldState, e: ReadonlyEntity): Pick<HeroHud, 'grove'> 
       hpPct: sh.maxHp > 0 ? Math.max(0, sh.hp) / sh.maxHp : 0,
       inField: s.summon.inField ?? saplingInField(state, s),
       ...(auras.length > 0 ? { auras } : {}),
-      ...(s.summon.burrowUntil !== undefined && s.summon.burrowUntil > state.time
-        ? { burrowing: true }
-        : {}),
+      ...(replanting(state, s) ? { burrowing: true } : {}),
     });
   }
   const ancient = g.ancient === null ? undefined : state.entities.get(g.ancient);

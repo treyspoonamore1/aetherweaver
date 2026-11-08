@@ -71,10 +71,15 @@ class FakeOverlay {
   callout(_x: number, _y: number, _z: number, text: string, color: string): void {
     this.callouts.push({ text, color });
   }
+  /** Each number's latest gold chip, by handle (one handle per number spawned). */
+  chips: (string | null)[] = [];
   spawnNumber(): number {
-    return 0;
+    this.chips.push(null);
+    return this.chips.length - 1;
   }
-  setNumber(): void {}
+  setNumber(handle: number, _text: string, chip: string | null): void {
+    this.chips[handle] = chip;
+  }
   numberAlive(): boolean {
     return true;
   }
@@ -446,6 +451,72 @@ describe('Seren’s moments', () => {
     expect(h.drewIn(SEREN_HEX.violet)).toBe(true);
     // It is Seren's, never Riposte Bash's (BondsView plays nothing).
     expect(h.bonds.fired.riposte_bash).toBe(0);
+  });
+
+  it('her counter’s and kill shot’s numbers wear the Weaver’s gold chip (your Ward did it)', () => {
+    const { sim, of, h } = setup();
+    const seren = of(SEREN);
+    h.run(1, [
+      spawn('hollow_chorister', seren.x, seren.z - 2),
+      spawn('hollow_chorister', seren.x + 2, seren.z - 2),
+    ]);
+    h.run(30);
+    dueled(seren);
+    const [foe, other] = enemiesOf(sim);
+    const hit = (target: number, amount: number, amplified = 0): SimEvent => ({
+      type: 'damageTaken',
+      tick: sim.state.tick,
+      target,
+      source: seren.id,
+      amount,
+      absorbed: 0,
+      amplified,
+      aura: 0,
+      radiance: 0,
+      eclipse: 0,
+      crit: false,
+      telegraph: null,
+      hit: 'hit',
+    });
+    const countered = (target: number, amount: number): SimEvent => ({
+      type: 'parryCountered',
+      tick: sim.state.tick,
+      hero: seren.id,
+      target,
+      amount,
+    });
+    const last = () => h.overlay.chips[h.overlay.chips.length - 1];
+    // A plain swing of hers: no chip.
+    h.frame([hit(foe!.id, 60)]);
+    expect(last()).toBeNull();
+    for (let i = 0; i < 60; i++) h.frame([]);
+    // The counter: the whole hit in gold (a part Empowered stays counted once).
+    h.frame([hit(foe!.id, 180, 30), countered(foe!.id, 180)]);
+    expect(last()).toBe('+180');
+    for (let i = 0; i < 60; i++) h.frame([]);
+    // Only on the counter's own target.
+    h.frame([hit(other!.id, 50), countered(foe!.id, 180)]);
+    expect(last()).toBeNull();
+    for (let i = 0; i < 60; i++) h.frame([]);
+    // A kill shot taken: gold; one lost draws nothing.
+    h.frame([
+      hit(other!.id, 400),
+      {
+        type: 'killShot',
+        tick: sim.state.tick,
+        hero: seren.id,
+        target: other!.id,
+        executed: false,
+        amount: 400,
+      },
+    ]);
+    expect(last()).toBe('+400');
+    for (let i = 0; i < 60; i++) h.frame([]);
+    // Blade Waltz's counters are hers, not your Ward's: no chip.
+    seren.hero!.soloId = 'blade_waltz';
+    seren.hero!.soloActive = 3;
+    h.frame([hit(foe!.id, 120), countered(foe!.id, 120)]);
+    expect(last()).toBeNull();
   });
 
   it('a kill shot: EXECUTED or KILL SHOT, a short hit-stop; a lost one draws nothing', () => {

@@ -46,8 +46,10 @@ export function frameLevel(
 
 /**
  * What the whole frame says: critical (under a quarter), an ailment to cleanse, out of reach.
- * Seren (docs/phase-5e.md) is never faded: out of reach, her frame shows a chip and a pulsing
- * outline instead (`duelOutline`), since the hero who most needs a Ward must not fade.
+ * Seren (docs/phase-5e.md) is never faded while she stands: out of reach, her frame shows a chip
+ * and a pulsing outline instead (`duelOutline`), since the hero who most needs a Ward must not
+ * fade. Downed, the chip and outline go (they name a Ward's answer), so the fade comes back: a
+ * downed Seren out of reach reads as every other hero's.
  */
 export function frameState(
   h: HeroHud,
@@ -58,6 +60,6 @@ export function frameState(
     critical: standing && frameLevel(h) === 2,
     // Blind Score (Phase 4d) names no answer: no cleanse highlight under it.
     ailing: standing && !blind && h.statuses.some((s) => isAilment(s.id)),
-    far: !h.dead && !h.duel && h.distance > CONTENT.techniques.ward.range,
+    far: !h.dead && (!h.duel || h.downed) && h.distance > CONTENT.techniques.ward.range,
   };
 }

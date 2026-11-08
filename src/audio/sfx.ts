@@ -344,8 +344,8 @@ export const SEREN_SOUND_LIMITS: Readonly<Record<SerenGroup, readonly [number, n
  * Phase 5e, Oro: the voice group of each of his grove's sounds, in his voice (hollow wood, a dark
  * pluck, leaves' breath, on G and D). `sprout`: a Sapling planted or re-sprouted
  * (`summonSpawned` 'sapling'). `saplingHurt`: a blow on a Sapling (heavily gated). `saplingFell`:
- * one felled (`summonFell` 'sapling'). `rootbond`: your Thread's Mend (or a grove heal) reaching
- * them (`healApplied` via 'grove', gated). `burrow`: a Rally re-planting them (their
+ * one felled (`summonFell` 'sapling'). `rootbond`: your Thread's Mend reaching them (Rootbond's
+ * `healApplied` via 'mend' on a summon, or one via 'grove', gated). `burrow`: a Rally re-planting them (their
  * `burrowUntil`, read from the state). `wildgrowth`: the ground's warning (its `soloStarted`), the
  * Ancient rising and withering (`summonSpawned` / `summonFell` 'ancient'). `ancientRoot`: enemies
  * rooted (`rooted`), deeper while the Ancient stands. `gentle`: he refused to raise a hand
@@ -1012,11 +1012,15 @@ export class SfxEngine {
   private handle(ev: SimEvent, state: WorldState): void {
     switch (ev.type) {
       case 'healApplied':
-        if (ev.via === 'mend') this.mend(ev.target, ev.amount, state);
+        // Phase 5e: Rootbond's Mend reaching Oro's Saplings goes out as via 'mend' on the summon
+        // (grove.ts `rootbond`): his grove's sound, never a second Mend pluck.
+        if (ev.via === 'mend' && state.entities?.get(ev.target)?.summon)
+          this.rootbond(ev.target, state);
+        else if (ev.via === 'mend') this.mend(ev.target, ev.amount, state);
         else if (ev.via === 'self') this.selfHeal(ev.amount);
         // Phase 5b: Brann's axe drinking (never the Weaver's Blood Font).
         else if (ev.via === 'lifesteal') this.lifesteal(ev.target, state);
-        // Phase 5e: Oro's grove healed (Rootbond's Mend reaching his Saplings, or a grove heal).
+        // Phase 5e: a grove heal on a summon (no sim path sends via 'grove' today).
         else if (ev.via === 'grove') this.rootbond(ev.target, state);
         // Phase 3e: via 'rewind' is the life Rewind gave back; its own sound (on `rewound`)
         // carries it, so it has none here.
@@ -8472,6 +8476,9 @@ export class SfxEngine {
   /**
    * The Saplings' Rally re-plant, read from the state: a Sapling whose `burrowUntil` is newly ahead
    * burrows. Only a hero with a grove (Oro) is looked at, so it reads nothing in any other party.
+   * A dormant Sapling is not re-planting (while Oro is down the sim pushes its hold ahead every
+   * tick), nor is one held where it stands through the wake after he rises: a Rally's re-plant
+   * moves its plant spot (render's groveCues `burrowing`).
    */
   private followGrove(state: WorldState): void {
     const party = state.party;
@@ -8480,7 +8487,10 @@ export class SfxEngine {
       const grove = state.entities.get(id)?.hero?.grove;
       if (!grove) continue;
       for (const sid of grove.saplings) {
-        const until = state.entities.get(sid)?.summon?.burrowUntil;
+        const s = state.entities.get(sid);
+        const c = s?.summon;
+        const until = c?.burrowUntil;
+        if (!s || !c || c.dormant || (c.plantX === s.x && c.plantZ === s.z)) continue;
         if (until === undefined || !(until > state.time) || this.burrowSeen.get(sid) === until)
           continue;
         this.burrowSeen.set(sid, until);

@@ -54,6 +54,32 @@ export function weaverReach(): number {
   return CONTENT.techniques.ward.range;
 }
 
+/**
+ * A blow that is your Ward's work (docs/phase-5e.md, 'Credit for Ward-caused damage'): Seren's
+ * counter to a parry (`parryCountered`) or her kill shot (`killShot`, taken) on the hit's target,
+ * in the same batch of events. Its number wears the Weaver's gold chip for the whole hit; the
+ * sim keeps it out of `amplified` so no total counts it twice, which is why render reads it from
+ * these events. Blade Waltz's counters are hers (the sim's `wardsDealt` leaves them out), so
+ * they wear none. Never true without her: no other hero sends these events.
+ */
+export function wardBlow(
+  events: readonly SimEvent[],
+  e: SimEventOf<'damageTaken'>,
+  state: Pick<WorldState, 'entities'>,
+): boolean {
+  if (e.source === null) return false;
+  let found = false;
+  for (const ev of events) {
+    if (ev.type === 'parryCountered' && ev.hero === e.source && ev.target === e.target) {
+      const h = state.entities.get(ev.hero)?.hero;
+      if (!(h?.soloId === 'blade_waltz' && h.soloActive > 0)) found = true;
+    } else if (ev.type === 'killShot' && !ev.lost && ev.hero === e.source && ev.target === e.target)
+      found = true;
+    if (found) return true;
+  }
+  return false;
+}
+
 /** The first hero in the party with a duel (Seren), or undefined (every other party). */
 export function duelHero(
   state: Pick<WorldState, 'party' | 'entities'>,

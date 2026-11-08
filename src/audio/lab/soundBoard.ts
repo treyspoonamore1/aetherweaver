@@ -1063,9 +1063,9 @@ const oroCall = (): SimEvent =>
     line: 'A little rain?',
   });
 
-/** A grove heal (Rootbond's Mend spilling onto a Sapling). */
+/** Rootbond's Mend spilling onto a Sapling, as the sim sends it (grove.ts: via 'mend' on it). */
 const groveHeal = (target: number): SimEvent =>
-  ev('healApplied', { target, source: IDS.weaver, amount: 12, overheal: 0, via: 'grove' });
+  ev('healApplied', { target, source: IDS.weaver, amount: 12, overheal: 0, via: 'mend' });
 
 /**
  * Thousand Cuts for 4 s: a blink each half second (eight cuts), cued or not. Cued, two of its
