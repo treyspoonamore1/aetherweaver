@@ -2343,8 +2343,14 @@ export function downAdvice(
   party: readonly string[],
   /** The run's Calling (Phase 5e: the Chronomancer's line for an overextended Seren). */
   calling?: string | null,
+  /**
+   * The run's Reel variant (`run.techniques.reel`; null: the plain Reel). Phase 5e: the Anchor
+   * and the Swap pull nothing, so an overextended Seren's answer is Rally (the HUD's
+   * `overextendedRallyHome`).
+   */
+  reelVariant?: string | null,
 ): string | null {
-  if (d.duel) return duelAdvice(d.duel, calling ?? null);
+  if (d.duel) return duelAdvice(d.duel, calling ?? null, reelVariant ?? null);
   if (d.grove) return groveAdvice(d.grove);
   if (!d.blood) return null;
   const def = CONTENT.heroes.find((h) => h.id === d.heroId);
@@ -2362,15 +2368,22 @@ export function downAdvice(
 /**
  * What Seren's down asks of the Weaver (docs/phase-5e.md, "Down recaps"), in priority order:
  * overextended and downed by the pack (for the Chronomancer, Rally or an early Rewind: Rewind is
- * no sure extraction from a duel), then a bolt or beam from far (no parry answers it), then a
- * parryable blow that landed with no Ward on her. Null otherwise: the blow's own answer comes
- * next, then `downFallback`.
+ * no sure extraction from a duel; with the Anchor or the Swap, which pull nothing, Rally: "Anchor
+ * and Swap ... leave her duel standing and Rally is their answer"), then a bolt or beam from far
+ * (no parry answers it), then a parryable blow that landed with no Ward on her. Null otherwise:
+ * the blow's own answer comes next, then `downFallback`.
  */
-function duelAdvice(d: NonNullable<DeathRecap['duel']>, calling: string | null): string | null {
+function duelAdvice(
+  d: NonNullable<DeathRecap['duel']>,
+  calling: string | null,
+  reelVariant: string | null,
+): string | null {
   if (d.overextended)
     return calling === 'chronomancer'
       ? 'Rally her, or Rewind as the pack closes.'
-      : 'Reel or Rally her out of the pack, or Cue Thousand Cuts.';
+      : reelVariant === 'anchor' || reelVariant === 'swap'
+        ? 'Rally her out of the pack, or Cue Thousand Cuts.'
+        : 'Reel or Rally her out of the pack, or Cue Thousand Cuts.';
   if (d.far) return 'Reel or Ward the beam on her.';
   if (d.parryable && !d.warded) return 'Ward her as the blow lands: a Ward is a parry.';
   return null;

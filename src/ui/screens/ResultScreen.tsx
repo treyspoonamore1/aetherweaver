@@ -417,7 +417,12 @@ export function ResultView({
               {r.deaths.map((d, i) => {
                 const def = heroDef(d.heroId);
                 // Phase 5b: a Blood Rage hero's down names its own answer (`downAdvice`).
-                const answer = deathAdviceLine(d, fightParty, run.calling?.id);
+                const answer = deathAdviceLine(
+                  d,
+                  fightParty,
+                  run.calling?.id,
+                  run.techniques?.reel,
+                );
                 const ready = deathReadyLine(d, run.calling?.id);
                 return (
                   <article

@@ -128,9 +128,20 @@ export function duelChips(
     out.push({
       id: 'duel',
       label: `Duelling ${d.quarryName}`,
-      title: `Showboat: ${h.name} duels the ${d.quarryName}, outside your songs but never beyond your reach. Focus moves her duel`,
+      title: `Showboat: ${h.name} duels ${quarryInSentence(d.quarryName)}, outside your songs but never beyond your reach. Focus moves her duel`,
     });
   return out;
+}
+
+/**
+ * Her quarry's name mid-sentence, with its article once: "the Bell Brute" for a common foe, "the
+ * Bellwarden" for a boss named "The Bellwarden", and a name with its own epithet ("Vharun, the
+ * Crimson Warden") as it stands.
+ */
+export function quarryInSentence(name: string): string {
+  if (name.startsWith('The ')) return `the ${name.slice(4)}`;
+  if (name.includes(', ')) return name;
+  return `the ${name}`;
 }
 
 /**

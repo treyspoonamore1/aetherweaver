@@ -209,7 +209,7 @@ export function useAllowance(): Allowance {
 export function useFreshUnlocks(): Unlock[] {
   const [fresh] = useState(() => {
     const p = useProfile.getState().profile;
-    return freshUnlocks(p.xp, p.introduced);
+    return freshUnlocks(p.xp, p.introduced, p.recruited ?? []);
   });
   useEffect(() => {
     if (fresh.length > 0) useProfile.getState().markIntroduced(fresh.map((u) => u.id));

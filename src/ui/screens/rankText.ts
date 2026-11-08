@@ -10,6 +10,7 @@ import {
   rankOf,
   rankProgress,
   unlocksBetween,
+  unlockAsRecruited,
   xpForFight,
   type Profile,
   type Unlock,
@@ -171,15 +172,32 @@ export function xpGain(
   };
 }
 
+/**
+ * Phase 5e: pending rank-ups as the profile reads them now. They are recorded when the XP lands,
+ * before the fight's recruit is taken (`recruitFrom` runs after `award`), so a recruit unlock
+ * whose hero has joined since reads as joined (`unlockAsRecruited`), not as how to earn her.
+ */
+export function recruitedRankUps<R extends { unlocks: Unlock[] }>(
+  rankUps: readonly R[],
+  recruited: readonly string[] | undefined,
+): R[] {
+  return rankUps.map((r) => ({
+    ...r,
+    unlocks: r.unlocks.map((u) => unlockAsRecruited(u, recruited)),
+  }));
+}
+
 /** What a whole run did for the Weaver's Rank (the profile already holds the run's XP). */
 export function runRank(
   run: Pick<RunState, 'xp'>,
   profileXp: number,
+  /** Phase 5e: the profile's recruits, so a recruit unlock whose hero joined reads as joined. */
+  recruited?: readonly string[],
 ): { from: number; to: number; unlocks: Unlock[]; line: string } {
   const before = Math.max(0, profileXp - run.xp);
   const from = rankOf(before);
   const to = rankOf(profileXp);
-  const unlocks = unlocksBetween(before, profileXp);
+  const unlocks = unlocksBetween(before, profileXp).map((u) => unlockAsRecruited(u, recruited));
   return {
     from,
     to,

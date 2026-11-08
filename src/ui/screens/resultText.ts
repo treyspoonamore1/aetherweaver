@@ -100,10 +100,13 @@ export function deathAdviceLine(
     Partial<Pick<DeathRecap, 'duel' | 'grove'>>,
   party: readonly string[],
   callingId?: string | null,
+  /** The run's Reel variant (`run.techniques.reel`): Anchor and Swap answer Seren with Rally. */
+  reelVariant?: string | null,
 ): string | null {
   return (
-    // Phase 5e: Seren's and Oro's downs name their own answers (Calling-aware for Seren's Rally).
-    downAdvice(d, party, callingId) ??
+    // Phase 5e: Seren's and Oro's downs name their own answers (Calling- and Reel-aware for
+    // Seren's Rally).
+    downAdvice(d, party, callingId, reelVariant) ??
     riftDownLine(d, callingId) ??
     finaleDownLine(d, callingId) ??
     deathAnswerLine(d.answers, callingId) ??
@@ -205,6 +208,8 @@ export function runDownAdvice(
   results: readonly Pick<EncounterResult, 'deaths' | 'heroes'>[],
   heroId: string,
   callingId?: string | null,
+  /** The run's Reel variant (`run.techniques.reel`): Anchor and Swap answer Seren with Rally. */
+  reelVariant?: string | null,
 ): { text: string; count: number }[] {
   const out: { text: string; count: number }[] = [];
   for (const r of results) {
@@ -213,7 +218,7 @@ export function runDownAdvice(
       if (d.heroId !== heroId) continue;
       // Oro's Saplings felled outside your songs: a line of their own here (`downFallback`).
       const text =
-        downAdvice(d, party, callingId) ??
+        downAdvice(d, party, callingId, reelVariant) ??
         (d.grove && d.grove.feltOutside > 0 ? GROVE_FELT_OUTSIDE : null);
       if (!text) continue;
       const seen = out.find((a) => a.text === text);

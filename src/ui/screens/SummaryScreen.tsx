@@ -319,7 +319,7 @@ export function SummaryView({
       blood: runBlood(run, id),
       duel: runDuel(run, id),
       grove: runGrove(run, id),
-      advice: runDownAdvice(run.results, id, run.calling?.id),
+      advice: runDownAdvice(run.results, id, run.calling?.id, run.techniques?.reel),
     };
   });
   const aimed = totals.telegraphsAimed;
@@ -1010,7 +1010,8 @@ function AstrolabeSummary({ tree }: { tree: readonly string[] }) {
 }
 
 function RunRankPanel({ run, profileXp }: { run: RunState; profileXp: number }) {
-  const rr = runRank(run, profileXp);
+  const recruited = useProfile((s) => s.profile.recruited);
+  const rr = runRank(run, profileXp, recruited);
   const gain = xpGain(profileXp, run.xp);
   const p = rankPanel({ xp: profileXp, runs: 0, wins: 0 });
   return (

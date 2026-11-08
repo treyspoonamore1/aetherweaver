@@ -1,5 +1,12 @@
 import type { ContentInput } from './schema';
 
+/**
+ * The names Oro gives his Saplings, by index (docs/phase-5e.md): the one list his
+ * `saplingFelled` barks, his HUD frame and render read, so the caption for a felled Sapling and
+ * its mini bar always name the same one (Seedling Swarm's third is Sorrel).
+ */
+export const SAPLING_NAMES: readonly string[] = ['Moss', 'Fern', 'Sorrel'];
+
 /** Starter heroes (docs/plan/03 §5): kits, Solos, Quirks and barks. */
 export const HEROES: ContentInput['heroes'] = [
   {
@@ -598,7 +605,7 @@ export const HEROES: ContentInput['heroes'] = [
       downed: ['Oro is down!', 'Look after them…'],
       revived: ['Still rooted.'],
       focus: ['If I must.', 'Forgive me.'],
-      saplingFelled: ['No — not Moss!', 'No — not Fern!'],
+      saplingFelled: SAPLING_NAMES.map((n) => `No — not ${n}!`),
     },
     codex:
       'A gentle grovekeeper who hates fighting. Oro plants two Saplings ahead of you, and they hold off the small things that bite. Keep your songs over them and they flourish; Rally and they re-sprout in front of you. Your Thread on Oro Mends them too, at half. He won’t raise a hand unless you set a Focus; until then his Saplings fight for him, and harder. Bosses and the biggest foes ignore them.',
