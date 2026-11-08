@@ -139,6 +139,34 @@ describe('Showboat: the strongest enemy within 12 m of you, every tick', () => {
     }
   });
 
+  it('Anchor and Swap are no pull: neither ends her duel (Rally is the answer)', () => {
+    for (const reel of ['anchor', 'swap'] as const) {
+      const s = setup(['lyra', 'vexis', 'seren'], { techniques: { reel } });
+      const brute = foe(s.w, 'bell_brute', 2, -7, { hp: 1e6, stun: true });
+      stepFor(s.sim, 120);
+      expect(s.seren.hero!.duel!.quarry, reel).toBe(brute.id);
+      const before = s.seren.hero!.duel!.showboatQuietUntil;
+      const cast = stepFor(s.sim, 1, [{ t: 'tech', id: 'reel', slot: s.slot }]);
+      expect(ofType(cast, 'techniqueCast')[0]?.variant, reel).toBe(reel);
+      stepFor(s.sim, 60);
+      expect(s.seren.hero!.duel!.showboatQuietUntil, reel).toBe(before);
+      expect(s.seren.hero!.duel!.quarry, reel).toBe(brute.id);
+    }
+  });
+
+  it('a Rewind (the Chronomancer’s Reel) ends it and suspends it for 4 s', () => {
+    const s = setup(['lyra', 'vexis', 'seren'], { calling: { id: 'chronomancer', path: [] } });
+    const brute = foe(s.w, 'bell_brute', 2, -7, { hp: 1e6, stun: true });
+    stepFor(s.sim, 120);
+    expect(s.seren.hero!.duel!.quarry).toBe(brute.id);
+    const at = s.w.time;
+    const cast = stepFor(s.sim, 1, [{ t: 'tech', id: 'reel', slot: s.slot }]);
+    expect(ofType(cast, 'rewound')).toHaveLength(1);
+    stepFor(s.sim, 30);
+    expect(s.seren.hero!.duel!.showboatQuietUntil).toBeCloseTo(at + 4, 1);
+    expect(s.seren.hero!.duel!.quarry).toBeNull();
+  });
+
   it('never takes her past 13 m from the Weaver, even onto your Focus', () => {
     const s = setup(['lyra', 'vexis', 'seren']);
     const brute = foe(s.w, 'bell_brute', 0, -12, { hp: 1e6, stun: true });
@@ -338,13 +366,48 @@ describe('her talents (Bonds)', () => {
       bonds: { talents: ['duellists_honour'], solos: [] },
     });
     const brute = foe(s.w, 'bell_brute', s.seren.x, s.seren.z - 2, { hp: 1e6, stun: true });
+    // You stand clear of the cone, to Ward again after.
+    const weaver = s.w.entities.get(s.w.weaverId)!;
+    place(weaver, s.seren.x + 8, s.seren.z);
     addStatus(s.w, s.seren, 'stun', 0.05, null);
     cone(s.w, brute, s.seren, s.seren.id, { impact: 0.2 });
     s.sim.step([{ t: 'tech', id: 'ward', slot: s.slot }]);
-    const w = s.w.entities.get(s.w.weaverId)!.weaver!;
+    const w = weaver.weaver!;
     expect(w.cooldowns.ward).toBeGreaterThan(0);
+    expect(w.wardCharges).toBe(0);
     const events = stepFor(s.sim, 30);
     expect(ofType(events, 'killShot')).toHaveLength(1);
-    expect(w.cooldowns.ward).toBeLessThan(0.5);
+    expect(ofType(events, 'killShot')[0]!.lost).toBeUndefined();
+    // The charge is back, not just the clock: you can Ward again at once, and keep doing so.
+    expect(w.wardCharges).toBe(w.maxWardCharges);
+    expect(w.cooldowns.ward).toBe(0);
+    const again = stepFor(s.sim, 1, [{ t: 'tech', id: 'ward', slot: s.slot }]);
+    expect(ofType(again, 'techniqueCast').map((e) => e.technique)).toEqual(['ward']);
+    stepFor(s.sim, 60 * 12);
+    expect(w.wardCharges).toBe(w.maxWardCharges);
+    const later = stepFor(s.sim, 1, [{ t: 'tech', id: 'ward', slot: s.slot }]);
+    expect(ofType(later, 'techniqueCast').map((e) => e.technique)).toEqual(['ward']);
+  });
+
+  it('Duellist’s Honour with two charges: a kill shot gives one back, the clock runs on', () => {
+    const s = setup(['lyra', 'vexis', 'seren'], {
+      bonds: { talents: ['duellists_honour'], solos: [] },
+    });
+    const weaver = s.w.entities.get(s.w.weaverId)!;
+    place(weaver, s.seren.x + 8, s.seren.z);
+    const w = weaver.weaver!;
+    w.maxWardCharges = 2;
+    w.wardCharges = 2;
+    const brute = foe(s.w, 'bell_brute', s.seren.x, s.seren.z - 2, { hp: 1e6, stun: true });
+    // One spent elsewhere, then the Perfect on her: none left, and the clock running.
+    s.sim.step([{ t: 'tech', id: 'ward', slot: 0 }]);
+    addStatus(s.w, s.seren, 'stun', 0.05, null);
+    cone(s.w, brute, s.seren, s.seren.id, { impact: 0.2 });
+    s.sim.step([{ t: 'tech', id: 'ward', slot: s.slot }]);
+    expect(w.wardCharges).toBe(0);
+    const events = stepFor(s.sim, 30);
+    expect(ofType(events, 'killShot')).toHaveLength(1);
+    expect(w.wardCharges).toBe(1);
+    expect(w.cooldowns.ward).toBeGreaterThan(0);
   });
 });

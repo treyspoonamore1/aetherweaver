@@ -6,7 +6,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { attackDef, heroDef } from '../../src/content';
-import { parryable, parryArmed } from '../../src/sim';
+import { parryable, parryArmed, type SimConfig } from '../../src/sim';
 import { addShield, addStatus, dealDamage } from '../../src/sim/combat/health';
 import { duelTick } from '../../src/sim/systems/duel';
 import { ofType, stepFor, stepUntil } from './helpers';
@@ -270,8 +270,19 @@ describe('Parry: a Ward on Seren negates the next melee blow aimed at her', () =
 
 describe('Kill shot (Q5): a Perfect Ward on a blow aimed at her', () => {
   /** A Perfect Ward on a cone aimed at her, from `defId`; returns the events to the Perfect. */
-  function perfect(defId: string, opts: { elite?: boolean; hp?: number; at?: number } = {}) {
-    const s = setup(['lyra', 'vexis', 'seren']);
+  function perfect(
+    defId: string,
+    opts: {
+      elite?: boolean;
+      hp?: number;
+      at?: number;
+      config?: Partial<SimConfig>;
+      /** Stand the Weaver clear of the cone (it would down her), to act after the Perfect. */
+      aside?: boolean;
+    } = {},
+  ) {
+    const s = setup(['lyra', 'vexis', 'seren'], opts.config);
+    if (opts.aside) place(s.w.entities.get(s.w.weaverId)!, s.seren.x + 8, s.seren.z);
     const at = opts.at ?? 2;
     const owner = foe(s.w, defId, s.seren.x, s.seren.z - at, {
       ...(opts.elite ? { elite: true } : {}),
@@ -415,6 +426,87 @@ describe('Kill shot (Q5): a Perfect Ward on a blow aimed at her', () => {
     const hp3 = risen.health!.hp;
     expect(shoot(s, risen).amount).toBe(0);
     expect(risen.health!.hp).toBe(hp3);
+  });
+
+  it('is lost to a Reel the next tick, never held through the pull', () => {
+    const s = perfect('bell_brute', { aside: true });
+    const next = stepFor(s.sim, 1, [{ t: 'tech', id: 'reel', slot: s.slot }]);
+    expect(ofType(next, 'reeled').map((e) => e.target)).toEqual([s.seren.id]);
+    expect(ofType(next, 'killShot')).toEqual([
+      expect.objectContaining({
+        hero: s.seren.id,
+        target: s.owner.id,
+        lost: 'disabled',
+        amount: 0,
+      }),
+    ]);
+    expect(s.seren.hero!.duel!.killShotOn).toBeNull();
+    // Nothing is taken once she lands, from beside you or by a leap back.
+    const after = stepFor(s.sim, 120);
+    expect(ofType(after, 'killShot')).toEqual([]);
+    expect(ofType(after, 'attackFired').filter((e) => e.visual === 'charge')).toEqual([]);
+    expect(s.owner.health!.dead).toBe(false);
+  });
+
+  it('is lost to a Rewind the next tick (the Chronomancer’s Reel)', () => {
+    const s = perfect('bell_brute', {
+      aside: true,
+      config: { calling: { id: 'chronomancer', path: [] } },
+    });
+    const next = stepFor(s.sim, 1, [{ t: 'tech', id: 'reel', slot: s.slot }]);
+    expect(ofType(next, 'rewound').map((e) => e.target)).toEqual([s.seren.id]);
+    expect(ofType(next, 'killShot')).toEqual([
+      expect.objectContaining({ target: s.owner.id, lost: 'disabled', amount: 0 }),
+    ]);
+    expect(ofType(stepFor(s.sim, 60), 'killShot')).toEqual([]);
+    expect(s.owner.health!.dead).toBe(false);
+  });
+
+  it('a counter owed when a Reel takes her is lost, not answered once she lands', () => {
+    const s = setup(['lyra', 'vexis', 'seren']);
+    const brute = foe(s.w, 'bell_brute', s.seren.x, s.seren.z - 2, { hp: 1e6, stun: true });
+    wardOn(s);
+    const r = dealDamage(s.w, s.seren, {
+      source: brute.id,
+      sourceName: 'x',
+      amount: 200,
+      melee: true,
+    });
+    expect(r.parried).toBe(200);
+    expect(s.seren.hero!.duel!.parryOn).toBe(brute.id);
+    const events = stepFor(s.sim, 120, [{ t: 'tech', id: 'reel', slot: s.slot }]);
+    expect(ofType(events, 'reeled')).toHaveLength(1);
+    expect(ofType(events, 'parryCountered')).toEqual([]);
+    expect(s.seren.hero!.duel!.parryOn).toBeNull();
+    expect(s.seren.hero!.duel!.counterDamage).toBe(0);
+  });
+
+  it('En Garde: each parry and each kill shot grants its Resonance; none without it', () => {
+    const gains = (motif: boolean) => {
+      const config: Partial<SimConfig> = motif ? { motifs: [{ id: 'en_garde', level: 1 }] } : {};
+      const s = setup(['lyra', 'vexis', 'seren'], config);
+      const brute = foe(s.w, 'bell_brute', s.seren.x, s.seren.z - 2, { hp: 1e6, stun: true });
+      s.sim.drainEvents();
+      wardOn(s);
+      dealDamage(s.w, s.seren, { source: brute.id, sourceName: 'x', amount: 200, melee: true });
+      const parry = ofType(s.sim.drainEvents(), 'resonanceGained').filter(
+        (e) => e.reason === 'enGarde',
+      );
+      s.seren.hero!.duel!.parryOn = null;
+      s.seren.hero!.duel!.killShotOn = brute.id;
+      duelTick(s.w, s.seren, SEREN, DT);
+      const events = s.sim.drainEvents();
+      expect(ofType(events, 'killShot')[0]!.lost).toBeUndefined();
+      const shot = ofType(events, 'resonanceGained').filter((e) => e.reason === 'enGarde');
+      return { s, parry, shot };
+    };
+    const on = gains(true);
+    expect(on.s.w.mods.enGarde).toBe(8);
+    expect(on.parry.map((e) => e.amount)).toEqual([8]);
+    expect(on.shot.map((e) => e.amount)).toEqual([8]);
+    const off = gains(false);
+    expect(off.s.w.mods.enGarde).toBe(0);
+    expect([...off.parry, ...off.shot]).toEqual([]);
   });
 
   it('a Cracked Metronome Perfect on her is a kill shot', () => {

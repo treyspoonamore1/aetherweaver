@@ -485,6 +485,8 @@ export function duelTick(world: World, e: Entity, def: HeroDef, dt: number): voi
   const duel = hero.duel;
   const p = parryOf(def);
   if (!duel || !p) return;
+  if ((duel.parryOn !== null || duel.killShotOn !== null) && rewoundNow(world, e, dt))
+    duelReeled(world, e);
   if (duel.parryOn !== null) {
     const attacker = world.entities.get(duel.parryOn);
     duel.parryOn = null;
@@ -520,11 +522,18 @@ function setOverextended(world: World, e: Entity, duel: DuelState, on: boolean):
   world.events.push({ type: 'overextended', tick: world.tick, hero: e.id, on });
 }
 
-/** A Rally or a Reel (or a Rewind) on her ends her duel and suspends Showboat. */
+/**
+ * A Rally or a Reel (or a Rewind) on her ends her duel and suspends Showboat. Only the pull
+ * counts as a Reel: Anchor has no pull (she holds her ground, and Rally is the answer), and a
+ * Swap puts you in her duel rather than her out of it, so neither ends it.
+ */
 function quiet(world: World, e: Entity, duel: DuelState): void {
   const rally = world.internal.rallyUntil;
   if (rally > world.time) suspend(duel, rally - RALLY_LENGTH + SHOWBOAT_QUIET);
   // A Reel leaves its mark in the ledger (`pushMarker`), the only trace once it has landed.
+  // Swap and Anchor leave the same 'reel' mark; the Weaver's Reel variant tells them apart.
+  const variant = world.entities.get(world.weaverId)?.weaver?.variants.reel ?? null;
+  const pulls = variant !== 'swap' && variant !== 'anchor';
   const markers = world.ledger.markers;
   const start = world.encounter.startedAt;
   const slot = e.hero!.slot;
@@ -532,7 +541,7 @@ function quiet(world: World, e: Entity, duel: DuelState): void {
     const m = markers[i]!;
     const until = m.time + start + SHOWBOAT_QUIET;
     if (until <= Math.max(duel.showboatQuietUntil, world.time)) break;
-    if ((m.kind === 'reel' || m.kind === 'rewind') && m.slot === slot) {
+    if (((m.kind === 'reel' && pulls) || m.kind === 'rewind') && m.slot === slot) {
       suspend(duel, until);
       break;
     }
@@ -706,9 +715,14 @@ function killShot(
   if (world.mods.enGarde > 0) gainResonance(world, world.mods.enGarde, 'enGarde');
   // Duellist's Honour: a kill shot readies your Ward again (read through `killShot`; no
   // `talentFired` until the Bond-cue tables list it, as Bladesong).
+  // A charge comes back, as Temporal Mastery gives one (the recharge loop only adds charges as a
+  // running cooldown reaches 0, so zeroing the clock alone would leave the Weaver none).
   if (hasTalent(e, 'duellists_honour')) {
     const w = world.entities.get(world.weaverId)?.weaver;
-    if (w && w.cooldowns.ward > 0) w.cooldowns.ward = 0;
+    if (w && w.wardCharges < w.maxWardCharges) {
+      w.wardCharges++;
+      if (w.wardCharges >= w.maxWardCharges) w.cooldowns.ward = 0;
+    }
   }
 }
 
@@ -760,6 +774,34 @@ export function duelLost(world: World, e: Entity): void {
     duel.quarryUntil = 0;
     if (duel.overextended) setOverextended(world, e, duel, false);
   }
+}
+
+/**
+ * Reeled (each tick of the pull, `updateHeroes`' Reel branch) or Rewound this tick: a pending
+ * counter or kill shot is lost, as when disabled. Held through the pull, a kill shot would leap
+ * her back onto its owner and undo the extraction you just paid for.
+ */
+export function duelReeled(world: World, e: Entity): void {
+  const duel = e.hero?.duel;
+  if (!duel) return;
+  duel.parryOn = null;
+  if (duel.killShotOn !== null) {
+    const owner = duel.killShotOn;
+    duel.killShotOn = null;
+    lostShot(world, e, owner, 'disabled');
+  }
+}
+
+/** A Rewind on her slot this tick (its mark is pushed with the commands, before time moves on). */
+function rewoundNow(world: World, e: Entity, dt: number): boolean {
+  const markers = world.ledger.markers;
+  const since = world.time - dt - world.encounter.startedAt - 1e-9;
+  for (let i = markers.length - 1; i >= 0; i--) {
+    const m = markers[i]!;
+    if (m.time < since) return false;
+    if (m.kind === 'rewind' && m.slot === e.hero!.slot) return true;
+  }
+  return false;
 }
 
 /** A live, standing enemy (not spawning, not rising): a duel can be fought with it. */

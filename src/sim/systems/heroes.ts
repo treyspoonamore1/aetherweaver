@@ -40,6 +40,7 @@ import {
   duelExecute,
   duelLost,
   duelMove,
+  duelReeled,
   duelStands,
   duelTargetInSight,
   duelTick,
@@ -96,6 +97,8 @@ export function updateHeroes(world: World, dt: number): void {
 
     // A Reel also drags a downed hero's body out of danger.
     if (hero.reel && !h.dead) {
+      // Seren (docs/phase-5e.md): a pending counter or kill shot is lost to the pull.
+      if (hero.duel) duelReeled(world, e);
       updateReel(world, e, dt);
       tickSoloClock(world, e, dt);
       hero.soloHeld = 0;
