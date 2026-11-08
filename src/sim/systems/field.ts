@@ -127,7 +127,31 @@ function coverage(world: World, e: Entity, side: 'party' | 'enemy'): number {
     if (inside) inRadius = true;
     if (focus || inside) mask |= song;
   }
+  // The Cued Ancient's disc (docs/phase-5e.md Q2) counts as your field while it stands: absent
+  // in every party without Oro, so this is one untaken branch for them.
+  if (world.field.ancient) mask |= ancientCoverage(world, e, world.field.ancient, sideMask);
   return mask;
+}
+
+/**
+ * Q2: `e` inside the Cued Ancient's disc hears every song that has a field, as if it stood in
+ * that field (the union of their `chordMask`s, so Steal Verse holds; strengths still come from
+ * `auraTotals`), and stands in your field (`inRadius`). The suppression, dome and hymn tests have
+ * already passed in `coverage`.
+ */
+function ancientCoverage(
+  world: World,
+  e: Entity,
+  disc: NonNullable<WorldState['field']['ancient']>,
+  sideMask: number,
+): number {
+  const r = disc.r + e.radius;
+  if (distSq(e.x, e.z, disc.x, disc.z) > r * r) return 0;
+  let union = 0;
+  for (const chord of world.field.chords)
+    if (chord.radius > 0) union |= chordMask(world, chord) & sideMask;
+  if (union !== 0) inRadius = true;
+  return union;
 }
 
 function threadedHero(world: World, weaver: Entity): EntityId | null {
@@ -231,6 +255,9 @@ export function updateField(world: World, dt: number): void {
     if (!wasIn && hero.hero.inField) dawnward(world, hero, mask);
     applyAuraLife(world, hero, auraTotals(world, mask, hero.hero.beamFocus), dt, flush, refill);
   }
+  // Q1 (docs/phase-5e.md): Oro's summons hear your songs as a hero outside the Thread does. The
+  // list exists only in an Oro party.
+  if (world.internal.summons) coverSummons(world, world.internal.summons, dt, flush, refill);
   // The Weaver hears their own songs too (the beam song only as its echo).
   const weaverMask = weaver.health!.downed ? 0 : coverage(world, weaver, 'party');
   applyAuraLife(world, weaver, auraTotals(world, weaverMask), dt, flush, refill);
@@ -243,6 +270,35 @@ export function updateField(world: World, dt: number): void {
     // Inside the light, whatever the songs hold for enemies (Eclipse reads it).
     e.enemy.inField =
       !f.suppressed && !inDome(e) && inHymn(world, e) && inAnyField(world, e.x, e.z, e.radius);
+  }
+}
+
+/**
+ * Q1: each standing summon's coverage, by the unchanged `coverage()` (Mute and Silencing domes,
+ * the hymn, suppression and Steal Verse all apply), at `auraTotals(mask, false)`: field songs at
+ * their strength, the beam song as its echo (a summon is never the threaded hero). Its regen and
+ * barrier land through `applyAuraLife`; its swings read `summonFx`. A dormant or burrowed summon
+ * (held, untargetable) hears nothing. None of the hero 'in your field' effects (Dawnward, the
+ * chorus pulse, Fermata, Haloed, Anthem, Radiance, Shared Wounds) reach it: those read heroes.
+ */
+function coverSummons(
+  world: World,
+  ids: readonly EntityId[],
+  dt: number,
+  flush: boolean,
+  refill: number,
+): void {
+  for (const id of ids) {
+    const s = world.entities.get(id);
+    const c = s?.summon;
+    if (!s || !c || !s.health || s.health.dead) continue;
+    const held = c.dormant === true || (c.burrowUntil !== undefined && world.time < c.burrowUntil);
+    const mask = held ? 0 : coverage(world, s, 'party');
+    if (mask !== 0) c.auraMask = mask;
+    else delete c.auraMask;
+    if (mask !== 0 && inRadius) c.inField = true;
+    else delete c.inField;
+    applyAuraLife(world, s, auraTotals(world, mask, false), dt, flush, refill);
   }
 }
 
@@ -315,21 +371,23 @@ function applyAuraLife(
   refill: number,
 ): void {
   const h = e.health!;
+  // Heal floaters are aggregated on a hero (or, Q1, a summon); the Weaver shows none.
+  const acc = e.hero ?? e.summon;
   if (fx.regenPctPerSec > 0 && h.hp < h.maxHp && !h.downed && !h.dead) {
     const healed = heal(world, e, h.maxHp * fx.regenPctPerSec * dt, 'aura', false);
-    if (e.hero) e.hero.auraHealAcc += healed;
+    if (acc) acc.auraHealAcc += healed;
   }
-  if (flush && e.hero && e.hero.auraHealAcc > 0.5) {
+  if (flush && acc && acc.auraHealAcc > 0.5) {
     world.events.push({
       type: 'healApplied',
       tick: world.tick,
       target: e.id,
       source: world.weaverId,
-      amount: e.hero.auraHealAcc,
+      amount: acc.auraHealAcc,
       overheal: 0,
       via: 'aura',
     });
-    e.hero.auraHealAcc = 0;
+    acc.auraHealAcc = 0;
   }
   const barrier = shieldOf(h, 'barrier');
   if (fx.barrierPct <= 0) {
@@ -349,12 +407,20 @@ function applyAuraLife(
   }
 }
 
-/** Any Chord field (not a beam song without an echo) containing (x, z) widened by `pad`. */
+/**
+ * Any Chord field (not a beam song without an echo) containing (x, z) widened by `pad`. While a
+ * Cued Ancient stands (Q2, Oro parties only), its disc counts too, whenever any song has a field.
+ */
 export function inAnyField(world: World, x: number, z: number, pad: number): boolean {
+  let any = false;
   for (const c of world.field.chords) {
     if (c.radius <= 0) continue;
+    any = true;
     const r = c.radius + pad;
     if (distSq(x, z, c.x, c.z) <= r * r) return true;
   }
-  return false;
+  const disc = world.field.ancient;
+  if (!disc || !any) return false;
+  const r = disc.r + pad;
+  return distSq(x, z, disc.x, disc.z) <= r * r;
 }

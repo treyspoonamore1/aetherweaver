@@ -162,6 +162,15 @@ export function heroFx(world: World, e: Entity): Readonly<AuraTotals> {
   return auraTotals(world, e.hero?.auraMask ?? 0, e.hero?.beamFocus ?? false);
 }
 
+/**
+ * Q1 (docs/phase-5e.md): what one of Oro's summons hears. `summon.auraMask` is written only by
+ * the field's summon loop, in Oro parties; a summon is never the threaded hero, so the beam song
+ * reaches it as its echo. It feeds a Sapling's damage, flat damage and attack speed.
+ */
+export function summonFx(world: World, e: Entity): Readonly<AuraTotals> {
+  return auraTotals(world, e.summon?.auraMask ?? 0, false);
+}
+
 export function enemyFx(world: World, e: Entity): Readonly<AuraTotals> {
   return auraTotals(world, e.enemy?.auraMask ?? 0, e.enemy?.beamFocus ?? false);
 }
