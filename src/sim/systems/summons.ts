@@ -110,7 +110,9 @@ export function ledgerGrove(world: World): LedgerGrove {
 /**
  * Sapling `index` of `count`'s front spot: `front.forward` m ahead of the Weaver along her
  * heading and spread across ±`front.spread` m (one Sapling: straight ahead), then out of the
- * pillars and inside the arena. Writes `out`.
+ * pillars and inside the arena. While the Silent Verse's hymn circles stand (docs/phase-5e.md:
+ * the Rally re-plants them "inside the circle you stand in"), a spot outside every circle is
+ * drawn into the one she stands in (else the one nearest her). Writes `out`.
  */
 export function frontSpot(
   world: World,
@@ -128,7 +130,48 @@ export function frontSpot(
   out.x = (weaver?.x ?? 0) + hx * def.sapling.front.forward - hz * lateral;
   out.z = (weaver?.z ?? 0) + hz * def.sapling.front.forward + hx * lateral;
   settle(world, out, def.sapling.radius);
+  if (weaver && world.field.hymnCircles.length > 0)
+    intoCircle(world, weaver, out, hx, hz, def.sapling.radius);
   return out;
+}
+
+/** How far inside a hymn circle's edge `intoCircle` sets a Sapling's centre (m). */
+const CIRCLE_INSIDE = 0.25;
+
+/** `frontSpot` under the Silent Verse: a spot outside every circle is drawn into hers. */
+function intoCircle(
+  world: World,
+  weaver: Entity,
+  out: { x: number; z: number },
+  hx: number,
+  hz: number,
+  radius: number,
+): void {
+  const circles = world.field.hymnCircles;
+  for (const c of circles) if ((out.x - c.x) ** 2 + (out.z - c.z) ** 2 <= c.r * c.r) return;
+  let best = circles[0]!;
+  let bestD = Infinity;
+  for (const c of circles) {
+    // Hers first (any she stands in), then the nearest to her.
+    const d = (weaver.x - c.x) ** 2 + (weaver.z - c.z) ** 2;
+    const key = d <= c.r * c.r ? -1 / (1 + d) : d;
+    if (key < bestD) {
+      best = c;
+      bestD = key;
+    }
+  }
+  let dx = out.x - best.x;
+  let dz = out.z - best.z;
+  let d = Math.sqrt(dx * dx + dz * dz);
+  if (d < 1e-6) {
+    dx = hx;
+    dz = hz;
+    d = Math.sqrt(dx * dx + dz * dz) || 1;
+  }
+  const reach = Math.max(0, best.r - CIRCLE_INSIDE);
+  out.x = best.x + (dx / d) * Math.min(d, reach);
+  out.z = best.z + (dz / d) * Math.min(d, reach);
+  settle(world, out, radius);
 }
 
 /** Beside Oro (a re-sprout, Regrowth): to his left for even indices, his right for odd. */

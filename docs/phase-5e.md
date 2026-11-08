@@ -1415,6 +1415,18 @@ The workstreams merged in order W8 (with W7, W1 and W2), W2b, W6 (with W3), W4, 
   - A Gentle Oro obeys Hold as he obeys a Rally: no retreat from his hold spot.
   - An uncued Wildgrowth’s Ancient leaves in `finishSolo` (World Tree: 4 s later); a Cued one keeps Q2’s 8 s from rising.
   - Verified already fixed: Duellist’s Honour returns a Ward charge (the Temporal Mastery way), a Reel or Rewind loses a pending counter or kill shot, and Anchor and Swap don’t end her duel.
+- **Sim fixes after review (m5/review-sim).** Each is reached only with Seren or Oro in the party.
+  - Stasis holds the immunity behind Oro’s root (`rootImmuneUntil`) as it holds the root itself.
+  - A blow that lands on a Sapling never Severs, bolt or swing.
+  - Feint’s step leaves the blow: the 2.5 m sidestep when it does, else the nearest spot inside the leash that leaves every blow aimed at her (or the dodge she already chose). A step that answers a blow holds until it lands; one that answers none is her own 0.5 s (`HeroDodge.free`), which Stasis doesn’t hold. Feint (a) waits out Stasis.
+  - Her ordinary dodge stays within the 13 m leash (`duelEscape`): a clamped spot that is back in the blow is replaced by the nearest one in reach that leaves it.
+  - Under an Aegis Link, her own share of a blow aimed at her can be parried (Blade Waltz, or a Ward that arms her); the shares sent to the others still land, and a share sent to her is never parried.
+  - A parried telegraph resolves as `warded`, never `hit`.
+  - A Reel, Rewind or Rally during Thousand Cuts moves its start point (the Reel’s landing, the Rewind’s spot, 2.5 m from you on her side), so the cuts end there, not back in the pack.
+  - Gentle reads a Focus standing up again (Restless Dead) as no Focus, as his targeting does.
+  - Regrowth’s Call opens only for a hurt Sapling within Regrowth’s reach of him.
+  - Under the Silent Verse, a front spot outside every hymn circle is drawn into the circle the Weaver stands in (else the nearest), so a Rally re-plants the Saplings inside it.
+  - Down recaps: Oro’s `melee` needs a lesser foe (normal or elite, not heavy) and no raid, mark or link; Seren’s `far` is a bolt or beam only, and her `overextended` needs a blow from the pack (a plain hit, or a lesser foe’s telegraph that is no raid, mark or link). Their Movement I telegraph downs carry the telegraph’s answers. `deathAdviceLine` ends with `downFallback` (Oro’s Saplings felled outside your songs, else each hero’s steady line), so every one of their downs names an answer, and the blow’s own answer comes before the felled Saplings.
 
 ## Exit criteria
 

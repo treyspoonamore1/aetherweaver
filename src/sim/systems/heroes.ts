@@ -37,6 +37,7 @@ import {
   clampDuel,
   duelAbility,
   duelChooseTarget,
+  duelEscape,
   duelExecute,
   duelLost,
   duelMove,
@@ -1540,6 +1541,8 @@ function noticeTelegraphs(world: World, e: Entity, def: HeroDef): void {
     if (!world.rng.ai.chance(chance)) continue;
     const escape = escapePoint(world, t, e);
     if (!escape) continue;
+    // Seren (docs/phase-5e.md): her step stays within the leash.
+    if (hero.duel) duelEscape(world, e, t, escape);
     const reaction = 0.3 + world.rng.ai.float() * 0.45;
     hero.dodge = {
       telegraph: t.id,

@@ -154,8 +154,8 @@ function strike(
   if (source?.enemy) {
     applyOnHit(world, source, e, result.dealt, hit.onHit);
     // Severing (docs/phase-5c.md): a bolt it lands near the Thread cuts it. Only an elite with
-    // a cutting affix reads anything here.
-    if (source.enemy.affixes.length > 0 && result.dealt + result.absorbed > 0)
+    // a cutting affix reads anything here. A blow on a summon never cuts (docs/phase-5e.md).
+    if (source.enemy.affixes.length > 0 && result.dealt + result.absorbed > 0 && !e.summon)
       severingHit(world, source);
     // Oathkeeper (Bonds): Kael took the hit, and what it carries (as a telegraph's).
     const kael = result.takenBy === undefined ? undefined : world.entities.get(result.takenBy);

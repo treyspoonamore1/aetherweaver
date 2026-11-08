@@ -423,20 +423,24 @@ const PARRIED: DamageResult = {
 /**
  * The parry intercept (dealDamage, after the Sphere, Oathkeeper and the Aegis Link share, before
  * guards, armour, Fermata and shields). Called only for a duel victim and never for a redirected
- * share (`opts.oath`). A melee blow aimed at her (`opts.melee`: an enemy's basic swing at her, or
- * a parryable cone whose target is her), while she stands en garde, is negated whole: the Ward is
- * spent (with Riposte Chain, marked on its first parry), and the counter is owed next tick.
- * Returns the parry's result (`dealt 0, absorbed 0, parried`) or null.
+ * share (`opts.oath`); `own` marks her own share of a blow aimed at her under an Aegis Link
+ * (marked `oath` like the shares it sent the others, but not redirected), which can be parried.
+ * A melee blow aimed at her (`opts.melee`: an enemy's basic swing at her, or a parryable cone
+ * whose target is her), while she stands en garde, is negated whole: the Ward is spent (with
+ * Riposte Chain, marked on its first parry), and the counter is owed next tick. Returns the
+ * parry's result (`dealt 0, absorbed 0, parried`) or null.
  */
 export function parryIntercept(
   world: World,
   target: Entity,
   source: Entity | undefined,
   opts: DamageOpts,
+  own = false,
 ): DamageResult | null {
   const duel = target.hero?.duel;
   const h = target.health;
-  if (!duel || !h || opts.melee !== true || opts.kind === 'tick' || opts.oath) return null;
+  if (!duel || !h || opts.melee !== true || opts.kind === 'tick') return null;
+  if (opts.oath && !own) return null;
   if (!source?.enemy) return null;
   const waltz = waltzing(target);
   const ward = waltz ? undefined : armingWard(target);
@@ -504,6 +508,12 @@ export function duelTick(world: World, e: Entity, def: HeroDef, dt: number): voi
   if (!duel || !p) return;
   if ((duel.parryOn !== null || duel.killShotOn !== null) && rewoundNow(world, e, dt))
     duelReeled(world, e);
+  // A Rewind or a Rally during Thousand Cuts, as a Reel (`duelReeled`): the cuts end where the
+  // Rewind put her, or beside you.
+  if (cutting(e)) {
+    if (rewoundNow(world, e, dt)) cutsFrom(duel, e.x, e.z);
+    else if (world.internal.rallyUntil > world.time) rallyAnchor(world, duel);
+  }
   if (duel.parryOn !== null) {
     const attacker = world.entities.get(duel.parryOn);
     duel.parryOn = null;
@@ -766,22 +776,40 @@ function lostShot(
  * Seren's down recap (docs/phase-5e.md, "Down recaps"; `DeathRecord.duel`), read in `downHero`
  * before the down clears her: a Ward was on her as the killing blow came (`warded`, read before
  * it was absorbed), the blow was one she parries (`parryable`: a melee blow aimed at her), she
- * was overextended, and it came from far (`far`: an enemy's hit from beyond `PARRY_REACH`, a beam
- * or a bolt, that no parry answers).
+ * was overextended and the blow came from the pack (`overextended`: a plain hit, or a lesser
+ * foe's telegraph that is no raid, mark or link; a boss's cone or raid has its own answer), and
+ * it came from far (`far`: an enemy's bolt or beam from beyond `PARRY_REACH`, that no parry
+ * answers; a mark, raid, burst or cleave is no beam).
  */
 export function duelDownRecord(
   e: Entity,
-  blow: { source: Entity | undefined; melee: boolean; tick: boolean; warded: boolean },
+  blow: {
+    source: Entity | undefined;
+    melee: boolean;
+    tick: boolean;
+    warded: boolean;
+    kind?: Telegraph['kind'];
+  },
 ): NonNullable<DeathRecord['duel']> {
   const duel = e.hero!.duel!;
   const src = blow.source;
   const reach = PARRY_REACH + e.radius + (src?.radius ?? 0);
+  const k = blow.kind;
   const far =
-    !blow.melee && !blow.tick && !!src?.enemy && distSq(src.x, src.z, e.x, e.z) > reach * reach;
+    !blow.melee &&
+    !blow.tick &&
+    (k === undefined || k === 'beam') &&
+    !!src?.enemy &&
+    distSq(src.x, src.z, e.x, e.z) > reach * reach;
+  const tier = src?.enemy?.tier;
+  const pack =
+    !blow.tick &&
+    (k === undefined ||
+      ((tier === 'normal' || tier === 'elite') && k !== 'raid' && k !== 'mark' && k !== 'link'));
   return {
     warded: blow.warded,
     parryable: blow.melee,
-    overextended: duel.overextended === true,
+    overextended: duel.overextended === true && pack,
     far,
   };
 }
@@ -820,12 +848,35 @@ export function duelLost(world: World, e: Entity): void {
 export function duelReeled(world: World, e: Entity): void {
   const duel = e.hero?.duel;
   if (!duel) return;
+  // A Reel during Thousand Cuts (docs/phase-5e.md, "Overextended"): the cuts go on, but from,
+  // and back to, where it put her, not the pack she was pulled out of.
+  const reel = e.hero!.reel;
+  if (reel && cutting(e)) cutsFrom(duel, reel.toX, reel.toZ);
   duel.parryOn = null;
   if (duel.killShotOn !== null) {
     const owner = duel.killShotOn;
     duel.killShotOn = null;
     lostShot(world, e, owner, 'disabled');
   }
+}
+
+/** Thousand Cuts' start point (its reach and its return) moves to (x, z). */
+function cutsFrom(duel: DuelState, x: number, z: number): void {
+  if (duel.cutsVisited === undefined) return;
+  duel.cutsFromX = x;
+  duel.cutsFromZ = z;
+}
+
+/** A Rally during Thousand Cuts brings its start point beside you, on her side. */
+const RALLY_BESIDE = 2.5;
+function rallyAnchor(world: World, duel: DuelState): void {
+  const weaver = world.entities.get(world.weaverId);
+  if (!weaver || duel.cutsFromX === undefined || duel.cutsFromZ === undefined) return;
+  const dx = duel.cutsFromX - weaver.x;
+  const dz = duel.cutsFromZ - weaver.z;
+  const d = Math.sqrt(dx * dx + dz * dz);
+  if (d <= RALLY_BESIDE) return;
+  cutsFrom(duel, weaver.x + (dx / d) * RALLY_BESIDE, weaver.z + (dz / d) * RALLY_BESIDE);
 }
 
 /** A Rewind on her slot this tick (its mark is pushed with the commands, before time moves on). */
@@ -1090,7 +1141,10 @@ export function duelAbility(
   const inReach = (m: Entity | undefined): m is Entity =>
     standing(m) && distSq(m.x, m.z, e.x, e.z) <= (ability.range + m.radius + e.radius) ** 2;
   const armed = parryArmed(e);
+  // (a) waits out Stasis: the blow can't land meanwhile, so she keeps fighting, and steps once
+  // it moves again (its time to land is unchanged).
   for (const t of world.telegraphs) {
+    if (world.field.stasis) break;
     if (!aimedShape(t, e) || t.impact - world.time > FEINT_SOON) continue;
     if (!contains(world, t, e)) continue;
     if (armed && duelStands(world, e, t)) continue;
@@ -1196,13 +1250,31 @@ export function duelExecute(
     stepAt.x = stepAlt.x;
     stepAt.z = stepAlt.z;
   }
+  // A blow too wide for the sidestep: the nearest spot inside the leash that leaves every blow
+  // aimed at her, else the dodge she already chose if that one leaves them, else the better side.
+  if (
+    hitsAt(world, e, stepAt) > 0 &&
+    !ringOut(world, e, stepAt, (p) => hitsAt(world, e, p, RING_SPARE) === 0)
+  ) {
+    const own = hero.dodge;
+    if (own && hitsAt(world, e, own) === 0) {
+      stepAt.x = own.x;
+      stepAt.z = own.z;
+    }
+  }
+  // A step that answers a blow holds until it lands (as any dodge, and with it under Stasis), so
+  // she never walks back into it; one that answers none is her own half-second.
+  const answers = aimedAt(world, e);
+  const blow = answers < 0 ? undefined : world.telegraphs.find((x) => x.id === answers);
+  const until = world.time + FEINT_STEP;
   hero.dodge = {
-    telegraph: aimedAt(world, e),
+    telegraph: answers,
     x: stepAt.x,
     z: stepAt.z,
     at: world.time,
-    until: world.time + FEINT_STEP,
+    until: blow ? Math.max(until, blow.impact + DODGE_AFTER) : until,
     sure: true,
+    ...(blow ? {} : { free: true as const }),
   };
   world.events.push({
     type: 'attackFired',
@@ -1231,23 +1303,105 @@ function aimedShape(t: DeepReadonly<Telegraph>, e: ReadonlyEntity): boolean {
   return k !== 'mark' && k !== 'raid' && k !== 'link';
 }
 
-/** How many damaging blows aimed at her would still hold her at `p`. */
-function hitsAt(world: World, e: Entity, p: { x: number; z: number }): number {
+/**
+ * How many damaging blows aimed at her would still hold her at `p` (with `spare` m to spare),
+ * leaving out those she stands her ground against (`duelStands`).
+ */
+function hitsAt(world: World, e: Entity, p: { x: number; z: number }, spare = 0): number {
   probe.id = e.id;
   probe.x = p.x;
   probe.z = p.z;
-  probe.radius = e.radius;
+  probe.radius = e.radius + spare;
   probe.fx = e.fx;
   probe.fz = e.fz;
   let n = 0;
   for (const t of world.telegraphs)
-    if (aimedShape(t, e) && contains(world, t, probe as unknown as Entity)) n++;
+    if (
+      aimedShape(t, e) &&
+      contains(world, t, probe as unknown as Entity) &&
+      !duelStands(world, e, t)
+    )
+      n++;
   return n;
 }
 
-/** The first blow aimed at her that holds her now (Feint's step answers it), else -1. */
+/** Would `t` hold her at `p` (with `RING_SPARE` m to spare)? */
+function holdsAt(world: World, t: DeepReadonly<Telegraph>, e: Entity, p: { x: number; z: number }) {
+  probe.id = e.id;
+  probe.x = p.x;
+  probe.z = p.z;
+  probe.radius = e.radius + RING_SPARE;
+  probe.fx = e.fx;
+  probe.fz = e.fz;
+  return contains(world, t, probe as unknown as Entity);
+}
+
+/** A dodge holds this long past its blow's impact (as `noticeTelegraphs`' own). */
+const DODGE_AFTER = 0.15;
+/** The search ring for a step out: distances from her (m), nearest first, and its headings. */
+const RING_RADII = [1.5, 2.5, 3.5, 4.5, 6, 7.5, 9] as const;
+const RING_HEADINGS = 16;
+/** Room a found spot leaves between her body and the blow's edge (m). */
+const RING_SPARE = 0.3;
+const ringAt = { x: 0, z: 0 };
+
+/**
+ * The nearest spot round her, inside the leash (`clampDuel`), that `clear` accepts: the first
+ * ring that has one, and on it the spot nearest the Weaver. Writes `out`; false (and `out`
+ * untouched) if none does.
+ */
+function ringOut(
+  world: World,
+  e: Entity,
+  out: { x: number; z: number },
+  clear: (p: { x: number; z: number }) => boolean,
+): boolean {
+  const weaver = world.entities.get(world.weaverId);
+  for (const r of RING_RADII) {
+    let best = Infinity;
+    for (let i = 0; i < RING_HEADINGS; i++) {
+      const a = (i * 2 * Math.PI) / RING_HEADINGS;
+      ringAt.x = e.x + dcos(a) * r;
+      ringAt.z = e.z + dsin(a) * r;
+      clampDuel(world, e, ringAt);
+      if (!clear(ringAt)) continue;
+      const d = weaver ? distSq(ringAt.x, ringAt.z, weaver.x, weaver.z) : 0;
+      if (d < best) {
+        best = d;
+        out.x = ringAt.x;
+        out.z = ringAt.z;
+      }
+    }
+    if (best < Infinity) return true;
+  }
+  return false;
+}
+
+/**
+ * Her ordinary dodge's spot (`noticeTelegraphs`, docs/phase-5e.md "The leash": every destination
+ * of hers is within `DUEL_CLAMP` of the Weaver). `out` (the escape point) is kept when it is
+ * inside the leash; else it is clamped, and if the clamp puts it back in `t`, the nearest spot
+ * round her inside the leash that leaves `t` is taken instead (the clamped one if none does).
+ */
+export function duelEscape(
+  world: World,
+  e: Entity,
+  t: DeepReadonly<Telegraph>,
+  out: { x: number; z: number },
+): void {
+  const weaver = world.entities.get(world.weaverId);
+  if (!weaver || distSq(out.x, out.z, weaver.x, weaver.z) <= DUEL_CLAMP * DUEL_CLAMP) return;
+  clampDuel(world, e, out);
+  if (holdsAt(world, t, e, out)) ringOut(world, e, out, (p) => !holdsAt(world, t, e, p));
+}
+
+/**
+ * The first blow aimed at her that holds her now and that she doesn't stand her ground against
+ * (Feint's step answers it), else -1.
+ */
 function aimedAt(world: World, e: Entity): number {
-  for (const t of world.telegraphs) if (aimedShape(t, e) && contains(world, t, e)) return t.id;
+  for (const t of world.telegraphs)
+    if (aimedShape(t, e) && contains(world, t, e) && !duelStands(world, e, t)) return t.id;
   return -1;
 }
 

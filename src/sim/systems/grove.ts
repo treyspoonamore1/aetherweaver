@@ -34,6 +34,7 @@ import type {
   EntityId,
   GroveState,
   ReadonlyEntity,
+  TelegraphKind,
   WorldState,
 } from '../state';
 import type { World } from '../world';
@@ -149,26 +150,45 @@ export function saplingInField(
   return (s.x - disc.x) ** 2 + (s.z - disc.z) ** 2 <= r * r;
 }
 
-/** Gentle (docs/phase-5e.md): Oro with no living Focus target is tending, and won't attack. */
+/**
+ * Gentle (docs/phase-5e.md): Oro with no living Focus target is tending, and won't attack. A
+ * Focus standing up again (Restless Dead) is none, as for `focusOf`: he tends meanwhile.
+ */
 export function gentle(world: WorldState, e: ReadonlyEntity): boolean {
   if (!e.hero?.grove) return false;
   const quirk = heroDef(e.hero.defId).quirk;
   if (quirk.id !== 'gentle') return false;
   const focus = world.focusTarget === null ? undefined : world.entities.get(world.focusTarget);
-  return !focus?.enemy || !focus.health || focus.health.dead;
+  if (!focus?.enemy || !focus.health || focus.health.dead || focus.health.downed) return true;
+  return focus.enemy.risen === true && focus.enemy.state === 'spawning';
 }
 
-/** Regrowth's Call opens (docs/phase-5e.md): a Sapling is felled or below 60% of its life. */
+/**
+ * Regrowth's Call opens (docs/phase-5e.md): a Sapling is felled, or the most hurt standing one is
+ * below 60% of its life and within Regrowth's reach of him (as `groveAbility` will cast it: a
+ * Call it can't answer is never opened).
+ */
 export function groveCallReady(world: WorldState, e: ReadonlyEntity): boolean {
   const grove = e.hero?.grove;
   if (!grove) return false;
   if (grove.respawnAt.some((at) => at > 0)) return true;
+  let hurt: ReadonlyEntity | null = null;
+  let hurtPct = Infinity;
   for (const id of grove.saplings) {
     const s = world.entities.get(id);
     const h = s?.health;
-    if (!s?.summon || !h || h.dead || h.hp < h.maxHp * CALL_BELOW) return true;
+    if (!s?.summon || !h || h.dead) return true;
+    const pct = h.hp / h.maxHp;
+    if (pct < hurtPct) {
+      hurt = s;
+      hurtPct = pct;
+    }
   }
-  return false;
+  if (!hurt || hurtPct >= CALL_BELOW) return false;
+  const regrowth = heroDef(e.hero!.defId).abilities.find((a) => a.id === 'regrowth');
+  if (!regrowth) return false;
+  const r = regrowth.range + hurt.radius;
+  return (hurt.x - e.x) ** 2 + (hurt.z - e.z) ** 2 <= r * r;
 }
 
 /**
@@ -878,20 +898,24 @@ const CUT_RECENT = 5;
 
 /**
  * Oro's down recap (docs/phase-5e.md, "Down recaps"; `DeathRecord.grove`), read in `downHero`:
- * caught in melee (an enemy's basic swing, or a blow from an enemy within `MELEE_NEAR`), the
- * Saplings felled outside your field this fight, and a Severing foe's cut of your Thread on him
- * in the last `CUT_RECENT` s (Rootbond went with it).
+ * caught in melee (a lesser foe's basic swing, or a blow from one within `MELEE_NEAR` that is no
+ * raid, mark or link: the foes a Sapling's taunt can screen him from; bosses, minibosses and
+ * heavy foes ignore summons, and their blows have their own answers), the Saplings felled
+ * outside your field this fight, and a Severing foe's cut of your Thread on him in the last
+ * `CUT_RECENT` s (Rootbond went with it).
  */
 export function groveDownRecord(
   world: World,
   e: Entity,
-  blow: { source: Entity | undefined; melee: boolean; tick: boolean },
+  blow: { source: Entity | undefined; melee: boolean; tick: boolean; kind?: TelegraphKind },
 ): NonNullable<DeathRecord['grove']> {
   const grove = e.hero!.grove!;
   const src = blow.source;
   const near = MELEE_NEAR + e.radius + (src?.radius ?? 0);
-  const melee =
-    blow.melee || (!blow.tick && !!src?.enemy && distSq(src.x, src.z, e.x, e.z) <= near * near);
+  const k = blow.kind;
+  const screenable =
+    !blow.tick && !!src && lesserFoe(world, src) && k !== 'raid' && k !== 'mark' && k !== 'link';
+  const melee = screenable && (blow.melee || distSq(src.x, src.z, e.x, e.z) <= near * near);
   return {
     melee,
     feltOutside: grove.feltOutside ?? 0,

@@ -519,6 +519,11 @@ export interface HeroDodge {
   until: number;
   /** Wind Step (Bonds): nothing stops this one, not a quirk, not a rooted Solo. */
   sure?: true;
+  /**
+   * Seren's Feint step that answers no blow (docs/phase-5e.md): it ends in her own time, so
+   * Stasis doesn't hold it. Set only by Feint.
+   */
+  free?: true;
 }
 
 /** Being pulled by Reel. */

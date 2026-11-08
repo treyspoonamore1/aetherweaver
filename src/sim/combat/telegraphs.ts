@@ -487,6 +487,9 @@ function hitEntity(
   let outcome: 'hit' | 'warded' | 'absorbed' = 'hit';
   if (result.dealt <= 0 && result.absorbed > 0)
     outcome = result.absorbedByWard > 0 ? 'warded' : 'absorbed';
+  // Seren's parry (docs/phase-5e.md): 'parried' means it didn't land, so the views draw a turned
+  // blow (its own `parried` event carries the rest). Only a duel victim's result has the key.
+  if (result.parried) outcome = 'warded';
   if (result.absorbedByWeaver > 0) answered(world);
   if (e.hero && result.absorbedByWard > 0) {
     gainResonance(world, world.content.resonance.gains.wardAbsorb, 'ward absorb');

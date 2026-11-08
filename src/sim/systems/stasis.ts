@@ -40,13 +40,18 @@ export function holdEnemyTime(world: World, dt: number): void {
       // Movement III (docs/phase-5c.md): an Emboldened enemy stays so as long as it would have.
       if (c.emboldenedUntil !== undefined && c.emboldenedUntil > world.time)
         c.emboldenedUntil += dt;
+      // Oro (docs/phase-5e.md): a root waits with its statuses, so the immunity behind it waits
+      // too (only his root writes the key).
+      if (c.rootImmuneUntil !== undefined && c.rootImmuneUntil > world.time)
+        c.rootImmuneUntil += dt;
       if (e.health) for (const s of e.health.shields) s.expiresAt += dt;
     } else if (e.health) {
       // Perfect timing is in the enemies' time: a Ward's moment waits with them, so a Ward cast
       // during Stasis counts as cast at the moment time stopped.
       for (const s of e.health.shields) if (s.kind === 'ward') s.appliedAt += dt;
       // A hero stepping out of an attack keeps going until it lands, however long that takes.
-      if (e.hero?.dodge) e.hero.dodge.until += dt;
+      // Seren's Feint step that answers no blow is her own half-second (docs/phase-5e.md).
+      if (e.hero?.dodge && !e.hero.dodge.free) e.hero.dodge.until += dt;
     }
   }
   const internal = world.internal;

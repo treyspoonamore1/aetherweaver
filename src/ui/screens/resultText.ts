@@ -1,7 +1,7 @@
 /** Plain-text parts of the Result screen (testable without React). */
 import type { DeathRecap, EncounterResult, EncounterStats, RunCalling } from '../../meta/types';
 import { CONTENT } from '../../content';
-import { downAdvice } from '../../meta/run';
+import { downAdvice, downFallback, GROVE_FELT_OUTSIDE } from '../../meta/run';
 import { callingResultLine, rewindsFor, techniqueName } from './callingText';
 import { callingLook } from '../kit/callingLook';
 import { auraVerbs, splitContribution, type ContributionParts } from '../contribution';
@@ -106,7 +106,9 @@ export function deathAdviceLine(
     downAdvice(d, party, callingId) ??
     riftDownLine(d, callingId) ??
     finaleDownLine(d, callingId) ??
-    deathAnswerLine(d.answers, callingId)
+    deathAnswerLine(d.answers, callingId) ??
+    // …and every one of their downs names one (docs/phase-5e.md exit criterion 4).
+    downFallback(d)
   );
 }
 
@@ -209,7 +211,10 @@ export function runDownAdvice(
     const party = r.heroes.map((h) => h.heroId);
     for (const d of r.deaths) {
       if (d.heroId !== heroId) continue;
-      const text = downAdvice(d, party, callingId);
+      // Oro's Saplings felled outside your songs: a line of their own here (`downFallback`).
+      const text =
+        downAdvice(d, party, callingId) ??
+        (d.grove && d.grove.feltOutside > 0 ? GROVE_FELT_OUTSIDE : null);
       if (!text) continue;
       const seen = out.find((a) => a.text === text);
       if (seen) seen.count++;
