@@ -85,9 +85,16 @@ function startingParty(): string[] {
     : [...CONTENT.defaultParty];
 }
 
-/** Recruits whatever the run has recruited so far (idempotent: nothing new, no write). */
+/**
+ * Recruits whatever the run has recruited so far (idempotent: nothing new, no write). A
+ * Rank-gated recruit (docs/phase-5e.md) counts once the profile's allowance holds it: read after
+ * `award(xp)`, so a Rank reached in this very fight counts, and an earlier fight of the run then
+ * counts too (`recruitsOf` rescans the results).
+ */
 function recruitFrom(run: RunState | null): void {
-  if (run) useProfile.getState().recruit(Run.recruitsOf(run));
+  if (!run) return;
+  const profile = useProfile.getState();
+  profile.recruit(Run.recruitsOf(run, profile.allowance()));
 }
 
 /** The Dissonance the profile plays new runs at, if it's open (docs/phase-4d.md). */

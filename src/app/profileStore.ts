@@ -202,7 +202,11 @@ export interface ProfileStore {
   // ── The roster (docs/phase-5b.md). W0 stubs them; W2 implements them. ──
   /** The heroes Prep may pick from: the default party and every recruit (all: Skip the unlocks). */
   roster(): string[];
-  /** Recruits these heroes for later runs. Idempotent: nothing new, no commit and no write. */
+  /**
+   * Recruits these heroes for later runs. Idempotent: nothing new, no commit and no write. A
+   * Rank-gated hero (Seren, Oro: docs/phase-5e.md) is skipped below its `recruit.rank` unless
+   * Skip the unlocks is on (`allowance().recruits`).
+   */
   recruit(ids: readonly string[]): void;
   /** Remembers a non-default party for the next runs; the default party deletes the key. */
   setLastParty(ids: readonly string[]): void;
@@ -412,9 +416,11 @@ export const useProfile = create<ProfileStore>()((set, get) => {
     recruit: (ids) => {
       const profile = get().profile;
       const have = new Set([...CONTENT.defaultParty, ...(profile.recruited ?? [])]);
-      // Heroes that join by recruiting, not yet recruited, each once, in content order.
+      // Heroes that join by recruiting, not yet recruited, each once, in content order; a
+      // Rank-gated one (docs/phase-5e.md) only from its `recruit.rank`, or with Skip the unlocks.
+      const open = get().allowance().recruits;
       const fresh = canonicalParty(ids).filter(
-        (id) => !have.has(id) && !!CONTENT.heroes.find((h) => h.id === id)?.recruit,
+        (id) => !have.has(id) && !!CONTENT.heroes.find((h) => h.id === id)?.recruit && open.has(id),
       );
       if (fresh.length === 0) return;
       commit(

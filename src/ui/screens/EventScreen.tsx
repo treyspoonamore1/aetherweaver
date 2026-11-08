@@ -3,6 +3,7 @@ import { useProfile } from '../../app/profileStore';
 import { useRun } from '../../app/runStore';
 import { runEventDef, type EventChoice } from '../../content';
 import { EVERYTHING, type Allowance, type Unlock } from '../../meta/profile';
+import { eventChoiceProblem, eventChoiceShown } from '../../meta/run';
 import type { ChordLoadout, RunState } from '../../meta/types';
 import { ScreenFrame, ScreenHeader } from '../kit/Backdrop';
 import { Button } from '../kit/Button';
@@ -87,12 +88,18 @@ export function EventView({
     else if (relicsGained > 0) playUi('relicReveal');
   }, [chosen, won, relicsGained]);
   const def = event ? runEventDef(event.eventId) : null;
+  // Phase 5e (docs/phase-5e.md, "Event screen"): a Rank-gated recruiting choice is hidden until
+  // your Rank opens its hero (`eventChoiceShown`), filtered before the keys and the column rule;
+  // once shown, its problem is judged with your allowance.
   const choices =
     def && run
       ? def.choices
-          // Rank-gated recruit choices stay hidden until the Phase 5e EventScreen filter.
-          .filter((c) => c.rank === undefined)
-          .map((c) => choiceInfo(run, def.id, c, roster))
+          .filter((c) => eventChoiceShown(c, allowance))
+          .map((c) => {
+            const info = choiceInfo(run, def.id, c, roster);
+            if (c.rank === undefined || info.problem === null) return info;
+            return { ...info, problem: eventChoiceProblem(run, c.id, allowance) };
+          })
       : [];
   const pick = (c: ChoiceInfo) => {
     if (c.problem) {
@@ -178,7 +185,7 @@ export function EventView({
           />
         ) : (
           <ul
-            className={`mt-6 grid gap-5 ${choices.length >= 3 ? 'md:grid-cols-3' : 'md:grid-cols-2'}`}
+            className={`mt-6 grid gap-5 ${choiceColumns(choices.length)}`}
             data-testid="event-choices"
           >
             {choices.map((c, i) => (
@@ -205,6 +212,14 @@ export function EventView({
       </div>
     </ScreenFrame>
   );
+}
+
+/**
+ * The choices' columns: three across for three; two for two, and 2 × 2 for four (Phase 5e: a
+ * shown Rank-gated choice), never a fourth wrapped under three.
+ */
+export function choiceColumns(count: number): string {
+  return count === 3 || count > 4 ? 'md:grid-cols-3' : 'md:grid-cols-2';
 }
 
 const TAG_COLOR = {

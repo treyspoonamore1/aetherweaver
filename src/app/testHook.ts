@@ -13,6 +13,7 @@ import type { Reliquary } from '../meta/reliquary';
 import { saveProfile } from '../meta/save';
 import type { CombatOutcome, MapNode, RunState } from '../meta/types';
 import { encounterDef, heroDef, inscriptionDef } from '../content';
+import { saplingInField, summonsOf } from '../sim';
 import { emptyLedger } from '../sim/world';
 import { useUi } from '../ui/store';
 import { startDemo } from './demo';
@@ -68,6 +69,24 @@ export function installTestHook(runtime: GameRuntime): () => void {
           ];
         }),
       };
+    },
+    summons: () => {
+      const st = runtime.sim.state;
+      return summonsOf(st).map((e) => {
+        const s = e.summon!;
+        const h = e.health!;
+        return {
+          owner: st.entities.get(s.owner)?.hero?.defId ?? '',
+          kind: s.kind,
+          index: s.index,
+          hpPct: h.maxHp > 0 ? h.hp / h.maxHp : 0,
+          inField: saplingInField(st, e),
+          dormant: !!s.dormant,
+          burrowed: s.burrowUntil !== undefined && st.time < s.burrowUntil,
+          x: e.x,
+          z: e.z,
+        };
+      });
     },
     drill: () => {
       const st = runtime.sim.state;

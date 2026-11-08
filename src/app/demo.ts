@@ -17,13 +17,17 @@ export type DemoStart = 'fresh' | 'veteran';
 /** The veteran's Weaver Rank: every Calling and the Reliquary open, a few Ranks short of the top. */
 export const VETERAN_RANK = 12;
 
+/** The heroes the veteran has recruited: every recruit Rank 12 opens (docs/phase-5e.md). */
+export const VETERAN_RECRUITS: readonly string[] = ['brann', 'seren', 'oro'];
+
 /**
  * Starts the demo over as a fresh Weaver or a veteran, dropping any run in progress. The veteran
  * is built through the stores' own actions, as play would have built them: Rank 12 with the
  * Astrolabe's points left to spend, Starlight, a variant owned, the Luminary mastered and the
- * Martyr on her way, Brann recruited, Bonds at rank 4 (their first talents), a won run's Deed, and two relics
- * enshrined with materials to craft, Prism Loom carried. Their runs are Expeditions.
- * `recruit: false` leaves Brann in his cell (the e2e roster smoke recruits him itself).
+ * Martyr on her way, Brann, Seren and Oro recruited, Bonds at rank 4 (their first talents), a won
+ * run's Deed, and two relics enshrined with materials to craft, Prism Loom carried. Their runs are
+ * Expeditions. `recruit: false` leaves all three unrecruited (the e2e roster smoke recruits them
+ * itself).
  */
 export function startDemo(kind: DemoStart, { recruit = true }: { recruit?: boolean } = {}): void {
   useRun.getState().closeRun();
@@ -39,13 +43,19 @@ export function startDemo(kind: DemoStart, { recruit = true }: { recruit?: boole
   store.ownVariant('purge');
   store.awardMastery('luminary', 1500);
   store.awardMastery('martyr', 480);
-  // Brann freed from his cell on an earlier Expedition (docs/phase-5b.md), so Prep picks 3 of 4,
-  // his Bond level with the others'.
+  // Brann freed from his cell on an earlier Expedition (docs/phase-5b.md), and Seren and Oro met
+  // since (docs/phase-5e.md: Rank 12 opens both), so Prep picks 3 of 6, their Bonds level with
+  // the others'.
   if (recruit) {
-    store.recruit(['brann']);
+    store.recruit(VETERAN_RECRUITS);
     useProfile.getState().clearRecruitNotices();
   }
-  store.awardBonds({ kael: 440, lyra: 440, vexis: 440, ...(recruit ? { brann: 440 } : {}) });
+  store.awardBonds({
+    kael: 440,
+    lyra: 440,
+    vexis: 440,
+    ...(recruit ? Object.fromEntries(VETERAN_RECRUITS.map((id) => [id, 440])) : {}),
+  });
   useProfile.getState().dismissBondNotices();
   // A run won: its Deed lights the Hall of Deeds, and the record counts it.
   store.recordDeeds({ ...Run.newRun(1), outcome: 'victory' });

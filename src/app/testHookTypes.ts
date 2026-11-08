@@ -38,6 +38,13 @@ export interface TestHook {
    * slot. Null when no blow is winding up.
    */
   drill(): { time: number; perfectFrom: number; impact: number; slot: number } | null;
+  /**
+   * Phase 5e: Oro's summons standing in the current fight (`summonsOf`, in spawn order; empty in
+   * every party without Oro): whose (the owner's hero id), Sapling or Ancient and its index, its
+   * life share, whether it stands inside your field (`saplingInField`), dormant (Oro down, the
+   * Grand Silence), burrowed (a Rally re-plant under way) and where it stands.
+   */
+  summons(): SummonView[];
 }
 
 /** What `__AW__.techniques()` returns. */
@@ -143,7 +150,8 @@ export interface RunHook {
   recruit(heroIds: string[]): string[];
   /**
    * Phase 5b, test-only: starts over as the playtest demo's veteran (`startDemo('veteran')`:
-   * Rank 12, Bonds at rank 4, Expeditions), with Brann still in his cell, so a test recruits him.
+   * Rank 12, Bonds at rank 4, Expeditions), with Brann still in his cell and Seren and Oro not yet
+   * met (Phase 5e), so a test recruits them.
    */
   veteran(): void;
   /** The run's Calling and its path so far (null: none). */
@@ -220,6 +228,19 @@ export interface RunHook {
   loom(): LoomHookView;
   /** Phase 4g, test-only: the profile is paid this much Starlight (the store's `awardStarlight`). */
   giveStarlight(amount: number): void;
+}
+
+/** One of `summons()`: a Sapling or the Ancient (docs/phase-5e.md). */
+export interface SummonView {
+  owner: string;
+  kind: 'sapling' | 'ancient';
+  index: number;
+  hpPct: number;
+  inField: boolean;
+  dormant: boolean;
+  burrowed: boolean;
+  x: number;
+  z: number;
 }
 
 /** What `loom()` returns. */
