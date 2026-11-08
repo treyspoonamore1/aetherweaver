@@ -1,22 +1,54 @@
 /**
  * CONTRACT — Oro, the Grovekeeper (docs/phase-5e.md, "Oro" and "The summon model").
  *
- * W0b lands this file: the pure, read-only rules (real, exported from src/sim/index.ts) and the
- * hooks the shared sim files call, each a no-op until W2 fills it (W2b adds the answered aura
- * reach, Q1-Q3, in field.ts and auras.ts). Every hook is reached only through a guard that is
- * false without Oro in the party (`hero.grove`, `def.role === 'summoner'`, `target.summon`,
- * `world.internal.summons`), so no other party's state, draws or hashes can change. Nothing
- * here draws RNG.
+ * W0b landed this file's pure, read-only rules (exported from src/sim/index.ts) and the hooks
+ * the shared sim files call; W2 fills the hooks (Oro's kit, Gentle, Regrowth, Bramble, Rootbond,
+ * Rally, the Solos and talents; the summons themselves live in summons.ts). W2b adds the answered
+ * aura reach, Q1-Q3, in field.ts and auras.ts, at the hook points named in `groveAfterField`.
+ * Every hook is reached only through a guard that is false without Oro in the party
+ * (`hero.grove`, `def.role === 'summoner'`, `target.summon`, `world.internal.summons`), so no
+ * other party's state, draws or hashes can change. The only draws are Oro's own: his barks (the
+ * cosmetic stream) and Bramble's crit roll (`heroDamage`, the combat stream), in Oro parties.
  */
 import { enemyDef, heroDef } from '../../content';
+import { HOMECOMING } from '../../content/rosterIds';
 import type { HeroDef } from '../../content/schema';
+import { hasTalent, soloValue, talentValue } from '../bonds';
 import { auraBit, partyAuraMask } from '../combat/auras';
+import { bark } from '../combat/feedback';
 import { pickEnemyTarget } from '../combat/threat';
-import type { DamageOpts } from '../combat/health';
+import {
+  addShield,
+  dealDamage,
+  hasStatus,
+  heal,
+  isActive,
+  rising,
+  type DamageOpts,
+} from '../combat/health';
+import { AUTONOMY, SIM_DT } from '../constants';
+import { distSq, len } from '../core/dmath';
 import type { Entity, EntityId, GroveState, ReadonlyEntity, WorldState } from '../state';
 import type { World } from '../world';
+import { canCall, flourishing, startCall } from './calls';
 import { heavy } from './duel';
 import { underMuteDome } from './field';
+import { heroDamage } from './heroDamage';
+import { clampPointToArena } from './physics';
+import { soloSpec } from './solos';
+import {
+  frontSpot,
+  groveOf,
+  ledgerGrove,
+  pulseTaunt,
+  raiseAncient,
+  replant,
+  rootEnemy,
+  saplingCount,
+  sproutBeside,
+  sproutSapling,
+  summonsDef,
+} from './summons';
 
 type Ability = HeroDef['abilities'][number];
 type Flourish = HeroDef['call']['flourish'];
@@ -185,41 +217,197 @@ export function summonSupport(world: World, summon: Entity, amount: number): voi
   if (owner?.hero) owner.hero.supportReceived += amount;
 }
 
-// ── Hooks (no-ops until W2) ───────────────────────────────────────────────────────────
+// ── Hooks (W2) ────────────────────────────────────────────────────────────────────────
 
-/** world.ts, after the party loop: Oro's Saplings sprout at the Weaver's front spots. */
-export function spawnGrove(_world: World): void {}
+/** Gentle's refusal bark and `gentleRefused` come at most this often (s; on `hero.quirk`). */
+const REFUSE_EVERY = 10;
+/** Gentle's own retreat: the step he takes away from the fighting (m). */
+const RETREAT_STEP = 3;
+/** ...and the farthest it takes him from the Weaver (m). */
+const RETREAT_LEASH = 9;
+/** Gentle Bramble: only on an enemy this close to Oro or a Sapling (m). */
+const BRAMBLE_NEAR = 4;
 
-/** api.ts, after `updateField`: the grove's field bookkeeping (W2b: Q1-Q3). */
-export function groveAfterField(world: World, _dt: number): void {
-  if (!world.internal.summons) return;
+const out2 = { x: 0, z: 0 };
+
+/** The living Focus target, if any (not standing up again). */
+function focusOf(world: World): Entity | undefined {
+  const f = world.focusTarget === null ? undefined : world.entities.get(world.focusTarget);
+  return f?.enemy && isActive(f) && !rising(f) ? f : undefined;
 }
 
-/** Each tick, after `isDisabled`: Gentle's tending, the Focus bark, Regrowth's AI. */
-export function groveTick(_world: World, _e: Entity, _def: HeroDef, _dt: number): void {}
+/** Oro's standing Saplings (not the Ancient), awake or not. */
+function saplingsOf(world: World, grove: GroveState): Entity[] {
+  const out: Entity[] = [];
+  for (const id of grove.saplings) {
+    const s = world.entities.get(id);
+    if (s?.summon && s.health && !s.health.dead) out.push(s);
+  }
+  return out;
+}
 
-/** heroes.ts:131: his Solo charges while a Sapling fights, though he doesn't. */
-export function groveCharge(_world: World, _e: Entity, _dt: number): void {}
-
-/** heroes.ts:140: his full Solo's Cue window runs while a Sapling fights. */
-export function groveHeld(_world: World, _e: Entity, _dt: number): void {}
-
-/** heroes.ts:262 (`shouldFireUncued`, target-less Oro): fire uncued on autonomy? */
-export function groveFireUncued(_world: World, _e: Entity): boolean {
+/** A Sapling of his has someone to fight (it swung or chose a target this tick or the last). */
+function saplingFighting(world: World, grove: GroveState): boolean {
+  for (const id of grove.saplings) {
+    const s = world.entities.get(id);
+    if (s?.summon && !s.summon.dormant && s.summon.targetId !== null && !s.health?.dead)
+      return true;
+  }
   return false;
 }
 
-/** `chooseTarget`'s summoner arm: his pick (null: none, Gentle), or undefined for the shared rule. */
-export function groveChooseTarget(
-  _world: World,
-  _weaver: Entity,
-  _e: Entity,
-  _def: HeroDef,
-): Entity | null | undefined {
-  return undefined;
+/** Every Sapling he keeps is standing, awake, and inside your field (Grove Chorus). */
+function wholeGroveInField(world: World, grove: GroveState): boolean {
+  if (grove.saplings.length === 0) return false;
+  for (const id of grove.saplings) {
+    const s = world.entities.get(id);
+    const c = s?.summon;
+    if (!s || !c || !s.health || s.health.dead || c.dormant) return false;
+    if (c.burrowUntil !== undefined && world.time < c.burrowUntil) return false;
+    if (!saplingInField(world, s)) return false;
+  }
+  return true;
 }
 
-/** `targetInSight`'s summoner arm, or undefined for the shared rule. */
+/** world.ts, after the party loop: Oro's Saplings sprout at the Weaver's front spots. */
+export function spawnGrove(world: World): void {
+  for (const id of world.party) {
+    const oro = world.entities.get(id);
+    const grove = oro?.hero?.grove;
+    if (!oro || !grove || !summonsDef(oro)) continue;
+    const count = saplingCount(world, oro);
+    // The list exists from here on, even when every Sapling is felled: it is how updateSummons
+    // knows there is a grove to tend.
+    world.internal.summons ??= [];
+    for (let i = 0; i < count; i++) {
+      const p = frontSpot(world, oro, i, count, out2);
+      sproutSapling(world, oro, grove, i, p.x, p.z);
+    }
+  }
+}
+
+/**
+ * api.ts, after `updateField`: the grove's field bookkeeping. Q1-Q3 (W2b) hang here and in the
+ * field: the field writes each summon's `auraMask` (summons.ts `summonFx` reads it), a Cued
+ * Ancient's `field.ancient` (written in summons.ts) counts as your field, and Verdant Choir's
+ * pulse is `verdantChoir`.
+ */
+export function groveAfterField(world: World, dt: number): void {
+  if (!world.internal.summons) return;
+  verdantChoir(world, dt);
+}
+
+/**
+ * Verdant Choir (Q3, W2b): each living Sapling pulses Sostenuto's regen at `mods.verdantChoir`
+ * to those within 4 m. The hook point only: W2b fills it. `mods.verdantChoir` is 0 without the
+ * motif, so it can return at once.
+ */
+export function verdantChoir(world: World, _dt: number): void {
+  if (world.mods.verdantChoir <= 0) return;
+}
+
+/**
+ * Each tick, after `isDisabled`: Oro is engaged while his grove fights; with a fresh Focus he
+ * barks; Gentle (no Focus), he answers his own Call and casts Regrowth and his defensive Bramble
+ * here, since he takes no target.
+ */
+export function groveTick(world: World, e: Entity, def: HeroDef, _dt: number): void {
+  const hero = e.hero!;
+  const grove = hero.grove!;
+  if (world.encounter.status !== 'fighting') return;
+  if (!hero.engaged && saplingFighting(world, grove)) hero.engaged = true;
+  if (!gentle(world, e)) {
+    // Woken by your Focus ('If I must.'): he had no target until now.
+    if (hero.targetId === null && focusOf(world)) bark(world, e, 'focus');
+    return;
+  }
+  if (hero.cast || hasStatus(e, 'silence')) return;
+  if (hero.dodge && world.time >= hero.dodge.at) return;
+  if (canCall(world, e, def)) startCall(world, e, def);
+  for (const index of [0, 1] as const) {
+    if (hero.abilityCooldowns[index] > 0) continue;
+    const use = groveAbility(world, e, def, def.abilities[index], e);
+    if (use) {
+      startGroveCast(world, e, def, index, use);
+      return;
+    }
+  }
+}
+
+/** heroes.ts's `startCast`, for a target-less Gentle Oro (both his casts take time). */
+function startGroveCast(
+  world: World,
+  e: Entity,
+  def: HeroDef,
+  index: 0 | 1,
+  use: { target: Entity; x: number; z: number },
+): void {
+  const hero = e.hero!;
+  const ability = def.abilities[index];
+  hero.abilityCooldowns[index] = ability.cooldown;
+  const flourish = flourishing(e, index);
+  hero.cast = {
+    ability: index,
+    name: ability.name,
+    start: world.time,
+    end: world.time + Math.max(SIM_DT, ability.castTime),
+    target: use.target.id,
+    x: use.x,
+    z: use.z,
+    flourish,
+  };
+  hero.castName = flourish ? def.call.flourish.name : ability.name;
+  hero.castProgress = 0;
+}
+
+/** heroes.ts:131: Grove Chorus, while every Sapling stands in your field, charges him faster. */
+export function groveCharge(world: World, e: Entity, dt: number): void {
+  const hero = e.hero!;
+  if (!hasTalent(e, 'grove_chorus')) return;
+  if (hero.soloActive > 0 || !hero.engaged || hero.solo >= 100) return;
+  if (!wholeGroveInField(world, hero.grove!)) return;
+  const rate = (100 / soloSpec(world, e).chargeTime) * world.mods.soloChargeMult * dt;
+  hero.solo = Math.min(100, hero.solo + (rate * talentValue(world, 'grove_chorus', 'pct')) / 100);
+  if (hero.solo >= 100) world.events.push({ type: 'soloReady', tick: world.tick, hero: e.id });
+}
+
+/**
+ * heroes.ts:140: his full Solo's Cue window runs while a Sapling fights, though he has no target
+ * (the shared line has just zeroed `soloHeld` for him; `grove.held` keeps the count).
+ */
+export function groveHeld(world: World, e: Entity, dt: number): void {
+  const hero = e.hero!;
+  const grove = hero.grove!;
+  if (hero.targetId !== null) {
+    if (grove.held !== undefined) delete grove.held;
+    return;
+  }
+  if (hero.soloActive <= 0 && hero.solo >= 100 && saplingFighting(world, grove)) {
+    grove.held = (grove.held ?? 0) + dt;
+    hero.soloHeld = grove.held;
+  } else if (grove.held !== undefined) delete grove.held;
+}
+
+/** heroes.ts:262 (`shouldFireUncued`, target-less Oro): once the Cue window has passed. */
+export function groveFireUncued(_world: World, e: Entity): boolean {
+  return (e.hero!.grove?.held ?? 0) >= AUTONOMY.cueGrace;
+}
+
+/**
+ * `chooseTarget`'s summoner arm. Gentle: no target (he won't raise a hand). With a Focus: it, and
+ * only it (a Rally doesn't turn him to the nearest).
+ */
+export function groveChooseTarget(
+  world: World,
+  _weaver: Entity,
+  e: Entity,
+  _def: HeroDef,
+): Entity | null | undefined {
+  if (gentle(world, e)) return null;
+  return focusOf(world) ?? null;
+}
+
+/** `targetInSight`'s summoner arm: never reached past `groveChooseTarget`; nothing else. */
 export function groveTargetInSight(
   _world: World,
   _weaver: Entity,
@@ -227,21 +415,77 @@ export function groveTargetInSight(
   _def: HeroDef,
   _current: Entity | undefined,
 ): Entity | null | undefined {
-  return undefined;
+  return null;
 }
 
-/** `combatMove` with no target (or a Rally): Gentle's own retreat. Writes `out`; true to use it. */
+/**
+ * `combatMove` with no target: Gentle's own retreat. He steps `RETREAT_STEP` m away from the
+ * enemies within `quirk.retreat` m of him (never under a Rally, which he obeys), kept within
+ * `RETREAT_LEASH` m of the Weaver. Barks his refusal at most every 10 s. Writes `out`.
+ */
 export function groveRetreat(
-  _world: World,
-  _weaver: Entity,
-  _e: Entity,
-  _def: HeroDef,
-  _out: { x: number; z: number },
+  world: World,
+  weaver: Entity,
+  e: Entity,
+  def: HeroDef,
+  out: { x: number; z: number },
 ): boolean {
-  return false;
+  if (def.quirk.id !== 'gentle' || !gentle(world, e)) return false;
+  if (world.internal.rallyUntil > world.time || world.encounter.status !== 'fighting') return false;
+  const reach = def.quirk.retreat ?? 0;
+  let ax = 0;
+  let az = 0;
+  let near = 0;
+  for (const m of world.entities.list()) {
+    if (!m.enemy || !isActive(m) || m.enemy.state === 'spawning') continue;
+    const r = reach + m.radius + e.radius;
+    const dx = e.x - m.x;
+    const dz = e.z - m.z;
+    const d2 = dx * dx + dz * dz;
+    if (d2 > r * r) continue;
+    const d = Math.sqrt(d2);
+    if (d > 1e-6) {
+      ax += dx / d;
+      az += dz / d;
+    } else {
+      // On top of it: back toward the Weaver.
+      ax += weaver.x - e.x;
+      az += weaver.z - e.z;
+    }
+    near++;
+  }
+  if (near === 0) return false;
+  let m = len(ax, az);
+  if (m < 1e-6) {
+    ax = weaver.x - e.x;
+    az = weaver.z - e.z;
+    m = len(ax, az);
+    if (m < 1e-6) {
+      ax = -e.fx;
+      az = -e.fz;
+      m = 1;
+    }
+  }
+  out.x = e.x + (ax / m) * RETREAT_STEP;
+  out.z = e.z + (az / m) * RETREAT_STEP;
+  const lx = out.x - weaver.x;
+  const lz = out.z - weaver.z;
+  const ld = len(lx, lz);
+  if (ld > RETREAT_LEASH) {
+    out.x = weaver.x + (lx / ld) * RETREAT_LEASH;
+    out.z = weaver.z + (lz / ld) * RETREAT_LEASH;
+  }
+  clampPointToArena(world, out, e.radius);
+  const hero = e.hero!;
+  if (hero.quirk <= 0) {
+    hero.quirk = REFUSE_EVERY;
+    world.events.push({ type: 'gentleRefused', tick: world.tick, hero: e.id });
+    bark(world, e, 'quirk');
+  }
+  return true;
 }
 
-/** `combatMove`'s summoner arm (with a target): writes `out`; false for the shared branch. */
+/** `combatMove`'s summoner arm (with a Focus): the shared ranged branch serves him. */
 export function groveMove(
   _world: World,
   _weaver: Entity,
@@ -253,60 +497,304 @@ export function groveMove(
   return false;
 }
 
-/** `tryAbilities`: Regrowth's or Bramble's target and point now, or null. */
+/**
+ * `tryAbilities` (and Gentle's own tick): Regrowth's or Bramble's target and point now, or null.
+ * - Regrowth: always allowed; when a Sapling is felled (beside him), or the most hurt standing
+ *   one is below 60% of its life and within the ability's range.
+ * - Bramble: at the Focus within range; Gentle, only on the enemy nearest him within 4 m of him,
+ *   else the nearest within 4 m of a Sapling (in range of him, either way).
+ */
 export function groveAbility(
-  _world: World,
-  _e: Entity,
+  world: World,
+  e: Entity,
   _def: HeroDef,
-  _ability: Ability,
+  ability: Ability,
   _target: Entity,
 ): { target: Entity; x: number; z: number } | null {
+  const grove = e.hero?.grove;
+  if (!grove) return null;
+  if (ability.id === 'regrowth') {
+    if (felledIndex(grove) >= 0) return { target: e, x: e.x, z: e.z };
+    const hurt = mostHurt(world, grove);
+    if (!hurt || hurt.health!.hp >= hurt.health!.maxHp * CALL_BELOW) return null;
+    const r = ability.range + hurt.radius;
+    if (distSq(hurt.x, hurt.z, e.x, e.z) > r * r) return null;
+    return { target: hurt, x: hurt.x, z: hurt.z };
+  }
+  if (ability.id !== 'bramble') return null;
+  const inRange = (m: Entity) =>
+    distSq(m.x, m.z, e.x, e.z) <= (ability.range + m.radius) * (ability.range + m.radius);
+  if (!gentle(world, e)) {
+    const focus = focusOf(world);
+    return focus && inRange(focus) ? { target: focus, x: focus.x, z: focus.z } : null;
+  }
+  const pick = nearFoe(world, e, inRange);
+  if (pick) return { target: pick, x: pick.x, z: pick.z };
+  for (const s of saplingsOf(world, grove)) {
+    if (s.summon!.dormant) continue;
+    const near = nearFoe(world, s, inRange);
+    if (near) return { target: near, x: near.x, z: near.z };
+  }
   return null;
 }
 
-/** `executeAbility`: Regrowth and Bramble (`flourish`: Spring Rain). */
-export function groveExecute(
-  _world: World,
-  _e: Entity,
-  _def: HeroDef,
-  _index: 0 | 1,
-  _target: Entity | undefined,
-  _x: number,
-  _z: number,
-  _flourish: Flourish | null,
-  _emit: (x: number, z: number, radius: number) => void,
-): void {}
+/** The enemy nearest `to` within `BRAMBLE_NEAR` m of its body that passes `ok`, or null. */
+function nearFoe(world: World, to: Entity, ok: (m: Entity) => boolean): Entity | null {
+  let best: Entity | null = null;
+  let bestD = Infinity;
+  for (const m of world.entities.list()) {
+    if (!m.enemy || !isActive(m) || m.enemy.state === 'spawning' || rising(m)) continue;
+    const r = BRAMBLE_NEAR + m.radius + to.radius;
+    const d = distSq(m.x, m.z, to.x, to.z);
+    if (d <= r * r && d < bestD && ok(m)) {
+      best = m;
+      bestD = d;
+    }
+  }
+  return best;
+}
 
-/** `startSolo`: Wildgrowth (the Ancient's ground warning) or Homecoming. */
-export function groveSoloStart(
-  _world: World,
-  _hero: Entity,
-  _cued: boolean,
-  _duration: number,
-): void {}
+/** The first felled Sapling's index, or -1. */
+function felledIndex(grove: GroveState): number {
+  for (let i = 0; i < grove.respawnAt.length; i++) if (grove.respawnAt[i]! > 0) return i;
+  return -1;
+}
 
-/** `updateSolo`: Wildgrowth's pulses. */
-export function groveSolo(_world: World, _hero: Entity, _def: HeroDef): void {}
-
-/** `finishSolo`: the Ancient leaves. */
-export function groveSoloEnd(_world: World, _hero: Entity): void {}
-
-/** thread.ts, after `mendHero` on Oro: Rootbond Mends each living summon at `mendShare`. */
-export function rootbond(_world: World, _oro: Entity, _amount: number): void {}
-
-/** commands.ts, a Rally: his Saplings burrow and re-plant at the Weaver's front spots. */
-export function groveRally(_world: World, _oro: Entity): void {}
+/** The standing Sapling with the least of its life, or null (ties: the lower index). */
+function mostHurt(world: World, grove: GroveState): Entity | null {
+  let best: Entity | null = null;
+  let bestPct = Infinity;
+  for (const s of saplingsOf(world, grove)) {
+    const pct = s.health!.hp / s.health!.maxHp;
+    if (pct < bestPct) {
+      best = s;
+      bestPct = pct;
+    }
+  }
+  return best;
+}
 
 /**
- * dealDamage, a summon's hit on an enemy: `partyDamage` on its owner's slot, no threat (W2).
- * `total`, `amplified`, `aura`: the hit's landed damage and the Weaver's shares of it.
+ * `executeAbility`: Regrowth and Bramble (`flourish`: Spring Rain, Regrowth half again as strong
+ * and 20 Solo charge).
+ * - Regrowth re-sprouts the first felled Sapling beside him at 60% life, else heals the most hurt
+ *   one for 40% of its life (via 'solo': no Weaver credit).
+ * - Bramble roots the lesser foes in its patch (`root` s) and pricks every enemy in it.
+ */
+export function groveExecute(
+  world: World,
+  e: Entity,
+  def: HeroDef,
+  index: 0 | 1,
+  _target: Entity | undefined,
+  x: number,
+  z: number,
+  flourish: Flourish | null,
+  emit: (x: number, z: number, radius: number) => void,
+): void {
+  const ability = def.abilities[index];
+  const hero = e.hero!;
+  const grove = hero.grove;
+  if (!grove) return;
+  if (ability.id === 'regrowth') {
+    const power = flourish?.damageMult ?? 1;
+    const felled = felledIndex(grove);
+    if (felled >= 0) {
+      const s = sproutBeside(world, e, grove, felled, (ability.regrow ?? 0) * power);
+      emit(s.x, s.z, 0);
+    } else {
+      const hurt = mostHurt(world, grove);
+      if (hurt) {
+        heal(world, hurt, hurt.health!.maxHp * (ability.healPct ?? 0) * power, 'solo');
+        emit(hurt.x, hurt.z, 0);
+      } else emit(e.x, e.z, 0);
+    }
+    // Spring Rain: his Solo gains charge.
+    if (flourish && flourish.soloCharge > 0 && hero.soloActive <= 0 && hero.solo < 100) {
+      hero.solo = Math.min(100, hero.solo + flourish.soloCharge);
+      if (hero.solo >= 100) world.events.push({ type: 'soloReady', tick: world.tick, hero: e.id });
+    }
+    return;
+  }
+  if (ability.id !== 'bramble') return;
+  const radius = ability.radius * (flourish?.radiusMult ?? 1);
+  emit(x, z, radius);
+  let hit: ReturnType<typeof heroDamage> | null = null;
+  for (const m of world.entities.list()) {
+    if (!m.enemy || !isActive(m) || rising(m)) continue;
+    if (distSq(m.x, m.z, x, z) > (radius + m.radius) * (radius + m.radius)) continue;
+    if (ability.root !== undefined) rootEnemy(world, m, ability.root, e.id);
+    if (ability.damage <= 0) continue;
+    // One roll a patch: every enemy in it takes the same prick.
+    hit ??= heroDamage(world, e, ability.damage, 0);
+    dealDamage(world, m, {
+      source: e.id,
+      sourceName: ability.name,
+      amount: hit.amount,
+      amplified: hit.amplified,
+      aura: hit.aura,
+      empower: hit.empower,
+      crit: hit.crit,
+      empowered: hit.empowered,
+    });
+  }
+}
+
+/** `startSolo`: Wildgrowth (the Ancient's ground warning) or Homecoming. */
+export function groveSoloStart(world: World, hero: Entity, cued: boolean, _duration: number): void {
+  const h = hero.hero!;
+  const grove = h.grove;
+  if (!grove || !summonsDef(hero)) return;
+  if (h.soloId === 'wildgrowth') {
+    raiseAncient(world, hero, grove);
+    return;
+  }
+  if (h.soloId !== HOMECOMING) return;
+  // Homecoming: every Sapling re-sprouts at full life at your front spots, behind a barrier.
+  const count = grove.saplings.length;
+  const barrier = soloValue(world, HOMECOMING, 'barrier') / 100;
+  for (let i = 0; i < count; i++) {
+    const p = frontSpot(world, hero, i, count, out2);
+    let s = world.entities.get(grove.saplings[i]!);
+    if (!s?.summon || !s.health || s.health.dead)
+      s = sproutSapling(world, hero, grove, i, p.x, p.z);
+    else {
+      const c = s.summon;
+      s.x = s.px = c.plantX = p.x;
+      s.z = s.pz = c.plantZ = p.z;
+      delete c.burrowUntil;
+      if (c.dormant) delete c.dormant;
+      heal(world, s, s.health.maxHp, 'solo');
+    }
+    s.summon!.tauntAt = world.time;
+    addShield(world, s, 'overshield', s.health!.maxHp * barrier, HOMECOMING_BARRIER, false);
+  }
+  if (!cued) return;
+  // Cued: the heroes near you take a barrier too.
+  const weaver = world.entities.get(world.weaverId);
+  if (!weaver) return;
+  const r = soloValue(world, HOMECOMING, 'radius');
+  const pct = soloValue(world, HOMECOMING, 'cuedBarrier') / 100;
+  for (const id of world.party) {
+    const ally = world.entities.get(id);
+    if (!isActive(ally)) continue;
+    if (distSq(ally.x, ally.z, weaver.x, weaver.z) > (r + ally.radius) * (r + ally.radius))
+      continue;
+    addShield(world, ally, 'overshield', ally.health.maxHp * pct, HOMECOMING_BARRIER, false);
+  }
+}
+
+/** How long Homecoming's barriers hold (s). */
+const HOMECOMING_BARRIER = 6;
+
+/**
+ * `updateSolo`: Homecoming's taunt (every Sapling holds the lesser foes round it, pulsed each
+ * second for the Solo's length). Wildgrowth's Ancient keeps its own clock in summons.ts.
+ */
+export function groveSolo(world: World, hero: Entity, def: HeroDef): void {
+  const h = hero.hero!;
+  if (h.soloId !== HOMECOMING || !h.grove) return;
+  const spec = summonsDef(hero);
+  if (!spec) return;
+  while (h.soloPulseAt <= world.time && h.soloActive > 0) {
+    h.soloPulseAt += 1;
+    for (const s of saplingsOf(world, h.grove)) {
+      if (s.summon!.dormant) continue;
+      pulseTaunt(world, s, spec.sapling.taunt.radius, Math.min(h.soloActive, 1.2));
+    }
+  }
+  void def;
+}
+
+/**
+ * `finishSolo`: nothing to undo. The Ancient keeps its own clock (`summon.until`: 8 s after it
+ * rises, World Tree 4 s more), so it outlives the Solo's last second rather than being cut off.
+ */
+export function groveSoloEnd(_world: World, _hero: Entity): void {}
+
+/**
+ * thread.ts, after `mendHero` on Oro: Rootbond Mends each living summon at `mendShare` of what
+ * the Mend gives (Thread healing, Weaver credit, Oro's support and the usual healing threat). The
+ * call site is in Mend's own branch, so Unravel, Bear, Empower, a cut Thread and the Prism spill
+ * never reach it; a felled Sapling is gone and never revived.
+ */
+export function rootbond(world: World, oro: Entity, amount: number): void {
+  const grove = oro.hero?.grove;
+  const def = heroDef(oro.hero!.defId);
+  if (!grove || def.passive?.id !== 'rootbond' || !(amount > 0)) return;
+  const share = amount * def.passive.mendShare;
+  for (const s of groveOf(world, oro)) {
+    const c = s.summon!;
+    const healed = heal(world, s, share, 'mend', false);
+    if (healed <= 0) continue;
+    c.mendHealAcc += healed;
+    grove.rootbondHeal += healed;
+    ledgerGrove(world).rootbondHeal += healed;
+  }
+  if (world.tick % MEND_FLUSH_TICKS !== 0) return;
+  for (const s of groveOf(world, oro)) {
+    const c = s.summon!;
+    if (c.mendHealAcc <= 0) continue;
+    world.events.push({
+      type: 'healApplied',
+      tick: world.tick,
+      target: s.id,
+      source: world.weaverId,
+      amount: c.mendHealAcc,
+      overheal: 0,
+      via: 'mend',
+    });
+    c.mendHealAcc = 0;
+  }
+}
+
+/** Rootbond's floaters flush as Mend's do (thread.ts MEND_FLUSH, 0.5 s). */
+const MEND_FLUSH_TICKS = 30;
+
+/** commands.ts, a Rally: his Saplings burrow and re-plant at the Weaver's front spots. */
+export function groveRally(world: World, oro: Entity): void {
+  const grove = oro.hero?.grove;
+  if (!grove || !isActive(oro) || !summonsDef(oro)) return;
+  replant(world, oro, grove);
+}
+
+/**
+ * dealDamage, a summon's hit on an enemy: `partyDamage` on its owner's slot (his meter, the
+ * counterfactual), no threat. `total`, `amplified`, `aura`: the hit's landed damage and the
+ * Weaver's shares of it (the auras', with Q1).
  */
 export function summonCredit(
-  _world: World,
-  _source: Entity,
+  world: World,
+  source: Entity,
   _target: Entity,
-  _total: number,
-  _amplified: number,
-  _aura: number,
+  total: number,
+  amplified: number,
+  aura: number,
   _opts: DamageOpts,
-): void {}
+): void {
+  const owner = world.entities.get(source.summon!.owner);
+  if (!owner?.hero) return;
+  owner.hero.damageDealt += total;
+  owner.hero.damageAmplified += amplified;
+  world.ledger.partyDamage += total;
+  world.ledger.amplified += amplified;
+  world.ledger.auras.amplified += aura;
+  ledgerGrove(world).summonDamage += total;
+}
+
+/**
+ * dealDamage, an enemy's blow on a summon (after it is resolved): Thorned Bark sends `pct`% of
+ * what struck a Sapling back at the striker, as the Sapling's hit (no threat).
+ */
+export function summonStruck(world: World, summon: Entity, source: Entity, total: number): void {
+  const c = summon.summon;
+  if (!c || c.kind !== 'sapling' || !(total > 0) || !isActive(source)) return;
+  const owner = world.entities.get(c.owner);
+  if (!owner || !hasTalent(owner, 'thorned_bark')) return;
+  dealDamage(world, source, {
+    source: summon.id,
+    sourceName: 'Thorned Bark',
+    amount: (total * talentValue(world, 'thorned_bark', 'pct')) / 100,
+    noThreat: true,
+  });
+}
