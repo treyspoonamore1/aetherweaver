@@ -45,7 +45,7 @@
    "dealt,absorbed,absorbedByWeaver,absorbedByWard,absorbedByDome,blocked,downed,martyred,saved": 1145
   },
   "novice-grand-silence": {
-   "dealt,absorbed,absorbedByWeaver,absorbedByWard,absorbedByDome,blocked,downed,martyred,saved": 160
+   "dealt,absorbed,absorbedByWeaver,absorbedByWard,absorbedByDome,blocked,downed,martyred,saved": 161
   },
   "skilled-brann-conductor": {
    "dealt,absorbed,absorbedByWeaver,absorbedByWard,absorbedByDome,blocked,downed,martyred,saved": 735
@@ -64,5 +64,26 @@
   "downed",
   "martyred",
   "saved"
- ]
+ ],
+ "nested": {
+  "patrol": 0,
+  "crowd": 0,
+  "skilled-first-light": 0,
+  "skilled-bellwarden": 0,
+  "novice-cantor": 0,
+  "skilled-crimson-gate": 0,
+  "novice-matriarch": 0,
+  "skilled-vharun": 0,
+  "skilled-brann-crimson-gate": 0,
+  "skilled-brann-bellwarden": 0,
+  "novice-brann-first-light": 0,
+  "skilled-unstitched-threshold": 0,
+  "novice-seamstress": 0,
+  "skilled-unweaver": 0,
+  "skilled-brann-mirror-hall": 0,
+  "skilled-conductor": 0,
+  "novice-grand-silence": 1,
+  "skilled-brann-conductor": 0,
+  "skilled-chrono-silence": 0
+ }
 }
