@@ -1126,7 +1126,7 @@ Every Seren and Oro party misses its whole-run band, most by far more than at th
 
 ### The per-down table (Skilled, the four bosses pooled; read it first)
 
-'Aimed at the victim' and 'at another hero' are the blow's telegraph target against the hero it downed. 'Basic' is an enemy's ordinary swing. 'Summon near' means one of Oro's summons stood within 4 m.
+'Aimed at the victim' and 'at another hero' are the blow's telegraph target against the hero it downed. 'Basic' is an enemy's ordinary swing. 'Summon near' means one of Oro's summons stood within 4 m. 'Seren's parry armed' is read on the tick before her down (a fromWeaver Ward on her, or Blade Waltz running): the down itself clears her shields and her solo before the watch sees it. The first pass read it after the down, so it read 0 by construction; the column was re-measured with the fixed watch (the same 24 seeds; every other number in the table is unchanged).
 
 | Party | Downs a fight | Aimed at the victim | At another hero | At no one | Basic | Beyond 14 m | Seren's parry armed | Summon near | Top blows |
 |---|---|---|---|---|---|---|---|---|---|
@@ -1137,14 +1137,14 @@ Every Seren and Oro party misses its whole-run band, most by far more than at th
 | OA | 2.18 | 98 | 76 | 25 | 10 | 3 | - | 83 | Twin Cleave (2nd) 44, Cantor Toll 41 |
 | SB | 1.76 | 43 | 59 | 32 | 35 | 0 | 0/38 | 0 | Twin Cleave 49, basic 35 |
 | OB | 3.09 | 89 | 128 | 25 | 55 | 2 | - | 151 | basic 55, Twin Cleave 46, Shear 38 |
-| R | 5.03 | 225 | 116 | 71 | 70 | 17 | 0/85 | 0 | Twin Cleave (2nd) 92, basic 70 |
+| R | 5.03 | 225 | 116 | 71 | 70 | 17 | 1/85 | 0 | Twin Cleave (2nd) 92, basic 70 |
 | SO | 5.54 | 261 | 126 | 21 | 124 | 8 | 0/153 | 214 | basic 124, Cantor Toll 61 |
 | W | 3.89 | 187 | 92 | 26 | 68 | 3 | 0/69 | 139 | Shear 85, basic 68 |
-| X | 8.15 | 582 | 53 | 41 | 103 | 32 | 0/157 | 296 | Cantor Toll 135, Twin Cleave (2nd) 122 |
+| X | 8.15 | 582 | 53 | 41 | 103 | 32 | 1/157 | 296 | Cantor Toll 135, Twin Cleave (2nd) 122 |
 
 Downs a fight, by hero (Skilled, pooled): default Kael 0.36, Lyra 0.21, Vexis 0.23. With Seren or Oro, every other hero goes down more: Kael 0.99 in SC and 2.93 in SO, Vexis 1.00 in OA and 2.21 in W, Brann 5.83 in X. Seren goes down 0.18-1.64 a fight, Oro 0.36-1.02.
 
-- **Seren's 664 downs:** 226 from blows aimed at another hero, 180 from basic swings, 176 aimed at her, 82 at no one. **None** came with her parry armed.
+- **Seren's 664 downs:** 226 from blows aimed at another hero, 180 from basic swings, 176 aimed at her, 82 at no one. Only **3** came with her parry armed going in (R at Vharun, a second Twin Cleave aimed at another hero; X and LSO at the Cantor, Requiem): her downs are not parries failing, they are blows she met unWarded.
 - **Oro's 660 downs:** 432 (65%) from blows **aimed at another hero**, mostly Twin Cleave, Requiem, Shear and Cantor Toll. This is 5b's cause 1 again: he stands in other heroes' cleaves. His Gentle retreat steps away from enemies, not out of shapes aimed at others.
 - The sim doesn't write the contract's `DeathRecord.duel` and `.grove` recap fields yet (`health.ts` `downHero`). The tool copies them when present. Writing them is part of the recap work (W3 and W6, or W9).
 
@@ -1195,7 +1195,7 @@ Every party misses the Weaver-safety band (damage ≤ default + 15%, downs ≤ d
 ### Diagnosis (no tuning yet; the levers in the agreed order)
 
 1. **Oro stands in other heroes' cleaves** (65% of his downs). This is a hero-only movement fix, lever 2 in `grove.ts`: a `sidestepOthers` call in his own move arm, as Seren's duelist arm has. It also bears on Vexis's and Lyra's extra downs, since the blows that catch him are often second Twin Cleaves re-aimed after a first victim fell.
-2. **Seren's parry rarely fires at bosses**, and her Wards cost the party.
+2. **Seren's parry rarely fires at bosses**, and her Wards cost the party. (Her downs bear this out: 3 of 664 came while armed, so she goes down between Wards, not through them.)
    - SC's Kael dies to his own Cantor Toll three times as often as the default's (75 to 24). The Ward economy shifts to Wards on her that expire unparried.
    - First, the `verbs.ts` ablation of `serenParryWard`, `serenPerfectFirst` and her Call answer (lever 3). Then her own numbers (lever 1: Lunge and Feint cooldowns, so Feint baits more parries).
 3. **SO, KBO and X are slow:** they time out at the Unweaver and the Conductor. Two of their three heroes deal little damage at bosses, since Saplings ignore bosses and the counters barely fire. These are Seren's and Oro's damage numbers, lever 1.

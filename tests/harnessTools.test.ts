@@ -1554,6 +1554,74 @@ describe('the roster Bands tool (tools/roster-bands.ts)', () => {
     expect(watch.x.bossTarget.ancient ?? 0).toBe(0);
   });
 
+  it('reads Seren’s parry as armed going into the tick of her down, though the down clears it', () => {
+    // A staged pair of ticks: Seren carries a Weaver Ward; an unparryable blow breaks it and
+    // downs her in one tick. The sim's down clears her shields and solo before the watch reads
+    // the tick, so the down record must read her parry off the tick before.
+    const ward = { kind: 'ward', fromWeaver: true };
+    const seren = {
+      id: 3,
+      x: 0,
+      z: 0,
+      hero: { defId: 'seren', duel: {}, soloId: 'blade_waltz', soloActive: 0 },
+      health: { downed: false, dead: false, shields: [ward] as unknown[], statuses: [] },
+    };
+    const lyra = {
+      id: 4,
+      x: 1,
+      z: 0,
+      hero: { defId: 'lyra' },
+      health: { downed: false, dead: false, shields: [ward] as unknown[], statuses: [] },
+    };
+    const state = {
+      time: 1,
+      party: [3, 4],
+      weaverId: 9,
+      telegraphs: [],
+      field: {},
+      encounter: { bossId: null, startedAt: 0 },
+      ledger: { deaths: [] },
+      entities: {
+        get: (id: number) => (id === 3 ? seren : id === 4 ? lyra : undefined),
+        list: () => [seren, lyra],
+      },
+    };
+    const sim = { state } as unknown as Parameters<RosterWatch['watch']>[0];
+    const watch = new RosterWatch('seren');
+    watch.watch(sim, []);
+    // The down tick: the Ward is gone and both heroes are down.
+    seren.health.shields.length = 0;
+    seren.health.downed = true;
+    lyra.health.downed = true;
+    state.time = 2;
+    watch.watch(sim, [
+      { type: 'allyDowned', tick: 60, hero: 3 } as SimEvent,
+      { type: 'allyDowned', tick: 60, hero: 4 } as SimEvent,
+    ]);
+    expect(watch.x.downs.map((d) => [d.hero, d.parryArmed])).toEqual([
+      ['seren', true],
+      ['lyra', undefined],
+    ]);
+    // Revived and unarmed, a later down reads false.
+    seren.health.downed = false;
+    state.time = 3;
+    watch.watch(sim, []);
+    seren.health.downed = true;
+    state.time = 4;
+    watch.watch(sim, [{ type: 'allyDowned', tick: 240, hero: 3 } as SimEvent]);
+    expect(watch.x.downs.at(-1)?.parryArmed).toBe(false);
+    // Mid-Blade Waltz counts as armed too.
+    seren.health.downed = false;
+    seren.hero.soloActive = 2;
+    state.time = 5;
+    watch.watch(sim, []);
+    seren.hero.soloActive = 0;
+    seren.health.downed = true;
+    state.time = 6;
+    watch.watch(sim, [{ type: 'allyDowned', tick: 360, hero: 3 } as SimEvent]);
+    expect(watch.x.downs.at(-1)?.parryArmed).toBe(true);
+  });
+
   it('names every party with Seren or Oro, and reads --parties', () => {
     const all = rosterParties();
     expect(all).toHaveLength(16);

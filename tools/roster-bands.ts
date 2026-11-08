@@ -78,7 +78,7 @@ export interface DownRecord {
   aimed: Aimed;
   /** The victim's distance from the Weaver (m). */
   distance: number;
-  /** Seren's parry was armed as she went down (absent for any other hero). */
+  /** Seren's parry was armed going into the tick she went down in (absent for any other hero). */
   parryArmed?: boolean;
   /** One of Oro's summons stood within 4 m of the victim. */
   summonNear: boolean;
@@ -190,6 +190,11 @@ export class RosterWatch {
   };
   private readonly telegraph = new Map<number, { attack: string; target: EntityId | null }>();
   private readonly lastBlow = new Map<EntityId, Blow>();
+  /**
+   * Each duellist's parryArmed as the last tick ended. A down clears her shields and her solo in
+   * the sim before the watch sees it, so a down reads whether she was armed going into its tick.
+   */
+  private readonly armed = new Map<EntityId, boolean>();
   private lastTime = -1;
   private wasDowned = false;
   private champion: EntityId | null = null;
@@ -280,6 +285,10 @@ export class RosterWatch {
     }
     // A down's blow lands in its own tick: read every down once the tick's events are in.
     for (const id of downed) this.recordDown(sim, id);
+    for (const id of state.party) {
+      const h = state.entities.get(id);
+      if (h?.hero?.duel) this.armed.set(id, parryArmed(h));
+    }
     // A down lands in the same tick as the blow (its allyDowned comes before the resolution).
     const isDown = !!me?.health?.downed;
     if (twinOnMe && isDown && !this.wasDowned) x.twinDowned++;
@@ -337,7 +346,8 @@ export class RosterWatch {
       time: state.time - state.encounter.startedAt,
       ...blow,
       distance: w ? Math.hypot(v.x - w.x, v.z - w.z) : 0,
-      ...(v.hero.duel ? { parryArmed: parryArmed(v) } : {}),
+      // Read off the tick before the down: the down itself has already cleared her Ward and solo.
+      ...(v.hero.duel ? { parryArmed: this.armed.get(id) ?? false } : {}),
       summonNear,
       ...(death?.duel ? { duel: { ...death.duel } } : {}),
       ...(death?.grove ? { grove: { ...death.grove } } : {}),
