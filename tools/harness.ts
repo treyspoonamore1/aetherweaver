@@ -23,8 +23,10 @@
  * and, in Movement III and the Finale, their own.
  *
  * `--party` plays a roster party (docs/phase-5b.md): 3 hero ids, or A (Kael, Vexis, Brann),
- * B (Lyra, Vexis, Brann) or C (Kael, Lyra, Brann). Without it the config has no `party` key, so
- * every default-party report keeps its baseline. `--compare` plays the default party beside it.
+ * B (Lyra, Vexis, Brann) or C (Kael, Lyra, Brann), or one of Seren's and Oro's (docs/phase-5e.md:
+ * SA, SB, SC, OA, OB, OC, R, SO, X, W; `NAMED_PARTIES`). Without it the config has no `party`
+ * key, so every default-party report keeps its baseline. `--compare` plays the default party
+ * beside it.
  */
 import { writeFileSync } from 'node:fs';
 import type { BotKind } from '../src/bots';
@@ -34,6 +36,7 @@ import type { ChordLoadout } from '../src/meta/types';
 import {
   movementEncounters,
   movementName,
+  OVEREXTENDED_ANSWER_WITHIN,
   playEncounter,
   playRun,
   type EncounterRun,
@@ -62,16 +65,35 @@ interface Args {
   compare: boolean;
 }
 
-/** The roster parties the bands measure (docs/phase-5b.md, "Bands"). */
+/**
+ * The roster parties the bands measure: Brann's A, B and C (docs/phase-5b.md, "Bands"), and
+ * Seren's and Oro's (docs/phase-5e.md, "By party"): SA, SB, SC and OA, OB, OC each drop one
+ * starter; R is the Red Line (Kael, Brann, Seren), SO both new heroes with Kael, X no starter,
+ * and W no Kael and no Lyra. Each in content order.
+ */
 export const NAMED_PARTIES: Readonly<Record<string, readonly string[]>> = {
   A: ['kael', 'vexis', 'brann'],
   B: ['lyra', 'vexis', 'brann'],
   C: ['kael', 'lyra', 'brann'],
+  SA: ['kael', 'vexis', 'seren'],
+  SB: ['lyra', 'vexis', 'seren'],
+  SC: ['kael', 'lyra', 'seren'],
+  OA: ['kael', 'vexis', 'oro'],
+  OB: ['lyra', 'vexis', 'oro'],
+  OC: ['kael', 'lyra', 'oro'],
+  R: ['kael', 'brann', 'seren'],
+  SO: ['kael', 'seren', 'oro'],
+  X: ['brann', 'seren', 'oro'],
+  W: ['vexis', 'seren', 'oro'],
 };
 
+/** The codes of NAMED_PARTIES, as `--party`'s message lists them. */
+const PARTY_CODES = Object.keys(NAMED_PARTIES).join(', ');
+
 /**
- * `--party`'s value: A, B or C, or 3 distinct known hero ids, comma-separated; in content
- * order (the run's slot order). Undefined: null, the default party. Throws on anything else.
+ * `--party`'s value: a NAMED_PARTIES code (A, B, C, SA … W), or 3 distinct known hero ids,
+ * comma-separated; in content order (the run's slot order). Undefined: null, the default party.
+ * Throws on anything else.
  */
 export function partyArg(value: string | undefined): string[] | null {
   if (value === undefined) return null;
@@ -81,7 +103,7 @@ export function partyArg(value: string | undefined): string[] | null {
   const unknown = ids.filter((id) => !known.includes(id));
   if (unknown.length > 0) throw new Error(`Unknown hero "${unknown.join(',')}" (${known})`);
   if (ids.length !== 3 || new Set(ids).size !== 3)
-    throw new Error(`A party is 3 distinct heroes, or A, B or C: "${value}"`);
+    throw new Error(`A party is 3 distinct heroes, or one of ${PARTY_CODES}: "${value}"`);
   return known.filter((id) => ids.includes(id));
 }
 
@@ -183,9 +205,14 @@ function runs(args: Args): void {
         const last = results.filter((r) => r.movementReached >= args.movements);
         const won = last.filter((r) => r.outcome === 'victory').length;
         movementLine += ` · won ÷ reached ${movementName(args.movements, true)} ${last.length ? pct(won / last.length) : '-'} (${won}/${last.length})`;
-        const target = runBand(args.movements, bot);
+        const target = runBand(args.movements, bot, args.party);
         if (target) movementLine += ` · band ${target}`;
       }
+    }
+    // A Seren or Oro party's Prelude band (docs/phase-5e.md): the Finale route's is above.
+    if (args.movements < 3 && args.party) {
+      const target = runBand(args.movements, bot, args.party);
+      if (target) movementLine += ` · band ${target}`;
     }
     console.log(
       `${bot.padEnd(8)} win ${pct(wins / results.length).padStart(4)} · avg ${mean((r) => r.minutes).toFixed(1)} min of combat · ${mean((r) => r.fights).toFixed(1)} fights · ${mean((r) => r.relics.length).toFixed(1)} relics · Aether ${Math.round(mean((r) => r.aetherEarned))} earned, ${Math.round(mean((r) => r.aetherLeft))} left${movementLine} · lost at ${JSON.stringify(endedAt)}`,
@@ -218,8 +245,81 @@ export function band(
   party: readonly string[] | null = null,
 ): string {
   const def = encounterDef(encounter);
+  if (party && rosterTier(party) !== null)
+    return rosterBand(def.movement ?? 1, def.kind, bot, party);
   if (party?.includes('brann')) return brannBand(def.movement ?? 1, def.kind, bot, party);
   return MOVEMENT_BANDS[def.movement ?? 1]?.[def.kind]?.[bot] ?? '';
+}
+
+/**
+ * How a party with Seren or Oro is banded (docs/phase-5e.md, "Bands"): `kael` the full protocol
+ * with Kael (SA, SC, OA, OC); `sb` and `ob` the full protocol's no-tank parties (OB's provisional,
+ * Q8); `reduced` (R, SO, X, W) printed against the bands; `sweep` the other parties with either
+ * hero (a smoke test, unbanded). Null: no Seren or Oro (Brann's and the default bands apply).
+ */
+export type RosterTier = 'kael' | 'sb' | 'ob' | 'reduced' | 'sweep';
+
+/** The party's tier (`RosterTier`), or null without Seren and Oro. */
+export function rosterTier(party: readonly string[]): RosterTier | null {
+  if (!party.includes('seren') && !party.includes('oro')) return null;
+  const key = [...party].sort().join();
+  const code = Object.keys(NAMED_PARTIES).find((c) => [...NAMED_PARTIES[c]!].sort().join() === key);
+  if (code === 'SA' || code === 'SC' || code === 'OA' || code === 'OC') return 'kael';
+  if (code === 'SB') return 'sb';
+  if (code === 'OB') return 'ob';
+  if (code === 'R' || code === 'SO' || code === 'X' || code === 'W') return 'reduced';
+  return 'sweep';
+}
+
+/** Seren's and Oro's own bands (docs/phase-5e.md), for the Skilled bot's line (`--verbose`). */
+function ownBands(party: readonly string[]): string {
+  const own: string[] = [];
+  if (party.includes('seren'))
+    own.push(
+      'Seren: ≥50% of Wards on her parry, counters and kill shots 20-40% of her damage, ≤0.3 downs, beyond 14 m ≤2%',
+    );
+  if (party.includes('oro'))
+    own.push('Oro: Saplings in your field ≥60%, both standing ≥60%, tending ≤25%, ≤0.3 downs');
+  return own.length ? ` · ${own.join(' · ')}` : '';
+}
+
+/**
+ * A Seren or Oro party's cell (docs/phase-5e.md, "Bands"): win and share against the default
+ * party's cell (`--compare` prints it), the Novice and the Idle bot, and the heroes' own bands.
+ * Bosses are Movement I-III's bosses and the Conductor; skirmishes, elites and minibosses take
+ * the skirmish row.
+ */
+function rosterBand(
+  movement: number,
+  kind: string,
+  bot: BotKind,
+  party: readonly string[],
+): string {
+  const tier = rosterTier(party)!;
+  const boss = kind === 'boss';
+  const share = boss ? 30 : 35;
+  if (tier === 'sweep') return { idle: '-', novice: '-', skilled: 'unbanded (smoke)' }[bot];
+  if (bot === 'idle') return boss ? '0%' : 'its default-party band';
+  if (tier === 'reduced')
+    return bot === 'novice'
+      ? 'printed'
+      : `printed vs default − ${boss ? 15 : 10} · share ≥${share}%${ownBands(party)}`;
+  const minus = { kael: 5, sb: boss ? 15 : 5, ob: boss ? 25 : 10 }[tier];
+  const provisional = tier === 'ob' ? ' (provisional, Q8)' : '';
+  const length =
+    tier === 'kael'
+      ? movement >= 4
+        ? ' · 170-280 s'
+        : ' · ≤ default + 15%'
+      : movement >= 4
+        ? ' · ≤280 s'
+        : '';
+  if (bot === 'novice') {
+    if (tier === 'ob') return 'recorded';
+    if (tier === 'sb' && boss) return '≥10%';
+    return 'its default-party band · ≤ Skilled';
+  }
+  return `≥ default − ${minus}${provisional} · share ≥${share}%${length}${ownBands(party)}`;
 }
 
 /**
@@ -250,7 +350,13 @@ const MOVEMENT_BANDS: Readonly<Record<number, Record<string, Record<BotKind, str
  * Whole-run bands for an Expedition through `movements` (docs/phase-5c.md; the Finale route's,
  * docs/phase-5d.md); '' for none.
  */
-export function runBand(movements: number, bot: BotKind): string {
+export function runBand(
+  movements: number,
+  bot: BotKind,
+  party: readonly string[] | null = null,
+): string {
+  const tier = party ? rosterTier(party) : null;
+  if (tier !== null) return rosterRunBand(movements, bot, tier);
   if (movements < 3) return '';
   if (movements >= 4)
     return {
@@ -264,6 +370,23 @@ export function runBand(movements: number, bot: BotKind): string {
     novice: 'won 3-10% · won ÷ reached III 20-50% (pooled)',
     skilled: 'won ≥60% · won ÷ reached III ≥75%',
   }[bot];
+}
+
+/**
+ * A Seren or Oro party's whole runs (docs/phase-5e.md, "Bands"): the Prelude and the Finale
+ * route, Skilled, against the default party's on the same seeds; '' where the doc sets none.
+ */
+function rosterRunBand(movements: number, bot: BotKind, tier: RosterTier): string {
+  if (bot !== 'skilled' || tier === 'sweep') return '';
+  if (movements <= 1)
+    return { kael: '≥ default − 5', sb: '≥ default − 5', ob: '≥ default − 10', reduced: '' }[tier];
+  if (movements < 4) return '';
+  return {
+    kael: 'won ≥ default − 5 and ≥55%',
+    sb: 'won ≥ default − 10',
+    ob: 'won ≥ default − 20 (provisional, Q8)',
+    reduced: 'won ≥ default − 15',
+  }[tier];
 }
 
 /**
@@ -331,6 +454,69 @@ function brannLine(runs: readonly EncounterRun[]): string | null {
   const avg = (f: (b: (typeof tallies)[number]) => number) =>
     tallies.reduce((s, b) => s + f(b), 0) / tallies.length;
   return `   Brann: below 40% ${pct(avg((b) => b.lowShare40))} · below 30% ${pct(avg((b) => b.lowShare30))} · dealt at ≤ 60% ${pct(avg((b) => b.dealtLow60))} · rage +${pct(avg((b) => b.rageBonus))} · downs ${avg((b) => b.downs).toFixed(2)} · Weaver heal ${Math.round(avg((b) => b.weaverHealOn))} · Wards ${avg((b) => b.wardsOn).toFixed(1)} (Perfect ${avg((b) => b.perfectsOn).toFixed(1)}) · lifesteal ${Math.round(avg((b) => b.lifesteal))} (${pct(avg((b) => b.lifestealShare))} of his healing) · Blood and Silk ${avg((b) => b.silkResonance).toFixed(1)} · Deathless ${avg((b) => b.deathless).toFixed(1)} · Rallies refused ${avg((b) => b.refusedRallies).toFixed(1)} of ${avg((b) => b.rallies).toFixed(1)}`;
+}
+
+/** The tally line for a Seren party's fights (`--verbose`): her numbers, averaged a fight. */
+export function serenLine(runs: readonly EncounterRun[]): string | null {
+  const tallies = runs.map((r) => r.seren).filter((t): t is NonNullable<typeof t> => !!t);
+  if (tallies.length === 0) return null;
+  const sum = (f: (t: (typeof tallies)[number]) => number) => tallies.reduce((s, t) => s + f(t), 0);
+  const avg = (f: (t: (typeof tallies)[number]) => number, digits = 1) =>
+    (sum(f) / tallies.length).toFixed(digits);
+  const share = (num: number, den: number) => (den > 0 ? pct(num / den) : '-');
+  return [
+    `   Seren: parries ${avg((t) => t.parries)} (Wards on her ${avg((t) => t.wardsOn)}, parried ${share(
+      sum((t) => t.wardsParried),
+      sum((t) => t.wardsOn),
+    )})`,
+    `kill shots ${avg((t) => t.killShots, 2)} (lost ${avg((t) => t.killShotsLost, 2)}, executed ${avg((t) => t.executed, 2)})`,
+    `your Wards dealt ${share(
+      sum((t) => t.counterDamage + t.killShotDamage),
+      sum((t) => t.damage),
+    )} of her damage`,
+    `overextended ${avg((t) => t.overextensions)}×, answered ${share(
+      sum((t) => t.overextendedAnswered),
+      sum((t) => t.overextensions),
+    )} within ${OVEREXTENDED_ANSWER_WITHIN} s`,
+    `beyond reach ${share(
+      sum((t) => t.beyondReachTime),
+      sum((t) => t.aliveTime),
+    )}`,
+    `on the Showboat pick ${pct(sum((t) => t.quarryPickShare) / tallies.length)}`,
+    `Lunge interrupts ${avg((t) => t.lungeInterrupts)}`,
+    `downs ${avg((t) => t.downs, 2)}`,
+  ].join(' · ');
+}
+
+/** The tally line for an Oro party's fights (`--verbose`): his and his grove's numbers. */
+export function oroLine(runs: readonly EncounterRun[]): string | null {
+  const tallies = runs.map((r) => r.oro).filter((t): t is NonNullable<typeof t> => !!t);
+  if (tallies.length === 0) return null;
+  const sum = (f: (t: (typeof tallies)[number]) => number) => tallies.reduce((s, t) => s + f(t), 0);
+  const avg = (f: (t: (typeof tallies)[number]) => number, digits = 1) =>
+    (sum(f) / tallies.length).toFixed(digits);
+  const share = (num: number, den: number) => (den > 0 ? pct(num / den) : '-');
+  const fight = runs.filter((r) => r.oro).reduce((s, r) => s + r.duration, 0);
+  return [
+    `   Oro: Saplings in your field ${share(
+      sum((t) => t.saplingInFieldTime),
+      sum((t) => t.saplingAliveTime),
+    )}`,
+    `both standing ${share(
+      sum((t) => t.bothStandingTime),
+      fight,
+    )}`,
+    `felled ${avg((t) => t.saplingsLost)}`,
+    `tending ${share(
+      sum((t) => t.tendingTime),
+      sum((t) => t.aliveTime),
+    )}`,
+    `Sapling damage ${Math.round(sum((t) => t.saplingDamage) / tallies.length)}`,
+    `Rootbond ${Math.round(sum((t) => t.rootbondHeal) / tallies.length)}`,
+    `Ancients ${avg((t) => t.ancients)} (taunt ${avg((t) => t.ancientTauntTime)} s, your field ${avg((t) => t.ancientAuraTime)} s)`,
+    `Thread cut on him ${avg((t) => t.threadCuts)}`,
+    `downs ${avg((t) => t.downs, 2)}`,
+  ].join(' · ');
 }
 
 /**
@@ -503,6 +689,10 @@ function main(): void {
         if (finale) console.log(finale);
         const line = brannLine(runs);
         if (line) console.log(line);
+        const seren = serenLine(runs);
+        if (seren) console.log(seren);
+        const oro = oroLine(runs);
+        if (oro) console.log(oro);
       }
     }
   }

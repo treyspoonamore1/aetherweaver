@@ -17,7 +17,11 @@ import { SCENARIOS } from '../../tools/scenarios';
 import golden from './golden.json';
 
 const PATH = fileURLToPath(new URL('./telegraphKeys.json', import.meta.url));
-const GOLDENS = golden.scenarios as Record<string, string>;
+// The nineteen goldens W0a pinned: golden.json's first nineteen (Seren's and Oro's six follow).
+const GOLDENS = Object.fromEntries(Object.entries(golden.scenarios).slice(0, 19)) as Record<
+  string,
+  string
+>;
 
 interface Kept {
   /** Each golden's distinct key lists, sorted, with how many telegraph-ticks carried each. */

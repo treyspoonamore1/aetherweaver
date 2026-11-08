@@ -135,7 +135,9 @@ describe('the passive union (docs/phase-5e.md, contracts item 1)', () => {
     expect(seren!.hero!.duel).toMatchObject({ parryOn: null, killShotOn: null, parries: 0 });
     expect('blood' in seren!.hero! || 'grove' in seren!.hero!).toBe(false);
     // `ancients` counts the Ancients raised (HeroGroveStats.ancients reads it at the end).
-    expect(oro!.hero!.grove).toMatchObject({ saplings: [], ancient: null, lost: 0, ancients: 0 });
+    // W2: his two Saplings sprout with him (after the party, so the slots keep their ids).
+    expect(oro!.hero!.grove).toMatchObject({ ancient: null, lost: 0, ancients: 0 });
+    expect(oro!.hero!.grove!.saplings).toHaveLength(2);
     expect('blood' in oro!.hero! || 'duel' in oro!.hero!).toBe(false);
   });
 });
@@ -710,7 +712,10 @@ describe('Seren and Oro parties build and play (the interim ranged branch)', () 
         expect(() => {
           for (let t = 0; t < 600; t++) sim.step(bot.decide(sim.state));
         }).not.toThrow();
-        expect(sim.state.entities.list().some((e) => e.kind === 'summon')).toBe(false);
+        // W2: only an Oro party holds summons.
+        expect(sim.state.entities.list().some((e) => e.kind === 'summon')).toBe(
+          party.includes('oro'),
+        );
       }
     });
   }

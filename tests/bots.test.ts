@@ -7,8 +7,22 @@ import { BOSS_TABLES, decreeFight } from '../tools/decrees';
 import { CONTENT } from '../src/content';
 import * as Run from '../src/meta/run';
 import { makeBot, SkilledBot, type BotKind } from '../src/bots';
-import { FINALE_RULES, M3_RULES } from '../src/bots/skilled';
-import { NOVICE_M4, NOVICE_M4_RULES, NoviceBot, type NoviceM4Rule } from '../src/bots/novice';
+import {
+  FINALE_RULES,
+  M3_RULES,
+  ROSTER_RULES,
+  type RosterRule,
+  type SkilledOptions,
+} from '../src/bots/skilled';
+import {
+  NOVICE_M4,
+  NOVICE_M4_RULES,
+  NOVICE_ROSTER,
+  NOVICE_ROSTER_RULES,
+  NoviceBot,
+  type NoviceM4Rule,
+  type NoviceRosterRule,
+} from '../src/bots/novice';
 import {
   DOOM_CHIME_AT,
   FINALE_BANK_AT,
@@ -31,12 +45,20 @@ import {
   StallWatch,
   threatsOn,
   walksIntoLanding,
+  duelOf,
+  groveOf,
+  isRecruit,
+  nextSwing,
+  parryableBlows,
+  partyOf,
+  summonsOf,
   type ReadonlyTelegraph,
 } from '../src/bots/common';
 import {
   bloodlusting,
   createSim,
   cutWouldLand,
+  overextended,
   weaverSilenced,
   type Command,
   type Entity,
@@ -63,6 +85,7 @@ import {
   SHATTER_ARIA,
 } from '../src/content/crucibleIds';
 import { hero, hurt, sandbox, spawn, stepFor, worldOf } from './sim/helpers';
+import { cone, foe, place as placeAt, setup as setupSeren } from './sim/serenHelpers';
 
 const GUARDIAN = Run.CHORD_PRESETS.find((p) => p.id === 'guardian')!.chords.map((c) => ({
   auras: [...c.auras],
@@ -3425,4 +3448,571 @@ describe('the Novice’s Finale draws can be left off (tools/verbs.ts --bot novi
     },
     120_000,
   );
+});
+
+// ── Seren and Oro (docs/phase-5e.md, "Bots and harness") ─────────────────────────────
+
+const SEREN_PARTY = ['kael', 'lyra', 'seren'];
+const ORO_PARTY = ['kael', 'vexis', 'oro'];
+const SKILLED: SkilledOptions = { every: 4, attention: 1, callReaction: 0.4 };
+
+/** A Skilled bot with `skip` left off (fresh, so nothing it remembers leaks between cases). */
+const skilled = (skip: readonly RosterRule[] = []) =>
+  new SkilledBot(1, skip.length > 0 ? { ...SKILLED, skip: new Set(skip) } : SKILLED);
+
+/** A Seren party staged with the Guardian chords, every hero at full life. */
+function serenStage(config: Partial<SimConfig> = {}, party = SEREN_PARTY) {
+  return setupSeren(party, { chords: GUARDIAN, ...config });
+}
+
+/** `n` sturdy hounds on Seren, beside her, swinging at her (their next swing `cooldown` off). */
+function onSeren(w: World, seren: Entity, n: number, cooldown = 1): Entity[] {
+  const out: Entity[] = [];
+  for (let i = 0; i < n; i++) {
+    const a = (i * 2 * Math.PI) / Math.max(1, n);
+    const m = foe(w, 'sanguine_hound', seren.x + Math.cos(a) * 1.4, seren.z + Math.sin(a) * 1.4, {
+      hp: 1e6,
+    });
+    m.enemy!.state = 'approach';
+    m.enemy!.targetId = seren.id;
+    m.enemy!.attackCooldown = cooldown;
+    out.push(m);
+  }
+  return out;
+}
+
+const wardOn = (out: readonly Command[], slot: number) =>
+  out.some((c) => c.t === 'tech' && c.id === 'ward' && c.slot === slot);
+const reelOn = (out: readonly Command[], slot: number) =>
+  out.some((c) => c.t === 'tech' && c.id === 'reel' && c.slot === slot);
+const rallies = (out: readonly Command[]) =>
+  out.some((c) => c.t === 'directive' && c.kind === 'rally');
+
+describe('the Seren and Oro readers (docs/phase-5e.md)', () => {
+  it('answer null or empty without their hero, and read the staged state', () => {
+    const plain = sandbox({ chords: GUARDIAN });
+    expect(duelOf(plain.state, partyOf(plain.state))).toBeNull();
+    expect(groveOf(plain.state, partyOf(plain.state))).toBeNull();
+    expect(summonsOf(plain.state)).toEqual([]);
+    expect(isRecruit('kael') || isRecruit('lyra') || isRecruit('vexis')).toBe(false);
+    expect(['brann', 'seren', 'oro'].every(isRecruit)).toBe(true);
+
+    const { sim, w, seren } = serenStage();
+    const [hound] = onSeren(w, seren, 1, 0.8);
+    const view = duelOf(sim.state, partyOf(sim.state))!;
+    expect(view.seren.e.id).toBe(seren.id);
+    expect(view.armed).toBe(false);
+    expect(view.overextended).toBe(false);
+    expect(view.nextSwing?.source.id).toBe(hound!.id);
+    expect(view.nextSwing?.at).toBeCloseTo(sim.state.time + 0.8, 6);
+    expect(view.nextSwing?.telegraph).toBeNull();
+    // A parryable cone aimed at her lands sooner, so it is her next swing; one aimed past her isn't.
+    const brute = foe(w, 'bell_brute', seren.x + 2, seren.z, { hp: 1e6, stun: true });
+    const t = cone(w, brute, seren, seren.id, { impact: 0.5 });
+    cone(w, brute, seren, null, { impact: 0.1 });
+    expect(nextSwing(sim.state, seren)?.telegraph?.id).toBe(t.id);
+    expect(parryableBlows(sim.state, seren)).toHaveLength(2);
+
+    const g = sandbox({ chords: GUARDIAN, party: ORO_PARTY });
+    stepFor(g, 4);
+    const grove = groveOf(g.state, partyOf(g.state))!;
+    expect(grove.oro.defId).toBe('oro');
+    expect(grove.saplings).toHaveLength(2);
+    expect(grove.ancient).toBeNull();
+    expect(grove.inFieldShare).toBe(1);
+    expect(grove.outside).toEqual([]);
+    expect(grove.hurt).toBe(false);
+    expect(grove.tending).toBe(true);
+    expect(summonsOf(g.state)).toHaveLength(2);
+  });
+});
+
+describe('the Skilled bot with Seren (staged)', () => {
+  it('serenPerfectFirst: Perfect-Wards a blow aimed at her over a bigger hit, below a lethal one', () => {
+    const run = (kaelHit: 'big' | 'lethal', skip: RosterRule[] = []) => {
+      const { sim, w, seren, slot, of } = serenStage();
+      const kael = of('kael');
+      w.entities.get(w.weaverId)!.weaver!.wardCharges = 1;
+      const brute = foe(w, 'bell_brute', seren.x + 1.5, seren.z, { hp: 1e6, stun: true });
+      // 120 is under 15% of her 900: the filter is lifted for her kill shot.
+      cone(w, brute, seren, seren.id, { impact: 0.2, damage: 120 });
+      bigHit(sim, kael.id, kaelHit === 'big' ? 600 : kael.health!.hp + 50, 0.2, 801);
+      const out = skilled(skip).decide(sim.state);
+      return { out, slot, kael: kael.hero!.slot };
+    };
+    const big = run('big');
+    expect(wardOn(big.out, big.slot)).toBe(true);
+    const lethal = run('lethal');
+    expect(wardOn(lethal.out, lethal.kael)).toBe(true);
+    // Left off, the plain scorer gives it to the bigger hit, as it always has.
+    const off = run('big', ['serenPerfectFirst']);
+    expect(wardOn(off.out, off.kael)).toBe(true);
+  });
+
+  it('serenParryWard: Wards her before her mark’s next swing, within the Ward’s life', () => {
+    const due = (cooldown: number, armed = false, skip: RosterRule[] = []) => {
+      const { sim, w, seren, slot } = serenStage();
+      onSeren(w, seren, 1, cooldown);
+      if (armed)
+        seren.health!.shields.push({
+          kind: 'ward',
+          amount: 300,
+          max: 300,
+          appliedAt: w.time,
+          expiresAt: w.time + 3,
+          fromWeaver: true,
+          fromAura: false,
+        });
+      return wardOn(skilled(skip).decide(sim.state), slot);
+    };
+    expect(due(1)).toBe(true);
+    // Not yet: a Ward now would be gone before it lands.
+    expect(due(2.8)).toBe(false);
+    // Already en garde.
+    expect(due(1, true)).toBe(false);
+    expect(due(1, false, ['serenParryWard'])).toBe(false);
+  });
+
+  it('serenParryWard in a boss fight: only the boss’s own blow at her, never with a blow on Kael live', () => {
+    const fight = (opts: { bossOnHer: boolean; onKael: boolean }) => {
+      const { sim, w, seren, slot, of } = serenStage();
+      onSeren(w, seren, 1, 1);
+      const boss = foe(w, 'gorehound_matriarch', seren.x - 2.6, seren.z, { hp: 1e6 });
+      boss.enemy!.state = 'approach';
+      w.encounter.bossId = boss.id;
+      if (opts.bossOnHer) {
+        boss.enemy!.targetId = seren.id;
+        boss.enemy!.attackCooldown = 1;
+      }
+      // A small blow on its way to Kael, outside its Perfect window.
+      if (opts.onKael) bigHit(sim, of('kael').id, 100, 2, 811);
+      return wardOn(skilled().decide(sim.state), slot);
+    };
+    // The hound's swing alone isn't the boss's.
+    expect(fight({ bossOnHer: false, onKael: false })).toBe(false);
+    expect(fight({ bossOnHer: true, onKael: false })).toBe(true);
+    // Kael's blow keeps the Ward.
+    expect(fight({ bossOnHer: true, onKael: true })).toBe(false);
+  });
+
+  it('serenReel: Reels her out overextended and hurt, after every other Reel, never with a lethal blow live', () => {
+    const stage = (config: Partial<SimConfig> = {}) => {
+      const s = serenStage(config);
+      const hounds = onSeren(s.w, s.seren, 3, 5);
+      s.seren.hero!.duel!.quarry = hounds[0]!.id;
+      s.seren.health!.hp = s.seren.health!.maxHp * 0.4;
+      s.w.entities.get(s.w.weaverId)!.weaver!.wardCharges = 0;
+      return s;
+    };
+    const a = stage();
+    expect(overextended(a.sim.state, a.seren)).toBe(true);
+    expect(reelOn(skilled().decide(a.sim.state), a.slot)).toBe(true);
+    // Above 60% she is left in it; left off, so is she.
+    const healthy = stage();
+    healthy.seren.health!.hp = healthy.seren.health!.maxHp * 0.7;
+    expect(reelOn(skilled().decide(healthy.sim.state), healthy.slot)).toBe(false);
+    const off = stage();
+    expect(reelOn(skilled(['serenReel']).decide(off.sim.state), off.slot)).toBe(false);
+    // A lethal blow live anywhere keeps the Reel for the plain loop.
+    const lethal = stage();
+    bigHit(lethal.sim, lethal.of('kael').id, 100, 3, 812);
+    lethal.w.telegraphs.at(-1)!.severity = 'lethal';
+    expect(
+      skilled()
+        .decide(lethal.sim.state)
+        .some((c) => c.t === 'tech' && c.id === 'reel'),
+    ).toBe(false);
+    // The plain loop's Reel comes first: a big ring about to land on Kael.
+    const first = stage();
+    const k = first.of('kael');
+    first.w.telegraphs.push({
+      id: 813,
+      owner: first.w.weaverId,
+      target: k.id,
+      attackId: 'test_ring',
+      name: 'Ring',
+      kind: 'burst',
+      shape: { kind: 'circle', x: k.x, z: k.z, r: 2 },
+      start: first.w.time,
+      impact: first.w.time + 0.5,
+      perfectFrom: first.w.time + 0.15,
+      damage: k.health!.maxHp * 0.5,
+      pctMaxHp: 0,
+      effect: 'damage',
+      answers: ['reel'],
+      severity: 'normal',
+    });
+    const out = skilled().decide(first.sim.state);
+    expect(reelOn(out, k.hero!.slot)).toBe(true);
+    expect(reelOn(out, first.slot)).toBe(false);
+  });
+
+  it('serenReel as the Chronomancer, or with Swap: a Rally, never a Swap into her duel', () => {
+    for (const config of [
+      { calling: { id: 'chronomancer' } },
+      { techniques: { reel: 'swap' } },
+    ] as Partial<SimConfig>[]) {
+      const { sim, w, seren, slot } = serenStage(config);
+      const hounds = onSeren(w, seren, 3, 5);
+      seren.hero!.duel!.quarry = hounds[0]!.id;
+      seren.health!.hp = seren.health!.maxHp * 0.4;
+      w.entities.get(w.weaverId)!.weaver!.wardCharges = 0;
+      const out = skilled().decide(sim.state);
+      expect(rallies(out), JSON.stringify(config)).toBe(true);
+      expect(reelOn(out, slot), JSON.stringify(config)).toBe(false);
+    }
+  });
+
+  it('serenReel’s Rally waits while any lethal telegraph is live, as its Reel does', () => {
+    for (const config of [
+      { calling: { id: 'chronomancer' } },
+      { techniques: { reel: 'swap' } },
+    ] as Partial<SimConfig>[]) {
+      const stage = (lethal: boolean) => {
+        const { sim, w, seren } = serenStage(config);
+        const hounds = onSeren(w, seren, 3, 5);
+        seren.hero!.duel!.quarry = hounds[0]!.id;
+        seren.health!.hp = seren.health!.maxHp * 0.4;
+        w.entities.get(w.weaverId)!.weaver!.wardCharges = 0;
+        if (lethal) {
+          // Far off on the Weaver, so no other Rally rule reads it.
+          bigHit(sim, w.weaverId, 1, 3, 814);
+          w.telegraphs.at(-1)!.severity = 'lethal';
+        }
+        return skilled().decide(sim.state);
+      };
+      expect(rallies(stage(false)), JSON.stringify(config)).toBe(true);
+      expect(rallies(stage(true)), JSON.stringify(config)).toBe(false);
+    }
+  });
+
+  it('serenNoSwap: never Swaps into her duel to free her; out of a duel, it does', () => {
+    const free = (duelling: boolean, skip: RosterRule[] = []) => {
+      const { sim, w, seren, slot } = serenStage({ techniques: { reel: 'swap' } });
+      const [hound] = onSeren(w, seren, 1, 5);
+      if (duelling) seren.hero!.duel!.quarry = hound!.id;
+      seren.health!.statuses.push({
+        id: 'pinned',
+        remaining: 4,
+        duration: 4,
+        stacks: 1,
+        source: null,
+        dps: 56,
+      });
+      return reelOn(skilled(skip).decide(sim.state), slot);
+    };
+    expect(free(false)).toBe(true);
+    expect(free(true)).toBe(false);
+    expect(free(true, ['serenNoSwap'])).toBe(true);
+  });
+
+  it('serenCue: Thousand Cuts at 4+ enemies or when she is overextended', () => {
+    const cue = (n: number, overext: boolean, skip: RosterRule[] = []) => {
+      const { sim, w, seren, slot } = serenStage();
+      const hounds = onSeren(w, seren, n, 5);
+      if (!overext) for (const h of hounds) h.enemy!.targetId = null;
+      seren.hero!.duel!.quarry = hounds[0]!.id;
+      seren.hero!.solo = 100;
+      w.entities.get(w.weaverId)!.weaver!.resonance = 50;
+      return skilled(skip)
+        .decide(sim.state)
+        .some((c) => c.t === 'cue' && c.slot === slot);
+    };
+    expect(cue(4, false)).toBe(true);
+    expect(cue(2, false)).toBe(false);
+    expect(cue(3, true)).toBe(true);
+    // Left off, 3 enemies are no pack for a damage Solo (the plain rule: 4+ or a boss).
+    expect(cue(3, true, ['serenCue'])).toBe(false);
+  });
+
+  it('discordBreaker: with Seren and no Lyra in the roster, Empowers the hardest hitter against a discord shield', () => {
+    const thread = (party: string[], skip: RosterRule[] = []) => {
+      const sim = createSim({ seed: 7, encounter: 'crimson_gate', debug: true, ...KIT, party });
+      const w = worldOf(sim);
+      const m = foe(w, 'sanguine_hound', 0, -12, { hp: 1e6 });
+      m.health!.shields.push({
+        kind: 'discord',
+        amount: 500,
+        max: 500,
+        appliedAt: 0,
+        expiresAt: 1e9,
+        fromWeaver: false,
+        fromAura: false,
+      });
+      // Someone a little hurt: the plain rule (above 85%) would Mend them, not Empower.
+      const kael = w.entities.get(w.party[0]!)!;
+      kael.health!.hp = kael.health!.maxHp * 0.7;
+      const out = skilled(skip).decide(sim.state);
+      const to = [...out].reverse().find((c) => c.t === 'thread');
+      return { to: to?.t === 'thread' ? to.slot : null, out, sim };
+    };
+    const seren = thread(['kael', 'vexis', 'seren']);
+    // Seren (80 a second) outhits Vexis; the tank is never the breaker.
+    expect(seren.to).toBe(slotOf(seren.sim.state, 'seren'));
+    expect(mendsOn(seren.sim, seren.out, seren.to!)).toBe(false);
+    const off = thread(['kael', 'vexis', 'seren'], ['discordBreaker']);
+    expect(off.to).toBe(0);
+    // With Lyra in the roster, Lyra breaks it, as she always has.
+    const lyra = thread(['kael', 'lyra', 'seren']);
+    expect(lyra.to).toBe(slotOf(lyra.sim.state, 'lyra'));
+  });
+
+  it('discordBreaker is a post-pick modifier: it composes with brannThread, and its ablation measures it', () => {
+    const thread = (party: string[], skip: RosterRule[] = []) => {
+      const sim = createSim({ seed: 7, encounter: 'crimson_gate', debug: true, ...KIT, party });
+      const w = worldOf(sim);
+      const m = foe(w, 'sanguine_hound', 0, -12, { hp: 1e6 });
+      m.health!.shields.push({
+        kind: 'discord',
+        amount: 500,
+        max: 500,
+        appliedAt: 0,
+        expiresAt: 1e9,
+        fromWeaver: false,
+        fromAura: false,
+      });
+      // Someone besides Brann and Seren a little hurt: above 60%, below the 85% where the plain
+      // rule Empowers.
+      const hurt = w.party
+        .map((id) => w.entities.get(id)!)
+        .find((e) => e.hero!.defId !== 'brann' && e.hero!.defId !== 'seren')!;
+      hurt.health!.hp = hurt.health!.maxHp * 0.7;
+      const out = skilled(skip).decide(sim.state);
+      const to = [...out].reverse().find((c) => c.t === 'thread');
+      return { to: to?.t === 'thread' ? to.slot : null, out, sim, hurt: hurt.hero!.slot };
+    };
+    // Party X (Brann, Seren, Oro): Seren, the hardest hitter, is Empowered to break it.
+    const x = thread(['brann', 'seren', 'oro']);
+    expect(x.to).toBe(slotOf(x.sim.state, 'seren'));
+    expect(mendsOn(x.sim, x.out, x.to!)).toBe(false);
+    // Off, nothing breaks it in X: brannThread's own breaker leaves a recruit roster to the rule.
+    const xOff = thread(['brann', 'seren', 'oro'], ['discordBreaker']);
+    expect(xOff.to).not.toBe(slotOf(xOff.sim.state, 'seren'));
+    expect(mendsOn(xOff.sim, xOff.out, xOff.hurt)).toBe(true);
+    // Party R (Kael, Brann, Seren) composes the same way.
+    const r = thread(['kael', 'brann', 'seren']);
+    expect(r.to).toBe(slotOf(r.sim.state, 'seren'));
+    // A Brann party without Seren or Oro keeps brannThread's breaker, the rule on or off.
+    const plain = thread(['kael', 'vexis', 'brann']);
+    const plainOff = thread(['kael', 'vexis', 'brann'], ['discordBreaker']);
+    expect(plain.to).not.toBe(plain.hurt);
+    expect(plainOff.out).toEqual(plain.out);
+  });
+});
+
+describe('the Skilled bot with Oro (staged)', () => {
+  /** An Oro party staged with the Guardian chords, the field laid (four ticks on). */
+  const grove = (party = ORO_PARTY) => {
+    const sim = sandbox({ chords: GUARDIAN, party });
+    stepFor(sim, 4);
+    const w = worldOf(sim);
+    const oro = w.party.map((id) => w.entities.get(id)!).find((e) => e.hero!.defId === 'oro')!;
+    const saplings = oro.hero!.grove!.saplings.map((id) => w.entities.get(id)!);
+    return { sim, w, oro, slot: oro.hero!.slot, saplings };
+  };
+  const plantAt = (s: Entity, x: number, z: number) => {
+    placeAt(s, x, z);
+    s.summon!.plantX = x;
+    s.summon!.plantZ = z;
+  };
+
+  it('oroFocus: Focuses Kael’s target for a tending Oro, within its crowd guard', () => {
+    const focus = (n: number, skip: RosterRule[] = []) => {
+      const { sim, w } = grove();
+      const hounds = Array.from({ length: n }, (_, i) =>
+        foe(w, 'sanguine_hound', -4 + i * 2, -9, { hp: 1e6 }),
+      );
+      for (const h of hounds) h.enemy!.state = 'approach';
+      w.entities.get(w.party[0]!)!.hero!.targetId = hounds[1]!.id;
+      const out = skilled(skip).decide(sim.state);
+      const f = out.find((c) => c.t === 'directive' && c.kind === 'focus');
+      return { target: f?.t === 'directive' ? f.target : null, kaels: hounds[1]!.id };
+    };
+    const two = focus(2);
+    expect(two.target).toBe(two.kaels);
+    expect(focus(4).target).toBeNull();
+    expect(focus(2, ['oroFocus']).target).toBeNull();
+  });
+
+  it('oroRally: Rallies a Sapling left outside the field for 2 s, at most every 5 s', () => {
+    // `groveCover` left off: it walks the Weaver (and her field) toward Saplings left out.
+    const rallyTimes = (outside: boolean, skip: RosterRule[] = []) => {
+      const { sim, saplings } = grove();
+      const bot = skilled(['groveCover', ...skip]);
+      const at: number[] = [];
+      const t0 = sim.state.time;
+      for (let t = 0; t < 60 * 9; t++) {
+        // Held outside every field (planted far off every tick), or left where it grew.
+        if (outside) for (const s of saplings) if (!s.health!.dead) plantAt(s, 16, 0);
+        const out = bot.decide(sim.state);
+        if (rallies(out)) at.push(sim.state.time - t0);
+        sim.step(out);
+        sim.drainEvents();
+      }
+      return at;
+    };
+    const times = rallyTimes(true);
+    expect(times.length).toBeGreaterThan(0);
+    expect(times[0]!).toBeGreaterThan(2);
+    for (let i = 1; i < times.length; i++) expect(times[i]! - times[i - 1]!).toBeGreaterThan(5);
+    expect(rallyTimes(false)).toEqual([]);
+    expect(rallyTimes(true, ['oroRally'])).toEqual([]);
+  });
+
+  it('oroThread: Mends Oro when his Saplings are hurt and the party is calm', () => {
+    const thread = (frac: number, skip: RosterRule[] = []) => {
+      const { sim, saplings, slot } = grove();
+      for (const s of saplings) s.health!.hp = s.health!.maxHp * frac;
+      const out = skilled(skip).decide(sim.state);
+      return mendsOn(sim, out, slot);
+    };
+    expect(thread(0.5)).toBe(true);
+    expect(thread(1)).toBe(false);
+    expect(thread(0.5, ['oroThread'])).toBe(false);
+  });
+
+  it('groveCover: weighs the Saplings into where she stands, heroes 2 to them 1', () => {
+    const move = (skip: RosterRule[] = []) => {
+      const { sim, w, saplings } = grove();
+      placeAt(w.entities.get(w.weaverId)!, 0, 0);
+      const spots = [
+        { x: 3, z: 0 },
+        { x: -3, z: 0 },
+        { x: 0, z: 0 },
+      ];
+      w.party.forEach((id, i) => placeAt(w.entities.get(id)!, spots[i]!.x, spots[i]!.z));
+      for (const s of saplings) plantAt(s, 0, 9);
+      const m = skilled(skip)
+        .decide(sim.state)
+        .find((c) => c.t === 'move');
+      return m?.t === 'move' ? m : null;
+    };
+    // (2 × 3 heroes at z 0 + 2 Saplings at z 9) / 8: 2.25 m toward them.
+    expect(move()!.z).toBeGreaterThan(0.9);
+    expect(move(['groveCover'])!.z).toBe(0);
+  });
+
+  it('oroCue: Wildgrowth on a pack of 3, or while a Sapling stands outside the field', () => {
+    const cue = (n: number, outside: boolean, skip: RosterRule[] = []) => {
+      const { sim, w, oro, slot, saplings } = grove();
+      for (let i = 0; i < n; i++) foe(w, 'sanguine_hound', -4 + i * 2, -9, { hp: 1e6 });
+      if (outside) plantAt(saplings[0]!, 16, 0);
+      oro.hero!.solo = 100;
+      w.entities.get(w.weaverId)!.weaver!.resonance = 50;
+      return skilled(skip)
+        .decide(sim.state)
+        .some((c) => c.t === 'cue' && c.slot === slot);
+    };
+    expect(cue(3, false)).toBe(true);
+    expect(cue(1, false)).toBe(false);
+    expect(cue(1, true)).toBe(true);
+    expect(cue(1, true, ['oroCue'])).toBe(false);
+  });
+
+  it('names every roster rule; leaving them all off changes nothing for a party without Seren or Oro', () => {
+    expect(new Set(ROSTER_RULES).size).toBe(11);
+    const stream = (skip?: ReadonlySet<RosterRule>) => {
+      const sim = createSim({ seed: 1000, encounter: 'crimson_gate', ...KIT, party: PARTY_A });
+      const bot = new SkilledBot(1000, skip ? { ...SKILLED, skip } : SKILLED);
+      const all: Command[] = [];
+      for (let t = 0; t < 60 * 20; t++) {
+        const out = bot.decide(sim.state);
+        all.push(...out);
+        sim.step(out);
+        sim.drainEvents();
+      }
+      return all;
+    };
+    expect(stream(new Set(ROSTER_RULES))).toEqual(stream());
+  });
+});
+
+describe('the Novice bot with Seren and Oro (NOVICE_ROSTER, staged)', () => {
+  const novice = (sim: Sim, pin: () => void = () => {}, skip?: ReadonlySet<NoviceRosterRule>) => {
+    const bot = new NoviceBot(5, skip ? { skip } : {});
+    const out: Command[] = [];
+    for (let t = 0; t < 600; t++) {
+      pin();
+      const c = bot.decide(sim.state);
+      out.push(...c);
+      sim.step(c);
+      sim.drainEvents();
+    }
+    return out;
+  };
+
+  it('names its draws in order', () => {
+    expect(NOVICE_ROSTER_RULES).toEqual(['serenWard', 'oroFocus', 'saplingRally']);
+    expect(Object.keys(NOVICE_ROSTER)).toEqual(NOVICE_ROSTER_RULES);
+  });
+
+  it('serenWard: Wards an engaged, unwarded Seren now and then, and draws for it only then', () => {
+    const run = (engaged: boolean, skip?: ReadonlySet<NoviceRosterRule>) => {
+      const s = serenStage();
+      const hound = engaged ? onSeren(s.w, s.seren, 1, 5)[0]! : null;
+      // The hound kept on her, never swinging, and her life kept full.
+      const pin = () => {
+        if (hound) {
+          hound.enemy!.targetId = s.seren.id;
+          hound.enemy!.attackCooldown = 5;
+          addStatus(s.w, hound, 'stun', 1, null);
+        }
+        s.seren.health!.hp = s.seren.health!.maxHp;
+      };
+      return { out: novice(s.sim, pin, skip), slot: s.slot };
+    };
+    const on = run(true);
+    expect(wardOn(on.out, on.slot)).toBe(true);
+    // Without the moment, no draw: the stream equals the one with every roster draw left off.
+    expect(run(false).out).toEqual(run(false, new Set(NOVICE_ROSTER_RULES)).out);
+  });
+
+  it('oroFocus and saplingRally: wake a tending Oro, Rally a Sapling outside, now and then', () => {
+    const run = (n: number, outside: boolean) => {
+      const sim = sandbox({ chords: GUARDIAN, party: ORO_PARTY });
+      stepFor(sim, 4);
+      const w = worldOf(sim);
+      const oro = w.entities.get(w.party[2]!)!;
+      const saplings = oro.hero!.grove!.saplings.map((id) => w.entities.get(id)!);
+      const hounds = Array.from({ length: n }, (_, i) =>
+        foe(w, 'sanguine_hound', -2 + i * 2, -6, { hp: 1e6, stun: true }),
+      );
+      const pin = () => {
+        // Nobody stays Focused (so Oro keeps tending), and the Saplings stay where they are put.
+        w.focusTarget = null;
+        for (const h of hounds) addStatus(w, h, 'stun', 1, null);
+        if (outside)
+          for (const s of saplings)
+            if (!s.health!.dead) {
+              placeAt(s, 16, 0);
+              s.summon!.plantX = 16;
+              s.summon!.plantZ = 0;
+            }
+      };
+      return novice(sim, pin);
+    };
+    const focusing = run(2, false);
+    expect(focusing.some((c) => c.t === 'directive' && c.kind === 'focus')).toBe(true);
+    expect(rallies(focusing)).toBe(false);
+    expect(rallies(run(0, true))).toBe(true);
+  });
+
+  it('noviceAnchor: stays with the others, not with a duelling Seren', () => {
+    const sim = sandbox({ party: ['kael', 'vexis', 'seren'] });
+    const w = worldOf(sim);
+    const at = (slot: number, x: number, z: number) =>
+      Object.assign(w.entities.get(w.party[slot]!)!, { x, z, vx: 0, vz: 0 });
+    at(0, 0, -4);
+    at(1, 0, 5);
+    at(2, 12, -21);
+    Object.assign(w.entities.get(w.weaverId)!, { x: -10, z: 2, vx: 0, vz: 0 });
+    const move = makeBot('novice', 1)
+      .decide(sim.state)
+      .find((c) => c.t === 'move');
+    // (Kael + 2 × Vexis) / 3 is (0, 2), due east of her, not toward Seren far to the south-east.
+    expect(move).toBeDefined();
+    if (move?.t !== 'move') return;
+    expect(move.x).toBeGreaterThan(0.9);
+    expect(Math.abs(move.z)).toBeLessThan(0.1);
+  });
 });

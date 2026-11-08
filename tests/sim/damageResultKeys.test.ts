@@ -42,7 +42,11 @@ import golden from './golden.json';
 
 const ROOT = fileURLToPath(new URL('../../', import.meta.url));
 const PATH = fileURLToPath(new URL('./damageResultKeys.json', import.meta.url));
-const GOLDENS = golden.scenarios as Record<string, string>;
+// The nineteen goldens W0a pinned: golden.json's first nineteen (Seren's and Oro's six follow).
+const GOLDENS = Object.fromEntries(Object.entries(golden.scenarios).slice(0, 19)) as Record<
+  string,
+  string
+>;
 const PROBE = '__damageResultKeysProbe';
 /** DamageResult's keys before Phase 5e (src/sim/combat/health.ts), the optional ones included. */
 const KNOWN_KEYS = [

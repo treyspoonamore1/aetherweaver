@@ -32,13 +32,24 @@
  * Focuses Spindles, the Stolen Verse, the champion, a Null Priest and a Silencing elite after
  * the interruptible caster. Each is gated on its mechanic and draws nothing, and each can be
  * left off (`SkilledOptions.skip`, tools/verbs.ts).
+ *
+ * Seren and Oro (docs/phase-5e.md, "Bots and harness", `ROSTER_RULES`): a blow aimed at Seren is
+ * Perfect-Warded as her kill shot, above any hit but a lethal one; she is Warded before her
+ * mark's next swing (in a boss fight only against the boss's own blow, and never while a blow on
+ * another hero is live); overextended and hurt she is Reeled home after every other Reel (a Rally
+ * for the Chronomancer, or with Swap, which never Swaps into her duel); Thousand Cuts goes on a
+ * crowd or when she is surrounded. A tending Oro is woken with a Focus in a thin fight; a Sapling
+ * left outside the field is Rallied back in; hurt Saplings have the Thread Mend Oro; the Weaver
+ * weighs the Saplings into where she stands; Wildgrowth goes on a pack. With Seren or Oro and no
+ * Lyra in the roster the hardest hitter breaks a discord shield. Each is behind its hero's reader
+ * and draws nothing, so every other party's command stream is unchanged.
  */
 import { CONTENT, partyHasDome } from '../content';
 import { Rng } from '../sim/core/rng';
-import { bloodRageBonus, segmentDistSq, weaverSilenced } from '../sim';
+import { bloodRageBonus, gentle, segmentDistSq, weaverSilenced } from '../sim';
 import { contains } from '../sim/combat/telegraphs';
 import { dcos, dsin } from '../sim/core/dmath';
-import type { Command, PartySlot, ReadonlyEntity, ThreadMode, WorldState } from '../sim';
+import type { Command, EntityId, PartySlot, ReadonlyEntity, ThreadMode, WorldState } from '../sim';
 import type { Bot } from './types';
 import {
   BLEED_CHIME_AT,
@@ -76,6 +87,11 @@ import {
   zoneFor,
   bloodOf,
   mendNeed,
+  duelOf,
+  groveOf,
+  isRecruit,
+  parryableBlows,
+  SAPLING_HURT,
   DOOM_CHIME_AT,
   champion,
   closingRunes,
@@ -115,6 +131,8 @@ import {
   silenceOf,
   type Circle,
   type BloodView,
+  type DuelView,
+  type GroveView,
   type CueView,
   type DiscordView,
   type HeroView,
@@ -141,7 +159,7 @@ export interface SkilledOptions {
    * docs/phase-5d.md) to leave off. Absent, every rule plays, so the default options object is
    * unchanged.
    */
-  skip?: ReadonlySet<M3Rule | FinaleRule>;
+  skip?: ReadonlySet<M3Rule | FinaleRule | RosterRule>;
 }
 
 /**
@@ -217,6 +235,57 @@ export const FINALE_RULES = [
   'reigniteCue',
 ] as const;
 export type FinaleRule = (typeof FINALE_RULES)[number];
+
+/**
+ * The Skilled bot's Seren and Oro rules (docs/phase-5e.md, "Skilled ROSTER_RULES"), each one a
+ * name `SkilledOptions.skip` can turn off. Every one is gated on its hero's reader (`duelOf`,
+ * `groveOf`, or the roster for `discordBreaker`) and draws nothing, so a party without Seren or
+ * Oro plays exactly as before.
+ */
+export const ROSTER_RULES = [
+  /** In the Perfect scorer, a blow aimed at Seren is her kill shot: above any non-lethal hit. */
+  'serenPerfectFirst',
+  /** Ward her before her mark's next melee swing (in boss fights, only the boss's own blow). */
+  'serenParryWard',
+  /** Reel her out when she is overextended and hurt (the Chronomancer, or Swap: a Rally). */
+  'serenReel',
+  /** Never Swap into her duel. */
+  'serenNoSwap',
+  /** Cue Thousand Cuts at 4+ enemies or when she is overextended. */
+  'serenCue',
+  /** Focus Kael's target (or the boss) while Oro tends with 1-3 enemies standing. */
+  'oroFocus',
+  /** Rally a Sapling left outside every field for 2 s back in (re-planted ahead of her). */
+  'oroRally',
+  /** Mend-Thread Oro (Rootbond Mends his Saplings) when they are hurt and the party is calm. */
+  'oroThread',
+  /** Weight the Saplings into where she stands (heroes 2 : Saplings 1). */
+  'groveCover',
+  /** Cue Wildgrowth on a pack of 3+, or when the Saplings stand outside the field. */
+  'oroCue',
+  /** No Lyra in a Seren or Oro roster: Empower the hardest hitter against discord shields. */
+  'discordBreaker',
+] as const;
+export type RosterRule = (typeof ROSTER_RULES)[number];
+
+// ── Seren's and Oro's levers (docs/phase-5e.md; measured by tools/verbs.ts) ──
+/** `oroFocus`'s crowd guard: Focus for a tending Oro only while no more than this many stand. */
+const ORO_FOCUS_AT = 3;
+/** `oroRally`: a Sapling outside every field this long is Rallied back in (s). */
+const SAPLING_OUT_FOR = 2;
+/** `oroRally`: at most one such Rally this often (s); a Bloodlusting Brann's 8 s holds. */
+const ORO_RALLY_GAP = 5;
+/** `serenReel`: she is Reeled once overextended below this share of her life. */
+const SEREN_REEL_BELOW = 0.6;
+/** `serenParryWard`: a Ward goes on her once her next parryable blow is this near (s). */
+const PARRY_WARD_AHEAD = CONTENT.techniques.ward.duration - 0.5;
+/** `oroThread`: the party's Mend need above which it is calm enough to Mend the Saplings. */
+const GROVE_CALM = 0.75;
+/** `oroThread`: once Mending them, the Thread stays on Oro until the lowest Sapling is here. */
+const GROVE_MENDED = 0.9;
+/** The Solos the roster rules Cue. */
+const THOUSAND_CUTS = 'thousandCuts';
+const WILDGROWTH = 'wildgrowth';
 
 /**
  * Focus Movement III's targets only once no more than this many enemies stand (the
@@ -316,6 +385,8 @@ export class SkilledBot implements Bot {
   private lastCadence: { id: number; final: boolean } | null = null;
   /** The Finale: whether this fight's Grand Silence has been seen (the last burn waits on it). */
   private readonly silenceWatch = new SilenceWatch();
+  /** Oro (docs/phase-5e.md, `oroRally`): when each Sapling was first seen outside the field. */
+  private readonly saplingOutSince = new Map<EntityId, number>();
 
   constructor(
     seed: number,
@@ -349,8 +420,16 @@ export class SkilledBot implements Bot {
     // Brann (docs/phase-5b.md): every branch below that reads him is behind `blood`, which is
     // null for a party without a Blood Rage hero, so a default party plays exactly as before.
     const blood = bloodOf(state, party);
-    /** Brann is in the party, up or down. */
-    const withBrann = blood !== null || all.some((h) => h.e.hero!.blood !== undefined);
+    /**
+     * A recruit (Brann, Seren, Oro) is in the party, up or down: with one, two heroes often fall
+     * together. With Brann alone it is exactly `withBrann` (his `blood` is set for him only).
+     */
+    const withRecruit = all.some((h) => isRecruit(h.defId));
+    // Seren and Oro (docs/phase-5e.md): each is null without its hero standing, and every rule
+    // that reads them is behind it, so a party without them plays exactly as before.
+    const duel = duelOf(state, party);
+    const grove = groveOf(state, party);
+    this.watchSaplings(grove, now);
 
     // Movement III (docs/phase-5c.md): each is null, false or empty without its mechanic.
     // Inside a Null rune the sim refuses Ward, Chime and Reel: none is cast (or counted) there.
@@ -370,7 +449,7 @@ export class SkilledBot implements Bot {
     else this.lastCadence = null;
 
     // ── Movement: cover the party with the field, stay out of danger, keep off melee. ──
-    const desired = this.position(state, w, party, enemies);
+    const desired = this.position(state, w, party, enemies, this.on('groveCover') ? grove : null);
     const step = this.m3Step(state, w, cut, now, desired);
     const danger = threatsOn(state, w).find((t) => t.impact - now < 0.9);
     if (danger) {
@@ -449,6 +528,9 @@ export class SkilledBot implements Bot {
       const window = tech.ward.perfectWindow;
       // Brann (docs/phase-5b.md): his Perfect due within 1.5 s holds the last charge for him.
       const holdFor = blood ? brannPerfectDue(state, blood, w) : false;
+      // Seren (docs/phase-5e.md, `serenPerfectFirst`): a Perfect on a blow aimed at her is a kill
+      // shot. Null without her, so the scorer below is the one it always was.
+      const serenFirst = duel && this.on('serenPerfectFirst') ? duel : null;
       let best: { slot: PartySlot; score: number } | null = null;
       for (const h of party) {
         if (dist(h.e, w) > tech.ward.range - 0.3) continue;
@@ -457,6 +539,9 @@ export class SkilledBot implements Bot {
           if (left > window - 0.06 || left < 0.04) continue;
           const dmg = damageOf(t, h.e);
           const lethal = dmg >= h.e.health!.hp + shieldOf(h.e);
+          /** A blow aimed at Seren: its Perfect is her kill shot (her 15% filter is lifted). */
+          const killShot =
+            serenFirst !== null && h.slot === serenFirst.seren.slot && t.target === h.e.id;
           // Fortissimo Silence with no Crescendo (the Finale): the lowest of the party first,
           // whatever the pulse's size; a Ward that already answers it isn't replaced.
           if (guardFortissimo && isFortissimo(t)) {
@@ -470,12 +555,18 @@ export class SkilledBot implements Bot {
           if (
             dmg < h.e.health!.maxHp * 0.15 &&
             !(lethal && t.executeBelow !== undefined) &&
-            !(wardPossess && possessesOnHit(t))
+            !(wardPossess && possessesOnHit(t)) &&
+            !killShot
           )
             continue;
           if (mimicWard && !lethal) continue;
           let score: number;
-          if (!blood) score = dmg + (lethal ? 5000 : 0);
+          if (serenFirst && !blood) {
+            // Her Ward already went on inside this window: it will be Perfect.
+            if (killShot && perfectHeld(h.e, t)) continue;
+            // A lethal hit first (hers among them), then hers, then the biggest (brannFirst's).
+            score = ((lethal ? 2 : 0) + (killShot ? 1 : 0)) * 1e6 + dmg;
+          } else if (!blood) score = dmg + (lethal ? 5000 : 0);
           else {
             const isBrann = h.slot === blood.hero.slot;
             // The Ward he holds already answers it: another would only replace it.
@@ -484,7 +575,8 @@ export class SkilledBot implements Bot {
             if (holdFor && !isBrann && !lethal && wc.wardCharges < 2) continue;
             // A lethal hit first (whoever's; Brann's among them), then Brann's, then the biggest:
             // his priority never outranks a hit that would kill someone else.
-            const first = isBrann && brannFirst(state, blood, t);
+            if (killShot && perfectHeld(h.e, t)) continue;
+            const first = (isBrann && brannFirst(state, blood, t)) || killShot;
             score = ((lethal ? 2 : 0) + (first ? 1 : 0)) * 1e6 + dmg;
           }
           if (!best || score > best.score) best = { slot: h.slot, score };
@@ -500,6 +592,15 @@ export class SkilledBot implements Bot {
         brannWard(state, blood, w, perfectPending(state, party, blood, w, wc.wardCharges))
       ) {
         out.push({ t: 'tech', id: 'ward', slot: blood.hero.slot });
+        acted = true;
+      } else if (
+        duel &&
+        !best &&
+        !mimicWard &&
+        this.on('serenParryWard') &&
+        serenParryWard(state, party, duel, w, bigHitSoon, this.on('serenPerfectFirst'))
+      ) {
+        out.push({ t: 'tech', id: 'ward', slot: duel.seren.slot });
         acted = true;
       } else if (
         answerNow &&
@@ -610,7 +711,20 @@ export class SkilledBot implements Bot {
         w.weaver!.variants.reel === 'swap' && this.on('maw')
           ? (h: HeroView) => inMaw(state, h.e)
           : undefined;
-      const freeing = reelToFree(party, w, tech.reel.range, swapIntoMaw);
+      // Seren (docs/phase-5e.md, `serenNoSwap`): a Swap into her duel puts the Weaver beside the
+      // strongest enemy. False without her (and for every other Reel variant).
+      const swapIntoDuel = (h: HeroView) =>
+        w.weaver!.variants.reel === 'swap' &&
+        duel !== null &&
+        h.slot === duel.seren.slot &&
+        duel.quarry !== null &&
+        this.on('serenNoSwap');
+      const freeing = reelToFree(
+        party,
+        w,
+        tech.reel.range,
+        duel ? (h) => swapIntoDuel(h) || swapIntoMaw?.(h) === true : swapIntoMaw,
+      );
       if (freeing && this.notice()) {
         out.push({ t: 'tech', id: 'reel', slot: freeing.slot });
         acted = true;
@@ -661,6 +775,8 @@ export class SkilledBot implements Bot {
           continue;
         // Nor into a Void Maw's pull (Movement III): Swap is no answer to it.
         if (w.weaver!.variants.reel === 'swap' && this.on('maw') && inMaw(state, h.e)) continue;
+        // Nor into Seren's duel (`serenNoSwap`; false without her).
+        if (duel && swapIntoDuel(h)) continue;
         const warded = (h.e.health!.shields.find((s) => s.kind === 'ward')?.amount ?? 0) >= dmg;
         if (
           left < 0.75 &&
@@ -673,6 +789,21 @@ export class SkilledBot implements Bot {
           break;
         }
       }
+      // Seren (docs/phase-5e.md, `serenReel`): overextended and hurt, she is Reeled home, after
+      // every Reel rule above and never while a lethal blow is live (the loop keeps it for that).
+      // A Swap would put the Weaver in her duel: that is a Rally's (below). Null without her.
+      if (
+        duel &&
+        !acted &&
+        !reserve &&
+        !silenceLoop &&
+        this.on('serenReel') &&
+        w.weaver!.variants.reel !== 'swap' &&
+        !out.some((c) => c.t === 'tech' && c.id === 'reel') &&
+        serenReelDue(state, duel, w) &&
+        this.notice()
+      )
+        out.push({ t: 'tech', id: 'reel', slot: duel.seren.slot });
     }
 
     // ── Thread: revive the downed, then mend by effective HP, else Empower a damage dealer. ──
@@ -691,6 +822,12 @@ export class SkilledBot implements Bot {
     const breakers =
       laterMovement(state) &&
       enemies.some((e) => guardUp(state, e) || e.health!.shields.some((s) => s.kind === 'discord'));
+    // `discordBreaker` (docs/phase-5e.md) is a post-pick modifier: each pick below says whether
+    // it left a breaker's window open (everyone above 60% and calm, no Empower call answered,
+    // no Blood and Silk parking), and the rule acts after the pick, so it composes with
+    // brannThread. False without Seren or Oro, or with Lyra in the roster.
+    const recruitBreaker = breakers && discordBreaking(state);
+    let breakWindow = false;
     if (holding) {
       threadTo = holding;
     } else if (condemned) {
@@ -701,21 +838,34 @@ export class SkilledBot implements Bot {
       threadTo = downed[0]!;
       // With Brann in the party two heroes often fall together: a revive under way is seen
       // through, rather than swapped each decision for the other's shorter bleed-out.
-      const winding = withBrann
+      const winding = withRecruit
         ? downed.find((h) => h.slot === wc.threadSlot && h.e.health!.revive > 0)
         : undefined;
       if (winding) threadTo = winding;
     } else if (blood) {
-      const pick = brannThread(state, party, blood, wc.threadSlot, breakers, calling, answerNow);
+      const pick = brannThread(
+        state,
+        party,
+        blood,
+        wc.threadSlot,
+        breakers,
+        calling,
+        answerNow,
+        recruitBreaker,
+      );
       threadTo = pick.to;
       mend = pick.mend;
+      breakWindow = pick.breakWindow;
     } else if (party.length > 0) {
       const sorted = [...party].sort((a, b) => effectiveFraction(a.e) - effectiveFraction(b.e));
       const lowest = sorted[0]!;
       const current =
         wc.threadSlot === null ? null : (party.find((h) => h.slot === wc.threadSlot) ?? null);
       const calm = party.every((h) => h.e.health!.incoming < h.e.health!.hp * 0.3);
-      if (answerNow && call!.answer === 'empower' && effectiveFraction(lowest.e) > 0.5 && calm) {
+      const answering =
+        answerNow && call!.answer === 'empower' && effectiveFraction(lowest.e) > 0.5 && calm;
+      breakWindow = !answering && effectiveFraction(lowest.e) > 0.6 && calm;
+      if (answering) {
         // Lyra asks for Empower: give it to her while nobody is in trouble.
         mend = false;
         threadTo = calling;
@@ -747,6 +897,15 @@ export class SkilledBot implements Bot {
         threadTo = lowest;
       } else threadTo = current;
     }
+    // ── Seren or Oro with no Lyra in the roster (docs/phase-5e.md, `discordBreaker`): in a
+    // breaker's window, the hardest hitter is Empowered to break a discord shield. ──
+    if (recruitBreaker && breakWindow && this.on('discordBreaker')) {
+      const top = hardestHitter(state, party);
+      if (top) {
+        threadTo = top;
+        mend = false;
+      }
+    }
     // ── The Finale (docs/phase-5d.md): while the heroes are stilled, and through Fortissimo
     // Silence with no Crescendo, Mend (never Empower) whoever needs it most: the hero the next
     // blow is aimed at reads lowest. A hold, an Execution and a revive keep the Thread. ──
@@ -763,6 +922,27 @@ export class SkilledBot implements Bot {
       // The same hysteresis as the plain Thread, so it doesn't swing between two hurt heroes.
       threadTo =
         current && need(current) < need(lowest) + 0.12 && need(current) <= 0.92 ? current : lowest;
+      mend = true;
+    }
+    // ── Oro (docs/phase-5e.md, `oroThread`): his Saplings hurt and the party calm, the Thread
+    // Mends him, and Rootbond Mends them at half. A post-pick modifier, so it composes with
+    // Brann's Thread; null without Oro. ──
+    if (
+      grove &&
+      this.on('oroThread') &&
+      !holding &&
+      !condemned &&
+      downed.length === 0 &&
+      !silence &&
+      !guardFortissimo &&
+      groveWantsMend(
+        grove,
+        party,
+        blood,
+        wc.threadSlot === grove.oro.slot && wc.threadMode === 'mend',
+      )
+    ) {
+      threadTo = grove.oro;
       mend = true;
     }
     // ── Movement III (docs/phase-5c.md): each step leaves the pick alone without its mechanic. ──
@@ -852,6 +1032,24 @@ export class SkilledBot implements Bot {
           const r = CONTENT.heroes.find((d) => d.id === h.defId)?.solo.radius ?? 0;
           const near = enemies.filter((e) => dist(e, h.e) <= r + e.radius).length;
           go = blood.low && (near >= 2 || bossFight);
+        } else if (
+          duel &&
+          h.slot === duel.seren.slot &&
+          c.soloId === THOUSAND_CUTS &&
+          this.on('serenCue')
+        ) {
+          // Thousand Cuts (docs/phase-5e.md, `serenCue`): a crowd to cut through, or she is
+          // overextended (invulnerable throughout, she comes back where she began).
+          go = enemies.length >= 4 || duel.overextended;
+        } else if (
+          grove &&
+          h.slot === grove.oro.slot &&
+          c.soloId === WILDGROWTH &&
+          this.on('oroCue')
+        ) {
+          // Wildgrowth (docs/phase-5e.md, `oroCue`): the Ancient on a pack, or Cued while the
+          // Saplings stand outside the field (its disc counts as your field for its 8 s).
+          go = enemies.length >= 3 || (grove.outside.length > 0 && enemies.length > 0);
         } else if (GUARDING.has(c.soloId)) {
           const bigHit = party.some((p) =>
             threatsOn(state, p.e).some(
@@ -955,6 +1153,29 @@ export class SkilledBot implements Bot {
       }
     }
 
+    // Seren and Oro (docs/phase-5e.md): each is false without its hero, and none overrides a
+    // directive already sent. Overextended and hurt where no Reel will bring her home (the
+    // Chronomancer's Rewind is no extraction; a Swap would put the Weaver in her duel), a Rally
+    // does: she always answers one (`serenReel`). A Sapling left outside every field for 2 s is
+    // Rallied back in, re-planted ahead of the Weaver (`oroRally`).
+    if (!link && !ring && !out.some((c) => c.t === 'directive')) {
+      const rallyFor =
+        (duel !== null &&
+          this.on('serenReel') &&
+          (!!state.calling?.rewind || wc.variants.reel === 'swap') &&
+          now - this.lastRally > gap(2) &&
+          serenReelDue(state, duel, w, false)) ||
+        (grove !== null &&
+          this.on('oroRally') &&
+          now - this.lastRally > gap(ORO_RALLY_GAP) &&
+          !state.field.suppressed &&
+          this.saplingLeftOut(grove, now));
+      if (rallyFor) {
+        out.push({ t: 'directive', kind: 'rally' });
+        this.lastRally = now;
+      }
+    }
+
     // Fortissimo Silence with no Crescendo (the Finale): Rally the party into her reach, so her
     // Ward finds whoever is lowest in each pulse's window.
     if (
@@ -989,7 +1210,12 @@ export class SkilledBot implements Bot {
         enemies.find((e) => suppresses(state, e) && !carriesSilence(e)) ??
         // A Crimson Sentinel's guard: Focus sends the party round its flanks, once the pack
         // around it has thinned (focused on the wall, the party lets the hounds bleed it out).
-        (enemies.length <= SENTINEL_FOCUS_AT ? enemies.find((e) => guardUp(state, e)) : undefined);
+        (enemies.length <= SENTINEL_FOCUS_AT
+          ? enemies.find((e) => guardUp(state, e))
+          : undefined) ??
+        // Gentle Oro tending a thin fight (docs/phase-5e.md, `oroFocus`): wake him on Kael's
+        // target or the boss. Undefined without Oro.
+        (grove && this.on('oroFocus') ? oroFocusTarget(state, enemies, party, grove) : undefined);
       if (caster && state.focusTarget !== caster.id) {
         out.push({ t: 'directive', kind: 'focus', target: caster.id });
         this.lastFocus = now;
@@ -1022,6 +1248,28 @@ export class SkilledBot implements Bot {
       }
     }
     return out;
+  }
+
+  /**
+   * `oroRally`'s clock (docs/phase-5e.md): when each of Oro's awake, planted Saplings was first
+   * seen outside every field this time. Empty (and never filled) without Oro.
+   */
+  private watchSaplings(grove: GroveView | null, now: number): void {
+    if (!grove) {
+      if (this.saplingOutSince.size > 0) this.saplingOutSince.clear();
+      return;
+    }
+    const outside = new Set(grove.outside.map((s) => s.id));
+    for (const id of [...this.saplingOutSince.keys()])
+      if (!outside.has(id)) this.saplingOutSince.delete(id);
+    for (const id of outside) if (!this.saplingOutSince.has(id)) this.saplingOutSince.set(id, now);
+  }
+
+  /** A Sapling has stood outside every field for more than `SAPLING_OUT_FOR` s. */
+  private saplingLeftOut(grove: GroveView, now: number): boolean {
+    return grove.outside.some(
+      (s) => now - (this.saplingOutSince.get(s.id) ?? now) > SAPLING_OUT_FOR,
+    );
   }
 
   /** A guarding Solo (Kael's dome, or an alternate that guards) is nearly ready. */
@@ -1103,8 +1351,8 @@ export class SkilledBot implements Bot {
     return out;
   }
 
-  /** A Movement III (or Finale) rule plays unless the ablation skips it (tools/verbs.ts). */
-  private on(rule: M3Rule | FinaleRule): boolean {
+  /** A Movement III, Finale or roster rule plays unless the ablation skips it (tools/verbs.ts). */
+  private on(rule: M3Rule | FinaleRule | RosterRule): boolean {
     return this.opts.skip?.has(rule) !== true;
   }
 
@@ -1341,10 +1589,12 @@ export class SkilledBot implements Bot {
     w: ReadonlyEntity,
     party: HeroView[],
     enemies: ReadonlyEntity[],
+    grove: GroveView | null = null,
   ): { x: number; z: number } {
     if (party.length === 0) return { x: w.x, z: w.z };
     const pts = party.map((h) => h.e);
-    const c = centroid(pts);
+    // Oro (docs/phase-5e.md, `groveCover`): his awake Saplings weigh in, heroes 2 to them 1.
+    const c = grove ? groveCentroid(pts, grove) : centroid(pts);
     let x = c.x;
     let z = c.z;
     if (enemies.length > 0) {
@@ -1390,6 +1640,28 @@ export class SkilledBot implements Bot {
     }
     return { x, z };
   }
+}
+
+/** `groveCover`: the centroid of the heroes (weight 2 each) and Oro's awake Saplings (1 each). */
+function groveCentroid(
+  heroes: readonly ReadonlyEntity[],
+  grove: GroveView,
+): { x: number; z: number } {
+  let x = 0;
+  let z = 0;
+  let k = 0;
+  for (const h of heroes) {
+    x += h.x * 2;
+    z += h.z * 2;
+    k += 2;
+  }
+  for (const s of grove.saplings) {
+    if (s.summon!.dormant) continue;
+    x += s.x;
+    z += s.z;
+    k += 1;
+  }
+  return k > 0 ? { x: x / k, z: z / k } : centroid(heroes);
 }
 
 /** The barrier Swap gives the Weaver for this hero (docs/phase-4f.md): a share of their life. */
@@ -1921,8 +2193,9 @@ function brannThread(
   breakers: boolean,
   calling: HeroView | null,
   answerNow: boolean,
-): { to: HeroView | null; mend: boolean } {
-  if (party.length === 0) return { to: null, mend: true };
+  recruitBreaker = false,
+): { to: HeroView | null; mend: boolean; breakWindow: boolean } {
+  if (party.length === 0) return { to: null, mend: true, breakWindow: false };
   const brann = blood.hero;
   // Being Mended up to his floor, he's lifted a little past it before the Thread moves on, so
   // it doesn't swing between him and the rest as hits come and go.
@@ -1947,12 +2220,16 @@ function brannThread(
     !blood.lethal &&
     party.every((h) => h.slot === brann.slot || h.e.health!.hp >= h.e.health!.maxHp * 0.5)
   )
-    return { to: brann, mend: false };
+    return { to: brann, mend: false, breakWindow: false };
   if (answerNow && call?.answer === 'empower' && need(lowest) > 0.5 && calm)
-    return { to: calling, mend: false };
+    return { to: calling, mend: false, breakWindow: false };
+  const breakWindow = need(lowest) > 0.6 && calm;
   const lyra = party.find((h) => h.defId === 'lyra');
-  if (breakers && need(lowest) > 0.6 && calm) {
-    if (lyra) return { to: lyra, mend: false };
+  // With Seren or Oro and no Lyra in the roster (`recruitBreaker`), a discord shield is the
+  // post-pick `discordBreaker`'s to break, so its ablation measures it; false for every other
+  // Brann party, which keeps the built-in breaker below.
+  if (breakers && breakWindow && !recruitBreaker) {
+    if (lyra) return { to: lyra, mend: false, breakWindow };
     // No Lyra: a discord shield breaks under any Empowered hero; a guard wants Focus and flank.
     const discord = state.entities
       .list()
@@ -1960,19 +2237,187 @@ function brannThread(
     const strikers = party.filter((h) => h.role !== 'tank');
     if (discord && strikers.length > 0) {
       const top = strikers.reduce((a, b) => (damageRate(b) > damageRate(a) ? b : a));
-      return { to: top, mend: false };
+      return { to: top, mend: false, breakWindow };
     }
   }
   if (need(lowest) > 0.85 && calm) {
     const tank = party.find((h) => h.role === 'tank');
     const beam = beamSong(state);
     if (beam && defensiveSong(beam) && tank && tank.e.health!.incoming > 0)
-      return { to: tank, mend: false };
-    return { to: lyra ?? party.find((h) => h.role !== 'tank') ?? lowest, mend: false };
+      return { to: tank, mend: false, breakWindow };
+    return { to: lyra ?? party.find((h) => h.role !== 'tank') ?? lowest, mend: false, breakWindow };
   }
   if (!current || need(lowest) < need(current) - 0.12 || need(current) > 0.92)
-    return { to: lowest, mend: true };
-  return { to: current, mend: true };
+    return { to: lowest, mend: true, breakWindow };
+  return { to: current, mend: true, breakWindow };
+}
+
+// ── Seren and Oro (docs/phase-5e.md, "Skilled ROSTER_RULES"): read only with their hero up ──
+
+/** `serenParryWard` keeps this much Spirit in hand beyond the Ward's cost. */
+const PARRY_WARD_MARGIN = 10;
+
+/**
+ * The Ward on `e` went on inside `t`'s Perfect window and lasts until it lands: it will be
+ * Perfect, so another would only replace it.
+ */
+function perfectHeld(e: ReadonlyEntity, t: ReadonlyTelegraph): boolean {
+  const ward = e.health!.shields.find((s) => s.kind === 'ward');
+  return !!ward && ward.expiresAt >= t.impact && ward.appliedAt >= t.perfectFrom - 1e-9;
+}
+
+/**
+ * `serenParryWard`: Ward Seren, unarmed and in reach, so the Ward still holds when the next
+ * parryable blow on its way to her lands (the brannWard pattern), with Spirit to spare and no
+ * big hit or Perfect elsewhere wanting the last charge. A cone aimed at her waits for its Perfect
+ * window instead while `serenPerfectFirst` plays (the scorer Wards it as a kill shot). In a boss
+ * or miniboss fight only the boss's own blow at her counts, and never while a telegraph aimed at
+ * another hero is live, so Kael's boss blows keep their Ward.
+ */
+function serenParryWard(
+  state: WorldState,
+  party: readonly HeroView[],
+  duel: DuelView,
+  w: ReadonlyEntity,
+  bigHitSoon: boolean,
+  perfectFirst: boolean,
+): boolean {
+  const e = duel.seren.e;
+  const ward = CONTENT.techniques.ward;
+  if (duel.armed || dist(e, w) > ward.range - 0.3) return false;
+  if (!affords(state, 'ward', PARRY_WARD_MARGIN)) return false;
+  const now = state.time;
+  const boss = state.encounter.bossId;
+  if (boss !== null) {
+    const others = new Set(party.filter((h) => h.slot !== duel.seren.slot).map((h) => h.e.id));
+    if (state.telegraphs.some((t) => damaging(t) && t.target !== null && others.has(t.target)))
+      return false;
+  }
+  if (w.weaver!.wardCharges < 2 && (bigHitSoon || perfectElsewhere(state, party, duel, w)))
+    return false;
+  for (const b of parryableBlows(state, e)) {
+    if (boss !== null && b.source.id !== boss) continue;
+    const left = b.at - now;
+    if (left > PARRY_WARD_AHEAD) break;
+    if (left < 0) continue;
+    if (b.telegraph && perfectFirst) continue;
+    return true;
+  }
+  return false;
+}
+
+/** A Ward-worthy hit due within `PERFECT_AHEAD` s on another hero in reach. */
+function perfectElsewhere(
+  state: WorldState,
+  party: readonly HeroView[],
+  duel: DuelView,
+  w: ReadonlyEntity,
+): boolean {
+  const range = CONTENT.techniques.ward.range - 0.3;
+  return party.some(
+    (h) =>
+      h.slot !== duel.seren.slot &&
+      dist(h.e, w) <= range &&
+      threatsOn(state, h.e).some((t) => {
+        const left = t.impact - state.time;
+        return left >= 0.04 && left <= PERFECT_AHEAD && wardWorthy(h.e, t, damageOf(t, h.e));
+      }),
+  );
+}
+
+/**
+ * `serenReel`: Seren is overextended and below `SEREN_REEL_BELOW` of her life, not already on
+ * her way (a Reel, a dodge, Thousand Cuts' invulnerable blinks), and no lethal telegraph is live
+ * (the plain Reel loop keeps the Reel for that, and a Rally would pull the party into formation
+ * under it). For a Reel (`reel`) she must also be in its reach; a Rally (the Chronomancer, Swap)
+ * reaches her anywhere.
+ */
+function serenReelDue(state: WorldState, duel: DuelView, w: ReadonlyEntity, reel = true): boolean {
+  const e = duel.seren.e;
+  const hero = e.hero!;
+  if (!duel.overextended || hero.reel || hero.action === 'dodging') return false;
+  if (hero.soloId === THOUSAND_CUTS && hero.soloActive > 0) return false;
+  if (effectiveFraction(e) >= SEREN_REEL_BELOW) return false;
+  if (state.telegraphs.some((t) => t.severity === 'lethal')) return false;
+  return !reel || dist(e, w) <= CONTENT.techniques.reel.range - 0.3;
+}
+
+/**
+ * `discordBreaker`: a discord shield stands, and the roster (`state.party`, the downed and fallen
+ * included, so a default party whose Lyra is down never reads it) holds Seren or Oro and no
+ * Lyra. False for every other roster.
+ */
+function discordBreaking(state: WorldState): boolean {
+  let recruit = false;
+  for (const id of state.party) {
+    const h = state.entities.get(id)?.hero;
+    if (!h) continue;
+    if (h.defId === 'lyra') return false;
+    if (h.duel || h.grove) recruit = true;
+  }
+  return (
+    recruit &&
+    state.entities
+      .list()
+      .some((e) => e.enemy && e.health?.shields.some((s) => s.kind === 'discord'))
+  );
+}
+
+/** The hardest hitter who isn't the tank (nor a tending Oro, who strikes nothing); else null. */
+function hardestHitter(state: WorldState, party: readonly HeroView[]): HeroView | null {
+  let top: HeroView | null = null;
+  for (const h of party) {
+    if (h.role === 'tank' || gentle(state, h.e)) continue;
+    if (!top || damageRate(h) > damageRate(top)) top = h;
+  }
+  return top;
+}
+
+/**
+ * `oroThread`: a Sapling is below `SAPLING_HURT` of its life (below `GROVE_MENDED` while the
+ * Thread already Mends Oro, so it doesn't swing away and back) and every other hero is calm:
+ * above `GROVE_CALM` by their Mend need and not under heavy fire (Brann at his floor is calm).
+ */
+function groveWantsMend(
+  grove: GroveView,
+  party: readonly HeroView[],
+  blood: BloodView | null,
+  mending: boolean,
+): boolean {
+  if (grove.saplings.length === 0) return false;
+  if (grove.lowest >= (mending ? GROVE_MENDED : SAPLING_HURT)) return false;
+  const need = (h: HeroView) => (blood ? mendNeed(h, blood) : effectiveFraction(h.e));
+  return party.every((h) => {
+    if (h.slot === grove.oro.slot) return true;
+    if (need(h) <= GROVE_CALM) return false;
+    if (blood && h.slot === blood.hero.slot) return true;
+    return h.e.health!.incoming < h.e.health!.hp * 0.3;
+  });
+}
+
+/**
+ * `oroFocus`: while Oro tends (no Focus stands) and no more than `ORO_FOCUS_AT` enemies stand,
+ * the enemy to wake him on: Kael's target, else the boss, else the mobile enemy nearest the
+ * Weaver. Undefined otherwise.
+ */
+function oroFocusTarget(
+  state: WorldState,
+  enemies: readonly ReadonlyEntity[],
+  party: readonly HeroView[],
+  grove: GroveView,
+): ReadonlyEntity | undefined {
+  if (!grove.tending || enemies.length === 0 || enemies.length > ORO_FOCUS_AT) return undefined;
+  const kael = party.find((h) => h.role === 'tank')?.e.hero!.targetId ?? null;
+  const boss = state.encounter.bossId;
+  return (
+    enemies.find((e) => e.id === kael) ??
+    enemies.find((e) => e.id === boss) ??
+    nearestTo(
+      enemies.filter((e) => !stationary(e)),
+      weaverOf(state),
+    ) ??
+    undefined
+  );
 }
 
 // ── The Finale (docs/phase-5d.md, "Bots and harness"): read only with its mechanic up ─────

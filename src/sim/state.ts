@@ -376,6 +376,8 @@ export interface DuelState {
   showboatQuietUntil: number;
   /** Thousand Cuts: when it ends (a Cued one's kills extend it), where it began, who it struck. */
   cutsEnd?: number;
+  /** Thousand Cuts: the sim time it began (its cast bar's length is `cutsEnd - cutsFrom`). */
+  cutsFrom?: number;
   cutsFromX?: number;
   cutsFromZ?: number;
   cutsVisited?: EntityId[];
@@ -384,6 +386,8 @@ export interface DuelState {
   killShots: number;
   counterDamage: number;
   overextendedTime: number;
+  /** Overextended as of her last tick (the `overextended` event's edge). Absent: not. */
+  overextended?: true;
 }
 
 /**
@@ -403,6 +407,16 @@ export interface GroveState {
   rootbondHeal: number;
   inFieldTime: number;
   aliveTime: number;
+  /**
+   * Gentle (W2): seconds his full Solo has waited while a Sapling fights and he has no target (his
+   * Cue window, as `soloHeld` is the others'). Set lazily, deleted when the window closes.
+   */
+  held?: number;
+  /**
+   * The sim time of his last 'No — not Moss!' (`saplingFelled`) bark: its own 8 s clock, so the
+   * shared bark cooldown never swallows it. Set lazily at the first.
+   */
+  felledBarkAt?: number;
 }
 
 /** A summon entity's own state (docs/phase-5e.md, "The summon model"): Saplings, the Ancient. */

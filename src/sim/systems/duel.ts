@@ -1,26 +1,60 @@
 /**
  * CONTRACT — Seren, the Riposte (docs/phase-5e.md, "Seren" and "New sim primitives").
  *
- * W0b lands this file: the pure, read-only rules (real, shared by sim, render, bots and UI, and
- * exported from src/sim/index.ts) and every hook the shared sim files call, each a no-op until
- * W1 fills it. Every hook is reached only through a guard that is false without Seren in the
- * party (`hero.duel`, `def.role === 'duelist'`, `ability.id === 'lunge'`), so no other party's
- * state, draws or hashes can change. Nothing here draws RNG.
+ * W0b landed this file's pure, read-only rules (real, shared by sim, render, bots and UI, and
+ * exported from src/sim/index.ts) and every hook the shared sim files call; W1 filled the
+ * hooks. Every hook is reached only through a guard that is false without Seren in the party
+ * (`hero.duel`, `def.role === 'duelist'`, `ability.id === 'lunge'`), so no other party's state,
+ * draws or hashes can change. Showboat, Lunge, Feint and Thousand Cuts draw nothing; the
+ * counter, the kill shot and the cuts roll their crits through `heroDamage` (`rng.combat`), and
+ * her barks draw `rng.cosmetic`, only with her in the party.
  */
-import { attackDef, enemyDef } from '../../content';
-import type { AttackDef, HeroDef } from '../../content/schema';
-import { DUEL_CLAMP, DUEL_PICK, HEAVY_LIFE, PARRY_REACH } from '../../content/rosterIds';
-import type { DamageOpts, DamageResult } from '../combat/health';
+import { attackDef, enemyDef, heroDef } from '../../content';
+import type { AttackDef, HeroDef, ParryPassive } from '../../content/schema';
+import {
+  BLADE_WALTZ,
+  DUEL_CLAMP,
+  DUEL_PICK,
+  HEAVY_LIFE,
+  PARRY_REACH,
+  SEREN_LEASH,
+} from '../../content/rosterIds';
+import { dcos, distSq, dsin } from '../core/dmath';
+import {
+  addStatus,
+  dealDamage,
+  hasStatus,
+  interruptEnemy,
+  isActive,
+  isDisabled,
+  NEVER,
+  removeShield,
+  removeStatus,
+  rising,
+  type DamageOpts,
+  type DamageResult,
+} from '../combat/health';
+import { bark } from '../combat/feedback';
+import { gainResonance } from '../combat/resonance';
+import { recordSave } from '../combat/saves';
+import { answered, contains } from '../combat/telegraphs';
+import { topThreat } from '../combat/threat';
+import { hasTalent, soloValue, talentValue } from '../bonds';
+import { isRooted } from '../rules3';
 import type {
   DeepReadonly,
   DuelState,
   Entity,
+  EntityId,
   ReadonlyEntity,
+  Shield,
   Telegraph,
   WorldState,
 } from '../state';
 import type { World } from '../world';
-import { clampPointToArena } from './physics';
+import { BERSERKER_SCATTER_GAP } from './blood';
+import { attackRange, flourishHit, heroDamage } from './heroDamage';
+import { clampPointToArena, pushPointOutOfObstacles } from './physics';
 
 type Ability = HeroDef['abilities'][number];
 type Flourish = HeroDef['call']['flourish'];
@@ -314,116 +348,1042 @@ export function markKillShot(
   void world;
 }
 
-// ── Hooks (no-ops until W1) ───────────────────────────────────────────────────────────
+// ── Hooks (W1) ────────────────────────────────────────────────────────────────────────
+
+/** A Rally ends Showboat and suspends it this long after the Rally (s); a Reel, from the Reel. */
+const SHOWBOAT_QUIET = 4;
+/** How long a Rally lasts (commands.ts): its suspension ends `SHOWBOAT_QUIET` after it began. */
+const RALLY_LENGTH = 3;
+/** Showboat's tell: she barks this long before she goes (s). */
+const SHOWBOAT_TELL = 0.8;
+/** A duel is dropped once its quarry is this far beyond Showboat's reach of the Weaver (m). */
+const QUARRY_SLACK = 4;
+/** A Thousand Cuts blink lands this far off its target's edge (m). */
+const BLINK_SHORT = 0.3;
+/** Thousand Cuts' invulnerability is re-armed each pulse for the pulse and this much more (s). */
+const CUTS_GUARD = 0.05;
+/** Feint (a) answers an aimed blow landing within this many seconds. */
+const FEINT_SOON = 0.9;
+/** Feint's sure step lasts this long (s). */
+const FEINT_STEP = 0.5;
+
+/** Her passive's numbers (every duellist's def has a `parry` passive; the lint holds it). */
+function parryOf(def: HeroDef): ParryPassive | null {
+  return def.passive?.id === 'parry' ? def.passive : null;
+}
+
+/** `ledger.duel`, set on first use (absent in every fight without a parry or kill shot). */
+function duelLedger(world: World): NonNullable<World['ledger']['duel']> {
+  return (world.ledger.duel ??= { parries: 0, killShots: 0, wardsDealt: 0 });
+}
+
+function waltzing(e: ReadonlyEntity): boolean {
+  return e.hero?.soloId === BLADE_WALTZ && e.hero.soloActive > 0;
+}
+
+function cutting(e: ReadonlyEntity): boolean {
+  return e.hero?.soloId === 'thousandCuts' && e.hero.soloActive > 0;
+}
+
+/** The Weaver's Ward on her that arms a parry, if any. */
+function armingWard(e: Entity): Shield | undefined {
+  return e.health?.shields.find((s) => s.kind === 'ward' && s.fromWeaver);
+}
+
+/**
+ * Whether the parry just taken in `parryIntercept` was a Ward's (credited to the Weaver), read
+ * by `duelResolved` in the same call chain (`hitEntity`). Never state: set and read in one tick.
+ */
+let parriedByWard = false;
+
+const PARRIED: DamageResult = {
+  dealt: 0,
+  absorbed: 0,
+  absorbedByWeaver: 0,
+  absorbedByWard: 0,
+  absorbedByDome: 0,
+  blocked: false,
+  downed: false,
+  martyred: false,
+  saved: false,
+};
 
 /**
  * The parry intercept (dealDamage, after the Sphere, Oathkeeper and the Aegis Link share, before
  * guards, armour, Fermata and shields). Called only for a duel victim and never for a redirected
- * share (`opts.oath`). Returns the parry's result (`dealt 0, absorbed 0, parried`) or null.
+ * share (`opts.oath`). A melee blow aimed at her (`opts.melee`: an enemy's basic swing at her, or
+ * a parryable cone whose target is her), while she stands en garde, is negated whole: the Ward is
+ * spent (with Riposte Chain, marked on its first parry), and the counter is owed next tick.
+ * Returns the parry's result (`dealt 0, absorbed 0, parried`) or null.
  */
 export function parryIntercept(
-  _world: World,
-  _target: Entity,
-  _source: Entity | undefined,
-  _opts: DamageOpts,
+  world: World,
+  target: Entity,
+  source: Entity | undefined,
+  opts: DamageOpts,
 ): DamageResult | null {
-  return null;
-}
-
-/** A telegraph's blow was parried (`hitEntity`): answered, the Ward-absorb Resonance, the save. */
-export function duelResolved(
-  _world: World,
-  _t: Telegraph,
-  _e: Entity,
-  _result: DamageResult,
-  _wouldDie: boolean,
-): void {}
-
-/** Each tick, after `isDisabled`: the deferred counter and kill shot, Showboat, the stance. */
-export function duelTick(_world: World, _e: Entity, _def: HeroDef, _dt: number): void {}
-
-/** Downed or disabled this tick: a pending counter or kill shot is lost. */
-export function duelLost(_world: World, _e: Entity): void {}
-
-/** `chooseTarget`'s duelist arm: her pick, or undefined for the shared rule. */
-export function duelChooseTarget(
-  _world: World,
-  _weaver: Entity,
-  _e: Entity,
-  _def: HeroDef,
-): Entity | null | undefined {
-  return undefined;
-}
-
-/** `targetInSight`'s duelist arm (after the Focus): her pick, or undefined for the shared rule. */
-export function duelTargetInSight(
-  _world: World,
-  _weaver: Entity,
-  _e: Entity,
-  _def: HeroDef,
-  _current: Entity | undefined,
-): Entity | null | undefined {
-  return undefined;
+  const duel = target.hero?.duel;
+  const h = target.health;
+  if (!duel || !h || opts.melee !== true || opts.kind === 'tick' || opts.oath) return null;
+  if (!source?.enemy) return null;
+  const waltz = waltzing(target);
+  const ward = waltz ? undefined : armingWard(target);
+  if (!waltz && !ward) return null;
+  const blow = opts.amount;
+  if (ward) {
+    // Riposte Chain: a Ward on her parries twice before it breaks.
+    if (hasTalent(target, 'riposte_chain') && !ward.parried) ward.parried = true;
+    else removeShield(world, target, 'ward', true);
+    // Proof of support: the blow your Ward turned, and the life it kept.
+    const kept = Math.min(blow, h.hp);
+    world.ledger.negated += blow;
+    world.ledger.shielded += kept;
+    target.hero!.supportReceived += kept;
+  }
+  parriedByWard = !!ward;
+  duel.parries++;
+  duel.parryOn = source.id;
+  duelLedger(world).parries++;
+  world.events.push({
+    type: 'parried',
+    tick: world.tick,
+    hero: target.id,
+    attacker: source.id,
+    negated: blow,
+  });
+  bark(world, target, 'parried');
+  // En Garde (her Bond motif): each parry rings for you.
+  if (world.mods.enGarde > 0) gainResonance(world, world.mods.enGarde, 'enGarde');
+  return { ...PARRIED, parried: blow };
 }
 
 /**
- * `combatMove`'s duelist arm (before the flank): writes `out` (face to face, or at the flank)
- * and returns true; `combatMove` then steps her out of others' blows and clamps her. False: the
- * shared ranged branch.
+ * A telegraph's blow was parried (`hitEntity`): a Ward's parry answers it, gives the Ward-absorb
+ * Resonance, and is a Ward save when the blow would have downed her. Blade Waltz's are hers.
  */
-export function duelMove(
-  _world: World,
-  _weaver: Entity,
-  _e: Entity,
-  _def: HeroDef,
-  _target: Entity,
-  _out: { x: number; z: number },
-): boolean {
+export function duelResolved(
+  world: World,
+  t: Telegraph,
+  e: Entity,
+  result: DamageResult,
+  wouldDie: boolean,
+): void {
+  if (!parriedByWard || !e.hero) return;
+  parriedByWard = false;
+  answered(world);
+  gainResonance(world, world.content.resonance.gains.wardAbsorb, 'ward absorb');
+  if (wouldDie) recordSave(world, e, 'ward', result.parried ?? 0, t.name);
+}
+
+/**
+ * Each tick, after `isDisabled`: the deferred counter and kill shot, the Rally's and Reel's
+ * suspension of Showboat, the stance (a dodge she committed to is dropped once a Ward lands),
+ * Unflinching's longer Wards, and the overextended clock.
+ */
+export function duelTick(world: World, e: Entity, def: HeroDef, dt: number): void {
+  const hero = e.hero!;
+  const duel = hero.duel;
+  const p = parryOf(def);
+  if (!duel || !p) return;
+  if ((duel.parryOn !== null || duel.killShotOn !== null) && rewoundNow(world, e, dt))
+    duelReeled(world, e);
+  if (duel.parryOn !== null) {
+    const attacker = world.entities.get(duel.parryOn);
+    duel.parryOn = null;
+    if (attacker) counter(world, e, def, p, attacker);
+  }
+  if (duel.killShotOn !== null) {
+    const owner = world.entities.get(duel.killShotOn);
+    duel.killShotOn = null;
+    killShot(world, e, def, p, owner);
+  }
+  quiet(world, e, duel);
+  // The stance: Warded, she stands her ground against a parryable blow aimed at her, even one
+  // she had already decided to step out of (her roll is taken when she first sees it).
+  const dodge = hero.dodge;
+  if (dodge && !dodge.sure && parryArmed(e)) {
+    const t = world.telegraphs.find((x) => x.id === dodge.telegraph);
+    if (t && duelStands(world, e, t)) hero.dodge = null;
+  }
+  // Unflinching: your Wards on her last longer (once each, on the tick it lands).
+  if (hasTalent(e, 'unflinching')) {
+    const ward = armingWard(e);
+    if (ward && world.time - ward.appliedAt <= dt + 1e-9 && ward.expiresAt < NEVER)
+      ward.expiresAt += talentValue(world, 'unflinching', 'seconds');
+  }
+  const over = overextended(world, e);
+  if (over) duel.overextendedTime += dt;
+  if (over !== (duel.overextended === true)) setOverextended(world, e, duel, over);
+}
+
+function setOverextended(world: World, e: Entity, duel: DuelState, on: boolean): void {
+  if (on) duel.overextended = true;
+  else delete duel.overextended;
+  world.events.push({ type: 'overextended', tick: world.tick, hero: e.id, on });
+}
+
+/**
+ * A Rally or a Reel (or a Rewind) on her ends her duel and suspends Showboat. Only the pull
+ * counts as a Reel: Anchor has no pull (she holds her ground, and Rally is the answer), and a
+ * Swap puts you in her duel rather than her out of it, so neither ends it.
+ */
+function quiet(world: World, e: Entity, duel: DuelState): void {
+  const rally = world.internal.rallyUntil;
+  if (rally > world.time) suspend(duel, rally - RALLY_LENGTH + SHOWBOAT_QUIET);
+  // A Reel leaves its mark in the ledger (`pushMarker`), the only trace once it has landed.
+  // Swap and Anchor leave the same 'reel' mark; the Weaver's Reel variant tells them apart.
+  const variant = world.entities.get(world.weaverId)?.weaver?.variants.reel ?? null;
+  const pulls = variant !== 'swap' && variant !== 'anchor';
+  const markers = world.ledger.markers;
+  const start = world.encounter.startedAt;
+  const slot = e.hero!.slot;
+  for (let i = markers.length - 1; i >= 0; i--) {
+    const m = markers[i]!;
+    const until = m.time + start + SHOWBOAT_QUIET;
+    if (until <= Math.max(duel.showboatQuietUntil, world.time)) break;
+    if (((m.kind === 'reel' && pulls) || m.kind === 'rewind') && m.slot === slot) {
+      suspend(duel, until);
+      break;
+    }
+  }
+}
+
+function suspend(duel: DuelState, until: number): void {
+  if (until > duel.showboatQuietUntil) duel.showboatQuietUntil = until;
+  duel.quarry = null;
+  duel.quarryUntil = 0;
+}
+
+/** Her counter: 3× her attack (through `heroDamage`) at the attacker, if it's within reach. */
+function counter(world: World, e: Entity, def: HeroDef, p: ParryPassive, attacker: Entity): void {
+  const hero = e.hero!;
+  const duel = hero.duel!;
+  if (!attacker.enemy || !isActive(attacker) || rising(attacker)) return;
+  const reach = attackRange(world, e, def.attack.range) + p.reach + e.radius + attacker.radius;
+  if (distSq(e.x, e.z, attacker.x, attacker.z) > reach * reach) return;
+  // Blade Waltz's counters are hers, at its own share; a Ward's are the Weaver's.
+  const waltz = waltzing(e);
+  const pct = waltz
+    ? soloValue(world, BLADE_WALTZ, hero.soloCued ? 'cuedPct' : 'pct') / 100
+    : p.counterPct;
+  const hit = heroDamage(world, e, def.attack.damage * pct, 0);
+  world.events.push({
+    type: 'attackFired',
+    tick: world.tick,
+    source: e.id,
+    target: attacker.id,
+    visual: 'melee',
+    fromX: e.x,
+    fromZ: e.z,
+    toX: attacker.x,
+    toZ: attacker.z,
+    travel: 0,
+  });
+  const r = dealDamage(world, attacker, {
+    source: e.id,
+    sourceName: 'Counter',
+    amount: hit.amount,
+    amplified: hit.amplified,
+    aura: hit.aura,
+    empower: hit.empower,
+    crit: hit.crit,
+    empowered: hit.empowered,
+  });
+  let amount = r.dealt + r.absorbed;
+  // Bladesong: the counter also cuts every enemy close round her. (No `talentFired` yet: the
+  // render and audio Bond-cue tables, W4 and W5, list every talent the sim announces; the cuts
+  // read through `parryCountered` and their `damageTaken` meanwhile.)
+  if (hasTalent(e, 'bladesong')) {
+    const radius = talentValue(world, 'bladesong', 'radius');
+    const share = talentValue(world, 'bladesong', 'pct') / 100;
+    for (const m of world.entities.list()) {
+      if (m === attacker || !m.enemy || !isActive(m) || rising(m)) continue;
+      if (distSq(m.x, m.z, e.x, e.z) > (radius + m.radius) ** 2) continue;
+      const c = dealDamage(world, m, {
+        source: e.id,
+        sourceName: 'Bladesong',
+        amount: hit.amount * share,
+        amplified: hit.amplified * share,
+        aura: hit.aura * share,
+        empower: hit.empower * share,
+        crit: hit.crit,
+        empowered: hit.empowered,
+      });
+      amount += c.dealt + c.absorbed;
+    }
+  }
+  duel.counterDamage += amount;
+  if (!waltz) duelLedger(world).wardsDealt += amount;
+  world.events.push({
+    type: 'parryCountered',
+    tick: world.tick,
+    hero: e.id,
+    target: attacker.id,
+    amount,
+  });
+}
+
+const leapAt = { x: 0, z: 0 };
+
+/**
+ * The kill shot (Q5), taken the tick after the Perfect: lost in the Grand Silence or if its
+ * owner is gone. A normal foe is executed; an elite at or below `eliteExecuteBelow` of its life;
+ * a heavy foe, a miniboss or a boss takes `killShotMult` × her attack and is never executed.
+ * Within `killShotRange` she leaps to it, if the landing is within `DUEL_CLAMP` of the Weaver;
+ * otherwise a thrown lance strikes it at range. It goes through `dealDamage`, so invulnerability,
+ * rising, a phase shift, guards, tethers and Pacts all apply.
+ */
+function killShot(
+  world: World,
+  e: Entity,
+  def: HeroDef,
+  p: ParryPassive,
+  owner: Entity | undefined,
+): void {
+  const duel = e.hero!.duel!;
+  if (world.field.finale?.silence) return lostShot(world, e, owner?.id ?? null, 'silence');
+  if (!owner?.enemy || !isActive(owner)) return lostShot(world, e, owner?.id ?? null, 'gone');
+  const c = owner.enemy;
+  const h = owner.health;
+  const lesser = (c.tier === 'normal' || c.tier === 'elite') && !heavy(world, owner);
+  const execute = lesser && (c.tier === 'normal' || h.hp <= h.maxHp * p.eliteExecuteBelow + 1e-9);
+  // The leap: her own landing (Sunder Leap's rule), never out of the Weaver's reach.
+  const fromX = e.x;
+  const fromZ = e.z;
+  const range = p.killShotRange + owner.radius;
+  let leapt = false;
+  if (distSq(e.x, e.z, owner.x, owner.z) <= range * range && canLeap(e)) {
+    const dx = owner.x - e.x;
+    const dz = owner.z - e.z;
+    const d = Math.sqrt(dx * dx + dz * dz);
+    const back = Math.min(d, owner.radius + LUNGE_SHORT);
+    leapAt.x = d > 1e-6 ? owner.x - (dx / d) * back : e.x;
+    leapAt.z = d > 1e-6 ? owner.z - (dz / d) * back : e.z;
+    pushPointOutOfObstacles(world, leapAt, e.radius);
+    clampPointToArena(world, leapAt, e.radius);
+    const weaver = world.entities.get(world.weaverId);
+    if (!weaver || distSq(leapAt.x, leapAt.z, weaver.x, weaver.z) <= DUEL_CLAMP * DUEL_CLAMP) {
+      e.x = leapAt.x;
+      e.z = leapAt.z;
+      e.vx = 0;
+      e.vz = 0;
+      leapt = true;
+    }
+  }
+  world.events.push({
+    type: 'attackFired',
+    tick: world.tick,
+    source: e.id,
+    target: owner.id,
+    visual: leapt ? 'charge' : 'lance',
+    fromX,
+    fromZ,
+    toX: owner.x,
+    toZ: owner.z,
+    travel: 0,
+  });
+  let r: DamageResult;
+  if (execute) {
+    r = dealDamage(world, owner, { source: e.id, sourceName: 'Kill Shot', amount: h.hp + 1 });
+  } else {
+    const hit = heroDamage(world, e, def.attack.damage * p.killShotMult, 0);
+    r = dealDamage(world, owner, {
+      source: e.id,
+      sourceName: 'Kill Shot',
+      amount: hit.amount,
+      amplified: hit.amplified,
+      aura: hit.aura,
+      empower: hit.empower,
+      crit: hit.crit,
+      empowered: hit.empowered,
+    });
+  }
+  const amount = r.dealt + r.absorbed;
+  duel.killShots++;
+  const ledger = duelLedger(world);
+  ledger.killShots++;
+  ledger.wardsDealt += amount;
+  world.events.push({
+    type: 'killShot',
+    tick: world.tick,
+    hero: e.id,
+    target: owner.id,
+    executed: execute && r.downed,
+    amount,
+  });
+  // En Garde: a kill shot counts as a parry.
+  if (world.mods.enGarde > 0) gainResonance(world, world.mods.enGarde, 'enGarde');
+  // Duellist's Honour: a kill shot readies your Ward again (read through `killShot`; no
+  // `talentFired` until the Bond-cue tables list it, as Bladesong).
+  // A charge comes back, as Temporal Mastery gives one (the recharge loop only adds charges as a
+  // running cooldown reaches 0, so zeroing the clock alone would leave the Weaver none).
+  if (hasTalent(e, 'duellists_honour')) {
+    const w = world.entities.get(world.weaverId)?.weaver;
+    if (w && w.wardCharges < w.maxWardCharges) {
+      w.wardCharges++;
+      if (w.wardCharges >= w.maxWardCharges) w.cooldowns.ward = 0;
+    }
+  }
+}
+
+/** Rooted, latched or Held, she throws her lance rather than leap. */
+function canLeap(e: Entity): boolean {
+  const hero = e.hero!;
+  if (hero.follow === 'hold' || hero.hold) return false;
+  return !isRooted(e) && !hasStatus(e, 'latched');
+}
+
+function lostShot(
+  world: World,
+  e: Entity,
+  target: EntityId | null,
+  lost: 'disabled' | 'silence' | 'gone',
+): void {
+  world.events.push({
+    type: 'killShot',
+    tick: world.tick,
+    hero: e.id,
+    target: target ?? e.id,
+    executed: false,
+    amount: 0,
+    lost,
+  });
+}
+
+/**
+ * Downed or disabled this tick: a pending counter or kill shot is lost (the Perfect itself
+ * stood). Downed, her duel ends. Unflinching: Warded, a stagger doesn't hold her.
+ */
+export function duelLost(world: World, e: Entity): void {
+  const duel = e.hero?.duel;
+  const h = e.health;
+  if (!duel || !h) return;
+  const down = h.dead || h.downed;
+  if (!down && hasTalent(e, 'unflinching') && parryArmed(e) && hasStatus(e, 'stagger')) {
+    removeStatus(world, e, 'stagger', 'expired');
+    if (!isDisabled(e)) return;
+  }
+  duel.parryOn = null;
+  if (duel.killShotOn !== null) {
+    const owner = duel.killShotOn;
+    duel.killShotOn = null;
+    lostShot(world, e, owner, 'disabled');
+  }
+  if (down) {
+    duel.quarry = null;
+    duel.quarryUntil = 0;
+    if (duel.overextended) setOverextended(world, e, duel, false);
+  }
+}
+
+/**
+ * Reeled (each tick of the pull, `updateHeroes`' Reel branch) or Rewound this tick: a pending
+ * counter or kill shot is lost, as when disabled. Held through the pull, a kill shot would leap
+ * her back onto its owner and undo the extraction you just paid for.
+ */
+export function duelReeled(world: World, e: Entity): void {
+  const duel = e.hero?.duel;
+  if (!duel) return;
+  duel.parryOn = null;
+  if (duel.killShotOn !== null) {
+    const owner = duel.killShotOn;
+    duel.killShotOn = null;
+    lostShot(world, e, owner, 'disabled');
+  }
+}
+
+/** A Rewind on her slot this tick (its mark is pushed with the commands, before time moves on). */
+function rewoundNow(world: World, e: Entity, dt: number): boolean {
+  const markers = world.ledger.markers;
+  const since = world.time - dt - world.encounter.startedAt - 1e-9;
+  for (let i = markers.length - 1; i >= 0; i--) {
+    const m = markers[i]!;
+    if (m.time < since) return false;
+    if (m.kind === 'rewind' && m.slot === e.hero!.slot) return true;
+  }
   return false;
 }
 
-/** `tryAbilities`: Lunge's or Feint's target now, or null (not this tick). */
-export function duelAbility(
-  _world: World,
-  _e: Entity,
-  _def: HeroDef,
-  _ability: Ability,
-  _target: Entity,
-): Entity | null {
-  return null;
+/** A live, standing enemy (not spawning, not rising): a duel can be fought with it. */
+function standing(m: Entity | undefined): m is Entity & { enemy: object } {
+  return !!m?.enemy && isActive(m) && m.enemy.state !== 'spawning' && !rising(m);
 }
 
-/** `executeAbility`: Lunge and Feint (`flourish`: Flèche). `emit` reports the ability. */
+/**
+ * `chooseTarget`'s duelist arm: her pick, or undefined for the shared rule. Answering a Rally she
+ * keeps the shared rule (she always obeys); your Focus moves her duel; suspended (a Rally or a
+ * Reel), she fights near you. Otherwise Showboat: the strongest enemy within `DUEL_PICK` m of the
+ * Weaver (`duelTarget`), sticky for its `seconds` or until it falls, unless a higher tier comes
+ * within reach; overextended she won't leave it on her own. A new duel starts with her bark,
+ * `SHOWBOAT_TELL` s before she goes.
+ */
+export function duelChooseTarget(
+  world: World,
+  weaver: Entity,
+  e: Entity,
+  def: HeroDef,
+): Entity | null | undefined {
+  const duel = e.hero?.duel;
+  if (!duel || def.quirk.id !== 'showboat') return undefined;
+  if (world.internal.rallyUntil > world.time) return undefined;
+  if (cutting(e)) return undefined;
+  const seconds = def.quirk.seconds ?? 8;
+  const focus = world.focusTarget === null ? undefined : world.entities.get(world.focusTarget);
+  if (standing(focus)) {
+    if (duel.quarry !== focus.id) choose(world, e, duel, focus, 0);
+    duel.quarryUntil = world.time + seconds;
+    return focus;
+  }
+  if (world.time < duel.showboatQuietUntil) {
+    duel.quarry = null;
+    return undefined;
+  }
+  let q = duel.quarry === null ? undefined : world.entities.get(duel.quarry);
+  if (q && !standing(q)) q = undefined;
+  const reach = DUEL_PICK + QUARRY_SLACK;
+  if (q && distSq(q.x, q.z, weaver.x, weaver.z) > (reach + q.radius) ** 2) q = undefined;
+  const pick = duelTarget(world, e) as Entity | null;
+  if (q) {
+    const higher = pick !== null && TIER_RANK[pick.enemy!.tier] > TIER_RANK[q.enemy!.tier];
+    if (!higher) {
+      if (duel.quarryUntil > world.time || overextended(world, e)) return q;
+      if (pick === null || pick.id === q.id) {
+        duel.quarryUntil = world.time + seconds;
+        return q;
+      }
+    }
+  }
+  if (!pick) {
+    duel.quarry = null;
+    duel.quarryUntil = 0;
+    return undefined;
+  }
+  choose(world, e, duel, pick, SHOWBOAT_TELL);
+  duel.quarryUntil = world.time + SHOWBOAT_TELL + seconds;
+  return pick;
+}
+
+function choose(world: World, e: Entity, duel: DuelState, m: Entity, tell: number): void {
+  duel.quarry = m.id;
+  world.events.push({ type: 'duelChosen', tick: world.tick, hero: e.id, target: m.id });
+  if (tell > 0) bark(world, e, 'quirk');
+}
+
+/** Her Showboat bark is still ringing: she points, and goes once it has. */
+function telling(world: World, e: Entity, def: HeroDef): boolean {
+  const duel = e.hero!.duel!;
+  if (duel.quarry === null || def.quirk.id !== 'showboat') return false;
+  return duel.quarryUntil - (def.quirk.seconds ?? 8) > world.time;
+}
+
+/**
+ * `targetInSight`'s duelist arm (after the Focus), reached with no duel: the enemy she is on
+ * while it is in reach, else the nearest one (stationary ones are left to `seekStationary`).
+ */
+export function duelTargetInSight(
+  world: World,
+  _weaver: Entity,
+  e: Entity,
+  def: HeroDef,
+  current: Entity | undefined,
+): Entity | null | undefined {
+  if (!e.hero?.duel) return undefined;
+  const keep = attackRange(world, e, def.attack.range) + 3;
+  if (standing(current) && distSq(current.x, current.z, e.x, e.z) <= (keep + current.radius) ** 2)
+    return current;
+  let best: Entity | null = null;
+  let bestD = 20 * 20;
+  for (const m of world.entities.list()) {
+    if (!standing(m) || enemyDef(m.enemy!.defId).stationary === true) continue;
+    const d = distSq(m.x, m.z, e.x, e.z);
+    if (d < bestD || (d === bestD && best !== null && m.id < best.id)) {
+      best = m;
+      bestD = d;
+    }
+  }
+  return best;
+}
+
+/**
+ * `combatMove`'s duelist arm (before the flank): writes `out` and returns true; `combatMove`
+ * then steps her out of others' blows and clamps her to `DUEL_CLAMP` m of the Weaver. Hold was
+ * decided before (she holds). An enemy swinging at her she meets face to face at her
+ * `preferredRange`; one swinging at another hero, or guarded, she takes from the flank. Out of a
+ * duel she keeps within `SEREN_LEASH` m of the Weaver. Under Scatter she keeps clear of the
+ * others. She stands still while her Showboat bark rings, and through Thousand Cuts.
+ */
+export function duelMove(
+  world: World,
+  weaver: Entity,
+  e: Entity,
+  def: HeroDef,
+  target: Entity,
+  out: { x: number; z: number },
+): boolean {
+  const hero = e.hero!;
+  const duel = hero.duel;
+  if (!duel) return false;
+  if (cutting(e) || (duel.quarry === target.id && telling(world, e, def))) {
+    out.x = e.x;
+    out.z = e.z;
+    return true;
+  }
+  const c = target.enemy;
+  const g = c?.guard;
+  const guarded = !!g && g.brokenUntil <= world.time;
+  const onOther = !!c && c.targetId !== null && c.targetId !== e.id;
+  if (c && (guarded || onOther)) flankPoint(world, e, def, target, guarded, out);
+  else facePoint(e, def, target, out);
+  const free = !!c && enemyDef(c.defId).stationary === true;
+  if (duel.quarry !== target.id && !free) leashTo(weaver, SEREN_LEASH, out);
+  if (hero.follow === 'scatter') keepClear(world, e, BERSERKER_SCATTER_GAP, out);
+  return true;
+}
+
+/** Face to face: `preferredRange` off its edge, along her line to it (she stays if closer). */
+function facePoint(e: Entity, def: HeroDef, target: Entity, out: { x: number; z: number }): void {
+  const reach = Math.min(def.preferredRange, def.attack.range - 0.35) + target.radius + e.radius;
+  const dx = target.x - e.x;
+  const dz = target.z - e.z;
+  const d = Math.sqrt(dx * dx + dz * dz);
+  if (d <= reach || d < 1e-6) {
+    out.x = e.x;
+    out.z = e.z;
+    return;
+  }
+  out.x = target.x - (dx / d) * reach;
+  out.z = target.z - (dz / d) * reach;
+}
+
+/**
+ * At its flank: its facing (a guard's direction while the guard holds) turned 90° (past the
+ * guard's arc by `FLANK_MARGIN`) toward the side she is on, at her `preferredRange`.
+ */
+function flankPoint(
+  world: World,
+  e: Entity,
+  def: HeroDef,
+  target: Entity,
+  guarded: boolean,
+  out: { x: number; z: number },
+): void {
+  const g = target.enemy!.guard;
+  const fx = guarded && g ? g.fx : target.fx;
+  const fz = guarded && g ? g.fz : target.fz;
+  const arc = guarded ? (enemyDef(target.enemy!.defId).guard?.arcDeg ?? 0) : 0;
+  const a = (Math.max(90, arc / 2 + FLANK_MARGIN) * Math.PI) / 180;
+  const c = dcos(a);
+  const s = dsin(a);
+  const want = Math.min(def.preferredRange, def.attack.range - 0.5) + target.radius + e.radius;
+  const lx = fx * c - fz * s;
+  const lz = fx * s + fz * c;
+  const rx = fx * c + fz * s;
+  const rz = -fx * s + fz * c;
+  const left = distSq(e.x, e.z, target.x + lx * want, target.z + lz * want);
+  const right = distSq(e.x, e.z, target.x + rx * want, target.z + rz * want);
+  const useLeft = left <= right;
+  out.x = target.x + (useLeft ? lx : rx) * want;
+  out.z = target.z + (useLeft ? lz : rz) * want;
+  clampPointToArena(world, out, e.radius);
+}
+
+/** Past the guard's arc by this many degrees (heroes.ts `flank`'s margin). */
+const FLANK_MARGIN = 35;
+
+function leashTo(weaver: Entity, max: number, p: { x: number; z: number }): void {
+  const dx = p.x - weaver.x;
+  const dz = p.z - weaver.z;
+  const d = Math.sqrt(dx * dx + dz * dz);
+  if (d > max) {
+    p.x = weaver.x + (dx / d) * max;
+    p.z = weaver.z + (dz / d) * max;
+  }
+}
+
+/** Under Scatter: at least `gap` from every other standing hero (two passes). */
+function keepClear(world: World, e: Entity, gap: number, p: { x: number; z: number }): void {
+  for (let pass = 0; pass < 2; pass++) {
+    for (const id of world.party) {
+      if (id === e.id) continue;
+      const o = world.entities.get(id);
+      if (!isActive(o)) continue;
+      let dx = p.x - o.x;
+      let dz = p.z - o.z;
+      let d = Math.sqrt(dx * dx + dz * dz);
+      if (d >= gap) continue;
+      if (d < 1e-6) {
+        dx = e.x - o.x;
+        dz = e.z - o.z;
+        d = Math.sqrt(dx * dx + dz * dz);
+        if (d < 1e-6) {
+          dx = 1;
+          dz = 0;
+          d = 1;
+        }
+      }
+      p.x = o.x + (dx / d) * gap;
+      p.z = o.z + (dz / d) * gap;
+    }
+  }
+}
+
+/**
+ * `tryAbilities`: Lunge's or Feint's target now, or null (not this tick). Lunge: `lungeTarget`.
+ * Feint: (a) a damaging, non-parryable blow aimed at her lands soon: the sure step, taunting
+ * its owner (or her target) when in reach; (b) Warded, her quarry is swinging at someone else:
+ * she baits it into the parry (normal and elite only; a boss's Feint is only the step).
+ */
+export function duelAbility(
+  world: World,
+  e: Entity,
+  def: HeroDef,
+  ability: Ability,
+  target: Entity,
+): Entity | null {
+  const duel = e.hero?.duel;
+  if (!duel || cutting(e)) return null;
+  if (ability.id === 'lunge') {
+    const t = lungeTarget(world, e, ability);
+    // Her Showboat bark rings before she goes: no dash at the duel until it has (a cast she
+    // can interrupt is never kept waiting).
+    if (t && t.id === duel.quarry && !t.enemy?.cast?.interruptible && telling(world, e, def))
+      return null;
+    return t;
+  }
+  if (ability.id !== 'feint') return null;
+  const inReach = (m: Entity | undefined): m is Entity =>
+    standing(m) && distSq(m.x, m.z, e.x, e.z) <= (ability.range + m.radius + e.radius) ** 2;
+  const armed = parryArmed(e);
+  for (const t of world.telegraphs) {
+    if (!aimedShape(t, e) || t.impact - world.time > FEINT_SOON) continue;
+    if (!contains(world, t, e)) continue;
+    if (armed && duelStands(world, e, t)) continue;
+    const owner = world.entities.get(t.owner);
+    if (inReach(owner)) return owner;
+    if (inReach(target)) return target;
+  }
+  if (!armed || duel.quarry !== target.id || !inReach(target)) return null;
+  const c = target.enemy!;
+  if (c.tier !== 'normal' && c.tier !== 'elite') return null;
+  if (c.targetId === null || c.targetId === e.id) return null;
+  return target;
+}
+
+const stepAt = { x: 0, z: 0 };
+const stepAlt = { x: 0, z: 0 };
+/** A probe body for `contains` (id, position, radius and facing only). */
+const probe = { id: 0, x: 0, z: 0, radius: 0, fx: 1, fz: 0 };
+
+/**
+ * `executeAbility`: Lunge (`flourish`: Flèche) and Feint. Lunge dashes to its landing (a contact
+ * thrust where she stands), interrupts the cast it lands on, and strikes; Flèche's multipliers
+ * and stun apply. Feint is a sure `step` sidestep to its flank (the side out of any blow aimed at
+ * her), then a `taunt` s hard taunt of it if it is normal or elite.
+ */
 export function duelExecute(
-  _world: World,
-  _e: Entity,
-  _def: HeroDef,
-  _index: 0 | 1,
-  _target: Entity | undefined,
+  world: World,
+  e: Entity,
+  def: HeroDef,
+  index: 0 | 1,
+  target: Entity | undefined,
   _x: number,
   _z: number,
-  _flourish: Flourish | null,
-  _emit: (x: number, z: number, radius: number) => void,
-): void {}
+  flourish: Flourish | null,
+  emit: (x: number, z: number, radius: number) => void,
+): void {
+  const hero = e.hero!;
+  if (!hero.duel || !standing(target)) return;
+  const ability = def.abilities[index];
+  if (ability.id === 'lunge') {
+    const fromX = e.x;
+    const fromZ = e.z;
+    const land = lungeLanding(world, e, target);
+    stepAt.x = land.x;
+    stepAt.z = land.z;
+    pushPointOutOfObstacles(world, stepAt, e.radius);
+    clampDuel(world, e, stepAt);
+    e.x = stepAt.x;
+    e.z = stepAt.z;
+    e.vx = 0;
+    e.vz = 0;
+    world.events.push({
+      type: 'attackFired',
+      tick: world.tick,
+      source: e.id,
+      target: target.id,
+      visual: 'lunge',
+      fromX,
+      fromZ,
+      toX: e.x,
+      toZ: e.z,
+      travel: 0,
+    });
+    emit(target.x, target.z, 0);
+    if (target.enemy.cast?.interruptible) interruptEnemy(world, target, e.id);
+    const hit = flourish
+      ? flourishHit(world, e, ability.damage, flourish)
+      : heroDamage(world, e, ability.damage, 0);
+    dealDamage(world, target, {
+      source: e.id,
+      sourceName: flourish?.name ?? ability.name,
+      amount: hit.amount,
+      amplified: hit.amplified,
+      aura: hit.aura,
+      empower: hit.empower,
+      crit: hit.crit,
+      empowered: hit.empowered,
+    });
+    if (flourish && flourish.stun > 0 && isActive(target))
+      addStatus(world, target, 'stun', flourish.stun, e.id);
+    return;
+  }
+  if (ability.id !== 'feint') return;
+  // The step: square to her line with it, on whichever side leaves the blows aimed at her.
+  const step = ability.step ?? 0;
+  let dx = e.x - target.x;
+  let dz = e.z - target.z;
+  const d = Math.sqrt(dx * dx + dz * dz);
+  if (d < 1e-6) {
+    dx = -target.fx;
+    dz = -target.fz;
+  } else {
+    dx /= d;
+    dz /= d;
+  }
+  stepAt.x = e.x - dz * step;
+  stepAt.z = e.z + dx * step;
+  stepAlt.x = e.x + dz * step;
+  stepAlt.z = e.z - dx * step;
+  clampDuel(world, e, stepAt);
+  clampDuel(world, e, stepAlt);
+  if (hitsAt(world, e, stepAt) > hitsAt(world, e, stepAlt)) {
+    stepAt.x = stepAlt.x;
+    stepAt.z = stepAlt.z;
+  }
+  hero.dodge = {
+    telegraph: aimedAt(world, e),
+    x: stepAt.x,
+    z: stepAt.z,
+    at: world.time,
+    until: world.time + FEINT_STEP,
+    sure: true,
+  };
+  world.events.push({
+    type: 'attackFired',
+    tick: world.tick,
+    source: e.id,
+    target: target.id,
+    visual: 'feint',
+    fromX: e.x,
+    fromZ: e.z,
+    toX: stepAt.x,
+    toZ: stepAt.z,
+    travel: 0,
+  });
+  emit(target.x, target.z, 0);
+  const c = target.enemy;
+  if (c.tier !== 'normal' && c.tier !== 'elite') return;
+  topThreat(target, hero.slot, 150);
+  c.tauntTarget = e.id;
+  c.tauntUntil = Math.max(c.tauntUntil, world.time + (ability.taunt ?? 0));
+}
 
-/** `startSolo`: Thousand Cuts or Blade Waltz begins. */
-export function duelSoloStart(
-  _world: World,
-  _hero: Entity,
-  _cued: boolean,
-  _duration: number,
-): void {}
+/** A damaging ground blow aimed at her: one a step can leave. */
+function aimedShape(t: DeepReadonly<Telegraph>, e: ReadonlyEntity): boolean {
+  if (t.effect !== 'damage' || t.target !== e.id) return false;
+  const k = t.shape.kind;
+  return k !== 'mark' && k !== 'raid' && k !== 'link';
+}
 
-/** `updateSolo`: Thousand Cuts' pulses, Blade Waltz. */
-export function duelSolo(_world: World, _hero: Entity, _def: HeroDef): void {}
+/** How many damaging blows aimed at her would still hold her at `p`. */
+function hitsAt(world: World, e: Entity, p: { x: number; z: number }): number {
+  probe.id = e.id;
+  probe.x = p.x;
+  probe.z = p.z;
+  probe.radius = e.radius;
+  probe.fx = e.fx;
+  probe.fz = e.fz;
+  let n = 0;
+  for (const t of world.telegraphs)
+    if (aimedShape(t, e) && contains(world, t, probe as unknown as Entity)) n++;
+  return n;
+}
 
-/** `finishSolo`: Thousand Cuts returns her to its start. */
-export function duelSoloEnd(_world: World, _hero: Entity): void {}
+/** The first blow aimed at her that holds her now (Feint's step answers it), else -1. */
+function aimedAt(world: World, e: Entity): number {
+  for (const t of world.telegraphs) if (aimedShape(t, e) && contains(world, t, e)) return t.id;
+  return -1;
+}
 
-/** `tickSoloClock` (she can't act): a stun ends Thousand Cuts. */
-export function duelSoloClock(_world: World, _hero: Entity): void {}
+/** Thousand Cuts' own length: Thousandfold's longer one, the Choirmaster's Baton's when Cued. */
+function cutsLength(world: World, hero: Entity, def: HeroDef, cued: boolean): number {
+  const base = hasTalent(hero, 'thousandfold')
+    ? talentValue(world, 'thousandfold', 'seconds')
+    : def.solo.duration;
+  return base * (cued ? world.mods.cuedSoloDurationMult : 1);
+}
 
-/** `updateSolo`'s cast bar for a Cued Thousand Cuts, whose kills extend it (`duel.cutsEnd`). */
-export function duelCastProgress(_world: World, _hero: Entity, progress: number): number {
-  return progress;
+/** `startSolo`: Thousand Cuts begins (where it began, whom it struck, when it ends). */
+export function duelSoloStart(world: World, hero: Entity, cued: boolean, duration: number): void {
+  const h = hero.hero!;
+  const duel = h.duel;
+  if (!duel || h.soloId !== 'thousandCuts') return;
+  const def = heroDef(h.defId);
+  const length = hasTalent(hero, 'thousandfold') ? cutsLength(world, hero, def, cued) : duration;
+  h.soloActive = length;
+  duel.cutsFrom = world.time;
+  duel.cutsEnd = world.time + length;
+  duel.cutsFromX = hero.x;
+  duel.cutsFromZ = hero.z;
+  duel.cutsVisited = [];
+  const health = hero.health!;
+  health.invulnerable = Math.max(health.invulnerable, (def.solo.pulse ?? 0.5) + CUTS_GUARD);
+}
+
+const blinkAt = { x: 0, z: 0 };
+
+/**
+ * `updateSolo`: Thousand Cuts' pulses. Each is a blink to the enemy struck fewest times so far
+ * (then the nearest, then the lower id) within its `reach` of where it began and `DUEL_CLAMP` of
+ * the Weaver, and a cut for `power` × her attack. She is invulnerable throughout. Cued, each kill
+ * adds `cuedPower` s, up to `extendCap`. The Grand Silence ends it at once.
+ */
+export function duelSolo(world: World, hero: Entity, def: HeroDef): void {
+  const h = hero.hero!;
+  const duel = h.duel;
+  if (!duel || h.soloId !== 'thousandCuts' || duel.cutsVisited === undefined) return;
+  if (world.field.finale?.silence) {
+    h.soloActive = 0;
+    return;
+  }
+  const solo = def.solo;
+  const every = Math.max(0.05, solo.pulse ?? 0.5);
+  const reach = solo.reach ?? 10;
+  const visited = duel.cutsVisited;
+  const weaver = world.entities.get(world.weaverId);
+  while (h.soloPulseAt <= world.time && h.soloActive > 0) {
+    // One cut a pulse, as many as its (extended) length holds: 8 in 4 s, never a 9th on the
+    // tick it ends.
+    const from = duel.cutsFrom ?? h.soloPulseAt;
+    const cuts = Math.round(((duel.cutsEnd ?? from) - from) / every);
+    if (Math.round((h.soloPulseAt - from) / every) >= cuts) break;
+    h.soloPulseAt += every;
+    hero.health!.invulnerable = Math.max(hero.health!.invulnerable, every + CUTS_GUARD);
+    let best: Entity | null = null;
+    let bestN = Infinity;
+    let bestD = Infinity;
+    for (const m of world.entities.list()) {
+      if (!standing(m)) continue;
+      const r = reach + m.radius;
+      if (distSq(m.x, m.z, duel.cutsFromX!, duel.cutsFromZ!) > r * r) continue;
+      if (weaver && distSq(m.x, m.z, weaver.x, weaver.z) > (DUEL_CLAMP + m.radius) ** 2) continue;
+      let n = 0;
+      for (const id of visited) if (id === m.id) n++;
+      const d = distSq(m.x, m.z, hero.x, hero.z);
+      if (n < bestN || (n === bestN && (d < bestD || (d === bestD && m.id < best!.id)))) {
+        best = m;
+        bestN = n;
+        bestD = d;
+      }
+    }
+    if (!best) continue;
+    visited.push(best.id);
+    const fromX = hero.x;
+    const fromZ = hero.z;
+    const dx = hero.x - best.x;
+    const dz = hero.z - best.z;
+    const d = Math.sqrt(dx * dx + dz * dz);
+    const off = best.radius + hero.radius + BLINK_SHORT;
+    blinkAt.x = d > 1e-6 ? best.x + (dx / d) * off : best.x + off;
+    blinkAt.z = d > 1e-6 ? best.z + (dz / d) * off : best.z;
+    pushPointOutOfObstacles(world, blinkAt, hero.radius);
+    clampDuel(world, hero, blinkAt);
+    hero.x = blinkAt.x;
+    hero.z = blinkAt.z;
+    hero.vx = 0;
+    hero.vz = 0;
+    world.events.push({
+      type: 'attackFired',
+      tick: world.tick,
+      source: hero.id,
+      target: best.id,
+      visual: 'blink',
+      fromX,
+      fromZ,
+      toX: hero.x,
+      toZ: hero.z,
+      travel: 0,
+    });
+    const hit = heroDamage(world, hero, def.attack.damage * solo.power, 0);
+    const r = dealDamage(world, best, {
+      source: hero.id,
+      sourceName: solo.name,
+      amount: hit.amount,
+      amplified: hit.amplified,
+      aura: hit.aura,
+      empower: hit.empower,
+      crit: hit.crit,
+      empowered: hit.empowered,
+    });
+    h.strikeX = best.x;
+    h.strikeZ = best.z;
+    h.struck = true;
+    // Cued: every kill buys another cut, up to the cap.
+    if (h.soloCued && r.downed && duel.cutsEnd !== undefined && duel.cutsFrom !== undefined) {
+      const extended = duel.cutsEnd - duel.cutsFrom - cutsLength(world, hero, def, true);
+      const more = solo.cuedPower;
+      if (more > 0 && extended + more <= (solo.extendCap ?? 0) + 1e-9) {
+        h.soloActive += more;
+        duel.cutsEnd += more;
+      }
+    }
+  }
+}
+
+const backAt = { x: 0, z: 0 };
+
+/** `finishSolo`: Thousand Cuts returns her to where it began (within the Weaver's reach). */
+export function duelSoloEnd(world: World, hero: Entity): void {
+  const duel = hero.hero?.duel;
+  if (!duel || duel.cutsFromX === undefined || duel.cutsFromZ === undefined) return;
+  backAt.x = duel.cutsFromX;
+  backAt.z = duel.cutsFromZ;
+  pushPointOutOfObstacles(world, backAt, hero.radius);
+  clampDuel(world, hero, backAt);
+  world.events.push({
+    type: 'attackFired',
+    tick: world.tick,
+    source: hero.id,
+    target: null,
+    visual: 'blink',
+    fromX: hero.x,
+    fromZ: hero.z,
+    toX: backAt.x,
+    toZ: backAt.z,
+    travel: 0,
+  });
+  hero.x = backAt.x;
+  hero.z = backAt.z;
+  hero.vx = 0;
+  hero.vz = 0;
+  delete duel.cutsEnd;
+  delete duel.cutsFrom;
+  delete duel.cutsFromX;
+  delete duel.cutsFromZ;
+  delete duel.cutsVisited;
+}
+
+/** `tickSoloClock` (she can't act): a stun, a stilling or a possession ends Thousand Cuts. */
+export function duelSoloClock(_world: World, hero: Entity): void {
+  const h = hero.hero!;
+  if (!h.duel || h.soloId !== 'thousandCuts' || h.soloActive <= 0) return;
+  if (isDisabled(hero)) h.soloActive = 0;
+}
+
+/** `updateSolo`'s cast bar for Thousand Cuts, whose kills extend it (`duel.cutsEnd`). */
+export function duelCastProgress(_world: World, hero: Entity, progress: number): number {
+  const duel = hero.hero?.duel;
+  if (!duel || duel.cutsEnd === undefined || duel.cutsFrom === undefined) return progress;
+  const total = Math.max(0.01, duel.cutsEnd - duel.cutsFrom);
+  return Math.max(0, Math.min(1, 1 - hero.hero!.soloActive / total));
 }

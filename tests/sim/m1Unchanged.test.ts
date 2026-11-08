@@ -5,7 +5,8 @@
  * ground rule 1). All eleven golden hashes are pinned here as literals, so they can't drift
  * through `npm run golden:update`; only new scenarios and `contentVersion` may change. Movement
  * III's four goldens are pinned beside them at the slice's hand-off, for the Finale slice, and
- * the Finale's four (docs/phase-5d.md) at its hand-off, for the next.
+ * the Finale's four (docs/phase-5d.md) at its hand-off, for the next. Seren's and Oro's six
+ * (docs/phase-5e.md, W8) are appended after the nineteen, which come first and unchanged.
  */
 import { describe, expect, it } from 'vitest';
 import { CONTENT } from '../../src/content';
@@ -60,8 +61,26 @@ const M4_HASHES: Readonly<Record<string, string>> = {
 /** The fifteen goldens the Finale slice found, in golden.json's order. */
 const FIFTEEN: Readonly<Record<string, string>> = { ...PINNED, ...M3_HASHES };
 
-/** All nineteen goldens, in golden.json's order. */
-const ALL_PINNED: Readonly<Record<string, string>> = { ...FIFTEEN, ...M4_HASHES };
+/** The nineteen goldens Phase 5e found, in golden.json's order (first, and unchanged). */
+const NINETEEN: Readonly<Record<string, string>> = { ...FIFTEEN, ...M4_HASHES };
+
+/**
+ * Seren's and Oro's six goldens (docs/phase-5e.md, "Harness and tools"), appended by W8. The Oro
+ * parties' three (skilled-oro-bellwarden, skilled-oro-conductor, novice-grove-mirror-hall) are
+ * re-recorded when the grove auras (W2b, Q1-Q3) land; the Seren parties' three are not touched by
+ * them. Only W8 or later may append to golden.json.
+ */
+const ROSTER_HASHES: Readonly<Record<string, string>> = {
+  'skilled-seren-crimson-gate': '46879a04e120c1ce',
+  'novice-seren-first-light': '0938c093f5e660cc',
+  'skilled-oro-bellwarden': '671ab3ca660a2f25',
+  'skilled-red-line-vharun': 'fe0a62722e1c72e0',
+  'skilled-oro-conductor': 'a3e3f27390544d20',
+  'novice-grove-mirror-hall': 'ae5376c4973130d4',
+};
+
+/** All twenty-five goldens, in golden.json's order. */
+const ALL_PINNED: Readonly<Record<string, string>> = { ...NINETEEN, ...ROSTER_HASHES };
 
 describe('Movement I is unchanged (docs/phase-5a.md)', () => {
   it('SIM_VERSION is still 22', () => {
@@ -82,10 +101,36 @@ describe('Movement I is unchanged (docs/phase-5a.md)', () => {
       expect((golden.scenarios as Record<string, string>)[name], name).toBe(hash);
   });
 
-  it('golden.json holds exactly the nineteen pinned hashes, in order (docs/phase-5d.md)', () => {
-    expect(Object.keys(ALL_PINNED)).toHaveLength(19);
+  it('golden.json still holds the nineteen hashes Phase 5e found, first and in order', () => {
+    expect(Object.keys(NINETEEN)).toHaveLength(19);
+    expect(Object.keys(golden.scenarios).slice(0, 19)).toEqual(Object.keys(NINETEEN));
+    for (const [name, hash] of Object.entries(NINETEEN))
+      expect((golden.scenarios as Record<string, string>)[name], name).toBe(hash);
+  });
+
+  it('golden.json holds exactly the twenty-five pinned hashes, in order (docs/phase-5e.md)', () => {
+    expect(Object.keys(ROSTER_HASHES)).toHaveLength(6);
+    expect(Object.keys(ALL_PINNED)).toHaveLength(25);
     expect(golden.scenarios).toStrictEqual(ALL_PINNED);
     expect(Object.keys(golden.scenarios)).toEqual(Object.keys(ALL_PINNED));
+  });
+
+  it('the six roster goldens play the parties the doc names, with Seren or Oro in each', () => {
+    const want: Readonly<Record<string, readonly string[]>> = {
+      'skilled-seren-crimson-gate': ['kael', 'vexis', 'seren'],
+      'novice-seren-first-light': ['kael', 'lyra', 'seren'],
+      'skilled-oro-bellwarden': ['lyra', 'vexis', 'oro'],
+      'skilled-red-line-vharun': ['kael', 'brann', 'seren'],
+      'skilled-oro-conductor': ['kael', 'vexis', 'oro'],
+      'novice-grove-mirror-hall': ['kael', 'seren', 'oro'],
+    };
+    for (const [name, party] of Object.entries(want))
+      expect(SCENARIOS.find((s) => s.name === name)?.config?.party, name).toEqual(party);
+    // The nineteen before them carry no Seren or Oro.
+    for (const name of Object.keys(NINETEEN)) {
+      const party = SCENARIOS.find((s) => s.name === name)?.config?.party ?? [];
+      expect(party.includes('seren') || party.includes('oro'), name).toBe(false);
+    }
   });
 
   for (const [name, hash] of Object.entries(ALL_PINNED))

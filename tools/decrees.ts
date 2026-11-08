@@ -10,6 +10,7 @@
  *   npx tsx tools/decrees.ts --boss the_unweaver --seeds 50
  *   npx tsx tools/decrees.ts --boss the_seamstress --seeds 50
  *   npx tsx tools/decrees.ts --boss the_silent_conductor --seeds 50
+ *   npx tsx tools/decrees.ts --boss vharun --party SB --seeds 50   # a roster party (docs/phase-5e.md)
  *
  * What counts as answered, one occurrence at a time.
  *
@@ -63,6 +64,7 @@ import type { Bot, BotKind } from '../src/bots';
 import { ALTO, BASS, SOPRANO, TENOR } from '../src/content/crucibleIds';
 import { makeBot } from '../src/bots';
 import { createSim, type Sim, type SimEvent } from '../src/sim';
+import { partyArg } from './harness';
 import { FinaleWatch } from './harness-core';
 import { ARRIVAL3_KIT, ARRIVAL4_KIT, ARRIVAL_KIT, kitConfig, type Kit } from './kits';
 
@@ -80,6 +82,11 @@ export interface BossTable {
    * `atLeast` of them in at least `share` of fights.
    */
   casts?: Readonly<Record<string, { atLeast: number; share: number }>>;
+  /**
+   * The party that plays it (`--party`, docs/phase-5e.md: the no-Kael Seren and Oro parties'
+   * Decrees); absent, the default party, so the config has no `party` key, as before.
+   */
+  party?: readonly string[];
 }
 
 /** The mirror-choir's Solos by Decree name, voice by voice (Alto, Bass, Tenor, Soprano). */
@@ -183,7 +190,12 @@ function play(
   tick: (sim: Sim, events: readonly SimEvent[]) => void,
   player: Bot = makeBot(bot, seed),
 ): Sim {
-  const sim = createSim({ seed, encounter: table.encounter, ...kitConfig(table.kit) });
+  const sim = createSim({
+    seed,
+    encounter: table.encounter,
+    ...kitConfig(table.kit),
+    ...(table.party ? { party: [...table.party] } : {}),
+  });
   for (let t = 0; t < MAX_TICKS; t++) {
     sim.step(player.decide(sim.state));
     const events = sim.drainEvents();
@@ -592,13 +604,21 @@ const FIGHTS: Readonly<
 /**
  * Plays one fight against `boss`'s table (vharun, the_seamstress, the_unweaver or
  * the_silent_conductor). `player`
- * stands in for `bot`'s own player (a test's wrapped bot); `bot` still names its rules.
+ * stands in for `bot`'s own player (a test's wrapped bot); `bot` still names its rules. `party`
+ * plays a roster party (docs/phase-5e.md, "Bands": the Decree gate per party); absent, the
+ * default party.
  */
-export function decreeFight(boss: string, seed: number, bot: BotKind, player?: Bot): Fight {
+export function decreeFight(
+  boss: string,
+  seed: number,
+  bot: BotKind,
+  player?: Bot,
+  party?: readonly string[] | null,
+): Fight {
   const table = BOSS_TABLES[boss];
   const fight = FIGHTS[boss];
   if (!table || !fight) throw new Error(`No Decree table for "${boss}" (${Object.keys(FIGHTS)})`);
-  return fight(table, seed, bot, player);
+  return fight(party ? { ...table, party } : table, seed, bot, player);
 }
 
 function main(): void {
@@ -614,7 +634,10 @@ function main(): void {
   const boss = get('boss') ?? get('encounter') ?? 'vharun';
   const table = BOSS_TABLES[boss];
   if (!table) throw new Error(`No Decree table for "${boss}" (${Object.keys(BOSS_TABLES)})`);
-  console.log(`decree gate · ${table.encounter} · ${seeds} seeds · ${table.kit.name}`);
+  const party = partyArg(get('party'));
+  console.log(
+    `decree gate · ${table.encounter} · ${seeds} seeds · ${table.kit.name}${party ? ` · party ${party.join(',')}` : ''}`,
+  );
   // The decree column fits the table's longest name ('Fortissimo Silence'); 14 before the Finale.
   const width = Math.max(14, ...table.decrees.map((d) => d.length));
   console.log(
@@ -622,7 +645,7 @@ function main(): void {
   );
   for (const bot of bots) {
     const fights = Array.from({ length: seeds }, (_, i) =>
-      decreeFight(boss, seedBase + i * 7919, bot),
+      decreeFight(boss, seedBase + i * 7919, bot, undefined, party),
     );
     const won = fights.filter((f) => f.won).length / fights.length;
     for (const d of table.decrees) {

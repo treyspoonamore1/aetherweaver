@@ -1049,6 +1049,7 @@ Thread rules are **post-pick modifiers** (`:746-783`), never a fork beside `else
 - Read the per-down table first: aimed at another hero versus at her; beyond reach; Saplings outside the field; tending time; Weaver damage and Thread cuts.
 - Any party more than 15 points under default (25 for OB) is diagnosed before tuning.
 - OB’s provisional bands are confirmed or replaced in the first-look write-up, for your decision (Q8).
+- Published under *First look (W8)* below.
 
 **Lever order (agreed now):**
 1. The new heroes’ own numbers within ±20%:
@@ -1059,6 +1060,158 @@ Thread rules are **post-pick modifiers** (`:746-783`), never a fork beside `else
 4. Bond and motif values.
 
 **Never moved:** Weaver, aura, enemy, encounter, Movement, starter and Brann numbers. The third seed set stays untuned, and every lever change goes in a ‘tried and not kept’ table.
+
+## First look (W8, 2026-11-08): the gate before any tuning
+
+**What ran.** The build is W1 + W2 + W7 on W0b (branch `m5/W8`, from W7's head `321af32`), **without W2b**: Saplings don't receive your auras yet (Q1), the Cued Ancient's disc is not your field (Q2) and Verdant Choir is silent (Q3). W9 re-measures once W2b lands. Nothing was tuned before these numbers.
+
+- `npx tsx tools/roster-bands.ts --first-look` (split in two lanes with `--movement 1,2` / `3,4` and `--cells-only` / `--runs-only`):
+  - **cells:** the default party and all 16 parties with Seren or Oro, at each Movement's boss (the Hollow Cantor bare, Vharun on the arrival kit, the Unweaver on ARRIVAL3_KIT, the Conductor on ARRIVAL4_KIT), 24 seeds from 1000, Idle, Novice and Skilled;
+  - **runs:** 50 Skilled Finale-route runs from 2000 for the same 17 parties.
+- At 24 seeds a cell's noise is about ±10 points, and a 50-run row's about ±7. Every gap below is against the default party's row in the same tool run.
+- The tallies (`tools/harness-core.ts`) keep the key lists of *Harness and tools* in order and append what the bands need: SerenTally adds `overextensions`, `aliveTime` and `killShotDamage`, and OroTally adds `aliveTime`, `bothStandingTime` and `ancients`.
+- Raw rows: scratch `m5e/w8-cells-{a,b}.txt|json` and `m5e/w8-runs-{a,b}.txt|json`; the tables come from `m5e/w8-summary.py`.
+
+### Boss cells (Skilled win, the Novice's in brackets, and the Skilled gap to default)
+
+⚠ marks a row more than 15 points under default (25 for OB, Q8): each is diagnosed below before any tuning. The banded parties come first: the full protocol (SC, OC, SA, OA, SB, OB), then the reduced (R, SO, W, X), then the unbanded sweep.
+
+| Party | Cantor | Vharun | Unweaver | Conductor |
+|---|---|---|---|---|
+| default | 96% (62%) | 96% (50%) | 100% (38%) | 96% (25%) |
+| SC | 75% (25%) −21 ⚠ | 96% (33%) +0 | 100% (12%) +0 | 96% (4%) +0 |
+| OC | 67% (17%) −29 ⚠ | 96% (25%) +0 | 100% (8%) +0 | 100% (4%) +4 |
+| SA | 96% (42%) +0 | 92% (29%) −4 | 100% (0%) +0 | 100% (17%) +4 |
+| OA | 100% (29%) +4 | 92% (33%) −4 | 96% (0%) −4 | 100% (4%) +4 |
+| SB | 58% (25%) −38 ⚠ | 96% (33%) +0 | 96% (8%) −4 | 92% (12%) −4 |
+| OB | 83% (4%) −12 | 96% (29%) +0 | 67% (0%) −33 ⚠ | 67% (0%) −29 ⚠ |
+| R | 96% (0%) +0 | 33% (0%) −62 ⚠ | 88% (0%) −12 | 92% (0%) −4 |
+| SO | 8% (0%) −88 ⚠ | 0% (4%) −96 ⚠ | 0% (0%) −100 ⚠ | 71% (0%) −25 ⚠ |
+| W | 71% (0%) −25 ⚠ | 75% (4%) −21 ⚠ | 88% (0%) −12 | 88% (4%) −8 |
+| X | 38% (0%) −58 ⚠ | 29% (0%) −67 ⚠ | 92% (0%) −8 | 88% (0%) −8 |
+| KBO | 92% (0%) −4 | 25% (29%) −71 ⚠ | 42% (0%) −58 ⚠ | 88% (4%) −8 |
+| LBS | 71% (29%) −25 ⚠ | 96% (12%) +0 | 100% (0%) +0 | 100% (0%) +4 |
+| LBO | 83% (25%) −12 | 92% (8%) −4 | 88% (4%) −12 | 88% (4%) −8 |
+| LSO | 17% (0%) −79 ⚠ | 100% (12%) +4 | 92% (0%) −8 | 92% (0%) −4 |
+| VBS | 100% (29%) +4 | 75% (8%) −21 ⚠ | 100% (0%) +0 | 96% (0%) +0 |
+| VBO | 96% (46%) +0 | 83% (4%) −12 | 100% (0%) +0 | 96% (0%) +0 |
+
+- The Idle bot wins 0% at every boss for every party (band met).
+- No boss ever targets a summon: 0 s on `sapling` or `ancient` over every fight (the design's rule holds).
+- **Timeouts** (540 s): SO at the Unweaver 20 of 24, at the Conductor 6 of 24; KBO at the Unweaver 7 of 24, at Vharun 1. These are damage losses, not survival ones.
+
+### Whole runs (Skilled, 50 Finale-route runs from 2000)
+
+| Party | Won | Gap | Reached the Finale | Won of those | Fights | Bond XP a fight vs the starters' average | Lost most at |
+|---|---|---|---|---|---|---|---|
+| default | 74% | | 80% | 93% | 13.2 | | Blood Forge 3, the Conductor 3 |
+| SC | 40% | −34 ⚠ | 40% | 100% | 9.8 | Seren 61% | the Cantor 6, Frayed Court 4, Frayed Threshold 4 |
+| OC | 40% | −34 ⚠ | 40% | 100% | 9.8 | Oro 62% | the Cantor 12, Frayed Threshold 6 |
+| SA | 20% | −54 ⚠ | 20% | 100% | 7.9 | Seren 66% | Frayed Threshold 9, Glass Gallery 6, Vharun 4 |
+| OA | 32% | −42 ⚠ | 34% | 94% | 10.5 | Oro 67% | Frayed Threshold 10, Vharun 6 |
+| SB | 50% | −24 ⚠ | 52% | 96% | 10.9 | Seren 63% | Frayed Threshold 5, the Cantor 5 |
+| OB | 32% | −42 ⚠ | 38% | 84% | 9.6 | Oro 66% | the Bellwarden 8, the Cantor 7 |
+| R | 2% | −72 ⚠ | 2% | 100% | 6.5 | Brann 93%, Seren 68% | Vharun 24 |
+| SO | 0% | −74 ⚠ | 0% | - | 2.9 | Seren 78%, Oro 66% | the Cantor 20, Glass Gallery 8 |
+| W | 8% | −66 ⚠ | 8% | 100% | 5.6 | Seren 65%, Oro 61% | the Cantor 15, Crimson Gate 7 |
+| X | 0% | −74 ⚠ | 0% | - | 5.5 | (no starter) | the Cantor 15, Crimson Gate 12 |
+| KBO | 4% | −70 | 4% | 100% | 7.1 | Brann 100%, Oro 71% | Vharun 28 |
+| LBS | 36% | −38 | 40% | 90% | 9.9 | Brann 53%, Seren 48% | the Cantor 12 |
+| LBO | 40% | −34 | 44% | 91% | 10.5 | Brann 54%, Oro 50% | the Cantor 9, Frayed Threshold 7 |
+| LSO | 4% | −70 | 4% | 100% | 4.4 | Seren 57%, Oro 54% | the Cantor 35 |
+| VBS | 22% | −52 | 22% | 100% | 8.5 | Brann 69%, Seren 58% | Shield Wall 6, Frayed Threshold 5 |
+| VBO | 30% | −44 | 34% | 88% | 10.6 | Brann 71%, Oro 59% | Frayed Threshold 9, Vharun 6 |
+
+Every Seren and Oro party misses its whole-run band, most by far more than at the bosses. The runs are lost on the road (Frayed Threshold, Glass Gallery, the Cantor, Crimson Gate), and the parties that reach the Finale win it 84-100% of the time. The skirmish and elite cells, which this first look didn't play, are where W9 looks next.
+
+### The per-down table (Skilled, the four bosses pooled; read it first)
+
+'Aimed at the victim' and 'at another hero' are the blow's telegraph target against the hero it downed. 'Basic' is an enemy's ordinary swing. 'Summon near' means one of Oro's summons stood within 4 m. 'Seren's parry armed' is read on the tick before her down (a fromWeaver Ward on her, or Blade Waltz running): the down itself clears her shields and her solo before the watch sees it. The first pass read it after the down, so it read 0 by construction; the column was re-measured with the fixed watch (the same 24 seeds; every other number in the table is unchanged).
+
+| Party | Downs a fight | Aimed at the victim | At another hero | At no one | Basic | Beyond 14 m | Seren's parry armed | Summon near | Top blows |
+|---|---|---|---|---|---|---|---|---|---|
+| default | 0.80 | 38 | 21 | 12 | 6 | 0 | - | 0 | Cantor Toll 24, Twin Cleave 15, Requiem 10 |
+| SC | 1.64 | 90 | 16 | 32 | 19 | 2 | 0/27 | 0 | Cantor Toll 75, Requiem 28 |
+| OC | 1.64 | 64 | 37 | 36 | 20 | 0 | - | 65 | Cantor Toll 49, Requiem 31 |
+| SA | 1.68 | 86 | 25 | 38 | 12 | 4 | 0/28 | 0 | Cantor Toll 37, Requiem 36, Twin Cleave (2nd) 34 |
+| OA | 2.18 | 98 | 76 | 25 | 10 | 3 | - | 83 | Twin Cleave (2nd) 44, Cantor Toll 41 |
+| SB | 1.76 | 43 | 59 | 32 | 35 | 0 | 0/38 | 0 | Twin Cleave 49, basic 35 |
+| OB | 3.09 | 89 | 128 | 25 | 55 | 2 | - | 151 | basic 55, Twin Cleave 46, Shear 38 |
+| R | 5.03 | 225 | 116 | 71 | 70 | 17 | 1/85 | 0 | Twin Cleave (2nd) 92, basic 70 |
+| SO | 5.54 | 261 | 126 | 21 | 124 | 8 | 0/153 | 214 | basic 124, Cantor Toll 61 |
+| W | 3.89 | 187 | 92 | 26 | 68 | 3 | 0/69 | 139 | Shear 85, basic 68 |
+| X | 8.15 | 582 | 53 | 41 | 103 | 32 | 1/157 | 296 | Cantor Toll 135, Twin Cleave (2nd) 122 |
+
+Downs a fight, by hero (Skilled, pooled): default Kael 0.36, Lyra 0.21, Vexis 0.23. With Seren or Oro, every other hero goes down more: Kael 0.99 in SC and 2.93 in SO, Vexis 1.00 in OA and 2.21 in W, Brann 5.83 in X. Seren goes down 0.18-1.64 a fight, Oro 0.36-1.02.
+
+- **Seren's 664 downs:** 226 from blows aimed at another hero, 180 from basic swings, 176 aimed at her, 82 at no one. Only **3** came with her parry armed going in (R at Vharun, a second Twin Cleave aimed at another hero; X and LSO at the Cantor, Requiem): her downs are not parries failing, they are blows she met unWarded.
+- **Oro's 660 downs:** 432 (65%) from blows **aimed at another hero**, mostly Twin Cleave, Requiem, Shear and Cantor Toll. This is 5b's cause 1 again: he stands in other heroes' cleaves. His Gentle retreat steps away from enemies, not out of shapes aimed at others.
+- The sim doesn't write the contract's `DeathRecord.duel` and `.grove` recap fields yet (`health.ts` `downHero`). The tool copies them when present. Writing them is part of the recap work (W3 and W6, or W9).
+
+### Weaver safety and the Thread (Skilled, a fight, the four bosses pooled)
+
+| Party | Weaver damage taken | Weaver downs | Thread cuts at the Unweaver |
+|---|---|---|---|
+| default | 517 | 1.04 | 0.6 |
+| SC / OC | 971 / 826 | 2.12 / 1.67 | 0.7 / 1.2 |
+| SA / OA | 1,024 / 994 | 2.08 / 2.10 | 1.7 / 4.5 |
+| SB / OB | 717 / 812 | 1.77 / 2.04 | 0.5 / 1.8 |
+| R / SO / W / X | 1,539 / 2,133 / 1,274 / 1,600 | 3.15 / 4.75 / 3.20 / 4.02 | 5.5 / 3.2 / 2.0 / 4.9 |
+
+Every party misses the Weaver-safety band (damage ≤ default + 15%, downs ≤ default + 0.05) by a wide margin, the Seren parties included. So the Weaver's extra damage isn't only Oro's healing threat (Q1's knock-on): it tracks the longer, closer fights. Thread cuts at the Unweaver rise with Oro (OA 4.5 against 0.6).
+
+### Seren's own numbers (Skilled, the four bosses pooled)
+
+| Party | Parries | Wards on her | Parried | Kill shots | Lost | Your Wards' share of her damage | Overextended | Answered ≤ 3 s | Beyond 14 m | Showboat pick | Lunge interrupts | Downs |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| SC | 0.3 | 3.5 | 8% | 0.30 | 0.00 | 1% | 0.8 | 84% | 0% | 88% | 2.5 | 0.28 |
+| SA | 0.4 | 4.4 | 9% | 0.69 | 0.01 | 2% | 0.4 | 79% | 0% | 91% | 3.1 | 0.29 |
+| SB | 0.1 | 2.2 | 6% | 0.33 | 0.00 | 1% | 0.8 | 74% | 0% | 97% | 1.6 | 0.40 |
+| R | 0.7 | 7.6 | 9% | 0.77 | 0.00 | 1% | 1.5 | 64% | 0% | 89% | 4.2 | 0.89 |
+| SO | 2.1 | 10.9 | 19% | 1.08 | 0.01 | 2% | 3.0 | 63% | 0% | 99% | 6.0 | 1.59 |
+| W | 2.3 | 7.0 | 33% | 1.04 | 0.00 | 4% | 2.4 | 77% | 0% | 99% | 2.8 | 0.72 |
+| X | 3.6 | 9.3 | 39% | 1.29 | 0.02 | 5% | 3.8 | 70% | 0% | 99% | 3.8 | 1.64 |
+
+- Met: beyond 14 m ≤ 2% (0% everywhere: the clamp holds); overextensions answered within 3 s ≥ 50% (63-84%); her quarry is the Showboat pick ≥ 60% (88-99%); kill shots ≥ 0.5 a fight in most parties.
+- **Missed everywhere: the verb itself.** At bosses, 6-39% of the Wards on her parry (band ≥ 50%), and counters plus kill shots are 1-5% of her damage (band 20-40%). In Kael parties the boss's parryable blows go to Kael, so the Wards on her (her Call's answers, `serenParryWard` outside the boss's own blow) mostly expire.
+- Downs ≤ 0.3 is met only in SA, SC, LBS and VBS.
+
+### Oro's own numbers (Skilled; the Novice's in-field share beside it)
+
+| Party | Saplings in your field | Novice | Both standing | Felled | Tending | Rootbond | Ancients | Downs |
+|---|---|---|---|---|---|---|---|---|
+| OC | 88% | 80% | 99% | 0.8 | 4% | 763 | 3.2 | 0.40 |
+| OA | 90% | 78% | 100% | 0.3 | 2% | 760 | 4.5 | 0.36 |
+| OB | 85% | 72% | 100% | 0.5 | 4% | 755 | 2.4 | 0.91 |
+| SO | 91% | 83% | 98% | 1.6 | 2% | 814 | 6.5 | 1.02 |
+| W | 86% | 70% | 100% | 0.7 | 2% | 1,049 | 4.6 | 0.96 |
+| X | 87% | 86% | 99% | 1.2 | 2% | 443 | 4.9 | 0.68 |
+
+- Met: Saplings in your field ≥ 60% (84-91%); both standing ≥ 60%; tending ≤ 25% (2-4%: `oroFocus` keeps him awake).
+- The Novice's skill gap (≥ 15 points lower) is met only in W (16), LBO (18) and LSO (15). It is 8-13 elsewhere and 1 in X.
+- **Missed:** Oro's downs ≤ 0.3 (0.36-1.02), and his Bond XP ≥ 75% of the starters' (50-71%).
+- 'Both standing' was measured with the fight's intro seconds counted (up to 101%). The tally now counts the fight only.
+
+### Diagnosis (no tuning yet; the levers in the agreed order)
+
+1. **Oro stands in other heroes' cleaves** (65% of his downs). This is a hero-only movement fix, lever 2 in `grove.ts`: a `sidestepOthers` call in his own move arm, as Seren's duelist arm has. It also bears on Vexis's and Lyra's extra downs, since the blows that catch him are often second Twin Cleaves re-aimed after a first victim fell.
+2. **Seren's parry rarely fires at bosses**, and her Wards cost the party. (Her downs bear this out: 3 of 664 came while armed, so she goes down between Wards, not through them.)
+   - SC's Kael dies to his own Cantor Toll three times as often as the default's (75 to 24). The Ward economy shifts to Wards on her that expire unparried.
+   - First, the `verbs.ts` ablation of `serenParryWard`, `serenPerfectFirst` and her Call answer (lever 3). Then her own numbers (lever 1: Lunge and Feint cooldowns, so Feint baits more parries).
+3. **SO, KBO and X are slow:** they time out at the Unweaver and the Conductor. Two of their three heroes deal little damage at bosses, since Saplings ignore bosses and the counters barely fire. These are Seren's and Oro's damage numbers, lever 1.
+4. **Brann with a new hero (R, X, KBO) collapses at Vharun** (25-33%), mostly to second Twin Cleaves. Brann's own numbers are frozen. The levers are the new hero's movement (item 1) and the `serenReel` and `oroRally` ordering against Brann's Twin Cleave reserve (lever 3).
+5. **Whole runs lose on the road**, not at the Finale. W9 plays the skirmish and elite cells (Frayed Threshold, Glass Gallery, Crimson Gate) under the full protocol before tuning numbers to the bosses.
+6. W2b's aura reception (Q1-Q3) will move every Oro row, mostly in Oro's favour (the Saplings' life and swings). So the Oro diagnoses above are re-read after W2b lands, and before any Oro number moves.
+
+### OB's provisional bands (Q8), for your decision
+
+- **Measured:**
+  - boss cells −12 (the Cantor), +0 (Vharun), −33 (the Unweaver) and −29 (the Conductor), against the provisional ≥ default − 25;
+  - the whole run 32% (−42), against the provisional ≥ default − 20.
+- **OB is not the outlier.** OA and OB lose the same 42 points on the whole run, and OB's boss gap is no worse than SB's at the Cantor or W's at Vharun.
+- **Recommendation:**
+  - Keep the provisional bands (bosses ≥ default − 25, runs ≥ default − 20) unchanged until W9 re-measures with W2b and the item 1 movement fix, on all three seed sets at 50 seeds.
+  - Replace them only if OB is then the one party still outside its band. In that case the choice is between widening OB's band and the Heartwood alternative, which is a Quirk change and so yours to make.
 
 ## Determinism and invariance guards
 

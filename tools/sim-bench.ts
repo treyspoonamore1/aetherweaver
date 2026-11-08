@@ -6,7 +6,7 @@
 import { performance } from 'node:perf_hooks';
 import { makeBot } from '../src/bots';
 import { CHOIR, CONDUCTOR } from '../src/content/crucibleIds';
-import { ARRIVAL3_KIT, ARRIVAL4_KIT, kitConfig } from './kits';
+import { ARRIVAL3_KIT, ARRIVAL4_KIT, ARRIVAL_KIT, kitConfig } from './kits';
 import { runScenario } from './runScenario';
 import {
   SCENARIO_CANTOR,
@@ -119,6 +119,45 @@ export const SCENARIO_GRAND_SILENCE: Scenario = {
   driver: conductorDriver(9595, 0.26),
 };
 
+/**
+ * Oro's grove at its peak (docs/phase-5e.md, "The summon model": budget; bench-only, not a
+ * golden): party SO (Kael, Seren, Oro) with Seedling Swarm (3 Saplings) on the Gorehound
+ * Matriarch, five hounds loosed 10 s in and Wildgrowth Cued on them at once, so the Saplings'
+ * swings and taunt pulses, the Ancient's re-taunts, slams and root, and the Pack Call all run
+ * together. p95 ≤ 1.5 ms (Oro's band).
+ */
+export const SCENARIO_GROVE_PEAK: Scenario = {
+  name: 'grove-peak',
+  seed: 9696,
+  ticks: 60 * 90,
+  // debug: the hounds, the Solo charge and the Resonance are debug ops.
+  config: {
+    encounter: 'gorehound_matriarch',
+    debug: true,
+    party: ['kael', 'seren', 'oro'],
+    bonds: { talents: ['seedling_swarm'], solos: [] },
+    ...kitConfig(ARRIVAL_KIT),
+  },
+  driver: () => {
+    const player = makeBot('skilled', 9696);
+    return (tick, state) => {
+      const out = player.decide(state);
+      if (tick === 600) {
+        for (let i = 0; i < 5; i++)
+          out.push({
+            t: 'debug',
+            op: { op: 'spawnEnemy', defId: 'sanguine_hound', x: 8 - i * 4, z: -12 },
+          });
+        out.push({ t: 'debug', op: { op: 'chargeSolos' } });
+        out.push({ t: 'debug', op: { op: 'setResonance', value: 100 } });
+      }
+      // Wildgrowth, Cued, once the hounds are in (and again whenever it's ready).
+      if (tick >= 660 && tick % 60 === 0) out.push({ t: 'cue', slot: 2 });
+      return out;
+    };
+  },
+};
+
 /** The mirror-choir's voices (the conductor-peak's check). */
 export const CHOIR_VOICES: ReadonlySet<string> = new Set(CHOIR);
 
@@ -145,7 +184,8 @@ function bench(scenario: Scenario): void {
 if (process.argv[1]?.endsWith('sim-bench.ts')) {
   // The hound pack (docs/phase-5a.md): the Matriarch, Pack Call and a loose pack, Movement II's
   // peak; the Unweaver's phase 3 with adds, Movement III's (docs/phase-5c.md); the Conductor's
-  // Mirror Choir with Fortissimo Silence, and its Grand Silence, the Finale's (docs/phase-5d.md).
+  // Mirror Choir with Fortissimo Silence, and its Grand Silence, the Finale's (docs/phase-5d.md);
+  // Oro's grove with three Saplings and a Cued Ancient on the hound pack (docs/phase-5e.md).
   for (const scenario of [
     SCENARIO_CROWD,
     SCENARIO_FIRST_LIGHT,
@@ -154,6 +194,7 @@ if (process.argv[1]?.endsWith('sim-bench.ts')) {
     SCENARIO_UNWEAVER_PEAK,
     SCENARIO_CONDUCTOR_PEAK,
     SCENARIO_GRAND_SILENCE,
+    SCENARIO_GROVE_PEAK,
   ])
     bench(scenario);
   if (check && over) process.exit(1);

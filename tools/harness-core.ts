@@ -19,8 +19,11 @@ import {
   bloodRageBonus,
   chordReserve,
   createSim,
+  duelTarget,
   fightMovement,
+  gentle,
   isWeaverVia,
+  parryArmed,
   type EntityId,
   type NoteSource,
   type Sim,
@@ -82,6 +85,10 @@ export interface EncounterRun {
   timeInSanctuary: number | null;
   /** Brann's fight (docs/phase-5b.md, "Bots and harness"); absent without him in the party. */
   brann?: BrannTally;
+  /** Seren's fight (docs/phase-5e.md, "Harness and tools"); absent without her in the party. */
+  seren?: SerenTally;
+  /** Oro's fight and his grove's (docs/phase-5e.md); absent without him in the party. */
+  oro?: OroTally;
   /** Movement III's verbs (docs/phase-5c.md, "Harness"); absent outside a Movement III fight. */
   m3?: VerbTally3Result;
   /** The Finale's verbs (docs/phase-5d.md, "Harness"); absent outside the Conductor's fight. */
@@ -1103,6 +1110,402 @@ export class BrannWatch {
   }
 }
 
+// ── Seren and Oro (docs/phase-5e.md, "Harness and tools") ─────────────────────────────────
+
+/**
+ * How Seren's fight went (docs/phase-5e.md, "Seren's own bands"). Counts are a fight's; times are
+ * seconds; damage is HP and shields.
+ *
+ * - `parries`: blows she parried (a Ward's or Blade Waltz's); `perfectParries`: Perfect Wards on
+ *   her (each marks a kill shot); `killShots` taken, `killShotsLost` (disabled, the silence, or
+ *   its owner gone) and `executed` (a kill shot that executed its foe).
+ * - `counterDamage`: her counters' damage; `damage`: everything she dealt.
+ * - `wardsOn`: the Weaver's Wards on her; `wardsParried`: those that parried before they went.
+ * - `dodgesCancelled`: a dodge she had committed to, dropped as a Ward armed her parry (the stance).
+ * - `overextendedTime`, and `overextendedAnswered`: overextensions that ended within 3 s with her
+ *   standing (`overextensions` counts them all).
+ * - `beyondReachTime`: her alive seconds more than the Weaver's reach (14 m) away; `aliveTime`.
+ * - `quarryPickShare`: of her seconds with a target, the share it was the Showboat pick
+ *   (`duelTarget`).
+ * - `reelsOn` (Reels and Rewinds on her), `ralliesOn` (Rallies she obeyed), `lungeInterrupts`
+ *   (casts her Lunge broke), `downs`.
+ * - `feintTauntTime`: enemy-seconds taunted onto her (Feint is her one taunt).
+ * - `cutsStrikes` (Thousand Cuts' blinks onto an enemy), `cutsExtensions` (a Cued one's kills).
+ * - `enGarde`: the Resonance En Garde gave.
+ * - `killShotDamage`: her kill shots' damage (with the counters, 'your Wards dealt').
+ */
+export interface SerenTally {
+  parries: number;
+  perfectParries: number;
+  killShots: number;
+  killShotsLost: number;
+  executed: number;
+  counterDamage: number;
+  damage: number;
+  wardsOn: number;
+  wardsParried: number;
+  dodgesCancelled: number;
+  overextendedTime: number;
+  overextendedAnswered: number;
+  beyondReachTime: number;
+  quarryPickShare: number;
+  reelsOn: number;
+  ralliesOn: number;
+  lungeInterrupts: number;
+  downs: number;
+  feintTauntTime: number;
+  cutsStrikes: number;
+  cutsExtensions: number;
+  enGarde: number;
+  overextensions: number;
+  aliveTime: number;
+  killShotDamage: number;
+}
+
+/** The keys of a `SerenTally`, in order (the harness tests pin them). */
+export const SEREN_TALLY_KEYS: readonly (keyof SerenTally)[] = [
+  'parries',
+  'perfectParries',
+  'killShots',
+  'killShotsLost',
+  'executed',
+  'counterDamage',
+  'damage',
+  'wardsOn',
+  'wardsParried',
+  'dodgesCancelled',
+  'overextendedTime',
+  'overextendedAnswered',
+  'beyondReachTime',
+  'quarryPickShare',
+  'reelsOn',
+  'ralliesOn',
+  'lungeInterrupts',
+  'downs',
+  'feintTauntTime',
+  'cutsStrikes',
+  'cutsExtensions',
+  'enGarde',
+  'overextensions',
+  'aliveTime',
+  'killShotDamage',
+];
+
+/** An overextension that ends this soon (s), with her standing, was answered. */
+export const OVEREXTENDED_ANSWER_WITHIN = 3;
+
+/** The Weaver's reach (Ward, Chime, Reel and the Thread: content `techniques.reel.range`). */
+const WEAVER_REACH = CONTENT.techniques.reel.range;
+
+/**
+ * Tallies Seren's fight (`SerenTally`), tick by tick. `SerenWatch.of` is null without her (a hero
+ * with `duel` state) in the party, so no other party's `EncounterRun` gains the key.
+ */
+export class SerenWatch {
+  private readonly t: SerenTally = Object.fromEntries(
+    SEREN_TALLY_KEYS.map((k) => [k, 0]),
+  ) as unknown as SerenTally;
+  private lastTime: number;
+  private targeted = 0;
+  private picked = 0;
+  /** A Ward on her that hasn't parried yet. */
+  private wardOpen = false;
+  /** When her current overextension began (null: not overextended). */
+  private overSince: number | null = null;
+  private dodge: { telegraph: number; until: number; sure: boolean } | null = null;
+  private cutsEnd: number | undefined;
+
+  private constructor(
+    readonly id: EntityId,
+    sim: Sim,
+  ) {
+    this.lastTime = sim.state.time;
+  }
+
+  /** A watch on the party's duellist (Seren), or null when it has none. */
+  static of(sim: Sim): SerenWatch | null {
+    const id = sim.state.party.find((p) => sim.state.entities.get(p)?.hero?.duel !== undefined);
+    return id === undefined ? null : new SerenWatch(id, sim);
+  }
+
+  tick(sim: Sim, events: readonly SimEvent[]): void {
+    const state = sim.state;
+    const t = this.t;
+    const me = state.entities.get(this.id);
+    let lunged = false;
+    for (const e of events) {
+      switch (e.type) {
+        case 'parried':
+          if (e.hero !== this.id) break;
+          t.parries++;
+          // A Ward's parry spends it (Riposte Chain's first leaves it on: counted once).
+          if (this.wardOpen && !(me?.hero?.soloId === 'blade_waltz' && me.hero.soloActive > 0)) {
+            t.wardsParried++;
+            this.wardOpen = false;
+          }
+          break;
+        case 'perfectWard':
+          if (e.target === this.id) t.perfectParries++;
+          break;
+        case 'killShot':
+          if (e.hero !== this.id) break;
+          if (e.lost !== undefined) {
+            t.killShotsLost++;
+            break;
+          }
+          t.killShots++;
+          t.killShotDamage += e.amount;
+          if (e.executed) t.executed++;
+          break;
+        case 'parryCountered':
+          if (e.hero === this.id) t.counterDamage += e.amount;
+          break;
+        case 'damageTaken':
+          // A possessed Seren's blows on her allies aren't damage she dealt.
+          if (e.source === this.id && !state.party.includes(e.target))
+            t.damage += e.amount + e.absorbed;
+          break;
+        case 'techniqueCast':
+          if (e.target !== this.id) break;
+          if (e.technique === 'ward') {
+            t.wardsOn++;
+            this.wardOpen = true;
+          } else if (e.technique === 'reel' || e.technique === 'rewind') t.reelsOn++;
+          break;
+        case 'directiveAck':
+          if (e.hero === this.id && e.directive === 'rally') t.ralliesOn++;
+          break;
+        case 'attackFired':
+          if (e.source !== this.id) break;
+          if (e.visual === 'lunge') lunged = true;
+          // Thousand Cuts' blinks onto an enemy (its return blink has no target).
+          if (e.visual === 'blink' && e.target !== null) t.cutsStrikes++;
+          break;
+        case 'castInterrupted':
+          if (lunged && e.by === this.id) t.lungeInterrupts++;
+          break;
+        case 'allyDowned':
+          if (e.hero === this.id) t.downs++;
+          break;
+        case 'resonanceGained':
+          if (e.reason === 'enGarde') t.enGarde += e.amount;
+          break;
+        case 'overextended':
+          if (e.hero !== this.id) break;
+          if (e.on) {
+            t.overextensions++;
+            this.overSince = state.time;
+          } else {
+            const h = me?.health;
+            if (
+              this.overSince !== null &&
+              state.time - this.overSince <= OVEREXTENDED_ANSWER_WITHIN + 1e-9 &&
+              h &&
+              !h.downed &&
+              !h.dead
+            )
+              t.overextendedAnswered++;
+            this.overSince = null;
+          }
+          break;
+        default:
+          break;
+      }
+    }
+    const dt = state.time - this.lastTime;
+    this.lastTime = state.time;
+    const hero = me?.hero;
+    const h = me?.health;
+    if (!me || !hero || !h) return;
+    // The stance: a dodge she had committed to, dropped before it ran out while a Ward armed her.
+    const was = this.dodge;
+    const now = hero.dodge;
+    if (
+      was &&
+      !was.sure &&
+      (now === null || now.telegraph !== was.telegraph) &&
+      state.time <= was.until &&
+      parryArmed(me) &&
+      state.telegraphs.some((x) => x.id === was.telegraph)
+    )
+      t.dodgesCancelled++;
+    this.dodge = now ? { telegraph: now.telegraph, until: now.until, sure: !!now.sure } : null;
+    // A Ward that went without parrying (expired, broken by a blow it couldn't parry).
+    if (this.wardOpen && !h.shields.some((s) => s.kind === 'ward')) this.wardOpen = false;
+    const duel = hero.duel;
+    if (duel) {
+      if (this.cutsEnd !== undefined && duel.cutsEnd !== undefined && duel.cutsEnd > this.cutsEnd)
+        t.cutsExtensions++;
+      this.cutsEnd = duel.cutsEnd;
+    }
+    // Times count the fight itself (its intro and its end aren't hers).
+    if (dt <= 0 || h.downed || h.dead || state.encounter.status !== 'fighting') return;
+    t.aliveTime += dt;
+    const w = state.entities.get(state.weaverId);
+    if (w && Math.hypot(me.x - w.x, me.z - w.z) > WEAVER_REACH) t.beyondReachTime += dt;
+    if (hero.targetId !== null) {
+      this.targeted += dt;
+      if (hero.targetId === duelTarget(state, me)?.id) this.picked += dt;
+    }
+    for (const m of state.entities.list())
+      if (m.enemy && m.enemy.tauntTarget === this.id && m.enemy.tauntUntil > state.time)
+        t.feintTauntTime += dt;
+  }
+
+  result(sim: Sim): SerenTally {
+    const duel = sim.state.entities.get(this.id)?.hero?.duel;
+    return {
+      ...this.t,
+      overextendedTime: duel?.overextendedTime ?? 0,
+      quarryPickShare: this.targeted > 0 ? this.picked / this.targeted : 0,
+    };
+  }
+}
+
+/**
+ * How Oro's fight went, and his grove's (docs/phase-5e.md, "Oro's own bands"). Times are
+ * seconds; Sapling times are Sapling-seconds (two Saplings standing a second is 2).
+ *
+ * - `saplingAliveTime`, `saplingInFieldTime` (inside your field), `saplingsLost` (felled),
+ *   `regrowths` (Regrowth casts), `rootbondHeal` (the Thread's Mend on his summons).
+ * - `saplingDamage`: his Saplings' damage (HP and shields).
+ * - `tendingTime` (alive, Gentle with no Focus) and `focusTime` (alive, with a Focus).
+ * - `ancientTauntTime`: enemy-seconds taunted onto the Ancient; `ancientAuraTime`: seconds a Cued
+ *   Ancient's disc stood as your field (`field.ancient`, Q2).
+ * - `verdantHeal`: the grove's healing on heroes and the Weaver (Verdant Choir, HealVia 'grove').
+ * - `threadCuts`: enemy cuts of the Thread while it was on him (Rootbond went with it); `downs`.
+ * - `aliveTime`: his own; `bothStandingTime`: seconds with every Sapling of his grove standing;
+ *   `ancients`: the Ancients raised.
+ */
+export interface OroTally {
+  saplingAliveTime: number;
+  saplingInFieldTime: number;
+  saplingsLost: number;
+  regrowths: number;
+  rootbondHeal: number;
+  saplingDamage: number;
+  tendingTime: number;
+  focusTime: number;
+  ancientTauntTime: number;
+  ancientAuraTime: number;
+  verdantHeal: number;
+  threadCuts: number;
+  downs: number;
+  aliveTime: number;
+  bothStandingTime: number;
+  ancients: number;
+}
+
+/** The keys of an `OroTally`, in order (the harness tests pin them). */
+export const ORO_TALLY_KEYS: readonly (keyof OroTally)[] = [
+  'saplingAliveTime',
+  'saplingInFieldTime',
+  'saplingsLost',
+  'regrowths',
+  'rootbondHeal',
+  'saplingDamage',
+  'tendingTime',
+  'focusTime',
+  'ancientTauntTime',
+  'ancientAuraTime',
+  'verdantHeal',
+  'threadCuts',
+  'downs',
+  'aliveTime',
+  'bothStandingTime',
+  'ancients',
+];
+
+/**
+ * Tallies Oro's fight (`OroTally`), tick by tick. `OroWatch.of` is null without him (a hero with
+ * `grove` state) in the party.
+ */
+export class OroWatch {
+  private readonly t: OroTally = Object.fromEntries(
+    ORO_TALLY_KEYS.map((k) => [k, 0]),
+  ) as unknown as OroTally;
+  private lastTime: number;
+  /** His summons' kinds by id, learnt as they stand (a felled one's hits still count). */
+  private readonly kinds = new Map<EntityId, 'sapling' | 'ancient'>();
+
+  private constructor(
+    readonly id: EntityId,
+    sim: Sim,
+  ) {
+    this.lastTime = sim.state.time;
+    this.learn(sim);
+  }
+
+  /** A watch on the party's summoner (Oro), or null when it has none. */
+  static of(sim: Sim): OroWatch | null {
+    const id = sim.state.party.find((p) => sim.state.entities.get(p)?.hero?.grove !== undefined);
+    return id === undefined ? null : new OroWatch(id, sim);
+  }
+
+  private learn(sim: Sim): void {
+    for (const e of sim.state.entities.list())
+      if (e.summon && e.summon.owner === this.id) this.kinds.set(e.id, e.summon.kind);
+  }
+
+  tick(sim: Sim, events: readonly SimEvent[]): void {
+    const state = sim.state;
+    const t = this.t;
+    for (const e of events)
+      if (e.type === 'summonSpawned' && e.owner === this.id) this.kinds.set(e.summon, e.kind);
+    for (const e of events) {
+      switch (e.type) {
+        case 'damageTaken':
+          if (e.source !== null && this.kinds.get(e.source) === 'sapling')
+            t.saplingDamage += e.amount + e.absorbed;
+          break;
+        case 'abilityUsed':
+          if (e.source === this.id && e.ability === 'regrowth') t.regrowths++;
+          break;
+        case 'healApplied':
+          if (e.via === 'grove' && !this.kinds.has(e.target)) t.verdantHeal += e.amount;
+          break;
+        case 'threadSnapped':
+          if (e.cause !== undefined && e.target === this.id) t.threadCuts++;
+          break;
+        case 'allyDowned':
+          if (e.hero === this.id) t.downs++;
+          break;
+        default:
+          break;
+      }
+    }
+    const dt = state.time - this.lastTime;
+    this.lastTime = state.time;
+    const me = state.entities.get(this.id);
+    const grove = me?.hero?.grove;
+    if (dt <= 0 || !me?.health || !grove || state.encounter.status !== 'fighting') return;
+    if (state.field.ancient) t.ancientAuraTime += dt;
+    if (grove.saplings.length > 0 && grove.respawnAt.every((at) => at === 0))
+      t.bothStandingTime += dt;
+    const ancient = grove.ancient;
+    if (ancient !== null)
+      for (const m of state.entities.list())
+        if (m.enemy && m.enemy.tauntTarget === ancient && m.enemy.tauntUntil > state.time)
+          t.ancientTauntTime += dt;
+    if (me.health.downed || me.health.dead) return;
+    t.aliveTime += dt;
+    if (gentle(state, me)) t.tendingTime += dt;
+    else t.focusTime += dt;
+  }
+
+  result(sim: Sim): OroTally {
+    const grove = sim.state.entities.get(this.id)?.hero?.grove;
+    return {
+      ...this.t,
+      saplingAliveTime: grove?.aliveTime ?? 0,
+      saplingInFieldTime: grove?.inFieldTime ?? 0,
+      saplingsLost: grove?.lost ?? 0,
+      rootbondHeal: grove?.rootbondHeal ?? 0,
+      ancients: grove?.ancients ?? 0,
+    };
+  }
+}
+
 /**
  * Plays one fight to its end (or 9 minutes). `watch`, when given, sees the sim and each tick's
  * events after the harness's own tallies (tools/brann-bands.ts reads more from them); it only
@@ -1119,6 +1522,8 @@ export function playEncounter(
   let incoming = 0;
   const verbs = new VerbTally();
   const brann = BrannWatch.of(sim);
+  const seren = SerenWatch.of(sim);
+  const oro = OroWatch.of(sim);
   const m3 = VerbTally3.of(sim);
   const finale = FinaleWatch.of(sim);
   for (let t = 0; t < maxTicks; t++) {
@@ -1130,6 +1535,8 @@ export function playEncounter(
     }
     verbs.tick(sim, events);
     brann?.tick(sim, events);
+    seren?.tick(sim, events);
+    oro?.tick(sim, events);
     m3?.tick(sim, events);
     finale?.tick(sim, events);
     watch?.(sim, events);
@@ -1175,6 +1582,8 @@ export function playEncounter(
     executions: verbs.executions,
     timeInSanctuary: verbs.timeInSanctuary,
     ...(brann ? { brann: brann.result(sim) } : {}),
+    ...(seren ? { seren: seren.result(sim) } : {}),
+    ...(oro ? { oro: oro.result(sim) } : {}),
     ...(m3 ? { m3: m3.result() } : {}),
     ...(finale ? { finale: finale.result() } : {}),
   };

@@ -14,9 +14,10 @@
  * the extra enemy life that costs as much, on a logistic scale between the base and the base
  * with 25% more life; a talent that helps is worth negative life.
  *
- * A hero outside the default party (Brann, docs/phase-5b.md) is measured in a party that has
- * him (`heroParty`): a run's Bonds resolve only for the heroes in its party, so with the default
- * party his rows would read as the base. `--sets`' "everyone" rows are played per party.
+ * A hero outside the default party (Brann, docs/phase-5b.md; Seren and Oro, docs/phase-5e.md) is
+ * measured in a party that has them (`heroParty`: Brann's party A, Seren's SA, Oro's OA): a run's
+ * Bonds resolve only for the heroes in its party, so with the default party their rows would read
+ * as the base. `--sets`' "everyone" rows are played per party.
  */
 import type { BotKind } from '../src/bots';
 import { CONTENT } from '../src/content';
@@ -40,7 +41,8 @@ const logit = (p: number) => {
 /**
  * The party a hero's Bonds are measured in: the default party for its own heroes (undefined, so
  * their numbers are unchanged), else party A of docs/phase-5b.md: the default party's tank and
- * mage, with the hero in the archer's place, in content order.
+ * mage, with the hero in the archer's place, in content order (for Seren and Oro, the harness's
+ * SA and OA, docs/phase-5e.md).
  */
 export function heroParty(hero: string): string[] | undefined {
   const base = CONTENT.defaultParty;

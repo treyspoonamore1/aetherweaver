@@ -13,6 +13,9 @@
  * Maw never comes to the party, so without it the fight never ends. While one of the Unweaver's
  * Spindles stands she now and then Focuses the nearest (its Decree says to; the heroes keep to the
  * boss). Her heal-the-lowest reflex is what the Shears, Unravel and the Mimic punish.
+ * With Seren or Oro (docs/phase-5e.md, `NOVICE_ROSTER`) she now and then Wards Seren in a fight,
+ * Focuses to wake a tending Oro, and Rallies a Sapling back into the field; each draws only with
+ * its hero in the party, just before the Cue's draw. She keeps off a duelling Seren as off Brann.
  */
 import { CONTENT } from '../content';
 import { Rng } from '../sim/core/rng';
@@ -61,6 +64,8 @@ import {
   isCadence,
   isStilled,
   silenceOf,
+  duelOf,
+  groveOf,
   type HeroView,
 } from './common';
 import { MEASURE } from '../content/crucibleIds';
@@ -106,17 +111,38 @@ export type NoviceM4Rule = keyof typeof NOVICE_M4;
 /** The Novice's Finale rules, in `NOVICE_M4`'s order: the ablation's rows. */
 export const NOVICE_M4_RULES = Object.keys(NOVICE_M4) as NoviceM4Rule[];
 
+/**
+ * Seren's and Oro's chances (docs/phase-5e.md, "Novice"), each drawn only with that hero in the
+ * party and its moment up, after every other draw and immediately before the Cue's.
+ */
+export const NOVICE_ROSTER = {
+  /** Ward Seren while she is engaged (an enemy on her) and unwarded. */
+  serenWard: 0.3,
+  /** Focus the enemy nearest the Weaver while Oro tends with enemies near. */
+  oroFocus: 0.15,
+  /** Rally while one of Oro's Saplings stands outside the field. */
+  saplingRally: 0.2,
+} as const;
+/** A Seren or Oro draw `NoviceOptions.skip` can leave off (tools/verbs.ts `--bot novice`). */
+export type NoviceRosterRule = keyof typeof NOVICE_ROSTER;
+/** The Novice's Seren and Oro rules, in `NOVICE_ROSTER`'s order: the ablation's rows. */
+export const NOVICE_ROSTER_RULES = Object.keys(NOVICE_ROSTER) as NoviceRosterRule[];
+/** `oroFocus`: an enemy this near Oro or the Weaver (m) is near. */
+const ORO_NEAR = 10;
+
 /** The Novice's options (all optional; absent, she plays as she always has). */
 export interface NoviceOptions {
   /**
    * Verb ablation (tools/verbs.ts `--bot novice`, docs/phase-5d.md "Tuning order" 2): Finale
    * draws to leave off. A rule left off isn't drawn at all, so the draws after it shift.
    */
-  skip?: ReadonlySet<NoviceM4Rule>;
+  skip?: ReadonlySet<NoviceM4Rule | NoviceRosterRule>;
 }
 
 /** `silenceChime`: a Rest's Dirge with this little left; `silenceReel`: a Cadence's. */
 const REST_CHIME_AT = 1.2;
+/** The roles that leave the group for the melee: `noviceAnchor` keeps her off them. */
+const CHARGERS: ReadonlySet<string> = new Set(['berserker', 'duelist']);
 const CADENCE_REEL_AT = 0.8;
 
 export class NoviceBot implements Bot {
@@ -140,8 +166,8 @@ export class NoviceBot implements Bot {
     this.rng = new Rng(seed ^ 0x0b1e);
   }
 
-  /** A Finale draw is played (not left off by the ablation). */
-  private on(rule: NoviceM4Rule): boolean {
+  /** A Finale (or Seren and Oro) draw is played (not left off by the ablation). */
+  private on(rule: NoviceM4Rule | NoviceRosterRule): boolean {
     return this.opts.skip?.has(rule) !== true;
   }
 
@@ -372,6 +398,8 @@ export class NoviceBot implements Bot {
 
     // The Finale (docs/phase-5d.md): each draws only while its mechanic is up.
     this.finale(state, party, w, silence, out);
+    // Seren and Oro (docs/phase-5e.md): each draws only with its hero in the party.
+    this.roster(state, party, enemies, w, out);
 
     // Cue whoever is ready, now and then; Crescendo when things look bad. (A hero stilled by
     // the Grand Silence can't take a Cue: never so outside the Finale.)
@@ -390,6 +418,63 @@ export class NoviceBot implements Bot {
     // A Ward, Chime or Reel cast inside a Null rune fizzles (Movement III): she may notice.
     if (silenced && out.some((c) => c.t === 'tech')) this.fizzled = true;
     return out;
+  }
+
+  /**
+   * Seren's and Oro's draws (`NOVICE_ROSTER`, docs/phase-5e.md): a Ward on an engaged, unwarded
+   * Seren; a Focus that wakes a tending Oro; a Rally for a Sapling outside the field. Each draws
+   * only with its hero standing and its moment up (no draw at all without Seren or Oro).
+   */
+  private roster(
+    state: WorldState,
+    party: readonly HeroView[],
+    enemies: readonly ReadonlyEntity[],
+    w: ReadonlyEntity,
+    out: Command[],
+  ): void {
+    const duel = duelOf(state, party);
+    const grove = groveOf(state, party);
+    if (!duel && !grove) return;
+    const wc = w.weaver!;
+    const tech = CONTENT.techniques;
+    const has = (t: Command['t'], id?: string) =>
+      out.some((c) => c.t === t && (id === undefined || (c.t === 'tech' && c.id === id)));
+    if (duel && this.on('serenWard')) {
+      const e = duel.seren.e;
+      const engaged = enemies.some((m) => m.enemy!.targetId === e.id && dist(m, e) < 4);
+      if (
+        engaged &&
+        !duel.armed &&
+        dist(e, w) < tech.ward.range &&
+        wc.wardCharges > 0 &&
+        affords(state, 'ward') &&
+        !has('tech', 'ward') &&
+        this.rng.chance(NOVICE_ROSTER.serenWard)
+      )
+        out.push({ t: 'tech', id: 'ward', slot: duel.seren.slot });
+    }
+    if (grove && this.on('oroFocus') && grove.tending && !has('directive')) {
+      const near = enemies.filter(
+        (m) => !stationary(m) && (dist(m, grove.oro.e) < ORO_NEAR || dist(m, w) < ORO_NEAR),
+      );
+      if (near.length > 0 && this.rng.chance(NOVICE_ROSTER.oroFocus)) {
+        let target = near[0]!;
+        for (const m of near) if (dist(m, w) < dist(target, w)) target = m;
+        out.push({ t: 'directive', kind: 'focus', target: target.id });
+      }
+    }
+    if (
+      grove &&
+      this.on('saplingRally') &&
+      grove.outside.length > 0 &&
+      !state.field.suppressed &&
+      !has('directive') &&
+      state.tick >= this.rallyAllowed &&
+      this.rng.chance(NOVICE_ROSTER.saplingRally)
+    ) {
+      out.push({ t: 'directive', kind: 'rally' });
+      this.rallyAllowed = state.tick + 180;
+    }
   }
 
   /**
@@ -497,12 +582,13 @@ export class NoviceBot implements Bot {
  * Who a Novice stays near: the standing party. With Brann (docs/phase-5b.md), who always charges
  * into the melee, she stays where she would with the default party instead: on the others, two
  * parts back line to one part front (with Kael and one ranger, the ranger counts twice), so his
- * charge doesn't pull her into the cleaves aimed at Kael. Without Brann it is the party, as before
- * (no new draw either way).
+ * charge doesn't pull her into the cleaves aimed at Kael. Seren (docs/phase-5e.md), who leaves
+ * the group to duel, is left out the same way. Oro's summons are never in it (they aren't in
+ * the party). Without Brann or Seren it is the party, as before (no new draw either way).
  */
 function noviceAnchor(party: readonly HeroView[], all: readonly HeroView[]): readonly HeroView[] {
-  if (!all.some((h) => h.role === 'berserker')) return party;
-  const rest = party.filter((h) => h.role !== 'berserker');
+  if (!all.some((h) => CHARGERS.has(h.role))) return party;
+  const rest = party.filter((h) => !CHARGERS.has(h.role));
   if (rest.length === 0) return party;
   const back = rest.filter((h) => h.role !== 'tank');
   return back.length === 1 ? [...rest, back[0]!] : rest;
