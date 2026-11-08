@@ -71,12 +71,12 @@ const NINETEEN: Readonly<Record<string, string>> = { ...FIFTEEN, ...M4_HASHES };
  * them. Only W8 or later may append to golden.json.
  */
 const ROSTER_HASHES: Readonly<Record<string, string>> = {
-  'skilled-seren-crimson-gate': '46879a04e120c1ce',
+  'skilled-seren-crimson-gate': 'e0c67ed50ac55818',
   'novice-seren-first-light': '0938c093f5e660cc',
-  'skilled-oro-bellwarden': '552c8f11a4665d3b',
+  'skilled-oro-bellwarden': 'dd3b483ebd1baa3c',
   'skilled-red-line-vharun': 'fe0a62722e1c72e0',
-  'skilled-oro-conductor': '53a7ac7834ffde8f',
-  'novice-grove-mirror-hall': '13f3bb8e8df1eebd',
+  'skilled-oro-conductor': 'dc1907360738bfe2',
+  'novice-grove-mirror-hall': '46528039e77c2217',
 };
 
 /** All twenty-five goldens, in golden.json's order. */

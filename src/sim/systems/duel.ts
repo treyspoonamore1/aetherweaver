@@ -38,7 +38,7 @@ import { bark } from '../combat/feedback';
 import { gainResonance } from '../combat/resonance';
 import { recordSave } from '../combat/saves';
 import { answered, contains } from '../combat/telegraphs';
-import { topThreat } from '../combat/threat';
+import { addThreat, topThreat } from '../combat/threat';
 import { hasTalent, soloValue, talentFired, talentValue } from '../bonds';
 import { isRooted } from '../rules3';
 import type {
@@ -69,6 +69,32 @@ const LOW_OUTSIDE = 0.4;
 export const LUNGE_CONTACT = 3.5;
 /** A Lunge lands this far short of its target's edge. */
 const LUNGE_SHORT = 1.2;
+
+/**
+ * With no Kael (no tank) in the party, Seren holds the bosses (docs/phase-5e.md, "By party": SB
+ * and W, "threat (Seren usually), who parries"): her hits on a boss or miniboss count this many
+ * times her own threat. Measured (W9 prep): at her plain threat a Kael-less boss stays on Lyra
+ * or Vexis (SB 93-98% on Lyra), and her `threatMult` within its ±20% (1.2) moves it by 0-5
+ * points; ×3 holds the Cantor only, ×4 the Cantor and the Conductor; ×6 holds all four bosses
+ * (93-98% on her in SB). A boss is never bound (no taunt): she holds it by threat, and loses it
+ * as Kael would, to a bigger hitter.
+ */
+export const DUEL_BOSS_THREAT = 6;
+
+/**
+ * dealDamage, Seren's hit on an enemy (after its plain threat): the boss-holding share above,
+ * only on a boss or miniboss and only in a party with no tank. Inert in every other party.
+ */
+export function duelThreat(world: World, source: Entity, target: Entity, total: number): void {
+  const tier = target.enemy?.tier;
+  if ((tier !== 'boss' && tier !== 'miniboss') || !(total > 0)) return;
+  for (const id of world.party) {
+    const h = world.entities.get(id)?.hero;
+    if (h && heroDef(h.defId).role === 'tank') return;
+  }
+  const mult = heroDef(source.hero!.defId).threatMult;
+  addThreat(target, source.hero!.slot, total * mult * (DUEL_BOSS_THREAT - 1));
+}
 
 // ── State ─────────────────────────────────────────────────────────────────────────────
 

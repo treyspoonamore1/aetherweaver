@@ -44,7 +44,7 @@
  * Lyra in the roster the hardest hitter breaks a discord shield. Each is behind its hero's reader
  * and draws nothing, so every other party's command stream is unchanged.
  */
-import { CONTENT, partyHasDome } from '../content';
+import { CONTENT, heroDef, partyHasDome } from '../content';
 import { Rng } from '../sim/core/rng';
 import { bloodRageBonus, gentle, segmentDistSq, weaverSilenced } from '../sim';
 import { contains } from '../sim/combat/telegraphs';
@@ -250,6 +250,11 @@ export const ROSTER_RULES = [
   'serenParryWard',
   /** Reel her out when she is overextended and hurt (the Chronomancer, or Swap: a Rally). */
   'serenReel',
+  /**
+   * Answer her Lunge Call with a Ward (the plain Call answer, kept for her as it is for every
+   * hero; left off only by the ablation, which then skips a Ward Call from her alone).
+   */
+  'serenCall',
   /** Never Swap into her duel. */
   'serenNoSwap',
   /** Cue Thousand Cuts at 4+ enemies or when she is overextended. */
@@ -606,6 +611,7 @@ export class SkilledBot implements Bot {
       } else if (
         answerNow &&
         call!.answer === 'ward' &&
+        !(duel && calling!.slot === duel.seren.slot && !this.on('serenCall')) &&
         !bigHitSoon &&
         dist(calling!.e, w) < tech.ward.range - 0.3 &&
         !mimicWard &&
@@ -1181,6 +1187,9 @@ export class SkilledBot implements Bot {
           this.on('oroRally') &&
           now - this.lastRally > gap(ORO_RALLY_GAP) &&
           !state.field.suppressed &&
+          // Not while a boss is on a hero who stands behind you (W9 prep, the ablation): a Rally
+          // walks that hero to formation, and the boss after it, through you and Oro.
+          !bossBehind(state, party) &&
           rallyBringsHome(state, grove, this.saplingsLeftOut(grove, now)));
       if (rallyFor) {
         out.push({ t: 'directive', kind: 'rally' });
@@ -2329,6 +2338,10 @@ function serenParryWard(
     if (left > PARRY_WARD_AHEAD) break;
     if (left < 0) continue;
     if (b.telegraph && perfectFirst) continue;
+    // A plain swing is parry fodder: it never takes the last Ward charge (W9 prep, the ablation:
+    // holding a Kael-less boss, she drew a Ward for every boss swing and left the next cone on
+    // Lyra or Vexis unwarded).
+    if (!b.telegraph && w.weaver!.wardCharges < 2) continue;
     return true;
   }
   return false;
@@ -2368,6 +2381,22 @@ function serenReelDue(state: WorldState, duel: DuelView, w: ReadonlyEntity, reel
   if (effectiveFraction(e) >= SEREN_REEL_BELOW) return false;
   if (state.telegraphs.some((t) => t.severity === 'lethal')) return false;
   return !reel || dist(e, w) <= CONTENT.techniques.reel.range - 0.3;
+}
+
+/**
+ * `oroRally`'s boss guard: the boss (or a miniboss) is after a hero whose formation spot is
+ * behind the Weaver (Lyra, Vexis, Oro). A Rally then walks that hero home and brings the boss
+ * through the Weaver and the grove (OB's bosses, the Unweaver on Lyra in OC). With Kael, Brann
+ * or Seren holding it, their spots are in front, and the Rally re-plants as it always did.
+ */
+function bossBehind(state: WorldState, party: readonly HeroView[]): boolean {
+  for (const m of state.entities.list()) {
+    const c = m.enemy;
+    if (!c || (c.tier !== 'boss' && c.tier !== 'miniboss') || !m.health || m.health.dead) continue;
+    const on = party.find((h) => h.e.id === c.targetId);
+    if (on && heroDef(on.defId).formation.forward < 0) return true;
+  }
+  return false;
 }
 
 /**

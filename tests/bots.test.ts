@@ -3550,9 +3550,34 @@ describe('the Skilled bot with Seren (staged)', () => {
     expect(wardOn(off.out, off.kael)).toBe(true);
   });
 
+  it('serenCall: answers her Lunge Call with a Ward; left off, only her Ward Call goes unanswered', () => {
+    const answered = (who: 'seren' | 'kael', skip: RosterRule[] = []) => {
+      const { sim, w, of } = serenStage();
+      const h = of(who);
+      w.entities.get(w.weaverId)!.weaver!.wardCharges = 2;
+      h.hero!.call = {
+        answer: 'ward',
+        ability: 0,
+        start: w.time - 1,
+        end: w.time + 1,
+        answered: false,
+        target: null,
+        x: h.x,
+        z: h.z,
+      };
+      return wardOn(skilled(skip).decide(sim.state), h.hero!.slot);
+    };
+    expect(answered('seren')).toBe(true);
+    expect(answered('seren', ['serenCall'])).toBe(false);
+    // Kael's Ward Call is the plain answer's, whatever the rule.
+    expect(answered('kael', ['serenCall'])).toBe(true);
+  });
+
   it('serenParryWard: Wards her before her mark’s next swing, within the Ward’s life', () => {
     const due = (cooldown: number, armed = false, skip: RosterRule[] = []) => {
       const { sim, w, seren, slot } = serenStage();
+      // A spare charge: a plain swing never takes the last one.
+      w.entities.get(w.weaverId)!.weaver!.wardCharges = 2;
       onSeren(w, seren, 1, cooldown);
       if (armed)
         seren.health!.shields.push({
@@ -3569,6 +3594,14 @@ describe('the Skilled bot with Seren (staged)', () => {
     expect(due(1)).toBe(true);
     // Not yet: a Ward now would be gone before it lands.
     expect(due(2.8)).toBe(false);
+    // A plain swing never takes the last Ward charge (W9 prep, the ablation).
+    const last = (() => {
+      const { sim, w, seren, slot } = serenStage();
+      onSeren(w, seren, 1, 1);
+      w.entities.get(w.weaverId)!.weaver!.wardCharges = 1;
+      return wardOn(skilled().decide(sim.state), slot);
+    })();
+    expect(last).toBe(false);
     // Already en garde.
     expect(due(1, true)).toBe(false);
     expect(due(1, false, ['serenParryWard'])).toBe(false);
@@ -3577,6 +3610,7 @@ describe('the Skilled bot with Seren (staged)', () => {
   it('serenParryWard in a boss fight: only the boss’s own blow at her, never with a blow on Kael live', () => {
     const fight = (opts: { bossOnHer: boolean; onKael: boolean }) => {
       const { sim, w, seren, slot, of } = serenStage();
+      w.entities.get(w.weaverId)!.weaver!.wardCharges = 2;
       onSeren(w, seren, 1, 1);
       const boss = foe(w, 'gorehound_matriarch', seren.x - 2.6, seren.z, { hp: 1e6 });
       boss.enemy!.state = 'approach';
@@ -3886,6 +3920,31 @@ describe('the Skilled bot with Oro (staged)', () => {
     expect(rallyTimes(true, ['oroRally'])).toEqual([]);
   });
 
+  it('oroRally: never while a boss is on a hero who stands behind you (W9 prep, the ablation)', () => {
+    const rallyTimes = (on: 'kael' | 'vexis' | null) => {
+      const { sim, w, saplings } = grove(['kael', 'vexis', 'oro']);
+      const of = (id: string) =>
+        w.party.map((p) => w.entities.get(p)!).find((e) => e.hero!.defId === id)!;
+      const boss = foe(w, 'the_bellwarden', 0, -14, { hp: 1e7, stun: true });
+      const bot = skilled(['groveCover']);
+      const at: number[] = [];
+      for (let t = 0; t < 60 * 9; t++) {
+        for (const s of saplings) if (!s.health!.dead) plantAt(s, 16, 0);
+        boss.enemy!.targetId = on === null ? null : of(on).id;
+        const out = bot.decide(sim.state);
+        if (rallies(out)) at.push(t);
+        sim.step(out);
+        sim.drainEvents();
+      }
+      return at;
+    };
+    // On Kael (his spot is in front) or on no one, the re-plant goes ahead as before.
+    expect(rallyTimes('kael').length).toBeGreaterThan(0);
+    expect(rallyTimes(null).length).toBeGreaterThan(0);
+    // On Vexis (behind you), a Rally would walk the boss through you and the grove.
+    expect(rallyTimes('vexis')).toEqual([]);
+  });
+
   it('oroRally: no Rally where no re-plant lands in a field', () => {
     // The finding: a Rally re-plants ahead of the Weaver, so where no front spot stands in a
     // field (here every song shrunk to 2 m) a Rally every 5 s brought nothing home and pulled
@@ -4008,7 +4067,7 @@ describe('the Skilled bot with Oro (staged)', () => {
   });
 
   it('names every roster rule; leaving them all off changes nothing for a party without Seren or Oro', () => {
-    expect(new Set(ROSTER_RULES).size).toBe(11);
+    expect(new Set(ROSTER_RULES).size).toBe(12);
     const stream = (skip?: ReadonlySet<RosterRule>) => {
       const sim = createSim({ seed: 1000, encounter: 'crimson_gate', ...KIT, party: PARTY_A });
       const bot = new SkilledBot(1000, skip ? { ...SKILLED, skip } : SKILLED);

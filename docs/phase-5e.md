@@ -284,7 +284,7 @@ The build proceeds on every default except Q1-Q3, which gate W2b; until they are
 | Calls and `calls.ts` | `canCall` and `startCall` (`calls.ts:39-120`) pick the Call’s target through `leapTarget` for any ability with `minRange` (`:54, 95`). W0b adds one guarded dispatch: `ability.id === 'lunge' ? lungeTarget(...) : leapTarget(...)`. Regrowth’s opening rule (a Sapling felled or below 60%) is one more guarded `if (ability.id === 'regrowth' && !groveCallReady(...)) return false;`. | Brann’s Call is unchanged; Seren’s Call marks the enemy she will Lunge at. |
 | Feint | A **sure** 2.5 m sidestep (HeroDodge `sure`, `state.ts:411-421`) plus a 3 s **hard taunt** of one normal or elite enemy (`tauntTarget` plus `topThreat(...,150)`, the Challenge rule). The Hollow Champion is normal tier, so Feint holds it. On a boss or miniboss it is only the step. | Kael keeps bosses. Feint makes the duel blow you Ward. |
 | Thousand Cuts | 8 cuts over 4 s. Each is a blink to the nearest enemy not yet struck within 10 m of her start point and 13 m of the Weaver; it cycles when fewer remain. She is **invulnerable throughout** (`health.invulnerable` re-armed each pulse, an existing number), and at the end she **returns to her start point**.<br>**Cued:** each kill adds 0.5 s, up to +4 s. The extended end is stored (`duel.cutsEnd`), so `castProgress` (`solos.ts:104`) reads true. | It never strands her or snaps the Thread. |
-| Gentle | Without a Focus, Oro doesn’t attack and casts Bramble only defensively.<br>• His own **gentle retreat** in `grove.ts` steps 3 m away from any enemy within 4 m. The ranged `kite` (`heroes.ts:601-620`) only reacts to enemies targeting that hero within 3 m.<br>• His Saplings are *tended* (+50% damage).<br>• With a Focus he thorns it and Snares it.<br>His Solo charges, and autonomy’s `cueGrace` accrues, while he **or a Sapling** has a target: call sites at `heroes.ts:131` (charge), `:140` (`soloHeld`) and `:262` (`shouldFireUncued`’s `targetId === null` return). | He is never a zero-damage hero, and Focus becomes a trade-off rather than a switch. Without the three call sites a target-less Oro never charges and never fires uncued (docs/hero-autonomy.md). |
+| Gentle | Without a Focus, Oro doesn’t attack and casts Bramble only defensively.<br>• His own **gentle retreat** in `grove.ts` steps 3 m away from any enemy within 4 m. The ranged `kite` (`heroes.ts:601-620`) only reacts to enemies targeting that hero within 3 m.<br>• His Saplings are *tended* (+50% damage).<br>• With a Focus he thorns it and Snares it.<br>• He never stands in a blow aimed at another hero (W9 prep, the first look's diagnosis 1): his own lines in `combatMove` call `sidestepOthers`, as Seren's arm does, on his formation slot (no target or a Rally, through `formationSidestep`), on Gentle's retreat spot, and on his Focus position. Hold still holds him, and a blow aimed at him is the Weaver's to Ward.<br>His Solo charges, and autonomy’s `cueGrace` accrues, while he **or a Sapling** has a target: call sites at `heroes.ts:131` (charge), `:140` (`soloHeld`) and `:262` (`shouldFireUncued`’s `targetId === null` return). | He is never a zero-damage hero, and Focus becomes a trade-off rather than a switch. Without the three call sites a target-less Oro never charges and never fires uncued (docs/hero-autonomy.md). |
 | Enemy root | A new status `rooted`, on enemies only. It lasts 1.5 s and is followed by 4 s of root immunity (`EnemyComponent.rootImmuneUntil?`). It stops approach, chase, charge and leap (`enemies.ts:320-331, 1419`); attacks and casts go on, and it doesn’t interrupt. Bosses, minibosses and heavy foes are immune (the stun rule, `health.ts:269-280`, plus the heavy test). Heroes refuse it, since they have `pinned`. | One small primitive. A root that bound bosses would trivialise the Seamstress’s and Vharun’s positioning beats. |
 | The Ancient and bosses | The Ancient taunts and roots normal and elite, non-heavy enemies only. Bosses ignore it. | With telegraphs never hitting summons, a boss hold would buy nothing honest. No-Kael Oro parties use the existing no-tank answers (Q8). |
 | Heavy foes | `HEAVY_LIFE = 5000` base life (`rosterIds.ts`). A heavy foe is never executed by a kill shot, and is never taunted or rooted by summons. A W0a test enumerates heavy non-boss defs: `[mirror_champion]`. | The Hollow Champion is normal tier with 12,000 life: it would otherwise be one Perfect from death. |
@@ -356,7 +356,7 @@ The build proceeds on every default except Q1-Q3, which gate W2b; until they are
 | formation | `{forward 2.0, right -1.9}` | front-left |
 | attack | `melee` rapier, **60** per **0.75 s**, range 2.2, no cleave | 80 dps (Kael 69, Lyra 90) |
 | preferredRange | 1.2 | |
-| threatMult | 1.0 | Kael’s 3 keeps bosses on him |
+| threatMult | 1.0 | Kael’s 3 keeps bosses on him. With no Kael, her hits on a boss or miniboss count ×6 (`DUEL_BOSS_THREAT`, W9 prep; *default, awaiting your confirmation*), so she holds them (*By party*) |
 | dodge | **0.45** | never against a parryable blow aimed at her while Warded |
 
 ### Passive: Parry
@@ -792,7 +792,7 @@ Every row has at least one answer per beat.
 | Party | Interrupters | Dome | Boss holder | Note |
 |---|---|---|---|---|
 | SA (Kael, Vexis, Seren) | Kael, Seren | Kael | Kael | duellist reference |
-| SB (Lyra, Vexis, Seren) | Lyra, Seren | none | threat (Seren usually), who parries | Ward her boss blows; Crescendo mandatory |
+| SB (Lyra, Vexis, Seren) | Lyra, Seren | none | Seren, by threat (her boss threat ×6 with no Kael), who parries | Ward her boss blows; Crescendo mandatory |
 | SC (Kael, Lyra, Seren) | all three | Kael | Kael | |
 | OA (Kael, Vexis, Oro) | Kael | Kael | Kael | damage-light (party A’s lesson): Focus matters |
 | OB (Lyra, Vexis, Oro) | Lyra | none | **none** (threat: Lyra or Vexis) | the hardest party (Q8); Prep note |
@@ -800,9 +800,11 @@ Every row has at least one answer per beat.
 | R (Kael, Brann, Seren) | Kael, Brann, Seren | Kael | Kael | Red Line; three melee heroes |
 | SO (Kael, Seren, Oro) | Kael, Seren | Kael | Kael | |
 | X (Brann, Seren, Oro) | Brann, Seren | none | threat (Brann 1.2, Seren parries) | no starter |
-| W (Vexis, Seren, Oro) | Seren (Lunge held for boss casts) | none | threat (Seren usually), who parries | the no-Kael, no-Lyra case |
+| W (Vexis, Seren, Oro) | Seren (Lunge held for boss casts) | none | Seren, by threat (as SB), who parries | the no-Kael, no-Lyra case |
 
 `partyHasDome` stays Kael-only, so 10 of the 20 parties read `decreeNoDome` (`legionLook.ts:97-145`).
+
+**Seren holds the Kael-less bosses (W9 prep; *default, awaiting your confirmation*).** The rows above are binding. Measured at the first look's re-run (24 seeds from 1000), a Kael-less boss stayed on Lyra or Vexis: SB 93-98% on Lyra at all four bosses, W 85-94% on Vexis. Lever 1 cannot do it: her `threatMult` at the +20% edge (1.2) moved it by 0-5 points (12 seeds: SB 0-3% on her, W 5-18%), because Lyra's Empowered arrows out-deal her about 7 : 1 at a boss. So it is lever 2, a hero-only threat rule in `duel.ts` (`duelThreat`, one guarded line after the plain threat in `dealDamage`): with no tank (Kael) in the party, her hits on a **boss or miniboss** count `DUEL_BOSS_THREAT` = 6 times her threat. ×3 held only the Cantor in SB (68%), ×4 the Cantor and the Conductor (94%, 79%), ×6 all four (93-98%), and ×10 no more than ×6. It is threat, not a taunt: a boss is still never bound, and a bigger hitter can still take it from her. Inert in every party with Kael, so SA, SC, R, SO and every pin are unchanged. With Kael, the band ‘Kael holds bosses ≥ 70% of boss time in SA and SC’ is read beside the default party's own Kael share in the same run (W9 prep below): no Seren number touches it.
 
 ## Presentation
 
@@ -872,7 +874,7 @@ Every row has at least one answer per beat.
   - `duel?`: `{armed, charges, parries, killShots, quarry, overextended, distance, cuts?}`;
   - `grove?`: `{saplings: {hp, maxHp, inField, auras, felled, respawnIn, burrowing}[], ancient: {left, cued} | null, tending}`.
 - **Seren’s frame** (in her violet; silver never appears):
-  - DuelMarks chips (the BloodMarks pattern, `PartyFrames.tsx:911, 948-987`): ‘En garde’, ‘Parry ×2’, ‘Duelling ‹name›’, ‘Overextended · Reel {F}’ (‘· Rally {C}’ for the Chronomancer or Anchor), ‘Out of reach · Glide closer’.
+  - DuelMarks chips (the BloodMarks pattern, `PartyFrames.tsx:911, 948-987`): ‘En garde’, ‘Parry ×2’, ‘Duelling ‹name›’, ‘Overextended · Reel {F}’ (‘· Rally {C}’ for the Chronomancer, and for the Anchor and Swap Reel variants), ‘Out of reach · Glide closer’.
   - For her, the plain `far` fade (`healthModel.ts:57`) is replaced by the last chip and a pulsing outline: the hero who most needs a Ward is never faded while she stands. Downed, the chip and outline go (they name a Ward’s answer), so a downed Seren out of reach takes the plain fade like every other hero.
   - The Grand Silence’s stilled frame ink stays SILENCE_INK, distinct from her violet.
 - **Oro’s frame:**
@@ -936,12 +938,13 @@ They sit beside M3_RULES and FINALE_RULES (`skilled.ts:140-219`), each behind `t
 | Rule | What it does |
 |---|---|
 | `serenPerfectFirst` | In the Perfect scorer (`:452-495`), a blow on Seren scores above any non-lethal hit and below a lethal hit elsewhere (the brannFirst ordering), with the 15% filter lifted for her. |
-| `serenParryWard` | Ward her when her mark’s next melee swing is due within the Ward’s life and no Perfect is pending (the brannWard pattern, `:1868-1882`). **In a boss or miniboss fight it Wards her only against the boss’s own parryable blow aimed at her, and never while a telegraph aimed at another hero is live**, so Kael’s boss blows keep their Ward (5b’s ‘Kael’s own blows went unwarded’ knock-on). |
+| `serenParryWard` | Ward her when her mark’s next melee swing is due within the Ward’s life and no Perfect is pending (the brannWard pattern, `:1868-1882`). **In a boss or miniboss fight it Wards her only against the boss’s own parryable blow aimed at her, and never while a telegraph aimed at another hero is live**, so Kael’s boss blows keep their Ward (5b’s ‘Kael’s own blows went unwarded’ knock-on). **A plain (untelegraphed) swing never takes the last Ward charge** (W9 prep, after the ablation: holding a Kael-less boss, she drew a Ward for every boss swing and left the next cone on Lyra or Vexis unwarded). |
+| `serenCall` | The plain Call answer, kept for her: a Ward answers her Lunge Call. A rule only so the ablation can leave her Call unanswered (W9 prep); Kael's and Brann's Ward Calls are never under it. |
 | `serenReel` | When she is overextended and hurt. It runs after every existing Reel rule (`mawReel`, `brannReel` and the Twin Cleave reserve, which exists only with Brann at `:635`, and `silenceReel`), and is skipped while any lethal telegraph is live, so the plain loop keeps the Reel for it. For the Chronomancer, and with the Swap Reel variant (`serenNoSwap`), it issues a Rally instead; with the Anchor variant (no pull) a Rally, with the Anchor cast on her beside it when she is in its reach. |
 | `serenNoSwap` | Never Swap into her duel. |
 | `serenCue` | Thousand Cuts at ≥ 4 enemies or when she is overextended. |
 | `oroFocus` | When he is tending and the fight has 1-3 enemies, Focus Kael’s target or the boss, with a crowd guard like SENTINEL_FOCUS_AT (`:285`). Ablated first. |
-| `oroRally` | A Sapling outside every field for > 2 s, throttled by `gap()` (`:921-924`) so a bloodlusting Brann’s 8 s holds; only when its re-plant spot at the Weaver's front would stand in the field (`replantInField`; through the Silent Verse `frontSpot` draws the spots into her hymn circle, so the Rally is made). |
+| `oroRally` | A Sapling outside every field for > 2 s, throttled by `gap()` (`:921-924`) so a bloodlusting Brann’s 8 s holds; only when its re-plant spot at the Weaver's front would stand in the field (`replantInField`; through the Silent Verse `frontSpot` draws the spots into her hymn circle, so the Rally is made). **Not while a boss or miniboss is on a hero whose formation spot is behind you** (Lyra, Vexis, Oro: `bossBehind`, W9 prep, after the ablation): the Rally walks that hero home and the boss after it, through you and the grove. With Kael, Brann or Seren holding it the Rally goes ahead as before. |
 | `oroThread` | Mend-Thread Oro when the Saplings are hurt and the party is calm; never under Unravel (Mend wounds and Rootbond is skipped), Stasis aside. |
 | `groveCover` | Weights the Saplings into `position()`’s centroid at 1:2 (`:1339-1392`). |
 | `oroCue` | Wildgrowth on a pack of ≥ 3, or Cued when the Saplings are out of the field. |
@@ -1212,6 +1215,724 @@ Every party misses the Weaver-safety band (damage ≤ default + 15%, downs ≤ d
 - **Recommendation:**
   - Keep the provisional bands (bosses ≥ default − 25, runs ≥ default − 20) unchanged until W9 re-measures with W2b and the item 1 movement fix, on all three seed sets at 50 seeds.
   - Replace them only if OB is then the one party still outside its band. In that case the choice is between widening OB's band and the Heartwood alternative, which is a Quirk change and so yours to make.
+
+## W9 prep (2026-11-08): the first look re-measured, the road, the ablation
+
+*Branch `m5/tune` from main `65f8748` (W2b in). Prep before tuning, in the agreed lever order: two hero-only rules in the sim (lever 2), two bot-rule fixes after the ablation (lever 3), one ablation-only rule name, and the band tool's down records. No Seren or Oro number (lever 1), Bond or motif value (lever 4) moved. Never moved: Weaver, aura, enemy, encounter, Movement, road, starter and Brann numbers; no aura definition, number, list or reach. Every existing fight is unchanged: the 19 original goldens are byte-identical, `SIM_VERSION` is 22, `contentVersion` is unchanged, and the four Seren and Oro goldens that moved (`skilled-seren-crimson-gate`, the three Oro ones) are re-recorded with their `ROSTER_HASHES` literals.*
+
+Raw outputs (scratch `m5e/tune/`): `base-*` (the re-measure on 65f8748, from a detached worktree), `post-*` (after the two lever-2 rules), `g1-*` and `fin-*` (the final tree; `g1-` rows are the ones the last bot fix leaves bit-identical), `cf-*` (the untuned third sets), `road-*`/`fin-road-*` (skirmish, elite and miniboss cells), `abl-*`, `nabl-*`, `fix*-*` (`tools/verbs.ts`), `exp-*` (the boss-threat sweep), and the summarising scripts in `scripts/`. 24 seeds a cell (noise about ±10 points), 50 runs a row (about ±7).
+
+### What changed, and why
+
+| # | Change | Lever | Where | Inert for |
+|---|---|---|---|---|
+| 1 | **Oro steps out of blows aimed at another hero** (the first look's diagnosis 1: 65% of his downs). His own lines in `combatMove` call `sidestepOthers`, as Seren's arm does: his formation slot (no target or a Rally, through `formationSidestep`), Gentle's retreat spot, and his Focus position (the ranged and flank arms). Hold still holds him; a blow aimed at him stays the Weaver's to Ward. | 2 | `heroes.ts`, four `def.role === 'summoner'` lines | every party without Oro (only he is a summoner) |
+| 2 | **Seren holds the Kael-less bosses** (*By party*, binding; *default, awaiting your confirmation*). With no tank in the party, her hits on a boss or miniboss count `DUEL_BOSS_THREAT` = 6 times her threat (`duelThreat`, one guarded line after the plain threat in `dealDamage`). | 2 | `duel.ts`, `health.ts` | every party with Kael, and every party without Seren |
+| 3 | **`serenParryWard`: a plain swing never takes the last Ward charge.** Holding a Kael-less boss, she drew a Ward for every boss swing and left the next cone on Lyra or Vexis unwarded (SB at Vharun 5.17 downs a fight with the rule, 3.08 without). | 3 | `skilled.ts` | parties without Seren |
+| 4 | **`oroRally` waits while a boss or miniboss is on a hero who stands behind you** (Lyra, Vexis, Oro: `bossBehind`). The Rally walked that hero home and the boss after it, through the Weaver and the grove: in OB the rule cost 8-21 points at the Unweaver, the Conductor, the Cantor and the Bellwarden. | 3 | `skilled.ts` | parties without Oro |
+| 5 | `serenCall` names the plain Call answer for her, so the ablation can leave it off; on, it changes nothing. | — | `skilled.ts` | everyone (on) |
+| 6 | `DownRecord.gap`: the blow's source distance from the victim (past both bodies), and the down table's recap and source columns. | tools | `roster-bands.ts` | — |
+
+Tests: `tests/sim/oroSidestep.test.ts` (slot, retreat and Focus positions out of a cone aimed at Kael or Vexis; Hold holds him), `tests/sim/serenThreat.test.ts` (×6 on a boss and a miniboss with no tank; plain threat with Kael, on a lesser foe, for another hero, and with `noThreat`), and staged bot tests for `serenCall`, the spare charge and `bossBehind` (`tests/bots.test.ts`).
+
+### Seren holds the Kael-less bosses: lever 1 cannot, lever 2 does
+
+*Default, awaiting your confirmation.* The *By party* rows (SB, W: ‘threat (Seren usually), who parries’) are binding, and the first look's re-run showed the opposite: in SB the bosses were on Lyra 93-98% of the time, in W on Vexis 85-94%. At a boss Lyra's Empowered arrows out-deal Seren about 7 : 1 (SB at Vharun, seed 1000: 71k against 9.7k over 170 s), so her threat multiplier would need about ×7.
+
+| Try (12 seeds a cell, set 1000, Skilled) | SB: boss on Seren (Cantor / Vharun / Unweaver / Conductor) | SB win | W, X | Kept |
+|---|---|---|---|---|
+| none (the re-measure, 24 seeds) | 1 / 1 / 0 / 0% | 54 / 100 / 96 / 96% | W 13 / 10 / 6 / 5%; X 21 / 33 / 9 / 4% | — |
+| lever 1: `threatMult` 1.2 (the ±20% edge) | 3 / 0 / 0 / 0% | 50 / 100 / 100 / 100% | W 18 / 13 / 7 / 5% | no: cannot do it |
+| lever 2, ×3 | 68 / 15 / 1 / 7% | 92 / 100 / 100 / 100% | W 98 / 91 / 66 / 72%; X 97 / 89 / 18 / 99% | no |
+| lever 2, ×4 | 94 / 35 / 48 / 79% | 100 / 92 / 83 / 100% | — | no |
+| **lever 2, ×6** | 97 / 93 / 93 / 98% | 100 / 100 / 92 / 100% | W 98 / 91 / 99%; X 96 / 83% | **yes** |
+| lever 2, ×10 | 97 / 94 / 96 / 98% | 100 / 100 / 83 / 100% | — | no: no more than ×6 |
+
+So it is lever 2: a hero-only threat rule, inert unless Seren is in the party and Kael is not. It is threat, not a taunt: a boss is never bound, and a bigger hitter can still take it from her. With it (the final tree, 24 seeds), the bosses are on her 84-98% of the time in SB, 90-100% in W and 90-99% in X, and she parries 57-59% of the Wards on her (band ≥ 50%; 7-9% in the Kael parties, where the boss is Kael's).
+
+**Kael's hold in SA and SC.** The band ‘Kael holds bosses ≥ 70% of boss time in SA and SC’ is not reachable with Seren's numbers, because the default party itself doesn't meet it: pooled over the four bosses, Kael holds 47% in the default party (Cantor 82, Vharun 12, Unweaver 43, Conductor 64), 51% in SA and 41% in SC (Seren takes 0-1% in both; Lyra or Vexis out-threats Kael at Vharun and the Unweaver in every Kael party). Only Kael's or Lyra's numbers could move it, and they are never moved: **NEEDS USER** (restate the band against the default party's own Kael share, or accept it as missed).
+
+### The first look re-measured with W2b (65f8748, before any W9 change)
+
+Cells: the default party and the ten banded parties at each Movement's boss, 24 seeds from 1000, Idle, Novice and Skilled (`roster-bands.ts --first-look`, split in lanes). Runs: 50 Skilled Finale-route runs from 2000.
+
+
+**Skilled win (the Novice's in brackets), gap to default in the same run (24 seeds)**
+
+| Party | Cantor | Vharun | Unweaver | Conductor |
+|---|---|---|---|---|
+| default | 96% (62%) | 96% (50%) | 100% (38%) | 96% (25%) |
+| SA | 96% (38%) +0 | 88% (54%) -8 | 100% (0%) +0 | 100% (12%) +4 |
+| SB | 54% (25%) -42 ⚠ | 100% (38%) +4 | 96% (8%) -4 | 96% (17%) +0 |
+| SC | 75% (25%) -21 ⚠ | 96% (42%) +0 | 100% (17%) +0 | 100% (4%) +4 |
+| OA | 100% (33%) +4 | 100% (17%) +4 | 96% (0%) -4 | 96% (8%) +0 |
+| OB | 88% (17%) -8 | 100% (0%) +4 | 67% (0%) -33 ⚠ | 71% (0%) -25 |
+| OC | 83% (8%) -12 | 96% (29%) +0 | 96% (0%) -4 | 100% (8%) +4 |
+| R | 96% (0%) +0 | 46% (12%) -50 ⚠ | 92% (0%) -8 | 96% (0%) +0 |
+| SO | 17% (0%) -79 ⚠ | 0% (4%) -96 ⚠ | 4% (0%) -96 ⚠ | 83% (0%) -12 |
+| X | 25% (4%) -71 ⚠ | 46% (25%) -50 ⚠ | 92% (0%) -8 | 88% (0%) -8 |
+| W | 71% (0%) -25 ⚠ | 92% (12%) -4 | 96% (0%) -4 | 83% (4%) -12 |
+
+Idle, best win over these cells: default 0%, SA 0%, SB 0%, SC 0%, OA 0%, OB 0%, OC 0%, R 0%, SO 0%, X 0%, W 0%
+
+**Who the boss (or miniboss) targets, Skilled, share of its time**
+
+| Party | Cantor | Vharun | Unweaver | Conductor |
+|---|---|---|---|---|
+| default | kael 82 lyra 17 vexis 0 | lyra 87 kael 12 vexis 0 | lyra 57 kael 43 | kael 64 lyra 23 vexis 13 |
+| SA | kael 92 vexis 7 seren 0 | vexis 76 kael 23 seren 1 | kael 60 vexis 40 | vexis 53 kael 46 seren 0 |
+| SB | lyra 97 vexis 1 seren 1 | lyra 95 vexis 4 seren 1 | lyra 98 vexis 1 seren 0 | lyra 93 vexis 7 seren 0 |
+| SC | kael 67 lyra 32 seren 1 | lyra 92 kael 8 seren 0 | lyra 66 kael 33 seren 0 | kael 66 lyra 34 |
+| OA | kael 96 vexis 3 oro 0 | kael 57 vexis 42 oro 0 | kael 57 vexis 43 oro 0 | vexis 54 kael 46 |
+| OB | lyra 94 oro 4 vexis 1 | lyra 94 vexis 5 oro 0 | lyra 90 vexis 8 oro 2 | lyra 88 vexis 10 oro 0 |
+| OC | kael 89 lyra 9 oro 1 | lyra 82 kael 17 oro 0 | lyra 67 kael 33 oro 0 | kael 51 lyra 49 |
+| R | kael 84 brann 11 seren 2 | kael 76 brann 18 seren 4 | kael 96 brann 2 seren 0 | kael 81 brann 17 seren 0 |
+| SO | kael 77 seren 13 oro 10 | kael 94 seren 5 oro 1 | kael 95 seren 4 oro 2 | kael 97 seren 2 oro 0 |
+| X | brann 65 seren 21 oro 13 | brann 63 seren 33 oro 4 | brann 89 seren 9 oro 2 | brann 95 seren 4 oro 0 |
+| W | vexis 85 seren 13 oro 2 | vexis 88 seren 10 oro 2 | vexis 94 seren 6 oro 0 | vexis 94 seren 5 oro 1 |
+
+**Per-down table, Skilled, these cells pooled (read it first)**
+
+| Party | downs a fight | aimed at the victim | at another hero | at no one | basic | tick | beyond 14 m | Seren parry armed | summon near | top blows |
+|---|---|---|---|---|---|---|---|---|---|---|
+| default | 0.80 | 38 | 21 | 12 | 6 | 0 | 0 | - | 0 | cantor_toll 24, vharun_twin_cleave 15, cantor_requiem 10 |
+| SA | 1.88 | 101 | 24 | 40 | 15 | 0 | 6 | 0/26 | 0 | cantor_requiem 38, cantor_toll 37, vharun_twin_cleave_second 36 |
+| SB | 1.77 | 46 | 61 | 27 | 36 | 0 | 0 | 0/34 | 0 | vharun_twin_cleave 50, basic 36, vharun_twin_cleave_second 25 |
+| SC | 1.64 | 92 | 17 | 31 | 17 | 0 | 2 | 0/27 | 0 | cantor_toll 75, cantor_requiem 31, basic 17 |
+| OA | 2.09 | 101 | 66 | 22 | 12 | 0 | 1 | - | 99 | vharun_twin_cleave_second 50, vharun_twin_cleave 34, cantor_toll 30 |
+| OB | 2.78 | 85 | 112 | 25 | 45 | 0 | 0 | - | 124 | vharun_twin_cleave 49, unweaver_shear 47, basic 45 |
+| OC | 1.06 | 47 | 25 | 16 | 14 | 0 | 1 | - | 37 | cantor_toll 31, cantor_requiem 16, basic 14 |
+| R | 4.66 | 227 | 89 | 68 | 61 | 2 | 9 | 2/70 | 0 | vharun_twin_cleave_second 95, cantor_requiem 63, basic 61 |
+| SO | 5.94 | 278 | 124 | 25 | 143 | 0 | 6 | 3/153 | 235 | basic 143, cantor_toll 63, vharun_twin_cleave 63 |
+| X | 7.50 | 527 | 59 | 22 | 110 | 2 | 25 | 0/109 | 310 | vharun_twin_cleave_second 111, basic 110, champion_cleave 107 |
+| W | 3.44 | 167 | 75 | 35 | 53 | 0 | 8 | 0/60 | 127 | unweaver_shear 76, basic 53, vharun_twin_cleave 48 |
+
+**Seren's and Oro's own downs, Skilled, these cells pooled, with the recap fields**
+
+| Party | hero | downs | aimed at them | at another | basic | recap: warded / parryable / far / overextended (Seren); melee / felled outside / thread cut (Oro) | source ≤2 m / 2-6 m / >6 m |
+|---|---|---|---|---|---|---|---|
+| SA | seren | 26 (0.27 a fight) | 3 | 7 | 1 | 0 / 1 / 0 / 0 | - |
+| SB | seren | 34 (0.35 a fight) | 2 | 12 | 13 | 0 / 13 / 0 / 7 | - |
+| SC | seren | 27 (0.28 a fight) | 1 | 11 | 7 | 0 / 7 / 0 / 4 | - |
+| OA | oro | 36 (0.38 a fight) | 3 | 33 | 0 | 1 / 0 / 0 | - |
+| OB | oro | 72 (0.75 a fight) | 8 | 52 | 5 | 5 / 3 / 0 | - |
+| OC | oro | 24 (0.25 a fight) | 2 | 17 | 3 | 2 / 4 / 0 | - |
+| R | seren | 70 (0.73 a fight) | 12 | 41 | 7 | 2 / 15 / 1 / 2 | - |
+| SO | seren | 153 (1.59 a fight) | 24 | 54 | 68 | 3 / 75 / 0 / 52 | - |
+| SO | oro | 94 (0.98 a fight) | 18 | 54 | 18 | 16 / 20 / 0 | - |
+| X | seren | 109 (1.14 a fight) | 39 | 20 | 46 | 0 / 71 / 0 / 39 | - |
+| X | oro | 71 (0.74 a fight) | 18 | 37 | 10 | 11 / 20 / 0 | - |
+| W | seren | 60 (0.62 a fight) | 14 | 17 | 21 | 0 / 29 / 0 / 17 | - |
+| W | oro | 73 (0.76 a fight) | 9 | 52 | 2 | 3 / 12 / 0 | - |
+
+**Downs a fight by hero, Skilled, pooled**
+
+| Party | kael | lyra | vexis | brann | seren | oro |
+|---|---|---|---|---|---|---|
+| default | 0.36 | 0.21 | 0.23 |  |  |  |
+| SA | 0.82 |  | 0.78 |  | 0.27 |  |
+| SB |  | 0.60 | 0.81 |  | 0.35 |  |
+| SC | 1.01 | 0.34 |  |  | 0.28 |  |
+| OA | 0.83 |  | 0.89 |  |  | 0.38 |
+| OB |  | 0.96 | 1.07 |  |  | 0.75 |
+| OC | 0.60 | 0.21 |  |  |  | 0.25 |
+| R | 2.34 |  |  | 1.58 | 0.73 |  |
+| SO | 3.36 |  |  |  | 1.59 | 0.98 |
+| X |  |  |  | 5.62 | 1.14 | 0.74 |
+| W |  |  | 2.05 |  | 0.62 | 0.76 |
+
+**Seren, Skilled, pooled**
+
+| Party | parries | Wards on her | parried | kill shots | lost | Wards' share of her damage | overextended | answered ≤3 s | beyond 14 m | Showboat pick | Lunge interrupts | downs |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| SA | 0.4 | 4.5 | 8% | 0.68 | 0.00 | 2% | 0.4 | 79% | 0% | 91% | 3.0 | 0.27 |
+| SB | 0.2 | 2.1 | 7% | 0.28 | 0.00 | 1% | 0.7 | 70% | 0% | 97% | 1.7 | 0.35 |
+| SC | 0.3 | 3.3 | 9% | 0.24 | 0.00 | 1% | 0.8 | 82% | 0% | 88% | 2.6 | 0.28 |
+| R | 0.8 | 7.8 | 11% | 0.76 | 0.00 | 2% | 1.2 | 60% | 0% | 89% | 4.3 | 0.73 |
+| SO | 2.2 | 10.9 | 20% | 0.81 | 0.00 | 2% | 3.3 | 64% | 0% | 100% | 6.0 | 1.59 |
+| X | 3.5 | 8.8 | 40% | 1.17 | 0.00 | 5% | 3.2 | 69% | 0% | 100% | 3.6 | 1.14 |
+| W | 2.3 | 7.0 | 33% | 0.83 | 0.02 | 3% | 2.6 | 73% | 0% | 100% | 2.8 | 0.62 |
+
+**Oro, Skilled (the Novice's in-field share beside it), pooled**
+
+| Party | Saplings in your field | Novice | both standing | felled | tending | Rootbond | Ancients | downs |
+|---|---|---|---|---|---|---|---|---|
+| OA | 93% | 85% | 100% | 0.1 | 1% | 481 | 4.2 | 0.38 |
+| OB | 89% | 72% | 99% | 0.2 | 2% | 601 | 2.4 | 0.75 |
+| OC | 92% | 86% | 98% | 0.6 | 2% | 556 | 3.3 | 0.25 |
+| SO | 92% | 87% | 98% | 1.2 | 1% | 505 | 6.5 | 0.98 |
+| X | 89% | 88% | 98% | 0.9 | 1% | 290 | 4.5 | 0.74 |
+| W | 90% | 73% | 98% | 0.8 | 1% | 810 | 4.5 | 0.76 |
+
+Boss seconds on a summon, every cell: 0.0 (expected 0).
+
+**Whole runs (Skilled, 50 Finale-route runs from 2000)**
+
+| Party | Won | Gap | Reached the Finale | Won of those | Fights | Minutes | Bond XP a fight vs the starters' average | Lost most at |
+|---|---|---|---|---|---|---|---|---|
+| default | 74% |  | 80% | 92% | 13.2 | 19.6 | - | blood_forge 3, the_silent_conductor 3, frayed_threshold 2 |
+| SA | 18% | -56 | 18% | 100% | 7.9 | 14.9 | Seren 65% | frayed_threshold 12, glass_gallery 8, legion_vanguard 4 |
+| SB | 48% | -26 | 50% | 96% | 11.0 | 15.3 | Seren 63% | hollow_cantor 7, frayed_threshold 6, mirror_hall 3 |
+| SC | 38% | -36 | 38% | 100% | 9.8 | 16.1 | Seren 61% | hollow_cantor 7, frayed_threshold 6, frayed_court 3 |
+| OA | 58% | -16 | 62% | 94% | 11.8 | 27.4 | Oro 71% | frayed_threshold 7, vharun 5, glass_gallery 3 |
+| OB | 32% | -42 | 40% | 80% | 11.2 | 17.0 | Oro 69% | the_unweaver 6, hollow_cantor 5, bellwarden 4 |
+| OC | 44% | -30 | 44% | 100% | 10.9 | 18.8 | Oro 66% | frayed_threshold 8, frayed_court 4, glass_gallery 4 |
+| R | 0% | -74 | 0% | - | 6.6 | 13.5 | Brann 94%, Seren 67% | vharun 20, shield_wall 5, glass_gallery 4 |
+| SO | 0% | -74 | 0% | - | 3.5 | 6.4 | Seren 78%, Oro 69% | hollow_cantor 29, glass_gallery 5, muted_nave 5 |
+| X | 0% | -74 | 0% | - | 5.2 | 9.6 | (no starter) | crimson_gate 11, vharun 10, hollow_cantor 7 |
+| W | 2% | -72 | 2% | 100% | 6.6 | 12.1 | Seren 65%, Oro 65% | frayed_threshold 14, hollow_cantor 12, glass_gallery 6 |
+
+W2b moved the Oro rows as diagnosis 6 expected: OA's whole run 32% → 58%, OC 40 → 44%, OB unchanged at 32%; their boss cells within noise. Oro's downs are still mostly blows aimed at another hero (33 of 36 in OA, 52 of 72 in OB, 52 of 73 in W), which is what change 1 is for.
+
+### After the W9 prep changes (the tuning sets: cells 1000, runs 2000)
+
+
+**Skilled win (the Novice's in brackets), gap to default in the same run (24 seeds)**
+
+| Party | Cantor | Vharun | Unweaver | Conductor |
+|---|---|---|---|---|
+| default | 96% (62%) | 96% (50%) | 100% (38%) | 96% (25%) |
+| SA | 96% (38%) +0 | 88% (54%) -8 | 100% (0%) +0 | 100% (12%) +4 |
+| SB | 100% (79%) +4 | 100% (71%) +4 | 100% (12%) +0 | 100% (21%) +4 |
+| SC | 75% (25%) -21 ⚠ | 100% (42%) +4 | 100% (17%) +0 | 100% (4%) +4 |
+| OA | 96% (38%) +0 | 96% (46%) +0 | 100% (0%) +0 | 100% (12%) +4 |
+| OB | 83% (21%) -12 | 100% (21%) +4 | 100% (0%) +0 | 96% (8%) +0 |
+| OC | 83% (8%) -12 | 100% (71%) +4 | 100% (0%) +0 | 100% (4%) +4 |
+| R | 96% (0%) +0 | 46% (12%) -50 ⚠ | 79% (0%) -21 ⚠ | 96% (0%) +0 |
+| SO | 12% (0%) -83 ⚠ | 0% (4%) -96 ⚠ | 4% (0%) -96 ⚠ | 71% (0%) -25 ⚠ |
+| X | 88% (29%) -8 | 71% (42%) -25 ⚠ | 100% (0%) +0 | 100% (0%) +4 |
+| W | 96% (29%) +0 | 96% (58%) +0 | 100% (0%) +0 | 96% (29%) +0 |
+
+Idle, best win over these cells: default 0%, SA 0%, SB 0%, SC 0%, OA 0%, OB 0%, OC 0%, R 0%, SO 0%, X 0%, W 0%
+
+**Skilled length (s) and downs a fight, gap to default**
+
+| Party | Cantor | Vharun | Unweaver | Conductor |
+|---|---|---|---|---|
+| default | 146 s · 1.58 | 200 s · 1.08 | 188 s · 0.38 | 174 s · 0.17 |
+| SA | 193 s (+32%) · 3.38 | 358 s (+79%) · 2.92 | 341 s (+82%) · 0.75 | 229 s (+32%) · 0.42 |
+| SB | 126 s (-14%) · 0.54 | 201 s (+0%) · 3.79 | 204 s (+8%) · 1.29 | 163 s (-6%) · 0.12 |
+| SC | 171 s (+17%) · 4.88 | 238 s (+19%) · 0.92 | 225 s (+20%) · 0.58 | 210 s (+21%) · 0.17 |
+| OA | 218 s (+49%) · 2.29 | 351 s (+75%) · 3.12 | 368 s (+96%) · 0.88 | 241 s (+38%) · 0.58 |
+| OB | 156 s (+7%) · 1.46 | 213 s (+6%) · 2.46 | 196 s (+4%) · 1.33 | 162 s (-7%) · 0.62 |
+| OC | 171 s (+17%) · 2.75 | 240 s (+20%) · 0.62 | 223 s (+19%) · 0.04 | 209 s (+20%) · 0.21 |
+| R | 197 s (+35%) · 5.71 | 434 s (+117%) · 7.67 | 464 s (+147%) · 4.17 | 344 s (+98%) · 0.79 |
+| SO | 147 s (+0%) · 6.75 | 464 s (+132%) · 7.79 | 528 s (+181%) · 6.38 | 421 s (+142%) · 2.50 |
+| X | 206 s (+41%) · 3.17 | 412 s (+106%) · 4.79 | 476 s (+153%) · 3.92 | 270 s (+55%) · 0.67 |
+| W | 205 s (+40%) · 1.17 | 309 s (+54%) · 3.83 | 356 s (+89%) · 1.50 | 225 s (+29%) · 0.29 |
+
+**Who the boss (or miniboss) targets, Skilled, share of its time**
+
+| Party | Cantor | Vharun | Unweaver | Conductor |
+|---|---|---|---|---|
+| default | kael 82 lyra 17 vexis 0 | lyra 87 kael 12 vexis 0 | lyra 57 kael 43 | kael 64 lyra 23 vexis 13 |
+| SA | kael 92 vexis 7 seren 0 | vexis 76 kael 23 seren 1 | kael 60 vexis 40 | vexis 53 kael 46 seren 0 |
+| SB | seren 97 lyra 2 vexis 0 | seren 84 lyra 14 vexis 1 | seren 96 lyra 3 vexis 0 | seren 98 lyra 1 vexis 0 |
+| SC | kael 67 lyra 32 seren 1 | lyra 91 kael 9 seren 0 | lyra 66 kael 33 seren 0 | kael 66 lyra 34 |
+| OA | kael 96 vexis 3 oro 0 | kael 64 vexis 35 oro 0 | kael 62 vexis 38 | vexis 58 kael 42 oro 0 |
+| OB | lyra 98 vexis 1 oro 0 | lyra 89 vexis 10 oro 0 | lyra 98 vexis 1 oro 0 | lyra 94 vexis 5 oro 0 |
+| OC | kael 89 lyra 10 oro 1 | lyra 83 kael 17 oro 0 | lyra 70 kael 30 | kael 53 lyra 46 |
+| R | kael 84 brann 11 seren 2 | kael 76 brann 19 seren 4 | kael 96 brann 2 seren 1 | kael 81 brann 17 seren 0 |
+| SO | kael 74 seren 14 oro 12 | kael 92 seren 6 oro 2 | kael 95 seren 3 oro 2 | kael 97 seren 3 oro 0 |
+| X | seren 96 brann 3 oro 1 | seren 90 brann 6 oro 4 | seren 98 brann 1 oro 1 | seren 99 brann 0 oro 0 |
+| W | seren 98 vexis 2 oro 0 | seren 94 vexis 5 oro 0 | seren 100 vexis 0 | seren 97 vexis 3 |
+
+**Per-down table, Skilled, these cells pooled (read it first)**
+
+| Party | downs a fight | aimed at the victim | at another hero | at no one | basic | tick | beyond 14 m | Seren parry armed | summon near | top blows |
+|---|---|---|---|---|---|---|---|---|---|---|
+| default | 0.80 | 38 | 21 | 12 | 6 | 0 | 0 | - | 0 | cantor_toll 24, vharun_twin_cleave 15, cantor_requiem 10 |
+| SA | 1.86 | 100 | 24 | 40 | 15 | 0 | 6 | 0/26 | 0 | cantor_requiem 38, cantor_toll 37, vharun_twin_cleave_second 35 |
+| SB | 1.44 | 44 | 76 | 0 | 18 | 0 | 2 | 0/40 | 0 | vharun_twin_cleave 46, vharun_twin_cleave_second 32, champion_cleave 19 |
+| SC | 1.64 | 93 | 17 | 31 | 16 | 0 | 2 | 0/26 | 0 | cantor_toll 75, cantor_requiem 31, vharun_twin_cleave_second 17 |
+| OA | 1.72 | 86 | 45 | 28 | 6 | 0 | 1 | - | 76 | vharun_twin_cleave_second 38, cantor_toll 30, cantor_requiem 22 |
+| OB | 1.47 | 43 | 61 | 17 | 20 | 0 | 2 | - | 38 | vharun_twin_cleave 30, vharun_twin_cleave_second 25, basic 20 |
+| OC | 0.91 | 45 | 6 | 19 | 17 | 0 | 3 | - | 30 | cantor_toll 33, cantor_requiem 18, basic 17 |
+| R | 4.58 | 220 | 83 | 68 | 67 | 2 | 13 | 1/71 | 0 | vharun_twin_cleave_second 90, basic 67, cantor_requiem 63 |
+| SO | 5.85 | 266 | 106 | 30 | 160 | 0 | 13 | 1/163 | 230 | basic 160, cantor_toll 63, vharun_twin_cleave_second 57 |
+| X | 3.14 | 160 | 52 | 37 | 50 | 2 | 10 | 1/127 | 145 | champion_cleave 55, basic 50, vharun_twin_cleave_second 48 |
+| W | 1.70 | 62 | 78 | 7 | 16 | 0 | 2 | 0/64 | 74 | vharun_twin_cleave 38, vharun_twin_cleave_second 36, champion_cleave 23 |
+
+**Seren's and Oro's own downs, Skilled, these cells pooled, with the recap fields**
+
+| Party | hero | downs | aimed at them | at another | basic | recap: warded / parryable / far / overextended (Seren); melee / felled outside / thread cut (Oro) | source ≤2 m / 2-6 m / >6 m |
+|---|---|---|---|---|---|---|---|
+| SA | seren | 26 (0.27 a fight) | 3 | 7 | 1 | 0 / 1 / 0 / 0 | 23 / 2 / 1 |
+| SB | seren | 40 (0.42 a fight) | 25 | 2 | 13 | 0 / 37 / 0 / 3 | 20 / 19 / 1 |
+| SC | seren | 26 (0.27 a fight) | 1 | 11 | 6 | 0 / 6 / 0 / 3 | 16 / 8 / 2 |
+| OA | oro | 20 (0.21 a fight) | 4 | 14 | 0 | 3 / 0 / 0 | 3 / 14 / 3 |
+| OB | oro | 28 (0.29 a fight) | 4 | 19 | 0 | 0 / 7 / 0 | 3 / 17 / 8 |
+| OC | oro | 10 (0.10 a fight) | 1 | 3 | 4 | 4 / 4 / 0 | 5 / 3 / 2 |
+| R | seren | 71 (0.74 a fight) | 11 | 40 | 10 | 1 / 17 / 1 / 5 | 36 / 32 / 3 |
+| SO | seren | 163 (1.70 a fight) | 28 | 55 | 73 | 1 / 81 / 1 / 54 | 110 / 41 / 12 |
+| SO | oro | 79 (0.82 a fight) | 20 | 36 | 17 | 14 / 22 / 0 | 24 / 20 / 35 |
+| X | seren | 127 (1.32 a fight) | 75 | 4 | 39 | 0 / 105 / 1 / 27 | 94 / 30 / 3 |
+| X | oro | 28 (0.29 a fight) | 6 | 17 | 1 | 2 / 1 / 0 | 7 / 9 / 12 |
+| W | seren | 64 (0.67 a fight) | 46 | 4 | 11 | 0 / 55 / 0 / 8 | 46 / 17 / 1 |
+| W | oro | 21 (0.22 a fight) | 0 | 19 | 1 | 1 / 0 / 0 | 6 / 12 / 3 |
+
+**Downs a fight by hero, Skilled, pooled**
+
+| Party | kael | lyra | vexis | brann | seren | oro |
+|---|---|---|---|---|---|---|
+| default | 0.36 | 0.21 | 0.23 |  |  |  |
+| SA | 0.81 |  | 0.78 |  | 0.27 |  |
+| SB |  | 0.44 | 0.58 |  | 0.42 |  |
+| SC | 1.02 | 0.34 |  |  | 0.27 |  |
+| OA | 0.77 |  | 0.74 |  |  | 0.21 |
+| OB |  | 0.55 | 0.62 |  |  | 0.29 |
+| OC | 0.55 | 0.25 |  |  |  | 0.10 |
+| R | 2.30 |  |  | 1.54 | 0.74 |  |
+| SO | 3.33 |  |  |  | 1.70 | 0.82 |
+| X |  |  |  | 1.52 | 1.32 | 0.29 |
+| W |  |  | 0.81 |  | 0.67 | 0.22 |
+
+**Weaver safety and the Thread, Skilled, a fight (vs default)**
+
+| Party | Weaver damage taken | Weaver downs | Thread cuts (all cells) |
+|---|---|---|---|
+| default | 517 | 1.04 | 0.16 |
+| SA | 1018 | 2.20 | 0.45 |
+| SB | 549 | 1.23 | 0.26 |
+| SC | 969 | 2.09 | 0.18 |
+| OA | 987 | 2.14 | 1.04 |
+| OB | 650 | 1.45 | 0.30 |
+| OC | 698 | 1.58 | 0.28 |
+| R | 1548 | 3.25 | 1.39 |
+| SO | 2161 | 5.06 | 0.52 |
+| X | 1348 | 2.74 | 0.53 |
+| W | 823 | 1.92 | 0.53 |
+
+**Seren, Skilled, pooled**
+
+| Party | parries | Wards on her | parried | kill shots | lost | Wards' share of her damage | overextended | answered ≤3 s | beyond 14 m | Showboat pick | Lunge interrupts | downs |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| SA | 0.3 | 4.5 | 7% | 0.67 | 0.00 | 1% | 0.4 | 79% | 0% | 91% | 3.0 | 0.27 |
+| SB | 8.3 | 14.1 | 59% | 1.25 | 0.75 | 13% | 2.8 | 87% | 0% | 96% | 1.8 | 0.42 |
+| SC | 0.3 | 3.3 | 8% | 0.25 | 0.00 | 1% | 0.8 | 83% | 0% | 88% | 2.6 | 0.27 |
+| R | 0.7 | 7.7 | 9% | 0.81 | 0.00 | 2% | 1.3 | 60% | 0% | 89% | 4.2 | 0.74 |
+| SO | 1.6 | 9.8 | 16% | 0.81 | 0.01 | 2% | 3.2 | 66% | 0% | 100% | 6.1 | 1.70 |
+| X | 15.4 | 26.6 | 58% | 3.23 | 0.74 | 13% | 4.7 | 84% | 0% | 100% | 4.1 | 1.32 |
+| W | 12.4 | 21.7 | 57% | 2.73 | 0.71 | 12% | 4.4 | 81% | 0% | 100% | 3.3 | 0.67 |
+
+**Oro, Skilled (the Novice's in-field share beside it), pooled**
+
+| Party | Saplings in your field | Novice | both standing | felled | tending | Rootbond | Ancients | downs |
+|---|---|---|---|---|---|---|---|---|
+| OA | 93% | 85% | 100% | 0.1 | 1% | 441 | 4.3 | 0.21 |
+| OB | 60% | 71% | 99% | 0.4 | 2% | 697 | 2.8 | 0.29 |
+| OC | 92% | 85% | 98% | 0.7 | 2% | 543 | 3.2 | 0.10 |
+| SO | 91% | 85% | 98% | 1.4 | 1% | 433 | 6.4 | 0.82 |
+| X | 93% | 87% | 100% | 0.2 | 1% | 633 | 5.9 | 0.29 |
+| W | 94% | 86% | 99% | 0.3 | 1% | 775 | 4.3 | 0.22 |
+
+Boss seconds on a summon, every cell: 0.0 (expected 0).
+
+**Whole runs (Skilled, 50 Finale-route runs from 2000)**
+
+| Party | Won | Gap | Reached the Finale | Won of those | Fights | Minutes | Bond XP a fight vs the starters' average | Lost most at |
+|---|---|---|---|---|---|---|---|---|
+| default | 74% |  | 80% | 92% | 13.2 | 19.6 | - | blood_forge 3, the_silent_conductor 3, frayed_threshold 2 |
+| SA | 30% | -44 | 30% | 100% | 8.9 | 17.9 | Seren 64% | frayed_threshold 10, glass_gallery 8, legion_vanguard 3 |
+| SB | 50% | -24 | 54% | 93% | 12.2 | 16.8 | Seren 72% | frayed_threshold 9, frayed_court 3, blood_rites 2 |
+| SC | 40% | -34 | 40% | 100% | 10.2 | 16.8 | Seren 60% | hollow_cantor 8, frayed_court 5, frayed_threshold 5 |
+| OA | 40% | -34 | 42% | 95% | 11.0 | 24.7 | Oro 70% | frayed_threshold 8, vharun 7, muted_nave 4 |
+| OB | 48% | -26 | 48% | 100% | 10.8 | 16.5 | Oro 67% | hollow_cantor 7, bellwarden 5, frayed_threshold 5 |
+| OC | 64% | -10 | 66% | 97% | 12.1 | 21.2 | Oro 64% | frayed_threshold 5, glass_gallery 4, hollow_cantor 4 |
+| R | 2% | -72 | 2% | 100% | 6.6 | 13.7 | Brann 94%, Seren 67% | vharun 23, shield_wall 7, glass_gallery 4 |
+| SO | 0% | -74 | 0% | - | 3.2 | 5.5 | Seren 77%, Oro 69% | hollow_cantor 21, glass_gallery 9, muted_nave 6 |
+| X | 2% | -72 | 2% | 100% | 6.1 | 12.0 | (no starter) | crimson_gate 14, frayed_threshold 8, vharun 7 |
+| W | 24% | -50 | 28% | 86% | 9.2 | 18.5 | Seren 74%, Oro 64% | frayed_threshold 8, vharun 5, muted_nave 4 |
+
+**Reading it.**
+- **Bosses:** every full-protocol party is now inside its boss band at every boss but one cell: SC at the Cantor (75%, −21; the Cantor Toll is 75 of SC's downs). SB is +0 to +4 at all four bosses (it was −42 at the Cantor). OB is −12 / +4 / +0 / +0 against its provisional −25. Of the reduced parties, W is +0 / +0 / +0 / +0 and X −8 / −25 / +0 / +4; R (Vharun −50, the Unweaver −21) and SO (−83, −96, −96, −25) are unchanged by this prep (Kael parties without Oro, or a damage problem: SO times out at Vharun and the Unweaver).
+- **Downs:** Oro's own downs fall by half or more (OA 0.38 → 0.21 a fight, OB 0.75 → 0.29, OC 0.25 → 0.10, SO 0.98 → 0.82, X 0.74 → 0.38, W 0.76 → 0.22), and blows aimed at another hero are no longer most of them in OC (3 of 10). In SB, W and X the party's downs fall (1.77 → 1.44, 3.44 → 1.85, 7.50 → 3.22); Seren's rise as she takes the boss (SB 0.35 → 0.42, W 0.62 → 0.90), and only 2 of her 257 downs over SB, W and X came with her parry armed.
+- **Weaver safety** improves in SB (725 → 549 damage taken, 1.79 → 1.23 downs), OB (746 → 650, 1.75 → 1.45) and W (1,216 → 858, 2.99 → 2.07), and still misses its band (≤ default + 15%: 595; downs ≤ 1.09) everywhere but SB's damage.
+- **The cost:** in OB, with the boss on Lyra, `oroRally` now waits, and the Saplings stand in your field 60% of their time (89% before; band ≥ 60%, at the edge on both sets). It is OB's trade: the Rally walked Lyra and the boss through the grove.
+- **Whole runs** (±7 a row): SA 18 → 30%, SB 48 → 50%, SC 38 → 40%, OB 32 → 48%, OC 44 → 64%, W 2 → 24%; OA 58 → 40% (its only change is the sidestep; on the untuned third set the same comparison is 48% → 46%, so most of it is noise). Every party still misses its whole-run band, and the losses are on the road: Frayed Threshold is the top loss in five of the ten and in the top three of eight.
+
+### The road: skirmish, elite and miniboss cells (full protocol, 24 seeds from 1000)
+
+Every skirmish, elite and miniboss each Movement's road uses (Movement I bare, II the arrival kit, III ARRIVAL3_KIT), Skilled and Novice, on the final tree.
+
+
+**Movement I** (Skilled win, the Novice's in brackets, Skilled gap to default; ⚠ past the band: −5, OB −10)
+
+| Party | First Light | Tolling Halls | Glass Gallery | Choir Loft | Mourning Steps | Muted Nave | Shattered Choir | Bellwarden (mini) |
+|---|---|---|---|---|---|---|---|---|
+| default | 100% (100%) | 100% (83%) | 88% (92%) | 100% (100%) | 100% (100%) | 100% (62%) | 96% (75%) | 100% (67%) |
+| SA | 100% (83%) +0 | 88% (42%) -12 ⚠ | 71% (21%) -17 ⚠ | 100% (67%) +0 | 96% (67%) -4 | 79% (38%) -21 ⚠ | 96% (67%) +0 | 100% (38%) +0 |
+| SB | 100% (100%) +0 | 100% (100%) +0 | 92% (79%) +4 | 100% (100%) +0 | 100% (100%) +0 | 100% (96%) +0 | 100% (100%) +4 | 100% (96%) +0 |
+| SC | 100% (100%) +0 | 100% (88%) +0 | 75% (50%) -12 ⚠ | 100% (92%) +0 | 100% (92%) +0 | 96% (50%) -4 | 96% (54%) +0 | 100% (75%) +0 |
+| OA | 100% (83%) +0 | 100% (79%) +0 | 79% (29%) -8 ⚠ | 100% (96%) +0 | 100% (79%) +0 | 83% (75%) -17 ⚠ | 100% (75%) +4 | 96% (42%) -4 |
+| OB | 100% (100%) +0 | 100% (100%) +0 | 100% (71%) +12 | 100% (100%) +0 | 100% (100%) +0 | 100% (100%) +0 | 100% (92%) +4 | 88% (12%) -12 ⚠ |
+| OC | 100% (100%) +0 | 100% (92%) +0 | 75% (46%) -12 ⚠ | 100% (100%) +0 | 100% (92%) +0 | 100% (92%) +0 | 100% (79%) +4 | 100% (71%) +0 |
+
+**Movement II** (Skilled win, the Novice's in brackets, Skilled gap to default; ⚠ past the band: −5, OB −10)
+
+| Party | Crimson Gate | Blood Rites | Pike Line | Red Muster | Leech Warren | Shield Wall | Blood Forge | Matriarch (mini) |
+|---|---|---|---|---|---|---|---|---|
+| default | 100% (100%) | 100% (100%) | 100% (100%) | 100% (100%) | 100% (96%) | 96% (71%) | 92% (67%) | 100% (75%) |
+| SA | 88% (62%) -12 ⚠ | 88% (96%) -12 ⚠ | 100% (96%) +0 | 100% (100%) +0 | 100% (96%) +0 | 67% (25%) -29 ⚠ | 71% (12%) -21 ⚠ | 100% (8%) +0 |
+| SB | 100% (75%) +0 | 100% (100%) +0 | 100% (100%) +0 | 100% (100%) +0 | 100% (96%) +0 | 100% (54%) +4 | 71% (42%) -21 ⚠ | 100% (21%) +0 |
+| SC | 96% (88%) -4 | 100% (100%) +0 | 100% (100%) +0 | 100% (100%) +0 | 100% (92%) +0 | 100% (17%) +4 | 88% (21%) -4 | 96% (17%) -4 |
+| OA | 100% (96%) +0 | 96% (100%) -4 | 100% (100%) +0 | 100% (100%) +0 | 100% (96%) +0 | 96% (67%) +0 | 88% (83%) -4 | 100% (42%) +0 |
+| OB | 100% (100%) +0 | 100% (100%) +0 | 100% (100%) +0 | 96% (100%) -4 | 100% (88%) +0 | 92% (71%) -4 | 83% (58%) -8 | 92% (21%) -8 |
+| OC | 100% (100%) +0 | 100% (100%) +0 | 100% (100%) +0 | 100% (100%) +0 | 100% (100%) +0 | 96% (62%) +0 | 100% (79%) +8 | 100% (12%) +0 |
+
+**Movement III** (Skilled win, the Novice's in brackets, Skilled gap to default; ⚠ past the band: −5, OB −10)
+
+| Party | Frayed Threshold | Maw Hollow | Wraith Vigil | Null Chapel | Mirror Hall | Frayed Court | Seamstress (mini) |
+|---|---|---|---|---|---|---|---|
+| default | 96% (79%) | 100% (75%) | 96% (54%) | 100% (100%) | 100% (96%) | 96% (38%) | 92% (29%) |
+| SA | 58% (17%) -38 ⚠ | 92% (42%) -8 ⚠ | 83% (33%) -12 ⚠ | 88% (83%) -12 ⚠ | 96% (96%) -4 | 58% (25%) -38 ⚠ | 100% (83%) +8 |
+| SB | 75% (33%) -21 ⚠ | 100% (83%) +0 | 100% (96%) +4 | 88% (92%) -12 ⚠ | 100% (100%) +0 | 50% (21%) -46 ⚠ | 92% (4%) +0 |
+| SC | 83% (12%) -12 ⚠ | 92% (42%) -8 ⚠ | 88% (50%) -8 ⚠ | 100% (83%) +0 | 96% (83%) -4 | 79% (42%) -17 ⚠ | 100% (92%) +8 |
+| OA | 92% (54%) -4 | 96% (88%) -4 | 71% (92%) -25 ⚠ | 92% (96%) -8 ⚠ | 88% (100%) -12 ⚠ | 75% (62%) -21 ⚠ | 96% (17%) +4 |
+| OB | 79% (58%) -17 ⚠ | 96% (92%) -4 | 88% (96%) -8 | 92% (88%) -8 | 92% (92%) -8 | 67% (62%) -29 ⚠ | 96% (4%) +4 |
+| OC | 83% (38%) -12 ⚠ | 100% (83%) +0 | 96% (58%) +0 | 100% (79%) +0 | 92% (79%) -8 ⚠ | 71% (25%) -25 ⚠ | 100% (29%) +8 |
+
+**The road pooled** (Skilled, every skirmish, elite and miniboss cell above)
+
+| Party | mean win | gap | cells past the band | downs a fight | Seren parried / Wards on her / her downs | Saplings in your field / felled / Oro downs | Oro down recaps: melee / felled outside / thread cut |
+|---|---|---|---|---|---|---|---|
+| default | 98% |  |  | 0.24 | - | - | - |
+| SA | 88% | -10 | 12 of 23 | 0.74 | 48% / 1.7 / 0.15 | - | - |
+| SB | 94% | -4 | 4 of 23 | 0.43 | 61% / 2.2 / 0.10 | - | - |
+| SC | 95% | -3 | 5 of 23 | 0.41 | 55% / 1.6 / 0.10 | - | - |
+| OA | 93% | -5 | 6 of 23 | 0.65 | - | 91% / 0.74 / 0.12 | 24 / 30 / 0 of 64 |
+| OB | 94% | -4 | 3 of 23 | 0.70 | - | 85% / 0.73 / 0.17 | 23 / 24 / 0 of 92 |
+| OC | 96% | -2 | 4 of 23 | 0.34 | - | 92% / 0.54 / 0.07 | 15 / 19 / 0 of 39 |
+
+**Reading it.** The road is where the runs go: SA misses its band (−5) in 12 of 23 cells, worst at Frayed Threshold (−38), the Frayed Court (−38), Shield Wall (−29), Muted Nave and Blood Forge (−21). Every full-protocol party is −17 to −46 at the **Frayed Court** and −4 to −38 at **Frayed Threshold**, and SA and SB are −21 at Blood Forge. These are the cells W9's tuning starts from.
+
+**Oro's sidestep on the road** (the same cells on 65f8748 and on the final tree; Skilled, 24 seeds; win · downs · Oro's downs): the road changes within noise, and Oro's downs fall where they were high.
+
+
+| Party | Cell | 65f8748 | final | change |
+|---|---|---|---|---|
+| OA | glass_gallery | 79% · 1.96 · 0.46 | 79% · 2.00 · 0.46 | +0 · +0.04 · +0.00 |
+| OA | muted_nave | 92% · 1.58 · 0.33 | 83% · 2.46 · 0.33 | -8 · +0.88 · +0.00 |
+| OA | shattered_choir | 92% · 0.88 · 0.21 | 100% · 1.25 · 0.21 | +8 · +0.38 · +0.00 |
+| OA | bellwarden | 96% · 0.62 · 0.21 | 96% · 0.88 · 0.25 | +0 · +0.25 · +0.04 |
+| OB | glass_gallery | 100% · 0.12 · 0.00 | 100% · 0.38 · 0.08 | +0 · +0.25 · +0.08 |
+| OB | muted_nave | 100% · 0.67 · 0.12 | 100% · 0.88 · 0.12 | +0 · +0.21 · +0.00 |
+| OB | shattered_choir | 96% · 0.25 · 0.08 | 100% · 0.58 · 0.08 | +4 · +0.33 · +0.00 |
+| OB | bellwarden | 96% · 1.46 · 0.46 | 88% · 1.42 · 0.50 | -8 · -0.04 · +0.04 |
+| OC | glass_gallery | 58% · 2.58 · 0.67 | 75% · 2.21 · 0.54 | +17 · -0.38 · -0.12 |
+| OC | muted_nave | 96% · 0.88 · 0.12 | 100% · 0.25 · 0.00 | +4 · -0.62 · -0.12 |
+| OC | shattered_choir | 96% · 0.58 · 0.17 | 100% · 0.42 · 0.00 | +4 · -0.17 · -0.17 |
+| OC | bellwarden | 96% · 0.71 · 0.29 | 100% · 0.33 · 0.08 | +4 · -0.38 · -0.21 |
+| OA | frayed_threshold | 75% · 1.00 · 0.25 | 92% · 0.58 · 0.08 | +17 · -0.42 · -0.17 |
+| OA | null_chapel | 92% · 0.79 · 0.08 | 92% · 0.79 · 0.08 | +0 · +0.00 · +0.00 |
+| OA | frayed_court | 75% · 0.83 · 0.25 | 75% · 1.17 · 0.25 | +0 · +0.33 · +0.00 |
+| OA | the_seamstress | 100% · 2.29 · 0.96 | 96% · 0.96 · 0.25 | -4 · -1.33 · -0.71 |
+| OB | frayed_threshold | 88% · 0.83 · 0.12 | 79% · 0.96 · 0.21 | -8 · +0.12 · +0.08 |
+| OB | null_chapel | 100% · 0.08 · 0.00 | 92% · 0.42 · 0.08 | -8 · +0.33 · +0.08 |
+| OB | frayed_court | 67% · 1.29 · 0.33 | 67% · 1.33 · 0.33 | +0 · +0.04 · +0.00 |
+| OB | the_seamstress | 92% · 7.88 · 2.88 | 96% · 6.29 · 1.79 | +4 · -1.58 · -1.08 |
+| OC | frayed_threshold | 88% · 0.75 · 0.12 | 83% · 1.00 · 0.21 | -4 · +0.25 · +0.08 |
+| OC | null_chapel | 100% · 0.12 · 0.00 | 100% · 0.17 · 0.00 | +0 · +0.04 · +0.00 |
+| OC | frayed_court | 88% · 0.92 · 0.12 | 71% · 1.21 · 0.29 | -17 · +0.29 · +0.17 |
+| OC | the_seamstress | 100% · 0.92 · 0.46 | 100% · 0.54 · 0.33 | +0 · -0.38 · -0.12 |
+
+
+### Confirmed on the untuned third sets (cells 777001, runs 333003)
+
+Nothing was tuned on these sets.
+
+
+**Skilled win (the Novice's in brackets), gap to default in the same run (24 seeds)**
+
+| Party | Cantor | Vharun | Unweaver | Conductor |
+|---|---|---|---|---|
+| default | 88% (75%) | 92% (50%) | 96% (62%) | 100% (25%) |
+| SA | 92% (21%) +4 | 83% (54%) -8 | 100% (0%) +4 | 100% (17%) +0 |
+| SB | 100% (83%) +12 | 96% (79%) +4 | 96% (12%) +0 | 96% (29%) -4 |
+| SC | 75% (21%) -12 | 100% (54%) +8 | 100% (4%) +4 | 100% (8%) +0 |
+| OA | 96% (58%) +8 | 96% (46%) +4 | 100% (0%) +4 | 100% (4%) +0 |
+| OB | 96% (42%) +8 | 100% (8%) +8 | 100% (0%) +4 | 88% (25%) -12 |
+| OC | 92% (25%) +4 | 96% (54%) +4 | 100% (0%) +4 | 100% (8%) +0 |
+| R | 88% (0%) +0 | 29% (17%) -62 ⚠ | 100% (0%) +4 | 88% (4%) -12 |
+| SO | 12% (0%) -75 ⚠ | 0% (8%) -92 ⚠ | 0% (0%) -96 ⚠ | 83% (0%) -17 ⚠ |
+| X | 92% (12%) +4 | 88% (33%) -4 | 83% (0%) -12 | 96% (8%) -4 |
+| W | 96% (25%) +8 | 92% (50%) +0 | 100% (0%) +4 | 100% (8%) +0 |
+
+Idle, best win over these cells: default 0%, SA 0%, SB 0%, SC 0%, OA 0%, OB 0%, OC 0%, R 0%, SO 0%, X 0%, W 0%
+
+**Who the boss (or miniboss) targets, Skilled, share of its time**
+
+| Party | Cantor | Vharun | Unweaver | Conductor |
+|---|---|---|---|---|
+| default | kael 81 lyra 18 vexis 1 | lyra 85 kael 13 vexis 1 | lyra 59 kael 41 | kael 62 lyra 27 vexis 11 |
+| SA | kael 90 vexis 9 seren 0 | vexis 75 kael 24 seren 0 | kael 60 vexis 39 seren 0 | vexis 50 kael 50 |
+| SB | seren 97 lyra 2 vexis 0 | seren 88 lyra 11 vexis 0 | seren 96 lyra 3 vexis 0 | seren 98 lyra 1 vexis 0 |
+| SC | kael 72 lyra 27 seren 1 | lyra 92 kael 8 seren 0 | lyra 66 kael 33 seren 0 | kael 62 lyra 37 |
+| OA | kael 96 vexis 3 oro 1 | kael 58 vexis 41 oro 0 | kael 55 vexis 45 oro 0 | vexis 57 kael 43 oro 0 |
+| OB | lyra 98 vexis 1 oro 0 | lyra 97 vexis 3 | lyra 99 vexis 1 oro 0 | lyra 96 vexis 3 oro 0 |
+| OC | kael 91 lyra 8 oro 0 | lyra 77 kael 22 oro 1 | lyra 70 kael 29 | kael 52 lyra 48 |
+| R | kael 83 brann 12 seren 2 | kael 69 brann 23 seren 6 | kael 96 brann 2 seren 0 | kael 84 brann 14 seren 0 |
+| SO | kael 76 seren 15 oro 9 | kael 95 seren 3 oro 1 | kael 95 seren 3 oro 2 | kael 97 seren 3 oro 0 |
+| X | seren 98 brann 1 oro 0 | seren 93 brann 3 oro 3 | seren 97 brann 1 oro 1 | seren 100 brann 0 |
+| W | seren 98 vexis 2 oro 0 | seren 94 vexis 3 oro 2 | seren 100 vexis 0 oro 0 | seren 96 vexis 3 oro 0 |
+
+**Seren, Skilled, pooled**
+
+| Party | parries | Wards on her | parried | kill shots | lost | Wards' share of her damage | overextended | answered ≤3 s | beyond 14 m | Showboat pick | Lunge interrupts | downs |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| SA | 0.3 | 3.9 | 7% | 0.40 | 0.00 | 1% | 0.3 | 75% | 0% | 91% | 2.9 | 0.29 |
+| SB | 8.3 | 14.0 | 59% | 1.53 | 0.72 | 13% | 2.9 | 86% | 0% | 96% | 1.7 | 0.31 |
+| SC | 0.3 | 3.1 | 9% | 0.21 | 0.00 | 1% | 0.6 | 80% | 0% | 89% | 2.5 | 0.27 |
+| R | 0.8 | 7.7 | 10% | 0.92 | 0.00 | 2% | 1.2 | 70% | 0% | 88% | 4.0 | 0.71 |
+| SO | 1.4 | 10.3 | 14% | 0.85 | 0.02 | 1% | 3.4 | 64% | 0% | 100% | 6.2 | 1.47 |
+| X | 15.5 | 26.5 | 59% | 3.16 | 0.72 | 13% | 4.5 | 87% | 0% | 100% | 3.7 | 0.99 |
+| W | 11.9 | 22.0 | 54% | 2.90 | 0.72 | 12% | 4.4 | 78% | 0% | 100% | 3.4 | 0.67 |
+
+**Oro, Skilled (the Novice's in-field share beside it), pooled**
+
+| Party | Saplings in your field | Novice | both standing | felled | tending | Rootbond | Ancients | downs |
+|---|---|---|---|---|---|---|---|---|
+| OA | 93% | 85% | 100% | 0.2 | 1% | 410 | 4.4 | 0.19 |
+| OB | 60% | 72% | 99% | 0.5 | 2% | 716 | 2.8 | 0.25 |
+| OC | 92% | 86% | 99% | 0.4 | 2% | 580 | 3.2 | 0.14 |
+| SO | 92% | 86% | 99% | 1.1 | 1% | 389 | 6.5 | 0.86 |
+| X | 92% | 87% | 100% | 0.1 | 1% | 573 | 5.7 | 0.21 |
+| W | 94% | 85% | 99% | 0.3 | 1% | 792 | 4.4 | 0.21 |
+
+Boss seconds on a summon, every cell: 0.0 (expected 0).
+
+**Whole runs (Skilled, 50 Finale-route runs from 333003)**
+
+| Party | Won | Gap | Reached the Finale | Won of those | Fights | Minutes | Bond XP a fight vs the starters' average | Lost most at |
+|---|---|---|---|---|---|---|---|---|
+| default | 70% |  | 74% | 95% | 12.5 | 18.7 | - | blood_rites 2, frayed_threshold 2, gorehound_matriarch 2 |
+| SA | 26% | -44 | 26% | 100% | 9.2 | 18.2 | Seren 65% | frayed_threshold 11, shield_wall 4, vharun 4 |
+| SB | 62% | -8 | 66% | 94% | 12.5 | 17.8 | Seren 72% | frayed_threshold 4, frayed_court 3, the_silent_conductor 2 |
+| SC | 48% | -22 | 52% | 92% | 11.1 | 18.9 | Seren 60% | frayed_threshold 10, hollow_cantor 7, muted_nave 2 |
+| OA | 46% | -24 | 46% | 100% | 11.5 | 26.4 | Oro 70% | frayed_threshold 14, vharun 6, shield_wall 2 |
+| OB | 46% | -24 | 50% | 92% | 10.4 | 16.0 | Oro 67% | bellwarden 8, hollow_cantor 6, frayed_threshold 3 |
+| OC | 56% | -14 | 58% | 97% | 11.9 | 20.7 | Oro 64% | frayed_court 5, frayed_threshold 4, glass_gallery 3 |
+| R | 0% | -70 | 0% | - | 6.9 | 14.9 | Brann 95%, Seren 68% | vharun 27, glass_gallery 5, muted_nave 5 |
+| SO | 0% | -70 | 0% | - | 2.9 | 4.5 | Seren 77%, Oro 71% | hollow_cantor 20, glass_gallery 7, choir_loft 6 |
+| X | 0% | -70 | 0% | - | 6.5 | 13.3 | (no starter) | vharun 12, frayed_threshold 10, crimson_gate 9 |
+| W | 22% | -48 | 22% | 100% | 9.6 | 19.2 | Seren 73%, Oro 65% | frayed_threshold 15, crimson_gate 6, vharun 4 |
+
+
+The same Oro parties and W on 65f8748, on 333003 (the before for the third set):
+
+| Party | Won | Gap | Reached the Finale | Won of those | Fights | Minutes | Bond XP a fight vs the starters' average | Lost most at |
+|---|---|---|---|---|---|---|---|---|
+| default | 70% |  | 74% | 95% | 12.5 | 18.7 | - | blood_rites 2, frayed_threshold 2, gorehound_matriarch 2 |
+| OA | 48% | -22 | 48% | 100% | 11.1 | 25.8 | Oro 71% | frayed_threshold 9, vharun 8, muted_nave 3 |
+| OB | 38% | -32 | 42% | 90% | 10.8 | 16.6 | Oro 70% | frayed_threshold 8, bellwarden 7, the_seamstress 4 |
+| OC | 68% | -2 | 68% | 100% | 12.5 | 22.6 | Oro 66% | frayed_threshold 4, frayed_court 3, glass_gallery 3 |
+| W | 8% | -62 | 10% | 80% | 7.5 | 13.8 | Seren 61%, Oro 63% | hollow_cantor 11, frayed_threshold 9, glass_gallery 5 |
+
+
+The third set agrees with the tuning sets: the boss cells hold (SB +12 / +4 / +0 / −4, OB +8 / +8 / +4 / −12, W +8 / +0 / +4 / +0), SB's whole run is 62% (−8, its band is −10: **met on this set**), OC's 56% (−14), and SC's Cantor cell is −12. On this set OB's run moves 38 → 46% and W's 8 → 22%, OA's 48 → 46% and OC's 68 → 56%.
+
+### The `verbs.ts` ablation round (Skilled, 24 seeds from 1000)
+
+Each cell: the rule left off, as change in win · downs a fight · length against every rule on (the first column); ‘—’: the rule never acts there. Run on the tree with changes 1 and 2, before the bot fixes (3, 4). `serenNoSwap` acts only with the Swap Reel variant and `discordBreaker` only against discord shields with no Lyra; neither acted in these cells (`discordBreaker` ‘—’ everywhere, so it is left out of the tables).
+
+**Seren's rules** (SA, SB, SC):
+
+
+| Party | Cell | every rule: win · downs | −serenPerfectFirst | −serenParryWard | −serenReel | −serenCall | −serenCue |
+|---|---|---|---|---|---|---|---|
+| SA | hollow_cantor | 100% · 2.88 | — | — | +0 · -0.08 · -0 s | — | -8 · +0.50 · -5 s |
+| SA | vharun | 88% · 2.96 | +8 · -0.21 · +8 s | +0 · -0.04 · -0 s | — | +0 · +0.08 · +5 s | +8 · -0.88 · -32 s |
+| SA | the_unweaver | 100% · 0.75 | — | — | — | — | +0 · -0.25 · -10 s |
+| SA | the_silent_conductor | 100% · 0.42 | +0 · -0.04 · -1 s | — | — | +0 · -0.17 · -3 s | -8 · +0.04 · -17 s |
+| SA | frayed_threshold | 50% · 1.92 | +0 · +0.04 · +0 s | +13 · -0.46 · +1 s | +0 · +0.00 · +0 s | +0 · +0.00 · -0 s | — |
+| SA | glass_gallery | 71% · 2.50 | +0 · -0.04 · -0 s | +4 · +0.00 · +1 s | +0 · +0.08 · +1 s | +0 · +0.04 · -0 s | — |
+| SB | hollow_cantor | 100% · 0.33 | +0 · -0.04 · -1 s | — | +0 · +0.04 · -1 s | — | +0 · +0.42 · -0 s |
+| SB | vharun | 100% · 5.17 | -17 · -1.04 · -19 s | -4 · -2.08 · -3 s | +0 · -0.08 · +0 s | +0 · -0.04 · -0 s | -4 · -0.63 · -1 s |
+| SB | the_unweaver | 96% · 2.71 | +0 · +0.25 · -2 s | -4 · -1.25 · +6 s | — | — | +0 · -0.13 · -9 s |
+| SB | the_silent_conductor | 83% · 1.13 | +8 · -0.13 · +7 s | +13 · -0.92 · +3 s | +4 · -0.21 · +1 s | +4 · -0.17 · +4 s | -4 · +0.88 · +1 s |
+| SB | frayed_threshold | 75% · 1.13 | +0 · -0.04 · -0 s | +0 · -0.04 · -1 s | — | — | — |
+| SB | mirror_hall | 96% · 0.29 | — | +4 · -0.25 · -0 s | — | +0 · +0.00 · +0 s | — |
+| SC | hollow_cantor | 79% · 4.71 | — | — | +4 · -0.33 · -2 s | -4 · +0.13 · -1 s | -13 · +0.79 · -4 s |
+| SC | vharun | 96% · 0.92 | +4 · +0.00 · +2 s | +4 · +0.00 · +3 s | — | -4 · -0.08 · -7 s | +4 · -0.29 · -12 s |
+| SC | the_unweaver | 100% · 0.58 | — | — | — | — | -4 · +0.08 · -5 s |
+| SC | the_silent_conductor | 100% · 0.17 | +0 · +0.00 · -2 s | — | — | +0 · +0.08 · -6 s | +0 · -0.13 · -6 s |
+| SC | frayed_threshold | 79% · 1.21 | +0 · +0.00 · -0 s | +0 · +0.21 · +1 s | +4 · -0.08 · +1 s | +0 · +0.00 · +0 s | — |
+| SC | frayed_court | 67% · 1.29 | — | +0 · +0.13 · +1 s | +0 · -0.08 · -0 s | +0 · +0.04 · +0 s | — |
+
+
+**Oro's rules** (OA, OB, OC; OC's Unweaver and Conductor rows were already played with the first `oroRally` guard, below):
+
+
+| Party | Cell | every rule: win · downs | −oroFocus | −oroRally | −oroThread | −groveCover | −oroCue |
+|---|---|---|---|---|---|---|---|
+| OA | hollow_cantor | 92% · 2.58 | +8 · +0.17 · +61 s | +0 · +1.25 · +2 s | +8 · +0.00 · +5 s | +4 · +0.88 · +5 s | +4 · +0.00 · +6 s |
+| OA | vharun | 96% · 2.71 | -13 · +0.13 · +38 s | +0 · +0.29 · -3 s | — | -13 · +0.00 · -5 s | +0 · +0.04 · -4 s |
+| OA | the_unweaver | 100% · 1.42 | +0 · -0.46 · +17 s | +0 · -0.29 · -4 s | — | -8 · +0.46 · +14 s | +0 · -0.04 · -7 s |
+| OA | the_silent_conductor | 96% · 0.54 | +4 · +0.04 · +18 s | +4 · +0.17 · +8 s | +0 · +0.21 · -1 s | +4 · +0.92 · +2 s | +0 · +0.29 · -8 s |
+| OA | frayed_threshold | 92% · 0.58 | +0 · +0.08 · +4 s | -4 · +0.08 · -2 s | -4 · +0.04 · +1 s | -4 · +0.13 · +0 s | — |
+| OA | glass_gallery | 79% · 2.50 | -8 · +0.33 · +3 s | +0 · +0.04 · +0 s | -4 · +0.00 · -2 s | +0 · -0.92 · -2 s | -4 · +0.08 · +0 s |
+| OB | hollow_cantor | 96% · 0.79 | +4 · +0.50 · +26 s | -4 · +0.04 · +3 s | -8 · +0.25 · -8 s | -4 · +0.75 · -2 s | -4 · +0.29 · -0 s |
+| OB | vharun | 96% · 2.33 | -4 · +0.00 · +12 s | +4 · +0.13 · +10 s | — | -4 · +0.33 · -6 s | +4 · +0.50 · +3 s |
+| OB | the_unweaver | 79% · 3.42 | +8 · -0.79 · +16 s | +21 · -2.08 · -2 s | — | +4 · -0.04 · +33 s | +13 · +0.29 · +10 s |
+| OB | the_silent_conductor | 88% · 1.21 | -21 · +0.79 · -1 s | +8 · -0.58 · +10 s | +4 · -0.29 · -6 s | -4 · -0.04 · -16 s | -8 · +0.75 · -8 s |
+| OB | frayed_threshold | 88% · 0.75 | -4 · +0.13 · +1 s | -4 · -0.04 · +3 s | +8 · -0.38 · +2 s | -17 · +0.63 · +12 s | — |
+| OB | bellwarden | 83% · 2.38 | +0 · -0.54 · +7 s | +17 · -1.75 · -1 s | — | +0 · +0.13 · -2 s | +8 · -0.13 · +0 s |
+| OC | hollow_cantor | 96% · 2.88 | +4 · +0.75 · +29 s | -25 · +1.04 · -5 s | +4 · -0.17 · -1 s | -4 · +0.13 · +11 s | +0 · +0.33 · +2 s |
+| OC | vharun | 100% · 0.25 | -8 · +0.92 · +31 s | +0 · +0.38 · +2 s | — | +0 · +0.38 · -7 s | -4 · +1.08 · +7 s |
+| OC | the_unweaver | 88% · 0.92 | +8 · -0.13 · +17 s | +13 · -0.88 · -7 s | — | +8 · +0.00 · +22 s | +13 · -0.29 · -2 s |
+| OC | the_silent_conductor | 100% · 0.54 | -4 · -0.04 · +116 s | +0 · -0.29 · -3 s | +0 · -0.21 · -14 s | -13 · +0.33 · -14 s | +0 · -0.12 · -4 s |
+| OC | frayed_threshold | 88% · 0.96 | +0 · -0.08 · +18 s | -8 · +0.00 · -0 s | +8 · -0.33 · -2 s | +0 · -0.29 · +2 s | +0 · -0.04 · -1 s |
+| OC | frayed_court | 67% · 1.25 | +0 · +0.00 · +3 s | -8 · +0.29 · -4 s | +4 · +0.00 · -3 s | -13 · +0.38 · -12 s | +0 · +0.00 · +2 s |
+
+
+**The Novice's draws** (`NOVICE_ROSTER_RULES`, Novice, the four bosses):
+
+
+| Party | Cell | every rule: win · downs | −serenWard |
+|---|---|---|---|
+| SA | hollow_cantor | 29% · 7.29 | +8 · +0.08 · +3 s |
+| SA | vharun | 54% · 8.42 | -8 · -0.21 · -7 s |
+| SA | the_unweaver | 0% · 7.08 | +0 · -0.79 · +1 s |
+| SA | the_silent_conductor | 13% · 4.38 | +0 · +0.21 · -6 s |
+| SB | hollow_cantor | 100% · 1.67 | -8 · -0.50 · +6 s |
+| SB | vharun | 71% · 5.17 | +21 · -2.08 · -7 s |
+| SB | the_unweaver | 13% · 5.00 | +38 · -1.50 · -8 s |
+| SB | the_silent_conductor | 21% · 4.25 | +8 · -0.92 · -4 s |
+| SC | hollow_cantor | 0% · 6.42 | +25 · +0.83 · +13 s |
+| SC | vharun | 42% · 6.50 | +8 · -0.21 · -4 s |
+| SC | the_unweaver | 17% · 4.75 | +0 · -0.67 · +2 s |
+| SC | the_silent_conductor | 4% · 4.92 | +13 · -0.75 · +1 s |
+
+
+| Party | Cell | every rule: win · downs | −oroFocus | −saplingRally |
+|---|---|---|---|---|
+| OA | hollow_cantor | 50% · 7.58 | +0 · +1.54 · +36 s | -13 · -1.13 · -15 s |
+| OA | vharun | 46% · 10.04 | -46 · +2.13 · +49 s | -33 · -0.25 · -19 s |
+| OA | the_unweaver | 0% · 5.79 | +0 · +0.38 · -4 s | +0 · -0.50 · -2 s |
+| OA | the_silent_conductor | 13% · 5.13 | -4 · +0.75 · +4 s | -4 · +0.38 · -11 s |
+| OB | hollow_cantor | 25% · 3.88 | +13 · -0.25 · +30 s | -21 · +0.46 · -29 s |
+| OB | vharun | 21% · 7.13 | -13 · +1.08 · +31 s | -4 · +0.04 · -13 s |
+| OB | the_unweaver | 0% · 9.33 | +4 · -2.08 · +53 s | +4 · -1.63 · +7 s |
+| OB | the_silent_conductor | 8% · 4.83 | +0 · -0.38 · -3 s | -4 · -0.58 · -10 s |
+| OC | hollow_cantor | 8% · 6.88 | +8 · +1.04 · +25 s | +0 · -1.79 · -4 s |
+| OC | vharun | 71% · 8.50 | -38 · +1.17 · +13 s | -25 · -0.63 · -9 s |
+| OC | the_unweaver | 0% · 4.04 | +0 · +0.08 · +15 s | +0 · -0.50 · +10 s |
+| OC | the_silent_conductor | 4% · 4.79 | -4 · +0.29 · -10 s | -4 · +0.67 · +9 s |
+
+
+**What the ablation found, and what was done.**
+- **`serenParryWard` was plainly broken once Seren holds a boss** (SB: off, Vharun −2.08 downs, the Unweaver −1.25, the Conductor +13 points). In a boss fight it Wards her only against the boss's own blows, and with `serenPerfectFirst` on, the boss's cones are the Perfect scorer's, so the rule spent a Ward on every boss *swing* and left the next cone on Lyra or Vexis unwarded. Fixed (change 3): a plain swing never takes the last Ward charge. After it, with the rule on, SB is 100% at all four bosses with 3.79 / 1.29 / 0.13 downs at Vharun, the Unweaver and the Conductor (5.17 / 2.71 / 1.13 before), and leaving it off now costs 4-8 points:
+
+
+| Party | Cell | every rule: win · downs | −serenParryWard | −serenPerfectFirst |
+|---|---|---|---|---|
+| SB | hollow_cantor | 100% · 0.33 | — | +0 · -0.04 · -1 s |
+| SB | vharun | 100% · 3.79 | -4 · -0.71 · +5 s | +0 · -0.63 · +1 s |
+| SB | the_unweaver | 100% · 1.29 | -8 · +0.17 · +9 s | -8 · -0.08 · -6 s |
+| SB | the_silent_conductor | 100% · 0.13 | -4 · +0.08 · -2 s | +0 · +0.21 · -1 s |
+| SB | frayed_threshold | 75% · 1.13 | +0 · -0.04 · -0 s | +0 · -0.04 · -0 s |
+| SB | mirror_hall | 100% · 0.08 | +0 · -0.04 · -1 s | — |
+| W | hollow_cantor | 79% · 1.75 | — | +8 · -0.04 · +1 s |
+| W | vharun | 96% · 3.88 | +4 · -0.46 · +1 s | -8 · -0.13 · -5 s |
+| W | the_unweaver | 100% · 1.67 | +0 · -0.17 · -5 s | +0 · +0.17 · -1 s |
+| W | the_silent_conductor | 96% · 0.25 | +4 · +0.00 · +11 s | +4 · -0.13 · -2 s |
+| W | frayed_threshold | 46% · 1.88 | -13 · +0.42 · +3 s | -4 · +0.08 · -1 s |
+
+
+| Party | Cell | every rule: win · downs | −serenParryWard |
+|---|---|---|---|
+| SA | frayed_threshold | 58% · 1.58 | +4 · -0.13 · +2 s |
+| SA | glass_gallery | 75% · 2.50 | — |
+| SA | vharun | 88% · 2.92 | +0 · +0.00 · +0 s |
+| SC | frayed_threshold | 83% · 1.17 | -4 · +0.25 · -0 s |
+| SC | frayed_court | 79% · 1.17 | -13 · +0.25 · -6 s |
+| SC | vharun | 100% · 0.92 | — |
+
+
+- **`oroRally` was plainly broken in OB** (off: +21 points and −2.08 downs at the Unweaver, +8 and −0.58 at the Conductor; in a second round, with a first guard that missed the cause, +13 to +21 at the Cantor, the Unweaver, the Conductor and the Bellwarden; the Unweaver in OC +13). A Rally walked the boss's target, Lyra or Vexis, home to her spot behind the Weaver, and the boss after her through the Weaver and the grove. Fixed (change 4, `bossBehind`). The rule still pays where it should: off, OC loses 25 points at the Cantor (the Silent Verse re-plant), OA 8, W 25 and X 67 at the Unweaver:
+
+
+| Party | Cell | every rule: win · downs | −oroRally |
+|---|---|---|---|
+| OB | hollow_cantor | 83% · 1.13 | +8 · -0.29 · +3 s |
+| OB | vharun | 100% · 2.46 | — |
+| OB | the_unweaver | 100% · 1.33 | +0 · +0.00 · +1 s |
+| OB | the_silent_conductor | 96% · 0.63 | — |
+| OB | bellwarden | 100% · 0.63 | — |
+| OB | frayed_threshold | 79% · 0.96 | +4 · -0.25 · +4 s |
+| OB | frayed_court | 67% · 1.33 | +17 · -0.71 · +3 s |
+| W | hollow_cantor | 79% · 1.75 | +21 · -0.58 · +3 s |
+| W | vharun | 96% · 3.83 | -4 · -0.29 · +9 s |
+| W | the_unweaver | 100% · 1.50 | -25 · +0.29 · +148 s |
+| W | the_silent_conductor | 96% · 0.29 | +0 · +0.00 · -2 s |
+| X | the_unweaver | 100% · 3.92 | -67 · +0.25 · +36 s |
+| X | vharun | 71% · 4.79 | +17 · -0.29 · -4 s |
+| OC | hollow_cantor | 96% · 2.83 | -25 · +1.08 · -5 s |
+| OC | the_unweaver | 100% · 0.04 | +0 · +0.00 · -1 s |
+| OA | hollow_cantor | 100% · 2.67 | -8 · +1.17 · -5 s |
+| OA | the_unweaver | 100% · 0.88 | +0 · +0.25 · +1 s |
+| OA | glass_gallery | 79% · 2.50 | +0 · +0.04 · +0 s |
+| OA | frayed_threshold | 92% · 0.58 | -4 · +0.08 · -2 s |
+
+
+- **Recorded, not changed (none is plainly broken; each is a tuning question):**
+  - `serenCue` costs time at Vharun in SA and SC (off: −32 s and −0.88 downs in SA, −12 s in SC) but pays at the Cantor (off: −8 points in SA, −13 in SC). With it on, Thousand Cuts waits for 4+ enemies or an overextension, so a lone boss gets the plain Cue rule's ‘a boss fight, Cue it’ only through autonomy.
+  - `serenPerfectFirst` is mixed (SB Vharun off −17, SB Conductor off +8 before the fix; W Cantor off +8 after it).
+  - `oroFocus` is mixed (OA Vharun off −13, OB Conductor off −21; OA and OC Cantor off +4 to +8 but 26-61 s slower).
+  - `groveCover` pays at bosses (off: +0.4 to +0.9 downs) and on the road (OB Frayed Threshold off −17).
+  - `oroThread` is ‘—’ at Vharun and the Unweaver (the party is never calm there, or Unravel holds) and small elsewhere.
+  - `serenCall` and `serenReel` are within noise everywhere: her Lunge Call rarely opens in a boss fight (Lunge is held for interrupts), and she is rarely overextended and hurt there.
+  - The **Novice's `serenWard`** costs SB 21-38 points at Vharun and the Unweaver now that she holds the boss (she is always engaged, so the Novice keeps spending her Ward on Seren). It is the Novice's model of a beginner's eager Ward, so it is left for the tuning pass (lever 3), with the Novice bands (SB at bosses ≥ 10%: 71 / 12 / 21% at Vharun, the Unweaver and the Conductor, met). The Novice's `oroFocus` and `saplingRally` both pay (off: up to −46 and −33 points).
+
+### Tried and not kept
+
+| Lever | Change tried | Where measured | Result | Why not kept |
+|---|---|---|---|---|
+| 1 | Seren `threatMult` 1.0 → 1.2 (the ±20% edge) | SB, W, SA, SC bosses, 12 seeds | SB bosses on her 0-3%, W 5-18%; SC Cantor 58% (75% at 1.0) | cannot make her the holder |
+| 2 | `DUEL_BOSS_THREAT` ×3 | SB, W, X bosses, 12 seeds | SB holds the Cantor only (68%); Vharun 15%, the Unweaver 1% | too weak |
+| 2 | `DUEL_BOSS_THREAT` ×4 | SB bosses, 12 seeds | Cantor 94%, Conductor 79%, Vharun 35%, the Unweaver 48% | too weak |
+| 2 | `DUEL_BOSS_THREAT` ×10 | SB bosses, 12 seeds | the same holds as ×6 (94-98%), the Unweaver 83% win (×6: 92%) | no gain over ×6 |
+| 3 | `oroRally` not while a damaging telegraph aimed at a hero is live | OB bosses and the Bellwarden, OA, 24 seeds | OB still +8 to +21 points with the rule off | missed the cause |
+| 3 | `oroRally` not while a boss is on anyone but the tank (Kael) | final cells, 24 seeds (`g1-*`) | OB as kept; W at the Unweaver 71% (−29), X 42% (−58): Seren's and Brann's spots are in front, and their Rally was the one that worked | too wide: replaced by `bossBehind` |
+
+### The carry-over items (item 1)
+
+- **Recap thresholds, checked against the per-down data** (the final boss cells; the `gap` column is the blow's source distance past both bodies):
+  - *Seren's `far`* (an enemy's bolt or beam from beyond `PARRY_REACH`, 6 m) fires on 0-1 of each party's downs; blows from past 6 m are 1-12 of each party's Seren downs and are raids, marks and bursts, each with its own answer. Her downs are 50-88% from within 2 m, and `parryable` (a melee blow aimed at her) names 37 of SB's 40, 110 of X's 131 and 77 of W's 86. Only 1 of 280 came with her parry armed. The rule matches the doc (‘Seren, by a far beam’) and the data: **kept**.
+  - *Oro's `melee`* (a lesser foe's basic swing, or a blow from one within 6 m that is no raid, mark or link): 0-12 of his downs at bosses (most blows within 6 m of him there are bosses', which Saplings never screen, so ‘Rally: his Saplings screen him’ would be wrong), and 15-24 of 39-92 on the road (`fin-road` pooled: OA 24 of 64, OB 23 of 92, OC 15 of 39). It matches the doc's ‘caught in melee’: **kept**.
+  - *Oro's `threadCut`* (a Severing cut of the Thread on him in the last 5 s): 0 in every down, bosses and road alike, because Severing elites cut the Thread far more often than they down Oro (Thread cuts a fight are in the Weaver-safety table). The doc's ‘while Oro is Threaded’ is what `threadCutAt` records (it is written only for a cut of a Thread on him): **kept**, and recorded as rarely reached.
+  - *Felled outside*: 0-22 of Oro's boss downs and 19-30 of his road downs carry it; `deathAdviceLine` puts the blow's own answer first, as the doc says.
+- **The counter's ‘amplified’ credit: recommendation, no change.** The counter and the kill shot go through `heroDamage`, and their `dealDamage` carries `amplified` = the auras' and Empower's share, exactly as every hero hit does; the Ward's own part is `ledger.duel.wardsDealt`, and render gives the whole number the gold chip from the `parryCountered` and `killShot` events (`serenCues.wardBlows`). Setting `amplified` to the whole counter would count the Ward's damage twice (in `ledger.amplified`, which feeds proof of support and the without-you counterfactual, and again in `wardsDealt`), and it would move only Seren goldens. No existing party's hash moves either way. Recommendation: keep it as it is, and keep the doc's line (‘not added to amplified totals’).
+- **The e2e draw-call budget (≤ 220) for an Oro party.** No headless render bench measures draw calls (they are WebGL's `renderer.info.calls`, read by `src/app/runtime.ts` in the browser), and e2e was not run. Bounded instead from the render tests (`tests/renderOro.test.ts`, ‘two lazy model batches’ and ‘no new FX batches’): an Oro party adds exactly two model batches (`summon:sapling`, one instanced draw; `summon:ancient`, one draw and one shadow draw, made on the first Ancient) and the lazy Q2 disc decal (one draw), with FX batches equal to the default party's. That is at most 4 draw calls over the same scene, against 30-38 measured for the e2e busy fight (docs/phase-2.md:84, docs/phase-3.md:75). The e2e smoke's Oro-party check (`smoke.spec.ts`, ‘The summon batches stay inside the draw-call budget’) stays the measurement of record.
+- **The Bramble reading (W2's question) confirmed:** Bramble roots and pricks only normal and elite, non-heavy foes, and a Focus on a lone boss casts nothing (no lesser foe to hold). That is the doc's row: ‘roots normal and elite, non-heavy enemies inside … and pricks them’.
+- **Doc mismatches fixed here:** Seren's chip line now names the Swap Reel variant beside the Chronomancer and the Anchor (*UI*); *By party*, *Stats* (threatMult), *Gentle* and the *ROSTER_RULES* rows describe changes 1-5. Every other carry-over in the build notes (Unflinching, Gentle under Hold, the Ancient's Solo, the held grove's look, Verdant Choir's rings, Rootbond's sound, the downed fade, `serenReel` with Anchor, the Novice Prelude band, the recap fields, the Oro goldens after W2b) was closed at integration (*Integration hand-over*), and is not reopened.
+
+### Bands after the prep, and what needs you
+
+| Band | Measured (sets 1000 / 2000; the third set beside it) | Status |
+|---|---|---|
+| Bosses, ×A ×C ≥ default − 5 | SA −8 at Vharun (third set −8); SC −21 at the Cantor (−12); OA, OC within | missed in two cells: W9 tuning (lever 1, Seren's and Oro's numbers) |
+| Bosses, SB ≥ default − 15 | +0 to +4 (third set −4 to +12) | **met on both sets** |
+| Bosses, OB ≥ default − 25 (provisional) | −12 / +4 / +0 / +0 (third set +8 / +8 / +4 / −12) | **met on both sets** |
+| Bosses, reduced vs − 15 | W +0 at all four; X −8 / −25 / +0 / +4; R −50 at Vharun; SO −25 to −96 | printed |
+| Road, ×A ×C and SB ≥ default − 5 | SA 12 of 23 cells past it, SB 4, SC 5, OA 6, OC 4 | missed: the tuning pass starts here (Frayed Threshold, the Frayed Court, Blood Forge) |
+| Road, OB ≥ default − 10 (provisional) | 3 of 23 cells past it (the Bellwarden −12, Frayed Threshold −17, the Frayed Court −29) | missed in 3 |
+| Whole run, SB ≥ default − 10 | −24 on 2000, −8 on 333003 | seed-sensitive, 1 of 2 |
+| Whole run, OB ≥ default − 20 (provisional) | −26 on 2000, −24 on 333003 | missed by 4-6 points |
+| Whole run, ×A ×C ≥ default − 5 and ≥ 55% | SA 30 / 26%, SC 40 / 48%, OA 40 / 46%, OC 64 / 56% | missed |
+| Seren: ≥ 50% of the Wards on her parry | SB 59%, W 57%, X 58% (third set 59, 54, 59); SA 7%, SC 8% | met where she holds the boss; not in Kael parties |
+| Kael holds bosses ≥ 70% (SA, SC) | 51%, 41%; the default party's Kael 47% | **NEEDS USER** (above) |
+| Oro: Saplings in your field ≥ 60% | OA 93, OB 60, OC 92% (third set 93, 60, 92) | met; OB at the edge (`bossBehind`) |
+| Oro: downs ≤ 0.3 | OA 0.21, OB 0.29, OC 0.10 at bosses (third set 0.19, 0.25, 0.14) | **met on both sets** (0.36-1.02 at the first look) |
+| Boss seconds on a summon | 0 | met |
+| Idle at bosses | 0% everywhere | met |
+
+**OB (Q8): the provisional bands, confirmed for the bosses, replaced by measurement for the run.** With the sidestep and `bossBehind`, OB's boss cells sit inside the provisional −25 on both sets (worst −12), so the boss band stands as provisional. Its whole run is −26 and −24 against the provisional −20: 4-6 points short, and no longer the outlier (SA −44, SC −34 / −22, OA −34 / −24 are as far or further). Recommendation: keep both provisional bands, and re-read OB's run after the road tuning, since OB loses on the road (the Bellwarden, Frayed Threshold) and at the Cantor, not at its bosses. The *Heartwood* alternative (a Quirk change) is not built and needs you; nothing here calls for it yet.
+
+**NEEDS USER.**
+1. Change 2 (Seren holds the Kael-less bosses by threat, ×6) is the default taken for the binding *By party* rows: confirm, or say how else you want it.
+2. The ‘Kael holds bosses ≥ 70% in SA and SC’ band is below the default party's own Kael share (47%); only Kael's or Lyra's numbers could reach it. Restate it against the default party's share in the same run (SA 51 against 47: met; SC 41: −6), or accept it as missed.
+3. OB's provisional bands (Q8): as recommended above, or replace them.
 
 ## Determinism and invariance guards
 
