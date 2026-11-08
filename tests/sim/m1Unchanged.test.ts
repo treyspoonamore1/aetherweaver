@@ -73,10 +73,10 @@ const NINETEEN: Readonly<Record<string, string>> = { ...FIFTEEN, ...M4_HASHES };
 const ROSTER_HASHES: Readonly<Record<string, string>> = {
   'skilled-seren-crimson-gate': '46879a04e120c1ce',
   'novice-seren-first-light': '0938c093f5e660cc',
-  'skilled-oro-bellwarden': '671ab3ca660a2f25',
+  'skilled-oro-bellwarden': '552c8f11a4665d3b',
   'skilled-red-line-vharun': 'fe0a62722e1c72e0',
-  'skilled-oro-conductor': 'a3e3f27390544d20',
-  'novice-grove-mirror-hall': 'ae5376c4973130d4',
+  'skilled-oro-conductor': '53a7ac7834ffde8f',
+  'novice-grove-mirror-hall': '13f3bb8e8df1eebd',
 };
 
 /** All twenty-five goldens, in golden.json's order. */

@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useRun } from '../../app/runStore';
 import { CONTENT, encounterDef, motifDef, movementDef, runEventDef } from '../../content';
-import { findNode, motifLine, reachable } from '../../meta/run';
+import { findNode, motifLine, nodeThreat, reachable } from '../../meta/run';
+import type { Allowance } from '../../meta/profile';
 import { voiceMapBiome } from './mapBiome';
 import { parMult } from '../../meta/dissonance';
 import type { MapNode, NodeKind, RunState } from '../../meta/types';
@@ -17,6 +18,7 @@ import { PartyHealth, Pips, SectionTitle } from './shared';
 import { Glyph } from '../kit/RelicGlyph';
 import { eventPreview, rewardChips, threatLine, type RewardChip } from './interlude';
 import { RunStrip } from './RelicCard';
+import { useAllowance } from './PrepScreen';
 import { CallingGlyph, callingLook } from '../kit/CallingGlyph';
 import { callingTierAt, milestoneLine, numeral } from './callingText';
 import { callingDef } from '../../content';
@@ -90,6 +92,11 @@ export interface MapViewProps {
   peekCalling?: boolean;
   /** UI lab: the one-time Movement card (true: shown; false: never). Omitted: once a run. */
   card?: boolean;
+  /**
+   * Phase 5e: your allowance, so an event whose Rank-gated recruiting fight it shows names that
+   * fight's Threat (`nodeThreat`). Omitted: every node's own, as before.
+   */
+  allowance?: Allowance;
 }
 
 /**
@@ -104,6 +111,7 @@ export function MapView({
   peekRelic,
   peekCalling = false,
   card,
+  allowance,
 }: MapViewProps) {
   // The Movement's music (docs/phase-5a.md), before the mood: on every visit to the map, its
   // Movement's biome (a fight may have voiced another; a Prelude after an Expedition is the
@@ -231,6 +239,7 @@ export function MapView({
                   run={run}
                   layout={layout}
                   node={node}
+                  allowance={allowance}
                   state={
                     node.id === current
                       ? 'current'
@@ -409,6 +418,7 @@ function MapNodeView({
   state,
   onChoose,
   peek = false,
+  allowance,
 }: {
   run: RunState;
   layout: MapLayout;
@@ -416,6 +426,7 @@ function MapNodeView({
   state: 'current' | 'visited' | 'option' | 'locked';
   onChoose(id: string): void;
   peek?: boolean;
+  allowance?: Allowance;
 }) {
   const look = nodeLook(node);
   const pos = nodePos(layout, node);
@@ -427,7 +438,8 @@ function MapNodeView({
   const ev = node.kind === 'event' ? eventPreview(node.eventId) : null;
   const eventIcon = node.eventId ? runEventDef(node.eventId).icon : null;
   const title = enc?.name ?? ev?.name ?? look.label;
-  const threat = threatLine(node.reward.threat, node.kind === 'event');
+  // Phase 5e: an event's Rank-gated recruiting fight, when your Rank shows it, names its Threat.
+  const threat = threatLine(nodeThreat(run, node, allowance), node.kind === 'event');
   // Phase 3c: a fight on a milestone row whose tier of the Calling is still open.
   const tier = callingTierAt(run, node);
   const milestone = milestoneLine(run, node);
@@ -603,10 +615,11 @@ export function MapScreen() {
   const run = useRun((s) => s.run);
   const choose = useRun((s) => s.chooseNode);
   const abandon = useRun((s) => s.abandon);
+  const allowance = useAllowance();
   if (!run) return null;
   return (
     <>
-      <MapView run={run} onChoose={choose} onAbandon={abandon} />
+      <MapView run={run} onChoose={choose} onAbandon={abandon} allowance={allowance} />
       {/* Phase 4e: a scene's Bond XP can reach a rank: its card, back on the map. */}
       <BondCardLayer />
     </>

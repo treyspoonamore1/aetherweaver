@@ -19,7 +19,7 @@ import type { HeroDef } from '../../content/schema';
 import { summonFx } from '../combat/auras';
 import { addStatus, dealDamage, isActive, rising } from '../combat/health';
 import { distSq, len } from '../core/dmath';
-import { hasTalent, talentValue } from '../bonds';
+import { hasTalent, talentFired, talentValue } from '../bonds';
 import type { Entity, EntityId, GroveState, LedgerGrove } from '../state';
 import type { World } from '../world';
 import { gentle, lesserFoe, rootable, saplingInField, stationaryFoe } from './grove';
@@ -285,11 +285,16 @@ export function summonFell(world: World, summon: Entity, _source: Entity | null)
   const owner = world.entities.get(c.owner);
   const grove = owner?.hero?.grove;
   if (c.kind === 'ancient') {
-    if (owner && hasTalent(owner, 'world_tree')) rootAround(world, summon, owner);
+    if (owner && hasTalent(owner, 'world_tree')) {
+      rootAround(world, summon, owner);
+      talentFired(world, owner, 'world_tree', summon.x, summon.z, summon.id);
+    }
     if (grove && grove.ancient === summon.id) grove.ancient = null;
   } else if (grove && owner) {
     grove.lost++;
     ledgerGrove(world).saplingsLost++;
+    // Felled outside your songs (his down recap's 'Keep his Saplings inside your songs').
+    if (!saplingInField(world, summon)) grove.feltOutside = (grove.feltOutside ?? 0) + 1;
     if (grove.saplings[c.index] === summon.id)
       grove.respawnAt[c.index] = world.time + saplingRespawn(world, owner);
     felledBark(world, owner, c.index);
@@ -308,8 +313,10 @@ export function summonFell(world: World, summon: Entity, _source: Entity | null)
 export function ancientLeaves(world: World, owner: Entity, a: Entity, withered: boolean): void {
   const grove = owner.hero?.grove;
   if (grove && grove.ancient === a.id) grove.ancient = null;
-  if (!withered && hasTalent(owner, 'world_tree') && !a.summon?.burrowUntil)
+  if (!withered && hasTalent(owner, 'world_tree') && !a.summon?.burrowUntil) {
     rootAround(world, a, owner);
+    talentFired(world, owner, 'world_tree', a.x, a.z, a.id);
+  }
   if (a.health) a.health.dead = true;
   world.events.push({
     type: 'summonFell',
@@ -703,6 +710,7 @@ function stepSummon(world: World, s: Entity, dt: number, fighting: boolean): voi
     const extra = h.maxHp * (k - 1);
     h.maxHp += extra;
     h.hp += extra;
+    talentFired(world, owner, 'old_growth', s.x, s.z, s.id);
   }
   saplingAct(world, s, def.sapling, dt);
 }

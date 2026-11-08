@@ -13,7 +13,7 @@
 import { enemyDef, heroDef } from '../../content';
 import { HOMECOMING } from '../../content/rosterIds';
 import type { HeroDef } from '../../content/schema';
-import { hasTalent, soloValue, talentValue } from '../bonds';
+import { hasTalent, soloValue, talentFired, talentValue } from '../bonds';
 import { auraBit, partyAuraMask } from '../combat/auras';
 import { bark } from '../combat/feedback';
 import { pickEnemyTarget } from '../combat/threat';
@@ -28,7 +28,14 @@ import {
 } from '../combat/health';
 import { AUTONOMY, SIM_DT } from '../constants';
 import { distSq, len } from '../core/dmath';
-import type { Entity, EntityId, GroveState, ReadonlyEntity, WorldState } from '../state';
+import type {
+  DeathRecord,
+  Entity,
+  EntityId,
+  GroveState,
+  ReadonlyEntity,
+  WorldState,
+} from '../state';
 import type { World } from '../world';
 import { canCall, flourishing, startCall } from './calls';
 import { heavy } from './duel';
@@ -734,6 +741,8 @@ export function groveSoloStart(world: World, hero: Entity, cued: boolean, _durat
     }
     s.summon!.tauntAt = world.time;
     addShield(world, s, 'overshield', s.health!.maxHp * barrier, HOMECOMING_BARRIER, false);
+    // Each Sapling it brings home.
+    talentFired(world, hero, 'homecoming', s.x, s.z, s.id);
   }
   if (!cued) return;
   // Cued: the heroes near you take a barrier too.
@@ -848,6 +857,34 @@ export function summonCredit(
   ledgerGrove(world).summonDamage += total;
 }
 
+/** A blow from an enemy this close (m, past both bodies) caught Oro in melee (his down recap). */
+const MELEE_NEAR = 6;
+/** A Severing cut this recent (s) is named in his down recap, as the recap's last 5 s of hits. */
+const CUT_RECENT = 5;
+
+/**
+ * Oro's down recap (docs/phase-5e.md, "Down recaps"; `DeathRecord.grove`), read in `downHero`:
+ * caught in melee (an enemy's basic swing, or a blow from an enemy within `MELEE_NEAR`), the
+ * Saplings felled outside your field this fight, and a Severing foe's cut of your Thread on him
+ * in the last `CUT_RECENT` s (Rootbond went with it).
+ */
+export function groveDownRecord(
+  world: World,
+  e: Entity,
+  blow: { source: Entity | undefined; melee: boolean; tick: boolean },
+): NonNullable<DeathRecord['grove']> {
+  const grove = e.hero!.grove!;
+  const src = blow.source;
+  const near = MELEE_NEAR + e.radius + (src?.radius ?? 0);
+  const melee =
+    blow.melee || (!blow.tick && !!src?.enemy && distSq(src.x, src.z, e.x, e.z) <= near * near);
+  return {
+    melee,
+    feltOutside: grove.feltOutside ?? 0,
+    threadCut: grove.threadCutAt !== undefined && world.time - grove.threadCutAt <= CUT_RECENT,
+  };
+}
+
 /**
  * dealDamage, an enemy's blow on a summon (after it is resolved): Thorned Bark sends `pct`% of
  * what struck a Sapling back at the striker, as the Sapling's hit (no threat).
@@ -863,4 +900,6 @@ export function summonStruck(world: World, summon: Entity, source: Entity, total
     amount: (total * talentValue(world, 'thorned_bark', 'pct')) / 100,
     noThreat: true,
   });
+  // Each blow it bites back: at the striker.
+  talentFired(world, owner, 'thorned_bark', source.x, source.z, source.id);
 }

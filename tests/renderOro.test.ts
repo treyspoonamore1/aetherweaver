@@ -192,14 +192,48 @@ function harness(sim: Sim) {
 
 function setup(party: string[] = WITH_ORO) {
   const sim = sandbox({ party });
+  // W2's sim plants his Saplings itself; these tests stage their own (`sprout`, `ancient`).
+  clearGrove(sim, true);
   const w = worldOf(sim);
   const of = (slot: number) => w.entities.get(w.party[slot]!)! as Entity;
   return { sim, w, of, h: harness(sim) };
 }
 
 /**
+ * Takes away the summons the sim spawned (W2's `spawnGrove` plants his Saplings when the fight is
+ * made), so the tests below stage their own and render is checked against what they set. The
+ * summons list goes with them, so the sim neither tends nor re-sprouts them, and the field writes
+ * no `auraMask`/`inField` over what a test stages. `quiet`: before any frame, their spawn events
+ * are dropped too (render never saw them); later, render hears them despawn.
+ */
+function clearGrove(sim: Sim, quiet = false) {
+  const w = worldOf(sim);
+  const ids = new Set(w.internal.summons ?? []);
+  for (const id of ids) {
+    w.entities.despawn(id);
+    if (!quiet) w.events.push({ type: 'entityDespawned', tick: w.tick, id, kind: 'summon' });
+  }
+  delete w.internal.summons;
+  delete w.field.ancient;
+  for (const id of w.party) {
+    const grove = w.entities.get(id)?.hero?.grove;
+    if (!grove) continue;
+    grove.saplings.length = 0;
+    grove.respawnAt.length = 0;
+    grove.ancient = null;
+  }
+  if (!quiet || ids.size === 0) return;
+  for (const e of w.events.drain())
+    if (
+      !(e.type === 'entitySpawned' && ids.has(e.id)) &&
+      !(e.type === 'summonSpawned' && ids.has(e.summon))
+    )
+      w.events.push(e);
+}
+
+/**
  * Oro's Saplings as W2 spawns them: summon entities at the Weaver's front spots, never in the
- * party, in his grove (staged here until W2 lands). `inField`/`auraMask`: Q1's (W2b's) keys.
+ * party, in his grove (staged here, in place of the sim's own: `clearGrove`). `inField`/`auraMask`: Q1's (W2b's) keys.
  */
 function sprout(sim: Sim, oro: Entity, opts: { inField?: boolean[]; mask?: number } = {}) {
   const w = worldOf(sim);
@@ -612,11 +646,14 @@ describe('his healing, his numbers, his bars', () => {
   it('their bars: a separate pool, keyless, with a leaf in his moss; the heroes’ bars as ever', () => {
     const { sim, of, h } = setup();
     h.run(2);
-    sprout(sim, of(ORO), { inField: [true, false] });
+    const [a, b] = sprout(sim, of(ORO), { inField: [true, false] });
     h.frame([]);
     expect(h.overlay.bars.length).toBe(3);
     expect(h.overlay.summonBars.length).toBe(2);
-    const [inside, outside] = h.overlay.summonBars;
+    // By id: the slots the sim's own Saplings freed are reused in either order.
+    const bar = (id: number) => h.bars.drawnSummons.find((d) => d.id === id);
+    const inside = bar(a!.id);
+    const outside = bar(b!.id);
     expect(inside!.inField).toBe(true);
     expect(outside!.inField).toBe(false);
     expect(inside!.leafHex).toBe(heroDef('oro').color);
@@ -665,6 +702,7 @@ describe('the budget, and every other party', () => {
       h.run(300);
       if (grow) {
         const oro = worldOf(sim).entities.get(worldOf(sim).party[ORO]!)!;
+        clearGrove(sim);
         sprout(sim, oro, { mask: 0b11 });
         ancient(sim, oro, true);
       }

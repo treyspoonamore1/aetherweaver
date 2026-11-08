@@ -1314,6 +1314,27 @@ export function rowThreat(run: Pick<RunState, 'map' | 'movements'>, node: MapNod
   return threatFor(road?.threat[row] ?? row);
 }
 
+/**
+ * The Threat a map node shows (docs/phase-5e.md): its own, except an event whose Rank-gated
+ * recruiting fight your allowance shows (`eventChoiceShown`): that fight takes its row's Threat,
+ * as `combatConfig` gives it, so the map warns of it (the Tithe Altar's other choices fight
+ * nothing, so its node's own is ×1). No allowance: the node's own, as before.
+ */
+export function nodeThreat(
+  run: Pick<RunState, 'map' | 'movements'>,
+  node: MapNode,
+  allowance?: Pick<Allowance, 'recruits'>,
+): number {
+  if (!allowance || node.kind !== 'event' || node.eventId === null) return node.reward.threat;
+  const ranked = runEventDef(node.eventId).choices.some(
+    (c) =>
+      c.rank !== undefined &&
+      eventChoiceShown(c, allowance) &&
+      [...c.effects, ...c.fail].some((e) => e.kind === 'fight'),
+  );
+  return ranked ? Math.max(node.reward.threat, rowThreat(run, node)) : node.reward.threat;
+}
+
 export function finishCombat(run: RunState, outcome: CombatOutcome): RunState {
   if (run.phase !== 'combat' || !run.pending) return run;
   const node = findNode(run, run.pending);

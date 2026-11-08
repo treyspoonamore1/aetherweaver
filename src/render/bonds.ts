@@ -692,11 +692,12 @@ export class BondsView {
         return this.hymn(m, time);
       case 'riposte_chain':
       case 'bladesong':
-      case 'unflinching':
       case 'duellists_honour':
+      case 'blade_waltz':
       case 'thorned_bark':
       case 'old_growth':
       case 'world_tree':
+      case 'homecoming':
         return this.roster5e(m, time);
     }
   }
@@ -720,7 +721,7 @@ export class BondsView {
     const r = out ? k.radius * (1.2 + 2.6 * grow) : k.radius * (3 - 1.6 * grow);
     kit.rings.push(k.x, 0.05, k.z, r, 0.12, 0.24, RING.plain, m.color, 0.9 * fade);
     const y = chestY(k);
-    if (m.cue === 'riposte_chain' || m.cue === 'unflinching' || m.cue === 'bladesong') {
+    if (m.cue === 'riposte_chain' || m.cue === 'blade_waltz' || m.cue === 'bladesong') {
       kit.sprites.push(k.x, y + 0.6, k.z, 0.5, SPRITE.needle, m.color, fade, 0.75);
       kit.sprites.push(k.x, y + 0.6, k.z, 0.5, SPRITE.needle, m.color, fade, -0.75);
     } else if (m.cue === 'duellists_honour') {

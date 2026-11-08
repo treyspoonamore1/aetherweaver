@@ -284,10 +284,22 @@ const ResultSchema = z.object({
         .optional(),
       // Seren and Oro (docs/phase-5e.md): only their own result has each.
       duel: z
-        .object({ parries: Num, killShots: Num, counterDamage: Num, overextendedTime: Num })
+        .object({
+          parries: Num,
+          killShots: Num,
+          counterDamage: Num,
+          overextendedTime: Num,
+          wardsDealt: Num.optional(),
+        })
         .optional(),
       grove: z
-        .object({ saplingsLost: Num, inFieldShare: Num, rootbondHeal: Num, ancients: Num })
+        .object({
+          saplingsLost: Num,
+          inFieldShare: Num,
+          rootbondHeal: Num,
+          ancients: Num,
+          summonDamage: Num.optional(),
+        })
         .optional(),
     }),
   ),

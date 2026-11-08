@@ -89,6 +89,9 @@ export function cutThread(
   w.threadSlot = null;
   w.threadTension = 0;
   w.threadLock = Math.max(w.threadLock, locked);
+  // Oro (docs/phase-5e.md): a Severing foe's cut takes Rootbond with it; his down recap names it.
+  const grove = hero.hero?.grove;
+  if (grove && cause === 'severing') grove.threadCutAt = world.time;
   world.events.push({
     type: 'threadSnapped',
     tick: world.tick,

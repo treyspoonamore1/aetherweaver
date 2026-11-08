@@ -566,7 +566,18 @@ export function sumDuel(stats: readonly HeroDuelStats[]): HeroDuelStats | null {
     killShots: a.killShots + b.killShots,
     counterDamage: a.counterDamage + b.counterDamage,
     overextendedTime: a.overextendedTime + b.overextendedTime,
+    ...(a.wardsDealt !== undefined || b.wardsDealt !== undefined
+      ? { wardsDealt: wardsDealt(a) + wardsDealt(b) }
+      : {}),
   }));
+}
+
+/**
+ * What your Wards dealt through her: the ledger's (the Ward counters and the kill shots), or, on
+ * results from before it was kept, her counters' damage.
+ */
+function wardsDealt(d: HeroDuelStats): number {
+  return d.wardsDealt ?? d.counterDamage;
 }
 
 /**
@@ -576,7 +587,7 @@ export function sumDuel(stats: readonly HeroDuelStats[]): HeroDuelStats | null {
 export function duelLine(heroId: string, d: HeroDuelStats): string {
   const def = heroDef(heroId);
   const over = Math.round(d.overextendedTime);
-  return `${def.name} · parries ${fmt(d.parries)} · kill shots ${fmt(d.killShots)} · your Wards dealt ${fmt(d.counterDamage)}${over > 0 ? ` · overextended ${over} s` : ''}`;
+  return `${def.name} · parries ${fmt(d.parries)} · kill shots ${fmt(d.killShots)} · your Wards dealt ${fmt(wardsDealt(d))}${over > 0 ? ` · overextended ${over} s` : ''}`;
 }
 
 /** A hero's grove stats over a run's results (the Summary's line); null without any. */
@@ -599,6 +610,9 @@ export function sumGrove(stats: readonly HeroGroveStats[]): HeroGroveStats | nul
     inFieldShare: a.inFieldShare + b.inFieldShare,
     rootbondHeal: a.rootbondHeal + b.rootbondHeal,
     ancients: a.ancients + b.ancients,
+    ...(a.summonDamage !== undefined || b.summonDamage !== undefined
+      ? { summonDamage: (a.summonDamage ?? 0) + (b.summonDamage ?? 0) }
+      : {}),
   }));
   return { ...total, inFieldShare: total.inFieldShare / stats.length };
 }

@@ -417,6 +417,10 @@ export interface GroveState {
    * shared bark cooldown never swallows it. Set lazily at the first.
    */
   felledBarkAt?: number;
+  /** This fight: Saplings felled outside your field (the down recap's). Set lazily at the first. */
+  feltOutside?: number;
+  /** The sim time a Severing foe last cut your Thread on him (the down recap's). Set lazily. */
+  threadCutAt?: number;
 }
 
 /** A summon entity's own state (docs/phase-5e.md, "The summon model"): Saplings, the Ancient. */

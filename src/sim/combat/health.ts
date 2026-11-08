@@ -32,8 +32,15 @@ import { recordSave } from './saves';
 import { hasTalent, soloValue, talentFired, talentHolder, talentValue } from '../bonds';
 import { variantGuard, variantValue } from '../variants';
 import { suppressRadiusOf, weaverSilenced } from '../rules3';
-import { parryIntercept } from '../systems/duel';
-import { rootable, summonArmor, summonCredit, summonStruck, summonSupport } from '../systems/grove';
+import { duelDownRecord, parryArmed, parryIntercept } from '../systems/duel';
+import {
+  groveDownRecord,
+  rootable,
+  summonArmor,
+  summonCredit,
+  summonStruck,
+  summonSupport,
+} from '../systems/grove';
 import { summonFell } from '../systems/summons';
 import { markStatusOf } from './telegraphs';
 import {
@@ -784,9 +791,12 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
   }
   // Seren's parry (docs/phase-5e.md): after the Sphere, Oathkeeper and the Link, before guards,
   // armour, Fermata and shields; never for a redirected share.
+  // Her down recap reads whether a Ward was on her as the blow came (before it absorbs).
+  let warded = false;
   if (target.hero?.duel && !opts.oath) {
     const parried = parryIntercept(world, target, source, opts);
     if (parried) return parried;
+    warded = parryArmed(target);
   }
   let amount = opts.amount;
   // Relics on hero hits (Heavy Score, Warden's Key): the extra is the Weaver's share.
@@ -1120,6 +1130,7 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
         opts.sourceName,
         opts.status,
         telegraphAnswers(world, opts.telegraph),
+        { source, melee: opts.melee === true, tick: opts.kind === 'tick', warded },
       );
     else if (target.weaver) downWeaver(world, target);
     // A summon is felled, never killed: `killEnemy` assumes an enemy (docs/phase-5e.md).
@@ -1517,9 +1528,20 @@ function telegraphAnswers(
   return movement2 ? t.answers : undefined;
 }
 
+/** The killing blow, as Seren's and Oro's down recaps read it (docs/phase-5e.md). */
+interface DownBlow {
+  source: Entity | undefined;
+  /** An enemy's melee blow aimed at the hero (`DamageOpts.melee`). */
+  melee: boolean;
+  tick: boolean;
+  /** A Ward was on Seren as it came (read only for her). */
+  warded: boolean;
+}
+
 /**
  * Down a hero. `dot` is the damage-over-time status whose tick felled them; `hit` the answers
- * the killing telegraph wanted (Movement II), named when no DoT did it.
+ * the killing telegraph wanted (Movement II), named when no DoT did it; `blow` the killing blow
+ * (absent for a Fermata hold's release), read only for Seren's and Oro's recaps.
  */
 function downHero(
   world: World,
@@ -1527,9 +1549,19 @@ function downHero(
   killer: string,
   dot?: StatusId,
   hit?: readonly AnswerTag[],
+  blow?: DownBlow,
 ): void {
   const h = e.health!;
   const hero = e.hero!;
+  // Seren's and Oro's downs (docs/phase-5e.md, "Down recaps"), read before the down clears them.
+  const struck = blow ?? {
+    source: undefined,
+    melee: false,
+    tick: dot !== undefined,
+    warded: hero.duel ? parryArmed(e) : false,
+  };
+  const duel = hero.duel ? duelDownRecord(e, struck) : undefined;
+  const grove = hero.grove ? groveDownRecord(world, e, struck) : undefined;
   // Brann's down (docs/phase-5b.md), read before the down clears his statuses: a refused Rally
   // still live, and what the Weaver's healing on him was worth.
   const blood = hero.blood
@@ -1598,6 +1630,8 @@ function downHero(
     // The answers the killing tick wanted, ready or not (docs/phase-5a.md: every down names it).
     ...(wanted ? { answers: [...wanted] } : {}),
     ...(blood ? { blood } : {}),
+    ...(duel ? { duel } : {}),
+    ...(grove ? { grove } : {}),
   });
   pushMarker(world, 'down', hero.slot);
   world.events.push({ type: 'allyDowned', tick: world.tick, hero: e.id });

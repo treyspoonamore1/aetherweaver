@@ -39,9 +39,10 @@ import { gainResonance } from '../combat/resonance';
 import { recordSave } from '../combat/saves';
 import { answered, contains } from '../combat/telegraphs';
 import { topThreat } from '../combat/threat';
-import { hasTalent, soloValue, talentValue } from '../bonds';
+import { hasTalent, soloValue, talentFired, talentValue } from '../bonds';
 import { isRooted } from '../rules3';
 import type {
+  DeathRecord,
   DeepReadonly,
   DuelState,
   Entity,
@@ -432,14 +433,18 @@ export function parryIntercept(
   const blow = opts.amount;
   if (ward) {
     // Riposte Chain: a Ward on her parries twice before it breaks.
-    if (hasTalent(target, 'riposte_chain') && !ward.parried) ward.parried = true;
-    else removeShield(world, target, 'ward', true);
+    if (hasTalent(target, 'riposte_chain') && !ward.parried) {
+      ward.parried = true;
+      talentFired(world, target, 'riposte_chain', target.x, target.z, source.id);
+    } else removeShield(world, target, 'ward', true);
     // Proof of support: the blow your Ward turned, and the life it kept.
     const kept = Math.min(blow, h.hp);
     world.ledger.negated += blow;
     world.ledger.shielded += kept;
     target.hero!.supportReceived += kept;
   }
+  // Blade Waltz (her alternate Solo): each blow it parries.
+  if (waltz) talentFired(world, target, 'blade_waltz', target.x, target.z, source.id);
   parriedByWard = !!ward;
   duel.parries++;
   duel.parryOn = source.id;
@@ -590,10 +595,9 @@ function counter(world: World, e: Entity, def: HeroDef, p: ParryPassive, attacke
     empowered: hit.empowered,
   });
   let amount = r.dealt + r.absorbed;
-  // Bladesong: the counter also cuts every enemy close round her. (No `talentFired` yet: the
-  // render and audio Bond-cue tables, W4 and W5, list every talent the sim announces; the cuts
-  // read through `parryCountered` and their `damageTaken` meanwhile.)
+  // Bladesong: the counter also cuts every enemy close round her (announced when it cuts one).
   if (hasTalent(e, 'bladesong')) {
+    let cuts = 0;
     const radius = talentValue(world, 'bladesong', 'radius');
     const share = talentValue(world, 'bladesong', 'pct') / 100;
     for (const m of world.entities.list()) {
@@ -610,7 +614,9 @@ function counter(world: World, e: Entity, def: HeroDef, p: ParryPassive, attacke
         empowered: hit.empowered,
       });
       amount += c.dealt + c.absorbed;
+      cuts++;
     }
+    if (cuts > 0) talentFired(world, e, 'bladesong', e.x, e.z);
   }
   duel.counterDamage += amount;
   if (!waltz) duelLedger(world).wardsDealt += amount;
@@ -713,8 +719,7 @@ function killShot(
   });
   // En Garde: a kill shot counts as a parry.
   if (world.mods.enGarde > 0) gainResonance(world, world.mods.enGarde, 'enGarde');
-  // Duellist's Honour: a kill shot readies your Ward again (read through `killShot`; no
-  // `talentFired` until the Bond-cue tables list it, as Bladesong).
+  // Duellist's Honour: a kill shot readies your Ward again (announced when a charge comes back).
   // A charge comes back, as Temporal Mastery gives one (the recharge loop only adds charges as a
   // running cooldown reaches 0, so zeroing the clock alone would leave the Weaver none).
   if (hasTalent(e, 'duellists_honour')) {
@@ -722,6 +727,7 @@ function killShot(
     if (w && w.wardCharges < w.maxWardCharges) {
       w.wardCharges++;
       if (w.wardCharges >= w.maxWardCharges) w.cooldowns.ward = 0;
+      talentFired(world, e, 'duellists_honour', e.x, e.z);
     }
   }
 }
@@ -748,6 +754,30 @@ function lostShot(
     amount: 0,
     lost,
   });
+}
+
+/**
+ * Seren's down recap (docs/phase-5e.md, "Down recaps"; `DeathRecord.duel`), read in `downHero`
+ * before the down clears her: a Ward was on her as the killing blow came (`warded`, read before
+ * it was absorbed), the blow was one she parries (`parryable`: a melee blow aimed at her), she
+ * was overextended, and it came from far (`far`: an enemy's hit from beyond `PARRY_REACH`, a beam
+ * or a bolt, that no parry answers).
+ */
+export function duelDownRecord(
+  e: Entity,
+  blow: { source: Entity | undefined; melee: boolean; tick: boolean; warded: boolean },
+): NonNullable<DeathRecord['duel']> {
+  const duel = e.hero!.duel!;
+  const src = blow.source;
+  const reach = PARRY_REACH + e.radius + (src?.radius ?? 0);
+  const far =
+    !blow.melee && !blow.tick && !!src?.enemy && distSq(src.x, src.z, e.x, e.z) > reach * reach;
+  return {
+    warded: blow.warded,
+    parryable: blow.melee,
+    overextended: duel.overextended === true,
+    far,
+  };
 }
 
 /**

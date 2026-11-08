@@ -502,17 +502,20 @@ describe('the duel and grove result stats, only for their hero', () => {
       [true, false, false],
       [false, true, false],
     ]);
+    // What your Wards dealt through her and his summons' damage: the ledger's.
     expect(outcome.party[1]!.duel).toEqual({
       parries: 9,
       killShots: 2,
       counterDamage: 4210,
       overextendedTime: 6,
+      wardsDealt: sim.state.ledger.duel?.wardsDealt ?? 0,
     });
     expect(outcome.party[2]!.grove).toEqual({
       saplingsLost: 3,
       inFieldShare: 0.74,
       rootbondHeal: 1120,
       ancients: 1,
+      summonDamage: sim.state.ledger.grove?.summonDamage ?? 0,
     });
     // The default party: no key at all.
     const plain = createSim({ seed: 4, encounter: 'first_light' });

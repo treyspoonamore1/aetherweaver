@@ -426,25 +426,29 @@ export interface HeroBloodStats {
 }
 
 /**
- * Seren's fight (docs/phase-5e.md), from the sim's `DuelState`: parries, kill shots, the
- * counters' and kill shots' damage ("your Wards dealt"), and seconds overextended.
+ * Seren's fight (docs/phase-5e.md), from the sim's `DuelState`: parries, kill shots, her counters'
+ * damage, and seconds overextended; and from `ledger.duel`, what your Wards dealt through her
+ * (`wardsDealt`: the Ward counters and the kill shots; absent on results from before).
  */
 export interface HeroDuelStats {
   parries: number;
   killShots: number;
   counterDamage: number;
   overextendedTime: number;
+  wardsDealt?: number;
 }
 
 /**
  * Oro's fight (docs/phase-5e.md), from the sim's `GroveState`: Saplings felled, the share of
- * their alive time inside your songs (0..1), Rootbond's healing, and Ancients raised.
+ * their alive time inside your songs (0..1), Rootbond's healing, and Ancients raised; and from
+ * `ledger.grove`, his summons' damage (`summonDamage`; absent on results from before).
  */
 export interface HeroGroveStats {
   saplingsLost: number;
   inFieldShare: number;
   rootbondHeal: number;
   ancients: number;
+  summonDamage?: number;
 }
 
 export interface CombatOutcome {

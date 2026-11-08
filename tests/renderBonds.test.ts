@@ -200,18 +200,10 @@ const ALL_SIX = ['kael', 'lyra', 'vexis', 'brann', 'seren', 'oro'];
 const cueParty = (hero: string) =>
   ALL_FOUR.slice(0, 3).includes(hero) ? undefined : [...ALL_FOUR.slice(0, 3), hero];
 /**
- * Seren's and Oro's cues the sim doesn't announce yet (docs/phase-5e.md: W1 and W2 fill
- * `duel.ts` and `grove.ts`): the cue list may run ahead of the sim by these, and only these.
+ * Cues the sim doesn't announce yet: none since W1 and W2 landed (docs/phase-5e.md), so the cue
+ * list and the sim's announcements are equal.
  */
-const PENDING_5E = new Set([
-  'riposte_chain',
-  'bladesong',
-  'unflinching',
-  'duellists_honour',
-  'thorned_bark',
-  'old_growth',
-  'world_tree',
-]);
+const PENDING_5E = new Set<string>();
 const tough = (sim: Sim) => {
   for (const e of worldOf(sim).entities.list())
     if (e.enemy && e.health) e.health.hp = e.health.maxHp = 1e6;

@@ -861,7 +861,7 @@ Every row has at least one answer per beat.
 - **Sound groups** with limits (the `brann()` pattern, `sfx.ts:246-270, 7532-7541`):
   - `SEREN_SOUND_GROUPS`: parry (gate 0.15, cap 2), counter, killShot (under the Perfect chord), lunge, feint, cutsBlink (0.08, cap 3), cutsExtend, showboat;
   - `ORO_SOUND_GROUPS`: sprout, saplingHurt (heavily gated), saplingFell, rootbond (gated), burrow, wildgrowth, ancientRoot, gentle.
-- Every new talent and alternate-Solo id goes into TALENT_SOUND_GROUPS (`sfx.ts:102-135`), never under `talent:riposte`.
+- Every new talent and alternate-Solo id **the sim announces** (`talentFired`) goes into TALENT_SOUND_GROUPS (`sfx.ts:102-135`), never under `talent:riposte`. Eight are announced, each at a moment: Riposte Chain (a Ward that parries and holds for its second), Bladesong (a counter that cuts round her), Duellist’s Honour (a kill shot that readies your Ward), Blade Waltz (each blow it parries), Thorned Bark (each blow it bites back), Old Growth (a Sapling growing old), World Tree (the Ancient rooting as it goes) and Homecoming (each Sapling it brings home). The six that only change a number or a rule (Cold Focus, Unflinching, Thousandfold, Taproot, Grove Chorus, Seedling Swarm) announce nothing and have no sound; render’s `BOND_CUES` lists the same eight.
 - The intensity scan (`sfx.ts:7315-7363`) visits `ent.hero` only; a test pins that summons never get a heartbeat or alert.
 - `finale(party)` and `leitmotifCanon` pick the new heroes up through LEITMOTIFS (`music.ts:238-257, 560-561`). VOICE_MIRRORS stays fixed. `tests/audioPhase5d.test.ts:914-919` (which expects the ids to be unknown) is an expected red.
 - **Lab:** opt-in ids seren 6, oro 7 and Saplings 30+, clear of enemyBase 10 (`labState.ts:16-26`). The default FakeWorld is unchanged.
@@ -1399,6 +1399,18 @@ W0b landed every interface in *contracts*. All 19 goldens are byte-identical (on
 
 The e2e unlockAll picker counts (six heroes) remain W6's. The plan's other named reds (`deeds.test.ts:182-201`, `demo.test.ts`, `appStores.test.ts:279`, `renderBonds.test.ts`, `audio.test.ts`, `audioPhase5d.test.ts:914-920`) turn red only with the owners' own additions (ROSTER_DEEDS, cue and sound rows, LEITMOTIFS), and stay theirs to close.
 
+### Integration hand-over (m5/integration)
+
+The workstreams merged in order W8 (with W7, W1 and W2), W2b, W6 (with W3), W4, W5. The wiring done there:
+
+- **Announcements.** The sim calls `talentFired` for the eight ids above (`duel.ts`, `grove.ts`, `summons.ts`); render’s `BOND_CUES`/`CUE_LIFE` and audio’s `TALENT_SOUND_GROUPS` list exactly those, and `PENDING_5E` (renderBonds) is empty. Blade Waltz and Thorned Bark are `FREQUENT` (no callout).
+- **Down recaps.** `downHero` fills `DeathRecord.duel` (`duelDownRecord`: a Ward on her as the blow came, read before it absorbs; the blow was a melee blow aimed at her; overextended; an enemy’s hit from beyond `PARRY_REACH`) and `DeathRecord.grove` (`groveDownRecord`: an enemy’s melee swing or a blow from within 6 m; `GroveState.feltOutside`, the Saplings felled outside your field this fight; a Severing cut of the Thread on him in the last 5 s, `GroveState.threadCutAt`). Both keys are set lazily and only on Oro, so no other party’s state changes. `downAdvice` reads them on the Result and the Summary.
+- **Result stats.** `CombatOutcome.party[i].duel` adds `wardsDealt` from `ledger.duel` (the Ward counters and the kill shots), which the duel line now shows; `.grove` adds `summonDamage` from `ledger.grove`. Both are optional in the save, so older results load and read as before.
+- **Threat on the map.** An event whose Rank-gated recruiting fight your Rank shows (the Tithe Altar, the Loose Thread) names that fight’s row Threat on the map (`nodeThreat`), as the Result already did (`rowThreat`).
+- **Goldens.** The three Oro goldens (skilled-oro-bellwarden, skilled-oro-conductor, novice-grove-mirror-hall) were re-recorded once W2b (Q1-Q3) landed, with their `ROSTER_HASHES` literals; the nineteen and the three Seren goldens are unchanged.
+- **Render tests.** `tests/renderOro.test.ts` stages its own summons, so it first takes away the ones the sim now plants (`clearGrove`).
+- Seren’s chip line: the overextended chip reads Rally for the Chronomancer and for the Anchor and Swap Reel variants.
+
 ## Exit criteria
 
 1. Every pin above is byte-identical, and vitest and e2e are green with no allow-list left.
@@ -1410,7 +1422,7 @@ The e2e unlockAll picker counts (six heroes) remain W6's. The plan's other named
 
 ## Known gaps (deliberate)
 
-- The mirror choir still mirrors only Lyra, Brann, Kael and Vexis (`crucible.ts:206-236`), so ‘every voice of your party’ is inexact for Seren and Oro parties. The HUD Decree line adds ‘your other heroes still sing’.
+- The mirror choir still mirrors only Lyra, Brann, Kael and Vexis (`crucible.ts:206-236`), so ‘every voice of your party’ is inexact for Seren and Oro parties. The HUD’s Mirror Choir line names the four mirrored heroes.
 - Summons can’t be Warded, Threaded, Reeled, Chimed, Sunrise-healed, domed or Vow-held. Telegraphs never hit them, they take no statuses, and bosses and heavy foes ignore them.
 - OB has no boss soak (Q8).
 - The Novice rarely Focuses, so Novice Oro parties play a tending Oro; the tending bonus is the design’s answer.

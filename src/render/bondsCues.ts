@@ -30,16 +30,18 @@ export const BOND_CUES = [
   'blood_oath',
   'deathless',
   'berserkers_hymn',
-  // Seren and Oro (docs/phase-5e.md): the talents that visibly act, in content order. Cold
-  // Focus, Thousandfold, Taproot, Grove Chorus and Seedling Swarm change a number or a rule
-  // and announce nothing.
+  // Seren and Oro (docs/phase-5e.md): the talents and alternate Solos the sim announces at a
+  // moment, the same eight audio sounds (TALENT_SOUND_GROUPS, sfx.ts). Cold Focus, Unflinching,
+  // Thousandfold, Taproot, Grove Chorus and Seedling Swarm change a number or a rule and announce
+  // nothing.
   'riposte_chain',
   'bladesong',
-  'unflinching',
   'duellists_honour',
+  'blade_waltz',
   'thorned_bark',
   'old_growth',
   'world_tree',
+  'homecoming',
 ] as const;
 export type BondCue = (typeof BOND_CUES)[number];
 
@@ -138,15 +140,17 @@ export const CUE_LIFE: Readonly<Record<BondCue, number>> = {
   // The Hymn turns on: links from him to every other hero.
   berserkers_hymn: 1.4,
   // Seren: the Ward holds for a second parry (a second blade crossing); a counter's cut rings
-  // out round her; she shrugs off a stagger; a kill shot readies your Ward (a gold glint).
+  // out round her; a kill shot readies your Ward (a gold glint); Blade Waltz parries a blow.
   riposte_chain: 0.7,
   bladesong: 0.6,
-  unflinching: 0.6,
   duellists_honour: 0.9,
-  // Oro: thorns bite back at a Sapling's striker; a Sapling grows old; the Ancient roots again.
+  blade_waltz: 0.5,
+  // Oro: thorns bite back at a Sapling's striker; a Sapling grows old; the Ancient roots again;
+  // Homecoming brings a Sapling home.
   thorned_bark: 0.45,
   old_growth: 1.0,
   world_tree: 1.1,
+  homecoming: 1.0,
 };
 
 /**
@@ -162,8 +166,9 @@ export const FREQUENT: ReadonlySet<BondCue> = new Set<BondCue>([
   'constellation',
   // Blood Oath rides every swing that spends the bank.
   'blood_oath',
-  // Thorned Bark answers every blow on a Sapling.
+  // Thorned Bark answers every blow on a Sapling, Blade Waltz every blow it parries.
   'thorned_bark',
+  'blade_waltz',
 ]);
 
 /** Supernova: the sim's nova lands this long after its event (its pending hit, solos.ts). */
