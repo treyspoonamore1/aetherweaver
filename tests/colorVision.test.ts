@@ -29,7 +29,8 @@ import {
 } from '../src/render/crucibleCues';
 import { cueHex } from '../src/render/bondsCues';
 import { MARTYR_HEX } from '../src/render/martyrCues';
-import { BRASS_TRIM, buildHero } from '../src/render/models/library';
+import { BRASS_TRIM, ORO_SEED, SEREN_STEEL, buildHero } from '../src/render/models/library';
+import { SILENCE_INK } from '../src/ui/hud/finaleLook';
 import { PALETTE } from '../src/render/palette';
 
 /** Every role a palette must define (the keys of VisionPalette, taken from the standard one). */
@@ -554,5 +555,161 @@ describe('The Finale colours (docs/phase-5d.md, Colour)', () => {
     expect(CRUCIBLE_MOOD.rim).toBe(CRUCIBLE_HEX.rim);
     expect(CRUCIBLE_MOOD.rimIntensity).toBeLessThanOrEqual(0.45);
     expect(CRUCIBLE_MOOD.keyIntensity).toBeLessThanOrEqual(1.85);
+  });
+});
+
+describe('Seren and Oro (docs/phase-5e.md, Colour)', () => {
+  const HEROES = CONTENT.heroes.map((h) => [h.id, h.color] as const);
+  const seren = CONTENT.heroes.find((h) => h.id === 'seren')!.color;
+  const oro = CONTENT.heroes.find((h) => h.id === 'oro')!.color;
+  const TELEGRAPH_DEFAULT = '#c084fc';
+  const countParts = (hex: string, id: string) => {
+    const c = buildHero(CONTENT.heroes.find((h) => h.id === id)!).getAttribute('color');
+    const want = new THREE.Color(hex);
+    let n = 0;
+    for (let i = 0; i < c.count; i++)
+      if (
+        Math.abs(c.getX(i) - want.r) < 1e-4 &&
+        Math.abs(c.getY(i) - want.g) < 1e-4 &&
+        Math.abs(c.getZ(i) - want.b) < 1e-4
+      )
+        n++;
+    return n;
+  };
+
+  it('both are in the hero matrix and the brass test, with no exception of their own', () => {
+    expect(HEROES.map(([id]) => id)).toEqual(['kael', 'lyra', 'vexis', 'brann', 'seren', 'oro']);
+    expect(seren).toBe('#a018f8');
+    expect(oro).toBe('#487858');
+    // They signal in their own colours (no SIGNAL_HEX entry): every ring, arrow and moment.
+    expect(signalHex('seren', seren)).toBe(seren);
+    expect(signalHex('oro', oro)).toBe(oro);
+    expect(cueHex('seren')).toBe(seren);
+    expect(cueHex('oro')).toBe(oro);
+  });
+
+  /**
+   * Recorded (lowest ΔE), 2026-11-08: Seren against the other heroes 25.5 (Kael, deuteranopia),
+   * Oro 21.3 (Brann, protanopia); against Brann's brass, Seren 40.0 and Oro 33.9 (tritanopia).
+   */
+  for (const vision of COLOR_VISIONS)
+    it(`keeps Seren and Oro ≥ 20 ΔE from every hero, the gold and the brass with ${vision}`, () => {
+      const see = (hex: string) => simulateVision(hex, vision);
+      const low: string[] = [];
+      for (const [id, own] of [
+        ['seren', seren],
+        ['oro', oro],
+      ] as const) {
+        const against: [string, string][] = HEROES.filter(([h]) => h !== id).map(([h, c]) => [
+          h,
+          c,
+        ]);
+        against.push(['gold', VISION_PALETTES[vision].amp], ['brass', BRANN_HEX.brass]);
+        for (const [name, hex] of against) {
+          const d = deltaE(see(own), see(hex));
+          if (d < 20) low.push(`${id}/${name} ${d.toFixed(1)}`);
+        }
+      }
+      expect(low, vision).toEqual([]);
+    });
+
+  /**
+   * Seren's violet sits beside danger wherever she does (her duel tether on an enemy, her ring
+   * in a pack), so it takes the signal rule: ≥ 20 ΔE from every enemy accent and telegraph colour
+   * in normal vision (51.4, the Lamenter). Recorded elsewhere: 30.5 protanopia, 21.8 deuteranopia
+   * (the Doubt Wraith's accent), 24.5 tritanopia (the Lamenter's).
+   */
+  it('keeps Seren ≥ 20 ΔE (normal vision) from every enemy accent and telegraph colour', () => {
+    const against: [string, string][] = CONTENT.enemies.map((e) => [`${e.id} accent`, e.accent]);
+    against.push(['telegraph default', TELEGRAPH_DEFAULT]);
+    for (const vision of COLOR_VISIONS)
+      against.push(
+        [`${vision} threat`, VISION_PALETTES[vision].threat],
+        [`${vision} lethal`, VISION_PALETTES[vision].lethal],
+      );
+    const low = against
+      .map(([name, hex]) => [name, deltaE(seren, hex)] as const)
+      .filter(([, d]) => d < 20)
+      .map(([name, d]) => `${name} ${d.toFixed(1)}`);
+    expect(low).toEqual([]);
+  });
+
+  /**
+   * Oro's moss against the Movement II and III environments: lowest 18.0 in normal vision (the
+   * Abyss's fray), 11.1 (the hound's accent, protanopia), 9.4 (the fray, tritanopia). Under 15, so
+   * by Brann's rule his model carries its trim, ORO_SEED, and the trim is measured with the brass
+   * rules: ≥ 20 ΔE (normal) from every enemy accent and telegraph colour; ≥ 15 from the Movement
+   * II and III environment in every vision (it carries him where the moss can't: lowest 20.2,
+   * Vharun's accent, deuteranopia); ≥ 10 from every hero, the gold, lethal, threat, Bear, shield
+   * and heal in every vision (lowest 11.1, amp under protanopia: a glow on his staff, never a
+   * chip or a channel).
+   *
+   * Why not Brann's full brass rules (≥ 20 from every hero, gold, amp, lethal, threat and Bear in
+   * every vision): no seed light can meet them. An exhaustive search, 2026-11-08 (every colour on
+   * an 8-step RGB grid, with the accent ≥ 20 and environment ≥ 15 rows above), finds 32 colours
+   * that pass, all near-black reds (#300800 … #480800) or deep violets (#5000a8 … #6000b0): none
+   * is a glow. Among colours light enough to glow (luma ≥ 0.55) the best floor is 15.9 ΔE
+   * (#70b800, amp under protanopia), at the cost of the environment row (15.8). ORO_SEED keeps
+   * #a0f870 and this weaker floor (a recorded deviation, docs/phase-5e.md Colour: Oro). The
+   * design's 11.1 "lowest" for the moss leaves out the Abyss's own colours; with them it is 9.4.
+   */
+  it('measures Oro against Movements II and III; under 15 his model carries ORO_SEED', () => {
+    const env: [string, string][] = [];
+    for (const e of CONTENT.enemies)
+      if (e.movement === 2 || e.movement === 3)
+        env.push([`${e.id} body`, e.color], [`${e.id} accent`, e.accent]);
+    for (const [name, hex] of Object.entries(ABYSS_HEX)) env.push([`abyss ${name}`, hex]);
+    env.push(['Bloodmoon', SPIRE_HEX.bloodmoon]);
+    let lowest = Infinity;
+    let lowestNormal = Infinity;
+    let seedLowest = Infinity;
+    for (const vision of COLOR_VISIONS) {
+      const see = (hex: string) => simulateVision(hex, vision);
+      for (const [, hex] of env) {
+        const d = deltaE(see(oro), see(hex));
+        lowest = Math.min(lowest, d);
+        if (vision === 'normal') lowestNormal = Math.min(lowestNormal, d);
+        seedLowest = Math.min(seedLowest, deltaE(see(ORO_SEED), see(hex)));
+      }
+    }
+    expect(lowestNormal).toBeGreaterThan(10);
+    expect(lowest).toBeLessThan(15);
+    expect(countParts(ORO_SEED, 'oro'), 'the model needs its seed trim').toBeGreaterThan(0);
+    expect(seedLowest).toBeGreaterThanOrEqual(15);
+    // The brass rules' rows, for a trim.
+    const accents: [string, string][] = CONTENT.enemies.map((e) => [e.id, e.accent]);
+    accents.push(['telegraph default', TELEGRAPH_DEFAULT]);
+    for (const vision of COLOR_VISIONS)
+      accents.push(
+        [`${vision} threat`, VISION_PALETTES[vision].threat],
+        [`${vision} lethal`, VISION_PALETTES[vision].lethal],
+      );
+    for (const [name, hex] of accents)
+      expect(deltaE(ORO_SEED, hex), name).toBeGreaterThanOrEqual(20);
+    for (const vision of COLOR_VISIONS) {
+      const see = (hex: string) => simulateVision(hex, vision);
+      const p = VISION_PALETTES[vision];
+      const against: [string, string][] = HEROES.map(([id, hex]) => [id, hex]);
+      against.push(
+        ['gold', PALETTE.gold],
+        ['amp', p.amp],
+        ['lethal', p.lethal],
+        ['threat', p.threat],
+        ['Bear', MARTYR_HEX.blood],
+        ['shield', p.shield],
+        ['heal', p.heal],
+        ['brass', BRANN_HEX.brass],
+      );
+      for (const [name, hex] of against)
+        expect(deltaE(see(ORO_SEED), see(hex)), `${vision}: ${name}`).toBeGreaterThanOrEqual(10);
+    }
+  });
+
+  it('Seren’s steel is the stilled ink, on model parts only (her coat and blade)', () => {
+    expect(SEREN_STEEL).toBe(SILENCE_INK);
+    expect(countParts(SEREN_STEEL, 'seren')).toBeGreaterThan(0);
+    // No hero signal, ring or chip is drawn in it: hers is her violet.
+    expect(signalHex('seren', seren)).not.toBe(SEREN_STEEL);
+    expect(cueHex('seren')).not.toBe(SEREN_STEEL);
   });
 });

@@ -30,6 +30,16 @@ export const BOND_CUES = [
   'blood_oath',
   'deathless',
   'berserkers_hymn',
+  // Seren and Oro (docs/phase-5e.md): the talents that visibly act, in content order. Cold
+  // Focus, Thousandfold, Taproot, Grove Chorus and Seedling Swarm change a number or a rule
+  // and announce nothing.
+  'riposte_chain',
+  'bladesong',
+  'unflinching',
+  'duellists_honour',
+  'thorned_bark',
+  'old_growth',
+  'world_tree',
 ] as const;
 export type BondCue = (typeof BOND_CUES)[number];
 
@@ -47,6 +57,9 @@ export const ALT_SOLO_IDS = [
   'celestial_sphere',
   // Brann's (docs/phase-5b.md): it announces nothing; its tether is drawn while it lasts.
   'blood_brother',
+  // Seren's and Oro's (docs/phase-5e.md): Blade Waltz's stance, Homecoming's re-sprouting.
+  'blade_waltz',
+  'homecoming',
 ] as const;
 export type AltSoloId = (typeof ALT_SOLO_IDS)[number];
 
@@ -124,6 +137,16 @@ export const CUE_LIFE: Readonly<Record<BondCue, number>> = {
   deathless: 0,
   // The Hymn turns on: links from him to every other hero.
   berserkers_hymn: 1.4,
+  // Seren: the Ward holds for a second parry (a second blade crossing); a counter's cut rings
+  // out round her; she shrugs off a stagger; a kill shot readies your Ward (a gold glint).
+  riposte_chain: 0.7,
+  bladesong: 0.6,
+  unflinching: 0.6,
+  duellists_honour: 0.9,
+  // Oro: thorns bite back at a Sapling's striker; a Sapling grows old; the Ancient roots again.
+  thorned_bark: 0.45,
+  old_growth: 1.0,
+  world_tree: 1.1,
 };
 
 /**
@@ -139,6 +162,8 @@ export const FREQUENT: ReadonlySet<BondCue> = new Set<BondCue>([
   'constellation',
   // Blood Oath rides every swing that spends the bank.
   'blood_oath',
+  // Thorned Bark answers every blow on a Sapling.
+  'thorned_bark',
 ]);
 
 /** Supernova: the sim's nova lands this long after its event (its pending hit, solos.ts). */

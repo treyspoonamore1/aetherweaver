@@ -30,6 +30,8 @@ import { SPRITE } from './fx/sprites';
 import type { Overlay } from './overlay';
 import { CHRONO_HEX } from './chronoCues';
 import { CRUCIBLE_HEX, CrucibleCues } from './crucibleCues';
+import { SerenFx } from './serenCues';
+import { GROVE_BARK, GroveFx, SUMMON_NUMBER_SHARE } from './groveCues';
 import {
   BRANN_HEX,
   CRIMSON_HEX,
@@ -315,6 +317,12 @@ export class Feedback {
    * while a Finale key or event is present, so it draws and plays nothing in Movements I-III.
    */
   readonly crucible: CrucibleCues;
+  /**
+   * Seren's and Oro's moments (docs/phase-5e.md; serenCues.ts, groveCues.ts). Handed only their
+   * own events (none in any other party) and synced only while one plays.
+   */
+  readonly seren: SerenFx;
+  readonly grove: GroveFx;
   /** The key light's own colour (the Grand Silence greys it; restored as the notes come). */
   private readonly baseKeyColor = new THREE.Color();
   private keyGreyed = false;
@@ -370,6 +378,15 @@ export class Feedback {
       rig: d.rig,
       sink: this,
     });
+    this.seren = new SerenFx({
+      kit: d.kit,
+      recs: d.entities.recs,
+      overlay: d.overlay,
+      rig: d.rig,
+      travel: (id, kind, x, z) => d.entities.travel(id, kind, x, z),
+      afterimage: (id, x, z, cued) => d.entities.afterimage(id, x, z, cued),
+    });
+    this.grove = new GroveFx({ kit: d.kit, recs: d.entities.recs, overlay: d.overlay });
   }
 
   /** The Finale's draws last frame (crucibleCues.ts; zero in every Movement I-III fight). */
@@ -913,6 +930,20 @@ export class Feedback {
             if (this.refusedUntil.delete(ev.hero)) this.fired5b.refusedCleared++;
           }
           break;
+        // Seren and Oro (docs/phase-5e.md): emitted only with that hero in the party.
+        case 'parried':
+        case 'parryCountered':
+        case 'killShot':
+        case 'duelChosen':
+        case 'overextended':
+          this.seren.handle(ev, state);
+          break;
+        case 'summonSpawned':
+        case 'summonFell':
+        case 'rooted':
+        case 'gentleRefused':
+          this.grove.handle(ev, state);
+          break;
         case 'castInterrupted': {
           const r = this.rec(ev.enemy);
           if (r) {
@@ -1126,6 +1157,12 @@ export class Feedback {
         }
         break;
       }
+      case 'lunge':
+      case 'feint':
+      case 'blink':
+        // Seren's (docs/phase-5e.md): her dash, her step, a Thousand Cuts blink.
+        this.seren.handle(e, state);
+        break;
       case 'pierce':
       case 'lance':
       case 'heal-beam': {
@@ -1327,6 +1364,10 @@ export class Feedback {
     const total = e.amount + e.absorbed;
     const frac = total / maxHp;
     const isParty = target.team === 'party';
+    // Oro's summons are team 'party' but never get a hero's hurt treatment (the threat sparks,
+    // the camera's trauma): two Saplings tanking a pack would keep the camera shaking. Their
+    // feedback is important-only; bark chips fly instead. False in every party without Oro.
+    const hurt = isParty && !target.summon;
     if (e.amount > 0) this.d.entities.hit(e.target, Math.min(1, (isParty ? 0.5 : 0.3) + frac * 5));
     const y = r.height * 0.6 + r.y;
     if (e.amount > 0) {
@@ -1340,7 +1381,7 @@ export class Feedback {
         2.5,
         0.35,
         0.11,
-        isParty ? C.threat : SHARD,
+        hurt ? C.threat : target.summon ? GROVE_BARK : SHARD,
         1,
         PARTICLE.spark,
         4,
@@ -1422,13 +1463,17 @@ export class Feedback {
       );
       this.d.rig.addTrauma(0.2);
     }
-    if (isParty && frac > 0.18) this.d.rig.addTrauma(Math.min(0.3, frac * 0.5));
+    if (hurt && frac > 0.18) this.d.rig.addTrauma(Math.min(0.3, frac * 0.5));
     // Unravel (Movement III): the reversed Mend's ticks on the threaded hero show as damage, in
     // the live lethal colour below (never heal teal). Only Unravel's own tick counts: its source,
     // on the threaded hero (a possession tick or another DoT there is not it).
     const unravelTick = isParty && this.isUnravelTick(e, state);
     if (unravelTick) this.firedM3.unravelTicks++;
     if (!this.settings.damageNumbers) return;
+    // Oro's summons (docs/phase-5e.md): only an important hit gets a number (two Saplings
+    // would flood them): a quarter of its life, or the blow that fells it.
+    if (target.summon && e.amount < maxHp * SUMMON_NUMBER_SHARE && (target.health?.hp ?? 0) > 0)
+      return;
     let b = this.dmg.get(e.target);
     if (!b) {
       b = bucket();
@@ -1500,7 +1545,23 @@ export class Feedback {
   private healed(e: SimEventOf<'healApplied'>, state: WorldState): void {
     const r = this.rec(e.target);
     const target = state.entities.get(e.target);
+    // Oro's grove (docs/phase-5e.md): only Rootbond's heal on a summon (the Mend on Oro spilling
+    // to his grove: via 'grove', or 'mend' as the sim flushes it) is motes along his root tether,
+    // never the Thread's Mend pulse. A song's regen on a covered summon (Q1, via 'aura') reads
+    // as on a hero; Regrowth's or Homecoming's (via 'solo') is a plain heal. A grove heal on a
+    // hero is drawn as the songs' own.
+    if (target?.summon) {
+      if (e.amount <= 0) return;
+      if (e.via === 'grove' || e.via === 'mend') {
+        this.grove.rootbond(e, state);
+        return;
+      }
+    }
     if (!r || !target || e.amount <= 0) return;
+    if (e.via === 'grove') {
+      this.auraHealed(e, r, target, state);
+      return;
+    }
     // Brann's axe drinking (docs/phase-5b.md): his own crimson motes and soft "+N", never the
     // Weaver's heal burst, never a cut heal, never the Thread's Mend pulse.
     if (e.via === 'lifesteal') {
@@ -1515,7 +1576,7 @@ export class Feedback {
       this.selfHealed(e, r, target, state);
       return;
     }
-    if (e.via === 'mend') this.d.thread.pulse();
+    if (e.via === 'mend' && !target.summon) this.d.thread.pulse();
     const maxHp = target.health?.maxHp ?? 1;
     const n = Math.min(8, 1 + Math.round((e.amount / maxHp) * 20));
     for (let i = 0; i < n * this.d.kit.particles.density; i++) {
@@ -1553,6 +1614,8 @@ export class Feedback {
       );
     }
     if (!this.settings.damageNumbers || target.team !== 'party') return;
+    // A summon's numbers are important-only (a quarter of its life at once: Homecoming's).
+    if (target.summon && e.amount < maxHp * SUMMON_NUMBER_SHARE) return;
     let b = this.heal.get(e.target);
     if (!b) {
       b = bucket();
@@ -1595,7 +1658,8 @@ export class Feedback {
     state: WorldState,
   ): void {
     const maxHp = target.health?.maxHp ?? 1;
-    const mask = (target.hero?.auraMask ?? 0) & REGEN_MASK;
+    // A covered summon (Q1) carries its own mask (W2b's `summon.auraMask`).
+    const mask = (target.hero?.auraMask ?? target.summon?.auraMask ?? 0) & REGEN_MASK;
     const cols = this.d.entities.auraColors(mask);
     const n = Math.min(4, 1 + Math.round((e.amount / maxHp) * 25));
     for (let i = 0; i < n * this.d.kit.particles.density; i++) {
@@ -1617,7 +1681,9 @@ export class Feedback {
         -0.2,
       );
     }
-    if (!this.settings.damageNumbers || target.team !== 'party') return;
+    // A summon's regen ticks are never important: its notes, no number (two Saplings and the
+    // Ancient would flood them).
+    if (!this.settings.damageNumbers || target.team !== 'party' || target.summon) return;
     let b = this.auraHeal.get(e.target);
     if (!b) {
       b = bucket();
@@ -3841,6 +3907,9 @@ export class Feedback {
       }
     }
 
+    // Seren and Oro (docs/phase-5e.md): only while one of their moments plays.
+    if (this.seren.live) this.seren.sync(state, dt, frame.settings.flashes > 0 ? 1 : 0.6);
+    if (this.grove.live) this.grove.sync(state, dt);
     // The Finale (crucibleCues.ts): the Cue, Fortissimo, the Grand Silence, its notes.
     if (state.field.finale !== undefined || this.crucible.override !== null || this.crucible.live)
       this.crucible.sync(state, frame, dt);

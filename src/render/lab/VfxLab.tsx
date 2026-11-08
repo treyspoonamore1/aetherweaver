@@ -42,6 +42,7 @@ import {
   type WorldState,
 } from '../../sim';
 import { addShield, dealDamage } from '../../sim/combat/health';
+import { newHealth } from '../../sim/world';
 import { beginAttack } from '../../sim/systems/enemies';
 import type { World } from '../../sim/world';
 import { CameraRig } from '../camera';
@@ -99,6 +100,8 @@ interface LabApi {
   plant(dx: number, dz: number): void;
   heroPos(slot: number): { x: number; z: number };
   zoom(wheelDeltaY: number): void;
+  /** Phase 5e: what Seren's and Oro's views drew last frame and have played (docs/phase-5e.md). */
+  rosterStats(): Record<string, number>;
   /** Phase 3 */
   loadouts(): string[];
   /** Real `{t:'thread', slot}`: the beam song pours into that hero. */
@@ -1673,6 +1676,114 @@ const VEXIS = 2;
  */
 const BRANN = 1;
 const WITH_BRANN = ['kael', 'brann', 'vexis'];
+/**
+ * Phase 5e: Seren's and Oro's scenarios (docs/phase-5e.md, Presentation), through the `party`
+ * option. Seren takes Lyra's slot (Kael, Seren, Vexis: SEREN = 1); Oro takes Vexis's (Kael,
+ * Lyra, Oro: ORO = 2). Where the sim doesn't yet produce one of their mechanics (a parry, a
+ * kill shot, a Showboat quarry, a blink, the Saplings, Rootbond, the Ancient and its disc), a
+ * lab stand-in (`serenWard`, `serenEvent`, `serenQuarry`, `sprout`, `rootbondOn`, `ancientOn`)
+ * puts it there as the contracts say the sim keeps it. Clutter checks: Seren among the mirror
+ * choir, the Saplings among Spire Leeches.
+ */
+const SEREN = 1;
+const WITH_SEREN = ['kael', 'seren', 'vexis'];
+const ORO = 2;
+const WITH_ORO = ['kael', 'lyra', 'oro'];
+function rosterScenarios(): Record<string, BondScenario> {
+  return {
+    'Seren · en garde and the parry': {
+      talents: [],
+      party: WITH_SEREN,
+      note: 'A Ward on Seren: crossed blades over her (en garde) and on the chorister’s blow at her; it lands: a white-steel flash, PARRIED, and her violet counter a beat later',
+      stage: (rt) => {
+        rt.packOn(SEREN, 'hollow_chorister', 1);
+        rt.later(0.6, () => rt.serenWard(SEREN));
+        rt.later(1.8, () => rt.serenEvent(SEREN, 'parry'));
+      },
+    },
+    'Seren · kill shot': {
+      talents: [],
+      party: WITH_SEREN,
+      note: 'A Perfect Ward on a blow at Seren: she streaks to its owner, a violet and gold star, a hit-stop, EXECUTED (a lesser foe); at 2.5 s on an elite at 80%: KILL SHOT, 6×',
+      stage: (rt) => {
+        rt.packOn(SEREN, 'hollow_chorister', 2, true);
+        rt.later(0.8, () => rt.serenEvent(SEREN, 'executed'));
+        rt.later(2.5, () => rt.serenEvent(SEREN, 'killShot'));
+      },
+    },
+    'Seren · Showboat, far and overextended': {
+      talents: [],
+      party: WITH_SEREN,
+      note: 'Seren duels an elite 12 m out: the dashed violet tether and the duel crown, your 14 m reach arc on her side; three more turn on her: the red notch pulse (Reel or Rally her)',
+      stage: (rt) => {
+        rt.packOn(SEREN, 'hollow_chorister', 4, true);
+        rt.later(0.6, () => rt.serenQuarry(SEREN, 12));
+      },
+    },
+    'Seren · Thousand Cuts cued': {
+      talents: [],
+      party: WITH_SEREN,
+      note: 'You Cue Seren: she vanishes and blinks between them, violet afterimages edged in your gold, then returns',
+      stage: (rt) => {
+        rt.packOn(SEREN, 'hollow_chorister', 5);
+        rt.later(0.6, () => rt.serenEvent(SEREN, 'cuts'));
+      },
+    },
+    'Seren · clutter: the mirror choir': {
+      talents: [],
+      party: WITH_SEREN,
+      note: 'Seren duels among the Crucible’s glass voices: her violet ring, blades and tether must stay apart from their glass and the lethal channels',
+      stage: (rt) => {
+        rt.packOn(SEREN, 'mirror_alto', 1);
+        rt.packOn(KAEL, 'mirror_tenor', 1);
+        rt.later(0.6, () => {
+          rt.serenWard(SEREN);
+          rt.serenQuarry(SEREN, 6);
+        });
+      },
+    },
+    'Oro · Saplings in and out of your field': {
+      talents: [],
+      party: WITH_ORO,
+      note: 'Oro’s two Saplings 5 m ahead, his root tethers to them; one in your field (your songs’ arcs on it, as on a hero), one outside (grey arcs, a struck leaf on its bar); he tends (the closed leaf)',
+      stage: (rt) => {
+        rt.later(0.3, () => rt.sprout(ORO, true));
+      },
+    },
+    'Oro · Rootbond and the Rally burrow': {
+      talents: [],
+      party: WITH_ORO,
+      note: 'You Thread Oro in Mend: seed motes run down his root tethers to the hurt Saplings (never the Thread’s pulse); at 2.5 s a Rally: they burrow and re-plant ahead of you',
+      stage: (rt) => {
+        rt.later(0.3, () => rt.sprout(ORO, false));
+        rt.later(0.6, () => rt.thread(ORO));
+        for (let i = 0; i < 5; i++) rt.later(0.8 + i * 0.4, () => rt.rootbondOn(ORO));
+        rt.later(2.5, () => rt.burrowAll(ORO));
+      },
+    },
+    'Oro · Wildgrowth cued': {
+      talents: [],
+      party: WITH_ORO,
+      note: 'You Cue Oro: the Ancient rises (its ground warning), its taunt ring, vines on the lesser enemies it roots; and its 6 m disc counts as your field: a second, dashed disc with a bark rim',
+      stage: (rt) => {
+        rt.packOn(KAEL, 'hollow_chorister', 4);
+        rt.later(0.3, () => rt.sprout(ORO, true));
+        rt.later(0.9, () => rt.ancientOn(ORO, true));
+      },
+    },
+    'Oro · clutter: Saplings among Spire Leeches': {
+      talents: [],
+      party: WITH_ORO,
+      theme: 'blood_forge',
+      note: 'The Saplings hold among Leeches on the Spire: their moss rims and leaf bars must stay apart from the Leeches’ green and the forge’s light',
+      stage: (rt) => {
+        rt.later(0.3, () => rt.sprout(ORO, true));
+        rt.packOn(KAEL, 'leech', 3);
+      },
+    },
+  };
+}
+
 function brannScenarios(): Record<string, BondScenario> {
   return {
     'Brann · Blood Rage': {
@@ -2140,6 +2251,7 @@ const BOND_SCENARIOS: Record<string, BondScenario> = {
     },
   },
   ...brannScenarios(),
+  ...rosterScenarios(),
 };
 const BOND_SCENARIO_NAMES = Object.keys(BOND_SCENARIOS);
 
@@ -3038,6 +3150,284 @@ class LabRuntime {
   hurtHero(slot: number, pct: number): void {
     const h = this.heroAt(slot)?.health;
     if (h) h.hp = Math.max(1, h.maxHp * pct);
+  }
+
+  // ── Phase 5e: Seren and Oro (docs/phase-5e.md) ─────────────────────────────────────────
+
+  /** Lab stand-in: a Weaver Ward on the hero in `slot` (Seren stands en garde under it). */
+  serenWard(slot: number): void {
+    const e = this.heroAt(slot);
+    if (!e?.health) return;
+    addShield(this.world(), e, 'ward', 390, 4, true);
+  }
+
+  /** Lab stand-in: Seren's quarry, the strongest enemy round her, set `dist` m from the Weaver. */
+  serenQuarry(slot: number, dist: number): void {
+    const e = this.heroAt(slot);
+    const duel = e?.hero?.duel;
+    const w = this.world().entities.get(this.world().weaverId);
+    if (!e || !duel || !w) return;
+    let best: Entity | null = null;
+    for (const o of this.world().entities.list())
+      if (o.enemy && !o.health?.dead && (!best || o.health!.maxHp > best.health!.maxHp)) best = o;
+    if (!best) return;
+    best.x = best.px = w.x;
+    best.z = best.pz = w.z - dist;
+    e.x = e.px = w.x + 0.8;
+    e.z = e.pz = w.z - dist + 1.6;
+    duel.quarry = best.id;
+    duel.quarryUntil = this.world().time + 8;
+    for (const o of this.world().entities.list())
+      if (o.enemy && !o.health?.dead) o.enemy.targetId = e.id;
+    if (!this.standIns.includes('duel')) this.standIns.push('duel');
+    this.inject([{ type: 'duelChosen', tick: this.sim.state.tick, hero: e.id, target: best.id }]);
+  }
+
+  /** Lab stand-in: one of Seren's moments, as the sim's events would say it. */
+  serenEvent(slot: number, kind: 'parry' | 'executed' | 'killShot' | 'cuts'): void {
+    const e = this.heroAt(slot);
+    if (!e?.hero) return;
+    const tick = this.sim.state.tick;
+    let near: Entity | null = null;
+    let nd = Infinity;
+    for (const o of this.world().entities.list()) {
+      if (!o.enemy || o.health?.dead) continue;
+      const d = Math.hypot(o.x - e.x, o.z - e.z);
+      if (d < nd) {
+        nd = d;
+        near = o;
+      }
+    }
+    if (!near) return;
+    if (kind === 'parry') {
+      e.health!.shields = e.health!.shields.filter((sh) => sh.kind !== 'ward');
+      this.inject([
+        { type: 'parried', tick, hero: e.id, attacker: near.id, negated: 120 },
+        { type: 'parryCountered', tick, hero: e.id, target: near.id, amount: 180 },
+      ]);
+    } else if (kind === 'executed' || kind === 'killShot') {
+      this.inject([
+        {
+          type: 'killShot',
+          tick,
+          hero: e.id,
+          target: near.id,
+          executed: kind === 'executed',
+          amount: kind === 'executed' ? near.health!.hp : 360,
+        },
+      ]);
+    } else {
+      e.hero.soloId = 'thousandCuts';
+      e.hero.soloActive = 4;
+      e.hero.soloCued = true;
+      const fromX = e.x;
+      const fromZ = e.z;
+      const foes = this.world()
+        .entities.list()
+        .filter((o) => o.enemy && !o.health?.dead);
+      foes.slice(0, 8).forEach((o, i) =>
+        this.later(0.1 + i * 0.4, () => {
+          const s = this.heroAt(slot);
+          if (!s) return;
+          const px = s.x;
+          const pz = s.z;
+          s.x = s.px = o.x + 0.9;
+          s.z = s.pz = o.z + 0.9;
+          this.inject([
+            {
+              type: 'attackFired',
+              tick: this.sim.state.tick,
+              source: s.id,
+              target: o.id,
+              visual: 'blink',
+              fromX: px,
+              fromZ: pz,
+              toX: s.x,
+              toZ: s.z,
+              travel: 0,
+            },
+          ]);
+        }),
+      );
+      this.later(3.6, () => {
+        const s = this.heroAt(slot);
+        if (!s?.hero) return;
+        s.x = s.px = fromX;
+        s.z = s.pz = fromZ;
+        s.hero.soloActive = 0;
+        s.hero.soloCued = false;
+      });
+    }
+    if (!this.standIns.includes(kind)) this.standIns.push(kind);
+  }
+
+  /**
+   * Lab stand-in: Oro's Saplings as W2 spawns them (summon entities at the Weaver's front spots,
+   * 5 m ahead and 2.5 m either side), one inside your field and one outside it when `split`.
+   */
+  sprout(slot: number, split: boolean): void {
+    const oro = this.heroAt(slot);
+    const grove = oro?.hero?.grove;
+    const w = this.world().entities.get(this.world().weaverId);
+    if (!oro || !grove || !w) return;
+    if (grove.saplings.some((id) => this.world().entities.get(id))) return;
+    const tick = this.sim.state.tick;
+    const events: SimEvent[] = [];
+    [-2.5, 2.5].forEach((dx, index) => {
+      const x = w.x + dx;
+      const z = w.z - 5;
+      const e = this.world().entities.spawn('summon', {
+        x,
+        z,
+        radius: 0.55,
+        height: 0.7,
+        team: 'party',
+        health: newHealth(index === 0 ? 260 : 380, 380),
+        summon: {
+          owner: oro.id,
+          kind: 'sapling',
+          index,
+          targetId: null,
+          attackCooldown: 0,
+          tauntAt: 0,
+          plantX: x,
+          plantZ: z,
+          auraMask: 0b11,
+          inField: index === 0 || !split,
+          mendHealAcc: 0,
+          auraHealAcc: 0,
+        },
+      });
+      grove.saplings[index] = e.id;
+      grove.respawnAt[index] = 0;
+      events.push({ type: 'summonSpawned', tick, owner: oro.id, summon: e.id, kind: 'sapling' });
+    });
+    if (!this.standIns.includes('saplings')) this.standIns.push('saplings');
+    this.inject(events);
+  }
+
+  /** Lab stand-in: Rootbond Mends each Sapling (a `healApplied` via 'grove' on it). */
+  rootbondOn(slot: number): void {
+    const oro = this.heroAt(slot);
+    const grove = oro?.hero?.grove;
+    if (!oro || !grove) return;
+    const events: SimEvent[] = [];
+    for (const id of grove.saplings) {
+      const s = this.world().entities.get(id);
+      const h = s?.health;
+      if (!s || !h || h.dead) continue;
+      const gain = Math.min(12, h.maxHp - h.hp);
+      h.hp += gain;
+      events.push({
+        type: 'healApplied',
+        tick: this.sim.state.tick,
+        target: id,
+        source: oro.id,
+        amount: Math.max(1, gain),
+        overheal: 0,
+        via: 'grove',
+      });
+    }
+    this.inject(events);
+  }
+
+  /** Lab stand-in: a Rally: every Sapling burrows for 0.8 s and re-plants at the front spots. */
+  burrowAll(slot: number): void {
+    const grove = this.heroAt(slot)?.hero?.grove;
+    const w = this.world().entities.get(this.world().weaverId);
+    if (!grove || !w) return;
+    this.queue({ t: 'directive', kind: 'rally' });
+    grove.saplings.forEach((id, i) => {
+      const s = this.world().entities.get(id);
+      if (!s?.summon) return;
+      s.summon.plantX = w.x + (i === 0 ? -2.5 : 2.5);
+      s.summon.plantZ = w.z - 5;
+      s.summon.burrowUntil = this.world().time + 0.8;
+      this.later(0.8, () => {
+        const t = this.world().entities.get(id);
+        if (!t?.summon) return;
+        t.x = t.px = t.summon.plantX;
+        t.z = t.pz = t.summon.plantZ;
+        t.summon.inField = true;
+      });
+    });
+  }
+
+  /** Lab stand-in: the Ancient rises at the enemies' heart (Cued: its disc is your field, Q2). */
+  ancientOn(slot: number, cued: boolean): void {
+    const oro = this.heroAt(slot);
+    const grove = oro?.hero?.grove;
+    if (!oro || !grove) return;
+    let cx = 0;
+    let cz = 0;
+    let n = 0;
+    for (const o of this.world().entities.list())
+      if (o.enemy && !o.health?.dead) {
+        cx += o.x;
+        cz += o.z;
+        n++;
+      }
+    const x = n > 0 ? cx / n : oro.x;
+    const z = n > 0 ? cz / n : oro.z - 3;
+    const time = this.world().time;
+    const e = this.world().entities.spawn('summon', {
+      x,
+      z,
+      radius: 1.1,
+      height: 2.6,
+      team: 'party',
+      health: newHealth(2000, 2000),
+      summon: {
+        owner: oro.id,
+        kind: 'ancient',
+        index: 0,
+        // As W2 raises it: burrowed through its 1 s ground warning, then 8 s standing.
+        burrowUntil: time + 1,
+        until: time + 1 + 8,
+        targetId: null,
+        attackCooldown: 0,
+        tauntAt: 0,
+        plantX: x,
+        plantZ: z,
+        mendHealAcc: 0,
+        auraHealAcc: 0,
+      },
+    });
+    grove.ancient = e.id;
+    oro.hero!.soloId = 'wildgrowth';
+    oro.hero!.soloActive = 8;
+    oro.hero!.soloCued = cued;
+    if (cued) this.world().field.ancient = { id: e.id, x, z, r: 6 };
+    const tick = this.sim.state.tick;
+    const events: SimEvent[] = [
+      { type: 'summonSpawned', tick, owner: oro.id, summon: e.id, kind: 'ancient' },
+    ];
+    for (const o of this.world().entities.list()) {
+      if (!o.enemy || o.health?.dead || o.enemy.tier === 'boss') continue;
+      if (Math.hypot(o.x - x, o.z - z) > 7) continue;
+      o.enemy.rootImmuneUntil = time + 5.5;
+      o.health!.statuses.push({
+        id: 'rooted',
+        remaining: 1.5,
+        duration: 1.5,
+        stacks: 1,
+        source: e.id,
+      } as Status);
+      events.push({ type: 'rooted', tick, target: o.id, seconds: 1.5 });
+    }
+    if (!this.standIns.includes('ancient')) this.standIns.push('ancient');
+    this.inject(events);
+  }
+
+  rosterStats(): Record<string, number> {
+    const v = this.view;
+    const out: Record<string, number> = {};
+    for (const [k, n] of Object.entries(v.entities.drawn5e)) out[`drawn.${k}`] = n;
+    for (const [k, n] of Object.entries(v.feedback.seren.fired5e)) out[`seren.${k}`] = n;
+    for (const [k, n] of Object.entries(v.feedback.grove.fired5e)) out[`grove.${k}`] = n;
+    out['summonBars'] = v.partyBars.drawnSummons.length;
+    out['disc'] = v.groveDisc.drawn ? 1 : 0;
+    return out;
   }
 
   // ── Phase 5b: Brann (docs/phase-5b.md) ────────────────────────────────────────────────
@@ -5124,6 +5514,7 @@ export function VfxLab() {
       bondScenario: (name) => rt.bondScenario(name),
       setBonds: (bonds) => rt.setBonds(bonds),
       bondStats: () => rt.bondStats(),
+      rosterStats: () => rt.rosterStats(),
       variantScenarios: () => VARIANT_SCENARIO_NAMES,
       variantScenario: (name) => rt.variantScenario(name),
       setVariants: (techniques) => rt.setVariants(techniques),

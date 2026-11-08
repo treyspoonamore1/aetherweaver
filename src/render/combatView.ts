@@ -17,6 +17,8 @@ import { FermataView } from './fermata';
 import { Feedback } from './feedback';
 import { FieldView } from './field';
 import { FxKit } from './fx/kit';
+import { GroveDiscView } from './groveDisc';
+import { beyondReach } from './serenCues';
 import { OWN_LOOK } from './keepsakeCues';
 import { MartyrView } from './martyr';
 import { RING } from './fx/rings';
@@ -58,6 +60,8 @@ export class CombatView implements WorldView {
   readonly dissonance: DissonanceView;
   readonly bonds: BondsView;
   readonly variants: VariantsView;
+  /** The Cued Ancient's disc (docs/phase-5e.md, Q2): its own decal, made on the first disc. */
+  readonly groveDisc: GroveDiscView;
   private quality: QualityTier;
   /** The enemies' clock for the telegraph shaders: it waits while Stasis holds them. */
   private enemyClock = 0;
@@ -144,6 +148,7 @@ export class CombatView implements WorldView {
       rig: ctx.rig,
       models: this.entities,
     });
+    this.groveDisc = new GroveDiscView(this.root);
     this.quality = ctx.quality;
     this.setQuality(ctx.quality);
     void state;
@@ -153,7 +158,9 @@ export class CombatView implements WorldView {
     if (this.disposed) return;
     const realDt = Math.min(0.1, Math.max(0, frame.realDt));
     // World FX slow down with the sim's hit-stop / slow-mo, but never freeze entirely.
-    const fxDt = realDt * (0.3 + 0.7 * Math.min(1, state.timeScale));
+    // Seren's kill shot (docs/phase-5e.md) holds them a moment more (1 in every other party).
+    const fxDt =
+      realDt * (0.3 + 0.7 * Math.min(1, state.timeScale)) * this.feedback.seren.hitStop(realDt);
     const camera = this.ctx.stage.camera;
     camera.updateMatrixWorld();
 
@@ -171,6 +178,7 @@ export class CombatView implements WorldView {
     this.overlay.beginFrame();
     this.entities.sync(state, frame, this.kit, fxDt);
     this.field.sync(state, this.kit, fxDt, frame.time);
+    this.groveDisc.sync(state, frame.time);
     this.telegraphs.sync(state, this.kit, this.overlay, fxDt, true);
     this.thread.sync(state, this.kit, fxDt, frame.time);
     this.calls.sync(state, this.kit, this.overlay, fxDt);
@@ -254,7 +262,9 @@ export class CombatView implements WorldView {
       // as it does for a threat, its dot still in their colour.
       const h = e.health;
       const danger = edgeDanger(e, this.telegraphs.threatened.get(id) ?? 0, vow);
-      this.overlay.edgeArrow(r.x, r.height * 0.5, r.z, h?.downed ? '#94a3b8' : hex, danger);
+      // Seren beyond your reach (docs/phase-5e.md): her arrow wears a dashed ring.
+      const beyond = !!e.hero.duel && !h?.downed && beyondReach(state, e);
+      this.overlay.edgeArrow(r.x, r.height * 0.5, r.z, h?.downed ? '#94a3b8' : hex, danger, beyond);
     }
   }
 
@@ -270,6 +280,7 @@ export class CombatView implements WorldView {
     if (this.disposed) return;
     this.disposed = true;
     this.feedback.dispose();
+    this.groveDisc.dispose();
     this.telegraphs.dispose();
     this.field.dispose();
     this.kit.dispose();

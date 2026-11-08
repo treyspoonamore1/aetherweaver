@@ -195,7 +195,14 @@ export class BondsView {
   /** How many of each moment started (tests and the lab read these). */
   readonly fired = Object.fromEntries(BOND_CUES.map((c) => [c, 0])) as Record<BondCue, number>;
   /** Alternate Solos started (the reach, the stance, the spheres forming). */
-  readonly started = { oathkeeper: 0, hawks_vigil: 0, celestial_sphere: 0, blood_brother: 0 };
+  readonly started = {
+    oathkeeper: 0,
+    hawks_vigil: 0,
+    celestial_sphere: 0,
+    blood_brother: 0,
+    blade_waltz: 0,
+    homecoming: 0,
+  };
   /** Brann's Bonds beyond the cues (tests, the lab): Blood Tithe's refunds shown. */
   readonly fired5b = { tithe: 0 };
   /** What was drawn last frame (tests, the lab). */
@@ -542,7 +549,9 @@ export class BondsView {
       e.solo !== 'oathkeeper' &&
       e.solo !== 'hawks_vigil' &&
       e.solo !== 'celestial_sphere' &&
-      e.solo !== 'blood_brother'
+      e.solo !== 'blood_brother' &&
+      e.solo !== 'blade_waltz' &&
+      e.solo !== 'homecoming'
     )
       return;
     this.started[e.solo]++;
@@ -681,7 +690,50 @@ export class BondsView {
         return this.unbreakable(m, state, time);
       case 'berserkers_hymn':
         return this.hymn(m, time);
+      case 'riposte_chain':
+      case 'bladesong':
+      case 'unflinching':
+      case 'duellists_honour':
+      case 'thorned_bark':
+      case 'old_growth':
+      case 'world_tree':
+        return this.roster5e(m, time);
     }
+  }
+
+  // ── Seren and Oro (docs/phase-5e.md) ─────────────────────────────────────────────
+
+  /**
+   * Seren's and Oro's talents acting, each in their own colour: a ring closing on the hero (or
+   * on what it acted on: the Sapling, the striker, the Ancient), a mark at the chest (crossed
+   * blades for Seren's, a seed for Oro's) and the talent's name. Bladesong's cut rings out round
+   * her; World Tree's roots ring out round the Ancient.
+   */
+  private roster5e(m: Moment, time: number): boolean {
+    const kit = this.d.kit;
+    const k = this.d.recs.get(m.target) ?? this.d.recs.get(m.hero);
+    if (!k) return m.age > 0;
+    const t = m.age;
+    const fade = 1 - seg(t, m.life - 0.3, m.life);
+    const out = m.cue === 'bladesong' || m.cue === 'world_tree';
+    const grow = easeOut(seg(t, 0, 0.35));
+    const r = out ? k.radius * (1.2 + 2.6 * grow) : k.radius * (3 - 1.6 * grow);
+    kit.rings.push(k.x, 0.05, k.z, r, 0.12, 0.24, RING.plain, m.color, 0.9 * fade);
+    const y = chestY(k);
+    if (m.cue === 'riposte_chain' || m.cue === 'unflinching' || m.cue === 'bladesong') {
+      kit.sprites.push(k.x, y + 0.6, k.z, 0.5, SPRITE.needle, m.color, fade, 0.75);
+      kit.sprites.push(k.x, y + 0.6, k.z, 0.5, SPRITE.needle, m.color, fade, -0.75);
+    } else if (m.cue === 'duellists_honour') {
+      // Your Ward readied: a glint of your gold over her.
+      kit.sprites.push(k.x, y + 0.6, k.z, 0.45 + 0.2 * bump(t / 0.4), SPRITE.diamond, C.amp, fade);
+    } else {
+      kit.sprites.push(k.x, y, k.z, 0.4 + 0.2 * bump(t / 0.4), SPRITE.glow, m.color, 0.8 * fade);
+    }
+    if (this.once(m, BIT_BURST) && !FREQUENT.has(m.cue))
+      kit.particles.burst(k.x, y, k.z, 8, 2.4, 1.4, 0.4, 0.1, m.color, 1, PARTICLE.spark, 3, 2);
+    this.callout(m, k.x, k.height + 1.6, k.z, 15);
+    void time;
+    return true;
   }
 
   // ── Kael ──────────────────────────────────────────────────────────────────────────
