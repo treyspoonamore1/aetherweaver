@@ -6,14 +6,31 @@
 import { CONTENT } from '../../content';
 import {
   newBlood,
+  newGrove,
   type AstrolabeState,
   type BloodState,
   type DissonanceState,
+  type GroveState,
   type SimEvent,
   type WorldState,
 } from '../../sim';
 
-export const IDS = { weaver: 1, kael: 2, lyra: 3, vexis: 4, brann: 5, enemyBase: 10 } as const;
+/**
+ * Phase 5e: Seren (6) and Oro (7) are opt-in heroes, as Brann is; Oro's Saplings are 30 up (by
+ * their index) and his Ancient 39, clear of the enemies (10 up, at most a few dozen).
+ */
+export const IDS = {
+  weaver: 1,
+  kael: 2,
+  lyra: 3,
+  vexis: 4,
+  brann: 5,
+  seren: 6,
+  oro: 7,
+  enemyBase: 10,
+  sapling: 30,
+  ancient: 39,
+} as const;
 /** The default lab party (the starters): the lab's and the offline audit's world. */
 export const HERO_IDS = ['kael', 'lyra', 'vexis'] as const;
 export type HeroKey = (typeof HERO_IDS)[number];
@@ -21,9 +38,15 @@ export type HeroKey = (typeof HERO_IDS)[number];
  * Phase 5b: every hero the lab can field. Brann (`IDS.brann`) is opt-in: a `FakeWorld` built with
  * a `party` naming him, or `setParty`. The default world never has him.
  */
-export type LabHero = HeroKey | 'brann';
+export type LabHero = HeroKey | 'brann' | 'seren' | 'oro';
 /** Phase 5b: a lab party with Brann as the fourth (the sim takes up to four), for his buttons. */
 export const BRANN_LAB_PARTY: readonly LabHero[] = ['kael', 'lyra', 'vexis', 'brann'];
+/** Phase 5e: a lab party with Seren as the fourth, for her buttons. */
+export const SEREN_LAB_PARTY: readonly LabHero[] = ['kael', 'lyra', 'vexis', 'seren'];
+/** Phase 5e: a lab party with Oro as the fourth (his two Saplings come with him). */
+export const ORO_LAB_PARTY: readonly LabHero[] = ['kael', 'lyra', 'vexis', 'oro'];
+/** Phase 5e: the heroes who are not starters take their life from the content. */
+const STARTER_MAX_HP = 1000;
 
 /** Phase 4: a shield as the state holds it (the Shatterproof Halo reads the Ward's). */
 interface FakeShield {
@@ -34,7 +57,8 @@ interface FakeShield {
 
 interface FakeEntity {
   id: number;
-  kind: 'weaver' | 'hero' | 'enemy';
+  /** Phase 5e: 'summon' is one of Oro's (a Sapling or the Ancient), only with him in the party. */
+  kind: 'weaver' | 'hero' | 'enemy' | 'summon';
   x: number;
   z: number;
   health: {
@@ -79,6 +103,15 @@ interface FakeEntity {
     sphereCued: boolean;
     /** Phase 5b: Brann's Blood Rage state (only his; the sim's shape). */
     blood?: BloodState;
+    /** Phase 5e: Oro's grove (only his; the sim's shape). */
+    grove?: GroveState;
+  };
+  /** Phase 5e: a summon's own state (the sim's fields the audio reads). */
+  summon?: {
+    owner: number;
+    kind: 'sapling' | 'ancient';
+    index: number;
+    burrowUntil?: number;
   };
   enemy?: {
     role: string;
@@ -272,10 +305,17 @@ export class FakeWorld {
     } as unknown as WorldState;
   }
 
-  /** A hero in a slot, fresh (full life; Brann with his Blood Rage state and his own life). */
+  /**
+   * A hero in a slot, fresh: full life (a starter's the lab's 1000; any other hero's the
+   * content's), Brann with his Blood Rage state, Oro with his grove and his Saplings.
+   */
   private addHero(defId: LabHero, slot: number): void {
     const brann = defId === 'brann';
-    const max = brann ? (CONTENT.heroes.find((h) => h.id === 'brann')?.maxHp ?? 1250) : 1000;
+    const oro = defId === 'oro';
+    const starter = (HERO_IDS as readonly string[]).includes(defId);
+    const max = starter
+      ? STARTER_MAX_HP
+      : (CONTENT.heroes.find((h) => h.id === defId)?.maxHp ?? STARTER_MAX_HP);
     this.entities.set(IDS[defId], {
       id: IDS[defId],
       kind: 'hero',
@@ -295,8 +335,82 @@ export class FakeWorld {
         sphereUntil: 0,
         sphereCued: false,
         ...(brann ? { blood: newBlood() } : {}),
+        ...(oro ? { grove: newGrove() } : {}),
       },
     });
+    if (oro) this.setSaplings(this.saplingCount());
+  }
+
+  /** Phase 5e: how many Saplings Oro plants (the content's). */
+  private saplingCount(): number {
+    return CONTENT.heroes.find((h) => h.id === 'oro')?.summons?.sapling?.count ?? 2;
+  }
+
+  /** Phase 5e: Oro's grove, while he is in the party. */
+  private grove(): GroveState | undefined {
+    return this.entities.get(IDS.oro)?.hero?.grove;
+  }
+
+  /** Phase 5e: a summon of Oro's, fresh, at (x, z). */
+  private addSummon(id: number, kind: 'sapling' | 'ancient', index: number, x: number, z: number) {
+    const def = CONTENT.heroes.find((h) => h.id === 'oro')?.summons;
+    const max = (kind === 'ancient' ? def?.ancient?.maxHp : def?.sapling?.maxHp) ?? 400;
+    this.entities.set(id, {
+      id,
+      kind: 'summon',
+      x,
+      z,
+      health: health(max, max),
+      summon: { owner: IDS.oro, kind, index },
+    });
+  }
+
+  /**
+   * Phase 5e: Oro's Saplings standing (`n`, at the Weaver's front spots, 5 m ahead and spread);
+   * the rest gone. Only with Oro in the party.
+   */
+  setSaplings(n: number): void {
+    const grove = this.grove();
+    if (!grove) return;
+    for (const id of grove.saplings) this.entities.delete(id);
+    grove.saplings = [];
+    grove.respawnAt = [];
+    for (let i = 0; i < n; i++) {
+      const id = IDS.sapling + i;
+      this.addSummon(id, 'sapling', i, (i - (n - 1) / 2) * 5, 5);
+      grove.saplings.push(id);
+      grove.respawnAt.push(0);
+    }
+  }
+
+  /** Phase 5e: a Sapling's life, as a share of its own (by its index). */
+  setSaplingHp(index: number, frac: number): void {
+    const s = this.entities.get(IDS.sapling + index);
+    if (s?.summon) s.health.hp = Math.max(1, frac * s.health.maxHp);
+  }
+
+  /** Phase 5e: a Sapling burrowed by a Rally until this sim time (its re-plant). */
+  setBurrow(index: number, until: number | undefined): void {
+    const s = this.entities.get(IDS.sapling + index)?.summon;
+    if (!s) return;
+    if (until === undefined) delete s.burrowUntil;
+    else s.burrowUntil = until;
+  }
+
+  /** Phase 5e: Oro's Ancient standing at (x, z), or gone. Only with Oro in the party. */
+  setAncient(on: boolean, x = 0, z = 7): void {
+    const grove = this.grove();
+    if (!grove) return;
+    this.entities.delete(IDS.ancient);
+    grove.ancient = null;
+    if (!on) return;
+    this.addSummon(IDS.ancient, 'ancient', 0, x, z);
+    grove.ancient = IDS.ancient;
+  }
+
+  /** Phase 5e: every summon gone (Oro left the party). */
+  private removeSummons(): void {
+    for (const [id, e] of [...this.entities]) if (e.kind === 'summon') this.entities.delete(id);
   }
 
   /** The party's heroes, in slot order. */
@@ -311,6 +425,8 @@ export class FakeWorld {
   setParty(heroes: readonly LabHero[]): void {
     if (heroes.length === this.party.length && heroes.every((h, i) => this.party[i] === h)) return;
     for (const h of this.party) if (!heroes.includes(h)) this.entities.delete(IDS[h]);
+    // Phase 5e: Oro's summons leave with him.
+    if (!heroes.includes('oro')) this.removeSummons();
     this.party = [...heroes];
     this.party.forEach((h, slot) => {
       const e = this.entities.get(IDS[h]);
@@ -562,7 +678,9 @@ export class FakeWorld {
   }
   /** Replaces the enemies with `n` generic ones (intensity). */
   setEnemies(n: number, role = 'swarm', tier = 'normal', phase = 0): void {
-    for (const id of [...this.entities.keys()]) if (id >= IDS.enemyBase) this.entities.delete(id);
+    // (Phase 5e: only enemies; Oro's summons, 30 up, stay.)
+    for (const [id, e] of [...this.entities])
+      if (id >= IDS.enemyBase && e.kind === 'enemy') this.entities.delete(id);
     for (let i = 0; i < n; i++) {
       const id = IDS.enemyBase + i;
       this.entities.set(id, {

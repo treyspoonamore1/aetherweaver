@@ -6,12 +6,19 @@
  * intended notes, all in D dorian, within its gate and cap; the frequent ones stay light; the lab
  * has a button for each.
  */
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { getAudio } from '../src/audio';
 import { SynthDirector } from '../src/audio/director';
-import { BRANN_LAB_PARTY, FakeWorld, IDS, type LabHero } from '../src/audio/lab/labState';
+import {
+  BRANN_LAB_PARTY,
+  FakeWorld,
+  IDS,
+  ORO_LAB_PARTY,
+  SEREN_LAB_PARTY,
+  type LabHero,
+} from '../src/audio/lab/labState';
 import { SOUNDS } from '../src/audio/lab/soundBoard';
 import { ALT_SOLO_SOUND_GROUPS, TALENT_SOUND_GROUPS, TALENT_SOUND_LIMITS } from '../src/audio/sfx';
 import { LEITMOTIFS, isInScale, midiToHz, scaleMidi } from '../src/audio/theory';
@@ -228,6 +235,14 @@ function simTalents(): string[] {
 }
 
 const TALENTS = Object.keys(TALENT_SOUND_GROUPS);
+/**
+ * Phase 5e: the sim test each new hero's sim lands with (W1's and W2's, docs/phase-5e.md). Until
+ * it exists the hero's talent hooks are W0b's stubs, so their sounds wait for the announcement.
+ */
+const AWAITING_SIM_5E: Partial<Record<string, string>> = {
+  seren: 'sim/serenParry.test.ts',
+  oro: 'sim/grove.test.ts',
+};
 /** Whose each is (content). */
 const heroOf = (id: string) =>
   CONTENT.talents.find((t) => t.id === id)?.hero ?? CONTENT.altSolos.find((s) => s.id === id)?.hero;
@@ -238,8 +253,10 @@ const talentValue = (id: string, key: string) =>
 function talentEv(h: ReturnType<typeof harness>, id: string): SimEvent {
   if (!h.world.entities.has(IDS.enemyBase)) h.world.setEnemies(3);
   const hero = (heroOf(id) ?? 'kael') as LabHero;
-  // Phase 5b: Brann's talents bring him into the lab party (a fourth).
+  // Phase 5b: Brann's talents bring him into the lab party (a fourth); Phase 5e: Seren's and Oro's.
   if (hero === 'brann') h.world.setParty(BRANN_LAB_PARTY);
+  if (hero === 'seren') h.world.setParty(SEREN_LAB_PARTY);
+  if (hero === 'oro') h.world.setParty(ORO_LAB_PARTY);
   const at = h.world.state.entities.get(IDS[hero])!;
   const target =
     id === 'oathkeeper' || id === 'celestial_sphere'
@@ -267,7 +284,18 @@ describe('Bonds in the fight: a sound for every talent the sim announces', () =>
     // Phase 5b (docs/phase-5b.md, "Expected reds"): Brann's four (iron_will, blood_oath,
     // deathless, berserkers_hymn) have their sounds here before the sim announces them (W1);
     // this goes green when the two merge (W7).
-    expect([...TALENTS].sort()).toEqual(found);
+    // Phase 5e: every id the sim announces has a sound, always.
+    expect(found.filter((id) => !TALENTS.includes(id))).toEqual([]);
+    // And every sound is announced, except a Phase 5e hero's while that hero's sim has not landed
+    // (docs/phase-5e.md has no expected red here): W1 (Seren) and W2 (Oro) land with their own
+    // sim tests, and from then on each of their ids must be announced like everyone's.
+    const unannounced = TALENTS.filter((id) => !found.includes(id)).sort();
+    const awaiting = unannounced.filter((id) => {
+      const hero = heroOf(id);
+      const sim = hero === undefined ? undefined : AWAITING_SIM_5E[hero];
+      return sim !== undefined && !existsSync(join(__dirname, sim));
+    });
+    expect(unannounced).toEqual(awaiting);
     for (const id of TALENTS) {
       expect(heroOf(id), id).toBeDefined();
       expect(TALENT_SOUND_LIMITS[id], id).toBeDefined();
@@ -343,8 +371,9 @@ describe('Bonds in the fight: a sound for every talent the sim announces', () =>
     for (const id of TALENTS) {
       const { h, r } = talentSound(id, (k) => k.world.setSphere('lyra', 1));
       for (const m of notes[id] ?? []) expect(hasMidi(r, m), `${id} ${m}`).toBe(true);
-      // Its hero's own pitch class is in it: Kael's D, Lyra's A, Vexis's B, Brann's A.
-      const pc = { kael: 2, lyra: 9, vexis: 11, brann: 9 }[heroOf(id) as LabHero];
+      // Its hero's own pitch class is in it: Kael's D, Lyra's A, Vexis's B, Brann's A (Phase 5e:
+      // Seren's F, Oro's G).
+      const pc = { kael: 2, lyra: 9, vexis: 11, brann: 9, seren: 5, oro: 7 }[heroOf(id) as LabHero];
       const pcs = freqsOf(r.sources).map(
         (f) => ((Math.round(69 + 12 * Math.log2(f / 440)) % 12) + 12) % 12,
       );
@@ -505,6 +534,8 @@ describe('the alternate Solos’ starts (Phase 4e)', () => {
   const start = (solo: string, hero: LabHero, cued: boolean) => {
     const h = harness();
     if (hero === 'brann') h.world.setParty(BRANN_LAB_PARTY);
+    if (hero === 'seren') h.world.setParty(SEREN_LAB_PARTY);
+    if (hero === 'oro') h.world.setParty(ORO_LAB_PARTY);
     const r = h.fire(ev('soloStarted', { hero: IDS[hero], solo, cued, duration: 5 }));
     return { h, r };
   };
@@ -513,6 +544,9 @@ describe('the alternate Solos’ starts (Phase 4e)', () => {
     ['hawks_vigil', 'lyra'],
     ['celestial_sphere', 'vexis'],
     ['blood_brother', 'brann'],
+    // Phase 5e.
+    ['blade_waltz', 'seren'],
+    ['homecoming', 'oro'],
   ];
 
   it('each starts with a sound of its own, cued or not; the default Solos have none of these', () => {
@@ -868,9 +902,17 @@ describe('audio lab: the Phase 4e buttons', () => {
     const oath = press('talent-oath-burst');
     expect(oath.stats().peakVoices['talent:oath']).toBeLessThanOrEqual(3);
     oath.d.dispose();
+    // (Phase 5e: 'talent-every' is pinned by the Spire and Rift snapshots as it was; Seren's and
+    // Oro's play in turn on 'talent-every-5e'.)
     const every = press('talent-every');
+    const every5e = press('talent-every-5e');
     for (const id of TALENTS)
-      expect(every.stats().peakVoices[TALENT_SOUND_GROUPS[id]!] ?? 0, id).toBeGreaterThan(0);
+      expect(
+        (every.stats().peakVoices[TALENT_SOUND_GROUPS[id]!] ?? 0) +
+          (every5e.stats().peakVoices[TALENT_SOUND_GROUPS[id]!] ?? 0),
+        id,
+      ).toBeGreaterThan(0);
     every.d.dispose();
+    every5e.d.dispose();
   });
 });

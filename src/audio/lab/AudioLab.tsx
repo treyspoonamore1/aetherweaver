@@ -9,7 +9,16 @@ import type { SimEvent } from '../../sim';
 import { getAudio, type SynthDirector } from '../index';
 import type { AudioDebugStats, AudioMood, Volumes } from '../types';
 import { Fight } from './fight';
-import { BRANN_LAB_PARTY, FakeWorld, HERO_IDS, IDS, ev, type HeroKey } from './labState';
+import {
+  BRANN_LAB_PARTY,
+  FakeWorld,
+  HERO_IDS,
+  IDS,
+  ORO_LAB_PARTY,
+  SEREN_LAB_PARTY,
+  ev,
+  type HeroKey,
+} from './labState';
 import {
   auditMood,
   auditSound,
@@ -126,6 +135,16 @@ const GROUPS: {
     id: 'brann',
     title:
       'Phase 5b · Brann (his leitmotif and Call, Red Comet, his kit, his war drum and alert; he joins the lab party)',
+  },
+  {
+    id: 'seren',
+    title:
+      'Phase 5e · Seren (her leitmotif and Call, Flèche, the parry and its counter, the kill shot, Lunge, Feint, Thousand Cuts, her heartbeat; she joins the lab party)',
+  },
+  {
+    id: 'oro',
+    title:
+      'Phase 5e · Oro (his leitmotif and Call, Spring Rain, his Saplings sprouting, struck, felled and burrowing, Rootbond, Wildgrowth and the Ancient, roots, Gentle, his heartbeat; he joins the lab party)',
   },
   {
     id: 'unstitched',
@@ -257,6 +276,9 @@ export function AudioLab() {
   const [brannIn, setBrannIn] = useState(false);
   const [brannLife, setBrannLife] = useState(1);
   const [brannFast, setBrannFast] = useState(false);
+  // Phase 5e: Seren or Oro in the lab party (a fourth, opt-in; Brann's box comes first), and their life.
+  const [newIn, setNewIn] = useState<'seren' | 'oro' | null>(null);
+  const [newLife, setNewLife] = useState(1);
   const [planted, setPlanted] = useState(false);
   const [unison, setUnison] = useState(0);
   const [volumes, setVolumes] = useState<Volumes>(() => ({
@@ -424,11 +446,20 @@ export function AudioLab() {
     for (const h of HERO_IDS) world.setDowned(h, downed[h]);
   }, [world, downed]);
   useEffect(() => {
-    world.setParty(brannIn ? BRANN_LAB_PARTY : HERO_IDS);
+    world.setParty(
+      brannIn
+        ? BRANN_LAB_PARTY
+        : newIn === 'seren'
+          ? SEREN_LAB_PARTY
+          : newIn === 'oro'
+            ? ORO_LAB_PARTY
+            : HERO_IDS,
+    );
+    if (!brannIn && newIn) world.setHeroHp(newIn, newLife);
     if (!brannIn) return;
     world.setHeroHp('brann', brannLife);
     world.setBleedRate(brannFast ? 2000 : 0);
-  }, [world, brannIn, brannLife, brannFast]);
+  }, [world, brannIn, brannLife, brannFast, newIn, newLife]);
 
   const applyVolumes = (v: Volumes) => {
     setVolumes(v);
@@ -772,7 +803,30 @@ export function AudioLab() {
               />{' '}
               falling fast (the alert)
             </label>
+            {(['seren', 'oro'] as const).map((h) => (
+              <label
+                key={h}
+                className="flex items-center gap-1"
+                title={`${h === 'seren' ? 'Seren' : 'Oro (and his Saplings)'} joins the lab party as a fourth hero (Brann's box comes first)`}
+              >
+                <input
+                  type="checkbox"
+                  checked={newIn === h}
+                  data-testid={`${h}-in`}
+                  onChange={(e) => setNewIn(e.target.checked ? h : null)}
+                />{' '}
+                {h === 'seren' ? 'Seren' : 'Oro'} in the party
+              </label>
+            ))}
           </div>
+          {newIn && !brannIn && (
+            <Slider
+              label={`${newIn === 'seren' ? 'Seren' : 'Oro'} low (the heartbeat)`}
+              value={newLife}
+              onChange={setNewLife}
+              testId={`${newIn}-life`}
+            />
+          )}
           {brannIn && (
             <Slider
               label="Brann low (Blood Rage)"

@@ -911,12 +911,24 @@ describe('the party’s leitmotifs: Reignite and the Finale stinger (Phase 5d)',
   };
 
   it('plays only the party’s own heroes, never the Kael fallback', () => {
-    const lyra = canon(['seren', 'lyra', 'oro']);
+    // (Phase 5e: Seren and Oro have leitmotifs now; unknown ids stand in for heroes without.)
+    const lyra = canon(['nobody', 'lyra', 'stranger']);
     const ids = LEITMOTIFS['lyra']!.notes.map((n) => midiToHz(scaleMidi(n.idx)));
     for (const hz of ids) expect(lyra.freqs.some((f) => Math.abs(f - hz) < 0.01)).toBe(true);
     // Kael's horn D3 (and anything that low) never sounds.
     expect(Math.min(...lyra.freqs)).toBeGreaterThan(midiToHz(scaleMidi(-7)) + 1);
-    expect(canon(['seren', 'oro']).freqs).toEqual([]);
+    expect(canon(['nobody', 'stranger']).freqs).toEqual([]);
+    // Phase 5e: Seren's and Oro's own, in their places.
+    const new2 = canon(['seren', 'oro']);
+    for (const id of ['seren', 'oro'])
+      for (const n of LEITMOTIFS[id]!.notes) {
+        const hz = midiToHz(scaleMidi(n.idx));
+        expect(
+          new2.freqs.some((f) => Math.abs(f - hz) < 0.01),
+          `${id} ${hz}`,
+        ).toBe(true);
+      }
+    expect(Math.min(...new2.freqs)).toBeGreaterThan(midiToHz(scaleMidi(-7)) + 1);
     const all = canon(['kael', 'lyra', 'vexis', 'brann']);
     expect(all.end).toBeGreaterThan(0.9 + 0.9);
   });

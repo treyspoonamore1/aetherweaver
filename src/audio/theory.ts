@@ -193,7 +193,13 @@ export interface MotifNote {
  * `bowedLow` (Phase 5b): Brann's, a low bowed string struck like a war drum (`bowed()` over a
  * `thump()`), in the register under everyone else's: never glass.
  */
-export type MotifVoice = 'horn' | 'pluckFlute' | 'glassBell' | 'bowedLow';
+/**
+ * Phase 5e (docs/phase-5e.md, "Audio"): `bladeString`, Seren's, a struck high string with a short
+ * ping of steel over it; `hollowWood`, Oro's, a hollow knock with a dark pluck and a breath in it.
+ * Neither is glass (the Conductor's choir).
+ */
+export type MotifVoice =
+  'horn' | 'pluckFlute' | 'glassBell' | 'bowedLow' | 'bladeString' | 'hollowWood';
 export interface Leitmotif {
   voice: MotifVoice;
   notes: readonly MotifNote[];
@@ -241,6 +247,28 @@ export const LEITMOTIFS: Record<string, Leitmotif> = {
       { idx: -8, at: 0.24, dur: 0.3, vel: 0.85 },
       { idx: -7, at: 0.48, dur: 0.3, vel: 0.9 },
       { idx: -6, at: 0.72, dur: 1.0, vel: 1 },
+    ],
+  },
+  // Seren the Riposte (Phase 5e): a quick dotted figure on F, a blade's feint and thrust (F4 A4
+  // G4 C5). The bar she always hums, ending on the 7th: never the end of it.
+  seren: {
+    voice: 'bladeString',
+    notes: [
+      { idx: 2, at: 0, dur: 0.2, vel: 0.85 },
+      { idx: 4, at: 0.15, dur: 0.08, vel: 0.75 },
+      { idx: 3, at: 0.22, dur: 0.2, vel: 0.85 },
+      { idx: 6, at: 0.37, dur: 0.7, vel: 1 },
+    ],
+  },
+  // Oro the Grovekeeper (Phase 5e): a slow, warm figure on G3, climbing like roots finding the
+  // light (G3 A3 B3 E4).
+  oro: {
+    voice: 'hollowWood',
+    notes: [
+      { idx: -4, at: 0, dur: 0.5, vel: 0.85 },
+      { idx: -3, at: 0.42, dur: 0.5, vel: 0.8 },
+      { idx: -2, at: 0.84, dur: 0.5, vel: 0.85 },
+      { idx: 1, at: 1.26, dur: 1.1, vel: 1 },
     ],
   },
 };
@@ -314,6 +342,30 @@ export const CALL_PHRASES: Record<string, CallPhrase> = {
       { idx: -7, at: 0.48, dur: 0.3, vel: 0.9 },
       { idx: -5, at: 0.72, dur: 0.3, vel: 0.9 },
       { idx: -6, at: 0.96, dur: 1.6, vel: 0.95 },
+    ],
+  },
+  // Seren (Phase 5e): F A G, then the thrust leaps to the E5 and hangs there on the 2nd; the
+  // Weaver's Ward answers it down to the D5.
+  seren: {
+    voice: 'bladeString',
+    resolve: 7,
+    notes: [
+      { idx: 2, at: 0, dur: 0.2, vel: 0.85 },
+      { idx: 4, at: 0.15, dur: 0.08, vel: 0.75 },
+      { idx: 3, at: 0.22, dur: 0.2, vel: 0.85 },
+      { idx: 8, at: 0.37, dur: 1.4, vel: 0.95 },
+    ],
+  },
+  // Oro (Phase 5e): G3 A3 B3 … C4 (the climb stops a step under the D4, on the 7th); the
+  // Weaver's Chime answers it up to the D4.
+  oro: {
+    voice: 'hollowWood',
+    resolve: 0,
+    notes: [
+      { idx: -4, at: 0, dur: 0.5, vel: 0.85 },
+      { idx: -3, at: 0.42, dur: 0.5, vel: 0.8 },
+      { idx: -2, at: 0.84, dur: 0.5, vel: 0.85 },
+      { idx: -1, at: 1.26, dur: 1.8, vel: 0.95 },
     ],
   },
 };

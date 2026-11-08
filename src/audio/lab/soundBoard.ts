@@ -37,6 +37,10 @@ export interface SoundButton {
     | 'crimson'
     /** Phase 5b: Brann (his voice, his drum and alert, his kit; Brann joins the lab party). */
     | 'brann'
+    /** Phase 5e: Seren (her voice, parry and kill shot, her kit; she joins the lab party). */
+    | 'seren'
+    /** Phase 5e: Oro (his voice, his Saplings and the Ancient; he joins the lab party). */
+    | 'oro'
     /**
      * Phase 5c: the Unstitched (cuts, the Maw, the Wraith, the rune, the Mimic, the Seamstress,
      * Doom, the Unweaver, the Retarget and Empower windups, cloth kills).
@@ -236,12 +240,50 @@ function talentAct(d: SynthDirector, w: FakeWorld, talent: string): void {
       fire(d, w, talentEv(talent, 'brann', b.x + 1.5, b.z + 1, foe));
       break;
     }
+    // Phase 5e: Seren's and Oro's (each joins the lab party for theirs).
+    case 'riposte_chain':
+    case 'bladesong':
+    case 'blade_waltz': {
+      withHero(w, 'seren');
+      const s = heroAt(w, 'seren');
+      fire(d, w, talentEv(talent, 'seren', s.x + 1, s.z + 1.5, foe));
+      break;
+    }
+    case 'duellists_honour': {
+      withHero(w, 'seren');
+      const s = heroAt(w, 'seren');
+      fire(d, w, talentEv(talent, 'seren', s.x, s.z, null));
+      break;
+    }
+    case 'thorned_bark':
+    case 'old_growth':
+    case 'homecoming': {
+      withHero(w, 'oro');
+      fire(d, w, talentEv(talent, 'oro', 2.5, 5, talent === 'thorned_bark' ? foe : IDS.sapling));
+      break;
+    }
+    case 'world_tree': {
+      withHero(w, 'oro');
+      const o = heroAt(w, 'oro');
+      fire(d, w, talentEv(talent, 'oro', o.x, o.z + 4, null));
+      break;
+    }
   }
 }
 
 /** Phase 5b: Brann joins the lab world (a fourth hero) if he isn't in it; nobody leaves. */
 function withBrann(w: FakeWorld): void {
-  if (!w.heroes().includes('brann')) w.setParty([...w.heroes(), 'brann']);
+  withHero(w, 'brann');
+}
+
+/**
+ * Phase 5e: a hero joins the lab world if they aren't in it, as the fourth: a fourth already there
+ * (another hero's buttons brought them) gives up the slot. The starters stay.
+ */
+function withHero(w: FakeWorld, hero: LabHero): void {
+  const party = w.heroes();
+  if (party.includes(hero)) return;
+  w.setParty(party.length < 4 ? [...party, hero] : [...party.slice(0, 3), hero]);
 }
 
 /** Every talent and alternate Solo the sim announces (`talentFired`). */
@@ -266,8 +308,26 @@ const TALENTS_FIRED = [
   ['berserkers_hymn', 'Berserker’s Hymn: low, he drives them all on (an open fifth swelling)'],
 ] as const;
 
+/**
+ * Phase 5e: Seren's and Oro's talents and alternate Solos as the sim announces them (the ones that
+ * fire at a moment; see TALENT_SOUND_GROUPS). Kept apart
+ * from `TALENTS_FIRED` so 'talent-every' (pinned by the Spire and Rift snapshots) is unchanged.
+ */
+const TALENTS_FIRED_5E = [
+  // Seren's, on her struck string and steel.
+  ['riposte_chain', 'Riposte Chain: her Ward parries twice (two strikes, C6 then F6)'],
+  ['bladesong', 'Bladesong: her counter cuts all round her (F5 A5 C6, a swirl)'],
+  ['duellists_honour', 'Duellist’s Honour: a kill shot readies your Ward (C6, the Ward’s D6)'],
+  ['blade_waltz', 'Blade Waltz: a blow turned aside, Ward or not (a light clash; frequent)'],
+  // Phase 5e: Oro's, on hollow wood.
+  ['thorned_bark', 'Thorned Bark: the bark bites back (a scratch, a dry G3; frequent)'],
+  ['old_growth', 'Old Growth: a Sapling grows old (a deeper knock, a creak, D3)'],
+  ['world_tree', 'World Tree: the Ancient roots again as it falls (a great G1, D2 and G2)'],
+  ['homecoming', 'Homecoming: every Sapling home at your front (G3 and D4, a G5)'],
+] as const;
+
 /** Bonds UI sounds for each hero, and the shared voicing (no hero). */
-const BOND_HEROES = ['kael', 'lyra', 'vexis', 'brann'] as const;
+const BOND_HEROES = ['kael', 'lyra', 'vexis', 'brann', 'seren', 'oro'] as const;
 /** A Bond rank that opens nothing, and one that opens a talent tier (both from the content). */
 const PLAIN_RANK =
   [2, 4, 5, 7, 8, 1].find(
@@ -281,12 +341,16 @@ const ALT_SOLO_NAME = {
   hawks_vigil: 'Hawk’s Vigil',
   celestial_sphere: 'Celestial Sphere',
   blood_brother: 'Blood Brother',
+  blade_waltz: 'Blade Waltz',
+  homecoming: 'Homecoming',
 } as const;
 const ALT_SOLO_HERO: Record<keyof typeof ALT_SOLO_NAME, LabHero> = {
   oathkeeper: 'kael',
   hawks_vigil: 'lyra',
   celestial_sphere: 'vexis',
   blood_brother: 'brann',
+  blade_waltz: 'seren',
+  homecoming: 'oro',
 };
 
 /** The lab world back as it was (no alternate Solo, no sphere, the heroes in their places). */
@@ -943,6 +1007,151 @@ const brannCall = (): SimEvent =>
     until: 2.8,
     line: 'Ward me — I’m going in!',
   });
+
+// ── Phase 5e helpers: Seren and Oro ─────────────────────────────────────────────────
+
+/** A hit on an entity (a hero's or a Sapling's), as the sim reports it. */
+const hitOn = (target: number, amount: number): SimEvent =>
+  ev('damageTaken', {
+    target,
+    source: IDS.enemyBase,
+    amount,
+    absorbed: 0,
+    amplified: 0,
+    aura: 0,
+    radiance: 0,
+    eclipse: 0,
+    crit: false,
+    telegraph: null,
+    hit: 'hit',
+  });
+
+/** Seren's attack fired (her Lunge, Feint or a blink), from where she stands. */
+function serenAttack(w: FakeWorld, visual: 'lunge' | 'feint' | 'blink', travel = 0): SimEvent {
+  withHero(w, 'seren');
+  if (!w.entities.has(IDS.enemyBase)) w.setEnemies(3);
+  const s = heroAt(w, 'seren');
+  return ev('attackFired', {
+    source: IDS.seren,
+    target: IDS.enemyBase,
+    visual,
+    fromX: s.x,
+    fromZ: s.z,
+    toX: visual === 'feint' ? s.x + 2.5 : s.x - 3,
+    toZ: visual === 'feint' ? s.z : s.z + 7,
+    travel,
+  });
+}
+
+const serenCall = (): SimEvent =>
+  ev('callStarted', {
+    hero: IDS.seren,
+    answer: 'ward',
+    ability: 'lunge',
+    flourish: 'Flèche',
+    until: 2,
+    line: 'Ward me. I’ll meet it.',
+  });
+
+const oroCall = (): SimEvent =>
+  ev('callStarted', {
+    hero: IDS.oro,
+    answer: 'chime',
+    ability: 'regrowth',
+    flourish: 'Spring Rain',
+    until: 2.5,
+    line: 'A little rain?',
+  });
+
+/** A grove heal (Rootbond's Mend spilling onto a Sapling). */
+const groveHeal = (target: number): SimEvent =>
+  ev('healApplied', { target, source: IDS.weaver, amount: 12, overheal: 0, via: 'grove' });
+
+/**
+ * Thousand Cuts for 4 s: a blink each half second (eight cuts), cued or not. Cued, two of its
+ * kills each buy another cut.
+ */
+function cutsButton(cued: boolean): SoundButton {
+  return {
+    id: `seren-cuts${cued ? '-cued' : ''}`,
+    label: `Thousand Cuts${cued ? ', cued (every kill buys another cut: a rising run)' : ''}: eight blinks, then she returns`,
+    group: 'seren',
+    length: 6,
+    fire: (d, w) => {
+      withHero(w, 'seren');
+      w.setAltSolo('seren', 'thousandCuts', cued);
+      if (cued) fire(d, w, ev('cued', { hero: IDS.seren }));
+      fire(d, w, ev('soloStarted', { hero: IDS.seren, solo: 'thousandCuts', cued, duration: 4 }));
+    },
+    then: [
+      ...Array.from({ length: 8 }, (_, i) => ({
+        delay: Math.round((i + 1) * 0.5 * 1000) / 1000 - 0.25,
+        fire: (d: SynthDirector, w: FakeWorld) => {
+          fire(d, w, serenAttack(w, 'blink'));
+          if (i % 3 === 1) {
+            const id = w.addEnemy('swarm', 2 * i - 6);
+            fire(
+              d,
+              w,
+              ev('enemyKilled', {
+                enemy: id,
+                defId: 'swarm',
+                killer: IDS.seren,
+                x: 2 * i - 6,
+                z: 5,
+              }),
+            );
+          }
+        },
+      })),
+      {
+        delay: 4,
+        fire: (d, w) => {
+          w.setAltSolo('seren', null);
+          fire(d, w, ev('soloEnded', { hero: IDS.seren }));
+        },
+      },
+    ],
+  };
+}
+
+/** A hero's life (a share of it) and the heartbeat's frames for `seconds`, then full again. */
+function lowButton(
+  hero: 'seren' | 'oro',
+  id: string,
+  label: string,
+  frac: number,
+  set: (w: FakeWorld) => void = () => undefined,
+  seconds = 3,
+): SoundButton {
+  return {
+    id,
+    label,
+    group: hero,
+    length: seconds + 1,
+    fire: (d, w) => {
+      withHero(w, hero);
+      w.setHeroHp(hero, frac);
+      set(w);
+      d.update(w.state, 0.1);
+    },
+    then: [
+      ...frames(0.1, seconds),
+      {
+        delay: seconds + 0.05,
+        fire: (d, w) => {
+          w.setHeroHp(hero, 1);
+          if (hero === 'oro') for (let i = 0; i < 3; i++) w.setSaplingHp(i, 1);
+          d.update(w.state, 0.1);
+        },
+      },
+    ],
+  };
+}
+const serenLow = (id: string, label: string, frac: number, set?: (w: FakeWorld) => void) =>
+  lowButton('seren', id, label, frac, set);
+const oroLow = (id: string, label: string, frac: number, set?: (w: FakeWorld) => void) =>
+  lowButton('oro', id, label, frac, set);
 
 // ── Phase 5c helpers: the Unstitched ────────────────────────────────────────────────
 
@@ -2476,7 +2685,7 @@ export const SOUNDS: SoundButton[] = [
     ],
   },
   // ── Phase 4e: Bonds in the fight ─────────────────────────────────────────────────
-  ...TALENTS_FIRED.map(([talent, label]): SoundButton => ({
+  ...[...TALENTS_FIRED, ...TALENTS_FIRED_5E].map(([talent, label]): SoundButton => ({
     id: `talent-${talent}`,
     label,
     group: 'bonds',
@@ -2530,7 +2739,16 @@ export const SOUNDS: SoundButton[] = [
       talentAct(d, w, 'riposte_bash');
     },
   },
-  ...(['oathkeeper', 'hawks_vigil', 'celestial_sphere', 'blood_brother'] as const).flatMap((solo) =>
+  ...(
+    [
+      'oathkeeper',
+      'hawks_vigil',
+      'celestial_sphere',
+      'blood_brother',
+      'blade_waltz',
+      'homecoming',
+    ] as const
+  ).flatMap((solo) =>
     [false, true].map((cued): SoundButton => ({
       id: `altsolo-${solo}${cued ? '-cued' : ''}`,
       label: `${ALT_SOLO_NAME[solo]} starts${cued ? ', cued (with the Cue’s leitmotif)' : ''}`,
@@ -2538,7 +2756,7 @@ export const SOUNDS: SoundButton[] = [
       length: 3,
       fire: (d, w) => {
         const hero = ALT_SOLO_HERO[solo];
-        if (hero === 'brann') withBrann(w);
+        withHero(w, hero);
         if (cued) fire(d, w, ev('cued', { hero: IDS[hero] }));
         fire(d, w, ev('soloStarted', { hero: IDS[hero], solo, cued, duration: cued ? 6 : 5 }));
       },
@@ -2582,6 +2800,23 @@ export const SOUNDS: SoundButton[] = [
       })),
       {
         delay: Math.round(TALENTS_FIRED.length * 0.6 * 1000) / 1000,
+        fire: (_d: SynthDirector, w: FakeWorld) => bondsRestore(w),
+      },
+    ],
+  },
+  {
+    id: 'talent-every-5e',
+    label: 'Phase 5e: every one of Seren’s and Oro’s talents in turn, 0.6 s apart',
+    group: 'bonds',
+    length: Math.ceil(TALENTS_FIRED_5E.length * 0.6) + 2,
+    fire: (d, w) => talentAct(d, w, TALENTS_FIRED_5E[0][0]),
+    then: [
+      ...TALENTS_FIRED_5E.slice(1).map(([talent], i) => ({
+        delay: Math.round((i + 1) * 0.6 * 1000) / 1000,
+        fire: (d: SynthDirector, w: FakeWorld) => talentAct(d, w, talent),
+      })),
+      {
+        delay: Math.round(TALENTS_FIRED_5E.length * 0.6 * 1000) / 1000,
         fire: (_d: SynthDirector, w: FakeWorld) => bondsRestore(w),
       },
     ],
@@ -3832,5 +4067,401 @@ export const SOUNDS: SoundButton[] = [
       w.setThread('brann', 'empower');
     },
     3.2,
+  ),
+  // ── Phase 5e: Seren, the Riposte (she joins the lab party for these) ───────────────
+  {
+    id: 'seren-cue',
+    label: 'Cue Seren: her leitmotif (F4 A4 G4 C5, quick and dotted, a struck string and steel)',
+    group: 'seren',
+    length: 3,
+    fire: (d, w) => {
+      withHero(w, 'seren');
+      fire(d, w, ev('cued', { hero: IDS.seren }));
+    },
+  },
+  {
+    id: 'seren-call',
+    label: 'Seren calls (question only): F4 A4 G4 … E5',
+    group: 'seren',
+    length: 4,
+    fire: (d, w) => {
+      withHero(w, 'seren');
+      fire(d, w, serenCall());
+    },
+  },
+  {
+    id: 'seren-call-answer',
+    label: 'Seren calls → your Ward answers (to D5), and Flèche lands',
+    group: 'seren',
+    length: 6,
+    fire: (d, w) => {
+      withHero(w, 'seren');
+      fire(d, w, serenCall());
+    },
+    then: [
+      {
+        delay: 1.4,
+        fire: (d, w) =>
+          fire(
+            d,
+            w,
+            ev('callAnswered', {
+              hero: IDS.seren,
+              answer: 'ward',
+              after: 1.4,
+              flourish: 'Flèche',
+            }),
+          ),
+      },
+      {
+        delay: 1.9,
+        fire: (d, w) => {
+          fire(d, w, serenAttack(w, 'lunge', 0.2));
+          fire(d, w, ev('flourish', { hero: IDS.seren, name: 'Flèche', x: 2, z: 3, radius: 0 }));
+        },
+      },
+    ],
+  },
+  {
+    id: 'seren-flourish',
+    label: 'Flèche: the running thrust (air torn, her F5 and C6 struck, a stun’s knock)',
+    group: 'seren',
+    length: 3,
+    fire: (d, w) => {
+      withHero(w, 'seren');
+      fire(d, w, ev('flourish', { hero: IDS.seren, name: 'Flèche', x: 2, z: 3, radius: 0 }));
+    },
+  },
+  {
+    id: 'seren-hit',
+    label: 'Seren takes a hit (her own thump, on C3)',
+    group: 'seren',
+    fire: (d, w) => {
+      withHero(w, 'seren');
+      fire(d, w, hitOn(IDS.seren, 140));
+    },
+  },
+  {
+    id: 'seren-parry',
+    label: 'Parry: Warded, a blow turned aside (steel on steel, C6 over F5)',
+    group: 'seren',
+    length: 2,
+    fire: (d, w) => {
+      withHero(w, 'seren');
+      fire(d, w, ev('parried', { hero: IDS.seren, attacker: IDS.enemyBase, negated: 240 }));
+    },
+  },
+  {
+    id: 'seren-parry-counter',
+    label: 'Parry → counter: the blow turned aside, then her cut answering it threefold',
+    group: 'seren',
+    length: 2,
+    fire: (d, w) => {
+      withHero(w, 'seren');
+      fire(d, w, ev('parried', { hero: IDS.seren, attacker: IDS.enemyBase, negated: 240 }));
+    },
+    then: [
+      {
+        delay: 0.02,
+        fire: (d, w) =>
+          fire(d, w, ev('parryCountered', { hero: IDS.seren, target: IDS.enemyBase, amount: 180 })),
+      },
+    ],
+  },
+  {
+    id: 'seren-parry-burst',
+    label: 'Parry: 20 in a second (the gate holds: at most two at once)',
+    group: 'seren',
+    length: 2,
+    fire: (d, w) => {
+      withHero(w, 'seren');
+      fire(d, w, ev('parried', { hero: IDS.seren, attacker: IDS.enemyBase, negated: 240 }));
+    },
+    then: Array.from({ length: 19 }, (_, i) => ({
+      delay: Math.round((i + 1) * 0.05 * 1000) / 1000,
+      fire: (d: SynthDirector, w: FakeWorld) =>
+        fire(d, w, ev('parried', { hero: IDS.seren, attacker: IDS.enemyBase, negated: 240 })),
+    })),
+  },
+  ...([true, false] as const).map((executed): SoundButton => ({
+    id: `seren-killshot${executed ? '' : '-heavy'}`,
+    label: executed
+      ? 'Kill shot: a Perfect Ward on her, and the foe falls (under the Perfect’s chord)'
+      : 'Kill shot on a heavy foe: struck six times over, not executed (a heavier knock)',
+    group: 'seren',
+    length: 3,
+    fire: (d, w) => {
+      withHero(w, 'seren');
+      if (!w.entities.has(IDS.enemyBase)) w.setEnemies(3);
+      fire(d, w, ev('perfectWard', { target: IDS.seren, telegraph: 1, negated: 300 }));
+    },
+    then: [
+      {
+        delay: 0.02,
+        fire: (d, w) =>
+          fire(
+            d,
+            w,
+            ev('killShot', {
+              hero: IDS.seren,
+              target: IDS.enemyBase,
+              executed,
+              amount: executed ? 900 : 1080,
+            }),
+          ),
+      },
+    ],
+  })),
+  {
+    id: 'seren-killshot-lost',
+    label: 'Kill shot lost: she was stilled when it came (only a muted pluck)',
+    group: 'seren',
+    length: 2,
+    fire: (d, w) => {
+      withHero(w, 'seren');
+      fire(
+        d,
+        w,
+        ev('killShot', {
+          hero: IDS.seren,
+          target: IDS.enemyBase,
+          executed: false,
+          amount: 0,
+          lost: 'disabled',
+        }),
+      );
+    },
+  },
+  {
+    id: 'seren-lunge',
+    label: 'Lunge: the dash and the thrust (a rush of air, her F5 on landing)',
+    group: 'seren',
+    length: 2,
+    fire: (d, w) => fire(d, w, serenAttack(w, 'lunge', 0.2)),
+  },
+  {
+    id: 'seren-feint',
+    label: 'Feint: a light step to the flank and a flick (A4 then F5)',
+    group: 'seren',
+    length: 2,
+    fire: (d, w) => fire(d, w, serenAttack(w, 'feint', 0.15)),
+  },
+  {
+    id: 'seren-showboat',
+    label: 'Showboat: she picks her duel (a salute, F5 then C6)',
+    group: 'seren',
+    length: 2,
+    fire: (d, w) => {
+      withHero(w, 'seren');
+      if (!w.entities.has(IDS.enemyBase)) w.setEnemies(3);
+      fire(d, w, ev('duelChosen', { hero: IDS.seren, target: IDS.enemyBase }));
+    },
+  },
+  cutsButton(false),
+  cutsButton(true),
+  serenLow('seren-heartbeat', 'Seren at 20%: her heartbeat, a light tick of steel', 0.2),
+  // ── Phase 5e: Oro, the Grovekeeper (he joins the lab party, his Saplings with him) ──
+  {
+    id: 'oro-cue',
+    label: 'Cue Oro: his leitmotif (G3 A3 B3 E4, slow, hollow wood and leaves)',
+    group: 'oro',
+    length: 4,
+    fire: (d, w) => {
+      withHero(w, 'oro');
+      fire(d, w, ev('cued', { hero: IDS.oro }));
+    },
+  },
+  {
+    id: 'oro-call',
+    label: 'Oro calls (question only): G3 A3 B3 … C4',
+    group: 'oro',
+    length: 4,
+    fire: (d, w) => {
+      withHero(w, 'oro');
+      fire(d, w, oroCall());
+    },
+  },
+  {
+    id: 'oro-call-answer',
+    label: 'Oro calls → your Chime answers (to D4), and Spring Rain falls',
+    group: 'oro',
+    length: 6,
+    fire: (d, w) => {
+      withHero(w, 'oro');
+      fire(d, w, oroCall());
+    },
+    then: [
+      {
+        delay: 1.8,
+        fire: (d, w) =>
+          fire(
+            d,
+            w,
+            ev('callAnswered', {
+              hero: IDS.oro,
+              answer: 'chime',
+              after: 1.8,
+              flourish: 'Spring Rain',
+            }),
+          ),
+      },
+      {
+        delay: 2.3,
+        fire: (d, w) =>
+          fire(d, w, ev('flourish', { hero: IDS.oro, name: 'Spring Rain', x: 0, z: 4, radius: 0 })),
+      },
+    ],
+  },
+  {
+    id: 'oro-flourish',
+    label: 'Spring Rain: rain on leaves, his G3 and D4 on hollow wood',
+    group: 'oro',
+    length: 3,
+    fire: (d, w) => {
+      withHero(w, 'oro');
+      fire(d, w, ev('flourish', { hero: IDS.oro, name: 'Spring Rain', x: 0, z: 4, radius: 0 }));
+    },
+  },
+  {
+    id: 'oro-hit',
+    label: 'Oro takes a hit (his own thump, on F2)',
+    group: 'oro',
+    fire: (d, w) => {
+      withHero(w, 'oro');
+      fire(d, w, hitOn(IDS.oro, 140));
+    },
+  },
+  {
+    id: 'oro-sprout',
+    label: 'A Sapling sprouts (a soft knock, D4 then G4, a leaf’s breath)',
+    group: 'oro',
+    length: 2,
+    fire: (d, w) => {
+      withHero(w, 'oro');
+      fire(d, w, ev('summonSpawned', { owner: IDS.oro, summon: IDS.sapling, kind: 'sapling' }));
+    },
+  },
+  {
+    id: 'oro-sapling-hurt',
+    label: 'Saplings struck: 20 blows in a second (a dull tock; heavily gated)',
+    group: 'oro',
+    length: 2,
+    fire: (d, w) => {
+      withHero(w, 'oro');
+      fire(d, w, hitOn(IDS.sapling, 30));
+    },
+    then: Array.from({ length: 19 }, (_, i) => ({
+      delay: Math.round((i + 1) * 0.05 * 1000) / 1000,
+      fire: (d: SynthDirector, w: FakeWorld) => fire(d, w, hitOn(IDS.sapling + (i % 2), 30)),
+    })),
+  },
+  {
+    id: 'oro-sapling-fell',
+    label: 'A Sapling felled (the wood cracks, D4 falling to G3)',
+    group: 'oro',
+    length: 2,
+    fire: (d, w) => {
+      withHero(w, 'oro');
+      fire(d, w, ev('summonFell', { owner: IDS.oro, summon: IDS.sapling, kind: 'sapling' }));
+    },
+  },
+  {
+    id: 'oro-rootbond',
+    label: 'Rootbond: your Mend on Oro reaches his Saplings (sap rising, G3 to D4; gated)',
+    group: 'oro',
+    length: 2,
+    fire: (d, w) => {
+      withHero(w, 'oro');
+      fire(d, w, groveHeal(IDS.sapling), groveHeal(IDS.sapling + 1));
+    },
+    then: Array.from({ length: 9 }, (_, i) => ({
+      delay: Math.round((i + 1) * 0.1 * 1000) / 1000,
+      fire: (d: SynthDirector, w: FakeWorld) => fire(d, w, groveHeal(IDS.sapling + (i % 2))),
+    })),
+  },
+  {
+    id: 'oro-burrow',
+    label: 'Rally: his Saplings burrow and re-plant at your front (earth, a G2 knock)',
+    group: 'oro',
+    length: 2,
+    fire: (d, w) => {
+      withHero(w, 'oro');
+      w.setBurrow(0, w.time + 0.8);
+      w.setBurrow(1, w.time + 0.8);
+      d.update(w.state, 0.1);
+    },
+    then: [
+      {
+        delay: 1,
+        fire: (_d, w) => {
+          w.setBurrow(0, undefined);
+          w.setBurrow(1, undefined);
+        },
+      },
+    ],
+  },
+  ...([false, true] as const).map((cued): SoundButton => ({
+    id: `oro-wildgrowth${cued ? '-cued' : ''}`,
+    label: `Wildgrowth${cued ? ', cued (with the Cue’s leitmotif)' : ''}: the ground warns, the Ancient rises and roots, then withers`,
+    group: 'oro',
+    length: 10,
+    fire: (d, w) => {
+      withHero(w, 'oro');
+      if (!w.entities.has(IDS.enemyBase)) w.setEnemies(3);
+      if (cued) fire(d, w, ev('cued', { hero: IDS.oro }));
+      fire(d, w, ev('soloStarted', { hero: IDS.oro, solo: 'wildgrowth', cued, duration: 8 }));
+    },
+    then: [
+      {
+        delay: 1,
+        fire: (d, w) => {
+          w.setAncient(true);
+          fire(
+            d,
+            w,
+            ev('summonSpawned', { owner: IDS.oro, summon: IDS.ancient, kind: 'ancient' }),
+            ...[0, 1, 2].map((i) => ev('rooted', { target: IDS.enemyBase + i, seconds: 1.5 })),
+          );
+        },
+      },
+      {
+        delay: 9,
+        fire: (d, w) => {
+          fire(d, w, ev('summonFell', { owner: IDS.oro, summon: IDS.ancient, kind: 'ancient' }));
+          w.setAncient(false);
+        },
+      },
+    ],
+  })),
+  {
+    id: 'oro-bramble-root',
+    label: 'Bramble: the lesser enemies rooted (roots creaking up, a dark G2)',
+    group: 'oro',
+    length: 2,
+    fire: (d, w) => {
+      withHero(w, 'oro');
+      if (!w.entities.has(IDS.enemyBase)) w.setEnemies(3);
+      fire(d, w, ...[0, 1].map((i) => ev('rooted', { target: IDS.enemyBase + i, seconds: 1.5 })));
+    },
+  },
+  {
+    id: 'oro-gentle',
+    label: 'Gentle: with no Focus, he won’t raise a hand (two soft knocks falling)',
+    group: 'oro',
+    length: 2,
+    fire: (d, w) => {
+      withHero(w, 'oro');
+      fire(d, w, ev('gentleRefused', { hero: IDS.oro }));
+    },
+  },
+  oroLow('oro-heartbeat', 'Oro at 20%: his heartbeat, a wooden knock', 0.2),
+  oroLow(
+    'oro-saplings-low',
+    'His Saplings at 10% (a summon has no heartbeat and no alert: silence)',
+    1,
+    (w) => {
+      w.setSaplingHp(0, 0.1);
+      w.setSaplingHp(1, 0.1);
+    },
   ),
 ];
