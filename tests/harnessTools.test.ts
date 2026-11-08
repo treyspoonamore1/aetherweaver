@@ -1428,6 +1428,15 @@ describe('the harness and Seren and Oro (docs/phase-5e.md)', () => {
     expect(runBand(4, 'skilled', NAMED_PARTIES.OB)).toContain('default − 20 (provisional');
     expect(runBand(1, 'skilled', NAMED_PARTIES.OB)).toBe('≥ default − 10');
     expect(runBand(4, 'novice', NAMED_PARTIES.SA)).toBe('');
+    // The Novice's whole Prelude: ≥ 50% of the default party's for the parties with Kael only.
+    for (const code of ['SA', 'SC', 'OA', 'OC'])
+      expect(runBand(1, 'novice', NAMED_PARTIES[code]), code).toBe('≥50% of default');
+    for (const code of ['SB', 'OB', 'R', 'SO', 'X', 'W'])
+      expect(runBand(1, 'novice', NAMED_PARTIES[code]), code).toBe('');
+    expect(runBand(1, 'novice', ['lyra', 'brann', 'seren'])).toBe('');
+    expect(runBand(1, 'idle', NAMED_PARTIES.SA)).toBe('');
+    // The default party's Prelude still prints no band, whichever the bot.
+    expect(runBand(1, 'novice')).toBe('');
   });
 
   it('tallies Seren and Oro only when each is in the party, with their keys in order', () => {

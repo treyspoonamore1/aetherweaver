@@ -3663,10 +3663,36 @@ describe('the Skilled bot with Seren (staged)', () => {
     }
   });
 
+  it('serenReel with Anchor: a Rally, with the Anchor on her to buy the 3 s she needs to obey it', () => {
+    const stage = (skip: RosterRule[] = [], far = false) => {
+      const { sim, w, seren, slot } = serenStage({ techniques: { reel: 'anchor' } });
+      const hounds = onSeren(w, seren, 3, 5);
+      seren.hero!.duel!.quarry = hounds[0]!.id;
+      seren.health!.hp = seren.health!.maxHp * 0.4;
+      const weaver = w.entities.get(w.weaverId)!;
+      weaver.weaver!.wardCharges = 0;
+      if (far) weaver.x = seren.x - (CONTENT.techniques.reel.range + 2);
+      return { out: skilled(skip).decide(sim.state), slot };
+    };
+    const a = stage();
+    // An Anchor has no pull: the Rally brings her home, and the Anchor is cast beside it.
+    expect(rallies(a.out)).toBe(true);
+    expect(reelOn(a.out, a.slot)).toBe(true);
+    // Out of the Anchor's reach, the Rally alone (it reaches her anywhere).
+    const far = stage([], true);
+    expect(rallies(far.out)).toBe(true);
+    expect(reelOn(far.out, far.slot)).toBe(false);
+    // Left off, neither.
+    const off = stage(['serenReel']);
+    expect(rallies(off.out)).toBe(false);
+    expect(reelOn(off.out, off.slot)).toBe(false);
+  });
+
   it('serenReel’s Rally waits while any lethal telegraph is live, as its Reel does', () => {
     for (const config of [
       { calling: { id: 'chronomancer' } },
       { techniques: { reel: 'swap' } },
+      { techniques: { reel: 'anchor' } },
     ] as Partial<SimConfig>[]) {
       const stage = (lethal: boolean) => {
         const { sim, w, seren } = serenStage(config);
