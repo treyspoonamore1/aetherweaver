@@ -33,7 +33,7 @@ import { hasTalent, soloValue, talentFired, talentHolder, talentValue } from '..
 import { variantGuard, variantValue } from '../variants';
 import { suppressRadiusOf, weaverSilenced } from '../rules3';
 import { parryIntercept } from '../systems/duel';
-import { rootable, summonArmor, summonCredit, summonSupport } from '../systems/grove';
+import { rootable, summonArmor, summonCredit, summonStruck, summonSupport } from '../systems/grove';
 import { summonFell } from '../systems/summons';
 import { markStatusOf } from './telegraphs';
 import {
@@ -1127,6 +1127,9 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
     else if (!restlessRise(world, target)) killEnemy(world, target, source ?? null);
   } else if (opts.kind !== 'tick' && source?.enemy && hasTalent(target, 'arcane_ward'))
     arcaneWard(world, target, source);
+  // Oro's Thorned Bark (docs/phase-5e.md): a blow on a Sapling strikes back (grove.ts).
+  if (target.summon && source?.enemy && opts.kind !== 'tick')
+    summonStruck(world, target, source, total);
   const result: DamageResult = {
     dealt,
     absorbed,

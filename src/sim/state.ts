@@ -407,6 +407,16 @@ export interface GroveState {
   rootbondHeal: number;
   inFieldTime: number;
   aliveTime: number;
+  /**
+   * Gentle (W2): seconds his full Solo has waited while a Sapling fights and he has no target (his
+   * Cue window, as `soloHeld` is the others'). Set lazily, deleted when the window closes.
+   */
+  held?: number;
+  /**
+   * The sim time of his last 'No — not Moss!' (`saplingFelled`) bark: its own 8 s clock, so the
+   * shared bark cooldown never swallows it. Set lazily at the first.
+   */
+  felledBarkAt?: number;
 }
 
 /** A summon entity's own state (docs/phase-5e.md, "The summon model"): Saplings, the Ancient. */
