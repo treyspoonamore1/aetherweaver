@@ -376,6 +376,8 @@ export interface DuelState {
   showboatQuietUntil: number;
   /** Thousand Cuts: when it ends (a Cued one's kills extend it), where it began, who it struck. */
   cutsEnd?: number;
+  /** Thousand Cuts: the sim time it began (its cast bar's length is `cutsEnd - cutsFrom`). */
+  cutsFrom?: number;
   cutsFromX?: number;
   cutsFromZ?: number;
   cutsVisited?: EntityId[];
@@ -384,6 +386,8 @@ export interface DuelState {
   killShots: number;
   counterDamage: number;
   overextendedTime: number;
+  /** Overextended as of her last tick (the `overextended` event's edge). Absent: not. */
+  overextended?: true;
 }
 
 /**
