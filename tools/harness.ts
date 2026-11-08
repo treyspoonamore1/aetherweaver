@@ -374,10 +374,13 @@ export function runBand(
 
 /**
  * A Seren or Oro party's whole runs (docs/phase-5e.md, "Bands"): the Prelude and the Finale
- * route, Skilled, against the default party's on the same seeds; '' where the doc sets none.
+ * route, Skilled, against the default party's on the same seeds, and the Novice's Prelude for
+ * the parties with Kael (≥ 50% of the default party's); '' where the doc sets none.
  */
 function rosterRunBand(movements: number, bot: BotKind, tier: RosterTier): string {
-  if (bot !== 'skilled' || tier === 'sweep') return '';
+  if (tier === 'sweep') return '';
+  if (bot === 'novice') return movements <= 1 && tier === 'kael' ? '≥50% of default' : '';
+  if (bot !== 'skilled') return '';
   if (movements <= 1)
     return { kael: '≥ default − 5', sb: '≥ default − 5', ob: '≥ default − 10', reduced: '' }[tier];
   if (movements < 4) return '';

@@ -791,7 +791,8 @@ export class SkilledBot implements Bot {
       }
       // Seren (docs/phase-5e.md, `serenReel`): overextended and hurt, she is Reeled home, after
       // every Reel rule above and never while a lethal blow is live (the loop keeps it for that).
-      // A Swap would put the Weaver in her duel: that is a Rally's (below). Null without her.
+      // A Swap would put the Weaver in her duel, and an Anchor has no pull: each is a Rally's
+      // (below, with the Anchor cast beside it). Null without her.
       if (
         duel &&
         !acted &&
@@ -799,6 +800,7 @@ export class SkilledBot implements Bot {
         !silenceLoop &&
         this.on('serenReel') &&
         w.weaver!.variants.reel !== 'swap' &&
+        w.weaver!.variants.reel !== 'anchor' &&
         !out.some((c) => c.t === 'tech' && c.id === 'reel') &&
         serenReelDue(state, duel, w) &&
         this.notice()
@@ -1155,16 +1157,21 @@ export class SkilledBot implements Bot {
 
     // Seren and Oro (docs/phase-5e.md): each is false without its hero, and none overrides a
     // directive already sent. Overextended and hurt where no Reel will bring her home (the
-    // Chronomancer's Rewind is no extraction; a Swap would put the Weaver in her duel), a Rally
-    // does: she always answers one (`serenReel`). A Sapling left outside every field for 2 s is
-    // Rallied back in, re-planted ahead of the Weaver (`oroRally`).
+    // Chronomancer's Rewind is no extraction; a Swap would put the Weaver in her duel; an Anchor
+    // has no pull), a Rally does: she always answers one (`serenReel`). With Anchor, the Anchor
+    // goes on her beside it, to buy the 3 s she needs to obey it (docs/phase-5e.md, the Anchor
+    // row). A Sapling left outside every field for 2 s is Rallied back in, re-planted ahead of
+    // the Weaver (`oroRally`).
     if (!link && !ring && !out.some((c) => c.t === 'directive')) {
+      const anchorVariant = wc.variants.reel === 'anchor';
+      const serenRally =
+        duel !== null &&
+        this.on('serenReel') &&
+        (!!state.calling?.rewind || wc.variants.reel === 'swap' || anchorVariant) &&
+        now - this.lastRally > gap(2) &&
+        serenReelDue(state, duel, w, false);
       const rallyFor =
-        (duel !== null &&
-          this.on('serenReel') &&
-          (!!state.calling?.rewind || wc.variants.reel === 'swap') &&
-          now - this.lastRally > gap(2) &&
-          serenReelDue(state, duel, w, false)) ||
+        serenRally ||
         (grove !== null &&
           this.on('oroRally') &&
           now - this.lastRally > gap(ORO_RALLY_GAP) &&
@@ -1174,6 +1181,22 @@ export class SkilledBot implements Bot {
         out.push({ t: 'directive', kind: 'rally' });
         this.lastRally = now;
       }
+      if (
+        serenRally &&
+        anchorVariant &&
+        !state.calling?.rewind &&
+        !acted &&
+        !silenced &&
+        // As the Reel block's own guards: Twin Cleave's reserve, the Grand Silence's save.
+        !(blood && twinCleaveOn(state, blood)) &&
+        !(silence !== null && this.on('silenceReel')) &&
+        wc.cooldowns.reel <= 0 &&
+        affords(state, 'reel') &&
+        dist(duel.seren.e, w) <= tech.reel.range - 0.3 &&
+        !out.some((c) => c.t === 'tech' && c.id === 'reel') &&
+        this.notice()
+      )
+        out.push({ t: 'tech', id: 'reel', slot: duel.seren.slot });
     }
 
     // Fortissimo Silence with no Crescendo (the Finale): Rally the party into her reach, so her
