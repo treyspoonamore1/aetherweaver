@@ -4,7 +4,7 @@ import { fallingFast, vowHoldsAt, type EntityId, type WorldState } from '../sim'
 import type { EntityLayer } from './entities';
 import type { AllyBarView, SummonBarView } from './overlay';
 import { DRAIN_HOLD, bloodNotches, executeBelowOf, signalHex } from './crimsonCues';
-import { burrowing, dormant, ownerOf, summonCoverage, tending } from './groveCues';
+import { burrowing, ownerOf, stillHeld, summonCoverage, tending } from './groveCues';
 
 /** A hit's white trail holds this long (s), then drains at this share of max life a second. */
 export const TRAIL_HOLD = 0.4;
@@ -159,7 +159,7 @@ export class PartyBarsView {
         hp: clamp01(h.hp / max),
         shield: clamp01(shield / max),
         inField: summonCoverage(e).inField,
-        dormant: dormant(e),
+        dormant: stillHeld(state, e),
         burrowing: burrowing(state, e),
         tended: e.summon.kind === 'sapling' && tending(state, owner),
         ancient: e.summon.kind === 'ancient',

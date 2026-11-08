@@ -40,6 +40,12 @@ export const RING = {
    * is `arcStart` / `arcLen`; `fillAlpha` fills the disc faintly.
    */
   stave: 12,
+  /**
+   * Phase 5e (docs/phase-5e.md, Colour): leaves. The band broken into `param` leaf shapes (12 by
+   * default), each pointed at both ends and widest in its middle, drifting slowly round, so a
+   * green ring (Verdant Choir's, beside Sostenuto's plain one) reads by its shape alone.
+   */
+  leaf: 13,
 } as const;
 
 const vertex = /* glsl */ `
@@ -168,6 +174,15 @@ void main() {
     }
     float halo = soft > 0.0 ? exp(-max(abs(d - r) - th * 0.5, 0.0) / soft) * 0.3 : 0.0;
     alpha = (lines + halo) * arcMask + fill;
+  } else if (style == 13) {
+    // Leaves: each cell of the band holds one leaf, its half-width th/2 at its middle tapering to
+    // a point at each tip, and a little glow; the cells drift slowly round.
+    float n = vArc.w > 0.5 ? vArc.w : 12.0;
+    float u = (fract(a / 6.2831853 * n + uTime * 0.04) - 0.5) / 0.42;
+    float w = th * 0.5 * max(0.0, 1.0 - u * u);
+    float leaf = awAA(abs(d - r) - w) * step(abs(u), 1.0);
+    float halo = soft > 0.0 ? exp(-max(abs(d - r) - w, 0.0) / soft) * 0.3 * step(abs(u), 1.0) : 0.0;
+    alpha = (leaf + halo) * arcMask + fill;
   } else {
     // Reticle: four corner brackets that rotate.
     float seg = fract((a + uTime * 0.6) / 1.5707963);

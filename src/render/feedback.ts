@@ -30,7 +30,7 @@ import { SPRITE } from './fx/sprites';
 import type { Overlay } from './overlay';
 import { CHRONO_HEX } from './chronoCues';
 import { CRUCIBLE_HEX, CrucibleCues } from './crucibleCues';
-import { SerenFx } from './serenCues';
+import { SerenFx, wardBlow } from './serenCues';
 import { GROVE_BARK, GroveFx, SUMMON_NUMBER_SHARE } from './groveCues';
 import {
   BRANN_HEX,
@@ -134,6 +134,11 @@ interface Bucket {
   cut: boolean;
   /** Unravel's reversed-Mend ticks (Movement III), in the live lethal colour; set when fresh. */
   unravel: boolean;
+  /**
+   * Phase 5e: the part of the number that is your Ward's work (Seren's counter and kill shot,
+   * beyond `amplified`), shown in the gold chip. 0 in every party without her.
+   */
+  ward: number;
 }
 
 function bucket(): Bucket {
@@ -149,6 +154,7 @@ function bucket(): Bucket {
     crit: false,
     cut: false,
     unravel: false,
+    ward: 0,
   };
 }
 
@@ -542,13 +548,20 @@ export class Feedback {
 
   handle(events: readonly SimEvent[], state: WorldState): void {
     let finale = false;
+    // Seren's Ward blows (her counter, her kill shot) are looked for only when the batch has one.
+    let ward = false;
+    for (const ev of events)
+      if (ev.type === 'parryCountered' || ev.type === 'killShot') {
+        ward = true;
+        break;
+      }
     for (const ev of events) {
       switch (ev.type) {
         case 'attackFired':
           this.attack(ev, state);
           break;
         case 'damageTaken':
-          this.damage(ev, state);
+          this.damage(ev, state, ward && wardBlow(events, ev, state));
           break;
         case 'healApplied':
           // Rewind's restored life is part of its moment (ChronoView draws its number).
@@ -1356,7 +1369,7 @@ export class Feedback {
     return slot !== null && slot !== undefined && state.party[slot] === e.target;
   }
 
-  private damage(e: SimEventOf<'damageTaken'>, state: WorldState): void {
+  private damage(e: SimEventOf<'damageTaken'>, state: WorldState, ward = false): void {
     const r = this.rec(e.target);
     const target = state.entities.get(e.target);
     if (!r || !target) return;
@@ -1497,9 +1510,11 @@ export class Feedback {
       b.crit = false;
       b.start = this.now;
       b.unravel = unravelTick;
+      b.ward = 0;
     }
     b.amount += e.amount;
     b.amplified += e.amplified;
+    if (ward) b.ward += Math.max(0, e.amount + e.absorbed - e.amplified);
     b.aura += e.aura;
     b.radiance += e.radiance;
     b.eclipse += e.eclipse;
@@ -1533,7 +1548,7 @@ export class Feedback {
     this.d.overlay.setNumber(
       b.handle,
       text,
-      chipText(this.split.empower),
+      chipText(this.split.empower + b.ward),
       size,
       !fresh,
       chipText(this.split.aura, SONG_GLYPH),

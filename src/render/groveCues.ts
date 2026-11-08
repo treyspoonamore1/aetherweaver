@@ -37,6 +37,27 @@ export const GROVE_HEX = {
   vine: '#6f9a4a',
 } as const;
 
+/**
+ * Verdant Choir (Q3, docs/phase-5e.md Colour): its rings are Sostenuto's green (the regen it
+ * pulses), so they carry a leaf shape (`RING.leaf`) beside Sostenuto's own plain rims.
+ */
+export const CHOIR_HEX = CONTENT.auras.find((a) => a.id === 'sostenuto')?.color ?? '#34d399';
+export const GROVE_CHOIR = color(CHOIR_HEX);
+/** Verdant Choir's reach (m): a Sapling's song heals within this of it (grove.ts `CHOIR_RADIUS`). */
+export const CHOIR_RADIUS = 4;
+
+/**
+ * A Sapling singing Verdant Choir now, as grove.ts `verdantChoir` reads it: the motif taken
+ * (`mods.verdantChoir` above 0, hero-gated to Oro), and a living Sapling standing in your field
+ * (`summon.inField`, which the field clears on a held one). False in every party without him.
+ */
+export function choirSings(state: Pick<WorldState, 'mods'>, e: ReadonlyEntity): boolean {
+  if (!((state.mods?.verdantChoir ?? 0) > 0)) return false;
+  const s = e.summon;
+  const h = e.health;
+  return s?.kind === 'sapling' && s.inField === true && !!h && !h.dead;
+}
+
 /** A summon's model batch key and capacity (two lazy batches: the Saplings' and the Ancient's). */
 export const SUMMON_BATCH = {
   sapling: { key: 'summon:sapling', capacity: 8 },
@@ -83,10 +104,29 @@ export function summonCoverage(e: ReadonlyEntity): { mask: number; inField: bool
 /**
  * Burrowed (untargetable): a Sapling re-planting after a Rally, or the Ancient through its ground
  * warning (W2 spawns it burrowed until it rises). Only a Sapling's draws the burrow trail.
+ *
+ * Never while dormant: while Oro is down the sim holds each Sapling with a `burrowUntil` it
+ * pushes `WAKE` s ahead every tick (summons.ts `tendGrove`), and that is the grove waiting for
+ * him, grey and still, not a re-plant. Nor through that wake once he rises (`waking`): a Sapling
+ * held where it stands is not re-planting. A Rally's re-plant moves its plant spot.
  */
 export function burrowing(state: Pick<WorldState, 'time'>, e: ReadonlyEntity): boolean {
-  const u = e.summon?.burrowUntil;
-  return u !== undefined && u > state.time;
+  const s = e.summon;
+  const u = s?.burrowUntil;
+  if (!s || u === undefined || !(u > state.time) || s.dormant) return false;
+  return !(s.kind === 'sapling' && s.plantX === e.x && s.plantZ === e.z);
+}
+
+/**
+ * A Sapling through its wake (summons.ts `WAKE`, 2 s after Oro rises): still held, and still
+ * where it stood while dormant, so it is drawn as the dormant grove is, grey and still, until it
+ * wakes. A Rally in the wake moves its plant spot, and from then on it is `burrowing`.
+ */
+export function waking(state: Pick<WorldState, 'time'>, e: ReadonlyEntity): boolean {
+  const s = e.summon;
+  const u = s?.burrowUntil;
+  if (!s || s.kind !== 'sapling' || s.dormant || u === undefined || !(u > state.time)) return false;
+  return s.plantX === e.x && s.plantZ === e.z;
 }
 
 /**
@@ -106,6 +146,11 @@ export function ancientRising(state: Pick<WorldState, 'time'>, e: ReadonlyEntity
 /** Held while Oro is down or the Grand Silence holds: drawn grey and still. */
 export function dormant(e: ReadonlyEntity): boolean {
   return !!e.summon?.dormant;
+}
+
+/** Drawn grey and still: dormant, or through its wake after Oro rises (`waking`). */
+export function stillHeld(state: Pick<WorldState, 'time'>, e: ReadonlyEntity): boolean {
+  return dormant(e) || waking(state, e);
 }
 
 /** Oro tends (Gentle, no Focus): the closed-leaf glyph, and his Saplings' tended sparkle. */

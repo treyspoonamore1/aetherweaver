@@ -358,8 +358,9 @@ describe('his grove’s sounds', () => {
   };
   const none = () => undefined;
   const sapling = IDS.sapling;
+  /** Rootbond's Mend on a Sapling, as the sim sends it (grove.ts `rootbond`: via 'mend'). */
   const groveHeal = (target: number) =>
-    ev('healApplied', { target, source: IDS.weaver, amount: 12, overheal: 0, via: 'grove' });
+    ev('healApplied', { target, source: IDS.weaver, amount: 12, overheal: 0, via: 'mend' });
 
   it('each plays in its own group, in key, and each is its own', () => {
     const cases: [string, (w: FakeWorld) => void, SimEvent][] = [
@@ -407,6 +408,14 @@ describe('his grove’s sounds', () => {
     // A blow on a Sapling is never a hero's hit (nor a hit on Oro a Sapling's).
     expect(fired(none, hit(sapling, 40)).groups).not.toContain('hit');
     expect(fired(none, hit(IDS.oro, 40)).groups).toEqual(['hit']);
+  });
+
+  it('Rootbond is keyed on what the sim sends: a Mend on a summon is his, on a hero the Mend’s', () => {
+    const mend = (target: number, via: string) =>
+      ev('healApplied', { target, source: IDS.weaver, amount: 12, overheal: 0, via });
+    expect(fired(none, mend(sapling, 'mend')).groups).toEqual([ORO_SOUND_GROUPS.rootbond]);
+    expect(fired(none, mend(sapling, 'grove')).groups).toEqual([ORO_SOUND_GROUPS.rootbond]);
+    expect(fired(none, mend(IDS.oro, 'mend')).groups).toEqual(['mend']);
   });
 
   it('a Rally’s re-plant burrows each Sapling once, read from the state', () => {
@@ -503,6 +512,47 @@ describe('his summons: never a heartbeat or an alert; the intensity scan reads h
     expect(his.hearts).toEqual(['heart:oro']);
     expect(his.alerts).toBe(1);
   });
+
+  it('real sim: his held grove never burrows (Oro down, then his wake); a Rally’s re-plant does', () => {
+    const ctx = new RecordingContext();
+    const d = director(ctx, 'combat');
+    const sim = sandbox({ party: ['kael', 'lyra', 'oro'] });
+    const world = worldOf(sim);
+    const oro = world.entities.get(sim.state.party[2]!)!;
+    const step = (n: number) => {
+      for (let i = 0; i < n; i++) {
+        ctx.currentTime += 1 / 60;
+        ctx.endDue();
+        sim.step([]);
+        d.onEvents(sim.drainEvents(), sim.state);
+        d.update(sim.state, 1 / 60);
+      }
+    };
+    const burrows = () => d.debugStats().peakVoices[ORO_SOUND_GROUPS.burrow] ?? 0;
+    step(30);
+    const saplings = oro.hero!.grove!.saplings.map((id) => world.entities.get(id)!);
+    expect(saplings.length).toBeGreaterThan(0);
+    oro.health!.downed = true;
+    oro.health!.bleedOut = 60;
+    step(90);
+    for (const s of saplings) expect(s.summon!.dormant).toBe(true);
+    expect(burrows()).toBe(0);
+    // He rises: held through the wake where they stand, still no burrow.
+    oro.health!.downed = false;
+    oro.health!.bleedOut = 0;
+    step(30);
+    for (const s of saplings) {
+      expect(s.summon!.dormant).toBeUndefined();
+      expect(s.summon!.burrowUntil!).toBeGreaterThan(world.time);
+    }
+    expect(burrows()).toBe(0);
+    // A Rally's re-plant moves the plant spot: that burrows.
+    saplings[0]!.summon!.plantX += 3;
+    saplings[0]!.summon!.burrowUntil = world.time + 0.8;
+    step(1);
+    expect(burrows()).toBe(1);
+    d.dispose();
+  }, 30_000);
 
   it('a summon in the real sim’s state, at 5%: no heartbeat, no alert', () => {
     const ctx = new RecordingContext();
