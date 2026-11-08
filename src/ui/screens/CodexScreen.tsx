@@ -28,8 +28,11 @@ import {
   healCutStackText,
   lockedHeroText,
   lockedHeroes,
+  heroTerms,
   needsRow,
+  passiveIcon,
   passiveRow,
+  summonsEntry,
 } from './rosterModel';
 import { FORGE_PRICE, RELIC_OFFERS, RELIC_PRICE } from '../../meta/economy';
 import { eventFightRelics } from '../../meta/run';
@@ -407,7 +410,9 @@ function Callings({ allowance }: { allowance: Allowance }) {
 const GRID = 'grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(22rem,1fr))]';
 
 function Heroes({ roster }: { roster: readonly string[] }) {
-  return (
+  // Phase 5e: Seren's and Oro's words, once one of them is in the roster.
+  const terms = heroTerms(roster);
+  const grid = (
     <div className={GRID}>
       {CONTENT.heroes
         .filter((h) => roster.includes(h.id))
@@ -417,6 +422,23 @@ function Heroes({ roster }: { roster: readonly string[] }) {
       {lockedHeroes(roster).map((id) => (
         <LockedHero key={id} heroId={id} />
       ))}
+    </div>
+  );
+  if (terms.length === 0) return grid;
+  return (
+    <div className="flex flex-col gap-6">
+      {grid}
+      <Panel tone="solid" className="p-5" data-testid="codex-hero-terms">
+        <h2 className="font-display text-lg font-bold">Terms</h2>
+        <dl className="mt-3 grid gap-3 text-sm md:grid-cols-2">
+          {terms.map((t) => (
+            <div key={t.term} data-term={t.term}>
+              <dt className="font-semibold text-text">{t.term}</dt>
+              <dd className="text-xs leading-relaxed text-muted">{t.text}</dd>
+            </div>
+          ))}
+        </dl>
+      </Panel>
     </div>
   );
 }
@@ -453,6 +475,8 @@ function HeroEntry({ hero: h }: { hero: HeroDef }) {
   const passive = passiveRow(h);
   const stack = healCutStackText(h);
   const needs = needsRow(h);
+  // Phase 5e: Oro's "Saplings and the Ancient" (empty for every hero without summons).
+  const summons = summonsEntry(h);
   return (
     <Panel tone="solid" className="p-5" style={{ borderTopColor: h.color, borderTopWidth: 3 }}>
       <div className="flex items-center gap-3">
@@ -498,7 +522,12 @@ function HeroEntry({ hero: h }: { hero: HeroDef }) {
         </div>
         {passive && (
           <div data-testid={`codex-passive-${h.id}`}>
-            <dt className="font-semibold">Passive · {passive.name}</dt>
+            <dt className="flex items-center gap-1.5 font-semibold">
+              {h.passive && h.passive.id !== 'bloodRage' && (
+                <Icon name={passiveIcon(h)} size={14} className="text-muted" />
+              )}
+              Passive · {passive.name}
+            </dt>
             <dd className="text-xs leading-relaxed text-muted">{passive.text}</dd>
             {stack && (
               <dd
@@ -508,6 +537,18 @@ function HeroEntry({ hero: h }: { hero: HeroDef }) {
                 {stack}
               </dd>
             )}
+          </div>
+        )}
+        {summons.length > 0 && (
+          <div data-testid={`codex-summons-${h.id}`}>
+            <dt className="flex items-center gap-1.5 font-semibold">
+              <Icon name="leaf" size={14} className="text-muted" /> Saplings and the Ancient
+            </dt>
+            {summons.map((line) => (
+              <dd key={line} className="text-xs leading-relaxed text-muted">
+                {line}
+              </dd>
+            ))}
           </div>
         )}
         {needs && (

@@ -55,10 +55,13 @@ import {
   missingStarterNotes,
   type FreshHero,
   needsRow,
+  passiveIcon,
   passiveRow,
+  pickerColumns,
   pickLegal,
   pickProblem,
   pickerCards,
+  summonsRow,
   togglePick,
 } from './rosterModel';
 import { KeyCap } from '../kit/KeyCap';
@@ -569,7 +572,8 @@ function PartyPicker({
       </p>
       <div
         className="grid gap-2"
-        style={{ gridTemplateColumns: `repeat(${Math.min(cards.length, 4)}, minmax(0, 1fr))` }}
+        style={{ gridTemplateColumns: `repeat(${pickerColumns(cards.length)}, minmax(0, 1fr))` }}
+        data-columns={pickerColumns(cards.length)}
         role="group"
         aria-label="Choose your party: three heroes"
       >
@@ -631,6 +635,8 @@ function HeroCard({ heroId, bond }: { heroId: string; bond?: RunBond }) {
   // Phase 5b: a passive and what they need of you, only for a hero who has them (Brann).
   const passive = passiveRow(def);
   const needs = needsRow(def);
+  // Phase 5e: Oro's Saplings (null for every hero without summons).
+  const summons = summonsRow(def);
   return (
     <article
       className="rounded-xl border border-ink-600/70 bg-ink-800/80 p-4"
@@ -698,9 +704,21 @@ function HeroCard({ heroId, bond }: { heroId: string; bond?: RunBond }) {
             data-testid={`prep-passive-${heroId}`}
           >
             <dt className="flex items-center gap-1.5 font-semibold text-text">
-              <Icon name="flame" size={14} className="text-muted" /> Passive · {passive.name}
+              <Icon name={passiveIcon(def)} size={14} className="text-muted" /> Passive ·{' '}
+              {passive.name}
             </dt>
             <dd className="text-xs leading-relaxed text-muted">{passive.text}</dd>
+          </div>
+        )}
+        {summons && (
+          <div
+            className="rounded-lg bg-ink-900/60 px-3 py-2 sm:col-span-2"
+            data-testid={`prep-summons-${heroId}`}
+          >
+            <dt className="flex items-center gap-1.5 font-semibold text-text">
+              <Icon name="leaf" size={14} className="text-muted" /> Saplings
+            </dt>
+            <dd className="text-xs leading-relaxed text-muted">{summons}</dd>
           </div>
         )}
         {needs && (

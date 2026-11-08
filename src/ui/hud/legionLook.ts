@@ -2,6 +2,7 @@
  * Movement II's HUD looks as plain data (docs/phase-5a.md): stack emphasis, the healing cut's
  * words, the boss bar's phase ticks and cast glyphs. Testable without React.
  */
+import { heroPronouns } from '../screens/rosterModel';
 import { CONTENT, bloodRageOf, partyHasDome } from '../../content';
 import type { IconName } from '../kit/iconPaths';
 import type { BossHud, HeroHud, StatusHud } from '../store';
@@ -105,8 +106,10 @@ export function shownDecree(text: string, party: PartyLook): string {
   if (!attack) return text;
   if (attack.executeBelow !== undefined) {
     const condemned = party.find((h) => h.execute !== undefined);
-    if (condemned && healBarelyTakes(condemned))
-      return `Execution — ${heroName(condemned.defId)} is condemned. Ward him: your healing barely takes on him.`;
+    if (condemned && healBarelyTakes(condemned)) {
+      const him = heroPronouns(condemned.defId).obj;
+      return `Execution — ${heroName(condemned.defId)} is condemned. Ward ${him}: your healing barely takes on ${him}.`;
+    }
     return text;
   }
   if (attack.decreeNoDome !== undefined && !partyHasDome(party.map((h) => h.defId)))

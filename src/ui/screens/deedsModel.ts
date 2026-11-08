@@ -90,10 +90,10 @@ export function deedGlyph(deed: DeedDef): IconName {
     // A hero's Deed (In the Red, docs/phase-5b.md): Blood Rage's flame.
     case 'heroCeiling':
       return 'flame';
-    // A hero's tally Deed (docs/phase-5e.md): interim kit glyphs, Seren's duel and Oro's rooted
-    // grove, until W6's blades and leaf.
+    // A hero's tally Deed (docs/phase-5e.md): Seren's crossed blades (Debt Paid), Oro's leaf
+    // (Not a Leaf Lost).
     case 'heroTally':
-      return deed.tally === 'saplingsLost' ? 'anchor' : 'focus';
+      return deed.tally === 'saplingsLost' ? 'leaf' : 'blades';
   }
 }
 

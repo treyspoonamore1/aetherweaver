@@ -63,7 +63,7 @@ import { masteryLevel } from '../../meta/loom';
 import { MasteryGainRow } from './MasteryParts';
 import { RunStarlightPanel } from './StarlightParts';
 import { outcomeSub, summaryEyebrow } from './routeText';
-import { bloodLine, oathIn, runBlood } from './rosterModel';
+import { bloodLine, duelLine, groveLine, oathIn, runBlood, runDuel, runGrove } from './rosterModel';
 
 const GRADE_COLOR: Record<Grade, string> = {
   S: '#fde9b8',
@@ -317,7 +317,9 @@ export function SummaryView({
       damage,
       amplified,
       blood: runBlood(run, id),
-      advice: runDownAdvice(run.results, id),
+      duel: runDuel(run, id),
+      grove: runGrove(run, id),
+      advice: runDownAdvice(run.results, id, run.calling?.id),
     };
   });
   const aimed = totals.telegraphsAimed;
@@ -642,6 +644,24 @@ export function SummaryView({
                           data-testid="blood-line"
                         >
                           {bloodLine(h.id, h.blood, oathIn(run, h.id), true)}
+                        </p>
+                      )}
+                      {h.duel && (
+                        // Phase 5e: Seren's run, from her fights' duel stats.
+                        <p
+                          className="mt-1 text-xs leading-relaxed text-text"
+                          data-testid="duel-line"
+                        >
+                          {duelLine(h.id, h.duel)}
+                        </p>
+                      )}
+                      {h.grove && (
+                        // Phase 5e: Oro's run, from his fights' grove stats.
+                        <p
+                          className="mt-1 text-xs leading-relaxed text-text"
+                          data-testid="grove-line"
+                        >
+                          {groveLine(h.id, h.grove)}
                         </p>
                       )}
                       {h.advice.map((a) => (

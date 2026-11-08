@@ -5,10 +5,21 @@
  * roster and party, the Result's recruit line, Brann's line on the Result and the Summary, and
  * the Harmony ribbon and 'would enable' hint on motif cards. Every list keeps content order.
  */
-import { CONTENT, bloodRageOf, encounterDef, heroDef, motifDef, type HeroDef } from '../../content';
+import {
+  CONTENT,
+  bloodRageOf,
+  encounterDef,
+  heroDef,
+  interruptAbilities,
+  motifDef,
+  partyTaunts,
+  type HeroDef,
+} from '../../content';
 import { HEAL_CUT } from '../../content/legion';
+import { HEAVY_LIFE, PARRY_REACH } from '../../content/rosterIds';
 import type { EventChoice } from '../../content/schema';
-import type { HeroBloodStats, RunState } from '../../meta/types';
+import type { HeroBloodStats, HeroDuelStats, HeroGroveStats, RunState } from '../../meta/types';
+import { recruitWordLine } from '../../meta/run';
 import { fmt, pct } from '../kit/format';
 import { PARTY_SIZE } from './prepParty';
 import type { Action } from '../../input/actions';
@@ -83,6 +94,14 @@ export function togglePick(
   return canonical([...now, heroId]);
 }
 
+/**
+ * The picker's columns (docs/phase-5e.md): one per card up to four, as it always was; five or six
+ * cards lay out three across (3 × 2), never four and a straggler.
+ */
+export function pickerColumns(cards: number): number {
+  return cards <= 4 ? cards : 3;
+}
+
 /** A pick the run can take: exactly three distinct roster heroes. */
 export function pickLegal(chosen: readonly string[], roster: readonly string[]): boolean {
   const ids = new Set(chosen);
@@ -113,14 +132,89 @@ const MISSING_NOTE: Readonly<Record<string, string>> = {
   vexis: 'No Vexis: no Gravity Well — swarms stay spread out.',
 };
 
-/** One note per starter the party leaves out (none for the default party). */
+/** The roster MISSING_NOTE was written for (docs/phase-5b.md): a pick of these reads as it did. */
+const FIRST_FOUR: ReadonlySet<string> = new Set(['kael', 'lyra', 'vexis', 'brann']);
+
+/**
+ * One note per starter the party leaves out (none for the default party), worded from the party
+ * (docs/phase-5e.md): who the bosses find without Kael's taunt (`partyTaunts`), and who still
+ * interrupts without Lyra (`interruptAbilities`). Every party of the first four heroes reads as
+ * it always did.
+ */
 export function missingStarterNotes(party: readonly string[]): StarterNote[] {
   return CONTENT.defaultParty
     .filter((id) => !party.includes(id))
     .map((id) => ({
       heroId: id,
-      text: MISSING_NOTE[id] ?? `No ${heroDef(id).name} this run.`,
+      text: missingNote(id, party),
     }));
+}
+
+function missingNote(id: string, party: readonly string[]): string {
+  const known = MISSING_NOTE[id];
+  // A pick of the first four heroes (the default party, Brann's parties, and every pick on the
+  // way to one) keeps the notes it always had.
+  if (known && party.every((h) => FIRST_FOUR.has(h))) return known;
+  if (id === 'kael') return noTauntNote(party);
+  if (id === 'lyra') return interruptNote(party);
+  return known ?? `No ${heroDef(id).name} this run.`;
+}
+
+/**
+ * Without Kael (no boss taunt): the boss's blows go to whoever holds its threat. Brann's 1.2 does
+ * (as it always read); else a Warded Seren parries them; else, in Lyra, Vexis and Oro (OB, Q8),
+ * nothing holds the bosses, and Oro won't.
+ */
+function noTauntNote(party: readonly string[]): string {
+  if (partyTaunts(party)) return 'No Kael: no Aegis Wall this run.';
+  if (party.includes('brann')) return MISSING_NOTE.kael!;
+  if (party.includes('seren'))
+    return 'No Kael: nothing taunts. The bosses will find Seren — Ward her as the blow lands: she parries it whole.';
+  if (party.includes('oro'))
+    return 'No Kael: nothing holds the bosses, and Oro won’t. Keep a Perfect, a Reel or a Chime for each boss blow.';
+  return 'No Kael: nothing holds the bosses.';
+}
+
+/** Without Lyra: who else interrupts, by name and ability ("Kael’s Shield Bash"). */
+function interruptNote(party: readonly string[]): string {
+  const who = canonical(party).flatMap((id) =>
+    interruptAbilities(id).map((a) => {
+      const def = heroDef(id);
+      return `${def.name}’s ${def.abilities.find((x) => x.id === a)!.name}`;
+    }),
+  );
+  if (who.length === 0) return 'No Lyra: nothing interrupts. Break guards with Focus.';
+  if (who.length === 1) return `No Lyra: ${who[0]} is your interrupter. Break guards with Focus.`;
+  const list = `${who.slice(0, -1).join(', ')} and ${who[who.length - 1]}`;
+  return `No Lyra: only ${list} interrupt. Break guards with Focus.`;
+}
+
+// ── Pronouns ─────────────────────────────────────────────────────────────────────────
+
+export interface Pronouns {
+  /** "he" */
+  subj: string;
+  /** "him" */
+  obj: string;
+  /** "his" */
+  poss: string;
+}
+
+const HE: Pronouns = { subj: 'he', obj: 'him', poss: 'his' };
+const SHE: Pronouns = { subj: 'she', obj: 'her', poss: 'her' };
+const THEY: Pronouns = { subj: 'they', obj: 'them', poss: 'their' };
+const PRONOUNS: Readonly<Record<string, Pronouns>> = {
+  kael: HE,
+  lyra: SHE,
+  vexis: THEY,
+  brann: HE,
+  seren: SHE,
+  oro: HE,
+};
+
+/** A hero's pronouns in the UI's copy (docs/phase-5e.md: Brann's copy narrowed by hero). */
+export function heroPronouns(heroId: string): Pronouns {
+  return PRONOUNS[heroId] ?? THEY;
 }
 
 /** A hero recruited since the last Prep, as Prep's "Newly unlocked" strip names them. */
@@ -151,20 +245,49 @@ export function freshHeroes(
 // ── A hero's kit: Passive and Needs ───────────────────────────────────────────────────
 
 /** A passive's name, by its id. */
-const PASSIVE_NAME: Readonly<Record<string, string>> = { bloodRage: 'Blood Rage' };
+const PASSIVE_NAME: Readonly<Record<string, string>> = {
+  bloodRage: 'Blood Rage',
+  parry: 'Parry',
+  rootbond: 'Rootbond',
+};
+
+/** A passive's glyph (Prep's card, the Codex): Blood Rage's flame, Seren's blades, Oro's leaf. */
+export const PASSIVE_ICON = {
+  bloodRage: 'flame',
+  parry: 'blades',
+  rootbond: 'leaf',
+} as const;
+
+/** The glyph for a hero's passive (the flame when it has none). */
+export function passiveIcon(def: HeroDef): (typeof PASSIVE_ICON)[keyof typeof PASSIVE_ICON] {
+  return def.passive ? PASSIVE_ICON[def.passive.id] : 'flame';
+}
 
 /**
  * A hero's Passive row (Prep's HeroCard, the Codex entry): its name and what it does, from the
- * def's numbers. Null for a hero without one, so the starters' cards are as they were.
+ * def's numbers, narrowed by its id (Blood Rage, Parry, Rootbond). Null for a hero without one,
+ * so the starters' cards are as they were.
  */
 export function passiveRow(def: HeroDef): { name: string; text: string } | null {
+  const passive = def.passive;
+  if (passive?.id === 'parry')
+    return {
+      name: PASSIVE_NAME.parry!,
+      text: `While Warded, the next melee blow on her is parried and countered for ${Math.round(passive.counterPct * 100)}%. A Perfect Ward on a blow at her is a kill shot: it executes a lesser foe (an elite at ${Math.round(passive.eliteExecuteBelow * 100)}% life or less) and hits anything bigger ${passive.killShotMult}×.`,
+    };
+  if (passive?.id === 'rootbond')
+    return {
+      name: PASSIVE_NAME.rootbond!,
+      text: `Your Thread on Oro also Mends his summons at ${Math.round(passive.mendShare * 100)}%.`,
+    };
   const p = bloodRageOf(def);
   if (!p) return null;
+  const { obj: him, poss: his } = heroPronouns(def.id);
   const halved =
     p.weaverHealMult === 0.5 ? 'halved' : `cut to ${Math.round(p.weaverHealMult * 100)}%`;
   return {
     name: PASSIVE_NAME[p.id] ?? p.id,
-    text: `Up to +${Math.round(p.maxBonus * 100)}% damage the lower his life (+${Math.round(p.perMissing * 100) / 100}% for each 1% missing), and his axe heals him for ${Math.round(p.lifesteal * 1000) / 10}% of what it deals. Your healing on him is ${halved}; your Wards and barriers aren’t.`,
+    text: `Up to +${Math.round(p.maxBonus * 100)}% damage the lower ${his} life (+${Math.round(p.perMissing * 100) / 100}% for each 1% missing), and ${his} axe heals ${him} for ${Math.round(p.lifesteal * 1000) / 10}% of what it deals. Your healing on ${him} is ${halved}; your Wards and barriers aren’t.`,
   };
 }
 
@@ -183,14 +306,114 @@ function shareWords(x: number): string {
 export function healCutStackText(def: HeroDef): string | null {
   const p = bloodRageOf(def);
   if (!p || p.weaverHealMult === 1) return null;
+  const him = heroPronouns(def.id).obj;
   const one = p.weaverHealMult * (1 - HEAL_CUT);
   const both = one * (1 - HEAL_CUT);
-  return `It stacks: with a Wound on him, or outside the Bloodmoon’s pools, your healing on him is ${shareWords(one)}; with both, ${shareWords(both)}. A Chime clears the Wound; a pool or a Ward is the answer to the rest.`;
+  return `It stacks: with a Wound on ${him}, or outside the Bloodmoon’s pools, your healing on ${him} is ${shareWords(one)}; with both, ${shareWords(both)}. A Chime clears the Wound; a pool or a Ward is the answer to the rest.`;
 }
 
 /** A hero's Needs row: what keeping them alive asks of you. Null without one. */
 export function needsRow(def: HeroDef): string | null {
   return def.needs ?? null;
+}
+
+/**
+ * Oro's Saplings on Prep's card (docs/phase-5e.md): "2 Saplings · 380 life · take your songs ·
+ * bosses ignore them", from his `summons`. Null for a hero without summons.
+ */
+export function summonsRow(def: HeroDef): string | null {
+  const s = def.summons?.sapling;
+  if (!s) return null;
+  return `${s.count} Saplings · ${fmt(s.maxHp)} life · take your songs · bosses ignore them`;
+}
+
+// ── The Codex's terms and Oro's summons (docs/phase-5e.md) ─────────────────────────
+
+export interface HeroTerm {
+  term: string;
+  text: string;
+  /** The heroes the term belongs to: it shows once one of them is in the roster. */
+  heroes: readonly string[];
+}
+
+/** The words Seren and Oro bring (docs/phase-5e.md, "Codex": Terms), with Heavy for both. */
+export function heroTermList(): HeroTerm[] {
+  const seren = heroDef('seren');
+  const oro = heroDef('oro');
+  const parry = seren.passive?.id === 'parry' ? seren.passive : null;
+  const sapling = oro.summons?.sapling;
+  const ancient = oro.summons?.ancient;
+  const root = oro.abilities.find((a) => a.id === 'bramble')?.root ?? 1.5;
+  return [
+    {
+      term: 'Parry',
+      text: `A Ward of yours on Seren turns aside the next melee blow aimed at her: a basic swing, or a cleave of ${PARRY_REACH} m or less. It does nothing, and she counters for ${Math.round((parry?.counterPct ?? 3) * 100)}%. Beams, bolts, bursts and raids aren’t parried; your Ward absorbs them as ever.`,
+      heroes: ['seren'],
+    },
+    {
+      term: 'Kill shot',
+      text: `A Perfect Ward on a blow aimed at Seren: next moment she strikes its owner. A normal foe is executed, an elite at ${Math.round((parry?.eliteExecuteBelow ?? 0.5) * 100)}% life or less; anything bigger takes ${parry?.killShotMult ?? 6}× her blow. Lost if she is stunned or stilled.`,
+      heroes: ['seren'],
+    },
+    {
+      term: 'Showboat',
+      text: `${seren.quirk.description} Your Focus moves her duel.`,
+      heroes: ['seren'],
+    },
+    {
+      term: 'Sapling',
+      text: sapling
+        ? `One of Oro’s ${sapling.count} rooted mini-tanks (${fmt(sapling.maxHp)} life): it takes your songs, taunts the small things within ${sapling.taunt.radius} m, and re-sprouts ${sapling.respawn} s after it is felled. Telegraphs and bosses never touch it: Saplings soak blows, never shapes.`
+        : 'One of Oro’s rooted mini-tanks.',
+      heroes: ['oro'],
+    },
+    {
+      term: 'Ancient',
+      text: ancient
+        ? `Oro’s Solo: a ${fmt(ancient.maxHp)}-life tree that rises for ${ancient.life} s, roots and taunts the lesser enemies within ${ancient.tauntRadius} m and slams them. Cued, its disc counts as your field.`
+        : 'Oro’s Solo: a tree that rises for a few seconds.',
+      heroes: ['oro'],
+    },
+    {
+      term: 'Rooted',
+      text: `Held in place by Oro’s roots for ${root} s, then immune for a while. A rooted enemy still attacks and casts; it can’t walk, charge or leap. Bosses, minibosses and heavy foes are never rooted.`,
+      heroes: ['oro'],
+    },
+    {
+      term: 'Rootbond',
+      text: passiveRow(oro)?.text ?? 'Your Thread on Oro also Mends his summons.',
+      heroes: ['oro'],
+    },
+    {
+      term: 'Tending',
+      text: `${oro.quirk.description} Set a Focus to wake him.`,
+      heroes: ['oro'],
+    },
+    {
+      term: 'Heavy',
+      text: `A normal or elite foe of ${fmt(HEAVY_LIFE)} life or more (the Hollow Champion). A kill shot never executes it, and Saplings and the Ancient ignore it.`,
+      heroes: ['seren', 'oro'],
+    },
+  ];
+}
+
+/** The terms for this roster: none until Seren or Oro joins, so earlier Codexes are unchanged. */
+export function heroTerms(roster: readonly string[]): HeroTerm[] {
+  return heroTermList().filter((t) => t.heroes.some((h) => roster.includes(h)));
+}
+
+/**
+ * Oro's Codex sub-entry, "Saplings and the Ancient" (docs/phase-5e.md), from his `summons`: a
+ * line each. Empty for a hero without summons.
+ */
+export function summonsEntry(def: HeroDef): string[] {
+  const s = def.summons;
+  if (!s) return [];
+  return [
+    `Saplings (${s.sapling.count}): ${fmt(s.sapling.maxHp)} life, ${pct(s.sapling.armor)} armour. Planted ${s.sapling.front.forward} m ahead of you; a Rally re-plants them there. Each swings for ${s.sapling.attack.damage}, taunts the small things within ${s.sapling.taunt.radius} m, and re-sprouts ${s.sapling.respawn} s after it is felled. While Oro tends, they hit ${pct(s.sapling.tendedBonus)} harder.`,
+    `The Ancient (Wildgrowth): ${fmt(s.ancient.maxHp)} life for ${s.ancient.life} s. It roots and taunts the lesser enemies within ${s.ancient.tauntRadius} m, and slams everything within ${s.ancient.attack.radius} m for ${s.ancient.attack.damage}.`,
+    'Bosses, minibosses and the biggest foes ignore both, and no telegraph, raid, splash or status ever touches them.',
+  ];
 }
 
 // ── The roster's locks ──────────────────────────────────────────────────────────────
@@ -199,16 +422,18 @@ const NUMERAL = ['', 'I', 'II', 'III', 'IV', 'V'];
 
 /**
  * How a hero not yet in the roster is earned, both routes (the locked silhouette in the Codex):
- * "Free him from the Legion's cell in Movement II, or face Vharun." Null for a starter.
+ * "Free him from the Legion's cell in Movement II, or face Vharun." Read from the recruit's
+ * `lockedText` (docs/phase-5e.md: each hero's own, with its Rank); null for a starter.
  */
 export function lockedHeroText(heroId: string): string | null {
   const r = heroDef(heroId).recruit;
   if (!r) return null;
+  if (r.lockedText) return r.lockedText;
   const event = CONTENT.events.find((e) => e.id === r.event);
   const m = event?.movement ?? 1;
   const where = event ? ` in Movement ${NUMERAL[m] ?? m}` : '';
   const face = r.fallback ? `, or face ${shortName(encounterDef(r.fallback).name)}` : '';
-  return `Free him from the Legion’s cell${where}${face}.`;
+  return `Free ${heroPronouns(heroId).obj} from the Legion’s cell${where}${face}.`;
 }
 
 /** "Vharun, the Crimson Warden" → "Vharun". */
@@ -258,15 +483,26 @@ export function choiceText(
 }
 
 /**
- * The Result's line for a hero just recruited: by the Cell, he joins from your next run; by the
- * fallback (the fight with `recruit.fallback`, won or lost), he slipped his chain in the chaos.
+ * The Result's line for a hero just recruited: by the event's fight, they join from your next run;
+ * by the fallback (the fight with `recruit.fallback`, won or lost), the recruit's own
+ * `fallbackText` (Brann slipped his chain in the chaos). `cause` 'word' (docs/phase-5e.md,
+ * `recruitCause`): an earlier fight of this run counted once your Rank opened the hero.
  */
-export function recruitLine(heroId: string, encounterId: string | null | undefined): string {
+export function recruitLine(
+  heroId: string,
+  encounterId: string | null | undefined,
+  cause?: 'event' | 'fallback' | 'word',
+): string {
   const def = heroDef(heroId);
   const fallback = def.recruit?.fallback;
+  const joins = `${def.name}, ${def.title}, will fight beside you from your next run.`;
+  if (cause === 'word') return `${joins} ${recruitWordLine(heroId)}`;
   if (fallback && encounterId === fallback)
-    return `In the chaos of your stand against ${shortName(encounterDef(fallback).name)}, the prisoner slipped his chain. He’ll find you before your next run.`;
-  return `${def.name}, ${def.title}, will fight beside you from your next run.`;
+    return (
+      def.recruit?.fallbackText ??
+      `In the chaos of your stand against ${shortName(encounterDef(fallback).name)}, the prisoner slipped his chain. He’ll find you before your next run.`
+    );
+  return joins;
 }
 
 // ── Brann's line on the Result and the Summary ───────────────────────────────────────
@@ -308,7 +544,69 @@ export function bloodLine(heroId: string, b: HeroBloodStats, oath = false, run =
   const share = b.aliveTime > 0 ? b.lowTime / b.aliveTime : 0;
   const mult = bloodRageOf(def)?.weaverHealMult ?? 1;
   const cut = oath ? 'full (Blood Oath)' : mult === 0.5 ? 'halved' : pct(mult);
-  return `Under ${below}%: ${pct(share)} of the ${run ? 'run' : 'fight'} · Lifesteal ${fmt(b.lifesteal)} · Your healing on him: ${cut}`;
+  return `Under ${below}%: ${pct(share)} of the ${run ? 'run' : 'fight'} · Lifesteal ${fmt(b.lifesteal)} · Your healing on ${heroPronouns(heroId).obj}: ${cut}`;
+}
+
+// ── Seren's and Oro's lines on the Result and the Summary (docs/phase-5e.md) ─────────
+
+/** A hero's duel stats over a run's results (the Summary's line); null without any. */
+export function runDuel(run: Pick<RunState, 'results'>, heroId: string): HeroDuelStats | null {
+  return sumDuel(
+    run.results
+      .flatMap((r) => r.heroes.filter((h) => h.heroId === heroId && h.duel))
+      .map((h) => h.duel!),
+  );
+}
+
+/** Sums a hero's duel stats over results. */
+export function sumDuel(stats: readonly HeroDuelStats[]): HeroDuelStats | null {
+  if (stats.length === 0) return null;
+  return stats.reduce((a, b) => ({
+    parries: a.parries + b.parries,
+    killShots: a.killShots + b.killShots,
+    counterDamage: a.counterDamage + b.counterDamage,
+    overextendedTime: a.overextendedTime + b.overextendedTime,
+  }));
+}
+
+/**
+ * "Seren · parries 14 · kill shots 3 · your Wards dealt 4,210 · overextended 6 s", from the
+ * result's `heroes[i].duel`: what your Wards on her did (the counters and kill shots).
+ */
+export function duelLine(heroId: string, d: HeroDuelStats): string {
+  const def = heroDef(heroId);
+  const over = Math.round(d.overextendedTime);
+  return `${def.name} · parries ${fmt(d.parries)} · kill shots ${fmt(d.killShots)} · your Wards dealt ${fmt(d.counterDamage)}${over > 0 ? ` · overextended ${over} s` : ''}`;
+}
+
+/** A hero's grove stats over a run's results (the Summary's line); null without any. */
+export function runGrove(run: Pick<RunState, 'results'>, heroId: string): HeroGroveStats | null {
+  return sumGrove(
+    run.results
+      .flatMap((r) => r.heroes.filter((h) => h.heroId === heroId && h.grove))
+      .map((h) => h.grove!),
+  );
+}
+
+/**
+ * Sums a hero's grove stats over results: the in-songs share is the plain mean of the fights'
+ * (each fight's own share; the results keep no alive time).
+ */
+export function sumGrove(stats: readonly HeroGroveStats[]): HeroGroveStats | null {
+  if (stats.length === 0) return null;
+  const total = stats.reduce((a, b) => ({
+    saplingsLost: a.saplingsLost + b.saplingsLost,
+    inFieldShare: a.inFieldShare + b.inFieldShare,
+    rootbondHeal: a.rootbondHeal + b.rootbondHeal,
+    ancients: a.ancients + b.ancients,
+  }));
+  return { ...total, inFieldShare: total.inFieldShare / stats.length };
+}
+
+/** "Oro · Saplings in your songs 74% · felled 3 · Rootbond 1,120", from `heroes[i].grove`. */
+export function groveLine(heroId: string, g: HeroGroveStats): string {
+  const def = heroDef(heroId);
+  return `${def.name} · Saplings in your songs ${pct(g.inFieldShare)} · felled ${fmt(g.saplingsLost)} · Rootbond ${fmt(g.rootbondHeal)}${g.ancients > 0 ? ` · Ancients ${fmt(g.ancients)}` : ''}`;
 }
 
 // ── Harmonies on motif cards ─────────────────────────────────────────────────────────

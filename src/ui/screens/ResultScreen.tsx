@@ -32,7 +32,9 @@ import { bondXpRows, fightBondXp } from './bondsModel';
 import { useSettings } from '../../app/settings';
 import { rankOf } from '../../meta/profile';
 import { StarlightGainPanel } from './StarlightParts';
-import { bloodLine, oathIn, recruitLine } from './rosterModel';
+import { bloodLine, duelLine, groveLine, oathIn, recruitLine } from './rosterModel';
+import { CONTENT } from '../../content';
+import { recruitCause, rowThreat } from '../../meta/run';
 
 export { HIGHLIGHT_COLOR, HIGHLIGHT_ICON, statLines };
 
@@ -77,6 +79,16 @@ export interface ResultViewProps {
   recruits?: readonly string[];
 }
 
+/** The run's open event choice is Rank-gated (docs/phase-5e.md: its fight takes the row's Threat). */
+function rankedChoice(run: RunState): boolean {
+  const ev = run.event;
+  if (!ev || ev.choice === null) return false;
+  const choice = CONTENT.events
+    .find((e) => e.id === ev.eventId)
+    ?.choices.find((c) => c.id === ev.choice);
+  return choice?.rank !== undefined;
+}
+
 export function ResultView({
   run,
   result: r,
@@ -103,7 +115,11 @@ export function ResultView({
   const last = run.path.length;
   const aether = aetherLine(r);
   const node = findNode(run, r.nodeId);
-  const threat = node ? threatLine(node.reward.threat) : null;
+  // Phase 5e: a fight from a Rank-gated event choice takes its row's Threat (`rowThreat`), not
+  // the event node's (the Tithe Altar's other choices fight nothing).
+  const threat = node
+    ? threatLine(rankedChoice(run) ? rowThreat(run, node) : node.reward.threat)
+    : null;
   const gained = aether && r.aether > 0;
   // Phase 4e: what the fight paid each hero's Bond.
   const bondRows = bonds ? bondXpRows(heroIds, fightBondXp(r), bonds) : [];
@@ -248,7 +264,7 @@ export function ResultView({
                     <span className="mr-2 font-mono text-xs font-semibold uppercase tracking-[0.25em] text-gold-300">
                       A new ally
                     </span>
-                    {recruitLine(id, r.encounterId)}
+                    {recruitLine(id, r.encounterId, recruitCause(run, id, r))}
                   </span>
                 </li>
               ))}
@@ -355,6 +371,18 @@ export function ResultView({
                         // Phase 5b: Brann's fight, from his Blood Rage stats.
                         <p className="text-xs leading-relaxed text-text" data-testid="blood-line">
                           {bloodLine(h.heroId, h.blood, oathIn(run, h.heroId))}
+                        </p>
+                      )}
+                      {h.duel && (
+                        // Phase 5e: Seren's fight: her parries, kill shots and what your Wards dealt.
+                        <p className="text-xs leading-relaxed text-text" data-testid="duel-line">
+                          {duelLine(h.heroId, h.duel)}
+                        </p>
+                      )}
+                      {h.grove && (
+                        // Phase 5e: Oro's fight: his Saplings in your songs, felled, Rootbond.
+                        <p className="text-xs leading-relaxed text-text" data-testid="grove-line">
+                          {groveLine(h.heroId, h.grove)}
                         </p>
                       )}
                       {bondRows

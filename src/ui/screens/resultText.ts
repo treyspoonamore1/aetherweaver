@@ -96,12 +96,14 @@ export function deathAnswerLine(
  * of the generic answers; any other death keeps `deathAnswerLine`. `party` is the fight's.
  */
 export function deathAdviceLine(
-  d: Pick<DeathRecap, 'heroId' | 'killer' | 'blood' | 'answers'>,
+  d: Pick<DeathRecap, 'heroId' | 'killer' | 'blood' | 'answers'> &
+    Partial<Pick<DeathRecap, 'duel' | 'grove'>>,
   party: readonly string[],
   callingId?: string | null,
 ): string | null {
   return (
-    downAdvice(d, party) ??
+    // Phase 5e: Seren's and Oro's downs name their own answers (Calling-aware for Seren's Rally).
+    downAdvice(d, party, callingId) ??
     riftDownLine(d, callingId) ??
     finaleDownLine(d, callingId) ??
     deathAnswerLine(d.answers, callingId)
@@ -200,13 +202,14 @@ export function finaleDownLine(
 export function runDownAdvice(
   results: readonly Pick<EncounterResult, 'deaths' | 'heroes'>[],
   heroId: string,
+  callingId?: string | null,
 ): { text: string; count: number }[] {
   const out: { text: string; count: number }[] = [];
   for (const r of results) {
     const party = r.heroes.map((h) => h.heroId);
     for (const d of r.deaths) {
       if (d.heroId !== heroId) continue;
-      const text = downAdvice(d, party);
+      const text = downAdvice(d, party, callingId);
       if (!text) continue;
       const seen = out.find((a) => a.text === text);
       if (seen) seen.count++;

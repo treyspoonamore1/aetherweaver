@@ -68,7 +68,11 @@ async function expectDefaultPrep(page: Page, picker: boolean): Promise<void> {
       const card = page.getByTestId(`prep-pick-${h.id}`);
       if (CONTENT.defaultParty.includes(h.id))
         await expect(card).toHaveAttribute('data-selected', 'true');
-      else await expect(card).not.toHaveAttribute('data-selected');
+      // Phase 5e: a recruit outside this roster has no card at all; one inside it isn't picked.
+      else
+        await expect(page.locator(`[data-testid="prep-pick-${h.id}"][data-selected]`)).toHaveCount(
+          0,
+        );
     }
   }
   expect(await page.evaluate(() => window.__AWRUN__!.party())).toEqual(CONTENT.defaultParty);
@@ -1801,5 +1805,126 @@ test('Phase 5b: the roster — a veteran recruits Brann, picks him in Prep, figh
   await expect(page.getByTestId('blood-line')).toContainText(
     /^Under 40%: \d+% of the run · Lifesteal [\d,]+ · Your healing on him: halved$/,
   );
+  expect(errors).toEqual([]);
+});
+
+test('Phase 5e: the roster of six — a veteran recruits Seren and Oro, picks Kael, Seren and Oro, fights beside them; their frames and their Result and Summary lines', async ({
+  page,
+}) => {
+  // A whole First Light, autoplayed, under SwiftShader.
+  test.setTimeout(480_000);
+  const errors = trackErrors(page);
+  const phase = () => page.evaluate(() => window.__AWRUN__!.phase());
+  await page.goto(START_URL);
+  await page.waitForFunction(() => window.__AWRUN__ !== undefined);
+  // The demo's veteran (Rank 12) has met neither: three heroes, so Prep is today's.
+  await page.evaluate(() => window.__AWRUN__!.veteran());
+  await page.evaluate(() => window.__AWRUN__!.newRun(5151));
+  await expect.poll(phase).toBe('prep');
+  await expectDefaultPrep(page, false);
+  await expect(page.getByTestId('prep-passive-seren')).toHaveCount(0);
+
+  // Recruited (the hook stands in for the Tithe Altar and the Loose Thread): five heroes, laid out
+  // three across (3 × 2), the picker open on the default party.
+  expect(await page.evaluate(() => window.__AWRUN__!.recruit(['seren', 'oro']))).toEqual([
+    'kael',
+    'lyra',
+    'vexis',
+    'seren',
+    'oro',
+  ]);
+  await expect(page.getByTestId('prep-party').locator('[data-columns]')).toHaveAttribute(
+    'data-columns',
+    '3',
+  );
+  await expect(page.locator('[data-testid^="prep-pick-"]')).toHaveCount(5);
+  await page.getByTestId('prep-pick-lyra').click();
+  await page.getByTestId('prep-pick-vexis').click();
+  await page.getByTestId('prep-pick-seren').click();
+  await page.getByTestId('prep-pick-oro').click();
+  // Content order: Kael 1, Seren 2, Oro 3.
+  await expect(page.getByTestId('prep-pick-seren')).toHaveAttribute('data-key', '2');
+  await expect(page.getByTestId('prep-pick-oro')).toHaveAttribute('data-key', '3');
+  // Their cards: Parry and Rootbond, and Oro's Saplings. No Lyra: Seren's Lunge interrupts too.
+  await expect(page.getByTestId('prep-passive-seren')).toContainText('Parry');
+  await expect(page.getByTestId('prep-passive-oro')).toContainText('Rootbond');
+  await expect(page.getByTestId('prep-summons-oro')).toContainText('2 Saplings');
+  await expect(page.getByTestId('prep-party-notes')).toContainText('Seren’s Lunge');
+  expect(await page.evaluate(() => window.__AWRUN__!.party())).toEqual(['kael', 'seren', 'oro']);
+  await page
+    .getByRole('button', { name: /Embark/i })
+    .first()
+    .click();
+  await expect.poll(phase).toBe('map');
+
+  // First Light, beside them.
+  expect(await page.evaluate(() => window.__AWRUN__!.choose())).toBe('skirmish');
+  await expect.poll(phase).toBe('combat');
+  await page.waitForFunction(() => window.__AW__ !== undefined);
+  await expect.poll(() => page.evaluate(() => window.__AW__!.encounter().id)).toBe('first_light');
+  const begin = page.getByRole('button', { name: /Begin the fight/i });
+  if (await begin.isVisible()) await begin.click();
+  const frames = page.getByTestId('party-frames');
+  const seren = frames.getByRole('button', { name: /^Thread Seren/ });
+  const oro = frames.getByRole('button', { name: /^Thread Oro/ });
+  await expect(seren.getByTestId('frame-key')).toHaveAttribute('data-key', '2');
+  await expect(oro.getByTestId('frame-key')).toHaveAttribute('data-key', '3');
+  // Oro's frame: a mini bar for each of his two Saplings. Nobody else's frame has one.
+  await expect(oro.getByTestId('sapling-bar')).toHaveCount(2);
+  await expect(seren.getByTestId('sapling-bar')).toHaveCount(0);
+  // Ward Seren (her frame hovered, so the Ward goes on her): she stands en garde (her violet
+  // chip) while it holds.
+  await seren.hover();
+  await waitTicks(page, 2);
+  await page.keyboard.press('KeyQ');
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          window.__AW__!.techniques().heroes.find((h) => h.heroId === 'seren')?.wards.length ?? 0,
+      ),
+    )
+    .toBeGreaterThan(0);
+  await expect(seren.getByTestId('duel-garde')).toBeVisible({ timeout: 10_000 });
+  await page.mouse.move(640, 300);
+  await page.evaluate(() => window.__AW__!.autoplay('skilled'));
+  await page.evaluate(() => window.__AW__!.setDevTimeScale(2));
+  // Their first fight beside you: each shows its 'New ally' card.
+  await expect(page.locator('[data-testid="new-ally"][data-ally="seren"]')).toBeVisible({
+    timeout: 30_000,
+  });
+  await expect(page.locator('[data-testid="new-ally"][data-ally="oro"]')).toBeVisible({
+    timeout: 30_000,
+  });
+  // The summon batches stay inside the draw-call budget.
+  await waitTicks(page, 120);
+  const perf = (await page.evaluate(() => window.__AW__!.perf()))!;
+  expect(perf.drawCalls).toBeLessThanOrEqual(220);
+  await expect.poll(phase, { timeout: 420_000, intervals: [2000] }).toBe('result');
+  if ((await page.getByTestId('rank-up').count()) > 0)
+    await page.getByRole('button', { name: /Onward/ }).click();
+  // The Result: each one's fight.
+  await expect(page.getByTestId('duel-line')).toContainText(
+    /^Seren · parries \d+ · kill shots \d+ · your Wards dealt [\d,]+( · overextended \d+ s)?$/,
+  );
+  await expect(page.getByTestId('grove-line')).toContainText(
+    /^Oro · Saplings in your songs \d+% · felled \d+ · Rootbond [\d,]+( · Ancients \d+)?$/,
+  );
+  await page.evaluate(() => window.__AWRUN__!.continue());
+  // Won, the run goes on and the hook wins it; lost (the bots are W7's), it ends here. Either
+  // way the Summary carries their lines for the run.
+  await expect.poll(phase).toMatch(/^(relic|summary)$/);
+  if ((await phase()) === 'relic') {
+    await page.evaluate(() => window.__AWRUN__!.pickRelic(0));
+    await expect.poll(phase).toBe('draft');
+    await page.evaluate(() => window.__AWRUN__!.pick(0));
+    await expect.poll(phase).toBe('map');
+    expect(await page.evaluate(() => window.__AWRUN__!.winRun())).toBe(true);
+  }
+  await expect.poll(phase).toBe('summary');
+  if ((await page.getByTestId('rank-up').count()) > 0)
+    await page.getByRole('button', { name: /Onward/ }).click();
+  await expect(page.getByTestId('duel-line')).toContainText(/^Seren · parries \d+ · kill shots/);
+  await expect(page.getByTestId('grove-line')).toContainText(/^Oro · Saplings in your songs/);
   expect(errors).toEqual([]);
 });

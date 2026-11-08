@@ -140,6 +140,8 @@ import { SpawnPalette } from '../screens/TrainingParts';
 import { LOOM_VIEWS, LoomFromStore } from './loomLab';
 import { LOOM_RUN_VIEWS } from './LoomRunLab';
 import { BRANN_VIEWS } from './brannLab';
+import { SEREN_VIEWS } from './serenLab';
+import { ORO_VIEWS } from './oroLab';
 import {
   expeditionPrepRun,
   expeditionReliquaryRun,
@@ -4545,6 +4547,9 @@ const VIEWS: ViewDef[] = [
   ...LOOM_RUN_VIEWS,
   // ── Phase 5b: Brann and the roster ────────────────────────────────────────────────────
   ...BRANN_VIEWS,
+  // ── Phase 5e: Seren and Oro ──────────────────────────────────────────────────────────
+  ...SEREN_VIEWS,
+  ...ORO_VIEWS,
   {
     id: 'flow',
     group: 'Flow',

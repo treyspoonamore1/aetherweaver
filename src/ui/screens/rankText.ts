@@ -31,8 +31,13 @@ export { rankAstrolabeLine };
 export function unlockIcon(u: { kind: string; target: string }): IconName {
   if (u.kind === 'song' && u.target === 'field') return 'scatter';
   if (u.kind === 'calling' && CALLING_LOOK[u.target]) return CALLING_LOOK[u.target]!.icon;
+  // Phase 5e: a Rank-gated recruit carries its hero's glyph (Seren's blades, Oro's leaf).
+  if (u.kind === 'recruit' && RECRUIT_ICON[u.target]) return RECRUIT_ICON[u.target]!;
   return UNLOCK_ICON[u.kind] ?? 'sparkle';
 }
+
+/** A recruit's glyph on its Rank-up (docs/phase-5e.md): her blades, his leaf. */
+const RECRUIT_ICON: Readonly<Record<string, IconName>> = { seren: 'blades', oro: 'leaf' };
 
 const UNLOCK_ICON: Record<string, IconName> = {
   song: 'thread',

@@ -78,10 +78,11 @@ export function bondsOpen(
 
 /**
  * The Bonds screen's hero tabs, one column each (docs/phase-5b.md): three for the starters, four
- * once a recruit joins. Literal classes, so the stylesheet keeps them.
+ * once a recruit joins; five or six lay out 3 × 2 (docs/phase-5e.md). Literal classes, so the
+ * stylesheet keeps them.
  */
 export function heroTabColumns(count: number): string {
-  return count >= 4 ? 'sm:grid-cols-4' : count === 2 ? 'sm:grid-cols-2' : 'sm:grid-cols-3';
+  return count === 4 ? 'sm:grid-cols-4' : count === 2 ? 'sm:grid-cols-2' : 'sm:grid-cols-3';
 }
 
 /** Each bonded hero's rank, by id: the HUD's frames and the Loom's station. */

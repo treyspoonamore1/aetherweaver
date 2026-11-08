@@ -46,6 +46,23 @@ import {
   ragingBand,
   type BloodChip,
 } from './bloodLook';
+import {
+  DUEL_ICON,
+  DUEL_INK,
+  DUEL_VIOLET,
+  duelChips,
+  duelOutline,
+  type DuelChip,
+} from './duelLook';
+import {
+  GROVE_INK,
+  GROVE_MOSS,
+  SAPLING_LIFE,
+  ancientChip,
+  saplingRows,
+  tendingTitle,
+  type SaplingRow,
+} from './groveLook';
 
 /** The Silk's gold: the Astrolabe's Thread stars (Afterglow, Overflowing Grace). */
 const SILK = CONSTELLATION_LOOK.silk;
@@ -252,8 +269,14 @@ export function PartyFrames({
   layout = DEFAULT_HUD.frames,
   healthText = DEFAULT_HUD.healthText,
   silence,
+  reelVariant = null,
 }: {
   party: HeroHud[];
+  /**
+   * Phase 5e: the Reel slot's variant (`anchor`, `swap`; null: the plain Reel). With the Anchor
+   * (no pull) or the Chronomancer's Rewind, Seren's overextension answer is Rally.
+   */
+  reelVariant?: string | null;
   /**
    * The Finale (docs/phase-5d.md): the Grand Silence while it holds (the boss bar's), for the
    * stilled frames' notes and countdown and the downed frames' promise. Absent: as before.
@@ -321,6 +344,7 @@ export function PartyFrames({
                 callNamed={callNamed(h, party)}
                 partyNames={h.stitchedWith ? partyNames(party) : undefined}
                 silence={silence}
+                rallyHome={rewind !== null || reelVariant === 'anchor'}
               />
               <Bark hero={h} callouts={barks} side={side} />
               <FrameTip
@@ -764,8 +788,11 @@ export function HeroFrame({
   callNamed: named = false,
   partyNames,
   silence,
+  rallyHome = false,
 }: {
   hero: HeroHud;
+  /** Phase 5e: Seren's overextension answer is Rally (the Chronomancer, the Anchor). */
+  rallyHome?: boolean;
   /** The Finale: the Grand Silence while it holds (its notes, the Coda's countdown). */
   silence?: BossHud['silence'];
   /** Movement III: the party's names by slot (a Stitch names the hero it joins). */
@@ -805,6 +832,8 @@ export function HeroFrame({
   const state = frameState(h, blind);
   // The Finale: relit gold for a moment after Reignite (the alerts above still win).
   const relit = !!h.reignite && !down && !out;
+  // Phase 5e: Seren is never faded out of reach; her violet outline pulses instead.
+  const reach = duelOutline(h);
   const border = h.held
     ? HOLD
     : state.critical
@@ -817,18 +846,22 @@ export function HeroFrame({
             ? 'var(--color-ailment)'
             : relit
               ? NOTE_GOLD
-              : h.threaded
-                ? threadColor
-                : h.hovered
-                  ? 'var(--color-gold-400)'
-                  : undefined;
+              : reach
+                ? reach.color
+                : h.threaded
+                  ? threadColor
+                  : h.hovered
+                    ? 'var(--color-gold-400)'
+                    : undefined;
   const glow = state.critical
     ? '0 0 0 1px var(--color-lethal), 0 0 18px color-mix(in srgb, var(--color-lethal) 45%, transparent)'
     : state.ailing && !h.held
       ? '0 0 0 1px var(--color-ailment), 0 0 14px color-mix(in srgb, var(--color-ailment) 38%, transparent)'
       : relit
         ? `0 0 0 1px ${NOTE_GOLD}, 0 0 16px rgb(245 215 142 / 0.4)`
-        : undefined;
+        : reach
+          ? `0 0 0 1px ${reach.color}, 0 0 14px color-mix(in srgb, ${reach.color} 45%, transparent)`
+          : undefined;
   return (
     <button
       type="button"
@@ -845,7 +878,11 @@ export function HeroFrame({
       onFocus={() => getRuntime()?.setUiHover(h.slot as PartySlot)}
       onBlur={() => getRuntime()?.setUiHover(null)}
       className={`block w-full rounded-xl border bg-ink-900/88 px-3 py-2 text-left shadow-lg shadow-black/40 backdrop-blur-sm transition-colors hover:bg-ink-800/90 ${
-        (h.lethal || h.held) && !down && !out ? 'animate-pulse-lethal' : ''
+        (h.lethal || h.held) && !down && !out
+          ? 'animate-pulse-lethal'
+          : reach?.pulse
+            ? 'anim-glow'
+            : ''
       } ${(down && !rewindUp) || out ? 'saturate-0' : ''}${h.stilled && !down && !out ? ' saturate-[0.35]' : ''} ${out ? 'opacity-60' : state.far ? 'opacity-[0.62]' : ''}`}
       style={{
         borderColor: border ?? (h.lethal && !down ? 'var(--color-lethal)' : 'var(--color-ink-600)'),
@@ -854,6 +891,7 @@ export function HeroFrame({
       data-critical={state.critical || undefined}
       data-ailing={state.ailing || undefined}
       data-far={state.far || undefined}
+      data-reach={reach ? 'outline' : undefined}
       data-stilled={h.stilled || undefined}
       data-reignite={relit ? h.reignite : undefined}
     >
@@ -897,6 +935,7 @@ export function HeroFrame({
           ) : (
             <>
               <HpBar hero={h} rewind={rewind} healthText={healthText} />
+              {h.grove && <GroveRow hero={h} />}
               {h.stilled && <StilledStrip hero={h} silence={silence} />}
               {relit && !h.stilled && <ReigniteStrip hero={h} />}
               {h.held && <HeldStrip hero={h} />}
@@ -909,6 +948,15 @@ export function HeroFrame({
                 {(h.borne > 0 || h.vow) && <MartyrMarks hero={h} />}
                 {(h.afterglow || h.grace) && <AstrolabeMarks hero={h} />}
                 {h.blood && <BloodMarks chips={bloodChips(h)} />}
+                {h.duel && (
+                  <DuelMarks
+                    chips={duelChips(h, {
+                      reel: bindingLabel('reel'),
+                      rally: bindingLabel('directiveRally'),
+                      rallyHome,
+                    })}
+                  />
+                )}
                 {h.stitchedWith && h.stitchedWith.length > 0 && (
                   <StitchChip slots={h.stitchedWith} names={partyNames ?? []} />
                 )}
@@ -974,6 +1022,138 @@ function BloodMarks({ chips }: { chips: readonly BloodChip[] }) {
   );
 }
 
+/**
+ * Seren on her frame (docs/phase-5e.md): en garde and the parries it has left, Blade Waltz, a kill
+ * shot due, Thousand Cuts, her duel, overextended (with the key that answers it) and out of your
+ * reach, each a chip in her violet with a glyph. Never silver, never the lethal red.
+ */
+function DuelMarks({ chips }: { chips: readonly DuelChip[] }) {
+  return (
+    <>
+      {chips.map((c) => (
+        <span
+          key={c.id}
+          className={`flex items-center gap-1 whitespace-nowrap rounded-md border px-1 text-xs font-bold leading-5 ${c.alarm ? 'anim-glow' : ''}`}
+          style={{
+            color: DUEL_INK,
+            borderColor: `color-mix(in srgb, ${DUEL_VIOLET} ${c.alarm ? 85 : 60}%, transparent)`,
+            background: `color-mix(in srgb, ${DUEL_VIOLET} ${c.alarm ? 30 : 18}%, transparent)`,
+          }}
+          role="img"
+          aria-label={c.title}
+          title={c.title}
+          data-testid={`duel-${c.id}`}
+        >
+          <Icon name={DUEL_ICON[c.id]} size={12} />
+          {c.label}
+          {c.key && <KeyCap label={c.key} />}
+        </span>
+      ))}
+    </>
+  );
+}
+
+/**
+ * Oro's grove on his frame (docs/phase-5e.md): one mini bar per Sapling (a leaf, its life, the
+ * auras it hears or an out-of-field mark, a re-sprout timer when felled), and the Ancient's
+ * timer. A grid of equal cells inside the frame's 19 rem, so Edit Layout's geometry holds.
+ */
+function GroveRow({ hero: h }: { hero: HeroHud }) {
+  const rows = saplingRows(h);
+  const ancient = ancientChip(h);
+  if (rows.length === 0 && !ancient) return null;
+  const cols = rows.length >= 3 ? 'grid-cols-3' : rows.length === 2 ? 'grid-cols-2' : 'grid-cols-1';
+  return (
+    <div className="mt-1 w-full min-w-0" data-testid="grove-row">
+      {rows.length > 0 && (
+        <div className={`grid w-full min-w-0 gap-1 ${cols}`}>
+          {rows.map((r) => (
+            <SaplingBar key={r.index} row={r} />
+          ))}
+        </div>
+      )}
+      {ancient && (
+        <span
+          className="mt-1 flex w-fit max-w-full items-center gap-1 overflow-hidden whitespace-nowrap rounded-md border px-1 text-xs font-bold leading-5"
+          style={{
+            color: GROVE_INK,
+            borderColor: `color-mix(in srgb, ${GROVE_MOSS} 70%, transparent)`,
+            background: `color-mix(in srgb, ${GROVE_MOSS} 22%, transparent)`,
+            ...(ancient.cued ? { borderStyle: 'dashed' } : {}),
+          }}
+          role="img"
+          aria-label={ancient.title}
+          title={ancient.title}
+          data-testid="ancient-chip"
+          data-cued={ancient.cued || undefined}
+        >
+          <Icon name="leaf" size={12} />
+          {ancient.label}
+        </span>
+      )}
+    </div>
+  );
+}
+
+/** One Sapling's mini bar: never wider than its cell. */
+function SaplingBar({ row: r }: { row: SaplingRow }) {
+  return (
+    <span
+      className={`flex min-w-0 items-center gap-0.5 overflow-hidden rounded border px-0.5 ${r.felled ? 'opacity-60' : ''}`}
+      style={{
+        borderColor: r.inField
+          ? `color-mix(in srgb, ${GROVE_MOSS} 70%, transparent)`
+          : 'var(--color-ink-600)',
+        ...(!r.inField && !r.felled ? { borderStyle: 'dashed' } : {}),
+      }}
+      role="img"
+      aria-label={r.title}
+      title={r.title}
+      data-testid="sapling-bar"
+      data-felled={r.felled || undefined}
+      data-infield={r.inField || undefined}
+      data-burrowing={r.burrowing || undefined}
+    >
+      <span
+        style={{ color: r.inField ? SAPLING_LIFE : 'var(--color-threat)' }}
+        className="shrink-0"
+      >
+        <Icon name="leaf" size={10} solid={r.inField} />
+      </span>
+      <span className="relative h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-ink-700">
+        <span
+          className="absolute inset-y-0 left-0 rounded-full"
+          style={{ width: `${r.life * 100}%`, background: SAPLING_LIFE }}
+        />
+      </span>
+      {r.felled ? (
+        <span className="shrink-0 font-mono text-[0.625rem] leading-none text-muted">
+          {r.respawnIn !== null ? `${Math.ceil(r.respawnIn)}s` : '—'}
+        </span>
+      ) : r.inField ? (
+        r.auras.length > 0 && (
+          <span className="flex shrink-0 items-center gap-px" data-testid="sapling-pips">
+            {r.auras.slice(0, 3).map((id) => (
+              <span
+                key={id}
+                className="h-1.5 w-1.5 rounded-full"
+                style={{ background: auraDef(id).color }}
+              />
+            ))}
+          </span>
+        )
+      ) : (
+        <span
+          className="shrink-0 text-[0.625rem] font-bold leading-none text-threat"
+          data-testid="sapling-out"
+        >
+          out
+        </span>
+      )}
+    </span>
+  );
+}
+
 /** Brann's crimson (his def's colour) for the chips that aren't the rage ember. */
 const BLOOD_CHIP = '#b91c1c';
 const BLOOD_ICON: Record<BloodChip['id'], 'flame' | 'stack' | 'heart' | 'vow' | 'ward'> = {
@@ -1031,6 +1211,19 @@ function Portrait({ hero: h, bondRank = null }: { hero: HeroHud; bondRank?: numb
       {bondRank !== null && (
         <span className="absolute -right-2 -top-1 z-10">
           <FrameBondRank rank={bondRank} />
+        </span>
+      )}
+      {h.grove?.tending && !h.dead && !h.downed && (
+        // Phase 5e: Gentle's closed leaf: Oro tends, and won't fight without a Focus.
+        <span
+          className="absolute -left-1.5 -top-1 z-10 flex h-4 w-4 items-center justify-center rounded-full border bg-ink-950/95"
+          style={{ color: GROVE_INK, borderColor: GROVE_MOSS }}
+          role="img"
+          aria-label={tendingTitle(h) ?? ''}
+          title={tendingTitle(h) ?? ''}
+          data-testid="grove-tending"
+        >
+          <Icon name="leaf" size={10} />
         </span>
       )}
       <Ring

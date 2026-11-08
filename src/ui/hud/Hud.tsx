@@ -277,6 +277,7 @@ export function HudView({
         layout={framesLayout}
         healthText={healthText}
         silence={silence}
+        reelVariant={hud.weaver.techniques.find((t) => t.key === 'reel')?.variant?.id ?? null}
       />
       <WeaverBar
         hud={hud}
