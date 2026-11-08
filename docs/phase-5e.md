@@ -150,6 +150,15 @@ Every other number is a starting value that W9 tunes.
 - Training Grounds parties.
 - Any change to Weaver, aura, enemy, encounter, starter or Brann numbers.
 
+## Your answers (2026-11-08)
+
+1. **Saplings receive your auras**, as a hero outside the Thread does (Q1 default). W2b builds it; no aura definition or number changes.
+2. **The Cued Ancient's 6 m disc counts as your field in every respect** for its 8 s (Q2 default, including the knock-on effects listed there).
+3. **Verdant Choir reads Sostenuto's unchanged regen** (30/40/50%), as an additive pulse outside the aura mask (Q3 default).
+8. **OB is the hardest party by design** (Q8 default): provisional boss band default − 25, the Prep note, levers only Oro's own numbers and bot rules.
+
+Defaults taken while you were away (say if you want any changed): Q4 Rank gates as the plan (Seren from Rank 8, Oro from Rank 12); Q5 the kill shot executes normal foes and elites at or below 50%, never heavy foes, minibosses or bosses; Q6 Regrowth and Bramble, the Ward and Chime Calls, Blade Waltz and Homecoming, the four scenes, Gentle's +50% tending bonus; Q7 the talent ships as Taproot.
+
 ## Questions for you (each has a recommended default; aura questions first)
 
 The build proceeds on every default except Q1-Q3, which gate W2b; until they are answered, their fallbacks are built. Q8 sets a band and gates nothing in the build. The format follows docs/phase-5d.md:113-116.
