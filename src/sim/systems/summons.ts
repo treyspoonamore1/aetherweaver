@@ -16,7 +16,7 @@
  */
 import { heroDef } from '../../content';
 import type { HeroDef } from '../../content/schema';
-import { auraTotals } from '../combat/auras';
+import { summonFx } from '../combat/auras';
 import { addStatus, dealDamage, isActive, rising } from '../combat/health';
 import { distSq, len } from '../core/dmath';
 import { hasTalent, talentValue } from '../bonds';
@@ -422,12 +422,10 @@ function rootAround(world: World, a: Entity, owner: Entity): void {
 // ── Their swings ──────────────────────────────────────────────────────────────────────
 
 /**
- * The auras a summon receives: `summon.auraMask`, written only by the field's summon loop (W2b,
- * Q1); absent, it hears nothing. A Sapling is never the threaded hero, so never the beam's focus.
+ * The auras a summon receives (`auras.ts` `summonFx`, beside `heroFx`): `summon.auraMask`, written
+ * only by the field's summon loop (Q1); absent, it hears nothing.
  */
-export function summonFx(world: World, s: Entity): ReturnType<typeof auraTotals> {
-  return auraTotals(world, s.summon?.auraMask ?? 0, false);
-}
+export { summonFx };
 
 const swing = { amount: 0, aura: 0 };
 

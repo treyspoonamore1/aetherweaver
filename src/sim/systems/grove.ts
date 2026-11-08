@@ -99,7 +99,8 @@ export function summonsOf(world: WorldState, owner: EntityId | null = null): Rea
  * Weaver downed or in a dome), no Mute or Silencing dome covers it (unless Unbroken Chorus
  * holds), it is inside a hymn circle whenever any exist, and it stands inside the radius of a
  * song that still sings something for the party (a Lullaby-only song, or one whose only party
- * aura Steal Verse took, is no field for it).
+ * aura Steal Verse took, is no field for it), or, while such a song sings, inside a Cued
+ * Ancient's disc (Q2: it counts as your field).
  */
 export function saplingInField(
   world: WorldState,
@@ -119,6 +120,7 @@ export function saplingInField(
   const content = (world as World).content;
   const party = partyAuraMask(content);
   const stolen = f.stolen;
+  let sung = false;
   for (const c of f.chords) {
     if (c.radius <= 0) continue;
     // `chordMask` in field.ts: the stolen verse sings for nobody while it's gone.
@@ -127,10 +129,15 @@ export function saplingInField(
       if (!stolen || stolen.chord !== c.index || j !== stolen.aura)
         song |= auraBit(content, c.auras[j]!);
     if ((song & party) === 0) continue;
+    sung = true;
     const r = c.radius + s.radius;
     if ((s.x - c.x) ** 2 + (s.z - c.z) ** 2 <= r * r) return true;
   }
-  return false;
+  // Q2 (`coverage()`'s disc test): absent in every party without Oro.
+  const disc = f.ancient;
+  if (!disc || !sung) return false;
+  const r = disc.r + s.radius;
+  return (s.x - disc.x) ** 2 + (s.z - disc.z) ** 2 <= r * r;
 }
 
 /** Gentle (docs/phase-5e.md): Oro with no living Focus target is tending, and won't attack. */
@@ -287,23 +294,64 @@ export function spawnGrove(world: World): void {
 }
 
 /**
- * api.ts, after `updateField`: the grove's field bookkeeping. Q1-Q3 (W2b) hang here and in the
- * field: the field writes each summon's `auraMask` (summons.ts `summonFx` reads it), a Cued
- * Ancient's `field.ancient` (written in summons.ts) counts as your field, and Verdant Choir's
- * pulse is `verdantChoir`.
+ * api.ts, after `updateField`: the grove's field bookkeeping. Q1-Q3 (answered yes): the field
+ * writes each Sapling's (and the Cued Ancient's) `auraMask` and `inField` (auras.ts `summonFx`
+ * reads the mask), a Cued Ancient's `field.ancient` (written in summons.ts) counts as your
+ * field in `coverage()` and `inAnyField()`, and Verdant Choir's pulse is `verdantChoir`, here.
  */
 export function groveAfterField(world: World, dt: number): void {
   if (!world.internal.summons) return;
   verdantChoir(world, dt);
 }
 
+/** Verdant Choir: a Sapling's song reaches this far (m, to the body's edge)... */
+const CHOIR_RADIUS = 4;
+/** ...and at most this many Saplings count for one listener. */
+const CHOIR_MAX = 2;
+const choir: Entity[] = [];
+
 /**
- * Verdant Choir (Q3, W2b): each living Sapling pulses Sostenuto's regen at `mods.verdantChoir`
- * to those within 4 m. The hook point only: W2b fills it. `mods.verdantChoir` is 0 without the
- * motif, so it can return at once.
+ * Verdant Choir (Q3, docs/phase-5e.md): each living, awake Sapling standing in your field (its Q1
+ * coverage, `summon.inField`, written by the field this tick) heals the heroes and the Weaver
+ * within 4 m by `mods.verdantChoir` (30/40/50%) of Sostenuto's `regenPctPerSec`, read from
+ * content unchanged (0.015 × 30% = 0.45% of max life a second). An additive pulse outside the
+ * aura mask: it acts whether Sostenuto is sung or not, Warm Hum doesn't multiply it, and at most
+ * two Saplings count for one listener. Weaver aura healing, with its healing threat.
+ * `mods.verdantChoir` is 0 without the motif (hero-gated to Oro), so it returns at once.
  */
-export function verdantChoir(world: World, _dt: number): void {
-  if (world.mods.verdantChoir <= 0) return;
+export function verdantChoir(world: World, dt: number): void {
+  const share = world.mods.verdantChoir;
+  if (share <= 0) return;
+  const ids = world.internal.summons;
+  if (!ids) return;
+  const sostenuto = world.content.auras.find((a) => a.id === 'sostenuto');
+  const rate = (sostenuto?.effects.regenPctPerSec ?? 0) * share;
+  if (!(rate > 0)) return;
+  choir.length = 0;
+  for (const id of ids) {
+    const s = world.entities.get(id);
+    const c = s?.summon;
+    if (!s || !c || c.kind !== 'sapling' || !s.health || s.health.dead) continue;
+    if (c.inField === true) choir.push(s);
+  }
+  if (choir.length === 0) return;
+  for (const id of world.party) choirHeal(world, world.entities.get(id), rate * dt);
+  choirHeal(world, world.entities.get(world.weaverId), rate * dt);
+  choir.length = 0;
+}
+
+/** One listener's share of the Choir this tick (`share`: of its max life, per Sapling). */
+function choirHeal(world: World, t: Entity | undefined, share: number): void {
+  if (!isActive(t) || t.health.hp >= t.health.maxHp) return;
+  const r = CHOIR_RADIUS + t.radius;
+  let n = 0;
+  for (const s of choir) {
+    if (distSq(t.x, t.z, s.x, s.z) <= r * r && ++n >= CHOIR_MAX) break;
+  }
+  if (n === 0) return;
+  const healed = heal(world, t, t.health.maxHp * share * n, 'aura', false);
+  // Heroes' floaters flush with the field's aura heals (field.ts `applyAuraLife`).
+  if (t.hero) t.hero.auraHealAcc += healed;
 }
 
 /**
