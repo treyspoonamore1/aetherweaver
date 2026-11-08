@@ -461,7 +461,7 @@ describe('the per-hero copy', () => {
     expect(passiveIcon(heroDef('seren'))).toBe('blades');
     expect(passiveIcon(heroDef('oro'))).toBe('leaf');
     expect(summonsRow(heroDef('oro'))).toBe(
-      '2 Saplings · 380 life · take your songs · bosses ignore them',
+      '2 Saplings · 456 life · take your songs · bosses ignore them',
     );
     expect(summonsRow(heroDef('seren'))).toBeNull();
     expect(summonsEntry(heroDef('oro'))).toHaveLength(3);

@@ -128,7 +128,7 @@ describe('Q1: Saplings receive your auras, as a hero outside the Thread does', (
     expect(s!.summon!.auraMask).toBeGreaterThan(0);
   });
 
-  it('Sostenuto: 1.5% of its life a second (5.7/s at 380), as the probe hero’s share', () => {
+  it('Sostenuto: 1.5% of its life a second (6.84/s at 456), as the probe hero’s share', () => {
     const { w, oro, weaver } = grove({ chords: [{ auras: [], ornaments: [] }, TWO.chords[1]!] });
     const [s] = saplings(w, oro);
     const probe = w.entities.get(w.party[0]!)!;
@@ -141,7 +141,7 @@ describe('Q1: Saplings receive your auras, as a hero outside the Thread does', (
     w.tick = 1;
     updateField(w, 1);
     const healed = s!.health!.hp - 100;
-    expect(healed).toBeCloseTo(380 * 0.015, 9);
+    expect(healed).toBeCloseTo(456 * 0.015, 9);
     expect(healed / s!.health!.maxHp).toBeCloseTo(
       (probe.health!.hp - 100) / probe.health!.maxHp,
       9,
@@ -180,7 +180,7 @@ describe('Q1: Saplings receive your auras, as a hero outside the Thread does', (
     const ost = field(['ostinato']);
     const [a] = saplings(ost.w, ost.oro);
     updateField(ost.w, 0);
-    expect(shieldOf(a!.health!, 'barrier')?.amount).toBeCloseTo(380 * 0.12, 9);
+    expect(shieldOf(a!.health!, 'barrier')?.amount).toBeCloseTo(456 * 0.12, 9);
     expect(shieldOf(a!.health!, 'barrier')?.fromWeaver).toBe(true);
     // Outside every field: gone.
     place(a!, ost.weaver.x + 30, ost.weaver.z);

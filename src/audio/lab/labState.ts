@@ -366,7 +366,7 @@ export class FakeWorld {
   }
 
   /**
-   * Phase 5e: Oro's Saplings standing (`n`, at the Weaver's front spots, 5 m ahead and spread);
+   * Phase 5e: Oro's Saplings standing (`n`, at the Weaver's front spots, 4 m ahead and spread);
    * the rest gone. Only with Oro in the party.
    */
   setSaplings(n: number): void {

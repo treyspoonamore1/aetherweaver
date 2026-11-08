@@ -80,7 +80,7 @@ function enemy(w: World, defId: string, x: number, z: number, elite = false): En
 }
 
 describe('spawning (docs/phase-5e.md, "Saplings are planted")', () => {
-  it('two Saplings sprout after the party, only with Oro, 5 m ahead and ±2.5 m', () => {
+  it('two Saplings sprout after the party, only with Oro, 4 m ahead and ±2.5 m', () => {
     const { w, oro } = grove();
     const weaver = w.entities.get(w.weaverId)!;
     const s = saplings(w, oro);
@@ -93,14 +93,14 @@ describe('spawning (docs/phase-5e.md, "Saplings are planted")', () => {
     const lateral = s.map((e) => {
       const dx = e.x - weaver.x;
       const dz = e.z - weaver.z;
-      expect(dx * hx + dz * hz).toBeCloseTo(5, 6);
+      expect(dx * hx + dz * hz).toBeCloseTo(4, 6);
       return dx * -hz + dz * hx;
     });
     expect(lateral.map((v) => Math.round(v * 1e6) / 1e6)).toEqual([-2.5, 2.5]);
     for (const e of s) {
       expect(e.kind).toBe('summon');
       expect(e.team).toBe('party');
-      expect(e.health!.maxHp).toBe(380);
+      expect(e.health!.maxHp).toBe(456);
       expect(w.party).not.toContain(e.id);
     }
     expect(summonsOf(w, oro.id)).toHaveLength(2);
@@ -112,9 +112,9 @@ describe('spawning (docs/phase-5e.md, "Saplings are planted")', () => {
 
   it('Seedling Swarm keeps three, each with 25% less life; Taproot gives 40% more', () => {
     const swarm = grove({ bonds: { talents: ['seedling_swarm'], solos: [] } });
-    expect(saplings(swarm.w, swarm.oro).map((s) => s.health!.maxHp)).toEqual([285, 285, 285]);
+    expect(saplings(swarm.w, swarm.oro).map((s) => s.health!.maxHp)).toEqual([342, 342, 342]);
     const tap = grove({ bonds: { talents: ['taproot'], solos: [] } });
-    expect(saplings(tap.w, tap.oro).map((s) => s.health!.maxHp)).toEqual([532, 532]);
+    expect(saplings(tap.w, tap.oro).map((s) => s.health!.maxHp)).toEqual([638, 638]);
   });
 
   it('a summon is planted: enemies are pushed off it, it never moves', () => {
@@ -450,7 +450,7 @@ describe('Regrowth and Bramble (docs/phase-5e.md)', () => {
     oro.hero!.abilityCooldowns[1] = 99;
     w.ledger.healing = 0;
     stepFor(sim, 60);
-    expect(a!.health!.hp).toBeCloseTo(100 + 380 * 0.4, 6);
+    expect(a!.health!.hp).toBeCloseTo(100 + 456 * 0.4, 6);
     expect(w.ledger.healing).toBe(0);
   });
 
@@ -571,7 +571,7 @@ describe('the talents (docs/phase-5e.md, Bonds)', () => {
     addStatus(w, foe, 'stun', 1e6, null);
     expect(summonDamage(w, s!, 26).amount).toBeCloseTo(26, 9);
     stepFor(sim, 60 * 21);
-    expect(s!.health!.maxHp).toBeCloseTo(570, 6);
+    expect(s!.health!.maxHp).toBeCloseTo(684, 6);
     expect(summonDamage(w, s!, 26).amount).toBeCloseTo(39, 9);
   });
 

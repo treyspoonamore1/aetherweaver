@@ -151,7 +151,7 @@ describe('the new content (docs/phase-5e.md)', () => {
       maxHp: 900,
       dodge: 0.45,
       formation: { forward: 2, right: -1.9 },
-      attack: { kind: 'melee', damage: 60, interval: 0.75, range: 2.2 },
+      attack: { kind: 'melee', damage: 72, interval: 0.75, range: 2.2 },
       solo: { id: 'thousandCuts', pulse: 0.5, reach: 10, extendCap: 4 },
       quirk: { id: 'showboat', leash: 12, seconds: 8 },
       call: { ability: 0, answer: 'ward', flourish: { name: 'Flèche', damageMult: 1.6 } },
@@ -166,7 +166,7 @@ describe('the new content (docs/phase-5e.md)', () => {
       solo: { id: 'wildgrowth', radius: 7, pulse: 1, cuedPower: 6 },
       quirk: { id: 'gentle', retreat: 4 },
       call: { ability: 0, answer: 'chime', flourish: { name: 'Spring Rain', soloCharge: 20 } },
-      summons: { sapling: { count: 2, maxHp: 380, front: { forward: 5, spread: 2.5 } } },
+      summons: { sapling: { count: 2, maxHp: 456, front: { forward: 4, spread: 2.5 } } },
       recruit: { event: 'loose_thread', fallback: 'the_seamstress', rank: 12 },
     });
     // Brann's two hard-coded lines are content now, unchanged.

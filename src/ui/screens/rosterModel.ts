@@ -318,7 +318,7 @@ export function needsRow(def: HeroDef): string | null {
 }
 
 /**
- * Oro's Saplings on Prep's card (docs/phase-5e.md): "2 Saplings · 380 life · take your songs ·
+ * Oro's Saplings on Prep's card (docs/phase-5e.md): "2 Saplings · 456 life · take your songs ·
  * bosses ignore them", from his `summons`. Null for a hero without summons.
  */
 export function summonsRow(def: HeroDef): string | null {

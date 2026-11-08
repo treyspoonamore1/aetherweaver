@@ -414,7 +414,7 @@ export const HEROES: ContentInput['heroes'] = [
     radius: 0.55,
     height: 1.95,
     formation: { forward: 2.0, right: -1.9 },
-    attack: { kind: 'melee', damage: 60, interval: 0.75, range: 2.2, projectileSpeed: 0, chain: 0 },
+    attack: { kind: 'melee', damage: 72, interval: 0.75, range: 2.2, projectileSpeed: 0, chain: 0 },
     preferredRange: 1.2,
     threatMult: 1,
     dodge: 0.45,
@@ -613,14 +613,14 @@ export const HEROES: ContentInput['heroes'] = [
     summons: {
       sapling: {
         count: 2,
-        maxHp: 380,
+        maxHp: 456,
         armor: 0.2,
         radius: 0.55,
         attack: { damage: 26, interval: 1.1, range: 2 },
-        taunt: { radius: 3.5, every: 5, seconds: 2.5 },
+        taunt: { radius: 3.5, every: 4, seconds: 2.5 },
         respawn: 12,
         tendedBonus: 0.5,
-        front: { forward: 5, spread: 2.5 },
+        front: { forward: 4, spread: 2.5 },
       },
       ancient: {
         maxHp: 2000,

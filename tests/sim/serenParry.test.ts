@@ -52,8 +52,8 @@ describe('Parry: a Ward on Seren negates the next melee blow aimed at her', () =
     const counter = ofType(next, 'parryCountered');
     expect(counter).toHaveLength(1);
     expect(counter[0]!.target).toBe(brute.id);
-    // 3 × her 60, with no auras: 180, or a crit of it.
-    expect([180, 180 * 1.6].some((v) => Math.abs(counter[0]!.amount - v) < 1e-6)).toBe(true);
+    // 3 × her 72, with no auras: 216, or a crit of it.
+    expect([216, 216 * 1.6].some((v) => Math.abs(counter[0]!.amount - v) < 1e-6)).toBe(true);
     expect(s.seren.hero!.duel!.counterDamage).toBeCloseTo(counter[0]!.amount, 9);
     expect(s.w.ledger.duel!.wardsDealt).toBeCloseTo(counter[0]!.amount, 9);
     expect(parried[0]!.tick + 1).toBe(counter[0]!.tick);
@@ -337,7 +337,7 @@ describe('Kill shot (Q5): a Perfect Ward on a blow aimed at her', () => {
     duelTick(s.w, s.seren, SEREN, DT);
     return ofType(s.sim.drainEvents(), 'killShot')[0]!;
   }
-  const sixfold = (amount: number) => [360, 360 * 1.6].some((v) => Math.abs(amount - v) < 1e-6);
+  const sixfold = (amount: number) => [432, 432 * 1.6].some((v) => Math.abs(amount - v) < 1e-6);
 
   it('an elite at 50% is executed; at 80% it takes 6×', () => {
     const s = setup(['lyra', 'vexis', 'seren']);
