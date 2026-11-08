@@ -33,7 +33,13 @@ import {
   type WorldState,
 } from '../sim';
 import { BUS_NAMES, busTrim, Voice, type BusName, type Engine, type VoiceHandle } from './engine';
-import { leitmotifCanon, motifNote, type MusicEngine } from './music';
+import {
+  bladeStringNote,
+  hollowWoodNote,
+  leitmotifCanon,
+  motifNote,
+  type MusicEngine,
+} from './music';
 import {
   anvil,
   bowed,
@@ -120,6 +126,23 @@ export const TALENT_SOUND_GROUPS: Readonly<Record<string, string>> = {
   blood_oath: 'talent:bloodOath',
   deathless: 'talent:deathless',
   berserkers_hymn: 'talent:hymn',
+  // Phase 5e, Seren (docs/phase-5e.md): her struck string and steel on F, C and A; never Kael's
+  // `talent:riposte` (Riposte Bash is his, and Riposte Chain is not a Riposte Bash).
+  riposte_chain: 'talent:riposteChain',
+  cold_focus: 'talent:coldFocus',
+  bladesong: 'talent:bladesong',
+  unflinching: 'talent:unflinching',
+  thousandfold: 'talent:thousandfold',
+  duellists_honour: 'talent:honour',
+  blade_waltz: 'talent:bladeWaltz',
+  // Phase 5e, Oro: hollow wood, a dark pluck and the breath of leaves, on G and its D.
+  taproot: 'talent:taproot',
+  thorned_bark: 'talent:thornedBark',
+  grove_chorus: 'talent:groveChorus',
+  old_growth: 'talent:oldGrowth',
+  world_tree: 'talent:worldTree',
+  seedling_swarm: 'talent:seedlingSwarm',
+  homecoming: 'talent:homecoming',
 };
 
 /** Phase 4e: each talent sound's rate gate (seconds) and voice cap. */
@@ -142,6 +165,22 @@ export const TALENT_SOUND_LIMITS: Readonly<Record<string, readonly [number, numb
   blood_oath: [0.3, 2],
   deathless: [1, 1],
   berserkers_hymn: [1, 1],
+  riposte_chain: [0.25, 2],
+  cold_focus: [1, 1],
+  bladesong: [0.15, 2],
+  unflinching: [0.5, 1],
+  thousandfold: [0.6, 1],
+  duellists_honour: [0.5, 1],
+  // Blade Waltz parries every melee blow at her for 5 s: light and tightly gated.
+  blade_waltz: [0.12, 3],
+  taproot: [0.5, 2],
+  // Thorned Bark answers every blow on a Sapling: light and tightly gated.
+  thorned_bark: [0.12, 3],
+  grove_chorus: [1, 1],
+  old_growth: [0.5, 2],
+  world_tree: [1, 1],
+  seedling_swarm: [1, 1],
+  homecoming: [0.5, 2],
 };
 
 /**
@@ -153,6 +192,9 @@ export const ALT_SOLO_SOUND_GROUPS: Readonly<Record<string, string>> = {
   hawks_vigil: 'altSolo:vigil',
   celestial_sphere: 'altSolo:sphere',
   blood_brother: 'altSolo:bloodBrother',
+  // Phase 5e: Seren's Blade Waltz and Oro's Homecoming.
+  blade_waltz: 'altSolo:bladeWaltz',
+  homecoming: 'altSolo:homecoming',
 };
 
 /**
@@ -267,6 +309,74 @@ export const BRANN_SOUND_LIMITS: Readonly<Record<BrannGroup, readonly [number, n
   tithe: [0.2, 2],
   silk: [0.8, 1],
   drum: [0, 2],
+};
+
+/**
+ * Phase 5e, Seren (docs/phase-5e.md, "Audio"): the voice group of each of her kit's sounds, all in
+ * her voice (a struck high string and steel, on F, A and C). `parry`: a blow turned aside
+ * (`parried`). `counter`: her answer to it (`parryCountered`). `killShot`: a Perfect Ward's kill
+ * (`killShot`), under the Perfect's chord; lost, a muted pluck. `lunge`, `feint`, `cutsBlink`: her
+ * `attackFired` 'lunge', 'feint' and 'blink'. `cutsExtend`: a kill in her Cued Thousand Cuts
+ * (another cut bought). `showboat`: a duel chosen (`duelChosen`). None of these can sound without
+ * Seren in the party: only she emits them.
+ */
+export const SEREN_SOUND_GROUPS = {
+  parry: 'seren:parry',
+  counter: 'seren:counter',
+  killShot: 'seren:killShot',
+  lunge: 'seren:lunge',
+  feint: 'seren:feint',
+  cutsBlink: 'seren:cutsBlink',
+  cutsExtend: 'seren:cutsExtend',
+  showboat: 'seren:showboat',
+} as const;
+export type SerenGroup = keyof typeof SEREN_SOUND_GROUPS;
+
+/** Phase 5e: each of Seren's sounds' rate gate (seconds) and voice cap. */
+export const SEREN_SOUND_LIMITS: Readonly<Record<SerenGroup, readonly [number, number]>> = {
+  parry: [0.15, 2],
+  counter: [0.12, 2],
+  killShot: [0.2, 1],
+  lunge: [0.3, 1],
+  feint: [0.4, 1],
+  cutsBlink: [0.08, 3],
+  cutsExtend: [0.2, 2],
+  showboat: [1, 1],
+};
+
+/**
+ * Phase 5e, Oro: the voice group of each of his grove's sounds, in his voice (hollow wood, a dark
+ * pluck, leaves' breath, on G and D). `sprout`: a Sapling planted or re-sprouted
+ * (`summonSpawned` 'sapling'). `saplingHurt`: a blow on a Sapling (heavily gated). `saplingFell`:
+ * one felled (`summonFell` 'sapling'). `rootbond`: your Thread's Mend (or a grove heal) reaching
+ * them (`healApplied` via 'grove', gated). `burrow`: a Rally re-planting them (their
+ * `burrowUntil`, read from the state). `wildgrowth`: the ground's warning (its `soloStarted`), the
+ * Ancient rising and withering (`summonSpawned` / `summonFell` 'ancient'). `ancientRoot`: enemies
+ * rooted (`rooted`), deeper while the Ancient stands. `gentle`: he refused to raise a hand
+ * (`gentleRefused`). None of these can sound without Oro in the party.
+ */
+export const ORO_SOUND_GROUPS = {
+  sprout: 'oro:sprout',
+  saplingHurt: 'oro:saplingHurt',
+  saplingFell: 'oro:saplingFell',
+  rootbond: 'oro:rootbond',
+  burrow: 'oro:burrow',
+  wildgrowth: 'oro:wildgrowth',
+  ancientRoot: 'oro:ancientRoot',
+  gentle: 'oro:gentle',
+} as const;
+export type OroGroup = keyof typeof ORO_SOUND_GROUPS;
+
+/** Phase 5e: each of Oro's sounds' rate gate (seconds) and voice cap. */
+export const ORO_SOUND_LIMITS: Readonly<Record<OroGroup, readonly [number, number]>> = {
+  sprout: [0.15, 2],
+  saplingHurt: [0.6, 1],
+  saplingFell: [0.3, 2],
+  rootbond: [0.6, 1],
+  burrow: [0.3, 2],
+  wildgrowth: [0.5, 2],
+  ancientRoot: [0.3, 1],
+  gentle: [2, 1],
 };
 
 /** Blood and Silk counts while Brann is under this share of his life (its text: 30%). */
@@ -721,6 +831,8 @@ export class SfxEngine {
   private readonly frenzy = new Map<number, VoiceHandle>();
   private readonly bloodClear = new Map<number, number>();
   private silkAt = -1;
+  /** Phase 5e: each Sapling's last `burrowUntil` heard (a Rally re-plant burrows it once). */
+  private readonly burrowSeen = new Map<number, number>();
   private batchShare = false;
   /**
    * Phase 5a: each hero's bleed stacks as the events told them (a cleanse's release counts what
@@ -908,6 +1020,8 @@ export class SfxEngine {
         else if (ev.via === 'self') this.selfHeal(ev.amount);
         // Phase 5b: Brann's axe drinking (never the Weaver's Blood Font).
         else if (ev.via === 'lifesteal') this.lifesteal(ev.target, state);
+        // Phase 5e: Oro's grove healed (Rootbond's Mend reaching his Saplings, or a grove heal).
+        else if (ev.via === 'grove') this.rootbond(ev.target, state);
         // Phase 3e: via 'rewind' is the life Rewind gave back; its own sound (on `rewound`)
         // carries it, so it has none here.
         break;
@@ -961,6 +1075,9 @@ export class SfxEngine {
         // Phase 5a: an attack that moves its caster (Impaling Charge, Impale, Pounce).
         else if (ev.visual === 'charge' || ev.visual === 'leap') this.attackMoved(ev, state);
         else if (ev.visual === 'cleave') this.frenzyHit(ev, state);
+        // Phase 5e: Seren's Lunge, Feint and Thousand Cuts' blinks (only she fires these).
+        else if (ev.visual === 'lunge' || ev.visual === 'feint' || ev.visual === 'blink')
+          this.serenMove(ev, state);
         break;
       case 'save':
         // Phase 5d: in the Grand Silence only a Reel-save is heard (a note).
@@ -1057,6 +1174,8 @@ export class SfxEngine {
         this.altSolo(ev.solo, ev.hero, ev.cued, state);
         // Phase 5b: Red Frenzy whirls for as long as it lasts.
         if (ev.solo === 'redFrenzy') this.frenzyStart(ev.hero, ev.duration, ev.cued, state);
+        // Phase 5e: Wildgrowth's ground warning, before the Ancient rises.
+        else if (ev.solo === 'wildgrowth') this.wildgrowthWarn(ev.hero, ev.cued, state);
         break;
       case 'soloEnded':
         this.frenzyEnd(ev.hero, 0.25);
@@ -1069,6 +1188,33 @@ export class SfxEngine {
         break;
       case 'lifeSpent':
         this.bloodletting(ev.hero, state);
+        break;
+      // ── Phase 5e: Seren and Oro (only a party with them emits these) ──
+      case 'parried':
+        this.parried(ev.hero, state);
+        break;
+      case 'parryCountered':
+        this.parryCounter(ev.hero, ev.target, state);
+        break;
+      case 'killShot':
+        this.killShot(ev, state);
+        break;
+      case 'duelChosen':
+        this.showboat(ev.hero, ev.target, state);
+        break;
+      case 'summonSpawned':
+        if (ev.kind === 'ancient') this.ancientRose(ev.summon, state);
+        else this.sprout(ev.summon, state);
+        break;
+      case 'summonFell':
+        if (ev.kind === 'ancient') this.ancientWithered(ev.summon, state);
+        else this.saplingFell(ev.summon, state);
+        break;
+      case 'gentleRefused':
+        this.gentleRefused(ev.hero, state);
+        break;
+      case 'rooted':
+        this.rootedSound(ev.target, state);
         break;
       case 'soloReady':
         if (this.e.gate(`ready:${ev.hero}`, 1)) {
@@ -1121,6 +1267,8 @@ export class SfxEngine {
         // Phase 5d: the Silent Conductor's fall makes the victory the run's last.
         if (ev.defId === CONDUCTOR) this.conductorFell = true;
         this.kill(ev.defId, ev.enemy, ev.x, state);
+        // Phase 5e: a kill in Seren's Cued Thousand Cuts buys another cut.
+        if (ev.killer !== null) this.cutsExtend(ev.killer, ev.x, state);
         break;
       case 'enemyRose':
         // Phase 4d, Restless Dead: struck down, it rises again (once).
@@ -1134,6 +1282,8 @@ export class SfxEngine {
         if (ev.radiance > 0) this.radiance(ev, state);
         // Phase 4: a Ward that holds a hit that would have broken it rings in the hit's place.
         if (!this.haloHeld(ev, state)) this.heroHit(ev, state);
+        // Phase 5e: a blow on one of Oro's Saplings (a summon: never a hero's hit or heartbeat).
+        this.saplingHurt(ev, state);
         break;
       case 'dawnward':
         this.dawnward(ev.hero, ev.amount, state);
@@ -1552,6 +1702,12 @@ export class SfxEngine {
       bowed(v, at, hz, dur + 0.25, g * 1.1, 0.03, 0.45);
       thump(v, at, hz, g * 0.9, 0.2, 0.7);
       pluck(v, at, hz * 2, g * 0.25, 0.28, 0.4);
+    } else if (voice === 'bladeString') {
+      // Phase 5e, Seren: a high string struck bright, a ping of steel over it. Never glass.
+      bladeStringNote(v, at, hz, dur, g);
+    } else if (voice === 'hollowWood') {
+      // Phase 5e, Oro: a hollow knock, a dark pluck and a breath through the wood.
+      hollowWoodNote(v, at, hz, dur, g);
     } else {
       glassNote(v, at, hz, g * 0.7, dur + 0.6, 0.85);
       pluck(v, at, hz * 2, g * 0.18, 0.3, 0.9);
@@ -2058,7 +2214,11 @@ export class SfxEngine {
           ? 'heartseeker'
           : lower.includes('red comet') || defId === 'brann'
             ? 'redComet'
-            : 'starbolt';
+            : lower.includes('flèche') || lower.includes('fleche') || defId === 'seren'
+              ? 'fleche'
+              : lower.includes('spring rain') || defId === 'oro'
+                ? 'springRain'
+                : 'starbolt';
     e.duck('music', { depth: 0.62, hold: 0.22, release: 0.7 });
     const c = this.chord();
     this.play(
@@ -2101,6 +2261,38 @@ export class SfxEngine {
           bowed(v, t + 0.3, tone(-10), 1.1, 0.12, 0.02, 0.8);
           bowed(v, t + 0.32, tone(-6), 0.9, 0.07, 0.02, 0.7);
           handbell(v, t + 0.32, midiToHz(low + 19), 0.06, 1.6, 0.25);
+        } else if (kind === 'fleche') {
+          // Phase 5e, Seren's Flèche: the running thrust. Air torn through, the blade's hiss, her
+          // F5 and C6 struck as it lands, the chord's root rung high on the steel, a stun's knock.
+          const hi = this.rootAbove(c, 74);
+          whoosh(v, t, 0.22, 0.09, 600, 5200, 1.6);
+          whoosh(v, t + 0.02, 0.16, 0.05, 1800, 6000, 2.5);
+          bladeStringNote(v, t + 0.18, tone(9), 0.5, 0.2);
+          bladeStringNote(v, t + 0.22, tone(13), 0.7, 0.16);
+          handbell(v, t + 0.2, midiToHz(hi + 12), 0.05, 1.4, 0.9);
+          thump(v, t + 0.2, tone(-12), 0.16, 0.25, 0.6);
+        } else if (kind === 'springRain') {
+          // Phase 5e, Oro's Spring Rain: rain on leaves (a patter of soft drops, in key), his G3
+          // and D4 knocked on hollow wood, and the chord's root swelling up warm under them.
+          const low = this.rootAbove(c, 43);
+          const drops = chordNotesInRange(c, 79, 96);
+          for (let i = 0; i < 9; i++) {
+            const m = drops[(i * 3) % Math.max(1, drops.length)] ?? 84;
+            pluck(v, t + 0.04 + i * 0.07, midiToHz(m), 0.035, 0.12, 0.7);
+          }
+          v.noise({
+            pink: true,
+            start: t,
+            dur: 0.6,
+            attack: 0.1,
+            release: 0.5,
+            gain: 0.04,
+            shape: 'sustain',
+            filter: { type: 'bandpass', freq: 3400, q: 0.8 },
+          });
+          hollowWoodNote(v, t + 0.05, tone(-4), 0.8, 0.22);
+          hollowWoodNote(v, t + 0.2, tone(0), 1.0, 0.16);
+          bowed(v, t + 0.05, midiToHz(low), 1.4, 0.06, 0.35, 0.9);
         } else {
           // A bell and a shimmer, as the star is tuned.
           const root = this.rootAbove(c, 72);
@@ -3000,6 +3192,228 @@ export class SfxEngine {
           { pan: at(heroX) },
         );
         break;
+      // ── Phase 5e: Seren's (her struck string and steel, on F, A and C) ──
+      case 'riposte_chain':
+        // Her Ward holds for a second parry: two quick strikes on the steel, C6 then F6.
+        this.play(
+          group,
+          cap,
+          'sfx',
+          (v, t) => {
+            bladeStringNote(v, t, tone(13), 0.2, 0.07);
+            bladeStringNote(v, t + 0.09, tone(16), 0.3, 0.06);
+            v.noise({ start: t, dur: 0.02, gain: 0.03, filter: { type: 'highpass', freq: 5000 } });
+          },
+          { pan: at(heroX) },
+        );
+        break;
+      case 'cold_focus':
+        // She takes your Focus for her duel: a cool, still A5 drawn on the string, F5 under it.
+        this.play(
+          group,
+          cap,
+          'sfx',
+          (v, t) => {
+            pluck(v, t, tone(9), 0.04, 0.4, 0.4);
+            v.osc({
+              type: 'triangle',
+              freq: tone(11),
+              start: t + 0.05,
+              dur: 0.45,
+              attack: 0.12,
+              release: 0.2,
+              gain: 0.03,
+              shape: 'sustain',
+              filter: { type: 'lowpass', freq: 2400, q: 0.7 },
+            });
+          },
+          { pan: at(ev.x) },
+        );
+        break;
+      case 'bladesong':
+        // Her counter sings round her: a ring of three quick cuts (F5 A5 C6) on a swirl of air.
+        this.play(
+          group,
+          cap,
+          'sfx',
+          (v, t) => {
+            whoosh(v, t, 0.24, 0.04, 1800, 4200, 1.4);
+            [9, 11, 13].forEach((idx, i) =>
+              bladeStringNote(v, t + i * 0.05, tone(idx), 0.18, 0.05),
+            );
+          },
+          { pan: at(heroX) },
+        );
+        break;
+      case 'unflinching':
+        // Warded, she doesn't stagger: a firm F4 struck and held, a knock on F2 under it.
+        this.play(
+          group,
+          cap,
+          'sfx',
+          (v, t) => {
+            bladeStringNote(v, t, tone(2), 0.6, 0.08);
+            thump(v, t, tone(-12), 0.12, 0.2, 0.8);
+            pluck(v, t + 0.08, tone(6), 0.04, 0.5, 0.5);
+          },
+          { pan: at(heroX) },
+        );
+        break;
+      case 'thousandfold':
+        // Twelve cuts, not eight: a flurry of steel up the scale, F5 to F6.
+        this.play(
+          group,
+          cap,
+          'sfx',
+          (v, t) => {
+            [9, 10, 11, 12, 13, 14, 16].forEach((idx, i) =>
+              pluck(v, t + i * 0.035, tone(idx), 0.035, 0.12, 1),
+            );
+            whoosh(v, t, 0.25, 0.03, 1800, 6000, 2.5);
+          },
+          { pan: at(heroX) },
+        );
+        break;
+      case 'duellists_honour':
+        // A kill shot readies your Ward: her F5 and C6 struck, answered by the Ward's own glass on
+        // D6.
+        this.play(
+          group,
+          cap,
+          'sfx',
+          (v, t) => {
+            pluck(v, t, tone(9), 0.04, 0.2, 0.8);
+            bladeStringNote(v, t + 0.04, tone(13), 0.3, 0.07);
+            glassNote(v, t + 0.12, tone(14), 0.03, 0.9, 0.8);
+          },
+          { pan: at(heroX) },
+        );
+        break;
+      case 'blade_waltz':
+        // Blade Waltz turns a blow aside, Ward or not: a light clash on F5 (frequent: two sources).
+        this.play(
+          group,
+          cap,
+          'sfx',
+          (v, t) => {
+            pluck(v, t, tone(9), 0.04, 0.12, 1);
+            v.noise({
+              start: t,
+              dur: 0.015,
+              gain: 0.025,
+              filter: { type: 'highpass', freq: 4800 },
+            });
+          },
+          { pan: at(heroX) },
+        );
+        break;
+      // ── Phase 5e: Oro's (hollow wood, a dark pluck and leaves, on G and D) ──
+      case 'taproot':
+        // A Sapling roots deep and comes back sooner: a low G2 knock and the root's slow pluck.
+        this.play(
+          group,
+          cap,
+          'sfx',
+          (v, t) => {
+            hollowWoodNote(v, t, tone(-11), 0.4, 0.09);
+            pluck(v, t + 0.12, tone(-7), 0.04, 0.6, 0.1);
+          },
+          { pan: at(ev.x) },
+        );
+        break;
+      case 'thorned_bark':
+        // The bark bites back: a short scratch and a dry G3 tock (frequent: two sources).
+        this.play(
+          group,
+          cap,
+          'sfx',
+          (v, t) => {
+            v.noise({
+              start: t,
+              dur: 0.03,
+              gain: 0.03,
+              filter: { type: 'bandpass', freq: 2600, q: 3 },
+            });
+            pluck(v, t, tone(-4), 0.04, 0.08, 0.3);
+          },
+          { pan: at(ev.x) },
+        );
+        break;
+      case 'grove_chorus':
+        // Both Saplings in your field: the grove sings with you, G3 B3 D4 knocked together.
+        this.play(
+          group,
+          cap,
+          'sfx',
+          (v, t) => {
+            [-4, -2, 0].forEach((idx, i) => hollowWoodNote(v, t + i * 0.03, tone(idx), 0.5, 0.05));
+            whoosh(v, t, 0.5, 0.012, 800, 2400, 1);
+          },
+          { pan: at(heroX) },
+        );
+        break;
+      case 'old_growth':
+        // A Sapling grows old: a deeper knock (G2), a creak, its D3 held a moment.
+        this.play(
+          group,
+          cap,
+          'sfx',
+          (v, t) => {
+            hollowWoodNote(v, t, tone(-11), 0.2, 0.08);
+            hollowWoodNote(v, t + 0.14, tone(-7), 0.7, 0.07);
+            v.noise({
+              start: t + 0.05,
+              dur: 0.1,
+              gain: 0.02,
+              filter: { type: 'bandpass', freq: 400, q: 4 },
+            });
+          },
+          { pan: at(ev.x) },
+        );
+        break;
+      case 'world_tree': {
+        // The Ancient roots again as it falls: a great G1 knock, its D2 and G2 spreading out.
+        e.duck('music', { depth: 0.7, hold: 0.2, release: 0.7 });
+        this.play(
+          group,
+          cap,
+          'sfx',
+          (v, t) => {
+            thump(v, t, tone(-18), 0.2, 0.5, 0.6);
+            hollowWoodNote(v, t + 0.05, tone(-14), 0.9, 0.12);
+            hollowWoodNote(v, t + 0.12, tone(-11), 1.0, 0.09);
+          },
+          { pan: at(ev.x) },
+        );
+        break;
+      }
+      case 'seedling_swarm':
+        // A third Sapling: three small knocks up the chord (D4 G4 B4), a breath of leaves.
+        this.play(
+          group,
+          cap,
+          'sfx',
+          (v, t) => {
+            [0, 3, 5].forEach((idx, i) => hollowWoodNote(v, t + i * 0.09, tone(idx), 0.18, 0.05));
+            whoosh(v, t + 0.1, 0.3, 0.01, 1000, 2800, 1);
+          },
+          { pan: at(heroX) },
+        );
+        break;
+      case 'homecoming':
+        // Every Sapling home at your front: a warm G3 and D4 knocked, a shimmer of leaves.
+        this.play(
+          group,
+          cap,
+          'sfx',
+          (v, t) => {
+            hollowWoodNote(v, t, tone(-4), 0.4, 0.07);
+            hollowWoodNote(v, t + 0.07, tone(0), 0.5, 0.06);
+            pluck(v, t + 0.15, tone(7), 0.03, 0.4, 0.4);
+          },
+          { pan: at(ev.x) },
+        );
+        break;
       case 'celestial_sphere': {
         // The sphere swallows a hit: a glass pop on B5. Its last breaks it: a fuller shatter, the
         // pop falling through F5 to B4.
@@ -3128,6 +3542,48 @@ export class SfxEngine {
             pluck(v, t + 0.15, tone(-3), 0.06 * k, 0.4, 0.5);
             pluck(v, t + 0.3, tone(1), 0.05 * k, 0.5, 0.6);
             whoosh(v, t + 0.1, 0.4, 0.014 * k, 400, 1600, 1);
+          },
+          { pan },
+        );
+        break;
+      case 'blade_waltz':
+        // Phase 5e, Blade Waltz: she needs no Ward for once. Her blade drawn and spun in salute
+        // (a swish), her F4 A4 C5 struck in waltz time, the last held on the steel.
+        this.play(
+          group,
+          1,
+          'sfx',
+          (v, t) => {
+            whoosh(v, t, 0.3, 0.02 * k, 900, 3600, 1.2);
+            bladeStringNote(v, t + 0.1, tone(2), 0.2, 0.08 * k);
+            bladeStringNote(v, t + 0.3, tone(4), 0.2, 0.07 * k);
+            bladeStringNote(v, t + 0.5, tone(6), 0.6, 0.08 * k);
+          },
+          { pan },
+        );
+        break;
+      case 'homecoming':
+        // Phase 5e, Homecoming: his Saplings called home to your front. The earth opening (a low
+        // breath), his G3 B3 D4 knocked rising, and a soft G4 over them as they stand.
+        this.play(
+          group,
+          1,
+          'sfx',
+          (v, t) => {
+            v.noise({
+              pink: true,
+              start: t,
+              dur: 0.4,
+              attack: 0.08,
+              release: 0.3,
+              gain: 0.03 * k,
+              shape: 'sustain',
+              filter: { type: 'lowpass', freq: 500 },
+            });
+            [-4, -2, 0].forEach((idx, i) =>
+              hollowWoodNote(v, t + 0.15 + i * 0.16, tone(idx), 0.4, 0.08 * k),
+            );
+            pluck(v, t + 0.6, tone(3), 0.04 * k, 0.6, 0.3);
           },
           { pan },
         );
@@ -4788,7 +5244,11 @@ export class SfxEngine {
             ? 98
             : defId === 'brann'
               ? 82.4
-              : 110;
+              : defId === 'seren'
+                ? 130.8
+                : defId === 'oro'
+                  ? 87.3
+                  : 110;
     const gain = (0.05 + 0.2 * Math.min(1, frac * 4)) * (ev.hit === 'tick' ? 0.5 : 1);
     this.play(
       'hit',
@@ -7364,6 +7824,8 @@ export class SfxEngine {
     }
     // Phase 5b: Blood and Silk's tick while it makes Resonance.
     this.followSilk(state, now);
+    // Phase 5e: Oro's Saplings burrowing on a Rally (only a party with him has a grove).
+    this.followGrove(state);
     // Phase 5d: the Grand Silence and Discord's swell, as the state has them (or as their events
     // told them, in the lab). Never set outside the Finale.
     this.followFinale(state, bossPhase);
@@ -7510,6 +7972,30 @@ export class SfxEngine {
             release: 0.12,
             gain: g * 0.08 * k,
             shape: 'sustain',
+          });
+        } else if (defId === 'seren') {
+          // Phase 5e: Seren's, a light tick, steel on steel (a clicked F5 over a small knock).
+          clockTick(v, at, tone(9), g * 0.7 * k, 0.04);
+          thump(v, at, tone(-5), g * 0.6 * k, 0.07, 0.7);
+        } else if (defId === 'oro') {
+          // Phase 5e: Oro's, a wooden knock (a hollow G2 struck, its octave in the grain).
+          v.osc({
+            type: 'triangle',
+            freq: 98,
+            freqTo: 82,
+            glide: 0.12,
+            start: at,
+            dur: 0.13,
+            attack: 0.003,
+            release: 0.05,
+            gain: g * 1.1 * k,
+            filter: { type: 'lowpass', freq: 520, q: 1.2 },
+          });
+          v.noise({
+            start: at,
+            dur: 0.03,
+            gain: g * 0.3 * k,
+            filter: { type: 'bandpass', freq: 620, q: 3 },
           });
         } else {
           thump(v, at, 62, g * 1.5 * k, 0.17, 0.7);
@@ -7787,6 +8273,439 @@ export class SfxEngine {
     );
   }
 
+  // ── Phase 5e: Seren, the Riposte ─────────────────────────────────────────────────
+  // Her voice is a struck high string and steel, on her F with its A and C: quick, bright and
+  // dry, above Lyra's and under Vexis's glass. Never glass, never Kael's Riposte Bash clang.
+
+  /** One of Seren's sounds, through its group's gate (`key`: per hero, when given) and cap. */
+  private seren(
+    group: SerenGroup,
+    build: (v: Voice, t: number) => void,
+    opts: PlayOpts = {},
+    key: string = SEREN_SOUND_GROUPS[group],
+  ): VoiceHandle | null {
+    const [gate, cap] = SEREN_SOUND_LIMITS[group];
+    if (gate > 0 && !this.e.gate(key, gate)) return null;
+    return this.play(SEREN_SOUND_GROUPS[group], cap, 'sfx', build, opts);
+  }
+
+  /** A parry (`parried`): steel meeting steel and turning aside, her C6 rung and an F5 under it. */
+  private parried(hero: number, state: WorldState): void {
+    this.seren(
+      'parry',
+      (v, t) => {
+        v.noise({
+          start: t,
+          dur: 0.035,
+          gain: 0.07,
+          filter: { type: 'bandpass', freq: 4200, q: 2 },
+        });
+        bladeStringNote(v, t, tone(13), 0.35, 0.11);
+        pluck(v, t + 0.01, tone(9), 0.05, 0.25, 0.8);
+        thump(v, t, tone(-5), 0.06, 0.08, 0.7);
+      },
+      { pan: state.entities ? this.heroPan(state, hero) : 0 },
+    );
+  }
+
+  /** Her counter (`parryCountered`): the answering cut a beat later, a slash and A5 up to C6. */
+  private parryCounter(hero: number, target: number, state: WorldState): void {
+    const x = state.entities?.get(target)?.x ?? state.entities?.get(hero)?.x ?? 0;
+    this.seren(
+      'counter',
+      (v, start) => {
+        const t = start + 0.06;
+        whoosh(v, t, 0.12, 0.05, 1400, 5200, 1.6);
+        pluck(v, t + 0.06, tone(11), 0.07, 0.2, 1);
+        bladeStringNote(v, t + 0.1, tone(13), 0.3, 0.08);
+        thump(v, t + 0.1, tone(-9), 0.08, 0.1, 0.6);
+      },
+      { pan: state.entities ? this.panFor(state, x) : 0 },
+    );
+  }
+
+  /**
+   * A kill shot (`killShot`), a tick after the Perfect Ward and under its chord: the leap's rush,
+   * her F6 and C7 struck on the steel and, executed, the ground's knock as it falls; a heavy foe
+   * struck for six times takes a heavier knock and no fall. Lost (she was stilled, or the silence
+   * held), only a muted pluck: the chance that went by.
+   */
+  private killShot(ev: Extract<SimEvent, { type: 'killShot' }>, state: WorldState): void {
+    const x = state.entities?.get(ev.target)?.x ?? state.entities?.get(ev.hero)?.x ?? 0;
+    const pan = state.entities ? this.panFor(state, x) : 0;
+    if (ev.lost !== undefined) {
+      this.seren(
+        'killShot',
+        (v, t) =>
+          v.osc({
+            type: 'triangle',
+            freq: tone(9),
+            start: t,
+            dur: 0.12,
+            attack: 0.004,
+            release: 0.06,
+            gain: 0.035,
+            filter: { type: 'lowpass', freq: 900, q: 0.5 },
+          }),
+        { pan },
+      );
+      return;
+    }
+    this.seren(
+      'killShot',
+      (v, start) => {
+        const t = start + 0.08;
+        whoosh(v, t, 0.16, 0.05, 900, 4800, 1.5);
+        bladeStringNote(v, t + 0.12, tone(16), 0.45, 0.1);
+        bladeStringNote(v, t + 0.15, tone(20), 0.6, 0.07);
+        if (ev.executed) {
+          thump(v, t + 0.14, tone(-12), 0.14, 0.3, 0.5);
+          v.noise({
+            start: t + 0.16,
+            dur: 0.14,
+            gain: 0.04,
+            filter: { type: 'lowpass', freq: 700, freqTo: 200 },
+          });
+        } else thump(v, t + 0.12, tone(-9), 0.18, 0.2, 0.6);
+      },
+      { pan },
+    );
+  }
+
+  /** Lunge, Feint and a Thousand Cuts blink (`attackFired`, hers alone). */
+  private serenMove(ev: Extract<SimEvent, { type: 'attackFired' }>, state: WorldState): void {
+    const pan = this.panFor(state, (ev.fromX + ev.toX) / 2);
+    if (ev.visual === 'lunge') {
+      // The dash and the thrust: a rush of air, the blade's hiss, her F5 struck on landing.
+      const land = clamp(ev.travel, 0.06, 0.4);
+      this.seren(
+        'lunge',
+        (v, t) => {
+          whoosh(v, t, land + 0.08, 0.06, 500, 3600, 1.3);
+          whoosh(v, t + land * 0.5, 0.1, 0.04, 1800, 6000, 2.5);
+          bladeStringNote(v, t + land, tone(9), 0.3, 0.12);
+          thump(v, t + land, tone(-12), 0.1, 0.12, 0.6);
+        },
+        { pan },
+      );
+    } else if (ev.visual === 'feint') {
+      // A light step aside and a teasing flick: A4 then F5 plucked, a little whisk of air.
+      this.seren(
+        'feint',
+        (v, t) => {
+          whoosh(v, t, 0.14, 0.035, 2400, 900, 1.2);
+          pluck(v, t + 0.05, tone(4), 0.06, 0.16, 0.9);
+          bladeStringNote(v, t + 0.12, tone(9), 0.2, 0.06);
+        },
+        { pan },
+      );
+    } else {
+      // A blink: gone and there, a quick zip and a tiny strike on C6 (frequent: light).
+      this.seren(
+        'cutsBlink',
+        (v, t) => {
+          whoosh(v, t, 0.06, 0.025, 2400, 7000, 2.5);
+          pluck(v, t + 0.04, tone(13), 0.04, 0.1, 1);
+        },
+        { pan },
+      );
+    }
+  }
+
+  /** A kill in her Cued Thousand Cuts: another cut bought (a rising F5, A5, C6 on the string). */
+  private cutsExtend(killer: number, x: number, state: WorldState): void {
+    const h = state.entities?.get(killer)?.hero;
+    if (!h || h.soloId !== 'thousandCuts' || !(h.soloActive > 0) || !h.soloCued) return;
+    this.seren(
+      'cutsExtend',
+      (v, t) => {
+        [9, 11, 13].forEach((idx, i) => pluck(v, t + i * 0.04, tone(idx), 0.045, 0.16, 1));
+        glassPing(v, t + 0.1, tone(20), 0.012, 0.3);
+      },
+      { pan: state.entities ? this.panFor(state, x) : 0 },
+    );
+  }
+
+  /** Showboat (`duelChosen`): the blade raised in salute, "en garde" (F5 then C6, a swish). */
+  private showboat(hero: number, target: number, state: WorldState): void {
+    const x = state.entities?.get(target)?.x ?? state.entities?.get(hero)?.x ?? 0;
+    this.seren(
+      'showboat',
+      (v, t) => {
+        whoosh(v, t, 0.2, 0.03, 1200, 3000, 1.1);
+        bladeStringNote(v, t + 0.08, tone(9), 0.25, 0.07);
+        bladeStringNote(v, t + 0.22, tone(13), 0.4, 0.06);
+      },
+      { pan: state.entities ? this.panFor(state, x) : 0 },
+      `${SEREN_SOUND_GROUPS.showboat}:${hero}`,
+    );
+  }
+
+  // ── Phase 5e: Oro, the Grovekeeper ───────────────────────────────────────────────
+  // His voice is hollow wood, a dark pluck and the breath of leaves, on his G with its D and B:
+  // slow and warm, low but over Brann's strings. His Saplings never have a heartbeat or alert.
+
+  /** One of Oro's sounds, through its group's gate (`key`: per hero or moment, when given) and cap. */
+  private oro(
+    group: OroGroup,
+    build: (v: Voice, t: number) => void,
+    opts: PlayOpts = {},
+    key: string = ORO_SOUND_GROUPS[group],
+  ): VoiceHandle | null {
+    const [gate, cap] = ORO_SOUND_LIMITS[group];
+    if (gate > 0 && !this.e.gate(key, gate)) return null;
+    return this.play(ORO_SOUND_GROUPS[group], cap, 'sfx', build, opts);
+  }
+
+  /** Where a summon (or any entity) is, as a pan, a little narrowed. */
+  private summonPan(state: WorldState, id: number): number {
+    const x = state.entities?.get(id)?.x;
+    return x === undefined ? 0 : this.panFor(state, x) * 0.7;
+  }
+
+  /** A Sapling sprouts (planted or re-sprouted): a soft knock, D4 then G4 plucked, a leaf's breath. */
+  private sprout(summon: number, state: WorldState): void {
+    this.oro(
+      'sprout',
+      (v, t) => {
+        hollowWoodNote(v, t, tone(0), 0.25, 0.08);
+        pluck(v, t + 0.09, tone(3), 0.05, 0.3, 0.3);
+        whoosh(v, t, 0.3, 0.012, 600, 2000, 1);
+      },
+      { pan: this.summonPan(state, summon) },
+    );
+  }
+
+  /** A blow on a Sapling: a dull tock of wood on its B3 (heavily gated: they take many). */
+  private saplingHurt(ev: Extract<SimEvent, { type: 'damageTaken' }>, state: WorldState): void {
+    const s = state.entities?.get(ev.target);
+    if (!s?.summon || s.summon.kind !== 'sapling' || !(ev.amount > 0)) return;
+    this.oro(
+      'saplingHurt',
+      (v, t) => {
+        v.osc({
+          type: 'triangle',
+          freq: tone(-2),
+          start: t,
+          dur: 0.07,
+          attack: 0.002,
+          release: 0.03,
+          gain: 0.04,
+          filter: { type: 'lowpass', freq: 700, q: 1 },
+        });
+        v.noise({ start: t, dur: 0.02, gain: 0.02, filter: { type: 'bandpass', freq: 900, q: 2 } });
+      },
+      { pan: this.panFor(state, s.x) * 0.7 },
+    );
+  }
+
+  /** A Sapling felled: the wood cracks, its D4 falls to B3 and G3, leaves settle. */
+  private saplingFell(summon: number, state: WorldState): void {
+    this.oro(
+      'saplingFell',
+      (v, t) => {
+        v.noise({
+          start: t,
+          dur: 0.06,
+          gain: 0.08,
+          filter: { type: 'bandpass', freq: 1500, q: 1.5 },
+        });
+        hollowWoodNote(v, t + 0.02, tone(0), 0.2, 0.09);
+        hollowWoodNote(v, t + 0.16, tone(-2), 0.2, 0.07);
+        hollowWoodNote(v, t + 0.32, tone(-4), 0.5, 0.06);
+        whoosh(v, t + 0.1, 0.6, 0.015, 2200, 500, 0.9);
+      },
+      { pan: this.summonPan(state, summon) },
+    );
+  }
+
+  /** Rootbond (a grove heal): sap rising, a dark G3 drawn up to D4 (gated: it comes often). */
+  private rootbond(target: number, state: WorldState): void {
+    this.oro(
+      'rootbond',
+      (v, t) => {
+        v.osc({
+          type: 'sine',
+          freq: tone(-4),
+          freqTo: tone(0),
+          glide: 0.25,
+          start: t,
+          dur: 0.28,
+          attack: 0.06,
+          release: 0.14,
+          gain: 0.025,
+          shape: 'sustain',
+        });
+        pluck(v, t + 0.2, tone(3), 0.025, 0.3, 0.2);
+      },
+      { pan: this.summonPan(state, target) },
+    );
+  }
+
+  /** A Rally re-plants a Sapling: it burrows (earth pushed aside, a low G2 knock). */
+  private burrow(summon: number, state: WorldState): void {
+    this.oro(
+      'burrow',
+      (v, t) => {
+        v.noise({
+          pink: true,
+          start: t,
+          dur: 0.3,
+          attack: 0.03,
+          release: 0.2,
+          gain: 0.05,
+          shape: 'sustain',
+          filter: { type: 'lowpass', freq: 600, freqTo: 220 },
+        });
+        thump(v, t + 0.12, tone(-11), 0.12, 0.2, 0.7);
+        pluck(v, t + 0.14, tone(-4), 0.04, 0.3, 0.1);
+      },
+      { pan: this.summonPan(state, summon) },
+    );
+  }
+
+  /**
+   * The Saplings' Rally re-plant, read from the state: a Sapling whose `burrowUntil` is newly ahead
+   * burrows. Only a hero with a grove (Oro) is looked at, so it reads nothing in any other party.
+   */
+  private followGrove(state: WorldState): void {
+    const party = state.party;
+    if (!party || !state.entities) return;
+    for (const id of party) {
+      const grove = state.entities.get(id)?.hero?.grove;
+      if (!grove) continue;
+      for (const sid of grove.saplings) {
+        const until = state.entities.get(sid)?.summon?.burrowUntil;
+        if (until === undefined || !(until > state.time) || this.burrowSeen.get(sid) === until)
+          continue;
+        this.burrowSeen.set(sid, until);
+        this.burrow(sid, state);
+      }
+    }
+  }
+
+  /** Wildgrowth's ground warning (its `soloStarted`): the earth groaning, a G1 swelling up. */
+  private wildgrowthWarn(hero: number, cued: boolean, state: WorldState): void {
+    const k = cued ? 0.7 : 1;
+    this.oro(
+      'wildgrowth',
+      (v, t) => {
+        v.osc({
+          type: 'sine',
+          freq: tone(-18),
+          start: t,
+          dur: 0.9,
+          attack: 0.6,
+          release: 0.3,
+          gain: 0.07 * k,
+          shape: 'sustain',
+        });
+        v.noise({
+          pink: true,
+          start: t,
+          dur: 0.8,
+          attack: 0.5,
+          release: 0.3,
+          gain: 0.04 * k,
+          shape: 'sustain',
+          filter: { type: 'lowpass', freq: 240, freqTo: 600 },
+        });
+      },
+      { pan: state.entities ? this.heroPan(state, hero) : 0 },
+      `${ORO_SOUND_GROUPS.wildgrowth}:warn`,
+    );
+  }
+
+  /** The Ancient rises: a great hollow G2 struck, the D3 and G3 over it, the ground's slam. */
+  private ancientRose(summon: number, state: WorldState): void {
+    this.oro(
+      'wildgrowth',
+      (v, t) => {
+        hollowWoodNote(v, t, tone(-11), 0.9, 0.24);
+        hollowWoodNote(v, t + 0.08, tone(-7), 0.8, 0.14);
+        hollowWoodNote(v, t + 0.16, tone(-4), 1.0, 0.1);
+        thump(v, t, tone(-18), 0.22, 0.45, 0.5);
+        v.noise({
+          start: t,
+          dur: 0.2,
+          gain: 0.07,
+          filter: { type: 'lowpass', freq: 500, freqTo: 150 },
+        });
+      },
+      { pan: this.summonPan(state, summon), big: true },
+      `${ORO_SOUND_GROUPS.wildgrowth}:rise`,
+    );
+  }
+
+  /** The Ancient withers (its time is up, or it is felled): its G3 and D3 sinking into a breath. */
+  private ancientWithered(summon: number, state: WorldState): void {
+    this.oro(
+      'wildgrowth',
+      (v, t) => {
+        hollowWoodNote(v, t, tone(-4), 0.4, 0.08);
+        hollowWoodNote(v, t + 0.2, tone(-7), 0.7, 0.07);
+        whoosh(v, t, 0.9, 0.02, 1600, 300, 0.8);
+      },
+      { pan: this.summonPan(state, summon) },
+      `${ORO_SOUND_GROUPS.wildgrowth}:wither`,
+    );
+  }
+
+  /** Whether one of the party's Ancients stands. */
+  private ancientStands(state: WorldState): boolean {
+    for (const id of state.party ?? []) {
+      const a = state.entities?.get(id)?.hero?.grove?.ancient;
+      if (a === null || a === undefined) continue;
+      const h = state.entities.get(a)?.health;
+      if (h && !h.dead) return true;
+    }
+    return false;
+  }
+
+  /**
+   * Enemies rooted (`rooted`): roots creaking up through the ground (a dark G2 pluck and a groan
+   * of wood); deeper while the Ancient stands, with its D2 under it. One per batch.
+   */
+  private rootedSound(target: number, state: WorldState): void {
+    const deep = this.ancientStands(state);
+    const x = state.entities?.get(target)?.x;
+    this.oro(
+      'ancientRoot',
+      (v, t) => {
+        pluck(v, t, tone(-11), 0.08, 0.4, 0.1);
+        v.osc({
+          type: 'sawtooth',
+          freq: tone(-4),
+          freqTo: tone(-5),
+          glide: 0.3,
+          start: t,
+          dur: 0.3,
+          attack: 0.04,
+          release: 0.15,
+          gain: 0.02,
+          shape: 'sustain',
+          filter: { type: 'lowpass', freq: 500, q: 2 },
+        });
+        if (deep) thump(v, t, tone(-14), 0.12, 0.35, 0.6);
+      },
+      { pan: x === undefined ? 0 : this.panFor(state, x) * 0.7 },
+    );
+  }
+
+  /** Gentle (`gentleRefused`): he won't, two soft knocks falling (D4 to B3), a sigh of leaves. */
+  private gentleRefused(hero: number, state: WorldState): void {
+    this.oro(
+      'gentle',
+      (v, t) => {
+        hollowWoodNote(v, t, tone(0), 0.15, 0.05);
+        hollowWoodNote(v, t + 0.18, tone(-2), 0.3, 0.045);
+        whoosh(v, t + 0.1, 0.5, 0.01, 1400, 500, 0.8);
+      },
+      { pan: state.entities ? this.heroPan(state, hero) : 0 },
+      `${ORO_SOUND_GROUPS.gentle}:${hero}`,
+    );
+  }
+
   /** Leaving combat: silence the continuous layers. */
   stopCombat(): void {
     this.nextBeat.clear();
@@ -7824,6 +8743,8 @@ export class SfxEngine {
     for (const id of [...this.frenzy.keys()]) this.frenzyEnd(id, 0.2);
     this.bloodClear.clear();
     this.silkAt = -1;
+    // Phase 5e: the Saplings' burrows heard this fight.
+    this.burrowSeen.clear();
     this.music.releaseHold();
     // Phase 5d: the Grand Silence lets go (every held bus), and the Conductor's fight is over.
     this.stopFinale();

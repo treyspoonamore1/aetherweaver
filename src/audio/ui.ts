@@ -1,6 +1,7 @@
 /** UI sounds: subtle, short, pitched inside D dorian. They bypass the music ducker. */
 import { CONTENT } from '../content';
 import { Voice, type Engine } from './engine';
+import { bladeStringNote, hollowWoodNote } from './music';
 import {
   anvil,
   bowed,
@@ -1345,6 +1346,12 @@ function heroNote(v: Voice, voice: MotifVoice, t: number, idx: number, dur: numb
     bowed(v, t, f, dur + 0.25, g * 1.1, 0.03, 0.45);
     thump(v, t, f, g * 0.8, 0.2, 0.7);
     pluck(v, t, f * 2, g * 0.25, 0.28, 0.4);
+  } else if (voice === 'bladeString') {
+    // Seren's (Phase 5e): a high string struck bright, a ping of steel over it.
+    bladeStringNote(v, t, f, dur, g);
+  } else if (voice === 'hollowWood') {
+    // Oro's (Phase 5e): a hollow knock, a dark pluck and a breath through the wood.
+    hollowWoodNote(v, t, f, dur, g);
   } else {
     glassNote(v, t, f, g * 0.7, dur + 0.6, 0.85);
     pluck(v, t, f * 2, g * 0.18, 0.3, 0.9);
@@ -1423,6 +1430,9 @@ function talentPick(v: Voice, t: number, detail?: UiSoundDetail | null): void {
   else if (who.voice === 'pluckFlute') fluteNote(v, t + 0.07, hz(heart), 0.045, 0.32);
   // Brann's (Phase 5b): his bowed string, three octaves under his heart.
   else if (who.voice === 'bowedLow') bowed(v, t + 0.07, hz(heart - 21), 0.5, 0.05, 0.03, 0.3);
+  // Seren's (Phase 5e): her string struck on her heart. Oro's: his wood knocked an octave under it.
+  else if (who.voice === 'bladeString') bladeStringNote(v, t + 0.07, hz(heart), 0.3, 0.06);
+  else if (who.voice === 'hollowWood') hollowWoodNote(v, t + 0.07, hz(heart - 7), 0.4, 0.07);
   else glassNote(v, t + 0.07, hz(heart), 0.03, 0.9, 0.85);
   v.extend(t + 0.8);
 }

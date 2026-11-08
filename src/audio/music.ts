@@ -205,6 +205,36 @@ export function silenceStems(notes: number): Record<StemName, number> & { top: b
 }
 
 /**
+ * Phase 5e: Seren's voice (`bladeString`, docs/phase-5e.md "Audio"): a high string struck bright,
+ * the blade's scrape on it, and a short ping of steel two octaves over it. Its only inharmonic
+ * partial is the ping's, over the 15th, never over the note itself: it is not glass.
+ */
+export function bladeStringNote(v: Voice, at: number, hz: number, dur: number, g: number): void {
+  pluck(v, at, hz, g * 0.9, Math.min(dur + 0.12, 0.7), 1);
+  v.noise({ start: at, dur: 0.018, gain: g * 0.28, filter: { type: 'highpass', freq: 5200 } });
+  glassPing(v, at + 0.004, hz * 4, g * 0.1, 0.22);
+}
+
+/**
+ * Phase 5e: Oro's voice (`hollowWood`): a hollow knock, a dark (lowpassed) pluck, and a breath
+ * through the wood an octave up. Every partial is the note or its octave.
+ */
+export function hollowWoodNote(v: Voice, at: number, hz: number, dur: number, g: number): void {
+  thump(v, at, hz, g * 0.8, 0.2, 0.85);
+  pluck(v, at, hz, g * 0.75, dur + 0.15, 0.12);
+  v.noise({
+    pink: true,
+    start: at,
+    dur: Math.max(0.12, dur * 0.6),
+    attack: 0.05,
+    release: Math.max(0.1, dur * 0.4),
+    gain: g * 0.1,
+    shape: 'sustain',
+    filter: { type: 'bandpass', freq: hz * 2, q: 2.5 },
+  });
+}
+
+/**
  * Phase 5d: one note of a hero's phrase in the hero's voice (the leitmotif's instrument), for the
  * Finale's canons. The same recipes as the SFX engine's leitmotif.
  */
@@ -224,7 +254,9 @@ export function motifNote(
     bowed(v, at, hz, dur + 0.25, g * 1.1, 0.03, 0.45);
     thump(v, at, hz, g * 0.9, 0.2, 0.7);
     pluck(v, at, hz * 2, g * 0.25, 0.28, 0.4);
-  } else {
+  } else if (voice === 'bladeString') bladeStringNote(v, at, hz, dur, g);
+  else if (voice === 'hollowWood') hollowWoodNote(v, at, hz, dur, g);
+  else {
     glassNote(v, at, hz, g * 0.7, dur + 0.6, 0.85);
     pluck(v, at, hz * 2, g * 0.18, 0.3, 0.9);
   }
