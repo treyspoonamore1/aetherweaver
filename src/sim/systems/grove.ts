@@ -44,6 +44,8 @@ import { heroDamage } from './heroDamage';
 import { clampPointToArena } from './physics';
 import { soloSpec } from './solos';
 import {
+  ancientLeaves,
+  ancientLinger,
   frontSpot,
   groveOf,
   ledgerGrove,
@@ -479,8 +481,8 @@ export function groveTargetInSight(
 
 /**
  * `combatMove` with no target: Gentle's own retreat. He steps `RETREAT_STEP` m away from the
- * enemies within `quirk.retreat` m of him (never under a Rally, which he obeys), kept within
- * `RETREAT_LEASH` m of the Weaver. Barks his refusal at most every 10 s. Writes `out`.
+ * enemies within `quirk.retreat` m of him (never under a Rally or Hold, which he obeys), kept
+ * within `RETREAT_LEASH` m of the Weaver. Barks his refusal at most every 10 s. Writes `out`.
  */
 export function groveRetreat(
   world: World,
@@ -491,6 +493,8 @@ export function groveRetreat(
 ): boolean {
   if (def.quirk.id !== 'gentle' || !gentle(world, e)) return false;
   if (world.internal.rallyUntil > world.time || world.encounter.status !== 'fighting') return false;
+  // Hold holds him, as it holds every hero (`formationMove`): he obeys it as he obeys a Rally.
+  if (e.hero!.follow === 'hold') return false;
   const reach = def.quirk.retreat ?? 0;
   let ax = 0;
   let az = 0;
@@ -714,12 +718,12 @@ export function groveExecute(
 }
 
 /** `startSolo`: Wildgrowth (the Ancient's ground warning) or Homecoming. */
-export function groveSoloStart(world: World, hero: Entity, cued: boolean, _duration: number): void {
+export function groveSoloStart(world: World, hero: Entity, cued: boolean, duration: number): void {
   const h = hero.hero!;
   const grove = h.grove;
   if (!grove || !summonsDef(hero)) return;
   if (h.soloId === 'wildgrowth') {
-    raiseAncient(world, hero, grove);
+    raiseAncient(world, hero, grove, cued, duration);
     return;
   }
   if (h.soloId !== HOMECOMING) return;
@@ -782,10 +786,20 @@ export function groveSolo(world: World, hero: Entity, def: HeroDef): void {
 }
 
 /**
- * `finishSolo`: nothing to undo. The Ancient keeps its own clock (`summon.until`: 8 s after it
- * rises, World Tree 4 s more), so it outlives the Solo's last second rather than being cut off.
+ * `finishSolo`: an uncued Wildgrowth's Ancient leaves with it (docs/phase-5e.md, "Solo:
+ * Wildgrowth"); World Tree keeps it `ancientLinger` s more, and it roots again as it goes. A
+ * Cued Ancient keeps its own clock (`summon.until`: Q2's 8 s from rising, World Tree 4 s more).
  */
-export function groveSoloEnd(_world: World, _hero: Entity): void {}
+export function groveSoloEnd(world: World, hero: Entity): void {
+  const h = hero.hero!;
+  const grove = h.grove;
+  if (!grove || grove.ancient === null || h.soloId !== 'wildgrowth' || h.soloCued) return;
+  const a = world.entities.get(grove.ancient);
+  if (!a?.summon || !a.health || a.health.dead) return;
+  const linger = ancientLinger(world, hero);
+  if (linger > 0) a.summon.until = world.time + linger;
+  else ancientLeaves(world, hero, a, false);
+}
 
 /**
  * thread.ts, after `mendHero` on Oro: Rootbond Mends each living summon at `mendShare` of what

@@ -476,7 +476,7 @@ describe('Regrowth and Bramble (docs/phase-5e.md)', () => {
 });
 
 describe('Wildgrowth (docs/phase-5e.md)', () => {
-  it('the Ancient warns 1 s, rises (roots), re-taunts, slams, and leaves 8 s after it rose', () => {
+  it('the Ancient warns 1 s, rises (roots), re-taunts, slams, and leaves as the Solo ends', () => {
     const { sim, w, oro } = grove();
     freeze(w, [0, 1]);
     const weaver = w.entities.get(w.weaverId)!;
@@ -498,13 +498,15 @@ describe('Wildgrowth (docs/phase-5e.md)', () => {
     expect(ofType(warning, 'rooted')).toHaveLength(0);
     const rise = stepFor(sim, 20);
     expect(ofType(rise, 'rooted').length).toBeGreaterThan(0);
-    const rest = stepFor(sim, 60 * 7);
+    // Raised outside a Solo, it keeps Wildgrowth's 8 s from the cast (the warning inside them).
+    expect(a.summon!.until).toBeCloseTo(w.time - 70 / 60 + 8, 9);
+    const rest = stepFor(sim, 60 * 6.5);
     expect(foes.some((f) => f.enemy!.tauntTarget === a.id)).toBe(true);
     expect(
       ofType([...rise, ...rest], 'attackFired').filter((e) => e.source === a.id).length,
     ).toBeGreaterThan(2);
     expect(a.health!.dead).toBe(false);
-    const end = stepFor(sim, 60 * 1.2);
+    const end = stepFor(sim, 60 * 0.6);
     expect(ofType(end, 'summonFell').some((e) => e.summon === a.id)).toBe(true);
     expect(oro.hero!.grove!.ancient).toBeNull();
     expect(w.internal.summons).not.toContain(a.id);
@@ -577,7 +579,7 @@ describe('the talents (docs/phase-5e.md, Bonds)', () => {
     const { sim, w, oro } = grove({ bonds: { talents: ['world_tree'], solos: [] } });
     freeze(w, [0, 1]);
     const a = raiseAncient(w, oro, oro.hero!.grove!)!;
-    expect(a.summon!.until).toBeCloseTo(w.time + 1 + 12, 9);
+    expect(a.summon!.until).toBeCloseTo(w.time + 8 + 4, 9);
     const weaver = w.entities.get(w.weaverId)!;
     const foe = enemy(w, 'hollow_chorister', a.x + 2, a.z);
     foe.health!.hp = foe.health!.maxHp = 1e7;
@@ -859,5 +861,54 @@ describe('review fixes (docs/phase-5e.md)', () => {
     expect(run(false)).toBe(0);
     // Two heroes: the quorum is met.
     expect(run(true)).toBe(attackDef(SHATTER_ARIA).discord);
+  });
+  it('Hold holds a Gentle Oro: no retreat from an enemy beside him (only the Rally overrode it)', () => {
+    const { sim, w, oro } = grove();
+    freeze(w, [0, 1]);
+    stepFor(sim, 1, [{ t: 'directive', kind: 'hold' }]);
+    expect(oro.hero!.follow).toBe('hold');
+    const spot = { x: oro.hero!.holdX, z: oro.hero!.holdZ };
+    const foe = enemy(w, 'hollow_chorister', oro.x - 2, oro.z);
+    foe.health!.hp = foe.health!.maxHp = 1e6;
+    addStatus(w, foe, 'stun', 100, null);
+    const out = { x: 0, z: 0 };
+    expect(groveRetreat(w, w.entities.get(w.weaverId)!, oro, heroDef('oro'), out)).toBe(false);
+    const events = stepFor(sim, 120);
+    expect(oro.hero!.follow).toBe('hold');
+    expect(Math.hypot(oro.x - spot.x, oro.z - spot.z)).toBeLessThan(0.5);
+    expect(ofType(events, 'gentleRefused')).toHaveLength(0);
+  });
+
+  it('uncued, the Ancient leaves with Wildgrowth (finishSolo); Cued, it stands its 8 s from rising', () => {
+    const run = (cued: boolean, talents: string[] = [], baton = 1) => {
+      const { sim, w, oro } = grove({ bonds: { talents, solos: [] } });
+      freeze(w, [0, 1]);
+      w.mods.cuedSoloDurationMult = baton;
+      const start = w.time;
+      startSolo(w, oro, cued);
+      const id = oro.hero!.grove!.ancient!;
+      let ended = -1;
+      let left = -1;
+      for (let i = 0; i < 60 * 20 && left < 0; i++) {
+        const ev = stepFor(sim, 1);
+        if (ended < 0 && ev.some((e) => e.type === 'soloEnded' && e.hero === oro.id))
+          ended = w.time - start;
+        if (ev.some((e) => e.type === 'summonFell' && e.summon === id)) left = w.time - start;
+      }
+      return { ended, left };
+    };
+    // Uncued: it goes on the Solo's last tick, 8 s from the cast.
+    const plain = run(false);
+    expect(plain.ended).toBeCloseTo(8, 1);
+    expect(plain.left).toBeCloseTo(plain.ended, 9);
+    // World Tree: 4 s past the Solo's end.
+    const tree = run(false, ['world_tree']);
+    expect(tree.left - tree.ended).toBeCloseTo(4, 1);
+    // Cued: 8 s from rising (the 1 s warning first), past the Solo's own end.
+    const cued = run(true);
+    expect(cued.left).toBeCloseTo(9, 1);
+    // A longer uncued Solo is not a thing (the Baton lengthens only Cued ones), so the uncued
+    // Ancient keeps the Solo's length under it too.
+    expect(run(false, [], 1.5).left).toBeCloseTo(8, 1);
   });
 });

@@ -386,6 +386,17 @@ function cutting(e: ReadonlyEntity): boolean {
   return e.hero?.soloId === 'thousandCuts' && e.hero.soloActive > 0;
 }
 
+/**
+ * Unflinching (Bonds): a Ward of yours on her lasts longer. Called by `addShield` as the Ward is
+ * made, once per Ward, whatever she is doing that tick (stunned, staggered, Reeled or frozen in
+ * Stasis); only on a duellist with the talent, so no other Ward changes.
+ */
+export function unflinchWard(world: World, e: Entity, ward: Shield): void {
+  if (!e.hero?.duel || !hasTalent(e, 'unflinching')) return;
+  if (ward.kind !== 'ward' || !ward.fromWeaver || ward.expiresAt >= NEVER) return;
+  ward.expiresAt += talentValue(world, 'unflinching', 'seconds');
+}
+
 /** The Weaver's Ward on her that arms a parry, if any. */
 function armingWard(e: Entity): Shield | undefined {
   return e.health?.shields.find((s) => s.kind === 'ward' && s.fromWeaver);
@@ -483,7 +494,8 @@ export function duelResolved(
 /**
  * Each tick, after `isDisabled`: the deferred counter and kill shot, the Rally's and Reel's
  * suspension of Showboat, the stance (a dodge she committed to is dropped once a Ward lands),
- * Unflinching's longer Wards, and the overextended clock.
+ * and the overextended clock. (Unflinching's longer Wards are made where the Ward is, in
+ * `addShield`, so a Ward that lands on her stunned, staggered or mid-Reel keeps them too.)
  */
 export function duelTick(world: World, e: Entity, def: HeroDef, dt: number): void {
   const hero = e.hero!;
@@ -509,12 +521,6 @@ export function duelTick(world: World, e: Entity, def: HeroDef, dt: number): voi
   if (dodge && !dodge.sure && parryArmed(e)) {
     const t = world.telegraphs.find((x) => x.id === dodge.telegraph);
     if (t && duelStands(world, e, t)) hero.dodge = null;
-  }
-  // Unflinching: your Wards on her last longer (once each, on the tick it lands).
-  if (hasTalent(e, 'unflinching')) {
-    const ward = armingWard(e);
-    if (ward && world.time - ward.appliedAt <= dt + 1e-9 && ward.expiresAt < NEVER)
-      ward.expiresAt += talentValue(world, 'unflinching', 'seconds');
   }
   const over = overextended(world, e);
   if (over) duel.overextendedTime += dt;
