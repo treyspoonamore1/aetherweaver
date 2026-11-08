@@ -11,6 +11,9 @@ import { secondsLabel } from './chrono';
 import { healBarelyTakes } from './legionLook';
 import { DOOM_EMPHASIS, doomCount, spindleCutPct } from './riftLook';
 import { FORTISSIMO_NAME, noteSources } from './finaleLook';
+import { outOfReach } from './duelLook';
+import { saplingsOutside } from './groveLook';
+import { heroPronouns } from '../screens/rosterModel';
 
 /**
  * Contextual coach hints (docs/plan/04 §7). Derived from the HUD snapshot alone; each hint
@@ -140,11 +143,13 @@ function allHints(hud: HudSnapshot): Hint[] {
   // Fermata hold: the most urgent thing on screen.
   for (const h of party.filter((p) => p.held && !p.dead)) {
     // Brann (docs/phase-5b.md): your healing on him is halved, but any of it saves him.
-    if (h.blood)
+    if (h.blood) {
+      const him = heroPronouns(h.defId).obj;
       out.push({
         id: 'brannHold',
-        text: `Fermata holds ${h.name} at 1 life — one touch of the Thread saves him, even halved: ${h.threaded ? 'keep Mending him' : `Thread him {${h.slot + 1}}`}`,
+        text: `Fermata holds ${h.name} at 1 life — one touch of the Thread saves ${him}, even halved: ${h.threaded ? `keep Mending ${him}` : `Thread ${him} {${h.slot + 1}}`}`,
       });
+    }
     out.push({
       id: 'hold',
       text: h.threaded
@@ -293,6 +298,8 @@ function allHints(hud: HudSnapshot): Hint[] {
   }
   // Brann fights best hurt (docs/phase-5b.md): his own hints, never the 'hurt' ones.
   out.push(...brannHints(hud, { Q, F }));
+  // Seren and Oro (docs/phase-5e.md): their own hints, with their own ids.
+  out.push(...serenHints(hud, { Q, F }), ...oroHints(hud));
   const hurt = party.filter((h) => alive(h) && !h.blood && h.hp < h.maxHp * 0.5);
   for (const h of hurt) {
     if (!h.threaded) {
@@ -323,7 +330,10 @@ function allHints(hud: HudSnapshot): Hint[] {
           : `Your auras are silenced — mark the ${silencerName(hud)} with {${bindingLabel('directiveFocus')}} so the party breaks its dome`,
     });
   }
-  const reelTarget = party.find((h) => alive(h) && !h.inField && h.distance > w.fieldRadius + 3);
+  // Seren (docs/phase-5e.md) duels outside your field by design: her own hints say what to do.
+  const reelTarget = party.find(
+    (h) => alive(h) && !h.inField && h.distance > w.fieldRadius + 3 && !h.duel?.quarryName,
+  );
   if (reelTarget && w.auras.length > 0 && !w.fieldSuppressed) {
     out.push({
       id: 'strayed',
@@ -488,7 +498,7 @@ function movementTwoHints(hud: HudSnapshot, keys: { Q: string; E: string; F: str
       // Brann (docs/phase-5b.md): your healing barely takes on him, so the Ward is the answer;
       // with Blood Oath it takes in full (no live cut), so the generic answer stands.
       text: healBarelyTakes(condemned)
-        ? `${boss.executeTarget} is condemned — Ward ${Q} him: your healing barely takes on him`
+        ? `${boss.executeTarget} is condemned — Ward ${Q} ${heroPronouns(condemned!.defId).obj}: your healing barely takes on ${heroPronouns(condemned!.defId).obj}`
         : `${boss.executeTarget} is condemned — lift them above ${pct}% before it lands, or Ward ${Q} them`,
     });
   }
@@ -556,19 +566,93 @@ function brannHints(hud: HudSnapshot, keys: { Q: string; F: string }): Hint[] {
   const { Q, F } = keys;
   const out: Hint[] = [];
   for (const h of hud.party.filter((p) => alive(p) && p.blood)) {
+    const him = heroPronouns(h.defId).obj;
     if (hud.directive === 'rally' && h.blood!.bloodlust)
       out.push({
         id: 'brannRally',
         // A Void Maw's Inhale (Movement III only) wants him out of the pull, not Warded.
         text: hud.rift?.inhale
           ? `Bloodlust: ${h.name} won’t Rally below ${bloodlustPct(h.defId)}% — ${mawRescue(hud, F, 'him')}`
-          : `Bloodlust: ${h.name} won’t Rally below ${bloodlustPct(h.defId)}% — Ward ${Q} him${h.talents.includes('iron_will') ? ' (Iron Will brings him back)' : ''}${hud.weaver.rewind ? '' : ` or Reel ${F} him`}`,
+          : `Bloodlust: ${h.name} won’t Rally below ${bloodlustPct(h.defId)}% — Ward ${Q} ${him}${h.talents.includes('iron_will') ? ` (Iron Will brings ${him} back)` : ''}${hud.weaver.rewind ? '' : ` or Reel ${F} ${him}`}`,
       });
     if (h.hp < h.maxHp * 0.5)
       out.push({
         id: 'brannLow',
-        text: `${h.name} fights harder hurt — Ward ${Q} him, don’t Mend him`,
+        text: `${h.name} fights harder hurt — Ward ${Q} ${him}, don’t Mend ${him}`,
       });
+  }
+  return out;
+}
+
+// ── Seren and Oro (docs/phase-5e.md) ─────────────────────────────────────────────────
+
+/**
+ * Seren's hints, each with its own id so the existing hints' counts are untouched: surrounded in
+ * her duel, the answer by the Reel slot (`serenOver`; with Swap, `serenSwap`: swapping in puts
+ * you in her duel); beyond your reach (`serenReach`); her duel itself (`serenDuel`); and, while
+ * your Ward is on her, the kill shot a Perfect one is (`serenKillShot`).
+ */
+function serenHints(hud: HudSnapshot, keys: { Q: string; F: string }): Hint[] {
+  const { Q, F } = keys;
+  const out: Hint[] = [];
+  const C = `{${bindingLabel('directiveRally')}}`;
+  const G = `{${bindingLabel('glide')}}`;
+  const reel = variantIn(hud, 'reel');
+  for (const h of hud.party.filter((p) => alive(p) && p.duel)) {
+    const d = h.duel!;
+    if (d.overextended) {
+      if (!hud.weaver.rewind && reel === 'swap')
+        out.push({
+          id: 'serenSwap',
+          text: `Swap puts you in her duel; Rally ${C} brings her home`,
+        });
+      else
+        out.push({
+          id: 'serenOver',
+          text: hud.weaver.rewind
+            ? `${h.name} is surrounded — Rally ${C}: she always comes. Rewind only takes her back as the pack closes`
+            : reel === 'anchor'
+              ? `${h.name} is surrounded — Rally ${C}: she always comes, and your Anchor holds while she does`
+              : `${h.name} is surrounded — Reel ${F} her home, or Rally ${C}: she always comes`,
+        });
+    }
+    if (outOfReach(h))
+      out.push({
+        id: 'serenReach',
+        text: `${h.name} is beyond your reach — Glide ${G} toward her so your Ward and Reel reach her`,
+      });
+    if (d.quarryName)
+      out.push({
+        id: 'serenDuel',
+        text: `${h.name} duels alone: Ward ${Q} her before the blow lands, Reel ${F} or Rally ${C} when they surround her`,
+      });
+    if (d.armed && !d.waltz)
+      out.push({ id: 'serenKillShot', text: `A Perfect Ward ${Q} on ${h.name} is a kill shot` });
+  }
+  return out;
+}
+
+/**
+ * Oro's hints, each with its own id: Saplings standing outside your songs (`oroOutside`), Gentle
+ * with no Focus (`oroGentle`, once the fight has run a moment), and, at a boss, that bosses and
+ * the biggest foes ignore Saplings (`oroBoss`).
+ */
+function oroHints(hud: HudSnapshot): Hint[] {
+  const out: Hint[] = [];
+  const w = hud.weaver;
+  const C = `{${bindingLabel('directiveRally')}}`;
+  for (const h of hud.party.filter((p) => alive(p) && p.grove)) {
+    if (saplingsOutside(h) > 0 && w.auras.length > 0 && !w.fieldSuppressed)
+      out.push({
+        id: 'oroOutside',
+        text: `${h.name}’s Saplings are outside your songs: walk back, or Rally ${C} to re-plant them`,
+      });
+    if (h.grove!.tending && hud.encounter.elapsed > 6 && hud.encounter.enemies > 0)
+      out.push({
+        id: 'oroGentle',
+        text: `${h.name} won’t fight without a Focus {${bindingLabel('directiveFocus')}}`,
+      });
+    if (hud.boss) out.push({ id: 'oroBoss', text: 'Bosses and the biggest foes ignore Saplings' });
   }
   return out;
 }

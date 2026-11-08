@@ -223,11 +223,12 @@ export const STATUS: Record<StatusId, StatusLook> = {
     answer:
       'Play Perfect Wards, Clutch Chimes and Reel-saves: eight notes wake them, and stand the fallen back up.',
   },
-  // Phase 5e (docs/phase-5e.md): Oro's root, on enemies only. W6 owns its look from here.
+  // Phase 5e (docs/phase-5e.md): Oro's root, on enemies only: his leaf, in a lighter moss so it
+  // reads on an enemy plate.
   rooted: {
-    icon: 'pin',
+    icon: 'leaf',
     label: 'Rooted',
-    color: '#487858',
+    color: '#86b896',
     help: 'Held fast by roots: it can’t move, charge or leap, but it still strikes and casts.',
   },
 };

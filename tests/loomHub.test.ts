@@ -582,6 +582,11 @@ describe('the roster at the Loom (docs/phase-5b.md)', () => {
     expect(station(stationViews({ ...p, bonds: {} }, false), 'bonds').line).toMatch(
       /Kael, Lyra, Vexis and Brann/,
     );
-    expect(station(views, 'deeds').badge).toBe(`1 of ${CONTENT.deeds.length} earned`);
+    // Every Deed but Seren's and Oro's (docs/phase-5e.md), not in this roster.
+    expect(station(views, 'deeds').badge).toBe(
+      `1 of ${CONTENT.deeds.filter((d) => !d.hero || d.hero === 'brann').length} earned`,
+    );
+    const all = stationViews({ ...p, recruited: ['brann', 'seren', 'oro'] }, false);
+    expect(station(all, 'deeds').badge).toBe(`1 of ${CONTENT.deeds.length} earned`);
   });
 });

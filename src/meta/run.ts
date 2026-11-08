@@ -20,6 +20,7 @@ import {
   isFieldMovement,
   type AnyMovementDef,
   type Biome,
+  type EventChoice,
   type EventEffect,
   type FinaleMovementDef,
   type MotifDef,
@@ -933,6 +934,46 @@ export function recruitsOf(
 }
 
 /**
+ * Why a fight recruited a hero (docs/phase-5e.md, "The gate"), for the Result's line: `event`, a
+ * won recruiting fight at its event; `fallback`, the hero's fallback encounter itself (won or
+ * lost); `word`, neither: an earlier fight of this run counted only now, once a Rank reached
+ * since opened the hero (`recruitsOf` rescans every result).
+ */
+export function recruitCause(
+  run: Pick<RunState, 'map'>,
+  heroId: string,
+  result: Pick<EncounterResult, 'nodeId' | 'encounterId' | 'outcome'> | null | undefined,
+): 'event' | 'fallback' | 'word' {
+  const def = CONTENT.heroes.find((h) => h.id === heroId);
+  if (!result) return 'word';
+  if (def?.recruit?.fallback === result.encounterId) return 'fallback';
+  const node = result.outcome === 'victory' ? findNode(run, result.nodeId) : undefined;
+  const event =
+    node?.kind === 'event' ? CONTENT.events.find((e) => e.id === node.eventId) : undefined;
+  const recruits = (event?.choices ?? []).some((ch) =>
+    [...ch.effects, ...ch.fail].some(
+      (e) => e.kind === 'fight' && e.recruit === heroId && e.encounter === result.encounterId,
+    ),
+  );
+  return recruits ? 'event' : 'word';
+}
+
+/** Object pronouns for the Result's `word` line (docs/phase-5e.md: "Word of your fight reached her."). */
+const RECRUIT_PRONOUN: Readonly<Record<string, string>> = {
+  seren: 'her',
+  oro: 'him',
+  brann: 'him',
+};
+
+/**
+ * The Result's line for a `word` recruit (`recruitCause`): a fight earlier in this run counted
+ * once your Rank opened the hero.
+ */
+export function recruitWordLine(heroId: string): string {
+  return `Word of your fight reached ${RECRUIT_PRONOUN[heroId] ?? 'them'}.`;
+}
+
+/**
  * Prep: the profile's Astrolabe changed (it's free between runs); the run follows it until it
  * embarks. Songs the new tree can't hold stay, and Prep shows why (as for a Calling's pool):
  * embark settles them.
@@ -1811,6 +1852,21 @@ export function eventChoiceProblem(
   return null;
 }
 
+/**
+ * Does the event screen show this choice (docs/phase-5e.md, "Event screen")? Every unranked
+ * choice; a Rank-gated recruiting one only once `allowance.recruits` holds its hero (its Rank is
+ * reached, or Skip the unlocks): below its Rank it is hidden, never shown locked.
+ */
+export function eventChoiceShown(
+  choice: Pick<EventChoice, 'rank' | 'effects' | 'fail'>,
+  allowance: Pick<Allowance, 'recruits'>,
+): boolean {
+  if (choice.rank === undefined) return true;
+  return [...choice.effects, ...choice.fail].some(
+    (e) => e.kind === 'fight' && e.recruit !== undefined && allowance.recruits.has(e.recruit),
+  );
+}
+
 export function chooseEvent(
   run: RunState,
   choiceId: string,
@@ -2200,6 +2256,9 @@ export function summarize(
         ? { answers: dome ? [...d.answers] : d.answers.filter((a) => a !== 'dome') }
         : {}),
       ...(d.blood ? { blood: { ...d.blood } } : {}),
+      // Seren's and Oro's downs (docs/phase-5e.md): only their own records have them.
+      ...(d.duel ? { duel: { ...d.duel } } : {}),
+      ...(d.grove ? { grove: { ...d.grove } } : {}),
     })),
     timeline: l.timeline.map((t) => ({ time: t.time, hp: [...t.hp] })),
     markers: l.markers.map((m) => ({ ...m })),
@@ -2212,6 +2271,9 @@ export function summarize(
       amplified: Math.round(p.amplified),
       // Brann's fight (docs/phase-5b.md): only a Blood Rage hero has it.
       ...(p.blood ? { blood: { ...p.blood } } : {}),
+      // Seren's and Oro's fights (docs/phase-5e.md): only a Parry or a Rootbond hero has each.
+      ...(p.duel ? { duel: { ...p.duel } } : {}),
+      ...(p.grove ? { grove: { ...p.grove } } : {}),
     })),
     withoutYou: outcome.withoutYou ? { ...outcome.withoutYou } : null,
     // Bonds (docs/phase-4e.md): what the fight paid each hero.
@@ -2251,13 +2313,18 @@ const TWIN_CLEAVE: ReadonlySet<string> = new Set(
  * Brann's downs"), from the down record's `blood`, in priority order: a refused Rally, then a heal
  * cut to a quarter or less with the Bloodmoon's cut on him (outside every pool: a Wound or
  * Dissonance can cut as deep, and their answer is not the pool's), then Twin Cleave with no dome
- * in the party. Null for any other down, and for every hero without `blood`: the recap's generic
- * answers stand.
+ * in the party. Seren's and Oro's downs (their records' `duel` and `grove`, docs/phase-5e.md)
+ * name their own answers (`duelAdvice`, `groveAdvice`). Null for any other down, and for every
+ * hero without `blood`, `duel` or `grove`: the recap's generic answers stand.
  */
 export function downAdvice(
-  d: Pick<DeathRecap, 'heroId' | 'killer' | 'blood'>,
+  d: Pick<DeathRecap, 'heroId' | 'killer' | 'blood' | 'duel' | 'grove'>,
   party: readonly string[],
+  /** The run's Calling (Phase 5e: the Chronomancer's line for an overextended Seren). */
+  calling?: string | null,
 ): string | null {
+  if (d.duel) return duelAdvice(d.duel, calling ?? null);
+  if (d.grove) return groveAdvice(d.grove);
   if (!d.blood) return null;
   const def = CONTENT.heroes.find((h) => h.id === d.heroId);
   if (d.blood.refusedRally) {
@@ -2268,6 +2335,36 @@ export function downAdvice(
     return 'Your healing on him was quartered outside the pool: Ward him or give him a barrier.';
   if (TWIN_CLEAVE.has(d.killer) && !partyHasDome(party))
     return `Two blows on ${def?.name ?? 'him'}: Reel him, or Ward him twice.`;
+  return null;
+}
+
+/**
+ * What Seren's down asks of the Weaver (docs/phase-5e.md, "Down recaps"), in priority order:
+ * overextended in the pack (for the Chronomancer, Rally or an early Rewind: Rewind is no sure
+ * extraction from a duel), then a blow from far (a beam: no parry answers it), then a parryable
+ * blow that landed with no Ward on her. Null otherwise: the recap's generic answers stand.
+ */
+function duelAdvice(d: NonNullable<DeathRecap['duel']>, calling: string | null): string | null {
+  if (d.overextended)
+    return calling === 'chronomancer'
+      ? 'Rally her, or Rewind as the pack closes.'
+      : 'Reel or Rally her out of the pack, or Cue Thousand Cuts.';
+  if (d.far) return 'Reel or Ward the beam on her.';
+  if (d.parryable && !d.warded) return 'Ward her as the blow lands: a Ward is a parry.';
+  return null;
+}
+
+/**
+ * What Oro's down asks of the Weaver (docs/phase-5e.md), in priority order: a Severing foe cut
+ * the Thread while he was Threaded (and Rootbond with it), then caught in melee (Rally re-plants
+ * his Saplings ahead of you, between him and the pack), then Saplings felled outside your songs
+ * this fight. Null otherwise.
+ */
+function groveAdvice(d: NonNullable<DeathRecap['grove']>): string | null {
+  if (d.threadCut)
+    return 'A Severing foe cut your Thread, and Rootbond with it: Ward or kill it first.';
+  if (d.melee) return 'Rally: his Saplings re-plant ahead of you and screen him.';
+  if (d.feltOutside > 0) return 'Keep his Saplings inside your songs.';
   return null;
 }
 

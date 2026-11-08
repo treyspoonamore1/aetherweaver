@@ -172,6 +172,10 @@ export const PATHS = {
   // The Finale (docs/phase-5d.md): the Silent Conductor's baton, with the stroke of its beat.
   baton:
     'M7.5 16.5L19.5 4.5 M5 19a1.8 1.8 0 1 0 2.5-2.5A1.8 1.8 0 0 0 5 19z M13.5 4c1.8.4 3.2 1.6 3.8 3.4 M16.5 10.5c1.2.5 2 1.4 2.4 2.6',
+  // Phase 5e (docs/phase-5e.md): Seren's crossed rapiers (her Parry, her Rank-up), and Oro's leaf
+  // (his Rootbond, his Saplings, his Rank-up).
+  blades: 'M4 4l16 16 M20 4L4 20 M15.5 18.5l3-3 M5.5 15.5l3 3 M19 21l2-2 M3 19l2 2',
+  leaf: 'M5 19C5 10.5 10.5 5 19.5 4.5 19 13.5 13.5 19 5 19z M5 19l8.5-8.5 M10 14h3.5 M12.5 11.5V8',
 } as const;
 
 export type IconName = keyof typeof PATHS;

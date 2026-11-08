@@ -343,6 +343,15 @@ export function partyInterrupts(heroIds: readonly string[]): boolean {
 }
 
 /**
+ * The ids of a hero's abilities that interrupt a cast, in kit order (docs/phase-5e.md: Prep's
+ * party notes name them). Empty for an unknown id or a hero with none.
+ */
+export function interruptAbilities(heroId: string): string[] {
+  const def = CONTENT.heroes.find((h) => h.id === heroId);
+  return def ? def.abilities.filter((a) => INTERRUPTS.has(a.id)).map((a) => a.id) : [];
+}
+
+/**
  * A hero's Blood Rage, or null (docs/phase-5e.md): the one reader of `def.passive` for every
  * Blood Rage rule, since a passive is now Blood Rage, Parry or Rootbond. For every hero before
  * Phase 5e it is non-null exactly when `def.passive` was set.

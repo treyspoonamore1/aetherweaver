@@ -169,9 +169,56 @@ function meetsAndMisses(d: DeedDef): [RunState, RunState] {
       const won = (peak: number) => fight({ encounterId: d.encounter!, heroes: [hero(peak)] });
       return [runOf([won(pct)]), runOf([won(pct + 0.01), won(-1)])];
     }
-    // docs/phase-5e.md: no heroTally Deed exists until W3 fills ROSTER_DEEDS (and this case).
-    case 'heroTally':
-      throw new Error(`${d.id}: heroTally Deeds land in W3`);
+    case 'heroTally': {
+      // Seren's and Oro's (docs/phase-5e.md): the tally at its line, and just past it.
+      const { atLeast, atMost } = d.values;
+      const line = atLeast ?? atMost!;
+      const past = atLeast !== undefined ? line - 1 : line + 1;
+      const stats = (n: number) =>
+        d.tally === 'saplingsLost'
+          ? { grove: { saplingsLost: n, inFieldShare: 0.8, rootbondHeal: 0, ancients: 0 } }
+          : {
+              duel: {
+                parries: d.tally === 'parries' ? n : 0,
+                killShots: d.tally === 'killShots' ? n : 0,
+                counterDamage: 0,
+                overextendedTime: 0,
+              },
+            };
+      const hero = (n: number) => ({
+        heroId: d.hero!,
+        hpPct: 0.5,
+        downed: false,
+        dead: false,
+        damage: 0,
+        amplified: 0,
+        ...stats(n),
+      });
+      const won = (n: number) => fight({ encounterId: d.encounter!, heroes: [hero(n)] });
+      // A near miss: past the line, the line lost, the line elsewhere, or a result with no stats.
+      return [
+        runOf([won(line)]),
+        runOf([
+          won(past),
+          { ...won(line), outcome: 'defeat' },
+          fight({ heroes: [hero(line)] }),
+          fight({ encounterId: d.encounter!, heroes: [{ ...hero(line), heroId: 'kael' }] }),
+          fight({
+            encounterId: d.encounter!,
+            heroes: [
+              {
+                heroId: d.hero!,
+                hpPct: 0.5,
+                downed: false,
+                dead: false,
+                damage: 0,
+                amplified: 0,
+              },
+            ],
+          }),
+        ]),
+      ];
+    }
   }
 }
 
@@ -181,8 +228,8 @@ beforeEach(() => {
 });
 
 describe('the Deeds', () => {
-  it('twenty-seven, ten of them giving a point, each text filled from its data', () => {
-    expect(CONTENT.deeds).toHaveLength(27);
+  it('twenty-nine, ten of them giving a point, each text filled from its data', () => {
+    expect(CONTENT.deeds).toHaveLength(29);
     expect(CONTENT.deeds.filter((d) => d.points === 1)).toHaveLength(DEED_POINTS_MAX);
     for (const d of CONTENT.deeds) expect(deedText(d), d.id).not.toMatch(/[{}]/);
     expect(deedText(deed('unrung'))).toBe('Beat the Bellwarden with no hero going down.');
@@ -196,10 +243,19 @@ describe('the Deeds', () => {
       // Movement III's two (docs/phase-5c.md), after them.
       ['whole_cloth', 0],
       ['needle_sure', 0],
-      // The Finale's two (docs/phase-5d.md), last.
+      // The Finale's two (docs/phase-5d.md).
       ['song_goes_on', 0],
       ['not_one_silent', 0],
+      // Seren's and Oro's (docs/phase-5e.md), last.
+      ['debt_paid', 0],
+      ['not_a_leaf_lost', 0],
     ]);
+    expect(deedText(deed('debt_paid'))).toBe(
+      'Beat the Gorehound Matriarch with Seren, parrying 8 blows: the hounds’ swings count too.',
+    );
+    expect(deedText(deed('not_a_leaf_lost'))).toBe(
+      'Beat the Frayed Court with Oro, losing none of his Saplings.',
+    );
     expect(deedText(deed('in_the_red'))).toBe(
       'Beat Vharun, the Crimson Warden, with Brann, never letting him above 40% life once he first falls to it.',
     );
@@ -218,14 +274,24 @@ describe('the Deeds', () => {
   it('a hero’s Deed is in sight only with a roster that has the hero (docs/phase-5b.md)', () => {
     const all = CONTENT.enemies.map((e) => e.id);
     const plain = deedsInSight(all).map((d) => d.id);
-    // Every Deed but Brann's (Movement III's and the Finale's badges count: docs/phase-5c.md,
-    // docs/phase-5d.md).
+    // Every Deed but Brann's, Seren's and Oro's (Movement III's and the Finale's badges count:
+    // docs/phase-5c.md, docs/phase-5d.md).
     expect(plain).toHaveLength(26);
     expect(plain).not.toContain('in_the_red');
+    expect(plain).not.toContain('debt_paid');
+    expect(plain).not.toContain('not_a_leaf_lost');
     expect(deedsInSight(all, ['kael', 'lyra', 'vexis']).map((d) => d.id)).toEqual(plain);
     expect(deedsInSight(all, ['kael', 'lyra', 'vexis', 'brann']).map((d) => d.id)).toEqual(
-      CONTENT.deeds.map((d) => d.id),
+      CONTENT.deeds.map((d) => d.id).filter((id) => id !== 'debt_paid' && id !== 'not_a_leaf_lost'),
     );
+    // Each hero's own badge with them (docs/phase-5e.md).
+    expect(deedsInSight(all, ['kael', 'lyra', 'vexis', 'seren']).map((d) => d.id)).toEqual([
+      ...plain,
+      'debt_paid',
+    ]);
+    expect(
+      deedsInSight(all, ['kael', 'lyra', 'vexis', 'brann', 'seren', 'oro']).map((d) => d.id),
+    ).toEqual(CONTENT.deeds.map((d) => d.id));
     // Its fight is Movement II's: not before the Spire is sighted, roster or not.
     const prelude = newProfile().seen;
     expect(deedsInSight(prelude, ['brann']).map((d) => d.id)).toEqual(

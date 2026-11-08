@@ -2,7 +2,9 @@
  * Movement II's HUD looks as plain data (docs/phase-5a.md): stack emphasis, the healing cut's
  * words, the boss bar's phase ticks and cast glyphs. Testable without React.
  */
+import { heroPronouns } from '../screens/rosterModel';
 import { CONTENT, bloodRageOf, partyHasDome } from '../../content';
+import { CONDUCTOR_DECREES } from '../../content/crucible';
 import type { IconName } from '../kit/iconPaths';
 import type { BossHud, HeroHud, StatusHud } from '../store';
 import { DOOM_EMPHASIS } from './riftLook';
@@ -94,19 +96,38 @@ export function healBarelyTakes(h: PartyLook[number] | undefined): boolean {
 }
 
 /**
+ * The heroes the Finale's mirror-choir sings back (docs/phase-5d.md: Alto Lyra, Bass Brann, Tenor
+ * Kael, Soprano Vexis; `crucible.ts`). Phase 5e's Seren and Oro have no voice there.
+ */
+const MIRRORED: ReadonlySet<string> = new Set(['lyra', 'brann', 'kael', 'vexis']);
+
+/**
+ * The Mirror Choir's Decree for a party with a hero the choir doesn't mirror (Seren, Oro;
+ * docs/phase-5e.md 'Known gaps'): 'every voice of your party' would be inexact, so it names the
+ * four it sings and says your other heroes still sing.
+ */
+export const MIRROR_CHOIR_OTHERS =
+  'Mirror Choir — the choir sings Lyra, Brann, Kael and Vexis back at you; your other heroes still sing. Discord swells: hold your Crescendo before it fills.';
+
+/**
  * A decree as the HUD shows it to this party. The sim's text (hashed, never edited) is matched to
  * its attack def: with no dome in the party (`partyHasDome`) an attack's `decreeNoDome` replaces
  * it, and when Execution condemns a hero whose own passive cuts your healing on him (Brann) while
- * that cut holds (`healBarelyTakes`), the decree says to Ward him. Any other text, and every
+ * that cut holds (`healBarelyTakes`), the decree says to Ward him. The Mirror Choir's says your
+ * other heroes still sing when the party has one it doesn't mirror. Any other text, and every
  * default party, is returned unchanged.
  */
 export function shownDecree(text: string, party: PartyLook): string {
+  if (text === CONDUCTOR_DECREES.mirrorChoir && party.some((h) => !MIRRORED.has(h.defId)))
+    return MIRROR_CHOIR_OTHERS;
   const attack = CONTENT.attacks.find((a) => a.decree === text);
   if (!attack) return text;
   if (attack.executeBelow !== undefined) {
     const condemned = party.find((h) => h.execute !== undefined);
-    if (condemned && healBarelyTakes(condemned))
-      return `Execution — ${heroName(condemned.defId)} is condemned. Ward him: your healing barely takes on him.`;
+    if (condemned && healBarelyTakes(condemned)) {
+      const him = heroPronouns(condemned.defId).obj;
+      return `Execution — ${heroName(condemned.defId)} is condemned. Ward ${him}: your healing barely takes on ${him}.`;
+    }
     return text;
   }
   if (attack.decreeNoDome !== undefined && !partyHasDome(party.map((h) => h.defId)))

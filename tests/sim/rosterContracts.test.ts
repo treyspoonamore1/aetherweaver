@@ -225,9 +225,10 @@ describe('the new content (docs/phase-5e.md)', () => {
     expect(KNOWN_MOTIFS.slice(-2)).toEqual(['en_garde', 'verdant_choir']);
     expect(NO_MODS.enGarde).toBe(0);
     expect(NO_MODS.verdantChoir).toBe(0);
-    // ROSTER_DEEDS is concatenated last, empty until W3: the 27 keep their order.
-    expect(ROSTER_DEEDS).toEqual([]);
-    expect(CONTENT.deeds).toHaveLength(27);
+    // ROSTER_DEEDS is concatenated last (W3 filled it): the 27 keep their order.
+    expect(ROSTER_DEEDS.map((d) => d.id)).toEqual(['debt_paid', 'not_a_leaf_lost']);
+    expect(CONTENT.deeds).toHaveLength(29);
+    expect(CONTENT.deeds.slice(27)).toStrictEqual(ROSTER_DEEDS);
   });
 
   it('the shared constants', () => {

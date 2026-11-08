@@ -156,6 +156,16 @@ export interface HeroHud {
     overextended: boolean;
     killShot: boolean;
     parries: number;
+    /** Parries the Ward on her has left while armed (Riposte Chain: two); 0 unarmed. */
+    charges?: number;
+    /** Blade Waltz holds: every melee blow at her is parried, Ward or not. */
+    waltz?: boolean;
+    /** Her quarry's name (null: no duel). */
+    quarryName?: string | null;
+    /** Kill shots this fight. */
+    killShots?: number;
+    /** Thousand Cuts: its seconds left (absent unless it is running). */
+    cuts?: { left: number };
   };
   /**
    * Phase 5e, Oro (docs/phase-5e.md): present only for a hero with `grove`. `tending`: Gentle, no
@@ -164,8 +174,20 @@ export interface HeroHud {
    */
   grove?: {
     tending: boolean;
-    saplings: { id: number; hpPct: number; inField: boolean }[];
+    saplings: {
+      id: number;
+      hpPct: number;
+      inField: boolean;
+      /** The auras it receives (Q1), in content order; absent or empty: none. */
+      auras?: string[];
+      /** Felled: seconds until it re-sprouts (absent: standing, or not yet planted). */
+      respawnIn?: number;
+      /** Burrowing after a Rally (re-planting ahead of you). */
+      burrowing?: boolean;
+    }[];
     ancient: number;
+    /** The standing Ancient was Cued: its disc counts as your field (Q2). */
+    ancientCued?: boolean;
   };
   /**
    * Phase 3e, the Chronomancer: what Rewind would do to them right now, from the oldest sample
@@ -439,7 +461,16 @@ export interface BossHud {
   shield: number;
   phase: number;
   phases: number;
-  cast: { name: string; progress: number; answers: AnswerTag[] } | null;
+  cast: {
+    name: string;
+    progress: number;
+    answers: AnswerTag[];
+    /**
+     * Phase 5e: the cast is a parryable blow aimed at a parry-armed Seren: her name (it will be
+     * parried). Absent otherwise, and in every party without her.
+     */
+    parried?: string;
+  } | null;
   /** Seconds until enrage (null = none). */
   enrageIn: number | null;
   /** The latest decree, while it's relevant. */

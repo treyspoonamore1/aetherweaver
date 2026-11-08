@@ -67,6 +67,39 @@ function ceilingHolds(r: EncounterResult, deed: DeedDef): boolean {
   return pct !== undefined && peak !== undefined && peak >= 0 && peak <= pct / 100;
 }
 
+/** A hero's fight tally (docs/phase-5e.md), from the result's `duel` or `grove`; undefined without. */
+function heroTally(
+  hero: EncounterResult['heroes'][number] | undefined,
+  tally: DeedDef['tally'],
+): number | undefined {
+  switch (tally) {
+    case 'parries':
+      return hero?.duel?.parries;
+    case 'killShots':
+      return hero?.duel?.killShots;
+    case 'saplingsLost':
+      return hero?.grove?.saplingsLost;
+    default:
+      return undefined;
+  }
+}
+
+/**
+ * A fight that earns a `heroTally` Deed (Debt Paid, Not a Leaf Lost, docs/phase-5e.md): that
+ * encounter, won, with the hero in it, their `tally` at least `values.atLeast` and at most
+ * `values.atMost`. A result without the hero's stats (saved before them) never earns it.
+ */
+function tallyHolds(r: EncounterResult, deed: DeedDef): boolean {
+  if (r.outcome !== 'victory' || r.encounterId !== deed.encounter) return false;
+  const n = heroTally(
+    r.heroes.find((h) => h.heroId === deed.hero),
+    deed.tally,
+  );
+  if (n === undefined) return false;
+  const { atLeast, atMost } = deed.values;
+  return (atLeast === undefined || n >= atLeast) && (atMost === undefined || n <= atMost);
+}
+
 /** Does this run earn the Deed? */
 export function deedHolds(run: RunState, deed: DeedDef): boolean {
   const n = deed.values.n ?? 0;
@@ -95,9 +128,8 @@ export function deedHolds(run: RunState, deed: DeedDef): boolean {
       return won(run) && run.results.every((r) => r.stats.downs === 0);
     case 'heroCeiling':
       return run.results.some((r) => ceilingHolds(r, deed));
-    // docs/phase-5e.md: no heroTally Deed exists until W3 fills ROSTER_DEEDS and this rule.
     case 'heroTally':
-      return false;
+      return run.results.some((r) => tallyHolds(r, deed));
   }
 }
 

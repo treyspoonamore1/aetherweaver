@@ -37,6 +37,8 @@ import type {
   CombatOutcome,
   ForgeService,
   HeroBloodStats,
+  HeroDuelStats,
+  HeroGroveStats,
   MapNode,
   NodeKind,
   OwnedRelic,
@@ -4202,4 +4204,359 @@ export function finaleMockCallouts(scenario: FinaleScenario): Callout[] {
     return [{ id: 952, ...noteCallout(8, 8, 'perfect').callout, expiresAt: far }];
   if (scenario === 'cue') return [{ id: 953, ...sightingCallout(BASS), expiresAt: far }];
   return [];
+}
+
+// ── Phase 5e: Seren and Oro (docs/phase-5e.md) ───────────────────────────────────────
+
+/** The parties the bands measure (docs/phase-5e.md, "By party"), Seren's and Oro's. */
+export const SEREN_PARTIES = {
+  SA: ['kael', 'vexis', 'seren'],
+  SB: ['lyra', 'vexis', 'seren'],
+  SC: ['kael', 'lyra', 'seren'],
+} as const;
+export const ORO_PARTIES = {
+  OA: ['kael', 'vexis', 'oro'],
+  OB: ['lyra', 'vexis', 'oro'],
+  OC: ['kael', 'lyra', 'oro'],
+} as const;
+/** The two new heroes together: with Kael (SO), and with neither Kael nor Lyra (W). */
+export const DUO_PARTIES = {
+  SO: ['kael', 'seren', 'oro'],
+  W: ['vexis', 'seren', 'oro'],
+} as const;
+
+/** Seren's frame readouts (`HeroHud.duel`), all quiet unless set. */
+function duelHudOf(over: Partial<NonNullable<HeroHud['duel']>> = {}): NonNullable<HeroHud['duel']> {
+  return {
+    armed: false,
+    quarry: null,
+    overextended: false,
+    killShot: false,
+    parries: 0,
+    charges: 0,
+    quarryName: null,
+    killShots: 0,
+    ...over,
+  };
+}
+
+/** Seren in a slot at this share of her life. */
+export function serenHero(
+  slot: number,
+  share: number,
+  over: Partial<Omit<HeroHud, 'duel'>> & { duel?: Partial<NonNullable<HeroHud['duel']>> } = {},
+): HeroHud {
+  const max = heroDef('seren').maxHp;
+  const { duel: own, ...rest } = over;
+  return hero(slot, 'seren', { hp: Math.round(max * share), ...rest, duel: duelHudOf(own) });
+}
+
+/** One Sapling row of Oro's grove: standing at this share (−1: felled). */
+export function saplingOf(
+  share: number,
+  over: Partial<NonNullable<HeroHud['grove']>['saplings'][number]> = {},
+): NonNullable<HeroHud['grove']>['saplings'][number] {
+  return {
+    id: 300,
+    hpPct: share,
+    inField: share >= 0,
+    ...(share >= 0 ? { auras: ['sostenuto', 'fortissimo'] } : {}),
+    ...over,
+  };
+}
+
+/** Oro in a slot at this share of his life, his grove as given (two standing by default). */
+export function oroHero(
+  slot: number,
+  share: number,
+  over: Partial<Omit<HeroHud, 'grove'>> & { grove?: Partial<NonNullable<HeroHud['grove']>> } = {},
+): HeroHud {
+  const max = heroDef('oro').maxHp;
+  const { grove: own, ...rest } = over;
+  return hero(slot, 'oro', {
+    hp: Math.round(max * share),
+    distance: 6,
+    ...rest,
+    grove: {
+      tending: false,
+      saplings: [saplingOf(0.9, { id: 300 }), saplingOf(0.7, { id: 301 })],
+      ancient: 0,
+      ...own,
+    },
+  });
+}
+
+export type SerenScenario =
+  | 'seren-garde'
+  | 'seren-chain'
+  | 'seren-duel'
+  | 'seren-over'
+  | 'seren-reach'
+  | 'seren-killshot'
+  | 'seren-cuts'
+  | 'seren-waltz'
+  | 'seren-cast';
+
+/**
+ * Seren on the HUD (party SA: Kael, Vexis, Seren), each a mid-fight moment: en garde, Riposte
+ * Chain's two parries, a duel outside your songs, overextended, out of your reach (never faded:
+ * her outline and chip), a kill shot due, Thousand Cuts, Blade Waltz, and a boss blow aimed at
+ * her while armed ('Parried' on the cast).
+ */
+export function serenHud(scenario: SerenScenario): HudSnapshot {
+  const base = mockHud('calm');
+  const party = (s: HeroHud) => [hero(0, 'kael', { hp: 1420 }), hero(1, 'vexis', { hp: 700 }), s];
+  const warded = {
+    shield: 390,
+    shields: [{ kind: 'ward' as const, amount: 390, max: 390 }],
+  };
+  const duelling = { distance: 11, inField: false, auras: [] };
+  switch (scenario) {
+    case 'seren-garde':
+      return {
+        ...base,
+        party: party(serenHero(2, 0.84, { ...warded, duel: { armed: true, charges: 1 } })),
+      };
+    case 'seren-chain':
+      return {
+        ...base,
+        party: party(
+          serenHero(2, 0.9, {
+            ...warded,
+            talents: ['riposte_chain'],
+            duel: { armed: true, charges: 2, parries: 3 },
+          }),
+        ),
+      };
+    case 'seren-duel':
+      return {
+        ...base,
+        party: party(
+          serenHero(2, 0.72, {
+            ...duelling,
+            duel: { quarry: 412, quarryName: 'Bell Brute', parries: 5 },
+          }),
+        ),
+      };
+    case 'seren-over':
+      return {
+        ...base,
+        party: party(
+          serenHero(2, 0.46, {
+            ...duelling,
+            incoming: 180,
+            duel: { quarry: 412, quarryName: 'Bell Brute', overextended: true, parries: 5 },
+          }),
+        ),
+      };
+    case 'seren-reach':
+      return {
+        ...base,
+        party: party(
+          serenHero(2, 0.66, {
+            ...duelling,
+            distance: 16.5,
+            duel: { quarry: 412, quarryName: 'Bell Brute' },
+          }),
+        ),
+      };
+    case 'seren-killshot':
+      return {
+        ...base,
+        party: party(
+          serenHero(2, 0.8, {
+            ...warded,
+            duel: { armed: true, charges: 1, killShot: true, killShots: 1, parries: 2 },
+          }),
+        ),
+      };
+    case 'seren-cuts':
+      return {
+        ...base,
+        party: party(
+          serenHero(2, 0.75, {
+            soloActive: true,
+            solo: 100,
+            duel: { cuts: { left: 2.6 }, parries: 4 },
+          }),
+        ),
+      };
+    case 'seren-waltz':
+      return {
+        ...base,
+        party: party(
+          serenHero(2, 0.7, {
+            soloActive: true,
+            soloId: 'blade_waltz',
+            soloName: 'Blade Waltz',
+            soloAlt: true,
+            duel: { armed: true, waltz: true, charges: 1 },
+          }),
+        ),
+      };
+    case 'seren-cast': {
+      const boss = mockHud('boss');
+      return {
+        ...boss,
+        party: [
+          hero(0, 'lyra', { hp: 610 }),
+          hero(1, 'vexis', { hp: 580 }),
+          serenHero(2, 0.8, { ...warded, duel: { armed: true, charges: 1 } }),
+        ],
+        boss: boss.boss && {
+          ...boss.boss,
+          cast: { name: 'Bell Slam', progress: 0.6, answers: ['ward', 'move'], parried: 'Seren' },
+        },
+      };
+    }
+  }
+}
+
+export type OroScenario =
+  | 'oro-grove'
+  | 'oro-outside'
+  | 'oro-felled'
+  | 'oro-bare'
+  | 'oro-ancient'
+  | 'oro-swarm'
+  | 'oro-tending'
+  | 'oro-burrow';
+
+/**
+ * Oro on the HUD (party OA: Kael, Vexis, Oro): his two Saplings in your songs, one outside, one
+ * felled (its re-sprout timer), none standing, a Cued Ancient (its disc your field), Seedling
+ * Swarm's three, tending with no Focus, and a Rally's burrow.
+ */
+export function oroHud(scenario: OroScenario): HudSnapshot {
+  const base = mockHud('calm');
+  const party = (o: HeroHud) => [hero(0, 'kael', { hp: 1420 }), hero(1, 'vexis', { hp: 700 }), o];
+  switch (scenario) {
+    case 'oro-grove':
+      return { ...base, party: party(oroHero(2, 0.92)) };
+    case 'oro-outside':
+      return {
+        ...base,
+        party: party(
+          oroHero(2, 0.88, {
+            grove: {
+              saplings: [
+                saplingOf(0.8, { id: 300 }),
+                saplingOf(0.45, { id: 301, inField: false, auras: [] }),
+              ],
+            },
+          }),
+        ),
+      };
+    case 'oro-felled':
+      return {
+        ...base,
+        party: party(
+          oroHero(2, 0.7, {
+            grove: {
+              saplings: [saplingOf(0.6, { id: 300 }), saplingOf(-1, { id: 301, respawnIn: 7.4 })],
+            },
+          }),
+        ),
+      };
+    case 'oro-bare':
+      return {
+        ...base,
+        party: party(
+          oroHero(2, 0.4, {
+            grove: {
+              saplings: [
+                saplingOf(-1, { id: 300, respawnIn: 3.1 }),
+                saplingOf(-1, { id: 301, respawnIn: 9.8 }),
+              ],
+            },
+          }),
+        ),
+      };
+    case 'oro-ancient':
+      return {
+        ...base,
+        party: party(
+          oroHero(2, 0.85, { soloActive: true, grove: { ancient: 5.2, ancientCued: true } }),
+        ),
+      };
+    case 'oro-swarm':
+      return {
+        ...base,
+        party: party(
+          oroHero(2, 0.9, {
+            talents: ['seedling_swarm'],
+            grove: {
+              saplings: [
+                saplingOf(0.9, { id: 300 }),
+                saplingOf(0.5, { id: 301, inField: false, auras: [] }),
+                saplingOf(-1, { id: 302, respawnIn: 11.2 }),
+              ],
+              ancient: 3.4,
+            },
+          }),
+        ),
+      };
+    case 'oro-tending':
+      return { ...base, party: party(oroHero(2, 0.95, { grove: { tending: true } })) };
+    case 'oro-burrow':
+      return {
+        ...base,
+        directive: 'rally',
+        party: party(
+          oroHero(2, 0.9, {
+            grove: {
+              saplings: [
+                saplingOf(0.9, { id: 300, burrowing: true }),
+                saplingOf(0.7, { id: 301, burrowing: true }),
+              ],
+            },
+          }),
+        ),
+      };
+  }
+}
+
+/** The callouts over a Seren or Oro moment: their first fight's 'New ally' card. */
+export function recruitAllyCallouts(heroId: 'seren' | 'oro'): Callout[] {
+  return [{ id: 960, ...allyCallout(heroId), expiresAt: performance.now() + 1e9 }];
+}
+
+/** Seren's duel stats over a fight, as `EncounterResult.heroes[i].duel` carries them. */
+export function mockDuelStats(): HeroDuelStats {
+  return { parries: 14, killShots: 3, counterDamage: 4210, overextendedTime: 6 };
+}
+
+/** Oro's grove stats over a fight, as `EncounterResult.heroes[i].grove` carries them. */
+export function mockGroveStats(): HeroGroveStats {
+  return { saplingsLost: 3, inFieldShare: 0.74, rootbondHeal: 1120, ancients: 1 };
+}
+
+/** A won fight with Seren or Oro in the party: their lines, from `heroes[i].duel` and `grove`. */
+export function recruitResultRun(party: readonly string[] = DUO_PARTIES.SO): RunState {
+  const run = brannResultRun(party);
+  const r = run.lastResult;
+  if (!r) return run;
+  const heroes = r.heroes.map((h) =>
+    h.heroId === 'seren'
+      ? { ...h, duel: mockDuelStats() }
+      : h.heroId === 'oro'
+        ? { ...h, grove: mockGroveStats() }
+        : h,
+  );
+  const result = { ...r, heroes };
+  return { ...run, lastResult: result, results: [...run.results.slice(0, -1), result] };
+}
+
+/** The Summary of a run Seren and Oro fought in: their lines totalled over its fights. */
+export function recruitSummaryRun(party: readonly string[] = DUO_PARTIES.SO): RunState {
+  const run = recruitResultRun(party);
+  return { ...run, phase: 'summary', outcome: 'defeat', pending: null };
+}
+
+/** The Tithe Altar (Seren's) or the Loose Thread (Oro's), with this party. */
+export function recruitEventRun(
+  eventId: 'tithe_altar' | 'loose_thread',
+  party: readonly string[] = CONTENT.defaultParty,
+): RunState {
+  return withParty(eventRun(eventId), party);
 }

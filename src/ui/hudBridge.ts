@@ -18,11 +18,16 @@ import {
   cutWouldLand,
   deathlessActive,
   fallingFast,
+  gentle,
+  overextended,
+  parryArmed,
+  parryable,
   possessionVictim,
   reservePool,
   resolveChord,
   fightMovement,
   rewindCanRevive,
+  saplingInField,
   songReserveOf,
   techniqueCost,
   vowHoldsAt,
@@ -317,6 +322,8 @@ export function buildHudSnapshot(
       hovered: opts.hovered === id,
       ...movementTwoMarks(state, e, h),
       ...bloodHud(state, e),
+      ...duelHud(state, e),
+      ...groveHud(state, e),
       ...movementThreeMarks(state, e, h),
       ...finaleMarks(h),
       ...reigniteMark(state.time, id, h, opts.reignited),
@@ -414,6 +421,7 @@ export function buildHudSnapshot(
             ),
             // The roster (docs/phase-5b.md): no dome to answer with when no party hero has one.
             answers: telegraph ? shownAnswers(telegraph.answers, partyIds) : [],
+            ...parriedBy(state, telegraph),
           }
         : null,
       enrageIn:
@@ -666,6 +674,108 @@ function bloodHud(state: WorldState, e: ReadonlyEntity): Pick<HeroHud, 'blood'> 
       bled: b.bloodlet,
       spent: b.spent,
       ...(state.mods.bloodAndSilk > 0 ? { silk: true } : {}),
+    },
+  };
+}
+
+/**
+ * A boss cast that Seren will parry (docs/phase-5e.md, "Decrees"): a parryable blow aimed at her
+ * while your Ward arms her. No key otherwise, so no other party's boss bar changes.
+ */
+function parriedBy(
+  state: WorldState,
+  t: WorldState['telegraphs'][number] | undefined,
+): { parried?: string } {
+  if (!t || t.target === null) return {};
+  const e = state.entities.get(t.target);
+  if (!e?.hero?.duel || !parryArmed(e)) return {};
+  if (!parryable(CONTENT.attacks.find((a) => a.id === t.attackId))) return {};
+  return { parried: heroDef(e.hero.defId).name };
+}
+
+/**
+ * Seren on her frame (docs/phase-5e.md, "Seren's frame"): en garde (a Ward of yours, or Blade
+ * Waltz) and the parries it has left, her duel and its quarry, overextended, a kill shot due, and
+ * Thousand Cuts' seconds, all from the sim's own rules. No key for a hero without `duel`.
+ */
+function duelHud(state: WorldState, e: ReadonlyEntity): Pick<HeroHud, 'duel'> {
+  const d = e.hero?.duel;
+  if (!d) return {};
+  const armed = parryArmed(e);
+  const waltz = e.hero!.soloId === 'blade_waltz' && e.hero!.soloActive > 0;
+  const ward = e.health?.shields.find((s) => s.kind === 'ward' && s.fromWeaver);
+  const chain = e.hero!.talents.includes('riposte_chain');
+  const quarry = d.quarry === null ? undefined : state.entities.get(d.quarry);
+  const live = !!quarry?.enemy && !!quarry.health && !quarry.health.dead;
+  const cutsLeft = d.cutsEnd !== undefined ? d.cutsEnd - state.time : 0;
+  return {
+    duel: {
+      armed,
+      quarry: live ? quarry!.id : null,
+      overextended: overextended(state, e),
+      killShot: d.killShotOn !== null,
+      parries: d.parries,
+      charges: !armed ? 0 : ward && chain && !ward.parried ? 2 : 1,
+      ...(waltz ? { waltz: true } : {}),
+      quarryName: live ? enemyDef(quarry!.enemy!.defId).name : null,
+      killShots: d.killShots,
+      ...(cutsLeft > 0 && e.hero!.soloActive > 0 ? { cuts: { left: cutsLeft } } : {}),
+    },
+  };
+}
+
+/**
+ * Oro on his frame (docs/phase-5e.md, "Oro's frame"): tending (Gentle, no Focus), one row per
+ * Sapling his grove keeps (felled ones with their re-sprout timer), each with its life, whether
+ * it stands in your songs and the auras it hears, and the Ancient's seconds. No key without
+ * `grove`.
+ */
+function groveHud(state: WorldState, e: ReadonlyEntity): Pick<HeroHud, 'grove'> {
+  const g = e.hero?.grove;
+  if (!g) return {};
+  const def = heroDef(e.hero!.defId);
+  // The rows his grove keeps: content's count, one more with Seedling Swarm.
+  const count = Math.max(
+    g.saplings.length,
+    (def.summons?.sapling.count ?? 0) + (e.hero!.talents.includes('seedling_swarm') ? 1 : 0),
+  );
+  const saplings: NonNullable<HeroHud['grove']>['saplings'] = [];
+  for (let i = 0; i < count; i++) {
+    const id = g.saplings[i];
+    const s = id === undefined ? undefined : state.entities.get(id);
+    const sh = s?.health;
+    const at = g.respawnAt[i] ?? 0;
+    if (!s?.summon || !sh || sh.dead) {
+      saplings.push({
+        id: id ?? -1,
+        hpPct: -1,
+        inField: false,
+        ...(at > state.time ? { respawnIn: at - state.time } : {}),
+      });
+      continue;
+    }
+    const auras = s.summon.auraMask ? auraIds(CONTENT, s.summon.auraMask) : [];
+    saplings.push({
+      id: s.id,
+      hpPct: sh.maxHp > 0 ? Math.max(0, sh.hp) / sh.maxHp : 0,
+      inField: s.summon.inField ?? saplingInField(state, s),
+      ...(auras.length > 0 ? { auras } : {}),
+      ...(s.summon.burrowUntil !== undefined && s.summon.burrowUntil > state.time
+        ? { burrowing: true }
+        : {}),
+    });
+  }
+  const ancient = g.ancient === null ? undefined : state.entities.get(g.ancient);
+  const left =
+    ancient?.summon && ancient.health && !ancient.health.dead
+      ? Math.max(0, (ancient.summon.until ?? state.time) - state.time)
+      : 0;
+  return {
+    grove: {
+      tending: gentle(state, e),
+      saplings,
+      ancient: left,
+      ...(left > 0 && state.field.ancient ? { ancientCued: true } : {}),
     },
   };
 }

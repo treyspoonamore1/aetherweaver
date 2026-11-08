@@ -35,6 +35,25 @@ const HERO_LINES: Readonly<Record<string, string>> = {
   brann: 'Rest? I’ve only just got loud.',
 };
 
+/**
+ * Phase 5e (docs/phase-5e.md): Seren's and Oro's answers, checked before HERO_LINES. Every party
+ * of three from six holds a starter or Brann, so without this they would never speak; Seren
+ * speaks when both are present (canonical order). Every other party is unchanged.
+ */
+const RECRUIT_LINES: Readonly<Record<string, string>> = {
+  seren: 'You call it rest. I call it forfeit.',
+  oro: 'Even the grove sleeps, and then it wakes.',
+};
+
+/** The hero who answers the Conductor: a recruit with a line first, then the first with one. */
+export function epilogueSpeaker(party: readonly string[]): string {
+  const recruit = CONTENT.heroes.find(
+    (h) => party.includes(h.id) && RECRUIT_LINES[h.id] !== undefined,
+  );
+  if (recruit) return recruit.id;
+  return party.find((id) => HERO_LINES[id] !== undefined) ?? CONTENT.defaultParty[0]!;
+}
+
 /** How long each line has before the next rises (ms). */
 export const EPILOGUE_LINE_MS = 3000;
 /** How long the last line holds before the panel closes on its own (ms). */
@@ -42,7 +61,7 @@ export const EPILOGUE_HOLD_MS = 2000;
 
 /** The epilogue's lines for this party (its first hero answers the Conductor). */
 export function epilogueLines(party: readonly string[]): EpilogueLine[] {
-  const first = party.find((id) => HERO_LINES[id] !== undefined) ?? CONTENT.defaultParty[0]!;
+  const first = epilogueSpeaker(party);
   const hero = heroDef(first);
   return [
     {
@@ -54,7 +73,7 @@ export function epilogueLines(party: readonly string[]): EpilogueLine[] {
       text: 'I wove the first of them. I only wanted the world to rest.',
       color: '#cbd5e1',
     },
-    { speaker: hero.name, text: HERO_LINES[first]!, color: heroInk(first) },
+    { speaker: hero.name, text: RECRUIT_LINES[first] ?? HERO_LINES[first]!, color: heroInk(first) },
     {
       speaker: 'The Weaver',
       text: 'A rest is part of the song. It isn’t the end of it.',

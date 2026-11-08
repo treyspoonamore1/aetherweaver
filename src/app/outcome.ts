@@ -1,5 +1,5 @@
-import type { CombatOutcome, HeroBloodStats } from '../meta/types';
-import type { BloodState, WithoutYou, WorldState } from '../sim';
+import type { CombatOutcome, HeroBloodStats, HeroDuelStats, HeroGroveStats } from '../meta/types';
+import type { BloodState, DuelState, GroveState, WithoutYou, WorldState } from '../sim';
 
 /** A Blood Rage hero's fight, as the run keeps it (docs/phase-5b.md): the sim's stats, copied. */
 function bloodStats(b: Readonly<BloodState>): HeroBloodStats {
@@ -10,6 +10,31 @@ function bloodStats(b: Readonly<BloodState>): HeroBloodStats {
     aliveTime: b.aliveTime,
     peakAfterLow: b.peakAfterLow,
     spent: b.spent,
+  };
+}
+
+/** Seren's fight, as the run keeps it (docs/phase-5e.md): her duel's tallies, copied. */
+function duelStats(d: Pick<DuelState, keyof HeroDuelStats>): HeroDuelStats {
+  return {
+    parries: d.parries,
+    killShots: d.killShots,
+    counterDamage: d.counterDamage,
+    overextendedTime: d.overextendedTime,
+  };
+}
+
+/**
+ * Oro's fight, as the run keeps it (docs/phase-5e.md): Saplings felled, the share of their alive
+ * time inside your songs (0 when none stood), Rootbond's healing and the Ancients raised.
+ */
+function groveStats(
+  g: Pick<GroveState, 'lost' | 'inFieldTime' | 'aliveTime' | 'rootbondHeal' | 'ancients'>,
+): HeroGroveStats {
+  return {
+    saplingsLost: g.lost,
+    inFieldShare: g.aliveTime > 0 ? Math.min(1, g.inFieldTime / g.aliveTime) : 0,
+    rootbondHeal: g.rootbondHeal,
+    ancients: g.ancients,
   };
 }
 
@@ -41,6 +66,9 @@ export function buildOutcome(
         supported: e?.hero?.supportReceived ?? 0,
         // Brann (docs/phase-5b.md): only a hero with Blood Rage has it.
         ...(e?.hero?.blood ? { blood: bloodStats(e.hero.blood) } : {}),
+        // Seren and Oro (docs/phase-5e.md): only a hero with Parry or Rootbond has each.
+        ...(e?.hero?.duel ? { duel: duelStats(e.hero.duel) } : {}),
+        ...(e?.hero?.grove ? { grove: groveStats(e.hero.grove) } : {}),
       };
     }),
     withoutYou,

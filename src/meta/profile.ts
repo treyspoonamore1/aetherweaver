@@ -371,7 +371,29 @@ export const UNLOCKS: readonly Unlock[] = [
     name: 'Dissonance',
     text: `The endgame: opt-in levels that make the fight harder and pay more, and relics won deeper craft further. Opens at Weaver Rank ${CONTENT.dissonanceRules.openRank} once you have cleared the Finale.`,
   },
+  // Phase 5e: the Rank-gated recruits (docs/phase-5e.md), appended last, each at its hero's
+  // `recruit.rank`. Never `hero.<id>`: that is the Prep FreshStrip's key for the join itself.
+  recruitUnlock(
+    'seren',
+    'A duellist in silver kneels at the Tithe Altar in Movement II. Pay her debt and win the fight, or face the Gorehound Matriarch, and she joins your heroes.',
+  ),
+  recruitUnlock(
+    'oro',
+    'Someone holds a thread in the Rift. Follow the Loose Thread in Movement III and win the fight, or face the Seamstress, and he joins your heroes.',
+  ),
 ];
+
+function recruitUnlock(heroId: string, text: string): Unlock {
+  const def = CONTENT.heroes.find((h) => h.id === heroId)!;
+  return {
+    id: `recruit.${heroId}`,
+    rank: def.recruit!.rank!,
+    kind: 'recruit',
+    target: heroId,
+    name: `${def.name}, ${def.title}`,
+    text,
+  };
+}
 
 /** Unlocks reached between two XP totals (for the rank-up card). */
 export function unlocksBetween(xpBefore: number, xpAfter: number): Unlock[] {

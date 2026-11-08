@@ -144,6 +144,17 @@ export function BossBar({
                 ) : (
                   boss.cast.answers.map((a) => <AnswerGlyph key={a} tag={a} rewind={rewind} />)
                 )}
+                {boss.cast.parried && !blind && (
+                  // Phase 5e: your Ward is on Seren, and this blow is hers to parry.
+                  <span
+                    className="flex items-center gap-1 rounded-md border px-1 text-xs font-bold leading-5"
+                    style={{ color: '#d8b4fe', borderColor: 'rgb(160 24 248 / 0.6)' }}
+                    title={`${boss.cast.parried} is en garde: your Ward on her parries this blow`}
+                    data-testid="cast-parried"
+                  >
+                    <Icon name="blades" size={12} /> Parried
+                  </span>
+                )}
               </span>
             </div>
             <div className="mt-1 h-2 overflow-hidden rounded-full bg-ink-700">

@@ -426,7 +426,18 @@ export function allyOf(heroId: string): Ally | null {
   if (!def || CONTENT.defaultParty.includes(def.id)) return null;
   const lines: string[] = [];
   const passive = bloodRageOf(def);
-  if (passive && passive.weaverHealMult < 1)
+  // Phase 5e (docs/phase-5e.md): Seren's and Oro's own rules, narrowed by their passive.
+  if (def.passive?.id === 'parry')
+    lines.push(
+      `Ward her as the blow lands: she parries and counters ${countTimes(def.passive.counterPct)}. A Perfect Ward is a kill shot.`,
+      'She hunts the strongest foe. Reel or Rally her when she’s surrounded.',
+    );
+  else if (def.passive?.id === 'rootbond')
+    lines.push(
+      'His Saplings take your songs: keep them in your field, or Rally to re-plant them.',
+      'Your Thread on him Mends them too. He won’t fight without a Focus.',
+    );
+  else if (passive && passive.weaverHealMult < 1)
     lines.push(
       `Your healing on him is ${passive.weaverHealMult === 0.5 ? 'halved' : `cut to ${Math.round(passive.weaverHealMult * 100)}%`}: his axe heals him, and he hits harder the lower he falls.`,
       'Ward him and give him barriers: they aren’t cut. Keep him low, but alive.',
@@ -434,6 +445,12 @@ export function allyOf(heroId: string): Ally | null {
     );
   else lines.push(def.quirk.description);
   return { heroId: def.id, name: `${def.name}, ${def.title}`, color: def.color, lines };
+}
+
+/** A counter's multiple in words: "threefold" (300%), else "for 250%". */
+function countTimes(mult: number): string {
+  const fold: Record<number, string> = { 2: 'twofold', 3: 'threefold', 4: 'fourfold' };
+  return fold[mult] ?? `for ${Math.round(mult * 100)}%`;
 }
 
 /** An ally callout's hero (null for any other callout). */
