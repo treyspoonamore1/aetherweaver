@@ -47,6 +47,7 @@
 import { CONTENT, attackDef, enemyDef, heroDef, partyHasDome } from '../content';
 import { Rng } from '../sim/core/rng';
 import { bloodRageBonus, gentle, segmentDistSq, specialsOf, weaverSilenced } from '../sim';
+import { HEAVY_LIFE } from '../content/rosterIds';
 import { contains } from '../sim/combat/telegraphs';
 import { dcos, dsin } from '../sim/core/dmath';
 import type { Command, EntityId, PartySlot, ReadonlyEntity, ThreadMode, WorldState } from '../sim';
@@ -259,7 +260,10 @@ export const ROSTER_RULES = [
   'serenNoSwap',
   /** Cue Thousand Cuts at 4+ enemies or when she is overextended. */
   'serenCue',
-  /** Focus Kael's target (or the boss) while Oro tends (no crowd guard since W9 round 2). */
+  /**
+   * Focus Kael's target (or the boss) while Oro tends (no crowd guard since W9 round 2); 2 s
+   * after a Focus falls, and never at a boss that calls a pack with Kael (W9 round 3).
+   */
   'oroFocus',
   /** Rally a Sapling left outside every field for 2 s back in (re-planted ahead of her). */
   'oroRally',
@@ -282,6 +286,14 @@ export type RosterRule = (typeof ROSTER_RULES)[number];
  * seeds: OA −3.2 → +0.6 a cell against default, OB +0.5 → +0.8, OC +0.8 → +0.3).
  */
 const ORO_FOCUS_AT = Infinity;
+/**
+ * `oroFocus`: while Oro tends and no Focus stands (his Focus fell), the next Focus waits only
+ * this long after the last (s), not the plain 4 s between Focuses. W9 round 3 (lever 3): behind
+ * the 4 s he tended 34% (OB) and 31% (OC) of the road (band ≤ 25%); at 2 s, 22% and 18% (screen,
+ * 25 cells, 48 seeds), with OB's road Weaver damage unchanged (277 a fight). At 0 or 1 s he
+ * tended less still (13-15%), but OB's Weaver took 296-300 a fight on the road.
+ */
+const ORO_REFOCUS = 2;
 /** `oroRally`: a Sapling outside every field this long is Rallied back in (s). */
 const SAPLING_OUT_FOR = 2;
 /** `oroRally`: at most one such Rally this often (s); a Bloodlusting Brann's 8 s holds. */
@@ -1247,7 +1259,14 @@ export class SkilledBot implements Bot {
     // than let the party drift back to the plated boss for the rest of the 4 s (false before it).
     const nextSpindle =
       state.focusTarget === null && this.on('focusSpindle') && spindlesUp(enemies).length > 0;
-    if (now - this.lastFocus > 4 || nextSpindle) {
+    // Oro (docs/phase-5e.md, `oroFocus`): his Focus fell and he tends; wake him sooner.
+    const oroWake =
+      grove !== null &&
+      this.on('oroFocus') &&
+      grove.tending &&
+      state.focusTarget === null &&
+      now - this.lastFocus > ORO_REFOCUS;
+    if (now - this.lastFocus > 4 || nextSpindle || oroWake) {
       const caster =
         enemies.find((e) => e.enemy!.cast?.interruptible) ??
         // The Finale's Cued soloist (docs/phase-5d.md): undefined without a live Cue.
@@ -2407,6 +2426,32 @@ function groveCovers(state: WorldState, party: readonly HeroView[]): boolean {
   return state.encounter.bossId !== null || !party.some((h) => h.role === 'tank');
 }
 
+/**
+ * `oroFocus`'s pack guard (W9 round 3): the fight's boss (a boss, not a miniboss) has a summon
+ * special calling a pack (3 or more mobile, non-heavy foes: the Hollow Cantor's Choristers). A
+ * Focus stands until its target falls and overrides Showboat, so a Focus on such a boss holds
+ * Seren on it for the whole fight, and her peel (`duel.ts`, round 2) never takes the pack off
+ * Kael; with none, she peels, and Oro tends, his Saplings taunting the pack at the tended bonus
+ * (the design's 'Call the Choir'). Read only while Kael and Seren both stand (SO). Measured:
+ * `verbs.ts` with `oroFocus` off, SO's Cantor 16 → 96%; with the guard (50 seeds on 1000 and
+ * 500003), SO 10 → 44% and 18 → 52%. Read in every Kael party it moved OC 96 → 90% (1000) and
+ * 88 → 98% (500003) and OA 98 → 100% and 98%, so it stays out of the parties without her.
+ * False at every other boss, and with no boss.
+ */
+function packCaller(state: WorldState): boolean {
+  const id = state.encounter.bossId;
+  const boss = id === null ? undefined : state.entities.get(id);
+  const c = boss?.enemy;
+  if (!c || c.tier !== 'boss') return false;
+  for (const sid of specialsOf(enemyDef(c.defId), c.affixes)) {
+    const a = attackDef(sid);
+    if (a.effect !== 'summon' || !a.summon || a.summon.count < 3) continue;
+    const d = enemyDef(a.summon.enemy);
+    if (d.stationary !== true && d.hp < HEAVY_LIFE) return true;
+  }
+  return false;
+}
+
 /** `oroThread`'s guard: a standing enemy has a `threadLine` special (Movement III's Shears). */
 function lineCutterUp(state: WorldState): boolean {
   for (const m of state.entities.list()) {
@@ -2491,7 +2536,7 @@ function groveWantsMend(
  * `oroFocus`: while Oro tends (no Focus stands) and no more than `ORO_FOCUS_AT` enemies stand,
  * the enemy to wake him on: Kael's target, else the boss, else the mobile enemy nearest the
  * Weaver; never a guarded Crimson Sentinel while more than `SENTINEL_FOCUS_AT` stand. Undefined
- * otherwise.
+ * otherwise, and at a boss that calls a pack while Kael is in the party (`packCaller`).
  */
 function oroFocusTarget(
   state: WorldState,
@@ -2500,6 +2545,11 @@ function oroFocusTarget(
   grove: GroveView,
 ): ReadonlyEntity | undefined {
   if (!grove.tending || enemies.length === 0 || enemies.length > ORO_FOCUS_AT) return undefined;
+  // A boss that calls a pack, with Kael and Seren in the party (W9 round 3): no Focus, so Oro
+  // tends and Seren peels the pack off Kael.
+  const kaelAndSeren =
+    party.some((h) => h.role === 'tank') && party.some((h) => h.role === 'duelist');
+  if (kaelAndSeren && packCaller(state)) return undefined;
   const kael = party.find((h) => h.role === 'tank')?.e.hero!.targetId ?? null;
   const boss = state.encounter.bossId;
   // A Crimson Sentinel's guard keeps SENTINEL_FOCUS_AT's crowd guard (W9 round 2): Focused

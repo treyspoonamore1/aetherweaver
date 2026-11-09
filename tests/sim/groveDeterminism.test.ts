@@ -91,16 +91,33 @@ describe('Oro is deterministic (docs/phase-5e.md)', () => {
         expect(result.versionMismatch).toBeNull();
       });
 
-      it(`party ${name}, seed ${seed}: two runs agree in mid-fight, and the grove fought`, () => {
+      it(`party ${name}, seed ${seed}: two runs agree in mid-fight, and the grove sprouted`, () => {
         const a = playTo(s, TICKS / 2);
         const b = playTo(s, TICKS / 2);
         expect(b.hash).toBe(a.hash);
         expect(b.events).toEqual(a.events);
-        // Over the whole scenario his Saplings sprouted and swung.
-        const all = playTo(s, TICKS).events;
-        const summons = new Set(all.flatMap((e) => (e.type === 'summonSpawned' ? [e.summon] : [])));
-        expect(summons.size).toBeGreaterThanOrEqual(2);
-        expect(all.some((e) => e.type === 'attackFired' && summons.has(e.source))).toBe(true);
+        // Over the whole scenario his Saplings sprouted.
+        expect(saplingSwings(s).sprouted).toBeGreaterThanOrEqual(2);
       });
     }
+
+  // His Saplings swung in at least two of each party's three fights. (Since W9 round 3 a
+  // tending Oro is woken 2 s after his Focus falls, and in OC's First Light on seed 1 the party
+  // kills the pack before it reaches the Saplings 4 m ahead: they sprout and never swing.)
+  for (const [name, party] of Object.entries(PARTIES))
+    it(`party ${name}: the grove fought in at least two of its three fights`, () => {
+      const swung = LOADOUTS.filter(
+        ({ seed, encounter, config }) =>
+          saplingSwings(scenario(party, seed, encounter, config)).swings > 0,
+      );
+      expect(swung.length).toBeGreaterThanOrEqual(2);
+    });
 });
+
+/** Over the whole scenario: how many Saplings sprouted, and how many swings they made. */
+function saplingSwings(s: Scenario): { sprouted: number; swings: number } {
+  const all = playTo(s, TICKS).events;
+  const summons = new Set(all.flatMap((e) => (e.type === 'summonSpawned' ? [e.summon] : [])));
+  const swings = all.filter((e) => e.type === 'attackFired' && summons.has(e.source)).length;
+  return { sprouted: summons.size, swings };
+}

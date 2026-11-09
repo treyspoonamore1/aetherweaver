@@ -3917,6 +3917,50 @@ describe('the Skilled bot with Oro (staged)', () => {
     expect(thin.target).toBe(thin.sentinel);
   });
 
+  it('oroFocus: Focuses again 2 s after a tending Oro’s Focus fell, not 4 (W9 round 3)', () => {
+    // The bot decides every 4th tick: 92 ticks is 1.53 s, 152 ticks 2.53 s.
+    const refocus = (ticks: number, skip: RosterRule[] = []) => {
+      const { sim, w } = grove();
+      const hounds = [-2, 2].map((x) => foe(w, 'sanguine_hound', x, -9, { hp: 1e6 }));
+      for (const h of hounds) h.enemy!.state = 'approach';
+      w.entities.get(w.party[0]!)!.hero!.targetId = hounds[0]!.id;
+      const bot = skilled(skip);
+      const first = bot.decide(sim.state).find((c) => c.t === 'directive' && c.kind === 'focus');
+      // Its Focus fell: none stands, so Oro tends again.
+      w.focusTarget = null;
+      stepFor(sim, ticks);
+      const again = bot.decide(sim.state).find((c) => c.t === 'directive' && c.kind === 'focus');
+      return { first: first !== undefined, again: again !== undefined };
+    };
+    expect(refocus(152)).toEqual({ first: true, again: true });
+    expect(refocus(92)).toEqual({ first: true, again: false });
+    // Off, the plain 4 s between Focuses holds.
+    expect(refocus(152, ['oroFocus'])).toEqual({ first: false, again: false });
+  });
+
+  it('oroFocus: no Focus at a boss that calls a pack with Kael and Seren in the party (W9 round 3)', () => {
+    const atBoss = (defId: string, party = ORO_PARTY) => {
+      const { sim, w } = grove(party);
+      const boss = foe(w, defId, 0, -10, { hp: 1e6 });
+      boss.enemy!.state = 'approach';
+      w.encounter.bossId = boss.id;
+      const kael = w.party.map((id) => w.entities.get(id)!).find((e) => e.hero!.defId === 'kael');
+      if (kael) kael.hero!.targetId = boss.id;
+      const out = skilled().decide(sim.state);
+      const f = out.find((c) => c.t === 'directive' && c.kind === 'focus');
+      return f?.t === 'directive' ? f.target === boss.id : false;
+    };
+    const so = ['kael', 'seren', 'oro'];
+    // The Hollow Cantor calls the Choir (four Choristers): Seren peels them off Kael, and Oro
+    // tends, his Saplings on the pack.
+    expect(atBoss('the_hollow_cantor', so)).toBe(false);
+    // Vharun calls no pack: he wakes Oro on Kael's target, the boss, as before.
+    expect(atBoss('vharun_crimson_warden', so)).toBe(true);
+    // Without Seren (OA) or without Kael (OB) the Cantor is still his Focus.
+    expect(atBoss('the_hollow_cantor')).toBe(true);
+    expect(atBoss('the_hollow_cantor', ['lyra', 'vexis', 'oro'])).toBe(true);
+  });
+
   it('oroRally: Rallies a Sapling left outside the field for 2 s, at most every 5 s', () => {
     // `groveCover` left off: it walks the Weaver (and her field) toward Saplings left out.
     const rallyTimes = (outside: boolean, skip: RosterRule[] = []) => {
