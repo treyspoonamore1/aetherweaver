@@ -262,7 +262,8 @@ export const ROSTER_RULES = [
   'serenCue',
   /**
    * Focus Kael's target (or the boss) while Oro tends (no crowd guard since W9 round 2); 2 s
-   * after a Focus falls, and never at a boss that calls a pack with Kael (W9 round 3).
+   * after a Focus falls, and never at a boss that calls a pack while Kael and Seren both stand
+   * (W9 round 3).
    */
   'oroFocus',
   /** Rally a Sapling left outside every field for 2 s back in (re-planted ahead of her). */
@@ -2536,7 +2537,7 @@ function groveWantsMend(
  * `oroFocus`: while Oro tends (no Focus stands) and no more than `ORO_FOCUS_AT` enemies stand,
  * the enemy to wake him on: Kael's target, else the boss, else the mobile enemy nearest the
  * Weaver; never a guarded Crimson Sentinel while more than `SENTINEL_FOCUS_AT` stand. Undefined
- * otherwise, and at a boss that calls a pack while Kael is in the party (`packCaller`).
+ * otherwise, and at a boss that calls a pack while Kael and Seren both stand (`packCaller`).
  */
 function oroFocusTarget(
   state: WorldState,
@@ -2545,7 +2546,7 @@ function oroFocusTarget(
   grove: GroveView,
 ): ReadonlyEntity | undefined {
   if (!grove.tending || enemies.length === 0 || enemies.length > ORO_FOCUS_AT) return undefined;
-  // A boss that calls a pack, with Kael and Seren in the party (W9 round 3): no Focus, so Oro
+  // A boss that calls a pack, while Kael and Seren both stand (W9 round 3): no Focus, so Oro
   // tends and Seren peels the pack off Kael.
   const kaelAndSeren =
     party.some((h) => h.role === 'tank') && party.some((h) => h.role === 'duelist');

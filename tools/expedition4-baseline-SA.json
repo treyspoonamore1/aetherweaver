@@ -1,0 +1,380 @@
+{
+ "movements": 4,
+ "seeds": 5,
+ "runs": [
+  {
+   "seed": 2000,
+   "bot": "novice",
+   "outcome": "defeat",
+   "lastEncounter": "gorehound_matriarch",
+   "fights": 8,
+   "minutes": 13.893944444445937,
+   "motifs": [
+    "taut_release:1",
+    "twin_aegis:1",
+    "da_capo:1",
+    "second_verse:1",
+    "warm_hum:1",
+    "deep_roots:1",
+    "long_weave:1"
+   ],
+   "relics": [
+    "wardens_key",
+    "martyrs_veil",
+    "cantors_hymnal"
+   ],
+   "path": [],
+   "aetherEarned": 232,
+   "aetherLeft": 232,
+   "bondXp": {
+    "kael": 321,
+    "vexis": 225,
+    "seren": 180
+   },
+   "movementReached": 2,
+   "minutesByMovement": [
+    8.220916666667925,
+    5.673027777778013
+   ]
+  },
+  {
+   "seed": 106729,
+   "bot": "novice",
+   "outcome": "defeat",
+   "lastEncounter": "bellwarden",
+   "fights": 3,
+   "minutes": 3.739222222222069,
+   "motifs": [
+    "golden_filament:1",
+    "twin_aegis:1"
+   ],
+   "relics": [
+    "choirmasters_baton"
+   ],
+   "path": [],
+   "aetherEarned": 43,
+   "aetherLeft": 43,
+   "bondXp": {
+    "kael": 86,
+    "vexis": 57,
+    "seren": 53
+   },
+   "movementReached": 1,
+   "minutesByMovement": [
+    3.739222222222069
+   ]
+  },
+  {
+   "seed": 211458,
+   "bot": "novice",
+   "outcome": "defeat",
+   "lastEncounter": "mourning_steps",
+   "fights": 2,
+   "minutes": 1.076944444444426,
+   "motifs": [
+    "steady_hands:1"
+   ],
+   "relics": [
+    "prism_loom"
+   ],
+   "path": [],
+   "aetherEarned": 23,
+   "aetherLeft": 23,
+   "bondXp": {
+    "kael": 47,
+    "vexis": 25,
+    "seren": 29
+   },
+   "movementReached": 1,
+   "minutesByMovement": [
+    1.076944444444426
+   ]
+  },
+  {
+   "seed": 316187,
+   "bot": "novice",
+   "outcome": "defeat",
+   "lastEncounter": "first_light",
+   "fights": 1,
+   "minutes": 0.666944444444428,
+   "motifs": [],
+   "relics": [],
+   "path": [],
+   "aetherEarned": 0,
+   "aetherLeft": 0,
+   "bondXp": {
+    "kael": 16,
+    "vexis": 8,
+    "seren": 10
+   },
+   "movementReached": 1,
+   "minutesByMovement": [
+    0.666944444444428
+   ]
+  },
+  {
+   "seed": 420916,
+   "bot": "novice",
+   "outcome": "defeat",
+   "lastEncounter": "mourning_steps",
+   "fights": 2,
+   "minutes": 0.9800555555555427,
+   "motifs": [
+    "steady_hands:1"
+   ],
+   "relics": [
+    "tuning_fork"
+   ],
+   "path": [],
+   "aetherEarned": 26,
+   "aetherLeft": 26,
+   "bondXp": {
+    "kael": 44,
+    "vexis": 29,
+    "seren": 26
+   },
+   "movementReached": 1,
+   "minutesByMovement": [
+    0.9800555555555427
+   ]
+  },
+  {
+   "seed": 2000,
+   "bot": "skilled",
+   "outcome": "victory",
+   "lastEncounter": "the_silent_conductor",
+   "fights": 15,
+   "minutes": 32.46958333333517,
+   "motifs": [
+    "taut_release:1",
+    "twin_aegis:1",
+    "da_capo:1",
+    "second_verse:2",
+    "warm_hum:1",
+    "deep_roots:1",
+    "long_weave:1",
+    "clear_tone:1",
+    "starlit_study:2",
+    "deep_breath:3",
+    "quickened_verse:1",
+    "bulwarks_echo:1",
+    "canon:1"
+   ],
+   "relics": [
+    "wardens_key",
+    "martyrs_veil",
+    "cantors_hymnal",
+    "star_chart",
+    "choirmasters_baton",
+    "hollow_bell",
+    "lantern_of_the_lost",
+    "cracked_metronome",
+    "knotted_cord",
+    "sacrificial_lamb",
+    "spindle_of_fate",
+    "silver_thimble",
+    "featherweight_robes",
+    "prism_loom"
+   ],
+   "path": [],
+   "aetherEarned": 822,
+   "aetherLeft": 202,
+   "bondXp": {
+    "kael": 583,
+    "vexis": 741,
+    "seren": 425
+   },
+   "movementReached": 4,
+   "minutesByMovement": [
+    7.3109305555567135,
+    10.438708333333503,
+    11.255874999999559,
+    3.464069444445396
+   ]
+  },
+  {
+   "seed": 106729,
+   "bot": "skilled",
+   "outcome": "defeat",
+   "lastEncounter": "frayed_threshold",
+   "fights": 10,
+   "minutes": 17.87001388888982,
+   "motifs": [
+    "golden_filament:3",
+    "twin_aegis:1",
+    "da_capo:1",
+    "standing_ovation:2",
+    "steady_hands:1"
+   ],
+   "relics": [
+    "choirmasters_baton",
+    "hollow_bell",
+    "cantors_hymnal",
+    "star_chart",
+    "prism_loom",
+    "martyrs_veil"
+   ],
+   "path": [],
+   "aetherEarned": 503,
+   "aetherLeft": 503,
+   "bondXp": {
+    "kael": 354,
+    "vexis": 442,
+    "seren": 258
+   },
+   "movementReached": 3,
+   "minutesByMovement": [
+    6.9765833333342675,
+    10.473305555555555,
+    0.4201249999999972
+   ]
+  },
+  {
+   "seed": 211458,
+   "bot": "skilled",
+   "outcome": "victory",
+   "lastEncounter": "the_silent_conductor",
+   "fights": 15,
+   "minutes": 32.26747222222429,
+   "motifs": [
+    "steady_hands:3",
+    "twin_aegis:1",
+    "da_capo:1",
+    "taut_release:2",
+    "golden_filament:2",
+    "standing_ovation:1",
+    "starlit_study:2",
+    "relay_weave:1",
+    "lingering_aegis:2",
+    "clear_tone:1",
+    "second_verse:1",
+    "riposte_bloom:1"
+   ],
+   "relics": [
+    "prism_loom",
+    "spindle_of_fate",
+    "hollow_bell",
+    "cantors_hymnal",
+    "cracked_metronome",
+    "choirmasters_baton",
+    "wardens_key",
+    "stillwater_bell",
+    "star_chart",
+    "silver_thimble",
+    "heavy_score",
+    "quick_rosin"
+   ],
+   "path": [],
+   "aetherEarned": 824,
+   "aetherLeft": 514,
+   "bondXp": {
+    "kael": 603,
+    "vexis": 738,
+    "seren": 441
+   },
+   "movementReached": 4,
+   "minutesByMovement": [
+    7.273750000001071,
+    10.708486111110851,
+    10.62226388888904,
+    3.6629722222233294
+   ]
+  },
+  {
+   "seed": 316187,
+   "bot": "skilled",
+   "outcome": "victory",
+   "lastEncounter": "the_silent_conductor",
+   "fights": 15,
+   "minutes": 31.64575000000171,
+   "motifs": [
+    "da_capo:1",
+    "twin_aegis:1",
+    "bulwarks_echo:1",
+    "relay_weave:2",
+    "warm_hum:2",
+    "quickened_verse:2",
+    "deep_roots:1",
+    "fishers_knot:1",
+    "en_garde:1",
+    "golden_filament:2",
+    "riposte_bloom:1"
+   ],
+   "relics": [
+    "hollow_bell",
+    "martyrs_veil",
+    "cantors_hymnal",
+    "choirmasters_baton",
+    "sacrificial_lamb",
+    "stillwater_bell",
+    "knotted_cord",
+    "silver_thimble",
+    "heavy_score",
+    "glass_halo",
+    "tacet_mark"
+   ],
+   "path": [],
+   "aetherEarned": 817,
+   "aetherLeft": 597,
+   "bondXp": {
+    "kael": 548,
+    "vexis": 791,
+    "seren": 411
+   },
+   "movementReached": 4,
+   "minutesByMovement": [
+    7.511791666668009,
+    10.600027777777594,
+    10.53484722222219,
+    2.9990833333339157
+   ]
+  },
+  {
+   "seed": 420916,
+   "bot": "skilled",
+   "outcome": "victory",
+   "lastEncounter": "the_silent_conductor",
+   "fights": 15,
+   "minutes": 36.39129166666799,
+   "motifs": [
+    "steady_hands:2",
+    "twin_aegis:1",
+    "da_capo:1",
+    "deep_breath:1",
+    "long_weave:1",
+    "lingering_aegis:2",
+    "quickened_verse:1",
+    "en_garde:1",
+    "second_verse:1",
+    "clear_tone:1",
+    "bulwarks_echo:1",
+    "fishers_knot:1"
+   ],
+   "relics": [
+    "tuning_fork",
+    "cracked_metronome",
+    "prism_loom",
+    "cantors_hymnal",
+    "stillwater_bell",
+    "hollow_bell",
+    "martyrs_veil",
+    "spindle_of_fate"
+   ],
+   "path": [],
+   "aetherEarned": 801,
+   "aetherLeft": 771,
+   "bondXp": {
+    "kael": 620,
+    "vexis": 700,
+    "seren": 425
+   },
+   "movementReached": 4,
+   "minutesByMovement": [
+    8.254208333335239,
+    11.554888888888081,
+    12.254333333332038,
+    4.32786111111264
+   ]
+  }
+ ]
+}

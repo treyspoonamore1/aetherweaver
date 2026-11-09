@@ -1,6 +1,6 @@
 # The playtest demo
 
-*2026-10-30 · follows [Phase 4h](phase-4h.md); updated 2026-11-03 for [Phase 5a](phase-5a.md), 2026-11-04 for [Phase 5b](phase-5b.md), and 2026-11-05 for [Phase 5c](phase-5c.md)*
+*2026-10-30 · follows [Phase 4h](phase-4h.md); updated 2026-11-03 for [Phase 5a](phase-5a.md), 2026-11-04 for [Phase 5b](phase-5b.md), 2026-11-05 for [Phase 5c](phase-5c.md), 2026-11-08 for [Phase 5d](phase-5d.md), and 2026-11-09 for [Phase 5e](phase-5e.md)*
 
 A build of the game for playtesters: the Prelude run (Movement I), and since Phase 5a the Expedition, which climbs on past the Hollow Cantor into Movement II (the Crimson Spire and the Crimson Legion), with everything the Loom has opened by then. It's published as a private link (a claude.ai Artifact) that its owner can share. Nothing is collected from players.
 
@@ -12,7 +12,7 @@ The first screen asks how to start:
   - Rank 12, with the Astrolabe's points left to spend;
   - Starlight for the Atelier, and one variant (Purge) owned;
   - the Luminary mastered (its title earned, Chorale for sale) and the Martyr on her way;
-  - Brann, the Bloodsworn, recruited (Phase 5b), so Prep picks three of four heroes;
+  - Brann, the Bloodsworn (Phase 5b), Seren, the Riposte, and Oro, the Grovekeeper (Phase 5e) recruited, so Prep picks three of six heroes;
   - each hero at Bond rank 4 (their first talents);
   - two relics enshrined, with materials to craft.
   The stations' intros still play on first visit.
@@ -165,3 +165,53 @@ The published link has the Finale since version 1794096200-d582 (2026-11-08).
 - Did you ever press something in the silence and wonder why nothing happened?
 - Was the epilogue the right length, and did you find the way to skip it?
 - How long did the whole Expedition take you? Did the Finale feel like an ending?
+
+## Phase 5e: Seren and Oro
+
+*For testers.* Phase 5e adds the last two heroes of the plan's six ([docs/phase-5e.md](phase-5e.md)). Each gives one of your buttons a new job.
+
+- **Seren, the Riposte** (a duellist) turns your **Ward** into damage. Warded, she parries the next melee blow aimed at her and answers it for 300%. A Perfect Ward on her is a **kill shot**.
+- **Oro, the Grovekeeper** (a summoner) turns your **field** into a placement puzzle. His two **Saplings** hold the small foes, and they take your songs only while they stand in your field.
+
+**The published link does not have them yet.** It is republished from this build once the tuning decisions in [docs/phase-5e.md](phase-5e.md) (*Tuning (W9)*, *NEEDS USER*) are made; this section says what to look for then.
+
+**How to get them.**
+
+- **Veteran start:** both are already recruited (Rank 12). Prep opens on a 3 × 2 picker of six heroes; click a starter to drop them, then click Seren or Oro.
+- **Fresh start, Seren (from Rank 8):** on an Expedition, Movement II's *Tithe Altar* gains a fourth choice, *Pay a stranger's debt*. Win its elite fight and she joins from your next run. Or fight the Gorehound Matriarch, won or lost, at Rank 8 or above.
+- **Fresh start, Oro (from Rank 12):** Movement III's *Loose Thread* gains *Follow the thread*. Win its elite fight and he joins from your next run. Or fight the Seamstress, won or lost, at Rank 12 or above.
+- **Below their Ranks** the new choices stay hidden, and the Codex says where to find each hero.
+- **Or skip it:** Settings → Progress → *Skip the unlocks* puts both in the roster at once (with every other system). A won *Pull it* at the Loose Thread recruits nobody.
+- **Which party?** In the bot runs, Kael, Lyra and Oro won more often than the default party, and Kael, Vexis and Oro about as often. Every Seren party won less often; Kael, Vexis and Seren about half as often. Lyra, Vexis and Oro have nothing to hold the bosses, by design: it is the hardest party, and Prep says so.
+
+**What to look for: Seren.**
+
+- **Ward her to parry.** Crossed blades over her mean a Ward is armed. The next melee blow aimed at her flashes PARRIED, and she counters. A Ward on her is a weapon, not just a shield.
+- **Her Call** (Lunge): answer it with a Ward, and she arrives armed for the duel's first swing.
+- **The kill shot.** Time the Ward Perfectly on a blow aimed at her: a star, KILL SHOT and a gold number. It finishes a normal foe, an elite under half life, and deals six times her strike to a boss.
+- **Bringing her home.** She leaves the group to duel the strongest enemy (*Showboat*), outside your songs but never past 13 m. When the pack closes on her, her frame shows 'Overextended · Reel': Reel her, or Rally (she always comes). As the Chronomancer, or with the Anchor or Swap Reel variant, the chip says Rally instead.
+- **Without Kael** the bosses come to her. Ward her as each boss blow lands; she parries it whole.
+
+**What to look for: Oro.**
+
+- **The Saplings in your field.** Two rooted Saplings sprout 4 m ahead of you. Each one in your field shows your songs on its rim and its mini bar (under Oro's frame). Outside it, the arcs grey and a leaf mark shows: walk back over them, or Rally, and they burrow and re-sprout ahead of you.
+- **Rootbond.** Your Thread on Oro, in Mend, also heals his Saplings (green motes along his roots).
+- **Gentle.** He won't fight without a Focus: a closed leaf on his portrait. While he tends, his Saplings hit harder.
+- **The Ancient.** His Solo, Wildgrowth, raises an Ancient that roots and taunts the small foes near it. Cue it, and its 6 m disc is your field for its 8 s: your songs reach whoever stands in it (a second dashed disc).
+- **Bosses and the biggest foes ignore Saplings.** They hold the pack, never the boss.
+
+**Playing with the sound off.** Every state has a shape, so please try a fight muted (and with Flashes at 0, if you can): crossed blades (armed), the PARRIED flash, the KILL SHOT star, the duel tether and crown, the overextended chip and arrow ring, the grey Sapling arcs and leaf mark, the burrow trail, the closed leaf, the root vines and the Ancient's rings. Settings → *Captions* writes their barks and key sounds as words.
+
+**Please tell us:**
+
+- **What does a Ward on Seren do?** Could you say it after your first fight with her?
+- **Why did your Sapling die?** Could you say what you'd do differently?
+- Did you notice a kill shot when you made one? Did you try for the next?
+- When Seren was surrounded, did the chip tell you in time, and did the Reel or Rally bring her back?
+- Did you ever lose track of where she was?
+- Did you find a way to keep both Saplings in your field? Did Rally re-plant them where you wanted?
+- Did you know to Focus to wake Oro? Did the closed leaf read as 'idle'?
+- With Lyra, Vexis and Oro, did Prep's note prepare you for the bosses?
+- When either went down, did the Result name what would have saved them?
+
+The cold read (≥ 4 of 5 testers answering the first two questions) uses the protocol in [docs/phase-5b/playtest-protocol.md](phase-5b/playtest-protocol.md).

@@ -28,6 +28,11 @@
  *
  *   npx tsx tools/expedition-baseline.ts --movements 4 --party A --check
  *
+ * `--party SA|SB|SC|OA|OB|OC` (docs/phase-5e.md, "Hand-off") pins the six full-protocol Seren and
+ * Oro parties the same way, on the Finale route, written once Phase 5e is tuned:
+ *
+ *   npx tsx tools/expedition-baseline.ts --movements 4 --party OB --check
+ *
  * Summaries are compared on the fields the baseline holds, so fields the harness gains later
  * (a Brann party's Harmony record) don't count as drift.
  */
@@ -37,7 +42,7 @@ import type { BotKind } from '../src/bots';
 import type { ChordLoadout } from '../src/meta/types';
 import { NAMED_PARTIES } from './harness';
 import { playRun, type RunSummary } from './harness-core';
-import { baselinePartyArg, type BaselineParty } from './m1-baseline';
+import { baselinePartyArg, partyName, type BaselineParty } from './m1-baseline';
 
 export const EXPEDITION_BOTS: readonly BotKind[] = ['novice', 'skilled'];
 export const EXPEDITION_SEEDS = 5;
@@ -59,7 +64,7 @@ export function expeditionSeed(i: number): number {
 
 /**
  * One baseline run, as the harness plays it: an Expedition through `movements` (2, I-II), with
- * the default party or (`party`) a Brann party.
+ * the default party or (`party`) a named party (Brann's A, B, C, or SA-OC).
  */
 export function expeditionRun(
   bot: BotKind,
@@ -95,7 +100,7 @@ export function projectRun(run: RunSummary, kept: RunSummary | undefined): RunSu
 
 /**
  * The baseline's file: the I-II pin, or `expedition<N>-baseline.json` for a longer route, with
- * `-<P>` for a Brann party's (`expedition4-baseline-A.json`).
+ * `-<P>` for a named party's (`expedition4-baseline-A.json`, `expedition4-baseline-OB.json`).
  */
 function baselinePath(movements = 2, party?: BaselineParty): string {
   const route = movements === 2 ? '' : `${movements}`;
@@ -120,7 +125,7 @@ function main(): void {
   const movements = movementsArg();
   const party = baselinePartyArg(process.argv);
   if (party && movements !== 4)
-    throw new Error(`A Brann party's Expedition baseline is pinned on --movements 4 only`);
+    throw new Error(`A named party's Expedition baseline is pinned on --movements 4 only`);
   const path = baselinePath(movements, party);
   const fresh = expeditionBaseline(EXPEDITION_SEEDS, movements, party);
   if (process.argv.includes('--write')) {
@@ -152,7 +157,7 @@ function main(): void {
   }
   console.error(
     party
-      ? `Expedition baseline drifted: Brann's party ${party} runs are meant to be unchanged.`
+      ? `Expedition baseline drifted: ${partyName(party)} runs are meant to be unchanged.`
       : 'Expedition baseline drifted: default-party runs are meant to be unchanged.',
   );
   process.exit(1);

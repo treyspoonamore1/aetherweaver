@@ -28,6 +28,11 @@
  * Oro's branches are proved to leave Brann's tuned parties byte-equal too. Without `--party`
  * nothing changes: the config has no `party` key and the default files are read.
  *
+ * `--party SA|SB|SC|OA|OB|OC` (docs/phase-5e.md, "Hand-off") does the same for the six
+ * full-protocol Seren and Oro parties (SA Kael, Vexis, Seren; SB Lyra, Vexis, Seren; SC Kael,
+ * Lyra, Seren; OA Kael, Vexis, Oro; OB Lyra, Vexis, Oro; OC Kael, Lyra, Oro), written once
+ * Phase 5e is tuned, as the next slice's guard. Brann's A, B and C files are never rewritten.
+ *
  *   npx tsx tools/m1-baseline.ts --movement 3 --party B --check
  *
  * Records are compared on the fields the baseline holds, so fields the harness gains later
@@ -63,8 +68,14 @@ export interface M1Baseline {
   rows: EncounterRun[];
 }
 
-/** The Brann parties a `--party` baseline plays (docs/phase-5e.md, W0a). */
-export const BASELINE_PARTIES = ['A', 'B', 'C'] as const;
+/**
+ * The parties a `--party` baseline plays: Brann's A, B and C (docs/phase-5e.md, W0a), then the
+ * six full-protocol Seren and Oro parties SA, SB, SC, OA, OB and OC (docs/phase-5e.md,
+ * "Hand-off"), pinned once Phase 5e is tuned, as the next slice's guard.
+ */
+export const BRANN_BASELINE_PARTIES = ['A', 'B', 'C'] as const;
+export const ROSTER_BASELINE_PARTIES = ['SA', 'SB', 'SC', 'OA', 'OB', 'OC'] as const;
+export const BASELINE_PARTIES = [...BRANN_BASELINE_PARTIES, ...ROSTER_BASELINE_PARTIES] as const;
 export type BaselineParty = (typeof BASELINE_PARTIES)[number];
 
 /** The config's party key: none for the default party, so its config is as it always was. */
@@ -140,22 +151,32 @@ export function projectBaseline(fresh: M1Baseline, kept: M1Baseline): M1Baseline
   };
 }
 
+/** How a drift message names the party: Brann's A, B and C, or a Seren or Oro party. */
+export function partyName(party: BaselineParty): string {
+  return (BRANN_BASELINE_PARTIES as readonly string[]).includes(party)
+    ? `Brann's party ${party}`
+    : `the Seren or Oro party ${party}`;
+}
+
 function movementArg(): number {
   const i = process.argv.indexOf('--movement');
   return i >= 0 ? Number(process.argv[i + 1]) : 1;
 }
 
-/** `--party`'s value: A, B or C (a Brann party), or undefined for the default party. */
+/**
+ * `--party`'s value: A, B or C (a Brann party), SA, SB, SC, OA, OB or OC (a Seren or Oro party),
+ * or undefined for the default party.
+ */
 export function baselinePartyArg(argv: readonly string[]): BaselineParty | undefined {
   const i = argv.indexOf('--party');
   if (i < 0) return undefined;
   const value = argv[i + 1]?.toUpperCase();
   if (!BASELINE_PARTIES.includes(value as BaselineParty))
-    throw new Error(`A baseline party is A, B or C: "${argv[i + 1]}"`);
+    throw new Error(`A baseline party is one of ${BASELINE_PARTIES.join(', ')}: "${argv[i + 1]}"`);
   return value as BaselineParty;
 }
 
-/** The baseline's file: m<N>-baseline.json, or m<N>-baseline-<P>.json for a Brann party. */
+/** The baseline's file: m<N>-baseline.json, or m<N>-baseline-<P>.json for a named party. */
 export function m1BaselinePath(movement: number, party?: BaselineParty): string {
   const name = `m${movement}-baseline${party ? `-${party}` : ''}.json`;
   return fileURLToPath(new URL(`./${name}`, import.meta.url));
@@ -199,7 +220,7 @@ function main(): void {
   }
   console.error(
     party
-      ? `${m} baseline drifted: Brann's party ${party} is meant to be unchanged (docs/phase-5e.md).`
+      ? `${m} baseline drifted: ${partyName(party)} is meant to be unchanged (docs/phase-5e.md).`
       : DRIFTED[movement],
   );
   process.exit(1);
