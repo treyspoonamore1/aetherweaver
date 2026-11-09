@@ -106,7 +106,33 @@ export interface MusicInputs {
    * Weaver has played (0-8). Absent: no silence, and the mix is as before.
    */
   silence?: { on: boolean; notes: number };
+  /**
+   * Phase 5f (docs/phase-5f.md, "The beat clock"): A Tempo's downbeat, from the sim (sfx.ts sets
+   * it from `state.time`, `beatAt` and `state.timeScale`, only on a run with A Tempo). While it is
+   * set, the music's bar lines follow the sim's downbeats: the visual beat is the truth and the
+   * music follows it. Absent on every other run, whose music is untouched.
+   */
+  beat?: BeatInput;
 }
+
+/** Phase 5f: the sim's clock as the music follows it (A Tempo only). */
+export interface BeatInput {
+  /** The sim's time (s) when this was read. */
+  simTime: number;
+  /** The sim time of the next downbeat (a whole number of bars from 0). */
+  nextDownbeat: number;
+  /** The sim's time scale (slow motion and hit-stop below 1). */
+  scale: number;
+}
+
+/**
+ * Phase 5f: how far the music's next bar line may sit from the sim's downbeat before the grid is
+ * moved (s). Under it the music keeps its own time (the frame-to-frame reading of the sim's clock
+ * jitters by up to a tick), over it the steps not yet scheduled move.
+ */
+export const BEAT_TOLERANCE = 0.025;
+/** Phase 5f: the slowest the music follows the sim's time scale (hit-stop can go lower). */
+export const BEAT_MIN_SCALE = 0.1;
 
 export interface MusicSnapshot {
   key: string;
@@ -397,6 +423,17 @@ export class MusicEngine {
   private finaleParty: readonly string[] | null = null;
   /** Phase 5d: the Crucible's shimmer turns between its two notes. */
   private shimmerTurn = 0;
+  /**
+   * Phase 5f, A Tempo's beat clock: the last `inputs.beat` read (null: not following the sim), the
+   * audio time it was read at, the sim's time scale it gave (the music's steps stretch by it, 1
+   * otherwise), and when the last step was scheduled.
+   */
+  private beatSeen: BeatInput | null = null;
+  private beatHeardAt = 0;
+  private beatScale = 1;
+  private lastStepAt = -1;
+  /** Phase 5f: how often the grid moved to meet the sim's downbeat, and re-anchored with a rest. */
+  readonly beatSync = { moves: 0, anchors: 0 };
 
   /**
    * Phase 5c: the per-biome voicing table (docs/phase-5c.md). The Crimson Spire's entry is its
@@ -663,6 +700,12 @@ export class MusicEngine {
       this.stepIndex = 0;
       this.nextStepTime = this.origin;
     }
+    // Phase 5f: on an A Tempo run the bar lines follow the sim's downbeats (never set otherwise).
+    if (this.inputs.beat !== undefined) this.followBeat(now, this.inputs.beat);
+    else if (this.beatSeen !== null) {
+      this.beatSeen = null;
+      this.beatScale = 1;
+    }
     // Fell far behind (throttled tab): skip ahead on the grid without scheduling notes.
     while (this.nextStepTime < now - 0.1) {
       if (this.stepIndex % STEPS_PER_BAR === 0)
@@ -672,9 +715,104 @@ export class MusicEngine {
     }
     while (this.nextStepTime < now + LOOKAHEAD) {
       this.runStep(this.stepIndex, this.nextStepTime);
+      this.lastStepAt = this.nextStepTime;
       this.stepIndex++;
+      // Phase 5f: the sim's slow motion and hit-stop stretch the music's steps with its own (only
+      // while following A Tempo's beat; 1 otherwise, and the grid is as it always was).
+      if (this.beatScale < 1) this.origin += STEP * (1 / this.beatScale - 1);
       this.nextStepTime = this.origin + this.stepIndex * STEP;
     }
+  }
+
+  /**
+   * Phase 5f: the context's output latency where the browser gives it (s): a sound scheduled at
+   * `t` is heard that much later, so the music is scheduled that much early.
+   */
+  outputLatency(): number {
+    const l = (this.e.ctx as { outputLatency?: unknown }).outputLatency;
+    return typeof l === 'number' && Number.isFinite(l) && l > 0 ? Math.min(0.5, l) : 0;
+  }
+
+  /**
+   * Phase 5f: the audio time at which the sim's downbeat `nextDownbeat` should be scheduled to be
+   * heard on it, read from `beat` at audio time `at` (the output latency taken off).
+   */
+  beatTime(beat: BeatInput, at: number): number {
+    const scale = Math.max(BEAT_MIN_SCALE, beat.scale);
+    return at + (beat.nextDownbeat - beat.simTime) / scale - this.outputLatency();
+  }
+
+  /**
+   * Phase 5f, A Tempo's beat clock (docs/phase-5f.md): each fresh reading of the sim's clock (an
+   * `update`, not the timer's pumps between frames) predicts when its next downbeat is heard. The
+   * music's next bar line not yet scheduled is matched to the sim's downbeat nearest it; if they
+   * are more than `BEAT_TOLERANCE` apart, the steps not yet scheduled move so that bar starts on
+   * it (the bar being played is stretched or shortened). More than half a bar out, or a reading
+   * after a gap of more than half a bar (a pause, a hidden tab), re-anchors: the rest of the bar
+   * is a rest and the next bar starts on the sim's next downbeat. The steps' length follows the
+   * sim's time scale, so slow motion and hit-stop stretch the music's bar with the sim's.
+   */
+  private followBeat(now: number, beat: BeatInput): void {
+    if (beat === this.beatSeen) return;
+    const first = this.beatSeen === null;
+    const gap = first ? 0 : now - this.beatHeardAt;
+    this.beatSeen = beat;
+    this.beatHeardAt = now;
+    const scale = Math.min(1, Math.max(BEAT_MIN_SCALE, beat.scale));
+    this.beatScale = scale;
+    if (!Number.isFinite(beat.simTime) || !Number.isFinite(beat.nextDownbeat)) return;
+    const stepLen = STEP / scale;
+    const barLen = BAR / scale;
+    const downbeat = this.beatTime(beat, now);
+    // The music's next bar line not yet scheduled, at the steps' present length.
+    const inBar = this.stepIndex % STEPS_PER_BAR;
+    const toBar = inBar === 0 ? 0 : STEPS_PER_BAR - inBar;
+    const barLine = this.nextStepTime + toBar * stepLen;
+    // The sim's downbeat nearest it that can still be scheduled.
+    const soonest = now + 0.01;
+    let target = downbeat + Math.round((barLine - downbeat) / barLen) * barLen;
+    while (target < soonest) target += barLen;
+    const off = target - barLine;
+    if (gap > BAR / 2 || Math.abs(off) > BAR / 2) {
+      // Re-anchor with a rest: skip what is left of this bar; the next starts on the downbeat.
+      let anchor = downbeat;
+      while (anchor < soonest) anchor += barLen;
+      this.stepIndex += toBar;
+      this.nextStepTime = anchor;
+      this.origin = anchor - this.stepIndex * STEP;
+      this.beatSync.anchors++;
+      return;
+    }
+    if (Math.abs(off) <= BEAT_TOLERANCE) return;
+    // Move the steps not yet scheduled: never before now, nor onto the step just scheduled (a
+    // larger pull back is finished over the next readings).
+    const floor = Math.max(now, this.lastStepAt + STEP * 0.25);
+    const shift = Math.max(off, floor - this.nextStepTime);
+    this.origin += shift;
+    this.nextStepTime += shift;
+    this.beatSync.moves++;
+  }
+
+  /**
+   * Phase 5f: the next bar line at least `minLead` seconds from now, as the scheduler will play it
+   * (a sound resolving on the bar line, the Trio's swell). While the clock hasn't started, now plus
+   * the lead.
+   */
+  nextBarAt(minLead = 0): number {
+    const now = this.e.now;
+    const earliest = now + minLead;
+    if (!this.started) return earliest;
+    for (const b of this.bars) if (b.start >= earliest - 1e-6) return b.start;
+    const stepLen = STEP / this.beatScale;
+    const inBar = this.stepIndex % STEPS_PER_BAR;
+    let at = this.nextStepTime + (inBar === 0 ? 0 : STEPS_PER_BAR - inBar) * stepLen;
+    while (at < earliest - 1e-6) at += STEPS_PER_BAR * stepLen;
+    return at;
+  }
+
+  /** Phase 5f: the bar lines scheduled lately (audio times, oldest first): tests and the lab. */
+  barLines(): number[] {
+    return this.bars.map((b) => b.start);
   }
 
   private noteBar(bar: number, t: number): void {
@@ -696,7 +834,8 @@ export class MusicEngine {
       this.sustained = { pad: false, pulse: false, melody: false, choir: false };
       this.urgent = false;
       this.refreshTargets(t, 0.45);
-      this.scheduleSustain(t, t + BAR);
+      // Phase 5f: a bar stretched by the sim's slow motion sustains as long (A Tempo only).
+      this.scheduleSustain(t, t + (this.beatScale < 1 ? BAR / this.beatScale : BAR));
       for (const k of this.pendingBar.splice(0)) this.playStinger(k, t);
     } else if (onBeat && this.urgent) {
       this.urgent = false;

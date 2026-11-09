@@ -33,11 +33,13 @@ import {
   type WorldState,
 } from '../sim';
 import { BUS_NAMES, busTrim, Voice, type BusName, type Engine, type VoiceHandle } from './engine';
+import { ConductSounds } from './conduct';
 import {
   bladeStringNote,
   hollowWoodNote,
   leitmotifCanon,
   motifNote,
+  type BeatInput,
   type MusicEngine,
 } from './music';
 import {
@@ -876,10 +878,19 @@ export class SfxEngine {
   /** Phase 5d: Fortissimo Silence's pulses still winding up (their tutti), by telegraph id. */
   private readonly tuttis = new Set<number>();
 
+  /** Phase 5f: the Conductor's sounds and A Tempo's beat input (docs/phase-5f.md, "Audio"). */
+  readonly conduct: ConductSounds;
+
   constructor(
     private readonly e: Engine,
     private readonly music: MusicEngine,
-  ) {}
+  ) {
+    this.conduct = new ConductSounds({
+      e,
+      music,
+      play: (key, max, bus, build, opts) => this.play(key, max, bus, build, opts),
+    });
+  }
 
   // ── helpers ──────────────────────────────────────────────────────────────────────
   private chord(): Chord {
@@ -929,6 +940,8 @@ export class SfxEngine {
   // ── events ───────────────────────────────────────────────────────────────────────
   onEvents(events: readonly SimEvent[], state: WorldState): void {
     this.scanBatch(events, state);
+    // Phase 5f: a Grand Finale turn's Solo plays the turn's phrase, not the plain Cue's.
+    this.conduct.scan(events);
     if (this.batchShare) this.linkShare(state);
     for (const ev of events) {
       try {
@@ -1169,7 +1182,9 @@ export class SfxEngine {
         this.cue(ev.hero, state);
         break;
       case 'soloStarted':
-        if (ev.cued) this.cue(ev.hero, state);
+        if (ev.cued && !this.conduct.isFinaleSolo(ev.hero)) this.cue(ev.hero, state);
+        // Phase 5f: Spotlight's held note under a Solo it lights (a Conductor run only).
+        if (ev.cued) this.conduct.soloStarted(ev, state);
         // Phase 4e: an alternate Solo starts with a sound of its own (cued, under the leitmotif).
         this.altSolo(ev.solo, ev.hero, ev.cued, state);
         // Phase 5b: Red Frenzy whirls for as long as it lasts.
@@ -1179,6 +1194,18 @@ export class SfxEngine {
         break;
       case 'soloEnded':
         this.frenzyEnd(ev.hero, 0.25);
+        this.conduct.soloEnded(ev.hero);
+        break;
+      // ── Phase 5f: the Conductor (only a Conductor run emits these) ──
+      case 'cueChained':
+      case 'reprised':
+      case 'marcato':
+      case 'ensemble':
+      case 'finaleTurn':
+      case 'finaleTurnLost':
+      case 'finaleEnded':
+      case 'triad':
+        this.conduct.handle(ev, state);
         break;
       case 'bloodlust':
         this.refusedRally(ev.hero, state);
@@ -1242,6 +1269,8 @@ export class SfxEngine {
         } else if (this.vowUp || state.calling?.crescendo === 'vow') {
           this.vowUp = false;
           this.vowEnd();
+        } else if (state.calling?.crescendo === 'finale') {
+          // Phase 5f: the Grand Finale's end is its cadence (`finaleEnded`), not Sunrise's whoosh.
         } else this.play('crescEnd', 1, 'sfx', (v, t) => whoosh(v, t, 0.7, 0.06, 4000, 500, 0.8));
         break;
       case 'techniqueRejected':
@@ -1303,6 +1332,8 @@ export class SfxEngine {
         // Phase 5d: the Grand Silence ends with the fight; the Conductor's fall is the Finale's.
         if (this.silence !== null || this.silenceEv !== null) this.endSilence();
         if (this.conductorFell) this.finaleEnded(ev.outcome, state);
+        // Phase 5f: the Conductor's held sounds let go, and the music stops following the beat.
+        this.conduct.stop();
         break;
       case 'rewound':
         this.rewound(ev, state);
@@ -1754,6 +1785,15 @@ export class SfxEngine {
     // no horn, no choir).
     if (state.calling?.crescendo === 'stasis' || (name !== undefined && /\bstasis\b/i.test(name))) {
       this.stasisStart(state, duration);
+      return;
+    }
+    // Phase 5f: the Conductor's Grand Finale is not Sunrise either: two baton taps, then each
+    // hero's turn (ConductSounds); the stems rise with the Crescendo as with any.
+    if (
+      state.calling?.crescendo === 'finale' ||
+      (name !== undefined && /\bgrand finale\b/i.test(name))
+    ) {
+      this.conduct.finaleStart();
       return;
     }
     // Phase 3d: the Martyr's Vow is not Sunrise. It keeps the jump and a duck but none of
@@ -7610,6 +7650,7 @@ export class SfxEngine {
     stolen: boolean;
     unravel: boolean;
     silence?: { on: boolean; notes: number };
+    beat?: BeatInput;
   } {
     const e = this.e;
     const now = e.now;
@@ -7738,6 +7779,8 @@ export class SfxEngine {
     // Phase 5d: the Grand Silence and Discord's swell, as the state has them (or as their events
     // told them, in the lab). Never set outside the Finale.
     this.followFinale(state, bossPhase);
+    // Phase 5f: A Tempo's beat for the music (only with A Tempo on the path) and its tick.
+    const beat = this.conduct.update(state);
     return {
       intensity: this.intensity,
       resonance: weaver?.resonance ?? 0,
@@ -7750,6 +7793,8 @@ export class SfxEngine {
       ...this.m3Inputs(state),
       // Phase 5d: the Grand Silence (the Crucible's stems), only while it holds.
       ...(this.silence ? { silence: { on: true, notes: this.silence.notes } } : {}),
+      // Phase 5f: the sim's downbeat, only on a run with A Tempo.
+      ...(beat ? { beat } : {}),
     };
   }
 
@@ -8663,6 +8708,8 @@ export class SfxEngine {
     this.music.releaseHold();
     // Phase 5d: the Grand Silence lets go (every held bus), and the Conductor's fight is over.
     this.stopFinale();
+    // Phase 5f: the Conductor's held sounds, and the music's beat clock.
+    this.conduct.stop();
     if (this.drone) this.drone.gain.gain.setTargetAtTime(0, this.e.now, 0.1);
     if (this.harmony)
       for (const g of this.harmony.gains) g.gain.setTargetAtTime(0, this.e.now, 0.1);

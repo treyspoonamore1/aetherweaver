@@ -147,6 +147,11 @@ const GROUPS: {
       'Phase 5e · Oro (his leitmotif and Call, Spring Rain, his Saplings sprouting, struck, felled and burrowing, Rootbond, Wildgrowth and the Ancient, roots, Gentle, his heartbeat; he joins the lab party)',
   },
   {
+    id: 'conductor',
+    title:
+      'Phase 5f · The Conductor (Duets and Trios, the free Cue, the downbeat, the Grand Finale and its cadence, Reprise, Marcato, Ensemble, Spotlight, Triad, his Calling’s UI)',
+  },
+  {
     id: 'unstitched',
     title:
       'Phase 5c · The Unstitched (cuts, the Maw, the Wraith, the rune, the Mimic, the Seamstress, Doom, the Unweaver, cloth kills)',

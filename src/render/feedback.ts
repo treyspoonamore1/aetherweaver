@@ -772,11 +772,12 @@ export class Feedback {
           break;
         }
         case 'crescendoStart': {
-          // The Martyr's Vow and the Chronomancer's Stasis have their own moments (MartyrView,
-          // ChronoView): none of Sunrise's gold.
+          // The Martyr's Vow, the Chronomancer's Stasis and the Conductor's Grand Finale have
+          // their own moments (MartyrView, ChronoView, ConductView): none of Sunrise's gold.
           const kind = crescendoKind(state);
           if (kind === 'vow') this.vowStart();
           else if (kind === 'stasis') this.stasisStart();
+          else if (kind === 'finale') this.finaleStart();
           else this.crescendo(state);
           break;
         }
@@ -2422,6 +2423,15 @@ export class Feedback {
   private stasisStart(): void {
     this.d.rig.punch(-1.6, 1.4);
     this.d.overlay.coolFlash(0.22, 0.24);
+  }
+
+  /**
+   * The Conductor's Grand Finale (docs/phase-5f.md): no Sunrise (no gold rings, pillar, field
+   * blaze, chroma, flash or warm light), only a small push of the camera; its turns are drawn by
+   * ConductView.
+   */
+  private finaleStart(): void {
+    this.d.rig.punch(-1.2, 1.2);
   }
 
   /** Martyr's Vow: the light dims toward crimson, a small weight on the camera, a soft flash. */

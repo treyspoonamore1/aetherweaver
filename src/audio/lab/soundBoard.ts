@@ -12,7 +12,7 @@ import {
   SOPRANO,
   TENOR,
 } from '../../content/crucibleIds';
-import type { SimEvent } from '../../sim';
+import type { ConductingField, SimEvent } from '../../sim';
 import type { SynthDirector } from '../director';
 import type { UiSound, UiSoundDetail } from '../types';
 import { dissonanceMax } from '../ui';
@@ -41,6 +41,11 @@ export interface SoundButton {
     | 'seren'
     /** Phase 5e: Oro (his voice, his Saplings and the Ancient; he joins the lab party). */
     | 'oro'
+    /**
+     * Phase 5f: the Conductor (Duets and Trios, the free Cue, the downbeat, the Grand Finale, the
+     * path's Reprise, Marcato, Ensemble, Spotlight and Triad, his Calling's UI voicings).
+     */
+    | 'conductor'
     /**
      * Phase 5c: the Unstitched (cuts, the Maw, the Wraith, the rune, the Mimic, the Seamstress,
      * Doom, the Unweaver, the Retarget and Empower windups, cloth kills).
@@ -4464,4 +4469,216 @@ export const SOUNDS: SoundButton[] = [
       w.setSaplingHp(1, 0.1);
     },
   ),
+  // ── Phase 5f: the Conductor ────────────────────────────────────────────────────
+  ...conductorSounds(),
 ];
+
+/**
+ * Phase 5f: the lab world's `field.conducting` for one button (a chain, a running Solo, Triad),
+ * cleared after it so no other button hears it.
+ */
+function withConducting(
+  w: FakeWorld,
+  field: Omit<ConductingField, 'solos'> & {
+    solos?: ConductingField['solos'];
+  },
+  fn: () => void,
+): void {
+  w.conducting = { solos: [], ...field };
+  try {
+    fn();
+  } finally {
+    w.conducting = undefined;
+  }
+}
+
+const cued = (hero: number) => ev('cued', { hero });
+const chained = (hero: number, link: 1 | 2 | 3, onBeat = false) =>
+  ev('cueChained', {
+    hero,
+    link,
+    power: link === 3 ? 1.5 : link === 2 ? 1.25 : 1,
+    cost: onBeat ? 0 : 15,
+    onBeat,
+    until: 3,
+  });
+
+/** Phase 5f: a Grand Finale of `turns` turns, a second apart, then its end (and the Crescendo's). */
+function finaleButton(id: string, label: string, turns: number): SoundButton {
+  const party = [IDS.kael, IDS.lyra, IDS.vexis];
+  return {
+    id,
+    label,
+    group: 'conductor',
+    length: turns + 4,
+    fire: (d, w) => fire(d, w, ev('crescendoStart', { calling: 'Grand Finale', duration: 12 })),
+    then: [
+      ...Array.from({ length: turns }, (_, i) => ({
+        delay: Math.round((0.1 + i) * 100) / 100,
+        fire: (d: SynthDirector, w: FakeWorld) => {
+          const hero = party[i % 3]!;
+          fire(
+            d,
+            w,
+            ev('soloStarted', { hero, solo: 'galeBarrage', cued: true, duration: 3 }),
+            ev('finaleTurn', { hero, turn: i + 1, power: 1.2 ** i, pass: i < 3 ? 1 : 2 }),
+          );
+        },
+      })),
+      {
+        delay: Math.round((turns + 0.4) * 100) / 100,
+        fire: (d: SynthDirector, w: FakeWorld) =>
+          fire(d, w, ev('finaleEnded', { fired: turns, lost: 0 }), ev('crescendoEnd', {})),
+      },
+    ],
+  };
+}
+
+function conductorSounds(): SoundButton[] {
+  return [
+    {
+      id: 'conduct-duet',
+      label: 'Duet: Lyra Cued 1 s after Kael (her phrase, answered a third above in his horn)',
+      group: 'conductor',
+      length: 3,
+      fire: (d, w) =>
+        withConducting(w, { chain: { heroes: [IDS.kael, IDS.lyra], at: w.time } }, () =>
+          fire(d, w, cued(IDS.lyra), chained(IDS.lyra, 2)),
+        ),
+    },
+    {
+      id: 'conduct-trio',
+      label: 'Trio: Vexis Cued after Kael and Lyra (their D, A and B swell, resolving on the bar)',
+      group: 'conductor',
+      length: 6,
+      fire: (d, w) =>
+        withConducting(w, { chain: { heroes: [IDS.kael, IDS.lyra, IDS.vexis], at: w.time } }, () =>
+          fire(d, w, cued(IDS.vexis), chained(IDS.vexis, 3)),
+        ),
+    },
+    {
+      id: 'conduct-free',
+      label: 'A free Cue on the downbeat (A Tempo): a bright glass chime on Lyra’s phrase',
+      group: 'conductor',
+      length: 2.5,
+      fire: (d, w) =>
+        withConducting(w, { chain: { heroes: [IDS.lyra], at: w.time } }, () =>
+          fire(d, w, cued(IDS.lyra), chained(IDS.lyra, 1, true)),
+        ),
+    },
+    {
+      id: 'conduct-tick',
+      label: 'The downbeat (A Tempo): a soft baton tick, four bars',
+      group: 'conductor',
+      length: 3,
+      fire: (d) => d.sfxEngine()?.conduct.downbeat(),
+      then: [0.68, 1.36, 2.04].map((delay) => ({
+        delay,
+        fire: (d: SynthDirector) => d.sfxEngine()?.conduct.downbeat(),
+      })),
+    },
+    finaleButton(
+      'conduct-finale',
+      'Grand Finale: two baton taps, Kael, Lyra, Vexis a second apart, each a degree higher, then the cadence on D',
+      3,
+    ),
+    finaleButton(
+      'conduct-maestro',
+      'Grand Finale with Maestro: every hero twice, still rising (six turns), then the cadence',
+      6,
+    ),
+    {
+      id: 'conduct-lost',
+      label: 'A Finale turn lost (Vexis down): a muted string',
+      group: 'conductor',
+      length: 1.5,
+      fire: (d, w) => fire(d, w, ev('finaleTurnLost', { hero: IDS.vexis, reason: 'down' })),
+    },
+    {
+      id: 'conduct-cadence',
+      label: 'The Finale ends: the cadence on D and the shimmer (every Solo full)',
+      group: 'conductor',
+      length: 4,
+      fire: (d, w) => fire(d, w, ev('finaleEnded', { fired: 3, lost: 0 })),
+    },
+    {
+      id: 'conduct-reprise',
+      label: 'Reprise: the Trio’s chord again, plucked an octave up',
+      group: 'conductor',
+      length: 2.5,
+      fire: (d, w) =>
+        fire(d, w, ev('reprised', { charge: 30, heroes: [IDS.kael, IDS.lyra, IDS.vexis] })),
+    },
+    {
+      id: 'conduct-marcato',
+      label: 'Marcato given: a short accented chord stab',
+      group: 'conductor',
+      length: 1.5,
+      fire: (d, w) =>
+        fire(
+          d,
+          w,
+          ev('marcato', { heroes: [IDS.kael, IDS.lyra, IDS.vexis], until: 4, readyAt: 8 }),
+        ),
+    },
+    {
+      id: 'conduct-ensemble',
+      label: 'Ensemble: Kael, Lyra, Vexis Cued in a row (a held chord gaining a note each)',
+      group: 'conductor',
+      length: 4,
+      fire: (d, w) => fire(d, w, ev('ensemble', { heroes: [IDS.kael], bonus: 0.05 })),
+      then: [
+        {
+          delay: 0.8,
+          fire: (d, w) => fire(d, w, ev('ensemble', { heroes: [IDS.kael, IDS.lyra], bonus: 0.1 })),
+        },
+        {
+          delay: 1.6,
+          fire: (d, w) =>
+            fire(d, w, ev('ensemble', { heroes: [IDS.kael, IDS.lyra, IDS.vexis], bonus: 0.15 })),
+        },
+      ],
+    },
+    {
+      id: 'conduct-spotlight',
+      label: 'Spotlight: a held high note under Lyra’s Cued Solo (3 s)',
+      group: 'conductor',
+      length: 4.5,
+      fire: (d, w) =>
+        withConducting(w, { solos: [{ hero: IDS.lyra, power: 1, spotlight: true }] }, () =>
+          fire(
+            d,
+            w,
+            ev('soloStarted', { hero: IDS.lyra, solo: 'galeBarrage', cued: true, duration: 3 }),
+          ),
+        ),
+      then: [
+        {
+          delay: 3,
+          fire: (d, w) => fire(d, w, ev('soloEnded', { hero: IDS.lyra })),
+        },
+      ],
+    },
+    {
+      id: 'conduct-triad',
+      label: 'Triad holds the meter: a soft sustained D minor triad (4 s), then it lets go',
+      group: 'conductor',
+      length: 6,
+      fire: (d, w) => fire(d, w, ev('triad', { on: true })),
+      then: [{ delay: 4, fire: (d, w) => fire(d, w, ev('triad', { on: false })) }],
+    },
+    ...(
+      [
+        ['callingSelect', 'Chosen in Prep'],
+        ['callingReveal', 'Its path opens'],
+        ['callingPick', 'A pick taken'],
+      ] as const
+    ).map(([s, label]): SoundButton => ({
+      id: `conduct-ui-${s}`,
+      label: `UI: ${label} (the Conductor's ${s}: baton taps, then a chord)`,
+      group: 'conductor',
+      length: 3,
+      fire: (d) => d.playUi(s, 'conductor'),
+    })),
+  ];
+}

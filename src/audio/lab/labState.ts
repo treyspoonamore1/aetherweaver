@@ -5,10 +5,13 @@
  */
 import { CONTENT } from '../../content';
 import {
+  BAR_SECONDS,
   newBlood,
   newGrove,
   type AstrolabeState,
   type BloodState,
+  type ConductingField,
+  type ConductingView,
   type DissonanceState,
   type GroveState,
   type SimEvent,
@@ -214,6 +217,12 @@ export class FakeWorld {
   private party: LabHero[];
   /** Phase 5b: the run's Mods as the state reports them (Blood and Silk); absent by default. */
   mods: { bloodAndSilk: number } | undefined = undefined;
+  /**
+   * Phase 5f: the Conductor's fight state (`field.conducting`), absent unless a lab button sets
+   * one; and the sim's time scale (`state.timeScale`, 1 unless set).
+   */
+  conducting: ConductingField | undefined = undefined;
+  timeScale = 1;
 
   constructor(opts: { party?: readonly LabHero[] } = {}) {
     this.party = [...(opts.party ?? HERO_IDS)];
@@ -240,7 +249,12 @@ export class FakeWorld {
       get time() {
         return self.time;
       },
-      timeScale: 1,
+      get timeScale() {
+        return self.timeScale;
+      },
+      set timeScale(v: number) {
+        self.timeScale = v;
+      },
       arenaId: 'lab',
       arenaRadius: 20,
       obstacles: [],
@@ -261,6 +275,7 @@ export class FakeWorld {
           vow: self.vow,
           stasis: self.stasis,
           ...(self.zones ? { zones: self.zones } : {}),
+          ...(self.conducting ? { conducting: self.conducting } : {}),
         } as unknown as WorldState['field'];
       },
       get calling() {
@@ -272,12 +287,15 @@ export class FakeWorld {
           radiancePerAura: 0.04,
           sunriseMult: 3,
           sovereign: false,
-          crescendo: id === 'martyr' ? 'vow' : chrono ? 'stasis' : 'sunrise',
+          crescendo:
+            id === 'martyr' ? 'vow' : chrono ? 'stasis' : id === 'conductor' ? 'finale' : 'sunrise',
           bearShare: id === 'martyr' ? 0.35 : 0,
           rewind: chrono,
           reviveSpent: false,
           timers: chrono,
           foresight: chrono && self.calling.path.includes('foresight') ? 1 : 0,
+          // Phase 5f: the Conductor's numbers, from content and the path (a run's view).
+          ...(id === 'conductor' ? { conducting: conductView(self.calling.path) } : {}),
         };
       },
       ledger: {} as WorldState['ledger'],
@@ -757,6 +775,46 @@ export class FakeWorld {
     });
     return id;
   }
+}
+
+/**
+ * Phase 5f: the Conductor's numbers as a run's `calling.conducting` gives them, from content
+ * (his passive's values and the options on `path`), for the lab's world.
+ */
+export function conductView(path: readonly string[]): ConductingView {
+  const c = CONTENT.callings.find((k) => k.id === 'conductor');
+  const v = (key: string, fallback: number) => c?.values[key] ?? fallback;
+  const opt = (id: string, key: string, fallback: number) =>
+    c?.tiers.flatMap((t) => t.options).find((o) => o.id === id)?.values[key] ?? fallback;
+  const has = (id: string) => path.includes(id);
+  return {
+    cueCost: v('cue', 15),
+    crescendoCost: has('maestro') ? opt('maestro', 'cost', 75) : CONTENT.resonance.crescendoCost,
+    chainWindow: v('chain', 3),
+    duet: 1 + v('duet', 25) / 100,
+    trio: 1 + v('trio', 50) / 100,
+    finale: {
+      turns: has('maestro') ? opt('maestro', 'loops', 2) : 1,
+      ramp: 1 + v('ramp', 20) / 100,
+      gap: v('gap', 1),
+      wait: v('wait', 12),
+    },
+    beat: has('a_tempo') ? { bar: BAR_SECONDS, within: opt('a_tempo', 'beat', 0.15) } : null,
+    marcato: has('marcato')
+      ? {
+          pct: opt('marcato', 'pct', 10) / 100,
+          seconds: opt('marcato', 'seconds', 4),
+          cooldown: opt('marcato', 'cooldown', 8),
+        }
+      : null,
+    reprise: has('reprise') ? opt('reprise', 'pct', 30) : 0,
+    ensemble: has('ensemble')
+      ? { pct: opt('ensemble', 'pct', 5) / 100, max: opt('ensemble', 'max', 15) / 100 }
+      : null,
+    spotlight: has('spotlight') ? opt('spotlight', 'mult', 2) : 0,
+    triad: has('triad') ? opt('triad', 'count', 3) : 0,
+    upbeat: has('upbeat') ? opt('upbeat', 'resonance', 50) : 0,
+  };
 }
 
 export function ev<T extends SimEvent['type']>(

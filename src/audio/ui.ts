@@ -274,8 +274,8 @@ const hoverTurn = new WeakMap<Engine, number>();
 
 /**
  * Plays a UI sound. `calling` (Phase 3e) is the Calling a Calling sound is for: the
- * Chronomancer has its own clockwork voicings; the Luminary, the Martyr and none share the
- * first ones.
+ * Chronomancer has its own clockwork voicings and the Conductor (Phase 5f) his baton and chords;
+ * the Luminary, the Martyr and none share the first ones.
  */
 export function playUiSound(
   e: Engine,
@@ -284,6 +284,8 @@ export function playUiSound(
   detail?: UiSoundDetail | null,
 ): void {
   const chrono = calling === 'chronomancer';
+  // Phase 5f: the Conductor's own voicings (baton taps on a stand, then a chord).
+  const conductor = calling === 'conductor';
   const star =
     STAR_LIMITS[sound] ??
     DEED_LIMITS[sound] ??
@@ -378,14 +380,17 @@ export function playUiSound(
       break;
     case 'callingSelect':
       if (chrono) chronoSelect(v, t);
+      else if (conductor) conductorSelect(v, t);
       else callingSelect(v, t);
       break;
     case 'callingReveal':
       if (chrono) chronoReveal(v, t);
+      else if (conductor) conductorReveal(v, t);
       else callingReveal(v, t);
       break;
     case 'callingPick':
       if (chrono) chronoPick(v, t);
+      else if (conductor) conductorPick(v, t);
       else callingPick(v, t);
       break;
     case 'starHover':
@@ -903,6 +908,85 @@ function callingPick(v: Voice, t: number): void {
  * held D, A and E (Dsus2: suspended, ready) with a glass E5 above, and one soft tock a beat
  * later: the clock has started.
  */
+/** Phase 5f: a baton's tap on a music stand: a dry wooden click and a faint ring of D6. */
+function batonTap(v: Voice, t: number, g: number): void {
+  v.noise({
+    start: t,
+    dur: 0.01,
+    attack: 0.001,
+    release: 0.012,
+    gain: g,
+    filter: { type: 'bandpass', freq: 3200, q: 2.5 },
+  });
+  v.osc({
+    type: 'sine',
+    freq: hz(14),
+    start: t,
+    dur: 0.03,
+    attack: 0.001,
+    release: 0.04,
+    gain: g * 0.2,
+  });
+}
+
+/**
+ * Phase 5f, the Conductor chosen in Prep, about 1.9 s: the baton taps the stand twice for the
+ * orchestra's attention, a breath, then the downbeat: a chord in three voices together (strings
+ * on D3 and A3, brass on D4 and A4, a handbell on F5 over them), D minor, the key's own.
+ */
+function conductorSelect(v: Voice, t: number): void {
+  batonTap(v, t, 0.07);
+  batonTap(v, t + 0.17, 0.075);
+  const at = t + 0.5;
+  for (const idx of [-7, -3]) bowed(v, at, hz(idx), 0.9, 0.09, 0.04, 0.8);
+  for (const idx of [0, 4]) horn(v, at, hz(idx), 0.7, 0.05);
+  handbell(v, at + 0.02, hz(9), 0.05, 1.4, 0.6);
+  pluck(v, at, hz(7), 0.07, 0.4, 0.6);
+  v.extend(t + 2.0);
+}
+
+/**
+ * Phase 5f, the Conductor's path opens after a milestone fight, about 2 s: three taps, quicker,
+ * then the voices enter one by one and stay (D4, F4, A4, D5), a chord built in the hearing, and a
+ * glass A5 on top.
+ */
+function conductorReveal(v: Voice, t: number): void {
+  [0, 0.12, 0.24].forEach((at, i) => batonTap(v, t + at, 0.055 + 0.008 * i));
+  const go = t + 0.42;
+  [0, 2, 4, 7].forEach((idx, i) => {
+    const at = go + i * 0.12;
+    pluck(v, at, hz(idx), 0.07, 0.3, 0.6);
+    v.osc({
+      type: 'sine',
+      freq: hz(idx),
+      start: at,
+      dur: 1.0 - i * 0.12,
+      attack: 0.05,
+      release: 0.7,
+      gain: 0.04,
+      shape: 'sustain',
+    });
+  });
+  glassNote(v, go + 0.5, hz(11), 0.04, 1.4, 0.8);
+  v.extend(t + 2.2);
+}
+
+/**
+ * Phase 5f, a pick on the Conductor's path, about 1.6 s: one firm tap, and at once a short
+ * accented chord (brass on A3, D4, F4 over a low D thump), answered a beat later by its
+ * resolution an octave up in plucked strings (D5, F5, A5) with a bell on D6.
+ */
+function conductorPick(v: Voice, t: number): void {
+  batonTap(v, t, 0.08);
+  const at = t + 0.08;
+  for (const idx of [-3, 0, 2]) horn(v, at, hz(idx), 0.22, 0.055);
+  thump(v, at, hz(-14), 0.12, 0.2, 0.7);
+  const res = at + 0.34;
+  [7, 9, 11].forEach((idx, i) => pluck(v, res + i * 0.03, hz(idx), 0.075, 0.5, 0.7));
+  handbell(v, res + 0.05, hz(14), 0.045, 1.2, 0.6);
+  v.extend(t + 1.7);
+}
+
 function chronoSelect(v: Voice, t: number): void {
   [0, 0.11, 0.22].forEach((at, i) => clockTick(v, t + at, hz(17 + i), 0.05 + 0.006 * i, 0.04));
   const at = t + 0.34;

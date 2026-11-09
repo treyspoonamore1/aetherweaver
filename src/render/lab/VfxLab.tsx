@@ -54,6 +54,7 @@ import { Stage, type QualityTier } from '../stage';
 import type { FrameInfo } from '../types';
 import { KeepsakeLineup, type LineupPage } from './keepsakeLineup';
 import { VARIANT_SCENARIOS, VARIANT_SCENARIO_NAMES, scenarioConfig } from './variantScenarios';
+import { CONDUCT_SCENARIOS, CONDUCT_SCENARIO_NAMES } from './conductScenarios';
 
 /**
  * VFX lab (`?lab=vfx`): a Stage + CameraRig + the real combat view over a real debug sim,
@@ -146,6 +147,14 @@ interface LabApi {
   setChrono(path: string[] | null): void;
   /** What the Chronomancer's view has played and is drawing. */
   chronoStats(): ChronoStats;
+  /** Phase 5f (docs/phase-5f.md) */
+  conductScenarios(): string[];
+  /** Restarts the real sim with the Conductor on that scenario's path and stages it. */
+  conductScenario(name: string): void;
+  /** Restarts the real sim with the Conductor on this path (null: no Calling). */
+  setConductor(path: string[] | null): void;
+  /** What the Conductor's view has played and is drawing, and what it reads. */
+  conductStats(): ConductStats;
   /** Phase 4 */
   astroScenarios(): string[];
   /** Restarts the real sim with that scenario's Astrolabe tree (and Chords, relics) and stages it. */
@@ -440,6 +449,22 @@ interface ChronoStats {
   /** The Weaver's Resonance, Spirit and Rewind cooldown. */
   weaver: { resonance: number; spirit: number; rewind: number };
   heroes: { hp: number; maxHp: number; downed: boolean; solo: number }[];
+}
+
+/** Phase 5f: what ConductView played and drew, and the sim state it reads. */
+interface ConductStats {
+  fired: Record<string, number>;
+  drawn: Record<string, number>;
+  look: Record<string, boolean | number>;
+  beat: { on: boolean; phase: number; inWindow: boolean; index: number };
+  time: number;
+  crescendo: string;
+  /** `field.crescendo` (Sunrise's aura surge): always false for the Grand Finale. */
+  sunrise: boolean;
+  chain: number[];
+  finale: { queue: number[]; fired: number; lost: number } | null;
+  weaver: { resonance: number };
+  heroes: { solo: number; soloActive: number; downed: boolean }[];
 }
 
 interface MartyrStats {
@@ -3021,6 +3046,48 @@ class LabRuntime {
     s.stage(this);
   }
 
+  /** Phase 5f: restarts with the Conductor on that scenario's path and stages it. */
+  conductScenario(name: string): void {
+    const s = CONDUCT_SCENARIOS[name];
+    if (!s) return;
+    clearBonds();
+    carried = [];
+    astrolabeCfg = [];
+    dissonanceCfg = [];
+    encounterOverride = null;
+    this.setCalling(s.path, s.chords ?? GUARDIAN_CHORDS, 'conductor');
+    s.stage(this);
+  }
+
+  conductStats(): ConductStats {
+    const v = this.view;
+    const st = this.sim.state;
+    const look: Record<string, boolean | number> = {};
+    for (const [k, val] of Object.entries(v.conduct.look)) look[k] = val;
+    const b = v.conduct.beat;
+    const f = st.field.conducting?.finale;
+    return {
+      fired: { ...v.conduct.fired },
+      drawn: { ...v.conduct.drawn },
+      look,
+      beat: { on: b.on, phase: b.phase, inWindow: b.inWindow, index: b.index },
+      time: st.time,
+      crescendo: st.calling?.crescendo ?? 'sunrise',
+      sunrise: st.field.crescendo,
+      chain: [...(st.field.conducting?.chain?.heroes ?? [])],
+      finale: f ? { queue: [...f.queue], fired: f.fired, lost: f.lost } : null,
+      weaver: { resonance: st.entities.get(st.weaverId)?.weaver?.resonance ?? 0 },
+      heroes: st.party.map((id) => {
+        const e = st.entities.get(id);
+        return {
+          solo: e?.hero?.solo ?? 0,
+          soloActive: e?.hero?.soloActive ?? 0,
+          downed: !!e?.health?.downed,
+        };
+      }),
+    };
+  }
+
   /** Phase 4: restarts with that scenario's Astrolabe tree (and its Chords, relics) and stages it. */
   astroScenario(name: string): void {
     const s = ASTRO_SCENARIOS[name];
@@ -5511,6 +5578,10 @@ export function VfxLab() {
       chronoScenario: (name) => rt.chronoScenario(name),
       setChrono: (path) => rt.setCalling(path, null, 'chronomancer'),
       chronoStats: () => rt.chronoStats(),
+      conductScenarios: () => CONDUCT_SCENARIO_NAMES,
+      conductScenario: (name) => rt.conductScenario(name),
+      setConductor: (path) => rt.setCalling(path, null, 'conductor'),
+      conductStats: () => rt.conductStats(),
       astroScenarios: () => ASTRO_SCENARIO_NAMES,
       astroScenario: (name) => rt.astroScenario(name),
       setAstrolabe: (nodes) => rt.setAstrolabe(nodes),
@@ -6101,6 +6172,27 @@ export function VfxLab() {
             }}
           >
             No Finale
+          </Btn>
+        </Group>
+        <Group title="Phase 5f · Conductor">
+          <p className="w-full text-[10px] text-muted">
+            Each restarts the real sim with the Conductor on a path and stages it with real Cues,
+            Directives and the Crescendo (see conductStats).
+          </p>
+          {CONDUCT_SCENARIO_NAMES.map((name) => (
+            <Btn
+              key={name}
+              onClick={() => rt()?.conductScenario(name)}
+              title={CONDUCT_SCENARIOS[name]!.note}
+            >
+              {name}
+            </Btn>
+          ))}
+          <Btn
+            onClick={() => rt()?.setCalling([], null, 'conductor')}
+            title="Restart with the Conductor and no path"
+          >
+            Conductor, no path
           </Btn>
         </Group>
         <Group title="Phase 4g · Keepsakes">

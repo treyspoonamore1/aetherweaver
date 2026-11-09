@@ -10,6 +10,7 @@ import { healthLevel } from '../app/healthLevels';
 import { signalHex } from './crimsonCues';
 import { CallingView } from './calling';
 import { ChronoView } from './chrono';
+import { ConductView } from './conduct';
 import { crucibleSky, emptySky } from './crucibleCues';
 import { DissonanceView } from './dissonance';
 import { EntityLayer } from './entities';
@@ -56,6 +57,8 @@ export class CombatView implements WorldView {
   readonly calling: CallingView;
   readonly martyr: MartyrView;
   readonly chrono: ChronoView;
+  /** The Conductor (docs/phase-5f.md): Duets and Trios, the downbeat, the Grand Finale. */
+  readonly conduct: ConductView;
   readonly astrolabe: AstrolabeView;
   readonly dissonance: DissonanceView;
   readonly bonds: BondsView;
@@ -129,6 +132,7 @@ export class CombatView implements WorldView {
       telegraphs: this.telegraphs,
       overlay: this.overlay,
     });
+    this.conduct = new ConductView({ kit: this.kit, recs: this.entities.recs });
     this.astrolabe = new AstrolabeView({
       kit: this.kit,
       recs: this.entities.recs,
@@ -198,6 +202,7 @@ export class CombatView implements WorldView {
     this.calling.sync(state, fxDt, frame.time, frame.settings.flashes);
     this.martyr.sync(state, fxDt, frame.time, frame.settings.flashes);
     this.chrono.sync(state, fxDt, frame.time, frame.settings.flashes, frame.settings.damageNumbers);
+    this.conduct.sync(state, fxDt, frame.time, frame.settings.flashes);
     this.astrolabe.sync(state, fxDt, frame.time, frame.settings.flashes);
     this.dissonance.sync(state, fxDt, frame.time, frame.settings.flashes);
     this.bonds.sync(state, fxDt, frame.time, frame.settings.flashes);
@@ -233,6 +238,7 @@ export class CombatView implements WorldView {
     this.calling.handle(events, state);
     this.martyr.handle(events, state);
     this.chrono.handle(events, state);
+    this.conduct.handle(events, state);
     this.astrolabe.handle(events, state);
     this.dissonance.handle(events, state);
     this.bonds.handle(events, state);
