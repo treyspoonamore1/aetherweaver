@@ -589,7 +589,7 @@ export interface GroveView {
 /**
  * A Rally would bring at least one of `saplings` (his, outside your field) home: its re-plant
  * spot at the Weaver's front stands inside your field now (`replantInField`). False when no
- * re-plant can land in it (her songs too small to reach 5 m ahead of her, a mute dome over her
+ * re-plant can land in it (her songs too small to reach 4 m ahead of her, a mute dome over her
  * front); so a Rally isn't spent every few seconds for nothing. Through the Silent Verse the
  * spots are drawn into the hymn circle she stands in (`frontSpot`), so it holds. Draws nothing.
  */

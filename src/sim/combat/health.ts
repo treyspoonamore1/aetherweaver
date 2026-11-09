@@ -33,7 +33,13 @@ import { recordSave } from './saves';
 import { hasTalent, soloValue, talentFired, talentHolder, talentValue } from '../bonds';
 import { variantGuard, variantValue } from '../variants';
 import { suppressRadiusOf, weaverSilenced } from '../rules3';
-import { duelDownRecord, parryArmed, parryIntercept, unflinchWard } from '../systems/duel';
+import {
+  duelDownRecord,
+  duelThreat,
+  parryArmed,
+  parryIntercept,
+  unflinchWard,
+} from '../systems/duel';
 import {
   groveDownRecord,
   rootable,
@@ -1092,6 +1098,8 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
     world.ledger.calling.amplified += callingShare;
     if (!opts.noThreat)
       addThreat(target, source.hero.slot, total * heroDef(source.hero.defId).threatMult);
+    // Seren with no Kael (docs/phase-5e.md, "By party"): she holds the bosses she strikes.
+    if (source.hero.duel && !opts.noThreat) duelThreat(world, source, target, total);
     if (target.enemy.tier === 'normal' && world.mods.hammerfallChance > 0) {
       if (
         hasAura(world, source.hero.auraMask, 'fortissimo') &&

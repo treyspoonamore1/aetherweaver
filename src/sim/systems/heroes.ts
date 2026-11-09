@@ -370,9 +370,13 @@ function combatMove(
     if (def.role === 'duelist' && formationSidestep(world, weaver, e, def, dt)) return;
     // Oro (docs/phase-5e.md): Gentle, he steps away from the fighting.
     if (def.role === 'summoner' && groveRetreat(world, weaver, e, def, desired)) {
+      // His retreat doesn't end in a blow aimed at another hero (docs/phase-5e.md, W9).
+      sidestepOthers(world, e);
       arrive(e, desired.x, desired.z, TUNING.heroAccel, 1.2, dt);
       return;
     }
+    // Nor does his formation slot: he walks round it, on his own line, as Seren does.
+    if (def.role === 'summoner' && formationSidestep(world, weaver, e, def, dt)) return;
     formationMove(weaver, e, def, dt);
     return;
   }
@@ -417,6 +421,7 @@ function combatMove(
   } else if (flank(world, e, def, target)) {
     // Focus on a guarded enemy: out of its arc, whatever the Weaver's leash says.
     clampToArena(world, desired);
+    if (def.role === 'summoner') sidestepOthers(world, e);
   } else {
     // Ranged: anchor on the formation slot, step toward the target only as far as needed.
     const spread = hero.follow === 'scatter' ? TUNING.scatterSpread : 1;
@@ -440,6 +445,8 @@ function combatMove(
     }
     kite(world, e);
     if (!free) leash(weaver, RANGED_LEASH);
+    // Oro with a Focus (docs/phase-5e.md, W9): out of blows aimed at the others, on his own line.
+    if (def.role === 'summoner') sidestepOthers(world, e);
   }
   arrive(e, desired.x, desired.z, TUNING.heroAccel, 1.2, dt);
 }

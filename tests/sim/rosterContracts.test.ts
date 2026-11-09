@@ -151,7 +151,7 @@ describe('the new content (docs/phase-5e.md)', () => {
       maxHp: 900,
       dodge: 0.45,
       formation: { forward: 2, right: -1.9 },
-      attack: { kind: 'melee', damage: 60, interval: 0.75, range: 2.2 },
+      attack: { kind: 'melee', damage: 72, interval: 0.75, range: 2.2 },
       solo: { id: 'thousandCuts', pulse: 0.5, reach: 10, extendCap: 4 },
       quirk: { id: 'showboat', leash: 12, seconds: 8 },
       call: { ability: 0, answer: 'ward', flourish: { name: 'Flèche', damageMult: 1.6 } },
@@ -166,7 +166,7 @@ describe('the new content (docs/phase-5e.md)', () => {
       solo: { id: 'wildgrowth', radius: 7, pulse: 1, cuedPower: 6 },
       quirk: { id: 'gentle', retreat: 4 },
       call: { ability: 0, answer: 'chime', flourish: { name: 'Spring Rain', soloCharge: 20 } },
-      summons: { sapling: { count: 2, maxHp: 380, front: { forward: 5, spread: 2.5 } } },
+      summons: { sapling: { count: 2, maxHp: 456, front: { forward: 4, spread: 2.5 } } },
       recruit: { event: 'loose_thread', fallback: 'the_seamstress', rank: 12 },
     });
     // Brann's two hard-coded lines are content now, unchanged.
@@ -433,6 +433,29 @@ describe('the pure rules (docs/phase-5e.md, contracts item 5)', () => {
     v.entities.flush();
     e.enemy!.targetId = heroAt(v, 0).id;
     expect(duelTarget(v, heroAt(v, 2))?.id).toBe(e.id);
+  });
+
+  it('duelTarget: in a boss fight, a lesser foe swinging at Kael is hers to peel (W9 round 2)', () => {
+    const sim = sandbox({ party: ['kael', 'lyra', 'seren'] });
+    const w = worldOf(sim);
+    freeze(w);
+    const kael = heroAt(w, 0);
+    const seren = heroAt(w, 2);
+    place(w.entities.get(w.weaverId)!, 0, 0);
+    const boss = spawnEnemy(w, 'the_hollow_cantor', 0, 6, { instant: true });
+    const add = spawnEnemy(w, 'hollow_chorister', -4, 0, { instant: true });
+    w.entities.flush();
+    kael.hero!.targetId = boss.id;
+    boss.enemy!.targetId = kael.id;
+    add.enemy!.targetId = kael.id;
+    // On the road (no boss fight) the add on Kael is his, and Kael's boss is the only other.
+    w.encounter.bossId = null;
+    expect(duelTarget(w, seren)?.id).toBe(boss.id);
+    // In the boss fight she peels the add off him; the boss itself stays his.
+    w.encounter.bossId = boss.id;
+    expect(duelTarget(w, seren)?.id).toBe(add.id);
+    add.health!.dead = true;
+    expect(duelTarget(w, seren)?.id).toBe(boss.id);
   });
 
   it('parryArmed, overextended and lungeTarget are false or null for every other hero', () => {

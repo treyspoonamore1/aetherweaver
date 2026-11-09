@@ -198,7 +198,7 @@ describe('Blade Waltz (her alternate Solo)', () => {
         });
         expect(r.parried).toBe(300);
         const counter = ofType(stepFor(s.sim, 1), 'parryCountered')[0]!;
-        const base = 60 * pct;
+        const base = 72 * pct;
         expect([base, base * 1.6].some((v) => Math.abs(counter.amount - v) < 1e-6)).toBe(true);
       }
       // Her own: none of it is the Weaver's.

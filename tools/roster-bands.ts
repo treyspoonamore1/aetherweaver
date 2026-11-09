@@ -76,6 +76,11 @@ export interface DownRecord {
   /** The enemy def id that struck it ('' when the source wasn't an enemy). */
   by: string;
   aimed: Aimed;
+  /**
+   * The blow's source's distance from the victim as it struck (m, past both bodies; -1 without
+   * an enemy source): the down recaps' `far` (beyond PARRY_REACH) and Oro's `melee` (6 m) read it.
+   */
+  gap: number;
   /** The victim's distance from the Weaver (m). */
   distance: number;
   /** Seren's parry was armed going into the tick she went down in (absent for any other hero). */
@@ -157,6 +162,7 @@ interface Blow {
   attack: string;
   by: string;
   aimed: Aimed;
+  gap: number;
 }
 
 /**
@@ -320,14 +326,25 @@ export class RosterWatch {
   ): Blow {
     const src = e.source === null ? undefined : sim.state.entities.get(e.source);
     const by = src?.enemy?.defId ?? '';
+    const v = sim.state.entities.get(e.target);
+    const gap =
+      src?.enemy && v
+        ? Math.max(0, Math.hypot(src.x - v.x, src.z - v.z) - src.radius - v.radius)
+        : -1;
     if (tel)
       return {
         attack: tel.attack,
         by,
         aimed: tel.target === null ? 'none' : tel.target === e.target ? 'self' : 'other',
+        gap,
       };
-    if (e.hit === 'tick') return { attack: 'tick', by, aimed: 'tick' };
-    return { attack: src?.enemy ? 'basic' : 'other', by, aimed: src?.enemy ? 'basic' : 'unknown' };
+    if (e.hit === 'tick') return { attack: 'tick', by, aimed: 'tick', gap };
+    return {
+      attack: src?.enemy ? 'basic' : 'other',
+      by,
+      aimed: src?.enemy ? 'basic' : 'unknown',
+      gap,
+    };
   }
 
   private recordDown(sim: Sim, id: EntityId): void {
@@ -335,7 +352,12 @@ export class RosterWatch {
     const v = state.entities.get(id);
     if (!v?.hero) return;
     const w = state.entities.get(state.weaverId);
-    const blow = this.lastBlow.get(id) ?? { attack: 'unknown', by: '', aimed: 'unknown' as const };
+    const blow = this.lastBlow.get(id) ?? {
+      attack: 'unknown',
+      by: '',
+      aimed: 'unknown' as const,
+      gap: -1,
+    };
     let summonNear = false;
     for (const s of state.entities.list())
       if (s.summon && s.health && !s.health.dead && Math.hypot(s.x - v.x, s.z - v.z) <= SUMMON_NEAR)
@@ -543,7 +565,15 @@ export function downTable(cells: readonly Cell[]): string[] {
         ? `parry armed ${count((d) => !!d.parryArmed)}`
         : '',
       ds.some((d) => d.duel) ? `overextended ${count((d) => !!d.duel?.overextended)}` : '',
+      ds.some((d) => d.duel)
+        ? `recap warded ${count((d) => !!d.duel?.warded)} parryable ${count((d) => !!d.duel?.parryable)} far ${count((d) => !!d.duel?.far)}`
+        : '',
       ds.some((d) => d.grove) ? `in melee ${count((d) => !!d.grove?.melee)}` : '',
+      ds.some((d) => d.grove)
+        ? `felled outside ${count((d) => (d.grove?.feltOutside ?? 0) > 0)} thread cut ${count((d) => !!d.grove?.threadCut)}`
+        : '',
+      // The blow's source: within 2 m, 2-6 m, past 6 m (the recaps' PARRY_REACH and 6 m).
+      `from ≤2 m ${count((d) => d.gap >= 0 && d.gap <= 2)}, 2-6 m ${count((d) => d.gap > 2 && d.gap <= 6)}, >6 m ${count((d) => d.gap > 6)}`,
       `summon near ${count((d) => d.summonNear)}`,
     ].filter(Boolean);
     lines.push(

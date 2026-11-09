@@ -1,6 +1,6 @@
 {
   "simVersion": 22,
-  "contentVersion": "c-8bfa2beaf5775748",
+  "contentVersion": "c-90f2f93ff5775748",
   "scenarios": {
     "patrol": "2626acee5ce8d584",
     "crowd": "323bd3a88aea3f1b",
@@ -21,11 +21,11 @@
     "novice-grand-silence": "53e97197ec54183f",
     "skilled-brann-conductor": "2aa1d517c92d14a3",
     "skilled-chrono-silence": "7841a66073bbaeee",
-    "skilled-seren-crimson-gate": "46879a04e120c1ce",
-    "novice-seren-first-light": "0938c093f5e660cc",
-    "skilled-oro-bellwarden": "552c8f11a4665d3b",
-    "skilled-red-line-vharun": "fe0a62722e1c72e0",
-    "skilled-oro-conductor": "53a7ac7834ffde8f",
-    "novice-grove-mirror-hall": "13f3bb8e8df1eebd"
+    "skilled-seren-crimson-gate": "8a2255440dd4690e",
+    "novice-seren-first-light": "64fc18df79b0fad1",
+    "skilled-oro-bellwarden": "f3eec5fbf3a4472e",
+    "skilled-red-line-vharun": "7cb1ccd3bf32f746",
+    "skilled-oro-conductor": "48db24c60f4424d8",
+    "novice-grove-mirror-hall": "3c1d02049ef29ef6"
   }
 }

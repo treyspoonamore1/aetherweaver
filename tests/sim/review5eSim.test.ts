@@ -431,7 +431,8 @@ describe('Under the Silent Verse, a Rally re-plants the Saplings inside the circ
     const weaverE = w.entities.get(w.weaverId)!;
     place(weaverE, 0, 0);
     const before = frontSpot(w, oro, 0, 2, { x: 0, z: 0 });
-    expect(Math.hypot(before.x, before.z)).toBeGreaterThan(5);
+    // Outside the circle she stands in (the front spots are 4 m ahead, ±2.5 m: 4.7 m out).
+    expect(Math.hypot(before.x, before.z)).toBeGreaterThan(3.6 + 1);
     w.field.hymnCircles = [
       { x: 0, z: 0, r: 3.6 },
       { x: 9, z: 9, r: 3.6 },
