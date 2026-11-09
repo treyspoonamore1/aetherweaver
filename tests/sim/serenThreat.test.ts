@@ -1,5 +1,5 @@
 /**
- * Phase 5e W9 (docs/phase-5e.md, "By party"; default, awaiting your confirmation): with no Kael
+ * Phase 5e W9 (docs/phase-5e.md, "By party"; confirmed 2026-11-09): with no Kael
  * (no tank) in the party, Seren holds the bosses. Her hits on a boss or miniboss count
  * `DUEL_BOSS_THREAT` times her own threat; with Kael in the party, on any lesser foe, and for
  * every other hero, threat is what it always was.

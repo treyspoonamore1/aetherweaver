@@ -356,7 +356,7 @@ The build proceeds on every default except Q1-Q3, which gate W2b; until they are
 | formation | `{forward 2.0, right -1.9}` | front-left |
 | attack | `melee` rapier, **72** per **0.75 s**, range 2.2, no cleave | 96 dps (Kael 69, Lyra 90). W9 tuning round 1: 60 → 72, the +20% edge (lever 1); her counter (3×) and kill shot (6×) scale with it |
 | preferredRange | 1.2 | |
-| threatMult | 1.0 | Kael’s 3 keeps bosses on him. With no Kael, her hits on a boss or miniboss count ×6 (`DUEL_BOSS_THREAT`, W9 prep; *default, awaiting your confirmation*), so she holds them (*By party*) |
+| threatMult | 1.0 | Kael’s 3 keeps bosses on him. With no Kael, her hits on a boss or miniboss count ×6 (`DUEL_BOSS_THREAT`, W9 prep; *default, confirmed 2026-11-09*), so she holds them (*By party*) |
 | dodge | **0.45** | never against a parryable blow aimed at her while Warded |
 
 ### Passive: Parry
@@ -804,7 +804,7 @@ Every row has at least one answer per beat.
 
 `partyHasDome` stays Kael-only, so 10 of the 20 parties read `decreeNoDome` (`legionLook.ts:97-145`).
 
-**Seren holds the Kael-less bosses (W9 prep; *default, awaiting your confirmation*).** The rows above are binding. Measured at the first look's re-run (24 seeds from 1000), a Kael-less boss stayed on Lyra or Vexis: SB 93-98% on Lyra at all four bosses, W 85-94% on Vexis. Lever 1 cannot do it: her `threatMult` at the +20% edge (1.2) moved it by 0-5 points (12 seeds: SB 0-3% on her, W 5-18%), because Lyra's Empowered arrows out-deal her about 7 : 1 at a boss. So it is lever 2, a hero-only threat rule in `duel.ts` (`duelThreat`, called from one guarded line after the plain threat in `dealDamage`, so the rule's one call site is in the shared `src/sim/combat/health.ts`; it returns at once unless the source has `hero.duel` and the party has no tank): with no tank (Kael) in the party, her hits on a **boss or miniboss** count `DUEL_BOSS_THREAT` = 6 times her threat. ×3 held only the Cantor in SB (68%), ×4 the Cantor and the Conductor (94%, 79%), ×6 all four (93-98%), and ×10 no more than ×6. It is threat, not a taunt: a boss is still never bound, and a bigger hitter can still take it from her. Inert in every party with Kael, so SA, SC, R, SO and every pin are unchanged. With Kael, the band ‘Kael holds bosses ≥ 70% of boss time in SA and SC’ is read beside the default party's own Kael share in the same run (W9 prep below): no Seren number touches it.
+**Seren holds the Kael-less bosses (W9 prep; *default, confirmed 2026-11-09*).** The rows above are binding. Measured at the first look's re-run (24 seeds from 1000), a Kael-less boss stayed on Lyra or Vexis: SB 93-98% on Lyra at all four bosses, W 85-94% on Vexis. Lever 1 cannot do it: her `threatMult` at the +20% edge (1.2) moved it by 0-5 points (12 seeds: SB 0-3% on her, W 5-18%), because Lyra's Empowered arrows out-deal her about 7 : 1 at a boss. So it is lever 2, a hero-only threat rule in `duel.ts` (`duelThreat`, called from one guarded line after the plain threat in `dealDamage`, so the rule's one call site is in the shared `src/sim/combat/health.ts`; it returns at once unless the source has `hero.duel` and the party has no tank): with no tank (Kael) in the party, her hits on a **boss or miniboss** count `DUEL_BOSS_THREAT` = 6 times her threat. ×3 held only the Cantor in SB (68%), ×4 the Cantor and the Conductor (94%, 79%), ×6 all four (93-98%), and ×10 no more than ×6. It is threat, not a taunt: a boss is still never bound, and a bigger hitter can still take it from her. Inert in every party with Kael, so SA, SC, R, SO and every pin are unchanged. With Kael, the band ‘Kael holds bosses ≥ 70% of boss time in SA and SC’ is read beside the default party's own Kael share in the same run (W9 prep below): no Seren number touches it.
 
 ## Presentation
 
@@ -1231,7 +1231,7 @@ Raw outputs (scratch `m5e/tune/`): `base-*` (the re-measure on 65f8748, from a d
 | # | Change | Lever | Where | Inert for |
 |---|---|---|---|---|
 | 1 | **Oro steps out of blows aimed at another hero** (the first look's diagnosis 1: 65% of his downs). His own lines in `combatMove` call `sidestepOthers`, as Seren's arm does: his formation slot (no target or a Rally, through `formationSidestep`), Gentle's retreat spot, and his Focus position (the ranged and flank arms). Hold still holds him; a blow aimed at him stays the Weaver's to Ward. | 2 | `heroes.ts`, four `def.role === 'summoner'` lines | every party without Oro (only he is a summoner) |
-| 2 | **Seren holds the Kael-less bosses** (*By party*, binding; *default, awaiting your confirmation*). With no tank in the party, her hits on a boss or miniboss count `DUEL_BOSS_THREAT` = 6 times her threat (`duelThreat`, one guarded line after the plain threat in `dealDamage`). | 2 | `duel.ts`, `health.ts` | every party with Kael, and every party without Seren |
+| 2 | **Seren holds the Kael-less bosses** (*By party*, binding; *default, confirmed 2026-11-09*). With no tank in the party, her hits on a boss or miniboss count `DUEL_BOSS_THREAT` = 6 times her threat (`duelThreat`, one guarded line after the plain threat in `dealDamage`). | 2 | `duel.ts`, `health.ts` | every party with Kael, and every party without Seren |
 | 3 | **`serenParryWard`: a plain swing never takes the last Ward charge.** Holding a Kael-less boss, she drew a Ward for every boss swing and left the next cone on Lyra or Vexis unwarded (SB at Vharun 5.17 downs a fight with the rule, 3.08 without). | 3 | `skilled.ts` | parties without Seren |
 | 4 | **`oroRally` waits while a boss or miniboss is on a hero who stands behind you** (Lyra, Vexis, Oro: `bossBehind`). The Rally walked that hero home and the boss after it, through the Weaver and the grove: in OB the rule cost 8-21 points at the Unweaver, the Conductor, the Cantor and the Bellwarden. | 3 | `skilled.ts` | parties without Oro |
 | 5 | `serenCall` names the plain Call answer for her, so the ablation can leave it off; on, it changes nothing. | — | `skilled.ts` | everyone (on) |
@@ -1241,7 +1241,7 @@ Tests: `tests/sim/oroSidestep.test.ts` (slot, retreat and Focus positions out of
 
 ### Seren holds the Kael-less bosses: lever 1 cannot, lever 2 does
 
-*Default, awaiting your confirmation.* The *By party* rows (SB, W: ‘threat (Seren usually), who parries’) are binding, and the first look's re-run showed the opposite: in SB the bosses were on Lyra 93-98% of the time, in W on Vexis 85-94%. At a boss Lyra's Empowered arrows out-deal Seren about 7 : 1 (SB at Vharun, seed 1000: 71k against 9.7k over 170 s), so her threat multiplier would need about ×7.
+*Default, confirmed 2026-11-09.* The *By party* rows (SB, W: ‘threat (Seren usually), who parries’) are binding, and the first look's re-run showed the opposite: in SB the bosses were on Lyra 93-98% of the time, in W on Vexis 85-94%. At a boss Lyra's Empowered arrows out-deal Seren about 7 : 1 (SB at Vharun, seed 1000: 71k against 9.7k over 170 s), so her threat multiplier would need about ×7.
 
 | Try (12 seeds a cell, set 1000, Skilled) | SB: boss on Seren (Cantor / Vharun / Unweaver / Conductor) | SB win | W, X | Kept |
 |---|---|---|---|---|
@@ -1957,7 +1957,7 @@ Raw outputs and scripts: scratch `m5e/tune1/` (`raw/`: the screening `base-*`, `
 
 Nothing else moved: no sim, bot, Bond or motif value. The prep's two lever-2 rules (Oro's sidestep, `duelThreat`) and two bot fixes stand as they were.
 
-### Seren holds the Kael-less bosses (default, awaiting your confirmation)
+### Seren holds the Kael-less bosses (confirmed 2026-11-09)
 
 The *By party* rows are binding: in parties without Kael (SB, W, X and the unbanded LBS, LSO, VBS), Seren holds the bosses and parries them; Kael keeps them in SA and SC. **Lever 2 is used, not lever 1:** lever 1 cannot do it. Seren's `threatMult` at the +20% edge (1.2) put SB's bosses on her 0-3% of the time and W's 5-18% (12 seeds, the prep), because Lyra's Empowered arrows out-deal her about 7 : 1 at a boss, so her multiplier would need about ×7. The rule is the prep's `duelThreat` (`DUEL_BOSS_THREAT` = 6 in `duel.ts`, one guarded line after the plain threat in `dealDamage`): with no tank in the party, her hits on a boss or miniboss count six times her threat. It is inert unless Seren is in the party and Kael is not, so SA, SC, R, SO and every pin are unchanged. Round 1's +20% attack raises her plain threat too, and the hold is firmer than the prep's (final tables below, every boss and set: the boss is on her 94-98% of its time in SB, 95-99% in W and 91-99% in X).
 
@@ -2716,7 +2716,7 @@ The gate holds wherever the fight lasts at least as long as the default party's.
 **Round 2 leads (not built):** `groveCover` off for OA on the road (+3 points over 25 cells, OA only; it pays at the bosses); a `serenCall` guard against a Toll due on Kael (SC's Cantor); the Novice's `serenWard` (at bosses it out-parries the Skilled bot, so the Novice-skill-gap band reads backwards); Oro's `oroFocus` crowd guard on the road (tending 32-35% in OB and OC).
 
 **NEEDS USER.**
-1. *Default taken, awaiting your confirmation:* with no Kael, Seren holds the bosses by threat (`DUEL_BOSS_THREAT` ×6, lever 2; lever 1 cannot: `threatMult` 1.2 put the boss on her 0-18% of the time). Confirm, or say how else you want it.
+1. *Default taken (confirmed 2026-11-09):* with no Kael, Seren holds the bosses by threat (`DUEL_BOSS_THREAT` ×6, lever 2; lever 1 cannot: `threatMult` 1.2 put the boss on her 0-18% of the time). Confirm, or say how else you want it.
 2. *Kael holds bosses ≥ 70% in SA and SC* is above the default party's own Kael (45-47%). Only Kael's or Lyra's numbers could reach it, and they are never moved. Restate it against the default party's share (SA 51-52% would meet it; SC 39-41% is −6), or accept it as missed.
 3. *OB (Q8):* the measurements confirm both provisional bands. Bosses −8 to +8 against −25 and whole runs −16 / −12 / −15 against −20, on all three sets; the road −10 band is missed by one cell on two sets. Recommendation: keep both, and make them final. The *Heartwood* alternative is a Quirk change: not built, not needed by these numbers, and yours to decide.
 4. *SA, SC and OA's whole runs and road (≥ default − 5)* cannot be reached with the allowed levers: the gap is the dropped starter's damage (about 3 : 1 on the road), and ±20% of Seren's or Oro's own numbers closes about a sixth of it. Reaching it needs one of: a wider lever-1 rule for their damage (beyond ±20%: a design change to Seren and Oro), a restated band for parties without Lyra or Vexis (as SB and OB have), or starter, enemy or road numbers, which are never moved.
@@ -2748,7 +2748,7 @@ Raw outputs and scripts: scratch `m5e/tune2/` (`raw/`: the screen `r1-*` (round 
 | tests | `bots.test.ts` (`oroFocus` ×2, `groveCover`, a new `oroThread` case), `rosterContracts.test.ts` (a new `duelTarget` case) | state the four rules | — | |
 | `tests/sim/golden.json`, `m1Unchanged.test.ts` | `skilled-oro-conductor` | `f254a5511c85b4d7` → `178ad349e9fd3c8a` (`update-golden --write`) | — | the only golden the rules reach; the 19 originals and the other five Seren and Oro goldens byte-identical |
 
-### Seren holds the Kael-less bosses (default, awaiting your confirmation)
+### Seren holds the Kael-less bosses (confirmed 2026-11-09)
 
 Unchanged from round 1, and still **lever 2, not lever 1**: `threatMult` at its +20% edge (1.2) put SB's bosses on her 0-3% of the time and W's 5-18%, so the prep's `duelThreat` (`DUEL_BOSS_THREAT` ×6, inert unless Seren is in the party and Kael is not) stands. Final, every boss and set: the boss is on her 95-96% of boss time pooled in SB, 98% in W and 96-97% in X. The *By party* X row now says so (it read 'threat (Brann 1.2, Seren parries)', which the rule makes Seren's). **The knock-on, a trade-off this default buys:** holding the bosses, her boss downs are 0.38-0.41 a fight in SB, 0.57-0.65 in W and 0.85-1.14 in X (her band ≤ 0.3; 0.18-0.29 in SA and SC, where Kael holds), and her kill shots lost (disabled or silenced) are 0.11 a fight in SB and 0.69-0.75 in W and X, against 0.00 in SA and SC. `serenReel` at 0.7 of her life (from 0.6) did not move either (below).
 
@@ -3154,7 +3154,7 @@ As in round 1: the gate holds wherever the fight lasts at least as long as the d
 **Round 3 leads (taken up in W9 round 3 below):** SO's peel (leave the adds to Oro's Saplings when they hold them); OA's Vharun (−6 on both tuning sets); OB's in-field share at the Cantor (31-34%), where the boss guard keeps the Rally from re-planting the grove into the Silent Verse's circle (the Rally through it cost OB's Cantor 8-12 points).
 
 **NEEDS USER.**
-1. *Default taken, awaiting your confirmation:* with no Kael, Seren holds the bosses by threat (`DUEL_BOSS_THREAT` ×6, lever 2; lever 1 cannot: `threatMult` 1.2 put the boss on her 0-18% of the time). Final hold: SB 95-96%, W 98%, X 96-97% of boss time. Its cost: her boss downs 0.38-1.14 a fight (band ≤ 0.3) and 0.11-0.75 kill shots lost a fight in SB, W and X. Confirm, or say how else you want it.
+1. *Default taken (confirmed 2026-11-09):* with no Kael, Seren holds the bosses by threat (`DUEL_BOSS_THREAT` ×6, lever 2; lever 1 cannot: `threatMult` 1.2 put the boss on her 0-18% of the time). Final hold: SB 95-96%, W 98%, X 96-97% of boss time. Its cost: her boss downs 0.38-1.14 a fight (band ≤ 0.3) and 0.11-0.75 kill shots lost a fight in SB, W and X. Confirm, or say how else you want it.
 2. *New in round 2, a refinement of Showboat's pick (lever 2), flagged for you:* in a boss fight, a normal or elite enemy swinging at Kael that is not his own target is Seren's to duel; the decision row ('prefer enemies not targeting Kael') now says so. It is what moved SC's Cantor. Confirm, or name the narrower form you want (for instance, not in a party with Oro, which would give SO back its Cantor).
 3. *Kael holds bosses ≥ 70% in SA and SC* is above the default party's own Kael (45-47%). Only Kael's or Lyra's numbers could reach it, and they are never moved. Restate it against the default party's share (SA's 51-53% meets it; SC's 43-45% is −1 to −3, round 1's −6), or accept it as missed.
 4. *OB (Q8):* the measurements confirm both provisional bands, more firmly than in round 1: bosses −8 to +8 against −25, whole runs −15.0 / −7.0 / −9.0 against −20, on all three sets; the road −10 band is missed by one cell on one set (the Seamstress −12 on 500003). Recommendation: keep both, and make them final. The *Heartwood* alternative is a Quirk change: not built, not needed by these numbers, and yours to decide.
@@ -3245,7 +3245,7 @@ The boss cells in the screen (the Cantor and Vharun) are byte-identical between 
 | 3 | The pack guard in every party with Kael (OA, OC, SO) | 50 seeds on 1000 and 500003 | the Cantor: OC 96 → 90% and 88 → 98%, OA 98 → 100% and 98% (30 s longer), SO 10 → 46% and 18 → 56% | OC past its band on set 1000; kept only with Kael and Seren |
 
 
-### Seren holds the Kael-less bosses (default, awaiting your confirmation)
+### Seren holds the Kael-less bosses (confirmed 2026-11-09)
 
 Unchanged from rounds 1 and 2, and still **lever 2, not lever 1**. `threatMult` at its +20% edge (1.2) put SB's bosses on her only 0-3% of the time and W's 5-18%. So the prep's `duelThreat` stands: `DUEL_BOSS_THREAT` ×6, inert unless Seren is in the party and Kael is not. Its one call site is a guarded line in `dealDamage` (`src/sim/combat/health.ts`), which returns at once for any source without `hero.duel` and in any party with a tank. Round 3's rules are bot rules and do not touch it. The hold and its cost are in the final tables below.
 
@@ -3623,7 +3623,7 @@ As in rounds 1 and 2, the gate holds wherever the fight lasts at least as long a
 - Holding Seren's Feint for the second Twin Cleave blow where she holds Vharun (W, X, SB). The 12-seed diagnosis found Feint off cooldown for 4 of her 9 second-blow downs, which is too few to build on yet.
 
 **NEEDS USER.**
-1. *Default taken, awaiting your confirmation (unchanged):* with no Kael, Seren holds the bosses by threat (`DUEL_BOSS_THREAT` ×6, lever 2). Lever 1 cannot do it: `threatMult` 1.2 put the boss on her only 0-18% of the time. Final hold: SB 95-96%, W 98%, X 96-97% of boss time. Its cost: her boss downs are 0.38-1.14 a fight (band ≤ 0.3), and she loses 0.11-0.75 kill shots a fight in SB, W and X. Confirm, or say how else you want it.
+1. *Default taken (confirmed 2026-11-09):* with no Kael, Seren holds the bosses by threat (`DUEL_BOSS_THREAT` ×6, lever 2). Lever 1 cannot do it: `threatMult` 1.2 put the boss on her only 0-18% of the time. Final hold: SB 95-96%, W 98%, X 96-97% of boss time. Its cost: her boss downs are 0.38-1.14 a fight (band ≤ 0.3), and she loses 0.11-0.75 kill shots a fight in SB, W and X. Confirm, or say how else you want it.
 2. *Seren's peel (round 2, lever 2), reach and attribution corrected:* in a boss fight, a normal or elite enemy swinging at Kael that is not his own target is hers to duel, in every party with Kael and Seren (SA, SC, R, SO). It is what moved SC's Cantor. Round 2 said it made SO worse; round 3 measured that it did not (byte-identical with it off). Confirm it, or name a narrower form.
 3. *New in round 3, flagged:* `oroFocus` never Focuses a boss that calls a pack while Kael and Seren both stand. It is a bot rule (lever 3), so it changes no sim behaviour, and it reaches only SO among the banded parties. Confirm, or say if you want it wider. Read in every Kael party, it lifted OA by 0-2 and moved OC −6 / +10 at the Cantor.
 4. *Kael holds bosses ≥ 70% in SA and SC* is above the default party's own Kael (45-47%). Only Kael's or Lyra's numbers could reach it, and those are never moved. Restate it against the default party's share (SA's 51-53% meets it; SC's 43-45% is 1-3 points short), or accept it as missed.
@@ -3655,9 +3655,9 @@ As in rounds 1 and 2, the gate holds wherever the fight lasts at least as long a
 - **Never moved:** Weaver, aura, enemy, encounter, Movement, road, starter (Kael, Lyra, Vexis) and Brann numbers. No aura definition, number or list changed, and no aura reach beyond Q1-Q3.
 - **Every existing fight is unchanged.** The 19 original goldens are byte-identical, `SIM_VERSION` is 22, and the 22 baseline checks of the default party and Brann's parties A, B and C are byte-equal.
 - **Bands.** Met on all three sets: 29 rows. Seed-sensitive: 7 rows. Missed: 23 rows, most of them in SA and SC (the parties that drop Lyra or Vexis for Seren) or in Seren's and Oro's own bands. The reduced parties' two rows are printed, not banded. *Bands: the final status* lists each with its exact numbers.
-- **Needs you:** 13 items (*NEEDS USER*, the last list in this section). The first is the default below.
+- **Needs you:** 12 open items (*NEEDS USER*, the last list in this section). The first, the default below, you confirmed on 2026-11-09.
 
-### Seren holds the Kael-less bosses (*default, awaiting your confirmation*)
+### Seren holds the Kael-less bosses (*confirmed 2026-11-09*)
 
 The *By party* rows are binding: without Kael (SB, W, X and the unbanded LBS, LSO and VBS), Seren holds the bosses and parries them. With Kael (SA, SC), Kael keeps them.
 
@@ -3667,7 +3667,7 @@ The *By party* rows are binding: without Kael (SB, W, X and the unbanded LBS, LS
 - **The hold** (Skilled, the four bosses pooled): SB 95-96%, W 98%, X 96-97% of boss time. The re-measure on 777001 reads SB 96.2%, W 97.5%, X 97.1%.
 - **The cost.** Her boss downs are 0.38-0.41 a fight in SB, 0.57-0.64 in W and 0.85-1.14 in X, against her band of 0.3. She loses 0.11 kill shots a fight in SB and 0.69-0.75 in W and X (0.00 in SA and SC).
 - **With Kael** the rule is inert, and Kael's share is the default party's: SA 51-53%, SC 43-45%, against the default party's own Kael at 45-47% (the band asks 70%: NEEDS USER, item 4).
-- **Confirm it, or say how else you want it.**
+- **Confirmed by you on 2026-11-09.**
 
 ### What shipped against the design
 
@@ -3940,7 +3940,7 @@ Q8's answer: OB is the hardest party by design; provisional bands bosses ≥ def
 
 ### NEEDS USER
 
-1. **Default, awaiting your confirmation:** in parties without Kael, Seren holds the bosses by threat (`DUEL_BOSS_THREAT` ×6, lever 2; lever 1 cannot). Hold SB 95-96%, W 98%, X 96-97%. Cost: her boss downs 0.38-1.14 a fight against 0.3, and 0.11-0.75 kill shots lost a fight. Confirm, or say how else you want it.
+1. **Confirmed (2026-11-09).** In parties without Kael, Seren holds the bosses by threat (`DUEL_BOSS_THREAT` ×6, lever 2; lever 1 cannot). Hold SB 95-96%, W 98%, X 96-97%. Cost: her boss downs 0.38-1.14 a fight against 0.3, and 0.11-0.75 kill shots lost a fight. You confirmed it; nothing more is needed.
 2. **Seren's peel** (round 2, lever 2): in a boss fight she duels a normal or elite enemy swinging at Kael that is not his own target. It applies in every party with Kael and Seren (SA, SC, R, SO). Round 3 measured that it did not cause SO's losses. Confirm it, or name a narrower form.
 3. **The pack guard** (round 3, lever 3): no `oroFocus` Focus at a boss that calls a pack while Kael and Seren both stand. Among the banded parties it reaches only SO, whose Cantor goes 10-18% → 40-52%. In every Kael party it moved OC's Cantor −6 / +10. Confirm it, or say if you want it wider.
 4. **Kael holds bosses ≥ 70% in SA and SC** is above the default party's own Kael (45-47%). Only starter numbers could reach it. Restate it against the default party's share (SA's 51-53% meets it; SC's 43-45% is 1-3 points short), or accept it as missed.
