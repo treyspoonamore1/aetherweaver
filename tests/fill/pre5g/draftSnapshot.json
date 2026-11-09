@@ -1,0 +1,7662 @@
+{
+ "1": {
+  "drafts": [
+   {
+    "reason": "victory",
+    "options": [
+     {
+      "motifId": "riposte_bloom",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "long_weave",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "quickened_verse",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "victory",
+    "options": [
+     {
+      "motifId": "long_weave",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "clear_tone",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "second_verse",
+      "level": 2,
+      "upgrade": true
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "elite",
+    "options": [
+     {
+      "motifId": "lifeline",
+      "level": 3,
+      "upgrade": true
+     },
+     {
+      "motifId": "riposte_bloom",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "starlit_study",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "boss",
+    "options": [
+     {
+      "motifId": "twin_aegis",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "da_capo",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "wind_at_her_back",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "shrine",
+    "options": [
+     {
+      "motifId": "long_weave",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "clear_tone",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "relay_weave",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "meditate",
+    "options": [
+     {
+      "motifId": "second_verse",
+      "level": 2,
+      "upgrade": true
+     },
+     {
+      "motifId": "hammerfall",
+      "level": 3,
+      "upgrade": true
+     },
+     {
+      "motifId": "lifeline",
+      "level": 3,
+      "upgrade": true
+     }
+    ],
+    "rerollsLeft": 1
+   }
+  ],
+  "shop": [
+   {
+    "kind": "relic",
+    "id": "prism_loom",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 130,
+    "sold": false
+   },
+   {
+    "kind": "relic",
+    "id": "wardens_key",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 50,
+    "sold": false
+   },
+   {
+    "kind": "relic",
+    "id": "choirmasters_baton",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 80,
+    "sold": false
+   },
+   {
+    "kind": "motif",
+    "id": "wind_at_her_back",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 55,
+    "sold": false
+   },
+   {
+    "kind": "motif",
+    "id": "long_weave",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 35,
+    "sold": false
+   },
+   {
+    "kind": "heal",
+    "id": "",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0.3,
+    "price": 25,
+    "sold": false
+   }
+  ]
+ },
+ "2": {
+  "drafts": [
+   {
+    "reason": "victory",
+    "options": [
+     {
+      "motifId": "canon",
+      "level": 2,
+      "upgrade": true
+     },
+     {
+      "motifId": "standing_ovation",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "da_capo",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "victory",
+    "options": [
+     {
+      "motifId": "taut_release",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "relay_weave",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "long_weave",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "elite",
+    "options": [
+     {
+      "motifId": "lifeline",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "steady_hands",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "wind_at_her_back",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "boss",
+    "options": [
+     {
+      "motifId": "da_capo",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "clear_tone",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "quickened_verse",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "shrine",
+    "options": [
+     {
+      "motifId": "da_capo",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "deep_roots",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "relay_weave",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "meditate",
+    "options": [
+     {
+      "motifId": "warm_hum",
+      "level": 3,
+      "upgrade": true
+     },
+     {
+      "motifId": "canon",
+      "level": 2,
+      "upgrade": true
+     }
+    ],
+    "rerollsLeft": 1
+   }
+  ],
+  "shop": [
+   {
+    "kind": "relic",
+    "id": "spindle_of_fate",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 130,
+    "sold": false
+   },
+   {
+    "kind": "relic",
+    "id": "cracked_metronome",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 130,
+    "sold": false
+   },
+   {
+    "kind": "relic",
+    "id": "cantors_hymnal",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 80,
+    "sold": false
+   },
+   {
+    "kind": "motif",
+    "id": "second_verse",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 35,
+    "sold": false
+   },
+   {
+    "kind": "motif",
+    "id": "starlit_study",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 55,
+    "sold": false
+   },
+   {
+    "kind": "heal",
+    "id": "",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0.3,
+    "price": 25,
+    "sold": false
+   }
+  ]
+ },
+ "3": {
+  "drafts": [
+   {
+    "reason": "victory",
+    "options": [
+     {
+      "motifId": "long_weave",
+      "level": 2,
+      "upgrade": true
+     },
+     {
+      "motifId": "golden_filament",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "deep_breath",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "victory",
+    "options": [
+     {
+      "motifId": "second_verse",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "standing_ovation",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "deep_roots",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "elite",
+    "options": [
+     {
+      "motifId": "twin_aegis",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "steady_hands",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "taut_release",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "boss",
+    "options": [
+     {
+      "motifId": "twin_aegis",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "relay_weave",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "bulwarks_echo",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "shrine",
+    "options": [
+     {
+      "motifId": "second_verse",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "lifeline",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "deep_breath",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "meditate",
+    "options": [
+     {
+      "motifId": "lingering_aegis",
+      "level": 3,
+      "upgrade": true
+     },
+     {
+      "motifId": "starlit_study",
+      "level": 3,
+      "upgrade": true
+     },
+     {
+      "motifId": "long_weave",
+      "level": 2,
+      "upgrade": true
+     }
+    ],
+    "rerollsLeft": 1
+   }
+  ],
+  "shop": [
+   {
+    "kind": "relic",
+    "id": "hollow_bell",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 80,
+    "sold": false
+   },
+   {
+    "kind": "relic",
+    "id": "tuning_fork",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 50,
+    "sold": false
+   },
+   {
+    "kind": "relic",
+    "id": "choirmasters_baton",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 80,
+    "sold": false
+   },
+   {
+    "kind": "motif",
+    "id": "twin_aegis",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 80,
+    "sold": false
+   },
+   {
+    "kind": "motif",
+    "id": "second_verse",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 35,
+    "sold": false
+   },
+   {
+    "kind": "heal",
+    "id": "",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0.3,
+    "price": 25,
+    "sold": false
+   }
+  ]
+ },
+ "4": {
+  "drafts": [
+   {
+    "reason": "victory",
+    "options": [
+     {
+      "motifId": "hammerfall",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "second_verse",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "deep_roots",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "bulwarks_echo",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "victory",
+    "options": [
+     {
+      "motifId": "relay_weave",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "standing_ovation",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "deep_breath",
+      "level": 2,
+      "upgrade": true
+     },
+     {
+      "motifId": "warm_hum",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "elite",
+    "options": [
+     {
+      "motifId": "starlit_study",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "steady_hands",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "hammerfall",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "bulwarks_echo",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "boss",
+    "options": [
+     {
+      "motifId": "da_capo",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "twin_aegis",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "encore",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "second_verse",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "shrine",
+    "options": [
+     {
+      "motifId": "da_capo",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "deep_breath",
+      "level": 2,
+      "upgrade": true
+     },
+     {
+      "motifId": "starlit_study",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "taut_release",
+      "level": 3,
+      "upgrade": true
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "meditate",
+    "options": [
+     {
+      "motifId": "deep_breath",
+      "level": 2,
+      "upgrade": true
+     },
+     {
+      "motifId": "taut_release",
+      "level": 3,
+      "upgrade": true
+     }
+    ],
+    "rerollsLeft": 1
+   }
+  ],
+  "shop": [
+   {
+    "kind": "relic",
+    "id": "wardens_key",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 50,
+    "sold": false
+   },
+   {
+    "kind": "relic",
+    "id": "featherweight_robes",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 50,
+    "sold": false
+   },
+   {
+    "kind": "relic",
+    "id": "cantors_hymnal",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 80,
+    "sold": false
+   },
+   {
+    "kind": "motif",
+    "id": "clear_tone",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 35,
+    "sold": false
+   },
+   {
+    "kind": "motif",
+    "id": "steady_hands",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 55,
+    "sold": false
+   },
+   {
+    "kind": "heal",
+    "id": "",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0.3,
+    "price": 25,
+    "sold": false
+   }
+  ]
+ },
+ "5": {
+  "drafts": [
+   {
+    "reason": "victory",
+    "options": [
+     {
+      "motifId": "bulwarks_echo",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "second_verse",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "hammerfall",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "victory",
+    "options": [
+     {
+      "motifId": "clear_tone",
+      "level": 3,
+      "upgrade": true
+     },
+     {
+      "motifId": "lingering_aegis",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "deep_roots",
+      "level": 2,
+      "upgrade": true
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "elite",
+    "options": [
+     {
+      "motifId": "lifeline",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "canon",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "da_capo",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "boss",
+    "options": [
+     {
+      "motifId": "twin_aegis",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "da_capo",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "golden_filament",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "shrine",
+    "options": [
+     {
+      "motifId": "fishers_knot",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "bulwarks_echo",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "starlit_study",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "meditate",
+    "options": [
+     {
+      "motifId": "clear_tone",
+      "level": 3,
+      "upgrade": true
+     },
+     {
+      "motifId": "deep_roots",
+      "level": 2,
+      "upgrade": true
+     },
+     {
+      "motifId": "wind_at_her_back",
+      "level": 2,
+      "upgrade": true
+     }
+    ],
+    "rerollsLeft": 1
+   }
+  ],
+  "shop": [
+   {
+    "kind": "relic",
+    "id": "glass_halo",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 30,
+    "sold": false
+   },
+   {
+    "kind": "relic",
+    "id": "cantors_hymnal",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 80,
+    "sold": false
+   },
+   {
+    "kind": "relic",
+    "id": "martyrs_veil",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 80,
+    "sold": false
+   },
+   {
+    "kind": "motif",
+    "id": "golden_filament",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 55,
+    "sold": false
+   },
+   {
+    "kind": "motif",
+    "id": "da_capo",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 80,
+    "sold": false
+   },
+   {
+    "kind": "heal",
+    "id": "",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0.3,
+    "price": 25,
+    "sold": false
+   }
+  ]
+ },
+ "6": {
+  "drafts": [
+   {
+    "reason": "victory",
+    "options": [
+     {
+      "motifId": "deep_roots",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "standing_ovation",
+      "level": 3,
+      "upgrade": true
+     },
+     {
+      "motifId": "canon",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "victory",
+    "options": [
+     {
+      "motifId": "deep_breath",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "warm_hum",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "fishers_knot",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "elite",
+    "options": [
+     {
+      "motifId": "riposte_bloom",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "golden_filament",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "starlit_study",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "boss",
+    "options": [
+     {
+      "motifId": "da_capo",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "twin_aegis",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "lifeline",
+      "level": 2,
+      "upgrade": true
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "shrine",
+    "options": [
+     {
+      "motifId": "hammerfall",
+      "level": 2,
+      "upgrade": true
+     },
+     {
+      "motifId": "canon",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "deep_breath",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "meditate",
+    "options": [
+     {
+      "motifId": "hammerfall",
+      "level": 2,
+      "upgrade": true
+     },
+     {
+      "motifId": "standing_ovation",
+      "level": 3,
+      "upgrade": true
+     },
+     {
+      "motifId": "steady_hands",
+      "level": 3,
+      "upgrade": true
+     }
+    ],
+    "rerollsLeft": 1
+   }
+  ],
+  "shop": [
+   {
+    "kind": "relic",
+    "id": "tuning_fork",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 50,
+    "sold": false
+   },
+   {
+    "kind": "relic",
+    "id": "choirmasters_baton",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 80,
+    "sold": false
+   },
+   {
+    "kind": "relic",
+    "id": "lantern_of_the_lost",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 50,
+    "sold": false
+   },
+   {
+    "kind": "motif",
+    "id": "taut_release",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 55,
+    "sold": false
+   },
+   {
+    "kind": "motif",
+    "id": "lingering_aegis",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 35,
+    "sold": false
+   },
+   {
+    "kind": "heal",
+    "id": "",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0.3,
+    "price": 25,
+    "sold": false
+   }
+  ]
+ },
+ "7": {
+  "drafts": [
+   {
+    "reason": "victory",
+    "options": [
+     {
+      "motifId": "wind_at_her_back",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "golden_filament",
+      "level": 3,
+      "upgrade": true
+     },
+     {
+      "motifId": "long_weave",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "victory",
+    "options": [
+     {
+      "motifId": "da_capo",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "standing_ovation",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "warm_hum",
+      "level": 2,
+      "upgrade": true
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "elite",
+    "options": [
+     {
+      "motifId": "taut_release",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "bulwarks_echo",
+      "level": 3,
+      "upgrade": true
+     },
+     {
+      "motifId": "da_capo",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "boss",
+    "options": [
+     {
+      "motifId": "da_capo",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "fishers_knot",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "lifeline",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "shrine",
+    "options": [
+     {
+      "motifId": "deep_roots",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "warm_hum",
+      "level": 2,
+      "upgrade": true
+     },
+     {
+      "motifId": "encore",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "meditate",
+    "options": [
+     {
+      "motifId": "warm_hum",
+      "level": 2,
+      "upgrade": true
+     },
+     {
+      "motifId": "bulwarks_echo",
+      "level": 3,
+      "upgrade": true
+     },
+     {
+      "motifId": "golden_filament",
+      "level": 3,
+      "upgrade": true
+     }
+    ],
+    "rerollsLeft": 1
+   }
+  ],
+  "shop": [
+   {
+    "kind": "relic",
+    "id": "tuning_fork",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 50,
+    "sold": false
+   },
+   {
+    "kind": "relic",
+    "id": "lantern_of_the_lost",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 50,
+    "sold": false
+   },
+   {
+    "kind": "relic",
+    "id": "cantors_hymnal",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 80,
+    "sold": false
+   },
+   {
+    "kind": "motif",
+    "id": "clear_tone",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 35,
+    "sold": false
+   },
+   {
+    "kind": "motif",
+    "id": "relay_weave",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 35,
+    "sold": false
+   },
+   {
+    "kind": "heal",
+    "id": "",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0.3,
+    "price": 25,
+    "sold": false
+   }
+  ]
+ },
+ "8": {
+  "drafts": [
+   {
+    "reason": "victory",
+    "options": [
+     {
+      "motifId": "relay_weave",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "standing_ovation",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "deep_roots",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "second_verse",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "victory",
+    "options": [
+     {
+      "motifId": "wind_at_her_back",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "second_verse",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "warm_hum",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "riposte_bloom",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "elite",
+    "options": [
+     {
+      "motifId": "starlit_study",
+      "level": 2,
+      "upgrade": true
+     },
+     {
+      "motifId": "canon",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "wind_at_her_back",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "twin_aegis",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "boss",
+    "options": [
+     {
+      "motifId": "twin_aegis",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "fishers_knot",
+      "level": 3,
+      "upgrade": true
+     },
+     {
+      "motifId": "starlit_study",
+      "level": 2,
+      "upgrade": true
+     },
+     {
+      "motifId": "taut_release",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "shrine",
+    "options": [
+     {
+      "motifId": "deep_roots",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "standing_ovation",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "quickened_verse",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "second_verse",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "meditate",
+    "options": [
+     {
+      "motifId": "lingering_aegis",
+      "level": 2,
+      "upgrade": true
+     },
+     {
+      "motifId": "fishers_knot",
+      "level": 3,
+      "upgrade": true
+     },
+     {
+      "motifId": "starlit_study",
+      "level": 2,
+      "upgrade": true
+     }
+    ],
+    "rerollsLeft": 1
+   }
+  ],
+  "shop": [
+   {
+    "kind": "relic",
+    "id": "wardens_key",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 50,
+    "sold": false
+   },
+   {
+    "kind": "relic",
+    "id": "heavy_score",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 30,
+    "sold": false
+   },
+   {
+    "kind": "relic",
+    "id": "choirmasters_baton",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 80,
+    "sold": false
+   },
+   {
+    "kind": "motif",
+    "id": "clear_tone",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 35,
+    "sold": false
+   },
+   {
+    "kind": "motif",
+    "id": "fishers_knot",
+    "level": 3,
+    "upgrade": true,
+    "heal": 0,
+    "price": 35,
+    "sold": false
+   },
+   {
+    "kind": "heal",
+    "id": "",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0.3,
+    "price": 25,
+    "sold": false
+   }
+  ]
+ },
+ "9": {
+  "drafts": [
+   {
+    "reason": "victory",
+    "options": [
+     {
+      "motifId": "clear_tone",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "wind_at_her_back",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "deep_roots",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "victory",
+    "options": [
+     {
+      "motifId": "taut_release",
+      "level": 2,
+      "upgrade": true
+     },
+     {
+      "motifId": "steady_hands",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "starlit_study",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "elite",
+    "options": [
+     {
+      "motifId": "canon",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "steady_hands",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "lifeline",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "boss",
+    "options": [
+     {
+      "motifId": "twin_aegis",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "da_capo",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "starlit_study",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "shrine",
+    "options": [
+     {
+      "motifId": "quickened_verse",
+      "level": 3,
+      "upgrade": true
+     },
+     {
+      "motifId": "standing_ovation",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "lingering_aegis",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "meditate",
+    "options": [
+     {
+      "motifId": "quickened_verse",
+      "level": 3,
+      "upgrade": true
+     },
+     {
+      "motifId": "taut_release",
+      "level": 2,
+      "upgrade": true
+     },
+     {
+      "motifId": "riposte_bloom",
+      "level": 3,
+      "upgrade": true
+     }
+    ],
+    "rerollsLeft": 1
+   }
+  ],
+  "shop": [
+   {
+    "kind": "relic",
+    "id": "wardens_key",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 50,
+    "sold": false
+   },
+   {
+    "kind": "relic",
+    "id": "featherweight_robes",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 50,
+    "sold": false
+   },
+   {
+    "kind": "relic",
+    "id": "glass_halo",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 30,
+    "sold": false
+   },
+   {
+    "kind": "motif",
+    "id": "standing_ovation",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 35,
+    "sold": false
+   },
+   {
+    "kind": "motif",
+    "id": "canon",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 55,
+    "sold": false
+   },
+   {
+    "kind": "heal",
+    "id": "",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0.3,
+    "price": 25,
+    "sold": false
+   }
+  ]
+ },
+ "10": {
+  "drafts": [
+   {
+    "reason": "victory",
+    "options": [
+     {
+      "motifId": "second_verse",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "deep_breath",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "golden_filament",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "victory",
+    "options": [
+     {
+      "motifId": "lifeline",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "relay_weave",
+      "level": 3,
+      "upgrade": true
+     },
+     {
+      "motifId": "steady_hands",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "elite",
+    "options": [
+     {
+      "motifId": "riposte_bloom",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "steady_hands",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "twin_aegis",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "boss",
+    "options": [
+     {
+      "motifId": "twin_aegis",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "da_capo",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "long_weave",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "shrine",
+    "options": [
+     {
+      "motifId": "quickened_verse",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "starlit_study",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "long_weave",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "meditate",
+    "options": [
+     {
+      "motifId": "clear_tone",
+      "level": 2,
+      "upgrade": true
+     },
+     {
+      "motifId": "relay_weave",
+      "level": 3,
+      "upgrade": true
+     },
+     {
+      "motifId": "encore",
+      "level": 2,
+      "upgrade": true
+     }
+    ],
+    "rerollsLeft": 1
+   }
+  ],
+  "shop": [
+   {
+    "kind": "relic",
+    "id": "choirmasters_baton",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 80,
+    "sold": false
+   },
+   {
+    "kind": "relic",
+    "id": "star_chart",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 80,
+    "sold": false
+   },
+   {
+    "kind": "relic",
+    "id": "hollow_bell",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 80,
+    "sold": false
+   },
+   {
+    "kind": "motif",
+    "id": "relay_weave",
+    "level": 3,
+    "upgrade": true,
+    "heal": 0,
+    "price": 35,
+    "sold": false
+   },
+   {
+    "kind": "motif",
+    "id": "warm_hum",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 35,
+    "sold": false
+   },
+   {
+    "kind": "heal",
+    "id": "",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0.3,
+    "price": 25,
+    "sold": false
+   }
+  ]
+ },
+ "11": {
+  "drafts": [
+   {
+    "reason": "victory",
+    "options": [
+     {
+      "motifId": "clear_tone",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "fishers_knot",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "standing_ovation",
+      "level": 2,
+      "upgrade": true
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "victory",
+    "options": [
+     {
+      "motifId": "second_verse",
+      "level": 3,
+      "upgrade": true
+     },
+     {
+      "motifId": "relay_weave",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "riposte_bloom",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "elite",
+    "options": [
+     {
+      "motifId": "twin_aegis",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "canon",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "riposte_bloom",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "boss",
+    "options": [
+     {
+      "motifId": "da_capo",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "twin_aegis",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "wind_at_her_back",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "shrine",
+    "options": [
+     {
+      "motifId": "taut_release",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "da_capo",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "deep_roots",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "meditate",
+    "options": [
+     {
+      "motifId": "second_verse",
+      "level": 3,
+      "upgrade": true
+     },
+     {
+      "motifId": "steady_hands",
+      "level": 2,
+      "upgrade": true
+     },
+     {
+      "motifId": "standing_ovation",
+      "level": 2,
+      "upgrade": true
+     }
+    ],
+    "rerollsLeft": 1
+   }
+  ],
+  "shop": [
+   {
+    "kind": "relic",
+    "id": "featherweight_robes",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 50,
+    "sold": false
+   },
+   {
+    "kind": "relic",
+    "id": "lantern_of_the_lost",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 50,
+    "sold": false
+   },
+   {
+    "kind": "relic",
+    "id": "silver_thimble",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 50,
+    "sold": false
+   },
+   {
+    "kind": "motif",
+    "id": "warm_hum",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 35,
+    "sold": false
+   },
+   {
+    "kind": "motif",
+    "id": "second_verse",
+    "level": 3,
+    "upgrade": true,
+    "heal": 0,
+    "price": 35,
+    "sold": false
+   },
+   {
+    "kind": "heal",
+    "id": "",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0.3,
+    "price": 25,
+    "sold": false
+   }
+  ]
+ },
+ "12": {
+  "drafts": [
+   {
+    "reason": "victory",
+    "options": [
+     {
+      "motifId": "long_weave",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "lingering_aegis",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "hammerfall",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "riposte_bloom",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "victory",
+    "options": [
+     {
+      "motifId": "quickened_verse",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "second_verse",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "wind_at_her_back",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "deep_roots",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "elite",
+    "options": [
+     {
+      "motifId": "da_capo",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "taut_release",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "hammerfall",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "lifeline",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "boss",
+    "options": [
+     {
+      "motifId": "da_capo",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "clear_tone",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "second_verse",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "golden_filament",
+      "level": 2,
+      "upgrade": true
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "shrine",
+    "options": [
+     {
+      "motifId": "da_capo",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "relay_weave",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "deep_roots",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "lifeline",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "meditate",
+    "options": [
+     {
+      "motifId": "canon",
+      "level": 3,
+      "upgrade": true
+     },
+     {
+      "motifId": "bulwarks_echo",
+      "level": 2,
+      "upgrade": true
+     },
+     {
+      "motifId": "golden_filament",
+      "level": 2,
+      "upgrade": true
+     }
+    ],
+    "rerollsLeft": 1
+   }
+  ],
+  "shop": [
+   {
+    "kind": "relic",
+    "id": "martyrs_veil",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 80,
+    "sold": false
+   },
+   {
+    "kind": "relic",
+    "id": "lantern_of_the_lost",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 50,
+    "sold": false
+   },
+   {
+    "kind": "relic",
+    "id": "silver_thimble",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 50,
+    "sold": false
+   },
+   {
+    "kind": "motif",
+    "id": "standing_ovation",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 35,
+    "sold": false
+   },
+   {
+    "kind": "motif",
+    "id": "quickened_verse",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 35,
+    "sold": false
+   },
+   {
+    "kind": "heal",
+    "id": "",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0.3,
+    "price": 25,
+    "sold": false
+   }
+  ]
+ },
+ "13": {
+  "drafts": [
+   {
+    "reason": "victory",
+    "options": [
+     {
+      "motifId": "quickened_verse",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "standing_ovation",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "warm_hum",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "victory",
+    "options": [
+     {
+      "motifId": "quickened_verse",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "clear_tone",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "taut_release",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "elite",
+    "options": [
+     {
+      "motifId": "wind_at_her_back",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "taut_release",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "riposte_bloom",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "boss",
+    "options": [
+     {
+      "motifId": "twin_aegis",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "fishers_knot",
+      "level": 2,
+      "upgrade": true
+     },
+     {
+      "motifId": "taut_release",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "shrine",
+    "options": [
+     {
+      "motifId": "deep_breath",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "quickened_verse",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "standing_ovation",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "meditate",
+    "options": [
+     {
+      "motifId": "long_weave",
+      "level": 3,
+      "upgrade": true
+     },
+     {
+      "motifId": "fishers_knot",
+      "level": 2,
+      "upgrade": true
+     }
+    ],
+    "rerollsLeft": 1
+   }
+  ],
+  "shop": [
+   {
+    "kind": "relic",
+    "id": "tuning_fork",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 50,
+    "sold": false
+   },
+   {
+    "kind": "relic",
+    "id": "prism_loom",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 130,
+    "sold": false
+   },
+   {
+    "kind": "relic",
+    "id": "choirmasters_baton",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 80,
+    "sold": false
+   },
+   {
+    "kind": "motif",
+    "id": "twin_aegis",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 80,
+    "sold": false
+   },
+   {
+    "kind": "motif",
+    "id": "lifeline",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 55,
+    "sold": false
+   },
+   {
+    "kind": "heal",
+    "id": "",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0.3,
+    "price": 25,
+    "sold": false
+   }
+  ]
+ },
+ "14": {
+  "drafts": [
+   {
+    "reason": "victory",
+    "options": [
+     {
+      "motifId": "warm_hum",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "fishers_knot",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "lingering_aegis",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "victory",
+    "options": [
+     {
+      "motifId": "clear_tone",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "second_verse",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "long_weave",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "elite",
+    "options": [
+     {
+      "motifId": "da_capo",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "encore",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "riposte_bloom",
+      "level": 2,
+      "upgrade": true
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "boss",
+    "options": [
+     {
+      "motifId": "twin_aegis",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "da_capo",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "standing_ovation",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "shrine",
+    "options": [
+     {
+      "motifId": "steady_hands",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "warm_hum",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "bulwarks_echo",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "meditate",
+    "options": [
+     {
+      "motifId": "deep_breath",
+      "level": 3,
+      "upgrade": true
+     },
+     {
+      "motifId": "quickened_verse",
+      "level": 2,
+      "upgrade": true
+     },
+     {
+      "motifId": "riposte_bloom",
+      "level": 2,
+      "upgrade": true
+     }
+    ],
+    "rerollsLeft": 1
+   }
+  ],
+  "shop": [
+   {
+    "kind": "relic",
+    "id": "star_chart",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 80,
+    "sold": false
+   },
+   {
+    "kind": "relic",
+    "id": "hollow_bell",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 80,
+    "sold": false
+   },
+   {
+    "kind": "relic",
+    "id": "choirmasters_baton",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 80,
+    "sold": false
+   },
+   {
+    "kind": "motif",
+    "id": "twin_aegis",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 80,
+    "sold": false
+   },
+   {
+    "kind": "motif",
+    "id": "canon",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 55,
+    "sold": false
+   },
+   {
+    "kind": "heal",
+    "id": "",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0.3,
+    "price": 25,
+    "sold": false
+   }
+  ]
+ },
+ "15": {
+  "drafts": [
+   {
+    "reason": "victory",
+    "options": [
+     {
+      "motifId": "riposte_bloom",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "standing_ovation",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "long_weave",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "victory",
+    "options": [
+     {
+      "motifId": "deep_roots",
+      "level": 3,
+      "upgrade": true
+     },
+     {
+      "motifId": "golden_filament",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "deep_breath",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "elite",
+    "options": [
+     {
+      "motifId": "da_capo",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "bulwarks_echo",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "hammerfall",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "boss",
+    "options": [
+     {
+      "motifId": "twin_aegis",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "da_capo",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "deep_breath",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "shrine",
+    "options": [
+     {
+      "motifId": "long_weave",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "warm_hum",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "fishers_knot",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "meditate",
+    "options": [
+     {
+      "motifId": "relay_weave",
+      "level": 2,
+      "upgrade": true
+     },
+     {
+      "motifId": "deep_roots",
+      "level": 3,
+      "upgrade": true
+     },
+     {
+      "motifId": "wind_at_her_back",
+      "level": 3,
+      "upgrade": true
+     }
+    ],
+    "rerollsLeft": 1
+   }
+  ],
+  "shop": [
+   {
+    "kind": "relic",
+    "id": "silver_thimble",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 50,
+    "sold": false
+   },
+   {
+    "kind": "relic",
+    "id": "hollow_bell",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 80,
+    "sold": false
+   },
+   {
+    "kind": "relic",
+    "id": "star_chart",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 80,
+    "sold": false
+   },
+   {
+    "kind": "motif",
+    "id": "fishers_knot",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 35,
+    "sold": false
+   },
+   {
+    "kind": "motif",
+    "id": "relay_weave",
+    "level": 2,
+    "upgrade": true,
+    "heal": 0,
+    "price": 35,
+    "sold": false
+   },
+   {
+    "kind": "heal",
+    "id": "",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0.3,
+    "price": 25,
+    "sold": false
+   }
+  ]
+ },
+ "16": {
+  "drafts": [
+   {
+    "reason": "victory",
+    "options": [
+     {
+      "motifId": "hammerfall",
+      "level": 3,
+      "upgrade": true
+     },
+     {
+      "motifId": "encore",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "lingering_aegis",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "long_weave",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "victory",
+    "options": [
+     {
+      "motifId": "riposte_bloom",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "lifeline",
+      "level": 3,
+      "upgrade": true
+     },
+     {
+      "motifId": "hammerfall",
+      "level": 3,
+      "upgrade": true
+     },
+     {
+      "motifId": "long_weave",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "elite",
+    "options": [
+     {
+      "motifId": "da_capo",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "taut_release",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "starlit_study",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "twin_aegis",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "boss",
+    "options": [
+     {
+      "motifId": "da_capo",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "twin_aegis",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "starlit_study",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "warm_hum",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "shrine",
+    "options": [
+     {
+      "motifId": "clear_tone",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "warm_hum",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "lingering_aegis",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "long_weave",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "meditate",
+    "options": [
+     {
+      "motifId": "second_verse",
+      "level": 2,
+      "upgrade": true
+     },
+     {
+      "motifId": "hammerfall",
+      "level": 3,
+      "upgrade": true
+     },
+     {
+      "motifId": "lifeline",
+      "level": 3,
+      "upgrade": true
+     }
+    ],
+    "rerollsLeft": 1
+   }
+  ],
+  "shop": [
+   {
+    "kind": "relic",
+    "id": "choirmasters_baton",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 80,
+    "sold": false
+   },
+   {
+    "kind": "relic",
+    "id": "lantern_of_the_lost",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 50,
+    "sold": false
+   },
+   {
+    "kind": "relic",
+    "id": "martyrs_veil",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 80,
+    "sold": false
+   },
+   {
+    "kind": "motif",
+    "id": "fishers_knot",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 35,
+    "sold": false
+   },
+   {
+    "kind": "motif",
+    "id": "deep_roots",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 35,
+    "sold": false
+   },
+   {
+    "kind": "heal",
+    "id": "",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0.3,
+    "price": 25,
+    "sold": false
+   }
+  ]
+ },
+ "17": {
+  "drafts": [
+   {
+    "reason": "victory",
+    "options": [
+     {
+      "motifId": "lifeline",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "relay_weave",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "standing_ovation",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "victory",
+    "options": [
+     {
+      "motifId": "wind_at_her_back",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "second_verse",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "long_weave",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "elite",
+    "options": [
+     {
+      "motifId": "da_capo",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "taut_release",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "starlit_study",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "boss",
+    "options": [
+     {
+      "motifId": "da_capo",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "lingering_aegis",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "standing_ovation",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "shrine",
+    "options": [
+     {
+      "motifId": "taut_release",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "fishers_knot",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "relay_weave",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "meditate",
+    "options": [
+     {
+      "motifId": "warm_hum",
+      "level": 3,
+      "upgrade": true
+     },
+     {
+      "motifId": "canon",
+      "level": 2,
+      "upgrade": true
+     }
+    ],
+    "rerollsLeft": 1
+   }
+  ],
+  "shop": [
+   {
+    "kind": "relic",
+    "id": "heavy_score",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 30,
+    "sold": false
+   },
+   {
+    "kind": "relic",
+    "id": "star_chart",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 80,
+    "sold": false
+   },
+   {
+    "kind": "relic",
+    "id": "spindle_of_fate",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 130,
+    "sold": false
+   },
+   {
+    "kind": "motif",
+    "id": "fishers_knot",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 35,
+    "sold": false
+   },
+   {
+    "kind": "motif",
+    "id": "lingering_aegis",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 35,
+    "sold": false
+   },
+   {
+    "kind": "heal",
+    "id": "",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0.3,
+    "price": 25,
+    "sold": false
+   }
+  ]
+ },
+ "18": {
+  "drafts": [
+   {
+    "reason": "victory",
+    "options": [
+     {
+      "motifId": "canon",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "hammerfall",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "bulwarks_echo",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "victory",
+    "options": [
+     {
+      "motifId": "deep_roots",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "relay_weave",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "lifeline",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "elite",
+    "options": [
+     {
+      "motifId": "wind_at_her_back",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "steady_hands",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "bulwarks_echo",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "boss",
+    "options": [
+     {
+      "motifId": "twin_aegis",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "steady_hands",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "standing_ovation",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "shrine",
+    "options": [
+     {
+      "motifId": "lingering_aegis",
+      "level": 3,
+      "upgrade": true
+     },
+     {
+      "motifId": "deep_breath",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "long_weave",
+      "level": 2,
+      "upgrade": true
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "meditate",
+    "options": [
+     {
+      "motifId": "starlit_study",
+      "level": 3,
+      "upgrade": true
+     },
+     {
+      "motifId": "long_weave",
+      "level": 2,
+      "upgrade": true
+     },
+     {
+      "motifId": "lingering_aegis",
+      "level": 3,
+      "upgrade": true
+     }
+    ],
+    "rerollsLeft": 1
+   }
+  ],
+  "shop": [
+   {
+    "kind": "relic",
+    "id": "wardens_key",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 50,
+    "sold": false
+   },
+   {
+    "kind": "relic",
+    "id": "spindle_of_fate",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 130,
+    "sold": false
+   },
+   {
+    "kind": "relic",
+    "id": "tuning_fork",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 50,
+    "sold": false
+   },
+   {
+    "kind": "motif",
+    "id": "relay_weave",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 35,
+    "sold": false
+   },
+   {
+    "kind": "motif",
+    "id": "starlit_study",
+    "level": 3,
+    "upgrade": true,
+    "heal": 0,
+    "price": 55,
+    "sold": false
+   },
+   {
+    "kind": "heal",
+    "id": "",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0.3,
+    "price": 25,
+    "sold": false
+   }
+  ]
+ },
+ "19": {
+  "drafts": [
+   {
+    "reason": "victory",
+    "options": [
+     {
+      "motifId": "canon",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "encore",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "long_weave",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "victory",
+    "options": [
+     {
+      "motifId": "wind_at_her_back",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "warm_hum",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "da_capo",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "elite",
+    "options": [
+     {
+      "motifId": "bulwarks_echo",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "wind_at_her_back",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "starlit_study",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "boss",
+    "options": [
+     {
+      "motifId": "da_capo",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "twin_aegis",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "standing_ovation",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "shrine",
+    "options": [
+     {
+      "motifId": "deep_roots",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "standing_ovation",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "warm_hum",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "meditate",
+    "options": [
+     {
+      "motifId": "taut_release",
+      "level": 3,
+      "upgrade": true
+     },
+     {
+      "motifId": "deep_breath",
+      "level": 2,
+      "upgrade": true
+     }
+    ],
+    "rerollsLeft": 1
+   }
+  ],
+  "shop": [
+   {
+    "kind": "relic",
+    "id": "tuning_fork",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 50,
+    "sold": false
+   },
+   {
+    "kind": "relic",
+    "id": "cantors_hymnal",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 80,
+    "sold": false
+   },
+   {
+    "kind": "relic",
+    "id": "star_chart",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 80,
+    "sold": false
+   },
+   {
+    "kind": "motif",
+    "id": "taut_release",
+    "level": 3,
+    "upgrade": true,
+    "heal": 0,
+    "price": 55,
+    "sold": false
+   },
+   {
+    "kind": "motif",
+    "id": "twin_aegis",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 80,
+    "sold": false
+   },
+   {
+    "kind": "heal",
+    "id": "",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0.3,
+    "price": 25,
+    "sold": false
+   }
+  ]
+ },
+ "20": {
+  "drafts": [
+   {
+    "reason": "victory",
+    "options": [
+     {
+      "motifId": "warm_hum",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "deep_breath",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "standing_ovation",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "deep_roots",
+      "level": 2,
+      "upgrade": true
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "victory",
+    "options": [
+     {
+      "motifId": "encore",
+      "level": 3,
+      "upgrade": true
+     },
+     {
+      "motifId": "riposte_bloom",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "long_weave",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "deep_roots",
+      "level": 2,
+      "upgrade": true
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "elite",
+    "options": [
+     {
+      "motifId": "hammerfall",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "lifeline",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "riposte_bloom",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "twin_aegis",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "boss",
+    "options": [
+     {
+      "motifId": "da_capo",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "twin_aegis",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "hammerfall",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "golden_filament",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "shrine",
+    "options": [
+     {
+      "motifId": "encore",
+      "level": 3,
+      "upgrade": true
+     },
+     {
+      "motifId": "twin_aegis",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "taut_release",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "deep_roots",
+      "level": 2,
+      "upgrade": true
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "meditate",
+    "options": [
+     {
+      "motifId": "deep_roots",
+      "level": 2,
+      "upgrade": true
+     },
+     {
+      "motifId": "clear_tone",
+      "level": 3,
+      "upgrade": true
+     },
+     {
+      "motifId": "encore",
+      "level": 3,
+      "upgrade": true
+     },
+     {
+      "motifId": "wind_at_her_back",
+      "level": 2,
+      "upgrade": true
+     }
+    ],
+    "rerollsLeft": 1
+   }
+  ],
+  "shop": [
+   {
+    "kind": "relic",
+    "id": "cantors_hymnal",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 80,
+    "sold": false
+   },
+   {
+    "kind": "relic",
+    "id": "choirmasters_baton",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 80,
+    "sold": false
+   },
+   {
+    "kind": "relic",
+    "id": "hollow_bell",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 80,
+    "sold": false
+   },
+   {
+    "kind": "motif",
+    "id": "warm_hum",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 35,
+    "sold": false
+   },
+   {
+    "kind": "motif",
+    "id": "starlit_study",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 55,
+    "sold": false
+   },
+   {
+    "kind": "heal",
+    "id": "",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0.3,
+    "price": 25,
+    "sold": false
+   }
+  ]
+ },
+ "21": {
+  "drafts": [
+   {
+    "reason": "victory",
+    "options": [
+     {
+      "motifId": "warm_hum",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "canon",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "standing_ovation",
+      "level": 3,
+      "upgrade": true
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "victory",
+    "options": [
+     {
+      "motifId": "clear_tone",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "lingering_aegis",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "long_weave",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "elite",
+    "options": [
+     {
+      "motifId": "golden_filament",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "encore",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "wind_at_her_back",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "boss",
+    "options": [
+     {
+      "motifId": "da_capo",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "twin_aegis",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "standing_ovation",
+      "level": 3,
+      "upgrade": true
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "shrine",
+    "options": [
+     {
+      "motifId": "encore",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "lingering_aegis",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "relay_weave",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "meditate",
+    "options": [
+     {
+      "motifId": "standing_ovation",
+      "level": 3,
+      "upgrade": true
+     },
+     {
+      "motifId": "steady_hands",
+      "level": 3,
+      "upgrade": true
+     },
+     {
+      "motifId": "lifeline",
+      "level": 2,
+      "upgrade": true
+     }
+    ],
+    "rerollsLeft": 1
+   }
+  ],
+  "shop": [
+   {
+    "kind": "relic",
+    "id": "featherweight_robes",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 50,
+    "sold": false
+   },
+   {
+    "kind": "relic",
+    "id": "star_chart",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 80,
+    "sold": false
+   },
+   {
+    "kind": "relic",
+    "id": "glass_halo",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 30,
+    "sold": false
+   },
+   {
+    "kind": "motif",
+    "id": "da_capo",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 80,
+    "sold": false
+   },
+   {
+    "kind": "motif",
+    "id": "deep_breath",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 35,
+    "sold": false
+   },
+   {
+    "kind": "heal",
+    "id": "",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0.3,
+    "price": 25,
+    "sold": false
+   }
+  ]
+ },
+ "22": {
+  "drafts": [
+   {
+    "reason": "victory",
+    "options": [
+     {
+      "motifId": "second_verse",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "warm_hum",
+      "level": 2,
+      "upgrade": true
+     },
+     {
+      "motifId": "riposte_bloom",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "victory",
+    "options": [
+     {
+      "motifId": "quickened_verse",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "long_weave",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "relay_weave",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "elite",
+    "options": [
+     {
+      "motifId": "hammerfall",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "steady_hands",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "lifeline",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "boss",
+    "options": [
+     {
+      "motifId": "da_capo",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "wind_at_her_back",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "deep_roots",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "shrine",
+    "options": [
+     {
+      "motifId": "deep_roots",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "second_verse",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "riposte_bloom",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "meditate",
+    "options": [
+     {
+      "motifId": "warm_hum",
+      "level": 2,
+      "upgrade": true
+     },
+     {
+      "motifId": "bulwarks_echo",
+      "level": 3,
+      "upgrade": true
+     },
+     {
+      "motifId": "golden_filament",
+      "level": 3,
+      "upgrade": true
+     }
+    ],
+    "rerollsLeft": 1
+   }
+  ],
+  "shop": [
+   {
+    "kind": "relic",
+    "id": "star_chart",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 80,
+    "sold": false
+   },
+   {
+    "kind": "relic",
+    "id": "featherweight_robes",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 50,
+    "sold": false
+   },
+   {
+    "kind": "relic",
+    "id": "hollow_bell",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 80,
+    "sold": false
+   },
+   {
+    "kind": "motif",
+    "id": "clear_tone",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 35,
+    "sold": false
+   },
+   {
+    "kind": "motif",
+    "id": "long_weave",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 35,
+    "sold": false
+   },
+   {
+    "kind": "heal",
+    "id": "",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0.3,
+    "price": 25,
+    "sold": false
+   }
+  ]
+ },
+ "23": {
+  "drafts": [
+   {
+    "reason": "victory",
+    "options": [
+     {
+      "motifId": "standing_ovation",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "deep_breath",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "encore",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "victory",
+    "options": [
+     {
+      "motifId": "deep_breath",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "standing_ovation",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "canon",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "elite",
+    "options": [
+     {
+      "motifId": "canon",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "wind_at_her_back",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "riposte_bloom",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "boss",
+    "options": [
+     {
+      "motifId": "twin_aegis",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "lingering_aegis",
+      "level": 2,
+      "upgrade": true
+     },
+     {
+      "motifId": "standing_ovation",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "shrine",
+    "options": [
+     {
+      "motifId": "clear_tone",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "quickened_verse",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "deep_breath",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "meditate",
+    "options": [
+     {
+      "motifId": "fishers_knot",
+      "level": 3,
+      "upgrade": true
+     },
+     {
+      "motifId": "starlit_study",
+      "level": 2,
+      "upgrade": true
+     },
+     {
+      "motifId": "lingering_aegis",
+      "level": 2,
+      "upgrade": true
+     }
+    ],
+    "rerollsLeft": 1
+   }
+  ],
+  "shop": [
+   {
+    "kind": "relic",
+    "id": "prism_loom",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 130,
+    "sold": false
+   },
+   {
+    "kind": "relic",
+    "id": "cantors_hymnal",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 80,
+    "sold": false
+   },
+   {
+    "kind": "relic",
+    "id": "lantern_of_the_lost",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 50,
+    "sold": false
+   },
+   {
+    "kind": "motif",
+    "id": "steady_hands",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 55,
+    "sold": false
+   },
+   {
+    "kind": "motif",
+    "id": "starlit_study",
+    "level": 2,
+    "upgrade": true,
+    "heal": 0,
+    "price": 55,
+    "sold": false
+   },
+   {
+    "kind": "heal",
+    "id": "",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0.3,
+    "price": 25,
+    "sold": false
+   }
+  ]
+ },
+ "24": {
+  "drafts": [
+   {
+    "reason": "victory",
+    "options": [
+     {
+      "motifId": "standing_ovation",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "lingering_aegis",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "twin_aegis",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "relay_weave",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "victory",
+    "options": [
+     {
+      "motifId": "long_weave",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "second_verse",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "lingering_aegis",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "encore",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "elite",
+    "options": [
+     {
+      "motifId": "encore",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "twin_aegis",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "canon",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "da_capo",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "boss",
+    "options": [
+     {
+      "motifId": "da_capo",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "twin_aegis",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "lingering_aegis",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "bulwarks_echo",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "shrine",
+    "options": [
+     {
+      "motifId": "standing_ovation",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "lingering_aegis",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "quickened_verse",
+      "level": 3,
+      "upgrade": true
+     },
+     {
+      "motifId": "second_verse",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "meditate",
+    "options": [
+     {
+      "motifId": "quickened_verse",
+      "level": 3,
+      "upgrade": true
+     },
+     {
+      "motifId": "taut_release",
+      "level": 2,
+      "upgrade": true
+     },
+     {
+      "motifId": "riposte_bloom",
+      "level": 3,
+      "upgrade": true
+     }
+    ],
+    "rerollsLeft": 1
+   }
+  ],
+  "shop": [
+   {
+    "kind": "relic",
+    "id": "hollow_bell",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 80,
+    "sold": false
+   },
+   {
+    "kind": "relic",
+    "id": "featherweight_robes",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 50,
+    "sold": false
+   },
+   {
+    "kind": "relic",
+    "id": "cantors_hymnal",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 80,
+    "sold": false
+   },
+   {
+    "kind": "motif",
+    "id": "long_weave",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 35,
+    "sold": false
+   },
+   {
+    "kind": "motif",
+    "id": "canon",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 55,
+    "sold": false
+   },
+   {
+    "kind": "heal",
+    "id": "",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0.3,
+    "price": 25,
+    "sold": false
+   }
+  ]
+ },
+ "25": {
+  "drafts": [
+   {
+    "reason": "victory",
+    "options": [
+     {
+      "motifId": "da_capo",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "fishers_knot",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "standing_ovation",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "victory",
+    "options": [
+     {
+      "motifId": "long_weave",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "quickened_verse",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "da_capo",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "elite",
+    "options": [
+     {
+      "motifId": "golden_filament",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "bulwarks_echo",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "starlit_study",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "boss",
+    "options": [
+     {
+      "motifId": "da_capo",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "twin_aegis",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "taut_release",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "shrine",
+    "options": [
+     {
+      "motifId": "starlit_study",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "standing_ovation",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "taut_release",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "meditate",
+    "options": [
+     {
+      "motifId": "relay_weave",
+      "level": 3,
+      "upgrade": true
+     },
+     {
+      "motifId": "encore",
+      "level": 2,
+      "upgrade": true
+     },
+     {
+      "motifId": "clear_tone",
+      "level": 2,
+      "upgrade": true
+     }
+    ],
+    "rerollsLeft": 1
+   }
+  ],
+  "shop": [
+   {
+    "kind": "relic",
+    "id": "tuning_fork",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 50,
+    "sold": false
+   },
+   {
+    "kind": "relic",
+    "id": "star_chart",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 80,
+    "sold": false
+   },
+   {
+    "kind": "relic",
+    "id": "lantern_of_the_lost",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 50,
+    "sold": false
+   },
+   {
+    "kind": "motif",
+    "id": "steady_hands",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 55,
+    "sold": false
+   },
+   {
+    "kind": "motif",
+    "id": "second_verse",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 35,
+    "sold": false
+   },
+   {
+    "kind": "heal",
+    "id": "",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0.3,
+    "price": 25,
+    "sold": false
+   }
+  ]
+ },
+ "26": {
+  "drafts": [
+   {
+    "reason": "victory",
+    "options": [
+     {
+      "motifId": "encore",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "relay_weave",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "steady_hands",
+      "level": 2,
+      "upgrade": true
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "victory",
+    "options": [
+     {
+      "motifId": "clear_tone",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "lingering_aegis",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "deep_roots",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "elite",
+    "options": [
+     {
+      "motifId": "bulwarks_echo",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "da_capo",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "encore",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "boss",
+    "options": [
+     {
+      "motifId": "twin_aegis",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "da_capo",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "relay_weave",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "shrine",
+    "options": [
+     {
+      "motifId": "starlit_study",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "fishers_knot",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "deep_breath",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "meditate",
+    "options": [
+     {
+      "motifId": "steady_hands",
+      "level": 2,
+      "upgrade": true
+     },
+     {
+      "motifId": "second_verse",
+      "level": 3,
+      "upgrade": true
+     },
+     {
+      "motifId": "standing_ovation",
+      "level": 2,
+      "upgrade": true
+     }
+    ],
+    "rerollsLeft": 1
+   }
+  ],
+  "shop": [
+   {
+    "kind": "relic",
+    "id": "silver_thimble",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 50,
+    "sold": false
+   },
+   {
+    "kind": "relic",
+    "id": "glass_halo",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 30,
+    "sold": false
+   },
+   {
+    "kind": "relic",
+    "id": "tuning_fork",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 50,
+    "sold": false
+   },
+   {
+    "kind": "motif",
+    "id": "fishers_knot",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 35,
+    "sold": false
+   },
+   {
+    "kind": "motif",
+    "id": "deep_roots",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 35,
+    "sold": false
+   },
+   {
+    "kind": "heal",
+    "id": "",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0.3,
+    "price": 25,
+    "sold": false
+   }
+  ]
+ },
+ "27": {
+  "drafts": [
+   {
+    "reason": "victory",
+    "options": [
+     {
+      "motifId": "fishers_knot",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "deep_roots",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "relay_weave",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "victory",
+    "options": [
+     {
+      "motifId": "fishers_knot",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "deep_breath",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "da_capo",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "elite",
+    "options": [
+     {
+      "motifId": "riposte_bloom",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "wind_at_her_back",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "lifeline",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "boss",
+    "options": [
+     {
+      "motifId": "da_capo",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "lifeline",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "clear_tone",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "shrine",
+    "options": [
+     {
+      "motifId": "steady_hands",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "fishers_knot",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "quickened_verse",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "meditate",
+    "options": [
+     {
+      "motifId": "bulwarks_echo",
+      "level": 2,
+      "upgrade": true
+     },
+     {
+      "motifId": "canon",
+      "level": 3,
+      "upgrade": true
+     },
+     {
+      "motifId": "golden_filament",
+      "level": 2,
+      "upgrade": true
+     }
+    ],
+    "rerollsLeft": 1
+   }
+  ],
+  "shop": [
+   {
+    "kind": "relic",
+    "id": "tuning_fork",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 50,
+    "sold": false
+   },
+   {
+    "kind": "relic",
+    "id": "hollow_bell",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 80,
+    "sold": false
+   },
+   {
+    "kind": "relic",
+    "id": "wardens_key",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 50,
+    "sold": false
+   },
+   {
+    "kind": "motif",
+    "id": "clear_tone",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 35,
+    "sold": false
+   },
+   {
+    "kind": "motif",
+    "id": "fishers_knot",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 35,
+    "sold": false
+   },
+   {
+    "kind": "heal",
+    "id": "",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0.3,
+    "price": 25,
+    "sold": false
+   }
+  ]
+ },
+ "28": {
+  "drafts": [
+   {
+    "reason": "victory",
+    "options": [
+     {
+      "motifId": "golden_filament",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "standing_ovation",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "second_verse",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "fishers_knot",
+      "level": 2,
+      "upgrade": true
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "victory",
+    "options": [
+     {
+      "motifId": "long_weave",
+      "level": 3,
+      "upgrade": true
+     },
+     {
+      "motifId": "hammerfall",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "deep_breath",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "warm_hum",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "elite",
+    "options": [
+     {
+      "motifId": "golden_filament",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "bulwarks_echo",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "twin_aegis",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "hammerfall",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "boss",
+    "options": [
+     {
+      "motifId": "twin_aegis",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "deep_breath",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "second_verse",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "golden_filament",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "shrine",
+    "options": [
+     {
+      "motifId": "riposte_bloom",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "deep_roots",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "warm_hum",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "standing_ovation",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "meditate",
+    "options": [
+     {
+      "motifId": "long_weave",
+      "level": 3,
+      "upgrade": true
+     },
+     {
+      "motifId": "fishers_knot",
+      "level": 2,
+      "upgrade": true
+     }
+    ],
+    "rerollsLeft": 1
+   }
+  ],
+  "shop": [
+   {
+    "kind": "relic",
+    "id": "tuning_fork",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 50,
+    "sold": false
+   },
+   {
+    "kind": "relic",
+    "id": "silver_thimble",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 50,
+    "sold": false
+   },
+   {
+    "kind": "relic",
+    "id": "glass_halo",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 30,
+    "sold": false
+   },
+   {
+    "kind": "motif",
+    "id": "warm_hum",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 35,
+    "sold": false
+   },
+   {
+    "kind": "motif",
+    "id": "standing_ovation",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 35,
+    "sold": false
+   },
+   {
+    "kind": "heal",
+    "id": "",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0.3,
+    "price": 25,
+    "sold": false
+   }
+  ]
+ },
+ "29": {
+  "drafts": [
+   {
+    "reason": "victory",
+    "options": [
+     {
+      "motifId": "quickened_verse",
+      "level": 2,
+      "upgrade": true
+     },
+     {
+      "motifId": "relay_weave",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "wind_at_her_back",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "victory",
+    "options": [
+     {
+      "motifId": "starlit_study",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "lingering_aegis",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "second_verse",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "elite",
+    "options": [
+     {
+      "motifId": "lifeline",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "da_capo",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "canon",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "boss",
+    "options": [
+     {
+      "motifId": "twin_aegis",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "da_capo",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "standing_ovation",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "shrine",
+    "options": [
+     {
+      "motifId": "deep_breath",
+      "level": 3,
+      "upgrade": true
+     },
+     {
+      "motifId": "da_capo",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "fishers_knot",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "meditate",
+    "options": [
+     {
+      "motifId": "quickened_verse",
+      "level": 2,
+      "upgrade": true
+     },
+     {
+      "motifId": "deep_breath",
+      "level": 3,
+      "upgrade": true
+     },
+     {
+      "motifId": "riposte_bloom",
+      "level": 2,
+      "upgrade": true
+     }
+    ],
+    "rerollsLeft": 1
+   }
+  ],
+  "shop": [
+   {
+    "kind": "relic",
+    "id": "cantors_hymnal",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 80,
+    "sold": false
+   },
+   {
+    "kind": "relic",
+    "id": "featherweight_robes",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 50,
+    "sold": false
+   },
+   {
+    "kind": "relic",
+    "id": "glass_halo",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 30,
+    "sold": false
+   },
+   {
+    "kind": "motif",
+    "id": "standing_ovation",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 35,
+    "sold": false
+   },
+   {
+    "kind": "motif",
+    "id": "da_capo",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 80,
+    "sold": false
+   },
+   {
+    "kind": "heal",
+    "id": "",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0.3,
+    "price": 25,
+    "sold": false
+   }
+  ]
+ },
+ "30": {
+  "drafts": [
+   {
+    "reason": "victory",
+    "options": [
+     {
+      "motifId": "bulwarks_echo",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "warm_hum",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "deep_breath",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "victory",
+    "options": [
+     {
+      "motifId": "deep_roots",
+      "level": 3,
+      "upgrade": true
+     },
+     {
+      "motifId": "riposte_bloom",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "hammerfall",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "elite",
+    "options": [
+     {
+      "motifId": "da_capo",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "canon",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "golden_filament",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "boss",
+    "options": [
+     {
+      "motifId": "twin_aegis",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "da_capo",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "taut_release",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "shrine",
+    "options": [
+     {
+      "motifId": "deep_breath",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "twin_aegis",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "lingering_aegis",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "meditate",
+    "options": [
+     {
+      "motifId": "deep_roots",
+      "level": 3,
+      "upgrade": true
+     },
+     {
+      "motifId": "relay_weave",
+      "level": 2,
+      "upgrade": true
+     },
+     {
+      "motifId": "wind_at_her_back",
+      "level": 3,
+      "upgrade": true
+     }
+    ],
+    "rerollsLeft": 1
+   }
+  ],
+  "shop": [
+   {
+    "kind": "relic",
+    "id": "wardens_key",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 50,
+    "sold": false
+   },
+   {
+    "kind": "relic",
+    "id": "lantern_of_the_lost",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 50,
+    "sold": false
+   },
+   {
+    "kind": "relic",
+    "id": "tuning_fork",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 50,
+    "sold": false
+   },
+   {
+    "kind": "motif",
+    "id": "relay_weave",
+    "level": 2,
+    "upgrade": true,
+    "heal": 0,
+    "price": 35,
+    "sold": false
+   },
+   {
+    "kind": "motif",
+    "id": "standing_ovation",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 35,
+    "sold": false
+   },
+   {
+    "kind": "heal",
+    "id": "",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0.3,
+    "price": 25,
+    "sold": false
+   }
+  ]
+ },
+ "31": {
+  "drafts": [
+   {
+    "reason": "victory",
+    "options": [
+     {
+      "motifId": "canon",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "long_weave",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "quickened_verse",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "victory",
+    "options": [
+     {
+      "motifId": "lifeline",
+      "level": 3,
+      "upgrade": true
+     },
+     {
+      "motifId": "bulwarks_echo",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "deep_breath",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "elite",
+    "options": [
+     {
+      "motifId": "riposte_bloom",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "golden_filament",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "twin_aegis",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "boss",
+    "options": [
+     {
+      "motifId": "twin_aegis",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "da_capo",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "lifeline",
+      "level": 3,
+      "upgrade": true
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "shrine",
+    "options": [
+     {
+      "motifId": "deep_breath",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "canon",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "deep_roots",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "meditate",
+    "options": [
+     {
+      "motifId": "second_verse",
+      "level": 2,
+      "upgrade": true
+     },
+     {
+      "motifId": "lifeline",
+      "level": 3,
+      "upgrade": true
+     },
+     {
+      "motifId": "hammerfall",
+      "level": 3,
+      "upgrade": true
+     }
+    ],
+    "rerollsLeft": 1
+   }
+  ],
+  "shop": [
+   {
+    "kind": "relic",
+    "id": "martyrs_veil",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 80,
+    "sold": false
+   },
+   {
+    "kind": "relic",
+    "id": "star_chart",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 80,
+    "sold": false
+   },
+   {
+    "kind": "relic",
+    "id": "wardens_key",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 50,
+    "sold": false
+   },
+   {
+    "kind": "motif",
+    "id": "golden_filament",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 55,
+    "sold": false
+   },
+   {
+    "kind": "motif",
+    "id": "taut_release",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 55,
+    "sold": false
+   },
+   {
+    "kind": "heal",
+    "id": "",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0.3,
+    "price": 25,
+    "sold": false
+   }
+  ]
+ },
+ "32": {
+  "drafts": [
+   {
+    "reason": "victory",
+    "options": [
+     {
+      "motifId": "second_verse",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "deep_roots",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "fishers_knot",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "lingering_aegis",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "victory",
+    "options": [
+     {
+      "motifId": "clear_tone",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "deep_breath",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "starlit_study",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "fishers_knot",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "elite",
+    "options": [
+     {
+      "motifId": "da_capo",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "canon",
+      "level": 2,
+      "upgrade": true
+     },
+     {
+      "motifId": "encore",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "hammerfall",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "boss",
+    "options": [
+     {
+      "motifId": "da_capo",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "hammerfall",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "lifeline",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "deep_roots",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "shrine",
+    "options": [
+     {
+      "motifId": "deep_breath",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "fishers_knot",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "lingering_aegis",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "deep_roots",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "meditate",
+    "options": [
+     {
+      "motifId": "warm_hum",
+      "level": 3,
+      "upgrade": true
+     },
+     {
+      "motifId": "canon",
+      "level": 2,
+      "upgrade": true
+     }
+    ],
+    "rerollsLeft": 1
+   }
+  ],
+  "shop": [
+   {
+    "kind": "relic",
+    "id": "cantors_hymnal",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 80,
+    "sold": false
+   },
+   {
+    "kind": "relic",
+    "id": "hollow_bell",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 80,
+    "sold": false
+   },
+   {
+    "kind": "relic",
+    "id": "martyrs_veil",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 80,
+    "sold": false
+   },
+   {
+    "kind": "motif",
+    "id": "deep_breath",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 35,
+    "sold": false
+   },
+   {
+    "kind": "motif",
+    "id": "standing_ovation",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 35,
+    "sold": false
+   },
+   {
+    "kind": "heal",
+    "id": "",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0.3,
+    "price": 25,
+    "sold": false
+   }
+  ]
+ },
+ "33": {
+  "drafts": [
+   {
+    "reason": "victory",
+    "options": [
+     {
+      "motifId": "taut_release",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "clear_tone",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "lifeline",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "victory",
+    "options": [
+     {
+      "motifId": "second_verse",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "standing_ovation",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "relay_weave",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "elite",
+    "options": [
+     {
+      "motifId": "riposte_bloom",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "wind_at_her_back",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "twin_aegis",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "boss",
+    "options": [
+     {
+      "motifId": "twin_aegis",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "lingering_aegis",
+      "level": 3,
+      "upgrade": true
+     },
+     {
+      "motifId": "bulwarks_echo",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "shrine",
+    "options": [
+     {
+      "motifId": "second_verse",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "wind_at_her_back",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "deep_breath",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "meditate",
+    "options": [
+     {
+      "motifId": "starlit_study",
+      "level": 3,
+      "upgrade": true
+     },
+     {
+      "motifId": "long_weave",
+      "level": 2,
+      "upgrade": true
+     },
+     {
+      "motifId": "lingering_aegis",
+      "level": 3,
+      "upgrade": true
+     }
+    ],
+    "rerollsLeft": 1
+   }
+  ],
+  "shop": [
+   {
+    "kind": "relic",
+    "id": "wardens_key",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 50,
+    "sold": false
+   },
+   {
+    "kind": "relic",
+    "id": "silver_thimble",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 50,
+    "sold": false
+   },
+   {
+    "kind": "relic",
+    "id": "hollow_bell",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 80,
+    "sold": false
+   },
+   {
+    "kind": "motif",
+    "id": "steady_hands",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 55,
+    "sold": false
+   },
+   {
+    "kind": "motif",
+    "id": "hammerfall",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 55,
+    "sold": false
+   },
+   {
+    "kind": "heal",
+    "id": "",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0.3,
+    "price": 25,
+    "sold": false
+   }
+  ]
+ },
+ "34": {
+  "drafts": [
+   {
+    "reason": "victory",
+    "options": [
+     {
+      "motifId": "second_verse",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "long_weave",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "relay_weave",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "victory",
+    "options": [
+     {
+      "motifId": "fishers_knot",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "clear_tone",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "long_weave",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "elite",
+    "options": [
+     {
+      "motifId": "starlit_study",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "encore",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "lifeline",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "boss",
+    "options": [
+     {
+      "motifId": "twin_aegis",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "da_capo",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "fishers_knot",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "shrine",
+    "options": [
+     {
+      "motifId": "hammerfall",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "deep_roots",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "deep_breath",
+      "level": 2,
+      "upgrade": true
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "meditate",
+    "options": [
+     {
+      "motifId": "deep_breath",
+      "level": 2,
+      "upgrade": true
+     },
+     {
+      "motifId": "taut_release",
+      "level": 3,
+      "upgrade": true
+     }
+    ],
+    "rerollsLeft": 1
+   }
+  ],
+  "shop": [
+   {
+    "kind": "relic",
+    "id": "martyrs_veil",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 80,
+    "sold": false
+   },
+   {
+    "kind": "relic",
+    "id": "wardens_key",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 50,
+    "sold": false
+   },
+   {
+    "kind": "relic",
+    "id": "lantern_of_the_lost",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 50,
+    "sold": false
+   },
+   {
+    "kind": "motif",
+    "id": "twin_aegis",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 80,
+    "sold": false
+   },
+   {
+    "kind": "motif",
+    "id": "standing_ovation",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 35,
+    "sold": false
+   },
+   {
+    "kind": "heal",
+    "id": "",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0.3,
+    "price": 25,
+    "sold": false
+   }
+  ]
+ },
+ "35": {
+  "drafts": [
+   {
+    "reason": "victory",
+    "options": [
+     {
+      "motifId": "twin_aegis",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "da_capo",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "canon",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "victory",
+    "options": [
+     {
+      "motifId": "clear_tone",
+      "level": 3,
+      "upgrade": true
+     },
+     {
+      "motifId": "starlit_study",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "standing_ovation",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "elite",
+    "options": [
+     {
+      "motifId": "golden_filament",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "wind_at_her_back",
+      "level": 2,
+      "upgrade": true
+     },
+     {
+      "motifId": "da_capo",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "boss",
+    "options": [
+     {
+      "motifId": "da_capo",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "twin_aegis",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "fishers_knot",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "shrine",
+    "options": [
+     {
+      "motifId": "starlit_study",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "second_verse",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "fishers_knot",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "meditate",
+    "options": [
+     {
+      "motifId": "deep_roots",
+      "level": 2,
+      "upgrade": true
+     },
+     {
+      "motifId": "clear_tone",
+      "level": 3,
+      "upgrade": true
+     },
+     {
+      "motifId": "encore",
+      "level": 3,
+      "upgrade": true
+     }
+    ],
+    "rerollsLeft": 1
+   }
+  ],
+  "shop": [
+   {
+    "kind": "relic",
+    "id": "lantern_of_the_lost",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 50,
+    "sold": false
+   },
+   {
+    "kind": "relic",
+    "id": "martyrs_veil",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 80,
+    "sold": false
+   },
+   {
+    "kind": "relic",
+    "id": "heavy_score",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 30,
+    "sold": false
+   },
+   {
+    "kind": "motif",
+    "id": "taut_release",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 55,
+    "sold": false
+   },
+   {
+    "kind": "motif",
+    "id": "wind_at_her_back",
+    "level": 2,
+    "upgrade": true,
+    "heal": 0,
+    "price": 55,
+    "sold": false
+   },
+   {
+    "kind": "heal",
+    "id": "",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0.3,
+    "price": 25,
+    "sold": false
+   }
+  ]
+ },
+ "36": {
+  "drafts": [
+   {
+    "reason": "victory",
+    "options": [
+     {
+      "motifId": "golden_filament",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "encore",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "relay_weave",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "twin_aegis",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "victory",
+    "options": [
+     {
+      "motifId": "warm_hum",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "deep_breath",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "long_weave",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "standing_ovation",
+      "level": 3,
+      "upgrade": true
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "elite",
+    "options": [
+     {
+      "motifId": "twin_aegis",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "encore",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "steady_hands",
+      "level": 3,
+      "upgrade": true
+     },
+     {
+      "motifId": "lifeline",
+      "level": 2,
+      "upgrade": true
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "boss",
+    "options": [
+     {
+      "motifId": "da_capo",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "twin_aegis",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "deep_breath",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "lingering_aegis",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "shrine",
+    "options": [
+     {
+      "motifId": "long_weave",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "encore",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "canon",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "lingering_aegis",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "meditate",
+    "options": [
+     {
+      "motifId": "standing_ovation",
+      "level": 3,
+      "upgrade": true
+     },
+     {
+      "motifId": "lifeline",
+      "level": 2,
+      "upgrade": true
+     },
+     {
+      "motifId": "hammerfall",
+      "level": 2,
+      "upgrade": true
+     },
+     {
+      "motifId": "steady_hands",
+      "level": 3,
+      "upgrade": true
+     }
+    ],
+    "rerollsLeft": 1
+   }
+  ],
+  "shop": [
+   {
+    "kind": "relic",
+    "id": "featherweight_robes",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 50,
+    "sold": false
+   },
+   {
+    "kind": "relic",
+    "id": "wardens_key",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 50,
+    "sold": false
+   },
+   {
+    "kind": "relic",
+    "id": "martyrs_veil",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 80,
+    "sold": false
+   },
+   {
+    "kind": "motif",
+    "id": "fishers_knot",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 35,
+    "sold": false
+   },
+   {
+    "kind": "motif",
+    "id": "standing_ovation",
+    "level": 3,
+    "upgrade": true,
+    "heal": 0,
+    "price": 35,
+    "sold": false
+   },
+   {
+    "kind": "heal",
+    "id": "",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0.3,
+    "price": 25,
+    "sold": false
+   }
+  ]
+ },
+ "37": {
+  "drafts": [
+   {
+    "reason": "victory",
+    "options": [
+     {
+      "motifId": "deep_roots",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "relay_weave",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "second_verse",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "victory",
+    "options": [
+     {
+      "motifId": "fishers_knot",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "wind_at_her_back",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "riposte_bloom",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "elite",
+    "options": [
+     {
+      "motifId": "da_capo",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "lifeline",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "riposte_bloom",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "boss",
+    "options": [
+     {
+      "motifId": "da_capo",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "long_weave",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "warm_hum",
+      "level": 2,
+      "upgrade": true
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "shrine",
+    "options": [
+     {
+      "motifId": "fishers_knot",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "relay_weave",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "lingering_aegis",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "meditate",
+    "options": [
+     {
+      "motifId": "bulwarks_echo",
+      "level": 3,
+      "upgrade": true
+     },
+     {
+      "motifId": "golden_filament",
+      "level": 3,
+      "upgrade": true
+     },
+     {
+      "motifId": "warm_hum",
+      "level": 2,
+      "upgrade": true
+     }
+    ],
+    "rerollsLeft": 1
+   }
+  ],
+  "shop": [
+   {
+    "kind": "relic",
+    "id": "silver_thimble",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 50,
+    "sold": false
+   },
+   {
+    "kind": "relic",
+    "id": "featherweight_robes",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 50,
+    "sold": false
+   },
+   {
+    "kind": "relic",
+    "id": "lantern_of_the_lost",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 50,
+    "sold": false
+   },
+   {
+    "kind": "motif",
+    "id": "starlit_study",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 55,
+    "sold": false
+   },
+   {
+    "kind": "motif",
+    "id": "relay_weave",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 35,
+    "sold": false
+   },
+   {
+    "kind": "heal",
+    "id": "",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0.3,
+    "price": 25,
+    "sold": false
+   }
+  ]
+ },
+ "38": {
+  "drafts": [
+   {
+    "reason": "victory",
+    "options": [
+     {
+      "motifId": "standing_ovation",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "warm_hum",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "fishers_knot",
+      "level": 3,
+      "upgrade": true
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "victory",
+    "options": [
+     {
+      "motifId": "relay_weave",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "fishers_knot",
+      "level": 3,
+      "upgrade": true
+     },
+     {
+      "motifId": "quickened_verse",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "elite",
+    "options": [
+     {
+      "motifId": "twin_aegis",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "riposte_bloom",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "encore",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "boss",
+    "options": [
+     {
+      "motifId": "twin_aegis",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "lifeline",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "deep_breath",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "shrine",
+    "options": [
+     {
+      "motifId": "standing_ovation",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "quickened_verse",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "fishers_knot",
+      "level": 3,
+      "upgrade": true
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "meditate",
+    "options": [
+     {
+      "motifId": "fishers_knot",
+      "level": 3,
+      "upgrade": true
+     },
+     {
+      "motifId": "lingering_aegis",
+      "level": 2,
+      "upgrade": true
+     },
+     {
+      "motifId": "starlit_study",
+      "level": 2,
+      "upgrade": true
+     }
+    ],
+    "rerollsLeft": 1
+   }
+  ],
+  "shop": [
+   {
+    "kind": "relic",
+    "id": "tuning_fork",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 50,
+    "sold": false
+   },
+   {
+    "kind": "relic",
+    "id": "heavy_score",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 30,
+    "sold": false
+   },
+   {
+    "kind": "relic",
+    "id": "featherweight_robes",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 50,
+    "sold": false
+   },
+   {
+    "kind": "motif",
+    "id": "golden_filament",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 55,
+    "sold": false
+   },
+   {
+    "kind": "motif",
+    "id": "fishers_knot",
+    "level": 3,
+    "upgrade": true,
+    "heal": 0,
+    "price": 35,
+    "sold": false
+   },
+   {
+    "kind": "heal",
+    "id": "",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0.3,
+    "price": 25,
+    "sold": false
+   }
+  ]
+ },
+ "39": {
+  "drafts": [
+   {
+    "reason": "victory",
+    "options": [
+     {
+      "motifId": "second_verse",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "deep_roots",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "standing_ovation",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "victory",
+    "options": [
+     {
+      "motifId": "quickened_verse",
+      "level": 3,
+      "upgrade": true
+     },
+     {
+      "motifId": "twin_aegis",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "fishers_knot",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "elite",
+    "options": [
+     {
+      "motifId": "lifeline",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "golden_filament",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "da_capo",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "boss",
+    "options": [
+     {
+      "motifId": "da_capo",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "twin_aegis",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "lifeline",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "shrine",
+    "options": [
+     {
+      "motifId": "clear_tone",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "long_weave",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "warm_hum",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "meditate",
+    "options": [
+     {
+      "motifId": "quickened_verse",
+      "level": 3,
+      "upgrade": true
+     },
+     {
+      "motifId": "taut_release",
+      "level": 2,
+      "upgrade": true
+     },
+     {
+      "motifId": "riposte_bloom",
+      "level": 3,
+      "upgrade": true
+     }
+    ],
+    "rerollsLeft": 1
+   }
+  ],
+  "shop": [
+   {
+    "kind": "relic",
+    "id": "choirmasters_baton",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 80,
+    "sold": false
+   },
+   {
+    "kind": "relic",
+    "id": "spindle_of_fate",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 130,
+    "sold": false
+   },
+   {
+    "kind": "relic",
+    "id": "wardens_key",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 50,
+    "sold": false
+   },
+   {
+    "kind": "motif",
+    "id": "clear_tone",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 35,
+    "sold": false
+   },
+   {
+    "kind": "motif",
+    "id": "standing_ovation",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 35,
+    "sold": false
+   },
+   {
+    "kind": "heal",
+    "id": "",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0.3,
+    "price": 25,
+    "sold": false
+   }
+  ]
+ },
+ "40": {
+  "drafts": [
+   {
+    "reason": "victory",
+    "options": [
+     {
+      "motifId": "second_verse",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "relay_weave",
+      "level": 3,
+      "upgrade": true
+     },
+     {
+      "motifId": "quickened_verse",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "clear_tone",
+      "level": 2,
+      "upgrade": true
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "victory",
+    "options": [
+     {
+      "motifId": "bulwarks_echo",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "steady_hands",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "relay_weave",
+      "level": 3,
+      "upgrade": true
+     },
+     {
+      "motifId": "canon",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "elite",
+    "options": [
+     {
+      "motifId": "starlit_study",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "encore",
+      "level": 2,
+      "upgrade": true
+     },
+     {
+      "motifId": "lifeline",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "twin_aegis",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "boss",
+    "options": [
+     {
+      "motifId": "da_capo",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "twin_aegis",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "lifeline",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "riposte_bloom",
+      "level": 1,
+      "upgrade": false
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "shrine",
+    "options": [
+     {
+      "motifId": "fishers_knot",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "canon",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "deep_breath",
+      "level": 1,
+      "upgrade": false
+     },
+     {
+      "motifId": "clear_tone",
+      "level": 2,
+      "upgrade": true
+     }
+    ],
+    "rerollsLeft": 1
+   },
+   {
+    "reason": "meditate",
+    "options": [
+     {
+      "motifId": "encore",
+      "level": 2,
+      "upgrade": true
+     },
+     {
+      "motifId": "clear_tone",
+      "level": 2,
+      "upgrade": true
+     },
+     {
+      "motifId": "relay_weave",
+      "level": 3,
+      "upgrade": true
+     }
+    ],
+    "rerollsLeft": 1
+   }
+  ],
+  "shop": [
+   {
+    "kind": "relic",
+    "id": "martyrs_veil",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 80,
+    "sold": false
+   },
+   {
+    "kind": "relic",
+    "id": "wardens_key",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 50,
+    "sold": false
+   },
+   {
+    "kind": "relic",
+    "id": "glass_halo",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 30,
+    "sold": false
+   },
+   {
+    "kind": "motif",
+    "id": "riposte_bloom",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 55,
+    "sold": false
+   },
+   {
+    "kind": "motif",
+    "id": "warm_hum",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0,
+    "price": 35,
+    "sold": false
+   },
+   {
+    "kind": "heal",
+    "id": "",
+    "level": 1,
+    "upgrade": false,
+    "heal": 0.3,
+    "price": 25,
+    "sold": false
+   }
+  ]
+ }
+}

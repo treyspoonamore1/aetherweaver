@@ -33,3 +33,4 @@ tools/expedition4-baseline-[ABC].json
 tools/m[1-4]-baseline-[SO][ABC].json
 tools/expedition4-baseline-[SO][ABC].json
 .claude
+tests/fill/pre5g/*.json
