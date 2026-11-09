@@ -321,6 +321,8 @@ interface Ghost {
 
 const BLACK = new THREE.Color(0, 0, 0);
 const ENEMY_BAR = color('#ef4444');
+/** A plain enemy's resting rim (the lowest in the rim's order: any other tint replaces it). */
+const HOSTILE_RIM = 0.18;
 const MUTE_GLASS = color('#c4b5fd');
 const AILMENTS = new Set([
   'dirge',
@@ -1728,6 +1730,12 @@ export class EntityLayer {
     } else if (rec.tier === 'elite') {
       this.tint.copy(C.gold);
       tintStrength = 0.18;
+    } else if (isEnemy && rec.role !== 'boss' && rec.role !== 'miniboss' && dissolve < 0.001) {
+      // Rank and file: a faint edge in their life bar's red, so a pale chorister or a dark hound
+      // stands out from the floor and the pillars before it is hurt (it has no bar till then).
+      // Not while it is still forming: the dissolve's edge would glow in the rim's colour.
+      this.tint.copy(ENEMY_BAR);
+      tintStrength = HOSTILE_RIM;
     } else {
       this.tint.copy(BLACK);
     }

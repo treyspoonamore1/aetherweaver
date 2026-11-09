@@ -19,6 +19,7 @@ Stylized low-poly forms with luminous emissive accents and strong silhouettes. T
 2. Each enemy *role* has a unique silhouette: brutes wide, casters tall with a glowing focus, snipers long-limbed with a lance, swarmers small and low.
 3. Heroes wear saturated signature colours (Kael steel-blue, Lyra emerald, Vexis violet, Brann crimson, Seren silver, Oro moss). The Weaver is white-gold with trailing ribbons that *are* the threads' origin.
 4. Gold always means "the Weaver did this": threads in Empower mode, attributed damage chips, Resonance and callouts. Players learn to look for gold.
+5. A rank-and-file enemy carries a faint rim in its life bar's red, so it reads as hostile against the floor and the pillars before it is hurt (it has no bar till then). It is the weakest rim: an elite's gold, an affix, Focus, hover or any status replaces it. Bosses and minibosses have none.
 
 **Asset sourcing** (prototype → ship):
 
