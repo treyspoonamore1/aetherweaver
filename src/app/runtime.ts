@@ -38,9 +38,9 @@ import {
   type ThreadCutHeard,
 } from '../ui/hudBridge';
 import { callingLook } from '../ui/kit/callingLook';
-import { CONDUCT_GOLD, FINALE_TURNS_KEY, conductingCallouts } from '../ui/hud/conducting';
+import { CONDUCT_GOLD, FINALE_TURNS_KEY, beatNow, conductingCallouts } from '../ui/hud/conducting';
 import { takeHudCommits } from '../ui/perfCounters';
-import { useUi } from '../ui/store';
+import { useBeatNow, useUi } from '../ui/store';
 import { useProfile } from './profileStore';
 import { useSettings } from './settings';
 import { buildOutcome } from './outcome';
@@ -172,6 +172,13 @@ export class GameRuntime {
    * music's clock for its sky. False for every other arena, whose frames are as they were.
    */
   private readonly crucible: boolean;
+  /**
+   * Phase 5f: A Tempo is on the Conductor's path, so the beat strip and the Cue badges read the
+   * beat every frame (`useBeatNow`). False on every other run, which does no per-frame beat work.
+   */
+  private readonly aTempo: boolean;
+  /** The sim time `useBeatNow` was last written at (A Tempo). */
+  private beatWrittenAt = -1;
   private perfFrames = 0;
   private perfFrameMs: number[] = [];
   private perfSimMs = 0;
@@ -214,6 +221,7 @@ export class GameRuntime {
     // Phase 5a: the arena's biome voices the fight (the Sunlit Reliquary when it names none).
     getAudio().setBiome?.(arena.biome ?? 'reliquary');
     this.crucible = arena.biome === 'celestial_crucible';
+    this.aTempo = !!this.sim.state.calling?.conducting?.beat;
     getAudio().setMood(
       kind === 'boss' || kind === 'miniboss' ? 'boss' : kind === 'sandbox' ? 'calm' : 'combat',
     );
@@ -343,6 +351,12 @@ export class GameRuntime {
       const audio = getAudio();
       audio.setLowLifeAlert?.(settings.hud.lowHealthSound);
       audio.update(state, elapsed / 1000);
+    }
+
+    // The beat window is 0.3 s: the strip and the badge can't wait for the 15 Hz snapshot.
+    if (this.aTempo && state.time !== this.beatWrittenAt) {
+      this.beatWrittenAt = state.time;
+      useBeatNow.setState({ beat: beatNow(state) });
     }
 
     const ui = useUi.getState();

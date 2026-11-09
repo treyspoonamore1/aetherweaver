@@ -11,6 +11,7 @@ import { COLOR_VISIONS, deltaE, simulateVision, visionPalette } from '../src/app
 import {
   BAR_SECONDS,
   beatAt,
+  onBeat,
   type Command,
   type DebugOp,
   type Sim,
@@ -47,7 +48,9 @@ import { songHex } from '../src/render/songs';
 import type { Stage } from '../src/render/stage';
 import { TelegraphLayer } from '../src/render/telegraphs';
 import { ThreadView } from '../src/render/thread';
+import { CALLING_LOOK } from '../src/ui/kit/callingLook';
 import type { FrameInfo } from '../src/render/types';
+import { CONTENT } from '../src/content';
 import { ofType, sandbox, spawn, stepFor, worldOf } from './sim/helpers';
 
 const conductor = (...path: string[]) => ({ calling: { id: 'conductor', path } });
@@ -254,7 +257,7 @@ describe('Conductor cues', () => {
       expect(b.phase, `${t}`).toBe(ref.phase);
       expect(b.nearest, `${t}`).toBe(ref.nearest);
       expect(b.index, `${t}`).toBe(Math.floor(t / view.bar));
-      expect(b.inWindow, `${t}`).toBe(Math.abs(t - ref.nearest) <= view.within + 1e-9);
+      expect(b.inWindow, `${t}`).toBe(onBeat(w));
     }
   });
 
@@ -289,6 +292,21 @@ describe('Conductor cues', () => {
       // The Weaver's gold is the shipped one; it stays clear of danger as it always has.
       expect(deltaE(see(CONDUCT_HEX.gold), see(p.lethal)), `${v} gold/lethal`).toBeGreaterThan(20);
     }
+  });
+
+  it('keeps his ink ≥ 20 ΔE from every hero and from his ivory in every palette', () => {
+    for (const v of COLOR_VISIONS) {
+      const see = (hex: string) => simulateVision(hex, v);
+      const ink = see(CONDUCT_HEX.ink);
+      for (const hero of CONTENT.heroes)
+        expect(deltaE(ink, see(hero.color)), `${v} ink/${hero.id}`).toBeGreaterThanOrEqual(20);
+      expect(deltaE(ink, see(CONDUCT_HEX.ivory)), `${v} ink/ivory`).toBeGreaterThanOrEqual(20);
+    }
+  });
+
+  it('is the UI’s Conductor: the same ivory, and his ring’s deep end is the world’s ink', () => {
+    expect(CONDUCT_HEX.ivory).toBe(CALLING_LOOK.conductor!.light);
+    expect(CONDUCT_HEX.ink).toBe(CALLING_LOOK.conductor!.deep);
   });
 });
 
@@ -333,8 +351,12 @@ describe('Duets and Trios, drawn', () => {
     const t = h.tick();
     expect(t.drawn.sigils).toBe(3);
     expect(t.drawn.links).toBe(3);
-    // A full chain reaches for no one.
+    // A full chain reaches for no one, and its window is not drawn: a Trio closes it.
     expect(t.drawn.reach).toBe(0);
+    expect(t.drawn.window).toBe(0);
+    expect(h.view.look.chainOpen).toBe(false);
+    h.run(30);
+    expect(h.tick().drawn.window).toBe(0);
     // The flash is once: it is gone well before the window closes.
     h.run(90);
     expect(h.view.activeCount('trio')).toBe(0);
@@ -416,6 +438,20 @@ describe('A Tempo: the downbeat', () => {
     expect(chained.cost).toBe(0);
     expect(h.view.fired.freeCue).toBe(1);
     expect(h.view.activeCount('spark')).toBe(1);
+  });
+
+  it('under Silent Cues a Cue on the beat still costs: no free spark', () => {
+    const { sim, h } = setup(['a_tempo'], { dissonance: [{ id: 'silent_cues', rank: 1 }] });
+    const b = emptyBeat();
+    h.run(1, [debug({ op: 'chargeSolos' })]);
+    h.run(1, [debug({ op: 'setResonance', value: 100 })]);
+    while (!beatOf(sim.state, b).inWindow || b.to < 0.05) h.tick();
+    const ev = h.run(1, [cue(1)]);
+    const chained = ofType(ev, 'cueChained')[0]!;
+    expect(chained.onBeat).toBe(true);
+    expect(chained.cost).toBeGreaterThan(0);
+    expect(h.view.fired.freeCue).toBe(0);
+    expect(h.view.activeCount('spark')).toBe(0);
   });
 });
 

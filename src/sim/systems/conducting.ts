@@ -70,7 +70,7 @@ export function crescendoCostOf(state: WorldState): number {
  * The open chain, if a Cue now could still join it: within the window of its last Cue
  * (≤ `chainWindow` s, measured in sim time) and fewer than three long.
  */
-function openChain(state: WorldState): { heroes: readonly EntityId[]; at: number } | null {
+export function openChain(state: WorldState): { heroes: readonly EntityId[]; at: number } | null {
   const chain = state.field.conducting?.chain;
   if (!chain || chain.heroes.length >= 3) return null;
   if (state.time - chain.at > state.mods.chainWindow + EPS) return null;
@@ -112,7 +112,8 @@ export function spotlit(state: WorldState, heroId: EntityId): number {
 }
 
 /** Why a hero can't take a Finale turn now: lost (the turn is dropped) or waiting (kept). */
-type TurnBlock = 'down' | 'possessed' | 'stilled' | 'wait' | null;
+export type FinaleTurnBlock = 'down' | 'possessed' | 'stilled' | 'wait' | null;
+type TurnBlock = FinaleTurnBlock;
 
 function statusOn(e: ReadonlyEntity, id: string): boolean {
   const statuses = e.health?.statuses;
@@ -134,6 +135,39 @@ function turnBlock(e: ReadonlyEntity | undefined): TurnBlock {
   if (statusOn(e, 'stilled')) return 'stilled';
   if (h.soloActive > 0 || h.hold !== null || h.reel !== null) return 'wait';
   return null;
+}
+
+/**
+ * `turnBlock` for the views: what stops this hero taking a Finale turn now. `'down'`,
+ * `'possessed'` and `'stilled'` lose the turn at the next due tick; `'wait'` keeps it; null is
+ * free. The same rule the Finale itself runs.
+ */
+export function finaleTurnBlock(state: WorldState, heroId: EntityId): FinaleTurnBlock {
+  return turnBlock(state.entities.get(heroId));
+}
+
+/** Whether Marcato's hold is on this hero now (false without Marcato). */
+export function marcatoOn(state: WorldState, heroId: EntityId): boolean {
+  const held = state.field.conducting?.marcato;
+  return !!held && state.time < held.until - EPS && held.heroes.includes(heroId);
+}
+
+/**
+ * Seconds until a Directive would fire Marcato again: 0 when it's ready, null without Marcato.
+ * The rule `marcato()` applies.
+ */
+export function marcatoReadyIn(state: WorldState): number | null {
+  const c = state.field.conducting;
+  if (!c || !(state.mods.marcatoPct > 0)) return null;
+  if (!c.marcato || state.time + EPS >= c.marcato.readyAt) return 0;
+  return c.marcato.readyAt - state.time;
+}
+
+/** Ensemble's bonus now: 5% for each hero in the streak, up to 15% (0 without Ensemble). */
+export function ensembleBonus(state: WorldState): number {
+  const streak = state.field.conducting?.streak;
+  if (!streak || streak.length === 0) return 0;
+  return Math.min(state.mods.ensembleMax, state.mods.ensemblePct * streak.length);
 }
 
 /** The power of the Finale's next Solo: the ramp once for every Solo it has played. */
@@ -299,13 +333,6 @@ export function marcato(world: World): void {
   world.events.push({ type: 'marcato', tick: world.tick, heroes: [...heroes], until, readyAt });
 }
 
-/** Ensemble's bonus now: 5% for each hero in the streak, up to 15% (0 without Ensemble). */
-function ensembleBonus(world: World): number {
-  const streak = world.field.conducting?.streak;
-  if (!streak || streak.length === 0) return 0;
-  return Math.min(world.mods.ensembleMax, world.mods.ensemblePct * streak.length);
-}
-
 /**
  * health.ts `dealDamage`: what the Conductor multiplies a hero's or a summon's hit on an enemy
  * by. The Cue bonus (`cuePower`, carried by the hit) times the Calling's group: Marcato and
@@ -314,9 +341,7 @@ function ensembleBonus(world: World): number {
 export function conductingMult(world: World, source: Entity, cuePower: number | undefined): number {
   let more = 0;
   if (source.hero) {
-    const held = world.field.conducting?.marcato;
-    if (held && world.time < held.until - EPS && held.heroes.includes(source.id))
-      more += world.mods.marcatoPct;
+    if (marcatoOn(world, source.id)) more += world.mods.marcatoPct;
     more += ensembleBonus(world);
   }
   return (cuePower ?? 1) * (1 + more);
@@ -416,9 +441,15 @@ function weaverCrescendoOver(world: World): void {
  * weaver.ts `endCrescendo`, first: the Finale ends (early, its queue played, or at its wait).
  * Turns still waiting are lost; every hero who isn't dead has a full Solo (a hero mid-Solo
  * carries it, ready when that Solo ends); `finaleEnded` before `crescendoEnd`.
+ * Once the encounter is won or lost the Finale just stops: it goes with no event, no lost turn
+ * and no Solo fill (the Crescendo itself runs out as every Calling's does, with `crescendoEnd`).
  */
 export function finishFinale(world: World): void {
   const c = world.field.conducting!;
+  if (encounterOver(world)) {
+    delete c.finale;
+    return;
+  }
   const finale = c.finale!;
   while (finale.queue.length > 0) loseTurn(world, 0, 'time');
   for (const id of world.party) {
@@ -440,9 +471,15 @@ export function finishFinale(world: World): void {
   delete c.finale;
 }
 
+function encounterOver(world: World): boolean {
+  const status = world.encounter.status;
+  return status === 'victory' || status === 'defeat';
+}
+
 /**
  * api.ts, right after `updateWeaver`: the chain's window closes, Marcato's hold ends, Triad
  * holds or lets go, stale Solo entries go, and at most one Finale turn plays.
+ * A Finale still playing when the encounter is won or lost is dropped silently (`finishFinale`).
  */
 export function updateConducting(world: World): void {
   const c = world.field.conducting;
@@ -464,6 +501,8 @@ export function updateConducting(world: World): void {
     const e = world.entities.get(c.solos[i]!.hero);
     if (!e?.hero || e.hero.soloActive <= 0) c.solos.splice(i, 1);
   }
-  const over = world.encounter.status === 'victory' || world.encounter.status === 'defeat';
-  if (c.finale && !over) finaleTurn(world);
+  if (c.finale) {
+    if (encounterOver(world)) finishFinale(world);
+    else finaleTurn(world);
+  }
 }

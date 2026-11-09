@@ -2,16 +2,23 @@
  * The Conductor in the fight (docs/phase-5f.md), without React so the tests read it: the Cue
  * badge on a ready hero's frame, the chain ring, the A Tempo beat strip, the Grand Finale's pips
  * and each hero's turn, the Calling chip's states, and the call-outs. Every rule is the sim's own:
- * `nextCue` (what a Cue would be now), `onBeat` and `beatAt` (the downbeat), `finaleView` (who
- * plays next and at what power), `crescendoCostOf`; every number is `calling.conducting` (from
- * content, through the mods) or `field.conducting`. Nothing here decides a rule.
+ * `nextCue` (what a Cue would be now), `onBeat`, `cueCostNow` and `beatAt` (the downbeat),
+ * `openChain`, `finaleView` (who plays next and at what power), `finaleTurnBlock` (what stops a
+ * hero's turn), `marcatoOn`, `marcatoReadyIn`, `ensembleBonus`; every number is
+ * `calling.conducting` (from content, through the mods) or `field.conducting`. Nothing here
+ * decides a rule.
  */
 import {
   beatAt,
   cueCostNow,
+  ensembleBonus,
+  finaleTurnBlock,
   finaleView,
+  marcatoOn,
+  marcatoReadyIn,
   nextCue,
   onBeat,
+  openChain,
   spotlit,
   type EntityId,
   type SimEvent,
@@ -20,6 +27,7 @@ import {
 import { linkName, powerLabel } from '../screens/callingText';
 import type { IconName } from '../kit/iconPaths';
 import type {
+  BeatNow,
   Callout,
   ConductingHud,
   CueBadgeHud,
@@ -88,8 +96,10 @@ export interface BeatStripView {
 
 /**
  * The beat strip's geometry from the sim's `beatAt` (the phase through the bar) and `onBeat`
- * (`beat.on`). `stepped` (reduced motion): the light sits on the beat just struck instead of
- * sliding; the band's glow still opens with the window.
+ * (`beat.on`). `stepped` (reduced motion): the light jumps from mark to mark instead of sliding.
+ * It sits on the downbeat's mark exactly while `beat.on` (the window is open), so the light, the
+ * band's glow and "Free" agree; it steps there as the window opens, and on to the next beat's
+ * mark as it shuts. Otherwise it sits on the beat just struck.
  */
 export function beatStrip(
   beat: NonNullable<ConductingHud['beat']>,
@@ -98,7 +108,8 @@ export function beatStrip(
   const { phase } = beatAt(beat.time, beat.bar);
   const half = beat.within / beat.bar;
   const light = stepped
-    ? LEAD + Math.min(BEATS - 1, Math.floor(phase * BEATS + EPS)) / BEATS
+    ? LEAD +
+      (beat.on ? 0 : Math.max(1, Math.min(BEATS - 1, Math.floor(phase * BEATS + EPS)))) / BEATS
     : (phase + LEAD) % 1;
   return {
     marks: Array.from({ length: BEATS }, (_, k) => ({ x: LEAD + k / BEATS, down: k === 0 })),
@@ -106,6 +117,33 @@ export function beatStrip(
     light,
     inside: beat.on,
   };
+}
+
+/**
+ * A Tempo's beat as the sim stands now (`useBeatNow`): its time, whether a Cue now falls on the
+ * downbeat (`onBeat`) and what it costs (`cueCostNow`). The runtime writes it every frame on A
+ * Tempo runs, so the strip and the badge never wait for the HUD snapshot.
+ */
+export function beatNow(state: WorldState): BeatNow {
+  return { time: state.time, on: onBeat(state), cost: cueCostNow(state) };
+}
+
+/** The strip's beat with the frame's live time, window and cost over the snapshot's. */
+export function liveBeat(
+  beat: NonNullable<ConductingHud['beat']>,
+  now: BeatNow | null,
+): NonNullable<ConductingHud['beat']> {
+  return now ? { ...beat, time: now.time, on: now.on, cost: now.cost } : beat;
+}
+
+/** A hero's Cue badge with the frame's live window and cost over the snapshot's. */
+export function liveCueBadge(
+  badge: CueBadgeHud,
+  now: Pick<BeatNow, 'on' | 'cost'> | null,
+): CueBadgeHud {
+  if (!now) return badge;
+  const next = { link: badge.link, power: badge.power, onBeat: now.on, cost: now.cost };
+  return { ...badge, free: now.on && now.cost <= 0, cost: now.cost, label: cueBadgeLabel(next) };
 }
 
 // ── The fight's state for the HUD ──────────────────────────────────────────────────────
@@ -134,35 +172,38 @@ export function conductingHud(
           bar: view.beat.bar,
           within: view.beat.within,
           on: onBeat(state),
-          cost: onBeat(state) ? cueCostNow(state) : view.cueCost,
+          cost: cueCostNow(state),
+          // What a Cue on the downbeat costs: Silent Cues' surcharge alone (`cueCostNow`).
+          downbeatCost: state.mods.cueCostBonus,
         }
       : null,
     finale: finaleHudOf(state, nameOf),
-    marcato: view.marcato
-      ? {
-          ...marcatoReady(field.marcato?.readyAt ?? null, state.time),
-          pct: view.marcato.pct,
-          seconds: view.marcato.seconds,
-        }
-      : null,
+    marcato: view.marcato ? marcatoHud(marcatoReadyIn(state) ?? 0, view.marcato) : null,
     ensemble: view.ensemble
       ? {
           heroes: field.streak?.length ?? 0,
-          most: Math.round(view.ensemble.max / view.ensemble.pct),
-          bonus: Math.min(view.ensemble.max, view.ensemble.pct * (field.streak?.length ?? 0)),
+          most: ensembleMost(view.ensemble),
+          bonus: ensembleBonus(state),
         }
       : null,
     triad: view.triad > 0 ? { holding: field.triad === true, count: view.triad } : null,
   };
 }
 
-/** Marcato is ready (never given, or past its `readyAt`), or back in so many seconds. */
-export function marcatoReady(
-  readyAt: number | null,
-  time: number,
-): { ready: boolean; readyIn: number } {
-  const readyIn = readyAt === null ? 0 : Math.max(0, readyAt - time);
-  return { ready: readyIn <= EPS, readyIn };
+/** The chip's Marcato from the sim's `marcatoReadyIn` (0: ready) and its bonus and seconds. */
+export function marcatoHud(
+  readyIn: number,
+  m: { pct: number; seconds: number },
+): NonNullable<ConductingHud['marcato']> {
+  return { ready: readyIn <= 0, readyIn, pct: m.pct, seconds: m.seconds };
+}
+
+/**
+ * Ensemble's pips: how many heroes in a row raise the bonus before it reaches its cap (the last
+ * may raise it by less than a step when the cap is not a whole number of steps).
+ */
+export function ensembleMost(e: { pct: number; max: number }): number {
+  return e.pct > 0 ? Math.max(0, Math.ceil(e.max / e.pct - 1e-6)) : 0;
 }
 
 /**
@@ -173,7 +214,7 @@ function chainOf(
   state: WorldState,
   nameOf: (id: EntityId) => string | null,
 ): ConductingHud['chain'] {
-  const chain = state.field.conducting?.chain;
+  const chain = openChain(state);
   const view = state.calling?.conducting;
   if (!chain || !view) return null;
   for (const id of state.party) {
@@ -253,8 +294,10 @@ export function heardFinale(
 
 /**
  * A hero's turn while the Finale plays (null when it doesn't). Who plays next is the sim's
- * (`finaleView.next`); a hero ahead of them in the queue is passed over and waits. With no turn
- * left: playing it, played (`heard`), or lost (`heard`, from the sim's `finaleTurnLost`).
+ * (`finaleView.next`), and what stops a hero is the sim's `finaleTurnBlock`: down, possessed or
+ * stilled with a turn still queued is `losing` (the sim drops it when it comes due); mid-Solo,
+ * held or being Reeled ahead of the next is `waits` (the turn is kept). With no turn left:
+ * playing it, played, or lost (`heard`, from the sim's `finaleTurn` and `finaleTurnLost`).
  */
 export function finaleTurnOf(
   state: WorldState,
@@ -267,15 +310,19 @@ export function finaleTurnOf(
   const at = view.queue.indexOf(heroId);
   const playing = field.solos.some((s) => s.hero === heroId && s.finale);
   if (at < 0) {
-    const played = heard?.played.includes(heroId) ?? false;
-    const lost = heard?.lost.includes(heroId) ?? false;
-    return { place: null, state: playing ? 'plays' : !played && lost ? 'lost' : 'done' };
+    const played = heard?.played.filter((h) => h === heroId).length ?? 0;
+    const lost = heard?.lost.filter((h) => h === heroId).length ?? 0;
+    if (playing) return { place: null, state: 'plays' };
+    return lost > 0
+      ? { place: null, state: 'lost', played, lost }
+      : { place: null, state: 'done', played, lost };
   }
+  if (view.next === heroId) return { place: at + 1, state: 'next' };
+  const block = finaleTurnBlock(state, heroId);
+  if (block !== null && block !== 'wait') return { place: at + 1, state: 'losing', block };
+  if (playing) return { place: at + 1, state: 'plays' };
   const nextAt = view.next === null ? view.queue.length : view.queue.indexOf(view.next);
-  return {
-    place: at + 1,
-    state: view.next === heroId ? 'next' : playing ? 'plays' : at < nextAt ? 'waits' : 'due',
-  };
+  return { place: at + 1, state: at < nextAt ? 'waits' : 'due' };
 }
 
 /** A hero's Conductor marks for their frame (none on other runs). */
@@ -293,7 +340,7 @@ export function heroConducting(
   const light = up ? spotlit(state, heroId) : 0;
   const held = field.marcato;
   const marcato =
-    view.marcato && held && up && held.heroes.includes(heroId) && state.time < held.until - EPS
+    view.marcato && held && up && marcatoOn(state, heroId)
       ? {
           pct: view.marcato.pct,
           left: held.until - state.time,
@@ -326,19 +373,46 @@ export function finaleNextLabel(finale: FinaleHud): string {
   return finale.next ? `${finale.next.name} next ${powerLabel(finale.next.power)}` : 'Waiting';
 }
 
-/** A Finale turn on a frame: its place ("1"), "waits", "lost", "plays", "played". */
+/**
+ * A Finale turn on a frame: its place ("1"), "waits", "can't play" (its turn will be lost),
+ * "lost", "played · lost" (Maestro: one played, one lost), "plays", "played".
+ */
 export function finaleTurnLabel(t: FinaleTurnHud): string {
   switch (t.state) {
     case 'waits':
       return 'waits';
+    case 'losing':
+      return 'can’t play';
     case 'lost':
-      return 'lost';
+      return (t.played ?? 0) > 0 ? 'played · lost' : 'lost';
     case 'plays':
       return 'plays';
     case 'done':
       return 'played';
     default:
       return t.place === null ? '' : `${t.place}`;
+  }
+}
+
+/** The frame chip's sentence for a Finale turn (its aria label and title). */
+export function finaleTurnSentence(name: string, t: FinaleTurnHud): string {
+  switch (t.state) {
+    case 'next':
+      return `${name} plays the next turn of the Finale`;
+    case 'waits':
+      return `${name} waits: their turn is kept until they're free`;
+    case 'losing':
+      return `${name} can’t play — ${LOST_REASON[t.block ?? 'down']}: their turn will be lost`;
+    case 'lost':
+      return (t.played ?? 0) > 0
+        ? `${name} played a turn of the Finale and lost ${t.lost === 1 ? 'one' : t.lost}`
+        : `${name} lost their turn`;
+    case 'plays':
+      return `${name}'s Finale Solo is playing`;
+    case 'done':
+      return `${name} has no turn left in the Finale`;
+    default:
+      return `${name} plays turn ${t.place} of the Finale's queue`;
   }
 }
 

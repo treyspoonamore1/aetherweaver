@@ -7,7 +7,7 @@
  *   scale degrees over its last note) by the first hero's voice.
  * - **Trio** (link 3): the three heroes' notes as a chord, strings swelling with brass entering
  *   under them, resolving to D on the music's next bar line.
- * - **Free Cue** (`onBeat`): a bright glass chime on the Cue's phrase.
+ * - **Free Cue** (`onBeat` at cost 0): a bright glass chime on the Cue's phrase.
  * - **The downbeat** (A Tempo): a soft baton tick on each of the sim's downbeats.
  * - **Grand Finale**: two baton taps as it is raised (no Sunrise); each turn the hero's
  *   leitmotif, a scale degree higher per turn; a lost turn a muted string; at its end a full
@@ -180,7 +180,8 @@ export class ConductSounds {
           const chain = state.field.conducting?.chain?.heroes ?? [];
           this.trio(state, chain.length >= 3 ? chain.slice(0, 3) : [ev.hero]);
         }
-        if (ev.onBeat) this.freeCue(state, ev.hero);
+        // Free only when it cost nothing: under Silent Cues a Cue on the beat still costs.
+        if (ev.onBeat && ev.cost <= 0) this.freeCue(state, ev.hero);
         break;
       }
       case 'reprised':

@@ -226,7 +226,83 @@ describe('Grand Finale: when it stops', () => {
       expect(ofType(rest, 'finaleTurn')).toEqual([]);
       expect(w.ledger.conducting!.finaleSolos).toBe(1);
     });
+
+    /** Lyra mid-Solo (staged to outlast the 12 s wait): her turn is still waiting. */
+    function waiting() {
+      const { sim, w } = stage();
+      const lyra = heroAt(w, 1);
+      cueNow(sim, w, 1);
+      lyra.hero!.soloActive = 30;
+      weaverOf(w).weaver!.resonance = 100;
+      const cast = stepFor(sim, 60 * 3, [CRESCENDO]);
+      expect(ofType(cast, 'finaleTurn').map((t) => t.hero)).toEqual([w.party[0], w.party[2]]);
+      expect(w.field.conducting!.finale!.queue).toEqual([lyra.id]);
+      return { sim, w, lyra };
+    }
+
+    const quiet = (after: SimEvent[]) => {
+      expect(ofType(after, 'finaleTurn')).toEqual([]);
+      expect(ofType(after, 'finaleTurnLost')).toEqual([]);
+      expect(ofType(after, 'finaleEnded')).toEqual([]);
+      expect(ofType(after, 'soloReady')).toEqual([]);
+    };
+
+    it(`a Finale still waiting at a ${status} just stops: no lost turn, no end, no Solo fill`, () => {
+      const { sim, w } = waiting();
+      const ledger = { ...w.ledger.conducting! };
+      const solo = w.party.map((id) => w.entities.get(id)!.hero!.solo);
+      expect(solo.some((s) => s < 100)).toBe(true);
+      w.encounter.status = status;
+      const next = stepFor(sim, 1);
+      quiet(next);
+      expect(w.field.conducting!.finale).toBeUndefined();
+      expect(finaleView(w)).toBeNull();
+      // Well past the 12 s wait (where `finishFinale` used to lose the turn and fill every Solo).
+      const after = [...next, ...stepFor(sim, 60 * 20)];
+      quiet(after);
+      expect(w.ledger.conducting).toEqual(ledger);
+      expect(w.ledger.conducting!.finaleLost).toBe(0);
+      expect(w.party.map((id) => w.entities.get(id)!.hero!.solo)).toEqual(solo);
+      // The Crescendo still runs out as every Calling's does: one `crescendoEnd`.
+      expect(ofType(after, 'crescendoEnd')).toHaveLength(1);
+      expect(weaverOf(w).weaver!.crescendo).toBe(0);
+    });
+
+    it(`at a ${status}, the Crescendo's clock running out in the next tick ends it quietly`, () => {
+      const { sim, w } = waiting();
+      const ledger = { ...w.ledger.conducting! };
+      w.encounter.status = status;
+      // `updateWeaver` (and so `endCrescendo`) runs before `updateConducting` drops the Finale.
+      weaverOf(w).weaver!.crescendo = 1e-9;
+      const after = stepFor(sim, 1);
+      quiet(after);
+      expect(ofType(after, 'crescendoEnd')).toHaveLength(1);
+      expect(w.field.conducting!.finale).toBeUndefined();
+      quiet(stepFor(sim, 60 * 2));
+      expect(w.ledger.conducting).toEqual(ledger);
+    });
   }
+
+  it('a Finale that ends before the victory is as before: its end, its loss, its fill', () => {
+    const { sim, w } = stage();
+    const lyra = heroAt(w, 1);
+    cueNow(sim, w, 1);
+    lyra.hero!.soloActive = 30;
+    const timed = finale(sim, w, 60 * 13);
+    expect(ofType(events(timed), 'finaleEnded')).toEqual([
+      expect.objectContaining({ fired: 2, lost: 1 }),
+    ]);
+    expect(ofType(events(timed), 'finaleTurnLost')).toEqual([
+      expect.objectContaining({ hero: lyra.id, reason: 'time' }),
+    ]);
+    expect(w.ledger.conducting!.finaleLost).toBe(1);
+    for (const slot of [0, 1, 2]) expect(heroAt(w, slot).hero!.solo).toBe(100);
+    w.encounter.status = 'victory';
+    const after = stepFor(sim, 60 * 4);
+    expect(ofType(after, 'finaleEnded')).toEqual([]);
+    expect(ofType(after, 'crescendoEnd')).toEqual([]);
+    expect(w.ledger.conducting!.finaleLost).toBe(1);
+  });
 
   /** Lyra's Solo staged to outlast the Finale, which then runs to its wait. */
   function capped(config: Partial<SimConfig>) {

@@ -3,7 +3,13 @@ import { Ring } from '../kit/Ring';
 import { useReducedMotion } from '../kit/motion';
 import { CallingGlyph, callingLook } from '../kit/CallingGlyph';
 import { powerLabel } from '../screens/callingText';
-import type { ConductingHud, FinaleHud, FinaleTurnHud, HeroHud } from '../store';
+import {
+  useBeatNow,
+  type ConductingHud,
+  type FinaleHud,
+  type FinaleTurnHud,
+  type HeroHud,
+} from '../store';
 import {
   BEAT_LIGHT,
   CONDUCT_GOLD,
@@ -11,6 +17,9 @@ import {
   chainLabel,
   finaleNextLabel,
   finaleTurnLabel,
+  finaleTurnSentence,
+  liveBeat,
+  liveCueBadge,
   pctLabel,
 } from './conducting';
 
@@ -72,17 +81,23 @@ export function ChainRing({ chain }: { chain: NonNullable<ConductingHud['chain']
 /**
  * A Tempo's metronome (docs/phase-5f.md): four beat marks a bar, the first larger, the downbeat's
  * window as a band round it, and a light running with the sim's time. Inside the window the band
- * glows white-gold and reads "Free". With reduced motion the light steps beat by beat; the band's
- * glow and the word still mark the window, so it reads with the sound off.
+ * glows white-gold and reads "Free". With reduced motion the light steps mark to mark, on the
+ * downbeat's exactly while the window is open; the band's glow and the word mark it too, so it
+ * reads with the sound off. Its time, window and cost are the frame's (`useBeatNow`), not the
+ * 15 Hz snapshot's, when the runtime writes them.
  */
 export function BeatStrip({
-  beat,
+  beat: snapshot,
   reduced,
 }: {
   beat: NonNullable<ConductingHud['beat']>;
   /** Reduced motion (the OS setting, read on mount; the UI lab can force it). */
   reduced?: boolean;
 }) {
+  const beat = liveBeat(
+    snapshot,
+    useBeatNow((s) => s.beat),
+  );
   const osReduced = useReducedMotion();
   const stepped = reduced ?? osReduced;
   const v = beatStrip(beat, stepped);
@@ -94,7 +109,13 @@ export function BeatStrip({
       className="flex items-center gap-1"
       role="img"
       aria-label={
-        v.inside ? 'On the downbeat: a Cue now is free' : 'The beat: Cue on the downbeat for free'
+        beat.downbeatCost > 0
+          ? v.inside
+            ? `On the downbeat: a Cue now costs ${beat.downbeatCost}`
+            : `The beat: Cue on the downbeat for ${beat.downbeatCost}`
+          : v.inside
+            ? 'On the downbeat: a Cue now is free'
+            : 'The beat: Cue on the downbeat for free'
       }
       data-testid="beat-strip"
       data-inside={v.inside || undefined}
@@ -213,10 +234,14 @@ function FinalePip({ state }: { state: FinaleHud['pips'][number] }) {
 
 /**
  * The Cue badge under a ready hero's portrait (docs/phase-5f.md): "Duet ×1.25", "Trio ×1.5" in
- * gold, "Free" in white-gold on the downbeat. Nothing for a plain Cue: the key cap says it.
+ * gold, "Free" in white-gold on the downbeat. Nothing for a plain Cue: the key cap says it. On A
+ * Tempo whether it is on the beat, and its cost, are the frame's (`useBeatNow`).
  */
 export function CueBadge({ hero: h }: { hero: HeroHud }) {
-  const c = h.cue;
+  const on = useBeatNow((s) => s.beat?.on);
+  const cost = useBeatNow((s) => s.beat?.cost);
+  const c =
+    h.cue && on !== undefined && cost !== undefined ? liveCueBadge(h.cue, { on, cost }) : h.cue;
   if (!c?.label) return null;
   return (
     <span
@@ -280,24 +305,15 @@ export function ConductMarks({ hero: h }: { hero: HeroHud }) {
 
 function FinaleTurnChip({ name, turn }: { name: string; turn: FinaleTurnHud }) {
   const label = finaleTurnLabel(turn);
-  const dim = turn.state === 'lost' || turn.state === 'done';
-  const sentence =
-    turn.state === 'next'
-      ? `${name} plays the next turn of the Finale`
-      : turn.state === 'waits'
-        ? `${name} waits: their turn is kept until they're free`
-        : turn.state === 'lost'
-          ? `${name} will lose their turn`
-          : turn.state === 'plays'
-            ? `${name}'s Finale Solo is playing`
-            : turn.state === 'done'
-              ? `${name} has no turn left in the Finale`
-              : `${name} plays turn ${turn.place} of the Finale's queue`;
+  const muted = turn.state === 'lost' || turn.state === 'done' || turn.state === 'losing';
+  // Struck through only when every turn they had was lost.
+  const struck = turn.state === 'lost' && !(turn.played ?? 0);
+  const sentence = finaleTurnSentence(name, turn);
   return (
     <span
-      className={`flex items-center gap-1 whitespace-nowrap rounded-md border px-1 text-xs font-bold leading-5 ${dim ? 'opacity-70' : ''} ${turn.state === 'lost' ? 'line-through' : ''}`}
+      className={`flex items-center gap-1 whitespace-nowrap rounded-md border px-1 text-xs font-bold leading-5 ${muted ? 'opacity-70' : ''} ${struck ? 'line-through' : ''}`}
       style={{
-        color: turn.state === 'lost' || turn.state === 'done' ? 'var(--color-muted)' : CONDUCT_GOLD,
+        color: muted ? 'var(--color-muted)' : CONDUCT_GOLD,
         borderColor: turn.state === 'next' ? CONDUCT_GOLD : 'var(--color-ink-500)',
         background: 'rgb(5 8 20 / 0.7)',
       }}

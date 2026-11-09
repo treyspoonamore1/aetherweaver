@@ -275,13 +275,19 @@ export interface CueBadgeHud {
 /**
  * A hero during the Grand Finale (`HeroHud.finale`): `place` is their first place in what is left
  * of its queue (1 plays next if free; null: no turn left). `next`: the next turn is theirs;
- * `due`: a turn to come; `waits`: mid-Solo, held or being Reeled, their place kept; `lost`: down,
- * possessed or stilled, the turn will be dropped; `plays`: their Finale Solo is playing; `done`:
- * no turn left.
+ * `due`: a turn to come; `waits`: mid-Solo, held or being Reeled, their place kept; `losing`:
+ * down, possessed or stilled (`block`, the sim's `finaleTurnBlock`) with a turn still queued, which
+ * the sim drops when it comes due; `plays`: their Finale Solo is playing; with no turn left,
+ * `lost`: the sim dropped one of their turns, `done`: every turn they had was played.
  */
 export interface FinaleTurnHud {
   place: number | null;
-  state: 'next' | 'due' | 'waits' | 'lost' | 'plays' | 'done';
+  state: 'next' | 'due' | 'waits' | 'losing' | 'lost' | 'plays' | 'done';
+  /** `losing`: why the turn will be lost. */
+  block?: 'down' | 'possessed' | 'stilled';
+  /** `lost` and `done`: their turns played and lost this Finale (as the runtime heard them). */
+  played?: number;
+  lost?: number;
 }
 
 /**
@@ -312,6 +318,8 @@ export interface ConductingHud {
     on: boolean;
     /** What a Cue costs now (`cueCostNow`): 0 on the beat, or Silent Cues' surcharge alone. */
     cost: number;
+    /** What a Cue on the downbeat costs: 0, or Silent Cues' surcharge alone. */
+    downbeatCost: number;
   } | null;
   /** The Grand Finale while it plays (null otherwise). */
   finale: FinaleHud | null;
@@ -812,6 +820,23 @@ export interface UiState {
   resetCombat(): void;
 }
 
+/**
+ * A Tempo's beat as of the frame being drawn (`hud/conducting.ts` `beatNow`): the sim's time,
+ * whether a Cue now falls on the downbeat (`onBeat`) and what it costs (`cueCostNow`).
+ */
+export interface BeatNow {
+  time: number;
+  on: boolean;
+  cost: number;
+}
+
+/**
+ * The beat strip's and the Cue badge's live beat (null: no A Tempo, or no fight). Apart from
+ * `useUi`, as the runtime writes it every frame on A Tempo runs and only those two read it; the
+ * rest of the HUD keeps the 15 Hz snapshot.
+ */
+export const useBeatNow = create<{ beat: BeatNow | null }>()(() => ({ beat: null }));
+
 let nextCalloutId = 1;
 
 /**
@@ -880,7 +905,8 @@ export const useUi = create<UiState>()((set, get) => ({
   },
   markHint: (id) =>
     set((s) => (s.hintsShown.includes(id) ? s : { hintsShown: [...s.hintsShown, id] })),
-  resetCombat: () =>
+  resetCombat: () => {
+    useBeatNow.setState({ beat: null });
     set({
       hud: null,
       perf: null,
@@ -891,5 +917,6 @@ export const useUi = create<UiState>()((set, get) => ({
       layoutEditing: false,
       framesDraft: null,
       weaverBarDraft: null,
-    }),
+    });
+  },
 }));

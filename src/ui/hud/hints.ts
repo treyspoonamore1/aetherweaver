@@ -489,7 +489,10 @@ function conductingHints(hud: HudSnapshot): Hint[] {
   if (c.beat && ready.length > 0)
     out.push({
       id: 'beat',
-      text: `Cue on the downbeat: it’s free. The light under your Resonance shows the beat`,
+      text:
+        c.beat.downbeatCost > 0
+          ? `Cue on the downbeat: it costs only ${c.beat.downbeatCost} Resonance. The light under your Resonance shows the beat`
+          : `Cue on the downbeat: it’s free. The light under your Resonance shows the beat`,
     });
   if (c.finale === null && w.crescendo <= 0 && w.resonance + 1e-9 >= w.crescendoCost)
     out.push({

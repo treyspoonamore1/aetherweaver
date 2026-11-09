@@ -66,12 +66,13 @@ export const CALLING_LOOK: Readonly<Record<string, CallingLook>> = {
   // clear ΔE ≥ 20 in every colour-vision mode against the other Callings, Mend, Empower, the relic
   // rarities and the six heroes (tests/colorVision.test.ts). No colour light enough to read as
   // text clears that set, so his ink is his ground and ring, and his ivory carries his glyphs,
-  // names and numbers; every mark of his has a glyph. The deep end, a muted ink-violet, lets his
-  // ring run from ink to ivory on the dark screens.
+  // names and numbers; every mark of his has a glyph. The deep end is the world's ink (render's
+  // CONDUCT_HEX.ink, the stave line and the lost-turn marks), so his ring runs from that ink to
+  // the ivory on the dark screens.
   conductor: {
     color: '#3a2f55',
     light: '#f4eedd',
-    deep: '#6b5e96',
+    deep: '#4739ac',
     text: '#f4eedd',
     icon: 'chain',
     crescendoIcon: 'finale',

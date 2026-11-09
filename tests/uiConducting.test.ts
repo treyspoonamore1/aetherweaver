@@ -3,6 +3,7 @@
  * the sim's own (`nextCue`, `beatAt`, `onBeat`, `finaleView`, `crescendoCostOf`), read from a real
  * sim; every number is content's (`callingDef('conductor')`) or the view's (`calling.conducting`).
  */
+import { readFileSync } from 'node:fs';
 import { createElement, type FunctionComponent } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
@@ -14,7 +15,12 @@ import {
   beatAt,
   createSim,
   crescendoCostOf,
+  cueCostNow,
+  ensembleBonus,
+  finaleTurnBlock,
   finaleView,
+  marcatoOn,
+  marcatoReadyIn,
   nextCue,
   onBeat,
   type Command,
@@ -27,15 +33,20 @@ import { dealDamage } from '../src/sim/combat/health';
 import type { World } from '../src/sim/world';
 import {
   FINALE_TURNS_KEY,
+  beatNow,
   beatStrip,
+  ensembleMost,
   finaleTurnLabel,
   finaleTurnOf,
+  finaleTurnSentence,
+  liveBeat,
+  liveCueBadge,
+  marcatoHud,
   heardFinale,
   conductingCallouts,
   cueBadge,
   cueBadgeLabel,
   finalePips,
-  marcatoReady,
 } from '../src/ui/hud/conducting';
 import { evaluateHints } from '../src/ui/hud/hints';
 import { CALLING_GLYPHS } from '../src/ui/kit/callingGlyphs';
@@ -248,6 +259,7 @@ describe('the beat strip, from beatAt and onBeat', () => {
     within: 0.15,
     on,
     cost: on ? 0 : 15,
+    downbeatCost: 0,
   });
 
   it('four marks, the downbeat first; the band its window; the light the bar’s phase', () => {
@@ -287,24 +299,82 @@ describe('the beat strip, from beatAt and onBeat', () => {
     expect(hud(conductSim().sim).conducting!.beat).toBeNull();
   });
 
-  it('reduced motion: the light steps beat by beat; the glow and “Free” still mark the window', async () => {
+  it('reduced motion: the light is on the downbeat’s mark exactly while the window is open', async () => {
     const BeatStrip = await component<{ beat: ReturnType<typeof beat>; reduced?: boolean }>(
       'BeatStrip',
     );
     const marks = beatStrip(beat(0)).marks.map((m) => m.x);
-    for (const t of [0.01, 0.5, 0.7, 1.4, 2.0, 2.6]) {
-      const k = Math.floor(beatAt(t, BAR_SECONDS).phase * 4);
-      expect(beatStrip(beat(t), true).light).toBeCloseTo(marks[k]!, 9);
+    const within = 0.15;
+    const inWindow = (t: number) => Math.abs(t - beatAt(t, BAR_SECONDS).nearest) <= within + 1e-9;
+    // Through two bars, a frame at a time: the light is on the downbeat's mark iff the window
+    // is open, and it moves only at the window's edges and on the other beats.
+    let moves = 0;
+    let prev = beatStrip(beat(BAR_SECONDS, true), true).light;
+    for (let f = 0; f <= 2 * 60 * BAR_SECONDS; f++) {
+      const t = BAR_SECONDS + f / 60;
+      const on = inWindow(t);
+      const light = beatStrip(beat(t, on), true).light;
+      expect(Math.abs(light - marks[0]!) < 1e-9, `t=${t.toFixed(3)}`).toBe(on);
+      expect(marks.some((m) => Math.abs(m - light) < 1e-9)).toBe(true);
+      if (Math.abs(light - prev) > 1e-9) moves++;
+      prev = light;
     }
+    // A bar's steps: the window shuts (to beat 2's mark), beats 3 and 4, the window opens.
+    expect(moves).toBe(8);
+    // Just after the window shuts it is on beat 2's mark, not the downbeat's; on beats 3 and 4
+    // it is on theirs; just before the window opens it is still on beat 4's.
+    expect(beatStrip(beat(within + 0.02), true).light).toBeCloseTo(marks[1]!, 9);
+    expect(beatStrip(beat(BAR_SECONDS / 2 + 0.01), true).light).toBeCloseTo(marks[2]!, 9);
+    expect(beatStrip(beat(BAR_SECONDS - within - 0.02), true).light).toBeCloseTo(marks[3]!, 9);
+    expect(beatStrip(beat(BAR_SECONDS - within + 0.02, true), true).light).toBeCloseTo(
+      marks[0]!,
+      9,
+    );
     const on = renderToStaticMarkup(
       createElement(BeatStrip, { beat: beat(2.65, true), reduced: true }),
     );
     expect(on).toContain('data-stepped="true"');
     expect(on).toContain('data-inside="true"');
+    expect(on).toContain(`data-light="${marks[0]!.toFixed(3)}"`);
     expect(on).toMatch(/visibility:visible[^>]*>Free</);
     const off = renderToStaticMarkup(createElement(BeatStrip, { beat: beat(1.3), reduced: true }));
     expect(off).not.toContain('data-inside');
     expect(off).toMatch(/visibility:hidden[^>]*>Free</);
+  });
+
+  it('the strip and the badge read the frame’s beat, not the snapshot’s (A Tempo)', () => {
+    const { sim, step } = conductSim(['a_tempo']);
+    const st = sim.state;
+    // A snapshot taken off the beat, then the sim stepped into the window.
+    offBeat(sim, step);
+    const snap = hud(sim);
+    for (let i = 0; i < 400 && !onBeat(st); i++) step(1);
+    const now = beatNow(st);
+    expect(now).toEqual({ time: st.time, on: true, cost: cueCostNow(st) });
+    // The snapshot is stale; the live beat is the sim's now.
+    expect(snap.conducting!.beat!.on).toBe(false);
+    const strip = liveBeat(snap.conducting!.beat!, now);
+    expect(strip).toMatchObject({ time: st.time, on: true, cost: cueCostNow(st) });
+    expect(beatStrip(strip).inside).toBe(true);
+    const badge = liveCueBadge(snap.party[0]!.cue!, now);
+    expect(badge).toEqual(cueBadge(st, st.party[0]!));
+    expect(badge).toMatchObject({ free: true, label: 'Free' });
+    // And back out: "Free" goes the frame the window shuts.
+    offBeat(sim, step);
+    const out = liveCueBadge(snap.party[0]!.cue!, beatNow(st));
+    expect(out).toEqual(cueBadge(st, st.party[0]!));
+    expect(out.free).toBe(false);
+    // With no live beat (no A Tempo, the UI lab) the snapshot's stands.
+    expect(liveBeat(snap.conducting!.beat!, null)).toBe(snap.conducting!.beat);
+    expect(liveCueBadge(snap.party[0]!.cue!, null)).toBe(snap.party[0]!.cue);
+  });
+
+  it('the runtime writes the live beat on A Tempo runs only', () => {
+    const src = readFileSync(new URL('../src/app/runtime.ts', import.meta.url), 'utf8');
+    // The one write, behind the A Tempo flag fixed when the fight is made.
+    expect(src.match(/useBeatNow\.setState/g)).toHaveLength(1);
+    expect(src).toMatch(/if \(this\.aTempo &&[^\n]*\n[^\n]*\n\s*useBeatNow\.setState/);
+    expect(src).toContain('this.aTempo = !!this.sim.state.calling?.conducting?.beat;');
   });
 });
 
@@ -387,6 +457,77 @@ describe('the Grand Finale, from finaleView', () => {
       played: [],
       lost: [],
     });
+  });
+
+  it('a hero downed with a turn still queued reads as losing it (the sim’s finaleTurnBlock)', async () => {
+    const ConductMarks = await component<Record<string, unknown>>('ConductMarks');
+    const { sim, step, events } = conductSim();
+    step(1, [{ t: 'crescendo' }]);
+    step(10);
+    const st = sim.state;
+    const world = sim.state as unknown as World;
+    const lyra = st.party[1]!;
+    dealDamage(world, world.entities.get(lyra)!, {
+      source: null,
+      sourceName: 'Toll Cleave',
+      amount: 1e5,
+      telegraph: null,
+    });
+    // Ahead of the next in the queue, down: not "waits" but losing the turn.
+    expect(finaleView(st)!.queue.indexOf(lyra)).toBe(0);
+    expect(finaleTurnBlock(st, lyra)).toBe('down');
+    const turn = finaleTurnOf(st, lyra, heardFinale(events, null))!;
+    expect(turn).toEqual({ place: 1, state: 'losing', block: 'down' });
+    expect(finaleTurnLabel(turn)).toBe('can’t play');
+    expect(finaleTurnSentence('Lyra', turn)).toBe(
+      'Lyra can’t play — down: their turn will be lost',
+    );
+    // The sim drops it when the next turn comes due.
+    for (let i = 0; i < 120 && !events.some((e) => e.type === 'finaleTurnLost'); i++) step(1);
+    expect(events).toContainEqual(
+      expect.objectContaining({ type: 'finaleTurnLost', hero: lyra, reason: 'down' }),
+    );
+    // Lost now (Vexis took the last turn, so the Finale is over), and said so in the past tense.
+    expect(st.field.conducting!.finale).toBeUndefined();
+    const lost = { place: null, state: 'lost', played: 0, lost: 1 } as const;
+    expect(finaleTurnLabel(lost)).toBe('lost');
+    const sentence = finaleTurnSentence('Lyra', lost);
+    expect(sentence).toBe('Lyra lost their turn');
+    const html = renderToStaticMarkup(
+      createElement(ConductMarks, { hero: { name: 'Lyra', finale: lost } }),
+    );
+    expect(html).toContain('aria-label="Lyra lost their turn"');
+    expect(html).not.toContain('will lose');
+    // A possessed or stilled hero likewise: the reason is the sim's.
+    for (const block of ['possessed', 'stilled'] as const)
+      expect(finaleTurnSentence('Kael', { place: 2, state: 'losing', block })).toBe(
+        `Kael can’t play — ${block}: their turn will be lost`,
+      );
+  });
+
+  it('with Maestro, a hero who played pass 1 and lost pass 2 reads both', () => {
+    const { sim, step, events } = conductSim(['marcato', 'reprise', 'ensemble', 'maestro']);
+    step(1, [{ t: 'crescendo' }]);
+    const st = sim.state;
+    const kael = st.party[0]!;
+    expect(events).toContainEqual(expect.objectContaining({ type: 'finaleTurn', hero: kael }));
+    const world = sim.state as unknown as World;
+    dealDamage(world, world.entities.get(kael)!, {
+      source: null,
+      sourceName: 'Toll Cleave',
+      amount: 1e5,
+      telegraph: null,
+    });
+    step(2);
+    expect(finaleTurnOf(st, kael, heardFinale(events, null))!.state).toBe('losing');
+    const lostKael = () => events.some((e) => e.type === 'finaleTurnLost' && e.hero === kael);
+    for (let i = 0; i < 600 && !lostKael(); i++) step(1);
+    expect(lostKael()).toBe(true);
+    expect(st.field.conducting!.finale).toBeTruthy();
+    const turn = finaleTurnOf(st, kael, heardFinale(events, null))!;
+    expect(turn).toMatchObject({ place: null, state: 'lost', played: 1, lost: 1 });
+    expect(finaleTurnLabel(turn)).toBe('played · lost');
+    expect(finaleTurnSentence('Kael', turn)).toBe('Kael played a turn of the Finale and lost one');
   });
 
   it('the timing hints wait while the Finale plays or a banner is up', () => {
@@ -493,10 +634,12 @@ describe('call-outs and hints', () => {
       { name, time: 0, marcato: { pct: 0.1, seconds: 4 } },
     );
     expect(marcato[0]!.callout.text).toBe('Marcato · +10% for 4 s');
-    // Marcato's chip: ready, or back in so many seconds (from the field's readyAt).
-    expect(marcatoReady(null, 3)).toEqual({ ready: true, readyIn: 0 });
-    expect(marcatoReady(8, 3)).toEqual({ ready: false, readyIn: 5 });
+    // Marcato's chip: ready, or back in so many seconds (the sim's marcatoReadyIn).
+    const m = { pct: 0.1, seconds: 4 };
+    expect(marcatoHud(0, m)).toMatchObject({ ready: true, readyIn: 0 });
+    expect(marcatoHud(5, m)).toMatchObject({ ready: false, readyIn: 5 });
     expect(stage.hud.conducting!.marcato!.ready).toBe(false);
+    expect(stage.hud.conducting!.marcato!.readyIn).toBe(marcatoReadyIn(stage.sim.state));
   });
 
   it('the chain hint names the window and the hero to Cue; the beat hint on A Tempo', () => {
@@ -508,6 +651,59 @@ describe('call-outs and hints', () => {
     expect(chain.text).toContain(`within ${V.chain} s for a Duet`);
     const beat = conductSim(['a_tempo']);
     expect(fighting(hud(beat.sim)).map((x) => x.id)).toContain('beat');
+  });
+});
+
+describe('the sim’s rules, read not copied', () => {
+  it('Ensemble’s bonus is the sim’s; its pips count to the cap, a whole step or not', () => {
+    const { sim, step } = conductSim(['marcato', 'reprise', 'ensemble']);
+    const e = sim.state.calling!.conducting!.ensemble!;
+    for (const slot of [0, 1, 2]) {
+      step(1, [{ t: 'debug', op: { op: 'chargeSolos' } }]);
+      step(1, [{ t: 'debug', op: { op: 'setResonance', value: 100 } }]);
+      step(1, [cue(slot)]);
+      expect(hud(sim).conducting!.ensemble!.bonus).toBe(ensembleBonus(sim.state));
+    }
+    expect(hud(sim).conducting!.ensemble!.most).toBe(ensembleMost(e));
+    expect(ensembleMost({ pct: 0.05, max: 0.15 })).toBe(3);
+    // Not a whole number of steps: the third hero still raises it (to the cap).
+    expect(ensembleMost({ pct: 0.05, max: 0.12 })).toBe(3);
+    expect(ensembleMost({ pct: 0.05, max: 0.1 })).toBe(2);
+    expect(ensembleMost({ pct: 0.04, max: 0.1 })).toBe(3);
+  });
+
+  it('Marcato’s hold on a frame and its chip are the sim’s marcatoOn and marcatoReadyIn', () => {
+    const { sim, step } = conductSim(['marcato']);
+    const st = sim.state;
+    const rally: Command = { t: 'directive', kind: 'rally' };
+    expect(hud(sim).conducting!.marcato).toMatchObject({ ready: true, readyIn: 0 });
+    expect(marcatoReadyIn(st)).toBe(0);
+    step(1, [rally]);
+    for (let i = 0; i < 60 * 12; i += 15) {
+      const h = hud(sim);
+      for (let slot = 0; slot < st.party.length; slot++)
+        expect(!!h.party[slot]!.marcato, `t=${st.time}`).toBe(marcatoOn(st, st.party[slot]!));
+      expect(h.conducting!.marcato!.readyIn).toBe(marcatoReadyIn(st));
+      expect(h.conducting!.marcato!.ready).toBe(marcatoReadyIn(st) === 0);
+      step(15);
+    }
+  });
+});
+
+describe('the beat hint says what a Cue on the downbeat costs', () => {
+  const fighting = (h: ReturnType<typeof hud>) =>
+    evaluateHints({ ...h, encounter: { ...h.encounter, kind: 'skirmish', status: 'fighting' } });
+  it('free without Silent Cues; its surcharge with them', () => {
+    const plain = fighting(hud(conductSim(['a_tempo']).sim)).find((x) => x.id === 'beat')!;
+    expect(plain.text).toContain('it’s free');
+    const { sim } = conductSim(['a_tempo'], { dissonance: [{ id: 'silent_cues', rank: 1 }] });
+    const surcharge = sim.state.mods.cueCostBonus;
+    expect(surcharge).toBeGreaterThan(0);
+    const h = hud(sim);
+    expect(h.conducting!.beat!.downbeatCost).toBe(surcharge);
+    const silent = fighting(h).find((x) => x.id === 'beat')!;
+    expect(silent.text).not.toContain('free');
+    expect(silent.text).toContain(`it costs only ${surcharge} Resonance`);
   });
 });
 

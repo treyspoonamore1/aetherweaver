@@ -554,6 +554,21 @@ describe('his sounds in the fight (real sim)', () => {
       for (const x of freqsOf(b.sources)) expect(inKey(x), `${x}`).toBe(true);
   });
 
+  it('under Silent Cues a Cue on the beat still costs: no glass chime', () => {
+    const t = fight(['a_tempo'], { dissonance: [{ id: 'silent_cues', rank: 1 }] });
+    t.run(30);
+    t.run(1, [debug({ op: 'setResonance', value: 100 })]);
+    // Wait for the downbeat's window, then Cue inside it.
+    while (Math.abs(((t.sim.state.time + 0.05) % BAR_SECONDS) - 0.05) > 0.1) t.run(1);
+    t.run(1, [debug({ op: 'chargeSolos' })]);
+    const paid = t.run(1, [{ t: 'cue', slot: 1 }])[0]!;
+    const chained = ofType(paid.events, 'cueChained')[0]!;
+    expect(chained.onBeat).toBe(true);
+    expect(chained.cost).toBeGreaterThan(0);
+    expect(paid.groups).not.toContain(CONDUCT_SOUND_GROUPS.free);
+    expect(t.conduct().asked.free).toBe(0);
+  });
+
   it('a run without him makes none of his sounds; Sunrise is still Sunrise', () => {
     const f = fight([], { calling: undefined });
     f.run(30);

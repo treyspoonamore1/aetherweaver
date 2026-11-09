@@ -100,9 +100,15 @@ export {
   crescendoCostOf,
   cuePowerOf,
   cueCostNow,
+  ensembleBonus,
+  finaleTurnBlock,
   finaleView,
+  marcatoOn,
+  marcatoReadyIn,
   nextCue,
   onBeat,
+  openChain,
   spotlit,
   triadHolds,
 } from './systems/conducting';
+export type { FinaleTurnBlock } from './systems/conducting';

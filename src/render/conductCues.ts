@@ -9,7 +9,7 @@
  * Conductor's events and the sim's own `beatAt`. No rule of the sim is copied here: a Duet's
  * power, a Cue's cost and who plays next are the sim's, carried by its state and events.
  */
-import { beatAt } from '../sim';
+import { beatAt, marcatoOn, onBeat, openChain } from '../sim';
 import type { ConductingView, EntityId, WorldState } from '../sim';
 import { PALETTE } from './palette';
 
@@ -26,10 +26,12 @@ export const CONDUCTOR = 'conductor';
 export const CONDUCT_HEX = {
   /**
    * The score's ink: the stave under a chain, a lost Finale turn. The doc's indigo (#7f86e6)
-   * deepened: that one is ΔE 16 from Mend under deuteranopia. This is ≥ 25 from Mend and ≥ 20
-   * from an ailment's violet and the auras' periwinkle in every palette (tested).
+   * deepened: that one is ΔE 16 from Mend under deuteranopia. This one is ≥ 20 from Mend, an
+   * ailment's violet, the auras' periwinkle, the ivory and each of the six heroes in every
+   * palette (tested; Oro under tritanopia is the nearest, 23). The UI's ring carries it as the
+   * Conductor's deep end (`CALLING_LOOK.conductor.deep`).
    */
-  ink: '#5a62d0',
+  ink: '#4739ac',
   /** The page's ivory (white-gold): the downbeat's ring, Spotlight's cone. */
   ivory: '#f4eedd',
   /** The Weaver's gold (`PALETTE.gold`): her Cues' chain, its window, the baton's strokes. */
@@ -95,7 +97,7 @@ export function conductLook(state: WorldState, out: ConductLook): ConductLook {
   out.beat = !!view?.beat;
   out.chainLength = chain ? chain.heroes.length : 0;
   out.chainLeft = chain ? chain.left : 0;
-  out.chainOpen = !!chain && chain.left > 0 && chain.heroes.length < 3;
+  out.chainOpen = on && openChain(state) !== null;
   out.finale = !!field?.finale;
   out.triad = field?.triad === true;
   out.streak = field?.streak ? Math.min(3, field.streak.length) : 0;
@@ -109,7 +111,9 @@ export function conductLook(state: WorldState, out: ConductLook): ConductLook {
 /**
  * The chain as the field keeps it (`field.conducting.chain`): its heroes in order, when its
  * window closes (the last Cue's sim time plus `calling.conducting.chainWindow`) and how much of
- * that window is left (1 → 0). Null without a chain, or once its window has passed.
+ * that window is left (1 → 0). Null without a chain, or once its window has passed. A Trio's
+ * chain is still returned while its window lasts (its sigils fade with it), though it is closed:
+ * whether a Cue could still join is the sim's `openChain` (`ConductLook.chainOpen`).
  */
 export function chainOf(
   state: WorldState,
@@ -137,7 +141,7 @@ export interface BeatState {
   /** The downbeat nearest the sim's clock, and the seconds to it (signed: negative is past). */
   nearest: number;
   to: number;
-  /** Inside the downbeat's window: a Cue now is free (the HUD's band; the sim's `onBeat`). */
+  /** Inside the downbeat's window: the sim's `onBeat` (the HUD's band). */
   inWindow: boolean;
   /** 0 → 1 as the window comes near (1 inside it), over the half-bar before it. */
   near: number;
@@ -181,7 +185,7 @@ export function beatOf(state: WorldState, out: BeatState): BeatState {
   out.nearest = b.nearest;
   out.to = b.nearest - state.time;
   const off = Math.abs(out.to);
-  out.inWindow = off <= beat.within + 1e-9;
+  out.inWindow = onBeat(state);
   const lead = Math.max(1e-6, beat.bar * 0.5 - beat.within);
   out.near = out.inWindow ? 1 : Math.max(0, 1 - (off - beat.within) / lead);
   return out;
@@ -206,10 +210,10 @@ export function placeIn(queue: readonly EntityId[], hero: EntityId): number {
   return 0;
 }
 
-/** The heroes holding Marcato now (`field.conducting.marcato`, until its `until`). */
+/** The heroes holding Marcato now (`field.conducting.marcato`, while the sim's `marcatoOn`). */
 export function marcatoHeld(state: WorldState): readonly EntityId[] {
   const m = state.field.conducting?.marcato;
-  if (!m || state.time >= m.until) return NONE;
+  if (!m || m.heroes.length === 0 || !marcatoOn(state, m.heroes[0]!)) return NONE;
   return m.heroes;
 }
 const NONE: readonly EntityId[] = Object.freeze([]);

@@ -27,10 +27,12 @@ import { flareScale } from './relicCues';
  *   last Cued hero to each hero who could join it while its window is open (brighter to one
  *   whose Solo is ready); a small gold sigil over each hero in it; a Duet links their two
  *   sigils; a Trio closes a triangle of light over the three and flashes once (`cueChained`).
- * - **The window**: a thin gold arc at the Weaver's feet, draining with the chain.
+ * - **The window**: a thin gold arc at the Weaver's feet, draining with the chain while it is
+ *   open (the sim's `openChain`: a Trio closes it).
  * - **The beat** (A Tempo, `calling.conducting.beat`): a faint white-gold ring pulses out from
  *   the Weaver on each downbeat of the sim's clock (`beatAt`), brighter while the clock is inside
- *   the downbeat's window; a free Cue (`cueChained.onBeat`) gives a small gold spark on its sigil.
+ *   the downbeat's window; a free Cue (`cueChained.onBeat` at cost 0) gives a small gold spark
+ *   on its sigil.
  * - **Marcato** (`field.conducting.marcato`): a small gold accent mark (>) beside each hero
  *   holding it, until it ends.
  * - **Ensemble** (`field.conducting.streak`): one to three gold motes circling the Weaver.
@@ -204,7 +206,8 @@ export class ConductView {
               for (let k = 0; k < 3; k++) m.heroes[k] = chain.heroes[k] ?? -1;
             }
           }
-          if (e.onBeat) {
+          // Free only when it cost nothing: under Silent Cues a Cue on the beat still costs.
+          if (e.onBeat && e.cost <= 0) {
             this.fired.freeCue++;
             this.alloc('spark', e.hero);
           }
@@ -385,8 +388,9 @@ export class ConductView {
     const left = chain.left;
     const heroes = chain.heroes;
     const n = heroes.length;
-    // The window: a thin gold arc at the Weaver's feet, draining with it.
-    const w = this.d.recs.get(state.weaverId);
+    // The window: a thin gold arc at the Weaver's feet, draining with it, while a Cue could
+    // still join the chain (a Trio closes it).
+    const w = this.look.chainOpen ? this.d.recs.get(state.weaverId) : undefined;
     if (w) {
       kit.rings.push(w.x, 0.045, w.z, 0.9, 0.035, 0.08, RING.plain, GOLD, 0.65, 0, TAU * left);
       this.drawn.window++;

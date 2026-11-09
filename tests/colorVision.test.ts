@@ -763,6 +763,17 @@ describe('the Conductor (docs/phase-5f.md, UI: Look)', () => {
       expect(low, vision).toEqual([]);
     });
 
+    it(`his ring's deep end (the world's ink) is ≥ 20 ΔE from the same set with ${vision}`, () => {
+      const see = (hex: string) => simulateVision(hex, vision);
+      const deep = CALLING_LOOK.conductor!.deep;
+      const low: string[] = [];
+      for (const [name, hex] of against(vision)) {
+        const d = deltaE(see(deep), see(hex));
+        if (d < 20) low.push(`${name} ${hex} ${d.toFixed(1)}`);
+      }
+      expect(low, vision).toEqual([]);
+    });
+
     it(`his three axes are ≥ 25 ΔE apart with ${vision}`, () => {
       const see = (hex: string) => simulateVision(hex, vision);
       const axes = (['lead', 'tempo', 'encore'] as const).map((a) => AXIS_LOOK[a].color);
