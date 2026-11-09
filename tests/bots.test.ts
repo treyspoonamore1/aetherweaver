@@ -3877,7 +3877,7 @@ describe('the Skilled bot with Oro (staged)', () => {
     s.summon!.plantZ = z;
   };
 
-  it('oroFocus: Focuses Kael’s target for a tending Oro, within its crowd guard', () => {
+  it('oroFocus: Focuses Kael’s target for a tending Oro, however many stand (W9 round 2)', () => {
     const focus = (n: number, skip: RosterRule[] = []) => {
       const { sim, w } = grove();
       const hounds = Array.from({ length: n }, (_, i) =>
@@ -3891,8 +3891,30 @@ describe('the Skilled bot with Oro (staged)', () => {
     };
     const two = focus(2);
     expect(two.target).toBe(two.kaels);
-    expect(focus(4).target).toBeNull();
+    // The crowd guard (3) was lifted in W9 round 2: a pack of 6 wakes him on Kael's target too.
+    const six = focus(6);
+    expect(six.target).toBe(six.kaels);
     expect(focus(2, ['oroFocus']).target).toBeNull();
+  });
+
+  it('oroFocus: never a guarded Sentinel while more than 3 stand (the Sentinel crowd guard)', () => {
+    const focus = (n: number) => {
+      const { sim, w } = grove();
+      const sentinel = foe(w, 'crimson_sentinel', 0, -9, { hp: 1e6 });
+      const hounds = Array.from({ length: n - 1 }, (_, i) =>
+        foe(w, 'sanguine_hound', -6 + i * 2, -11, { hp: 1e6 }),
+      );
+      for (const h of [sentinel, ...hounds]) h.enemy!.state = 'approach';
+      w.entities.get(w.party[0]!)!.hero!.targetId = sentinel.id;
+      const out = skilled().decide(sim.state);
+      const f = out.find((c) => c.t === 'directive' && c.kind === 'focus');
+      return { target: f?.t === 'directive' ? f.target : null, sentinel: sentinel.id };
+    };
+    const crowd = focus(5);
+    expect(crowd.target).not.toBeNull();
+    expect(crowd.target).not.toBe(crowd.sentinel);
+    const thin = focus(2);
+    expect(thin.target).toBe(thin.sentinel);
   });
 
   it('oroRally: Rallies a Sapling left outside the field for 2 s, at most every 5 s', () => {
@@ -4028,9 +4050,23 @@ describe('the Skilled bot with Oro (staged)', () => {
     expect(thread(0.5, ['oroThread'])).toBe(false);
   });
 
+  it('oroThread: not while a Thread-cutter stands (the Shears, W9 round 2)', () => {
+    const thread = (shears: boolean) => {
+      const { sim, w, saplings, slot } = grove();
+      for (const s of saplings) s.health!.hp = s.health!.maxHp * 0.5;
+      if (shears) foe(w, 'shears', 12, -20, { hp: 1e6, stun: true });
+      return mendsOn(sim, skilled().decide(sim.state), slot);
+    };
+    expect(thread(false)).toBe(true);
+    expect(thread(true)).toBe(false);
+  });
+
   it('groveCover: weighs the Saplings into where she stands, heroes 2 to them 1', () => {
-    const move = (skip: RosterRule[] = []) => {
-      const { sim, w, saplings } = grove();
+    // W9 round 2: not on the road with a tank in the party, so the staged fight has a boss.
+    const move = (skip: RosterRule[] = [], boss = true, party = ORO_PARTY) => {
+      const { sim, w, saplings } = grove(party);
+      // A boss fight as the rule reads it (`bossId` set; the staging has no boss to place).
+      if (boss) w.encounter.bossId = w.weaverId;
       placeAt(w.entities.get(w.weaverId)!, 0, 0);
       const spots = [
         { x: 3, z: 0 },
@@ -4045,8 +4081,13 @@ describe('the Skilled bot with Oro (staged)', () => {
       return m?.t === 'move' ? m : null;
     };
     // (2 × 3 heroes at z 0 + 2 Saplings at z 9) / 8: 2.25 m toward them.
-    expect(move()!.z).toBeGreaterThan(0.9);
-    expect(move(['groveCover'])!.z).toBe(0);
+    expect(move()!.z - move(['groveCover'])!.z).toBeGreaterThan(0.9);
+    // No boss and Kael in the party: Kael holds the pack, and she stays with the heroes.
+    expect(move([], false)!.z).toBe(0);
+    expect(move([], false)).toEqual(move(['groveCover'], false));
+    // With no tank (OB), on the road as at a boss.
+    const ob = ['lyra', 'vexis', 'oro'];
+    expect(move([], false, ob)!.z - move(['groveCover'], false, ob)!.z).toBeGreaterThan(0.9);
   });
 
   it('oroCue: Wildgrowth on a pack of 3, or while a Sapling stands outside the field', () => {

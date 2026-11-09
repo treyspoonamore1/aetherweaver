@@ -197,16 +197,32 @@ export function duelTarget(world: WorldState, e: ReadonlyEntity): ReadonlyEntity
     if (dx * dx + dz * dz > reach * reach) continue;
     if (enemyDef(m.enemy!.defId).stationary === true) continue;
     if (cold && !m.enemy!.inField) continue;
-    // Kael's: his own target, or an enemy swinging at him (even while he has no target).
+    // Kael's: his own target, or an enemy swinging at him (even while he has no target). In a
+    // boss fight a lesser foe swinging at him is hers to peel (`peelsOffKael`).
     const onKael =
       kaelId !== null &&
-      ((kaelTarget !== null && m.id === kaelTarget) || m.enemy!.targetId === kaelId);
+      ((kaelTarget !== null && m.id === kaelTarget) ||
+        (m.enemy!.targetId === kaelId && !peelsOffKael(world, m)));
     if (best === null || better(m, onKael, best, bestKael)) {
       best = m;
       bestKael = onKael;
     }
   }
   return best;
+}
+
+/**
+ * W9 round 2 (lever 2, docs/phase-5e.md "W9 tuning round 2"): in a boss fight, a normal or elite
+ * enemy swinging at Kael that isn't his own target is not left to him. He holds the boss; the
+ * adds on him (the Cantor's Choristers) are hers to peel. Measured: SC's Kael took twice the
+ * default party's Chorister damage at the Cantor (4,814 against 2,413 a fight) while she duelled
+ * the boss beside him. Off the boss fights (no `bossId`), and for his target and every boss or
+ * miniboss, the rule is as before.
+ */
+function peelsOffKael(world: WorldState, m: ReadonlyEntity): boolean {
+  return (
+    world.encounter.bossId !== null && m.enemy!.tier !== 'boss' && m.enemy!.tier !== 'miniboss'
+  );
 }
 
 /** `a` beats `b`: not Kael's over Kael's, then tier, then max life, then the lower id. */

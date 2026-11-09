@@ -44,9 +44,9 @@
  * Lyra in the roster the hardest hitter breaks a discord shield. Each is behind its hero's reader
  * and draws nothing, so every other party's command stream is unchanged.
  */
-import { CONTENT, heroDef, partyHasDome } from '../content';
+import { CONTENT, attackDef, enemyDef, heroDef, partyHasDome } from '../content';
 import { Rng } from '../sim/core/rng';
-import { bloodRageBonus, gentle, segmentDistSq, weaverSilenced } from '../sim';
+import { bloodRageBonus, gentle, segmentDistSq, specialsOf, weaverSilenced } from '../sim';
 import { contains } from '../sim/combat/telegraphs';
 import { dcos, dsin } from '../sim/core/dmath';
 import type { Command, EntityId, PartySlot, ReadonlyEntity, ThreadMode, WorldState } from '../sim';
@@ -259,7 +259,7 @@ export const ROSTER_RULES = [
   'serenNoSwap',
   /** Cue Thousand Cuts at 4+ enemies or when she is overextended. */
   'serenCue',
-  /** Focus Kael's target (or the boss) while Oro tends with 1-3 enemies standing. */
+  /** Focus Kael's target (or the boss) while Oro tends (no crowd guard since W9 round 2). */
   'oroFocus',
   /** Rally a Sapling left outside every field for 2 s back in (re-planted ahead of her). */
   'oroRally',
@@ -275,8 +275,13 @@ export const ROSTER_RULES = [
 export type RosterRule = (typeof ROSTER_RULES)[number];
 
 // ── Seren's and Oro's levers (docs/phase-5e.md; measured by tools/verbs.ts) ──
-/** `oroFocus`'s crowd guard: Focus for a tending Oro only while no more than this many stand. */
-const ORO_FOCUS_AT = 3;
+/**
+ * `oroFocus`'s crowd guard: Focus for a tending Oro only while no more than this many stand.
+ * Lifted in W9 round 2 (3 → no guard, lever 3): on the road he tended 41-53% of his time behind
+ * it (band ≤ 25%), and with it lifted the Oro parties won more road cells (screen, 25 cells, 48
+ * seeds: OA −3.2 → +0.6 a cell against default, OB +0.5 → +0.8, OC +0.8 → +0.3).
+ */
+const ORO_FOCUS_AT = Infinity;
 /** `oroRally`: a Sapling outside every field this long is Rallied back in (s). */
 const SAPLING_OUT_FOR = 2;
 /** `oroRally`: at most one such Rally this often (s); a Bloodlusting Brann's 8 s holds. */
@@ -455,7 +460,13 @@ export class SkilledBot implements Bot {
     else this.lastCadence = null;
 
     // ── Movement: cover the party with the field, stay out of danger, keep off melee. ──
-    const desired = this.position(state, w, party, enemies, this.on('groveCover') ? grove : null);
+    const desired = this.position(
+      state,
+      w,
+      party,
+      enemies,
+      this.on('groveCover') && groveCovers(state, party) ? grove : null,
+    );
     const step = this.m3Step(state, w, cut, now, desired);
     const danger = threatsOn(state, w).find((t) => t.impact - now < 0.9);
     if (danger) {
@@ -947,6 +958,9 @@ export class SkilledBot implements Bot {
       // Unravel turns Mend to wounds and skips Rootbond (thread.ts), and the Thread moved onto
       // Oro would only be turned to Empower or Bear on a hero who strikes nothing tending.
       !(unravelUp(state) !== null && !state.field.stasis) &&
+      // Nor while a Thread-cutter stands (W9 round 2): the Thread run back to Oro is the line a
+      // Shears dash aims through (`threadLine`), and his Saplings can wait for its Mend.
+      !lineCutterUp(state) &&
       groveWantsMend(
         grove,
         party,
@@ -2384,6 +2398,27 @@ function serenReelDue(state: WorldState, duel: DuelView, w: ReadonlyEntity, reel
 }
 
 /**
+ * `groveCover` (W9 round 2): the Saplings weigh into where she stands except in a fight with no
+ * boss and a tank (Kael) in the party. There Kael holds the pack, and a Weaver drawn out toward
+ * the grove only drew it onto herself (screen, 25 cells, 48 seeds: OA −3.2 → −0.2 a cell against
+ * default, the Weaver's road damage 396 → 347 a fight). At a boss, and with no tank, as before.
+ */
+function groveCovers(state: WorldState, party: readonly HeroView[]): boolean {
+  return state.encounter.bossId !== null || !party.some((h) => h.role === 'tank');
+}
+
+/** `oroThread`'s guard: a standing enemy has a `threadLine` special (Movement III's Shears). */
+function lineCutterUp(state: WorldState): boolean {
+  for (const m of state.entities.list()) {
+    const c = m.enemy;
+    if (!c || !m.health || m.health.dead) continue;
+    for (const id of specialsOf(enemyDef(c.defId), c.affixes))
+      if (attackDef(id).targeting === 'threadLine') return true;
+  }
+  return false;
+}
+
+/**
  * `oroRally`'s boss guard: the boss (or a miniboss) is after a hero whose formation spot is
  * behind the Weaver (Lyra, Vexis, Oro). A Rally then walks that hero home and brings the boss
  * through the Weaver and the grove (OB's bosses, the Unweaver on Lyra in OC). With Kael, Brann
@@ -2455,7 +2490,8 @@ function groveWantsMend(
 /**
  * `oroFocus`: while Oro tends (no Focus stands) and no more than `ORO_FOCUS_AT` enemies stand,
  * the enemy to wake him on: Kael's target, else the boss, else the mobile enemy nearest the
- * Weaver. Undefined otherwise.
+ * Weaver; never a guarded Crimson Sentinel while more than `SENTINEL_FOCUS_AT` stand. Undefined
+ * otherwise.
  */
 function oroFocusTarget(
   state: WorldState,
@@ -2466,11 +2502,16 @@ function oroFocusTarget(
   if (!grove.tending || enemies.length === 0 || enemies.length > ORO_FOCUS_AT) return undefined;
   const kael = party.find((h) => h.role === 'tank')?.e.hero!.targetId ?? null;
   const boss = state.encounter.bossId;
+  // A Crimson Sentinel's guard keeps SENTINEL_FOCUS_AT's crowd guard (W9 round 2): Focused
+  // into a full pack, the party strikes its front (measured with the guard lifted for all:
+  // Shield Wall OC 100 → 68-80%, OB 96-98 → 86-92%).
+  const open = (e: ReadonlyEntity) => enemies.length <= SENTINEL_FOCUS_AT || !guardUp(state, e);
+  const pool = enemies.filter(open);
   return (
-    enemies.find((e) => e.id === kael) ??
-    enemies.find((e) => e.id === boss) ??
+    pool.find((e) => e.id === kael) ??
+    pool.find((e) => e.id === boss) ??
     nearestTo(
-      enemies.filter((e) => !stationary(e)),
+      pool.filter((e) => !stationary(e)),
       weaverOf(state),
     ) ??
     undefined
