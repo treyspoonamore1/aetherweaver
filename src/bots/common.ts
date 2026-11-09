@@ -13,9 +13,13 @@ import { contains, telegraphDamage } from '../sim/combat/telegraphs';
 import { quantize } from '../sim/core/dmath';
 import { rewindCanRevive } from '../sim/systems/rewind';
 import {
+  beatAt,
   bloodlusting,
+  crescendoCostOf,
+  cueCostNow,
   fallingFast,
   gentle,
+  onBeat,
   overextended,
   parryArmed,
   parryable,
@@ -1154,4 +1158,94 @@ export class SilenceWatch {
   burn(state: WorldState): boolean {
     return finaleBurn(state, this.seen);
   }
+}
+
+// ── The Conductor (docs/phase-5f.md, "Bots and harness"): every reader is null, false or empty
+// on a run without the Calling, so the bots' other decisions are untouched. ──
+
+/** The Conductor's numbers this fight (`state.calling.conducting`); the type of its view. */
+export type ConductingView = NonNullable<NonNullable<WorldState['calling']>['conducting']>;
+/** The Conductor's fight state (`state.field.conducting`). */
+export type ConductingField = NonNullable<WorldState['field']['conducting']>;
+
+/** What a Cue costs and what the Crescendo costs are the sim's (re-exported, one rule). */
+export { crescendoCostOf, cueCostNow, onBeat };
+
+/**
+ * The Conductor's view and field; null without the Calling. The field is created with the world
+ * on a Conductor run, so the two are both there or both absent.
+ */
+export function conductingOf(
+  state: WorldState,
+): { view: ConductingView; field: ConductingField } | null {
+  const view = state.calling?.conducting;
+  const field = state.field.conducting;
+  return view && field ? { view, field } : null;
+}
+
+/**
+ * Seconds until the downbeat's window next opens: 0 inside it, null without A Tempo. Uses the
+ * sim's `onBeat` and `beatAt`, so the bot's window is the sim's.
+ */
+export function beatSoon(state: WorldState): number | null {
+  const beat = state.calling?.conducting?.beat;
+  if (!beat) return null;
+  if (onBeat(state)) return 0;
+  const { next } = beatAt(state.time, beat.bar);
+  return Math.max(0, next - beat.within - state.time);
+}
+
+/**
+ * The open chain a Cue could still join: who is in it and how long (s) until its window shuts;
+ * null with no chain, a full one (three long) or a closed window.
+ */
+export function chainOpen(
+  state: WorldState,
+): { heroes: readonly EntityId[]; closesIn: number } | null {
+  const c = conductingOf(state);
+  const chain = c?.field.chain;
+  if (!c || !chain || chain.heroes.length >= 3) return null;
+  const closesIn = chain.at + c.view.chainWindow - state.time;
+  return closesIn >= 0 ? { heroes: chain.heroes, closesIn } : null;
+}
+
+/** The Grand Finale is playing. */
+export function finaleOn(state: WorldState): boolean {
+  return state.field.conducting?.finale !== undefined;
+}
+
+/** Marcato is on the path and can be given now (never given, or its cooldown is over). */
+export function marcatoReady(state: WorldState): boolean {
+  const c = conductingOf(state);
+  if (!c || !c.view.marcato) return false;
+  return !c.field.marcato || state.time >= c.field.marcato.readyAt;
+}
+
+/** A hero able to take a Finale turn now (as the sim reads it: charge aside, not mid-Solo). */
+export function finaleFree(h: HeroView): boolean {
+  const c = h.e.hero!;
+  return (
+    c.soloActive <= 0 && c.hold === null && c.reel === null && !isStilled(h.e) && !isPossessed(h.e)
+  );
+}
+
+/** How far a hero's Solo reaches (m): its own radius or reach, else the hero's attack range. */
+export function soloReach(h: HeroView): number {
+  const def = CONTENT.heroes.find((d) => d.id === h.defId)!;
+  const own = h.e.hero!.soloId === def.solo.id;
+  return own ? (def.solo.radius ?? def.solo.reach ?? def.attack.range) : def.attack.range;
+}
+
+/**
+ * Seconds until a hero's Solo is full from fighting (0 if it is; Infinity when it isn't charging:
+ * mid-Solo or not engaged), from its charge time and the fight's `soloChargeMult`.
+ */
+export function soloFullIn(state: WorldState, h: HeroView): number {
+  const c = h.e.hero!;
+  if (c.solo >= 100) return 0;
+  if (c.soloActive > 0 || !c.engaged) return Infinity;
+  const def = CONTENT.heroes.find((d) => d.id === h.defId)!;
+  const alt = CONTENT.altSolos.find((s) => s.id === c.soloId);
+  const chargeTime = c.soloId === def.solo.id ? def.solo.chargeTime : (alt?.chargeTime ?? 25);
+  return (100 - c.solo) / ((100 / chargeTime) * state.mods.soloChargeMult);
 }

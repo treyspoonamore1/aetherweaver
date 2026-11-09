@@ -23,7 +23,7 @@ import { RelicBar } from './RelicBar';
 import { CallingChip } from './CallingChip';
 import { KeystoneChip } from './KeystoneChip';
 import { DissonanceChip } from './DissonanceChip';
-import { Callouts } from './Callouts';
+import { BANNER_KINDS, Callouts } from './Callouts';
 import { CoachHints } from './CoachHints';
 import { DirectiveWheel, DirectiveWheelView } from './DirectiveWheel';
 import { EncounterHeader } from './EncounterHeader';
@@ -36,6 +36,7 @@ import { rosterHeroes } from '../../meta/bonds';
 import { shownDecreeOf } from './legionLook';
 
 const NO_BOONS: readonly ActiveBoon[] = [];
+
 const NO_RELICS: readonly ReliquaryRelic[] = [];
 
 /**
@@ -146,8 +147,11 @@ export function HudView({
   framesLayout,
   weaverBarLayout,
   healthText,
+  reducedBeat,
 }: {
   hud: HudSnapshot;
+  /** UI lab: the Conductor's beat strip as with reduced motion (omitted: the OS setting). */
+  reducedBeat?: boolean;
   /** Where the party frames sit, how big and which way (Settings, or Edit Layout's draft). */
   framesLayout?: FramesLayout;
   /** Where the Weaver bar sits and how big, likewise. */
@@ -237,11 +241,18 @@ export function HudView({
         />
         {(hud.calling || (hud.astrolabe?.keystones.length ?? 0) > 0 || hud.dissonance) && (
           <div className="flex items-center gap-2">
-            {hud.calling && <CallingChip calling={hud.calling} tiersOpen={tiersOpen} />}
+            {hud.calling && (
+              <CallingChip
+                calling={hud.calling}
+                tiersOpen={tiersOpen}
+                conducting={hud.conducting}
+              />
+            )}
             <KeystoneChip keystones={hud.astrolabe?.keystones ?? []} />
             <DissonanceChip
               dissonance={hud.dissonance}
               cueCost={hud.weaver.cueCost}
+              cueBase={hud.weaver.cueBase}
               open={dissonanceTip}
             />
           </div>
@@ -285,13 +296,24 @@ export function HudView({
         buzz={rejectBuzz(callouts)}
         tip={techniqueTip}
         rejects={rejectCallouts(callouts)}
-        coach={coach && !sandbox ? <CoachHints hud={hud} force={forceCoach} /> : null}
+        coach={
+          coach && !sandbox ? (
+            <CoachHints
+              hud={hud}
+              force={forceCoach}
+              banner={callouts.some((c) => BANNER_KINDS.has(c.kind))}
+            />
+          ) : null
+        }
+        reducedBeat={reducedBeat}
       />
       {keyHints && (
         <KeyHints
           bear={(hud.calling?.bearShare ?? 0) > 0}
           rewind={hud.weaver.rewind !== null}
           techniques={hud.weaver.techniques.map((t) => t.name)}
+          crescendoName={hud.conducting ? hud.weaver.crescendoName : undefined}
+          chainWindow={hud.conducting?.chainWindow}
         />
       )}
       {wheel && (

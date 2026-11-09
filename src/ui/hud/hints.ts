@@ -14,6 +14,7 @@ import { FORTISSIMO_NAME, noteSources } from './finaleLook';
 import { outOfReach } from './duelLook';
 import { saplingsOutside } from './groveLook';
 import { heroPronouns } from '../screens/rosterModel';
+import { linkName } from '../screens/callingText';
 
 /**
  * Contextual coach hints (docs/plan/04 §7). Derived from the HUD snapshot alone; each hint
@@ -126,10 +127,20 @@ export const ANSWER_HINTS: ReadonlySet<string> = new Set([
 ]);
 
 /** All hints that apply right now, most important first. */
-export function evaluateHints(hud: HudSnapshot): Hint[] {
+export function evaluateHints(hud: HudSnapshot, opts: { banner?: boolean } = {}): Hint[] {
   const all = allHints(hud);
-  return hud.dissonance?.blindScore ? all.filter((h) => !ANSWER_HINTS.has(h.id)) : all;
+  // The Conductor's timing hints wait for a quiet moment: not while the Grand Finale plays (its
+  // pips, turns and banner fill the screen) nor while a banner call-out is up.
+  const busy = !!hud.conducting?.finale || !!opts.banner;
+  const shown = busy ? all.filter((h) => !QUIET_HINTS.has(h.id)) : all;
+  return hud.dissonance?.blindScore ? shown.filter((h) => !ANSWER_HINTS.has(h.id)) : shown;
 }
+
+/**
+ * Hints that only open in a quiet moment (docs/phase-5f.md): the chain's and the beat's. An open
+ * one closes at once when the moment stops being quiet (`CoachHints`).
+ */
+export const QUIET_HINTS: ReadonlySet<string> = new Set(['chain', 'beat']);
 
 function allHints(hud: HudSnapshot): Hint[] {
   if (hud.encounter.kind === 'sandbox' || hud.encounter.status !== 'fighting') return [];
@@ -355,9 +366,13 @@ function allHints(hud: HudSnapshot): Hint[] {
           : `Your beam song pours into whoever you thread: ${mult(beam.focus)} on ${focused.name}, and nobody else`,
     });
   }
+  // The Conductor (docs/phase-5f.md): chain a Duet, Cue on the downbeat, the Grand Finale.
+  // Before the plain Cue's hint: a chain's window is the more urgent.
+  out.push(...conductingHints(hud));
   // What a Cue costs is the fight's (Silent Cues, Phase 4d, raises it past a segment).
   const cueHero = party.find((h) => h.soloReady && alive(h));
-  if (cueHero && w.resonance + 1e-9 >= w.cueCost) {
+  // During the Grand Finale a Cue only makes that hero's turn wait: say nothing then.
+  if (cueHero && w.resonance + 1e-9 >= w.cueCost && !hud.conducting?.finale) {
     out.push({
       id: 'cue',
       text: cueHero.soloAuto
@@ -365,7 +380,7 @@ function allHints(hud: HudSnapshot): Hint[] {
         : `${cueHero.name}'s ${cueHero.soloName} is ready — press {⇧${cueHero.slot + 1}} to Cue it (costs ${w.cueCost === w.segment ? 'one Resonance segment' : `${w.cueCost} Resonance`})`,
     });
   }
-  if (w.resonance >= w.crescendoCost && w.crescendo <= 0) {
+  if (w.resonance >= w.crescendoCost && w.crescendo <= 0 && !hud.conducting) {
     out.push({
       id: 'crescendo',
       text: `Resonance is full — press {${bindingLabel('crescendo')}} for ${w.crescendoName}`,
@@ -449,6 +464,38 @@ function allHints(hud: HudSnapshot): Hint[] {
       text: `Everyone is healthy — press {RMB} to switch the Thread to Empower and add damage`,
     });
   }
+  return out;
+}
+
+/**
+ * The Conductor's three lessons (docs/phase-5f.md "Hints"): `chain` while a chain is open and
+ * another ready hero would join it, `beat` (A Tempo) while a hero is ready to Cue, and `finale`
+ * when the Grand Finale can be sung. Its window, cost and link are the sim's (`hud.conducting`).
+ */
+function conductingHints(hud: HudSnapshot): Hint[] {
+  const c = hud.conducting;
+  if (!c) return [];
+  const out: Hint[] = [];
+  const w = hud.weaver;
+  const ready = hud.party.filter((h) => alive(h) && h.soloReady && h.cue);
+  const chained = c.chain
+    ? ready.find((h) => h.cue!.link > 1 && w.resonance + 1e-9 >= h.cue!.cost)
+    : undefined;
+  if (c.chain && chained)
+    out.push({
+      id: 'chain',
+      text: `Cue another within ${Number(c.chain.total.toFixed(1))} s for a ${linkName(chained.cue!.link)}: ${chained.name}, {⇧${chained.slot + 1}}`,
+    });
+  if (c.beat && ready.length > 0)
+    out.push({
+      id: 'beat',
+      text: `Cue on the downbeat: it’s free. The light under your Resonance shows the beat`,
+    });
+  if (c.finale === null && w.crescendo <= 0 && w.resonance + 1e-9 >= w.crescendoCost)
+    out.push({
+      id: 'finale',
+      text: `${w.crescendoName} {${bindingLabel('crescendo')}} plays every Solo, rising, then fills them all`,
+    });
   return out;
 }
 

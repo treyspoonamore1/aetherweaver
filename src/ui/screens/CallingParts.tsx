@@ -102,7 +102,7 @@ export function OptionLine({
       <span
         className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border"
         style={{
-          color: chosen ? look.light : look.color,
+          color: chosen ? look.light : look.text,
           borderColor: chosen ? look.color : `color-mix(in srgb, ${look.color} 45%, transparent)`,
           background: chosen
             ? `color-mix(in srgb, ${look.color} 28%, rgb(10 16 34 / 0.9))`
@@ -114,7 +114,7 @@ export function OptionLine({
       </span>
       <span className="min-w-0">
         <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-          <b className="text-sm font-semibold" style={{ color: look.color }}>
+          <b className="text-sm font-semibold" style={{ color: look.text }}>
             {option.name}
           </b>
           <AxisChip optionId={option.id} all />
@@ -196,7 +196,7 @@ export function CallingTitle({
       <span className="min-w-0">
         <span
           className={`block font-display font-bold leading-tight ${compact ? 'text-lg' : 'text-xl'}`}
-          style={{ color: muted ? 'var(--color-text)' : look.color }}
+          style={{ color: muted ? 'var(--color-text)' : look.text }}
         >
           The {def.name}
         </span>
@@ -253,7 +253,7 @@ export function CallingPathPreview({
             <p className="flex items-baseline justify-between gap-2">
               <span
                 className="font-display text-sm font-bold"
-                style={{ color: locked ? 'var(--color-text)' : look.color }}
+                style={{ color: locked ? 'var(--color-text)' : look.text }}
               >
                 Tier {s.numeral}
               </span>
@@ -311,7 +311,7 @@ export function CallingStripItem({
         <>
           <span className="flex items-center gap-2">
             <CallingEmblem callingId={def.id} icon={def.icon} size={26} />
-            <b className="font-display text-base" style={{ color: look.color }}>
+            <b className="font-display text-base" style={{ color: look.text }}>
               The {def.name}
             </b>
             <span className="text-xs italic text-muted">{def.title}</span>
@@ -330,14 +330,14 @@ export function CallingStripItem({
               <li key={l.numeral} className="flex items-start gap-2">
                 <span
                   className="mt-0.5 w-6 shrink-0 font-display text-xs font-bold"
-                  style={{ color: l.chosen ? look.color : 'var(--color-muted)' }}
+                  style={{ color: l.chosen ? look.text : 'var(--color-muted)' }}
                 >
                   {l.numeral}
                 </span>
                 <span className="min-w-0 text-xs leading-relaxed">
                   <b
                     className="font-semibold"
-                    style={{ color: l.chosen ? look.color : 'var(--color-text)' }}
+                    style={{ color: l.chosen ? look.text : 'var(--color-text)' }}
                   >
                     {l.title}
                   </b>{' '}

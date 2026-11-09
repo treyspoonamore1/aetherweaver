@@ -277,12 +277,15 @@ export interface StatLine {
 /**
  * The Calling's line (Phase 3c, 3d, 3e): "Radiance: +412 damage through your heroes · Haloed: 96
  * damage kept off", named by the path; the Martyr's "Bore 640 for your heroes · 1,280 kept off
- * them"; the Chronomancer's "Rewind gave back 1,240 life · stood 1 hero back up"; nothing if it
- * did nothing (or there is no Calling).
+ * them"; the Chronomancer's "Rewind gave back 1,240 life · stood 1 hero back up"; the
+ * Conductor's "+412 damage through your heroes · 3 Duets · 1 Trio · Grand Finale played 6 Solos ·
+ * 4 free Cues"; nothing if it did nothing (or there is no Calling).
  */
 export function callingLine(
   s: Pick<EncounterStats, 'callingAmplified' | 'callingShielded'> &
-    Partial<Pick<EncounterStats, 'callingBorne' | 'callingRewound' | 'callingRevived'>>,
+    Partial<
+      Pick<EncounterStats, 'callingBorne' | 'callingRewound' | 'callingRevived' | 'conducting'>
+    >,
   calling: (Pick<RunCalling, 'path'> & { id?: string }) | null | undefined,
 ): StatLine | null {
   const text = callingResultLine(s, calling ?? null);

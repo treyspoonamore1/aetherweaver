@@ -289,7 +289,7 @@ export function ResultView({
                     name={l.icon}
                     size={18}
                     className={`mt-0.5 shrink-0 ${l.muted ? 'text-ink-500' : 'text-gold-300'}`}
-                    style={l.calling ? { color: callingLook(run.calling?.id).color } : undefined}
+                    style={l.calling ? { color: callingLook(run.calling?.id).text } : undefined}
                   />
                   {l.text}
                 </li>

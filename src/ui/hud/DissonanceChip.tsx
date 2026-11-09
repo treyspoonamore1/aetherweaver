@@ -14,16 +14,19 @@ import type { DissonanceHud } from '../store';
 export function DissonanceChip({
   dissonance,
   cueCost,
+  cueBase,
   open = false,
 }: {
   dissonance: DissonanceHud | null;
   /** What a Cue costs this fight (`WeaverHud.cueCost`). */
   cueCost: number;
+  /** What it would cost without Dissonance (`WeaverHud.cueBase`; Phase 5f: the Conductor's 15). */
+  cueBase?: number;
   /** UI lab: the tooltip shown. */
   open?: boolean;
 }) {
   if (!dissonance) return null;
-  const v = hudDissonanceView(dissonance.levels, cueCost);
+  const v = hudDissonanceView(dissonance.levels, cueCost, cueBase);
   const raised = v.cueRaised;
   return (
     <Tip

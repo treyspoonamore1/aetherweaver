@@ -6,7 +6,9 @@
  * through `npm run golden:update`; only new scenarios and `contentVersion` may change. Movement
  * III's four goldens are pinned beside them at the slice's hand-off, for the Finale slice, and
  * the Finale's four (docs/phase-5d.md) at its hand-off, for the next. Seren's and Oro's six
- * (docs/phase-5e.md, W8) are appended after the nineteen, which come first and unchanged.
+ * (docs/phase-5e.md, W8) are appended after the nineteen, which come first and unchanged. The
+ * Conductor Calling's three (docs/phase-5f.md, W4) follow the twenty-five, which come first and
+ * unchanged.
  */
 import { describe, expect, it } from 'vitest';
 import { CONTENT } from '../../src/content';
@@ -82,6 +84,20 @@ const ROSTER_HASHES: Readonly<Record<string, string>> = {
 /** All twenty-five goldens, in golden.json's order. */
 const ALL_PINNED: Readonly<Record<string, string>> = { ...NINETEEN, ...ROSTER_HASHES };
 
+/**
+ * The Conductor Calling's three goldens (docs/phase-5f.md, W4), appended after the twenty-five.
+ * Unlike them they are re-recorded when the Conductor's numbers or its bots' rules are tuned
+ * (W5); the twenty-five never are.
+ */
+const CONDUCTING_HASHES: Readonly<Record<string, string>> = {
+  'skilled-conducting-bellwarden': 'c11be67e55bfb7df',
+  'novice-conducting-first-light': '3841213b5513b682',
+  'skilled-conducting-silent': 'e5a4591944bfaf5f',
+};
+
+/** All twenty-eight goldens, in golden.json's order. */
+const ALL_GOLDENS: Readonly<Record<string, string>> = { ...ALL_PINNED, ...CONDUCTING_HASHES };
+
 describe('Movement I is unchanged (docs/phase-5a.md)', () => {
   it('SIM_VERSION is still 22', () => {
     expect(SIM_VERSION).toBe(22);
@@ -108,11 +124,28 @@ describe('Movement I is unchanged (docs/phase-5a.md)', () => {
       expect((golden.scenarios as Record<string, string>)[name], name).toBe(hash);
   });
 
-  it('golden.json holds exactly the twenty-five pinned hashes, in order (docs/phase-5e.md)', () => {
+  it('golden.json holds the twenty-five pinned hashes first, in order (docs/phase-5e.md)', () => {
     expect(Object.keys(ROSTER_HASHES)).toHaveLength(6);
     expect(Object.keys(ALL_PINNED)).toHaveLength(25);
-    expect(golden.scenarios).toStrictEqual(ALL_PINNED);
-    expect(Object.keys(golden.scenarios)).toEqual(Object.keys(ALL_PINNED));
+    expect(Object.keys(golden.scenarios).slice(0, 25)).toEqual(Object.keys(ALL_PINNED));
+    for (const [name, hash] of Object.entries(ALL_PINNED))
+      expect((golden.scenarios as Record<string, string>)[name], name).toBe(hash);
+  });
+
+  it('golden.json holds exactly the twenty-eight, in order (docs/phase-5f.md)', () => {
+    expect(Object.keys(CONDUCTING_HASHES)).toHaveLength(3);
+    expect(Object.keys(ALL_GOLDENS)).toHaveLength(28);
+    expect(golden.scenarios).toStrictEqual(ALL_GOLDENS);
+    expect(Object.keys(golden.scenarios)).toEqual(Object.keys(ALL_GOLDENS));
+  });
+
+  it('the three Conductor goldens play the Calling, and the twenty-five before them none', () => {
+    for (const name of Object.keys(CONDUCTING_HASHES))
+      expect(SCENARIOS.find((s) => s.name === name)?.config?.calling?.id, name).toBe('conductor');
+    for (const name of Object.keys(ALL_PINNED))
+      expect(SCENARIOS.find((s) => s.name === name)?.config?.calling?.id, name).not.toBe(
+        'conductor',
+      );
   });
 
   it('the six roster goldens play the parties the doc names, with Seren or Oro in each', () => {
@@ -133,7 +166,7 @@ describe('Movement I is unchanged (docs/phase-5a.md)', () => {
     }
   });
 
-  for (const [name, hash] of Object.entries(ALL_PINNED))
+  for (const [name, hash] of Object.entries(ALL_GOLDENS))
     it(`scenario "${name}" reproduces its pinned hash`, () => {
       const scenario = SCENARIOS.find((s) => s.name === name);
       expect(scenario, name).toBeDefined();

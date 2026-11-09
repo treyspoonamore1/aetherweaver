@@ -7,6 +7,7 @@ import { runScenario } from '../../tools/runScenario';
 import {
   SCENARIOS,
   SCENARIO_BRANN_CRIMSON_GATE,
+  SCENARIO_CONDUCTING_BELLWARDEN,
   SCENARIO_CONDUCTOR,
   SCENARIO_FIRST_LIGHT,
   SCENARIO_ORO_BELLWARDEN,
@@ -56,7 +57,8 @@ describe('determinism (docs/plan/05 §4.9)', () => {
   // The Unweaver (docs/phase-5c.md): cuts, zones, the stolen verse, Unravel and the champion.
   // The Conductor (docs/phase-5d.md): Cues, Solos, Discord, Fortissimo Silence, the Grand
   // Silence's notes, Reignite and the burn. Seren and Oro (docs/phase-5e.md): parries, counters
-  // and kill shots; summon entities, their taunts, roots, felling and re-sprouting.
+  // and kill shots; summon entities, their taunts, roots, felling and re-sprouting. The Conductor
+  // Calling (docs/phase-5f.md): chains, the beat, Reprise and a Grand Finale of two passes.
   for (const scenario of [
     SCENARIO_PATROL,
     SCENARIO_FIRST_LIGHT,
@@ -66,6 +68,7 @@ describe('determinism (docs/plan/05 §4.9)', () => {
     SCENARIO_CONDUCTOR,
     SCENARIO_SEREN_CRIMSON_GATE,
     SCENARIO_ORO_BELLWARDEN,
+    SCENARIO_CONDUCTING_BELLWARDEN,
   ]) {
     it(`a recorded replay of "${scenario.name}" survives a JSON round-trip and re-simulates bit-exactly`, () => {
       const { replay, hash } = runScenario(scenario);

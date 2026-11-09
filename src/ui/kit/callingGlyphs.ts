@@ -1,5 +1,6 @@
 /**
- * Line-art glyphs for Callings and their path options (Phase 3c, 3d, 3e), keyed by content `icon`.
+ * Line-art glyphs for Callings and their path options (Phase 3c, 3d, 3e, 5f), keyed by content
+ * `icon`.
  * Same 24×24 grid, stroke and round caps as the Icon kit and the relic glyphs.
  */
 export const CALLING_GLYPHS: Readonly<Record<string, string>> = {
@@ -78,6 +79,29 @@ export const CALLING_GLYPHS: Readonly<Record<string, string>> = {
   // Eternal Moment: a Ward with time held still inside it.
   eternal:
     'M12 2.8l7.4 3.1v5.6c0 4.8-3.1 8.2-7.4 9.7-4.3-1.5-7.4-4.9-7.4-9.7V5.9z M9.4 7.6h5.2 M9.4 16.2h5.2 M10.2 7.6c0 2.2 1.8 2.9 1.8 4.3s-1.8 2.1-1.8 4.3 M13.8 7.6c0 2.2-1.8 2.9-1.8 4.3s1.8 2.1 1.8 4.3',
+  // The Conductor (docs/phase-5f.md): the beat pattern a conductor's hand draws in four (down,
+  // left, right, up), its downbeat marked below. Not a baton: the stick is the Silent Conductor's.
+  conductor:
+    'M12 3.5V16.5 M12 16.5c-2.6 0-5.4-1.2-7-3.4 M5 13.1c4.6 1.5 9.4 1.5 14 0 M19 13.1C18 8.6 15.4 5 12 3.5 M12 20.4h.01',
+  // Marcato: the accent's wedge over a note.
+  marcato: 'M7 8l5-5 5 5 M13.5 19a2.5 2.5 0 1 1-2.5-2.5A2.5 2.5 0 0 1 13.5 19z M13.5 19V10.5',
+  // A Tempo: a metronome, its pendulum swinging to the beat.
+  a_tempo: 'M8.5 3.5h7l3.5 17H5z M6.1 15.5h11.8 M12 15.5l4.2-9 M15 8.2h2.4',
+  // Reprise: a repeat sign, and the turn back to the start.
+  reprise:
+    'M4 4v16 M7 4v16 M10 9.5h.01 M10 14.5h.01 M14.2 12a4.4 4.4 0 1 0 1.3-3.1 M15.3 5.8v3.1h3.1',
+  // Upbeat: the pick-up, rising off the bar line before the first beat.
+  upbeat: 'M3 19.5h18 M12 16.5V4.5 M8 8.5l4-4 4 4 M6.5 19.5v-3 M17.5 19.5v-3',
+  // Ensemble: three notes beamed together, each a step higher.
+  ensemble:
+    'M5 18a2 2 0 1 0 4 0 2 2 0 0 0-4 0z M10.5 16a2 2 0 1 0 4 0 2 2 0 0 0-4 0z M16 14a2 2 0 1 0 4 0 2 2 0 0 0-4 0z M9 18V7.5 M14.5 16V6 M20 14V4.5 M9 7.5l11-3',
+  // Spotlight: a cone of light on one figure.
+  spotlight:
+    'M9.5 3h5 M9.5 3L4 18 M14.5 3L20 18 M4 18c2.5 2 13.5 2 16 0 M12 10.5a2 2 0 1 0 0 4 2 2 0 0 0 0-4z',
+  // Triad: three heroes held in your field, a triangle in its circle.
+  triad: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z M12 6.5l5.2 9H6.8z',
+  // Maestro: a crescendo's hairpin, twice, still rising.
+  maestro: 'M3 12l7.5-5 M3 12l7.5 5 M12 12l9-6.5 M12 12l9 6.5',
 };
 
 /** A Calling glyph's path data (a plain diamond for an unknown key). */

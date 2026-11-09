@@ -353,6 +353,7 @@ function mockHudRaw(scenario: HudScenario): HudSnapshot {
       resonanceMax: 100,
       segment: 25,
       cueCost: CONTENT.resonance.cueCost,
+      cueBase: CONTENT.resonance.cueCost,
       crescendoCost: 100,
       crescendo: 0,
       crescendoName: CONTENT.crescendo.name,
@@ -1238,6 +1239,27 @@ export function fakeOutcome(
     holds: Math.max(1, markers.filter((m) => m.kind === 'hold').length),
     timeline,
     markers,
+    // The Conductor's tallies (docs/phase-5f.md): his Duets, Trios, free Cues and Finales.
+    ...(run.calling?.id === 'conductor'
+      ? {
+          conducting: {
+            duets: 2 + Math.floor(rnd() * 3),
+            trios: path.includes('reprise') ? 1 + Math.floor(rnd() * 2) : Math.floor(rnd() * 2),
+            freeCues: path.includes('a_tempo') ? 2 + Math.floor(rnd() * 4) : 0,
+            saved: 40 + Math.floor(rnd() * 60),
+            finales: node?.kind === 'boss' || node?.kind === 'miniboss' ? 1 : 0,
+            finaleSolos:
+              node?.kind === 'boss' || node?.kind === 'miniboss'
+                ? path.includes('maestro')
+                  ? 6
+                  : 3
+                : 0,
+            finaleLost: 0,
+            reprised: path.includes('reprise') ? 60 : 0,
+            marcatos: path.includes('marcato') ? 3 : 0,
+          },
+        }
+      : {}),
   };
   return {
     encounterId: encId,

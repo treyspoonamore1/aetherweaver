@@ -32,6 +32,8 @@ import { MARTYR_HEX } from '../src/render/martyrCues';
 import { BRASS_TRIM, ORO_SEED, SEREN_STEEL, buildHero } from '../src/render/models/library';
 import { SILENCE_INK } from '../src/ui/hud/finaleLook';
 import { PALETTE } from '../src/render/palette';
+import { CALLING_LOOK } from '../src/ui/kit/callingLook';
+import { AXIS_LOOK } from '../src/ui/screens/callingText';
 
 /** Every role a palette must define (the keys of VisionPalette, taken from the standard one). */
 const ROLES = Object.keys(VISION_PALETTES.normal) as (keyof VisionPalette)[];
@@ -712,4 +714,64 @@ describe('Seren and Oro (docs/phase-5e.md, Colour)', () => {
     expect(signalHex('seren', seren)).not.toBe(SEREN_STEEL);
     expect(cueHex('seren')).not.toBe(SEREN_STEEL);
   });
+});
+
+describe('the Conductor (docs/phase-5f.md, UI: Look)', () => {
+  /**
+   * His accent is ink, never gold (the Weaver's). The doc's three starting colours, in order:
+   * the indigo ink #7f86e6 (3.4 ΔE from Kael under protanopia), the ivory #f4eedd (14.1 from Mend
+   * under protanopia, 14.2 from the common relics' silver under tritanopia), the plum-ebony
+   * #3a2f55: the first to clear 20 everywhere, so his. His ivory carries his glyphs and words.
+   */
+  const ink = CALLING_LOOK.conductor!.color;
+  const against = (vision: (typeof COLOR_VISIONS)[number]): [string, string][] => {
+    const p = VISION_PALETTES[vision];
+    return [
+      ['Luminary', CALLING_LOOK.luminary!.color],
+      ['Martyr', CALLING_LOOK.martyr!.color],
+      ['Chronomancer', CALLING_LOOK.chronomancer!.color],
+      ['Mend', p.mend],
+      ['Empower', p.empower],
+      ['Mend (standard)', VISION_PALETTES.normal.mend],
+      ['Empower (standard)', VISION_PALETTES.normal.empower],
+      // RELIC_RARITY in src/ui/kit/RelicGlyph.tsx (a .tsx module the node config can't load).
+      ['common', '#cbd5e1'],
+      ['rare', '#60a5fa'],
+      ['epic', '#fdba74'],
+      ['cursed', '#fb7185'],
+      ...CONTENT.heroes.map((h): [string, string] => [h.id, h.color]),
+    ];
+  };
+
+  it('is the first of the doc’s three that clears, and never the Weaver’s gold', () => {
+    expect(ink).toBe('#3a2f55');
+    expect(CALLING_LOOK.conductor!.light).toBe('#f4eedd');
+    for (const vision of COLOR_VISIONS)
+      expect(
+        deltaE(simulateVision(ink, vision), simulateVision(VISION_PALETTES[vision].amp, vision)),
+      ).toBeGreaterThanOrEqual(20);
+  });
+
+  for (const vision of COLOR_VISIONS) {
+    it(`his ink is ≥ 20 ΔE from the Callings, Mend, Empower, the relic rarities and the six heroes with ${vision}`, () => {
+      const see = (hex: string) => simulateVision(hex, vision);
+      const low: string[] = [];
+      for (const [name, hex] of against(vision)) {
+        const d = deltaE(see(ink), see(hex));
+        if (d < 20) low.push(`${name} ${hex} ${d.toFixed(1)}`);
+      }
+      expect(low, vision).toEqual([]);
+    });
+
+    it(`his three axes are ≥ 25 ΔE apart with ${vision}`, () => {
+      const see = (hex: string) => simulateVision(hex, vision);
+      const axes = (['lead', 'tempo', 'encore'] as const).map((a) => AXIS_LOOK[a].color);
+      for (let i = 0; i < axes.length; i++)
+        for (let j = i + 1; j < axes.length; j++)
+          expect(
+            deltaE(see(axes[i]!), see(axes[j]!)),
+            `${axes[i]} vs ${axes[j]}`,
+          ).toBeGreaterThanOrEqual(25);
+    });
+  }
 });

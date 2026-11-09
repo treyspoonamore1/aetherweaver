@@ -47,7 +47,7 @@ import { ENEMY_LORE } from '../hud/finaleLook';
 import { callingLook } from '../kit/CallingGlyph';
 import { AxisLegend, CallingPassive, CallingPathPreview, CallingTitle } from './CallingParts';
 import { callingOpen } from './CallingPicker';
-import { tierWhenList } from './callingText';
+import { conductorDef, crescendoName, tierWhenList } from './callingText';
 import { useAllowance } from './PrepScreen';
 import { ASTROLABE_RANK, astrolabePoints } from '../../meta/astrolabe';
 import { DEED_POINTS_MAX, deedPoints } from '../../meta/deeds';
@@ -379,7 +379,7 @@ function Callings({ allowance }: { allowance: Allowance }) {
                 <CallingTitle def={def} size={64} muted={!open} />
                 <span className="flex items-center gap-2">
                   {open ? (
-                    <Chip color={look.color} icon={look.icon}>
+                    <Chip color={look.text} icon={look.icon}>
                       {allowance.all ? 'Open (unlocks skipped)' : `Unlocked at Rank ${rank}`}
                     </Chip>
                   ) : (
@@ -735,6 +735,8 @@ function Weaver() {
   const t = CONTENT.techniques;
   // The Calling whose Rewind takes Reel's key (Phase 3e), for Reel's entry.
   const rewind = CONTENT.callings.find((c) => (c.values.rewind ?? 0) > 0);
+  // The Calling whose Cues chain into Duets and Trios (Phase 5f), for Resonance's entry.
+  const conductor = conductorDef();
   const r = CONTENT.resonance;
   const th = CONTENT.thread;
   const entries: {
@@ -792,7 +794,7 @@ function Weaver() {
       name: 'Resonance',
       icon: 'note',
       keys: 'T / R',
-      body: `Good support fills the Resonance arc (${r.max} in segments of ${r.segment}). A Cue (T, or Shift + a hero's number) spends one segment to fire a charged Solo with a bonus. Crescendo (R) spends it all on ${CONTENT.crescendo.name}: ${CONTENT.crescendo.description}`,
+      body: `Good support fills the Resonance arc (${r.max} in segments of ${r.segment}). A Cue (T, or Shift + a hero's number) spends one segment to fire a charged Solo with a bonus. Crescendo (R) spends it all on ${CONTENT.crescendo.name}: ${CONTENT.crescendo.description}${conductor ? ` On a ${conductor.name} run a Cue costs ${conductor.values.cue ?? r.segment}, and a Cue within ${conductor.values.chain ?? 0} s of the last plays as a Duet, ${conductor.values.duet ?? 0}% stronger; a third in a row is a Trio, ${conductor.values.trio ?? 0}% stronger. His Crescendo is ${crescendoName(conductor)}.` : ''}`,
       stats: [
         `Perfect Ward +${r.gains.perfectWard}`,
         `Save +${r.gains.save}`,

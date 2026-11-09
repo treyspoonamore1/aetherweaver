@@ -49,7 +49,7 @@ import {
   summonSupport,
 } from '../systems/grove';
 import { summonFell } from '../systems/summons';
-import { conductingMult, cuePowerOf } from '../systems/conducting';
+import { conductingMult, cuePowerOf, spotlit } from '../systems/conducting';
 import { markStatusOf } from './telegraphs';
 import {
   afterBloodDamage,
@@ -1859,7 +1859,11 @@ export function killEnemy(world: World, e: Entity, killer: Entity | null): void 
   });
   if (killer?.hero && world.entities.get(world.weaverId)?.weaver) {
     const w = world.entities.get(world.weaverId)!.weaver!;
-    if (w.threadMode === 'empower' && w.threadSlot === killer.hero.slot) {
+    // The Conductor's Spotlight counts as Empower for an Empowered kill (docs/phase-5f.md).
+    if (
+      (w.threadMode === 'empower' && w.threadSlot === killer.hero.slot) ||
+      (world.field.conducting && spotlit(world, killer.id) > 0)
+    ) {
       gainResonance(world, world.content.resonance.gains.empoweredKill, 'empowered kill');
     }
   }

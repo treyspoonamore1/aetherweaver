@@ -25,10 +25,10 @@ export function callingOpen(allowance: Allowance, id: string): boolean {
  * Prep's Calling picker (Phase 3c, 3d, 3e): "No Calling" and each Calling as a compact card,
  * side by side (emblem, its one-line summary, its Crescendo, the four picks), with the passive
  * and the whole path in a dialog. Locked Callings show their Rank and what they are, and can't
- * be chosen. Three Callings and "No Calling" fit a 1280×720 screen above Embark, with the
- * "Newly unlocked" strip. Phase 4g: each card's picks show the tiers its mastery keeps shut as
- * locked, and the chosen Calling's mastery, what its next level opens and the tiers this run will
- * offer sit under the cards.
+ * be chosen. Four Callings and "No Calling" fit a 1280×720 screen above Embark, with the
+ * "Newly unlocked" strip; below 74rem they wrap to two rows (Phase 5f). Phase 4g: each card's
+ * picks show the tiers its mastery keeps shut as locked, and the chosen Calling's mastery, what
+ * its next level opens and the tiers this run will offer sit under the cards.
  */
 export function CallingPicker({
   chosen,
@@ -86,7 +86,9 @@ export function CallingPicker({
         </p>
       </div>
       <div
-        className="grid gap-3 md:grid-cols-[11rem_repeat(var(--callings),minmax(0,1fr))]"
+        // Four Callings beside No Calling fill one row from 74rem (1184 px); narrower, they wrap
+        // to two rows of three (Phase 5f), so no card is squeezed below its footer's width.
+        className="grid gap-3 md:grid-cols-3 min-[74rem]:grid-cols-[11rem_repeat(var(--callings),minmax(0,1fr))]"
         style={{ '--callings': Math.max(1, callings.length) } as CSSProperties}
         role="radiogroup"
         aria-labelledby="calling-title"
@@ -200,8 +202,10 @@ function CallingCard({
         open ? '' : 'border-dashed'
       }`}
       style={{
+        // `text` is the accent itself for the first three; the Conductor's ivory (his ink is too
+        // dark to mark the card on the screen's own dark).
         borderColor: selected
-          ? look.color
+          ? look.text
           : open
             ? `color-mix(in srgb, ${look.color} 35%, var(--color-ink-600))`
             : 'var(--color-ink-500)',
@@ -241,7 +245,7 @@ function CallingCard({
             {selected && (
               <span
                 className="inline-flex items-center gap-1 rounded-md px-1.5 text-xs font-bold leading-5 text-ink-950"
-                style={{ background: look.color }}
+                style={{ background: look.text }}
               >
                 <Icon name="check" size={12} /> Chosen
               </span>
@@ -290,7 +294,7 @@ function CallingCard({
           {level !== undefined && open && (
             <span
               className="whitespace-nowrap text-xs font-semibold"
-              style={{ color: look.color }}
+              style={{ color: look.text }}
               title={`Playing the ${def.name} earns its mastery, which opens its path's tiers`}
               data-testid={`calling-level-${def.id}`}
             >
@@ -338,7 +342,7 @@ function CallingPathDialog({
       </div>
       <p
         className="mb-2 mt-4 text-xs font-semibold uppercase tracking-wider"
-        style={{ color: look.color }}
+        style={{ color: look.text }}
       >
         The path · one of two at each tier, for the rest of the run
       </p>

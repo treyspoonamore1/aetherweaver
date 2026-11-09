@@ -44,7 +44,48 @@ export interface CuePrimer {
   cost: number;
 }
 
-function rows(bear: boolean, rewind: RewindPrimer | null, cue: CuePrimer | null): Row[] {
+/**
+ * Phase 5f: the Conductor's Cues, as this fight has them (`HudSnapshot.conducting`): what a Cue
+ * costs, the chain's window, a Duet's and a Trio's power, and the Crescendo's name and cost.
+ */
+export interface ConductPrimer {
+  cueCost: number;
+  chainWindow: number;
+  duet: number;
+  trio: number;
+  crescendoName: string;
+  crescendoCost: number;
+}
+
+/** "+25%" from a power of 1.25. */
+function morePct(power: number): string {
+  return `${Math.round((power - 1) * 100)}%`;
+}
+
+function cueRow(cue: CuePrimer | null, conduct: ConductPrimer | null): Row {
+  if (conduct)
+    return {
+      icon: 'chain',
+      keys: [bindingLabel('cue'), bindingLabel('crescendo')],
+      title: 'Lead them: Duets and Trios',
+      body: `Good support fills Resonance. As the Conductor a Cue costs ${conduct.cueCost}${cue ? ` (${levelName('cue_cost')} raises it this run)` : ''}. Cue a second hero within ${Number(conduct.chainWindow.toFixed(1))} s of the first and their Solo plays as a Duet, ${morePct(conduct.duet)} stronger; a third in a row is a Trio, ${morePct(conduct.trio)} stronger. ${conduct.crescendoName} costs ${conduct.crescendoCost}: every hero plays their Solo in turn, rising, then every Solo is full again.`,
+    };
+  return {
+    icon: 'note',
+    keys: [bindingLabel('cue'), bindingLabel('crescendo')],
+    title: 'Build Resonance',
+    body: cue
+      ? `Good support fills Resonance. Spend ${cue.cost} Resonance to Cue a charged hero’s Solo (${levelName('cue_cost')} raises it this run), or a full song on your Crescendo.`
+      : 'Good support fills Resonance. Spend a segment to Cue a charged hero’s Solo, or a full song on your Crescendo.',
+  };
+}
+
+function rows(
+  bear: boolean,
+  rewind: RewindPrimer | null,
+  cue: CuePrimer | null,
+  conduct: ConductPrimer | null,
+): Row[] {
   return [
     {
       icon: 'move',
@@ -83,38 +124,35 @@ function rows(bear: boolean, rewind: RewindPrimer | null, cue: CuePrimer | null)
           title: 'Chime and Reel',
           body: 'Chime cleanses marks in a circle under your cursor. Reel yanks a hero out of danger and to your side.',
         },
-    {
-      icon: 'note',
-      keys: [bindingLabel('cue'), bindingLabel('crescendo')],
-      title: 'Build Resonance',
-      body: cue
-        ? `Good support fills Resonance. Spend ${cue.cost} Resonance to Cue a charged hero’s Solo (${levelName('cue_cost')} raises it this run), or a full song on your Crescendo.`
-        : 'Good support fills Resonance. Spend a segment to Cue a charged hero’s Solo, or a full song on your Crescendo.',
-    },
+    cueRow(cue, conduct),
   ];
 }
 
 /**
  * First-fight primer. The sim is paused while it is open (docs/plan/04 §7). `bear`: a Martyr
  * run, where Bear has its own key (Phase 3d). `rewind`: a Chronomancer run, where Reel's key
- * Rewinds (Phase 3e). `cue`: a Cue costs more than a segment this fight (Phase 4d).
+ * Rewinds (Phase 3e). `cue`: a Cue costs more than a segment this fight (Phase 4d). `conduct`:
+ * a Conductor run, whose Cue row teaches Duets, Trios and the Grand Finale (Phase 5f).
  */
 export function HowToPlay({
   onClose,
   bear = false,
   rewind = null,
   cue = null,
+  conduct = null,
 }: {
   onClose: () => void;
   bear?: boolean;
   rewind?: RewindPrimer | null;
   cue?: CuePrimer | null;
+  /** Phase 5f: a Conductor run (his Cues, Duets, Trios and Grand Finale). */
+  conduct?: ConductPrimer | null;
 }) {
   return (
     <Modal title="How to play" width="max-w-2xl" onClose={onClose} closeOnEscape>
       <p className="mt-1 text-sm text-muted">The fight is paused until you begin.</p>
       <ul className="mt-4 flex flex-col gap-3">
-        {rows(bear, rewind, cue).map((r) => (
+        {rows(bear, rewind, cue, conduct).map((r) => (
           <li
             key={r.title}
             className="flex gap-3 rounded-xl border border-ink-600/60 bg-ink-900/60 p-3"

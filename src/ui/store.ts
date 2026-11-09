@@ -245,6 +245,93 @@ export interface HeroHud {
    * the song stood back up. Absent at the Coda and in every other fight.
    */
   reignite?: 'relit' | 'risen';
+  // ── The Conductor (docs/phase-5f.md). Absent on every other run: the frame draws as before. ──
+  /**
+   * A ready hero's Cue badge: what a Cue of them now would be, from the sim's `nextCue` (its place
+   * in the chain, its power, on the downbeat or not). Absent when they can't be Cued.
+   */
+  cue?: CueBadgeHud;
+  /** Spotlight: Empowered at this strength while their Cued Solo lasts (`spotlit`). */
+  spotlight?: number;
+  /** Marcato holds on them: its bonus (0.1 = +10%) and its seconds left of `total`. */
+  marcato?: { pct: number; left: number; total: number };
+  /** The Grand Finale while it plays: their place in its queue and how their turn stands. */
+  finale?: FinaleTurnHud;
+}
+
+/** What a Cue of a ready hero would be now (`HeroHud.cue`, from the sim's `nextCue`). */
+export interface CueBadgeHud {
+  /** 1 starts a chain (a plain Cue), 2 a Duet, 3 a Trio. */
+  link: 1 | 2 | 3;
+  power: number;
+  /** On the downbeat (A Tempo) and costing no Resonance (not so under Silent Cues). */
+  free: boolean;
+  /** What it costs now. */
+  cost: number;
+  /** "Duet ×1.25", "Trio ×1.5", "Free", "Duet ×1.25 · Free"; null: a plain Cue. */
+  label: string | null;
+}
+
+/**
+ * A hero during the Grand Finale (`HeroHud.finale`): `place` is their first place in what is left
+ * of its queue (1 plays next if free; null: no turn left). `next`: the next turn is theirs;
+ * `due`: a turn to come; `waits`: mid-Solo, held or being Reeled, their place kept; `lost`: down,
+ * possessed or stilled, the turn will be dropped; `plays`: their Finale Solo is playing; `done`:
+ * no turn left.
+ */
+export interface FinaleTurnHud {
+  place: number | null;
+  state: 'next' | 'due' | 'waits' | 'lost' | 'plays' | 'done';
+}
+
+/**
+ * Phase 5f, the Conductor this fight (docs/phase-5f.md; `HudSnapshot.conducting`, absent on every
+ * other run). Every number is the sim's: `calling.conducting`, `field.conducting` and its helpers.
+ */
+export interface ConductingHud {
+  /** What a Cue costs off the beat (Silent Cues included). */
+  cueCost: number;
+  /** A Cue within this many seconds of the last joins its chain (`chainWindow`). */
+  chainWindow: number;
+  /** A Duet's and a Trio's power. */
+  duet: number;
+  trio: number;
+  /**
+   * The open chain a Cue could still join (null: none): the heroes in it, in order, the link and
+   * power a Cue of another hero would make now, and its window: seconds left of `total`.
+   */
+  chain: { heroes: string[]; link: 2 | 3; power: number; left: number; total: number } | null;
+  /**
+   * A Tempo (null without it): the sim's time, the bar and the window either side of each
+   * downbeat, whether a Cue now falls on it (`onBeat`) and what it costs.
+   */
+  beat: {
+    time: number;
+    bar: number;
+    within: number;
+    on: boolean;
+    /** What a Cue costs now (`cueCostNow`): 0 on the beat, or Silent Cues' surcharge alone. */
+    cost: number;
+  } | null;
+  /** The Grand Finale while it plays (null otherwise). */
+  finale: FinaleHud | null;
+  /** Marcato on the path (null: not): ready, or back in `readyIn` s; its bonus and seconds. */
+  marcato: { ready: boolean; readyIn: number; pct: number; seconds: number } | null;
+  /**
+   * Ensemble on the path (null: not): the different heroes Cued in a row, how many count at most
+   * (its cap over its step), and the bonus now (0.1 = +10%).
+   */
+  ensemble: { heroes: number; most: number; bonus: number } | null;
+  /** Triad on the path (null: not): whether it holds the meter now, and its hero count. */
+  triad: { holding: boolean; count: number } | null;
+}
+
+/** The Grand Finale while it plays (`ConductingHud.finale`). */
+export interface FinaleHud {
+  /** One pip a turn: played (lit), lost (crossed), due (to come). */
+  pips: ('played' | 'lost' | 'due')[];
+  /** Who the next turn goes to as the sim will pick it, and its power (null: every hero left waits). */
+  next: { name: string; slot: number; power: number } | null;
 }
 
 /** What the Chronomancer's Rewind would do to a hero now (`HeroHud.rewind`). */
@@ -403,6 +490,12 @@ export interface WeaverHud {
    * more with Silent Cues.
    */
   cueCost: number;
+  /**
+   * Phase 5f: what a Cue costs this fight without Dissonance (the content's, or the Conductor's
+   * 15), so the Dissonance chip names only what Silent Cues adds.
+   */
+  cueBase: number;
+  /** What the Crescendo costs (the sim's `crescendoCostOf`: Maestro's 75 on his path). */
   crescendoCost: number;
   /** Seconds left in an active Crescendo (0 = none). */
   crescendo: number;
@@ -604,6 +697,8 @@ export interface HudSnapshot {
   guardBlocked?: true;
   /** Movement III's threats for the hints (absent outside Movement III). */
   rift?: RiftHud;
+  /** Phase 5f: the Conductor this fight (absent on every other run). */
+  conducting?: ConductingHud;
 }
 
 export interface PerfStats {

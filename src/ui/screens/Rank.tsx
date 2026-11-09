@@ -415,7 +415,7 @@ export function RankUpCard({
                             className="block font-display text-base text-gold-100"
                             style={
                               u.kind === 'calling'
-                                ? { color: callingLook(u.target).color }
+                                ? { color: callingLook(u.target).text }
                                 : undefined
                             }
                           >

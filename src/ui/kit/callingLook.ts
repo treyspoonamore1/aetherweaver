@@ -1,20 +1,28 @@
 import type { IconName } from './iconPaths';
 
 /**
- * How a Calling looks (Phase 3c, 3d, 3e), without React so text modules and tests can read it.
+ * How a Calling looks (Phase 3c, 3d, 3e, 5f), without React so text modules and tests can read it.
  * Each Calling has its own light, so it never reads as a relic's rarity (relic rings are one
  * solid colour; a Calling's ring is a gradient from its deep end to its light).
  */
 export interface CallingLook {
-  /** Accent for names, rings and numbers. */
+  /** Accent for rings, borders and grounds (and names and numbers, except where `text` differs). */
   color: string;
+  /**
+   * Names and numbers set on the dark screens: the accent itself for the Luminary, the Martyr and
+   * the Chronomancer; the Conductor's ivory, since his ink is too dark to read as text (Phase 5f).
+   */
+  text: string;
   /** The pale end: glyph strokes on a lit disc, the Crescendo. */
   light: string;
   /** The low end (gradient ends, borders, the Martyr's reserved Life, the Chronomancer's brass). */
   deep: string;
   /** The Calling's kit icon where only an Icon fits (chips, the Result line). */
   icon: IconName;
-  /** Its Crescendo's kit icon (Sunrise's sun, the Martyr's Vow, the Chronomancer's Stasis). */
+  /**
+   * Its Crescendo's kit icon (Sunrise's sun, the Martyr's Vow, the Chronomancer's Stasis, the
+   * Conductor's Grand Finale).
+   */
   crescendoIcon: IconName;
 }
 
@@ -24,6 +32,7 @@ export const CALLING_LOOK: Readonly<Record<string, CallingLook>> = {
     color: '#ffc98f',
     light: '#fff1c4',
     deep: '#f08a6c',
+    text: '#ffc98f',
     icon: 'sun',
     crescendoIcon: 'sun',
   },
@@ -34,6 +43,7 @@ export const CALLING_LOOK: Readonly<Record<string, CallingLook>> = {
     color: '#e23b3b',
     light: '#ffd9cf',
     deep: '#7f1426',
+    text: '#e23b3b',
     icon: 'drop',
     crescendoIcon: 'vow',
   },
@@ -46,8 +56,25 @@ export const CALLING_LOOK: Readonly<Record<string, CallingLook>> = {
     color: '#708ca8',
     light: '#dfe8f5',
     deep: '#a8834a',
+    text: '#708ca8',
     icon: 'rewind',
     crescendoIcon: 'stasis',
+  },
+  // Ink and ivory (docs/phase-5f.md), never gold: gold is the Weaver's. Of the doc's three
+  // starting colours, the indigo ink (#7f86e6) falls to 3.4 ΔE from Kael's blue under protanopia
+  // and the ivory (#f4eedd) to 14 from the common relics' silver; the plum-ebony is the first to
+  // clear ΔE ≥ 20 in every colour-vision mode against the other Callings, Mend, Empower, the relic
+  // rarities and the six heroes (tests/colorVision.test.ts). No colour light enough to read as
+  // text clears that set, so his ink is his ground and ring, and his ivory carries his glyphs,
+  // names and numbers; every mark of his has a glyph. The deep end, a muted ink-violet, lets his
+  // ring run from ink to ivory on the dark screens.
+  conductor: {
+    color: '#3a2f55',
+    light: '#f4eedd',
+    deep: '#6b5e96',
+    text: '#f4eedd',
+    icon: 'chain',
+    crescendoIcon: 'finale',
   },
 };
 

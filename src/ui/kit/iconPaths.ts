@@ -176,6 +176,12 @@ export const PATHS = {
   // (his Rootbond, his Saplings, his Rank-up).
   blades: 'M4 4l16 16 M20 4L4 20 M15.5 18.5l3-3 M5.5 15.5l3 3 M19 21l2-2 M3 19l2 2',
   leaf: 'M5 19C5 10.5 10.5 5 19.5 4.5 19 13.5 13.5 19 5 19z M5 19l8.5-8.5 M10 14h3.5 M12.5 11.5V8',
+  // Phase 5f (docs/phase-5f.md): the Conductor's chain (two notes bound by one link: a Duet, a
+  // Trio) and the Grand Finale (the curtains open on a star; also the Curtain Call badge).
+  chain:
+    'M6.5 18a2.3 2.3 0 1 1-2.3-2.3A2.3 2.3 0 0 1 6.5 18z M6.5 18V4.5 M19.8 18a2.3 2.3 0 1 1-2.3-2.3 2.3 2.3 0 0 1 2.3 2.3z M19.8 18V4.5 M6.5 8.5h13.3a2 2 0 0 1 0 4H6.5a2 2 0 0 1 0-4z',
+  finale:
+    'M3 4h18 M4.5 4c0 6.2 1.4 11.2 4 16 M19.5 4c0 6.2-1.4 11.2-4 16 M12 8.5l1.1 2.3 2.5.3-1.8 1.7.4 2.5-2.2-1.2-2.2 1.2.4-2.5-1.8-1.7 2.5-.3z',
 } as const;
 
 export type IconName = keyof typeof PATHS;

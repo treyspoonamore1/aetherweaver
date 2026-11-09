@@ -242,7 +242,8 @@ export function conductCue(world: World, hero: Entity, cost: number): void {
   const l = world.ledger.conducting!;
   if (next.link === 2) l.duets++;
   if (next.link === 3) l.trios++;
-  if (next.onBeat) l.freeCues++;
+  // Free only if it cost nothing: Silent Cues' surcharge still applies on the beat.
+  if (next.onBeat && cost === 0) l.freeCues++;
   l.saved += world.content.resonance.cueCost + m.cueCostBonus - cost;
   world.events.push({
     type: 'cueChained',
@@ -252,7 +253,8 @@ export function conductCue(world: World, hero: Entity, cost: number): void {
     power: next.power,
     cost,
     onBeat: next.onBeat,
-    until: world.time + m.chainWindow,
+    // A Trio closes the chain: no Cue can join it, so its time to join ends now.
+    until: next.link === 3 ? world.time : world.time + m.chainWindow,
   });
 }
 
@@ -425,7 +427,8 @@ export function finishFinale(world: World): void {
     if (!h || !e.health || e.health.dead) continue;
     const before = h.solo;
     h.solo = 100;
-    if (before < 100 && h.soloActive <= 0)
+    // A downed hero keeps the charge but isn't ready to play it.
+    if (before < 100 && h.soloActive <= 0 && !e.health.downed)
       world.events.push({ type: 'soloReady', tick: world.tick, hero: id });
   }
   world.events.push({

@@ -4,7 +4,15 @@ import { Icon } from '../kit/Icon';
 import { KeyCap } from '../kit/KeyCap';
 import { Ring } from '../kit/Ring';
 import { keyLabel } from '../../input/keyLabel';
-import type { AuraHud, ChordHud, HeroHud, HudSnapshot, TechniqueHud, WeaverHud } from '../store';
+import type {
+  AuraHud,
+  ChordHud,
+  ConductingHud,
+  HeroHud,
+  HudSnapshot,
+  TechniqueHud,
+  WeaverHud,
+} from '../store';
 import { compact, splitContribution } from '../contribution';
 import { mult } from '../screens/chordModel';
 import type { Callout, ContributionHud } from '../store';
@@ -21,6 +29,7 @@ import { CONSTELLATION_LOOK } from '../kit/astrolabeLook';
 import { rewindSentence } from './rewindText';
 import { DISCORD_LOOK } from '../kit/dissonanceLook';
 import { cueLine, cueTicks } from '../screens/dissonanceModel';
+import { ConductRow, FinaleReadout } from './ConductParts';
 import { VARIANT_LOOK } from '../kit/variantLook';
 import { RUNE_KEYS, slotSilenced, slotState } from './techniqueState';
 import { cutPlate, unravelPlate } from './riftLook';
@@ -28,6 +37,8 @@ import { defaultName, techniqueTip, type TechniqueTipView } from '../screens/var
 
 /** The Chronomancer's clockwork (Phase 3e): Stasis on the buttons, Rewind, Temporal Mastery. */
 const CHRONO = callingLook('chronomancer');
+/** The Conductor's ink and ivory (Phase 5f): his Cue ticks on the arc. */
+const CONDUCTOR = callingLook('conductor');
 /** Prism Covenant's mark on the Life bar (Phase 4), in the Choir's violet. */
 const PRISM = CONSTELLATION_LOOK.choir;
 
@@ -56,8 +67,11 @@ export function WeaverBar({
   rejects = [],
   coach = null,
   layout = DEFAULT_WEAVER_BAR,
+  reducedBeat,
 }: {
   hud: HudSnapshot;
+  /** UI lab: the beat strip as with reduced motion (omitted: the OS setting). */
+  reducedBeat?: boolean;
   /**
    * Where the bar sits and how big (Settings, or Edit HUD layout's draft; docs/health-ui.md).
    * Put in the top half of the screen, its crest and its tooltips open below it.
@@ -166,7 +180,15 @@ export function WeaverBar({
                 />
               ))}
             </div>
-            <ResonanceArc weaver={w} callingId={hud.calling?.id} />
+            {hud.conducting ? (
+              // The Conductor (docs/phase-5f.md): his chain ring and beat strip under the arc.
+              <div className="flex shrink-0 flex-col items-center gap-1">
+                <ResonanceArc weaver={w} callingId={hud.calling?.id} conducting={hud.conducting} />
+                <ConductRow c={hud.conducting} reduced={reducedBeat} />
+              </div>
+            ) : (
+              <ResonanceArc weaver={w} callingId={hud.calling?.id} />
+            )}
           </div>
           <div className="flex items-center justify-between gap-3 border-t border-ink-600/50 pt-2">
             <ThreadStatus
@@ -701,7 +723,16 @@ function TechniqueTip({
 }
 
 /** The Resonance arc: four segments, Crescendo key at its heart. */
-function ResonanceArc({ weaver: w, callingId }: { weaver: WeaverHud; callingId?: string }) {
+function ResonanceArc({
+  weaver: w,
+  callingId,
+  conducting,
+}: {
+  weaver: WeaverHud;
+  callingId?: string;
+  /** Phase 5f: the Conductor's fight (his Cue ticks are his, the Grand Finale's pips). */
+  conducting?: ConductingHud;
+}) {
   const segments = Math.max(1, Math.round(w.resonanceMax / w.segment));
   const ready = w.resonance + 1e-9 >= w.crescendoCost;
   const active = w.crescendo > 0;
@@ -723,6 +754,10 @@ function ResonanceArc({ weaver: w, callingId }: { weaver: WeaverHud; callingId?:
   // Silent Cues (Phase 4d): a Cue costs more than a segment; its price is marked on the arc.
   const ticks = cueTicks(w);
   const cues = Math.floor((w.resonance + 1e-9) / Math.max(1e-9, w.cueCost));
+  // The Conductor's cheaper Cue (docs/phase-5f.md) is his Calling's, in his ivory; a Cue Silent
+  // Cues raised stays Dissonance's.
+  const tickColor = conducting && w.cueCost === w.cueBase ? CONDUCTOR.light : DISCORD_LOOK.color;
+
   return (
     <div
       className="relative h-[4.6rem] w-[8.5rem] shrink-0"
@@ -765,7 +800,7 @@ function ResonanceArc({ weaver: w, callingId }: { weaver: WeaverHud; callingId?:
           return (
             <g key={v} data-testid="cue-tick">
               <path d={d} stroke="var(--color-ink-950)" strokeWidth={4.5} strokeLinecap="round" />
-              <path d={d} stroke={DISCORD_LOOK.color} strokeWidth={2.2} strokeLinecap="round" />
+              <path d={d} stroke={tickColor} strokeWidth={2.2} strokeLinecap="round" />
             </g>
           );
         })}
@@ -773,7 +808,7 @@ function ResonanceArc({ weaver: w, callingId }: { weaver: WeaverHud; callingId?:
       {ticks.length > 0 && !active && (
         <span
           className="absolute inset-x-0 top-[1.3rem] flex items-center justify-center gap-0.5 font-mono text-[11px] font-bold leading-none"
-          style={{ color: DISCORD_LOOK.color }}
+          style={{ color: tickColor }}
           aria-hidden
           data-testid="cue-cost"
         >
@@ -782,7 +817,9 @@ function ResonanceArc({ weaver: w, callingId }: { weaver: WeaverHud; callingId?:
         </span>
       )}
       <div className="absolute inset-x-0 bottom-0 flex flex-col items-center">
-        {active && (w.vow || w.stasis) ? (
+        {active && conducting?.finale ? (
+          <FinaleReadout finale={conducting.finale} name={w.crescendoName} />
+        ) : active && (w.vow || w.stasis) ? (
           // The Martyr's Vow in her blood; the Chronomancer's Stasis in steel and silver. Each
           // with its own glyph and the seconds left, its ring timed from content.
           <span
@@ -826,11 +863,16 @@ function ResonanceArc({ weaver: w, callingId }: { weaver: WeaverHud; callingId?:
                 ? 'anim-glow border-gold-300 bg-gold-400 text-ink-950'
                 : 'border-ink-500 bg-ink-800 text-muted'
             }`}
-            title={`Crescendo: ${w.crescendoName}. Costs a full song (${w.crescendoCost} Resonance).`}
+            title={`Crescendo: ${w.crescendoName}. Costs ${w.crescendoCost >= w.resonanceMax ? `a full song (${w.crescendoCost} Resonance)` : `${w.crescendoCost} Resonance`}.`}
+            data-testid="crescendo-key"
+            data-cost={w.crescendoCost}
           >
             <KeyCap label={bindingLabel('crescendo')} accent={ready} />
             <span className="whitespace-nowrap text-xs font-bold leading-none">
-              {ready ? w.crescendoName.toUpperCase() : `${full}/${segments}`}
+              {/* The segments the Crescendo needs: all of them, or fewer (Maestro's 75). */}
+              {ready
+                ? w.crescendoName.toUpperCase()
+                : `${full}/${Math.min(segments, Math.ceil(w.crescendoCost / w.segment - 1e-9))}`}
             </span>
           </div>
         )}

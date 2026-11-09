@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
   BrannWatch,
+  CONDUCTING_TALLY_KEYS,
   calibratedThreat,
   FINALE_SEED_SETS,
   FinaleWatch,
@@ -33,7 +34,13 @@ import {
   rosterParties,
   RosterWatch,
 } from '../tools/roster-bands';
-import { callingBand } from '../tools/callings';
+import {
+  callingBand,
+  callingSetups,
+  useColumns,
+  usesWatch,
+  type FightUses,
+} from '../tools/callings';
 import { BOSS_TABLES, decreeFight } from '../tools/decrees';
 import {
   EXPEDITION_BOTS,
@@ -50,9 +57,22 @@ import {
   type M1Baseline,
 } from '../tools/m1-baseline';
 import { CHOIR_VOICES, SCENARIO_CONDUCTOR_PEAK, SCENARIO_GRAND_SILENCE } from '../tools/sim-bench';
-import { callingArg, rulesFor, techniquesArg, verbConfig, verbFight } from '../tools/verbs';
-import { NOVICE_M4_RULES, NOVICE_ROSTER_RULES } from '../src/bots/novice';
-import { FINALE_RULES, M3_RULES, ROSTER_RULES, SkilledBot } from '../src/bots/skilled';
+import {
+  callingArg,
+  conductingTail,
+  rulesFor,
+  techniquesArg,
+  verbConfig,
+  verbFight,
+} from '../tools/verbs';
+import { NOVICE_CONDUCTING_RULES, NOVICE_M4_RULES, NOVICE_ROSTER_RULES } from '../src/bots/novice';
+import {
+  CONDUCTING_RULES,
+  FINALE_RULES,
+  M3_RULES,
+  ROSTER_RULES,
+  SkilledBot,
+} from '../src/bots/skilled';
 import { makeBot, type Bot } from '../src/bots';
 import {
   band,
@@ -87,7 +107,7 @@ import {
 import * as Run from '../src/meta/run';
 import { THREAT_PER_ROW } from '../src/meta/economy';
 import type { RunState } from '../src/meta/types';
-import { createSim, type Sim, type SimEvent } from '../src/sim';
+import { createSim, type Sim, type SimConfig, type SimEvent } from '../src/sim';
 import { sandbox, worldOf } from './sim/helpers';
 
 /**
@@ -1698,5 +1718,162 @@ describe('the roster Bands tool (tools/roster-bands.ts)', () => {
     expect(out).toContain('downs OB skilled:');
     expect(out).toContain('whole Expeditions (4 Movements)');
     expect(out).toMatch(/OB +skilled win/);
+  }, 120_000);
+});
+
+describe('the Conductor Calling (docs/phase-5f.md, "Harness")', () => {
+  const TEMPO_MAESTRO = ['a_tempo', 'upbeat', 'spotlight', 'maestro'];
+
+  it('tallies a Conductor fight from the ledger and the events, and no other', () => {
+    const plain = playEncounter({ seed: 1000, encounter: 'bellwarden' }, 'skilled');
+    expect('conducting' in plain).toBe(false);
+    const cfg: SimConfig = {
+      seed: 1000,
+      encounter: 'bellwarden',
+      calling: { id: 'conductor', path: TEMPO_MAESTRO },
+    };
+    let ledger: Sim['state']['ledger'] | null = null;
+    const run = playEncounter(cfg, 'skilled', (sim) => {
+      ledger = sim.state.ledger;
+    });
+    const t = run.conducting!;
+    expect(Object.keys(t)).toEqual([...CONDUCTING_TALLY_KEYS]);
+    expect(t.cues).toBe(ledger!.cues);
+    expect(t.duets).toBe(ledger!.conducting!.duets);
+    expect(t.finales).toBe(ledger!.conducting!.finales);
+    expect(t.finaleSolos).toBe(ledger!.conducting!.finaleSolos);
+    // Every Cue is a chain's first, second or third.
+    expect(t.chains + t.duets + t.trios).toBe(t.cues);
+    // The beat's Cues are the ledger's free ones.
+    expect(t.onBeat).toBe(ledger!.conducting!.freeCues);
+    expect(t.cues).toBeGreaterThan(0);
+    // Reading it never moves the fight: the same run with no watch is the same.
+    const again = playEncounter(cfg, 'skilled');
+    expect(again.conducting).toEqual(t);
+    expect(again.duration).toBe(run.duration);
+  });
+
+  it('splits the Conductor’s cells in two, by its keystone, beside the other Callings', () => {
+    const setups = callingSetups();
+    const labels = setups.map((s) => s.label);
+    expect(labels).toEqual([
+      'none',
+      'luminary',
+      'martyr',
+      'chronomancer + Paradox',
+      'chronomancer + eternal_moment',
+      'conductor + Triad',
+      'conductor + Maestro',
+    ]);
+    const conductor = setups.filter((s) => s.calling?.id === 'conductor');
+    expect(conductor.map((s) => s.calling!.path)).toEqual([
+      ['marcato', 'reprise', 'ensemble', 'triad'],
+      ['a_tempo', 'upbeat', 'spotlight', 'maestro'],
+    ]);
+    // The existing rows are the existing setups, each on its first path (Paradox's both ways).
+    const first = (id: string) =>
+      CONTENT.callings.find((c) => c.id === id)!.tiers.map((t) => t.options[0]!.id);
+    expect(setups[1]!.calling).toEqual({ id: 'luminary', path: first('luminary') });
+    expect(setups[2]!.calling).toEqual({ id: 'martyr', path: first('martyr') });
+    expect(setups[3]!.calling).toEqual({ id: 'chronomancer', path: first('chronomancer') });
+  });
+
+  it('keeps the cells’ band for the others and adds the Conductor’s own', () => {
+    expect(callingBand(3)).toBe('Skilled ≥75% at the Unweaver, each');
+    expect(callingBand(4)).toBe('Skilled ≥75% at the Silent Conductor, each, ≤ none + 40 s');
+    expect(callingBand(3, true)).toBe('Skilled ≥75% at the Unweaver, each');
+    expect(callingBand(4, true)).toBe(
+      'Skilled ≥75% at the Silent Conductor, each, none − 25 s to none + 40 s',
+    );
+  });
+
+  it('prints use columns: Cues, pulses and Crescendos for any Calling, the Conductor’s own on its rows', () => {
+    const uses: FightUses = { cues: 0, pulses: 0, crescendos: 0 };
+    const none = playEncounter({ seed: 1000, encounter: 'bellwarden' }, 'skilled', usesWatch(uses));
+    expect(uses.cues).toBeGreaterThan(0);
+    const plainCols = useColumns([uses], [none], false);
+    expect(plainCols).toMatch(/^cues \d+\.\d · pulses \d+\.\d\d · crescendos \d+\.\d\d$/);
+    // A Conductor row adds what it did.
+    const cu: FightUses = { cues: 0, pulses: 0, crescendos: 0 };
+    const run = playEncounter(
+      { seed: 1000, encounter: 'bellwarden', calling: { id: 'conductor', path: TEMPO_MAESTRO } },
+      'skilled',
+      usesWatch(cu),
+    );
+    expect(cu.cues).toBe(run.conducting!.cues);
+    const cols = useColumns([cu], [run], true);
+    for (const part of [
+      'duets+trios',
+      'trios',
+      'chains',
+      'finales',
+      'on the beat',
+      'marcato',
+      'reprise',
+    ])
+      expect(cols).toContain(part);
+    // The Conductor's columns are asked for only where there are Conductor fights.
+    expect(useColumns([cu], [none], true)).toBe(useColumns([cu], [none], false));
+  });
+
+  it('ablates the Conductor’s rules: the default list follows --calling', () => {
+    const conductor = callingArg('conductor', '1011');
+    expect(conductor).toEqual({
+      id: 'conductor',
+      path: ['a_tempo', 'reprise', 'spotlight', 'maestro'],
+    });
+    expect(rulesFor(1, 'skilled', null, conductor)).toBe(CONDUCTING_RULES);
+    expect(rulesFor(4, 'skilled', null, conductor)).toBe(CONDUCTING_RULES);
+    expect(rulesFor(1, 'novice', null, conductor)).toBe(NOVICE_CONDUCTING_RULES);
+    // No Conductor, no change.
+    expect(rulesFor(3)).toBe(M3_RULES);
+    expect(rulesFor(4, 'skilled', null, callingArg('luminary', undefined))).toBe(FINALE_RULES);
+    expect(CONDUCTING_RULES).toEqual([
+      'conductChain',
+      'conductHold',
+      'conductBeat',
+      'conductFinale',
+      'conductMarcato',
+    ]);
+    // A fight's counts show the rule: no Finale rule, fewer Finales.
+    const setup = { calling: conductor };
+    const on = Array.from({ length: 4 }, (_, i) =>
+      verbFight('bellwarden', 1000 + i * 7919, new Set(), 1, setup),
+    );
+    const off = Array.from({ length: 4 }, (_, i) =>
+      verbFight('bellwarden', 1000 + i * 7919, new Set(['conductFinale']), 1, setup),
+    );
+    expect(on.every((f) => f.conducting !== undefined)).toBe(true);
+    const finales = (fs: typeof on) => fs.reduce((s, f) => s + f.conducting!.finales, 0);
+    expect(finales(off)).toBeLessThan(finales(on));
+    expect(conductingTail(on)).toContain('finales');
+    // Without the Calling a fight carries no counts and the row's tail is empty.
+    const plain = verbFight('bellwarden', 1000, new Set(), 1);
+    expect('conducting' in plain).toBe(false);
+    expect(conductingTail([plain])).toBe('');
+  });
+
+  it('a smoke run of the cells prints the Conductor’s rows with their use columns', () => {
+    const out = execFileSync(
+      'npx',
+      [
+        'tsx',
+        'tools/callings.ts',
+        '--cells',
+        '--movement',
+        '1',
+        '--encounters',
+        'bellwarden',
+        '--seeds',
+        '2',
+      ],
+      { cwd: fileURLToPath(new URL('..', import.meta.url)), encoding: 'utf8' },
+    );
+    expect(out).toContain('conductor band:');
+    expect(out).toMatch(/conductor \+ Triad +win +\d+% .*duets\+trios .*on the beat/);
+    expect(out).toMatch(/conductor \+ Maestro +win/);
+    // The other rows have no use columns without --uses.
+    const none = out.split('\n').find((l) => / none +win/.test(l))!;
+    expect(none).not.toContain('cues');
   }, 120_000);
 });

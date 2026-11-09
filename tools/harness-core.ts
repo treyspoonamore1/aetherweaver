@@ -93,6 +93,8 @@ export interface EncounterRun {
   m3?: VerbTally3Result;
   /** The Finale's verbs (docs/phase-5d.md, "Harness"); absent outside the Conductor's fight. */
   finale?: FinaleTally;
+  /** The Conductor Calling's fight (docs/phase-5f.md, "Harness"); absent without the Calling. */
+  conducting?: ConductingTally;
 }
 
 /** What made a Grand Silence note (the sim's `NoteSource`). */
@@ -1507,6 +1509,94 @@ export class OroWatch {
 }
 
 /**
+ * How the Conductor Calling's fight went (docs/phase-5f.md, "Harness"). Counts are the fight's
+ * (`ledger.conducting` and the events); `onBeat` counts the Cues given on the downbeat (A Tempo),
+ * `chains` the Cues that began a chain, `chorusPulses` the chorus pulses (more Cues, more pulses).
+ */
+export interface ConductingTally {
+  /** Cues given (`ledger.cues`; Grand Finale turns are not Cues). */
+  cues: number;
+  /** Cues that began a chain (a Cue joining none). */
+  chains: number;
+  duets: number;
+  trios: number;
+  /** Cues given on the downbeat, free (A Tempo). */
+  onBeat: number;
+  /** Resonance the Calling's cheaper and free Cues kept. */
+  saved: number;
+  /** Grand Finales cast, the Solos they played and the turns lost. */
+  finales: number;
+  finaleSolos: number;
+  finaleLost: number;
+  /** Solo charge Reprise gave, and the times Marcato was given. */
+  reprised: number;
+  marcatos: number;
+  /** Chorus pulses (every Cue releases one with 3+ auras). */
+  chorusPulses: number;
+}
+
+/** The keys of a `ConductingTally`, in order (the harness tests pin them). */
+export const CONDUCTING_TALLY_KEYS: readonly (keyof ConductingTally)[] = [
+  'cues',
+  'chains',
+  'duets',
+  'trios',
+  'onBeat',
+  'saved',
+  'finales',
+  'finaleSolos',
+  'finaleLost',
+  'reprised',
+  'marcatos',
+  'chorusPulses',
+];
+
+/**
+ * Tallies the Conductor Calling's fight tick by tick. `ConductingWatch.of` is null on every run
+ * without the Calling (`state.field.conducting`), so no other `EncounterRun` gains the key.
+ */
+export class ConductingWatch {
+  private chains = 0;
+  private onBeat = 0;
+  private chorusPulses = 0;
+
+  private constructor() {}
+
+  /** A watch on a Conductor run, or null. */
+  static of(sim: Sim): ConductingWatch | null {
+    return sim.state.field.conducting ? new ConductingWatch() : null;
+  }
+
+  tick(_sim: Sim, events: readonly SimEvent[]): void {
+    for (const e of events) {
+      if (e.type === 'cueChained') {
+        if (e.link === 1) this.chains++;
+        if (e.onBeat) this.onBeat++;
+      } else if (e.type === 'chorusPulse') this.chorusPulses++;
+    }
+  }
+
+  result(sim: Sim): ConductingTally {
+    const l = sim.state.ledger;
+    const c = l.conducting;
+    return {
+      cues: l.cues,
+      chains: this.chains,
+      duets: c?.duets ?? 0,
+      trios: c?.trios ?? 0,
+      onBeat: this.onBeat,
+      saved: c?.saved ?? 0,
+      finales: c?.finales ?? 0,
+      finaleSolos: c?.finaleSolos ?? 0,
+      finaleLost: c?.finaleLost ?? 0,
+      reprised: c?.reprised ?? 0,
+      marcatos: c?.marcatos ?? 0,
+      chorusPulses: this.chorusPulses,
+    };
+  }
+}
+
+/**
  * Plays one fight to its end (or 9 minutes). `watch`, when given, sees the sim and each tick's
  * events after the harness's own tallies (tools/brann-bands.ts reads more from them); it only
  * reads, so a fight plays the same with or without one.
@@ -1526,6 +1616,7 @@ export function playEncounter(
   const oro = OroWatch.of(sim);
   const m3 = VerbTally3.of(sim);
   const finale = FinaleWatch.of(sim);
+  const conducting = ConductingWatch.of(sim);
   for (let t = 0; t < maxTicks; t++) {
     sim.step(player.decide(sim.state));
     const events = sim.drainEvents();
@@ -1539,6 +1630,7 @@ export function playEncounter(
     oro?.tick(sim, events);
     m3?.tick(sim, events);
     finale?.tick(sim, events);
+    conducting?.tick(sim, events);
     watch?.(sim, events);
     const s = sim.state.encounter.status;
     if (s === 'victory' || s === 'defeat') break;
@@ -1586,6 +1678,7 @@ export function playEncounter(
     ...(oro ? { oro: oro.result(sim) } : {}),
     ...(m3 ? { m3: m3.result() } : {}),
     ...(finale ? { finale: finale.result() } : {}),
+    ...(conducting ? { conducting: conducting.result(sim) } : {}),
   };
 }
 

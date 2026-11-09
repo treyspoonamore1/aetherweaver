@@ -22,6 +22,15 @@
  *   npx tsx tools/callings.ts --cells --movement 4 --party B --seeds 50
  *
  * `--party` (A, B, C or 3 hero ids, as the harness takes it) plays a roster party's cells.
+ *
+ * The Conductor (docs/phase-5f.md, "Harness") is split in two, as the Chronomancer's Paradox is:
+ * `conductor + Triad` (Marcato, Reprise, Ensemble, Triad) and `conductor + Maestro` (A Tempo,
+ * Upbeat, Spotlight, Maestro). Its rows also print what it did a fight (Cues, Duets and Trios as a
+ * share of Cues, Trios, Finales, Cues on the beat, chorus pulses). `--uses` prints the same
+ * columns that exist for every Calling (Cues, chorus pulses, Crescendos) on every row, so the
+ * Conductor's can be read against none's; without it, every other row is as it always was.
+ *
+ *   npx tsx tools/callings.ts --cells --movement 4 --uses --seeds 50
  */
 import type { BotKind } from '../src/bots';
 import { CONTENT, callingDef } from '../src/content';
@@ -29,7 +38,7 @@ import { CHORD_PRESETS } from '../src/meta/run';
 import type { SimConfig } from '../src/sim';
 import { FINALE_MOVEMENT } from '../src/content/crucibleIds';
 import { partyArg } from './harness';
-import { movementEncounters, playEncounter, playRun } from './harness-core';
+import { movementEncounters, playEncounter, playRun, type EncounterRun } from './harness-core';
 import { kitConfig, kitFor } from './kits';
 
 const argv = process.argv.slice(2);
@@ -49,13 +58,25 @@ export interface CallingSetup {
   calling: SimConfig['calling'];
 }
 
+/** The Callings whose cells play both options of the last tier along the whole path. */
+const SPLIT_BY_KEYSTONE: ReadonlySet<string> = new Set(['conductor']);
+
 /**
  * Every Calling on its first path, with no Calling first; a Calling whose path can take Paradox
- * twice, with it and with that tier's other option.
+ * twice, with it and with that tier's other option; the Conductor once with each keystone (Triad
+ * or Maestro) and the first or second option of every tier before it.
  */
 export function callingSetups(): CallingSetup[] {
   const out: CallingSetup[] = [{ label: 'none', calling: null }];
   for (const c of CONTENT.callings) {
+    if (SPLIT_BY_KEYSTONE.has(c.id)) {
+      for (const k of [0, 1] as const)
+        out.push({
+          label: `${c.id} + ${c.tiers[c.tiers.length - 1]!.options[k]!.name}`,
+          calling: { id: c.id, path: c.tiers.map((t) => t.options[k]!.id) },
+        });
+      continue;
+    }
     const first = c.tiers.map((t) => t.options[0]!.id);
     const tier = c.tiers.findIndex((t) => t.options.some((o) => o.id === PARADOX));
     if (tier < 0) {
@@ -71,11 +92,60 @@ export function callingSetups(): CallingSetup[] {
   return out;
 }
 
-/** The cells' band, by Movement: the Unweaver's (docs/phase-5c.md), the Conductor's (5d). */
-export function callingBand(movement: number): string {
+/**
+ * The cells' band, by Movement: the Unweaver's (docs/phase-5c.md), the Silent Conductor's (5d).
+ * `conducting`: the Conductor Calling's own (docs/phase-5f.md): the same win rate, and at the
+ * Silent Conductor a length from none − 25 s to none + 40 s.
+ */
+export function callingBand(movement: number, conducting = false): string {
+  if (conducting)
+    return movement >= FINALE_MOVEMENT
+      ? 'Skilled ≥75% at the Silent Conductor, each, none − 25 s to none + 40 s'
+      : 'Skilled ≥75% at the Unweaver, each';
   return movement >= FINALE_MOVEMENT
     ? 'Skilled ≥75% at the Silent Conductor, each, ≤ none + 40 s'
     : 'Skilled ≥75% at the Unweaver, each';
+}
+
+/** What a fight showed of Cues, chorus pulses and Crescendos, whatever the Calling (`--uses`). */
+export interface FightUses {
+  cues: number;
+  pulses: number;
+  crescendos: number;
+}
+
+/** A watch for `playEncounter` that fills a `FightUses`: read-only, so the fight plays the same. */
+export function usesWatch(uses: FightUses): Parameters<typeof playEncounter>[2] {
+  return (sim, events) => {
+    for (const e of events) if (e.type === 'chorusPulse') uses.pulses++;
+    uses.cues = sim.state.ledger.cues;
+    uses.crescendos = sim.state.ledger.crescendos;
+  };
+}
+
+/**
+ * The use columns (`--uses`): the mean of Cues, chorus pulses and Crescendos a fight, then, for a
+ * Conductor row, what it did: Duets and Trios as a share of Cues, Trios, Cues that began a chain,
+ * Grand Finales (and the Solos they played and the turns lost), Cues on the beat as a share of
+ * Cues, and Marcato and Reprise. Undefined for no Conductor fights.
+ */
+export function useColumns(
+  uses: readonly FightUses[],
+  runs: readonly EncounterRun[],
+  extra: boolean,
+): string {
+  const n = Math.max(1, uses.length);
+  const m = (f: (u: FightUses) => number) => uses.reduce((s, u) => s + f(u), 0) / n;
+  const base = `cues ${m((u) => u.cues).toFixed(1)} · pulses ${m((u) => u.pulses).toFixed(2)} · crescendos ${m((u) => u.crescendos).toFixed(2)}`;
+  const tallies = runs.flatMap((r) => (r.conducting ? [r.conducting] : []));
+  if (!extra || tallies.length === 0) return base;
+  const t = (f: (c: NonNullable<EncounterRun['conducting']>) => number) =>
+    tallies.reduce((s, c) => s + f(c), 0) / tallies.length;
+  const cues = tallies.reduce((s, c) => s + c.cues, 0);
+  const share = (num: number) => (cues > 0 ? pct(num / cues) : '–');
+  const linked = tallies.reduce((s, c) => s + c.duets + c.trios, 0);
+  const onBeat = tallies.reduce((s, c) => s + c.onBeat, 0);
+  return `${base} · duets+trios ${share(linked)} of cues · trios ${t((c) => c.trios).toFixed(2)} · chains ${t((c) => c.chains).toFixed(1)} · finales ${t((c) => c.finales).toFixed(2)} (solos ${t((c) => c.finaleSolos).toFixed(1)}, lost ${t((c) => c.finaleLost).toFixed(1)}) · on the beat ${share(onBeat)} · marcato ${t((c) => c.marcatos).toFixed(1)} · reprise ${t((c) => c.reprised).toFixed(0)}`;
 }
 
 function cells(): void {
@@ -86,16 +156,21 @@ function cells(): void {
   const base = Number(get('seed-base') ?? 1000);
   const bots = (get('bots') ?? 'skilled').split(',') as BotKind[];
   const party = partyArg(get('party'));
+  const showUses = argv.includes('--uses');
   console.log(
     `calling cells · Movement ${movement} · ${kit.name} · ${encounters.length} fights × ${seeds} seeds${party ? ` · party ${party.join(',')}` : ''} · band: ${callingBand(movement)}`,
   );
+  console.log(`  conductor band: ${callingBand(movement, true)}`);
   for (const encounter of encounters)
     for (const bot of bots) {
       /** The no-Calling cell's mean length, for the Finale's "≤ none + 40 s". */
       let none: number | null = null;
       for (const setup of callingSetups()) {
-        const runs = Array.from({ length: seeds }, (_, i) =>
-          playEncounter(
+        const uses: FightUses[] = [];
+        const runs = Array.from({ length: seeds }, (_, i) => {
+          const use: FightUses = { cues: 0, pulses: 0, crescendos: 0 };
+          uses.push(use);
+          return playEncounter(
             {
               seed: base + i * 7919,
               encounter,
@@ -104,8 +179,9 @@ function cells(): void {
               ...(party ? { party } : {}),
             },
             bot,
-          ),
-        );
+            usesWatch(use),
+          );
+        });
         const won = runs.filter((r) => r.outcome === 'victory').length / runs.length;
         const length = mean(runs.map((r) => r.duration));
         if (setup.calling === null) none = length;
@@ -114,7 +190,11 @@ function cells(): void {
             ? ` (${length - none >= 0 ? '+' : ''}${(length - none).toFixed(0)} s on none)`
             : '';
         console.log(
-          `${encounter.padEnd(18)} ${bot.padEnd(8)} ${setup.label.padEnd(30)} win ${pct(won).padStart(4)} · share ${pct(mean(runs.map((r) => r.share)))} · ${length.toFixed(0)} s${longer} · downs ${mean(runs.map((r) => r.downs)).toFixed(1)}`,
+          `${encounter.padEnd(18)} ${bot.padEnd(8)} ${setup.label.padEnd(30)} win ${pct(won).padStart(4)} · share ${pct(mean(runs.map((r) => r.share)))} · ${length.toFixed(0)} s${longer} · downs ${mean(runs.map((r) => r.downs)).toFixed(1)}${
+            showUses || setup.calling?.id === 'conductor'
+              ? ` · ${useColumns(uses, runs, setup.calling?.id === 'conductor')}`
+              : ''
+          }`,
         );
       }
     }

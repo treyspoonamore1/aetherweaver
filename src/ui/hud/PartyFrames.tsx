@@ -18,6 +18,7 @@ import {
 } from './finaleLook';
 import type { CallAnswer, ThreadMode } from '../types';
 import { StatusBadge } from './StatusBadge';
+import { ConductMarks, CueBadge } from './ConductParts';
 import { POSSESSED_COLOR, PossessedStrip, StitchChip } from './RiftMarks';
 import { healCutTitle } from './legionLook';
 import { ROLE_LABEL, bindingLabel } from './labels';
@@ -933,7 +934,15 @@ export function HeroFrame({
               <Icon name="skull" size={14} /> Out for this fight
             </p>
           ) : down ? (
-            <DownedBlock hero={h} rewind={rewind} silence={silence} />
+            <>
+              <DownedBlock hero={h} rewind={rewind} silence={silence} />
+              {/* The Grand Finale: a downed hero's turn will be lost (docs/phase-5f.md). */}
+              {h.finale && (
+                <div className="mt-1 flex flex-wrap items-center gap-1">
+                  <ConductMarks hero={h} />
+                </div>
+              )}
+            </>
           ) : (
             <>
               <HpBar hero={h} rewind={rewind} healthText={healthText} />
@@ -949,6 +958,7 @@ export function HeroFrame({
                 )}
                 {(h.borne > 0 || h.vow) && <MartyrMarks hero={h} />}
                 {(h.afterglow || h.grace) && <AstrolabeMarks hero={h} />}
+                {(h.finale || h.spotlight !== undefined || h.marcato) && <ConductMarks hero={h} />}
                 {h.blood && <BloodMarks chips={bloodChips(h)} />}
                 {h.duel && (
                   <DuelMarks
@@ -1281,6 +1291,8 @@ function Portrait({ hero: h, bondRank = null }: { hero: HeroHud; bondRank?: numb
           <KeyCap label={`⇧${h.slot + 1}`} accent />
         </span>
       )}
+      {/* The Conductor (docs/phase-5f.md): what a Cue now would be, "Duet ×1.25", "Free". */}
+      {ready && h.cue && <CueBadge hero={h} />}
     </div>
   );
 }

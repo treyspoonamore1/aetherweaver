@@ -29,13 +29,16 @@ import {
   buildHudSnapshot,
   decreeShownNow,
   heardCut,
+  heardFinale,
   heardReignite,
   heardSilence,
+  type FinaleHeard,
   type ReigniteHeard,
   type SilenceHeard,
   type ThreadCutHeard,
 } from '../ui/hudBridge';
 import { callingLook } from '../ui/kit/callingLook';
+import { CONDUCT_GOLD, FINALE_TURNS_KEY, conductingCallouts } from '../ui/hud/conducting';
 import { takeHudCommits } from '../ui/perfCounters';
 import { useUi } from '../ui/store';
 import { useProfile } from './profileStore';
@@ -146,6 +149,8 @@ export class GameRuntime {
   private threadCut: ThreadCutHeard | null = null;
   /** The last Reignite (the Finale: the frames relit gold for a moment). */
   private reignited: ReigniteHeard | null = null;
+  /** Phase 5f: the Grand Finale's turns played and lost (its frames read them). */
+  private finaleHeard: FinaleHeard | null = null;
   /** The Finale: the Grand Silence's cap, fixed as it began (Stasis can't stretch the Coda bar). */
   private silenceHeard: SilenceHeard | null = null;
   private perfTimer = 0;
@@ -353,6 +358,7 @@ export class GameRuntime {
           threadCut: this.threadCut,
           reignited: this.reignited,
           silenceHeard: this.silenceHeard,
+          finaleHeard: this.finaleHeard,
         }),
       );
       ui.pruneCallouts(now);
@@ -462,6 +468,7 @@ export class GameRuntime {
     if (reignite) this.reignited = reignite;
     const silence = heardSilence(events, state);
     if (silence) this.silenceHeard = silence;
+    this.finaleHeard = heardFinale(events, this.finaleHeard);
     this.view.onEvents(events, state);
     getAudio().onEvents(events, state);
     this.callouts(events, state);
@@ -695,6 +702,11 @@ export class GameRuntime {
           break;
         case 'soloStarted': {
           const who = this.heroName(state, event.hero);
+          // The Conductor's Duets, Trios and Finale turns have their own call-outs (below).
+          const conducted = state.field.conducting?.solos.some(
+            (s) => s.hero === event.hero && (s.power !== 1 || s.finale),
+          );
+          if (event.cued && conducted) break;
           if (event.cued)
             ui.pushCallout(
               { kind: 'solo', text: `Cue: ${who?.name ?? ''}`, color: who?.color },
@@ -713,14 +725,19 @@ export class GameRuntime {
           break;
         }
         case 'crescendoStart': {
-          // Stasis (the Chronomancer's) in his silver, with its own glyph.
+          // Stasis (the Chronomancer's) in his silver, with its own glyph; the Conductor's Grand
+          // Finale in the Weaver's gold, with its own (docs/phase-5f.md).
           const stasis = state.calling?.crescendo === 'stasis';
+          const finale = state.calling?.crescendo === 'finale';
+          // A new Finale's turns start their own toast.
+          if (finale) ui.dropCallouts(FINALE_TURNS_KEY);
           ui.pushCallout(
             {
               kind: 'perfect',
-              text: `Crescendo — ${event.calling}`,
-              color: stasis ? chrono : '#fde68a',
-              ...(stasis ? { icon: 'stasis' as const } : {}),
+              // The Grand Finale's banner is its name alone: one line at 1280 wide.
+              text: finale ? event.calling : `Crescendo — ${event.calling}`,
+              color: stasis ? chrono : finale ? CONDUCT_GOLD : '#fde68a',
+              ...(stasis ? { icon: 'stasis' as const } : finale ? { icon: 'finale' as const } : {}),
             },
             now,
             2000,
@@ -793,7 +810,28 @@ export class GameRuntime {
             END_DELAY_MS,
           );
           break;
-        default:
+        default: {
+          // The Conductor (docs/phase-5f.md): Duets, Trios, free Cues, Reprise, Marcato and the
+          // Grand Finale's turns. Only his runs raise these events. The Finale's turns build one
+          // toast ("Kael ×1 · Lyra ×1.2"), found again by its key.
+          const turns =
+            event.type === 'finaleTurn'
+              ? (useUi.getState().callouts.find((c) => c.key === FINALE_TURNS_KEY)?.text ?? null)
+              : null;
+          const conducted = conductingCallouts(event, {
+            name: (id) => this.heroName(state, id)?.name ?? null,
+            time: state.time,
+            turns,
+            crescendoName: state.calling?.conducting
+              ? (callingDef(state.calling.id).crescendoName ?? undefined)
+              : undefined,
+            marcato: state.calling?.conducting?.marcato,
+          });
+          for (const c of conducted) {
+            // A keyed one replaces its last (the Finale's turns, a hero's lost turns, the Duet).
+            if (c.callout.key) ui.dropCallouts(c.callout.key);
+            ui.pushCallout(c.callout, now, c.ttl);
+          }
           // The Finale (docs/phase-5d.md): its events' callouts, and captions for its key sounds.
           // No other fight raises one of these events, so nothing else is pushed.
           for (const c of finaleCallouts(event, (id) => this.heroName(state, id)?.name ?? null))
@@ -806,6 +844,7 @@ export class GameRuntime {
             }
           }
           break;
+        }
       }
     }
   }

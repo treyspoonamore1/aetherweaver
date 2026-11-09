@@ -1,12 +1,17 @@
 /**
- * The Calling in the fight (Phase 3c, 3d, 3e): the HUD chip's state, each hero's Radiance, the
- * Martyr's Life marks and the Chronomancer's Stasis and Temporal Mastery, derived from
+ * The Calling in the fight (Phase 3c, 3d, 3e, 5f): the HUD chip's state, each hero's Radiance,
+ * the Martyr's Life marks and the Chronomancer's Stasis and Temporal Mastery (the Conductor's are
+ * in hud/conducting.ts), derived from
  * `WorldState.calling`, the Weaver and each hero's `inField` / `auraMask`. A hero shines at
  * `radiancePerAura × auras heard` (× `sunriseMult` in Sunrise) while standing in the field.
  */
 import { CONTENT, callingDef, callingOption, optionTier } from '../../content';
 import { crescendoName, lowLifeMarks } from '../screens/callingText';
 import type { LifeMarkHud } from '../store';
+import type { CallingState } from '../../sim';
+
+/** Which Crescendo the Calling sings: the sim's own (`CallingState.crescendo`). */
+export type CallingCrescendo = CallingState['crescendo'];
 
 /** The run's Calling as the HUD shows it. */
 export interface CallingHud {
@@ -23,8 +28,11 @@ export interface CallingHud {
   haloed: boolean;
   radiancePerAura: number;
   sunriseMult: number;
-  /** The Calling's Crescendo: Sunrise, the Martyr's Vow or Stasis (content `crescendoName`). */
-  crescendo: 'sunrise' | 'vow' | 'stasis' | 'finale';
+  /**
+   * The Calling's Crescendo: Sunrise, the Martyr's Vow, Stasis or the Conductor's Grand Finale
+   * (content `crescendoName`; the Finale's turns are on `HudSnapshot.conducting`).
+   */
+  crescendo: CallingCrescendo;
   crescendoName: string;
   /** Martyr's Vow is up: heroes can't drop below 1 life. */
   vow: boolean;
@@ -55,7 +63,7 @@ export interface CallingSource {
   sunriseMult: number;
   sovereign: boolean;
   /** Phase 3d: the Crescendo and Bear (`CallingState.crescendo`, `bearShare`). */
-  crescendo?: 'sunrise' | 'vow' | 'stasis' | 'finale';
+  crescendo?: CallingCrescendo;
   bearShare?: number;
   /** Phase 3e: Rewind replaces Reel; Foresight's reach (`CallingState.rewind`, `foresight`). */
   rewind?: boolean;

@@ -740,6 +740,93 @@ test('Phase 3e: the Chronomancer — choose him in Prep, Rewind in Reel’s slot
   expect(errors).toEqual([]);
 });
 
+test('Phase 5f: the Conductor — choose him in Prep, Cue 15 on the meter, two Cues within the window make a Duet', async ({
+  page,
+}) => {
+  // The Solos take about 30 s of the fight to charge (SwiftShader runs it slower than that).
+  test.setTimeout(420_000);
+  const errors = trackErrors(page);
+  const conductor = CONTENT.callings.find((c) => c.id === 'conductor')!;
+  await page.goto(START_URL);
+  await page.waitForFunction(() => window.__AWRUN__ !== undefined);
+  // Settings → Skip the unlocks (a new profile is Rank 1: the Conductor is Rank 12).
+  await page
+    .getByRole('button', { name: /^Settings$/ })
+    .first()
+    .click();
+  await page.getByText('Skip the unlocks', { exact: true }).click();
+  await expect(page.getByRole('switch', { name: /Skip the unlocks/ })).toBeChecked();
+
+  await page.evaluate(() => window.__AWRUN__!.newRun(4242));
+  await expect.poll(() => page.evaluate(() => window.__AWRUN__!.phase())).toBe('prep');
+  // Four Callings beside No Calling; choose the Conductor.
+  await expect(page.getByTestId('calling-conductor')).toBeVisible();
+  await page.getByRole('radio', { name: /^The Conductor/ }).click();
+  await expect(page.getByRole('radio', { name: /^The Conductor.*chosen/ })).toBeVisible();
+  expect(await page.evaluate(() => window.__AWRUN__!.calling())).toEqual({
+    id: 'conductor',
+    path: [null, null, null, null],
+  });
+  await expectDefaultPrep(page, true);
+  await page
+    .getByRole('button', { name: /Embark/i })
+    .first()
+    .click();
+  await expect.poll(() => page.evaluate(() => window.__AWRUN__!.phase())).toBe('map');
+
+  // Into First Light.
+  expect(await page.evaluate(() => window.__AWRUN__!.choose())).toBe('skirmish');
+  await expect.poll(() => page.evaluate(() => window.__AWRUN__!.phase())).toBe('combat');
+  await page.waitForFunction(() => window.__AW__ !== undefined);
+  // A new profile's first fight opens the primer; on his run its Cue row teaches Duets.
+  const begin = page.getByRole('button', { name: /Begin the fight/i });
+  if (await begin.isVisible().catch(() => false)) {
+    await expect(page.getByText('Lead them: Duets and Trios')).toBeVisible();
+    await begin.click();
+  }
+  // His Cue costs 15 (content's), marked on the Resonance meter; his chip is up.
+  await expect(page.getByTestId('cue-cost')).toHaveText(`Cue ${conductor.values.cue}`);
+  await expect(page.getByTestId('calling-chip')).toBeVisible();
+  // Thread Lyra and Empower her: Empower fills Resonance while the Solos charge.
+  await page.mouse.move(640, 300);
+  await page.keyboard.press('Digit2');
+  await waitTicks(page, 2);
+  await page.mouse.click(640, 360, { button: 'right' });
+  await waitTicks(page, 2);
+  expect((await weaverOf(page)).threadMode).toBe('empower');
+  // Two heroes ready, with Resonance for two Cues (the meter's own value).
+  const frames = page.getByTestId('party-frames').getByRole('button');
+  const readySlots = async () => {
+    const out: number[] = [];
+    for (let i = 0; i < 3; i++)
+      if (/READY/.test((await frames.nth(i).textContent()) ?? '')) out.push(i);
+    return out;
+  };
+  const meter = page.getByRole('meter', { name: 'Resonance' });
+  // The wait runs the fight faster; the Cues are given at its own pace.
+  await page.evaluate(() => window.__AW__!.setDevTimeScale(3));
+  await expect
+    .poll(
+      async () =>
+        (await readySlots()).length >= 2 &&
+        Number(await meter.getAttribute('aria-valuenow')) >= 2 * conductor.values.cue!,
+      { timeout: 300_000, intervals: [250] },
+    )
+    .toBe(true);
+  await page.evaluate(() => window.__AW__!.setDevTimeScale(1));
+  const [a, b] = await readySlots();
+  // The first Cue opens a chain: the other ready hero's badge reads Duet, its ring drains.
+  await page.keyboard.press(`Shift+Digit${a! + 1}`);
+  await expect(page.getByTestId('chain-ring')).toBeVisible();
+  await expect(frames.nth(b!).getByTestId('cue-badge')).toContainText(
+    `Duet ×${1 + conductor.values.duet! / 100}`,
+  );
+  // The second within the window: a Duet, and its gold call-out.
+  await page.keyboard.press(`Shift+Digit${b! + 1}`);
+  await expect(page.getByText(/^DUET · /)).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
 test('Phase 4: the Astrolabe — from Prep, take, give back, respec, a keystone’s path, embark with it', async ({
   page,
 }) => {

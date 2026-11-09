@@ -15,7 +15,13 @@ import type {
 } from '../../meta/types';
 import { PathPip, callingLook } from '../kit/CallingGlyph';
 import { CallingTitle } from './CallingParts';
-import { callingNothingText, callingParts, pathSteps, techniqueName } from './callingText';
+import {
+  callingNothingText,
+  callingParts,
+  conductingTip,
+  pathSteps,
+  techniqueName,
+} from './callingText';
 import { bindingLabel } from '../hud/labels';
 import { useCallback, useState, type ReactNode } from 'react';
 import { CONTENT } from '../../content';
@@ -880,6 +886,8 @@ function CallingSummary({
   const look = callingLook(def.id);
   const steps = pathSteps(calling, { map: run.map });
   const parts = callingParts(totals, calling);
+  // Only with parts to show: with none, the line in their place already says how.
+  const tip = parts.length > 0 ? conductingTip(def.id, totals) : null;
   return (
     <Panel
       tone="solid"
@@ -897,7 +905,7 @@ function CallingSummary({
                 className="rounded-xl border bg-ink-900/60 px-4 py-2"
                 style={{ borderColor: `color-mix(in srgb, ${look.color} 35%, transparent)` }}
               >
-                <p className="font-mono text-xl font-bold" style={{ color: look.color }}>
+                <p className="font-mono text-xl font-bold" style={{ color: look.text }}>
                   {p.figure}
                 </p>
                 <p className="text-xs text-muted">{p.caption}</p>
@@ -910,6 +918,16 @@ function CallingSummary({
           </p>
         )}
       </div>
+      {tip && (
+        // The Conductor (docs/phase-5f.md): a run that never chained a Cue says how.
+        <p
+          className="mt-3 flex items-start gap-1.5 text-sm text-muted"
+          data-testid="summary-calling-tip"
+        >
+          <Icon name="chain" size={14} className="mt-0.5 shrink-0" style={{ color: look.text }} />
+          {tip}
+        </p>
+      )}
       {mastery !== undefined && (
         <MasteryGainRow
           callingId={def.id}
@@ -935,7 +953,7 @@ function CallingSummary({
             <div className="min-w-0">
               <p
                 className="text-sm font-semibold"
-                style={{ color: st.chosen ? look.color : undefined }}
+                style={{ color: st.chosen ? look.text : undefined }}
               >
                 {st.chosen
                   ? st.chosen.name

@@ -511,20 +511,25 @@ export interface HudDissonanceView {
   levels: LevelRow[];
   /** Blind Score is in force. */
   blind: boolean;
-  /** A Cue costs more than the content's (Silent Cues). */
+  /** A Cue costs more than it would without Dissonance (Silent Cues). */
   cueRaised: boolean;
   /** "Dissonance 14: Hardened (rank 2), Brisk Foes. Blind Score: …". */
   label: string;
 }
 
+/**
+ * `cueBase`: what a Cue costs this fight without Dissonance (`WeaverHud.cueBase`): the content's,
+ * or the Conductor's own cheaper Cue (docs/phase-5f.md), which is his Calling's, not Dissonance.
+ */
 export function hudDissonanceView(
   levels: readonly DissonanceChoice[],
   cueCost: number,
+  cueBase: number = CONTENT.resonance.cueCost,
 ): HudDissonanceView {
   const points = dissonancePoints(levels);
   const rows = takenRows(levels);
   const blind = rows.some((r) => r.effect === 'blind_score');
-  const cueRaised = cueCost !== CONTENT.resonance.cueCost;
+  const cueRaised = cueCost !== cueBase;
   const notes = [blind ? blindLine() : null, cueRaised ? cueLine(cueCost) : null].filter(Boolean);
   return {
     points,

@@ -35,10 +35,22 @@ import type { IconName } from '../kit/iconPaths';
 /**
  * The ways a Calling can grow (docs/phase-3c.md, 3d.md and 3e.md "The axes"): the Luminary's
  * protect / reach and number / radiance, the Martyr's endure / share the pain / live at low
- * Life, the Chronomancer's see it coming / more turns / undo it.
+ * Life, the Chronomancer's see it coming / more turns / undo it, the Conductor's lead them / in
+ * time / more Solos (docs/phase-5f.md).
  */
 export type CallingAxis =
-  'protect' | 'reach' | 'radiance' | 'endure' | 'share' | 'lowlife' | 'foresee' | 'turns' | 'undo';
+  | 'protect'
+  | 'reach'
+  | 'radiance'
+  | 'endure'
+  | 'share'
+  | 'lowlife'
+  | 'foresee'
+  | 'turns'
+  | 'undo'
+  | 'lead'
+  | 'tempo'
+  | 'encore';
 
 /**
  * Content has no axis field; the design docs name each option's. An option can sit on two
@@ -69,6 +81,14 @@ export const OPTION_AXES: Readonly<Record<string, readonly CallingAxis[]>> = {
   eternal_moment: ['turns'],
   borrowed_time: ['undo'],
   paradox: ['undo'],
+  marcato: ['lead'],
+  ensemble: ['lead'],
+  spotlight: ['lead'],
+  a_tempo: ['tempo'],
+  upbeat: ['tempo'],
+  triad: ['tempo'],
+  reprise: ['encore'],
+  maestro: ['encore'],
 };
 
 /** Each option's own axis (the first of `OPTION_AXES`). */
@@ -135,6 +155,26 @@ export const AXIS_LOOK: Readonly<
     // red-green colour vision (ΔE ≥ 25 between all three of his axes, in every mode).
     color: '#be9bfa',
   },
+  // The Conductor's three (docs/phase-5f.md): his ivory, an ink-blue and a rose, ΔE ≥ 25 from one
+  // another in every colour-vision mode, each with its glyph.
+  lead: {
+    label: 'Lead them',
+    blurb: 'Your heroes hit harder',
+    icon: 'swords',
+    color: '#f4eedd',
+  },
+  tempo: {
+    label: 'In time',
+    blurb: 'The beat and the meter',
+    icon: 'clock',
+    color: '#7c8cf8',
+  },
+  encore: {
+    label: 'More Solos',
+    blurb: 'Solos come round sooner',
+    icon: 'note',
+    color: '#d4789c',
+  },
 };
 
 export function optionAxis(id: string): CallingAxis | null {
@@ -179,6 +219,7 @@ export const PASSIVE_NAME: Readonly<Record<string, string>> = {
   luminary: 'Radiance',
   martyr: 'Bear, and songs sung with your Life',
   chronomancer: 'Rewind, telegraph timers and a wider Perfect window',
+  conductor: 'Cheap Cues, Duets and Trios',
 };
 
 export function passiveName(id: string): string {
@@ -561,21 +602,117 @@ export interface CallingPart {
 }
 
 type CallingStats = Pick<EncounterStats, 'callingAmplified' | 'callingShielded'> &
-  Partial<Pick<EncounterStats, 'callingBorne' | 'callingRewound' | 'callingRevived'>>;
+  Partial<
+    Pick<EncounterStats, 'callingBorne' | 'callingRewound' | 'callingRevived' | 'conducting'>
+  >;
+
+// ── The Conductor (docs/phase-5f.md) ──────────────────────────────────────────────────
+
+/** The Conductor's content (the Calling whose passive chains Cues into Duets and Trios). */
+export function conductorDef(): CallingDef | null {
+  return CONTENT.callings.find((c) => (c.values.duet ?? 0) > 0) ?? null;
+}
+
+/** Does this Calling chain Cues into Duets and Trios (the Conductor)? */
+export function conductsFor(callingId: string | null | undefined): boolean {
+  return !!callingId && conductorDef()?.id === callingId;
+}
+
+/** "Duet", "Trio": what a Cue at this place in a chain plays as (1 starts one: a plain Cue). */
+export function linkName(link: 1 | 2 | 3): string {
+  return link === 3 ? 'Trio' : link === 2 ? 'Duet' : 'Cue';
+}
+
+/** A Solo's power as the HUD says it: ×1.25, ×1.5, ×1.44, ×2.49 (two decimals at most). */
+export function powerLabel(power: number): string {
+  return `×${Number(power.toFixed(2))}`;
+}
+
+/**
+ * The Conductor's parts of a fight or a run: the damage his Cues and his path added through the
+ * heroes (the Calling's share, `callingAmplified`), then his tallies (`conducting`): Duets,
+ * Trios, the Grand Finale's Solos and the free Cues. Zero parts are left out.
+ */
+function conductingParts(stats: CallingStats): CallingPart[] {
+  const parts: CallingPart[] = [];
+  const c = stats.conducting;
+  const finale = crescendoName(conductorDef());
+  if (stats.callingAmplified >= 1)
+    parts.push({
+      label: 'Led',
+      amount: stats.callingAmplified,
+      text: `+${fmt(stats.callingAmplified)} damage through your heroes`,
+      figure: `+${fmt(stats.callingAmplified)}`,
+      caption: 'damage your Duets, Trios and path added',
+    });
+  if (!c) return parts;
+  const count = (n: number, one: string, many: string) => `${fmt(n)} ${n === 1 ? one : many}`;
+  if (c.duets >= 1)
+    parts.push({
+      label: 'Duets',
+      amount: c.duets,
+      text: count(c.duets, 'Duet', 'Duets'),
+      figure: fmt(c.duets),
+      caption: c.duets === 1 ? 'Duet' : 'Duets',
+    });
+  if (c.trios >= 1)
+    parts.push({
+      label: 'Trios',
+      amount: c.trios,
+      text: count(c.trios, 'Trio', 'Trios'),
+      figure: fmt(c.trios),
+      caption: c.trios === 1 ? 'Trio' : 'Trios',
+    });
+  if (c.finaleSolos >= 1)
+    parts.push({
+      label: finale,
+      amount: c.finaleSolos,
+      text: `${finale} played ${count(c.finaleSolos, 'Solo', 'Solos')}`,
+      figure: fmt(c.finaleSolos),
+      caption: `Solos ${finale} played`,
+    });
+  // Cues that cost nothing on the downbeat (A Tempo; the sim counts only those that cost 0).
+  if (c.freeCues >= 1)
+    parts.push({
+      label: 'Free Cues',
+      amount: c.freeCues,
+      text: count(c.freeCues, 'free Cue', 'free Cues'),
+      figure: fmt(c.freeCues),
+      caption: c.freeCues === 1 ? 'free Cue' : 'free Cues',
+    });
+  return parts;
+}
+
+/**
+ * The Summary's word on a Conductor run that never chained a Cue (null otherwise, or once a Duet
+ * was played): how a Duet is made, with the window from content.
+ */
+export function conductingTip(
+  callingId: string | null | undefined,
+  stats: Pick<EncounterStats, 'conducting'>,
+): string | null {
+  const def = conductorDef();
+  if (!def || !conductsFor(callingId)) return null;
+  const c = stats.conducting;
+  if (c && c.duets + c.trios > 0) return null;
+  return `No Duet this run: Cue a second hero within ${def.values.chain ?? 0} s of the first, and their Solo plays ${def.values.duet ?? 0}% stronger.`;
+}
 
 /**
  * What the Calling did, in its own words. The Luminary: Radiance (and Eclipse) for the damage
  * added through the heroes, Haloed for the damage kept off them. The Martyr: what she bore for
  * them (`callingBorne`), and what Bear, Shared Wounds and the Vow kept off them
  * (`callingShielded`). The Chronomancer: the life Rewind gave back (`callingRewound`, revives
- * included) and the heroes it stood back up (`callingRevived`). Zero parts are left out. A
- * Calling given without an id reads as the Luminary (the Phase 3c callers).
+ * included) and the heroes it stood back up (`callingRevived`). The Conductor: the damage his
+ * Cues and path added, his Duets, Trios, Finale Solos and free Cues (`conductingParts`). Zero
+ * parts are left out. A Calling given without an id reads as the Luminary (the Phase 3c callers).
  */
 export function callingParts(
   stats: CallingStats,
   calling: (Pick<RunCalling, 'path'> & { id?: string }) | null,
 ): CallingPart[] {
   const path = calling?.path ?? [];
+  if (conductsFor(calling?.id)) return conductingParts(stats);
   const parts: CallingPart[] = [];
   if (rewindsFor(calling?.id)) {
     const rewound = stats.callingRewound ?? 0;
@@ -659,6 +796,8 @@ export function callingResultLine(
  * keys are the player's: Bear's for the Martyr, Reel's slot (Rewind) for the Chronomancer.
  */
 export function callingNothingText(id: string, bearKey = 'B', rewindKey = 'F'): string {
+  if (conductsFor(id))
+    return `Your Calling added nothing this run: Cue a second hero within ${conductorDef()!.values.chain ?? 0} s of the first for a Duet, and a third for a Trio.`;
   if (rewindsFor(id))
     return `Rewind gave nothing back this run: when a hero takes a big hit or falls, press ${rewindKey} within ${rewindSeconds(id)} s to send them back.`;
   return id === 'martyr'

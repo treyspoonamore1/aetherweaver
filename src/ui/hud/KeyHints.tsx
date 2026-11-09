@@ -7,16 +7,23 @@ import { bindingLabel } from './labels';
  * A quiet controls reminder (bottom-right). Shown for the first fights and in training. `bear`:
  * a Martyr run, where Bear has its own key (Phase 3d). `rewind`: a Chronomancer run, where
  * Reel's key Rewinds (Phase 3e). `techniques` (Phase 4f): what the four keys play this fight, by
- * name (the variants chosen, Rewind in Reel's slot), in key order.
+ * name (the variants chosen, Rewind in Reel's slot), in key order. Phase 5f: on a Conductor run,
+ * the Cue row says how a Duet is made and the Crescendo row names the Grand Finale.
  */
 export function KeyHints({
   bear = false,
   rewind = false,
   techniques,
+  crescendoName,
+  chainWindow,
 }: {
   bear?: boolean;
   rewind?: boolean;
   techniques?: readonly string[];
+  /** Phase 5f: the Crescendo by its name when it isn't Sunrise (the Grand Finale). */
+  crescendoName?: string;
+  /** Phase 5f: the Conductor's chain window (s): a second Cue inside it is a Duet. */
+  chainWindow?: number;
 }) {
   const t = CONTENT.techniques;
   const names = techniques ?? [
@@ -39,8 +46,13 @@ export function KeyHints({
       `${bindingLabel('ward')} ${bindingLabel('chime')} ${bindingLabel('reel')} ${bindingLabel('glide')}`,
       names.join(' · '),
     ],
-    [`${bindingLabel('cue')} / ⇧1–4`, 'Cue a Solo'],
-    [bindingLabel('crescendo'), 'Crescendo'],
+    [
+      `${bindingLabel('cue')} / ⇧1–4`,
+      chainWindow !== undefined
+        ? `Cue a Solo · another within ${Number(chainWindow.toFixed(1))} s: a Duet`
+        : 'Cue a Solo',
+    ],
+    [bindingLabel('crescendo'), crescendoName ? `Crescendo: ${crescendoName}` : 'Crescendo'],
     [`hold ${bindingLabel('directiveWheel')} / MMB`, 'Directive wheel'],
     [`${bindingLabel('directiveFocus')} / MMB click`, 'Focus an enemy'],
     [bindingLabel('plant'), 'Plant Pedal Point'],

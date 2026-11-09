@@ -143,6 +143,13 @@ import { BRANN_VIEWS } from './brannLab';
 import { SEREN_VIEWS } from './serenLab';
 import { ORO_VIEWS } from './oroLab';
 import {
+  conductOfferRun,
+  conductResultRun,
+  conductStage,
+  conductSummaryRun,
+  type ConductScenario,
+} from './conductingMock';
+import {
   expeditionPrepRun,
   expeditionReliquaryRun,
   expeditionRun,
@@ -1171,6 +1178,35 @@ function TrainingTechniquesLab({ initial }: { initial: Partial<Techniques> }) {
         onLoadout={noop}
         techniques={techniques}
         onTechnique={(slot, id) => setTechniques((t) => ({ ...t, [slot]: id }))}
+      />
+    </World>
+  );
+}
+
+/** The Conductor's HUD views (docs/phase-5f.md): a staged real fight each. */
+const CONDUCT_HUD: readonly [ConductScenario, string, boolean?][] = [
+  ['conduct-open', 'HUD: one Cue, the chain open (“Duet next”, Duet badges)'],
+  ['conduct-duet', 'HUD: a Duet (DUET call-out, the Trio badge on Vexis)'],
+  ['conduct-trio', 'HUD: a Trio with Marcato and Spotlight (TRIO, Reprise)'],
+  ['conduct-beat', 'HUD: A Tempo, inside the downbeat’s window (“Free”)'],
+  ['conduct-offbeat', 'HUD: A Tempo, mid-bar'],
+  ['conduct-beat', 'HUD: A Tempo inside the window, reduced motion (stepped light)', true],
+  ['conduct-offbeat', 'HUD: A Tempo mid-bar, reduced motion (stepped light)', true],
+  ['conduct-finale', 'HUD: Grand Finale with Maestro, two turns played, Vexis next'],
+  ['conduct-waits', 'HUD: Grand Finale, Kael waits mid-Solo, Vexis’s turns lost'],
+];
+
+function ConductHudStage({ scenario, reduced }: { scenario: ConductScenario; reduced?: boolean }) {
+  const stage = conductStage(scenario);
+  return (
+    <World>
+      <HudView
+        hud={stage.hud}
+        callouts={stage.callouts}
+        decree={null}
+        subtitle="The Prelude · node 3 of 10"
+        forceCoach
+        reducedBeat={reduced ?? false}
       />
     </World>
   );
@@ -2578,6 +2614,146 @@ const VIEWS: ViewDef[] = [
           </div>
         </div>
       </ScreenFrame>
+    ),
+  },
+  // ── Phase 5f: the Conductor ──────────────────────────────────────────────────────────
+  {
+    id: 'prep-conduct-locked',
+    group: 'Conductor',
+    label: 'Prep: Rank 11, the Conductor locked (Rank 12)',
+    w: 1280,
+    h: 720,
+    render: () => prepCalling(11),
+  },
+  {
+    id: 'prep-conduct-new',
+    group: 'Conductor',
+    label: 'Prep: Rank 12, the Conductor New',
+    w: 1280,
+    h: 720,
+    render: () => prepCalling(12),
+  },
+  {
+    id: 'prep-conduct-chosen',
+    group: 'Conductor',
+    label: 'Prep: the Conductor chosen',
+    w: 1280,
+    h: 1240,
+    render: () => prepCalling(null, { chosen: 'conductor' }),
+  },
+  {
+    id: 'prep-conduct-narrow',
+    group: 'Conductor',
+    label: 'Prep at its narrowest (900 wide): four Callings and No Calling',
+    w: 900,
+    h: 1240,
+    render: () => prepCalling(null, { chosen: 'conductor' }),
+  },
+  {
+    id: 'prep-conduct-path',
+    group: 'Conductor',
+    label: 'Prep: the Conductor’s path dialog',
+    w: 1280,
+    h: 720,
+    render: () => prepCalling(null, { chosen: 'conductor', openPath: 'conductor' }),
+  },
+  ...[0, 1, 2, 3].map((tier): ViewDef => ({
+    id: `conduct-tier-${tier + 1}`,
+    group: 'Conductor',
+    label: `Tier ${['I', 'II', 'III', 'IV'][tier]}: ${callingDef('conductor')
+      .tiers[tier]!.options.map((o) => o.name)
+      .join(' / ')}`,
+    w: 1280,
+    h: 720,
+    render: () => (
+      <Interactive initial={() => conductOfferRun(tier)}>
+        {(run, set) => (
+          <CallingView run={run} onPick={(i, c) => set((r) => Run.pickCalling(r, i, c))} />
+        )}
+      </Interactive>
+    ),
+  })),
+  ...CONDUCT_HUD.map(([scenario, label, reduced]): ViewDef => ({
+    id: `hud-${scenario}${reduced ? '-reduced' : ''}`,
+    group: 'Conductor',
+    label,
+    w: 1280,
+    h: 720,
+    render: () => <ConductHudStage scenario={scenario} reduced={reduced} />,
+  })),
+  {
+    id: 'howto-conduct',
+    group: 'Conductor',
+    label: 'First-fight primer on a Conductor run',
+    w: 1280,
+    h: 720,
+    render: () => {
+      const h = conductStage('conduct-open').hud;
+      const c = h.conducting!;
+      return (
+        <World>
+          <HowToPlay
+            onClose={noop}
+            conduct={{
+              cueCost: c.cueCost,
+              chainWindow: c.chainWindow,
+              duet: c.duet,
+              trio: c.trio,
+              crescendoName: h.weaver.crescendoName,
+              crescendoCost: h.weaver.crescendoCost,
+            }}
+          />
+        </World>
+      );
+    },
+  },
+  {
+    id: 'result-conduct',
+    group: 'Conductor',
+    label: 'Result: his line (Duets, Trios, the Finale, free Cues)',
+    w: 1280,
+    h: 2320,
+    render: () => {
+      const run = conductResultRun();
+      return <ResultView run={run} result={run.lastResult!} onContinue={noop} profileXp={LAB_XP} />;
+    },
+  },
+  {
+    id: 'summary-conduct',
+    group: 'Conductor',
+    label: 'Summary: the Conductor’s path and totals',
+    w: 1280,
+    h: 1300,
+    render: () => <SummaryView run={conductSummaryRun()} onNewRun={noop} onLoom={noop} />,
+  },
+  {
+    id: 'summary-conduct-no-duet',
+    group: 'Conductor',
+    label: 'Summary: a run with no Duet says how',
+    w: 1280,
+    h: 1300,
+    render: () => (
+      <SummaryView run={conductSummaryRun({ noDuets: true })} onNewRun={noop} onLoom={noop} />
+    ),
+  },
+  {
+    id: 'codex-conduct',
+    group: 'Conductor',
+    label: 'Codex: four Callings',
+    w: 1280,
+    h: 3500,
+    render: () => <CodexView onBack={noop} initialTab="callings" />,
+  },
+  {
+    id: 'rank-up-12',
+    group: 'Conductor',
+    label: 'Rank 12: the Conductor and Oro',
+    w: 1280,
+    h: 720,
+    render: () => (
+      <World>
+        <RankUpCard rankUps={mockRankUps([12])} onDismiss={noop} />
+      </World>
     ),
   },
   // ── Phase 4: the Astrolabe ───────────────────────────────────────────────────────────

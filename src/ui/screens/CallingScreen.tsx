@@ -149,7 +149,7 @@ export function CallingView({
             </p>
             <h1
               className="mt-1 font-display text-3xl font-bold tracking-wide sm:text-4xl"
-              style={{ color: look.color }}
+              style={{ color: look.text }}
             >
               Your Calling grows
             </h1>
@@ -258,7 +258,7 @@ function PathTrack({
             />
             <span
               className={`mt-1.5 text-sm font-semibold leading-tight ${dim ? 'text-muted' : ''}`}
-              style={!dim ? { color: look.color } : undefined}
+              style={!dim ? { color: look.text } : undefined}
             >
               {s.chosen
                 ? s.chosen.name
@@ -323,7 +323,7 @@ function OptionCard({
         <KeyCap label={keyLabel} />
       </span>
       <span className="mt-3 flex flex-wrap items-center gap-2">
-        <span className="font-display text-2xl font-bold" style={{ color: look.color }}>
+        <span className="font-display text-2xl font-bold" style={{ color: look.text }}>
           {o.name}
         </span>
         <AxisChip optionId={o.id} size="md" all />

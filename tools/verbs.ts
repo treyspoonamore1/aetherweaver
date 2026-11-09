@@ -31,6 +31,13 @@
  *   npx tsx tools/verbs.ts --movement 2 --party SA --encounters vharun     # Seren's rules
  *   npx tsx tools/verbs.ts --movement 1 --party OB --bot novice            # the Novice's draws
  *
+ * The Conductor's rules (docs/phase-5f.md, "Bots and harness"): with `--calling conductor` the
+ * default list is the Skilled bot's `CONDUCTING_RULES` (or, with `--bot novice`, her
+ * `NOVICE_CONDUCTING` draws), whatever the Movement; `--path` picks the tiers' options.
+ *
+ *   npx tsx tools/verbs.ts --movement 1 --encounters bellwarden --calling conductor --path 1011
+ *   npx tsx tools/verbs.ts --movement 1 --encounters bellwarden --calling conductor --bot novice
+ *
  * Some rules are met only off the default setup: `mawHold` needs a Bloodlusting Brann whom no
  * plain Reel takes out of an Inhale (Swap, the Chronomancer's Rewind). `--party` (A, B, C or 3
  * hero ids, as the harness takes it), `--techniques` (variant ids, e.g. `swap` or
@@ -38,18 +45,22 @@
  * by default) set the fights up for them. Without them the config has no such key, as before.
  */
 import {
+  CONDUCTING_RULES,
   FINALE_RULES,
   M3_RULES,
   ROSTER_RULES,
   SkilledBot,
+  type ConductingRule,
   type FinaleRule,
   type M3Rule,
   type RosterRule,
 } from '../src/bots/skilled';
 import {
+  NOVICE_CONDUCTING_RULES,
   NOVICE_M4_RULES,
   NOVICE_ROSTER_RULES,
   NoviceBot,
+  type NoviceConductingRule,
   type NoviceM4Rule,
   type NoviceRosterRule,
 } from '../src/bots/novice';
@@ -65,23 +76,34 @@ import { kitConfig, kitFor } from './kits';
 const MAX_TICKS = 9 * 60 * 60;
 
 /**
- * A rule a bot's `skip` can turn off: the Skilled bot's Movement III, Finale or roster rules, or
- * the Novice's Finale and roster draws.
+ * A rule a bot's `skip` can turn off: the Skilled bot's Movement III, Finale, roster or Conductor
+ * rules, or the Novice's Finale, roster and Conductor draws.
  */
-export type VerbRule = M3Rule | FinaleRule | RosterRule | NoviceM4Rule | NoviceRosterRule;
+export type VerbRule =
+  | M3Rule
+  | FinaleRule
+  | RosterRule
+  | ConductingRule
+  | NoviceM4Rule
+  | NoviceRosterRule
+  | NoviceConductingRule;
 /** The bot an ablation plays (`--bot`): the Skilled bot by default. */
 export type VerbBot = 'skilled' | 'novice';
 
 /**
  * The rules a Movement's ablation plays by default: the Finale's from it on, else Movement III's;
  * with Seren or Oro in `party`, their own rules (docs/phase-5e.md: `ROSTER_RULES`, or the
- * Novice's `NOVICE_ROSTER`).
+ * Novice's `NOVICE_ROSTER`); with the Conductor as the Calling, its own (docs/phase-5f.md:
+ * `CONDUCTING_RULES`, or the Novice's `NOVICE_CONDUCTING`).
  */
 export function rulesFor(
   movement: number,
   bot: VerbBot = 'skilled',
   party: readonly string[] | null = null,
+  calling: SimConfig['calling'] | undefined = undefined,
 ): readonly VerbRule[] {
+  if (calling?.id === 'conductor')
+    return bot === 'novice' ? NOVICE_CONDUCTING_RULES : CONDUCTING_RULES;
   if (party && (party.includes('seren') || party.includes('oro')))
     return bot === 'novice' ? NOVICE_ROSTER_RULES : ROSTER_RULES;
   if (bot === 'novice') return movement >= FINALE_MOVEMENT ? NOVICE_M4_RULES : [];
@@ -91,8 +113,8 @@ export function rulesFor(
 /** Every rule `--rules` may name, by bot. */
 function allRules(bot: VerbBot): readonly string[] {
   return bot === 'novice'
-    ? [...NOVICE_M4_RULES, ...NOVICE_ROSTER_RULES]
-    : [...M3_RULES, ...FINALE_RULES, ...ROSTER_RULES];
+    ? [...NOVICE_M4_RULES, ...NOVICE_ROSTER_RULES, ...NOVICE_CONDUCTING_RULES]
+    : [...M3_RULES, ...FINALE_RULES, ...ROSTER_RULES, ...CONDUCTING_RULES];
 }
 
 /** One fight's numbers. */
@@ -101,6 +123,15 @@ export interface VerbFight {
   duration: number;
   downs: number;
   share: number;
+  /** The Conductor Calling's fight (docs/phase-5f.md); absent without it. */
+  conducting?: {
+    cues: number;
+    duets: number;
+    trios: number;
+    freeCues: number;
+    finales: number;
+    marcatos: number;
+  };
 }
 
 /** Who plays the fights (`--party`, `--techniques`, `--calling`); empty, the default setup. */
@@ -166,13 +197,17 @@ function verbBot(seed: number, skip: ReadonlySet<VerbRule>, bot: VerbBot): Bot {
   if (bot === 'novice')
     return new NoviceBot(
       seed,
-      skip.size > 0 ? { skip: skip as ReadonlySet<NoviceM4Rule | NoviceRosterRule> } : {},
+      skip.size > 0
+        ? { skip: skip as ReadonlySet<NoviceM4Rule | NoviceRosterRule | NoviceConductingRule> }
+        : {},
     );
   return new SkilledBot(seed, {
     every: 4,
     attention: 1,
     callReaction: 0.4,
-    ...(skip.size > 0 ? { skip: skip as ReadonlySet<M3Rule | FinaleRule | RosterRule> } : {}),
+    ...(skip.size > 0
+      ? { skip: skip as ReadonlySet<M3Rule | FinaleRule | RosterRule | ConductingRule> }
+      : {}),
   });
 }
 
@@ -199,7 +234,28 @@ export function verbFight(
     duration: (st.encounter.endedAt ?? st.time) - st.encounter.startedAt,
     downs: st.ledger.downs,
     share: weaverShare(st.ledger),
+    ...(st.ledger.conducting
+      ? {
+          conducting: {
+            cues: st.ledger.cues,
+            duets: st.ledger.conducting.duets,
+            trios: st.ledger.conducting.trios,
+            freeCues: st.ledger.conducting.freeCues,
+            finales: st.ledger.conducting.finales,
+            marcatos: st.ledger.conducting.marcatos,
+          },
+        }
+      : {}),
   };
+}
+
+/** The Conductor's counts a fight, averaged over `fights`, as a row's tail ('' without any). */
+export function conductingTail(fights: readonly VerbFight[]): string {
+  const c = fights.flatMap((f) => (f.conducting ? [f.conducting] : []));
+  if (c.length === 0) return '';
+  const m = (f: (x: NonNullable<VerbFight['conducting']>) => number) =>
+    (c.reduce((s, x) => s + f(x), 0) / c.length).toFixed(2);
+  return ` · cues ${m((x) => x.cues)} · duets ${m((x) => x.duets)} · trios ${m((x) => x.trios)} · free ${m((x) => x.freeCues)} · finales ${m((x) => x.finales)} · marcatos ${m((x) => x.marcatos)}`;
 }
 
 function main(): void {
@@ -216,12 +272,14 @@ function main(): void {
   if (botKind !== 'skilled' && botKind !== 'novice')
     throw new Error(`--bot is skilled or novice, not "${botKind}"`);
   const party = partyArg(get('party'));
-  const rules = (get('rules')?.split(',') ?? [...rulesFor(movement, botKind, party)]) as VerbRule[];
+  const calling = callingArg(get('calling'), get('path'));
+  const rules = (get('rules')?.split(',') ?? [
+    ...rulesFor(movement, botKind, party, calling),
+  ]) as VerbRule[];
   const known = allRules(botKind);
   const unknown = rules.filter((r) => !known.includes(r));
   if (unknown.length > 0) throw new Error(`Unknown rule "${unknown}" (${known})`);
   const techniques = techniquesArg(get('techniques'));
-  const calling = callingArg(get('calling'), get('path'));
   const setup: VerbSetup = {
     ...(party ? { party } : {}),
     ...(techniques ? { techniques } : {}),
@@ -252,15 +310,21 @@ function main(): void {
       downs: fights.reduce((s, f) => s + f.downs, 0) / fights.length,
       share: fights.reduce((s, f) => s + f.share, 0) / fights.length,
     });
-    const all = sum(play(new Set()));
+    const onFights = play(new Set());
+    const all = sum(onFights);
     console.log(
-      `${encounter.padEnd(18)} every rule       win ${pct(all.win).padStart(4)} · ${all.duration.toFixed(0)} s · downs ${all.downs.toFixed(2)} · share ${pct(all.share)}`,
+      `${encounter.padEnd(18)} every rule       win ${pct(all.win).padStart(4)} · ${all.duration.toFixed(0)} s · downs ${all.downs.toFixed(2)} · share ${pct(all.share)}${conductingTail(onFights)}`,
     );
     for (const rule of rules) {
-      const off = sum(play(new Set([rule])));
-      const same = off.win === all.win && off.duration === all.duration && off.downs === all.downs;
+      const offFights = play(new Set([rule]));
+      const off = sum(offFights);
+      const same =
+        off.win === all.win &&
+        off.duration === all.duration &&
+        off.downs === all.downs &&
+        conductingTail(offFights) === conductingTail(onFights);
       console.log(
-        `${''.padEnd(18)} −${rule.padEnd(15)} ${same ? 'no change (not met here)' : `win ${pct(off.win).padStart(4)} (${signed(100 * (off.win - all.win))}) · ${off.duration.toFixed(0)} s (${signed(off.duration - all.duration)}) · downs ${off.downs.toFixed(2)} (${signed(off.downs - all.downs, 2)})`}`,
+        `${''.padEnd(18)} −${rule.padEnd(15)} ${same ? 'no change (not met here)' : `win ${pct(off.win).padStart(4)} (${signed(100 * (off.win - all.win))}) · ${off.duration.toFixed(0)} s (${signed(off.duration - all.duration)}) · downs ${off.downs.toFixed(2)} (${signed(off.downs - all.downs, 2)})`}${conductingTail(offFights)}`,
       );
     }
   }

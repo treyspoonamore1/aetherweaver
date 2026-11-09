@@ -2,10 +2,13 @@ import { CallingEmblem, PathPip, callingLook } from '../kit/CallingGlyph';
 import { CallingGlyph } from '../kit/CallingGlyph';
 import { numeral } from '../screens/callingText';
 import { bearLabel, callingHudLabel, type CallingHud } from './calling';
+import { conductingChipSentence, marcatoChipLabel, pctLabel } from './conducting';
+import type { ConductingHud } from '../store';
 
 /**
- * The Calling in the fight (Phase 3c, 3d, 3e): its emblem and the path's pips, small, next to
- * the relic bar. The emblem blazes in its Crescendo (Sunrise, the Martyr's Vow, Stasis); Haloed
+ * The Calling in the fight (Phase 3c, 3d, 3e, 5f): its emblem and the path's pips, small, next to
+ * the relic bar. The emblem blazes in its Crescendo (Sunrise, the Martyr's Vow, Stasis, the Grand
+ * Finale); the Conductor's Marcato, Ensemble and Triad show as small states too; Haloed
  * and Sovereign Symphony, the Martyr's Bear, Undying Devotion (ready or spent), Blood Font and
  * Low-Life Vigil (while they're working), and the Chronomancer's revive (once a run: ready or
  * spent) and Temporal Mastery (ready, or back in a few seconds) show as small states. Phase 4g:
@@ -14,13 +17,19 @@ import { bearLabel, callingHudLabel, type CallingHud } from './calling';
 export function CallingChip({
   calling: c,
   tiersOpen,
+  conducting,
 }: {
   calling: CallingHud;
   /** The path tiers the run offers (the rest locked by mastery); omitted: every tier. */
   tiersOpen?: number;
+  /** Phase 5f: the Conductor's fight (Marcato, Ensemble, Triad, the Grand Finale). */
+  conducting?: ConductingHud;
 }) {
   const look = callingLook(c.id);
-  const blaze = c.sunrise || c.vow || c.stasis;
+  const finale = !!conducting?.finale;
+  const blaze = c.sunrise || c.vow || c.stasis || finale;
+  const conduct =
+    !!conducting && (!!conducting.marcato || !!conducting.ensemble || !!conducting.triad);
   const shut = tiersOpen === undefined ? 0 : c.tiers.filter((t, i) => !t && i >= tiersOpen).length;
   const states =
     c.haloed ||
@@ -40,11 +49,12 @@ export function CallingChip({
         boxShadow: blaze ? `0 0 18px color-mix(in srgb, ${look.color} 55%, transparent)` : '',
       }}
       role="img"
-      aria-label={`${callingHudLabel(c)}${shut > 0 ? ` ${shut} of its tiers locked by mastery this run.` : ''}`}
+      aria-label={`${callingHudLabel(c)}${conducting ? ` ${conductingChipSentence(conducting, c.crescendoName)}` : ''}${shut > 0 ? ` ${shut} of its tiers locked by mastery this run.` : ''}`}
       data-testid="calling-chip"
       data-sunrise={c.sunrise || undefined}
       data-vow={c.vow || undefined}
       data-stasis={c.stasis || undefined}
+      data-finale={finale || undefined}
     >
       <CallingEmblem
         callingId={c.id}
@@ -70,9 +80,56 @@ export function CallingChip({
           Sunrise ×{c.sunriseMult}
         </span>
       )}
-      {(c.vow || c.stasis) && (
+      {(c.vow || c.stasis || finale) && (
         <span className="font-display text-xs font-bold" style={{ color: look.light }}>
           {c.crescendoName}
+        </span>
+      )}
+      {conduct && conducting && (
+        // The Conductor (docs/phase-5f.md): Marcato ready or coming back, Ensemble's streak and
+        // bonus, Triad holding the meter. Each with its glyph, in his ivory.
+        <span className="flex items-center gap-1" data-testid="conduct-states">
+          {conducting.marcato && (
+            <State
+              icon="marcato"
+              label={marcatoChipLabel(conducting.marcato)}
+              color={conducting.marcato.ready ? look.light : 'var(--color-muted)'}
+            />
+          )}
+          {conducting.ensemble && (
+            <span
+              className="inline-flex items-center gap-0.5 whitespace-nowrap rounded-md border px-1 text-[11px] font-semibold leading-4"
+              style={{
+                color: look.light,
+                borderColor: `color-mix(in srgb, ${look.light} 50%, transparent)`,
+              }}
+              data-testid="ensemble-state"
+              data-heroes={conducting.ensemble.heroes}
+            >
+              <CallingGlyph icon="ensemble" size={12} />
+              {Array.from({ length: conducting.ensemble.most }, (_, i) => (
+                <span
+                  key={i}
+                  className="h-1.5 w-1.5 rounded-full border"
+                  style={{
+                    borderColor: look.light,
+                    background:
+                      i < Math.min(conducting.ensemble!.heroes, conducting.ensemble!.most)
+                        ? look.light
+                        : 'transparent',
+                  }}
+                />
+              ))}
+              {conducting.ensemble.bonus > 0 && <span>{pctLabel(conducting.ensemble.bonus)}</span>}
+            </span>
+          )}
+          {conducting.triad && (
+            <State
+              icon="triad"
+              label={conducting.triad.holding ? 'Triad holding' : 'Triad'}
+              color={conducting.triad.holding ? look.light : 'var(--color-muted)'}
+            />
+          )}
         </span>
       )}
       {states && (

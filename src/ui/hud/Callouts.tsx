@@ -242,7 +242,14 @@ export function Toast({ c, small = false }: { c: Callout; small?: boolean }) {
   );
 }
 
-const BIG = new Set<Callout['kind']>(['perfect', 'save', 'clutch', 'response']);
+/** The kinds drawn as big banners (the HUD's timing hints wait them out, Phase 5f). */
+export const BANNER_KINDS: ReadonlySet<Callout['kind']> = new Set([
+  'perfect',
+  'save',
+  'clutch',
+  'response',
+]);
+const BIG = BANNER_KINDS;
 
 /**
  * Transient feedback by kind (docs/plan/04 §5.2): big banners centre-low, decrees and wave

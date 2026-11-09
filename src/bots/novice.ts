@@ -16,6 +16,9 @@
  * With Seren or Oro (docs/phase-5e.md, `NOVICE_ROSTER`) she now and then Wards Seren in a fight,
  * Focuses to wake a tending Oro, and Rallies a Sapling back into the field; each draws only with
  * its hero in the party, just before the Cue's draw. She keeps off a duelling Seren as off Brann.
+ * With the Conductor (docs/phase-5f.md, `NOVICE_CONDUCTING`) she now and then Cues a ready hero
+ * while a chain is open, Cues inside the downbeat's window (A Tempo) and casts the Grand Finale
+ * with the song full; those draws are taken only on a Conductor run, just before the Cue's.
  */
 import { CONTENT } from '../content';
 import { Rng } from '../sim/core/rng';
@@ -67,6 +70,13 @@ import {
   duelOf,
   groveOf,
   rallyBringsHome,
+  conductingOf,
+  chainOpen,
+  cueCostNow,
+  crescendoCostOf,
+  finaleFree,
+  finaleOn,
+  onBeat,
   type HeroView,
 } from './common';
 import { MEASURE } from '../content/crucibleIds';
@@ -131,13 +141,35 @@ export const NOVICE_ROSTER_RULES = Object.keys(NOVICE_ROSTER) as NoviceRosterRul
 /** `oroFocus`: an enemy this near Oro or the Weaver (m) is near. */
 const ORO_NEAR = 10;
 
+/**
+ * The Conductor's chances (docs/phase-5f.md, "Novice"), each drawn only on a Conductor run and
+ * only while its moment is up, after every other draw and immediately before the Cue's. Starting
+ * values: W5 tunes them.
+ */
+export const NOVICE_CONDUCTING = {
+  /** With a chain open and a ready hero not in it, Cue them. */
+  chain: 0.4,
+  /** With A Tempo, inside the downbeat's window with a ready hero, Cue them. */
+  beat: 0.5,
+  /** With the Crescendo affordable, 2+ heroes standing and a boss or a crowd up, cast it. */
+  finale: 0.15,
+} as const;
+/** A Conductor draw `NoviceOptions.skip` can leave off (tools/verbs.ts `--bot novice`). */
+export type NoviceConductingRule = keyof typeof NOVICE_CONDUCTING;
+/** The Novice's Conductor rules, in `NOVICE_CONDUCTING`'s order: the ablation's rows. */
+export const NOVICE_CONDUCTING_RULES = Object.keys(NOVICE_CONDUCTING) as NoviceConductingRule[];
+/** `finale`: this many enemies standing is a crowd (the boss or a crowd is worth the Finale). */
+const FINALE_CROWD = 4;
+/** `finale`: at least this many heroes standing. */
+const FINALE_HEROES = 2;
+
 /** The Novice's options (all optional; absent, she plays as she always has). */
 export interface NoviceOptions {
   /**
    * Verb ablation (tools/verbs.ts `--bot novice`, docs/phase-5d.md "Tuning order" 2): Finale
    * draws to leave off. A rule left off isn't drawn at all, so the draws after it shift.
    */
-  skip?: ReadonlySet<NoviceM4Rule | NoviceRosterRule>;
+  skip?: ReadonlySet<NoviceM4Rule | NoviceRosterRule | NoviceConductingRule>;
 }
 
 /** `silenceChime`: a Rest's Dirge with this little left; `silenceReel`: a Cadence's. */
@@ -167,8 +199,8 @@ export class NoviceBot implements Bot {
     this.rng = new Rng(seed ^ 0x0b1e);
   }
 
-  /** A Finale (or Seren and Oro) draw is played (not left off by the ablation). */
-  private on(rule: NoviceM4Rule | NoviceRosterRule): boolean {
+  /** A Finale, roster or Conductor draw is played (not left off by the ablation). */
+  private on(rule: NoviceM4Rule | NoviceRosterRule | NoviceConductingRule): boolean {
     return this.opts.skip?.has(rule) !== true;
   }
 
@@ -402,15 +434,19 @@ export class NoviceBot implements Bot {
     // Seren and Oro (docs/phase-5e.md): each draws only with its hero in the party.
     this.roster(state, party, enemies, w, out);
 
+    // The Conductor (docs/phase-5f.md): each draws only on a Conductor run, before the Cue's.
+    const conducted = this.conducting(state, party, enemies, wc, out);
+
     // Cue whoever is ready, now and then; Crescendo when things look bad. (A hero stilled by
-    // the Grand Silence can't take a Cue: never so outside the Finale.)
-    if (wc.resonance >= state.dissonance.cueCost && this.rng.chance(0.3)) {
+    // the Grand Silence can't take a Cue: never so outside the Finale.) A Conductor's Cue
+    // already sent this decision stands in for it.
+    if (conducted !== 'cue' && wc.resonance >= state.dissonance.cueCost && this.rng.chance(0.3)) {
       const ready = party.find(
         (h) => h.e.hero!.solo >= 100 && h.e.hero!.soloActive <= 0 && !isStilled(h.e),
       );
       if (ready) out.push({ t: 'cue', slot: ready.slot });
     }
-    if (wc.resonance >= CONTENT.resonance.crescendoCost) {
+    if (wc.resonance >= crescendoCostOf(state) && conducted !== 'finale') {
       const avg =
         party.reduce((s, h) => s + h.e.health!.hp / h.e.health!.maxHp, 0) /
         Math.max(1, party.length);
@@ -419,6 +455,72 @@ export class NoviceBot implements Bot {
     // A Ward, Chime or Reel cast inside a Null rune fizzles (Movement III): she may notice.
     if (silenced && out.some((c) => c.t === 'tech')) this.fizzled = true;
     return out;
+  }
+
+  /**
+   * The Conductor's draws (`NOVICE_CONDUCTING`, docs/phase-5f.md): a Cue for a ready hero while a
+   * chain is open, a Cue inside the downbeat's window (A Tempo), the Grand Finale. Each draws only
+   * on a Conductor run and only with its moment up (no draw at all without the Calling). Returns
+   * what it sent, if anything ('cue' stands in for the usual Cue's draw this decision, 'finale' for
+   * the usual Crescendo's).
+   */
+  private conducting(
+    state: WorldState,
+    party: readonly HeroView[],
+    enemies: readonly ReadonlyEntity[],
+    wc: NonNullable<ReadonlyEntity['weaver']>,
+    out: Command[],
+  ): 'cue' | 'finale' | null {
+    const cond = conductingOf(state);
+    if (!cond) return null;
+    const ready = (h: HeroView) =>
+      h.e.hero!.solo >= 100 && h.e.hero!.soloActive <= 0 && !isStilled(h.e);
+    let cued = false;
+    // Playing the Finale: no new Cue (a hero mid-Solo would make its turn wait).
+    if (!finaleOn(state)) {
+      const chain = chainOpen(state);
+      const next = chain
+        ? party.find((h) => ready(h) && !chain.heroes.includes(h.e.id))
+        : undefined;
+      if (
+        this.on('chain') &&
+        next &&
+        wc.resonance >= cueCostNow(state) &&
+        this.rng.chance(NOVICE_CONDUCTING.chain)
+      ) {
+        out.push({ t: 'cue', slot: next.slot });
+        cued = true;
+      }
+      const first = party.find(ready);
+      if (
+        this.on('beat') &&
+        !cued &&
+        cond.view.beat &&
+        onBeat(state) &&
+        first &&
+        wc.resonance >= cueCostNow(state) &&
+        this.rng.chance(NOVICE_CONDUCTING.beat)
+      ) {
+        out.push({ t: 'cue', slot: first.slot });
+        cued = true;
+      }
+    }
+    const boss =
+      state.encounter.bossId === null ? undefined : state.entities.get(state.encounter.bossId);
+    if (
+      this.on('finale') &&
+      !cued &&
+      !finaleOn(state) &&
+      wc.crescendo <= 0 &&
+      wc.resonance >= crescendoCostOf(state) &&
+      party.filter(finaleFree).length >= FINALE_HEROES &&
+      ((!!boss?.health && !boss.health.dead) || enemies.length >= FINALE_CROWD) &&
+      this.rng.chance(NOVICE_CONDUCTING.finale)
+    ) {
+      out.push({ t: 'crescendo' });
+      return 'finale';
+    }
+    return cued ? 'cue' : null;
   }
 
   /**
@@ -501,7 +603,7 @@ export class NoviceBot implements Bot {
     if (
       this.on('fortissimoCrescendo') &&
       fortissimoLive(state) &&
-      wc.resonance >= CONTENT.resonance.crescendoCost &&
+      wc.resonance >= crescendoCostOf(state) &&
       wc.crescendo <= 0 &&
       !has('crescendo') &&
       this.rng.chance(NOVICE_M4.fortissimoCrescendo)

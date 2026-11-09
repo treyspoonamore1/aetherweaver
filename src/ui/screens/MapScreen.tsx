@@ -595,10 +595,10 @@ function MapNodeView({
               icon={calling.icon}
               size={16}
               className="mt-0.5 shrink-0"
-              style={{ color: cLook.color }}
+              style={{ color: cLook.text }}
             />
             <span>
-              <b className="font-semibold" style={{ color: cLook.color }}>
+              <b className="font-semibold" style={{ color: cLook.text }}>
                 {milestone.title}
               </b>{' '}
               <span className="text-text">{milestone.text}</span>

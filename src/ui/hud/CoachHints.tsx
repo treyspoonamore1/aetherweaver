@@ -3,7 +3,15 @@ import { useSettings } from '../../app/settings';
 import { Icon } from '../kit/Icon';
 import { KeyCap } from '../kit/KeyCap';
 import { useUi, type HudSnapshot } from '../store';
-import { MAX_SHOWS, bumpHint, evaluateHints, hintCount, splitHint, type Hint } from './hints';
+import {
+  MAX_SHOWS,
+  QUIET_HINTS,
+  bumpHint,
+  evaluateHints,
+  hintCount,
+  splitHint,
+  type Hint,
+} from './hints';
 
 const MIN_SHOW_MS = 2500;
 const MAX_SHOW_MS = 9000;
@@ -13,7 +21,16 @@ const COOLDOWN_MS = 3500;
  * One contextual hint at a time, shown ≤ 3 times each, respecting settings.hints. The Weaver bar
  * places it, over the Thread dial, so it never covers the dial however tall the bar grows.
  */
-export function CoachHints({ hud, force }: { hud: HudSnapshot; force?: boolean }) {
+export function CoachHints({
+  hud,
+  force,
+  banner = false,
+}: {
+  hud: HudSnapshot;
+  force?: boolean;
+  /** A banner call-out is up (Phase 5f: the Conductor's timing hints wait for it to pass). */
+  banner?: boolean;
+}) {
   const enabled = useSettings((s) => s.settings.hints);
   const [shown, setShown] = useState<Hint | null>(null);
   const state = useRef({ id: null as string | null, since: 0, lastEnd: -1e9 });
@@ -28,11 +45,13 @@ export function CoachHints({ hud, force }: { hud: HudSnapshot; force?: boolean }
       }
       return;
     }
-    const candidates = evaluateHints(hud);
+    const candidates = evaluateHints(hud, { banner });
     if (st.id) {
       const still = candidates.find((c) => c.id === st.id);
       const age = now - st.since;
-      if ((!still && age > MIN_SHOW_MS) || age > MAX_SHOW_MS) {
+      // A quiet-moment hint (the chain's, the beat's) closes at once when it stops applying.
+      const quiet = QUIET_HINTS.has(st.id);
+      if ((!still && (age > MIN_SHOW_MS || quiet)) || age > MAX_SHOW_MS) {
         st.id = null;
         st.lastEnd = now;
         setShown(null);
@@ -50,7 +69,7 @@ export function CoachHints({ hud, force }: { hud: HudSnapshot; force?: boolean }
       useUi.getState().markHint(next.id);
       setShown(next);
     }
-  }, [hud, enabled, force]);
+  }, [hud, enabled, force, banner]);
 
   if (!shown) return null;
   return (

@@ -124,7 +124,7 @@ export function MasteryStrip({
         <MasteryBadge callingId={callingId} level={v.level} size={34} />
         <div className="min-w-0 flex-1">
           <p className="flex items-baseline justify-between gap-2">
-            <span className="font-display text-base font-bold" style={{ color: look.color }}>
+            <span className="font-display text-base font-bold" style={{ color: look.text }}>
               {v.name} mastery {v.level}
               <span className="ml-1 font-sans text-xs font-normal text-muted">of {v.top}</span>
             </span>
@@ -202,7 +202,7 @@ export function MasteryGainRow({
     >
       <p
         className="flex items-center gap-2 font-display text-base font-bold"
-        style={{ color: look.color }}
+        style={{ color: look.text }}
       >
         <MasteryBadge callingId={callingId} level={v.level} size={22} />
         {g.headline}

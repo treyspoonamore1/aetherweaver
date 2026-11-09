@@ -15,6 +15,7 @@ import {
   bloodlusting,
   bossPhaseTable,
   canPay,
+  crescendoCostOf,
   cutWouldLand,
   deathlessActive,
   fallingFast,
@@ -48,6 +49,8 @@ import { dissonancePoints, parMult } from '../meta/dissonance';
 import { relicHuds } from './hud/relics';
 import { shownAnswers, shownDecree, shownDecreeOf, type PartyLook } from './hud/legionLook';
 import { callingHud, lifeMarksOf, masteryCooldown, shineOf, stasisSeconds } from './hud/calling';
+import { conductingHud, heroConducting, type FinaleHeard } from './hud/conducting';
+export { heardFinale, type FinaleHeard } from './hud/conducting';
 import { treeAfterglow, treeBleedOutMult, treeGrace } from './screens/astrolabeModel';
 import {
   foreseenAll,
@@ -164,6 +167,8 @@ export function buildHudSnapshot(
     reignited?: ReigniteHeard | null;
     /** The Finale: the Grand Silence's cap as the runtime heard it begin (`heardSilence`). */
     silenceHeard?: SilenceHeard | null;
+    /** Phase 5f: the Grand Finale's turns played and lost, as the runtime heard them. */
+    finaleHeard?: FinaleHeard | null;
   },
 ): HudSnapshot {
   const weaverEntity = state.entities.get(state.weaverId);
@@ -217,6 +222,11 @@ export function buildHudSnapshot(
   const lifeTotal = w?.maxLife ?? wh?.maxHp ?? 0;
   const bearing = w?.threadMode === 'bear' && (calling?.bearShare ?? 0) > 0;
   const lifeMarks = calling ? lifeMarksOf(calling.path, wh?.hp ?? 0, lifeTotal) : [];
+  // The Conductor (docs/phase-5f.md): his chain, beat and Finale, from the sim's helpers.
+  const conducting = conductingHud(state, (hid) => {
+    const he = state.entities.get(hid)?.hero;
+    return he ? heroDef(he.defId).name : null;
+  });
 
   const party: HeroHud[] = [];
   state.party.forEach((id, slot) => {
@@ -234,7 +244,7 @@ export function buildHudSnapshot(
     const graceShield = grace ? h.shields.find((s) => s.grace && s.amount > 0) : undefined;
     // Bonds (Phase 4e): the Solo they brought, their own or the alternate.
     const soloDef = soloView(def.id, hero.soloId);
-    party.push({
+    const frame: HeroHud = {
       id,
       slot,
       defId: def.id,
@@ -327,7 +337,11 @@ export function buildHudSnapshot(
       ...movementThreeMarks(state, e, h),
       ...finaleMarks(h),
       ...reigniteMark(state.time, id, h, opts.reignited),
-    });
+    };
+    // The Conductor (docs/phase-5f.md): the Cue badge, Spotlight, Marcato and the Finale's turn.
+    party.push(
+      conducting ? { ...frame, ...heroConducting(state, id, frame, opts.finaleHeard) } : frame,
+    );
   });
   const partyIds = party.map((p) => p.defId);
 
@@ -512,7 +526,10 @@ export function buildHudSnapshot(
       segment: resonance.segment,
       // Silent Cues (Phase 4d) raises it: the fight's own.
       cueCost: state.dissonance.cueCost,
-      crescendoCost: resonance.crescendoCost,
+      // Without Silent Cues' surcharge: the content's, or the Conductor's own.
+      cueBase: state.dissonance.cueCost - state.mods.cueCostBonus,
+      // Maestro's 75 on a Conductor run (the sim's own), else the content's.
+      crescendoCost: crescendoCostOf(state),
       crescendo: w?.crescendo ?? 0,
       // Sunrise is the Weaver's own; the Vow and Stasis are the Calling's (content `crescendoName`).
       crescendoName: crescendoName(
@@ -523,7 +540,10 @@ export function buildHudSnapshot(
       bearShare: calling?.bearShare ?? 0,
       vow,
       stasis,
-      crescendoTotal: crescendoTotal(calling),
+      // The Grand Finale waits at most its `wait` (the Encore motif adds to it), as the sim sets it.
+      crescendoTotal: state.calling?.conducting
+        ? state.calling.conducting.finale.wait + state.mods.encoreBonus
+        : crescendoTotal(calling),
       rewind: rewinds
         ? { seconds: rewindSeconds(calling!.id), range: reelTech.range, ready: rewindReady }
         : null,
@@ -597,6 +617,7 @@ export function buildHudSnapshot(
       ? { guardBlocked: true as const }
       : {}),
     ...riftOf(state),
+    ...(conducting ? { conducting } : {}),
   };
 }
 

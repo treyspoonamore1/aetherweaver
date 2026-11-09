@@ -43,7 +43,23 @@ export function CombatScreen() {
   // Silent Cues (Phase 4d): the fight's own Cue cost, when it isn't a segment.
   const cueCost = useUi((s) => s.hud?.weaver.cueCost ?? null);
   const segment = useUi((s) => s.hud?.weaver.segment ?? null);
-  const cue = cueCost !== null && cueCost !== segment ? { cost: cueCost } : null;
+  // Phase 5f: the Conductor's own cheaper Cue isn't Dissonance's: only Silent Cues raises it.
+  const cueBase = useUi((s) => s.hud?.weaver.cueBase ?? null);
+  // Primitives only: the screen mustn't re-render with every snapshot.
+  const conductCue = useUi((s) => s.hud?.conducting?.cueCost ?? null);
+  const chainWindow = useUi((s) => s.hud?.conducting?.chainWindow ?? 0);
+  const duet = useUi((s) => s.hud?.conducting?.duet ?? 1);
+  const trio = useUi((s) => s.hud?.conducting?.trio ?? 1);
+  const crescendoName = useUi((s) => s.hud?.weaver.crescendoName ?? '');
+  const crescendoCost = useUi((s) => s.hud?.weaver.crescendoCost ?? 0);
+  const cue =
+    cueCost !== null && (conductCue !== null ? cueCost !== cueBase : cueCost !== segment)
+      ? { cost: cueCost }
+      : null;
+  const conduct =
+    conductCue !== null
+      ? { cueCost: conductCue, chainWindow, duet, trio, crescendoName, crescendoCost }
+      : null;
   const paused = useUi((s) => s.paused);
   // Edit HUD layout (from the pause menu) shows the HUD; the fight stays paused under it.
   const editingLayout = useUi((s) => s.layoutEditing);
@@ -84,7 +100,7 @@ export function CombatScreen() {
       {showPerf && <PerfHud />}
       {devOpen && <DevPanel />}
       {howto ? (
-        <HowToPlay onClose={closeHowTo} bear={bear} rewind={rewind} cue={cue} />
+        <HowToPlay onClose={closeHowTo} bear={bear} rewind={rewind} cue={cue} conduct={conduct} />
       ) : (
         paused &&
         !editingLayout && (

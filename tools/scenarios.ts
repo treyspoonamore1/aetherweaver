@@ -426,6 +426,61 @@ export const SCENARIO_GROVE_MIRROR_HALL = botScenario(
   },
 );
 
+// ── The Conductor Calling (docs/phase-5f.md, "Bots and harness": goldens): appended after
+// novice-grove-mirror-hall, so the twenty-five earlier hashes are untouched. Each plays a fight
+// on the Conductor's path named below, with the bot learning it (a chain, the beat, a Finale). ──
+
+/**
+ * The Skilled bot at the Bellwarden with A Tempo, Reprise, Ensemble and Maestro: the beat, a
+ * Trio and its Reprise, and a Grand Finale that plays every hero twice, on skilled-bellwarden's
+ * auras and motifs.
+ */
+export const SCENARIO_CONDUCTING_BELLWARDEN = botScenario(
+  'skilled-conducting-bellwarden',
+  'skilled',
+  4747,
+  60 * 60,
+  {
+    encounter: 'bellwarden',
+    auras: ['sostenuto', 'ostinato'],
+    motifs: [
+      { id: 'deep_roots', level: 2 },
+      { id: 'twin_aegis', level: 1 },
+    ],
+    calling: { id: 'conductor', path: ['a_tempo', 'reprise', 'ensemble', 'maestro'] },
+  },
+);
+
+/** A Novice at First Light with Marcato, Upbeat, Spotlight and Triad: her chances' own draws. */
+export const SCENARIO_CONDUCTING_FIRST_LIGHT = botScenario(
+  'novice-conducting-first-light',
+  'novice',
+  5858,
+  60 * 40,
+  {
+    encounter: 'first_light',
+    auras: ['sostenuto', 'fortissimo'],
+    calling: { id: 'conductor', path: ['marcato', 'upbeat', 'spotlight', 'triad'] },
+  },
+);
+
+/**
+ * The Silent Conductor with the Skilled bot and Marcato, Reprise, Spotlight and Maestro, from
+ * its start to its fall: Finale turns lost to the Grand Silence's stilling, and the Finale
+ * cancelling Fortissimo Silence.
+ */
+export const SCENARIO_CONDUCTING_SILENT = botScenario(
+  'skilled-conducting-silent',
+  'skilled',
+  6969,
+  60 * 220,
+  {
+    encounter: CONDUCTOR,
+    calling: { id: 'conductor', path: ['marcato', 'reprise', 'spotlight', 'maestro'] },
+    ...kitConfig(ARRIVAL4_KIT),
+  },
+);
+
 /**
  * The bench's hound pack (not a golden): the Matriarch's fight with a pack of hounds already
  * loose, so Pack Call stacks on top of them; the Movement II entity peak.
@@ -477,4 +532,7 @@ export const SCENARIOS: readonly Scenario[] = [
   SCENARIO_RED_LINE_VHARUN,
   SCENARIO_ORO_CONDUCTOR,
   SCENARIO_GROVE_MIRROR_HALL,
+  SCENARIO_CONDUCTING_BELLWARDEN,
+  SCENARIO_CONDUCTING_FIRST_LIGHT,
+  SCENARIO_CONDUCTING_SILENT,
 ];
