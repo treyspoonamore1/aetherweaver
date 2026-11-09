@@ -17,6 +17,7 @@ import { hasTalent, soloValue, talentFired, talentHolder, talentValue } from '..
 import type { BloodState, Entity, ReadonlyEntity, WorldState } from '../state';
 import type { World } from '../world';
 import { isRooted } from '../rules3';
+import { cuePowerOf } from './conducting';
 
 /** Lifesteal is summed and announced (one `healApplied`) this often, in seconds. */
 export const STEAL_FLUSH = 0.5;
@@ -191,7 +192,10 @@ export function onBloodHit(world: World, source: Entity, _target: Entity, dealt:
  */
 function bloodBrother(world: World, brann: Entity, dealt: number): void {
   const cued = brann.hero!.soloCued;
-  const share = soloValue(world, 'blood_brother', cued ? 'cuedPct' : 'pct') / 100;
+  // The Conductor (docs/phase-5f.md): a Duet's, a Trio's or a Finale turn's share is bigger.
+  const share =
+    (soloValue(world, 'blood_brother', cued ? 'cuedPct' : 'pct') / 100) *
+    cuePowerOf(world, brann.id);
   if (!(share > 0)) return;
   if (cued) {
     for (const id of world.party) {

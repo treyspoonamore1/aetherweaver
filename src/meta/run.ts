@@ -75,6 +75,7 @@ import {
   type CallingOffer,
   type ChordLoadout,
   type CombatOutcome,
+  type ConductingStats,
   type DeathRecap,
   type DraftOffer,
   type DraftOption,
@@ -2142,6 +2143,8 @@ export function summarize(
     responses: l.responses,
     missedCalls: l.missedCalls,
     holds: l.holds,
+    // The Conductor (docs/phase-5f.md): only on his runs.
+    ...(l.conducting ? { conducting: conductingStats(l.conducting) } : {}),
   };
   stats.weaverShare = weaverShare(stats);
   const name = (heroId: string) => CONTENT.heroes.find((h) => h.id === heroId)?.name ?? heroId;
@@ -2442,6 +2445,44 @@ export function grade(
   return 'D';
 }
 
+/** The Conductor's tallies from a fight's ledger (docs/phase-5f.md), rounded. */
+function conductingStats(c: NonNullable<CombatOutcome['ledger']['conducting']>): ConductingStats {
+  return {
+    duets: c.duets,
+    trios: c.trios,
+    freeCues: c.freeCues,
+    saved: Math.round(c.saved),
+    finales: c.finales,
+    finaleSolos: c.finaleSolos,
+    reprised: Math.round(c.reprised),
+    marcatos: c.marcatos,
+  };
+}
+
+/** Sums the Conductor's tallies into a run's totals. */
+function addConducting(into: ConductingStats | undefined, s: ConductingStats): ConductingStats {
+  const t = into ?? {
+    duets: 0,
+    trios: 0,
+    freeCues: 0,
+    saved: 0,
+    finales: 0,
+    finaleSolos: 0,
+    reprised: 0,
+    marcatos: 0,
+  };
+  return {
+    duets: t.duets + s.duets,
+    trios: t.trios + s.trios,
+    freeCues: t.freeCues + s.freeCues,
+    saved: t.saved + s.saved,
+    finales: t.finales + s.finales,
+    finaleSolos: t.finaleSolos + s.finaleSolos,
+    reprised: t.reprised + s.reprised,
+    marcatos: t.marcatos + s.marcatos,
+  };
+}
+
 /** Run-level totals for the summary screen. */
 export function runTotals(
   run: RunState,
@@ -2517,6 +2558,7 @@ export function runTotals(
     total.missedCalls += s.missedCalls;
     total.holds += s.holds;
     for (const c of s.saveCauses) if (!total.saveCauses.includes(c)) total.saveCauses.push(c);
+    if (s.conducting) total.conducting = addConducting(total.conducting, s.conducting);
     total.duration += r.duration;
   }
   total.weaverShare = weaverShare(total);

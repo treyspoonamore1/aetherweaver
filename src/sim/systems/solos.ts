@@ -21,6 +21,7 @@ import { hasTalent, ricochet, soloValue, talentFired, talentHolder, talentValue 
 import { inAnyField } from './field';
 import { duelCastProgress, duelSolo, duelSoloClock, duelSoloEnd, duelSoloStart } from './duel';
 import { groveSolo, groveSoloEnd, groveSoloStart } from './grove';
+import { cueHit, cuePowerOf, soloDone } from './conducting';
 import { attackRange, heroDamage } from './heroDamage';
 
 /** The Solo a hero brings this fight: their own, or the alternate their Bond opened. */
@@ -74,17 +75,40 @@ export function startSolo(world: World, hero: Entity, cued: boolean): void {
   if (h.grove) groveSoloStart(world, hero, cued, duration);
   if (spec.id === 'celestial_sphere') celestialSphere(world, hero, cued, duration);
   if (spec.id === 'aegisWall') {
+    // The Conductor (docs/phase-5f.md): a Duet's, a Trio's or a Finale turn's power; exactly 1 without.
+    const power = cuePowerOf(world, hero.id);
     if (cued) {
       for (const id of world.party) {
         const ally = world.entities.get(id);
         if (isActive(ally))
-          addShield(world, ally, 'dome', ally.health.maxHp * solo.cuedPower, duration, true);
+          addShield(
+            world,
+            ally,
+            'dome',
+            ally.health.maxHp * solo.cuedPower * power,
+            duration,
+            true,
+          );
       }
       const weaver = world.entities.get(world.weaverId);
       if (isActive(weaver))
-        addShield(world, weaver, 'dome', weaver.health.maxHp * solo.cuedPower, duration, true);
+        addShield(
+          world,
+          weaver,
+          'dome',
+          weaver.health.maxHp * solo.cuedPower * power,
+          duration,
+          true,
+        );
     } else {
-      addShield(world, hero, 'overshield', hero.health!.maxHp * solo.power, solo.duration, false);
+      addShield(
+        world,
+        hero,
+        'overshield',
+        hero.health!.maxHp * solo.power * power,
+        solo.duration,
+        false,
+      );
       if (hasTalent(hero, 'shieldbearer')) shieldbearer(world, hero, solo.power, solo.duration);
     }
     world.events.push({
@@ -166,6 +190,9 @@ function finishSolo(world: World, hero: Entity): void {
       }
     }
   }
+  // The Conductor (docs/phase-5f.md): the Solo's power and Spotlight end with it (last, so
+  // Supernova's nova above is built with its power).
+  if (world.field.conducting) soloDone(world, hero);
 }
 
 const GALE_RATE = 1 / 12;
@@ -210,6 +237,7 @@ function redFrenzy(world: World, hero: Entity, def: HeroDef): void {
         empower: hit.empower,
         crit: hit.crit,
         empowered: hit.empowered,
+        ...cueHit(world, hero.id),
       });
     }
   }
@@ -268,6 +296,7 @@ function loose(
     empowered: hit.empowered,
     stun: 0,
     ...ricochet(world, lyra),
+    ...cueHit(world, lyra.id),
   });
   world.events.push({
     type: 'attackFired',
@@ -309,6 +338,7 @@ function starfall(world: World, hero: Entity, def: HeroDef): void {
       chain: 0,
       empowered: hit.empowered,
       stun: h.soloCued ? 0.5 : 0,
+      ...cueHit(world, hero.id),
     });
     world.events.push({
       type: 'attackFired',
@@ -422,6 +452,7 @@ function supernova(world: World, vexis: Entity): void {
     chain: 0,
     empowered: hit.empowered,
     stun: 0,
+    ...cueHit(world, vexis.id),
   });
   talentFired(world, vexis, 'supernova', h.strikeX, h.strikeZ, target.id);
 }
@@ -452,7 +483,10 @@ function hawksVigil(world: World, lyra: Entity, def: HeroDef): void {
  * hero you Thread (on her, if you Thread no one); cued, on every hero in your field.
  */
 function celestialSphere(world: World, vexis: Entity, cued: boolean, duration: number): void {
-  const hits = soloValue(world, 'celestial_sphere', 'hits');
+  const base = soloValue(world, 'celestial_sphere', 'hits');
+  // The Conductor (docs/phase-5f.md): the hits it swallows, × the Cue's power, rounded.
+  const power = cuePowerOf(world, vexis.id);
+  const hits = power !== 1 ? Math.round(base * power) : base;
   const give = (e: Entity) => {
     e.hero!.sphereHits = hits;
     e.hero!.sphereUntil = world.time + duration;

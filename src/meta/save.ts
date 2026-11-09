@@ -134,6 +134,18 @@ const NodeSchema = z.object({
   movement: Num.default(1),
 });
 
+/** The Conductor's tallies (docs/phase-5f.md): only results from his runs carry them. */
+const ConductingStatsSchema = z.object({
+  duets: Num,
+  trios: Num,
+  freeCues: Num,
+  saved: Num,
+  finales: Num,
+  finaleSolos: Num,
+  reprised: Num,
+  marcatos: Num,
+});
+
 const StatsSchema = z
   .object({
     healing: Num,
@@ -172,6 +184,8 @@ const StatsSchema = z
     holds: Num,
     /** Deeds (docs/phase-4b.md): saves from before them name no ways. */
     saveCauses: z.array(Str).default([]),
+    // Phase 5f: the Conductor's runs; every other result has none.
+    conducting: ConductingStatsSchema.optional(),
   })
   // Deeds: results from before missed calls were told apart count every unanswered call missed.
   .transform((s) => ({ ...s, missedCalls: s.missedCalls ?? Math.max(0, s.calls - s.responses) }));

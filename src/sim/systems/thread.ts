@@ -25,6 +25,7 @@ import type { Entity, EntityId } from '../state';
 import { weaverOf, type World } from '../world';
 import { reject } from './techniques';
 import { rootbond } from './grove';
+import { spotlit } from './conducting';
 
 const MEND_FLUSH = 0.5;
 /** Blood and Silk counts while Brann is below this share of his life (docs/phase-5b.md). */
@@ -309,11 +310,14 @@ export function empowerBonus(world: World, hero: Entity): { more: number; attack
   const threaded = w?.threadMode === 'empower' ? threadPotency(world, hero) : 0;
   // Afterglow: a hero the Empowering Thread just left keeps it, at full strength, a moment.
   const p = threaded > 0 ? threaded : (hero.hero?.afterglowUntil ?? 0) > world.time ? 1 : 0;
-  if (p <= 0) return { more: 0, attackSpeed: 0 };
+  // Spotlight (the Conductor, docs/phase-5f.md): a Cued hero is Empowered at ×2 while the Solo
+  // lasts, Thread or not; the larger of the two applies.
+  const q = world.field.conducting ? Math.max(p, spotlit(world, hero.id)) : p;
+  if (q <= 0) return { more: 0, attackSpeed: 0 };
   const def = world.content.thread;
   return {
-    more: def.empowerMore * world.mods.empowerMult * p,
-    attackSpeed: def.empowerAttackSpeed * p,
+    more: def.empowerMore * world.mods.empowerMult * q,
+    attackSpeed: def.empowerAttackSpeed * q,
   };
 }
 

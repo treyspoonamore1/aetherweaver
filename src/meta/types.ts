@@ -357,6 +357,27 @@ export interface EncounterStats {
   holds: number;
   /** The different ways heroes were saved (Deeds, docs/phase-4b.md); a run's total: all of them. */
   saveCauses: SaveCause[];
+  /**
+   * The Conductor's fight (docs/phase-5f.md), from the sim's `ledger.conducting` (rounded).
+   * Present only on a Conductor run, and on a run's totals only when a fight had it.
+   */
+  conducting?: ConductingStats;
+}
+
+/**
+ * The Conductor's tallies (docs/phase-5f.md): Duets, Trios, Cues given free on the downbeat,
+ * Resonance the cheaper and free Cues kept, Grand Finales and the Solos they played, the Solo
+ * charge Reprise gave, and Marcato's grants.
+ */
+export interface ConductingStats {
+  duets: number;
+  trios: number;
+  freeCues: number;
+  saved: number;
+  finales: number;
+  finaleSolos: number;
+  reprised: number;
+  marcatos: number;
 }
 
 export interface EncounterResult {

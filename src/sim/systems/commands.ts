@@ -12,6 +12,7 @@ import { castChime, castGlide, castReel, castWard, crescendo, cue } from './tech
 import { castRewind } from './rewind';
 import { attachThread, toggleThreadMode } from './thread';
 import { groveRally } from './grove';
+import { marcato } from './conducting';
 
 /** Applies one tick's (already normalised) commands, in order. */
 export function applyCommands(world: World, commands: readonly Command[]): void {
@@ -109,6 +110,8 @@ function applyDirective(world: World, kind: DirectiveKind, target: number | unde
     if (isActive(e))
       world.events.push({ type: 'directiveAck', tick: world.tick, hero: id, directive: kind });
   }
+  // Marcato (the Conductor, docs/phase-5f.md): the heroes who answered hit harder, if it's ready.
+  if (world.field.conducting) marcato(world);
   const speakers = world.party.filter((id) => isActive(world.entities.get(id)));
   if (speakers.length > 0 && world.time - world.internal.directiveBarkAt >= 4) {
     world.internal.directiveBarkAt = world.time;

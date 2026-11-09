@@ -16,7 +16,7 @@ import {
 } from './chords';
 import type { AuraTotals } from './combat/auras';
 import type { DirectiveKind, PartySlot } from './commands';
-import { WORLD_HALF_EXTENT, pastSamples } from './constants';
+import { BAR_SECONDS, WORLD_HALF_EXTENT, pastSamples } from './constants';
 import { EntityStore } from './core/entities';
 import { EventQueue } from './core/events';
 import { RngStreams } from './core/rng';
@@ -29,6 +29,7 @@ import type {
   DissonanceState,
   CallingState,
   ChimeInFlight,
+  ConductingView,
   EncounterState,
   Entity,
   EntityId,
@@ -44,6 +45,7 @@ import { relicFired } from './combat/feedback';
 import { formationSlot } from './systems/formation';
 import { newBlood } from './systems/blood';
 import { newDuel } from './systems/duel';
+import { newConductingField, newLedgerConducting } from './systems/conducting';
 import { newGrove, spawnGrove } from './systems/grove';
 
 /** A party member as configured by the run (or a test). */
@@ -488,6 +490,11 @@ export interface PendingHit {
    * affix's). Absent on every Movement I hit.
    */
   onHit?: StatusPayload;
+  /**
+   * The Conductor (docs/phase-5f.md): the power of the Solo that loosed it (a Duet's, a Trio's, a
+   * Grand Finale turn's). Set only when it isn't 1, so no other hit carries the key.
+   */
+  cuePower?: number;
 }
 
 /** An enemy about to appear (spawn portal). */
@@ -758,6 +765,38 @@ function awakeConfig(
   };
 }
 
+/** The Conductor's numbers for the views (docs/phase-5f.md), from the fight's mods. */
+function conductingView(mods: Mods, path: readonly string[], content: Content): ConductingView {
+  const upbeat = path.includes('upbeat')
+    ? (content.callings
+        .flatMap((c) => c.tiers.flatMap((t) => t.options))
+        .find((o) => o.id === 'upbeat')?.values.resonance ?? 0)
+    : 0;
+  return {
+    cueCost: (mods.cueCostBase ?? content.resonance.cueCost) + mods.cueCostBonus,
+    crescendoCost: mods.crescendoCostBase ?? content.resonance.crescendoCost,
+    chainWindow: mods.chainWindow,
+    duet: mods.duetPower,
+    trio: mods.trioPower,
+    finale: {
+      turns: mods.finaleTurns,
+      ramp: mods.finaleRamp,
+      gap: mods.finaleGap,
+      wait: mods.finaleWait,
+    },
+    beat: mods.beatWindow > 0 ? { bar: BAR_SECONDS, within: mods.beatWindow } : null,
+    marcato:
+      mods.marcatoPct > 0
+        ? { pct: mods.marcatoPct, seconds: mods.marcatoSeconds, cooldown: mods.marcatoCooldown }
+        : null,
+    reprise: mods.repriseCharge,
+    ensemble: mods.ensemblePct > 0 ? { pct: mods.ensemblePct, max: mods.ensembleMax } : null,
+    spotlight: mods.spotlightMult,
+    triad: mods.triadCount,
+    upbeat,
+  };
+}
+
 export function createWorld(config: SimConfig): World {
   const content = CONTENT;
   const resolved = resolveConfig(config, content);
@@ -823,6 +862,8 @@ export function createWorld(config: SimConfig): World {
       vow: false,
       stasis: false,
       hymnCircles: [],
+      // The Conductor (docs/phase-5f.md): absent, not undefined, on every other run.
+      ...(mods.finaleTurns > 0 ? { conducting: newConductingField(mods.ensemblePct > 0) } : {}),
     },
     encounter: {
       id: encounterDefn.id,
@@ -837,7 +878,10 @@ export function createWorld(config: SimConfig): World {
       enrageAt: null,
       decree: null,
     },
-    ledger: emptyLedger(),
+    ledger:
+      mods.finaleTurns > 0
+        ? { ...emptyLedger(), conducting: newLedgerConducting() }
+        : emptyLedger(),
     relics: {
       ids: resolved.relics.map((r) => r.id),
       cleansed: resolved.relics.filter((r) => r.cleansed).map((r) => r.id),
@@ -855,20 +899,31 @@ export function createWorld(config: SimConfig): World {
       sovereign:
         mods.sovereignMult !== 1 &&
         loadout.reduce((n, c) => n + c.auras.length, 0) >= mods.sovereignMinAuras,
-      crescendo: mods.stasisDuration > 0 ? 'stasis' : mods.vowDuration > 0 ? 'vow' : 'sunrise',
+      crescendo:
+        mods.stasisDuration > 0
+          ? 'stasis'
+          : mods.vowDuration > 0
+            ? 'vow'
+            : mods.finaleTurns > 0
+              ? 'finale'
+              : 'sunrise',
       bearShare: mods.bearShare,
       rewind: mods.rewindSeconds > 0,
       reviveSpent: resolved.calling.reviveSpent,
       timers: mods.telegraphTimers,
       foresight: mods.foresight,
       stasisCostMult: mods.stasisCostMult,
+      ...(mods.finaleTurns > 0
+        ? { conducting: conductingView(mods, resolved.calling.path, content) }
+        : {}),
     },
     dissonance: {
       levels: resolved.dissonance.map((l) => ({ ...l })),
       blindScore: resolved.dissonance.some(
         (l) => content.dissonance.find((d) => d.id === l.id)?.effect === 'blind_score',
       ),
-      cueCost: content.resonance.cueCost + mods.cueCostBonus,
+      // Off the beat (the Conductor's 15 with his Calling, else the content's), Silent Cues on top.
+      cueCost: (mods.cueCostBase ?? content.resonance.cueCost) + mods.cueCostBonus,
     },
     astrolabe: {
       nodes: [...resolved.astrolabe],

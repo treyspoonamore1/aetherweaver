@@ -54,6 +54,7 @@ import type {
 } from '../state';
 import type { World } from '../world';
 import { BERSERKER_SCATTER_GAP } from './blood';
+import { NO_CUE, cueHit } from './conducting';
 import { attackRange, flourishHit, heroDamage } from './heroDamage';
 import { clampPointToArena, pushPointOutOfObstacles } from './physics';
 
@@ -630,6 +631,8 @@ function counter(world: World, e: Entity, def: HeroDef, p: ParryPassive, attacke
     ? soloValue(world, BLADE_WALTZ, hero.soloCued ? 'cuedPct' : 'pct') / 100
     : p.counterPct;
   const hit = heroDamage(world, e, def.attack.damage * pct, 0);
+  // The Conductor (docs/phase-5f.md): a Duet's, Trio's or Finale turn's Blade Waltz counters harder.
+  const power = waltz ? cueHit(world, e.id) : NO_CUE;
   world.events.push({
     type: 'attackFired',
     tick: world.tick,
@@ -651,6 +654,7 @@ function counter(world: World, e: Entity, def: HeroDef, p: ParryPassive, attacke
     empower: hit.empower,
     crit: hit.crit,
     empowered: hit.empowered,
+    ...power,
   });
   let amount = r.dealt + r.absorbed;
   // Bladesong: the counter also cuts every enemy close round her (announced when it cuts one).
@@ -670,6 +674,7 @@ function counter(world: World, e: Entity, def: HeroDef, p: ParryPassive, attacke
         empower: hit.empower * share,
         crit: hit.crit,
         empowered: hit.empowered,
+        ...power,
       });
       amount += c.dealt + c.absorbed;
       cuts++;
@@ -1556,6 +1561,8 @@ export function duelSolo(world: World, hero: Entity, def: HeroDef): void {
       empower: hit.empower,
       crit: hit.crit,
       empowered: hit.empowered,
+      // The Conductor (docs/phase-5f.md): the cut carries its Solo's power.
+      ...cueHit(world, hero.id),
     });
     h.strikeX = best.x;
     h.strikeZ = best.z;

@@ -93,3 +93,16 @@ export {
   saplingInField,
   summonsOf,
 } from './systems/grove';
+// The Conductor's shared rules (docs/phase-5f.md): the sim, the HUD, render, audio and the bots
+// read the same ones.
+export {
+  beatAt,
+  crescendoCostOf,
+  cuePowerOf,
+  cueCostNow,
+  finaleView,
+  nextCue,
+  onBeat,
+  spotlit,
+  triadHolds,
+} from './systems/conducting';

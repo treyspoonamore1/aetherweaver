@@ -44,6 +44,7 @@ import { underMuteDome } from './field';
 import { heroDamage } from './heroDamage';
 import { clampPointToArena } from './physics';
 import { soloSpec } from './solos';
+import { cuePowerOf } from './conducting';
 import {
   ancientLeaves,
   ancientLinger,
@@ -768,7 +769,9 @@ export function groveSoloStart(world: World, hero: Entity, cued: boolean, durati
   if (h.soloId !== HOMECOMING) return;
   // Homecoming: every Sapling re-sprouts at full life at your front spots, behind a barrier.
   const count = grove.saplings.length;
-  const barrier = soloValue(world, HOMECOMING, 'barrier') / 100;
+  // The Conductor (docs/phase-5f.md): a Duet's, a Trio's or a Finale turn's barriers are bigger.
+  const power = cuePowerOf(world, hero.id);
+  const barrier = (soloValue(world, HOMECOMING, 'barrier') / 100) * power;
   for (let i = 0; i < count; i++) {
     const p = frontSpot(world, hero, i, count, out2);
     let s = world.entities.get(grove.saplings[i]!);
@@ -792,7 +795,7 @@ export function groveSoloStart(world: World, hero: Entity, cued: boolean, durati
   const weaver = world.entities.get(world.weaverId);
   if (!weaver) return;
   const r = soloValue(world, HOMECOMING, 'radius');
-  const pct = soloValue(world, HOMECOMING, 'cuedBarrier') / 100;
+  const pct = (soloValue(world, HOMECOMING, 'cuedBarrier') / 100) * power;
   for (const id of world.party) {
     const ally = world.entities.get(id);
     if (!isActive(ally)) continue;

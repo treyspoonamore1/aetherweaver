@@ -228,8 +228,9 @@ beforeEach(() => {
 });
 
 describe('the Deeds', () => {
-  it('twenty-nine, ten of them giving a point, each text filled from its data', () => {
-    expect(CONTENT.deeds).toHaveLength(29);
+  it('thirty, ten of them giving a point, each text filled from its data', () => {
+    // The Conductor's badge (docs/phase-5f.md) is the thirtieth.
+    expect(CONTENT.deeds).toHaveLength(30);
     expect(CONTENT.deeds.filter((d) => d.points === 1)).toHaveLength(DEED_POINTS_MAX);
     for (const d of CONTENT.deeds) expect(deedText(d), d.id).not.toMatch(/[{}]/);
     expect(deedText(deed('unrung'))).toBe('Beat the Bellwarden with no hero going down.');
@@ -249,6 +250,8 @@ describe('the Deeds', () => {
       // Seren's and Oro's (docs/phase-5e.md), last.
       ['debt_paid', 0],
       ['not_a_leaf_lost', 0],
+      // The Conductor's (docs/phase-5f.md), last of all.
+      ['curtain_call', 0],
     ]);
     expect(deedText(deed('debt_paid'))).toBe(
       'Beat the Gorehound Matriarch with Seren, parrying 8 blows: the hounds’ swings count too.',
@@ -276,7 +279,7 @@ describe('the Deeds', () => {
     const plain = deedsInSight(all).map((d) => d.id);
     // Every Deed but Brann's, Seren's and Oro's (Movement III's and the Finale's badges count:
     // docs/phase-5c.md, docs/phase-5d.md).
-    expect(plain).toHaveLength(26);
+    expect(plain).toHaveLength(27);
     expect(plain).not.toContain('in_the_red');
     expect(plain).not.toContain('debt_paid');
     expect(plain).not.toContain('not_a_leaf_lost');
@@ -285,10 +288,10 @@ describe('the Deeds', () => {
       CONTENT.deeds.map((d) => d.id).filter((id) => id !== 'debt_paid' && id !== 'not_a_leaf_lost'),
     );
     // Each hero's own badge with them (docs/phase-5e.md).
-    expect(deedsInSight(all, ['kael', 'lyra', 'vexis', 'seren']).map((d) => d.id)).toEqual([
-      ...plain,
-      'debt_paid',
-    ]);
+    // (The Conductor's badge, docs/phase-5f.md, comes after hers in content order.)
+    expect(deedsInSight(all, ['kael', 'lyra', 'vexis', 'seren']).map((d) => d.id)).toEqual(
+      CONTENT.deeds.map((d) => d.id).filter((id) => plain.includes(id) || id === 'debt_paid'),
+    );
     expect(
       deedsInSight(all, ['kael', 'lyra', 'vexis', 'brann', 'seren', 'oro']).map((d) => d.id),
     ).toEqual(CONTENT.deeds.map((d) => d.id));

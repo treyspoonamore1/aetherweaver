@@ -825,6 +825,25 @@ export interface FieldState {
    * Absent in every party without Oro.
    */
   ancient?: { id: EntityId; x: number; z: number; r: number };
+  // ── Phase 5f (docs/phase-5f.md). Public, created with the world on a Conductor run only. ──
+  /** The Conductor's fight state: Duets and Trios, the path's pieces, the Grand Finale. */
+  conducting?: ConductingField;
+}
+
+/** FieldState.conducting? — the Conductor's fight state (docs/phase-5f.md). Created with the world on a Conductor run. */
+export interface ConductingField {
+  /** Running Solos that carry a Cue bonus or Spotlight; one entry per hero, removed when that Solo ends. */
+  solos: { hero: EntityId; power: number; spotlight?: true; finale?: true }[];
+  /** The open chain: its heroes in order and the sim time of its last Cue. Deleted once the window has passed. */
+  chain?: { heroes: EntityId[]; at: number; reprised?: true };
+  /** Ensemble's streak (present only with Ensemble on the path). */
+  streak?: EntityId[];
+  /** Marcato: the heroes holding it, until when, and when it can come again (present once first given). */
+  marcato?: { heroes: EntityId[]; until: number; readyAt: number };
+  /** The Grand Finale while it plays: hero ids left to play (slot order, twice with Maestro), turns played, the next turn's earliest sim time, turns lost. */
+  finale?: { queue: EntityId[]; fired: number; nextAt: number; lost: number };
+  /** Triad holds the meter (present only while it does). */
+  triad?: true;
 }
 
 /** What made a Grand Silence note (docs/phase-5d.md). */
@@ -1010,6 +1029,25 @@ export interface Ledger {
   duel?: LedgerDuel;
   /** Oro: Saplings felled, their damage, and Rootbond's healing. */
   grove?: LedgerGrove;
+  // ── Phase 5f (docs/phase-5f.md). Created with the world, only on a Conductor run. ──
+  /** The Conductor: Duets, Trios, free Cues, the Grand Finale and the path's tallies. */
+  conducting?: LedgerConducting;
+}
+
+/** Ledger.conducting? — this fight's totals (created with the world on a Conductor run). */
+export interface LedgerConducting {
+  duets: number;
+  trios: number;
+  /** Cues given on the downbeat (A Tempo). */
+  freeCues: number;
+  /** Resonance the Calling's cheaper and free Cues kept (25 + surcharge, minus what each cost). */
+  saved: number;
+  finales: number;
+  finaleSolos: number;
+  finaleLost: number;
+  /** Solo charge Reprise gave, summed over heroes. */
+  reprised: number;
+  marcatos: number;
 }
 
 /** `ledger.duel` (docs/phase-5e.md). */
@@ -1061,8 +1099,11 @@ export interface CallingState {
   sunriseMult: number;
   /** Sovereign Symphony is in force: on the path, with enough auras across the songs. */
   sovereign: boolean;
-  /** The Calling's Crescendo: Sunrise, the Martyr's Vow or the Chronomancer's Stasis. */
-  crescendo: 'sunrise' | 'vow' | 'stasis';
+  /**
+   * The Calling's Crescendo: Sunrise, the Martyr's Vow, the Chronomancer's Stasis or the
+   * Conductor's Grand Finale.
+   */
+  crescendo: 'sunrise' | 'vow' | 'stasis' | 'finale';
   /** Bear's share of the threaded hero's wounds (0.35); 0 without the Martyr. */
   bearShare: number;
   /** Rewind replaces Reel (the Chronomancer). */
@@ -1078,6 +1119,37 @@ export interface CallingState {
   foresight: number;
   /** What techniques cost while Stasis lasts (0.5); 1 without it. */
   stasisCostMult: number;
+  /** The Conductor's numbers this fight (docs/phase-5f.md); present only on a Conductor run. */
+  conducting?: ConductingView;
+}
+
+/** CallingState.conducting? — the Conductor's numbers for the views (derived, not hashed). */
+export interface ConductingView {
+  /** What a Cue costs off the beat, Silent Cues included (15). */
+  cueCost: number;
+  /** What the Crescendo costs (100; Maestro 75). */
+  crescendoCost: number;
+  /** A Cue within this many s of the last joins its chain (3). */
+  chainWindow: number;
+  /** A Duet's and a Trio's power (1.25, 1.5). */
+  duet: number;
+  trio: number;
+  /** The Grand Finale: passes of its queue, the ramp, seconds between turns, its longest wait. */
+  finale: { turns: number; ramp: number; gap: number; wait: number };
+  /** A Tempo: the bar's length and the window either side of its downbeat; null without it. */
+  beat: { bar: number; within: number } | null;
+  /** Marcato's bonus (0.1), its seconds and its cooldown; null without it. */
+  marcato: { pct: number; seconds: number; cooldown: number } | null;
+  /** Reprise's Solo charge (0 without it). */
+  reprise: number;
+  /** Ensemble's bonus per hero and its cap (0.05, 0.15); null without it. */
+  ensemble: { pct: number; max: number } | null;
+  /** Spotlight's Empower multiple (0 without it). */
+  spotlight: number;
+  /** Triad's hero count (0 without it). */
+  triad: number;
+  /** Upbeat's starting Resonance (0 without it). */
+  upbeat: number;
 }
 
 /**
@@ -1089,7 +1161,10 @@ export interface DissonanceState {
   levels: { id: string; rank: number }[];
   /** Blind Score: the views don't show which answer a telegraph wants. */
   blindScore: boolean;
-  /** What a Cue costs this fight (Silent Cues adds to the content's). */
+  /**
+   * What a Cue costs off the beat this fight: the content's (or the Conductor's), plus Silent
+   * Cues' surcharge. On the downbeat with A Tempo it costs the surcharge alone (`cueCostNow`).
+   */
   cueCost: number;
 }
 

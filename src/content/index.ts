@@ -7,7 +7,7 @@ import { MOTIFS } from './motifs';
 import { AURAS } from './auras';
 import { ORNAMENTS } from './ornaments';
 import { ASTROLABE } from './astrolabe';
-import { DEEDS, FINALE_DEEDS } from './deeds';
+import { CONDUCTING_DEEDS, DEEDS, FINALE_DEEDS } from './deeds';
 import { ROSTER_DEEDS } from './rosterDeeds';
 import { CALLINGS } from './callings';
 import { BOONS, RELICS } from './relics';
@@ -92,8 +92,16 @@ export const CONTENT: Content = ContentSchema.parse({
   events: [...RUN_EVENTS, ...LEGION_EVENTS, ...UNSTITCHED_EVENTS],
   callings: CALLINGS,
   astrolabe: ASTROLABE,
-  // Seren's and Oro's (docs/phase-5e.md) come last, so the first 27 keep their order.
-  deeds: [...DEEDS, ...LEGION_DEEDS, ...UNSTITCHED_DEEDS, ...FINALE_DEEDS, ...ROSTER_DEEDS],
+  // Seren's and Oro's (docs/phase-5e.md) come after the first 27, so those keep their order; the
+  // Conductor's badge (docs/phase-5f.md) comes last of all.
+  deeds: [
+    ...DEEDS,
+    ...LEGION_DEEDS,
+    ...UNSTITCHED_DEEDS,
+    ...FINALE_DEEDS,
+    ...ROSTER_DEEDS,
+    ...CONDUCTING_DEEDS,
+  ],
   inscriptions: INSCRIPTIONS,
   curses: CURSES,
   reliquary: RELIQUARY,

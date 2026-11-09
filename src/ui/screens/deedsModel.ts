@@ -50,6 +50,8 @@ const OWN_GLYPH: Readonly<Record<string, IconName>> = {
   // The Finale's (docs/phase-5d.md; registered with FINALE): the song, and no voice stilled.
   song_goes_on: 'chorale',
   not_one_silent: 'mute',
+  // Phase 5f W1 placeholder (docs/phase-5f.md): the Conductor's badge until W2 draws his glyph.
+  curtain_call: 'star',
 };
 
 /** A counting Deed's glyph: the stat's own, as the Result and Summary draw it. */

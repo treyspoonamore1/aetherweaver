@@ -33,6 +33,7 @@ import { weaverOf } from '../world';
 import { glideDistance, slotCooldown, slotCost, variantValue } from '../variants';
 import { answerCall } from './calls';
 import { placeStar, startSolo } from './solos';
+import { conductCue, cueCostNow, reprise, startFinale } from './conducting';
 import { bloodLine } from './blood';
 
 type Rejectable = TechniqueKey | 'rewind' | 'thread' | 'cue' | 'crescendo' | 'plant';
@@ -863,13 +864,16 @@ export function cue(world: World, slot: PartySlot): void {
   if (hasStatus(hero, 'stilled')) return reject(world, 'cue', 'target');
   const h = hero.hero;
   if (h.soloActive > 0 || h.solo < 100) return reject(world, 'cue', 'not-ready');
-  // Silent Cues (Dissonance) raises it.
-  const cost = world.content.resonance.cueCost + world.mods.cueCostBonus;
+  // Silent Cues (Dissonance) raises it; the Conductor's is 15, and free on the beat with A Tempo.
+  const cost = cueCostNow(world);
   if (weaver.weaver!.resonance + 1e-9 < cost) return reject(world, 'cue', 'resonance');
-  spendResonance(world, cost, 'cue');
+  // A free Cue (A Tempo, docs/phase-5f.md) spends nothing and says so with no `resonanceSpent`.
+  if (cost > 0) spendResonance(world, cost, 'cue');
   world.ledger.cues++;
   pushMarker(world, 'cue', h.slot);
   world.events.push({ type: 'cued', tick: world.tick, hero: hero.id });
+  // The Conductor (docs/phase-5f.md): the chain and the Solo's power, before the Solo is built.
+  if (world.field.conducting) conductCue(world, hero, cost);
   startSolo(world, hero, true);
   // Constellation (Bonds): a Cue leaves a star where the hero stands.
   placeStar(world, hero);
@@ -885,6 +889,8 @@ export function cue(world: World, slot: PartySlot): void {
       }
     }
   }
+  // Reprise (the Conductor): Canon's charge first, then a Trio's.
+  if (world.field.conducting) reprise(world);
 }
 
 export function crescendo(world: World): void {
@@ -893,9 +899,14 @@ export function crescendo(world: World): void {
   const w = weaver.weaver!;
   const def = world.content.crescendo;
   if (w.crescendo > 0) return reject(world, 'crescendo', 'not-ready');
-  if (w.resonance + 1e-9 < world.content.resonance.crescendoCost)
+  // Maestro (the Conductor) needs less; the meter keeps the rest.
+  if (w.resonance + 1e-9 < (world.mods.crescendoCostBase ?? world.content.resonance.crescendoCost))
     return reject(world, 'crescendo', 'resonance');
-  spendResonance(world, world.content.resonance.crescendoCost, 'crescendo');
+  spendResonance(
+    world,
+    world.mods.crescendoCostBase ?? world.content.resonance.crescendoCost,
+    'crescendo',
+  );
   world.ledger.crescendos++;
   pushMarker(world, 'crescendo', null);
   // The Martyr's Vow and the Chronomancer's Stasis replace Sunrise (docs/phase-3d.md,
@@ -903,12 +914,18 @@ export function crescendo(world: World): void {
   // (combat/health.ts); while Stasis lasts every enemy stands still (systems/stasis.ts).
   const vow = world.mods.vowDuration > 0;
   const stasis = world.mods.stasisDuration > 0;
+  // The Conductor's Grand Finale (docs/phase-5f.md): no aura surge and no heal either. Its clock
+  // is the longest it waits; it ends sooner, its queue played (systems/conducting.ts).
+  const finale = world.mods.finaleTurns > 0;
   if (stasis) {
     w.crescendo = world.mods.stasisDuration + world.mods.encoreBonus;
     world.field.stasis = true;
   } else if (vow) {
     w.crescendo = world.mods.vowDuration + world.mods.encoreBonus;
     world.field.vow = true;
+  } else if (finale) {
+    w.crescendo = world.mods.finaleWait + world.mods.encoreBonus;
+    startFinale(world);
   } else {
     w.crescendo = def.duration + world.mods.encoreBonus;
     world.field.crescendo = true;
@@ -923,7 +940,7 @@ export function crescendo(world: World): void {
   world.events.push({
     type: 'crescendoStart',
     tick: world.tick,
-    calling: ((vow || stasis) && calling?.crescendoName) || def.name,
+    calling: ((vow || stasis || finale) && calling?.crescendoName) || def.name,
     duration: w.crescendo,
   });
   // The Finale (docs/phase-5d.md Q4): the fight's script hears it now, its flags set, so a

@@ -27,7 +27,7 @@ import {
   keptExpeditionBaseline,
   projectRun,
 } from '../../tools/expedition-baseline';
-import { SCENARIO_BELLWARDEN } from '../../tools/scenarios';
+import { SCENARIO_BELLWARDEN, SCENARIO_CHRONO_SILENCE } from '../../tools/scenarios';
 
 interface KeySnapshot {
   ticks: number;
@@ -41,9 +41,9 @@ const TICKS = 600;
 const path = fileURLToPath(new URL('./rosterInvariance.keys.json', import.meta.url));
 
 /**
- * Keys no default-party fight may carry: Brann's (`blood`, `tithe`, docs/phase-5b.md) and Seren's
+ * Keys no default-party fight may carry: Brann's (`blood`, `tithe`, docs/phase-5b.md), Seren's
  * and Oro's (docs/phase-5e.md: `duel`, `grove`, `summon`, `summons`, `parried`,
- * `rootImmuneUntil`, `ancient`).
+ * `rootImmuneUntil`, `ancient`) and the Conductor's (docs/phase-5f.md: `conducting`, `cuePower`).
  */
 const FORBIDDEN = new Set([
   'blood',
@@ -55,6 +55,8 @@ const FORBIDDEN = new Set([
   'parried',
   'rootImmuneUntil',
   'ancient',
+  'conducting',
+  'cuePower',
 ]);
 
 /** The key paths named in FORBIDDEN anywhere under `value`. */
@@ -148,6 +150,30 @@ describe('the default party is invariant under the roster (docs/phase-5b.md)', (
       writeFileSync(path, JSON.stringify(snapshot, null, 1) + '\n');
     const kept = JSON.parse(readFileSync(path, 'utf8')) as KeySnapshot;
     expect(snapshot).toEqual(kept);
+  });
+
+  it("the Conductor's keys are absent from the Chronomancer's golden and a Luminary fight", () => {
+    // docs/phase-5f.md W1: `field.conducting`, `ledger.conducting` and `PendingHit.cuePower`.
+    const luminary = {
+      ...SCENARIO_BELLWARDEN,
+      config: {
+        ...SCENARIO_BELLWARDEN.config,
+        calling: { id: 'luminary', path: ['haloed', 'dawnward', 'third_voice', 'eclipse'] },
+      },
+    };
+    for (const s of [SCENARIO_CHRONO_SILENCE, luminary]) {
+      const sim = createSim({ seed: s.seed, debug: true, ...s.config });
+      const drive = s.driver();
+      const found: string[] = [];
+      for (let t = 0; t < Math.min(s.ticks, TICKS * 3); t++) {
+        sim.step(drive(t, sim.state));
+        sim.drainEvents();
+        if (t % 60 === 59)
+          found.push(...stateKeys(sim.state).filter((k) => /conducting|cuePower/.test(k)));
+      }
+      expect(found, s.name).toEqual([]);
+      expect(sim.state.calling).not.toHaveProperty('conducting');
+    }
   });
 
   it("NO_MODS holds Brann's motif numbers at 0", () => {

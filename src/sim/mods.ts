@@ -173,6 +173,40 @@ export interface Mods {
   stasisPerfectResonance: number;
   /** Telegraphs show their timers (a view flag: the Chronomancer's passive). */
   telegraphTimers: boolean;
+  // ── The Conductor (docs/phase-5f.md). Each default does nothing. ──
+  /** A Cue's base cost (null = the content's); Silent Cues' `cueCostBonus` is added at use. */
+  cueCostBase: number | null;
+  /** Duets and Trios: a Cue within this many s of the last joins its chain (0 = no chains). */
+  chainWindow: number;
+  /** A Duet's and a Trio's power (1 = none). */
+  duetPower: number;
+  trioPower: number;
+  /** The meter fades no lower than its whole Cues as well as its whole segments. */
+  cueKeepsWhole: boolean;
+  /** Grand Finale replaces Sunrise: passes of its queue (0 = no Finale; Maestro 2). */
+  finaleTurns: number;
+  /** Each Finale Solo × this on the last (1 = none). */
+  finaleRamp: number;
+  /** Seconds between the Finale's turns, and the longest it waits for a hero. */
+  finaleGap: number;
+  finaleWait: number;
+  /** The Crescendo's cost (null = the content's; Maestro's 75). */
+  crescendoCostBase: number | null;
+  /** Marcato: heroes who answer a Directive deal this much more, for this long, this often (0 = none). */
+  marcatoPct: number;
+  marcatoSeconds: number;
+  marcatoCooldown: number;
+  /** A Tempo: a Cue within this many s of a downbeat is free (0 = none). */
+  beatWindow: number;
+  /** Reprise: Solo charge (0–100) every hero gains when a Trio lands. */
+  repriseCharge: number;
+  /** Ensemble: more damage for each different hero Cued in a row, up to a cap (0 = none). */
+  ensemblePct: number;
+  ensembleMax: number;
+  /** Spotlight: a Cued hero is Empowered at this potency while the Solo lasts (0 = none). */
+  spotlightMult: number;
+  /** Triad: the meter doesn't fade while this many heroes stand in the field (0 = none). */
+  triadCount: number;
 
   // ── The Astrolabe (docs/phase-4.md) ──
   /** Every aura's effect (Choir, Prism Covenant). */
@@ -366,6 +400,25 @@ export const NO_MODS: Mods = {
   paradox: false,
   stasisPerfectResonance: 0,
   telegraphTimers: false,
+  cueCostBase: null,
+  chainWindow: 0,
+  duetPower: 1,
+  trioPower: 1,
+  cueKeepsWhole: false,
+  finaleTurns: 0,
+  finaleRamp: 1,
+  finaleGap: 0,
+  finaleWait: 0,
+  crescendoCostBase: null,
+  marcatoPct: 0,
+  marcatoSeconds: 0,
+  marcatoCooldown: 0,
+  beatWindow: 0,
+  repriseCharge: 0,
+  ensemblePct: 0,
+  ensembleMax: 0,
+  spotlightMult: 0,
+  triadCount: 0,
   auraEffectMult: 1,
   unsuppressible: false,
   auraPerExtra: 0,
@@ -628,6 +681,18 @@ function applyCalling(m: Mods, id: string, v: Values): void {
       m.stasisCostMult = 1 - num(v, 'cost') / 100;
       m.telegraphTimers = true;
       break;
+    case 'conductor':
+      m.cueCostBase = num(v, 'cue');
+      m.resonanceMult *= 1 + num(v, 'gain') / 100;
+      m.chainWindow = num(v, 'chain');
+      m.duetPower = 1 + num(v, 'duet') / 100;
+      m.trioPower = 1 + num(v, 'trio') / 100;
+      m.cueKeepsWhole = true;
+      m.finaleTurns = 1;
+      m.finaleRamp = 1 + num(v, 'ramp') / 100;
+      m.finaleGap = num(v, 'gap');
+      m.finaleWait = num(v, 'wait');
+      break;
     default:
       break;
   }
@@ -718,13 +783,46 @@ function applyCallingOption(m: Mods, id: string, v: Values): void {
       m.stasisDuration += num(v, 'seconds');
       m.stasisPerfectResonance = num(v, 'resonance');
       break;
+    case 'marcato':
+      m.marcatoPct = num(v, 'pct') / 100;
+      m.marcatoSeconds = num(v, 'seconds');
+      m.marcatoCooldown = num(v, 'cooldown');
+      break;
+    case 'a_tempo':
+      m.beatWindow = num(v, 'beat');
+      break;
+    case 'reprise':
+      m.repriseCharge = num(v, 'pct');
+      break;
+    case 'upbeat':
+      m.startResonance += num(v, 'resonance');
+      break;
+    case 'ensemble':
+      m.ensemblePct = num(v, 'pct') / 100;
+      m.ensembleMax = num(v, 'max') / 100;
+      break;
+    case 'spotlight':
+      m.spotlightMult = num(v, 'mult');
+      break;
+    case 'triad':
+      m.triadCount = num(v, 'count');
+      break;
+    case 'maestro':
+      m.crescendoCostBase = num(v, 'cost');
+      m.finaleTurns = num(v, 'loops');
+      break;
     default:
       break;
   }
 }
 
 /** Callings and path options the resolver knows (checked against content in tests). */
-export const KNOWN_CALLINGS: readonly string[] = ['luminary', 'martyr', 'chronomancer'];
+export const KNOWN_CALLINGS: readonly string[] = [
+  'luminary',
+  'martyr',
+  'chronomancer',
+  'conductor',
+];
 export const KNOWN_CALLING_OPTIONS: readonly string[] = [
   'haloed',
   'wide_choir',
@@ -750,6 +848,14 @@ export const KNOWN_CALLING_OPTIONS: readonly string[] = [
   'slow_dance',
   'paradox',
   'eternal_moment',
+  'marcato',
+  'a_tempo',
+  'reprise',
+  'upbeat',
+  'ensemble',
+  'spotlight',
+  'triad',
+  'maestro',
 ];
 
 type Values = Readonly<Record<string, number>>;

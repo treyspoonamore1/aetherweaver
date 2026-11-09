@@ -620,3 +620,41 @@ The Finale's full recharge at its end is the plan's text; if levers 1-4 can't br
 - Timeline markers for Duets and Trios (Cues keep their `'cue'` marker).
 - Renaming the Silent Conductor's existing strings.
 - Training Grounds drills for the beat.
+
+## As built: W1
+
+W1 (content, sim, run layer) is built as specified, with the differences below. Where this section and *Contracts* disagree, this section is what the code does, and W2 to W5 build on it.
+
+**Names.** `tests/architecture.test.ts` forbids the bare word `window` anywhere in sim or content code, strings included, so:
+
+| The contract says | The code has |
+|---|---|
+| the passive's `values.window`, `{window}` | `values.chain` (3), `{chain}` |
+| A Tempo's `values.window`, `{window}` | `values.beat` (0.15), `{beat}` |
+| `ConductingView.window` | `ConductingView.chainWindow` |
+| `ConductingView.beat: { bar, window }` | `{ bar, within }` |
+
+The mods keep their names (`chainWindow`, `beatWindow`). The levers' `window` under *Bands* means `chain` and `beat`.
+
+**One field added.** `DamageTaken.conducted?: number`: the Conductor's share of a hit, present only when above 0, so the HUD and the render can mark it without a sim change. On Conductor runs the event's `eclipse` share excludes it.
+
+**Helpers.** As listed, exported from `src/sim/index.ts`. `triadHolds` and `wholeCues` live in `combat/resonance.ts`. `ConductingStats` (`meta/types.ts`) has no `finaleLost`.
+
+**Behaviour, where a reading was chosen.**
+
+- The Finale's ramp is repeated multiplication, not `**` (the sim avoids `pow`): ×1, 1.2, 1.44, 1.728, 2.0736, 2.48832.
+- `finaleTurn` is emitted after that turn's `soloStarted { cued: true }`, in the same tick. `finaleEnded` comes before `crescendoEnd`.
+- At a due turn the queue is read in order: a lost hero is dropped, a waiting hero is skipped, and the first free hero plays. A dead hero loses the turn with reason `'down'`.
+- Turns stop when the fight is won or lost.
+- `soloDone` runs last in `finishSolo`, so Supernova's nova keeps the Solo's power. A Solo cut short by a down has its entry removed by `updateConducting`.
+- The Ancient's slam reads its owner's running Solo. It outlives Wildgrowth by about 1 s, and slams after the Solo ends land at power 1.
+- Blade Waltz's counter carries the power on its hit (the same ×power, credited to the Calling), not on its percentage.
+- Reprise's ledger total counts the charge actually gained, after the cap at 100. On Conductor runs `soloReady` is emitted when a Solo ends with its charge already full.
+- With Silent Cues the meter's whole-Cue floor is 25, since it uses the Cue's cost this fight.
+- Marcato's heroes are fixed when it is given: a hero revived later doesn't get it.
+
+**Placeholders for W2.** `src/ui/hud/calling.ts` (the `crescendo` unions gained `'finale'`) and `src/ui/screens/deedsModel.ts` (`curtain_call` uses the `star` glyph until his own is drawn).
+
+**The chorus pulse.** It fires on every Cue as before, so it fires more often here. With the Skilled bot not yet chaining Cues, over 30 fights a row: 1.83 pulses a fight with no Calling, 2.13 with the Conductor's passive (+16%). No chorus or aura number changed. W5 measures it again with the Conductor's bots.
+
+**Checks.** Vitest 180 files, 3660 passed, 8 skipped. Typecheck and lint clean. The 25 goldens, every baseline `--check` and the three existing Callings' reports are byte-equal; only `contentVersion` moved. The three aura files are untouched.

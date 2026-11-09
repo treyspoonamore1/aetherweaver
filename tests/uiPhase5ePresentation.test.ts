@@ -104,6 +104,7 @@ describe('“Unlocked this run” reads in Rank order', () => {
       '8:recruit.seren',
       '9:calling.chronomancer',
       '10:reliquary',
+      '12:calling.conductor',
       '12:recruit.oro',
     ]);
   });

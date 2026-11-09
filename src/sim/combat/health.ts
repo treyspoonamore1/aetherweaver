@@ -49,6 +49,7 @@ import {
   summonSupport,
 } from '../systems/grove';
 import { summonFell } from '../systems/summons';
+import { conductingMult, cuePowerOf } from '../systems/conducting';
 import { markStatusOf } from './telegraphs';
 import {
   afterBloodDamage,
@@ -721,6 +722,11 @@ export interface DamageOpts {
   melee?: true;
   /** A hit that makes no threat (a summon's, credited to its owner). */
   noThreat?: true;
+  /**
+   * The Conductor (docs/phase-5f.md): the power of the Solo this hit comes from (a Duet's, a
+   * Trio's, a Grand Finale turn's). Absent at 1. An option, never state.
+   */
+  cuePower?: number;
 }
 
 export interface DamageResult {
@@ -848,6 +854,18 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
       callingIn = amount * (shine + eclipse);
       amplifiedIn += callingIn;
       amount += callingIn;
+    }
+  }
+  // The Conductor (docs/phase-5f.md): a Duet's, a Trio's or a Finale turn's power, and Marcato
+  // and Ensemble on the heroes' own hits. The extra is the Calling's, as Radiance's is.
+  let conductIn = 0;
+  if (world.field.conducting && source && (source.hero || source.summon) && target.enemy) {
+    const k = conductingMult(world, source, opts.cuePower);
+    if (k !== 1) {
+      conductIn = amount * (k - 1);
+      callingIn += conductIn;
+      amplifiedIn += conductIn;
+      amount += conductIn;
     }
   }
   const amountIn = amount;
@@ -1088,6 +1106,7 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
   const empowerShare = opts.empower && amountIn > 0 ? (opts.empower * total) / amountIn : 0;
   const callingShare = callingIn > 0 && amountIn > 0 ? (callingIn * total) / amountIn : 0;
   const radianceShare = radianceIn > 0 && amountIn > 0 ? (radianceIn * total) / amountIn : 0;
+  const conductShare = conductIn > 0 && amountIn > 0 ? (conductIn * total) / amountIn : 0;
   if (source?.hero && target.enemy) {
     source.hero.damageDealt += total;
     source.hero.damageAmplified += amplifiedShare;
@@ -1117,6 +1136,8 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
   } else if (source?.summon && target.enemy) {
     // Oro's summons (docs/phase-5e.md): on his slot, with no threat.
     summonCredit(world, source, target, total, amplifiedShare, auraShare, opts);
+    // The Conductor: a Cued Ancient's power is the Calling's share too.
+    if (conductShare > 0) world.ledger.calling.amplified += conductShare;
   }
   if (target.hero && dealt > 0) {
     const recent = target.hero.recentDamage;
@@ -1134,10 +1155,12 @@ export function dealDamage(world: World, target: Entity, opts: DamageOpts): Dama
     amplified: amplifiedShare,
     aura: auraShare,
     radiance: radianceShare,
-    eclipse: callingShare - radianceShare,
+    eclipse: callingShare - radianceShare - conductShare,
     crit: opts.crit ?? false,
     telegraph: opts.telegraph?.id ?? null,
     hit: opts.kind ?? 'hit',
+    // The Conductor (docs/phase-5f.md): absent on every other hit.
+    ...(conductShare > 0 ? { conducted: conductShare } : {}),
   });
 
   let downed = false;
@@ -1315,7 +1338,9 @@ function oath(world: World, target: Entity, opts: DamageOpts): DamageResult | nu
     if (!isActive(kael) || kael.health.invulnerable > 0 || k.hold) continue;
     const radius = soloValue(world, 'oathkeeper', k.soloCued ? 'cuedRadius' : 'radius');
     if (distSq(kael.x, kael.z, target.x, target.z) > radius * radius) continue;
-    const share = soloValue(world, 'oathkeeper', k.soloCued ? 'cuedPct' : 'pct') / 100;
+    let share = soloValue(world, 'oathkeeper', k.soloCued ? 'cuedPct' : 'pct') / 100;
+    // The Conductor (docs/phase-5f.md): a stronger Oathkeeper takes a smaller share.
+    if (world.field.conducting) share /= cuePowerOf(world, kael.id);
     talentFired(world, kael, 'oathkeeper', target.x, target.z, target.id);
     const r = dealDamage(world, kael, { ...opts, amount: opts.amount * share, oath: true });
     return { ...NO_DAMAGE, blocked: false, takenBy: kael.id, takenDealt: r.downed ? 0 : r.dealt };

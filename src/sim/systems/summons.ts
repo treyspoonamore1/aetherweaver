@@ -25,6 +25,7 @@ import { hasTalent, talentFired, talentValue } from '../bonds';
 import type { Entity, EntityId, GroveState, LedgerGrove } from '../state';
 import type { World } from '../world';
 import { gentle, lesserFoe, rootable, saplingInField, stationaryFoe } from './grove';
+import { NO_CUE, cueHit } from './conducting';
 import { clampPointToArena, pushPointOutOfObstacles } from './physics';
 
 type Summons = NonNullable<HeroDef['summons']>;
@@ -569,6 +570,10 @@ function strike(
     amplified: hit.aura,
     aura: hit.aura,
     noThreat: true,
+    // The Conductor (docs/phase-5f.md): the Ancient's slam carries its owner's Solo's power.
+    ...(world.field.conducting && s.summon!.kind === 'ancient'
+      ? cueHit(world, s.summon!.owner)
+      : NO_CUE),
   });
 }
 

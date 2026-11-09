@@ -147,6 +147,8 @@ function strike(
     empower: hit.empower * scale,
     crit: hit.crit,
     empowered: hit.empowered,
+    // The Conductor (docs/phase-5f.md): the power of the Solo that loosed it, splash and chain too.
+    ...(hit.cuePower !== undefined ? { cuePower: hit.cuePower } : {}),
   });
   if (hit.stun > 0 && isActive(e)) addStatus(world, e, 'stun', hit.stun, hit.source);
   // On-hit payloads (docs/phase-5a.md P3): the bolt's own and its caster's affixes'. Only an

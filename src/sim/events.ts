@@ -131,6 +131,11 @@ export interface DamageTaken extends At {
   crit: boolean;
   telegraph: number | null;
   hit: 'hit' | 'tick' | 'detonation';
+  /**
+   * The Conductor's part of `amplified` and of the Calling's share (docs/phase-5f.md): a Duet's,
+   * a Trio's or a Finale turn's power, Marcato and Ensemble. Present only when above 0.
+   */
+  conducted?: number;
 }
 export interface HealApplied extends At {
   type: 'healApplied';
@@ -946,6 +951,66 @@ export interface SilenceBroken extends At {
   notes: number;
 }
 
+// ── The Conductor (docs/phase-5f.md) ──────────────────────────────────────────────────
+/**
+ * Every Cue on a Conductor run, after `cued`: its place in the chain (1 starts one, 2 is a Duet,
+ * 3 a Trio), its power, what it cost, whether it fell on the downbeat (A Tempo), and when the
+ * chain's window closes.
+ */
+export interface CueChained extends At {
+  type: 'cueChained';
+  hero: EntityId;
+  link: 1 | 2 | 3;
+  power: number;
+  cost: number;
+  onBeat: boolean;
+  until: number;
+}
+/** Reprise: a Trio landed, and these heroes' Solos charged by `charge`. */
+export interface Reprised extends At {
+  type: 'reprised';
+  charge: number;
+  heroes: EntityId[];
+}
+/** Marcato given: these heroes deal more until `until`; it can come again at `readyAt`. */
+export interface MarcatoEvent extends At {
+  type: 'marcato';
+  heroes: EntityId[];
+  until: number;
+  readyAt: number;
+}
+/** Ensemble's streak changed: the different heroes Cued in a row, and the bonus now. */
+export interface EnsembleEvent extends At {
+  type: 'ensemble';
+  heroes: EntityId[];
+  bonus: number;
+}
+/** A Grand Finale Solo begins (a `soloStarted { cued: true }` also comes): its turn, power, pass. */
+export interface FinaleTurn extends At {
+  type: 'finaleTurn';
+  hero: EntityId;
+  turn: number;
+  power: number;
+  pass: 1 | 2;
+}
+/** A Grand Finale turn is lost (dropped from its queue). */
+export interface FinaleTurnLost extends At {
+  type: 'finaleTurnLost';
+  hero: EntityId;
+  reason: 'down' | 'possessed' | 'stilled' | 'time';
+}
+/** The Grand Finale ends (before `crescendoEnd`): the Solos it played and the turns lost. */
+export interface FinaleEnded extends At {
+  type: 'finaleEnded';
+  fired: number;
+  lost: number;
+}
+/** Triad starts or stops holding the meter. */
+export interface TriadEvent extends At {
+  type: 'triad';
+  on: boolean;
+}
+
 export type SimEvent =
   | EntitySpawned
   | EntityDespawned
@@ -1055,7 +1120,15 @@ export type SimEvent =
   | SummonSpawned
   | SummonFell
   | GentleRefused
-  | RootedEvent;
+  | RootedEvent
+  | CueChained
+  | Reprised
+  | MarcatoEvent
+  | EnsembleEvent
+  | FinaleTurn
+  | FinaleTurnLost
+  | FinaleEnded
+  | TriadEvent;
 
 export type SimEventType = SimEvent['type'];
 export type SimEventOf<T extends SimEventType> = Extract<SimEvent, { type: T }>;

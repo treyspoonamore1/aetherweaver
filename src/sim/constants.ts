@@ -27,6 +27,15 @@ export function pastSamples(seconds: number): number {
  */
 export const AUTONOMY = { cueGrace: 1, kaelHold: 3 } as const;
 
+/**
+ * The music's tempo, owned by the sim (docs/phase-5f.md, A Tempo): 88 BPM in four, so a bar is
+ * 240 / 88 = 2.727… s of sim time, and downbeats fall at sim time 0, 1 bar, 2 bars… The audio's
+ * `BPM` (src/audio/theory.ts) must equal `MUSIC_BPM`; the audio tests check it.
+ */
+export const MUSIC_BPM = 88;
+export const BEATS_PER_BAR = 4;
+export const BAR_SECONDS = (60 / MUSIC_BPM) * BEATS_PER_BAR;
+
 /** Upper bound on any entity radius; used to size spatial queries. */
 export const MAX_ENTITY_RADIUS = 1;
 

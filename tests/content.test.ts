@@ -584,7 +584,7 @@ describe('Movement III: the Unstitched (docs/phase-5c.md)', () => {
       if (four >= 0) expect(list.slice(four).every((x) => x.movement === 4)).toBe(true);
     }
     // Then the Finale's two (docs/phase-5d.md), then Seren's and Oro's (docs/phase-5e.md).
-    expect(CONTENT.deeds.slice(-6, -4).map((d) => d.id)).toEqual(['whole_cloth', 'needle_sure']);
+    expect(CONTENT.deeds.slice(-7, -5).map((d) => d.id)).toEqual(['whole_cloth', 'needle_sure']);
     // Seren's and Oro's Bond motifs follow it (docs/phase-5e.md).
     expect(CONTENT.motifs.at(-3)).toMatchObject({
       id: 'guard_strand',
@@ -1355,11 +1355,12 @@ describe('the Finale: the Silent Conductor (docs/phase-5d.md)', () => {
   it('registered, FINALE and its Deeds lint clean, the Deeds after Movement III’s', () => {
     const parsed = ContentSchema.safeParse(structuredClone(CONTENT));
     expect(parsed.success ? '' : parsed.error.issues.map((i) => i.message).join('\n')).toBe('');
-    // …followed only by Seren's and Oro's (ROSTER_DEEDS, docs/phase-5e.md).
+    // …followed only by Seren's and Oro's (ROSTER_DEEDS, docs/phase-5e.md), then the
+    // Conductor's one badge (docs/phase-5f.md).
     expect(
-      CONTENT.deeds.slice(-FINALE_DEEDS.length - ROSTER_DEEDS.length, -ROSTER_DEEDS.length),
+      CONTENT.deeds.slice(-FINALE_DEEDS.length - ROSTER_DEEDS.length - 1, -ROSTER_DEEDS.length - 1),
     ).toStrictEqual(FINALE_DEEDS);
-    expect(CONTENT.deeds.slice(-ROSTER_DEEDS.length)).toStrictEqual(ROSTER_DEEDS);
+    expect(CONTENT.deeds.slice(-ROSTER_DEEDS.length - 1, -1)).toStrictEqual(ROSTER_DEEDS);
   });
 
   it('two badge Deeds, no point, both on the Conductor’s fight', () => {

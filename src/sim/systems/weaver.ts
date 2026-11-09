@@ -4,6 +4,7 @@ import { decayResonance } from '../combat/resonance';
 import { SIM_HZ } from '../constants';
 import type { TechniqueKey } from '../state';
 import { weaverOf, type World } from '../world';
+import { finishFinale } from './conducting';
 import { approachVelocity } from './steering';
 import { updateLink, wardCooldown } from './techniques';
 import { glideDistance } from '../variants';
@@ -108,15 +109,22 @@ export function updateWeaver(world: World, dt: number): void {
 
   if (w.crescendo > 0) {
     w.crescendo = Math.max(0, w.crescendo - dt);
-    if (w.crescendo === 0) {
-      world.field.crescendo = false;
-      world.field.vow = false;
-      world.field.stasis = false;
-      world.events.push({ type: 'crescendoEnd', tick: world.tick });
-      if (world.mods.daCapo > 0)
-        w.resonance = Math.min(world.content.resonance.max, world.mods.daCapo);
-    }
+    if (w.crescendo === 0) endCrescendo(world);
   }
   decayResonance(world, dt);
   updateLink(world);
+}
+
+/**
+ * The Crescendo ends: its clock ran out, or (the Conductor's Grand Finale, docs/phase-5f.md) its
+ * queue was played. Every flag drops, `crescendoEnd`, and Da Capo keeps its Resonance.
+ */
+export function endCrescendo(world: World): void {
+  if (world.field.conducting?.finale) finishFinale(world);
+  const w = weaverOf(world).weaver!;
+  world.field.crescendo = false;
+  world.field.vow = false;
+  world.field.stasis = false;
+  world.events.push({ type: 'crescendoEnd', tick: world.tick });
+  if (world.mods.daCapo > 0) w.resonance = Math.min(world.content.resonance.max, world.mods.daCapo);
 }

@@ -196,6 +196,22 @@ export const DEEDS: DeedDef[] = [
  * `CONTENT.deeds` after Movement III's with FINALE itself (W3), not here, so the Deed counts and
  * order move in the same merge as the route.
  */
+/**
+ * The Conductor's badge (docs/phase-5f.md), as each Calling has one. Concatenated last in
+ * `CONTENT.deeds`, after the roster's, so every earlier Deed keeps its place.
+ */
+export const CONDUCTING_DEEDS: DeedDef[] = [
+  {
+    id: 'curtain_call',
+    name: 'Curtain Call',
+    points: 0,
+    test: 'calling',
+    calling: 'conductor',
+    values: {},
+    text: 'Win a run as {calling}.',
+  },
+];
+
 export const FINALE_DEEDS: DeedDef[] = [
   {
     id: SONG_GOES_ON,

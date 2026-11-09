@@ -188,7 +188,11 @@ describe('the content: appended, Rank-gated choices', () => {
       'calling.martyr',
       'recruit.seren',
     ]);
-    expect(unlocksBetween(RANK_XP[10]!, RANK_XP[11]!).map((u) => u.id)).toEqual(['recruit.oro']);
+    // The Conductor (docs/phase-5f.md) shares Rank 12, before Oro.
+    expect(unlocksBetween(RANK_XP[10]!, RANK_XP[11]!).map((u) => u.id)).toEqual([
+      'calling.conductor',
+      'recruit.oro',
+    ]);
     // The allowance follows the same Ranks.
     expect([7, 8, 11, 12].map((r) => [...allowanceFor(r).recruits])).toEqual([
       ['brann'],

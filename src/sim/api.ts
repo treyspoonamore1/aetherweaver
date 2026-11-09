@@ -18,6 +18,7 @@ import type { WorldState } from './state';
 import { updateTimeScale } from './combat/feedback';
 import { resolveTelegraphs, updateIncoming } from './combat/telegraphs';
 import { updateBosses } from './systems/bosses';
+import { updateConducting } from './systems/conducting';
 import { applyCommands } from './systems/commands';
 import { checkEncounterEnd, updateDirector } from './systems/director';
 import { updateDummies } from './systems/dummies';
@@ -89,6 +90,8 @@ function stepWorld(world: World, commands: readonly Command[]): void {
   // Newly arrived enemies take part in this tick (and count for victory checks).
   world.entities.flush();
   updateWeaver(world, dt);
+  // The Conductor (docs/phase-5f.md): returns at once on every other run.
+  updateConducting(world);
   updateThread(world, dt);
   updateChimes(world);
   updateEchoWards(world);

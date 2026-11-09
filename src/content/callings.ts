@@ -269,4 +269,96 @@ export const CALLINGS: ContentInput['callings'] = [
       },
     ],
   },
+  // The Conductor (docs/phase-5f.md). Its numbers are W5's levers (the doc's *Bands*).
+  {
+    id: 'conductor',
+    name: 'Conductor',
+    title: 'the one who makes them great',
+    summary:
+      'You lead the heroes: cheap Cues, Solos chained into Duets and Trios, and a Grand Finale.',
+    text: 'Your Cues cost {cue} Resonance, and you gain {gain}% more Resonance. A Solo you Cue within {chain} s of your last Cue plays as a Duet, {duet}% stronger; a third in a row is a Trio, {trio}% stronger.',
+    crescendo:
+      'Grand Finale replaces Sunrise: every hero plays their Solo in turn, as if Cued, each {ramp}% stronger than the one before; when it ends, every Solo is full again.',
+    crescendoName: 'Grand Finale',
+    flavor: 'On my count. All of you.',
+    // gap: seconds between the Finale's turns; wait: the longest it waits for a hero mid-Solo.
+    values: { cue: 15, gain: 20, chain: 3, duet: 25, trio: 50, ramp: 20, gap: 1, wait: 12 },
+    unlockRank: 12,
+    icon: 'conductor',
+    tiers: [
+      {
+        options: [
+          {
+            id: 'marcato',
+            name: 'Marcato',
+            text: 'Heroes who answer a Directive deal {pct}% more damage for {seconds} s. It comes again {cooldown} s after it was given.',
+            values: { pct: 10, seconds: 4, cooldown: 8 },
+            icon: 'marcato',
+          },
+          {
+            id: 'a_tempo',
+            name: 'A Tempo',
+            text: 'A Cue given on the downbeat, within {beat} s either side, costs no Resonance. Your Resonance meter shows the beat.',
+            values: { beat: 0.15 },
+            icon: 'a_tempo',
+          },
+        ],
+      },
+      {
+        options: [
+          {
+            id: 'reprise',
+            name: 'Reprise',
+            text: 'When a Trio lands, every hero’s Solo charges {pct}%.',
+            values: { pct: 30 },
+            icon: 'reprise',
+          },
+          {
+            id: 'upbeat',
+            name: 'Upbeat',
+            text: 'Every fight begins with {resonance} Resonance.',
+            values: { resonance: 50 },
+            icon: 'upbeat',
+          },
+        ],
+      },
+      {
+        options: [
+          {
+            id: 'ensemble',
+            name: 'Ensemble',
+            text: 'Each different hero you Cue in a row makes your heroes deal {pct}% more damage, up to {max}%, until you Cue one of them again.',
+            values: { pct: 5, max: 15 },
+            icon: 'ensemble',
+          },
+          {
+            id: 'spotlight',
+            name: 'Spotlight',
+            text: 'A hero you Cue is Empowered at ×{mult} strength while their Solo lasts, Thread or not.',
+            values: { mult: 2 },
+            icon: 'spotlight',
+          },
+        ],
+      },
+      {
+        options: [
+          {
+            id: 'triad',
+            name: 'Triad',
+            text: 'While {count} or more heroes stand in your field, your Resonance never fades.',
+            values: { count: 3 },
+            icon: 'triad',
+          },
+          {
+            id: 'maestro',
+            name: 'Maestro',
+            text: 'Grand Finale needs only {cost} Resonance, and it plays every hero’s turn twice, still rising.',
+            // loops: passes of the Finale's queue.
+            values: { cost: 75, loops: 2 },
+            icon: 'maestro',
+          },
+        ],
+      },
+    ],
+  },
 ];
