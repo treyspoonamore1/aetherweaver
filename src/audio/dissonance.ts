@@ -17,8 +17,10 @@
  *   through the rise the Crucible's stems reopen from the bottom, two notes a stem as the rings
  *   re-light (the Grand Silence's rule, `silenceStems`); then the whole choir sings, and the glass
  *   melody is sung in pairs, the Conductor's mirrored line answered by the Weaver's own (music.ts).
- * - **A pair Cue** (`postludePair`): the two voices answer each other: the first voice's mirrored
- *   phrase, then the second's, answering a third higher, from where each stands.
+ * - **A pair Cue** (`postludePair`, arriving with the second voice's `enemyCued`): the two voices
+ *   answer each other. The first voice's Cue sang its ordinary mirrored phrase 1.5 s before (the
+ *   call); the second's ordinary phrase is replaced by the answer: its mirrored phrase a third
+ *   higher, opening on an echo of the call's last note. Never both, so nothing doubles.
  *
  * Every sound has its own group, rate gate and voice cap (DISSONANCE_SOUND_LIMITS). Nothing here
  * plays, and the music's input stays absent, on a run without Tyrant or True Dissonance: every
@@ -59,7 +61,7 @@ export const DISSONANCE_SOUND_LIMITS: Readonly<Record<DissonanceGroup, readonly 
     edict: [0.5, 1],
     tyrant: [0.3, 2],
     rise: [2, 1],
-    // A pair's call and its answer: one pair at a time (the next comes 10-14 s later).
+    // A pair's answer: one pair at a time (the next comes 10-14 s later).
     pair: [1, 1],
   };
 
@@ -129,6 +131,8 @@ function materialOf(defId: string | undefined): 'porcelain' | 'iron' | 'cloth' |
 export class DissonanceSounds {
   /** How many of each sound were asked for (tests and the lab). */
   readonly asked: Record<DissonanceGroup, number> = { edict: 0, tyrant: 0, rise: 0, pair: 0 };
+  /** This batch's pair answers: the second voices of its `postludePair`s. */
+  private readonly answering = new Set<EntityId>();
 
   constructor(private readonly h: DissonanceHost) {}
 
@@ -277,8 +281,30 @@ export class DissonanceSounds {
   }
 
   /**
-   * A pair Cue: the first voice's mirrored phrase, then the second's answering a third higher,
-   * each from where it stands (mirror-choir voices sing back a hero's leitmotif, mirrored).
+   * Before a batch is played: the voices whose Cue this batch is a pair's answer. The sim pushes
+   * the second voice's `enemyCued` and then `postludePair` (`[first, second]`) in the same tick,
+   * so the second's ordinary Cue phrase is not played: the pair's answer sings it instead
+   * (sfx.ts asks `answers`). The first voice's Cue, 1.5 s earlier, sang its ordinary phrase: the
+   * call.
+   */
+  scan(events: readonly SimEvent[]): void {
+    this.answering.clear();
+    for (const ev of events)
+      if (ev.type === 'postludePair' && ev.voices.length >= 2)
+        this.answering.add(ev.voices[ev.voices.length - 1]!);
+  }
+
+  /** This voice's Cue in this batch is a pair's answer (its ordinary Cue phrase is not played). */
+  answers(voice: EntityId): boolean {
+    return this.answering.has(voice);
+  }
+
+  /**
+   * A pair Cue's answer (`postludePair`, as the second voice's Cue begins): the second voice
+   * sings its mirrored phrase (as its Cue would) a third higher, two scale degrees, opening on a
+   * soft echo of the call's last note (the first voice's mirrored phrase, which its own Cue sang),
+   * from where the second voice stands. In place of the second's ordinary Cue phrase, never over
+   * it; a pair of one voice (no other to Cue) is a plain Cue, and plays nothing here.
    */
   private pair(voices: readonly EntityId[], state: WorldState): void {
     const [a, b] = voices;
@@ -291,35 +317,31 @@ export class DissonanceSounds {
     const ma = motifOf(a);
     const mb = motifOf(b);
     if (!ma || !mb) return;
-    /** Its head (the first three notes, mirrored about D, as its Cue sings them), from `at`. */
-    const sing = (v: Voice, m: Leitmotif, at: number, lift: number): number => {
+    const mirrored = (m: Leitmotif) => {
       const centre = Math.round(m.notes.reduce((n, x) => n + x.idx, 0) / m.notes.length);
-      let end = at;
-      for (const n of m.notes.slice(0, 3)) {
-        const idx = mirrorIndex(n.idx) + 2 * centre + lift;
-        motifNote(v, 'glassBell', at + n.at, hz(idx), n.dur, 0.1 * n.vel);
-        end = Math.max(end, at + n.at + n.dur);
-      }
-      v.extend(end + 1.5);
-      return end;
+      return m.notes.map((n) => ({ ...n, idx: mirrorIndex(n.idx) + 2 * centre }));
     };
-    let answerAt = 0;
-    const first = this.play(
+    const call = mirrored(ma);
+    const answer = mirrored(mb);
+    const echo = call[call.length - 1]!.idx;
+    this.play(
       'pair',
       (v, t) => {
-        answerAt = Math.max(t + 0.5, sing(v, ma, t, 0) - 0.05);
-      },
-      { pan: this.pan(state, a) },
-    );
-    if (!first) return;
-    // The answer, from the second voice: a third higher (two scale degrees), as the first ends.
-    const key = DISSONANCE_SOUND_GROUPS.pair;
-    this.h.play(
-      key,
-      DISSONANCE_SOUND_LIMITS.pair[1] + 1,
-      'sfx',
-      (v) => {
-        sing(v, mb, answerAt, 2);
+        // The baton's stroke, as the Cue's.
+        v.noise({
+          start: t + 0.08,
+          dur: 0.012,
+          gain: 0.05,
+          filter: { type: 'bandpass', freq: 3200, q: 3 },
+        });
+        // The call's last note, softly, and the answer a third higher.
+        glassPing(v, t + 0.1, hz(echo), 0.03, 0.8);
+        let end = t;
+        for (const n of answer) {
+          motifNote(v, 'glassBell', t + 0.2 + n.at, hz(n.idx + 2), n.dur, 0.13 * n.vel);
+          end = Math.max(end, t + 0.2 + n.at + n.dur);
+        }
+        v.extend(end + 1.5);
       },
       { pan: this.pan(state, b) },
     );
