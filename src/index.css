@@ -275,12 +275,27 @@ input[type='range'] {
   accent-color: var(--color-gold-400);
 }
 
+/*
+ * Reduced motion (docs/phase-7.md, W2). System (no data-motion, the default): the operating
+ * system's setting, exactly as before. Off (data-motion="off"): animations play whatever the OS
+ * says. On (data-motion="on"): cut as the OS setting cuts them, except the Weaver bar's song chips
+ * (an aura's presentation, held for the owner: docs/phase-7.md, ground rule 4).
+ */
 @media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
+  :root:not([data-motion='off']),
+  :root:not([data-motion='off']) *,
+  :root:not([data-motion='off']) *::before,
+  :root:not([data-motion='off']) *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+:root[data-motion='on'],
+:root[data-motion='on'] :not([data-testid='chords'], [data-testid='chords'] *),
+:root[data-motion='on'] :not([data-testid='chords'], [data-testid='chords'] *)::before,
+:root[data-motion='on'] :not([data-testid='chords'], [data-testid='chords'] *)::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
 }

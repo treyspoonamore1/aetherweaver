@@ -23,7 +23,7 @@ import { FERMATA_COLOR, type FermataView } from './fermata';
 import type { FieldView } from './field';
 import { BEAM } from './fx/beams';
 import type { FxKit } from './fx/kit';
-import { PARTICLE } from './fx/particles';
+import { PARTICLE, type ParticleSystem } from './fx/particles';
 import { RING } from './fx/rings';
 import { SHELL } from './fx/shells';
 import { SPRITE } from './fx/sprites';
@@ -62,6 +62,9 @@ import type { Stage } from './stage';
 import type { TelegraphLayer } from './telegraphs';
 import type { ThreadView } from './thread';
 import type { FrameInfo } from './types';
+import { optionsOf, useSettings } from '../app/settings';
+import { fightStill } from '../ui/presentation';
+import { flareScale } from './relicCues';
 
 const enum K {
   Ring,
@@ -200,6 +203,131 @@ const SILENCE_GREY = color(CRUCIBLE_HEX.silence);
 /** A guard's 'Blocked' floater shows at most this often per enemy (s, render clock). */
 const BLOCKED_EVERY = 0.6;
 
+/**
+ * Comfort (docs/phase-7.md, W2) as feedback's particles see it: `flare` scales their brightness
+ * (`flareScale(flashes)`, 1 at full Flashes); `still` (Reduced motion On) holds them where they
+ * spawn, fewer of them, with no speed and no fall; `aura` is set while an aura's or ornament's
+ * own effect draws (the plant, Chorus, Fermata, an aura's heal notes), which no comfort option
+ * scales, recolours or cuts (held for the owner: docs/phase-7.md, ground rule 4).
+ */
+export interface FxComfort {
+  flare: number;
+  still: boolean;
+  aura: boolean;
+}
+
+/**
+ * A particle system that passes everything through `real` under `fx` (no allocation per call). At
+ * the defaults (flare 1, not still) every call is passed on unchanged. `flares`: false for the
+ * smoke, which is dust, not light (it only holds still).
+ */
+export function comfortParticles(
+  real: ParticleSystem,
+  fx: Readonly<FxComfort>,
+  flares = true,
+): ParticleSystem {
+  const p = Object.create(real) as ParticleSystem & { emit: unknown; burst: unknown };
+  p.emit = (
+    x: number,
+    y: number,
+    z: number,
+    vx: number,
+    vy: number,
+    vz: number,
+    life: number,
+    size: number,
+    c: THREE.Color,
+    alpha: number,
+    style: number = PARTICLE.dot,
+    drag = 1.5,
+    gravity = 0,
+    grow = 0,
+  ): void => {
+    if (fx.aura)
+      return real.emit(x, y, z, vx, vy, vz, life, size, c, alpha, style, drag, gravity, grow);
+    const still = fx.still;
+    real.emit(
+      x,
+      y,
+      z,
+      still ? 0 : vx,
+      still ? 0 : vy,
+      still ? 0 : vz,
+      life,
+      size,
+      c,
+      flares ? alpha * fx.flare : alpha,
+      style,
+      drag,
+      still ? 0 : gravity,
+      still ? 0 : grow,
+    );
+  };
+  p.burst = (
+    x: number,
+    y: number,
+    z: number,
+    count: number,
+    speed: number,
+    up: number,
+    life: number,
+    size: number,
+    c: THREE.Color,
+    alpha: number,
+    style: number = PARTICLE.dot,
+    drag = 2.5,
+    gravity = 0,
+    spread = 0,
+  ): void => {
+    if (fx.aura)
+      return real.burst(
+        x,
+        y,
+        z,
+        count,
+        speed,
+        up,
+        life,
+        size,
+        c,
+        alpha,
+        style,
+        drag,
+        gravity,
+        spread,
+      );
+    const still = fx.still;
+    real.burst(
+      x,
+      y,
+      z,
+      still ? Math.max(1, Math.round(count * STILL_SHARE)) : count,
+      still ? 0 : speed,
+      still ? 0 : up,
+      life,
+      size,
+      c,
+      flares ? alpha * fx.flare : alpha,
+      style,
+      drag,
+      still ? 0 : gravity,
+      spread,
+    );
+  };
+  return p;
+}
+
+/** Reduced motion On: the share of a burst's particles kept, held still where they spawn. */
+export const STILL_SHARE = 0.5;
+
+/** `kit` with feedback's particles and smoke under `fx` (everything else is the kit's own). */
+function comfortKit(kit: FxKit, fx: Readonly<FxComfort>): FxKit {
+  return Object.create(kit, {
+    particles: { value: comfortParticles(kit.particles, fx) },
+    smoke: { value: comfortParticles(kit.smoke, fx, false) },
+  }) as FxKit;
+}
+
 export interface FeedbackDeps {
   kit: FxKit;
   entities: EntityLayer;
@@ -333,7 +461,16 @@ export class Feedback {
   private readonly baseKeyColor = new THREE.Color();
   private keyGreyed = false;
 
-  constructor(private readonly d: FeedbackDeps) {
+  /** Comfort as this frame's settings give it (docs/phase-7.md, W2); its particles read it. */
+  readonly fx: FxComfort = { flare: 1, still: false, aura: false };
+  /** Damage numbers: only the important ones (docs/phase-7.md, W2). */
+  private importantOnly = false;
+  private readonly d: FeedbackDeps;
+
+  constructor(deps: FeedbackDeps) {
+    // Everything feedback (and the Finale's, Seren's and Oro's cues it drives) bursts goes
+    // through the comfort options; the real kit is left as it is for every other view.
+    const d = (this.d = { ...deps, kit: comfortKit(deps.kit, this.fx) });
     for (let i = 0; i < POOL; i++) {
       this.pool.push({
         active: false,
@@ -546,7 +683,16 @@ export class Feedback {
 
   // ── Events ─────────────────────────────────────────────────────────────────────────
 
+  /** The comfort options in force: Flashes from the frame, the rest from Settings. */
+  private comfort(): void {
+    const s = useSettings.getState().settings;
+    this.fx.flare = flareScale(this.settings.flashes);
+    this.fx.still = fightStill(s);
+    this.importantOnly = optionsOf(s).importantNumbersOnly;
+  }
+
   handle(events: readonly SimEvent[], state: WorldState): void {
+    this.comfort();
     let finale = false;
     // Seren's Ward blows (her counter, her kill shot) are looked for only when the batch has one.
     let ward: ReadonlySet<SimEvent> | null = null;
@@ -609,19 +755,28 @@ export class Feedback {
         case 'save':
           this.save(ev, state, ev.cause === 'rewind');
           break;
+        // An aura's or ornament's own effects: no comfort option touches them (FxComfort).
         case 'fieldPlanted':
+          this.fx.aura = true;
           this.planted(ev, state);
+          this.fx.aura = false;
           break;
         case 'chorusPulse':
+          this.fx.aura = true;
           this.chorus(ev, state);
+          this.fx.aura = false;
           break;
         case 'fermataHold':
+          this.fx.aura = true;
           this.d.fermata.onHold(ev, state);
           this.fermataHold(ev);
+          this.fx.aura = false;
           break;
         case 'fermataReleased':
+          this.fx.aura = true;
           this.d.fermata.onReleased(ev);
           this.fermataReleased(ev);
+          this.fx.aura = false;
           break;
         case 'callStarted':
           this.d.calls.onStarted(ev);
@@ -1536,6 +1691,12 @@ export class Feedback {
             : b.crit
               ? '#fde68a'
               : '#fff7ed';
+    // Important numbers only (docs/phase-7.md, W2): a hit shows only when the Weaver had a hand
+    // in it (an Empower, a song's share, a Ward blow: its chips); never a hit on the party.
+    if (this.importantOnly && (isParty || b.amplified + b.aura + b.ward <= 0)) {
+      b.handle = -1;
+      return;
+    }
     if (fresh) b.handle = this.d.overlay.spawnNumber(r.x, r.height + 0.35, r.z, colorHex, size);
     const text =
       b.amount > 0 ? `${Math.round(b.amount)}${b.crit ? '!' : ''}` : `(${Math.round(b.absorbed)})`;
@@ -1585,7 +1746,10 @@ export class Feedback {
       return;
     }
     if (e.via === 'aura') {
+      // An aura's heal notes, in its colours: as the aura draws them, whatever the comfort.
+      this.fx.aura = true;
       this.auraHealed(e, r, target, state);
+      this.fx.aura = false;
       return;
     }
     if (e.via === 'self') {
@@ -1630,6 +1794,9 @@ export class Feedback {
       );
     }
     if (!this.settings.damageNumbers || target.team !== 'party') return;
+    // Important numbers only (docs/phase-7.md, W2): the Weaver's own heals (Mend, a Chime, a
+    // revive); a hero's Solo or another source's heal shows none.
+    if (this.importantOnly && e.via !== 'mend' && e.via !== 'chime' && e.via !== 'revive') return;
     // A summon's numbers are important-only (a quarter of its life at once: Homecoming's).
     if (target.summon && e.amount < maxHp * SUMMON_NUMBER_SHARE) return;
     let b = this.heal.get(e.target);
@@ -1748,7 +1915,7 @@ export class Feedback {
     target: NonNullable<ReturnType<WorldState['entities']['get']>>,
     state: WorldState,
   ): void {
-    if (!this.settings.damageNumbers) return;
+    if (!this.settings.damageNumbers || this.importantOnly) return;
     let b = this.selfHeal.get(e.target);
     if (!b) {
       b = bucket();
@@ -1815,7 +1982,7 @@ export class Feedback {
         0.6,
       );
     }
-    if (!this.settings.damageNumbers || target.team !== 'party') return;
+    if (!this.settings.damageNumbers || this.importantOnly || target.team !== 'party') return;
     let b = this.selfHeal.get(e.target);
     if (!b) {
       b = bucket();
@@ -1872,7 +2039,7 @@ export class Feedback {
       r.radius * 0.5,
     );
     this.sprite(r.x, r.height * 0.5 + r.y, r.z, 0.25, 0.7, 0.35, ink, SPRITE.diamond, 0.9, e.hero);
-    if (!this.settings.damageNumbers) return;
+    if (!this.settings.damageNumbers || this.importantOnly) return;
     const h = this.d.overlay.spawnNumber(
       r.x + 0.5,
       r.height * 0.6 + r.y,
@@ -3853,6 +4020,7 @@ export class Feedback {
   sync(state: WorldState, frame: FrameInfo, dt: number): void {
     this.now = frame.time;
     this.settings = frame.settings;
+    this.comfort();
     const kit = this.d.kit;
     const w = this.rec(state.weaverId);
     this.drawn5b.refused = 0;
