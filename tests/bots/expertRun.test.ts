@@ -6,6 +6,8 @@ import { describe, expect, it } from 'vitest';
 import {
   CALLING_TAGS,
   ELITE_AT,
+  ELITE_SHUNS,
+  ELITE_UNDER,
   EXPERT_PATHS,
   REST_BELOW,
   expertBonds,
@@ -41,7 +43,7 @@ describe('the Expert run policy (src/bots/expertRun.ts)', () => {
     expect(expertRespite(withLife(run, 1, true))).toBe('rest');
   });
 
-  it('takes an elite at 70% average life or more, and none below it', () => {
+  it('takes an elite at 70% average life or more under 20 points without Elite Vanguard, and none else', () => {
     const run = base();
     const node = (id: string, kind: MapNode['kind']): MapNode => ({
       id,
@@ -62,6 +64,28 @@ describe('the Expert run policy (src/bots/expertRun.ts)', () => {
     // No elite offered and healthy, or every option an elite: the harness's own pick.
     expect(expertNode([options[0]!, options[2]!], withLife(run, 1))).toBeUndefined();
     expect(expertNode([options[1]!], withLife(run, 0.2))).toBeUndefined();
+    // The run's Dissonance weighs in: at 20 points or more, or with Elite Vanguard, no elite.
+    const at = (levels: RunState['dissonance']) => ({ ...withLife(run, 1), dissonance: levels });
+    expect(ELITE_UNDER).toBe(20);
+    expect(ELITE_SHUNS).toBe('elite_vanguard');
+    const tierI = [
+      { id: 'hardened', rank: 2 },
+      { id: 'wounding_strikes', rank: 2 },
+    ];
+    expect(expertNode(options, at(tierI))).toBe(1);
+    const twenty = [...tierI, { id: 'restless_dead', rank: 1 }, { id: 'tyrant', rank: 1 }];
+    expect([0, 2]).toContain(expertNode(options, at([...twenty, { id: 'brisk_foes', rank: 1 }])));
+    expect([0, 2]).toContain(expertNode(options, at([{ id: 'elite_vanguard', rank: 1 }])));
+    // An Echo's forced levels count toward the weight, though they add no points.
+    const forced = [
+      { id: 'restless_dead', rank: 1, forced: true as const },
+      { id: 'hardened', rank: 2 },
+      { id: 'wounding_strikes', rank: 2 },
+      { id: 'tyrant', rank: 1 },
+      { id: 'brisk_foes', rank: 1 },
+    ];
+    expect([0, 2]).toContain(expertNode(options, at(forced)));
+    expect(expertNode(options, at(forced.slice(1)))).toBe(1);
   });
 
   it('drafts by rarity, then by tags shared with the Calling and Chords, then a level it owns', () => {

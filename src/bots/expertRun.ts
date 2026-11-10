@@ -4,8 +4,10 @@
  * which `playRun` (tools/harness-core.ts) takes as its `draftPrefer`, `relicPrefer`, `shopPrefer`,
  * `nodePrefer`, `respitePrefer` and `motifOrder` options, and the Calling path it plays.
  *
- * - **Map**: an elite when the party averages `ELITE_AT` of its life or more; below it, any node
- *   but an elite (by the run's seed among them, as the harness picks); otherwise the harness's own.
+ * - **Map**: an elite only while it is worth its risk: the party averages `ELITE_AT` of its life
+ *   or more, the run's Dissonance is under `ELITE_UNDER` points and Elite Vanguard (which brings
+ *   one more elite, each with one more affix) is off. Otherwise any node but an elite (by the
+ *   run's seed among them, as the harness picks); with no other choice, the harness's own.
  * - **Respite**: rest only when a hero is under `REST_BELOW` or Shaken; else meditate (a motif
  *   upgrade, drafted by the draft rule).
  * - **Draft**: by rarity, then by tags shared with the Calling and the Chords, then levelling a
@@ -25,6 +27,13 @@ import type { DraftOption, MapNode, RunState, ShopItem } from '../meta/types';
 
 /** `nodePrefer`: an elite row once the party averages this share of its life or more. */
 export const ELITE_AT = 0.7;
+/**
+ * `nodePrefer`: no elite at this many Dissonance points or more (Tier II's total, where the
+ * measured whole runs lost more to elites than their relics won back).
+ */
+export const ELITE_UNDER = 20;
+/** `nodePrefer`: no elite while this level is on (it doubles an elite fight's elites). */
+export const ELITE_SHUNS = 'elite_vanguard';
 /** `respitePrefer`: rest when any hero is below this share of their life (or Shaken). */
 export const REST_BELOW = 0.5;
 /** The merchant buys healing below this average share of life (the harness's line). */
@@ -164,14 +173,26 @@ export function expertShop(items: readonly ShopItem[], run: RunState): number | 
   return null;
 }
 
+/** The levels in force, in points (content's points a rank; an Echo's forced levels count: they make its fights as hard). */
+function runPoints(run: RunState): number {
+  return run.dissonance.reduce(
+    (n, l) => n + l.rank * (CONTENT.dissonance.find((d) => d.id === l.id)?.points ?? 0),
+    0,
+  );
+}
+
 /**
- * `nodePrefer`: an elite when the party averages `ELITE_AT` or more; below it, a node that isn't
- * one (by the run's seed among them, as the harness picks); else undefined (the harness's own).
+ * `nodePrefer`: an elite when it is worth its risk (the party averages `ELITE_AT` or more, the
+ * run is under `ELITE_UNDER` points and `ELITE_SHUNS` is off); otherwise a node that isn't one
+ * (by the run's seed among them, as the harness picks); else undefined (the harness's own).
  */
 export function expertNode(options: readonly MapNode[], run: RunState): number | undefined {
-  const healthy = partyLife(run) >= ELITE_AT - 1e-9;
+  const worth =
+    partyLife(run) >= ELITE_AT - 1e-9 &&
+    runPoints(run) < ELITE_UNDER &&
+    !run.dissonance.some((l) => l.id === ELITE_SHUNS && l.rank > 0);
   const elite = options.findIndex((n) => n.kind === 'elite');
-  if (healthy) return elite >= 0 ? elite : undefined;
+  if (worth) return elite >= 0 ? elite : undefined;
   const safe = options.flatMap((n, i) => (n.kind === 'elite' ? [] : [i]));
   if (safe.length === 0 || safe.length === options.length) return undefined;
   return safe[run.seed % safe.length];
