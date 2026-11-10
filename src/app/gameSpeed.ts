@@ -4,9 +4,11 @@
  * never `SIM_DT` or `world.timeScale`: a fight played slowly has the same ticks and commands as one
  * played at full speed.
  *
- * W0 places the call and returns 1 (multiplying by 1 changes nothing); W2 writes the body (from
- * `optionsOf(settings).aids.gameSpeed`). Called once a frame: it must not allocate.
+ * Settings → Assists → Game speed (`aids.gameSpeed`, absent: 1). Called once a frame: `optionsOf`
+ * keeps its answer for the settings object in force, so this allocates nothing.
  */
+import { optionsOf, useSettings } from './settings';
+
 export function gameSpeed(): number {
-  return 1;
+  return optionsOf(useSettings.getState().settings).aids.gameSpeed;
 }

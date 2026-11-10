@@ -4,10 +4,17 @@ import { startDemoOver } from '../../app/demoChoice';
 import { useProfile } from '../../app/profileStore';
 import { getAudio } from '../../audio';
 import {
+  GAME_SPEEDS,
+  QUALITY_SETTINGS,
+  REDUCED_MOTION,
+  ambienceVolume,
+  barksVolume,
+  optionsOf,
   useSettings,
   type FramesLayout,
   type HudSettings as HudSettingsShape,
   type Settings,
+  type TelegraphSettings,
 } from '../../app/settings';
 import {
   COLOR_VISIONS,
@@ -23,6 +30,7 @@ import { ScreenFrame, ScreenHeader } from '../kit/Backdrop';
 import { Icon, type IconName } from '../kit/Icon';
 import { Panel } from '../kit/Panel';
 import { applyUiScale } from '../presentation';
+import { percent, t } from '../text';
 import { rankPanel } from './rankText';
 import { ControlsSettings } from './ControlsSettings';
 import { SavesPanel } from './SavesPanel';
@@ -53,6 +61,8 @@ export function SettingsPanel({
   const settings = useSettings((s) => s.settings);
   const update = useSettings((s) => s.update);
   const reset = useSettings((s) => s.reset);
+  // Phase 7's options (docs/phase-7.md, *Contracts*): each absent until the player sets it.
+  const options = optionsOf(settings);
 
   const setVolume = (key: keyof Settings['volumes'], value: number) => {
     update((d) => ({ ...d, volumes: { ...d.volumes, [key]: value } }));
@@ -88,6 +98,18 @@ export function SettingsPanel({
           value={settings.volumes.ui}
           onChange={(v) => setVolume('ui', v)}
         />
+        <AmbienceRow setVolume={setVolume} />
+        <Slider
+          label={t('a11y.sound.barks')}
+          value={barksVolume(settings.volumes)}
+          onChange={(v) => setVolume('barks', v)}
+        />
+        <Toggle
+          label={t('a11y.sound.heroVoices')}
+          hint={t('a11y.sound.heroVoicesHint')}
+          checked={options.heroVoices}
+          onChange={(v) => update((d) => ({ ...d, heroVoices: v }))}
+        />
       </Section>
       <Section title="Comfort">
         <Slider
@@ -101,14 +123,31 @@ export function SettingsPanel({
           onChange={(v) => update((d) => ({ ...d, flashes: v }))}
           format={(v) => (v <= 0 ? 'Off' : `${Math.round(v * 100)}%`)}
         />
-        <p className="-mt-2 text-xs text-muted">
-          Full-screen flashes on Perfect, Save and Crescendo. 0 turns them off.
-        </p>
+        <p className="-mt-2 text-xs text-muted">{t('a11y.flashes.hint')}</p>
+        <Segmented
+          label={t('a11y.motion.label')}
+          hint={t('a11y.motion.hint')}
+          value={options.reducedMotion}
+          options={REDUCED_MOTION.map((m) => ({ value: m, label: t(`a11y.motion.${m}`) }))}
+          onChange={(v) => update((d) => ({ ...d, reducedMotion: v }))}
+        />
+        <Toggle
+          label={t('a11y.vignette.label')}
+          hint={t('a11y.vignette.hint')}
+          checked={options.slowmoVignette}
+          onChange={(v) => update((d) => ({ ...d, slowmoVignette: v }))}
+        />
         <Toggle
           label="Damage numbers"
           hint="Floating numbers over heroes and enemies."
           checked={settings.damageNumbers}
           onChange={(v) => update((d) => ({ ...d, damageNumbers: v }))}
+        />
+        <Toggle
+          label={t('a11y.numbers.important')}
+          hint={t('a11y.numbers.importantHint')}
+          checked={options.importantNumbersOnly}
+          onChange={(v) => update((d) => ({ ...d, importantNumbersOnly: v }))}
         />
         <Toggle
           label="Captions"
@@ -151,6 +190,13 @@ export function SettingsPanel({
           ]}
           onChange={(v) => setAssist('telegraphLead', v)}
         />
+        <Segmented
+          label={t('a11y.speed.label')}
+          hint={t('a11y.speed.hint')}
+          value={options.aids.gameSpeed}
+          options={GAME_SPEEDS.map((v) => ({ value: v, label: percent(v) }))}
+          onChange={(v) => update((d) => ({ ...d, aids: { ...d.aids, gameSpeed: v } }))}
+        />
         <Toggle
           label="Hero autonomy"
           hint="Heroes fire their own Solos a moment after they charge, unless you Cue them first. Kael saves his wall for a big hit, but never for more than 3 seconds."
@@ -168,11 +214,23 @@ export function SettingsPanel({
           </p>
         )}
       </Section>
+      <Section title={t('a11y.telegraphs.title')}>
+        <TelegraphSettingsRows />
+      </Section>
       <Section title="Health and the HUD">
         <HudSettings />
       </Section>
       <Section title="Accessibility">
         <AccessibilitySettings />
+      </Section>
+      <Section title={t('a11y.graphics.title')}>
+        <Segmented
+          label={t('a11y.quality.label')}
+          hint={t('a11y.quality.hint')}
+          value={options.quality}
+          options={QUALITY_SETTINGS.map((q) => ({ value: q, label: t(`a11y.quality.${q}`) }))}
+          onChange={(v) => update((d) => ({ ...d, quality: v }))}
+        />
       </Section>
       <Section title="Progress">
         <ProgressSettings />
@@ -192,6 +250,114 @@ export function SettingsPanel({
         </Button>
       </div>
     </div>
+  );
+}
+
+/**
+ * The ambience bus's level (docs/phase-7.md, W2): absent, it follows the Effects slider, as the
+ * engine always has; moved, it has its own until Follow Effects puts it back.
+ */
+function AmbienceRow({
+  setVolume,
+}: {
+  setVolume: (key: keyof Settings['volumes'], value: number) => void;
+}) {
+  const volumes = useSettings((s) => s.settings.volumes);
+  const update = useSettings((s) => s.update);
+  const own = volumes.ambience !== undefined;
+  return (
+    <>
+      <Slider
+        label={t('a11y.sound.ambience')}
+        value={ambienceVolume(volumes)}
+        onChange={(v) => setVolume('ambience', v)}
+      />
+      <div className="-mt-2 flex items-center gap-3">
+        <p className="min-w-0 flex-1 text-xs text-muted" data-testid="ambience-follows">
+          {t(own ? 'a11y.sound.ambienceOwn' : 'a11y.sound.ambienceFollows')}
+        </p>
+        {own && (
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => {
+              update((d) => ({ ...d, volumes: followEffects(d.volumes) }));
+              try {
+                getAudio().setVolumes(useSettings.getState().settings.volumes);
+              } catch {
+                // Audio unavailable: the value is still saved.
+              }
+            }}
+          >
+            {t('a11y.sound.ambienceFollow')}
+          </Button>
+        )}
+      </div>
+    </>
+  );
+}
+
+/** The volumes with no ambience level of their own: it follows Effects again. */
+export function followEffects(volumes: Settings['volumes']): Settings['volumes'] {
+  const out = { ...volumes };
+  delete out.ambience;
+  return out;
+}
+
+/**
+ * The telegraphs' look (docs/phase-7.md, W2): fill opacity, outline, the Perfect band's width,
+ * high contrast and the answer glyphs. Presentation only: never their timing.
+ */
+function TelegraphSettingsRows() {
+  const settings = useSettings((s) => s.settings);
+  const update = useSettings((s) => s.update);
+  const options = optionsOf(settings);
+  const tg = options.telegraphs;
+  const set = (patch: Partial<TelegraphSettings>) =>
+    update((d) => ({ ...d, telegraphs: { ...d.telegraphs, ...patch } }));
+  const times = (v: number) => t('a11y.telegraphs.times', { n: v.toFixed(2) });
+  return (
+    <>
+      <Slider
+        label={t('a11y.telegraphs.opacity')}
+        value={tg.opacity}
+        min={0.6}
+        max={1}
+        step={0.05}
+        onChange={(v) => set({ opacity: v })}
+      />
+      <Slider
+        label={t('a11y.telegraphs.outline')}
+        value={tg.outline}
+        min={1}
+        max={2}
+        step={0.25}
+        format={times}
+        onChange={(v) => set({ outline: v })}
+      />
+      <Slider
+        label={t('a11y.telegraphs.perfectBand')}
+        value={tg.perfectBand}
+        min={1}
+        max={2}
+        step={0.25}
+        format={times}
+        onChange={(v) => set({ perfectBand: v })}
+      />
+      <p className="-mt-2 text-xs text-muted">{t('a11y.telegraphs.sizesHint')}</p>
+      <Toggle
+        label={t('a11y.telegraphs.highContrast')}
+        hint={t('a11y.telegraphs.highContrastHint')}
+        checked={tg.highContrast}
+        onChange={(v) => set({ highContrast: v })}
+      />
+      <Toggle
+        label={t('a11y.telegraphs.glyphs')}
+        hint={t('a11y.telegraphs.glyphsHint')}
+        checked={options.answerGlyphs}
+        onChange={(v) => update((d) => ({ ...d, answerGlyphs: v }))}
+      />
+    </>
   );
 }
 
