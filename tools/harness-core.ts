@@ -1876,12 +1876,15 @@ export function calibratedThreat(run: RunState, id: string, perRow: number): num
  * preference (`playRun`'s `relicPrefer`, docs/phase-5g.md), the relic it names first among those
  * it can afford is bought before any other; nothing named on the cloth: the list as before. A
  * merchant is where the harness gets a cursed relic (12% of a cloth's relics; relic offers have
- * no cursed odds).
+ * no cursed odds). With a draft preference that is a list (`motifPrefer`, docs/phase-5g.md W11),
+ * a motif it names on the cloth (the one nearest the front of the list) is bought before anything
+ * else, as a draft would take it; no list, or nothing named on the cloth: as before.
  */
 function shop(
   run: RunState,
   relics: boolean,
   prefer?: (ids: readonly string[], run: RunState) => number | null | undefined,
+  motifPrefer?: readonly string[],
 ): RunState {
   for (let guard = 0; guard < 8; guard++) {
     const items = run.shop?.items ?? [];
@@ -1890,6 +1893,7 @@ function shop(
       .map((item, index) => ({ item, index }))
       .filter(({ item }) => !item.sold && item.price <= run.aether);
     const want =
+      preferredMotif(affordable, motifPrefer) ??
       preferredRelic(affordable, relics, run, prefer) ??
       affordable
         .filter(({ item }) => item.kind !== 'heal' || hurt)
@@ -1904,6 +1908,20 @@ function shop(
     run = Run.buy(run, want.index);
   }
   return Run.leaveShop(run);
+}
+
+/** The affordable motif `prefer` names nearest its front; undefined without a list or a match. */
+function preferredMotif<T extends { item: { kind: string; id?: string } }>(
+  affordable: readonly T[],
+  prefer?: readonly string[],
+): T | undefined {
+  if (!prefer || prefer.length === 0) return undefined;
+  const offered = affordable.filter(({ item }) => item.kind === 'motif');
+  const i = preferredIndex(
+    prefer,
+    offered.map(({ item }) => item.id ?? ''),
+  );
+  return i === undefined ? undefined : offered[i];
 }
 
 /** The affordable relic `prefer` picks (by its index among their ids); undefined without one. */
@@ -2112,8 +2130,9 @@ export function playRun(
     /**
      * What to take at a draft and at a relic offer (docs/phase-5g.md, "The six builds"); absent
      * (or naming nothing on offer): the first option, as before. Neither draws a random number.
-     * The relic preference also goes first at a merchant; a draft list that names a motif also
-     * lets an event choice that asks for one be taken (`eventMotif`).
+     * The relic preference also goes first at a merchant, after a motif the draft list names (a
+     * list only); a draft list that names a motif also lets an event choice that asks for one be
+     * taken (`eventMotif`).
      */
     draftPrefer?: DraftPrefer;
     relicPrefer?: RelicPrefer;
@@ -2279,7 +2298,7 @@ export function playRun(
         break;
       }
       case 'merchant':
-        run = shop(run, relics, shopPrefer);
+        run = shop(run, relics, shopPrefer, motifOrder);
         break;
       case 'forge':
         run = forge(run);
