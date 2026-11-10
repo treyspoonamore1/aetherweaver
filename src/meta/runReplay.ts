@@ -36,10 +36,13 @@ import {
   clampClaim,
   decodeShareCode,
   encodeShareCode,
+  thousands,
   type ShareClaim,
 } from './shareCode';
 import type { RunState } from './types';
 import { fightSeconds, fightsWon, weeklyPicksOf, weeklyScore, weeklyStart } from './weekly';
+
+export { thousands };
 
 export const RUN_REPLAY_FORMAT = 'aetherweaver-run';
 export const RUN_REPLAY_VERSION = 1;
@@ -658,17 +661,6 @@ export interface VerifyResult {
   played?: RunClaim;
   /** The replay's share code as it plays here (a weekly played through). */
   code?: string;
-}
-
-/** A whole number with thousands commas, written by hand: the run layer reads no locale. */
-export function thousands(n: number): string {
-  const s = String(Math.round(Math.abs(n)));
-  let out = '';
-  for (let i = 0; i < s.length; i++) {
-    if (i > 0 && (s.length - i) % 3 === 0) out += ',';
-    out += s[i];
-  }
-  return n < 0 ? `-${out}` : out;
 }
 
 function pointsLine(n: number): string {

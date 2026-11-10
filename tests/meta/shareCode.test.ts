@@ -13,6 +13,8 @@ import {
   decodeShareCode,
   encodeShareCode,
   normalShareCode,
+  shareLine,
+  thousands,
   type ShareClaim,
 } from '../../src/meta/shareCode';
 
@@ -175,6 +177,21 @@ describe('share codes', () => {
       }
     }
     expect(swaps).toBeGreaterThan(1000);
+  });
+
+  it('writes the line Share copies, with thousands commas and no locale', () => {
+    const code = encodeShareCode(CLAIMS[0]!);
+    expect(shareLine(code)).toBe(`My Week 47 song: 3,210 points, won. ${code}`);
+    expect(shareLine('nope')).toBeNull();
+    expect([0, 7, 999, 1000, 12345, 1234567, -4321].map(thousands)).toEqual([
+      '0',
+      '7',
+      '999',
+      '1,000',
+      '12,345',
+      '1,234,567',
+      '-4,321',
+    ]);
   });
 
   it('says what is wrong with what isn’t a code', () => {
