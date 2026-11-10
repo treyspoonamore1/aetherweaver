@@ -11,7 +11,7 @@ import { useProfile } from '../../src/app/profileStore';
 import { useRun } from '../../src/app/runStore';
 import { useSettings } from '../../src/app/settings';
 import { CONTENT, runEventDef, type EchoDef, type WeeklyEntry } from '../../src/content';
-import type { DissonanceLevel } from '../../src/content/schema';
+import type { DissonanceLevel, MovementDef } from '../../src/content/schema';
 import { dissonancePoints, parMult, type DissonanceChoice } from '../../src/meta/dissonance';
 import { EVERYTHING, RANK_XP } from '../../src/meta/profile';
 import type { ReliquaryRelic } from '../../src/meta/reliquary';
@@ -226,7 +226,7 @@ describe('an Echo’s route and map', () => {
       expect(run.echo).toBe(BLOOD.id);
       expect(run.movements).toBe(1);
       expect(Run.runKind(run)).toBe('echo');
-      const def = CONTENT.movements[0]!;
+      const def = CONTENT.movements[0]! as MovementDef;
       expect(run.map.rows).toHaveLength(def.rows.length);
       const last = run.map.rows.at(-1)!;
       expect(last.map((n) => [n.kind, n.encounterId])).toEqual([['boss', 'vharun']]);
@@ -477,7 +477,9 @@ describe('twists', () => {
     ]);
     expect(embarked.party.map((h) => h.heroId)).toEqual(['brann', 'seren', 'oro']);
     expect(
-      Run.combatConfig(at(embarked, embarked.map.rows[0]![0]!))!.party.map((h) => h.heroId),
+      Run.combatConfig(at(embarked, embarked.map.rows[0]![0]!))!.party!.map((h) =>
+        typeof h === 'string' ? h : h.heroId,
+      ),
     ).toEqual(['brann', 'seren', 'oro']);
   });
 

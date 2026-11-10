@@ -139,9 +139,12 @@ describe('dissonance (the Finale at a Dissonance)', () => {
         TEN,
       ),
     ).toBe(false);
-    expect(deedHolds(runOf([CONDUCTOR({ outcome: 'defeat', wonRun: false })], { dissonance: tier }), TEN)).toBe(
-      false,
-    );
+    expect(
+      deedHolds(
+        runOf([CONDUCTOR({ outcome: 'defeat', wonRun: false })], { dissonance: tier }),
+        TEN,
+      ),
+    ).toBe(false);
     // Vharun ending the run (a two-Movement route) is no Finale clear.
     expect(deedHolds(runOf([VHARUN_FINAL], { dissonance: tier, movements: 2 }), TEN)).toBe(false);
   });
