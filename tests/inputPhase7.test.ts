@@ -3,9 +3,15 @@
  * plays the same command as its default; conflicts across devices; hold-or-toggle for Thread
  * mode and the wheel; mouseover casting off; the input settings stay absent until changed.
  */
+import { createElement, type FunctionComponent } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { DEFAULT_SETTINGS, optionsOf, useSettings, type Settings } from '../src/app/settings';
-import { DEFAULT_BINDINGS, UI_ACTIONS, type Action } from '../src/input/actions';
+import { DEFAULT_BINDINGS, UI_ACTIONS, type Action, type PadBindable } from '../src/input/actions';
+import { actionLabel } from '../src/input/bindings';
+import { PAD_BINDABLES } from '../src/input/padBindings';
+import { inputLabel, mouseRoleLabel } from '../src/ui/hud/labels';
+import { t, type TextKey } from '../src/ui/text';
 import { InputController } from '../src/input/InputController';
 import {
   DEFAULT_KEY_MAP,
@@ -454,3 +460,105 @@ describe('Phase 7 input: settings stay absent until the player changes them', ()
     expect('input' in useSettings.getState().settings).toBe(false);
   });
 });
+
+/** A .tsx module's export, at run time (the node test build compiles no JSX). */
+async function component<P>(path: string, name: string): Promise<FunctionComponent<P>> {
+  const mod = (await import(/* @vite-ignore */ path)) as Record<string, FunctionComponent<P>>;
+  return mod[name]!;
+}
+
+describe('Settings → Controls (the lab view: the UI lab renders the same component)', () => {
+  // A server render reads a store's initial state: point it at the current settings for a render.
+  const initial = useSettings.getInitialState();
+  const shipped = initial.settings;
+  const render = (el: ReturnType<typeof createElement>): string => {
+    initial.settings = useSettings.getState().settings;
+    try {
+      return renderToStaticMarkup(el);
+    } finally {
+      initial.settings = shipped;
+    }
+  };
+  afterEach(() => useSettings.getState().reset());
+
+  it('has a row for every input option, the mouse roles, Auto-Thread, every pad action and the fixed menu keys', async () => {
+    const Controls = await component<{ compact?: boolean }>(
+      '../src/ui/screens/ControlsSettings',
+      'ControlsSettings',
+    );
+    const before = JSON.stringify(useSettings.getState().settings);
+    const html = render(createElement(Controls, {}));
+    // Rendering writes nothing: every option stays absent.
+    expect(JSON.stringify(useSettings.getState().settings)).toBe(before);
+    for (const text of [
+      'Thread the hovered hero',
+      'Mend ⇄ Empower',
+      'Directive wheel',
+      'Thread mode',
+      'Mouseover casting',
+      'Cue modifier',
+      'Auto-Thread',
+      'Gamepad',
+      'Menu keys (fixed)',
+      'Reroll the Draft',
+      'Thread the reticle’s hero',
+      'Reticle to the next hero',
+      'With Shift: Cue their Solo',
+    ])
+      expect(html, text).toContain(text);
+    // The roles, as shipped: left, right and middle.
+    for (const code of ['Mouse0', 'Mouse1', 'Mouse2'])
+      expect(html).toContain(`data-code="${code}"`);
+    expect(html).toContain('>RMB<');
+    // Every pad action has a row, its default buttons shown by position.
+    for (const a of PAD_BINDABLES) expect(html, a).toContain(`aria-label="${padRowLabel(a)}`);
+    expect(html).toContain('data-code="triggerRight"');
+    expect(html).not.toMatch(/Mouse buttons are fixed/);
+  });
+
+  it('follows the player’s settings: a moved role, the modifier, hold and Auto-Thread on', async () => {
+    const Controls = await component<{ compact?: boolean }>(
+      '../src/ui/screens/ControlsSettings',
+      'ControlsSettings',
+    );
+    useSettings.getState().update((d) => ({
+      ...writeInput(d, {
+        threadMode: 'hold',
+        cueModifier: 'Control',
+        mouse: { thread: 'Mouse0', mode: 'Mouse4', wheel: 'KeyN' },
+      }),
+      aids: { autoThread: true },
+    }));
+    const html = render(createElement(Controls, {}));
+    expect(html).toContain('With Ctrl: Cue their Solo');
+    expect(html).toContain('>Mouse 5<');
+    expect(html).toContain('N (hold)');
+    expect(html).toMatch(/checked=""[^>]*role="switch"|role="switch"[^>]*checked=""/);
+  });
+
+  it('the live key beside content text that names one (the Martyr’s Bear), and the pad caps', async () => {
+    const LiveKey = await component<{ action: Action; named?: string }>(
+      '../src/ui/kit/KeyCap',
+      'LiveKey',
+    );
+    const PadCap = await component<{ button: string }>('../src/ui/kit/KeyCap', 'PadCap');
+    expect(renderToStaticMarkup(createElement(LiveKey, { action: 'bear', named: 'B' }))).toBe('');
+    useSettings.getState().update((d) => ({ ...d, bindings: { bear: ['KeyN'] } }));
+    const moved = renderToStaticMarkup(createElement(LiveKey, { action: 'bear', named: 'B' }));
+    expect(moved).toContain('Your key:');
+    expect(moved).toContain('>N</kbd>');
+    const cap = renderToStaticMarkup(createElement(PadCap, { button: 'bumperLeft' }));
+    expect(cap).toContain('>LB</kbd>');
+    expect(cap).toContain('aria-label="Left bumper"');
+    expect(mouseRoleLabel('mode')).toBe('RMB');
+    expect(inputLabel('Control')).toBe('Ctrl');
+    expect(inputLabel('KeyQ')).toBe('Q');
+  });
+});
+
+/** The label of a pad row's first slot (`input.controls.change` / `.none`). */
+function padRowLabel(a: PadBindable): string {
+  return a.startsWith('reticle') || a === 'threadReticle' || a === 'cueReticle'
+    ? t(`input.padAction.${a}` as TextKey)
+    : actionLabel(a as Action);
+}

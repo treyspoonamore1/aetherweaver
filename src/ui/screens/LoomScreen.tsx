@@ -12,7 +12,7 @@ import { Icon } from '../kit/Icon';
 import { Tip } from '../kit/Tip';
 import { KeyCap } from '../kit/KeyCap';
 import { LOOM_SOUNDS, STATION_LOOK, ribbonColors, robeColors } from '../kit/loomLook';
-import { arrowFocus, useGamepadMenu } from '../kit/menuNav';
+import { arrowFocus } from '../kit/menuNav';
 import { Modal } from '../kit/Modal';
 import { useReducedMotion } from '../kit/motion';
 import { playUi, useMood } from '../kit/sound';
@@ -114,7 +114,6 @@ export function LoomView({
   still: stillProp = false,
 }: LoomViewProps) {
   useMood('loom');
-  useGamepadMenu();
   const reduced = useReducedMotion();
   // Her ribbons wear the Thread look as the fight draws it, fitted to the colour vision.
   const vision = useSettings((st) => st.settings.colorVision);

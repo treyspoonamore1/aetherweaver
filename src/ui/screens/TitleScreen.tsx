@@ -7,7 +7,7 @@ import { useSettings } from '../../app/settings';
 import { Backdrop } from '../kit/Backdrop';
 import { Button } from '../kit/Button';
 import { Icon, type IconName } from '../kit/Icon';
-import { arrowFocus, useGamepadMenu } from '../kit/menuNav';
+import { arrowFocus } from '../kit/menuNav';
 import { playUi, unlockAudio, useMood } from '../kit/sound';
 import { useUi } from '../store';
 import { RankPanelView } from './Rank';
@@ -142,7 +142,6 @@ export function TitleScreen({
   onChooseDemo?(kind: DemoStart): void;
 } = {}) {
   useMood('title');
-  useGamepadMenu();
   const setScreen = useUi((s) => s.setScreen);
   const [asking, setAsking] = useState(() => askDemoChoice(demo));
   const hasSave = useRun.getState().hasSave();

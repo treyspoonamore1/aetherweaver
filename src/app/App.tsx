@@ -1,4 +1,5 @@
 import { Suspense, lazy, useEffect, type ReactNode } from 'react';
+import { useGamepadMenu } from '../ui/kit/menuNav';
 import { installPresentation } from '../ui/presentation';
 import { DeedToasts } from '../ui/screens/DeedToasts';
 import { TitleScreen } from '../ui/screens/TitleScreen';
@@ -111,6 +112,8 @@ function Screen() {
 export function App() {
   // Colour-vision palette and UI scale, at startup and whenever Settings change them.
   useEffect(() => installPresentation(), []);
+  // One gamepad hook serves every menu screen (Phase 7, W1); it stands aside while a fight runs.
+  useGamepadMenu(!lab);
   if (lab) {
     return (
       <Loading>

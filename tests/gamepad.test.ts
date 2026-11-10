@@ -38,6 +38,7 @@ import {
   resetPad,
 } from '../src/input/padBindings';
 import { useWheel } from '../src/input/wheel';
+import { MENU_KEYS, padMenuKeys } from '../src/ui/kit/menuNav';
 import { createSim, type Command, type PartySlot, type Sim } from '../src/sim';
 import { quantize } from '../src/sim/core/dmath';
 
@@ -790,5 +791,27 @@ describe('a scripted pad and a scripted keyboard play a Training fight to the sa
       } else again.step([]);
     }
     expect(again.hash()).toBe(viaPad.hash);
+  });
+});
+
+describe('the pad in menus', () => {
+  it('asks for arrows from the d-pad or the left stick, Enter from the bottom button, Escape from the right', () => {
+    const pad = new FakePad();
+    const r = new PadReader();
+    const keys = () => {
+      r.read(() => [pad]);
+      return MENU_KEYS.filter((_, i) => padMenuKeys(r) & (1 << i));
+    };
+    expect(keys()).toEqual([]);
+    pad.press('dpadUp');
+    pad.press('faceDown');
+    expect(keys()).toEqual(['ArrowUp', 'Enter']);
+    pad.press('dpadUp', false);
+    pad.press('faceDown', false);
+    pad.left(0.8, 0.1);
+    pad.press('faceRight');
+    expect(keys()).toEqual(['ArrowRight', 'Escape']);
+    pad.left(0.3, 0);
+    expect(keys()).toEqual(['Escape']);
   });
 });

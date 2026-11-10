@@ -14,7 +14,7 @@ import { CHORD_PRESETS } from '../../meta/run';
 import { WITHOUT_YOU_MAX_SECONDS } from '../../sim';
 import type { EnemyDef, HeroDef } from '../../content';
 import { AnswerGlyph } from '../hud/AnswerGlyph';
-import { ROLE_LABEL, bindingLabel } from '../hud/labels';
+import { ROLE_LABEL, bindingLabel, inputLabel, mouseRoleCode, mouseRoleLabel } from '../hud/labels';
 import { ScreenFrame, ScreenHeader } from '../kit/Backdrop';
 import { Button } from '../kit/Button';
 import { CATEGORY, Chip, RARITY, RarityChip } from '../kit/Chip';
@@ -71,7 +71,7 @@ import type { DeedsHeld } from './deedsModel';
 import { reliquaryOpen } from '../../meta/reliquary';
 import { ReliquaryCodexPage } from './ReliquaryCodex';
 import { DissonanceCodexPage } from './DissonanceCodex';
-import { useSettings } from '../../app/settings';
+import { optionsOf, useSettings } from '../../app/settings';
 import { UnlockGlyph } from './Rank';
 import { bondedHeroes, type Bond } from '../../meta/bonds';
 import { BondsCodexPage } from './BondsCodex';
@@ -764,6 +764,13 @@ function Weaver() {
   const conductor = conductorDef();
   const r = CONTENT.resonance;
   const th = CONTENT.thread;
+  // Key names follow the player's bindings, mouse roles and Cue modifier (Phase 7, W1).
+  useSettings((s) => s.settings.bindings);
+  const controls = useSettings((s) => optionsOf(s.settings).input);
+  const key = bindingLabel;
+  const threadClick = mouseRoleCode('thread') === 'Mouse0' ? 'click' : mouseRoleLabel('thread');
+  const wheelMiddle = mouseRoleCode('wheel') === 'Mouse1';
+  const cueMod = inputLabel(controls.cueModifier || 'Shift');
   const entries: {
     name: string;
     icon: IconName;
@@ -774,7 +781,7 @@ function Weaver() {
     {
       name: 'Thread',
       icon: 'thread',
-      keys: '1–4 / click, RMB',
+      keys: `${key('focus1')}–${key('focus4')} / ${threadClick}, ${mouseRoleLabel('mode')}`,
       body: `Tie your Thread to a hero. Mend heals them; Empower adds damage and attack speed. Your beam song rides it in every mode. Stray too far and it snaps. On a Martyr run, Bear (${bindingLabel('bear')}) is a third mode: you take part of the life they would lose.`,
       stats: [
         `Mend ${th.mendPerSec}/s`,
@@ -786,14 +793,14 @@ function Weaver() {
     {
       name: t.ward.name,
       icon: 'ward',
-      keys: 'Q',
+      keys: key('ward'),
       body: `A barrier worth ${pct(t.ward.barrierPct)} of the hero's life plus ${t.ward.barrierFlat}. Cast it just before a hit lands (within ${t.ward.perfectWindow}s) for a Perfect Ward: the hit is negated, the attacker staggers and you get ${pct(t.ward.perfectRefund)} of the Spirit back.`,
       stats: [`${t.ward.cost} Spirit`, `${t.ward.cooldown}s cooldown`, `${t.ward.range} m range`],
     },
     {
       name: t.chime.name,
       icon: 'chime',
-      keys: 'E',
+      keys: key('chime'),
       body: `A bell lands under your cursor, cleanses every ailment in ${t.chime.radius} m and leaves heroes immune for ${t.chime.immunity}s. Clutch Chimes (within ${t.chime.clutchWindow}s of a mark's end) feed Resonance.`,
       stats: [
         `${t.chime.cost} Spirit`,
@@ -804,22 +811,22 @@ function Weaver() {
     {
       name: t.reel.name,
       icon: 'reel',
-      keys: 'F',
+      keys: key('reel'),
       body: `Yank a hero to your side along a ribbon. Out of a lethal zone or a beam, and into your aura field.${rewind ? ` On a Chronomancer run, Rewind takes its key: the hero goes back ${rewind.values.rewind} s, to where they stood and the life they had (never less than now). ${rewind.values.cooldown} s cooldown, Reel’s cost and range. Once a run, it stands back up a hero who fell in that time.` : ''}`,
       stats: [`${t.reel.cost} Spirit`, `${t.reel.cooldown}s cooldown`, `${t.reel.range} m range`],
     },
     {
       name: t.glide.name,
       icon: 'glide',
-      keys: 'Space',
+      keys: key('glide'),
       body: `A short dash with ${t.glide.iframes}s of invulnerability. Free to use.`,
       stats: [`${t.glide.cooldown}s cooldown`, `${t.glide.distance} m`],
     },
     {
       name: 'Resonance',
       icon: 'note',
-      keys: 'T / R',
-      body: `Good support fills the Resonance arc (${r.max} in segments of ${r.segment}). A Cue (T, or Shift + a hero's number) spends one segment to fire a charged Solo with a bonus. Crescendo (R) spends it all on ${CONTENT.crescendo.name}: ${CONTENT.crescendo.description}${conductor ? ` On a ${conductor.name} run a Cue costs ${conductor.values.cue ?? r.segment}, and a Cue within ${conductor.values.chain ?? 0} s of the last plays as a Duet, ${conductor.values.duet ?? 0}% stronger; a third in a row is a Trio, ${conductor.values.trio ?? 0}% stronger. His Crescendo is ${crescendoName(conductor)}.` : ''}`,
+      keys: `${key('cue')} / ${key('crescendo')}`,
+      body: `Good support fills the Resonance arc (${r.max} in segments of ${r.segment}). A Cue (${key('cue')}, or ${cueMod} + a hero's number) spends one segment to fire a charged Solo with a bonus. Crescendo (${key('crescendo')}) spends it all on ${CONTENT.crescendo.name}: ${CONTENT.crescendo.description}${conductor ? ` On a ${conductor.name} run a Cue costs ${conductor.values.cue ?? r.segment}, and a Cue within ${conductor.values.chain ?? 0} s of the last plays as a Duet, ${conductor.values.duet ?? 0}% stronger; a third in a row is a Trio, ${conductor.values.trio ?? 0}% stronger. His Crescendo is ${crescendoName(conductor)}.` : ''}`,
       stats: [
         `Perfect Ward +${r.gains.perfectWard}`,
         `Save +${r.gains.save}`,
@@ -831,9 +838,14 @@ function Weaver() {
     {
       name: 'Directives',
       icon: 'wheel',
-      keys: 'hold C / MMB',
-      body: 'Hold C or the middle mouse button for the Directive wheel, move toward a spoke and let go: Focus (the enemy under your cursor), Rally (regroup on you), Hold (stay put) or Scatter (spread out). Let go in the centre to cancel. A quick middle-click on an enemy Focuses it.',
-      stats: ['Focus · Rally · Hold · Scatter', 'G: Focus', 'Z: Rally', 'X: Hold'],
+      keys: `hold ${key('directiveWheel')} / ${mouseRoleLabel('wheel')}`,
+      body: `Hold ${key('directiveWheel')} or ${wheelMiddle ? 'the middle mouse button' : mouseRoleLabel('wheel')} for the Directive wheel, move toward a spoke and let go: Focus (the enemy under your cursor), Rally (regroup on you), Hold (stay put) or Scatter (spread out). Let go in the centre to cancel. A quick ${wheelMiddle ? 'middle-click' : `press of ${mouseRoleLabel('wheel')}`} on an enemy Focuses it.`,
+      stats: [
+        'Focus · Rally · Hold · Scatter',
+        `${key('directiveFocus')}: Focus`,
+        `${key('directiveRally')}: Rally`,
+        `${key('directiveHold')}: Hold`,
+      ],
     },
     {
       name: 'Without you',
