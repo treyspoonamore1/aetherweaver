@@ -187,6 +187,11 @@ const PROSE_WORDS = new Set(
   ),
 );
 
+/** An SVG path or a list of points. */
+function svgPath(s: string): boolean {
+  return /^[MLHVCSQTAZmlhvcsqtaz\d\s.,-]+$/.test(s.trim()) && /\d/.test(s);
+}
+
 /** Reads as prose: words of two or more letters with whitespace between, and not code. */
 export function human(s: string): boolean {
   const text = s.trim();
@@ -197,8 +202,7 @@ export function human(s: string): boolean {
   if (/[^{}]*\{[^{}]*:[^{}]*\}/.test(text) && /;/.test(text)) return false;
   const toks = text.split(/\s+/);
   if (toks.every(cssToken)) return false;
-  // An SVG path or a list of points.
-  if (/^[MLHVCSQTAZmlhvcsqtaz\d\s.,-]+$/.test(text)) return false;
+  if (svgPath(text)) return false;
   return true;
 }
 
@@ -413,7 +417,8 @@ export function scanSource(fileName: string, source: string): Found[] {
       if (!ctx.skip) {
         const attr = n.parent && ts.isJsxAttribute(n.parent);
         const text = n.text;
-        const textual = ctx.textual && /[A-Za-z]/.test(text) && (attr || /^[A-Z]/.test(text));
+        const textual =
+          ctx.textual && /[A-Za-z]/.test(text) && (attr || /^[A-Z]/.test(text)) && !svgPath(text);
         if (textual || human(text)) add(attr ? 'attr' : 'literal', n, text);
       }
       return;

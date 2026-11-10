@@ -69,7 +69,7 @@ describe('the strings ratchet (tools/strings.ts, tests/strings.baseline.json)', 
       export function A({ n }: { n: number }) {
         if (n === 'not text either') return null;
         console.log('a log line');
-        const label = { label: 'Leave', className: 'text-sm font-bold' };
+        const label = { label: 'Leave', note: 'M9 17.5V6l10-2v11.5', className: 'text-sm font-bold' };
         const line = \`\${n} hits left\`;
         return (
           <div className="p-2 m-1" title="Pause" data-testid="a test id">

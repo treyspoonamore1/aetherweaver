@@ -4854,6 +4854,7 @@ export function UiLab() {
                       type="button"
                       onClick={() => select(v.id)}
                       aria-current={v.id === view.id}
+                      data-view={v.id}
                       className={`w-full rounded-md px-2.5 py-1.5 text-left text-sm ${v.id === view.id ? 'bg-gold-400 font-semibold text-ink-950' : 'text-text hover:bg-ink-800'}`}
                     >
                       {v.label}
