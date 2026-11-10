@@ -10,14 +10,15 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { useProfile } from '../../src/app/profileStore';
 import { useRun } from '../../src/app/runStore';
 import { useSettings } from '../../src/app/settings';
-import { CONTENT, runEventDef, type EchoDef } from '../../src/content';
+import { CONTENT, runEventDef, type EchoDef, type WeeklyEntry } from '../../src/content';
 import type { DissonanceLevel } from '../../src/content/schema';
 import { dissonancePoints, parMult, type DissonanceChoice } from '../../src/meta/dissonance';
-import { RANK_XP } from '../../src/meta/profile';
+import { EVERYTHING, RANK_XP } from '../../src/meta/profile';
 import type { ReliquaryRelic } from '../../src/meta/reliquary';
 import * as Run from '../../src/meta/run';
 import { loadRun, saveRun, type KeyValueStore } from '../../src/meta/save';
 import type { CombatOutcome, MapNode, RunState } from '../../src/meta/types';
+import { canonicalChords } from '../../src/sim';
 import { createSim } from '../../src/sim/api';
 import { ReplayRecorder, parseReplay } from '../../src/sim/replay';
 import { emptyLedger } from '../../src/sim/world';
@@ -664,15 +665,15 @@ function playStore(): RunState {
         store().leaveForge();
         break;
       case 'event': {
-        const next = step(run);
-        if (next.phase === 'event') store().leaveEvent();
-        else {
-          const ch = next.event!.choice!;
-          store().chooseEvent(ch, {
-            ...(run.motifs[0] ? { motifId: run.motifs[0].id } : {}),
-            chords: run.chords,
-          });
+        if (run.event!.choice !== null) {
+          store().leaveEvent();
+          break;
         }
+        const ch = step(run).event!.choice!;
+        store().chooseEvent(ch, {
+          ...(run.motifs[0] ? { motifId: run.motifs[0].id } : {}),
+          chords: run.chords,
+        });
         break;
       }
       case 'scene':
@@ -796,5 +797,126 @@ describe('the real Echoes', () => {
     expect(notice.shards).toBeGreaterThan(0);
     // No Dissonance best from an Echo (decision 10).
     expect(p.dissonance.best).toStrictEqual({});
+  });
+});
+
+describe('the weekly start (decision 6)', () => {
+  const ENTRY: WeeklyEntry = {
+    route: 'expedition',
+    calling: 'luminary',
+    party: ['seren', 'kael', 'brann'],
+    dissonance: [L('hardened', 2), L('wounding_strikes', 2)],
+  };
+  const START: Run.WeeklyStart = { week: 44, seed: 123456, entry: ENTRY };
+  /** Chords no Rank 1 profile may play: Fermata and Unison. */
+  const LOCKED = [
+    { auras: ['fortissimo', 'allegro'], ornaments: ['unison'] },
+    { auras: ['fermata'], ornaments: ['grace_note'] },
+  ];
+
+  it('is built from the week alone: seed, route, Calling, heroes, Dissonance', () => {
+    const run = Run.newWeeklyRun(START);
+    expect(run.weekly).toStrictEqual({ week: 44 });
+    expect(Run.runKind(run)).toBe('weekly');
+    expect(run.seed).toBe(123456);
+    expect(run.movements).toBe(CONTENT.movements.length);
+    expect(run.map).toStrictEqual(Run.generateMap(123456, CONTENT.movements.length));
+    expect(run.party.map((h) => h.heroId)).toEqual(['kael', 'brann', 'seren']);
+    // Every path tier open (no `tiersOpen`).
+    expect(run.calling).toStrictEqual({ id: 'luminary', path: [null, null, null, null] });
+    expect(run.dissonance).toStrictEqual([L('hardened', 2), L('wounding_strikes', 2)]);
+    expect(run.astrolabe).toEqual([]);
+    expect(run.carried).toEqual([]);
+    expect(run.bonds).toEqual([]);
+    expect('echo' in run).toBe(false);
+  });
+
+  it('whatever the profile: the same start and embark for a new and a veteran profile', () => {
+    const play = () => {
+      useRun.getState().newWeeklyRun(START);
+      useRun.getState().setChords(LOCKED);
+      useRun.getState().setRunTechniques({ ward: CONTENT.techniqueVariants[0]!.id });
+      useRun.getState().embark();
+      return useRun.getState().run!;
+    };
+    const fresh = play();
+    expect(fresh.phase).toBe('map');
+    expect(fresh.chords).toStrictEqual(canonicalChords(LOCKED));
+    useRun.getState().closeRun();
+    veteran([L('brisk_foes')]);
+    useProfile.getState().takeNode('silk_t1');
+    const old = play();
+    expect(JSON.stringify(old)).toBe(JSON.stringify(fresh));
+    // Its Dissonance counts for rewards, though the profile's Dissonance was closed.
+    expect(dissonancePoints(fresh.dissonance)).toBe(10);
+  });
+
+  it('Prep follows nothing of the profile, and the full allowance holds at every step', () => {
+    let run = Run.newWeeklyRun(START);
+    expect(Run.setAstrolabe(run, ['silk_t1'])).toBe(run);
+    expect(Run.setDissonance(run, [])).toBe(run);
+    expect(Run.setCalling(run, null)).toBe(run);
+    expect(Run.setParty(run, ['kael', 'lyra', 'vexis'], ['kael', 'lyra', 'vexis'])).toBe(run);
+    expect(Run.setBonds(run, [{ heroId: 'kael', talents: ['x'], solo: 'alt' }])).toBe(run);
+    expect(Run.setCallingTiers(run, 1)).toBe(run);
+    expect(Run.setMovements(run, 1)).toBe(run);
+    // A Rank 1 allowance is no bar to its Chords.
+    const rankOne = useProfile.getState().allowance();
+    run = Run.setChords(run, LOCKED, rankOne);
+    expect(run.chords).toStrictEqual(canonicalChords(LOCKED));
+    expect(Run.runAllowance(run, rankOne)).toBe(EVERYTHING);
+    const ordinary = Run.newRun(1);
+    expect(Run.runAllowance(ordinary, rankOne)).toBe(rankOne);
+  });
+
+  it('on an Echo route: the Echo’s pools and forced levels, its stars never lit', () => {
+    const run = Run.newWeeklyRun({
+      week: 45,
+      seed: 99,
+      entry: { ...ENTRY, route: 'the_unrested', calling: null },
+    });
+    expect(run.echo).toBe('the_unrested');
+    expect(Run.runKind(run)).toBe('weekly');
+    expect(run.dissonance.filter((l) => l.forced).map((l) => l.id)).toEqual([
+      'restless_dead',
+      'unforgiving',
+    ]);
+    expect(run.party.map((h) => h.heroId)).toEqual(['kael', 'brann', 'seren']);
+  });
+
+  it('through the stores: no best, no Finale record; it counts for run-wide Deeds', () => {
+    useRun.getState().newWeeklyRun({ ...START, entry: { ...ENTRY, dissonance: [] } });
+    const end = playStore();
+    expect(end.outcome).toBe('victory');
+    const p = useProfile.getState().profile;
+    expect(p.dissonance.best).toStrictEqual({});
+    expect('finale' in p.dissonance).toBe(false);
+    expect(p.deeds).toContain('through_the_prelude');
+    // Its level-field Chords aren't remembered for the next ordinary run.
+    expect(p.lastChords).toEqual([]);
+  });
+});
+
+describe('the Finale-clear record (decisions 10 and 12)', () => {
+  it('an Expedition’s Finale clear sets its Calling’s record; a Prelude win doesn’t', () => {
+    veteran([L('brisk_foes'), L('hardened', 1)]);
+    useProfile.getState().setRunMode('expedition');
+    useRun.getState().newRun(8, 'expedition');
+    useRun.getState().setCalling('martyr');
+    const end = playStore();
+    expect(end.outcome).toBe('victory');
+    let p = useProfile.getState().profile;
+    expect(p.dissonance.finale).toStrictEqual({ martyr: 4 });
+    expect(p.dissonance.best).toStrictEqual({ martyr: 4 });
+    // A lower clear keeps it; a Prelude win sets a best but no Finale record.
+    useProfile.getState().setDissonance([L('brisk_foes'), L('hardened', 2)]);
+    useRun.getState().newRun(9, 'prelude');
+    playStore();
+    p = useProfile.getState().profile;
+    expect(p.dissonance.finale).toStrictEqual({ martyr: 4 });
+    expect(p.dissonance.best).toStrictEqual({ martyr: 4, none: 7 });
+    // Rebuilding the Dissonance keeps the record (open, levels).
+    useProfile.getState().setDissonance([]);
+    expect(useProfile.getState().profile.dissonance.finale).toStrictEqual({ martyr: 4 });
   });
 });
