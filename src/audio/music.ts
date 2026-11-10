@@ -113,6 +113,31 @@ export interface MusicInputs {
    * music follows it. Absent on every other run, whose music is untouched.
    */
   beat?: BeatInput;
+  /**
+   * Phase 6 (docs/phase-6.md, True Dissonance): the Postlude (`field.finale.postlude`; sfx.ts's
+   * DissonanceSounds sets it and deletes it). `rising`: 0..1 through the Conductor's rise (1 once
+   * it stands); `enraged`: the pressure after 90 s. Read only by the Crucible's voicing: through
+   * the rise its stems reopen from the bottom; then the whole choir sings and the melody is sung
+   * in pairs. Absent in every other fight, whose music is untouched.
+   */
+  postlude?: PostludeInput;
+}
+
+/** Phase 6: the Postlude as the music hears it. */
+export interface PostludeInput {
+  /** 0..1 through the Conductor's rise; 1 once it stands. */
+  rising: number;
+  /** The pressure after 90 s is on. */
+  enraged: boolean;
+}
+
+/**
+ * Phase 6: the Postlude's rise as the Grand Silence's notes (0-8), so its stems reopen from the
+ * bottom as the orrery's rings re-light (silenceStems): none as the Conductor falls, all by the end.
+ */
+export function postludeRiseNotes(rising: number): number {
+  const k = rising <= 0 ? 0 : rising >= 1 ? 1 : rising;
+  return k <= 0 ? 0 : Math.min(8, Math.ceil(k * 8));
 }
 
 /** Phase 5f: the sim's clock as the music follows it (A Tempo only). */
@@ -419,6 +444,11 @@ export class MusicEngine {
    * note, its end) re-levels the stems on the next beat.
    */
   private silenceHeard = -1;
+  /**
+   * Phase 6: the Postlude as last heard ('': none; else its rise's notes and the pressure). A
+   * change re-levels the stems on the next beat. Never set outside a True Dissonance Finale.
+   */
+  private postludeHeard = '';
   /** Phase 5d: the party whose leitmotifs the next victory plays as the Finale's (null: none). */
   private finaleParty: readonly string[] | null = null;
   /** Phase 5d: the Crucible's shimmer turns between its two notes. */
@@ -492,6 +522,17 @@ export class MusicEngine {
         // here, so a Fermata's or Stasis's releaseHold (refreshTargets) can't reopen a stem.
         const s = this.inputs.silence;
         if (s?.on) Object.assign(tg, silenceStems(s.notes));
+        // Phase 6, the Postlude: through the Conductor's rise the stems reopen from the bottom as
+        // its rings re-light; then the whole choir sings (the melody in pairs, prismMelody), and
+        // once the pressure is on, the top layer too.
+        const p = this.inputs.postlude;
+        if (p !== undefined && !s?.on) {
+          if (p.rising < 1) Object.assign(tg, silenceStems(postludeRiseNotes(p.rising)));
+          else {
+            if (tg.choir < 1) tg.choir = 1;
+            if (p.enraged) tg.top = true;
+          }
+        }
       },
     },
   };
@@ -691,6 +732,19 @@ export class MusicEngine {
       const heard = silence?.on ? silence.notes : -1;
       if (heard !== this.silenceHeard) {
         this.silenceHeard = heard;
+        this.urgent = true;
+      }
+    }
+    // Phase 6: the Postlude's rise, a note at a time, and its pressure re-level the stems on the
+    // next beat. Never set outside a True Dissonance Finale.
+    const postlude = this.inputs.postlude;
+    if (postlude !== undefined || this.postludeHeard !== '') {
+      const heard =
+        postlude === undefined
+          ? ''
+          : `${postludeRiseNotes(postlude.rising)}:${postlude.rising >= 1 ? 1 : 0}:${postlude.enraged ? 1 : 0}`;
+      if (heard !== this.postludeHeard) {
+        this.postludeHeard = heard;
         this.urgent = true;
       }
     }
@@ -1746,6 +1800,11 @@ export class MusicEngine {
     // The prism: the same note split into its octave, a hair later.
     glassPing(v, t + 0.03, hz * 2, sparse ? 0.008 : 0.012, 0.5);
     if (this.targets.top) glassPing(v, t, midiToHz(scaleMidi(idx + 7)), 0.016, 0.6);
+    // Phase 6, the Postlude (once the Conductor stands): sung in pairs, the Conductor's mirrored
+    // note answered an eighth later by the Weaver's own (the phrase it mirrors), softer.
+    const p = this.inputs.postlude;
+    if (boss && p !== undefined && p.rising >= 1)
+      glassNote(v, t + STEP, midiToHz(scaleMidi(raw)), 0.032, 0.9, 0.8);
     v.commit();
   }
 

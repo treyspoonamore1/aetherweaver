@@ -232,6 +232,21 @@ interface LabApi {
   setFinale(finale: FinaleField | null): void;
   /** Every party hero shown stilled (EntityLayer's override), or none. */
   setStilled(on: boolean): void;
+  /** Phase 6 (docs/phase-6.md): Tyrant's and the Postlude's scenarios. */
+  phase6Scenarios(): string[];
+  /** Restarts the real sim and stages that scenario (the holds and the Postlude are overrides). */
+  phase6Scenario(name: string): void;
+  /** What Tyrant's and the Postlude's views have played and drew last frame, and the sky. */
+  phase6Stats(): Phase6Stats;
+}
+
+interface Phase6Stats {
+  tyrant: { fired: Record<string, number>; drawn: Record<string, number> };
+  postlude: { fired: Record<string, number>; drawn: Record<string, number> };
+  /** The Conductor's rise pose drawn last frame (EntityLayer). */
+  rise: number;
+  /** The orrery's rings lit (−1: following the stems). */
+  orreryNotes: number;
 }
 
 interface FinaleStats {
@@ -2842,6 +2857,95 @@ const FINALE_SCENARIOS: Record<string, FinaleScenario> = {
 };
 const FINALE_SCENARIO_NAMES = Object.keys(FINALE_SCENARIOS);
 
+/**
+ * Phase 6 (docs/phase-6.md): one scenario per Tyrant and Postlude visual. Each restarts the real
+ * sim and stages its moment. The Tyrant holds (`enemy.tyrant`) and the Postlude
+ * (`field.finale.postlude`) are the views' overrides (TyrantView's, CrucibleCues' and
+ * EntityLayer's), never written into the sim, and their events (`tyrantEdict`, `postludeRose`,
+ * `postludePair`) are lab stand-ins until the sim emits them.
+ */
+interface Phase6Scenario {
+  note: string;
+  /** Staged on the Celestial Crucible. */
+  crucible?: boolean;
+  stage(rt: LabRuntime): void;
+}
+
+/** Each boss's phase 1 borrowed attack (docs/phase-6.md's Tyrant table): boss, foe, attack. */
+const TYRANT_LAB: readonly (readonly [string, string, string])[] = [
+  ['the_bellwarden', 'glass_lancer', 'lancer_lance'],
+  ['the_hollow_cantor', 'bell_brute', 'brute_toll_cleave'],
+  ['gorehound_matriarch', 'impaler', 'impaler_charge'],
+  ['vharun_crimson_warden', 'leech', 'leech_latch'],
+  ['the_seamstress', 'shears', 'shears_dash'],
+  ['the_unweaver', 'null_priest', 'null_rune'],
+];
+
+const PHASE6_SCENARIOS: Record<string, Phase6Scenario> = {
+  'Tyrant · the edict': {
+    note: 'The Bellwarden takes up the Glass Lancer’s Lance: a band in the Lancer’s accent closes in onto its body, a burst of that accent, its crown sigil flashing once; then the band stays worn for the phase',
+    stage: (rt) => {
+      rt.later(0.1, () => rt.spawn('the_bellwarden', 0, -9));
+      rt.later(0.5, () => {
+        rt.toughen();
+        rt.labTyrant(0, 'the_bellwarden', 'glass_lancer', 'lancer_lance', true);
+      });
+    },
+  },
+  'Tyrant · a borrowed cast': {
+    note: 'The Bellwarden casts its borrowed Lance (a 1.6 s cast, every 3 s): its crown sigil over its head, rising and brightening with the cast, in the Lancer’s accent',
+    stage: (rt) => {
+      rt.later(0.1, () => rt.spawn('the_bellwarden', 0, -9));
+      rt.later(0.5, () => {
+        rt.toughen();
+        rt.labTyrant(0, 'the_bellwarden', 'glass_lancer', 'lancer_lance', false);
+      });
+      for (let i = 0; i < 4; i++) rt.later(1 + i * 3, () => rt.labTyrantCast(0, 1.6));
+    },
+  },
+  'Tyrant · every boss’s band': {
+    note: 'Each boss and mini-boss of Movements I-III wearing its phase 1 borrowed foe’s accent (the Lancer’s, the Brute’s, the Impaler’s, the Leech’s, the Shears’, the Null Priest’s)',
+    stage: (rt) => {
+      rt.later(0.1, () =>
+        TYRANT_LAB.forEach(([boss], i) => rt.spawn(boss, (i - 2.5) * 4.5, -9 - (i % 2) * 3)),
+      );
+      rt.later(0.8, () => {
+        rt.toughen();
+        TYRANT_LAB.forEach(([boss, from, attack], i) => rt.labTyrant(i, boss, from, attack, false));
+      });
+    },
+  },
+  'Postlude · the rise': {
+    note: 'The Conductor falls and rises (3 s): its glass debris, a slate ring closing in at its feet, brass shards drawn back in, a brass ring climbing it as it stands; the sky orrery dark, re-lit ring by ring from the bottom',
+    crucible: true,
+    stage: (rt) => {
+      rt.later(0.1, () => rt.spawnFinale(CONDUCTOR, 0, -12));
+      rt.later(0.6, () => {
+        rt.toughen();
+        rt.labPostludeRise(3);
+      });
+    },
+  },
+  'Postlude · a pair': {
+    note: 'The Conductor Cues two voices together: a dashed brass line between the Alto and the Bass, their baton sigils answering each other, the first then the second',
+    crucible: true,
+    stage: (rt) => {
+      rt.later(0.1, () => {
+        rt.spawnFinale(CONDUCTOR, 0, -12);
+        rt.spawnFinale(ALTO, -5, -7);
+        rt.spawnFinale(BASS, 5, -7);
+      });
+      rt.later(0.6, () => {
+        rt.toughen();
+        rt.labPostludeRise(0.01);
+      });
+      rt.later(1, () => rt.labPair(ALTO, BASS));
+      rt.later(4, () => rt.labPair(BASS, ALTO));
+    },
+  },
+};
+const PHASE6_SCENARIO_NAMES = Object.keys(PHASE6_SCENARIOS);
+
 /** The lab's floors: content's, and the Crucible's stand-in until content registers it. */
 function labArena(id: string): ArenaDef {
   return id === CRUCIBLE_ARENA ? crucibleArenaDef() : arenaDef(id);
@@ -4145,6 +4249,85 @@ class LabRuntime {
   /** The Finale state the views draw (CrucibleCues' override; null: the sim's). */
   setFinale(finale: FinaleField | null): void {
     this.view.feedback.crucible.override = finale;
+  }
+
+  // ── Phase 6: Tyrant and the Postlude (docs/phase-6.md) ──────────────────────────────────
+
+  /** Restarts (on the Crucible for the Postlude's) and stages that scenario. */
+  phase6Scenario(name: string): void {
+    const s = PHASE6_SCENARIOS[name];
+    if (!s) return;
+    clearBonds();
+    encounterOverride = 'sandbox';
+    callingCfg = null;
+    chordsOverride = GUARDIAN_CHORDS;
+    astrolabeCfg = [];
+    dissonanceCfg = [];
+    if (s.crucible) this.theme = CRUCIBLE_ARENA;
+    this.restart([]);
+    this.setFinale(null);
+    this.setStilled(false);
+    this.view.tyrant.override = null;
+    this.view.entities.postludeOverride = null;
+    s.stage(this);
+  }
+
+  /** The `i`th standing boss of `defId` (spawn order), or null. */
+  private bossOf(defId: string): ReadonlyEntity | null {
+    for (const e of this.sim.state.entities.list())
+      if (e.enemy?.defId === defId && !e.health?.dead) return e;
+    return null;
+  }
+
+  /** Shows `boss` holding `attack` borrowed from `from` (TyrantView's override), its edict if asked. */
+  labTyrant(slot: number, boss: string, from: string, attack: string, edict: boolean): void {
+    const e = this.bossOf(boss);
+    if (!e) return;
+    const list = [...(this.view.tyrant.override ?? [])];
+    list[slot] = { boss: e.id, hold: { attack, from, phase: 1, readyAt: 0 } };
+    this.view.tyrant.override = list.filter((x) => x !== undefined);
+    if (edict)
+      this.inject([
+        { type: 'tyrantEdict', tick: this.sim.tick, boss: e.id, phase: 1, attack, from },
+      ]);
+  }
+
+  /** The override's `slot`th boss casts its borrowed attack for `seconds` (its crown sigil). */
+  labTyrantCast(slot: number, seconds: number): void {
+    const o = this.view.tyrant.override?.[slot];
+    if (!o) return;
+    const now = this.sim.state.time;
+    o.cast = { start: now, end: now + seconds };
+  }
+
+  /** The Conductor rises into the Postlude for `seconds` (the Finale's and the bodies' overrides). */
+  labPostludeRise(seconds: number): void {
+    const boss = this.finaleEntity(CONDUCTOR);
+    if (!boss) return;
+    const now = this.sim.state.time;
+    const postlude = { since: now, riseUntil: now + seconds };
+    this.setFinale({ ...this.finaleNow(), postlude });
+    this.view.entities.postludeOverride = { postlude, boss: boss.id };
+    const hp = Math.round((boss.health?.maxHp ?? 0) * 0.3);
+    this.inject([{ type: 'postludeRose', tick: this.sim.tick, boss: boss.id, hp }]);
+  }
+
+  /** The Conductor Cues a pair (`first`, then `second`): the `postludePair` stand-in. */
+  labPair(first: string, second: string): void {
+    const a = this.finaleEntity(first);
+    const b = this.finaleEntity(second);
+    if (!a || !b) return;
+    this.inject([{ type: 'postludePair', tick: this.sim.tick, voices: [a.id, b.id] }]);
+  }
+
+  phase6Stats(): Phase6Stats {
+    const v = this.view;
+    return {
+      tyrant: { fired: { ...v.tyrant.fired }, drawn: { ...v.tyrant.drawn } },
+      postlude: { fired: { ...v.postlude.fired }, drawn: { ...v.postlude.drawn } },
+      rise: v.entities.drawn6.postludeRise,
+      orreryNotes: v.orreryNotes(),
+    };
   }
 
   /** Every party hero shown stilled (EntityLayer's override), or none. */
@@ -5608,6 +5791,9 @@ export function VfxLab() {
       fillScenarios: () => FILL_SCENARIO_NAMES,
       fillScenario: (name) => rt.fillScenario(name),
       fillStats: () => rt.fillStats(),
+      phase6Scenarios: () => PHASE6_SCENARIO_NAMES,
+      phase6Scenario: (name) => rt.phase6Scenario(name),
+      phase6Stats: () => rt.phase6Stats(),
       conductScenarios: () => CONDUCT_SCENARIO_NAMES,
       conductScenario: (name) => rt.conductScenario(name),
       setConductor: (path) => rt.setCalling(path, null, 'conductor'),
@@ -6203,6 +6389,25 @@ export function VfxLab() {
           >
             No Finale
           </Btn>
+        </Group>
+        <Group title="Phase 6 · Tyrant and the Postlude">
+          <p className="w-full text-[10px] text-muted">
+            Each restarts the real sim and stages a Tyrant or Postlude moment. The holds and the
+            Postlude are the views&apos; overrides; their events are lab stand-ins until the sim
+            emits them (see phase6Stats).
+          </p>
+          {PHASE6_SCENARIO_NAMES.map((name) => (
+            <Btn
+              key={name}
+              onClick={() => {
+                rt()?.phase6Scenario(name);
+                if (PHASE6_SCENARIOS[name]!.crucible) setTheme(CRUCIBLE_ARENA);
+              }}
+              title={PHASE6_SCENARIOS[name]!.note}
+            >
+              {name}
+            </Btn>
+          ))}
         </Group>
         <Group title="Phase 5g · The fill">
           <p className="w-full text-[10px] text-muted">

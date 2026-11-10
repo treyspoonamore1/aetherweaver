@@ -35,6 +35,7 @@ import {
 import { BUS_NAMES, busTrim, Voice, type BusName, type Engine, type VoiceHandle } from './engine';
 import { ConductSounds } from './conduct';
 import { FillSounds } from './fill';
+import { DissonanceSounds } from './dissonance';
 import {
   bladeStringNote,
   hollowWoodNote,
@@ -883,6 +884,8 @@ export class SfxEngine {
   readonly conduct: ConductSounds;
   /** Phase 5g: the content fill's sounds (docs/phase-5g.md): Razor Silk, the Needle, triggers. */
   readonly fill: FillSounds;
+  /** Phase 6: Tyrant's edict and its casts, the Postlude's rise, pairs and stems (docs/phase-6.md). */
+  readonly dissonance: DissonanceSounds;
 
   constructor(
     private readonly e: Engine,
@@ -896,6 +899,12 @@ export class SfxEngine {
     this.fill = new FillSounds({
       e,
       play: (key, max, bus, build, opts) => this.play(key, max, bus, build, opts),
+    });
+    this.dissonance = new DissonanceSounds({
+      e,
+      music,
+      play: (key, max, bus, build, opts) => this.play(key, max, bus, build, opts),
+      mirrorOf: (defId) => VOICE_MIRRORS[defId],
     });
   }
 
@@ -1219,6 +1228,12 @@ export class SfxEngine {
       case 'needled':
         this.fill.handle(ev, state);
         break;
+      // ── Phase 6: Tyrant and True Dissonance (only a run with them emits these) ──
+      case 'tyrantEdict':
+      case 'postludeRose':
+      case 'postludePair':
+        this.dissonance.handle(ev, state);
+        break;
       case 'bloodlust':
         this.refusedRally(ev.hero, state);
         break;
@@ -1348,6 +1363,8 @@ export class SfxEngine {
         this.conduct.stop();
         // Phase 5g: Razor Silk's clock is forgotten with the fight.
         this.fill.stop();
+        // Phase 6: the Postlude's music input goes with the fight.
+        this.dissonance.stop();
         break;
       case 'rewound':
         this.rewound(ev, state);
@@ -1396,6 +1413,11 @@ export class SfxEngine {
         break;
       case 'telegraphStarted':
         this.telegraph(ev, state);
+        // Phase 6, Tyrant: a boss's borrowed attack sounds as the foe's, under the boss's voice
+        // (only an enemy holding `enemy.tyrant` has one; nothing waits in Stasis).
+        this.dissonance.telegraph(ev, state, () =>
+          this.stasisUp(state) ? null : this.chord().root,
+        );
         break;
       case 'telegraphResolved':
         // An attack called off before it lands (its caster killed or interrupted, undone by
@@ -7797,6 +7819,8 @@ export class SfxEngine {
     const beat = this.conduct.update(state);
     // Phase 5g: Razor Silk's tick (only while `mods.razorDps` is above 0).
     this.fill.update(state);
+    // Phase 6: the Postlude's music input (only while `field.finale.postlude` exists).
+    this.dissonance.update(state);
     return {
       intensity: this.intensity,
       resonance: weaver?.resonance ?? 0,
@@ -8726,6 +8750,8 @@ export class SfxEngine {
     this.stopFinale();
     // Phase 5f: the Conductor's held sounds, and the music's beat clock.
     this.conduct.stop();
+    // Phase 6: the Postlude's music input.
+    this.dissonance.stop();
     if (this.drone) this.drone.gain.gain.setTargetAtTime(0, this.e.now, 0.1);
     if (this.harmony)
       for (const g of this.harmony.gains) g.gain.setTargetAtTime(0, this.e.now, 0.1);
