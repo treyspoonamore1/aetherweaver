@@ -658,3 +658,153 @@ The mods keep their names (`chainWindow`, `beatWindow`). The levers' `window` un
 **The chorus pulse.** It fires on every Cue as before, so it fires more often here. With the Skilled bot not yet chaining Cues, over 30 fights a row: 1.83 pulses a fight with no Calling, 2.13 with the Conductor's passive (+16%). No chorus or aura number changed. W5 measures it again with the Conductor's bots.
 
 **Checks.** Vitest 180 files, 3660 passed, 8 skipped. Typecheck and lint clean. The 25 goldens, every baseline `--check` and the three existing Callings' reports are byte-equal; only `contentVersion` moved. The three aura files are untouched.
+
+## Tuning
+
+W5 tuned the Conductor against *Bands*, in the levers' order, on cells 1000 and 500003 and whole Preludes 2000 and 900007. Cells 777001 and Preludes 333003 were read once, after the numbers and the goldens were final; nothing moved after them. Cells are `tools/callings.ts --cells --uses` (50 seeds a set) on each Movement's kit, at every boss fight before and in the Finale: the Bellwarden and the Hollow Cantor (I), the Gorehound Matriarch and Vharun (II), the Seamstress and the Unweaver (III), the Silent Conductor (IV). Whole Preludes are `tools/callings.ts`' report (16 paths × 50 seeds, Novice and Skilled), played through a scratch copy of its whole-run mode that takes a seed base (at base 2000 it reproduces the tool's report exactly); the three older Callings were played on the same seeds for the reference. The search used 20 seeds a cell; every reading below is 50. No band reads Finale-route Expeditions, so none were run.
+
+### What moved
+
+| Where | Number | Before | After | Lever | Why |
+|---|---|---|---|---|---|
+| `callings.ts`, the Conductor's `values` | `cue` | 15 | 20 | 3 | the Novice's whole Preludes (below) |
+| | `gain` | 20 | 10 | 3 | the same |
+| | `chain` | 3 s | 4 s | 2 | more Duets and Trios on the Triad path once Cues cost more |
+| `skilled.ts` | `BEAT_AHEAD` | 0.6 s | 2.8 s | 5 | the bot gave most Cues off the beat (ablation below) |
+| | `BANK_WITH_FINALE` (new) | (the bank held on his runs) | false | 5 | `bankCrescendo` cost his fights time and won nothing (ablation below) |
+
+Nothing else moved: `duet` 25, `trio` 50, `ramp` 20, `gap` 1, `wait` 12, Maestro's 75, every path number, `MARCATO_FOCUS` ('standing') and the Novice's three chances are as W1 and W4 left them. `contentVersion` c-cc413f9ff5775748 → c-e05cbcf5f5775748; `SIM_VERSION` stays 22.
+
+**Cue 15 is now Cue 20.** The e2e test reads the number from content (`Cue ${conductor.values.cue}`), so it still checks the right thing, but its title and one comment still say "Cue 15", and so do this doc's passive, decision 7 and its examples (ticks at 15, 30, 45…; the fade's 35 → 30). W5 owns neither; they want a word change by their owners.
+
+### How the levers were tried
+
+Each lever was first set alone, then in combination, at the edge of its range, on 20 seeds of each tuning set (cells) and 50 seeds a path (Preludes, Novice).
+
+- **Lever 1** (`ramp` 10, `gap` 1.5, Maestro 90): with lever 3 moved, 8-24 s longer Maestro fights and more Cues and Trios with Maestro, but Maestro at 90 put the Novice's Maestro Finales at 0.05 (Bellwarden) and 0.20 (Gorehound), against 0.30 and 0.45 at 75, and the Silent Conductor's on-beat share at 54% against 80%. It brought no band in and pushed two out, so nothing stayed.
+- **Lever 2**: `duet` and `trio` at 15/40 (and at 0, as a check) moved the Silent Conductor's length by under 2 s and no band's reading. `chain` 4 adds Duets and Trios on the Triad path once Cues cost 20, so it stayed.
+- **Lever 3**: the only lever that moves the Novice's whole Preludes. Novice, base 2000, Guardian · Steady: as W1 left it (with the W5 bots) 56 · 60%; lever 1 at its edge 55 · 60; levers 1 and 2 at their edges 54 · 59; plus `gain` 10 53 · 59; plus `cue` 20 51 · 55; `cue` 20 and `gain` 10 alone 48 · 51. Every lever at its weakest edge together (lever 4's Upbeat 25, Spotlight ×1.5, Marcato 5% included) gave 47 on Guardian: no more than lever 3 alone.
+- **Lever 4**: Upbeat 25, Spotlight ×1.5 and A Tempo's 0.10 or 0.20 changed no band (Upbeat 25 cost the Bellwarden's Maestro Trios). Nothing stayed.
+
+What lever 3 costs is the Triad path's use of the Calling: with Cues at 20 and gains at 10 it chains less and casts fewer Finales at the shorter fights (rows below). This is the one real trade the bands force: as W1 left the numbers, those rows meet more often and the Novice's whole runs miss their band by 7 points (Guardian) and 4 (Steady).
+
+### Bot changes (lever 5)
+
+**`BEAT_AHEAD` 0.6 → 2.8 s.** `tools/verbs.ts --calling conductor --path 1111`, Skilled, 20 seeds, the six boss fights before the Finale, at W1's numbers. At 0.6 s the bot waited for the downbeat only when it was 0.6 s away, so 17-95% of its Cues were free (four fights under 50%). The harness plays without the autonomy assist, so a held Solo is never lost: waiting a whole bar costs only the wait.
+
+| Fight | 0.6 s: on the beat · length · downs | 2.8 s |
+|---|---|---|
+| Bellwarden | 17% · 21 s · 0.00 | 98% · 23 s · 0.00 |
+| Hollow Cantor | 37% · 78 s · 0.65 | 87% · 73 s · 0.20 |
+| Gorehound Matriarch | 95% · 29 s · 0.00 | 98% · 29 s · 0.00 |
+| Vharun | 38% · 93 s · 0.40 | 98% · 83 s · 0.35 |
+| Seamstress | 33% · 21 s · 0.00 | 100% · 19 s · 0.00 |
+| Unweaver | 48% · 88 s · 0.15 | 78% · 81 s · 0.20 |
+
+Wins were the same. `conductHold`'s own wait is now covered by the beat's on A Tempo paths, so its test in `tests/bots/conductingBots.test.ts` plays the Triad path.
+
+**`bankCrescendo` off on his runs.** The Finale's rule holds the Cues and the Crescendo so that a Crescendo is ready for Fortissimo Silence. With the Grand Finale coming round two or three times a fight, the hold only starved the Cues (2.0 Cues a fight with Maestro). Silent Conductor, Skilled, 50 seeds, `--rules bankCrescendo`, at W1's numbers:
+
+| Set · path | every rule | without `bankCrescendo` |
+|---|---|---|
+| 1000 · Triad | 98% · 107 s · downs 0.10 · 9.6 Cues | 98% · 100 s · 0.06 · 10.5 |
+| 1000 · Maestro | 100% · 81 s · 0.00 · 2.0 | 100% · 53 s · 0.00 · 4.6 |
+| 500003 · Triad | 100% · 109 s · 0.12 · 9.8 | 100% · 99 s · 0.02 · 10.7 |
+| 500003 · Maestro | 100% · 80 s · 0.04 · 2.1 | 100% · 53 s · 0.00 · 4.7 |
+
+Without the Conductor `bank` is computed as before. The same ablation shows `conductFinale` is worth keeping (off: 16-39 s longer), and `crescendoCancel` changes nothing on his runs. This makes him faster at the Silent Conductor, not slower: it is what he is worth when played well.
+
+**`MARCATO_FOCUS` stays 'standing'.** Re-measured on the final bot (Movement I, path 0000, Skilled, 50 seeds, `--rules conductMarcato`): 'kael' (the doc's rule) lost the Tolling Halls 100% → 86% (downs 0.02 → 1.16), the Shattered Choir 92% → 80% and the Hollow Cantor 98% → 86%; 'boss' lost the Hollow Cantor 98% → 86% and won the Bellwarden 92% → 96%. 'standing' loses nothing; it gives Marcato mostly through the bot's other Directives, and Focuses again only where the bot already Focuses (the Unweaver, the Silent Conductor).
+
+The Novice's chances (0.4, 0.5, 0.15) are unchanged: no ablation showed her misplay; lowering them would only make her play the Calling less.
+
+### The bands, on all three sets
+
+Cells: sets 1000 / 500003 / 777001 (the last held out). Whole Preludes: sets 2000 / 900007 / 333003 (the last held out). The Novice's whole-run band is the lowest of the three older Callings − 3 to the highest + 3 in the same pass; the Skilled's is none to the highest + 2.
+
+| Band | Reading | |
+|---|---|---|
+| Whole Preludes, Novice, Guardian | 47 (40-49) / 52 (43-50) / 50 (42-52) | missed on set 900007 (52 against 50); met on 2000 and 333003 |
+| Whole Preludes, Novice, Steady | 52 (46-56) / 51 (46-54) / 51 (46-55) | met |
+| Whole Preludes, Skilled, Guardian | 91 (86-98) / 89 (84-97) / 89 (83-96) | met |
+| Whole Preludes, Skilled, Steady | 91 (88-97) / 91 (86-96) / 91 (85-96) | met |
+| A tier's two options, Novice, Guardian (≤ 8 apart) | widest 4 / 7 / 10 (tier I); the other tiers at most 7 apart on every set | met, with Marcato named as the option she can't use: her Directives come only from rings and later Movements' mechanics (Marcato 45 / 49 / 45% against A Tempo 49 / 56 / 55%) |
+| The Unweaver, Skilled, both setups (≥ 75%) | 98 · 100 / 100 · 100 / 96 · 100 | met |
+| The Silent Conductor, Skilled: win (≥ 75%) | 98 · 100 / 100 · 100 / 100 · 100 | met |
+| The Silent Conductor, Skilled: length (none − 25 s to + 40 s) | Triad −67 / −64 / −66 s; Maestro −121 / −122 / −123 s | missed: the Grand Finale (below) |
+| Cues a boss fight, Skilled (≥ 1.3 × none) | 0.36-1.19 / 0.36-1.27 / 0.36-1.13 × | missed in every row: the Grand Finale |
+| Duets and Trios as a share of Cues, Skilled (≥ 40%) | Maestro 57-67% everywhere; Triad met at the Seamstress, the Unweaver and the Silent Conductor | missed with Triad at the Bellwarden (28-30%), the Hollow Cantor (33%), the Gorehound (36-38%); Vharun 41 / 37 / 38% |
+| Trios a boss fight, Skilled (≥ 0.5) | Maestro 0.54-2.22 everywhere; Triad met at five fights | missed with Triad at the Bellwarden (0.00-0.04) and the Gorehound (0.18-0.22) |
+| Grand Finales a boss fight, Skilled (≥ 0.6) | met at every fight with Maestro, and at five with Triad | missed with Triad at the Bellwarden (0.16-0.30) and the Hollow Cantor (0.32-0.42) |
+| Grand Finales a boss fight, Novice (≥ 0.2) | met at every fight with Maestro (the Bellwarden 0.28 / 0.26 / 0.20); with Triad at the Seamstress and the Silent Conductor | missed with Triad at the Bellwarden, the Hollow Cantor, the Gorehound, Vharun and the Unweaver (0.00-0.16) |
+| A Tempo on the beat, Skilled (≥ 60%) | 70-99% at six fights | missed at the Silent Conductor (58-59%) |
+| A Tempo on the beat, Novice (15-45%) | 28-42% at four fights | missed at Vharun (53-55%) and the Unweaver (52-53%); the Seamstress 45 / 51 / 48% |
+| Novice ≤ Skilled | every cell row and every whole-run row, all three sets | met |
+| Every existing row in the same reports | the older Callings' and none's cell rows equal W4's (set 1000, where W4 measured them); the 10-seed whole-run reports of the Luminary, the Martyr and the Chronomancer on both loadouts equal the pre-W1 ones | met |
+
+The causes:
+
+- **Length and Cues: the Grand Finale.** Shown under *For the owner*. The bot's Finale rule is right to spend there: left off (`conductFinale`), fights are 16-39 s longer with the same wins.
+- **The Triad path's rows at the short fights** (the Bellwarden 55-60 s, the Gorehound about 60 s, the Hollow Cantor): lever 3's price. With Cues at 20 and gains at 10 the Triad path, whose Finale costs 100, reaches it less and chains less. As W1 left the numbers (with the W5 bots) the Hollow Cantor, the Gorehound and Vharun met them (shares 42-45%, Trios 0.55-1.68, Finales 0.82-2.02, 20 seeds a set), and the Bellwarden missed them all as now (32%, 0.03, 0.47): each hero's Solo fills once or twice there and 100 Resonance is seldom reached. No lever setting tried brought the Bellwarden's Triad rows in.
+- **The Novice's Triad Finales**: the same, and at W1's numbers she missed at the Bellwarden and the Gorehound too (0.00).
+- **The Silent Conductor's beat share**: the Finale's `reigniteCue` burn (not a Conductor rule) sends every ready Solo at once after Reignite. A Tempo's window at 0.20 left it at 58%.
+- **The Novice's beat share at Vharun and the Unweaver**: with Cues at 20 she affords fewer Cues off the beat, so her free on-beat draws are a larger share (36-44% at W1's numbers). A window of 0.10 (with lever 1's `ramp` and `gap` at their edges, 20 seeds a set) left both at 50%.
+- **The Novice's whole Preludes on Guardian, set 900007** (52 against 50): lever 3 is at both edges, and no other lever moves her by more than a point.
+
+The Skilled bot's cells (wins %, length against none in s, Cues × none's, Duets and Trios %, Trios, Finales, on the beat %; each 1000 / 500003 / 777001):
+
+| Fight | Path | Win | Length | Cues | Duets and Trios | Trios | Finales | On the beat |
+|---|---|---|---|---|---|---|---|---|
+| Bellwarden | Triad | 92 / 96 / 96 | +4 / −3 / −5 | 1.07 / 1.02 / 1.00 | 28 / 30 / 29 | 0.00 / 0.04 / 0.00 | 0.16 / 0.26 / 0.30 | – |
+| Bellwarden | Maestro | 100 / 100 / 100 | −34 / −34 / −38 | 0.47 / 0.45 / 0.51 | 61 / 61 / 62 | 0.58 / 0.54 / 0.64 | 1.00 / 1.00 / 1.00 | 94 / 93 / 89 |
+| Hollow Cantor | Triad | 100 / 94 / 90 | −37 / −38 / −37 | 1.19 / 1.27 / 1.13 | 33 / 33 / 33 | 0.54 / 0.50 / 0.68 | 0.42 / 0.36 / 0.32 | – |
+| Hollow Cantor | Maestro | 98 / 96 / 96 | −79 / −81 / −80 | 0.55 / 0.50 / 0.55 | 64 / 63 / 64 | 1.38 / 1.20 / 1.34 | 1.92 / 1.94 / 1.92 | 86 / 90 / 88 |
+| Gorehound Matriarch | Triad | 100 / 100 / 100 | −13 / −15 / −14 | 0.78 / 0.79 / 0.77 | 38 / 36 / 37 | 0.22 / 0.18 / 0.18 | 0.82 / 0.84 / 0.82 | – |
+| Gorehound Matriarch | Maestro | 100 / 100 / 100 | −39 / −39 / −38 | 0.44 / 0.45 / 0.43 | 66 / 67 / 67 | 0.98 / 1.00 / 1.00 | 1.02 / 1.04 / 1.08 | 70 / 73 / 73 |
+| Vharun | Triad | 98 / 94 / 96 | −39 / −37 / −47 | 0.95 / 0.95 / 0.96 | 41 / 37 / 38 | 1.30 / 0.76 / 0.94 | 1.52 / 1.26 / 1.24 | – |
+| Vharun | Maestro | 100 / 98 / 98 | −108 / −110 / −111 | 0.47 / 0.45 / 0.48 | 64 / 64 / 65 | 2.22 / 2.08 / 2.20 | 3.06 / 2.98 / 3.06 | 94 / 94 / 92 |
+| Seamstress | Triad | 100 / 100 / 100 | −33 / −36 / −31 | 0.75 / 0.75 / 0.78 | 49 / 47 / 47 | 0.76 / 0.72 / 0.72 | 1.32 / 1.22 / 1.26 | – |
+| Seamstress | Maestro | 100 / 100 / 100 | −62 / −63 / −61 | 0.41 / 0.43 / 0.43 | 65 / 65 / 65 | 0.92 / 0.94 / 0.94 | 1.84 / 1.84 / 1.86 | 98 / 97 / 99 |
+| Unweaver | Triad | 98 / 100 / 96 | −64 / −57 / −54 | 0.82 / 0.85 / 0.82 | 43 / 41 / 42 | 1.52 / 1.48 / 1.50 | 1.94 / 1.74 / 2.06 | – |
+| Unweaver | Maestro | 100 / 100 / 100 | −134 / −128 / −131 | 0.37 / 0.41 / 0.38 | 65 / 65 / 65 | 1.92 / 2.04 / 1.92 | 3.00 / 3.00 / 3.02 | 97 / 97 / 97 |
+| Silent Conductor | Triad | 98 / 100 / 100 | −67 / −64 / −66 | 0.86 / 0.89 / 0.89 | 51 / 50 / 51 | 2.12 / 2.04 / 2.14 | 1.32 / 1.38 / 1.32 | – |
+| Silent Conductor | Maestro | 100 / 100 / 100 | −121 / −122 / −123 | 0.36 / 0.36 / 0.36 | 57 / 57 / 57 | 1.00 / 1.00 / 1.00 | 3.00 / 3.00 / 3.00 | 59 / 58 / 59 |
+
+None, Skilled (length s · Cues a fight, 1000 / 500003 / 777001): Bellwarden 59 · 4.0 / 58 · 4.0 / 62 · 4.1; Hollow Cantor 157 · 8.3 / 159 · 7.8 / 157 · 8.4; Gorehound Matriarch 73 · 6.8 / 74 · 6.6 / 73 · 7.0; Vharun 195 · 15.4 / 197 · 15.2 / 199 · 14.7; Seamstress 81 · 6.8 / 83 · 6.7 / 80 · 6.7; Unweaver 192 · 15.9 / 187 · 15.6 / 189 · 15.9; Silent Conductor 174 · 12.8 / 175 · 12.9 / 176 · 12.7.
+
+The Novice's cells, for the Finale and beat bands (Finales, on the beat %):
+
+| Fight | Path | Win | Finales | On the beat |
+|---|---|---|---|---|
+| Bellwarden | Triad | 82 / 76 / 82 | 0.00 / 0.00 / 0.00 | – |
+| Bellwarden | Maestro | 98 / 98 / 96 | 0.28 / 0.26 / 0.20 | 32 / 31 / 28 |
+| Hollow Cantor | Triad | 68 / 54 / 66 | 0.08 / 0.06 / 0.14 | – |
+| Hollow Cantor | Maestro | 80 / 82 / 74 | 0.48 / 0.62 / 0.54 | 38 / 36 / 42 |
+| Gorehound Matriarch | Triad | 76 / 90 / 86 | 0.00 / 0.00 / 0.00 | – |
+| Gorehound Matriarch | Maestro | 96 / 98 / 98 | 0.50 / 0.60 / 0.54 | 31 / 41 / 40 |
+| Vharun | Triad | 74 / 80 / 66 | 0.02 / 0.06 / 0.14 | – |
+| Vharun | Maestro | 66 / 82 / 86 | 1.02 / 1.00 / 1.10 | 55 / 54 / 53 |
+| Seamstress | Triad | 74 / 78 / 78 | 0.32 / 0.20 / 0.28 | – |
+| Seamstress | Maestro | 100 / 96 / 98 | 1.04 / 1.06 / 1.12 | 45 / 51 / 48 |
+| Unweaver | Triad | 82 / 76 / 86 | 0.06 / 0.02 / 0.06 | – |
+| Unweaver | Maestro | 92 / 90 / 88 | 1.22 / 1.14 / 1.36 | 53 / 53 / 52 |
+| Silent Conductor | Triad | 56 / 62 / 64 | 0.86 / 0.82 / 0.82 | – |
+| Silent Conductor | Maestro | 96 / 96 / 90 | 1.62 / 1.76 / 1.64 | 30 / 29 / 33 |
+
+### Chorus pulses (measurement only)
+
+No chorus or aura number changed. One pulse per Cue, as before. Skilled, 30 fights at base 1000, on a three-aura chord (fortissimo and ostinato, then sostenuto) with an arrival kit's motifs and relics (Movement II's for the Bellwarden and the Hollow Cantor, as W4 measured them); the shipped presets have no three-aura chord, so the cells read 0 pulses.
+
+| Fight | none | Triad path | Maestro path |
+|---|---|---|---|
+| Bellwarden | 0.67 | 2.73 | 0.30 |
+| Hollow Cantor | 0.87 | 4.17 | 5.90 |
+| Unweaver | 8.70 | 13.23 | 7.17 |
+| Silent Conductor | 3.97 | 9.67 | 6.30 |
+
+### For the owner
+
+- **The Grand Finale is the cause of every length and Cue miss.** With every Conductor number set to nothing (no Duet or Trio power, no ramp, Cues at 25, no gain, no path effect, Maestro at 100 and one pass; W4's bot) the Silent Conductor still ends 38-43 s sooner than with no Calling: three Cued Solos and a full recharge for 100 Resonance, which the bot rightly prefers to five Cues. Inside the levers' ranges the fight stays 59-122 s shorter than none, against a band of −25 s. Only the Finale's full recharge, or its number of turns, could close it; both are outside W5's levers.
+- **The Novice's band and the Triad path's use pull apart.** Cues at 20 and gains at 10 bring her whole Preludes in on five of six readings (and within 2 points on the sixth); Cues at 15 and gains at 20 meet more of the Triad path's cell rows but put her 7-10 points above the other Callings. The choice of which to keep is yours.
+- **A Grand Finale cast during the Grand Silence loses every turn.** A stilled hero loses a Finale turn, so a Finale cast while the Grand Silence stills the party plays no Solo for its Resonance. The Skilled bot casts only with two heroes free, but a player can. Noted, not acted on.
+- **Hero Autonomy fires Solos uncued.** With the assist on (the harness plays without it), a ready Solo fires itself 1 s after it fills, outside any chain: a player using the assist gets few Duets and Trios unless they Cue within that second. Noted, not acted on.

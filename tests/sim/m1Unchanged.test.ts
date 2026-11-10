@@ -90,9 +90,9 @@ const ALL_PINNED: Readonly<Record<string, string>> = { ...NINETEEN, ...ROSTER_HA
  * (W5); the twenty-five never are.
  */
 const CONDUCTING_HASHES: Readonly<Record<string, string>> = {
-  'skilled-conducting-bellwarden': 'c11be67e55bfb7df',
-  'novice-conducting-first-light': '3841213b5513b682',
-  'skilled-conducting-silent': 'fc8d5919f14c2252',
+  'skilled-conducting-bellwarden': '013e676d2eaa8f74',
+  'novice-conducting-first-light': 'c3408b85068381ef',
+  'skilled-conducting-silent': 'd200c6af6720f641',
 };
 
 /** All twenty-eight goldens, in golden.json's order. */

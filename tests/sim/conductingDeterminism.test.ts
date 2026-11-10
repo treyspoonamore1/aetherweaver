@@ -220,8 +220,8 @@ describe('the mods', () => {
       resolveMods(resolveConfig({ seed: 1, calling: { id: 'conductor', path } }), CONTENT);
     const base = mods([]);
     expect(base).toMatchObject({
-      cueCostBase: 15,
-      chainWindow: 3,
+      cueCostBase: 20,
+      chainWindow: 4,
       duetPower: 1.25,
       trioPower: 1.5,
       cueKeepsWhole: true,
@@ -231,7 +231,7 @@ describe('the mods', () => {
       finaleWait: 12,
       crescendoCostBase: null,
     });
-    expect(base.resonanceMult).toBeCloseTo(1.2, 12);
+    expect(base.resonanceMult).toBeCloseTo(1.1, 12);
     expect(mods(['marcato'])).toMatchObject({ marcatoSeconds: 4, marcatoCooldown: 8 });
     expect(mods(['marcato']).marcatoPct).toBeCloseTo(0.1, 12);
     expect(mods(['a_tempo']).beatWindow).toBe(0.15);
@@ -251,6 +251,6 @@ describe('the mods', () => {
       }),
       CONTENT,
     );
-    expect(both.resonanceMult).toBeCloseTo(1.44, 12);
+    expect(both.resonanceMult).toBeCloseTo(1.32, 12);
   });
 });

@@ -361,9 +361,10 @@ describe('Grand Finale: when it stops', () => {
 });
 
 describe('the fade with Silent Cues', () => {
-  it('the whole-Cue floor is 25: 40 fades to 25, 50 stays', () => {
+  it('the whole-Cue floor is 30: 40 fades to 30, 70 to 60, 50 stays', () => {
     for (const [start, want] of [
-      [40, 25],
+      [40, 30],
+      [70, 60],
       [50, 50],
     ] as const) {
       const sim = sandbox({
@@ -371,8 +372,8 @@ describe('the fade with Silent Cues', () => {
         dissonance: [{ id: 'silent_cues', rank: 1 }],
       });
       const w = worldOf(sim);
-      expect(w.dissonance.cueCost).toBe(25);
-      expect(wholeCues(w, 40)).toBe(25);
+      expect(w.dissonance.cueCost).toBe(30);
+      expect(wholeCues(w, 40)).toBe(30);
       weaverOf(w).weaver!.resonance = start;
       stepFor(sim, 60 * 12);
       expect(weaverOf(w).weaver!.resonance, `${start}`).toBeCloseTo(want, 9);
