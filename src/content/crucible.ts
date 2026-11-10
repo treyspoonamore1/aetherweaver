@@ -81,7 +81,7 @@ export const SOLO_PER_NOTE = 100 / NOTES_NEEDED;
  * × `enragedDiscord`. The level's text reads `life` (as a percentage, `dissonance.ts`).
  */
 export const POSTLUDE = {
-  life: 0.3,
+  life: 0.6,
   rise: 3,
   voices: 2,
   cueEvery: 14,
