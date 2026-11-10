@@ -22,12 +22,37 @@ import type { CombatOutcome, RunActions, RunState } from '../meta/types';
 import { fitTechniques, type Techniques } from '../meta/variants';
 import type { SimConfig } from '../sim';
 import type { Replay } from '../sim/replay';
+import type { WeeklyEntry } from '../content';
+import type { RunReplay, VerifyResult } from '../meta/runReplay';
+import { embarkWeekly, weeklyEntry, weeklyPrep } from '../meta/weekly';
+import {
+  beginRecording,
+  finishRecording,
+  keepReplay,
+  newLogId,
+  recordFight,
+  recordStep,
+  recordingNow,
+  resumeRecording,
+  stepOfAction,
+  stopRecording,
+} from './runRecorder';
+import { verifyReplay } from './verify';
 import { useProfile } from './profileStore';
 import { useSettings } from './settings';
 import { storage } from './storage';
 
 export interface RunStore extends RunActions {
   run: RunState | null;
+  /**
+   * The finished run's replay file (docs/phase-6.md, "Run replays"), made at its Summary for a
+   * recorded run (a weekly or an Echo); null otherwise. Kept in memory: `keepReplay` stores it.
+   */
+  replay: RunReplay | null;
+  /** A finished weekly's own re-verification (its entry's status follows it); null otherwise. */
+  weeklyCheck: Promise<VerifyResult> | null;
+  /** The Summary's Keep: the finished replay stored on the device (false without IndexedDB). */
+  keepReplay(): Promise<boolean>;
   /** A saved, unfinished run exists (Title → Continue). */
   hasSave(): boolean;
   /** Loads the saved run. Returns false if there is none. */
@@ -63,16 +88,20 @@ export interface RunStore extends RunActions {
    */
   newEchoRun(echoId: string, seed?: number): void;
   /**
-   * Starts a weekly run in Prep (This Week's Song) from its week's start: everything but the
-   * Chords and the technique variants is the week's (`Run.newWeeklyRun`).
+   * Starts this week's weekly run in Prep (This Week's Song): `week` is `weekOf(now)` (the app
+   * passes the time in); everything but the Chords and the technique variants is the week's
+   * (`weeklyPrep`, the verifier's own start). `entry` is for tests and tools only: a replay
+   * verifies only on the week's own entry. Ignored when the week has no entry it can play.
    */
-  newWeeklyRun(start: Run.WeeklyStart): void;
+  newWeeklyRun(week: number, entry?: WeeklyEntry): void;
   /** Prep of a weekly: the technique variants, any of them (the level field). Ignored elsewhere. */
   setRunTechniques(techniques: Partial<Techniques>): void;
   /**
    * The combat screen's end of a fight (docs/phase-6.md, "Recording"): the outcome, as
-   * `finishCombat` takes it, with the fight's replay (`GameRuntime.exportReplay()`: its frames,
-   * last tick and final hash) for the run's log. `replay` may be null (no recorder).
+   * `finishCombat` takes it, with the fight replay the runtime exports at the tick the outcome
+   * was built (`GameRuntime.exportReplay()`). A recorded run (a weekly or an Echo) logs the fight;
+   * a fight ended without its replay (null, or the plain `finishCombat`) ends that run's
+   * recording, since its replay could no longer verify. Any other run ignores `replay`.
    */
   finishFight(outcome: CombatOutcome, replay: Replay | null): void;
 }
@@ -94,20 +123,18 @@ interface RunStepNote {
 }
 
 /**
- * The run's log (docs/phase-6.md, "Run replays"): every step as it is applied, and each fight's
- * frames. PART B (W4, src/app/runRecorder.ts): the recorder takes these here; until then nothing
- * is kept.
+ * Does this run keep a run replay (docs/phase-6.md, "Run replays")? A weekly (its share code and
+ * verification need one) and an Echo. A Prelude or an Expedition records nothing and carries no
+ * log key, so it plays and saves exactly as before.
  */
-function logStep(prev: RunState, next: RunState, step: RunStepNote | undefined): void {
-  void prev;
-  void next;
-  void step;
+export function recordsReplay(run: Pick<RunState, 'weekly' | 'echo'>): boolean {
+  return run.weekly !== undefined || run.echo !== undefined;
 }
 
-/** The fight's frames for the run's log, at the fight's end. PART B (W4) as `logStep`. */
-function logFight(run: RunState, replay: Replay | null): void {
-  void run;
-  void replay;
+/** The step the store just applied, for the run's log (nothing while nothing records). */
+function logStep(prev: RunState, next: RunState, step: RunStepNote | undefined): void {
+  if (!step || !recordingNow()) return;
+  recordStep(stepOfAction(step.action, step.args, step.allowance), prev, next);
 }
 
 /** The profile's tree as a run may hold it: within the points the Rank (or the settings) give. */
@@ -201,11 +228,21 @@ function remember(run: RunState): void {
  * A run that ended (by its Summary, or replaced by a new run) records what Phase 6 keeps of it
  * (docs/phase-6.md): its Finale-clear Dissonance, an Echo's stars, a weekly's entry.
  */
-function recordEnd(run: RunState): void {
+function recordEnd(run: RunState, replay: RunReplay | null = null): string | null {
   const profile = useProfile.getState();
   profile.recordFinaleDissonance(run);
   if (run.echo !== undefined && run.weekly === undefined) profile.recordAtlas(run);
-  if (run.weekly !== undefined) profile.recordWeekly(run);
+  return run.weekly !== undefined ? profile.recordWeekly(run, replay) : null;
+}
+
+/**
+ * A finished weekly's own replay, verified again on this device (docs/phase-6.md, "The local
+ * leaderboard": "yours, re-verified when finished"); its entry takes the result's status.
+ */
+function reverify(week: number, code: string, replay: RunReplay): Promise<VerifyResult> {
+  const job = verifyReplay(replay, code).result;
+  void job.then((r) => useProfile.getState().setWeeklyStatus(week, code, r.status)).catch(() => {});
+  return job;
 }
 
 export const useRun = create<RunStore>()((set, get) => {
@@ -226,8 +263,22 @@ export const useRun = create<RunStore>()((set, get) => {
     set({ run: next });
     if (ended) {
       useProfile.getState().recordRun(next.outcome === 'victory');
-      recordEnd(next);
+      // A recorded run's replay file (docs/phase-6.md): made at its Summary, kept in memory.
+      const replay = recordingNow() ? finishRecording(next) : null;
+      const code = recordEnd(next, replay);
+      const week = next.weekly?.week;
+      if (replay || get().replay || get().weeklyCheck)
+        set({
+          replay,
+          weeklyCheck:
+            replay && code !== null && week !== undefined ? reverify(week, code, replay) : null,
+        });
     }
+  };
+  /** A run replaced or closed: its recording stops (and its log goes), its replay is let go. */
+  const stopLog = () => {
+    if (recordingNow()) void stopRecording();
+    if (get().replay || get().weeklyCheck) set({ replay: null, weeklyCheck: null });
   };
   /**
    * Deeds (docs/phase-4b.md): records what the run has earned so far (its fights' feats and
@@ -258,9 +309,17 @@ export const useRun = create<RunStore>()((set, get) => {
       // …and keeps what Phase 6 records of a run's end (docs/phase-6.md).
       recordEnd(won ? { ...previous, outcome: 'victory' } : previous);
     }
+    stopLog();
   };
   return {
     run: null,
+    replay: null,
+    weeklyCheck: null,
+    keepReplay: async () => {
+      const { replay, run } = get();
+      if (!replay || !run?.logId) return false;
+      return keepReplay(run.logId, replay, Date.now());
+    },
     hasSave: () => {
       const saved = loadRun(storage());
       return !!saved && saved.phase !== 'summary';
@@ -299,6 +358,9 @@ export const useRun = create<RunStore>()((set, get) => {
       recordDeeds();
       // …and a recruit its fights made (docs/phase-5b.md), if the app closed before it was kept.
       recruitFrom(get().run);
+      // A recorded run picks its log up again (docs/phase-6.md); a fight under way restarts.
+      const resumed = get().run;
+      if (resumed?.logId !== undefined) void resumeRecording(resumed);
       return true;
     },
     followAstrolabe: (tree) =>
@@ -428,12 +490,17 @@ export const useRun = create<RunStore>()((set, get) => {
       saveRun(storage(), run);
       set({ run });
     },
-    newWeeklyRun: (start) => {
-      retirePrevious();
+    newWeeklyRun: (week, entry) => {
       const profile = useProfile.getState();
       // The level field (decision 6): the profile's last Chords and variants are only where Prep
       // starts; any aura, ornament and variant may be chosen.
-      const run = Run.newWeeklyRun(start, profile.profile.lastChords, profile.profile.techniques);
+      const run = weeklyPrep(
+        week,
+        { chords: profile.profile.lastChords, techniques: profile.profile.techniques },
+        entry ?? weeklyEntry(week),
+      );
+      if (!run) return;
+      retirePrevious();
       saveRun(storage(), run);
       set({ run });
     },
@@ -479,9 +546,9 @@ export const useRun = create<RunStore>()((set, get) => {
       const roster = profile.roster();
       apply(
         (current) => {
-          // A weekly embarks on its level field, whatever the profile holds (docs/phase-6.md).
-          if (current.weekly !== undefined)
-            return Run.embark(current, Run.runAllowance(current), 0, 0, true);
+          // A weekly embarks on its level field, whatever the profile holds (docs/phase-6.md):
+          // as the verifier rebuilds it (`embarkWeekly`).
+          if (current.weekly !== undefined) return embarkWeekly(current);
           const owned =
             Run.partyFixed(current) || current.party.every((h) => roster.includes(h.heroId));
           const run = owned ? current : Run.setParty(current, CONTENT.defaultParty, roster);
@@ -507,6 +574,14 @@ export const useRun = create<RunStore>()((set, get) => {
       );
       const run = get().run;
       if (run?.phase === 'map') remember(run);
+      // A weekly's or an Echo's run replay begins as it embarks, under a log key of its own.
+      if (run?.phase === 'map' && recordsReplay(run) && run.path.length === 0) {
+        // Date.now is fine here: the log's key is the app's, never part of the run's start.
+        const logged: RunState = { ...run, logId: newLogId(run.seed, Date.now()) };
+        saveRun(storage(), logged);
+        set({ run: logged });
+        beginRecording(logged);
+      }
     },
     chooseNode: (id) =>
       apply((run) => Run.chooseNode(run, id), { action: 'chooseNode', args: [id] }),
@@ -515,7 +590,8 @@ export const useRun = create<RunStore>()((set, get) => {
       if (!run) return null;
       return Run.combatConfig(run, { ...useSettings.getState().settings.assists });
     },
-    finishCombat: (outcome: CombatOutcome) => {
+    finishCombat: (outcome: CombatOutcome) => get().finishFight(outcome, null),
+    finishFight: (outcome, replay) => {
       const before = get().run;
       // Bonds (docs/phase-5b.md): the fight's Bond XP as the profile awards it (a late recruit's
       // catch-up, judged on the profile's Bonds before this award), so the Result and the Summary
@@ -526,6 +602,11 @@ export const useRun = create<RunStore>()((set, get) => {
         args: [],
       });
       const after = get().run;
+      // The run's log (docs/phase-6.md): the fight's replay, or, without one, no replay at all.
+      if (before && after && after !== before && recordingNow()) {
+        if (replay) recordFight(replay, outcome.outcome === 'victory', before, after);
+        else void stopRecording();
+      }
       if (after && after !== before && after.lastResult) {
         useProfile.getState().award(after.lastResult.xp);
         // Bonds (docs/phase-4e.md): each hero's Bond XP from the fight, already as awarded.
@@ -538,12 +619,6 @@ export const useRun = create<RunStore>()((set, get) => {
         // The roster (docs/phase-5b.md): a hero this fight freed joins from the next Prep.
         recruitFrom(get().run);
       }
-    },
-    finishFight: (outcome, replay) => {
-      const run = get().run;
-      if (!run || run.phase !== 'combat') return;
-      logFight(run, replay);
-      get().finishCombat(outcome);
     },
     continueFromResult: () =>
       apply(Run.continueFromResult, { action: 'continueFromResult', args: [] }),
@@ -602,6 +677,7 @@ export const useRun = create<RunStore>()((set, get) => {
     leaveEvent: () => apply(Run.leaveEvent, { action: 'leaveEvent', args: [] }),
     abandon: () => apply(Run.abandon, { action: 'abandon', args: [] }),
     closeRun: () => {
+      stopLog();
       saveRun(storage(), null);
       set({ run: null });
     },

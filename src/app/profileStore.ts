@@ -6,6 +6,9 @@
 import { create } from 'zustand';
 import { allocate, astrolabePoints, refund } from '../meta/astrolabe';
 import { recordStars, type AtlasRecord } from '../meta/atlas';
+import { REPLAY_NAME_MAX, shareCodeOf, type RunReplay } from '../meta/runReplay';
+import { decodeShareCode, normalShareCode } from '../meta/shareCode';
+import { withWeeklyEntry } from '../meta/weekly';
 import { deedPoints, deedProgress, deedsEarned, profileDeedsEarned } from '../meta/deeds';
 import {
   allowanceFor,
@@ -19,6 +22,7 @@ import {
   type Profile,
   type RunMode,
   type Unlock,
+  type WeeklyStatus,
 } from '../meta/profile';
 import {
   ascend,
@@ -167,10 +171,22 @@ export interface ProfileStore {
   atlasNotice: AtlasRecord | null;
   dismissAtlasNotice(): void;
   /**
-   * A weekly run ended (docs/phase-6.md, "The local leaderboard"): keeps the player's own entry
-   * in its week, then judges the profile Deeds.
+   * A weekly run ended (docs/phase-6.md, "The local leaderboard"): its replay's share code
+   * becomes the player's own entry (`mine`) in its week, Claimed until it is verified again
+   * (`setWeeklyStatus`); then the profile Deeds are judged. Returns the code (null: no replay,
+   * so no entry).
    */
-  recordWeekly(run: RunState): void;
+  recordWeekly(run: RunState, replay?: RunReplay | null): string | null;
+  /** A weekly entry's verification came in: its status (and its kept replay's key, if any). */
+  setWeeklyStatus(week: number, code: string, status: WeeklyStatus, replay?: string): void;
+  /**
+   * Adds a code someone shared (the weekly panel's Add a code), named by the player, Claimed
+   * until its replay is verified. The code's week, or why it can't be added.
+   */
+  addWeeklyCode(
+    text: string,
+    name?: string,
+  ): { ok: true; week: number; code: string } | { ok: false; error: string };
   /** The Atlas or the weekly record changed: records the profile Deeds now earned; returns them. */
   recordProfileDeeds(): string[];
   /** Bonds (docs/phase-4e.md): every talent and Solo can be chosen (Skip the unlocks). */
@@ -609,11 +625,58 @@ export const useProfile = create<ProfileStore>()((set, get) => {
       return record;
     },
     dismissAtlasNotice: () => set({ atlasNotice: null }),
-    recordWeekly: (run) => {
-      if (run.weekly === undefined) return;
-      // PART B (W4, src/meta/weekly.ts and shareCode.ts): the run's score and share code become
-      // the player's own entry (`mine`) in `profile.weekly` here, at most 12 weeks of at most 30.
+    recordWeekly: (run, replay) => {
+      const week = run.weekly?.week;
+      if (week === undefined || !replay || replay.week !== week) {
+        get().recordProfileDeeds();
+        return null;
+      }
+      const code = shareCodeOf({ ...replay, week });
+      const profile = get().profile;
+      commit({
+        ...profile,
+        weekly: withWeeklyEntry(profile.weekly, week, { code, mine: true, status: 'claimed' }),
+      });
       get().recordProfileDeeds();
+      return code;
+    },
+    setWeeklyStatus: (week, code, status, replay) => {
+      const profile = get().profile;
+      const held = profile.weekly
+        ?.find((w) => w.week === week)
+        ?.entries.find((e) => e.code === code);
+      if (!held || (held.status === status && (replay === undefined || held.replay === replay)))
+        return;
+      commit({
+        ...profile,
+        weekly: withWeeklyEntry(profile.weekly, week, {
+          code,
+          status,
+          ...(replay !== undefined ? { replay } : {}),
+        }),
+      });
+      get().recordProfileDeeds();
+    },
+    addWeeklyCode: (text, name) => {
+      const code = normalShareCode(text);
+      const read = decodeShareCode(text);
+      if (!read.ok || code === null)
+        return { ok: false, error: read.ok ? 'Not a code.' : read.error };
+      const profile = get().profile;
+      const trimmed = name?.trim().slice(0, REPLAY_NAME_MAX);
+      const held = profile.weekly
+        ?.find((w) => w.week === read.claim.week)
+        ?.entries.find((e) => e.code === code);
+      if (!held)
+        commit({
+          ...profile,
+          weekly: withWeeklyEntry(profile.weekly, read.claim.week, {
+            code,
+            ...(trimmed ? { name: trimmed } : {}),
+            status: 'claimed',
+          }),
+        });
+      return { ok: true, week: read.claim.week, code };
     },
     recordProfileDeeds: () => {
       const profile = get().profile;
