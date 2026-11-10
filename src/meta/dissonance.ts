@@ -80,9 +80,9 @@ export function shardsMult(points: number): number {
  * How much longer a fight's par is at these levels: it takes as much longer as there is more
  * life to beat. Hardened's extra life, and Restless Dead's rise where the enemies all rise (not
  * a boss's or a mini-boss's fight, where the boss is most of it). True Dissonance (docs/phase-6.md,
- * reconciliation item 1) lengthens the Finale's boss fight by its level's `values.par` percent,
+ * reconciliation item 1) lengthens the Finale's boss fight by its level's `values.finalePar` percent,
  * for the Postlude: read only when `encounter` names that fight, and nothing while the level has
- * no `par` value.
+ * no `finalePar` value.
  */
 export function parMult(
   levels: readonly DissonanceChoice[],
@@ -97,7 +97,7 @@ export function parMult(
     if (def.effect === 'restless_dead' && kind !== 'boss' && kind !== 'miniboss')
       mult *= 1 + pct / 100;
     if (def.effect === 'true_dissonance' && encounter !== undefined && encounter === FINALE_BOSS)
-      mult *= 1 + (def.values.par ?? 0) / 100;
+      mult *= 1 + (def.values.finalePar ?? 0) / 100;
   }
   return mult;
 }
