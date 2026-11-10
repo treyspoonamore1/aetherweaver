@@ -335,6 +335,118 @@ describe('profile', () => {
   });
 });
 
+describe('Phase 6: profile 10 and run save 5 (docs/phase-6.md, ground rule 9)', () => {
+  /** A v9 profile as Phase 5 wrote it: a veteran's, with a Finale won at Dissonance. */
+  function v9(): Record<string, unknown> {
+    const p = {
+      ...newProfile(),
+      version: 9,
+      xp: 19850,
+      runs: 40,
+      wins: 22,
+      deeds: ['through_the_prelude', 'song_goes_on'],
+      dissonance: { open: true, levels: [{ id: 'hardened', rank: 2 }], best: { none: 12 } },
+      recruited: ['brann'],
+    };
+    return JSON.parse(JSON.stringify(p)) as Record<string, unknown>;
+  }
+
+  it('a v9 profile loads as it was, version 10, with no Phase 6 key; it plays the same', () => {
+    const store = memoryStore();
+    store.data.set('aetherweaver.profile', JSON.stringify(v9()));
+    const loaded = loadProfile(store);
+    expect(loaded).toStrictEqual({ ...v9(), version: 10 });
+    expect('atlas' in loaded || 'weekly' in loaded || 'finale' in loaded.dissonance).toBe(false);
+    // Every v1 to v8 profile reaches 10 the same way.
+    for (let version = 1; version <= 8; version++) {
+      store.data.set(
+        'aetherweaver.profile',
+        JSON.stringify({ version, xp: 10, introduced: [], lastChords: [], runs: 0, wins: 0 }),
+      );
+      const old = loadProfile(store);
+      expect(old.version, String(version)).toBe(10);
+      expect('atlas' in old || 'weekly' in old || 'finale' in old.dissonance).toBe(false);
+    }
+    // A run started from it is the run Phase 5 started: no Phase 6 key, the same map and fight.
+    const run = Run.embark(
+      Run.newRun(31, undefined, [], [], loaded.dissonance.levels, [], undefined, 4),
+    );
+    expect('echo' in run || 'weekly' in run || 'logId' in run).toBe(false);
+    expect(run.dissonance.every((l) => !('forced' in l))).toBe(true);
+    const plain = Run.embark(
+      Run.newRun(31, undefined, [], [], [{ id: 'hardened', rank: 2 }], [], undefined, 4),
+    );
+    expect(JSON.stringify(run)).toBe(JSON.stringify(plain));
+  });
+
+  it('the v10 keys round-trip once written: the Atlas, the weekly record, the Finale record', () => {
+    const store = memoryStore();
+    const profile = {
+      ...newProfile(),
+      atlas: { stars: { retrograde: 2, a_cappella: 3 }, best: { retrograde: 14, a_cappella: 22 } },
+      weekly: [
+        {
+          week: 44,
+          entries: [
+            { code: 'AW1-0000', mine: true as const, status: 'verified' as const, replay: 'r1' },
+            { code: 'AW1-1111', name: 'Mara', status: 'claimed' as const },
+          ],
+        },
+      ],
+      dissonance: { open: true, levels: [], best: { martyr: 20 }, finale: { martyr: 18, none: 4 } },
+    };
+    saveProfile(store, profile);
+    expect(loadProfile(store)).toStrictEqual(profile);
+  });
+
+  it('a v5 run save loads as it was and plays the same next fight', () => {
+    const run = Run.chooseNode(Run.embark(Run.newRun(12)), 'r0c0');
+    const store = memoryStore();
+    saveRun(store, run);
+    const loaded = loadRun(store)!;
+    expect(loaded).toStrictEqual(run);
+    expect(JSON.stringify(Run.combatConfig(loaded))).toBe(JSON.stringify(Run.combatConfig(run)));
+    expect('movement' in Run.combatConfig(loaded)!).toBe(false);
+  });
+
+  it('a run save with the Phase 6 keys round-trips: an Echo’s, its forced levels, a weekly’s', () => {
+    const store = memoryStore();
+    const echo = Run.chooseNode(
+      Run.embark(
+        Run.newEchoRun(5, 'the_unrested', undefined, [], [], [{ id: 'brisk_foes', rank: 1 }]),
+      ),
+      'r0c0',
+    );
+    saveRun(store, { ...echo, logId: 'log-7' });
+    const loaded = loadRun(store)!;
+    expect(loaded).toStrictEqual({ ...echo, logId: 'log-7' });
+    expect(loaded.dissonance).toStrictEqual([
+      { id: 'brisk_foes', rank: 1 },
+      { id: 'restless_dead', rank: 1, forced: true },
+      { id: 'unforgiving', rank: 1, forced: true },
+    ]);
+    // The resumed fight is the same fight, with its leg's settings.
+    expect(Run.combatConfig(loaded)).toStrictEqual(Run.combatConfig(echo));
+    const weekly = Run.newWeeklyRun({
+      week: 47,
+      seed: 3,
+      entry: {
+        route: 'expedition',
+        calling: null,
+        party: ['kael', 'lyra', 'vexis'],
+        dissonance: [],
+      },
+    });
+    saveRun(store, weekly);
+    expect(loadRun(store)).toStrictEqual(weekly);
+    // An Echo the content no longer has still loads, and plays its saved map.
+    saveRun(store, { ...echo, echo: 'gone_echo' });
+    const orphan = loadRun(store)!;
+    expect(orphan.echo).toBe('gone_echo');
+    expect(orphan.map).toStrictEqual(echo.map);
+  });
+});
+
 describe('settings migration', () => {
   it('moves Phase 1 and Phase 2 settings to v4, keeping the player’s choices', () => {
     const v1 = {

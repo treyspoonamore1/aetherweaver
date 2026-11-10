@@ -20,6 +20,9 @@ import {
   isFieldMovement,
   type AnyMovementDef,
   type Biome,
+  type EchoDef,
+  type EchoLeg,
+  type EchoTwists,
   type EventChoice,
   type EventEffect,
   type FinaleMovementDef,
@@ -27,9 +30,11 @@ import {
   type MovementDef,
   type RelicRarity,
   type RoadVariant,
+  type WeeklyEntry,
 } from '../content/schema';
 import { Rng, hashString } from '../sim/core/rng';
 import {
+  chosenLevels,
   dissonancePoints,
   fitLevels,
   hasEffect,
@@ -39,9 +44,19 @@ import {
 } from './dissonance';
 import { empowered, relicPassives, snapshotRelic, type ReliquaryRelic } from './reliquary';
 import { bondXpForFight, bondsConfig, type RunBond } from './bonds';
-import { noVariants, variantsConfig, type Techniques } from './variants';
+import { fitTechniques, noVariants, variantsConfig, type Techniques } from './variants';
 import { starlightForFight } from './loom';
-import { endsRun, finaleCleared, isFinalNode } from './runEnd';
+import { echoDef, echoRoute, type EchoRouteLeg } from './atlas';
+import {
+  FINALE_BOSS,
+  countsRunWide,
+  endsRun,
+  finaleCleared,
+  isFinalNode,
+  runKind,
+  setsDissonanceRecords,
+  type RunKind,
+} from './runEnd';
 import {
   canonicalChords,
   chordProblems,
@@ -269,9 +284,15 @@ function carriedOwned(carried: readonly ReliquaryRelic[]): OwnedRelic[] {
   );
 }
 
-/** `chordsAllowed` for this run: its slots, pool and tree. */
+/** `chordsAllowed` for this run: its slots, pool and tree (everything on a weekly, `runAllowance`). */
 function allowedFor(run: RunState, chords: readonly ChordLoadout[], allowance: Allowance): boolean {
-  return chordsAllowed(chords, allowance, fieldAuraSlots(run), reservePool(run), reserveMult(run));
+  return chordsAllowed(
+    chords,
+    runAllowance(run, allowance),
+    fieldAuraSlots(run),
+    reservePool(run),
+    reserveMult(run),
+  );
 }
 
 /**
@@ -286,7 +307,11 @@ export const CALLING_ROWS: readonly number[] = [0, 3, 5, 7];
  * own rows they are: on the Finale route, First Light, the all-fight row 2, the Bellwarden and
  * the Cantor's interlude.
  */
-export function callingRows(run: Pick<RunState, 'movements'>): readonly number[] {
+export function callingRows(
+  run: Pick<RunState, 'movements'> & Partial<Pick<RunState, 'echo'>>,
+): readonly number[] {
+  // An Echo's legs have no road of their own (docs/phase-6.md): its tiers fall on CALLING_ROWS.
+  if (run.echo !== undefined) return CALLING_ROWS;
   const first = routeDefs(run.movements)[0];
   return (first && roadOf(first)?.callingRows) ?? CALLING_ROWS;
 }
@@ -342,6 +367,8 @@ interface NodePlace {
   threatRow?: number;
   /** The road's own reward for its row (docs/phase-5d.md, "Bands"); absent: the Movement's. */
   bonus?: NonNullable<RoadVariant['rewards']>[number];
+  /** The bonus is an Echo leg's (docs/phase-6.md), not the Finale route's road's: its copy says so. */
+  echo?: true;
   movement: AnyMovementDef;
   /** The Movement after this one in the run (null: this is the run's last). */
   next: AnyMovementDef | null;
@@ -378,7 +405,7 @@ function roadReward(
     ...reward,
     draft: bonus.draft,
     relics: bonus.relics ?? reward.relics,
-    text: `A fight on the shorter road: Aether, ${bonus.relics ? 'a relic and ' : ''}${bonus.draft === 'epic' ? 'an epic' : 'a rare'} motif.`,
+    text: `A fight on ${place.echo ? 'the Echo’s road' : 'the shorter road'}: Aether, ${bonus.relics ? 'a relic and ' : ''}${bonus.draft === 'epic' ? 'an epic' : 'a rare'} motif.`,
   };
 }
 
@@ -517,6 +544,109 @@ export function roadOf(def: AnyMovementDef): RoadVariant | undefined {
   return ROADS.get(def);
 }
 
+// ── Echoes (docs/phase-6.md, "Design: the Atlas of Echoes") ─────────────────────────────
+
+export { echoDef };
+
+/**
+ * Each Echo leg's def as `echoRoute` (meta/atlas.ts) builds it, the leg's route entry (its own
+ * rewards and scale) and the number of the content Movement it is built over. Filled as an Echo's
+ * defs are first asked for (`echoRouteDefs`), as `routeDefs` fills ROADS for the Finale's road.
+ */
+const LEGS = new WeakMap<AnyMovementDef, { route: EchoRouteLeg; movement: number }>();
+
+/**
+ * The Movements an Echo plays, one per leg, in order (`defs[i]` plays as the run's Movement i + 1):
+ * the Atlas's `echoRoute`, its defs registered with their legs.
+ */
+export function echoRouteDefs(echo: EchoDef): MovementDef[] {
+  return echoRoute(echo).map((route) => {
+    if (!LEGS.has(route.def)) {
+      const movement = CONTENT.movements.findIndex((m) => m.id === route.leg.movement) + 1;
+      LEGS.set(route.def, { route, movement });
+    }
+    return route.def;
+  });
+}
+
+/** An Echo's map for a seed: its legs as Movements (`generateMapFrom`). */
+export function generateEchoMap(seed: number, echo: EchoDef): RunMap {
+  return generateMapFrom(seed >>> 0, echoRouteDefs(echo));
+}
+
+/**
+ * The Echo leg a def of `echoRouteDefs` plays (its rewards and scale), and the number of the
+ * content Movement it is built over; undefined for every other def.
+ */
+export function echoLegOf(
+  def: AnyMovementDef | undefined,
+): { route: EchoRouteLeg; movement: number } | undefined {
+  return def ? LEGS.get(def) : undefined;
+}
+
+/**
+ * The Movements this run plays, in order (its map's Movement n is `runRoute(run)[n - 1]`): an
+ * Echo's legs (docs/phase-6.md), or `routeDefs(run.movements)`. An Echo the content no longer
+ * has plays its saved map; its defs fall back to the route of its length.
+ */
+export function runRoute(
+  run: Pick<RunState, 'movements'> & Partial<Pick<RunState, 'echo'>>,
+): AnyMovementDef[] {
+  const echo = run.echo !== undefined ? echoDef(run.echo) : undefined;
+  return echo ? echoRouteDefs(echo) : routeDefs(run.movements);
+}
+
+/**
+ * The content Movement the run's Movement `n` is (its number, 1 the first): `n` itself on every
+ * route but an Echo's, whose leg n is built over the Movement it names (docs/phase-6.md). Its
+ * pools, events, Movement gates and fight rewards are that Movement's.
+ */
+export function contentMovementOf(
+  run: Pick<RunState, 'movements'> & Partial<Pick<RunState, 'echo'>>,
+  n: number,
+): number {
+  if (run.echo === undefined) return n;
+  return echoLegOf(runRoute(run)[n - 1])?.movement ?? n;
+}
+
+/**
+ * The def the run's Movement `n` plays (its biome, title and pools): an Echo's leg, or the route's
+ * Movement (Movement I if there is none).
+ */
+export function runMovementDef(
+  run: Pick<RunState, 'movements'> & Partial<Pick<RunState, 'echo'>>,
+  n: number,
+): AnyMovementDef {
+  return runRoute(run)[n - 1] ?? CONTENT.movements[0]!;
+}
+
+/** The twists of the run's Echo (none on any other run, or for an Echo the content lost). */
+export function echoTwists(run: Partial<Pick<RunState, 'echo'>>): EchoTwists {
+  return (run.echo !== undefined ? echoDef(run.echo)?.twists : undefined) ?? {};
+}
+
+/**
+ * Does the run's route hold the Finale's boss (docs/phase-6.md, True Dissonance: Expeditions
+ * only)? The Expedition's does; the Prelude's doesn't; an Echo's only if a leg ends at it.
+ */
+export function routeHasFinale(run: Partial<Pick<RunState, 'movements' | 'echo'>>): boolean {
+  if (run.echo !== undefined) {
+    const echo = echoDef(run.echo);
+    return !!echo && echo.legs.some((l) => l.boss === FINALE_BOSS);
+  }
+  return routeDefs(run.movements ?? 1).some((d) => !isFieldMovement(d));
+}
+
+/** The levels an Echo forces on (docs/phase-6.md, The Unrested), marked `forced`. */
+function forcedLevels(twists: EchoTwists): DissonanceChoice[] {
+  return (twists.dissonance ?? []).map((l) => ({ id: l.id, rank: l.rank, forced: true }));
+}
+
+/** An Echo run's levels: the player's choice, and the Echo's own forced on top. */
+function echoLevels(twists: EchoTwists, chosen: readonly DissonanceChoice[]): DissonanceChoice[] {
+  return fitLevels([...chosenLevels(chosen), ...forcedLevels(twists)]);
+}
+
 /**
  * One Movement's rows (docs/phase-5a.md), numbered on from `firstRow`. Each Movement draws from
  * its own RNG (Movement I from 'map', exactly as the Prelude always has; Movement n from
@@ -535,6 +665,11 @@ function buildMovement(
 ): MapNode[][] {
   if (!isFieldMovement(def)) return buildFinale(def, movement, firstRow);
   const rng = rngFor(seed, movement === 1 ? 'map' : `map:m${movement}`);
+  // An Echo leg (docs/phase-6.md) plays the events of the content Movement it is built over, and
+  // pays its own rewards. Its stream's label stays its place on the route ('map', 'map:m2', …), so
+  // two legs over one Movement draw apart, and every other route draws exactly as before.
+  const leg = LEGS.get(def);
+  const pools = leg?.movement ?? movement;
   // The finale's road (docs/phase-5d.md): its rows take the full Movement's Threat, and a
   // ladder's pools may be shuffled on it (only on the Finale route).
   const road = roadOf(def);
@@ -547,7 +682,7 @@ function buildMovement(
   // Every event at most once a run, until they run out: the Movement's own, in content order.
   const events = shuffle(
     rng,
-    CONTENT.events.filter((e) => (e.movement ?? 1) === movement).map((e) => e.id),
+    CONTENT.events.filter((e) => (e.movement ?? 1) === pools).map((e) => e.id),
   );
   const fixedAt = new Map(def.fixed.map((f) => [f.row, f.encounter]));
   // The lesson row: the first row, not fixed, of one skirmish per lesson.
@@ -603,7 +738,11 @@ function buildMovement(
           kind,
           encounterId,
           eventId,
-          road ? roadPlace(road, row, def, next) : { row, movement: def, next },
+          road
+            ? roadPlace(road, row, def, next)
+            : leg
+              ? legPlace(leg.route.rewards, row, def, next)
+              : { row, movement: def, next },
         ),
         movement,
       };
@@ -620,6 +759,17 @@ function roadPlace(
 ): NodePlace {
   const bonus = road.rewards?.find((b) => b.row === row);
   return { row, threatRow: road.threat[row], ...(bonus ? { bonus } : {}), movement, next };
+}
+
+/** An Echo leg's row's place (docs/phase-6.md): the leg's own reward for it, if it pays one. */
+function legPlace(
+  rewards: EchoLeg['rewards'],
+  row: number,
+  movement: AnyMovementDef,
+  next: AnyMovementDef | null,
+): NodePlace {
+  const bonus = rewards?.find((b) => b.row === row);
+  return { row, ...(bonus ? { bonus, echo: true as const } : {}), movement, next };
 }
 
 /**
@@ -722,6 +872,8 @@ export function reachedMovement(run: RunState, n: number): boolean {
  * won or not; a Prelude only if it was won (docs/phase-4c.md).
  */
 export function enshrineEligible(run: RunState): boolean {
+  // An Echo (docs/phase-6.md): only a clear.
+  if (run.echo !== undefined) return run.outcome === 'victory';
   return run.movements >= 2 ? reachedMovement(run, 2) : run.outcome === 'victory';
 }
 
@@ -756,6 +908,8 @@ export function movementRewards(n: number): AnyMovementDef['rewards'] {
  * still empty in Prep. Frozen at embark.
  */
 export function setMovements(run: RunState, movements: number): RunState {
+  // An Echo's and a weekly's route are their own (docs/phase-6.md).
+  if (run.echo !== undefined || run.weekly !== undefined) return run;
   const n = routeDefs(movements).length;
   if (run.phase !== 'prep' || run.movements === n) return run;
   return { ...run, movements: n, map: generateMap(run.seed, n) };
@@ -837,6 +991,114 @@ export function newRun(
     : run;
 }
 
+// ── Echo and weekly runs (docs/phase-6.md) ─────────────────────────────────────────────
+
+export { countsRunWide, runKind, setsDissonanceRecords, type RunKind };
+
+/**
+ * A new Echo run in Prep (docs/phase-6.md, "An Echo run"): an ordinary run on the Echo's route
+ * (its legs, `echoRouteDefs`), with its twists in force from the start and again at embark: no
+ * Calling, no Astrolabe or no carried relics where it says so, its party whoever is recruited,
+ * and its forced levels (worth no points) on top of the Dissonance chosen. Its seed is the
+ * attempt's own.
+ */
+export function newEchoRun(
+  seed: number,
+  echoId: string,
+  chords: readonly ChordLoadout[] = DEFAULT_CHORDS,
+  astrolabe: readonly string[] = [],
+  carried: readonly ReliquaryRelic[] = [],
+  dissonance: readonly DissonanceChoice[] = [],
+  bonds: readonly RunBond[] = [],
+  techniques: Techniques = noVariants(),
+): RunState {
+  const echo = echoDef(echoId);
+  if (!echo) throw new Error(`unknown Echo "${echoId}"`);
+  const t = echo.twists;
+  const party = t.party ? canonicalParty(t.party) : null;
+  const base = newRun(
+    seed,
+    chords,
+    t.noTree ? [] : astrolabe,
+    t.noCarry ? [] : carried,
+    [],
+    party ? bondsInParty(bonds, party) : bonds,
+    techniques,
+  );
+  const run: RunState = {
+    ...base,
+    ...(party ? { party: freshParty(party) } : {}),
+    map: generateEchoMap(base.seed, echo),
+    dissonance: echoLevels(t, dissonance),
+    movements: echo.legs.length,
+    echo: echo.id,
+  };
+  // Its songs judged again on its own tree and carry (as `newRun` judges them).
+  return chordsLegal(run.chords, undefined, reservePool(run), reserveMult(run))
+    ? run
+    : { ...run, chords: canonicalChords(DEFAULT_CHORDS) };
+}
+
+/** What a weekly run starts from: its week, the week's seed and the rotation's entry for it. */
+export interface WeeklyStart {
+  week: number;
+  seed: number;
+  entry: WeeklyEntry;
+}
+
+/**
+ * A new weekly run in Prep (docs/phase-6.md, "What the weekly fixes", decision 6): a level field,
+ * built from the week alone. The seed, route (the Finale-route Expedition or an Echo), Calling
+ * (every path tier open), heroes and Dissonance are the entry's; there is no Astrolabe, no carried
+ * relic and no Bond talent or alternate Solo. The player chooses Chords from every aura and
+ * ornament and any technique variant (the full allowance, whatever the profile owns). It changes
+ * no aura. On an Echo route the Echo's forced levels are on too, and its pools are an Echo's.
+ */
+export function newWeeklyRun(
+  start: WeeklyStart,
+  chords: readonly ChordLoadout[] = DEFAULT_CHORDS,
+  techniques: Partial<Techniques> = noVariants(),
+): RunState {
+  const { entry } = start;
+  const levels = fitLevels(entry.dissonance.map((l) => ({ id: l.id, rank: l.rank })));
+  const variants = fitTechniques(techniques, [], true);
+  let run =
+    entry.route === 'expedition'
+      ? newRun(start.seed, undefined, [], [], levels, [], variants, CONTENT.movements.length)
+      : newEchoRun(start.seed, entry.route, undefined, [], [], levels, [], variants);
+  // The entry's heroes (its Echo's twist or not), and its Calling with every path tier open.
+  const party = canonicalParty(entry.party);
+  if (party.join() !== partyIds(run).join()) run = { ...run, party: freshParty(party), bonds: [] };
+  if (entry.calling !== null && !echoTwists(run).noCalling && callingKnown(entry.calling))
+    run = {
+      ...run,
+      calling: { id: entry.calling, path: callingDef(entry.calling).tiers.map(() => null) },
+    };
+  // Its Chords under the full allowance, judged with its Calling's slots and pool.
+  run = setChords(run, chords, EVERYTHING);
+  return { ...run, weekly: { week: start.week } };
+}
+
+function callingKnown(id: string): boolean {
+  return CONTENT.callings.some((c) => c.id === id);
+}
+
+/**
+ * What a run's Prep and steps may use (docs/phase-6.md, ground rule 8): everything on a weekly
+ * run (its level field), the given allowance on every other run.
+ */
+export function runAllowance(
+  run: Partial<Pick<RunState, 'weekly'>>,
+  allowance: Allowance = EVERYTHING,
+): Allowance {
+  return run.weekly !== undefined ? EVERYTHING : allowance;
+}
+
+/** Is the run's party its own (a weekly's, or an Echo's that names one), not the player's pick? */
+export function partyFixed(run: Partial<Pick<RunState, 'weekly' | 'echo'>>): boolean {
+  return run.weekly !== undefined || echoTwists(run).party !== undefined;
+}
+
 // ── The roster (docs/phase-5b.md) ──────────────────────────────────────────────────────
 
 /** Every hero the content knows, in content order: `embark`'s permissive default roster. */
@@ -888,7 +1150,7 @@ export function setParty(
   heroIds: readonly string[],
   roster: readonly string[],
 ): RunState {
-  if (run.phase !== 'prep' || !legalParty(heroIds, roster)) return run;
+  if (run.phase !== 'prep' || partyFixed(run) || !legalParty(heroIds, roster)) return run;
   const ids = canonicalParty(heroIds);
   if (ids.join() === partyIds(run).join()) return run;
   const kept = bondsInParty(run.bonds, ids);
@@ -982,7 +1244,8 @@ export function recruitWordLine(heroId: string): string {
  * embark settles them.
  */
 export function setAstrolabe(run: RunState, tree: readonly string[]): RunState {
-  if (run.phase !== 'prep') return run;
+  // A weekly, or an Echo with no Astrolabe (docs/phase-6.md), plays without one.
+  if (run.phase !== 'prep' || run.weekly !== undefined || echoTwists(run).noTree) return run;
   return { ...run, astrolabe: [...tree] };
 }
 
@@ -1006,12 +1269,14 @@ function pactRelic(
   seed: number,
   carried: readonly ReliquaryRelic[],
   movements: number,
+  /** An Echo draws from the Expedition's pool whatever its length (docs/phase-6.md, decision 15). */
+  echo?: string,
 ): string | null {
   const cursed = CONTENT.relics.filter(
     (r) =>
       r.rarity === 'cursed' &&
       !carried.some((c) => c.id === r.id) &&
-      expeditionOffered(r.expedition, movements),
+      expeditionOffered(r.expedition, movements, echo),
   );
   if (cursed.length === 0) return null;
   return cursed[rngFor(seed, 'discordant_pact').int(cursed.length)]!.id;
@@ -1019,15 +1284,22 @@ function pactRelic(
 
 /**
  * The Dissonance a run in Prep will play (docs/phase-4d.md): its levels, without a Discordant
- * Pact that has nothing to give (the run carries every cursed relic), so its point doesn't count.
+ * Pact that has nothing to give (the run carries every cursed relic), so its point doesn't count,
+ * and without True Dissonance on a route with no Finale (a Prelude, or an Echo that doesn't end at
+ * the Silent Conductor: docs/phase-6.md, "Expeditions only"), keyed on the level's effect.
  */
 export function playedDissonance(
-  run: Pick<RunState, 'seed' | 'carried' | 'dissonance'> & Partial<Pick<RunState, 'movements'>>,
+  run: Pick<RunState, 'seed' | 'carried' | 'dissonance'> &
+    Partial<Pick<RunState, 'movements' | 'echo'>>,
 ): DissonanceChoice[] {
-  const levels = fitLevels(run.dissonance);
+  let levels = fitLevels(run.dissonance);
+  if (hasEffect(levels, 'true_dissonance') && !routeHasFinale(run))
+    levels = levels.filter(
+      (l) => CONTENT.dissonance.find((d) => d.id === l.id)?.effect !== 'true_dissonance',
+    );
   // A run that doesn't say its route is taken as a Prelude's (docs/phase-5g.md, ground rule 6).
   return hasEffect(levels, 'cursed_start') &&
-    pactRelic(run.seed, run.carried, run.movements ?? 1) === null
+    pactRelic(run.seed, run.carried, run.movements ?? 1, run.echo) === null
     ? levels.filter((l) => dissonanceLevel(l.id).effect !== 'cursed_start')
     : levels;
 }
@@ -1051,13 +1323,16 @@ function copyBond(b: RunBond): RunBond {
  * choices, fitted to each hero's Bond rank, until it embarks.
  */
 export function setBonds(run: RunState, bonds: readonly RunBond[]): RunState {
-  if (run.phase !== 'prep') return run;
+  // A weekly plays with no Bond talent or alternate Solo (docs/phase-6.md, decision 6).
+  if (run.phase !== 'prep' || run.weekly !== undefined) return run;
   const next = bonds.map(copyBond);
   return JSON.stringify(next) === JSON.stringify(run.bonds) ? run : { ...run, bonds: next };
 }
 
 /** Prep: the Calling's path tiers the run may offer, from its mastery (docs/phase-4g.md). */
 export function setCallingTiers(run: RunState, tiers: number): RunState {
+  // A weekly's Calling has every path tier open (docs/phase-6.md).
+  if (run.weekly !== undefined) return run;
   if (run.phase !== 'prep' || !run.calling || run.calling.tiersOpen === tiers) return run;
   return { ...run, calling: { ...run.calling, tiersOpen: tiers } };
 }
@@ -1090,8 +1365,10 @@ export function endScene(run: RunState): RunState {
 
 /** Prep: the Dissonance to play at (docs/phase-4d.md); the run follows the profile's choice. */
 export function setDissonance(run: RunState, levels: readonly DissonanceChoice[]): RunState {
-  if (run.phase !== 'prep') return run;
-  const dissonance = fitLevels(levels);
+  // A weekly's Dissonance is the week's; an Echo keeps its forced levels (docs/phase-6.md).
+  if (run.phase !== 'prep' || run.weekly !== undefined) return run;
+  const dissonance =
+    run.echo !== undefined ? echoLevels(echoTwists(run), levels) : fitLevels(levels);
   return JSON.stringify(dissonance) === JSON.stringify(run.dissonance)
     ? run
     : { ...run, dissonance };
@@ -1102,7 +1379,8 @@ export function setDissonance(run: RunState, levels: readonly DissonanceChoice[]
  * Songs only the old relics made light enough stay, as for the tree: embark settles them.
  */
 export function setCarried(run: RunState, carried: readonly ReliquaryRelic[]): RunState {
-  if (run.phase !== 'prep') return run;
+  // A weekly, or an Echo with no carried relics (docs/phase-6.md), carries none.
+  if (run.phase !== 'prep' || run.weekly !== undefined || echoTwists(run).noCarry) return run;
   const kept = carried.map(snapshotRelic);
   return { ...run, carried: kept, relics: carriedOwned(kept) };
 }
@@ -1113,8 +1391,10 @@ export function setCalling(
   id: string | null,
   allowance: Allowance = EVERYTHING,
 ): RunState {
-  if (run.phase !== 'prep') return run;
+  // A weekly's Calling is the week's; an Echo with no Calling has none (docs/phase-6.md).
+  if (run.phase !== 'prep' || run.weekly !== undefined) return run;
   if (id === null) return run.calling === null ? run : { ...run, calling: null };
+  if (echoTwists(run).noCalling) return run;
   if (!allowance.callings.has(id) || !CONTENT.callings.some((c) => c.id === id)) return run;
   return { ...run, calling: { id, path: callingDef(id).tiers.map(() => null) } };
 }
@@ -1159,18 +1439,33 @@ export function embark(
   roster: readonly string[] = allHeroIds(),
 ): RunState {
   if (run.phase !== 'prep') return run;
+  // An Echo's twists and a weekly's level field (docs/phase-6.md) hold whatever the profile says.
+  const twists = echoTwists(run);
+  const weekly = run.weekly !== undefined;
+  allowance = runAllowance(run, allowance);
   const owned = new Set(roster);
-  if (!run.party.every((h) => owned.has(h.heroId))) {
+  if (!partyFixed(run) && !run.party.every((h) => owned.has(h.heroId))) {
     const ids = [...CONTENT.defaultParty];
     run = { ...run, party: freshParty(ids), bonds: bondsInParty(run.bonds, ids) };
   }
-  const calling = run.calling && allowance.callings.has(run.calling.id) ? run.calling : null;
-  const astrolabe = pruneTree(run.astrolabe, points);
-  const carried = run.carried.slice(0, Math.max(0, carry));
-  const dissonance = dissonanceOpen ? playedDissonance({ ...run, carried }) : [];
+  const calling = twists.noCalling
+    ? null
+    : run.calling && (weekly || allowance.callings.has(run.calling.id))
+      ? run.calling
+      : null;
+  const astrolabe = weekly || twists.noTree ? [] : pruneTree(run.astrolabe, points);
+  const carried = weekly || twists.noCarry ? [] : run.carried.slice(0, Math.max(0, carry));
+  if (weekly && run.bonds.length > 0) run = { ...run, bonds: [] };
+  // Closed Dissonance plays only what an Echo forces (none on any other run).
+  const dissonance =
+    dissonanceOpen || weekly
+      ? playedDissonance({ ...run, carried })
+      : run.dissonance.some((l) => l.forced)
+        ? playedDissonance({ ...run, carried }).filter((l) => l.forced)
+        : [];
   // Discordant Pact (Dissonance): a random cursed relic from the start, one it doesn't carry.
   const pact = hasEffect(dissonance, 'cursed_start')
-    ? pactRelic(run.seed, carried, run.movements)
+    ? pactRelic(run.seed, carried, run.movements, run.echo)
     : null;
   const relics = [
     ...carriedOwned(carried),
@@ -1295,16 +1590,30 @@ export function combatConfig(run: RunState, assists?: SimConfig['assists']): Sim
     astrolabe: [...run.astrolabe],
     // The Reliquary's carried relics: their Inscriptions, Dissonance and curses.
     passives: carriedPassives(run),
-    // Dissonance (docs/phase-4d.md): the levels it plays at.
-    dissonance: run.dissonance.map((l) => ({ ...l })),
+    // Dissonance (docs/phase-4d.md): the levels it plays at. An Echo's forced levels play too, as
+    // plain levels: `forced` is the run's to know, never the fight's (docs/phase-6.md).
+    dissonance: run.dissonance.map((l) => ({ id: l.id, rank: l.rank })),
     // Bonds (docs/phase-4e.md): its heroes' talents and Solos.
     bonds: bondsConfig(run.bonds),
     techniques: variantsConfig(run.techniques),
     // The node's own Threat: maps saved before Threat existed keep ×1. A Rank-gated recruiting
     // fight (docs/phase-5e.md) takes its row's, as any other fight there does.
     threat: rankedEventFight(run) ? rowThreat(run, node) : node.reward.threat,
+    // An Echo leg's scale (docs/phase-6.md): only on that leg's fights, and only when it names one.
+    ...echoScale(run, node),
     ...(assists ? { assists } : {}),
   };
+}
+
+/**
+ * The enemy scale an Echo leg sets on its fights (`SimConfig.movement`, docs/phase-6.md): the
+ * named Movement's `scale`. Nothing on any other run, or on a leg without `scale`: each encounter
+ * then takes its own Movement's.
+ */
+function echoScale(run: RunState, node: MapNode): Pick<SimConfig, 'movement'> {
+  if (run.echo === undefined) return {};
+  const scale = echoLegOf(runRoute(run)[node.movement - 1])?.route.scale;
+  return scale ? { movement: { life: scale.life, damage: scale.damage } } : {};
 }
 
 /**
@@ -1323,10 +1632,13 @@ function rankedEventFight(run: RunState): boolean {
  * The Threat any fight on `node`'s row takes: what `rewardFor` gives a fighting node there (the
  * row within its Movement, or the full Movement's row on the Finale route's road).
  */
-export function rowThreat(run: Pick<RunState, 'map' | 'movements'>, node: MapNode): number {
+export function rowThreat(
+  run: Pick<RunState, 'map' | 'movements'> & Partial<Pick<RunState, 'echo'>>,
+  node: MapNode,
+): number {
   const first = run.map.rows.findIndex((r) => r.some((n) => (n.movement ?? 1) === node.movement));
   const row = node.row - Math.max(0, first);
-  const def = routeDefs(run.movements)[node.movement - 1];
+  const def = runRoute(run)[node.movement - 1];
   const road = def ? roadOf(def) : undefined;
   return threatFor(road?.threat[row] ?? row);
 }
@@ -1338,7 +1650,7 @@ export function rowThreat(run: Pick<RunState, 'map' | 'movements'>, node: MapNod
  * nothing, so its node's own is ×1). No allowance: the node's own, as before.
  */
 export function nodeThreat(
-  run: Pick<RunState, 'map' | 'movements'>,
+  run: Pick<RunState, 'map' | 'movements'> & Partial<Pick<RunState, 'echo'>>,
   node: MapNode,
   allowance?: Pick<Allowance, 'recruits'>,
 ): number {
@@ -1356,7 +1668,13 @@ export function finishCombat(run: RunState, outcome: CombatOutcome): RunState {
   if (run.phase !== 'combat' || !run.pending) return run;
   const node = findNode(run, run.pending);
   if (!node) return run;
-  const summary = summarize(node, outcome, run.calling, run.dissonance);
+  const summary = summarize(
+    node,
+    outcome,
+    run.calling,
+    run.dissonance,
+    run.echo !== undefined ? movementRewards(contentMovementOf(run, node.movement)) : undefined,
+  );
   // Dissonance (docs/phase-4d.md): its points raise the Weaver XP.
   const result = {
     ...summary,
@@ -1476,13 +1794,13 @@ function relicThenRewards(run: RunState, node: MapNode): RunState {
   // Elites, a mini-boss, a boss that isn't the end and an event's fight offer a relic first.
   const offer =
     node.kind === 'event'
-      ? makeRelicOffer(run, 'event', run.event?.relics ?? 0, nodeOfferMovement(node))
+      ? makeRelicOffer(run, 'event', run.event?.relics ?? 0, offerAt(run, node))
       : node.reward.relics > 0
         ? makeRelicOffer(
             run,
             bossLike(node) ? 'boss' : 'elite',
             node.reward.relics,
-            nodeOfferMovement(node),
+            offerAt(run, node),
           )
         : null;
   if (offer) {
@@ -1660,10 +1978,22 @@ export function nodeOfferMovement(node: MapNode): number {
   return node.movement + (node.kind === 'boss' && !isFinalNode(node) ? 1 : 0);
 }
 
+/**
+ * The Movement a node's offers come from in this run: `nodeOfferMovement`, except on an Echo
+ * (docs/phase-6.md, decision 15), whose Movement-gated entries follow the content Movement each
+ * leg is built over (at a boss with a leg after it, the later of the two legs' Movements).
+ */
+function offerAt(run: RunState, node: MapNode): number {
+  if (run.echo === undefined) return nodeOfferMovement(node);
+  const here = contentMovementOf(run, node.movement);
+  if (node.kind !== 'boss' || isFinalNode(node)) return here;
+  return Math.max(here, contentMovementOf(run, node.movement + 1));
+}
+
 /** The Movement of the offers made where the party stands (Movement I before the first step). */
 export function offerMovement(run: RunState): number {
   const here = run.path.length > 0 ? findNode(run, run.path[run.path.length - 1]!) : undefined;
-  return here ? nodeOfferMovement(here) : 1;
+  return here ? offerAt(run, here) : 1;
 }
 
 /**
@@ -1678,10 +2008,11 @@ function offered(gate: number | undefined, movement: number): boolean {
 /**
  * Is an Expedition-only relic or motif (docs/phase-5g.md, decision 4) on offer: never on a
  * Prelude (`movements` 1). Beside the Movement gate, inside the pools, before any roll, so a
- * Prelude draws from exactly the pools it always did. Absent: offered everywhere.
+ * Prelude draws from exactly the pools it always did. Absent: offered everywhere. An Echo
+ * (`echo`) is an Expedition for this gate, however many legs it has (docs/phase-6.md, decision 15).
  */
-function expeditionOffered(gate: true | undefined, movements: number): boolean {
-  return gate === undefined || movements !== 1;
+function expeditionOffered(gate: true | undefined, movements: number, echo?: string): boolean {
+  return gate === undefined || movements !== 1 || echo !== undefined;
 }
 
 /** Relics of a rarity the run doesn't carry and isn't already being offered. */
@@ -1698,7 +2029,7 @@ function relicPool(
         !hasRelic(run, r.id) &&
         !taken.includes(r.id) &&
         offered(r.movement, movement) &&
-        expeditionOffered(r.expedition, run.movements),
+        expeditionOffered(r.expedition, run.movements, run.echo),
     )
     .map((r) => r.id);
 }
@@ -1738,7 +2069,7 @@ function makeRelicOffer(
 /** A merchant's stock for `node` (exported for the draft and shop snapshot, docs/phase-5b.md). */
 export function makeShop(run: RunState, node: MapNode): ShopItem[] {
   const rng = rngFor(run.seed, `shop:${node.id}`);
-  const movement = nodeOfferMovement(node);
+  const movement = offerAt(run, node);
   const item = (kind: ShopItem['kind'], id: string, price: number): ShopItem => ({
     kind,
     id,
@@ -1890,6 +2221,8 @@ export function eventChoiceProblem(
   allowance?: Pick<Allowance, 'recruits'>,
 ): string | null {
   if (!run.event) return 'No event.';
+  // A weekly's steps read the full allowance (docs/phase-6.md, ground rule 8).
+  if (run.weekly !== undefined) allowance = EVERYTHING;
   const ch = runEventDef(run.event.eventId).choices.find((c) => c.id === choiceId);
   if (!ch) return 'No such choice.';
   if (ch.rank !== undefined) {
@@ -2071,7 +2404,7 @@ function eligible(run: RunState, def: MotifDef, movement: number): DraftOption |
     return null;
   if (def.requires.hero && !run.party.some((h) => h.heroId === def.requires.hero)) return null;
   if (!offered(def.requires.movement, movement)) return null;
-  if (!expeditionOffered(def.requires.expedition, run.movements)) return null;
+  if (!expeditionOffered(def.requires.expedition, run.movements, run.echo)) return null;
   const owned = run.motifs.find((m) => m.id === def.id);
   if (owned) {
     if (owned.level >= def.values.length) return null;
@@ -2145,9 +2478,14 @@ export function summarize(
   calling: RunState['calling'] = null,
   /** The run's Dissonance: its extra enemy life lengthens the par (docs/phase-4d.md). */
   dissonance: readonly DissonanceChoice[] = [],
+  /**
+   * What the fight's Movement pays (XP, Starlight, Aether); absent: the node's Movement's. An Echo
+   * leg pays its content Movement's (docs/phase-6.md).
+   */
+  rewards?: AnyMovementDef['rewards'],
 ): EncounterResult {
   const def = encounterDef(outcome.encounterId);
-  const par = Math.round(def.par * parMult(dissonance, def.kind));
+  const par = Math.round(def.par * parMult(dissonance, def.kind, def.id));
   const l = outcome.ledger;
   const stats: EncounterStats = {
     healing: Math.round(l.healing),
@@ -2278,7 +2616,7 @@ export function summarize(
   const wonRun = outcome.outcome === 'victory' && isFinalNode(node);
   // Its Movement's rewards (Movement II: ×1.25 XP, Starlight and Aether).
   const movement = node.movement ?? 1;
-  const pays = movementRewards(movement);
+  const pays = rewards ?? movementRewards(movement);
   const xp = Math.round(
     xpForFight(
       { kind: def.kind, outcome: outcome.outcome, grade: fightGrade, name: def.name },

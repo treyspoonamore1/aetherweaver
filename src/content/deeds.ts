@@ -234,7 +234,134 @@ export const FINALE_DEEDS: DeedDef[] = [
 ];
 
 /**
- * Phase 6's Deeds (docs/phase-6.md, "Design: Deeds"): fourteen badges, appended last of all in
- * `CONTENT.deeds`, so every earlier Deed keeps its place. Empty until Phase 6's W2 writes them.
+ * Phase 6's Deeds (docs/phase-6.md, "Design: Deeds"): fourteen badges (decision 11: no Astrolabe
+ * point; each pays a badge's Starlight), appended last of all in `CONTENT.deeds`, so every earlier
+ * Deed keeps its place. A run-wide one never counts on an Echo (decision 10); the Atlas's and the
+ * weekly's are judged from the profile (meta/deeds.ts `profileDeedsEarned`).
  */
-export const PHASE6_DEEDS: DeedDef[] = [];
+export const PHASE6_DEEDS: DeedDef[] = [
+  {
+    id: 'absolute_pitch',
+    name: 'Absolute Pitch',
+    points: 0,
+    test: 'runCount',
+    stat: 'perfects',
+    values: { n: 50 },
+    text: 'Make {n} Perfect Wards in one run.',
+  },
+  // Decision 17: "without Cleansing", the plan's words, read on the fights' `cleanses`.
+  {
+    id: 'silent_bell',
+    name: 'Silent Bell',
+    points: 0,
+    test: 'movementWithout',
+    movement: 3,
+    stat: 'cleanses',
+    values: {},
+    text: 'Clear Movement III without cleansing a hero.',
+  },
+  {
+    id: 'red_all_the_way',
+    name: 'Red All the Way',
+    points: 0,
+    test: 'heroCeiling',
+    hero: 'brann',
+    values: { pct: 40 },
+    text: 'Win an Expedition with {hero}, never letting him above {pct}% life once he falls to it in a fight.',
+  },
+  // The tier Deeds (decisions 1 and 12): a Finale clear at a Dissonance total, any Calling.
+  {
+    id: 'out_of_tune',
+    name: 'Out of Tune',
+    points: 0,
+    test: 'dissonance',
+    values: { points: 10 },
+    text: 'Clear the Finale at {points} Dissonance or more.',
+  },
+  {
+    id: 'wolf_interval',
+    name: 'Wolf Interval',
+    points: 0,
+    test: 'dissonance',
+    values: { points: 20 },
+    text: 'Clear the Finale at {points} Dissonance or more.',
+  },
+  {
+    id: 'tritone',
+    name: 'Tritone',
+    points: 0,
+    test: 'dissonance',
+    values: { points: 30 },
+    text: 'Clear the Finale at {points} Dissonance or more.',
+  },
+  {
+    id: 'resolution',
+    name: 'Resolution',
+    points: 0,
+    test: 'dissonance',
+    allLevels: true,
+    values: {},
+    text: 'Clear the Finale with every Dissonance level.',
+  },
+  {
+    id: 'final_bar',
+    name: 'Final Bar',
+    points: 0,
+    test: 'fight',
+    encounter: CONDUCTOR_ENCOUNTER,
+    level: 'true_dissonance',
+    values: {},
+    text: 'Beat {encounter}’s Postlude.',
+  },
+  {
+    id: 'crownbreaker',
+    name: 'Crownbreaker',
+    points: 0,
+    test: 'dissonance',
+    level: 'tyrant',
+    values: {},
+    text: 'Clear the Finale with Tyrant.',
+  },
+  // The Atlas's (docs/phase-6.md, "Design: the Atlas of Echoes").
+  {
+    id: 'faint_star',
+    name: 'Faint Star',
+    points: 0,
+    test: 'stars',
+    values: { n: 1 },
+    text: 'Light a star in the Atlas of Echoes.',
+  },
+  {
+    id: 'whole_constellation',
+    name: 'Whole Constellation',
+    points: 0,
+    test: 'constellation',
+    values: {},
+    text: 'Light every star of one constellation.',
+  },
+  {
+    id: 'atlas_walker',
+    name: 'Every Star',
+    points: 0,
+    test: 'stars',
+    values: { n: 27 },
+    text: 'Light every star in the Atlas.',
+  },
+  // This Week's Song's (docs/phase-6.md, "Design: the weekly seed").
+  {
+    id: 'same_song',
+    name: 'Same Song',
+    points: 0,
+    test: 'weeks',
+    values: { n: 1 },
+    text: 'Win This Week’s Song.',
+  },
+  {
+    id: 'every_week_a_song',
+    name: 'Every Week a Song',
+    points: 0,
+    test: 'weeks',
+    values: { n: 4 },
+    text: 'Win This Week’s Song in {n} different weeks.',
+  },
+];
