@@ -7,13 +7,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { makeBot } from '../src/bots';
-import {
-  CONTENT,
-  CONTENT_VERSION,
-  contentVersionOf,
-  DISSONANCE_EFFECTS,
-  type Content,
-} from '../src/content';
+import { CONTENT, contentVersionOf, DISSONANCE_EFFECTS, type Content } from '../src/content';
 import { CONSTELLATIONS, ECHOES } from '../src/content/echoes';
 import { PHASE6_DEEDS } from '../src/content/deeds';
 import { ContentSchema, DEED_STATS, DEED_TESTS } from '../src/content/schema';
@@ -48,20 +42,15 @@ function memoryStore(): KeyValueStore & { data: Map<string, string> } {
   };
 }
 
-/** The content version on main before Phase 6's W0 (tests/sim/golden.json as it was). */
-const PRE_W0_CONTENT = 'c-3d16ade0f5775748';
-
 describe('Phase 6 content contracts', () => {
-  it('the three new lists and PHASE6_DEEDS are registered and empty', () => {
-    expect(ECHOES).toEqual([]);
-    expect(CONSTELLATIONS).toEqual([]);
-    expect(WEEKLY_ROTATION).toEqual([]);
-    expect(PHASE6_DEEDS).toEqual([]);
-    expect(CONTENT.echoes).toEqual([]);
-    expect(CONTENT.constellations).toEqual([]);
-    expect(CONTENT.weekly).toEqual([]);
-    expect(CONTENT.deeds).toHaveLength(30);
-    expect(CONTENT.dissonance).toHaveLength(12);
+  it('the three new lists and PHASE6_DEEDS are registered, after everything that was there', () => {
+    expect(CONTENT.echoes).toEqual(ECHOES);
+    expect(CONTENT.constellations).toEqual(CONSTELLATIONS);
+    expect(CONTENT.weekly).toEqual(WEEKLY_ROTATION);
+    expect(CONTENT.deeds.slice(30)).toEqual(PHASE6_DEEDS);
+    expect(CONTENT.deeds.length).toBe(30 + PHASE6_DEEDS.length);
+    expect(CONTENT.dissonance.length).toBeGreaterThanOrEqual(12);
+    expect(CONTENT.dissonance[11]!.id).toBe('discordant_pact');
   });
 
   it('the enums are appended to, never reordered', () => {
@@ -95,18 +84,16 @@ describe('Phase 6 content contracts', () => {
     for (const d of CONTENT.deeds) expect(DEED_TESTS.indexOf(d.test)).toBeLessThan(12);
   });
 
-  it('the content version did not move: the empty lists are left out of its hash', () => {
-    expect(CONTENT_VERSION).toBe(PRE_W0_CONTENT);
-    expect(golden.contentVersion).toBe(PRE_W0_CONTENT);
+  it('an empty Phase 6 list is left out of the content hash; a filled one is hashed', () => {
     const { echoes: _e, constellations: _c, weekly: _w, ...before } = CONTENT;
-    expect(contentVersionOf(before as Content)).toBe(PRE_W0_CONTENT);
-    // A copy (as the masked replay makes) hashes the same; a filled list is hashed.
-    expect(contentVersionOf({ ...CONTENT })).toBe(PRE_W0_CONTENT);
+    const without = contentVersionOf(before as Content);
+    const emptied = { ...CONTENT, echoes: [], constellations: [], weekly: [] };
+    expect(contentVersionOf(emptied)).toBe(without);
     const filled = {
-      ...CONTENT,
+      ...emptied,
       constellations: [{ id: 'test_stars', name: 'Test', reward: 'title_flawless' }],
     };
-    expect(contentVersionOf(filled)).not.toBe(PRE_W0_CONTENT);
+    expect(contentVersionOf(filled)).not.toBe(without);
   });
 
   it('an Echo, a constellation and a weekly entry parse, and the lints catch bad ones', () => {
