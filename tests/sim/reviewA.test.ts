@@ -6,7 +6,8 @@
 import { describe, expect, it } from 'vitest';
 import { attackDef } from '../../src/content';
 import { makeBot } from '../../src/bots';
-import { createSim, type Command, type SimConfig } from '../../src/sim';
+import { createSim, type Command, type Sim, type SimConfig } from '../../src/sim';
+import { dealDamage } from '../../src/sim/combat/health';
 import type { Entity } from '../../src/sim/state';
 import type { World } from '../../src/sim/world';
 import {
@@ -228,4 +229,75 @@ describe('review A, F1: the Postlude never has more than two damaging telegraphs
       expect(r.max).toBeLessThanOrEqual(2);
     }
   }, 240_000);
+});
+
+describe('review A, F5: a Postlude pair names only voices standing', () => {
+  /** `SCENARIO_POSTLUDE` until a pair's first Cue has begun (its clocks name the first voice). */
+  function toFirstCue() {
+    const s = SCENARIO_POSTLUDE;
+    const sim = createSim({ seed: s.seed, ...s.config, debug: true });
+    const w = worldOf(sim);
+    const bot = makeBot('skilled', s.seed);
+    for (let t = 0; t < 60 * 400; t++) {
+      sim.step(bot.decide(sim.state));
+      sim.drainEvents();
+      const clocks = w.internal.m4?.postlude;
+      if (clocks?.first !== undefined && clocks.second !== undefined) return { sim, w };
+      if (w.encounter.status === 'victory' || w.encounter.status === 'defeat') break;
+    }
+    throw new Error('no pair');
+  }
+
+  function kill(w: World, id: number): void {
+    const v = w.entities.get(id)!;
+    v.health!.invulnerable = 0;
+    dealDamage(w, v, { source: w.party[0]!, sourceName: 'test', amount: 1e7, telegraph: null });
+    expect(v.health!.dead).toBe(true);
+  }
+
+  const standing = (w: World, id: number) => {
+    const e = w.entities.get(id);
+    return !!e?.health && !e.health.dead;
+  };
+
+  /** Steps until the pair's clocks end; its `postludePair` events (each checked as emitted). */
+  function playPair(sim: Sim, w: World) {
+    const pairs: number[][] = [];
+    const cued: number[] = [];
+    for (let t = 0; t < 60 * 8 && w.internal.m4?.postlude?.first !== undefined; t++) {
+      sim.step([]);
+      for (const e of sim.drainEvents()) {
+        if (e.type === 'enemyCued') cued.push(e.soloist);
+        if (e.type !== 'postludePair') continue;
+        pairs.push(e.voices);
+        for (const v of e.voices) expect(standing(w, v), `voice ${v}`).toBe(true);
+      }
+    }
+    expect(w.internal.m4?.postlude?.first).toBeUndefined();
+    return { pairs, cued };
+  }
+
+  it('the first voice dies in the gap: no pair event; the second Cue is an ordinary Cue', () => {
+    const { sim, w } = toFirstCue();
+    const clocks = w.internal.m4!.postlude!;
+    const second = clocks.second!;
+    kill(w, clocks.first!);
+    const { pairs, cued } = playPair(sim, w);
+    expect(pairs).toEqual([]);
+    expect(cued).toContain(second);
+  }, 120_000);
+
+  it('the second planned voice dies before its Cue: any pair event names only the standing', () => {
+    const { sim, w } = toFirstCue();
+    const clocks = w.internal.m4!.postlude!;
+    const first = clocks.first!;
+    const second = clocks.second!;
+    kill(w, second);
+    const { pairs } = playPair(sim, w);
+    for (const p of pairs) {
+      expect(p).not.toContain(second);
+      expect(p[0]).toBe(first);
+      expect(p.length).toBe(2);
+    }
+  }, 120_000);
 });
