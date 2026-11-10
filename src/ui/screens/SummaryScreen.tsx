@@ -1,7 +1,7 @@
 import type { RankUp } from '../../app/profileStore';
 import { useProfile } from '../../app/profileStore';
 import { useRun } from '../../app/runStore';
-import { DEFAULT_SETTINGS, useSettings } from '../../app/settings';
+import { useSettings } from '../../app/settings';
 import { auraDef, callingDef, heroDef, motifDef, optionText, ornamentDef } from '../../content';
 import { songName } from '../../sim';
 import { motifLine, runTotals } from '../../meta/run';
@@ -1195,12 +1195,10 @@ export function SummaryScreen() {
   useEffect(() => installAtlasActions(), []);
   if (!run) return null;
   const weeklyCode = replay && replay.week !== undefined ? shareCodeOf(replay) : null;
-  const a = settings.assists;
-  const d = DEFAULT_SETTINGS.assists;
-  const assisted =
-    a.autonomy !== d.autonomy ||
-    a.perfectWindowBonus !== d.perfectWindowBonus ||
-    a.telegraphLead !== d.telegraphLead;
+  // Decision 16 (docs/phase-7.md, W2): the run's own record that a fight in it used an assist
+  // (the three in Settings, game speed under 100%, Auto-Thread), written as the fights start and
+  // end, never what Settings say now.
+  const assisted = run.assisted === true;
   return (
     <SummaryView
       run={run}

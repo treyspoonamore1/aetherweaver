@@ -7,7 +7,9 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { readFileSync } from 'node:fs';
 import * as THREE from 'three';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { gameSpeed } from '../src/app/gameSpeed';
+import { assistsInUse, gameSpeed, withAssisted } from '../src/app/gameSpeed';
+import * as Run from '../src/meta/run';
+import { loadRun, saveRun, type KeyValueStore } from '../src/meta/save';
 import { DEFAULT_SETTINGS, optionsOf, useSettings, type Settings } from '../src/app/settings';
 import { createSim } from '../src/sim/api';
 import { FixedStepper } from '../src/sim/core/fixedStep';
@@ -660,3 +662,55 @@ function memoAdvance<S extends { time: number }>(state: S): S {
   (state as { time: number }).time += 1;
   return state;
 }
+
+// ── The assist badge (decision 16) ───────────────────────────────────────────────────────
+
+describe('W2: the assist badge from the run’s own record', () => {
+  it('assistsInUse: the three assists, game speed under 100%, Auto-Thread; nothing at the defaults', () => {
+    expect(assistsInUse(DEFAULT_SETTINGS)).toBe(false);
+    const a = DEFAULT_SETTINGS.assists;
+    expect(assistsInUse({ ...DEFAULT_SETTINGS, assists: { ...a, autonomy: true } })).toBe(true);
+    expect(assistsInUse({ ...DEFAULT_SETTINGS, assists: { ...a, perfectWindowBonus: 0.1 } })).toBe(
+      true,
+    );
+    expect(assistsInUse({ ...DEFAULT_SETTINGS, assists: { ...a, telegraphLead: 1.5 } })).toBe(true);
+    expect(assistsInUse({ ...DEFAULT_SETTINGS, aids: { gameSpeed: 0.9 } })).toBe(true);
+    expect(assistsInUse({ ...DEFAULT_SETTINGS, aids: { autoThread: true } })).toBe(true);
+    expect(assistsInUse({ ...DEFAULT_SETTINGS, aids: { gameSpeed: 1, autoThread: false } })).toBe(
+      false,
+    );
+  });
+
+  it('withAssisted: absent until true, then kept through the run’s steps and its save', () => {
+    const run = Run.embark(Run.newRun(7));
+    expect(withAssisted(run, DEFAULT_SETTINGS)).toBe(run);
+    expect('assisted' in run).toBe(false);
+    const marked = withAssisted(run, { ...DEFAULT_SETTINGS, aids: { gameSpeed: 0.7 } });
+    expect(marked.assisted).toBe(true);
+    expect(withAssisted(marked, DEFAULT_SETTINGS)).toBe(marked); // never unmarked
+    const node = Run.reachable(marked)[0]!;
+    const next = Run.chooseNode(marked, node.id);
+    expect(next.assisted).toBe(true);
+    const data = new Map<string, string>();
+    const store: KeyValueStore = {
+      getItem: (k) => data.get(k) ?? null,
+      setItem: (k, v) => void data.set(k, v),
+      removeItem: (k) => void data.delete(k),
+    };
+    saveRun(store, next);
+    expect(loadRun(store)?.assisted).toBe(true);
+    saveRun(store, run);
+    expect('assisted' in (loadRun(store) ?? {})).toBe(false);
+  });
+
+  it('the Summary reads run.assisted, not Settings (and the store marks the run)', () => {
+    const summary = readFileSync(
+      new URL('../src/ui/screens/SummaryScreen.tsx', import.meta.url),
+      'utf8',
+    );
+    expect(summary).toContain('const assisted = run.assisted === true;');
+    expect(summary).not.toMatch(/settings\.assists/);
+    const store = readFileSync(new URL('../src/app/runStore.ts', import.meta.url), 'utf8');
+    expect(store.match(/withAssisted\(/g)?.length).toBe(2);
+  });
+});
