@@ -345,8 +345,9 @@ describe('Ringing On: each Perfect Ward in the Crescendo lengthens it 1 s, up to
     // More than v: capped at v.
     const many = ring(level, v + 2);
     expect(many.added).toBeCloseTo(v, 9);
-    expect(fires(many.events, 'ringing_on')).toHaveLength(v + 2);
-    expect(many.w.ledger.triggers).toEqual({ ringing_on: v + 2 });
+    // A Perfect past the cap adds nothing, so it does not count as a trigger.
+    expect(fires(many.events, 'ringing_on')).toHaveLength(v);
+    expect(many.w.ledger.triggers).toEqual({ ringing_on: v });
     // Outside a Crescendo a Perfect Ward does nothing.
     const { w } = stage('ringing_on', level);
     const out = during(w, perfect(w, KAEL));
