@@ -34,6 +34,8 @@ import {
   bossPostlude,
   bossTyrant,
   mimicrySighting,
+  phase6Callouts,
+  DECREE_COLOR,
   postludeDecree,
   postludePhases,
   tyrantDecree,
@@ -645,6 +647,27 @@ describe('in the fight: Tyrant, the Postlude, Mimicry (hand-built states)', () =
     })!;
     expect(edict.text).toMatch(/Lamenter’s/);
     expect(edict.phase).toBe(2);
+    // The banner a batch of events announces: Tyrant's edict only (the Postlude's rise announces
+    // its own decree as a boss decree); nothing for any other event.
+    const banners = phase6Callouts(
+      [
+        { type: 'waveStarted' },
+        {
+          type: 'tyrantEdict',
+          tick: 1,
+          boss: boss.id,
+          phase: 2,
+          attack: 'lamenter_dirge',
+          from: 'lamenter',
+        } as never,
+        { type: 'postludeRose', tick: 1, boss: boss.id, hp: 10 } as never,
+      ],
+      w,
+    );
+    expect(banners).toEqual([
+      { kind: 'decree', text: edict.name, detail: edict.text, color: DECREE_COLOR },
+    ]);
+    expect(phase6Callouts([{ type: 'waveStarted' }], w)).toEqual([]);
   });
 
   it('the Postlude: a fourth pip, the rise, its decree while fresh, its pressure', () => {

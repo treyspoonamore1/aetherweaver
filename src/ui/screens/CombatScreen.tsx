@@ -1,3 +1,4 @@
+import { usePhase6Decrees } from '../hud/phase6Decrees';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { GameHost } from '../../app/GameHost';
 import { selectCallingId, useRun } from '../../app/runStore';
@@ -68,6 +69,8 @@ export function CombatScreen() {
   const hintsOn = useSettings((s) => s.settings.hints);
   // Movement II: a foe met for the first time gets its card (docs/phase-5a.md).
   useFirstSightings();
+  // Phase 6: Tyrant's edicts and the Postlude's rise as decree banners (none without them).
+  usePhase6Decrees(session);
 
   // "How to play": the first fight of a fresh player. The sim is paused behind it.
   const [howto, setHowto] = useState(() => fights === 0 && hintsOn && !howToSeen());
