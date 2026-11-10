@@ -10,10 +10,11 @@ import { describe, expect, it } from 'vitest';
 import { makeBot, type Bot } from '../../src/bots';
 import { EXPERT_RULES, ExpertBot, ExpertPlay, type ExpertRule } from '../../src/bots/expert';
 import { SkilledBot } from '../../src/bots/skilled';
-import { attackDef } from '../../src/content';
+import { CONTENT, attackDef } from '../../src/content';
 import { CONDUCTOR } from '../../src/content/crucibleIds';
 import {
   createSim,
+  TYRANT_TABLE,
   tyrantAttackOf,
   type Command,
   type SimConfig,
@@ -180,15 +181,22 @@ describe('each Expert rule acts in a fight staged for it, and changes it when le
     );
   }, 60_000);
 
-  it('tyrantWard: Vharun with Tyrant, a borrowed telegraph a Ward answers live', () => {
-    // The whole fight: its three phases' borrowed attacks, whichever of them a Ward answers.
-    expect(
-      [1, 2, 3].some((ph) => {
-        const entry = tyrantAttackOf('vharun_crimson_warden', ph);
-        return entry !== null && attackDef(entry.attack).answers.includes('ward');
-      }),
-    ).toBe(true);
-    actsIn('tyrantWard', VHARUN_TYRANT);
+  it('tyrantWard: the first Tyrant boss whose borrowed attack a Ward answers, that telegraph live', () => {
+    // Chosen through the sim's own table: the first boss (table order) with a damaging borrowed
+    // attack a Ward answers, in its own encounter (Movement I's, played bare). Measured on the
+    // merged fight (6 seeds a boss): the rule changed commands in 4 of 6 Bellwarden fights, 4 of 6
+    // Vharun's, 1 of 6 at the Cantor and the Conductor, none elsewhere.
+    const wards = (defId: string) =>
+      (TYRANT_TABLE[defId] ?? []).some(
+        (e) =>
+          e !== null &&
+          attackDef(e.attack).effect === 'damage' &&
+          attackDef(e.attack).answers.includes('ward'),
+      );
+    const boss = Object.keys(TYRANT_TABLE).find(wards)!;
+    const encounter = CONTENT.encounters.find((e) => e.boss === boss)!;
+    expect(encounter.movement ?? 1).toBe(1);
+    actsIn('tyrantWard', { seed: 1000, encounter: encounter.id, dissonance: level('tyrant') });
   }, 60_000);
 
   it('mimicFocus: the Shattered Choir with Mimicry, the Mimicking foe casting its mirror', () => {
