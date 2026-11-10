@@ -707,6 +707,12 @@ export interface HudSnapshot {
   rift?: RiftHud;
   /** Phase 5f: the Conductor this fight (absent on every other run). */
   conducting?: ConductingHud;
+  /**
+   * Phase 5g (docs/phase-5g.md): how often each held trigger fired this fight, by the motif's,
+   * relic's or boon's content id (the sim's `ledger.triggers`). Absent unless one is held. The
+   * HUD's trigger chips read its rises.
+   */
+  triggers?: Record<string, number>;
 }
 
 export interface PerfStats {

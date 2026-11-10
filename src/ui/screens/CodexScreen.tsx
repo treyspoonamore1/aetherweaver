@@ -29,6 +29,7 @@ import {
   lockedHeroText,
   lockedHeroes,
   heroTerms,
+  harmonyNeeds,
   needsRow,
   passiveIcon,
   passiveRow,
@@ -37,6 +38,7 @@ import {
 import { FORGE_PRICE, RELIC_OFFERS, RELIC_PRICE } from '../../meta/economy';
 import { eventFightRelics } from '../../meta/run';
 import { RELIC_RARITY, RelicGlyph, RelicRarityChip, Glyph } from '../kit/RelicGlyph';
+import { glyphKey } from '../kit/iconPaths';
 import type { RelicRarity } from '../../content';
 import { EventGlyph } from './EventScreen';
 import { boonDuration, boonInfo, choiceInfo, relicInfo } from './interlude';
@@ -1390,6 +1392,8 @@ function Motifs({ roster }: { roster: readonly string[] }) {
                   tone="solid"
                   className="p-4"
                   style={{ borderLeftColor: RARITY[m.rarity].color, borderLeftWidth: 3 }}
+                  data-testid="codex-motif"
+                  data-motif={m.id}
                 >
                   <div className="flex items-center justify-between gap-2">
                     <h3 className="font-semibold">{m.name}</h3>
@@ -1404,6 +1408,15 @@ function Motifs({ roster }: { roster: readonly string[] }) {
                     ))}
                   </ol>
                   <div className="mt-2 flex flex-wrap gap-1.5">
+                    {/* Phase 5g: a Harmony names what it needs; an Expedition-only motif says so. */}
+                    {m.requires.motifs && (
+                      <span data-testid="codex-harmony">
+                        <Chip color="var(--color-gold-200)" icon="link">
+                          Harmony · needs {harmonyNeeds(m.id).join(' + ')}
+                        </Chip>
+                      </span>
+                    )}
+                    {m.requires.expedition && <Chip icon="flag">Expeditions only</Chip>}
                     {m.requires.aura && (
                       <Chip icon="note">
                         needs {CONTENT.auras.find((a) => a.id === m.requires.aura)?.name}
@@ -1473,6 +1486,7 @@ function Relics() {
                     tone="solid"
                     className="p-4"
                     style={{ borderLeftColor: look.color, borderLeftWidth: 3 }}
+                    data-relic={r.id}
                   >
                     <div className="flex items-center gap-3">
                       <RelicGlyph icon={info.icon} rarity={info.rarity} size={44} />
@@ -1481,6 +1495,7 @@ function Relics() {
                         <div className="mt-1 flex flex-wrap gap-1.5">
                           <RelicRarityChip rarity={info.rarity} />
                           {info.runOnly && <Chip>Between fights</Chip>}
+                          {r.expedition && <Chip icon="flag">Expeditions only</Chip>}
                           {wakesLabel(r.id) && <Chip icon="moon">{wakesLabel(r.id)}</Chip>}
                         </div>
                       </div>
@@ -1536,7 +1551,7 @@ function Events({ seen, allowance }: { seen?: readonly string[]; allowance: Allo
               {items.map((ev) => (
                 <Panel key={ev.id} tone="solid" className="p-5" data-event={ev.id}>
                   <div className="flex items-center gap-3">
-                    <EventGlyph icon={ev.icon} size={46} />
+                    <EventGlyph icon={glyphKey(ev)} size={46} />
                     <div>
                       <h2 className="font-display text-xl font-bold leading-tight">{ev.name}</h2>
                       <p className="text-sm italic text-muted">{ev.teaser}</p>
@@ -1579,7 +1594,7 @@ function Events({ seen, allowance }: { seen?: readonly string[]; allowance: Allo
           {CONTENT.boons.map((b) => {
             const info = boonInfo({ id: b.id, fights: b.fights });
             return (
-              <Panel key={b.id} tone="solid" className="p-4">
+              <Panel key={b.id} tone="solid" className="p-4" data-boon={b.id}>
                 <p className="flex items-center gap-2">
                   <span
                     className="inline-flex h-9 w-9 items-center justify-center rounded-full border"
