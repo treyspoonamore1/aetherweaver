@@ -16,7 +16,7 @@
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
 import { enemyDef } from '../src/content';
-import { CONDUCTOR, ALTO, BASS, SFORZANDO } from '../src/content/crucibleIds';
+import { CONDUCTOR, ALTO, BASS, DOWNBEAT, SFORZANDO } from '../src/content/crucibleIds';
 import {
   CRUCIBLE_HEX,
   FINALE_HEX,
@@ -60,6 +60,7 @@ import type { FrameInfo } from '../src/render/types';
 import {
   TYRANT_TABLE,
   createSim,
+  tyrantAttackOf,
   type EntityId,
   type PostludeField,
   type ReadonlyEntity,
@@ -92,6 +93,13 @@ const TABLE: Record<string, [string, string][]> = Object.fromEntries(
       rows.flatMap((r) => (r ? [[r.from, r.attack] as [string, string]] : [])),
     ]),
 );
+
+/** A boss's hold for a phase, from the sim's own table: [foe, attack]. */
+function entry(boss: string, phase: number): [string, string] {
+  const e = tyrantAttackOf(boss, phase);
+  if (!e) throw new Error(`no Tyrant entry for ${boss} ${phase}`);
+  return [e.from, e.attack];
+}
 
 /** An overlay that records the badges it is asked for (and ignores the rest). */
 class FakeOverlay {
@@ -228,13 +236,13 @@ describe('Tyrant: the pure readers', () => {
     expect(tyrantOf(b)).toBeNull();
     expect(tyrantCasting(b)).toBe(false);
     expect(tyrantBosses(sim.state, [])).toEqual([]);
-    const held = hold(sim, b, 'glass_lancer', 'lancer_lance');
+    const held = hold(sim, b, ...entry('the_bellwarden', 1));
     expect(tyrantOf(b)).toEqual(held);
     expect(tyrantBosses(sim.state, [99])).toEqual([b.id]);
-    expect(isTyrantAttack(b, 'lancer_lance')).toBe(true);
+    expect(isTyrantAttack(b, entry('the_bellwarden', 1)[1])).toBe(true);
     expect(isTyrantAttack(b, 'bellwarden_toll')).toBe(false);
     worldOf(sim).entities.get(b.id)!.enemy!.cast = {
-      attackId: 'lancer_lance',
+      attackId: entry('the_bellwarden', 1)[1],
       name: 'Lance',
       telegraph: null,
       start: sim.state.time,
@@ -279,12 +287,13 @@ describe('Tyrant in the world', () => {
     h.run(2, [spawn('vharun_crimson_warden', 0, -10)]);
     tough(sim);
     const b = newest(sim, 'vharun_crimson_warden');
-    hold(sim, b, 'leech', 'leech_latch');
+    const [, latch] = entry('vharun_crimson_warden', 1);
+    hold(sim, b, ...entry('vharun_crimson_warden', 1));
     h.tick();
     expect(h.tyrant.drawn.crowns).toBe(0);
     const e = worldOf(sim).entities.get(b.id)!;
     e.enemy!.cast = {
-      attackId: 'leech_latch',
+      attackId: latch,
       name: 'Latch',
       telegraph: null,
       start: sim.state.time,
@@ -294,10 +303,10 @@ describe('Tyrant in the world', () => {
     // The sim may clear or replace the cast on its own step: hold it for the frame.
     const crowns: number[] = [];
     for (let i = 0; i < 5; i++) {
-      e.enemy!.cast = { ...e.enemy!.cast!, attackId: 'leech_latch' };
+      e.enemy!.cast = { ...e.enemy!.cast!, attackId: latch };
       sim.step([]);
       e.enemy!.cast = {
-        attackId: 'leech_latch',
+        attackId: latch,
         name: 'Latch',
         telegraph: null,
         start: sim.state.time - 0.1,
@@ -321,7 +330,7 @@ describe('Tyrant in the world', () => {
     h.run(2, [spawn('the_seamstress', 0, -10)]);
     tough(sim);
     const b = newest(sim, 'the_seamstress');
-    const held = hold(sim, b, 'shears', 'shears_dash');
+    const held = hold(sim, b, ...entry('the_seamstress', 1));
     h.tick([], [edict(sim, b.id, held)]);
     let frames = 0;
     while (h.tyrant.drawn.edicts > 0 && frames < 200) {
@@ -345,7 +354,7 @@ describe('Tyrant in the world', () => {
       h.run(2, [spawn('the_bellwarden', 0, -9)]);
       tough(sim);
       const b = newest(sim, 'the_bellwarden');
-      const held = hold(sim, b, 'glass_lancer', 'lancer_lance');
+      const held = hold(sim, b, ...entry('the_bellwarden', 1));
       const counts: number[] = [];
       counts.push(h.tick([], [edict(sim, b.id, held)], flashes).mine.sprites);
       for (let i = 0; i < 30; i++) counts.push(h.tick([], [], flashes).mine.sprites);
@@ -593,7 +602,7 @@ describe('no new draw calls', () => {
       tough(sim);
       if (on) {
         const b = newest(sim, 'the_bellwarden');
-        const held = hold(sim, b, 'glass_lancer', 'lancer_lance');
+        const held = hold(sim, b, ...entry('the_bellwarden', 1));
         postludeOn(sim, 3);
         const voices = [newest(sim, ALTO).id, newest(sim, BASS).id];
         h.tick(
@@ -669,21 +678,65 @@ describe('with the sim: Tyrant', () => {
     expect(seen.ownCasts).toBe(0);
   });
 
-  it('the Silent Conductor holds its own Sforzando: no band (nothing borrowed), the crown over it in its baton’s brass', () => {
-    const { sim, seen } = play(SCENARIO_CONDUCTOR, 24);
-    const b = sim.state.entities.get(sim.state.encounter.bossId!)!;
-    expect(b.enemy!.tyrant).toEqual(
-      expect.objectContaining({ attack: SFORZANDO, from: CONDUCTOR }),
-    );
+  it('the Silent Conductor: every Sforzando in phase 1 and Downbeat in phase 2 is its Tyrant cast, crowned in its brass, no band; nothing in the Grand Silence', () => {
+    const s = SCENARIO_CONDUCTOR;
+    const sim = createSim({ seed: s.seed, ...s.config, debug: true, dissonance: TYRANT });
+    const h = harness(sim);
+    const bot = makeBot('skilled', s.seed);
+    const setBossHp = (pct: number) => ({
+      t: 'debug' as const,
+      op: { op: 'setBossHp' as const, pct },
+    });
+    const by = { 1: { held: 0, crowns: 0, other: 0 }, 2: { held: 0, crowns: 0, other: 0 } };
+    let bands = 0;
+    let silenceFrames = 0;
+    let silenceCrowns = 0;
+    let edicts = 0;
+    const plan: [number, number | null][] = [
+      [22, null],
+      [22, 0.55],
+      [12, 0.29],
+    ];
+    for (const [seconds, pct] of plan)
+      for (let i = 0; i < seconds * 60; i++) {
+        const cmds = bot.decide(sim.state);
+        if (i === 0 && pct !== null) cmds.push(setBossHp(pct));
+        const { events } = h.tick(cmds);
+        edicts += events.filter((e) => e.type === 'tyrantEdict').length;
+        const b = sim.state.entities.get(sim.state.encounter.bossId!);
+        const phase = b?.enemy?.phase ?? 0;
+        const cast = b?.enemy?.cast?.attackId;
+        bands += h.tyrant.drawn.bands;
+        if (sim.state.field.finale?.silence) {
+          silenceFrames++;
+          silenceCrowns += h.tyrant.drawn.crowns;
+          expect(b?.enemy?.tyrant).toBeUndefined();
+        } else if (phase === 1 || phase === 2) {
+          const own = phase === 1 ? SFORZANDO : DOWNBEAT;
+          const row = by[phase];
+          if (cast === own) {
+            row.held++;
+            expect(b!.enemy!.tyrant?.attack).toBe(own);
+          } else if (cast !== undefined) row.other += h.tyrant.drawn.crowns;
+          row.crowns += h.tyrant.drawn.crowns;
+        }
+      }
+    // Its own attack: nothing borrowed, so no band, and no foe to name.
+    expect(bands).toBe(0);
     expect(isBorrowed(CONDUCTOR, CONDUCTOR)).toBe(false);
     expect(tyrantMarkHex(CONDUCTOR, CONDUCTOR)).toBe(FINALE_HEX.baton);
     expect(tyrantFoeName(CONDUCTOR, CONDUCTOR)).toBeNull();
-    expect(tyrantFoeName('glass_lancer', 'the_bellwarden')).toBe(enemyDef('glass_lancer').name);
-    expect(seen.holds).toBeGreaterThan(0);
-    expect(seen.bands).toBe(0);
-    expect(seen.edicts).toBeGreaterThanOrEqual(1);
-    expect(seen.castFrames).toBeGreaterThan(0);
-    expect(seen.crowns).toBe(seen.castFrames);
+    const [foe] = entry('the_bellwarden', 1);
+    expect(tyrantFoeName(foe, 'the_bellwarden')).toBe(enemyDef(foe).name);
+    expect(edicts).toBe(2);
+    // Each phase's held attack was cast, and the crown is on exactly those frames.
+    for (const phase of [1, 2] as const) {
+      expect(by[phase].held, `phase ${phase}`).toBeGreaterThan(0);
+      expect(by[phase].crowns, `phase ${phase}`).toBe(by[phase].held);
+      expect(by[phase].other, `phase ${phase}`).toBe(0);
+    }
+    expect(silenceFrames).toBeGreaterThan(60);
+    expect(silenceCrowns).toBe(0);
   });
 });
 

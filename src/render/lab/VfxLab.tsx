@@ -2880,30 +2880,33 @@ const TYRANT_LAB: readonly (readonly [string, string, string])[] = Object.entrie
   .filter(([boss]) => boss !== CONDUCTOR)
   .map(([boss, rows]) => [boss, rows[0]?.from ?? '', rows[0]?.attack ?? ''] as const);
 
+/** The first boss of the lab's table (the Bellwarden) and its phase 1 hold, from the sim's table. */
+const TYRANT_FIRST = TYRANT_LAB[0]!;
+
 const PHASE6_SCENARIOS: Record<string, Phase6Scenario> = {
   'Tyrant · the edict': {
-    note: 'The Bellwarden takes up the Glass Lancer’s Lance: a band in the Lancer’s accent closes in onto its body, a burst of that accent, its crown sigil flashing once; then the band stays worn for the phase',
+    note: 'The first boss of the sim’s Tyrant table takes up its phase 1 attack: a band in the borrowed foe’s accent closes in onto its body, a burst of that accent, its crown sigil flashing once; then the band stays worn for the phase',
     stage: (rt) => {
-      rt.later(0.1, () => rt.spawn('the_bellwarden', 0, -9));
+      rt.later(0.1, () => rt.spawn(TYRANT_FIRST[0], 0, -9));
       rt.later(0.5, () => {
         rt.toughen();
-        rt.labTyrant(0, 'the_bellwarden', 'glass_lancer', 'lancer_lance', true);
+        rt.labTyrant(0, ...TYRANT_FIRST, true);
       });
     },
   },
   'Tyrant · a borrowed cast': {
-    note: 'The Bellwarden casts its borrowed Lance (a 1.6 s cast, every 3 s): its crown sigil over its head, rising and brightening with the cast, in the Lancer’s accent',
+    note: 'That boss casts its borrowed attack (a 1.6 s cast, every 3 s): its crown sigil over its head, rising and brightening with the cast, in the borrowed foe’s accent',
     stage: (rt) => {
-      rt.later(0.1, () => rt.spawn('the_bellwarden', 0, -9));
+      rt.later(0.1, () => rt.spawn(TYRANT_FIRST[0], 0, -9));
       rt.later(0.5, () => {
         rt.toughen();
-        rt.labTyrant(0, 'the_bellwarden', 'glass_lancer', 'lancer_lance', false);
+        rt.labTyrant(0, ...TYRANT_FIRST, false);
       });
       for (let i = 0; i < 4; i++) rt.later(1 + i * 3, () => rt.labTyrantCast(0, 1.6));
     },
   },
   'Tyrant · every boss’s band': {
-    note: 'Each boss and mini-boss of Movements I-III wearing its phase 1 borrowed foe’s accent (the Lancer’s, the Brute’s, the Impaler’s, the Hemomancer’s, the Shears’, the Null Priest’s)',
+    note: 'Each boss and mini-boss of Movements I-III wearing its phase 1 borrowed foe’s accent, as the sim’s Tyrant table gives it',
     stage: (rt) => {
       rt.later(0.1, () =>
         TYRANT_LAB.forEach(([boss], i) => rt.spawn(boss, (i - 2.5) * 4.5, -9 - (i % 2) * 3)),
