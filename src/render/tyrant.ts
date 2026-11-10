@@ -9,9 +9,10 @@ import { flareScale } from './relicCues';
 import {
   EDICT_SECONDS,
   TYRANT_BAND,
-  tyrantAccentHex,
+  isBorrowed,
   tyrantBosses,
   tyrantCasting,
+  tyrantMarkHex,
 } from './tyrantCues';
 
 /**
@@ -53,6 +54,8 @@ interface Edict {
   /** Waiting for the boss's body to be drawn (an event before its first frame). */
   wait: number;
   hex: string;
+  /** The attack is a foe's (false: the boss holds its own, as the Silent Conductor does). */
+  borrowed: boolean;
   burst: boolean;
 }
 
@@ -80,17 +83,26 @@ export class TyrantView {
 
   constructor(private readonly d: TyrantDeps) {
     for (let i = 0; i < POOL; i++)
-      this.pool.push({ active: false, boss: -1, age: 0, wait: 0, hex: '', burst: false });
+      this.pool.push({
+        active: false,
+        boss: -1,
+        age: 0,
+        wait: 0,
+        hex: '',
+        borrowed: true,
+        burst: false,
+      });
   }
 
-  handle(events: readonly SimEvent[], _state: WorldState): void {
+  handle(events: readonly SimEvent[], state: WorldState): void {
     for (let i = 0; i < events.length; i++) {
       const e = events[i]!;
-      if (e.type === 'tyrantEdict') this.edict(e.boss, e.from);
+      if (e.type === 'tyrantEdict')
+        this.edict(e.boss, e.from, state.entities.get(e.boss)?.enemy?.defId);
     }
   }
 
-  private edict(boss: EntityId, from: string): void {
+  private edict(boss: EntityId, from: string, own: string | undefined): void {
     // One edict per boss at a time: a phase shift's restarts its moment.
     let m = this.pool.find((k) => k.active && k.boss === boss);
     m ??= this.pool.find((k) => !k.active) ?? this.pool[this.fired.edicts % POOL]!;
@@ -98,7 +110,8 @@ export class TyrantView {
     m.boss = boss;
     m.age = 0;
     m.wait = 0;
-    m.hex = tyrantAccentHex(from);
+    m.borrowed = isBorrowed(from, own);
+    m.hex = tyrantMarkHex(from, own);
     m.burst = false;
     this.fired.edicts++;
   }
@@ -114,8 +127,9 @@ export class TyrantView {
       for (const o of this.override) {
         const r = this.d.recs.get(o.boss);
         if (!r || !state.entities.get(o.boss)) continue;
-        const accent = color(tyrantAccentHex(o.hold.from));
-        this.band(r, accent, 1);
+        const own = state.entities.get(o.boss)?.enemy?.defId;
+        const accent = color(tyrantMarkHex(o.hold.from, own));
+        if (isBorrowed(o.hold.from, own)) this.band(r, accent, 1);
         if (o.cast && state.time >= o.cast.start && state.time < o.cast.end)
           this.crown(r, accent, o.cast, state.time);
       }
@@ -125,8 +139,10 @@ export class TyrantView {
         const r = this.d.recs.get(id);
         const hold = e?.enemy?.tyrant;
         if (!e || !r || !hold) continue;
-        const accent = color(tyrantAccentHex(hold.from));
-        this.band(r, accent, 1);
+        const own = e.enemy!.defId;
+        const accent = color(tyrantMarkHex(hold.from, own));
+        // A boss holding its own attack (the Silent Conductor) borrowed nothing: no band.
+        if (isBorrowed(hold.from, own)) this.band(r, accent, 1);
         if (tyrantCasting(e)) this.crown(r, accent, e.enemy!.cast!, state.time);
       }
     for (const m of this.pool) {
@@ -220,8 +236,8 @@ export class TyrantView {
     const close = easeOut(seg(t, 0, 0.6));
     const fade = 1 - seg(t, 0.75, EDICT_SECONDS);
     // The band closing in onto the body (the held band takes over as it lands).
-    if (close < 1) this.band(r, c, 0.9 * fade, (1 - close) * (r.radius * 2 + 1.2));
-    if (!m.burst && close >= 1) {
+    if (m.borrowed && close < 1) this.band(r, c, 0.9 * fade, (1 - close) * (r.radius * 2 + 1.2));
+    if (m.borrowed && !m.burst && close >= 1) {
       m.burst = true;
       kit.particles.burst(
         r.x,
