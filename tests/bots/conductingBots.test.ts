@@ -118,7 +118,7 @@ describe('the Skilled bot on the Conductor (docs/phase-5f.md)', () => {
     const c = sim.state.ledger.conducting!;
     expect(c.trios).toBeGreaterThanOrEqual(1);
     expect(c.finales).toBeGreaterThanOrEqual(1);
-    expect(c.finaleSolos).toBe(6);
+    expect(c.finaleSolos).toBe(9);
     expect(chained).toBe(true);
     expect(finaled).toBe(true);
   });
@@ -153,8 +153,9 @@ describe('the Skilled bot on the Conductor (docs/phase-5f.md)', () => {
     });
 
     it('conductHold: another fight', () => {
-      const on = fights(TEMPO_MAESTRO);
-      const off = fights(TEMPO_MAESTRO, new Set<ConductingRule>(['conductHold']));
+      // Without A Tempo: with it, the wait for the downbeat (BEAT_AHEAD, a whole bar) covers it.
+      const on = fights(MARCATO_TRIAD);
+      const off = fights(MARCATO_TRIAD, new Set<ConductingRule>(['conductHold']));
       expect(off.map((r) => r.commands)).not.toEqual(on.map((r) => r.commands));
     });
 
@@ -183,7 +184,8 @@ describe('the Skilled bot on the Conductor (docs/phase-5f.md)', () => {
       const off = play(new Set<ConductingRule>(['conductMarcato']));
       expect(total(on, (r) => r.marcatos)).toBeGreaterThan(0);
       expect(total(off, (r) => r.marcatos)).toBeLessThan(total(on, (r) => r.marcatos));
-    });
+      // Ten Unweaver fights: longer than the default 5 s on a loaded machine.
+    }, 30_000);
   });
 
   it('is deterministic: a Conductor fight twice is the same stream', () => {

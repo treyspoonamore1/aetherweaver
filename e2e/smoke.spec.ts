@@ -740,7 +740,7 @@ test('Phase 3e: the Chronomancer — choose him in Prep, Rewind in Reel’s slot
   expect(errors).toEqual([]);
 });
 
-test('Phase 5f: the Conductor — choose him in Prep, Cue 15 on the meter, two Cues within the window make a Duet', async ({
+test('Phase 5f: the Conductor — choose him in Prep, Cue cost on the meter, two Cues within the window make a Duet', async ({
   page,
 }) => {
   // The Solos take about 30 s of the fight to charge (SwiftShader runs it slower than that).
@@ -784,7 +784,7 @@ test('Phase 5f: the Conductor — choose him in Prep, Cue 15 on the meter, two C
     await expect(page.getByText('Lead them: Duets and Trios')).toBeVisible();
     await begin.click();
   }
-  // His Cue costs 15 (content's), marked on the Resonance meter; his chip is up.
+  // His Cue cost (content's), marked on the Resonance meter; his chip is up.
   await expect(page.getByTestId('cue-cost')).toHaveText(`Cue ${conductor.values.cue}`);
   await expect(page.getByTestId('calling-chip')).toBeVisible();
   // Thread Lyra and Empower her: Empower fills Resonance while the Solos charge.
