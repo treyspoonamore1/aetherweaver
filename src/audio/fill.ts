@@ -15,12 +15,33 @@
  *   once, sound once in each gate. A cue that lands on someone and has no target (nothing was in
  *   reach) is silent, as it is unseen.
  *
- * Nothing here plays on a fight without the fill: every event it answers is the fill's, and the
- * Razor's clock is read only while `mods.razorDps` is above 0.
+ * - **Concert Pitch's Ringing** (`field.ringing`, read from state each frame): a Perfect Ward
+ *   rings out as a soft handbell on the tonic, D5, with a glass D6 over it. A Perfect while it is
+ *   still ringing starts it over: a softer re-strike of the same bell, never a second full hit.
+ * - **Spare Strings** and **Water Clock** (their once-a-fight flags, `RelicFlips`; they report no
+ *   event): the moment the flag turns on in a fight the audio is following. Spare Strings: the
+ *   string caught again, a plucked fourth rising, A4 to D5, after a small knot's click. Water
+ *   Clock: time running back, glass falling D6 C6 A5, and a handbell D5 as the hero stands.
+ *
+ * These three are in their own groups (`FILL_STATE_GROUPS`), apart from the event-driven ones.
+ *
+ * Nothing here plays on a fight without the fill: every event it answers is the fill's, the
+ * Razor's clock is read only while `mods.razorDps` is above 0, the Ringing only once
+ * `field.ringing` is set, and the relic flags stay off without their relics.
  */
 import type { EntityId, SimEvent, WorldState } from '../sim';
 import { onThread } from '../sim/fill/threadContact';
-import { razorClock, razorOn, razorTicked, triggerCue, type TriggerCue } from '../render/fillCues';
+import {
+  CLOCK_FLIPPED,
+  RelicFlips,
+  SPARE_FLIPPED,
+  razorBit,
+  razorClock,
+  razorOn,
+  ringStruck,
+  triggerCue,
+  type TriggerCue,
+} from '../render/fillCues';
 import type { BusName, Engine, Voice, VoiceHandle } from './engine';
 import { bowed, fluteNote, glassNote, glassPing, handbell, horn, pluck, thump } from './synth';
 import { midiToHz, scaleMidi } from './theory';
@@ -88,6 +109,34 @@ export const FILL_NOTES: Readonly<Record<FillGroup, readonly number[]>> = {
   generic: [11],
 };
 
+/** The fill's sounds read from state, not events: each its own group, gate and cap. */
+export const FILL_STATE_GROUPS = {
+  ringing: 'fill:ringing',
+  spare: 'fill:spare',
+  clock: 'fill:clock',
+} as const;
+export type FillStateGroup = keyof typeof FILL_STATE_GROUPS;
+
+/** Each state sound's rate gate (seconds between two) and voice cap. */
+export const FILL_STATE_LIMITS: Readonly<Record<FillStateGroup, readonly [number, number]>> = {
+  // A Perfect can come hard on another: the re-strike may overlap the bell still ringing.
+  ringing: [0.25, 2],
+  // Once a fight each.
+  spare: [0.5, 1],
+  clock: [0.5, 1],
+};
+
+/** The scale degrees each state sound plays (D4 = 0). */
+export const FILL_STATE_NOTES: Readonly<Record<FillStateGroup, readonly number[]>> = {
+  ringing: [7, 14],
+  spare: [4, 7],
+  clock: [14, 13, 11, 7],
+};
+
+/** The Ringing's handbell at full, and a re-strike's share of it. */
+export const RINGING_GAIN = 0.06;
+export const RESTRIKE_SHARE = 0.4;
+
 /** The effects that land on someone: without a target, nothing was in reach and nothing sounds. */
 const LANDS: ReadonlySet<TriggerCue> = new Set([
   'barrier',
@@ -113,6 +162,7 @@ export interface FillHost {
 
 const hz = (i: number) => midiToHz(scaleMidi(i));
 const note = (g: FillGroup, k: number) => hz(FILL_NOTES[g][k] ?? 0);
+const stateNote = (g: FillStateGroup, k: number) => hz(FILL_STATE_NOTES[g][k] ?? 0);
 
 export class FillSounds {
   /** How many of each sound were asked for (tests and the lab). */
@@ -125,8 +175,16 @@ export class FillSounds {
     FillGroup,
     number
   >;
+  /** How many of each state sound were asked for, and played (tests and the lab). */
+  readonly stateAsked = { ringing: 0, restrikes: 0, spare: 0, clock: 0 };
+  readonly statePlayed = { ringing: 0, restrikes: 0, spare: 0, clock: 0 };
   /** Razor Silk's clock as last heard (its ticks are its moving on). */
   private razorLast: number | undefined = undefined;
+  /** Spare Strings' and Water Clock's flags as last read. */
+  private readonly flips = new RelicFlips();
+  /** The world the Ringing was last read on, and its end time then. */
+  private ringWorld: WorldState | null = null;
+  private ringLast: number | undefined = undefined;
 
   constructor(private readonly h: FillHost) {}
 
@@ -138,10 +196,33 @@ export class FillSounds {
   ): VoiceHandle | null {
     this.asked[group]++;
     const [gate, cap] = FILL_SOUND_LIMITS[group];
-    const key = FILL_SOUND_GROUPS[group];
-    if (gate > 0 && !this.h.e.gate(key, gate)) return null;
-    const handle = this.h.play(key, cap, 'sfx', build, pan !== 0 ? { pan } : {});
+    const handle = this.through(FILL_SOUND_GROUPS[group], gate, cap, build, pan);
     if (handle) this.played[group]++;
+    return handle;
+  }
+
+  /** A sound through `key`'s rate gate and voice cap, on the sfx bus. */
+  private through(
+    key: string,
+    gate: number,
+    cap: number,
+    build: (v: Voice, t: number) => void,
+    pan: number,
+  ): VoiceHandle | null {
+    if (gate > 0 && !this.h.e.gate(key, gate)) return null;
+    return this.h.play(key, cap, 'sfx', build, pan !== 0 ? { pan } : {});
+  }
+
+  /** One state sound through its own group's gate and cap. */
+  private playState(
+    group: FillStateGroup,
+    count: keyof FillSounds['stateAsked'],
+    build: (v: Voice, t: number) => void,
+  ): VoiceHandle | null {
+    this.stateAsked[count]++;
+    const [gate, cap] = FILL_STATE_LIMITS[group];
+    const handle = this.through(FILL_STATE_GROUPS[group], gate, cap, build, 0);
+    if (handle) this.statePlayed[count]++;
     return handle;
   }
 
@@ -165,14 +246,18 @@ export class FillSounds {
     } else if (ev.type === 'needled') this.needle(this.pan(state, ev.hero));
   }
 
-  /** Each frame: Razor Silk's tick, heard while the Thread touches an enemy. */
+  /**
+   * Each frame: the Ringing struck, Spare Strings or Water Clock acting (read from state), and
+   * Razor Silk's tick, heard while the Thread touches an enemy.
+   */
   update(state: WorldState): void {
+    this.watch(state);
     if (!((state.mods?.razorDps ?? 0) > 0)) {
       this.razorLast = undefined;
       return;
     }
     const clock = razorClock(state);
-    const ticked = razorTicked(this.razorLast, clock);
+    const ticked = razorBit(this.razorLast, clock, state.time);
     this.razorLast = clock;
     if (!ticked || !razorOn(state)) return;
     for (const e of state.entities.list()) {
@@ -182,9 +267,29 @@ export class FillSounds {
     }
   }
 
-  /** The fight is over: the Razor's clock is forgotten. */
+  /** The state sounds: the relic flags turning on, the Ringing's end time moving on. */
+  private watch(state: WorldState): void {
+    const flipped = this.flips.read(state);
+    if (flipped & SPARE_FLIPPED) this.spare();
+    if (flipped & CLOCK_FLIPPED) this.clock();
+    const until = state.field.ringing;
+    if (state !== this.ringWorld) {
+      // The first read of a fight: a ring already going (a loaded fight) is not a strike.
+      this.ringWorld = state;
+      this.ringLast = until;
+      return;
+    }
+    const strike = ringStruck(this.ringLast, until, state.time);
+    this.ringLast = until;
+    if (strike) this.ringing(strike === 'restrike');
+  }
+
+  /** The fight is over: the Razor's clock, the Ringing and the relic flags are forgotten. */
   stop(): void {
     this.razorLast = undefined;
+    this.ringWorld = null;
+    this.ringLast = undefined;
+    this.flips.reset();
   }
 
   // ── The sounds ───────────────────────────────────────────────────────────────────
@@ -207,6 +312,44 @@ export class FillSounds {
       },
       pan,
     );
+  }
+
+  /**
+   * Concert Pitch rings out: a soft handbell on the tonic, D5, a glass D6 just over it. A
+   * `restrike` (a Perfect while it still rings) is the same bell struck softer.
+   */
+  ringing(restrike = false): void {
+    const g = RINGING_GAIN * (restrike ? RESTRIKE_SHARE : 1);
+    this.playState('ringing', restrike ? 'restrikes' : 'ringing', (v, t) => {
+      // After the Perfect's own chord has struck.
+      const at = t + 0.06;
+      handbell(v, at, stateNote('ringing', 0), g, restrike ? 1.4 : 2.2, 0.45);
+      glassPing(v, at + 0.02, stateNote('ringing', 1), g * 0.35, restrike ? 0.5 : 0.9);
+    });
+  }
+
+  /** Spare Strings catches the Thread again: a small knot's click, a plucked fourth rising. */
+  spare(): void {
+    this.playState('spare', 'spare', (v, t) => {
+      v.noise({
+        start: t,
+        dur: 0.02,
+        attack: 0.001,
+        release: 0.03,
+        gain: 0.03,
+        filter: { type: 'bandpass', freq: 3200, q: 3 },
+      });
+      pluck(v, t + 0.02, stateNote('spare', 0), 0.05, 0.3, 0.7);
+      pluck(v, t + 0.1, stateNote('spare', 1), 0.055, 0.45, 0.7);
+    });
+  }
+
+  /** Water Clock turns time back: glass falling D6 C6 A5, then a handbell D5 as they stand. */
+  clock(): void {
+    this.playState('clock', 'clock', (v, t) => {
+      for (let i = 0; i < 3; i++) glassPing(v, t + 0.07 * i, stateNote('clock', i), 0.035, 0.4);
+      handbell(v, t + 0.26, stateNote('clock', 3), 0.055, 1.6, 0.4);
+    });
   }
 
   /** Thread the Needle's catch: the Thread drawn through, two glass notes climbing a fourth. */

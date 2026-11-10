@@ -49,6 +49,7 @@ import type { Entity } from '../sim/state';
 import type { World } from '../sim/world';
 import { dissonancePoints, parMult } from '../meta/dissonance';
 import { relicHuds } from './hud/relics';
+import { ringingOf } from './hud/triggers';
 import { shownAnswers, shownDecree, shownDecreeOf, type PartyLook } from './hud/legionLook';
 import { callingHud, lifeMarksOf, masteryCooldown, shineOf, stasisSeconds } from './hud/calling';
 import { conductingHud, heroConducting, type FinaleHeard } from './hud/conducting';
@@ -630,6 +631,8 @@ export function buildHudSnapshot(
     ...(conducting ? { conducting } : {}),
     // Phase 5g: the trigger system's fires this fight (absent unless a trigger is held).
     ...(l.triggers ? { triggers: { ...l.triggers } } : {}),
+    // Phase 5g: Concert Pitch's Ringing, its seconds left (absent unless it rings now).
+    ...ringingOf(state.field.ringing, state.time),
   };
 }
 

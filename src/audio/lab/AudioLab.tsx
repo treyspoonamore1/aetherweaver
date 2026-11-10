@@ -157,6 +157,11 @@ const GROUPS: {
       'Phase 5g · The content fill (Razor Silk’s bite, Thread the Needle’s catch, a trigger firing: one for each kind of effect)',
   },
   {
+    id: 'fillState',
+    title:
+      'Phase 5g · The fill, read from state (Concert Pitch’s Ringing and its re-strike, Spare Strings, Water Clock)',
+  },
+  {
     id: 'unstitched',
     title:
       'Phase 5c · The Unstitched (cuts, the Maw, the Wraith, the rune, the Mimic, the Seamstress, Doom, the Unweaver, cloth kills)',

@@ -244,8 +244,13 @@ export function HudView({
           flash={relicFlash}
           carried={carried}
         />
-        {(hud.triggers || triggerChips) && (
-          <TriggerChips triggers={hud.triggers} seconds={hud.seconds} shown={triggerChips} />
+        {(hud.triggers || triggerChips || hud.ringing) && (
+          <TriggerChips
+            triggers={hud.triggers}
+            seconds={hud.seconds}
+            shown={triggerChips}
+            ringing={hud.ringing}
+          />
         )}
         {(hud.calling || (hud.astrolabe?.keystones.length ?? 0) > 0 || hud.dissonance) && (
           <div className="flex items-center gap-2">

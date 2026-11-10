@@ -53,6 +53,11 @@ export interface SoundButton {
      */
     | 'fill'
     /**
+     * Phase 5g, read from state rather than events: Concert Pitch's Ringing (struck, and struck
+     * again while it rings), Spare Strings catching the Thread, Water Clock turning time back.
+     */
+    | 'fillState'
+    /**
      * Phase 5c: the Unstitched (cuts, the Maw, the Wraith, the rune, the Mimic, the Seamstress,
      * Doom, the Unweaver, the Retarget and Empower windups, cloth kills).
      */
@@ -4478,6 +4483,7 @@ export const SOUNDS: SoundButton[] = [
   // ── Phase 5f: the Conductor ────────────────────────────────────────────────────
   ...conductorSounds(),
   ...fillSounds(),
+  ...fillStateSounds(),
 ];
 
 /**
@@ -4687,6 +4693,48 @@ function conductorSounds(): SoundButton[] {
       length: 3,
       fire: (d) => d.playUi(s, 'conductor'),
     })),
+  ];
+}
+
+/**
+ * Phase 5g: the fill's sounds the audio reads from state (no event carries them), played as their
+ * read would play them: Concert Pitch's Ringing struck, then struck again while it still rings;
+ * Spare Strings; Water Clock.
+ */
+function fillStateSounds(): SoundButton[] {
+  return [
+    {
+      id: 'fillstate-ringing',
+      label:
+        'Concert Pitch rings out after a Perfect Ward (a soft handbell on D5, glass D6 over it)',
+      group: 'fillState',
+      length: 3,
+      fire: (d) => d.sfxEngine()?.fill.ringing(),
+    },
+    {
+      id: 'fillstate-ringing-restrike',
+      label:
+        'Concert Pitch: a second Perfect while it still rings (the bell, then a softer re-strike)',
+      group: 'fillState',
+      length: 3.5,
+      fire: (d) => d.sfxEngine()?.fill.ringing(),
+      then: [{ delay: 1.2, fire: (d) => d.sfxEngine()?.fill.ringing(true) }],
+    },
+    {
+      id: 'fillstate-spare',
+      label:
+        'Spare Strings catches the Thread as it snaps at range (a knot, a plucked fourth A4 D5)',
+      group: 'fillState',
+      length: 1.5,
+      fire: (d) => d.sfxEngine()?.fill.spare(),
+    },
+    {
+      id: 'fillstate-clock',
+      label: 'Water Clock turns time back for a hero who went down (glass D6 C6 A5, a handbell D5)',
+      group: 'fillState',
+      length: 2.5,
+      fire: (d) => d.sfxEngine()?.fill.clock(),
+    },
   ];
 }
 

@@ -55,6 +55,7 @@ import type { FrameInfo } from '../types';
 import { KeepsakeLineup, type LineupPage } from './keepsakeLineup';
 import { VARIANT_SCENARIOS, VARIANT_SCENARIO_NAMES, scenarioConfig } from './variantScenarios';
 import { CONDUCT_SCENARIOS, CONDUCT_SCENARIO_NAMES } from './conductScenarios';
+import { FILL_SCENARIOS, FILL_SCENARIO_NAMES } from './fillScenarios';
 
 /**
  * VFX lab (`?lab=vfx`): a Stage + CameraRig + the real combat view over a real debug sim,
@@ -147,6 +148,12 @@ interface LabApi {
   setChrono(path: string[] | null): void;
   /** What the Chronomancer's view has played and is drawing. */
   chronoStats(): ChronoStats;
+  /** Phase 5g: the content fill's cues (src/render/fill.ts). */
+  fillScenarios(): string[];
+  /** Restarts the real sim with that scenario's motifs and relics and stages it. */
+  fillScenario(name: string): void;
+  /** What the fill's view has played and drew last frame. */
+  fillStats(): { fired: Record<string, number>; drawn: Record<string, number> };
   /** Phase 5f (docs/phase-5f.md) */
   conductScenarios(): string[];
   /** Restarts the real sim with the Conductor on that scenario's path and stages it. */
@@ -3046,6 +3053,26 @@ class LabRuntime {
     s.stage(this);
   }
 
+  /** Phase 5g: restarts with that fill scenario's motifs and relics and stages it. */
+  fillScenario(name: string): void {
+    const s = FILL_SCENARIOS[name];
+    if (!s) return;
+    callingCfg = null;
+    chordsOverride = null;
+    clearBonds();
+    astrolabeCfg = [];
+    dissonanceCfg = [];
+    encounterOverride = null;
+    motifsCfg = s.motifs ? s.motifs.map((m) => ({ ...m })) : null;
+    this.restart(s.relics ?? []);
+    s.stage(this);
+  }
+
+  fillStats(): { fired: Record<string, number>; drawn: Record<string, number> } {
+    const f = this.view.fill;
+    return { fired: { ...f.fired }, drawn: { ...f.drawn } };
+  }
+
   /** Phase 5f: restarts with the Conductor on that scenario's path and stages it. */
   conductScenario(name: string): void {
     const s = CONDUCT_SCENARIOS[name];
@@ -5578,6 +5605,9 @@ export function VfxLab() {
       chronoScenario: (name) => rt.chronoScenario(name),
       setChrono: (path) => rt.setCalling(path, null, 'chronomancer'),
       chronoStats: () => rt.chronoStats(),
+      fillScenarios: () => FILL_SCENARIO_NAMES,
+      fillScenario: (name) => rt.fillScenario(name),
+      fillStats: () => rt.fillStats(),
       conductScenarios: () => CONDUCT_SCENARIO_NAMES,
       conductScenario: (name) => rt.conductScenario(name),
       setConductor: (path) => rt.setCalling(path, null, 'conductor'),
@@ -6173,6 +6203,21 @@ export function VfxLab() {
           >
             No Finale
           </Btn>
+        </Group>
+        <Group title="Phase 5g · The fill">
+          <p className="w-full text-[10px] text-muted">
+            Each restarts the real sim with the motif or relic and stages its cue (see fillStats).
+            The trigger cues are lab stand-in events, one of each kind at once.
+          </p>
+          {FILL_SCENARIO_NAMES.map((name) => (
+            <Btn
+              key={name}
+              onClick={() => rt()?.fillScenario(name)}
+              title={FILL_SCENARIOS[name]!.note}
+            >
+              {name}
+            </Btn>
+          ))}
         </Group>
         <Group title="Phase 5f · Conductor">
           <p className="w-full text-[10px] text-muted">

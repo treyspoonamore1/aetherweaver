@@ -156,7 +156,12 @@ export class CombatView implements WorldView {
       models: this.entities,
     });
     this.groveDisc = new GroveDiscView(this.root);
-    this.fill = new FillView({ kit: this.kit, recs: this.entities.recs, thread: this.thread });
+    this.fill = new FillView({
+      kit: this.kit,
+      recs: this.entities.recs,
+      thread: this.thread,
+      overlay: this.overlay,
+    });
     this.quality = ctx.quality;
     this.setQuality(ctx.quality);
     void state;

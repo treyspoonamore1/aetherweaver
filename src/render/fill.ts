@@ -1,12 +1,24 @@
+import { CONTENT } from '../content';
 import type { EntityId, SimEvent, WorldState } from '../sim';
 import { onThread } from '../sim/fill/threadContact';
-import { razorClock, razorOn, razorTicked, triggerCue, type TriggerCue } from './fillCues';
+import {
+  CLOCK_FLIPPED,
+  RelicFlips,
+  SPARE_FLIPPED,
+  razorBit,
+  razorClock,
+  razorOn,
+  ringingLevel,
+  triggerCue,
+  type TriggerCue,
+} from './fillCues';
 import type { FxKit } from './fx/kit';
 import { PARTICLE } from './fx/particles';
 import { RING } from './fx/rings';
 import { SPRITE } from './fx/sprites';
 import { C, clamp01 } from './palette';
 import { flareScale } from './relicCues';
+import { RELIC_HEX } from './relics';
 
 /**
  * Phase 5g (docs/phase-5g.md, W9): the content fill in the world. Through the existing batches
@@ -26,10 +38,22 @@ import { flareScale } from './relicCues';
  *   target (nothing was in reach) draws nothing. The same source on the same target again within
  *   `MERGE` s plays one cue, so a fast trigger never stacks a pile of them.
  *
- * Concert Pitch's Ringing (`field.ringing`) is not drawn: the doc gives it no look.
+ * - **Concert Pitch's Ringing** (`field.ringing`, read from state every frame): while it rings,
+ *   every standing hero has three thin upright gold streaks rising up their body, again and
+ *   again, like a bell's shimmer. Drawn exactly while `field.ringing` is later than the sim's
+ *   time, fading out over its last `RINGING_FADE` s. Not an aura's look: no ring, no disc, no
+ *   pool of light, nothing at the feet or circling the head; only upright lines on the body.
+ * - **Spare Strings** and **Water Clock** (no event: their once-a-fight flags, `RelicFlips`): the
+ *   moment the flag turns on in a fight the view is watching, a relic moment and the relic's name
+ *   called out, as the Phase 3b relics do. Spare Strings: a coil of spare thread (the Weaver's
+ *   cream, as the Needle's) unwinding upward from the Weaver's hand, a glint as it catches. Water Clock: a clock face over the hero who
+ *   stood again (the `revived` of that tick; else over the Weaver), its hand running backward,
+ *   and drops of water rising back up the hero.
  *
  * Nothing here runs on a fight without the fill: its moments are allocated on the first one, the
- * Razor reads only with `mods.razorDps` above 0, and the events are the fill's own.
+ * Razor reads only with `mods.razorDps` above 0, the Ringing only with `field.ringing` set, the
+ * relic flags are two reads a frame that stay false without their relics, and the events are the
+ * fill's own.
  * Settings: its flares (the glows) scale by `flareScale(flashes)`; it never shakes the camera or
  * flashes the screen.
  */
@@ -47,11 +71,27 @@ export interface FillThread {
   nearestPoint(x: number, z: number, out: { x: number; y: number; z: number }): boolean;
 }
 
+/** The callout layer (the DOM overlay satisfies it): the relic moments name their relic. */
+export interface FillOverlay {
+  callout(
+    x: number,
+    y: number,
+    z: number,
+    text: string,
+    color: string,
+    size: number,
+    life?: number,
+    glow?: string,
+  ): void;
+}
+
 export interface FillDeps {
   kit: FxKit;
   recs: ReadonlyMap<EntityId, FillRec>;
   /** The Thread's drawn path (the Razor's glints ride it); null: the straight line between them. */
   thread: FillThread | null;
+  /** Where the relic moments call their relic's name (absent: no callout). */
+  overlay?: FillOverlay | null;
 }
 
 /** The colours a cue may wear: the game's own (`C`), each already meaning what it shows here. */
@@ -79,7 +119,7 @@ export const CUE_LOOK: Readonly<
   generic: { colour: 'gold', shape: 'small star', at: 'target' },
 };
 
-type MomentKind = TriggerCue | 'bite' | 'needle';
+type MomentKind = TriggerCue | 'bite' | 'needle' | 'spare' | 'clock';
 
 interface Moment {
   active: boolean;
@@ -114,6 +154,8 @@ const LIFE: Record<MomentKind, number> = {
   generic: 0.5,
   bite: 0.3,
   needle: 0.75,
+  spare: 0.9,
+  clock: 1.3,
 };
 
 /** Moments in flight at most (the oldest gives way). */
@@ -123,6 +165,15 @@ export const MERGE = 0.15;
 const TAU = Math.PI * 2;
 /** How long the needle takes to draw the loop round the hero (s). */
 const STITCH = 0.22;
+/** The Ringing: streaks on each hero, the time one takes to rise up the body (s). */
+const RING_STREAKS = 3;
+const RING_RISE = 1.1;
+/** Spare Strings: the coil's turns and points. */
+const COIL_TURNS = 2.5;
+const COIL_N = 24;
+/** Water Clock: how long its hand runs back (s), and the drops rising. */
+const CLOCK_BACK = 0.8;
+const CLOCK_DROPS = 4;
 
 const seg = (t: number, a: number, b: number) => clamp01((t - a) / Math.max(1e-4, b - a));
 const easeOut = (t: number) => 1 - (1 - t) * (1 - t) * (1 - t);
@@ -143,11 +194,28 @@ const zeroCues = (): Record<TriggerCue, number> => ({
 
 export class FillView {
   /** How many of each moment started (tests and the lab read these). */
-  readonly fired = { triggers: 0, merged: 0, unseen: 0, bites: 0, needles: 0 };
+  readonly fired = {
+    triggers: 0,
+    merged: 0,
+    unseen: 0,
+    bites: 0,
+    needles: 0,
+    spares: 0,
+    clocks: 0,
+  };
   /** Trigger cues started, by kind. */
   readonly firedBy = zeroCues();
   /** What was drawn last frame: Razor contacts and bites, catches, and each kind's cues. */
-  readonly drawn = { contacts: 0, bites: 0, needles: 0, ...zeroCues() };
+  readonly drawn = {
+    contacts: 0,
+    bites: 0,
+    needles: 0,
+    /** Heroes the Ringing was drawn on. */
+    ringing: 0,
+    spares: 0,
+    clocks: 0,
+    ...zeroCues(),
+  };
   /** Null until the first moment: a fight without the fill allocates nothing. */
   private pool: Moment[] | null = null;
   private cursor = 0;
@@ -155,6 +223,8 @@ export class FillView {
   private time = 0;
   /** Razor Silk's clock as last seen (its ticks are its moving on). */
   private razorLast: number | undefined = undefined;
+  /** Spare Strings' and Water Clock's flags as last read. */
+  private readonly flips = new RelicFlips();
   private readonly pa = { x: 0, y: 0, z: 0 };
 
   constructor(private readonly d: FillDeps) {}
@@ -180,6 +250,9 @@ export class FillView {
   // ── Events ─────────────────────────────────────────────────────────────────────────
 
   handle(events: readonly SimEvent[], state: WorldState): void {
+    // The game hands a frame's events over before it draws it, so a relic flag that turned on
+    // this frame is first read here, where the tick's `revived` names whom Water Clock stood up.
+    this.watch(state, events);
     for (let i = 0; i < events.length; i++) {
       const e = events[i]!;
       if (e.type === 'motifTriggered') this.trigger(e.source, e.target, state);
@@ -257,16 +330,55 @@ export class FillView {
     return m;
   }
 
+  /** Spare Strings' and Water Clock's flags: a flag turned on in this fight starts its moment. */
+  private watch(state: WorldState, events: readonly SimEvent[] | null): void {
+    const flipped = this.flips.read(state);
+    if (flipped === 0) return;
+    if (flipped & SPARE_FLIPPED) {
+      this.fired.spares++;
+      this.alloc('spare', state.weaverId, '');
+    }
+    if (flipped & CLOCK_FLIPPED) {
+      this.fired.clocks++;
+      this.alloc('clock', this.stoodUp(events) ?? state.weaverId, '');
+    }
+  }
+
+  /** The hero a tick's events went down and stood again (Water Clock's), else the last revived. */
+  private stoodUp(events: readonly SimEvent[] | null): EntityId | null {
+    if (!events) return null;
+    let last: EntityId | null = null;
+    for (let i = events.length - 1; i >= 0; i--) {
+      const e = events[i]!;
+      if (e.type !== 'revived') continue;
+      last ??= e.hero;
+      for (let j = i - 1; j >= 0; j--) {
+        const d = events[j]!;
+        if (d.type === 'allyDowned' && d.hero === e.hero && d.tick === e.tick) return e.hero;
+      }
+    }
+    return last;
+  }
+
   // ── Frame ──────────────────────────────────────────────────────────────────────────
 
   sync(state: WorldState, dt: number, time: number, flashes = 1): void {
     this.time = time;
     this.flare = flareScale(flashes);
-    if (this.pool === null && this.razorLast === undefined && !((state.mods?.razorDps ?? 0) > 0))
+    this.watch(state, null);
+    const ringing = ringingLevel(state);
+    if (
+      this.pool === null &&
+      this.razorLast === undefined &&
+      !((state.mods?.razorDps ?? 0) > 0) &&
+      ringing <= 0 &&
+      this.drawn.ringing === 0
+    )
       return;
     for (const k in this.drawn) this.drawn[k as keyof typeof this.drawn] = 0;
     if ((state.mods?.razorDps ?? 0) > 0) this.razor(state);
     else this.razorLast = undefined;
+    if (ringing > 0) this.ringing(state, ringing);
     if (!this.pool) return;
     for (const m of this.pool) {
       if (!m.active) continue;
@@ -306,7 +418,7 @@ export class FillView {
   private razor(state: WorldState): void {
     const clock = razorClock(state);
     const on = razorOn(state);
-    const bit = on && razorTicked(this.razorLast, clock);
+    const bit = on && razorBit(this.razorLast, clock, state.time);
     this.razorLast = clock;
     if (!on) return;
     const kit = this.d.kit;
@@ -328,6 +440,55 @@ export class FillView {
         m.z = p.z;
         m.fixed = true;
       }
+    }
+  }
+
+  // ── Concert Pitch's Ringing ──────────────────────────────────────────────────────────
+
+  /**
+   * Each standing hero: three thin upright gold streaks spaced round the body, each rising from
+   * the knees to over the head and fading at both ends, again and again (`RING_RISE`), as a bell's
+   * shimmer. `level` fades the whole of it out as the Ringing ends.
+   */
+  private ringing(state: WorldState, level: number): void {
+    const kit = this.d.kit;
+    for (const id of state.party) {
+      const e = state.entities.get(id);
+      const h = e?.health;
+      if (!h || h.dead || h.downed) continue;
+      const r = this.d.recs.get(id);
+      if (!r) continue;
+      for (let i = 0; i < RING_STREAKS; i++) {
+        const p = (((this.time / RING_RISE + i / RING_STREAKS + id * 0.37) % 1) + 1) % 1;
+        const a = (i * TAU) / RING_STREAKS + 0.6;
+        const rad = r.radius * 0.95;
+        const y = r.height * (0.2 + 0.95 * p);
+        const alpha = 0.6 * Math.sin(Math.PI * p) * level;
+        // A glow sprite drawn long and thin, stood upright: a streak of light, not a mote.
+        kit.sprites.push(
+          r.x + Math.cos(a) * rad,
+          y,
+          r.z + Math.sin(a) * rad,
+          0.075,
+          SPRITE.glow,
+          C.gold,
+          alpha,
+          Math.PI / 2,
+          6,
+        );
+        kit.sprites.push(
+          r.x + Math.cos(a) * rad,
+          y,
+          r.z + Math.sin(a) * rad,
+          0.035,
+          SPRITE.glow,
+          C.goldHot,
+          alpha * this.flare,
+          Math.PI / 2,
+          8,
+        );
+      }
+      this.drawn.ringing++;
     }
   }
 
@@ -363,6 +524,14 @@ export class FillView {
     }
     if (m.kind === 'needle') {
       this.needle(m, t, k);
+      return;
+    }
+    if (m.kind === 'spare') {
+      this.spare(m, t);
+      return;
+    }
+    if (m.kind === 'clock') {
+      this.clock(m, t);
       return;
     }
     const col = C[CUE_LOOK[m.kind].colour];
@@ -603,6 +772,85 @@ export class FillView {
       }
     }
     this.drawn[m.kind]++;
+  }
+
+  /** The relic's name called out once, over where its moment plays (as the Phase 3b relics). */
+  private callout(m: Moment, id: string, y: number, hex: string, glow: string): void {
+    if (m.age > 0) return;
+    const name = CONTENT.relics.find((r) => r.id === id)?.name;
+    if (name) this.d.overlay?.callout(m.x, y, m.z, name.toUpperCase(), hex, 15, 1.1, glow);
+  }
+
+  /**
+   * Spare Strings: a spare length of thread, in the Weaver's cream, uncoils upward from her hand
+   * (a tight helix drawn out and opening), and a glint where it catches.
+   */
+  private spare(m: Moment, t: number): void {
+    const kit = this.d.kit;
+    const rb = kit.ribbons;
+    const hand = 1.02;
+    this.callout(m, 'spare_strings', hand + 1.3, RELIC_HEX.silver, 'rgba(230,236,245,0.8)');
+    const out = easeOut(seg(t, 0, m.life * 0.55));
+    const fade = 1 - seg(t, m.life * 0.5, m.life);
+    const col = C.weaver;
+    if (out > 0.02 && fade > 0) {
+      rb.beginStrip();
+      for (let i = 0; i <= COIL_N; i++) {
+        const u = (i / COIL_N) * out;
+        const a = u * TAU * COIL_TURNS + t * 6;
+        const rad = 0.08 + 0.22 * u;
+        rb.point(
+          m.x + Math.cos(a) * rad,
+          hand + 0.9 * u,
+          m.z + Math.sin(a) * rad,
+          0.03,
+          col,
+          0.9 * fade,
+          i / COIL_N,
+          0.5,
+        );
+      }
+      rb.endStrip();
+    }
+    const catchAt = seg(t, m.life * 0.35, m.life * 0.6);
+    if (catchAt > 0 && catchAt < 1) {
+      const pop = Math.sin(Math.PI * catchAt);
+      kit.sprites.push(m.x, hand + 0.9, m.z, 0.35 * pop, SPRITE.star, C.white, 0.95 * pop, 0.3);
+      kit.sprites.push(m.x, hand + 0.9, m.z, 0.8, SPRITE.glow, col, 0.3 * pop * this.flare);
+    }
+    this.drawn.spares++;
+  }
+
+  /**
+   * Water Clock: a clock face over the hero who stood again, its hand running backward round the
+   * dial, and drops of water rising back up their body (time turned back for them).
+   */
+  private clock(m: Moment, t: number): void {
+    const kit = this.d.kit;
+    const y = m.h + 0.8;
+    this.callout(m, 'water_clock', y + 0.6, RELIC_HEX.glass, 'rgba(160,220,255,0.8)');
+    const fade = 1 - seg(t, m.life * 0.65, m.life);
+    const appear = seg(t, 0, 0.12);
+    // The long hand, from a full turn back to twelve.
+    const hand = TAU * (1 - easeOut(seg(t, 0.1, 0.1 + CLOCK_BACK)));
+    kit.sprites.push(m.x, y, m.z, 0.5, SPRITE.clock, C.white, 0.9 * fade * appear, 0, 1, hand);
+    kit.sprites.push(m.x, y, m.z, 0.9, SPRITE.glow, C.weaver, 0.25 * fade * this.flare);
+    for (let i = 0; i < CLOCK_DROPS; i++) {
+      const a = (i * TAU) / CLOCK_DROPS + 0.4;
+      const rise = easeOut(seg(t, 0.1 + i * 0.08, 0.6 + i * 0.08));
+      if (rise <= 0 || rise >= 1) continue;
+      kit.sprites.push(
+        m.x + Math.cos(a) * m.r * 0.7,
+        0.15 + m.h * 0.8 * rise,
+        m.z + Math.sin(a) * m.r * 0.7,
+        0.16,
+        SPRITE.drop,
+        C.weaver,
+        0.85 * Math.sin(Math.PI * rise) * fade,
+        Math.PI,
+      );
+    }
+    this.drawn.clocks++;
   }
 
   /** Thread the Needle: the loop drawn round them by a small needle, then pulled tight. */

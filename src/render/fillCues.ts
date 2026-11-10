@@ -20,6 +20,7 @@
 import { CONTENT } from '../content';
 import type { TriggerEffect } from '../content/schema';
 import type { WorldState } from '../sim';
+import { RAZOR_TICK } from '../sim/fill/silk';
 
 /** The kinds of effect a trigger can apply (content's `TriggerEffectSchema`). */
 export type TriggerKind = TriggerEffect['kind'];
@@ -143,9 +144,121 @@ export function razorClock(state: WorldState): number | undefined {
 
 /**
  * Has Razor Silk's clock moved on since `last` (the clock as last seen; undefined: none)? It moves
- * on each time its damage ticks. A clock that goes back (a new fight) is not a tick.
+ * on each time its damage ticks. A clock that goes back (a new fight) is not a tick. The views read
+ * `razorBit`, which also tells a tick from the clock being set up; this is the plain test.
  */
 export function razorTicked(last: number | undefined, now: number | undefined): boolean {
   if (now === undefined) return false;
   return last === undefined || now > last;
+}
+
+/**
+ * Rounding room on the sim's own test (s). A tick's clock was due within the step it cut in, so a
+ * view reads it as a tick unless it reads it nearly a whole tick late (a frame of ~0.5 s); the
+ * clock set up again was more than a tick behind when it moved, so it is never read as one.
+ */
+const RAZOR_SLACK = 1e-6;
+
+/**
+ * Did Razor Silk's damage tick between two reads of its clock (`last`, then `now`, read at sim
+ * time `time`)? The sim (`razorSilk`, sim/fill/silk.ts) moves its clock in three ways, and only
+ * one of them cuts: it is **created** (`now` + one tick, on the first tick the Thread is on a hero:
+ * no damage), it is **set up again** when it was left more than a tick behind (the Thread was off:
+ * no damage), and it **ticks** (the clock was due, `due + RAZOR_TICK`: the damage). So a tick is a
+ * clock that moved on from one seen before (not the first read: a created clock or a loaded
+ * fight's is no bite) that was not left behind as it moved.
+ */
+export function razorBit(last: number | undefined, now: number | undefined, time: number): boolean {
+  if (last === undefined || now === undefined || !(now > last)) return false;
+  return last + RAZOR_TICK + RAZOR_SLACK >= time;
+}
+
+// ── Concert Pitch's Ringing ───────────────────────────────────────────────────────────────
+
+/** The Ringing fades out over its last this many seconds (it is gone exactly as it ends). */
+export const RINGING_FADE = 0.6;
+
+/** Seconds of Concert Pitch's Ringing left (`field.ringing`); 0 when it isn't ringing or held. */
+export function ringingLeft(state: WorldState): number {
+  const until = state.field.ringing;
+  return until !== undefined && until > state.time ? until - state.time : 0;
+}
+
+/** How strongly the Ringing shows now (0..1): full, then fading to 0 as it ends. */
+export function ringingLevel(state: WorldState): number {
+  const left = ringingLeft(state);
+  return left <= 0 ? 0 : Math.min(1, left / RINGING_FADE);
+}
+
+/** What a new read of `field.ringing` is: a ring starting, one starting over, or nothing new. */
+export type RingStrike = 'start' | 'restrike' | null;
+
+/**
+ * Was the bell struck between two reads of `field.ringing` (`last`, then `now`, at sim time
+ * `time`)? A later end time that is still ahead is a Perfect Ward ringing out: a `start` if the
+ * last ring had ended (or there was none), a `restrike` if it was still ringing.
+ */
+export function ringStruck(
+  last: number | undefined,
+  now: number | undefined,
+  time: number,
+): RingStrike {
+  if (now === undefined || !(now > time)) return null;
+  if (last !== undefined && !(now > last)) return null;
+  return last !== undefined && last > time ? 'restrike' : 'start';
+}
+
+// ── Spare Strings and Water Clock ─────────────────────────────────────────────────────────
+
+/** The sim's once-a-fight relic flags the views read (absent on a world without the relics). */
+interface OnceInternal {
+  internal?: { waterClockUsed?: true };
+}
+
+/** Spare Strings' one forgiven snap is spent this fight (`weaver.spareUsed`). */
+export function spareSpent(state: WorldState): boolean {
+  return state.entities.get(state.weaverId)?.weaver?.spareUsed === true;
+}
+
+/** Water Clock's one turn back is spent this fight (`internal.waterClockUsed`). */
+export function clockSpent(state: WorldState): boolean {
+  return (state as unknown as OnceInternal).internal?.waterClockUsed === true;
+}
+
+/** `RelicFlips.read`'s bits: Spare Strings acted, Water Clock acted. */
+export const SPARE_FLIPPED = 1;
+export const CLOCK_FLIPPED = 2;
+
+/**
+ * Spare Strings and Water Clock report nothing when they act (no `relicTriggered`: the audio's
+ * relic table pins the relics the sim reports), so the views watch their once-a-fight flags. A
+ * flag that turns on while the view watches the same world is the relic acting; a flag already on
+ * the first time the view reads a world (a loaded fight) is not. Reads two flags a call; holds no
+ * reference but the world it last read (compared, never read through).
+ */
+export class RelicFlips {
+  private world: WorldState | null = null;
+  private spare = false;
+  private clock = false;
+
+  /** The flags that turned on since the last read of this world (bits), 0 on a world's first. */
+  read(state: WorldState): number {
+    const spare = spareSpent(state);
+    const clock = clockSpent(state);
+    const fresh = state !== this.world;
+    let out = 0;
+    if (!fresh && spare && !this.spare) out |= SPARE_FLIPPED;
+    if (!fresh && clock && !this.clock) out |= CLOCK_FLIPPED;
+    this.world = state;
+    this.spare = spare;
+    this.clock = clock;
+    return out;
+  }
+
+  /** Forget the world (the fight is over): the next read is a first read. */
+  reset(): void {
+    this.world = null;
+    this.spare = false;
+    this.clock = false;
+  }
 }
