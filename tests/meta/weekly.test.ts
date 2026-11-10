@@ -74,10 +74,10 @@ describe('the seed and the entry', () => {
     expect(weeklySeed(44 + 12)).not.toBe(weeklySeed(44));
   });
 
-  it('designs twelve entries; the registered rotation is their first three, in content', () => {
+  it('designs twelve entries; the registered rotation is all twelve, in content', () => {
     expect(WEEKLY_ROTATION_DESIGNED).toHaveLength(12);
     expect(WEEKLY_ROTATION).toEqual(WEEKLY_ROTATION_DESIGNED.slice(0, WEEKLY_ROTATION.length));
-    expect(WEEKLY_ROTATION).toHaveLength(3);
+    expect(WEEKLY_ROTATION).toHaveLength(12);
     expect(CONTENT.weekly).toEqual(WEEKLY_ROTATION);
   });
 
@@ -110,7 +110,7 @@ describe('the seed and the entry', () => {
     expect(weeklyEntry(1, short)).toBe(short[1]);
     expect(weeklyEntry(44, short)).toBe(short[44 % 3]);
     expect(weeklyEntry(44, [])).toBeNull();
-    expect(weeklyEntry(44)).toBe(CONTENT.weekly[44 % 3]);
+    expect(weeklyEntry(44)).toBe(CONTENT.weekly[44 % 12]);
   });
 
   it('says its entry', () => {
@@ -127,7 +127,8 @@ describe('the start (decision 6: a level field)', () => {
   const picks = { chords: Run.DEFAULT_CHORDS, techniques: {} };
 
   it('is built from the week alone', () => {
-    for (const week of [44, 45, 46]) {
+    // Weeks whose entries are the Finale-route Expedition's (the rotation's first three).
+    for (const week of [50, 48, 49]) {
       const entry = weeklyEntry(week)!;
       const run = weeklyStart(week, picks)!;
       expect(weeklyStart(week, picks)).toEqual(run);
@@ -164,10 +165,10 @@ describe('the start (decision 6: a level field)', () => {
     expect(odd.chords).toEqual(weeklyStart(46, picks)!.chords);
   });
 
-  it('waits for the run layer on an Echo route', () => {
+  it('builds a run on the Echo an Echo-route entry names', () => {
     const echo = WEEKLY_ROTATION_DESIGNED.find((e) => e.route !== 'expedition')!;
-    expect(weeklyPrep(3, picks, echo)).toBeNull();
-    expect(weeklyStart(3, picks, echo)).toBeNull();
+    expect(weeklyPrep(3, picks, echo)?.echo).toBe(echo.route);
+    expect(weeklyStart(3, picks, echo)?.echo).toBe(echo.route);
   });
 });
 
