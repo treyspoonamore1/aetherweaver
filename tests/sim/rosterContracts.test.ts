@@ -24,6 +24,7 @@ import {
   SAPLING_SPREAD,
   SEREN_LEASH,
 } from '../../src/content/rosterIds';
+import { FILL_IDS } from '../../src/content/fill';
 import { ROSTER_DEEDS } from '../../src/content/rosterDeeds';
 import { ContentSchema, HeroDefSchema } from '../../src/content/schema';
 import {
@@ -218,7 +219,10 @@ describe('the new content (docs/phase-5e.md)', () => {
       ['oro_names', 2],
       ['oro_last_grove', 7],
     ]);
-    expect(CONTENT.motifs.slice(-2).map((m) => [m.id, m.requires.hero, m.values])).toEqual([
+    // The last two before Phase 5g's motifs, which are appended after every existing one.
+    const preFill = CONTENT.motifs.filter((m) => !FILL_IDS.includes(m.id));
+    expect(CONTENT.motifs.slice(0, preFill.length)).toEqual(preFill);
+    expect(preFill.slice(-2).map((m) => [m.id, m.requires.hero, m.values])).toEqual([
       ['en_garde', 'seren', [8, 10, 12]],
       ['verdant_choir', 'oro', [30, 40, 50]],
     ]);
