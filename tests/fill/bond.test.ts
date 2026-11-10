@@ -427,6 +427,31 @@ describe('Bloodsong: a barrier on Brann breaks, he heals, at most once every 4 s
       expect(tally(w, id)).toBe(2);
     });
   }
+
+  it('a break at full life heals nothing and spends nothing: the next break heals at once', () => {
+    const { w, of } = staged('bloodsong', 3, { party });
+    const brann = of('brann');
+    /** A barrier on Brann broken (the event alone), with him at `share` of his life. */
+    const breakOn = (share: number) => {
+      brann.health!.hp = brann.health!.maxHp * share;
+      const mark = w.events.length;
+      w.events.push({
+        type: 'shieldBroken',
+        tick: w.tick,
+        target: brann.id,
+        shield: 'overshield',
+      } as SimEvent);
+      return ofType(triggersSince(w, mark), 'healApplied').filter(
+        (e) => e.via === 'other' && e.amount > 0,
+      );
+    };
+    // At full life there is nothing to heal.
+    expect(breakOn(1)).toEqual([]);
+    expect(tally(w, 'bloodsong')).toBe(0);
+    // Hurt, the very next break heals: the first fire spent no 4 s.
+    expect(breakOn(0.5)).toHaveLength(1);
+    expect(tally(w, 'bloodsong')).toBe(1);
+  });
 });
 
 describe('Edge of the Red: your Empower on Brann below 30% is stronger', () => {

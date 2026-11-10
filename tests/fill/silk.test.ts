@@ -409,7 +409,7 @@ describe('the Silk motifs, each at every level and without it', () => {
     }
   });
 
-  it('Spindle Turn: moving the Thread gives back {v} Spirit, at most once every 3 s', () => {
+  it('Spindle Turn: moving the Thread to another hero gives back {v} Spirit, at most once every 3 s', () => {
     for (const [level, v] of levels('spindle_turn')) {
       const s = stage('spindle_turn', level);
       const base = stage('spindle_turn', 0);
@@ -424,12 +424,23 @@ describe('the Silk motifs, each at every level and without it', () => {
         return s.ww.spirit - base.ww.spirit;
       };
       const k = level > 0 ? v : 0;
-      expect(extra(0)).toBeCloseTo(k, 9);
-      // Again at once: nothing more.
+      // The fight's first attach moves the Thread from no one: nothing.
+      expect(extra(0)).toBeCloseTo(0, 9);
+      // To another hero: v.
       expect(extra(1, 30)).toBeCloseTo(k, 9);
+      // Again at once: nothing more.
+      expect(extra(2, 30)).toBeCloseTo(k, 9);
       // Three seconds on: once more.
-      expect(extra(2, 180)).toBeCloseTo(2 * k, 9);
-      expect(s.w.ledger.triggers).toEqual(level > 0 ? { spindle_turn: 2 } : undefined);
+      expect(extra(0, 180)).toBeCloseTo(2 * k, 9);
+      // Let go, and back onto the same hero, however long after: not another hero, nothing.
+      for (const x of [s, base]) {
+        x.ww.threadSlot = null;
+        x.ww.spirit = 10;
+      }
+      expect(extra(0, 240)).toBeCloseTo(0, 9);
+      // Then to another: v.
+      expect(extra(1, 30)).toBeCloseTo(k, 9);
+      expect(s.w.ledger.triggers).toEqual(level > 0 ? { spindle_turn: 3 } : undefined);
     }
   });
 
@@ -497,8 +508,8 @@ describe('the Silk motifs, each at every level and without it', () => {
     expect(ofType(events, 'healApplied').filter((e) => e.via === 'other' && e.amount > 0)).toEqual(
       [],
     );
-    // Its clock ran (twice), but nothing it did counts.
-    expect(s.w.internal.triggers!.clocks[0]!.fired).toBe(2);
+    // Its timer came round (twice), but a fire that did nothing spends and counts nothing.
+    expect(s.w.internal.triggers!.clocks[0]!.fired).toBe(0);
     expect(s.w.ledger.triggers).toEqual({ stray_stitch: 0 });
     expect(ofType(events, 'motifTriggered')).toEqual([]);
   });

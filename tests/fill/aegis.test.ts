@@ -12,6 +12,7 @@ import type { Sim, SimConfig } from '../../src/sim';
 import { addStatus, dealDamage, shieldOf } from '../../src/sim/combat/health';
 import { aegisMotifIds, LAST_BASTION_BELOW, lastBastionMult } from '../../src/sim/fill/aegis';
 import { KNOWN_MOTIFS, NO_MODS, resolveMods } from '../../src/sim/mods';
+import { updateTriggers } from '../../src/sim/systems/triggers';
 import type { Entity } from '../../src/sim/state';
 import { resolveConfig } from '../../src/sim/world';
 import {
@@ -550,5 +551,36 @@ describe('Last Bastion: a Ward on a hero below 35% of their life is larger', () 
     expect(lastBastionMult(worldOf(s), entity(s, 0))).toBe(1);
     lifeAt(s, 0, LAST_BASTION_BELOW - 0.01);
     expect(lastBastionMult(worldOf(s), entity(s, 0))).toBeCloseTo(1.6, 12);
+  });
+});
+
+describe('Second Toll with Everbell', () => {
+  it('a Clutch Cleanse with a Chime charge in hand takes the seconds off its recharge', () => {
+    const s = sandbox({ motifs: [{ id: 'second_toll', level: 3 }], relics: ['everbell'] });
+    const w = worldOf(s);
+    const ww = w.entities.get(w.weaverId)!.weaver!;
+    expect(ww.chimeCharges).toBe(2);
+    stepFor(s, 1, [{ t: 'tech', id: 'chime', point: { x: 0, z: -3 } }]);
+    stepFor(s, 60);
+    s.drainEvents();
+    // One charge left, the other recharging; the Chime itself reads ready.
+    expect(ww.chimeCharges).toBe(1);
+    expect(ww.cooldowns.chime).toBe(0);
+    const recharge = ww.chimeRecharge!;
+    expect(recharge).toBeGreaterThan(value('second_toll', 3));
+    const mark = w.events.length;
+    w.events.push({
+      type: 'chimeLanded',
+      tick: w.tick,
+      chime: 99,
+      x: 0,
+      z: 0,
+      radius: 3,
+      cleansed: 1,
+      clutch: true,
+    });
+    updateTriggers(w, mark, 1 / 60);
+    expect(ww.chimeRecharge!).toBeCloseTo(recharge - value('second_toll', 3), 9);
+    expect(w.ledger.triggers).toEqual({ second_toll: 1 });
   });
 });
