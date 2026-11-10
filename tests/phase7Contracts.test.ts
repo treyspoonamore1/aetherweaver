@@ -480,7 +480,13 @@ describe('Phase 7 runtime call sites', () => {
       for (const e of sim.drainEvents()) {
         const before = finaleCaption(e);
         const now = captionFor(e, sim.state);
-        expect(now).toStrictEqual(before ? captionCallout(before) : null);
+        // W2 (addendum B): a Finale sound keeps its caption exactly (text, colour, kind,
+        // lifetime), now in one of the two caption turns; every other caption is W2's own.
+        if (before) {
+          const { key, ...rest } = now!.callout;
+          expect({ callout: rest, ttl: now!.ttl }).toStrictEqual(captionCallout(before));
+          expect(key).toMatch(/^caption:[ab]$/);
+        } else if (now) expect(now.callout.key).toMatch(/^caption:[ab]$/);
         if (now) captions.push(now.callout.text);
       }
     }

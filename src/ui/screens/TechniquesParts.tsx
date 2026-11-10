@@ -345,7 +345,7 @@ export function TechniqueCard({
       >
         {o.text}
       </span>
-      <span className="mt-1.5 flex flex-wrap gap-x-2 gap-y-0.5 font-mono text-[11px] text-muted">
+      <span className="mt-1.5 flex flex-wrap gap-x-2 gap-y-0.5 font-mono text-[0.75rem] text-muted">
         <Stat label={costLabel(o.cost)} changed={o.costChanged} was={base.cost} />
         <span aria-hidden>·</span>
         <Stat label={cooldownLabel(o.cooldown)} changed={o.cooldownChanged} was={base.cooldown} />

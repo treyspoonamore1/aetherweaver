@@ -217,7 +217,7 @@ function RelicTile({
           glyph
         )}
         {cooling && (
-          <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 rounded bg-ink-950/90 px-0.5 font-mono text-[10px] leading-3 text-text">
+          <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 rounded bg-ink-950/90 px-0.5 font-mono text-[0.75rem] leading-3 text-text">
             {Math.ceil(r.remaining)}
           </span>
         )}

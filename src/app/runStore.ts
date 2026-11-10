@@ -41,6 +41,7 @@ import { verifyReplay, type VerifyJob } from './verify';
 import type { WeeklyStatus } from '../meta/profile';
 import { useProfile } from './profileStore';
 import { useSettings } from './settings';
+import { withAssisted } from './gameSpeed';
 import { storage } from './storage';
 
 export interface RunStore extends RunActions {
@@ -665,8 +666,14 @@ export const useRun = create<RunStore>()((set, get) => {
     chooseNode: (id) =>
       apply((run) => Run.chooseNode(run, id), { action: 'chooseNode', args: [id] }),
     combatConfig: (): SimConfig | null => {
-      const run = get().run;
+      let run = get().run;
       if (!run) return null;
+      // Decision 16 (docs/phase-7.md, W2): a fight with an assist marks the run for the badge.
+      const marked = withAssisted(run, useSettings.getState().settings);
+      if (marked !== run) {
+        saveRun(storage(), marked);
+        set({ run: (run = marked) });
+      }
       return Run.combatConfig(run, { ...useSettings.getState().settings.assists });
     },
     finishCombat: (outcome: CombatOutcome) => get().finishFight(outcome, null),
@@ -676,10 +683,18 @@ export const useRun = create<RunStore>()((set, get) => {
       // catch-up, judged on the profile's Bonds before this award), so the Result and the Summary
       // show what each hero really earned.
       const bonds = useProfile.getState().profile.bonds;
-      apply((run) => withAwardedBondXp(Run.finishCombat(run, outcome), run, bonds), {
-        action: 'finishCombat',
-        args: [],
-      });
+      // Decision 16: an assist on as the fight ends (game speed, Auto-Thread) marks the run too.
+      const settings = useSettings.getState().settings;
+      apply(
+        (run) => {
+          const next = withAwardedBondXp(Run.finishCombat(run, outcome), run, bonds);
+          return next === run ? run : withAssisted(next, settings);
+        },
+        {
+          action: 'finishCombat',
+          args: [],
+        },
+      );
       const after = get().run;
       // The run's log (docs/phase-6.md): the fight's replay, or, without one, no replay at all.
       if (before && after && after !== before && recordingNow()) {

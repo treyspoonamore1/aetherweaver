@@ -303,6 +303,9 @@ function div(parent: HTMLElement, css: string): HTMLDivElement {
   return el;
 }
 
+/** A badge with no answer glyph (Settings → Answer glyphs off). */
+const NO_ANSWERS: readonly GlyphIcon[] = [];
+
 export class Overlay {
   readonly root: HTMLDivElement;
   width = 1;
@@ -363,6 +366,12 @@ export class Overlay {
   private lastRaidText = '';
   /** Settings: full-screen flash strength 0..1 (flash, chromatic pulse, danger pulse). */
   private flashScale = 1;
+  /** Reduced motion On (docs/phase-7.md, W2): no danger or chromatic pulse, no vignette. */
+  private still = false;
+  /** The slow-motion vignette (Settings: on, as always, unless turned off). */
+  private vignette = true;
+  /** The answer glyphs on telegraph badges (Settings: on, as always, unless turned off). */
+  private answerGlyphs = true;
   private lethalHex = '';
   private vision = '';
 
@@ -643,6 +652,21 @@ export class Overlay {
     this.raidEl.style.borderColor = lethal;
     this.raidEl.style.textShadow = `0 0 10px ${rgba(lethal, 0.9)}`;
     for (const a of this.arrows) a.color = '';
+  }
+
+  /**
+   * Settings (docs/phase-7.md, W2): Reduced motion On (`still`) stops the full-screen pulses and
+   * the slow-motion vignette; `vignette` off stops the vignette alone; `answerGlyphs` off leaves
+   * telegraph badges only for a Calling's timers. Cheap when unchanged: called every frame.
+   */
+  setComfort(still: boolean, vignette: boolean, answerGlyphs: boolean): void {
+    this.still = still;
+    this.vignette = vignette;
+    this.answerGlyphs = answerGlyphs;
+    if (still) {
+      this.dangerT = 0;
+      this.chromaT = 0;
+    }
   }
 
   /** Settings: scales every full-screen flash (0 = off … 1 = full). */
@@ -979,6 +1003,12 @@ export class Overlay {
     scale = 1,
     tone: number = BADGE_TONE.plain,
   ): void {
+    // Answer glyphs off (docs/phase-7.md, W2): a badge only for a timer, with no glyph in it.
+    if (!this.answerGlyphs) {
+      if (!label) return;
+      answers = NO_ANSWERS;
+      key = '';
+    }
     const b = this.badges[this.badgeCursor];
     if (!b) return;
     const p = this.project(x, y, z, this.p);
@@ -1229,15 +1259,15 @@ export class Overlay {
   }
 
   danger(): void {
-    if (this.flashScale > 0) this.dangerT = 1;
+    if (this.flashScale > 0 && !this.still) this.dangerT = 1;
   }
 
   chroma(): void {
-    if (this.flashScale > 0) this.chromaT = 1;
+    if (this.flashScale > 0 && !this.still) this.chromaT = 1;
   }
 
   setSlowmo(v: number): void {
-    this.slow = v;
+    this.slow = this.vignette && !this.still ? v : 0;
   }
 
   update(dt: number): void {

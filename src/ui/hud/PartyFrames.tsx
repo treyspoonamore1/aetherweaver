@@ -1144,12 +1144,12 @@ function SaplingBar({ row: r }: { row: SaplingRow }) {
         />
       </span>
       {r.felled ? (
-        <span className="shrink-0 font-mono text-[0.625rem] leading-none text-muted">
+        <span className="shrink-0 font-mono text-[0.75rem] leading-none text-muted">
           {r.respawnIn !== null ? `${Math.ceil(r.respawnIn)}s` : '—'}
         </span>
       ) : r.held ? (
         <span
-          className="shrink-0 text-[0.625rem] font-bold leading-none text-muted"
+          className="shrink-0 text-[0.75rem] font-bold leading-none text-muted"
           data-testid="sapling-held"
         >
           held
@@ -1168,7 +1168,7 @@ function SaplingBar({ row: r }: { row: SaplingRow }) {
         )
       ) : (
         <span
-          className="shrink-0 text-[0.625rem] font-bold leading-none text-threat"
+          className="shrink-0 text-[0.75rem] font-bold leading-none text-threat"
           data-testid="sapling-out"
         >
           out

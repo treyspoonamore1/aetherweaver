@@ -828,3 +828,35 @@ describe('Phase 6: the Atlas and the weekly board (docs/phase-6.md)', () => {
     });
   }
 });
+
+// ── Phase 7 W2: the high-contrast telegraph mode (docs/phase-7.md, W2) ──────────────────
+
+/**
+ * The colour the telegraph shader draws under high contrast: the palette's own role, in the linear
+ * values the shader sees (`THREE.Color`), divided by its brightest channel (full value).
+ */
+function fullValue(hex: string): string {
+  const c = new THREE.Color(hex);
+  const m = Math.max(c.r, c.g, c.b, 1e-3);
+  return `#${c.setRGB(c.r / m, c.g / m, c.b / m).getHexString()}`;
+}
+
+describe('colour vision: the high-contrast telegraphs', () => {
+  for (const vision of COLOR_VISIONS) {
+    it(`${vision}: threat and lethal at full value stay apart (ΔE ≥ 20) and keep their roles`, () => {
+      const p = visionPalette(vision);
+      const threat = fullValue(p.threat);
+      const lethal = fullValue(p.lethal);
+      const seen = (hex: string) => simulateVision(hex, vision);
+      expect(deltaE(seen(threat), seen(lethal))).toBeGreaterThanOrEqual(20);
+      // Brighter or as bright as the palette's own, never another hue's role: each stays nearer
+      // its own role than the other's.
+      expect(deltaE(seen(threat), seen(p.threat))).toBeLessThan(
+        deltaE(seen(threat), seen(p.lethal)),
+      );
+      expect(deltaE(seen(lethal), seen(p.lethal))).toBeLessThan(
+        deltaE(seen(lethal), seen(p.threat)),
+      );
+    });
+  }
+});

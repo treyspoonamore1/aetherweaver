@@ -217,7 +217,7 @@ function LevelCard({
       </button>
       {row.ranks > 1 && !row.forced && (
         <div className="mt-1.5 flex items-center justify-between gap-2 pl-[2.875rem]">
-          <span className="text-[11px] text-muted">{row.pointsLine}</span>
+          <span className="text-[0.75rem] text-muted">{row.pointsLine}</span>
           <RankStepper name={row.name} rank={row.rank} ranks={row.ranks} onRank={onRank} />
         </div>
       )}
@@ -257,7 +257,7 @@ export function DepthMark({ depth }: { depth: number }) {
   const color = depthColor(depthView(depth).cap);
   return (
     <span
-      className="absolute bottom-1 right-1.5 flex items-center gap-0.5 font-mono text-[10px] font-bold leading-none"
+      className="absolute bottom-1 right-1.5 flex items-center gap-0.5 font-mono text-[0.75rem] font-bold leading-none"
       style={{ color }}
       aria-hidden
       data-testid="depth-mark"
@@ -516,7 +516,7 @@ function TotalBar({ points, max }: { points: number; max: number }) {
           />
         ))}
       </div>
-      <div className="relative mt-0.5 h-4 font-mono text-[11px] text-muted" aria-hidden>
+      <div className="relative mt-0.5 h-4 font-mono text-[0.75rem] text-muted" aria-hidden>
         <span className="absolute left-0">0</span>
         {marks.map((m) => (
           <span

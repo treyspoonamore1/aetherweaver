@@ -43,6 +43,12 @@ const fragment = /* glsl */ `
 uniform float uTime;
 uniform vec3 uThreat;
 uniform vec3 uLethal;
+// Settings → Telegraphs (docs/phase-7.md, W2): fill opacity, outline and Perfect band widths (×),
+// high contrast (0/1). At their defaults (1, 1, 1, 0) every line below draws as before.
+uniform float uOpacity;
+uniform float uOutline;
+uniform float uBand;
+uniform float uContrast;
 varying vec2 vLocal;
 varying vec4 vShape;
 varying vec4 vState;
@@ -60,6 +66,8 @@ void main() {
   float flash = vState.w;
   float pw = vColor.a;
   vec3 col = mix(uThreat, uLethal, sev);
+  // High contrast: the palette's own threat and lethal at full value (its brightest channel 1).
+  if (uContrast > 0.5) col /= max(max(col.r, col.g), max(col.b, 1e-3));
   float d = length(p);
   float ang = abs(atan(p.y, p.x));
   float sd = 0.0;
@@ -100,7 +108,7 @@ void main() {
   }
 
   float inside = awAA(sd);
-  float rim = awAA(abs(sd) - 0.06);
+  float rim = awAA(abs(sd) - 0.06 * uOutline);
   vec3 pre = vec3(0.0);
   float a = 0.0;
   float ghost = vShape.z;
@@ -136,20 +144,22 @@ void main() {
     }
     pre = gc * a;
   } else if (kind <= 3) {
-    float area = inside * (0.13 + 0.05 * sev);
-    float fill = inside * fillMask * (0.2 + 0.25 * prog);
+    float area = inside * (0.13 + 0.05 * sev) * uOpacity;
+    float fill = inside * fillMask * (0.2 + 0.25 * prog) * uOpacity;
     float leadLine = inside * awAA(lead - 0.06) * (0.55 + 0.4 * prog);
     // Lethal is never colour alone: marching hazard hatching plus a throbbing double rim.
     float hatch = step(0.55, fract((p.x + p.y) * 0.9 - uTime * 1.6));
     float stripes = inside * sev * hatch * 0.34;
     float throb = 0.5 + 0.5 * sin(uTime * 9.0);
-    float rim2 = awAA(abs(sd - 0.22) - 0.035) * sev * (0.35 + 0.65 * throb);
+    float rim2 = awAA(abs(sd - 0.22) - 0.035 * uOutline) * sev * (0.35 + 0.65 * throb);
     float rimA = rim * (0.7 + 0.3 * prog) * (1.0 + 0.35 * sev * throb) + rim2;
     float pulse = 0.75 + 0.25 * sin(uTime * 22.0);
-    float prim = awAA(abs(sd + 0.02) - (0.09 + 0.1 * pw)) * perfect * pulse;
+    float prim = awAA(abs(sd + 0.02) - (0.09 + 0.1 * pw) * uBand) * perfect * pulse;
     float fl = inside * flash * 0.6;
     pre = col * (area + fill + stripes + rimA) + mix(col, vec3(1.0), 0.45) * leadLine + PERFECT * (prim + fl);
     a = area + fill + stripes + rimA + leadLine + prim + fl;
+    // High contrast: a dark outline just outside the rim (it adds darkness, never colour).
+    if (uContrast > 0.5) a += awAA(abs(sd - 0.12 * uOutline) - 0.05 * uOutline) * 0.85;
   } else if (kind == 4) {
     // Enemy cast circle in the caster's accent: runic double ring + progress arc. Not a threat.
     vec3 cc = vColor.rgb;
@@ -167,12 +177,13 @@ void main() {
     float r = vShape.x;
     float a2 = mod(atan(p.x, -p.y) + 6.2831853, 6.2831853);
     float remain = step(a2, (1.0 - prog) * 6.2831853);
-    float ring = awAA(abs(d - r) - 0.11);
+    float ring = awAA(abs(d - r) - 0.11 * uOutline);
     float thin = awAA(abs(d - r) - 0.03);
     float glowR = exp(-abs(d - r) * 8.0) * 0.35;
     float hurry = 0.7 + 0.3 * sin(uTime * (6.0 + prog * 18.0));
     a = ring * remain * hurry + thin * 0.35 + glowR * remain + perfect * awAA(abs(d - r * 1.25) - 0.04);
     pre = col * (ring * remain * hurry + thin * 0.35 + glowR * remain) + PERFECT * perfect * awAA(abs(d - r * 1.25) - 0.04);
+    if (uContrast > 0.5) a += awAA(abs(d - r - 0.17 * uOutline) - 0.05 * uOutline) * 0.85;
   } else {
     // Target ring on the ground under a marked hero (dashed, rotating).
     float r = vShape.x;
@@ -205,6 +216,10 @@ export class TelegraphBatch extends InstancedFx {
     uTime: { value: number };
     uThreat: { value: THREE.Color };
     uLethal: { value: THREE.Color };
+    uOpacity: { value: number };
+    uOutline: { value: number };
+    uBand: { value: number };
+    uContrast: { value: number };
   };
 
   constructor(
@@ -218,6 +233,10 @@ export class TelegraphBatch extends InstancedFx {
       uTime: time.uTime,
       uThreat: { value: C.threat },
       uLethal: { value: C.lethal },
+      uOpacity: { value: 1 },
+      uOutline: { value: 1 },
+      uBand: { value: 1 },
+      uContrast: { value: 0 },
     };
     super(
       groundQuad(),
@@ -239,6 +258,18 @@ export class TelegraphBatch extends InstancedFx {
     this.shp = this.array('iShape');
     this.sta = this.array('iState');
     this.col = this.array('iColor');
+  }
+
+  /**
+   * Settings → Telegraphs (docs/phase-7.md, W2): fill opacity (0.6-1), outline and Perfect band
+   * widths (×1-2), high contrast. Uniform writes only: cheap every frame, no allocation.
+   */
+  setLook(opacity: number, outline: number, perfectBand: number, highContrast: boolean): void {
+    const u = this.uniforms;
+    u.uOpacity.value = opacity;
+    u.uOutline.value = outline;
+    u.uBand.value = perfectBand;
+    u.uContrast.value = highContrast ? 1 : 0;
   }
 
   push(

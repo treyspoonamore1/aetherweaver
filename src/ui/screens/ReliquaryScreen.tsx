@@ -824,7 +824,7 @@ function RelicTile({
           ) : v.inscriptions.length > 0 ? (
             v.inscriptions.map((i) => <TierBadge key={i.id} tier={i.tier} size="sm" />)
           ) : (
-            <span className="text-[11px] text-muted">No Inscriptions</span>
+            <span className="text-[0.75rem] text-muted">No Inscriptions</span>
           )}
         </span>
       </span>
@@ -1254,7 +1254,7 @@ function CraftPanel({
             aria-controls="craft-tabpanel"
             tabIndex={action === a ? 0 : -1}
             onClick={() => onAction(a)}
-            className={`flex flex-col items-center gap-0.5 rounded-md px-1 py-1 text-[11px] font-semibold transition-colors ${action === a ? 'bg-gold-400 text-ink-950' : 'text-muted hover:bg-ink-700 hover:text-text'}`}
+            className={`flex flex-col items-center gap-0.5 rounded-md px-1 py-1 text-[0.75rem] font-semibold transition-colors ${action === a ? 'bg-gold-400 text-ink-950' : 'text-muted hover:bg-ink-700 hover:text-text'}`}
             data-testid={`craft-tab-${a}`}
           >
             <Icon name={ACTION_ICON[a]} size={16} />
@@ -1359,7 +1359,7 @@ function CategoryChooser({
               aria-label={`${o.name}, ${o.blurb}: ${o.blocked ?? `${o.left.length} left: ${o.left.join(', ')}`}`}
               title={o.blocked ?? `${o.blurb}: ${o.left.join(', ')}`}
               onClick={() => (o.blocked ? onRefuse(o.blocked) : onArg(o.category))}
-              className={`relative flex min-w-0 flex-col items-center gap-0.5 rounded-lg border px-1 py-1.5 text-[11px] font-semibold transition-colors ${o.blocked ? 'cursor-not-allowed border-dashed border-ink-600 bg-ink-950/40' : chosen ? 'bg-ink-700' : 'border-ink-600 bg-ink-900/70 hover:bg-ink-800'}`}
+              className={`relative flex min-w-0 flex-col items-center gap-0.5 rounded-lg border px-1 py-1.5 text-[0.75rem] font-semibold transition-colors ${o.blocked ? 'cursor-not-allowed border-dashed border-ink-600 bg-ink-950/40' : chosen ? 'bg-ink-700' : 'border-ink-600 bg-ink-900/70 hover:bg-ink-800'}`}
               style={{
                 color: o.blocked ? 'var(--color-muted)' : look.color,
                 ...(chosen && !o.blocked
@@ -1383,7 +1383,7 @@ function CategoryChooser({
       {blocked.map((o) => (
         <p
           key={o.category}
-          className="mt-1 flex items-center gap-1 text-[11px] text-muted"
+          className="mt-1 flex items-center gap-1 text-[0.75rem] text-muted"
           data-testid="category-blocked"
         >
           <Icon name="lock" size={11} /> {o.name}: {o.blocked}
@@ -1438,7 +1438,7 @@ function InscriptionChooser({
                 {o.blocked && (
                   // The meta's reason, on a line of its own so a long one reads whole.
                   <span
-                    className="flex items-start gap-1 text-[11px] font-normal leading-snug text-orange-200"
+                    className="flex items-start gap-1 text-[0.75rem] font-normal leading-snug text-orange-200"
                     data-testid="option-blocked"
                   >
                     <Icon name="lock" size={11} className="mt-px shrink-0" /> {o.blocked}
@@ -1446,11 +1446,11 @@ function InscriptionChooser({
                 )}
               </span>
               {o.blocked ? null : action === 'ascend' ? (
-                <span className="shrink-0 text-[11px] text-muted">
+                <span className="shrink-0 text-[0.75rem] text-muted">
                   → T{o.to} <b className="font-mono text-gold-200">{o.pText}</b>
                 </span>
               ) : (
-                <span className="shrink-0 text-[11px] text-muted">
+                <span className="shrink-0 text-[0.75rem] text-muted">
                   {o.row.rangeText} · <b className="font-mono text-gold-200">{o.pText}</b> higher
                 </span>
               )}
@@ -1514,7 +1514,7 @@ function PreviewBox({ preview: p, rq }: { preview: CraftPreview; rq: Reliquary }
     >
       <dl className="grid grid-cols-3 gap-2 text-xs">
         <div>
-          <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted">Cost</dt>
+          <dt className="text-[0.75rem] font-semibold uppercase tracking-wider text-muted">Cost</dt>
           <dd
             className={`mt-0.5 flex items-center gap-1 font-mono text-sm font-bold ${p.canPay ? 'text-text' : 'text-orange-200'}`}
             title={`${p.costText}; you have ${tearCost ? tearsText(rq.tears) : shardsText(rq.shards)}`}
@@ -1529,7 +1529,7 @@ function PreviewBox({ preview: p, rq }: { preview: CraftPreview; rq: Reliquary }
           </dd>
         </div>
         <div>
-          <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted">
+          <dt className="text-[0.75rem] font-semibold uppercase tracking-wider text-muted">
             Fracture
           </dt>
           <dd
@@ -1540,7 +1540,7 @@ function PreviewBox({ preview: p, rq }: { preview: CraftPreview; rq: Reliquary }
           </dd>
         </div>
         <div>
-          <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted">
+          <dt className="text-[0.75rem] font-semibold uppercase tracking-wider text-muted">
             Instability
           </dt>
           <dd className="mt-0.5 font-mono text-sm font-bold text-text">
@@ -1549,7 +1549,7 @@ function PreviewBox({ preview: p, rq }: { preview: CraftPreview; rq: Reliquary }
               : `${p.instability.from} → ${p.instability.to}`}
           </dd>
           {p.action !== 'dissonate' && (
-            <dd className="text-[11px] leading-tight text-muted">
+            <dd className="text-[0.75rem] leading-tight text-muted">
               next craft{' '}
               <b className={p.nextFracture > 0 ? 'text-orange-200' : 'text-text'}>
                 {oddsText(p.nextFracture)}
@@ -1562,7 +1562,7 @@ function PreviewBox({ preview: p, rq }: { preview: CraftPreview; rq: Reliquary }
         Costs {p.costText}; you have {tearCost ? tearsText(rq.tears) : shardsText(rq.shards)}.
       </p>
       {p.chances.length > 0 && p.overall && (
-        <p className="mt-2 border-t border-ink-600/70 pt-1.5 text-[11px] text-muted">
+        <p className="mt-2 border-t border-ink-600/70 pt-1.5 text-[0.75rem] text-muted">
           If it doesn’t Fracture:
         </p>
       )}
@@ -1579,14 +1579,14 @@ function PreviewBox({ preview: p, rq }: { preview: CraftPreview; rq: Reliquary }
       )}
       {p.overall && (
         <p
-          className="mt-1.5 text-[11px] font-semibold text-orange-100"
+          className="mt-1.5 text-[0.75rem] font-semibold text-orange-100"
           data-testid="preview-overall"
         >
           Overall: {p.overall.map((o) => `${o.label} ${o.text}`).join(', ')}.
         </p>
       )}
       {p.stakes.length > 0 && (
-        <ul className="mt-2 flex flex-col gap-1 border-t border-ink-600/70 pt-2 text-[11px] leading-snug text-muted">
+        <ul className="mt-2 flex flex-col gap-1 border-t border-ink-600/70 pt-2 text-[0.75rem] leading-snug text-muted">
           {p.stakes.map((s) => (
             <li key={s}>{s}</li>
           ))}

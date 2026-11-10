@@ -6,6 +6,7 @@ import { RING } from './fx/rings';
 import { SPRITE } from './fx/sprites';
 import type { Overlay } from './overlay';
 import { C, VISION_HEX, clamp01 } from './palette';
+import { flareScale } from './relicCues';
 
 const LABEL: Record<CallAnswer, string> = { ward: 'Ward', empower: 'Empower', chime: 'Chime' };
 const QUIET_FADE = 0.45;
@@ -41,6 +42,9 @@ interface CallRec {
 export class CallView {
   private readonly recs = new Map<EntityId, CallRec>();
   private frameNo = 0;
+  /** This frame's comfort (`sync`): flare brightness, and held still. */
+  private flare = 1;
+  private still = false;
   /** Lab-only: synthetic calls drawn as if they were in the state. Never set by the game. */
   preview: Map<
     EntityId,
@@ -100,8 +104,22 @@ export class CallView {
     return this.recs.get(hero)?.flourish ?? '';
   }
 
-  sync(state: WorldState, kit: FxKit, overlay: Overlay, dt: number): void {
+  /**
+   * `flashes` (Settings, 0..1) and `still` (Reduced motion On; docs/phase-7.md, W2): the glow
+   * behind a call's glyph and its motes are as bright as `flareScale(flashes)`; held still, the
+   * glyph neither pops, throbs nor bursts, the beckoning ring stands and the motes hang.
+   */
+  sync(
+    state: WorldState,
+    kit: FxKit,
+    overlay: Overlay,
+    dt: number,
+    flashes = 1,
+    still = false,
+  ): void {
     this.frameNo++;
+    this.flare = flareScale(flashes);
+    this.still = still;
     const time = state.time;
     for (const id of state.party) {
       const e = state.entities.get(id);
@@ -156,14 +174,14 @@ export class CallView {
     const remain = r.answered ? 1 : clamp01((r.end - time) / total);
     const closing = fade >= 0;
     let alpha = 1;
-    let scale = 1 + r.pop * r.pop * 0.6 + r.answerPop * 0.35;
+    let scale = this.still ? 1 : 1 + r.pop * r.pop * 0.6 + r.answerPop * 0.35;
     let lift = 0;
     let hex = VISION_HEX.call;
     if (closing) {
       if (r.burst) {
         const k = fade / POP_FADE;
         alpha = 1 - k;
-        scale = 1 + k * 1.1;
+        scale = this.still ? 1 : 1 + k * 1.1;
       } else {
         const k = fade / QUIET_FADE;
         alpha = (1 - k) * 0.8;
@@ -171,7 +189,7 @@ export class CallView {
         lift = -k * 0.35;
         hex = '#94a3b8';
       }
-    } else if (!r.answered && remain < 0.35) {
+    } else if (!r.answered && remain < 0.35 && !this.still) {
       // Hurry: the glyph throbs as the window closes.
       scale *= 1 + 0.07 * Math.sin(time * 24);
     }
@@ -181,7 +199,7 @@ export class CallView {
     if (closing && !r.burst) return;
     const a = alpha * (closing ? 0.6 : 1);
     // World echo: a glow behind the glyph, a countdown arc at the feet and a beckoning ring.
-    kit.spritesTop.push(hr.x, y, hr.z, 0.75 * scale, SPRITE.glow, C.call, 0.35 * a);
+    kit.spritesTop.push(hr.x, y, hr.z, 0.75 * scale, SPRITE.glow, C.call, 0.35 * a * this.flare);
     kit.rings.push(
       hr.x,
       0.04,
@@ -196,7 +214,7 @@ export class CallView {
       remain * Math.PI * 2,
     );
     if (!r.answered) {
-      const beat = (time * 1.6) % 1;
+      const beat = this.still ? 0.5 : (time * 1.6) % 1;
       kit.rings.push(
         hr.x,
         0.04,
@@ -218,12 +236,12 @@ export class CallView {
         0.2,
         hr.z + Math.sin(ang) * hr.radius * 1.4,
         0,
-        1.8,
+        this.still ? 0 : 1.8,
         0,
         0.7,
         0.1,
         C.call,
-        0.9 * a,
+        0.9 * a * this.flare,
         PARTICLE.spark,
         0.6,
       );

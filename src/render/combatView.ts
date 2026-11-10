@@ -7,6 +7,8 @@ import { BondsView } from './bonds';
 import { CallView } from './calls';
 import { PartyBarsView, vowCoversAll } from './partyBars';
 import { healthLevel } from '../app/healthLevels';
+import { optionsOf, useSettings } from '../app/settings';
+import { fightStill } from '../ui/presentation';
 import { signalHex } from './crimsonCues';
 import { CallingView } from './calling';
 import { ChronoView } from './chrono';
@@ -192,6 +194,15 @@ export class CombatView implements WorldView {
     // Accessibility settings, live: colour-vision palette and full-screen flash strength.
     if (applyVision(frame.settings.colorVision)) this.overlay.setPalette();
     this.overlay.setFlashScale(frame.settings.flashes);
+    // Phase 7's comfort options (docs/phase-7.md, W2), from Settings: Reduced motion On holds the
+    // fight still (no shake, pulses or vignette; bursts and impact flashes held), the vignette,
+    // the answer glyphs, the telegraphs' look. Never the aura views (field, Fermata, the song).
+    const settings = useSettings.getState().settings;
+    const options = optionsOf(settings);
+    const still = fightStill(settings);
+    this.ctx.rig.still = still;
+    this.overlay.setComfort(still, options.slowmoVignette, options.answerGlyphs);
+    this.telegraphs.setComfort(this.kit, options.telegraphs, frame.settings.flashes, still);
     // What the Weaver wears (Phase 4g), live too: her robe, her Thread's look.
     const look = frame.look ?? OWN_LOOK;
     this.entities.setLook(look);
@@ -205,8 +216,8 @@ export class CombatView implements WorldView {
     this.field.sync(state, this.kit, fxDt, frame.time);
     this.groveDisc.sync(state, frame.time);
     this.telegraphs.sync(state, this.kit, this.overlay, fxDt, true);
-    this.thread.sync(state, this.kit, fxDt, frame.time);
-    this.calls.sync(state, this.kit, this.overlay, fxDt);
+    this.thread.sync(state, this.kit, fxDt, frame.time, frame.settings.flashes);
+    this.calls.sync(state, this.kit, this.overlay, fxDt, frame.settings.flashes, still);
     this.partyBars.sync(
       state,
       this.overlay,

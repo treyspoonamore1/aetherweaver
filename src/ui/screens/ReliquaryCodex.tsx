@@ -367,7 +367,7 @@ export function ReliquaryCodexPage({ open, rank }: { open: boolean; rank: number
                             }
                           >
                             <TierBadge tier={t.tier} size="sm" />
-                            <span className="font-mono text-[11px] text-text">{t.text}</span>
+                            <span className="font-mono text-[0.75rem] text-text">{t.text}</span>
                           </li>
                         ))}
                       </ol>

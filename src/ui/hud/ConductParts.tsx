@@ -39,7 +39,7 @@ export function ConductRow({ c, reduced }: { c: ConductingHud; reduced?: boolean
       <div className="flex min-h-5 items-center justify-center">
         {c.finale ? (
           <span
-            className="whitespace-nowrap font-mono text-[11px] font-bold leading-none"
+            className="whitespace-nowrap font-mono text-[0.75rem] font-bold leading-none"
             style={{ color: CONDUCT_GOLD }}
             data-testid="finale-next"
           >
@@ -58,7 +58,7 @@ export function ChainRing({ chain }: { chain: NonNullable<ConductingHud['chain']
   const label = chainLabel(chain);
   return (
     <span
-      className="flex items-center gap-1 whitespace-nowrap text-[11px] font-bold leading-none"
+      className="flex items-center gap-1 whitespace-nowrap text-[0.75rem] font-bold leading-none"
       style={{ color: CONDUCT_GOLD }}
       role="timer"
       aria-label={`${label}: Cue another hero within ${Math.ceil(chain.left)} s for ${powerLabel(chain.power)}`}
@@ -166,7 +166,7 @@ export function BeatStrip({
         />
       </svg>
       <span
-        className="w-6 font-mono text-[10px] font-bold leading-none"
+        className="w-6 font-mono text-[0.75rem] font-bold leading-none"
         style={{ color: BEAT_LIGHT, visibility: v.inside ? 'visible' : 'hidden' }}
         data-testid="beat-free"
       >
@@ -245,7 +245,7 @@ export function CueBadge({ hero: h }: { hero: HeroHud }) {
   if (!c?.label) return null;
   return (
     <span
-      className="mt-0.5 flex items-center gap-0.5 whitespace-nowrap rounded px-1 font-mono text-[10px] font-bold leading-4"
+      className="mt-0.5 flex items-center gap-0.5 whitespace-nowrap rounded px-1 font-mono text-[0.75rem] font-bold leading-4"
       style={{
         color: c.free ? 'var(--color-ink-950)' : CONDUCT_GOLD,
         background: c.free ? BEAT_LIGHT : 'rgb(5 8 20 / 0.75)',

@@ -22,6 +22,8 @@ export class CameraRig {
   private panDuration = 0;
   /** 0–1 accessibility multiplier for shake. */
   shakeScale = 1;
+  /** Reduced motion On (docs/phase-7.md, W2): no shake and no zoom-punch at all. */
+  still = false;
 
   constructor(private readonly camera: THREE.PerspectiveCamera) {}
 
@@ -36,7 +38,7 @@ export class CameraRig {
 
   /** Zoom-punch (Crescendo pulls out, Save / Cue push in). Decays on its own. */
   punch(amount: number, decay = 4): void {
-    const a = amount * this.shakeScale;
+    const a = this.still ? 0 : amount * this.shakeScale;
     this.punchAmount = Math.abs(a) > Math.abs(this.punchAmount) ? a : this.punchAmount;
     this.punchDecay = decay;
   }
@@ -85,7 +87,7 @@ export class CameraRig {
 
     this.time += dt;
     this.trauma = Math.max(0, this.trauma - dt * 1.6);
-    const shake = this.trauma * this.trauma * 0.7 * this.shakeScale;
+    const shake = this.still ? 0 : this.trauma * this.trauma * 0.7 * this.shakeScale;
     const sx = shake * Math.sin(this.time * 61.3) * Math.cos(this.time * 17.1);
     const sz = shake * Math.sin(this.time * 47.9 + 1.7);
     this.apply(sx, sz);

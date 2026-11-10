@@ -312,7 +312,7 @@ function FullReliquary({
                   {v.inscriptions.map((i) => (
                     <TierBadge key={i.id} tier={i.tier} size="sm" />
                   ))}
-                  {v.state && <span className="text-[11px] text-muted">{v.state.label}</span>}
+                  {v.state && <span className="text-[0.75rem] text-muted">{v.state.label}</span>}
                 </span>
               </span>
               <Button

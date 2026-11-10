@@ -40,6 +40,9 @@ import { PARTICLE } from './fx/particles';
 import { TG } from './fx/telegraphBatch';
 import { BADGE_TONE, type GlyphIcon, type Overlay } from './overlay';
 import { C, VISION_HEX, approach, clamp01, color } from './palette';
+import type { TelegraphSettings } from '../app/settings';
+import { STILL_SHARE } from './feedback';
+import { flareScale } from './relicCues';
 
 type Effect = SimEventOf<'telegraphStarted'>['effect'];
 type Outcome = SimEventOf<'telegraphResolved'>['outcome'];
@@ -148,6 +151,9 @@ export class TelegraphLayer {
    * window's pulse are kept; the shapes on the floor are unchanged.
    */
   private blind = false;
+  /** Comfort (docs/phase-7.md, W2): impact flares' brightness, and held still (`setComfort`). */
+  private flare = 1;
+  private still = false;
   /** What was drawn last frame (tests, the lab): timers shown, bezels drawn, blind badges. */
   readonly drawn = { timers: 0, frost: 0, blind: 0 };
   /**
@@ -261,6 +267,19 @@ export class TelegraphLayer {
    * Never set by the game runtime.
    */
   preview: { t: WorldState['telegraphs'][number]; effect: Effect }[] | null = null;
+
+  /**
+   * Settings (docs/phase-7.md, W2), each frame before `sync`: the telegraphs' look (fill opacity,
+   * outline, Perfect band, high contrast, written to both telegraph batches), `flashes` (the
+   * impact flash and its sparks as bright as `flareScale(flashes)`) and `still` (Reduced motion
+   * On: no impact flash, the sparks held where they land, the badges' Perfect throb steady).
+   */
+  setComfort(kit: FxKit, look: Readonly<TelegraphSettings>, flashes: number, still: boolean): void {
+    kit.telegraphs.setLook(look.opacity, look.outline, look.perfectBand, look.highContrast);
+    kit.marks.setLook(look.opacity, look.outline, look.perfectBand, look.highContrast);
+    this.flare = flareScale(flashes);
+    this.still = still;
+  }
 
   sync(state: WorldState, kit: FxKit, overlay: Overlay, dt: number, showGlyphs: boolean): void {
     this.frameNo++;
@@ -434,14 +453,16 @@ export class TelegraphLayer {
       : cancelled
         ? Math.max(0, 1 - endT * 2)
         : 1 - endT;
-    const flash = !live && !cancelled ? (1 - endT) * 1.2 : 0;
+    const flash = !live && !cancelled && !this.still ? (1 - endT) * 1.2 * this.flare : 0;
     const prog = live ? rec.progress : cancelled ? rec.progress : 1;
     const perfect = live ? clamp01((time - rec.perfectFrom) / 0.05) : 0;
     const pw = clamp01((rec.impact - rec.perfectFrom - 0.35) / 0.35);
     const sev = rec.sev;
     const borderHex = sev > 0.5 ? VISION_HEX.lethal : VISION_HEX.threat;
     const remain = Math.max(0, rec.impact - time);
-    const glyphScale = 1 + perfect * 0.12 * (0.5 + 0.5 * Math.sin(time * 24));
+    const glyphScale = this.still
+      ? 1 + perfect * 0.12
+      : 1 + perfect * 0.12 * (0.5 + 0.5 * Math.sin(time * 24));
     // The Chronomancer: every telegraph shows its timer; held by Stasis, it reads cold.
     const timer = this.timers && live && showGlyphs ? timerLabel(remain) : '';
     const tone = this.timers
@@ -1205,7 +1226,40 @@ export class TelegraphLayer {
     else if (rec.shape === 'donut') spread = rec.b * 1.6;
     else if (rec.shape === 'mark') spread = 0.8;
     const n = Math.min(40, 10 + spread * 4);
-    kit.particles.burst(x, 0.2, z, n, 4, 3.5, 0.6, 0.18, c, 0.95, PARTICLE.spark, 3, 6, spread);
+    if (this.still)
+      kit.particles.burst(
+        x,
+        0.2,
+        z,
+        n * STILL_SHARE,
+        0,
+        0,
+        0.6,
+        0.18,
+        c,
+        0.95 * this.flare,
+        PARTICLE.spark,
+        3,
+        0,
+        spread,
+      );
+    else
+      kit.particles.burst(
+        x,
+        0.2,
+        z,
+        n,
+        4,
+        3.5,
+        0.6,
+        0.18,
+        c,
+        0.95 * this.flare,
+        PARTICLE.spark,
+        3,
+        6,
+        spread,
+      );
   }
 
   private markThreats(

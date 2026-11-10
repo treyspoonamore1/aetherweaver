@@ -59,7 +59,7 @@ function TrainingTechniques({
         title="Prep keeps your own choice"
       >
         Techniques
-        <span className="text-[11px] font-normal normal-case tracking-normal">
+        <span className="text-[0.75rem] font-normal normal-case tracking-normal">
           every variant open
         </span>
       </p>

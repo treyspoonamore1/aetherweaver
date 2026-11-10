@@ -13,6 +13,7 @@ import { BORNE_TRAVEL, MARTYR_HEX } from './martyrCues';
 import { C, approach, auraColor, color, currentVision, rgba } from './palette';
 import { POUR_TRAVEL, SONG_GLYPH, beamSong, focusLabel, focusLevel, isAllIn } from './songs';
 import { RIFT_HEX } from './riftCues';
+import { flareScale } from './relicCues';
 
 const N = 30;
 const PULSES = 6;
@@ -115,6 +116,8 @@ export class ThreadView {
   /** Back pulses started (tests and the lab read it). */
   backFired = 0;
   private whipAt = -10;
+  /** This frame's flare brightness (`flareScale(flashes)`; 1 at full Flashes). */
+  private flare = 1;
   private whipSign = 1;
   private mix = 0;
   private current: EntityId | null = null;
@@ -393,8 +396,14 @@ export class ThreadView {
     return this.cutCause;
   }
 
-  sync(state: WorldState, kit: FxKit, dt: number, time: number): void {
+  /**
+   * `flashes` (Settings, 0..1; docs/phase-7.md, W2): the Thread's flares, the pulse heads running
+   * along it, are as bright as `flareScale(flashes)`. The beam song it carries (the sheath, its
+   * beads and the pour) never reads it: an aura's look is held for the owner.
+   */
+  sync(state: WorldState, kit: FxKit, dt: number, time: number, flashes = 1): void {
     this.now = time;
+    this.flare = flareScale(flashes);
     const m3 = this.drawnM3;
     for (const k of Object.keys(m3) as (keyof typeof m3)[]) m3[k] = 0;
     const weaver = state.entities.get(state.weaverId);
@@ -687,7 +696,7 @@ export class ThreadView {
         0.28,
         0,
         this.core,
-        0.8 * (1 - t * 0.5),
+        0.8 * (1 - t * 0.5) * this.flare,
       );
     }
     this.backHeads(kit, time);
@@ -870,11 +879,11 @@ export class ThreadView {
       if (this.backKind[k] === 1) {
         // Sanguine Covenant: a faint return of the Mend, rose-tinged.
         this.tmpCol.copy(C.mend).lerp(ROSE, 0.45);
-        kit.sprites.push(x, y, z, 0.24, SPRITE.glow, this.tmpCol, 0.55);
+        kit.sprites.push(x, y, z, 0.24, SPRITE.glow, this.tmpCol, 0.55 * this.flare);
         continue;
       }
-      kit.sprites.push(x, y, z, 0.32 + 0.36 * s, SPRITE.glow, C.bear, 0.95);
-      kit.sprites.push(x, y, z, 0.14 + 0.12 * s, SPRITE.glow, ROSE, 0.9);
+      kit.sprites.push(x, y, z, 0.32 + 0.36 * s, SPRITE.glow, C.bear, 0.95 * this.flare);
+      kit.sprites.push(x, y, z, 0.14 + 0.12 * s, SPRITE.glow, ROSE, 0.9 * this.flare);
     }
   }
 

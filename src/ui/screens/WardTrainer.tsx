@@ -147,7 +147,7 @@ export function WardTrainerView({
           </span>
           {v.assisted && (
             <span
-              className="text-[11px] text-muted"
+              className="text-[0.75rem] text-muted"
               title="The Perfect window is widened (Settings → Assists): streaks still count, but no best is kept"
               data-testid="drill-assisted"
             >
@@ -156,7 +156,7 @@ export function WardTrainerView({
           )}
           {v.newBest && v.streak > 0 && v.streak === v.best && (
             <span
-              className="rounded-md px-1.5 font-sans text-[11px] font-bold leading-5 text-ink-950"
+              className="rounded-md px-1.5 font-sans text-[0.75rem] font-bold leading-5 text-ink-950"
               style={{ background: TRY_LOOK.perfect.color }}
             >
               New best
@@ -182,7 +182,7 @@ export function WardTrainerView({
                 >
                   {modeLabel(m)}
                   {m !== 'mixed' && (
-                    <span className="font-mono text-[11px] font-normal opacity-80">
+                    <span className="font-mono text-[0.75rem] font-normal opacity-80">
                       {DRILL_SPEEDS[m].windup.toFixed(1)} s
                     </span>
                   )}
@@ -206,7 +206,7 @@ export function WardTrainerView({
                       aria-hidden
                     />
                     {h.name}
-                    <KeyCap label={key(slot)} className="!min-w-4 !px-1 !py-0 text-[10px]" />
+                    <KeyCap label={key(slot)} className="!min-w-4 !px-1 !py-0 text-[0.75rem]" />
                   </Choice>
                 ))}
               </Choices>
@@ -255,7 +255,7 @@ export function WardTrainerView({
 function Choices({ label, note, children }: { label: string; note?: string; children: ReactNode }) {
   return (
     <div className="flex min-w-0 items-center gap-2" role="group" aria-label={label}>
-      <span className="w-11 shrink-0 text-[11px] font-semibold uppercase tracking-wider text-muted">
+      <span className="w-11 shrink-0 text-[0.75rem] font-semibold uppercase tracking-wider text-muted">
         {label}
       </span>
       <div className="flex flex-wrap items-center gap-1">{children}</div>
@@ -432,7 +432,7 @@ function TimingBar({ t }: { t: DrillTry }) {
           </span>
         )}
       </div>
-      <div className="relative mt-0.5 h-3.5 font-mono text-[10px] leading-none text-muted">
+      <div className="relative mt-0.5 h-3.5 font-mono text-[0.75rem] leading-none text-muted">
         <span className="absolute left-0">−1 s</span>
         <span className="absolute -translate-x-1/2" style={{ left: `${(from + impact) / 2}%` }}>
           window

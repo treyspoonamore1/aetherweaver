@@ -229,7 +229,7 @@ export function MotifCard({
               >
                 <Icon name={n.owned ? 'check' : 'close'} size={13} />
                 {n.text}
-                {!n.owned && <span className="text-[0.7rem] italic">missing</span>}
+                {!n.owned && <span className="text-[0.75rem] italic">missing</span>}
               </li>
             ))}
           </ul>
