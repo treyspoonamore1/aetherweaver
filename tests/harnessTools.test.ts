@@ -757,8 +757,12 @@ describe('the Bands tool (tools/brann-bands.ts)', () => {
 // ── The Finale (docs/phase-5d.md, "Harness") ─────────────────────────────────────────
 
 describe('the Finale route (playRun --movements 4)', () => {
-  /** Skilled seed 2000's Finale-route Expedition reaches the Silent Conductor. */
-  const SEED = 2000;
+  /**
+   * Skilled seed 2003's Finale-route Expedition reaches the Silent Conductor. It was 2000 until
+   * Phase 5g's pools changed that run (it now dies in Movement III, as 2001 does in II and 2002
+   * in III); 2003 is the lowest seed from 2000 up that reaches and plays the Conductor.
+   */
+  const SEED = 2003;
 
   it('reaches the Conductor, its minutes in 4 Movements, well inside MAX_PHASES', () => {
     let phases = 0;
