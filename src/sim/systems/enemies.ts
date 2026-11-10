@@ -57,7 +57,7 @@ import {
 } from '../../content/unstitched';
 import { FINALE_MIN_WINDUP } from '../../content/crucible';
 import { enemyRooted, untauntedTarget } from './grove';
-import { ownHeld, tryTyrant, tyrantForeseeable } from './tyrant';
+import { ownHeld, tryTyrant, TYRANT_FORESEEN, tyrantForeseeable } from './tyrant';
 
 /** Normal enemies may have at most this many telegraphs up at once (readability cap). */
 export const READABILITY_CAP = 2;
@@ -503,6 +503,10 @@ function trySpecial(world: World, e: Entity, def: EnemyDef, target: Entity): boo
   // A follow-up is coming (Movement II): it owns the next cast.
   if (world.internal.m2?.followUp?.owner === e.id) return false;
   const rules = boss ? rulesOf(c) : null;
+  // Tyrant (docs/phase-6.md): a borrowed attack Foresight has shown begins as shown, ahead of an
+  // own special that came into reach meanwhile (what Foresight shows is what begins).
+  const shown = c.foreseen?.special === TYRANT_FORESEEN;
+  if (world.mods.tyrant && boss && shown && tryTyrant(world, e, target)) return true;
   // Its affixes' specials too (Movement III's Mimicking): `def.specials` itself without.
   const specials = specialsOf(def, c.affixes);
   for (let i = 0; i < specials.length; i++) {

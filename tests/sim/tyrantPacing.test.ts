@@ -11,6 +11,7 @@ import { makeBot } from '../../src/bots';
 import { createSim, type SimConfig } from '../../src/sim';
 import type { Entity } from '../../src/sim/state';
 import { CONDUCTOR, DOWNBEAT, SFORZANDO } from '../../src/content/crucibleIds';
+import { TYRANT_FORESEEN } from '../../src/sim/systems/tyrant';
 import type { World } from '../../src/sim/world';
 import {
   SCENARIO_BELLWARDEN,
@@ -145,6 +146,25 @@ describe('Tyrant’s borrowed attack is the picker’s last try, and its time is
       if (c.cast && c.cast.telegraph !== before) next = c.cast.attackId;
     }
     expect(next).toBe(c.tyrant!.attack);
+  });
+
+  it('a borrowed attack Foresight has shown begins as shown, ahead of an own special', () => {
+    const { sim, w, bot, boss } = freeBoss();
+    const c = boss.enemy!;
+    c.specialCooldowns = c.specialCooldowns.map((_, i) => (i === TOLL ? 0 : 50));
+    const hold = c.tyrant!;
+    hold.readyAt = w.time;
+    // What Foresight would have shown a second before (this fight has no Foresight to redo it).
+    c.foreseen = {
+      attackId: hold.attack,
+      name: 'shown',
+      target: null,
+      second: null,
+      at: w.time,
+      special: TYRANT_FORESEEN,
+    };
+    sim.step(bot.decide(sim.state));
+    expect(c.cast?.attackId).toBe(hold.attack);
   });
 
   it('an own special that came due during a borrowed cast gets the wait back', () => {
